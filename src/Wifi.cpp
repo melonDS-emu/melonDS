@@ -358,6 +358,19 @@ void UpdateTimers()
     {
         USCounter += diff;
     }
+
+    if (IOPORT(W_ContentFree) <= diff)
+        IOPORT(W_ContentFree) = 0;
+    else
+        IOPORT(W_ContentFree) -= diff;
+
+    if (IOPORT(W_CmdCountCnt))
+    {
+        if (CmdCounter <= diff)
+            CmdCounter = 0;
+        else
+            CmdCounter -= diff;
+    }
 }
 
 void UpdatePowerOn()
@@ -1584,7 +1597,7 @@ void MSTimer(u32 param)
         IOPORT(W_BeaconCount2)--;
         if (IOPORT(W_BeaconCount2) == 0) SetIRQ13();
     }
-printf("MSTimer %016llX %016llX\n", SchedTimestamp, USCounter);
+//printf("MSTimer %016llX %016llX\n", SchedTimestamp, USCounter);
     ScheduleEvent(Event_MSTimer, true, 1024, MSTimer, 0);
 }
 
@@ -1892,7 +1905,9 @@ u16 Read(u32 addr)
     case W_USCompare2: return (u16)((USCompare >> 32) & 0xFFFF);
     case W_USCompare3: return (u16)(USCompare >> 48);
 
-    case W_CmdCount: return (CmdCounter + 9) / 10;
+    case W_ContentFree: UpdateTimers(); return IOPORT(W_ContentFree);
+
+    case W_CmdCount: UpdateTimers(); return (CmdCounter + 9) / 10;
 
     case W_BBRead:
         if ((IOPORT(W_BBCnt) & 0xF000) != 0x6000)
@@ -2137,13 +2152,13 @@ void Write(u32 addr, u16 val)
     case W_USCountCnt:
         val &= 0x0001;
         if (val && (!IOPORT(W_USCountCnt)))
-        {printf("[%016llX][%016llX] ON -> NEXT=%016llX\n", SchedTimestamp, USCounter, USCounter + 1024 - (USCounter & 0x3FF));
+        {
             ScheduleEvent(Event_MSTimer, false, 1024 - (USCounter & 0x3FF), MSTimer, 0);
             IOPORT(W_USCountCnt) = val;
         }
         else if ((!val) && IOPORT(W_USCountCnt))
         {
-            UpdateTimers();printf("[%016llX][%016llX] OFF\n", SchedTimestamp, USCounter);
+            UpdateTimers();
             IOPORT(W_USCountCnt) = val;
             CancelEvent(Event_MSTimer);
         }
@@ -2152,6 +2167,14 @@ void Write(u32 addr, u16 val)
         if (val & 0x0002) SetIRQ14(2);
         val &= 0x0001;
         break;
+    case W_CmdCountCnt:
+        val &= 0x0001;
+        if ((!val) && IOPORT(W_CmdCountCnt))
+        {
+            UpdateTimers();
+        }
+        IOPORT(W_CmdCountCnt) = val;
+        return;
 
     case W_USCount0: UpdateTimers(); USCounter = (USCounter & 0xFFFFFFFFFFFF0000) | (u64)val; return;
     case W_USCount1: UpdateTimers(); USCounter = (USCounter & 0xFFFFFFFF0000FFFF) | ((u64)val << 16); return;
@@ -2166,7 +2189,9 @@ void Write(u32 addr, u16 val)
     case W_USCompare2: USCompare = (USCompare & 0xFFFF0000FFFFFFFF) | ((u64)val << 32); return;
     case W_USCompare3: USCompare = (USCompare & 0x0000FFFFFFFFFFFF) | ((u64)val << 48); return;
 
-    case W_CmdCount: CmdCounter = val * 10; return;
+    case W_ContentFree: UpdateTimers(); IOPORT(W_ContentFree) = val; return;
+
+    case W_CmdCount: UpdateTimers(); CmdCounter = val * 10; return;
 
     case W_BBCnt:
         IOPORT(W_BBCnt) = val;
