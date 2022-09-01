@@ -46,10 +46,19 @@ const u8 MPCmdMAC[6]   = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x00};
 const u8 MPReplyMAC[6] = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x10};
 const u8 MPAckMAC[6]   = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x03};
 
+bool Enabled;
+bool PowerOn;
+
 u16 Random;
 
 // general, always-on microsecond counter
 u64 USTimestamp;
+
+u64 SchedTimestamp;
+SchedEvent SchedList[Event_MAX];
+u32 SchedListMask;
+
+const u32 kRXCheckPeriod = 512;
 
 u64 USCounter;
 u64 USCompare;
@@ -137,21 +146,35 @@ const u64 kMaxRunahead = 4096;
 // 4 = switching from TX to RX
 // 5 = MP host data sent, waiting for replies (RFPINS=0x0084)
 // 6 = RX
-// 7 = ??
+// 7 = switching from RX reply to TX ack
 // 8 = MP client sending reply, MP host sending ack (RFPINS=0x0046)
 // 9 = idle
 
 
 // wifi TODO:
-// * power saving
-// * RXSTAT, multiplay reply errors
+// * RXSTAT
 // * TX errors (if applicable)
+
+
+void UpdateTimers();
+void Reschedule();
+void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param);
+void CancelEvent(u32 id);
+
+void StartTX_Beacon();
+void PeriodicRXCheck(u32 time);
 
 
 bool Init()
 {
-    MPInited = false;
-    LANInited = false;
+    //MPInited = false;
+    //LANInited = false;
+
+    Platform::MP_Init();
+    MPInited = true;
+
+    Platform::LAN_Init();
+    LANInited = true;
 
     WifiAP::Init();
 
@@ -172,6 +195,9 @@ void Reset()
 {
     memset(RAM, 0, 0x2000);
     memset(IO, 0, 0x1000);
+
+    Enabled = false;
+    PowerOn = false;
 
     Random = 1;
 
@@ -230,6 +256,10 @@ void Reset()
 
     USTimestamp = 0;
     RXTimestamp = 0;
+
+    SchedTimestamp = 0;
+    memset(SchedList, 0, sizeof(SchedList));
+    SchedListMask = 0;
 
     USCounter = 0;
     USCompare = 0;
@@ -290,6 +320,178 @@ void DoSavestate(Savestate* file)
 }
 
 
+void UpdatePowerOn();
+
+void SetPowerCnt(u32 val)
+{
+    Enabled = val & (1<<1);
+    UpdatePowerOn();
+}
+
+
+// wifi scheduling
+// NOTE: this is technically inaccurate
+// in the DS, the wifi system is driven by its own 22MHz clock, not by the system clock
+// but in melonDS, we do need to drive it from the system scheduler, so it stays in sync
+// with the rest of the system
+
+inline u64 USToSysCycles(u64 us)
+{
+    return (us * 33513982) / 1000000;
+}
+
+inline u64 SysCyclesToUS(u64 sys)
+{
+    return ((sys + 16) * 1000000) / 33513982;
+}
+
+void UpdateTimers()
+{
+    u64 oldts = SchedTimestamp;
+    SchedTimestamp = SysCyclesToUS(NDS::GetSysClockCycles(0));
+    u64 diff = SchedTimestamp - oldts;
+    if (diff == 0) return;
+
+    USTimestamp += diff;
+
+    if (IOPORT(W_USCountCnt))
+    {
+        USCounter += diff;
+    }
+}
+
+void UpdatePowerOn()
+{
+    bool on = Enabled;
+
+    if (NDS::ConsoleType == 1)
+    {
+        // TODO for DSi:
+        // * W_POWER_US doesn't work (atleast on DWM-W024)
+        // * other registers like GPIO_WIFI may also control wifi power/clock
+        // * turning wifi off via POWCNT2 while sending breaks further attempts at sending frames
+    }
+    else
+    {
+        on = on && ((IOPORT(W_PowerUS) & 0x1) == 0);
+    }
+
+    if (on == PowerOn)
+        return;
+
+    PowerOn = on;
+    if (on)
+    {
+        printf("WIFI: ON\n");
+
+        u64 oldts = SchedTimestamp;
+        SchedTimestamp = SysCyclesToUS(NDS::GetSysClockCycles(0));
+        u64 diff = SchedTimestamp - oldts;
+
+        for (int i = 0; i < Event_MAX; i++)
+        {
+            if (!(SchedListMask & (1<<i)))
+                continue;
+
+            if (SchedList[i].Timestamp >= oldts)
+            {
+                SchedList[i].Timestamp += diff;
+            }
+        }
+
+        ScheduleEvent(Event_RXCheck, false, kRXCheckPeriod, PeriodicRXCheck, 0);
+
+        Platform::MP_Begin();
+    }
+    else
+    {
+        printf("WIFI: OFF\n");
+
+        CancelEvent(Event_RXCheck);
+
+        UpdateTimers();
+        NDS::CancelEvent(NDS::Event_Wifi);
+
+        Platform::MP_End();
+    }
+}
+
+void RunEvents(u32 param)
+{
+    UpdateTimers();
+//printf("[%016llX] RUN EVENTS, MASK=%08X\n", SchedTimestamp, SchedListMask);
+    u32 mask = SchedListMask;
+    for (int i = 0; i < Event_MAX; i++)
+    {
+        if (!mask) break;
+        if (mask & 0x1)
+        {
+            if (SchedList[i].Timestamp <= SchedTimestamp)
+            {
+                SchedListMask &= ~(1<<i);
+                SchedList[i].Func(SchedList[i].Param);
+            }
+        }
+
+        mask >>= 1;
+    }
+}
+
+void Reschedule()
+{
+    u64 next = UINT64_MAX;
+
+    u32 mask = SchedListMask;
+    for (int i = 0; i < Event_MAX; i++)
+    {
+        if (!mask) break;
+        if (mask & 0x1)
+        {
+            if (SchedList[i].Timestamp < next)
+                next = SchedList[i].Timestamp;
+        }
+
+        mask >>= 1;
+    }
+//printf("[%016llX] RESCHEDULE: NEXT TIMESTAMP = %016llX\n", SchedTimestamp, next);
+    NDS::CancelEvent(NDS::Event_Wifi);
+    NDS::ScheduleEvent(NDS::Event_Wifi, USToSysCycles(next), RunEvents, 0);
+}
+
+void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param)
+{
+    if (SchedListMask & (1<<id))
+    {
+        printf("wifi: !! EVENT %d ALREADY SCHEDULED\n", id);
+        return;
+    }
+
+    SchedEvent* evt = &SchedList[id];
+
+    if (periodic)
+    {
+        evt->Timestamp += delay;
+    }
+    else
+    {
+        UpdateTimers();
+        evt->Timestamp = SchedTimestamp + delay;
+    }
+
+    evt->Func = func;
+    evt->Param = param;
+
+    SchedListMask |= (1<<id);
+//if(id==Event_MSTimer) printf("[%016llX] MSTIMER EVENT SCHEDULED: %d,%d , TIMESTAMP=%016llX\n", SchedTimestamp, periodic, delay, evt->Timestamp);
+    Reschedule();
+}
+
+void CancelEvent(u32 id)
+{
+    SchedListMask &= ~(1<<id);
+}
+
+
 void PowerDown();
 
 void SetIRQ(u32 irq)
@@ -346,7 +548,7 @@ void SetIRQ14(int source) // 0=USCOMPARE 1=BEACONCOUNT 2=forced
     IOPORT(W_ListenCount)--;
 }
 
-void SetIRQ15()
+void SetIRQ15(u32 param)
 {
     SetIRQ(15);
 
@@ -1343,7 +1545,18 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 }
 
 
-void MSTimer()
+void PeriodicRXCheck(u32 time)
+{
+    if (!time) WifiAP::MSTimer();
+
+    // TODO: actual RX check!!
+
+    time += kRXCheckPeriod;
+    time &= 0x3FF;
+    ScheduleEvent(Event_RXCheck, true, kRXCheckPeriod, PeriodicRXCheck, time);
+}
+
+void MSTimer(u32 param)
 {
     if (IOPORT(W_USCompareCnt))
     {
@@ -1355,6 +1568,12 @@ void MSTimer()
     }
 
     IOPORT(W_BeaconCount1)--;
+    if (IOPORT(W_BeaconCount1) == ((IOPORT(W_PreBeacon) >> 10) + 1))
+    {
+        s32 delay = (IOPORT(W_BeaconCount1) << 10) - IOPORT(W_PreBeacon);
+        CancelEvent(Event_IRQ15);
+        ScheduleEvent(Event_IRQ15, false, delay, SetIRQ15, 0);
+    }
     if (IOPORT(W_BeaconCount1) == 0)
     {
         SetIRQ14(1);
@@ -1365,11 +1584,18 @@ void MSTimer()
         IOPORT(W_BeaconCount2)--;
         if (IOPORT(W_BeaconCount2) == 0) SetIRQ13();
     }
+printf("MSTimer %016llX %016llX\n", SchedTimestamp, USCounter);
+    ScheduleEvent(Event_MSTimer, true, 1024, MSTimer, 0);
 }
 
 void USTimer(u32 param)
 {
-    USTimestamp++;
+    /*USTimestamp++;
+
+    u64 sys = NDS::GetSysClockCycles(0);
+    u64 ts = SysCyclesToUS(sys);
+    ts = USTimestamp - ts;
+    printf("diff=%016llX\n", ts);
 
     if (IsMPClient)
     {
@@ -1386,10 +1612,10 @@ void USTimer(u32 param)
                 CheckRX(2);
             }
         }
-    }
+    }*/
 
 
-    WifiAP::USTimer();
+    //WifiAP::USTimer();
 
     bool switchOffPowerSaving = false;
     if (USUntilPowerOn < 0)
@@ -1406,7 +1632,7 @@ void USTimer(u32 param)
         SetIRQ(11);
     }
 
-    if (IOPORT(W_USCountCnt))
+    /*if (IOPORT(W_USCountCnt))
     {
         USCounter++;
         u32 uspart = (USCounter & 0x3FF);
@@ -1418,7 +1644,7 @@ void USTimer(u32 param)
         }
 
         if (!uspart) MSTimer();
-    }
+    }*/
 
     if (IOPORT(W_CmdCountCnt) & 0x0001)
     {
@@ -1590,8 +1816,10 @@ void USTimer(u32 param)
 
     // TODO: make it more accurate, eventually
     // in the DS, the wifi system has its own 22MHz clock and doesn't use the system clock
+    // measurement: 16715us per frame
+    // calculation: 16715.113113088143330744761992174us per frame
     //NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 0);
-    NDS::ScheduleEvent(NDS::Event_Wifi, true, 34, USTimer, 0);
+    NDS::ScheduleEvent(NDS::Event_WifiLegacy, true, 34, USTimer, 0);
 }
 
 
@@ -1654,10 +1882,10 @@ u16 Read(u32 addr)
     case W_Preamble:
         return IOPORT(W_Preamble) & 0x0003;
 
-    case W_USCount0: return (u16)(USCounter & 0xFFFF);
-    case W_USCount1: return (u16)((USCounter >> 16) & 0xFFFF);
-    case W_USCount2: return (u16)((USCounter >> 32) & 0xFFFF);
-    case W_USCount3: return (u16)(USCounter >> 48);
+    case W_USCount0: UpdateTimers(); return (u16)(USCounter & 0xFFFF);
+    case W_USCount1: UpdateTimers(); return (u16)((USCounter >> 16) & 0xFFFF);
+    case W_USCount2: UpdateTimers(); return (u16)((USCounter >> 32) & 0xFFFF);
+    case W_USCount3: UpdateTimers(); return (u16)(USCounter >> 48);
 
     case W_USCompare0: return (u16)(USCompare & 0xFFFF);
     case W_USCompare1: return (u16)((USCompare >> 16) & 0xFFFF);
@@ -1894,31 +2122,9 @@ void Write(u32 addr, u16 val)
         }
         break;
     case W_PowerUS:
-        // schedule timer event when the clock is enabled
-        // TODO: check whether this resets USCOUNT (and also which other events can reset it)
-        if ((IOPORT(W_PowerUS) & 0x0001) && !(val & 0x0001))
-        {
-            printf("WIFI ON\n");
-            NDS::ScheduleEvent(NDS::Event_Wifi, false, 33, USTimer, 0);
-            if (!MPInited)
-            {
-                Platform::MP_Init();
-                MPInited = true;
-            }
-            if (!LANInited)
-            {
-                Platform::LAN_Init();
-                LANInited = true;
-            }
-            Platform::MP_Begin();
-        }
-        else if (!(IOPORT(W_PowerUS) & 0x0001) && (val & 0x0001))
-        {
-            printf("WIFI OFF\n");
-            NDS::CancelEvent(NDS::Event_Wifi);
-            Platform::MP_End();
-        }
-        break;
+        IOPORT(W_PowerUS) = val & 0x0003;
+        UpdatePowerOn();
+        return;
     case W_PowerUnk:
         val &= 0x0003;
         //printf("writing power unk %x\n", val);
@@ -1928,16 +2134,29 @@ void Write(u32 addr, u16 val)
             val = 3;
         break;
 
-    case W_USCountCnt: val &= 0x0001; break;
+    case W_USCountCnt:
+        val &= 0x0001;
+        if (val && (!IOPORT(W_USCountCnt)))
+        {printf("[%016llX][%016llX] ON -> NEXT=%016llX\n", SchedTimestamp, USCounter, USCounter + 1024 - (USCounter & 0x3FF));
+            ScheduleEvent(Event_MSTimer, false, 1024 - (USCounter & 0x3FF), MSTimer, 0);
+            IOPORT(W_USCountCnt) = val;
+        }
+        else if ((!val) && IOPORT(W_USCountCnt))
+        {
+            UpdateTimers();printf("[%016llX][%016llX] OFF\n", SchedTimestamp, USCounter);
+            IOPORT(W_USCountCnt) = val;
+            CancelEvent(Event_MSTimer);
+        }
+        return;
     case W_USCompareCnt:
         if (val & 0x0002) SetIRQ14(2);
         val &= 0x0001;
         break;
 
-    case W_USCount0: USCounter = (USCounter & 0xFFFFFFFFFFFF0000) | (u64)val; return;
-    case W_USCount1: USCounter = (USCounter & 0xFFFFFFFF0000FFFF) | ((u64)val << 16); return;
-    case W_USCount2: USCounter = (USCounter & 0xFFFF0000FFFFFFFF) | ((u64)val << 32); return;
-    case W_USCount3: USCounter = (USCounter & 0x0000FFFFFFFFFFFF) | ((u64)val << 48); return;
+    case W_USCount0: UpdateTimers(); USCounter = (USCounter & 0xFFFFFFFFFFFF0000) | (u64)val; return;
+    case W_USCount1: UpdateTimers(); USCounter = (USCounter & 0xFFFFFFFF0000FFFF) | ((u64)val << 16); return;
+    case W_USCount2: UpdateTimers(); USCounter = (USCounter & 0xFFFF0000FFFFFFFF) | ((u64)val << 32); return;
+    case W_USCount3: UpdateTimers(); USCounter = (USCounter & 0x0000FFFFFFFFFFFF) | ((u64)val << 48); return;
 
     case W_USCompare0:
         USCompare = (USCompare & 0xFFFFFFFFFFFF0000) | (u64)(val & 0xFC00);

@@ -151,6 +151,27 @@ enum
     W_RXTXAddr = 0x268,
 };
 
+enum
+{
+    Event_RXCheck = 0,
+    Event_IRQ15,
+    Event_MSTimer,
+    Event_PowerOn,
+    Event_MPClientSync,
+    Event_TRX,
+    Event_RF,
+    Event_BB,
+
+    Event_MAX
+};
+
+struct SchedEvent
+{
+    void (*Func)(u32 param);
+    u64 Timestamp;
+    u32 Param;
+};
+
 
 extern bool MPInited;
 
@@ -160,7 +181,7 @@ void DeInit();
 void Reset();
 void DoSavestate(Savestate* file);
 
-void StartTX_Beacon();
+void SetPowerCnt(u32 val);
 
 void USTimer(u32 param);
 

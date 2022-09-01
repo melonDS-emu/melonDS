@@ -1198,6 +1198,25 @@ void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 para
     Reschedule(evt->Timestamp);
 }
 
+void ScheduleEvent(u32 id, u64 timestamp, void (*func)(u32), u32 param)
+{
+    if (SchedListMask & (1<<id))
+    {
+        printf("!! EVENT %d ALREADY SCHEDULED\n", id);
+        return;
+    }
+
+    SchedEvent* evt = &SchedList[id];
+
+    evt->Timestamp = timestamp;
+    evt->Func = func;
+    evt->Param = param;
+
+    SchedListMask |= (1<<id);
+
+    Reschedule(evt->Timestamp);
+}
+
 void CancelEvent(u32 id)
 {
     SchedListMask &= ~(1<<id);
@@ -2396,6 +2415,7 @@ u8 ARM7Read8(u32 addr)
     case 0x04800000:
         if (addr < 0x04810000)
         {
+            if (!(PowerControl7 & (1<<1))) return 0;
             if (addr & 0x1) return Wifi::Read(addr-1) >> 8;
             return Wifi::Read(addr) & 0xFF;
         }
@@ -2460,6 +2480,7 @@ u16 ARM7Read16(u32 addr)
     case 0x04800000:
         if (addr < 0x04810000)
         {
+            if (!(PowerControl7 & (1<<1))) return 0;
             return Wifi::Read(addr);
         }
         break;
@@ -2523,6 +2544,7 @@ u32 ARM7Read32(u32 addr)
     case 0x04800000:
         if (addr < 0x04810000)
         {
+            if (!(PowerControl7 & (1<<1))) return 0;
             return Wifi::Read(addr) | (Wifi::Read(addr+2) << 16);
         }
         break;
@@ -2663,6 +2685,7 @@ void ARM7Write16(u32 addr, u16 val)
     case 0x04800000:
         if (addr < 0x04810000)
         {
+            if (!(PowerControl7 & (1<<1))) return;
             Wifi::Write(addr, val);
             return;
         }
@@ -2740,6 +2763,7 @@ void ARM7Write32(u32 addr, u32 val)
     case 0x04800000:
         if (addr < 0x04810000)
         {
+            if (!(PowerControl7 & (1<<1))) return;
             Wifi::Write(addr, val & 0xFFFF);
             Wifi::Write(addr+2, val >> 16);
             return;
@@ -3751,6 +3775,7 @@ u8 ARM7IORead8(u32 addr)
     case 0x04000241: return WRAMCnt;
 
     case 0x04000300: return PostFlag7;
+    case 0x04000304: return PowerControl7;
     }
 
     if (addr >= 0x04000400 && addr < 0x04000520)
@@ -3833,7 +3858,9 @@ u16 ARM7IORead16(u32 addr)
     case 0x040001C2: return SPI::ReadData();
 
     case 0x04000204: return ExMemCnt[1];
-    case 0x04000206: return WifiWaitCnt;
+    case 0x04000206:
+        if (!(PowerControl7 & (1<<1))) return 0;
+        return WifiWaitCnt;
 
     case 0x04000208: return IME[1];
     case 0x04000210: return IE[1] & 0xFFFF;
@@ -3915,6 +3942,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000210: return IE[1];
     case 0x04000214: return IF[1];
 
+    case 0x04000304: return PowerControl7;
     case 0x04000308: return ARM7BIOSProt;
 
     case 0x04100000:
@@ -4143,6 +4171,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
             return;
         }
     case 0x04000206:
+        if (!(PowerControl7 & (1<<1))) return;
         SetWifiWaitCnt(val);
         return;
 
@@ -4158,7 +4187,11 @@ void ARM7IOWrite16(u32 addr, u16 val)
             PostFlag7 = val & 0x01;
         return;
 
-    case 0x04000304: PowerControl7 = val; return;
+    case 0x04000304:
+        PowerControl7 = val & 0x0003;
+        SPU::SetPowerCnt(val & 0x0001);
+        Wifi::SetPowerCnt(val & 0x0002);
+        return;
 
     case 0x04000308:
         if (ARM7BIOSProt == 0)
@@ -4280,7 +4313,11 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000210: IE[1] = val; UpdateIRQ(1); return;
     case 0x04000214: IF[1] &= ~val; UpdateIRQ(1); return;
 
-    case 0x04000304: PowerControl7 = val & 0xFFFF; return;
+    case 0x04000304:
+        PowerControl7 = val & 0x0003;
+        SPU::SetPowerCnt(val & 0x0001);
+        Wifi::SetPowerCnt(val & 0x0002);
+        return;
 
     case 0x04000308:
         if (ARM7BIOSProt == 0)

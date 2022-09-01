@@ -115,6 +115,7 @@ bool MACIsBroadcast(u8* a)
 }
 
 
+// REMOVE ME!!
 void USTimer()
 {
     USCounter++;
