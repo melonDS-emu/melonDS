@@ -156,7 +156,7 @@ enum
     Event_RXCheck = 0,
     Event_IRQ15,
     Event_MSTimer,
-    Event_PowerOn,
+    Event_RFWakeup,
     Event_MPClientSync,
     Event_TRX,
     Event_RF,

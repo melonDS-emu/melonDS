@@ -504,6 +504,11 @@ void CancelEvent(u32 id)
     SchedListMask &= ~(1<<id);
 }
 
+bool EventScheduled(u32 id)
+{
+    return (SchedListMask & (1<<id)) != 0;
+}
+
 
 void PowerDown();
 
@@ -1573,7 +1578,7 @@ void MSTimer(u32 param)
 {
     if (IOPORT(W_USCompareCnt))
     {
-        if (USCounter == USCompare)
+        if ((USCounter & ~0x3FF) == USCompare)
         {
             BlockBeaconIRQ14 = false;
             SetIRQ14(0);
@@ -1599,6 +1604,18 @@ void MSTimer(u32 param)
     }
 //printf("MSTimer %016llX %016llX\n", SchedTimestamp, USCounter);
     ScheduleEvent(Event_MSTimer, true, 1024, MSTimer, 0);
+}
+
+void RFWakeup(u32 param)
+{
+    bool switchOffPowerSaving = ((IOPORT(W_PowerUnk) & 0x0001) || ForcePowerOn);
+    if ((IOPORT(W_PowerState) & 0x0002) || switchOffPowerSaving)
+    {
+        IOPORT(W_PowerState) = 0;
+        IOPORT(W_RFPins) = 1;
+        IOPORT(W_RFPins) = 0x0084;
+        SetIRQ(11);
+    }
 }
 
 void USTimer(u32 param)
@@ -1832,7 +1849,7 @@ void USTimer(u32 param)
     // measurement: 16715us per frame
     // calculation: 16715.113113088143330744761992174us per frame
     //NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 0);
-    NDS::ScheduleEvent(NDS::Event_WifiLegacy, true, 34, USTimer, 0);
+    //NDS::ScheduleEvent(NDS::Event_WifiLegacy, true, 34, USTimer, 0);
 }
 
 
@@ -2001,7 +2018,8 @@ void Write(u32 addr, u16 val)
 
             if (!(oldval & 0x0001) && (val & 0x0001))
             {
-                if (!(USUntilPowerOn < 0 && ForcePowerOn))
+                //if (!(USUntilPowerOn < 0 && ForcePowerOn))
+                if (!(EventScheduled(Event_RFWakeup) && ForcePowerOn))
                 {
                     //printf("mode reset power on %08x\n", NDS::ARM7->R[15]);
                     IOPORT(0x034) = 0x0002;
@@ -2010,7 +2028,8 @@ void Write(u32 addr, u16 val)
 
                     if (IOPORT(W_PowerUnk) & 0x0002)
                     {
-                        USUntilPowerOn = -2048;
+                        //USUntilPowerOn = -2048;
+                        ScheduleEvent(Event_RFWakeup, false, 2048, RFWakeup, 0);
                         IOPORT(W_PowerState) |= 0x100;
                     }
                 }
@@ -2103,7 +2122,8 @@ void Write(u32 addr, u16 val)
             {
                 //printf("power on\n");
                 IOPORT(W_PowerState) |= 0x100;
-                USUntilPowerOn = -2048;
+                //USUntilPowerOn = -2048;
+                ScheduleEvent(Event_RFWakeup, false, 2048, RFWakeup, 0);
                 ForcePowerOn = false;
             }
         }
@@ -2125,14 +2145,16 @@ void Write(u32 addr, u16 val)
         {
             //printf("power on\n");
             IOPORT(W_PowerState) |= 0x100;
-            USUntilPowerOn = -2048;
+            //USUntilPowerOn = -2048;
+            ScheduleEvent(Event_RFWakeup, false, 2048, RFWakeup, 0);
             ForcePowerOn = false;
         }
         if (val == 0x8000)
         {
             //printf("force power on\n");
             IOPORT(W_PowerState) |= 0x100;
-            USUntilPowerOn = -2048;
+            //USUntilPowerOn = -2048;
+            ScheduleEvent(Event_RFWakeup, false, 2048, RFWakeup, 0);
             ForcePowerOn = true;
         }
         break;

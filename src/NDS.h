@@ -52,8 +52,6 @@ enum
     Event_DSi_CamTransfer,
     Event_DSi_DSP,
 
-    Event_WifiLegacy,
-
     Event_MAX
 };
 
