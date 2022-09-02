@@ -1602,7 +1602,15 @@ bool LoadROM(const u8* romdata, u32 romlen)
     memcpy(CartROM, romdata, romlen);
 
     memcpy(&Header, CartROM, sizeof(Header));
-    memcpy(&Banner, CartROM + Header.BannerOffset, sizeof(Banner));
+
+    if (!Header.BannerOffset)
+    {
+        memset(&Banner, 0, sizeof(Banner));
+    }
+    else
+    {
+        memcpy(&Banner, CartROM + Header.BannerOffset, sizeof(Banner));
+    }
 
     printf("Game code: %.4s\n", Header.GameCode);
 
