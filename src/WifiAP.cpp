@@ -91,7 +91,7 @@ void DeInit()
 void Reset()
 {
     // random starting point for the counter
-    USCounter = 0x428888017ULL;
+    USCounter = 0x428888000ULL;
     SeqNo = 0x0120;
 
     BeaconDue = false;
