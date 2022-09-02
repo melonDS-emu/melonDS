@@ -75,12 +75,12 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
 
     ui->iconTitle->setText(QString::fromUtf16(NDSCart::Banner.EnglishTitle));
 
-    ui->japaneseTitle->setText(QString::fromUtf16(NDSCart::Banner.JapaneseTitle, 128));
-    ui->englishTitle->setText(QString::fromUtf16(NDSCart::Banner.EnglishTitle, 128));
-    ui->frenchTitle->setText(QString::fromUtf16(NDSCart::Banner.FrenchTitle, 128));
-    ui->germanTitle->setText(QString::fromUtf16(NDSCart::Banner.GermanTitle, 128));
-    ui->italianTitle->setText(QString::fromUtf16(NDSCart::Banner.ItalianTitle, 128));
-    ui->spanishTitle->setText(QString::fromUtf16(NDSCart::Banner.SpanishTitle, 128));
+    ui->japaneseTitle->setText(QString::fromUtf16(NDSCart::Banner.JapaneseTitle));
+    ui->englishTitle->setText(QString::fromUtf16(NDSCart::Banner.EnglishTitle));
+    ui->frenchTitle->setText(QString::fromUtf16(NDSCart::Banner.FrenchTitle));
+    ui->germanTitle->setText(QString::fromUtf16(NDSCart::Banner.GermanTitle));
+    ui->italianTitle->setText(QString::fromUtf16(NDSCart::Banner.ItalianTitle));
+    ui->spanishTitle->setText(QString::fromUtf16(NDSCart::Banner.SpanishTitle));
 
     if (NDSCart::Banner.Version > 1)
         ui->chineseTitle->setText(QString::fromUtf16(NDSCart::Banner.ChineseTitle));
