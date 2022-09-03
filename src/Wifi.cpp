@@ -1329,98 +1329,19 @@ void MPClientReplyRX(int client)
         return;
 
     u16 framelen;
-    u16 framectl;
     u8 txrate;
-    bool bssidmatch;
-    u16 rxflags;
 
     u8* reply = &MPClientReplies[(client-1)*1024];
     framelen = *(u16*)&reply[10];
     framelen -= 4;
 
+    txrate = reply[8];
+
     // TODO rework RX system so we don't need this (by reading directly into MPClientReplies)
     memcpy(RXBuffer, reply, 12+framelen);
 
-    framectl = *(u16*)&RXBuffer[12+0];
-    txrate = RXBuffer[8];
-
-    u32 a_src, a_dst, a_bss;
-    rxflags = 0x0010;
-    switch (framectl & 0x000C)
-    {
-    case 0x0000: // management
-        a_src = 10;
-        a_dst = 4;
-        a_bss = 16;
-        if ((framectl & 0x00F0) == 0x0080)
-            rxflags |= 0x0001;
-        break;
-
-    case 0x0004: // control
-        printf("blarg\n");
-        return;
-
-    case 0x0008: // data
-        switch (framectl & 0x0300)
-        {
-        case 0x0000: // STA to STA
-            a_src = 10;
-            a_dst = 4;
-            a_bss = 16;
-            break;
-        case 0x0100: // STA to DS
-            a_src = 10;
-            a_dst = 16;
-            a_bss = 4;
-            break;
-        case 0x0200: // DS to STA
-            a_src = 16;
-            a_dst = 4;
-            a_bss = 10;
-            break;
-        case 0x0300: // DS to DS
-            printf("blarg\n");
-            return;
-        }
-        // TODO: those also trigger on other framectl values
-        // like 0208 -> C
-        framectl &= 0xE7FF;
-        if      (framectl == 0x0228) rxflags |= 0x000C; // MP host frame
-        else if (framectl == 0x0218) rxflags |= 0x000D; // MP ack frame
-        else if (framectl == 0x0118) rxflags |= 0x000E; // MP reply frame
-        else if (framectl == 0x0158) rxflags |= 0x000F; // empty MP reply frame
-        else                         rxflags |= 0x0008;
-        break;
-    }
-
-    // TODO get rid of this cruft!!!
-
-    if (MACEqual(&RXBuffer[12 + a_src], (u8*)&IOPORT(W_MACAddr0)))
-        {
-            printf("MAC equal??\n");
-            return; // oops. we received a packet we just sent.
-        }
-
-    bssidmatch = MACEqual(&RXBuffer[12 + a_bss], (u8*)&IOPORT(W_BSSID0));
-    //if (!(IOPORT(W_BSSID0) & 0x0001) && !(RXBuffer[12 + a_bss] & 0x01) &&
-    if (!MACEqual(&RXBuffer[12 + a_dst], (u8*)&IOPORT(W_MACAddr0)) &&
-        !(RXBuffer[12 + a_dst] & 0x01))
-    {
-        printf("dst MAC bad\n");
-        PRINT_MAC("frame: ", &RXBuffer[12+a_dst]);
-        PRINT_MAC("mac: ", (u8*)&IOPORT(W_MACAddr0));
-        return;
-    }
-
-    // make RX header
-
-    if (bssidmatch) rxflags |= 0x8000;
-
-    *(u16*)&RXBuffer[0] = rxflags;
-    *(u16*)&RXBuffer[2] = 0x0040; // ???
     *(u16*)&RXBuffer[6] = txrate;
     *(u16*)&RXBuffer[8] = framelen;
-    *(u16*)&RXBuffer[10] = 0x4080; // min/max RSSI. dunno
 
     RXTimestamp = 0;
     StartRX();
@@ -1441,8 +1362,6 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
     u16 framelen;
     u16 framectl;
     u8 txrate;
-    bool bssidmatch;
-    u16 rxflags;
     u64 timestamp;
 
     for (;;)
@@ -1479,97 +1398,14 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
         framectl = *(u16*)&RXBuffer[12+0];
         txrate = RXBuffer[8];
 
-        u32 a_src, a_dst, a_bss;
-        rxflags = 0x0010;
-        switch (framectl & 0x000C)
-        {
-        case 0x0000: // management
-            a_src = 10;
-            a_dst = 4;
-            a_bss = 16;
-            if ((framectl & 0x00F0) == 0x0080)
-                rxflags |= 0x0001;
-            break;
-
-        case 0x0004: // control
-            printf("blarg\n");
-            continue;
-
-        case 0x0008: // data
-            switch (framectl & 0x0300)
-            {
-            case 0x0000: // STA to STA
-                a_src = 10;
-                a_dst = 4;
-                a_bss = 16;
-                break;
-            case 0x0100: // STA to DS
-                a_src = 10;
-                a_dst = 16;
-                a_bss = 4;
-                break;
-            case 0x0200: // DS to STA
-                a_src = 16;
-                a_dst = 4;
-                a_bss = 10;
-                break;
-            case 0x0300: // DS to DS
-                printf("blarg\n");
-                continue;
-            }
-            // TODO: those also trigger on other framectl values
-            // like 0208 -> C
-            // actually these don't depend on the framectl but on the destination MAC!!
-            framectl &= 0xE7FF;
-            if      (framectl == 0x0228) rxflags |= 0x000C; // MP host frame
-            else if (framectl == 0x0218) rxflags |= 0x000D; // MP ack frame
-            else if (framectl == 0x0118) rxflags |= 0x000E; // MP reply frame
-            else if (framectl == 0x0158) rxflags |= 0x000F; // empty MP reply frame
-            else                         rxflags |= 0x0008;
-            break;
-        }
-
-        // TODO get rid of this
-        // ensuring we don't receive our own crap is the responsibility of the comm layer!!
-        if (MACEqual(&RXBuffer[12 + a_src], (u8*)&IOPORT(W_MACAddr0)))
-            continue; // oops. we received a packet we just sent.
-
-        bssidmatch = MACEqual(&RXBuffer[12 + a_bss], (u8*)&IOPORT(W_BSSID0));
-        //if (!(IOPORT(W_BSSID0) & 0x0001) && !(RXBuffer[12 + a_bss] & 0x01) &&
-        if (!MACEqual(&RXBuffer[12 + a_dst], (u8*)&IOPORT(W_MACAddr0)) &&
-            !(RXBuffer[12 + a_dst] & 0x01))
-        {
-            printf("received packet %04X but it didn't pass the MAC check\n", framectl);
-            printf("DST: %02X:%02X:%02X:%02X:%02X:%02X\n",
-                   RXBuffer[12 + a_dst + 0], RXBuffer[12 + a_dst + 1], RXBuffer[12 + a_dst + 2],
-                   RXBuffer[12 + a_dst + 3], RXBuffer[12 + a_dst + 4], RXBuffer[12 + a_dst + 5]);
-            printf("BSS: %02X:%02X:%02X:%02X:%02X:%02X\n",
-                   RXBuffer[12 + a_bss + 0], RXBuffer[12 + a_bss + 1], RXBuffer[12 + a_bss + 2],
-                   RXBuffer[12 + a_bss + 3], RXBuffer[12 + a_bss + 4], RXBuffer[12 + a_bss + 5]);
-            continue;
-        }
-
         break;
     }
 
     WIFI_LOG("wifi: received packet FC:%04X SN:%04X CL:%04X RXT:%d CMT:%d\n",
              framectl, *(u16*)&RXBuffer[12+4+6+6+6], *(u16*)&RXBuffer[12+4+6+6+6+2+2], framelen*4, IOPORT(W_CmdReplyTime));
 
-    // make RX header
-
-    /*if ((rxflags&0xF)==0xD)
-    {
-        u16 clientfail = *(u16*)&RXBuffer[12+0x1A];
-        if (clientfail) printf("CLIENT FAIL: %04X\n", clientfail);
-    }*/
-
-    if (bssidmatch) rxflags |= 0x8000;
-
-    *(u16*)&RXBuffer[0] = rxflags;
-    *(u16*)&RXBuffer[2] = 0x0040; // ???
     *(u16*)&RXBuffer[6] = txrate;
     *(u16*)&RXBuffer[8] = framelen;
-    *(u16*)&RXBuffer[10] = 0x4080; // min/max RSSI. dunno
 
     if (((framectl & 0x00FF) == 0x0010) && timestamp)
     {
@@ -1583,7 +1419,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 
             IsMPClient = true;
             USTimestamp = timestamp;
-            NextSync = USTimestamp;// + 1024;//512; // TODO: tweak this!
+            NextSync = RXTimestamp + (framelen * (txrate==0x14 ? 4:8));
         }
 
         RXTimestamp = 0;
@@ -1607,7 +1443,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
         if (RXTimestamp < USTimestamp) RXTimestamp = USTimestamp;
         NextSync = RXTimestamp + (framelen * (txrate==0x14 ? 4:8));
 
-        if ((rxflags & 0xF) == 0xC)
+        if (MACEqual(&RXBuffer[12 + 4], MPCmdMAC))
         {
             u16 clienttime = *(u16*)&RXBuffer[12+24];
             u16 clientmask = *(u16*)&RXBuffer[12+26];
