@@ -54,13 +54,6 @@ u16 Random;
 // general, always-on microsecond counter
 u64 USTimestamp;
 
-u64 SchedTimestamp;
-SchedEvent SchedList[Event_MAX];
-u32 SchedListMask;
-int NextEvent;
-
-const u32 kRXCheckPeriod = 512;
-
 u64 USCounter;
 u64 USCompare;
 bool BlockBeaconIRQ14;
@@ -84,9 +77,8 @@ struct TXSlot
     u16 Addr;
     u16 Length;
     u8 Rate;
-    u32 Preamble;
     u8 CurPhase;
-    u32 CurPhaseTime;
+    int CurPhaseTime;
     u32 HalfwordTimeMask;
 };
 
@@ -98,10 +90,6 @@ u64 RXTimestamp;
 u32 RXTime;
 u32 RXHalfwordTimeMask;
 u16 RXEndAddr;
-
-u64 RXStartTime;
-u16 RXRate;
-u16 RXCount;
 
 u32 ComStatus; // 0=waiting for packets  1=receiving  2=sending
 u32 TXCurSlot;
@@ -160,26 +148,6 @@ const u64 kMaxRunahead = 4096;
 // wifi TODO:
 // * RXSTAT
 // * TX errors (if applicable)
-
-
-void UpdateTimers();
-void Reschedule();
-void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param);
-void CancelEvent(u32 id);
-
-void TRX_Next();
-
-void TXPhase_Start(u32 num);
-void TXPhase_Finish(u32 num);
-void TXPhase_MP_RXReply(u32 nclient);
-void TXPhase_MP_StartAck(u32 param);
-void TXPhase_MP_FinishAck(u32 param);
-
-void StartTX_Beacon();
-void PeriodicRXCheck(u32 time);
-
-void FinishRX(u32 param);
-void MPClientSync(u32 param);
 
 
 bool Init()
@@ -274,11 +242,6 @@ void Reset()
     USTimestamp = 0;
     RXTimestamp = 0;
 
-    SchedTimestamp = 0;
-    memset(SchedList, 0, sizeof(SchedList));
-    SchedListMask = 0;
-    NextEvent = -1;
-
     USCounter = 0;
     USCompare = 0;
     BlockBeaconIRQ14 = false;
@@ -338,59 +301,6 @@ void DoSavestate(Savestate* file)
 }
 
 
-void UpdatePowerOn();
-
-void SetPowerCnt(u32 val)
-{
-    Enabled = val & (1<<1);
-    UpdatePowerOn();
-}
-
-
-// wifi scheduling
-// NOTE: this is technically inaccurate
-// in the DS, the wifi system is driven by its own 22MHz clock, not by the system clock
-// but in melonDS, we do need to drive it from the system scheduler, so it stays in sync
-// with the rest of the system
-
-inline u64 USToSysCycles(u64 us)
-{
-    return (us * 33513982) / 1000000;
-}
-
-inline u64 SysCyclesToUS(u64 sys)
-{
-    return ((sys + 16) * 1000000) / 33513982;
-}
-
-void UpdateTimers()
-{
-    u64 oldts = SchedTimestamp;
-    SchedTimestamp = SysCyclesToUS(NDS::GetSysClockCycles(0));
-    u64 diff = SchedTimestamp - oldts;
-    if (diff == 0) return;
-
-    USTimestamp += diff;
-
-    if (IOPORT(W_USCountCnt))
-    {
-        USCounter += diff;
-    }
-
-    if (IOPORT(W_ContentFree) <= diff)
-        IOPORT(W_ContentFree) = 0;
-    else
-        IOPORT(W_ContentFree) -= diff;
-
-    if (IOPORT(W_CmdCountCnt))
-    {
-        if (CmdCounter <= diff)
-            CmdCounter = 0;
-        else
-            CmdCounter -= diff;
-    }
-}
-
 void UpdatePowerOn()
 {
     bool on = Enabled;
@@ -415,22 +325,8 @@ void UpdatePowerOn()
     {
         printf("WIFI: ON\n");
 
-        u64 oldts = SchedTimestamp;
-        SchedTimestamp = SysCyclesToUS(NDS::GetSysClockCycles(0));
-        u64 diff = SchedTimestamp - oldts;
-
-        for (int i = 0; i < Event_MAX; i++)
-        {
-            if (!(SchedListMask & (1<<i)))
-                continue;
-
-            if (SchedList[i].Timestamp >= oldts)
-            {
-                SchedList[i].Timestamp += diff;
-            }
-        }
-
-        ScheduleEvent(Event_RXCheck, false, kRXCheckPeriod, PeriodicRXCheck, 0);
+        NDS::ScheduleEvent(NDS::Event_Wifi, false, 33, USTimer, 1);
+        //NDS::ScheduleEvent(NDS::Event_Wifi, false, 33*8, USTimer, 8);
 
         Platform::MP_Begin();
     }
@@ -438,106 +334,21 @@ void UpdatePowerOn()
     {
         printf("WIFI: OFF\n");
 
-        CancelEvent(Event_RXCheck);
-
-        UpdateTimers();
         NDS::CancelEvent(NDS::Event_Wifi);
 
         Platform::MP_End();
     }
 }
 
-void RunEvents(u32 param)
+void SetPowerCnt(u32 val)
 {
-    UpdateTimers();
-
-    NextEvent = -1;
-
-    u32 mask = SchedListMask;
-    for (int i = 0; i < Event_MAX; i++)
-    {
-        if (!mask) break;
-        if (mask & 0x1)
-        {
-            if (SchedList[i].Timestamp <= SchedTimestamp)
-            {
-                SchedListMask &= ~(1<<i);
-                SchedList[i].Func(SchedList[i].Param);
-            }
-        }
-
-        mask >>= 1;
-    }
-
-    if (NextEvent == -1)
-        Reschedule();
-}
-
-void Reschedule()
-{
-    u64 next = UINT64_MAX;
-    NextEvent = -1;
-
-    u32 mask = SchedListMask;
-    for (int i = 0; i < Event_MAX; i++)
-    {
-        if (!mask) break;
-        if (mask & 0x1)
-        {
-            if (SchedList[i].Timestamp < next)
-            {
-                next = SchedList[i].Timestamp;
-                NextEvent = i;
-            }
-        }
-
-        mask >>= 1;
-    }
-
-    NDS::CancelEvent(NDS::Event_Wifi);
-    NDS::ScheduleEvent(NDS::Event_Wifi, USToSysCycles(next), RunEvents, 0);
-}
-
-void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param)
-{
-    if (SchedListMask & (1<<id))
-    {
-        printf("wifi: !! EVENT %d ALREADY SCHEDULED\n", id);
-        return;
-    }
-
-    SchedEvent* evt = &SchedList[id];
-
-    if (periodic)
-    {
-        evt->Timestamp += delay;
-    }
-    else
-    {
-        UpdateTimers();
-        evt->Timestamp = SchedTimestamp + delay;
-    }
-
-    evt->Func = func;
-    evt->Param = param;
-
-    SchedListMask |= (1<<id);
-
-    Reschedule();
-}
-
-void CancelEvent(u32 id)
-{
-    SchedListMask &= ~(1<<id);
-}
-
-bool EventScheduled(u32 id)
-{
-    return (SchedListMask & (1<<id)) != 0;
+    Enabled = val & (1<<1);
+    UpdatePowerOn();
 }
 
 
 void PowerDown();
+void StartTX_Beacon();
 
 void SetIRQ(u32 irq)
 {
@@ -593,7 +404,7 @@ void SetIRQ14(int source) // 0=USCOMPARE 1=BEACONCOUNT 2=forced
     IOPORT(W_ListenCount)--;
 }
 
-void SetIRQ15(u32 param)
+void SetIRQ15()
 {
     SetIRQ(15);
 
@@ -685,7 +496,8 @@ void StartTX_LocN(int nslot, int loc)
     if (rate == 0x14) slot->Rate = 2;
     else              slot->Rate = 1;
 
-    slot->Preamble = PreambleLen(slot->Rate);
+    slot->CurPhase = 0;
+    slot->CurPhaseTime = PreambleLen(slot->Rate);
 }
 
 void StartTX_Cmd()
@@ -704,7 +516,8 @@ void StartTX_Cmd()
     if (rate == 0x14) slot->Rate = 2;
     else              slot->Rate = 1;
 
-    slot->Preamble = PreambleLen(slot->Rate);
+    slot->CurPhase = 0;
+    slot->CurPhaseTime = PreambleLen(slot->Rate);
 }
 
 void StartTX_Beacon()
@@ -718,7 +531,8 @@ void StartTX_Beacon()
     if (rate == 0x14) slot->Rate = 2;
     else              slot->Rate = 1;
 
-    slot->Preamble = PreambleLen(slot->Rate);
+    slot->CurPhase = 0;
+    slot->CurPhaseTime = PreambleLen(slot->Rate);
 
     IOPORT(W_TXBusy) |= 0x0010;
 }
@@ -743,23 +557,25 @@ void FireTX()
     if (txstart & 0x0008)
     {
         StartTX_LocN(3, 2);
-    }
-    else if (txstart & 0x0004)
-    {
-        StartTX_LocN(2, 1);
-    }
-    else if (txstart & 0x0002)
-    {
-        StartTX_Cmd();
-    }
-    else if (txstart & 0x0001)
-    {
-        StartTX_LocN(0, 0);
+        return;
     }
 
-    if (!ComStatus)
+    if (txstart & 0x0004)
     {
-        TRX_Next();
+        StartTX_LocN(2, 1);
+        return;
+    }
+
+    if (txstart & 0x0002)
+    {
+        StartTX_Cmd();
+        return;
+    }
+
+    if (txstart & 0x0001)
+    {
+        StartTX_LocN(0, 0);
+        return;
     }
 }
 
@@ -855,7 +671,7 @@ void SendMPReply(u16 clienttime, u16 clientmask)
             clientnum++;
     }
 
-    slot->Preamble = 16 + ((clienttime + 10) * clientnum) + PreambleLen(slot->Rate);
+    slot->CurPhaseTime = 16 + ((clienttime + 10) * clientnum) + PreambleLen(slot->Rate);
 
     IOPORT(W_TXBusy) |= 0x0080;
 }
@@ -893,20 +709,22 @@ void SendMPAck(u16 clientfail)
 bool CheckRX(int type);
 void MPClientReplyRX(int client);
 
-bool ProcessTX(TXSlot* slot, int num)
+bool ProcessTX(TXSlot* slot, int num, int us)
 {
-    slot->CurPhaseTime--;
+    u32 old_time = slot->CurPhaseTime & slot->HalfwordTimeMask;
+    slot->CurPhaseTime -= us;
     if (slot->CurPhaseTime > 0)
     {
         if (slot->CurPhase == 1)
         {
             if (!(slot->CurPhaseTime & slot->HalfwordTimeMask))
+            //if ((slot->CurPhaseTime & slot->HalfwordTimeMask) > old_time)
                 IOPORT(W_RXTXAddr)++;
         }
         else if (slot->CurPhase == 2)
         {
-            MPReplyTimer--;
-            if (MPReplyTimer == 0 && MPClientMask != 0)
+            MPReplyTimer -= us;
+            if (MPReplyTimer <= 0 && MPClientMask != 0)
             {
                 int nclient = 1;
                 while (!(MPClientMask & (1 << nclient))) nclient++;
@@ -925,7 +743,7 @@ bool ProcessTX(TXSlot* slot, int num)
                 if (!(MPClientFail & curclient))
                     MPClientReplyRX(nclient);
 
-                MPReplyTimer = 10 + IOPORT(W_CmdReplyTime);
+                MPReplyTimer += 10 + IOPORT(W_CmdReplyTime);
                 MPClientMask &= ~curclient;
             }
         }
@@ -1199,314 +1017,6 @@ bool ProcessTX(TXSlot* slot, int num)
 }
 
 
-void TXPhase_Start(u32 num)
-{
-    TXSlot* slot = &TXSlots[num];
-
-    SetIRQ(7);
-
-    if (num == 5)
-    {
-        SetStatus(8);
-
-        if (!slot->Valid)
-        {
-            // if this is a default empty reply: we don't need to do all the setup
-
-            u32 len = 28;
-            if (slot->Rate == 2) len *= 4;
-            else                 len *= 8;
-
-            ScheduleEvent(Event_TX, true, len, TXPhase_Finish, num);
-            return;
-        }
-    }
-    else
-        SetStatus(3);
-
-    u64 oldts;
-    if (num == 4)
-    {
-        // beacon timestamp
-        oldts = *(u64*)&RAM[slot->Addr + 0xC + 24];
-        *(u64*)&RAM[slot->Addr + 0xC + 24] = USCounter;
-    }
-
-    u32 noseqno = 0;
-    if (num == 1) noseqno = (IOPORT(W_TXSlotCmd) & 0x4000);
-
-    if (!noseqno)
-    {
-        *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
-        IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
-    }
-
-    // TODO: inhibit seqno adjustment and set framectl.bit11 if txheader[04] is nonzero
-
-    // set TX addr
-    IOPORT(W_RXTXAddr) = slot->Addr >> 1;
-
-    if (num == 1)
-    {
-        // send
-        int txlen = Platform::MP_SendCmd(&RAM[slot->Addr], 12 + slot->Length, USTimestamp);
-        WIFI_LOG("wifi: sent %d/%d bytes of CMD packet, addr=%04X, framectl=%04X, %04X %04X\n",
-                 txlen, slot->Length+12, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
-                 *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
-    }
-    else if (num == 5)
-    {
-        // MP reply frames are handled separately
-    }
-    else
-    {
-        // send
-        int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length, USTimestamp);
-        WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X\n",
-                 txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC]);
-    }
-
-    // if the packet is being sent via LOC1..3, send it to the AP
-    // any packet sent via CMD/REPLY/BEACON isn't going to have much use outside of local MP
-    if (num == 0 || num == 2 || num == 3)
-    {
-        WifiAP::SendPacket(&RAM[slot->Addr], 12 + slot->Length);
-    }
-
-    if (num == 4)
-    {
-        *(u64*)&RAM[slot->Addr + 0xC + 24] = oldts;
-    }
-
-    u32 len = slot->Length;
-    if (slot->Rate == 2) len *= 4;
-    else                 len *= 8;
-
-    ScheduleEvent(Event_TX, true, len, TXPhase_Finish, num);
-}
-
-void TXPhase_Finish(u32 num)
-{
-    TXSlot* slot = &TXSlots[num];
-
-    if ((num == 5) && (!slot->Valid))
-    {
-        IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
-
-        IOPORT(W_TXBusy) &= ~0x80;
-        TRX_Next();
-        return;
-    }
-
-    // for the MP CMD and reply slots, this is set later
-    if (num != 1 && num != 5)
-        *(u16*)&RAM[slot->Addr] = 0x0001;
-    RAM[slot->Addr + 5] = 0;
-
-    if (num == 1)
-    {
-        if (IOPORT(W_TXStatCnt) & 0x4000)
-        {
-            IOPORT(W_TXStat) = 0x0800;
-            SetIRQ(1);
-        }
-        SetStatus(5);
-
-        u16 clientmask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2];
-        //MPNumReplies = NumClients(clientmask);
-        //MPReplyTimer = 16 + PreambleLen(slot->Rate);
-        MPClientMask = clientmask;
-        MPClientFail = clientmask;
-
-        u16 res = Platform::MP_RecvReplies(MPClientReplies, USTimestamp, clientmask);
-        MPClientFail &= ~res;
-
-        // TODO: 112 likely includes the ack preamble, which needs adjusted
-        // for long-preamble settings
-        /*slot->CurPhase = 2;
-        slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(clientmask));
-        aaaaaaaaaaaaaaaaaaaaaaa*/
-        //printf("MP CMD SHITO TODO\n");
-        // slot->Preamble = 16 + ((clienttime + 10) * clientnum) + PreambleLen(slot->Rate);
-        // 16 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(clientmask)) + preamble(ack);
-        if (MPClientMask)
-        {
-            int nclient = 1;
-            while (!(MPClientMask & (1 << nclient))) nclient++;
-            ScheduleEvent(Event_TX, true, 16+PreambleLen(slot->Rate), TXPhase_MP_RXReply, nclient);
-        }
-        else
-        {
-            ScheduleEvent(Event_TX, true, 16+PreambleLen(slot->Rate), TXPhase_MP_StartAck, 0);
-        }
-
-        return;
-    }
-    else if (num == 5)
-    {
-        if (IOPORT(W_TXStatCnt) & 0x1000)
-        {
-            IOPORT(W_TXStat) = 0x0401;
-            SetIRQ(1);
-        }
-
-        IOPORT(W_TXBusy) &= ~0x80;
-        TRX_Next();
-        return;
-    }
-
-    IOPORT(W_TXBusy) &= ~(1<<num);
-
-    switch (num)
-    {
-    case 0:
-    case 2:
-    case 3:
-        IOPORT(W_TXStat) = 0x0001 | ((num?(num-1):0)<<12);
-        SetIRQ(1);
-        IOPORT(W_TXSlotLoc1 + ((num?(num-1):0)*4)) &= 0x7FFF;
-        break;
-
-    case 4: // beacon
-        if (IOPORT(W_TXStatCnt) & 0x8000)
-        {
-            IOPORT(W_TXStat) = 0x0301;
-            SetIRQ(1);
-        }
-        break;
-    }
-
-    TRX_Next();
-}
-
-void TXPhase_MP_RXReply(u32 nclient)
-{
-    TXSlot* slot = &TXSlots[1];
-
-    u32 curclient = 1 << nclient;
-
-    /*if (CheckRX(1))
-    {
-        // we received a reply, mark it as such
-        // TODO: is any received packet considered a good reply?
-        // hardware probably requires a specific frame-control and/or destination MAC
-
-        MPClientFail &= ~curclient;
-    }
-    else printf("REPLY %04X NOT RECEIVED\n");*/
-    if (!(MPClientFail & curclient))
-        MPClientReplyRX(nclient);
-
-    //MPReplyTimer = 10 + IOPORT(W_CmdReplyTime);
-    MPClientMask &= ~curclient;
-    if (MPClientMask)
-    {
-        do { nclient++; } while (!(MPClientMask & (1 << nclient)));
-        ScheduleEvent(Event_TX, true, 10+IOPORT(W_CmdReplyTime), TXPhase_MP_RXReply, nclient);
-    }
-    else
-    {
-        ScheduleEvent(Event_TX, true, 10+IOPORT(W_CmdReplyTime), TXPhase_MP_StartAck, 0);
-    }
-}
-
-void TXPhase_MP_StartAck(u32 param)
-{
-    TXSlot* slot = &TXSlots[1];
-
-    SetIRQ(7);
-    SetStatus(8);
-
-    IOPORT(W_RXTXAddr) = 0xFC0;
-
-    ReportMPReplyErrors(MPClientFail);
-
-    // send
-    SendMPAck(MPClientFail);
-
-    u32 len = 32;
-    if (slot->Rate == 2) len *= 4;
-    else                 len *= 8;
-
-    ScheduleEvent(Event_TX, true, len, TXPhase_MP_FinishAck, 0);
-}
-
-void TXPhase_MP_FinishAck(u32 param)
-{
-    TXSlot* slot = &TXSlots[1];
-
-    // checkme
-    IOPORT(W_TXBusy) &= ~(1<<1);
-    IOPORT(W_TXSlotCmd) &= 0x7FFF; // confirmed
-
-    if (!MPClientFail)
-        *(u16*)&RAM[slot->Addr] = 0x0001;
-    else
-        *(u16*)&RAM[slot->Addr] = 0x0005;
-
-    // this is set to indicate which clients failed to reply
-    *(u16*)&RAM[slot->Addr + 0x2] = MPClientFail;
-    IncrementTXCount(slot);
-
-    IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
-
-    if (IOPORT(W_TXStatCnt) & 0x2000)
-    {
-        IOPORT(W_TXStat) = 0x0B01;
-        SetIRQ(1);
-    }
-
-    // TODO: retry the whole cycle if some clients failed to respond
-    // AND if there is enough time left in CMDCOUNT
-    // (games seem to always configure CMDCOUNT such that there is no time for retries)
-    SetIRQ(12);
-
-    TRX_Next();
-}
-
-
-void TRX_Next()
-{
-    if (IOPORT(W_PowerState) & 0x0300)
-    {
-        // if we are powering down, cancel anything
-        IOPORT(W_TXBusy) = 0;
-        SetStatus(9);
-        return;
-    }
-
-    u16 txbusy = IOPORT(W_TXBusy);
-
-    if (!(txbusy & 0x0080))
-    {
-        if ((!IsMPClient) || (USTimestamp > NextSync))
-        {
-            if (CheckRX(0))
-                return;
-        }
-    }
-
-    if (txbusy)
-    {u32 dorp = ComStatus;
-        ComStatus = 0x2;
-
-        int slot = -1;
-        if      (txbusy & 0x0080) slot = 5;
-        else if (txbusy & 0x0010) slot = 4;
-        else if (txbusy & 0x0008) slot = 3;
-        else if (txbusy & 0x0004) slot = 2;
-        else if (txbusy & 0x0002) slot = 1;
-        else if (txbusy & 0x0001) slot = 0;
-
-        ScheduleEvent(Event_TX, false, TXSlots[slot].Preamble, TXPhase_Start, slot);
-        return;
-    }
-
-    ComStatus = 0;
-    SetStatus(1);
-}
-
-
 inline void IncrementRXAddr(u16& addr, u16 inc = 2)
 {
     for (u32 i = 0; i < inc; i += 2)
@@ -1518,14 +1028,22 @@ inline void IncrementRXAddr(u16& addr, u16 inc = 2)
     }
 }
 
-void StartRX(u32 type)
+void StartRX()
 {
     u16 framelen = *(u16*)&RXBuffer[8];
-    u32 frametime = framelen;
+    RXTime = framelen;
 
-    RXRate = *(u16*)&RXBuffer[6];
-    if (RXRate == 0x14) frametime *= 4;
-    else                frametime *= 8;
+    u16 txrate = *(u16*)&RXBuffer[6];
+    if (txrate == 0x14)
+    {
+        RXTime *= 4;
+        RXHalfwordTimeMask = 0x7;
+    }
+    else
+    {
+        RXTime *= 8;
+        RXHalfwordTimeMask = 0xF;
+    }
 
     u16 addr = IOPORT(W_RXBufWriteCursor) << 1;
     IncrementRXAddr(addr, 12);
@@ -1535,53 +1053,11 @@ void StartRX(u32 type)
 
     SetIRQ(6);
     SetStatus(6);
-    ComStatus |= 0x1;
-
-    RXStartTime = SchedTimestamp;
-    RXCount = 0;
-
-    ScheduleEvent(Event_RX, false, frametime, FinishRX, type);
+    ComStatus |= 1;
 }
 
-void AdvanceRX()
+/*void FinishRX()
 {
-    u32 ntime = (u32)(SchedTimestamp - RXStartTime);
-    RXStartTime = SchedTimestamp;
-
-    u32 ndata;
-    if (RXRate == 0x14)
-        ndata = ntime >> 3;
-    else
-        ndata = ntime >> 4;
-
-    u16 framelen = *(u16*)&RXBuffer[8];
-    if ((RXCount + ndata) > framelen)
-        ndata = framelen - RXCount;
-
-    u16 addr = IOPORT(W_RXTXAddr) << 1;
-    for (u32 i = 0; i < ndata; i++)
-    {
-        if (addr == (IOPORT(W_RXBufReadCursor) << 1))
-        {
-            // TODO!!!
-            printf("!!! RX BUFFER FULL\n");
-            return;
-        }
-
-        *(u16*)&RAM[addr] = *(u16*)&RXBuffer[RXBufferPtr];
-
-        IncrementRXAddr(addr);
-        RXBufferPtr += 2;
-    }
-    IOPORT(W_RXTXAddr) = addr >> 1;
-
-    RXCount += ndata;
-}
-
-void FinishRX(u32 type)
-{
-    AdvanceRX();
-
     u16 addr = IOPORT(W_RXTXAddr) << 1;
     if (addr & 0x2) IncrementRXAddr(addr);
 
@@ -1596,47 +1072,25 @@ void FinishRX(u32 type)
     IOPORT(W_RXBufWriteCursor) = (addr & ~0x3) >> 1;
 
     SetIRQ(0);
-
+    SetStatus(1);
+//printf("%016llX: finished receiving a frame, aid=%04X, FC=%04X, client=%04X\n", USTimestamp, IOPORT(W_AIDLow), *(u16*)&RXBuffer[0xC], *(u16*)&RXBuffer[0xC + 26]);
     WIFI_LOG("wifi: finished receiving packet %04X\n", *(u16*)&RXBuffer[12]);
+    LocalMP::_logstring2(USTimestamp, "FINISH RX", ((IOPORT(W_AIDLow))<<16)|(*(u16*)&RXBuffer[12+26]), RXTimestamp);
 
     ComStatus &= ~0x1;
-    //RXCounter = 0;
+    RXCounter = 0;
 
     if ((RXBuffer[0] & 0x0F) == 0x0C)
-    {
+    {bidon=USTimestamp-bazar;bazar=USTimestamp;
         u16 clientmask = *(u16*)&RXBuffer[0xC + 26];
+        //printf("RECEIVED REPLY!!! CLIENT=%04X AID=%04X\n", clientmask, IOPORT(W_AIDLow));
         if (IOPORT(W_AIDLow) && (RXBuffer[0xC + 4] & 0x01) && (clientmask & (1 << IOPORT(W_AIDLow))))
-        {
+        {//printf("%016llX: sending MP reply\n", USTimestamp);
+            LocalMP::_logstring(USTimestamp, "SENDING MP REPLY");
             SendMPReply(*(u16*)&RXBuffer[0xC + 24], clientmask);
         }
-        else
-        {
-            // send a blank
-            // this is just so the host can have something to receive, instead of hitting a timeout
-            // in the case this client wasn't ready to send a reply
-            // TODO: also send this if we have RX disabled
-
-            Platform::MP_SendReply(nullptr, 0, USTimestamp, 0);
-        }
     }
-    else if ((*(u16*)&RXBuffer[0] & 0x800F) == 0x8001)
-    {
-        // when receiving a beacon with the right BSSID, the beacon's timestamp
-        // is copied to USCOUNTER
-
-        u32 len = *(u16*)&RXBuffer[8];
-        u16 txrate = *(u16*)&RXBuffer[6];
-        len *= ((txrate==0x14) ? 4 : 8);
-        len -= 76; // CHECKME: is this offset fixed?
-
-        u64 timestamp = *(u64*)&RXBuffer[12 + 24];
-        timestamp += (u64)len;
-
-        USCounter = timestamp;
-    }
-
-    if (type == 0) TRX_Next();
-}
+}*/
 
 void MPClientReplyRX(int client)
 {
@@ -1743,8 +1197,8 @@ void MPClientReplyRX(int client)
     *(u16*)&RXBuffer[8] = framelen;
     *(u16*)&RXBuffer[10] = 0x4080; // min/max RSSI. dunno
 
-    //RXTimestamp = 0;
-    StartRX(1);
+    RXTimestamp = 0;
+    StartRX();
 }
 
 bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
@@ -1757,7 +1211,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 
     if (IOPORT(W_RXBufBegin) == IOPORT(W_RXBufEnd))
         return false;
-if (IsMPClient) printf("CheckRX(%d)\n", type);
+
     int rxlen;
     u16 framelen;
     u16 framectl;
@@ -1905,21 +1359,18 @@ if (IsMPClient) printf("CheckRX(%d)\n", type);
             IsMPClient = true;
             USTimestamp = timestamp;
             NextSync = USTimestamp;// + 1024;//512; // TODO: tweak this!
-
-            u32 syncdelay = (framelen * (txrate==0x14 ? 4:8));
-            ScheduleEvent(Event_MPClientSync, false, syncdelay, MPClientSync, 0);
         }
 
-        //RXTimestamp = 0;
-        StartRX(0);
+        RXTimestamp = 0;
+        StartRX();
     }
     else if (((framectl & 0x00FF) == 0x00C0) && timestamp && IsMPClient)
     {
         IsMPClient = false;
         NextSync = 0;
 
-        //RXTimestamp = 0;
-        StartRX(0);
+        RXTimestamp = 0;
+        StartRX();
     }
     else if (IsMPClient)
     {
@@ -1927,22 +1378,9 @@ if (IsMPClient) printf("CheckRX(%d)\n", type);
         // timestamp it came with
         // we also need to determine how far we can run after having received this frame
 
-        //RXTimestamp = timestamp;
-        //if (RXTimestamp < USTimestamp) RXTimestamp = USTimestamp;
-        //NextSync = RXTimestamp + (framelen * (txrate==0x14 ? 4:8));
-        u64 rxtime = timestamp;
-        if (rxtime <= USTimestamp)
-        {
-            rxtime = USTimestamp;
-            StartRX(0);
-        }
-        else
-        {
-            u32 delay = (u32)(rxtime - USTimestamp);
-            ScheduleEvent(Event_RX, false, delay, StartRX, 0);
-        }
-
-        NextSync = rxtime + (framelen * (txrate==0x14 ? 4:8));
+        RXTimestamp = timestamp;
+        if (RXTimestamp < USTimestamp) RXTimestamp = USTimestamp;
+        NextSync = RXTimestamp + (framelen * (txrate==0x14 ? 4:8));
 
         if ((rxflags & 0xF) == 0xC)
         {
@@ -1952,54 +1390,24 @@ if (IsMPClient) printf("CheckRX(%d)\n", type);
             // include the MP reply time window
             NextSync += 112 + ((clienttime + 10) * NumClients(clientmask));
         }
-
-        u32 syncdelay = (u32)(NextSync - USTimestamp);
-        ScheduleEvent(Event_MPClientSync, false, syncdelay, MPClientSync, 0);
     }
     else
     {
         // otherwise, just start receiving this frame now
 
-        //RXTimestamp = 0;
-        StartRX(0);
+        RXTimestamp = 0;
+        StartRX();
     }
 
     return true;
 }
 
 
-void MPClientSync(u32 param)
-{
-    if (!ComStatus)
-    {
-        CheckRX(2);
-    }
-    else
-        printf("MP CLIENT SYNC BUT ALREADY TRXING SHIT??\n");
-}
-
-void PeriodicRXCheck(u32 time)
-{
-    if (!time) WifiAP::MSTimer();
-
-    if ((!IsMPClient) || (USTimestamp > NextSync))
-    {
-        if (!ComStatus)
-        {
-            CheckRX(0);
-        }
-    }
-
-    time += kRXCheckPeriod;
-    time &= 0x3FF;
-    ScheduleEvent(Event_RXCheck, true, kRXCheckPeriod, PeriodicRXCheck, time);
-}
-
-void MSTimer(u32 param)
+void MSTimer()
 {
     if (IOPORT(W_USCompareCnt))
     {
-        if ((USCounter & ~0x3FF) == USCompare)
+        if (USCounter == USCompare)
         {
             BlockBeaconIRQ14 = false;
             SetIRQ14(0);
@@ -2007,12 +1415,6 @@ void MSTimer(u32 param)
     }
 
     IOPORT(W_BeaconCount1)--;
-    if (IOPORT(W_BeaconCount1) == ((IOPORT(W_PreBeacon) >> 10) + 1))
-    {
-        s32 delay = (IOPORT(W_BeaconCount1) << 10) - IOPORT(W_PreBeacon);
-        CancelEvent(Event_IRQ15);
-        ScheduleEvent(Event_IRQ15, false, delay, SetIRQ15, 0);
-    }
     if (IOPORT(W_BeaconCount1) == 0)
     {
         SetIRQ14(1);
@@ -2023,30 +1425,11 @@ void MSTimer(u32 param)
         IOPORT(W_BeaconCount2)--;
         if (IOPORT(W_BeaconCount2) == 0) SetIRQ13();
     }
-
-    ScheduleEvent(Event_MSTimer, true, 1024, MSTimer, 0);
 }
 
-void RFWakeup(u32 param)
+void USTimer(u32 us)
 {
-    bool switchOffPowerSaving = ((IOPORT(W_PowerUnk) & 0x0001) || ForcePowerOn);
-    if ((IOPORT(W_PowerState) & 0x0002) || switchOffPowerSaving)
-    {
-        IOPORT(W_PowerState) = 0;
-        IOPORT(W_RFPins) = 1;
-        IOPORT(W_RFPins) = 0x0084;
-        SetIRQ(11);
-    }
-}
-
-void USTimer(u32 param)
-{
-    /*USTimestamp++;
-
-    u64 sys = NDS::GetSysClockCycles(0);
-    u64 ts = SysCyclesToUS(sys);
-    ts = USTimestamp - ts;
-    printf("diff=%016llX\n", ts);
+    USTimestamp += us;
 
     if (IsMPClient)
     {
@@ -2060,32 +1443,34 @@ void USTimer(u32 param)
         {
             if (!(ComStatus & 1))
             {
+                // TODO: not do this every tick if it fails to receive a frame!
                 CheckRX(2);
             }
         }
-    }*/
+    }
 
+    if (!(USTimestamp & 0x3FF))
+        WifiAP::MSTimer();
 
-    //WifiAP::USTimer();
-
-    /*bool switchOffPowerSaving = false;
+    bool switchOffPowerSaving = false;
     if (USUntilPowerOn < 0)
     {
-        USUntilPowerOn++;
+        USUntilPowerOn += us;
 
-        switchOffPowerSaving = USUntilPowerOn == 0 && (IOPORT(W_PowerUnk) & 0x0001 || ForcePowerOn);
+        switchOffPowerSaving = (USUntilPowerOn >= 0) && (IOPORT(W_PowerUnk) & 0x0001 || ForcePowerOn);
     }
-    if (USUntilPowerOn == 0 && (IOPORT(W_PowerState) & 0x0002 || switchOffPowerSaving))
+    if ((USUntilPowerOn >= 0) && (IOPORT(W_PowerState) & 0x0002 || switchOffPowerSaving))
     {
         IOPORT(W_PowerState) = 0;
         IOPORT(W_RFPins) = 1;
         IOPORT(W_RFPins) = 0x0084;
         SetIRQ(11);
-    }*/
+    }
 
-    /*if (IOPORT(W_USCountCnt))
+    if (IOPORT(W_USCountCnt))
     {
-        USCounter++;
+        u32 old_uspart = (USCounter & 0x3FF);
+        USCounter += us;
         u32 uspart = (USCounter & 0x3FF);
 
         if (IOPORT(W_USCompareCnt))
@@ -2094,19 +1479,28 @@ void USTimer(u32 param)
             if (beaconus == IOPORT(W_PreBeacon)) SetIRQ15();
         }
 
-        if (!uspart) MSTimer();
-    }*/
+        //if (!uspart) MSTimer();
+        if (uspart < old_uspart) MSTimer();
+    }
 
-    /*if (IOPORT(W_CmdCountCnt) & 0x0001)
+    if (IOPORT(W_CmdCountCnt) & 0x0001)
     {
         if (CmdCounter > 0)
         {
-            CmdCounter--;
+            if (CmdCounter < us)
+                CmdCounter = 0;
+            else
+                CmdCounter -= us;
         }
     }
 
     if (IOPORT(W_ContentFree) != 0)
-        IOPORT(W_ContentFree)--;*/
+    {
+        if (IOPORT(W_ContentFree) < us)
+            IOPORT(W_ContentFree) = 0;
+        else
+            IOPORT(W_ContentFree) -= us;
+    }
 
     if (ComStatus == 0)
     {
@@ -2131,21 +1525,24 @@ void USTimer(u32 param)
         }
         else
         {
-            /*if ((!IsMPClient) || (USTimestamp > NextSync))
+            if ((!IsMPClient) || (USTimestamp > NextSync))
             {
-                if ((!(RXCounter & 0x1FF)))
+                u32 old_rxc = RXCounter & 0x1FF;
+                RXCounter += us;
+                //if ((!(RXCounter & 0x1FF)))
+                if ((RXCounter & 0x1FF) < old_rxc)
                 {
                     CheckRX(0);
                 }
             }
 
-            RXCounter++;*/
+            else RXCounter += us;
         }
     }
 
     if (ComStatus & 0x2)
     {
-        bool finished = ProcessTX(&TXSlots[TXCurSlot], TXCurSlot);
+        bool finished = ProcessTX(&TXSlots[TXCurSlot], TXCurSlot, us);
         if (finished)
         {
             if (IOPORT(W_PowerState) & 0x0300)
@@ -2174,8 +1571,10 @@ void USTimer(u32 param)
     }
     if (ComStatus & 0x1)
     {
-        RXTime--;
-        if (!(RXTime & RXHalfwordTimeMask))
+        u32 old_rxt = RXTime & RXHalfwordTimeMask;
+        RXTime -= us;
+        //if (!(RXTime & RXHalfwordTimeMask))
+        if ((RXTime & RXHalfwordTimeMask) < old_rxt)
         {
             u16 addr = IOPORT(W_RXTXAddr) << 1;
             if (addr < 0x1FFF) *(u16*)&RAM[addr] = *(u16*)&RXBuffer[RXBufferPtr];
@@ -2267,10 +1666,9 @@ void USTimer(u32 param)
 
     // TODO: make it more accurate, eventually
     // in the DS, the wifi system has its own 22MHz clock and doesn't use the system clock
-    // measurement: 16715us per frame
-    // calculation: 16715.113113088143330744761992174us per frame
     //NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 0);
-    //NDS::ScheduleEvent(NDS::Event_WifiLegacy, true, 34, USTimer, 0);
+    NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 1);
+    //NDS::ScheduleEvent(NDS::Event_Wifi, true, 33*8, USTimer, 8);
 }
 
 
@@ -2333,19 +1731,17 @@ u16 Read(u32 addr)
     case W_Preamble:
         return IOPORT(W_Preamble) & 0x0003;
 
-    case W_USCount0: UpdateTimers(); return (u16)(USCounter & 0xFFFF);
-    case W_USCount1: UpdateTimers(); return (u16)((USCounter >> 16) & 0xFFFF);
-    case W_USCount2: UpdateTimers(); return (u16)((USCounter >> 32) & 0xFFFF);
-    case W_USCount3: UpdateTimers(); return (u16)(USCounter >> 48);
+    case W_USCount0: return (u16)(USCounter & 0xFFFF);
+    case W_USCount1: return (u16)((USCounter >> 16) & 0xFFFF);
+    case W_USCount2: return (u16)((USCounter >> 32) & 0xFFFF);
+    case W_USCount3: return (u16)(USCounter >> 48);
 
     case W_USCompare0: return (u16)(USCompare & 0xFFFF);
     case W_USCompare1: return (u16)((USCompare >> 16) & 0xFFFF);
     case W_USCompare2: return (u16)((USCompare >> 32) & 0xFFFF);
     case W_USCompare3: return (u16)(USCompare >> 48);
 
-    case W_ContentFree: UpdateTimers(); return IOPORT(W_ContentFree);
-
-    case W_CmdCount: UpdateTimers(); return (CmdCounter + 9) / 10;
+    case W_CmdCount: return (CmdCounter + 9) / 10;
 
     case W_BBRead:
         if ((IOPORT(W_BBCnt) & 0xF000) != 0x6000)
@@ -2439,8 +1835,7 @@ void Write(u32 addr, u16 val)
 
             if (!(oldval & 0x0001) && (val & 0x0001))
             {
-                //if (!(USUntilPowerOn < 0 && ForcePowerOn))
-                if (!(EventScheduled(Event_RFWakeup) && ForcePowerOn))
+                if (!(USUntilPowerOn < 0 && ForcePowerOn))
                 {
                     //printf("mode reset power on %08x\n", NDS::ARM7->R[15]);
                     IOPORT(0x034) = 0x0002;
@@ -2449,8 +1844,7 @@ void Write(u32 addr, u16 val)
 
                     if (IOPORT(W_PowerUnk) & 0x0002)
                     {
-                        //USUntilPowerOn = -2048;
-                        ScheduleEvent(Event_RFWakeup, false, 2048, RFWakeup, 0);
+                        USUntilPowerOn = -2048;
                         IOPORT(W_PowerState) |= 0x100;
                     }
                 }
@@ -2543,8 +1937,7 @@ void Write(u32 addr, u16 val)
             {
                 //printf("power on\n");
                 IOPORT(W_PowerState) |= 0x100;
-                //USUntilPowerOn = -2048;
-                ScheduleEvent(Event_RFWakeup, false, 2048, RFWakeup, 0);
+                USUntilPowerOn = -2048;
                 ForcePowerOn = false;
             }
         }
@@ -2566,16 +1959,14 @@ void Write(u32 addr, u16 val)
         {
             //printf("power on\n");
             IOPORT(W_PowerState) |= 0x100;
-            //USUntilPowerOn = -2048;
-            ScheduleEvent(Event_RFWakeup, false, 2048, RFWakeup, 0);
+            USUntilPowerOn = -2048;
             ForcePowerOn = false;
         }
         if (val == 0x8000)
         {
             //printf("force power on\n");
             IOPORT(W_PowerState) |= 0x100;
-            //USUntilPowerOn = -2048;
-            ScheduleEvent(Event_RFWakeup, false, 2048, RFWakeup, 0);
+            USUntilPowerOn = -2048;
             ForcePowerOn = true;
         }
         break;
@@ -2592,41 +1983,16 @@ void Write(u32 addr, u16 val)
             val = 3;
         break;
 
-    case W_USCountCnt:
-        val &= 0x0001;
-        if (val && (!IOPORT(W_USCountCnt)))
-        {
-            ScheduleEvent(Event_MSTimer, false, 1024 - (USCounter & 0x3FF), MSTimer, 0);
-            IOPORT(W_USCountCnt) = val;
-        }
-        else if ((!val) && IOPORT(W_USCountCnt))
-        {
-            UpdateTimers();
-            IOPORT(W_USCountCnt) = val;
-            CancelEvent(Event_MSTimer);
-        }
-        return;
+    case W_USCountCnt: val &= 0x0001; break;
     case W_USCompareCnt:
-        if (val & 0x0002)
-        {
-            UpdateTimers();
-            SetIRQ14(2);
-        }
+        if (val & 0x0002) SetIRQ14(2);
         val &= 0x0001;
         break;
-    case W_CmdCountCnt:
-        val &= 0x0001;
-        if ((!val) && IOPORT(W_CmdCountCnt))
-        {
-            UpdateTimers();
-        }
-        IOPORT(W_CmdCountCnt) = val;
-        return;
 
-    case W_USCount0: UpdateTimers(); USCounter = (USCounter & 0xFFFFFFFFFFFF0000) | (u64)val; return;
-    case W_USCount1: UpdateTimers(); USCounter = (USCounter & 0xFFFFFFFF0000FFFF) | ((u64)val << 16); return;
-    case W_USCount2: UpdateTimers(); USCounter = (USCounter & 0xFFFF0000FFFFFFFF) | ((u64)val << 32); return;
-    case W_USCount3: UpdateTimers(); USCounter = (USCounter & 0x0000FFFFFFFFFFFF) | ((u64)val << 48); return;
+    case W_USCount0: USCounter = (USCounter & 0xFFFFFFFFFFFF0000) | (u64)val; return;
+    case W_USCount1: USCounter = (USCounter & 0xFFFFFFFF0000FFFF) | ((u64)val << 16); return;
+    case W_USCount2: USCounter = (USCounter & 0xFFFF0000FFFFFFFF) | ((u64)val << 32); return;
+    case W_USCount3: USCounter = (USCounter & 0x0000FFFFFFFFFFFF) | ((u64)val << 48); return;
 
     case W_USCompare0:
         USCompare = (USCompare & 0xFFFFFFFFFFFF0000) | (u64)(val & 0xFC00);
@@ -2636,9 +2002,7 @@ void Write(u32 addr, u16 val)
     case W_USCompare2: USCompare = (USCompare & 0xFFFF0000FFFFFFFF) | ((u64)val << 32); return;
     case W_USCompare3: USCompare = (USCompare & 0x0000FFFFFFFFFFFF) | ((u64)val << 48); return;
 
-    case W_ContentFree: UpdateTimers(); IOPORT(W_ContentFree) = val; return;
-
-    case W_CmdCount: UpdateTimers(); CmdCounter = val * 10; return;
+    case W_CmdCount: CmdCounter = val * 10; return;
 
     case W_BBCnt:
         IOPORT(W_BBCnt) = val;
