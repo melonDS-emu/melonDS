@@ -540,6 +540,9 @@ void StartTX_Beacon()
 // TODO eventually: there is a small delay to firing TX
 void FireTX()
 {
+    if (!(IOPORT(W_RXCnt) & 0x8000))
+        return;
+
     u16 txbusy = IOPORT(W_TXBusy);
 
     u16 txreq = IOPORT(W_TXReqRead);
@@ -2033,6 +2036,10 @@ void Write(u32 addr, u16 val)
         {
             IOPORT(W_TXSlotReply2) = IOPORT(W_TXSlotReply1);
             IOPORT(W_TXSlotReply1) = 0;
+        }
+        if (val & 0x8000)
+        {
+            FireTX();
         }
         val &= 0xFF0E;
         if (val & 0x7FFF) printf("wifi: unknown RXCNT bits set %04X\n", val);
