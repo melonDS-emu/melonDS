@@ -46,6 +46,9 @@ const u8 MPCmdMAC[6]   = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x00};
 const u8 MPReplyMAC[6] = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x10};
 const u8 MPAckMAC[6]   = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x03};
 
+const int kTimerInterval = 8;
+const u32 kTimeCheckMask = ~(kTimerInterval - 1);
+
 bool Enabled;
 bool PowerOn;
 
@@ -86,7 +89,6 @@ TXSlot TXSlots[6];
 
 u8 RXBuffer[2048];
 u32 RXBufferPtr;
-u64 RXTimestamp;
 u32 RXTime;
 u32 RXHalfwordTimeMask;
 u16 RXEndAddr;
@@ -109,11 +111,8 @@ bool ForcePowerOn;
 
 // MULTIPLAYER SYNC APPARATUS
 bool IsMPClient;
-u64 TimeOffsetToHost;   // clienttime - hosttime
-u64 NextSync;           // for clients: timestamp for next forced sync
-u32 NextSyncType;
-bool SyncBack;          // for clients: whether to send the host a sync once the sync is reached
-const u64 kMaxRunahead = 4096;
+u64 NextSync;           // for clients: timestamp for next sync point
+u64 RXTimestamp;
 
 // multiplayer host TX sequence:
 // 1. preamble
@@ -259,9 +258,7 @@ void Reset()
     CmdCounter = 0;
 
     IsMPClient = false;
-    TimeOffsetToHost = 0;
     NextSync = 0;
-    SyncBack = false;
 
     WifiAP::Reset();
 }
@@ -301,6 +298,13 @@ void DoSavestate(Savestate* file)
 }
 
 
+void ScheduleTimer(bool first)
+{
+    int delay = 33 * kTimerInterval;
+
+    NDS::ScheduleEvent(NDS::Event_Wifi, !first, delay, USTimer, 0);
+}
+
 void UpdatePowerOn()
 {
     bool on = Enabled;
@@ -325,8 +329,7 @@ void UpdatePowerOn()
     {
         printf("WIFI: ON\n");
 
-        NDS::ScheduleEvent(NDS::Event_Wifi, false, 33, USTimer, 1);
-        //NDS::ScheduleEvent(NDS::Event_Wifi, false, 33*8, USTimer, 8);
+        ScheduleTimer(true);
 
         Platform::MP_Begin();
     }
@@ -711,21 +714,19 @@ void SendMPAck(u16 clientfail)
 bool CheckRX(int type);
 void MPClientReplyRX(int client);
 
-bool ProcessTX(TXSlot* slot, int num, int us)
+bool ProcessTX(TXSlot* slot, int num)
 {
-    u32 old_time = slot->CurPhaseTime & slot->HalfwordTimeMask;
-    slot->CurPhaseTime -= us;
+    slot->CurPhaseTime -= kTimerInterval;
     if (slot->CurPhaseTime > 0)
     {
         if (slot->CurPhase == 1)
         {
-            if (!(slot->CurPhaseTime & slot->HalfwordTimeMask))
-            //if ((slot->CurPhaseTime & slot->HalfwordTimeMask) > old_time)
+            if (!(slot->CurPhaseTime & slot->HalfwordTimeMask & kTimeCheckMask))
                 IOPORT(W_RXTXAddr)++;
         }
         else if (slot->CurPhase == 2)
         {
-            MPReplyTimer -= us;
+            MPReplyTimer -= kTimerInterval;
             if (MPReplyTimer <= 0 && MPClientMask != 0)
             {
                 int nclient = 1;
@@ -1499,9 +1500,9 @@ void MSTimer()
     }
 }
 
-void USTimer(u32 us)
+void USTimer(u32 param)
 {
-    USTimestamp += us;
+    USTimestamp += kTimerInterval;
 
     if (IsMPClient && (!ComStatus))
     {
@@ -1518,13 +1519,13 @@ void USTimer(u32 us)
         }
     }
 
-    if (!(USTimestamp & 0x3FF))
+    if (!(USTimestamp & 0x3FF & kTimeCheckMask))
         WifiAP::MSTimer();
 
     bool switchOffPowerSaving = false;
     if (USUntilPowerOn < 0)
     {
-        USUntilPowerOn += us;
+        USUntilPowerOn += kTimerInterval;
 
         switchOffPowerSaving = (USUntilPowerOn >= 0) && (IOPORT(W_PowerUnk) & 0x0001 || ForcePowerOn);
     }
@@ -1538,8 +1539,7 @@ void USTimer(u32 us)
 
     if (IOPORT(W_USCountCnt))
     {
-        u32 old_uspart = (USCounter & 0x3FF);
-        USCounter += us;
+        USCounter += kTimerInterval;
         u32 uspart = (USCounter & 0x3FF);
 
         if (IOPORT(W_USCompareCnt))
@@ -1548,27 +1548,27 @@ void USTimer(u32 us)
             if (beaconus == IOPORT(W_PreBeacon)) SetIRQ15();
         }
 
-        if (!uspart) MSTimer();
-        //if (uspart < old_uspart) MSTimer();
+        if (!(uspart & kTimeCheckMask))
+            MSTimer();
     }
 
     if (IOPORT(W_CmdCountCnt) & 0x0001)
     {
         if (CmdCounter > 0)
         {
-            if (CmdCounter < us)
+            if (CmdCounter < kTimerInterval)
                 CmdCounter = 0;
             else
-                CmdCounter -= us;
+                CmdCounter -= kTimerInterval;
         }
     }
 
     if (IOPORT(W_ContentFree) != 0)
     {
-        if (IOPORT(W_ContentFree) < us)
+        if (IOPORT(W_ContentFree) < kTimerInterval)
             IOPORT(W_ContentFree) = 0;
         else
-            IOPORT(W_ContentFree) -= us;
+            IOPORT(W_ContentFree) -= kTimerInterval;
     }
 
     if (ComStatus == 0)
@@ -1596,22 +1596,19 @@ void USTimer(u32 us)
         {
             if ((!IsMPClient) || (USTimestamp > NextSync))
             {
-                u32 old_rxc = RXCounter & 0x1FF;
-                RXCounter += us;
-                if ((!(RXCounter & 0x1FF)) && (!ComStatus))
-                //if ((RXCounter & 0x1FF) < old_rxc)
+                if ((!(RXCounter & 0x1FF & kTimeCheckMask)) && (!ComStatus))
                 {
                     CheckRX(0);
                 }
             }
 
-            else RXCounter += us;
+            RXCounter += kTimerInterval;
         }
     }
 
     if (ComStatus & 0x2)
     {
-        bool finished = ProcessTX(&TXSlots[TXCurSlot], TXCurSlot, us);
+        bool finished = ProcessTX(&TXSlots[TXCurSlot], TXCurSlot);
         if (finished)
         {
             if (IOPORT(W_PowerState) & 0x0300)
@@ -1640,10 +1637,8 @@ void USTimer(u32 us)
     }
     if (ComStatus & 0x1)
     {
-        u32 old_rxt = RXTime & RXHalfwordTimeMask;
-        RXTime -= us;
-        if (!(RXTime & RXHalfwordTimeMask))
-        //if ((RXTime & RXHalfwordTimeMask) < old_rxt)
+        RXTime -= kTimerInterval;
+        if (!(RXTime & RXHalfwordTimeMask & kTimeCheckMask))
         {
             u16 addr = IOPORT(W_RXTXAddr) << 1;
             if (addr < 0x1FFF) *(u16*)&RAM[addr] = *(u16*)&RXBuffer[RXBufferPtr];
@@ -1658,6 +1653,9 @@ void USTimer(u32 us)
             }
             else if (addr == (IOPORT(W_RXBufReadCursor) << 1))
             {
+                // TODO: properly check the crossing of the read cursor
+                // (for example, if it is outside of the RX buffer)
+
                 printf("wifi: RX buffer full (buf=%04X/%04X rd=%04X wr=%04X rxtx=%04X power=%04X com=%d rxcnt=%04X filter=%04X/%04X frame=%04X/%04X len=%d)\n",
                        (IOPORT(W_RXBufBegin)>>1)&0xFFF, (IOPORT(W_RXBufEnd)>>1)&0xFFF,
                        IOPORT(W_RXBufReadCursor), IOPORT(W_RXBufWriteCursor),
@@ -1680,11 +1678,7 @@ void USTimer(u32 us)
         }
     }
 
-    // TODO: make it more accurate, eventually
-    // in the DS, the wifi system has its own 22MHz clock and doesn't use the system clock
-    //NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 0);
-    NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 1);
-    //NDS::ScheduleEvent(NDS::Event_Wifi, true, 33*8, USTimer, 8);
+    ScheduleTimer(false);
 }
 
 
