@@ -1407,7 +1407,9 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
     *(u16*)&RXBuffer[6] = txrate;
     *(u16*)&RXBuffer[8] = framelen;
 
-    if (((framectl & 0x00FF) == 0x0010) && timestamp)
+    bool macgood = (RXBuffer[12 + 4] & 0x01) || MACEqual(&RXBuffer[12 + 4], (u8*)&IOPORT(W_MACAddr0));
+
+    if (((framectl & 0x00FF) == 0x0010) && timestamp && macgood)
     {
         // if receiving an association response: get the sync value from the host
 
@@ -1425,7 +1427,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
         RXTimestamp = 0;
         StartRX();
     }
-    else if (((framectl & 0x00FF) == 0x00C0) && timestamp && IsMPClient)
+    else if (((framectl & 0x00FF) == 0x00C0) && timestamp && macgood && IsMPClient)
     {
         IsMPClient = false;
         NextSync = 0;
@@ -1433,7 +1435,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
         RXTimestamp = 0;
         StartRX();
     }
-    else if (IsMPClient)
+    else if (macgood && IsMPClient)
     {
         // if we are being a MP client, we need to delay this frame until we reach the
         // timestamp it came with

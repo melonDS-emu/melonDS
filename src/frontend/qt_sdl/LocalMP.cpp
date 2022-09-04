@@ -555,7 +555,8 @@ u16 RecvReplies(u8* packets, u64 timestamp, u16 aidmask)
         }
 
         myinstmask |= (1 << pktheader.SenderID);
-        if ((myinstmask & curinstmask) == curinstmask)
+        if (((myinstmask & curinstmask) == curinstmask) ||
+            ((ret & aidmask) == aidmask))
         {
             // all the clients have sent their reply
 
