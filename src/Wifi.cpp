@@ -52,6 +52,8 @@ const u32 kTimeCheckMask = ~(kTimerInterval - 1);
 bool Enabled;
 bool PowerOn;
 
+s32 TimerError;
+
 u16 Random;
 
 // general, always-on microsecond counter
@@ -89,7 +91,7 @@ TXSlot TXSlots[6];
 
 u8 RXBuffer[2048];
 u32 RXBufferPtr;
-u32 RXTime;
+int RXTime;
 u32 RXHalfwordTimeMask;
 u16 RXEndAddr;
 
@@ -300,7 +302,12 @@ void DoSavestate(Savestate* file)
 
 void ScheduleTimer(bool first)
 {
-    int delay = 33 * kTimerInterval;
+    if (first) TimerError = 0;
+
+    s32 cycles = 33513982 * kTimerInterval;
+    cycles -= TimerError;
+    s32 delay = (cycles + 999999) / 1000000;
+    TimerError = (delay * 1000000) - cycles;
 
     NDS::ScheduleEvent(NDS::Event_Wifi, !first, delay, USTimer, 0);
 }
@@ -721,7 +728,7 @@ bool ProcessTX(TXSlot* slot, int num)
     {
         if (slot->CurPhase == 1)
         {
-            if (!(slot->CurPhaseTime & slot->HalfwordTimeMask & kTimeCheckMask))
+            if (!(slot->CurPhaseTime & slot->HalfwordTimeMask))
                 IOPORT(W_RXTXAddr)++;
         }
         else if (slot->CurPhase == 2)
@@ -785,12 +792,12 @@ bool ProcessTX(TXSlot* slot, int num)
             if (slot->Rate == 2)
             {
                 len *= 4;
-                slot->HalfwordTimeMask = 0x7;
+                slot->HalfwordTimeMask = 0x7 & kTimeCheckMask;
             }
             else
             {
                 len *= 8;
-                slot->HalfwordTimeMask = 0xF;
+                slot->HalfwordTimeMask = 0xF & kTimeCheckMask;
             }
 
             slot->CurPhase = 1;
@@ -1050,12 +1057,12 @@ void StartRX()
     if (txrate == 0x14)
     {
         RXTime *= 4;
-        RXHalfwordTimeMask = 0x7;
+        RXHalfwordTimeMask = 0x7 & kTimeCheckMask;
     }
     else
     {
         RXTime *= 8;
-        RXHalfwordTimeMask = 0xF;
+        RXHalfwordTimeMask = 0xF & kTimeCheckMask;
     }
 
     u16 addr = IOPORT(W_RXBufWriteCursor) << 1;
@@ -1480,7 +1487,7 @@ void MSTimer()
 {
     if (IOPORT(W_USCompareCnt))
     {
-        if (USCounter == USCompare)
+        if ((USCounter & ~0x3FF) == USCompare)
         {
             BlockBeaconIRQ14 = false;
             SetIRQ14(0);
@@ -1545,7 +1552,8 @@ void USTimer(u32 param)
         if (IOPORT(W_USCompareCnt))
         {
             u32 beaconus = (IOPORT(W_BeaconCount1) << 10) | (0x3FF - uspart);
-            if (beaconus == IOPORT(W_PreBeacon)) SetIRQ15();
+            if ((beaconus & kTimeCheckMask) == (IOPORT(W_PreBeacon) & kTimeCheckMask))
+                SetIRQ15();
         }
 
         if (!(uspart & kTimeCheckMask))
@@ -1638,7 +1646,7 @@ void USTimer(u32 param)
     if (ComStatus & 0x1)
     {
         RXTime -= kTimerInterval;
-        if (!(RXTime & RXHalfwordTimeMask & kTimeCheckMask))
+        if (!(RXTime & RXHalfwordTimeMask))
         {
             u16 addr = IOPORT(W_RXTXAddr) << 1;
             if (addr < 0x1FFF) *(u16*)&RAM[addr] = *(u16*)&RXBuffer[RXBufferPtr];
@@ -1647,7 +1655,7 @@ void USTimer(u32 param)
             IOPORT(W_RXTXAddr) = addr >> 1;
             RXBufferPtr += 2;
 
-            if (RXTime == 0) // finished receiving
+            if (RXTime <= 0) // finished receiving
             {
                 FinishRX();
             }
