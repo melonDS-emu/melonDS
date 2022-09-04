@@ -23,7 +23,9 @@
 #ifdef __WIN32__
     #include <windows.h>
 #else
-    // todo
+    #include <fcntl.h>
+    #include <semaphore.h>
+    #include <time.h>
 #endif
 
 #include <string>
@@ -89,8 +91,7 @@ int LastHostID;
 // because QSystemSemaphore doesn't support waiting with a timeout
 // and, as such, is unsuitable to our needs
 
-//#ifdef _WIN32
-#if 1
+#ifdef __WIN32__
 
 bool SemInited[32];
 HANDLE SemPool[32];
@@ -153,30 +154,80 @@ void SemReset(int num)
     while (WaitForSingleObject(SemPool[num], 0) == WAIT_OBJECT_0);
 }
 
-/*bool SemWaitMultiple(int start, u16 bitmask, int timeout)
-{
-    HANDLE semlist[16];
-    int numsem = 0;
-
-    for (int i = 0; i < 16; i++)
-    {
-        if (bitmask & (1<<i))
-        {
-            SemInit(start+i);
-            semlist[numsem] = SemPool[start+i];
-            numsem++;
-        }
-    }
-
-    DWORD res = WaitForMultipleObjects(numsem, semlist, TRUE, timeout);
-    return (res >= WAIT_OBJECT_0) && (res < (WAIT_OBJECT_0+numsem));
-}*/
-
 #else
 
-// TODO: code semaphore shit for other platforms!
+bool SemInited[32];
+sem_t* SemPool[32];
 
-#endif // _WIN32
+void SemPoolInit()
+{
+    for (int i = 0; i < 32; i++)
+    {
+        SemPool[i] = SEM_FAILED;
+        SemInited[i] = false;
+    }
+}
+
+void SemDeinit(int num);
+
+void SemPoolDeinit()
+{
+    for (int i = 0; i < 32; i++)
+        SemDeinit(i);
+}
+
+bool SemInit(int num)
+{
+    if (SemInited[num])
+        return true;
+
+    char semname[64];
+    sprintf(semname, "/melonNIFI_Sem%02d", num);
+
+    sem_t* sem = sem_open(semname, O_CREAT, 0644, 0);
+    SemPool[num] = sem;
+    SemInited[num] = true;
+    return sem != SEM_FAILED;
+}
+
+void SemDeinit(int num)
+{
+    if (SemPool[num] != SEM_FAILED)
+    {
+        sem_close(SemPool[num]);
+        SemPool[num] = SEM_FAILED;
+    }
+
+    SemInited[num] = false;
+}
+
+bool SemPost(int num)
+{
+    SemInit(num);
+    return sem_post(SemPool[num]) == 0;
+}
+
+bool SemWait(int num, int timeout)
+{
+    if (!timeout)
+        return sem_trywait(SemPool[num]) == 0;
+        
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_nsec += timeout * 1000000;
+    long sec = ts.tv_nsec / 1000000000;
+    ts.tv_nsec -= sec * 1000000000; 
+    ts.tv_sec += sec;
+
+    return sem_timedwait(SemPool[num], &ts) == 0;
+}
+
+void SemReset(int num)
+{
+    while (sem_trywait(SemPool[num]) == 0);
+}
+
+#endif
 
 
 bool Init()

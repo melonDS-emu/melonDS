@@ -2612,10 +2612,12 @@ void MainWindow::onTest()
 {
     //QProcess::startDetached(QApplication::applicationFilePath());
     QProcess ass;
+#ifdef __WIN32__
     ass.setCreateProcessArgumentsModifier([] (QProcess::CreateProcessArguments *args)
     {
         args->flags |= CREATE_NEW_CONSOLE;
     });
+#endif
     ass.startDetached(QApplication::applicationFilePath());
 }
 
