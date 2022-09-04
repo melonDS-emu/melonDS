@@ -537,11 +537,10 @@ void StartTX_Beacon()
     IOPORT(W_TXBusy) |= 0x0010;
 }
 
-// TODO eventually: there is a small delay to firing TX
 void FireTX()
 {
-    //if (!(IOPORT(W_RXCnt) & 0x8000))
-     //   return;
+    if (!(IOPORT(W_RXCnt) & 0x8000))
+        return;
 
     u16 txbusy = IOPORT(W_TXBusy);
 
@@ -854,6 +853,14 @@ bool ProcessTX(TXSlot* slot, int num, int us)
                     u16 aid = *(u16*)&RAM[slot->Addr + 0xC + 24 + 4];
                     if (aid) printf("[HOST] syncing client %04X, sync=%016llX\n", aid, USTimestamp);
                 }
+                else if ((framectl & 0x00FF) == 0x00C0)
+                {
+                    if (IsMPClient)
+                    {
+                        printf("[CLIENT] deauth\n");
+                        IsMPClient = false;
+                    }
+                }
 
                 WifiAP::SendPacket(&RAM[slot->Addr], 12 + slot->Length);
             }
@@ -896,13 +903,15 @@ bool ProcessTX(TXSlot* slot, int num, int us)
                 }
                 SetStatus(5);
 
-                u16 clientmask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2];
+                u16 clientmask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2] & 0xFFFE;
                 //MPNumReplies = NumClients(clientmask);
                 MPReplyTimer = 16 + PreambleLen(slot->Rate);
                 MPClientMask = clientmask;
                 MPClientFail = clientmask;
 
-                u16 res = Platform::MP_RecvReplies(MPClientReplies, USTimestamp, clientmask);
+                u16 res = 0;
+                if (clientmask)
+                    res = Platform::MP_RecvReplies(MPClientReplies, USTimestamp, clientmask);
                 MPClientFail &= ~res;
 
                 // TODO: 112 likely includes the ack preamble, which needs adjusted
@@ -1380,6 +1389,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
             if (rxlen < 0)
             {
                 // host is gone
+                // TODO: make this more resilient
                 IsMPClient = false;
             }
         }
@@ -1397,7 +1407,6 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 
         framectl = *(u16*)&RXBuffer[12+0];
         txrate = RXBuffer[8];
-
         break;
     }
 
@@ -1494,7 +1503,7 @@ void USTimer(u32 us)
 {
     USTimestamp += us;
 
-    if (IsMPClient)
+    if (IsMPClient && (!ComStatus))
     {
         if (RXTimestamp && (USTimestamp >= RXTimestamp))
         {
@@ -1504,11 +1513,8 @@ void USTimer(u32 us)
 
         if (USTimestamp >= NextSync)
         {
-            if (!(ComStatus & 1))
-            {
-                // TODO: not do this every tick if it fails to receive a frame!
-                CheckRX(2);
-            }
+            // TODO: not do this every tick if it fails to receive a frame!
+            CheckRX(2);
         }
     }
 
@@ -1592,7 +1598,7 @@ void USTimer(u32 us)
             {
                 u32 old_rxc = RXCounter & 0x1FF;
                 RXCounter += us;
-                if ((!(RXCounter & 0x1FF)))
+                if ((!(RXCounter & 0x1FF)) && (!ComStatus))
                 //if ((RXCounter & 0x1FF) < old_rxc)
                 {
                     CheckRX(0);
@@ -1652,7 +1658,12 @@ void USTimer(u32 us)
             }
             else if (addr == (IOPORT(W_RXBufReadCursor) << 1))
             {
-                printf("wifi: RX buffer full\n");
+                printf("wifi: RX buffer full (buf=%04X/%04X rd=%04X wr=%04X rxtx=%04X power=%04X com=%d rxcnt=%04X filter=%04X/%04X frame=%04X/%04X len=%d)\n",
+                       (IOPORT(W_RXBufBegin)>>1)&0xFFF, (IOPORT(W_RXBufEnd)>>1)&0xFFF,
+                       IOPORT(W_RXBufReadCursor), IOPORT(W_RXBufWriteCursor),
+                       IOPORT(W_RXTXAddr), IOPORT(W_PowerState), ComStatus,
+                       IOPORT(W_RXCnt), IOPORT(W_RXFilter), IOPORT(W_RXFilter2),
+                       *(u16*)&RXBuffer[0], *(u16*)&RXBuffer[12], *(u16*)&RXBuffer[8]);
                 RXTime = 0;
                 SetStatus(1);
                 if (TXCurSlot == 0xFFFFFFFF)
@@ -2041,7 +2052,7 @@ void Write(u32 addr, u16 val)
         }
         if (val & 0x8000)
         {
-            //FireTX();
+            FireTX();
         }
         val &= 0xFF0E;
         if (val & 0x7FFF) printf("wifi: unknown RXCNT bits set %04X\n", val);
