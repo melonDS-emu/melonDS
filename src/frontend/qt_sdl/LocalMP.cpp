@@ -374,6 +374,7 @@ int SendPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
         header->MPHostInstanceID = InstanceID;
         header->MPReplyBitmask = 0;
         ReplyReadOffset = header->ReplyWriteOffset;
+        SemReset(16 + InstanceID);
     }
     else if (type == 2)
     {
