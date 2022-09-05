@@ -85,7 +85,7 @@ const u32 kReplyStart = kQueueSize / 2;
 const u32 kPacketEnd = kReplyStart;
 const u32 kReplyEnd = kQueueSize;
 
-const int RecvTimeout = 500;
+const int RecvTimeout = 25;
 
 int LastHostID;
 
@@ -214,12 +214,12 @@ bool SemWait(int num, int timeout)
 {
     if (!timeout)
         return sem_trywait(SemPool[num]) == 0;
-        
+
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     ts.tv_nsec += timeout * 1000000;
     long sec = ts.tv_nsec / 1000000000;
-    ts.tv_nsec -= sec * 1000000000; 
+    ts.tv_nsec -= sec * 1000000000;
     ts.tv_sec += sec;
 
     return sem_timedwait(SemPool[num], &ts) == 0;
