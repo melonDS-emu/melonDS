@@ -26,6 +26,9 @@
     #include <fcntl.h>
     #include <semaphore.h>
     #include <time.h>
+    #ifdef __APPLE__
+        #include "sem_timedwait.h"
+    #endif
 #endif
 
 #include <string>
