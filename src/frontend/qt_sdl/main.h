@@ -255,7 +255,7 @@ private slots:
     void onROMInfo();
     void onRAMInfo();
     void onOpenTitleManager();
-    void onTest();
+    void onMPNewInstance();
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -345,7 +345,7 @@ public:
     QAction* actROMInfo;
     QAction* actRAMInfo;
     QAction* actTitleManager;
-    QAction* actTest;
+    QAction* actMPNewInstance;
 
     QAction* actEmuSettings;
     QAction* actPowerManagement;

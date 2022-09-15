@@ -281,9 +281,9 @@ ConfigEntry ConfigFile[] =
 
     {"AudioInterp", 0, &AudioInterp, 0, false},
     {"AudioBitrate", 0, &AudioBitrate, 0, false},
-    {"AudioVolume", 0, &AudioVolume, 256, false},
-    {"MicInputType", 0, &MicInputType, 1, false},
-    {"MicWavPath", 2, &MicWavPath, (std::string)"", false},
+    {"AudioVolume", 0, &AudioVolume, 256, true},
+    {"MicInputType", 0, &MicInputType, 1, true},
+    {"MicWavPath", 2, &MicWavPath, (std::string)"", true},
 
     {"LastROMFolder", 2, &LastROMFolder, (std::string)"", true},
 
@@ -308,9 +308,9 @@ ConfigEntry ConfigFile[] =
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, false},
     {"PauseLostFocus",   1, &PauseLostFocus,   false, false},
 
-    {"DSBatteryLevelOkay",   1, &DSBatteryLevelOkay, true, false},
-    {"DSiBatteryLevel",    0, &DSiBatteryLevel, 0xF, false},
-    {"DSiBatteryCharging", 1, &DSiBatteryCharging, true, false},
+    {"DSBatteryLevelOkay",   1, &DSBatteryLevelOkay, true, true},
+    {"DSiBatteryLevel",    0, &DSiBatteryLevel, 0xF, true},
+    {"DSiBatteryCharging", 1, &DSiBatteryCharging, true, true},
 
     {"", -1, nullptr, 0, false}
 };
@@ -322,7 +322,7 @@ void LoadFile(int inst)
     if (inst > 0)
     {
         char name[100] = {0};
-        snprintf(name, 99, kUniqueConfigFile, inst);
+        snprintf(name, 99, kUniqueConfigFile, inst+1);
         f = Platform::OpenLocalFile(name, "r");
     }
     else
@@ -392,7 +392,7 @@ void Save()
     if (inst > 0)
     {
         char name[100] = {0};
-        snprintf(name, 99, kUniqueConfigFile, inst);
+        snprintf(name, 99, kUniqueConfigFile, inst+1);
         f = Platform::OpenLocalFile(name, "w");
     }
     else

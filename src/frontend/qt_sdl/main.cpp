@@ -1340,6 +1340,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     setAttribute(Qt::WA_DeleteOnClose);
     setAcceptDrops(true);
 
+    int inst = Platform::InstanceID();
+
     QMenuBar* menubar = new QMenuBar();
     {
         QMenu* menu = menubar->addMenu("File");
@@ -1471,54 +1473,69 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actEnableCheats->setCheckable(true);
         connect(actEnableCheats, &QAction::triggered, this, &MainWindow::onEnableCheats);
 
-        actSetupCheats = menu->addAction("Setup cheat codes");
-        actSetupCheats->setMenuRole(QAction::NoRole);
-        connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
+        //if (inst == 0)
+        {
+            actSetupCheats = menu->addAction("Setup cheat codes");
+            actSetupCheats->setMenuRole(QAction::NoRole);
+            connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
 
-        menu->addSeparator();
-        actROMInfo = menu->addAction("ROM info");
-        connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
+            menu->addSeparator();
+            actROMInfo = menu->addAction("ROM info");
+            connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
 
-        actRAMInfo = menu->addAction("RAM search");
-        connect(actRAMInfo, &QAction::triggered, this, &MainWindow::onRAMInfo);
+            actRAMInfo = menu->addAction("RAM search");
+            connect(actRAMInfo, &QAction::triggered, this, &MainWindow::onRAMInfo);
 
-        actTitleManager = menu->addAction("Manage DSi titles");
-        connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
+            actTitleManager = menu->addAction("Manage DSi titles");
+            connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
+        }
 
-        // TEST!!
-        menu->addSeparator();
-        actTest = menu->addAction("Fart");
-        connect(actTest, &QAction::triggered, this, &MainWindow::onTest);
+        {
+            menu->addSeparator();
+            QMenu* submenu = menu->addMenu("Multiplayer");
+
+            actMPNewInstance = submenu->addAction("Launch new instance");
+            connect(actMPNewInstance, &QAction::triggered, this, &MainWindow::onMPNewInstance);
+        }
     }
     {
         QMenu* menu = menubar->addMenu("Config");
 
-        actEmuSettings = menu->addAction("Emu settings");
-        connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
+        //if (inst == 0)
+        {
+            actEmuSettings = menu->addAction("Emu settings");
+            connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
 
 #ifdef __APPLE__
-        QAction* actPreferences = menu->addAction("Preferences...");
-        connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
-        actPreferences->setMenuRole(QAction::PreferencesRole);
+            QAction* actPreferences = menu->addAction("Preferences...");
+            connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
+            actPreferences->setMenuRole(QAction::PreferencesRole);
 #endif
+        }
 
         actInputConfig = menu->addAction("Input and hotkeys");
         connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
 
-        actVideoSettings = menu->addAction("Video settings");
-        connect(actVideoSettings, &QAction::triggered, this, &MainWindow::onOpenVideoSettings);
+        //if (inst == 0)
+        {
+            actVideoSettings = menu->addAction("Video settings");
+            connect(actVideoSettings, &QAction::triggered, this, &MainWindow::onOpenVideoSettings);
+        }
 
         actAudioSettings = menu->addAction("Audio settings");
         connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
 
-        actWifiSettings = menu->addAction("Wifi settings");
-        connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
-
-        actInterfaceSettings = menu->addAction("Interface settings");
-        connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
+        //if (inst == 0)
+        {
+            actWifiSettings = menu->addAction("Wifi settings");
+            connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
+        }
 
         actFirmwareSettings = menu->addAction("Firmware settings");
         connect(actFirmwareSettings, &QAction::triggered, this, &MainWindow::onOpenFirmwareSettings);
+
+        actInterfaceSettings = menu->addAction("Interface settings");
+        connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
 
         actPathSettings = menu->addAction("Path settings");
         connect(actPathSettings, &QAction::triggered, this, &MainWindow::onOpenPathSettings);
@@ -2616,17 +2633,21 @@ void MainWindow::onOpenTitleManager()
     TitleManagerDialog* dlg = TitleManagerDialog::openDlg(this);
 }
 
-void MainWindow::onTest()
+void MainWindow::onMPNewInstance()
 {
     //QProcess::startDetached(QApplication::applicationFilePath());
-    QProcess ass;
+    QProcess newinst;
+    newinst.setProgram(QApplication::applicationFilePath());
+    newinst.setArguments(QApplication::arguments().mid(1, QApplication::arguments().length()-1));
+
 #ifdef __WIN32__
-    ass.setCreateProcessArgumentsModifier([] (QProcess::CreateProcessArguments *args)
+    newinst.setCreateProcessArgumentsModifier([] (QProcess::CreateProcessArguments *args)
     {
         args->flags |= CREATE_NEW_CONSOLE;
     });
 #endif
-    ass.startDetached(QApplication::applicationFilePath());
+
+    newinst.startDetached();
 }
 
 void MainWindow::onOpenEmuSettings()

@@ -19,6 +19,7 @@
 #include <QMessageBox>
 
 #include "Config.h"
+#include "Platform.h"
 
 #include "FirmwareSettingsDialog.h"
 #include "ui_FirmwareSettingsDialog.h"
@@ -66,6 +67,12 @@ FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent
     ui->txtMAC->setText(QString::fromStdString(Config::FirmwareMAC));
 
     on_overrideFirmwareBox_toggled();
+
+    int inst = Platform::InstanceID();
+    if (inst > 0)
+        ui->lblInstanceNum->setText(QString("Configuring settings for instance %1").arg(inst+1));
+    else
+        ui->lblInstanceNum->hide();
 }
 
 FirmwareSettingsDialog::~FirmwareSettingsDialog()

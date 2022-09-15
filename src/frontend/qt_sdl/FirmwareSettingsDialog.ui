@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>511</width>
-    <height>338</height>
+    <height>357</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -23,6 +23,13 @@
    <property name="sizeConstraint">
     <enum>QLayout::SetFixedSize</enum>
    </property>
+   <item>
+    <widget class="QLabel" name="lblInstanceNum">
+     <property name="text">
+      <string>Configuring settings for instance X</string>
+     </property>
+    </widget>
+   </item>
    <item>
     <widget class="QGroupBox" name="grpGeneral">
      <property name="title">
