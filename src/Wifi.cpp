@@ -1778,9 +1778,6 @@ u16 Read(u32 addr)
         if (activeread)
         {
             u32 rdaddr = IOPORT(W_RXBufReadAddr);
-
-            //if (*(u16*)&RAM[(rdaddr - 0x1C) & 0x1FFE] == 0x0228)
-            //    printf("READ SHITTY CMD HEADER %08X\n", NDS::GetPC(1));
             u16 ret = *(u16*)&RAM[rdaddr];
 
             rdaddr += 2;

@@ -385,24 +385,23 @@ void Reset()
 
     *(u16*)&Firmware[userdata+0x72] = CRC16(&Firmware[userdata], 0x70, 0xFFFF);
 
-    if (firmoverride)
+    //if (firmoverride)
     {
         u8 mac[6];
-        bool rep;
+        bool rep = false;
 
-        if (Platform::GetConfigBool(Platform::Firm_RandomizeMAC))
-        {
-            mac[0] = 0x00;
-            mac[1] = 0x09;
-            mac[2] = 0xBF;
-            mac[3] = rand()&0xFF;
-            mac[4] = rand()&0xFF;
-            mac[5] = rand()&0xFF;
-            rep = true;
-        }
-        else
-        {
+        memcpy(mac, &Firmware[0x36], 6);
+
+        if (firmoverride)
             rep = Platform::GetConfigArray(Platform::Firm_MAC, mac);
+
+        int inst = Platform::InstanceID();
+        if (inst > 0)
+        {
+            rep = true;
+            mac[3] += inst;
+            mac[4] += inst*0x44;
+            mac[5] += inst*0x10;
         }
 
         if (rep)

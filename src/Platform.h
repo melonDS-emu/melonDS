@@ -32,6 +32,9 @@ void DeInit();
 
 void StopEmu();
 
+// instance ID, for local multiplayer
+int InstanceID();
+
 // configuration values
 
 enum ConfigEntry

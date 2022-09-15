@@ -28,6 +28,7 @@
 #include <QSemaphore>
 #include <QMutex>
 #include <QOpenGLContext>
+#include <QSharedMemory>
 
 #include "Platform.h"
 #include "Config.h"
@@ -43,6 +44,55 @@ void emuStop();
 
 namespace Platform
 {
+
+QSharedMemory* IPCBuffer = nullptr;
+int IPCInstanceID;
+
+void IPCInit()
+{
+    IPCInstanceID = 0;
+
+    IPCBuffer = new QSharedMemory("melonIPC");
+
+    if (!IPCBuffer->attach())
+    {
+        printf("IPC sharedmem doesn't exist. creating\n");
+        if (!IPCBuffer->create(4096))
+        {
+            printf("IPC sharedmem create failed :(\n");
+            delete IPCBuffer;
+            IPCBuffer= nullptr;
+            return;
+        }
+
+        IPCBuffer->lock();
+        memset(IPCBuffer->data(), 0, IPCBuffer->size());
+        IPCBuffer->unlock();
+    }
+
+    IPCBuffer->lock();
+    u8* data = (u8*)IPCBuffer->data();
+    u16 mask = *(u16*)&data[0];
+    for (int i = 0; i < 16; i++)
+    {
+        if (!(mask & (1<<i)))
+        {
+            IPCInstanceID = i;
+            *(u16*)&data[0] |= (1<<i);
+            break;
+        }
+    }
+    IPCBuffer->unlock();
+
+    printf("IPC: instance ID %d\n", IPCInstanceID);
+}
+
+void IPCDeInit()
+{
+    if (IPCBuffer) delete IPCBuffer;
+    IPCBuffer = nullptr;
+}
+
 
 void Init(int argc, char** argv)
 {
@@ -77,16 +127,25 @@ void Init(int argc, char** argv)
     confdir = config.absolutePath() + "/melonDS/";
     EmuDirectory = confdir.toStdString();
 #endif
+
+    IPCInit();
 }
 
 void DeInit()
 {
+    IPCDeInit();
 }
 
 
 void StopEmu()
 {
     emuStop();
+}
+
+
+int InstanceID()
+{
+    return IPCInstanceID;
 }
 
 

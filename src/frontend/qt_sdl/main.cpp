@@ -647,7 +647,11 @@ void EmuThread::run()
                 if (winUpdateFreq < 1)
                     winUpdateFreq = 1;
 
-                sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
+                int inst = Platform::InstanceID();
+                if (inst == 0)
+                    sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
+                else
+                    sprintf(melontitle, "[%d/%.0f] melonDS (%d)", fps, fpstarget, inst+1);
                 changeWindowTitle(melontitle);
             }
         }
@@ -662,7 +666,11 @@ void EmuThread::run()
 
             EmuStatus = EmuRunning;
 
-            sprintf(melontitle, "melonDS " MELONDS_VERSION);
+            int inst = Platform::InstanceID();
+            if (inst == 0)
+                sprintf(melontitle, "melonDS " MELONDS_VERSION);
+            else
+                sprintf(melontitle, "melonDS (%d)", inst+1);
             changeWindowTitle(melontitle);
 
             SDL_Delay(75);

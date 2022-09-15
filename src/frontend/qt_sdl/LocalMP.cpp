@@ -235,7 +235,7 @@ void SemReset(int num)
 
 bool Init()
 {
-    MPQueue = new QSharedMemory("melonNIFI_FIFO");
+    MPQueue = new QSharedMemory("melonNIFI");
 
     if (!MPQueue->attach())
     {
