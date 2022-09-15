@@ -106,7 +106,6 @@ int FirmwareBirthdayDay;
 int FirmwareFavouriteColour;
 std::string FirmwareMessage;
 std::string FirmwareMAC;
-bool RandomizeMAC;
 
 bool SocketBindAnyAddr;
 std::string LANDevice;
@@ -272,7 +271,6 @@ ConfigEntry ConfigFile[] =
     {"FirmwareFavouriteColour", 0, &FirmwareFavouriteColour, 0},
     {"FirmwareMessage", 2, &FirmwareMessage, (std::string)""},
     {"FirmwareMAC", 2, &FirmwareMAC, (std::string)""},
-    {"RandomizeMAC", 1, &RandomizeMAC, false},
 
     {"SockBindAnyAddr", 1, &SocketBindAnyAddr, false},
     {"LANDevice", 2, &LANDevice, (std::string)""},

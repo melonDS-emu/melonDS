@@ -406,6 +406,7 @@ void Reset()
 
         if (rep)
         {
+            mac[0] &= 0xFC; // ensure the MAC isn't a broadcast MAC
             memcpy(&Firmware[0x36], mac, 6);
 
             *(u16*)&Firmware[0x2A] = CRC16(&Firmware[0x2C], *(u16*)&Firmware[0x2C], 0x0000);

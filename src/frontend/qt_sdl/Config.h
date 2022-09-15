@@ -141,7 +141,6 @@ extern int FirmwareBirthdayDay;
 extern int FirmwareFavouriteColour;
 extern std::string FirmwareMessage;
 extern std::string FirmwareMAC;
-extern bool RandomizeMAC;
 
 extern bool SocketBindAnyAddr;
 extern std::string LANDevice;

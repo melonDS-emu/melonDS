@@ -57,11 +57,11 @@ void IPCInit()
     if (!IPCBuffer->attach())
     {
         printf("IPC sharedmem doesn't exist. creating\n");
-        if (!IPCBuffer->create(4096))
+        if (!IPCBuffer->create(1024))
         {
             printf("IPC sharedmem create failed :(\n");
             delete IPCBuffer;
-            IPCBuffer= nullptr;
+            IPCBuffer = nullptr;
             return;
         }
 
@@ -89,7 +89,17 @@ void IPCInit()
 
 void IPCDeInit()
 {
-    if (IPCBuffer) delete IPCBuffer;
+    if (IPCBuffer)
+    {
+        IPCBuffer->lock();
+        u8* data = (u8*)IPCBuffer->data();
+        *(u16*)&data[0] &= ~(1<<IPCInstanceID);
+        IPCBuffer->unlock();
+
+        IPCBuffer->detach();
+        delete IPCBuffer;
+    }
+
     IPCBuffer = nullptr;
 }
 
@@ -195,7 +205,6 @@ bool GetConfigBool(ConfigEntry entry)
     case DSiSD_ReadOnly: return Config::DSiSDReadOnly != 0;
     case DSiSD_FolderSync: return Config::DSiSDFolderSync != 0;
 
-    case Firm_RandomizeMAC: return Config::RandomizeMAC != 0;
     case Firm_OverrideSettings: return Config::FirmwareOverrideSettings != 0;
     }
 
