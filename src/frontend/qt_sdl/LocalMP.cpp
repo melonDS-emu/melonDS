@@ -277,7 +277,7 @@ bool Init()
 
     // prepare semaphores
     // semaphores 0-15: regular frames; semaphore I is posted when instance I needs to process a new frame
-    // semaphores 16-31: MP replies; semaphore I is posted by instance I when it sends a MP reply
+    // semaphores 16-31: MP replies; semaphore I is posted when instance I needs to process a new MP reply
 
     SemPoolInit();
     SemInit(InstanceID);

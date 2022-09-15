@@ -58,6 +58,7 @@ struct ConfigEntry
     int Type;           // 0=int 1=bool 2=string
     void* Value;        // pointer to the value variable
     std::variant<int, bool, std::string> Default;
+    bool InstanceUnique; // whether the setting can exist individually for each instance in multiplayer
 };
 
 
