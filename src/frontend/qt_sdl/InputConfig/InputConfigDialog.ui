@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>770</width>
-    <height>719</height>
+    <height>678</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -20,7 +20,7 @@
    <property name="sizeConstraint">
     <enum>QLayout::SetFixedSize</enum>
    </property>
-   <item row="7" column="1">
+   <item row="8" column="1">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -30,49 +30,7 @@
      </property>
     </widget>
    </item>
-   <item row="6" column="0" colspan="2">
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <property name="leftMargin">
-      <number>0</number>
-     </property>
-     <property name="topMargin">
-      <number>0</number>
-     </property>
-     <property name="rightMargin">
-      <number>0</number>
-     </property>
-     <property name="bottomMargin">
-      <number>0</number>
-     </property>
-     <item>
-      <widget class="QLabel" name="label">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="text">
-        <string>Joystick:</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QComboBox" name="cbxJoystick">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="whatsThis">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Selects which joystick will be used for joystick input, if any is present.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item row="0" column="0" colspan="2">
+   <item row="1" column="0" colspan="2">
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
       <number>0</number>
@@ -167,7 +125,7 @@
                   <widget class="QPushButton" name="btnKeyR">
                    <property name="minimumSize">
                     <size>
-                     <width>76</width>
+                     <width>70</width>
                      <height>0</height>
                     </size>
                    </property>
@@ -258,7 +216,7 @@
                   <widget class="QPushButton" name="btnKeyL">
                    <property name="minimumSize">
                     <size>
-                     <width>76</width>
+                     <width>70</width>
                      <height>0</height>
                     </size>
                    </property>
@@ -384,7 +342,7 @@
                      <widget class="QPushButton" name="btnKeyX">
                       <property name="minimumSize">
                        <size>
-                        <width>76</width>
+                        <width>70</width>
                         <height>0</height>
                        </size>
                       </property>
@@ -464,7 +422,7 @@
                     <widget class="QPushButton" name="btnKeyY">
                      <property name="minimumSize">
                       <size>
-                       <width>76</width>
+                       <width>70</width>
                        <height>0</height>
                       </size>
                      </property>
@@ -523,7 +481,7 @@
                     <widget class="QPushButton" name="btnKeyA">
                      <property name="minimumSize">
                       <size>
-                       <width>76</width>
+                       <width>70</width>
                        <height>0</height>
                       </size>
                      </property>
@@ -615,7 +573,7 @@
                      <widget class="QPushButton" name="btnKeyB">
                       <property name="minimumSize">
                        <size>
-                        <width>76</width>
+                        <width>70</width>
                         <height>0</height>
                        </size>
                       </property>
@@ -698,7 +656,7 @@
                  <widget class="QPushButton" name="btnKeySelect">
                   <property name="minimumSize">
                    <size>
-                    <width>76</width>
+                    <width>70</width>
                     <height>0</height>
                    </size>
                   </property>
@@ -757,7 +715,7 @@
                  <widget class="QPushButton" name="btnKeyStart">
                   <property name="minimumSize">
                    <size>
-                    <width>76</width>
+                    <width>70</width>
                     <height>0</height>
                    </size>
                   </property>
@@ -882,7 +840,7 @@
                      <widget class="QPushButton" name="btnKeyUp">
                       <property name="minimumSize">
                        <size>
-                        <width>76</width>
+                        <width>70</width>
                         <height>0</height>
                        </size>
                       </property>
@@ -962,7 +920,7 @@
                     <widget class="QPushButton" name="btnKeyLeft">
                      <property name="minimumSize">
                       <size>
-                       <width>76</width>
+                       <width>70</width>
                        <height>0</height>
                       </size>
                      </property>
@@ -1021,7 +979,7 @@
                     <widget class="QPushButton" name="btnKeyRight">
                      <property name="minimumSize">
                       <size>
-                       <width>76</width>
+                       <width>70</width>
                        <height>0</height>
                       </size>
                      </property>
@@ -1113,7 +1071,7 @@
                      <widget class="QPushButton" name="btnKeyDown">
                       <property name="minimumSize">
                        <size>
-                        <width>76</width>
+                        <width>70</width>
                         <height>0</height>
                        </size>
                       </property>
@@ -1289,7 +1247,7 @@
                   <widget class="QPushButton" name="btnJoyL">
                    <property name="minimumSize">
                     <size>
-                     <width>76</width>
+                     <width>70</width>
                      <height>0</height>
                     </size>
                    </property>
@@ -1441,7 +1399,7 @@
                      <widget class="QPushButton" name="btnJoyUp">
                       <property name="minimumSize">
                        <size>
-                        <width>76</width>
+                        <width>70</width>
                         <height>0</height>
                        </size>
                       </property>
@@ -1521,7 +1479,7 @@
                     <widget class="QPushButton" name="btnJoyLeft">
                      <property name="minimumSize">
                       <size>
-                       <width>76</width>
+                       <width>70</width>
                        <height>0</height>
                       </size>
                      </property>
@@ -1580,7 +1538,7 @@
                     <widget class="QPushButton" name="btnJoyRight">
                      <property name="minimumSize">
                       <size>
-                       <width>76</width>
+                       <width>70</width>
                        <height>0</height>
                       </size>
                      </property>
@@ -1672,7 +1630,7 @@
                      <widget class="QPushButton" name="btnJoyDown">
                       <property name="minimumSize">
                        <size>
-                        <width>76</width>
+                        <width>70</width>
                         <height>0</height>
                        </size>
                       </property>
@@ -1814,7 +1772,7 @@
                      <widget class="QPushButton" name="btnJoyX">
                       <property name="minimumSize">
                        <size>
-                        <width>76</width>
+                        <width>70</width>
                         <height>0</height>
                        </size>
                       </property>
@@ -1894,7 +1852,7 @@
                     <widget class="QPushButton" name="btnJoyY">
                      <property name="minimumSize">
                       <size>
-                       <width>76</width>
+                       <width>70</width>
                        <height>0</height>
                       </size>
                      </property>
@@ -1953,7 +1911,7 @@
                     <widget class="QPushButton" name="btnJoyA">
                      <property name="minimumSize">
                       <size>
-                       <width>76</width>
+                       <width>70</width>
                        <height>0</height>
                       </size>
                      </property>
@@ -2045,7 +2003,7 @@
                      <widget class="QPushButton" name="btnJoyB">
                       <property name="minimumSize">
                        <size>
-                        <width>76</width>
+                        <width>70</width>
                         <height>0</height>
                        </size>
                       </property>
@@ -2128,7 +2086,7 @@
                  <widget class="QPushButton" name="btnJoySelect">
                   <property name="minimumSize">
                    <size>
-                    <width>76</width>
+                    <width>70</width>
                     <height>0</height>
                    </size>
                   </property>
@@ -2187,7 +2145,7 @@
                  <widget class="QPushButton" name="btnJoyStart">
                   <property name="minimumSize">
                    <size>
-                    <width>76</width>
+                    <width>70</width>
                     <height>0</height>
                    </size>
                   </property>
@@ -2251,7 +2209,7 @@
                   <widget class="QPushButton" name="btnJoyR">
                    <property name="minimumSize">
                     <size>
-                     <width>76</width>
+                     <width>70</width>
                      <height>0</height>
                     </size>
                    </property>
@@ -2319,6 +2277,55 @@
        <string>General hotkeys</string>
       </attribute>
      </widget>
+    </widget>
+   </item>
+   <item row="7" column="0" colspan="2">
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <property name="leftMargin">
+      <number>0</number>
+     </property>
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <property name="rightMargin">
+      <number>0</number>
+     </property>
+     <property name="bottomMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="label">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="text">
+        <string>Joystick:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="cbxJoystick">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="whatsThis">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Selects which joystick will be used for joystick input, if any is present.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="0" column="0">
+    <widget class="QLabel" name="lblInstanceNum">
+     <property name="text">
+      <string>Configuring mappings for instance X</string>
+     </property>
     </widget>
    </item>
   </layout>

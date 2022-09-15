@@ -18,8 +18,8 @@
 
 #include <QMessageBox>
 
-#include "Config.h"
 #include "Platform.h"
+#include "Config.h"
 
 #include "FirmwareSettingsDialog.h"
 #include "ui_FirmwareSettingsDialog.h"
