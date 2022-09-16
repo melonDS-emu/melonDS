@@ -79,6 +79,16 @@ bool VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
     return (crc_stored == crc_calced);
 }
 
+std::string InstanceSuffix()
+{
+    int inst = Platform::InstanceID();
+    if (inst == 0) return "";
+
+    char suffix[16] = {0};
+    snprintf(suffix, 15, ".%d", inst+1);
+    return suffix;
+}
+
 
 bool Init()
 {
@@ -215,7 +225,8 @@ void LoadDefaultFirmware()
     // wifi access points
     // TODO: WFC ID??
 
-    FILE* f = Platform::OpenLocalFile("wfcsettings.bin", "rb");
+    FILE* f = Platform::OpenLocalFile("wfcsettings.bin"+InstanceSuffix(), "rb");
+    if (!f) f = Platform::OpenLocalFile("wfcsettings.bin", "rb");
     if (f)
     {
         u32 apdata = userdata - 0xA00;
@@ -259,7 +270,7 @@ void LoadDefaultFirmware()
     }
 }
 
-void LoadFirmwareFromFile(FILE* f)
+void LoadFirmwareFromFile(FILE* f, bool makecopy)
 {
     fseek(f, 0, SEEK_END);
 
@@ -271,7 +282,9 @@ void LoadFirmwareFromFile(FILE* f)
     fread(Firmware, 1, FirmwareLength, f);
 
     // take a backup
-    std::string fwBackupPath = FirmwarePath + ".bak";
+    std::string fwBackupPath;
+    if (!makecopy) fwBackupPath = FirmwarePath + ".bak";
+    else           fwBackupPath = FirmwarePath;
     FILE* bf = Platform::OpenLocalFile(fwBackupPath, "rb");
     if (!bf)
     {
@@ -333,7 +346,16 @@ void Reset()
         else
             FirmwarePath = Platform::GetConfigString(Platform::FirmwarePath);
 
+        bool makecopy = false;
+        std::string origpath = FirmwarePath;
+        FirmwarePath += InstanceSuffix();
+
         FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
+        if (!f)
+        {
+            f = Platform::OpenLocalFile(origpath, "rb");
+            makecopy = true;
+        }
         if (!f)
         {
             printf("Firmware not found! Generating default firmware.\n");
@@ -341,7 +363,7 @@ void Reset()
         }
         else
         {
-            LoadFirmwareFromFile(f);
+            LoadFirmwareFromFile(f, makecopy);
             fclose(f);
         }
     }
@@ -593,7 +615,12 @@ void Write(u8 val, u32 hold)
         }
         else
         {
-            FILE* f = Platform::OpenLocalFile("wfcsettings.bin", "wb");
+            char wfcfile[50] = {0};
+            int inst = Platform::InstanceID();
+            if (inst > 0) snprintf(wfcfile, 49, "wfcsettings.bin", Platform::InstanceID());
+            else          strncpy(wfcfile, "wfcsettings.bin", 49);
+
+            FILE* f = Platform::OpenLocalFile(wfcfile, "wb");
             if (f)
             {
                 u32 cutoff = 0x7F400 & FirmwareMask;
