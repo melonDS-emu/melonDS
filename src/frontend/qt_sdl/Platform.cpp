@@ -158,6 +158,16 @@ int InstanceID()
     return IPCInstanceID;
 }
 
+std::string InstanceFileSuffix()
+{
+    int inst = IPCInstanceID;
+    if (inst == 0) return "";
+
+    char suffix[16] = {0};
+    snprintf(suffix, 15, ".%d", inst+1);
+    return suffix;
+}
+
 
 int GetConfigInt(ConfigEntry entry)
 {

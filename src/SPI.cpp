@@ -79,16 +79,6 @@ bool VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
     return (crc_stored == crc_calced);
 }
 
-std::string InstanceSuffix()
-{
-    int inst = Platform::InstanceID();
-    if (inst == 0) return "";
-
-    char suffix[16] = {0};
-    snprintf(suffix, 15, ".%d", inst+1);
-    return suffix;
-}
-
 
 bool Init()
 {
@@ -225,7 +215,7 @@ void LoadDefaultFirmware()
     // wifi access points
     // TODO: WFC ID??
 
-    FILE* f = Platform::OpenLocalFile("wfcsettings.bin"+InstanceSuffix(), "rb");
+    FILE* f = Platform::OpenLocalFile("wfcsettings.bin"+Platform::InstanceFileSuffix(), "rb");
     if (!f) f = Platform::OpenLocalFile("wfcsettings.bin", "rb");
     if (f)
     {
@@ -348,7 +338,7 @@ void Reset()
 
         bool makecopy = false;
         std::string origpath = FirmwarePath;
-        FirmwarePath += InstanceSuffix();
+        FirmwarePath += Platform::InstanceFileSuffix();
 
         FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
         if (!f)

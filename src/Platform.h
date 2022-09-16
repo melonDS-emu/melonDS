@@ -34,6 +34,7 @@ void StopEmu();
 
 // instance ID, for local multiplayer
 int InstanceID();
+std::string InstanceFileSuffix();
 
 // configuration values
 
