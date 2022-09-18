@@ -114,7 +114,7 @@ s16* micWavBuffer;
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
     { 0, 1,                       "4:3 (native)" },
-    { 4, (16.f / 10) / (4.f / 3), "16:10 (3DS)"},
+    { 4, (5.f  / 3) / (4.f / 3), "5:3 (3DS)"},
     { 1, (16.f / 9) / (4.f / 3),  "16:9" },
     { 2, (21.f / 9) / (4.f / 3),  "21:9" },
     { 3, 0,                       "window" }
