@@ -1501,35 +1501,26 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     {
         QMenu* menu = menubar->addMenu("Config");
 
-        //if (inst == 0)
-        {
-            actEmuSettings = menu->addAction("Emu settings");
-            connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
+        actEmuSettings = menu->addAction("Emu settings");
+        connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
 
 #ifdef __APPLE__
-            QAction* actPreferences = menu->addAction("Preferences...");
-            connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
-            actPreferences->setMenuRole(QAction::PreferencesRole);
+        QAction* actPreferences = menu->addAction("Preferences...");
+        connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
+        actPreferences->setMenuRole(QAction::PreferencesRole);
 #endif
-        }
 
         actInputConfig = menu->addAction("Input and hotkeys");
         connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
 
-        //if (inst == 0)
-        {
-            actVideoSettings = menu->addAction("Video settings");
-            connect(actVideoSettings, &QAction::triggered, this, &MainWindow::onOpenVideoSettings);
-        }
+        actVideoSettings = menu->addAction("Video settings");
+        connect(actVideoSettings, &QAction::triggered, this, &MainWindow::onOpenVideoSettings);
 
         actAudioSettings = menu->addAction("Audio settings");
         connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
 
-        //if (inst == 0)
-        {
-            actWifiSettings = menu->addAction("Wifi settings");
-            connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
-        }
+        actWifiSettings = menu->addAction("Wifi settings");
+        connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
 
         actFirmwareSettings = menu->addAction("Firmware settings");
         connect(actFirmwareSettings, &QAction::triggered, this, &MainWindow::onOpenFirmwareSettings);
@@ -1771,6 +1762,17 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     actLimitFramerate->setChecked(Config::LimitFPS);
     actAudioSync->setChecked(Config::AudioSync);
+
+    if (inst > 0)
+    {
+        actEmuSettings->setEnabled(false);
+        actVideoSettings->setEnabled(false);
+        actWifiSettings->setEnabled(false);
+
+#ifdef __APPLE__
+        actPreferences->setEnabled(false);
+#endif // __APPLE__
+    }
 }
 
 MainWindow::~MainWindow()
@@ -2794,12 +2796,6 @@ void MainWindow::onOpenWifiSettings()
 
 void MainWindow::onWifiSettingsFinished(int res)
 {
-    if (Wifi::MPInited)
-    {
-        Platform::MP_DeInit();
-        Platform::MP_Init();
-    }
-
     Platform::LAN_DeInit();
     Platform::LAN_Init();
 

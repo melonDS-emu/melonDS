@@ -74,6 +74,10 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
         ui->lblInstanceNum->setText(QString("Configuring settings for instance %1").arg(inst+1));
         ui->cbInterpolation->setEnabled(false);
         ui->cbBitrate->setEnabled(false);
+        for (QAbstractButton* btn : grpMicMode->buttons())
+            btn->setEnabled(false);
+        ui->txtMicWavPath->setEnabled(false);
+        ui->btnMicWavBrowse->setEnabled(false);
     }
     else
         ui->lblInstanceNum->hide();

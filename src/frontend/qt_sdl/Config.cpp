@@ -282,8 +282,8 @@ ConfigEntry ConfigFile[] =
     {"AudioInterp", 0, &AudioInterp, 0, false},
     {"AudioBitrate", 0, &AudioBitrate, 0, false},
     {"AudioVolume", 0, &AudioVolume, 256, true},
-    {"MicInputType", 0, &MicInputType, 1, true},
-    {"MicWavPath", 2, &MicWavPath, (std::string)"", true},
+    {"MicInputType", 0, &MicInputType, 1, false},
+    {"MicWavPath", 2, &MicWavPath, (std::string)"", false},
 
     {"LastROMFolder", 2, &LastROMFolder, (std::string)"", true},
 
@@ -302,7 +302,7 @@ ConfigEntry ConfigFile[] =
     {"SavestatePath", 2, &SavestatePath, (std::string)"", true},
     {"CheatFilePath", 2, &CheatFilePath, (std::string)"", true},
 
-    {"EnableCheats", 1, &EnableCheats, false, false},
+    {"EnableCheats", 1, &EnableCheats, false, true},
 
     {"MouseHide",        1, &MouseHide,        false, false},
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, false},
