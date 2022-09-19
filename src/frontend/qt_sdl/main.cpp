@@ -104,6 +104,7 @@ bool videoSettingsDirty;
 
 SDL_AudioDeviceID audioDevice;
 int audioFreq;
+bool audioMuted;
 SDL_cond* audioSync;
 SDL_mutex* audioSyncLock;
 
@@ -141,7 +142,7 @@ void audioCallback(void* data, Uint8* stream, int len)
     SDL_CondSignal(audioSync);
     SDL_UnlockMutex(audioSyncLock);
 
-    if (num_in < 1)
+    if ((num_in < 1) || audioMuted)
     {
         memset(stream, 0, len*sizeof(s16)*2);
         return;
@@ -159,6 +160,23 @@ void audioCallback(void* data, Uint8* stream, int len)
     }
 
     Frontend::AudioOut_Resample(buf_in, num_in, (s16*)stream, len, Config::AudioVolume);
+}
+
+void audioMute()
+{
+    int inst = Platform::InstanceID();
+    audioMuted = false;
+
+    switch (Config::MPAudioMode)
+    {
+    case 1: // only instance 1
+        if (inst > 0) audioMuted = true;
+        break;
+
+    case 2: // only currently focused instance
+        if (!mainWindow->isActiveWindow()) audioMuted = true;
+        break;
+    }
 }
 
 
@@ -1341,6 +1359,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     setWindowTitle("melonDS " MELONDS_VERSION);
     setAttribute(Qt::WA_DeleteOnClose);
     setAcceptDrops(true);
+    setFocusPolicy(Qt::ClickFocus);
 
     int inst = Platform::InstanceID();
 
@@ -1967,6 +1986,16 @@ void MainWindow::dropEvent(QDropEvent* event)
 
         updateCartInserted(false);
     }
+}
+
+void MainWindow::focusInEvent(QFocusEvent* event)
+{
+    audioMute();
+}
+
+void MainWindow::focusOutEvent(QFocusEvent* event)
+{
+    audioMute();
 }
 
 void MainWindow::onAppStateChanged(Qt::ApplicationState state)
@@ -2802,6 +2831,7 @@ void MainWindow::onOpenMPSettings()
 
 void MainWindow::onMPSettingsFinished(int res)
 {
+    audioMute();
     LocalMP::SetRecvTimeout(Config::MPRecvTimeout);
 
     emuThread->emuUnpause();
@@ -3135,6 +3165,7 @@ int main(int argc, char** argv)
     format.setSwapInterval(0);
     QSurfaceFormat::setDefaultFormat(format);
 
+    audioMuted = false;
     audioSync = SDL_CreateCond();
     audioSyncLock = SDL_CreateMutex();
 
@@ -3187,6 +3218,8 @@ int main(int argc, char** argv)
     emuThread = new EmuThread();
     emuThread->start();
     emuThread->emuPause();
+
+    audioMute();
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
