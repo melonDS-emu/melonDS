@@ -20,6 +20,7 @@
 #define MPSETTINGSDIALOG_H
 
 #include <QDialog>
+#include <QButtonGroup>
 
 namespace Ui { class MPSettingsDialog; }
 class MPSettingsDialog;
@@ -50,8 +51,6 @@ public:
         currentDlg = nullptr;
     }
 
-    static bool needsReset;
-
 private slots:
     void done(int r);
 
@@ -59,6 +58,8 @@ private slots:
 
 private:
     Ui::MPSettingsDialog* ui;
+
+    QButtonGroup* grpAudioMode;
 };
 
 #endif // MPSETTINGSDIALOG_H

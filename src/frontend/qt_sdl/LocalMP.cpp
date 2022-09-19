@@ -85,7 +85,7 @@ const u32 kReplyStart = kQueueSize / 2;
 const u32 kPacketEnd = kReplyStart;
 const u32 kReplyEnd = kQueueSize;
 
-const int RecvTimeout = 25;
+int RecvTimeout;
 
 int LastHostID;
 
@@ -287,6 +287,8 @@ bool Init()
 
     printf("MP comm init OK, instance ID %d\n", InstanceID);
 
+    RecvTimeout = 25;
+
     return true;
 }
 
@@ -303,6 +305,11 @@ void DeInit()
 
     MPQueue->detach();
     delete MPQueue;
+}
+
+void SetRecvTimeout(int timeout)
+{
+    RecvTimeout = timeout;
 }
 
 void Begin()

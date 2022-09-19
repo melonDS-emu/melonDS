@@ -33,8 +33,6 @@
 
 MPSettingsDialog* MPSettingsDialog::currentDlg = nullptr;
 
-bool MPSettingsDialog::needsReset = false;
-
 extern bool RunningSomething;
 
 
@@ -43,7 +41,13 @@ MPSettingsDialog::MPSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    // todo
+    grpAudioMode = new QButtonGroup(this);
+    grpAudioMode->addButton(ui->rbAudioAll,        0);
+    grpAudioMode->addButton(ui->rbAudioOneOnly,    1);
+    grpAudioMode->addButton(ui->rbAudioActiveOnly, 2);
+    grpAudioMode->button(Config::MPAudioMode)->setChecked(true);
+
+    ui->sbReceiveTimeout->setValue(Config::MPRecvTimeout);
 }
 
 MPSettingsDialog::~MPSettingsDialog()
@@ -53,11 +57,10 @@ MPSettingsDialog::~MPSettingsDialog()
 
 void MPSettingsDialog::done(int r)
 {
-    needsReset = false;
-
     if (r == QDialog::Accepted)
     {
-        // TODO save shit here
+        Config::MPAudioMode = grpAudioMode->checkedId();
+        Config::MPRecvTimeout = ui->sbReceiveTimeout->value();
 
         Config::Save();
     }

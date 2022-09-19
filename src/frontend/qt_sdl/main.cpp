@@ -1772,6 +1772,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     {
         actEmuSettings->setEnabled(false);
         actVideoSettings->setEnabled(false);
+        actMPSettings->setEnabled(false);
         actWifiSettings->setEnabled(false);
 
 #ifdef __APPLE__
@@ -2801,11 +2802,7 @@ void MainWindow::onOpenMPSettings()
 
 void MainWindow::onMPSettingsFinished(int res)
 {
-    /*LocalMP::DeInit();
-    LocalMP::Init();
-
-    if (MPSettingsDialog::needsReset)
-        onReset();*/
+    LocalMP::SetRecvTimeout(Config::MPRecvTimeout);
 
     emuThread->emuUnpause();
 }

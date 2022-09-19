@@ -107,7 +107,9 @@ int FirmwareFavouriteColour;
 std::string FirmwareMessage;
 std::string FirmwareMAC;
 
-bool SocketBindAnyAddr;
+int MPAudioMode;
+int MPRecvTimeout;
+
 std::string LANDevice;
 bool DirectLAN;
 
@@ -273,7 +275,9 @@ ConfigEntry ConfigFile[] =
     {"FirmwareMessage", 2, &FirmwareMessage, (std::string)"", true},
     {"FirmwareMAC", 2, &FirmwareMAC, (std::string)"", true},
 
-    {"SockBindAnyAddr", 1, &SocketBindAnyAddr, false, false},
+    {"MPAudioMode", 0, &MPAudioMode, 1, false},
+    {"MPRecvTimeout", 0, &MPRecvTimeout, 25, false},
+
     {"LANDevice", 2, &LANDevice, (std::string)"", false},
     {"DirectLAN", 1, &DirectLAN, false, false},
 

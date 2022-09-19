@@ -26,8 +26,12 @@ namespace LocalMP
 
 bool Init();
 void DeInit();
+
+void SetRecvTimeout(int timeout);
+
 void Begin();
 void End();
+
 int SendPacket(u8* data, int len, u64 timestamp);
 int RecvPacket(u8* data, u64* timestamp);
 int SendCmd(u8* data, int len, u64 timestamp);

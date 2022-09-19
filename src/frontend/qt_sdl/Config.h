@@ -143,7 +143,9 @@ extern int FirmwareFavouriteColour;
 extern std::string FirmwareMessage;
 extern std::string FirmwareMAC;
 
-extern bool SocketBindAnyAddr;
+extern int MPAudioMode;
+extern int MPRecvTimeout;
+
 extern std::string LANDevice;
 extern bool DirectLAN;
 
