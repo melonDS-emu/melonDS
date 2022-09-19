@@ -62,7 +62,7 @@ struct ConfigEntry
 
 
 extern int KeyMapping[12];
-extern int JoyMapping[12];
+extern int JoyMapping[16];
 
 extern int HKKeyMapping[HK_MAX];
 extern int HKJoyMapping[HK_MAX];

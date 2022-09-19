@@ -27,7 +27,7 @@ namespace Config
 {
 
 int KeyMapping[12];
-int JoyMapping[12];
+int JoyMapping[16];
 
 int HKKeyMapping[HK_MAX];
 int HKJoyMapping[HK_MAX];
@@ -169,6 +169,10 @@ ConfigEntry ConfigFile[] =
     {"Joy_L",      0, &JoyMapping[9],  -1},
     {"Joy_X",      0, &JoyMapping[10], -1},
     {"Joy_Y",      0, &JoyMapping[11], -1},
+    {"Joy_RRight", 0, &JoyMapping[12], -1},
+    {"Joy_RLeft",  0, &JoyMapping[13], -1},
+    {"Joy_RUp",    0, &JoyMapping[14], -1},
+    {"Joy_RDown",  0, &JoyMapping[15], -1},
 
     {"HKKey_Lid",                 0, &HKKeyMapping[HK_Lid],                 -1},
     {"HKKey_Mic",                 0, &HKKeyMapping[HK_Mic],                 -1},

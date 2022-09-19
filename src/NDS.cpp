@@ -1217,6 +1217,12 @@ void TouchScreen(u16 x, u16 y)
     }
 }
 
+void MoveOnTouchScreen(u16 x, u16 y)
+{
+    SPI_TSC::MoveTouchCoords(x, y);
+    KeyInput &= ~(1 << (16+6));
+}
+
 void ReleaseScreen()
 {
     if (ConsoleType == 1)
@@ -1238,6 +1244,23 @@ void SetKeyMask(u32 mask)
 
     KeyInput &= 0xFFFCFC00;
     KeyInput |= key_lo | (key_hi << 16);
+}
+
+void SetSecondaryKeyMask(u32 mask)
+{
+    u32 right = mask & 0x1;
+    u32 left  = (mask >> 1) & 0x1;
+    u32 up    = (mask >> 2) & 0x1;
+    u32 down  = (mask >> 3) & 0x1;
+
+    printf("Move touch screen: right %d - left %d - up %d - down %d\n", right, left, up, down);
+
+    if (right | left | up | down) {
+        MoveOnTouchScreen(right - left, up - down);
+    }
+    else {
+        ReleaseScreen();
+    }
 }
 
 bool IsLidClosed()

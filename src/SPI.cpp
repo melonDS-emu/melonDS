@@ -774,6 +774,22 @@ void SetTouchCoords(u16 x, u16 y)
     TouchY <<= 4;
 }
 
+void MoveTouchCoords(u16 x, u16 y)
+{
+    if (TouchY == 0xFFF) {
+        TouchX = 128; // aprox middle of 255
+        TouchY = 95; // aprox middle of 191
+    }
+
+    TouchX += x << 4;
+    TouchY += y << 4;
+
+    if (TouchY > (255 << 4) || TouchX > (191 << 4)) {
+        TouchX = 0x000;
+        TouchY = 0xFFF;
+    }
+}
+
 void MicInputFrame(s16* data, int samples)
 {
     if (!data)

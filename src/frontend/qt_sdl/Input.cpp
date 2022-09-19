@@ -29,19 +29,21 @@ namespace Input
 int JoystickID;
 SDL_Joystick* Joystick = nullptr;
 
-u32 KeyInputMask, JoyInputMask;
+u32 KeyInputMask, JoyInputMask, JoySecondaryInputMask;
 u32 KeyHotkeyMask, JoyHotkeyMask;
 u32 HotkeyMask, LastHotkeyMask;
 u32 HotkeyPress, HotkeyRelease;
 
-u32 InputMask;
+u32 InputMask, SecondaryInputMask;
 
 
 void Init()
 {
     KeyInputMask = 0xFFF;
     JoyInputMask = 0xFFF;
+    JoySecondaryInputMask = 0xFFF;
     InputMask = 0xFFF;
+    SecondaryInputMask = 0xFFF;
 
     KeyHotkeyMask = 0;
     JoyHotkeyMask = 0;
@@ -203,11 +205,16 @@ void Process()
     }
 
     JoyInputMask = 0xFFF;
+    JoySecondaryInputMask = 0xFFF;
     for (int i = 0; i < 12; i++)
         if (JoystickButtonDown(Config::JoyMapping[i]))
             JoyInputMask &= ~(1<<i);
+    for (int i = 12; i < 16; i++)
+        if (JoystickButtonDown(Config::JoyMapping[i]))
+            JoySecondaryInputMask &= ~(1<<(i - 12));
 
     InputMask = KeyInputMask & JoyInputMask;
+    SecondaryInputMask = JoySecondaryInputMask;
 
     JoyHotkeyMask = 0;
     for (int i = 0; i < HK_MAX; i++)

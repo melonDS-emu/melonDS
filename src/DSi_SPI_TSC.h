@@ -36,6 +36,7 @@ void DoSavestate(Savestate* file);
 void SetMode(u8 mode);
 
 void SetTouchCoords(u16 x, u16 y);
+void MoveTouchCoords(u16 x, u16 y);
 void MicInputFrame(s16* data, int samples);
 
 u8 Read();
