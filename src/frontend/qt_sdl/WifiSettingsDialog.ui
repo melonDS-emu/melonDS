@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>572</width>
-    <height>184</height>
+    <height>217</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -24,23 +24,32 @@
     <enum>QLayout::SetFixedSize</enum>
    </property>
    <item>
-    <widget class="QRadioButton" name="rbIndirectMode">
-     <property name="whatsThis">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Indirect mode uses libslirp. It requires no extra setup and is easy to use.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    <widget class="QGroupBox" name="groupBox">
+     <property name="title">
+      <string>Network mode</string>
      </property>
-     <property name="text">
-      <string>Indirect mode (uses libslirp, recommended)</string>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QRadioButton" name="rbDirectMode">
-     <property name="whatsThis">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Direct mode directly routes network traffic to the host network. It is the most reliable, but requires an ethernet connection.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Non-direct mode uses a layer of emulation to get around this, but is more prone to problems.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-     </property>
-     <property name="text">
-      <string>Direct mode [TEXT PLACEHOLDER]</string>
-     </property>
+     <layout class="QGridLayout" name="gridLayout">
+      <item row="0" column="0">
+       <widget class="QRadioButton" name="rbIndirectMode">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Indirect mode uses libslirp. It requires no extra setup and is easy to use.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Indirect mode (uses libslirp, recommended)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QRadioButton" name="rbDirectMode">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Direct mode directly routes network traffic to the host network. It is the most reliable, but requires an ethernet connection.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Non-direct mode uses a layer of emulation to get around this, but is more prone to problems.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Direct mode [TEXT PLACEHOLDER]</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
    <item>

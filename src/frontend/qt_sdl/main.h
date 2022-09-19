@@ -268,6 +268,8 @@ private slots:
     void onOpenPathSettings();
     void onUpdateAudioSettings();
     void onAudioSettingsFinished(int res);
+    void onOpenMPSettings();
+    void onMPSettingsFinished(int res);
     void onOpenWifiSettings();
     void onWifiSettingsFinished(int res);
     void onFirmwareSettingsFinished(int res);
@@ -352,6 +354,7 @@ public:
     QAction* actInputConfig;
     QAction* actVideoSettings;
     QAction* actAudioSettings;
+    QAction* actMPSettings;
     QAction* actWifiSettings;
     QAction* actFirmwareSettings;
     QAction* actPathSettings;

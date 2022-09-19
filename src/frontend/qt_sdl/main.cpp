@@ -58,6 +58,7 @@
 #include "AudioSettingsDialog.h"
 #include "FirmwareSettingsDialog.h"
 #include "PathSettingsDialog.h"
+#include "MPSettingsDialog.h"
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
@@ -78,6 +79,7 @@
 #include "SPU.h"
 #include "Wifi.h"
 #include "Platform.h"
+#include "LocalMP.h"
 #include "Config.h"
 
 #include "Savestate.h"
@@ -1519,6 +1521,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actAudioSettings = menu->addAction("Audio settings");
         connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
 
+        actMPSettings = menu->addAction("Multiplayer settings");
+        connect(actMPSettings, &QAction::triggered, this, &MainWindow::onOpenMPSettings);
+
         actWifiSettings = menu->addAction("Wifi settings");
         connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
 
@@ -2784,6 +2789,25 @@ void MainWindow::onAudioSettingsFinished(int res)
     }
 
     micOpen();
+}
+
+void MainWindow::onOpenMPSettings()
+{
+    emuThread->emuPause();
+
+    MPSettingsDialog* dlg = MPSettingsDialog::openDlg(this);
+    connect(dlg, &MPSettingsDialog::finished, this, &MainWindow::onMPSettingsFinished);
+}
+
+void MainWindow::onMPSettingsFinished(int res)
+{
+    /*LocalMP::DeInit();
+    LocalMP::Init();
+
+    if (MPSettingsDialog::needsReset)
+        onReset();*/
+
+    emuThread->emuUnpause();
 }
 
 void MainWindow::onOpenWifiSettings()
