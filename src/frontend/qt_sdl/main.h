@@ -217,6 +217,7 @@ public:
     void onAppStateChanged(Qt::ApplicationState state);
 
 protected:
+    void showEvent(QShowEvent *ev) override;
     void resizeEvent(QResizeEvent* event) override;
     void changeEvent(QEvent* event) override;
 
@@ -230,6 +231,8 @@ signals:
     void screenLayoutChange();
 
 private slots:
+    void loadMostRecentFile();
+
     void onOpenFile();
     void onClickRecentFile();
     void onClearRecentFiles();

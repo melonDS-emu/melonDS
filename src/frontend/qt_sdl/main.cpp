@@ -1793,6 +1793,13 @@ QOpenGLContext* MainWindow::getOGLContext()
     return glpanel->context();
 }
 
+void MainWindow::showEvent(QShowEvent *ev)
+{
+    QMainWindow::showEvent(ev);
+    
+    QMetaObject::invokeMethod(this, &MainWindow::loadMostRecentFile, Qt::ConnectionType::QueuedConnection);
+}
+
 void MainWindow::resizeEvent(QResizeEvent* event)
 {
     int w = event->size().width();
@@ -2118,6 +2125,32 @@ void MainWindow::updateCartInserted(bool gba)
         actSetupCheats->setEnabled(inserted);
         actROMInfo->setEnabled(inserted);
         actRAMInfo->setEnabled(inserted);
+    }
+}
+
+void MainWindow::loadMostRecentFile()
+{
+    std::string item = Config::RecentROMList[0];
+    if (!item.empty()) {
+        QString filename = QString::fromStdString(item);
+        QStringList file = filename.split('|');
+
+        if (!ROMManager::LoadROM(file, true))
+        {
+            // TODO: better error reporting?
+            QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+            emuThread->emuUnpause();
+            return;
+        }
+
+        recentFileList.removeAll(filename);
+        recentFileList.prepend(filename);
+        updateRecentFilesMenu();
+
+        NDS::Start();
+        emuThread->emuRun();
+
+        updateCartInserted(false);
     }
 }
 
