@@ -96,13 +96,12 @@ If you want an app bundle that can be distributed to other computers without nee
  * add the game logo to the bottom window in the intro menu
  * the map from the bottom screen should be cropped and placed in the top screen (when visible)
  * ingame menu will need to be reworked
- * add second analog to the app settings
 
 ### TODO LIST FOR LATER (low priority)
 
  * replace cutscenes with the remastered ones
  * automatically skip tutorials that show how to control the camera
- * remove the ingame menu options regarding the game camera
+ * remove the ingame menu instructions regarding the game camera
 
 ## Credits
 
