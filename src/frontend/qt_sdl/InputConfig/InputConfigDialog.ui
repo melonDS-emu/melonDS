@@ -2319,6 +2319,11 @@
        <string>General hotkeys</string>
       </attribute>
      </widget>
+     <widget class="QWidget" name="tabTouchScreen">
+      <attribute name="title">
+       <string>Touch Screen</string>
+      </attribute>
+     </widget>
     </widget>
    </item>
   </layout>

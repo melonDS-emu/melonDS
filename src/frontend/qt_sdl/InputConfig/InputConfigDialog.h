@@ -62,12 +62,14 @@ private slots:
 private:
     void populatePage(QWidget* page, int num, const char** labels, int* keymap, int* joymap);
     void setupKeypadPage();
+    void setupTouchScreenPage();
 
     Ui::InputConfigDialog* ui;
 
     int keypadKeyMap[12],   keypadJoyMap[12];
     int addonsKeyMap[2],    addonsJoyMap[2];
     int hkGeneralKeyMap[9], hkGeneralJoyMap[9];
+    int touchScreenKeyMap[4], touchScreenJoyMap[4];
 };
 
 

@@ -20,6 +20,8 @@
 #include <QLabel>
 #include <QKeyEvent>
 #include <QDebug>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
 
 #include <SDL2/SDL.h>
 
@@ -36,6 +38,9 @@ InputConfigDialog* InputConfigDialog::currentDlg = nullptr;
 
 const int dskeyorder[12] = {0, 1, 10, 11, 5, 4, 6, 7, 9, 8, 2, 3};
 const char* dskeylabels[12] = {"A", "B", "X", "Y", "Left", "Right", "Up", "Down", "L", "R", "Select", "Start"};
+
+const int dstouchkeyorder[12] = {1, 0, 2, 3};
+const char* dstouchkeylabels[12] = {"Left", "Right", "Up", "Down"};
 
 const int hk_addons[] =
 {
@@ -78,6 +83,7 @@ const char* hk_general_labels[] =
 const int keypad_num = 12;
 const int hk_addons_num = 2;
 const int hk_general_num = 9;
+const int touchscreen_num = 4;
 
 
 InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new Ui::InputConfigDialog)
@@ -103,6 +109,12 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         hkGeneralJoyMap[i] = Config::HKJoyMapping[hk_general[i]];
     }
 
+    for (int i = 0; i < touchscreen_num; i++)
+    {
+        touchScreenKeyMap[i] = Config::TouchKeyMapping[dstouchkeyorder[i]];
+        touchScreenJoyMap[i] = Config::TouchJoyMapping[dstouchkeyorder[i]];
+    }
+
     populatePage(ui->tabAddons, hk_addons_num, hk_addons_labels, addonsKeyMap, addonsJoyMap);
     populatePage(ui->tabHotkeysGeneral, hk_general_num, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
 
@@ -123,6 +135,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     }
 
     setupKeypadPage();
+    setupTouchScreenPage();
 }
 
 InputConfigDialog::~InputConfigDialog()
@@ -151,6 +164,17 @@ void InputConfigDialog::setupKeypadPage()
             ui->stackMapping->setCurrentIndex(1);
         }
     }
+}
+
+void InputConfigDialog::setupTouchScreenPage()
+{
+    QVBoxLayout* main_layout = new QVBoxLayout();
+
+    QWidget* touch_widget = new QWidget();
+    populatePage(touch_widget, touchscreen_num, dstouchkeylabels, touchScreenKeyMap, touchScreenJoyMap);
+    main_layout->addWidget(touch_widget);
+
+    ui->tabTouchScreen->setLayout(main_layout);
 }
 
 void InputConfigDialog::populatePage(QWidget* page, int num, const char** labels, int* keymap, int* joymap)
@@ -216,6 +240,12 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
     {
         Config::HKKeyMapping[hk_general[i]] = hkGeneralKeyMap[i];
         Config::HKJoyMapping[hk_general[i]] = hkGeneralJoyMap[i];
+    }
+
+    for (int i = 0; i < touchscreen_num; i++)
+    {
+        Config::TouchKeyMapping[dstouchkeyorder[i]] = touchScreenKeyMap[i];
+        Config::TouchJoyMapping[dstouchkeyorder[i]] = touchScreenJoyMap[i];
     }
 
     Config::JoystickID = Input::JoystickID;
