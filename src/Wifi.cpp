@@ -65,15 +65,10 @@ bool BlockBeaconIRQ14;
 
 u32 CmdCounter;
 
-u16 BBCnt;
-u8 BBWrite;
 u8 BBRegs[0x100];
 u8 BBRegsRO[0x100];
 
 u8 RFVersion;
-u16 RFCnt;
-u16 RFData1;
-u16 RFData2;
 u32 RFRegs[0x40];
 
 struct TXSlot
@@ -93,14 +88,12 @@ u8 RXBuffer[2048];
 u32 RXBufferPtr;
 int RXTime;
 u32 RXHalfwordTimeMask;
-u16 RXEndAddr;
 
 u32 ComStatus; // 0=waiting for packets  1=receiving  2=sending
 u32 TXCurSlot;
 u32 RXCounter;
 
 int MPReplyTimer;
-u16 MPCurClient;
 u16 MPClientMask, MPClientFail;
 
 u8 MPClientReplies[15*1024];
@@ -241,7 +234,6 @@ void Reset()
     IOPORT(W_PowerUS) = 0x0001;
 
     USTimestamp = 0;
-    RXTimestamp = 0;
 
     USCounter = 0;
     USCompare = 0;
@@ -251,16 +243,25 @@ void Reset()
     ComStatus = 0;
     TXCurSlot = -1;
     RXCounter = 0;
-    RXTimestamp = 0;
+
+    memset(RXBuffer, 0, sizeof(RXBuffer));
+    RXBufferPtr = 0;
+    RXTime = 0;
+    RXHalfwordTimeMask = 0xFFFFFFFF;
 
     MPReplyTimer = 0;
     MPClientMask = 0;
     MPClientFail = 0;
+    memset(MPClientReplies, 0, sizeof(MPClientReplies));
 
     CmdCounter = 0;
 
+    USUntilPowerOn = 0;
+    ForcePowerOn = false;
+
     IsMPClient = false;
     NextSync = 0;
+    RXTimestamp = 0;
 
     WifiAP::Reset();
 }
@@ -277,7 +278,12 @@ void DoSavestate(Savestate* file)
     file->VarArray(RAM, 0x2000);
     file->VarArray(IO, 0x1000);
 
+    file->Bool32(&Enabled);
+    file->Bool32(&PowerOn);
+
     file->Var16(&Random);
+
+    file->Var32((u32*)&TimerError);
 
     file->VarArray(BBRegs, 0x100);
     file->VarArray(BBRegsRO, 0x100);
@@ -289,14 +295,44 @@ void DoSavestate(Savestate* file)
     file->Var64(&USCompare);
     file->Bool32(&BlockBeaconIRQ14);
 
+    file->Var32(&CmdCounter);
+
+    file->Var64(&USTimestamp);
+
+    for (int i = 0; i < 6; i++)
+    {
+        TXSlot* slot = &TXSlots[i];
+
+        file->Bool32(&slot->Valid);
+        file->Var16(&slot->Addr);
+        file->Var16(&slot->Length);
+        file->Var8(&slot->Rate);
+        file->Var8(&slot->CurPhase);
+        file->Var32((u32*)&slot->CurPhaseTime);
+        file->Var32(&slot->HalfwordTimeMask);
+    }
+
+    file->VarArray(RXBuffer, sizeof(RXBuffer));
+    file->Var32(&RXBufferPtr);
+    file->Var32((u32*)&RXTime);
+    file->Var32(&RXHalfwordTimeMask);
+
     file->Var32(&ComStatus);
     file->Var32(&TXCurSlot);
     file->Var32(&RXCounter);
 
     file->Var32((u32*)&MPReplyTimer);
-    //file->Var32((u32*)&MPNumReplies);
+    file->Var16(&MPClientMask);
+    file->Var16(&MPClientFail);
 
-    file->Var32(&CmdCounter);
+    file->VarArray(MPClientReplies, sizeof(MPClientReplies));
+
+    file->Var32((u32*)&USUntilPowerOn);
+    file->Bool32(&ForcePowerOn);
+
+    file->Bool32(&IsMPClient);
+    file->Var64(&NextSync);
+    file->Var64(&RXTimestamp);
 }
 
 

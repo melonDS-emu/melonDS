@@ -176,6 +176,7 @@ bool RunningGame;
 void DivDone(u32 param);
 void SqrtDone(u32 param);
 void RunTimer(u32 tid, s32 cycles);
+void UpdateWifiTimings();
 void SetWifiWaitCnt(u16 val);
 void SetGBASlotTimings();
 
@@ -892,9 +893,7 @@ bool DoSavestate(Savestate* file)
         InitTimings();
         SetGBASlotTimings();
 
-        u16 tmp = WifiWaitCnt;
-        WifiWaitCnt = 0xFFFF;
-        SetWifiWaitCnt(tmp); // force timing table update
+        UpdateWifiTimings();
     }
 
     for (int i = 0; i < 8; i++)
@@ -918,6 +917,9 @@ bool DoSavestate(Savestate* file)
     if (!file->Saving)
     {
         GPU::SetPowerCnt(PowerControl9);
+
+        SPU::SetPowerCnt(PowerControl7 & 0x0001);
+        Wifi::SetPowerCnt(PowerControl7 & 0x0002);
     }
 
 #ifdef JIT_ENABLED
@@ -1342,15 +1344,29 @@ void MapSharedWRAM(u8 val)
 }
 
 
+void UpdateWifiTimings()
+{
+    if (PowerControl7 & 0x0002)
+    {
+        const int ntimings[4] = {10, 8, 6, 18};
+        u16 val = WifiWaitCnt;
+
+        SetARM7RegionTimings(0x04800, 0x04808, Mem7_Wifi0, 16, ntimings[val & 0x3], (val & 0x4) ? 4 : 6);
+        SetARM7RegionTimings(0x04808, 0x04810, Mem7_Wifi1, 16, ntimings[(val>>3) & 0x3], (val & 0x20) ? 4 : 10);
+    }
+    else
+    {
+        SetARM7RegionTimings(0x04800, 0x04808, Mem7_Wifi0, 32, 1, 1);
+        SetARM7RegionTimings(0x04808, 0x04810, Mem7_Wifi1, 32, 1, 1);
+    }
+}
+
 void SetWifiWaitCnt(u16 val)
 {
     if (WifiWaitCnt == val) return;
 
     WifiWaitCnt = val;
-
-    const int ntimings[4] = {10, 8, 6, 18};
-    SetARM7RegionTimings(0x04800, 0x04808, Mem7_Wifi0, 16, ntimings[val & 0x3], (val & 0x4) ? 4 : 6);
-    SetARM7RegionTimings(0x04808, 0x04810, Mem7_Wifi1, 16, ntimings[(val>>3) & 0x3], (val & 0x20) ? 4 : 10);
+    UpdateWifiTimings();
 }
 
 void SetGBASlotTimings()
@@ -4188,9 +4204,13 @@ void ARM7IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000304:
-        PowerControl7 = val & 0x0003;
-        SPU::SetPowerCnt(val & 0x0001);
-        Wifi::SetPowerCnt(val & 0x0002);
+        {
+            u16 change = PowerControl7 ^ val;
+            PowerControl7 = val & 0x0003;
+            SPU::SetPowerCnt(val & 0x0001);
+            Wifi::SetPowerCnt(val & 0x0002);
+            if (change & 0x0002) UpdateWifiTimings();
+        }
         return;
 
     case 0x04000308:
@@ -4314,9 +4334,13 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000214: IF[1] &= ~val; UpdateIRQ(1); return;
 
     case 0x04000304:
-        PowerControl7 = val & 0x0003;
-        SPU::SetPowerCnt(val & 0x0001);
-        Wifi::SetPowerCnt(val & 0x0002);
+        {
+            u16 change = PowerControl7 ^ val;
+            PowerControl7 = val & 0x0003;
+            SPU::SetPowerCnt(val & 0x0001);
+            Wifi::SetPowerCnt(val & 0x0002);
+            if (change & 0x0002) UpdateWifiTimings();
+        }
         return;
 
     case 0x04000308:

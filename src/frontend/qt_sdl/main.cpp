@@ -1707,6 +1707,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     resize(Config::WindowWidth, Config::WindowHeight);
 
+    if (Config::FirmwareUsername == "Arisotura")
+        actMPNewInstance->setText("Fart");
+
 #ifdef Q_OS_MAC
     QPoint screenCenter = screen()->availableGeometry().center();
     QRect frameGeo = frameGeometry();
