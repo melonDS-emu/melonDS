@@ -387,13 +387,9 @@ void EmuThread::deinitOpenGL()
 void EmuThread::run()
 {
     bool hasOGL = mainWindow->hasOGL;
-    u32 mainScreenPos[3];
-
+    
     NDS::Init();
 
-    mainScreenPos[0] = 0;
-    mainScreenPos[1] = 0;
-    mainScreenPos[2] = 0;
     autoScreenSizing = 0;
 
     videoSettingsDirty = false;
@@ -517,29 +513,9 @@ void EmuThread::run()
             // auto screen layout
             if (Config::ScreenSizing == screenSizing_Auto)
             {
-                mainScreenPos[2] = mainScreenPos[1];
-                mainScreenPos[1] = mainScreenPos[0];
-                mainScreenPos[0] = NDS::PowerControl9 >> 15;
-
-                int guess;
-                if (mainScreenPos[0] == mainScreenPos[2] &&
-                    mainScreenPos[0] != mainScreenPos[1])
+                bool requiresRefresh = refreshAutoScreenSizing();
+                if (requiresRefresh)
                 {
-                    // constant flickering, likely displaying 3D on both screens
-                    // TODO: when both screens are used for 2D only...???
-                    guess = screenSizing_Even;
-                }
-                else
-                {
-                    if (mainScreenPos[0] == 1)
-                        guess = screenSizing_EmphTop;
-                    else
-                        guess = screenSizing_EmphBot;
-                }
-
-                if (guess != autoScreenSizing)
-                {
-                    autoScreenSizing = guess;
                     emit screenLayoutChange();
                 }
             }
@@ -680,6 +656,67 @@ void EmuThread::run()
         oglContext->doneCurrent();
         deinitOpenGL();
     }
+}
+
+bool EmuThread::refreshAutoScreenSizing()
+{
+    u32 mainScreenPos[3];
+    mainScreenPos[0] = 0;
+    mainScreenPos[1] = 0;
+    mainScreenPos[2] = 0;
+
+    mainScreenPos[2] = mainScreenPos[1];
+    mainScreenPos[1] = mainScreenPos[0];
+    mainScreenPos[0] = NDS::PowerControl9 >> 15; // always 0 or 1 ?
+    printf("Can you see this -> %d\n", GPU3D::RenderNumPolygons);
+
+    if (GPU3D::RenderNumPolygons < 10) {
+        // This is not 3D, this is 2D!
+        int guess = screenSizing_Even;
+        bool updated = guess != autoScreenSizing;
+
+        Config::ScreenAspectTop = 0; // 4:3, same as bottom
+        autoScreenSizing = guess;
+
+        return updated;
+    }
+
+    Config::ScreenAspectTop = 2; // 16:9
+
+    if (mainScreenPos[0] == mainScreenPos[2] &&
+        mainScreenPos[0] != mainScreenPos[1])
+    {
+        // constant flickering, likely displaying 3D on both screens.
+        // I still haven't seen that happening with Days, but it may happen later in the game,
+        // and in that case, I'm leaving it with a different behaviour, so it can be identified.
+        //guess = screenSizing_Even;
+        int guess = screenSizing_EmphBot;
+        bool updated = guess != autoScreenSizing;
+
+        autoScreenSizing = guess;
+
+        return updated;
+    }
+
+    if (mainScreenPos[0] == 1) {
+        // Confirmed 3D on the top screen
+        int guess = screenSizing_EmphTop;
+        bool updated = guess != autoScreenSizing;
+
+        autoScreenSizing = guess;
+
+        return updated;
+    }
+    
+    // The only moment I could see that happening in during the intro standby cutscenes,
+    // and in that case, is preferable to show the two screens with an equal size.
+    //guess = screenSizing_EmphBot;
+    int guess = screenSizing_Even;
+    bool updated = guess != autoScreenSizing;
+
+    autoScreenSizing = guess;
+    
+    return updated;
 }
 
 void EmuThread::changeWindowTitle(char* title)

@@ -215,7 +215,7 @@ ConfigEntry ConfigFile[] =
 
     {"ScreenRotation", 0, &ScreenRotation, 0},
     {"ScreenGap",      0, &ScreenGap,      0},
-    {"ScreenLayout",   0, &ScreenLayout,   0},
+    {"ScreenLayout",   0, &ScreenLayout,   2},
     {"ScreenSwap",     1, &ScreenSwap,     false},
     {"ScreenSizing",   0, &ScreenSizing,   0},
     {"IntegerScaling", 1, &IntegerScaling, false},
