@@ -1140,6 +1140,15 @@ void FinishRX()
             return;
     }
 
+    // reject the frame if it's a WEP frame and WEP is off
+    // TODO: check if sending WEP frames with WEP off works at all?
+
+    if (framectl & (1<<14))
+    {
+        if (!(IOPORT(W_WEPCnt) & (1<<15)))
+            return;
+    }
+
     // apply RX filtering
     // TODO:
     // * RXFILTER bits 0, 9, 10, 12 not fully understood
@@ -1315,7 +1324,7 @@ void FinishRX()
 
     // build the RX header
 
-    u16 headeraddr = IOPORT(W_RXBufWriteCursor) << 1; u16 zorp = headeraddr;
+    u16 headeraddr = IOPORT(W_RXBufWriteCursor) << 1;
     *(u16*)&RAM[headeraddr] = rxflags;
     IncrementRXAddr(headeraddr);
     *(u16*)&RAM[headeraddr] = 0x0040; // ???
@@ -1381,14 +1390,22 @@ void MPClientReplyRX(int client)
     if (IOPORT(W_RXBufBegin) == IOPORT(W_RXBufEnd))
         return;
 
-    u16 framelen;
+    int framelen;
     u8 txrate;
 
     u8* reply = &MPClientReplies[(client-1)*1024];
     framelen = *(u16*)&reply[10];
-    framelen -= 4;
 
     txrate = reply[8];
+
+    // TODO: what are the maximum crop values?
+    u16 framectl = *(u16*)&reply[12];
+    if (framectl & (1<<14))
+        framelen -= (IOPORT(W_RXLenCrop) >> 7) & 0x1FE;
+    else
+        framelen -= (IOPORT(W_RXLenCrop) << 1) & 0x1FE;
+
+    if (framelen < 0) framelen = 0;
 
     // TODO rework RX system so we don't need this (by reading directly into MPClientReplies)
     memcpy(RXBuffer, reply, 12+framelen);
@@ -1412,7 +1429,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
         return false;
 
     int rxlen;
-    u16 framelen;
+    int framelen;
     u16 framectl;
     u8 txrate;
     u64 timestamp;
@@ -1447,10 +1464,18 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
             printf("bad frame length %d/%d\n", framelen, rxlen-12);
             continue;
         }
-        framelen -= 4;
 
         framectl = *(u16*)&RXBuffer[12+0];
         txrate = RXBuffer[8];
+
+        // TODO: what are the maximum crop values?
+        if (framectl & (1<<14))
+            framelen -= (IOPORT(W_RXLenCrop) >> 7) & 0x1FE;
+        else
+            framelen -= (IOPORT(W_RXLenCrop) << 1) & 0x1FE;
+
+        if (framelen < 0) framelen = 0;
+
         break;
     }
 

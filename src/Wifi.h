@@ -93,6 +93,7 @@ enum
     W_CmdTotalTime = 0x0C0,
     W_CmdReplyTime = 0x0C4,
     W_RXFilter = 0x0D0,
+    W_RXLenCrop = 0x0DA,
     W_RXFilter2 = 0x0E0,
 
     W_USCountCnt = 0x0E8,
