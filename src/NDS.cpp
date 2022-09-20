@@ -1246,7 +1246,7 @@ void SetKeyMask(u32 mask)
     KeyInput |= key_lo | (key_hi << 16);
 }
 
-void SetSecondaryKeyMask(u32 mask)
+void SetTouchKeyMask(u32 mask)
 {
     u32 right = (~mask) & 0x1;
     u32 left  = (~(mask >> 1)) & 0x1;

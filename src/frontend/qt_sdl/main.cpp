@@ -502,7 +502,7 @@ void EmuThread::run()
 
             // process input and hotkeys
             NDS::SetKeyMask(Input::InputMask);
-            NDS::SetSecondaryKeyMask(Input::SecondaryInputMask);
+            NDS::SetTouchKeyMask(Input::TouchInputMask);
 
             if (Input::HotkeyPressed(HK_Lid))
             {

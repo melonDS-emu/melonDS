@@ -27,10 +27,13 @@ namespace Config
 {
 
 int KeyMapping[12];
-int JoyMapping[16];
+int JoyMapping[12];
 
 int HKKeyMapping[HK_MAX];
 int HKJoyMapping[HK_MAX];
+
+int TouchKeyMapping[4];
+int TouchJoyMapping[4];
 
 int JoystickID;
 
@@ -169,10 +172,6 @@ ConfigEntry ConfigFile[] =
     {"Joy_L",      0, &JoyMapping[9],  -1},
     {"Joy_X",      0, &JoyMapping[10], -1},
     {"Joy_Y",      0, &JoyMapping[11], -1},
-    {"Joy_RRight", 0, &JoyMapping[12], -1},
-    {"Joy_RLeft",  0, &JoyMapping[13], -1},
-    {"Joy_RUp",    0, &JoyMapping[14], -1},
-    {"Joy_RDown",  0, &JoyMapping[15], -1},
 
     {"HKKey_Lid",                 0, &HKKeyMapping[HK_Lid],                 -1},
     {"HKKey_Mic",                 0, &HKKeyMapping[HK_Mic],                 -1},
@@ -197,6 +196,16 @@ ConfigEntry ConfigFile[] =
     {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1},
     {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1},
     {"HKJoy_FrameStep",           0, &HKJoyMapping[HK_FrameStep],           -1},
+
+    {"Key_TouchRight", 0, &TouchKeyMapping[0], -1},
+    {"Key_TouchLeft",  0, &TouchKeyMapping[1], -1},
+    {"Key_TouchUp",    0, &TouchKeyMapping[2], -1},
+    {"Key_TouchDown",  0, &TouchKeyMapping[3], -1},
+
+    {"Joy_TouchRight", 0, &TouchJoyMapping[0], -1},
+    {"Joy_TouchLeft",  0, &TouchJoyMapping[1], -1},
+    {"Joy_TouchUp",    0, &TouchJoyMapping[2], -1},
+    {"Joy_TouchDown",  0, &TouchJoyMapping[3], -1},
 
     {"JoystickID", 0, &JoystickID, 0},
 
