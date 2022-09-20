@@ -668,8 +668,7 @@ bool EmuThread::refreshAutoScreenSizing()
     mainScreenPos[2] = mainScreenPos[1];
     mainScreenPos[1] = mainScreenPos[0];
     mainScreenPos[0] = NDS::PowerControl9 >> 15; // always 0 or 1 ?
-    printf("Can you see this -> %d\n", GPU3D::RenderNumPolygons);
-
+    
     if (GPU3D::RenderNumPolygons < 10) {
         // This is not 3D, this is 2D!
         int guess = screenSizing_Even;
