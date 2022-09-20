@@ -210,15 +210,15 @@ ConfigEntry ConfigFile[] =
     {"ScreenSwap",     1, &ScreenSwap,     false},
     {"ScreenSizing",   0, &ScreenSizing,   0},
     {"IntegerScaling", 1, &IntegerScaling, false},
-    {"ScreenAspectTop",0, &ScreenAspectTop,0},
+    {"ScreenAspectTop",0, &ScreenAspectTop,1},
     {"ScreenAspectBot",0, &ScreenAspectBot,0},
     {"ScreenFilter",   1, &ScreenFilter,   true},
 
-    {"ScreenUseGL",         0, &ScreenUseGL,         false},
+    {"ScreenUseGL",         1, &ScreenUseGL,         true},
     {"ScreenVSync",         1, &ScreenVSync,         false},
     {"ScreenVSyncInterval", 0, &ScreenVSyncInterval, 1},
 
-    {"3DRenderer", 1, &_3DRenderer, 0},
+    {"3DRenderer", 0, &_3DRenderer, 1},
     {"Threaded3D", 1, &Threaded3D, true},
 
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 5},
