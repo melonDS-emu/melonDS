@@ -1248,15 +1248,13 @@ void SetKeyMask(u32 mask)
 
 void SetSecondaryKeyMask(u32 mask)
 {
-    u32 right = mask & 0x1;
-    u32 left  = (mask >> 1) & 0x1;
-    u32 up    = (mask >> 2) & 0x1;
-    u32 down  = (mask >> 3) & 0x1;
-
-    printf("Move touch screen: right %d - left %d - up %d - down %d\n", right, left, up, down);
+    u32 right = (~mask) & 0x1;
+    u32 left  = (~(mask >> 1)) & 0x1;
+    u32 up    = (~(mask >> 2)) & 0x1;
+    u32 down  = (~(mask >> 3)) & 0x1;
 
     if (right | left | up | down) {
-        MoveOnTouchScreen(right - left, up - down);
+        MoveOnTouchScreen((right - left) + 1, (down - up) + 1);
     }
     else {
         ReleaseScreen();

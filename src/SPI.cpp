@@ -774,19 +774,26 @@ void SetTouchCoords(u16 x, u16 y)
     TouchY <<= 4;
 }
 
-void MoveTouchCoords(u16 x, u16 y)
+void MoveTouchCoords(u16 x, u16 y) // 0 -> negative, 1 -> neutral, 2 -> positive
 {
-    if (TouchY == 0xFFF) {
-        TouchX = 128; // aprox middle of 255
-        TouchY = 95; // aprox middle of 191
+    u16 multiplier = 4;
+
+    if (x == 0) {
+        TouchX -= multiplier << 4;
+    }
+    if (x == 2) {
+        TouchX += multiplier << 4;
+    }
+    if (y == 0) {
+        TouchY -= multiplier << 4;
+    }
+    if (y == 2) {
+        TouchY += multiplier << 4;
     }
 
-    TouchX += x << 4;
-    TouchY += y << 4;
-
     if (TouchY > (255 << 4) || TouchX > (191 << 4)) {
-        TouchX = 0x000;
-        TouchY = 0xFFF;
+        TouchX = 128 << 4; // aprox middle of 255
+        TouchY = 95  << 4; // aprox middle of 191
     }
 }
 
