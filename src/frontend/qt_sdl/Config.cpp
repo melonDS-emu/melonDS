@@ -214,14 +214,14 @@ ConfigEntry ConfigFile[] =
     {"ScreenAspectBot",0, &ScreenAspectBot,0},
     {"ScreenFilter",   1, &ScreenFilter,   true},
 
-    {"ScreenUseGL",         1, &ScreenUseGL,         false},
+    {"ScreenUseGL",         0, &ScreenUseGL,         false},
     {"ScreenVSync",         1, &ScreenVSync,         false},
     {"ScreenVSyncInterval", 0, &ScreenVSyncInterval, 1},
 
-    {"3DRenderer", 0, &_3DRenderer, 0},
+    {"3DRenderer", 1, &_3DRenderer, 0},
     {"Threaded3D", 1, &Threaded3D, true},
 
-    {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1},
+    {"GL_ScaleFactor", 0, &GL_ScaleFactor, 5},
     {"GL_BetterPolygons", 1, &GL_BetterPolygons, false},
 
     {"LimitFPS", 1, &LimitFPS, true},
