@@ -222,6 +222,8 @@ extern u32 KeyInput;
 const u32 ARM7WRAMSize = 0x10000;
 extern u8* ARM7WRAM;
 
+extern bool Running;
+
 bool Init();
 void DeInit();
 void Reset();

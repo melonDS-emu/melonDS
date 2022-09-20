@@ -2130,6 +2130,10 @@ void MainWindow::updateCartInserted(bool gba)
 
 void MainWindow::loadMostRecentFile()
 {
+    if (NDS::Running) {
+        return;
+    }
+    
     std::string item = Config::RecentROMList[0];
     if (!item.empty()) {
         QString filename = QString::fromStdString(item);
