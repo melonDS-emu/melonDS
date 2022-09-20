@@ -82,6 +82,12 @@ If everything went well, melonDS.app should now be in the `build` directory.
 If you want an app bundle that can be distributed to other computers without needing to install dependencies through Homebrew, you can additionally run `
 ../tools/mac-bundle.rb melonDS.app` after the build is completed, or add `-DMACOS_BUNDLE_LIBS=ON` to the first CMake command.
 
+## DONE
+
+ * the game camera now can be controlled using an analog
+ * the app should start with OpenGL rendering and 5x native resolution by default
+ * the widescreen hack should be included by default
+
 ## TODO LIST
 
  * only one screen should be visible at a time, switching automatically according to the needs
@@ -90,6 +96,7 @@ If you want an app bundle that can be distributed to other computers without nee
  * add the game logo to the bottom window in the intro menu
  * the map from the bottom screen should be cropped and placed in the top screen (when visible)
  * ingame menu will need to be reworked
+ * add second analog to the app settings
 
 ### TODO LIST FOR LATER (low priority)
 
