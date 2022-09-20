@@ -23,6 +23,7 @@
 #include "DSi_I2C.h"
 #include "NDS.h"
 #include "Config.h"
+#include "Platform.h"
 
 #include "types.h"
 
@@ -64,6 +65,12 @@ PowerManagementDialog::PowerManagementDialog(QWidget* parent) : QDialog(parent),
         case DSi_BPTWL::batteryLevel_Full:          dsiBatterySliderPos = 4; break;
     }
     ui->sliderDSiBatteryLevel->setValue(dsiBatterySliderPos);
+
+    int inst = Platform::InstanceID();
+    if (inst > 0)
+        ui->lblInstanceNum->setText(QString("Setting battery levels for instance %1").arg(inst+1));
+    else
+        ui->lblInstanceNum->hide();
 
     inited = true;
 }

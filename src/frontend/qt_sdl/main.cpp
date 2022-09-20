@@ -1796,6 +1796,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actVideoSettings->setEnabled(false);
         actMPSettings->setEnabled(false);
         actWifiSettings->setEnabled(false);
+        actInterfaceSettings->setEnabled(false);
 
 #ifdef __APPLE__
         actPreferences->setEnabled(false);
