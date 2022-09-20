@@ -9,7 +9,7 @@ This is basically melonDS, but with some modifications made specifically to impr
 
 ## How to use
 
-You need an original copy of "Kingdom Hearts 358/2 Days" in order to dump it into a NDS file. Only then you will be able to use the emulator.
+You need an original copy of "Kingdom Hearts 358/2 Days" in order to dump it into a NDS file. Place that file inside the rom folder, and name it game.nds. Only then you will be able to use the emulator properly.
 
 ## How to build
 
