@@ -2155,6 +2155,8 @@ void MainWindow::loadMostRecentFile()
         emuThread->emuRun();
 
         updateCartInserted(false);
+
+        emuThread->windowFullscreenToggle();
     }
 }
 
