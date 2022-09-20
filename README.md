@@ -1,4 +1,4 @@
-<p align="center"><img src="https://raw.githubusercontent.com/melonDS-emu/melonDS/master/res/icon/melon_128x128.png"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/vitor251093/KHDays_FM/master/res/icon/melon_128x128.png"></p>
 <h2 align="center"><b>Kingdom Hearts 358/2 Days - Final Mix (melonDS)</b></h2>
 melonDS, sorta
 
@@ -18,10 +18,10 @@ You need an original copy of "Kingdom Hearts 358/2 Days" in order to dump it int
    * Ubuntu 22.04: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qtbase5-dev libslirp-dev libarchive-dev libepoxy-dev`
    * Older Ubuntu: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp-dev libarchive-dev libepoxy-dev`
    * Arch Linux: `sudo pacman -S base-devel cmake git libpcap sdl2 qt5-base libslirp libarchive libepoxy`
-3. Download the melonDS repository and prepare:
+3. Download the KHDays FM repository and prepare:
    ```bash
-   git clone https://github.com/melonDS-emu/melonDS
-   cd melonDS
+   git clone https://github.com/vitor251093/KHDays_FM
+   cd KHDays_FM
    ```
 
 3. Compile:
@@ -38,10 +38,10 @@ You need an original copy of "Kingdom Hearts 358/2 Days" in order to dump it int
    ```bash
    pacman -S git
    ```
-5. Download the melonDS repository and prepare:
+5. Download the KHDays FM repository and prepare:
    ```bash
-   git clone https://github.com/melonDS-emu/melonDS
-   cd melonDS
+   git clone https://github.com/vitor251093/KHDays_FM
+   cd KHDays_FM
    ```
 #### Dynamic builds (with DLLs)
 5. Install dependencies: `pacman -S make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5,libslirp,libarchive,libepoxy}`
@@ -52,7 +52,7 @@ You need an original copy of "Kingdom Hearts 358/2 Days" in order to dump it int
    cd build
    ../tools/msys-dist.sh
    ```
-If everything went well, melonDS and the libraries it needs should now be in the `dist` folder.
+If everything went well, KHDays FM and the libraries it needs should now be in the `dist` folder.
 
 #### Static builds (without DLLs, standalone executable)
 5. Install dependencies: `pacman -S make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-static,libslirp,libarchive,libepoxy}`
@@ -66,10 +66,10 @@ If everything went well, melonDS should now be in the `build` folder.
 ### macOS
 1. Install the [Homebrew Package Manager](https://brew.sh)
 2. Install dependencies: `brew install git pkg-config cmake sdl2 qt@6 libslirp libarchive libepoxy`
-3. Download the melonDS repository and prepare:
+3. Download the KHDays FM repository and prepare:
    ```zsh
-   git clone https://github.com/melonDS-emu/melonDS
-   cd melonDS
+   git clone https://github.com/vitor251093/KHDays_FM
+   cd KHDays_FM
    ```
 4. Compile:
    ```zsh
