@@ -40,12 +40,12 @@ enum
 
 enum
 {
-    screenSizing_Even,
-    screenSizing_EmphTop,
+    screenSizing_Even,    // Intro and some menus
+    screenSizing_EmphTop, // Main Game (bottom screen should float)
     screenSizing_EmphBot,
     screenSizing_Auto,
     screenSizing_TopOnly,
-    screenSizing_BotOnly,
+    screenSizing_BotOnly, // Main Menu Load
     screenSizing_MAX,
 };
 
