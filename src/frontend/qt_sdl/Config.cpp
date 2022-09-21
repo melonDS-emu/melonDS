@@ -318,8 +318,8 @@ ConfigEntry ConfigFile[] =
 
     {"EnableCheats", 1, &EnableCheats, false},
 
-    {"MouseHide",        1, &MouseHide,        false},
-    {"MouseHideSeconds", 0, &MouseHideSeconds, 5},
+    {"MouseHide",        1, &MouseHide,        true},
+    {"MouseHideSeconds", 0, &MouseHideSeconds, 2},
     {"PauseLostFocus",   1, &PauseLostFocus,   false},
 
     {"DSBatteryLevelOkay",   1, &DSBatteryLevelOkay, true},
