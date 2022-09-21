@@ -680,7 +680,7 @@ bool EmuThread::refreshAutoScreenSizing()
         return updated;
     }
 
-    Config::ScreenAspectTop = 2; // 16:9
+    Config::ScreenAspectTop = 4; // window size
 
     if (mainScreenPos[0] == mainScreenPos[2] &&
         mainScreenPos[0] != mainScreenPos[1])
