@@ -660,15 +660,6 @@ void EmuThread::run()
 
 bool EmuThread::refreshAutoScreenSizing()
 {
-    u32 mainScreenPos[3];
-    mainScreenPos[0] = 0;
-    mainScreenPos[1] = 0;
-    mainScreenPos[2] = 0;
-
-    mainScreenPos[2] = mainScreenPos[1];
-    mainScreenPos[1] = mainScreenPos[0];
-    mainScreenPos[0] = NDS::PowerControl9 >> 15; // always 0 or 1 ?
-    
     if (GPU3D::RenderNumPolygons < 10) {
         // This is not 3D, this is 2D!
         int guess = screenSizing_Even;
@@ -682,22 +673,8 @@ bool EmuThread::refreshAutoScreenSizing()
 
     Config::ScreenAspectTop = 4; // window size
 
-    if (mainScreenPos[0] == mainScreenPos[2] &&
-        mainScreenPos[0] != mainScreenPos[1])
-    {
-        // constant flickering, likely displaying 3D on both screens.
-        // I still haven't seen that happening with Days, but it may happen later in the game,
-        // and in that case, I'm leaving it with a different behaviour, so it can be identified.
-        //guess = screenSizing_Even;
-        int guess = screenSizing_EmphBot;
-        bool updated = guess != autoScreenSizing;
-
-        autoScreenSizing = guess;
-
-        return updated;
-    }
-
-    if (mainScreenPos[0] == 1) {
+    u32 has3DOnTopScreen = NDS::PowerControl9 >> 15;
+    if (has3DOnTopScreen == 1) {
         // Confirmed 3D on the top screen
         int guess = screenSizing_EmphTop;
         bool updated = guess != autoScreenSizing;
