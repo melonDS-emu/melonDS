@@ -839,6 +839,21 @@ bool ProcessTX(TXSlot* slot, int num)
             slot->CurPhase = 1;
             slot->CurPhaseTime = len;
 
+            u16 framectl = *(u16*)&RAM[slot->Addr + 0xC];
+            if (framectl & (1<<14))
+            {
+                // WEP frame
+                // TODO: what happens when sending a WEP frame while WEP processing is off?
+                // TODO: some form of actual WEP processing?
+                // for now we just set the WEP FCS to a nonzero value, because some games require it
+
+                if (IOPORT(W_WEPCnt) & (1<<15))
+                {
+                    u32 wep_fcs = (slot->Addr + 0xC + slot->Length - 7) & ~0x1;
+                    *(u32*)&RAM[wep_fcs] = 0x22334466;
+                }
+            }
+
             u64 oldts;
             if (num == 4)
             {
@@ -891,7 +906,6 @@ bool ProcessTX(TXSlot* slot, int num)
             // any packet sent via CMD/REPLY/BEACON isn't going to have much use outside of local MP
             if (num == 0 || num == 2 || num == 3)
             {
-                u16 framectl = *(u16*)&RAM[slot->Addr + 0xC];
                 if ((framectl & 0x00FF) == 0x0010)
                 {
                     u16 aid = *(u16*)&RAM[slot->Addr + 0xC + 24 + 4];
@@ -1401,7 +1415,10 @@ void MPClientReplyRX(int client)
     // TODO: what are the maximum crop values?
     u16 framectl = *(u16*)&reply[12];
     if (framectl & (1<<14))
+    {
         framelen -= (IOPORT(W_RXLenCrop) >> 7) & 0x1FE;
+        if (framelen > 24) memmove(&RXBuffer[12+24], &RXBuffer[12+28], framelen);
+    }
     else
         framelen -= (IOPORT(W_RXLenCrop) << 1) & 0x1FE;
 
@@ -1470,7 +1487,10 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 
         // TODO: what are the maximum crop values?
         if (framectl & (1<<14))
+        {
             framelen -= (IOPORT(W_RXLenCrop) >> 7) & 0x1FE;
+            if (framelen > 24) memmove(&RXBuffer[12+24], &RXBuffer[12+28], framelen);
+        }
         else
             framelen -= (IOPORT(W_RXLenCrop) << 1) & 0x1FE;
 
