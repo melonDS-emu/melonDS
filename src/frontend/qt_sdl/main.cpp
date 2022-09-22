@@ -111,6 +111,10 @@ u32 micExtBufferWritePos;
 u32 micWavLength;
 s16* micWavBuffer;
 
+float backgroundRed;
+float backgroundGreen;
+float backgroundBlue;
+
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
     { 0, 1,                       "4:3 (native)" },
@@ -1119,7 +1123,10 @@ void ScreenPanelGL::initializeGL()
     printf("OpenGL: renderer: %s\n", renderer);
     printf("OpenGL: version: %s\n", version);
 
-    glClearColor(0, 0, 0, 1);
+    backgroundRed = 0.0;
+    backgroundGreen = 0.0;
+    backgroundBlue = 0.0;
+    glClearColor(backgroundRed, backgroundGreen, backgroundBlue, 1);
 
     screenShader = new QOpenGLShaderProgram(this);
     screenShader->addShaderFromSourceCode(QOpenGLShader::Vertex, kScreenVS);
@@ -1190,6 +1197,8 @@ void ScreenPanelGL::paintGL()
     int w = width();
     int h = height();
     float factor = devicePixelRatioF();
+
+    glClearColor(backgroundRed, backgroundGreen, backgroundBlue, 1);
 
     glClear(GL_COLOR_BUFFER_BIT);
 
