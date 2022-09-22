@@ -41,12 +41,13 @@ enum
 enum
 {
     screenSizing_Even,    // Intro and some menus
-    screenSizing_EmphTop, // Main Game (bottom screen should float)
+    screenSizing_EmphTop,
     screenSizing_EmphBot,
     screenSizing_Auto,
     screenSizing_TopOnly,
     screenSizing_BotOnly, // Main Menu Load
     screenSizing_MAX,
+    screenSizing_MiniMap, // Main Game with a floating map
 };
 
 namespace Config

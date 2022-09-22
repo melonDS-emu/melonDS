@@ -369,7 +369,7 @@ public:
     QAction* actScreenLayout[4];
     QAction* actScreenSwap;
     QActionGroup* grpScreenSizing;
-    QAction* actScreenSizing[6];
+    QAction* actScreenSizing[7];
     QAction* actIntegerScaling;
     QActionGroup* grpScreenAspectTop;
     QAction** actScreenAspectTop;

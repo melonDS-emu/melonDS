@@ -676,7 +676,7 @@ bool EmuThread::refreshAutoScreenSizing()
     u32 has3DOnTopScreen = NDS::PowerControl9 >> 15;
     if (has3DOnTopScreen == 1) {
         // Confirmed 3D on the top screen
-        int guess = screenSizing_EmphTop;
+        int guess = screenSizing_MiniMap;
         bool updated = guess != autoScreenSizing;
 
         autoScreenSizing = guess;
@@ -1602,9 +1602,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             QMenu* submenu = menu->addMenu("Screen sizing");
             grpScreenSizing = new QActionGroup(submenu);
 
-            const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only", "Bottom only"};
+            const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only", "Bottom only", "Minimap"};
 
-            for (int i = 0; i < screenSizing_MAX; i++)
+            for (int i = 0; i < screenSizing_MiniMap; i++)
             {
                 actScreenSizing[i] = submenu->addAction(QString(screensizing[i]));
                 actScreenSizing[i]->setActionGroup(grpScreenSizing);
@@ -3110,7 +3110,7 @@ int main(int argc, char** argv)
     SANITIZE(Config::ScreenRotation, 0, 3);
     SANITIZE(Config::ScreenGap, 0, 500);
     SANITIZE(Config::ScreenLayout, 0, 3);
-    SANITIZE(Config::ScreenSizing, 0, (int)screenSizing_MAX);
+    SANITIZE(Config::ScreenSizing, 0, (int)screenSizing_MiniMap);
     SANITIZE(Config::ScreenAspectTop, 0, 4);
     SANITIZE(Config::ScreenAspectBot, 0, 4);
 #undef SANITIZE
