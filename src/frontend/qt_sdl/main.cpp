@@ -1526,7 +1526,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
 
 #ifdef __APPLE__
-        QAction* actPreferences = menu->addAction("Preferences...");
+        actPreferences = menu->addAction("Preferences...");
         connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
         actPreferences->setMenuRole(QAction::PreferencesRole);
 #endif

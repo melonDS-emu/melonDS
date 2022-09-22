@@ -353,6 +353,9 @@ public:
     QAction* actMPNewInstance;
 
     QAction* actEmuSettings;
+#ifdef __APPLE__
+    QAction* actPreferences;
+#endif
     QAction* actPowerManagement;
     QAction* actInputConfig;
     QAction* actVideoSettings;
