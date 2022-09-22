@@ -111,9 +111,9 @@ u32 micExtBufferWritePos;
 u32 micWavLength;
 s16* micWavBuffer;
 
-float backgroundRed;
-float backgroundGreen;
-float backgroundBlue;
+float backgroundRed = 0.0;
+float backgroundGreen = 0.0;
+float backgroundBlue = 0.0;
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
@@ -1011,7 +1011,6 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
     QPainter painter(this);
 
     // fill background
-    // VMM TODO: Background should start as white, and then change to black?
     painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
 
     if (emuThread->emuIsActive())
@@ -1123,9 +1122,6 @@ void ScreenPanelGL::initializeGL()
     printf("OpenGL: renderer: %s\n", renderer);
     printf("OpenGL: version: %s\n", version);
 
-    backgroundRed = 0.0;
-    backgroundGreen = 0.0;
-    backgroundBlue = 0.0;
     glClearColor(backgroundRed, backgroundGreen, backgroundBlue, 1);
 
     screenShader = new QOpenGLShaderProgram(this);
