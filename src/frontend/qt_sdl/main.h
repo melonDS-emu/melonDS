@@ -226,6 +226,9 @@ protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
 
+    void focusInEvent(QFocusEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
+
 signals:
     void screenLayoutChange();
 
@@ -255,6 +258,7 @@ private slots:
     void onROMInfo();
     void onRAMInfo();
     void onOpenTitleManager();
+    void onMPNewInstance();
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -267,6 +271,8 @@ private slots:
     void onOpenPathSettings();
     void onUpdateAudioSettings();
     void onAudioSettingsFinished(int res);
+    void onOpenMPSettings();
+    void onMPSettingsFinished(int res);
     void onOpenWifiSettings();
     void onWifiSettingsFinished(int res);
     void onFirmwareSettingsFinished(int res);
@@ -344,12 +350,17 @@ public:
     QAction* actROMInfo;
     QAction* actRAMInfo;
     QAction* actTitleManager;
+    QAction* actMPNewInstance;
 
     QAction* actEmuSettings;
+#ifdef __APPLE__
+    QAction* actPreferences;
+#endif
     QAction* actPowerManagement;
     QAction* actInputConfig;
     QAction* actVideoSettings;
     QAction* actAudioSettings;
+    QAction* actMPSettings;
     QAction* actWifiSettings;
     QAction* actFirmwareSettings;
     QAction* actPathSettings;

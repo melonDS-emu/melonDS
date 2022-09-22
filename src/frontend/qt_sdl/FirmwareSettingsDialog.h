@@ -124,7 +124,6 @@ private slots:
 
     void on_cbxBirthdayMonth_currentIndexChanged(int idx);
     void on_overrideFirmwareBox_toggled();
-    void on_cbRandomizeMAC_toggled();
 
 private:
     bool verifyMAC();

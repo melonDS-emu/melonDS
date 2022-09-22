@@ -93,6 +93,7 @@ enum
     W_CmdTotalTime = 0x0C0,
     W_CmdReplyTime = 0x0C4,
     W_RXFilter = 0x0D0,
+    W_RXLenCrop = 0x0DA,
     W_RXFilter2 = 0x0E0,
 
     W_USCountCnt = 0x0E8,
@@ -136,10 +137,41 @@ enum
     W_TXErrorCount = 0x1C0,
     W_RXCount = 0x1C4,
 
+    W_CMDStat0 = 0x1D0,
+    W_CMDStat1 = 0x1D2,
+    W_CMDStat2 = 0x1D4,
+    W_CMDStat3 = 0x1D6,
+    W_CMDStat4 = 0x1D8,
+    W_CMDStat5 = 0x1DA,
+    W_CMDStat6 = 0x1DC,
+    W_CMDStat7 = 0x1DE,
+
     W_TXSeqNo = 0x210,
     W_RFStatus = 0x214,
     W_IFSet = 0x21C,
     W_RXTXAddr = 0x268,
+};
+
+enum
+{
+    Event_RXCheck = 0,
+    Event_IRQ15,
+    Event_MSTimer,
+    Event_RFWakeup,
+    Event_RX,
+    Event_TX,
+    Event_MPClientSync,
+    Event_RF,
+    Event_BB,
+
+    Event_MAX
+};
+
+struct SchedEvent
+{
+    void (*Func)(u32 param);
+    u64 Timestamp;
+    u32 Param;
 };
 
 
@@ -151,7 +183,7 @@ void DeInit();
 void Reset();
 void DoSavestate(Savestate* file);
 
-void StartTX_Beacon();
+void SetPowerCnt(u32 val);
 
 void USTimer(u32 param);
 

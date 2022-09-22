@@ -176,6 +176,7 @@ bool RunningGame;
 void DivDone(u32 param);
 void SqrtDone(u32 param);
 void RunTimer(u32 tid, s32 cycles);
+void UpdateWifiTimings();
 void SetWifiWaitCnt(u16 val);
 void SetGBASlotTimings();
 
@@ -892,9 +893,7 @@ bool DoSavestate(Savestate* file)
         InitTimings();
         SetGBASlotTimings();
 
-        u16 tmp = WifiWaitCnt;
-        WifiWaitCnt = 0xFFFF;
-        SetWifiWaitCnt(tmp); // force timing table update
+        UpdateWifiTimings();
     }
 
     for (int i = 0; i < 8; i++)
@@ -918,6 +917,9 @@ bool DoSavestate(Savestate* file)
     if (!file->Saving)
     {
         GPU::SetPowerCnt(PowerControl9);
+
+        SPU::SetPowerCnt(PowerControl7 & 0x0001);
+        Wifi::SetPowerCnt(PowerControl7 & 0x0002);
     }
 
 #ifdef JIT_ENABLED
@@ -1198,6 +1200,25 @@ void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 para
     Reschedule(evt->Timestamp);
 }
 
+void ScheduleEvent(u32 id, u64 timestamp, void (*func)(u32), u32 param)
+{
+    if (SchedListMask & (1<<id))
+    {
+        printf("!! EVENT %d ALREADY SCHEDULED\n", id);
+        return;
+    }
+
+    SchedEvent* evt = &SchedList[id];
+
+    evt->Timestamp = timestamp;
+    evt->Func = func;
+    evt->Param = param;
+
+    SchedListMask |= (1<<id);
+
+    Reschedule(evt->Timestamp);
+}
+
 void CancelEvent(u32 id)
 {
     SchedListMask &= ~(1<<id);
@@ -1323,15 +1344,29 @@ void MapSharedWRAM(u8 val)
 }
 
 
+void UpdateWifiTimings()
+{
+    if (PowerControl7 & 0x0002)
+    {
+        const int ntimings[4] = {10, 8, 6, 18};
+        u16 val = WifiWaitCnt;
+
+        SetARM7RegionTimings(0x04800, 0x04808, Mem7_Wifi0, 16, ntimings[val & 0x3], (val & 0x4) ? 4 : 6);
+        SetARM7RegionTimings(0x04808, 0x04810, Mem7_Wifi1, 16, ntimings[(val>>3) & 0x3], (val & 0x20) ? 4 : 10);
+    }
+    else
+    {
+        SetARM7RegionTimings(0x04800, 0x04808, Mem7_Wifi0, 32, 1, 1);
+        SetARM7RegionTimings(0x04808, 0x04810, Mem7_Wifi1, 32, 1, 1);
+    }
+}
+
 void SetWifiWaitCnt(u16 val)
 {
     if (WifiWaitCnt == val) return;
 
     WifiWaitCnt = val;
-
-    const int ntimings[4] = {10, 8, 6, 18};
-    SetARM7RegionTimings(0x04800, 0x04808, Mem7_Wifi0, 16, ntimings[val & 0x3], (val & 0x4) ? 4 : 6);
-    SetARM7RegionTimings(0x04808, 0x04810, Mem7_Wifi1, 16, ntimings[(val>>3) & 0x3], (val & 0x20) ? 4 : 10);
+    UpdateWifiTimings();
 }
 
 void SetGBASlotTimings()
@@ -1941,8 +1976,8 @@ void debug(u32 param)
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
-    /*FILE*
-    shit = fopen("debug/construct.bin", "wb");
+    FILE*
+    shit = fopen("debug/inazuma.bin", "wb");
     fwrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
@@ -1954,9 +1989,14 @@ void debug(u32 param)
         u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);*/
+    for (u32 i = 0x06000000; i < 0x06040000; i+=4)
+    {
+        u32 val = ARM7Read32(i);
+        fwrite(&val, 4, 1, shit);
+    }
+    fclose(shit);
 
-    FILE*
+    /*FILE*
     shit = fopen("debug/directboot9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
@@ -1970,7 +2010,7 @@ void debug(u32 param)
         u32 val = DSi::ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);
+    fclose(shit);*/
 }
 
 
@@ -2396,6 +2436,7 @@ u8 ARM7Read8(u32 addr)
     case 0x04800000:
         if (addr < 0x04810000)
         {
+            if (!(PowerControl7 & (1<<1))) return 0;
             if (addr & 0x1) return Wifi::Read(addr-1) >> 8;
             return Wifi::Read(addr) & 0xFF;
         }
@@ -2460,6 +2501,7 @@ u16 ARM7Read16(u32 addr)
     case 0x04800000:
         if (addr < 0x04810000)
         {
+            if (!(PowerControl7 & (1<<1))) return 0;
             return Wifi::Read(addr);
         }
         break;
@@ -2523,6 +2565,7 @@ u32 ARM7Read32(u32 addr)
     case 0x04800000:
         if (addr < 0x04810000)
         {
+            if (!(PowerControl7 & (1<<1))) return 0;
             return Wifi::Read(addr) | (Wifi::Read(addr+2) << 16);
         }
         break;
@@ -2614,7 +2657,8 @@ void ARM7Write8(u32 addr, u8 val)
         return;
     }
 
-    if (ARM7->R[15] > 0x00002F30) // ARM7 BIOS bug
+    //if (ARM7->R[15] > 0x00002F30) // ARM7 BIOS bug
+    if (addr >= 0x01000000)
         printf("unknown arm7 write8 %08X %02X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
@@ -2662,6 +2706,7 @@ void ARM7Write16(u32 addr, u16 val)
     case 0x04800000:
         if (addr < 0x04810000)
         {
+            if (!(PowerControl7 & (1<<1))) return;
             Wifi::Write(addr, val);
             return;
         }
@@ -2691,7 +2736,8 @@ void ARM7Write16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
+    if (addr >= 0x01000000)
+        printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7Write32(u32 addr, u32 val)
@@ -2738,6 +2784,7 @@ void ARM7Write32(u32 addr, u32 val)
     case 0x04800000:
         if (addr < 0x04810000)
         {
+            if (!(PowerControl7 & (1<<1))) return;
             Wifi::Write(addr, val & 0xFFFF);
             Wifi::Write(addr+2, val >> 16);
             return;
@@ -2771,7 +2818,8 @@ void ARM7Write32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
+    if (addr >= 0x01000000)
+        printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
@@ -2931,7 +2979,8 @@ u8 ARM9IORead8(u32 addr)
         return (u8)(emuID[idx]);
     }
 
-    printf("unknown ARM9 IO read8 %08X %08X\n", addr, ARM9->R[15]);
+    if ((addr & 0xFFFFF000) != 0x04004000)
+        printf("unknown ARM9 IO read8 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -3077,7 +3126,8 @@ u16 ARM9IORead16(u32 addr)
         return GPU3D::Read16(addr);
     }
 
-    printf("unknown ARM9 IO read16 %08X %08X\n", addr, ARM9->R[15]);
+    if ((addr & 0xFFFFF000) != 0x04004000)
+        printf("unknown ARM9 IO read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -3220,7 +3270,8 @@ u32 ARM9IORead32(u32 addr)
         return GPU3D::Read32(addr);
     }
 
-    printf("unknown ARM9 IO read32 %08X %08X\n", addr, ARM9->R[15]);
+    if ((addr & 0xFFFFF000) != 0x04004000)
+        printf("unknown ARM9 IO read32 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -3748,6 +3799,7 @@ u8 ARM7IORead8(u32 addr)
     case 0x04000241: return WRAMCnt;
 
     case 0x04000300: return PostFlag7;
+    case 0x04000304: return PowerControl7;
     }
 
     if (addr >= 0x04000400 && addr < 0x04000520)
@@ -3755,7 +3807,8 @@ u8 ARM7IORead8(u32 addr)
         return SPU::Read8(addr);
     }
 
-    printf("unknown ARM7 IO read8 %08X %08X\n", addr, ARM7->R[15]);
+    if ((addr & 0xFFFFF000) != 0x04004000)
+        printf("unknown ARM7 IO read8 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -3830,7 +3883,9 @@ u16 ARM7IORead16(u32 addr)
     case 0x040001C2: return SPI::ReadData();
 
     case 0x04000204: return ExMemCnt[1];
-    case 0x04000206: return WifiWaitCnt;
+    case 0x04000206:
+        if (!(PowerControl7 & (1<<1))) return 0;
+        return WifiWaitCnt;
 
     case 0x04000208: return IME[1];
     case 0x04000210: return IE[1] & 0xFFFF;
@@ -3846,7 +3901,8 @@ u16 ARM7IORead16(u32 addr)
         return SPU::Read16(addr);
     }
 
-    printf("unknown ARM7 IO read16 %08X %08X\n", addr, ARM7->R[15]);
+    if ((addr & 0xFFFFF000) != 0x04004000)
+        printf("unknown ARM7 IO read16 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -3912,6 +3968,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000210: return IE[1];
     case 0x04000214: return IF[1];
 
+    case 0x04000304: return PowerControl7;
     case 0x04000308: return ARM7BIOSProt;
 
     case 0x04100000:
@@ -3945,7 +4002,8 @@ u32 ARM7IORead32(u32 addr)
         return SPU::Read32(addr);
     }
 
-    printf("unknown ARM7 IO read32 %08X %08X\n", addr, ARM7->R[15]);
+    if ((addr & 0xFFFFF000) != 0x04004000)
+        printf("unknown ARM7 IO read32 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -4140,6 +4198,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
             return;
         }
     case 0x04000206:
+        if (!(PowerControl7 & (1<<1))) return;
         SetWifiWaitCnt(val);
         return;
 
@@ -4155,7 +4214,15 @@ void ARM7IOWrite16(u32 addr, u16 val)
             PostFlag7 = val & 0x01;
         return;
 
-    case 0x04000304: PowerControl7 = val; return;
+    case 0x04000304:
+        {
+            u16 change = PowerControl7 ^ val;
+            PowerControl7 = val & 0x0003;
+            SPU::SetPowerCnt(val & 0x0001);
+            Wifi::SetPowerCnt(val & 0x0002);
+            if (change & 0x0002) UpdateWifiTimings();
+        }
+        return;
 
     case 0x04000308:
         if (ARM7BIOSProt == 0)
@@ -4277,7 +4344,15 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000210: IE[1] = val; UpdateIRQ(1); return;
     case 0x04000214: IF[1] &= ~val; UpdateIRQ(1); return;
 
-    case 0x04000304: PowerControl7 = val & 0xFFFF; return;
+    case 0x04000304:
+        {
+            u16 change = PowerControl7 ^ val;
+            PowerControl7 = val & 0x0003;
+            SPU::SetPowerCnt(val & 0x0001);
+            Wifi::SetPowerCnt(val & 0x0002);
+            if (change & 0x0002) UpdateWifiTimings();
+        }
+        return;
 
     case 0x04000308:
         if (ARM7BIOSProt == 0)

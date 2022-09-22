@@ -32,6 +32,10 @@ void DeInit();
 
 void StopEmu();
 
+// instance ID, for local multiplayer
+int InstanceID();
+std::string InstanceFileSuffix();
+
 // configuration values
 
 enum ConfigEntry
@@ -77,7 +81,6 @@ enum ConfigEntry
     Firm_Color,
     Firm_Message,
     Firm_MAC,
-    Firm_RandomizeMAC,
 
     AudioBitrate,
 };
@@ -156,8 +159,16 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 // packet type: DS-style TX header (12 bytes) + original 802.11 frame
 bool MP_Init();
 void MP_DeInit();
-int MP_SendPacket(u8* data, int len);
-int MP_RecvPacket(u8* data, bool block);
+void MP_Begin();
+void MP_End();
+int MP_SendPacket(u8* data, int len, u64 timestamp);
+int MP_RecvPacket(u8* data, u64* timestamp);
+int MP_SendCmd(u8* data, int len, u64 timestamp);
+int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid);
+int MP_SendAck(u8* data, int len, u64 timestamp);
+int MP_RecvHostPacket(u8* data, u64* timestamp);
+u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask);
+
 
 // LAN comm interface
 // packet type: Ethernet (802.3)

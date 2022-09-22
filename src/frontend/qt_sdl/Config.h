@@ -58,6 +58,7 @@ struct ConfigEntry
     int Type;           // 0=int 1=bool 2=string
     void* Value;        // pointer to the value variable
     std::variant<int, bool, std::string> Default;
+    bool InstanceUnique; // whether the setting can exist individually for each instance in multiplayer
 };
 
 
@@ -141,9 +142,10 @@ extern int FirmwareBirthdayDay;
 extern int FirmwareFavouriteColour;
 extern std::string FirmwareMessage;
 extern std::string FirmwareMAC;
-extern bool RandomizeMAC;
 
-extern bool SocketBindAnyAddr;
+extern int MPAudioMode;
+extern int MPRecvTimeout;
+
 extern std::string LANDevice;
 extern bool DirectLAN;
 

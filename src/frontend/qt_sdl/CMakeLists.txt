@@ -17,6 +17,7 @@ set(SOURCES_QT_SDL
     AudioSettingsDialog.cpp
     FirmwareSettingsDialog.cpp
     PathSettingsDialog.cpp
+	MPSettingsDialog.cpp
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
     ROMInfoDialog.cpp
@@ -25,6 +26,7 @@ set(SOURCES_QT_SDL
     Input.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp
+	LocalMP.cpp
     OSD.cpp
     OSD_shaders.h
     font.h
@@ -112,6 +114,8 @@ if (PORTABLE)
 endif()
 
 if (APPLE)
+    target_sources(melonDS PRIVATE sem_timedwait.cpp)
+
     # Copy icon into the bundle
     set(RESOURCE_FILES "${CMAKE_SOURCE_DIR}/res/melon.icns")
     target_sources(melonDS PUBLIC "${RESOURCE_FILES}")

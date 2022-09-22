@@ -25,6 +25,7 @@
 #include <string>
 #include <algorithm>
 
+#include <QProcess>
 #include <QApplication>
 #include <QMessageBox>
 #include <QMenuBar>
@@ -57,6 +58,7 @@
 #include "AudioSettingsDialog.h"
 #include "FirmwareSettingsDialog.h"
 #include "PathSettingsDialog.h"
+#include "MPSettingsDialog.h"
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
@@ -77,6 +79,7 @@
 #include "SPU.h"
 #include "Wifi.h"
 #include "Platform.h"
+#include "LocalMP.h"
 #include "Config.h"
 
 #include "Savestate.h"
@@ -101,6 +104,7 @@ bool videoSettingsDirty;
 
 SDL_AudioDeviceID audioDevice;
 int audioFreq;
+bool audioMuted;
 SDL_cond* audioSync;
 SDL_mutex* audioSyncLock;
 
@@ -138,7 +142,7 @@ void audioCallback(void* data, Uint8* stream, int len)
     SDL_CondSignal(audioSync);
     SDL_UnlockMutex(audioSyncLock);
 
-    if (num_in < 1)
+    if ((num_in < 1) || audioMuted)
     {
         memset(stream, 0, len*sizeof(s16)*2);
         return;
@@ -156,6 +160,23 @@ void audioCallback(void* data, Uint8* stream, int len)
     }
 
     Frontend::AudioOut_Resample(buf_in, num_in, (s16*)stream, len, Config::AudioVolume);
+}
+
+void audioMute()
+{
+    int inst = Platform::InstanceID();
+    audioMuted = false;
+
+    switch (Config::MPAudioMode)
+    {
+    case 1: // only instance 1
+        if (inst > 0) audioMuted = true;
+        break;
+
+    case 2: // only currently focused instance
+        if (!mainWindow->isActiveWindow()) audioMuted = true;
+        break;
+    }
 }
 
 
@@ -646,7 +667,11 @@ void EmuThread::run()
                 if (winUpdateFreq < 1)
                     winUpdateFreq = 1;
 
-                sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
+                int inst = Platform::InstanceID();
+                if (inst == 0)
+                    sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
+                else
+                    sprintf(melontitle, "[%d/%.0f] melonDS (%d)", fps, fpstarget, inst+1);
                 changeWindowTitle(melontitle);
             }
         }
@@ -661,7 +686,11 @@ void EmuThread::run()
 
             EmuStatus = EmuRunning;
 
-            sprintf(melontitle, "melonDS " MELONDS_VERSION);
+            int inst = Platform::InstanceID();
+            if (inst == 0)
+                sprintf(melontitle, "melonDS " MELONDS_VERSION);
+            else
+                sprintf(melontitle, "melonDS (%d)", inst+1);
             changeWindowTitle(melontitle);
 
             SDL_Delay(75);
@@ -1330,6 +1359,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     setWindowTitle("melonDS " MELONDS_VERSION);
     setAttribute(Qt::WA_DeleteOnClose);
     setAcceptDrops(true);
+    setFocusPolicy(Qt::ClickFocus);
+
+    int inst = Platform::InstanceID();
 
     QMenuBar* menubar = new QMenuBar();
     {
@@ -1462,19 +1494,30 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actEnableCheats->setCheckable(true);
         connect(actEnableCheats, &QAction::triggered, this, &MainWindow::onEnableCheats);
 
-        actSetupCheats = menu->addAction("Setup cheat codes");
-        actSetupCheats->setMenuRole(QAction::NoRole);
-        connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
+        //if (inst == 0)
+        {
+            actSetupCheats = menu->addAction("Setup cheat codes");
+            actSetupCheats->setMenuRole(QAction::NoRole);
+            connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
 
-        menu->addSeparator();
-        actROMInfo = menu->addAction("ROM info");
-        connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
+            menu->addSeparator();
+            actROMInfo = menu->addAction("ROM info");
+            connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
 
-        actRAMInfo = menu->addAction("RAM search");
-        connect(actRAMInfo, &QAction::triggered, this, &MainWindow::onRAMInfo);
+            actRAMInfo = menu->addAction("RAM search");
+            connect(actRAMInfo, &QAction::triggered, this, &MainWindow::onRAMInfo);
 
-        actTitleManager = menu->addAction("Manage DSi titles");
-        connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
+            actTitleManager = menu->addAction("Manage DSi titles");
+            connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
+        }
+
+        {
+            menu->addSeparator();
+            QMenu* submenu = menu->addMenu("Multiplayer");
+
+            actMPNewInstance = submenu->addAction("Launch new instance");
+            connect(actMPNewInstance, &QAction::triggered, this, &MainWindow::onMPNewInstance);
+        }
     }
     {
         QMenu* menu = menubar->addMenu("Config");
@@ -1483,7 +1526,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
 
 #ifdef __APPLE__
-        QAction* actPreferences = menu->addAction("Preferences...");
+        actPreferences = menu->addAction("Preferences...");
         connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
         actPreferences->setMenuRole(QAction::PreferencesRole);
 #endif
@@ -1497,14 +1540,17 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actAudioSettings = menu->addAction("Audio settings");
         connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
 
+        actMPSettings = menu->addAction("Multiplayer settings");
+        connect(actMPSettings, &QAction::triggered, this, &MainWindow::onOpenMPSettings);
+
         actWifiSettings = menu->addAction("Wifi settings");
         connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
 
-        actInterfaceSettings = menu->addAction("Interface settings");
-        connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
-
         actFirmwareSettings = menu->addAction("Firmware settings");
         connect(actFirmwareSettings, &QAction::triggered, this, &MainWindow::onOpenFirmwareSettings);
+
+        actInterfaceSettings = menu->addAction("Interface settings");
+        connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
 
         actPathSettings = menu->addAction("Path settings");
         connect(actPathSettings, &QAction::triggered, this, &MainWindow::onOpenPathSettings);
@@ -1661,6 +1707,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     resize(Config::WindowWidth, Config::WindowHeight);
 
+    if (Config::FirmwareUsername == "Arisotura")
+        actMPNewInstance->setText("Fart");
+
 #ifdef Q_OS_MAC
     QPoint screenCenter = screen()->availableGeometry().center();
     QRect frameGeo = frameGeometry();
@@ -1740,6 +1789,19 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     actLimitFramerate->setChecked(Config::LimitFPS);
     actAudioSync->setChecked(Config::AudioSync);
+
+    if (inst > 0)
+    {
+        actEmuSettings->setEnabled(false);
+        actVideoSettings->setEnabled(false);
+        actMPSettings->setEnabled(false);
+        actWifiSettings->setEnabled(false);
+        actInterfaceSettings->setEnabled(false);
+
+#ifdef __APPLE__
+        actPreferences->setEnabled(false);
+#endif // __APPLE__
+    }
 }
 
 MainWindow::~MainWindow()
@@ -1828,7 +1890,7 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
     if (event->isAutoRepeat()) return;
 
     // TODO!! REMOVE ME IN RELEASE BUILDS!!
-    //if (event->key() == Qt::Key_F11) NDS::debug(0);
+    if (event->key() == Qt::Key_F11) NDS::debug(0);
 
     Input::KeyPress(event);
 }
@@ -1928,6 +1990,16 @@ void MainWindow::dropEvent(QDropEvent* event)
 
         updateCartInserted(false);
     }
+}
+
+void MainWindow::focusInEvent(QFocusEvent* event)
+{
+    audioMute();
+}
+
+void MainWindow::focusOutEvent(QFocusEvent* event)
+{
+    audioMute();
 }
 
 void MainWindow::onAppStateChanged(Qt::ApplicationState state)
@@ -2602,6 +2674,23 @@ void MainWindow::onOpenTitleManager()
     TitleManagerDialog* dlg = TitleManagerDialog::openDlg(this);
 }
 
+void MainWindow::onMPNewInstance()
+{
+    //QProcess::startDetached(QApplication::applicationFilePath());
+    QProcess newinst;
+    newinst.setProgram(QApplication::applicationFilePath());
+    newinst.setArguments(QApplication::arguments().mid(1, QApplication::arguments().length()-1));
+
+#ifdef __WIN32__
+    newinst.setCreateProcessArgumentsModifier([] (QProcess::CreateProcessArguments *args)
+    {
+        args->flags |= CREATE_NEW_CONSOLE;
+    });
+#endif
+
+    newinst.startDetached();
+}
+
 void MainWindow::onOpenEmuSettings()
 {
     emuThread->emuPause();
@@ -2736,6 +2825,22 @@ void MainWindow::onAudioSettingsFinished(int res)
     micOpen();
 }
 
+void MainWindow::onOpenMPSettings()
+{
+    emuThread->emuPause();
+
+    MPSettingsDialog* dlg = MPSettingsDialog::openDlg(this);
+    connect(dlg, &MPSettingsDialog::finished, this, &MainWindow::onMPSettingsFinished);
+}
+
+void MainWindow::onMPSettingsFinished(int res)
+{
+    audioMute();
+    LocalMP::SetRecvTimeout(Config::MPRecvTimeout);
+
+    emuThread->emuUnpause();
+}
+
 void MainWindow::onOpenWifiSettings()
 {
     emuThread->emuPause();
@@ -2746,12 +2851,6 @@ void MainWindow::onOpenWifiSettings()
 
 void MainWindow::onWifiSettingsFinished(int res)
 {
-    if (Wifi::MPInited)
-    {
-        Platform::MP_DeInit();
-        Platform::MP_Init();
-    }
-
     Platform::LAN_DeInit();
     Platform::LAN_Init();
 
@@ -3070,6 +3169,7 @@ int main(int argc, char** argv)
     format.setSwapInterval(0);
     QSurfaceFormat::setDefaultFormat(format);
 
+    audioMuted = false;
     audioSync = SDL_CreateCond();
     audioSyncLock = SDL_CreateMutex();
 
@@ -3122,6 +3222,8 @@ int main(int argc, char** argv)
     emuThread = new EmuThread();
     emuThread->start();
     emuThread->emuPause();
+
+    audioMute();
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
@@ -3180,12 +3282,13 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
 
     if (argv_w) LocalFree(argv_w);
 
-    /*if (AttachConsole(ATTACH_PARENT_PROCESS))
+    //if (AttachConsole(ATTACH_PARENT_PROCESS))
+    if (AllocConsole())
     {
         freopen("CONOUT$", "w", stdout);
         freopen("CONOUT$", "w", stderr);
         printf("\n");
-    }*/
+    }
 
     int ret = main(argc, argv);
 
