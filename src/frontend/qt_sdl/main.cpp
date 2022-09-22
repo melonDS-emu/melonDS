@@ -1890,7 +1890,7 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
     if (event->isAutoRepeat()) return;
 
     // TODO!! REMOVE ME IN RELEASE BUILDS!!
-    if (event->key() == Qt::Key_F11) NDS::debug(0);
+    //if (event->key() == Qt::Key_F11) NDS::debug(0);
 
     Input::KeyPress(event);
 }
@@ -3283,12 +3283,12 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
     if (argv_w) LocalFree(argv_w);
 
     //if (AttachConsole(ATTACH_PARENT_PROCESS))
-    if (AllocConsole())
+    /*if (AllocConsole())
     {
         freopen("CONOUT$", "w", stdout);
         freopen("CONOUT$", "w", stderr);
         printf("\n");
-    }
+    }*/
 
     int ret = main(argc, argv);
 
