@@ -658,41 +658,39 @@ void EmuThread::run()
     }
 }
 
+bool EmuThread::updateAutoScreenSizing(int size)
+{
+    bool updated = size != autoScreenSizing;
+    autoScreenSizing = size;
+    return updated;
+}
+
 bool EmuThread::refreshAutoScreenSizing()
 {
     if (GPU3D::RenderNumPolygons < 10) {
         // This is not 3D, this is 2D!
-        int guess = screenSizing_Even;
-        bool updated = guess != autoScreenSizing;
-
         Config::ScreenAspectTop = 0; // 4:3, same as bottom
-        autoScreenSizing = guess;
-
-        return updated;
+        return updateAutoScreenSizing(screenSizing_Even);
     }
 
     Config::ScreenAspectTop = 4; // window size
 
     u32 has3DOnTopScreen = NDS::PowerControl9 >> 15;
     if (has3DOnTopScreen == 1) {
+        bool inMissionPauseMenu = GPU::GPU2D_A.EVY == 8 && GPU::GPU2D_B.EVY == 8;
+        if (inMissionPauseMenu) {
+            // During the pause menu, the mini map should be hidden
+            return updateAutoScreenSizing(screenSizing_TopOnly);
+        }
+    
         // Confirmed 3D on the top screen
-        int guess = screenSizing_MiniMap;
-        bool updated = guess != autoScreenSizing;
-
-        autoScreenSizing = guess;
-
-        return updated;
+        // VMM TODO: Check if the bottom screen is black. If so, it should be screenSizing_TopOnly instead
+        return updateAutoScreenSizing(screenSizing_MiniMap);
     }
     
     // The only moment I could see that happening in during the intro standby cutscenes,
     // and in that case, is preferable to show the two screens with an equal size.
-    //guess = screenSizing_EmphBot;
-    int guess = screenSizing_Even;
-    bool updated = guess != autoScreenSizing;
-
-    autoScreenSizing = guess;
-    
-    return updated;
+    return updateAutoScreenSizing(screenSizing_Even);
 }
 
 void EmuThread::changeWindowTitle(char* title)
@@ -1009,6 +1007,7 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
     QPainter painter(this);
 
     // fill background
+    // VMM TODO: Background should start as white, and then change to black?
     painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
 
     if (emuThread->emuIsActive())
@@ -1225,6 +1224,7 @@ void ScreenPanelGL::paintGL()
             {
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
                                 GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
                                 GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
             }

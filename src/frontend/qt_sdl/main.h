@@ -94,6 +94,7 @@ private:
     QOffscreenSurface* oglSurface;
     QOpenGLContext* oglContext;
 
+    bool updateAutoScreenSizing(int size);
     bool refreshAutoScreenSizing();
 };
 
