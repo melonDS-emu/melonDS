@@ -714,8 +714,8 @@ bool EmuThread::refreshAutoScreenSizing()
         return updateAutoScreenSizing(screenSizing_Even);
     }
 
-    u32 has3DOnTopScreen = NDS::PowerControl9 >> 15;
-    if (has3DOnTopScreen == 1) {
+    bool has3DOnTopScreen = (NDS::PowerControl9 >> 15) == 1;
+    if (has3DOnTopScreen) {
         bool inMissionPauseMenu = GPU::GPU2D_A.EVY == 8 && GPU::GPU2D_B.EVY == 8;
         if (inMissionPauseMenu) {
             gameScene = gameScene_PauseMenu;
