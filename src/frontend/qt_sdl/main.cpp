@@ -691,15 +691,21 @@ bool EmuThread::refreshAutoScreenSizing()
             return false;
         }
 
-        // Also happens during intro, and during the start of the mission review; those seem to use real 2D elements
+        // Also happens during intro, during the start of the mission review, on some menu screens; those seem to use real 2D elements
         bool no3D = GPU3D::NumVertices == 0 && GPU3D::NumPolygons == 0 && GPU3D::RenderNumPolygons == 0;
-        if (no3D && gameScene == gameScene_DayCounter) { // Day counter completed
-            gameScene = gameScene_Other;
-            return updateAutoScreenSizing(screenSizing_Even);
+
+        if (gameScene == gameScene_DayCounter) {
+            if (no3D) // Day counter completed
+            {
+                gameScene = gameScene_Other;
+                return updateAutoScreenSizing(screenSizing_Even);
+            }
+            return false; // Day counter ongoing
         }
         
-        bool isDayCountView = (gameScene == gameScene_DayCounter) || (GPU3D::NumVertices == 8 && GPU3D::NumPolygons == 2);
-        if (isDayCountView) {
+        bool isDayCountView = GPU3D::NumVertices == 8 && GPU3D::NumPolygons == 2;
+        if (isDayCountView) // Day counter started
+        {
             gameScene = gameScene_DayCounter;
             return updateAutoScreenSizing(screenSizing_TopOnly);
         }
