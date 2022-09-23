@@ -511,30 +511,24 @@ void SetupDirectBoot()
         ARM9Write32(0x02FFE000+i, tmp);
     }
 
-    FILE* nand = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_NANDPath), "r+b");
-    if (nand)
+    if (DSi_NAND::Init(&DSi::ARM7iBIOS[0x8308]))
     {
-        if (DSi_NAND::Init(nand, &DSi::ARM7iBIOS[0x8308]))
-        {
-            u8 userdata[0x1B0];
-            DSi_NAND::ReadUserData(userdata);
-            for (u32 i = 0; i < 0x128; i+=4)
-                ARM9Write32(0x02000400+i, *(u32*)&userdata[0x88+i]);
+        u8 userdata[0x1B0];
+        DSi_NAND::ReadUserData(userdata);
+        for (u32 i = 0; i < 0x128; i+=4)
+            ARM9Write32(0x02000400+i, *(u32*)&userdata[0x88+i]);
 
-            u8 hwinfoS[0xA4];
-            u8 hwinfoN[0x9C];
-            DSi_NAND::ReadHardwareInfo(hwinfoS, hwinfoN);
+        u8 hwinfoS[0xA4];
+        u8 hwinfoN[0x9C];
+        DSi_NAND::ReadHardwareInfo(hwinfoS, hwinfoN);
 
-            for (u32 i = 0; i < 0x14; i+=4)
-                ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
+        for (u32 i = 0; i < 0x14; i+=4)
+            ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
 
-            for (u32 i = 0; i < 0x18; i+=4)
-                ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS[0x88+i]);
+        for (u32 i = 0; i < 0x18; i+=4)
+            ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS[0x88+i]);
 
-            DSi_NAND::DeInit();
-        }
-
-        fclose(nand);
+        DSi_NAND::DeInit();
     }
 
     u8 nwifiver = SPI_Firmware::GetNWifiVersion();
@@ -707,18 +701,13 @@ bool LoadNAND()
 {
     printf("Loading DSi NAND\n");
 
-    FILE* nand = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_NANDPath), "r+b");
-    if (!nand)
-    {
-        printf("Failed to open DSi NAND\n");
-        return false;
-    }
-
-    if (!DSi_NAND::Init(nand, &DSi::ARM7iBIOS[0x8308]))
+    if (!DSi_NAND::Init(&DSi::ARM7iBIOS[0x8308]))
     {
         printf("Failed to load DSi NAND\n");
         return false;
     }
+
+    FILE* nand = DSi_NAND::GetFile();
 
     // Make sure NWRAM is accessible.
     // The Bits are set to the startup values in Reset() and we might
@@ -2681,7 +2670,7 @@ u16 ARM7IORead16(u32 addr)
     case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 32) & 0xFFFF;
     case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID >> 48;
     case 0x04004D08: return 0;
-    
+
     case 0x4004700: return DSi_DSP::SNDExCnt;
     }
 
