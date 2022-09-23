@@ -94,6 +94,8 @@ extern bool RenderFrameIdentical;
 
 extern u16 RenderXPos;
 
+extern u32 NumVertices, NumPolygons;
+
 extern std::array<Polygon*,2048> RenderPolygonRAM;
 extern u32 RenderNumPolygons;
 
