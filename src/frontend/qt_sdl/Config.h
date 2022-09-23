@@ -55,6 +55,8 @@ enum
     gameScene_Intro,
     gameScene_MainMenu,
     gameScene_DayCounter,
+    gameScene_InGameWithMap,
+    gameScene_InGameWithoutMap,
     gameScene_PauseMenu,
     gameScene_Other
 };

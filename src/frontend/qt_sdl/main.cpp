@@ -677,60 +677,78 @@ bool EmuThread::updateAutoScreenSizing(int size)
     return updated;
 }
 
+bool EmuThread::setGameScene(int newGameScene)
+{
+    gameScene = newGameScene;
+    int size = screenSizing_Even;
+    switch (newGameScene) {
+        case gameScene_Intro: break;
+        case gameScene_MainMenu: break;
+        case gameScene_DayCounter: size = screenSizing_TopOnly; break;
+        case gameScene_InGameWithMap: size = screenSizing_MiniMap; break;
+        case gameScene_InGameWithoutMap: size = screenSizing_TopOnly; break;
+        case gameScene_PauseMenu: size = screenSizing_TopOnly; break;
+        default: break;
+    }
+    return updateAutoScreenSizing(size);
+}
+
 bool EmuThread::refreshAutoScreenSizing()
 {
-    bool noReal3DOnScreen = GPU3D::RenderNumPolygons < 10;
-    if (noReal3DOnScreen) {
+    // Also happens during intro, during the start of the mission review, on some menu screens; those seem to use real 2D elements
+    bool not3D = GPU3D::NumVertices == 0 && GPU3D::NumPolygons == 0 && GPU3D::RenderNumPolygons == 0;
+
+    // 3D element mimicking 2D behavior
+    bool doesntLook3D = GPU3D::RenderNumPolygons < 10;
+
+    if (doesntLook3D) {
         bool isMainMenu = GPU3D::NumVertices == 4 && GPU3D::NumPolygons == 1 && GPU3D::RenderNumPolygons == 1;
         if (isMainMenu) {
-            gameScene = gameScene_MainMenu;
-            return updateAutoScreenSizing(screenSizing_Even);
+            return setGameScene(gameScene_MainMenu);
         }
 
         if (gameScene == gameScene_Intro) {
             return false;
         }
 
-        // Also happens during intro, during the start of the mission review, on some menu screens; those seem to use real 2D elements
-        bool no3D = GPU3D::NumVertices == 0 && GPU3D::NumPolygons == 0 && GPU3D::RenderNumPolygons == 0;
-
         if (gameScene == gameScene_DayCounter) {
-            if (no3D) // Day counter completed
+            if (not3D) // Day counter completed
             {
-                gameScene = gameScene_Other;
-                return updateAutoScreenSizing(screenSizing_Even);
+                return setGameScene(gameScene_Other);
             }
             return false; // Day counter ongoing
         }
         
-        bool isDayCountView = GPU3D::NumVertices == 8 && GPU3D::NumPolygons == 2;
+        bool isDayCountView = GPU3D::NumVertices == 8 && GPU3D::NumPolygons == 2 && GPU3D::RenderNumPolygons == 2;
         if (isDayCountView) // Day counter started
         {
-            gameScene = gameScene_DayCounter;
-            return updateAutoScreenSizing(screenSizing_TopOnly);
+            return setGameScene(gameScene_DayCounter);
         }
 
-        gameScene = gameScene_Other;
-        return updateAutoScreenSizing(screenSizing_Even);
+        return setGameScene(gameScene_Other);
     }
 
     bool has3DOnTopScreen = (NDS::PowerControl9 >> 15) == 1;
     if (has3DOnTopScreen) {
         bool inMissionPauseMenu = GPU::GPU2D_A.EVY == 8 && GPU::GPU2D_B.EVY == 8;
-        if (inMissionPauseMenu) {
-            gameScene = gameScene_PauseMenu;
-            return updateAutoScreenSizing(screenSizing_TopOnly);
+        if (inMissionPauseMenu)
+        {
+            return setGameScene(gameScene_PauseMenu);
+        }
+
+        // The second screen can still look black and not be empty (invisible elements)
+        bool noElementsOnBottomScreen = GPU::GPU2D_B.BlendCnt == 0;
+        if (noElementsOnBottomScreen)
+        {
+            return setGameScene(gameScene_InGameWithoutMap);
         }
     
-        // Confirmed 3D on the top screen
-        gameScene = gameScene_Other;
-        return updateAutoScreenSizing(screenSizing_MiniMap);
+        return setGameScene(gameScene_InGameWithMap);
     }
     
     // The only moment I could see that happening in during the intro standby cutscenes,
     // and in that case, is preferable to show the two screens with an equal size.
-    gameScene = gameScene_Other;
-    return updateAutoScreenSizing(screenSizing_Even);
+    return setGameScene(gameScene_Other);
 }
 
 void EmuThread::changeWindowTitle(char* title)
