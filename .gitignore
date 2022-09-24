@@ -1,5 +1,14 @@
 rom/*.nds
 rom/*.sav
+rom/*.ml1
+rom/*.ml2
+rom/*.ml3
+rom/*.ml4
+rom/*.ml5
+rom/*.ml6
+rom/*.ml7
+rom/*.ml8
+rom/*.ml9
 
 build
 bin
