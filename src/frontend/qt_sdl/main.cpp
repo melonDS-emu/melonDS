@@ -94,7 +94,7 @@ MainWindow* mainWindow;
 EmuThread* emuThread;
 
 int autoScreenSizing = 0;
-int gameScene = 0;
+int gameScene = -1;
 
 int videoRenderer;
 GPU::RenderSettings videoSettings;
@@ -665,13 +665,6 @@ void EmuThread::run()
 
 bool EmuThread::updateAutoScreenSizing(int size)
 {
-    if (size == screenSizing_Even) {
-        Config::ScreenAspectTop = 0; // 4:3
-    }
-    else {
-        Config::ScreenAspectTop = 4; // window size
-    }
-    
     bool updated = size != autoScreenSizing;
     autoScreenSizing = size;
     return updated;
@@ -679,7 +672,9 @@ bool EmuThread::updateAutoScreenSizing(int size)
 
 bool EmuThread::setGameScene(int newGameScene)
 {
+    bool updated = gameScene != newGameScene;
     gameScene = newGameScene;
+    Config::ScreenSwap = (newGameScene == gameScene_Intro || newGameScene == gameScene_MainMenu) ? 1 : 0;
     int size = screenSizing_Even;
     switch (newGameScene) {
         case gameScene_Intro: break;
@@ -691,7 +686,8 @@ bool EmuThread::setGameScene(int newGameScene)
         case gameScene_Tutorial: size = screenSizing_BotOnly; break;
         default: break;
     }
-    return updateAutoScreenSizing(size);
+    Config::ScreenAspectTop = (size == screenSizing_Even) ? 0 : 4; // 4:3 / window size
+    return updateAutoScreenSizing(size) || updated;
 }
 
 bool EmuThread::refreshAutoScreenSizing()
@@ -712,8 +708,8 @@ bool EmuThread::refreshAutoScreenSizing()
             return setGameScene(gameScene_MainMenu);
         }
 
-        if (gameScene == gameScene_Intro) {
-            return false;
+        if (gameScene == -1 || gameScene == gameScene_Intro) {
+            return setGameScene(gameScene_Intro);
         }
 
         if (gameScene == gameScene_DayCounter) {
