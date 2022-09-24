@@ -20,6 +20,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include <vector>
 #include <string>
@@ -664,17 +665,31 @@ void EmuThread::run()
     }
 }
 
+#define PARSE_BRIGHTNESS(b, valueFor32784) (15 - (b & (1 << 15) ? (b & (1 << 4) ? valueFor32784 : (b & 0xF)) : 0))
+
 bool EmuThread::setGameScene(int newGameScene)
 {
+    // Background color
+    float backgroundColor = 0.0;
+    if (newGameScene == gameScene_Intro || newGameScene == gameScene_MainMenu)
+    {
+        backgroundColor = (1.0 * PARSE_BRIGHTNESS(GPU::GPU2D_A.MasterBrightness, 15)) / 15;
+        backgroundColor = (sqrt(backgroundColor)*3 + backgroundColor) / 4;
+    }
+    backgroundRed = backgroundColor;
+    backgroundGreen = backgroundColor;
+    backgroundBlue = backgroundColor;
+    
     if (gameScene == newGameScene) 
     {
         return false;
     }
 
+    // Game scene
     priorGameScene = gameScene;
     gameScene = newGameScene;
-    Config::ScreenSwap = (newGameScene == gameScene_Intro || newGameScene == gameScene_MainMenu) ? 1 : 0;
-    
+
+    // Screens position and size
     int size = screenSizing_Even;
     switch (newGameScene) {
         case gameScene_Intro: break;
@@ -688,8 +703,9 @@ bool EmuThread::setGameScene(int newGameScene)
         case gameScene_Tutorial: size = screenSizing_BotOnly; break;
         default: break;
     }
-    Config::ScreenAspectTop = (size == screenSizing_Even) ? 0 : 4; // 4:3 / window size
     autoScreenSizing = size;
+    Config::ScreenSwap = (newGameScene == gameScene_Intro || newGameScene == gameScene_MainMenu) ? 1 : 0;
+    Config::ScreenAspectTop = (size == screenSizing_Even) ? 0 : 4; // 4:3 / window size
 
     return true;
 }
@@ -708,8 +724,8 @@ bool EmuThread::refreshAutoScreenSizing()
     bool noElementsOnBottomScreen = GPU::GPU2D_B.BlendCnt == 0;
 
     // Scale of brightness, from 0 (black) to 15 (every element is visible)
-    u8 topScreenBrightness = 15 - (GPU::GPU2D_A.MasterBrightness & (1 << 15) ? (GPU::GPU2D_A.MasterBrightness & (1 << 4) ? 0 : (GPU::GPU2D_A.MasterBrightness & 0xF)) : 0);
-    u8 botScreenBrightness = 15 - (GPU::GPU2D_B.MasterBrightness & (1 << 15) ? (GPU::GPU2D_B.MasterBrightness & (1 << 4) ? 0 : (GPU::GPU2D_B.MasterBrightness & 0xF)) : 0);
+    u8 topScreenBrightness = PARSE_BRIGHTNESS(GPU::GPU2D_A.MasterBrightness, 0);
+    u8 botScreenBrightness = PARSE_BRIGHTNESS(GPU::GPU2D_B.MasterBrightness, 0);
 
     if (doesntLook3D)
     {
