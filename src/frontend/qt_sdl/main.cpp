@@ -94,6 +94,7 @@ MainWindow* mainWindow;
 EmuThread* emuThread;
 
 int autoScreenSizing = 0;
+int priorGameScene = -1;
 int gameScene = -1;
 
 int videoRenderer;
@@ -663,23 +664,29 @@ void EmuThread::run()
     }
 }
 
-bool EmuThread::updateAutoScreenSizing(int size)
-{
-    bool updated = size != autoScreenSizing;
-    autoScreenSizing = size;
-    return updated;
-}
-
 bool EmuThread::setGameScene(int newGameScene)
 {
-    bool updated = gameScene != newGameScene;
+    printf("Game scene: %d\n", newGameScene);
+    printf("GPU3D::NumVertices: %d\n", GPU3D::NumVertices);
+    printf("GPU3D::NumPolygons: %d\n", GPU3D::NumPolygons);
+    printf("GPU3D::RenderNumPolygons: %d\n\n", GPU3D::RenderNumPolygons);
+
+    if (gameScene == newGameScene) 
+    {
+        return false;
+    }
+
+    priorGameScene = gameScene;
     gameScene = newGameScene;
     Config::ScreenSwap = (newGameScene == gameScene_Intro || newGameScene == gameScene_MainMenu) ? 1 : 0;
+    
     int size = screenSizing_Even;
     switch (newGameScene) {
         case gameScene_Intro: break;
         case gameScene_MainMenu: break;
+        case gameScene_IntroCutscene: break;
         case gameScene_DayCounter: size = screenSizing_TopOnly; break;
+        case gameScene_Cutscene: size = screenSizing_TopOnly; break;
         case gameScene_InGameWithMap: size = screenSizing_MiniMap; break;
         case gameScene_InGameWithoutMap: size = screenSizing_TopOnly; break;
         case gameScene_PauseMenu: size = screenSizing_TopOnly; break;
@@ -687,79 +694,124 @@ bool EmuThread::setGameScene(int newGameScene)
         default: break;
     }
     Config::ScreenAspectTop = (size == screenSizing_Even) ? 0 : 4; // 4:3 / window size
-    return updateAutoScreenSizing(size) || updated;
+    autoScreenSizing = size;
+
+    return true;
 }
 
 bool EmuThread::refreshAutoScreenSizing()
 {
     // Also happens during intro, during the start of the mission review, on some menu screens; those seem to use real 2D elements
-    bool not3D = GPU3D::NumVertices == 0 && GPU3D::NumPolygons == 0 && GPU3D::RenderNumPolygons == 0;
+    bool no3D = GPU3D::NumVertices == 0 && GPU3D::NumPolygons == 0 && GPU3D::RenderNumPolygons == 0;
 
     // 3D element mimicking 2D behavior
     bool doesntLook3D = GPU3D::RenderNumPolygons < 10;
+
+    bool has3DOnTopScreen = (NDS::PowerControl9 >> 15) == 1;
+
+    // The second screen can still look black and not be empty (invisible elements)
+    bool noElementsOnBottomScreen = GPU::GPU2D_B.BlendCnt == 0;
 
     // Scale of brightness, from 0 (black) to 15 (every element is visible)
     u8 topScreenBrightness = 15 - (GPU::GPU2D_A.MasterBrightness & (1 << 15) ? (GPU::GPU2D_A.MasterBrightness & (1 << 4) ? 0 : (GPU::GPU2D_A.MasterBrightness & 0xF)) : 0);
     u8 botScreenBrightness = 15 - (GPU::GPU2D_B.MasterBrightness & (1 << 15) ? (GPU::GPU2D_B.MasterBrightness & (1 << 4) ? 0 : (GPU::GPU2D_B.MasterBrightness & 0xF)) : 0);
 
-    if (doesntLook3D) {
-        bool isMainMenu = GPU3D::NumVertices == 4 && GPU3D::NumPolygons == 1 && GPU3D::RenderNumPolygons == 1;
-        if (isMainMenu) {
-            return setGameScene(gameScene_MainMenu);
-        }
-
-        if (gameScene == -1 || gameScene == gameScene_Intro) {
-            return setGameScene(gameScene_Intro);
-        }
-
-        if (gameScene == gameScene_DayCounter) {
-            if (not3D) // Day counter completed
+    if (doesntLook3D)
+    {
+        // Day counter
+        if (gameScene == gameScene_DayCounter)
+        {
+            if (no3D)
             {
-                return setGameScene(gameScene_Other);
+                if (priorGameScene == gameScene_IntroCutscene) 
+                {
+                    return setGameScene(gameScene_Cutscene);
+                }
             }
-            return false; // Day counter ongoing
+            else
+            {
+                return setGameScene(gameScene_DayCounter);
+            }
         }
-        
-        bool isDayCountView = GPU3D::NumVertices == 8 && GPU3D::NumPolygons == 2 && GPU3D::RenderNumPolygons == 2;
-        if (isDayCountView) // Day counter started
+        if (gameScene != gameScene_Intro && GPU3D::NumVertices == 8 && GPU3D::NumPolygons == 2 && GPU3D::RenderNumPolygons == 2)
+        {
+            return setGameScene(gameScene_DayCounter);
+        }
+        if (gameScene != gameScene_Intro && GPU3D::NumVertices == 12 && GPU3D::NumPolygons == 3 && GPU3D::RenderNumPolygons == 3)
         {
             return setGameScene(gameScene_DayCounter);
         }
 
-        return setGameScene(gameScene_Other);
+        // Cutscene
+        if (gameScene == gameScene_Cutscene)
+        {
+            if (no3D)
+            {
+                return setGameScene(gameScene_Cutscene);
+            }
+        }
+
+        // Main menu
+        bool isMainMenu = GPU3D::NumVertices == 4 && GPU3D::NumPolygons == 1 && GPU3D::RenderNumPolygons == 1;
+        if (isMainMenu)
+        {
+            return setGameScene(gameScene_MainMenu);
+        }
+
+        // Intro
+        if (gameScene == -1 || gameScene == gameScene_Intro)
+        {
+            return setGameScene(gameScene_Intro);
+        }
+
+        // Intro cutscene
+        if (gameScene == gameScene_IntroCutscene)
+        {
+            if (GPU3D::NumVertices == 0 && GPU3D::NumPolygons == 0 && GPU3D::RenderNumPolygons >= 0 && GPU3D::RenderNumPolygons <= 3)
+            {
+                return setGameScene(gameScene_IntroCutscene);
+            }
+        }
+        if (gameScene == gameScene_MainMenu && GPU3D::NumVertices == 0 && GPU3D::NumPolygons == 0 && GPU3D::RenderNumPolygons == 1)
+        {
+            return setGameScene(gameScene_IntroCutscene);
+        }
+
+        // Unknown 2D
+        return setGameScene(gameScene_Other2D);
     }
 
-    bool has3DOnTopScreen = (NDS::PowerControl9 >> 15) == 1;
-    if (has3DOnTopScreen) {
+    if (has3DOnTopScreen)
+    {
+        // Pause Menu
         bool inMissionPauseMenu = GPU::GPU2D_A.EVY == 8 && GPU::GPU2D_B.EVY == 8;
         if (inMissionPauseMenu)
         {
             return setGameScene(gameScene_PauseMenu);
         }
 
+        // Tutorial
+        if (gameScene == gameScene_Tutorial && topScreenBrightness < 15)
+        {
+            return setGameScene(gameScene_Tutorial);
+        }
         bool inTutorialScreen = topScreenBrightness == 7 && botScreenBrightness == 15;
-        if (inTutorialScreen) {
+        if (inTutorialScreen)
+        {
             return setGameScene(gameScene_Tutorial);
         }
 
-        if (gameScene == gameScene_Tutorial) {
-            if (topScreenBrightness < 15) {
-                return false;
-            }
-        }
-
-        // The second screen can still look black and not be empty (invisible elements)
-        bool noElementsOnBottomScreen = GPU::GPU2D_B.BlendCnt == 0;
+        // Regular gameplay without a map
         if (noElementsOnBottomScreen)
         {
             return setGameScene(gameScene_InGameWithoutMap);
         }
     
+        // Regular gameplay with a map
         return setGameScene(gameScene_InGameWithMap);
     }
     
-    // The only moment I could see that happening in during the intro standby cutscenes,
-    // and in that case, is preferable to show the two screens with an equal size.
+    // Unknown
     return setGameScene(gameScene_Other);
 }
 

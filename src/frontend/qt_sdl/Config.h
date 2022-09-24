@@ -54,11 +54,14 @@ enum
 {
     gameScene_Intro,
     gameScene_MainMenu,
+    gameScene_IntroCutscene,
     gameScene_DayCounter,
+    gameScene_Cutscene,
     gameScene_InGameWithMap,
     gameScene_InGameWithoutMap,
     gameScene_PauseMenu,
     gameScene_Tutorial,
+    gameScene_Other2D,
     gameScene_Other
 };
 
