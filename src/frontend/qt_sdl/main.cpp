@@ -666,11 +666,6 @@ void EmuThread::run()
 
 bool EmuThread::setGameScene(int newGameScene)
 {
-    printf("Game scene: %d\n", newGameScene);
-    printf("GPU3D::NumVertices: %d\n", GPU3D::NumVertices);
-    printf("GPU3D::NumPolygons: %d\n", GPU3D::NumPolygons);
-    printf("GPU3D::RenderNumPolygons: %d\n\n", GPU3D::RenderNumPolygons);
-
     if (gameScene == newGameScene) 
     {
         return false;
@@ -733,27 +728,26 @@ bool EmuThread::refreshAutoScreenSizing()
                 return setGameScene(gameScene_DayCounter);
             }
         }
-        if (gameScene != gameScene_Intro && GPU3D::NumVertices == 8 && GPU3D::NumPolygons == 2 && GPU3D::RenderNumPolygons == 2)
+        if (gameScene != gameScene_Intro)
         {
-            return setGameScene(gameScene_DayCounter);
-        }
-        if (gameScene != gameScene_Intro && GPU3D::NumVertices == 12 && GPU3D::NumPolygons == 3 && GPU3D::RenderNumPolygons == 3)
-        {
-            return setGameScene(gameScene_DayCounter);
-        }
-
-        // Cutscene
-        if (gameScene == gameScene_Cutscene)
-        {
-            if (no3D)
+            if (GPU3D::NumVertices == 8 && GPU3D::NumPolygons == 2 && GPU3D::RenderNumPolygons == 2)
             {
-                return setGameScene(gameScene_Cutscene);
+                return setGameScene(gameScene_DayCounter);
+            }
+            if (GPU3D::NumVertices == 12 && GPU3D::NumPolygons == 3 && GPU3D::RenderNumPolygons == 3)
+            {
+                return setGameScene(gameScene_DayCounter);
             }
         }
 
+        // Cutscene
+        if (gameScene == gameScene_Cutscene && no3D)
+        {
+            return setGameScene(gameScene_Cutscene);
+        }
+
         // Main menu
-        bool isMainMenu = GPU3D::NumVertices == 4 && GPU3D::NumPolygons == 1 && GPU3D::RenderNumPolygons == 1;
-        if (isMainMenu)
+        if (GPU3D::NumVertices == 4 && GPU3D::NumPolygons == 1 && GPU3D::RenderNumPolygons == 1)
         {
             return setGameScene(gameScene_MainMenu);
         }
@@ -788,6 +782,10 @@ bool EmuThread::refreshAutoScreenSizing()
         if (inMissionPauseMenu)
         {
             return setGameScene(gameScene_PauseMenu);
+        }
+        else if (gameScene == gameScene_PauseMenu)
+        {
+            return setGameScene(priorGameScene);
         }
 
         // Tutorial
