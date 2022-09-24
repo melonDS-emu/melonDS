@@ -703,8 +703,8 @@ bool EmuThread::refreshAutoScreenSizing()
     bool doesntLook3D = GPU3D::RenderNumPolygons < 10;
 
     // Scale of brightness, from 0 (black) to 15 (every element is visible)
-    u8 topScreenBrightness = 15 - (GPU::GPU2D_A.MasterBrightness > (1 << 15) ? (GPU::GPU2D_A.MasterBrightness & 0xF) : 0);
-    u8 botScreenBrightness = 15 - (GPU::GPU2D_B.MasterBrightness > (1 << 15) ? (GPU::GPU2D_B.MasterBrightness & 0xF) : 0);
+    u8 topScreenBrightness = 15 - (GPU::GPU2D_A.MasterBrightness & (1 << 15) ? (GPU::GPU2D_A.MasterBrightness & (1 << 4) ? 0 : (GPU::GPU2D_A.MasterBrightness & 0xF)) : 0);
+    u8 botScreenBrightness = 15 - (GPU::GPU2D_B.MasterBrightness & (1 << 15) ? (GPU::GPU2D_B.MasterBrightness & (1 << 4) ? 0 : (GPU::GPU2D_B.MasterBrightness & 0xF)) : 0);
 
     if (doesntLook3D) {
         bool isMainMenu = GPU3D::NumVertices == 4 && GPU3D::NumPolygons == 1 && GPU3D::RenderNumPolygons == 1;
