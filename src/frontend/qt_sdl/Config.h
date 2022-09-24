@@ -58,6 +58,7 @@ enum
     gameScene_InGameWithMap,
     gameScene_InGameWithoutMap,
     gameScene_PauseMenu,
+    gameScene_Tutorial,
     gameScene_Other
 };
 

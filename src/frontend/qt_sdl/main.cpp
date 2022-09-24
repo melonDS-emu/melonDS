@@ -688,6 +688,7 @@ bool EmuThread::setGameScene(int newGameScene)
         case gameScene_InGameWithMap: size = screenSizing_MiniMap; break;
         case gameScene_InGameWithoutMap: size = screenSizing_TopOnly; break;
         case gameScene_PauseMenu: size = screenSizing_TopOnly; break;
+        case gameScene_Tutorial: size = screenSizing_BotOnly; break;
         default: break;
     }
     return updateAutoScreenSizing(size);
@@ -700,6 +701,10 @@ bool EmuThread::refreshAutoScreenSizing()
 
     // 3D element mimicking 2D behavior
     bool doesntLook3D = GPU3D::RenderNumPolygons < 10;
+
+    // Scale of brightness, from 0 (black) to 15 (every element is visible)
+    u8 topScreenBrightness = 15 - (GPU::GPU2D_A.MasterBrightness > (1 << 15) ? (GPU::GPU2D_A.MasterBrightness & 0xF) : 0);
+    u8 botScreenBrightness = 15 - (GPU::GPU2D_B.MasterBrightness > (1 << 15) ? (GPU::GPU2D_B.MasterBrightness & 0xF) : 0);
 
     if (doesntLook3D) {
         bool isMainMenu = GPU3D::NumVertices == 4 && GPU3D::NumPolygons == 1 && GPU3D::RenderNumPolygons == 1;
@@ -734,6 +739,17 @@ bool EmuThread::refreshAutoScreenSizing()
         if (inMissionPauseMenu)
         {
             return setGameScene(gameScene_PauseMenu);
+        }
+
+        bool inTutorialScreen = topScreenBrightness == 7 && botScreenBrightness == 15;
+        if (inTutorialScreen) {
+            return setGameScene(gameScene_Tutorial);
+        }
+
+        if (gameScene == gameScene_Tutorial) {
+            if (topScreenBrightness < 15) {
+                return false;
+            }
         }
 
         // The second screen can still look black and not be empty (invisible elements)
