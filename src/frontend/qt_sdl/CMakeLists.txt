@@ -33,7 +33,8 @@ set(SOURCES_QT_SDL
     font.h
     Platform.cpp
     QPathInput.h
-    
+    ROMManager.cpp
+	SaveManager.cpp
 	CameraManager.cpp
     
     ArchiveUtil.h
