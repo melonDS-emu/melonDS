@@ -31,7 +31,7 @@
 #include "ui_TitleImportDialog.h"
 
 
-FILE* TitleManagerDialog::curNAND = nullptr;
+bool TitleManagerDialog::NANDInited = false;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
 
 extern std::string EmuDirectory;
@@ -136,6 +136,8 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
 
 bool TitleManagerDialog::openNAND()
 {
+    NANDInited = false;
+
     FILE* bios7i = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
     if (!bios7i)
         return false;
@@ -145,28 +147,21 @@ bool TitleManagerDialog::openNAND()
     fread(es_keyY, 16, 1, bios7i);
     fclose(bios7i);
 
-    curNAND = Platform::OpenLocalFile(Config::DSiNANDPath, "r+b");
-    if (!curNAND)
-        return false;
-
-    if (!DSi_NAND::Init(curNAND, es_keyY))
+    if (!DSi_NAND::Init(es_keyY))
     {
-        fclose(curNAND);
-        curNAND = nullptr;
         return false;
     }
 
+    NANDInited = true;
     return true;
 }
 
 void TitleManagerDialog::closeNAND()
 {
-    if (curNAND)
+    if (NANDInited)
     {
         DSi_NAND::DeInit();
-
-        fclose(curNAND);
-        curNAND = nullptr;
+        NANDInited = false;
     }
 }
 

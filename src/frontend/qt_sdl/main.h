@@ -101,7 +101,8 @@ class ScreenHandler
     Q_GADGET
 
 public:
-    virtual ~ScreenHandler() {}
+    ScreenHandler(QWidget* widget);
+    virtual ~ScreenHandler();
     QTimer* setupMouseTimer();
     void updateMouseTimer();
     QTimer* mouseTimer;
@@ -121,7 +122,7 @@ protected:
     int screenKind[Frontend::MaxScreenTransforms];
     int numScreens;
 
-    bool touching;
+    bool touching = false;
 
     void showCursor();
 };
@@ -133,7 +134,7 @@ class ScreenPanelNative : public QWidget, public ScreenHandler
 
 public:
     explicit ScreenPanelNative(QWidget* parent);
-    ~ScreenPanelNative();
+    virtual ~ScreenPanelNative();
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -163,7 +164,7 @@ class ScreenPanelGL : public QOpenGLWidget, public ScreenHandler, protected QOpe
 
 public:
     explicit ScreenPanelGL(QWidget* parent);
-    ~ScreenPanelGL();
+    virtual ~ScreenPanelGL();
 
 protected:
     void initializeGL() override;
@@ -225,6 +226,9 @@ protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
 
+    void focusInEvent(QFocusEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
+
 signals:
     void screenLayoutChange();
 
@@ -254,6 +258,7 @@ private slots:
     void onROMInfo();
     void onRAMInfo();
     void onOpenTitleManager();
+    void onMPNewInstance();
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -267,6 +272,8 @@ private slots:
     void onOpenPathSettings();
     void onUpdateAudioSettings();
     void onAudioSettingsFinished(int res);
+    void onOpenMPSettings();
+    void onMPSettingsFinished(int res);
     void onOpenWifiSettings();
     void onWifiSettingsFinished(int res);
     void onFirmwareSettingsFinished(int res);
@@ -281,8 +288,7 @@ private slots:
     void onChangeScreenLayout(QAction* act);
     void onChangeScreenSwap(bool checked);
     void onChangeScreenSizing(QAction* act);
-    void onChangeScreenAspectTop(QAction* act);
-    void onChangeScreenAspectBot(QAction* act);
+    void onChangeScreenAspect(QAction* act);
     void onChangeIntegerScaling(bool checked);
     void onChangeScreenFiltering(bool checked);
     void onChangeShowOSD(bool checked);
@@ -318,9 +324,8 @@ private:
     bool oldMax;
 
 public:
-    QWidget* panel;
-    ScreenPanelGL* panelGL;
-    ScreenPanelNative* panelNative;
+    ScreenHandler* panel;
+    QWidget* panelWidget;
 
     QAction* actOpenROM;
     QAction* actBootFirmware;
@@ -346,13 +351,18 @@ public:
     QAction* actROMInfo;
     QAction* actRAMInfo;
     QAction* actTitleManager;
+    QAction* actMPNewInstance;
 
     QAction* actEmuSettings;
+#ifdef __APPLE__
+    QAction* actPreferences;
+#endif
     QAction* actPowerManagement;
     QAction* actInputConfig;
     QAction* actVideoSettings;
     QAction* actCameraSettings;
     QAction* actAudioSettings;
+    QAction* actMPSettings;
     QAction* actWifiSettings;
     QAction* actFirmwareSettings;
     QAction* actPathSettings;
@@ -370,9 +380,9 @@ public:
     QAction* actScreenSizing[6];
     QAction* actIntegerScaling;
     QActionGroup* grpScreenAspectTop;
-    QAction* actScreenAspectTop[4];
+    QAction** actScreenAspectTop;
     QActionGroup* grpScreenAspectBot;
-    QAction* actScreenAspectBot[4];
+    QAction** actScreenAspectBot;
     QAction* actScreenFiltering;
     QAction* actShowOSD;
     QAction* actLimitFramerate;

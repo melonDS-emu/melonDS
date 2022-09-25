@@ -20,6 +20,7 @@
 #define DMA_H
 
 #include "types.h"
+#include "Savestate.h"
 
 class DMA
 {
@@ -96,7 +97,7 @@ private:
     bool IsGXFIFODMA;
 
     u32 MRAMBurstCount;
-    u8* MRAMBurstTable;
+    const u8* MRAMBurstTable;
 };
 
 #endif

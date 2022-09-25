@@ -136,7 +136,10 @@ void DSi_SDHost::Reset()
         else
             sd = nullptr;
 
-        mmc = new DSi_MMCStorage(this, true, Platform::GetConfigString(Platform::DSi_NANDPath));
+        std::string nandpath = Platform::GetConfigString(Platform::DSi_NANDPath);
+        std::string instnand = nandpath + Platform::InstanceFileSuffix();
+
+        mmc = new DSi_MMCStorage(this, true, instnand);
         mmc->SetCID(DSi::eMMC_CID);
 
         Ports[0] = sd;
@@ -477,16 +480,14 @@ u16 DSi_SDHost::Read(u32 addr)
             {
                 if (Ports[0]) // basic check of whether the SD card is inserted
                 {
-                    ret |= 0x0030;
+                    ret |= 0x0020;
                     if (!Ports[0]->ReadOnly) ret |= 0x0080;
                 }
-                else
-                    ret |= 0x0008;
             }
             else
             {
                 // SDIO wifi is always inserted, I guess
-                ret |= 0x00B0;
+                ret |= 0x00A0;
             }
             return ret;
         }

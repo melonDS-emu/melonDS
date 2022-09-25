@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>482</width>
-    <height>256</height>
+    <height>301</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -23,6 +23,13 @@
    <property name="sizeConstraint">
     <enum>QLayout::SetFixedSize</enum>
    </property>
+   <item>
+    <widget class="QLabel" name="lblInstanceNum">
+     <property name="text">
+      <string>Configuring settings for instance X</string>
+     </property>
+    </widget>
+   </item>
    <item>
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
@@ -76,7 +83,7 @@
       <item row="1" column="1">
        <widget class="QComboBox" name="cbBitrate">
         <property name="whatsThis">
-			<string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The bitrate of audio playback. If set to &quot;Automatic&quot; this will be 10-bit for DS mode and 16-bit for DSi mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The bitrate of audio playback. If set to &quot;Automatic&quot; this will be 10-bit for DS mode and 16-bit for DSi mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
        </widget>
       </item>

@@ -1584,6 +1584,9 @@ bool LoadROM(const u8* romdata, u32 romlen)
     if (CartInserted)
         EjectCart();
 
+    memset(&Header, 0, sizeof(Header));
+    memset(&Banner, 0, sizeof(Banner));
+
     CartROMSize = 0x200;
     while (CartROMSize < romlen)
         CartROMSize <<= 1;
@@ -1602,7 +1605,15 @@ bool LoadROM(const u8* romdata, u32 romlen)
     memcpy(CartROM, romdata, romlen);
 
     memcpy(&Header, CartROM, sizeof(Header));
-    memcpy(&Banner, CartROM + Header.BannerOffset, sizeof(Banner));
+
+    u8 unitcode = Header.UnitCode;
+    bool dsi = (unitcode & 0x02) != 0;
+
+    size_t bannersize = dsi ? 0x23C0 : 0xA40;
+    if (Header.BannerOffset >= 0x200 && Header.BannerOffset < (CartROMSize - bannersize))
+    {
+        memcpy(&Banner, CartROM + Header.BannerOffset, bannersize);
+    }
 
     printf("Game code: %.4s\n", Header.GameCode);
 
@@ -1610,9 +1621,6 @@ bool LoadROM(const u8* romdata, u32 romlen)
                    (u32)Header.GameCode[2] << 16 |
                    (u32)Header.GameCode[1] << 8  |
                    (u32)Header.GameCode[0];
-
-    u8 unitcode = Header.UnitCode;
-    bool dsi = (unitcode & 0x02) != 0;
 
     u32 arm9base = Header.ARM9ROMOffset;
     bool homebrew = (arm9base < 0x4000) || (gamecode == 0x23232323);
@@ -1679,6 +1687,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
     }
 
     CartInserted = true;
+    DSi::SetCartInserted(true);
 
     u32 irversion = 0;
     if ((gamecode & 0xFF) == 'I')
@@ -1737,6 +1746,8 @@ void EjectCart()
     CartROM = nullptr;
     CartROMSize = 0;
     CartID = 0;
+
+    DSi::SetCartInserted(false);
 
     // CHECKME: does an eject imply anything for the ROM/SPI transfer registers?
 }

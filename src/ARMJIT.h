@@ -44,6 +44,7 @@ void DeInit();
 void Reset();
 
 void CheckAndInvalidateITCM();
+void CheckAndInvalidateWVRAM(int bank);
 
 void InvalidateByAddr(u32 pseudoPhysical);
 

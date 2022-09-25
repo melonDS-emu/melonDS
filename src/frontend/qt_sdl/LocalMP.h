@@ -16,51 +16,30 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DSI_I2C_H
-#define DSI_I2C_H
+#ifndef LOCALMP_H
+#define LOCALMP_H
 
 #include "types.h"
-#include "Savestate.h"
 
-namespace DSi_BPTWL
+namespace LocalMP
 {
-
-u8 GetBootFlag();
-
-bool GetBatteryCharging();
-void SetBatteryCharging(bool charging);
-
-enum
-{
-    batteryLevel_Critical = 0x0,
-    batteryLevel_AlmostEmpty = 0x1,
-    batteryLevel_Low = 0x3,
-    batteryLevel_Half = 0x7,
-    batteryLevel_ThreeQuarters = 0xB,
-    batteryLevel_Full = 0xF
-};
-
-u8 GetBatteryLevel();
-void SetBatteryLevel(u8 batteryLevel);
-}
-
-namespace DSi_I2C
-{
-
-extern u8 Cnt;
 
 bool Init();
 void DeInit();
-void Reset();
-void DoSavestate(Savestate* file);
 
-void WriteCnt(u8 val);
+void SetRecvTimeout(int timeout);
 
-u8 ReadData();
-void WriteData(u8 val);
+void Begin();
+void End();
 
-//void TransferDone(u32 param);
+int SendPacket(u8* data, int len, u64 timestamp);
+int RecvPacket(u8* data, u64* timestamp);
+int SendCmd(u8* data, int len, u64 timestamp);
+int SendReply(u8* data, int len, u64 timestamp, u16 aid);
+int SendAck(u8* data, int len, u64 timestamp);
+int RecvHostPacket(u8* data, u64* timestamp);
+u16 RecvReplies(u8* data, u64 timestamp, u16 aidmask);
 
 }
 
-#endif // DSI_I2C_H
+#endif // LOCALMP_H

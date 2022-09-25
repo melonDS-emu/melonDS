@@ -25,6 +25,7 @@
 #include <string>
 #include <algorithm>
 
+#include <QProcess>
 #include <QApplication>
 #include <QMessageBox>
 #include <QMenuBar>
@@ -58,6 +59,7 @@
 #include "AudioSettingsDialog.h"
 #include "FirmwareSettingsDialog.h"
 #include "PathSettingsDialog.h"
+#include "MPSettingsDialog.h"
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
@@ -78,6 +80,7 @@
 #include "SPU.h"
 #include "Wifi.h"
 #include "Platform.h"
+#include "LocalMP.h"
 #include "Config.h"
 
 #include "Savestate.h"
@@ -103,6 +106,7 @@ bool videoSettingsDirty;
 
 SDL_AudioDeviceID audioDevice;
 int audioFreq;
+bool audioMuted;
 SDL_cond* audioSync;
 SDL_mutex* audioSyncLock;
 
@@ -114,6 +118,15 @@ u32 micWavLength;
 s16* micWavBuffer;
 
 CameraManager* camManager[2];
+
+const struct { int id; float ratio; const char* label; } aspectRatios[] =
+{
+    { 0, 1,                       "4:3 (native)" },
+    { 4, (5.f  / 3) / (4.f / 3), "5:3 (3DS)"},
+    { 1, (16.f / 9) / (4.f / 3),  "16:9" },
+    { 2, (21.f / 9) / (4.f / 3),  "21:9" },
+    { 3, 0,                       "window" }
+};
 
 void micCallback(void* data, Uint8* stream, int len);
 
@@ -134,7 +147,7 @@ void audioCallback(void* data, Uint8* stream, int len)
     SDL_CondSignal(audioSync);
     SDL_UnlockMutex(audioSyncLock);
 
-    if (num_in < 1)
+    if ((num_in < 1) || audioMuted)
     {
         memset(stream, 0, len*sizeof(s16)*2);
         return;
@@ -152,6 +165,23 @@ void audioCallback(void* data, Uint8* stream, int len)
     }
 
     Frontend::AudioOut_Resample(buf_in, num_in, (s16*)stream, len, Config::AudioVolume);
+}
+
+void audioMute()
+{
+    int inst = Platform::InstanceID();
+    audioMuted = false;
+
+    switch (Config::MPAudioMode)
+    {
+    case 1: // only instance 1
+        if (inst > 0) audioMuted = true;
+        break;
+
+    case 2: // only currently focused instance
+        if (!mainWindow->isActiveWindow()) audioMuted = true;
+        break;
+    }
 }
 
 
@@ -326,7 +356,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     EmuPause = 0;
     RunningSomething = false;
 
-    connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(repaint()));
+    connect(this, SIGNAL(windowUpdate()), mainWindow->panelWidget, SLOT(repaint()));
     connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), mainWindow, SLOT(onEmuStart()));
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
@@ -334,7 +364,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuFrameStep()), mainWindow->actFrameStep, SLOT(trigger()));
     connect(this, SIGNAL(windowLimitFPSChange()), mainWindow->actLimitFramerate, SLOT(trigger()));
-    connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
+    connect(this, SIGNAL(screenLayoutChange()), mainWindow->panelWidget, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
 
@@ -683,7 +713,11 @@ printf("PROULON\n");
                 if (winUpdateFreq < 1)
                     winUpdateFreq = 1;
 
-                sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
+                int inst = Platform::InstanceID();
+                if (inst == 0)
+                    sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
+                else
+                    sprintf(melontitle, "[%d/%.0f] melonDS (%d)", fps, fpstarget, inst+1);
                 changeWindowTitle(melontitle);
             }
         }
@@ -698,7 +732,11 @@ printf("PROULON\n");
 
             EmuStatus = EmuRunning;
 
-            sprintf(melontitle, "melonDS " MELONDS_VERSION);
+            int inst = Platform::InstanceID();
+            if (inst == 0)
+                sprintf(melontitle, "melonDS " MELONDS_VERSION);
+            else
+                sprintf(melontitle, "melonDS (%d)", inst+1);
             changeWindowTitle(melontitle);
 
             SDL_Delay(75);
@@ -789,19 +827,39 @@ bool EmuThread::emuIsActive()
     return (RunningSomething == 1);
 }
 
+ScreenHandler::ScreenHandler(QWidget* widget)
+{
+    widget->setMouseTracking(true);
+    widget->setAttribute(Qt::WA_AcceptTouchEvents);
+    QTimer* mouseTimer = setupMouseTimer();
+    widget->connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) widget->setCursor(Qt::BlankCursor);});
+}
+
+ScreenHandler::~ScreenHandler()
+{
+    mouseTimer->stop();
+}
 
 void ScreenHandler::screenSetupLayout(int w, int h)
 {
     int sizing = Config::ScreenSizing;
     if (sizing == 3) sizing = autoScreenSizing;
 
-    float aspectRatios[] =
+    float aspectTop, aspectBot;
+
+    for (auto ratio : aspectRatios)
     {
-        1.f,
-        (16.f/9)/(4.f/3),
-        (21.f/9)/(4.f/3),
-        ((float)w/h)/(4.f/3)
-    };
+        if (ratio.id == Config::ScreenAspectTop)
+            aspectTop = ratio.ratio;
+        if (ratio.id == Config::ScreenAspectBot)
+            aspectBot = ratio.ratio;
+    }
+
+    if (aspectTop == 0)
+        aspectTop = (float) w / h;
+
+    if (aspectBot == 0)
+        aspectBot = (float) w / h;
 
     Frontend::SetupScreenLayout(w, h,
                                 Config::ScreenLayout,
@@ -810,8 +868,8 @@ void ScreenHandler::screenSetupLayout(int w, int h)
                                 Config::ScreenGap,
                                 Config::IntegerScaling != 0,
                                 Config::ScreenSwap != 0,
-                                aspectRatios[Config::ScreenAspectTop],
-                                aspectRatios[Config::ScreenAspectBot]);
+                                aspectTop,
+                                aspectBot);
 
     numScreens = Frontend::GetScreenTransforms(screenMatrix[0], screenKind);
 }
@@ -819,10 +877,15 @@ void ScreenHandler::screenSetupLayout(int w, int h)
 QSize ScreenHandler::screenGetMinSize(int factor = 1)
 {
     bool isHori = (Config::ScreenRotation == 1 || Config::ScreenRotation == 3);
-    int gap = Config::ScreenGap;
+    int gap = Config::ScreenGap * factor;
 
     int w = 256 * factor;
     int h = 192 * factor;
+
+    if (Config::ScreenSizing == 4 || Config::ScreenSizing == 5)
+    {
+        return QSize(w, h);
+    }
 
     if (Config::ScreenLayout == 0) // natural
     {
@@ -959,7 +1022,7 @@ void ScreenHandler::screenHandleTouch(QTouchEvent* event)
 
 void ScreenHandler::showCursor()
 {
-    mainWindow->panel->setCursor(Qt::ArrowCursor);
+    mainWindow->panelWidget->setCursor(Qt::ArrowCursor);
     mouseTimer->start();
 }
 
@@ -973,7 +1036,7 @@ QTimer* ScreenHandler::setupMouseTimer()
     return mouseTimer;
 }
 
-ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent)
+ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent), ScreenHandler(this)
 {
     screen[0] = QImage(256, 192, QImage::Format_RGB32);
     screen[1] = QImage(256, 192, QImage::Format_RGB32);
@@ -981,17 +1044,12 @@ ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent)
     screenTrans[0].reset();
     screenTrans[1].reset();
 
-    touching = false;
-
-    setAttribute(Qt::WA_AcceptTouchEvents);
-
     OSD::Init(nullptr);
 }
 
 ScreenPanelNative::~ScreenPanelNative()
 {
     OSD::DeInit(nullptr);
-    mouseTimer->stop();
 }
 
 void ScreenPanelNative::setupScreenLayout()
@@ -1090,17 +1148,11 @@ void ScreenPanelNative::onScreenLayoutChanged()
 }
 
 
-ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
-{
-    touching = false;
-
-    setAttribute(Qt::WA_AcceptTouchEvents);
-}
+ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent), ScreenHandler(this)
+{}
 
 ScreenPanelGL::~ScreenPanelGL()
 {
-    mouseTimer->stop();
-
     makeCurrent();
 
     OSD::DeInit(this);
@@ -1356,6 +1408,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     setWindowTitle("melonDS " MELONDS_VERSION);
     setAttribute(Qt::WA_DeleteOnClose);
     setAcceptDrops(true);
+    setFocusPolicy(Qt::ClickFocus);
+
+    int inst = Platform::InstanceID();
 
     QMenuBar* menubar = new QMenuBar();
     {
@@ -1488,19 +1543,30 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actEnableCheats->setCheckable(true);
         connect(actEnableCheats, &QAction::triggered, this, &MainWindow::onEnableCheats);
 
-        actSetupCheats = menu->addAction("Setup cheat codes");
-        actSetupCheats->setMenuRole(QAction::NoRole);
-        connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
+        //if (inst == 0)
+        {
+            actSetupCheats = menu->addAction("Setup cheat codes");
+            actSetupCheats->setMenuRole(QAction::NoRole);
+            connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
 
-        menu->addSeparator();
-        actROMInfo = menu->addAction("ROM info");
-        connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
+            menu->addSeparator();
+            actROMInfo = menu->addAction("ROM info");
+            connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
 
-        actRAMInfo = menu->addAction("RAM search");
-        connect(actRAMInfo, &QAction::triggered, this, &MainWindow::onRAMInfo);
+            actRAMInfo = menu->addAction("RAM search");
+            connect(actRAMInfo, &QAction::triggered, this, &MainWindow::onRAMInfo);
 
-        actTitleManager = menu->addAction("Manage DSi titles");
-        connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
+            actTitleManager = menu->addAction("Manage DSi titles");
+            connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
+        }
+
+        {
+            menu->addSeparator();
+            QMenu* submenu = menu->addMenu("Multiplayer");
+
+            actMPNewInstance = submenu->addAction("Launch new instance");
+            connect(actMPNewInstance, &QAction::triggered, this, &MainWindow::onMPNewInstance);
+        }
     }
     {
         QMenu* menu = menubar->addMenu("Config");
@@ -1509,7 +1575,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
 
 #ifdef __APPLE__
-        QAction* actPreferences = menu->addAction("Preferences...");
+        actPreferences = menu->addAction("Preferences...");
         connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
         actPreferences->setMenuRole(QAction::PreferencesRole);
 #endif
@@ -1526,14 +1592,17 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actAudioSettings = menu->addAction("Audio settings");
         connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
 
+        actMPSettings = menu->addAction("Multiplayer settings");
+        connect(actMPSettings, &QAction::triggered, this, &MainWindow::onOpenMPSettings);
+
         actWifiSettings = menu->addAction("Wifi settings");
         connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
 
-        actInterfaceSettings = menu->addAction("Interface settings");
-        connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
-
         actFirmwareSettings = menu->addAction("Firmware settings");
         connect(actFirmwareSettings, &QAction::triggered, this, &MainWindow::onOpenFirmwareSettings);
+
+        actInterfaceSettings = menu->addAction("Interface settings");
+        connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
 
         actPathSettings = menu->addAction("Path settings");
         connect(actPathSettings, &QAction::triggered, this, &MainWindow::onOpenPathSettings);
@@ -1638,34 +1707,34 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         {
             QMenu* submenu = menu->addMenu("Aspect ratio");
             grpScreenAspectTop = new QActionGroup(submenu);
-
-            const char* aspectRatiosTop[] = {"Top 4:3 (native)", "Top 16:9", "Top 21:9", "Top window"};
-
-            for (int i = 0; i < 4; i++)
-            {
-                actScreenAspectTop[i] = submenu->addAction(QString(aspectRatiosTop[i]));
-                actScreenAspectTop[i]->setActionGroup(grpScreenAspectTop);
-                actScreenAspectTop[i]->setData(QVariant(i));
-                actScreenAspectTop[i]->setCheckable(true);
-            }
-
-            connect(grpScreenAspectTop, &QActionGroup::triggered, this, &MainWindow::onChangeScreenAspectTop);
-
-            submenu->addSeparator();
-
             grpScreenAspectBot = new QActionGroup(submenu);
+            actScreenAspectTop = new QAction*[sizeof(aspectRatios) / sizeof(aspectRatios[0])];
+            actScreenAspectBot = new QAction*[sizeof(aspectRatios) / sizeof(aspectRatios[0])];
 
-            const char* aspectRatiosBot[] = {"Bottom 4:3 (native)", "Bottom 16:9", "Bottom 21:9", "Bottom window"};
-
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 2; i++)
             {
-                actScreenAspectBot[i] = submenu->addAction(QString(aspectRatiosBot[i]));
-                actScreenAspectBot[i]->setActionGroup(grpScreenAspectBot);
-                actScreenAspectBot[i]->setData(QVariant(i));
-                actScreenAspectBot[i]->setCheckable(true);
-            }
+                QActionGroup* group = grpScreenAspectTop;
+                QAction** actions = actScreenAspectTop;
 
-            connect(grpScreenAspectBot, &QActionGroup::triggered, this, &MainWindow::onChangeScreenAspectBot);
+                if (i == 1)
+                {
+                    group = grpScreenAspectBot;
+                    submenu->addSeparator();
+                    actions = actScreenAspectBot;
+                }
+
+                for (int j = 0; j < sizeof(aspectRatios) / sizeof(aspectRatios[0]); j++)
+                {
+                    auto ratio = aspectRatios[j];
+                    QString label = QString("%1 %2").arg(i ? "Bottom" : "Top", ratio.label);
+                    actions[j] = submenu->addAction(label);
+                    actions[j]->setActionGroup(group);
+                    actions[j]->setData(QVariant(ratio.id));
+                    actions[j]->setCheckable(true);
+                }
+
+                connect(group, &QActionGroup::triggered, this, &MainWindow::onChangeScreenAspect);
+            }
         }
 
         actScreenFiltering = menu->addAction("Screen filtering");
@@ -1689,6 +1758,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     setMenuBar(menubar);
 
     resize(Config::WindowWidth, Config::WindowHeight);
+
+    if (Config::FirmwareUsername == "Arisotura")
+        actMPNewInstance->setText("Fart");
 
 #ifdef Q_OS_MAC
     QPoint screenCenter = screen()->availableGeometry().center();
@@ -1756,8 +1828,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     actScreenSwap->setChecked(Config::ScreenSwap);
 
-    actScreenAspectTop[Config::ScreenAspectTop]->setChecked(true);
-    actScreenAspectBot[Config::ScreenAspectBot]->setChecked(true);
+    for (int i = 0; i < sizeof(aspectRatios) / sizeof(aspectRatios[0]); i++)
+    {
+        if (Config::ScreenAspectTop == aspectRatios[i].id)
+            actScreenAspectTop[i]->setChecked(true);
+        if (Config::ScreenAspectBot == aspectRatios[i].id)
+            actScreenAspectBot[i]->setChecked(true);
+    }
 
     actScreenFiltering->setChecked(Config::ScreenFilter);
     actShowOSD->setChecked(Config::ShowOSD);
@@ -1765,11 +1842,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actLimitFramerate->setChecked(Config::LimitFPS);
     actAudioSync->setChecked(Config::AudioSync);
 
+    if (inst > 0)
+    {
+        actEmuSettings->setEnabled(false);
+        actVideoSettings->setEnabled(false);
+        actMPSettings->setEnabled(false);
+        actWifiSettings->setEnabled(false);
+        actInterfaceSettings->setEnabled(false);
 
-
-    const QList<QCameraInfo> cameras = QCameraInfo::availableCameras();
-    for (const QCameraInfo &cameraInfo : cameras)
-        printf("CAMERAFAZIL: %s\n", cameraInfo.deviceName().toStdString().c_str());
+#ifdef __APPLE__
+        actPreferences->setEnabled(false);
+#endif // __APPLE__
+    }
 }
 
 MainWindow::~MainWindow()
@@ -1780,17 +1864,13 @@ void MainWindow::createScreenPanel()
 {
     hasOGL = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
 
-    QTimer* mouseTimer;
-
     if (hasOGL)
     {
-        panelGL = new ScreenPanelGL(this);
+        ScreenPanelGL* panelGL = new ScreenPanelGL(this);
         panelGL->show();
 
         panel = panelGL;
-        panelGL->setMouseTracking(true);
-        mouseTimer = panelGL->setupMouseTimer();
-        connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) panelGL->setCursor(Qt::BlankCursor);});
+        panelWidget = panelGL;
 
         if (!panelGL->isValid())
             hasOGL = false;
@@ -1807,17 +1887,14 @@ void MainWindow::createScreenPanel()
 
     if (!hasOGL)
     {
-        panelNative = new ScreenPanelNative(this);
+        ScreenPanelNative* panelNative = new ScreenPanelNative(this);
         panel = panelNative;
-        panel->show();
-
-        panelNative->setMouseTracking(true);
-        mouseTimer = panelNative->setupMouseTimer();
-        connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) panelNative->setCursor(Qt::BlankCursor);});
+        panelWidget = panelNative;
+        panelWidget->show();
     }
-    setCentralWidget(panel);
+    setCentralWidget(panelWidget);
 
-    connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));
+    connect(this, SIGNAL(screenLayoutChange()), panelWidget, SLOT(onScreenLayoutChanged()));
     emit screenLayoutChange();
 }
 
@@ -1825,7 +1902,7 @@ QOpenGLContext* MainWindow::getOGLContext()
 {
     if (!hasOGL) return nullptr;
 
-    QOpenGLWidget* glpanel = (QOpenGLWidget*)panel;
+    QOpenGLWidget* glpanel = dynamic_cast<QOpenGLWidget*>(panel);
     return glpanel->context();
 }
 
@@ -1965,6 +2042,16 @@ void MainWindow::dropEvent(QDropEvent* event)
 
         updateCartInserted(false);
     }
+}
+
+void MainWindow::focusInEvent(QFocusEvent* event)
+{
+    audioMute();
+}
+
+void MainWindow::focusOutEvent(QFocusEvent* event)
+{
+    audioMute();
 }
 
 void MainWindow::onAppStateChanged(Qt::ApplicationState state)
@@ -2639,6 +2726,23 @@ void MainWindow::onOpenTitleManager()
     TitleManagerDialog* dlg = TitleManagerDialog::openDlg(this);
 }
 
+void MainWindow::onMPNewInstance()
+{
+    //QProcess::startDetached(QApplication::applicationFilePath());
+    QProcess newinst;
+    newinst.setProgram(QApplication::applicationFilePath());
+    newinst.setArguments(QApplication::arguments().mid(1, QApplication::arguments().length()-1));
+
+#ifdef __WIN32__
+    newinst.setCreateProcessArgumentsModifier([] (QProcess::CreateProcessArguments *args)
+    {
+        args->flags |= CREATE_NEW_CONSOLE;
+    });
+#endif
+
+    newinst.startDetached();
+}
+
 void MainWindow::onOpenEmuSettings()
 {
     emuThread->emuPause();
@@ -2779,6 +2883,22 @@ void MainWindow::onAudioSettingsFinished(int res)
     micOpen();
 }
 
+void MainWindow::onOpenMPSettings()
+{
+    emuThread->emuPause();
+
+    MPSettingsDialog* dlg = MPSettingsDialog::openDlg(this);
+    connect(dlg, &MPSettingsDialog::finished, this, &MainWindow::onMPSettingsFinished);
+}
+
+void MainWindow::onMPSettingsFinished(int res)
+{
+    audioMute();
+    LocalMP::SetRecvTimeout(Config::MPRecvTimeout);
+
+    emuThread->emuUnpause();
+}
+
 void MainWindow::onOpenWifiSettings()
 {
     emuThread->emuPause();
@@ -2789,12 +2909,6 @@ void MainWindow::onOpenWifiSettings()
 
 void MainWindow::onWifiSettingsFinished(int res)
 {
-    if (Wifi::MPInited)
-    {
-        Platform::MP_DeInit();
-        Platform::MP_Init();
-    }
-
     Platform::LAN_DeInit();
     Platform::LAN_Init();
 
@@ -2814,10 +2928,7 @@ void MainWindow::onOpenInterfaceSettings()
 
 void MainWindow::onUpdateMouseTimer()
 {
-    if (hasOGL)
-        panelGL->mouseTimer->setInterval(Config::MouseHideSeconds*1000);
-    else
-        panelNative->mouseTimer->setInterval(Config::MouseHideSeconds*1000);
+    panel->mouseTimer->setInterval(Config::MouseHideSeconds*1000);
 }
 
 void MainWindow::onInterfaceSettingsFinished(int res)
@@ -2833,8 +2944,8 @@ void MainWindow::onChangeSavestateSRAMReloc(bool checked)
 void MainWindow::onChangeScreenSize()
 {
     int factor = ((QAction*)sender())->data().toInt();
-    QSize diff = size() - panel->size();
-    resize(dynamic_cast<ScreenHandler*>(panel)->screenGetMinSize(factor) + diff);
+    QSize diff = size() - panelWidget->size();
+    resize(panel->screenGetMinSize(factor) + diff);
 }
 
 void MainWindow::onChangeScreenRotation(QAction* act)
@@ -2892,18 +3003,19 @@ void MainWindow::onChangeScreenSizing(QAction* act)
     emit screenLayoutChange();
 }
 
-void MainWindow::onChangeScreenAspectTop(QAction* act)
+void MainWindow::onChangeScreenAspect(QAction* act)
 {
     int aspect = act->data().toInt();
-    Config::ScreenAspectTop = aspect;
+    QActionGroup* group = act->actionGroup();
 
-    emit screenLayoutChange();
-}
-
-void MainWindow::onChangeScreenAspectBot(QAction* act)
-{
-    int aspect = act->data().toInt();
-    Config::ScreenAspectBot = aspect;
+    if (group == grpScreenAspectTop)
+    {
+        Config::ScreenAspectTop = aspect;
+    }
+    else
+    {
+        Config::ScreenAspectBot = aspect;
+    }
 
     emit screenLayoutChange();
 }
@@ -3006,16 +3118,10 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
         emuThread->emuPause();
 
         if (hasOGL)
-        {
             emuThread->deinitOpenGL();
-            delete panelGL;
-        }
-        else
-        {
-            delete panelNative;
-        }
+        delete panel;
         createScreenPanel();
-        connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
+        connect(emuThread, SIGNAL(windowUpdate()), panelWidget, SLOT(repaint()));
         if (hasOGL) emuThread->initOpenGL();
     }
 
@@ -3121,6 +3227,7 @@ int main(int argc, char** argv)
     format.setSwapInterval(0);
     QSurfaceFormat::setDefaultFormat(format);
 
+    audioMuted = false;
     audioSync = SDL_CreateCond();
     audioSyncLock = SDL_CreateMutex();
 
@@ -3176,6 +3283,8 @@ int main(int argc, char** argv)
     emuThread->start();
     emuThread->emuPause();
 
+    audioMute();
+
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
     if (argc > 1)
@@ -3221,7 +3330,7 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
 {
     int argc = 0;
     wchar_t** argv_w = CommandLineToArgvW(GetCommandLineW(), &argc);
-    char* nullarg = "";
+    char nullarg[] = {'\0'};
 
     char** argv = new char*[argc];
     for (int i = 0; i < argc; i++)
@@ -3236,7 +3345,8 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
 
     if (argv_w) LocalFree(argv_w);
 
-    /*if (AttachConsole(ATTACH_PARENT_PROCESS))
+    //if (AttachConsole(ATTACH_PARENT_PROCESS))
+    /*if (AllocConsole())
     {
         freopen("CONOUT$", "w", stdout);
         freopen("CONOUT$", "w", stderr);

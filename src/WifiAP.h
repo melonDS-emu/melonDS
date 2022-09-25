@@ -19,6 +19,8 @@
 #ifndef WIFIAP_H
 #define WIFIAP_H
 
+#include "types.h"
+
 namespace WifiAP
 {
 
@@ -31,7 +33,6 @@ bool Init();
 void DeInit();
 void Reset();
 
-void USTimer();
 void MSTimer();
 
 // packet format: 12-byte TX header + original 802.11 frame

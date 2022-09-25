@@ -163,6 +163,7 @@ public:
 
         setCheckable(true);
         setText(mappingText());
+        setFocusPolicy(Qt::StrongFocus); //Fixes binding keys in macOS
 
         connect(this, &JoyMapButton::clicked, this, &JoyMapButton::onClick);
 
@@ -245,19 +246,21 @@ protected:
             Sint16 axisval = SDL_JoystickGetAxis(joy, i);
             int diff = abs(axisval - axesRest[i]);
 
-            if (axesRest[i] < -16384 && axisval >= 0)
+            if (diff >= 16384)
             {
-                *mapping = (oldmap & 0xFFFF) | 0x10000 | (2 << 20) | (i << 24);
-                click();
-                return;
-            }
-            else if (diff > 16384)
-            {
-                int axistype;
-                if (axisval > 0) axistype = 0;
-                else             axistype = 1;
+                if (axesRest[i] < -16384) // Trigger
+                {
+                    *mapping = (oldmap & 0xFFFF) | 0x10000 | (2 << 20) | (i << 24);
+                }
+                else // Analog stick
+                {
+                    int axistype;
+                    if (axisval > 0) axistype = 0;
+                    else             axistype = 1;
 
-                *mapping = (oldmap & 0xFFFF) | 0x10000 | (axistype << 20) | (i << 24);
+                    *mapping = (oldmap & 0xFFFF) | 0x10000 | (axistype << 20) | (i << 24);
+                }
+
                 click();
                 return;
             }

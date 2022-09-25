@@ -19,10 +19,10 @@
 #ifndef DSI_SD_H
 #define DSI_SD_H
 
-#include <string.h>
+#include <cstring>
 #include "FIFO.h"
 #include "FATStorage.h"
-
+#include "Savestate.h"
 
 class DSi_SDDevice;
 
