@@ -69,6 +69,14 @@ struct CameraConfig
     bool XFlip;
 };
 
+struct CameraConfig
+{
+    int InputType; // 0=blank 1=image 2=camera
+    std::string ImagePath;
+    std::string CamDeviceName;
+    bool XFlip;
+};
+
 
 extern int KeyMapping[12];
 extern int JoyMapping[12];

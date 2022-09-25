@@ -317,6 +317,7 @@ ConfigEntry ConfigFile[] =
     {"DSBatteryLevelOkay",   1, &DSBatteryLevelOkay, true, true},
     {"DSiBatteryLevel",    0, &DSiBatteryLevel, 0xF, true},
     {"DSiBatteryCharging", 1, &DSiBatteryCharging, true, true},
+
     // TODO!!
     // we need a more elegant way to deal with this
     {"Camera0_InputType", 0, &Camera[0].InputType, 0, false},

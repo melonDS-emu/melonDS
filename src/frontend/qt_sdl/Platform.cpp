@@ -496,7 +496,6 @@ u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask)
     return LocalMP::RecvReplies(data, timestamp, aidmask);
 }
 
-
 bool LAN_Init()
 {
     if (Config::DirectLAN)
