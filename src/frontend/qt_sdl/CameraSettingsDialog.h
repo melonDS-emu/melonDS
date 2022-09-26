@@ -79,9 +79,6 @@ public:
         currentDlg = nullptr;
     }
 
-signals:
-    //
-
 private slots:
     void on_CameraSettingsDialog_accepted();
     void on_CameraSettingsDialog_rejected();
@@ -91,6 +88,7 @@ private slots:
     void on_txtSrcImagePath_textChanged();
     void on_btnSrcImageBrowse_clicked();
     void on_cbPhysicalCamera_currentIndexChanged(int id);
+    void on_chkFlipPicture_clicked();
 
 private:
     Ui::CameraSettingsDialog* ui;

@@ -22,7 +22,7 @@
 
 CameraFrameDumper::CameraFrameDumper(QObject* parent) : QAbstractVideoSurface(parent)
 {
-    camList.append((CameraManager*)parent);
+    cam = (CameraManager*)parent;
 }
 
 bool CameraFrameDumper::present(const QVideoFrame& _frame)
@@ -33,8 +33,7 @@ bool CameraFrameDumper::present(const QVideoFrame& _frame)
     if (!frame.isReadable())
         return false;
 
-    for (CameraManager* cam : camList)
-        cam->feedFrame((u32*)frame.bits(), frame.width(), frame.height(), frame.pixelFormat() == QVideoFrame::Format_YUYV);
+    cam->feedFrame((u32*)frame.bits(), frame.width(), frame.height(), frame.pixelFormat() == QVideoFrame::Format_YUYV);
 
     frame.unmap();
 
@@ -71,6 +70,7 @@ CameraManager::CameraManager(int num, int width, int height, bool yuv) : QObject
     frameBuffer = new u32[fbsize];
 
     inputType = -1;
+    xFlip = false;
     init();
 }
 
@@ -120,13 +120,14 @@ void CameraManager::init()
             if (frameFormatYUV)
             {
                 copyFrame_RGBtoYUV((u32*)img.bits(), img.width(), img.height(),
-                                   frameBuffer, frameWidth, frameHeight);
+                                   frameBuffer, frameWidth, frameHeight,
+                                   false);
             }
             else
             {
                 copyFrame_Straight((u32*)img.bits(), img.width(), img.height(),
                                    frameBuffer, frameWidth, frameHeight,
-                                   false);
+                                   false, false);
             }
         }
     }
@@ -205,11 +206,19 @@ void CameraManager::camStop()
     camDevice->stop();
 }
 
+void CameraManager::setXFlip(bool flip)
+{
+    xFlip = flip;
+}
+
 void CameraManager::captureFrame(u32* frame, int width, int height, bool yuv)
 {
     frameMutex.lock();
 
-    if (width == frameWidth && height == frameHeight && yuv == frameFormatYUV)
+    if ((width == frameWidth) &&
+        (height == frameHeight) &&
+        (yuv == frameFormatYUV) &&
+        (!xFlip))
     {
         int len = width * height;
         if (yuv) len /= 2;
@@ -221,17 +230,19 @@ void CameraManager::captureFrame(u32* frame, int width, int height, bool yuv)
         {
             copyFrame_Straight(frameBuffer, frameWidth, frameHeight,
                                frame, width, height,
-                               yuv);
+                               xFlip, yuv);
         }
         else if (yuv)
         {
             copyFrame_RGBtoYUV(frameBuffer, frameWidth, frameHeight,
-                               frame, width, height);
+                               frame, width, height,
+                               xFlip);
         }
         else
         {
             copyFrame_YUVtoRGB(frameBuffer, frameWidth, frameHeight,
-                               frame, width, height);
+                               frame, width, height,
+                               xFlip);
         }
     }
 
@@ -254,24 +265,26 @@ void CameraManager::feedFrame(u32* frame, int width, int height, bool yuv)
         {
             copyFrame_Straight(frame, width, height,
                                frameBuffer, frameWidth, frameHeight,
-                               yuv);
+                               false, yuv);
         }
         else if (yuv)
         {
             copyFrame_RGBtoYUV(frame, width, height,
-                               frameBuffer, frameWidth, frameHeight);
+                               frameBuffer, frameWidth, frameHeight,
+                               false);
         }
         else
         {
             copyFrame_YUVtoRGB(frame, width, height,
-                               frameBuffer, frameWidth, frameHeight);
+                               frameBuffer, frameWidth, frameHeight,
+                               false);
         }
     }
 
     frameMutex.unlock();
 }
 
-void CameraManager::copyFrame_Straight(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight, bool yuv)
+void CameraManager::copyFrame_Straight(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight, bool xflip, bool yuv)
 {
     if (yuv)
     {
@@ -286,13 +299,14 @@ void CameraManager::copyFrame_Straight(u32* src, int swidth, int sheight, u32* d
         for (int dx = 0; dx < dwidth; dx++)
         {
             int sx = (dx * swidth) / dwidth;
+            if (xflip) sx = swidth-1 - sx;
 
             dst[(dy * dwidth) + dx] = src[(sy * swidth) + sx];
         }
     }
 }
 
-void CameraManager::copyFrame_RGBtoYUV(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight)
+void CameraManager::copyFrame_RGBtoYUV(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight, bool xflip)
 {
     for (int dy = 0; dy < dheight; dy++)
     {
@@ -303,9 +317,13 @@ void CameraManager::copyFrame_RGBtoYUV(u32* src, int swidth, int sheight, u32* d
             int sx;
 
             sx = (dx * swidth) / dwidth;
+            if (xflip) sx = swidth-1 - sx;
+
             u32 pixel1 = src[sy*swidth + sx];
 
             sx = ((dx+1) * swidth) / dwidth;
+            if (xflip) sx = swidth-1 - sx;
+
             u32 pixel2 = src[sy*swidth + sx];
 
             int r1 = (pixel1 >> 16) & 0xFF;
@@ -339,7 +357,7 @@ void CameraManager::copyFrame_RGBtoYUV(u32* src, int swidth, int sheight, u32* d
     }
 }
 
-void CameraManager::copyFrame_YUVtoRGB(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight)
+void CameraManager::copyFrame_YUVtoRGB(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight, bool xflip)
 {
     for (int dy = 0; dy < dheight; dy++)
     {
@@ -348,6 +366,8 @@ void CameraManager::copyFrame_YUVtoRGB(u32* src, int swidth, int sheight, u32* d
         for (int dx = 0; dx < dwidth; dx+=2)
         {
             int sx = (dx * swidth) / dwidth;
+            if (xflip) sx = swidth-1 - sx;
+
             u32 val = src[(sy*swidth + sx) / 2];
 
             int y1 = val & 0xFF;

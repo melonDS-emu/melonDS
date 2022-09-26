@@ -40,7 +40,7 @@ public:
     QList<QVideoFrame::PixelFormat> supportedPixelFormats(QAbstractVideoBuffer::HandleType type = QAbstractVideoBuffer::NoHandle) const override;
 
 private:
-    QList<CameraManager*> camList;
+    CameraManager* cam;
 };
 
 class CameraManager : public QObject
@@ -57,6 +57,8 @@ public:
     void start();
     void stop();
     bool isStarted();
+
+    void setXFlip(bool flip);
 
     void captureFrame(u32* frame, int width, int height, bool yuv);
 
@@ -87,9 +89,11 @@ private:
     u32* frameBuffer;
     QMutex frameMutex;
 
-    void copyFrame_Straight(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight, bool yuv);
-    void copyFrame_RGBtoYUV(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight);
-    void copyFrame_YUVtoRGB(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight);
+    bool xFlip;
+
+    void copyFrame_Straight(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight, bool xflip, bool yuv);
+    void copyFrame_RGBtoYUV(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight, bool xflip);
+    void copyFrame_YUVtoRGB(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight, bool xflip);
 };
 
 #endif // CAMERAMANAGER_H

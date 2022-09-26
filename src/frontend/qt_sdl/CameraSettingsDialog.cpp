@@ -270,3 +270,11 @@ void CameraSettingsDialog::populateCamControls(int id)
 
     ui->chkFlipPicture->setChecked(cfg.XFlip);
 }
+
+void CameraSettingsDialog::on_chkFlipPicture_clicked()
+{
+    if (!currentCfg) return;
+
+    currentCfg->XFlip = ui->chkFlipPicture->isChecked();
+    if (currentCam) currentCam->setXFlip(currentCfg->XFlip);
+}
