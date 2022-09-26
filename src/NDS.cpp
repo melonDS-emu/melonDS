@@ -2012,7 +2012,7 @@ void debug(u32 param)
     fclose(shit);
 
     /*FILE*
-    shit = fopen("debug/camera9.bin", "wb");
+    shit = fopen("debug/directboot9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM9Read32(i);

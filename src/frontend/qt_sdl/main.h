@@ -271,13 +271,13 @@ private slots:
     void onOpenAudioSettings();
     void onUpdateAudioSettings();
     void onAudioSettingsFinished(int res);
-    void onOpenFirmwareSettings();
-    void onOpenPathSettings();
     void onOpenMPSettings();
     void onMPSettingsFinished(int res);
     void onOpenWifiSettings();
     void onWifiSettingsFinished(int res);
+    void onOpenFirmwareSettings();
     void onFirmwareSettingsFinished(int res);
+    void onOpenPathSettings();
     void onPathSettingsFinished(int res);
     void onOpenInterfaceSettings();
     void onInterfaceSettingsFinished(int res);

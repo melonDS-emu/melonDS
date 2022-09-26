@@ -41,9 +41,9 @@
 
 std::string EmuDirectory;
 
-void emuStop();
-
 extern CameraManager* camManager[2];
+
+void emuStop();
 
 
 namespace Platform
@@ -103,7 +103,6 @@ void IPCDeInit()
         IPCBuffer->detach();
         delete IPCBuffer;
     }
-
     IPCBuffer = nullptr;
 }
 
@@ -484,6 +483,16 @@ int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid)
 int MP_SendAck(u8* data, int len, u64 timestamp)
 {
     return LocalMP::SendAck(data, len, timestamp);
+}
+
+int MP_RecvHostPacket(u8* data, u64* timestamp)
+{
+    return LocalMP::RecvHostPacket(data, timestamp);
+}
+
+u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask)
+{
+    return LocalMP::RecvReplies(data, timestamp, aidmask);
 }
 
 int MP_RecvHostPacket(u8* data, u64* timestamp)
