@@ -20,7 +20,12 @@
 #define CAMERAMANAGER_H
 
 #include <QCamera>
-#include <QCameraInfo>
+#if QT_VERSION >= 0x060000
+    #include <QMediaDevices>
+    #include <QCameraDevice>
+#else
+    #include <QCameraInfo>
+#endif
 #include <QAbstractVideoSurface>
 #include <QVideoSurfaceFormat>
 #include <QMutex>

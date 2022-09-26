@@ -78,6 +78,25 @@ CameraSettingsDialog::CameraSettingsDialog(QWidget* parent) : QDialog(parent), u
     ui->cbCameraSel->addItem("DSi outer camera");
     ui->cbCameraSel->addItem("DSi inner camera");
 
+#if QT_VERSION >= 0x060000
+    const QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
+    for (const QCameraDevice &cameraInfo : cameras)
+    {
+        QString name = cameraInfo.description();
+        QCameraDevice::Position pos = cameraInfo.position();
+        if (pos != QCameraDevice::UnspecifiedPosition)
+        {
+            name += " (";
+            if (pos == QCameraDevice::FrontFace)
+                name += "inner camera";
+            else if (pos == QCameraDevice::BackFace)
+                name += "outer camera";
+            name += ")";
+        }
+
+        ui->cbPhysicalCamera->addItem(name, QString(cameraInfo.id()));
+    }
+#else
     const QList<QCameraInfo> cameras = QCameraInfo::availableCameras();
     for (const QCameraInfo &cameraInfo : cameras)
     {
@@ -95,6 +114,7 @@ CameraSettingsDialog::CameraSettingsDialog(QWidget* parent) : QDialog(parent), u
 
         ui->cbPhysicalCamera->addItem(name, cameraInfo.deviceName());
     }
+#endif
     ui->rbPictureCamera->setEnabled(ui->cbPhysicalCamera->count() > 0);
 
     grpInputType = new QButtonGroup(this);
