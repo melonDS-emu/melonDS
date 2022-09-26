@@ -437,21 +437,6 @@ void Camera::Reset()
 
     TransferY = 0;
     memset(FrameBuffer, 0, (640*480/2)*sizeof(u32));
-
-    // test pattern
-    /*for (int y = 0; y < 480; y++)
-    {
-        for (int x = 0; x < 640; x++)
-        {
-            u32 color = Num ? 0x00FF0000 : 0x000000FF;
-            //if ((x & 0x10) ^ (y & 0x10))
-            if (((x%20)>=10) ^ ((y%20)>=10))
-                color |= 0x0000FF00;
-            else color |= (y & 0xFF) << (Num ? 0 : 16);
-
-            FrameBuffer[y*640 + x] = color;
-        }
-    }*/
 }
 
 bool Camera::IsActivated()
@@ -517,53 +502,17 @@ int Camera::TransferScanline(u32* buffer, int maxlen)
 
     int retlen = FrameWidth >> 1;
     int sy = (TransferY * 480) / FrameHeight;
+    if (FrameReadMode & (1<<1))
+        sy = 479 - sy;
 
     for (int dx = 0; dx < retlen; dx++)
     {
         if (dx >= maxlen) break;
 
-        // convert to YUV
-        // Y = 0.299R + 0.587G + 0.114B
-        // U = 0.492 (B-Y)
-        // V = 0.877 (R-Y)
+        int sx = (dx * 640) / FrameWidth;
+        if (!(FrameReadMode & (1<<0)))
+            sx = 639 - sx;
 
-        int sx;
-
-        /*sx = ((dx*2) * 640) / FrameWidth;
-        u32 pixel1 = FrameBuffer[sy*640 + sx];
-
-        sx = ((dx*2 + 1) * 640) / FrameWidth;
-        u32 pixel2 = FrameBuffer[sy*640 + sx];
-
-        int r1 = (pixel1 >> 16) & 0xFF;
-        int g1 = (pixel1 >> 8) & 0xFF;
-        int b1 = pixel1 & 0xFF;
-
-        int r2 = (pixel2 >> 16) & 0xFF;
-        int g2 = (pixel2 >> 8) & 0xFF;
-        int b2 = pixel2 & 0xFF;
-
-        int y1 = ((r1 * 19595) + (g1 * 38470) + (b1 * 7471)) >> 16;
-        int u1 = ((b1 - y1) * 32244) >> 16;
-        int v1 = ((r1 - y1) * 57475) >> 16;
-
-        int y2 = ((r2 * 19595) + (g2 * 38470) + (b2 * 7471)) >> 16;
-        int u2 = ((b2 - y2) * 32244) >> 16;
-        int v2 = ((r2 - y2) * 57475) >> 16;
-
-        u1 += 128; v1 += 128;
-        u2 += 128; v2 += 128;
-
-        y1 = std::clamp(y1, 0, 255); u1 = std::clamp(u1, 0, 255); v1 = std::clamp(v1, 0, 255);
-        y2 = std::clamp(y2, 0, 255); u2 = std::clamp(u2, 0, 255); v2 = std::clamp(v2, 0, 255);
-
-        // huh
-        u1 = (u1 + u2) >> 1;
-        v1 = (v1 + v2) >> 1;
-
-        buffer[dx] = y1 | (u1 << 8) | (y2 << 16) | (v1 << 24);*/
-
-        sx = ((dx) * 640) / FrameWidth;
         u32 pixel3 = FrameBuffer[sy*320 + sx];
         buffer[dx] = pixel3;
     }
