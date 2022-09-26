@@ -169,9 +169,9 @@ void CameraManager::deInit()
 }
 
 void CameraManager::start()
-{printf("[%d] [%d] START\n", num, startNum);
-    startNum++;
-    if (startNum > 1) return;
+{
+    if (startNum == 1) return;
+    startNum = 1;
 
     if (inputType == 2)
     {
@@ -180,14 +180,19 @@ void CameraManager::start()
 }
 
 void CameraManager::stop()
-{printf("[%d] [%d] STOP\n", num, startNum-1);
-    startNum--;
-    if (startNum > 0) return;
+{
+    if (startNum == 0) return;
+    startNum = 0;
 
     if (inputType == 2)
     {
         emit camStopSignal();
     }
+}
+
+bool CameraManager::isStarted()
+{
+    return startNum != 0;
 }
 
 void CameraManager::camStart()

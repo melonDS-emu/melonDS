@@ -56,6 +56,7 @@ public:
 
     void start();
     void stop();
+    bool isStarted();
 
     void captureFrame(u32* frame, int width, int height, bool yuv);
 

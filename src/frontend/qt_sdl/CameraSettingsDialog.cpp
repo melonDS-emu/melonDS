@@ -154,8 +154,10 @@ void CameraSettingsDialog::on_cbCameraSel_currentIndexChanged(int id)
 
     currentId = id;
     currentCfg = &Config::Camera[id];
-    currentCam = camManager[id];
+    //currentCam = camManager[id];
+    currentCam = nullptr;
     populateCamControls(id);
+    currentCam = camManager[id];
     previewPanel->setCurrentCam(currentCam);
 
     currentCam->start();

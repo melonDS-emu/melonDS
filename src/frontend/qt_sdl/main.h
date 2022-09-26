@@ -267,11 +267,12 @@ private slots:
     void onInputConfigFinished(int res);
     void onOpenVideoSettings();
     void onOpenCameraSettings();
+    void onCameraSettingsFinished(int res);
     void onOpenAudioSettings();
-    void onOpenFirmwareSettings();
-    void onOpenPathSettings();
     void onUpdateAudioSettings();
     void onAudioSettingsFinished(int res);
+    void onOpenFirmwareSettings();
+    void onOpenPathSettings();
     void onOpenMPSettings();
     void onMPSettingsFinished(int res);
     void onOpenWifiSettings();

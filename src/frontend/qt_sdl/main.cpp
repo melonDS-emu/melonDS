@@ -118,6 +118,7 @@ u32 micWavLength;
 s16* micWavBuffer;
 
 CameraManager* camManager[2];
+bool camStarted[2];
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
@@ -2805,8 +2806,23 @@ void MainWindow::onOpenVideoSettings()
 
 void MainWindow::onOpenCameraSettings()
 {
+    emuThread->emuPause();
+
+    camStarted[0] = camManager[0]->isStarted();
+    camStarted[1] = camManager[1]->isStarted();
+    if (camStarted[0]) camManager[0]->stop();
+    if (camStarted[1]) camManager[1]->stop();
+
     CameraSettingsDialog* dlg = CameraSettingsDialog::openDlg(this);
-    //connect(dlg, &CameraSettingsDialog::updateCameraSettings, this, &MainWindow::onUpdateCameraSettings);
+    connect(dlg, &CameraSettingsDialog::finished, this, &MainWindow::onCameraSettingsFinished);
+}
+
+void MainWindow::onCameraSettingsFinished(int res)
+{
+    if (camStarted[0]) camManager[0]->start();
+    if (camStarted[1]) camManager[1]->start();
+
+    emuThread->emuUnpause();
 }
 
 void MainWindow::onOpenAudioSettings()
@@ -3257,6 +3273,8 @@ int main(int argc, char** argv)
     micExtBufferWritePos = 0;
     micWavBuffer = nullptr;
 
+    camStarted[0] = false;
+    camStarted[1] = false;
     camManager[0] = new CameraManager(0, 640, 480, true);
     camManager[1] = new CameraManager(1, 640, 480, true);
 
