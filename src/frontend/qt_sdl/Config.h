@@ -152,7 +152,7 @@ extern bool DirectLAN;
 extern bool SavestateRelocSRAM;
 
 extern int AudioInterp;
-extern int AudioBitrate;
+extern int AudioBitdepth;
 extern int AudioVolume;
 extern int MicInputType;
 extern std::string MicWavPath;

@@ -59,7 +59,7 @@ private slots:
     void on_AudioSettingsDialog_rejected();
 
     void on_cbInterpolation_currentIndexChanged(int idx);
-    void on_cbBitrate_currentIndexChanged(int idx);
+    void on_cbBitdepth_currentIndexChanged(int idx);
     void on_slVolume_valueChanged(int val);
     void onChangeMicMode(int mode);
     void on_btnMicWavBrowse_clicked();
@@ -68,7 +68,7 @@ private:
     Ui::AudioSettingsDialog* ui;
 
     int oldInterp;
-    int oldBitrate;
+    int oldBitdepth;
     int oldVolume;
     QButtonGroup* grpMicMode;
 };

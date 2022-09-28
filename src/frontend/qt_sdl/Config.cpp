@@ -116,7 +116,7 @@ bool DirectLAN;
 bool SavestateRelocSRAM;
 
 int AudioInterp;
-int AudioBitrate;
+int AudioBitdepth;
 int AudioVolume;
 int MicInputType;
 std::string MicWavPath;
@@ -284,7 +284,7 @@ ConfigEntry ConfigFile[] =
     {"SavStaRelocSRAM", 1, &SavestateRelocSRAM, false, false},
 
     {"AudioInterp", 0, &AudioInterp, 0, false},
-    {"AudioBitrate", 0, &AudioBitrate, 0, false},
+    {"AudioBitdepth", 0, &AudioBitdepth, 0, false},
     {"AudioVolume", 0, &AudioVolume, 256, true},
     {"MicInputType", 0, &MicInputType, 1, false},
     {"MicWavPath", 2, &MicWavPath, (std::string)"", false},

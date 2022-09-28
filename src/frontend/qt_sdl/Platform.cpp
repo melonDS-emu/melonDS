@@ -188,7 +188,7 @@ int GetConfigInt(ConfigEntry entry)
     case Firm_BirthdayDay: return Config::FirmwareBirthdayDay;
     case Firm_Color: return Config::FirmwareFavouriteColour;
 
-    case AudioBitrate: return Config::AudioBitrate;
+    case AudioBitdepth: return Config::AudioBitdepth;
     }
 
     return 0;
