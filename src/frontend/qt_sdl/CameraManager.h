@@ -23,16 +23,37 @@
 #if QT_VERSION >= 0x060000
     #include <QMediaDevices>
     #include <QCameraDevice>
+    #include <QMediaCaptureSession>
+    #include <QVideoSink>
 #else
     #include <QCameraInfo>
+    #include <QAbstractVideoSurface>
+    #include <QVideoSurfaceFormat>
 #endif
-#include <QAbstractVideoSurface>
-#include <QVideoSurfaceFormat>
 #include <QMutex>
 
 #include "types.h"
 
 class CameraManager;
+
+
+#if QT_VERSION >= 0x060000
+
+class CameraFrameDumper : public QVideoSink
+{
+    Q_OBJECT
+    
+public:
+    CameraFrameDumper(QObject* parent = nullptr);
+    
+public slots:
+    void present(const QVideoFrame& frame);
+    
+private:
+    CameraManager* cam;
+};
+
+#else
 
 class CameraFrameDumper : public QAbstractVideoSurface
 {
@@ -47,6 +68,9 @@ public:
 private:
     CameraManager* cam;
 };
+
+#endif
+
 
 class CameraManager : public QObject
 {
@@ -88,6 +112,9 @@ private:
 
     QCamera* camDevice;
     CameraFrameDumper* camDumper;
+#if QT_VERSION >= 0x060000
+    QMediaCaptureSession* camSession;
+#endif
 
     int frameWidth, frameHeight;
     bool frameFormatYUV;

@@ -20,6 +20,30 @@
 #include "Config.h"
 
 
+#if QT_VERSION >= 0x060000
+
+CameraFrameDumper::CameraFrameDumper(QObject* parent) : QVideoSink(parent)
+{
+    cam = (CameraManager*)parent;
+    
+    connect(this, &CameraFrameDumper::videoFrameChanged, this, &CameraFrameDumper::present);
+}
+
+void CameraFrameDumper::present(const QVideoFrame& _frame)
+{
+    QVideoFrame frame(_frame);
+    if (!frame.map(QVideoFrame::ReadOnly))
+        return;
+    if (!frame.isReadable())
+        return;
+
+    cam->feedFrame((u32*)frame.bits(0), frame.width(), frame.height(), frame.pixelFormat() == QVideoFrameFormat::Format_YUYV);
+
+    frame.unmap();
+}
+
+#else
+
 CameraFrameDumper::CameraFrameDumper(QObject* parent) : QAbstractVideoSurface(parent)
 {
     cam = (CameraManager*)parent;
@@ -49,6 +73,8 @@ QList<QVideoFrame::PixelFormat> CameraFrameDumper::supportedPixelFormats(QAbstra
 
     return ret;
 }
+
+#endif
 
 
 CameraManager::CameraManager(int num, int width, int height, bool yuv) : QObject()
@@ -93,6 +119,8 @@ void CameraManager::init()
     inputType = Config::Camera[num].InputType;
     imagePath = QString::fromStdString(Config::Camera[num].ImagePath);
     camDeviceName = QString::fromStdString(Config::Camera[num].CamDeviceName);
+    
+    camDevice = nullptr;
 
     {
         // fill the framebuffer with black
@@ -134,26 +162,51 @@ void CameraManager::init()
     else if (inputType == 2)
     {
         // physical camera
-
-        camDevice = new QCamera(camDeviceName.toUtf8());
-        camDumper = new CameraFrameDumper(this);
-        camDevice->setViewfinder(camDumper);
-
-        /*camDevice->load();
-        QCameraViewfinderSettings settings;
-
-        auto resolutions = camDevice->supportedViewfinderResolutions();
-        for (auto& res : resolutions)
+        
+#if QT_VERSION >= 0x060000
+        const QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
+        for (const QCameraDevice &cam : cameras) 
         {
-            printf("RESOLUTION: %d x %d\n", res.width(), res.height());
+            if (QString(cam.id()) == camDeviceName)
+            {
+                camDevice = new QCamera(cam);
+                break;
+            }
         }
+        
+        if (camDevice)
+        {
+            camDumper = new CameraFrameDumper(this);
 
-        camDevice->unload();*/
+            camSession = new QMediaCaptureSession(this);
+            camSession->setCamera(camDevice);
+            camSession->setVideoOutput(camDumper);
+        }
+#else
+        camDevice = new QCamera(camDeviceName.toUtf8());
+        
+        if (camDevice)
+        {
+            camDumper = new CameraFrameDumper(this);
+            camDevice->setViewfinder(camDumper);
 
-        QCameraViewfinderSettings settings;
-        settings.setResolution(640, 480);
-        settings.setPixelFormat(QVideoFrame::Format_YUYV);
-        camDevice->setViewfinderSettings(settings);
+            /*camDevice->load();
+            QCameraViewfinderSettings settings;
+
+            auto resolutions = camDevice->supportedViewfinderResolutions();
+            for (auto& res : resolutions)
+            {
+                printf("RESOLUTION: %d x %d\n", res.width(), res.height());
+            }
+
+            camDevice->unload();*/
+
+            QCameraViewfinderSettings settings;
+            settings.setResolution(640, 480);
+            settings.setPixelFormat(QVideoFrame::Format_YUYV);
+            camDevice->setViewfinderSettings(settings);
+        }
+#endif
     }
 }
 
@@ -161,11 +214,18 @@ void CameraManager::deInit()
 {
     if (inputType == 2)
     {
-        camDevice->stop();
-        delete camDevice;
-        delete camDumper;
+        if (camDevice)
+        {
+            camDevice->stop();
+            delete camDevice;
+            delete camDumper;
+#if QT_VERSION >= 0x060000
+            delete camSession;
+#endif
+        }
     }
 
+    camDevice = nullptr;
     inputType = -1;
 }
 
@@ -198,12 +258,14 @@ bool CameraManager::isStarted()
 
 void CameraManager::camStart()
 {
-    camDevice->start();
+    if (camDevice)
+        camDevice->start();
 }
 
 void CameraManager::camStop()
 {
-    camDevice->stop();
+    if (camDevice)
+        camDevice->stop();
 }
 
 void CameraManager::setXFlip(bool flip)
