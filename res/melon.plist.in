@@ -22,6 +22,8 @@
     <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>We need microphone access so you can use the emulated DS microphone</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Camera access is needed for emulation of the DSi's cameras</string>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>

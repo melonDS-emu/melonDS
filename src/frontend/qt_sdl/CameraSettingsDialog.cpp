@@ -121,7 +121,11 @@ CameraSettingsDialog::CameraSettingsDialog(QWidget* parent) : QDialog(parent), u
     grpInputType->addButton(ui->rbPictureNone,   0);
     grpInputType->addButton(ui->rbPictureImg,    1);
     grpInputType->addButton(ui->rbPictureCamera, 2);
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
     connect(grpInputType, SIGNAL(buttonClicked(int)), this, SLOT(onChangeInputType(int)));
+#else
+    connect(grpInputType, SIGNAL(idClicked(int)), this, SLOT(onChangeInputType(int)));
+#endif
 
     previewPanel = new CameraPreviewPanel(this);
     QVBoxLayout* previewLayout = new QVBoxLayout();
