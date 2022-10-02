@@ -176,7 +176,7 @@ void CameraManager::init()
 
         if (camDevice)
         {
-            const QList<QCameraFormat> supported = camDevice.cameraDevice().videoFormats();
+            const QList<QCameraFormat> supported = camDevice->cameraDevice().videoFormats();
             bool good = false;
             for (const QCameraFormat& item : supported)
             {
