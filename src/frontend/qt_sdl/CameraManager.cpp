@@ -25,7 +25,7 @@
 CameraFrameDumper::CameraFrameDumper(QObject* parent) : QVideoSink(parent)
 {
     cam = (CameraManager*)parent;
-    
+
     connect(this, &CameraFrameDumper::videoFrameChanged, this, &CameraFrameDumper::present);
 }
 
@@ -119,7 +119,7 @@ void CameraManager::init()
     inputType = Config::Camera[num].InputType;
     imagePath = QString::fromStdString(Config::Camera[num].ImagePath);
     camDeviceName = QString::fromStdString(Config::Camera[num].CamDeviceName);
-    
+
     camDevice = nullptr;
 
     {
@@ -162,49 +162,92 @@ void CameraManager::init()
     else if (inputType == 2)
     {
         // physical camera
-        
+
 #if QT_VERSION >= 0x060000
         const QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
-        for (const QCameraDevice &cam : cameras) 
+        const QCameraDevice& dev;
+        for (const QCameraDevice& cam : cameras)
         {
             if (QString(cam.id()) == camDeviceName)
             {
+                dev = cam;
                 camDevice = new QCamera(cam);
                 break;
             }
         }
-        
+
         if (camDevice)
         {
-            camDumper = new CameraFrameDumper(this);
+            const QList<QCameraFormat> supported = dev.videoFormats();
+            bool good = false;
+            for (const QCameraFormat& item : supported)
+            {
+                if (item.pixelFormat() != QVideoFrameFormat::Format_YUYV &&
+                    item.pixelFormat() != QVideoFrameFormat::Format_XRGB8888)
+                    continue;
 
-            camSession = new QMediaCaptureSession(this);
-            camSession->setCamera(camDevice);
-            camSession->setVideoOutput(camDumper);
+                if (item.resolution().width() != 640 && item.resolution().height() != 480)
+                    continue;
+
+                camDevice->setCameraFormat(item);
+                good = true;
+                break;
+            }
+
+            if (!good)
+            {
+                delete camDevice;
+                camDevice = nullptr;
+            }
+            else
+            {
+                camDumper = new CameraFrameDumper(this);
+
+                camSession = new QMediaCaptureSession(this);
+                camSession->setCamera(camDevice);
+                camSession->setVideoOutput(camDumper);
+            }
         }
 #else
         camDevice = new QCamera(camDeviceName.toUtf8());
-        
+        if (camDevice->error() != QCamera::NoError)
+        {
+            delete camDevice;
+            camDevice = nullptr;
+        }
+
         if (camDevice)
         {
-            camDumper = new CameraFrameDumper(this);
-            camDevice->setViewfinder(camDumper);
+            camDevice->load();
 
-            /*camDevice->load();
-            QCameraViewfinderSettings settings;
-
-            auto resolutions = camDevice->supportedViewfinderResolutions();
-            for (auto& res : resolutions)
+            const QList<QCameraViewfinderSettings> supported = camDevice->supportedViewfinderSettings();
+            bool good = false;
+            for (const QCameraViewfinderSettings& item : supported)
             {
-                printf("RESOLUTION: %d x %d\n", res.width(), res.height());
+                if (item.pixelFormat() != QVideoFrame::Format_YUYV &&
+                    item.pixelFormat() != QVideoFrame::Format_RGB32)
+                    continue;
+
+                if (item.resolution().width() != 640 && item.resolution().height() != 480)
+                    continue;
+
+                camDevice->setViewfinderSettings(item);
+                good = true;
+                break;
             }
 
-            camDevice->unload();*/
+            camDevice->unload();
 
-            QCameraViewfinderSettings settings;
-            settings.setResolution(640, 480);
-            settings.setPixelFormat(QVideoFrame::Format_YUYV);
-            camDevice->setViewfinderSettings(settings);
+            if (!good)
+            {
+                delete camDevice;
+                camDevice = nullptr;
+            }
+            else
+            {
+                camDumper = new CameraFrameDumper(this);
+                camDevice->setViewfinder(camDumper);
+            }
         }
 #endif
     }
