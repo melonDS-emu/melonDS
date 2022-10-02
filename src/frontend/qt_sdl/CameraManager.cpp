@@ -447,10 +447,13 @@ void CameraManager::feedFrame_NV12(u8* planeY, u8* planeUV, int width, int heigh
 
 void CameraManager::copyFrame_Straight(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight, bool xflip, bool yuv)
 {
+    u32 alpha = 0xFF000000;
+
     if (yuv)
     {
         swidth /= 2;
         dwidth /= 2;
+        alpha = 0;
     }
 
     for (int dy = 0; dy < dheight; dy++)
@@ -462,7 +465,7 @@ void CameraManager::copyFrame_Straight(u32* src, int swidth, int sheight, u32* d
             int sx = (dx * swidth) / dwidth;
             if (xflip) sx = swidth-1 - sx;
 
-            dst[(dy * dwidth) + dx] = src[(sy * swidth) + sx];
+            dst[(dy * dwidth) + dx] = src[(sy * swidth) + sx] | alpha;
         }
     }
 }
@@ -549,11 +552,11 @@ void CameraManager::copyFrame_YUVtoRGB(u32* src, int swidth, int sheight, u32* d
             r1 = std::clamp(r1, 0, 255); g1 = std::clamp(g1, 0, 255); b1 = std::clamp(b1, 0, 255);
             r2 = std::clamp(r2, 0, 255); g2 = std::clamp(g2, 0, 255); b2 = std::clamp(b2, 0, 255);
 
-            u32 col1 = (r1 << 16) | (g1 << 8) | b1;
-            u32 col2 = (r2 << 16) | (g2 << 8) | b2;
+            u32 col1 = 0xFF000000 | (r1 << 16) | (g1 << 8) | b1;
+            u32 col2 = 0xFF000000 | (r2 << 16) | (g2 << 8) | b2;
 
             dst[dy*dwidth + dx  ] = col1;
-            dst[dy*dwidth + dx+1] = col1;
+            dst[dy*dwidth + dx+1] = col2;
         }
     }
 }
