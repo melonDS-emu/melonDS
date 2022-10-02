@@ -172,6 +172,11 @@ void Reset()
     GPU::DispStat[1] |= (1<<6);
 }
 
+void Stop()
+{
+    DSi_CamModule::Stop();
+}
+
 void DoSavestate(Savestate* file)
 {
     file->Section("DSIG");

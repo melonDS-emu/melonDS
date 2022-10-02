@@ -33,6 +33,7 @@ extern Camera* Camera1;
 bool Init();
 void DeInit();
 void Reset();
+void Stop();
 
 void DoSavestate(Savestate* file);
 
@@ -56,6 +57,7 @@ public:
     void DoSavestate(Savestate* file);
 
     void Reset();
+    void Stop();
     bool IsActivated();
 
     void StartTransfer();

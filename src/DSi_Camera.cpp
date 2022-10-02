@@ -83,6 +83,12 @@ void Reset()
     NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, IRQ, 0);
 }
 
+void Stop()
+{
+    Camera0->Stop();
+    Camera1->Stop();
+}
+
 void DoSavestate(Savestate* file)
 {
     file->Section("CAMi");
@@ -418,6 +424,8 @@ void Camera::DoSavestate(Savestate* file)
 
 void Camera::Reset()
 {
+    Platform::Camera_Stop(Num);
+
     DataPos = 0;
     RegAddr = 0;
     RegData = 0;
@@ -437,6 +445,11 @@ void Camera::Reset()
 
     TransferY = 0;
     memset(FrameBuffer, 0, (640*480/2)*sizeof(u32));
+}
+
+void Camera::Stop()
+{
+    Platform::Camera_Stop(Num);
 }
 
 bool Camera::IsActivated()

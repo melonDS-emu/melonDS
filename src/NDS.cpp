@@ -693,6 +693,9 @@ void Stop()
     Platform::StopEmu();
     GPU::Stop();
     SPU::Stop();
+
+    if (ConsoleType == 1)
+        DSi::Stop();
 }
 
 bool DoSavestate_Scheduler(Savestate* file)
