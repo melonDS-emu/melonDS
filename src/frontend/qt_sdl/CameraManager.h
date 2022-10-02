@@ -42,13 +42,13 @@ class CameraManager;
 class CameraFrameDumper : public QVideoSink
 {
     Q_OBJECT
-    
+
 public:
     CameraFrameDumper(QObject* parent = nullptr);
-    
+
 public slots:
     void present(const QVideoFrame& frame);
-    
+
 private:
     CameraManager* cam;
 };
@@ -92,6 +92,7 @@ public:
     void captureFrame(u32* frame, int width, int height, bool yuv);
 
     void feedFrame(u32* frame, int width, int height, bool yuv);
+    void feedFrame_NV12(u8* planeY, u8* planeUV, int width, int height);
 
 signals:
     void camStartSignal();
@@ -119,6 +120,7 @@ private:
     int frameWidth, frameHeight;
     bool frameFormatYUV;
     u32* frameBuffer;
+    u32* tempFrameBuffer;
     QMutex frameMutex;
 
     bool xFlip;
