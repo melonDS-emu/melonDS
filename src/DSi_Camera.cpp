@@ -505,16 +505,29 @@ int Camera::TransferScanline(u32* buffer, int maxlen)
     if (FrameReadMode & (1<<1))
         sy = 479 - sy;
 
-    for (int dx = 0; dx < retlen; dx++)
+    if (FrameReadMode & (1<<0))
     {
-        if (dx >= maxlen) break;
+        for (int dx = 0; dx < retlen; dx++)
+        {
+            if (dx >= maxlen) break;
 
-        int sx = (dx * 640) / FrameWidth;
-        if (!(FrameReadMode & (1<<0)))
-            sx = 639 - sx;
+            int sx = (dx * 640) / FrameWidth;
 
-        u32 pixel3 = FrameBuffer[sy*320 + sx];
-        buffer[dx] = pixel3;
+            u32 val = FrameBuffer[sy*320 + sx];
+            buffer[dx] = val;
+        }
+    }
+    else
+    {
+        for (int dx = 0; dx < retlen; dx++)
+        {
+            if (dx >= maxlen) break;
+
+            int sx = 638 - ((dx * 640) / FrameWidth);
+
+            u32 val = FrameBuffer[sy*320 + sx];
+            buffer[dx] = (val & 0xFF00FF00) | ((val >> 16) & 0xFF) | ((val & 0xFF) << 16);
+        }
     }
 
     TransferY++;

@@ -447,13 +447,10 @@ void CameraManager::feedFrame_NV12(u8* planeY, u8* planeUV, int width, int heigh
 
 void CameraManager::copyFrame_Straight(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight, bool xflip, bool yuv)
 {
-    u32 alpha = 0xFF000000;
-
     if (yuv)
     {
         swidth /= 2;
         dwidth /= 2;
-        alpha = 0;
     }
 
     for (int dy = 0; dy < dheight; dy++)
@@ -465,7 +462,19 @@ void CameraManager::copyFrame_Straight(u32* src, int swidth, int sheight, u32* d
             int sx = (dx * swidth) / dwidth;
             if (xflip) sx = swidth-1 - sx;
 
-            dst[(dy * dwidth) + dx] = src[(sy * swidth) + sx] | alpha;
+            u32 val = src[(sy * swidth) + sx];
+
+            if (yuv)
+            {
+                if (xflip)
+                    val = (val & 0xFF00FF00) |
+                          ((val >> 16) & 0xFF) |
+                          ((val & 0xFF) << 16);
+            }
+            else
+                val |= 0xFF000000;
+
+            dst[(dy * dwidth) + dx] = val;
         }
     }
 }
@@ -530,13 +539,22 @@ void CameraManager::copyFrame_YUVtoRGB(u32* src, int swidth, int sheight, u32* d
         for (int dx = 0; dx < dwidth; dx+=2)
         {
             int sx = (dx * swidth) / dwidth;
-            if (xflip) sx = swidth-1 - sx;
+            if (xflip) sx = swidth-2 - sx;
 
             u32 val = src[(sy*swidth + sx) / 2];
 
-            int y1 = val & 0xFF;
+            int y1, y2;
+            if (xflip)
+            {
+                y1 = (val >> 16) & 0xFF;
+                y2 = val & 0xFF;
+            }
+            else
+            {
+                y1 = val & 0xFF;
+                y2 = (val >> 16) & 0xFF;
+            }
             int u = (val >> 8) & 0xFF;
-            int y2 = (val >> 16) & 0xFF;
             int v = (val >> 24) & 0xFF;
 
             u -= 128; v -= 128;
