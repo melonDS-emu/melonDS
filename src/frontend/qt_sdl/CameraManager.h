@@ -92,6 +92,7 @@ public:
     void captureFrame(u32* frame, int width, int height, bool yuv);
 
     void feedFrame(u32* frame, int width, int height, bool yuv);
+    void feedFrame_UYVY(u32* frame, int width, int height);
     void feedFrame_NV12(u8* planeY, u8* planeUV, int width, int height);
 
 signals:

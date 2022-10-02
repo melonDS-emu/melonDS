@@ -47,6 +47,10 @@ void CameraFrameDumper::present(const QVideoFrame& _frame)
         cam->feedFrame((u32*)frame.bits(0), frame.width(), frame.height(), frame.pixelFormat() == QVideoFrameFormat::Format_YUYV);
         break;
 
+    case QVideoFrameFormat::Format_UYVY:
+        cam->feedFrame_UYVY((u32*)frame.bits(0), frame.width(), frame.height());
+        break;
+
     case QVideoFrameFormat::Format_NV12:
         cam->feedFrame_NV12((u8*)frame.bits(0), (u8*)frame.bits(1), frame.width(), frame.height());
         break;
@@ -80,6 +84,10 @@ bool CameraFrameDumper::present(const QVideoFrame& _frame)
         cam->feedFrame((u32*)frame.bits(0), frame.width(), frame.height(), frame.pixelFormat() == QVideoFrame::Format_YUYV);
         break;
 
+    case QVideoFrame::Format_UYVY:
+        cam->feedFrame_UYVY((u32*)frame.bits(0), frame.width(), frame.height());
+        break;
+
     case QVideoFrame::Format_NV12:
         cam->feedFrame_NV12((u8*)frame.bits(0), (u8*)frame.bits(1), frame.width(), frame.height());
         break;
@@ -96,6 +104,7 @@ QList<QVideoFrame::PixelFormat> CameraFrameDumper::supportedPixelFormats(QAbstra
 
     ret.append(QVideoFrame::Format_RGB32);
     ret.append(QVideoFrame::Format_YUYV);
+    ret.append(QVideoFrame::Format_UYVY);
     ret.append(QVideoFrame::Format_NV12);
 
     return ret;
@@ -209,6 +218,7 @@ void CameraManager::init()
             for (const QCameraFormat& item : supported)
             {
                 if (item.pixelFormat() != QVideoFrameFormat::Format_YUYV &&
+                    item.pixelFormat() != QVideoFrameFormat::Format_UYVY &&
                     item.pixelFormat() != QVideoFrameFormat::Format_NV12 &&
                     item.pixelFormat() != QVideoFrameFormat::Format_XRGB8888)
                     continue;
@@ -252,6 +262,7 @@ void CameraManager::init()
             for (const QCameraViewfinderSettings& item : supported)
             {
                 if (item.pixelFormat() != QVideoFrame::Format_YUYV &&
+                    item.pixelFormat() != QVideoFrame::Format_UYVY &&
                     item.pixelFormat() != QVideoFrame::Format_NV12 &&
                     item.pixelFormat() != QVideoFrame::Format_RGB32)
                     continue;
@@ -415,6 +426,27 @@ void CameraManager::feedFrame(u32* frame, int width, int height, bool yuv)
     }
 
     frameMutex.unlock();
+}
+
+void CameraManager::feedFrame_UYVY(u32* frame, int width, int height)
+{
+    for (int y = 0; y < frameHeight; y++)
+    {
+        int sy = (y * height) / frameHeight;
+
+        for (int x = 0; x < frameWidth; x+=2)
+        {
+            int sx = (x * width) / frameWidth;
+
+            u32 val = frame[((sy*width) + sx) >> 1];
+
+            val = ((val & 0xFF00FF00) >> 8) | ((val & 0x00FF00FF) << 8);
+
+            tempFrameBuffer[((y*frameWidth) + x) >> 1] = val;
+        }
+    }
+
+    feedFrame(tempFrameBuffer, frameWidth, frameHeight, true);
 }
 
 void CameraManager::feedFrame_NV12(u8* planeY, u8* planeUV, int width, int height)
