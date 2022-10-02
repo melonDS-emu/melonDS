@@ -61,6 +61,14 @@ struct ConfigEntry
     bool InstanceUnique; // whether the setting can exist individually for each instance in multiplayer
 };
 
+struct CameraConfig
+{
+    int InputType; // 0=blank 1=image 2=camera
+    std::string ImagePath;
+    std::string CamDeviceName;
+    bool XFlip;
+};
+
 
 extern int KeyMapping[12];
 extern int JoyMapping[12];
@@ -174,6 +182,8 @@ extern bool PauseLostFocus;
 extern bool DSBatteryLevelOkay;
 extern int DSiBatteryLevel;
 extern bool DSiBatteryCharging;
+
+extern CameraConfig Camera[2];
 
 
 void Load();

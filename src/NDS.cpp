@@ -723,8 +723,8 @@ bool DoSavestate_Scheduler(Savestate* file)
         DSi_SDHost::FinishRX,
         DSi_SDHost::FinishTX,
         DSi_NWifi::MSTimer,
-        DSi_Camera::IRQ,
-        DSi_Camera::Transfer,
+        DSi_CamModule::IRQ,
+        DSi_CamModule::TransferScanline,
         DSi_DSP::DSPCatchUpU32,
 
         nullptr
@@ -1279,6 +1279,21 @@ void SetLidClosed(bool closed)
         SetIRQ(1, IRQ_LidOpen);
         CPUStop &= ~0x40000000;
         GPU3D::RestartFrame();
+    }
+}
+
+void CamInputFrame(int cam, u32* data, int width, int height, bool rgb)
+{
+    // TODO: support things like the GBA-slot camera addon
+    // whenever these are emulated
+
+    if (ConsoleType == 1)
+    {
+        switch (cam)
+        {
+        case 0: return DSi_CamModule::Camera0->InputFrame(data, width, height, rgb);
+        case 1: return DSi_CamModule::Camera1->InputFrame(data, width, height, rgb);
+        }
     }
 }
 
@@ -2004,7 +2019,7 @@ void debug(u32 param)
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
-    shit = fopen("debug/directboot7.bin", "wb");
+    shit = fopen("debug/camera7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM7Read32(i);

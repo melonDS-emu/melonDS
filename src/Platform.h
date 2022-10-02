@@ -147,6 +147,8 @@ void Mutex_Lock(Mutex* mutex);
 void Mutex_Unlock(Mutex* mutex);
 bool Mutex_TryLock(Mutex* mutex);
 
+void Sleep(u64 usecs);
+
 
 // functions called when the NDS or GBA save files need to be written back to storage
 // savedata and savelen are always the entire save memory buffer and its full length
@@ -177,7 +179,15 @@ void LAN_DeInit();
 int LAN_SendPacket(u8* data, int len);
 int LAN_RecvPacket(u8* data);
 
-void Sleep(u64 usecs);
+
+// interface for camera emulation
+// camera numbers:
+// 0 = DSi outer camera
+// 1 = DSi inner camera
+// other values reserved for future camera addon emulation
+void Camera_Start(int num);
+void Camera_Stop(int num);
+void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv);
 
 }
 

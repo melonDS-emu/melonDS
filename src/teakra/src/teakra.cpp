@@ -50,7 +50,7 @@ struct Teakra::Impl {
     }
 
     void Reset() {
-        shared_memory.raw.fill(0);
+        shared_memory.raw.fill(0); // BAD!!!!
         miu.Reset();
         apbp_from_cpu.Reset();
         apbp_from_dsp.Reset();

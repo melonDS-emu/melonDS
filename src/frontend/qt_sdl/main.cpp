@@ -55,6 +55,7 @@
 #include "EmuSettingsDialog.h"
 #include "InputConfig/InputConfigDialog.h"
 #include "VideoSettingsDialog.h"
+#include "CameraSettingsDialog.h"
 #include "AudioSettingsDialog.h"
 #include "FirmwareSettingsDialog.h"
 #include "PathSettingsDialog.h"
@@ -88,6 +89,7 @@
 
 #include "ROMManager.h"
 #include "ArchiveUtil.h"
+#include "CameraManager.h"
 
 // TODO: uniform variable spelling
 
@@ -115,6 +117,9 @@ u32 micExtBufferWritePos;
 u32 micWavLength;
 s16* micWavBuffer;
 
+CameraManager* camManager[2];
+bool camStarted[2];
+
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
     { 0, 1,                       "4:3 (native)" },
@@ -125,6 +130,7 @@ const struct { int id; float ratio; const char* label; } aspectRatios[] =
 };
 
 void micCallback(void* data, Uint8* stream, int len);
+
 
 
 void audioCallback(void* data, Uint8* stream, int len)
@@ -1537,6 +1543,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actVideoSettings = menu->addAction("Video settings");
         connect(actVideoSettings, &QAction::triggered, this, &MainWindow::onOpenVideoSettings);
 
+        actCameraSettings = menu->addAction("Camera settings");
+        connect(actCameraSettings, &QAction::triggered, this, &MainWindow::onOpenCameraSettings);
+
         actAudioSettings = menu->addAction("Audio settings");
         connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
 
@@ -2751,6 +2760,27 @@ void MainWindow::onOpenVideoSettings()
     connect(dlg, &VideoSettingsDialog::updateVideoSettings, this, &MainWindow::onUpdateVideoSettings);
 }
 
+void MainWindow::onOpenCameraSettings()
+{
+    emuThread->emuPause();
+
+    camStarted[0] = camManager[0]->isStarted();
+    camStarted[1] = camManager[1]->isStarted();
+    if (camStarted[0]) camManager[0]->stop();
+    if (camStarted[1]) camManager[1]->stop();
+
+    CameraSettingsDialog* dlg = CameraSettingsDialog::openDlg(this);
+    connect(dlg, &CameraSettingsDialog::finished, this, &MainWindow::onCameraSettingsFinished);
+}
+
+void MainWindow::onCameraSettingsFinished(int res)
+{
+    if (camStarted[0]) camManager[0]->start();
+    if (camStarted[1]) camManager[1]->start();
+
+    emuThread->emuUnpause();
+}
+
 void MainWindow::onOpenAudioSettings()
 {
     AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this);
@@ -3105,7 +3135,7 @@ bool MelonApplication::event(QEvent *event)
 
 int main(int argc, char** argv)
 {
-    srand(time(NULL));
+    srand(time(nullptr));
 
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
@@ -3195,10 +3225,16 @@ int main(int argc, char** argv)
 
     micDevice = 0;
 
-
     memset(micExtBuffer, 0, sizeof(micExtBuffer));
     micExtBufferWritePos = 0;
     micWavBuffer = nullptr;
+
+    camStarted[0] = false;
+    camStarted[1] = false;
+    camManager[0] = new CameraManager(0, 640, 480, true);
+    camManager[1] = new CameraManager(1, 640, 480, true);
+    camManager[0]->setXFlip(Config::Camera[0].XFlip);
+    camManager[1]->setXFlip(Config::Camera[1].XFlip);
 
     ROMManager::EnableCheats(Config::EnableCheats != 0);
 
@@ -3251,6 +3287,9 @@ int main(int argc, char** argv)
     SDL_DestroyMutex(audioSyncLock);
 
     if (micWavBuffer) delete[] micWavBuffer;
+
+    delete camManager[0];
+    delete camManager[1];
 
     Config::Save();
 

@@ -33,6 +33,7 @@
 #include "Platform.h"
 #include "Config.h"
 #include "ROMManager.h"
+#include "CameraManager.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 #include "LocalMP.h"
@@ -40,7 +41,10 @@
 
 std::string EmuDirectory;
 
+extern CameraManager* camManager[2];
+
 void emuStop();
+
 
 namespace Platform
 {
@@ -99,7 +103,6 @@ void IPCDeInit()
         IPCBuffer->detach();
         delete IPCBuffer;
     }
-
     IPCBuffer = nullptr;
 }
 
@@ -492,8 +495,6 @@ u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask)
     return LocalMP::RecvReplies(data, timestamp, aidmask);
 }
 
-
-
 bool LAN_Init()
 {
     if (Config::DirectLAN)
@@ -535,6 +536,22 @@ int LAN_RecvPacket(u8* data)
         return LAN_PCap::RecvPacket(data);
     else
         return LAN_Socket::RecvPacket(data);
+}
+
+
+void Camera_Start(int num)
+{
+    return camManager[num]->start();
+}
+
+void Camera_Stop(int num)
+{
+    return camManager[num]->stop();
+}
+
+void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv)
+{
+    return camManager[num]->captureFrame(frame, width, height, yuv);
 }
 
 }

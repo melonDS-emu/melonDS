@@ -266,16 +266,18 @@ private slots:
     void onOpenInputConfig();
     void onInputConfigFinished(int res);
     void onOpenVideoSettings();
+    void onOpenCameraSettings();
+    void onCameraSettingsFinished(int res);
     void onOpenAudioSettings();
-    void onOpenFirmwareSettings();
-    void onOpenPathSettings();
     void onUpdateAudioSettings();
     void onAudioSettingsFinished(int res);
     void onOpenMPSettings();
     void onMPSettingsFinished(int res);
     void onOpenWifiSettings();
     void onWifiSettingsFinished(int res);
+    void onOpenFirmwareSettings();
     void onFirmwareSettingsFinished(int res);
+    void onOpenPathSettings();
     void onPathSettingsFinished(int res);
     void onOpenInterfaceSettings();
     void onInterfaceSettingsFinished(int res);
@@ -359,6 +361,7 @@ public:
     QAction* actPowerManagement;
     QAction* actInputConfig;
     QAction* actVideoSettings;
+    QAction* actCameraSettings;
     QAction* actAudioSettings;
     QAction* actMPSettings;
     QAction* actWifiSettings;
