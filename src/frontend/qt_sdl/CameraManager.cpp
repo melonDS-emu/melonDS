@@ -165,12 +165,10 @@ void CameraManager::init()
 
 #if QT_VERSION >= 0x060000
         const QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
-        const QCameraDevice& dev;
         for (const QCameraDevice& cam : cameras)
         {
             if (QString(cam.id()) == camDeviceName)
             {
-                dev = cam;
                 camDevice = new QCamera(cam);
                 break;
             }
@@ -178,7 +176,7 @@ void CameraManager::init()
 
         if (camDevice)
         {
-            const QList<QCameraFormat> supported = dev.videoFormats();
+            const QList<QCameraFormat> supported = camDevice.cameraDevice().videoFormats();
             bool good = false;
             for (const QCameraFormat& item : supported)
             {
