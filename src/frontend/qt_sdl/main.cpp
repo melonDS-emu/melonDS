@@ -868,9 +868,9 @@ QSize ScreenHandler::screenGetMinSize(int factor = 1)
     else // hybrid
     {
         if (isHori)
-            return QSize(h+gap+h, 3*w +(4*gap) / 3);
+            return QSize(h+gap+h, 3*w + (int)ceil((4*gap) / 3.0));
         else
-            return QSize(3*w +(4*gap) / 3, h+gap+h);
+            return QSize(3*w + (int)ceil((4*gap) / 3.0), h+gap+h);
     }
 }
 
