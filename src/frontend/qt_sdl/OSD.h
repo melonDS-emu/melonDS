@@ -22,7 +22,7 @@
 namespace OSD
 {
 
-bool Init();
+bool Init(bool openGL);
 void DeInit();
 
 void AddMessage(u32 color, const char* text);

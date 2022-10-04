@@ -424,6 +424,8 @@ void EmuThread::initOpenGL()
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 2, GL_RGBA, GL_UNSIGNED_BYTE, zeroData);
 
     static_cast<ScreenPanelGL*>(mainWindow->panel)->transferLayout(this);
+
+    OSD::Init(true);
 }
 
 void EmuThread::deinitOpenGL()
@@ -434,6 +436,8 @@ void EmuThread::deinitOpenGL()
     glDeleteBuffers(1, &screenVertexBuffer);
 
     OpenGL::DeleteShaderProgram(screenShaderProgram);
+
+    OSD::DeInit();
 
     oglContext->DoneCurrent();
     oglContext = nullptr;
@@ -870,8 +874,8 @@ void EmuThread::drawScreenGL()
 
     screenSettingsLock.unlock();
 
-    //OSD::Update(this);
-    //OSD::DrawGL(this, w*factor, h*factor);
+    OSD::Update();
+    OSD::DrawGL(w*factor, h*factor);
 
     oglContext->SwapBuffers();
 }
@@ -1093,7 +1097,7 @@ ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent), ScreenH
     screenTrans[0].reset();
     screenTrans[1].reset();
 
-    OSD::Init();
+    OSD::Init(false);
 }
 
 ScreenPanelNative::~ScreenPanelNative()

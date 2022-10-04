@@ -23,6 +23,7 @@
 #include "../types.h"
 
 #include "main.h"
+#include "OpenGLSupport.h"
 #include <QPainter>
 
 #include "OSD.h"
@@ -51,43 +52,38 @@ struct Item
     QImage NativeBitmap;
 
     bool GLTextureLoaded;
-    //GLuint GLTexture;
-
+    GLuint GLTexture;
 };
 
 std::deque<Item> ItemQueue;
-/*
-QOpenGLShaderProgram* Shader;
+
+GLuint Shader[3];
 GLint uScreenSize, uOSDPos, uOSDSize;
 GLfloat uScaleFactor;
 GLuint OSDVertexArray;
 GLuint OSDVertexBuffer;
-*/
-volatile bool Rendering;
+
+QMutex Rendering;
 
 
-bool Init()
+bool Init(bool openGL)
 {
-    /*if (f)
+    if (openGL)
     {
-        Shader = new QOpenGLShaderProgram();
-        Shader->addShaderFromSourceCode(QOpenGLShader::Vertex, kScreenVS_OSD);
-        Shader->addShaderFromSourceCode(QOpenGLShader::Fragment, kScreenFS_OSD);
+        OpenGL::BuildShaderProgram(kScreenVS_OSD, kScreenFS_OSD, Shader, "OSDShader");
 
-        GLuint pid = Shader->programId();
-        f->glBindAttribLocation(pid, 0, "vPosition");
-        f->glBindFragDataLocation(pid, 0, "oColor");
+        GLuint pid = Shader[2];
+        glBindAttribLocation(pid, 0, "vPosition");
+        glBindFragDataLocation(pid, 0, "oColor");
 
-        Shader->link();
+        OpenGL::LinkShaderProgram(Shader);
+        glUseProgram(pid);
+        glUniform1i(glGetUniformLocation(pid, "OSDTex"), 0);
 
-        Shader->bind();
-        Shader->setUniformValue("OSDTex", (GLint)0);
-        Shader->release();
-
-        uScreenSize = Shader->uniformLocation("uScreenSize");
-        uOSDPos = Shader->uniformLocation("uOSDPos");
-        uOSDSize = Shader->uniformLocation("uOSDSize");
-        uScaleFactor = Shader->uniformLocation("uScaleFactor");
+        uScreenSize = glGetUniformLocation(pid, "uScreenSize");
+        uOSDPos = glGetUniformLocation(pid, "uOSDPos");
+        uOSDSize = glGetUniformLocation(pid, "uOSDSize");
+        uScaleFactor = glGetUniformLocation(pid, "uScaleFactor");
 
         float vertices[6*2] =
         {
@@ -99,15 +95,15 @@ bool Init()
             1, 1
         };
 
-        f->glGenBuffers(1, &OSDVertexBuffer);
-        f->glBindBuffer(GL_ARRAY_BUFFER, OSDVertexBuffer);
-        f->glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        glGenBuffers(1, &OSDVertexBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, OSDVertexBuffer);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-        f->glGenVertexArrays(1, &OSDVertexArray);
-        f->glBindVertexArray(OSDVertexArray);
-        f->glEnableVertexAttribArray(0); // position
-        f->glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)(0));
-    }*/
+        glGenVertexArrays(1, &OSDVertexArray);
+        glBindVertexArray(OSDVertexArray);
+        glEnableVertexAttribArray(0); // position
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)(0));
+    }
 
     return true;
 }
@@ -118,7 +114,7 @@ void DeInit()
     {
         Item& item = *it;
 
-        //if (item.GLTextureLoaded && f) f->glDeleteTextures(1, &item.GLTexture);
+        if (item.GLTextureLoaded) glDeleteTextures(1, &item.GLTexture);
         if (item.Bitmap) delete[] item.Bitmap;
 
         it = ItemQueue.erase(it);
@@ -141,7 +137,7 @@ int FindBreakPoint(const char* text, int i)
 
 void LayoutText(const char* text, u32* width, u32* height, int* breaks)
 {
-    /*u32 w = 0;
+    u32 w = 0;
     u32 h = 14;
     u32 totalw = 0;
     u32 maxw = mainWindow->panelWidget->width() - (kOSDMargin*2);
@@ -200,7 +196,7 @@ void LayoutText(const char* text, u32* width, u32* height, int* breaks)
     }
 
     *width = totalw;
-    *height = h;*/
+    *height = h;
 }
 
 u32 RainbowColor(u32 inc)
@@ -217,7 +213,7 @@ u32 RainbowColor(u32 inc)
 
 void RenderText(u32 color, const char* text, Item* item)
 {
-    /*u32 w, h;
+    u32 w, h;
     int breaks[64];
 
     bool rainbow = (color == 0);
@@ -319,7 +315,7 @@ void RenderText(u32 color, const char* text, Item* item)
             if ((val >> 24) == 0xFF)
                 item->Bitmap[(y * w) + x] = shadow;
         }
-    }*/
+    }
 }
 
 
@@ -327,7 +323,7 @@ void AddMessage(u32 color, const char* text)
 {
     if (!Config::ShowOSD) return;
 
-    while (Rendering);
+    Rendering.lock();
 
     Item item;
 
@@ -340,27 +336,29 @@ void AddMessage(u32 color, const char* text)
     item.GLTextureLoaded = false;
 
     ItemQueue.push_back(item);
+
+    Rendering.unlock();
 }
 
 void Update()
 {
-    /*if (!Config::ShowOSD)
+    if (!Config::ShowOSD)
     {
-        Rendering = true;
+        Rendering.lock();
         for (auto it = ItemQueue.begin(); it != ItemQueue.end(); )
         {
             Item& item = *it;
 
-            if (item.GLTextureLoaded && f) f->glDeleteTextures(1, &item.GLTexture);
+            if (item.GLTextureLoaded) glDeleteTextures(1, &item.GLTexture);
             if (item.Bitmap) delete[] item.Bitmap;
 
             it = ItemQueue.erase(it);
         }
-        Rendering = false;
+        Rendering.unlock();
         return;
     }
 
-    Rendering = true;
+    Rendering.lock();
 
     Uint32 tick_now = SDL_GetTicks();
     Uint32 tick_min = tick_now - 2500;
@@ -371,7 +369,7 @@ void Update()
 
         if (item.Timestamp < tick_min)
         {
-            if (item.GLTextureLoaded) f->glDeleteTextures(1, &item.GLTexture);
+            if (item.GLTextureLoaded) glDeleteTextures(1, &item.GLTexture);
             if (item.Bitmap) delete[] item.Bitmap;
 
             it = ItemQueue.erase(it);
@@ -384,16 +382,16 @@ void Update()
         }
 
         it++;
-    }*/
+    }
 
-    Rendering = false;
+    Rendering.unlock();
 }
 
 void DrawNative(QPainter& painter)
 {
     if (!Config::ShowOSD) return;
 
-    Rendering = true;
+    Rendering.lock();
 
     u32 y = kOSDMargin;
 
@@ -415,30 +413,30 @@ void DrawNative(QPainter& painter)
         it++;
     }
 
-    Rendering = false;
+    Rendering.unlock();
 }
-/*
-void DrawGL(QOpenGLFunctions_3_2_Core* f, float w, float h)
+
+void DrawGL(float w, float h)
 {
     if (!Config::ShowOSD) return;
     if (!mainWindow || !mainWindow->panel) return;
 
-    Rendering = true;
+    Rendering.lock();
 
     u32 y = kOSDMargin;
 
-    Shader->bind();
+    glUseProgram(Shader[2]);
 
-    f->glUniform2f(uScreenSize, w, h);
-    f->glUniform1f(uScaleFactor, mainWindow->devicePixelRatioF());
+    glUniform2f(uScreenSize, w, h);
+    glUniform1f(uScaleFactor, mainWindow->devicePixelRatioF());
 
-    f->glBindBuffer(GL_ARRAY_BUFFER, OSDVertexBuffer);
-    f->glBindVertexArray(OSDVertexArray);
+    glBindBuffer(GL_ARRAY_BUFFER, OSDVertexBuffer);
+    glBindVertexArray(OSDVertexArray);
 
-    f->glActiveTexture(GL_TEXTURE0);
+    glActiveTexture(GL_TEXTURE0);
 
-    f->glEnable(GL_BLEND);
-    f->glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
     for (auto it = ItemQueue.begin(); it != ItemQueue.end(); )
     {
@@ -446,30 +444,30 @@ void DrawGL(QOpenGLFunctions_3_2_Core* f, float w, float h)
 
         if (!item.GLTextureLoaded)
         {
-            f->glGenTextures(1, &item.GLTexture);
-            f->glBindTexture(GL_TEXTURE_2D, item.GLTexture);
-            f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            f->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, item.Width, item.Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, item.Bitmap);
+            glGenTextures(1, &item.GLTexture);
+            glBindTexture(GL_TEXTURE_2D, item.GLTexture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, item.Width, item.Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, item.Bitmap);
 
             item.GLTextureLoaded = true;
         }
 
-        f->glBindTexture(GL_TEXTURE_2D, item.GLTexture);
-        f->glUniform2i(uOSDPos, kOSDMargin, y);
-        f->glUniform2i(uOSDSize, item.Width, item.Height);
-        f->glDrawArrays(GL_TRIANGLES, 0, 2*3);
+        glBindTexture(GL_TEXTURE_2D, item.GLTexture);
+        glUniform2i(uOSDPos, kOSDMargin, y);
+        glUniform2i(uOSDSize, item.Width, item.Height);
+        glDrawArrays(GL_TRIANGLES, 0, 2*3);
 
         y += item.Height;
         it++;
     }
 
-    f->glDisable(GL_BLEND);
-    Shader->release();
+    glDisable(GL_BLEND);
+    glUseProgram(0);
 
-    Rendering = false;
-}*/
+    Rendering.unlock();
+}
 
 }
