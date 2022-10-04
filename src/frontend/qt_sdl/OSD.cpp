@@ -51,24 +51,24 @@ struct Item
     QImage NativeBitmap;
 
     bool GLTextureLoaded;
-    GLuint GLTexture;
+    //GLuint GLTexture;
 
 };
 
 std::deque<Item> ItemQueue;
-
+/*
 QOpenGLShaderProgram* Shader;
 GLint uScreenSize, uOSDPos, uOSDSize;
 GLfloat uScaleFactor;
 GLuint OSDVertexArray;
 GLuint OSDVertexBuffer;
-
+*/
 volatile bool Rendering;
 
 
-bool Init(QOpenGLFunctions_3_2_Core* f)
+bool Init()
 {
-    if (f)
+    /*if (f)
     {
         Shader = new QOpenGLShaderProgram();
         Shader->addShaderFromSourceCode(QOpenGLShader::Vertex, kScreenVS_OSD);
@@ -107,24 +107,22 @@ bool Init(QOpenGLFunctions_3_2_Core* f)
         f->glBindVertexArray(OSDVertexArray);
         f->glEnableVertexAttribArray(0); // position
         f->glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)(0));
-    }
+    }*/
 
     return true;
 }
 
-void DeInit(QOpenGLFunctions_3_2_Core* f)
+void DeInit()
 {
     for (auto it = ItemQueue.begin(); it != ItemQueue.end(); )
     {
         Item& item = *it;
 
-        if (item.GLTextureLoaded && f) f->glDeleteTextures(1, &item.GLTexture);
+        //if (item.GLTextureLoaded && f) f->glDeleteTextures(1, &item.GLTexture);
         if (item.Bitmap) delete[] item.Bitmap;
 
         it = ItemQueue.erase(it);
     }
-
-    if (f) delete Shader;
 }
 
 
@@ -143,7 +141,7 @@ int FindBreakPoint(const char* text, int i)
 
 void LayoutText(const char* text, u32* width, u32* height, int* breaks)
 {
-    u32 w = 0;
+    /*u32 w = 0;
     u32 h = 14;
     u32 totalw = 0;
     u32 maxw = mainWindow->panelWidget->width() - (kOSDMargin*2);
@@ -202,7 +200,7 @@ void LayoutText(const char* text, u32* width, u32* height, int* breaks)
     }
 
     *width = totalw;
-    *height = h;
+    *height = h;*/
 }
 
 u32 RainbowColor(u32 inc)
@@ -219,7 +217,7 @@ u32 RainbowColor(u32 inc)
 
 void RenderText(u32 color, const char* text, Item* item)
 {
-    u32 w, h;
+    /*u32 w, h;
     int breaks[64];
 
     bool rainbow = (color == 0);
@@ -321,7 +319,7 @@ void RenderText(u32 color, const char* text, Item* item)
             if ((val >> 24) == 0xFF)
                 item->Bitmap[(y * w) + x] = shadow;
         }
-    }
+    }*/
 }
 
 
@@ -344,9 +342,9 @@ void AddMessage(u32 color, const char* text)
     ItemQueue.push_back(item);
 }
 
-void Update(QOpenGLFunctions_3_2_Core* f)
+void Update()
 {
-    if (!Config::ShowOSD)
+    /*if (!Config::ShowOSD)
     {
         Rendering = true;
         for (auto it = ItemQueue.begin(); it != ItemQueue.end(); )
@@ -386,7 +384,7 @@ void Update(QOpenGLFunctions_3_2_Core* f)
         }
 
         it++;
-    }
+    }*/
 
     Rendering = false;
 }
@@ -419,7 +417,7 @@ void DrawNative(QPainter& painter)
 
     Rendering = false;
 }
-
+/*
 void DrawGL(QOpenGLFunctions_3_2_Core* f, float w, float h)
 {
     if (!Config::ShowOSD) return;
@@ -472,6 +470,6 @@ void DrawGL(QOpenGLFunctions_3_2_Core* f, float w, float h)
     Shader->release();
 
     Rendering = false;
-}
+}*/
 
 }

@@ -22,8 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <epoxy/gl.h>
-
+#include "glad/glad.h"
 
 #include "Platform.h"
 

@@ -115,18 +115,26 @@ if (MATH_LIBRARY)
 endif()
 
 if (ENABLE_OGLRENDERER)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(Epoxy REQUIRED IMPORTED_TARGET epoxy)
-    fix_interface_includes(PkgConfig::Epoxy)
+    target_sources(core PRIVATE
+        glad/glad.c
+        
+        duckstation/gl/context.cpp)
 
-    target_link_libraries(core PUBLIC PkgConfig::Epoxy)
+    if (WIN32)
+        target_link_libraries(core PUBLIC opengl32)
+
+        target_sources(core PRIVATE
+            duckstation/gl/context_wgl.cpp
+
+            glad/glad_wgl.c)
+    endif()
+    # TODO: figure this out for Linux
 
     target_compile_definitions(core PUBLIC OGLRENDERER_ENABLED)
 endif()
 
 if (ENABLE_JIT)
     target_compile_definitions(core PUBLIC JIT_ENABLED)
-
 
     if (ENABLE_JIT_PROFILING)
         include(cmake/FindVTune.cmake)

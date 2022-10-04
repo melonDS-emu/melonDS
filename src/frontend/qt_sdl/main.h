@@ -19,6 +19,8 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include "glad/glad.h"
+
 #include <QApplication>
 #include <QThread>
 #include <QWidget>
@@ -28,15 +30,14 @@
 #include <QActionGroup>
 #include <QTimer>
 #include <QMutex>
+#include <QScreen>
 
-#include <QOffscreenSurface>
-#include <QOpenGLWidget>
-#include <QOpenGLContext>
-#include <QOpenGLFunctions>
-#include <QOpenGLFunctions_3_2_Core>
-#include <QOpenGLShaderProgram>
+#include <atomic>
+
+#include <optional>
 
 #include "FrontendUtil.h"
+#include "duckstation/gl/context.h"
 
 class EmuThread : public QThread
 {
@@ -61,11 +62,13 @@ public:
     bool emuIsRunning();
     bool emuIsActive();
 
+    void initContext();
+    void deinitContext();
+
     int FrontBuffer = 0;
     QMutex FrontBufferLock;
 
-    GLsync FrontBufferReverseSyncs[2] = {nullptr, nullptr};
-    GLsync FrontBufferSyncs[2] = {nullptr, nullptr};
+    void updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix);
 
 signals:
     void windowUpdate();
@@ -86,13 +89,27 @@ signals:
     void swapScreensToggle();
 
 private:
-    volatile int EmuStatus;
+    void drawScreenGL();
+
+    std::atomic<int> EmuStatus;
     int PrevEmuStatus;
     int EmuRunning;
     int EmuPause;
 
-    QOffscreenSurface* oglSurface;
-    QOpenGLContext* oglContext;
+    std::atomic<int> ContextRequest = 0;
+
+    GL::Context* oglContext = nullptr;
+    GLuint screenVertexBuffer, screenVertexArray;
+    GLuint screenTexture;
+    GLuint screenShaderProgram[3];
+    GLuint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenShaderScaleFactorULoc;
+
+    QMutex screenSettingsLock;
+    WindowInfo windowInfo;
+    float screenMatrix[Frontend::MaxScreenTransforms][6];
+    int screenKind[Frontend::MaxScreenTransforms];
+    int numScreens;
+    bool filter;
 };
 
 
@@ -158,7 +175,7 @@ private:
 };
 
 
-class ScreenPanelGL : public QOpenGLWidget, public ScreenHandler, protected QOpenGLFunctions_3_2_Core
+class ScreenPanelGL : public QWidget, public ScreenHandler
 {
     Q_OBJECT
 
@@ -166,13 +183,22 @@ public:
     explicit ScreenPanelGL(QWidget* parent);
     virtual ~ScreenPanelGL();
 
-protected:
-    void initializeGL() override;
+    std::optional<WindowInfo> getWindowInfo();
 
-    void paintGL() override;
+    bool createContext();
+
+    GL::Context* getContext() { return glContext.get(); }
+
+    void transferLayout(EmuThread* thread);
+protected:
+
+    qreal devicePixelRatioFromScreen() const;
+    int scaledWindowWidth() const;
+    int scaledWindowHeight() const;
+
+    QPaintEngine* paintEngine() const override;
 
     void resizeEvent(QResizeEvent* event) override;
-    void resizeGL(int w, int h) override;
 
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
@@ -180,16 +206,14 @@ protected:
 
     void tabletEvent(QTabletEvent* event) override;
     bool event(QEvent* event) override;
+
 private slots:
     void onScreenLayoutChanged();
 
 private:
     void setupScreenLayout();
 
-    QOpenGLShaderProgram* screenShader;
-    GLuint screenVertexBuffer;
-    GLuint screenVertexArray;
-    GLuint screenTexture;
+    std::unique_ptr<GL::Context> glContext;
 };
 
 class MelonApplication : public QApplication
@@ -210,7 +234,7 @@ public:
     ~MainWindow();
 
     bool hasOGL;
-    QOpenGLContext* getOGLContext();
+    GL::Context* getOGLContext();
 
     bool preloadROMs(QString filename, QString gbafilename);
 
