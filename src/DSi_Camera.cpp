@@ -536,7 +536,7 @@ int Camera::TransferScanline(u32* buffer, int maxlen)
         {
             if (dx >= maxlen) break;
 
-            int sx = 638 - ((dx * 640) / FrameWidth);
+            int sx = 319 - ((dx * 640) / FrameWidth);
 
             u32 val = FrameBuffer[sy*320 + sx];
             buffer[dx] = (val & 0xFF00FF00) | ((val >> 16) & 0xFF) | ((val & 0xFF) << 16);
