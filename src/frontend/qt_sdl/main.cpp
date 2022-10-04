@@ -340,6 +340,8 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panelWidget, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
+
+    static_cast<ScreenPanelGL*>(mainWindow->panel)->transferLayout(this);
 }
 
 void EmuThread::updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix)
@@ -422,8 +424,6 @@ void EmuThread::initOpenGL()
     u8 zeroData[256*4*4];
     memset(zeroData, 0, sizeof(zeroData));
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 2, GL_RGBA, GL_UNSIGNED_BYTE, zeroData);
-
-    static_cast<ScreenPanelGL*>(mainWindow->panel)->transferLayout(this);
 
     OSD::Init(true);
 
