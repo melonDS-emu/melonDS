@@ -426,6 +426,8 @@ void EmuThread::initOpenGL()
     static_cast<ScreenPanelGL*>(mainWindow->panel)->transferLayout(this);
 
     OSD::Init(true);
+
+    oglContext->SetSwapInterval(Config::ScreenVSync ? Config::ScreenVSyncInterval : 0);
 }
 
 void EmuThread::deinitOpenGL()
@@ -543,13 +545,20 @@ void EmuThread::run()
                         videoRenderer = 0;
                 }
                 else
+                {
                     videoRenderer = hasOGL ? Config::_3DRenderer : 0;
+                }
 
                 videoSettingsDirty = false;
 
                 videoSettings.Soft_Threaded = Config::Threaded3D != 0;
                 videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
                 videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
+
+                if (hasOGL)
+                {
+                    oglContext->SetSwapInterval(Config::ScreenVSync ? Config::ScreenVSyncInterval : 0);
+                }
 
                 GPU::SetRenderSettings(videoRenderer, videoSettings);
             }
