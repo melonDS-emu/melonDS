@@ -18,6 +18,8 @@
     <string>${melonDS_VERSION}</string> 
     <key>NSHumanReadableCopyright</key>
     <string>Licensed under GPLv3</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
