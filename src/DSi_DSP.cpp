@@ -390,9 +390,6 @@ u16 PDataDMAReadMMIO()
 
 u8 Read8(u32 addr)
 {
-    if (!(DSi::SCFG_EXT[0] & (1<<18)))
-        return 0;
-
     if (!DSPCatchUp()) return 0;
 
     addr &= 0x3F; // mirroring wheee
@@ -419,9 +416,6 @@ u8 Read8(u32 addr)
 }
 u16 Read16(u32 addr)
 {
-    if (!(DSi::SCFG_EXT[0] & (1<<18)))
-        return 0;
-
     if (!DSPCatchUp()) return 0;
 
     addr &= 0x3E; // mirroring wheee
@@ -463,8 +457,6 @@ u16 Read16(u32 addr)
 }
 u32 Read32(u32 addr)
 {
-    if (!(DSi::SCFG_EXT[0] & (1<<18))) return 0;
-
     addr &= 0x3C;
     return Read16(addr); // *shrug* (doesn't do anything unintended due to the
                          // 4byte spacing between regs while they're all 16bit)
@@ -472,8 +464,6 @@ u32 Read32(u32 addr)
 
 void Write8(u32 addr, u8 val)
 {
-    if (!(DSi::SCFG_EXT[0] & (1<<18))) return;
-
     if (!DSPCatchUp()) return;
 
     addr &= 0x3F;
@@ -494,8 +484,6 @@ void Write8(u32 addr, u8 val)
 }
 void Write16(u32 addr, u16 val)
 {
-    if (!(DSi::SCFG_EXT[0] & (1<<18))) return;
-
     if (!DSPCatchUp()) return;
 
     addr &= 0x3E;
@@ -547,8 +535,6 @@ void Write16(u32 addr, u16 val)
 
 void Write32(u32 addr, u32 val)
 {
-    if (!(DSi::SCFG_EXT[0] & (1<<18))) return;
-
     addr &= 0x3C;
     Write16(addr, val & 0xFFFF);
 }
