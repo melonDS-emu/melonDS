@@ -214,6 +214,11 @@ inline bool IsDSPCoreEnabled()
     return (DSi::SCFG_Clock9 & (1<<1)) && SCFG_RST && (!(DSP_PCFG & (1<<0)));
 }
 
+inline bool IsDSPIOEnabled()
+{
+    return (DSi::SCFG_Clock9 & (1<<1)) && SCFG_RST;
+}
+
 bool DSPCatchUp()
 {
     //asm volatile("int3");
@@ -390,7 +395,8 @@ u16 PDataDMAReadMMIO()
 
 u8 Read8(u32 addr)
 {
-    if (!DSPCatchUp()) return 0;
+    if (!IsDSPIOEnabled()) return 0;
+    DSPCatchUp();
 
     addr &= 0x3F; // mirroring wheee
 
@@ -416,7 +422,9 @@ u8 Read8(u32 addr)
 }
 u16 Read16(u32 addr)
 {
-    if (!DSPCatchUp()) return 0;
+    //printf("DSP READ16 %d %08X   %08X\n", IsDSPCoreEnabled(), addr, NDS::GetPC(0));
+    if (!IsDSPIOEnabled()) return 0;
+    DSPCatchUp();
 
     addr &= 0x3E; // mirroring wheee
 
@@ -464,7 +472,8 @@ u32 Read32(u32 addr)
 
 void Write8(u32 addr, u8 val)
 {
-    if (!DSPCatchUp()) return;
+    if (!IsDSPIOEnabled()) return;
+    DSPCatchUp();
 
     addr &= 0x3F;
     switch (addr)
@@ -484,7 +493,9 @@ void Write8(u32 addr, u8 val)
 }
 void Write16(u32 addr, u16 val)
 {
-    if (!DSPCatchUp()) return;
+    //printf("DSP WRITE16 %d %08X %08X  %08X\n", IsDSPCoreEnabled(), addr, val, NDS::GetPC(0));
+    if (!IsDSPIOEnabled()) return;
+    DSPCatchUp();
 
     addr &= 0x3E;
     switch (addr)
@@ -494,6 +505,8 @@ void Write16(u32 addr, u16 val)
 
     case 0x08:
         DSP_PCFG = val;
+        if (DSP_PCFG & (1<<0))
+            TeakraCore->Reset();
         if (DSP_PCFG & (1<<4))
             PDataDMAStart();
         else

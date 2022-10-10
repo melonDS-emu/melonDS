@@ -2365,7 +2365,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04004006:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         SCFG_RST = (SCFG_RST & 0xFF00) | val;
         DSi_DSP::SetRstLine(val & 1);
@@ -2375,7 +2375,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004041:
     case 0x04004042:
     case 0x04004043:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAM_A(addr & 3, val);
         return;
@@ -2387,7 +2387,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004049:
     case 0x0400404A:
     case 0x0400404B:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAM_B((addr - 0x04) & 7, val);
         return;
@@ -2399,7 +2399,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004051:
     case 0x04004052:
     case 0x04004053:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAM_C((addr-0x0C) & 7, val);
         return;
