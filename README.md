@@ -36,9 +36,9 @@ As for the rest, the interface should be pretty straightforward. If you have a q
 
 ### Linux
 1. Install dependencies:
-   * Ubuntu 22.04: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qtbase5-dev libslirp-dev libarchive-dev libepoxy-dev`
-   * Older Ubuntu: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp-dev libarchive-dev libepoxy-dev`
-   * Arch Linux: `sudo pacman -S base-devel cmake git libpcap sdl2 qt5-base libslirp libarchive libepoxy`
+   * Ubuntu 22.04: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qtbase5-dev qtmultimedia5-dev libslirp-dev libarchive-dev libepoxy-dev`
+   * Older Ubuntu: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default qtmultimedia5-dev libslirp-dev libarchive-dev libepoxy-dev`
+   * Arch Linux: `sudo pacman -S base-devel cmake git libpcap sdl2 qt5-base qt5-multimedia libslirp libarchive libepoxy`
 3. Download the melonDS repository and prepare:
    ```bash
    git clone https://github.com/melonDS-emu/melonDS
@@ -65,7 +65,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
    cd melonDS
    ```
 #### Dynamic builds (with DLLs)
-5. Install dependencies: `pacman -S make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5,libslirp,libarchive,libepoxy}`
+5. Install dependencies: `pacman -S make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-base,qt5-svg,qt5-multimedia,libslirp,libarchive,libepoxy}`
 6. Compile:
    ```bash
    cmake -B build -G "MSYS Makefiles"
