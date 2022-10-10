@@ -65,7 +65,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
    cd melonDS
    ```
 #### Dynamic builds (with DLLs)
-5. Install dependencies: `pacman -S make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5,libslirp,libarchive,libepoxy}`
+5. Install dependencies: `pacman -S make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-base,qt5-svg,qt5-multimedia,libslirp,libarchive,libepoxy}`
 6. Compile:
    ```bash
    cmake -B build -G "MSYS Makefiles"
