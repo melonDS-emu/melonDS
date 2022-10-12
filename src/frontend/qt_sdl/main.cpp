@@ -1265,8 +1265,8 @@ bool ScreenPanelGL::createContext()
 {
     std::optional<WindowInfo> windowInfo = getWindowInfo();
     std::array<GL::Context::Version, 2> versionsToTry = {
-        GL::Context::Version{GL::Context::Profile::Core, 3, 2},
-        GL::Context::Version{GL::Context::Profile::Core, 4, 3}};
+        GL::Context::Version{GL::Context::Profile::Core, 4, 3},
+        GL::Context::Version{GL::Context::Profile::Core, 3, 2}};
     if (windowInfo.has_value())
     {
         glContext = GL::Context::Create(*getWindowInfo(), versionsToTry);
