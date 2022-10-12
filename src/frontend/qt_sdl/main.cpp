@@ -36,10 +36,14 @@
 #include <QMimeData>
 #include <QVector>
 #ifndef _WIN32
+#include <QGuiApplication>
 #include <QSocketNotifier>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <signal.h>
+#ifndef APPLE
+#include <qpa/qplatformnativeinterface.h>
+#endif
 #endif
 
 #include <SDL2/SDL.h>
@@ -376,7 +380,6 @@ void EmuThread::initOpenGL()
     glUniform1i(glGetUniformLocation(pid, "ScreenTex"), 0);
 
     screenShaderScreenSizeULoc = glGetUniformLocation(pid, "uScreenSize");
-    screenShaderScaleFactorULoc = glGetUniformLocation(pid, "uScaleFactor");
     screenShaderTransformULoc = glGetUniformLocation(pid, "uTransform");
 
     // to prevent bleeding between both parts of the screen
@@ -525,6 +528,16 @@ void EmuThread::run()
                 OSD::AddMessage(0, msg);
             }
         }
+
+        screenSettingsLock.lock();
+        if (lastScreenWidth != windowInfo.surface_width || lastScreenHeight != windowInfo.surface_height)
+        {
+            if (oglContext)
+                oglContext->ResizeSurface(windowInfo.surface_width, windowInfo.surface_height);
+            lastScreenWidth = windowInfo.surface_width;
+            lastScreenHeight = windowInfo.surface_height;
+        }
+        screenSettingsLock.unlock();
 
         if (EmuRunning == 1 || EmuRunning == 3)
         {
@@ -836,11 +849,10 @@ void EmuThread::drawScreenGL()
     glDisable(GL_SCISSOR_TEST);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glViewport(0, 0, w*factor, h*factor);
+    glViewport(0, 0, w, h);
 
     glUseProgram(screenShaderProgram[2]);
-    glUniform2f(screenShaderScreenSizeULoc, w, h);
-    glUniform1f(screenShaderScaleFactorULoc, factor);
+    glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
 
     int frontbuf = FrontBuffer;
     glActiveTexture(GL_TEXTURE0);
@@ -884,7 +896,7 @@ void EmuThread::drawScreenGL()
     screenSettingsLock.unlock();
 
     OSD::Update();
-    OSD::DrawGL(w*factor, h*factor);
+    OSD::DrawGL(w, h);
 
     oglContext->SwapBuffers();
 }
@@ -2942,7 +2954,6 @@ void MainWindow::onChangeShowOSD(bool checked)
 {
     Config::ShowOSD = checked?1:0;
 }
-
 void MainWindow::onChangeLimitFramerate(bool checked)
 {
     Config::LimitFPS = checked?1:0;
@@ -3071,6 +3082,8 @@ bool MelonApplication::event(QEvent *event)
 int main(int argc, char** argv)
 {
     srand(time(NULL));
+
+    qputenv("QT_SCALE_FACTOR", "1");
 
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");

@@ -102,7 +102,7 @@ private:
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;
     GLuint screenShaderProgram[3];
-    GLuint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenShaderScaleFactorULoc;
+    GLuint screenShaderTransformULoc, screenShaderScreenSizeULoc;
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;
@@ -110,6 +110,9 @@ private:
     int screenKind[Frontend::MaxScreenTransforms];
     int numScreens;
     bool filter;
+
+    int lastScreenWidth = -1;
+    int lastScreenHeight = -1;
 };
 
 

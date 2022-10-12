@@ -2,6 +2,7 @@
 #include "../log.h"
 #include "loader.h"
 #include <cstdlib>
+#include <cstring>
 #ifdef __APPLE__
 #include <stdlib.h>
 #else
@@ -13,30 +14,9 @@ Log_SetChannel(GL::Context);
 #include "context_wgl.h"
 #elif defined(__APPLE__)
 #include "context_agl.h"
-#endif
-
-#ifdef USE_EGL
-#if defined(USE_WAYLAND) || defined(USE_GBM) || defined(USE_FBDEV) || defined(USE_X11)
-#if defined(USE_WAYLAND)
-#include "context_egl_wayland.h"
-#endif
-#if defined(USE_GBM)
-#include "context_egl_gbm.h"
-#endif
-#if defined(USE_FBDEV)
-#include "context_egl_fbdev.h"
-#endif
-#if defined(USE_X11)
-#include "context_egl_x11.h"
-#endif
-#elif defined(ANDROID)
-#include "context_egl_android.h"
 #else
-#error Unknown EGL platform
-#endif
-#endif
-
-#ifdef USE_GLX
+#include "context_egl_wayland.h"
+#include "context_egl_x11.h"
 #include "context_glx.h"
 #endif
 
@@ -90,40 +70,18 @@ std::unique_ptr<GL::Context> Context::Create(const WindowInfo& wi, const Version
   context = ContextWGL::Create(wi, versions_to_try, num_versions_to_try);
 #elif defined(__APPLE__)
   context = ContextAGL::Create(wi, versions_to_try, num_versions_to_try);
-#elif defined(ANDROID)
-#ifdef USE_EGL
-  context = ContextEGLAndroid::Create(wi, versions_to_try, num_versions_to_try);
-#endif
-#endif
-
-#if defined(USE_X11)
+#else
   if (wi.type == WindowInfo::Type::X11)
   {
-#ifdef USE_EGL
     const char* use_egl_x11 = std::getenv("USE_EGL_X11");
     if (use_egl_x11 && std::strcmp(use_egl_x11, "1") == 0)
       context = ContextEGLX11::Create(wi, versions_to_try, num_versions_to_try);
     else
       context = ContextGLX::Create(wi, versions_to_try, num_versions_to_try);
-#else
-    context = ContextGLX::Create(wi, versions_to_try, num_versions_to_try);
-#endif
   }
-#endif
 
-#if defined(USE_WAYLAND)
   if (wi.type == WindowInfo::Type::Wayland)
     context = ContextEGLWayland::Create(wi, versions_to_try, num_versions_to_try);
-#endif
-
-#if defined(USE_GBM)
-  if (wi.type == WindowInfo::Type::Display)
-    context = ContextEGLGBM::Create(wi, versions_to_try, num_versions_to_try);
-#endif
-
-#if defined(USE_FBDEV)
-  if (wi.type == WindowInfo::Type::Display)
-    context = ContextEGLFBDev::Create(wi, versions_to_try, num_versions_to_try);
 #endif
 
   if (!context)
