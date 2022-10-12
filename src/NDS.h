@@ -260,9 +260,11 @@ void SetKeyMask(u32 mask);
 bool IsLidClosed();
 void SetLidClosed(bool closed);
 
+void CamInputFrame(int cam, u32* data, int width, int height, bool rgb);
 void MicInputFrame(s16* data, int samples);
 
 void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param);
+void ScheduleEvent(u32 id, u64 timestamp, void (*func)(u32), u32 param);
 void CancelEvent(u32 id);
 
 void debug(u32 p);

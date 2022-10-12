@@ -32,6 +32,10 @@ void DeInit();
 
 void StopEmu();
 
+// instance ID, for local multiplayer
+int InstanceID();
+std::string InstanceFileSuffix();
+
 // configuration values
 
 enum ConfigEntry
@@ -77,7 +81,6 @@ enum ConfigEntry
     Firm_Color,
     Firm_Message,
     Firm_MAC,
-    Firm_RandomizeMAC,
 
     AudioBitrate,
 };
@@ -144,6 +147,8 @@ void Mutex_Lock(Mutex* mutex);
 void Mutex_Unlock(Mutex* mutex);
 bool Mutex_TryLock(Mutex* mutex);
 
+void Sleep(u64 usecs);
+
 
 // functions called when the NDS or GBA save files need to be written back to storage
 // savedata and savelen are always the entire save memory buffer and its full length
@@ -156,8 +161,16 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 // packet type: DS-style TX header (12 bytes) + original 802.11 frame
 bool MP_Init();
 void MP_DeInit();
-int MP_SendPacket(u8* data, int len);
-int MP_RecvPacket(u8* data, bool block);
+void MP_Begin();
+void MP_End();
+int MP_SendPacket(u8* data, int len, u64 timestamp);
+int MP_RecvPacket(u8* data, u64* timestamp);
+int MP_SendCmd(u8* data, int len, u64 timestamp);
+int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid);
+int MP_SendAck(u8* data, int len, u64 timestamp);
+int MP_RecvHostPacket(u8* data, u64* timestamp);
+u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask);
+
 
 // LAN comm interface
 // packet type: Ethernet (802.3)
@@ -166,7 +179,15 @@ void LAN_DeInit();
 int LAN_SendPacket(u8* data, int len);
 int LAN_RecvPacket(u8* data);
 
-void Sleep(u64 usecs);
+
+// interface for camera emulation
+// camera numbers:
+// 0 = DSi outer camera
+// 1 = DSi inner camera
+// other values reserved for future camera addon emulation
+void Camera_Start(int num);
+void Camera_Stop(int num);
+void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv);
 
 }
 

@@ -94,6 +94,7 @@ bool Init()
 #endif
 
     if (!DSi_I2C::Init()) return false;
+    if (!DSi_CamModule::Init()) return false;
     if (!DSi_AES::Init()) return false;
     if (!DSi_DSP::Init()) return false;
 
@@ -121,6 +122,7 @@ void DeInit()
 #endif
 
     DSi_I2C::DeInit();
+    DSi_CamModule::DeInit();
     DSi_AES::DeInit();
     DSi_DSP::DeInit();
 
@@ -142,6 +144,7 @@ void Reset()
     for (int i = 0; i < 8; i++) NDMAs[i]->Reset();
 
     DSi_I2C::Reset();
+    DSi_CamModule::Reset();
     DSi_DSP::Reset();
 
     SDMMC->CloseHandles();
@@ -167,6 +170,11 @@ void Reset()
     // LCD init flag
     GPU::DispStat[0] |= (1<<6);
     GPU::DispStat[1] |= (1<<6);
+}
+
+void Stop()
+{
+    DSi_CamModule::Stop();
 }
 
 void DoSavestate(Savestate* file)
@@ -241,7 +249,7 @@ void DoSavestate(Savestate* file)
         NDMAs[i]->DoSavestate(file);
 
     DSi_AES::DoSavestate(file);
-    DSi_Camera::DoSavestate(file);
+    DSi_CamModule::DoSavestate(file);
     DSi_DSP::DoSavestate(file);
     DSi_I2C::DoSavestate(file);
     SDMMC->DoSavestate(file);
@@ -511,30 +519,24 @@ void SetupDirectBoot()
         ARM9Write32(0x02FFE000+i, tmp);
     }
 
-    FILE* nand = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_NANDPath), "r+b");
-    if (nand)
+    if (DSi_NAND::Init(&DSi::ARM7iBIOS[0x8308]))
     {
-        if (DSi_NAND::Init(nand, &DSi::ARM7iBIOS[0x8308]))
-        {
-            u8 userdata[0x1B0];
-            DSi_NAND::ReadUserData(userdata);
-            for (u32 i = 0; i < 0x128; i+=4)
-                ARM9Write32(0x02000400+i, *(u32*)&userdata[0x88+i]);
+        u8 userdata[0x1B0];
+        DSi_NAND::ReadUserData(userdata);
+        for (u32 i = 0; i < 0x128; i+=4)
+            ARM9Write32(0x02000400+i, *(u32*)&userdata[0x88+i]);
 
-            u8 hwinfoS[0xA4];
-            u8 hwinfoN[0x9C];
-            DSi_NAND::ReadHardwareInfo(hwinfoS, hwinfoN);
+        u8 hwinfoS[0xA4];
+        u8 hwinfoN[0x9C];
+        DSi_NAND::ReadHardwareInfo(hwinfoS, hwinfoN);
 
-            for (u32 i = 0; i < 0x14; i+=4)
-                ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
+        for (u32 i = 0; i < 0x14; i+=4)
+            ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
 
-            for (u32 i = 0; i < 0x18; i+=4)
-                ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS[0x88+i]);
+        for (u32 i = 0; i < 0x18; i+=4)
+            ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS[0x88+i]);
 
-            DSi_NAND::DeInit();
-        }
-
-        fclose(nand);
+        DSi_NAND::DeInit();
     }
 
     u8 nwifiver = SPI_Firmware::GetNWifiVersion();
@@ -707,18 +709,13 @@ bool LoadNAND()
 {
     printf("Loading DSi NAND\n");
 
-    FILE* nand = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_NANDPath), "r+b");
-    if (!nand)
-    {
-        printf("Failed to open DSi NAND\n");
-        return false;
-    }
-
-    if (!DSi_NAND::Init(nand, &DSi::ARM7iBIOS[0x8308]))
+    if (!DSi_NAND::Init(&DSi::ARM7iBIOS[0x8308]))
     {
         printf("Failed to load DSi NAND\n");
         return false;
     }
+
+    FILE* nand = DSi_NAND::GetFile();
 
     // Make sure NWRAM is accessible.
     // The Bits are set to the startup values in Reset() and we might
@@ -2241,11 +2238,14 @@ u8 ARM9IORead8(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return DSi_Camera::Read8(addr);
+        return DSi_CamModule::Read8(addr);
     }
 
-    if (addr >= 0x04004300 && addr <= 0x04004400)
-        return DSi_DSP::Read16(addr);
+    if ((addr & 0xFFFFFF00) == 0x04004300)
+    {
+        if (!(SCFG_EXT[0] & (1<<18))) return 0;
+        return DSi_DSP::Read8(addr);
+    }
 
     return NDS::ARM9IORead8(addr);
 }
@@ -2273,11 +2273,14 @@ u16 ARM9IORead16(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return DSi_Camera::Read16(addr);
+        return DSi_CamModule::Read16(addr);
     }
 
-    if (addr >= 0x04004300 && addr <= 0x04004400)
-        return DSi_DSP::Read32(addr);
+    if ((addr & 0xFFFFFF00) == 0x04004300)
+    {
+        if (!(SCFG_EXT[0] & (1<<18))) return 0;
+        return DSi_DSP::Read16(addr);
+    }
 
     return NDS::ARM9IORead16(addr);
 }
@@ -2335,7 +2338,13 @@ u32 ARM9IORead32(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return DSi_Camera::Read32(addr);
+        return DSi_CamModule::Read32(addr);
+    }
+
+    if ((addr & 0xFFFFFF00) == 0x04004300)
+    {
+        if (!(SCFG_EXT[0] & (1<<18))) return 0;
+        return DSi_DSP::Read32(addr);
     }
 
     return NDS::ARM9IORead32(addr);
@@ -2356,7 +2365,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04004006:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         SCFG_RST = (SCFG_RST & 0xFF00) | val;
         DSi_DSP::SetRstLine(val & 1);
@@ -2366,7 +2375,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004041:
     case 0x04004042:
     case 0x04004043:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAM_A(addr & 3, val);
         return;
@@ -2378,7 +2387,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004049:
     case 0x0400404A:
     case 0x0400404B:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAM_B((addr - 0x04) & 7, val);
         return;
@@ -2390,7 +2399,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004051:
     case 0x04004052:
     case 0x04004053:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAM_C((addr-0x0C) & 7, val);
         return;
@@ -2399,13 +2408,13 @@ void ARM9IOWrite8(u32 addr, u8 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return DSi_Camera::Write8(addr, val);
+        return DSi_CamModule::Write8(addr, val);
     }
 
-    if (addr >= 0x04004300 && addr <= 0x04004400)
+    if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        DSi_DSP::Write8(addr, val);
-        return;
+        if (!(SCFG_EXT[0] & (1<<18))) return;
+        return DSi_DSP::Write8(addr, val);
     }
 
     return NDS::ARM9IOWrite8(addr, val);
@@ -2459,13 +2468,13 @@ void ARM9IOWrite16(u32 addr, u16 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return DSi_Camera::Write16(addr, val);
+        return DSi_CamModule::Write16(addr, val);
     }
 
-    if (addr >= 0x04004300 && addr <= 0x04004400)
+    if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        DSi_DSP::Write16(addr, val);
-        return;
+        if (!(SCFG_EXT[0] & (1<<18))) return;
+        return DSi_DSP::Write16(addr, val);
     }
 
     return NDS::ARM9IOWrite16(addr, val);
@@ -2609,7 +2618,13 @@ void ARM9IOWrite32(u32 addr, u32 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return DSi_Camera::Write32(addr, val);
+        return DSi_CamModule::Write32(addr, val);
+    }
+
+    if ((addr & 0xFFFFFF00) == 0x04004300)
+    {
+        if (!(SCFG_EXT[0] & (1<<18))) return;
+        return DSi_DSP::Write32(addr, val);
     }
 
     return NDS::ARM9IOWrite32(addr, val);
@@ -2681,7 +2696,7 @@ u16 ARM7IORead16(u32 addr)
     case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 32) & 0xFFFF;
     case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID >> 48;
     case 0x04004D08: return 0;
-    
+
     case 0x4004700: return DSi_DSP::SNDExCnt;
     }
 

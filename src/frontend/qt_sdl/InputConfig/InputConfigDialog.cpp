@@ -24,6 +24,7 @@
 #include <SDL2/SDL.h>
 
 #include "types.h"
+#include "Platform.h"
 #include "Config.h"
 
 #include "MapButton.h"
@@ -123,6 +124,12 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     }
 
     setupKeypadPage();
+
+    int inst = Platform::InstanceID();
+    if (inst > 0)
+        ui->lblInstanceNum->setText(QString("Configuring mappings for instance %1").arg(inst+1));
+    else
+        ui->lblInstanceNum->hide();
 }
 
 InputConfigDialog::~InputConfigDialog()

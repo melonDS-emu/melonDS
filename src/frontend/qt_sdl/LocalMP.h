@@ -16,29 +16,30 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef WIFIAP_H
-#define WIFIAP_H
+#ifndef LOCALMP_H
+#define LOCALMP_H
 
 #include "types.h"
 
-namespace WifiAP
+namespace LocalMP
 {
-
-#define AP_MAC  0x00, 0xF0, 0x77, 0x77, 0x77, 0x77
-#define AP_NAME "melonAP"
-
-extern const u8 APMac[6];
 
 bool Init();
 void DeInit();
-void Reset();
 
-void MSTimer();
+void SetRecvTimeout(int timeout);
 
-// packet format: 12-byte TX header + original 802.11 frame
-int SendPacket(u8* data, int len);
-int RecvPacket(u8* data);
+void Begin();
+void End();
+
+int SendPacket(u8* data, int len, u64 timestamp);
+int RecvPacket(u8* data, u64* timestamp);
+int SendCmd(u8* data, int len, u64 timestamp);
+int SendReply(u8* data, int len, u64 timestamp, u16 aid);
+int SendAck(u8* data, int len, u64 timestamp);
+int RecvHostPacket(u8* data, u64* timestamp);
+u16 RecvReplies(u8* data, u64 timestamp, u16 aidmask);
 
 }
 
-#endif
+#endif // LOCALMP_H
