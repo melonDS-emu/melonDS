@@ -90,10 +90,14 @@ if (WIN32)
     target_link_libraries(melonDS PUBLIC opengl32)
 
     target_sources(melonDS PRIVATE
-        # the context stuff would probably be better in the frontend?
         ../duckstation/gl/context_wgl.cpp
 
-        ../glad/glad_wgl.c)
+        ../glad/glad_wgl.c
+    )
+elseif (APPLE)
+    target_sources(melonDS PRIVATE
+        ../duckstation/gl/context_agl.mm
+    )
 else()
     # we only need ECM for Wayland
     # so we only require it from here
@@ -112,7 +116,8 @@ else()
         ../duckstation/gl/x11_window.cpp
 
         ../glad/glad_egl.c
-        ../glad/glad_glx.c)
+        ../glad/glad_glx.c
+    )
     target_link_libraries(melonDS PRIVATE "${X11_LIBRARIES}" "${EGL_LIBRARIES}")
     target_include_directories(melonDS PRIVATE "${X11_INCLUDE_DIR}")
 endif()
