@@ -101,13 +101,6 @@ endif()
 
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)
 
-find_package(ECM REQUIRED NO_MODULE)
-list(APPEND CMAKE_MODULE_PATH "${ECM_MODULE_PATH}")
-
-find_package(X11 REQUIRED)
-find_package(EGL REQUIRED)
-find_package(Wayland REQUIRED Client)
-
 add_subdirectory(src)
 
 if (BUILD_QT_SDL)

@@ -23,6 +23,7 @@
 
 #include "NDS.h"
 #include "GPU.h"
+#include "GPU3D_OpenGL.h"
 #include "OpenGLSupport.h"
 #include "GPU_OpenGL_shaders.h"
 

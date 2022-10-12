@@ -114,39 +114,6 @@ if (MATH_LIBRARY)
     target_link_libraries(core PRIVATE ${MATH_LIBRARY})
 endif()
 
-if (ENABLE_OGLRENDERER)
-    target_sources(core PRIVATE
-        glad/glad.c
-        
-        duckstation/gl/context.cpp)
-
-    if (WIN32)
-        target_link_libraries(core PUBLIC opengl32)
-
-        target_sources(core PRIVATE
-            # the context stuff would probably be better in the frontend?
-            duckstation/gl/context_wgl.cpp
-
-            glad/glad_wgl.c)
-    else()
-        target_sources(core PRIVATE
-            duckstation/gl/context_egl.cpp
-            duckstation/gl/context_egl_x11.cpp
-            duckstation/gl/context_glx.cpp
-            duckstation/gl/context_egl_wayland.cpp
-            duckstation/gl/x11_window.cpp
-
-            glad/glad_egl.c
-            glad/glad_glx.c)
-        message("${X11_FOUND}")
-        message("${X11_LIBRARIES}")
-        target_link_libraries(core PRIVATE "${X11_LIBRARIES}" "${EGL_LIBRARIES}")
-        target_include_directories(core PRIVATE "${X11_INCLUDE_DIR}")
-    endif()
-
-    target_compile_definitions(core PUBLIC OGLRENDERER_ENABLED)
-endif()
-
 if (ENABLE_JIT)
     target_compile_definitions(core PUBLIC JIT_ENABLED)
 
@@ -154,6 +121,10 @@ if (ENABLE_JIT)
         include(cmake/FindVTune.cmake)
         add_definitions(-DJIT_PROFILING_ENABLED)
     endif()
+endif()
+
+if (ENABLE_OPENGLRENDERER)
+    target_compile_definitions(core PUBLIC OGLRENDERER_ENABLED)
 endif()
 
 if (WIN32)

@@ -41,8 +41,11 @@ set(SOURCES_QT_SDL
     ../FrontendUtil.h
     ../mic_blow.h
 
+    ../glad/glad.c
+    ../duckstation/gl/context.cpp
+
     ${CMAKE_SOURCE_DIR}/res/melon.qrc
-    )
+)
 
 if (APPLE)
     option(USE_QT6 "Build using Qt 6 instead of 5" ON)
@@ -82,6 +85,38 @@ fix_interface_includes(PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
 add_executable(melonDS ${SOURCES_QT_SDL})
+
+if (WIN32)
+    target_link_libraries(melonDS PUBLIC opengl32)
+
+    target_sources(melonDS PRIVATE
+        # the context stuff would probably be better in the frontend?
+        ../duckstation/gl/context_wgl.cpp
+
+        ../glad/glad_wgl.c)
+else()
+    # we only need ECM for Wayland
+    # so we only require it from here
+    find_package(ECM REQUIRED NO_MODULE)
+    list(APPEND CMAKE_MODULE_PATH "${ECM_MODULE_PATH}")
+
+    find_package(X11 REQUIRED)
+    find_package(EGL REQUIRED)
+    find_package(Wayland REQUIRED Client)
+
+    target_sources(melonDS PRIVATE
+        ../duckstation/gl/context_egl.cpp
+        ../duckstation/gl/context_egl_x11.cpp
+        ../duckstation/gl/context_glx.cpp
+        ../duckstation/gl/context_egl_wayland.cpp
+        ../duckstation/gl/x11_window.cpp
+
+        ../glad/glad_egl.c
+        ../glad/glad_glx.c)
+    target_link_libraries(melonDS PRIVATE "${X11_LIBRARIES}" "${EGL_LIBRARIES}")
+    target_include_directories(melonDS PRIVATE "${X11_INCLUDE_DIR}")
+endif()
+
 
 if (BUILD_STATIC)
     qt_import_plugins(melonDS INCLUDE Qt::QSvgPlugin)

@@ -22,9 +22,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "glad/glad.h"
-
 #include "Platform.h"
+#include "PlatformOGL.h"
 
 
 namespace OpenGL
