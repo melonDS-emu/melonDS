@@ -464,15 +464,12 @@ void EmuThread::run()
     videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
     videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
 
-    bool hasOGL = mainWindow->hasOGL;
-#ifdef OGLRENDERER_ENABLED
-    if (hasOGL)
+    if (mainWindow->hasOGL)
     {
         initOpenGL();
         videoRenderer = Config::_3DRenderer;
     }
     else
-#endif
     {
         videoRenderer = 0;
     }
@@ -547,31 +544,25 @@ void EmuThread::run()
             // update render settings if needed
             if (videoSettingsDirty)
             {
-                if (hasOGL != mainWindow->hasOGL)
+                if (oglContext)
                 {
-                    hasOGL = mainWindow->hasOGL;
+                    oglContext->SetSwapInterval(Config::ScreenVSync ? Config::ScreenVSyncInterval : 0);
+                    videoRenderer = Config::_3DRenderer;
+                }
 #ifdef OGLRENDERER_ENABLED
-                    if (hasOGL)
-                        videoRenderer = Config::_3DRenderer;
-                    else
-#endif
-                        videoRenderer = 0;
-                }
                 else
+#endif
                 {
-                    videoRenderer = hasOGL ? Config::_3DRenderer : 0;
-                }
+                    videoRenderer = 0;
+                }                
+
+                videoRenderer = oglContext ? Config::_3DRenderer : 0;
 
                 videoSettingsDirty = false;
 
                 videoSettings.Soft_Threaded = Config::Threaded3D != 0;
                 videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
                 videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
-
-                if (hasOGL)
-                {
-                    oglContext->SetSwapInterval(Config::ScreenVSync ? Config::ScreenVSyncInterval : 0);
-                }
 
                 GPU::SetRenderSettings(videoRenderer, videoSettings);
             }
@@ -629,7 +620,7 @@ void EmuThread::run()
             if (ROMManager::GBASave)
                 ROMManager::GBASave->CheckFlush();
 
-            if (!hasOGL)
+            if (!oglContext)
             {
                 FrontBufferLock.lock();
                 FrontBuffer = GPU::FrontBuffer;
@@ -752,7 +743,7 @@ void EmuThread::run()
     NDS::DeInit();
     //Platform::LAN_DeInit();
 
-    if (hasOGL)
+    if (oglContext)
         deinitOpenGL();
 }
 
@@ -1829,6 +1820,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
 MainWindow::~MainWindow()
 {
+}
+
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+    printf("close event\n");
+    emuThread->emuPause();
+    emuThread->deinitContext();
+
+    QMainWindow::closeEvent(event);
 }
 
 void MainWindow::createScreenPanel()

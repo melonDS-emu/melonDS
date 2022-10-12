@@ -31,6 +31,7 @@
 #include <QTimer>
 #include <QMutex>
 #include <QScreen>
+#include <QCloseEvent>
 
 #include <atomic>
 
@@ -325,6 +326,8 @@ private slots:
     void onFullscreenToggled();
 
 private:
+    void closeEvent(QCloseEvent* event);
+
     QStringList currentROM;
     QStringList currentGBAROM;
     QList<QString> recentFileList;
