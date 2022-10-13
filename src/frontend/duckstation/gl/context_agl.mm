@@ -51,7 +51,7 @@ bool ContextAGL::Initialize(const Version* versions_to_try, size_t num_versions_
     }
     else if (cv.profile == Profile::Core)
     {
-      if (cv.major_version > 4 || cv.minor_version > 1)
+      if (cv.major_version > 4 && cv.minor_version > 1)
         continue;
       
       const NSOpenGLPixelFormatAttribute profile = (cv.major_version > 3 || cv.minor_version > 2) ? NSOpenGLProfileVersion4_1Core : NSOpenGLProfileVersion3_2Core;
