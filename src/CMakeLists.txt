@@ -106,6 +106,8 @@ if (ENABLE_JIT)
 endif()
 
 add_subdirectory(teakra EXCLUDE_FROM_ALL)
+# Workaround for building teakra with -O0 on Windows either failing or hanging forever
+target_compile_options(teakra PRIVATE "$<$<CONFIG:DEBUG>:-Og>")
 target_link_libraries(core PRIVATE teakra)
 
 find_library(m MATH_LIBRARY)
