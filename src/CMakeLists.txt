@@ -65,6 +65,8 @@ if (ENABLE_OGLRENDERER)
         GPU3D_OpenGL.cpp
         GPU3D_OpenGL_shaders.h
         OpenGLSupport.cpp)
+
+    target_compile_definitions(core PUBLIC OGLRENDERER_ENABLED)
 endif()
 
 if (ENABLE_JIT)
@@ -123,10 +125,6 @@ if (ENABLE_JIT)
         include(cmake/FindVTune.cmake)
         add_definitions(-DJIT_PROFILING_ENABLED)
     endif()
-endif()
-
-if (ENABLE_OPENGLRENDERER)
-    target_compile_definitions(core PUBLIC OGLRENDERER_ENABLED)
 endif()
 
 if (WIN32)
