@@ -379,6 +379,14 @@ void EmuThread::updateScreenSettings(bool filter, const WindowInfo& windowInfo, 
 {
     screenSettingsLock.lock();
 
+    if (lastScreenWidth != windowInfo.surface_width || lastScreenHeight != windowInfo.surface_height)
+    {
+        if (oglContext)
+            oglContext->ResizeSurface(windowInfo.surface_width, windowInfo.surface_height);
+        lastScreenWidth = windowInfo.surface_width;
+        lastScreenHeight = windowInfo.surface_height;
+    }
+
     this->filter = filter;
     this->windowInfo = windowInfo;
     this->numScreens = numScreens;
@@ -552,16 +560,6 @@ void EmuThread::run()
                 OSD::AddMessage(0, msg);
             }
         }
-
-        screenSettingsLock.lock();
-        if (lastScreenWidth != windowInfo.surface_width || lastScreenHeight != windowInfo.surface_height)
-        {
-            if (oglContext)
-                oglContext->ResizeSurface(windowInfo.surface_width, windowInfo.surface_height);
-            lastScreenWidth = windowInfo.surface_width;
-            lastScreenHeight = windowInfo.surface_height;
-        }
-        screenSettingsLock.unlock();
 
         if (EmuRunning == 1 || EmuRunning == 3)
         {

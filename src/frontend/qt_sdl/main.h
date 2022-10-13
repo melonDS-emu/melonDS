@@ -112,8 +112,7 @@ private:
     int numScreens;
     bool filter;
 
-    int lastScreenWidth = -1;
-    int lastScreenHeight = -1;
+    int lastScreenWidth = -1, lastScreenHeight = -1;
 };
 
 
