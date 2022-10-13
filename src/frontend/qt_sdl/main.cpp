@@ -776,9 +776,6 @@ void EmuThread::run()
     GPU::DeInitRenderer();
     NDS::DeInit();
     //Platform::LAN_DeInit();
-
-    if (oglContext)
-        deinitOpenGL();
 }
 
 void EmuThread::changeWindowTitle(char* title)

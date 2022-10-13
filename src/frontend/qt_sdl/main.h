@@ -48,9 +48,6 @@ class EmuThread : public QThread
 public:
     explicit EmuThread(QObject* parent = nullptr);
 
-    void initOpenGL();
-    void deinitOpenGL();
-
     void changeWindowTitle(char* title);
 
     // to be called from the UI thread
@@ -91,6 +88,8 @@ signals:
 
 private:
     void drawScreenGL();
+    void initOpenGL();
+    void deinitOpenGL();
 
     std::atomic<int> EmuStatus;
     int PrevEmuStatus;
