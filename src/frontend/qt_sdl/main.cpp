@@ -377,6 +377,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
 
 void EmuThread::updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix)
 {
+    printf("update screen setting %d\n", filter);
     screenSettingsLock.lock();
 
     if (lastScreenWidth != windowInfo.surface_width || lastScreenHeight != windowInfo.surface_height)
@@ -904,7 +905,7 @@ void EmuThread::drawScreenGL()
 
     screenSettingsLock.lock();
 
-    GLint filter = filter ? GL_LINEAR : GL_NEAREST;
+    GLint filter = this->filter ? GL_LINEAR : GL_NEAREST;
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
 
@@ -3075,6 +3076,8 @@ void MainWindow::onChangeIntegerScaling(bool checked)
 void MainWindow::onChangeScreenFiltering(bool checked)
 {
     Config::ScreenFilter = checked?1:0;
+
+    emit screenLayoutChange();
 }
 
 void MainWindow::onChangeShowOSD(bool checked)
