@@ -1891,9 +1891,12 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
-    printf("close event\n");
-    emuThread->emuPause();
-    emuThread->deinitContext();
+    if (hasOGL)
+    {
+        // we intentionally don't unpause here
+        emuThread->emuPause();
+        emuThread->deinitContext();
+    }
 
     QMainWindow::closeEvent(event);
 }
