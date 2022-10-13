@@ -74,12 +74,13 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+find_package(Threads REQUIRED)
+find_package(PkgConfig REQUIRED)
+
 if (BUILD_STATIC)
     list(APPEND PKG_CONFIG_EXECUTABLE "--static")
 endif()
 
-find_package(Threads REQUIRED)
-find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 pkg_check_modules(Slirp REQUIRED IMPORTED_TARGET slirp)
 pkg_check_modules(LibArchive REQUIRED IMPORTED_TARGET libarchive)
