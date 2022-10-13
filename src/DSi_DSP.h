@@ -53,9 +53,6 @@ void DSPCatchUpU32(u32 _);
 bool IsRstReleased();
 void SetRstLine(bool release);
 
-// apply NWRAM settings
-void OnMBKCfg(char bank, u32 slot, u8 oldcfg, u8 newcfg, u8* nwrambacking);
-
 // DSP_* regs (0x040043xx) (NOTE: checks SCFG_EXT)
 u8 Read8(u32 addr);
 void Write8(u32 addr, u8 val);

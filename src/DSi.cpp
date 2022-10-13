@@ -991,23 +991,22 @@ void MapNWRAM_A(u32 num, u8 val)
     MBK[1][mbkn] = MBK[0][mbkn];
 
     // When we only update the mapping on the written MBK, we will
-    // have priority of the last witten MBK over the others
-    // However the hardware has a fixed order. Therefor
+    // have priority of the last written MBK over the others
+    // However the hardware has a fixed order. Therefore
     // we need to iterate through them all in a fixed order and update
-    // the mapping, so the result is independend on the MBK write order
-    for (unsigned int part = 0; part < 4; part++)
+    // the mapping, so the result is independent on the MBK write order
+    for (int part = 0; part < 4; part++)
     {
-        NWRAMMap_A[0][part] = NULL;
-        NWRAMMap_A[1][part] = NULL;
+        NWRAMMap_A[0][part] = nullptr;
+        NWRAMMap_A[1][part] = nullptr;
     }
     for (int part = 3; part >= 0; part--)
     {
         u8* ptr = &NWRAM_A[part << 16];
 
-        if ((MBK[0][0 + (part / 4)] >> ((part % 4) * 8)) & 0x80)
+        u8 mVal = (MBK[0][0 + (part >> 2)] >> ((part & 3) * 8)) & 0xFD;
+        if (mVal & 0x80)
         {
-            u8 mVal = (MBK[0][0 + (part / 4)] >> ((part % 4) * 8)) & 0xfd;
-
             NWRAMMap_A[mVal & 0x03][(mVal >> 2) & 0x3] = ptr;
         }
     }
@@ -1039,30 +1038,24 @@ void MapNWRAM_B(u32 num, u8 val)
     MBK[1][mbkn] = MBK[0][mbkn];
 
     // When we only update the mapping on the written MBK, we will
-    // have priority of the last witten MBK over the others
-    // However the hardware has a fixed order. Therefor
+    // have priority of the last written MBK over the others
+    // However the hardware has a fixed order. Therefore
     // we need to iterate through them all in a fixed order and update
-    // the mapping, so the result is independend on the MBK write order
-    for (unsigned int part = 0; part < 8; part++)
+    // the mapping, so the result is independent on the MBK write order
+    for (int part = 0; part < 8; part++)
     {
-        NWRAMMap_B[0][part] = NULL;
-        NWRAMMap_B[1][part] = NULL;
-        NWRAMMap_B[2][part] = NULL;
+        NWRAMMap_B[0][part] = nullptr;
+        NWRAMMap_B[1][part] = nullptr;
+        NWRAMMap_B[2][part] = nullptr;
     }
     for (int part = 7; part >= 0; part--)
     {
         u8* ptr = &NWRAM_B[part << 15];
 
-        if (part == num)
+        u8 mVal = (MBK[0][1 + (part >> 2)] >> ((part & 3) * 8)) & 0xFF;
+        if (mVal & 0x80)
         {
-            DSi_DSP::OnMBKCfg('B', num, oldval, val, ptr);
-        }
-
-        if ((MBK[0][1 + (part / 4)] >> ((part % 4) * 8)) & 0x80)
-        {
-            u8 mVal = (MBK[0][1 + (part / 4)] >> ((part % 4) * 8)) & 0xff;
             if (mVal & 0x02) mVal &= 0xFE;
-
             NWRAMMap_B[mVal & 0x03][(mVal >> 2) & 0x7] = ptr;
         }
     }
@@ -1094,28 +1087,23 @@ void MapNWRAM_C(u32 num, u8 val)
     MBK[1][mbkn] = MBK[0][mbkn];
 
     // When we only update the mapping on the written MBK, we will
-    // have priority of the last witten MBK over the others
-    // However the hardware has a fixed order. Therefor
+    // have priority of the last written MBK over the others
+    // However the hardware has a fixed order. Therefore
     // we need to iterate through them all in a fixed order and update
-    // the mapping, so the result is independend on the MBK write order
-    for (unsigned int part = 0; part < 8; part++)
+    // the mapping, so the result is independent on the MBK write order
+    for (int part = 0; part < 8; part++)
     {
-        NWRAMMap_C[0][part] = NULL;
-        NWRAMMap_C[1][part] = NULL;
-        NWRAMMap_C[2][part] = NULL;
+        NWRAMMap_C[0][part] = nullptr;
+        NWRAMMap_C[1][part] = nullptr;
+        NWRAMMap_C[2][part] = nullptr;
     }
     for (int part = 7; part >= 0; part--)
     {
         u8* ptr = &NWRAM_C[part << 15];
 
-        if (part == num)
+        u8 mVal = MBK[0][3 + (part >> 2)] >> ((part & 3) * 8) & 0xFF;
+        if (mVal & 0x80)
         {
-            DSi_DSP::OnMBKCfg('C', num, oldval, val, ptr);
-        }
-
-        if ((MBK[0][3 + (part / 4)] >> ((part % 4) * 8)) & 0x80)
-        {
-            u8 mVal = MBK[0][3 + (part / 4)] >> ((part % 4) *8) & 0xff;
             if (mVal & 0x02) mVal &= 0xFE;
             NWRAMMap_C[mVal & 0x03][(mVal >> 2) & 0x7] = ptr;
         }
