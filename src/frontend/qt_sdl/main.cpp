@@ -1280,7 +1280,7 @@ qreal ScreenPanelGL::devicePixelRatioFromScreen() const
 {
     const QScreen* screen_for_ratio = window()->windowHandle()->screen();
     if (!screen_for_ratio)
-    screen_for_ratio = QGuiApplication::primaryScreen();
+        screen_for_ratio = QGuiApplication::primaryScreen();
 
     return screen_for_ratio ? screen_for_ratio->devicePixelRatio() : static_cast<qreal>(1);
 }
