@@ -28,6 +28,7 @@ namespace Input
 
 int JoystickID;
 SDL_Joystick* Joystick = nullptr;
+SDL_GameController* Controller = nullptr;
 
 u32 KeyInputMask, JoyInputMask;
 u32 KeyHotkeyMask, JoyHotkeyMask;
@@ -52,7 +53,7 @@ void Init()
 
 void OpenJoystick()
 {
-    if (Joystick) SDL_JoystickClose(Joystick);
+    if (Controller) SDL_GameControllerClose(Controller);
 
     int num = SDL_NumJoysticks();
     if (num < 1)
@@ -64,15 +65,21 @@ void OpenJoystick()
     if (JoystickID >= num)
         JoystickID = 0;
 
-    Joystick = SDL_JoystickOpen(JoystickID);
+    Controller = SDL_GameControllerOpen(JoystickID);
+    Joystick = SDL_GameControllerGetJoystick(Controller);
+
+    if (SDL_GameControllerHasRumble(Controller))
+    {
+        printf("Rumble supported\n");
+    }
 }
 
 void CloseJoystick()
 {
-    if (Joystick)
+    if (Controller)
     {
-        SDL_JoystickClose(Joystick);
-        Joystick = nullptr;
+        SDL_GameControllerClose(Controller);
+        Controller = nullptr;
     }
 }
 
@@ -125,6 +132,18 @@ void KeyRelease(QKeyEvent* event)
     for (int i = 0; i < HK_MAX; i++)
         if (keyHK == Config::HKKeyMapping[i])
             KeyHotkeyMask &= ~(1<<i);
+}
+
+void Rumble(bool is_enabled)
+{
+    if (Controller)
+    {
+        // TODO: Testing needed as to how long each "vibration"
+        // of the Rumble Pak motor lasts
+        // For now, we just run it for 48 ms
+        u16 frequency = (is_enabled) ? 0xFFFF : 0;
+        SDL_GameControllerRumble(Controller, frequency, frequency, 48);
+    }
 }
 
 
@@ -186,17 +205,17 @@ bool JoystickButtonDown(int val)
 
 void Process()
 {
-    SDL_JoystickUpdate();
+    SDL_GameControllerUpdate();
 
-    if (Joystick)
+    if (Controller)
     {
-        if (!SDL_JoystickGetAttached(Joystick))
+        if (!SDL_GameControllerGetAttached(Controller))
         {
-            SDL_JoystickClose(Joystick);
-            Joystick = NULL;
+            SDL_GameControllerClose(Controller);
+            Controller = NULL;
         }
     }
-    if (!Joystick && (SDL_NumJoysticks() > 0))
+    if (!Controller && (SDL_NumJoysticks() > 0))
     {
         JoystickID = Config::JoystickID;
         OpenJoystick();

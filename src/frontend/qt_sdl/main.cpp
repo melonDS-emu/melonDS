@@ -1419,6 +1419,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             actInsertGBAAddon[0] = submenu->addAction("Memory expansion");
             actInsertGBAAddon[0]->setData(QVariant(NDS::GBAAddon_RAMExpansion));
             connect(actInsertGBAAddon[0], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
+
+            actInsertGBAAddon[1] = submenu->addAction("Rumble Pak");
+            actInsertGBAAddon[1]->setData(QVariant(NDS::GBAAddon_RumblePak));
+            connect(actInsertGBAAddon[1], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
+
+            actInsertGBAAddon[2] = submenu->addAction("Guitar Grip");
+            actInsertGBAAddon[2]->setData(QVariant(NDS::GBAAddon_GuitarGrip));
+            connect(actInsertGBAAddon[2], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
         }
 
         actEjectGBACart = menu->addAction("Eject cart");
@@ -3154,6 +3162,10 @@ int main(int argc, char** argv)
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0)
     {
         printf("SDL couldn't init joystick\n");
+    }
+    if (SDL_Init(SDL_INIT_GAMECONTROLLER) < 0)
+    {
+        printf("SDL couldn't init game controller\n");
     }
     if (SDL_Init(SDL_INIT_AUDIO) < 0)
     {

@@ -679,6 +679,71 @@ void CartRAMExpansion::ROMWrite(u32 addr, u16 val)
     }
 }
 
+CartRumblePak::CartRumblePak() : CartCommon()
+{
+}
+
+CartRumblePak::~CartRumblePak()
+{
+}
+
+void CartRumblePak::Reset()
+{
+    RumbleState = 0;
+}
+
+void CartRumblePak::DoSavestate(Savestate* file)
+{
+    CartCommon::DoSavestate(file);
+    file->Var16(&RumbleState);
+}
+
+u16 CartRumblePak::ROMRead(u32 addr)
+{
+    return 0xFFFD;
+}
+
+void CartRumblePak::ROMWrite(u32 addr, u16 val)
+{
+    if (addr == 0x8000000 || addr == 0x8001000 && RumbleState != val)
+    {
+	Platform::Input_StopRumble();
+	RumbleState = val;
+	Platform::Input_StartRumble();
+    }
+}
+
+CartGuitarGrip::CartGuitarGrip() : CartCommon()
+{
+}
+
+CartGuitarGrip::~CartGuitarGrip()
+{
+}
+
+void CartGuitarGrip::Reset()
+{
+}
+
+void CartGuitarGrip::DoSavestate(Savestate* file)
+{
+    CartCommon::DoSavestate(file);
+}
+
+u16 CartGuitarGrip::ROMRead(u32 addr)
+{
+    return 0xF9FF;
+}
+
+u8 CartGuitarGrip::SRAMRead(u32 addr)
+{
+    if (addr == 0xA000000)
+    {
+        return ~GuitarKeyStatus;
+    }
+
+    return 0xFF;
+}
 
 bool Init()
 {
@@ -814,6 +879,10 @@ void LoadAddon(int type)
     {
     case NDS::GBAAddon_RAMExpansion:
         Cart = new CartRAMExpansion();
+        break;
+
+    case NDS::GBAAddon_RumblePak:
+        Cart = new CartRumblePak();
         break;
 
     default:

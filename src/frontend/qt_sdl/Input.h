@@ -26,6 +26,7 @@ namespace Input
 
 extern int JoystickID;
 extern SDL_Joystick* Joystick;
+extern SDL_GameController* Controller;
 
 extern u32 InputMask;
 
@@ -37,6 +38,8 @@ void CloseJoystick();
 
 void KeyPress(QKeyEvent* event);
 void KeyRelease(QKeyEvent* event);
+
+void Rumble(bool is_start);
 
 void Process();
 

@@ -800,6 +800,8 @@ QString GBACartLabel()
 
     case NDS::GBAAddon_RAMExpansion:
         return "Memory expansion";
+    case NDS::GBAAddon_RumblePak:
+        return "Rumble Pak";
     }
 
     return "(none)";

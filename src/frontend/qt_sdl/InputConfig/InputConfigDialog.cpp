@@ -112,7 +112,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     {
         for (int i = 0; i < njoy; i++)
         {
-            const char* name = SDL_JoystickNameForIndex(i);
+            const char* name = SDL_GameControllerNameForIndex(i);
             ui->cbxJoystick->addItem(QString(name));
         }
         ui->cbxJoystick->setCurrentIndex(Input::JoystickID);
