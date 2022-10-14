@@ -28,6 +28,7 @@ namespace Input
 
 int JoystickID;
 SDL_Joystick* Joystick = nullptr;
+SDL_Haptic* Haptic = nullptr;
 SDL_GameController* Controller = nullptr;
 
 u32 KeyInputMask, JoyInputMask;
@@ -53,6 +54,7 @@ void Init()
 
 void OpenJoystick()
 {
+    if (Haptic) SDL_HapticClose(Haptic);
     if (Controller) SDL_GameControllerClose(Controller);
 
     int num = SDL_NumJoysticks();
@@ -68,14 +70,38 @@ void OpenJoystick()
     Controller = SDL_GameControllerOpen(JoystickID);
     Joystick = SDL_GameControllerGetJoystick(Controller);
 
-    if (SDL_GameControllerHasRumble(Controller))
+    if (SDL_VERSION_ATLEAST(2,0,18))
     {
-        printf("Rumble supported\n");
+        if (SDL_GameControllerHasRumble(Controller))
+        {
+            printf("Rumble supported\n");
+        }
+    }
+    // Fallback for SDL2 versions less than 2.0.18
+    else
+    {
+        if (SDL_JoystickIsHaptic(Joystick))
+        {
+          Haptic = SDL_HapticOpenFromJoystick(Joystick);
+
+          if (SDL_HapticRumbleSupported(Haptic))
+          {
+              printf("Rumble supported\n");
+
+              SDL_HapticRumbleInit(Haptic);
+          }
+        }
     }
 }
 
 void CloseJoystick()
 {
+    if (Haptic)
+    {
+        SDL_HapticClose(Haptic);
+        Haptic = nullptr;
+    }
+
     if (Controller)
     {
         SDL_GameControllerClose(Controller);
@@ -141,8 +167,26 @@ void Rumble(bool is_enabled)
         // TODO: Testing needed as to how long each "vibration"
         // of the Rumble Pak motor lasts
         // For now, we just run it for 48 ms
-        u16 frequency = (is_enabled) ? 0xFFFF : 0;
-        SDL_GameControllerRumble(Controller, frequency, frequency, 48);
+        
+        if (SDL_VERSION_ATLEAST(2,0,18))
+        {
+            u16 frequency = (is_enabled) ? 0xFFFF : 0;
+            SDL_GameControllerRumble(Controller, frequency, frequency, 48);
+        }
+        else
+        {
+            if (Haptic)
+            {
+                if (is_enabled)
+                {
+                    SDL_HapticRumblePlay(Haptic, 1.0, 48);
+                }
+                else
+                {
+                    SDL_HapticRumbleStop(Haptic);
+                }
+            }
+        }
     }
 }
 
