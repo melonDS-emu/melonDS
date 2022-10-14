@@ -377,7 +377,6 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
 
 void EmuThread::updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix)
 {
-    printf("update screen setting %d\n", filter);
     screenSettingsLock.lock();
 
     if (lastScreenWidth != windowInfo.surface_width || lastScreenHeight != windowInfo.surface_height)
@@ -482,6 +481,8 @@ void EmuThread::deinitOpenGL()
 
     oglContext->DoneCurrent();
     oglContext = nullptr;
+
+    lastScreenWidth = lastScreenHeight = -1;
 }
 
 void EmuThread::run()
