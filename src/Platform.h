@@ -179,6 +179,10 @@ void LAN_DeInit();
 int LAN_SendPacket(u8* data, int len);
 int LAN_RecvPacket(u8* data);
 
+// Controller rumble interface
+void Input_StartRumble();
+void Input_StopRumble();
+
 
 // interface for camera emulation
 // camera numbers:

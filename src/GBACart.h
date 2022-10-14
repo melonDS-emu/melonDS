@@ -168,11 +168,55 @@ private:
     u16 RAMEnable;
 };
 
+// CartRumblePak -- Rumble Pak (various titles)
+class CartRumblePak : public CartCommon
+{
+public:
+    CartRumblePak();
+    ~CartRumblePak();
+
+    virtual u32 Type() override { return 0x202; }
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    u16 ROMRead(u32 addr) override;
+    void ROMWrite(u32 addr, u16 val) override;
+
+private:
+    u16 RumbleState = 0;
+};
+
+// CartGuitarGrip -- Guitar Grip (Guitar Hero: On Tour)
+class CartGuitarGrip : public CartCommon
+{
+public:
+    CartGuitarGrip();
+    ~CartGuitarGrip();
+
+    virtual u32 Type() override { return 0x203; }
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    u16 ROMRead(u32 addr) override;
+    u8 SRAMRead(u32 addr) override;
+
+private:
+    u8 GuitarKeyStatus;
+};
+
 // possible inputs for GBA carts that might accept user input
 enum
 {
     Input_SolarSensorDown = 0,
     Input_SolarSensorUp,
+    Input_GuitarGripGreen,
+    Input_GuitarGripRed,
+    Input_GuitarGripYellow,
+    Input_GuitarGripBlue
 };
 
 extern bool CartInserted;

@@ -29,6 +29,8 @@
 #include <QMutex>
 #include <QOpenGLContext>
 #include <QSharedMemory>
+#include <QKeyEvent>
+#include <SDL2/SDL.h>
 
 #include "Platform.h"
 #include "Config.h"
@@ -37,6 +39,7 @@
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 #include "LocalMP.h"
+#include "Input.h"
 
 
 std::string EmuDirectory;
@@ -536,6 +539,16 @@ int LAN_RecvPacket(u8* data)
         return LAN_PCap::RecvPacket(data);
     else
         return LAN_Socket::RecvPacket(data);
+}
+
+void Input_StartRumble()
+{
+    Input::Rumble(true);
+}
+
+void Input_StopRumble()
+{
+    Input::Rumble(false);
 }
 
 
