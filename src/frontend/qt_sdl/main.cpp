@@ -870,6 +870,7 @@ void EmuThread::drawScreenGL()
     glDepthMask(false);
     glDisable(GL_BLEND);
     glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_STENCIL_TEST);
     glClear(GL_COLOR_BUFFER_BIT);
 
     glViewport(0, 0, w, h);
