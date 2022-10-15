@@ -100,6 +100,10 @@ if (WIN32)
         ../glad/glad_wgl.c
     )
 elseif (APPLE)
+    if (NOT USE_QT6)
+        find_library(COCOA_LIB Cocoa)
+        target_link_libraries(melonDS PRIVATE ${COCOA_LIB})
+    endif()
     target_sources(melonDS PRIVATE
         ../duckstation/gl/context_agl.mm
     )
