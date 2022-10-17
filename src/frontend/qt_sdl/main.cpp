@@ -1254,6 +1254,7 @@ ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QWidget(parent), ScreenHandler(t
     setAttribute(Qt::WA_PaintOnScreen, true);
     setAttribute(Qt::WA_KeyCompression, false);
     setFocusPolicy(Qt::StrongFocus);
+    setMinimumSize(screenGetMinSize());
 }
 
 ScreenPanelGL::~ScreenPanelGL()
