@@ -27,7 +27,7 @@ jobs:
           update: true
 
     - name: Install dependencies
-      run: pacman -Sq --noconfirm git make mingw-w64-x86_64-{cmake,mesa,SDL2,qt5-static,libslirp,libarchive,libepoxy,toolchain}
+      run: pacman -Sq --noconfirm git make pkgconf mingw-w64-x86_64-{cmake,mesa,SDL2,qt5-static,libslirp,libarchive,libepoxy,toolchain}
   
     - name: Create build environment
       working-directory: ${{runner.workspace}}

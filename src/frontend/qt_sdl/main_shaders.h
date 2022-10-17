@@ -23,7 +23,6 @@ const char* kScreenVS = R"(#version 140
 
 uniform vec2 uScreenSize;
 uniform mat2x3 uTransform;
-uniform float uScaleFactor;
 
 in vec2 vPosition;
 in vec2 vTexcoord;
@@ -34,9 +33,9 @@ void main()
 {
     vec4 fpos;
 
-    fpos.xy = vec3(vPosition, 1.0) * uTransform * uScaleFactor;
+    fpos.xy = vec3(vPosition, 1.0) * uTransform;
 
-    fpos.xy = ((fpos.xy * 2.0) / (uScreenSize * uScaleFactor)) - 1.0;
+    fpos.xy = ((fpos.xy * 2.0) / uScreenSize) - 1.0;
     fpos.y *= -1;
     fpos.z = 0.0;
     fpos.w = 1.0;

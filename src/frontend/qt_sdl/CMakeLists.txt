@@ -45,8 +45,11 @@ set(SOURCES_QT_SDL
     ../FrontendUtil.h
     ../mic_blow.h
 
+    ../glad/glad.c
+    ../duckstation/gl/context.cpp
+
     ${CMAKE_SOURCE_DIR}/res/melon.qrc
-    )
+)
 
 if (APPLE)
     option(USE_QT6 "Build using Qt 6 instead of 5" ON)
@@ -71,12 +74,13 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+find_package(Threads REQUIRED)
+find_package(PkgConfig REQUIRED)
+
 if (BUILD_STATIC)
     list(APPEND PKG_CONFIG_EXECUTABLE "--static")
 endif()
 
-find_package(Threads REQUIRED)
-find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 pkg_check_modules(Slirp REQUIRED IMPORTED_TARGET slirp)
 pkg_check_modules(LibArchive REQUIRED IMPORTED_TARGET libarchive)
@@ -87,6 +91,47 @@ add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
 add_executable(melonDS ${SOURCES_QT_SDL})
 
+if (WIN32)
+    target_link_libraries(melonDS PUBLIC opengl32)
+
+    target_sources(melonDS PRIVATE
+        ../duckstation/gl/context_wgl.cpp
+
+        ../glad/glad_wgl.c
+    )
+elseif (APPLE)
+    if (NOT USE_QT6)
+        find_library(COCOA_LIB Cocoa)
+        target_link_libraries(melonDS PRIVATE ${COCOA_LIB})
+    endif()
+    target_sources(melonDS PRIVATE
+        ../duckstation/gl/context_agl.mm
+    )
+else()
+    # we only need ECM for Wayland
+    # so we only require it from here
+    find_package(ECM REQUIRED NO_MODULE)
+    list(APPEND CMAKE_MODULE_PATH "${ECM_MODULE_PATH}")
+
+    find_package(X11 REQUIRED)
+    find_package(EGL REQUIRED)
+    find_package(Wayland REQUIRED Client)
+
+    target_sources(melonDS PRIVATE
+        ../duckstation/gl/context_egl.cpp
+        ../duckstation/gl/context_egl_x11.cpp
+        ../duckstation/gl/context_glx.cpp
+        ../duckstation/gl/context_egl_wayland.cpp
+        ../duckstation/gl/x11_window.cpp
+
+        ../glad/glad_egl.c
+        ../glad/glad_glx.c
+    )
+    target_link_libraries(melonDS PRIVATE "${X11_LIBRARIES}" "${EGL_LIBRARIES}")
+    target_include_directories(melonDS PRIVATE "${X11_INCLUDE_DIR}")
+endif()
+
+
 if (BUILD_STATIC)
     qt_import_plugins(melonDS INCLUDE Qt::QSvgPlugin)
     target_link_options(melonDS PRIVATE -static)
@@ -95,6 +140,11 @@ endif()
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+if (USE_QT6)
+    target_include_directories(melonDS PUBLIC ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
+else()
+    target_include_directories(melonDS PUBLIC ${Qt5Gui_PRIVATE_INCLUDE_DIRS})
+endif()
 target_link_libraries(melonDS PRIVATE core)
 target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
