@@ -666,7 +666,7 @@ void EmuThread::run()
             if (EmuRunning == 0) break;
 
             winUpdateCount++;
-            if (winUpdateCount >= winUpdateFreq)
+            if (winUpdateCount >= winUpdateFreq && !oglContext)
             {
                 emit windowUpdate();
                 winUpdateCount = 0;
