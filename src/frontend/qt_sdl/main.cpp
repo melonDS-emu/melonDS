@@ -569,7 +569,10 @@ void EmuThread::run()
             if (EmuRunning == 3) EmuRunning = 2;
 
             // update render settings if needed
-            if (videoSettingsDirty)
+            // HACK:
+            // once the fast forward hotkey is released, we need to update vsync
+            // to the old setting again
+            if (videoSettingsDirty || Input::HotkeyReleased(HK_FastForward))
             {
                 if (oglContext)
                 {
@@ -673,6 +676,11 @@ void EmuThread::run()
             }
 
             bool fastforward = Input::HotkeyDown(HK_FastForward);
+
+            if (fastforward && oglContext && Config::ScreenVSync)
+            {
+                oglContext->SetSwapInterval(0);
+            }
 
             if (Config::AudioSync && !fastforward && audioDevice)
             {
