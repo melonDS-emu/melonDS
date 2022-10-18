@@ -33,7 +33,7 @@ QStringList DSRomPath = {};
 QStringList GBARomPath = {};
 bool StartOnFullscreen = false;
 
-char* GetNextArg (int argc, char** argv, int argp)
+char* GetNextArg(int argc, char** argv, int argp)
 {
     // returns argv[argp] if it exists, nullptr if it doesn't
     if (argp >= argc)
@@ -42,7 +42,7 @@ char* GetNextArg (int argc, char** argv, int argp)
         return argv[argp];
 }
 
-void ManageArgs (int argc, char** argv)
+void ManageArgs(int argc, char** argv)
 {
 
     // don't think this will ever happen but i don't wanna risk a random segfault
