@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <QStringList>
+
 #include "../FrontendUtil.h"
 
 #include "CLI.h"
@@ -27,8 +29,8 @@
 namespace CLI
 {
 
-char* DSRomPath = new char[1024];
-char* GBARomPath = new char[1024];
+QStringList DSRomPath = {};
+QStringList GBARomPath = {};
 bool StartOnFullscreen = false;
 
 char* GetNextArg (int argc, char** argv, int argp)
@@ -42,9 +44,6 @@ char* GetNextArg (int argc, char** argv, int argp)
 
 void ManageArgs (int argc, char** argv)
 {
-    //TODO: there has to be a better way to handle this, right?
-    DSRomPath = "";
-    GBARomPath = "";
 
     // don't think this will ever happen but i don't wanna risk a random segfault
     if (argc == 0)
@@ -92,12 +91,12 @@ void ManageArgs (int argc, char** argv)
             switch (posArgCount)
             {
                 case 0:
-                    {
-                        DSRomPath = arg;
-                        break;
-                    }
+                    DSRomPath = QString(arg).split("|");
+                    printf("DS ROM path: %s\n", arg);
+                    break;
                 case 1:
-                    GBARomPath = arg;
+                    GBARomPath = QString(arg).split("|");
+                    printf("GBA ROM path: %s\n", arg);
                     break;
                 default:
                     printf("Too many arguments, arg '%s' will be ignored\n", arg);

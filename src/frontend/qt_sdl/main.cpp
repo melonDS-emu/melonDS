@@ -3354,17 +3354,14 @@ int main(int argc, char** argv)
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
-    if (CLI::DSRomPath != "")
-    {
-        int res = Frontend::LoadROM(CLI::DSRomPath, Frontend::ROMSlot_NDS);
+    if (!CLI::GBARomPath.isEmpty())
+        if (!ROMManager::LoadGBAROM(CLI::GBARomPath))
+            printf("Failed to load GBA ROM: %s\n", CLI::GBARomPath[0].toLatin1().cbegin());
 
-        // should this be moved to *after* the GBA ROM is loaded?
-        if (res == Frontend::Load_OK)
-            emuThread->emuRun();
-    }
 
-    if (CLI::GBARomPath != "")
-        Frontend::LoadROM(CLI::GBARomPath, Frontend::ROMSlot_GBA);
+    if (!CLI::DSRomPath.isEmpty())
+        if (!ROMManager::LoadROM(CLI::DSRomPath, true))
+            printf("Failed to load NDS ROM: %s\n", CLI::DSRomPath[0].toLatin1().cbegin());
 
     int ret = melon.exec();
 

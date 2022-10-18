@@ -15,10 +15,12 @@
 #ifndef CLI_H
 #define CLI_H
 
+#include <QStringList>
+
 namespace CLI {
 
-extern char* DSRomPath;
-extern char* GBARomPath;
+extern QStringList DSRomPath;
+extern QStringList GBARomPath;
 extern bool StartOnFullscreen;
 
 extern char* GetNextArg(int argc, char** argv, int argp);
