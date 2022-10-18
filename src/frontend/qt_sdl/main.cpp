@@ -1325,8 +1325,12 @@ std::optional<WindowInfo> ScreenPanelGL::getWindowInfo()
     else if (platform_name == QStringLiteral("wayland"))
     {
         wi.type = WindowInfo::Type::Wayland;
-        wi.display_connection = pni->nativeResourceForWindow("display", windowHandle());
-        wi.window_handle = pni->nativeResourceForWindow("surface", windowHandle());
+        QWindow* handle = windowHandle();
+        if (handle == nullptr)
+            return std::nullopt;
+
+        wi.display_connection = pni->nativeResourceForWindow("display", handle);
+        wi.window_handle = pni->nativeResourceForWindow("surface", handle);
     }
     else
     {
