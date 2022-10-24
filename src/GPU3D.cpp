@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <algorithm>
+#include <math.h>
 #include "NDS.h"
 #include "GPU.h"
 #include "FIFO.h"
@@ -1554,9 +1555,22 @@ void CalculateLighting()
         if (difflevel < 0) difflevel = 0;
         else if (difflevel > 255) difflevel = 255;
 
-        s32 shinelevel = -(((LightDirection[i][0]>>1)*normaltrans[0] +
-                          (LightDirection[i][1]>>1)*normaltrans[1] +
-                          ((LightDirection[i][2]-0x200)>>1)*normaltrans[2]) >> 10);
+        s32 halfVec[3];
+        halfVec[0] = LightDirection[i][0] >> 1;
+        halfVec[1] = LightDirection[i][1] >> 1;
+        halfVec[2] = ((s32)LightDirection[i][2] - 0x200) >> 1;
+        s32 halfVecLen = (s32)(sqrtf((halfVec[0]*halfVec[0]+halfVec[1]*halfVec[1]+halfVec[2]*halfVec[2])/(512.f*512.f)) * 512.f);
+        //printf("vec len %d\n", halfVecLen);
+        if (halfVecLen > 0)
+        {
+            halfVec[0] = (halfVec[0]<<9) / halfVecLen;
+            halfVec[1] = (halfVec[1]<<9) / halfVecLen;
+            halfVec[2] = (halfVec[2]<<9) / halfVecLen;
+        }
+
+        s32 shinelevel = -((halfVec[0]*normaltrans[0] +
+                          halfVec[1]*normaltrans[1] +
+                          halfVec[2]*normaltrans[2]) >> 10);
         if (shinelevel < 0) shinelevel = 0;
         else if (shinelevel > 255) shinelevel = (0x100 - shinelevel) & 0xFF;
         shinelevel = ((shinelevel * shinelevel) >> 7) - 0x100; // really (2*shinelevel*shinelevel)-1
