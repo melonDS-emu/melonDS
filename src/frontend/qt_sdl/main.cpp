@@ -96,6 +96,17 @@
 
 // TODO: uniform variable spelling
 
+const QStringList NdsRomExtensions{".nds", ".srl", ".dsi"};
+const QStringList GbaRomExtensions{".gba"};
+const QStringList ArchiveExtensions{
+    ".zip", ".7z", ".rar", ".tar",
+    ".tar.gz",  ".tgz",
+    ".tar.xz",  ".txz",
+    ".tar.bz2", ".tbz2",
+    ".tar.lz4", ".tlz4",
+    ".tar.zst", ".tzst",
+};
+
 bool RunningSomething;
 
 MainWindow* mainWindow;
@@ -1414,6 +1425,13 @@ void ScreenPanelGL::onScreenLayoutChanged()
     setupScreenLayout();
 }
 
+static bool FileExtensionInList(const QString& filename, const QStringList& extensions)
+{
+    return std::any_of(extensions.cbegin(), extensions.cend(), [&](const auto& ext) {
+        return filename.endsWith(ext, Qt::CaseInsensitive);
+    });
+}
+
 #ifndef _WIN32
 static int signalFd[2];
 QSocketNotifier *signalSn;
@@ -2000,7 +2018,6 @@ void MainWindow::keyReleaseEvent(QKeyEvent* event)
     Input::KeyRelease(event);
 }
 
-
 void MainWindow::dragEnterEvent(QDragEnterEvent* event)
 {
     if (!event->mimeData()->hasUrls()) return;
@@ -2010,14 +2027,9 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
 
     QString filename = urls.at(0).toLocalFile();
 
-    QStringList acceptedExts{".nds", ".srl", ".dsi", ".gba", ".rar",
-                             ".zip", ".7z", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2"};
-
-    for (const QString &ext : acceptedExts)
-    {
-        if (filename.endsWith(ext, Qt::CaseInsensitive))
-            event->acceptProposedAction();
-    }
+    static const QStringList acceptedExts = NdsRomExtensions + GbaRomExtensions + ArchiveExtensions;
+    if (FileExtensionInList(filename, acceptedExts))
+        event->acceptProposedAction();
 }
 
 void MainWindow::dropEvent(QDropEvent* event)
@@ -2028,7 +2040,6 @@ void MainWindow::dropEvent(QDropEvent* event)
     if (urls.count() > 1) return; // not handling more than one file at once
 
     QString filename = urls.at(0).toLocalFile();
-    QStringList arcexts{".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2"};
 
     emuThread->emuPause();
 
@@ -2038,24 +2049,14 @@ void MainWindow::dropEvent(QDropEvent* event)
         return;
     }
 
-    for (const QString &ext : arcexts)
+    QStringList file = splitArchivePath(filename, true);
+    if (file.isEmpty())
     {
-        if (filename.endsWith(ext, Qt::CaseInsensitive))
-        {
-            QString arcfile = pickFileFromArchive(filename);
-            if (arcfile.isEmpty())
-            {
-                emuThread->emuUnpause();
-                return;
-            }
-
-            filename += "|" + arcfile;
-        }
+        emuThread->emuUnpause();
+        return;
     }
 
-    QStringList file = filename.split('|');
-
-    if (filename.endsWith(".gba", Qt::CaseInsensitive))
+    if (FileExtensionInList(filename, GbaRomExtensions))
     {
         if (!ROMManager::LoadGBAROM(file))
         {
@@ -2136,7 +2137,10 @@ bool MainWindow::preloadROMs(QString filename, QString gbafilename)
     bool gbaloaded = false;
     if (!gbafilename.isEmpty())
     {
-        QStringList gbafile = gbafilename.split('|');
+        QStringList gbafile = splitArchivePath(gbafilename, true);
+        if (gbafile.isEmpty())
+            return false;
+
         if (!ROMManager::LoadGBAROM(gbafile))
         {
             // TODO: better error reporting?
@@ -2147,7 +2151,10 @@ bool MainWindow::preloadROMs(QString filename, QString gbafilename)
         gbaloaded = true;
     }
 
-    QStringList file = filename.split('|');
+    QStringList file = splitArchivePath(filename, true);
+    if (file.isEmpty())
+        return false;
+
     if (!ROMManager::LoadROM(file, true))
     {
         // TODO: better error reporting?
@@ -2176,97 +2183,110 @@ QString MainWindow::pickFileFromArchive(QString archiveFileName)
 {
     QVector<QString> archiveROMList = Archive::ListArchive(archiveFileName);
 
-    QString romFileName = ""; // file name inside archive
-
-    if (archiveROMList.size() > 2)
+    if (archiveROMList.size() <= 1)
     {
-        archiveROMList.removeFirst();
-
-        bool ok;
-        QString toLoad = QInputDialog::getItem(this, "melonDS",
-                                  "This archive contains multiple files. Select which ROM you want to load.", archiveROMList.toList(), 0, false, &ok);
-        if (!ok) // User clicked on cancel
-            return QString();
-
-        romFileName = toLoad;
-    }
-    else if (archiveROMList.size() == 2)
-    {
-        romFileName = archiveROMList.at(1);
-    }
-    else if ((archiveROMList.size() == 1) && (archiveROMList[0] == QString("OK")))
-    {
-        QMessageBox::warning(this, "melonDS", "This archive is empty.");
-    }
-    else
-    {
-        QMessageBox::critical(this, "melonDS", "This archive could not be read. It may be corrupt or you don't have the permissions.");
+        if (!archiveROMList.isEmpty() && archiveROMList.at(0) == "OK")
+            QMessageBox::warning(this, "melonDS", "This archive is empty.");
+        else
+            QMessageBox::critical(this, "melonDS", "This archive could not be read. It may be corrupt or you don't have the permissions.");
+        return QString();
     }
 
-    return romFileName;
+    archiveROMList.removeFirst();
+
+    const auto notNdsRom = [&](const auto& filename){ return !FileExtensionInList(filename, NdsRomExtensions); };
+    archiveROMList.erase(std::remove_if(archiveROMList.begin(), archiveROMList.end(), notNdsRom),
+                         archiveROMList.end());
+
+    if (archiveROMList.isEmpty())
+    {
+        QMessageBox::warning(this, "melonDS", "This archive does not contain any ROMs.");
+        return QString();
+    }
+
+    if (archiveROMList.size() == 1)
+        return archiveROMList.first();
+
+    bool ok;
+    QString toLoad = QInputDialog::getItem(this, "melonDS",
+                                           "This archive contains multiple files. Select which ROM you want to load.",
+                                           archiveROMList.toList(), 0, false, &ok);
+    if (!ok) // User clicked on cancel
+        return QString();
+
+    return toLoad;
+}
+
+QStringList MainWindow::splitArchivePath(const QString& filename, bool memberSyntax)
+{
+    if (filename.isEmpty())
+        return {};
+
+    if (memberSyntax)
+    {
+        const QStringList filenameParts = filename.split('|');
+
+        if (filenameParts.size() > 2)
+        {
+            QMessageBox::warning(this, "melonDS", "This path contains too many vertical bars.");
+            return {};
+        }
+
+        if (filenameParts.size() == 2)
+        {
+            const QString archive = filenameParts.at(0);
+            if (!QFileInfo(archive).exists())
+            {
+                QMessageBox::warning(this, "melonDS", "This archive does not exist.");
+                return {};
+            }
+
+            const QString subfile = filenameParts.at(1);
+            if (!Archive::ListArchive(archive).contains(subfile))
+            {
+                QMessageBox::warning(this, "melonDS", "This archive does not contain the desired file.");
+                return {};
+            }
+
+            return {archive, subfile};
+        }
+
+    }
+
+    if (!QFileInfo(filename).exists())
+    {
+        QMessageBox::warning(this, "melonDS", "This ROM file does not exist.");
+        return {};
+    }
+
+    if (FileExtensionInList(filename, ArchiveExtensions))
+    {
+        const QString subfile = pickFileFromArchive(filename);
+        if (subfile.isEmpty())
+            return {};
+
+        return {filename, subfile};
+    }
+
+    return {filename};
 }
 
 QStringList MainWindow::pickROM(bool gba)
 {
-    QString console;
-    QStringList romexts;
-    QStringList arcexts{"*.zip", "*.7z", "*.rar", "*.tar", "*.tar.gz", "*.tar.xz", "*.tar.bz2"};
-    QStringList ret;
+    const QString console = gba ? "GBA" : "DS";
+    const QStringList& romexts = gba ? GbaRomExtensions : NdsRomExtensions;
+    static const QString filterSuffix = " *" + ArchiveExtensions.join(" *") + ");;Any file (*.*)";
 
-    if (gba)
-    {
-        console = "GBA";
-        romexts.append("*.gba");
-    }
-    else
-    {
-        console = "DS";
-        romexts.append({"*.nds", "*.dsi", "*.ids", "*.srl"});
-    }
+    const QString filter = console + " ROMs (*" + romexts.join(" *") + filterSuffix;
+    const QString filename = QFileDialog::getOpenFileName(
+        this, "Open " + console + " ROM", QString::fromStdString(Config::LastROMFolder), filter);
 
-    QString filter = romexts.join(' ') + " " + arcexts.join(' ');
-    filter = console + " ROMs (" + filter + ");;Any file (*.*)";
-
-    QString filename = QFileDialog::getOpenFileName(this,
-                                                    "Open "+console+" ROM",
-                                                    QString::fromStdString(Config::LastROMFolder),
-                                                    filter);
     if (filename.isEmpty())
-        return ret;
+        return {};
 
-    int pos = filename.length() - 1;
-    while (filename[pos] != '/' && filename[pos] != '\\' && pos > 0) pos--;
-    QString path_dir = filename.left(pos);
-    QString path_file = filename.mid(pos+1);
+    Config::LastROMFolder = QFileInfo(filename).dir().path().toStdString();
 
-    Config::LastROMFolder = path_dir.toStdString();
-
-    bool isarc = false;
-    for (const auto& ext : arcexts)
-    {
-        int l = ext.length() - 1;
-        if (path_file.right(l).toLower() == ext.right(l))
-        {
-            isarc = true;
-            break;
-        }
-    }
-
-    if (isarc)
-    {
-        path_file = pickFileFromArchive(filename);
-        if (path_file.isEmpty())
-            return ret;
-
-        ret.append(filename);
-        ret.append(path_file);
-    }
-    else
-    {
-        ret.append(filename);
-    }
-
-    return ret;
+    return splitArchivePath(filename, false);
 }
 
 void MainWindow::updateCartInserted(bool gba)
@@ -2389,12 +2409,17 @@ void MainWindow::onClickRecentFile()
 {
     QAction *act = (QAction *)sender();
     QString filename = act->data().toString();
-    QStringList file = filename.split('|');
 
     emuThread->emuPause();
 
     if (!verifySetup())
     {
+        emuThread->emuUnpause();
+        return;
+    }
+
+    QStringList file = splitArchivePath(filename, true);
+    if (file.isEmpty()) {
         emuThread->emuUnpause();
         return;
     }
