@@ -20,72 +20,64 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <QStringList>
+#include <QApplication>
 #include <QCommandLineParser>
+#include <QStringList>
 
 #include "CLI.h"
+#include "main.h"
 
 namespace CLI
 {
 
-QStringList DSRomPath = {};
-QStringList GBARomPath = {};
-bool StartOnFullscreen = false;
-
-void ManageArgs(int argc, char** argv)
+CommandLineOptions* ManageArgs(QApplication& melon)
 {
+    QCommandLineParser parser;
+    parser.addHelpOption();
 
-    int posArgCount = 0;
+    parser.addPositionalArgument("nds", "Nintendo DS ROM (or an archive file which contains it) to load into Slot-1");
+    parser.addPositionalArgument("gba", "GBA ROM (or an archive file which contains it) to load into Slot-2");
+
+    parser.addOption(QCommandLineOption({"b", "boot"}, "Whether to boot firmware on startup. Defaults to auto (boot if ", "auto/always/never", "auto"));
+    parser.addOption(QCommandLineOption({"f", "fullscreen"}, "Start melonDS on fullscreen mode"));
+
+    parser.process(melon);
+
+    CommandLineOptions* options = new CommandLineOptions{{},{}, parser.isSet("fullscreen")};
     
-    for (int i = 1; i < argc; i++)
+    //TODO: aRcHiVeS
+    QStringList posargs = parser.positionalArguments();
+    switch (posargs.size())
     {
-        char* arg = argv[i];
-        bool isFlag;
-        if (arg[0] == '-')
-        {
-            if (!strcasecmp(arg, "-h") || !strcasecmp(arg, "--help"))
-            {
-                //TODO: QT options
-                printf(
-                   "usage: melonDS [options] ... [dspath] [gbapath]\n"
-                   "Options:\n"
-                   "    -h / --help         display this help message and quit\n"
-                   "    -v / --verbose      toggle verbose mode\n"
-                   "    -f / --fullscreen   opens melonDS on fullscreen\n"
-                   "Arguments:\n"
-                   "    dspath              path to a DS ROM you want to run\n"
-                   "    gbapath             path to a GBA ROM you want to load in the emulated Slot 2\n"
-                );
-                exit(0);
-            }
-            else if (!strcasecmp(arg, "-f") || !strcasecmp(arg, "--fullscreen"))
-            {
-                StartOnFullscreen = true;
-            }
-            else
-            {
-                printf("Unrecognized option %s - run '%s --help' for more details \n", arg, argv[0]);
-                exit(1);
-            }
-        } 
-        else
-        {
-            switch (posArgCount)
-            {
-                case 0:
-                    DSRomPath = QString(arg).split("|");
-                    printf("DS ROM path: %s\n", arg);
-                    break;
-                case 1:
-                    GBARomPath = QString(arg).split("|");
-                    printf("GBA ROM path: %s\n", arg);
-                    break;
-                default:
-                    printf("Too many arguments, arg '%s' will be ignored\n", arg);
-            }
-            posArgCount++;
-        }
+        default:
+            printf("Too many positional arguments; ignoring 3 onwards\n");
+        case 2:
+            options->gbaRomPath = QStringList(posargs[1]);
+        case 1:
+            options->dsRomPath = QStringList(posargs[0]);
+        case 0:
+            break;
     }
+
+    QString bootMode = parser.value("boot");
+    if (bootMode == "auto")
+    {
+        options->boot = posargs.size() > 0;
+    } 
+    else if (bootMode == "always")
+    {
+        options->boot = true;
+    }
+    else if (bootMode == "never")
+    {
+        options->boot = false;
+    }
+    else {
+        printf("ERROR: -b/--boot only accepts auto/always/never as arguments\n");
+        exit(1);
+    }
+
+    return options;
 }
 
 }

@@ -2427,7 +2427,7 @@ void MainWindow::onBootFirmware()
     }
 
     if (!ROMManager::LoadBIOS())
-    {
+{
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "This firmware is not bootable.");
         emuThread->emuUnpause();
@@ -3232,20 +3232,15 @@ int main(int argc, char** argv)
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
-    //CLI::ManageArgs(argc, argv);
-
     // easter egg - not worth checking other cases for something so dumb
-    printf("%d %s\n", argc, argv[0]);
     if (argc != 0 && (!strcasecmp(argv[0], "derpDS") || !strcasecmp(argv[0], "./derpDS")))
         printf("did you just call me a derp???\n");
-
+    
     Platform::Init(argc, argv);
 
     MelonApplication melon(argc, argv);
 
-    QCommandLineParser parser;
-    parser.addHelpOption();
-    parser.process(melon);
+    CLI::CommandLineOptions* options = CLI::ManageArgs(melon);
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -3349,7 +3344,7 @@ int main(int argc, char** argv)
     Input::OpenJoystick();
 
     mainWindow = new MainWindow();
-    if (CLI::StartOnFullscreen)
+    if (options->fullscreen)
     {
         // onFullscreenToggled is private and I don't know if I should copy what's inside it or make it public
         mainWindow->showFullScreen();
@@ -3364,14 +3359,17 @@ int main(int argc, char** argv)
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
-    if (!CLI::GBARomPath.isEmpty()) {
-        if (!ROMManager::LoadGBAROM(CLI::GBARomPath))
-            printf("Failed to load GBA ROM: %s\n", CLI::GBARomPath[0].toLatin1().cbegin());
+    //TODO-CLI: add error boxes or something
+    if (!options->gbaRomPath.isEmpty() && !ROMManager::LoadGBAROM(options->gbaRomPath)) {
+        printf("Failed to load GBA ROM: %s\n", options->gbaRomPath[0].toLatin1().cbegin());
     }
-
-    if (!CLI::DSRomPath.isEmpty())
-        if (!ROMManager::LoadROM(CLI::DSRomPath, true))
-            printf("Failed to load NDS ROM: %s\n", CLI::DSRomPath[0].toLatin1().cbegin());
+    if (!options->dsRomPath.isEmpty()) {
+        if (!ROMManager::LoadROM(options->dsRomPath, options->boot))
+            printf("Failed to load NDS ROM: %s\n", options->dsRomPath[0].toLatin1().cbegin());
+    }
+    //TODO-CLI
+    // else if (options->boot && !BootFirmware())
+    //     printf("Firmware is not bootable");
 
     int ret = melon.exec();
 

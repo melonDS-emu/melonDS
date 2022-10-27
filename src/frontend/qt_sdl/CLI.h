@@ -19,15 +19,19 @@
 #ifndef CLI_H
 #define CLI_H
 
+#include <QApplication>
 #include <QStringList>
 
 namespace CLI {
 
-extern QStringList DSRomPath;
-extern QStringList GBARomPath;
-extern bool StartOnFullscreen;
+struct CommandLineOptions {
+    QStringList dsRomPath;
+    QStringList gbaRomPath;
+    bool fullscreen;
+    bool boot;
+};
 
-extern void ManageArgs(int argc, char** argv);
+extern CommandLineOptions* ManageArgs(QApplication& melon);
 
 }
 
