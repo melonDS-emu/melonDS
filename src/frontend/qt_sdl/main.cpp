@@ -36,6 +36,7 @@
 #include <QKeyEvent>
 #include <QMimeData>
 #include <QVector>
+#include <QCommandLineParser>
 #ifndef _WIN32
 #include <QGuiApplication>
 #include <QSocketNotifier>
@@ -93,6 +94,8 @@
 #include "ROMManager.h"
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
+
+#include "CLI.h"
 
 // TODO: uniform variable spelling
 
@@ -3229,9 +3232,20 @@ int main(int argc, char** argv)
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
+    //CLI::ManageArgs(argc, argv);
+
+    // easter egg - not worth checking other cases for something so dumb
+    printf("%d %s\n", argc, argv[0]);
+    if (argc != 0 && (!strcasecmp(argv[0], "derpDS") || !strcasecmp(argv[0], "./derpDS")))
+        printf("did you just call me a derp???\n");
+
     Platform::Init(argc, argv);
 
     MelonApplication melon(argc, argv);
+
+    QCommandLineParser parser;
+    parser.addHelpOption();
+    parser.process(melon);
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -3335,6 +3349,12 @@ int main(int argc, char** argv)
     Input::OpenJoystick();
 
     mainWindow = new MainWindow();
+    if (CLI::StartOnFullscreen)
+    {
+        // onFullscreenToggled is private and I don't know if I should copy what's inside it or make it public
+        mainWindow->showFullScreen();
+        mainWindow->menuBar()->setFixedHeight(0); // Don't use hide() as menubar actions stop working
+    }
 
     emuThread = new EmuThread();
     emuThread->start();
@@ -3344,14 +3364,14 @@ int main(int argc, char** argv)
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
-    if (argc > 1)
-    {
-        QString file = argv[1];
-        QString gbafile = "";
-        if (argc > 2) gbafile = argv[2];
-
-        mainWindow->preloadROMs(file, gbafile);
+    if (!CLI::GBARomPath.isEmpty()) {
+        if (!ROMManager::LoadGBAROM(CLI::GBARomPath))
+            printf("Failed to load GBA ROM: %s\n", CLI::GBARomPath[0].toLatin1().cbegin());
     }
+
+    if (!CLI::DSRomPath.isEmpty())
+        if (!ROMManager::LoadROM(CLI::DSRomPath, true))
+            printf("Failed to load NDS ROM: %s\n", CLI::DSRomPath[0].toLatin1().cbegin());
 
     int ret = melon.exec();
 

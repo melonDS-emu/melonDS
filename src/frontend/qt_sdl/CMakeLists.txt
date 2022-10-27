@@ -49,6 +49,9 @@ set(SOURCES_QT_SDL
     ../duckstation/gl/context.cpp
 
     ${CMAKE_SOURCE_DIR}/res/melon.qrc
+
+    CLI.h
+    CLI.cpp
 )
 
 if (APPLE)
