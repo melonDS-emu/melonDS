@@ -95,7 +95,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
             options->dsRomPath += parser.value("archive-file");
         }
     } 
-    else if(!options->dsRomPath.isEmpty())
+    else if (!options->dsRomPath.isEmpty())
     {
         //TODO-CLI: try to automatically find ROM
         QStringList paths = options->dsRomPath[0].split("|");
@@ -117,7 +117,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
             options->gbaRomPath += parser.value("archive-file-gba");
         }
     }
-    else if(!options->gbaRomPath.isEmpty())
+    else if (!options->gbaRomPath.isEmpty())
     {
         //TODO-CLI: try to automatically find ROM
         QStringList paths = options->gbaRomPath[0].split("|");

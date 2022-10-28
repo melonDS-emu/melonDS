@@ -3126,8 +3126,7 @@ void MainWindow::onTitleUpdate(QString title)
     setWindowTitle(title);
 }
 
-void MainWindow::onFullscreenToggled()
-{
+void ToggleFullscreen(MainWindow* mainWindow) {
     if (!mainWindow->isFullScreen())
     {
         mainWindow->showFullScreen();
@@ -3139,6 +3138,11 @@ void MainWindow::onFullscreenToggled()
         int menuBarHeight = mainWindow->menuBar()->sizeHint().height();
         mainWindow->menuBar()->setFixedHeight(menuBarHeight);
     }
+}
+
+void MainWindow::onFullscreenToggled()
+{
+    ToggleFullscreen(this);
 }
 
 void MainWindow::onEmuStart()
@@ -3357,11 +3361,7 @@ int main(int argc, char** argv)
 
     mainWindow = new MainWindow();
     if (options->fullscreen)
-    {
-        // onFullscreenToggled is private and I don't know if I should copy what's inside it or make it public
-        mainWindow->showFullScreen();
-        mainWindow->menuBar()->setFixedHeight(0); // Don't use hide() as menubar actions stop working
-    }
+        ToggleFullscreen(mainWindow);
 
     emuThread = new EmuThread();
     emuThread->start();
