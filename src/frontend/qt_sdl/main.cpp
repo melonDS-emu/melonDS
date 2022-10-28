@@ -2125,7 +2125,7 @@ bool MainWindow::verifySetup()
     return true;
 }
 
-bool MainWindow::preloadROMs(QString filename, QString gbafilename)
+bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
 {
     if (!verifySetup())
     {
@@ -2133,9 +2133,8 @@ bool MainWindow::preloadROMs(QString filename, QString gbafilename)
     }
 
     bool gbaloaded = false;
-    if (!gbafilename.isEmpty())
+    if (!gbafile.isEmpty())
     {
-        QStringList gbafile = gbafilename.split('|');
         if (!ROMManager::LoadGBAROM(gbafile))
         {
             // TODO: better error reporting?
@@ -2146,20 +2145,33 @@ bool MainWindow::preloadROMs(QString filename, QString gbafilename)
         gbaloaded = true;
     }
 
-    QStringList file = filename.split('|');
-    if (!ROMManager::LoadROM(file, true))
+    bool ndsloaded = false;
+    if (!file.isEmpty())
     {
-        // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
-        return false;
+        if (!ROMManager::LoadROM(file, true))
+        {
+            // TODO: better error reporting?
+            QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+            return false;
+        }
+        recentFileList.removeAll(file.join("|"));
+        recentFileList.prepend(file.join("|"));
+        updateRecentFilesMenu();
+        ndsloaded = true;
     }
 
-    recentFileList.removeAll(filename);
-    recentFileList.prepend(filename);
-    updateRecentFilesMenu();
-
-    NDS::Start();
-    emuThread->emuRun();
+    if (boot)
+    {
+        if (ndsloaded)
+        {
+            NDS::Start();
+            emuThread->emuRun();
+        }
+        else
+        {
+            onBootFirmware();
+        }
+    }
 
     updateCartInserted(false);
 
@@ -3216,7 +3228,7 @@ bool MelonApplication::event(QEvent *event)
         QFileOpenEvent *openEvent = static_cast<QFileOpenEvent*>(event);
 
         emuThread->emuPause();
-        if (!mainWindow->preloadROMs(openEvent->file(), ""))
+        if (!mainWindow->preloadROMs(openEvent->file().split("|"), {}, true))
             emuThread->emuUnpause();
     }
 
@@ -3359,17 +3371,7 @@ int main(int argc, char** argv)
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
-    //TODO-CLI: add error boxes or something
-    if (!options->gbaRomPath.isEmpty() && !ROMManager::LoadGBAROM(options->gbaRomPath)) {
-        printf("Failed to load GBA ROM: %s\n", options->gbaRomPath[0].toLatin1().cbegin());
-    }
-    if (!options->dsRomPath.isEmpty()) {
-        if (!ROMManager::LoadROM(options->dsRomPath, options->boot))
-            printf("Failed to load NDS ROM: %s\n", options->dsRomPath[0].toLatin1().cbegin());
-    }
-    //TODO-CLI
-    // else if (options->boot && !BootFirmware())
-    //     printf("Firmware is not bootable");
+    mainWindow->preloadROMs(options->dsRomPath, options->gbaRomPath, options->boot);
 
     int ret = melon.exec();
 

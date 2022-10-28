@@ -25,7 +25,6 @@
 #include <QStringList>
 
 #include "CLI.h"
-#include "main.h"
 
 namespace CLI
 {
