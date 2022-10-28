@@ -503,6 +503,7 @@ bool LoadROM(QStringList filepath, bool reset)
         if (len > 0x40000000)
         {
             fclose(f);
+            delete[] filedata;
             return false;
         }
 
@@ -528,14 +529,14 @@ bool LoadROM(QStringList filepath, bool reset)
     {
         // file inside archive
 
-        u32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
-        if (lenread < 0) return false;
-        if (!filedata) return false;
-        if (lenread != filelen)
-        {
-            delete[] filedata;
-            return false;
-        }
+            s32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
+            if (lenread < 0) return false;
+            if (!filedata) return false;
+            if (lenread != filelen)
+            {
+                delete[] filedata;
+                return false;
+            }
 
         std::string std_archivepath = filepath.at(0).toStdString();
         basepath = std_archivepath.substr(0, LastSep(std_archivepath));

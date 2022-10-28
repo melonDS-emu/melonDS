@@ -36,6 +36,7 @@
 #include <QKeyEvent>
 #include <QMimeData>
 #include <QVector>
+#include <QCommandLineParser>
 #ifndef _WIN32
 #include <QGuiApplication>
 #include <QSocketNotifier>
@@ -93,6 +94,8 @@
 #include "ROMManager.h"
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
+
+#include "CLI.h"
 
 // TODO: uniform variable spelling
 
@@ -2126,7 +2129,7 @@ bool MainWindow::verifySetup()
     return true;
 }
 
-bool MainWindow::preloadROMs(QString filename, QString gbafilename)
+bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
 {
     if (!verifySetup())
     {
@@ -2134,9 +2137,8 @@ bool MainWindow::preloadROMs(QString filename, QString gbafilename)
     }
 
     bool gbaloaded = false;
-    if (!gbafilename.isEmpty())
+    if (!gbafile.isEmpty())
     {
-        QStringList gbafile = gbafilename.split('|');
         if (!ROMManager::LoadGBAROM(gbafile))
         {
             // TODO: better error reporting?
@@ -2147,20 +2149,33 @@ bool MainWindow::preloadROMs(QString filename, QString gbafilename)
         gbaloaded = true;
     }
 
-    QStringList file = filename.split('|');
-    if (!ROMManager::LoadROM(file, true))
+    bool ndsloaded = false;
+    if (!file.isEmpty())
     {
-        // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
-        return false;
+        if (!ROMManager::LoadROM(file, true))
+        {
+            // TODO: better error reporting?
+            QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+            return false;
+        }
+        recentFileList.removeAll(file.join("|"));
+        recentFileList.prepend(file.join("|"));
+        updateRecentFilesMenu();
+        ndsloaded = true;
     }
 
-    recentFileList.removeAll(filename);
-    recentFileList.prepend(filename);
-    updateRecentFilesMenu();
-
-    NDS::Start();
-    emuThread->emuRun();
+    if (boot)
+    {
+        if (ndsloaded)
+        {
+            NDS::Start();
+            emuThread->emuRun();
+        }
+        else
+        {
+            onBootFirmware();
+        }
+    }
 
     updateCartInserted(false);
 
@@ -2428,7 +2443,7 @@ void MainWindow::onBootFirmware()
     }
 
     if (!ROMManager::LoadBIOS())
-    {
+{
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "This firmware is not bootable.");
         emuThread->emuUnpause();
@@ -3115,8 +3130,7 @@ void MainWindow::onTitleUpdate(QString title)
     setWindowTitle(title);
 }
 
-void MainWindow::onFullscreenToggled()
-{
+void ToggleFullscreen(MainWindow* mainWindow) {
     if (!mainWindow->isFullScreen())
     {
         mainWindow->showFullScreen();
@@ -3128,6 +3142,11 @@ void MainWindow::onFullscreenToggled()
         int menuBarHeight = mainWindow->menuBar()->sizeHint().height();
         mainWindow->menuBar()->setFixedHeight(menuBarHeight);
     }
+}
+
+void MainWindow::onFullscreenToggled()
+{
+    ToggleFullscreen(this);
 }
 
 void MainWindow::onEmuStart()
@@ -3217,7 +3236,7 @@ bool MelonApplication::event(QEvent *event)
         QFileOpenEvent *openEvent = static_cast<QFileOpenEvent*>(event);
 
         emuThread->emuPause();
-        if (!mainWindow->preloadROMs(openEvent->file(), ""))
+        if (!mainWindow->preloadROMs(openEvent->file().split("|"), {}, true))
             emuThread->emuUnpause();
     }
 
@@ -3233,9 +3252,15 @@ int main(int argc, char** argv)
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
+    // easter egg - not worth checking other cases for something so dumb
+    if (argc != 0 && (!strcasecmp(argv[0], "derpDS") || !strcasecmp(argv[0], "./derpDS")))
+        printf("did you just call me a derp???\n");
+    
     Platform::Init(argc, argv);
 
     MelonApplication melon(argc, argv);
+
+    CLI::CommandLineOptions* options = CLI::ManageArgs(melon);
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -3339,6 +3364,8 @@ int main(int argc, char** argv)
     Input::OpenJoystick();
 
     mainWindow = new MainWindow();
+    if (options->fullscreen)
+        ToggleFullscreen(mainWindow);
 
     emuThread = new EmuThread();
     emuThread->start();
@@ -3348,14 +3375,7 @@ int main(int argc, char** argv)
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
-    if (argc > 1)
-    {
-        QString file = argv[1];
-        QString gbafile = "";
-        if (argc > 2) gbafile = argv[2];
-
-        mainWindow->preloadROMs(file, gbafile);
-    }
+    mainWindow->preloadROMs(options->dsRomPath, options->gbaRomPath, options->boot);
 
     int ret = melon.exec();
 
