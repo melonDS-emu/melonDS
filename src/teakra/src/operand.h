@@ -9,7 +9,7 @@ struct Operand {
     static_assert(bits > 0 && bits <= 16);
     static constexpr unsigned Bits = bits;
 
-protected:
+public:
     u16 storage{};
 
     template <typename OperandT, unsigned pos>

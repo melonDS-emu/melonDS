@@ -2,6 +2,8 @@
 #include "mmio.h"
 #include "shared_memory.h"
 
+#include "../../DSi.h"
+
 namespace Teakra {
 MemoryInterface::MemoryInterface(SharedMemory& shared_memory,
                                  MemoryInterfaceUnit& memory_interface_unit)
@@ -11,11 +13,17 @@ void MemoryInterface::SetMMIO(MMIORegion& mmio) {
     this->mmio = &mmio;
 }
 
-u16 MemoryInterface::ProgramRead(u32 address) const {
-    return shared_memory.ReadWord(address);
+u16 MemoryInterface::ProgramRead(u32 address) const
+{
+    //return shared_memory.ReadWord(address);
+    u8* ptr = DSi::NWRAMMap_B[2][(address >> 14) & 0x7];
+    return ptr ? *(u16*)&ptr[(address << 1) & 0x7FFF] : 0;
 }
-void MemoryInterface::ProgramWrite(u32 address, u16 value) {
-    shared_memory.WriteWord(address, value);
+void MemoryInterface::ProgramWrite(u32 address, u16 value)
+{
+    //shared_memory.WriteWord(address, value);
+    u8* ptr = DSi::NWRAMMap_B[2][(address >> 14) & 0x7];
+    if (ptr) *(u16*)&ptr[(address << 1) & 0x7FFF] = value;
 }
 u16 MemoryInterface::DataRead(u16 address, bool bypass_mmio) {
     if (memory_interface_unit.InMMIO(address) && !bypass_mmio) {

@@ -16,6 +16,9 @@
 
 namespace Teakra {
 
+class Interpreter;
+extern void (*InstrTable[65536])(Interpreter& cpu, u16 instr);
+
 class UnimplementedException : public std::runtime_error {
 public:
     UnimplementedException() : std::runtime_error("unimplemented") {}
@@ -60,6 +63,34 @@ public:
         UNREACHABLE();
     }
 
+    u16 OpcodeFetch()
+    {
+        u16 opcode = mem.ProgramRead((regs.pc++) | (regs.prpage << 18));
+        return opcode;
+    }
+
+    void HandleLoops()
+    {
+        if (regs.rep) {
+            if (regs.repc == 0) {
+                regs.rep = false;
+            } else {
+                --regs.repc;
+                --regs.pc;
+            }
+        }
+
+        if (regs.lp && regs.bkrep_stack[regs.bcn - 1].end + 1 == regs.pc) {
+            if (regs.bkrep_stack[regs.bcn - 1].lc == 0) {
+                --regs.bcn;
+                regs.lp = regs.bcn != 0;
+            } else {
+                --regs.bkrep_stack[regs.bcn - 1].lc;
+                regs.pc = regs.bkrep_stack[regs.bcn - 1].start;
+            }
+        }
+    }
+
     void Run(u64 cycles) {
         idle = false;
         for (u64 i = 0; i < cycles; ++i) {
@@ -84,8 +115,8 @@ public:
                 regs.ipv = 1;
             }
 
-            u16 opcode = mem.ProgramRead((regs.pc++) | (regs.prpage << 18));
-            auto& decoder = decoders[opcode];
+            u16 opcode = OpcodeFetch();
+            /*auto& decoder = decoders[opcode];
             u16 expand_value = 0;
             if (decoder.NeedExpansion()) {
                 expand_value = mem.ProgramRead((regs.pc++) | (regs.prpage << 18));
@@ -110,7 +141,8 @@ public:
                 }
             }
 
-            decoder.call(*this, opcode, expand_value);
+            decoder.call(*this, opcode, expand_value);*/
+            InstrTable[opcode](*this, opcode);
 
             // I am not sure if a single-instruction loop is interruptable and how it is handled,
             // so just disable interrupt for it for now.
@@ -1185,14 +1217,16 @@ public:
         // retd is supposed to kick in after 2 cycles
 
         for (int i = 0; i < 2; i++) {
-            u16 opcode = mem.ProgramRead((regs.pc++) | (regs.prpage << 18));
+            /*u16 opcode = mem.ProgramRead((regs.pc++) | (regs.prpage << 18));
             auto& decoder = decoders[opcode];
             u16 expand_value = 0;
             if (decoder.NeedExpansion()) {
                 expand_value = mem.ProgramRead((regs.pc++) | (regs.prpage << 18));
             }
 
-            decoder.call(*this, opcode, expand_value);
+            decoder.call(*this, opcode, expand_value);*/
+            u16 opcode = OpcodeFetch();
+            InstrTable[opcode](*this, opcode);
         }
 
         PopPC();
@@ -3642,7 +3676,9 @@ private:
         return map.at(in);
     }
 
-    const std::vector<Matcher<Interpreter>> decoders = GetDecoderTable<Interpreter>();
+    //const std::vector<Matcher<Interpreter>> decoders = GetDecoderTable<Interpreter>();
 };
 
 } // namespace Teakra
+
+#include "InstrDecode.h"

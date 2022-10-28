@@ -19,6 +19,7 @@ add_library(teakra
     timer.cpp
     timer.h
     icu.h
+	InstrDecode.h
     interpreter.h
     matcher.h
     memory_interface.cpp
