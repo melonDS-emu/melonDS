@@ -24,7 +24,10 @@
 
 namespace CLI {
 
-struct CommandLineOptions {
+struct CommandLineOptions
+{
+    QStringList errorsToDisplay = {};
+
     QStringList dsRomPath;
     QStringList gbaRomPath;
     bool fullscreen;
