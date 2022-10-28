@@ -385,6 +385,30 @@ void SetupDirectBoot(std::string romname)
     {
         MapSharedWRAM(3);
 
+        // setup main RAM data
+
+        for (u32 i = 0; i < 0x170; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[i];
+            ARM9Write32(0x027FFE00+i, tmp);
+        }
+
+        ARM9Write32(0x027FF800, NDSCart::CartID);
+        ARM9Write32(0x027FF804, NDSCart::CartID);
+        ARM9Write16(0x027FF808, NDSCart::Header.HeaderCRC16);
+        ARM9Write16(0x027FF80A, NDSCart::Header.SecureAreaCRC16);
+
+        ARM9Write16(0x027FF850, 0x5835);
+
+        ARM9Write32(0x027FFC00, NDSCart::CartID);
+        ARM9Write32(0x027FFC04, NDSCart::CartID);
+        ARM9Write16(0x027FFC08, NDSCart::Header.HeaderCRC16);
+        ARM9Write16(0x027FFC0A, NDSCart::Header.SecureAreaCRC16);
+
+        ARM9Write16(0x027FFC10, 0x5835);
+        ARM9Write16(0x027FFC30, 0xFFFF);
+        ARM9Write16(0x027FFC40, 0x0001);
+
         u32 arm9start = 0;
 
         // load the ARM9 secure area
@@ -413,28 +437,6 @@ void SetupDirectBoot(std::string romname)
             u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.ARM7ROMOffset+i];
             ARM7Write32(NDSCart::Header.ARM7RAMAddress+i, tmp);
         }
-
-        for (u32 i = 0; i < 0x170; i+=4)
-        {
-            u32 tmp = *(u32*)&NDSCart::CartROM[i];
-            ARM9Write32(0x027FFE00+i, tmp);
-        }
-
-        ARM9Write32(0x027FF800, NDSCart::CartID);
-        ARM9Write32(0x027FF804, NDSCart::CartID);
-        ARM9Write16(0x027FF808, NDSCart::Header.HeaderCRC16);
-        ARM9Write16(0x027FF80A, NDSCart::Header.SecureAreaCRC16);
-
-        ARM9Write16(0x027FF850, 0x5835);
-
-        ARM9Write32(0x027FFC00, NDSCart::CartID);
-        ARM9Write32(0x027FFC04, NDSCart::CartID);
-        ARM9Write16(0x027FFC08, NDSCart::Header.HeaderCRC16);
-        ARM9Write16(0x027FFC0A, NDSCart::Header.SecureAreaCRC16);
-
-        ARM9Write16(0x027FFC10, 0x5835);
-        ARM9Write16(0x027FFC30, 0xFFFF);
-        ARM9Write16(0x027FFC40, 0x0001);
 
         ARM7BIOSProt = 0x1204;
 

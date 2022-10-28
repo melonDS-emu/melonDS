@@ -368,8 +368,6 @@ void SetupDirectBoot()
     if (!(NDSCart::Header.UnitCode & 0x02))
         dsmode = true;
 
-    // TODO: RAM size!!
-
     if (dsmode)
     {
         SCFG_BIOS = 0x0303;
@@ -446,6 +444,104 @@ void SetupDirectBoot()
             DSi_SPI_TSC::SetMode(0x00);
     }
 
+    // setup main RAM data
+    // TODO: verify what changes when loading a DS-mode ROM
+
+    if (dsmode)
+    {
+        for (u32 i = 0; i < 0x170; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[i];
+            ARM9Write32(0x027FFE00+i, tmp);
+        }
+
+        ARM9Write32(0x027FF800, NDSCart::CartID);
+        ARM9Write32(0x027FF804, NDSCart::CartID);
+        ARM9Write16(0x027FF808, NDSCart::Header.HeaderCRC16);
+        ARM9Write16(0x027FF80A, NDSCart::Header.SecureAreaCRC16);
+
+        ARM9Write16(0x027FF850, 0x5835);
+
+        ARM9Write32(0x027FFC00, NDSCart::CartID);
+        ARM9Write32(0x027FFC04, NDSCart::CartID);
+        ARM9Write16(0x027FFC08, NDSCart::Header.HeaderCRC16);
+        ARM9Write16(0x027FFC0A, NDSCart::Header.SecureAreaCRC16);
+
+        ARM9Write16(0x027FFC10, 0x5835);
+        ARM9Write16(0x027FFC30, 0xFFFF);
+        ARM9Write16(0x027FFC40, 0x0001);
+    }
+    else
+    {
+        // CHECKME: some of these are 'only for NDS ROM', presumably
+        // only for when loading a cart? (as opposed to DSiWare)
+
+        for (u32 i = 0; i < 0x160; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[i];
+            ARM9Write32(0x02FFFA80+i, tmp);
+            ARM9Write32(0x02FFFE00+i, tmp);
+        }
+
+        for (u32 i = 0; i < 0x1000; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[i];
+            ARM9Write32(0x02FFC000+i, tmp);
+            ARM9Write32(0x02FFE000+i, tmp);
+        }
+
+        if (DSi_NAND::Init(&DSi::ARM7iBIOS[0x8308]))
+        {
+            u8 userdata[0x1B0];
+            DSi_NAND::ReadUserData(userdata);
+            for (u32 i = 0; i < 0x128; i+=4)
+                ARM9Write32(0x02000400+i, *(u32*)&userdata[0x88+i]);
+
+            u8 hwinfoS[0xA4];
+            u8 hwinfoN[0x9C];
+            DSi_NAND::ReadHardwareInfo(hwinfoS, hwinfoN);
+
+            for (u32 i = 0; i < 0x14; i+=4)
+                ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
+
+            for (u32 i = 0; i < 0x18; i+=4)
+                ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS[0x88+i]);
+
+            DSi_NAND::DeInit();
+        }
+
+        u8 nwifiver = SPI_Firmware::GetNWifiVersion();
+        ARM9Write8(0x020005E0, nwifiver);
+
+        // TODO: these should be taken from the wifi firmware in NAND
+        // but, hey, this works too.
+        if (nwifiver == 1)
+        {
+            ARM9Write16(0x020005E2, 0xB57E);
+            ARM9Write32(0x020005E4, 0x00500400);
+            ARM9Write32(0x020005E8, 0x00500000);
+            ARM9Write32(0x020005EC, 0x0002E000);
+        }
+        else
+        {
+            ARM9Write16(0x020005E2, 0x5BCA);
+            ARM9Write32(0x020005E4, 0x00520000);
+            ARM9Write32(0x020005E8, 0x00520000);
+            ARM9Write32(0x020005EC, 0x00020000);
+        }
+
+        // TODO: the shit at 02FFD7B0..02FFDC00
+        // and some other extra shit?
+
+        ARM9Write32(0x02FFFC00, NDSCart::CartID);
+        ARM9Write16(0x02FFFC40, 0x0001); // boot indicator
+
+        ARM9Write8(0x02FFFDFA, DSi_BPTWL::GetBootFlag() | 0x80);
+        ARM9Write8(0x02FFFDFB, 0x01);
+    }
+
+    // TODO: for DS-mode ROMs, switch RAM size here
+
     u32 arm9start = 0;
 
     // load the ARM9 secure area
@@ -501,72 +597,6 @@ void SetupDirectBoot()
                                 NDSCart::Header.DSiARM7Hash);
         }
     }
-
-    // CHECKME: some of these are 'only for NDS ROM', presumably
-    // only for when loading a cart? (as opposed to DSiWare)
-
-    for (u32 i = 0; i < 0x160; i+=4)
-    {
-        u32 tmp = *(u32*)&NDSCart::CartROM[i];
-        ARM9Write32(0x02FFFA80+i, tmp);
-        ARM9Write32(0x02FFFE00+i, tmp);
-    }
-
-    for (u32 i = 0; i < 0x1000; i+=4)
-    {
-        u32 tmp = *(u32*)&NDSCart::CartROM[i];
-        ARM9Write32(0x02FFC000+i, tmp);
-        ARM9Write32(0x02FFE000+i, tmp);
-    }
-
-    if (DSi_NAND::Init(&DSi::ARM7iBIOS[0x8308]))
-    {
-        u8 userdata[0x1B0];
-        DSi_NAND::ReadUserData(userdata);
-        for (u32 i = 0; i < 0x128; i+=4)
-            ARM9Write32(0x02000400+i, *(u32*)&userdata[0x88+i]);
-
-        u8 hwinfoS[0xA4];
-        u8 hwinfoN[0x9C];
-        DSi_NAND::ReadHardwareInfo(hwinfoS, hwinfoN);
-
-        for (u32 i = 0; i < 0x14; i+=4)
-            ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
-
-        for (u32 i = 0; i < 0x18; i+=4)
-            ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS[0x88+i]);
-
-        DSi_NAND::DeInit();
-    }
-
-    u8 nwifiver = SPI_Firmware::GetNWifiVersion();
-    ARM9Write8(0x020005E0, nwifiver);
-
-    // TODO: these should be taken from the wifi firmware in NAND
-    // but, hey, this works too.
-    if (nwifiver == 1)
-    {
-        ARM9Write16(0x020005E2, 0xB57E);
-        ARM9Write32(0x020005E4, 0x00500400);
-        ARM9Write32(0x020005E8, 0x00500000);
-        ARM9Write32(0x020005EC, 0x0002E000);
-    }
-    else
-    {
-        ARM9Write16(0x020005E2, 0x5BCA);
-        ARM9Write32(0x020005E4, 0x00520000);
-        ARM9Write32(0x020005E8, 0x00520000);
-        ARM9Write32(0x020005EC, 0x00020000);
-    }
-
-    // TODO: the shit at 02FFD7B0..02FFDC00
-    // and some other extra shit?
-
-    ARM9Write32(0x02FFFC00, NDSCart::CartID);
-    ARM9Write16(0x02FFFC40, 0x0001); // boot indicator
-
-    ARM9Write8(0x02FFFDFA, DSi_BPTWL::GetBootFlag() | 0x80);
-    ARM9Write8(0x02FFFDFB, 0x01);
 
     NDS::ARM7BIOSProt = 0x20;
 
