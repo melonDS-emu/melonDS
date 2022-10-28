@@ -101,7 +101,10 @@ CommandLineOptions* ManageArgs(QApplication& melon)
         QStringList paths = options->dsRomPath[0].split("|");
         printf("shits ;; %s\n", paths.join("__URMOM__").toStdString().c_str());
         if (paths.size() >= 2)
+        {
+            printf("Warning: use the a.zip|b.nds format at your own risk!\n");
             options->dsRomPath = paths;
+        }
     }
 
     if (parser.isSet("archive-file-gba"))
@@ -120,7 +123,10 @@ CommandLineOptions* ManageArgs(QApplication& melon)
         //TODO-CLI: try to automatically find ROM
         QStringList paths = options->gbaRomPath[0].split("|");
         if (paths.size() >= 2)
+        {
+            printf("Warning: use the a.zip|b.gba format at your own risk!\n");
             options->gbaRomPath = paths;
+        }
     }
 #endif
 
