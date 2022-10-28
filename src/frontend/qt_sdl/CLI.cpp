@@ -99,7 +99,6 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     {
         //TODO-CLI: try to automatically find ROM
         QStringList paths = options->dsRomPath[0].split("|");
-        printf("shits ;; %s\n", paths.join("__URMOM__").toStdString().c_str());
         if (paths.size() >= 2)
         {
             printf("Warning: use the a.zip|b.nds format at your own risk!\n");

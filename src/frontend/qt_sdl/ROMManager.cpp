@@ -490,10 +490,8 @@ bool LoadROM(QStringList filepath, bool reset)
     std::string romname;
 
     int num = filepath.count();
-    printf("fucks\n");
     if (num == 1)
     {
-        printf("fucks\n");
         // regular file
 
         std::string filename = filepath.at(0).toStdString();
