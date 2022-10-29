@@ -26,7 +26,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>RAM info - melonDS</string>
+   <string>内存信息 - melonDS</string>
   </property>
   <property name="modal">
    <bool>false</bool>
@@ -41,7 +41,7 @@
     </rect>
    </property>
    <property name="title">
-    <string>Search</string>
+    <string>搜索</string>
    </property>
    <widget class="QPushButton" name="btnSearch">
     <property name="geometry">
@@ -53,7 +53,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Search</string>
+     <string>搜索</string>
     </property>
    </widget>
    <widget class="QLineEdit" name="txtSearch">
@@ -79,7 +79,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Clear</string>
+     <string>清空</string>
     </property>
    </widget>
    <widget class="QLabel" name="labelValue">
@@ -92,7 +92,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Value:</string>
+     <string>数值：</string>
     </property>
    </widget>
    <widget class="QRadioButton" name="radiobtn1byte">
@@ -105,7 +105,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>1byte</string>
+     <string>1字节</string>
     </property>
     <property name="checked">
      <bool>true</bool>
@@ -121,7 +121,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>2bytes</string>
+     <string>2字节</string>
     </property>
    </widget>
    <widget class="QRadioButton" name="radiobtn4bytes">
@@ -134,7 +134,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>4bytes</string>
+     <string>4字节</string>
     </property>
    </widget>
   </widget>
@@ -204,17 +204,17 @@
    </attribute>
    <column>
     <property name="text">
-     <string>Address</string>
+     <string>地址</string>
     </property>
    </column>
    <column>
     <property name="text">
-     <string>Value</string>
+     <string>数值</string>
     </property>
    </column>
    <column>
     <property name="text">
-     <string>Previous</string>
+     <string>旧数值</string>
     </property>
    </column>
   </widget>
@@ -228,7 +228,7 @@
     </rect>
    </property>
    <property name="text">
-    <string>Found:</string>
+    <string>寻找：</string>
    </property>
   </widget>
  </widget>

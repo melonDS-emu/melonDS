@@ -41,13 +41,13 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     oldBitrate = Config::AudioBitrate;
     oldVolume = Config::AudioVolume;
 
-    ui->cbInterpolation->addItem("None");
-    ui->cbInterpolation->addItem("Linear");
-    ui->cbInterpolation->addItem("Cosine");
-    ui->cbInterpolation->addItem("Cubic");
+    ui->cbInterpolation->addItem("无");
+    ui->cbInterpolation->addItem("线性");
+    ui->cbInterpolation->addItem("余弦");
+    ui->cbInterpolation->addItem("立体");
     ui->cbInterpolation->setCurrentIndex(Config::AudioInterp);
 
-    ui->cbBitrate->addItem("Automatic");
+    ui->cbBitrate->addItem("自动");
     ui->cbBitrate->addItem("10-bit");
     ui->cbBitrate->addItem("16-bit");
     ui->cbBitrate->setCurrentIndex(Config::AudioBitrate);
@@ -71,7 +71,7 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     int inst = Platform::InstanceID();
     if (inst > 0)
     {
-        ui->lblInstanceNum->setText(QString("Configuring settings for instance %1").arg(inst+1));
+        ui->lblInstanceNum->setText(QString("为实例 %1 配置设置").arg(inst+1));
         ui->cbInterpolation->setEnabled(false);
         ui->cbBitrate->setEnabled(false);
         for (QAbstractButton* btn : grpMicMode->buttons())

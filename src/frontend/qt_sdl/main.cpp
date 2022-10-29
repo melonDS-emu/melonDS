@@ -1461,9 +1461,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     QMenuBar* menubar = new QMenuBar();
     {
-        QMenu* menu = menubar->addMenu("File");
+        QMenu* menu = menubar->addMenu("文件");
 
-        actOpenROM = menu->addAction("Open ROM...");
+        actOpenROM = menu->addAction("打开ROM...");
         connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
         actOpenROM->setShortcut(QKeySequence(QKeySequence::StandardKey::Open));
 
@@ -1471,7 +1471,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actOpenROMArchive, &QAction::triggered, this, &MainWindow::onOpenFileArchive);
         actOpenROMArchive->setShortcut(QKeySequence(Qt::Key_O | Qt::CTRL | Qt::SHIFT));*/
 
-        recentMenu = menu->addMenu("Open recent");
+        recentMenu = menu->addMenu("最近打开");
         for (int i = 0; i < 10; ++i)
         {
             std::string item = Config::RecentROMList[i];
@@ -1481,48 +1481,48 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         updateRecentFilesMenu();
 
         //actBootFirmware = menu->addAction("Launch DS menu");
-        actBootFirmware = menu->addAction("Boot firmware");
+        actBootFirmware = menu->addAction("启动固件");
         connect(actBootFirmware, &QAction::triggered, this, &MainWindow::onBootFirmware);
 
         menu->addSeparator();
 
-        actCurrentCart = menu->addAction("DS slot: " + ROMManager::CartLabel());
+        actCurrentCart = menu->addAction("DS槽位： " + ROMManager::CartLabel());
         actCurrentCart->setEnabled(false);
 
-        actInsertCart = menu->addAction("Insert cart...");
+        actInsertCart = menu->addAction("插入卡带...");
         connect(actInsertCart, &QAction::triggered, this, &MainWindow::onInsertCart);
 
-        actEjectCart = menu->addAction("Eject cart");
+        actEjectCart = menu->addAction("弹出卡带");
         connect(actEjectCart, &QAction::triggered, this, &MainWindow::onEjectCart);
 
         menu->addSeparator();
 
-        actCurrentGBACart = menu->addAction("GBA slot: " + ROMManager::GBACartLabel());
+        actCurrentGBACart = menu->addAction("GBA槽位: " + ROMManager::GBACartLabel());
         actCurrentGBACart->setEnabled(false);
 
-        actInsertGBACart = menu->addAction("Insert ROM cart...");
+        actInsertGBACart = menu->addAction("插入GBA卡带...");
         connect(actInsertGBACart, &QAction::triggered, this, &MainWindow::onInsertGBACart);
 
         {
-            QMenu* submenu = menu->addMenu("Insert add-on cart");
+            QMenu* submenu = menu->addMenu("插入拓展卡带");
 
-            actInsertGBAAddon[0] = submenu->addAction("Memory expansion");
+            actInsertGBAAddon[0] = submenu->addAction("内存拓展卡");
             actInsertGBAAddon[0]->setData(QVariant(NDS::GBAAddon_RAMExpansion));
             connect(actInsertGBAAddon[0], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
         }
 
-        actEjectGBACart = menu->addAction("Eject cart");
+        actEjectGBACart = menu->addAction("弹出卡带");
         connect(actEjectGBACart, &QAction::triggered, this, &MainWindow::onEjectGBACart);
 
         menu->addSeparator();
 
-        actImportSavefile = menu->addAction("Import savefile");
+        actImportSavefile = menu->addAction("导入存档");
         connect(actImportSavefile, &QAction::triggered, this, &MainWindow::onImportSavefile);
 
         menu->addSeparator();
 
         {
-            QMenu* submenu = menu->addMenu("Save state");
+            QMenu* submenu = menu->addMenu("即时存档");
 
             for (int i = 1; i < 9; i++)
             {
@@ -1532,13 +1532,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                 connect(actSaveState[i], &QAction::triggered, this, &MainWindow::onSaveState);
             }
 
-            actSaveState[0] = submenu->addAction("File...");
+            actSaveState[0] = submenu->addAction("文件...");
             actSaveState[0]->setShortcut(QKeySequence(Qt::ShiftModifier | Qt::Key_F9));
             actSaveState[0]->setData(QVariant(0));
             connect(actSaveState[0], &QAction::triggered, this, &MainWindow::onSaveState);
         }
         {
-            QMenu* submenu = menu->addMenu("Load state");
+            QMenu* submenu = menu->addMenu("即时读档");
 
             for (int i = 1; i < 9; i++)
             {
@@ -1548,116 +1548,116 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                 connect(actLoadState[i], &QAction::triggered, this, &MainWindow::onLoadState);
             }
 
-            actLoadState[0] = submenu->addAction("File...");
+            actLoadState[0] = submenu->addAction("文件...");
             actLoadState[0]->setShortcut(QKeySequence(Qt::Key_F9));
             actLoadState[0]->setData(QVariant(0));
             connect(actLoadState[0], &QAction::triggered, this, &MainWindow::onLoadState);
         }
 
-        actUndoStateLoad = menu->addAction("Undo state load");
+        actUndoStateLoad = menu->addAction("撤销即时读档");
         actUndoStateLoad->setShortcut(QKeySequence(Qt::Key_F12));
         connect(actUndoStateLoad, &QAction::triggered, this, &MainWindow::onUndoStateLoad);
 
         menu->addSeparator();
 
-        actQuit = menu->addAction("Quit");
+        actQuit = menu->addAction("退出");
         connect(actQuit, &QAction::triggered, this, &MainWindow::onQuit);
     }
     {
-        QMenu* menu = menubar->addMenu("System");
+        QMenu* menu = menubar->addMenu("系统");
 
-        actPause = menu->addAction("Pause");
+        actPause = menu->addAction("暂停");
         actPause->setCheckable(true);
         connect(actPause, &QAction::triggered, this, &MainWindow::onPause);
 
-        actReset = menu->addAction("Reset");
+        actReset = menu->addAction("重启");
         connect(actReset, &QAction::triggered, this, &MainWindow::onReset);
 
-        actStop = menu->addAction("Stop");
+        actStop = menu->addAction("停止");
         connect(actStop, &QAction::triggered, this, &MainWindow::onStop);
 
-        actFrameStep = menu->addAction("Frame step");
+        actFrameStep = menu->addAction("步进帧数");
         connect(actFrameStep, &QAction::triggered, this, &MainWindow::onFrameStep);
 
         menu->addSeparator();
 
-        actPowerManagement = menu->addAction("Power management");
+        actPowerManagement = menu->addAction("模拟电源管理");
         connect(actPowerManagement, &QAction::triggered, this, &MainWindow::onOpenPowerManagement);
 
         menu->addSeparator();
 
-        actEnableCheats = menu->addAction("Enable cheats");
+        actEnableCheats = menu->addAction("开启作弊");
         actEnableCheats->setCheckable(true);
         connect(actEnableCheats, &QAction::triggered, this, &MainWindow::onEnableCheats);
 
         //if (inst == 0)
         {
-            actSetupCheats = menu->addAction("Setup cheat codes");
+            actSetupCheats = menu->addAction("设置作弊码");
             actSetupCheats->setMenuRole(QAction::NoRole);
             connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
 
             menu->addSeparator();
-            actROMInfo = menu->addAction("ROM info");
+            actROMInfo = menu->addAction("ROM信息");
             connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
 
-            actRAMInfo = menu->addAction("RAM search");
+            actRAMInfo = menu->addAction("内存(RAM)搜索");
             connect(actRAMInfo, &QAction::triggered, this, &MainWindow::onRAMInfo);
 
-            actTitleManager = menu->addAction("Manage DSi titles");
+            actTitleManager = menu->addAction("管理DSi应用");
             connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
         }
 
         {
             menu->addSeparator();
-            QMenu* submenu = menu->addMenu("Multiplayer");
+            QMenu* submenu = menu->addMenu("多人联机");
 
-            actMPNewInstance = submenu->addAction("Launch new instance");
+            actMPNewInstance = submenu->addAction("启动新窗口");
             connect(actMPNewInstance, &QAction::triggered, this, &MainWindow::onMPNewInstance);
         }
     }
     {
-        QMenu* menu = menubar->addMenu("Config");
+        QMenu* menu = menubar->addMenu("设置");
 
-        actEmuSettings = menu->addAction("Emu settings");
+        actEmuSettings = menu->addAction("模拟设置");
         connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
 
 #ifdef __APPLE__
-        actPreferences = menu->addAction("Preferences...");
+        actPreferences = menu->addAction("偏好...");
         connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
         actPreferences->setMenuRole(QAction::PreferencesRole);
 #endif
 
-        actInputConfig = menu->addAction("Input and hotkeys");
+        actInputConfig = menu->addAction("控制和热键");
         connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
 
-        actVideoSettings = menu->addAction("Video settings");
+        actVideoSettings = menu->addAction("视频设置");
         connect(actVideoSettings, &QAction::triggered, this, &MainWindow::onOpenVideoSettings);
 
-        actCameraSettings = menu->addAction("Camera settings");
+        actCameraSettings = menu->addAction("相机设置");
         connect(actCameraSettings, &QAction::triggered, this, &MainWindow::onOpenCameraSettings);
 
-        actAudioSettings = menu->addAction("Audio settings");
+        actAudioSettings = menu->addAction("声音设置");
         connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
 
-        actMPSettings = menu->addAction("Multiplayer settings");
+        actMPSettings = menu->addAction("多人联机设置");
         connect(actMPSettings, &QAction::triggered, this, &MainWindow::onOpenMPSettings);
 
-        actWifiSettings = menu->addAction("Wifi settings");
+        actWifiSettings = menu->addAction("Wifi设置");
         connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
 
-        actFirmwareSettings = menu->addAction("Firmware settings");
+        actFirmwareSettings = menu->addAction("固件设置");
         connect(actFirmwareSettings, &QAction::triggered, this, &MainWindow::onOpenFirmwareSettings);
 
-        actInterfaceSettings = menu->addAction("Interface settings");
+        actInterfaceSettings = menu->addAction("界面设置");
         connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
 
-        actPathSettings = menu->addAction("Path settings");
+        actPathSettings = menu->addAction("路径设置");
         connect(actPathSettings, &QAction::triggered, this, &MainWindow::onOpenPathSettings);
 
         {
-            QMenu* submenu = menu->addMenu("Savestate settings");
+            QMenu* submenu = menu->addMenu("即时存档设置");
 
-            actSavestateSRAMReloc = submenu->addAction("Separate savefiles");
+            actSavestateSRAMReloc = submenu->addAction("独立保存文件");
             actSavestateSRAMReloc->setCheckable(true);
             connect(actSavestateSRAMReloc, &QAction::triggered, this, &MainWindow::onChangeSavestateSRAMReloc);
         }
@@ -1665,7 +1665,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         menu->addSeparator();
 
         {
-            QMenu* submenu = menu->addMenu("Screen size");
+            QMenu* submenu = menu->addMenu("窗口大小");
 
             for (int i = 0; i < 4; i++)
             {
@@ -1676,7 +1676,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             }
         }
         {
-            QMenu* submenu = menu->addMenu("Screen rotation");
+            QMenu* submenu = menu->addMenu("窗口旋转");
             grpScreenRotation = new QActionGroup(submenu);
 
             for (int i = 0; i < 4; i++)
@@ -1691,7 +1691,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             connect(grpScreenRotation, &QActionGroup::triggered, this, &MainWindow::onChangeScreenRotation);
         }
         {
-            QMenu* submenu = menu->addMenu("Screen gap");
+            QMenu* submenu = menu->addMenu("窗口间隔");
             grpScreenGap = new QActionGroup(submenu);
 
             const int screengap[] = {0, 1, 8, 64, 90, 128};
@@ -1708,10 +1708,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             connect(grpScreenGap, &QActionGroup::triggered, this, &MainWindow::onChangeScreenGap);
         }
         {
-            QMenu* submenu = menu->addMenu("Screen layout");
+            QMenu* submenu = menu->addMenu("窗口布局");
             grpScreenLayout = new QActionGroup(submenu);
 
-            const char* screenlayout[] = {"Natural", "Vertical", "Horizontal", "Hybrid"};
+            const char* screenlayout[] = {"通常", "竖直", "水平", "混合"};
 
             for (int i = 0; i < 4; i++)
             {
@@ -1725,15 +1725,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             submenu->addSeparator();
 
-            actScreenSwap = submenu->addAction("Swap screens");
+            actScreenSwap = submenu->addAction("交换上下屏");
             actScreenSwap->setCheckable(true);
             connect(actScreenSwap, &QAction::triggered, this, &MainWindow::onChangeScreenSwap);
         }
         {
-            QMenu* submenu = menu->addMenu("Screen sizing");
+            QMenu* submenu = menu->addMenu("窗口显示");
             grpScreenSizing = new QActionGroup(submenu);
 
-            const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only", "Bottom only"};
+            const char* screensizing[] = {"正常", "上屏优先", "下屏优先", "自动", "仅上屏", "仅下屏"};
 
             for (int i = 0; i < screenSizing_MAX; i++)
             {
@@ -1747,12 +1747,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             submenu->addSeparator();
 
-            actIntegerScaling = submenu->addAction("Force integer scaling");
+            actIntegerScaling = submenu->addAction("强制整数倍缩放");
             actIntegerScaling->setCheckable(true);
             connect(actIntegerScaling, &QAction::triggered, this, &MainWindow::onChangeIntegerScaling);
         }
         {
-            QMenu* submenu = menu->addMenu("Aspect ratio");
+            QMenu* submenu = menu->addMenu("窗口横纵比");
             grpScreenAspectTop = new QActionGroup(submenu);
             grpScreenAspectBot = new QActionGroup(submenu);
             actScreenAspectTop = new QAction*[sizeof(aspectRatios) / sizeof(aspectRatios[0])];
@@ -1773,7 +1773,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                 for (int j = 0; j < sizeof(aspectRatios) / sizeof(aspectRatios[0]); j++)
                 {
                     auto ratio = aspectRatios[j];
-                    QString label = QString("%1 %2").arg(i ? "Bottom" : "Top", ratio.label);
+                    QString label = QString("%1 %2").arg(i ? "下屏" : "上屏", ratio.label);
                     actions[j] = submenu->addAction(label);
                     actions[j]->setActionGroup(group);
                     actions[j]->setData(QVariant(ratio.id));
@@ -1784,21 +1784,21 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             }
         }
 
-        actScreenFiltering = menu->addAction("Screen filtering");
+        actScreenFiltering = menu->addAction("窗口滤镜");
         actScreenFiltering->setCheckable(true);
         connect(actScreenFiltering, &QAction::triggered, this, &MainWindow::onChangeScreenFiltering);
 
-        actShowOSD = menu->addAction("Show OSD");
+        actShowOSD = menu->addAction("显示OSD");
         actShowOSD->setCheckable(true);
         connect(actShowOSD, &QAction::triggered, this, &MainWindow::onChangeShowOSD);
 
         menu->addSeparator();
 
-        actLimitFramerate = menu->addAction("Limit framerate");
+        actLimitFramerate = menu->addAction("限制帧数");
         actLimitFramerate->setCheckable(true);
         connect(actLimitFramerate, &QAction::triggered, this, &MainWindow::onChangeLimitFramerate);
 
-        actAudioSync = menu->addAction("Audio sync");
+        actAudioSync = menu->addAction("音频同步");
         actAudioSync->setCheckable(true);
         connect(actAudioSync, &QAction::triggered, this, &MainWindow::onChangeAudioSync);
     }
@@ -2063,7 +2063,7 @@ void MainWindow::dropEvent(QDropEvent* event)
         if (!ROMManager::LoadGBAROM(file))
         {
             // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+            QMessageBox::critical(this, "melonDS", "加载ROM失败。");
             emuThread->emuUnpause();
             return;
         }
@@ -2077,7 +2077,7 @@ void MainWindow::dropEvent(QDropEvent* event)
         if (!ROMManager::LoadROM(file, true))
         {
             // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+            QMessageBox::critical(this, "melonDS", "加载ROM失败。");
             emuThread->emuUnpause();
             return;
         }
@@ -2142,7 +2142,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
         if (!ROMManager::LoadGBAROM(gbafile))
         {
             // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the GBA ROM.");
+            QMessageBox::critical(this, "melonDS", "加载GBA ROM失败。");
             return false;
         }
 
@@ -2155,7 +2155,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
         if (!ROMManager::LoadROM(file, true))
         {
             // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+            QMessageBox::critical(this, "melonDS", "加载ROM失败。");
             return false;
         }
         recentFileList.removeAll(file.join("|"));
@@ -2199,7 +2199,7 @@ QString MainWindow::pickFileFromArchive(QString archiveFileName)
 
         bool ok;
         QString toLoad = QInputDialog::getItem(this, "melonDS",
-                                  "This archive contains multiple files. Select which ROM you want to load.", archiveROMList.toList(), 0, false, &ok);
+                                  "该档案包含多个文件。选择要加载的ROM。", archiveROMList.toList(), 0, false, &ok);
         if (!ok) // User clicked on cancel
             return QString();
 
@@ -2211,11 +2211,11 @@ QString MainWindow::pickFileFromArchive(QString archiveFileName)
     }
     else if ((archiveROMList.size() == 1) && (archiveROMList[0] == QString("OK")))
     {
-        QMessageBox::warning(this, "melonDS", "This archive is empty.");
+        QMessageBox::warning(this, "melonDS", "该档案是空的。");
     }
     else
     {
-        QMessageBox::critical(this, "melonDS", "This archive could not be read. It may be corrupt or you don't have the permissions.");
+        QMessageBox::critical(this, "melonDS", "无法读取此档案。它可能已损坏或您没有权限。");
     }
 
     return romFileName;
@@ -2290,13 +2290,13 @@ void MainWindow::updateCartInserted(bool gba)
     if (gba)
     {
         inserted = ROMManager::GBACartInserted() && (Config::ConsoleType == 0);
-        actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
+        actCurrentGBACart->setText("GBA槽位：" + ROMManager::GBACartLabel());
         actEjectGBACart->setEnabled(inserted);
     }
     else
     {
         inserted = ROMManager::CartInserted();
-        actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
+        actCurrentCart->setText("DS槽位：" + ROMManager::CartLabel());
         actEjectCart->setEnabled(inserted);
         actImportSavefile->setEnabled(inserted);
         actSetupCheats->setEnabled(inserted);
@@ -2325,7 +2325,7 @@ void MainWindow::onOpenFile()
     if (!ROMManager::LoadROM(file, true))
     {
         // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+        QMessageBox::critical(this, "melonDS", "加载ROM失败。");
         emuThread->emuUnpause();
         return;
     }
@@ -2391,7 +2391,7 @@ void MainWindow::updateRecentFilesMenu()
 
     recentMenu->addSeparator();
 
-    QAction *actClearRecentList = recentMenu->addAction("Clear");
+    QAction *actClearRecentList = recentMenu->addAction("清空");
     connect(actClearRecentList, &QAction::triggered, this, &MainWindow::onClearRecentFiles);
 
     if (recentFileList.empty())
@@ -2417,7 +2417,7 @@ void MainWindow::onClickRecentFile()
     if (!ROMManager::LoadROM(file, true))
     {
         // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+        QMessageBox::critical(this, "melonDS", "加载ROM失败。");
         emuThread->emuUnpause();
         return;
     }
@@ -2445,7 +2445,7 @@ void MainWindow::onBootFirmware()
     if (!ROMManager::LoadBIOS())
 {
         // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "This firmware is not bootable.");
+        QMessageBox::critical(this, "melonDS", "这个固件不可启动。");
         emuThread->emuUnpause();
         return;
     }
@@ -2468,7 +2468,7 @@ void MainWindow::onInsertCart()
     if (!ROMManager::LoadROM(file, false))
     {
         // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+        QMessageBox::critical(this, "melonDS", "加载ROM失败。");
         emuThread->emuUnpause();
         return;
     }
@@ -2503,7 +2503,7 @@ void MainWindow::onInsertGBACart()
     if (!ROMManager::LoadGBAROM(file))
     {
         // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+        QMessageBox::critical(this, "melonDS", "加载ROM失败。");
         emuThread->emuUnpause();
         return;
     }
@@ -2553,7 +2553,7 @@ void MainWindow::onSaveState()
     {
         // TODO: specific 'last directory' for savestate files?
         QString qfilename = QFileDialog::getSaveFileName(this,
-                                                         "Save state",
+                                                         "即时存档",
                                                          QString::fromStdString(Config::LastROMFolder),
                                                          "melonDS savestates (*.mln);;Any file (*.*)");
         if (qfilename.isEmpty())
@@ -2568,15 +2568,15 @@ void MainWindow::onSaveState()
     if (ROMManager::SaveState(filename))
     {
         char msg[64];
-        if (slot > 0) sprintf(msg, "State saved to slot %d", slot);
-        else          sprintf(msg, "State saved to file");
+        if (slot > 0) sprintf(msg, "即时状态保存至槽位 %d", slot);
+        else          sprintf(msg, "即使状态保存至文件");
         OSD::AddMessage(0, msg);
 
         actLoadState[slot]->setEnabled(true);
     }
     else
     {
-        OSD::AddMessage(0xFFA0A0, "State save failed");
+        OSD::AddMessage(0xFFA0A0, "即时存档失败");
     }
 
     emuThread->emuUnpause();
@@ -2597,7 +2597,7 @@ void MainWindow::onLoadState()
     {
         // TODO: specific 'last directory' for savestate files?
         QString qfilename = QFileDialog::getOpenFileName(this,
-                                                         "Load state",
+                                                         "即时读档",
                                                          QString::fromStdString(Config::LastROMFolder),
                                                          "melonDS savestates (*.ml*);;Any file (*.*)");
         if (qfilename.isEmpty())
@@ -2612,8 +2612,8 @@ void MainWindow::onLoadState()
     if (!Platform::FileExists(filename))
     {
         char msg[64];
-        if (slot > 0) sprintf(msg, "State slot %d is empty", slot);
-        else          sprintf(msg, "State file does not exist");
+        if (slot > 0) sprintf(msg, "槽位 %d 没有即时存档", slot);
+        else          sprintf(msg, "即时存档文件不存在");
         OSD::AddMessage(0xFFA0A0, msg);
 
         emuThread->emuUnpause();
@@ -2623,15 +2623,15 @@ void MainWindow::onLoadState()
     if (ROMManager::LoadState(filename))
     {
         char msg[64];
-        if (slot > 0) sprintf(msg, "State loaded from slot %d", slot);
-        else          sprintf(msg, "State loaded from file");
+        if (slot > 0) sprintf(msg, "从槽位 %d 即时读档", slot);
+        else          sprintf(msg, "从文件即时读档");
         OSD::AddMessage(0, msg);
 
         actUndoStateLoad->setEnabled(true);
     }
     else
     {
-        OSD::AddMessage(0xFFA0A0, "State load failed");
+        OSD::AddMessage(0xFFA0A0, "即时读档失败");
     }
 
     emuThread->emuUnpause();
@@ -2650,7 +2650,7 @@ void MainWindow::onImportSavefile()
 {
     emuThread->emuPause();
     QString path = QFileDialog::getOpenFileName(this,
-                                            "Select savefile",
+                                            "选择存档文件",
                                             QString::fromStdString(Config::LastROMFolder),
                                             "Savefiles (*.sav *.bin *.dsv);;Any file (*.*)");
 
@@ -2663,7 +2663,7 @@ void MainWindow::onImportSavefile()
     FILE* f = Platform::OpenFile(path.toStdString(), "rb", true);
     if (!f)
     {
-        QMessageBox::critical(this, "melonDS", "Could not open the given savefile.");
+        QMessageBox::critical(this, "melonDS", "无法打开指定存档文件。");
         emuThread->emuUnpause();
         return;
     }
@@ -2672,7 +2672,7 @@ void MainWindow::onImportSavefile()
     {
         if (QMessageBox::warning(this,
                         "melonDS",
-                        "The emulation will be reset and the current savefile overwritten.",
+                        "模拟器将重启，当前存档会被覆盖。",
                         QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
         {
             emuThread->emuUnpause();
@@ -2713,13 +2713,13 @@ void MainWindow::onPause(bool checked)
     if (checked)
     {
         emuThread->emuPause();
-        OSD::AddMessage(0, "Paused");
+        OSD::AddMessage(0, "PAUSED");
         pausedManually = true;
     }
     else
     {
         emuThread->emuUnpause();
-        OSD::AddMessage(0, "Resumed");
+        OSD::AddMessage(0, "RESUMED");
         pausedManually = false;
     }
 }
@@ -2734,7 +2734,7 @@ void MainWindow::onReset()
 
     ROMManager::Reset();
 
-    OSD::AddMessage(0, "Reset");
+    OSD::AddMessage(0, "RESET");
     emuThread->emuRun();
 }
 
@@ -2834,7 +2834,7 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
     if (EmuSettingsDialog::needsReset)
         onReset();
 
-    actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
+    actCurrentGBACart->setText("GBA槽位：" + ROMManager::GBACartLabel());
 
     if (!RunningSomething)
         actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
@@ -3220,7 +3220,7 @@ void emuStop()
 
     emit emuThread->windowEmuStop();
 
-    OSD::AddMessage(0xFFC040, "Shutdown");
+    OSD::AddMessage(0xFFC040, "SHUTDOWN");
 }
 
 MelonApplication::MelonApplication(int& argc, char** argv)
@@ -3254,7 +3254,7 @@ int main(int argc, char** argv)
 
     // easter egg - not worth checking other cases for something so dumb
     if (argc != 0 && (!strcasecmp(argv[0], "derpDS") || !strcasecmp(argv[0], "./derpDS")))
-        printf("did you just call me a derp???\n");
+        printf("你刚才叫我笨蛋？？？\n");
     
     Platform::Init(argc, argv);
 
@@ -3267,16 +3267,16 @@ int main(int argc, char** argv)
 
     if (SDL_Init(SDL_INIT_HAPTIC) < 0)
     {
-        printf("SDL couldn't init rumble\n");
+        printf("SDL无法初始化震动\n");
     }
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0)
     {
-        printf("SDL couldn't init joystick\n");
+        printf("SDL无法初始化手柄控制\n");
     }
     if (SDL_Init(SDL_INIT_AUDIO) < 0)
     {
         const char* err = SDL_GetError();
-        QString errorStr = "Failed to initialize SDL. This could indicate an issue with your audio driver.\n\nThe error was: ";
+        QString errorStr = "SDL初始化失败。这表明您的音频驱动程序可能存在问题。\n\n错误为：";
         errorStr += err;
 
         QMessageBox::critical(NULL, "melonDS", errorStr);
@@ -3324,12 +3324,12 @@ int main(int argc, char** argv)
     audioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
     if (!audioDevice)
     {
-        printf("Audio init failed: %s\n", SDL_GetError());
+        printf("音频初始化失败： %s\n", SDL_GetError());
     }
     else
     {
         audioFreq = whatIget.freq;
-        printf("Audio output frequency: %d Hz\n", audioFreq);
+        printf("音频输出频率： %d Hz\n", audioFreq);
         SDL_PauseAudioDevice(audioDevice, 1);
     }
 

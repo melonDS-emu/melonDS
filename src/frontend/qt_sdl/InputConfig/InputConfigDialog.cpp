@@ -46,8 +46,8 @@ const int hk_addons[] =
 
 const char* hk_addons_labels[] =
 {
-    "[Boktai] Sunlight + ",
-    "[Boktai] Sunlight - ",
+    "[Boktai] 阳光亮度 + ",
+    "[Boktai] 阳光亮度 - ",
 };
 
 const int hk_general[] =
@@ -65,15 +65,15 @@ const int hk_general[] =
 
 const char* hk_general_labels[] =
 {
-    "Pause/resume",
-    "Reset",
-    "Frame step",
-    "Fast forward",
-    "Toggle FPS limit",
-    "Toggle fullscreen",
-    "Close/open lid",
-    "Microphone",
-    "Swap screens"
+    "暂停/恢复",
+    "重启",
+    "步进帧数",
+    "快进",
+    "切换FPS限制",
+    "切换全屏",
+    "关闭/开启lid",
+    "麦克风",
+    "切换屏幕"
 };
 
 const int keypad_num = 12;
@@ -119,7 +119,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     }
     else
     {
-        ui->cbxJoystick->addItem("(no joysticks available)");
+        ui->cbxJoystick->addItem("(没有可用的手柄)");
         ui->cbxJoystick->setEnabled(false);
     }
 
@@ -127,7 +127,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
 
     int inst = Platform::InstanceID();
     if (inst > 0)
-        ui->lblInstanceNum->setText(QString("Configuring mappings for instance %1").arg(inst+1));
+        ui->lblInstanceNum->setText(QString("为实例 %1 设置映射配置").arg(inst+1));
     else
         ui->lblInstanceNum->hide();
 }
@@ -170,7 +170,7 @@ void InputConfigDialog::populatePage(QWidget* page, int num, const char** labels
     QGroupBox* group;
     QGridLayout* group_layout;
 
-    group = new QGroupBox("Keyboard mappings:");
+    group = new QGroupBox("键盘映射：");
     main_layout->addWidget(group);
     group_layout = new QGridLayout();
     group_layout->setSpacing(1);
@@ -186,7 +186,7 @@ void InputConfigDialog::populatePage(QWidget* page, int num, const char** labels
     group->setLayout(group_layout);
     group->setMinimumWidth(275);
 
-    group = new QGroupBox("Joystick mappings:");
+    group = new QGroupBox("手柄映射：");
     main_layout->addWidget(group);
     group_layout = new QGridLayout();
     group_layout->setSpacing(1);

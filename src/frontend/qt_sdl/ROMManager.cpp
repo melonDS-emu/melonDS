@@ -81,7 +81,7 @@ std::string GetAssetPath(bool gba, std::string configpath, std::string ext, std:
     {
         file = gba ? BaseGBAAssetName : BaseAssetName;
         if (file.empty())
-            file = "firmware";
+            file = "固件";
     }
 
     for (;;)
@@ -107,27 +107,27 @@ QString VerifyDSBIOS()
     long len;
 
     f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
-    if (!f) return "DS ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DS ARM9 BIOS未找到或无法连接。请检查模拟设置。";
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
     if (len != 0x1000)
     {
         fclose(f);
-        return "DS ARM9 BIOS is not a valid BIOS dump.";
+        return "DS ARM9 BIOS不是有效的BIOS转储。";
     }
 
     fclose(f);
 
     f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
-    if (!f) return "DS ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DS ARM7 BIOS未找到或无法连接。请检查模拟设置。";
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
     if (len != 0x4000)
     {
         fclose(f);
-        return "DS ARM7 BIOS is not a valid BIOS dump.";
+        return "DS ARM7 BIOS不是有效的BIOS转储。";
     }
 
     fclose(f);
@@ -143,27 +143,27 @@ QString VerifyDSiBIOS()
     // TODO: check the first 32 bytes
 
     f = Platform::OpenLocalFile(Config::DSiBIOS9Path, "rb");
-    if (!f) return "DSi ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DSi ARM9 BIOS未找到或无法连接。请检查模拟设置。";
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
     if (len != 0x10000)
     {
         fclose(f);
-        return "DSi ARM9 BIOS is not a valid BIOS dump.";
+        return "DSi ARM9 BIOS不是有效的BIOS转储。";
     }
 
     fclose(f);
 
     f = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
-    if (!f) return "DSi ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DSi ARM7 BIOS未找到或无法连接。请检查模拟设置。";
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
     if (len != 0x10000)
     {
         fclose(f);
-        return "DSi ARM7 BIOS is not a valid BIOS dump.";
+        return "DSi ARM7 BIOS不是有效的BIOS转储。";
     }
 
     fclose(f);
@@ -177,7 +177,7 @@ QString VerifyDSFirmware()
     long len;
 
     f = Platform::OpenLocalFile(Config::FirmwarePath, "rb");
-    if (!f) return "DS firmware was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DS固件未找到或无法连接。请检查模拟设置。";
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
@@ -191,7 +191,7 @@ QString VerifyDSFirmware()
     else if (len != 0x40000 && len != 0x80000)
     {
         fclose(f);
-        return "DS firmware is not a valid firmware dump.";
+        return "DS固件不是有效的固件转储。";
     }
 
     fclose(f);
@@ -205,7 +205,7 @@ QString VerifyDSiFirmware()
     long len;
 
     f = Platform::OpenLocalFile(Config::DSiFirmwarePath, "rb");
-    if (!f) return "DSi firmware was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DSi固件未找到或无法连接。请检查模拟设置。";
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
@@ -214,7 +214,7 @@ QString VerifyDSiFirmware()
         // not 128KB
         // TODO: check whether those work
         fclose(f);
-        return "DSi firmware is not a valid firmware dump.";
+        return "DSi固件不是有效的固件转储。";
     }
 
     fclose(f);
@@ -228,7 +228,7 @@ QString VerifyDSiNAND()
     long len;
 
     f = Platform::OpenLocalFile(Config::DSiNANDPath, "r+b");
-    if (!f) return "DSi NAND was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DSi NAND未找到或无法连接。请检查模拟设置。";
 
     // TODO: some basic checks
     // check that it has the nocash footer, and all
@@ -628,7 +628,7 @@ bool CartInserted()
 QString CartLabel()
 {
     if (CartType == -1)
-        return "(none)";
+        return "(无)";
 
     QString ret = QString::fromStdString(BaseROMName);
 
@@ -784,7 +784,7 @@ bool GBACartInserted()
 
 QString GBACartLabel()
 {
-    if (Config::ConsoleType == 1) return "none (DSi)";
+    if (Config::ConsoleType == 1) return "无 (DSi)";
 
     switch (GBACartType)
     {
@@ -800,10 +800,10 @@ QString GBACartLabel()
         }
 
     case NDS::GBAAddon_RAMExpansion:
-        return "Memory expansion";
+        return "内存拓展卡";
     }
 
-    return "(none)";
+    return "(无)";
 }
 
 

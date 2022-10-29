@@ -87,7 +87,7 @@ void RXEnqueue(const void* buf, int len)
 
     if (!RXBuffer.CanFit(totallen >> 2))
     {
-        printf("slirp: !! NOT ENOUGH SPACE IN RX BUFFER\n");
+        printf("slirp: !! RX缓冲空间不足\n");
         return;
     }
 
@@ -101,7 +101,7 @@ ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
 {
     if (len > 2048)
     {
-        printf("slirp: packet too big (%zu)\n", len);
+        printf("slirp: 数据包太大 (%zu)\n", len);
         return 0;
     }
 
@@ -429,7 +429,7 @@ int SendPacket(u8* data, int len)
 
     if (len > 2048)
     {
-        printf("LAN_SendPacket: error: packet too long (%d)\n", len);
+        printf("LAN_SendPacket：错误：数据包太长 (%d)\n", len);
         return 0;
     }
 

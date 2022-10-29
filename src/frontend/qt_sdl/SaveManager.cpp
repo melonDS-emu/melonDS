@@ -122,7 +122,7 @@ void SaveManager::CheckFlush()
 
     SecondaryBufferLock->lock();
 
-    printf("SaveManager: Flush requested\n");
+    printf("存档管理器：请求刷新。\n");
 
     if (SecondaryBufferLength != Length)
     {

@@ -155,7 +155,7 @@ bool Init(bool open_adapter)
     ret = pcap_findalldevs(&alldevs, errbuf);
     if (ret < 0 || alldevs == NULL)
     {
-        printf("PCap: no devices available\n");
+        printf("PCap：没有可用的设备\n");
         return false;
     }
 
@@ -273,7 +273,7 @@ bool Init(bool open_adapter)
 
             if (!curaddr->ifa_addr)
             {
-                printf("Device (%s) does not have an address :/\n", curaddr->ifa_name);
+                printf("设备 (%s) 没有地址：/\n", curaddr->ifa_name);
                 curaddr = curaddr->ifa_next;
                 continue;
             }
@@ -298,7 +298,7 @@ bool Init(bool open_adapter)
             {
                 struct sockaddr_dl* sa = (sockaddr_dl*)curaddr->ifa_addr;
                 if (sa->sdl_alen != 6)
-                    printf("weird MAC length %d for %s\n", sa->sdl_alen, curaddr->ifa_name);
+                    printf("奇怪的 MAC 长度 %d 对 %s\n", sa->sdl_alen, curaddr->ifa_name);
                 else
                     memcpy(adata->MAC, LLADDR(sa), 6);
             }
@@ -326,7 +326,7 @@ bool Init(bool open_adapter)
     PCapAdapter = pcap_open_live(dev->name, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
     if (!PCapAdapter)
     {
-        printf("PCap: failed to open adapter %s\n", errbuf);
+        printf("PCap：无法打开适配器 %s\n", errbuf);
         return false;
     }
 
@@ -334,7 +334,7 @@ bool Init(bool open_adapter)
 
     if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
     {
-        printf("PCap: failed to set nonblocking mode\n");
+        printf("PCap：设置非阻止模式失败\n");
         pcap_close(PCapAdapter); PCapAdapter = NULL;
         return false;
     }
@@ -376,7 +376,7 @@ int SendPacket(u8* data, int len)
 
     if (len > 2048)
     {
-        printf("LAN_SendPacket: error: packet too long (%d)\n", len);
+        printf("LAN_SendPacket：错误：数据包太长 (%d)\n", len);
         return 0;
     }
 

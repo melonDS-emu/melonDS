@@ -17,34 +17,34 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Import title - melonDS</string>
+   <string>导入应用 - melonDS</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="3" column="2">
     <widget class="QPushButton" name="btnTmdBrowse">
      <property name="text">
-      <string>Browse...</string>
+      <string>浏览...</string>
      </property>
     </widget>
    </item>
    <item row="4" column="0" colspan="3">
     <widget class="QRadioButton" name="rbTmdFromNUS">
      <property name="text">
-      <string>Download from NUS</string>
+      <string>从NUS下载</string>
      </property>
     </widget>
    </item>
    <item row="2" column="0" colspan="3">
     <widget class="QLabel" name="label_2">
      <property name="text">
-      <string>Metadata (TMD):</string>
+      <string>元数据 (TMD):</string>
      </property>
     </widget>
    </item>
    <item row="3" column="0">
     <widget class="QRadioButton" name="rbTmdFromFile">
      <property name="text">
-      <string>From file:</string>
+      <string>来自文件：</string>
      </property>
     </widget>
    </item>
@@ -71,7 +71,7 @@
    <item row="0" column="0">
     <widget class="QLabel" name="label">
      <property name="text">
-      <string>Executable:</string>
+      <string>可执行文件：</string>
      </property>
     </widget>
    </item>
@@ -88,17 +88,17 @@
    <item row="0" column="2">
     <widget class="QPushButton" name="btnAppBrowse">
      <property name="text">
-      <string>Browse...</string>
+      <string>浏览...</string>
      </property>
     </widget>
    </item>
    <item row="6" column="0" colspan="3">
     <widget class="QCheckBox" name="cbReadOnly">
      <property name="whatsThis">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes the title executable and TMD read-only. Prevents DSi system utilities from deleting them.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使应用可执行且TMD为只读。 防止DSi系统程序删除它们。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="text">
-      <string>Make title files read-only</string>
+      <string>将应用文件设为只读</string>
      </property>
     </widget>
    </item>

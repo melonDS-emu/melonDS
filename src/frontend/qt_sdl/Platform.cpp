@@ -60,10 +60,10 @@ void IPCInit()
 
     if (!IPCBuffer->attach())
     {
-        printf("IPC sharedmem doesn't exist. creating\n");
+        printf("IPC sharedmem 不存在。 生成中\n");
         if (!IPCBuffer->create(1024))
         {
-            printf("IPC sharedmem create failed :(\n");
+            printf("IPC sharedmem 生成失败：(\n");
             delete IPCBuffer;
             IPCBuffer = nullptr;
             return;
