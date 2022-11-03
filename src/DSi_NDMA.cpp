@@ -257,8 +257,8 @@ void DSi_NDMA::Run9()
             Running = 0;
             NDS::ResumeCPU(0, 1<<(Num+4));
 
-            //if (StartMode == 0x07)
-            //    GPU3D::CheckFIFODMA();
+            if (StartMode == 0x0A)
+                GPU3D::CheckFIFODMA();
         }
 
         return;
