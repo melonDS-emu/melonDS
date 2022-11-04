@@ -10,7 +10,7 @@ set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 project(melonDS
-    VERSION 0.9.4
+    VERSION 0.9.5
     DESCRIPTION "DS emulator, sorta"
     HOMEPAGE_URL "https://melonds.kuribo64.net"
     LANGUAGES C CXX)
