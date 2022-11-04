@@ -68,7 +68,7 @@ PowerManagementDialog::PowerManagementDialog(QWidget* parent) : QDialog(parent),
 
     int inst = Platform::InstanceID();
     if (inst > 0)
-        ui->lblInstanceNum->setText(QString("为实例 %1 配置电源等级设置").arg(inst+1));
+        ui->lblInstanceNum->setText(QString("为窗口 %1 配置电源等级设置").arg(inst+1));
     else
         ui->lblInstanceNum->hide();
 

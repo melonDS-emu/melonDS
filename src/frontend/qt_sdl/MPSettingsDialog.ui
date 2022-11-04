@@ -23,21 +23,21 @@
       <item row="1" column="0">
        <widget class="QRadioButton" name="rbAudioOneOnly">
         <property name="text">
-         <string>仅实例 1 </string>
+         <string>仅窗口 1 </string>
         </property>
        </widget>
       </item>
       <item row="0" column="0">
        <widget class="QRadioButton" name="rbAudioAll">
         <property name="text">
-         <string>所有实例</string>
+         <string>所有窗口</string>
         </property>
        </widget>
       </item>
       <item row="2" column="0">
        <widget class="QRadioButton" name="rbAudioActiveOnly">
         <property name="text">
-         <string>仅活动的实例</string>
+         <string>仅活动的窗口</string>
         </property>
        </widget>
       </item>

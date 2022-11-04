@@ -128,7 +128,7 @@ bool camStarted[2];
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
-    { 0, 1,                       "4:3 (native)" },
+    { 0, 1,                       "4:3 (原生)" },
     { 4, (5.f  / 3) / (4.f / 3), "5:3 (3DS)"},
     { 1, (16.f / 9) / (4.f / 3),  "16:9" },
     { 2, (21.f / 9) / (4.f / 3),  "21:9" },
@@ -1586,13 +1586,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         menu->addSeparator();
 
-        actEnableCheats = menu->addAction("开启作弊");
+        actEnableCheats = menu->addAction("开启金手指（慎用）");
         actEnableCheats->setCheckable(true);
         connect(actEnableCheats, &QAction::triggered, this, &MainWindow::onEnableCheats);
 
         //if (inst == 0)
         {
-            actSetupCheats = menu->addAction("设置作弊码");
+            actSetupCheats = menu->addAction("设置金手指代码");
             actSetupCheats->setMenuRole(QAction::NoRole);
             connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
 

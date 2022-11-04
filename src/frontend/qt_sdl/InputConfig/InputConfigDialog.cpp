@@ -46,8 +46,8 @@ const int hk_addons[] =
 
 const char* hk_addons_labels[] =
 {
-    "[Boktai] 阳光亮度 + ",
-    "[Boktai] 阳光亮度 - ",
+    "[我们的太阳] 阳光亮度 + ",
+    "[我们的太阳] 阳光亮度 - ",
 };
 
 const int hk_general[] =
@@ -67,11 +67,11 @@ const char* hk_general_labels[] =
 {
     "暂停/恢复",
     "重启",
-    "步进帧数",
+    "帧步进",
     "快进",
-    "切换FPS限制",
+    "切换帧率限制",
     "切换全屏",
-    "关闭/开启lid",
+    "盖合/展开主机",
     "麦克风",
     "切换屏幕"
 };
@@ -127,7 +127,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
 
     int inst = Platform::InstanceID();
     if (inst > 0)
-        ui->lblInstanceNum->setText(QString("为实例 %1 设置映射配置").arg(inst+1));
+        ui->lblInstanceNum->setText(QString("为窗口 %1 设置映射配置").arg(inst+1));
     else
         ui->lblInstanceNum->hide();
 }

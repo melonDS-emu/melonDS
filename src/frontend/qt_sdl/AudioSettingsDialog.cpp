@@ -71,7 +71,7 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     int inst = Platform::InstanceID();
     if (inst > 0)
     {
-        ui->lblInstanceNum->setText(QString("为实例 %1 配置设置").arg(inst+1));
+        ui->lblInstanceNum->setText(QString("为窗口 %1 配置设置").arg(inst+1));
         ui->cbInterpolation->setEnabled(false);
         ui->cbBitrate->setEnabled(false);
         for (QAbstractButton* btn : grpMicMode->buttons())

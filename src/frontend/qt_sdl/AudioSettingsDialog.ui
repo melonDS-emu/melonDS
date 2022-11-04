@@ -26,7 +26,7 @@
    <item>
     <widget class="QLabel" name="lblInstanceNum">
      <property name="text">
-      <string>为实例 X 配置设置</string>
+      <string>为窗口 X 配置设置</string>
      </property>
     </widget>
    </item>
@@ -76,7 +76,7 @@
       <item row="1" column="0">
        <widget class="QLabel" name="label_3">
         <property name="text">
-         <string>比特率；</string>
+         <string>比特率：</string>
         </property>
        </widget>
       </item>
