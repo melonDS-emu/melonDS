@@ -287,7 +287,7 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
         if (item->text().isEmpty())
         {
             QString oldname = QString::fromStdString(code.Name);
-            item->setText(oldname.isEmpty() ? "(空白作弊码名？)" : oldname);
+            item->setText(oldname.isEmpty() ? "(空白金手指名？)" : oldname);
         }
         else
         {

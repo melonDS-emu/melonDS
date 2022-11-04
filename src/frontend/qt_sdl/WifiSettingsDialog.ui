@@ -35,7 +35,7 @@
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;间接模式使用 libslirp。 它不需要额外的设置并且易于使用。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>间接模式 (使用libslirp，推荐)</string>
+         <string>间接模式 (使用 libslirp，推荐)</string>
         </property>
        </widget>
       </item>

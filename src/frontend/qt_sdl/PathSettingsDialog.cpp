@@ -72,8 +72,8 @@ void PathSettingsDialog::done(int r)
             || cheatFilePath != Config::CheatFilePath)
         {
             if (RunningSomething
-                && QMessageBox::warning(this, "Reset necessary to apply changes",
-                    "The emulation will be reset for the changes to take place.",
+                && QMessageBox::warning(this,  "应用更改的设置需要重启",
+                    "模拟器将重启以应用更改。",
                     QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
                 return;
 

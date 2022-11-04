@@ -49,7 +49,7 @@
    <item>
     <widget class="QGroupBox" name="grpUserSettings">
      <property name="title">
-      <string>使用者设置</string>
+      <string>用户设置</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
       <property name="leftMargin">

@@ -1576,7 +1576,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actStop = menu->addAction("停止");
         connect(actStop, &QAction::triggered, this, &MainWindow::onStop);
 
-        actFrameStep = menu->addAction("步进帧数");
+        actFrameStep = menu->addAction("帧步进");
         connect(actFrameStep, &QAction::triggered, this, &MainWindow::onFrameStep);
 
         menu->addSeparator();

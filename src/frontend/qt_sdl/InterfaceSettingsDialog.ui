@@ -23,7 +23,7 @@
    <item row="1" column="0" alignment="Qt::AlignLeft">
     <widget class="QLabel" name="label">
      <property name="text">
-      <string>隐藏将在</string>
+      <string>鼠标闲置</string>
      </property>
     </widget>
    </item>
@@ -57,7 +57,7 @@
    <item row="1" column="2">
     <widget class="QLabel" name="label_2">
      <property name="text">
-      <string>秒的鼠标不活动时间后生效</string>
+      <string>秒后隐藏</string>
      </property>
     </widget>
    </item>
