@@ -186,7 +186,8 @@ void audioMute()
         break;
 
     case 2: // only currently focused instance
-        if (!mainWindow->isActiveWindow()) audioMuted = true;
+        if (mainWindow != nullptr)
+            audioMuted = !mainWindow->isActiveWindow();
         break;
     }
 }
