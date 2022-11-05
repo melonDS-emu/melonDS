@@ -10,7 +10,7 @@
 #endif
 Log_SetChannel(GL::Context);
 
-#if defined(_WIN32) && !defined(_M_ARM64)
+#if defined(_WIN32)
 #include "context_wgl.h"
 #elif defined(__APPLE__)
 #include "context_agl.h"
@@ -66,7 +66,7 @@ std::unique_ptr<GL::Context> Context::Create(const WindowInfo& wi, const Version
   }
 
   std::unique_ptr<Context> context;
-#if defined(_WIN32) && !defined(_M_ARM64)
+#if defined(_WIN32)
   context = ContextWGL::Create(wi, versions_to_try, num_versions_to_try);
 #elif defined(__APPLE__)
   context = ContextAGL::Create(wi, versions_to_try, num_versions_to_try);
