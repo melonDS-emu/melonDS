@@ -4,7 +4,7 @@
   manifestVersion="1.0">
 <assemblyIdentity
     name="Exe.Apps.Project"
-    processorArchitecture="amd64"
+    processorArchitecture="${WIN32_ARCHITECTURE}"
     version="1.0.0.0"
     type="win32"/>
 <description>Project</description>
@@ -14,7 +14,7 @@
             type="win32"
             name="Microsoft.Windows.Common-Controls"
             version="6.0.0.0"
-            processorArchitecture="amd64"
+            processorArchitecture="${WIN32_ARCHITECTURE}"
             publicKeyToken="6595b64144ccf1df"
             language="*"
         />
