@@ -60,11 +60,6 @@ struct ramInfo_RowData
     u32 Address;
     s32 Value;
     s32 Previous;
-
-    void Update(const ramInfo_ByteType& byteType)
-    {
-        Value = GetMainRAMValue(Address, byteType);
-    }
 };
 
 class RAMInfoDialog : public QDialog

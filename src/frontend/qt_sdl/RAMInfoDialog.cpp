@@ -94,12 +94,14 @@ void RAMInfoDialog::ShowRowsInTable()
     for (u32 row = srtRowIdx; row < endRowIdx; row++)
     {
         ramInfo_RowData& rowData = RowDataVector->at(row);
-        rowData.Update(SearchThread->GetSearchByteType());
+
+        // Update Row
+        rowData.Value = GetMainRAMValue(rowData.Address, SearchThread->GetSearchByteType());
 
         if (ui->ramTable->item(row, ramInfo_Address) == nullptr)
         {
             // A new row
-            QTableWidgetItem* addressItem = new QTableWidgetItem(QString("%1").arg(rowData.Address, 8, 16));
+            QTableWidgetItem* addressItem = new QTableWidgetItem(QString("%1").arg(rowData.Address, 8, 16, QChar('0')));
             QTableWidgetItem* valueItem = new QTableWidgetItem(QString("%1").arg(rowData.Value));
             QTableWidgetItem* previousItem = new QTableWidgetItem(QString("%1").arg(rowData.Previous));
 
@@ -258,11 +260,13 @@ void RAMSearchThread::run()
     if (SearchMode == ramInfoSTh_SearchAll || RowDataVector->size() == 0)
     {
         // First search mode
+        std::vector<ramInfo_RowData>* newRowDataVector = new std::vector<ramInfo_RowData>();
+
         for (u32 addr = 0x02000000; SearchRunning && addr < 0x02000000+NDS::MainRAMMaxSize; addr += SearchByteType)
         {
             const s32& value = GetMainRAMValue(addr, SearchByteType);
 
-            RowDataVector->push_back({ addr, value, value });
+            newRowDataVector->push_back({ addr, value, value });
 
             // A solution to prevent to call too many slot.
             u32 newProgress = (int)((addr-0x02000000) / (NDS::MainRAMMaxSize-1.0f) * 100);
@@ -272,12 +276,16 @@ void RAMSearchThread::run()
                 emit SetProgressbarValue(progress);
             }
         }
+
+        delete RowDataVector;
+        RowDataVector = newRowDataVector;
     }
     
     if (SearchMode == ramInfoSTh_Default)
     {
         // Next search mode
         std::vector<ramInfo_RowData>* newRowDataVector = new std::vector<ramInfo_RowData>();
+
         for (u32 row = 0; SearchRunning && row < RowDataVector->size(); row++)
         {
             const u32& addr = RowDataVector->at(row).Address;
@@ -287,7 +295,7 @@ void RAMSearchThread::run()
                 newRowDataVector->push_back({ addr, value, value });
 
             // A solution to prevent to call too many slot.
-            u32 newProgress = (int)(row / (RowDataVector->size()-1.0f) * 100);
+            u32 newProgress = (int)(row / (newRowDataVector->size()-1.0f) * 100);
             if (progress < newProgress)
             {
                 progress = newProgress;
