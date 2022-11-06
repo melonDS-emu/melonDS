@@ -258,9 +258,6 @@ void RAMSearchThread::run()
     SearchRunning = true;
     u32 progress = 0;
 
-    // // Pause game running
-    // emuThread->emuPause();
-
     // For following search modes below, RowDataVector must be filled.
     if (SearchMode == ramInfoSTh_SearchAll || RowDataVector->size() == 0)
     {
@@ -304,9 +301,6 @@ void RAMSearchThread::run()
         delete RowDataVector;
         RowDataVector = newRowDataVector;
     }
-
-    // // Unpause game running
-    // emuThread->emuUnpause();
 
     SearchRunning = false;
 }
