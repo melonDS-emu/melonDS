@@ -106,7 +106,6 @@ private slots:
     void on_radiobtn2bytes_clicked();
     void on_radiobtn4bytes_clicked();
     void on_ramTable_itemChanged(QTableWidgetItem *item);
-    void on_ramTable_currentItemChanged(QTableWidgetItem *item);
 
     void OnSearchFinished();
     void ShowRowsInTable();

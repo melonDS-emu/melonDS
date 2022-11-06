@@ -201,16 +201,12 @@ void RAMInfoDialog::on_ramTable_itemChanged(QTableWidgetItem *item)
     s32 newValue = item->text().toInt();
 
     if (rowData.Value != newValue)
+    {
         rowData.Value = newValue;
-}
 
-void RAMInfoDialog::on_ramTable_currentItemChanged(QTableWidgetItem *item)
-{
-    ramInfo_RowData& rowData = SearchThread->GetResults()->at(item->row());
-    s32 newValue = item->text().toInt();
-
-    if (rowData.Value != newValue)
-        NDS::MainRAM[rowData.Address&NDS::MainRAMMask] = (u32)newValue;
+        if (item->isSelected())
+            NDS::MainRAM[rowData.Address&NDS::MainRAMMask] = (u32)newValue;
+    }
 }
 
 /**
