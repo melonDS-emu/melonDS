@@ -116,6 +116,8 @@ private slots:
     void OnSearchFinished();
     void ShowRowsInTable();
     void SetProgressbarValue(const u32& value);
+    
+    s32 GetCurrentRowIndex();
 
 private:
     Ui::RAMInfoDialog* ui;

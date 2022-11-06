@@ -84,10 +84,14 @@ void RAMInfoDialog::OnSearchFinished()
 
 void RAMInfoDialog::ShowRowsInTable()
 {
-    const u32& scrollValue = ui->ramTable->verticalScrollBar()->sliderPosition();
     std::vector<ramInfo_RowData>* RowDataVector = SearchThread->GetResults();
 
-    for (u32 row = scrollValue; row < std::min<u32>(scrollValue+25, RowDataVector->size()); row++)
+    const s32 currRowIdx = GetCurrentRowIndex();
+
+    const s32 srtRowIdx = std::max<s32>(currRowIdx-20, 0);
+    const s32 endRowIdx = std::min<s32>(currRowIdx+100, RowDataVector->size());
+
+    for (u32 row = srtRowIdx; row < endRowIdx; row++)
     {
         ramInfo_RowData& rowData = RowDataVector->at(row);
         rowData.Update(SearchThread->GetSearchByteType());
@@ -128,6 +132,18 @@ void RAMInfoDialog::ClearTableContents()
 void RAMInfoDialog::SetProgressbarValue(const u32& value)
 {
     ui->progressBar->setValue(value);
+}
+
+s32 RAMInfoDialog::GetCurrentRowIndex()
+{
+    std::vector<ramInfo_RowData>* RowDataVector = SearchThread->GetResults();
+
+    const s32 scrollPositionMaximum = ui->ramTable->verticalScrollBar()->maximum();
+    const s32 scrollPosition = ui->ramTable->verticalScrollBar()->sliderPosition();
+
+    const s32 currRowIdx = RowDataVector->size() * ((float)scrollPosition / scrollPositionMaximum);
+
+    return currRowIdx;
 }
 
 void RAMInfoDialog::done(int r)
@@ -233,8 +249,8 @@ void RAMSearchThread::run()
     SearchRunning = true;
     u32 progress = 0;
 
-    // Pause game running
-    emuThread->emuPause();
+    // // Pause game running
+    // emuThread->emuPause();
 
     // For following search modes below, RowDataVector must be filled.
     if (SearchMode == ramInfoSTh_SearchAll || RowDataVector->size() == 0)
@@ -280,8 +296,8 @@ void RAMSearchThread::run()
         RowDataVector = newRowDataVector;
     }
 
-    // Unpause game running
-    emuThread->emuUnpause();
+    // // Unpause game running
+    // emuThread->emuUnpause();
 
     SearchRunning = false;
 }
