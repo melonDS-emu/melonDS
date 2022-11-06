@@ -198,10 +198,19 @@ void RAMInfoDialog::on_radiobtn4bytes_clicked()
 void RAMInfoDialog::on_ramTable_itemChanged(QTableWidgetItem *item)
 {
     ramInfo_RowData& rowData = SearchThread->GetResults()->at(item->row());
-    s32 itemValue = item->text().toInt();
+    s32 newValue = item->text().toInt();
 
-    if (rowData.Value != itemValue)
-        rowData.SetValue(itemValue);
+    if (rowData.Value != newValue)
+        rowData.Value = newValue;
+}
+
+void RAMInfoDialog::on_ramTable_currentItemChanged(QTableWidgetItem *item)
+{
+    ramInfo_RowData& rowData = SearchThread->GetResults()->at(item->row());
+    s32 newValue = item->text().toInt();
+
+    if (rowData.Value != newValue)
+        NDS::MainRAM[rowData.Address&NDS::MainRAMMask] = (u32)newValue;
 }
 
 /**
