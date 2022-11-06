@@ -114,7 +114,7 @@ void RAMInfoDialog::ShowRowsInTable()
         else
         {
             // A row that exists
-            ui->ramTable->item(row, ramInfo_Address)->setText(QString("%1").arg(rowData.Address, 8, 16));
+            ui->ramTable->item(row, ramInfo_Address)->setText(QString("%1").arg(rowData.Address, 8, 16, QChar('0')));
             ui->ramTable->item(row, ramInfo_Value)->setText(QString("%1").arg(rowData.Value));
             ui->ramTable->item(row, ramInfo_Previous)->setText(QString("%1").arg(rowData.Previous));
             if (rowData.Value != rowData.Previous) 
