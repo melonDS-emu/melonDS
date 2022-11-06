@@ -145,7 +145,7 @@ private:
 
     ramInfoSTh_SearchMode SearchMode;
     s32 SearchValue;
-    ramInfo_ByteType SearchByteType = ramInfo_OneByte;
+    ramInfo_ByteType SearchByteType = ramInfo_FourBytes;
     std::vector<ramInfo_RowData>* RowDataVector = nullptr;
 
     void ClearTableContents();
