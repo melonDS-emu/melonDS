@@ -65,22 +65,22 @@ As for the rest, the interface should be pretty straightforward. If you have a q
    cd melonDS
    ```
 #### Dynamic builds (with DLLs)
-5. Install dependencies: `pacman -S make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-base,qt5-svg,qt5-multimedia,libslirp,libarchive}`
+5. Install dependencies: `pacman -S mingw-w64-x86_64-{cmake,SDL2,toolchain,qt5-base,qt5-svg,qt5-multimedia,libslirp,libarchive}`
 6. Compile:
    ```bash
-   cmake -B build -G "MSYS Makefiles"
-   cmake --build build -j$(nproc --all)
+   cmake -B build
+   cmake --build build
    cd build
    ../tools/msys-dist.sh
    ```
 If everything went well, melonDS and the libraries it needs should now be in the `dist` folder.
 
 #### Static builds (without DLLs, standalone executable)
-5. Install dependencies: `pacman -S make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-static,libslirp,libarchive}`
+5. Install dependencies: `pacman -S mingw-w64-x86_64-{cmake,SDL2,toolchain,qt5-static,libslirp,libarchive}`
 6. Compile:
    ```bash
-   cmake -B build -G 'MSYS Makefiles' -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=/mingw64/qt5-static
-   cmake --build build -j$(nproc --all)
+   cmake -B build -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=/mingw64/qt5-static
+   cmake --build build
    ```
 If everything went well, melonDS should now be in the `build` folder.
 

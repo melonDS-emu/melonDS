@@ -27,19 +27,15 @@ jobs:
           update: true
 
     - name: Install dependencies
-      run: pacman -Sq --noconfirm git make pkgconf mingw-w64-x86_64-{cmake,mesa,SDL2,qt5-static,libslirp,libarchive,libepoxy,toolchain}
-  
-    - name: Create build environment
-      working-directory: ${{runner.workspace}}
-      run: mkdir build
+      run: pacman -Sq --noconfirm git pkgconf mingw-w64-x86_64-{cmake,SDL2,qt5-static,libslirp,libarchive,toolchain}
 
     - name: Configure
-      working-directory: ${{runner.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=C:/tools/msys64/mingw64/qt5-static
+      working-directory: ${{runner.workspace}}
+      run: cmake -B build $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=C:/tools/msys64/mingw64/qt5-static
 
     - name: Make
       working-directory: ${{runner.workspace}}/build
-      run: make -j$(nproc --all)
+      run: cmake --build .
 
     - uses: actions/upload-artifact@v1
       with:
