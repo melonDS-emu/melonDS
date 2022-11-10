@@ -239,6 +239,7 @@ public:
     GL::Context* getOGLContext();
 
     bool preloadROMs(QStringList file, QStringList gbafile, bool boot);
+    QStringList splitArchivePath(const QString& filename, bool useMemberSyntax);
 
     void onAppStateChanged(Qt::ApplicationState state);
 
