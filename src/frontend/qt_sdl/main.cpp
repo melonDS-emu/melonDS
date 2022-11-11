@@ -2568,15 +2568,15 @@ void MainWindow::onSaveState()
     if (ROMManager::SaveState(filename))
     {
         char msg[64];
-        if (slot > 0) sprintf(msg, "即时状态保存至槽位 %d", slot);
-        else          sprintf(msg, "即使状态保存至文件");
+        if (slot > 0) sprintf(msg, "State saved to slot %d", slot);
+        else          sprintf(msg, "State saved to file");
         OSD::AddMessage(0, msg);
 
         actLoadState[slot]->setEnabled(true);
     }
     else
     {
-        OSD::AddMessage(0xFFA0A0, "即时存档失败");
+        OSD::AddMessage(0xFFA0A0, "State save failed");
     }
 
     emuThread->emuUnpause();
@@ -2612,8 +2612,8 @@ void MainWindow::onLoadState()
     if (!Platform::FileExists(filename))
     {
         char msg[64];
-        if (slot > 0) sprintf(msg, "槽位 %d 没有即时存档", slot);
-        else          sprintf(msg, "即时存档文件不存在");
+        if (slot > 0) sprintf(msg, "State slot %d is empty", slot);
+        else          sprintf(msg, "State file does not exist");
         OSD::AddMessage(0xFFA0A0, msg);
 
         emuThread->emuUnpause();
@@ -2623,15 +2623,15 @@ void MainWindow::onLoadState()
     if (ROMManager::LoadState(filename))
     {
         char msg[64];
-        if (slot > 0) sprintf(msg, "从槽位 %d 即时读档", slot);
-        else          sprintf(msg, "从文件即时读档");
+        if (slot > 0) sprintf(msg, "State loaded from slot %d", slot);
+        else          sprintf(msg, "State loaded from file");
         OSD::AddMessage(0, msg);
 
         actUndoStateLoad->setEnabled(true);
     }
     else
     {
-        OSD::AddMessage(0xFFA0A0, "即时读档失败");
+        OSD::AddMessage(0xFFA0A0, "State load failed");
     }
 
     emuThread->emuUnpause();
