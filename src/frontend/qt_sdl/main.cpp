@@ -3285,6 +3285,9 @@ int main(int argc, char** argv)
     }
 
     SDL_JoystickEventState(SDL_ENABLE);
+    
+    SDL_InitSubSystem(SDL_INIT_VIDEO);
+    SDL_EnableScreenSaver(); SDL_DisableScreenSaver();
 
     Config::Load();
 
