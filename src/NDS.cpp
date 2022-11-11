@@ -3751,7 +3751,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
         }
 
     // NO$GBA debug register "Char Out"
-    case 0x04FFFA1C: printf("%" PRIu32, val); return;
+    case 0x04FFFA1C: printf("%c", val & 0xFF); return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
