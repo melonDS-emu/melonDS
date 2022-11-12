@@ -3509,6 +3509,7 @@ int main(int argc, char** argv)
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
+    bool memberSyntaxUsed = false;
     const auto prepareRomPath = [&](const std::optional<QString>& romPath, const std::optional<QString>& romArchivePath) -> QStringList {
         if (!romPath.has_value())
             return {};
@@ -3517,12 +3518,14 @@ int main(int argc, char** argv)
             return { *romPath, *romArchivePath };
 
         const QStringList path = mainWindow->splitArchivePath(*romPath, true);
-        if (path.size() > 1) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
+        if (path.size() > 1) memberSyntaxUsed = true;
         return path;
     };
 
     const QStringList dsfile = prepareRomPath(options->dsRomPath, options->dsRomArchivePath);
     const QStringList gbafile = prepareRomPath(options->gbaRomPath, options->gbaRomArchivePath);
+
+    if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
 
     mainWindow->preloadROMs(dsfile, gbafile, options->boot);
 
