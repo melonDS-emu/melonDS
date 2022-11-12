@@ -3516,7 +3516,9 @@ int main(int argc, char** argv)
         if (romArchivePath.has_value())
             return { *romPath, *romArchivePath };
 
-        return mainWindow->splitArchivePath(*romPath, true);
+        const QStringList path = mainWindow->splitArchivePath(*romPath, true);
+        if (path.size() > 1) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
+        return path;
     };
 
     const QStringList dsfile = prepareRomPath(options->dsRomPath, options->dsRomArchivePath);
