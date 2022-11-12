@@ -133,7 +133,7 @@ void ByteIn(u8 val)
 
             case 0x20:
                 {
-                    time_t timestamp = time(NULL);
+                    /*time_t timestamp = time(NULL);
                     struct tm timedata;
                     localtime_r(&timestamp, &timedata);
 
@@ -143,19 +143,29 @@ void ByteIn(u8 val)
                     Output[3] = BCD(timedata.tm_wday);
                     Output[4] = BCD(timedata.tm_hour);
                     Output[5] = BCD(timedata.tm_min);
-                    Output[6] = BCD(timedata.tm_sec);
+                    Output[6] = BCD(timedata.tm_sec);*/
+                    Output[0] = BCD(22);
+                    Output[1] = BCD(11);
+                    Output[2] = BCD(3);
+                    Output[3] = BCD(3);
+                    Output[4] = BCD(6);
+                    Output[5] = BCD(0);
+                    Output[6] = BCD(0);
                 }
                 break;
 
             case 0x60:
                 {
-                    time_t timestamp = time(NULL);
+                    /*time_t timestamp = time(NULL);
                     struct tm timedata;
                     localtime_r(&timestamp, &timedata);
 
                     Output[0] = BCD(timedata.tm_hour);
                     Output[1] = BCD(timedata.tm_min);
-                    Output[2] = BCD(timedata.tm_sec);
+                    Output[2] = BCD(timedata.tm_sec);*/
+                    Output[0] = BCD(6);
+                    Output[1] = BCD(0);
+                    Output[2] = BCD(0);
                 }
                 break;
 
