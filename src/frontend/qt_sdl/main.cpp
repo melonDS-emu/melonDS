@@ -107,7 +107,8 @@ const QStringList NdsRomExtensions { ".nds", ".srl", ".dsi", ".ids" };
 const QStringList GbaRomMimeTypes { "application/x-gba-rom" };
 const QStringList GbaRomExtensions { ".gba", ".agb" };
 
-const QStringList ArchiveMimeTypes {
+const QStringList ArchiveMimeTypes
+{
 #ifdef ARCHIVE_SUPPORT_ENABLED
     "application/zip",
     "application/x-7z-compressed",
@@ -127,7 +128,9 @@ const QStringList ArchiveMimeTypes {
     "application/x-tzo", // *.tar.lzo
 #endif
 };
-const QStringList ArchiveExtensions {
+
+const QStringList ArchiveExtensions
+{
 #ifdef ARCHIVE_SUPPORT_ENABLED
     ".zip", ".7z", ".rar", ".tar",
 
@@ -3510,7 +3513,8 @@ int main(int argc, char** argv)
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
     bool memberSyntaxUsed = false;
-    const auto prepareRomPath = [&](const std::optional<QString>& romPath, const std::optional<QString>& romArchivePath) -> QStringList {
+    const auto prepareRomPath = [&](const std::optional<QString>& romPath, const std::optional<QString>& romArchivePath) -> QStringList
+    {
         if (!romPath.has_value())
             return {};
 
