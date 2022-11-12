@@ -2400,7 +2400,10 @@ QStringList MainWindow::pickROM(bool gba)
 {
     const QString console = gba ? "GBA" : "DS";
     const QStringList& romexts = gba ? GbaRomExtensions : NdsRomExtensions;
-    static const QString filterSuffix = " *" + ArchiveExtensions.join(" *") + ");;Any file (*.*)";
+
+    static const QString filterSuffix = ArchiveExtensions.empty()
+        ? ");;Any file (*.*)"
+        : " *" + ArchiveExtensions.join(" *") + ");;Any file (*.*)";
 
     const QString filename = QFileDialog::getOpenFileName(
         this, "Open " + console + " ROM",
