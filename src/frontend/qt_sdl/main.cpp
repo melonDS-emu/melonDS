@@ -2299,7 +2299,7 @@ QStringList MainWindow::splitArchivePath(const QString& filename, bool useMember
         const QStringList filenameParts = filename.split('|');
         if (filenameParts.size() > 2)
         {
-            QMessageBox::warning(this, "melonDS", "This path contains too many vertical bars.");
+            QMessageBox::warning(this, "melonDS", "This path contains too many '|'.");
             return {};
         }
 
