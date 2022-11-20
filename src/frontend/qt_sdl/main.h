@@ -86,6 +86,8 @@ signals:
 
     void swapScreensToggle();
 
+    void swapEmphasisToggle();
+
 private:
     void drawScreenGL();
     void initOpenGL();

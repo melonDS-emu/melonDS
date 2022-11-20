@@ -374,6 +374,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panelWidget, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
+    connect(this, SIGNAL(swapEmphasisToggle()), mainWindow->actScreensizing, SLOT(trigger()));
 
     static_cast<ScreenPanelGL*>(mainWindow->panel)->transferLayout(this);
 }
@@ -544,6 +545,8 @@ void EmuThread::run()
         if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
         if (Input::HotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
+
+        if (Input::HotkeyPressed(HK_SwitchEmphasis)) emit swapEmphasisToggle();
 
         if (Input::HotkeyPressed(HK_SolarSensorDecrease))
         {
