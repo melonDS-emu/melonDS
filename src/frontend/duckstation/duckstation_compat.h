@@ -12,6 +12,6 @@
 
 #define Panic(msg) assert(false && msg)
 
-#define UnreachableCode() __builtin_unreachable
+#define UnreachableCode() __builtin_unreachable()
 
 #endif
