@@ -61,6 +61,7 @@ const int hk_general[] =
     HK_Lid,
     HK_Mic,
     HK_SwapScreens
+    HK_SwitchEmphasis
 };
 
 const char* hk_general_labels[] =
