@@ -18,6 +18,10 @@
 
 #include <stdio.h>
 #include <string.h>
+
+#include <bitset>
+#include <string>
+
 #include "NDS.h"
 #include "GPU.h"
 
@@ -282,9 +286,9 @@ void Reset()
     OAMDirty = 0x3;
     PaletteDirty = 0xF;
 
-    dsym_scanline = NDS::MakeTracingSym("scanline", 1, 16, LT_SYM_F_INTEGER);
-    dsym_hblank   = NDS::MakeTracingSym("hblank"  , 1,  1, LT_SYM_F_INTEGER);
-    dsym_vblank   = NDS::MakeTracingSym("vblank"  , 1,  1, LT_SYM_F_INTEGER);
+    dsym_scanline = NDS::MakeTracingSym("scanline", 1, 9, LT_SYM_F_BITS);//LT_SYM_F_INTEGER);
+    dsym_hblank   = NDS::MakeTracingSym("hblank"  , 1, 1, LT_SYM_F_BITS);
+    dsym_vblank   = NDS::MakeTracingSym("vblank"  , 1, 1, LT_SYM_F_BITS);
 }
 
 void Stop()
@@ -1029,6 +1033,7 @@ void DisplayFIFO(u32 x)
 void StartFrame()
 {
     NDS::TraceValue(dsym_vblank, 0, 0, debug::SystemSignal::DispCtl);
+    NDS::TraceValue(dsym_vblank, 0, (char*)"0", debug::SystemSignal::DispCtl);
 
     // only run the display FIFO if needed:
     // * if it is used for display or capture
@@ -1041,7 +1046,9 @@ void StartFrame()
 
 void StartHBlank(u32 line)
 {
-    NDS::TraceValue(dsym_hblank, 0, 1, debug::SystemSignal::DispCtl);
+    NDS::TraceValue(dsym_hblank, 0, (char*)"1", debug::SystemSignal::DispCtl);
+    if (VCount == 192)
+        NDS::TraceValue(dsym_vblank, 0, (char*)"1", debug::SystemSignal::DispCtl);
 
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
@@ -1086,8 +1093,8 @@ void StartHBlank(u32 line)
 
 void FinishFrame(u32 lines)
 {
-    NDS::TraceValue(dsym_hblank, 0, 0, debug::SystemSignal::DispCtl);
-    NDS::TraceValue(dsym_vblank, 0, 1, debug::SystemSignal::DispCtl);
+    NDS::TraceValue(dsym_hblank, 0, (char*)"0", debug::SystemSignal::DispCtl);
+    NDS::TraceValue(dsym_vblank, 0, (char*)"1", debug::SystemSignal::DispCtl);
 
     FrontBuffer = FrontBuffer ? 0 : 1;
     AssignFramebuffers();
@@ -1103,7 +1110,7 @@ void FinishFrame(u32 lines)
 
 void StartScanline(u32 line)
 {
-    NDS::TraceValue(dsym_hblank, 0, 0, debug::SystemSignal::DispCtl);
+    NDS::TraceValue(dsym_hblank, 0, (char*)"0", debug::SystemSignal::DispCtl);
 
     if (line == 0)
         VCount = 0;
@@ -1112,7 +1119,13 @@ void StartScanline(u32 line)
     else
         VCount++;
 
-    NDS::TraceValue(dsym_scanline, 0, VCount, debug::SystemSignal::DispCtl);
+    {
+        //printf("trace scanline(%d) to %u @ time %llu <-> %llu\n", dsym_scanline, VCount,
+        //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
+        std::bitset<9> bits(VCount&0x1FF);
+        std::string str = bits.to_string();
+        NDS::TraceValue(dsym_scanline, 0, (char*)str.c_str(), debug::SystemSignal::DispCtl);
+    }
 
     NextVCount = -1;
 

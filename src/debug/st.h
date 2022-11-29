@@ -68,10 +68,11 @@ public:
 
     void BeginTracing();
     void PauseTracing();
-    void SetTime(uint64_t tim);
+    void SetTime(uint64_t tim, bool force);
 
 private:
     bool tracing;
+    uint64_t curtime;
 
     struct lt_trace* tracer;
 

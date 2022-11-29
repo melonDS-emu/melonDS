@@ -70,14 +70,14 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
 {
     // of course, only enable this if you trust the ROM...
 
-    /*printf("hypervisor call #%04x on ARM%d in %s mode\n",
-        scnum, cpu->Num?7:9, thumb?"THUMB":"ARM");*/
+    printf("hypervisor call #%02x on ARM%d in %s mode\n",
+        scnum, cpu->Num?7:9, thumb?"THUMB":"ARM");
 
     switch (scnum)
     {
     /* general/misc */
     case 0x80: /* test */
-        printf("test hypervisor call #%04x on ARM%d in %s mode\n",
+        printf("test hypervisor call #%02x on ARM%d in %s mode\n",
             scnum, cpu->Num?7:9, thumb?"THUMB":"ARM");
         break;
     case 0x81: /* print */
@@ -107,7 +107,7 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
             else
             {
                 char* buf = read_sz(cpu, namaddr);
-                cpu->R[0] = NDS::DebugStuff.AddTraceSym(buf, arrlen, bits-1, (int)typ);
+                cpu->R[0] = NDS::DebugStuff.AddTraceSym(buf, arrlen, bits, (int)typ);
                 free(buf);
             }
         }
