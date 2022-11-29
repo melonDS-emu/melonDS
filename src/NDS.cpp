@@ -45,6 +45,7 @@
 #include "DSi_Camera.h"
 #include "DSi_DSP.h"
 
+#include "debug/lxt_write.h"
 
 namespace NDS
 {
@@ -173,6 +174,8 @@ bool Running;
 
 bool RunningGame;
 
+struct lt_trace* tracer;
+
 void DivDone(u32 param);
 void SqrtDone(u32 param);
 void RunTimer(u32 tid, s32 cycles);
@@ -220,6 +223,9 @@ bool Init()
 
 void DeInit()
 {
+    if (tracer) lt_close(tracer);
+    tracer = NULL;
+
 #ifdef JIT_ENABLED
     ARMJIT::DeInit();
 #endif
@@ -586,6 +592,11 @@ void Reset()
     ARM7Timestamp = 0; ARM7Target = 0;
     SysTimestamp = 0;
 
+    if (tracer) lt_close(tracer);
+    tracer = lt_init("melonds-test.lxt");
+    lt_set_time64(SysTimestamp);
+    lt_set_dumpoff(tracer);
+
     InitTimings();
 
     memset(MainRAM, 0, MainRAMMask + 1);
@@ -691,6 +702,8 @@ void Start()
 void Stop()
 {
     printf("Stopping: shutdown\n");
+    if (tracer) lt_close(tracer);
+    tracer = NULL;
     Running = false;
     Platform::StopEmu();
     GPU::Stop();
@@ -1025,6 +1038,7 @@ u64 NextTarget()
 void RunSystem(u64 timestamp)
 {
     SysTimestamp = timestamp;
+    if (tracer) lt_set_time64(tracer, SysTimestamp);
 
     u32 mask = SchedListMask;
     for (int i = 0; i < Event_MAX; i++)

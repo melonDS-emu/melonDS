@@ -56,7 +56,13 @@ add_library(core STATIC
 
     sha1/sha1.c
     tiny-AES-c/aes.c
-    xxhash/xxhash.c)
+
+    xxhash/xxhash.c
+
+    # TODO: make this conditional?
+    debug/hv.cpp
+    debug/lxt_write.c
+)
 
 if (ENABLE_OGLRENDERER)
     target_sources(core PRIVATE

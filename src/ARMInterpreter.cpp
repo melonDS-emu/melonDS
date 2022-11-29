@@ -23,6 +23,8 @@
 #include "ARMInterpreter_Branch.h"
 #include "ARMInterpreter_LoadStore.h"
 
+#include "debug/hv.h"
+
 
 namespace ARMInterpreter
 {
@@ -257,7 +259,7 @@ void A_SVC(ARM* cpu)
     if (cpu->CurInstr & 0x00800000)
     {
         // "hypervisor" call for emulator debugging stuff
-        debug_hv::swi(cpu, false, (cpu->CurInstr >> 16) & 0xFF);
+        debug::swi(cpu, false, (cpu->CurInstr >> 16) & 0xFF);
         return;
     }
     else if ((cpu->CurInstr & 0x007FFFFF) == 0x0E0000) // GetCRC16
@@ -285,7 +287,7 @@ void T_SVC(ARM* cpu)
     if (cpu->CurInstr & 0x0080)
     {
         // "hypervisor" call for emulator debugging stuff
-        debug_hv::swi(cpu, true , cpu->CurInstr & 0xFF);
+        debug::swi(cpu, true , cpu->CurInstr & 0xFF);
         return;
     }
     else if ((cpu->CurInstr & 0x007F) == 0x0E) // GetCRC16
