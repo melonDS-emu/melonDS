@@ -126,7 +126,7 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
                     val = cpu->R[2];
             uint32_t ind = cpu->R[1];
 
-            NDS::DebugStuff.TraceValue(sig, ind, val);
+            NDS::DebugStuff.TraceValue(sig, ind, val, SystemSignal::Custom);
         }
         break;
     case 0x8b: /* trace float value (int sig, int ind, float val) */
@@ -136,7 +136,7 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
             union { uint32_t u; float f; } uf;
             uf.u = cpu->R[2];
 
-            NDS::DebugStuff.TraceValue(sig, ind, (double)uf.f);
+            NDS::DebugStuff.TraceValue(sig, ind, (double)uf.f, SystemSignal::Custom);
         }
         break;
     case 0x8c: /* trace bit string (int sig, int ind, const char* val) */
@@ -146,7 +146,7 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
             uint32_t bufaddr = cpu->R[2];
 
             char* buf = read_sz(cpu, bufaddr);
-            NDS::DebugStuff.TraceValue(sig, ind, buf);
+            NDS::DebugStuff.TraceValue(sig, ind, buf, SystemSignal::Custom);
             free(buf);
         }
         break;
@@ -157,7 +157,7 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
             uint32_t bufaddr = cpu->R[2];
 
             char* buf = read_sz(cpu, bufaddr);
-            NDS::DebugStuff.TraceString(sig, ind, buf);
+            NDS::DebugStuff.TraceString(sig, ind, buf, SystemSignal::Custom);
             free(buf);
         }
         break;
@@ -166,6 +166,17 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
             uint32_t en = cpu->R[0];
             if (en == 0) NDS::DebugStuff.PauseTracing();
             else NDS::DebugStuff.BeginTracing();
+        }
+        break;
+
+    case 0x8f: /* get/set/mask tracing flags */
+        {
+            // oldv = flags
+            // flags = (flags & mask) | add
+            // return oldv
+            uint32_t mask = cpu->R[0], add = cpu->R[1];
+            cpu->R[0] = (uint32_t)NDS::DebugStuff.EnabledSignals;
+            NDS::DebugStuff.EnabledSignals = (SystemSignal)((cpu->R[0] & mask) | add);
         }
         break;
     }

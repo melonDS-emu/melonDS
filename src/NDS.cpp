@@ -1048,9 +1048,9 @@ u64 NextTarget()
 void RunSystem(u64 timestamp)
 {
     SysTimestamp = timestamp;
-#ifdef DEBUG_FEATURES_ENABLED
+/*#ifdef DEBUG_FEATURES_ENABLED
     DebugStuff.SetTime(SysTimestamp);
-#endif
+#endif*/
 
     u32 mask = SchedListMask;
     for (int i = 0; i < Event_MAX; i++)

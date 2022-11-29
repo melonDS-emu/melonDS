@@ -10,9 +10,46 @@
 namespace debug
 {
 
+enum SystemSignal
+{
+    ARM7_stat = 1<< 0, // pc, cpsr
+    ARM9_stat = 1<< 1, // pc, cpsr, cp15
+    MemCtl    = 1<< 2, // exmemcnt, wramcnt, vramcnt a-i, mbk1-9(dsi)
+    DispCtl   = 1<< 3, // dispcnt, hbl, vbl, vcount
+    Disp3DCtl = 1<< 4, // disp3dcnt, rdlines_count, gxstat, ram_count
+    DmaCtl    = 1<< 5, // DMAxCNT, NDMAxCNT(dsi), NDMAGCNT(dsi)
+    IpcFifo   = 1<< 6, // ipcsync, ipcfifocnt
+    SoundCtl  = 1<< 7, // SOUNDxCNT, soundcnt, soundbias, sndexcnt(dsi7)
+    TimerCtl  = 1<< 8, // TMxCNT
+    Interrupt = 1<< 9, // ime, ie,if, ie2,if2(dsi7)
+    MathsCtl  = 1<<10, // divcnt, sqrtcnt
+    PowerCtl  = 1<<11, // powcnt1, powcnt2, wifiwaitcnt, haltcnt(?), pwman spi dev reg0?, bptwl(dsi7)
+    SConfig   = 1<<12, // SCFG_* (dsi)
+    DspCtl    = 1<<13, // dsp_pcfg, psts, psem, pmask, cmd0-2, rep0-2
+    SdMmcIoCtl= 1<<14, // cmd, params, datactl, irqstat, irqmask, data32_irq, errdet, portsel, card_opt, card_clkctl (dsi7)
+    SdMmcHwCtl= 1<<15, // csr, ?
+    WifiNtrCtl= 1<<16, // mode_rst, if, ie, power_us, power_tx, powerstate, powerforce, rxcnt, txbusy, txstat, rf_pins, rf_status
+    WifiIIoCtl= 1<<17, // cmd, params, datactl, irqstat, irqmask, data32_irq, errdet, portsel, card_opt, card_clkctl (dsi7)
+    WifiISdCtl= 1<<18, // cccr{func en, ie, busctl}, f1{host_int_stat, cpu_int_stat}, mbox stuff?
+    WifiIXtCtl= 1<<19, // pc, litbase, epc/intlevel/..., interrupt, ??? // TODO: whenever this is implemented in melonds
+    GpioCtl   = 1<<20, // dir, ie, iedge, wifi
+    KeypadCtl = 1<<21, // keyinput, keycnt, extkeyin(a7)
+    MicNtrCtl = 1<<22, // SNDCAPxCNT
+    MicTwlCtl = 1<<22, // mic_cnt(dsi7)
+    RtcCtl    = 1<<23, // REG_RTC, FOUT
+    SpiCtl    = 1<<24, // spicnt
+    AuxSpiCtl = 1<<25, // auxspicnt, romctl
+    TscTwlCtl = 1<<26, // ADC, DAC, ovf, int, ... flags
+    I2CCtl    = 1<<27, // I2C stuff
+
+    Custom    = 1<<31
+};
+
 class DebugStorageNDS
 {
 public:
+    enum SystemSignal EnabledSignals;
+
     DebugStorageNDS();
     ~DebugStorageNDS();
 
@@ -23,11 +60,11 @@ public:
 
     int32_t AddTraceSym(const char* name, unsigned int arrlen, int bits, int typ);
     int32_t GetTraceSym(const char* name);
-    void TraceValue(int32_t sym, unsigned int ind, int value);
-    void TraceValue(int32_t sym, unsigned int ind, unsigned int value);
-    void TraceValue(int32_t sym, unsigned int ind, double value);
-    void TraceValue(int32_t sym, unsigned int ind, char* value); // bitstring
-    void TraceString(int32_t sym, unsigned int ind, char* value);
+    void TraceValue(int32_t sym, unsigned int ind, int value, enum SystemSignal categ);
+    void TraceValue(int32_t sym, unsigned int ind, unsigned int value, enum SystemSignal categ);
+    void TraceValue(int32_t sym, unsigned int ind, double value, enum SystemSignal categ);
+    void TraceValue(int32_t sym, unsigned int ind, char* value, enum SystemSignal categ); // bitstring
+    void TraceString(int32_t sym, unsigned int ind, char* value, enum SystemSignal categ);
 
     void BeginTracing();
     void PauseTracing();

@@ -346,29 +346,29 @@ inline s32 MakeTracingSym(const char* name, unsigned int arrlen, int bits, int t
     return -1;
 #endif
 }
-inline void TraceValue(s32 sym, unsigned int ind, int value) {
+inline void TraceValue(s32 sym, unsigned int ind, int value, enum debug::SystemSignal categ) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, ind, value);
+    DebugStuff.TraceValue(sym, ind, value, categ);
 #endif
 }
-inline void TraceValue(s32 sym, unsigned int ind, unsigned int value) {
+inline void TraceValue(s32 sym, unsigned int ind, unsigned int value, enum debug::SystemSignal categ) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, ind, value);
+    DebugStuff.TraceValue(sym, ind, value, categ);
 #endif
 }
-inline void TraceValue(s32 sym, unsigned int ind, double value) {
+inline void TraceValue(s32 sym, unsigned int ind, double value, enum debug::SystemSignal categ) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, ind, value);
+    DebugStuff.TraceValue(sym, ind, value, categ);
 #endif
 }
-inline void TraceValue(s32 sym, unsigned int ind, char* value) {
+inline void TraceValue(s32 sym, unsigned int ind, char* value, enum debug::SystemSignal categ) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, ind, value);
+    DebugStuff.TraceValue(sym, ind, value, categ);
 #endif
 }
-inline void TraceString(s32 sym, unsigned int ind, char* value) {
+inline void TraceString(s32 sym, unsigned int ind, char* value, enum debug::SystemSignal categ) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceString(sym, ind, value);
+    DebugStuff.TraceString(sym, ind, value, categ);
 #endif
 }
 

@@ -21,7 +21,9 @@ namespace debug
 {
 
 DebugStorageNDS::DebugStorageNDS()
+    : tracer(NULL)
 {
+    Reset();
     AllocNew();
 }
 DebugStorageNDS::~DebugStorageNDS()
@@ -37,6 +39,8 @@ void DebugStorageNDS::Reset()
 
     CapTSyms = NTSyms = 0;
     TSyms = NULL;
+
+    EnabledSignals = (SystemSignal)(SystemSignal::DispCtl | SystemSignal::Interrupt);
 }
 void DebugStorageNDS::AllocNew()
 {
@@ -110,34 +114,44 @@ int32_t DebugStorageNDS::GetTraceSym(const char* name)
 
     return -1;
 }
-void DebugStorageNDS::TraceValue(int32_t sym, unsigned int ind, int value)
+void DebugStorageNDS::TraceValue(int32_t sym, unsigned int ind, int value, enum SystemSignal categ)
 {
     if (!tracer || !TSyms || sym < 0 || sym >= NTSyms || !tracing) return;
+    if (!(categ & EnabledSignals)) return;
 
+    SetTime(NDS::GetSysClockCycles(0, true));
     lt_emit_value_int(tracer, TSyms[sym].sym, ind, value);
 }
-void DebugStorageNDS::TraceValue(int32_t sym, unsigned int ind, unsigned int value)
+void DebugStorageNDS::TraceValue(int32_t sym, unsigned int ind, unsigned int value, enum SystemSignal categ)
 {
     if (!tracer || !TSyms || sym < 0 || sym >= NTSyms || !tracing) return;
+    if (!(categ & EnabledSignals)) return;
 
+    SetTime(NDS::GetSysClockCycles(0, true));
     lt_emit_value_int(tracer, TSyms[sym].sym, ind, value);
 }
-void DebugStorageNDS::TraceValue(int32_t sym, unsigned int ind, double value)
+void DebugStorageNDS::TraceValue(int32_t sym, unsigned int ind, double value, enum SystemSignal categ)
 {
     if (!tracer || !TSyms || sym < 0 || sym >= NTSyms || !tracing) return;
+    if (!(categ & EnabledSignals)) return;
 
+    SetTime(NDS::GetSysClockCycles(0, true));
     lt_emit_value_double(tracer, TSyms[sym].sym, ind, value);
 }
-void DebugStorageNDS::TraceValue(int32_t sym, unsigned int ind, char* value)
+void DebugStorageNDS::TraceValue(int32_t sym, unsigned int ind, char* value, enum SystemSignal categ)
 {
     if (!tracer || !TSyms || sym < 0 || sym >= NTSyms || !tracing) return;
+    if (!(categ & EnabledSignals)) return;
 
+    SetTime(NDS::GetSysClockCycles(0, true));
     lt_emit_value_bit_string(tracer, TSyms[sym].sym, ind, value);
 }
-void DebugStorageNDS::TraceString(int32_t sym, unsigned int ind, char* value)
+void DebugStorageNDS::TraceString(int32_t sym, unsigned int ind, char* value, enum SystemSignal categ)
 {
     if (!tracer || !TSyms || sym < 0 || sym >= NTSyms || !tracing) return;
+    if (!(categ & EnabledSignals)) return;
 
+    SetTime(NDS::GetSysClockCycles(0, true));
     lt_emit_value_string(tracer, TSyms[sym].sym, ind, value);
 }
 

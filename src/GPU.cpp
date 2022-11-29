@@ -1028,7 +1028,7 @@ void DisplayFIFO(u32 x)
 
 void StartFrame()
 {
-    NDS::TraceValue(dsym_vblank, 0, 0);
+    NDS::TraceValue(dsym_vblank, 0, 0, debug::SystemSignal::DispCtl);
 
     // only run the display FIFO if needed:
     // * if it is used for display or capture
@@ -1041,7 +1041,7 @@ void StartFrame()
 
 void StartHBlank(u32 line)
 {
-    NDS::TraceValue(dsym_hblank, 0, 1);
+    NDS::TraceValue(dsym_hblank, 0, 1, debug::SystemSignal::DispCtl);
 
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
@@ -1086,8 +1086,8 @@ void StartHBlank(u32 line)
 
 void FinishFrame(u32 lines)
 {
-    NDS::TraceValue(dsym_hblank, 0, 0);
-    NDS::TraceValue(dsym_vblank, 0, 1);
+    NDS::TraceValue(dsym_hblank, 0, 0, debug::SystemSignal::DispCtl);
+    NDS::TraceValue(dsym_vblank, 0, 1, debug::SystemSignal::DispCtl);
 
     FrontBuffer = FrontBuffer ? 0 : 1;
     AssignFramebuffers();
@@ -1103,7 +1103,7 @@ void FinishFrame(u32 lines)
 
 void StartScanline(u32 line)
 {
-    NDS::TraceValue(dsym_hblank, 0, 0);
+    NDS::TraceValue(dsym_hblank, 0, 0, debug::SystemSignal::DispCtl);
 
     if (line == 0)
         VCount = 0;
@@ -1112,7 +1112,7 @@ void StartScanline(u32 line)
     else
         VCount++;
 
-    NDS::TraceValue(dsym_scanline, 0, VCount);
+    NDS::TraceValue(dsym_scanline, 0, VCount, debug::SystemSignal::DispCtl);
 
     NextVCount = -1;
 
