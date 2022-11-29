@@ -1540,14 +1540,14 @@ u32 GetPC(u32 cpu)
     return cpu ? ARM7->R[15] : ARM9->R[15];
 }
 
-u64 GetSysClockCycles(int num)
+u64 GetSysClockCycles(int num, bool clkshift)
 {
     u64 ret;
 
     if (num == 0 || num == 2)
     {
         if (CurCPU == 0)
-            ret = ARM9Timestamp >> ARM9ClockShift;
+            ret = clkshift ? (ARM9Timestamp >> ARM9ClockShift) : ARM9Timestamp;
         else
             ret = ARM7Timestamp;
 
@@ -1559,7 +1559,7 @@ u64 GetSysClockCycles(int num)
         LastSysClockCycles = 0;
 
         if (CurCPU == 0)
-            LastSysClockCycles = ARM9Timestamp >> ARM9ClockShift;
+            LastSysClockCycles = clkshift ? (ARM9Timestamp >> ARM9ClockShift) : ARM9Timestamp;
         else
             LastSysClockCycles = ARM7Timestamp;
     }

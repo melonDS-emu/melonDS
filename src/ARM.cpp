@@ -18,6 +18,8 @@
 
 #include <stdio.h>
 #include <algorithm>
+#include <stdlib.h>
+
 #include "NDS.h"
 #include "DSi.h"
 #include "ARM.h"

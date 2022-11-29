@@ -285,7 +285,8 @@ void GXFIFOStall();
 void GXFIFOUnstall();
 
 u32 GetPC(u32 cpu);
-u64 GetSysClockCycles(int num);
+u64 GetSysClockCycles(int num, bool clkshift);
+inline u64 GetSysClockCycles(int num) { return GetSysClockCycles(num, true); }
 void NocashPrint(u32 cpu, u32 addr);
 
 void MonitorARM9Jump(u32 addr);
