@@ -64,6 +64,7 @@ if (ENABLE_DEBUG_FEATURES)
     message(NOTICE "Enabling debugging features")
     target_sources(core PRIVATE
         debug/hv.cpp
+        debug/st.cpp
         debug/lxt_write.c
     )
 endif()
@@ -149,5 +150,4 @@ endif()
 
 if (ENABLE_DEBUG_FEATURES)
     target_link_libraries(core PRIVATE z bz2)
-	add_definitions(-DDEBUG_FEATURES_ENABLED)
 endif()

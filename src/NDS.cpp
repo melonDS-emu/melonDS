@@ -46,7 +46,7 @@
 #include "DSi_DSP.h"
 
 #ifdef DEBUG_FEATURES_ENABLED
-#include "debug/lxt_write.h"
+#include "debug/st.h"
 #endif
 
 namespace NDS
@@ -177,7 +177,7 @@ bool Running;
 bool RunningGame;
 
 #ifdef DEBUG_FEATURES_ENABLED
-struct lt_trace* tracer;
+debug::DebugStorageNDS DebugStuff;
 #endif
 
 void DivDone(u32 param);
@@ -186,35 +186,6 @@ void RunTimer(u32 tid, s32 cycles);
 void UpdateWifiTimings();
 void SetWifiWaitCnt(u16 val);
 void SetGBASlotTimings();
-
-#ifdef DEBUG_FEATURES_ENABLED
-void InitTracing()
-{
-    if (tracer) lt_close(tracer);
-    /*tracer = lt_init("melonds-test.lxt");
-    lt_set_timescale(tracer, -6);
-    lt_set_time64(tracer, SysTimestamp);
-    lt_set_dumpoff(tracer);
-    //lt_set_dumpon(tracer);
-    lt_set_initial_value(tracer, '0');*/
-
-    /*struct lt_trace* t2 = lt_init("test.lxt");
-    lt_set_timescale(t2, 0);
-    lt_set_dumpon(t2);
-    lt_set_initial_value(t2, '0');
-
-    struct lt_symbol* s2 = lt_symbol_add(t2, "testtest", 0, 0, 0, LT_SYM_F_BITS);//INTEGER);
-
-    for (int i = 0; i < 10; ++i){
-        if (i==4)lt_set_dumpoff(t2);
-        else if (i==6)lt_set_dumpon(t2);
-    lt_set_time64(t2, i);
-    lt_emit_value_bit_string(t2, s2, 0, (1^(i&1)) ? (char*)"1" : (char*)"0");
-    }
-
-    lt_close(t2);*/
-}
-#endif
 
 bool Init()
 {
@@ -238,7 +209,9 @@ bool Init()
     DMAs[6] = new DMA(1, 2);
     DMAs[7] = new DMA(1, 3);
 
-    //InitTracing();
+#if DEBUG_FEATURES_ENABLED
+    DebugStuff.Reset();
+#endif
 
     if (!NDSCart::Init()) return false;
     if (!GBACart::Init()) return false;
@@ -259,8 +232,7 @@ void DeInit()
 {
     printf("Stopping: deinit\n");
 #ifdef DEBUG_FEATURES_ENABLED
-    if (tracer) {lt_close(tracer);}
-    tracer = NULL;
+    DebugStuff.Reset();
 #endif
 
 #ifdef JIT_ENABLED
@@ -625,18 +597,11 @@ void Reset()
     // unitialised on the first run
     ARM9->CP15Reset();
 
-    InitTracing();
+    DebugStuff.Reset();
 
     ARM9Timestamp = 0; ARM9Target = 0;
     ARM7Timestamp = 0; ARM7Target = 0;
     SysTimestamp = 0;
-
-#ifdef DEBUG_FEATURES_ENABLED
-    if (tracer) lt_close(tracer);
-    tracer = lt_init("melonds-test.lxt");
-    lt_set_time64(tracer, SysTimestamp);
-    lt_set_dumpoff(tracer);
-#endif
 
     InitTimings();
 
@@ -744,8 +709,7 @@ void Stop()
 {
     printf("Stopping: shutdown\n");
 #ifdef DEBUG_FEATURES_ENABLED
-    if (tracer) lt_close(tracer);
-    tracer = NULL;
+    DebugStuff.Reset();
 #endif
     Running = false;
     Platform::StopEmu();
@@ -974,6 +938,9 @@ bool DoSavestate(Savestate* file)
 
     if (ConsoleType == 1)
         DSi::DoSavestate(file);
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.DoSavestate(file);
+#endif
 
     if (!file->Saving)
     {
@@ -1082,9 +1049,7 @@ void RunSystem(u64 timestamp)
 {
     SysTimestamp = timestamp;
 #ifdef DEBUG_FEATURES_ENABLED
-    if (tracer) {
-        lt_set_time64(tracer, SysTimestamp);
-    }
+    DebugStuff.SetTime(SysTimestamp);
 #endif
 
     u32 mask = SchedListMask;
@@ -4470,40 +4435,6 @@ void ARM7IOWrite32(u32 addr, u32 val)
     }
 
     printf("unknown ARM7 IO write32 %08X %08X %08X\n", addr, val, ARM7->R[15]);
-}
-
-struct lt_symbol* MakeTracingSym(const char* name, unsigned int arrlen,
-        int lsb, int msb, int type) {
-#ifdef DEBUG_FEATURES_ENABLED
-    if (tracer) return lt_symbol_add(tracer, name, arrlen, lsb, msb, type);
-    else
-#endif
-        return NULL;
-}
-void TraceValue(struct lt_symbol* sym, unsigned int ind, int value) {
-#ifdef DEBUG_FEATURES_ENABLED
-    if (tracer && sym) lt_emit_value_int(tracer, sym, ind, value);
-#endif
-}
-void TraceValue(struct lt_symbol* sym, unsigned int ind, unsigned int value) {
-#ifdef DEBUG_FEATURES_ENABLED
-    if (tracer && sym) lt_emit_value_int(tracer, sym, ind, value);
-#endif
-}
-void TraceValue(struct lt_symbol* sym, unsigned int ind, double value) {
-#ifdef DEBUG_FEATURES_ENABLED
-    if (tracer && sym) lt_emit_value_double(tracer, sym, ind, value);
-#endif
-}
-void TraceValue(struct lt_symbol* sym, unsigned int ind, char* value) {
-#ifdef DEBUG_FEATURES_ENABLED
-    if (tracer && sym) lt_emit_value_bit_string(tracer, sym, ind, value);
-#endif
-}
-void TraceString(struct lt_symbol* sym, unsigned int ind, char* value) {
-#ifdef DEBUG_FEATURES_ENABLED
-    if (tracer && sym) lt_emit_value_string(tracer, sym, ind, value);
-#endif
 }
 
 }

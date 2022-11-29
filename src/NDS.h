@@ -29,13 +29,7 @@
 //#define DEBUG_CHECK_DESYNC
 
 #ifdef DEBUG_FEATURES_ENABLED
-#include "debug/lxt_write.h"
-#else
-extern "C" {
-
-struct lt_symbol { int nothing; };
-
-}
+#include "debug/st.h"
 #endif
 
 namespace NDS
@@ -196,6 +190,7 @@ extern bool LagFrameFlag;
 extern u64 ARM9Timestamp, ARM9Target;
 extern u64 ARM7Timestamp, ARM7Target;
 extern u32 ARM9ClockShift;
+extern u64 SysTimestamp;
 
 extern u32 IME[2];
 extern u32 IE[2];
@@ -231,6 +226,10 @@ extern u32 KeyInput;
 
 const u32 ARM7WRAMSize = 0x10000;
 extern u8* ARM7WRAM;
+
+#ifdef DEBUG_FEATURES_ENABLED
+extern debug::DebugStorageNDS DebugStuff;
+#endif
 
 bool Init();
 void DeInit();
@@ -340,13 +339,50 @@ void ARM7IOWrite8(u32 addr, u8 val);
 void ARM7IOWrite16(u32 addr, u16 val);
 void ARM7IOWrite32(u32 addr, u32 val);
 
-struct lt_symbol* MakeTracingSym(const char* name, unsigned int arrlen,
-    int lsb, int msb, int type);
-void TraceValue(struct lt_symbol* sym, unsigned int ind, int value);
-void TraceValue(struct lt_symbol* sym, unsigned int ind, unsigned int value);
-void TraceValue(struct lt_symbol* sym, unsigned int ind, double value);
-void TraceValue(struct lt_symbol* sym, unsigned int ind, char* value);
-void TraceString(struct lt_symbol* sym, unsigned int ind, char* value);
+inline s32 MakeTracingSym(const char* name, unsigned int arrlen, int bits, int type) {
+#ifdef DEBUG_FEATURES_ENABLED
+    return DebugStuff.AddTraceSym(name, arrlen, bits, type);
+#else
+    return -1;
+#endif
+}
+inline void TraceValue(s32 sym, unsigned int ind, int value) {
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.TraceValue(sym, ind, value);
+#endif
+}
+inline void TraceValue(s32 sym, unsigned int ind, unsigned int value) {
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.TraceValue(sym, ind, value);
+#endif
+}
+inline void TraceValue(s32 sym, unsigned int ind, double value) {
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.TraceValue(sym, ind, value);
+#endif
+}
+inline void TraceValue(s32 sym, unsigned int ind, char* value) {
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.TraceValue(sym, ind, value);
+#endif
+}
+inline void TraceString(s32 sym, unsigned int ind, char* value) {
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.TraceString(sym, ind, value);
+#endif
+}
+
+inline void BeginTracing() {
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.BeginTracing();
+#endif
+}
+inline void PauseTracing() {
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.PauseTracing();
+#endif
+}
+
 }
 
 #endif // NDS_H

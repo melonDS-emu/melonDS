@@ -147,6 +147,8 @@ u32 PaletteDirty;
 std::unique_ptr<GLCompositor> CurGLCompositor = {};
 #endif
 
+s32 dsym_scanline, dsym_hblank, dsym_vblank;
+
 bool Init()
 {
     GPU2D_Renderer = std::make_unique<GPU2D::SoftRenderer>();
@@ -279,6 +281,10 @@ void Reset()
 
     OAMDirty = 0x3;
     PaletteDirty = 0xF;
+
+    dsym_scanline = NDS::MakeTracingSym("scanline", 1, 16, LT_SYM_F_INTEGER);
+    dsym_hblank   = NDS::MakeTracingSym("hblank"  , 1,  1, LT_SYM_F_INTEGER);
+    dsym_vblank   = NDS::MakeTracingSym("vblank"  , 1,  1, LT_SYM_F_INTEGER);
 }
 
 void Stop()
@@ -1022,6 +1028,8 @@ void DisplayFIFO(u32 x)
 
 void StartFrame()
 {
+    NDS::TraceValue(dsym_vblank, 0, 0);
+
     // only run the display FIFO if needed:
     // * if it is used for display or capture
     // * if we have display FIFO DMA
@@ -1033,6 +1041,8 @@ void StartFrame()
 
 void StartHBlank(u32 line)
 {
+    NDS::TraceValue(dsym_hblank, 0, 1);
+
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
 
@@ -1076,6 +1086,9 @@ void StartHBlank(u32 line)
 
 void FinishFrame(u32 lines)
 {
+    NDS::TraceValue(dsym_hblank, 0, 0);
+    NDS::TraceValue(dsym_vblank, 0, 1);
+
     FrontBuffer = FrontBuffer ? 0 : 1;
     AssignFramebuffers();
 
@@ -1090,12 +1103,16 @@ void FinishFrame(u32 lines)
 
 void StartScanline(u32 line)
 {
+    NDS::TraceValue(dsym_hblank, 0, 0);
+
     if (line == 0)
         VCount = 0;
     else if (NextVCount != 0xFFFFFFFF)
         VCount = NextVCount;
     else
         VCount++;
+
+    NDS::TraceValue(dsym_scanline, 0, VCount);
 
     NextVCount = -1;
 

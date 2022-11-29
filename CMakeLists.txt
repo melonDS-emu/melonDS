@@ -100,7 +100,10 @@ if (CCACHE)
 endif()
 
 if (NOT WIN32)
-	option(ENABLE_DEBUG_FEATURES "Enable debugging features" OFF)
+    option(ENABLE_DEBUG_FEATURES "Enable debugging features" OFF)
+    if (ENABLE_DEBUG_FEATURES)
+        add_definitions(-DDEBUG_FEATURES_ENABLED)
+    endif()
 endif()
 
 add_compile_options(-fno-pic)

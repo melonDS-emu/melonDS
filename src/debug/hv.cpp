@@ -97,6 +97,77 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
             cpu->R[1] = (rv & 0xFFFFFFFF00000000) >> 32;
         }
         break;
+
+    case 0x88: /* add trace signal (const char* name, int arrlen, int bits, int typ) */
+        {
+            uint32_t namaddr = cpu->R[0], arrlen = cpu->R[1],
+                    bits = cpu->R[2], typ = cpu->R[3];
+
+            if (arrlen > 256 || bits > 64 || bits == 0) cpu->R[0] = -1;
+            else
+            {
+                char* buf = read_sz(cpu, namaddr);
+                cpu->R[0] = NDS::DebugStuff.AddTraceSym(buf, arrlen, bits-1, (int)typ);
+                free(buf);
+            }
+        }
+        break;
+    case 0x89: /* get trace signal */
+        {
+            uint32_t namaddr = cpu->R[0];
+            char* buf = read_sz(cpu, namaddr);
+            cpu->R[0] = NDS::DebugStuff.GetTraceSym(buf);
+            free(buf);
+        }
+        break;
+    case 0x8a: /* trace int value (int sig, int ind, int val) */
+        {
+            int32_t sig = cpu->R[0],
+                    val = cpu->R[2];
+            uint32_t ind = cpu->R[1];
+
+            NDS::DebugStuff.TraceValue(sig, ind, val);
+        }
+        break;
+    case 0x8b: /* trace float value (int sig, int ind, float val) */
+        {
+            int32_t sig = cpu->R[0];
+            uint32_t ind = cpu->R[1];
+            union { uint32_t u; float f; } uf;
+            uf.u = cpu->R[2];
+
+            NDS::DebugStuff.TraceValue(sig, ind, (double)uf.f);
+        }
+        break;
+    case 0x8c: /* trace bit string (int sig, int ind, const char* val) */
+        {
+            int32_t sig = cpu->R[0];
+            uint32_t ind = cpu->R[1];
+            uint32_t bufaddr = cpu->R[2];
+
+            char* buf = read_sz(cpu, bufaddr);
+            NDS::DebugStuff.TraceValue(sig, ind, buf);
+            free(buf);
+        }
+        break;
+    case 0x8d: /* trace string (int sig, int ind, const char* val) */
+        {
+            int32_t sig = cpu->R[0];
+            uint32_t ind = cpu->R[1];
+            uint32_t bufaddr = cpu->R[2];
+
+            char* buf = read_sz(cpu, bufaddr);
+            NDS::DebugStuff.TraceString(sig, ind, buf);
+            free(buf);
+        }
+        break;
+    case 0x8e: /* pause or start/resume tracing */
+        {
+            uint32_t en = cpu->R[0];
+            if (en == 0) NDS::DebugStuff.PauseTracing();
+            else NDS::DebugStuff.BeginTracing();
+        }
+        break;
     }
 }
 
