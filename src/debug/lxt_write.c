@@ -20,8 +20,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "debug/config.h"
-#include "debug/lxt_write.h"
+#include "config.h"
+#include "lxt_write.h"
 
 /*
  * in-place sort to keep chained facs from migrating...

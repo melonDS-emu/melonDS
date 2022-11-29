@@ -59,13 +59,13 @@
 #define HAVE_WORKING_VFORK
 
 #define PACKAGE "melonDS"
-#define PACKAGE_BUGREPORT "https://titandemo.org/" /* https://github.com/Arisotura/melonDS */
-#define PACKAGE_NAME "melonDS (TiTAN debugger version)"
-#define PACKAGE_STRING "melonDS 0.8.3 (TiTAN debugger version)"
+#define PACKAGE_BUGREPORT "https://github.com/Arisotura/melonDS"
+#define PACKAGE_NAME "melonDS (debugger version)"
+#define PACKAGE_STRING "melonDS 0.9.5 (debugger version)"
 #define PACKAGE_TARNAME "melonDS"
-#define PACKAGE_URL "https://titandemo.org/" /* http://melonds.kuribo64.net/ */
-#define PACKAGE_VERSION "0.8.3"
-#define VERSION "0.8.3"
+#define PACKAGE_URL "http://melonds.kuribo64.net/"
+#define PACKAGE_VERSION "0.9.5"
+#define VERSION "0.9.5"
 
 #define SELECT_TYPE_ARG1 int
 #define SELECT_TYPE_ARG234 fd_set*

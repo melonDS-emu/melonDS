@@ -99,6 +99,13 @@ if (CCACHE)
     set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
 endif()
 
+if (NOT WIN32)
+	option(ENABLE_DEBUG_FEATURES "Enable debugging features" OFF)
+endif()
+
+add_compile_options(-fno-pic)
+add_link_options(-no-pie)
+
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)
 
 add_subdirectory(src)

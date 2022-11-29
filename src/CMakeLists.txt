@@ -58,11 +58,15 @@ add_library(core STATIC
     tiny-AES-c/aes.c
 
     xxhash/xxhash.c
-
-    # TODO: make this conditional?
-    debug/hv.cpp
-    debug/lxt_write.c
 )
+
+if (ENABLE_DEBUG_FEATURES)
+    message(NOTICE "Enabling debugging features")
+    target_sources(core PRIVATE
+        debug/hv.cpp
+        debug/lxt_write.c
+    )
+endif()
 
 if (ENABLE_OGLRENDERER)
     target_sources(core PRIVATE
@@ -141,4 +145,9 @@ endif()
 
 if (ENABLE_JIT_PROFILING)
     target_link_libraries(core PRIVATE jitprofiling)
+endif()
+
+if (ENABLE_DEBUG_FEATURES)
+    target_link_libraries(core PRIVATE z bz2)
+	add_definitions(-DDEBUG_FEATURES_ENABLED)
 endif()

@@ -16,8 +16,6 @@
 #include "../NDS.h"
 
 #include "hv.h"
-#include "st.h"
-
 
 static char* read_sz(ARM* cpu, uint32_t addr)
 {

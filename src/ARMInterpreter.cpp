@@ -23,7 +23,9 @@
 #include "ARMInterpreter_Branch.h"
 #include "ARMInterpreter_LoadStore.h"
 
+#ifdef DEBUG_FEATURES_ENABLED
 #include "debug/hv.h"
+#endif
 
 
 namespace ARMInterpreter
@@ -256,6 +258,7 @@ void A_MRC(ARM* cpu)
 
 void A_SVC(ARM* cpu)
 {
+#ifdef DEBUG_FEATURES_ENABLED
     if (cpu->CurInstr & 0x00800000)
     {
         // "hypervisor" call for emulator debugging stuff
@@ -271,6 +274,7 @@ void A_SVC(ARM* cpu)
             return;
         }
     }
+#endif
 
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
@@ -284,6 +288,7 @@ void A_SVC(ARM* cpu)
 
 void T_SVC(ARM* cpu)
 {
+#ifdef DEBUG_FEATURES_ENABLED
     if (cpu->CurInstr & 0x0080)
     {
         // "hypervisor" call for emulator debugging stuff
@@ -299,6 +304,7 @@ void T_SVC(ARM* cpu)
             return;
         }
     }
+#endif
 
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;

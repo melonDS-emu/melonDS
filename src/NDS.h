@@ -28,6 +28,16 @@
 // with this enabled, to make sure it doesn't desync
 //#define DEBUG_CHECK_DESYNC
 
+#ifdef DEBUG_FEATURES_ENABLED
+#include "debug/lxt_write.h"
+#else
+extern "C" {
+
+struct lt_symbol { int nothing; };
+
+}
+#endif
+
 namespace NDS
 {
 
@@ -330,6 +340,13 @@ void ARM7IOWrite8(u32 addr, u8 val);
 void ARM7IOWrite16(u32 addr, u16 val);
 void ARM7IOWrite32(u32 addr, u32 val);
 
+struct lt_symbol* MakeTracingSym(const char* name, unsigned int arrlen,
+    int lsb, int msb, int type);
+void TraceValue(struct lt_symbol* sym, unsigned int ind, int value);
+void TraceValue(struct lt_symbol* sym, unsigned int ind, unsigned int value);
+void TraceValue(struct lt_symbol* sym, unsigned int ind, double value);
+void TraceValue(struct lt_symbol* sym, unsigned int ind, char* value);
+void TraceString(struct lt_symbol* sym, unsigned int ind, char* value);
 }
 
 #endif // NDS_H

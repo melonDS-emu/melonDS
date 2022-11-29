@@ -112,6 +112,35 @@ unsigned int position;
 #define LT_SECTION_EXCLUDE_TABLE		(19)
 #define LT_SECTION_TIMEZERO			(20)
 
+struct lt_symbol;
+struct lt_symbol
+{
+struct lt_symbol *next;
+struct lt_symbol *symchain;
+char *name;
+int namlen;
+
+int facnum;
+struct lt_symbol *aliased_to;
+
+unsigned int rows;
+int msb, lsb;
+int len;
+int flags;
+
+unsigned int last_change;
+
+lxttime_t	clk_delta;
+lxttime_t	clk_prevtrans;
+int		clk_numtrans;
+int 		clk_prevval;
+int 		clk_prevval1;
+int 		clk_prevval2;
+int 		clk_prevval3;
+int 		clk_prevval4;
+unsigned char	clk_mask;
+};
+
 struct lt_trace
 {
 FILE *handle;
@@ -184,34 +213,6 @@ unsigned zmode : 2;			/* for value changes */
 unsigned emitted : 1;			/* gate off change field zmode changes when set */
 };
 
-
-struct lt_symbol
-{
-struct lt_symbol *next;
-struct lt_symbol *symchain;
-char *name;
-int namlen;
-
-int facnum;
-struct lt_symbol *aliased_to;
-
-unsigned int rows;
-int msb, lsb;
-int len;
-int flags;
-
-unsigned int last_change;
-
-lxttime_t	clk_delta;
-lxttime_t	clk_prevtrans;
-int		clk_numtrans;
-int 		clk_prevval;
-int 		clk_prevval1;
-int 		clk_prevval2;
-int 		clk_prevval3;
-int 		clk_prevval4;
-unsigned char	clk_mask;
-};
 
 #define LT_SYM_F_BITS           (0)
 #define LT_SYM_F_INTEGER        (1<<0)
