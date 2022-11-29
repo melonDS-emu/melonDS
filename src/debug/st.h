@@ -35,14 +35,14 @@ enum SystemSignal
     GpioCtl   = 1<<20, // dir, ie, iedge, wifi
     KeypadCtl = 1<<21, // keyinput, keycnt, extkeyin(a7)
     MicNtrCtl = 1<<22, // SNDCAPxCNT
-    MicTwlCtl = 1<<22, // mic_cnt(dsi7)
-    RtcCtl    = 1<<23, // REG_RTC, FOUT
-    SpiCtl    = 1<<24, // spicnt
-    AuxSpiCtl = 1<<25, // auxspicnt, romctl
-    TscTwlCtl = 1<<26, // ADC, DAC, ovf, int, ... flags
-    I2CCtl    = 1<<27, // I2C stuff
+    MicTwlCtl = 1<<23, // mic_cnt(dsi7)
+    RtcCtl    = 1<<24, // REG_RTC, FOUT
+    SpiCtl    = 1<<25, // spicnt
+    AuxSpiCtl = 1<<26, // auxspicnt, romctl
+    TscTwlCtl = 1<<27, // ADC, DAC, ovf, int, ... flags
+    I2CCtl    = 1<<28, // I2C stuff
 
-    Custom    = 1<<31
+    Custom    = 1u<<31
 };
 
 class DebugStorageNDS

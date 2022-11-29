@@ -33,19 +33,27 @@ DebugStorageNDS::~DebugStorageNDS()
 
 void DebugStorageNDS::Reset()
 {
-    if (tracer) lt_close(tracer);
+    curtime = 0;
+
+    printf("reset\n");
+    if (tracer) {
+        printf("end tracer\n");
+        lt_close(tracer);
+    }
     tracer = NULL;
     tracing = false;
 
     CapTSyms = NTSyms = 0;
     TSyms = NULL;
 
-    EnabledSignals = (SystemSignal)(SystemSignal::DispCtl | SystemSignal::Interrupt);
+    EnabledSignals = (SystemSignal)(SystemSignal::DispCtl
+            | SystemSignal::Interrupt | SystemSignal::Custom);
 }
 void DebugStorageNDS::AllocNew()
 {
     if (!tracer)
     {
+        printf("alloc tracer\n");
         tracer = lt_init(TRACE_OUT_FILE);
         lt_set_timescale(tracer, -6); // TODO
         lt_set_time64(tracer, NDS::SysTimestamp);
@@ -124,8 +132,14 @@ void DebugStorageNDS::TraceValue(int32_t sym, unsigned int ind, int value, enum 
 }
 void DebugStorageNDS::TraceValue(int32_t sym, unsigned int ind, unsigned int value, enum SystemSignal categ)
 {
-    if (!tracer || !TSyms || sym < 0 || sym >= NTSyms || !tracing) return;
-    if (!(categ & EnabledSignals)) return;
+    if (!tracer || !TSyms || sym < 0 || sym >= NTSyms || !tracing) {
+        printf("not inited or bad symno (%d)\n", sym);
+        return;
+    }
+    if (!(categ & EnabledSignals)) {
+        printf("bad categ 0x%08x\n", categ);
+        return;
+    }
 
     SetTime(NDS::GetSysClockCycles(0, true));
     lt_emit_value_int(tracer, TSyms[sym].sym, ind, value);
@@ -169,11 +183,15 @@ void DebugStorageNDS::PauseTracing()
     lt_set_dumpoff(tracer);
     tracing = false;
 }
-void DebugStorageNDS::SetTime(uint64_t t)
+void DebugStorageNDS::SetTime(uint64_t t, bool force)
 {
     if (!tracer) AllocNew();
 
-    lt_set_time64(tracer, t);
+    if (force || t > curtime)
+        lt_set_time64(tracer, t);
+
+    if (force)
+        curtime = t;
 }
 
 void DebugStorageNDS::DoSavestate(Savestate* file)
