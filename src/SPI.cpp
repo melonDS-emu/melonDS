@@ -119,6 +119,8 @@ u32 FixFirmwareLength(u32 originalLength)
 
 void LoadDefaultFirmware()
 {
+    Log(LogLevel::Debug, "Using default firmware image...\n");
+
     FirmwareLength = 0x20000;
     Firmware = new u8[FirmwareLength];
     memset(Firmware, 0xFF, FirmwareLength);
@@ -132,6 +134,10 @@ void LoadDefaultFirmware()
         Firmware[0x2F] = 0x0F;
         Firmware[0x1FD] = 0x01;
         Firmware[0x1FE] = 0x20;
+        Firmware[0x2FF] = 0x80; // boot0: use NAND as stage2 medium
+
+        // these need to be zero (part of the stage2 firmware signature!)
+        memset(&Firmware[0x22], 0, 8);
     }
     else
     {
@@ -337,6 +343,8 @@ void Reset()
             FirmwarePath = Platform::GetConfigString(Platform::DSi_FirmwarePath);
         else
             FirmwarePath = Platform::GetConfigString(Platform::FirmwarePath);
+
+        Log(LogLevel::Debug, "SPI firmware: loading from file %s\n", FirmwarePath.c_str());
 
         bool makecopy = false;
         std::string origpath = FirmwarePath;

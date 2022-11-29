@@ -143,6 +143,8 @@ bool DSBatteryLevelOkay;
 int DSiBatteryLevel;
 bool DSiBatteryCharging;
 
+bool DSiFullBIOSBoot;
+
 CameraConfig Camera[2];
 
 
@@ -331,6 +333,8 @@ ConfigEntry ConfigFile[] =
     {"DSBatteryLevelOkay",   1, &DSBatteryLevelOkay, true, true},
     {"DSiBatteryLevel",    0, &DSiBatteryLevel, 0xF, true},
     {"DSiBatteryCharging", 1, &DSiBatteryCharging, true, true},
+
+    {"DSiFullBIOSBoot", 1, &DSiFullBIOSBoot, false, true},
 
     // TODO!!
     // we need a more elegant way to deal with this

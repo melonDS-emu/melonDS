@@ -83,6 +83,8 @@ enum ConfigEntry
     Firm_MAC,
 
     AudioBitDepth,
+
+    DSi_FullBIOSBoot
 };
 
 int GetConfigInt(ConfigEntry entry);

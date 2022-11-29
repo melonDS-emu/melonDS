@@ -122,6 +122,8 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->txtDLDIFolder->setText(QString::fromStdString(Config::DLDIFolderPath));
     on_cbDLDIEnable_toggled();
 
+    ui->cbDSiFullBIOSBoot->setChecked(Config::DSiFullBIOSBoot);
+
     ui->cbDSiSDEnable->setChecked(Config::DSiSDEnable);
     ui->txtDSiSDPath->setText(QString::fromStdString(Config::DSiSDPath));
     ui->cbxDSiSDSize->setCurrentIndex(Config::DSiSDSize);
@@ -211,6 +213,7 @@ void EmuSettingsDialog::done(int r)
         std::string dsiBios7Path = ui->txtDSiBIOS7Path->text().toStdString();
         std::string dsiFirmwarePath = ui->txtDSiFirmwarePath->text().toStdString();
         std::string dsiNANDPath = ui->txtDSiNANDPath->text().toStdString();
+        bool dsiFullBiosBoot = ui->cbDSiFullBIOSBoot->isChecked();
 
         bool dsiSDEnable = ui->cbDSiSDEnable->isChecked();
         std::string dsiSDPath = ui->txtDSiSDPath->text().toStdString();
@@ -242,6 +245,7 @@ void EmuSettingsDialog::done(int r)
             || dsiBios7Path != Config::DSiBIOS7Path
             || dsiFirmwarePath != Config::DSiFirmwarePath
             || dsiNANDPath != Config::DSiNANDPath
+            || dsiFullBiosBoot != Config::DSiFullBIOSBoot
             || dsiSDEnable != Config::DSiSDEnable
             || dsiSDPath != Config::DSiSDPath
             || dsiSDSize != Config::DSiSDSize
@@ -271,6 +275,7 @@ void EmuSettingsDialog::done(int r)
             Config::DSiBIOS7Path = dsiBios7Path;
             Config::DSiFirmwarePath = dsiFirmwarePath;
             Config::DSiNANDPath = dsiNANDPath;
+            Config::DSiFullBIOSBoot = dsiFullBiosBoot;
 
             Config::DSiSDEnable = dsiSDEnable;
             Config::DSiSDPath = dsiSDPath;

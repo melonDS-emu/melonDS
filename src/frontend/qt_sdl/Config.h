@@ -199,6 +199,8 @@ extern bool DSBatteryLevelOkay;
 extern int DSiBatteryLevel;
 extern bool DSiBatteryCharging;
 
+extern bool DSiFullBIOSBoot;
+
 extern CameraConfig Camera[2];
 
 
