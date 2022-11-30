@@ -226,6 +226,8 @@ extern u32 KeyInput;
 const u32 ARM7WRAMSize = 0x10000;
 extern u8* ARM7WRAM;
 
+extern bool ExitEmulator;
+
 #ifdef DEBUG_FEATURES_ENABLED
 extern debug::DebugStorageNDS DebugStuff;
 #endif

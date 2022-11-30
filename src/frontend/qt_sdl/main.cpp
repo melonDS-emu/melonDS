@@ -359,6 +359,8 @@ void micProcess()
 
 EmuThread::EmuThread(QObject* parent) : QThread(parent)
 {
+    this->setObjectName("EmuThread");
+
     EmuStatus = 0;
     EmuRunning = 2;
     EmuPause = 0;
@@ -670,7 +672,10 @@ void EmuThread::run()
             MelonCap::Update();
 #endif // MELONCAP
 
-            if (EmuRunning == 0) break;
+            if (NDS::ExitEmulator) {
+                Platform::StopEmu(); // FIXME: leads to OOM!
+                EmuRunning = 0;
+            }
 
             winUpdateCount++;
             if (winUpdateCount >= winUpdateFreq && !oglContext)
@@ -827,10 +832,16 @@ void EmuThread::emuPause()
 
     PrevEmuStatus = EmuRunning;
     EmuRunning = 2;
-    while (EmuStatus != 2);
+    while (EmuStatus != 2) {
+        QThread::sleep(1);
 
-    if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
-    micClose();
+        if (NDS::ExitEmulator && EmuStatus == 0) break;
+    }
+
+    if (EmuStatus == 2) {
+        if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
+        micClose();
+    }
 }
 
 void EmuThread::emuUnpause()

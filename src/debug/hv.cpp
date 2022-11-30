@@ -64,6 +64,23 @@ static void write_buf(ARM* cpu, uint32_t addr, uint8_t* buf, uint32_t len)
     cpu->DataCycles = cycd;
 }
 
+static void dump_cpu_state(ARM* cpu, bool thumb)
+{
+    static const char* regnames[16] = {
+        "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
+        "r8", "r9", "r10","r11","ip", "sp", "lr", "pc"
+    };
+
+    printf("ARM%d regs (%c): cpsr=%08x pipeline=%08x %08x %08x\n",
+            cpu->Num?7:9, thumb?'T':'A', cpu->CPSR, cpu->CurInstr,
+            cpu->NextInstr[0], cpu->NextInstr[1]);
+    for (int i = 0; i < 16; i += 4) {
+        printf("    %s=%08x %s=%08x %s=%08x %s=%08x\n",
+                regnames[i+0], cpu->R[i+0], regnames[i+1], cpu->R[i+1],
+                regnames[i+2], cpu->R[i+2], regnames[i+3], cpu->R[i+3]);
+    }
+}
+
 namespace debug
 {
 
@@ -106,6 +123,14 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
             cpu->R[0] = (rv & 0x00000000FFFFFFFF) >>  0;
             cpu->R[1] = (rv & 0xFFFFFFFF00000000) >> 32;
         }
+        break;
+    case 0x83: /* dump registers */
+        if (!allow_misc) break;
+        dump_cpu_state(cpu, thumb);
+        break;
+    case 0x84: /* stop emulation */
+        if (!allow_misc) break;
+        NDS::ExitEmulator = true;
         break;
 
     case 0x88: /* add trace signal (const char* name, int arrlen, int bits, int typ) */
@@ -198,6 +223,14 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
         }
         break;
     }
+}
+
+void snoop_insn(ARM* cpu, bool thumb, u32 insn)
+{
+    // actual address of the currently-executing instruction
+    u32 ip = cpu->R[15] - (thumb ? 2 : 4);
+
+    //dump_cpu_state(cpu, thumb);
 }
 
 }

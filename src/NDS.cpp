@@ -176,6 +176,8 @@ bool Running;
 
 bool RunningGame;
 
+bool ExitEmulator;
+
 #ifdef DEBUG_FEATURES_ENABLED
 debug::DebugStorageNDS DebugStuff;
 #endif
@@ -530,6 +532,7 @@ void Reset()
     EnableJIT = Platform::GetConfigBool(Platform::JIT_Enable);
 #endif
 
+    ExitEmulator = false;
     RunningGame = false;
     LastSysClockCycles = 0;
 

@@ -32,6 +32,10 @@
 #include "ARMJIT_Memory.h"
 #endif
 
+#ifdef DEBUG_FEATURES_ENABLED
+#include "debug/hv.h"
+#endif
+
 // instruction timing notes
 //
 // * simple instruction: 1S (code)
@@ -616,6 +620,10 @@ void ARMv5::Execute()
     {
         if (CPSR & 0x20) // THUMB
         {
+#ifdef DEBUG_FEATURES_ENABLED
+            debug::snoop_insn(this, true, NextInstr[0]);
+#endif
+
             // prefetch
             R[15] += 2;
             CurInstr = NextInstr[0];
@@ -629,6 +637,10 @@ void ARMv5::Execute()
         }
         else
         {
+#ifdef DEBUG_FEATURES_ENABLED
+            debug::snoop_insn(this, false, NextInstr[0]);
+#endif
+
             // prefetch
             R[15] += 4;
             CurInstr = NextInstr[0];
@@ -766,6 +778,10 @@ void ARMv4::Execute()
     {
         if (CPSR & 0x20) // THUMB
         {
+#ifdef DEBUG_FEATURES_ENABLED
+            debug::snoop_insn(this, true, NextInstr[0]);
+#endif
+
             // prefetch
             R[15] += 2;
             CurInstr = NextInstr[0];
@@ -778,6 +794,10 @@ void ARMv4::Execute()
         }
         else
         {
+#ifdef DEBUG_FEATURES_ENABLED
+            debug::snoop_insn(this, false, NextInstr[0]);
+#endif
+
             // prefetch
             R[15] += 4;
             CurInstr = NextInstr[0];

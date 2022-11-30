@@ -55,6 +55,10 @@ int IPCInstanceID;
 void IPCInit()
 {
     IPCInstanceID = 0;
+#ifdef DEBUG_FEATURES_ENABLED
+    IPCBuffer = nullptr;
+    return;
+#endif
 
     IPCBuffer = new QSharedMemory("melonIPC");
 

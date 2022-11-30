@@ -9,6 +9,8 @@
 namespace debug
 {
 void swi(ARM* cpu, bool thumb, uint32_t scnum);
+
+void snoop_insn(ARM* cpu, bool thumb, u32 insn);
 }
 
 #endif
