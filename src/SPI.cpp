@@ -876,7 +876,7 @@ u16 Cnt;
 
 u32 CurDevice; // remove me
 
-s32 dsym_cnt;
+s32 dsym_cnt, dsym_data;
 
 
 bool Init()
@@ -906,7 +906,8 @@ void Reset()
     SPI_TSC::Reset();
     if (NDS::ConsoleType == 1) DSi_SPI_TSC::Reset();
 
-    dsym_cnt = NDS::MakeTracingSym("SPICNT", 16, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_cnt = NDS::MakeTracingSym("SPICNT" , 16, LT_SYM_F_BITS, debug::SystemSignal::SpiCtl);
+    dsym_data= NDS::MakeTracingSym("SPIDATA",  8, LT_SYM_F_BITS, debug::SystemSignal::SpiCtl);
 }
 
 void DoSavestate(Savestate* file)
@@ -965,23 +966,30 @@ u8 ReadData()
     if (!(Cnt & (1<<15))) return 0;
     if (Cnt & (1<<7)) return 0; // checkme
 
+    u8 ret;
     switch (Cnt & 0x0300)
     {
-    case 0x0000: return SPI_Powerman::Read();
-    case 0x0100: return SPI_Firmware::Read();
+    case 0x0000: ret = SPI_Powerman::Read(); break;
+    case 0x0100: ret = SPI_Firmware::Read(); break;
     case 0x0200:
         if (NDS::ConsoleType == 1)
-            return DSi_SPI_TSC::Read();
+            ret = DSi_SPI_TSC::Read();
         else
-            return SPI_TSC::Read();
-    default: return 0;
+            ret = SPI_TSC::Read();
+    default: ret = 0;
     }
+
+    NDS::TraceValue(dsym_data, ret);
+
+    return ret;
 }
 
 void WriteData(u8 val)
 {
     if (!(Cnt & (1<<15))) return;
     if (Cnt & (1<<7)) return;
+
+    NDS::TraceValue(dsym_data, val);
 
     Cnt |= (1<<7);
     switch (Cnt & 0x0300)

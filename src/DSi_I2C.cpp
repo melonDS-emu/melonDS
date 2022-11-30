@@ -31,7 +31,7 @@ namespace DSi_BPTWL
 u8 Registers[0x100];
 u32 CurPos;
 
-s32 dsym_reg10, dsym_reg11, dsym_reg30, dsym_reg33, dsym_reg70;
+s32 dsym_reg10, dsym_reg11, dsym_reg30, dsym_reg70;
 
 bool Init()
 {
@@ -74,11 +74,10 @@ void Reset()
     Registers[0x80] = 0x10;
     Registers[0x81] = 0x64;
 
-    dsym_reg10 = NDS::MakeTracingSym("BPTWL reg10", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
-    dsym_reg11 = NDS::MakeTracingSym("BPTWL reg11", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
-    dsym_reg30 = NDS::MakeTracingSym("BPTWL reg30", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
-    dsym_reg33 = NDS::MakeTracingSym("BPTWL reg33", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
-    dsym_reg70 = NDS::MakeTracingSym("BPTWL reg70", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_reg10 = NDS::MakeTracingSym("BPTWL PSTAT", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_reg11 = NDS::MakeTracingSym("BPTWL PACTION", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_reg30 = NDS::MakeTracingSym("BPTWL WIFI", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_reg70 = NDS::MakeTracingSym("BPTWL BOOTFLG", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
 }
 
 void DoSavestate(Savestate* file)
@@ -129,7 +128,6 @@ void Write(u8 val, bool last)
     case 0x10: NDS::TraceValue(dsym_reg10, val); break;
     case 0x11: NDS::TraceValue(dsym_reg11, val); break;
     case 0x30: NDS::TraceValue(dsym_reg30, val); break;
-    case 0x33: NDS::TraceValue(dsym_reg33, val); break;
     case 0x70: NDS::TraceValue(dsym_reg70, val); break;
     }
 
@@ -183,7 +181,7 @@ u8 Data;
 
 u32 Device;
 
-s32 dsym_cnt;
+s32 dsym_cnt, dsym_data;
 
 bool Init()
 {
@@ -205,7 +203,8 @@ void Reset()
     Device = -1;
 
     DSi_BPTWL::Reset();
-    dsym_cnt = NDS::MakeTracingSym("I2C_CNT", 8, LT_SYM_F_BITS, debug::SystemSignal::I2CCtl);
+    dsym_cnt = NDS::MakeTracingSym("I2C_CNT" , 8, LT_SYM_F_BITS, debug::SystemSignal::I2CCtl);
+    dsym_data= NDS::MakeTracingSym("I2C_DATA", 8, LT_SYM_F_BITS, debug::SystemSignal::I2CCtl);
 }
 
 void DoSavestate(Savestate* file)
@@ -250,6 +249,8 @@ void WriteCnt(u8 val)
                 Data = 0xFF;
                 break;
             }
+
+            NDS::TraceValue(dsym_data, Data);
 
             //printf("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
         }
@@ -312,6 +313,7 @@ u8 ReadData()
 void WriteData(u8 val)
 {
     Data = val;
+    NDS::TraceValue(dsym_data, val);
 }
 
 }

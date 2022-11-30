@@ -110,7 +110,17 @@ void DebugStorageNDS::Reset()
     TSyms = NULL;
 
     //EnabledSignals = (SystemSignal)Platform::GetConfigU64(Platform::ConfigEntry::DBG_EnabledSignals);
-    EnabledSignals = (SystemSignal)~(uint64_t)0; // ALL OF THEM
+    //EnabledSignals = (SystemSignal)~(uint64_t)0; // ALL OF THEM
+    EnabledSignals = (SystemSignal)(0uLL
+      //| (uint64_t)SystemSignal::ARM7_stat | (uint64_t)SystemSignal::ARM9_stat
+        | (uint64_t)SystemSignal::MemCtl | (uint64_t)SystemSignal::DmaCtl
+        | (uint64_t)SystemSignal::IpcFifo | (uint64_t)SystemSignal::TimerCtl
+        | (uint64_t)SystemSignal::Interrupt | (uint64_t)SystemSignal::SConfig
+        | (uint64_t)SystemSignal::PowerCtl | (uint64_t)SystemSignal::SdMmcIoCtl
+        | (uint64_t)SystemSignal::GpioCtl | (uint64_t)SystemSignal::SpiCtl
+        | (uint64_t)SystemSignal::AuxSpiCtl | (uint64_t)SystemSignal::I2CCtl
+        | (uint64_t)SystemSignal::DmaData
+    );
 }
 void DebugStorageNDS::AllocNew()
 {

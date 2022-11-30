@@ -48,6 +48,8 @@ enum SystemSignal : uint64_t
     WifiIFCtl = 1<<29, // BMI/WMI // TODO
     CameraCtl = 1<<30, // TODO
 
+    DmaData   = 1uLL<<48,
+
     Custom    = 1uLL<<63
 };
 

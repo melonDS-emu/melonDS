@@ -65,6 +65,10 @@ void DSi_NDMA::Reset()
     dsym_cnt = NDS::MakeTracingSym(name, 32, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
     snprintf(name, sizeof(name), "NDMA%c_A%c_en", '0'+Num, (CPU==0)?'9':'7');
     dsym_running = NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
+    snprintf(name, sizeof(name), "NDMA%c_A%c_addr", '0'+Num, (CPU==0)?'9':'7');
+    dsym_addr = NDS::MakeTracingSym(name, 32, LT_SYM_F_BITS, debug::SystemSignal::DmaData);
+    snprintf(name, sizeof(name), "NDMA%c_A%c_data", '0'+Num, (CPU==0)?'9':'7');
+    dsym_data = NDS::MakeTracingSym(name, 32, LT_SYM_F_BITS, debug::SystemSignal::DmaData);
 
 #define CURRENT_CLK (CPU ? NDS::Clock::ARM7 : NDS::Clock::ARM9)
 }
@@ -244,10 +248,15 @@ void DSi_NDMA::Run9()
     {
         NDS::ARM9Timestamp += (unitcycles << NDS::ARM9ClockShift);
 
+        u32 value;
         if (dofill)
-            DSi::ARM9Write32(CurDstAddr, FillData);
+            value = FillData;
         else
-            DSi::ARM9Write32(CurDstAddr, DSi::ARM9Read32(CurSrcAddr));
+            value = DSi::ARM9Read32(CurSrcAddr);
+
+        NDS::TraceValue(dsym_addr, CurDstAddr);
+        NDS::TraceValue(dsym_data, value);
+        DSi::ARM9Write32(CurDstAddr, value);
 
         CurSrcAddr += SrcAddrInc<<2;
         CurDstAddr += DstAddrInc<<2;
@@ -339,10 +348,15 @@ void DSi_NDMA::Run7()
     {
         NDS::ARM7Timestamp += unitcycles;
 
+        u32 value;
         if (dofill)
-            DSi::ARM7Write32(CurDstAddr, FillData);
+            value = FillData;
         else
-            DSi::ARM7Write32(CurDstAddr, DSi::ARM7Read32(CurSrcAddr));
+            value = DSi::ARM7Read32(CurSrcAddr);
+
+        NDS::TraceValue(dsym_addr, CurDstAddr);
+        NDS::TraceValue(dsym_data, value);
+        DSi::ARM7Write32(CurDstAddr, value);
 
         CurSrcAddr += SrcAddrInc<<2;
         CurDstAddr += DstAddrInc<<2;

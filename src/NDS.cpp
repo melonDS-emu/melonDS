@@ -180,7 +180,7 @@ bool RunningGame;
 debug::DebugStorageNDS DebugStuff;
 #endif
 
-s32 dsym_exmemcnt[2], dsym_wramcnt, dsym_ipcsync[2], dsym_ipcfifo[2];
+s32 dsym_exmemcnt[2], dsym_wramcnt, dsym_ipcsync[2], dsym_ipcfifocnt[2], dsym_ipcfifodata[2];
 s32 dsym_timer_cnt[8], dsym_ime[2], dsym_ie[2], dsym_if[2];
 s32 dsym_div, dsym_sqrt, dsym_keyin, dsym_keycnt;
 s32 dsym_powcnt[2];
@@ -710,8 +710,10 @@ void Reset()
 
     dsym_ipcsync[0] = MakeTracingSym("IPCSYNC_A9", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
     dsym_ipcsync[1] = MakeTracingSym("IPCSYNC_A7", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
-    dsym_ipcfifo[0] = MakeTracingSym("IPCFIFOCNT_A9", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
-    dsym_ipcfifo[1] = MakeTracingSym("IPCFIFOCNT_A7", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+    dsym_ipcfifocnt[0] = MakeTracingSym("IPCFIFOCNT_A9", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+    dsym_ipcfifocnt[1] = MakeTracingSym("IPCFIFOCNT_A7", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+    dsym_ipcfifodata[0] = MakeTracingSym("IPCFIFO 7to9", 32, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+    dsym_ipcfifodata[1] = MakeTracingSym("IPCFIFO 9to7", 32, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
 
     for (int i = 0; i < 8; ++i) {
         char name[strlen("TMxCNT_Ax")+1];
@@ -3353,23 +3355,27 @@ u32 ARM9IORead32(u32 addr)
                 if (IPCFIFO7.IsEmpty() && (IPCFIFOCnt7 & 0x0004))
                     SetIRQ(1, IRQ_IPCSendDone);
             }
-            TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+            TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
                 |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
                 |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
-            TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+            TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
                 |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
                 |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
+
+            TraceValue(dsym_ipcfifodata[0], ret); // 0=7to9
             return ret;
         }
         else
         {
             u32 ret = IPCFIFO7.Peek();
-            TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+            TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
                 |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
                 |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
-            TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+            TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
                 |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
                 |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
+
+            TraceValue(dsym_ipcfifodata[0], ret); // 0=7to9
             return ret;
         }
 
@@ -3561,10 +3567,10 @@ void ARM9IOWrite16(u32 addr, u16 val)
         if (val & 0x4000)
             IPCFIFOCnt9 &= ~0x4000;
         IPCFIFOCnt9 = (val & 0x8404) | (IPCFIFOCnt9 & 0x4000);
-        TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+        TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
             |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
             |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
-        TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+        TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
             |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
             |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
         return;
@@ -3765,10 +3771,10 @@ void ARM9IOWrite32(u32 addr, u32 val)
                 if ((IPCFIFOCnt7 & 0x0400) && wasempty)
                     SetIRQ(1, IRQ_IPCRecv);
             }
-            TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+            TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
                 |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
                 |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
-            TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+            TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
                 |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
                 |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
         }
@@ -4155,23 +4161,27 @@ u32 ARM7IORead32(u32 addr)
                 if (IPCFIFO9.IsEmpty() && (IPCFIFOCnt9 & 0x0004))
                     SetIRQ(0, IRQ_IPCSendDone);
             }
-            TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+            TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
                 |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
                 |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
-            TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+            TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
                 |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
                 |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
+
+            TraceValue(dsym_ipcfifodata[1], ret); // 0=7to9
             return ret;
         }
         else
         {
             u32 ret = IPCFIFO9.Peek();
-            TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+            TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
                 |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
                 |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
-            TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+            TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
                 |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
                 |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
+
+            TraceValue(dsym_ipcfifodata[1], ret); // 0=7to9
             return ret;
         }
 
@@ -4327,10 +4337,10 @@ void ARM7IOWrite16(u32 addr, u16 val)
         if (val & 0x4000)
             IPCFIFOCnt7 &= ~0x4000;
         IPCFIFOCnt7 = (val & 0x8404) | (IPCFIFOCnt7 & 0x4000);
-        TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+        TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
             |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
             |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
-        TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+        TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
             |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
             |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
         return;
@@ -4507,10 +4517,10 @@ void ARM7IOWrite32(u32 addr, u32 val)
                 if ((IPCFIFOCnt9 & 0x0400) && wasempty)
                     SetIRQ(0, IRQ_IPCRecv);
             }
-            TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+            TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
                 |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
                 |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
-            TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+            TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
                 |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
                 |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
         }
