@@ -20,6 +20,7 @@
 #define EMUSETTINGSDIALOG_H
 
 #include <QDialog>
+#include <QCheckBox>
 
 namespace Ui { class EmuSettingsDialog; }
 class EmuSettingsDialog;
@@ -77,10 +78,13 @@ private slots:
     void on_chkEnableJIT_toggled();
     void on_chkExternalBIOS_toggled();
 
+    void on_btnLXTBrowse_clicked();
+
 private:
     void verifyFirmware();
 
     Ui::EmuSettingsDialog* ui;
+    QCheckBox* cbArray[64];
 };
 
 #endif // EMUSETTINGSDIALOG_H

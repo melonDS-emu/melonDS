@@ -14,6 +14,7 @@
 
 #include "../ARM.h"
 #include "../NDS.h"
+#include "../Platform.h"
 
 #include "hv.h"
 
@@ -68,6 +69,12 @@ namespace debug
 
 void swi(ARM* cpu, bool thumb, uint32_t scnum)
 {
+    if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableHypercalls))
+        return;
+
+    const bool allow_misc = Platform::GetConfigBool(Platform::ConfigEntry::DBG_HVMisc);
+    const bool allow_sgtr = Platform::GetConfigBool(Platform::ConfigEntry::DBG_HVSignalTracing);
+
     // of course, only enable this if you trust the ROM...
 
     printf("hypervisor call #%02x on ARM%d in %s mode\n",
@@ -77,10 +84,12 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
     {
     /* general/misc */
     case 0x80: /* test */
+        if (!allow_misc) break;
         printf("test hypervisor call #%02x on ARM%d in %s mode\n",
             scnum, cpu->Num?7:9, thumb?"THUMB":"ARM");
         break;
     case 0x81: /* print */
+        if (!allow_misc) break;
         {
             size_t cursz = 0x100, bufi = 0;
             char* buf = read_sz(cpu, cpu->R[0]);
@@ -89,6 +98,7 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
         }
         break;
     case 0x82: /* cycles */
+        if (!allow_misc) break;
         {
             int  num =  cpu->R[0] & 0x7FFFFFFF      ;
             bool clk = (cpu->R[0] & 0x80000000) != 0;
@@ -99,6 +109,7 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
         break;
 
     case 0x88: /* add trace signal (const char* name, int arrlen, int bits, int typ) */
+        if (!allow_sgtr) break;
         {
             uint32_t namaddr = cpu->R[0], bits = cpu->R[1], typ = cpu->R[2];
 
@@ -112,6 +123,7 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
         }
         break;
     case 0x89: /* get trace signal */
+        if (!allow_sgtr) break;
         {
             uint32_t namaddr = cpu->R[0];
             char* buf = read_sz(cpu, namaddr);
@@ -120,6 +132,7 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
         }
         break;
     case 0x8a: /* trace int value (int sig, int ind, int val) */
+        if (!allow_sgtr) break;
         {
             int32_t sig = cpu->R[0],
                     val = cpu->R[1];
@@ -128,6 +141,7 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
         }
         break;
     case 0x8b: /* trace float value (int sig, int ind, float val) */
+        if (!allow_sgtr) break;
         {
             int32_t sig = cpu->R[0];
             union { uint32_t u; float f; } uf;
@@ -138,6 +152,7 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
         }
         break;
     case 0x8c: /* trace bit string (int sig, int ind, const char* val) */
+        if (!allow_sgtr) break;
         {
             int32_t sig = cpu->R[0];
             uint32_t bufaddr = cpu->R[1];
@@ -148,6 +163,7 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
         }
         break;
     case 0x8d: /* trace string (int sig, int ind, const char* val) */
+        if (!allow_sgtr) break;
         {
             int32_t sig = cpu->R[0];
             uint32_t bufaddr = cpu->R[1];
@@ -158,23 +174,27 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
         }
         break;
     case 0x8e: /* pause or start/resume tracing */
+        if (!allow_sgtr) break;
         {
             uint32_t en = cpu->R[0];
             if (en == 0) NDS::DebugStuff.PauseTracing();
             else NDS::DebugStuff.BeginTracing();
         }
         break;
-
     case 0x8f: /* get/set/mask tracing flags */
+        if (!allow_sgtr) break;
         {
             // oldv = flags
             // flags = (flags & mask) | add
             // return oldv
-            uint32_t mask = cpu->R[0], add = cpu->R[1];
-            cpu->R[0] = (uint32_t)NDS::DebugStuff.EnabledSignals;
-            NDS::DebugStuff.EnabledSignals = (SystemSignal)((cpu->R[0] & mask) | add);
-            printf("set tracing mask 0x%08x -> 0x%08x\n", cpu->R[0],
-                    (uint32_t)NDS::DebugStuff.EnabledSignals);
+            uint64_t mask = (uint64_t)cpu->R[0] | ((uint64_t)cpu->R[1]<<32),
+                     add  = (uint64_t)cpu->R[2] | ((uint64_t)cpu->R[3]<<32);
+            uint64_t curen = (uint64_t)NDS::DebugStuff.EnabledSignals;
+            cpu->R[0] = (uint32_t)curen;
+            cpu->R[1] = (uint32_t)(curen >> 32);
+            NDS::DebugStuff.EnabledSignals = (SystemSignal)((curen & mask) | add);
+            printf("set tracing mask 0x%16x -> 0x%16x\n", curen,
+                    (uint64_t)NDS::DebugStuff.EnabledSignals);
         }
         break;
     }

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>575</width>
-    <height>370</height>
+    <width>528</width>
+    <height>478</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -16,17 +16,20 @@
     <verstretch>0</verstretch>
    </sizepolicy>
   </property>
+  <property name="minimumSize">
+   <size>
+    <width>528</width>
+    <height>478</height>
+   </size>
+  </property>
   <property name="windowTitle">
    <string>Emu settings - melonDS</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
-   <property name="sizeConstraint">
-    <enum>QLayout::SetFixedSize</enum>
-   </property>
-   <item>
+  <layout class="QGridLayout" name="gridLayout_9">
+   <item row="0" column="0">
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>5</number>
      </property>
      <widget class="QWidget" name="tab">
       <attribute name="title">
@@ -558,9 +561,389 @@
        </item>
       </layout>
      </widget>
+     <widget class="QWidget" name="tab_6">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <attribute name="title">
+       <string>Debug</string>
+      </attribute>
+      <widget class="QWidget" name="gridLayoutWidget">
+       <property name="geometry">
+        <rect>
+         <x>-1</x>
+         <y>-1</y>
+         <width>501</width>
+         <height>401</height>
+        </rect>
+       </property>
+       <layout class="QGridLayout" name="gridLayout_3">
+        <item row="0" column="0">
+         <widget class="QScrollArea" name="scrollArea">
+          <property name="widgetResizable">
+           <bool>true</bool>
+          </property>
+          <widget class="QWidget" name="scrollAreaWidgetContents">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>497</width>
+             <height>397</height>
+            </rect>
+           </property>
+           <widget class="QWidget" name="gridLayoutWidget_2">
+            <property name="geometry">
+             <rect>
+              <x>-1</x>
+              <y>-1</y>
+              <width>501</width>
+              <height>401</height>
+             </rect>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_10"/>
+           </widget>
+           <widget class="QGroupBox" name="gbHypercall">
+            <property name="geometry">
+             <rect>
+              <x>10</x>
+              <y>331</y>
+              <width>471</width>
+              <height>61</height>
+             </rect>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="title">
+             <string>Hypervisor calls</string>
+            </property>
+            <property name="flat">
+             <bool>false</bool>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_11" rowstretch="0" columnstretch="0,0" rowminimumheight="0">
+             <item row="0" column="0">
+              <widget class="QCheckBox" name="cb_hv_misc">
+               <property name="text">
+                <string>General/misc (test, print, cycles)</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QCheckBox" name="cb_hv_sig">
+               <property name="text">
+                <string>Signal tracing</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+           <widget class="QGroupBox" name="gbTracing">
+            <property name="geometry">
+             <rect>
+              <x>10</x>
+              <y>10</y>
+              <width>471</width>
+              <height>317</height>
+             </rect>
+            </property>
+            <property name="title">
+             <string>Signal tracing</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_12">
+             <item row="0" column="0" colspan="2">
+              <widget class="QLabel" name="lblLXTPath">
+               <property name="text">
+                <string>LXT output file</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2" colspan="3">
+              <widget class="QLineEdit" name="txtLXTPath"/>
+             </item>
+             <item row="0" column="5">
+              <widget class="QPushButton" name="btnLXTBrowse">
+               <property name="text">
+                <string>Browse...</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0" colspan="2">
+              <widget class="QLabel" name="lblTracingEnabled">
+               <property name="text">
+                <string>Enabled signals:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3" colspan="3">
+              <widget class="QCheckBox" name="cb_custom">
+               <property name="text">
+                <string>Custom (ROM-defined)</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QCheckBox" name="cb_A7stat">
+               <property name="text">
+                <string>ARM7 status</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1" colspan="2">
+              <widget class="QCheckBox" name="cb_A9stat">
+               <property name="text">
+                <string>ARM9 status</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="3">
+              <widget class="QCheckBox" name="cb_mem">
+               <property name="text">
+                <string>Memory</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="4" colspan="2">
+              <widget class="QCheckBox" name="cb_dma">
+               <property name="text">
+                <string>DMA</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QCheckBox" name="cb_disp">
+               <property name="text">
+                <string>Display</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1" colspan="2">
+              <widget class="QCheckBox" name="cb_disp3d">
+               <property name="text">
+                <string>GPU</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="3">
+              <widget class="QCheckBox" name="cb_ipcfifo">
+               <property name="text">
+                <string>IPC FIFO</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="4" colspan="2">
+              <widget class="QCheckBox" name="cb_audio">
+               <property name="text">
+                <string>Audio</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0">
+              <widget class="QCheckBox" name="cb_timers">
+               <property name="text">
+                <string>Timers</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="1" colspan="2">
+              <widget class="QCheckBox" name="cb_int">
+               <property name="text">
+                <string>Interrupts</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="3">
+              <widget class="QCheckBox" name="cb_divsqrt">
+               <property name="text">
+                <string>DIV/SQRT</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="4" colspan="2">
+              <widget class="QCheckBox" name="cb_pwman">
+               <property name="text">
+                <string>Power mgmt</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="0">
+              <widget class="QCheckBox" name="cb_keypad">
+               <property name="text">
+                <string>Keypad</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="1" colspan="2">
+              <widget class="QCheckBox" name="cb_ntrmic">
+               <property name="text">
+                <string>DS Mic</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="3">
+              <widget class="QCheckBox" name="cb_ntrwifi">
+               <property name="text">
+                <string>DS Wifi</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="4" colspan="2">
+              <widget class="QCheckBox" name="cb_rtc">
+               <property name="text">
+                <string>RTC</string>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="0">
+              <widget class="QCheckBox" name="cb_spi">
+               <property name="text">
+                <string>SPI bus</string>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="1" colspan="2">
+              <widget class="QCheckBox" name="cb_auxspi">
+               <property name="text">
+                <string>AUXSPI/ROM</string>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="3">
+              <widget class="QCheckBox" name="cb_tsc">
+               <property name="text">
+                <string>Touchscreen</string>
+               </property>
+              </widget>
+             </item>
+             <item row="7" column="0" colspan="6">
+              <widget class="Line" name="lineNtrTwl">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </widget>
+             </item>
+             <item row="8" column="0">
+              <widget class="QCheckBox" name="cb_scfg">
+               <property name="text">
+                <string>SCFG</string>
+               </property>
+              </widget>
+             </item>
+             <item row="8" column="1" colspan="2">
+              <widget class="QCheckBox" name="cb_dsp">
+               <property name="text">
+                <string>DSP</string>
+               </property>
+              </widget>
+             </item>
+             <item row="8" column="3">
+              <widget class="QCheckBox" name="cb_sdmmc_host">
+               <property name="text">
+                <string>SD/MMC host</string>
+               </property>
+              </widget>
+             </item>
+             <item row="8" column="4" colspan="2">
+              <widget class="QCheckBox" name="cb_sdmmc_card">
+               <property name="text">
+                <string>SD/MMC card</string>
+               </property>
+              </widget>
+             </item>
+             <item row="9" column="0">
+              <widget class="QCheckBox" name="cb_dsiwifi_host">
+               <property name="text">
+                <string>DSi Wifi host</string>
+               </property>
+              </widget>
+             </item>
+             <item row="9" column="1" colspan="2">
+              <widget class="QCheckBox" name="cb_dsiwifi_board">
+               <property name="text">
+                <string>DSi Wifi board</string>
+               </property>
+              </widget>
+             </item>
+             <item row="9" column="3">
+              <widget class="QCheckBox" name="cb_dsiwifi_xtensa">
+               <property name="text">
+                <string>DSi Wifi Xtensa</string>
+               </property>
+              </widget>
+             </item>
+             <item row="9" column="4" colspan="2">
+              <widget class="QCheckBox" name="cb_dsiwifi_firm">
+               <property name="text">
+                <string>DSi Wifi firm</string>
+               </property>
+              </widget>
+             </item>
+             <item row="10" column="0">
+              <widget class="QCheckBox" name="cb_gpio">
+               <property name="text">
+                <string>GPIO</string>
+               </property>
+              </widget>
+             </item>
+             <item row="10" column="1" colspan="2">
+              <widget class="QCheckBox" name="cb_dsimic">
+               <property name="text">
+                <string>DSi mic</string>
+               </property>
+              </widget>
+             </item>
+             <item row="10" column="3">
+              <widget class="QCheckBox" name="cb_i2c">
+               <property name="text">
+                <string>I²C bus</string>
+               </property>
+              </widget>
+             </item>
+             <item row="10" column="4" colspan="2">
+              <widget class="QCheckBox" name="cb_cam">
+               <property name="text">
+                <string>DSi cameras</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
     </widget>
    </item>
-   <item>
+   <item row="1" column="0">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -642,6 +1025,610 @@
      <y>274</y>
     </hint>
    </hints>
+  </connection>
+  <connection>
+   <sender>gbHypercall</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_hv_misc</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbHypercall</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_hv_sig</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>lblLXTPath</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>txtLXTPath</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>btnLXTBrowse</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_custom</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_A7stat</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_A9stat</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_mem</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_dma</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_disp</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_disp3d</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_ipcfifo</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_audio</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_timers</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_int</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_divsqrt</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_pwman</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_keypad</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_ntrmic</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_ntrwifi</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_rtc</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_spi</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_auxspi</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_tsc</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_scfg</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_dsp</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_sdmmc_host</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_sdmmc_card</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_dsiwifi_host</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_dsiwifi_board</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_dsiwifi_xtensa</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_dsiwifi_firm</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_gpio</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_dsimic</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_i2c</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>cb_cam</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>lblTracingEnabled</receiver>
+   <slot>setVisible(bool)</slot>
+  </connection>
+  <connection>
+   <sender>gbTracing</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>lineNtrTwl</receiver>
+   <slot>setVisible(bool)</slot>
   </connection>
  </connections>
 </ui>

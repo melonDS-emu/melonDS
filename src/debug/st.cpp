@@ -8,12 +8,13 @@
 #include <string>
 
 #include "../NDS.h"
+#include "../Platform.h"
 
 #include "st.h"
 
-#define TRACE_OUT_FILE "melonds-trace.lxt"
+/*#define TRACE_OUT_FILE "melonds-trace.lxt"*/
 
-#define TRACE_BY_DEFAULT_ON
+/*#define TRACE_BY_DEFAULT_ON*/
 
 static uint32_t str_hash_djb2(const char* s)
 {
@@ -103,27 +104,19 @@ void DebugStorageNDS::Reset()
         lt_close(tracer);
     }
     tracer = NULL;
-#ifdef TRACE_BY_DEFAULT_ON
-    tracing = true;
-#else
-    tracing = false;
-#endif
+    tracing = Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing);
 
     CapTSyms = NTSyms = 0;
     TSyms = NULL;
 
-    EnabledSignals = (SystemSignal)(SystemSignal::DispCtl
-            | SystemSignal::Interrupt | SystemSignal::Custom);
-#ifdef TRACE_BY_DEFAULT_ON
-    //EnabledSignals = (SystemSignal)((u32)EnabledSignals | (u32)SystemSignal::DspCtl);
-    EnabledSignals = (SystemSignal)~(uint32_t)0;
-#endif
+    //EnabledSignals = (SystemSignal)Platform::GetConfigU64(Platform::ConfigEntry::DBG_EnabledSignals);
+    EnabledSignals = (SystemSignal)~(uint64_t)0; // ALL OF THEM
 }
 void DebugStorageNDS::AllocNew()
 {
     if (!tracer)
     {
-        tracer = lt_init(TRACE_OUT_FILE);
+        tracer = lt_init(Platform::GetConfigString(Platform::ConfigEntry::DBG_LXTPath).c_str());
         lt_set_timescale(tracer, TRACE_TIMESCALE);
         // for a correct timescale, ^ could be set to 0, and then v needs to be
         // divided by the system bus clockrate. however, we're working with ints,
@@ -132,11 +125,11 @@ void DebugStorageNDS::AllocNew()
         // secondly, currently, we only allow for system clock resolution, but
         // this will probably have to be amended in the future
         lt_set_time64(tracer, TRACE_SYSCLOCK_TO_TIMESTAMP(curtime = NDS::GetSysClockCycles(0, true)));
-#ifdef TRACE_BY_DEFAULT_ON
-        lt_set_dumpon(tracer);
-#else
-        lt_set_dumpoff(tracer);
-#endif
+        if (Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing))
+            lt_set_dumpon(tracer);
+        else
+            lt_set_dumpoff(tracer);
+
         lt_set_initial_value(tracer, '0');
     }
 
@@ -151,12 +144,16 @@ void DebugStorageNDS::AllocNew()
 int32_t DebugStorageNDS::AddTraceSym(const char* name, int bits, int typ,
         enum SystemSignal categ)
 {
-    uint32_t catu = (uint32_t)categ;
+    uint64_t catu = (uint64_t)categ;
+
+    if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing)) return -1;
+    if (!(EnabledSignals & catu)) return -1;
+
     if (bits < 0 || bits > 64) return -1;
     if (!catu || (catu & (catu - 1))) return -1; // definitely a bad categ value
 
-    uint16_t l2categ = __builtin_ctz(catu);
-    if (catu != (1u<<l2categ)) return -1; // more than one bit set
+    uint16_t l2categ = __builtin_ctzll(catu);
+    if (catu != (1uLL<<l2categ)) return -1; // more than one bit set
 
     if (!TSyms || !tracer) AllocNew();
 
@@ -200,6 +197,7 @@ int32_t DebugStorageNDS::AddTraceSym(const char* name, int bits, int typ,
 }
 int32_t DebugStorageNDS::GetTraceSym(const char* name)
 {
+    if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing)) return -1;
     if (!TSyms || !tracer) return -1;
 
     uint32_t h = str_hash_djb2(name);
@@ -211,8 +209,9 @@ int32_t DebugStorageNDS::GetTraceSym(const char* name)
 }
 void DebugStorageNDS::TraceValue(int32_t sym, int value)
 {
+    if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing)) return;
     if (!tracer || !TSyms || sym < 1 || sym >= NTSyms || !tracing) return;
-    if (!((enum SystemSignal)(1u << TSyms[sym].l2categ) & EnabledSignals)) return;
+    if (!((enum SystemSignal)(1uLL << TSyms[sym].l2categ) & EnabledSignals)) return;
 
     //printf("trace %s(%d) to %d @ time %llu <-> %llu\n", TSyms[sym].name, sym, value,
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
@@ -228,8 +227,9 @@ void DebugStorageNDS::TraceValue(int32_t sym, int value)
 }
 void DebugStorageNDS::TraceValue(int32_t sym, unsigned int value)
 {
+    if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing)) return;
     if (!tracer || !TSyms || sym < 1 || sym >= NTSyms || !tracing) return;
-    if (!((enum SystemSignal)(1u << TSyms[sym].l2categ) & EnabledSignals)) return;
+    if (!((enum SystemSignal)(1uLL << TSyms[sym].l2categ) & EnabledSignals)) return;
 
     //printf("trace %s(%d) to %u @ time %llu <-> %llu\n", TSyms[sym].name, sym, value,
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
@@ -245,8 +245,9 @@ void DebugStorageNDS::TraceValue(int32_t sym, unsigned int value)
 }
 void DebugStorageNDS::TraceValue(int32_t sym, double value)
 {
+    if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing)) return;
     if (!tracer || !TSyms || sym < 1 || sym >= NTSyms || !tracing) return;
-    if (!((enum SystemSignal)(1u << TSyms[sym].l2categ) & EnabledSignals)) return;
+    if (!((enum SystemSignal)(1uLL << TSyms[sym].l2categ) & EnabledSignals)) return;
 
     //printf("trace %s(%d, typ %d) to %f @ time %llu <-> %llu\n", TSyms[sym].name, sym, TSyms[sym].typ, value,
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
@@ -256,8 +257,9 @@ void DebugStorageNDS::TraceValue(int32_t sym, double value)
 }
 void DebugStorageNDS::TraceValue(int32_t sym, const char* value)
 {
+    if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing)) return;
     if (!tracer || !TSyms || sym < 1 || sym >= NTSyms || !tracing) return;
-    if (!((enum SystemSignal)(1u << TSyms[sym].l2categ) & EnabledSignals)) return;
+    if (!((enum SystemSignal)(1uLL << TSyms[sym].l2categ) & EnabledSignals)) return;
 
     //printf("trace %s(%d) to %s @ time %llu <-> %llu\n", TSyms[sym].name, sym, value,
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
@@ -267,8 +269,9 @@ void DebugStorageNDS::TraceValue(int32_t sym, const char* value)
 }
 void DebugStorageNDS::TraceString(int32_t sym, const char* value)
 {
+    if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing)) return;
     if (!tracer || !TSyms || sym < 1 || sym >= NTSyms || !tracing) return;
-    if (!((enum SystemSignal)(1u << TSyms[sym].l2categ) & EnabledSignals)) return;
+    if (!((enum SystemSignal)(1uLL << TSyms[sym].l2categ) & EnabledSignals)) return;
 
     //printf("trace %s(%d) to %s @ time %llu <-> %llu\n", TSyms[sym].name, sym, value,
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
@@ -279,6 +282,7 @@ void DebugStorageNDS::TraceString(int32_t sym, const char* value)
 
 void DebugStorageNDS::BeginTracing()
 {
+    if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing)) return;
     if (!tracer) AllocNew();
 
     printf("begin tracing\n");
@@ -287,6 +291,7 @@ void DebugStorageNDS::BeginTracing()
 }
 void DebugStorageNDS::PauseTracing()
 {
+    if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing)) return;
     if (!tracer) AllocNew();
 
     printf("end tracing\n");
@@ -295,6 +300,7 @@ void DebugStorageNDS::PauseTracing()
 }
 void DebugStorageNDS::SetTime(uint64_t t, bool force)
 {
+    if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing)) return;
     if (!tracer) AllocNew();
 
     if (force || t > curtime)
@@ -304,6 +310,7 @@ void DebugStorageNDS::SetTime(uint64_t t, bool force)
         curtime = t;
 }
 void DebugStorageNDS::WithTime(uint64_t t, size_t clkshift, std::function<void()> cb) {
+    if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing)) return;
     if (cb == nullptr || !tracer) return;
 
     lt_set_time64(tracer, TRACE_SYSCLOCK_TO_TIMESTAMP(t) >> clkshift);
@@ -361,7 +368,7 @@ void DebugStorageNDS::DoSavestate(Savestate* file)
 
             char* nam = (char*)calloc(1,l+1);
             file->VarArray(nam, l+1);
-            AddTraceSym(nam, bits, typ, (enum SystemSignal)(1u<<l2categ));
+            AddTraceSym(nam, bits, typ, (enum SystemSignal)(1uLL<<l2categ));
             free(nam);
         }
     }

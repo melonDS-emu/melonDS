@@ -22,6 +22,10 @@
 #include <variant>
 #include <string>
 
+#ifdef DEBUG_FEATURES_ENABLED
+#include "debug/st.h"
+#endif
+
 enum
 {
     HK_Lid = 0,
@@ -55,9 +59,9 @@ namespace Config
 struct ConfigEntry
 {
     char Name[32];
-    int Type;           // 0=int 1=bool 2=string
+    int Type;           // 0=int 1=bool 2=string 3=u64
     void* Value;        // pointer to the value variable
-    std::variant<int, bool, std::string> Default;
+    std::variant<int, bool, std::string, unsigned long long> Default;
     bool InstanceUnique; // whether the setting can exist individually for each instance in multiplayer
 };
 
@@ -115,6 +119,16 @@ extern int JIT_MaxBlockSize;
 extern bool JIT_BranchOptimisations;
 extern bool JIT_LiteralOptimisations;
 extern bool JIT_FastMemory;
+#endif
+
+#ifdef DEBUG_FEATURES_ENABLED
+extern bool DBG_EnableTracing;
+extern std::string DBG_LXTPath;
+extern unsigned long long DBG_EnabledSignals;
+
+extern bool DBG_EnableHypercalls;
+extern bool DBG_HVMisc;
+extern bool DBG_HVSignalTracing;
 #endif
 
 extern bool ExternalBIOSEnable;

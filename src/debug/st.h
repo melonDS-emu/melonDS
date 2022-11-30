@@ -9,10 +9,12 @@
 
 #include "lxt_write.h"
 
+#include "../Savestate.h"
+
 namespace debug
 {
 
-enum SystemSignal
+enum SystemSignal : uint64_t
 {
     ARM7_stat = 1<< 0, // pc, cpsr
     ARM9_stat = 1<< 1, // pc, cpsr, cp15//TODO(cp15)
@@ -41,10 +43,12 @@ enum SystemSignal
     RtcCtl    = 1<<24, // REG_RTC, FOUT // TODO
     SpiCtl    = 1<<25, // spicnt
     AuxSpiCtl = 1<<26, // auxspicnt, romctl
-    TscTwlCtl = 1<<27, // ADC, DAC, ovf, int, ... flags // TODO
+    TscTwlCtl = 1<<27, // ADC, DAC, ovf, int, ... flags // TODO // also NTR TSC??
     I2CCtl    = 1<<28, // I2C stuff
+    WifiIFCtl = 1<<29, // BMI/WMI // TODO
+    CameraCtl = 1<<30, // TODO
 
-    Custom    = 1u<<31
+    Custom    = 1uLL<<63
 };
 
 class DebugStorageNDS
