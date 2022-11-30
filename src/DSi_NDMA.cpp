@@ -258,6 +258,9 @@ void DSi_NDMA::Run9()
         if (NDS::ARM9Timestamp >= NDS::ARM9Target) break;
     }
 
+    Executing = false;
+    Stall = false;
+
     if (RemCount)
     {
         if (IterCount == 0)
