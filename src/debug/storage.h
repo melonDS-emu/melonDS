@@ -70,6 +70,7 @@ public:
     int32_t GetTraceSym(const char* name);
     void TraceValue(int32_t sym, int value);
     void TraceValue(int32_t sym, unsigned int value);
+    void TraceValue(int32_t sym, uint64_t value);
     void TraceValue(int32_t sym, double value);
     void TraceValue(int32_t sym, const char* value); // bitstring
     void TraceString(int32_t sym, const char* value);

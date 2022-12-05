@@ -16,7 +16,7 @@
 #include "../NDS.h"
 #include "../Platform.h"
 
-#include "hv.h"
+#include "hypervisor.h"
 
 static char* read_sz(ARM* cpu, uint32_t addr)
 {
@@ -231,6 +231,11 @@ void snoop_insn(ARM* cpu, bool thumb, u32 insn)
     u32 ip = cpu->R[15] - (thumb ? 2 : 4);
 
     //dump_cpu_state(cpu, thumb);
+
+    /*static int cnt = 0;
+    ++cnt;
+    if (cnt == 400)
+        NDS::ExitEmulator = true;*/
 }
 
 }

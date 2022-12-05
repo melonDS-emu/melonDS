@@ -65,6 +65,7 @@ u32 Key1_KeyBuf[0x412];
 u64 Key2_X;
 u64 Key2_Y;
 
+s32 dsym_auxspicnt, dsym_auxspidata, dsym_romctl, dsym_romcmd, dsym_romcmd_decr, dsym_romdata;
 
 u32 ByteSwap(u32 val)
 {
@@ -228,6 +229,13 @@ void CartCommon::Reset()
     CmdEncMode = 0;
     DataEncMode = 0;
     DSiMode = false;
+
+    dsym_auxspicnt = NDS::MakeTracingSym("AUXSPICNT" , 8, LT_SYM_F_BITS, debug::SystemSignal::AuxSpiCtl);
+    dsym_auxspidata= NDS::MakeTracingSym("AUXSPIDATA", 8, LT_SYM_F_BITS, debug::SystemSignal::AuxSpiCtl);
+    dsym_romctl = NDS::MakeTracingSym("ROMCTL", 32, LT_SYM_F_BITS, debug::SystemSignal::AuxSpiCtl);
+    dsym_romcmd = NDS::MakeTracingSym("ROMCMD", 64, LT_SYM_F_BITS, debug::SystemSignal::AuxSpiCtl);
+    dsym_romcmd_decr = NDS::MakeTracingSym("ROMCMD_decr", 64, LT_SYM_F_BITS, debug::SystemSignal::AuxSpiCtl);
+    dsym_romdata= NDS::MakeTracingSym("ROMDATA", 32, LT_SYM_F_BITS, debug::SystemSignal::AuxSpiCtl);
 }
 
 void CartCommon::SetupDirectBoot(std::string romname)
@@ -256,8 +264,16 @@ void CartCommon::LoadSave(const u8* savedata, u32 savelen)
 
 int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
+    u64 cmd64;
+    for (int i = 0; i < 8; ++i) {
+        cmd64 <<= 8;
+        cmd64 |= cmd[i];
+    }
+    NDS::TraceValue(dsym_romcmd, cmd64);
+
     if (CmdEncMode == 0)
     {
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
         switch (cmd[0])
         {
         case 0x9F:
@@ -315,6 +331,11 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
 
         // TODO eventually: verify all the command parameters and shit
 
+        for (int i = 0; i < 8; ++i) {
+            cmd64 <<= 8;
+            cmd64 |= cmddec[i];
+        }
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
         switch (cmddec[0] & 0xF0)
         {
         case 0x40:
@@ -351,6 +372,7 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
     }
     else if (CmdEncMode == 2)
     {
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
         switch (cmd[0])
         {
         case 0xB8:
@@ -495,9 +517,18 @@ int CartRetail::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandStart(cmd, data, len);
 
+    u64 cmd64;
+    for (int i = 0; i < 8; ++i) {
+        cmd64 <<= 8;
+        cmd64 |= cmd[i];
+    }
+
     switch (cmd[0])
     {
     case 0xB7:
+        NDS::TraceValue(dsym_romcmd, cmd64);
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
+
         {
             u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
             memset(data, 0, len);
@@ -889,9 +920,18 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandStart(cmd, data, len);
 
+    u64 cmd64;
+    for (int i = 0; i < 8; ++i) {
+        cmd64 <<= 8;
+        cmd64 |= cmd[i];
+    }
+
     switch (cmd[0])
     {
     case 0x81: // write data
+        NDS::TraceValue(dsym_romcmd, cmd64);
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
+
         if ((SRAMStatus & (1<<4)) && SRAMWindow >= SRAMBase && SRAMWindow < (SRAMBase+SRAMLength))
         {
             u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
@@ -909,6 +949,9 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
         return 1;
 
     case 0x82: // commit write
+        NDS::TraceValue(dsym_romcmd, cmd64);
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
+
         if (SRAMAddr && SRAMWritePos)
         {
             if (SRAMLength && SRAMAddr < (SRAMBase+SRAMLength-0x20000))
@@ -924,11 +967,17 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
         return 0;
 
     case 0x84: // discard write buffer
+        NDS::TraceValue(dsym_romcmd, cmd64);
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
+
         SRAMAddr = 0;
         SRAMWritePos = 0;
         return 0;
 
     case 0x85: // write enable
+        NDS::TraceValue(dsym_romcmd, cmd64);
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
+
         if (SRAMWindow)
         {
             SRAMStatus |= (1<<4);
@@ -937,10 +986,16 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
         return 0;
 
     case 0x8B: // revert to ROM read mode
+        NDS::TraceValue(dsym_romcmd, cmd64);
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
+
         SRAMWindow = 0;
         return 0;
 
     case 0x94: // return ID data
+        NDS::TraceValue(dsym_romcmd, cmd64);
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
+
         {
             // TODO: check what the data really is. probably the NAND chip's ID.
             // also, might be different between different games or even between different carts.
@@ -960,6 +1015,9 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
         return 0;
 
     case 0xB2: // set window for accessing SRAM
+        NDS::TraceValue(dsym_romcmd, cmd64);
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
+
         {
             u32 addr = (cmd[1]<<24) | ((cmd[2]&0xFE)<<16);
 
@@ -974,6 +1032,9 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
         return 0;
 
     case 0xB7:
+        NDS::TraceValue(dsym_romcmd, cmd64);
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
+
         {
             u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
 
@@ -1006,6 +1067,9 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
         return 0;
 
     case 0xD6: // read NAND status
+        NDS::TraceValue(dsym_romcmd, cmd64);
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
+
         {
             // status bits
             // bit5: ready
@@ -1238,9 +1302,18 @@ int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandStart(cmd, data, len);
 
+    u64 cmd64;
+    for (int i = 0; i < 8; ++i) {
+        cmd64 <<= 8;
+        cmd64 |= cmd[i];
+    }
+
     switch (cmd[0])
     {
     case 0xB7:
+        NDS::TraceValue(dsym_romcmd, cmd64);
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
+
         {
             u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
             memset(data, 0, len);
@@ -1257,6 +1330,9 @@ int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
         return 0;
 
     case 0xC0: // SD read
+        NDS::TraceValue(dsym_romcmd, cmd64);
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
+
         {
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
             if (SD) SD->ReadSectors(sector, len>>9, data);
@@ -1264,6 +1340,8 @@ int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
         return 0;
 
     case 0xC1: // SD write
+        NDS::TraceValue(dsym_romcmd, cmd64);
+        NDS::TraceValue(dsym_romcmd_decr, cmd64);
         return 1;
 
     default:
@@ -1816,6 +1894,8 @@ void WriteROMCnt(u32 val)
     u32 xferstart = (val & ~ROMCnt) & (1<<31);
     ROMCnt = (val & 0xFF7F7FFF) | (ROMCnt & 0x20800000);
 
+    NDS::TraceValue(dsym_romctl, ROMCnt);
+
     // all this junk would only really be useful if melonDS was interfaced to
     // a DS cart reader
     if (val & (1<<15))
@@ -1876,6 +1956,8 @@ void WriteROMCnt(u32 val)
 
     ROMCnt &= ~(1<<23);
 
+    NDS::TraceValue(dsym_romctl, ROMCnt);
+
     // ROM transfer timings
     // the bus is parallel with 8 bits
     // thus a command would take 8 cycles to be transferred
@@ -1903,6 +1985,7 @@ void WriteROMCnt(u32 val)
 void AdvanceROMTransfer()
 {
     ROMCnt &= ~(1<<23);
+    NDS::TraceValue(dsym_romctl, ROMCnt);
 
     if (TransferPos < TransferLen)
     {
@@ -1962,6 +2045,7 @@ void WriteSPICnt(u16 val)
     }
 
     SPICnt = (SPICnt & 0x0080) | (val & 0xE043);
+    NDS::TraceValue(dsym_auxspicnt, SPICnt);
 
     // AUXSPICNT can be changed during a transfer
     // in this case, the transfer continues until the end, even if bit13 or bit15 are cleared
@@ -1973,15 +2057,20 @@ void WriteSPICnt(u16 val)
 void SPITransferDone(u32 param)
 {
     SPICnt &= ~(1<<7);
+    NDS::TraceValue(dsym_auxspicnt, SPICnt);
 }
 
 u8 ReadSPIData()
 {
-    if (!(SPICnt & (1<<15))) return 0;
-    if (!(SPICnt & (1<<13))) return 0;
-    if (SPICnt & (1<<7)) return 0; // checkme
+    u8 ret = SPIData;
 
-    return SPIData;
+    if (!(SPICnt & (1<<15))) ret = 0;
+    if (!(SPICnt & (1<<13))) ret = 0;
+    if (SPICnt & (1<<7)) ret = 0; // checkme
+
+    NDS::TraceValue(dsym_auxspidata, ret);
+
+    return ret;
 }
 
 void WriteSPIData(u8 val)
@@ -1991,6 +2080,7 @@ void WriteSPIData(u8 val)
     if (SPICnt & (1<<7)) return;
 
     SPICnt |= (1<<7);
+    NDS::TraceValue(dsym_auxspicnt, SPICnt);
 
     bool hold = SPICnt&(1<<6);
     bool islast = false;
@@ -2011,6 +2101,7 @@ void WriteSPIData(u8 val)
         SPIDataPos++;
     }
 
+    NDS::TraceValue(dsym_auxspidata, val);
     if (Cart) SPIData = Cart->SPIWrite(val, SPIDataPos, islast);
     else      SPIData = 0;
 

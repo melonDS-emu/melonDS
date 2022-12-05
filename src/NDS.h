@@ -29,7 +29,7 @@
 //#define DEBUG_CHECK_DESYNC
 
 #ifdef DEBUG_FEATURES_ENABLED
-#include "debug/st.h"
+#include "debug/storage.h"
 #endif
 
 namespace NDS
@@ -365,6 +365,16 @@ inline void TraceValue(s32 sym, int value, enum Clock clk = Clock::Bus) {
 #endif
 }
 inline void TraceValue(s32 sym, unsigned int value, enum Clock clk = Clock::Bus) {
+#ifdef DEBUG_FEATURES_ENABLED
+    if (clk == Clock::ARM7)
+        DebugStuff.WithTimeARM7([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else if (clk == Clock::ARM9)
+        DebugStuff.WithTimeARM9([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else /*if (clk == Clock::Bus)*/
+        DebugStuff.TraceValue(sym, value);
+#endif
+}
+inline void TraceValue(s32 sym, u64 value, enum Clock clk = Clock::Bus) {
 #ifdef DEBUG_FEATURES_ENABLED
     if (clk == Clock::ARM7)
         DebugStuff.WithTimeARM7([sym, value](){ DebugStuff.TraceValue(sym, value); });

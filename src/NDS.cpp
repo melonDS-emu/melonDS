@@ -46,7 +46,13 @@
 #include "DSi_DSP.h"
 
 #ifdef DEBUG_FEATURES_ENABLED
-#include "debug/st.h"
+#include "debug/storage.h"
+#endif
+
+#if 0
+#define KEYINPUT_TWLBOOT ((0x80ul<<16) | (u32)(~(u16)0x040c&0xffff))
+#else
+#define KEYINPUT_TWLBOOT KeyInput
 #endif
 
 namespace NDS
@@ -693,7 +699,7 @@ void Reset()
     if (ConsoleType == 1)
     {
         DSi::Reset();
-        KeyInput &= ~(1 << (16+6));
+        KeyInput &= ~(1 << (16+6)); // bit 22: pen down
         degradeAudio = false;
     }
 
@@ -3006,8 +3012,8 @@ u8 ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFF;
-    case 0x04000131: LagFrameFlag = false; return (KeyInput >> 8) & 0xFF;
+    case 0x04000130: LagFrameFlag = false; return KEYINPUT_TWLBOOT & 0xFF;
+    case 0x04000131: LagFrameFlag = false; return (KEYINPUT_TWLBOOT >> 8) & 0xFF;
     case 0x04000132: return KeyCnt & 0xFF;
     case 0x04000133: return KeyCnt >> 8;
 
@@ -3144,7 +3150,7 @@ u16 ARM9IORead16(u32 addr)
     case 0x0400010C: return TimerGetCounter(3);
     case 0x0400010E: return Timers[3].Cnt;
 
-    case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFFFF;
+    case 0x04000130: LagFrameFlag = false; return KEYINPUT_TWLBOOT & 0xFFFF;
     case 0x04000132: return KeyCnt;
 
     case 0x04000180: return IPCSync9;
@@ -3287,7 +3293,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000108: return TimerGetCounter(2) | (Timers[2].Cnt << 16);
     case 0x0400010C: return TimerGetCounter(3) | (Timers[3].Cnt << 16);
 
-    case 0x04000130: LagFrameFlag = false; return (KeyInput & 0xFFFF) | (KeyCnt << 16);
+    case 0x04000130: LagFrameFlag = false; return (KEYINPUT_TWLBOOT & 0xFFFF) | (KeyCnt << 16);
 
     case 0x04000180: return IPCSync9;
     case 0x04000184: return ARM9IORead16(addr);
@@ -3919,14 +3925,14 @@ u8 ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04000130: return KeyInput & 0xFF;
-    case 0x04000131: return (KeyInput >> 8) & 0xFF;
+    case 0x04000130: return KEYINPUT_TWLBOOT & 0xFF;
+    case 0x04000131: return (KEYINPUT_TWLBOOT >> 8) & 0xFF;
     case 0x04000132: return KeyCnt & 0xFF;
     case 0x04000133: return KeyCnt >> 8;
     case 0x04000134: return RCnt & 0xFF;
     case 0x04000135: return RCnt >> 8;
-    case 0x04000136: return (KeyInput >> 16) & 0xFF;
-    case 0x04000137: return KeyInput >> 24;
+    case 0x04000136: return (KEYINPUT_TWLBOOT >> 16) & 0xFF;
+    case 0x04000137: return KEYINPUT_TWLBOOT >> 24;
 
     case 0x04000138: return RTC::Read() & 0xFF;
 
@@ -4014,10 +4020,10 @@ u16 ARM7IORead16(u32 addr)
     case 0x0400010C: return TimerGetCounter(7);
     case 0x0400010E: return Timers[7].Cnt;
 
-    case 0x04000130: return KeyInput & 0xFFFF;
+    case 0x04000130: return KEYINPUT_TWLBOOT & 0xFFFF;
     case 0x04000132: return KeyCnt;
     case 0x04000134: return RCnt;
-    case 0x04000136: return KeyInput >> 16;
+    case 0x04000136: return KEYINPUT_TWLBOOT >> 16;
 
     case 0x04000138: return RTC::Read();
 
@@ -4107,7 +4113,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000108: return TimerGetCounter(6) | (Timers[6].Cnt << 16);
     case 0x0400010C: return TimerGetCounter(7) | (Timers[7].Cnt << 16);
 
-    case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
+    case 0x04000130: return (KEYINPUT_TWLBOOT & 0xFFFF) | (KeyCnt << 16);
     case 0x04000134: return RCnt | (KeyCnt & 0xFFFF0000);
     case 0x04000138: return RTC::Read();
 

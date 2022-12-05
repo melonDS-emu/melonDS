@@ -673,9 +673,11 @@ void EmuThread::run()
 #endif // MELONCAP
 
             if (NDS::ExitEmulator) {
-                Platform::StopEmu(); // FIXME: leads to OOM!
                 EmuRunning = 0;
+                //Platform::StopEmu();
             }
+
+            if (EmuRunning == 0) break;
 
             winUpdateCount++;
             if (winUpdateCount >= winUpdateFreq && !oglContext)
@@ -794,6 +796,9 @@ void EmuThread::run()
     GPU::DeInitRenderer();
     NDS::DeInit();
     //Platform::LAN_DeInit();
+
+    if (NDS::ExitEmulator)
+        Platform::StopEmu();
 }
 
 void EmuThread::changeWindowTitle(char* title)

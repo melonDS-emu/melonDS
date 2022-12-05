@@ -33,7 +33,7 @@
 #endif
 
 #ifdef DEBUG_FEATURES_ENABLED
-#include "debug/hv.h"
+#include "debug/hypervisor.h"
 #endif
 
 // instruction timing notes

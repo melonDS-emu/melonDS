@@ -30,7 +30,7 @@
 #include "ui_EmuSettingsDialog.h"
 
 #ifdef DEBUG_FEATURES_ENABLED
-#include "debug/st.h"
+#include "debug/storage.h"
 #endif
 
 

@@ -63,8 +63,8 @@ add_library(core STATIC
 if (ENABLE_DEBUG_FEATURES)
     message(NOTICE "Enabling debugging features")
     target_sources(core PRIVATE
-        debug/hv.cpp
-        debug/st.cpp
+        debug/hypervisor.cpp
+        debug/storage.cpp
         debug/lxt_write.c
     )
 endif()

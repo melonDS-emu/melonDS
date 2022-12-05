@@ -23,7 +23,7 @@
 #include <string>
 
 #ifdef DEBUG_FEATURES_ENABLED
-#include "debug/st.h"
+#include "debug/storage.h"
 #endif
 
 enum

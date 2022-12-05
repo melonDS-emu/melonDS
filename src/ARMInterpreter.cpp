@@ -24,7 +24,7 @@
 #include "ARMInterpreter_LoadStore.h"
 
 #ifdef DEBUG_FEATURES_ENABLED
-#include "debug/hv.h"
+#include "debug/hypervisor.h"
 #endif
 
 

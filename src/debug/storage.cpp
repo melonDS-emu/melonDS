@@ -10,7 +10,7 @@
 #include "../NDS.h"
 #include "../Platform.h"
 
-#include "st.h"
+#include "storage.h"
 
 /*#define TRACE_OUT_FILE "melonds-trace.lxt"*/
 
@@ -38,6 +38,16 @@ static std::string int_to_binstr(size_t bits, int32_t val)
     union {uint32_t u; int32_t s;} us;
     us.s = val;
     return uint_to_binstr(bits, us.u);
+}
+static std::string u64_to_binstr(size_t bits, uint64_t val)
+{
+    std::string rv(bits, '0');
+
+    for (size_t i = 0; i < bits; ++i)
+        if (val & (1uLL << i))
+            rv[bits-i-1] = '1';
+
+    return rv;
 }
 
 namespace debug
@@ -154,6 +164,12 @@ void DebugStorageNDS::AllocNew()
 int32_t DebugStorageNDS::AddTraceSym(const char* name, int bits, int typ,
         enum SystemSignal categ)
 {
+    if (bits > 32 && typ != LT_SYM_F_BITS) {
+        printf("[DBG] ERR: tracing sym '%s' has %d bits, but type %d (not LT_SYM_F_BITS)!\n",
+                name, bits, typ);
+        return -1;
+    }
+
     uint64_t catu = (uint64_t)categ;
 
     if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing)) return -1;
@@ -252,6 +268,24 @@ void DebugStorageNDS::TraceValue(int32_t sym, unsigned int value)
     }
     else
         lt_emit_value_int(tracer, TSyms[sym].sym, 0, value);
+}
+void DebugStorageNDS::TraceValue(int32_t sym, uint64_t value)
+{
+    if (!Platform::GetConfigBool(Platform::ConfigEntry::DBG_EnableTracing)) return;
+    if (!tracer || !TSyms || sym < 1 || sym >= NTSyms || !tracing) return;
+    if (!((enum SystemSignal)(1uLL << TSyms[sym].l2categ) & EnabledSignals)) return;
+
+    //printf("trace %s(%d) to %u @ time %llu <-> %llu\n", TSyms[sym].name, sym, value,
+    //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
+
+    //SetTime(NDS::GetSysClockCycles(0, true));
+    if (TSyms[sym].typ == LT_SYM_F_BITS)
+    {
+        std::string str = uint_to_binstr(TSyms[sym].bits, value);
+        lt_emit_value_bit_string(tracer, TSyms[sym].sym, 0, (char*)str.c_str());
+    }
+    //else
+    //    lt_emit_value_int(tracer, TSyms[sym].sym, 0, value); // FIXME a.
 }
 void DebugStorageNDS::TraceValue(int32_t sym, double value)
 {
