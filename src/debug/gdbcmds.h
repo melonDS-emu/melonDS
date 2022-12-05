@@ -13,6 +13,8 @@ enum gdbproto_exec_result gdb_handle_m(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len);
 enum gdbproto_exec_result gdb_handle_M(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len);
+enum gdbproto_exec_result gdb_handle_X(struct gdbstub* stub,
+		const uint8_t* cmd, ssize_t len);
 
 enum gdbproto_exec_result gdb_handle_c(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len);
@@ -27,9 +29,13 @@ enum gdbproto_exec_result gdb_handle_H(struct gdbstub* stub,
 
 enum gdbproto_exec_result gdb_handle_Question(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len);
+enum gdbproto_exec_result gdb_handle_Exclamation(struct gdbstub* stub,
+		const uint8_t* cmd, ssize_t len);
 enum gdbproto_exec_result gdb_handle_D(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len);
 enum gdbproto_exec_result gdb_handle_r(struct gdbstub* stub,
+		const uint8_t* cmd, ssize_t len);
+enum gdbproto_exec_result gdb_handle_R(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len);
 
 enum gdbproto_exec_result gdb_handle_z(struct gdbstub* stub,
@@ -37,6 +43,8 @@ enum gdbproto_exec_result gdb_handle_z(struct gdbstub* stub,
 enum gdbproto_exec_result gdb_handle_Z(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len);
 
+enum gdbproto_exec_result gdb_handle_q_HostInfo(struct gdbstub* stub,
+		const uint8_t* cmd, ssize_t len);
 enum gdbproto_exec_result gdb_handle_q_Rcmd(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len);
 enum gdbproto_exec_result gdb_handle_q_Supported(struct gdbstub* stub,

@@ -76,6 +76,7 @@ static struct gdbproto_subcmd_handler handlers_v[] = {
 };
 
 static struct gdbproto_subcmd_handler handlers_q[] = {
+	{ .maincmd = 'q', .substr = "HostInfo"   , .handler = gdb_handle_q_HostInfo },
 	{ .maincmd = 'q', .substr = "Rcmd,"      , .handler = gdb_handle_q_Rcmd },
 	{ .maincmd = 'q', .substr = "Supported:" , .handler = gdb_handle_q_Supported },
 	{ .maincmd = 'q', .substr = "CRC:"       , .handler = gdb_handle_q_CRC },
@@ -103,15 +104,19 @@ static struct gdbproto_cmd_handler handlers_top[] = {
 	{ .cmd = 'G', .handler = gdb_handle_G },
 	{ .cmd = 'm', .handler = gdb_handle_m },
 	{ .cmd = 'M', .handler = gdb_handle_M },
+	{ .cmd = 'X', .handler = gdb_handle_X },
 	{ .cmd = 'c', .handler = gdb_handle_c },
 	{ .cmd = 's', .handler = gdb_handle_s },
 	{ .cmd = 'p', .handler = gdb_handle_p },
 	{ .cmd = 'P', .handler = gdb_handle_P },
 	{ .cmd = 'H', .handler = gdb_handle_H },
+	{ .cmd = 'T', .handler = gdb_handle_H },
 
 	{ .cmd = '?', .handler = gdb_handle_Question },
+	{ .cmd = '!', .handler = gdb_handle_Exclamation },
 	{ .cmd = 'D', .handler = gdb_handle_D },
 	{ .cmd = 'r', .handler = gdb_handle_r },
+	{ .cmd = 'R', .handler = gdb_handle_R },
 
 	{ .cmd = 'z', .handler = gdb_handle_z },
 	{ .cmd = 'Z', .handler = gdb_handle_Z },
@@ -127,12 +132,24 @@ static enum gdbstub_state handle_packet(struct gdbstub* stub) {
 	enum gdbproto_exec_result r = gdbproto_cmd_exec(stub, handlers_top);
 
 	if (r == gdbe_must_break) {
+		if (stub->stat == gdbt_none || stub->stat == gdbt_running)
+			stub->stat = gdbt_break_req;
 		return gdbstat_break;
-	} else if (r == gdbe_detached) {
+	} else if (r == gdbe_initial_break) {
+		stub->stat = gdbt_break_req;
+		return gdbstat_attach;
+	/*} else if (r == gdbe_detached) {
+		stub->stat = gdbt_none;
+		return gdbstat_disconnect;*/
+	} else if (r == gdbe_continue) {
+		stub->stat = gdbt_running;
 		return gdbstat_continue;
+	} else if (r == gdbe_step) {
+		return gdbstat_step;
 	} else if (r == gdbe_ok || r == gdbe_unk_cmd) {
 		return gdbstat_none;
 	} else {
+		stub->stat = gdbt_none;
 		return gdbstat_disconnect;
 	}
 
@@ -163,6 +180,16 @@ enum gdbstub_state gdbstub_poll(struct gdbstub* stub) {
 		if (stub->connfd < 0) {
 			return gdbstat_noconn;
 		}
+
+		stub->stat = gdbt_running; // on connected
+		stub->stat_flag = false;
+	}
+
+	if (stub->stat_flag) {
+		stub->stat_flag = false;
+		printf("[GDB] STAT FLAG WAS TRUE\n");
+
+		gdb_handle_Question(stub, NULL, 0); // ugly hack but it should work
 	}
 
 	struct pollfd pfd;
@@ -185,6 +212,8 @@ enum gdbstub_state gdbstub_poll(struct gdbstub* stub) {
 	switch (res) {
 	case gdbp_no_packet:
 		return gdbstat_none;
+	case gdbp_break:
+		return gdbstat_break;
 	case gdbp_wut:
 		printf("[GDB] WUT\n");
 	case_gdbp_eof:
@@ -222,7 +251,7 @@ enum gdbproto_exec_result gdbproto_subcmd_exec(struct gdbstub* stub, const uint8
 				printf("[GDB] send packet ack failed!\n");
 				return gdbe_net_err;
 			}
-			return handlers[i].handler(stub, &cmd[strlen(handlers[i].substr)], len);
+			return handlers[i].handler(stub, &cmd[strlen(handlers[i].substr)], len-strlen(handlers[i].substr));
 		}
 	}
 
@@ -258,5 +287,56 @@ enum gdbproto_exec_result gdbproto_cmd_exec(struct gdbstub* stub, const struct
 	//gdbproto_resp_str(stub->connfd, "E99");
 	gdbproto_resp(stub->connfd, NULL, 0);
 	return gdbe_unk_cmd;
+}
+
+
+void gdbstub_signal_status(struct gdbstub* stub, enum gdbtgt_status stat, uint32_t arg) {
+	if (!stub) return;
+	printf("[GDB] SIGNAL STATUS %d!\n", stat);
+	//__builtin_trap();
+
+	stub->stat = stat;
+	stub->stat_flag = true;
+
+	if (stat == gdbt_bkpt) {
+		stub->cur_bkpt = arg;
+	} else if (stat == gdbt_watchpt) {
+		stub->cur_watchpt = arg;
+	}
+}
+
+
+enum gdbstub_state gdbstub_enter_reason(struct gdbstub* stub, bool stay, enum gdbtgt_status stat, uint32_t arg) {
+	if (stat >= 0) gdbstub_signal_status(stub, stat, arg);
+
+	enum gdbstub_state st;
+	bool do_next = true;
+	do {
+		st = gdbstub_poll(stub);
+
+		if (stay) break;
+
+		switch (st) {
+		case gdbstat_break:
+			printf("[GDB] break execution\n");
+			gdbstub_signal_status(stub, gdbt_break_req, ~(uint32_t)0);
+			break;
+		case gdbstat_continue:
+			printf("[GDB] continue execution\n");
+			do_next = false;
+			break;
+		case gdbstat_step:
+			printf("[GDB] single-step\n");
+			do_next = false;
+			break;
+		case gdbstat_disconnect:
+			printf("[GDB] disconnect\n");
+			gdbstub_signal_status(stub, gdbt_none, ~(uint32_t)0);
+			do_next = false;
+			break;
+		}
+	} while (do_next);
+
+	return st;
 }
 

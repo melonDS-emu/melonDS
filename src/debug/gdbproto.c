@@ -83,13 +83,15 @@ enum gdbproto_read_result gdbproto_msg_recv(int connfd,
 			}
 		}
 
-		printf("[GDB] recv() %zd bytes: '%s'\n", n, pkt);
+		printf("[GDB] recv() %zd bytes: '%s' (%02x)\n", n, pkt, pkt[0]);
 		first = false;
 
 		do {
 			if (dataoff == 0) {
 				if (pkt[blehoff] == '\x04') { // EOF
 					return gdbp_eof;
+				} else if (pkt[blehoff] == '\x03') { // break request
+					return gdbp_break;
 				} else if (pkt[blehoff] != '$') {
 					++blehoff;
 					--n;

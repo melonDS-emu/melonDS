@@ -1,5 +1,6 @@
 
 #include <stdio.h>
+#include <assert.h>
 
 #include "hexutil.h"
 #include "gdbproto.h"
@@ -7,9 +8,13 @@
 #include "gdbcmds.h"
 
 
+#define ARCH_N_REG 17
+
+
 enum gdb_signal {
 	GDB_SIGINT  = 2,
 	GDB_SIGTRAP = 5,
+	GDB_SIGEMT  = 7, // "emulation trap"
 	GDB_SIGSEGV = 11,
 	GDB_SIGILL  = 4
 };
@@ -74,7 +79,7 @@ static int do_q_response(int connfd, const char* query, const uint8_t* data, con
 	size_t qaddr, qlen;
 
 	//printf("[GDB qresp] query='%s'\n", query);
-	if (sscanf(query, "%zx,%zx", &qaddr, &qlen) < 2) {
+	if (sscanf(query, "%zx,%zx", &qaddr, &qlen) != 2) {
 		return gdbproto_resp_str(connfd, "E01");
 	} else if (qaddr >  len) {
 		return gdbproto_resp_str(connfd, "E01");
@@ -96,53 +101,101 @@ enum gdbproto_exec_result gdb_handle_g(struct gdbstub* stub,
 
 	uint8_t* regstrbuf = tempdatabuf;
 
-	for (size_t i = 0; i < 17; ++i) {
+	for (size_t i = 0; i < ARCH_N_REG; ++i) {
 		uint32_t v = stub->cb->read_reg(i);
 		hexfmt32(&regstrbuf[i*4*2], v);
 	}
 
-	gdbproto_resp(stub->connfd, regstrbuf, 17*4*2);
+	gdbproto_resp(stub->connfd, regstrbuf, ARCH_N_REG*4*2);
 
 	return gdbe_ok;
 }
 
 enum gdbproto_exec_result gdb_handle_G(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO: recombobulate mem write data
-	int reg=0;
-	uint32_t v = 0;
-	stub->cb->write_reg(reg, v);
+	if (len != ARCH_N_REG*4*2) {
+		printf("[GDB] REG WRITE ERR: BAD LEN: %zd != %d!\n", len, ARCH_N_REG*4*2);
+		gdbproto_resp_str(stub->connfd, "E01");
+		return gdbe_ok;
+	}
+
+	for (int i = 0; i < ARCH_N_REG; ++i) {
+		uint32_t v = unhex32(&cmd[i*4*2]);
+		stub->cb->write_reg(i, v);
+	}
+
 	return gdbe_ok;
 }
 
 enum gdbproto_exec_result gdb_handle_m(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	uint32_t addr = 0, llen = 0;
+	uint32_t addr = 0, llen = 0, end;
 
-	if (sscanf(cmd, "%08X,%08X", &addr, &llen) < 2) {
+	if (sscanf(cmd, "%08X,%08X", &addr, &llen) != 2) {
 		gdbproto_resp_str(stub->connfd, "E01");
 		return gdbe_ok;
-	} else if (len > (GDBPROTO_BUFFER_CAPACITY/2)) {
+	} else if (llen > (GDBPROTO_BUFFER_CAPACITY/2)) {
 		gdbproto_resp_str(stub->connfd, "E02");
 		return gdbe_ok;
 	}
+	end = addr + llen;
 
 	uint8_t* datastr = tempdatabuf;
+	uint8_t* dataptr = datastr;
 
-	for (size_t i = 0; i < llen; i += 4) {
-		uint32_t left = 4;
-		if (llen - i < left) left = llen - i;
-
-		// FIXME: only aligned memory accesses here!
-		uint32_t v = stub->cb->read_mem(addr + i, left*8);
-		//printf("[GDB] addr %08lx (%d bytes) -> %08x\n", addr + i, left, v);
-
-		if (left == 4) {
-			hexfmt32(&datastr[i*2], v);
-		} else for (size_t j = 0; j < left; ++j, ++i, v >>= 8) {
-			hexfmt8(&datastr[i*2], v);
-		}
+	// pre-align: byte
+	if ((addr & 1)) {
+		if ((end-addr) >= 1) {
+			uint32_t v = stub->cb->read_mem(addr, 8);
+			hexfmt8(dataptr, v&0xff);
+			++addr;
+			dataptr += 2;
+		} else goto end;
 	}
+
+	// pre-align: short
+	if ((addr & 2)) {
+		if ((end-addr) >= 2) {
+			uint32_t v = stub->cb->read_mem(addr, 16);
+			hexfmt16(dataptr, v&0xffff);
+			addr += 2;
+			dataptr += 4;
+		} else if ((end-addr) == 1) { // last byte
+			uint32_t v = stub->cb->read_mem(addr, 8);
+			hexfmt8(dataptr, v&0xff);
+			++addr;
+			dataptr += 2;
+		} else goto end;
+	}
+
+	// main loop: 4-byte chunks
+	while (addr < end) {
+		if (end - addr < 4) break; // post-align stuff
+
+		uint32_t v = stub->cb->read_mem(addr, 32);
+		hexfmt32(dataptr, v);
+		addr += 4;
+		dataptr += 8;
+	}
+
+	// post-align: short
+	if ((end-addr) & 2) {
+		uint32_t v = stub->cb->read_mem(addr, 16);
+		hexfmt16(dataptr, v&0xffff);
+		addr += 2;
+		dataptr += 4;
+	}
+
+	// post-align: byte
+	if ((end-addr) == 1) {
+		uint32_t v = stub->cb->read_mem(addr, 8);
+		hexfmt8(dataptr, v&0xff);
+		++addr;
+		dataptr += 2;
+	}
+
+end:
+	assert(addr == end);
 
 	gdbproto_resp(stub->connfd, datastr, llen*2);
 
@@ -151,33 +204,229 @@ enum gdbproto_exec_result gdb_handle_m(struct gdbstub* stub,
 
 enum gdbproto_exec_result gdb_handle_M(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO: recombobulate mem write data
-	uint32_t addr = 0, llen = 0, v = 0;
-	stub->cb->write_mem(addr, llen, v);
+
+	uint32_t addr, llen, end;
+	int inoff;
+
+	if (sscanf(cmd, "%08X,%08X:%n", &addr, &llen, &inoff) != 2) {
+		gdbproto_resp_str(stub->connfd, "E01");
+		return gdbe_ok;
+	} else if (llen > (GDBPROTO_BUFFER_CAPACITY/2)) {
+		gdbproto_resp_str(stub->connfd, "E02");
+		return gdbe_ok;
+	}
+	end = addr + llen;
+
+	const uint8_t* dataptr = cmd + inoff;
+
+	// pre-align: byte
+	if ((addr & 1)) {
+		if ((end-addr) >= 1) {
+			uint8_t v = unhex8(dataptr);
+			stub->cb->write_mem(addr, 8, v);
+			++addr;
+			dataptr += 2;
+		} else goto end;
+	}
+
+	// pre-align: short
+	if ((addr & 2)) {
+		if ((end-addr) >= 2) {
+			uint16_t v = unhex16(dataptr);
+			stub->cb->write_mem(addr, 16, v);
+			addr += 2;
+			dataptr += 4;
+		} else if ((end-addr) == 1) { // last byte
+			uint8_t v = unhex8(dataptr);
+			stub->cb->write_mem(addr, 8, v);
+			++addr;
+			dataptr += 2;
+		} else goto end;
+	}
+
+	// main loop: 4-byte chunks
+	while (addr < end) {
+		if (end - addr < 4) break; // post-align stuff
+
+		uint32_t v = unhex32(dataptr);
+		stub->cb->write_mem(addr, 32, v);
+		addr += 4;
+		dataptr += 8;
+	}
+
+	// post-align: short
+	if ((end-addr) & 2) {
+		uint16_t v = unhex16(dataptr);
+		stub->cb->write_mem(addr, 16, v);
+		addr += 2;
+		dataptr += 4;
+	}
+
+	// post-align: byte
+	if ((end-addr) == 1) {
+		uint8_t v = unhex8(dataptr);
+		stub->cb->write_mem(addr, 8, v);
+		++addr;
+		dataptr += 2;
+	}
+
+end:
+	assert(addr == end);
+
+	gdbproto_resp_str(stub->connfd, "OK");
+
+	return gdbe_ok;
+}
+
+enum gdbproto_exec_result gdb_handle_X(struct gdbstub* stub,
+		const uint8_t* cmd, ssize_t len) {
+
+	uint32_t addr, llen, end;
+	int inoff;
+
+	if (sscanf(cmd, "%08X,%08X:%n", &addr, &llen, &inoff) != 2) {
+		gdbproto_resp_str(stub->connfd, "E01");
+		return gdbe_ok;
+	} else if (llen > (GDBPROTO_BUFFER_CAPACITY/2)) {
+		gdbproto_resp_str(stub->connfd, "E02");
+		return gdbe_ok;
+	}
+	end = addr + llen;
+
+	const uint8_t* dataptr = cmd + inoff;
+
+	// pre-align: byte
+	if ((addr & 1)) {
+		if ((end-addr) >= 1) {
+			uint8_t v = *dataptr;
+			stub->cb->write_mem(addr, 8, v);
+			++addr;
+			dataptr += 1;
+		} else goto end;
+	}
+
+	// pre-align: short
+	if ((addr & 2)) {
+		if ((end-addr) >= 2) {
+			uint16_t v = dataptr[0] | ((uint16_t)dataptr[1] << 8);
+			stub->cb->write_mem(addr, 16, v);
+			addr += 2;
+			dataptr += 2;
+		} else if ((end-addr) == 1) { // last byte
+			uint8_t v = *dataptr;
+			stub->cb->write_mem(addr, 8, v);
+			++addr;
+			dataptr += 1;
+		} else goto end;
+	}
+
+	// main loop: 4-byte chunks
+	while (addr < end) {
+		if (end - addr < 4) break; // post-align stuff
+
+		uint32_t v = dataptr[0] | ((uint32_t)dataptr[1] << 8)
+			| ((uint32_t)dataptr[2] << 16) | ((uint32_t)dataptr[3] << 24);
+		stub->cb->write_mem(addr, 32, v);
+		addr += 4;
+		dataptr += 4;
+	}
+
+	// post-align: short
+	if ((end-addr) & 2) {
+		uint16_t v = dataptr[0] | ((uint16_t)dataptr[1] << 8);
+		stub->cb->write_mem(addr, 16, v);
+		addr += 2;
+		dataptr += 2;
+	}
+
+	// post-align: byte
+	if ((end-addr) == 1) {
+		uint8_t v = unhex8(dataptr);
+		stub->cb->write_mem(addr, 8, v);
+		++addr;
+		dataptr += 1;
+	}
+
+end:
+	assert(addr == end);
+
+	gdbproto_resp_str(stub->connfd, "OK");
+
 	return gdbe_ok;
 }
 
 enum gdbproto_exec_result gdb_handle_c(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO
-	return gdbe_ok;
+	uint32_t addr = ~(uint32_t)0;
+
+	if (len > 0) {
+		if (len <= 8) {
+			if (sscanf(cmd, "%08X", &addr) != 1) {
+				gdbproto_resp_str(stub->connfd, "E01");
+			} // else: ok
+		} else {
+			gdbproto_resp_str(stub->connfd, "E01");
+		}
+	} // else: continue at current
+
+	if (!~addr) {
+		stub->cb->write_reg(15, addr); // set pc
+	}
+
+	return gdbe_continue;
 }
 
 enum gdbproto_exec_result gdb_handle_s(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO
-	return gdbe_ok;
+	uint32_t addr = ~(uint32_t)0;
+
+	if (len > 0) {
+		if (len <= 8) {
+			if (sscanf(cmd, "%08X", &addr) != 1) {
+				gdbproto_resp_str(stub->connfd, "E01");
+				return gdbe_ok;
+			} // else: ok
+		} else {
+			gdbproto_resp_str(stub->connfd, "E01");
+			return gdbe_ok;
+		}
+	} // else: continue at current
+
+	if (~addr != 0) {
+		stub->cb->write_reg(15, addr); // set pc
+	}
+
+	return gdbe_step;
 }
 
 enum gdbproto_exec_result gdb_handle_p(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO
+	int reg;
+	if (sscanf(cmd, "%x", &reg) != 1 || reg < 0 || reg >= ARCH_N_REG) {
+		gdbproto_resp_str(stub->connfd, "E01");
+		return gdbe_ok;
+	}
+
+	uint32_t v = stub->cb->read_reg(reg);
+	hexfmt32(tempdatabuf, v);
+	gdbproto_resp(stub->connfd, tempdatabuf, 4*2);
+
 	return gdbe_ok;
 }
 
 enum gdbproto_exec_result gdb_handle_P(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO
+	int reg, dataoff;
+
+	if (sscanf(cmd, "%x=%n", &reg, &dataoff) != 1 || reg < 0
+			|| reg >= ARCH_N_REG || dataoff + 4*2 > len) {
+		gdbproto_resp_str(stub->connfd, "E01");
+		return gdbe_ok;
+	}
+
+	uint32_t v = unhex32(&cmd[dataoff]);
+	stub->cb->write_reg(reg, v);
+
 	return gdbe_ok;
 }
 
@@ -195,7 +444,6 @@ enum gdbproto_exec_result gdb_handle_H(struct gdbstub* stub,
 		gdbproto_resp_str(stub->connfd, "E01");
 	}
 
-	// TODO
 	return gdbe_ok;
 }
 
@@ -204,7 +452,7 @@ enum gdbproto_exec_result gdb_handle_Question(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
 	// "request reason for target halt" (which must also halt)
 
-	enum gdbtgt_status st = stub->cb->target_get_status();
+	enum gdbtgt_status st = stub->stat;
 	uint32_t arg = ~(uint32_t)0;
 	int typ = 0;
 
@@ -218,21 +466,24 @@ enum gdbproto_exec_result gdb_handle_Question(struct gdbstub* stub,
 		gdbproto_resp_fmt(stub->connfd, "T%02X", GDB_SIGINT);
 		break;
 
+	case gdbt_singlestep:
+		gdbproto_resp_fmt(stub->connfd, "S%02X", GDB_SIGTRAP);
+		break;
+
 	case gdbt_bkpt:
-		arg = stub->cb->get_cur_bkpt();
+		arg = stub->cur_bkpt;
 		typ = 1;
-		goto case_gdbt_bkpt_insn;
+		goto bkpt_rest;
 	case gdbt_watchpt:
-		arg = stub->cb->get_cur_watchpt();
+		arg = stub->cur_watchpt;
 		typ = 2;
-	case_gdbt_bkpt_insn:
-	case gdbt_bkpt_insn:
+	bkpt_rest:
 		if (!~arg) {
 			gdbproto_resp_fmt(stub->connfd, "T%02X", GDB_SIGTRAP);
 		} else {
 			switch (typ) {
 			case 1:
-				gdbproto_resp_fmt(stub->connfd, "T%02Xbreak:%08X;", GDB_SIGTRAP, arg);
+				gdbproto_resp_fmt(stub->connfd, "T%02Xswbreak:%08X;", GDB_SIGTRAP, arg);
 				break;
 			case 2:
 				gdbproto_resp_fmt(stub->connfd, "T%02Xwatch:%08X;", GDB_SIGTRAP, arg);
@@ -243,19 +494,28 @@ enum gdbproto_exec_result gdb_handle_Question(struct gdbstub* stub,
 			}
 		}
 		break;
+	case gdbt_bkpt_insn:
+		gdbproto_resp_fmt(stub->connfd, "T%02Xswbreak:%08X;", GDB_SIGTRAP, stub->cb->read_reg(15));
+		break;
 
 		// these three should technically be a SIGBUS but gdb etc don't really
 		// like that (plus it sounds confusing)
 	case gdbt_fault_data:
 	case gdbt_fault_iacc:
-		gdbproto_resp_fmt(stub->connfd, "T%02X", GDB_SIGINT);
+		gdbproto_resp_fmt(stub->connfd, "T%02X", GDB_SIGSEGV);
 		break;
 	case gdbt_fault_insn:
 		gdbproto_resp_fmt(stub->connfd, "T%02X", GDB_SIGILL);
 		break;
 	}
 
-	return gdbe_must_break;
+	return gdbe_initial_break;
+}
+
+enum gdbproto_exec_result gdb_handle_Exclamation(struct gdbstub* stub,
+		const uint8_t* cmd, ssize_t len) {
+	gdbproto_resp_str(stub->connfd, "OK");
+	return gdbe_ok;
 }
 
 enum gdbproto_exec_result gdb_handle_D(struct gdbstub* stub,
@@ -266,26 +526,117 @@ enum gdbproto_exec_result gdb_handle_D(struct gdbstub* stub,
 
 enum gdbproto_exec_result gdb_handle_r(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO
+	stub->cb->reset();
+	return gdbe_ok;
+}
+enum gdbproto_exec_result gdb_handle_R(struct gdbstub* stub,
+		const uint8_t* cmd, ssize_t len) {
+	stub->cb->reset();
 	return gdbe_ok;
 }
 
 
 enum gdbproto_exec_result gdb_handle_z(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO
+/*
+[GDB] recv() 10 bytes: '$vCont?#49'
+[GDB] command in: 'vCont?'
+[GDB] subcommand in: 'Cont?'
+[GDB] unknown subcommand 'Cont?'!
+[GDB] send resp: '$#00'
+[GDB] got ack: '+'
+[GDB] recv() 7 bytes: '$Hc0#db'
+[GDB] command in: 'Hc0'
+[GDB] send resp: '$OK#9a'
+[GDB] got ack: '+'
+[GDB] recv() 5 bytes: '$c#63'
+[GDB] command in: 'c'
+[==>] write reg 15: 0xffffffff
+[==>] continue execution
+[GDB] recv() 1 bytes: ''
+[GDB] recv() error 0, errno=0 (Success)
+*/
+
+	int typ;
+	uint32_t addr, kind;
+
+	if (sscanf("%d,%x,%u", cmd, &typ, &addr, &kind) != 3) {
+		gdbproto_resp_str(stub->connfd, "E01");
+		return gdbe_ok;
+	}
+
+	switch (typ) {
+	case 0: case 1: // remove breakpoint (we cheat & always insert a hardware breakpoint)
+		stub->cb->del_bkpt(addr, kind);
+		break;
+	case 2: case 3: case 4: // watchpoint. currently not distinguishing between reads & writes oops
+		stub->cb->del_watchpt(addr, kind);
+		break;
+	default:
+		gdbproto_resp_str(stub->connfd, "E02");
+		return gdbe_ok;
+	}
+
+	gdbproto_resp_str(stub->connfd, "OK");
 	return gdbe_ok;
 }
 
 enum gdbproto_exec_result gdb_handle_Z(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO
+	int typ;
+	uint32_t addr, kind;
+
+	if (sscanf("%d,%x,%u", cmd, &typ, &addr, &kind) != 3) {
+		gdbproto_resp_str(stub->connfd, "E01");
+		return gdbe_ok;
+	}
+
+	switch (typ) {
+	case 0: case 1: // insert breakpoint (we cheat & always insert a hardware breakpoint)
+		stub->cb->add_bkpt(addr, kind);
+		break;
+	case 2: case 3: case 4: // watchpoint. currently not distinguishing between reads & writes oops
+		stub->cb->add_watchpt(addr, kind);
+		break;
+	default:
+		gdbproto_resp_str(stub->connfd, "E02");
+		return gdbe_ok;
+	}
+
+	gdbproto_resp_str(stub->connfd, "OK");
+	return gdbe_ok;
+}
+
+enum gdbproto_exec_result gdb_handle_q_HostInfo(struct gdbstub* stub,
+		const uint8_t* cmd, ssize_t len) {
+	const char* resp = "";
+
+	switch (stub->cb->cpu) {
+	case 7: resp = TARGET_INFO_ARM7; break;
+	case 9: resp = TARGET_INFO_ARM9; break;
+	default: break;
+	}
+
+	gdbproto_resp_str(stub->connfd, resp);
 	return gdbe_ok;
 }
 
 enum gdbproto_exec_result gdb_handle_q_Rcmd(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO
+
+	memset(tempdatabuf, 0, sizeof tempdatabuf);
+	for (ssize_t i = 0; i < len/2; ++i) {
+		tempdatabuf[i] = unhex8(&cmd[i*2]);
+	}
+
+	int r = stub->cb->remote_cmd(tempdatabuf, len/2);
+
+	if (r) {
+		gdbproto_resp_fmt(stub->connfd, "E%02X", r&0xff);
+	} else {
+		gdbproto_resp_str(stub->connfd, "OK");
+	}
+
 	return gdbe_ok;
 }
 
@@ -298,8 +649,19 @@ enum gdbproto_exec_result gdb_handle_q_Supported(struct gdbstub* stub,
 }
 
 enum gdbproto_exec_result gdb_handle_q_CRC(struct gdbstub* stub,
-		const uint8_t* cmd, ssize_t len) {
-	// TODO
+		const uint8_t* cmd, ssize_t llen) {
+	uint32_t addr, len;
+
+	if (sscanf(cmd, "%x,%x", &addr, &len) != 2) {
+		gdbproto_resp_str(stub->connfd, "E01");
+		return gdbe_ok;
+	}
+
+	// FIXME: do the heavy lifting here?
+	uint32_t v = stub->cb->crc_32(addr, len);
+
+	gdbproto_resp_fmt(stub->connfd, "C%x", v);
+
 	return gdbe_ok;
 }
 
@@ -344,31 +706,70 @@ enum gdbproto_exec_result gdb_handle_q_Attached(struct gdbstub* stub,
 
 enum gdbproto_exec_result gdb_handle_v_Attach(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO
-	return gdbe_ok;
+
+	enum gdbtgt_status st = stub->stat;
+
+	if (st == gdbt_none) {
+		// no target
+		gdbproto_resp_str(stub->connfd, "E01");
+		return gdbe_ok;
+	}
+
+	gdbproto_resp_str(stub->connfd, "T05thread:1;");
+
+	if (st == gdbt_running) {
+		return gdbe_must_break;
+	} else return gdbe_ok;
 }
 
 enum gdbproto_exec_result gdb_handle_v_Kill(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO
-	return gdbe_ok;
+
+	enum gdbtgt_status st = stub->stat;
+
+	stub->cb->reset();
+
+	gdbproto_resp_str(stub->connfd, "OK");
+
+	return (st != gdbt_running && st != gdbt_none) ? gdbe_detached : gdbe_ok;
 }
 
 enum gdbproto_exec_result gdb_handle_v_Run(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO
-	return gdbe_ok;
+
+	enum gdbtgt_status st = stub->stat;
+
+	stub->cb->reset();
+
+	// TODO: handle cmdline for homebrew?
+
+	return (st != gdbt_running && st != gdbt_none) ? gdbe_continue : gdbe_ok;
 }
 
 enum gdbproto_exec_result gdb_handle_v_Stopped(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO
+	enum gdbtgt_status st = stub->stat;
+
+	static bool notified = true;
+
+	// not sure if i understand this correctly
+	if (st != gdbt_running) {
+		if (notified) {
+			gdbproto_resp_str(stub->connfd, "OK");
+		} else {
+			gdbproto_resp_str(stub->connfd, "W00");
+		}
+
+		notified = !notified;
+	} else {
+		gdbproto_resp_str(stub->connfd, "OK");
+	}
+
 	return gdbe_ok;
 }
 
 enum gdbproto_exec_result gdb_handle_v_MustReplyEmpty(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	// TODO
 	gdbproto_resp(stub->connfd, NULL, 0);
 	return gdbe_ok;
 }

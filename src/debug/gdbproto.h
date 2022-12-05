@@ -17,16 +17,19 @@ enum gdbproto_read_result {
 	gdbp_eof,
 	gdbp_cksum_err,
 	gdbp_cmd_recvd,
-	gdbp_wut
+	gdbp_wut,
+	gdbp_break
 };
 
 enum gdbproto_exec_result {
 	gdbe_ok,
 	gdbe_unk_cmd,
 	gdbe_net_err,
+	gdbe_initial_break,
 	gdbe_must_break,
-	gdbe_detached
-	// TODO
+	gdbe_detached,
+	gdbe_step,
+	gdbe_continue,
 };
 
 typedef enum gdbproto_exec_result (*gdbproto_cmd_f)(struct gdbstub*,
