@@ -1902,10 +1902,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actPreferences->setEnabled(false);
 #endif // __APPLE__
     }
+
+    rpc = new DiscordRPC();
+    rpc->Update(false, NULL);
 }
 
 MainWindow::~MainWindow()
 {
+    delete rpc;
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
@@ -3170,6 +3174,9 @@ void MainWindow::onEmuStart()
     actPowerManagement->setEnabled(true);
 
     actTitleManager->setEnabled(false);
+
+    QString title = QString::fromUtf16(NDSCart::Banner.EnglishTitle);
+    rpc->Update(true, title.left(title.lastIndexOf("\n")).replace("\n", " ").toUtf8().constData()); // strings really are something
 }
 
 void MainWindow::onEmuStop()
@@ -3191,6 +3198,8 @@ void MainWindow::onEmuStop()
     actPowerManagement->setEnabled(false);
 
     actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
+
+    rpc->Update(false, NULL);
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)

@@ -61,6 +61,8 @@ cmake_dependent_option(ENABLE_JIT "Enable JIT recompiler" ON
 cmake_dependent_option(ENABLE_JIT_PROFILING "Enable JIT profiling with VTune" OFF "ENABLE_JIT" OFF)
 option(ENABLE_OGLRENDERER "Enable OpenGL renderer" ON)
 
+option(ENABLE_DISCORDRPC "Enable Discord Rich Presence" OFF)
+
 check_ipo_supported(RESULT IPO_SUPPORTED)
 cmake_dependent_option(ENABLE_LTO_RELEASE "Enable link-time optimizations for release builds" ON "IPO_SUPPORTED" OFF)
 cmake_dependent_option(ENABLE_LTO "Enable link-time optimizations" OFF "IPO_SUPPORTED" OFF)

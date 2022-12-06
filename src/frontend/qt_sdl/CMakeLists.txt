@@ -135,6 +135,19 @@ if (BUILD_STATIC)
     target_link_options(melonDS PRIVATE -static)
 endif()
 
+if (ENABLE_DISCORDRPC)
+    find_package(DiscordRPC REQUIRED FATAL_ERROR)
+
+    target_sources(melonDS PRIVATE
+        DiscordRPC.cpp
+        DiscordRPC.h
+    )
+
+    target_compile_definitions(melonDS PRIVATE DISCORDRPC_ENABLED)
+    target_include_directories(melonDS PRIVATE ${DiscordRPC_INCLUDE_DIRS})
+    target_link_libraries(melonDS PRIVATE ${DiscordRPC_LIBRARIES})
+endif()
+
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
