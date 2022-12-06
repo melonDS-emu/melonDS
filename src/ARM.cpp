@@ -34,6 +34,36 @@
 using Platform::Log;
 using Platform::LogLevel;
 
+#ifdef GDBSTUB_ENABLED
+
+#define GDB_CHECK_A() do{\
+        if (!is_single_step) { /* check if eg. break signal is incoming etc. */ \
+            enum gdbstub_state st = gdbstub_enter(stub, false); \
+            break_req = st == gdbstat_attach || st == gdbstat_break; \
+            if (break_req) Log(LogLevel::Debug, "=== BREAK REQ ===\n"); \
+        } \
+} while (0) \
+
+#define GDB_CHECK_B() do{\
+        enum gdbstub_state st = gdbstub_check_bkpt(stub, R[15], true, true); \
+        if (st != gdbstat_check_no_hit) { \
+            is_single_step = st == gdbstat_step; \
+            break_req = st == gdbstat_attach || st == gdbstat_break; \
+        } else if (is_single_step || break_req) \
+        { /* use else here or we singnle-step the same insn twice in gdb */ \
+            if (break_req) Log(LogLevel::Debug, "=== BREAK RESP T ===\n"); \
+            st = gdbstub_enter_reason(stub, true, gdbt_singlestep, R[15]); \
+            is_single_step = st == gdbstat_step; \
+            break_req = st == gdbstat_attach || st == gdbstat_break; \
+        } \
+    } while (0) \
+
+#else
+#define GDB_CHECK_A() do{}while(0)
+#define GDB_CHECK_B() do{}while(0)
+#endif
+
+
 // instruction timing notes
 //
 // * simple instruction: 1S (code)
@@ -73,10 +103,20 @@ ARM::ARM(u32 num)
 {
     // well uh
     Num = num;
+
+#ifdef GDBSTUB_ENABLED
+    stub = gdbstub_new(
+            num ? &ARMv4::GdbStubCallbacks : &ARMv5::GdbStubCallbacks,
+            3333 + (int)num, this);
+    is_single_step = false;
+#endif
 }
 
 ARM::~ARM()
 {
+#ifdef GDBSTUB_ENABLED
+    gdbstub_close(stub);
+#endif
     // dorp
 }
 
@@ -573,6 +613,8 @@ void ARMv5::DataAbort()
 
 void ARMv5::Execute()
 {
+    GDB_CHECK_A();
+
     if (Halted)
     {
         if (Halted == 2)
@@ -596,6 +638,8 @@ void ARMv5::Execute()
     {
         if (CPSR & 0x20) // THUMB
         {
+            GDB_CHECK_B();
+
             // prefetch
             R[15] += 2;
             CurInstr = NextInstr[0];
@@ -609,6 +653,8 @@ void ARMv5::Execute()
         }
         else
         {
+            GDB_CHECK_B();
+
             // prefetch
             R[15] += 4;
             CurInstr = NextInstr[0];
@@ -723,6 +769,8 @@ void ARMv5::ExecuteJIT()
 
 void ARMv4::Execute()
 {
+    GDB_CHECK_A();
+
     if (Halted)
     {
         if (Halted == 2)
@@ -746,6 +794,8 @@ void ARMv4::Execute()
     {
         if (CPSR & 0x20) // THUMB
         {
+            GDB_CHECK_B();
+
             // prefetch
             R[15] += 2;
             CurInstr = NextInstr[0];
@@ -758,6 +808,8 @@ void ARMv4::Execute()
         }
         else
         {
+            GDB_CHECK_B();
+
             // prefetch
             R[15] += 4;
             CurInstr = NextInstr[0];
@@ -916,3 +968,86 @@ void ARMv4::FillPipeline()
         NextInstr[1] = CodeRead32(R[15]);
     }
 }
+
+#ifdef GDBSTUB_ENABLED
+uint32_t ARM::GdbReadReg(void* ud, int reg)
+{
+    ARM* cpu = (ARM*)ud;
+
+    if (reg < 15) return cpu->R[reg];
+    else if (reg == 15)
+        return cpu->R[reg] - ((cpu->CPSR & 0x20) ? 2 : 4);
+    else if (reg == 16) return cpu->CPSR;
+    else return 0xdeadbeef;
+}
+void ARM::GdbWriteReg(void* ud, int reg, uint32_t v)
+{
+    ARM* cpu = (ARM*)ud;
+
+    if (reg < 15) cpu->R[reg] = v;
+    else if (reg == 15) cpu->JumpTo(v);
+    else if (reg == 16) cpu->CPSR = v;
+    else {}
+}
+uint32_t ARM::GdbReadMem(void* ud, uint32_t addr, int size)
+{
+    ARM* cpu = (ARM*)ud;
+
+    if (size == 8) return cpu->BusRead8(addr);
+    else if (size == 16) return cpu->BusRead16(addr);
+    else if (size == 32) return cpu->BusRead32(addr);
+    else return 0xfeedface;
+}
+void ARM::GdbWriteMem(void* ud, uint32_t addr, int size, uint32_t v)
+{
+    ARM* cpu = (ARM*)ud;
+
+    if (size == 8) cpu->BusWrite8(addr, (uint8_t)v);
+    else if (size == 16) cpu->BusWrite16(addr, (uint16_t)v);
+    else if (size == 32) cpu->BusWrite32(addr, v);
+    else {}
+}
+
+void ARM::GdbReset(void* ud)
+{
+    (void)ud;
+
+    NDS::Reset();
+}
+int ARM::GdbRemoteCmd(void* ud, const uint8_t* cmd, size_t len)
+{
+    (void)len;
+
+    printf("[ARMGDB] Rcmd: \"%s\"\n", cmd);
+    if (!strcmp((const char*)cmd, "reset")) {
+        GdbReset(ud);
+        return 0;
+    }
+
+    return 1; // not implemented (yet)
+}
+
+const struct gdbstub_callbacks ARMv4::GdbStubCallbacks ={
+    .cpu = 7,
+
+    .read_reg  = ARM::GdbReadReg ,
+    .write_reg = ARM::GdbWriteReg,
+    .read_mem  = ARM::GdbReadMem ,
+    .write_mem = ARM::GdbWriteMem,
+
+    .reset = ARM::GdbReset,
+    .remote_cmd = ARM::GdbRemoteCmd,
+};
+const struct gdbstub_callbacks ARMv5::GdbStubCallbacks ={
+    .cpu = 9,
+
+    .read_reg  = ARM::GdbReadReg ,
+    .write_reg = ARM::GdbWriteReg,
+    .read_mem  = ARM::GdbReadMem ,
+    .write_mem = ARM::GdbWriteMem,
+
+    .reset = ARM::GdbReset,
+    .remote_cmd = ARM::GdbRemoteCmd,
+};
+#endif
+

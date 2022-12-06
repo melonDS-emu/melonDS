@@ -24,6 +24,10 @@
 #include "types.h"
 #include "NDS.h"
 
+#ifdef GDBSTUB_ENABLED
+#include "debug/gdbstub.h"
+#endif
+
 inline u32 ROR(u32 x, u32 n)
 {
     return (x >> (n&0x1F)) | (x << ((32-n)&0x1F));
@@ -155,6 +159,9 @@ public:
 #endif
 
     static u32 ConditionTable[16];
+#ifdef GDBSTUB_ENABLED
+    struct gdbstub* stub;
+#endif
 
 protected:
     u8 (*BusRead8)(u32 addr);
@@ -163,6 +170,19 @@ protected:
     void (*BusWrite8)(u32 addr, u8 val);
     void (*BusWrite16)(u32 addr, u16 val);
     void (*BusWrite32)(u32 addr, u32 val);
+
+#ifdef GDBSTUB_ENABLED
+    bool is_single_step;
+    bool break_req;
+
+    static uint32_t GdbReadReg(void* ud, int reg);
+    static void GdbWriteReg(void* ud, int reg, uint32_t v);
+    static uint32_t GdbReadMem(void* ud, uint32_t addr, int size);
+    static void GdbWriteMem(void* ud, uint32_t addr, int size, uint32_t v);
+
+    static void GdbReset(void* ud);
+    static int GdbRemoteCmd(void* ud, const uint8_t* cmd, size_t len);
+#endif
 };
 
 class ARMv5 : public ARM
@@ -302,6 +322,10 @@ public:
     u8* CurICacheLine;
 
     bool (*GetMemRegion)(u32 addr, bool write, NDS::MemRegion* region);
+
+#ifdef GDBSTUB_ENABLED
+    static const struct gdbstub_callbacks GdbStubCallbacks;
+#endif
 };
 
 class ARMv4 : public ARM
@@ -458,6 +482,10 @@ public:
             Cycles += numC + numD;
         }
     }
+
+#ifdef GDBSTUB_ENABLED
+    static const struct gdbstub_callbacks GdbStubCallbacks;
+#endif
 };
 
 namespace ARMInterpreter

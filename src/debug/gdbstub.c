@@ -12,12 +12,15 @@
 #include "gdbproto.h"
 #include "gdbcmds.h"
 
-struct gdbstub* gdbstub_new(const struct gdbstub_callbacks* cb, int port) {
+#include "gdbstub_internal.h"
+
+struct gdbstub* gdbstub_new(const struct gdbstub_callbacks* cb, int port, void* ud) {
 	struct gdbstub* stub = (struct gdbstub*)calloc(1, sizeof(struct gdbstub));
 	int r;
 
 	stub->cb = cb;
-	stub->sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	stub->ud = ud;
+	stub->sockfd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
 	if (stub->sockfd < 0) {
 		printf("[GDB] err: can't create a socket fd\n");
 		goto err;
@@ -39,6 +42,11 @@ struct gdbstub* gdbstub_new(const struct gdbstub_callbacks* cb, int port) {
 		goto err;
 	}
 
+	stub->bp_size = 13;
+	stub->wp_size = 7;
+	stub->bp_list = (struct bpwp*)calloc(stub->bp_size, sizeof(struct bpwp));
+	stub->wp_list = (struct bpwp*)calloc(stub->wp_size, sizeof(struct bpwp));
+
 	return stub;
 
 err:
@@ -54,6 +62,9 @@ err:
 
 void gdbstub_close(struct gdbstub* stub) {
 	if (!stub) return;
+
+	free(stub->bp_list);
+	free(stub->wp_list);
 
 	free(stub);
 }
@@ -168,6 +179,8 @@ static enum gdbstub_state handle_packet(struct gdbstub* stub) {
 
 enum gdbstub_state gdbstub_poll(struct gdbstub* stub) {
 	int r;
+
+	if (!stub) return gdbstat_noconn;
 
 	if (stub->connfd <= 0) {
 		// not yet connected, so let's wait for one
@@ -307,14 +320,12 @@ void gdbstub_signal_status(struct gdbstub* stub, enum gdbtgt_status stat, uint32
 
 
 enum gdbstub_state gdbstub_enter_reason(struct gdbstub* stub, bool stay, enum gdbtgt_status stat, uint32_t arg) {
-	if (stat >= 0) gdbstub_signal_status(stub, stat, arg);
+	if (stat != gdbt_no_event) gdbstub_signal_status(stub, stat, arg);
 
 	enum gdbstub_state st;
 	bool do_next = true;
 	do {
 		st = gdbstub_poll(stub);
-
-		if (stay) break;
 
 		switch (st) {
 		case gdbstat_break:
@@ -335,8 +346,142 @@ enum gdbstub_state gdbstub_enter_reason(struct gdbstub* stub, bool stay, enum gd
 			do_next = false;
 			break;
 		}
+
+		if (!stay) break;
 	} while (do_next);
 
+	if (st != 0 && st != 1) printf("[GDB] enter exit: %d\n", st);
 	return st;
+}
+
+void gdbstub_add_bkpt(struct gdbstub* stub, uint32_t addr, int kind) {
+	struct bpwp new;
+	new.addr = addr;
+	new.kind = kind;
+	new.used = true;
+
+	size_t newsize = stub->bp_size;
+	uint32_t ind;
+	while (true) {
+		ind = addr % stub->bp_size;
+		if (!stub->bp_list[ind].used) break;
+
+		newsize = newsize * 2 + 1; // not exactly following primes but good enough
+		struct bpwp* newlist = calloc(newsize, sizeof(struct bpwp));
+		for (size_t i = 0; i < stub->bp_size; ++i) {
+			struct bpwp a = stub->bp_list[i];
+
+			if (!a.used) continue;
+			if (newlist[a.addr % newsize].used) {
+				// aaaa
+				free(newlist);
+				goto continue_outer;
+			}
+
+			newlist[a.addr % newsize] = a;
+		}
+
+		free(stub->bp_list);
+		stub->bp_list = newlist;
+		stub->bp_size = newsize;
+
+	continue_outer:;
+	}
+
+	stub->bp_list[ind] = new;
+}
+void gdbstub_add_watchpt(struct gdbstub* stub, uint32_t addr, uint32_t len, int kind) {
+	struct bpwp new;
+	new.addr = addr;
+	new.len  = len ;
+	new.kind = kind;
+	new.used = true;
+
+	size_t newsize = stub->wp_size;
+	uint32_t ind;
+	while (true) {
+		ind = addr % stub->wp_size;
+		if (!stub->wp_list[ind].used) break;
+
+		newsize = newsize * 2 + 1; // not exactly following primes but good enough
+		struct bpwp* newlist = calloc(newsize, sizeof(struct bpwp));
+		for (size_t i = 0; i < stub->wp_size; ++i) {
+			struct bpwp a = stub->wp_list[i];
+
+			if (!a.used) continue;
+			if (newlist[a.addr % newsize].used) {
+				// aaaa
+				free(newlist);
+				goto continue_outer;
+			}
+
+			newlist[a.addr % newsize] = a;
+		}
+
+		free(stub->wp_list);
+		stub->wp_list = newlist;
+		stub->wp_size = newsize;
+
+	continue_outer:;
+	}
+
+	stub->wp_list[ind] = new;
+}
+
+void gdbstub_del_bkpt(struct gdbstub* stub, uint32_t addr, int kind) {
+	(void)kind;
+
+	uint32_t ind = addr % stub->bp_size;
+	if (stub->bp_list[ind].used && stub->bp_list[ind].addr == addr) {
+		stub->bp_list[ind].used = false;
+	}
+}
+void gdbstub_del_watchpt(struct gdbstub* stub, uint32_t addr, uint32_t len, int kind) {
+	(void)kind; (void)len;
+
+	uint32_t ind = addr % stub->bp_size;
+	if (stub->bp_list[ind].used && stub->bp_list[ind].addr == addr) {
+		stub->bp_list[ind].used = false;
+	}
+}
+
+void gdbstub_del_all_bp_wp(struct gdbstub* stub) {
+	free(stub->bp_list);
+	free(stub->wp_list);
+
+	stub->bp_size = 13;
+	stub->wp_size = 7;
+	stub->bp_list = (struct bpwp*)calloc(stub->bp_size, sizeof(struct bpwp));
+	stub->wp_list = (struct bpwp*)calloc(stub->wp_size, sizeof(struct bpwp));
+}
+
+enum gdbstub_state gdbstub_check_bkpt(struct gdbstub* stub, uint32_t addr, bool enter, bool stay) {
+	uint32_t ind = addr % stub->bp_size;
+
+	if (stub->bp_list[ind].used && stub->bp_list[ind].addr == addr) {
+		if (enter)
+			return gdbstub_enter_reason(stub, stay, gdbt_bkpt, addr);
+		else {
+			gdbstub_signal_status(stub, gdbt_bkpt, addr);
+			return gdbstat_none;
+		}
+	}
+
+	return gdbstat_check_no_hit;
+}
+enum gdbstub_state gdbstub_check_watchpt(struct gdbstub* stub, uint32_t addr, int kind, bool enter, bool stay) {
+	uint32_t ind = addr % stub->wp_size;
+
+	// TODO: check address ranges!
+	if (stub->wp_list[ind].used && stub->wp_list[ind].addr == addr && stub->wp_list[ind].kind == kind) {
+		if (enter)
+			return gdbstub_enter_reason(stub, stay, gdbt_watchpt, addr);
+		else {
+			gdbstub_signal_status(stub, gdbt_watchpt, addr);
+			return gdbstat_none;
+		}
+	}
+
+	return gdbstat_check_no_hit;
 }
 

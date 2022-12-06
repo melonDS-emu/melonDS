@@ -5,8 +5,11 @@
 #include "hexutil.h"
 #include "gdbproto.h"
 
+#include "../CRC32.h"
+
 #include "gdbcmds.h"
 
+#include "gdbstub_internal.h"
 
 #define ARCH_N_REG 17
 
@@ -102,7 +105,7 @@ enum gdbproto_exec_result gdb_handle_g(struct gdbstub* stub,
 	uint8_t* regstrbuf = tempdatabuf;
 
 	for (size_t i = 0; i < ARCH_N_REG; ++i) {
-		uint32_t v = stub->cb->read_reg(i);
+		uint32_t v = stub->cb->read_reg(stub->ud, i);
 		hexfmt32(&regstrbuf[i*4*2], v);
 	}
 
@@ -121,7 +124,7 @@ enum gdbproto_exec_result gdb_handle_G(struct gdbstub* stub,
 
 	for (int i = 0; i < ARCH_N_REG; ++i) {
 		uint32_t v = unhex32(&cmd[i*4*2]);
-		stub->cb->write_reg(i, v);
+		stub->cb->write_reg(stub->ud, i, v);
 	}
 
 	return gdbe_ok;
@@ -146,7 +149,7 @@ enum gdbproto_exec_result gdb_handle_m(struct gdbstub* stub,
 	// pre-align: byte
 	if ((addr & 1)) {
 		if ((end-addr) >= 1) {
-			uint32_t v = stub->cb->read_mem(addr, 8);
+			uint32_t v = stub->cb->read_mem(stub->ud, addr, 8);
 			hexfmt8(dataptr, v&0xff);
 			++addr;
 			dataptr += 2;
@@ -156,12 +159,12 @@ enum gdbproto_exec_result gdb_handle_m(struct gdbstub* stub,
 	// pre-align: short
 	if ((addr & 2)) {
 		if ((end-addr) >= 2) {
-			uint32_t v = stub->cb->read_mem(addr, 16);
+			uint32_t v = stub->cb->read_mem(stub->ud, addr, 16);
 			hexfmt16(dataptr, v&0xffff);
 			addr += 2;
 			dataptr += 4;
 		} else if ((end-addr) == 1) { // last byte
-			uint32_t v = stub->cb->read_mem(addr, 8);
+			uint32_t v = stub->cb->read_mem(stub->ud, addr, 8);
 			hexfmt8(dataptr, v&0xff);
 			++addr;
 			dataptr += 2;
@@ -172,7 +175,7 @@ enum gdbproto_exec_result gdb_handle_m(struct gdbstub* stub,
 	while (addr < end) {
 		if (end - addr < 4) break; // post-align stuff
 
-		uint32_t v = stub->cb->read_mem(addr, 32);
+		uint32_t v = stub->cb->read_mem(stub->ud, addr, 32);
 		hexfmt32(dataptr, v);
 		addr += 4;
 		dataptr += 8;
@@ -180,7 +183,7 @@ enum gdbproto_exec_result gdb_handle_m(struct gdbstub* stub,
 
 	// post-align: short
 	if ((end-addr) & 2) {
-		uint32_t v = stub->cb->read_mem(addr, 16);
+		uint32_t v = stub->cb->read_mem(stub->ud, addr, 16);
 		hexfmt16(dataptr, v&0xffff);
 		addr += 2;
 		dataptr += 4;
@@ -188,7 +191,7 @@ enum gdbproto_exec_result gdb_handle_m(struct gdbstub* stub,
 
 	// post-align: byte
 	if ((end-addr) == 1) {
-		uint32_t v = stub->cb->read_mem(addr, 8);
+		uint32_t v = stub->cb->read_mem(stub->ud, addr, 8);
 		hexfmt8(dataptr, v&0xff);
 		++addr;
 		dataptr += 2;
@@ -223,7 +226,7 @@ enum gdbproto_exec_result gdb_handle_M(struct gdbstub* stub,
 	if ((addr & 1)) {
 		if ((end-addr) >= 1) {
 			uint8_t v = unhex8(dataptr);
-			stub->cb->write_mem(addr, 8, v);
+			stub->cb->write_mem(stub->ud, addr, 8, v);
 			++addr;
 			dataptr += 2;
 		} else goto end;
@@ -233,12 +236,12 @@ enum gdbproto_exec_result gdb_handle_M(struct gdbstub* stub,
 	if ((addr & 2)) {
 		if ((end-addr) >= 2) {
 			uint16_t v = unhex16(dataptr);
-			stub->cb->write_mem(addr, 16, v);
+			stub->cb->write_mem(stub->ud, addr, 16, v);
 			addr += 2;
 			dataptr += 4;
 		} else if ((end-addr) == 1) { // last byte
 			uint8_t v = unhex8(dataptr);
-			stub->cb->write_mem(addr, 8, v);
+			stub->cb->write_mem(stub->ud, addr, 8, v);
 			++addr;
 			dataptr += 2;
 		} else goto end;
@@ -249,7 +252,7 @@ enum gdbproto_exec_result gdb_handle_M(struct gdbstub* stub,
 		if (end - addr < 4) break; // post-align stuff
 
 		uint32_t v = unhex32(dataptr);
-		stub->cb->write_mem(addr, 32, v);
+		stub->cb->write_mem(stub->ud, addr, 32, v);
 		addr += 4;
 		dataptr += 8;
 	}
@@ -257,7 +260,7 @@ enum gdbproto_exec_result gdb_handle_M(struct gdbstub* stub,
 	// post-align: short
 	if ((end-addr) & 2) {
 		uint16_t v = unhex16(dataptr);
-		stub->cb->write_mem(addr, 16, v);
+		stub->cb->write_mem(stub->ud, addr, 16, v);
 		addr += 2;
 		dataptr += 4;
 	}
@@ -265,7 +268,7 @@ enum gdbproto_exec_result gdb_handle_M(struct gdbstub* stub,
 	// post-align: byte
 	if ((end-addr) == 1) {
 		uint8_t v = unhex8(dataptr);
-		stub->cb->write_mem(addr, 8, v);
+		stub->cb->write_mem(stub->ud, addr, 8, v);
 		++addr;
 		dataptr += 2;
 	}
@@ -299,7 +302,7 @@ enum gdbproto_exec_result gdb_handle_X(struct gdbstub* stub,
 	if ((addr & 1)) {
 		if ((end-addr) >= 1) {
 			uint8_t v = *dataptr;
-			stub->cb->write_mem(addr, 8, v);
+			stub->cb->write_mem(stub->ud, addr, 8, v);
 			++addr;
 			dataptr += 1;
 		} else goto end;
@@ -309,12 +312,12 @@ enum gdbproto_exec_result gdb_handle_X(struct gdbstub* stub,
 	if ((addr & 2)) {
 		if ((end-addr) >= 2) {
 			uint16_t v = dataptr[0] | ((uint16_t)dataptr[1] << 8);
-			stub->cb->write_mem(addr, 16, v);
+			stub->cb->write_mem(stub->ud, addr, 16, v);
 			addr += 2;
 			dataptr += 2;
 		} else if ((end-addr) == 1) { // last byte
 			uint8_t v = *dataptr;
-			stub->cb->write_mem(addr, 8, v);
+			stub->cb->write_mem(stub->ud, addr, 8, v);
 			++addr;
 			dataptr += 1;
 		} else goto end;
@@ -326,7 +329,7 @@ enum gdbproto_exec_result gdb_handle_X(struct gdbstub* stub,
 
 		uint32_t v = dataptr[0] | ((uint32_t)dataptr[1] << 8)
 			| ((uint32_t)dataptr[2] << 16) | ((uint32_t)dataptr[3] << 24);
-		stub->cb->write_mem(addr, 32, v);
+		stub->cb->write_mem(stub->ud, addr, 32, v);
 		addr += 4;
 		dataptr += 4;
 	}
@@ -334,7 +337,7 @@ enum gdbproto_exec_result gdb_handle_X(struct gdbstub* stub,
 	// post-align: short
 	if ((end-addr) & 2) {
 		uint16_t v = dataptr[0] | ((uint16_t)dataptr[1] << 8);
-		stub->cb->write_mem(addr, 16, v);
+		stub->cb->write_mem(stub->ud, addr, 16, v);
 		addr += 2;
 		dataptr += 2;
 	}
@@ -342,7 +345,7 @@ enum gdbproto_exec_result gdb_handle_X(struct gdbstub* stub,
 	// post-align: byte
 	if ((end-addr) == 1) {
 		uint8_t v = unhex8(dataptr);
-		stub->cb->write_mem(addr, 8, v);
+		stub->cb->write_mem(stub->ud, addr, 8, v);
 		++addr;
 		dataptr += 1;
 	}
@@ -370,7 +373,7 @@ enum gdbproto_exec_result gdb_handle_c(struct gdbstub* stub,
 	} // else: continue at current
 
 	if (!~addr) {
-		stub->cb->write_reg(15, addr); // set pc
+		stub->cb->write_reg(stub->ud, 15, addr); // set pc
 	}
 
 	return gdbe_continue;
@@ -393,7 +396,7 @@ enum gdbproto_exec_result gdb_handle_s(struct gdbstub* stub,
 	} // else: continue at current
 
 	if (~addr != 0) {
-		stub->cb->write_reg(15, addr); // set pc
+		stub->cb->write_reg(stub->ud, 15, addr); // set pc
 	}
 
 	return gdbe_step;
@@ -407,7 +410,7 @@ enum gdbproto_exec_result gdb_handle_p(struct gdbstub* stub,
 		return gdbe_ok;
 	}
 
-	uint32_t v = stub->cb->read_reg(reg);
+	uint32_t v = stub->cb->read_reg(stub->ud, reg);
 	hexfmt32(tempdatabuf, v);
 	gdbproto_resp(stub->connfd, tempdatabuf, 4*2);
 
@@ -425,7 +428,7 @@ enum gdbproto_exec_result gdb_handle_P(struct gdbstub* stub,
 	}
 
 	uint32_t v = unhex32(&cmd[dataoff]);
-	stub->cb->write_reg(reg, v);
+	stub->cb->write_reg(stub->ud, reg, v);
 
 	return gdbe_ok;
 }
@@ -495,7 +498,7 @@ enum gdbproto_exec_result gdb_handle_Question(struct gdbstub* stub,
 		}
 		break;
 	case gdbt_bkpt_insn:
-		gdbproto_resp_fmt(stub->connfd, "T%02Xswbreak:%08X;", GDB_SIGTRAP, stub->cb->read_reg(15));
+		gdbproto_resp_fmt(stub->connfd, "T%02Xswbreak:%08X;", GDB_SIGTRAP, stub->cb->read_reg(stub->ud, 15));
 		break;
 
 		// these three should technically be a SIGBUS but gdb etc don't really
@@ -526,12 +529,12 @@ enum gdbproto_exec_result gdb_handle_D(struct gdbstub* stub,
 
 enum gdbproto_exec_result gdb_handle_r(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	stub->cb->reset();
+	stub->cb->reset(stub->ud);
 	return gdbe_ok;
 }
 enum gdbproto_exec_result gdb_handle_R(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-	stub->cb->reset();
+	stub->cb->reset(stub->ud);
 	return gdbe_ok;
 }
 
@@ -567,10 +570,10 @@ enum gdbproto_exec_result gdb_handle_z(struct gdbstub* stub,
 
 	switch (typ) {
 	case 0: case 1: // remove breakpoint (we cheat & always insert a hardware breakpoint)
-		stub->cb->del_bkpt(addr, kind);
+		gdbstub_del_bkpt(stub, addr, kind);
 		break;
 	case 2: case 3: case 4: // watchpoint. currently not distinguishing between reads & writes oops
-		stub->cb->del_watchpt(addr, kind);
+		gdbstub_del_watchpt(stub, addr, kind, typ);
 		break;
 	default:
 		gdbproto_resp_str(stub->connfd, "E02");
@@ -593,10 +596,10 @@ enum gdbproto_exec_result gdb_handle_Z(struct gdbstub* stub,
 
 	switch (typ) {
 	case 0: case 1: // insert breakpoint (we cheat & always insert a hardware breakpoint)
-		stub->cb->add_bkpt(addr, kind);
+		gdbstub_add_bkpt(stub, addr, kind);
 		break;
 	case 2: case 3: case 4: // watchpoint. currently not distinguishing between reads & writes oops
-		stub->cb->add_watchpt(addr, kind);
+		gdbstub_add_watchpt(stub, addr, kind, typ);
 		break;
 	default:
 		gdbproto_resp_str(stub->connfd, "E02");
@@ -629,7 +632,7 @@ enum gdbproto_exec_result gdb_handle_q_Rcmd(struct gdbstub* stub,
 		tempdatabuf[i] = unhex8(&cmd[i*2]);
 	}
 
-	int r = stub->cb->remote_cmd(tempdatabuf, len/2);
+	int r = stub->cb->remote_cmd(stub->ud, tempdatabuf, len/2);
 
 	if (r) {
 		gdbproto_resp_fmt(stub->connfd, "E%02X", r&0xff);
@@ -650,17 +653,32 @@ enum gdbproto_exec_result gdb_handle_q_Supported(struct gdbstub* stub,
 
 enum gdbproto_exec_result gdb_handle_q_CRC(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t llen) {
-	uint32_t addr, len;
+	static uint8_t crcbuf[128];
 
+	uint32_t addr, len;
 	if (sscanf(cmd, "%x,%x", &addr, &len) != 2) {
 		gdbproto_resp_str(stub->connfd, "E01");
 		return gdbe_ok;
 	}
 
-	// FIXME: do the heavy lifting here?
-	uint32_t v = stub->cb->crc_32(addr, len);
+	uint32_t val = 0; // start at 0
+	uint32_t caddr = addr;
+	uint32_t realend = addr + len;
 
-	gdbproto_resp_fmt(stub->connfd, "C%x", v);
+	for (; caddr < addr + len; ) {
+		// calc partial CRC in 128-byte chunks
+		uint32_t end = caddr + sizeof(crcbuf)/sizeof(crcbuf[0]);
+		if (end > realend) end = realend;
+		uint32_t clen = end - caddr;
+
+		for (size_t i = 0; caddr < end; ++caddr, ++i) {
+			crcbuf[i] = stub->cb->read_mem(stub->ud, caddr, 8);
+		}
+
+		val = CRC32(crcbuf, clen, val);
+	}
+
+	gdbproto_resp_fmt(stub->connfd, "C%x", val);
 
 	return gdbe_ok;
 }
@@ -727,7 +745,7 @@ enum gdbproto_exec_result gdb_handle_v_Kill(struct gdbstub* stub,
 
 	enum gdbtgt_status st = stub->stat;
 
-	stub->cb->reset();
+	stub->cb->reset(stub->ud);
 
 	gdbproto_resp_str(stub->connfd, "OK");
 
@@ -739,7 +757,7 @@ enum gdbproto_exec_result gdb_handle_v_Run(struct gdbstub* stub,
 
 	enum gdbtgt_status st = stub->stat;
 
-	stub->cb->reset();
+	stub->cb->reset(stub->ud);
 
 	// TODO: handle cmdline for homebrew?
 

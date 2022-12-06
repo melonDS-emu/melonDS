@@ -52,7 +52,7 @@ void _inittable()
     }
 }
 
-u32 CRC32(const u8 *data, int len, u32 start)
+extern "C" u32 CRC32_impl(const u8 *data, int len, u32 start)
 {
     if (!tableinited)
     {

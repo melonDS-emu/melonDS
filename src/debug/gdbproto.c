@@ -13,6 +13,8 @@
 
 #include "gdbproto.h"
 
+#include "gdbstub_internal.h"
+
 static uint8_t packetbuf[GDBPROTO_BUFFER_CAPACITY];
 
 /*

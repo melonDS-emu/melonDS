@@ -19,8 +19,26 @@
 #ifndef CRC32_H
 #define CRC32_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "types.h"
 
-u32 CRC32(const u8* data, int len, u32 start=0);
+u32 CRC32_impl(const u8* data, int len, u32 start);
+
+#ifdef __cplusplus
+inline u32 CRC32(const u8* data, int len, u32 start=0)
+{
+    return CRC32_impl(data, len, start);
+}
+
+}
+#else
+static inline u32 CRC32(const u8* data, int len, u32 start)
+{
+    return CRC32_impl(data, len, start);
+}
+#endif
 
 #endif // CRC32_H
