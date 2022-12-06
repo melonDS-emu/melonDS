@@ -28,10 +28,10 @@ public:
     DiscordRPC();
     ~DiscordRPC();
 
-    void Update(const bool is_game_active, const char* title);
+    void Update(const bool isGameActive, const char* title);
     
 private:
-    s64 start_time;
+    s64 StartTime;
 };
 
 #endif

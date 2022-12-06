@@ -56,7 +56,7 @@ void PartyEventWithUser(const DiscordUser* user)
 
 DiscordRPC::DiscordRPC()
 {
-    start_time = time(0);
+    StartTime = time(0);
 
     DiscordEventHandlers event_handler =
     {
@@ -79,14 +79,14 @@ DiscordRPC::~DiscordRPC()
     Discord_Shutdown();
 }
 
-void DiscordRPC::Update(const bool is_game_active, const char* title)
+void DiscordRPC::Update(const bool isGameActive, const char* title)
 {
     DiscordRichPresence presence =
     {
         .state          = NULL,
         .details        = DETAILS_IDLE,
 
-        .startTimestamp = start_time,
+        .startTimestamp = StartTime,
         .endTimestamp   = 0,
 
         .largeImageKey  = "melonds",
@@ -107,7 +107,7 @@ void DiscordRPC::Update(const bool is_game_active, const char* title)
         .instance       = 0
     };
 
-    if (is_game_active)
+    if (isGameActive)
     {
         presence.state   = title;
         presence.details = DETAILS_PLAYING;
