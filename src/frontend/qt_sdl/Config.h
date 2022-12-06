@@ -186,6 +186,7 @@ extern bool DSiBatteryCharging;
 extern CameraConfig Camera[2];
 
 #ifdef DISCORDRPC_ENABLED
+extern bool DiscordEnable;
 extern bool DiscordTrackTime;
 #endif
 

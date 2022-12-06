@@ -1904,15 +1904,25 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     }
 
 #ifdef DISCORDRPC_ENABLED
-    rpc = new DiscordRPC();
-    rpc->Update(false, NULL);
+    if (Config::DiscordEnable)
+    {
+        rpc = new DiscordRPC();
+        rpc->Update(false, NULL);
+    }
+    else
+    {
+        rpc = nullptr;
+    }
 #endif
 }
 
 MainWindow::~MainWindow()
 {
 #ifdef DISCORDRPC_ENABLED
-    delete rpc;
+    if (rpc != nullptr)
+    {
+        delete rpc;
+    }
 #endif
 }
 
@@ -3021,15 +3031,30 @@ void MainWindow::onInterfaceSettingsFinished(int res)
     emuThread->emuUnpause();
     
 #ifdef DISCORDRPC_ENABLED
-    QString title = "Unknown game";
-
-    if (NDSCart::CartInserted)
+    if (Config::DiscordEnable && rpc == nullptr)
     {
-        title = QString::fromUtf16(NDSCart::Banner.EnglishTitle);
-        title = title.left(title.lastIndexOf("\n")).replace("\n", " ");
+        rpc = new DiscordRPC();
+    }
+    
+    if (!Config::DiscordEnable && rpc != nullptr)
+    {
+        delete rpc;
+
+        rpc = nullptr; // some platforms are mean
     }
 
-    rpc->Update(emuThread->emuIsActive(), title.toUtf8().constData());
+    if (rpc != nullptr)
+    {
+        QString title = "Unknown game";
+
+        if (NDSCart::CartInserted)
+        {
+            title = QString::fromUtf16(NDSCart::Banner.EnglishTitle);
+            title = title.left(title.lastIndexOf("\n")).replace("\n", " ");
+        }
+
+        rpc->Update(emuThread->emuIsActive(), title.toUtf8().constData());
+    }
 #endif
 }
 
@@ -3192,6 +3217,11 @@ void MainWindow::onEmuStart()
     actTitleManager->setEnabled(false);
 
 #ifdef DISCORDRPC_ENABLED
+    if (rpc == nullptr)
+    {
+        return;
+    }
+
     QString title = "Unknown game";
 
     if (NDSCart::CartInserted)
@@ -3225,6 +3255,11 @@ void MainWindow::onEmuStop()
     actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
 
 #ifdef DISCORDRPC_ENABLED
+    if (rpc == nullptr)
+    {
+        return;
+    }
+
     rpc->Update(false, NULL);
 #endif
 }

@@ -143,6 +143,7 @@ bool DSiBatteryCharging;
 CameraConfig Camera[2];
 
 #ifdef DISCORDRPC_ENABLED
+bool DiscordEnable;
 bool DiscordTrackTime;
 #endif
 
@@ -333,6 +334,7 @@ ConfigEntry ConfigFile[] =
     {"Camera1_XFlip", 1, &Camera[1].XFlip, false, false},
 
 #ifdef DISCORDRPC_ENABLED
+    {"Discord_Enable", 1, &DiscordEnable, true, false},
     {"Discord_TrackTime", 1, &DiscordTrackTime, true, false},
 #endif
 

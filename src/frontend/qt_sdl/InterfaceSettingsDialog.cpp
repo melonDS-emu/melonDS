@@ -36,10 +36,14 @@ InterfaceSettingsDialog::InterfaceSettingsDialog(QWidget* parent) : QDialog(pare
     ui->cbPauseLostFocus->setChecked(Config::PauseLostFocus != 0);
 
 #ifdef DISCORDRPC_ENABLED
+    ui->cbDiscordEnable->setVisible(true);
+    ui->cbDiscordEnable->setChecked(Config::DiscordEnable != 0);
+    
     ui->cbDiscordTrackTime->setVisible(true);
     ui->cbDiscordTrackTime->setChecked(Config::DiscordTrackTime != 0);
 #else
-    ui->cbDiscordTrackTime->setVisible(false); // Designer didn't let me set this by default :(
+    ui->cbDiscordEnable->setVisible(false); // Designer didn't let me set this by default :(
+    ui->cbDiscordTrackTime->setVisible(false);
 #endif
 }
 
@@ -69,6 +73,7 @@ void InterfaceSettingsDialog::done(int r)
         Config::PauseLostFocus = ui->cbPauseLostFocus->isChecked() ? 1:0;
 
 #ifdef DISCORDRPC_ENABLED
+        Config::DiscordEnable = ui->cbDiscordEnable->isChecked() ? 1:0;
         Config::DiscordTrackTime = ui->cbDiscordTrackTime->isChecked() ? 1:0;
 #endif
 
