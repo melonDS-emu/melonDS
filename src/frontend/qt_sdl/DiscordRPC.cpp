@@ -19,6 +19,7 @@
 #include "DiscordRPC.h"
 
 #include "Config.h"
+#include "Platform.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -56,6 +57,11 @@ void PartyEventWithUser(const DiscordUser* user)
 
 DiscordRPC::DiscordRPC()
 {
+    if (Platform::InstanceID() != 0)
+    {
+        return;
+    }
+
     StartTime = time(0);
 
     DiscordEventHandlers event_handler =
@@ -73,6 +79,11 @@ DiscordRPC::DiscordRPC()
 
 DiscordRPC::~DiscordRPC()
 {
+    if (Platform::InstanceID() != 0)
+    {
+        return;
+    }
+
     Discord_ClearPresence();
     Discord_RunCallbacks();
 
@@ -81,6 +92,11 @@ DiscordRPC::~DiscordRPC()
 
 void DiscordRPC::Update(const bool isGameActive, const char* title)
 {
+    if (Platform::InstanceID() != 0)
+    {
+        return;
+    }
+
     DiscordRichPresence presence =
     {
         .state          = NULL,
