@@ -38,8 +38,11 @@
 #include <optional>
 
 #include "FrontendUtil.h"
-#include "DiscordRPC.h"
 #include "duckstation/gl/context.h"
+
+#ifdef DISCORDRPC_ENABLED
+#include "DiscordRPC.h"
+#endif
 
 class EmuThread : public QThread
 {
@@ -353,7 +356,9 @@ private:
     int oldW, oldH;
     bool oldMax;
 
+#ifdef DISCORDRPC_ENABLED
     DiscordRPC* rpc;
+#endif
 
 public:
     ScreenHandler* panel;

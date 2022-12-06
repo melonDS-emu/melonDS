@@ -1903,13 +1903,17 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 #endif // __APPLE__
     }
 
+#ifdef DISCORDRPC_ENABLED
     rpc = new DiscordRPC();
     rpc->Update(false, NULL);
+#endif
 }
 
 MainWindow::~MainWindow()
 {
+#ifdef DISCORDRPC_ENABLED
     delete rpc;
+#endif
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
@@ -3015,6 +3019,18 @@ void MainWindow::onUpdateMouseTimer()
 void MainWindow::onInterfaceSettingsFinished(int res)
 {
     emuThread->emuUnpause();
+    
+#ifdef DISCORDRPC_ENABLED
+    QString title = "Unknown game";
+
+    if (NDSCart::CartInserted)
+    {
+        title = QString::fromUtf16(NDSCart::Banner.EnglishTitle);
+        title = title.left(title.lastIndexOf("\n")).replace("\n", " ");
+    }
+
+    rpc->Update(emuThread->emuIsActive(), title.toUtf8().constData());
+#endif
 }
 
 void MainWindow::onChangeSavestateSRAMReloc(bool checked)
@@ -3175,8 +3191,17 @@ void MainWindow::onEmuStart()
 
     actTitleManager->setEnabled(false);
 
-    QString title = QString::fromUtf16(NDSCart::Banner.EnglishTitle);
-    rpc->Update(true, title.left(title.lastIndexOf("\n")).replace("\n", " ").toUtf8().constData()); // strings really are something
+#ifdef DISCORDRPC_ENABLED
+    QString title = "Unknown game";
+
+    if (NDSCart::CartInserted)
+    {
+        title = QString::fromUtf16(NDSCart::Banner.EnglishTitle);
+        title = title.left(title.lastIndexOf("\n")).replace("\n", " ");
+    }
+
+    rpc->Update(emuThread->emuIsActive(), title.toUtf8().constData());
+#endif
 }
 
 void MainWindow::onEmuStop()
@@ -3199,7 +3224,9 @@ void MainWindow::onEmuStop()
 
     actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
 
+#ifdef DISCORDRPC_ENABLED
     rpc->Update(false, NULL);
+#endif
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)

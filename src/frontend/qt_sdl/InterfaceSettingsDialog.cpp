@@ -34,6 +34,13 @@ InterfaceSettingsDialog::InterfaceSettingsDialog(QWidget* parent) : QDialog(pare
     ui->spinMouseHideSeconds->setEnabled(Config::MouseHide != 0);
     ui->spinMouseHideSeconds->setValue(Config::MouseHideSeconds);
     ui->cbPauseLostFocus->setChecked(Config::PauseLostFocus != 0);
+
+#ifdef DISCORDRPC_ENABLED
+    ui->cbDiscordTrackTime->setVisible(true);
+    ui->cbDiscordTrackTime->setChecked(Config::DiscordTrackTime != 0);
+#else
+    ui->cbDiscordTrackTime->setVisible(false); // Designer didn't let me set this by default :(
+#endif
 }
 
 InterfaceSettingsDialog::~InterfaceSettingsDialog()
@@ -60,6 +67,10 @@ void InterfaceSettingsDialog::done(int r)
         Config::MouseHide = ui->cbMouseHide->isChecked() ? 1:0;
         Config::MouseHideSeconds = ui->spinMouseHideSeconds->value();
         Config::PauseLostFocus = ui->cbPauseLostFocus->isChecked() ? 1:0;
+
+#ifdef DISCORDRPC_ENABLED
+        Config::DiscordTrackTime = ui->cbDiscordTrackTime->isChecked() ? 1:0;
+#endif
 
         Config::Save();
 

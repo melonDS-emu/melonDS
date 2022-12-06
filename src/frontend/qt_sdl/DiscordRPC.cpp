@@ -18,6 +18,8 @@
 
 #include "DiscordRPC.h"
 
+#include "Config.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -109,6 +111,11 @@ void DiscordRPC::Update(const bool is_game_active, const char* title)
     {
         presence.state   = title;
         presence.details = DETAILS_PLAYING;
+    }
+
+    if (!Config::DiscordTrackTime)
+    {
+        presence.startTimestamp = 0;
     }
 
     Discord_UpdatePresence(&presence);
