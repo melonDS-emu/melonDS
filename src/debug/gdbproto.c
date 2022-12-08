@@ -80,12 +80,12 @@ enum gdbproto_read_result gdbproto_msg_recv(int connfd,
 		if (n <= 0) {
 			if (first) return gdbp_no_packet;
 			else {
-				printf("[GDB] recv() error %zi, errno=%d (%s)\n", n, errno, strerror(errno));
+				//printf("[GDB] recv() error %zi, errno=%d (%s)\n", n, errno, strerror(errno));
 				return gdbp_eof;
 			}
 		}
 
-		printf("[GDB] recv() %zd bytes: '%s' (%02x)\n", n, pkt, pkt[0]);
+		//printf("[GDB] recv() %zd bytes: '%s' (%02x)\n", n, pkt, pkt[0]);
 		first = false;
 
 		do {
@@ -144,7 +144,7 @@ enum gdbproto_read_result gdbproto_msg_recv(int connfd,
 
 	if (cksumoff + 2 > recv_total) {
 		printf("[GDB] BIG MISTAKE: %zi > %zi which shouldn't happen!\n", cksumoff + 2, recv_total);
-		__builtin_trap();
+		//__builtin_trap();
 		return gdbp_wut;
 	} else {
 		cmdlen = cksumoff - 2;
@@ -170,7 +170,7 @@ int gdbproto_send_ack(int connfd) {
 }
 
 int gdbproto_send_nak(int connfd) {
-	printf("[GDB] send nak\n");
+	//printf("[GDB] send nak\n");
 	uint8_t v = '-';
 	return send(connfd, &v, 1, 0);
 }
@@ -222,12 +222,12 @@ int gdbproto_resp_2(int connfd, const uint8_t* data1, size_t len1,
 		ssize_t r;
 		uint8_t ack;
 
-		printf("[GDB] send resp: '%s'\n", respbuf);
+		//printf("[GDB] send resp: '%s'\n", respbuf);
 		r = send(connfd, respbuf, totallen+4, 0);
 		if (r < 0) return r;
 
 		r = wait_ack_blocking(connfd, &ack, 2000);
-		printf("[GDB] got ack: '%c'\n", ack);
+		//printf("[GDB] got ack: '%c'\n", ack);
 		if (r == 0 && ack == '+') break;
 
 		++tries;

@@ -200,7 +200,7 @@ enum gdbstub_state gdbstub_poll(struct gdbstub* stub) {
 
 	if (stub->stat_flag) {
 		stub->stat_flag = false;
-		printf("[GDB] STAT FLAG WAS TRUE\n");
+		//printf("[GDB] STAT FLAG WAS TRUE\n");
 
 		gdb_handle_Question(stub, NULL, 0); // ugly hack but it should work
 	}
@@ -255,7 +255,7 @@ enum gdbstub_state gdbstub_poll(struct gdbstub* stub) {
 
 enum gdbproto_exec_result gdbproto_subcmd_exec(struct gdbstub* stub, const uint8_t* cmd,
 		ssize_t len, const struct gdbproto_subcmd_handler* handlers) {
-	printf("[GDB] subcommand in: '%s'\n", cmd);
+	//printf("[GDB] subcommand in: '%s'\n", cmd);
 
 	for (size_t i = 0; handlers[i].handler != NULL; ++i) {
 		// check if prefix matches
@@ -268,7 +268,7 @@ enum gdbproto_exec_result gdbproto_subcmd_exec(struct gdbstub* stub, const uint8
 		}
 	}
 
-	printf("[GDB] unknown subcommand '%s'!\n", cmd);
+	//printf("[GDB] unknown subcommand '%s'!\n", cmd);
 	/*if (gdbproto_send_nak(stub->connfd) < 0) {
 		printf("[GDB] send nak after cksum fail errored!\n");
 		return gdbe_net_err;
@@ -280,7 +280,7 @@ enum gdbproto_exec_result gdbproto_subcmd_exec(struct gdbstub* stub, const uint8
 
 enum gdbproto_exec_result gdbproto_cmd_exec(struct gdbstub* stub, const struct
 		gdbproto_cmd_handler* handlers) {
-	printf("[GDB] command in: '%s'\n", gdbproto_cmdbuf);
+	//printf("[GDB] command in: '%s'\n", gdbproto_cmdbuf);
 
 	for (size_t i = 0; i < sizeof(handlers_top)/sizeof(*handlers_top); ++i) {
 		if (handlers_top[i].cmd == gdbproto_cmdbuf[0]) {
@@ -292,7 +292,7 @@ enum gdbproto_exec_result gdbproto_cmd_exec(struct gdbstub* stub, const struct
 		}
 	}
 
-	printf("[GDB] unknown command '%c'!\n", gdbproto_cmdbuf[0]);
+	//printf("[GDB] unknown command '%c'!\n", gdbproto_cmdbuf[0]);
 	/*if (gdbproto_send_nak(stub->connfd) < 0) {
 		printf("[GDB] send nak after cksum fail errored!\n");
 		return gdbe_net_err;
@@ -305,8 +305,7 @@ enum gdbproto_exec_result gdbproto_cmd_exec(struct gdbstub* stub, const struct
 
 void gdbstub_signal_status(struct gdbstub* stub, enum gdbtgt_status stat, uint32_t arg) {
 	if (!stub) return;
-	printf("[GDB] SIGNAL STATUS %d!\n", stat);
-	//__builtin_trap();
+	//printf("[GDB] SIGNAL STATUS %d!\n", stat);
 
 	stub->stat = stat;
 	stub->stat_flag = true;
@@ -330,19 +329,19 @@ enum gdbstub_state gdbstub_enter_reason(struct gdbstub* stub, bool stay, enum gd
 
 		switch (st) {
 		case gdbstat_break:
-			printf("[GDB] break execution\n");
+			//printf("[GDB] break execution\n");
 			gdbstub_signal_status(stub, gdbt_break_req, ~(uint32_t)0);
 			break;
 		case gdbstat_continue:
-			printf("[GDB] continue execution\n");
+			//printf("[GDB] continue execution\n");
 			do_next = false;
 			break;
 		case gdbstat_step:
-			printf("[GDB] single-step\n");
+			//printf("[GDB] single-step\n");
 			do_next = false;
 			break;
 		case gdbstat_disconnect:
-			printf("[GDB] disconnect\n");
+			//printf("[GDB] disconnect\n");
 			gdbstub_signal_status(stub, gdbt_none, ~(uint32_t)0);
 			do_next = false;
 			break;
@@ -351,7 +350,7 @@ enum gdbstub_state gdbstub_enter_reason(struct gdbstub* stub, bool stay, enum gd
 		if (!stay) break;
 	} while (do_next);
 
-	if (st != 0 && st != 1) printf("[GDB] enter exit: %d\n", st);
+	//if (st != 0 && st != 1) printf("[GDB] enter exit: %d\n", st);
 	return st;
 }
 
