@@ -118,6 +118,7 @@ public:
     virtual void AddCycles_CDI() = 0;
     virtual void AddCycles_CD() = 0;
 
+    void CheckGdbIncoming();
 
     u32 Num;
 

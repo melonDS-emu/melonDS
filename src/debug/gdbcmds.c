@@ -372,7 +372,7 @@ enum gdbproto_exec_result gdb_handle_c(struct gdbstub* stub,
 		}
 	} // else: continue at current
 
-	if (!~addr) {
+	if (~addr) {
 		stub->cb->write_reg(stub->ud, 15, addr); // set pc
 	}
 
@@ -466,7 +466,7 @@ enum gdbproto_exec_result gdb_handle_Question(struct gdbstub* stub,
 
 	case gdbt_running: // will break very soon due to retval
 	case gdbt_break_req:
-		gdbproto_resp_fmt(stub->connfd, "T%02X", GDB_SIGINT);
+		gdbproto_resp_fmt(stub->connfd, "S%02X", GDB_SIGINT);
 		break;
 
 	case gdbt_singlestep:
@@ -482,17 +482,19 @@ enum gdbproto_exec_result gdb_handle_Question(struct gdbstub* stub,
 		typ = 2;
 	bkpt_rest:
 		if (!~arg) {
-			gdbproto_resp_fmt(stub->connfd, "T%02X", GDB_SIGTRAP);
+			gdbproto_resp_fmt(stub->connfd, "S%02X", GDB_SIGTRAP);
 		} else {
 			switch (typ) {
 			case 1:
-				gdbproto_resp_fmt(stub->connfd, "T%02Xswbreak:%08X;", GDB_SIGTRAP, arg);
+				gdbproto_resp_fmt(stub->connfd, "S%02X", GDB_SIGTRAP);
+				//gdbproto_resp_fmt(stub->connfd, "T%02Xhwbreak:"/*"%08X"*/";", GDB_SIGTRAP/*, arg*/);
 				break;
 			case 2:
-				gdbproto_resp_fmt(stub->connfd, "T%02Xwatch:%08X;", GDB_SIGTRAP, arg);
+				gdbproto_resp_fmt(stub->connfd, "S%02X", GDB_SIGTRAP);
+				//gdbproto_resp_fmt(stub->connfd, "T%02Xwatch:"/*"%08X"*/";", GDB_SIGTRAP/*, arg*/);
 				break;
 			default:
-				gdbproto_resp_fmt(stub->connfd, "T%02X", GDB_SIGTRAP);
+				gdbproto_resp_fmt(stub->connfd, "S%02X", GDB_SIGTRAP);
 				break;
 			}
 		}
@@ -505,10 +507,10 @@ enum gdbproto_exec_result gdb_handle_Question(struct gdbstub* stub,
 		// like that (plus it sounds confusing)
 	case gdbt_fault_data:
 	case gdbt_fault_iacc:
-		gdbproto_resp_fmt(stub->connfd, "T%02X", GDB_SIGSEGV);
+		gdbproto_resp_fmt(stub->connfd, "S%02X", GDB_SIGSEGV);
 		break;
 	case gdbt_fault_insn:
-		gdbproto_resp_fmt(stub->connfd, "T%02X", GDB_SIGILL);
+		gdbproto_resp_fmt(stub->connfd, "S%02X", GDB_SIGILL);
 		break;
 	}
 
@@ -541,29 +543,10 @@ enum gdbproto_exec_result gdb_handle_R(struct gdbstub* stub,
 
 enum gdbproto_exec_result gdb_handle_z(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len) {
-/*
-[GDB] recv() 10 bytes: '$vCont?#49'
-[GDB] command in: 'vCont?'
-[GDB] subcommand in: 'Cont?'
-[GDB] unknown subcommand 'Cont?'!
-[GDB] send resp: '$#00'
-[GDB] got ack: '+'
-[GDB] recv() 7 bytes: '$Hc0#db'
-[GDB] command in: 'Hc0'
-[GDB] send resp: '$OK#9a'
-[GDB] got ack: '+'
-[GDB] recv() 5 bytes: '$c#63'
-[GDB] command in: 'c'
-[==>] write reg 15: 0xffffffff
-[==>] continue execution
-[GDB] recv() 1 bytes: ''
-[GDB] recv() error 0, errno=0 (Success)
-*/
-
 	int typ;
 	uint32_t addr, kind;
 
-	if (sscanf("%d,%x,%u", cmd, &typ, &addr, &kind) != 3) {
+	if (sscanf(cmd, "%d,%x,%u", &typ, &addr, &kind) != 3) {
 		gdbproto_resp_str(stub->connfd, "E01");
 		return gdbe_ok;
 	}
@@ -589,7 +572,7 @@ enum gdbproto_exec_result gdb_handle_Z(struct gdbstub* stub,
 	int typ;
 	uint32_t addr, kind;
 
-	if (sscanf("%d,%x,%u", cmd, &typ, &addr, &kind) != 3) {
+	if (sscanf(cmd, "%d,%x,%u", &typ, &addr, &kind) != 3) {
 		gdbproto_resp_str(stub->connfd, "E01");
 		return gdbe_ok;
 	}

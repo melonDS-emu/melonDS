@@ -320,6 +320,7 @@ void gdbstub_signal_status(struct gdbstub* stub, enum gdbtgt_status stat, uint32
 
 
 enum gdbstub_state gdbstub_enter_reason(struct gdbstub* stub, bool stay, enum gdbtgt_status stat, uint32_t arg) {
+	if (!stub) return;
 	if (stat != gdbt_no_event) gdbstub_signal_status(stub, stat, arg);
 
 	enum gdbstub_state st;
@@ -355,6 +356,8 @@ enum gdbstub_state gdbstub_enter_reason(struct gdbstub* stub, bool stay, enum gd
 }
 
 void gdbstub_add_bkpt(struct gdbstub* stub, uint32_t addr, int kind) {
+	if (!stub) return;
+	addr ^= (addr & 1); // clear lowest bit to not break on thumb mode weirdnesses
 	struct bpwp new;
 	new.addr = addr;
 	new.kind = kind;
@@ -391,6 +394,7 @@ void gdbstub_add_bkpt(struct gdbstub* stub, uint32_t addr, int kind) {
 	stub->bp_list[ind] = new;
 }
 void gdbstub_add_watchpt(struct gdbstub* stub, uint32_t addr, uint32_t len, int kind) {
+	if (!stub) return;
 	struct bpwp new;
 	new.addr = addr;
 	new.len  = len ;
@@ -429,7 +433,9 @@ void gdbstub_add_watchpt(struct gdbstub* stub, uint32_t addr, uint32_t len, int 
 }
 
 void gdbstub_del_bkpt(struct gdbstub* stub, uint32_t addr, int kind) {
+	if (!stub) return;
 	(void)kind;
+	addr ^= (addr & 1); // clear lowest bit to not break on thumb mode weirdnesses
 
 	uint32_t ind = addr % stub->bp_size;
 	if (stub->bp_list[ind].used && stub->bp_list[ind].addr == addr) {
@@ -437,6 +443,7 @@ void gdbstub_del_bkpt(struct gdbstub* stub, uint32_t addr, int kind) {
 	}
 }
 void gdbstub_del_watchpt(struct gdbstub* stub, uint32_t addr, uint32_t len, int kind) {
+	if (!stub) return;
 	(void)kind; (void)len;
 
 	uint32_t ind = addr % stub->bp_size;
@@ -446,6 +453,7 @@ void gdbstub_del_watchpt(struct gdbstub* stub, uint32_t addr, uint32_t len, int 
 }
 
 void gdbstub_del_all_bp_wp(struct gdbstub* stub) {
+	if (!stub) return;
 	free(stub->bp_list);
 	free(stub->wp_list);
 
@@ -456,9 +464,12 @@ void gdbstub_del_all_bp_wp(struct gdbstub* stub) {
 }
 
 enum gdbstub_state gdbstub_check_bkpt(struct gdbstub* stub, uint32_t addr, bool enter, bool stay) {
+	addr ^= (addr & 1); // clear lowest bit to not break on thumb mode weirdnesses
+	if (!stub) return;
 	uint32_t ind = addr % stub->bp_size;
 
 	if (stub->bp_list[ind].used && stub->bp_list[ind].addr == addr) {
+		//__builtin_trap();
 		if (enter)
 			return gdbstub_enter_reason(stub, stay, gdbt_bkpt, addr);
 		else {
@@ -470,6 +481,7 @@ enum gdbstub_state gdbstub_check_bkpt(struct gdbstub* stub, uint32_t addr, bool 
 	return gdbstat_check_no_hit;
 }
 enum gdbstub_state gdbstub_check_watchpt(struct gdbstub* stub, uint32_t addr, int kind, bool enter, bool stay) {
+	if (!stub) return;
 	uint32_t ind = addr % stub->wp_size;
 
 	// TODO: check address ranges!

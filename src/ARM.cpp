@@ -45,14 +45,15 @@ using Platform::LogLevel;
 } while (0) \
 
 #define GDB_CHECK_B() do{\
-        enum gdbstub_state st = gdbstub_check_bkpt(stub, R[15], true, true); \
+        uint32_t pc_real = R[15] - ((CPSR & 0x20) ? 2 : 4); \
+        enum gdbstub_state st = gdbstub_check_bkpt(stub, pc_real, true, true); \
         if (st != gdbstat_check_no_hit) { \
             is_single_step = st == gdbstat_step; \
             break_req = st == gdbstat_attach || st == gdbstat_break; \
         } else if (is_single_step || break_req) \
         { /* use else here or we singnle-step the same insn twice in gdb */ \
-            if (break_req) Log(LogLevel::Debug, "=== BREAK RESP T ===\n"); \
-            st = gdbstub_enter_reason(stub, true, gdbt_singlestep, R[15]); \
+            if (break_req) Log(LogLevel::Debug, "=== BREAK RESP ===\n"); \
+            st = gdbstub_enter_reason(stub, true, gdbt_singlestep, pc_real); \
             is_single_step = st == gdbstat_step; \
             break_req = st == gdbstat_attach || st == gdbstat_break; \
         } \
@@ -611,9 +612,14 @@ void ARMv5::DataAbort()
     JumpTo(ExceptionBase + 0x10);
 }
 
-void ARMv5::Execute()
+void ARM::CheckGdbIncoming()
 {
     GDB_CHECK_A();
+}
+
+void ARMv5::Execute()
+{
+    //GDB_CHECK_A();
 
     if (Halted)
     {
@@ -769,7 +775,7 @@ void ARMv5::ExecuteJIT()
 
 void ARMv4::Execute()
 {
-    GDB_CHECK_A();
+    //GDB_CHECK_A();
 
     if (Halted)
     {
