@@ -40,10 +40,6 @@
 #include "FrontendUtil.h"
 #include "duckstation/gl/context.h"
 
-#ifdef DISCORDRPC_ENABLED
-#include "DiscordRPC.h"
-#endif
-
 class EmuThread : public QThread
 {
     Q_OBJECT
@@ -335,8 +331,10 @@ private slots:
 
     void onFullscreenToggled();
 
+    void onUpdateTimerElapsed();
+
 private:
-    void closeEvent(QCloseEvent* event);
+    void closeEvent(QCloseEvent* event) override;
 
     QStringList currentROM;
     QStringList currentGBAROM;
@@ -355,10 +353,6 @@ private:
 
     int oldW, oldH;
     bool oldMax;
-
-#ifdef DISCORDRPC_ENABLED
-    DiscordRPC* rpc;
-#endif
 
 public:
     ScreenHandler* panel;

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>285</width>
-    <height>182</height>
+    <width>274</width>
+    <height>166</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -44,13 +44,6 @@
      </property>
     </widget>
    </item>
-   <item row="4" column="0" colspan="3">
-    <widget class="QCheckBox" name="cbDiscordTrackTime">
-     <property name="text">
-      <string>Track time on Discord</string>
-     </property>
-    </widget>
-   </item>
    <item row="1" column="0" alignment="Qt::AlignLeft">
     <widget class="QLabel" name="label">
      <property name="text">
@@ -72,6 +65,13 @@
     <widget class="QCheckBox" name="cbDiscordEnable">
      <property name="text">
       <string>Display the currently active game on Discord</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="0" colspan="4">
+    <widget class="QCheckBox" name="cbDiscordTrackTime">
+     <property name="text">
+      <string>Track time on Discord</string>
      </property>
     </widget>
    </item>

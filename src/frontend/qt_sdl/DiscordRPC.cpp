@@ -20,10 +20,11 @@
 
 #include "Config.h"
 #include "Platform.h"
-
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+
+#include <discord_rpc.h>
 
 const char* APP_ID          = "1049597419152744458";
 
@@ -56,8 +57,16 @@ void PartyEventWithUser(const DiscordUser* user)
 }
 
 DiscordRPC::DiscordRPC()
+{}
+
+DiscordRPC::~DiscordRPC()
 {
-    if (Platform::InstanceID() != 0)
+    ShutDown();
+}
+
+void DiscordRPC::Initialize()
+{
+    if (Platform::InstanceID() > 0)
     {
         return;
     }
@@ -75,28 +84,32 @@ DiscordRPC::DiscordRPC()
     };
 
     Discord_Initialize(APP_ID, &event_handler, false, NULL);
+
+    Update();
+
+    Connected = true;
 }
 
-DiscordRPC::~DiscordRPC()
+void DiscordRPC::ShutDown()
 {
-    if (Platform::InstanceID() != 0)
-    {
-        return;
-    }
-
     Discord_ClearPresence();
-    Discord_RunCallbacks();
+    Update();
 
     Discord_Shutdown();
+
+    Connected = false;
 }
 
-void DiscordRPC::Update(const bool isGameActive, const char* title)
+void DiscordRPC::Update()
 {
-    if (Platform::InstanceID() != 0)
-    {
-        return;
-    }
+#ifdef DISCORD_DISABLE_IO_THREAD
+    Discord_UpdateConnection();
+#endif
+    Discord_RunCallbacks();
+}
 
+void DiscordRPC::SetPresence(const bool isGameActive, const char* title)
+{
     DiscordRichPresence presence =
     {
         .state          = NULL,
@@ -129,12 +142,17 @@ void DiscordRPC::Update(const bool isGameActive, const char* title)
         presence.details = DETAILS_PLAYING;
     }
 
-    if (!Config::DiscordTrackTime)
+    if (!Config::Discord_TrackTime)
     {
         presence.startTimestamp = 0;
     }
 
     Discord_UpdatePresence(&presence);
 
-    Discord_RunCallbacks();
+    Update();
+}
+
+bool DiscordRPC::IsConnected()
+{
+    return Connected;
 }

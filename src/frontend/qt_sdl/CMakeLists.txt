@@ -136,6 +136,8 @@ if (BUILD_STATIC)
 endif()
 
 if (ENABLE_DISCORDRPC)
+    option(DISABLE_DISCORD_IO_THREAD "Enable this if discord-rpc was compiled without its own IO thread (Not recommended)" OFF)
+
     find_package(DiscordRPC REQUIRED FATAL_ERROR)
 
     target_sources(melonDS PRIVATE
@@ -146,6 +148,10 @@ if (ENABLE_DISCORDRPC)
     target_compile_definitions(melonDS PRIVATE DISCORDRPC_ENABLED)
     target_include_directories(melonDS PRIVATE ${DiscordRPC_INCLUDE_DIRS})
     target_link_libraries(melonDS PRIVATE ${DiscordRPC_LIBRARIES})
+
+    if (DISABLE_DISCORD_IO_THREAD)
+        target_compile_definitions(melonDS PRIVATE DISABLE_DISCORD_IO_THREAD)
+    endif()
 endif()
 
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

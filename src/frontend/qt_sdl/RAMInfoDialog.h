@@ -142,7 +142,7 @@ public:
     void Stop();
 
 private:
-    void run();
+    void run() override;
 
     RAMInfoDialog* Dialog;
     bool SearchRunning = false;

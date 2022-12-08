@@ -20,7 +20,6 @@
 #define DISCORDRPC_H
 
 #include "types.h"
-#include <discord_rpc.h>
 
 class DiscordRPC
 {
@@ -28,10 +27,15 @@ public:
     DiscordRPC();
     ~DiscordRPC();
 
-    void Update(const bool isGameActive, const char* title);
+    void Initialize();
+    void ShutDown();
+    void Update();
+    void SetPresence(const bool isGameActive, const char* title);
+    bool IsConnected();
     
 private:
-    s64 StartTime;
+    bool Connected = false;
+    s64  StartTime = 0;
 };
 
 #endif

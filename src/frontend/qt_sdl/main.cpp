@@ -97,6 +97,10 @@
 
 #include "CLI.h"
 
+#ifdef DISCORDRPC_ENABLED
+#include "DiscordRPC.h"
+#endif
+
 // TODO: uniform variable spelling
 
 bool RunningSomething;
@@ -125,6 +129,10 @@ s16* micWavBuffer;
 
 CameraManager* camManager[2];
 bool camStarted[2];
+
+#ifdef DISCORDRPC_ENABLED
+DiscordRPC rpc;
+#endif
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
@@ -1096,6 +1104,9 @@ void ScreenHandler::screenHandleTablet(QTabletEvent* event)
             touching = false;
         }
         break;
+
+    default:
+        break;
     }
 }
 
@@ -1126,6 +1137,9 @@ void ScreenHandler::screenHandleTouch(QTouchEvent* event)
             NDS::ReleaseScreen();
             touching = false;
         }
+        break;
+
+    default:
         break;
     }
 }
@@ -1459,6 +1473,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     setFocusPolicy(Qt::ClickFocus);
 
     int inst = Platform::InstanceID();
+
+    if (Config::Discord_Enable)
+    {
+        rpc.Initialize();
+    }
+
+    QTimer* timer = new QTimer(this);
+    connect(timer, SIGNAL(timeout()), this, SLOT(onUpdateTimerElapsed()));
+
+    timer->start(1000);
 
     QMenuBar* menubar = new QMenuBar();
     {
@@ -1902,29 +1926,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actPreferences->setEnabled(false);
 #endif // __APPLE__
     }
-
-#ifdef DISCORDRPC_ENABLED
-    if (Config::DiscordEnable)
-    {
-        rpc = new DiscordRPC();
-        rpc->Update(false, NULL);
-    }
-    else
-    {
-        rpc = nullptr;
-    }
-#endif
 }
 
 MainWindow::~MainWindow()
-{
-#ifdef DISCORDRPC_ENABLED
-    if (rpc != nullptr)
-    {
-        delete rpc;
-    }
-#endif
-}
+{}
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
@@ -1934,6 +1939,10 @@ void MainWindow::closeEvent(QCloseEvent* event)
         emuThread->emuPause();
         emuThread->deinitContext();
     }
+
+#ifdef DISCORDRPC_ENABLED
+    rpc.ShutDown();
+#endif
 
     QMainWindow::closeEvent(event);
 }
@@ -2322,6 +2331,22 @@ void MainWindow::updateCartInserted(bool gba)
         actROMInfo->setEnabled(inserted);
         actRAMInfo->setEnabled(inserted);
     }
+}
+
+void MainWindow::onUpdateTimerElapsed()
+{
+#ifdef DISCORDRPC_ENABLED
+    rpc.Update();
+
+    QString title = "Unknown game";
+    if (NDSCart::CartInserted)
+    {
+        title = QString::fromUtf16(NDSCart::Banner.EnglishTitle);
+        title = title.left(title.lastIndexOf("\n")).replace("\n", " ");
+    }
+
+    rpc.SetPresence(emuThread->emuIsActive(), title.toUtf8().constData());
+#endif
 }
 
 void MainWindow::onOpenFile()
@@ -3029,33 +3054,15 @@ void MainWindow::onUpdateMouseTimer()
 void MainWindow::onInterfaceSettingsFinished(int res)
 {
     emuThread->emuUnpause();
-    
-#ifdef DISCORDRPC_ENABLED
-    if (Config::DiscordEnable && rpc == nullptr)
+
+    if (!Config::Discord_Enable && rpc.IsConnected())
     {
-        rpc = new DiscordRPC();
+        rpc.ShutDown();
     }
-    
-    if (!Config::DiscordEnable && rpc != nullptr)
+    else if (Config::Discord_Enable && !rpc.IsConnected())
     {
-        delete rpc;
-
-        rpc = nullptr; // some platforms are mean
+        rpc.Initialize();
     }
-
-    if (rpc != nullptr)
-    {
-        QString title = "Unknown game";
-
-        if (NDSCart::CartInserted)
-        {
-            title = QString::fromUtf16(NDSCart::Banner.EnglishTitle);
-            title = title.left(title.lastIndexOf("\n")).replace("\n", " ");
-        }
-
-        rpc->Update(emuThread->emuIsActive(), title.toUtf8().constData());
-    }
-#endif
 }
 
 void MainWindow::onChangeSavestateSRAMReloc(bool checked)
@@ -3215,23 +3222,6 @@ void MainWindow::onEmuStart()
     actPowerManagement->setEnabled(true);
 
     actTitleManager->setEnabled(false);
-
-#ifdef DISCORDRPC_ENABLED
-    if (rpc == nullptr)
-    {
-        return;
-    }
-
-    QString title = "Unknown game";
-
-    if (NDSCart::CartInserted)
-    {
-        title = QString::fromUtf16(NDSCart::Banner.EnglishTitle);
-        title = title.left(title.lastIndexOf("\n")).replace("\n", " ");
-    }
-
-    rpc->Update(emuThread->emuIsActive(), title.toUtf8().constData());
-#endif
 }
 
 void MainWindow::onEmuStop()
@@ -3253,15 +3243,6 @@ void MainWindow::onEmuStop()
     actPowerManagement->setEnabled(false);
 
     actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
-
-#ifdef DISCORDRPC_ENABLED
-    if (rpc == nullptr)
-    {
-        return;
-    }
-
-    rpc->Update(false, NULL);
-#endif
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
@@ -3318,6 +3299,8 @@ bool MelonApplication::event(QEvent *event)
 int main(int argc, char** argv)
 {
     srand(time(nullptr));
+
+    setvbuf(stdout, NULL, _IONBF, 0);
 
     qputenv("QT_SCALE_FACTOR", "1");
 

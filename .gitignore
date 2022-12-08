@@ -13,7 +13,6 @@ compile_commands.json
 .idea
 .cache
 .vscode
-ThirdParty
 
 *.exe
 
