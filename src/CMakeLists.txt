@@ -57,25 +57,16 @@ add_library(core STATIC
 
     sha1/sha1.c
     tiny-AES-c/aes.c
-<<<<<<< HEAD
     xxhash/xxhash.c)
-=======
-    xxhash/xxhash.c
-)
 
-if (ENABLE_DEBUG_FEATURES)
-    message(NOTICE "Enabling debugging features")
+if (ENABLE_GDBSTUB)
+    message(NOTICE "Enabling GDB stub")
     target_sources(core PRIVATE
-        debug/hypervisor.cpp
-        debug/storage.cpp
-        debug/lxt_write.c
-
         debug/gdbstub.c
         debug/gdbproto.c
         debug/gdbcmds.c
     )
 endif()
->>>>>>> e045f0d (holy fuck the gdbstub works)
 
 if (ENABLE_OGLRENDERER)
     target_sources(core PRIVATE
@@ -159,3 +150,14 @@ if (ENABLE_JIT_PROFILING)
     target_include_directories(core PRIVATE "${VTUNE_INCLUDE_DIR}")
     target_link_libraries(core PRIVATE "${VTUNE_LIBRARY}")
 endif()
+
+#if(CMAKE_BUILD_TYPE MATCHES "Debug")
+#  set(
+#    CMAKE_C_FLAGS
+#    "${CMAKE_C_FLAGS} -fsanitize=undefined -fsanitize=address"
+#  )
+#  target_link_options(core
+#    BEFORE PUBLIC -fsanitize=undefined PUBLIC -fsanitize=address
+#  )
+#endif()
+

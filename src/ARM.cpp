@@ -25,6 +25,7 @@
 #include "AREngine.h"
 #include "ARMJIT.h"
 #include "Platform.h"
+#include "GPU.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"
@@ -1019,6 +1020,7 @@ void ARM::GdbReset(void* ud)
     (void)ud;
 
     NDS::Reset();
+    GPU::StartFrame(); // need this to properly kick off the scheduler & frame output
 }
 int ARM::GdbRemoteCmd(void* ud, const uint8_t* cmd, size_t len)
 {
