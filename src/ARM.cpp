@@ -38,31 +38,37 @@ using Platform::LogLevel;
 #ifdef GDBSTUB_ENABLED
 
 #define GDB_CHECK_A() do{\
-        if (!is_single_step) { /* check if eg. break signal is incoming etc. */ \
+        if (!is_single_step && !break_req) { /* check if eg. break signal is incoming etc. */ \
             enum gdbstub_state st = gdbstub_enter(stub, false); \
-            break_req = st == gdbstat_attach || st == gdbstat_break; \
-            if (break_req) Log(LogLevel::Debug, "=== BREAK REQ ===\n"); \
-        } \
-} while (0) \
-
-#define GDB_CHECK_B() do{\
-        uint32_t pc_real = R[15] - ((CPSR & 0x20) ? 2 : 4); \
-        enum gdbstub_state st = gdbstub_check_bkpt(stub, pc_real, true, true); \
-        if (st != gdbstat_check_no_hit) { \
-            is_single_step = st == gdbstat_step; \
-            break_req = st == gdbstat_attach || st == gdbstat_break; \
-        } else if (is_single_step || break_req) \
-        { /* use else here or we singnle-step the same insn twice in gdb */ \
-            if (break_req) Log(LogLevel::Debug, "=== BREAK RESP ===\n"); \
-            st = gdbstub_enter_reason(stub, true, gdbt_singlestep, pc_real); \
             is_single_step = st == gdbstat_step; \
             break_req = st == gdbstat_attach || st == gdbstat_break; \
         } \
     } while (0) \
 
+#define GDB_CHECK_B(...) do{\
+        if (is_single_step || break_req) \
+        { /* use else here or we singnle-step the same insn twice in gdb */ \
+            uint32_t pc_real = R[15] - ((CPSR & 0x20) ? 2 : 4); \
+            enum gdbstub_state st = gdbstub_enter_reason(stub, true, gdbt_singlestep, pc_real); \
+            is_single_step = st == gdbstat_step; \
+            break_req = st == gdbstat_attach || st == gdbstat_break; \
+        } \
+    } while (0) \
+
+
+#define GDB_CHECK_C() do{\
+        uint32_t pc_real = R[15] - ((CPSR & 0x20) ? 2 : 4); \
+        enum gdbstub_state st = gdbstub_check_bkpt(stub, pc_real, true, true); \
+        if (st != gdbstat_check_no_hit) { \
+            is_single_step = st == gdbstat_step; \
+            break_req = st == gdbstat_attach || st == gdbstat_break; \
+        } else GDB_CHECK_B(true); \
+    } while (0) \
+
 #else
 #define GDB_CHECK_A() do{}while(0)
 #define GDB_CHECK_B() do{}while(0)
+#define GDB_CHECK_C() do{}while(0)
 #endif
 
 
@@ -620,7 +626,7 @@ void ARM::CheckGdbIncoming()
 
 void ARMv5::Execute()
 {
-    //GDB_CHECK_A();
+    GDB_CHECK_B();
 
     if (Halted)
     {
@@ -645,7 +651,7 @@ void ARMv5::Execute()
     {
         if (CPSR & 0x20) // THUMB
         {
-            GDB_CHECK_B();
+            GDB_CHECK_C();
 
             // prefetch
             R[15] += 2;
@@ -660,7 +666,7 @@ void ARMv5::Execute()
         }
         else
         {
-            GDB_CHECK_B();
+            GDB_CHECK_C();
 
             // prefetch
             R[15] += 4;
@@ -776,7 +782,7 @@ void ARMv5::ExecuteJIT()
 
 void ARMv4::Execute()
 {
-    //GDB_CHECK_A();
+    GDB_CHECK_B();
 
     if (Halted)
     {
@@ -801,7 +807,7 @@ void ARMv4::Execute()
     {
         if (CPSR & 0x20) // THUMB
         {
-            GDB_CHECK_B();
+            GDB_CHECK_C();
 
             // prefetch
             R[15] += 2;
@@ -815,7 +821,7 @@ void ARMv4::Execute()
         }
         else
         {
-            GDB_CHECK_B();
+            GDB_CHECK_C();
 
             // prefetch
             R[15] += 4;
@@ -1000,6 +1006,26 @@ uint32_t ARM::GdbReadMem(void* ud, uint32_t addr, int size)
 {
     ARM* cpu = (ARM*)ud;
 
+    if (cpu == NDS::ARM9)
+    {
+        ARMv5* a9 = (ARMv5*)ud;
+
+        if (addr < a9->ITCMSize)
+        {
+            if (size == 8) return *(u8*)&a9->ITCM[addr & (ITCMPhysicalSize - 1)];
+            else if (size == 16) return *(u16*)&a9->ITCM[addr & (ITCMPhysicalSize - 1)];
+            else if (size == 32) return *(u32*)&a9->ITCM[addr & (ITCMPhysicalSize - 1)];
+            else return 0xfeedface;
+        }
+        else if ((addr & a9->DTCMMask) == a9->DTCMBase)
+        {
+            if (size == 8) return *(u8*)&a9->DTCM[addr & (DTCMPhysicalSize - 1)];
+            else if (size == 16) return *(u16*)&a9->DTCM[addr & (DTCMPhysicalSize - 1)];
+            else if (size == 32) return *(u32*)&a9->DTCM[addr & (DTCMPhysicalSize - 1)];
+            else return 0xfeedface;
+        }
+    }
+
     if (size == 8) return cpu->BusRead8(addr);
     else if (size == 16) return cpu->BusRead16(addr);
     else if (size == 32) return cpu->BusRead32(addr);
@@ -1008,6 +1034,29 @@ uint32_t ARM::GdbReadMem(void* ud, uint32_t addr, int size)
 void ARM::GdbWriteMem(void* ud, uint32_t addr, int size, uint32_t v)
 {
     ARM* cpu = (ARM*)ud;
+
+    if (cpu == NDS::ARM9)
+    {
+        ARMv5* a9 = (ARMv5*)ud;
+
+        if (addr < a9->ITCMSize)
+        {
+            if (size == 8) *(u8*)&a9->ITCM[addr & (ITCMPhysicalSize - 1)] = (u8)v;
+            else if (size == 16) *(u16*)&a9->ITCM[addr & (ITCMPhysicalSize - 1)] = (u16)v;
+            else if (size == 32) *(u32*)&a9->ITCM[addr & (ITCMPhysicalSize - 1)] = (u32)v;
+            else {}
+            return;
+        }
+        else if ((addr & a9->DTCMMask) == a9->DTCMBase)
+        {
+            if (size == 8) *(u8*)&a9->DTCM[addr & (DTCMPhysicalSize - 1)] = (u8)v;
+            else if (size == 16) *(u16*)&a9->DTCM[addr & (DTCMPhysicalSize - 1)] = (u16)v;
+            else if (size == 32) *(u32*)&a9->DTCM[addr & (DTCMPhysicalSize - 1)] = (u32)v;
+            else {}
+            return;
+        }
+    }
+
 
     if (size == 8) cpu->BusWrite8(addr, (uint8_t)v);
     else if (size == 16) cpu->BusWrite16(addr, (uint16_t)v);
@@ -1027,7 +1076,7 @@ int ARM::GdbRemoteCmd(void* ud, const uint8_t* cmd, size_t len)
     (void)len;
 
     printf("[ARMGDB] Rcmd: \"%s\"\n", cmd);
-    if (!strcmp((const char*)cmd, "reset")) {
+    if (!strcmp((const char*)cmd, "reset") || !strcmp((const char*)cmd, "r")) {
         GdbReset(ud);
         return 0;
     }

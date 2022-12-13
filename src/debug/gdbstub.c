@@ -319,13 +319,17 @@ void gdbstub_signal_status(struct gdbstub* stub, enum gdbtgt_status stat, uint32
 
 
 enum gdbstub_state gdbstub_enter_reason(struct gdbstub* stub, bool stay, enum gdbtgt_status stat, uint32_t arg) {
-	if (!stub) return;
+	if (!stub) return gdbstat_noconn;
 	if (stat != gdbt_no_event) gdbstub_signal_status(stub, stat, arg);
 
 	enum gdbstub_state st;
 	bool do_next = true;
 	do {
+		bool was_conn = stub->connfd > 0;
 		st = gdbstub_poll(stub);
+		bool has_conn = stub->connfd > 0;
+
+		if (has_conn && !was_conn) stay = true;
 
 		switch (st) {
 		case gdbstat_break:
@@ -346,9 +350,7 @@ enum gdbstub_state gdbstub_enter_reason(struct gdbstub* stub, bool stay, enum gd
 			do_next = false;
 			break;
 		}
-
-		if (!stay) break;
-	} while (do_next);
+	} while (do_next && stay);
 
 	//if (st != 0 && st != 1) printf("[GDB] enter exit: %d\n", st);
 	return st;
@@ -391,6 +393,12 @@ void gdbstub_add_bkpt(struct gdbstub* stub, uint32_t addr, int kind) {
 	}
 
 	stub->bp_list[ind] = new;
+
+	/*printf("[GDB] added bkpt:\n");
+	for (size_t i = 0; i < stub->bp_size; ++i) {
+		printf("\t[%zu]: addr=%08x, kind=%d, used=%c\n", i, stub->bp_list[i].addr,
+			stub->bp_list[i].kind, stub->bp_list[i].used?'T':'f');
+	}*/
 }
 void gdbstub_add_watchpt(struct gdbstub* stub, uint32_t addr, uint32_t len, int kind) {
 	if (!stub) return;
@@ -464,14 +472,17 @@ void gdbstub_del_all_bp_wp(struct gdbstub* stub) {
 
 enum gdbstub_state gdbstub_check_bkpt(struct gdbstub* stub, uint32_t addr, bool enter, bool stay) {
 	addr ^= (addr & 1); // clear lowest bit to not break on thumb mode weirdnesses
-	if (!stub) return;
+	if (!stub) return gdbstat_check_no_hit;
 	uint32_t ind = addr % stub->bp_size;
 
 	if (stub->bp_list[ind].used && stub->bp_list[ind].addr == addr) {
 		//__builtin_trap();
-		if (enter)
-			return gdbstub_enter_reason(stub, stay, gdbt_bkpt, addr);
-		else {
+		if (enter) {
+			//printf("[GDB] ENTER bkpt 0x%08x!\n", addr);
+			enum gdbstub_state r = gdbstub_enter_reason(stub, stay, gdbt_bkpt, addr);
+			//printf("[GDB] ENTER st=%d\n", r);
+			return r;
+		} else {
 			gdbstub_signal_status(stub, gdbt_bkpt, addr);
 			return gdbstat_none;
 		}
@@ -480,7 +491,7 @@ enum gdbstub_state gdbstub_check_bkpt(struct gdbstub* stub, uint32_t addr, bool 
 	return gdbstat_check_no_hit;
 }
 enum gdbstub_state gdbstub_check_watchpt(struct gdbstub* stub, uint32_t addr, int kind, bool enter, bool stay) {
-	if (!stub) return;
+	if (!stub) return gdbstat_check_no_hit;
 	uint32_t ind = addr % stub->wp_size;
 
 	// TODO: check address ranges!
