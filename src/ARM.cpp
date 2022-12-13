@@ -36,7 +36,6 @@ using Platform::Log;
 using Platform::LogLevel;
 
 #ifdef GDBSTUB_ENABLED
-
 #define GDB_CHECK_A() do{\
         if (!is_single_step && !break_req) { /* check if eg. break signal is incoming etc. */ \
             enum gdbstub_state st = gdbstub_enter(stub, false); \

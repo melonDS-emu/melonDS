@@ -19,21 +19,6 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-<<<<<<< HEAD
-=======
-#ifdef __cplusplus
-#define TYPES_TESTVAR __cplusplus
-#define TYPES_TESTVAL 201103L
-#else
-#define TYPES_TESTVAR __STDC_VERSION__
-#define TYPES_TESTVAL 201112L
-#endif
-
-#if TYPES_TESTVAR >= TYPES_TESTVAL
-
-// use the C++11/C11 defines because they're most likely more correct
-
->>>>>>> e045f0d (holy fuck the gdbstub works)
 #include <stdint.h>
 
 typedef uint8_t     u8;

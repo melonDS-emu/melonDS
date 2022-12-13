@@ -28,7 +28,7 @@ using Platform::Log;
 using Platform::LogLevel;
 
 #ifdef GDBSTUB_ENABLED
-#include "debug/hypervisor.h"
+#include "debug/gdbstub.h"
 #endif
 
 namespace ARMInterpreter
