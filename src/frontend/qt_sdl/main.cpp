@@ -1474,10 +1474,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     int inst = Platform::InstanceID();
 
+#ifdef DISCORDRPC_ENABLED
     if (Config::Discord_Enable)
     {
         rpc.Initialize();
     }
+#endif
 
     QTimer* timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(onUpdateTimerElapsed()));
@@ -3055,6 +3057,7 @@ void MainWindow::onInterfaceSettingsFinished(int res)
 {
     emuThread->emuUnpause();
 
+#ifdef DISCORDRPC_ENABLED
     if (!Config::Discord_Enable && rpc.IsConnected())
     {
         rpc.ShutDown();
@@ -3063,6 +3066,7 @@ void MainWindow::onInterfaceSettingsFinished(int res)
     {
         rpc.Initialize();
     }
+#endif
 }
 
 void MainWindow::onChangeSavestateSRAMReloc(bool checked)
