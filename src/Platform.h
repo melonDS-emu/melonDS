@@ -82,12 +82,7 @@ enum ConfigEntry
     Firm_Message,
     Firm_MAC,
 
-    AudioBitrate,
-
-#ifdef DISCORDRPC_ENABLED
-    Discord_Enable,
-    Discord_TrackTime
-#endif
+    AudioBitrate
 };
 
 int GetConfigInt(ConfigEntry entry);

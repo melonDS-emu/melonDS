@@ -222,11 +222,6 @@ bool GetConfigBool(ConfigEntry entry)
 
     case Firm_OverrideSettings: return Config::FirmwareOverrideSettings != 0;
 
-#ifdef DISCORDRPC_ENABLED
-    case Discord_Enable: return Config::Discord_Enable != 0;
-    case Discord_TrackTime: return Config::Discord_TrackTime != 0;
-#endif
-
     default: break;
     }
 
