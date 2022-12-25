@@ -461,7 +461,7 @@ void EmuSettingsDialog::on_btnDSiSDBrowse_clicked()
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DSi SD image...",
                                                 QString::fromStdString(Config::LastBIOSFolder),
-                                                "Image files (*.bin *.rom *.img *.dmg);;Any file (*.*)");
+                                                "Image files (*.bin *.rom *.img *.sd *.dmg);;Any file (*.*)");
 
     if (file.isEmpty()) return;
 
