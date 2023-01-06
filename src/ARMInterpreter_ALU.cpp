@@ -46,16 +46,16 @@ inline bool OverflowSub(u32 a, u32 b)
 
 inline bool OverflowAdc(u32 a, u32 b, u32 carry)
 {
-    s64 fullResult = (s64)(s32)(a) + (s64)(s32)b + carry;
+    s64 fullResult = (s64)(s32)a + (s32)b + carry;
     u32 res = a + b + carry;
-    return (res & 0x80000000) != ((u32)fullResult & 0x80000000);
+    return (s32)res != fullResult;
 }
 
 inline bool OverflowSbc(u32 a, u32 b, u32 carry)
 {
-    s64 fullResult = (s64)(s32)(a) - (s64)(s32)b - carry;
+    s64 fullResult = (s64)(s32)a - (s32)b - carry;
     u32 res = a - b - carry;
-    return (res & 0x80000000) != ((u32)fullResult & 0x80000000);
+    return (s32)res != fullResult;
 }
 
 #define LSL_IMM(x, s) \
