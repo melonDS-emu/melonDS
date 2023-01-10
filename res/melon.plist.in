@@ -16,6 +16,8 @@
     <string>${melonDS_VERSION}</string>
     <key>CFBundleShortVersionString</key>
     <string>${melonDS_VERSION}</string> 
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.games</string>
     <key>NSHumanReadableCopyright</key>
     <string>Licensed under GPLv3</string>
     <key>NSPrincipalClass</key>
