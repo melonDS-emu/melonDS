@@ -25,6 +25,7 @@ set(SOURCES_QT_SDL
     RAMInfoDialog.cpp
     TitleManagerDialog.cpp
     Input.cpp
+	IPC.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp
     LocalMP.cpp

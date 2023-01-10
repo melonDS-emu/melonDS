@@ -38,6 +38,7 @@
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 #include "LocalMP.h"
+#include "IPC.h"
 #include "OSD.h"
 
 #ifdef __WIN32__
@@ -54,64 +55,6 @@ void emuStop();
 
 namespace Platform
 {
-
-QSharedMemory* IPCBuffer = nullptr;
-int IPCInstanceID;
-
-void IPCInit()
-{
-    IPCInstanceID = 0;
-
-    IPCBuffer = new QSharedMemory("melonIPC");
-
-    if (!IPCBuffer->attach())
-    {
-        Log(LogLevel::Info, "IPC sharedmem doesn't exist. creating\n");
-        if (!IPCBuffer->create(1024))
-        {
-            Log(LogLevel::Error, "IPC sharedmem create failed :(\n");
-            delete IPCBuffer;
-            IPCBuffer = nullptr;
-            return;
-        }
-
-        IPCBuffer->lock();
-        memset(IPCBuffer->data(), 0, IPCBuffer->size());
-        IPCBuffer->unlock();
-    }
-
-    IPCBuffer->lock();
-    u8* data = (u8*)IPCBuffer->data();
-    u16 mask = *(u16*)&data[0];
-    for (int i = 0; i < 16; i++)
-    {
-        if (!(mask & (1<<i)))
-        {
-            IPCInstanceID = i;
-            *(u16*)&data[0] |= (1<<i);
-            break;
-        }
-    }
-    IPCBuffer->unlock();
-
-    Log(LogLevel::Info, "IPC: instance ID %d\n", IPCInstanceID);
-}
-
-void IPCDeInit()
-{
-    if (IPCBuffer)
-    {
-        IPCBuffer->lock();
-        u8* data = (u8*)IPCBuffer->data();
-        *(u16*)&data[0] &= ~(1<<IPCInstanceID);
-        IPCBuffer->unlock();
-
-        IPCBuffer->detach();
-        delete IPCBuffer;
-    }
-    IPCBuffer = nullptr;
-}
-
 
 void Init(int argc, char** argv)
 {
@@ -147,12 +90,12 @@ void Init(int argc, char** argv)
     EmuDirectory = confdir.toStdString();
 #endif
 
-    IPCInit();
+    IPC::Init();
 }
 
 void DeInit()
 {
-    IPCDeInit();
+    IPC::DeInit();
 }
 
 void SignalStop(StopReason reason)
@@ -178,12 +121,12 @@ void SignalStop(StopReason reason)
 
 int InstanceID()
 {
-    return IPCInstanceID;
+    return IPC::InstanceID;
 }
 
 std::string InstanceFileSuffix()
 {
-    int inst = IPCInstanceID;
+    int inst = IPC::InstanceID;
     if (inst == 0) return "";
 
     char suffix[16] = {0};
