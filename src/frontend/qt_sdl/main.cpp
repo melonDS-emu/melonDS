@@ -101,10 +101,10 @@
 
 // TODO: uniform variable spelling
 
-const QStringList NdsRomMimeTypes { "application/x-nintendo-ds-rom" };
+const QString NdsRomMimeType = "application/x-nintendo-ds-rom";
 const QStringList NdsRomExtensions { ".nds", ".srl", ".dsi", ".ids" };
 
-const QStringList GbaRomMimeTypes { "application/x-gba-rom" };
+const QString GbaRomMimeType = "application/x-gba-rom";
 const QStringList GbaRomExtensions { ".gba", ".agb" };
 
 const QStringList ArchiveMimeTypes
@@ -1502,12 +1502,12 @@ static bool SupportedArchiveByExtension(const QString& filename)
 
 static bool NdsRomByMimetype(const QMimeType& mimetype)
 {
-    return  MimeTypeInList(mimetype, NdsRomMimeTypes);
+    return mimetype.inherits(NdsRomMimeType);
 }
 
 static bool GbaRomByMimetype(const QMimeType& mimetype)
 {
-    return  MimeTypeInList(mimetype, GbaRomMimeTypes);
+    return mimetype.inherits(GbaRomMimeType);
 }
 
 static bool SupportedArchiveByMimetype(const QMimeType& mimetype)
@@ -1522,7 +1522,7 @@ static bool FileIsSupportedFiletype(const QString& filename, bool insideArchive 
         return true;
 
     const auto matchmode = insideArchive ? QMimeDatabase::MatchExtension : QMimeDatabase::MatchDefault;
-    const QMimeType mimetype = QMimeDatabase{}.mimeTypeForFile(filename, matchmode);
+    const QMimeType mimetype = QMimeDatabase().mimeTypeForFile(filename, matchmode);
     return NdsRomByMimetype(mimetype) || GbaRomByMimetype(mimetype) || SupportedArchiveByMimetype(mimetype);
 }
 
@@ -2152,7 +2152,7 @@ void MainWindow::dropEvent(QDropEvent* event)
     const QString filename = file.last();
     const bool romInsideArchive = file.size() > 1;
     const auto matchMode = romInsideArchive ? QMimeDatabase::MatchExtension : QMimeDatabase::MatchDefault;
-    const QMimeType mimetype = QMimeDatabase{}.mimeTypeForFile(filename, matchMode);
+    const QMimeType mimetype = QMimeDatabase().mimeTypeForFile(filename, matchMode);
 
     if (NdsRomByExtension(filename) || NdsRomByMimetype(mimetype))
     {
@@ -2297,8 +2297,6 @@ QStringList MainWindow::splitArchivePath(const QString& filename, bool useMember
 #ifdef ARCHIVE_SUPPORT_ENABLED
     if (useMemberSyntax)
     {
-        printf("Warning: use the a.zip|b.nds format at your own risk!\n");
-
         const QStringList filenameParts = filename.split('|');
         if (filenameParts.size() > 2)
         {
@@ -2335,7 +2333,7 @@ QStringList MainWindow::splitArchivePath(const QString& filename, bool useMember
 
 #ifdef ARCHIVE_SUPPORT_ENABLED
     if (SupportedArchiveByExtension(filename)
-        || SupportedArchiveByMimetype(QMimeDatabase{}.mimeTypeForFile(filename)))
+        || SupportedArchiveByMimetype(QMimeDatabase().mimeTypeForFile(filename)))
     {
         const QString subfile = pickFileFromArchive(filename);
         if (subfile.isEmpty())
@@ -2366,7 +2364,7 @@ QString MainWindow::pickFileFromArchive(QString archiveFileName)
     const auto notSupportedRom = [&](const auto& filename){
         if (NdsRomByExtension(filename) || GbaRomByExtension(filename))
             return false;
-        const QMimeType mimetype = QMimeDatabase{}.mimeTypeForFile(filename, QMimeDatabase::MatchExtension);
+        const QMimeType mimetype = QMimeDatabase().mimeTypeForFile(filename, QMimeDatabase::MatchExtension);
         return !(NdsRomByMimetype(mimetype) || GbaRomByMimetype(mimetype));
     };
 
