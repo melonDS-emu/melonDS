@@ -966,10 +966,10 @@ void ScreenHandler::screenSetupLayout(int w, int h)
     }
 
     if (aspectTop == 0)
-        aspectTop = (float) w / h;
+        aspectTop = ((float) w / h) / (4.f / 3.f);
 
     if (aspectBot == 0)
-        aspectBot = (float) w / h;
+        aspectBot = ((float) w / h) / (4.f / 3.f);
 
     Frontend::SetupScreenLayout(w, h,
                                 Config::ScreenLayout,
