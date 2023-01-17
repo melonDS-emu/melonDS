@@ -107,6 +107,7 @@ const QStringList NdsRomExtensions { ".nds", ".srl", ".dsi", ".ids" };
 const QString GbaRomMimeType = "application/x-gba-rom";
 const QStringList GbaRomExtensions { ".gba", ".agb" };
 
+// This list of supported archive formats is based on libarchive(3) version 3.6.2 (2022-12-09).
 const QStringList ArchiveMimeTypes
 {
 #ifdef ARCHIVE_SUPPORT_ENABLED
