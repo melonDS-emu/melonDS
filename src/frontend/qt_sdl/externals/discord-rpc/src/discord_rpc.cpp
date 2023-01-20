@@ -1,7 +1,6 @@
 #include "discord_rpc.h"
 
 #include "backoff.h"
-#include "discord_register.h"
 #include "msg_queue.h"
 #include "rpc_connection.h"
 #include "serialization.h"
@@ -275,19 +274,21 @@ extern "C" DISCORD_EXPORT void Discord_Initialize(const char* applicationId,
                                                   int autoRegister,
                                                   const char* optionalSteamId)
 {
+    (void)(autoRegister);
+
     IoThread = new (std::nothrow) IoThreadHolder();
     if (IoThread == nullptr) {
         return;
     }
 
-    if (autoRegister) {
+    /*if (autoRegister) {
         if (optionalSteamId && optionalSteamId[0]) {
             Discord_RegisterSteamGame(applicationId, optionalSteamId);
         }
         else {
             Discord_Register(applicationId, nullptr);
         }
-    }
+    }*/
 
     Pid = GetProcessId();
 

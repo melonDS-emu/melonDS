@@ -11,7 +11,6 @@ set(SOURCE_DIR  ${CMAKE_CURRENT_LIST_DIR}/src)
 
 add_library(discord-rpc STATIC
     ${INCLUDE_DIR}/discord_rpc.h
-    ${INCLUDE_DIR}/discord_register.h
 
     ${SOURCE_DIR}/rpc_connection.h
     ${SOURCE_DIR}/backoff.h
@@ -30,11 +29,7 @@ target_include_directories(discord-rpc
 )
 
 if (WIN32)
-    target_sources(discord-rpc PRIVATE
-        ${SOURCE_DIR}/connection_win.cpp
-        ${SOURCE_DIR}/discord_register_win.cpp
-    )
-
+    target_sources(discord-rpc PRIVATE ${SOURCE_DIR}/connection_win.cpp)
     target_compile_definitions(discord-rpc PRIVATE -DDISCORD_WINDOWS)
     
     if (MSVC)
@@ -61,15 +56,9 @@ elseif (UNIX)
     target_sources(discord-rpc PRIVATE ${SOURCE_DIR}/connection_unix.cpp)
 
     if (APPLE)
-        enable_language(OBJC)
-
-        target_sources(discord-rpc PRIVATE ${SOURCE_DIR}/discord_register_osx.m)
-
         target_compile_definitions(discord-rpc PRIVATE -DDISCORD_OSX)
         target_link_libraries(discord-rpc PRIVATE "-framework AppKit, -mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
     else()
-        target_sources(discord-rpc PRIVATE ${SOURCE_DIR}/discord_register_linux.cpp)
-
         target_compile_definitions(discord-rpc PRIVATE -DDISCORD_LINUX)
     endif()
 
