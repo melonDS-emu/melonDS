@@ -57,7 +57,7 @@ elseif (UNIX)
 
     if (APPLE)
         target_compile_definitions(discord-rpc PRIVATE -DDISCORD_OSX)
-        target_link_libraries(discord-rpc PRIVATE "-framework AppKit, -mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+        target_link_libraries(discord-rpc PRIVATE "-framework AppKit")
     else()
         target_compile_definitions(discord-rpc PRIVATE -DDISCORD_LINUX)
     endif()
