@@ -31,26 +31,6 @@ target_include_directories(discord-rpc
 if (WIN32)
     target_sources(discord-rpc PRIVATE ${SOURCE_DIR}/connection_win.cpp)
     target_compile_definitions(discord-rpc PRIVATE -DDISCORD_WINDOWS)
-    
-    if (MSVC)
-        target_compile_options(discord-rpc PRIVATE
-            /EHsc
-
-            /Wall
-            /wd4100 # unreferenced formal parameter
-            /wd4514 # unreferenced inline
-            /wd4625 # copy constructor deleted
-            /wd5026 # move constructor deleted
-            /wd4626 # move assignment operator deleted
-            /wd4668 # not defined preprocessor macro
-            /wd4710 # function not inlined
-            /wd4711 # function was inlined
-            /wd4820 # structure padding
-            /wd4946 # reinterpret_cast used between related classes
-            /wd5027 # move assignment operator was implicitly defined as deleted
-        )
-    endif()
-
     target_link_libraries(discord-rpc PRIVATE psapi advapi32)
 elseif (UNIX)
     target_sources(discord-rpc PRIVATE ${SOURCE_DIR}/connection_unix.cpp)

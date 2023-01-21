@@ -83,7 +83,7 @@ void DiscordRPC::Initialize()
         .joinRequest  = PartyEventWithUser
     };
 
-    Discord_Initialize(APP_ID, &event_handler, false, NULL);
+    Discord_Initialize(APP_ID, &event_handler);
 
     Update();
 
