@@ -86,6 +86,9 @@ signals:
 
     void swapScreensToggle();
 
+    void hkSaveState();
+    void hkLoadState();
+
 private:
     void drawScreenGL();
     void initOpenGL();
