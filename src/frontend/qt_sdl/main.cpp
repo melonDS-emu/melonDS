@@ -707,6 +707,8 @@ bool EmuThread::setGameScene(int newGameScene)
         case gameScene_InGameWithoutMap: size = screenSizing_TopOnly; break;
         case gameScene_PauseMenu: size = screenSizing_TopOnly; break;
         case gameScene_Tutorial: size = screenSizing_BotOnly; break;
+        case gameScene_MissionResult: break;
+        case gameScene_RoxasThoughts: size = screenSizing_TopOnly; break;
         default: break;
     }
     autoScreenSizing = size;
@@ -810,6 +812,16 @@ bool EmuThread::refreshAutoScreenSizing()
         if (videoSettings.GameScene == gameScene_MainMenu && GPU3D::NumVertices == 0 && GPU3D::NumPolygons == 0 && GPU3D::RenderNumPolygons == 1)
         {
             return setGameScene(gameScene_IntroCutscene);
+        }
+
+        // Mission result
+        // It would be better to have that specified somehow, so we can avoid the glitch that occours when that screen first appears
+        // gameScene_MissionResult
+
+        // Roxas thoughts scene
+        if (isBottomScreenBlack)
+        {
+            return setGameScene(gameScene_RoxasThoughts);
         }
 
         // Unknown 2D

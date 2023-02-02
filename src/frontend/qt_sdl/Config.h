@@ -62,6 +62,8 @@ enum
     gameScene_InGameWithoutMap,
     gameScene_PauseMenu,
     gameScene_Tutorial,
+    gameScene_MissionResult,
+    gameScene_RoxasThoughts,
     gameScene_Other2D,
     gameScene_Other
 };
