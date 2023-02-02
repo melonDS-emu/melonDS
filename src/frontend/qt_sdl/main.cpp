@@ -670,10 +670,15 @@ bool EmuThread::setGameScene(int newGameScene)
 {
     // Background color
     float backgroundColor = 0.0;
-    if (newGameScene == gameScene_Intro || newGameScene == gameScene_MainMenu)
+    if (newGameScene == gameScene_Intro)
     {
         backgroundColor = (1.0 * PARSE_BRIGHTNESS(GPU::GPU2D_A.MasterBrightness, 15)) / 15;
-        backgroundColor = (sqrt(backgroundColor)*3 + backgroundColor) / 4;
+        backgroundColor = (sqrt(backgroundColor)*3 + pow(backgroundColor, 2)) / 4;
+    }
+    if (newGameScene == gameScene_MainMenu)
+    {
+        backgroundColor = (1.0 * PARSE_BRIGHTNESS(GPU::GPU2D_B.MasterBrightness, 15)) / 15;
+        backgroundColor = (sqrt(backgroundColor)*3 + pow(backgroundColor, 2)) / 4;
     }
     backgroundRed = backgroundColor;
     backgroundGreen = backgroundColor;
@@ -738,6 +743,13 @@ bool EmuThread::refreshAutoScreenSizing()
             (GPU::GPU2D_B.EVB >  7 && GPU::GPU2D_B.EVB <= 14) && GPU::GPU2D_B.EVY == 0)
         {
             return setGameScene(gameScene_IntroSaveMenu);
+        }
+        if (videoSettings.GameScene == gameScene_IntroSaveMenu)
+        {
+            if (GPU3D::NumVertices != 8)
+            {
+                return setGameScene(gameScene_IntroSaveMenu);
+            }
         }
 
         // Day counter
