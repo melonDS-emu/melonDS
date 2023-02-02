@@ -45,7 +45,7 @@ enum
     screenSizing_EmphBot,
     screenSizing_Auto,
     screenSizing_TopOnly,
-    screenSizing_BotOnly, // Main Menu Load
+    screenSizing_BotOnly, // Intro Save Menu
     screenSizing_MAX,
     screenSizing_MiniMap, // Main Game with a floating map
 };
@@ -54,6 +54,7 @@ enum
 {
     gameScene_Intro,
     gameScene_MainMenu,
+    gameScene_IntroSaveMenu,
     gameScene_IntroCutscene,
     gameScene_DayCounter,
     gameScene_Cutscene,

@@ -156,6 +156,8 @@ extern std::unique_ptr<GLCompositor> CurGLCompositor;
 
 struct RenderSettings
 {
+    int GameScene = -1;
+
     bool Soft_Threaded;
 
     int GL_ScaleFactor;

@@ -125,7 +125,7 @@ void M23_Transform(float* m, float& x, float& y)
 void SetupScreenLayout(int screenWidth, int screenHeight,
     int screenLayout, // always 2
     int rotation,
-    int sizing,
+    int sizing, // screenSizing_*
     int screenGap,
     bool integerScale,
     bool swapScreens,

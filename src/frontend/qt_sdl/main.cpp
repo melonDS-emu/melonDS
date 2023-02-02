@@ -96,7 +96,6 @@ EmuThread* emuThread;
 
 int autoScreenSizing = 0;
 int priorGameScene = -1;
-int gameScene = -1;
 
 int videoRenderer;
 GPU::RenderSettings videoSettings;
@@ -680,20 +679,21 @@ bool EmuThread::setGameScene(int newGameScene)
     backgroundGreen = backgroundColor;
     backgroundBlue = backgroundColor;
     
-    if (gameScene == newGameScene) 
+    if (videoSettings.GameScene == newGameScene) 
     {
         return false;
     }
 
     // Game scene
-    priorGameScene = gameScene;
-    gameScene = newGameScene;
+    priorGameScene = videoSettings.GameScene;
+    videoSettings.GameScene = newGameScene;
 
     // Screens position and size
     int size = screenSizing_Even;
     switch (newGameScene) {
         case gameScene_Intro: break;
         case gameScene_MainMenu: break;
+        case gameScene_IntroSaveMenu: size = screenSizing_BotOnly; break;
         case gameScene_IntroCutscene: break;
         case gameScene_DayCounter: size = screenSizing_TopOnly; break;
         case gameScene_Cutscene: size = screenSizing_TopOnly; break;
@@ -706,6 +706,8 @@ bool EmuThread::setGameScene(int newGameScene)
     autoScreenSizing = size;
     Config::ScreenSwap = (newGameScene == gameScene_Intro || newGameScene == gameScene_MainMenu) ? 1 : 0;
     Config::ScreenAspectTop = (size == screenSizing_Even) ? 0 : 4; // 4:3 / window size
+
+    videoSettingsDirty = true;
 
     return true;
 }
@@ -729,8 +731,17 @@ bool EmuThread::refreshAutoScreenSizing()
 
     if (doesntLook3D)
     {
+        // Intro save menu
+        if (GPU::GPU2D_B.BlendCnt == 4164 && (GPU::GPU2D_A.EVA == 0 || GPU::GPU2D_A.EVA == 16) && 
+             GPU::GPU2D_A.EVB == 0 && GPU::GPU2D_A.EVY == 0 &&
+            (GPU::GPU2D_B.EVA < 10 && GPU::GPU2D_B.EVA >= 2) && 
+            (GPU::GPU2D_B.EVB >  7 && GPU::GPU2D_B.EVB <= 14) && GPU::GPU2D_B.EVY == 0)
+        {
+            return setGameScene(gameScene_IntroSaveMenu);
+        }
+
         // Day counter
-        if (gameScene == gameScene_DayCounter)
+        if (videoSettings.GameScene == gameScene_DayCounter)
         {
             if (no3D)
             {
@@ -744,7 +755,7 @@ bool EmuThread::refreshAutoScreenSizing()
                 return setGameScene(gameScene_DayCounter);
             }
         }
-        if (gameScene != gameScene_Intro)
+        if (videoSettings.GameScene != gameScene_Intro)
         {
             if (GPU3D::NumVertices == 8 && GPU3D::NumPolygons == 2 && GPU3D::RenderNumPolygons == 2)
             {
@@ -757,7 +768,7 @@ bool EmuThread::refreshAutoScreenSizing()
         }
 
         // Cutscene
-        if (gameScene == gameScene_Cutscene && no3D)
+        if (videoSettings.GameScene == gameScene_Cutscene && no3D)
         {
             return setGameScene(gameScene_Cutscene);
         }
@@ -769,20 +780,20 @@ bool EmuThread::refreshAutoScreenSizing()
         }
 
         // Intro
-        if (gameScene == -1 || gameScene == gameScene_Intro)
+        if (videoSettings.GameScene == -1 || videoSettings.GameScene == gameScene_Intro)
         {
             return setGameScene(gameScene_Intro);
         }
 
         // Intro cutscene
-        if (gameScene == gameScene_IntroCutscene)
+        if (videoSettings.GameScene == gameScene_IntroCutscene)
         {
             if (GPU3D::NumVertices == 0 && GPU3D::NumPolygons == 0 && GPU3D::RenderNumPolygons >= 0 && GPU3D::RenderNumPolygons <= 3)
             {
                 return setGameScene(gameScene_IntroCutscene);
             }
         }
-        if (gameScene == gameScene_MainMenu && GPU3D::NumVertices == 0 && GPU3D::NumPolygons == 0 && GPU3D::RenderNumPolygons == 1)
+        if (videoSettings.GameScene == gameScene_MainMenu && GPU3D::NumVertices == 0 && GPU3D::NumPolygons == 0 && GPU3D::RenderNumPolygons == 1)
         {
             return setGameScene(gameScene_IntroCutscene);
         }
@@ -799,13 +810,13 @@ bool EmuThread::refreshAutoScreenSizing()
         {
             return setGameScene(gameScene_PauseMenu);
         }
-        else if (gameScene == gameScene_PauseMenu)
+        else if (videoSettings.GameScene == gameScene_PauseMenu)
         {
             return setGameScene(priorGameScene);
         }
 
         // Tutorial
-        if (gameScene == gameScene_Tutorial && topScreenBrightness < 15)
+        if (videoSettings.GameScene == gameScene_Tutorial && topScreenBrightness < 15)
         {
             return setGameScene(gameScene_Tutorial);
         }
@@ -1133,8 +1144,8 @@ void ScreenPanelNative::setupScreenLayout()
     {
         float* mtx = screenMatrix[i];
         screenTrans[i].setMatrix(mtx[0], mtx[1], 0.f,
-                                mtx[2], mtx[3], 0.f,
-                                mtx[4], mtx[5], 1.f);
+                                 mtx[2], mtx[3], 0.f,
+                                 mtx[4], mtx[5], 1.f);
     }
 }
 
@@ -1365,6 +1376,10 @@ void ScreenPanelGL::paintGL()
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
                                 GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
             }
+        }
+
+        if (videoSettings.GameScene == gameScene_InGameWithMap) {
+            // VMM TODO: This is where I should make the changes in order to make the minimap work properly
         }
 
         GLint filter = Config::ScreenFilter ? GL_LINEAR : GL_NEAREST;
