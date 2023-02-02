@@ -116,6 +116,7 @@ s16* micWavBuffer;
 float backgroundRed = 0.0;
 float backgroundGreen = 0.0;
 float backgroundBlue = 0.0;
+bool isBottomScreenBlack = false;
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
@@ -737,10 +738,11 @@ bool EmuThread::refreshAutoScreenSizing()
     if (doesntLook3D)
     {
         // Intro save menu
-        if (GPU::GPU2D_B.BlendCnt == 4164 && (GPU::GPU2D_A.EVA == 0 || GPU::GPU2D_A.EVA == 16) && 
+        bool isIntroSaveMenu = GPU::GPU2D_B.BlendCnt == 4164 && (GPU::GPU2D_A.EVA == 0 || GPU::GPU2D_A.EVA == 16) && 
              GPU::GPU2D_A.EVB == 0 && GPU::GPU2D_A.EVY == 0 &&
             (GPU::GPU2D_B.EVA < 10 && GPU::GPU2D_B.EVA >= 2) && 
-            (GPU::GPU2D_B.EVB >  7 && GPU::GPU2D_B.EVB <= 14) && GPU::GPU2D_B.EVY == 0)
+            (GPU::GPU2D_B.EVB >  7 && GPU::GPU2D_B.EVB <= 14) && GPU::GPU2D_B.EVY == 0;
+        if (isIntroSaveMenu)
         {
             return setGameScene(gameScene_IntroSaveMenu);
         }
@@ -840,6 +842,10 @@ bool EmuThread::refreshAutoScreenSizing()
 
         // Regular gameplay without a map
         if (noElementsOnBottomScreen)
+        {
+            return setGameScene(gameScene_InGameWithoutMap);
+        }
+        if (isBottomScreenBlack)
         {
             return setGameScene(gameScene_InGameWithoutMap);
         }
@@ -1388,6 +1394,21 @@ void ScreenPanelGL::paintGL()
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
                                 GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
             }
+        }
+
+        // checking if bottom screen is totally black
+        u32* bottomBuffer = GPU::Framebuffer[frontbuf][1];
+        if (bottomBuffer) {
+            bool newIsBottomScreenBlack = true;
+            for (int i = 0; i < 192*256; i++) {
+                u32 color = bottomBuffer[i] & 0xFFFFFF;
+                newIsBottomScreenBlack = newIsBottomScreenBlack && 
+                        (color == 0 || color == 0x000080 || color == 0x010000 || (bottomBuffer[i] & 0xFFFFE0) == 0x018000);
+                if (!newIsBottomScreenBlack) {
+                    break;
+                }
+            }
+            isBottomScreenBlack = newIsBottomScreenBlack;
         }
 
         if (videoSettings.GameScene == gameScene_InGameWithMap) {
