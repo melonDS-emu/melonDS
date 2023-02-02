@@ -116,7 +116,7 @@ s16* micWavBuffer;
 float backgroundRed = 0.0;
 float backgroundGreen = 0.0;
 float backgroundBlue = 0.0;
-bool isBottomScreenBlack = false;
+bool isShadeOfGrayBottomScreen = false;
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
@@ -819,7 +819,7 @@ bool EmuThread::refreshAutoScreenSizing()
         // gameScene_MissionResult
 
         // Roxas thoughts scene
-        if (isBottomScreenBlack)
+        if (isShadeOfGrayBottomScreen)
         {
             return setGameScene(gameScene_RoxasThoughts);
         }
@@ -857,7 +857,7 @@ bool EmuThread::refreshAutoScreenSizing()
         {
             return setGameScene(gameScene_InGameWithoutMap);
         }
-        if (isBottomScreenBlack)
+        if (isShadeOfGrayBottomScreen)
         {
             return setGameScene(gameScene_InGameWithoutMap);
         }
@@ -1411,16 +1411,21 @@ void ScreenPanelGL::paintGL()
         // checking if bottom screen is totally black
         u32* bottomBuffer = GPU::Framebuffer[frontbuf][1];
         if (bottomBuffer) {
-            bool newIsBottomScreenBlack = true;
+            // when the result is 'totally black', it's a false positive, so we need to exclude that scenario
+            bool newIsTotallyBlackBottomScreen = true;
+            bool newIsShadeOfGrayBottomScreen = true;
             for (int i = 0; i < 192*256; i++) {
                 u32 color = bottomBuffer[i] & 0xFFFFFF;
-                newIsBottomScreenBlack = newIsBottomScreenBlack && 
+                newIsTotallyBlackBottomScreen = newIsTotallyBlackBottomScreen && color == 0;
+                newIsShadeOfGrayBottomScreen = newIsShadeOfGrayBottomScreen && 
                         (color == 0 || color == 0x000080 || color == 0x010000 || (bottomBuffer[i] & 0xFFFFE0) == 0x018000);
-                if (!newIsBottomScreenBlack) {
+                if (!newIsShadeOfGrayBottomScreen) {
                     break;
                 }
             }
-            isBottomScreenBlack = newIsBottomScreenBlack;
+            if (!newIsTotallyBlackBottomScreen) {
+                isShadeOfGrayBottomScreen = newIsShadeOfGrayBottomScreen;
+            }
         }
 
         if (videoSettings.GameScene == gameScene_InGameWithMap) {
