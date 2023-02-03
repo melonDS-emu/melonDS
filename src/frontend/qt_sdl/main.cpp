@@ -116,7 +116,7 @@ s16* micWavBuffer;
 float backgroundRed = 0.0;
 float backgroundGreen = 0.0;
 float backgroundBlue = 0.0;
-bool isShadeOfGrayBottomScreen = false;
+bool isBlackBottomScreen = false;
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
@@ -819,7 +819,7 @@ bool EmuThread::refreshAutoScreenSizing()
         // gameScene_MissionResult
 
         // Roxas thoughts scene
-        if (isShadeOfGrayBottomScreen)
+        if (isBlackBottomScreen)
         {
             return setGameScene(gameScene_RoxasThoughts);
         }
@@ -857,7 +857,7 @@ bool EmuThread::refreshAutoScreenSizing()
         {
             return setGameScene(gameScene_InGameWithoutMap);
         }
-        if (isShadeOfGrayBottomScreen)
+        if (isBlackBottomScreen)
         {
             return setGameScene(gameScene_InGameWithoutMap);
         }
@@ -1413,18 +1413,18 @@ void ScreenPanelGL::paintGL()
         if (bottomBuffer) {
             // when the result is 'totally black', it's a false positive, so we need to exclude that scenario
             bool newIsTotallyBlackBottomScreen = true;
-            bool newIsShadeOfGrayBottomScreen = true;
+            bool newIsBlackBottomScreen = true;
             for (int i = 0; i < 192*256; i++) {
                 u32 color = bottomBuffer[i] & 0xFFFFFF;
                 newIsTotallyBlackBottomScreen = newIsTotallyBlackBottomScreen && color == 0;
-                newIsShadeOfGrayBottomScreen = newIsShadeOfGrayBottomScreen && 
+                newIsBlackBottomScreen = newIsBlackBottomScreen && 
                         (color == 0 || color == 0x000080 || color == 0x010000 || (bottomBuffer[i] & 0xFFFFE0) == 0x018000);
-                if (!newIsShadeOfGrayBottomScreen) {
+                if (!newIsBlackBottomScreen) {
                     break;
                 }
             }
             if (!newIsTotallyBlackBottomScreen) {
-                isShadeOfGrayBottomScreen = newIsShadeOfGrayBottomScreen;
+                isBlackBottomScreen = newIsBlackBottomScreen;
             }
         }
 
