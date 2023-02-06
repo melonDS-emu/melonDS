@@ -1428,10 +1428,6 @@ void ScreenPanelGL::paintGL()
             }
         }
 
-        if (videoSettings.GameScene == gameScene_InGameWithMap) {
-            // VMM TODO: This is where I should make the changes in order to make the minimap work properly
-        }
-
         GLint filter = Config::ScreenFilter ? GL_LINEAR : GL_NEAREST;
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
@@ -1441,10 +1437,32 @@ void ScreenPanelGL::paintGL()
 
         GLint transloc = screenShader->uniformLocation("uTransform");
 
+        bool isInGameWithMap = videoSettings.GameScene == gameScene_InGameWithMap;
+        
         for (int i = 0; i < numScreens; i++)
         {
+            bool isBottomScreen = i == 1;
+
             glUniformMatrix2x3fv(transloc, 1, GL_TRUE, screenMatrix[i]);
+
+            if (isBottomScreen && isInGameWithMap) {
+                float mapY = 138.0;
+                float mapNegativeX = 19.0;
+                float mapHeight = 33.0, mapWidth = mapHeight;
+                float mapX = 256 - mapWidth - mapNegativeX;
+            
+                float scissorFactorX = (w/256.0)*factor;
+                float scissorFactorY = (h/192.0)*factor;
+                
+                glScissor(mapX*scissorFactorX, mapY*scissorFactorY, mapWidth*scissorFactorX, mapHeight*scissorFactorY);
+                glEnable(GL_SCISSOR_TEST);
+            }
+
             glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2*3, 2*3);
+
+            if (isBottomScreen && isInGameWithMap) {
+                glDisable(GL_SCISSOR_TEST);
+            }
         }
 
         screenShader->release();

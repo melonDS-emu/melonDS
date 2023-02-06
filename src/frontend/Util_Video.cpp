@@ -131,9 +131,9 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
     bool swapScreens,
     float topAspect, float botAspect)
 {
-    float mapY = 20.0;
-    float mapNegativeX = -20.0;
-    float mapHeight = 45.0, mapWidth = mapHeight;
+    float mapY = 0.0;
+    float mapNegativeX = -30.0;
+    float mapHeight = 75.0, mapWidth = 100.0;
     float mapX = 256 - mapWidth - mapNegativeX;
     
     HybEnable = screenLayout == 3;
