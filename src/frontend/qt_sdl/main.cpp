@@ -1442,10 +1442,11 @@ void ScreenPanelGL::paintGL()
         for (int i = 0; i < numScreens; i++)
         {
             bool isBottomScreen = i == 1;
+            bool shouldCropScreenLikeAMap = isBottomScreen && isInGameWithMap;
 
             glUniformMatrix2x3fv(transloc, 1, GL_TRUE, screenMatrix[i]);
 
-            if (isBottomScreen && isInGameWithMap) {
+            if (shouldCropScreenLikeAMap) {
                 float leftMargin = 0, topMargin = 0;
                 float viewAspect;
                 float screenAspect = (float) w / h;
@@ -1481,7 +1482,7 @@ void ScreenPanelGL::paintGL()
 
             glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2*3, 2*3);
 
-            if (isBottomScreen && isInGameWithMap) {
+            if (shouldCropScreenLikeAMap) {
                 glDisable(GL_SCISSOR_TEST);
             }
         }
