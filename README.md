@@ -87,15 +87,21 @@ If you want an app bundle that can be distributed to other computers without nee
  * the game camera now can be controlled using an analog
  * the app should start with OpenGL rendering and 5x native resolution by default
  * the widescreen hack should be included by default
+ * the map from the bottom screen should be cropped and placed in the top screen (when visible)
+
+## PARTIALLY DONE
+
+ * only one screen should be visible at a time, switching automatically according to the needs
+
+## BUGS THAT NEED FIXING
+
+ * the minimap isn't properly cropped if the emulator window is in an aspect ratio lower than 16:9
 
 ## TODO LIST
 
- * only one screen should be visible at a time, switching automatically according to the needs
  * replace textures that look crispy
  * replace the ingame font
- * add the game logo to the bottom window in the intro menu
- * the map from the bottom screen should be cropped and placed in the top screen (when visible)
- * ingame menu will need to be reworked
+ * intro menu should be properly adapted to look more like the KH 1.5 + 2.5 menu
 
 ### TODO LIST FOR LATER (low priority)
 
