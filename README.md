@@ -84,7 +84,7 @@ If you want an app bundle that can be distributed to other computers without nee
 
 ## DONE
 
- * the game camera now can be controlled using an analog
+ * the game camera now can be controlled using an analog stick
  * the app should start with OpenGL rendering and 5x native resolution by default
  * the widescreen hack should be included by default
  * the map from the bottom screen should be cropped and placed in the top screen (when visible)
