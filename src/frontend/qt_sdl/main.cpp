@@ -1446,15 +1446,36 @@ void ScreenPanelGL::paintGL()
             glUniformMatrix2x3fv(transloc, 1, GL_TRUE, screenMatrix[i]);
 
             if (isBottomScreen && isInGameWithMap) {
-                float mapY = 138.0;
-                float mapNegativeX = 19.0;
-                float mapHeight = 33.0, mapWidth = mapHeight;
-                float mapX = 256 - mapWidth - mapNegativeX;
-            
-                float scissorFactorX = (w/256.0)*factor;
-                float scissorFactorY = (h/192.0)*factor;
+                float leftMargin = 0, topMargin = 0;
+                float viewAspect;
+                float screenAspect = (float) w / h;
+                for (auto ratio : aspectRatios)
+                {
+                    if (ratio.id == Config::ScreenAspectTop)
+                        viewAspect = ratio.ratio;
+                }
+                if (viewAspect == 0) {
+                    viewAspect = screenAspect;
+                }
+                if (viewAspect != screenAspect) {
+                    if (viewAspect > screenAspect) {
+                        topMargin = (h - w/viewAspect)/2;
+                    }
+                    if (viewAspect < screenAspect) {
+                        leftMargin = (w - h*viewAspect)/2;
+                    }
+                }
                 
-                glScissor(mapX*scissorFactorX, mapY*scissorFactorY, mapWidth*scissorFactorX, mapHeight*scissorFactorY);
+                float mapY = 138.0;
+                float mapNegativeX = 20.0;
+                float mapHeight = 33.0, mapWidth = 44.0;
+                float mapX = 256 - mapNegativeX;
+            
+                float scissorFactorX = ((w - leftMargin*2)/256.0);
+                float scissorFactorY = ((h - topMargin*2)/192.0);
+                
+                glScissor((mapX*scissorFactorX + leftMargin)*factor, (mapY*scissorFactorY + topMargin)*factor, 
+                           mapWidth*scissorFactorX*factor, mapHeight*scissorFactorY*factor);
                 glEnable(GL_SCISSOR_TEST);
             }
 
