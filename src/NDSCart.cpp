@@ -1619,6 +1619,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
                    (u32)Header.GameCode[1] << 8  |
                    (u32)Header.GameCode[0];
     if (gamecode != 1162300249) {
+        // Only Days should be loadable
         return false;
     }
 
