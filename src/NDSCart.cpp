@@ -1618,6 +1618,9 @@ bool LoadROM(const u8* romdata, u32 romlen)
                    (u32)Header.GameCode[2] << 16 |
                    (u32)Header.GameCode[1] << 8  |
                    (u32)Header.GameCode[0];
+    if (gamecode != 1162300249) {
+        return false;
+    }
 
     u8 unitcode = Header.UnitCode;
     bool dsi = (unitcode & 0x02) != 0;
