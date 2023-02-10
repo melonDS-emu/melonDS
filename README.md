@@ -1,5 +1,5 @@
 <p align="center"><img src="https://raw.githubusercontent.com/vitor251093/KHDays_FM/master/res/icon/melon_128x128.png"></p>
-<h2 align="center"><b>Kingdom Hearts 358/2 Days - Final Mix (melonDS)</b></h2>
+<h2 align="center"><b>Kingdom Hearts 358/2 Days - Melon Mix</b></h2>
 melonDS, sorta
 
 The goal of this project is to turn "Kingdom Hearts 358/2 Days" into a playable PC game, with a single screen and controls compatible with a regular controller.
