@@ -54,6 +54,8 @@ set(SOURCES_QT_SDL
     CLI.cpp
 )
 
+option(ENABLE_DISCORDRPC "Enable Discord Rich Presence" ON)
+
 if (APPLE)
     option(USE_QT6 "Build using Qt 6 instead of 5" ON)
 else()
