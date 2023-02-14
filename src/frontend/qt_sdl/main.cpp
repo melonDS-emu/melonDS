@@ -1195,7 +1195,7 @@ void EmuThread::drawScreenGL()
         bool isBottomScreen = i == 1;
         bool shouldCropScreenLikeAMap = isBottomScreen && isInGameWithMap;
 
-        glUniformMatrix2x3fv(transloc, 1, GL_TRUE, screenMatrix[i]);
+        glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
 
         if (shouldCropScreenLikeAMap) {
             float leftMargin = 0, topMargin = 0;
