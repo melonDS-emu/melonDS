@@ -7,6 +7,11 @@
 
 namespace Teakra {
 
+struct SharedMemoryCallback {
+    std::function<std::uint16_t(std::uint32_t address)> read16;
+    std::function<void(std::uint32_t address, std::uint16_t value)> write16;
+};
+
 struct AHBMCallback {
     std::function<std::uint8_t(std::uint32_t address)> read8;
     std::function<void(std::uint32_t address, std::uint8_t value)> write8;
@@ -24,9 +29,6 @@ public:
     ~Teakra();
 
     void Reset();
-
-    std::array<std::uint8_t, 0x80000>& GetDspMemory();
-    const std::array<std::uint8_t, 0x80000>& GetDspMemory() const;
 
     // APBP Data
     bool SendDataIsEmpty(std::uint8_t index) const;
@@ -70,6 +72,7 @@ public:
     // core
     void Run(unsigned cycle);
 
+    void SetSharedMemoryCallback(const SharedMemoryCallback& callback);
     void SetAHBMCallback(const AHBMCallback& callback);
 
     void SetAudioCallback(std::function<void(std::array<std::int16_t, 2>)> callback);

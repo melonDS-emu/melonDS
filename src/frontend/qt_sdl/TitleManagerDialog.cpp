@@ -31,7 +31,7 @@
 #include "ui_TitleImportDialog.h"
 
 
-FILE* TitleManagerDialog::curNAND = nullptr;
+bool TitleManagerDialog::NANDInited = false;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
 
 extern std::string EmuDirectory;
@@ -136,6 +136,8 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
 
 bool TitleManagerDialog::openNAND()
 {
+    NANDInited = false;
+
     FILE* bios7i = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
     if (!bios7i)
         return false;
@@ -145,28 +147,21 @@ bool TitleManagerDialog::openNAND()
     fread(es_keyY, 16, 1, bios7i);
     fclose(bios7i);
 
-    curNAND = Platform::OpenLocalFile(Config::DSiNANDPath, "r+b");
-    if (!curNAND)
-        return false;
-
-    if (!DSi_NAND::Init(curNAND, es_keyY))
+    if (!DSi_NAND::Init(es_keyY))
     {
-        fclose(curNAND);
-        curNAND = nullptr;
         return false;
     }
 
+    NANDInited = true;
     return true;
 }
 
 void TitleManagerDialog::closeNAND()
 {
-    if (curNAND)
+    if (NANDInited)
     {
         DSi_NAND::DeInit();
-
-        fclose(curNAND);
-        curNAND = nullptr;
+        NANDInited = false;
     }
 }
 
@@ -271,12 +266,22 @@ void TitleManagerDialog::onImportTitleData()
         return;
     }
 
+    QString extensions = "*.sav";
     u32 wantedsize;
     switch (type)
     {
-    case DSi_NAND::TitleData_PublicSav:  wantedsize = cur->data(Qt::UserRole+1).toUInt(); break;
-    case DSi_NAND::TitleData_PrivateSav: wantedsize = cur->data(Qt::UserRole+2).toUInt(); break;
-    case DSi_NAND::TitleData_BannerSav:  wantedsize = cur->data(Qt::UserRole+3).toUInt(); break;
+    case DSi_NAND::TitleData_PublicSav:
+        extensions += " *.pub";
+        wantedsize = cur->data(Qt::UserRole+1).toUInt();
+        break;
+    case DSi_NAND::TitleData_PrivateSav:
+        extensions += " *.prv";
+        wantedsize = cur->data(Qt::UserRole+2).toUInt();
+        break;
+    case DSi_NAND::TitleData_BannerSav:
+        extensions += " *.bnr";
+        wantedsize = cur->data(Qt::UserRole+3).toUInt();
+        break;
     default:
         printf("what??\n");
         return;
@@ -285,7 +290,7 @@ void TitleManagerDialog::onImportTitleData()
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select file to import...",
                                                 QString::fromStdString(EmuDirectory),
-                                                "Title data files (*.sav);;Any file (*.*)");
+                                                "Title data files (" + extensions + ");;Any file (*.*)");
 
     if (file.isEmpty()) return;
 
@@ -332,19 +337,23 @@ void TitleManagerDialog::onExportTitleData()
     }
 
     QString exportname;
+    QString extensions = "*.sav";
     u32 wantedsize;
     switch (type)
     {
     case DSi_NAND::TitleData_PublicSav:
         exportname = "/public.sav";
+        extensions += " *.pub";
         wantedsize = cur->data(Qt::UserRole+1).toUInt();
         break;
     case DSi_NAND::TitleData_PrivateSav:
         exportname = "/private.sav";
+        extensions += " *.prv";
         wantedsize = cur->data(Qt::UserRole+2).toUInt();
         break;
     case DSi_NAND::TitleData_BannerSav:
         exportname = "/banner.sav";
+        extensions += " *.bnr";
         wantedsize = cur->data(Qt::UserRole+3).toUInt();
         break;
     default:
@@ -355,7 +364,7 @@ void TitleManagerDialog::onExportTitleData()
     QString file = QFileDialog::getSaveFileName(this,
                                                 "Select path to export to...",
                                                 QString::fromStdString(EmuDirectory) + exportname,
-                                                "Title data files (*.sav);;Any file (*.*)");
+                                                "Title data files (" + extensions + ");;Any file (*.*)");
 
     if (file.isEmpty()) return;
 

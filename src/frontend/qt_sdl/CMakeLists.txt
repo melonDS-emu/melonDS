@@ -14,9 +14,11 @@ set(SOURCES_QT_SDL
     InputConfig/MapButton.h
     InputConfig/resources/ds.qrc
     VideoSettingsDialog.cpp
+	CameraSettingsDialog.cpp
     AudioSettingsDialog.cpp
     FirmwareSettingsDialog.cpp
     PathSettingsDialog.cpp
+	MPSettingsDialog.cpp
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
     ROMInfoDialog.cpp
@@ -25,14 +27,16 @@ set(SOURCES_QT_SDL
     Input.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp
+	LocalMP.cpp
     OSD.cpp
     OSD_shaders.h
     font.h
     Platform.cpp
     QPathInput.h
     ROMManager.cpp
-    SaveManager.cpp
-
+	SaveManager.cpp
+	CameraManager.cpp
+    
     ArchiveUtil.h
     ArchiveUtil.cpp
 
@@ -41,8 +45,14 @@ set(SOURCES_QT_SDL
     ../FrontendUtil.h
     ../mic_blow.h
 
+    ../glad/glad.c
+    ../duckstation/gl/context.cpp
+
     ${CMAKE_SOURCE_DIR}/res/melon.qrc
-    )
+
+    CLI.h
+    CLI.cpp
+)
 
 if (APPLE)
     option(USE_QT6 "Build using Qt 6 instead of 5" ON)
@@ -50,29 +60,25 @@ else()
     option(USE_QT6 "Build using Qt 6 instead of 5" OFF)
 endif()
 
-
-if (WIN32)
-    set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -i <SOURCE> -o <OBJECT>")
-endif()
-
 if (USE_QT6)
-    find_package(Qt6 COMPONENTS Core Gui Widgets Network OpenGL OpenGLWidgets REQUIRED)
-    set(QT_LINK_LIBS Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets)
+    find_package(Qt6 COMPONENTS Core Gui Widgets Network Multimedia OpenGL OpenGLWidgets REQUIRED)
+    set(QT_LINK_LIBS Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::OpenGL Qt6::OpenGLWidgets)
 else()
-    find_package(Qt5 COMPONENTS Core Gui Widgets Network REQUIRED)
-    set(QT_LINK_LIBS Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Network)
+    find_package(Qt5 COMPONENTS Core Gui Widgets Network Multimedia REQUIRED)
+    set(QT_LINK_LIBS Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Network Qt5::Multimedia)
 endif()
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+find_package(Threads REQUIRED)
+find_package(PkgConfig REQUIRED)
+
 if (BUILD_STATIC)
     list(APPEND PKG_CONFIG_EXECUTABLE "--static")
 endif()
 
-find_package(Threads REQUIRED)
-find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 pkg_check_modules(Slirp REQUIRED IMPORTED_TARGET slirp)
 pkg_check_modules(LibArchive REQUIRED IMPORTED_TARGET libarchive)
@@ -83,6 +89,47 @@ add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
 add_executable(melonDS ${SOURCES_QT_SDL})
 
+if (WIN32)
+    target_link_libraries(melonDS PUBLIC opengl32)
+
+    target_sources(melonDS PRIVATE
+        ../duckstation/gl/context_wgl.cpp
+
+        ../glad/glad_wgl.c
+    )
+elseif (APPLE)
+    if (NOT USE_QT6)
+        find_library(COCOA_LIB Cocoa)
+        target_link_libraries(melonDS PRIVATE ${COCOA_LIB})
+    endif()
+    target_sources(melonDS PRIVATE
+        ../duckstation/gl/context_agl.mm
+    )
+else()
+    # we only need ECM for Wayland
+    # so we only require it from here
+    find_package(ECM REQUIRED NO_MODULE)
+    list(APPEND CMAKE_MODULE_PATH "${ECM_MODULE_PATH}")
+
+    find_package(X11 REQUIRED)
+    find_package(EGL REQUIRED)
+    find_package(Wayland REQUIRED Client)
+
+    target_sources(melonDS PRIVATE
+        ../duckstation/gl/context_egl.cpp
+        ../duckstation/gl/context_egl_x11.cpp
+        ../duckstation/gl/context_glx.cpp
+        ../duckstation/gl/context_egl_wayland.cpp
+        ../duckstation/gl/x11_window.cpp
+
+        ../glad/glad_egl.c
+        ../glad/glad_glx.c
+    )
+    target_link_libraries(melonDS PRIVATE "${X11_LIBRARIES}" "${EGL_LIBRARIES}")
+    target_include_directories(melonDS PRIVATE "${X11_INCLUDE_DIR}")
+endif()
+
+
 if (BUILD_STATIC)
     qt_import_plugins(melonDS INCLUDE Qt::QSvgPlugin)
     target_link_options(melonDS PRIVATE -static)
@@ -91,6 +138,11 @@ endif()
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+if (USE_QT6)
+    target_include_directories(melonDS PUBLIC ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
+else()
+    target_include_directories(melonDS PUBLIC ${Qt5Gui_PRIVATE_INCLUDE_DIRS})
+endif()
 target_link_libraries(melonDS PRIVATE core)
 target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
@@ -100,8 +152,19 @@ if (UNIX)
 elseif (WIN32)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
 
-    configure_file("${CMAKE_SOURCE_DIR}/res/melon.rc.in" "${CMAKE_SOURCE_DIR}/melon.rc")
-    target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
+    configure_file("${CMAKE_SOURCE_DIR}/res/melon.rc.in" "${CMAKE_BINARY_DIR}/res/melon.rc")
+    target_sources(melonDS PUBLIC "${CMAKE_BINARY_DIR}/res/melon.rc")
+    target_include_directories(melonDS PRIVATE "${CMAKE_BINARY_DIR}/res")
+
+    if (${ARCHITECTURE} STREQUAL x86_64)
+        set(WIN32_ARCHITECTURE amd64)
+    elseif (${ARCHITECTURE} STREQUAL x86)
+        set(WIN32_ARCHITECTURE x86)
+    elseif (${ARCHITECTURE} MATCHES "ARM(64)?")
+        string(TOLOWER "${ARCHITECTURE}" WIN32_ARCHITECTURE)
+    endif()
+
+    configure_file("${CMAKE_SOURCE_DIR}/res/xp.manifest.in" "${CMAKE_BINARY_DIR}/res/xp.manifest")
 
     target_link_libraries(melonDS PRIVATE ws2_32 iphlpapi)
     set_target_properties(melonDS PROPERTIES LINK_FLAGS_DEBUG "-mconsole")
@@ -112,6 +175,8 @@ if (PORTABLE)
 endif()
 
 if (APPLE)
+    target_sources(melonDS PRIVATE sem_timedwait.cpp)
+
     # Copy icon into the bundle
     set(RESOURCE_FILES "${CMAKE_SOURCE_DIR}/res/melon.icns")
     target_sources(melonDS PUBLIC "${RESOURCE_FILES}")

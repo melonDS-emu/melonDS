@@ -344,6 +344,7 @@ MMIORegion::MMIORegion(MemoryInterfaceUnit& miu, ICU& icu, Apbp& apbp_from_cpu, 
             BitFieldSlot{4, 1, {}, std::bind(&Btdmp::GetTransmitEmpty, &btdmp[i])},
         });
         impl->cells[0x2C6 + i * 0x80].set = std::bind(&Btdmp::Send, &btdmp[i], _1);
+        impl->cells[0x2C6 + i * 0x80].get = std::bind(&Btdmp::Receive, &btdmp[i]);
         impl->cells[0x2CA + i * 0x80].set = std::bind(&Btdmp::SetTransmitFlush, &btdmp[i], _1);
         impl->cells[0x2CA + i * 0x80].get = std::bind(&Btdmp::GetTransmitFlush, &btdmp[i]);
     }
@@ -355,6 +356,7 @@ u16 MMIORegion::Read(u16 addr) {
     u16 value = impl->cells[addr].get();
     return value;
 }
+
 void MMIORegion::Write(u16 addr, u16 value) {
     impl->cells[addr].set(value);
 }

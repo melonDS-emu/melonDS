@@ -20,28 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef __WIN32__
-    #define NTDDI_VERSION        0x06000000 // GROSS FUCKING HACK
-    #include <winsock2.h>
-    #include <windows.h>
-    //#include <knownfolders.h> // FUCK THAT SHIT
-    #include <shlobj.h>
-    #include <ws2tcpip.h>
-    #include <io.h>
-    #define dup _dup
-    #define socket_t    SOCKET
-    #define sockaddr_t  SOCKADDR
-#else
-    #include <unistd.h>
-    #include <netinet/in.h>
-    #include <sys/select.h>
-    #include <sys/socket.h>
-
-    #define socket_t    int
-    #define sockaddr_t  struct sockaddr
-    #define closesocket close
-#endif
-
+#include <string>
 #include <QStandardPaths>
 #include <QString>
 #include <QDir>
@@ -49,20 +28,20 @@
 #include <QSemaphore>
 #include <QMutex>
 #include <QOpenGLContext>
+#include <QSharedMemory>
 
 #include "Platform.h"
 #include "Config.h"
 #include "ROMManager.h"
+#include "CameraManager.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
-#include <string>
-
-#ifndef INVALID_SOCKET
-    #define INVALID_SOCKET  (socket_t)-1
-#endif
+#include "LocalMP.h"
 
 
 std::string EmuDirectory;
+
+extern CameraManager* camManager[2];
 
 void emuStop();
 
@@ -70,11 +49,62 @@ void emuStop();
 namespace Platform
 {
 
-socket_t MPSocket;
-sockaddr_t MPSendAddr;
-u8 PacketBuffer[2048];
+QSharedMemory* IPCBuffer = nullptr;
+int IPCInstanceID;
 
-#define NIFI_VER 1
+void IPCInit()
+{
+    IPCInstanceID = 0;
+
+    IPCBuffer = new QSharedMemory("melonIPC");
+
+    if (!IPCBuffer->attach())
+    {
+        printf("IPC sharedmem doesn't exist. creating\n");
+        if (!IPCBuffer->create(1024))
+        {
+            printf("IPC sharedmem create failed :(\n");
+            delete IPCBuffer;
+            IPCBuffer = nullptr;
+            return;
+        }
+
+        IPCBuffer->lock();
+        memset(IPCBuffer->data(), 0, IPCBuffer->size());
+        IPCBuffer->unlock();
+    }
+
+    IPCBuffer->lock();
+    u8* data = (u8*)IPCBuffer->data();
+    u16 mask = *(u16*)&data[0];
+    for (int i = 0; i < 16; i++)
+    {
+        if (!(mask & (1<<i)))
+        {
+            IPCInstanceID = i;
+            *(u16*)&data[0] |= (1<<i);
+            break;
+        }
+    }
+    IPCBuffer->unlock();
+
+    printf("IPC: instance ID %d\n", IPCInstanceID);
+}
+
+void IPCDeInit()
+{
+    if (IPCBuffer)
+    {
+        IPCBuffer->lock();
+        u8* data = (u8*)IPCBuffer->data();
+        *(u16*)&data[0] &= ~(1<<IPCInstanceID);
+        IPCBuffer->unlock();
+
+        IPCBuffer->detach();
+        delete IPCBuffer;
+    }
+    IPCBuffer = nullptr;
+}
 
 
 void Init(int argc, char** argv)
@@ -110,16 +140,35 @@ void Init(int argc, char** argv)
     confdir = config.absolutePath() + "/melonDS/";
     EmuDirectory = confdir.toStdString();
 #endif
+
+    IPCInit();
 }
 
 void DeInit()
 {
+    IPCDeInit();
 }
 
 
 void StopEmu()
 {
     emuStop();
+}
+
+
+int InstanceID()
+{
+    return IPCInstanceID;
+}
+
+std::string InstanceFileSuffix()
+{
+    int inst = IPCInstanceID;
+    if (inst == 0) return "";
+
+    char suffix[16] = {0};
+    snprintf(suffix, 15, ".%d", inst+1);
+    return suffix;
 }
 
 
@@ -169,7 +218,6 @@ bool GetConfigBool(ConfigEntry entry)
     case DSiSD_ReadOnly: return Config::DSiSDReadOnly != 0;
     case DSiSD_FolderSync: return Config::DSiSDFolderSync != 0;
 
-    case Firm_RandomizeMAC: return Config::RandomizeMAC != 0;
     case Firm_OverrideSettings: return Config::FirmwareOverrideSettings != 0;
     }
 
@@ -372,6 +420,11 @@ bool Mutex_TryLock(Mutex* mutex)
     return ((QMutex*) mutex)->try_lock();
 }
 
+void Sleep(u64 usecs)
+{
+    QThread::usleep(usecs);
+}
+
 
 void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
 {
@@ -386,149 +439,61 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 }
 
 
+
 bool MP_Init()
 {
-    int opt_true = 1;
-    int res;
-
-#ifdef __WIN32__
-    WSADATA wsadata;
-    if (WSAStartup(MAKEWORD(2, 2), &wsadata) != 0)
-    {
-        return false;
-    }
-#endif // __WIN32__
-
-    MPSocket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (MPSocket < 0)
-    {
-        return false;
-    }
-
-    res = setsockopt(MPSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt_true, sizeof(int));
-    if (res < 0)
-    {
-        closesocket(MPSocket);
-        MPSocket = INVALID_SOCKET;
-        return false;
-    }
-
-#if defined(BSD) || defined(__APPLE__)
-    res = setsockopt(MPSocket, SOL_SOCKET, SO_REUSEPORT, (const char*)&opt_true, sizeof(int));
-    if (res < 0)
-    {
-        closesocket(MPSocket);
-        MPSocket = INVALID_SOCKET;
-        return false;
-    }
-#endif
-
-    sockaddr_t saddr;
-    saddr.sa_family = AF_INET;
-    *(u32*)&saddr.sa_data[2] = htonl(Config::SocketBindAnyAddr ? INADDR_ANY : INADDR_LOOPBACK);
-    *(u16*)&saddr.sa_data[0] = htons(7064);
-    res = bind(MPSocket, &saddr, sizeof(sockaddr_t));
-    if (res < 0)
-    {
-        closesocket(MPSocket);
-        MPSocket = INVALID_SOCKET;
-        return false;
-    }
-
-    res = setsockopt(MPSocket, SOL_SOCKET, SO_BROADCAST, (const char*)&opt_true, sizeof(int));
-    if (res < 0)
-    {
-        closesocket(MPSocket);
-        MPSocket = INVALID_SOCKET;
-        return false;
-    }
-
-    MPSendAddr.sa_family = AF_INET;
-    *(u32*)&MPSendAddr.sa_data[2] = htonl(INADDR_BROADCAST);
-    *(u16*)&MPSendAddr.sa_data[0] = htons(7064);
-
-    return true;
+    return LocalMP::Init();
 }
 
 void MP_DeInit()
 {
-    if (MPSocket >= 0)
-        closesocket(MPSocket);
-
-#ifdef __WIN32__
-    WSACleanup();
-#endif // __WIN32__
+    return LocalMP::DeInit();
 }
 
-int MP_SendPacket(u8* data, int len)
+void MP_Begin()
 {
-    if (MPSocket < 0)
-        return 0;
-
-    if (len > 2048-8)
-    {
-        printf("MP_SendPacket: error: packet too long (%d)\n", len);
-        return 0;
-    }
-
-    *(u32*)&PacketBuffer[0] = htonl(0x4946494E); // NIFI
-    PacketBuffer[4] = NIFI_VER;
-    PacketBuffer[5] = 0;
-    *(u16*)&PacketBuffer[6] = htons(len);
-    memcpy(&PacketBuffer[8], data, len);
-
-    int slen = sendto(MPSocket, (const char*)PacketBuffer, len+8, 0, &MPSendAddr, sizeof(sockaddr_t));
-    if (slen < 8) return 0;
-    return slen - 8;
+    return LocalMP::Begin();
 }
 
-int MP_RecvPacket(u8* data, bool block)
+void MP_End()
 {
-    if (MPSocket < 0)
-        return 0;
-
-    fd_set fd;
-    struct timeval tv;
-
-    FD_ZERO(&fd);
-    FD_SET(MPSocket, &fd);
-    tv.tv_sec = 0;
-    tv.tv_usec = block ? 5000 : 0;
-
-    if (!select(MPSocket+1, &fd, 0, 0, &tv))
-    {
-        return 0;
-    }
-
-    sockaddr_t fromAddr;
-    socklen_t fromLen = sizeof(sockaddr_t);
-    int rlen = recvfrom(MPSocket, (char*)PacketBuffer, 2048, 0, &fromAddr, &fromLen);
-    if (rlen < 8+24)
-    {
-        return 0;
-    }
-    rlen -= 8;
-
-    if (ntohl(*(u32*)&PacketBuffer[0]) != 0x4946494E)
-    {
-        return 0;
-    }
-
-    if (PacketBuffer[4] != NIFI_VER)
-    {
-        return 0;
-    }
-
-    if (ntohs(*(u16*)&PacketBuffer[6]) != rlen)
-    {
-        return 0;
-    }
-
-    memcpy(data, &PacketBuffer[8], rlen);
-    return rlen;
+    return LocalMP::End();
 }
 
+int MP_SendPacket(u8* data, int len, u64 timestamp)
+{
+    return LocalMP::SendPacket(data, len, timestamp);
+}
 
+int MP_RecvPacket(u8* data, u64* timestamp)
+{
+    return LocalMP::RecvPacket(data, timestamp);
+}
+
+int MP_SendCmd(u8* data, int len, u64 timestamp)
+{
+    return LocalMP::SendCmd(data, len, timestamp);
+}
+
+int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid)
+{
+    return LocalMP::SendReply(data, len, timestamp, aid);
+}
+
+int MP_SendAck(u8* data, int len, u64 timestamp)
+{
+    return LocalMP::SendAck(data, len, timestamp);
+}
+
+int MP_RecvHostPacket(u8* data, u64* timestamp)
+{
+    return LocalMP::RecvHostPacket(data, timestamp);
+}
+
+u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask)
+{
+    return LocalMP::RecvReplies(data, timestamp, aidmask);
+}
 
 bool LAN_Init()
 {
@@ -573,9 +538,20 @@ int LAN_RecvPacket(u8* data)
         return LAN_Socket::RecvPacket(data);
 }
 
-void Sleep(u64 usecs)
+
+void Camera_Start(int num)
 {
-    QThread::usleep(usecs);
+    return camManager[num]->start();
+}
+
+void Camera_Stop(int num)
+{
+    return camManager[num]->stop();
+}
+
+void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv)
+{
+    return camManager[num]->captureFrame(frame, width, height, yuv);
 }
 
 }

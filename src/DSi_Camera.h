@@ -22,38 +22,55 @@
 #include "types.h"
 #include "Savestate.h"
 
-class DSi_Camera
+namespace DSi_CamModule
+{
+
+class Camera;
+
+extern Camera* Camera0;
+extern Camera* Camera1;
+
+bool Init();
+void DeInit();
+void Reset();
+void Stop();
+
+void DoSavestate(Savestate* file);
+
+void IRQ(u32 param);
+
+void TransferScanline(u32 line);
+
+u8 Read8(u32 addr);
+u16 Read16(u32 addr);
+u32 Read32(u32 addr);
+void Write8(u32 addr, u8 val);
+void Write16(u32 addr, u16 val);
+void Write32(u32 addr, u32 val);
+
+class Camera
 {
 public:
-    static bool Init();
-    static void DeInit();
-    static void Reset();
+    Camera(u32 num);
+    ~Camera();
 
-    static void DoSavestate(Savestate* file);
+    void DoSavestate(Savestate* file);
 
-    static void IRQ(u32 param);
-    static void RequestFrame(u32 cam);
-
-    static void Transfer(u32 pos);
-
-    DSi_Camera(u32 num);
-    ~DSi_Camera();
-
-    void DoCamSavestate(Savestate* file);
-
-    void ResetCam();
+    void Reset();
+    void Stop();
     bool IsActivated();
+
+    void StartTransfer();
+    bool TransferDone();
+
+    // lengths in words
+    int TransferScanline(u32* buffer, int maxlen);
 
     void I2C_Start();
     u8 I2C_Read(bool last);
     void I2C_Write(u8 val, bool last);
 
-    static u8 Read8(u32 addr);
-    static u16 Read16(u32 addr);
-    static u32 Read32(u32 addr);
-    static void Write8(u32 addr, u8 val);
-    static void Write16(u32 addr, u16 val);
-    static void Write32(u32 addr, u32 val);
+    void InputFrame(u32* data, int width, int height, bool rgb);
 
     u32 Num;
 
@@ -73,20 +90,17 @@ private:
     u16 MiscCnt;
 
     u16 MCUAddr;
-    u16* MCUData;
-
     u8 MCURegs[0x8000];
 
-    static u16 ModuleCnt;
-    static u16 Cnt;
+    u8 MCU_Read(u16 addr);
+    void MCU_Write(u16 addr, u8 val);
 
-    static u8 FrameBuffer[640*480*4];
-    static u32 TransferPos;
-    static u32 FrameLength;
+    u16 FrameWidth, FrameHeight;
+    u16 FrameReadMode, FrameFormat;
+    int TransferY;
+    u32 FrameBuffer[640*480/2]; // YUYV framebuffer, two pixels per word
 };
 
-
-extern DSi_Camera* DSi_Camera0;
-extern DSi_Camera* DSi_Camera1;
+}
 
 #endif // DSI_CAMERA_H

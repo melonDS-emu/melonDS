@@ -16,6 +16,11 @@ public:
     void Reset();
 
     void EnableChannel(u16 value) {
+        u16 chk = value & ~enable_channel;
+        for (int i = 0; i < 8; i++) {
+            if (chk & (1<<i))
+                DoDma(i);
+        }
         enable_channel = value;
     }
     u16 GetChannelEnabled() const {

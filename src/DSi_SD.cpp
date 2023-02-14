@@ -136,7 +136,10 @@ void DSi_SDHost::Reset()
         else
             sd = nullptr;
 
-        mmc = new DSi_MMCStorage(this, true, Platform::GetConfigString(Platform::DSi_NANDPath));
+        std::string nandpath = Platform::GetConfigString(Platform::DSi_NANDPath);
+        std::string instnand = nandpath + Platform::InstanceFileSuffix();
+
+        mmc = new DSi_MMCStorage(this, true, instnand);
         mmc->SetCID(DSi::eMMC_CID);
 
         Ports[0] = sd;

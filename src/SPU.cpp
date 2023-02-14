@@ -184,6 +184,12 @@ void DoSavestate(Savestate* file)
 }
 
 
+void SetPowerCnt(u32 val)
+{
+    // TODO
+}
+
+
 void SetInterpolation(int type)
 {
     InterpType = type;

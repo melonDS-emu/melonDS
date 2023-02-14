@@ -1584,6 +1584,9 @@ bool LoadROM(const u8* romdata, u32 romlen)
     if (CartInserted)
         EjectCart();
 
+    memset(&Header, 0, sizeof(Header));
+    memset(&Banner, 0, sizeof(Banner));
+
     CartROMSize = 0x200;
     while (CartROMSize < romlen)
         CartROMSize <<= 1;
@@ -1603,13 +1606,13 @@ bool LoadROM(const u8* romdata, u32 romlen)
 
     memcpy(&Header, CartROM, sizeof(Header));
 
-    if (!Header.BannerOffset)
+    u8 unitcode = Header.UnitCode;
+    bool dsi = (unitcode & 0x02) != 0;
+
+    size_t bannersize = dsi ? 0x23C0 : 0xA40;
+    if (Header.BannerOffset >= 0x200 && Header.BannerOffset < (CartROMSize - bannersize))
     {
-        memset(&Banner, 0, sizeof(Banner));
-    }
-    else
-    {
-        memcpy(&Banner, CartROM + Header.BannerOffset, sizeof(Banner));
+        memcpy(&Banner, CartROM + Header.BannerOffset, bannersize);
     }
 
     printf("Game code: %.4s\n", Header.GameCode);
@@ -1622,9 +1625,6 @@ bool LoadROM(const u8* romdata, u32 romlen)
         // Only Days should be loadable
         return false;
     }
-
-    u8 unitcode = Header.UnitCode;
-    bool dsi = (unitcode & 0x02) != 0;
 
     u32 arm9base = Header.ARM9ROMOffset;
     bool homebrew = (arm9base < 0x4000) || (gamecode == 0x23232323);

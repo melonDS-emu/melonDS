@@ -50,7 +50,6 @@ struct Teakra::Impl {
     }
 
     void Reset() {
-        shared_memory.raw.fill(0);
         miu.Reset();
         apbp_from_cpu.Reset();
         apbp_from_dsp.Reset();
@@ -69,14 +68,6 @@ Teakra::~Teakra() = default;
 
 void Teakra::Reset() {
     impl->Reset();
-}
-
-std::array<std::uint8_t, 0x80000>& Teakra::GetDspMemory() {
-    return impl->shared_memory.raw;
-}
-
-const std::array<std::uint8_t, 0x80000>& Teakra::GetDspMemory() const {
-    return impl->shared_memory.raw;
 }
 
 void Teakra::Run(unsigned cycle) {
@@ -116,6 +107,9 @@ void Teakra::ClearSemaphore(std::uint16_t value) {
 }
 void Teakra::MaskSemaphore(std::uint16_t value) {
     impl->apbp_from_dsp.MaskSemaphore(value);
+}
+void Teakra::SetSharedMemoryCallback(const SharedMemoryCallback& callback) {
+    impl->shared_memory.SetExternalMemoryCallback(callback.read16, callback.write16);
 }
 void Teakra::SetAHBMCallback(const AHBMCallback& callback) {
     impl->ahbm.SetExternalMemoryCallback(callback.read8, callback.write8,

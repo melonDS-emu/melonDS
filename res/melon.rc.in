@@ -2,7 +2,7 @@
 #define VFT_APP                      0x00000001L
 
 //this will set your .exe icon
-100 ICON MOVEABLE PURE LOADONCALL DISCARDABLE "res/melon.ico"
+100 ICON MOVEABLE PURE LOADONCALL DISCARDABLE "${CMAKE_SOURCE_DIR}/res/melon.ico"
 
 //include version information in .exe, modify these values to match your needs
 1 VERSIONINFO
@@ -20,7 +20,7 @@ FILETYPE VFT_APP
 			VALUE "InternalName", "SDnolem"
 			VALUE "LegalCopyright", "2016-2022 melonDS team"
 			VALUE "LegalTrademarks", ""
-			VALUE "OriginalFilename", "zafkflzdasd.exe"
+			VALUE "OriginalFilename", "melonDS.exe"
 			VALUE "ProductName", "melonDS"
 			VALUE "ProductVersion", "${melonDS_VERSION}"
 		}
@@ -31,4 +31,4 @@ FILETYPE VFT_APP
 	}
 }
 
-1 24 "res/xp.manifest"
+1 24 "xp.manifest"

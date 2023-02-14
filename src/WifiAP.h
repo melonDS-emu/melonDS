@@ -33,7 +33,6 @@ bool Init();
 void DeInit();
 void Reset();
 
-void USTimer();
 void MSTimer();
 
 // packet format: 12-byte TX header + original 802.11 frame

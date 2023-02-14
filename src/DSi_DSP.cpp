@@ -89,6 +89,36 @@ void IrqSem()
     NDS::SetIRQ(0, NDS::IRQ_DSi_DSP);
 }
 
+u16 DSPRead16(u32 addr)
+{
+    if (!(addr & 0x40000))
+    {
+        u8* ptr = DSi::NWRAMMap_B[2][(addr >> 15) & 0x7];
+        return ptr ? *(u16*)&ptr[addr & 0x7FFF] : 0;
+    }
+    else
+    {
+        u8* ptr = DSi::NWRAMMap_C[2][(addr >> 15) & 0x7];
+        return ptr ? *(u16*)&ptr[addr & 0x7FFF] : 0;
+    }
+}
+
+void DSPWrite16(u32 addr, u16 val)
+{
+    // TODO: does the rule for overlapping NWRAM slots also apply to the DSP side?
+
+    if (!(addr & 0x40000))
+    {
+        u8* ptr = DSi::NWRAMMap_B[2][(addr >> 15) & 0x7];
+        if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+    }
+    else
+    {
+        u8* ptr = DSi::NWRAMMap_C[2][(addr >> 15) & 0x7];
+        if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+    }
+}
+
 void AudioCb(std::array<s16, 2> frame)
 {
     // TODO
@@ -106,6 +136,11 @@ bool Init()
     TeakraCore->SetRecvDataHandler(2, IrqRep2);
 
     TeakraCore->SetSemaphoreHandler(IrqSem);
+
+    Teakra::SharedMemoryCallback smcb;
+    smcb.read16 = DSPRead16;
+    smcb.write16 = DSPWrite16;
+    TeakraCore->SetSharedMemoryCallback(smcb);
 
     // these happen instantaneously and without too much regard for bus aribtration
     // rules, so, this might have to be changed later on
@@ -169,49 +204,14 @@ void SetRstLine(bool release)
     DSPTimestamp = NDS::ARM9Timestamp; // only start now!
 }
 
-void OnMBKCfg(char bank, u32 slot, u8 oldcfg, u8 newcfg, u8* nwrambacking)
-{
-    if (bank != 'B' && bank != 'C')
-    {
-        printf("WTF?? (DSP MBK recfg, nonsense bank '%c')\n", bank);
-        return;
-    }
-
-    bool olddsp = (oldcfg & 3) >= 2, // was mapped to the DSP
-         newdsp = (newcfg & 3) >= 2; // will be mapped to the DSP
-
-    // nothing changes
-    if (olddsp == newdsp)
-        return;
-
-    const u8* src;
-    u8* dst;
-
-    if (newdsp)
-    {
-        // need to map stuff to DSP memory (== Teakra-owned memory) from NWRAM
-        src = nwrambacking;
-        dst = &TeakraCore->GetDspMemory()[((newcfg >> 2) & 7) << 15];
-
-        if (bank == 'C') // C: DSP data (B: DSP code)
-            dst += DataMemoryOffset*2;
-    }
-    else //if (olddsp)
-    {
-        // it was mapped to the DSP, but now we have to copy it out, back to NWRAM
-        src = &TeakraCore->GetDspMemory()[((oldcfg >> 2) & 7) << 15];
-        dst = nwrambacking;
-
-        if (bank == 'C') // C: DSP data (B: DSP code)
-            src += DataMemoryOffset*2;
-    }
-
-    memcpy(dst, src, 1<<15); // 1 full slot
-}
-
 inline bool IsDSPCoreEnabled()
 {
     return (DSi::SCFG_Clock9 & (1<<1)) && SCFG_RST && (!(DSP_PCFG & (1<<0)));
+}
+
+inline bool IsDSPIOEnabled()
+{
+    return (DSi::SCFG_Clock9 & (1<<1)) && SCFG_RST;
 }
 
 bool DSPCatchUp()
@@ -390,10 +390,8 @@ u16 PDataDMAReadMMIO()
 
 u8 Read8(u32 addr)
 {
-    if (!(DSi::SCFG_EXT[0] & (1<<18)))
-        return 0;
-
-    if (!DSPCatchUp()) return 0;
+    //if (!IsDSPIOEnabled()) return 0;
+    DSPCatchUp();
 
     addr &= 0x3F; // mirroring wheee
 
@@ -419,10 +417,9 @@ u8 Read8(u32 addr)
 }
 u16 Read16(u32 addr)
 {
-    if (!(DSi::SCFG_EXT[0] & (1<<18)))
-        return 0;
-
-    if (!DSPCatchUp()) return 0;
+    //printf("DSP READ16 %d %08X   %08X\n", IsDSPCoreEnabled(), addr, NDS::GetPC(0));
+    //if (!IsDSPIOEnabled()) return 0;
+    DSPCatchUp();
 
     addr &= 0x3E; // mirroring wheee
 
@@ -463,8 +460,6 @@ u16 Read16(u32 addr)
 }
 u32 Read32(u32 addr)
 {
-    if (!(DSi::SCFG_EXT[0] & (1<<18))) return 0;
-
     addr &= 0x3C;
     return Read16(addr); // *shrug* (doesn't do anything unintended due to the
                          // 4byte spacing between regs while they're all 16bit)
@@ -472,9 +467,8 @@ u32 Read32(u32 addr)
 
 void Write8(u32 addr, u8 val)
 {
-    if (!(DSi::SCFG_EXT[0] & (1<<18))) return;
-
-    if (!DSPCatchUp()) return;
+    //if (!IsDSPIOEnabled()) return;
+    DSPCatchUp();
 
     addr &= 0x3F;
     switch (addr)
@@ -494,9 +488,9 @@ void Write8(u32 addr, u8 val)
 }
 void Write16(u32 addr, u16 val)
 {
-    if (!(DSi::SCFG_EXT[0] & (1<<18))) return;
-
-    if (!DSPCatchUp()) return;
+    printf("DSP WRITE16 %d %08X %08X  %08X\n", IsDSPCoreEnabled(), addr, val, NDS::GetPC(0));
+    //if (!IsDSPIOEnabled()) return;
+    DSPCatchUp();
 
     addr &= 0x3E;
     switch (addr)
@@ -506,6 +500,8 @@ void Write16(u32 addr, u16 val)
 
     case 0x08:
         DSP_PCFG = val;
+        if (DSP_PCFG & (1<<0))
+            TeakraCore->Reset();
         if (DSP_PCFG & (1<<4))
             PDataDMAStart();
         else
@@ -547,8 +543,6 @@ void Write16(u32 addr, u16 val)
 
 void Write32(u32 addr, u32 val)
 {
-    if (!(DSi::SCFG_EXT[0] & (1<<18))) return;
-
     addr &= 0x3C;
     Write16(addr, val & 0xFFFF);
 }

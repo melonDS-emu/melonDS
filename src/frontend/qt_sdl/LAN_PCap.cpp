@@ -114,6 +114,12 @@ bool TryLoadPCap(void* lib)
 
 bool Init(bool open_adapter)
 {
+    PCapAdapter = NULL;
+    PacketLen = 0;
+    RXNum = 0;
+
+    NumAdapters = 0;
+
     // TODO: how to deal with cases where an adapter is unplugged or changes config??
     if (!PCapLib)
     {
@@ -141,12 +147,6 @@ bool Init(bool open_adapter)
             return false;
         }
     }
-
-    PCapAdapter = NULL;
-    PacketLen = 0;
-    RXNum = 0;
-
-    NumAdapters = 0;
 
     char errbuf[PCAP_ERRBUF_SIZE];
     int ret;

@@ -19,17 +19,44 @@
 #include <stdio.h>
 #include "ARM.h"
 
-
-#define CARRY_ADD(a, b)  ((0xFFFFFFFF-a) < b)
-#define CARRY_SUB(a, b)  (a >= b)
-
-#define OVERFLOW_ADD(a, b, res)  ((!(((a) ^ (b)) & 0x80000000)) && (((a) ^ (res)) & 0x80000000))
-#define OVERFLOW_SUB(a, b, res)  ((((a) ^ (b)) & 0x80000000) && (((a) ^ (res)) & 0x80000000))
-
-
 namespace ARMInterpreter
 {
 
+inline bool CarryAdd(u32 a, u32 b)
+{
+    return (0xFFFFFFFF-a) < b;
+}
+
+inline bool CarrySub(u32 a, u32 b)
+{
+    return a >= b;
+}
+
+inline bool OverflowAdd(u32 a, u32 b)
+{
+    u32 res = a + b;
+    return (!((a ^ b) & 0x80000000)) && ((a ^ res) & 0x80000000);
+}
+
+inline bool OverflowSub(u32 a, u32 b)
+{
+    u32 res = a - b;
+    return ((a ^ b) & 0x80000000) && ((a ^ res) & 0x80000000);
+}
+
+inline bool OverflowAdc(u32 a, u32 b, u32 carry)
+{
+    s64 fullResult = (s64)(s32)a + (s32)b + carry;
+    u32 res = a + b + carry;
+    return (s32)res != fullResult;
+}
+
+inline bool OverflowSbc(u32 a, u32 b, u32 carry)
+{
+    s64 fullResult = (s64)(s32)a - (s32)b - carry;
+    u32 res = a - b - carry;
+    return (s32)res != fullResult;
+}
 
 #define LSL_IMM(x, s) \
     x <<= s;
@@ -364,8 +391,8 @@ A_IMPLEMENT_ALU_OP(EOR,_S)
     u32 res = a - b; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
-                 CARRY_SUB(a, b), \
-                 OVERFLOW_SUB(a, b, res)); \
+                 CarrySub(a, b), \
+                 OverflowSub(a, b)); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -397,8 +424,8 @@ A_IMPLEMENT_ALU_OP(SUB,)
     u32 res = b - a; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
-                 CARRY_SUB(b, a), \
-                 OVERFLOW_SUB(b, a, res)); \
+                 CarrySub(b, a), \
+                 OverflowSub(b, a)); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -430,8 +457,8 @@ A_IMPLEMENT_ALU_OP(RSB,)
     u32 res = a + b; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
-                 CARRY_ADD(a, b), \
-                 OVERFLOW_ADD(a, b, res)); \
+                 CarryAdd(a, b), \
+                 OverflowAdd(a, b)); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -465,8 +492,8 @@ A_IMPLEMENT_ALU_OP(ADD,)
     u32 res = res_tmp + carry; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
-                 CARRY_ADD(a, b) | CARRY_ADD(res_tmp, carry), \
-                 OVERFLOW_ADD(a, b, res_tmp) | OVERFLOW_ADD(res_tmp, carry, res)); \
+                 CarryAdd(a, b) | CarryAdd(res_tmp, carry), \
+                 OverflowAdc(a, b, carry)); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -500,8 +527,8 @@ A_IMPLEMENT_ALU_OP(ADC,)
     u32 res = res_tmp - carry; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
-                 CARRY_SUB(a, b) & CARRY_SUB(res_tmp, carry), \
-                 OVERFLOW_SUB(a, b, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res)); \
+                 CarrySub(a, b) & CarrySub(res_tmp, carry), \
+                 OverflowSbc(a, b, carry)); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -535,8 +562,8 @@ A_IMPLEMENT_ALU_OP(SBC,)
     u32 res = res_tmp - carry; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
-                 CARRY_SUB(b, a) & CARRY_SUB(res_tmp, carry), \
-                 OVERFLOW_SUB(b, a, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res)); \
+                 CarrySub(b, a) & CarrySub(res_tmp, carry), \
+                 OverflowSbc(b, a, carry)); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -575,8 +602,8 @@ A_IMPLEMENT_ALU_TEST(TEQ,_S)
     u32 res = a - b; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
-                 CARRY_SUB(a, b), \
-                 OVERFLOW_SUB(a, b, res)); \
+                 CarrySub(a, b), \
+                 OverflowSub(a, b)); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(CMP,)
@@ -587,8 +614,8 @@ A_IMPLEMENT_ALU_TEST(CMP,)
     u32 res = a + b; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
-                 CARRY_ADD(a, b), \
-                 OVERFLOW_ADD(a, b, res)); \
+                 CarryAdd(a, b), \
+                 OverflowAdd(a, b)); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(CMN,)
@@ -933,7 +960,7 @@ void A_SMLAxy(ARM* cpu)
     u32 res = res_mul + rn;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    if (OVERFLOW_ADD(res_mul, rn, res))
+    if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
     cpu->AddCycles_C(); // TODO: interlock??
@@ -954,7 +981,7 @@ void A_SMLAWy(ARM* cpu)
     u32 res = res_mul + rn;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    if (OVERFLOW_ADD(res_mul, rn, res))
+    if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
     cpu->AddCycles_C(); // TODO: interlock??
@@ -1051,7 +1078,7 @@ void A_QADD(ARM* cpu)
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
 
     u32 res = rm + rn;
-    if (OVERFLOW_ADD(rm, rn, res))
+    if (OverflowAdd(rm, rn))
     {
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
@@ -1069,7 +1096,7 @@ void A_QSUB(ARM* cpu)
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
 
     u32 res = rm - rn;
-    if (OVERFLOW_SUB(rm, rn, res))
+    if (OverflowSub(rm, rn))
     {
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
@@ -1086,7 +1113,7 @@ void A_QDADD(ARM* cpu)
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
 
-    if (OVERFLOW_ADD(rn, rn, rn<<1))
+    if (OverflowAdd(rn, rn))
     {
         rn = (rn & 0x80000000) ? 0x80000000 : 0x7FFFFFFF;
         cpu->CPSR |= 0x08000000; // CHECKME
@@ -1095,7 +1122,7 @@ void A_QDADD(ARM* cpu)
         rn <<= 1;
 
     u32 res = rm + rn;
-    if (OVERFLOW_ADD(rm, rn, res))
+    if (OverflowAdd(rm, rn))
     {
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
@@ -1112,7 +1139,7 @@ void A_QDSUB(ARM* cpu)
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
 
-    if (OVERFLOW_ADD(rn, rn, rn<<1))
+    if (OverflowAdd(rn, rn))
     {
         rn = (rn & 0x80000000) ? 0x80000000 : 0x7FFFFFFF;
         cpu->CPSR |= 0x08000000; // CHECKME
@@ -1121,7 +1148,7 @@ void A_QDSUB(ARM* cpu)
         rn <<= 1;
 
     u32 res = rm - rn;
-    if (OVERFLOW_SUB(rm, rn, res))
+    if (OverflowSub(rm, rn))
     {
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
@@ -1178,8 +1205,8 @@ void T_ADD_REG_(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_ADD(a, b),
-                 OVERFLOW_ADD(a, b, res));
+                 CarryAdd(a, b),
+                 OverflowAdd(a, b));
     cpu->AddCycles_C();
 }
 
@@ -1191,8 +1218,8 @@ void T_SUB_REG_(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_SUB(a, b),
-                 OVERFLOW_SUB(a, b, res));
+                 CarrySub(a, b),
+                 OverflowSub(a, b));
     cpu->AddCycles_C();
 }
 
@@ -1204,8 +1231,8 @@ void T_ADD_IMM_(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_ADD(a, b),
-                 OVERFLOW_ADD(a, b, res));
+                 CarryAdd(a, b),
+                 OverflowAdd(a, b));
     cpu->AddCycles_C();
 }
 
@@ -1217,8 +1244,8 @@ void T_SUB_IMM_(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_SUB(a, b),
-                 OVERFLOW_SUB(a, b, res));
+                 CarrySub(a, b),
+                 OverflowSub(a, b));
     cpu->AddCycles_C();
 }
 
@@ -1238,8 +1265,8 @@ void T_CMP_IMM(ARM* cpu)
     u32 res = a - b;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_SUB(a, b),
-                 OVERFLOW_SUB(a, b, res));
+                 CarrySub(a, b),
+                 OverflowSub(a, b));
     cpu->AddCycles_C();
 }
 
@@ -1251,8 +1278,8 @@ void T_ADD_IMM(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_ADD(a, b),
-                 OVERFLOW_ADD(a, b, res));
+                 CarryAdd(a, b),
+                 OverflowAdd(a, b));
     cpu->AddCycles_C();
 }
 
@@ -1264,8 +1291,8 @@ void T_SUB_IMM(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_SUB(a, b),
-                 OVERFLOW_SUB(a, b, res));
+                 CarrySub(a, b),
+                 OverflowSub(a, b));
     cpu->AddCycles_C();
 }
 
@@ -1335,8 +1362,8 @@ void T_ADC_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_ADD(a, b) | CARRY_ADD(res_tmp, carry),
-                 OVERFLOW_ADD(a, b, res_tmp) | OVERFLOW_ADD(res_tmp, carry, res));
+                 CarryAdd(a, b) | CarryAdd(res_tmp, carry),
+                 OverflowAdc(a, b, carry));
     cpu->AddCycles_C();
 }
 
@@ -1350,8 +1377,8 @@ void T_SBC_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_SUB(a, b) & CARRY_SUB(res_tmp, carry),
-                 OVERFLOW_SUB(a, b, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res));
+                 CarrySub(a, b) & CarrySub(res_tmp, carry),
+                 OverflowSbc(a, b, carry));
     cpu->AddCycles_C();
 }
 
@@ -1383,8 +1410,8 @@ void T_NEG_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_SUB(0, b),
-                 OVERFLOW_SUB(0, b, res));
+                 CarrySub(0, b),
+                 OverflowSub(0, b));
     cpu->AddCycles_C();
 }
 
@@ -1395,8 +1422,8 @@ void T_CMP_REG(ARM* cpu)
     u32 res = a - b;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_SUB(a, b),
-                 OVERFLOW_SUB(a, b, res));
+                 CarrySub(a, b),
+                 OverflowSub(a, b));
     cpu->AddCycles_C();
 }
 
@@ -1407,8 +1434,8 @@ void T_CMN_REG(ARM* cpu)
     u32 res = a + b;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_ADD(a, b),
-                 OVERFLOW_ADD(a, b, res));
+                 CarryAdd(a, b),
+                 OverflowAdd(a, b));
     cpu->AddCycles_C();
 }
 
@@ -1504,8 +1531,8 @@ void T_CMP_HIREG(ARM* cpu)
 
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_SUB(a, b),
-                 OVERFLOW_SUB(a, b, res));
+                 CarrySub(a, b),
+                 OverflowSub(a, b));
     cpu->AddCycles_C();
 }
 

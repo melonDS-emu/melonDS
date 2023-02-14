@@ -58,6 +58,11 @@ public:
         }
     }
 
+    u16 Receive() {
+        printf("BTDMP RECEIVE TODO!!\n");
+        return 0;
+    }
+
     void SetTransmitFlush(u16 value) {
         transmit_queue = {};
         transmit_empty = true;

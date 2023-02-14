@@ -67,8 +67,9 @@ private slots:
     void on_cbBetterPolygons_stateChanged(int state);
 
     void on_cbSoftwareThreaded_stateChanged(int state);
-
 private:
+    void setVsyncControlEnable(bool hasOGL);
+
     Ui::VideoSettingsDialog* ui;
 
     QButtonGroup* grp3DRenderer;
