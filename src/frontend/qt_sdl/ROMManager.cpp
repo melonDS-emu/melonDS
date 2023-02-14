@@ -326,6 +326,7 @@ bool LoadState(std::string filename)
 
         std::string savefile = filename.substr(LastSep(filename)+1);
         savefile = GetAssetPath(false, Config::SaveFilePath, ".sav", savefile);
+        savefile += Platform::InstanceFileSuffix();
         NDSSave->SetPath(savefile, true);
     }
 
@@ -350,6 +351,7 @@ bool SaveState(std::string filename)
     {
         std::string savefile = filename.substr(LastSep(filename)+1);
         savefile = GetAssetPath(false, Config::SaveFilePath, ".sav", savefile);
+        savefile += Platform::InstanceFileSuffix();
         NDSSave->SetPath(savefile, false);
     }
 
@@ -432,6 +434,7 @@ void Reset()
     {
         std::string oldsave = NDSSave->GetPath();
         std::string newsave = GetAssetPath(false, Config::SaveFilePath, ".sav");
+        newsave += Platform::InstanceFileSuffix();
         if (oldsave != newsave)
             NDSSave->SetPath(newsave, false);
     }
@@ -440,6 +443,7 @@ void Reset()
     {
         std::string oldsave = GBASave->GetPath();
         std::string newsave = GetAssetPath(true, Config::SaveFilePath, ".sav");
+        newsave += Platform::InstanceFileSuffix();
         if (oldsave != newsave)
             GBASave->SetPath(newsave, false);
     }
@@ -499,6 +503,7 @@ bool LoadROM(QStringList filepath, bool reset)
         if (len > 0x40000000)
         {
             fclose(f);
+            delete[] filedata;
             return false;
         }
 
@@ -524,14 +529,14 @@ bool LoadROM(QStringList filepath, bool reset)
     {
         // file inside archive
 
-        u32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
-        if (lenread < 0) return false;
-        if (!filedata) return false;
-        if (lenread != filelen)
-        {
-            delete[] filedata;
-            return false;
-        }
+            s32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
+            if (lenread < 0) return false;
+            if (!filedata) return false;
+            if (lenread != filelen)
+            {
+                delete[] filedata;
+                return false;
+            }
 
         std::string std_archivepath = filepath.at(0).toStdString();
         basepath = std_archivepath.substr(0, LastSep(std_archivepath));
@@ -562,7 +567,11 @@ bool LoadROM(QStringList filepath, bool reset)
     u8* savedata = nullptr;
 
     std::string savname = GetAssetPath(false, Config::SaveFilePath, ".sav");
+    std::string origsav = savname;
+    savname += Platform::InstanceFileSuffix();
+
     FILE* sav = Platform::OpenFile(savname, "rb", true);
+    if (!sav) sav = Platform::OpenFile(origsav, "rb", true);
     if (sav)
     {
         fseek(sav, 0, SEEK_END);
@@ -711,7 +720,11 @@ bool LoadGBAROM(QStringList filepath)
     u8* savedata = nullptr;
 
     std::string savname = GetAssetPath(true, Config::SaveFilePath, ".sav");
+    std::string origsav = savname;
+    savname += Platform::InstanceFileSuffix();
+
     FILE* sav = Platform::OpenFile(savname, "rb", true);
+    if (!sav) sav = Platform::OpenFile(origsav, "rb", true);
     if (sav)
     {
         fseek(sav, 0, SEEK_END);

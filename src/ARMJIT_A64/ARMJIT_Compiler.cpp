@@ -21,10 +21,12 @@
 #include "../ARMJIT_Internal.h"
 #include "../ARMInterpreter.h"
 
-#ifdef __SWITCH__
+#if defined(__SWITCH__)
 #include <switch.h>
 
 extern char __start__;
+#elif defined(_WIN32)
+#include <windows.h>
 #else
 #include <sys/mman.h>
 #include <unistd.h>
@@ -256,10 +258,21 @@ Compiler::Compiler()
     SetCodeBase((u8*)JitRWStart, (u8*)JitRXStart);
     JitMemMainSize = JitMemSize;
 #else
-    u64 pageSize = sysconf(_SC_PAGE_SIZE);
+    #ifdef _WIN32
+        SYSTEM_INFO sysInfo;
+        GetSystemInfo(&sysInfo);
+
+        u64 pageSize = (u64)sysInfo.dwPageSize;
+    #else
+        u64 pageSize = sysconf(_SC_PAGE_SIZE);
+    #endif
     u8* pageAligned = (u8*)(((u64)JitMem & ~(pageSize - 1)) + pageSize);
     u64 alignedSize = (((u64)JitMem + sizeof(JitMem)) & ~(pageSize - 1)) - (u64)pageAligned;
-    #ifdef __APPLE__
+
+    #if defined(_WIN32)
+        DWORD dummy;
+        VirtualProtect(pageAligned, alignedSize, PAGE_EXECUTE_READWRITE, &dummy);
+    #elif defined(__APPLE__)
         pageAligned = (u8*)mmap(NULL, 1024*1024*16, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT,-1, 0);
         JitEnableWrite();
     #else

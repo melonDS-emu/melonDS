@@ -22,6 +22,7 @@
 
 #include "types.h"
 #include "Config.h"
+#include "Platform.h"
 
 #include "PathSettingsDialog.h"
 #include "ui_PathSettingsDialog.h"
@@ -43,6 +44,12 @@ PathSettingsDialog::PathSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->txtSaveFilePath->setText(QString::fromStdString(Config::SaveFilePath));
     ui->txtSavestatePath->setText(QString::fromStdString(Config::SavestatePath));
     ui->txtCheatFilePath->setText(QString::fromStdString(Config::CheatFilePath));
+
+    int inst = Platform::InstanceID();
+    if (inst > 0)
+        ui->lblInstanceNum->setText(QString("Configuring paths for instance %1").arg(inst+1));
+    else
+        ui->lblInstanceNum->hide();
 }
 
 PathSettingsDialog::~PathSettingsDialog()

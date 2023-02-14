@@ -50,12 +50,12 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    LAN_Socket::Init();
     haspcap = LAN_PCap::Init(false);
 
     ui->rbDirectMode->setText("Direct mode (requires " PCAP_NAME " and ethernet connection)");
 
-    ui->cbBindAnyAddr->setChecked(Config::SocketBindAnyAddr);
+    ui->lblAdapterMAC->setText("(none)");
+    ui->lblAdapterIP->setText("(none)");
 
     int sel = 0;
     for (int i = 0; i < LAN_PCap::NumAdapters; i++)
@@ -88,7 +88,6 @@ void WifiSettingsDialog::done(int r)
 
     if (r == QDialog::Accepted)
     {
-        Config::SocketBindAnyAddr = ui->cbBindAnyAddr->isChecked();
         Config::DirectLAN = ui->rbDirectMode->isChecked();
 
         int sel = ui->cbxDirectAdapter->currentIndex();

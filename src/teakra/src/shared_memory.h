@@ -5,19 +5,21 @@
 
 namespace Teakra {
 struct SharedMemory {
-    std::array<u8, 0x80000> raw{};
     u16 ReadWord(u32 word_address) const {
-        u32 byte_address = word_address * 2;
-        u8 low = raw[byte_address];
-        u8 high = raw[byte_address + 1];
-        return low | ((u16)high << 8);
+        return read_external16(word_address << 1);
     }
     void WriteWord(u32 word_address, u16 value) {
-        u8 low = value & 0xFF;
-        u8 high = value >> 8;
-        u32 byte_address = word_address * 2;
-        raw[byte_address] = low;
-        raw[byte_address + 1] = high;
+        write_external16(word_address << 1, value);
     }
+
+    void SetExternalMemoryCallback(
+           std::function<u16(u32)> read16, std::function<void(u32, u16)> write16) {
+
+        read_external16 = std::move(read16);
+        write_external16 = std::move(write16);
+    }
+
+    std::function<u16(u32)> read_external16;
+    std::function<void(u32, u16)> write_external16;
 };
 } // namespace Teakra

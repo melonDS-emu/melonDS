@@ -49,8 +49,48 @@ UINT FF_ReadNAND(BYTE* buf, LBA_t sector, UINT num);
 UINT FF_WriteNAND(BYTE* buf, LBA_t sector, UINT num);
 
 
-bool Init(FILE* nandfile, u8* es_keyY)
+bool Init(u8* es_keyY)
 {
+    CurFile = nullptr;
+
+    std::string nandpath = Platform::GetConfigString(Platform::DSi_NANDPath);
+    std::string instnand = nandpath + Platform::InstanceFileSuffix();
+
+    FILE* nandfile = Platform::OpenLocalFile(instnand, "r+b");
+    if ((!nandfile) && (Platform::InstanceID() > 0))
+    {
+        FILE* orig = Platform::OpenLocalFile(nandpath, "rb");
+        if (!orig)
+        {
+            printf("Failed to open DSi NAND\n");
+            return false;
+        }
+
+        fseek(orig, 0, SEEK_END);
+        long len = ftell(orig);
+        fseek(orig, 0, SEEK_SET);
+
+        nandfile = Platform::OpenLocalFile(instnand, "w+b");
+        if (nandfile)
+        {
+            u8* tmpbuf = new u8[0x10000];
+            for (long i = 0; i < len; i+=0x10000)
+            {
+                long blklen = 0x10000;
+                if ((i+blklen) > len) blklen = len-i;
+
+                fread(tmpbuf, blklen, 1, orig);
+                fwrite(tmpbuf, blklen, 1, nandfile);
+            }
+            delete[] tmpbuf;
+        }
+
+        fclose(orig);
+        fclose(nandfile);
+
+        nandfile = Platform::OpenLocalFile(instnand, "r+b");
+    }
+
     if (!nandfile)
         return false;
 
@@ -138,7 +178,14 @@ void DeInit()
     f_unmount("0:");
     ff_disk_close();
 
+    if (CurFile) fclose(CurFile);
     CurFile = nullptr;
+}
+
+
+FILE* GetFile()
+{
+    return CurFile;
 }
 
 

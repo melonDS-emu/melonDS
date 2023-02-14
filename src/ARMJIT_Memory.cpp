@@ -81,29 +81,29 @@ bool FaultHandler(FaultDescription& faultDesc);
 }
 
 // Yes I know this looks messy, but better here than somewhere else in the code
-#if defined(_WIN32)
-    #define CONTEXT_PC Rip
-#else
-    #if defined(__x86_64__)
-        #if defined(__linux__)
-            #define CONTEXT_PC uc_mcontext.gregs[REG_RIP]
-        #elif defined(__APPLE__)
-            #define CONTEXT_PC uc_mcontext->__ss.__rip
-        #elif defined(__FreeBSD__)
-            #define CONTEXT_PC uc_mcontext.mc_rip
-        #elif defined(__NetBSD__)
-            #define CONTEXT_PC uc_mcontext.__gregs[_REG_RIP]
-        #endif
-    #elif defined(__aarch64__)
-        #if defined(__linux__)
-            #define CONTEXT_PC uc_mcontext.pc
-        #elif defined(__APPLE__)
-            #define CONTEXT_PC uc_mcontext->__ss.__pc
-        #elif defined(__FreeBSD__)
-            #define CONTEXT_PC uc_mcontext.mc_gpregs.gp_elr
-        #elif defined(__NetBSD__)
-            #define CONTEXT_PC uc_mcontext.__gregs[_REG_PC]
-        #endif
+#if defined(__x86_64__)
+    #if defined(_WIN32)
+        #define CONTEXT_PC Rip
+    #elif defined(__linux__)
+        #define CONTEXT_PC uc_mcontext.gregs[REG_RIP]
+    #elif defined(__APPLE__)
+        #define CONTEXT_PC uc_mcontext->__ss.__rip
+    #elif defined(__FreeBSD__)
+        #define CONTEXT_PC uc_mcontext.mc_rip
+    #elif defined(__NetBSD__)
+        #define CONTEXT_PC uc_mcontext.__gregs[_REG_RIP]
+    #endif
+#elif defined(__aarch64__)
+    #if defined(_WIN32)
+        #define CONTEXT_PC Pc
+    #elif defined(__linux__)
+        #define CONTEXT_PC uc_mcontext.pc
+    #elif defined(__APPLE__)
+        #define CONTEXT_PC uc_mcontext->__ss.__pc
+    #elif defined(__FreeBSD__)
+        #define CONTEXT_PC uc_mcontext.mc_gpregs.gp_elr
+    #elif defined(__NetBSD__)
+        #define CONTEXT_PC uc_mcontext.__gregs[_REG_PC]
     #endif
 #endif
 

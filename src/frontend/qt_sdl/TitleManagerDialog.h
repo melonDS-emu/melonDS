@@ -45,7 +45,7 @@ public:
     explicit TitleManagerDialog(QWidget* parent);
     ~TitleManagerDialog();
 
-    static FILE* curNAND;
+    static bool NANDInited;
     static bool openNAND();
     static void closeNAND();
 

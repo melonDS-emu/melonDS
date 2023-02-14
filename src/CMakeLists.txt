@@ -65,6 +65,8 @@ if (ENABLE_OGLRENDERER)
         GPU3D_OpenGL.cpp
         GPU3D_OpenGL_shaders.h
         OpenGLSupport.cpp)
+
+    target_compile_definitions(core PUBLIC OGLRENDERER_ENABLED)
 endif()
 
 if (ENABLE_JIT)
@@ -106,6 +108,8 @@ if (ENABLE_JIT)
 endif()
 
 add_subdirectory(teakra EXCLUDE_FROM_ALL)
+# Workaround for building teakra with -O0 on Windows either failing or hanging forever
+target_compile_options(teakra PRIVATE "$<$<CONFIG:DEBUG>:-Og>")
 target_link_libraries(core PRIVATE teakra)
 
 find_library(m MATH_LIBRARY)
@@ -114,19 +118,8 @@ if (MATH_LIBRARY)
     target_link_libraries(core PRIVATE ${MATH_LIBRARY})
 endif()
 
-if (ENABLE_OGLRENDERER)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(Epoxy REQUIRED IMPORTED_TARGET epoxy)
-    fix_interface_includes(PkgConfig::Epoxy)
-
-    target_link_libraries(core PUBLIC PkgConfig::Epoxy)
-
-    target_compile_definitions(core PUBLIC OGLRENDERER_ENABLED)
-endif()
-
 if (ENABLE_JIT)
     target_compile_definitions(core PUBLIC JIT_ENABLED)
-
 
     if (ENABLE_JIT_PROFILING)
         include(cmake/FindVTune.cmake)

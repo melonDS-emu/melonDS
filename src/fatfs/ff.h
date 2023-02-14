@@ -421,7 +421,7 @@ typedef UINT (*ff_disk_read_cb)(BYTE* buff, LBA_t sector, UINT count);
 typedef UINT (*ff_disk_write_cb)(BYTE* buff, LBA_t sector, UINT count);
 
 void ff_disk_open(ff_disk_read_cb readcb, ff_disk_write_cb writecb, LBA_t seccnt);
-void ff_disk_close();
+void ff_disk_close(void);
 
 
 #ifdef __cplusplus

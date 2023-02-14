@@ -15,9 +15,9 @@ You need an original copy of "Kingdom Hearts 358/2 Days" in order to dump it int
 
 ### Linux
 1. Install dependencies:
-   * Ubuntu 22.04: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qtbase5-dev libslirp-dev libarchive-dev libepoxy-dev`
-   * Older Ubuntu: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp-dev libarchive-dev libepoxy-dev`
-   * Arch Linux: `sudo pacman -S base-devel cmake git libpcap sdl2 qt5-base libslirp libarchive libepoxy`
+   * Ubuntu 22.04: `sudo apt install cmake extra-cmake-modules libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qtbase5-dev qtbase5-private-dev qtmultimedia5-dev libslirp-dev libarchive-dev`
+   * Older Ubuntu: `sudo apt install cmake extra-cmake-modules libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default qtbase5-private-dev qtmultimedia5-dev libslirp-dev libarchive-dev`
+   * Arch Linux: `sudo pacman -S base-devel cmake extra-cmake-modules git libpcap sdl2 qt5-base qt5-multimedia libslirp libarchive`
 3. Download the KHDays FM repository and prepare:
    ```bash
    git clone https://github.com/vitor251093/KHDays_FM
@@ -44,22 +44,22 @@ You need an original copy of "Kingdom Hearts 358/2 Days" in order to dump it int
    cd KHDays_FM
    ```
 #### Dynamic builds (with DLLs)
-5. Install dependencies: `pacman -S make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5,libslirp,libarchive,libepoxy}`
+5. Install dependencies: `pacman -S mingw-w64-x86_64-{cmake,SDL2,toolchain,qt5-base,qt5-svg,qt5-multimedia,libslirp,libarchive}`
 6. Compile:
    ```bash
-   cmake -B build -G "MSYS Makefiles"
-   cmake --build build -j$(nproc --all)
+   cmake -B build
+   cmake --build build
    cd build
    ../tools/msys-dist.sh
    ```
 If everything went well, KHDays FM and the libraries it needs should now be in the `dist` folder.
 
 #### Static builds (without DLLs, standalone executable)
-5. Install dependencies: `pacman -S make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-static,libslirp,libarchive,libepoxy}`
+5. Install dependencies: `pacman -S mingw-w64-x86_64-{cmake,SDL2,toolchain,qt5-static,libslirp,libarchive}`
 6. Compile:
    ```bash
-   cmake -B build -G 'MSYS Makefiles' -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=/mingw64/qt5-static
-   cmake --build build -j$(nproc --all)
+   cmake -B build -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=/mingw64/qt5-static
+   cmake --build build
    ```
 If everything went well, melonDS should now be in the `build` folder.
 

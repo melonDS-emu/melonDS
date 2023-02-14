@@ -31,6 +31,8 @@ void Stop();
 
 void DoSavestate(Savestate* file);
 
+void SetPowerCnt(u32 val);
+
 // 0=none 1=linear 2=cosine 3=cubic
 void SetInterpolation(int type);
 

@@ -3,6 +3,7 @@
 /* (C)ChaN, 2018                                                          */
 /*------------------------------------------------------------------------*/
 
+#define _POSIX_SOURCE
 #define _POSIX_THREAD_SAFE_FUNCTIONS
 #include <time.h>
 
@@ -103,7 +104,7 @@ void ff_rel_grant (
 #endif
 
 
-DWORD get_fattime()
+DWORD get_fattime(void)
 {
     // TODO: return melonDS time instead of RTC??
 

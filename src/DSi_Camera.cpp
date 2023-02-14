@@ -20,17 +20,25 @@
 #include <string.h>
 #include "DSi.h"
 #include "DSi_Camera.h"
+#include "Platform.h"
 
 
-DSi_Camera* DSi_Camera0; // 78 / facing outside
-DSi_Camera* DSi_Camera1; // 7A / selfie cam
+namespace DSi_CamModule
+{
 
-u16 DSi_Camera::ModuleCnt;
-u16 DSi_Camera::Cnt;
+Camera* Camera0; // 78 / facing outside
+Camera* Camera1; // 7A / selfie cam
 
-u8 DSi_Camera::FrameBuffer[640*480*4];
-u32 DSi_Camera::FrameLength;
-u32 DSi_Camera::TransferPos;
+u16 ModuleCnt;
+u16 Cnt;
+
+u32 CropStart, CropEnd;
+
+// pixel data buffer holds a maximum of 512 words, regardless of how long scanlines are
+u32 DataBuffer[512];
+u32 BufferReadPos, BufferWritePos;
+u32 BufferNumLines;
+Camera* CurCamera;
 
 // note on camera data/etc intervals
 // on hardware those are likely affected by several factors
@@ -41,133 +49,359 @@ const u32 kIRQInterval = 1120000; // ~30 FPS
 const u32 kTransferStart = 60000;
 
 
-bool DSi_Camera::Init()
+bool Init()
 {
-    DSi_Camera0 = new DSi_Camera(0);
-    DSi_Camera1 = new DSi_Camera(1);
+    Camera0 = new Camera(0);
+    Camera1 = new Camera(1);
 
     return true;
 }
 
-void DSi_Camera::DeInit()
+void DeInit()
 {
-    delete DSi_Camera0;
-    delete DSi_Camera1;
+    delete Camera0;
+    delete Camera1;
 }
 
-void DSi_Camera::Reset()
+void Reset()
 {
-    DSi_Camera0->ResetCam();
-    DSi_Camera1->ResetCam();
+    Camera0->Reset();
+    Camera1->Reset();
 
     ModuleCnt = 0; // CHECKME
     Cnt = 0;
 
-    memset(FrameBuffer, 0, 640*480*4);
-    TransferPos = 0;
-    FrameLength = 256*192*2; // TODO: make it check frame size, data type, etc
+    CropStart = 0;
+    CropEnd = 0;
+
+    memset(DataBuffer, 0, 512*sizeof(u32));
+    BufferReadPos = 0;
+    BufferWritePos = 0;
+    BufferNumLines = 0;
+    CurCamera = nullptr;
 
     NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, IRQ, 0);
 }
 
-void DSi_Camera::DoSavestate(Savestate* file)
+void Stop()
+{
+    Camera0->Stop();
+    Camera1->Stop();
+}
+
+void DoSavestate(Savestate* file)
 {
     file->Section("CAMi");
 
     file->Var16(&ModuleCnt);
     file->Var16(&Cnt);
 
-    file->VarArray(FrameBuffer, sizeof(FrameBuffer));
+    /*file->VarArray(FrameBuffer, sizeof(FrameBuffer));
     file->Var32(&TransferPos);
-    file->Var32(&FrameLength);
+    file->Var32(&FrameLength);*/
 
-    DSi_Camera0->DoCamSavestate(file);
-    DSi_Camera1->DoCamSavestate(file);
+    Camera0->DoSavestate(file);
+    Camera1->DoSavestate(file);
 }
 
 
-void DSi_Camera::IRQ(u32 param)
+void IRQ(u32 param)
 {
-    DSi_Camera* activecam = nullptr;
+    Camera* activecam = nullptr;
 
-    // TODO: check which camera has priority if both are activated
-    // (or does it just jumble both data sources together, like it
-    // does for, say, overlapping VRAM?)
-    if      (DSi_Camera0->IsActivated()) activecam = DSi_Camera0;
-    else if (DSi_Camera1->IsActivated()) activecam = DSi_Camera1;
+    // TODO: cameras don't have any priority!
+    // activating both together will jumble the image data together
+    if      (Camera0->IsActivated()) activecam = Camera0;
+    else if (Camera1->IsActivated()) activecam = Camera1;
 
     if (activecam)
     {
-        RequestFrame(activecam->Num);
+        activecam->StartTransfer();
 
         if (Cnt & (1<<11))
             NDS::SetIRQ(0, NDS::IRQ_DSi_Camera);
 
         if (Cnt & (1<<15))
-            NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, kTransferStart, Transfer, 0);
+        {
+            BufferReadPos = 0;
+            BufferWritePos = 0;
+            BufferNumLines = 0;
+            CurCamera = activecam;
+            NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, kTransferStart, TransferScanline, 0);
+        }
     }
 
     NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, IRQ, 0);
 }
 
-void DSi_Camera::RequestFrame(u32 cam)
+void TransferScanline(u32 line)
 {
-    if (!(Cnt & (1<<13))) printf("CAMERA: !! REQUESTING YUV FRAME\n");
+    u32* dstbuf = &DataBuffer[BufferWritePos];
+    int maxlen = 512 - BufferWritePos;
 
-    // TODO: picture size, data type, cropping, etc
-    // generate test pattern
-    // TODO: get picture from platform (actual camera, video file, whatever source)
-    for (u32 y = 0; y < 192; y++)
+    u32 tmpbuf[512];
+    int datalen = CurCamera->TransferScanline(tmpbuf, 512);
+
+    // TODO: must be tweaked such that each block has enough time to transfer
+    u32 delay = datalen*4 + 16;
+
+    int copystart = 0;
+    int copylen = datalen;
+
+    if (Cnt & (1<<14))
     {
-        for (u32 x = 0; x < 256; x++)
+        // crop picture
+
+        int ystart = (CropStart >> 16) & 0x1FF;
+        int yend = (CropEnd >> 16) & 0x1FF;
+        if (line < ystart || line > yend)
         {
-            u16* px = (u16*)&FrameBuffer[((y*256) + x) * 2];
+            if (!CurCamera->TransferDone())
+                NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, TransferScanline, line+1);
 
-            if ((x & 0x8) ^ (y & 0x8))
-                *px = 0x8000;
-            else
-                *px = 0xFC00 | ((y >> 3) << 5);
+            return;
         }
+
+        int xstart = (CropStart >> 1) & 0x1FF;
+        int xend = (CropEnd >> 1) & 0x1FF;
+
+        copystart = xstart;
+        copylen = xend+1 - xstart;
+
+        if ((copystart + copylen) > datalen)
+            copylen = datalen - copystart;
+        if (copylen < 0)
+            copylen = 0;
     }
-}
 
-void DSi_Camera::Transfer(u32 pos)
-{
-    u32 numscan = (Cnt & 0x000F) + 1;
-    u32 numpix = numscan * 256; // CHECKME
-
-    // TODO: present data
-    //printf("CAM TRANSFER POS=%d/%d\n", pos, 0x6000*2);
-
-    DSi::CheckNDMAs(0, 0x0B);
-
-    pos += numpix;
-    if (pos >= 0x6000*2) // HACK
+    if (copylen > maxlen)
     {
-        // transfer done
+        copylen = maxlen;
+        Cnt |= (1<<4);
+    }
+
+    if (Cnt & (1<<13))
+    {
+        // convert to RGB
+
+        for (u32 i = 0; i < copylen; i++)
+        {
+            u32 val = tmpbuf[copystart + i];
+
+            int y1 = val & 0xFF;
+            int u = (val >> 8) & 0xFF;
+            int y2 = (val >> 16) & 0xFF;
+            int v = (val >> 24) & 0xFF;
+
+            u -= 128; v -= 128;
+
+            int r1 = y1 + ((v * 91881) >> 16);
+            int g1 = y1 - ((v * 46793) >> 16) - ((u * 22544) >> 16);
+            int b1 = y1 + ((u * 116129) >> 16);
+
+            int r2 = y2 + ((v * 91881) >> 16);
+            int g2 = y2 - ((v * 46793) >> 16) - ((u * 22544) >> 16);
+            int b2 = y2 + ((u * 116129) >> 16);
+
+            r1 = std::clamp(r1, 0, 255); g1 = std::clamp(g1, 0, 255); b1 = std::clamp(b1, 0, 255);
+            r2 = std::clamp(r2, 0, 255); g2 = std::clamp(g2, 0, 255); b2 = std::clamp(b2, 0, 255);
+
+            u32 col1 = (r1 >> 3) | ((g1 >> 3) << 5) | ((b1 >> 3) << 10) | 0x8000;
+            u32 col2 = (r2 >> 3) | ((g2 >> 3) << 5) | ((b2 >> 3) << 10) | 0x8000;
+
+            dstbuf[i] = col1 | (col2 << 16);
+        }
     }
     else
     {
-        // keep going
+        // return raw data
 
-        // TODO: must be tweaked such that each block has enough time to transfer
-        u32 delay = numpix*2 + 16;
-
-        NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, Transfer, pos);
+        memcpy(dstbuf, &tmpbuf[copystart], copylen*sizeof(u32));
     }
+
+    u32 numscan = Cnt & 0x000F;
+    if (BufferNumLines >= numscan)
+    {
+        BufferReadPos = 0; // checkme
+        BufferWritePos = 0;
+        BufferNumLines = 0;
+        DSi::CheckNDMAs(0, 0x0B);
+    }
+    else
+    {
+        BufferWritePos += copylen;
+        if (BufferWritePos > 512) BufferWritePos = 512;
+        BufferNumLines++;
+    }
+
+    if (CurCamera->TransferDone())
+        return;
+
+    NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, TransferScanline, line+1);
 }
 
 
-DSi_Camera::DSi_Camera(u32 num)
+u8 Read8(u32 addr)
+{
+    //
+
+    printf("unknown DSi cam read8 %08X\n", addr);
+    return 0;
+}
+
+u16 Read16(u32 addr)
+{
+    switch (addr)
+    {
+    case 0x04004200: return ModuleCnt;
+    case 0x04004202: return Cnt;
+    }
+
+    printf("unknown DSi cam read16 %08X\n", addr);
+    return 0;
+}
+
+u32 Read32(u32 addr)
+{
+    switch (addr)
+    {
+    case 0x04004204:
+        {
+            u32 ret = DataBuffer[BufferReadPos];
+            if (Cnt & (1<<15))
+            {
+                if (BufferReadPos < 511)
+                    BufferReadPos++;
+                // CHECKME!!!!
+                // also presumably we should set bit4 in Cnt if there's no new data to be read
+            }
+
+            return ret;
+        }
+
+    case 0x04004210: return CropStart;
+    case 0x04004214: return CropEnd;
+    }
+
+    printf("unknown DSi cam read32 %08X\n", addr);
+    return 0;
+}
+
+void Write8(u32 addr, u8 val)
+{
+    //
+
+    printf("unknown DSi cam write8 %08X %02X\n", addr, val);
+}
+
+void Write16(u32 addr, u16 val)
+{
+    switch (addr)
+    {
+    case 0x04004200:
+        {
+            u16 oldcnt = ModuleCnt;
+            ModuleCnt = val;
+
+            if ((ModuleCnt & (1<<1)) && !(oldcnt & (1<<1)))
+            {
+                // reset shit to zero
+                // CHECKME
+
+                Cnt = 0;
+            }
+
+            if ((ModuleCnt & (1<<5)) && !(oldcnt & (1<<5)))
+            {
+                // TODO: reset I2C??
+            }
+        }
+        return;
+
+    case 0x04004202:
+        {
+            // TODO: during a transfer, clearing bit15 does not reflect immediately
+            // maybe it needs to finish the trasnfer or atleast the current block
+
+            // checkme
+            u16 oldmask;
+            if (Cnt & 0x8000)
+            {
+                val &= 0x8F20;
+                oldmask = 0x601F;
+            }
+            else
+            {
+                val &= 0xEF2F;
+                oldmask = 0x0010;
+            }
+
+            Cnt = (Cnt & oldmask) | (val & ~0x0020);
+            if (val & (1<<5))
+            {
+                Cnt &= ~(1<<4);
+                BufferReadPos = 0;
+                BufferWritePos = 0;
+            }
+
+            if ((val & (1<<15)) && !(Cnt & (1<<15)))
+            {
+                // start transfer
+                //DSi::CheckNDMAs(0, 0x0B);
+            }
+        }
+        return;
+
+    case 0x04004210:
+        if (Cnt & (1<<15)) return;
+        CropStart = (CropStart & 0x01FF0000) | (val & 0x03FE);
+        return;
+    case 0x04004212:
+        if (Cnt & (1<<15)) return;
+        CropStart = (CropStart & 0x03FE) | ((val & 0x01FF) << 16);
+        return;
+    case 0x04004214:
+        if (Cnt & (1<<15)) return;
+        CropEnd = (CropEnd & 0x01FF0000) | (val & 0x03FE);
+        return;
+    case 0x04004216:
+        if (Cnt & (1<<15)) return;
+        CropEnd = (CropEnd & 0x03FE) | ((val & 0x01FF) << 16);
+        return;
+    }
+
+    printf("unknown DSi cam write16 %08X %04X\n", addr, val);
+}
+
+void Write32(u32 addr, u32 val)
+{
+    switch (addr)
+    {
+    case 0x04004210:
+        if (Cnt & (1<<15)) return;
+        CropStart = val & 0x01FF03FE;
+        return;
+    case 0x04004214:
+        if (Cnt & (1<<15)) return;
+        CropEnd = val & 0x01FF03FE;
+        return;
+    }
+
+    printf("unknown DSi cam write32 %08X %08X\n", addr, val);
+}
+
+
+
+Camera::Camera(u32 num)
 {
     Num = num;
 }
 
-DSi_Camera::~DSi_Camera()
+Camera::~Camera()
 {
 }
 
-void DSi_Camera::DoCamSavestate(Savestate* file)
+void Camera::DoSavestate(Savestate* file)
 {
     char magic[5] = "CAMx";
     magic[3] = '0' + Num;
@@ -185,13 +419,13 @@ void DSi_Camera::DoCamSavestate(Savestate* file)
     file->Var16(&MiscCnt);
 
     file->Var16(&MCUAddr);
-    // TODO: MCUData??
-
     file->VarArray(MCURegs, 0x8000);
 }
 
-void DSi_Camera::ResetCam()
+void Camera::Reset()
 {
+    Platform::Camera_Stop(Num);
+
     DataPos = 0;
     RegAddr = 0;
     RegData = 0;
@@ -202,9 +436,23 @@ void DSi_Camera::ResetCam()
     ClocksCnt = 0;
     StandbyCnt = 0x4029; // checkme
     MiscCnt = 0;
+
+    MCUAddr = 0;
+    memset(MCURegs, 0, 0x8000);
+
+    // default state is preview mode (checkme)
+    MCURegs[0x2104] = 3;
+
+    TransferY = 0;
+    memset(FrameBuffer, 0, (640*480/2)*sizeof(u32));
 }
 
-bool DSi_Camera::IsActivated()
+void Camera::Stop()
+{
+    Platform::Camera_Stop(Num);
+}
+
+bool Camera::IsActivated()
 {
     if (StandbyCnt & (1<<14)) return false; // standby
     if (!(MiscCnt & (1<<9))) return false; // data transfer not enabled
@@ -213,31 +461,112 @@ bool DSi_Camera::IsActivated()
 }
 
 
-void DSi_Camera::I2C_Start()
+void Camera::StartTransfer()
 {
-}
+    TransferY = 0;
 
-u8 DSi_Camera::I2C_Read(bool last)
-{
-    u8 ret;
-
-    if (DataPos < 2)
+    u8 state = MCURegs[0x2104];
+    if (state == 3) // preview
     {
-        printf("DSi_Camera: WHAT??\n");
-        ret = 0;
+        FrameWidth = *(u16*)&MCURegs[0x2703];
+        FrameHeight = *(u16*)&MCURegs[0x2705];
+        FrameReadMode = *(u16*)&MCURegs[0x2717];
+        FrameFormat = *(u16*)&MCURegs[0x2755];
+    }
+    else if (state == 7) // capture
+    {
+        FrameWidth = *(u16*)&MCURegs[0x2707];
+        FrameHeight = *(u16*)&MCURegs[0x2709];
+        FrameReadMode = *(u16*)&MCURegs[0x272D];
+        FrameFormat = *(u16*)&MCURegs[0x2757];
     }
     else
     {
-        if (DataPos & 0x1)
+        FrameWidth = 0;
+        FrameHeight = 0;
+        FrameReadMode = 0;
+        FrameFormat = 0;
+    }
+
+    Platform::Camera_CaptureFrame(Num, FrameBuffer, 640, 480, true);
+}
+
+bool Camera::TransferDone()
+{
+    return TransferY >= FrameHeight;
+}
+
+int Camera::TransferScanline(u32* buffer, int maxlen)
+{
+    if (TransferY >= FrameHeight)
+        return 0;
+
+    if (FrameWidth > 640 || FrameHeight > 480 ||
+        FrameWidth < 2 || FrameHeight < 2 ||
+        (FrameWidth & 1))
+    {
+        // TODO work out something for these cases?
+        printf("CAM%d: invalid resolution %dx%d\n", Num, FrameWidth, FrameHeight);
+        //memset(buffer, 0, width*height*sizeof(u16));
+        return 0;
+    }
+
+    // TODO: non-YUV pixel formats and all
+
+    int retlen = FrameWidth >> 1;
+    int sy = (TransferY * 480) / FrameHeight;
+    if (FrameReadMode & (1<<1))
+        sy = 479 - sy;
+
+    if (FrameReadMode & (1<<0))
+    {
+        for (int dx = 0; dx < retlen; dx++)
         {
-            ret = RegData & 0xFF;
-            RegAddr += 2; // checkme
+            if (dx >= maxlen) break;
+
+            int sx = (dx * 640) / FrameWidth;
+
+            u32 val = FrameBuffer[sy*320 + sx];
+            buffer[dx] = val;
         }
-        else
+    }
+    else
+    {
+        for (int dx = 0; dx < retlen; dx++)
         {
-            RegData = I2C_ReadReg(RegAddr);
-            ret = RegData >> 8;
+            if (dx >= maxlen) break;
+
+            int sx = 319 - ((dx * 640) / FrameWidth);
+
+            u32 val = FrameBuffer[sy*320 + sx];
+            buffer[dx] = (val & 0xFF00FF00) | ((val >> 16) & 0xFF) | ((val & 0xFF) << 16);
         }
+    }
+
+    TransferY++;
+
+    return retlen;
+}
+
+
+void Camera::I2C_Start()
+{
+    DataPos = 0;
+}
+
+u8 Camera::I2C_Read(bool last)
+{
+    u8 ret;
+
+    if (DataPos & 0x1)
+    {
+        ret = RegData & 0xFF;
+        RegAddr += 2; // checkme
+    }
+    else
+    {
+        RegData = I2C_ReadReg(RegAddr);
+        ret = RegData >> 8;
     }
 
     if (last) DataPos = 0;
@@ -246,7 +575,7 @@ u8 DSi_Camera::I2C_Read(bool last)
     return ret;
 }
 
-void DSi_Camera::I2C_Write(u8 val, bool last)
+void Camera::I2C_Write(u8 val, bool last)
 {
     if (DataPos < 2)
     {
@@ -275,7 +604,7 @@ void DSi_Camera::I2C_Write(u8 val, bool last)
     else      DataPos++;
 }
 
-u16 DSi_Camera::I2C_ReadReg(u16 addr)
+u16 Camera::I2C_ReadReg(u16 addr)
 {
     switch (addr)
     {
@@ -287,6 +616,23 @@ u16 DSi_Camera::I2C_ReadReg(u16 addr)
     case 0x0018: return StandbyCnt;
     case 0x001A: return MiscCnt;
 
+    case 0x098C: return MCUAddr;
+    case 0x0990:
+    case 0x0992:
+    case 0x0994:
+    case 0x0996:
+    case 0x0998:
+    case 0x099A:
+    case 0x099C:
+    case 0x099E:
+        {
+            addr -= 0x0990;
+            u16 ret = MCU_Read((MCUAddr & 0x7FFF) + addr);
+            if (!(MCUAddr & (1<<15)))
+                ret |= (MCU_Read((MCUAddr & 0x7FFF) + addr+1) << 8);
+            return ret;
+        }
+
     case 0x301A: return ((~StandbyCnt) & 0x4000) >> 12;
     }
 
@@ -294,7 +640,7 @@ u16 DSi_Camera::I2C_ReadReg(u16 addr)
     return 0;
 }
 
-void DSi_Camera::I2C_WriteReg(u16 addr, u16 val)
+void Camera::I2C_WriteReg(u16 addr, u16 val)
 {
     switch (addr)
     {
@@ -312,18 +658,47 @@ void DSi_Camera::I2C_WriteReg(u16 addr, u16 val)
         return;
     case 0x0016:
         ClocksCnt = val;
-        printf("ClocksCnt=%04X\n", val);
+        //printf("ClocksCnt=%04X\n", val);
         return;
     case 0x0018:
-        // TODO: this shouldn't be instant, but uh
-        val &= 0x003F;
-        val |= ((val & 0x0001) << 14);
-        StandbyCnt = val;
-        printf("CAM%d STBCNT=%04X (%04X)\n", Num, StandbyCnt, val);
+        {
+            bool wasactive = IsActivated();
+            // TODO: this shouldn't be instant, but uh
+            val &= 0x003F;
+            val |= ((val & 0x0001) << 14);
+            StandbyCnt = val;
+            //printf("CAM%d STBCNT=%04X (%04X)\n", Num, StandbyCnt, val);
+            bool isactive = IsActivated();
+            if (isactive && !wasactive)      Platform::Camera_Start(Num);
+            else if (wasactive && !isactive) Platform::Camera_Stop(Num);
+        }
         return;
     case 0x001A:
-        MiscCnt = val & 0x0B7B;
-        printf("CAM%d MISCCNT=%04X (%04X)\n", Num, MiscCnt, val);
+        {
+            bool wasactive = IsActivated();
+            MiscCnt = val & 0x0B7B;
+            //printf("CAM%d MISCCNT=%04X (%04X)\n", Num, MiscCnt, val);
+            bool isactive = IsActivated();
+            if (isactive && !wasactive)      Platform::Camera_Start(Num);
+            else if (wasactive && !isactive) Platform::Camera_Stop(Num);
+        }
+        return;
+
+    case 0x098C:
+        MCUAddr = val;
+        return;
+    case 0x0990:
+    case 0x0992:
+    case 0x0994:
+    case 0x0996:
+    case 0x0998:
+    case 0x099A:
+    case 0x099C:
+    case 0x099E:
+        addr -= 0x0990;
+        MCU_Write((MCUAddr & 0x7FFF) + addr, val&0xFF);
+        if (!(MCUAddr & (1<<15)))
+            MCU_Write((MCUAddr & 0x7FFF) + addr+1, val>>8);
         return;
     }
 
@@ -331,117 +706,122 @@ void DSi_Camera::I2C_WriteReg(u16 addr, u16 val)
 }
 
 
-u8 DSi_Camera::Read8(u32 addr)
-{
-    //
+// TODO: not sure at all what is the accessible range
+// or if there is any overlap in the address range
 
-    printf("unknown DSi cam read8 %08X\n", addr);
-    return 0;
+u8 Camera::MCU_Read(u16 addr)
+{
+    addr &= 0x7FFF;
+
+    return MCURegs[addr];
 }
 
-u16 DSi_Camera::Read16(u32 addr)
+void Camera::MCU_Write(u16 addr, u8 val)
 {
+    addr &= 0x7FFF;
+
     switch (addr)
     {
-    case 0x04004200: return ModuleCnt;
-    case 0x04004202: return Cnt;
-    }
-
-    printf("unknown DSi cam read16 %08X\n", addr);
-    return 0;
-}
-
-u32 DSi_Camera::Read32(u32 addr)
-{
-    switch (addr)
-    {
-    case 0x04004204:
-        {
-            // TODO
-            return 0xFC00801F;
-            /*if (!(Cnt & (1<<15))) return 0; // CHECKME
-            u32 ret = *(u32*)&FrameBuffer[TransferPos];
-            TransferPos += 4;
-            if (TransferPos >= FrameLength) TransferPos = 0;
-            dorp += 4;
-            //if (dorp >= (256*4*2))
-            if (TransferPos == 0)
-            {
-                dorp = 0;
-                Cnt &= ~(1<<4);
-            }
-            return ret;*/
-        }
-    }
-
-    printf("unknown DSi cam read32 %08X\n", addr);
-    return 0;
-}
-
-void DSi_Camera::Write8(u32 addr, u8 val)
-{
-    //
-
-    printf("unknown DSi cam write8 %08X %02X\n", addr, val);
-}
-
-void DSi_Camera::Write16(u32 addr, u16 val)
-{
-    switch (addr)
-    {
-    case 0x04004200:
-        {
-            u16 oldcnt = ModuleCnt;
-            ModuleCnt = val;
-
-            if ((ModuleCnt & (1<<1)) && !(oldcnt & (1<<1)))
-            {
-                // reset shit to zero
-                // CHECKME
-
-                Cnt = 0;
-            }
-
-            if ((ModuleCnt & (1<<5)) && !(oldcnt & (1<<5)))
-            {
-                // TODO: reset I2C??
-            }
-        }
+    case 0x2103: // SEQ_CMD
+        MCURegs[addr] = 0;
+        if      (val == 2) MCURegs[0x2104] = 7; // capture mode
+        else if (val == 1) MCURegs[0x2104] = 3; // preview mode
+        else if (val != 5 && val != 6)
+            printf("CAM%d: atypical SEQ_CMD %04X\n", Num, val);
         return;
 
-    case 0x04004202:
-        {
-            // checkme
-            u16 oldmask;
-            if (Cnt & 0x8000)
-            {
-                val &= 0x8F20;
-                oldmask = 0x601F;
-            }
-            else
-            {
-                val &= 0xEF2F;
-                oldmask = 0x0010;
-            }
-
-            Cnt = (Cnt & oldmask) | (val & ~0x0020);
-            if (val & (1<<5)) Cnt &= ~(1<<4);
-
-            if ((val & (1<<15)) && !(Cnt & (1<<15)))
-            {
-                // start transfer
-                //DSi::CheckNDMAs(0, 0x0B);
-            }
-        }
+    case 0x2104: // SEQ_STATE, read-only
         return;
     }
 
-    printf("unknown DSi cam write16 %08X %04X\n", addr, val);
+    MCURegs[addr] = val;
 }
 
-void DSi_Camera::Write32(u32 addr, u32 val)
+
+void Camera::InputFrame(u32* data, int width, int height, bool rgb)
 {
-    //
+    // TODO: double-buffering?
 
-    printf("unknown DSi cam write32 %08X %08X\n", addr, val);
+    if (width == 640 && height == 480 && !rgb)
+    {
+        memcpy(FrameBuffer, data, (640*480/2)*sizeof(u32));
+        return;
+    }
+
+    if (rgb)
+    {
+        for (int dy = 0; dy < 480; dy++)
+        {
+            int sy = (dy * height) / 480;
+
+            for (int dx = 0; dx < 640; dx+=2)
+            {
+                int sx;
+
+                sx = (dx * width) / 640;
+                u32 pixel1 = data[sy*width + sx];
+
+                sx = ((dx+1) * width) / 640;
+                u32 pixel2 = data[sy*width + sx];
+
+                int r1 = (pixel1 >> 16) & 0xFF;
+                int g1 = (pixel1 >> 8) & 0xFF;
+                int b1 = pixel1 & 0xFF;
+
+                int r2 = (pixel2 >> 16) & 0xFF;
+                int g2 = (pixel2 >> 8) & 0xFF;
+                int b2 = pixel2 & 0xFF;
+
+                int y1 = ((r1 * 19595) + (g1 * 38470) + (b1 * 7471)) >> 16;
+                int u1 = ((b1 - y1) * 32244) >> 16;
+                int v1 = ((r1 - y1) * 57475) >> 16;
+
+                int y2 = ((r2 * 19595) + (g2 * 38470) + (b2 * 7471)) >> 16;
+                int u2 = ((b2 - y2) * 32244) >> 16;
+                int v2 = ((r2 - y2) * 57475) >> 16;
+
+                u1 += 128; v1 += 128;
+                u2 += 128; v2 += 128;
+
+                y1 = std::clamp(y1, 0, 255); u1 = std::clamp(u1, 0, 255); v1 = std::clamp(v1, 0, 255);
+                y2 = std::clamp(y2, 0, 255); u2 = std::clamp(u2, 0, 255); v2 = std::clamp(v2, 0, 255);
+
+                // huh
+                u1 = (u1 + u2) >> 1;
+                v1 = (v1 + v2) >> 1;
+
+                FrameBuffer[(dy*640 + dx) / 2] = y1 | (u1 << 8) | (y2 << 16) | (v1 << 24);
+            }
+        }
+    }
+    else
+    {
+        for (int dy = 0; dy < 480; dy++)
+        {
+            int sy = (dy * height) / 480;
+
+            for (int dx = 0; dx < 640; dx+=2)
+            {
+                int sx = (dx * width) / 640;
+
+                FrameBuffer[(dy*640 + dx) / 2] = data[(sy*width + sx) / 2];
+            }
+        }
+    }
 }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+

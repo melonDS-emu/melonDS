@@ -19,6 +19,7 @@ namespace Teakra {
 class UnimplementedException : public std::runtime_error {
 public:
     UnimplementedException() : std::runtime_error("unimplemented") {}
+    UnimplementedException(const char* err) : std::runtime_error(err) {}
 };
 
 class Interpreter {
@@ -261,7 +262,7 @@ public:
         SatAndSetAccAndFlag(d1, v); // only this one affects flags (except for fl)
     }
     void trap() {
-        throw UnimplementedException();
+        throw UnimplementedException("trap");
     }
 
     void DoMultiplication(u32 unit, bool x_sign, bool y_sign) {
@@ -448,7 +449,7 @@ public:
                 AlmOp::Or, AlmOp::And, AlmOp::Xor, AlmOp::Add, AlmOp::Cmp, AlmOp::Sub,
             };
             if (allowed_instruction.count(op.GetName()) == 0)
-                throw UnimplementedException(); // weird effect. probably undefined
+                throw UnimplementedException("weird alm"); // weird effect. probably undefined
         };
         switch (a.GetName()) {
         // need more test
@@ -600,7 +601,7 @@ public:
         if (b.GetName() == RegName::p) {
             bv = (u16)(ProductToBus40(Px{0}) >> 16);
         } else if (b.GetName() == RegName::a0 || b.GetName() == RegName::a1) {
-            throw UnimplementedException(); // weird effect;
+            throw UnimplementedException("weird alb"); // weird effect;
         } else {
             bv = RegToBus16(b.GetName());
         }
@@ -1180,7 +1181,21 @@ public:
         }
     }
     void retd() {
-        throw UnimplementedException();
+        // TODO: this is grossly inaccurate
+        // retd is supposed to kick in after 2 cycles
+
+        for (int i = 0; i < 2; i++) {
+            u16 opcode = mem.ProgramRead((regs.pc++) | (regs.prpage << 18));
+            auto& decoder = decoders[opcode];
+            u16 expand_value = 0;
+            if (decoder.NeedExpansion()) {
+                expand_value = mem.ProgramRead((regs.pc++) | (regs.prpage << 18));
+            }
+
+            decoder.call(*this, opcode, expand_value);
+        }
+
+        PopPC();
     }
     void reti(Cond c) {
         if (regs.ConditionPass(c)) {
@@ -3430,7 +3445,7 @@ private:
         } else { // OffsetValue::MinusOne
             if (!emod)
                 return address - 1;
-            throw UnimplementedException();
+            //throw UnimplementedException("weird OffsetAddress");
             // TODO: sometimes this would return two addresses,
             // neither of which is the original Rn value.
             // This only happens for memory writing, but not for memory reading.
