@@ -52,20 +52,20 @@ enum
 
 enum
 {
-    gameScene_Intro,
-    gameScene_MainMenu,
-    gameScene_IntroSaveMenu,
-    gameScene_IntroCutscene,
-    gameScene_DayCounter,
-    gameScene_Cutscene,
-    gameScene_InGameWithMap,
-    gameScene_InGameWithoutMap,
-    gameScene_PauseMenu,
-    gameScene_Tutorial,
-    gameScene_MissionResult,
-    gameScene_RoxasThoughts,
-    gameScene_Other2D,
-    gameScene_Other
+    gameScene_Intro,            // 0
+    gameScene_MainMenu,         // 1
+    gameScene_IntroSaveMenu,    // 2
+    gameScene_IntroCutscene,    // 3
+    gameScene_DayCounter,       // 4
+    gameScene_Cutscene,         // 5
+    gameScene_InGameWithMap,    // 6
+    gameScene_InGameWithoutMap, // 7
+    gameScene_PauseMenu,        // 8
+    gameScene_Tutorial,         // 9
+    gameScene_MissionResult,    // 10
+    gameScene_RoxasThoughts,    // 11
+    gameScene_Other2D,          // 12
+    gameScene_Other             // 13
 };
 
 namespace Config

@@ -854,6 +854,8 @@ bool EmuThread::setGameScene(int newGameScene)
         return false;
     }
 
+    printf("Game scene: %d\n", newGameScene);
+
     // Game scene
     priorGameScene = videoSettings.GameScene;
     videoSettings.GameScene = newGameScene;
@@ -908,12 +910,18 @@ bool EmuThread::refreshAutoScreenSizing()
              GPU::GPU2D_A.EVB == 0 && GPU::GPU2D_A.EVY == 0 &&
             (GPU::GPU2D_B.EVA < 10 && GPU::GPU2D_B.EVA >= 2) && 
             (GPU::GPU2D_B.EVB >  7 && GPU::GPU2D_B.EVB <= 14) && GPU::GPU2D_B.EVY == 0;
+        bool mayBeMainMenu = GPU3D::NumVertices == 4 && GPU3D::NumPolygons == 1 && GPU3D::RenderNumPolygons == 1;
+
         if (isIntroSaveMenu)
         {
             return setGameScene(gameScene_IntroSaveMenu);
         }
         if (videoSettings.GameScene == gameScene_IntroSaveMenu)
         {
+            if (mayBeMainMenu)
+            {
+                return setGameScene(gameScene_MainMenu);
+            }
             if (GPU3D::NumVertices != 8)
             {
                 return setGameScene(gameScene_IntroSaveMenu);
@@ -954,7 +962,7 @@ bool EmuThread::refreshAutoScreenSizing()
         }
 
         // Main menu
-        if (GPU3D::NumVertices == 4 && GPU3D::NumPolygons == 1 && GPU3D::RenderNumPolygons == 1)
+        if (mayBeMainMenu)
         {
             return setGameScene(gameScene_MainMenu);
         }

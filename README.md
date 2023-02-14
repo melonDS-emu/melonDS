@@ -95,10 +95,10 @@ If you want an app bundle that can be distributed to other computers without nee
 
 ## BUGS THAT NEED FIXING
 
- * If you get into the loading menu and then return, the main menu won't have the correct style
+ * for a brief moment, the tutorial window appears as a minimap
+ * a brief glitch may occur during the transition between a scene with map and without map
+ * There is a glitch between Roxas thoughts and the day counter
  * the minimap isn't properly cropped if the emulator window is in an aspect ratio lower than 16:9
- * there is a very brief glitch happening during the transition between a scene with map and without map
- * Roxas thoughts still aren't properly identified, and there is a glitch between them and the day counter
 
 ## TODO LIST
 
