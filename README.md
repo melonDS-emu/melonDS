@@ -95,6 +95,7 @@ If you want an app bundle that can be distributed to other computers without nee
 
 ## BUGS THAT NEED FIXING
 
+ * If you get into the loading menu and then return, the main menu won't have the correct style
  * the minimap isn't properly cropped if the emulator window is in an aspect ratio lower than 16:9
 
 ## TODO LIST
