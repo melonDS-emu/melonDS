@@ -849,7 +849,9 @@ bool EmuThread::setGameScene(int newGameScene)
     backgroundGreen = backgroundColor;
     backgroundBlue = backgroundColor;
     
-    //debugLogs(newGameScene);
+#ifdef _DEBUG
+    debugLogs(newGameScene);
+#endif
 
     if (videoSettings.GameScene == newGameScene) 
     {
