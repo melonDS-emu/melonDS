@@ -22,6 +22,14 @@
 #include <QSharedMemory>
 
 #include "IPC.h"
+#include "Config.h"
+//#include "Input.h"
+
+
+namespace Input
+{
+void ExtHotkeyPress(int id);
+}
 
 
 namespace IPC
@@ -79,6 +87,15 @@ void Init()
     Buffer->lock();
     u8* data = (u8*)Buffer->data();
     BufferHeader* header = (BufferHeader*)&data[0];
+
+    if (header->NumInstances == 0)
+    {
+        // initialize the FIFO
+        header->CommandWriteOffset = kCommandStart;
+    }
+
+    CommandReadOffset = header->CommandWriteOffset;
+
     u16 mask = header->InstanceBitmask;
     for (int i = 0; i < 16; i++)
     {
@@ -164,6 +181,87 @@ void FIFOWrite(void* buf, int len)
     }
 
     header->CommandWriteOffset = offset;
+}
+
+void Process()
+{
+    Buffer->lock();
+    u8* data = (u8*)Buffer->data();
+    BufferHeader* header = (BufferHeader*)&data[0];
+
+    // check if we got new commands
+    while (CommandReadOffset != header->CommandWriteOffset)
+    {
+        CommandHeader cmdheader;
+        u8 cmddata[kMaxCommandSize];
+
+        FIFORead(&cmdheader, sizeof(cmdheader));
+
+        if ((cmdheader.Magic != 0x4D434C4D) || (cmdheader.Length > kMaxCommandSize))
+        {
+            printf("IPC: !!! COMMAND BUFFER IS FUCKED. RESETTING\n");
+            CommandReadOffset = header->CommandWriteOffset;
+            Buffer->unlock();
+            return;
+        }
+
+        if (cmdheader.Length)
+            FIFORead(cmddata, cmdheader.Length);
+
+        if (!(cmdheader.Recipients & (1<<InstanceID)))
+            continue;
+
+        // handle this command
+        switch (cmdheader.Command)
+        {
+        case Cmd_Pause:
+            Input::ExtHotkeyPress(HK_Pause);
+            break;
+        }
+    }
+
+    Buffer->unlock();
+}
+
+bool SendCommand(u16 recipients, u16 command, u16 len, void* cmddata)
+{
+    Buffer->lock();
+    u8* data = (u8*)Buffer->data();
+    BufferHeader* header = (BufferHeader*)&data[0];
+
+    recipients &= header->InstanceBitmask;
+    recipients &= ~(1<<InstanceID);
+    if (!recipients)
+    {
+        Buffer->unlock();
+        return false;
+    }
+
+    if (len && cmddata==nullptr)
+    {
+        printf("IPC: ????? sending command with NULL buffer\n");
+        Buffer->unlock();
+        return false;
+    }
+    if (len > kMaxCommandSize)
+    {
+        printf("IPC: command too long\n");
+        Buffer->unlock();
+        return false;
+    }
+
+    CommandHeader cmdheader;
+    cmdheader.Magic = 0x4D434C4D;
+    cmdheader.SenderID = InstanceID;
+    cmdheader.Recipients = recipients;
+    cmdheader.Command = command;
+    cmdheader.Length = len;
+    FIFOWrite(&cmdheader, sizeof(cmdheader));
+    if (len)
+        FIFOWrite(cmddata, len);
+
+    Buffer->unlock();
+    return true;
 }
 
 }

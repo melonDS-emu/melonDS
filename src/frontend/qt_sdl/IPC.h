@@ -24,10 +24,19 @@
 namespace IPC
 {
 
+enum
+{
+    Cmd_Pause = 1,
+};
+
 extern int InstanceID;
 
 void Init();
 void DeInit();
+
+void Process();
+
+bool SendCommand(u16 recipients, u16 command, u16 len, void* data);
 
 }
 
