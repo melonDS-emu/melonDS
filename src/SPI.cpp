@@ -15,6 +15,7 @@
     You should have received a copy of the GNU General Public License along
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
+#define _LIBCPP_DISABLE_DEPRECATION_WARNINGS
 
 #include <stdio.h>
 #include <string.h>
@@ -607,7 +608,7 @@ void Write(u8 val, u32 hold)
         {
             char wfcfile[50] = {0};
             int inst = Platform::InstanceID();
-            if (inst > 0) snprintf(wfcfile, 49, "wfcsettings.bin", Platform::InstanceID());
+            if (inst > 0) snprintf(wfcfile, 49, "wfcsettings.bin.%d", Platform::InstanceID());
             else          strncpy(wfcfile, "wfcsettings.bin", 49);
 
             FILE* f = Platform::OpenLocalFile(wfcfile, "wb");

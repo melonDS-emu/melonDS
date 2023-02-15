@@ -65,7 +65,10 @@ int FDListSize;*/
 // https://stackoverflow.com/questions/5404277/porting-clock-gettime-to-windows
 
 struct timespec { long tv_sec; long tv_nsec; };
+
+#ifndef CLOCK_MONOTONIC
 #define CLOCK_MONOTONIC 1312
+#endif
 
 int clock_gettime(int, struct timespec *spec)
 {

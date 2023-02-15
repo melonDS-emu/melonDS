@@ -202,7 +202,7 @@ bool Init(bool open_adapter)
     }
     if (uret != ERROR_SUCCESS)
     {
-        printf("GetAdaptersAddresses() shat itself: %08X\n", uret);
+        printf("GetAdaptersAddresses() shat itself: %08lX\n", uret);
         return false;
     }
 
@@ -226,7 +226,7 @@ bool Init(bool open_adapter)
 
             if (addr->PhysicalAddressLength != 6)
             {
-                printf("weird MAC addr length %d for %s\n", addr->PhysicalAddressLength, addr->AdapterName);
+                printf("weird MAC addr length %lu for %s\n", addr->PhysicalAddressLength, addr->AdapterName);
             }
             else
                 memcpy(adata->MAC, addr->PhysicalAddress, 6);
