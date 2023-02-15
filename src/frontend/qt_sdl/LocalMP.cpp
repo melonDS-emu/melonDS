@@ -67,15 +67,6 @@ struct MPPacketHeader
     u64 Timestamp;
 };
 
-struct MPSync
-{
-    u32 Magic;
-    u32 SenderID;
-    u16 ClientMask;
-    u16 Type;
-    u64 Timestamp;
-};
-
 QSharedMemory* MPQueue;
 int InstanceID;
 u32 PacketReadOffset;
