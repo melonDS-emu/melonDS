@@ -38,6 +38,8 @@ void CloseJoystick();
 void KeyPress(QKeyEvent* event);
 void KeyRelease(QKeyEvent* event);
 
+void ExtHotkeyPress(int id);
+
 void Process();
 
 bool HotkeyDown(int id);
