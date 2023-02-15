@@ -30,6 +30,29 @@ namespace IPC
 QSharedMemory* Buffer = nullptr;
 int InstanceID;
 
+struct BufferHeader
+{
+    u16 NumInstances;
+    u16 InstanceBitmask;  // bitmask of all instances present
+    u32 CommandWriteOffset;
+};
+
+struct CommandHeader
+{
+    u32 Magic;
+    u16 SenderID;
+    u16 Recipients;
+    u16 Command;
+    u16 Length;
+};
+
+u32 CommandReadOffset;
+
+const u32 kBufferSize = 0x4000;
+const u32 kMaxCommandSize = 0x800;
+const u32 kCommandStart = sizeof(BufferHeader);
+const u32 kCommandEnd = kBufferSize;
+
 
 void Init()
 {
@@ -40,7 +63,7 @@ void Init()
     if (!Buffer->attach())
     {
         printf("IPC sharedmem doesn't exist. creating\n");
-        if (!Buffer->create(1024))
+        if (!Buffer->create(kBufferSize))
         {
             printf("IPC sharedmem create failed :(\n");
             delete Buffer;
@@ -55,13 +78,15 @@ void Init()
 
     Buffer->lock();
     u8* data = (u8*)Buffer->data();
-    u16 mask = *(u16*)&data[0];
+    BufferHeader* header = (BufferHeader*)&data[0];
+    u16 mask = header->InstanceBitmask;
     for (int i = 0; i < 16; i++)
     {
         if (!(mask & (1<<i)))
         {
             InstanceID = i;
-            *(u16*)&data[0] |= (1<<i);
+            header->InstanceBitmask |= (1<<i);
+            header->NumInstances++;
             break;
         }
     }
@@ -76,13 +101,69 @@ void DeInit()
     {
         Buffer->lock();
         u8* data = (u8*)Buffer->data();
-        *(u16*)&data[0] &= ~(1<<InstanceID);
+        BufferHeader* header = (BufferHeader*)&data[0];
+        header->InstanceBitmask &= ~(1<<InstanceID);
+        header->NumInstances--;
         Buffer->unlock();
 
         Buffer->detach();
         delete Buffer;
     }
     Buffer = nullptr;
+}
+
+
+void FIFORead(void* buf, int len)
+{
+    u8* data = (u8*)Buffer->data();
+
+    u32 offset, start, end;
+
+    offset = CommandReadOffset;
+    start = kCommandStart;
+    end = kCommandEnd;
+
+    if ((offset + len) >= end)
+    {
+        u32 part1 = end - offset;
+        memcpy(buf, &data[offset], part1);
+        memcpy(&((u8*)buf)[part1], &data[start], len - part1);
+        offset = start + len - part1;
+    }
+    else
+    {
+        memcpy(buf, &data[offset], len);
+        offset += len;
+    }
+
+    CommandReadOffset = offset;
+}
+
+void FIFOWrite(void* buf, int len)
+{
+    u8* data = (u8*)Buffer->data();
+    BufferHeader* header = (BufferHeader*)&data[0];
+
+    u32 offset, start, end;
+
+    offset = header->CommandWriteOffset;
+    start = kCommandStart;
+    end = kCommandEnd;
+
+    if ((offset + len) >= end)
+    {
+        u32 part1 = end - offset;
+        memcpy(&data[offset], buf, part1);
+        memcpy(&data[start], &((u8*)buf)[part1], len - part1);
+        offset = start + len - part1;
+    }
+    else
+    {
+        memcpy(&data[offset], buf, len);
+        offset += len;
+    }
+
+    header->CommandWriteOffset = offset;
 }
 
 }
