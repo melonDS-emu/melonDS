@@ -64,10 +64,9 @@ enum
     gameScene_InGameSaveMenu,   // 9
     gameScene_PauseMenu,        // 10
     gameScene_Tutorial,         // 11
-    gameScene_MissionResult,    // 12
-    gameScene_RoxasThoughts,    // 13
-    gameScene_Other2D,          // 14
-    gameScene_Other             // 15
+    gameScene_RoxasThoughts,    // 12
+    gameScene_Other2D,          // 13
+    gameScene_Other             // 14
 };
 
 namespace Config

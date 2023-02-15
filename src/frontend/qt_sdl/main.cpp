@@ -875,7 +875,6 @@ bool EmuThread::setGameScene(int newGameScene)
         case gameScene_InGameSaveMenu: size = screenSizing_TopOnly; break;
         case gameScene_PauseMenu: size = screenSizing_TopOnly; break;
         case gameScene_Tutorial: size = screenSizing_BotOnly; break;
-        case gameScene_MissionResult: break;
         case gameScene_RoxasThoughts: size = screenSizing_TopOnly; break;
         default: break;
     }
@@ -1000,16 +999,6 @@ bool EmuThread::refreshAutoScreenSizing()
             return setGameScene(gameScene_IntroCutscene);
         }
 
-        // Mission result
-        // It would be better to have that specified somehow, so we can avoid the glitch that occours when that screen first appears
-        // gameScene_MissionResult
-
-        // Roxas thoughts scene
-        if (isBlackBottomScreen)
-        {
-            return setGameScene(gameScene_RoxasThoughts);
-        }
-
         // In Game Save Menu
         bool isGameSaveMenu = GPU::GPU2D_A.BlendCnt == 4164 && (GPU::GPU2D_B.EVA == 0 || GPU::GPU2D_B.EVA == 16) && 
              GPU::GPU2D_B.EVB == 0 && GPU::GPU2D_B.EVY == 0 &&
@@ -1023,6 +1012,12 @@ bool EmuThread::refreshAutoScreenSizing()
         if ((NDS::PowerControl9 >> 9) == 1) 
         {
             return setGameScene(gameScene_InGameMenu);
+        }
+
+        // Roxas thoughts scene
+        if (isBlackBottomScreen)
+        {
+            return setGameScene(gameScene_RoxasThoughts);
         }
 
         // Unknown 2D
@@ -1053,8 +1048,8 @@ bool EmuThread::refreshAutoScreenSizing()
             return setGameScene(gameScene_Tutorial);
         }
 
-        bool inGameMenu = GPU3D::NumVertices > 940 && GPU3D::NumVertices < 950 &&
-                          GPU3D::NumPolygons > 340 && GPU3D::NumPolygons < 350 &&
+        bool inGameMenu = ((GPU3D::NumVertices > 940 && GPU3D::NumVertices < 950) || GPU3D::NumVertices == 0) &&
+                          GPU3D::RenderNumPolygons > 340 && GPU3D::RenderNumPolygons < 350 &&
                           GPU::GPU2D_A.BlendCnt == 0 && GPU::GPU2D_B.BlendCnt == 0;
         if (inGameMenu)
         {
