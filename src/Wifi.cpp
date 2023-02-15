@@ -872,7 +872,7 @@ bool ProcessTX(TXSlot* slot, int num)
             }
 
             if ((num != 5) && (RAM[slot->Addr+4] > 0))
-                printf("SLOT %d RETRY COUNTER %d\n", RAM[slot->Addr+4]);
+                printf("SLOT %d RETRY COUNTER %d\n", num, RAM[slot->Addr+4]);
 
             // set TX addr
             IOPORT(W_RXTXAddr) = slot->Addr >> 1;
