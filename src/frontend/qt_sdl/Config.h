@@ -60,12 +60,14 @@ enum
     gameScene_Cutscene,         // 5
     gameScene_InGameWithMap,    // 6
     gameScene_InGameWithoutMap, // 7
-    gameScene_PauseMenu,        // 8
-    gameScene_Tutorial,         // 9
-    gameScene_MissionResult,    // 10
-    gameScene_RoxasThoughts,    // 11
-    gameScene_Other2D,          // 12
-    gameScene_Other             // 13
+    gameScene_InGameMenu,       // 8
+    gameScene_InGameSaveMenu,   // 9
+    gameScene_PauseMenu,        // 10
+    gameScene_Tutorial,         // 11
+    gameScene_MissionResult,    // 12
+    gameScene_RoxasThoughts,    // 13
+    gameScene_Other2D,          // 14
+    gameScene_Other             // 15
 };
 
 namespace Config

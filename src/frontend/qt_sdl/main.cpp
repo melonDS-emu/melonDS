@@ -849,12 +849,12 @@ bool EmuThread::setGameScene(int newGameScene)
     backgroundGreen = backgroundColor;
     backgroundBlue = backgroundColor;
     
+    //debugLogs(newGameScene);
+
     if (videoSettings.GameScene == newGameScene) 
     {
         return false;
     }
-
-    printf("Game scene: %d\n", newGameScene);
 
     // Game scene
     priorGameScene = videoSettings.GameScene;
@@ -871,6 +871,8 @@ bool EmuThread::setGameScene(int newGameScene)
         case gameScene_Cutscene: size = screenSizing_TopOnly; break;
         case gameScene_InGameWithMap: size = screenSizing_MiniMap; break;
         case gameScene_InGameWithoutMap: size = screenSizing_TopOnly; break;
+        case gameScene_InGameMenu: break;
+        case gameScene_InGameSaveMenu: size = screenSizing_TopOnly; break;
         case gameScene_PauseMenu: size = screenSizing_TopOnly; break;
         case gameScene_Tutorial: size = screenSizing_BotOnly; break;
         case gameScene_MissionResult: break;
@@ -884,6 +886,28 @@ bool EmuThread::setGameScene(int newGameScene)
     videoSettingsDirty = true;
 
     return true;
+}
+
+void EmuThread::debugLogs(int gameScene)
+{
+    printf("Game scene: %d\n", gameScene);
+    printf("GPU3D::NumVertices: %d\n",       GPU3D::NumVertices);
+    printf("GPU3D::NumPolygons: %d\n",       GPU3D::NumPolygons);
+    printf("GPU3D::RenderNumPolygons: %d\n", GPU3D::RenderNumPolygons);
+    printf("NDS::PowerControl9: %d\n",       NDS::PowerControl9);
+    printf("GPU::GPU2D_A.BlendCnt: %d\n",         GPU::GPU2D_A.BlendCnt);
+    printf("GPU::GPU2D_A.BlendAlpha: %d\n",       GPU::GPU2D_A.BlendAlpha);
+    printf("GPU::GPU2D_A.EVA: %d\n",              GPU::GPU2D_A.EVA);
+    printf("GPU::GPU2D_A.EVB: %d\n",              GPU::GPU2D_A.EVB);
+    printf("GPU::GPU2D_A.EVY: %d\n",              GPU::GPU2D_A.EVY);
+    printf("GPU::GPU2D_A.MasterBrightness: %d\n", GPU::GPU2D_A.MasterBrightness);
+    printf("GPU::GPU2D_B.BlendCnt: %d\n",         GPU::GPU2D_B.BlendCnt);
+    printf("GPU::GPU2D_B.BlendAlpha: %d\n",       GPU::GPU2D_B.BlendAlpha);
+    printf("GPU::GPU2D_B.EVA: %d\n",              GPU::GPU2D_B.EVA);
+    printf("GPU::GPU2D_B.EVB: %d\n",              GPU::GPU2D_B.EVB);
+    printf("GPU::GPU2D_B.EVY: %d\n",              GPU::GPU2D_B.EVY);
+    printf("GPU::GPU2D_B.MasterBrightness: %d\n", GPU::GPU2D_B.MasterBrightness);
+    printf("\n");
 }
 
 bool EmuThread::refreshAutoScreenSizing()
@@ -929,19 +953,9 @@ bool EmuThread::refreshAutoScreenSizing()
         }
 
         // Day counter
-        if (videoSettings.GameScene == gameScene_DayCounter)
+        if (videoSettings.GameScene == gameScene_DayCounter && !no3D)
         {
-            if (no3D)
-            {
-                if (priorGameScene == gameScene_IntroCutscene) 
-                {
-                    return setGameScene(gameScene_Cutscene);
-                }
-            }
-            else
-            {
-                return setGameScene(gameScene_DayCounter);
-            }
+            return setGameScene(gameScene_DayCounter);
         }
         if (videoSettings.GameScene != gameScene_Intro)
         {
@@ -996,6 +1010,21 @@ bool EmuThread::refreshAutoScreenSizing()
             return setGameScene(gameScene_RoxasThoughts);
         }
 
+        // In Game Save Menu
+        bool isGameSaveMenu = GPU::GPU2D_A.BlendCnt == 4164 && (GPU::GPU2D_B.EVA == 0 || GPU::GPU2D_B.EVA == 16) && 
+             GPU::GPU2D_B.EVB == 0 && GPU::GPU2D_B.EVY == 0 &&
+            (GPU::GPU2D_A.EVA < 10 && GPU::GPU2D_A.EVA >= 2) && 
+            (GPU::GPU2D_A.EVB >  7 && GPU::GPU2D_A.EVB <= 14);
+        if (isGameSaveMenu) 
+        {
+            return setGameScene(gameScene_InGameSaveMenu);
+        }
+
+        if ((NDS::PowerControl9 >> 9) == 1) 
+        {
+            return setGameScene(gameScene_InGameMenu);
+        }
+
         // Unknown 2D
         return setGameScene(gameScene_Other2D);
     }
@@ -1024,12 +1053,16 @@ bool EmuThread::refreshAutoScreenSizing()
             return setGameScene(gameScene_Tutorial);
         }
 
-        // Regular gameplay without a map
-        if (noElementsOnBottomScreen)
+        bool inGameMenu = GPU3D::NumVertices > 940 && GPU3D::NumVertices < 950 &&
+                          GPU3D::NumPolygons > 340 && GPU3D::NumPolygons < 350 &&
+                          GPU::GPU2D_A.BlendCnt == 0 && GPU::GPU2D_B.BlendCnt == 0;
+        if (inGameMenu)
         {
-            return setGameScene(gameScene_InGameWithoutMap);
+            return setGameScene(gameScene_InGameMenu);
         }
-        if (isBlackBottomScreen)
+
+        // Regular gameplay without a map
+        if (noElementsOnBottomScreen || isBlackBottomScreen)
         {
             return setGameScene(gameScene_InGameWithoutMap);
         }
