@@ -834,6 +834,7 @@ void EmuThread::run()
 bool EmuThread::setGameScene(int newGameScene)
 {
     // Background color
+    // TODO: Check GPU2D_Soft.cpp, line 312
     float backgroundColor = 0.0;
     if (newGameScene == gameScene_Intro)
     {
