@@ -88,15 +88,15 @@ If you want an app bundle that can be distributed to other computers without nee
  * the app should start with OpenGL rendering and 5x native resolution by default
  * the widescreen hack should be included by default
  * the map from the bottom screen should be cropped and placed in the top screen (when visible)
+ * the gauge from the bottom screen should be cropped and placed in the top screen (when the game is paused)
 
 ## PARTIALLY DONE
 
- * only one screen should be visible at a time, switching automatically according to the needs
+ * screen sizes and positions should switch automatically according to the needs
 
 ## BUGS THAT NEED FIXING
 
  * for a brief moment, the tutorial window appears as a minimap
- * a brief glitch may occur during the transition between a scene with map and without map
  * the minimap isn't properly cropped if the emulator window is in an aspect ratio lower than 16:9
 
 ## TODO LIST

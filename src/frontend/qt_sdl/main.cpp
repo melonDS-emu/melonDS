@@ -1065,8 +1065,8 @@ bool EmuThread::refreshAutoScreenSizing()
             return setGameScene(gameScene_Tutorial);
         }
 
-        bool inGameMenu = ((GPU3D::NumVertices > 940 && GPU3D::NumVertices < 950) || GPU3D::NumVertices == 0) &&
-                          GPU3D::RenderNumPolygons > 340 && GPU3D::RenderNumPolygons < 350 &&
+        bool inGameMenu = ((GPU3D::NumVertices > 940 && GPU3D::NumVertices < 980) || GPU3D::NumVertices == 0) &&
+                          GPU3D::RenderNumPolygons > 340 && GPU3D::RenderNumPolygons < 360 &&
                           GPU::GPU2D_A.BlendCnt == 0 && GPU::GPU2D_B.BlendCnt == 0;
         if (inGameMenu)
         {
