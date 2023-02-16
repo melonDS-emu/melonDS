@@ -845,6 +845,16 @@ bool EmuThread::setGameScene(int newGameScene)
         backgroundColor = (1.0 * PARSE_BRIGHTNESS(GPU::GPU2D_B.MasterBrightness, 15)) / 15;
         backgroundColor = (sqrt(backgroundColor)*3 + pow(backgroundColor, 2)) / 4;
     }
+    if (newGameScene == gameScene_InGameWithoutMap || newGameScene == gameScene_Other2D)
+    {
+        if (GPU::GPU2D_B.MasterBrightness == 0) {
+            backgroundColor = 0;
+        }
+        else if (GPU::GPU2D_B.MasterBrightness & (1 << 14)) {
+            backgroundColor = ((GPU::GPU2D_B.MasterBrightness - 1) & 0xF) / 15.0;
+            backgroundColor = (sqrt(backgroundColor)*3 + pow(backgroundColor, 2)) / 4;
+        }
+    }
     backgroundRed = backgroundColor;
     backgroundGreen = backgroundColor;
     backgroundBlue = backgroundColor;
