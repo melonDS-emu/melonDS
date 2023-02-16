@@ -875,6 +875,7 @@ bool EmuThread::setGameScene(int newGameScene)
         case gameScene_InGameWithoutMap: size = screenSizing_TopOnly; break;
         case gameScene_InGameMenu: break;
         case gameScene_InGameSaveMenu: size = screenSizing_TopOnly; break;
+        case gameScene_InHoloMissionMenu: break;
         case gameScene_PauseMenu: size = screenSizing_TopOnly; break;
         case gameScene_PauseMenuWithGauge: size = screenSizing_PauseMenuWithGauge; break;
         case gameScene_Tutorial: size = screenSizing_BotOnly; break;
@@ -952,6 +953,11 @@ bool EmuThread::refreshAutoScreenSizing()
             {
                 return setGameScene(gameScene_IntroSaveMenu);
             }
+        }
+
+        if ((NDS::PowerControl9 >> 9) == 1 && videoSettings.GameScene == gameScene_InGameMenu)
+        {
+            return setGameScene(gameScene_InGameMenu);
         }
 
         // Day counter
@@ -1065,6 +1071,13 @@ bool EmuThread::refreshAutoScreenSizing()
         if (inGameMenu)
         {
             return setGameScene(gameScene_InGameMenu);
+        }
+
+        bool inHoloMissionMenu = GPU3D::NumVertices == 344 && GPU3D::NumPolygons == 89 && GPU3D::RenderNumPolygons == 89 &&
+                                 GPU::GPU2D_A.BlendCnt == 0 && GPU::GPU2D_B.BlendCnt == 0;
+        if (inHoloMissionMenu || videoSettings.GameScene == gameScene_InHoloMissionMenu)
+        {
+            return setGameScene(gameScene_InHoloMissionMenu);
         }
 
         // Regular gameplay without a map
