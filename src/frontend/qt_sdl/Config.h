@@ -48,26 +48,27 @@ enum
     screenSizing_BotOnly, // Intro Save Menu
     screenSizing_MAX,
     screenSizing_MiniMap, // Main Game with a floating map
-    screenSizing_PauseMenu
+    screenSizing_PauseMenuWithGauge
 };
 
 enum
 {
-    gameScene_Intro,            // 0
-    gameScene_MainMenu,         // 1
-    gameScene_IntroSaveMenu,    // 2
-    gameScene_IntroCutscene,    // 3
-    gameScene_DayCounter,       // 4
-    gameScene_Cutscene,         // 5
-    gameScene_InGameWithMap,    // 6
-    gameScene_InGameWithoutMap, // 7
-    gameScene_InGameMenu,       // 8
-    gameScene_InGameSaveMenu,   // 9
-    gameScene_PauseMenu,        // 10
-    gameScene_Tutorial,         // 11
-    gameScene_RoxasThoughts,    // 12
-    gameScene_Other2D,          // 13
-    gameScene_Other             // 14
+    gameScene_Intro,              // 0
+    gameScene_MainMenu,           // 1
+    gameScene_IntroSaveMenu,      // 2
+    gameScene_IntroCutscene,      // 3
+    gameScene_DayCounter,         // 4
+    gameScene_Cutscene,           // 5
+    gameScene_InGameWithMap,      // 6
+    gameScene_InGameWithoutMap,   // 7
+    gameScene_InGameMenu,         // 8
+    gameScene_InGameSaveMenu,     // 9
+    gameScene_PauseMenu,          // 10
+    gameScene_PauseMenuWithGauge, // 11
+    gameScene_Tutorial,           // 12
+    gameScene_RoxasThoughts,      // 13
+    gameScene_Other2D,            // 14
+    gameScene_Other               // 15
 };
 
 namespace Config

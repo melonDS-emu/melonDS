@@ -875,7 +875,8 @@ bool EmuThread::setGameScene(int newGameScene)
         case gameScene_InGameWithoutMap: size = screenSizing_TopOnly; break;
         case gameScene_InGameMenu: break;
         case gameScene_InGameSaveMenu: size = screenSizing_TopOnly; break;
-        case gameScene_PauseMenu: size = screenSizing_PauseMenu; break;
+        case gameScene_PauseMenu: size = screenSizing_TopOnly; break;
+        case gameScene_PauseMenuWithGauge: size = screenSizing_PauseMenuWithGauge; break;
         case gameScene_Tutorial: size = screenSizing_BotOnly; break;
         case gameScene_RoxasThoughts: size = screenSizing_TopOnly; break;
         default: break;
@@ -1032,9 +1033,17 @@ bool EmuThread::refreshAutoScreenSizing()
         bool inMissionPauseMenu = GPU::GPU2D_A.EVY == 8 && GPU::GPU2D_B.EVY == 8;
         if (inMissionPauseMenu)
         {
+            if (videoSettings.GameScene == gameScene_InGameWithMap)
+            {
+                return setGameScene(gameScene_PauseMenuWithGauge);    
+            }
+            if (videoSettings.GameScene == gameScene_PauseMenu || videoSettings.GameScene == gameScene_PauseMenuWithGauge)
+            {
+                return setGameScene(videoSettings.GameScene);
+            }
             return setGameScene(gameScene_PauseMenu);
         }
-        else if (videoSettings.GameScene == gameScene_PauseMenu)
+        else if (videoSettings.GameScene == gameScene_PauseMenu || videoSettings.GameScene == gameScene_PauseMenuWithGauge)
         {
             return setGameScene(priorGameScene);
         }
@@ -1227,13 +1236,13 @@ void EmuThread::drawScreenGL()
     glBindVertexArray(screenVertexArray);
 
     bool isInGameWithMap = videoSettings.GameScene == gameScene_InGameWithMap;
-    bool isInGamePause = videoSettings.GameScene == gameScene_PauseMenu;
+    bool isInGamePauseWithGauge = videoSettings.GameScene == gameScene_PauseMenuWithGauge;
 
     for (int i = 0; i < numScreens; i++)
     {
         bool isBottomScreen = i == 1;
         bool shouldCropScreenLikeAMap = isBottomScreen && isInGameWithMap;
-        bool shouldCropScreenLikeAGauge = isBottomScreen && isInGamePause;
+        bool shouldCropScreenLikeAGauge = isBottomScreen && isInGamePauseWithGauge;
 
         glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
 
@@ -2157,7 +2166,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only", "Bottom only", "Minimap", "Pause menu"};
 
-            for (int i = 0; i < screenSizing_PauseMenu; i++)
+            for (int i = 0; i < screenSizing_PauseMenuWithGauge; i++)
             {
                 actScreenSizing[i] = submenu->addAction(QString(screensizing[i]));
                 actScreenSizing[i]->setActionGroup(grpScreenSizing);
@@ -3796,7 +3805,7 @@ int main(int argc, char** argv)
     SANITIZE(Config::ScreenRotation, 0, 3);
     SANITIZE(Config::ScreenGap, 0, 500);
     SANITIZE(Config::ScreenLayout, 0, 3);
-    SANITIZE(Config::ScreenSizing, 0, (int)screenSizing_PauseMenu);
+    SANITIZE(Config::ScreenSizing, 0, (int)screenSizing_PauseMenuWithGauge);
     SANITIZE(Config::ScreenAspectTop, 0, 4);
     SANITIZE(Config::ScreenAspectBot, 0, 4);
 #undef SANITIZE
