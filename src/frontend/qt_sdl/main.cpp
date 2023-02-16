@@ -875,7 +875,7 @@ bool EmuThread::setGameScene(int newGameScene)
         case gameScene_InGameWithoutMap: size = screenSizing_TopOnly; break;
         case gameScene_InGameMenu: break;
         case gameScene_InGameSaveMenu: size = screenSizing_TopOnly; break;
-        case gameScene_PauseMenu: size = screenSizing_TopOnly; break;
+        case gameScene_PauseMenu: size = screenSizing_PauseMenu; break;
         case gameScene_Tutorial: size = screenSizing_BotOnly; break;
         case gameScene_RoxasThoughts: size = screenSizing_TopOnly; break;
         default: break;
@@ -1227,15 +1227,17 @@ void EmuThread::drawScreenGL()
     glBindVertexArray(screenVertexArray);
 
     bool isInGameWithMap = videoSettings.GameScene == gameScene_InGameWithMap;
+    bool isInGamePause = videoSettings.GameScene == gameScene_PauseMenu;
 
     for (int i = 0; i < numScreens; i++)
     {
         bool isBottomScreen = i == 1;
         bool shouldCropScreenLikeAMap = isBottomScreen && isInGameWithMap;
+        bool shouldCropScreenLikeAGauge = isBottomScreen && isInGamePause;
 
         glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
 
-        if (shouldCropScreenLikeAMap) {
+        if (shouldCropScreenLikeAMap || shouldCropScreenLikeAGauge) {
             float leftMargin = 0, topMargin = 0;
             float viewAspect;
             float screenAspect = (float) w / h;
@@ -1256,22 +1258,35 @@ void EmuThread::drawScreenGL()
                 }
             }
             
-            float mapY = 128.0;
-            float mapNegativeX = 20.0;
-            float mapHeight = 33.0, mapWidth = 44.0;
-            float mapX = 256 - mapNegativeX;
-        
-            float scissorFactorX = ((w - leftMargin*2)/256.0);
-            float scissorFactorY = ((h - topMargin*2)/192.0);
+            if (shouldCropScreenLikeAMap) {
+                float mapY = 128.0;
+                float mapNegativeX = 20.0;
+                float mapHeight = 33.0, mapWidth = 44.0;
+                float mapX = 256 - mapNegativeX;
             
-            glScissor((mapX*scissorFactorX + leftMargin)*factor, (mapY*scissorFactorY + topMargin)*factor, 
-                        mapWidth*scissorFactorX*factor, mapHeight*scissorFactorY*factor);
+                float scissorFactorX = ((w - leftMargin*2)/256.0);
+                float scissorFactorY = ((h - topMargin*2)/192.0);
+                
+                glScissor((mapX*scissorFactorX + leftMargin)*factor, (mapY*scissorFactorY + topMargin)*factor, 
+                            mapWidth*scissorFactorX*factor, mapHeight*scissorFactorY*factor);
+            }
+            if (shouldCropScreenLikeAGauge) {
+                float gaugeY = 0;
+                float gaugeHeight = 33.0, gaugeWidth = 256.0;
+                float gaugeX = 0;
+            
+                float scissorFactorX = ((w - leftMargin*2)/256.0);
+                float scissorFactorY = ((h - topMargin*2)/192.0);
+                
+                glScissor((gaugeX*scissorFactorX + leftMargin)*factor, (gaugeY*scissorFactorY + topMargin)*factor, 
+                            gaugeWidth*scissorFactorX*factor, gaugeHeight*scissorFactorY*factor);
+            }
             glEnable(GL_SCISSOR_TEST);
         }
 
         glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2*3, 2*3);
 
-        if (shouldCropScreenLikeAMap) {
+        if (shouldCropScreenLikeAMap || shouldCropScreenLikeAGauge) {
             glDisable(GL_SCISSOR_TEST);
         }
     }
@@ -2140,9 +2155,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             QMenu* submenu = menu->addMenu("Screen sizing");
             grpScreenSizing = new QActionGroup(submenu);
 
-            const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only", "Bottom only", "Minimap"};
+            const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only", "Bottom only", "Minimap", "Pause menu"};
 
-            for (int i = 0; i < screenSizing_MiniMap; i++)
+            for (int i = 0; i < screenSizing_PauseMenu; i++)
             {
                 actScreenSizing[i] = submenu->addAction(QString(screensizing[i]));
                 actScreenSizing[i]->setActionGroup(grpScreenSizing);
@@ -3781,7 +3796,7 @@ int main(int argc, char** argv)
     SANITIZE(Config::ScreenRotation, 0, 3);
     SANITIZE(Config::ScreenGap, 0, 500);
     SANITIZE(Config::ScreenLayout, 0, 3);
-    SANITIZE(Config::ScreenSizing, 0, (int)screenSizing_MiniMap);
+    SANITIZE(Config::ScreenSizing, 0, (int)screenSizing_PauseMenu);
     SANITIZE(Config::ScreenAspectTop, 0, 4);
     SANITIZE(Config::ScreenAspectBot, 0, 4);
 #undef SANITIZE

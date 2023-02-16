@@ -135,6 +135,9 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
     float mapNegativeX = -30.0;
     float mapHeight = 75.0, mapWidth = 100.0;
     float mapX = 256 - mapWidth - mapNegativeX;
+
+    float gaugeHeight = 192.0, gaugeWidth = 256.0;
+    float gaugeY = 0, gaugeX = 0;
     
     HybEnable = screenLayout == 3;
     if (HybEnable)
@@ -173,6 +176,12 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
         refpoints[3][0] += - 256.0 + mapWidth;
         refpoints[3][1] += - 192.0 + mapHeight;
     }
+    if (sizing == 8) 
+    {
+        M23_Scale(BotScreenMtx, gaugeWidth / 256.0, gaugeHeight / 192.0);
+        refpoints[3][0] += - 256.0 + gaugeWidth;
+        refpoints[3][1] += - 192.0 + gaugeHeight;
+    }
 
     M23_Translate(TopScreenMtx, -256/2, -192/2);
     M23_Translate(BotScreenMtx, -256/2, -192/2);
@@ -199,21 +208,23 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
     int posRefPointOffset = 0;
     int posRefPointCount = HybEnable ? 6 : 4;
 
-    if (sizing == 7) 
+    if (sizing == 7 || sizing == 8) 
     {
         TopEnable = BotEnable = true;
         
         // move screens apart
         {
-            M23_Translate(BotScreenMtx, mapX, mapY);
+            float pipX = sizing == 7 ? mapX : gaugeX;
+            float pipY = sizing == 7 ? mapY : gaugeY;
+            M23_Translate(BotScreenMtx, pipX, pipY);
 
-            refpoints[2][0] += mapX;
-            refpoints[2][1] += mapY;
-            refpoints[3][0] += mapX;
-            refpoints[3][1] += mapY;
+            refpoints[2][0] += pipX;
+            refpoints[2][1] += pipY;
+            refpoints[3][0] += pipX;
+            refpoints[3][1] += pipY;
 
-            botTrans[0] = mapX;
-            botTrans[1] = mapY;
+            botTrans[0] = pipX;
+            botTrans[1] = pipY;
         }
 
         // scale

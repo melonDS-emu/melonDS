@@ -48,6 +48,7 @@ enum
     screenSizing_BotOnly, // Intro Save Menu
     screenSizing_MAX,
     screenSizing_MiniMap, // Main Game with a floating map
+    screenSizing_PauseMenu
 };
 
 enum
