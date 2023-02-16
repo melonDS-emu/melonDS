@@ -829,21 +829,22 @@ void EmuThread::run()
     //Platform::LAN_DeInit();
 }
 
-#define PARSE_BRIGHTNESS(b, valueFor32784) (15 - (b & (1 << 15) ? (b & (1 << 4) ? valueFor32784 : (b & 0xF)) : 0))
+// If you want to undertand that, check GPU2D_Soft.cpp, at the bottom of the SoftRenderer::DrawScanline function
+#define PARSE_BRIGHTNESS_FOR_WHITE_BACKGROUND(b) (b & (1 << 15) ? (0xF - ((b - 1) & 0xF)) : 0xF)
+#define PARSE_BRIGHTNESS_FOR_BLACK_BACKGROUND(b) (b & (1 << 14) ? ((b - 1) & 0xF) : 0)
+#define PARSE_BRIGHTNESS_FOR_UNKNOWN_BACKGROUND(b) (b & (1 << 14) ? ((b - 1) & 0xF) : (b & (1 << 15) ? (0xF - ((b - 1) & 0xF)) : 0))
 
 bool EmuThread::setGameScene(int newGameScene)
 {
-    // Background color
-    // TODO: Check GPU2D_Soft.cpp, line 312
     float backgroundColor = 0.0;
     if (newGameScene == gameScene_Intro)
     {
-        backgroundColor = (1.0 * PARSE_BRIGHTNESS(GPU::GPU2D_A.MasterBrightness, 15)) / 15;
+        backgroundColor = PARSE_BRIGHTNESS_FOR_WHITE_BACKGROUND(GPU::GPU2D_A.MasterBrightness) / 15.0;
         backgroundColor = (sqrt(backgroundColor)*3 + pow(backgroundColor, 2)) / 4;
     }
     if (newGameScene == gameScene_MainMenu)
     {
-        backgroundColor = (1.0 * PARSE_BRIGHTNESS(GPU::GPU2D_B.MasterBrightness, 15)) / 15;
+        backgroundColor = PARSE_BRIGHTNESS_FOR_WHITE_BACKGROUND(GPU::GPU2D_B.MasterBrightness) / 15.0;
         backgroundColor = (sqrt(backgroundColor)*3 + pow(backgroundColor, 2)) / 4;
     }
     if (newGameScene == gameScene_InGameWithoutMap || newGameScene == gameScene_Other2D)
@@ -852,7 +853,7 @@ bool EmuThread::setGameScene(int newGameScene)
             backgroundColor = 0;
         }
         else if (GPU::GPU2D_B.MasterBrightness & (1 << 14)) {
-            backgroundColor = ((GPU::GPU2D_B.MasterBrightness - 1) & 0xF) / 15.0;
+            backgroundColor = PARSE_BRIGHTNESS_FOR_BLACK_BACKGROUND(GPU::GPU2D_B.MasterBrightness) / 15.0;
             backgroundColor = (sqrt(backgroundColor)*3 + pow(backgroundColor, 2)) / 4;
         }
     }
@@ -938,8 +939,8 @@ bool EmuThread::refreshAutoScreenSizing()
     bool noElementsOnBottomScreen = GPU::GPU2D_B.BlendCnt == 0;
 
     // Scale of brightness, from 0 (black) to 15 (every element is visible)
-    u8 topScreenBrightness = PARSE_BRIGHTNESS(GPU::GPU2D_A.MasterBrightness, 0);
-    u8 botScreenBrightness = PARSE_BRIGHTNESS(GPU::GPU2D_B.MasterBrightness, 0);
+    u8 topScreenBrightness = PARSE_BRIGHTNESS_FOR_WHITE_BACKGROUND(GPU::GPU2D_A.MasterBrightness);
+    u8 botScreenBrightness = PARSE_BRIGHTNESS_FOR_WHITE_BACKGROUND(GPU::GPU2D_B.MasterBrightness);
 
     if (doesntLook3D)
     {
@@ -1070,13 +1071,13 @@ bool EmuThread::refreshAutoScreenSizing()
         {
             return setGameScene(gameScene_Tutorial);
         }
-        bool inTutorialScreen = topScreenBrightness == 7 && botScreenBrightness == 15;
+        bool inTutorialScreen = topScreenBrightness == 8 && botScreenBrightness == 15;
         if (inTutorialScreen)
         {
             return setGameScene(gameScene_Tutorial);
         }
 
-        bool inGameMenu = ((GPU3D::NumVertices > 940 && GPU3D::NumVertices < 980) || GPU3D::NumVertices == 0) &&
+        bool inGameMenu = (GPU3D::NumVertices > 940 || GPU3D::NumVertices == 0) &&
                           GPU3D::RenderNumPolygons > 340 && GPU3D::RenderNumPolygons < 360 &&
                           GPU::GPU2D_A.BlendCnt == 0 && GPU::GPU2D_B.BlendCnt == 0;
         if (inGameMenu)
