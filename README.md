@@ -98,6 +98,7 @@ If you want an app bundle that can be distributed to other computers without nee
 
  * for a brief moment, the tutorial window appears as a minimap
  * the minimap isn't properly cropped if the emulator window is in an aspect ratio lower than 16:9
+ * background color based in the screen brightness is not accurate
 
 ## TODO LIST
 
