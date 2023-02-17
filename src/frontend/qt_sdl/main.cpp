@@ -426,6 +426,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panelWidget, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
+    connect(this, SIGNAL(screenEmphasisToggle()), mainWindow, SLOT(onScreenEmphasisToggled()));
 
     static_cast<ScreenPanelGL*>(mainWindow->panel)->transferLayout(this);
 }
@@ -596,6 +597,7 @@ void EmuThread::run()
         if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
         if (Input::HotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
+        if (Input::HotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
 
         if (Input::HotkeyPressed(HK_SolarSensorDecrease))
         {
@@ -3285,6 +3287,17 @@ void ToggleFullscreen(MainWindow* mainWindow) {
 void MainWindow::onFullscreenToggled()
 {
     ToggleFullscreen(this);
+}
+
+void MainWindow::onScreenEmphasisToggled() {
+    int currentSizing = Config::ScreenSizing;
+    if (currentSizing == screenSizing_EmphTop) {
+        Config::ScreenSizing = screenSizing_EmphBot;
+    } else if (currentSizing == screenSizing_EmphBot) {
+        Config::ScreenSizing = screenSizing_EmphTop;
+    }
+
+    emit screenLayoutChange();
 }
 
 void MainWindow::onEmuStart()
