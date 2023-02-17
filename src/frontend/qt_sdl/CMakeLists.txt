@@ -49,6 +49,7 @@ set(SOURCES_QT_SDL
     ../duckstation/gl/context.cpp
 
     ${CMAKE_SOURCE_DIR}/res/melon.qrc
+    ${CMAKE_SOURCE_DIR}/res/images/images.qrc
 
     CLI.h
     CLI.cpp
