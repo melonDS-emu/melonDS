@@ -306,7 +306,7 @@ ConfigEntry ConfigFile[] =
 
     {"LastROMFolder", 2, &LastROMFolder, (std::string)"rom", true},
 
-    {"RecentROM_0", 2, &RecentROMList[0], (std::string)"rom/game2.nds", true},
+    {"RecentROM_0", 2, &RecentROMList[0], (std::string)"rom/game.nds", true},
     {"RecentROM_1", 2, &RecentROMList[1], (std::string)"", true},
     {"RecentROM_2", 2, &RecentROMList[2], (std::string)"", true},
     {"RecentROM_3", 2, &RecentROMList[3], (std::string)"", true},
