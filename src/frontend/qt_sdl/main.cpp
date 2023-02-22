@@ -426,6 +426,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panelWidget, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
+    connect(this, SIGNAL(screenEmphasisToggle()), mainWindow, SLOT(onScreenEmphasisToggled()));
     connect(this, SIGNAL(hkSaveState()), mainWindow->actSaveState[1], SLOT(trigger()));
     connect(this, SIGNAL(hkLoadState()), mainWindow->actLoadState[1], SLOT(trigger()));
 
@@ -598,6 +599,7 @@ void EmuThread::run()
         if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
         if (Input::HotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
+        if (Input::HotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
 
         if (Input::HotkeyPressed(HK_SaveState)) emit hkSaveState();
         if (Input::HotkeyPressed(HK_LoadState)) emit hkLoadState();
@@ -3290,6 +3292,17 @@ void ToggleFullscreen(MainWindow* mainWindow) {
 void MainWindow::onFullscreenToggled()
 {
     ToggleFullscreen(this);
+}
+
+void MainWindow::onScreenEmphasisToggled() {
+    int currentSizing = Config::ScreenSizing;
+    if (currentSizing == screenSizing_EmphTop) {
+        Config::ScreenSizing = screenSizing_EmphBot;
+    } else if (currentSizing == screenSizing_EmphBot) {
+        Config::ScreenSizing = screenSizing_EmphTop;
+    }
+
+    emit screenLayoutChange();
 }
 
 void MainWindow::onEmuStart()

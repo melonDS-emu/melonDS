@@ -85,6 +85,7 @@ signals:
     void windowFullscreenToggle();
 
     void swapScreensToggle();
+    void screenEmphasisToggle();
 
     void hkSaveState();
     void hkLoadState();
@@ -334,6 +335,7 @@ private slots:
     void onUpdateVideoSettings(bool glchange);
 
     void onFullscreenToggled();
+    void onScreenEmphasisToggled();
 
 private:
     void closeEvent(QCloseEvent* event);

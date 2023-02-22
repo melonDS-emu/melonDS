@@ -61,6 +61,7 @@ const int hk_general[] =
     HK_Lid,
     HK_Mic,
     HK_SwapScreens,
+    HK_SwapScreenEmphasis,
     HK_SaveState,
     HK_LoadState
 };
@@ -76,13 +77,15 @@ const char* hk_general_labels[] =
     "Close/open lid",
     "Microphone",
     "Swap screens",
+    "Swap screen emphasis",
     "Save State",
     "Load State"
 };
 
 const int keypad_num = 12;
 const int hk_addons_num = 2;
-const int hk_general_num = 11;
+const int hk_general_num = 12;
+
 
 
 InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new Ui::InputConfigDialog)
