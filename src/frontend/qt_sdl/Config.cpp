@@ -186,6 +186,8 @@ ConfigEntry ConfigFile[] =
     {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1, true},
     {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1, true},
     {"HKKey_FrameStep",           0, &HKKeyMapping[HK_FrameStep],           -1, true},
+    {"HKKey_SaveState",           0, &HKKeyMapping[HK_SaveState],           -1, true},
+    {"HKKey_LoadState",           0, &HKKeyMapping[HK_LoadState],           -1, true},
 
     {"HKJoy_Lid",                 0, &HKJoyMapping[HK_Lid],                 -1, true},
     {"HKJoy_Mic",                 0, &HKJoyMapping[HK_Mic],                 -1, true},
@@ -199,6 +201,8 @@ ConfigEntry ConfigFile[] =
     {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1, true},
     {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1, true},
     {"HKJoy_FrameStep",           0, &HKJoyMapping[HK_FrameStep],           -1, true},
+    {"HKJoy_SaveState",           0, &HKJoyMapping[HK_SaveState],           -1, true},
+    {"HKJoy_LoadState",           0, &HKJoyMapping[HK_LoadState],           -1, true},
 
     {"JoystickID", 0, &JoystickID, 0, true},
 
