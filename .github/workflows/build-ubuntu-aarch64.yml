@@ -43,8 +43,8 @@ jobs:
       run: |
         cmake --build build -j$(nproc --all)
         mkdir dist
-        cp build/melonDS dist
+        cp build/khDaysMM dist
     - uses: actions/upload-artifact@v1
       with:
-        name: melonDS-ubuntu-aarch64
+        name: khDaysMM-ubuntu-aarch64
         path: dist

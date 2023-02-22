@@ -61,13 +61,13 @@ jobs:
 
     steps:
       - name: Merge binaries
-        run: $GITHUB_WORKSPACE/tools/mac-universal.py ${{runner.workspace}}/build/arm64/melonDS.app ${{runner.workspace}}/build/x86_64/melonDS.app ${{runner.workspace}}/build/universal/melonDS.app
+        run: $GITHUB_WORKSPACE/tools/mac-universal.py ${{runner.workspace}}/build/arm64/khDaysMM.app ${{runner.workspace}}/build/x86_64/khDaysMM.app ${{runner.workspace}}/build/universal/khDaysMM.app
 
       - name: Create DMG
-        run: hdiutil create -fs HFS+ -volname melonDS -srcfolder ${{runner.workspace}}/build/universal/melonDS.app -ov -format UDBZ ${{runner.workspace}}/build/universal/melonDS.dmg
+        run: hdiutil create -fs HFS+ -volname khDaysMM -srcfolder ${{runner.workspace}}/build/universal/khDaysMM.app -ov -format UDBZ ${{runner.workspace}}/build/universal/khDaysMM.dmg
 
       - uses: actions/upload-artifact@v3
         with:
           name: macOS-universal
-          path: ${{runner.workspace}}/build/universal/melonDS.dmg
+          path: ${{runner.workspace}}/build/universal/khDaysMM.dmg
       

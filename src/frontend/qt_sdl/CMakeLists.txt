@@ -88,12 +88,12 @@ fix_interface_includes(PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
 
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
-add_executable(melonDS ${SOURCES_QT_SDL})
+add_executable(khDaysMM ${SOURCES_QT_SDL})
 
 if (WIN32)
-    target_link_libraries(melonDS PUBLIC opengl32)
+    target_link_libraries(khDaysMM PUBLIC opengl32)
 
-    target_sources(melonDS PRIVATE
+    target_sources(khDaysMM PRIVATE
         ../duckstation/gl/context_wgl.cpp
 
         ../glad/glad_wgl.c
@@ -101,9 +101,9 @@ if (WIN32)
 elseif (APPLE)
     if (NOT USE_QT6)
         find_library(COCOA_LIB Cocoa)
-        target_link_libraries(melonDS PRIVATE ${COCOA_LIB})
+        target_link_libraries(khDaysMM PRIVATE ${COCOA_LIB})
     endif()
-    target_sources(melonDS PRIVATE
+    target_sources(khDaysMM PRIVATE
         ../duckstation/gl/context_agl.mm
     )
 else()
@@ -116,7 +116,7 @@ else()
     find_package(EGL REQUIRED)
     find_package(Wayland REQUIRED Client)
 
-    target_sources(melonDS PRIVATE
+    target_sources(khDaysMM PRIVATE
         ../duckstation/gl/context_egl.cpp
         ../duckstation/gl/context_egl_x11.cpp
         ../duckstation/gl/context_glx.cpp
@@ -126,27 +126,27 @@ else()
         ../glad/glad_egl.c
         ../glad/glad_glx.c
     )
-    target_link_libraries(melonDS PRIVATE "${X11_LIBRARIES}" "${EGL_LIBRARIES}")
-    target_include_directories(melonDS PRIVATE "${X11_INCLUDE_DIR}")
+    target_link_libraries(khDaysMM PRIVATE "${X11_LIBRARIES}" "${EGL_LIBRARIES}")
+    target_include_directories(khDaysMM PRIVATE "${X11_INCLUDE_DIR}")
 endif()
 
 
 if (BUILD_STATIC)
-    qt_import_plugins(melonDS INCLUDE Qt::QSvgPlugin)
-    target_link_options(melonDS PRIVATE -static)
+    qt_import_plugins(khDaysMM INCLUDE Qt::QSvgPlugin)
+    target_link_options(khDaysMM PRIVATE -static)
 endif()
 
-target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
-target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+target_include_directories(khDaysMM PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(khDaysMM PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_include_directories(khDaysMM PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 if (USE_QT6)
-    target_include_directories(melonDS PUBLIC ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
+    target_include_directories(khDaysMM PUBLIC ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
 else()
-    target_include_directories(melonDS PUBLIC ${Qt5Gui_PRIVATE_INCLUDE_DIRS})
+    target_include_directories(khDaysMM PUBLIC ${Qt5Gui_PRIVATE_INCLUDE_DIRS})
 endif()
-target_link_libraries(melonDS PRIVATE core)
-target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
-target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
+target_link_libraries(khDaysMM PRIVATE core)
+target_link_libraries(khDaysMM PRIVATE PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
+target_link_libraries(khDaysMM PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
 
 if (UNIX)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
@@ -154,8 +154,8 @@ elseif (WIN32)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
 
     configure_file("${CMAKE_SOURCE_DIR}/res/melon.rc.in" "${CMAKE_BINARY_DIR}/res/melon.rc")
-    target_sources(melonDS PUBLIC "${CMAKE_BINARY_DIR}/res/melon.rc")
-    target_include_directories(melonDS PRIVATE "${CMAKE_BINARY_DIR}/res")
+    target_sources(khDaysMM PUBLIC "${CMAKE_BINARY_DIR}/res/melon.rc")
+    target_include_directories(khDaysMM PRIVATE "${CMAKE_BINARY_DIR}/res")
 
     if (${ARCHITECTURE} STREQUAL x86_64)
         set(WIN32_ARCHITECTURE amd64)
@@ -167,25 +167,25 @@ elseif (WIN32)
 
     configure_file("${CMAKE_SOURCE_DIR}/res/xp.manifest.in" "${CMAKE_BINARY_DIR}/res/xp.manifest")
 
-    target_link_libraries(melonDS PRIVATE ws2_32 iphlpapi)
-    set_target_properties(melonDS PROPERTIES LINK_FLAGS_DEBUG "-mconsole")
+    target_link_libraries(khDaysMM PRIVATE ws2_32 iphlpapi)
+    set_target_properties(khDaysMM PROPERTIES LINK_FLAGS_DEBUG "-mconsole")
 endif()
 
 if (PORTABLE)
-    target_compile_definitions(melonDS PRIVATE PORTABLE)
+    target_compile_definitions(khDaysMM PRIVATE PORTABLE)
 endif()
 
 if (APPLE)
-    target_sources(melonDS PRIVATE sem_timedwait.cpp)
+    target_sources(khDaysMM PRIVATE sem_timedwait.cpp)
 
     # Copy icon into the bundle
     set(RESOURCE_FILES "${CMAKE_SOURCE_DIR}/res/melon.icns")
-    target_sources(melonDS PUBLIC "${RESOURCE_FILES}")
+    target_sources(khDaysMM PUBLIC "${RESOURCE_FILES}")
 
-    set_target_properties(melonDS PROPERTIES
+    set_target_properties(khDaysMM PROPERTIES
         MACOSX_BUNDLE true
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/res/melon.plist.in
-        OUTPUT_NAME melonDS
+        OUTPUT_NAME khDaysMM
         RESOURCE "${RESOURCE_FILES}")
 
 
@@ -196,7 +196,7 @@ if (APPLE)
         if (MACOS_BUILD_DMG)
             set(DMGARG "--dmg")
         endif()
-        add_custom_command(TARGET melonDS POST_BUILD
+        add_custom_command(TARGET khDaysMM POST_BUILD
             COMMAND ${CMAKE_SOURCE_DIR}/tools/mac-libs.rb ${DMGARG} ${CMAKE_BINARY_DIR}
             COMMENT "Bundling macOS libraries...")
     endif()
@@ -206,9 +206,9 @@ if (UNIX AND NOT APPLE)
     foreach(SIZE 16 32 48 64 128 256)
         install(FILES ${CMAKE_SOURCE_DIR}/res/icon/melon_${SIZE}x${SIZE}.png
             DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/${SIZE}x${SIZE}/apps
-            RENAME net.kuribo64.melonDS.png)
+            RENAME net.kuribo64.khDaysMM.png)
     endforeach()
 
-    install(FILES ${CMAKE_SOURCE_DIR}/res/net.kuribo64.melonDS.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)
-    install(TARGETS melonDS BUNDLE DESTINATION ${CMAKE_BINARY_DIR} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+    install(FILES ${CMAKE_SOURCE_DIR}/res/net.kuribo64.khDaysMM.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)
+    install(TARGETS khDaysMM BUNDLE DESTINATION ${CMAKE_BINARY_DIR} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 endif()

@@ -9,10 +9,10 @@ set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
-project(melonDS
-    VERSION 0.9.5
+project(khDaysMM
+    VERSION 0.1.0
     DESCRIPTION "DS emulator, sorta"
-    HOMEPAGE_URL "https://melonds.kuribo64.net"
+    HOMEPAGE_URL "https://github.com/vitor251093/KHDays_FM"
     LANGUAGES C CXX)
 
 include(CheckSymbolExists)
@@ -28,7 +28,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-add_compile_definitions(MELONDS_VERSION="${melonDS_VERSION}")
+add_compile_definitions(KHDAYSMM_VERSION="${khDaysMM_VERSION}")
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)

@@ -6,8 +6,8 @@
 
 //include version information in .exe, modify these values to match your needs
 1 VERSIONINFO
-FILEVERSION ${melonDS_VERSION_MAJOR},${melonDS_VERSION_MINOR},${melonDS_VERSION_PATCH},0
-PRODUCTVERSION ${melonDS_VERSION_MAJOR},${melonDS_VERSION_MINOR},${melonDS_VERSION_PATCH},0
+FILEVERSION ${khDaysMM_VERSION_MAJOR},${khDaysMM_VERSION_MINOR},${khDaysMM_VERSION_PATCH},0
+PRODUCTVERSION ${khDaysMM_VERSION_MAJOR},${khDaysMM_VERSION_MINOR},${khDaysMM_VERSION_PATCH},0
 FILETYPE VFT_APP
 {
   BLOCK "StringFileInfo"
@@ -15,14 +15,14 @@ FILETYPE VFT_APP
 		BLOCK "040904E4"
 		{
 			VALUE "CompanyName", "Melon Factory of Kuribo64"
-			VALUE "FileVersion", "${melonDS_VERSION}"
-			VALUE "FileDescription", "melonDS emulator"
+			VALUE "FileVersion", "${khDaysMM_VERSION}"
+			VALUE "FileDescription", "khDaysMM emulator"
 			VALUE "InternalName", "SDnolem"
-			VALUE "LegalCopyright", "2016-2022 melonDS team"
+			VALUE "LegalCopyright", "2022-2023 VitorMM"
 			VALUE "LegalTrademarks", ""
-			VALUE "OriginalFilename", "melonDS.exe"
-			VALUE "ProductName", "melonDS"
-			VALUE "ProductVersion", "${melonDS_VERSION}"
+			VALUE "OriginalFilename", "khDaysMM.exe"
+			VALUE "ProductName", "khDaysMM"
+			VALUE "ProductVersion", "${khDaysMM_VERSION}"
 		}
 	}
   BLOCK "VarFileInfo"

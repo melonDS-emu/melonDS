@@ -3031,7 +3031,7 @@ u8 ARM9IORead8(u32 addr)
     if(addr >= 0x04FFFA00 && addr < 0x04FFFA10)
     {
         // FIX: GBATek says this should be padded with spaces
-        static char const emuID[16] = "melonDS " MELONDS_VERSION;
+        static char const emuID[16] = "khDaysMM " KHDAYSMM_VERSION;
         auto idx = addr - 0x04FFFA00;
         return (u8)(emuID[idx]);
     }

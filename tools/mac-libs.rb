@@ -3,7 +3,7 @@
 require "open3"
 require "fileutils"
 
-$app_name = "melonDS"
+$app_name = "khDaysMM"
 $build_dmg = false
 $build_dir = ""
 $bundle = ""
@@ -250,6 +250,6 @@ if $build_dmg
     FileUtils.cp_r($bundle, dmg_dir, preserve: true)
     FileUtils.ln_s("/Applications", File.join(dmg_dir, "Applications"))
 
-    `hdiutil create -fs HFS+ -volname melonDS -srcfolder "#{dmg_dir}" -ov -format UDBZ "#{$build_dir}/melonDS.dmg"`
+    `hdiutil create -fs HFS+ -volname khDaysMM -srcfolder "#{dmg_dir}" -ov -format UDBZ "#{$build_dir}/khDaysMM.dmg"`
     FileUtils.rm_rf(dmg_dir)
 end

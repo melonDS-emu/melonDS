@@ -39,5 +39,5 @@ jobs:
 
     - uses: actions/upload-artifact@v1
       with:
-        name: melonDS-windows-x86_64
-        path: ${{runner.workspace}}\build\melonDS.exe
+        name: khDaysMM-windows-x86_64
+        path: ${{runner.workspace}}\build\khDaysMM.exe

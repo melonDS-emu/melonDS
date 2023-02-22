@@ -221,13 +221,13 @@ ConfigEntry ConfigFile[] =
     {"ScreenGap",      0, &ScreenGap,      0,     true},
     {"ScreenLayout",   0, &ScreenLayout,   2,     true},
     {"ScreenSwap",     1, &ScreenSwap,     false, true},
-    {"ScreenSizing",   0, &ScreenSizing,   0,     true},
+    {"ScreenSizing",   0, &ScreenSizing,   3,     true},
     {"IntegerScaling", 1, &IntegerScaling, false, true},
-    {"ScreenAspectTop",0, &ScreenAspectTop,1,     true},
+    {"ScreenAspectTop",0, &ScreenAspectTop,4,     true},
     {"ScreenAspectBot",0, &ScreenAspectBot,0,     true},
     {"ScreenFilter",   1, &ScreenFilter,   true,  true},
 
-    {"ScreenUseGL",         1, &ScreenUseGL,         true,  false},
+    {"ScreenUseGL",         1, &ScreenUseGL,         false, false},
     {"ScreenVSync",         1, &ScreenVSync,         false, false},
     {"ScreenVSyncInterval", 0, &ScreenVSyncInterval, 1,     false},
 
@@ -304,9 +304,9 @@ ConfigEntry ConfigFile[] =
     {"MicInputType", 0, &MicInputType, 1, false},
     {"MicWavPath", 2, &MicWavPath, (std::string)"", false},
 
-    {"LastROMFolder", 2, &LastROMFolder, (std::string)"", true},
+    {"LastROMFolder", 2, &LastROMFolder, (std::string)"rom", true},
 
-    {"RecentROM_0", 2, &RecentROMList[0], (std::string)"", true},
+    {"RecentROM_0", 2, &RecentROMList[0], (std::string)"rom/game2.nds", true},
     {"RecentROM_1", 2, &RecentROMList[1], (std::string)"", true},
     {"RecentROM_2", 2, &RecentROMList[2], (std::string)"", true},
     {"RecentROM_3", 2, &RecentROMList[3], (std::string)"", true},
@@ -321,9 +321,9 @@ ConfigEntry ConfigFile[] =
     {"SavestatePath", 2, &SavestatePath, (std::string)"", true},
     {"CheatFilePath", 2, &CheatFilePath, (std::string)"", true},
 
-    {"EnableCheats", 1, &EnableCheats, false, true},
+    {"EnableCheats", 1, &EnableCheats, true, true},
 
-    {"MouseHide",        1, &MouseHide,        false, false},
+    {"MouseHide",        1, &MouseHide,        true, false},
     {"MouseHideSeconds", 0, &MouseHideSeconds, 2, false},
     {"PauseLostFocus",   1, &PauseLostFocus,   false, false},
 

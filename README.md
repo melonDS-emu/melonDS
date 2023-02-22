@@ -61,7 +61,7 @@ If everything went well, KHDays FM and the libraries it needs should now be in t
    cmake -B build -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=/mingw64/qt5-static
    cmake --build build
    ```
-If everything went well, melonDS should now be in the `build` folder.
+If everything went well, khDaysMM should now be in the `build` folder.
 
 ### macOS
 1. Install the [Homebrew Package Manager](https://brew.sh)
@@ -76,11 +76,11 @@ If everything went well, melonDS should now be in the `build` folder.
    cmake -B build -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix libarchive)" -DUSE_QT6=ON
    cmake --build build -j$(sysctl -n hw.logicalcpu)
    ```
-If everything went well, melonDS.app should now be in the `build` directory.
+If everything went well, khDaysMM.app should now be in the `build` directory.
 
 #### Self-contained app bundle
 If you want an app bundle that can be distributed to other computers without needing to install dependencies through Homebrew, you can additionally run `
-../tools/mac-bundle.rb melonDS.app` after the build is completed, or add `-DMACOS_BUNDLE_LIBS=ON` to the first CMake command.
+../tools/mac-bundle.rb khDaysMM.app` after the build is completed, or add `-DMACOS_BUNDLE_LIBS=ON` to the first CMake command.
 
 ## DONE
 

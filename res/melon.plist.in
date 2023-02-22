@@ -3,19 +3,19 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>melonDS</string>
+    <string>khDaysMM</string>
     <key>CFBundleIconFile</key>
     <string>melon.icns</string>
     <key>CFBundleIdentifier</key>
-    <string>net.kuribo64.melonDS</string>
+    <string>com.vitormm.khDaysMM</string>
     <key>CFBundleDevelopmentRegion</key>
     <string>English</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleVersion</key>
-    <string>${melonDS_VERSION}</string>
+    <string>${khDaysMM_VERSION}</string>
     <key>CFBundleShortVersionString</key>
-    <string>${melonDS_VERSION}</string> 
+    <string>${khDaysMM_VERSION}</string> 
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.games</string>
     <key>NSHumanReadableCopyright</key>
