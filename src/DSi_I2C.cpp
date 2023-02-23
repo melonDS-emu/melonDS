@@ -28,6 +28,24 @@
 namespace DSi_BPTWL
 {
 
+// Could not find a pattern or a decent formula for these,
+// regardless, they're only 64 bytes in size
+const u8 VolumeDownTable[32] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x03,
+    0x04, 0x05, 0x06, 0x06, 0x07, 0x08, 0x09, 0x0A,
+    0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12,
+    0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A,
+};
+
+const u8 VolumeUpTable[32] = {
+    0x02, 0x03, 0x06, 0x07, 0x08, 0x0A, 0x0B, 0x0C,
+    0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14,
+    0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C,
+    0x1D, 0x1E, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F,
+};
+
+bool PowerButtonShutdownFlag = false;
+
 u8 Registers[0x100];
 u32 CurPos;
 
@@ -49,8 +67,9 @@ void Reset()
     Registers[0x01] = 0x00;
     Registers[0x02] = 0x50;
     Registers[0x10] = 0x00; // power btn
+    Registers[0x10] = 0x00; // irq flag
     Registers[0x11] = 0x00; // reset
-    Registers[0x12] = 0x00; // power btn tap
+    Registers[0x12] = 0x00; // irq mode
     Registers[0x20] = 0x8F; // battery
     Registers[0x21] = 0x07;
     Registers[0x30] = 0x13;
@@ -71,6 +90,8 @@ void Reset()
     Registers[0x77] = 0x00;
     Registers[0x80] = 0x10;
     Registers[0x81] = 0x64;
+
+    PowerButtonShutdownFlag = false;
 }
 
 void DoSavestate(Savestate* file)
@@ -79,6 +100,11 @@ void DoSavestate(Savestate* file)
 
     file->VarArray(Registers, 0x100);
     file->Var32(&CurPos);
+}
+
+// TODO: Needs more investigation on the other bits
+inline bool GetIRQMode() {
+    return Registers[0x12] & 0x01;
 }
 
 u8 GetBootFlag() { return Registers[0x70]; }
@@ -94,6 +120,125 @@ void SetBatteryLevel(u8 batteryLevel)
 {
     Registers[0x20] = ((Registers[0x20] & 0xF0) | (batteryLevel & 0x0F));
     SPI_Powerman::SetBatteryLevelOkay(batteryLevel > batteryLevel_Low ? true : false);
+
+    if (batteryLevel <= 1) {
+        SetIRQ(batteryLevel ? IRQ_BatteryLow : IRQ_BatteryEmpty);
+    }
+
+}
+
+u8 GetVolumeLevel() { return Registers[0x40]; }
+void SetVolumeLevel(u8 volume) {
+    Registers[0x40] = volume & 0x1F;
+}
+
+u8 GetBacklightLevel() { return Registers[0x41]; }
+void SetBacklightLevel(u8 backlight) {
+    Registers[0x41] = backlight > 4 ? 4 : backlight;
+}
+
+
+void ResetButtonState() {
+
+    PowerButtonShutdownFlag = false;
+
+}
+
+void DoHardwareReset() {
+
+    ResetButtonState();
+
+    printf("BPTWL: soft-reset\n");
+    // TODO: soft-reset might need to be scheduled later!
+    // TODO: this has been moved for the JIT to work, nothing is confirmed here
+    NDS::ARM7->Halt(4);
+
+}
+
+void DoShutdown() {
+
+    ResetButtonState();
+    NDS::Stop();
+
+}
+
+
+void DoPowerButtonPress() {
+
+    // Set button pressed IRQ
+    SetIRQ(IRQ_PowerButtonPressed);
+
+    // There is no hardware behavior for pressing the power button
+
+}
+
+void DoPowerButtonReset() {
+
+    // Reset via IRQ, handled by software
+    SetIRQ(IRQ_PowerButtonReset);
+
+    // Reset automatically via hardware
+    if (!GetIRQMode()) {
+        DoHardwareReset();
+    }
+
+}
+
+void DoPowerButtonShutdown() {
+
+    // Shutdown via IRQ, handled by software
+    if (!PowerButtonShutdownFlag) {
+        SetIRQ(IRQ_PowerButtonShutdown);
+    }
+
+    PowerButtonShutdownFlag = true;
+
+    // Shutdown automatically via hardware
+    if (!GetIRQMode()) {
+        DoShutdown();
+    }
+
+    // The IRQ is only fired once (hence the need for an if guard),
+    // but the hardware shutdown is continuously triggered.
+    // That way when switching the power button mode while holding
+    // down the power button, the DSi will still shut down
+
+}
+
+void DoPowerButtonForceShutdown() {
+    DoShutdown();
+}
+
+void DoVolumeSwitchPress(u32 key) {
+
+    u8 volume = Registers[0x40];
+
+    switch (key) {
+
+    case VolumeKey_Up:
+        volume = VolumeUpTable[volume];
+        break;
+
+    case VolumeKey_Down:
+        volume = VolumeDownTable[volume];
+        break;
+
+    }
+
+    Registers[0x40] = volume;
+
+    SetIRQ(IRQ_VolumeSwitchPressed);
+
+}
+
+void SetIRQ(u8 irqFlag) {
+
+    Registers[0x10] |= irqFlag & IRQ_ValidMask;
+
+    if (GetIRQMode()) {
+        NDS::SetIRQ2(NDS::IRQ2_DSi_BPTWL);
+    }
+
 }
 
 void Start()
@@ -104,7 +249,14 @@ void Start()
 u8 Read(bool last)
 {
     //printf("BPTWL: read %02X -> %02X @ %08X\n", CurPos, Registers[CurPos], NDS::GetPC(1));
-    u8 ret = Registers[CurPos++];
+    u8 ret = Registers[CurPos];
+
+    // IRQ flags are automatically reset upon read
+    if (CurPos == 0x10) {
+        Registers[0x10] = 0;
+    }
+
+    CurPos++;
 
     if (last)
     {
@@ -131,19 +283,26 @@ void Write(u8 val, bool last)
 
     if (CurPos == 0x11 && val == 0x01)
     {
-        printf("BPTWL: soft-reset\n");
+        DoHardwareReset();
         val = 0; // checkme
-        // TODO: soft-reset might need to be scheduled later!
-        // TODO: this has been moved for the JIT to work, nothing is confirmed here
-        NDS::ARM7->Halt(4);
         CurPos = -1;
         return;
+    }
+
+    // Mask volume level
+    if (CurPos == 0x40) {
+        val &= 0x1F;
+    }
+
+    // Clamp backlight level
+    if (CurPos == 0x41) {
+        val = val > 4 ? 4 : val;
     }
 
     if (CurPos == 0x11 || CurPos == 0x12 ||
         CurPos == 0x21 ||
         CurPos == 0x30 || CurPos == 0x31 ||
-        CurPos == 0x40 || CurPos == 0x31 ||
+        CurPos == 0x40 || CurPos == 0x41 ||
         CurPos == 0x60 || CurPos == 0x63 ||
         (CurPos >= 0x70 && CurPos <= 0x77) ||
         CurPos == 0x80 || CurPos == 0x81)
