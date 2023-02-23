@@ -85,6 +85,7 @@ signals:
     void windowFullscreenToggle();
 
     void swapScreensToggle();
+    void screenEmphasisToggle();
 
 private:
     void drawScreenGL();
@@ -331,6 +332,7 @@ private slots:
     void onUpdateVideoSettings(bool glchange);
 
     void onFullscreenToggled();
+    void onScreenEmphasisToggled();
 
     void onUpdateTimerElapsed();
 
