@@ -54,6 +54,19 @@ void SetBacklightLevel(u8 backlight);
 void DoHardwareReset();
 void DoShutdown();
 
+enum
+{
+    VolumeKey_Up,
+    VolumeKey_Down,
+};
+
+// Used by hotkeys
+void SetPowerButtonHeld(double time);
+void SetPowerButtonReleased(double time);
+void SetVolumeSwitchHeld(u32 key);
+void SetVolumeSwitchReleased(u32 key);
+s32 ProcessVolumeSwitchInput(double time);
+
 void DoPowerButtonPress();
 void DoPowerButtonReset();
 void DoPowerButtonShutdown();

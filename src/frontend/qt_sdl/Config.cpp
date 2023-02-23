@@ -186,6 +186,9 @@ ConfigEntry ConfigFile[] =
     {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1, true},
     {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1, true},
     {"HKKey_FrameStep",           0, &HKKeyMapping[HK_FrameStep],           -1, true},
+    {"HKKey_PowerButton",         0, &HKKeyMapping[HK_PowerButton],         -1, true},
+    {"HKKey_VolumeUp",            0, &HKKeyMapping[HK_VolumeUp],            -1, true},
+    {"HKKey_VolumeDown",          0, &HKKeyMapping[HK_VolumeDown],          -1, true},
 
     {"HKJoy_Lid",                 0, &HKJoyMapping[HK_Lid],                 -1, true},
     {"HKJoy_Mic",                 0, &HKJoyMapping[HK_Mic],                 -1, true},
@@ -199,6 +202,9 @@ ConfigEntry ConfigFile[] =
     {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1, true},
     {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1, true},
     {"HKJoy_FrameStep",           0, &HKJoyMapping[HK_FrameStep],           -1, true},
+    {"HKJoy_PowerButton",         0, &HKJoyMapping[HK_PowerButton],         -1, true},
+    {"HKJoy_VolumeUp",            0, &HKJoyMapping[HK_VolumeUp],            -1, true},
+    {"HKJoy_VolumeDown",          0, &HKJoyMapping[HK_VolumeDown],          -1, true},
 
     {"JoystickID", 0, &JoystickID, 0, true},
 

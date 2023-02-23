@@ -88,6 +88,7 @@
 #include "Platform.h"
 #include "LocalMP.h"
 #include "Config.h"
+#include "DSi_I2C.h"
 
 #include "Savestate.h"
 
@@ -618,6 +619,45 @@ void EmuThread::run()
                 sprintf(msg, "Solar sensor level: %d", level);
                 OSD::AddMessage(0, msg);
             }
+        }
+
+        if (NDS::ConsoleType == 1) {
+
+            double currentTime = SDL_GetPerformanceCounter() * perfCountsSec;
+
+            // Handle power button
+            if (Input::HotkeyDown(HK_PowerButton)) {
+                DSi_BPTWL::SetPowerButtonHeld(currentTime);
+            } else if (Input::HotkeyReleased(HK_PowerButton)) {
+                DSi_BPTWL::SetPowerButtonReleased(currentTime);
+            }
+
+            // Handle volume buttons
+            if (Input::HotkeyDown(HK_VolumeUp)) {
+                DSi_BPTWL::SetVolumeSwitchHeld(DSi_BPTWL::VolumeKey_Up);
+            } else if (Input::HotkeyReleased(HK_VolumeUp)) {
+                DSi_BPTWL::SetVolumeSwitchReleased(DSi_BPTWL::VolumeKey_Up);
+            }
+
+            if (Input::HotkeyDown(HK_VolumeDown)) {
+                DSi_BPTWL::SetVolumeSwitchHeld(DSi_BPTWL::VolumeKey_Down);
+            } else if (Input::HotkeyReleased(HK_VolumeDown)) {
+                DSi_BPTWL::SetVolumeSwitchReleased(DSi_BPTWL::VolumeKey_Down);
+            }
+
+            s32 key = DSi_BPTWL::ProcessVolumeSwitchInput(currentTime);
+            switch (key) {
+
+            case DSi_BPTWL::VolumeKey_Up:
+                //OSD::AddMessage(0, "Volume up");
+                break;
+
+            case DSi_BPTWL::VolumeKey_Down:
+                //OSD::AddMessage(0, "Volume down");
+                break;
+
+            }
+
         }
 
         if (EmuRunning == 1 || EmuRunning == 3)

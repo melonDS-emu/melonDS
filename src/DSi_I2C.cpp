@@ -23,10 +23,17 @@
 #include "DSi_Camera.h"
 #include "ARM.h"
 #include "SPI.h"
+#include <cmath>
 
 
 namespace DSi_BPTWL
 {
+
+// TODO: These are purely approximations
+const double PowerButtonShutdownTime = 0.5;
+const double PowerButtonForcedShutdownTime = 5.0;
+const double VolumeSwitchRepeatStart = 0.5;
+const double VolumeSwitchRepeatRate = 1.0 / 6;
 
 // Could not find a pattern or a decent formula for these,
 // regardless, they're only 64 bytes in size
@@ -44,7 +51,13 @@ const u8 VolumeUpTable[32] = {
     0x1D, 0x1E, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F,
 };
 
+double PowerButtonTime = 0.0;
+bool PowerButtonDownFlag = false;
 bool PowerButtonShutdownFlag = false;
+double VolumeSwitchTime = 0.0;
+double VolumeSwitchRepeatTime = 0.0;
+bool VolumeSwitchDownFlag = false;
+u32 VolumeSwitchKeysDown = 0;
 
 u8 Registers[0x100];
 u32 CurPos;
@@ -66,7 +79,6 @@ void Reset()
     Registers[0x00] = 0x33; // TODO: support others??
     Registers[0x01] = 0x00;
     Registers[0x02] = 0x50;
-    Registers[0x10] = 0x00; // power btn
     Registers[0x10] = 0x00; // irq flag
     Registers[0x11] = 0x00; // reset
     Registers[0x12] = 0x00; // irq mode
@@ -91,7 +103,14 @@ void Reset()
     Registers[0x80] = 0x10;
     Registers[0x81] = 0x64;
 
+    // Ideally these should be replaced by a proper BPTWL core emulator
+    PowerButtonTime = 0.0;
+    PowerButtonDownFlag = false;
     PowerButtonShutdownFlag = false;
+    VolumeSwitchTime = 0.0;
+    VolumeSwitchRepeatTime = 0.0;
+    VolumeSwitchKeysDown = 0;
+
 }
 
 void DoSavestate(Savestate* file)
@@ -140,7 +159,14 @@ void SetBacklightLevel(u8 backlight) {
 
 void ResetButtonState() {
 
+    PowerButtonTime = 0.0;
+    PowerButtonDownFlag = false;
     PowerButtonShutdownFlag = false;
+
+    VolumeSwitchKeysDown = 0;
+    VolumeSwitchDownFlag = false;
+    VolumeSwitchTime = 0.0;
+    VolumeSwitchRepeatTime = 0.0;
 
 }
 
@@ -159,6 +185,105 @@ void DoShutdown() {
 
     ResetButtonState();
     NDS::Stop();
+
+}
+
+
+void SetPowerButtonHeld(double time) {
+
+    if (!PowerButtonDownFlag) {
+        PowerButtonDownFlag = true;
+        PowerButtonTime = time;
+        DoPowerButtonPress();
+        return;
+    }
+
+    double elapsed = time - PowerButtonTime;
+    if (elapsed < 0)
+        return;
+
+    if (elapsed >= PowerButtonForcedShutdownTime) {
+        printf("Force power off via DSi power button\n");
+        DoPowerButtonForceShutdown();
+        return;
+    }
+
+    if (elapsed >= PowerButtonShutdownTime) {
+        DoPowerButtonShutdown();
+    }
+
+}
+
+void SetPowerButtonReleased(double time) {
+
+    double elapsed = time - PowerButtonTime;
+    if (elapsed >= 0 && elapsed < PowerButtonShutdownTime) {
+        DoPowerButtonReset();
+    }
+
+    PowerButtonTime = 0.0;
+    PowerButtonDownFlag = false;
+    PowerButtonShutdownFlag = false;
+
+}
+
+void SetVolumeSwitchHeld(u32 key) {
+    VolumeSwitchKeysDown |= (1 << key);
+}
+
+void SetVolumeSwitchReleased(u32 key) {
+
+    VolumeSwitchKeysDown &= ~(1 << key);
+    VolumeSwitchDownFlag = false;
+    VolumeSwitchTime = 0.0;
+    VolumeSwitchRepeatTime = 0.0;
+
+}
+
+inline bool CheckVolumeSwitchKeysValid() {
+
+    bool up = VolumeSwitchKeysDown & (1 << VolumeKey_Up);
+    bool down = VolumeSwitchKeysDown & (1 << VolumeKey_Down);
+
+    return up != down;
+
+}
+
+s32 ProcessVolumeSwitchInput(double time) {
+
+    if (!CheckVolumeSwitchKeysValid())
+        return -1;
+
+    s32 key = VolumeSwitchKeysDown & (1 << VolumeKey_Up) ? VolumeKey_Up : VolumeKey_Down;
+
+    // Always fire an IRQ when first pressed
+    if (!VolumeSwitchDownFlag) {
+        VolumeSwitchDownFlag = true;
+        VolumeSwitchTime = time;
+        DoVolumeSwitchPress(key);
+        return key;
+    }
+
+    // Handle key repetition mechanic
+    if (VolumeSwitchRepeatTime == 0) {
+
+        double elapsed = time - VolumeSwitchTime;
+        if (elapsed < VolumeSwitchRepeatStart)
+            return -1;
+
+        VolumeSwitchRepeatTime = time;
+        DoVolumeSwitchPress(key);
+        return key;
+    }
+
+    double elapsed = time - VolumeSwitchRepeatTime;
+    if (elapsed < VolumeSwitchRepeatRate)
+        return -1;
+
+    double rem = fmod(elapsed, VolumeSwitchRepeatRate);
+    VolumeSwitchRepeatTime = time - rem;
+    DoVolumeSwitchPress(key);
+    return key;
 
 }
 
