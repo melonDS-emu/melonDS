@@ -51,7 +51,7 @@ void SetVolumeLevel(u8 volume);
 u8 GetBacklightLevel();
 void SetBacklightLevel(u8 backlight);
 
-void DoHardwareReset();
+void DoHardwareReset(bool direct);
 void DoShutdown();
 
 enum

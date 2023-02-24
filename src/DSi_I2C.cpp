@@ -170,15 +170,22 @@ void ResetButtonState() {
 
 }
 
-void DoHardwareReset() {
-
+void DoHardwareReset(bool direct)
+{
     ResetButtonState();
 
     printf("BPTWL: soft-reset\n");
+
+    if (direct)
+    {
+        // TODO: This doesn't seem to stop the SPU
+        DSi::SoftReset();
+        return;
+    }
+
     // TODO: soft-reset might need to be scheduled later!
     // TODO: this has been moved for the JIT to work, nothing is confirmed here
     NDS::ARM7->Halt(4);
-
 }
 
 void DoShutdown() {
@@ -303,8 +310,10 @@ void DoPowerButtonReset() {
     SetIRQ(IRQ_PowerButtonReset);
 
     // Reset automatically via hardware
-    if (!GetIRQMode()) {
-        DoHardwareReset();
+    if (!GetIRQMode())
+    {
+        // Assumes this isn't called during normal CPU execution
+        DoHardwareReset(true);
     }
 
 }
@@ -408,7 +417,8 @@ void Write(u8 val, bool last)
 
     if (CurPos == 0x11 && val == 0x01)
     {
-        DoHardwareReset();
+        // Assumes this is called during normal CPU execution
+        DoHardwareReset(false);
         val = 0; // checkme
         CurPos = -1;
         return;
