@@ -621,43 +621,40 @@ void EmuThread::run()
             }
         }
 
-        if (NDS::ConsoleType == 1) {
-
+        if (NDS::ConsoleType == 1)
+        {
             double currentTime = SDL_GetPerformanceCounter() * perfCountsSec;
 
             // Handle power button
-            if (Input::HotkeyDown(HK_PowerButton)) {
+            if (Input::HotkeyDown(HK_PowerButton))
+            {
                 DSi_BPTWL::SetPowerButtonHeld(currentTime);
-            } else if (Input::HotkeyReleased(HK_PowerButton)) {
+            }
+            else if (Input::HotkeyReleased(HK_PowerButton))
+            {
                 DSi_BPTWL::SetPowerButtonReleased(currentTime);
             }
 
             // Handle volume buttons
-            if (Input::HotkeyDown(HK_VolumeUp)) {
-                DSi_BPTWL::SetVolumeSwitchHeld(DSi_BPTWL::VolumeKey_Up);
-            } else if (Input::HotkeyReleased(HK_VolumeUp)) {
-                DSi_BPTWL::SetVolumeSwitchReleased(DSi_BPTWL::VolumeKey_Up);
+            if (Input::HotkeyDown(HK_VolumeUp))
+            {
+                DSi_BPTWL::SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Up);
+            }
+            else if (Input::HotkeyReleased(HK_VolumeUp))
+            {
+                DSi_BPTWL::SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Up);
             }
 
-            if (Input::HotkeyDown(HK_VolumeDown)) {
-                DSi_BPTWL::SetVolumeSwitchHeld(DSi_BPTWL::VolumeKey_Down);
-            } else if (Input::HotkeyReleased(HK_VolumeDown)) {
-                DSi_BPTWL::SetVolumeSwitchReleased(DSi_BPTWL::VolumeKey_Down);
+            if (Input::HotkeyDown(HK_VolumeDown))
+            {
+                DSi_BPTWL::SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Down);
+            }
+            else if (Input::HotkeyReleased(HK_VolumeDown))
+            {
+                DSi_BPTWL::SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Down);
             }
 
-            s32 key = DSi_BPTWL::ProcessVolumeSwitchInput(currentTime);
-            switch (key) {
-
-            case DSi_BPTWL::VolumeKey_Up:
-                //OSD::AddMessage(0, "Volume up");
-                break;
-
-            case DSi_BPTWL::VolumeKey_Down:
-                //OSD::AddMessage(0, "Volume down");
-                break;
-
-            }
-
+            DSi_BPTWL::ProcessVolumeSwitchInput(currentTime);
         }
 
         if (EmuRunning == 1 || EmuRunning == 3)
@@ -3310,7 +3307,8 @@ void MainWindow::onTitleUpdate(QString title)
     setWindowTitle(title);
 }
 
-void ToggleFullscreen(MainWindow* mainWindow) {
+void ToggleFullscreen(MainWindow* mainWindow)
+{
     if (!mainWindow->isFullScreen())
     {
         mainWindow->showFullScreen();
@@ -3329,11 +3327,15 @@ void MainWindow::onFullscreenToggled()
     ToggleFullscreen(this);
 }
 
-void MainWindow::onScreenEmphasisToggled() {
+void MainWindow::onScreenEmphasisToggled()
+{
     int currentSizing = Config::ScreenSizing;
-    if (currentSizing == screenSizing_EmphTop) {
+    if (currentSizing == screenSizing_EmphTop)
+    {
         Config::ScreenSizing = screenSizing_EmphBot;
-    } else if (currentSizing == screenSizing_EmphBot) {
+    }
+    else if (currentSizing == screenSizing_EmphBot)
+    {
         Config::ScreenSizing = screenSizing_EmphTop;
     }
 
@@ -3476,7 +3478,7 @@ int main(int argc, char** argv)
     }
 
     SDL_JoystickEventState(SDL_ENABLE);
-    
+
     SDL_InitSubSystem(SDL_INIT_VIDEO);
     SDL_EnableScreenSaver(); SDL_DisableScreenSaver();
 

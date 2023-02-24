@@ -56,8 +56,8 @@ void DoShutdown();
 
 enum
 {
-    VolumeKey_Up,
-    VolumeKey_Down,
+    volumeKey_Up,
+    volumeKey_Down,
 };
 
 // Used by hotkeys
@@ -91,6 +91,7 @@ enum
 };
 
 void SetIRQ(u8 irqFlag);
+
 }
 
 namespace DSi_I2C

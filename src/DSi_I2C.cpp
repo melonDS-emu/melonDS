@@ -18,12 +18,12 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #include "DSi.h"
 #include "DSi_I2C.h"
 #include "DSi_Camera.h"
 #include "ARM.h"
 #include "SPI.h"
-#include <cmath>
 
 
 namespace DSi_BPTWL
@@ -37,14 +37,16 @@ const double VolumeSwitchRepeatRate = 1.0 / 6;
 
 // Could not find a pattern or a decent formula for these,
 // regardless, they're only 64 bytes in size
-const u8 VolumeDownTable[32] = {
+const u8 VolumeDownTable[32] =
+{
     0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x03,
     0x04, 0x05, 0x06, 0x06, 0x07, 0x08, 0x09, 0x0A,
     0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12,
     0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A,
 };
 
-const u8 VolumeUpTable[32] = {
+const u8 VolumeUpTable[32] =
+{
     0x02, 0x03, 0x06, 0x07, 0x08, 0x0A, 0x0B, 0x0C,
     0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14,
     0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C,
@@ -122,7 +124,8 @@ void DoSavestate(Savestate* file)
 }
 
 // TODO: Needs more investigation on the other bits
-inline bool GetIRQMode() {
+inline bool GetIRQMode()
+{
     return Registers[0x12] & 0x01;
 }
 
@@ -140,25 +143,28 @@ void SetBatteryLevel(u8 batteryLevel)
     Registers[0x20] = ((Registers[0x20] & 0xF0) | (batteryLevel & 0x0F));
     SPI_Powerman::SetBatteryLevelOkay(batteryLevel > batteryLevel_Low ? true : false);
 
-    if (batteryLevel <= 1) {
+    if (batteryLevel <= 1)
+    {
         SetIRQ(batteryLevel ? IRQ_BatteryLow : IRQ_BatteryEmpty);
     }
 
 }
 
 u8 GetVolumeLevel() { return Registers[0x40]; }
-void SetVolumeLevel(u8 volume) {
+void SetVolumeLevel(u8 volume)
+{
     Registers[0x40] = volume & 0x1F;
 }
 
 u8 GetBacklightLevel() { return Registers[0x41]; }
-void SetBacklightLevel(u8 backlight) {
+void SetBacklightLevel(u8 backlight)
+{
     Registers[0x41] = backlight > 4 ? 4 : backlight;
 }
 
 
-void ResetButtonState() {
-
+void ResetButtonState()
+{
     PowerButtonTime = 0.0;
     PowerButtonDownFlag = false;
     PowerButtonShutdownFlag = false;
@@ -167,7 +173,6 @@ void ResetButtonState() {
     VolumeSwitchDownFlag = false;
     VolumeSwitchTime = 0.0;
     VolumeSwitchRepeatTime = 0.0;
-
 }
 
 void DoHardwareReset(bool direct)
@@ -188,17 +193,17 @@ void DoHardwareReset(bool direct)
     NDS::ARM7->Halt(4);
 }
 
-void DoShutdown() {
-
+void DoShutdown()
+{
     ResetButtonState();
     NDS::Stop();
-
 }
 
 
-void SetPowerButtonHeld(double time) {
-
-    if (!PowerButtonDownFlag) {
+void SetPowerButtonHeld(double time)
+{
+    if (!PowerButtonDownFlag)
+    {
         PowerButtonDownFlag = true;
         PowerButtonTime = time;
         DoPowerButtonPress();
@@ -209,62 +214,63 @@ void SetPowerButtonHeld(double time) {
     if (elapsed < 0)
         return;
 
-    if (elapsed >= PowerButtonForcedShutdownTime) {
+    if (elapsed >= PowerButtonForcedShutdownTime)
+    {
         printf("Force power off via DSi power button\n");
         DoPowerButtonForceShutdown();
         return;
     }
 
-    if (elapsed >= PowerButtonShutdownTime) {
+    if (elapsed >= PowerButtonShutdownTime)
+    {
         DoPowerButtonShutdown();
     }
-
 }
 
-void SetPowerButtonReleased(double time) {
-
+void SetPowerButtonReleased(double time)
+{
     double elapsed = time - PowerButtonTime;
-    if (elapsed >= 0 && elapsed < PowerButtonShutdownTime) {
+    if (elapsed >= 0 && elapsed < PowerButtonShutdownTime)
+    {
         DoPowerButtonReset();
     }
 
     PowerButtonTime = 0.0;
     PowerButtonDownFlag = false;
     PowerButtonShutdownFlag = false;
-
 }
 
-void SetVolumeSwitchHeld(u32 key) {
+void SetVolumeSwitchHeld(u32 key)
+{
     VolumeSwitchKeysDown |= (1 << key);
 }
 
-void SetVolumeSwitchReleased(u32 key) {
-
+void SetVolumeSwitchReleased(u32 key)
+{
     VolumeSwitchKeysDown &= ~(1 << key);
     VolumeSwitchDownFlag = false;
     VolumeSwitchTime = 0.0;
     VolumeSwitchRepeatTime = 0.0;
-
 }
 
-inline bool CheckVolumeSwitchKeysValid() {
-
-    bool up = VolumeSwitchKeysDown & (1 << VolumeKey_Up);
-    bool down = VolumeSwitchKeysDown & (1 << VolumeKey_Down);
+inline bool CheckVolumeSwitchKeysValid()
+{
+    bool up = VolumeSwitchKeysDown & (1 << volumeKey_Up);
+    bool down = VolumeSwitchKeysDown & (1 << volumeKey_Down);
 
     return up != down;
-
 }
 
-s32 ProcessVolumeSwitchInput(double time) {
-
+s32 ProcessVolumeSwitchInput(double time)
+{
     if (!CheckVolumeSwitchKeysValid())
         return -1;
 
-    s32 key = VolumeSwitchKeysDown & (1 << VolumeKey_Up) ? VolumeKey_Up : VolumeKey_Down;
+    s32 key = VolumeSwitchKeysDown & (1 << volumeKey_Up) ? volumeKey_Up : volumeKey_Down;
 
     // Always fire an IRQ when first pressed
-    if (!VolumeSwitchDownFlag) {
+    if (!VolumeSwitchDownFlag)
+    {
         VolumeSwitchDownFlag = true;
         VolumeSwitchTime = time;
         DoVolumeSwitchPress(key);
@@ -272,8 +278,8 @@ s32 ProcessVolumeSwitchInput(double time) {
     }
 
     // Handle key repetition mechanic
-    if (VolumeSwitchRepeatTime == 0) {
-
+    if (VolumeSwitchRepeatTime == 0)
+    {
         double elapsed = time - VolumeSwitchTime;
         if (elapsed < VolumeSwitchRepeatStart)
             return -1;
@@ -291,21 +297,19 @@ s32 ProcessVolumeSwitchInput(double time) {
     VolumeSwitchRepeatTime = time - rem;
     DoVolumeSwitchPress(key);
     return key;
-
 }
 
 
-void DoPowerButtonPress() {
-
+void DoPowerButtonPress()
+{
     // Set button pressed IRQ
     SetIRQ(IRQ_PowerButtonPressed);
 
-    // There is no hardware behavior for pressing the power button
-
+    // There is no default hardware behavior for pressing the power button
 }
 
-void DoPowerButtonReset() {
-
+void DoPowerButtonReset()
+{
     // Reset via IRQ, handled by software
     SetIRQ(IRQ_PowerButtonReset);
 
@@ -315,45 +319,47 @@ void DoPowerButtonReset() {
         // Assumes this isn't called during normal CPU execution
         DoHardwareReset(true);
     }
-
 }
 
-void DoPowerButtonShutdown() {
-
+void DoPowerButtonShutdown()
+{
     // Shutdown via IRQ, handled by software
-    if (!PowerButtonShutdownFlag) {
+    if (!PowerButtonShutdownFlag)
+    {
         SetIRQ(IRQ_PowerButtonShutdown);
     }
 
     PowerButtonShutdownFlag = true;
 
     // Shutdown automatically via hardware
-    if (!GetIRQMode()) {
+    if (!GetIRQMode())
+    {
         DoShutdown();
     }
 
     // The IRQ is only fired once (hence the need for an if guard),
     // but the hardware shutdown is continuously triggered.
-    // That way when switching the power button mode while holding
+    // That way when switching the IRQ mode while holding
     // down the power button, the DSi will still shut down
-
 }
 
-void DoPowerButtonForceShutdown() {
+void DoPowerButtonForceShutdown()
+{
     DoShutdown();
 }
 
-void DoVolumeSwitchPress(u32 key) {
-
+void DoVolumeSwitchPress(u32 key)
+{
     u8 volume = Registers[0x40];
 
-    switch (key) {
+    switch (key)
+    {
 
-    case VolumeKey_Up:
+    case volumeKey_Up:
         volume = VolumeUpTable[volume];
         break;
 
-    case VolumeKey_Down:
+    case volumeKey_Down:
         volume = VolumeDownTable[volume];
         break;
 
@@ -362,17 +368,16 @@ void DoVolumeSwitchPress(u32 key) {
     Registers[0x40] = volume;
 
     SetIRQ(IRQ_VolumeSwitchPressed);
-
 }
 
-void SetIRQ(u8 irqFlag) {
-
+void SetIRQ(u8 irqFlag)
+{
     Registers[0x10] |= irqFlag & IRQ_ValidMask;
 
-    if (GetIRQMode()) {
+    if (GetIRQMode())
+    {
         NDS::SetIRQ2(NDS::IRQ2_DSi_BPTWL);
     }
-
 }
 
 void Start()
@@ -385,8 +390,9 @@ u8 Read(bool last)
     //printf("BPTWL: read %02X -> %02X @ %08X\n", CurPos, Registers[CurPos], NDS::GetPC(1));
     u8 ret = Registers[CurPos];
 
-    // IRQ flags are automatically reset upon read
-    if (CurPos == 0x10) {
+    // IRQ flags are automatically cleared upon read
+    if (CurPos == 0x10)
+    {
         Registers[0x10] = 0;
     }
 
@@ -425,12 +431,14 @@ void Write(u8 val, bool last)
     }
 
     // Mask volume level
-    if (CurPos == 0x40) {
+    if (CurPos == 0x40)
+    {
         val &= 0x1F;
     }
 
     // Clamp backlight level
-    if (CurPos == 0x41) {
+    if (CurPos == 0x41)
+    {
         val = val > 4 ? 4 : val;
     }
 
