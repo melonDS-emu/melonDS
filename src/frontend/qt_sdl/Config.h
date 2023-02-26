@@ -166,6 +166,7 @@ extern bool SavestateRelocSRAM;
 extern int AudioInterp;
 extern int AudioBitrate;
 extern int AudioVolume;
+extern bool DSiVolumeSync;
 extern int MicInputType;
 extern std::string MicWavPath;
 

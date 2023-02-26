@@ -22,6 +22,8 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
+#include "NDS.h"
+#include "DSi_I2C.h"
 
 #include "AudioSettingsDialog.h"
 #include "ui_AudioSettingsDialog.h"
@@ -32,7 +34,7 @@ AudioSettingsDialog* AudioSettingsDialog::currentDlg = nullptr;
 extern std::string EmuDirectory;
 
 
-AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::AudioSettingsDialog)
+AudioSettingsDialog::AudioSettingsDialog(QWidget* parent, bool emuActive) : QDialog(parent), ui(new Ui::AudioSettingsDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
@@ -40,6 +42,7 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     oldInterp = Config::AudioInterp;
     oldBitrate = Config::AudioBitrate;
     oldVolume = Config::AudioVolume;
+    oldDSiSync = Config::DSiVolumeSync;
 
     ui->cbInterpolation->addItem("None");
     ui->cbInterpolation->addItem("Linear");
@@ -52,7 +55,21 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->cbBitrate->addItem("16-bit");
     ui->cbBitrate->setCurrentIndex(Config::AudioBitrate);
 
+    bool state = ui->slVolume->blockSignals(true);
     ui->slVolume->setValue(Config::AudioVolume);
+    ui->slVolume->blockSignals(state);
+
+    ui->chkSyncDSiVolume->setChecked(Config::DSiVolumeSync);
+
+    // Setup volume slider accordingly
+    if (emuActive && NDS::ConsoleType == 1)
+    {
+        on_chkSyncDSiVolume_clicked(Config::DSiVolumeSync);
+    }
+    else
+    {
+        ui->chkSyncDSiVolume->setEnabled(false);
+    }
 
     grpMicMode = new QButtonGroup(this);
     grpMicMode->addButton(ui->rbMicNone,     0);
@@ -88,6 +105,22 @@ AudioSettingsDialog::~AudioSettingsDialog()
     delete ui;
 }
 
+void AudioSettingsDialog::onSyncVolumeLevel()
+{
+    if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
+    {
+        bool state = ui->slVolume->blockSignals(true);
+        ui->slVolume->setValue(DSi_BPTWL::GetVolumeLevel());
+        ui->slVolume->blockSignals(state);
+    }
+}
+
+void AudioSettingsDialog::onConsoleReset()
+{
+    on_chkSyncDSiVolume_clicked(Config::DSiVolumeSync);
+    ui->chkSyncDSiVolume->setEnabled(NDS::ConsoleType == 1);
+}
+
 void AudioSettingsDialog::on_AudioSettingsDialog_accepted()
 {
     Config::MicInputType = grpMicMode->checkedId();
@@ -102,6 +135,7 @@ void AudioSettingsDialog::on_AudioSettingsDialog_rejected()
     Config::AudioInterp = oldInterp;
     Config::AudioBitrate = oldBitrate;
     Config::AudioVolume = oldVolume;
+    Config::DSiVolumeSync = oldDSiSync;
 
     closeDlg();
 }
@@ -128,7 +162,36 @@ void AudioSettingsDialog::on_cbInterpolation_currentIndexChanged(int idx)
 
 void AudioSettingsDialog::on_slVolume_valueChanged(int val)
 {
+    if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
+    {
+        DSi_BPTWL::SetVolumeLevel(val);
+        return;
+    }
+
     Config::AudioVolume = val;
+}
+
+void AudioSettingsDialog::on_chkSyncDSiVolume_clicked(bool checked)
+{
+    Config::DSiVolumeSync = checked;
+
+    bool state = ui->slVolume->blockSignals(true);
+    if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
+    {
+        ui->slVolume->setMaximum(31);
+        ui->slVolume->setValue(DSi_BPTWL::GetVolumeLevel());
+        ui->slVolume->setPageStep(4);
+        ui->slVolume->setTickPosition(QSlider::TicksBelow);
+    }
+    else
+    {
+        Config::AudioVolume = oldVolume;
+        ui->slVolume->setMaximum(256);
+        ui->slVolume->setValue(Config::AudioVolume);
+        ui->slVolume->setPageStep(16);
+        ui->slVolume->setTickPosition(QSlider::NoTicks);
+    }
+    ui->slVolume->blockSignals(state);
 }
 
 void AudioSettingsDialog::onChangeMicMode(int mode)

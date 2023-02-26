@@ -118,6 +118,7 @@ bool SavestateRelocSRAM;
 int AudioInterp;
 int AudioBitrate;
 int AudioVolume;
+bool DSiVolumeSync;
 int MicInputType;
 std::string MicWavPath;
 
@@ -296,6 +297,7 @@ ConfigEntry ConfigFile[] =
     {"AudioInterp", 0, &AudioInterp, 0, false},
     {"AudioBitrate", 0, &AudioBitrate, 0, false},
     {"AudioVolume", 0, &AudioVolume, 256, true},
+    {"DSiVolumeSync", 0, &DSiVolumeSync, 0, true},
     {"MicInputType", 0, &MicInputType, 1, false},
     {"MicWavPath", 2, &MicWavPath, (std::string)"", false},
 
