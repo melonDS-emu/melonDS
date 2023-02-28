@@ -39,7 +39,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
 
     parser.addOption(QCommandLineOption({"b", "boot"}, "Whether to boot firmware on startup. Defaults to \"auto\" (boot if NDS rom given)", "auto/always/never", "auto"));
     parser.addOption(QCommandLineOption({"f", "fullscreen"}, "Start melonDS in fullscreen mode"));
-    
+
 #ifdef ARCHIVE_SUPPORT_ENABLED
     parser.addOption(QCommandLineOption({"a", "archive-file"}, "Specify file to load inside an archive given (NDS)", "rom"));
     parser.addOption(QCommandLineOption({"A", "archive-file-gba"}, "Specify file to load inside an archive given (GBA)", "rom"));
@@ -50,16 +50,16 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     CommandLineOptions* options = new CommandLineOptions;
 
     options->fullscreen = parser.isSet("fullscreen");
-    
+
     QStringList posargs = parser.positionalArguments();
     switch (posargs.size())
     {
         default:
             printf("Too many positional arguments; ignoring 3 onwards\n");
         case 2:
-            options->gbaRomPath = QStringList(posargs[1]);
+            options->gbaRomPath = posargs[1];
         case 1:
-            options->dsRomPath = QStringList(posargs[0]);
+            options->dsRomPath = posargs[0];
         case 0:
             break;
     }
@@ -67,8 +67,8 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     QString bootMode = parser.value("boot");
     if (bootMode == "auto")
     {
-        options->boot = posargs.size() > 0;
-    } 
+        options->boot = !posargs.empty();
+    }
     else if (bootMode == "always")
     {
         options->boot = true;
@@ -86,45 +86,25 @@ CommandLineOptions* ManageArgs(QApplication& melon)
 #ifdef ARCHIVE_SUPPORT_ENABLED
     if (parser.isSet("archive-file"))
     {
-        if (options->dsRomPath.isEmpty())
+        if (options->dsRomPath.has_value())
         {
-            options->errorsToDisplay += "Option -a/--archive-file given, but no archive specified!";
+            options->dsRomArchivePath = parser.value("archive-file");
         }
         else
         {
-            options->dsRomPath += parser.value("archive-file");
-        }
-    } 
-    else if (!options->dsRomPath.isEmpty())
-    {
-        //TODO-CLI: try to automatically find ROM
-        QStringList paths = options->dsRomPath[0].split("|");
-        if (paths.size() >= 2)
-        {
-            printf("Warning: use the a.zip|b.nds format at your own risk!\n");
-            options->dsRomPath = paths;
+            options->errorsToDisplay += "Option -a/--archive-file given, but no archive specified!";
         }
     }
 
     if (parser.isSet("archive-file-gba"))
     {
-        if (options->gbaRomPath.isEmpty())
+        if (options->gbaRomPath.has_value())
         {
-            options->errorsToDisplay += "Option -A/--archive-file-gba given, but no archive specified!";
+            options->gbaRomArchivePath = parser.value("archive-file-gba");
         }
         else
         {
-            options->gbaRomPath += parser.value("archive-file-gba");
-        }
-    }
-    else if (!options->gbaRomPath.isEmpty())
-    {
-        //TODO-CLI: try to automatically find ROM
-        QStringList paths = options->gbaRomPath[0].split("|");
-        if (paths.size() >= 2)
-        {
-            printf("Warning: use the a.zip|b.gba format at your own risk!\n");
-            options->gbaRomPath = paths;
+            options->errorsToDisplay += "Option -A/--archive-file-gba given, but no archive specified!";
         }
     }
 #endif
