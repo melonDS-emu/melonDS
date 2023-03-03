@@ -3078,8 +3078,8 @@ void MainWindow::onCameraSettingsFinished(int res)
 void MainWindow::onOpenAudioSettings()
 {
     AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this, emuThread->emuIsActive());
-    connect(emuThread, &EmuThread::syncVolumeLevel, dlg, AudioSettingsDialog::onSyncVolumeLevel);
-    connect(emuThread, &EmuThread::windowEmuStart, dlg, AudioSettingsDialog::onConsoleReset);
+    connect(emuThread, &EmuThread::syncVolumeLevel, dlg, &AudioSettingsDialog::onSyncVolumeLevel);
+    connect(emuThread, &EmuThread::windowEmuStart, dlg, &AudioSettingsDialog::onConsoleReset);
     connect(dlg, &AudioSettingsDialog::updateAudioSettings, this, &MainWindow::onUpdateAudioSettings);
     connect(dlg, &AudioSettingsDialog::finished, this, &MainWindow::onAudioSettingsFinished);
 }
