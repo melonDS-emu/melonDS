@@ -68,6 +68,8 @@ public:
 
     void updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix);
 
+    void IPCPause(bool pause) { emit windowIPCPause(pause); }
+
 signals:
     void windowUpdate();
     void windowTitleChange(QString title);
@@ -78,7 +80,7 @@ signals:
     void windowEmuReset();
     void windowEmuFrameStep();
 
-    void windowIPCPause();
+    void windowIPCPause(bool pause);
 
     void windowLimitFPSChange();
 
@@ -298,7 +300,7 @@ private slots:
     void onQuit();
 
     void onPause(bool checked);
-    void onIPCPause();
+    void onIPCPause(bool pause);
     void onReset();
     void onStop();
     void onFrameStep();
