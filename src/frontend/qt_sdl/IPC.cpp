@@ -98,6 +98,8 @@ const u32 kMPReplyEnd = kBufferSize;
 int MPRecvTimeout;
 int MPLastHostID;
 
+int MPRecvTimeout;
+int MPLastHostID;
 
 // we need to come up with our own abstraction layer for named semaphores
 // because QSystemSemaphore doesn't support waiting with a timeout
@@ -546,6 +548,7 @@ void ProcessCommands()
         }
 
         Buffer->lock();
+        // TODO: also what if, say, we get multiple pause commands before CommandReceived() is called?
     }
 
     Buffer->unlock();
