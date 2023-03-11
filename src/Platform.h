@@ -336,8 +336,6 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 
 // local multiplayer comm interface
 // packet type: DS-style TX header (12 bytes) + original 802.11 frame
-bool MP_Init();
-void MP_DeInit();
 void MP_Begin();
 void MP_End();
 int MP_SendPacket(u8* data, int len, u64 timestamp);

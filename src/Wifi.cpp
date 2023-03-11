@@ -150,11 +150,7 @@ u64 RXTimestamp;
 
 bool Init()
 {
-    //MPInited = false;
     //LANInited = false;
-
-    Platform::MP_Init();
-    MPInited = true;
 
     Platform::LAN_Init();
     LANInited = true;
@@ -166,8 +162,6 @@ bool Init()
 
 void DeInit()
 {
-    if (MPInited)
-        Platform::MP_DeInit();
     if (LANInited)
         Platform::LAN_DeInit();
 
