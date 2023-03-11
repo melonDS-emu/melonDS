@@ -634,6 +634,7 @@ u8 Data;
 u8 Registers[8];
 u8 RegMasks[8];
 
+s32 dsym_reg0;
 
 bool Init()
 {
@@ -660,6 +661,8 @@ void Reset()
     RegMasks[2] = 0x01;
     RegMasks[3] = 0x03;
     RegMasks[4] = 0x0F;
+
+    dsym_reg0 = NDS::MakeTracingSym("pwman reg0", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
 }
 
 bool GetBatteryLevelOkay() { return !Registers[1]; }
@@ -711,6 +714,7 @@ void Write(u8 val, u32 hold)
         else
         {
             Registers[regid] = (Registers[regid] & ~RegMasks[regid]) | (val & RegMasks[regid]);
+            if (regid == 0) NDS::TraceValue(dsym_reg0, Registers[regid]);
 
             switch (regid)
             {
@@ -872,6 +876,8 @@ u16 Cnt;
 
 u32 CurDevice; // remove me
 
+s32 dsym_cnt, dsym_data;
+
 
 bool Init()
 {
@@ -899,6 +905,9 @@ void Reset()
     SPI_Powerman::Reset();
     SPI_TSC::Reset();
     if (NDS::ConsoleType == 1) DSi_SPI_TSC::Reset();
+
+    dsym_cnt = NDS::MakeTracingSym("SPICNT" , 16, LT_SYM_F_BITS, debug::SystemSignal::SpiCtl);
+    dsym_data= NDS::MakeTracingSym("SPIDATA",  8, LT_SYM_F_BITS, debug::SystemSignal::SpiCtl);
 }
 
 void DoSavestate(Savestate* file)
@@ -937,6 +946,9 @@ void WriteCnt(u16 val)
     // TODO: presumably the transfer speed can be changed during a transfer
     // like with the NDSCart SPI interface
     Cnt = (Cnt & 0x0080) | (val & 0xCF03);
+
+    NDS::TraceValue(dsym_cnt, Cnt);
+
     if (val & 0x0400) printf("!! CRAPOED 16BIT SPI MODE\n");
     if (Cnt & (1<<7)) printf("!! CHANGING SPICNT DURING TRANSFER: %04X\n", val);
 }
@@ -954,23 +966,30 @@ u8 ReadData()
     if (!(Cnt & (1<<15))) return 0;
     if (Cnt & (1<<7)) return 0; // checkme
 
+    u8 ret;
     switch (Cnt & 0x0300)
     {
-    case 0x0000: return SPI_Powerman::Read();
-    case 0x0100: return SPI_Firmware::Read();
+    case 0x0000: ret = SPI_Powerman::Read(); break;
+    case 0x0100: ret = SPI_Firmware::Read(); break;
     case 0x0200:
         if (NDS::ConsoleType == 1)
-            return DSi_SPI_TSC::Read();
+            ret = DSi_SPI_TSC::Read();
         else
-            return SPI_TSC::Read();
-    default: return 0;
+            ret = SPI_TSC::Read();
+    default: ret = 0;
     }
+
+    NDS::TraceValue(dsym_data, ret);
+
+    return ret;
 }
 
 void WriteData(u8 val)
 {
     if (!(Cnt & (1<<15))) return;
     if (Cnt & (1<<7)) return;
+
+    NDS::TraceValue(dsym_data, val);
 
     Cnt |= (1<<7);
     switch (Cnt & 0x0300)

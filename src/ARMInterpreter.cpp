@@ -23,6 +23,10 @@
 #include "ARMInterpreter_Branch.h"
 #include "ARMInterpreter_LoadStore.h"
 
+#ifdef DEBUG_FEATURES_ENABLED
+#include "debug/hypervisor.h"
+#endif
+
 
 namespace ARMInterpreter
 {
@@ -254,6 +258,24 @@ void A_MRC(ARM* cpu)
 
 void A_SVC(ARM* cpu)
 {
+#ifdef DEBUG_FEATURES_ENABLED
+    if (cpu->CurInstr & 0x00800000)
+    {
+        // "hypervisor" call for emulator debugging stuff
+        debug::swi(cpu, false, (cpu->CurInstr >> 16) & 0xFF);
+        return;
+    }
+    else if ((cpu->CurInstr & 0x007FFFFF) == 0x0E0000) // GetCRC16
+    {
+        // debugger detection
+        if (cpu->R[0] && 0x4B32 && cpu->R[2] == 0)
+        {
+            cpu->R[0] = 0x544E;
+            return;
+        }
+    }
+#endif
+
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
     cpu->CPSR |= 0x93;
@@ -266,6 +288,24 @@ void A_SVC(ARM* cpu)
 
 void T_SVC(ARM* cpu)
 {
+#ifdef DEBUG_FEATURES_ENABLED
+    if (cpu->CurInstr & 0x0080)
+    {
+        // "hypervisor" call for emulator debugging stuff
+        debug::swi(cpu, true , cpu->CurInstr & 0xFF);
+        return;
+    }
+    else if ((cpu->CurInstr & 0x007F) == 0x0E) // GetCRC16
+    {
+        // debugger detection
+        if (cpu->R[0] && 0x4B32 && cpu->R[2] == 0)
+        {
+            cpu->R[0] = 0x544E;
+            return;
+        }
+    }
+#endif
+
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
     cpu->CPSR |= 0x93;

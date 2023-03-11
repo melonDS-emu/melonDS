@@ -154,6 +154,12 @@ void DSi_SDHost::Reset()
 
     if (Ports[0]) Ports[0]->Reset();
     if (Ports[1]) Ports[1]->Reset();
+
+    char name[strlen("SDx portsel")+1];
+    snprintf(name, sizeof(name), "SD%c xfer", '0'+Num);
+    dsym_xfer = NDS::MakeTracingSym(name, 2, LT_SYM_F_BITS, debug::SystemSignal::SdMmcIoCtl);
+    snprintf(name, sizeof(name), "SD%c portsel", '0'+Num);
+    dsym_portsel = NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::SdMmcIoCtl);
 }
 
 void DSi_SDHost::DoSavestate(Savestate* file)
@@ -283,6 +289,7 @@ void DSi_SDHost::SendResponse(u32 val, bool last)
 void DSi_SDHost::FinishRX(u32 param)
 {
     DSi_SDHost* host = (param & 0x1) ? DSi::SDIO : DSi::SDMMC;
+    NDS::TraceValue(host->dsym_xfer, 0);
 
     host->CheckSwapFIFO();
 
@@ -294,6 +301,7 @@ void DSi_SDHost::FinishRX(u32 param)
 
 u32 DSi_SDHost::DataRX(u8* data, u32 len)
 {
+    NDS::TraceValue(dsym_xfer, 1);
     if (len != BlockLen16) { printf("!! BAD BLOCKLEN\n"); len = BlockLen16; }
 
     bool last = (BlockCountInternal == 0);
@@ -320,6 +328,7 @@ void DSi_SDHost::FinishTX(u32 param)
 {
     DSi_SDHost* host = (param & 0x1) ? DSi::SDIO : DSi::SDMMC;
     DSi_SDDevice* dev = host->Ports[host->PortSelect & 0x1];
+    NDS::TraceValue(host->dsym_xfer, 0);
 
     if (host->BlockCountInternal == 0)
     {
@@ -342,6 +351,7 @@ void DSi_SDHost::FinishTX(u32 param)
 
 u32 DSi_SDHost::DataTX(u8* data, u32 len)
 {
+    NDS::TraceValue(dsym_xfer, 2);
     TXReq = true;
 
     u32 f = CurFIFO;
@@ -577,6 +587,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
     {
     case 0x000:
         {
+            // TODO: INSERT TRACE HERE // nah, handled by the SDDevice
             Command = val;
             u8 cmd = Command & 0x3F;
 
@@ -599,7 +610,12 @@ void DSi_SDHost::Write(u32 addr, u16 val)
         }
         return;
 
-    case 0x002: PortSelect = (val & 0x040F) | (PortSelect & 0x0300); return;
+
+    case 0x002:
+        PortSelect = (val & 0x040F) | (PortSelect & 0x0300);
+        NDS::TraceValue(dsym_portsel, val & 1);
+        return;
+    // TODO: INSERT TRACE HERE // nah, handled by the SDDevice
     case 0x004: Param = (Param & 0xFFFF0000) | val; return;
     case 0x006: Param = (Param & 0x0000FFFF) | (val << 16); return;
 
@@ -632,6 +648,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
         return;
     case 0x028: SDOption = val & 0xC1FF; return;
 
+    // TODO: INSERT TRACE HERE // maybe not, not very useful I think? + also spam
     case 0x030: WriteFIFO16(val); return;
 
     case 0x034:
@@ -850,6 +867,7 @@ void DSi_MMCStorage::DoSavestate(Savestate* file)
 
 void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
 {
+    // TODO: INSERT TRACE HERE // later
     if (CSR & (1<<5))
     {
         CSR &= ~(1<<5);
@@ -984,6 +1002,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
 
 void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
 {
+    // TODO: INSERT TRACE HERE // later
     switch (cmd)
     {
     case 6: // set bus width (TODO?)
@@ -1043,6 +1062,7 @@ void DSi_MMCStorage::ContinueTransfer()
 
 u32 DSi_MMCStorage::ReadBlock(u64 addr)
 {
+    // TODO: INSERT TRACE HERE // later
     u32 len = BlockSize;
     len = Host->GetTransferrableLen(len);
 
@@ -1062,6 +1082,7 @@ u32 DSi_MMCStorage::ReadBlock(u64 addr)
 
 u32 DSi_MMCStorage::WriteBlock(u64 addr)
 {
+    // TODO: INSERT TRACE HERE // later
     u32 len = BlockSize;
     len = Host->GetTransferrableLen(len);
 

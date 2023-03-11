@@ -73,6 +73,16 @@ bool JIT_LiteralOptimisations = true;
 bool JIT_FastMemory = true;
 #endif
 
+#ifdef DEBUG_FEATURES_ENABLED
+bool DBG_EnableTracing = false;
+std::string DBG_LXTPath;
+unsigned long long DBG_EnabledSignals = 3;
+
+bool DBG_EnableHypercalls = true;
+bool DBG_HVMisc = true;
+bool DBG_HVSignalTracing = true;
+#endif
+
 bool ExternalBIOSEnable;
 
 std::string BIOS9Path;
@@ -245,6 +255,16 @@ ConfigEntry ConfigFile[] =
     #endif
 #endif
 
+#ifdef DEBUG_FEATURES_ENABLED
+    {"DBG_EnableTracing", 1, &DBG_EnableTracing, false, true},
+    {"DBG_LXTPath", 2, &DBG_LXTPath, (std::string)"melonds-trace.lxt", true},
+    {"DBG_EnabledSignals", 3, &DBG_EnabledSignals, (unsigned long long)(1|2|4|32|64|256|512|(1<<11)|(1<<12)|(1<<20)|(1<<25)|(1<<28)), true},
+
+    {"DBG_EnableHypercalls", 1, &DBG_EnableHypercalls, false, true},
+    {"DBG_HVMisc", 1, &DBG_HVMisc, false, true},
+    {"DBG_HVSignalTracing", 1, &DBG_HVSignalTracing, false, true},
+#endif
+
     {"ExternalBIOSEnable", 1, &ExternalBIOSEnable, false, false},
 
     {"BIOS9Path", 2, &BIOS9Path, (std::string)"", false},
@@ -373,6 +393,7 @@ void LoadFile(int inst)
                 case 0: *(int*)entry->Value = strtol(entryval, NULL, 10); break;
                 case 1: *(bool*)entry->Value = strtol(entryval, NULL, 10) ? true:false; break;
                 case 2: *(std::string*)entry->Value = entryval; break;
+                case 3: *(unsigned long long*)entry->Value = strtoull(entryval, NULL, 20); break;
                 }
 
                 break;
@@ -393,6 +414,7 @@ void Load()
         case 0: *(int*)entry->Value = std::get<int>(entry->Default); break;
         case 1: *(bool*)entry->Value = std::get<bool>(entry->Default); break;
         case 2: *(std::string*)entry->Value = std::get<std::string>(entry->Default); break;
+        case 3: *(unsigned long long*)entry->Value = std::get<unsigned long long>(entry->Default); break;
         }
     }
 
@@ -429,6 +451,7 @@ void Save()
         case 0: fprintf(f, "%s=%d\r\n", entry->Name, *(int*)entry->Value); break;
         case 1: fprintf(f, "%s=%d\r\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
         case 2: fprintf(f, "%s=%s\r\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
+        case 3: fprintf(f, "%s=%llu\r\n", entry->Name, *(unsigned long long*)entry->Value); break;
         }
     }
 

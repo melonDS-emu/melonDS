@@ -56,7 +56,18 @@ add_library(core STATIC
 
     sha1/sha1.c
     tiny-AES-c/aes.c
-    xxhash/xxhash.c)
+
+    xxhash/xxhash.c
+)
+
+if (ENABLE_DEBUG_FEATURES)
+    message(NOTICE "Enabling debugging features")
+    target_sources(core PRIVATE
+        debug/hypervisor.cpp
+        debug/storage.cpp
+        debug/lxt_write.c
+    )
+endif()
 
 if (ENABLE_OGLRENDERER)
     target_sources(core PRIVATE
@@ -135,4 +146,8 @@ endif()
 
 if (ENABLE_JIT_PROFILING)
     target_link_libraries(core PRIVATE jitprofiling)
+endif()
+
+if (ENABLE_DEBUG_FEATURES)
+    target_link_libraries(core PRIVATE z bz2)
 endif()

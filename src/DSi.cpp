@@ -84,6 +84,13 @@ u8 eMMC_CID[16];
 void Set_SCFG_Clock9(u16 val);
 void Set_SCFG_MC(u32 val);
 
+s32 dsym_mbk_15[5];
+s32 dsym_mbk_68[2][3];
+s32 dsym_mbk_9;
+s32 dsym_ndmagcnt[2];
+s32 dsym_ie2, dsym_if2;
+s32 dsym_scfg_rom, dsym_scfg_clk[2], dsym_scfg_ext[2], dsym_scfg_mc;
+
 
 bool Init()
 {
@@ -138,6 +145,15 @@ void Reset()
     //NDS::ARM9->CP15Write(0x911, 0x00000020);
     //NDS::ARM9->CP15Write(0x100, NDS::ARM9->CP15Read(0x100) | 0x00050000);
 
+    for (int i = 0; i < 5; ++i) {
+        dsym_mbk_15[i] = -1;
+    }
+    for (int j = 0; j < 2; ++j) {
+        for (int i = 0; i < 3; ++i) {
+            dsym_mbk_68[j][i] = -1;
+        }
+    }
+    dsym_mbk_9 = -1;
     NDS::MapSharedWRAM(3);
 
     NDMACnt[0] = 0; NDMACnt[1] = 0;
@@ -170,6 +186,36 @@ void Reset()
     // LCD init flag
     GPU::DispStat[0] |= (1<<6);
     GPU::DispStat[1] |= (1<<6);
+
+    for (int i = 0; i < 5; ++i) {
+        char name[strlen("MBK1")+1];
+        snprintf(name, sizeof(name), "MBK%c", '1'+i);
+        dsym_mbk_15[i] = NDS::MakeTracingSym(name, 32, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+    }
+    for (int j = 0; j < 2; ++j) {
+        for (int i = 0; i < 3; ++i) {
+            char name[strlen("MBK6_A7")+1];
+            snprintf(name, sizeof(name), "MBK%c_A%c", '6'+i, (j==0)?'9':'7');
+            dsym_mbk_68[j][i] = NDS::MakeTracingSym(name, 32, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+        }
+    }
+    dsym_mbk_9 = NDS::MakeTracingSym("MBK9", 32, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+
+    for (int j = 0; j < 2; ++j) {
+        char name[strlen("NDMAGCNT_A7")+1];
+        snprintf(name, sizeof(name), "NDMAGCNT_A%c", (j==0)?'9':'7');
+        dsym_ndmagcnt[j] = NDS::MakeTracingSym(name, 16, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+    }
+
+    dsym_ie2   = NDS::MakeTracingSym("IE2", 16, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+    dsym_if2   = NDS::MakeTracingSym("IF2", 16, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+
+    dsym_scfg_rom    = NDS::MakeTracingSym("SCFG_ROM" , 16, LT_SYM_F_BITS, debug::SystemSignal::SConfig);
+    dsym_scfg_clk[0] = NDS::MakeTracingSym("SCFG_CLK9", 16, LT_SYM_F_BITS, debug::SystemSignal::SConfig);
+    dsym_scfg_clk[1] = NDS::MakeTracingSym("SCFG_CLK7", 16, LT_SYM_F_BITS, debug::SystemSignal::SConfig);
+    dsym_scfg_ext[0] = NDS::MakeTracingSym("SCFG_EXT9", 32, LT_SYM_F_BITS, debug::SystemSignal::SConfig);
+    dsym_scfg_ext[1] = NDS::MakeTracingSym("SCFG_EXT7", 32, LT_SYM_F_BITS, debug::SystemSignal::SConfig);
+    dsym_scfg_mc     = NDS::MakeTracingSym("SCFG_MC"  , 16, LT_SYM_F_BITS, debug::SystemSignal::SConfig);
 }
 
 void Stop()
@@ -1019,6 +1065,7 @@ void MapNWRAM_A(u32 num, u8 val)
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
     MBK[1][mbkn] = MBK[0][mbkn];
+    NDS::TraceValue(dsym_mbk_15[mbkn], MBK[0][mbkn]);
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last written MBK over the others
@@ -1066,6 +1113,7 @@ void MapNWRAM_B(u32 num, u8 val)
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
     MBK[1][mbkn] = MBK[0][mbkn];
+    NDS::TraceValue(dsym_mbk_15[mbkn], MBK[0][mbkn]);
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last written MBK over the others
@@ -1115,6 +1163,7 @@ void MapNWRAM_C(u32 num, u8 val)
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
     MBK[1][mbkn] = MBK[0][mbkn];
+    NDS::TraceValue(dsym_mbk_15[mbkn], MBK[0][mbkn]);
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last written MBK over the others
@@ -1164,6 +1213,7 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
 #endif
 
     MBK[cpu][5+num] = val;
+    NDS::TraceValue(dsym_mbk_68[cpu][num], val);
 
     // Was TODO: What happens when the ranges are 'out of range'????
     // Answer: The actual range is limited to 0x03000000 to 0x03ffffff
@@ -1238,6 +1288,7 @@ void Set_SCFG_Clock9(u16 val)
 
     printf("CLOCK9=%04X\n", val);
     SCFG_Clock9 = val & 0x0187;
+    NDS::TraceValue(dsym_scfg_clk[0], SCFG_Clock9);
 
     if (SCFG_Clock9 & (1<<0)) NDS::ARM9ClockShift = 2;
     else                      NDS::ARM9ClockShift = 1;
@@ -1255,6 +1306,7 @@ void Set_SCFG_MC(u32 val)
     if ((val & 0xC) == 0xC) val &= ~0xC; // hax
     if (val & 0x8000) printf("SCFG_MC: weird NDS slot swap\n");
     SCFG_MC = (SCFG_MC & ~0xFFFF800C) | val;
+    NDS::TraceValue(dsym_scfg_mc, SCFG_MC);
 
     if ((oldslotstatus == 0x0) && ((SCFG_MC & 0xC) == 0x4))
     {
@@ -2525,7 +2577,6 @@ void ARM9IOWrite32(u32 addr, u32 val)
         SCFG_RST = val >> 16;
         DSi_DSP::SetRstLine((val >> 16) & 1);
         break;
-
     case 0x04004008:
         {
             if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
@@ -2537,6 +2588,8 @@ void ARM9IOWrite32(u32 addr, u32 val)
             SCFG_EXT[0] |= (val & 0x8007F19F);
             SCFG_EXT[1] &= ~0x0000F080;
             SCFG_EXT[1] |= (val & 0x0000F080);
+            NDS::TraceValue(dsym_scfg_ext[0], SCFG_EXT[0]);
+            NDS::TraceValue(dsym_scfg_ext[1], SCFG_EXT[1]);
             printf("SCFG_EXT = %08X / %08X (val9 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
             /*switch ((SCFG_EXT[0] >> 14) & 0x3)
             {
@@ -2618,7 +2671,9 @@ void ARM9IOWrite32(u32 addr, u32 val)
         MapNWRAMRange(0, 2, val);
         return;
 
-    case 0x04004100: NDMACnt[0] = val & 0x800F0000; return;
+    case 0x04004100: NDMACnt[0] = val & 0x800F0000;
+        NDS::TraceValue(dsym_ndmagcnt[0], NDMACnt[0] >> 16);
+        return;
     case 0x04004104: NDMAs[0]->SrcAddr = val & 0xFFFFFFFC; return;
     case 0x04004108: NDMAs[0]->DstAddr = val & 0xFFFFFFFC; return;
     case 0x0400410C: NDMAs[0]->TotalLength = val & 0x0FFFFFFF; return;
@@ -2754,6 +2809,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x0400021C: return NDS::IF2;
 
     case 0x04004000: return SCFG_BIOS;
+    case 0x04004004: return SCFG_Clock7;
     case 0x04004008: return SCFG_EXT[1];
     case 0x04004010: return SCFG_MC;
 
@@ -2831,11 +2887,13 @@ void ARM7IOWrite8(u32 addr, u8 val)
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         SCFG_BIOS |= (val & 0x03);
+        NDS::TraceValue(dsym_scfg_rom, SCFG_BIOS);
         return;
     case 0x04004001:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         SCFG_BIOS |= ((val & 0x07) << 8);
+        NDS::TraceValue(dsym_scfg_rom, SCFG_BIOS);
         return;
     case 0x04004060:
     case 0x04004061:
@@ -2849,6 +2907,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         tmp |= (val << ((addr % 4) * 8));
         MBK[0][8] = tmp & 0x00FFFF0F;
         MBK[1][8] = MBK[0][8];
+        NDS::TraceValue(dsym_mbk_9, MBK[0][8]);
         return;
     }
 
@@ -2903,18 +2962,26 @@ void ARM7IOWrite16(u32 addr, u16 val)
 {
     switch (addr)
     {
-        case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
-        case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
+        case 0x04000218:
+            NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1);
+            NDS::TraceValue(dsym_ie2, NDS::IE2);
+            return;
+        case 0x0400021C:
+            NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1);
+            NDS::TraceValue(dsym_if2, NDS::IF2);
+            return;
 
         case 0x04004000:
             if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
                 return;
             SCFG_BIOS |= (val & 0x0703);
+            NDS::TraceValue(dsym_scfg_rom, SCFG_BIOS);
             return;
         case 0x04004004:
             if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
                 return;
             SCFG_Clock7 = val & 0x0187;
+            NDS::TraceValue(dsym_scfg_clk[1], SCFG_Clock7);
             return;
         case 0x04004010:
             if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
@@ -2931,6 +2998,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
                 tmp |= (val << ((addr % 4) * 8));
                 MBK[0][8] = tmp & 0x00FFFF0F;
                 MBK[1][8] = MBK[0][8];
+                NDS::TraceValue(dsym_mbk_9, MBK[0][8]);
             }
             return;
 
@@ -2990,8 +3058,14 @@ void ARM7IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
-    case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
-    case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
+    case 0x04000218:
+        NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1);
+        NDS::TraceValue(dsym_ie2, NDS::IE2);
+        return;
+    case 0x0400021C:
+        NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1);
+        NDS::TraceValue(dsym_if2, NDS::IF2);
+       return;
 
     case 0x04004000:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
@@ -3005,6 +3079,8 @@ void ARM7IOWrite32(u32 addr, u32 val)
         SCFG_EXT[0] |= (val & 0x03000000);
         SCFG_EXT[1] &= ~0x93FF0F07;
         SCFG_EXT[1] |= (val & 0x93FF0F07);
+        NDS::TraceValue(dsym_scfg_ext[0], SCFG_EXT[0]);
+        NDS::TraceValue(dsym_scfg_ext[1], SCFG_EXT[1]);
         printf("SCFG_EXT = %08X / %08X (val7 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
         return;
     case 0x04004010:
@@ -3034,9 +3110,12 @@ void ARM7IOWrite32(u32 addr, u32 val)
         val &= 0x00FFFF0F;
         MBK[0][8] = val;
         MBK[1][8] = val;
+        NDS::TraceValue(dsym_mbk_9, val);
         return;
 
-    case 0x04004100: NDMACnt[1] = val & 0x800F0000; return;
+    case 0x04004100: NDMACnt[1] = val & 0x800F0000;
+        NDS::TraceValue(dsym_ndmagcnt[1], NDMACnt[1] >> 16);
+        return;
     case 0x04004104: NDMAs[4]->SrcAddr = val & 0xFFFFFFFC; return;
     case 0x04004108: NDMAs[4]->DstAddr = val & 0xFFFFFFFC; return;
     case 0x0400410C: NDMAs[4]->TotalLength = val & 0x0FFFFFFF; return;

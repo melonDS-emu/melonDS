@@ -163,6 +163,9 @@ protected:
     void (*BusWrite8)(u32 addr, u8 val);
     void (*BusWrite16)(u32 addr, u16 val);
     void (*BusWrite32)(u32 addr, u32 val);
+
+//private:
+    s32 dsym_cpsr;
 };
 
 class ARMv5 : public ARM

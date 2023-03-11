@@ -79,6 +79,18 @@ void DMA::Reset()
     Running = false;
     InProgress = false;
     MRAMBurstCount = 0;
+
+    char name[strlen("DMA0_A7_running")+1];
+    snprintf(name, sizeof(name), "DMA%cCNT_A%c", '0'+Num, (CPU==0)?'9':'7');
+    dsym_cnt = NDS::MakeTracingSym(name, 16, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
+    snprintf(name, sizeof(name), "DMA%c_A%c_en", '0'+Num, (CPU==0)?'9':'7');
+    dsym_running = NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
+    snprintf(name, sizeof(name), "DMA%c_A%c_addr", '0'+Num, (CPU==0)?'9':'7');
+    dsym_addr = NDS::MakeTracingSym(name, 32, LT_SYM_F_BITS, debug::SystemSignal::DmaData);
+    snprintf(name, sizeof(name), "DMA%c_A%c_data", '0'+Num, (CPU==0)?'9':'7');
+    dsym_data = NDS::MakeTracingSym(name, 32, LT_SYM_F_BITS, debug::SystemSignal::DmaData);
+
+#define CURRENT_CLK (CPU ? NDS::Clock::ARM7 : NDS::Clock::ARM9)
 }
 
 void DMA::DoSavestate(Savestate* file)
@@ -109,6 +121,7 @@ void DMA::WriteCnt(u32 val)
 {
     u32 oldcnt = Cnt;
     Cnt = val;
+    NDS::TraceValue(dsym_cnt, val, CURRENT_CLK);
 
     if ((!(oldcnt & 0x80000000)) && (val & 0x80000000))
     {
@@ -550,6 +563,8 @@ void DMA::Run9()
 
     Executing = true;
 
+    NDS::TraceValue(dsym_running, 1, CURRENT_CLK);
+
     // add NS penalty for first accesses in burst
     bool burststart = (Running == 2);
     Running = 1;
@@ -561,10 +576,19 @@ void DMA::Run9()
             NDS::ARM9Timestamp += (UnitTimings9_16(burststart) << NDS::ARM9ClockShift);
             burststart = false;
 
+            u16 value;
             if (ConsoleType == 1)
-                DSi::ARM9Write16(CurDstAddr, DSi::ARM9Read16(CurSrcAddr));
+                value = DSi::ARM9Read16(CurSrcAddr);
             else
-                NDS::ARM9Write16(CurDstAddr, NDS::ARM9Read16(CurSrcAddr));
+                value = NDS::ARM9Read16(CurSrcAddr);
+
+            NDS::TraceValue(dsym_addr, CurDstAddr);
+            NDS::TraceValue(dsym_data, value);
+
+            if (ConsoleType == 1)
+                DSi::ARM9Write16(CurDstAddr, value);
+            else
+                NDS::ARM9Write16(CurDstAddr, value);
 
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
@@ -581,10 +605,19 @@ void DMA::Run9()
             NDS::ARM9Timestamp += (UnitTimings9_32(burststart) << NDS::ARM9ClockShift);
             burststart = false;
 
+            u32 value;
             if (ConsoleType == 1)
-                DSi::ARM9Write32(CurDstAddr, DSi::ARM9Read32(CurSrcAddr));
+                value = DSi::ARM9Read32(CurSrcAddr);
             else
-                NDS::ARM9Write32(CurDstAddr, NDS::ARM9Read32(CurSrcAddr));
+                value = NDS::ARM9Read32(CurSrcAddr);
+
+            NDS::TraceValue(dsym_addr, CurDstAddr);
+            NDS::TraceValue(dsym_data, value);
+
+            if (ConsoleType == 1)
+                DSi::ARM9Write32(CurDstAddr, value);
+            else
+                NDS::ARM9Write32(CurDstAddr, value);
 
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
@@ -597,6 +630,8 @@ void DMA::Run9()
 
     Executing = false;
     Stall = false;
+
+    NDS::TraceValue(dsym_running, 0, CURRENT_CLK);
 
     if (RemCount)
     {
@@ -615,6 +650,8 @@ void DMA::Run9()
     if (!(Cnt & (1<<25)))
         Cnt &= ~(1<<31);
 
+    NDS::TraceValue(dsym_cnt, Cnt, CURRENT_CLK);
+
     if (Cnt & (1<<30))
         NDS::SetIRQ(0, NDS::IRQ_DMA0 + Num);
 
@@ -630,6 +667,8 @@ void DMA::Run7()
 
     Executing = true;
 
+    NDS::TraceValue(dsym_running, 1, CURRENT_CLK);
+
     // add NS penalty for first accesses in burst
     bool burststart = (Running == 2);
     Running = 1;
@@ -641,10 +680,19 @@ void DMA::Run7()
             NDS::ARM7Timestamp += UnitTimings7_16(burststart);
             burststart = false;
 
+            u16 value;
             if (ConsoleType == 1)
-                DSi::ARM7Write16(CurDstAddr, DSi::ARM7Read16(CurSrcAddr));
+                value = DSi::ARM7Read16(CurSrcAddr);
             else
-                NDS::ARM7Write16(CurDstAddr, NDS::ARM7Read16(CurSrcAddr));
+                value = NDS::ARM7Read16(CurSrcAddr);
+
+            NDS::TraceValue(dsym_addr, CurDstAddr);
+            NDS::TraceValue(dsym_data, value);
+
+            if (ConsoleType == 1)
+                DSi::ARM7Write16(CurDstAddr, value);
+            else
+                NDS::ARM7Write16(CurDstAddr, value);
 
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
@@ -661,10 +709,19 @@ void DMA::Run7()
             NDS::ARM7Timestamp += UnitTimings7_32(burststart);
             burststart = false;
 
+            u32 value;
             if (ConsoleType == 1)
-                DSi::ARM7Write32(CurDstAddr, DSi::ARM7Read32(CurSrcAddr));
+                value = DSi::ARM7Read32(CurSrcAddr);
             else
-                NDS::ARM7Write32(CurDstAddr, NDS::ARM7Read32(CurSrcAddr));
+                value = NDS::ARM7Read32(CurSrcAddr);
+
+            NDS::TraceValue(dsym_addr, CurDstAddr);
+            NDS::TraceValue(dsym_data, value);
+
+            if (ConsoleType == 1)
+                DSi::ARM7Write32(CurDstAddr, value);
+            else
+                NDS::ARM7Write32(CurDstAddr, value);
 
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
@@ -674,6 +731,8 @@ void DMA::Run7()
             if (NDS::ARM7Timestamp >= NDS::ARM7Target) break;
         }
     }
+
+    NDS::TraceValue(dsym_running, 0, CURRENT_CLK);
 
     Executing = false;
     Stall = false;
@@ -691,6 +750,8 @@ void DMA::Run7()
 
     if (!(Cnt & (1<<25)))
         Cnt &= ~(1<<31);
+
+    NDS::TraceValue(dsym_cnt, Cnt, CURRENT_CLK);
 
     if (Cnt & (1<<30))
         NDS::SetIRQ(1, NDS::IRQ_DMA0 + Num);

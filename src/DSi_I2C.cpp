@@ -31,6 +31,8 @@ namespace DSi_BPTWL
 u8 Registers[0x100];
 u32 CurPos;
 
+s32 dsym_reg10, dsym_reg11, dsym_reg30, dsym_reg70;
+
 bool Init()
 {
     return true;
@@ -71,6 +73,11 @@ void Reset()
     Registers[0x77] = 0x00;
     Registers[0x80] = 0x10;
     Registers[0x81] = 0x64;
+
+    dsym_reg10 = NDS::MakeTracingSym("BPTWL PSTAT", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_reg11 = NDS::MakeTracingSym("BPTWL PACTION", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_reg30 = NDS::MakeTracingSym("BPTWL WIFI", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_reg70 = NDS::MakeTracingSym("BPTWL BOOTFLG", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
 }
 
 void DoSavestate(Savestate* file)
@@ -116,6 +123,14 @@ u8 Read(bool last)
 
 void Write(u8 val, bool last)
 {
+    switch (CurPos)
+    {
+    case 0x10: NDS::TraceValue(dsym_reg10, val); break;
+    case 0x11: NDS::TraceValue(dsym_reg11, val); break;
+    case 0x30: NDS::TraceValue(dsym_reg30, val); break;
+    case 0x70: NDS::TraceValue(dsym_reg70, val); break;
+    }
+
     if (last)
     {
         CurPos = -1;
@@ -166,6 +181,8 @@ u8 Data;
 
 u32 Device;
 
+s32 dsym_cnt, dsym_data;
+
 bool Init()
 {
     if (!DSi_BPTWL::Init()) return false;
@@ -186,6 +203,8 @@ void Reset()
     Device = -1;
 
     DSi_BPTWL::Reset();
+    dsym_cnt = NDS::MakeTracingSym("I2C_CNT" , 8, LT_SYM_F_BITS, debug::SystemSignal::I2CCtl);
+    dsym_data= NDS::MakeTracingSym("I2C_DATA", 8, LT_SYM_F_BITS, debug::SystemSignal::I2CCtl);
 }
 
 void DoSavestate(Savestate* file)
@@ -202,6 +221,7 @@ void DoSavestate(Savestate* file)
 void WriteCnt(u8 val)
 {
     //printf("I2C: write CNT %02X, %02X, %08X\n", val, Data, NDS::GetPC(1));
+    NDS::TraceValue(dsym_cnt, val);
 
     // TODO: check ACK flag
     // TODO: transfer delay
@@ -229,6 +249,8 @@ void WriteCnt(u8 val)
                 Data = 0xFF;
                 break;
             }
+
+            NDS::TraceValue(dsym_data, Data);
 
             //printf("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
         }
@@ -291,6 +313,7 @@ u8 ReadData()
 void WriteData(u8 val)
 {
     Data = val;
+    NDS::TraceValue(dsym_data, val);
 }
 
 }

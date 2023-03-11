@@ -29,6 +29,10 @@
 #include "EmuSettingsDialog.h"
 #include "ui_EmuSettingsDialog.h"
 
+#ifdef DEBUG_FEATURES_ENABLED
+#include "debug/storage.h"
+#endif
+
 
 EmuSettingsDialog* EmuSettingsDialog::currentDlg = nullptr;
 
@@ -41,6 +45,39 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
+
+    cbArray[0] = ui->cb_A7stat;
+    cbArray[1] = ui->cb_A9stat;
+    cbArray[2] = ui->cb_mem;
+    cbArray[3] = ui->cb_disp;
+    cbArray[4] = ui->cb_disp3d;
+    cbArray[5] = ui->cb_dma;
+    cbArray[6] = ui->cb_ipcfifo;
+    cbArray[7] = ui->cb_audio;
+    cbArray[8] = ui->cb_timers;
+    cbArray[9] = ui->cb_int;
+    cbArray[10] = ui->cb_divsqrt;
+    cbArray[11] = ui->cb_pwman;
+    cbArray[12] = ui->cb_scfg;
+    cbArray[13] = ui->cb_dsp;
+    cbArray[14] = ui->cb_sdmmc_host;
+    cbArray[15] = ui->cb_sdmmc_card;
+    cbArray[16] = ui->cb_ntrwifi;
+    cbArray[17] = ui->cb_dsiwifi_host;
+    cbArray[18] = ui->cb_dsiwifi_board;
+    cbArray[19] = ui->cb_dsiwifi_xtensa;
+    cbArray[20] = ui->cb_gpio;
+    cbArray[21] = ui->cb_keypad;
+    cbArray[22] = ui->cb_ntrmic;
+    cbArray[23] = ui->cb_dsimic;
+    cbArray[24] = ui->cb_rtc;
+    cbArray[25] = ui->cb_spi;
+    cbArray[26] = ui->cb_auxspi;
+    cbArray[27] = ui->cb_tsc;
+    cbArray[28] = ui->cb_i2c;
+    cbArray[29] = ui->cb_dsiwifi_firm;
+    cbArray[30] = ui->cb_cam;
+    cbArray[63] = ui->cb_custom;
 
     ui->chkExternalBIOS->setChecked(Config::ExternalBIOSEnable);
     ui->txtBIOS9Path->setText(QString::fromStdString(Config::BIOS9Path));
@@ -73,6 +110,30 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->chkJITLiteralOptimisations->setDisabled(true);
     ui->chkJITFastMemory->setDisabled(true);
     ui->spnJITMaximumBlockSize->setDisabled(true);
+#endif
+
+#ifdef DEBUG_FEATURES_ENABLED
+    ui->gbTracing->setChecked(Config::DBG_EnableTracing);
+    ui->gbTracing->setCheckable(true);
+
+    ui->txtLXTPath->setText(QString::fromStdString(Config::DBG_LXTPath));
+
+    // FIXME this is thowing segfautls fsr
+    /*for (int i = 0; i < 64; ++i)
+        if (cbArray[i] != nullptr)
+            cbArray[i]->setChecked((Config::DBG_EnabledSignals & (1uLL<<i)) != 0);*/
+
+    ui->gbHypercall->setChecked(Config::DBG_EnableHypercalls);
+    ui->gbHypercall->setCheckable(true);
+
+    ui->cb_hv_misc->setChecked(Config::DBG_HVMisc);
+    ui->cb_hv_sig->setChecked(Config::DBG_HVSignalTracing);
+#else
+    ui->gbTracing->setChecked(false);
+    ui->gbTracing->setCheckable(false);
+
+    ui->gbHypercall->setChecked(false);
+    ui->gbHypercall->setCheckable(false);
 #endif
 
     on_chkEnableJIT_toggled();
@@ -206,6 +267,18 @@ void EmuSettingsDialog::done(int r)
         bool dsiSDFolderSync = ui->cbDSiSDFolder->isChecked();
         std::string dsiSDFolderPath = ui->txtDSiSDFolder->text().toStdString();
 
+        int enableTracing = ui->gbTracing->isChecked()?1:0;
+        std::string lxtPath = ui->txtLXTPath->text().toStdString();
+        unsigned long long enabledSignals = 1|2|4|32|64|256|512|(1<<11)|(1<<12)|(1<<20)|(1<<25)|(1<<28);
+        // FIXME: this is also segfaulting!
+        /*for (int i = 0; i < 64; ++i)
+            if (cbArray[i] != nullptr && cbArray[i]->isChecked())
+                enabledSignals |= 1uLL<<i;*/
+
+        int enableHypercalls = ui->gbHypercall->isChecked()?1:0;
+        int hv_misc = ui->cb_hv_misc->isChecked()?1:0;
+        int hv_sig = ui->cb_hv_sig->isChecked()?1:0;
+
         if (consoleType != Config::ConsoleType
             || directBoot != Config::DirectBoot
 #ifdef JIT_ENABLED
@@ -214,6 +287,15 @@ void EmuSettingsDialog::done(int r)
             || jitBranchOptimisations != Config::JIT_BranchOptimisations
             || jitLiteralOptimisations != Config::JIT_LiteralOptimisations
             || jitFastMemory != Config::JIT_FastMemory
+#endif
+#ifdef DEBUG_FEATURES_ENABLED
+            || enableTracing != Config::DBG_EnableTracing
+            || lxtPath != Config::DBG_LXTPath
+            || enabledSignals != Config::DBG_EnabledSignals
+
+            || enableHypercalls != Config::DBG_EnableHypercalls
+            || hv_misc != Config::DBG_HVMisc
+            || hv_sig != Config::DBG_HVSignalTracing
 #endif
             || externalBiosEnable != Config::ExternalBIOSEnable
             || bios9Path != Config::BIOS9Path
@@ -266,13 +348,22 @@ void EmuSettingsDialog::done(int r)
             Config::DSiSDFolderSync = dsiSDFolderSync;
             Config::DSiSDFolderPath = dsiSDFolderPath;
 
-    #ifdef JIT_ENABLED
+#ifdef JIT_ENABLED
             Config::JIT_Enable = jitEnable;
             Config::JIT_MaxBlockSize = jitMaxBlockSize;
             Config::JIT_BranchOptimisations = jitBranchOptimisations;
             Config::JIT_LiteralOptimisations = jitLiteralOptimisations;
             Config::JIT_FastMemory = jitFastMemory;
-    #endif
+#endif
+#ifdef DEBUG_FEATURES_ENABLED
+            Config::DBG_EnableTracing = enableTracing;
+            Config::DBG_LXTPath = lxtPath;
+            Config::DBG_EnabledSignals = enabledSignals;
+
+            Config::DBG_EnableHypercalls = enableHypercalls;
+            Config::DBG_HVMisc = hv_misc;
+            Config::DBG_HVSignalTracing = hv_sig;
+#endif
 
             Config::ConsoleType = consoleType;
             Config::DirectBoot = directBoot;
@@ -458,6 +549,18 @@ void EmuSettingsDialog::on_btnDSiSDFolderBrowse_clicked()
     if (dir.isEmpty()) return;
 
     ui->txtDSiSDFolder->setText(dir);
+}
+
+void EmuSettingsDialog::on_btnLXTBrowse_clicked()
+{
+    QString file = QFileDialog::getSaveFileName(this,
+            "Select LXT output file...",
+            get_current_dir_name(),
+            "LXT files (*.lxt);;Any file (*.*)");
+
+    if (file.isEmpty()) return;
+
+    ui->txtLXTPath->setText(file);
 }
 
 void EmuSettingsDialog::on_chkEnableJIT_toggled()

@@ -28,6 +28,10 @@
 // with this enabled, to make sure it doesn't desync
 //#define DEBUG_CHECK_DESYNC
 
+#ifdef DEBUG_FEATURES_ENABLED
+#include "debug/storage.h"
+#endif
+
 namespace NDS
 {
 
@@ -222,6 +226,12 @@ extern u32 KeyInput;
 const u32 ARM7WRAMSize = 0x10000;
 extern u8* ARM7WRAM;
 
+extern bool ExitEmulator;
+
+#ifdef DEBUG_FEATURES_ENABLED
+extern debug::DebugStorageNDS DebugStuff;
+#endif
+
 bool Init();
 void DeInit();
 void Reset();
@@ -285,7 +295,8 @@ void GXFIFOStall();
 void GXFIFOUnstall();
 
 u32 GetPC(u32 cpu);
-u64 GetSysClockCycles(int num);
+u64 GetSysClockCycles(int num, bool clkshift);
+inline u64 GetSysClockCycles(int num) { return GetSysClockCycles(num, true); }
 void NocashPrint(u32 cpu, u32 addr);
 
 void MonitorARM9Jump(u32 addr);
@@ -328,6 +339,92 @@ u32 ARM7IORead32(u32 addr);
 void ARM7IOWrite8(u32 addr, u8 val);
 void ARM7IOWrite16(u32 addr, u16 val);
 void ARM7IOWrite32(u32 addr, u32 val);
+
+enum class Clock {
+    Bus  = 0,
+    ARM7 = 1,
+    ARM9 = 2,
+    // TODO: others?
+};
+
+inline s32 MakeTracingSym(const char* name, int bits, int type, enum debug::SystemSignal categ) {
+#ifdef DEBUG_FEATURES_ENABLED
+    return DebugStuff.AddTraceSym(name, bits, type, categ);
+#else
+    return -1;
+#endif
+}
+inline void TraceValue(s32 sym, int value, enum Clock clk = Clock::Bus) {
+#ifdef DEBUG_FEATURES_ENABLED
+    if (clk == Clock::ARM7)
+        DebugStuff.WithTimeARM7([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else if (clk == Clock::ARM9)
+        DebugStuff.WithTimeARM9([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else /*if (clk == Clock::Bus)*/
+        DebugStuff.TraceValue(sym, value);
+#endif
+}
+inline void TraceValue(s32 sym, unsigned int value, enum Clock clk = Clock::Bus) {
+#ifdef DEBUG_FEATURES_ENABLED
+    if (clk == Clock::ARM7)
+        DebugStuff.WithTimeARM7([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else if (clk == Clock::ARM9)
+        DebugStuff.WithTimeARM9([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else /*if (clk == Clock::Bus)*/
+        DebugStuff.TraceValue(sym, value);
+#endif
+}
+inline void TraceValue(s32 sym, u64 value, enum Clock clk = Clock::Bus) {
+#ifdef DEBUG_FEATURES_ENABLED
+    if (clk == Clock::ARM7)
+        DebugStuff.WithTimeARM7([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else if (clk == Clock::ARM9)
+        DebugStuff.WithTimeARM9([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else /*if (clk == Clock::Bus)*/
+        DebugStuff.TraceValue(sym, value);
+#endif
+}
+inline void TraceValue(s32 sym, double value, enum Clock clk = Clock::Bus) {
+#ifdef DEBUG_FEATURES_ENABLED
+    if (clk == Clock::ARM7)
+        DebugStuff.WithTimeARM7([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else if (clk == Clock::ARM9)
+        DebugStuff.WithTimeARM9([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else /*if (clk == Clock::Bus)*/
+        DebugStuff.TraceValue(sym, value);
+#endif
+}
+inline void TraceValue(s32 sym, const char* value, enum Clock clk = Clock::Bus) {
+#ifdef DEBUG_FEATURES_ENABLED
+    if (clk == Clock::ARM7)
+        DebugStuff.WithTimeARM7([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else if (clk == Clock::ARM9)
+        DebugStuff.WithTimeARM9([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else /*if (clk == Clock::Bus)*/
+        DebugStuff.TraceValue(sym, value);
+#endif
+}
+inline void TraceString(s32 sym, const char* value, enum Clock clk = Clock::Bus) {
+#ifdef DEBUG_FEATURES_ENABLED
+    if (clk == Clock::ARM7)
+        DebugStuff.WithTimeARM7([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else if (clk == Clock::ARM9)
+        DebugStuff.WithTimeARM9([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else /*if (clk == Clock::Bus)*/
+        DebugStuff.TraceValue(sym, value);
+#endif
+}
+
+inline void BeginTracing() {
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.BeginTracing();
+#endif
+}
+inline void PauseTracing() {
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.PauseTracing();
+#endif
+}
 
 }
 

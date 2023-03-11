@@ -7,6 +7,9 @@ endif()
 
 set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 project(melonDS
@@ -98,6 +101,16 @@ if (CCACHE)
     set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
     set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
 endif()
+
+if (NOT WIN32)
+    option(ENABLE_DEBUG_FEATURES "Enable debugging features" OFF)
+    if (ENABLE_DEBUG_FEATURES)
+        add_definitions(-DDEBUG_FEATURES_ENABLED)
+    endif()
+endif()
+
+add_compile_options(-fno-pic)
+add_link_options(-no-pie)
 
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)
 

@@ -87,6 +87,7 @@ bool Degrade10Bit;
 Channel* Channels[16];
 CaptureUnit* Capture[2];
 
+s32 dsym_cnt, dsym_bias;
 
 bool Init()
 {
@@ -155,6 +156,10 @@ void Reset()
     Capture[1]->Reset();
 
     NDS::ScheduleEvent(NDS::Event_SPU, true, 1024, Mix, 0);
+    //NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*kSamplesPerRun, Mix, kSamplesPerRun);
+
+    dsym_cnt = NDS::MakeTracingSym("SOUNDCNT" , 16, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
+    dsym_bias= NDS::MakeTracingSym("SOUNDBIAS", 10, LT_SYM_F_INTEGER, debug::SystemSignal::SoundCtl);
 }
 
 void Stop()
@@ -198,6 +203,8 @@ void SetInterpolation(int type)
 void SetBias(u16 bias)
 {
     Bias = bias;
+
+    NDS::TraceValue(dsym_bias, bias);
 }
 
 void SetApplyBias(bool enable)
@@ -228,6 +235,17 @@ void Channel::Reset()
         BusRead32 = NDS::ARM7Read32;
 
     KeyOn = false;
+
+    // do this BEFORE the SetCnt
+    char name[strlen("SOUNDx_play")+1];
+    snprintf(name, sizeof(name), "SND%xCNT", Num);
+    dsym_cnt = NDS::MakeTracingSym(name, 8, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
+
+    //snprintf(name, sizeof(name), "SND%x_dma", Num);
+    //dsym_dma = NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
+
+    snprintf(name, sizeof(name), "SND%x_play", Num);
+    dsym_play= NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
 
     SetCnt(0);
     SrcAddr = 0;
@@ -291,6 +309,8 @@ void Channel::FIFO_BufferData()
     if ((FIFOReadOffset + 16) > totallen)
         burstlen = totallen - FIFOReadOffset;
 
+    //NDS::TraceValue(dsym_dma, 1);
+
     // sound DMA can't read from the ARM7 BIOS
     if ((SrcAddr + FIFOReadOffset) >= 0x00004000)
     {
@@ -313,6 +333,8 @@ void Channel::FIFO_BufferData()
         }
     }
 
+    //NDS::TraceValue(dsym_dma, 0);
+
     FIFOLevel += burstlen;
 }
 
@@ -334,6 +356,8 @@ T Channel::FIFO_ReadData()
 void Channel::Start()
 {
     Timer = TimerReload;
+
+    NDS::TraceValue(dsym_play, 1);
 
     if (((Cnt >> 29) & 0x3) == 3)
         Pos = -1;
@@ -503,6 +527,8 @@ void Channel::NextSample_Noise()
 template<u32 type>
 s32 Channel::Run()
 {
+    if (!(Cnt & (1<<31))) NDS::TraceValue(dsym_play, 0);
+
     if (!(Cnt & (1<<31))) return 0;
 
     if ((type < 3) && ((Length+LoopPos) < 16)) return 0;
@@ -538,6 +564,8 @@ s32 Channel::Run()
         case 4: NextSample_Noise(); break;
         }
     }
+
+    if (!(Cnt & (1<<31))) NDS::TraceValue(dsym_play, 0);
 
     s32 val = (s32)CurSample;
 
@@ -1088,9 +1116,13 @@ void Write8(u32 addr, u8 val)
             Cnt = (Cnt & 0xBF00) | (val & 0x7F);
             MasterVolume = Cnt & 0x7F;
             if (MasterVolume == 127) MasterVolume++;
+
+            NDS::TraceValue(dsym_cnt, Cnt);
             return;
         case 0x04000501:
             Cnt = (Cnt & 0x007F) | ((val & 0xBF) << 8);
+
+            NDS::TraceValue(dsym_cnt, Cnt);
             return;
 
         case 0x04000508:
@@ -1136,10 +1168,14 @@ void Write16(u32 addr, u16 val)
             Cnt = val & 0xBF7F;
             MasterVolume = Cnt & 0x7F;
             if (MasterVolume == 127) MasterVolume++;
+
+            NDS::TraceValue(dsym_cnt, Cnt);
             return;
 
         case 0x04000504:
             Bias = val & 0x3FF;
+
+            NDS::TraceValue(dsym_bias, Bias);
             return;
 
         case 0x04000508:
@@ -1184,10 +1220,14 @@ void Write32(u32 addr, u32 val)
             Cnt = val & 0xBF7F;
             MasterVolume = Cnt & 0x7F;
             if (MasterVolume == 127) MasterVolume++;
+
+            NDS::TraceValue(dsym_cnt, Cnt);
             return;
 
         case 0x04000504:
             Bias = val & 0x3FF;
+
+            NDS::TraceValue(dsym_bias, Bias);
             return;
 
         case 0x04000508:

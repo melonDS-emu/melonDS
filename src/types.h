@@ -19,15 +19,32 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#if __cplusplus >= 201103L
+
+// use the C++11 defines because they're most likely more correct
+
 #include <stdint.h>
 
-typedef uint8_t     u8;
-typedef uint16_t    u16;
-typedef uint32_t    u32;
-typedef uint64_t    u64;
-typedef int8_t      s8;
-typedef int16_t     s16;
-typedef int32_t     s32;
-typedef int64_t     s64;
+typedef uint8_t   u8;
+typedef  int8_t   s8;
+typedef uint16_t u16;
+typedef  int16_t s16;
+typedef uint32_t u32;
+typedef  int32_t s32;
+typedef uint64_t u64;
+typedef  int64_t s64;
+
+#else
+
+typedef unsigned char           u8;
+typedef unsigned short         u16;
+typedef unsigned int           u32;
+typedef unsigned long long int u64;
+typedef   signed char           s8;
+typedef   signed short         s16;
+typedef   signed int           s32;
+typedef   signed long long int s64;
+
+#endif
 
 #endif // TYPES_H

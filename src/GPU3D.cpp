@@ -274,6 +274,9 @@ u32 FlushAttributes;
 
 std::unique_ptr<GPU3D::Renderer3D> CurrentRenderer = {};
 
+int32_t dsym_disp3dcnt, dsym_disp3dcnt_latch,
+        /*dsym_rdlines,*/ dsym_gxstat, dsym_ram_count[2];
+
 bool AbortFrame;
 
 bool Init()
@@ -383,6 +386,21 @@ void Reset()
     RenderXPos = 0;
 
     AbortFrame = false;
+
+    dsym_disp3dcnt = NDS::MakeTracingSym("DISP3DCNT", 16, LT_SYM_F_BITS,
+            debug::SystemSignal::Disp3DCtl);
+    dsym_disp3dcnt_latch = NDS::MakeTracingSym("DISP3DCNT_latch", 16, LT_SYM_F_BITS,
+            debug::SystemSignal::Disp3DCtl);
+
+    // not implemented in melonDS
+    /*dsym_rdlines = NDS::MakeTracingSym("RDLINES_COUNT", 8, LT_SYM_F_INTEGER,
+            debug::SystemSignal::Disp3DCtl);*/
+    dsym_gxstat = NDS::MakeTracingSym("GXSTAT", 32, LT_SYM_F_BITS,
+            debug::SystemSignal::Disp3DCtl);
+    dsym_ram_count[0] = NDS::MakeTracingSym("RAM_COUNT_poly", 16, LT_SYM_F_INTEGER,
+            debug::SystemSignal::Disp3DCtl);
+    dsym_ram_count[1] = NDS::MakeTracingSym("RAM_COUNT_vert", 16, LT_SYM_F_INTEGER,
+            debug::SystemSignal::Disp3DCtl);
 }
 
 void DoSavestate(Savestate* file)
@@ -1162,6 +1180,7 @@ void SubmitPolygon()
     {
         LastStripPolygon = NULL;
         DispCnt |= (1<<13);
+        NDS::TraceValue(dsym_disp3dcnt, DispCnt);
         return;
     }
 
@@ -1272,6 +1291,7 @@ void SubmitPolygon()
     }
 
     Polygon* poly = &CurPolygonRAM[NumPolygons++];
+    NDS::TraceValue(dsym_ram_count[0], NumPolygons);
     poly->NumVertices = 0;
 
     poly->Attr = CurPolygonAttr;
@@ -1332,6 +1352,7 @@ void SubmitPolygon()
         vtx->FinalColor[2] = vtx->Color[2] >> 12;
         if (vtx->FinalColor[2]) vtx->FinalColor[2] = ((vtx->FinalColor[2] << 4) + 0xF);
     }
+    NDS::TraceValue(dsym_ram_count[1], NumVertices);
 
     // determine bounds of the polygon
     // also determine the W shift and normalize W
@@ -1642,6 +1663,7 @@ void BoxTest(u32* params)
     if (res > 0)
     {
         GXStat |= (1<<1);
+        NDS::TraceValue(dsym_gxstat, GXStat);
         return;
     }
 
@@ -1651,6 +1673,7 @@ void BoxTest(u32* params)
     if (res > 0)
     {
         GXStat |= (1<<1);
+        NDS::TraceValue(dsym_gxstat, GXStat);
         return;
     }
 
@@ -1660,6 +1683,7 @@ void BoxTest(u32* params)
     if (res > 0)
     {
         GXStat |= (1<<1);
+        NDS::TraceValue(dsym_gxstat, GXStat);
         return;
     }
 
@@ -1669,6 +1693,7 @@ void BoxTest(u32* params)
     if (res > 0)
     {
         GXStat |= (1<<1);
+        NDS::TraceValue(dsym_gxstat, GXStat);
         return;
     }
 
@@ -1678,6 +1703,7 @@ void BoxTest(u32* params)
     if (res > 0)
     {
         GXStat |= (1<<1);
+        NDS::TraceValue(dsym_gxstat, GXStat);
         return;
     }
 
@@ -1687,8 +1713,11 @@ void BoxTest(u32* params)
     if (res > 0)
     {
         GXStat |= (1<<1);
+        NDS::TraceValue(dsym_gxstat, GXStat);
         return;
     }
+
+    NDS::TraceValue(dsym_gxstat, GXStat);
 }
 
 void PosTest()
@@ -1761,6 +1790,8 @@ void CmdFIFOWrite(CmdFIFOEntry& entry)
         GXStat |= (1<<0); // box/pos/vec test
         NumTestCommands++;
     }
+
+    NDS::TraceValue(dsym_gxstat, GXStat);
 }
 
 CmdFIFOEntry CmdFIFORead()
@@ -1857,7 +1888,11 @@ void ExecuteCommand()
             NumPushPopCommands--;
             if (MatrixMode == 0)
             {
-                if (ProjMatrixStackPointer > 0) GXStat |= (1<<15);
+                if (ProjMatrixStackPointer > 0)
+                {
+                    GXStat |= (1<<15);
+                    NDS::TraceValue(dsym_gxstat, GXStat);
+                }
 
                 memcpy(ProjMatrixStack, ProjMatrix, 16*4);
                 ProjMatrixStackPointer++;
@@ -1865,7 +1900,11 @@ void ExecuteCommand()
             }
             else if (MatrixMode == 3)
             {
-                if (TexMatrixStackPointer > 0) GXStat |= (1<<15);
+                if (TexMatrixStackPointer > 0)
+                {
+                    GXStat |= (1<<15);
+                    NDS::TraceValue(dsym_gxstat, GXStat);
+                }
 
                 memcpy(TexMatrixStack, TexMatrix, 16*4);
                 TexMatrixStackPointer++;
@@ -1873,7 +1912,11 @@ void ExecuteCommand()
             }
             else
             {
-                if (PosMatrixStackPointer > 30) GXStat |= (1<<15);
+                if (PosMatrixStackPointer > 30)
+                {
+                    GXStat |= (1<<15);
+                    NDS::TraceValue(dsym_gxstat, GXStat);
+                }
 
                 memcpy(PosMatrixStack[PosMatrixStackPointer & 0x1F], PosMatrix, 16*4);
                 memcpy(VecMatrixStack[PosMatrixStackPointer & 0x1F], VecMatrix, 16*4);
@@ -1888,7 +1931,11 @@ void ExecuteCommand()
             NumPushPopCommands--;
             if (MatrixMode == 0)
             {
-                if (ProjMatrixStackPointer == 0) GXStat |= (1<<15);
+                if (ProjMatrixStackPointer == 0)
+                {
+                    GXStat |= (1<<15);
+                    NDS::TraceValue(dsym_gxstat, GXStat);
+                }
 
                 ProjMatrixStackPointer--;
                 ProjMatrixStackPointer &= 0x1;
@@ -1898,7 +1945,11 @@ void ExecuteCommand()
             }
             else if (MatrixMode == 3)
             {
-                if (TexMatrixStackPointer == 0) GXStat |= (1<<15);
+                if (TexMatrixStackPointer == 0)
+                {
+                    GXStat |= (1<<15);
+                    NDS::TraceValue(dsym_gxstat, GXStat);
+                }
 
                 TexMatrixStackPointer--;
                 TexMatrixStackPointer &= 0x1;
@@ -1911,7 +1962,11 @@ void ExecuteCommand()
                 PosMatrixStackPointer -= offset;
                 PosMatrixStackPointer &= 0x3F;
 
-                if (PosMatrixStackPointer > 30) GXStat |= (1<<15);
+                if (PosMatrixStackPointer > 30)
+                {
+                    GXStat |= (1<<15);
+                    NDS::TraceValue(dsym_gxstat, GXStat);
+                }
 
                 memcpy(PosMatrix, PosMatrixStack[PosMatrixStackPointer & 0x1F], 16*4);
                 memcpy(VecMatrix, VecMatrixStack[PosMatrixStackPointer & 0x1F], 16*4);
@@ -1933,7 +1988,11 @@ void ExecuteCommand()
             else
             {
                 u32 addr = entry.Param & 0x1F;
-                if (addr > 30) GXStat |= (1<<15);
+                if (addr > 30)
+                {
+                    GXStat |= (1<<15);
+                    NDS::TraceValue(dsym_gxstat, GXStat);
+                }
 
                 memcpy(PosMatrixStack[addr], PosMatrix, 16*4);
                 memcpy(VecMatrixStack[addr], VecMatrix, 16*4);
@@ -1957,7 +2016,11 @@ void ExecuteCommand()
             else
             {
                 u32 addr = entry.Param & 0x1F;
-                if (addr > 30) GXStat |= (1<<15);
+                if (addr > 30)
+                {
+                    GXStat |= (1<<15);
+                    NDS::TraceValue(dsym_gxstat, GXStat);
+                }
 
                 memcpy(PosMatrix, PosMatrixStack[addr], 16*4);
                 memcpy(VecMatrix, VecMatrixStack[addr], 16*4);
@@ -2444,6 +2507,7 @@ void FinishWork(s32 cycles)
         return;
 
     GXStat &= ~(1<<27);
+    NDS::TraceValue(dsym_gxstat, GXStat);
 }
 
 void Run()
@@ -2466,6 +2530,10 @@ void Run()
             if (NumPushPopCommands == 0) GXStat &= ~(1<<14);
             if (NumTestCommands == 0)    GXStat &= ~(1<<0);
 
+            if (NumPushPopCommands == 0 || NumTestCommands == 0)
+                NDS::TraceValue(dsym_gxstat, GXStat);
+
+
             ExecuteCommand();
         }
     }
@@ -2477,6 +2545,9 @@ void Run()
 
         if (NumPushPopCommands == 0) GXStat &= ~(1<<14);
         if (NumTestCommands == 0)    GXStat &= ~(1<<0);
+
+        if (NumPushPopCommands == 0 || NumTestCommands == 0)
+            NDS::TraceValue(dsym_gxstat, GXStat);
     }
 }
 
@@ -2569,6 +2640,7 @@ void VBlank()
             }
 
             RenderDispCnt = DispCnt;
+            NDS::TraceValue(dsym_disp3dcnt_latch, RenderDispCnt);
             RenderAlphaRef = AlphaRef;
 
             memcpy(RenderEdgeTable, EdgeTable, 8*2);
@@ -2593,6 +2665,8 @@ void VBlank()
 
             NumVertices = 0;
             NumPolygons = 0;
+            NDS::TraceValue(dsym_ram_count[0], NumPolygons);
+            NDS::TraceValue(dsym_ram_count[1], NumVertices);
             NumOpaquePolygons = 0;
 
             FlushRequest = 0;
@@ -2841,6 +2915,7 @@ void Write8(u32 addr, u8 val)
         if (val & 0x80)
         {
             GXStat &= ~0x8000;
+            NDS::TraceValue(dsym_gxstat, GXStat);
             ProjMatrixStackPointer = 0;
             //PosMatrixStackPointer = 0;
             TexMatrixStackPointer = 0; // CHECKME
@@ -2850,6 +2925,7 @@ void Write8(u32 addr, u8 val)
         val &= 0xC0;
         GXStat &= 0x3FFFFFFF;
         GXStat |= (val << 24);
+        NDS::TraceValue(dsym_gxstat, GXStat);
         CheckFIFOIRQ();
         return;
     }
@@ -2886,6 +2962,7 @@ void Write16(u32 addr, u16 val)
         DispCnt = (val & 0x4FFF) | (DispCnt & 0x3000);
         if (val & (1<<12)) DispCnt &= ~(1<<12);
         if (val & (1<<13)) DispCnt &= ~(1<<13);
+        NDS::TraceValue(dsym_disp3dcnt, DispCnt);
         AlphaRef = (DispCnt & (1<<2)) ? AlphaRefVal : 0;
         return;
 
@@ -2921,6 +2998,7 @@ void Write16(u32 addr, u16 val)
         if (val & 0x8000)
         {
             GXStat &= ~0x8000;
+            NDS::TraceValue(dsym_gxstat, GXStat);
             ProjMatrixStackPointer = 0;
             //PosMatrixStackPointer = 0;
             TexMatrixStackPointer = 0; // CHECKME
@@ -2930,6 +3008,7 @@ void Write16(u32 addr, u16 val)
         val &= 0xC000;
         GXStat &= 0x3FFFFFFF;
         GXStat |= (val << 16);
+        NDS::TraceValue(dsym_gxstat, GXStat);
         CheckFIFOIRQ();
         return;
 
@@ -2973,6 +3052,7 @@ void Write32(u32 addr, u32 val)
         DispCnt = (val & 0x4FFF) | (DispCnt & 0x3000);
         if (val & (1<<12)) DispCnt &= ~(1<<12);
         if (val & (1<<13)) DispCnt &= ~(1<<13);
+        NDS::TraceValue(dsym_disp3dcnt, DispCnt);
         AlphaRef = (DispCnt & (1<<2)) ? AlphaRefVal : 0;
         return;
 
@@ -3006,6 +3086,7 @@ void Write32(u32 addr, u32 val)
         val &= 0xC0000000;
         GXStat &= 0x3FFFFFFF;
         GXStat |= val;
+        NDS::TraceValue(dsym_gxstat, GXStat);
         CheckFIFOIRQ();
         return;
 

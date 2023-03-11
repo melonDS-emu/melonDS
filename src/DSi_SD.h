@@ -93,6 +93,8 @@ private:
     FIFO<u16, 0x100> DataFIFO[2];
     FIFO<u32, 0x80> DataFIFO32;
 
+    s32 dsym_xfer, dsym_portsel;
+
     void UpdateData32IRQ();
     void ClearIRQ(u32 irq);
     void SetIRQ(u32 irq);

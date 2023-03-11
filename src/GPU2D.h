@@ -116,6 +116,8 @@ public:
     u32 CaptureCnt;
 
     u16 MasterBrightness;
+
+    s32 dsym_cnt, dsym_capcnt, dsym_capline;
 };
 
 class Renderer2D

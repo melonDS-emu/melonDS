@@ -104,6 +104,8 @@ public:
         u32 oldcnt = Cnt;
         Cnt = val & 0xFF7F837F;
 
+        NDS::TraceValue(dsym_cnt, val);
+
         Volume = Cnt & 0x7F;
         if (Volume == 127) Volume++;
 
@@ -162,6 +164,8 @@ public:
 
 private:
     u32 (*BusRead32)(u32 addr);
+
+    s32 dsym_cnt, dsym_dma, dsym_play;
 };
 
 class CaptureUnit

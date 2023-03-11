@@ -48,6 +48,16 @@ enum ConfigEntry
     JIT_FastMemory,
 #endif
 
+#ifdef DEBUG_FEATURES_ENABLED
+    DBG_EnableTracing,
+    DBG_LXTPath,
+    DBG_EnabledSignals,
+
+    DBG_EnableHypercalls,
+    DBG_HVMisc,
+    DBG_HVSignalTracing,
+#endif
+
     ExternalBIOSEnable,
 
     BIOS9Path,
@@ -87,6 +97,7 @@ enum ConfigEntry
 
 int GetConfigInt(ConfigEntry entry);
 bool GetConfigBool(ConfigEntry entry);
+unsigned long long GetConfigU64(ConfigEntry entry);
 std::string GetConfigString(ConfigEntry entry);
 bool GetConfigArray(ConfigEntry entry, void* data);
 

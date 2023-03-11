@@ -115,6 +115,7 @@ const u8 CIS1[256] =
 
 DSi_NWifi* Ctx = nullptr;
 
+s32 dsym_sdioacc, dsym_cmd, dsym_parm;
 
 DSi_NWifi::DSi_NWifi(DSi_SDHost* host)
     : DSi_SDDevice(host),
@@ -221,6 +222,10 @@ void DSi_NWifi::Reset()
     ConnectionStatus = 0;
 
     NDS::CancelEvent(NDS::Event_DSi_NWifi);
+
+    dsym_sdioacc = NDS::MakeTracingSym("SDIO bus", 32, LT_SYM_F_INTEGER, debug::SystemSignal::WifiISdCtl);
+    dsym_cmd     = NDS::MakeTracingSym("SDIO cmd",  8, LT_SYM_F_INTEGER, debug::SystemSignal::WifiISdCtl);
+    dsym_parm    = NDS::MakeTracingSym("SDIO parm",32, LT_SYM_F_INTEGER, debug::SystemSignal::WifiISdCtl);
 }
 
 void DSi_NWifi::DoSavestate(Savestate* file)
@@ -585,6 +590,7 @@ void DSi_NWifi::F1_Write(u32 addr, u8 val)
 
 u8 DSi_NWifi::SDIO_Read(u32 func, u32 addr)
 {
+    NDS::TraceValue(dsym_sdioacc, (func<<24)|addr);
     switch (func)
     {
     case 0: return F0_Read(addr);
@@ -597,6 +603,7 @@ u8 DSi_NWifi::SDIO_Read(u32 func, u32 addr)
 
 void DSi_NWifi::SDIO_Write(u32 func, u32 addr, u8 val)
 {
+    NDS::TraceValue(dsym_sdioacc, (func<<24)|addr);
     switch (func)
     {
     case 0: return F0_Write(addr, val);
@@ -609,6 +616,8 @@ void DSi_NWifi::SDIO_Write(u32 func, u32 addr, u8 val)
 
 void DSi_NWifi::SendCMD(u8 cmd, u32 param)
 {
+    NDS::TraceValue(dsym_cmd , cmd  );
+    NDS::TraceValue(dsym_parm, param);
     switch (cmd)
     {
     case 12:

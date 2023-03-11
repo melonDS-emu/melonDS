@@ -55,6 +55,10 @@ int IPCInstanceID;
 void IPCInit()
 {
     IPCInstanceID = 0;
+#ifdef DEBUG_FEATURES_ENABLED
+    IPCBuffer = nullptr;
+    return;
+#endif
 
     IPCBuffer = new QSharedMemory("melonIPC");
 
@@ -208,6 +212,13 @@ bool GetConfigBool(ConfigEntry entry)
     case JIT_FastMemory: return Config::JIT_FastMemory != 0;
 #endif
 
+#ifdef DEBUG_FEATURES_ENABLED
+    case DBG_EnableTracing: return Config::DBG_EnableTracing;
+    case DBG_EnableHypercalls: return Config::DBG_EnableHypercalls;
+    case DBG_HVMisc: return Config::DBG_HVMisc;
+    case DBG_HVSignalTracing: return Config::DBG_HVSignalTracing;
+#endif
+
     case ExternalBIOSEnable: return Config::ExternalBIOSEnable != 0;
 
     case DLDI_Enable: return Config::DLDIEnable != 0;
@@ -228,6 +239,10 @@ std::string GetConfigString(ConfigEntry entry)
 {
     switch (entry)
     {
+#ifdef DEBUG_FEATURES_ENABLED
+    case DBG_LXTPath: return Config::DBG_LXTPath;
+#endif
+
     case BIOS9Path: return Config::BIOS9Path;
     case BIOS7Path: return Config::BIOS7Path;
     case FirmwarePath: return Config::FirmwarePath;
@@ -285,6 +300,18 @@ bool GetConfigArray(ConfigEntry entry, void* data)
     }
 
     return false;
+}
+
+unsigned long long GetConfigU64(ConfigEntry entry)
+{
+    switch (entry)
+    {
+#ifdef DEBUG_FEATURES_ENABLED
+    case DBG_EnabledSignals: return Config::DBG_EnabledSignals;
+#endif
+    }
+
+    return 0;
 }
 
 

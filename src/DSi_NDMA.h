@@ -92,6 +92,8 @@ private:
     bool Stall;
 
     bool IsGXFIFODMA;
+
+    s32 dsym_cnt, dsym_running, dsym_addr, dsym_data;
 };
 
 #endif // DSI_NDMA_H

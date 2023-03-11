@@ -45,6 +45,15 @@
 #include "DSi_Camera.h"
 #include "DSi_DSP.h"
 
+#ifdef DEBUG_FEATURES_ENABLED
+#include "debug/storage.h"
+#endif
+
+#if 0
+#define KEYINPUT_TWLBOOT ((0x80ul<<16) | (u32)(~(u16)0x040c&0xffff))
+#else
+#define KEYINPUT_TWLBOOT KeyInput
+#endif
 
 namespace NDS
 {
@@ -173,13 +182,23 @@ bool Running;
 
 bool RunningGame;
 
+bool ExitEmulator;
+
+#ifdef DEBUG_FEATURES_ENABLED
+debug::DebugStorageNDS DebugStuff;
+#endif
+
+s32 dsym_exmemcnt[2], dsym_wramcnt, dsym_ipcsync[2], dsym_ipcfifocnt[2], dsym_ipcfifodata[2];
+s32 dsym_timer_cnt[8], dsym_ime[2], dsym_ie[2], dsym_if[2];
+s32 dsym_div, dsym_sqrt, dsym_keyin, dsym_keycnt;
+s32 dsym_powcnt[2];
+
 void DivDone(u32 param);
 void SqrtDone(u32 param);
 void RunTimer(u32 tid, s32 cycles);
 void UpdateWifiTimings();
 void SetWifiWaitCnt(u16 val);
 void SetGBASlotTimings();
-
 
 bool Init()
 {
@@ -203,6 +222,10 @@ bool Init()
     DMAs[6] = new DMA(1, 2);
     DMAs[7] = new DMA(1, 3);
 
+#if DEBUG_FEATURES_ENABLED
+    DebugStuff.Reset();
+#endif
+
     if (!NDSCart::Init()) return false;
     if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
@@ -220,6 +243,11 @@ bool Init()
 
 void DeInit()
 {
+    printf("Stopping: deinit\n");
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.Reset();
+#endif
+
 #ifdef JIT_ENABLED
     ARMJIT::DeInit();
 #endif
@@ -510,6 +538,7 @@ void Reset()
     EnableJIT = Platform::GetConfigBool(Platform::JIT_Enable);
 #endif
 
+    ExitEmulator = false;
     RunningGame = false;
     LastSysClockCycles = 0;
 
@@ -581,6 +610,8 @@ void Reset()
     // otherwise some PU settings are completely
     // unitialised on the first run
     ARM9->CP15Reset();
+
+    DebugStuff.Reset();
 
     ARM9Timestamp = 0; ARM9Target = 0;
     ARM7Timestamp = 0; ARM7Target = 0;
@@ -668,7 +699,7 @@ void Reset()
     if (ConsoleType == 1)
     {
         DSi::Reset();
-        KeyInput &= ~(1 << (16+6));
+        KeyInput &= ~(1 << (16+6)); // bit 22: pen down
         degradeAudio = false;
     }
 
@@ -681,6 +712,40 @@ void Reset()
     SPU::SetDegrade10Bit(degradeAudio);
 
     AREngine::Reset();
+
+    dsym_exmemcnt[0] = MakeTracingSym("EXMEMCNT_A9", 16, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+    dsym_exmemcnt[1] = MakeTracingSym("EXMEMCNT_A7", 16, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+    dsym_wramcnt = MakeTracingSym("WRAMCNT", 8, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+
+    dsym_ipcsync[0] = MakeTracingSym("IPCSYNC_A9", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+    dsym_ipcsync[1] = MakeTracingSym("IPCSYNC_A7", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+    dsym_ipcfifocnt[0] = MakeTracingSym("IPCFIFOCNT_A9", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+    dsym_ipcfifocnt[1] = MakeTracingSym("IPCFIFOCNT_A7", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+    dsym_ipcfifodata[0] = MakeTracingSym("IPCFIFO 7to9", 32, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+    dsym_ipcfifodata[1] = MakeTracingSym("IPCFIFO 9to7", 32, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+
+    for (int i = 0; i < 8; ++i) {
+        char name[strlen("TMxCNT_Ax")+1];
+        snprintf(name, sizeof(name), "TM%cCNT_A%c", '0'+(i&3), (i&4)?'7':'9');
+        dsym_timer_cnt[i] = MakeTracingSym(name, 8, LT_SYM_F_BITS, debug::SystemSignal::TimerCtl);
+    }
+
+    dsym_ime[0] = MakeTracingSym("IME_A9", 1, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+    dsym_ime[1] = MakeTracingSym("IME_A7", 1, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+
+    dsym_ie[0] = MakeTracingSym("IE_A9", 32, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+    dsym_ie[1] = MakeTracingSym("IE_A7", 32, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+    dsym_if[0] = MakeTracingSym("IF_A9", 32, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+    dsym_if[1] = MakeTracingSym("IF_A7", 32, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+
+    dsym_div = MakeTracingSym( "DIVCNT", 16, LT_SYM_F_BITS, debug::SystemSignal::MathsCtl);
+    dsym_sqrt= MakeTracingSym("SQRTCNT", 16, LT_SYM_F_BITS, debug::SystemSignal::MathsCtl);
+
+    dsym_keyin  = MakeTracingSym("KEYINPUT", 32, LT_SYM_F_BITS, debug::SystemSignal::MathsCtl);
+    dsym_keycnt = MakeTracingSym("KEYCNT"  , 16, LT_SYM_F_BITS, debug::SystemSignal::MathsCtl);
+
+    dsym_powcnt[0] = MakeTracingSym("POWCNT1", 16, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_powcnt[1] = MakeTracingSym("POWCNT2",  2, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
 }
 
 void Start()
@@ -691,6 +756,9 @@ void Start()
 void Stop()
 {
     printf("Stopping: shutdown\n");
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.Reset();
+#endif
     Running = false;
     Platform::StopEmu();
     GPU::Stop();
@@ -918,6 +986,9 @@ bool DoSavestate(Savestate* file)
 
     if (ConsoleType == 1)
         DSi::DoSavestate(file);
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.DoSavestate(file);
+#endif
 
     if (!file->Saving)
     {
@@ -1025,6 +1096,9 @@ u64 NextTarget()
 void RunSystem(u64 timestamp)
 {
     SysTimestamp = timestamp;
+#ifdef DEBUG_FEATURES_ENABLED
+    DebugStuff.SetTime(SysTimestamp, true);
+#endif
 
     u32 mask = SchedListMask;
     for (int i = 0; i < Event_MAX; i++)
@@ -1240,6 +1314,7 @@ void TouchScreen(u16 x, u16 y)
     {
         SPI_TSC::SetTouchCoords(x, y);
         KeyInput &= ~(1 << (16+6));
+        TraceValue(dsym_keyin, KeyInput);
     }
 }
 
@@ -1253,6 +1328,7 @@ void ReleaseScreen()
     {
         SPI_TSC::SetTouchCoords(0x000, 0xFFF);
         KeyInput |= (1 << (16+6));
+        TraceValue(dsym_keyin, KeyInput);
     }
 }
 
@@ -1264,6 +1340,7 @@ void SetKeyMask(u32 mask)
 
     KeyInput &= 0xFFFCFC00;
     KeyInput |= key_lo | (key_hi << 16);
+    TraceValue(dsym_keyin, KeyInput);
 }
 
 bool IsLidClosed()
@@ -1300,6 +1377,7 @@ void CamInputFrame(int cam, u32* data, int width, int height, bool rgb)
         case 1: return DSi_CamModule::Camera1->InputFrame(data, width, height, rgb);
         }
     }
+    TraceValue(dsym_keyin, KeyInput);
 }
 
 void MicInputFrame(s16* data, int samples)
@@ -1330,6 +1408,7 @@ void MapSharedWRAM(u8 val)
 #endif
 
     WRAMCnt = val;
+    TraceValue(dsym_wramcnt, WRAMCnt);
 
     switch (WRAMCnt & 0x3)
     {
@@ -1447,24 +1526,28 @@ void UpdateIRQ(u32 cpu)
 void SetIRQ(u32 cpu, u32 irq)
 {
     IF[cpu] |= (1 << irq);
+    TraceValue(dsym_if[cpu], IF[cpu]);
     UpdateIRQ(cpu);
 }
 
 void ClearIRQ(u32 cpu, u32 irq)
 {
     IF[cpu] &= ~(1 << irq);
+    TraceValue(dsym_if[cpu], IF[cpu]);
     UpdateIRQ(cpu);
 }
 
 void SetIRQ2(u32 irq)
 {
     IF2 |= (1 << irq);
+    TraceValue(DSi::dsym_if2, IF2);
     UpdateIRQ(1);
 }
 
 void ClearIRQ2(u32 irq)
 {
     IF2 &= ~(1 << irq);
+    TraceValue(DSi::dsym_if2, IF2);
     UpdateIRQ(1);
 }
 
@@ -1540,14 +1623,14 @@ u32 GetPC(u32 cpu)
     return cpu ? ARM7->R[15] : ARM9->R[15];
 }
 
-u64 GetSysClockCycles(int num)
+u64 GetSysClockCycles(int num, bool clkshift)
 {
     u64 ret;
 
     if (num == 0 || num == 2)
     {
         if (CurCPU == 0)
-            ret = ARM9Timestamp >> ARM9ClockShift;
+            ret = clkshift ? (ARM9Timestamp >> ARM9ClockShift) : ARM9Timestamp;
         else
             ret = ARM7Timestamp;
 
@@ -1559,7 +1642,7 @@ u64 GetSysClockCycles(int num)
         LastSysClockCycles = 0;
 
         if (CurCPU == 0)
-            LastSysClockCycles = ARM9Timestamp >> ARM9ClockShift;
+            LastSysClockCycles = clkshift ? (ARM9Timestamp >> ARM9ClockShift) : ARM9Timestamp;
         else
             LastSysClockCycles = ARM7Timestamp;
     }
@@ -1645,7 +1728,9 @@ void NocashPrint(u32 ncpu, u32 addr)
     }
 
     output[ptr] = '\0';
-    printf("%s", output);
+    printf("%s\n", output); // no$gba and desmume seem to include the newline,
+                            // so let's do that as well (to play nice with
+                            // stdio flushing behavior)
 }
 
 
@@ -1750,6 +1835,7 @@ void TimerStart(u32 id, u16 cnt)
 
     timer->Cnt = cnt;
     timer->CycleShift = 10 - TimerPrescaler[cnt & 0x03];
+    TraceValue(dsym_timer_cnt[id], cnt&0xFF);
 
     if ((!curstart) && newstart)
     {
@@ -1926,12 +2012,15 @@ void DivDone(u32 param)
 
     if ((DivDenominator[0] | DivDenominator[1]) == 0)
         DivCnt |= 0x4000;
+
+    TraceValue(dsym_div, DivCnt);
 }
 
 void StartDiv()
 {
     NDS::CancelEvent(NDS::Event_Div);
     DivCnt |= 0x8000;
+    TraceValue(dsym_div, DivCnt);
     NDS::ScheduleEvent(NDS::Event_Div, false, ((DivCnt&0x3)==0) ? 18:34, DivDone, 0);
 }
 
@@ -1974,12 +2063,15 @@ void SqrtDone(u32 param)
     }
 
     SqrtRes = res;
+
+    TraceValue(dsym_sqrt, SqrtCnt);
 }
 
 void StartSqrt()
 {
     NDS::CancelEvent(NDS::Event_Sqrt);
     SqrtCnt |= 0x8000;
+    TraceValue(dsym_sqrt, SqrtCnt);
     NDS::ScheduleEvent(NDS::Event_Sqrt, false, 13, SqrtDone, 0);
 }
 
@@ -2920,8 +3012,8 @@ u8 ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFF;
-    case 0x04000131: LagFrameFlag = false; return (KeyInput >> 8) & 0xFF;
+    case 0x04000130: LagFrameFlag = false; return KEYINPUT_TWLBOOT & 0xFF;
+    case 0x04000131: LagFrameFlag = false; return (KEYINPUT_TWLBOOT >> 8) & 0xFF;
     case 0x04000132: return KeyCnt & 0xFF;
     case 0x04000133: return KeyCnt >> 8;
 
@@ -3058,7 +3150,7 @@ u16 ARM9IORead16(u32 addr)
     case 0x0400010C: return TimerGetCounter(3);
     case 0x0400010E: return Timers[3].Cnt;
 
-    case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFFFF;
+    case 0x04000130: LagFrameFlag = false; return KEYINPUT_TWLBOOT & 0xFFFF;
     case 0x04000132: return KeyCnt;
 
     case 0x04000180: return IPCSync9;
@@ -3201,7 +3293,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000108: return TimerGetCounter(2) | (Timers[2].Cnt << 16);
     case 0x0400010C: return TimerGetCounter(3) | (Timers[3].Cnt << 16);
 
-    case 0x04000130: LagFrameFlag = false; return (KeyInput & 0xFFFF) | (KeyCnt << 16);
+    case 0x04000130: LagFrameFlag = false; return (KEYINPUT_TWLBOOT & 0xFFFF) | (KeyCnt << 16);
 
     case 0x04000180: return IPCSync9;
     case 0x04000184: return ARM9IORead16(addr);
@@ -3272,10 +3364,29 @@ u32 ARM9IORead32(u32 addr)
                 if (IPCFIFO7.IsEmpty() && (IPCFIFOCnt7 & 0x0004))
                     SetIRQ(1, IRQ_IPCSendDone);
             }
+            TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
+                |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+                |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+            TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
+                |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+                |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
+
+            TraceValue(dsym_ipcfifodata[0], ret); // 0=7to9
             return ret;
         }
         else
-            return IPCFIFO7.Peek();
+        {
+            u32 ret = IPCFIFO7.Peek();
+            TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
+                |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+                |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+            TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
+                |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+                |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
+
+            TraceValue(dsym_ipcfifodata[0], ret); // 0=7to9
+            return ret;
+        }
 
     case 0x04100010:
         if (!(ExMemCnt[0] & (1<<11))) return NDSCart::ReadROMData();
@@ -3322,9 +3433,11 @@ void ARM9IOWrite8(u32 addr, u8 val)
 
     case 0x04000132:
         KeyCnt = (KeyCnt & 0xFF00) | val;
+        TraceValue(dsym_keycnt, KeyCnt);
         return;
     case 0x04000133:
         KeyCnt = (KeyCnt & 0x00FF) | (val << 8);
+        TraceValue(dsym_keycnt, KeyCnt);
         return;
 
     case 0x04000188:
@@ -3353,7 +3466,9 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x040001AE: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[6] = val; return;
     case 0x040001AF: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[7] = val; return;
 
-    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
+    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0);
+        TraceValue(dsym_ime[0], val&1);
+        return;
 
     case 0x04000240: GPU::MapVRAM_AB(0, val); return;
     case 0x04000241: GPU::MapVRAM_AB(1, val); return;
@@ -3435,6 +3550,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
 
     case 0x04000132:
         KeyCnt = val;
+        TraceValue(dsym_keycnt, KeyCnt);
         return;
 
     case 0x04000180:
@@ -3442,6 +3558,8 @@ void ARM9IOWrite16(u32 addr, u16 val)
         IPCSync7 |= ((val & 0x0F00) >> 8);
         IPCSync9 &= 0xB0FF;
         IPCSync9 |= (val & 0x4F00);
+        TraceValue(dsym_ipcsync[0], IPCSync9);
+        TraceValue(dsym_ipcsync[1], IPCSync7);
         if ((val & 0x2000) && (IPCSync7 & 0x4000))
         {
             SetIRQ(1, IRQ_IPCSync);
@@ -3458,6 +3576,12 @@ void ARM9IOWrite16(u32 addr, u16 val)
         if (val & 0x4000)
             IPCFIFOCnt9 &= ~0x4000;
         IPCFIFOCnt9 = (val & 0x8404) | (IPCFIFOCnt9 & 0x4000);
+        TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
+            |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+            |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+        TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
+            |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+            |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
         return;
 
     case 0x04000188:
@@ -3512,12 +3636,20 @@ void ARM9IOWrite16(u32 addr, u16 val)
             ExMemCnt[1] = (ExMemCnt[1] & 0x007F) | (val & 0xFF80);
             if ((oldVal ^ ExMemCnt[0]) & 0xFF)
                 SetGBASlotTimings();
+            TraceValue(dsym_exmemcnt[0], ExMemCnt[0]);
+            TraceValue(dsym_exmemcnt[1], ExMemCnt[1]);
             return;
         }
 
-    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
-    case 0x04000210: IE[0] = (IE[0] & 0xFFFF0000) | val; UpdateIRQ(0); return;
-    case 0x04000212: IE[0] = (IE[0] & 0x0000FFFF) | (val << 16); UpdateIRQ(0); return;
+    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0);
+        TraceValue(dsym_ime[0], val&1);
+        return;
+    case 0x04000210: IE[0] = (IE[0] & 0xFFFF0000) | val; UpdateIRQ(0);
+        TraceValue(dsym_ie[0], IE[0]);
+        return;
+    case 0x04000212: IE[0] = (IE[0] & 0x0000FFFF) | (val << 16); UpdateIRQ(0);
+        TraceValue(dsym_ie[0], IE[0]);
+        return;
     // TODO: what happens when writing to IF this way??
 
     case 0x04000240:
@@ -3552,6 +3684,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
 
     case 0x04000304:
         PowerControl9 = val & 0x820F;
+        TraceValue(dsym_powcnt[0], PowerControl9);
         GPU::SetPowerCnt(PowerControl9);
         return;
     }
@@ -3628,6 +3761,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
     case 0x04000130:
         KeyCnt = val >> 16;
+        TraceValue(dsym_keycnt, KeyCnt);
         return;
 
     case 0x04000180:
@@ -3646,6 +3780,12 @@ void ARM9IOWrite32(u32 addr, u32 val)
                 if ((IPCFIFOCnt7 & 0x0400) && wasempty)
                     SetIRQ(1, IRQ_IPCRecv);
             }
+            TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
+                |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+                |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+            TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
+                |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+                |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
         }
         return;
 
@@ -3683,9 +3823,15 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x040001B0: *(u32*)&ROMSeed0[0] = val; return;
     case 0x040001B4: *(u32*)&ROMSeed1[0] = val; return;
 
-    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
-    case 0x04000210: IE[0] = val; UpdateIRQ(0); return;
-    case 0x04000214: IF[0] &= ~val; GPU3D::CheckFIFOIRQ(); UpdateIRQ(0); return;
+    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0);
+        TraceValue(dsym_ime[0], val&1);
+        return;
+    case 0x04000210: IE[0] = val; UpdateIRQ(0);
+        TraceValue(dsym_ie[0], IE[0]);
+        return;
+    case 0x04000214: IF[0] &= ~val; GPU3D::CheckFIFOIRQ(); UpdateIRQ(0);
+        TraceValue(dsym_if[0], IF[0]);
+        return;
 
     case 0x04000240:
         GPU::MapVRAM_AB(0, val & 0xFF);
@@ -3718,6 +3864,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
     case 0x04000304:
         PowerControl9 = val & 0x820F;
+        TraceValue(dsym_powcnt[0], PowerControl9);
         GPU::SetPowerCnt(PowerControl9);
         return;
 
@@ -3778,14 +3925,14 @@ u8 ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04000130: return KeyInput & 0xFF;
-    case 0x04000131: return (KeyInput >> 8) & 0xFF;
+    case 0x04000130: return KEYINPUT_TWLBOOT & 0xFF;
+    case 0x04000131: return (KEYINPUT_TWLBOOT >> 8) & 0xFF;
     case 0x04000132: return KeyCnt & 0xFF;
     case 0x04000133: return KeyCnt >> 8;
     case 0x04000134: return RCnt & 0xFF;
     case 0x04000135: return RCnt >> 8;
-    case 0x04000136: return (KeyInput >> 16) & 0xFF;
-    case 0x04000137: return KeyInput >> 24;
+    case 0x04000136: return (KEYINPUT_TWLBOOT >> 16) & 0xFF;
+    case 0x04000137: return KEYINPUT_TWLBOOT >> 24;
 
     case 0x04000138: return RTC::Read() & 0xFF;
 
@@ -3873,10 +4020,10 @@ u16 ARM7IORead16(u32 addr)
     case 0x0400010C: return TimerGetCounter(7);
     case 0x0400010E: return Timers[7].Cnt;
 
-    case 0x04000130: return KeyInput & 0xFFFF;
+    case 0x04000130: return KEYINPUT_TWLBOOT & 0xFFFF;
     case 0x04000132: return KeyCnt;
     case 0x04000134: return RCnt;
-    case 0x04000136: return KeyInput >> 16;
+    case 0x04000136: return KEYINPUT_TWLBOOT >> 16;
 
     case 0x04000138: return RTC::Read();
 
@@ -3966,7 +4113,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000108: return TimerGetCounter(6) | (Timers[6].Cnt << 16);
     case 0x0400010C: return TimerGetCounter(7) | (Timers[7].Cnt << 16);
 
-    case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
+    case 0x04000130: return (KEYINPUT_TWLBOOT & 0xFFFF) | (KeyCnt << 16);
     case 0x04000134: return RCnt | (KeyCnt & 0xFFFF0000);
     case 0x04000138: return RTC::Read();
 
@@ -4023,10 +4170,29 @@ u32 ARM7IORead32(u32 addr)
                 if (IPCFIFO9.IsEmpty() && (IPCFIFOCnt9 & 0x0004))
                     SetIRQ(0, IRQ_IPCSendDone);
             }
+            TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
+                |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+                |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+            TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
+                |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+                |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
+
+            TraceValue(dsym_ipcfifodata[1], ret); // 0=7to9
             return ret;
         }
         else
-            return IPCFIFO9.Peek();
+        {
+            u32 ret = IPCFIFO9.Peek();
+            TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
+                |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+                |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+            TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
+                |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+                |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
+
+            TraceValue(dsym_ipcfifodata[1], ret); // 0=7to9
+            return ret;
+        }
 
     case 0x04100010:
         if (ExMemCnt[0] & (1<<11)) return NDSCart::ReadROMData();
@@ -4049,9 +4215,11 @@ void ARM7IOWrite8(u32 addr, u8 val)
     {
     case 0x04000132:
         KeyCnt = (KeyCnt & 0xFF00) | val;
+        TraceValue(dsym_keycnt, KeyCnt);
         return;
     case 0x04000133:
         KeyCnt = (KeyCnt & 0x00FF) | (val << 8);
+        TraceValue(dsym_keycnt, KeyCnt);
         return;
     case 0x04000134:
         RCnt = (RCnt & 0xFF00) | val;
@@ -4094,7 +4262,9 @@ void ARM7IOWrite8(u32 addr, u8 val)
         SPI::WriteData(val);
         return;
 
-    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
+    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1);
+        TraceValue(dsym_ime[1], val&1);
+        return;
 
     case 0x04000300:
         if (ARM7->R[15] >= 0x4000)
@@ -4145,7 +4315,10 @@ void ARM7IOWrite16(u32 addr, u16 val)
     case 0x0400010C: Timers[7].Reload = val; return;
     case 0x0400010E: TimerStart(7, val); return;
 
-    case 0x04000132: KeyCnt = val; return;
+    case 0x04000132:
+        KeyCnt = val;
+        TraceValue(dsym_keycnt, KeyCnt);
+        return;
     case 0x04000134: RCnt = val; return;
 
     case 0x04000138: RTC::Write(val, false); return;
@@ -4155,6 +4328,8 @@ void ARM7IOWrite16(u32 addr, u16 val)
         IPCSync9 |= ((val & 0x0F00) >> 8);
         IPCSync7 &= 0xB0FF;
         IPCSync7 |= (val & 0x4F00);
+        TraceValue(dsym_ipcsync[0], IPCSync9);
+        TraceValue(dsym_ipcsync[1], IPCSync7);
         if ((val & 0x2000) && (IPCSync9 & 0x4000))
         {
             SetIRQ(0, IRQ_IPCSync);
@@ -4171,6 +4346,12 @@ void ARM7IOWrite16(u32 addr, u16 val)
         if (val & 0x4000)
             IPCFIFOCnt7 &= ~0x4000;
         IPCFIFOCnt7 = (val & 0x8404) | (IPCFIFOCnt7 & 0x4000);
+        TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
+            |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+            |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+        TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
+            |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+            |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
         return;
 
     case 0x04000188:
@@ -4231,6 +4412,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
             ExMemCnt[1] = (ExMemCnt[1] & 0xFF80) | (val & 0x007F);
             if ((ExMemCnt[1] ^ oldVal) & 0xFF)
                 SetGBASlotTimings();
+            TraceValue(dsym_exmemcnt[1], ExMemCnt[1]);
             return;
         }
     case 0x04000206:
@@ -4238,9 +4420,15 @@ void ARM7IOWrite16(u32 addr, u16 val)
         SetWifiWaitCnt(val);
         return;
 
-    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
-    case 0x04000210: IE[1] = (IE[1] & 0xFFFF0000) | val; UpdateIRQ(1); return;
-    case 0x04000212: IE[1] = (IE[1] & 0x0000FFFF) | (val << 16); UpdateIRQ(1); return;
+    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1);
+        TraceValue(dsym_ime[1], val&1);
+        return;
+    case 0x04000210: IE[1] = (IE[1] & 0xFFFF0000) | val; UpdateIRQ(1);
+        TraceValue(dsym_ie[1], IE[1]);
+        return;
+    case 0x04000212: IE[1] = (IE[1] & 0x0000FFFF) | (val << 16); UpdateIRQ(1);
+        TraceValue(dsym_ie[1], IE[1]);
+        return;
     // TODO: what happens when writing to IF this way??
 
     case 0x04000300:
@@ -4257,6 +4445,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
             SPU::SetPowerCnt(val & 0x0001);
             Wifi::SetPowerCnt(val & 0x0002);
             if (change & 0x0002) UpdateWifiTimings();
+            TraceValue(dsym_powcnt[1], PowerControl7);
         }
         return;
 
@@ -4314,7 +4503,10 @@ void ARM7IOWrite32(u32 addr, u32 val)
         TimerStart(7, val>>16);
         return;
 
-    case 0x04000130: KeyCnt = val >> 16; return;
+    case 0x04000130:
+        KeyCnt = val >> 16;
+        TraceValue(dsym_keycnt, KeyCnt);
+        return;
     case 0x04000134: RCnt = val & 0xFFFF; return;
     case 0x04000138: RTC::Write(val & 0xFFFF, false); return;
 
@@ -4334,6 +4526,12 @@ void ARM7IOWrite32(u32 addr, u32 val)
                 if ((IPCFIFOCnt9 & 0x0400) && wasempty)
                     SetIRQ(0, IRQ_IPCRecv);
             }
+            TraceValue(dsym_ipcfifocnt[0], IPCFIFOCnt9
+                |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+                |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+            TraceValue(dsym_ipcfifocnt[1], IPCFIFOCnt7
+                |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+                |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
         }
         return;
 
@@ -4376,9 +4574,15 @@ void ARM7IOWrite32(u32 addr, u32 val)
         SPI::WriteData((val >> 16) & 0xFF);
         return;
 
-    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
-    case 0x04000210: IE[1] = val; UpdateIRQ(1); return;
-    case 0x04000214: IF[1] &= ~val; UpdateIRQ(1); return;
+    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1);
+        TraceValue(dsym_ime[1], val&1);
+        return;
+    case 0x04000210: IE[1] = val; UpdateIRQ(1);
+        TraceValue(dsym_ie[1], IE[1]);
+        return;
+    case 0x04000214: IF[1] &= ~val; UpdateIRQ(1);
+        TraceValue(dsym_if[1], IF[1]);
+        return;
 
     case 0x04000304:
         {
@@ -4387,6 +4591,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
             SPU::SetPowerCnt(val & 0x0001);
             Wifi::SetPowerCnt(val & 0x0002);
             if (change & 0x0002) UpdateWifiTimings();
+            TraceValue(dsym_powcnt[1], PowerControl7);
         }
         return;
 

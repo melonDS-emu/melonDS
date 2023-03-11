@@ -98,6 +98,8 @@ private:
 
     u32 MRAMBurstCount;
     const u8* MRAMBurstTable;
+
+    s32 dsym_cnt, dsym_running, dsym_addr, dsym_data;
 };
 
 #endif
