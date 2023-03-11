@@ -691,6 +691,7 @@ void EmuThread::emuRun()
     emit windowEmuStart();
     AudioInOut::Enable();
     IPC::SetActive(true);
+    IPC::SetActive(true);
 }
 
 void EmuThread::initContext()
@@ -716,6 +717,7 @@ void EmuThread::emuPause()
 
     AudioInOut::Disable();
     IPC::SetActive(false);
+    IPC::SetActive(false);
 }
 
 void EmuThread::emuUnpause()
@@ -729,6 +731,7 @@ void EmuThread::emuUnpause()
 
     AudioInOut::Enable();
     IPC::SetActive(true);
+    IPC::SetActive(true);
 }
 
 void EmuThread::emuStop()
@@ -737,6 +740,7 @@ void EmuThread::emuStop()
     EmuPauseStack = EmuPauseStackRunning;
 
     AudioInOut::Disable();
+    IPC::SetActive(false);
     IPC::SetActive(false);
 }
 
