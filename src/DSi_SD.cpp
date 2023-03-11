@@ -44,7 +44,10 @@
 // * when filling FIFO
 
 
-#define SD_DESC  Num?"SDIO":"SD/MMC"
+constexpr auto SDDesc(u32 Num)
+{
+    return Num ? "SDIO" : "SD/MMC";
+}
 
 
 DSi_SDHost::DSi_SDHost(u32 num)
@@ -523,7 +526,7 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x10A: return 0;
     }
 
-    printf("unknown %s read %08X @ %08X\n", SD_DESC, addr, NDS::GetPC(1));
+    printf("unknown %s read %08X @ %08X\n", SDDesc(Num), addr, NDS::GetPC(1));
     return 0;
 }
 
@@ -591,11 +594,11 @@ void DSi_SDHost::Write(u32 addr, u16 val)
                 case 0: dev->SendCMD(cmd, Param); break;
                 case 1: /*dev->SendCMD(55, 0);*/ dev->SendCMD(cmd, Param); break;
                 default:
-                    printf("%s: unknown command type %d, %02X %08X\n", SD_DESC, (Command>>6)&0x3, cmd, Param);
+                    printf("%s: unknown command type %d, %02X %08X\n", SDDesc(Num), (Command>>6)&0x3, cmd, Param);
                     break;
                 }
             }
-            else printf("%s: SENDING CMD %04X TO NULL DEVICE\n", SD_DESC, val);
+            else printf("%s: SENDING CMD %04X TO NULL DEVICE\n", SDDesc(Num), val);
         }
         return;
 
@@ -659,7 +662,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
     case 0x0E0:
         if ((SoftReset & 0x0001) && !(val & 0x0001))
         {
-            printf("%s: RESET\n", SD_DESC);
+            printf("%s: RESET\n", SDDesc(Num));
             StopAction = 0;
             memset(ResponseBuffer, 0, sizeof(ResponseBuffer));
             IRQStatus = 0;
@@ -689,7 +692,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
     case 0x10A: return;
     }
 
-    printf("unknown %s write %08X %04X\n", SD_DESC, addr, val);
+    printf("unknown %s write %08X %04X\n", SDDesc(Num), addr, val);
 }
 
 void DSi_SDHost::WriteFIFO16(u16 val)
@@ -699,7 +702,7 @@ void DSi_SDHost::WriteFIFO16(u16 val)
     if (DataFIFO[f].IsFull())
     {
         // TODO
-        printf("!!!! %s FIFO (16) FULL\n", SD_DESC);
+        printf("!!!! %s FIFO (16) FULL\n", SDDesc(Num));
         return;
     }
 
@@ -715,7 +718,7 @@ void DSi_SDHost::WriteFIFO32(u32 val)
     if (DataFIFO32.IsFull())
     {
         // TODO
-        printf("!!!! %s FIFO (32) FULL\n", SD_DESC);
+        printf("!!!! %s FIFO (32) FULL\n", SDDesc(Num));
         return;
     }
 
