@@ -472,6 +472,8 @@ template<int fifo> void FIFOWrite(void* buf, int len)
 
 void ProcessCommands()
 {
+    memset(CmdRecvFlags, 0, sizeof(CmdRecvFlags));
+
     Buffer->lock();
     u8* data = (u8*)Buffer->data();
     BufferHeader* header = (BufferHeader*)&data[0];
@@ -503,6 +505,9 @@ void ProcessCommands()
 
             continue;
         }
+
+        if (cmdheader.Command >= Cmd_MAX)
+            continue;
 
         // handle this command
 
