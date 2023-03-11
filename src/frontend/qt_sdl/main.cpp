@@ -198,6 +198,8 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
     connect(this, SIGNAL(screenEmphasisToggle()), mainWindow, SLOT(onScreenEmphasisToggled()));
 
+    connect(this, SIGNAL(windowIPCPause()), mainWindow, SLOT(onIPCPause()));
+
     static_cast<ScreenPanelGL*>(mainWindow->panel)->transferLayout(this);
 }
 
@@ -358,6 +360,8 @@ void EmuThread::run()
     while (EmuRunning != emuStatus_Exit)
     {
         IPC::Process();
+
+        if (IPC::CommandReceived(IPC::Cmd_Pause)) emit windowIPCPause();
 
         Input::Process();
 
@@ -2707,8 +2711,30 @@ void MainWindow::onPause(bool checked)
         pausedManually = false;
     }
 
-    if (Platform::InstanceID()==0) // HAX
     IPC::SendCommand(0xFFFF, IPC::Cmd_Pause, 0, nullptr);
+}
+
+void MainWindow::onIPCPause()
+{
+    // for IPC, using the normal way to trigger a pause (actPause->trigger())
+    // isn't viable, because it would lead to broadcasting more IPC 'pause' messages
+    // so we have to replicate it this way
+
+    actPause->toggle(); // changes visual state, without triggering onPause()
+    bool checked = actPause->isChecked();
+
+    if (checked)
+    {
+        emuThread->emuPause();
+        OSD::AddMessage(0, "Paused");
+        pausedManually = true;
+    }
+    else
+    {
+        emuThread->emuUnpause();
+        OSD::AddMessage(0, "Resumed");
+        pausedManually = false;
+    }
 }
 
 void MainWindow::onReset()

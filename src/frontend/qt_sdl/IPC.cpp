@@ -61,6 +61,8 @@ const u32 kMaxCommandSize = 0x800;
 const u32 kCommandStart = sizeof(BufferHeader);
 const u32 kCommandEnd = kBufferSize;
 
+bool CmdRecvFlags[Cmd_MAX];
+
 
 void Init()
 {
@@ -108,6 +110,8 @@ void Init()
         }
     }
     Buffer->unlock();
+
+    memset(CmdRecvFlags, 0, sizeof(CmdRecvFlags));
 
     printf("IPC: instance ID %d\n", InstanceID);
 }
@@ -185,6 +189,8 @@ void FIFOWrite(void* buf, int len)
 
 void Process()
 {
+    memset(CmdRecvFlags, 0, sizeof(CmdRecvFlags));
+
     Buffer->lock();
     u8* data = (u8*)Buffer->data();
     BufferHeader* header = (BufferHeader*)&data[0];
@@ -211,13 +217,18 @@ void Process()
         if (!(cmdheader.Recipients & (1<<InstanceID)))
             continue;
 
+        if (cmdheader.Command >= Cmd_MAX)
+            continue;
+
         // handle this command
-        switch (cmdheader.Command)
+        /*switch (cmdheader.Command)
         {
         case Cmd_Pause:
             Input::ExtHotkeyPress(HK_Pause);
             break;
-        }
+        }*/
+        CmdRecvFlags[cmdheader.Command] = true;
+        // TODO: store the command data, for future commands that will need it
     }
 
     Buffer->unlock();
@@ -225,6 +236,22 @@ void Process()
 
 bool SendCommand(u16 recipients, u16 command, u16 len, void* cmddata)
 {
+    if (command >= Cmd_MAX)
+    {
+        printf("IPC: invalid command %d\n", command);
+        return false;
+    }
+    if (len && cmddata==nullptr)
+    {
+        printf("IPC: ????? sending command with NULL buffer\n");
+        return false;
+    }
+    if (len > kMaxCommandSize)
+    {
+        printf("IPC: command too long\n");
+        return false;
+    }
+
     Buffer->lock();
     u8* data = (u8*)Buffer->data();
     BufferHeader* header = (BufferHeader*)&data[0];
@@ -233,19 +260,6 @@ bool SendCommand(u16 recipients, u16 command, u16 len, void* cmddata)
     recipients &= ~(1<<InstanceID);
     if (!recipients)
     {
-        Buffer->unlock();
-        return false;
-    }
-
-    if (len && cmddata==nullptr)
-    {
-        printf("IPC: ????? sending command with NULL buffer\n");
-        Buffer->unlock();
-        return false;
-    }
-    if (len > kMaxCommandSize)
-    {
-        printf("IPC: command too long\n");
         Buffer->unlock();
         return false;
     }
@@ -262,6 +276,12 @@ bool SendCommand(u16 recipients, u16 command, u16 len, void* cmddata)
 
     Buffer->unlock();
     return true;
+}
+
+bool CommandReceived(u16 command)
+{
+    if (command >= Cmd_MAX) return false;
+    return CmdRecvFlags[command];
 }
 
 }

@@ -27,6 +27,8 @@ namespace IPC
 enum
 {
     Cmd_Pause = 1,
+
+    Cmd_MAX
 };
 
 extern int InstanceID;
@@ -37,6 +39,7 @@ void DeInit();
 void Process();
 
 bool SendCommand(u16 recipients, u16 command, u16 len, void* data);
+bool CommandReceived(u16 command);
 
 }
 
