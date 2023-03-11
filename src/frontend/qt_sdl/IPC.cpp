@@ -35,13 +35,10 @@
 
 #include "IPC.h"
 #include "Config.h"
-//#include "Input.h"
+#include "main.h"
 
 
-namespace Input
-{
-void ExtHotkeyPress(int id);
-}
+extern EmuThread* emuThread;
 
 
 namespace IPC
@@ -55,6 +52,7 @@ struct BufferHeader
     u16 NumInstances;     // total number of instances present
     u16 InstanceBitmask;  // bitmask of all instances present
     u16 ConnectedBitmask; // bitmask of which instances are ready to send/receive MP packets
+    u16 ActiveBitmask;    // bitmask of which instances are currently active (ie. not halted externally)
     u32 CommandWriteOffset;
     u32 MPPacketWriteOffset;
     u32 MPReplyWriteOffset;
@@ -93,8 +91,6 @@ const u32 kMPPacketStart = kCommandEnd;
 const u32 kMPPacketEnd = (2 * (kBufferSize / 3));
 const u32 kMPReplyStart = kMPPacketEnd;
 const u32 kMPReplyEnd = kBufferSize;
-
-bool CmdRecvFlags[Cmd_MAX];
 
 int MPRecvTimeout;
 int MPLastHostID;
@@ -294,8 +290,6 @@ bool Init()
     }
     Buffer->unlock();
 
-    memset(CmdRecvFlags, 0, sizeof(CmdRecvFlags));
-
     MPLastHostID = -1;
     MPRecvTimeout = 25;
 
@@ -312,6 +306,8 @@ bool InitSema()
     SemPoolInit();
     if (!SemInit(InstanceID)) return false;
     if (!SemInit(16+InstanceID)) return false;
+
+    return true;
 }
 
 void DeInit()
@@ -322,7 +318,8 @@ void DeInit()
         u8* data = (u8*)Buffer->data();
         BufferHeader* header = (BufferHeader*)&data[0];
         header->ConnectedBitmask &= ~(1 << InstanceID);
-        header->InstanceBitmask &= ~(1<<InstanceID);
+        header->ActiveBitmask &= ~(1 << InstanceID);
+        header->InstanceBitmask &= ~(1 << InstanceID);
         header->NumInstances--;
         Buffer->unlock();
 
@@ -362,6 +359,15 @@ void MPEnd()
     //SemReset(InstanceID);
     //SemReset(16+InstanceID);
     header->ConnectedBitmask &= ~(1 << InstanceID);
+    Buffer->unlock();
+}
+
+void SetActive(bool active)
+{
+    Buffer->lock();
+    BufferHeader* header = (BufferHeader*)Buffer->data();
+    if (active) header->ActiveBitmask |=  (1 << InstanceID);
+    else        header->ActiveBitmask &= ~(1 << InstanceID);
     Buffer->unlock();
 }
 
@@ -454,8 +460,6 @@ template<int fifo> void FIFOWrite(void* buf, int len)
 
 void ProcessCommands()
 {
-    memset(CmdRecvFlags, 0, sizeof(CmdRecvFlags));
-
     Buffer->lock();
     u8* data = (u8*)Buffer->data();
     BufferHeader* header = (BufferHeader*)&data[0];
@@ -468,7 +472,9 @@ void ProcessCommands()
 
         FIFORead<0>(&cmdheader, sizeof(cmdheader));
 
-        if ((cmdheader.Magic != 0x4D434C4D) || (cmdheader.Length > kMaxCommandSize))
+        if ((cmdheader.Magic != 0x4D434C4D) ||
+            (cmdheader.Length > kMaxCommandSize) ||
+            (cmdheader.Command >= Cmd_MAX))
         {
             printf("IPC: !!! COMMAND BUFFER IS FUCKED. RESETTING\n");
             CommandReadOffset = header->CommandWriteOffset;
@@ -476,25 +482,27 @@ void ProcessCommands()
             return;
         }
 
+        if (!(cmdheader.Recipients & (1<<InstanceID)))
+        {
+            // skip this command
+            CommandReadOffset += cmdheader.Length;
+            if (CommandReadOffset >= kCommandEnd)
+                CommandReadOffset += kCommandStart - kCommandEnd;
+
+            continue;
+        }
+
+        // handle this command
+
         if (cmdheader.Length)
             FIFORead<0>(cmddata, cmdheader.Length);
 
-        if (!(cmdheader.Recipients & (1<<InstanceID)))
-            continue;
-
-        if (cmdheader.Command >= Cmd_MAX)
-            continue;
-
-        // handle this command
-        /*switch (cmdheader.Command)
+        switch (cmdheader.Command)
         {
         case Cmd_Pause:
-            Input::ExtHotkeyPress(HK_Pause);
+            emuThread->IPCPause(cmddata[0] != 0);
             break;
-        }*/
-        CmdRecvFlags[cmdheader.Command] = true;
-        // TODO: store the command data, for future commands that will need it
-        // TODO: also what if, say, we get multiple pause commands before CommandReceived() is called?
+        }
     }
 
     Buffer->unlock();
@@ -544,10 +552,10 @@ bool SendCommand(u16 recipients, u16 command, u16 len, void* cmddata)
     return true;
 }
 
-bool CommandReceived(u16 command)
+bool SendCommandU8(u16 recipients, u16 command, u8 arg)
 {
-    if (command >= Cmd_MAX) return false;
-    return CmdRecvFlags[command];
+    u8 data = arg;
+    return SendCommand(recipients, command, 1, &data);
 }
 
 
@@ -689,6 +697,8 @@ int SendMPAck(u8* packet, int len, u64 timestamp)
 
 int RecvMPHostPacket(u8* packet, u64* timestamp)
 {
+    bool block = true;
+
     if (MPLastHostID != -1)
     {
         // check if the host is still connected
@@ -697,26 +707,32 @@ int RecvMPHostPacket(u8* packet, u64* timestamp)
         u8* data = (u8*)Buffer->data();
         BufferHeader* header = (BufferHeader*)&data[0];
         u16 curinstmask = header->ConnectedBitmask;
+        u16 actinstmask = header->ActiveBitmask;
         Buffer->unlock();
 
         if (!(curinstmask & (1 << MPLastHostID)))
             return -1;
+
+        if (!(actinstmask & (1 << MPLastHostID)))
+            block = false;
     }
 
-    return RecvMPPacketGeneric(packet, true, timestamp);
+    return RecvMPPacketGeneric(packet, block, timestamp);
 }
 
 u16 RecvMPReplies(u8* packets, u64 timestamp, u16 aidmask)
 {
     u16 ret = 0;
     u16 myinstmask = (1 << InstanceID);
-    u16 curinstmask;
+    u16 curinstmask, actinstmask;
+    int timeout = MPRecvTimeout;
 
     {
         Buffer->lock();
         u8* data = (u8*)Buffer->data();
         BufferHeader* header = (BufferHeader*)&data[0];
         curinstmask = header->ConnectedBitmask;
+        actinstmask = header->ActiveBitmask;
         Buffer->unlock();
     }
 
@@ -724,9 +740,12 @@ u16 RecvMPReplies(u8* packets, u64 timestamp, u16 aidmask)
     if ((myinstmask & curinstmask) == curinstmask)
         return 0;
 
+    if ((myinstmask & actinstmask) == actinstmask)
+        timeout = 0;
+
     for (;;)
     {
-        if (!SemWait(16+InstanceID, MPRecvTimeout))
+        if (!SemWait(16+InstanceID, timeout))
         {
             // no more replies available
             return ret;

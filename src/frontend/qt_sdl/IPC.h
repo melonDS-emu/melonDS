@@ -42,9 +42,11 @@ void SetMPRecvTimeout(int timeout);
 void MPBegin();
 void MPEnd();
 
+void SetActive(bool active);
+
 void ProcessCommands();
 bool SendCommand(u16 recipients, u16 command, u16 len, void* data);
-bool CommandReceived(u16 command);
+bool SendCommandU8(u16 recipients, u16 command, u8 arg);
 
 int SendMPPacket(u8* data, int len, u64 timestamp);
 int RecvMPPacket(u8* data, u64* timestamp);
