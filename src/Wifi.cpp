@@ -112,6 +112,7 @@ bool IsMP;
 bool IsMPClient;
 u64 NextSync;           // for clients: timestamp for next sync point
 u64 RXTimestamp;
+u64 LastHostRXCheck;
 
 // multiplayer host TX sequence:
 // 1. preamble
@@ -264,6 +265,7 @@ void Reset()
     IsMPClient = false;
     NextSync = 0;
     RXTimestamp = 0;
+    LastHostRXCheck = 0;
 
     WifiAP::Reset();
 }
@@ -340,6 +342,7 @@ void DoSavestate(Savestate* file)
     file->Bool32(&IsMPClient);
     file->Var64(&NextSync);
     file->Var64(&RXTimestamp);
+    file->Var64(&LastHostRXCheck);
 }
 
 
@@ -1658,8 +1661,12 @@ void USTimer(u32 param)
 
         if (USTimestamp >= NextSync)
         {
-            // TODO: not do this every tick if it fails to receive a frame!
-            CheckRX(2);
+            u64 delay = USTimestamp - LastHostRXCheck;
+            if (delay >= 512)
+            {
+                CheckRX(2);
+                LastHostRXCheck = USTimestamp;
+            }
         }
     }
 
