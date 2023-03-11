@@ -33,13 +33,26 @@ enum
 
 extern int InstanceID;
 
-void Init();
+bool Init();
+bool InitSema();
 void DeInit();
+void DeInitSema();
 
-void Process();
+void SetMPRecvTimeout(int timeout);
+void MPBegin();
+void MPEnd();
 
+void ProcessCommands();
 bool SendCommand(u16 recipients, u16 command, u16 len, void* data);
 bool CommandReceived(u16 command);
+
+int SendMPPacket(u8* data, int len, u64 timestamp);
+int RecvMPPacket(u8* data, u64* timestamp);
+int SendMPCmd(u8* data, int len, u64 timestamp);
+int SendMPReply(u8* data, int len, u64 timestamp, u16 aid);
+int SendMPAck(u8* data, int len, u64 timestamp);
+int RecvMPHostPacket(u8* data, u64* timestamp);
+u16 RecvMPReplies(u8* data, u64 timestamp, u16 aidmask);
 
 }
 

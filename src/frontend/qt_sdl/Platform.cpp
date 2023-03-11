@@ -90,12 +90,13 @@ void Init(int argc, char** argv)
     EmuDirectory = confdir.toStdString();
 #endif
 
-    IPC::Init();
+    //IPC::Init();
+    //IPC::SetMPRecvTimeout(Config::MPRecvTimeout);
 }
 
 void DeInit()
 {
-    IPC::DeInit();
+    //IPC::DeInit();
 }
 
 void SignalStop(StopReason reason)
@@ -531,57 +532,67 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 
 bool MP_Init()
 {
-    return LocalMP::Init();
+    //return LocalMP::Init();
+    return true;
 }
 
 void MP_DeInit()
 {
-    return LocalMP::DeInit();
+    //return LocalMP::DeInit();
 }
 
 void MP_Begin()
 {
-    return LocalMP::Begin();
+    //return LocalMP::Begin();
+    return IPC::MPBegin();
 }
 
 void MP_End()
 {
-    return LocalMP::End();
+    //return LocalMP::End();
+    return IPC::MPEnd();
 }
 
 int MP_SendPacket(u8* data, int len, u64 timestamp)
 {
-    return LocalMP::SendPacket(data, len, timestamp);
+    //return LocalMP::SendPacket(data, len, timestamp);
+    return IPC::SendMPPacket(data, len, timestamp);
 }
 
 int MP_RecvPacket(u8* data, u64* timestamp)
 {
-    return LocalMP::RecvPacket(data, timestamp);
+    //return LocalMP::RecvPacket(data, timestamp);
+    return IPC::RecvMPPacket(data, timestamp);
 }
 
 int MP_SendCmd(u8* data, int len, u64 timestamp)
 {
-    return LocalMP::SendCmd(data, len, timestamp);
+    //return LocalMP::SendCmd(data, len, timestamp);
+    return IPC::SendMPCmd(data, len, timestamp);
 }
 
 int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid)
 {
-    return LocalMP::SendReply(data, len, timestamp, aid);
+    //return LocalMP::SendReply(data, len, timestamp, aid);
+    return IPC::SendMPReply(data, len, timestamp, aid);
 }
 
 int MP_SendAck(u8* data, int len, u64 timestamp)
 {
-    return LocalMP::SendAck(data, len, timestamp);
+    //return LocalMP::SendAck(data, len, timestamp);
+    return IPC::SendMPAck(data, len, timestamp);
 }
 
 int MP_RecvHostPacket(u8* data, u64* timestamp)
 {
-    return LocalMP::RecvHostPacket(data, timestamp);
+    //return LocalMP::RecvHostPacket(data, timestamp);
+    return IPC::RecvMPHostPacket(data, timestamp);
 }
 
 u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask)
 {
-    return LocalMP::RecvReplies(data, timestamp, aidmask);
+    //return LocalMP::RecvReplies(data, timestamp, aidmask);
+    return IPC::RecvMPReplies(data, timestamp, aidmask);
 }
 
 bool LAN_Init()
