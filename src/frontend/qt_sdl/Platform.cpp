@@ -349,6 +349,17 @@ FILE* OpenLocalFile(std::string path, std::string mode)
     return OpenFile(fullpath.toStdString(), mode, mode[0] != 'w');
 }
 
+void Log(LogLevel level, const char* fmt, ...)
+{
+    if (fmt == nullptr)
+        return;
+
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+}
+
 Thread* Thread_Create(std::function<void()> func)
 {
     QThread* t = QThread::create(func);

@@ -128,6 +128,15 @@ inline bool LocalFileExists(std::string name)
     return true;
 }
 
+enum LogLevel {
+    Debug,
+    Info,
+    Warn,
+    Error,
+};
+
+void Log(LogLevel level, const char* fmt, ...);
+
 struct Thread;
 Thread* Thread_Create(std::function<void()> func);
 void Thread_Free(Thread* thread);
