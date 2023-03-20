@@ -58,16 +58,8 @@
 #include "main.h"
 #include "Input.h"
 #include "CheatsDialog.h"
-#include "EmuSettingsDialog.h"
+#include "Settings.h"
 #include "InputConfig/InputConfigDialog.h"
-#include "VideoSettingsDialog.h"
-#include "CameraSettingsDialog.h"
-#include "AudioSettingsDialog.h"
-#include "FirmwareSettingsDialog.h"
-#include "PathSettingsDialog.h"
-#include "MPSettingsDialog.h"
-#include "WifiSettingsDialog.h"
-#include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
 #include "RAMInfoDialog.h"
 #include "TitleManagerDialog.h"
@@ -954,6 +946,9 @@ void ScreenHandler::screenHandleTablet(QTabletEvent* event)
             touching = false;
         }
         break;
+
+    default:
+        break;
     }
 }
 
@@ -984,6 +979,9 @@ void ScreenHandler::screenHandleTouch(QTouchEvent* event)
             NDS::ReleaseScreen();
             touching = false;
         }
+        break;
+
+    default:
         break;
     }
 }
@@ -1550,41 +1548,17 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     {
         QMenu* menu = menubar->addMenu("Config");
 
-        actEmuSettings = menu->addAction("Emu settings");
-        connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
+        actEmuSettings = menu->addAction("Settings");
+        connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenSettings);
 
 #ifdef __APPLE__
         actPreferences = menu->addAction("Preferences...");
-        connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
+        connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenSettings);
         actPreferences->setMenuRole(QAction::PreferencesRole);
 #endif
 
         actInputConfig = menu->addAction("Input and hotkeys");
         connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
-
-        actVideoSettings = menu->addAction("Video settings");
-        connect(actVideoSettings, &QAction::triggered, this, &MainWindow::onOpenVideoSettings);
-
-        actCameraSettings = menu->addAction("Camera settings");
-        connect(actCameraSettings, &QAction::triggered, this, &MainWindow::onOpenCameraSettings);
-
-        actAudioSettings = menu->addAction("Audio settings");
-        connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
-
-        actMPSettings = menu->addAction("Multiplayer settings");
-        connect(actMPSettings, &QAction::triggered, this, &MainWindow::onOpenMPSettings);
-
-        actWifiSettings = menu->addAction("Wifi settings");
-        connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
-
-        actFirmwareSettings = menu->addAction("Firmware settings");
-        connect(actFirmwareSettings, &QAction::triggered, this, &MainWindow::onOpenFirmwareSettings);
-
-        actInterfaceSettings = menu->addAction("Interface settings");
-        connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
-
-        actPathSettings = menu->addAction("Path settings");
-        connect(actPathSettings, &QAction::triggered, this, &MainWindow::onOpenPathSettings);
 
         {
             QMenu* submenu = menu->addMenu("Savestate settings");
@@ -2779,15 +2753,15 @@ void MainWindow::onMPNewInstance()
     newinst.startDetached();
 }
 
-void MainWindow::onOpenEmuSettings()
+void MainWindow::onOpenSettings()
 {
     emuThread->emuPause();
 
-    EmuSettingsDialog* dlg = EmuSettingsDialog::openDlg(this);
-    connect(dlg, &EmuSettingsDialog::finished, this, &MainWindow::onEmuSettingsDialogFinished);
+    Settings* dlg = Settings::openDlg(this);
+    connect(dlg, &Settings::finished, this, &MainWindow::onSettingsFinished);
 }
 
-void MainWindow::onEmuSettingsDialogFinished(int res)
+void MainWindow::onSettingsFinished(int res)
 {
     emuThread->emuUnpause();
 
@@ -2806,7 +2780,7 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
         actEjectGBACart->setEnabled(ROMManager::GBACartInserted());
     }
 
-    if (EmuSettingsDialog::needsReset)
+    if (Settings::needsReset)
         onReset();
 
     actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
@@ -2829,142 +2803,6 @@ void MainWindow::onOpenInputConfig()
 }
 
 void MainWindow::onInputConfigFinished(int res)
-{
-    emuThread->emuUnpause();
-}
-
-void MainWindow::onOpenVideoSettings()
-{
-    VideoSettingsDialog* dlg = VideoSettingsDialog::openDlg(this);
-    connect(dlg, &VideoSettingsDialog::updateVideoSettings, this, &MainWindow::onUpdateVideoSettings);
-}
-
-void MainWindow::onOpenCameraSettings()
-{
-    emuThread->emuPause();
-
-    camStarted[0] = camManager[0]->isStarted();
-    camStarted[1] = camManager[1]->isStarted();
-    if (camStarted[0]) camManager[0]->stop();
-    if (camStarted[1]) camManager[1]->stop();
-
-    CameraSettingsDialog* dlg = CameraSettingsDialog::openDlg(this);
-    connect(dlg, &CameraSettingsDialog::finished, this, &MainWindow::onCameraSettingsFinished);
-}
-
-void MainWindow::onCameraSettingsFinished(int res)
-{
-    if (camStarted[0]) camManager[0]->start();
-    if (camStarted[1]) camManager[1]->start();
-
-    emuThread->emuUnpause();
-}
-
-void MainWindow::onOpenAudioSettings()
-{
-    AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this, emuThread->emuIsActive());
-    connect(emuThread, &EmuThread::syncVolumeLevel, dlg, &AudioSettingsDialog::onSyncVolumeLevel);
-    connect(emuThread, &EmuThread::windowEmuStart, dlg, &AudioSettingsDialog::onConsoleReset);
-    connect(dlg, &AudioSettingsDialog::updateAudioSettings, this, &MainWindow::onUpdateAudioSettings);
-    connect(dlg, &AudioSettingsDialog::finished, this, &MainWindow::onAudioSettingsFinished);
-}
-
-void MainWindow::onOpenFirmwareSettings()
-{
-    emuThread->emuPause();
-
-    FirmwareSettingsDialog* dlg = FirmwareSettingsDialog::openDlg(this);
-    connect(dlg, &FirmwareSettingsDialog::finished, this, &MainWindow::onFirmwareSettingsFinished);
-}
-
-void MainWindow::onFirmwareSettingsFinished(int res)
-{
-    if (FirmwareSettingsDialog::needsReset)
-        onReset();
-
-    emuThread->emuUnpause();
-}
-
-void MainWindow::onOpenPathSettings()
-{
-    emuThread->emuPause();
-
-    PathSettingsDialog* dlg = PathSettingsDialog::openDlg(this);
-    connect(dlg, &PathSettingsDialog::finished, this, &MainWindow::onPathSettingsFinished);
-}
-
-void MainWindow::onPathSettingsFinished(int res)
-{
-    if (PathSettingsDialog::needsReset)
-        onReset();
-
-    emuThread->emuUnpause();
-}
-
-void MainWindow::onUpdateAudioSettings()
-{
-    SPU::SetInterpolation(Config::AudioInterp);
-
-    if (Config::AudioBitrate == 0)
-        SPU::SetDegrade10Bit(NDS::ConsoleType == 0);
-    else
-        SPU::SetDegrade10Bit(Config::AudioBitrate == 1);
-}
-
-void MainWindow::onAudioSettingsFinished(int res)
-{
-    AudioInOut::UpdateSettings();
-}
-
-void MainWindow::onOpenMPSettings()
-{
-    emuThread->emuPause();
-
-    MPSettingsDialog* dlg = MPSettingsDialog::openDlg(this);
-    connect(dlg, &MPSettingsDialog::finished, this, &MainWindow::onMPSettingsFinished);
-}
-
-void MainWindow::onMPSettingsFinished(int res)
-{
-    AudioInOut::AudioMute(mainWindow);
-    LocalMP::SetRecvTimeout(Config::MPRecvTimeout);
-
-    emuThread->emuUnpause();
-}
-
-void MainWindow::onOpenWifiSettings()
-{
-    emuThread->emuPause();
-
-    WifiSettingsDialog* dlg = WifiSettingsDialog::openDlg(this);
-    connect(dlg, &WifiSettingsDialog::finished, this, &MainWindow::onWifiSettingsFinished);
-}
-
-void MainWindow::onWifiSettingsFinished(int res)
-{
-    Platform::LAN_DeInit();
-    Platform::LAN_Init();
-
-    if (WifiSettingsDialog::needsReset)
-        onReset();
-
-    emuThread->emuUnpause();
-}
-
-void MainWindow::onOpenInterfaceSettings()
-{
-    emuThread->emuPause();
-    InterfaceSettingsDialog* dlg = InterfaceSettingsDialog::openDlg(this);
-    connect(dlg, &InterfaceSettingsDialog::finished, this, &MainWindow::onInterfaceSettingsFinished);
-    connect(dlg, &InterfaceSettingsDialog::updateMouseTimer, this, &MainWindow::onUpdateMouseTimer);
-}
-
-void MainWindow::onUpdateMouseTimer()
-{
-    panel->mouseTimer->setInterval(Config::MouseHideSeconds*1000);
-}
-
-void MainWindow::onInterfaceSettingsFinished(int res)
 {
     emuThread->emuUnpause();
 }

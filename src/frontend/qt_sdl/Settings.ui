@@ -1,0 +1,2061 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Settings</class>
+ <widget class="QWidget" name="settings">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>600</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Settings</string>
+  </property>
+  <widget class="QListWidget" name="categories">
+   <property name="geometry">
+    <rect>
+     <x>9</x>
+     <y>9</y>
+     <width>72</width>
+     <height>549</height>
+    </rect>
+   </property>
+   <item>
+    <property name="text">
+     <string>General</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>DSi Mode</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Video</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Audio</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Camera</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Firmware</string>
+    </property>
+   </item>
+  </widget>
+  <widget class="QDialogButtonBox" name="dialogButtons">
+   <property name="geometry">
+    <rect>
+     <x>9</x>
+     <y>564</y>
+     <width>252</width>
+     <height>27</height>
+    </rect>
+   </property>
+   <property name="standardButtons">
+    <set>QDialogButtonBox::Apply|QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+   </property>
+  </widget>
+  <widget class="QStackedWidget" name="settingsView">
+   <property name="geometry">
+    <rect>
+     <x>87</x>
+     <y>9</y>
+     <width>504</width>
+     <height>523</height>
+    </rect>
+   </property>
+   <property name="currentIndex">
+    <number>0</number>
+   </property>
+   <widget class="QWidget" name="general">
+    <property name="enabled">
+     <bool>true</bool>
+    </property>
+    <layout class="QVBoxLayout" name="generalLayout">
+     <property name="spacing">
+      <number>5</number>
+     </property>
+     <property name="topMargin">
+      <number>9</number>
+     </property>
+     <property name="bottomMargin">
+      <number>260</number>
+     </property>
+     <item>
+      <layout class="QHBoxLayout" name="consoleTypeLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="topMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <property name="bottomMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="consoleTypeLabel">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>Console type:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="consoleTypeBox">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <item>
+          <property name="text">
+           <string>Nintendo DS</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Nintendo DSi</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="bootCartridgesLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="topMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <property name="bottomMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QCheckBox" name="bootCartridgesToggle">
+         <property name="text">
+          <string>Boot cartridges right away</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="Line" name="generalSeparator">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>10</height>
+        </size>
+       </property>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="useExternalBIOSLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QCheckBox" name="useExternalBIOSToggle">
+         <property name="text">
+          <string>Use external DS BIOS and firmware dumps</string>
+         </property>
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QWidget" name="dsModeProperties" native="true">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_3">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <layout class="QHBoxLayout" name="arm9BIOSLayout">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="arm9BIOSLabel">
+            <property name="text">
+             <string>ARM9 BIOS</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="arm9BIOSFileName"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="arm9BIOSBrowseButton">
+            <property name="text">
+             <string>Browse...</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="arm7BIOSLayout">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="arm7BIOSLabel">
+            <property name="text">
+             <string>ARM7 BIOS</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="arm7BIOSFileName"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="arm7BIOSBrowseButton">
+            <property name="text">
+             <string>Browse...</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="dsFirmwareLayout">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="dsFirmwareLabel">
+            <property name="text">
+             <string>Firmware</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="dsFirmwareFileName"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="dsFirmwareBrowseButton">
+            <property name="text">
+             <string>Browse...</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+   <widget class="QWidget" name="dsiMode">
+    <layout class="QVBoxLayout" name="dsiModeLayout">
+     <item>
+      <layout class="QHBoxLayout" name="dsiNoticeLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="topMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <property name="bottomMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="dsiNoticeLabel">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>27</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>DSi Mode requires BIOS and firmware dumps, as well as a NAND Image.</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="Line" name="line">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>6</height>
+        </size>
+       </property>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="dsiARM9BIOSLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="dsiARM9BIOSLabel">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>ARM9i BIOS</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="dsiARM9BIOSFileName"/>
+       </item>
+       <item>
+        <widget class="QPushButton" name="dsiARM9BIOSBrowseButton">
+         <property name="text">
+          <string>Browse...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="dsiARM7BIOSLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="dsiARM7BIOSLabel">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>ARM7i BIOS</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="dsiARM7BIOSFileName"/>
+       </item>
+       <item>
+        <widget class="QPushButton" name="dsiARM7BIOSBrowseButton">
+         <property name="text">
+          <string>Browse...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="dsiFirmwareLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="dsiFirmwareLabel">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>Firmware</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="dsiFirmwareFileName"/>
+       </item>
+       <item>
+        <widget class="QPushButton" name="dsiFirmwareBrowseButton">
+         <property name="text">
+          <string>Browse...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="dsiNANDLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="dsiNANDLabel">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>NAND</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="dsiNANDFileName"/>
+       </item>
+       <item>
+        <widget class="QPushButton" name="dsiNANDBrowseButton">
+         <property name="text">
+          <string>Browse...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="Line" name="line_2">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>6</height>
+        </size>
+       </property>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="enableSDLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QCheckBox" name="enableSDToggle">
+         <property name="text">
+          <string>Enable SD Card Emulation</string>
+         </property>
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QWidget" name="dsiSDProperties" native="true">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <layout class="QFormLayout" name="formLayout">
+        <property name="horizontalSpacing">
+         <number>2</number>
+        </property>
+        <property name="verticalSpacing">
+         <number>10</number>
+        </property>
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>5</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>45</number>
+        </property>
+        <item row="0" column="0" colspan="2">
+         <layout class="QHBoxLayout" name="dsiSDImageLayout">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="dsiSDImageLabel">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Image</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="dsiSDImageFileName"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="dsiSDImageBrowseButton">
+            <property name="text">
+             <string>Browse...</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="2" column="0" colspan="2">
+         <layout class="QHBoxLayout" name="dsiSDWriteProtectLayout">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <widget class="QCheckBox" name="dsiSDWriteProtectToggle">
+            <property name="text">
+             <string>Write Protected</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="3" column="0" colspan="2">
+         <layout class="QHBoxLayout" name="dsiSDFolderSyncLayout">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <widget class="QCheckBox" name="checkBox_2">
+            <property name="text">
+             <string>Sync to a folder:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="lineEdit_6"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_6">
+            <property name="text">
+             <string>Browse...</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="1" column="0" colspan="2">
+         <layout class="QHBoxLayout" name="dsiSDSizeLayout">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="dsiSDSizeLabel">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Size</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="dsiSDSizeBox">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <item>
+             <property name="text">
+              <string>Auto</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>256 MiB</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>512 MiB</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>1 GiB</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>2 GiB</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>4 GiB</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+   <widget class="QWidget" name="video">
+    <layout class="QVBoxLayout" name="videoLayout">
+     <property name="bottomMargin">
+      <number>125</number>
+     </property>
+     <item>
+      <layout class="QHBoxLayout" name="rendererLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="rendererLabel">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>Renderer:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="rendererBox">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="currentText">
+          <string>Software</string>
+         </property>
+         <item>
+          <property name="text">
+           <string>Software</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>OpenGL</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="Line" name="videoSeparator1">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="enableVSyncLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QCheckBox" name="enableVSyncToggle">
+         <property name="text">
+          <string>Enable VSync</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QWidget" name="vsyncIntervalProperties" native="true">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>40</height>
+        </size>
+       </property>
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QLabel" name="vsyncIntervalLabel">
+          <property name="text">
+           <string>VSync Interval:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="vsyncIntervalSpinBox">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>20</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="Line" name="videoSeparator2">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="softwareRendererSeparateThreadLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QCheckBox" name="softwareRendererSeparateThreadBox">
+         <property name="text">
+          <string>Use a separate thread for the software based renderer</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="softwareRendererOpenGLSurfaceLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QCheckBox" name="softwareRendererOpenGLSurfaceBox">
+         <property name="text">
+          <string>Use OpenGL for the rendering surface</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="Line" name="videoSeparator3">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="internalResolutionLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="internalResolutionLabel">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>Internal Resolution:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="internalResolutionBox">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <item>
+          <property name="text">
+           <string>1x (256 x 192)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>2x (512 x 384)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>3x (768 x 576)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>4x (1024 x 768)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>5x (1280 x 960)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>6x (1536 x 1152)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>7x (1792 x 1344)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>8x (2048 x 1536)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>9x (2304 x 1728)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>10x (2560 x 1920)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>11x (2816 x 2112)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>12x (3072 x 2304)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>13x (3328 x 2496)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>14x (3584 x 2688)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>15x (3840 x 2880)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>16x (4096 x 3072)</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="improvedPolygonSplittingLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QCheckBox" name="improvedPolygonSplittingToggle">
+         <property name="text">
+          <string>Use improved polygon splitting</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </widget>
+   <widget class="QWidget" name="audio">
+    <layout class="QVBoxLayout" name="audioLayout">
+     <property name="bottomMargin">
+      <number>125</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="audioLabel">
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>Audio Output</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="interpolationLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="interpolationLabel">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>Interpolation:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="interpolationBox">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <item>
+          <property name="text">
+           <string>None</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Linear</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Cosine</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Cubic</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="bitrateLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="bitrateLabel">
+         <property name="text">
+          <string>Bit depth:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="horizontalSpacer_3">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeType">
+          <enum>QSizePolicy::Maximum</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>22</width>
+           <height>68</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
+        <widget class="QComboBox" name="bitrateBox">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <item>
+          <property name="text">
+           <string>Auto</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>10 bit</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>16 bit</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="volumeLayout">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="volumeLabel">
+         <property name="minimumSize">
+          <size>
+           <width>80</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>80</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>Volume</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QSlider" name="volumeSlider">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="Line" name="audioSeparator">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="microphoneLabel">
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>Microphone</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="microphoneProperties">
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QRadioButton" name="microphoneDisableRadio">
+         <property name="text">
+          <string>Disable microphone</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QRadioButton" name="microphoneUseExternalMicrophoneRadio">
+         <property name="text">
+          <string>Use an external microphone</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QRadioButton" name="microphoneUseBlowNoiseRadio">
+         <property name="text">
+          <string>Use blow noise as a microphone (requires a hotkey)</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="microphoneUseWAVELayout">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QRadioButton" name="microphoneUseWAVERadio">
+           <property name="text">
+            <string>Use a WAVE file:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="microphoneUseWAVEFileName">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="microphoneUseWAVEBrowseButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>Browse...</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </widget>
+   <widget class="QWidget" name="camera">
+    <layout class="QVBoxLayout" name="cameraLayout">
+     <item>
+      <widget class="QLabel" name="cameraPlaceholderLabel">
+       <property name="text">
+        <string>PLACEHOLDER</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+   <widget class="QWidget" name="firmware">
+    <layout class="QVBoxLayout" name="firmwareLayout">
+     <property name="bottomMargin">
+      <number>125</number>
+     </property>
+     <item>
+      <widget class="QCheckBox" name="firmwareOverrideEnable">
+       <property name="text">
+        <string>Override the settings stored within the firmware</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="Line" name="firmwareSeparator">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QWidget" name="firmwareProperties" native="true">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_5">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <layout class="QHBoxLayout" name="usernameLayout">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="usernameLabel">
+            <property name="minimumSize">
+             <size>
+              <width>72</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>72</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Username:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="usernameData">
+            <property name="maxLength">
+             <number>10</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="languageLayout">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="languageLabel">
+            <property name="minimumSize">
+             <size>
+              <width>72</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>72</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Language:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="languageBox">
+            <property name="currentIndex">
+             <number>1</number>
+            </property>
+            <item>
+             <property name="text">
+              <string>Japanese</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>English</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>French</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>German</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Italian</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Spanish</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="birthdayLayout">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="birthdayLabel">
+            <property name="minimumSize">
+             <size>
+              <width>72</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>72</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Birthday:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="birthdayDayBox">
+            <item>
+             <property name="text">
+              <string>January</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Feburary</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>March</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>April</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>May</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>June</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>July</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>August</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>September</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>October</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>November</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>December</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label">
+            <property name="minimumSize">
+             <size>
+              <width>10</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>10</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>-</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="birthdayMonthBox">
+            <item>
+             <property name="text">
+              <string>1</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>2</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>3</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>4</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>5</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>6</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>7</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>8</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>9</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>10</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>11</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>12</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>13</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>14</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>15</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>16</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>17</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>18</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>19</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>20</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>21</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>22</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>23</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>24</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>25</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>26</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>27</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>28</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>29</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>30</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>31</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="colorLayout">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="colorLabel">
+            <property name="minimumSize">
+             <size>
+              <width>72</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>72</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Color:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="colorBox">
+            <item>
+             <property name="text">
+              <string>Greyish Blue</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Brown</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Red</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Light Pink</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Orange</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Yellow</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Lime</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Light Green</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Dark Green</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Turquoise</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Light Blue</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Blue</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Dark Blue</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Dark Purple</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Light Purple</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Dark Pink</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="messageLayout">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="messageLabel">
+            <property name="minimumSize">
+             <size>
+              <width>72</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>72</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Message:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="messageData"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="Line" name="firmwarePropertiesSeparator">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="macAddressLayout">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="macAddressLabel">
+            <property name="minimumSize">
+             <size>
+              <width>72</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>72</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>MAC Address:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="macAddressData">
+            <property name="maxLength">
+             <number>17</number>
+            </property>
+            <property name="placeholderText">
+             <string>Leaving this empty will not override the MAC address.</string>
+            </property>
+            <property name="clearButtonEnabled">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+ </widget>
+ <tabstops>
+  <tabstop>consoleTypeBox</tabstop>
+  <tabstop>bootCartridgesToggle</tabstop>
+  <tabstop>useExternalBIOSToggle</tabstop>
+  <tabstop>arm9BIOSFileName</tabstop>
+  <tabstop>arm9BIOSBrowseButton</tabstop>
+  <tabstop>microphoneUseWAVEFileName</tabstop>
+  <tabstop>arm7BIOSFileName</tabstop>
+  <tabstop>arm7BIOSBrowseButton</tabstop>
+  <tabstop>dsFirmwareFileName</tabstop>
+  <tabstop>dsFirmwareBrowseButton</tabstop>
+  <tabstop>dsiARM9BIOSFileName</tabstop>
+  <tabstop>dsiARM9BIOSBrowseButton</tabstop>
+  <tabstop>dsiARM7BIOSFileName</tabstop>
+  <tabstop>dsiARM7BIOSBrowseButton</tabstop>
+  <tabstop>dsiFirmwareFileName</tabstop>
+  <tabstop>dsiFirmwareBrowseButton</tabstop>
+  <tabstop>dsiNANDFileName</tabstop>
+  <tabstop>dsiNANDBrowseButton</tabstop>
+  <tabstop>enableSDToggle</tabstop>
+  <tabstop>dsiSDImageFileName</tabstop>
+  <tabstop>dsiSDImageBrowseButton</tabstop>
+  <tabstop>dsiSDWriteProtectToggle</tabstop>
+  <tabstop>checkBox_2</tabstop>
+  <tabstop>lineEdit_6</tabstop>
+  <tabstop>pushButton_6</tabstop>
+  <tabstop>dsiSDSizeBox</tabstop>
+  <tabstop>rendererBox</tabstop>
+  <tabstop>enableVSyncToggle</tabstop>
+  <tabstop>vsyncIntervalSpinBox</tabstop>
+  <tabstop>softwareRendererSeparateThreadBox</tabstop>
+  <tabstop>softwareRendererOpenGLSurfaceBox</tabstop>
+  <tabstop>internalResolutionBox</tabstop>
+  <tabstop>improvedPolygonSplittingToggle</tabstop>
+  <tabstop>interpolationBox</tabstop>
+  <tabstop>bitrateBox</tabstop>
+  <tabstop>volumeSlider</tabstop>
+  <tabstop>microphoneDisableRadio</tabstop>
+  <tabstop>microphoneUseExternalMicrophoneRadio</tabstop>
+  <tabstop>microphoneUseBlowNoiseRadio</tabstop>
+  <tabstop>microphoneUseWAVERadio</tabstop>
+  <tabstop>microphoneUseWAVEBrowseButton</tabstop>
+  <tabstop>categories</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>dialogButtons</sender>
+   <signal>accepted()</signal>
+   <receiver>settings</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>258</x>
+     <y>490</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>249</x>
+     <y>199</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>dialogButtons</sender>
+   <signal>rejected()</signal>
+   <receiver>settings</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>258</x>
+     <y>490</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>249</x>
+     <y>199</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>microphoneUseWAVERadio</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>microphoneUseWAVEFileName</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>180</x>
+     <y>440</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>241</x>
+     <y>436</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>categories</sender>
+   <signal>currentRowChanged(int)</signal>
+   <receiver>settingsView</receiver>
+   <slot>setCurrentIndex(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>78</x>
+     <y>263</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>468</x>
+     <y>263</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>useExternalBIOSToggle</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>dsModeProperties</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>289</x>
+     <y>115</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>289</x>
+     <y>236</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>enableVSyncToggle</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>vsyncIntervalProperties</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>293</x>
+     <y>104</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>292</x>
+     <y>146</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>firmwareOverrideEnable</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>firmwareProperties</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>283</x>
+     <y>44</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>292</x>
+     <y>188</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>enableSDToggle</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>dsiSDProperties</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>392</x>
+     <y>266</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>290</x>
+     <y>359</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>microphoneUseWAVERadio</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>microphoneUseWAVEBrowseButton</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>185</x>
+     <y>441</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>434</x>
+     <y>441</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

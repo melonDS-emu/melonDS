@@ -192,6 +192,9 @@ int GetConfigInt(ConfigEntry entry)
     case Firm_Color: return Config::FirmwareFavouriteColour;
 
     case AudioBitrate: return Config::AudioBitrate;
+
+    default:
+        break;
     }
 
     return 0;
@@ -219,6 +222,9 @@ bool GetConfigBool(ConfigEntry entry)
     case DSiSD_FolderSync: return Config::DSiSDFolderSync != 0;
 
     case Firm_OverrideSettings: return Config::FirmwareOverrideSettings != 0;
+
+    default:
+        break;
     }
 
     return false;
@@ -245,6 +251,9 @@ std::string GetConfigString(ConfigEntry entry)
 
     case Firm_Username: return Config::FirmwareUsername;
     case Firm_Message: return Config::FirmwareMessage;
+
+    default:
+        break;
     }
 
     return "";
@@ -282,6 +291,9 @@ bool GetConfigArray(ConfigEntry entry, void* data)
             }
         }
         return false;
+
+    default:
+        break;
     }
 
     return false;

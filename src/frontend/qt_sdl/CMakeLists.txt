@@ -7,20 +7,12 @@ set(SOURCES_QT_SDL
     main_shaders.h
     CheatsDialog.cpp
     Config.cpp
-    EmuSettingsDialog.cpp
+    Settings.cpp
     PowerManagement/PowerManagementDialog.cpp
     PowerManagement/resources/battery.qrc
     InputConfig/InputConfigDialog.cpp
     InputConfig/MapButton.h
     InputConfig/resources/ds.qrc
-    VideoSettingsDialog.cpp
-    CameraSettingsDialog.cpp
-    AudioSettingsDialog.cpp
-    FirmwareSettingsDialog.cpp
-    PathSettingsDialog.cpp
-    MPSettingsDialog.cpp
-    WifiSettingsDialog.cpp
-    InterfaceSettingsDialog.cpp
     ROMInfoDialog.cpp
     RAMInfoDialog.cpp
     TitleManagerDialog.cpp
