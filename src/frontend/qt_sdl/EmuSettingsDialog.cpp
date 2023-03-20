@@ -38,8 +38,11 @@ bool EmuSettingsDialog::needsReset = false;
 
 inline void updateLastBIOSFolder(QString& filename)
 {
-    int pos = filename.length() - 1;
-    while (filename[pos] != '/' && filename[pos] != '\\' && pos > 0) pos--;
+    int pos = filename.lastIndexOf("/");
+    if (pos == -1)
+    {
+        pos = filename.lastIndexOf("\\");
+    }
 
     QString path_dir = filename.left(pos);
     QString path_file = filename.mid(pos+1);
