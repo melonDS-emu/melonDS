@@ -167,6 +167,7 @@ extern int MicInputType;
 extern std::string MicWavPath;
 
 extern std::string LastROMFolder;
+extern std::string LastBIOSFolder;
 
 extern std::string RecentROMList[10];
 

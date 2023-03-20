@@ -122,6 +122,7 @@ int MicInputType;
 std::string MicWavPath;
 
 std::string LastROMFolder;
+std::string LastBIOSFolder;
 
 std::string RecentROMList[10];
 
@@ -294,6 +295,7 @@ ConfigEntry ConfigFile[] =
     {"MicWavPath", 2, &MicWavPath, (std::string)"", false},
 
     {"LastROMFolder", 2, &LastROMFolder, (std::string)"", true},
+    {"LastBIOSFolder", 2, &LastBIOSFolder, (std::string)"", true},
 
     {"RecentROM_0", 2, &RecentROMList[0], (std::string)"", true},
     {"RecentROM_1", 2, &RecentROMList[1], (std::string)"", true},
