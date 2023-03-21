@@ -128,7 +128,8 @@ inline bool LocalFileExists(std::string name)
     return true;
 }
 
-enum LogLevel {
+enum LogLevel
+{
     Debug,
     Info,
     Warn,
