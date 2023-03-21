@@ -16,9 +16,11 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <stdio.h>
 #include "ARM.h"
+#include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace ARMInterpreter
 {
@@ -79,7 +81,7 @@ void T_BLX_REG(ARM* cpu)
 {
     if (cpu->Num==1)
     {
-        printf("!! THUMB BLX_REG ON ARM7\n");
+        Log(LogLevel::Warn, "!! THUMB BLX_REG ON ARM7\n");
         return;
     }
 

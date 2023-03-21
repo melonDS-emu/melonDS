@@ -21,7 +21,10 @@
 #include "DSi.h"
 #include "SPI.h"
 #include "DSi_SPI_TSC.h"
+#include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace DSi_SPI_TSC
 {
@@ -214,7 +217,7 @@ void Write(u8 val, u32 hold)
                     TSCMode = val;
                     if (TSCMode == 0x00)
                     {
-                        printf("DSi_SPI_TSC: DS-compatibility mode\n");
+                        Log(LogLevel::Debug, "DSi_SPI_TSC: DS-compatibility mode\n");
                         DataPos = 0;
                         NDS::KeyInput |= (1 << (16+6));
                         return;
@@ -224,7 +227,7 @@ void Write(u8 val, u32 hold)
         }
         else
         {
-            printf("DSi_SPI_TSC: unknown IO, bank=%02X, index=%02X (%02X %s)\n", Bank, Index, Index>>1, (Index&1)?"read":"write");
+            Log(LogLevel::Debug, "DSi_SPI_TSC: unknown IO, bank=%02X, index=%02X (%02X %s)\n", Bank, Index, Index>>1, (Index&1)?"read":"write");
         }
 
         Index += (1<<1); // increment index

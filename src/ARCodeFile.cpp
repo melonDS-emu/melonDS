@@ -21,6 +21,8 @@
 #include "ARCodeFile.h"
 #include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 // TODO: import codes from other sources (usrcheat.dat, ...)
 // TODO: more user-friendly error reporting
@@ -79,7 +81,7 @@ bool ARCodeFile::Load()
 
             if (ret < 1)
             {
-                printf("AR: malformed CAT line: %s\n", start);
+                Log(LogLevel::Error, "AR: malformed CAT line: %s\n", start);
                 fclose(f);
                 return false;
             }
@@ -102,14 +104,14 @@ bool ARCodeFile::Load()
 
             if (ret < 2)
             {
-                printf("AR: malformed CODE line: %s\n", start);
+                Log(LogLevel::Error, "AR: malformed CODE line: %s\n", start);
                 fclose(f);
                 return false;
             }
 
             if (!isincat)
             {
-                printf("AR: encountered CODE line with no category started\n");
+                Log(LogLevel::Error, "AR: encountered CODE line with no category started\n");
                 fclose(f);
                 return false;
             }
@@ -128,21 +130,21 @@ bool ARCodeFile::Load()
 
             if (ret < 2)
             {
-                printf("AR: malformed data line: %s\n", start);
+                Log(LogLevel::Error, "AR: malformed data line: %s\n", start);
                 fclose(f);
                 return false;
             }
 
             if (!isincode)
             {
-                printf("AR: encountered data line with no code started\n");
+                Log(LogLevel::Error, "AR: encountered data line with no code started\n");
                 fclose(f);
                 return false;
             }
 
             if (curcode.CodeLen >= 2*64)
             {
-                printf("AR: code too long!\n");
+                Log(LogLevel::Error, "AR: code too long!\n");
                 fclose(f);
                 return false;
             }

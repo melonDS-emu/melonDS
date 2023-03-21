@@ -19,11 +19,13 @@
 // Required by MinGW to enable localtime_r in time.h
 #define _POSIX_THREAD_SAFE_FUNCTIONS
 
-#include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include "RTC.h"
+#include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace RTC
 {
@@ -186,7 +188,7 @@ void ByteIn(u8 val)
 
     case 0x40:
         if (InputPos == 1) StatusReg2 = val;
-        if (StatusReg2 & 0x4F) printf("RTC INTERRUPT ON: %02X\n", StatusReg2);
+        if (StatusReg2 & 0x4F) Log(LogLevel::Debug, "RTC INTERRUPT ON: %02X\n", StatusReg2);
         break;
 
     case 0x20:

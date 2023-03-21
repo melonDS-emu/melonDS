@@ -30,6 +30,8 @@
 #include "ui_TitleManagerDialog.h"
 #include "ui_TitleImportDialog.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 bool TitleManagerDialog::NANDInited = false;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
@@ -262,7 +264,7 @@ void TitleManagerDialog::onImportTitleData()
     QListWidgetItem* cur = ui->lstTitleList->currentItem();
     if (!cur)
     {
-        printf("what??\n");
+        Log(LogLevel::Error, "what??\n");
         return;
     }
 
@@ -283,7 +285,7 @@ void TitleManagerDialog::onImportTitleData()
         wantedsize = cur->data(Qt::UserRole+3).toUInt();
         break;
     default:
-        printf("what??\n");
+        Log(LogLevel::Warn, "what??\n");
         return;
     }
 
@@ -332,7 +334,7 @@ void TitleManagerDialog::onExportTitleData()
     QListWidgetItem* cur = ui->lstTitleList->currentItem();
     if (!cur)
     {
-        printf("what??\n");
+        Log(LogLevel::Error, "what??\n");
         return;
     }
 
@@ -357,7 +359,7 @@ void TitleManagerDialog::onExportTitleData()
         wantedsize = cur->data(Qt::UserRole+3).toUInt();
         break;
     default:
-        printf("what??\n");
+        Log(LogLevel::Warn, "what??\n");
         return;
     }
 

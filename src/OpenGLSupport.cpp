@@ -18,6 +18,8 @@
 
 #include "OpenGLSupport.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace OpenGL
 {
@@ -39,8 +41,8 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
         if (res < 1) res = 1024;
         char* log = new char[res+1];
         glGetShaderInfoLog(ids[0], res+1, NULL, log);
-        printf("OpenGL: failed to compile vertex shader %s: %s\n", name, log);
-        printf("shader source:\n--\n%s\n--\n", vs);
+        Log(LogLevel::Error, "OpenGL: failed to compile vertex shader %s: %s\n", name, log);
+        Log(LogLevel::Debug, "shader source:\n--\n%s\n--\n", vs);
         delete[] log;
 
         glDeleteShader(ids[0]);
@@ -60,7 +62,7 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
         if (res < 1) res = 1024;
         char* log = new char[res+1];
         glGetShaderInfoLog(ids[1], res+1, NULL, log);
-        printf("OpenGL: failed to compile fragment shader %s: %s\n", name, log);
+        Log(LogLevel::Error, "OpenGL: failed to compile fragment shader %s: %s\n", name, log);
         //printf("shader source:\n--\n%s\n--\n", fs);
         delete[] log;
 
@@ -100,7 +102,7 @@ bool LinkShaderProgram(GLuint* ids)
         if (res < 1) res = 1024;
         char* log = new char[res+1];
         glGetProgramInfoLog(ids[2], res+1, NULL, log);
-        printf("OpenGL: failed to link shader program: %s\n", log);
+        Log(LogLevel::Error, "OpenGL: failed to link shader program: %s\n", log);
         delete[] log;
 
         glDeleteProgram(ids[2]);
