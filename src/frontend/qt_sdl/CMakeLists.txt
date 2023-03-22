@@ -28,6 +28,7 @@ set(SOURCES_QT_SDL
 	IPC.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp
+	Netplay.cpp
     OSD.cpp
     OSD_shaders.h
     font.h
@@ -90,6 +91,8 @@ fix_interface_includes(PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
 add_executable(melonDS ${SOURCES_QT_SDL})
+
+find_package(ENet REQUIRED)
 
 if (WIN32)
     target_link_libraries(melonDS PUBLIC opengl32)
@@ -158,6 +161,7 @@ endif()
 target_link_libraries(melonDS PRIVATE core)
 target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive PkgConfig::Zstd)
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
+target_link_libraries(melonDS PRIVATE ${ENET_LIBRARIES})
 
 if (UNIX)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
