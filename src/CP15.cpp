@@ -237,8 +237,17 @@ void ARMv5::UpdatePURegion(u32 n)
         usermask |= 0x40;
     }
 
-    Log(LogLevel::Debug, "PU region %d: %08X-%08X, user=%02X priv=%02X\n", n, start<<12, end<<12, usermask, privmask);
-    Log(LogLevel::Debug, "%08X/%08X\n", PU_DataRW, PU_CodeRW);
+    Log(
+        LogLevel::Debug,
+        "PU region %d: %08X-%08X, user=%02X priv=%02X, %08X/%08X\n",
+        n,
+        start << 12,
+        end << 12,
+        usermask,
+        privmask,
+        PU_DataRW,
+        PU_CodeRW
+    );
 
     for (u32 i = start; i < end; i++)
     {
@@ -568,11 +577,21 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x661:
     case 0x670:
     case 0x671:
+        char log_output[1024];
         PU_Region[(id >> 4) & 0xF] = val;
-        Log(LogLevel::Debug, "PU: region %d = %08X : ", (id>>4)&0xF, val);
-        Log(LogLevel::Debug, "%s, ", val&1 ? "enabled":"disabled");
-        Log(LogLevel::Debug, "%08X-", val&0xFFFFF000);
-        Log(LogLevel::Debug, "%08X\n", (val&0xFFFFF000)+(2<<((val&0x3E)>>1)));
+
+        std::snprintf(log_output,
+                 sizeof(log_output),
+                 "PU: region %d = %08X : %s, %08X-%08X\n",
+                 (id >> 4) & 0xF,
+                 val,
+                 val & 1 ? "enabled" : "disabled",
+                 val & 0xFFFFF000,
+                 (val & 0xFFFFF000) + (2 << ((val & 0x3E) >> 1))
+        );
+        Log(LogLevel::Debug, "%s", log_output);
+        // Some implementations of Log imply a newline, so we build up the line before printing it
+
         // TODO: smarter region update for this?
         UpdatePURegions(true);
         return;
