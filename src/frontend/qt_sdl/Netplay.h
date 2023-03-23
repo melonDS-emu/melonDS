@@ -32,7 +32,10 @@ void DeInit();
 void StartHost();
 void StartClient();
 
+void StartGame();
+
 void ProcessFrame();
+void ProcessInput();
 
 }
 
