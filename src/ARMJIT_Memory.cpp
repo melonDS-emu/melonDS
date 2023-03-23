@@ -48,6 +48,9 @@
 
 #include <stdlib.h>
 
+using Platform::Log;
+using Platform::LogLevel;
+
 /*
     We're handling fastmem here.
 
@@ -399,7 +402,7 @@ struct Mapping
                 if (status == memstate_MappedRW)
                 {
                     u32 segmentSize = offset - segmentOffset;
-                    printf("unmapping %x %x %x %x\n", Addr + segmentOffset, Num, segmentOffset + LocalOffset + OffsetsPerRegion[region], segmentSize);
+                    Log(LogLevel::Debug, "unmapping %x %x %x %x\n", Addr + segmentOffset, Num, segmentOffset + LocalOffset + OffsetsPerRegion[region], segmentSize);
                     bool success = UnmapFromRange(Addr + segmentOffset, Num, segmentOffset + LocalOffset + OffsetsPerRegion[region], segmentSize);
                     assert(success);
                 }
@@ -485,7 +488,7 @@ void RemapDTCM(u32 newBase, u32 newSize)
 
     u32 newEnd = newBase + newSize;
 
-    printf("remapping DTCM %x %x %x %x\n", newBase, newEnd, oldDTCMBase, oldDTCMEnd);
+    Log(LogLevel::Debug, "remapping DTCM %x %x %x %x\n", newBase, newEnd, oldDTCMBase, oldDTCMEnd);
     // unmap all regions containing the old or the current DTCM mapping
     for (int region = 0; region < memregions_Count; region++)
     {
@@ -499,7 +502,7 @@ void RemapDTCM(u32 newBase, u32 newSize)
             u32 start = mapping.Addr;
             u32 end = mapping.Addr + mapping.Size;
 
-            printf("unmapping %d %x %x %x %x\n", region, mapping.Addr, mapping.Size, mapping.Num, mapping.LocalOffset);
+            Log(LogLevel::Debug, "unmapping %d %x %x %x %x\n", region, mapping.Addr, mapping.Size, mapping.Num, mapping.LocalOffset);
 
             bool overlap = (oldDTCMSize > 0 && oldDTCMBase < end && oldDTCMEnd > start)
                 || (newSize > 0 && newBase < end && newEnd > start);
@@ -548,7 +551,7 @@ void RemapNWRAM(int num)
 
 void RemapSWRAM()
 {
-    printf("remapping SWRAM\n");
+    Log(LogLevel::Debug, "remapping SWRAM\n");
     for (int i = 0; i < Mappings[memregion_WRAM7].Length;)
     {
         Mapping& mapping = Mappings[memregion_WRAM7][i];
@@ -772,13 +775,13 @@ void Init()
     MemoryFile = shm_open(fastmemPidName, O_RDWR | O_CREAT | O_EXCL, 0600);
     if (MemoryFile == -1)
     {
-        printf("Failed to open memory using shm_open!");
+        Log(LogLevel::Error, "Failed to open memory using shm_open!");
     }
     shm_unlink(fastmemPidName);
 #endif
     if (ftruncate(MemoryFile, MemoryTotalSize) < 0)
     {
-        printf("Failed to allocate memory using ftruncate!");
+        Log(LogLevel::Error, "Failed to allocate memory using ftruncate!");
     }
 
     struct sigaction sa;
@@ -845,7 +848,7 @@ void Reset()
         assert(MappingStatus7[i] == memstate_Unmapped);
     }
 
-    printf("done resetting jit mem\n");
+    Log(LogLevel::Debug, "done resetting jit mem\n");
 }
 
 bool IsFastmemCompatible(int region)

@@ -21,11 +21,15 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "ARM.h"
+#include "Platform.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
 #endif
+
+using Platform::Log;
+using Platform::LogLevel;
 
 // access timing for cached regions
 // this would be an average between cache hits and cache misses
@@ -201,7 +205,7 @@ void ARMv5::UpdatePURegion(u32 n)
     case 3: privmask |= 0x03; usermask |= 0x03; break;
     case 5: privmask |= 0x01; break;
     case 6: privmask |= 0x01; usermask |= 0x01; break;
-    default: printf("!! BAD DATARW VALUE %d\n", datarw&0xF);
+    default: Log(LogLevel::Warn, "!! BAD DATARW VALUE %d\n", datarw&0xF);
     }
 
     switch (coderw)
@@ -212,7 +216,7 @@ void ARMv5::UpdatePURegion(u32 n)
     case 3: privmask |= 0x04; usermask |= 0x04; break;
     case 5: privmask |= 0x04; break;
     case 6: privmask |= 0x04; usermask |= 0x04; break;
-    default: printf("!! BAD CODERW VALUE %d\n", datarw&0xF);
+    default: Log(LogLevel::Warn, "!! BAD CODERW VALUE %d\n", datarw&0xF);
     }
 
     if (datacache & 0x1)
@@ -233,8 +237,17 @@ void ARMv5::UpdatePURegion(u32 n)
         usermask |= 0x40;
     }
 
-    printf("PU region %d: %08X-%08X, user=%02X priv=%02X\n", n, start<<12, end<<12, usermask, privmask);
-    printf("%08X/%08X\n", PU_DataRW, PU_CodeRW);
+    Log(
+        LogLevel::Debug,
+        "PU region %d: %08X-%08X, user=%02X priv=%02X, %08X/%08X\n",
+        n,
+        start << 12,
+        end << 12,
+        usermask,
+        privmask,
+        PU_DataRW,
+        PU_CodeRW
+    );
 
     for (u32 i = start; i < end; i++)
     {
@@ -443,7 +456,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
             {
                 UpdatePURegions((old & 0x1) != (val & 0x1));
             }
-            if (val & (1<<7)) printf("!!!! ARM9 BIG ENDIAN MODE. VERY BAD. SHIT GONNA ASPLODE NOW\n");
+            if (val & (1<<7)) Log(LogLevel::Warn, "!!!! ARM9 BIG ENDIAN MODE. VERY BAD. SHIT GONNA ASPLODE NOW\n");
             if (val & (1<<13)) ExceptionBase = 0xFFFF0000;
             else               ExceptionBase = 0x00000000;
         }
@@ -564,11 +577,21 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x661:
     case 0x670:
     case 0x671:
+        char log_output[1024];
         PU_Region[(id >> 4) & 0xF] = val;
-        printf("PU: region %d = %08X : ", (id>>4)&0xF, val);
-        printf("%s, ", val&1 ? "enabled":"disabled");
-        printf("%08X-", val&0xFFFFF000);
-        printf("%08X\n", (val&0xFFFFF000)+(2<<((val&0x3E)>>1)));
+
+        std::snprintf(log_output,
+                 sizeof(log_output),
+                 "PU: region %d = %08X : %s, %08X-%08X\n",
+                 (id >> 4) & 0xF,
+                 val,
+                 val & 1 ? "enabled" : "disabled",
+                 val & 0xFFFFF000,
+                 (val & 0xFFFFF000) + (2 << ((val & 0x3E) >> 1))
+        );
+        Log(LogLevel::Debug, "%s", log_output);
+        // Some implementations of Log imply a newline, so we build up the line before printing it
+
         // TODO: smarter region update for this?
         UpdatePURegions(true);
         return;
@@ -589,7 +612,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         //Halt(255);
         return;
     case 0x752:
-        printf("CP15: ICACHE INVALIDATE WEIRD. %08X\n", val);
+        Log(LogLevel::Warn, "CP15: ICACHE INVALIDATE WEIRD. %08X\n", val);
         //Halt(255);
         return;
 
@@ -645,7 +668,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         return;
 
     if ((id & 0xF00) != 0x700)
-        printf("unknown CP15 write op %03X %08X\n", id, val);
+        Log(LogLevel::Warn, "unknown CP15 write op %03X %08X\n", id, val);
 }
 
 u32 ARMv5::CP15Read(u32 id)
@@ -741,7 +764,7 @@ u32 ARMv5::CP15Read(u32 id)
     if ((id & 0xF00) == 0xF00) // test/debug shit?
         return 0;
 
-    printf("unknown CP15 read op %03X\n", id);
+    Log(LogLevel::Warn, "unknown CP15 read op %03X\n", id);
     return 0;
 }
 

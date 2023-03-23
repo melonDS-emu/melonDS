@@ -22,6 +22,8 @@
 #include "SaveManager.h"
 #include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 SaveManager::SaveManager(std::string path) : QThread()
 {
@@ -122,7 +124,7 @@ void SaveManager::CheckFlush()
 
     SecondaryBufferLock->lock();
 
-    printf("SaveManager: Flush requested\n");
+    Log(LogLevel::Info, "SaveManager: Flush requested\n");
 
     if (SecondaryBufferLength != Length)
     {
@@ -178,7 +180,7 @@ void SaveManager::FlushSecondaryBuffer(u8* dst, u32 dstLength)
         FILE* f = Platform::OpenFile(Path, "wb");
         if (f)
         {
-            printf("SaveManager: Written\n");
+            Log(LogLevel::Info, "SaveManager: Written\n");
             fwrite(SecondaryBuffer, SecondaryBufferLength, 1, f);
             fclose(f);
         }

@@ -23,7 +23,10 @@
 #include "DSi_Camera.h"
 #include "ARM.h"
 #include "SPI.h"
+#include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace DSi_BPTWL
 {
@@ -131,7 +134,7 @@ void Write(u8 val, bool last)
 
     if (CurPos == 0x11 && val == 0x01)
     {
-        printf("BPTWL: soft-reset\n");
+        Log(LogLevel::Debug, "BPTWL: soft-reset\n");
         val = 0; // checkme
         // TODO: soft-reset might need to be scheduled later!
         // TODO: this has been moved for the JIT to work, nothing is confirmed here
@@ -225,7 +228,7 @@ void WriteCnt(u8 val)
             case 0xA0:
             case 0xE0: Data = 0xFF; break;
             default:
-                printf("I2C: read on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, 0, islast);
+                Log(LogLevel::Warn, "I2C: read on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, 0, islast);
                 Data = 0xFF;
                 break;
             }
@@ -251,7 +254,7 @@ void WriteCnt(u8 val)
                 case 0xA0:
                 case 0xE0: ack = false; break;
                 default:
-                    printf("I2C: %s start on unknown device %02X\n", (Data&0x01)?"read":"write", Device);
+                    Log(LogLevel::Warn, "I2C: %s start on unknown device %02X\n", (Data&0x01)?"read":"write", Device);
                     ack = false;
                     break;
                 }
@@ -268,7 +271,7 @@ void WriteCnt(u8 val)
                 case 0xA0:
                 case 0xE0: ack = false; break;
                 default:
-                    printf("I2C: write on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+                    Log(LogLevel::Warn, "I2C: write on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
                     ack = false;
                     break;
                 }

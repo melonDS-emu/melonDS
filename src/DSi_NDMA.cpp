@@ -23,7 +23,8 @@
 #include "GPU.h"
 #include "DSi_AES.h"
 
-
+using Platform::Log;
+using Platform::LogLevel;
 
 DSi_NDMA::DSi_NDMA(u32 cpu, u32 num)
 {
@@ -106,7 +107,7 @@ void DSi_NDMA::WriteCnt(u32 val)
         case 0: DstAddrInc = 1; break;
         case 1: DstAddrInc = -1; break;
         case 2: DstAddrInc = 0; break;
-        case 3: DstAddrInc = 1; printf("BAD NDMA DST INC MODE 3\n"); break;
+        case 3: DstAddrInc = 1; Log(LogLevel::Warn, "BAD NDMA DST INC MODE 3\n"); break;
         }
 
         switch ((Cnt >> 13) & 0x3)
@@ -134,7 +135,7 @@ void DSi_NDMA::WriteCnt(u32 val)
 
         if (StartMode <= 0x03 || StartMode == 0x05 || (StartMode >= 0x0C && StartMode <= 0x0F) ||
             (StartMode >= 0x20 && StartMode <= 0x23) || StartMode == 0x25 || StartMode == 0x27 || (StartMode >= 0x2C && StartMode <= 0x2F))
-            printf("UNIMPLEMENTED ARM%d NDMA%d START MODE %02X, %08X->%08X LEN=%d BLK=%d CNT=%08X\n",
+            Log(LogLevel::Warn, "UNIMPLEMENTED ARM%d NDMA%d START MODE %02X, %08X->%08X LEN=%d BLK=%d CNT=%08X\n",
                    CPU?7:9, Num, StartMode, SrcAddr, DstAddr, TotalLength, BlockLength, Cnt);
     }
 }

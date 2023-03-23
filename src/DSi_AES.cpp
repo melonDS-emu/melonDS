@@ -24,6 +24,8 @@
 #include "tiny-AES-c/aes.hpp"
 #include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace DSi_AES
 {
@@ -332,7 +334,7 @@ void WriteCnt(u32 val)
 
         OutputMACDue = false;
 
-        if (AESMode == 0 && (!(val & (1<<20)))) printf("AES: CCM-DECRYPT MAC FROM WRFIFO, TODO\n");
+        if (AESMode == 0 && (!(val & (1<<20)))) Log(LogLevel::Debug, "AES: CCM-DECRYPT MAC FROM WRFIFO, TODO\n");
 
         if ((RemBlocks > 0) || (RemExtra > 0))
         {
@@ -390,7 +392,7 @@ void WriteBlkCnt(u32 val)
 
 u32 ReadOutputFIFO()
 {
-    if (OutputFIFO.IsEmpty()) printf("!!! AES OUTPUT FIFO EMPTY\n");
+    if (OutputFIFO.IsEmpty()) Log(LogLevel::Warn, "!!! AES OUTPUT FIFO EMPTY\n");
 
     u32 ret = OutputFIFO.Read();
 
@@ -423,7 +425,7 @@ void WriteInputFIFO(u32 val)
 {
     // TODO: add some delay to processing
 
-    if (InputFIFO.IsFull()) printf("!!! AES INPUT FIFO FULL\n");
+    if (InputFIFO.IsFull()) Log(LogLevel::Warn, "!!! AES INPUT FIFO FULL\n");
 
     InputFIFO.Write(val);
 
