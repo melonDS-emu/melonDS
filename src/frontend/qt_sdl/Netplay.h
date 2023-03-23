@@ -137,6 +137,8 @@ u32 PlayerAddress(int id);
 void StartGame();
 void StartLocal();
 
+void StartGame();
+
 void ProcessFrame();
 void ProcessInput();
 
