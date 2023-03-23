@@ -311,6 +311,8 @@ private slots:
     void onRAMInfo();
     void onOpenTitleManager();
     void onMPNewInstance();
+    void onMPStartHost();
+    void onMPStartClient();
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -408,6 +410,8 @@ public:
     QAction* actRAMInfo;
     QAction* actTitleManager;
     QAction* actMPNewInstance;
+    QAction* actMPStartHost;
+    QAction* actMPStartClient;
 
     QAction* actEmuSettings;
 #ifdef __APPLE__
