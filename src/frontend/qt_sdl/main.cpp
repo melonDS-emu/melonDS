@@ -363,6 +363,8 @@ void EmuThread::run()
 
     while (EmuRunning != emuStatus_Exit)
     {
+        if (Netplay::Active) Netplay::ProcessFrame();
+
         IPC::ProcessCommands();
 
         Input::Process();
@@ -1566,6 +1568,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             actMPNewInstance = submenu->addAction("Launch new instance");
             connect(actMPNewInstance, &QAction::triggered, this, &MainWindow::onMPNewInstance);
+
+            submenu->addSeparator();
+
+            actMPStartHost = submenu->addAction("NETPLAY HOST");
+            connect(actMPStartHost, &QAction::triggered, this, &MainWindow::onMPStartHost);
+
+            actMPStartClient = submenu->addAction("NETPLAY CLIENT");
+            connect(actMPStartClient, &QAction::triggered, this, &MainWindow::onMPStartClient);
         }
     }
     {
@@ -2822,6 +2832,16 @@ void MainWindow::onMPNewInstance()
 #endif
 
     newinst.startDetached();
+}
+
+void MainWindow::onMPStartHost()
+{
+    Netplay::StartHost();
+}
+
+void MainWindow::onMPStartClient()
+{
+    Netplay::StartClient();
 }
 
 void MainWindow::onOpenEmuSettings()

@@ -24,8 +24,15 @@
 namespace Netplay
 {
 
+extern bool Active;
+
 bool Init();
 void DeInit();
+
+void StartHost();
+void StartClient();
+
+void ProcessFrame();
 
 }
 
