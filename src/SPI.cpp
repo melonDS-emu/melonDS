@@ -427,7 +427,7 @@ void Reset()
         }
     }
 
-    Log(LogLevel::Debug, "MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+    Log(LogLevel::Info, "MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
            Firmware[0x36], Firmware[0x37], Firmware[0x38],
            Firmware[0x39], Firmware[0x3A], Firmware[0x3B]);
 
