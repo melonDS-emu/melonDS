@@ -22,8 +22,10 @@
 #include "DMA.h"
 #include "GPU.h"
 #include "DMA_Timings.h"
+#include "Platform.h"
 
-
+using Platform::Log;
+using Platform::LogLevel;
 
 // DMA TIMINGS
 //
@@ -142,7 +144,7 @@ void DMA::WriteCnt(u32 val)
             GPU3D::CheckFIFODMA();
 
         if (StartMode==0x06 || StartMode==0x13)
-            printf("UNIMPLEMENTED ARM%d DMA%d START MODE %02X, %08X->%08X\n", CPU?7:9, Num, StartMode, SrcAddr, DstAddr);
+            Log(LogLevel::Warn, "UNIMPLEMENTED ARM%d DMA%d START MODE %02X, %08X->%08X\n", CPU?7:9, Num, StartMode, SrcAddr, DstAddr);
     }
 }
 

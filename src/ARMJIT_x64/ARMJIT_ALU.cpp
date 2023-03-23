@@ -227,7 +227,7 @@ void Compiler::A_Comp_Arith()
         Comp_ArithTriOp(&Compiler::AND, rd, rn, op2, carryUsed, sFlag|opSymmetric|opInvertOp2);
         break;
     default:
-        printf("this is a JIT bug! %04x\n", op);
+        Log(LogLevel::Error, "this is a JIT bug! %04x\n", op);
         abort();
     }
 

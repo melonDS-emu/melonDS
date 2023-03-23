@@ -25,6 +25,10 @@
 #include <QStringList>
 
 #include "CLI.h"
+#include "Platform.h"
+
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace CLI
 {
@@ -55,7 +59,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     switch (posargs.size())
     {
         default:
-            printf("Too many positional arguments; ignoring 3 onwards\n");
+            Log(LogLevel::Warn, "Too many positional arguments; ignoring 3 onwards\n");
         case 2:
             options->gbaRomPath = posargs[1];
         case 1:
@@ -79,7 +83,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     }
     else
     {
-        printf("ERROR: -b/--boot only accepts auto/always/never as arguments\n");
+        Log(LogLevel::Error, "ERROR: -b/--boot only accepts auto/always/never as arguments\n");
         exit(1);
     }
 

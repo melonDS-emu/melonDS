@@ -60,10 +60,10 @@ void IPCInit()
 
     if (!IPCBuffer->attach())
     {
-        printf("IPC sharedmem doesn't exist. creating\n");
+        Log(LogLevel::Info, "IPC sharedmem doesn't exist. creating\n");
         if (!IPCBuffer->create(1024))
         {
-            printf("IPC sharedmem create failed :(\n");
+            Log(LogLevel::Error, "IPC sharedmem create failed :(\n");
             delete IPCBuffer;
             IPCBuffer = nullptr;
             return;
@@ -88,7 +88,7 @@ void IPCInit()
     }
     IPCBuffer->unlock();
 
-    printf("IPC: instance ID %d\n", IPCInstanceID);
+    Log(LogLevel::Info, "IPC: instance ID %d\n", IPCInstanceID);
 }
 
 void IPCDeInit()
@@ -347,6 +347,17 @@ FILE* OpenLocalFile(std::string path, std::string mode)
     }
 
     return OpenFile(fullpath.toStdString(), mode, mode[0] != 'w');
+}
+
+void Log(LogLevel level, const char* fmt, ...)
+{
+    if (fmt == nullptr)
+        return;
+
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
 }
 
 Thread* Thread_Create(std::function<void()> func)

@@ -239,7 +239,7 @@ Compiler::Compiler()
             break;
         if (i++ > 8)
         {
-            printf("couldn't find unmapped place for jit memory\n");
+            Log(LogLevel::Error, "couldn't find unmapped place for jit memory\n");
             JitRXStart = NULL;
         }
     }
@@ -703,12 +703,12 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 {
     if (JitMemMainSize - GetCodeOffset() < 1024 * 16)
     {
-        printf("JIT near memory full, resetting...\n");
+        Log(LogLevel::Debug, "JIT near memory full, resetting...\n");
         ResetBlockCache();
     }
     if ((JitMemMainSize +  JitMemSecondarySize) - OtherCodeRegion < 1024 * 8)
     {
-        printf("JIT far memory full, resetting...\n");
+        Log(LogLevel::Debug, "JIT far memory full, resetting...\n");
         ResetBlockCache();
     }
 

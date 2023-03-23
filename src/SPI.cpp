@@ -29,6 +29,8 @@
 #include "DSi_SPI_TSC.h"
 #include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace SPI_Firmware
 {
@@ -96,7 +98,7 @@ u32 FixFirmwareLength(u32 originalLength)
 {
     if (originalLength != 0x20000 && originalLength != 0x40000 && originalLength != 0x80000)
     {
-        printf("Bad firmware size %d, ", originalLength);
+        Log(LogLevel::Warn, "Bad firmware size %d, ", originalLength);
 
         // pick the nearest power-of-two length
         originalLength |= (originalLength >> 1);
@@ -110,7 +112,7 @@ u32 FixFirmwareLength(u32 originalLength)
         if (originalLength > 0x80000) originalLength = 0x80000;
         else if (originalLength < 0x20000) originalLength = 0x20000;
 
-        printf("assuming %d\n", originalLength);
+        Log(LogLevel::Debug, "assuming %d\n", originalLength);
     }
     return originalLength;
 }
@@ -286,7 +288,7 @@ void LoadFirmwareFromFile(FILE* f, bool makecopy)
         }
         else
         {
-            printf("Could not write firmware backup!\n");
+            Log(LogLevel::Error, "Could not write firmware backup!\n");
         }
     }
     else
@@ -348,7 +350,7 @@ void Reset()
         }
         if (!f)
         {
-            printf("Firmware not found! Generating default firmware.\n");
+            Log(LogLevel::Warn,"Firmware not found! Generating default firmware.\n");
             FirmwarePath = "";
         }
         else
@@ -425,17 +427,17 @@ void Reset()
         }
     }
 
-    printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+    Log(LogLevel::Info, "MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
            Firmware[0x36], Firmware[0x37], Firmware[0x38],
            Firmware[0x39], Firmware[0x3A], Firmware[0x3B]);
 
     // verify shit
-    printf("FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware[0x2C], 0x2A)?"GOOD":"BAD");
-    printf("FW: AP1 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FA00&FirmwareMask, 0xFE, 0x7FAFE&FirmwareMask)?"GOOD":"BAD");
-    printf("FW: AP2 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FB00&FirmwareMask, 0xFE, 0x7FBFE&FirmwareMask)?"GOOD":"BAD");
-    printf("FW: AP3 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FC00&FirmwareMask, 0xFE, 0x7FCFE&FirmwareMask)?"GOOD":"BAD");
-    printf("FW: USER0 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FE00&FirmwareMask, 0x70, 0x7FE72&FirmwareMask)?"GOOD":"BAD");
-    printf("FW: USER1 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FF00&FirmwareMask, 0x70, 0x7FF72&FirmwareMask)?"GOOD":"BAD");
+    Log(LogLevel::Debug, "FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware[0x2C], 0x2A)?"GOOD":"BAD");
+    Log(LogLevel::Debug, "FW: AP1 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FA00&FirmwareMask, 0xFE, 0x7FAFE&FirmwareMask)?"GOOD":"BAD");
+    Log(LogLevel::Debug, "FW: AP2 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FB00&FirmwareMask, 0xFE, 0x7FBFE&FirmwareMask)?"GOOD":"BAD");
+    Log(LogLevel::Debug, "FW: AP3 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FC00&FirmwareMask, 0xFE, 0x7FCFE&FirmwareMask)?"GOOD":"BAD");
+    Log(LogLevel::Debug, "FW: USER0 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FE00&FirmwareMask, 0x70, 0x7FE72&FirmwareMask)?"GOOD":"BAD");
+    Log(LogLevel::Debug, "FW: USER1 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FF00&FirmwareMask, 0x70, 0x7FF72&FirmwareMask)?"GOOD":"BAD");
 
     Hold = 0;
     CurCmd = 0;
@@ -585,7 +587,7 @@ void Write(u8 val, u32 hold)
         break;
 
     default:
-        printf("unknown firmware SPI command %02X\n", CurCmd);
+        Log(LogLevel::Warn, "unknown firmware SPI command %02X\n", CurCmd);
         Data = 0xFF;
         break;
     }
@@ -937,8 +939,8 @@ void WriteCnt(u16 val)
     // TODO: presumably the transfer speed can be changed during a transfer
     // like with the NDSCart SPI interface
     Cnt = (Cnt & 0x0080) | (val & 0xCF03);
-    if (val & 0x0400) printf("!! CRAPOED 16BIT SPI MODE\n");
-    if (Cnt & (1<<7)) printf("!! CHANGING SPICNT DURING TRANSFER: %04X\n", val);
+    if (val & 0x0400) Log(LogLevel::Warn, "!! CRAPOED 16BIT SPI MODE\n");
+    if (Cnt & (1<<7)) Log(LogLevel::Warn, "!! CHANGING SPICNT DURING TRANSFER: %04X\n", val);
 }
 
 void TransferDone(u32 param)
@@ -983,7 +985,7 @@ void WriteData(u8 val)
         else
             SPI_TSC::Write(val, Cnt&(1<<11));
         break;
-    default: printf("SPI to unknown device %04X %02X\n", Cnt, val); break;
+        default: Log(LogLevel::Warn, "SPI to unknown device %04X %02X\n", Cnt, val); break;
     }
 
     // SPI transfers one bit per cycle -> 8 cycles per byte

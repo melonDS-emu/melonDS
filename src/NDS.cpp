@@ -45,6 +45,8 @@
 #include "DSi_Camera.h"
 #include "DSi_DSP.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace NDS
 {
@@ -524,7 +526,7 @@ void Reset()
         f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS9Path), "rb");
         if (!f)
         {
-            printf("ARM9 BIOS not found\n");
+            Log(LogLevel::Warn, "ARM9 BIOS not found\n");
 
             for (i = 0; i < 16; i++)
                 ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
@@ -534,14 +536,14 @@ void Reset()
             fseek(f, 0, SEEK_SET);
             fread(ARM9BIOS, 0x1000, 1, f);
 
-            printf("ARM9 BIOS loaded\n");
+            Log(LogLevel::Info, "ARM9 BIOS loaded\n");
             fclose(f);
         }
 
         f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS7Path), "rb");
         if (!f)
         {
-            printf("ARM7 BIOS not found\n");
+            Log(LogLevel::Warn, "ARM7 BIOS not found\n");
 
             for (i = 0; i < 16; i++)
                 ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
@@ -551,7 +553,7 @@ void Reset()
             fseek(f, 0, SEEK_SET);
             fread(ARM7BIOS, 0x4000, 1, f);
 
-            printf("ARM7 BIOS loaded\n");
+            Log(LogLevel::Info, "ARM7 BIOS loaded\n");
             fclose(f);
         }
     }
@@ -690,7 +692,7 @@ void Start()
 
 void Stop()
 {
-    printf("Stopping: shutdown\n");
+    Log(LogLevel::Info, "Stopping: shutdown\n");
     Running = false;
     Platform::StopEmu();
     GPU::Stop();
@@ -755,7 +757,7 @@ bool DoSavestate_Scheduler(Savestate* file)
                 }
                 if (funcid == 0xFFFFFFFF)
                 {
-                    printf("savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK ARISOTURA.\n", i);
+                    Log(LogLevel::Error, "savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK ARISOTURA.\n", i);
                     return false;
                 }
             }
@@ -780,7 +782,7 @@ bool DoSavestate_Scheduler(Savestate* file)
                 {
                     if (!eventfuncs[j])
                     {
-                        printf("savestate: VERY BAD!!!!!! EVENT FUNCTION POINTER ID %d IS OUT OF RANGE. HAX?????\n", j);
+                        Log(LogLevel::Error, "savestate: VERY BAD!!!!!! EVENT FUNCTION POINTER ID %d IS OUT OF RANGE. HAX?????\n", j);
                         return false;
                     }
                     if (j == funcid) break;
@@ -1128,7 +1130,7 @@ u32 RunFrame()
         }
 
 #ifdef DEBUG_CHECK_DESYNC
-        printf("[%08X%08X] ARM9=%ld, ARM7=%ld, GPU=%ld\n",
+        Log(LogLevel::Debug, "[%08X%08X] ARM9=%ld, ARM7=%ld, GPU=%ld\n",
             (u32)(SysTimestamp>>32), (u32)SysTimestamp,
             (ARM9Timestamp>>1)-SysTimestamp,
             ARM7Timestamp-SysTimestamp,
@@ -1181,7 +1183,7 @@ void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 para
 {
     if (SchedListMask & (1<<id))
     {
-        printf("!! EVENT %d ALREADY SCHEDULED\n", id);
+        Log(LogLevel::Debug, "!! EVENT %d ALREADY SCHEDULED\n", id);
         return;
     }
 
@@ -1209,7 +1211,7 @@ void ScheduleEvent(u32 id, u64 timestamp, void (*func)(u32), u32 param)
 {
     if (SchedListMask & (1<<id))
     {
-        printf("!! EVENT %d ALREADY SCHEDULED\n", id);
+        Log(LogLevel::Debug, "!! EVENT %d ALREADY SCHEDULED\n", id);
         return;
     }
 
@@ -1315,7 +1317,7 @@ void MicInputFrame(s16* data, int samples)
 
 void Halt()
 {
-    printf("Halt()\n");
+    Log(LogLevel::Info, "Halt()\n");
     Running = false;
 }
 
@@ -1645,7 +1647,7 @@ void NocashPrint(u32 ncpu, u32 addr)
     }
 
     output[ptr] = '\0';
-    printf("%s", output);
+    Log(LogLevel::Debug, "%s", output);
 }
 
 
@@ -1659,7 +1661,7 @@ void MonitorARM9Jump(u32 addr)
     {
         if (addr == *(u32*)&NDSCart::CartROM[0x24])
         {
-            printf("Game is now booting\n");
+            Log(LogLevel::Info, "Game is now booting\n");
             RunningGame = true;
         }
     }
@@ -1987,11 +1989,11 @@ void StartSqrt()
 
 void debug(u32 param)
 {
-    printf("ARM9 PC=%08X LR=%08X %08X\n", ARM9->R[15], ARM9->R[14], ARM9->R_IRQ[1]);
-    printf("ARM7 PC=%08X LR=%08X %08X\n", ARM7->R[15], ARM7->R[14], ARM7->R_IRQ[1]);
+    Log(LogLevel::Debug, "ARM9 PC=%08X LR=%08X %08X\n", ARM9->R[15], ARM9->R[14], ARM9->R_IRQ[1]);
+    Log(LogLevel::Debug, "ARM7 PC=%08X LR=%08X %08X\n", ARM7->R[15], ARM7->R[14], ARM7->R_IRQ[1]);
 
-    printf("ARM9 IME=%08X IE=%08X IF=%08X\n", IME[0], IE[0], IF[0]);
-    printf("ARM7 IME=%08X IE=%08X IF=%08X IE2=%04X IF2=%04X\n", IME[1], IE[1], IF[1], IE2, IF2);
+    Log(LogLevel::Debug, "ARM9 IME=%08X IE=%08X IF=%08X\n", IME[0], IE[0], IF[0]);
+    Log(LogLevel::Debug, "ARM7 IME=%08X IE=%08X IF=%08X IE2=%04X IF2=%04X\n", IME[1], IE[1], IF[1], IE2, IF2);
 
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
@@ -2089,7 +2091,7 @@ u8 ARM9Read8(u32 addr)
         return GBACart::SRAMRead(addr);
     }
 
-    printf("unknown arm9 read8 %08X\n", addr);
+    Log(LogLevel::Warn, "unknown arm9 read8 %08X\n", addr);
     return 0;
 }
 
@@ -2149,7 +2151,7 @@ u16 ARM9Read16(u32 addr)
               (GBACart::SRAMRead(addr+1) << 8);
     }
 
-    //if (addr) printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
+    //if (addr) Log(LogLevel::Warn, "unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -2212,7 +2214,7 @@ u32 ARM9Read32(u32 addr)
               (GBACart::SRAMRead(addr+3) << 24);
     }
 
-    //printf("unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9->R[15], ARM9->R[12]);
+    //Log(LogLevel::Warn, "unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9->R[15], ARM9->R[12]);
     return 0;
 }
 
@@ -2256,7 +2258,7 @@ void ARM9Write8(u32 addr, u8 val)
         return;
     }
 
-    printf("unknown arm9 write8 %08X %02X\n", addr, val);
+    Log(LogLevel::Warn, "unknown arm9 write8 %08X %02X\n", addr, val);
 }
 
 void ARM9Write16(u32 addr, u16 val)
@@ -2322,7 +2324,7 @@ void ARM9Write16(u32 addr, u16 val)
         return;
     }
 
-    //if (addr) printf("unknown arm9 write16 %08X %04X\n", addr, val);
+    //if (addr) Log(LogLevel::Warn, "unknown arm9 write16 %08X %04X\n", addr, val);
 }
 
 void ARM9Write32(u32 addr, u32 val)
@@ -2391,7 +2393,7 @@ void ARM9Write32(u32 addr, u32 val)
         return;
     }
 
-    //printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
+    //Log(LogLevel::Warn, "unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
 }
 
 bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
@@ -2488,7 +2490,7 @@ u8 ARM7Read8(u32 addr)
         return GBACart::SRAMRead(addr);
     }
 
-    printf("unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
+    Log(LogLevel::Warn, "unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
     return 0;
 }
 
@@ -2554,7 +2556,7 @@ u16 ARM7Read16(u32 addr)
               (GBACart::SRAMRead(addr+1) << 8);
     }
 
-    printf("unknown arm7 read16 %08X %08X\n", addr, ARM7->R[15]);
+    Log(LogLevel::Warn, "unknown arm7 read16 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -2623,7 +2625,7 @@ u32 ARM7Read32(u32 addr)
               (GBACart::SRAMRead(addr+3) << 24);
     }
 
-    //printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
+    //Log(LogLevel::Warn, "unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -2691,7 +2693,7 @@ void ARM7Write8(u32 addr, u8 val)
 
     //if (ARM7->R[15] > 0x00002F30) // ARM7 BIOS bug
     if (addr >= 0x01000000)
-        printf("unknown arm7 write8 %08X %02X @ %08X\n", addr, val, ARM7->R[15]);
+        Log(LogLevel::Warn, "unknown arm7 write8 %08X %02X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7Write16(u32 addr, u16 val)
@@ -2771,7 +2773,7 @@ void ARM7Write16(u32 addr, u16 val)
     }
 
     if (addr >= 0x01000000)
-        printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
+        Log(LogLevel::Warn, "unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7Write32(u32 addr, u32 val)
@@ -2855,7 +2857,7 @@ void ARM7Write32(u32 addr, u32 val)
     }
 
     if (addr >= 0x01000000)
-        printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
+        Log(LogLevel::Warn, "unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
@@ -3016,7 +3018,7 @@ u8 ARM9IORead8(u32 addr)
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
-        printf("unknown ARM9 IO read8 %08X %08X\n", addr, ARM9->R[15]);
+        Log(LogLevel::Warn, "unknown ARM9 IO read8 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -3163,7 +3165,7 @@ u16 ARM9IORead16(u32 addr)
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
-        printf("unknown ARM9 IO read16 %08X %08X\n", addr, ARM9->R[15]);
+        Log(LogLevel::Warn, "unknown ARM9 IO read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -3307,7 +3309,7 @@ u32 ARM9IORead32(u32 addr)
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
-        printf("unknown ARM9 IO read32 %08X %08X\n", addr, ARM9->R[15]);
+        Log(LogLevel::Warn, "unknown ARM9 IO read32 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -3388,7 +3390,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
         return;
     }
 
-    printf("unknown ARM9 IO write8 %08X %02X %08X\n", addr, val, ARM9->R[15]);
+    Log(LogLevel::Warn, "unknown ARM9 IO write8 %08X %02X %08X\n", addr, val, ARM9->R[15]);
 }
 
 void ARM9IOWrite16(u32 addr, u16 val)
@@ -3572,7 +3574,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown ARM9 IO write16 %08X %04X %08X\n", addr, val, ARM9->R[15]);
+    Log(LogLevel::Warn, "unknown ARM9 IO write16 %08X %04X %08X\n", addr, val, ARM9->R[15]);
 }
 
 void ARM9IOWrite32(u32 addr, u32 val)
@@ -3735,7 +3737,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
                 ch = NDS::ARM9Read8(val + i);
                 output[i] = ch;
             }
-            printf("%s", output);
+            Log(LogLevel::Debug, "%s", output);
             return;
         }
 
@@ -3746,12 +3748,12 @@ void ARM9IOWrite32(u32 addr, u32 val)
             bool appendLF = 0x04FFFA18 == addr;
             NocashPrint(0, val);
             if(appendLF)
-                printf("\n");
+                Log(LogLevel::Debug, "\n");
             return;
         }
 
     // NO$GBA debug register "Char Out"
-    case 0x04FFFA1C: printf("%c", val & 0xFF); return;
+        case 0x04FFFA1C: Log(LogLevel::Debug, "%c", val & 0xFF); return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
@@ -3770,7 +3772,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown ARM9 IO write32 %08X %08X %08X\n", addr, val, ARM9->R[15]);
+    Log(LogLevel::Warn, "unknown ARM9 IO write32 %08X %08X %08X\n", addr, val, ARM9->R[15]);
 }
 
 
@@ -3844,7 +3846,7 @@ u8 ARM7IORead8(u32 addr)
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
-        printf("unknown ARM7 IO read8 %08X %08X\n", addr, ARM7->R[15]);
+        Log(LogLevel::Warn, "unknown ARM7 IO read8 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -3938,7 +3940,7 @@ u16 ARM7IORead16(u32 addr)
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
-        printf("unknown ARM7 IO read16 %08X %08X\n", addr, ARM7->R[15]);
+        Log(LogLevel::Warn, "unknown ARM7 IO read16 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -4039,7 +4041,7 @@ u32 ARM7IORead32(u32 addr)
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
-        printf("unknown ARM7 IO read32 %08X %08X\n", addr, ARM7->R[15]);
+        Log(LogLevel::Warn, "unknown ARM7 IO read32 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -4105,7 +4107,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
 
     case 0x04000301:
         val &= 0xC0;
-        if      (val == 0x40) printf("!! GBA MODE NOT SUPPORTED\n");
+        if      (val == 0x40) Log(LogLevel::Warn, "!! GBA MODE NOT SUPPORTED\n");
         else if (val == 0x80) ARM7->Halt(1);
         else if (val == 0xC0) EnterSleepMode();
         return;
@@ -4117,7 +4119,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
     }
 
-    printf("unknown ARM7 IO write8 %08X %02X %08X\n", addr, val, ARM7->R[15]);
+    Log(LogLevel::Warn, "unknown ARM7 IO write8 %08X %02X %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7IOWrite16(u32 addr, u16 val)
@@ -4272,7 +4274,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown ARM7 IO write16 %08X %04X %08X\n", addr, val, ARM7->R[15]);
+    Log(LogLevel::Warn, "unknown ARM7 IO write16 %08X %04X %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7IOWrite32(u32 addr, u32 val)
@@ -4406,7 +4408,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown ARM7 IO write32 %08X %08X %08X\n", addr, val, ARM7->R[15]);
+    Log(LogLevel::Warn, "unknown ARM7 IO write32 %08X %08X %08X\n", addr, val, ARM7->R[15]);
 }
 
 }

@@ -26,6 +26,8 @@
 #include "ARM.h"
 #include "GPU.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace Wifi
 {
@@ -33,7 +35,7 @@ namespace Wifi
 //#define WIFI_LOG printf
 #define WIFI_LOG(...) {}
 
-#define PRINT_MAC(pf, mac) printf("%s: %02X:%02X:%02X:%02X:%02X:%02X\n", pf, (mac)[0], (mac)[1], (mac)[2], (mac)[3], (mac)[4], (mac)[5]);
+#define PRINT_MAC(pf, mac) Log(LogLevel::Debug, "%s: %02X:%02X:%02X:%02X:%02X:%02X\n", pf, (mac)[0], (mac)[1], (mac)[2], (mac)[3], (mac)[4], (mac)[5]);
 
 u8 RAM[0x2000];
 u16 IO[0x1000>>1];
@@ -223,7 +225,7 @@ void Reset()
         IOPORT(0x000) = 0xC340; // DSi has the modern DS-wifi variant
     else
     {
-        printf("wifi: unknown console type %02X\n", console);
+        Log(LogLevel::Warn, "wifi: unknown console type %02X\n", console);
         IOPORT(0x000) = 0x1440;
     }
 
@@ -370,7 +372,7 @@ void UpdatePowerOn()
     PowerOn = on;
     if (on)
     {
-        printf("WIFI: ON\n");
+        Log(LogLevel::Info, "WIFI: ON\n");
 
         ScheduleTimer(true);
 
@@ -378,7 +380,7 @@ void UpdatePowerOn()
     }
     else
     {
-        printf("WIFI: OFF\n");
+        Log(LogLevel::Info, "WIFI: OFF\n");
 
         NDS::CancelEvent(NDS::Event_Wifi);
 
@@ -434,7 +436,7 @@ void SetIRQ14(int source) // 0=USCOMPARE 1=BEACONCOUNT 2=forced
     SetIRQ(14);
 
     if (source == 2)
-        printf("wifi: weird forced IRQ14\n");
+        Log(LogLevel::Debug, "wifi: weird forced IRQ14\n");
 
     IOPORT(W_BeaconCount2) = 0xFFFF;
     IOPORT(W_TXReqRead) &= 0xFFF2;
@@ -533,7 +535,7 @@ void StartTX_LocN(int nslot, int loc)
     TXSlot* slot = &TXSlots[nslot];
 
     if (IOPORT(W_TXSlotLoc1 + (loc*4)) & 0x7000)
-        printf("wifi: unusual loc%d bits set %04X\n", loc, IOPORT(W_TXSlotLoc1 + (loc*4)));
+        Log(LogLevel::Warn, "wifi: unusual loc%d bits set %04X\n", loc, IOPORT(W_TXSlotLoc1 + (loc*4)));
 
     slot->Addr = (IOPORT(W_TXSlotLoc1 + (loc*4)) & 0x0FFF) << 1;
     slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
@@ -553,7 +555,7 @@ void StartTX_Cmd()
     // TODO: cancel the transfer if there isn't enough time left (check CMDCOUNT)
 
     if (IOPORT(W_TXSlotCmd) & 0x3000)
-        printf("wifi: !! unusual TXSLOT_CMD bits set %04X\n", IOPORT(W_TXSlotCmd));
+        Log(LogLevel::Warn,"wifi: !! unusual TXSLOT_CMD bits set %04X\n", IOPORT(W_TXSlotCmd));
 
     slot->Addr = (IOPORT(W_TXSlotCmd) & 0x0FFF) << 1;
     slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
@@ -872,7 +874,7 @@ bool ProcessTX(TXSlot* slot, int num)
             }
 
             if ((num != 5) && (RAM[slot->Addr+4] > 0))
-                printf("SLOT %d RETRY COUNTER %d\n", num, RAM[slot->Addr+4]);
+                Log(LogLevel::Debug, "SLOT %d RETRY COUNTER %d\n", num, RAM[slot->Addr+4]);
 
             // set TX addr
             IOPORT(W_RXTXAddr) = slot->Addr >> 1;
@@ -909,13 +911,13 @@ bool ProcessTX(TXSlot* slot, int num)
                 if ((framectl & 0x00FF) == 0x0010)
                 {
                     u16 aid = *(u16*)&RAM[slot->Addr + 0xC + 24 + 4];
-                    if (aid) printf("[HOST] syncing client %04X, sync=%016llX\n", aid, USTimestamp);
+                    if (aid) Log(LogLevel::Debug, "[HOST] syncing client %04X, sync=%016llX\n", aid, USTimestamp);
                 }
                 else if ((framectl & 0x00FF) == 0x00C0)
                 {
                     if (IsMPClient)
                     {
-                        printf("[CLIENT] deauth\n");
+                        Log(LogLevel::Info, "[CLIENT] deauth\n");
                         IsMPClient = false;
                     }
                 }
@@ -1478,7 +1480,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
         framelen = *(u16*)&RXBuffer[10];
         if (framelen != rxlen-12)
         {
-            printf("bad frame length %d/%d\n", framelen, rxlen-12);
+            Log(LogLevel::Error, "bad frame length %d/%d\n", framelen, rxlen-12);
             continue;
         }
 
@@ -1515,7 +1517,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 
         if (aid)
         {
-            printf("[CLIENT %01X] host sync=%016llX\n", aid&0xF, timestamp);
+            Log(LogLevel::Debug, "[CLIENT %01X] host sync=%016llX\n", aid&0xF, timestamp);
 
             IsMPClient = true;
             USTimestamp = timestamp;
@@ -1745,7 +1747,7 @@ void USTimer(u32 param)
                 // TODO: properly check the crossing of the read cursor
                 // (for example, if it is outside of the RX buffer)
 
-                printf("wifi: RX buffer full (buf=%04X/%04X rd=%04X wr=%04X rxtx=%04X power=%04X com=%d rxcnt=%04X filter=%04X/%04X frame=%04X/%04X len=%d)\n",
+                Log(LogLevel::Debug, "wifi: RX buffer full (buf=%04X/%04X rd=%04X wr=%04X rxtx=%04X power=%04X com=%d rxcnt=%04X filter=%04X/%04X frame=%04X/%04X len=%d)\n",
                        (IOPORT(W_RXBufBegin)>>1)&0xFFF, (IOPORT(W_RXBufEnd)>>1)&0xFFF,
                        IOPORT(W_RXBufReadCursor), IOPORT(W_RXBufWriteCursor),
                        IOPORT(W_RXTXAddr), IOPORT(W_PowerState), ComStatus,
@@ -1845,7 +1847,7 @@ u16 Read(u32 addr)
     case W_BBRead:
         if ((IOPORT(W_BBCnt) & 0xF000) != 0x6000)
         {
-            printf("WIFI: bad BB read, CNT=%04X\n", IOPORT(W_BBCnt));
+            Log(LogLevel::Error, "WIFI: bad BB read, CNT=%04X\n", IOPORT(W_BBCnt));
             return 0;
         }
         return BBRegs[IOPORT(W_BBCnt) & 0xFF];
@@ -2007,7 +2009,7 @@ void Write(u32 addr, u16 val)
         return;
     case W_IFSet:
         IOPORT(W_IF) |= (val & 0xFBFF);
-        printf("wifi: force-setting IF %04X\n", val);
+        Log(LogLevel::Debug, "wifi: force-setting IF %04X\n", val);
         return;
 
     case W_AIDLow:
@@ -2135,11 +2137,11 @@ void Write(u32 addr, u16 val)
             FireTX();
         }
         val &= 0xFF0E;
-        if (val & 0x7FFF) printf("wifi: unknown RXCNT bits set %04X\n", val);
+        if (val & 0x7FFF) Log(LogLevel::Warn, "wifi: unknown RXCNT bits set %04X\n", val);
         break;
 
     case W_RXBufDataRead:
-        printf("wifi: writing to RXBUF_DATA_READ. wat\n");
+        Log(LogLevel::Warn, "wifi: writing to RXBUF_DATA_READ. wat\n");
         if (IOPORT(W_RXBufCount) > 0)
         {
             IOPORT(W_RXBufCount)--;
@@ -2176,7 +2178,7 @@ void Write(u32 addr, u16 val)
         // checkme: any bits affecting the beacon slot?
         if (val & 0x0040) IOPORT(W_TXSlotReply2) &= 0x7FFF;
         if (val & 0x0080) IOPORT(W_TXSlotReply1) &= 0x7FFF;
-        if ((val & 0xFF30) && (val != 0xFFFF)) printf("unusual TXSLOTRESET %04X\n", val);
+        if ((val & 0xFF30) && (val != 0xFFFF)) Log(LogLevel::Warn, "unusual TXSLOTRESET %04X\n", val);
         val = 0; // checkme (write-only port)
         break;
 

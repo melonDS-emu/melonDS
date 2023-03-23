@@ -20,6 +20,9 @@
 #include "Savestate.h"
 #include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
+
 /*
     Savestate format
 
@@ -58,7 +61,7 @@ Savestate::Savestate(std::string filename, bool save)
         file = Platform::OpenLocalFile(filename, "wb");
         if (!file)
         {
-            printf("savestate: file %s doesn't exist\n", filename.c_str());
+            Log(LogLevel::Error, "savestate: file %s doesn't exist\n", filename.c_str());
             Error = true;
             return;
         }
@@ -77,7 +80,7 @@ Savestate::Savestate(std::string filename, bool save)
         file = Platform::OpenFile(filename, "rb");
         if (!file)
         {
-            printf("savestate: file %s doesn't exist\n", filename.c_str());
+            Log(LogLevel::Error, "savestate: file %s doesn't exist\n", filename.c_str());
             Error = true;
             return;
         }
@@ -92,7 +95,7 @@ Savestate::Savestate(std::string filename, bool save)
         fread(&buf, 4, 1, file);
         if (buf != ((u32*)magic)[0])
         {
-            printf("savestate: invalid magic %08X\n", buf);
+            Log(LogLevel::Error, "savestate: invalid magic %08X\n", buf);
             Error = true;
             return;
         }
@@ -103,7 +106,7 @@ Savestate::Savestate(std::string filename, bool save)
         fread(&VersionMajor, 2, 1, file);
         if (VersionMajor != SAVESTATE_MAJOR)
         {
-            printf("savestate: bad version major %d, expecting %d\n", VersionMajor, SAVESTATE_MAJOR);
+            Log(LogLevel::Error, "savestate: bad version major %d, expecting %d\n", VersionMajor, SAVESTATE_MAJOR);
             Error = true;
             return;
         }
@@ -111,7 +114,7 @@ Savestate::Savestate(std::string filename, bool save)
         fread(&VersionMinor, 2, 1, file);
         if (VersionMinor > SAVESTATE_MINOR)
         {
-            printf("savestate: state from the future, %d > %d\n", VersionMinor, SAVESTATE_MINOR);
+            Log(LogLevel::Error, "savestate: state from the future, %d > %d\n", VersionMinor, SAVESTATE_MINOR);
             Error = true;
             return;
         }
@@ -120,7 +123,7 @@ Savestate::Savestate(std::string filename, bool save)
         fread(&buf, 4, 1, file);
         if (buf != len)
         {
-            printf("savestate: bad length %d\n", buf);
+            Log(LogLevel::Error, "savestate: bad length %d\n", buf);
             Error = true;
             return;
         }
@@ -192,7 +195,7 @@ void Savestate::Section(const char* magic)
             {
                 if (buf == 0)
                 {
-                    printf("savestate: section %s not found. blarg\n", magic);
+                    Log(LogLevel::Error, "savestate: section %s not found. blarg\n", magic);
                     return;
                 }
 

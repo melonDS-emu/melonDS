@@ -16,7 +16,6 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <stdio.h>
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
@@ -26,6 +25,9 @@
 #endif
 
 #include "GPU2D_Soft.h"
+
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace GPU
 {
@@ -987,7 +989,7 @@ void SetPowerCnt(u32 val)
     // * bit9: disables engine B palette, OAM and rendering (screen turns white)
     // * bit15: screen swap
 
-    if (!(val & (1<<0))) printf("!!! CLEARING POWCNT BIT0. DANGER\n");
+    if (!(val & (1<<0))) Log(LogLevel::Warn, "!!! CLEARING POWCNT BIT0. DANGER\n");
 
     GPU2D_A.SetEnabled(val & (1<<1));
     GPU2D_B.SetEnabled(val & (1<<9));

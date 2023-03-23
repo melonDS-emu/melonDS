@@ -26,6 +26,7 @@
 #include "../Wifi.h"
 #include "LAN_PCap.h"
 #include "Config.h"
+#include "Platform.h"
 
 #ifdef __WIN32__
 	#include <iphlpapi.h>
@@ -41,6 +42,8 @@
         #endif
 #endif
 
+using Platform::Log;
+using Platform::LogLevel;
 
 // welp
 #ifndef PCAP_OPENFLAG_PROMISCUOUS
@@ -136,14 +139,14 @@ bool Init(bool open_adapter)
                 continue;
             }
 
-            printf("PCap: lib %s, init successful\n", PCapLibNames[i]);
+            Log(LogLevel::Info, "PCap: lib %s, init successful\n", PCapLibNames[i]);
             PCapLib = lib;
             break;
         }
 
         if (PCapLib == NULL)
         {
-            printf("PCap: init failed\n");
+            Log(LogLevel::Error, "PCap: init failed\n");
             return false;
         }
     }
@@ -155,7 +158,7 @@ bool Init(bool open_adapter)
     ret = pcap_findalldevs(&alldevs, errbuf);
     if (ret < 0 || alldevs == NULL)
     {
-        printf("PCap: no devices available\n");
+        Log(LogLevel::Warn, "PCap: no devices available\n");
         return false;
     }
 
@@ -202,7 +205,7 @@ bool Init(bool open_adapter)
     }
     if (uret != ERROR_SUCCESS)
     {
-        printf("GetAdaptersAddresses() shat itself: %08X\n", uret);
+        Log(LogLevel::Error, "GetAdaptersAddresses() shat itself: %08X\n", uret);
         return false;
     }
 
@@ -226,7 +229,7 @@ bool Init(bool open_adapter)
 
             if (addr->PhysicalAddressLength != 6)
             {
-                printf("weird MAC addr length %d for %s\n", addr->PhysicalAddressLength, addr->AdapterName);
+                Log(LogLevel::Warn, "weird MAC addr length %d for %s\n", addr->PhysicalAddressLength, addr->AdapterName);
             }
             else
                 memcpy(adata->MAC, addr->PhysicalAddress, 6);
@@ -255,7 +258,7 @@ bool Init(bool open_adapter)
     struct ifaddrs* addrs;
     if (getifaddrs(&addrs) != 0)
     {
-        printf("getifaddrs() shat itself :(\n");
+        Log(LogLevel::Error, "getifaddrs() shat itself :(\n");
         return false;
     }
 
@@ -273,7 +276,7 @@ bool Init(bool open_adapter)
 
             if (!curaddr->ifa_addr)
             {
-                printf("Device (%s) does not have an address :/\n", curaddr->ifa_name);
+                Log(LogLevel::Error, "Device (%s) does not have an address :/\n", curaddr->ifa_name);
                 curaddr = curaddr->ifa_next;
                 continue;
             }
@@ -289,7 +292,7 @@ bool Init(bool open_adapter)
             {
                 struct sockaddr_ll* sa = (sockaddr_ll*)curaddr->ifa_addr;
                 if (sa->sll_halen != 6)
-                    printf("weird MAC length %d for %s\n", sa->sll_halen, curaddr->ifa_name);
+                    Log(LogLevel::Warn, "weird MAC length %d for %s\n", sa->sll_halen, curaddr->ifa_name);
                 else
                     memcpy(adata->MAC, sa->sll_addr, 6);
             }
@@ -298,7 +301,7 @@ bool Init(bool open_adapter)
             {
                 struct sockaddr_dl* sa = (sockaddr_dl*)curaddr->ifa_addr;
                 if (sa->sdl_alen != 6)
-                    printf("weird MAC length %d for %s\n", sa->sdl_alen, curaddr->ifa_name);
+                    Log(LogLevel::Warn, "weird MAC length %d for %s\n", sa->sdl_alen, curaddr->ifa_name);
                 else
                     memcpy(adata->MAC, LLADDR(sa), 6);
             }
@@ -326,7 +329,7 @@ bool Init(bool open_adapter)
     PCapAdapter = pcap_open_live(dev->name, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
     if (!PCapAdapter)
     {
-        printf("PCap: failed to open adapter %s\n", errbuf);
+        Log(LogLevel::Error, "PCap: failed to open adapter %s\n", errbuf);
         return false;
     }
 
@@ -334,7 +337,7 @@ bool Init(bool open_adapter)
 
     if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
     {
-        printf("PCap: failed to set nonblocking mode\n");
+        Log(LogLevel::Error, "PCap: failed to set nonblocking mode\n");
         pcap_close(PCapAdapter); PCapAdapter = NULL;
         return false;
     }
@@ -376,7 +379,7 @@ int SendPacket(u8* data, int len)
 
     if (len > 2048)
     {
-        printf("LAN_SendPacket: error: packet too long (%d)\n", len);
+        Log(LogLevel::Error, "LAN_SendPacket: error: packet too long (%d)\n", len);
         return 0;
     }
 
