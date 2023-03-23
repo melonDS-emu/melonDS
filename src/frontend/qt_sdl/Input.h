@@ -19,6 +19,9 @@
 #ifndef INPUT_H
 #define INPUT_H
 
+#include <SDL2/SDL.h>
+#include <QKeyEvent>
+
 #include "types.h"
 
 namespace Input

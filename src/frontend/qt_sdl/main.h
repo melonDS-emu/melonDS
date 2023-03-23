@@ -313,6 +313,7 @@ private slots:
     void onMPNewInstance();
     void onMPStartHost();
     void onMPStartClient();
+    void onMPTest();
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -412,6 +413,7 @@ public:
     QAction* actMPNewInstance;
     QAction* actMPStartHost;
     QAction* actMPStartClient;
+    QAction* actMPTest;
 
     QAction* actEmuSettings;
 #ifdef __APPLE__
