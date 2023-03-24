@@ -29,6 +29,8 @@
 namespace ROMManager
 {
 
+extern QStringList FullROMPath;
+
 extern SaveManager* NDSSave;
 extern SaveManager* GBASave;
 

@@ -31,6 +31,7 @@
 #include "IPC.h"
 #include "Netplay.h"
 #include "Input.h"
+#include "ROMManager.h"
 
 #include "ui_NetplayStartHostDialog.h"
 #include "ui_NetplayStartClientDialog.h"
@@ -272,7 +273,7 @@ void StartHost(const char* playername, int port)
 
 void StartClient(const char* playername, const char* host, int port)
 {
-    Host = enet_host_create(nullptr, 16, 1, 0, 0);
+    Host = enet_host_create(nullptr, 1, 1, 0, 0);
     if (!Host)
     {
         printf("client shat itself :(\n");
@@ -322,6 +323,54 @@ void StartClient(const char* playername, const char* host, int port)
     IsMirror = false;
 }
 
+void StartMirror(const Player* player)
+{
+    MirrorHost = enet_host_create(nullptr, 1, 1, 0, 0);
+    if (!MirrorHost)
+    {
+        printf("mirror shat itself :(\n");
+        return;
+    }
+
+    printf("mirror created, connecting\n");
+
+    ENetAddress addr;
+    addr.host = player->Address;
+    addr.port = 8064+1 + player->ID; // FIXME!!!!!!!!!!
+    ENetPeer* peer = enet_host_connect(MirrorHost, &addr, 1, 0);
+    if (!peer)
+    {
+        printf("connect shat itself :(\n");
+        return;
+    }
+
+    ENetEvent event;
+    bool conn = false;
+    if (enet_host_service(MirrorHost, &event, 5000) > 0)
+    {
+        if (event.type == ENET_EVENT_TYPE_CONNECT)
+        {
+            printf("connected!\n");
+            conn = true;
+        }
+    }
+
+    if (!conn)
+    {
+        printf("connection failed\n");
+        enet_peer_reset(peer);
+        return;
+    }
+
+    memcpy(&MyPlayer, player, sizeof(Player));
+
+    HostAddress = addr.host;
+
+    Active = true;
+    IsHost = false;
+    IsMirror = true;
+}
+
 
 u32 PlayerAddress(int id)
 {
@@ -333,7 +382,7 @@ u32 PlayerAddress(int id)
 }
 
 
-bool SpawnMirrorInstance(Player* player)
+bool SpawnMirrorInstance(Player player)
 {
     u16 curmask = IPC::GetInstanceBitmask();
 
@@ -375,9 +424,13 @@ bool SpawnMirrorInstance(Player* player)
     if (newid == -1) return false;
 
     // setup that instance
-    printf("netplay: spawned mirror instance for player %d with ID %d, configuring\n", player->ID, newid);
+    printf("netplay: spawned mirror instance for player %d with ID %d, configuring\n", player.ID, newid);
 
-    IPC::SendCommand(1<<newid, IPC::Cmd_SetupNetplayMirror, sizeof(Player), player);
+    std::string rompath = ROMManager::FullROMPath.join('|').toStdString();
+    IPC::SendCommandStr(1<<newid, IPC::Cmd_LoadROM, rompath);
+
+    if (player.Address == 0x0100007F) player.Address = HostAddress;
+    IPC::SendCommand(1<<newid, IPC::Cmd_SetupNetplayMirror, sizeof(Player), &player);
 
     return true;
 }
@@ -390,10 +443,19 @@ void StartGame()
         return;
     }
 
+    // spawn mirror instances as needed
+    for (int i = 1; i < NumPlayers; i++)
+    {
+        SpawnMirrorInstance(Players[i]);
+    }
+
     // tell remote peers to start game
-    u8 cmd[1] = {0x01};
+    u8 cmd[1] = {0x04};
     ENetPacket* pkt = enet_packet_create(cmd, sizeof(cmd), ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(Host, 0, pkt);
+
+    // tell other mirror instances to start the game
+    IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
 
     // start game locally
     NDS::Start();
@@ -541,6 +603,11 @@ void ProcessClient()
 
                         netplayDlg->updatePlayerList(Players, NumPlayers);
                     }
+                    break;
+
+                case 0x04: // start game
+                    NDS::Start();
+                    emuThread->emuRun();
                     break;
                 }
             }
