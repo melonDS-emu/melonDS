@@ -256,7 +256,7 @@ void StartHost(const char* playername, int port)
     ENetAddress mirroraddr;
     mirroraddr.host = ENET_HOST_ANY;
     mirroraddr.port = port + 1;
-
+printf("host mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr.port);
     MirrorHost = enet_host_create(&mirroraddr, 16, 1, 0, 0);
     if (!MirrorHost)
     {
@@ -337,6 +337,7 @@ void StartMirror(const Player* player)
     ENetAddress addr;
     addr.host = player->Address;
     addr.port = 8064+1 + player->ID; // FIXME!!!!!!!!!!
+    printf("mirror client connecting to %08X:%d\n", addr.host, addr.port);
     ENetPeer* peer = enet_host_connect(MirrorHost, &addr, 1, 0);
     if (!peer)
     {
@@ -579,6 +580,18 @@ void ProcessClient()
                     {
                         if (event.packet->dataLength != 2) break;
 
+                        // create mirror host
+                        ENetAddress mirroraddr;
+                        mirroraddr.host = ENET_HOST_ANY;
+                        mirroraddr.port = 8064+1 + data[1]; // FIXME!!!!
+printf("client mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr.port);
+                        MirrorHost = enet_host_create(&mirroraddr, 16, 1, 0, 0);
+                        if (!MirrorHost)
+                        {
+                            printf("mirror host shat itself :(\n");
+                            break;
+                        }
+
                         // send player information
                         MyPlayer.ID = data[1];
                         u8 cmd[1+sizeof(Player)];
@@ -613,13 +626,13 @@ void ProcessClient()
                             if (i != MyPlayer.ID)
                                 SpawnMirrorInstance(Players[i]);
                         }
-
+printf("bourf\n");
                         // tell other mirror instances to start the game
                         IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
-
+printf("birf\n");
                         // start game locally
-                        NDS::Start();
-                        emuThread->emuRun();
+                        NDS::Start();printf("barf\n");
+                        emuThread->emuRun();printf("burf\n");
                     }
                     break;
                 }
