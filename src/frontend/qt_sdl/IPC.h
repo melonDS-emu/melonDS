@@ -28,6 +28,8 @@ enum
 {
     Cmd_Pause = 1,
 
+    Cmd_SetupNetplayMirror,
+
     Cmd_MAX
 };
 
@@ -43,6 +45,8 @@ void MPBegin();
 void MPEnd();
 
 void SetActive(bool active);
+
+u16 GetInstanceBitmask();
 
 void ProcessCommands();
 bool SendCommand(u16 recipients, u16 command, u16 len, void* data);
