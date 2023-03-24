@@ -26,32 +26,32 @@
 
 #include <discord_rpc.h>
 
+using namespace Platform;
+
 const char* APP_ID          = "1049597419152744458";
 
 const char* DETAILS_IDLE    = "Not playing";
 const char* DETAILS_PLAYING = "Currently in game";
 
-void Ready(const DiscordUser* user)
+static void DiscordReady(const DiscordUser* user)
 {
-    printf("Connected to Discord, %s#%s (%s)\n", user->username, user->discriminator, user->userId);
+    Log(LogLevel::Info, "Connected to Discord, %s#%s (%s)\n", user->username, user->discriminator, user->userId);
 }
 
-void Disconnected(const int reason, const char* message)
+static void DiscordDisconnected(const int reason, const char* message)
 {
-    printf("Disconnected from Discord with reason %d; \"%s\"\n", reason, message);
+    Log(LogLevel::Info, "Disconnected from Discord with reason %d; \"%s\"\n", reason, message);
 }
 
-void Error(const int code, const char* message)
+static void DiscordError(const int code, const char* message)
 {
-    printf("Caught an error from Discord with code %d; \"%s\"\n", code, message);
+    Log(LogLevel::Error, "Caught an error from Discord with code %d; \"%s\"\n", code, message);
 }
 
-void PartyEventWithSecret(const char* secret)
-{
-    // ignored
-}
+static void DiscordPartyEventWithSecret(const char* secret)
+{} // ignored
 
-void PartyEventWithUser(const DiscordUser* user)
+static void DiscordPartyEventWithUser(const DiscordUser* user)
 {
     Discord_Respond(user->userId, DISCORD_REPLY_IGNORE);
 }
@@ -75,12 +75,12 @@ void DiscordRPC::Initialize()
 
     DiscordEventHandlers event_handler =
     {
-        .ready        = Ready,
-        .disconnected = Disconnected,
-        .errored      = Error,
-        .joinGame     = PartyEventWithSecret,
-        .spectateGame = PartyEventWithSecret,
-        .joinRequest  = PartyEventWithUser
+        .ready        = DiscordReady,
+        .disconnected = DiscordDisconnected,
+        .errored      = DiscordError,
+        .joinGame     = DiscordPartyEventWithSecret,
+        .spectateGame = DiscordPartyEventWithSecret,
+        .joinRequest  = DiscordPartyEventWithUser
     };
 
     Discord_Initialize(APP_ID, &event_handler);
