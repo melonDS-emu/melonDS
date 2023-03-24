@@ -24,9 +24,11 @@
 #include <enet/enet.h>
 
 #include <QStandardItemModel>
+#include <QProcess>
 
 #include "NDS.h"
 #include "main.h"
+#include "IPC.h"
 #include "Netplay.h"
 #include "Input.h"
 
@@ -137,7 +139,9 @@ void NetplayDialog::doUpdatePlayerList(Netplay::Player* players, int num)
     model->clear();
     model->setRowCount(num);
 
-    const QStringList header = {"#", "Player", "Status", "Ping"};
+    // TODO: remove IP column in final product
+
+    const QStringList header = {"#", "Player", "Status", "Ping", "IP"};
     model->setHorizontalHeaderLabels(header);
 
     for (int i = 0; i < num; i++)
@@ -161,6 +165,11 @@ void NetplayDialog::doUpdatePlayerList(Netplay::Player* players, int num)
 
         // TODO: ping
         model->setItem(i, 3, new QStandardItem("x"));
+
+        char ip[32];
+        u32 addr = player->Address;
+        sprintf(ip, "%d.%d.%d.%d", addr&0xFF, (addr>>8)&0xFF, (addr>>16)&0xFF, addr>>24);
+        model->setItem(i, 4, new QStandardItem(ip));
     }
 }
 
@@ -170,13 +179,16 @@ namespace Netplay
 
 bool Active;
 bool IsHost;
+bool IsMirror;
 
 ENetHost* Host;
+ENetHost* MirrorHost;
 
 Player Players[16];
 int NumPlayers;
 
-Player TempPlayer; // holds client player info temporarily
+Player MyPlayer;
+u32 HostAddress;
 
 struct InputFrame
 {
@@ -187,14 +199,13 @@ struct InputFrame
 std::queue<InputFrame> InputQueue;
 
 
-//
-
-
 bool Init()
 {
     Active = false;
     IsHost = false;
+    IsMirror = false;
     Host = nullptr;
+    MirrorHost = nullptr;
 
     memset(Players, 0, sizeof(Players));
     NumPlayers = 0;
@@ -211,6 +222,8 @@ bool Init()
 
 void DeInit()
 {
+    // TODO: cleanup resources properly!!
+
     enet_deinitialize();
 }
 
@@ -233,10 +246,26 @@ void StartHost(const char* playername, int port)
     player->ID = 0;
     strncpy(player->Name, playername, 31);
     player->Status = 2;
+    player->Address = 0x0100007F;
     NumPlayers = 1;
+    memcpy(&MyPlayer, player, sizeof(Player));
+
+    HostAddress = 0x0100007F;
+
+    ENetAddress mirroraddr;
+    mirroraddr.host = ENET_HOST_ANY;
+    mirroraddr.port = port + 1;
+
+    MirrorHost = enet_host_create(&mirroraddr, 16, 1, 0, 0);
+    if (!MirrorHost)
+    {
+        printf("mirror host shat itself :(\n");
+        return;
+    }
 
     Active = true;
     IsHost = true;
+    IsMirror = false;
 
     netplayDlg->updatePlayerList(Players, NumPlayers);
 }
@@ -280,16 +309,78 @@ void StartClient(const char* playername, const char* host, int port)
         return;
     }
 
-    Player* player = &TempPlayer;
+    Player* player = &MyPlayer;
     memset(player, 0, sizeof(Player));
     player->ID = 0;
     strncpy(player->Name, playername, 31);
     player->Status = 3;
 
+    HostAddress = addr.host;
+
     Active = true;
     IsHost = false;
+    IsMirror = false;
 }
 
+
+u32 PlayerAddress(int id)
+{
+    if (id < 0 || id > 16) return 0;
+
+    u32 ret = Players[id].Address;
+    if (ret == 0x0100007F) ret = HostAddress;
+    return ret;
+}
+
+
+bool SpawnMirrorInstance(Player* player)
+{
+    u16 curmask = IPC::GetInstanceBitmask();
+
+    QProcess newinst;
+    newinst.setProgram(QApplication::applicationFilePath());
+    newinst.setArguments(QApplication::arguments().mid(1, QApplication::arguments().length()-1));
+
+#ifdef __WIN32__
+    newinst.setCreateProcessArgumentsModifier([] (QProcess::CreateProcessArguments *args)
+    {
+        args->flags |= CREATE_NEW_CONSOLE;
+    });
+#endif
+
+    if (!newinst.startDetached())
+        return false;
+
+    // try to determine the ID of the new instance
+
+    int newid = -1;
+    for (int tries = 0; tries < 10; tries++)
+    {
+        QThread::usleep(100 * 1000);
+
+        u16 newmask = IPC::GetInstanceBitmask();
+        if (newmask == curmask) continue;
+
+        newmask &= ~curmask;
+        for (int id = 0; id < 32; id++)
+        {
+            if (newmask & (1 << id))
+            {
+                newid = id;
+                break;
+            }
+        }
+    }
+
+    if (newid == -1) return false;
+
+    // setup that instance
+    printf("netplay: spawned mirror instance for player %d with ID %d, configuring\n", player->ID, newid);
+
+    IPC::SendCommand(1<<newid, IPC::Cmd_SetupNetplayMirror, sizeof(Player), player);
+
+    return true;
+}
 
 void StartGame()
 {
@@ -338,6 +429,7 @@ void ProcessHost()
 
                     Players[id].ID = id;
                     Players[id].Status = 3;
+                    Players[id].Address = event.peer->address.host;
                     event.peer->data = &Players[id];
                     NumPlayers++;
                 }
@@ -375,6 +467,7 @@ void ProcessHost()
                         }
 
                         player.Status = 1;
+                        player.Address = event.peer->address.host;
                         memcpy(hostside, &player, sizeof(Player));
 
                         // broadcast updated player list
@@ -425,10 +518,10 @@ void ProcessClient()
                         if (event.packet->dataLength != 2) break;
 
                         // send player information
-                        TempPlayer.ID = data[1];printf("host assigned ID: %d\n", data[1]);
+                        MyPlayer.ID = data[1];
                         u8 cmd[1+sizeof(Player)];
                         cmd[0] = 0x02;
-                        memcpy(&cmd[1], &TempPlayer, sizeof(Player));
+                        memcpy(&cmd[1], &MyPlayer, sizeof(Player));
                         ENetPacket* pkt = enet_packet_create(cmd, 1+sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
                         enet_peer_send(event.peer, 0, pkt);
                     }

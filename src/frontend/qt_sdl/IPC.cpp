@@ -371,6 +371,15 @@ void SetActive(bool active)
     Buffer->unlock();
 }
 
+u16 GetInstanceBitmask()
+{
+    Buffer->lock();
+    BufferHeader* header = (BufferHeader*)Buffer->data();
+    u16 ret = header->InstanceBitmask;
+    Buffer->unlock();
+    return ret;
+}
+
 
 template<int fifo> void FIFORead(void* buf, int len)
 {
