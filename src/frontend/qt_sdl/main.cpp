@@ -2855,12 +2855,14 @@ void MainWindow::onMPNewInstance()
 
 void MainWindow::onMPStartHost()
 {
-    Netplay::StartHost();
+    //Netplay::StartHost();
+    NetplayStartHostDialog::openDlg(this);
 }
 
 void MainWindow::onMPStartClient()
 {
-    Netplay::StartClient();
+    //Netplay::StartClient();
+    NetplayStartClientDialog::openDlg(this);
 }
 
 void MainWindow::onMPTest()
