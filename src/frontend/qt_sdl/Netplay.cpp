@@ -110,7 +110,7 @@ NetplayDialog::NetplayDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Netp
     QStandardItemModel* model = new QStandardItemModel();
     ui->tvPlayerList->setModel(model);
 
-    connect(this, &sgUpdatePlayerList, this, &doUpdatePlayerList);
+    connect(this, &NetplayDialog::sgUpdatePlayerList, this, &NetplayDialog::doUpdatePlayerList);
 }
 
 NetplayDialog::~NetplayDialog()
