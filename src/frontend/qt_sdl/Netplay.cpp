@@ -642,7 +642,32 @@ printf("birf\n");
     }
 }
 
-void ProcessMirror()
+void ProcessMirrorHost()
+{
+    ENetEvent event;
+    while (enet_host_service(MirrorHost, &event, 0) > 0)
+    {
+        switch (event.type)
+        {
+        case ENET_EVENT_TYPE_CONNECT:
+            printf("schmz\n");
+            break;
+
+        case ENET_EVENT_TYPE_DISCONNECT:
+            {
+                // TODO
+                printf("shmtt\n");
+            }
+            break;
+
+        case ENET_EVENT_TYPE_RECEIVE:
+            // TODO??
+            break;
+        }
+    }
+}
+
+void ProcessMirrorClient()
 {
     ENetEvent event;
     while (enet_host_service(MirrorHost, &event, 0) > 0)
@@ -678,15 +703,20 @@ void ProcessFrame()
 {
     if (IsMirror)
     {
-        ProcessMirror();
-    }
-    else if (IsHost)
-    {
-        ProcessHost();
+        ProcessMirrorClient();
     }
     else
     {
-        ProcessClient();
+        if (IsHost)
+        {
+            ProcessHost();
+        }
+        else
+        {
+            ProcessClient();
+        }
+
+        ProcessMirrorHost();
     }
 
     return;
