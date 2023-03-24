@@ -56,7 +56,7 @@ u8* Compiler::RewriteMemAccess(u8* pc)
 
         return pc + (ptrdiff_t)patch.PatchOffset;
     }
-    printf("this is a JIT bug! %08x\n", __builtin_bswap32(*(u32*)pc));
+    Log(LogLevel::Error, "this is a JIT bug! %08x\n", __builtin_bswap32(*(u32*)pc));
     abort();
 }
 
@@ -332,7 +332,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
     if (CurInstr.Info.Branches())
     {
         if (size < 32)
-            printf("LDR size < 32 branching?\n");
+            Log(LogLevel::Debug, "LDR size < 32 branching?\n");
         Comp_JumpTo(rdMapped, Num == 0, false);
     }
 }

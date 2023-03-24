@@ -22,7 +22,10 @@
 #include "DSi_DSP.h"
 #include "FIFO.h"
 #include "NDS.h"
+#include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace DSi_DSP
 {
@@ -488,7 +491,7 @@ void Write8(u32 addr, u8 val)
 }
 void Write16(u32 addr, u16 val)
 {
-    printf("DSP WRITE16 %d %08X %08X  %08X\n", IsDSPCoreEnabled(), addr, val, NDS::GetPC(0));
+    Log(LogLevel::Debug,"DSP WRITE16 %d %08X %08X  %08X\n", IsDSPCoreEnabled(), addr, val, NDS::GetPC(0));
     //if (!IsDSPIOEnabled()) return;
     DSPCatchUp();
 

@@ -23,6 +23,8 @@
 #include "DSi_NWifi.h"
 #include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 // observed IRQ behavior during transfers
 //
@@ -294,7 +296,7 @@ void DSi_SDHost::FinishRX(u32 param)
 
 u32 DSi_SDHost::DataRX(u8* data, u32 len)
 {
-    if (len != BlockLen16) { printf("!! BAD BLOCKLEN\n"); len = BlockLen16; }
+    if (len != BlockLen16) { Log(LogLevel::Warn, "!! BAD BLOCKLEN\n"); len = BlockLen16; }
 
     bool last = (BlockCountInternal == 0);
 
@@ -360,7 +362,7 @@ u32 DSi_SDHost::DataTX(u8* data, u32 len)
 
         // drain FIFO32 into FIFO16
 
-        if (!DataFIFO[f].IsEmpty()) printf("VERY BAD!! TRYING TO DRAIN FIFO32 INTO FIFO16 BUT IT CONTAINS SHIT ALREADY\n");
+        if (!DataFIFO[f].IsEmpty()) Log(LogLevel::Warn, "VERY BAD!! TRYING TO DRAIN FIFO32 INTO FIFO16 BUT IT CONTAINS SHIT ALREADY\n");
         for (;;)
         {
             u32 f = CurFIFO;
@@ -523,7 +525,7 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x10A: return 0;
     }
 
-    printf("unknown %s read %08X @ %08X\n", SD_DESC, addr, NDS::GetPC(1));
+    Log(LogLevel::Warn, "unknown %s read %08X @ %08X\n", SD_DESC, addr, NDS::GetPC(1));
     return 0;
 }
 
@@ -591,11 +593,11 @@ void DSi_SDHost::Write(u32 addr, u16 val)
                 case 0: dev->SendCMD(cmd, Param); break;
                 case 1: /*dev->SendCMD(55, 0);*/ dev->SendCMD(cmd, Param); break;
                 default:
-                    printf("%s: unknown command type %d, %02X %08X\n", SD_DESC, (Command>>6)&0x3, cmd, Param);
+                    Log(LogLevel::Warn, "%s: unknown command type %d, %02X %08X\n", SD_DESC, (Command>>6)&0x3, cmd, Param);
                     break;
                 }
             }
-            else printf("%s: SENDING CMD %04X TO NULL DEVICE\n", SD_DESC, val);
+            else Log(LogLevel::Debug, "%s: SENDING CMD %04X TO NULL DEVICE\n", SD_DESC, val);
         }
         return;
 
@@ -659,7 +661,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
     case 0x0E0:
         if ((SoftReset & 0x0001) && !(val & 0x0001))
         {
-            printf("%s: RESET\n", SD_DESC);
+            Log(LogLevel::Debug, "%s: RESET\n", SD_DESC);
             StopAction = 0;
             memset(ResponseBuffer, 0, sizeof(ResponseBuffer));
             IRQStatus = 0;
@@ -689,7 +691,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
     case 0x10A: return;
     }
 
-    printf("unknown %s write %08X %04X\n", SD_DESC, addr, val);
+    Log(LogLevel::Warn, "unknown %s write %08X %04X\n", SD_DESC, addr, val);
 }
 
 void DSi_SDHost::WriteFIFO16(u16 val)
@@ -699,7 +701,7 @@ void DSi_SDHost::WriteFIFO16(u16 val)
     if (DataFIFO[f].IsFull())
     {
         // TODO
-        printf("!!!! %s FIFO (16) FULL\n", SD_DESC);
+        Log(LogLevel::Error, "!!!! %s FIFO (16) FULL\n", SD_DESC);
         return;
     }
 
@@ -715,7 +717,7 @@ void DSi_SDHost::WriteFIFO32(u32 val)
     if (DataFIFO32.IsFull())
     {
         // TODO
-        printf("!!!! %s FIFO (32) FULL\n", SD_DESC);
+        Log(LogLevel::Error, "!!!! %s FIFO (32) FULL\n", SD_DESC);
         return;
     }
 
@@ -732,7 +734,7 @@ void DSi_SDHost::UpdateFIFO32()
 
     if (DataMode != 1) return;
 
-    if (!DataFIFO32.IsEmpty()) printf("VERY BAD!! TRYING TO DRAIN FIFO16 INTO FIFO32 BUT IT CONTAINS SHIT ALREADY\n");
+    if (!DataFIFO32.IsEmpty()) Log(LogLevel::Warn, "VERY BAD!! TRYING TO DRAIN FIFO16 INTO FIFO32 BUT IT CONTAINS SHIT ALREADY\n");
     for (;;)
     {
         u32 f = CurFIFO;
@@ -875,7 +877,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         }
         else
         {
-            printf("CMD1 on SD card!!\n");
+            Log(LogLevel::Debug, "CMD1 on SD card!!\n");
         }
         return;
 
@@ -897,7 +899,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         else
         {
             // TODO
-            printf("CMD3 on SD card: TODO\n");
+            Log(LogLevel::Debug, "CMD3 on SD card: TODO\n");
             Host->SendResponse((CSR & 0x1FFF) | ((CSR >> 6) & 0x2000) | ((CSR >> 8) & 0xC000) | (1 << 16), true);
         }
         return;
@@ -938,7 +940,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         if (BlockSize > 0x200)
         {
             // TODO! raise error
-            printf("!! SD/MMC: BAD BLOCK LEN %d\n", BlockSize);
+            Log(LogLevel::Warn, "!! SD/MMC: BAD BLOCK LEN %d\n", BlockSize);
             BlockSize = 0x200;
         }
         SetState(0x04); // CHECKME
@@ -979,7 +981,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         return;
     }
 
-    printf("MMC: unknown CMD %d %08X\n", cmd, param);
+    Log(LogLevel::Warn, "MMC: unknown CMD %d %08X\n", cmd, param);
 }
 
 void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
@@ -1018,7 +1020,7 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
         return;
     }
 
-    printf("MMC: unknown ACMD %d %08X\n", cmd, param);
+    Log(LogLevel::Warn, "MMC: unknown ACMD %d %08X\n", cmd, param);
 }
 
 void DSi_MMCStorage::ContinueTransfer()

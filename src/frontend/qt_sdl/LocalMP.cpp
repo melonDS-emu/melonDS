@@ -36,7 +36,10 @@
 
 #include "Config.h"
 #include "LocalMP.h"
+#include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace LocalMP
 {
@@ -239,10 +242,10 @@ bool Init()
 
     if (!MPQueue->attach())
     {
-        printf("MP sharedmem doesn't exist. creating\n");
+        Log(LogLevel::Info, "MP sharedmem doesn't exist. creating\n");
         if (!MPQueue->create(kQueueSize))
         {
-            printf("MP sharedmem create failed :(\n");
+            Log(LogLevel::Error, "MP sharedmem create failed :(\n");
             return false;
         }
 
@@ -285,7 +288,7 @@ bool Init()
 
     LastHostID = -1;
 
-    printf("MP comm init OK, instance ID %d\n", InstanceID);
+    Log(LogLevel::Info, "MP comm init OK, instance ID %d\n", InstanceID);
 
     RecvTimeout = 25;
 
@@ -478,7 +481,7 @@ int RecvPacketGeneric(u8* packet, bool block, u64* timestamp)
 
         if (pktheader.Magic != 0x4946494E)
         {
-            printf("PACKET FIFO OVERFLOW\n");
+            Log(LogLevel::Warn, "PACKET FIFO OVERFLOW\n");
             PacketReadOffset = header->PacketWriteOffset;
             SemReset(InstanceID);
             MPQueue->unlock();
@@ -590,7 +593,7 @@ u16 RecvReplies(u8* packets, u64 timestamp, u16 aidmask)
 
         if (pktheader.Magic != 0x4946494E)
         {
-            printf("REPLY FIFO OVERFLOW\n");
+            Log(LogLevel::Warn, "REPLY FIFO OVERFLOW\n");
             ReplyReadOffset = header->ReplyWriteOffset;
             SemReset(16+InstanceID);
             MPQueue->unlock();

@@ -29,6 +29,8 @@
 #include "CheatsDialog.h"
 #include "ui_CheatsDialog.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 CheatsDialog* CheatsDialog::currentDlg = nullptr;
 
@@ -150,7 +152,7 @@ void CheatsDialog::on_btnNewARCode_clicked()
     }
     else
     {
-        printf("what?? :(\n");
+        Log(LogLevel::Warn, "what?? :(\n");
         return;
     }
 

@@ -22,7 +22,10 @@
 #include "NDS.h"
 #include "GPU.h"
 #include "FIFO.h"
+#include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 // 3D engine notes
 //
@@ -2724,7 +2727,7 @@ u8 Read8(u32 addr)
         }
     }
 
-    printf("unknown GPU3D read8 %08X\n", addr);
+    Log(LogLevel::Warn, "unknown GPU3D read8 %08X\n", addr);
     return 0;
 }
 
@@ -2768,7 +2771,7 @@ u16 Read16(u32 addr)
     case 0x04000634: return VecTestResult[2];
     }
 
-    printf("unknown GPU3D read16 %08X\n", addr);
+    Log(LogLevel::Warn, "unknown GPU3D read16 %08X\n", addr);
     return 0;
 }
 
@@ -2872,7 +2875,7 @@ void Write8(u32 addr, u8 val)
         return;
     }
 
-    printf("unknown GPU3D write8 %08X %02X\n", addr, val);
+    Log(LogLevel::Warn, "unknown GPU3D write8 %08X %02X\n", addr, val);
 }
 
 void Write16(u32 addr, u16 val)
@@ -2959,7 +2962,7 @@ void Write16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown GPU3D write16 %08X %04X\n", addr, val);
+    Log(LogLevel::Warn, "unknown GPU3D write16 %08X %04X\n", addr, val);
 }
 
 void Write32(u32 addr, u32 val)
@@ -3056,7 +3059,7 @@ void Write32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown GPU3D write32 %08X %08X\n", addr, val);
+    Log(LogLevel::Warn, "unknown GPU3D write32 %08X %08X\n", addr, val);
 }
 
 Renderer3D::Renderer3D(bool Accelerated)

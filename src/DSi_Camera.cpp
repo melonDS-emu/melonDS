@@ -22,6 +22,8 @@
 #include "DSi_Camera.h"
 #include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace DSi_CamModule
 {
@@ -245,7 +247,7 @@ u8 Read8(u32 addr)
 {
     //
 
-    printf("unknown DSi cam read8 %08X\n", addr);
+    Log(LogLevel::Warn, "unknown DSi cam read8 %08X\n", addr);
     return 0;
 }
 
@@ -257,7 +259,7 @@ u16 Read16(u32 addr)
     case 0x04004202: return Cnt;
     }
 
-    printf("unknown DSi cam read16 %08X\n", addr);
+    Log(LogLevel::Warn, "unknown DSi cam read16 %08X\n", addr);
     return 0;
 }
 
@@ -283,7 +285,7 @@ u32 Read32(u32 addr)
     case 0x04004214: return CropEnd;
     }
 
-    printf("unknown DSi cam read32 %08X\n", addr);
+    Log(LogLevel::Warn, "unknown DSi cam read32 %08X\n", addr);
     return 0;
 }
 
@@ -291,7 +293,7 @@ void Write8(u32 addr, u8 val)
 {
     //
 
-    printf("unknown DSi cam write8 %08X %02X\n", addr, val);
+    Log(LogLevel::Warn, "unknown DSi cam write8 %08X %02X\n", addr, val);
 }
 
 void Write16(u32 addr, u16 val)
@@ -370,7 +372,7 @@ void Write16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown DSi cam write16 %08X %04X\n", addr, val);
+    Log(LogLevel::Warn, "unknown DSi cam write16 %08X %04X\n", addr, val);
 }
 
 void Write32(u32 addr, u32 val)
@@ -387,7 +389,7 @@ void Write32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown DSi cam write32 %08X %08X\n", addr, val);
+    Log(LogLevel::Warn, "unknown DSi cam write32 %08X %08X\n", addr, val);
 }
 
 
@@ -506,7 +508,7 @@ int Camera::TransferScanline(u32* buffer, int maxlen)
         (FrameWidth & 1))
     {
         // TODO work out something for these cases?
-        printf("CAM%d: invalid resolution %dx%d\n", Num, FrameWidth, FrameHeight);
+        Log(LogLevel::Warn, "CAM%d: invalid resolution %dx%d\n", Num, FrameWidth, FrameHeight);
         //memset(buffer, 0, width*height*sizeof(u16));
         return 0;
     }
@@ -584,7 +586,7 @@ void Camera::I2C_Write(u8 val, bool last)
         else
             RegAddr |= val;
 
-        if (RegAddr & 0x1) printf("DSi_Camera: !! UNALIGNED REG ADDRESS %04X\n", RegAddr);
+        if (RegAddr & 0x1) Log(LogLevel::Warn, "DSi_Camera: !! UNALIGNED REG ADDRESS %04X\n", RegAddr);
     }
     else
     {
@@ -636,7 +638,7 @@ u16 Camera::I2C_ReadReg(u16 addr)
     case 0x301A: return ((~StandbyCnt) & 0x4000) >> 12;
     }
 
-    if(Num==1)printf("DSi_Camera%d: unknown read %04X\n", Num, addr);
+    if(Num==1) Log(LogLevel::Warn, "DSi_Camera%d: unknown read %04X\n", Num, addr);
     return 0;
 }
 
@@ -702,7 +704,7 @@ void Camera::I2C_WriteReg(u16 addr, u16 val)
         return;
     }
 
-    if(Num==1)printf("DSi_Camera%d: unknown write %04X %04X\n", Num, addr, val);
+    if(Num==1) Log(LogLevel::Warn, "DSi_Camera%d: unknown write %04X %04X\n", Num, addr, val);
 }
 
 
@@ -727,7 +729,7 @@ void Camera::MCU_Write(u16 addr, u8 val)
         if      (val == 2) MCURegs[0x2104] = 7; // capture mode
         else if (val == 1) MCURegs[0x2104] = 3; // preview mode
         else if (val != 5 && val != 6)
-            printf("CAM%d: atypical SEQ_CMD %04X\n", Num, val);
+            Log(LogLevel::Debug, "CAM%d: atypical SEQ_CMD %04X\n", Num, val);
         return;
 
     case 0x2104: // SEQ_STATE, read-only
