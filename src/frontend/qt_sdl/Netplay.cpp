@@ -606,8 +606,21 @@ void ProcessClient()
                     break;
 
                 case 0x04: // start game
-                    NDS::Start();
-                    emuThread->emuRun();
+                    {
+                        // spawn mirror instances as needed
+                        for (int i = 0; i < NumPlayers; i++)
+                        {
+                            if (i != MyPlayer.ID)
+                                SpawnMirrorInstance(Players[i]);
+                        }
+
+                        // tell other mirror instances to start the game
+                        IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
+
+                        // start game locally
+                        NDS::Start();
+                        emuThread->emuRun();
+                    }
                     break;
                 }
             }
@@ -616,9 +629,45 @@ void ProcessClient()
     }
 }
 
+void ProcessMirror()
+{
+    ENetEvent event;
+    while (enet_host_service(MirrorHost, &event, 0) > 0)
+    {
+        switch (event.type)
+        {
+        case ENET_EVENT_TYPE_CONNECT:
+            printf("schmu\n");
+            break;
+
+        case ENET_EVENT_TYPE_DISCONNECT:
+            {
+                // TODO
+                printf("shmz\n");
+            }
+            break;
+
+        case ENET_EVENT_TYPE_RECEIVE:
+            {
+                if (event.packet->dataLength != sizeof(InputFrame)) break;
+
+                u8* data = (u8*)event.packet->data;
+                InputFrame frame;
+                memcpy(&frame, data, sizeof(InputFrame));
+                InputQueue.push(frame);
+            }
+            break;
+        }
+    }
+}
+
 void ProcessFrame()
 {
-    if (IsHost)
+    if (IsMirror)
+    {
+        ProcessMirror();
+    }
+    else if (IsHost)
     {
         ProcessHost();
     }
@@ -712,7 +761,7 @@ void ProcessInput()
     // before running a frame, we need to wait to have received input for it
     // TODO: alert host if we are running too far behind
 
-    if (IsHost)
+    if (!IsMirror)
     {
         u32 lag = 4; // TODO: make configurable!!
 
@@ -723,11 +772,10 @@ void ProcessInput()
 
         InputQueue.push(frame);
 
-        u8 cmd[1+sizeof(InputFrame)];
-        cmd[0] = 0x02;
-        memcpy(&cmd[1], &frame, sizeof(InputFrame));
+        u8 cmd[sizeof(InputFrame)];
+        memcpy(cmd, &frame, sizeof(InputFrame));
         ENetPacket* pkt = enet_packet_create(cmd, sizeof(cmd), ENET_PACKET_FLAG_RELIABLE);
-        enet_host_broadcast(Host, 0, pkt);
+        enet_host_broadcast(MirrorHost, 0, pkt);
     }
 
     if (InputQueue.empty())
