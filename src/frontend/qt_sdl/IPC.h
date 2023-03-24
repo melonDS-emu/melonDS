@@ -19,6 +19,8 @@
 #ifndef IPC_H
 #define IPC_H
 
+#include <string>
+
 #include "types.h"
 
 namespace IPC
@@ -28,7 +30,9 @@ enum
 {
     Cmd_Pause = 1,
 
+    Cmd_LoadROM,
     Cmd_SetupNetplayMirror,
+    Cmd_Start,
 
     Cmd_MAX
 };
@@ -51,6 +55,7 @@ u16 GetInstanceBitmask();
 void ProcessCommands();
 bool SendCommand(u16 recipients, u16 command, u16 len, void* data);
 bool SendCommandU8(u16 recipients, u16 command, u8 arg);
+bool SendCommandStr(u16 recipients, u16 command, std::string str);
 
 int SendMPPacket(u8* data, int len, u64 timestamp);
 int RecvMPPacket(u8* data, u64* timestamp);

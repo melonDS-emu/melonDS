@@ -36,6 +36,9 @@
 #include "IPC.h"
 #include "Config.h"
 #include "main.h"
+#include "ROMManager.h"
+#include "Netplay.h"
+#include "NDS.h"
 
 
 extern EmuThread* emuThread;
@@ -511,6 +514,29 @@ void ProcessCommands()
         case Cmd_Pause:
             emuThread->IPCPause(cmddata[0] != 0);
             break;
+
+        case Cmd_LoadROM:
+            {
+                u16 len = *(u16*)&cmddata[0];
+                cmddata[2+len] = '\0';
+
+                char* cstr = (char*)&cmddata[2];
+                std::string str = cstr;
+                ROMManager::LoadROM(QString::fromStdString(str).split('|'), true);
+            }
+            break;
+
+        case Cmd_SetupNetplayMirror:
+            {
+                Netplay::Player* player = (Netplay::Player*)&cmddata[0];
+                Netplay::StartMirror(player);
+            }
+            break;
+
+        case Cmd_Start:
+            NDS::Start();
+            emuThread->emuRun();
+            break;
         }
     }
 
@@ -565,6 +591,15 @@ bool SendCommandU8(u16 recipients, u16 command, u8 arg)
 {
     u8 data = arg;
     return SendCommand(recipients, command, 1, &data);
+}
+
+bool SendCommandStr(u16 recipients, u16 command, std::string str)
+{
+    u8 data[kMaxCommandSize] = {0};
+
+    strncpy((char*)&data[2], str.c_str(), kMaxCommandSize-3);
+    *(u16*)&data[0] = strlen((const char*)&data[2]) + 1;
+    return SendCommand(recipients, command, 2+(*(u16*)&data[0]), data);
 }
 
 
