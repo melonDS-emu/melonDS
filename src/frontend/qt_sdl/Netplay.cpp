@@ -190,6 +190,7 @@ int NumPlayers;
 
 Player MyPlayer;
 u32 HostAddress;
+bool Lag;
 
 struct InputFrame
 {
@@ -207,6 +208,7 @@ bool Init()
     IsMirror = false;
     Host = nullptr;
     MirrorHost = nullptr;
+    Lag = false;
 
     memset(Players, 0, sizeof(Players));
     NumPlayers = 0;
@@ -650,13 +652,15 @@ void ProcessMirrorHost()
 {
     if (!MirrorHost) return;
 
+    bool block = false;
     ENetEvent event;
-    while (enet_host_service(MirrorHost, &event, 0) > 0)
+    while (enet_host_service(MirrorHost, &event, block ? 5000 : 0) > 0)
     {
         switch (event.type)
         {
         case ENET_EVENT_TYPE_CONNECT:
             printf("schmz\n");
+            event.peer->data = (void*)0;
             break;
 
         case ENET_EVENT_TYPE_DISCONNECT:
@@ -667,7 +671,32 @@ void ProcessMirrorHost()
             break;
 
         case ENET_EVENT_TYPE_RECEIVE:
-            // TODO??
+            {
+                if (event.packet->dataLength != 1) break;
+                u8* data = (u8*)event.packet->data;
+
+                if (data[0])
+                {
+                    event.peer->data = (void*)1;
+                    block = true;
+                }
+                else
+                {
+                    event.peer->data = (void*)0;
+                    block = false;
+
+                    for (int i = 0; i < MirrorHost->peerCount; i++)
+                    {
+                        ENetPeer* peer = &(MirrorHost->peers[i]);
+                        if (peer->state != ENET_PEER_STATE_CONNECTED) continue;
+                        if (peer->data != (void*)0)
+                        {
+                            block = true;
+                            break;
+                        }
+                    }
+                }
+            }
             break;
         }
     }
@@ -708,6 +737,18 @@ void ProcessMirrorClient()
                 InputFrame frame;
                 memcpy(&frame, data, sizeof(InputFrame));
                 InputQueue.push(frame);
+
+                bool lag = (InputQueue.size() > 4*2);
+                if (lag != Lag)
+                {
+                    // let the mirror host know they are running too fast for us
+
+                    u8 data = lag ? 1 : 0;
+                    ENetPacket* pkt = enet_packet_create(&data, 1, ENET_PACKET_FLAG_RELIABLE);
+                    enet_peer_send(event.peer, 0, pkt);
+
+                    Lag = lag;
+                }
             }
             break;
         }
@@ -734,73 +775,6 @@ void ProcessFrame()
         }
 
         ProcessMirrorHost();
-    }
-
-    return;
-    bool block = false;
-    if (emuThread->emuIsRunning())
-    {
-        if (IsHost)
-        {
-            // TODO: prevent the clients from running too far behind
-        }
-        else
-        {
-            // block if we ran out of input frames
-            // TODO: in this situation, make sure we do receive an input frame
-            // or if we don't after X time, handle it gracefully
-
-            if (InputQueue.empty())
-                block = true;
-        }
-    }
-    block=false;
-
-    ENetEvent event;
-    while (enet_host_service(Host, &event, block ? 5000 : 0) > 0)
-    {
-        switch (event.type)
-        {
-        case ENET_EVENT_TYPE_CONNECT:
-            printf("client connected %08X %d\n", event.peer->address.host, event.peer->address.port);
-            //Peer = event.peer;
-            break;
-
-        case ENET_EVENT_TYPE_DISCONNECT:
-            printf("client disconnected %08X %d\n", event.peer->address.host, event.peer->address.port);
-            //Peer = nullptr;
-            break;
-
-        case ENET_EVENT_TYPE_RECEIVE:
-            {
-                if (event.packet->dataLength < 1)
-                {
-                    printf("?????\n");
-                    break;
-                }
-
-                u8* data = (u8*)event.packet->data;
-                switch (data[0])
-                {
-                case 0x01: // start game
-                    NDS::Start();
-                    emuThread->emuRun();
-                    break;
-
-                case 0x02: // input frame
-                    {
-                        if (event.packet->dataLength != (sizeof(InputFrame)+1))
-                            break;
-
-                        InputFrame frame;
-                        memcpy(&frame, &data[1], sizeof(InputFrame));
-                        InputQueue.push(frame);
-                        break;
-                    }
-                }
-            }
-            break;
-        }
     }
 }
 
@@ -840,7 +814,7 @@ void ProcessInput()
 
     if (InputQueue.empty())
     {
-        if (NDS::NumFrames < 4)
+        if (NDS::NumFrames > 4)
             printf("Netplay: BAD! INPUT QUEUE EMPTY\n");
         return;
     }
