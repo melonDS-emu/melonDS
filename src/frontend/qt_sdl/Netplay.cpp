@@ -838,7 +838,8 @@ void ProcessInput()
 
     if (InputQueue.empty())
     {
-        printf("Netplay: BAD! INPUT QUEUE EMPTY\n");
+        if (NDS::NumFrames < 4)
+            printf("Netplay: BAD! INPUT QUEUE EMPTY\n");
         return;
     }
 
@@ -863,7 +864,7 @@ void ProcessInput()
     }
 
     // apply this input frame
-    printf("[%08d] INPUT=%08X (%08d) (backlog=%d)\n", NDS::NumFrames, frame.KeyMask, frame.FrameNum, InputQueue.size());
+    if (frame.KeyMask != 0xFFF) printf("[%08d] INPUT=%08X (%08d) (backlog=%d)\n", NDS::NumFrames, frame.KeyMask, frame.FrameNum, InputQueue.size());
     NDS::SetKeyMask(frame.KeyMask);
     InputQueue.pop();
 }
