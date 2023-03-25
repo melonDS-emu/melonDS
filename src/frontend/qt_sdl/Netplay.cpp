@@ -677,8 +677,15 @@ void ProcessMirrorClient()
 {
     if (!MirrorHost) return;
 
+    bool block = false;
+    if (emuThread->emuIsRunning() && NDS::NumFrames > 4)
+    {
+        if (InputQueue.empty())
+            block = true;
+    }
+
     ENetEvent event;
-    while (enet_host_service(MirrorHost, &event, 0) > 0)
+    while (enet_host_service(MirrorHost, &event, block ? 5000 : 0) > 0)
     {
         switch (event.type)
         {
@@ -839,6 +846,7 @@ void ProcessInput()
 
     if (frame.FrameNum < NDS::NumFrames)
     {
+        // TODO: this situation is a desync
         printf("Netplay: BAD! LAGGING BEHIND\n");
         while (frame.FrameNum < NDS::NumFrames)
         {
