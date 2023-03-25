@@ -509,6 +509,8 @@ void ProcessCommands()
         if (cmdheader.Length)
             FIFORead<0>(cmddata, cmdheader.Length);
 
+        Buffer->unlock();
+
         switch (cmdheader.Command)
         {
         case Cmd_Pause:
@@ -538,6 +540,8 @@ void ProcessCommands()
             emuThread->emuRun();
             break;
         }
+
+        Buffer->lock();
     }
 
     Buffer->unlock();
