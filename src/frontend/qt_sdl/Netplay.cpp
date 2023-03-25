@@ -711,6 +711,8 @@ void ProcessMirrorClient()
             }
             break;
         }
+
+        if (block) break;
     }
 }
 
