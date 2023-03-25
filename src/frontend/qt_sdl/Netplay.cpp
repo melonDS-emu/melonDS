@@ -466,6 +466,8 @@ void StartGame()
 
 void ProcessHost()
 {
+    if (!Host) return;
+
     ENetEvent event;
     while (enet_host_service(Host, &event, 0) > 0)
     {
@@ -553,6 +555,8 @@ void ProcessHost()
 
 void ProcessClient()
 {
+    if (!Host) return;
+
     ENetEvent event;
     while (enet_host_service(Host, &event, 0) > 0)
     {
@@ -644,6 +648,8 @@ printf("birf\n");
 
 void ProcessMirrorHost()
 {
+    if (!MirrorHost) return;
+
     ENetEvent event;
     while (enet_host_service(MirrorHost, &event, 0) > 0)
     {
@@ -669,6 +675,8 @@ void ProcessMirrorHost()
 
 void ProcessMirrorClient()
 {
+    if (!MirrorHost) return;
+
     ENetEvent event;
     while (enet_host_service(MirrorHost, &event, 0) > 0)
     {
