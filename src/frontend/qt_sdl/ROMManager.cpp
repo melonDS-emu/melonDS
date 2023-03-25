@@ -521,7 +521,8 @@ bool LoadROM(QStringList filepath, bool reset)
         filelen = (u32)len;
 
         int pos = LastSep(filename);
-        basepath = filename.substr(0, pos);
+        if(pos != -1)
+            basepath = filename.substr(0, pos);
         romname = filename.substr(pos+1);
     }
 #ifdef ARCHIVE_SUPPORT_ENABLED
