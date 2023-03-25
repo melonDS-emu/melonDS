@@ -720,6 +720,7 @@ void ProcessMirrorClient()
         {
         case ENET_EVENT_TYPE_CONNECT:
             printf("schmu\n");
+            Lag = false;
             break;
 
         case ENET_EVENT_TYPE_DISCONNECT:
@@ -742,7 +743,7 @@ void ProcessMirrorClient()
                 if (lag != Lag)
                 {
                     // let the mirror host know they are running too fast for us
-
+printf("mirror client lag notify: %d\n", lag);
                     u8 data = lag ? 1 : 0;
                     ENetPacket* pkt = enet_packet_create(&data, 1, ENET_PACKET_FLAG_RELIABLE);
                     enet_peer_send(event.peer, 0, pkt);
