@@ -697,7 +697,7 @@ void ProcessMirrorHost()
                     }
                 }*/
                 u32 clientframes = *(u32*)event.packet->data;
-
+printf("[SYNC] HOST=%d CLIENT=%d\n", NDS::NumFrames, clientframes);
                 if (clientframes > (NDS::NumFrames + 4))
                 {
                     event.peer->data = (void*)1;
@@ -776,6 +776,7 @@ printf("mirror client lag notify: %d\n", lag);
                 {
                     ENetPacket* pkt = enet_packet_create(&NDS::NumFrames, 4, ENET_PACKET_FLAG_RELIABLE);
                     enet_peer_send(event.peer, 0, pkt);
+                    enet_host_flush(MirrorHost);
                 }
             }
             break;
@@ -838,6 +839,7 @@ void ProcessInput()
         memcpy(cmd, &frame, sizeof(InputFrame));
         ENetPacket* pkt = enet_packet_create(cmd, sizeof(cmd), ENET_PACKET_FLAG_RELIABLE);
         enet_host_broadcast(MirrorHost, 0, pkt);
+        enet_host_flush(MirrorHost);
     }
 
     if (InputQueue.empty())
