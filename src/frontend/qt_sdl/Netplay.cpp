@@ -461,6 +461,19 @@ void StartGame()
     IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
 
     // start game locally
+    StartLocal();
+}
+
+void StartLocal()
+{
+    for (int i = 0; i < 4; i++)
+    {
+        InputFrame frame;
+        frame.FrameNum = i;
+        frame.KeyMask = 0xFFF;
+        InputQueue.push(frame);
+    }
+
     NDS::Start();
     emuThread->emuRun();
 }
@@ -637,8 +650,7 @@ printf("bourf\n");
                         IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
 printf("birf\n");
                         // start game locally
-                        NDS::Start();printf("barf\n");
-                        emuThread->emuRun();printf("burf\n");
+                        StartLocal();
                     }
                     break;
                 }
@@ -730,7 +742,7 @@ void ProcessMirrorClient()
     if (!MirrorHost) return;
 
     bool block = false;
-    if (emuThread->emuIsRunning() && NDS::NumFrames > 4)
+    if (emuThread->emuIsRunning())// && NDS::NumFrames > 4)
     {
         if (InputQueue.empty())
             block = true;
@@ -844,7 +856,7 @@ void ProcessInput()
 
     if (InputQueue.empty())
     {
-        if (NDS::NumFrames > 4)
+        //if (NDS::NumFrames > 4)
             printf("Netplay: BAD! INPUT QUEUE EMPTY\n");
         return;
     }

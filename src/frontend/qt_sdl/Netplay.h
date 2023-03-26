@@ -135,6 +135,7 @@ void StartMirror(const Player* player);
 u32 PlayerAddress(int id);
 
 void StartGame();
+void StartLocal();
 
 void ProcessFrame();
 void ProcessInput();

@@ -536,8 +536,7 @@ void ProcessCommands()
             break;
 
         case Cmd_Start:
-            NDS::Start();
-            emuThread->emuRun();
+            Netplay::StartLocal();
             break;
         }
 
