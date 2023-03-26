@@ -672,10 +672,33 @@ void ProcessMirrorHost()
 
         case ENET_EVENT_TYPE_RECEIVE:
             {
-                if (event.packet->dataLength != 1) break;
-                u8* data = (u8*)event.packet->data;
+                if (event.packet->dataLength != 4) break;
+                /*u8* data = (u8*)event.packet->data;
 
                 if (data[0])
+                {
+                    event.peer->data = (void*)1;
+                    block = true;
+                }
+                else
+                {
+                    event.peer->data = (void*)0;
+                    block = false;
+
+                    for (int i = 0; i < MirrorHost->peerCount; i++)
+                    {
+                        ENetPeer* peer = &(MirrorHost->peers[i]);
+                        if (peer->state != ENET_PEER_STATE_CONNECTED) continue;
+                        if (peer->data != (void*)0)
+                        {
+                            block = true;
+                            break;
+                        }
+                    }
+                }*/
+                u32 clientframes = *(u32*)event.packet->data;
+
+                if (clientframes > (NDS::NumFrames + 4))
                 {
                     event.peer->data = (void*)1;
                     block = true;
@@ -739,7 +762,7 @@ void ProcessMirrorClient()
                 memcpy(&frame, data, sizeof(InputFrame));
                 InputQueue.push(frame);
 
-                bool lag = (InputQueue.size() > 4*2);
+                /*bool lag = (InputQueue.size() > 4*2);
                 if (lag != Lag)
                 {
                     // let the mirror host know they are running too fast for us
@@ -749,6 +772,10 @@ printf("mirror client lag notify: %d\n", lag);
                     enet_peer_send(event.peer, 0, pkt);
 
                     Lag = lag;
+                }*/
+                {
+                    ENetPacket* pkt = enet_packet_create(&NDS::NumFrames, 4, ENET_PACKET_FLAG_RELIABLE);
+                    enet_peer_send(event.peer, 0, pkt);
                 }
             }
             break;
