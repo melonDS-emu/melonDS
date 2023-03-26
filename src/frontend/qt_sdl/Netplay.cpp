@@ -708,9 +708,9 @@ void ProcessMirrorHost()
                         }
                     }
                 }*/
-                u32 clientframes = *(u32*)event.packet->data;
+                s32 clientframes = *(s32*)event.packet->data;
 //printf("[SYNC] HOST=%d CLIENT=%d\n", NDS::NumFrames, clientframes);
-                if (clientframes < (NDS::NumFrames - 16))
+                if (clientframes < (((s32)NDS::NumFrames) - 16))
                 {
                     event.peer->data = (void*)1;
                     block = true;
