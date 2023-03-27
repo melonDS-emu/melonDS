@@ -196,6 +196,8 @@ struct InputFrame
 {
     u32 FrameNum;
     u32 KeyMask;
+    u32 Touching;
+    u32 TouchX, TouchY;
 };
 
 std::queue<InputFrame> InputQueue;
@@ -471,6 +473,9 @@ void StartLocal()
         InputFrame frame;
         frame.FrameNum = i;
         frame.KeyMask = 0xFFF;
+        frame.Touching = 0;
+        frame.TouchX = 0;
+        frame.TouchY = 0;
         InputQueue.push(frame);
     }
 
@@ -843,7 +848,10 @@ void ProcessInput()
         InputFrame frame;
         frame.FrameNum = NDS::NumFrames + lag;
         frame.KeyMask = Input::InputMask;
-        // TODO: touchscreen input and other shit!
+        frame.Touching = Input::Touching ? 1:0;
+        frame.TouchX = Input::TouchX;
+        frame.TouchY = Input::TouchY;
+        // TODO: other shit! (some hotkeys for example?)
 
         InputQueue.push(frame);
 
@@ -884,6 +892,9 @@ void ProcessInput()
     // apply this input frame
     if (frame.KeyMask != 0xFFF) printf("[%08d] INPUT=%08X (%08d) (backlog=%d)\n", NDS::NumFrames, frame.KeyMask, frame.FrameNum, InputQueue.size());
     NDS::SetKeyMask(frame.KeyMask);
+    if (frame.Touching) NDS::TouchScreen(frame.TouchX, frame.TouchY);
+    else                NDS::ReleaseScreen();
+
     InputQueue.pop();
 }
 
