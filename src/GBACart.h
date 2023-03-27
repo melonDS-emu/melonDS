@@ -49,6 +49,9 @@ public:
 
     virtual u8 SRAMRead(u32 addr);
     virtual void SRAMWrite(u32 addr, u8 val);
+
+    virtual u8* GetSaveMemory() const;
+    virtual u32 GetSaveMemoryLength() const;
 };
 
 // CartGame -- regular retail game cart (ROM, SRAM)
@@ -74,6 +77,8 @@ public:
     virtual u8 SRAMRead(u32 addr) override;
     virtual void SRAMWrite(u32 addr, u8 val) override;
 
+    virtual u8* GetSaveMemory() const override;
+    virtual u32 GetSaveMemoryLength() const override;
 protected:
     virtual void ProcessGPIO();
 
@@ -206,6 +211,19 @@ void ROMWrite(u32 addr, u16 val);
 
 u8 SRAMRead(u32 addr);
 void SRAMWrite(u32 addr, u8 val);
+
+/// This function is intended to allow frontends to save and load SRAM
+/// without using melonDS APIs.
+/// Modifying the emulated SRAM for any other reason is strongly discouraged.
+/// The returned pointer may be invalidated if the emulator is reset,
+/// or when a new game is loaded.
+/// Consequently, don't store the returned pointer for any longer than necessary.
+/// @returns Pointer to this cart's SRAM if a cart is loaded and supports SRAM, otherwise \c nullptr.
+u8* GetSaveMemory();
+
+/// @returns The length of the buffer returned by ::GetSaveMemory()
+/// if a cart is loaded and supports SRAM, otherwise zero.
+u32 GetSaveMemoryLength();
 
 }
 

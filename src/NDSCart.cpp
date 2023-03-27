@@ -383,6 +383,16 @@ void CartCommon::SetIRQ()
     NDS::SetIRQ(1, NDS::IRQ_CartIREQMC);
 }
 
+u8 *CartCommon::GetSaveMemory() const
+{
+    return nullptr;
+}
+
+u32 CartCommon::GetSaveMemoryLength() const
+{
+    return 0;
+}
+
 void CartCommon::ReadROM(u32 addr, u32 len, u8* data, u32 offset)
 {
     if (addr >= ROMLength) return;
@@ -551,6 +561,16 @@ u8 CartRetail::SPIWrite(u8 val, u32 pos, bool last)
     case 3: return SRAMWrite_FLASH(val, pos, last);
     default: return 0xFF;
     }
+}
+
+u8 *CartRetail::GetSaveMemory() const
+{
+    return SRAM;
+}
+
+u32 CartRetail::GetSaveMemoryLength() const
+{
+    return SRAMLength;
 }
 
 void CartRetail::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
@@ -1730,6 +1750,16 @@ void SetupDirectBoot(std::string romname)
 {
     if (Cart)
         Cart->SetupDirectBoot(romname);
+}
+
+u8* GetSaveMemory()
+{
+    return Cart ? Cart->GetSaveMemory() : nullptr;
+}
+
+u32 GetSaveMemoryLength()
+{
+    return Cart ? Cart->GetSaveMemoryLength() : 0;
 }
 
 void EjectCart()

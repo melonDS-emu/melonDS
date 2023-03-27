@@ -100,6 +100,15 @@ void CartCommon::SRAMWrite(u32 addr, u8 val)
 {
 }
 
+u8* CartCommon::GetSaveMemory() const
+{
+    return nullptr;
+}
+
+u32 CartCommon::GetSaveMemoryLength() const
+{
+    return 0;
+}
 
 CartGame::CartGame(u8* rom, u32 len) : CartCommon()
 {
@@ -332,6 +341,16 @@ void CartGame::SRAMWrite(u32 addr, u8 val)
     default:
         break;
     }
+}
+
+u8* CartGame::GetSaveMemory() const
+{
+    return SRAM;
+}
+
+u32 CartGame::GetSaveMemoryLength() const
+{
+    return SRAMLength;
 }
 
 void CartGame::ProcessGPIO()
@@ -876,6 +895,16 @@ u8 SRAMRead(u32 addr)
 void SRAMWrite(u32 addr, u8 val)
 {
     if (Cart) Cart->SRAMWrite(addr, val);
+}
+
+u8* GetSaveMemory()
+{
+    return Cart ? Cart->GetSaveMemory() : nullptr;
+}
+
+u32 GetSaveMemoryLength()
+{
+    return Cart ? Cart->GetSaveMemoryLength() : 0;
 }
 
 }
