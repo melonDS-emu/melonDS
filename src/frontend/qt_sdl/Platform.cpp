@@ -431,6 +431,8 @@ void Log(LogLevel level, const char* fmt, ...)
 {
     if (fmt == nullptr)
         return;
+    if (level <= LogLevel::Debug)
+        return;
 
     va_list args;
     va_start(args, fmt);
