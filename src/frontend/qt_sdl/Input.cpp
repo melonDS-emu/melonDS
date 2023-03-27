@@ -36,6 +36,9 @@ u32 HotkeyPress, HotkeyRelease;
 
 u32 InputMask;
 
+bool Touching;
+int TouchX, TouchY;
+
 
 void Init()
 {
@@ -48,6 +51,10 @@ void Init()
     ExtHotkeyMask = 0;
     HotkeyMask = 0;
     LastHotkeyMask = 0;
+
+    Touching = false;
+    TouchX = 0;
+    TouchY = 0;
 }
 
 
@@ -188,6 +195,18 @@ bool JoystickButtonDown(int val)
 void ExtHotkeyPress(int id)
 {
     ExtHotkeyMask |= (1<<id);
+}
+
+void TouchScreen(int x, int y)
+{
+    TouchX = x;
+    TouchY = y;
+    Touching = true;
+}
+
+void ReleaseScreen()
+{
+    Touching = false;
 }
 
 void Process()
