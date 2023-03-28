@@ -56,7 +56,7 @@ namespace ARMJIT
 {
 
 #define JIT_DEBUGPRINT(msg, ...)
-#define JIT_DEBUGPRINT(msg, ...) Platform::Log(Platform::LogLevel::Debug, msg, ## __VA_ARGS__)
+//#define JIT_DEBUGPRINT(msg, ...) Platform::Log(Platform::LogLevel::Debug, msg, ## __VA_ARGS__)
 
 Compiler* JITCompiler;
 
