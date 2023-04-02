@@ -15,7 +15,9 @@ Log_SetChannel(GL::Context);
 #elif defined(__APPLE__)
 #include "context_agl.h"
 #else
+#ifdef WAYLAND_ENABLED
 #include "context_egl_wayland.h"
+#endif
 #include "context_egl_x11.h"
 #include "context_glx.h"
 #endif
@@ -80,8 +82,10 @@ std::unique_ptr<GL::Context> Context::Create(const WindowInfo& wi, const Version
       context = ContextGLX::Create(wi, versions_to_try, num_versions_to_try);
   }
 
+#ifdef WAYLAND_ENABLED
   if (wi.type == WindowInfo::Type::Wayland)
     context = ContextEGLWayland::Create(wi, versions_to_try, num_versions_to_try);
+#endif
 #endif
 
   if (!context)
