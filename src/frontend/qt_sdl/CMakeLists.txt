@@ -14,11 +14,11 @@ set(SOURCES_QT_SDL
     InputConfig/MapButton.h
     InputConfig/resources/ds.qrc
     VideoSettingsDialog.cpp
-	CameraSettingsDialog.cpp
+    CameraSettingsDialog.cpp
     AudioSettingsDialog.cpp
     FirmwareSettingsDialog.cpp
     PathSettingsDialog.cpp
-	MPSettingsDialog.cpp
+    MPSettingsDialog.cpp
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
     ROMInfoDialog.cpp
@@ -27,15 +27,15 @@ set(SOURCES_QT_SDL
     Input.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp
-	LocalMP.cpp
+    LocalMP.cpp
     OSD.cpp
     OSD_shaders.h
     font.h
     Platform.cpp
     QPathInput.h
     ROMManager.cpp
-	SaveManager.cpp
-	CameraManager.cpp
+    SaveManager.cpp
+    CameraManager.cpp
     
     ArchiveUtil.h
     ArchiveUtil.cpp
@@ -106,20 +106,30 @@ elseif (APPLE)
         ../duckstation/gl/context_agl.mm
     )
 else()
-    # we only need ECM for Wayland
-    # so we only require it from here
-    find_package(ECM REQUIRED NO_MODULE)
-    list(APPEND CMAKE_MODULE_PATH "${ECM_MODULE_PATH}")
-
     find_package(X11 REQUIRED)
     find_package(EGL REQUIRED)
-    find_package(Wayland REQUIRED Client)
+
+    option(ENABLE_WAYLAND "Enable Wayland support" ON)
+
+    if (ENABLE_WAYLAND)
+        # we only need ECM for Wayland
+        # so we only require it from here
+        find_package(ECM REQUIRED NO_MODULE)
+        list(APPEND CMAKE_MODULE_PATH "${ECM_MODULE_PATH}")
+
+        find_package(Wayland REQUIRED Client)
+
+        target_compile_definitions(melonDS PRIVATE WAYLAND_ENABLED)
+
+        target_sources(melonDS PRIVATE
+            ../duckstation/gl/context_egl_wayland.cpp
+        )
+    endif()
 
     target_sources(melonDS PRIVATE
         ../duckstation/gl/context_egl.cpp
         ../duckstation/gl/context_egl_x11.cpp
         ../duckstation/gl/context_glx.cpp
-        ../duckstation/gl/context_egl_wayland.cpp
         ../duckstation/gl/x11_window.cpp
 
         ../glad/glad_egl.c
