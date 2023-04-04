@@ -88,6 +88,7 @@
 #include "Platform.h"
 #include "LocalMP.h"
 #include "Config.h"
+#include "DSi_I2C.h"
 
 #include "Savestate.h"
 
@@ -581,6 +582,7 @@ void EmuThread::run()
     double lastMeasureTime = lastTime;
 
     u32 winUpdateCount = 0, winUpdateFreq = 1;
+    u8 dsiVolumeLevel = 0x1F;
 
     char melontitle[100];
 
@@ -618,6 +620,42 @@ void EmuThread::run()
                 sprintf(msg, "Solar sensor level: %d", level);
                 OSD::AddMessage(0, msg);
             }
+        }
+
+        if (NDS::ConsoleType == 1)
+        {
+            double currentTime = SDL_GetPerformanceCounter() * perfCountsSec;
+
+            // Handle power button
+            if (Input::HotkeyDown(HK_PowerButton))
+            {
+                DSi_BPTWL::SetPowerButtonHeld(currentTime);
+            }
+            else if (Input::HotkeyReleased(HK_PowerButton))
+            {
+                DSi_BPTWL::SetPowerButtonReleased(currentTime);
+            }
+
+            // Handle volume buttons
+            if (Input::HotkeyDown(HK_VolumeUp))
+            {
+                DSi_BPTWL::SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Up);
+            }
+            else if (Input::HotkeyReleased(HK_VolumeUp))
+            {
+                DSi_BPTWL::SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Up);
+            }
+
+            if (Input::HotkeyDown(HK_VolumeDown))
+            {
+                DSi_BPTWL::SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Down);
+            }
+            else if (Input::HotkeyReleased(HK_VolumeDown))
+            {
+                DSi_BPTWL::SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Down);
+            }
+
+            DSi_BPTWL::ProcessVolumeSwitchInput(currentTime);
         }
 
         if (EmuRunning == 1 || EmuRunning == 3)
@@ -737,6 +775,18 @@ void EmuThread::run()
             if (fastforward && oglContext && Config::ScreenVSync)
             {
                 oglContext->SetSwapInterval(0);
+            }
+
+            if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
+            {
+                u8 volumeLevel = DSi_BPTWL::GetVolumeLevel();
+                if (volumeLevel != dsiVolumeLevel)
+                {
+                    dsiVolumeLevel = volumeLevel;
+                    emit syncVolumeLevel();
+                }
+
+                Config::AudioVolume = volumeLevel * (256.0 / 31.0);
             }
 
             if (Config::AudioSync && !fastforward && audioDevice)
@@ -2583,7 +2633,7 @@ void MainWindow::onBootFirmware()
     }
 
     if (!ROMManager::LoadBIOS())
-{
+    {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "This firmware is not bootable.");
         emuThread->emuUnpause();
@@ -3027,7 +3077,9 @@ void MainWindow::onCameraSettingsFinished(int res)
 
 void MainWindow::onOpenAudioSettings()
 {
-    AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this);
+    AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this, emuThread->emuIsActive());
+    connect(emuThread, &EmuThread::syncVolumeLevel, dlg, &AudioSettingsDialog::onSyncVolumeLevel);
+    connect(emuThread, &EmuThread::windowEmuStart, dlg, &AudioSettingsDialog::onConsoleReset);
     connect(dlg, &AudioSettingsDialog::updateAudioSettings, this, &MainWindow::onUpdateAudioSettings);
     connect(dlg, &AudioSettingsDialog::finished, this, &MainWindow::onAudioSettingsFinished);
 }
@@ -3270,7 +3322,8 @@ void MainWindow::onTitleUpdate(QString title)
     setWindowTitle(title);
 }
 
-void ToggleFullscreen(MainWindow* mainWindow) {
+void ToggleFullscreen(MainWindow* mainWindow)
+{
     if (!mainWindow->isFullScreen())
     {
         mainWindow->showFullScreen();
@@ -3289,11 +3342,15 @@ void MainWindow::onFullscreenToggled()
     ToggleFullscreen(this);
 }
 
-void MainWindow::onScreenEmphasisToggled() {
+void MainWindow::onScreenEmphasisToggled()
+{
     int currentSizing = Config::ScreenSizing;
-    if (currentSizing == screenSizing_EmphTop) {
+    if (currentSizing == screenSizing_EmphTop)
+    {
         Config::ScreenSizing = screenSizing_EmphBot;
-    } else if (currentSizing == screenSizing_EmphBot) {
+    }
+    else if (currentSizing == screenSizing_EmphBot)
+    {
         Config::ScreenSizing = screenSizing_EmphTop;
     }
 
@@ -3436,7 +3493,7 @@ int main(int argc, char** argv)
     }
 
     SDL_JoystickEventState(SDL_ENABLE);
-    
+
     SDL_InitSubSystem(SDL_INIT_VIDEO);
     SDL_EnableScreenSaver(); SDL_DisableScreenSaver();
 
