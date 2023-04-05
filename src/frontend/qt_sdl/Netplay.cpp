@@ -547,7 +547,7 @@ void RecvBlobFromMirrorHost(ENetPeer* peer, ENetPacket* pkt)
         {
             if (evt.type == ENET_EVENT_TYPE_RECEIVE && evt.channelID == 1)
             {
-                RecvBlobFromMirrorHost(evt.packet);
+                RecvBlobFromMirrorHost(evt.peer, evt.packet);
                 if (evt.packet->dataLength >= 1 && evt.packet->data[0] == 0x03)
                     break;
             }
