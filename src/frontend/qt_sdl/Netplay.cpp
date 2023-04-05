@@ -535,7 +535,7 @@ void RecvBlobFromMirrorHost(ENetPeer* peer, ENetPacket* pkt)
 
         if (Blobs[type] != nullptr) return;
         if (BlobLens[type] != 0) return;
-
+printf("[MC] start blob type=%d len=%d\n", type, len);
         if (len) Blobs[type] = new u8[len];
         BlobLens[type] = len;
 
@@ -586,7 +586,7 @@ void RecvBlobFromMirrorHost(ENetPeer* peer, ENetPacket* pkt)
 
         u32 len = *(u32*)&buf[4];
         if (len != CurBlobLen) return;
-
+printf("[MC] finish blob type=%d len=%d\n", type, len);
         CurBlobType = -1;
         CurBlobLen = 0;
     }
@@ -629,7 +629,7 @@ void RecvBlobFromMirrorHost(ENetPeer* peer, ENetPacket* pkt)
         }
 
         // TODO: load state!!!!
-
+printf("[MC] good\n");
         ENetPacket* resp = enet_packet_create(buf, 1, ENET_PACKET_FLAG_RELIABLE);
         enet_peer_send(peer, 1, resp);
     }
