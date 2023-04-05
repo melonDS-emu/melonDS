@@ -891,11 +891,11 @@ void ProcessMirrorHost()
             NumMirrorClients++;
             event.peer->data = (void*)0;
 
-            if (NumMirrorClients > NumPlayers)
+            if (NumMirrorClients >= NumPlayers)
             {
                 printf("??????\n");
             }
-            else if (NumMirrorClients == NumPlayers)
+            else if (NumMirrorClients == (NumPlayers-1))
             {
                 // all mirror clients are connected, we're ready to go
                 SyncMirrorClients();
