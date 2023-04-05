@@ -659,7 +659,7 @@ void SyncMirrorClients()
     int ngood = 0;
     ENetEvent evt;
     while (enet_host_service(MirrorHost, &evt, 5000) > 0)
-    {
+    {printf("EVENT %d CH %d\n", evt.type, evt.channelID);
         if (evt.type == ENET_EVENT_TYPE_RECEIVE && evt.channelID == 1)
         {
             if (evt.packet->dataLength == 1 && evt.packet->data[0] == 0x04)
