@@ -665,7 +665,7 @@ void SyncMirrorClients()
     NDS::DoSavestate(state);
     delete state;
     printf("[MH] state taken\n");
-    FILE* f = Platform::OpenFile("netplay.mln", "rb");
+    FILE* f = Platform::OpenLocalFile("netplay.mln", "rb");
     printf("[MH] state=%d\n", f?1:0);
     fseek(f, 0, SEEK_END);
     u32 flen = ftell(f);
