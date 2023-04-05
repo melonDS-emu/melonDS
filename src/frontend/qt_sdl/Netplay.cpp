@@ -286,7 +286,7 @@ void StartHost(const char* playername, int port)
     mirroraddr.host = ENET_HOST_ANY;
     mirroraddr.port = port + 1;
 printf("host mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr.port);
-    MirrorHost = enet_host_create(&mirroraddr, 16, 1, 0, 0);
+    MirrorHost = enet_host_create(&mirroraddr, 16, 2, 0, 0);
     if (!MirrorHost)
     {
         printf("mirror host shat itself :(\n");
@@ -515,7 +515,7 @@ bool SendBlobToMirrorClients(int type, u32 len, u8* data)
 
 void RecvBlobFromMirrorHost(ENetPacket* pkt)
 {
-    u8* buf = pkt->data;printf("[MIRROR CLIENT] blob %02X\n", buf[0]);
+    u8* buf = pkt->data;
     if (buf[0] == 0x01)
     {
         if (CurBlobType != -1) return;
