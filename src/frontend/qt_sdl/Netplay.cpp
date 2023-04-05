@@ -541,6 +541,19 @@ void RecvBlobFromMirrorHost(ENetPacket* pkt)
 
         CurBlobType = type;
         CurBlobLen = len;
+
+        ENetEvent evt;
+        while (enet_host_service(MirrorHost, &evt, 5000) > 0)
+        {
+            if (evt.type == ENET_EVENT_TYPE_RECEIVE && evt.channelID == 1)
+            {
+                RecvBlobFromMirrorHost(evt.packet);
+                if (evt.packet->dataLength >= 1 && evt.packet->data[0] == 0x03)
+                    break;
+            }
+            else
+                break;
+        }
     }
     else if (buf[0] == 0x02)
     {
@@ -995,7 +1008,7 @@ void ProcessMirrorClient()
             }
             break;
 
-        case ENET_EVENT_TYPE_RECEIVE:printf("RX %d %d\n", event.channelID, event.packet->dataLength);
+        case ENET_EVENT_TYPE_RECEIVE://printf("RX %d %d\n", event.channelID, event.packet->dataLength);
             if (event.channelID == 0)
             {
                 if (event.packet->dataLength != sizeof(InputFrame)) break;
