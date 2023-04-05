@@ -194,6 +194,8 @@ Player MyPlayer;
 u32 HostAddress;
 bool Lag;
 
+int NumMirrorClients;
+
 struct InputFrame
 {
     u32 FrameNum;
@@ -231,6 +233,8 @@ bool Init()
 
     memset(Players, 0, sizeof(Players));
     NumPlayers = 0;
+
+    NumMirrorClients = 0;
 
     for (int i = 0; i < Blob_MAX; i++)
     {
@@ -281,6 +285,8 @@ void StartHost(const char* playername, int port)
     memcpy(&MyPlayer, player, sizeof(Player));
 
     HostAddress = 0x0100007F;
+
+    NumMirrorClients = 0;
 
     ENetAddress mirroraddr;
     mirroraddr.host = ENET_HOST_ANY;
@@ -647,7 +653,7 @@ void StartGame()
         SpawnMirrorInstance(Players[i]);
     }
 
-    SyncMirrorClients();
+    //SyncMirrorClients();
 
     // tell remote peers to start game
     u8 cmd[1] = {0x04};
@@ -664,7 +670,7 @@ void StartGame()
                         // 3. load state
 
     // start game locally
-    StartLocal();
+    //StartLocal();
 }
 
 void StartLocal()
@@ -805,6 +811,8 @@ void ProcessClient()
                     {
                         if (event.packet->dataLength != 2) break;
 
+                        NumMirrorClients = 0;
+
                         // create mirror host
                         ENetAddress mirroraddr;
                         mirroraddr.host = ENET_HOST_ANY;
@@ -852,13 +860,13 @@ printf("client mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr
                                 SpawnMirrorInstance(Players[i]);
                         }
 
-                        SyncMirrorClients();
+                        //SyncMirrorClients();
 printf("bourf\n");
                         // tell other mirror instances to start the game
                         //IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
 printf("birf\n");
                         // start game locally
-                        StartLocal();
+                        //StartLocal();
                     }
                     break;
                 }
@@ -880,13 +888,26 @@ void ProcessMirrorHost()
         {
         case ENET_EVENT_TYPE_CONNECT:
             printf("[MIRROR HOST] mirror client connected\n");
+            NumMirrorClients++;
             event.peer->data = (void*)0;
+
+            if (NumMirrorClients > NumPlayers)
+            {
+                printf("??????\n");
+            }
+            else if (NumMirrorClients == NumPlayers)
+            {
+                // all mirror clients are connected, we're ready to go
+                SyncMirrorClients();
+                StartLocal();
+            }
             break;
 
         case ENET_EVENT_TYPE_DISCONNECT:
             {
                 // TODO
                 printf("[MIRROR HOST] mirror client disconnected\n");
+                NumMirrorClients--;
             }
             break;
 
