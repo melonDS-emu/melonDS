@@ -995,7 +995,7 @@ void ProcessMirrorClient()
             }
             break;
 
-        case ENET_EVENT_TYPE_RECEIVE:
+        case ENET_EVENT_TYPE_RECEIVE:printf("RX %d %d\n", event.channelID, event.packet->dataLength);
             if (event.channelID == 0)
             {
                 if (event.packet->dataLength != sizeof(InputFrame)) break;
