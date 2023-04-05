@@ -519,7 +519,7 @@ bool SendBlobToMirrorClients(int type, u32 len, u8* data)
     return true;
 }
 
-void RecvBlobFromMirrorHost(ENetPacket* pkt)
+void RecvBlobFromMirrorHost(ENetPeer* peer, ENetPacket* pkt)
 {
     u8* buf = pkt->data;
     if (buf[0] == 0x01)
@@ -629,7 +629,13 @@ void RecvBlobFromMirrorHost(ENetPacket* pkt)
         }
 
         // TODO: load state!!!!
-printf("[MIRROR CLIENT] start\n");
+
+        ENetPacket* resp = enet_packet_create(buf, 1, ENET_PACKET_FLAG_RELIABLE);
+        enet_peer_send(peer, 1, resp);
+    }
+    else if (buf[0] == 0x05)
+    {
+        printf("[MIRROR CLIENT] start\n");
         StartLocal();
     }
 }
@@ -648,6 +654,26 @@ void SyncMirrorClients()
     data[1] = (u8)Config::ConsoleType;
     ENetPacket* pkt = enet_packet_create(&data, 2, ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(MirrorHost, 1, pkt);
+
+    // wait for all clients to have caught up
+    int ngood = 0;
+    ENetEvent evt;
+    while (enet_host_service(MirrorHost, &evt, 5000) > 0)
+    {
+        if (evt.type == ENET_EVENT_TYPE_RECEIVE && evt.channelID == 1)
+        {
+            if (evt.packet->dataLength == 1 && evt.packet->data[0] == 0x04)
+                ngood++;
+        }
+        else
+            break;
+
+        if (ngood >= (NumPlayers-1))
+            break;
+    }
+
+    if (ngood != (NumPlayers-1))
+        printf("!!! BAD!! %d %d\n", ngood, NumPlayers);
 
     printf("[MIRROR HOST] clients synced\n");
 }
@@ -1037,7 +1063,7 @@ printf("mirror client lag notify: %d\n", lag);
             }
             else if (event.channelID == 1)
             {
-                RecvBlobFromMirrorHost(event.packet);
+                RecvBlobFromMirrorHost(event.peer, event.packet);
             }
             break;
         }
