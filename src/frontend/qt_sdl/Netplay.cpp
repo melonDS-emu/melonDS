@@ -35,6 +35,7 @@
 #include "ROMManager.h"
 #include "Config.h"
 #include "Savestate.h"
+#include "Platform.h"
 
 #include "ui_NetplayStartHostDialog.h"
 #include "ui_NetplayStartClientDialog.h"
@@ -625,7 +626,7 @@ printf("[MC] finish blob type=%d len=%d\n", type, len);
 
         // load initial state
         // TODO: terrible hack!!
-        FILE* f = fopen("netplay2.mln", "wb");
+        FILE* f = Platform::OpenFile("netplay2.mln", "wb");
         fwrite(Blobs[Blob_InitState], BlobLens[Blob_InitState], 1, f);
         fclose(f);
         Savestate* state = new Savestate("netplay2.mln", false);
@@ -664,7 +665,7 @@ void SyncMirrorClients()
     NDS::DoSavestate(state);
     delete state;
     printf("[MH] state taken\n");
-    FILE* f = fopen("netplay.mln", "rb");
+    FILE* f = Platform::OpenFile("netplay.mln", "rb");
     printf("[MH] state=%d\n", f?1:0);
     fseek(f, 0, SEEK_END);
     u32 flen = ftell(f);
