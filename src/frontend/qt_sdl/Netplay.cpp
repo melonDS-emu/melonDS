@@ -658,7 +658,7 @@ void SyncMirrorClients()
     // wait for all clients to have caught up
     int ngood = 0;
     ENetEvent evt;
-    while (enet_host_service(MirrorHost, &evt, 5000) > 0)
+    while (enet_host_service(MirrorHost, &evt, 60000) > 0)
     {printf("EVENT %d CH %d\n", evt.type, evt.channelID);
         if (evt.type == ENET_EVENT_TYPE_RECEIVE && evt.channelID == 1)
         {
