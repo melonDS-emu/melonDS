@@ -617,6 +617,8 @@ printf("[MIRROR CLIENT] start\n");
 
 void SyncMirrorClients()
 {
+    printf("[MIRROR HOST] syncing clients\n");
+
     SendBlobToMirrorClients(Blob_CartROM, NDSCart::CartROMSize, NDSCart::CartROM);
     SendBlobToMirrorClients(Blob_CartSRAM, NDSCart::GetSaveMemoryLength(), NDSCart::GetSaveMemory());
 
@@ -877,14 +879,14 @@ void ProcessMirrorHost()
         switch (event.type)
         {
         case ENET_EVENT_TYPE_CONNECT:
-            printf("schmz\n");
+            printf("[MIRROR HOST] mirror client connected\n");
             event.peer->data = (void*)0;
             break;
 
         case ENET_EVENT_TYPE_DISCONNECT:
             {
                 // TODO
-                printf("shmtt\n");
+                printf("[MIRROR HOST] mirror client disconnected\n");
             }
             break;
 
