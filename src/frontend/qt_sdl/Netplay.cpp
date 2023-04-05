@@ -515,7 +515,7 @@ bool SendBlobToMirrorClients(int type, u32 len, u8* data)
 
 void RecvBlobFromMirrorHost(ENetPacket* pkt)
 {
-    u8* buf = pkt->data;
+    u8* buf = pkt->data;printf("[MIRROR CLIENT] blob %02X\n", buf[0]);
     if (buf[0] == 0x01)
     {
         if (CurBlobType != -1) return;
@@ -610,7 +610,7 @@ void RecvBlobFromMirrorHost(ENetPacket* pkt)
         }
 
         // TODO: load state!!!!
-
+printf("[MIRROR CLIENT] start\n");
         StartLocal();
     }
 }
@@ -627,6 +627,8 @@ void SyncMirrorClients()
     data[1] = (u8)Config::ConsoleType;
     ENetPacket* pkt = enet_packet_create(&data, 2, ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(MirrorHost, 1, pkt);
+
+    printf("[MIRROR HOST] clients synced\n");
 }
 
 void StartGame()
