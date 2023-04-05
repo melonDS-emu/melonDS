@@ -659,17 +659,22 @@ void SyncMirrorClients()
 
     // send initial state
     // TODO: this is a terrible hack!
+    printf("[MH] state start\n");
     Savestate* state = new Savestate("netplay.mln", true);
     NDS::DoSavestate(state);
     delete state;
+    printf("[MH] state taken\n");
     FILE* f = fopen("netplay.mln", "rb");
+    printf("[MH] state=%d\n", f?1:0);
     fseek(f, 0, SEEK_END);
     u32 flen = ftell(f);
     fseek(f, 0, SEEK_SET);
     u8* statebuf = new u8[flen];
     fread(statebuf, flen, 1, f);
     fclose(f);
+    printf("[MH] state read, len=%d\n", flen);
     SendBlobToMirrorClients(Blob_InitState, flen, statebuf);
+    printf("[MH] state sent\n");
     delete[] statebuf;
 
     u8 data[2];
