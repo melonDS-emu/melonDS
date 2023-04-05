@@ -381,7 +381,7 @@ void StartMirror(const Player* player)
     addr.host = player->Address;
     addr.port = 8064+1 + player->ID; // FIXME!!!!!!!!!!
     printf("mirror client connecting to %08X:%d\n", addr.host, addr.port);
-    ENetPeer* peer = enet_host_connect(MirrorHost, &addr, 1, 0);
+    ENetPeer* peer = enet_host_connect(MirrorHost, &addr, 2, 0);
     if (!peer)
     {
         printf("connect shat itself :(\n");
@@ -995,7 +995,7 @@ void ProcessMirrorClient()
             }
             break;
 
-        case ENET_EVENT_TYPE_RECEIVE:printf("RX %d %d\n", event.channelID, event.packet->dataLength);
+        case ENET_EVENT_TYPE_RECEIVE:
             if (event.channelID == 0)
             {
                 if (event.packet->dataLength != sizeof(InputFrame)) break;
