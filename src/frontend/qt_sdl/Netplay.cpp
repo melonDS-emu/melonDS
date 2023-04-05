@@ -34,6 +34,7 @@
 #include "Input.h"
 #include "ROMManager.h"
 #include "Config.h"
+#include "Savestate.h"
 
 #include "ui_NetplayStartHostDialog.h"
 #include "ui_NetplayStartClientDialog.h"
@@ -210,6 +211,7 @@ enum
 {
     Blob_CartROM = 0,
     Blob_CartSRAM,
+    Blob_InitState,
 
     Blob_MAX
 };
@@ -613,13 +615,6 @@ printf("[MC] finish blob type=%d len=%d\n", type, len);
             }
         }
 
-        for (int i = 0; i < Blob_MAX; i++)
-        {
-            if (Blobs[i]) delete[] Blobs[i];
-            Blobs[i] = nullptr;
-            BlobLens[i] = 0;
-        }
-
         if (res)
         {
             ROMManager::CartType = 0;
@@ -628,7 +623,22 @@ printf("[MC] finish blob type=%d len=%d\n", type, len);
             //LoadCheats();
         }
 
-        // TODO: load state!!!!
+        // load initial state
+        // TODO: terrible hack!!
+        FILE* f = fopen("netplay2.mln", "wb");
+        fwrite(Blobs[Blob_InitState], BlobLens[Blob_InitState], 1, f);
+        fclose(f);
+        Savestate* state = new Savestate("netplay2.mln", false);
+        NDS::DoSavestate(state);
+        delete state;
+
+        for (int i = 0; i < Blob_MAX; i++)
+        {
+            if (Blobs[i]) delete[] Blobs[i];
+            Blobs[i] = nullptr;
+            BlobLens[i] = 0;
+        }
+
 printf("[MC] good\n");
         ENetPacket* resp = enet_packet_create(buf, 1, ENET_PACKET_FLAG_RELIABLE);
         enet_peer_send(peer, 1, resp);
@@ -647,7 +657,20 @@ void SyncMirrorClients()
     SendBlobToMirrorClients(Blob_CartROM, NDSCart::CartROMSize, NDSCart::CartROM);
     SendBlobToMirrorClients(Blob_CartSRAM, NDSCart::GetSaveMemoryLength(), NDSCart::GetSaveMemory());
 
-    // TODO: send initial state!!
+    // send initial state
+    // TODO: this is a terrible hack!
+    Savestate* state = new Savestate("netplay.mln", true);
+    NDS::DoSavestate(state);
+    delete state;
+    FILE* f = fopen("netplay.mln", "rb");
+    fseek(f, 0, SEEK_END);
+    u32 flen = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    u8* statebuf = new u8[flen];
+    fread(statebuf, flen, 1, f);
+    fclose(f);
+    SendBlobToMirrorClients(Blob_InitState, flen, statebuf);
+    delete[] statebuf;
 
     u8 data[2];
     data[0] = 0x04;
