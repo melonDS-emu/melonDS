@@ -676,6 +676,14 @@ void SyncMirrorClients()
         printf("!!! BAD!! %d %d\n", ngood, NumPlayers);
 
     printf("[MIRROR HOST] clients synced\n");
+
+    // start
+
+    data[0] = 0x05;
+    pkt = enet_packet_create(&data, 1, ENET_PACKET_FLAG_RELIABLE);
+    enet_host_broadcast(MirrorHost, 1, pkt);
+
+    StartLocal();
 }
 
 void StartGame()
@@ -938,7 +946,7 @@ void ProcessMirrorHost()
             {
                 // all mirror clients are connected, we're ready to go
                 SyncMirrorClients();
-                StartLocal();
+                //StartLocal();
             }
             break;
 
