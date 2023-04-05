@@ -30,6 +30,7 @@ namespace ROMManager
 {
 
 extern QStringList FullROMPath;
+extern int CartType;
 
 extern SaveManager* NDSSave;
 extern SaveManager* GBASave;

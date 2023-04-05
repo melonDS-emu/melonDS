@@ -27,11 +27,13 @@
 #include <QProcess>
 
 #include "NDS.h"
+#include "NDSCart.h"
 #include "main.h"
 #include "IPC.h"
 #include "Netplay.h"
 #include "Input.h"
 #include "ROMManager.h"
+#include "Config.h"
 
 #include "ui_NetplayStartHostDialog.h"
 #include "ui_NetplayStartClientDialog.h"
@@ -202,6 +204,21 @@ struct InputFrame
 
 std::queue<InputFrame> InputQueue;
 
+enum
+{
+    Blob_CartROM = 0,
+    Blob_CartSRAM,
+
+    Blob_MAX
+};
+
+const u32 kChunkSize = 0x10000;
+u8 ChunkBuffer[0x10 + kChunkSize];
+u8* Blobs[Blob_MAX];
+u32 BlobLens[Blob_MAX];
+int CurBlobType;
+u32 CurBlobLen;
+
 
 bool Init()
 {
@@ -214,6 +231,14 @@ bool Init()
 
     memset(Players, 0, sizeof(Players));
     NumPlayers = 0;
+
+    for (int i = 0; i < Blob_MAX; i++)
+    {
+        Blobs[i] = nullptr;
+        BlobLens[i] = 0;
+    }
+    CurBlobType = -1;
+    CurBlobLen = 0;
 
     if (enet_initialize() != 0)
     {
@@ -329,7 +354,15 @@ void StartClient(const char* playername, const char* host, int port)
 
 void StartMirror(const Player* player)
 {
-    MirrorHost = enet_host_create(nullptr, 1, 1, 0, 0);
+    for (int i = 0; i < Blob_MAX; i++)
+    {
+        Blobs[i] = nullptr;
+        BlobLens[i] = 0;
+    }
+    CurBlobType = -1;
+    CurBlobLen = 0;
+
+    MirrorHost = enet_host_create(nullptr, 1, 2, 0, 0);
     if (!MirrorHost)
     {
         printf("mirror shat itself :(\n");
@@ -416,7 +449,7 @@ bool SpawnMirrorInstance(Player player)
         if (newmask == curmask) continue;
 
         newmask &= ~curmask;
-        for (int id = 0; id < 32; id++)
+        for (int id = 0; id < 16; id++)
         {
             if (newmask & (1 << id))
             {
@@ -431,13 +464,169 @@ bool SpawnMirrorInstance(Player player)
     // setup that instance
     printf("netplay: spawned mirror instance for player %d with ID %d, configuring\n", player.ID, newid);
 
-    std::string rompath = ROMManager::FullROMPath.join('|').toStdString();
-    IPC::SendCommandStr(1<<newid, IPC::Cmd_LoadROM, rompath);
+    //std::string rompath = ROMManager::FullROMPath.join('|').toStdString();
+    //IPC::SendCommandStr(1<<newid, IPC::Cmd_LoadROM, rompath);
 
     if (player.Address == 0x0100007F) player.Address = HostAddress;
     IPC::SendCommand(1<<newid, IPC::Cmd_SetupNetplayMirror, sizeof(Player), &player);
 
     return true;
+}
+
+bool SendBlobToMirrorClients(int type, u32 len, u8* data)
+{
+    u8* buf = ChunkBuffer;
+
+    buf[0] = 0x01;
+    buf[1] = type & 0xFF;
+    buf[2] = 0;
+    buf[3] = 0;
+    *(u32*)&buf[4] = len;
+
+    ENetPacket* pkt = enet_packet_create(buf, 8, ENET_PACKET_FLAG_RELIABLE);
+    enet_host_broadcast(MirrorHost, 1, pkt);
+
+    if (len > 0)
+    {
+        buf[0] = 0x02;
+        *(u32*)&buf[12] = 0;
+
+        for (u32 pos = 0; pos < len; pos += kChunkSize)
+        {
+            u32 chunklen = kChunkSize;
+            if ((pos + chunklen) > len)
+                chunklen = len - pos;
+
+            *(u32*)&buf[8] = pos;
+            memcpy(&buf[16], &data[pos], chunklen);
+
+            ENetPacket* pkt = enet_packet_create(buf, 16+chunklen, ENET_PACKET_FLAG_RELIABLE);
+            enet_host_broadcast(MirrorHost, 1, pkt);
+        }
+    }
+
+    buf[0] = 0x03;
+
+    pkt = enet_packet_create(buf, 8, ENET_PACKET_FLAG_RELIABLE);
+    enet_host_broadcast(MirrorHost, 1, pkt);
+
+    return true;
+}
+
+void RecvBlobFromMirrorHost(ENetPacket* pkt)
+{
+    u8* buf = pkt->data;
+    if (buf[0] == 0x01)
+    {
+        if (CurBlobType != -1) return;
+        if (pkt->dataLength != 8) return;
+
+        int type = buf[1];
+        if (type > Blob_MAX) return;
+
+        u32 len = *(u32*)&buf[4];
+        if (len > 0x40000000) return;
+
+        if (Blobs[type] != nullptr) return;
+        if (BlobLens[type] != 0) return;
+
+        if (len) Blobs[type] = new u8[len];
+        BlobLens[type] = len;
+
+        CurBlobType = type;
+        CurBlobLen = len;
+    }
+    else if (buf[0] == 0x02)
+    {
+        if (CurBlobType < 0 || CurBlobType > Blob_MAX) return;
+        if (pkt->dataLength > (16+kChunkSize)) return;
+
+        int type = buf[1];
+        if (type != CurBlobType) return;
+
+        u32 len = *(u32*)&buf[4];
+        if (len != CurBlobLen) return;
+
+        u32 pos = *(u32*)&buf[8];
+        if (pos >= len) return;
+        if ((pos + (pkt->dataLength-16)) > len) return;
+
+        u8* dst = Blobs[type];
+        if (!dst) return;
+        if (BlobLens[type] != len) return;
+
+        memcpy(&dst[pos], &buf[16], pkt->dataLength-16);
+    }
+    else if (buf[0] == 0x03)
+    {
+        if (CurBlobType < 0 || CurBlobType > Blob_MAX) return;
+        if (pkt->dataLength != 8) return;
+
+        int type = buf[1];
+        if (type != CurBlobType) return;
+
+        u32 len = *(u32*)&buf[4];
+        if (len != CurBlobLen) return;
+
+        CurBlobType = -1;
+        CurBlobLen = 0;
+    }
+    else if (buf[0] == 0x04)
+    {
+        if (pkt->dataLength != 2) return;
+
+        bool res = false;
+
+        // reset
+        NDS::SetConsoleType(buf[1]);
+        NDS::EjectCart();
+        NDS::Reset();
+        //SetBatteryLevels();
+
+        if (Blobs[Blob_CartROM])
+        {
+            res = NDS::LoadCart(Blobs[Blob_CartROM], BlobLens[Blob_CartROM],
+                                     Blobs[Blob_CartSRAM], BlobLens[Blob_CartSRAM]);
+            if (!res)
+            {
+                printf("!!!! FAIL!!\n");
+                return;
+            }
+        }
+
+        for (int i = 0; i < Blob_MAX; i++)
+        {
+            if (Blobs[i]) delete[] Blobs[i];
+            Blobs[i] = nullptr;
+            BlobLens[i] = 0;
+        }
+
+        if (res)
+        {
+            ROMManager::CartType = 0;
+            //ROMManager::NDSSave = new SaveManager(savname);
+
+            //LoadCheats();
+        }
+
+        // TODO: load state!!!!
+
+        StartLocal();
+    }
+}
+
+void SyncMirrorClients()
+{
+    SendBlobToMirrorClients(Blob_CartROM, NDSCart::CartROMSize, NDSCart::CartROM);
+    SendBlobToMirrorClients(Blob_CartSRAM, NDSCart::GetSaveMemoryLength(), NDSCart::GetSaveMemory());
+
+    // TODO: send initial state!!
+
+    u8 data[2];
+    data[0] = 0x04;
+    data[1] = (u8)Config::ConsoleType;
+    ENetPacket* pkt = enet_packet_create(&data, 2, ENET_PACKET_FLAG_RELIABLE);
+    enet_host_broadcast(MirrorHost, 1, pkt);
 }
 
 void StartGame()
@@ -454,13 +643,21 @@ void StartGame()
         SpawnMirrorInstance(Players[i]);
     }
 
+    SyncMirrorClients();
+
     // tell remote peers to start game
     u8 cmd[1] = {0x04};
     ENetPacket* pkt = enet_packet_create(cmd, sizeof(cmd), ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(Host, 0, pkt);
 
     // tell other mirror instances to start the game
-    IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
+    //IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
+
+    // TO START MIRROR CLIENT SHITO
+                        //
+                        // 1. NDS::Reset()
+                        // 2. load ROM
+                        // 3. load state
 
     // start game locally
     StartLocal();
@@ -609,7 +806,7 @@ void ProcessClient()
                         mirroraddr.host = ENET_HOST_ANY;
                         mirroraddr.port = 8064+1 + data[1]; // FIXME!!!!
 printf("client mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr.port);
-                        MirrorHost = enet_host_create(&mirroraddr, 16, 1, 0, 0);
+                        MirrorHost = enet_host_create(&mirroraddr, 16, 2, 0, 0);
                         if (!MirrorHost)
                         {
                             printf("mirror host shat itself :(\n");
@@ -650,9 +847,11 @@ printf("client mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr
                             if (i != MyPlayer.ID)
                                 SpawnMirrorInstance(Players[i]);
                         }
+
+                        SyncMirrorClients();
 printf("bourf\n");
                         // tell other mirror instances to start the game
-                        IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
+                        //IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
 printf("birf\n");
                         // start game locally
                         StartLocal();
@@ -688,6 +887,7 @@ void ProcessMirrorHost()
             break;
 
         case ENET_EVENT_TYPE_RECEIVE:
+            if (event.channelID == 0)
             {
                 if (event.packet->dataLength != 4) break;
                 /*u8* data = (u8*)event.packet->data;
@@ -771,6 +971,7 @@ void ProcessMirrorClient()
             break;
 
         case ENET_EVENT_TYPE_RECEIVE:
+            if (event.channelID == 0)
             {
                 if (event.packet->dataLength != sizeof(InputFrame)) break;
 
@@ -795,6 +996,10 @@ printf("mirror client lag notify: %d\n", lag);
                     enet_peer_send(event.peer, 0, pkt);
                     enet_host_flush(MirrorHost);
                 }
+            }
+            else if (event.channelID == 1)
+            {
+                RecvBlobFromMirrorHost(event.packet);
             }
             break;
         }
