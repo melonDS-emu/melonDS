@@ -217,7 +217,7 @@ enum
     Blob_MAX
 };
 
-const u32 kChunkSize = 0x10000;
+const u32 kChunkSize = 0x1000000;
 u8 ChunkBuffer[0x10 + kChunkSize];
 u8* Blobs[Blob_MAX];
 u32 BlobLens[Blob_MAX];
