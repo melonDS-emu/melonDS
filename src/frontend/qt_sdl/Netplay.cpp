@@ -511,6 +511,7 @@ bool SendBlobToMirrorClients(int type, u32 len, u8* data)
 
             ENetPacket* pkt = enet_packet_create(buf, 16+chunklen, ENET_PACKET_FLAG_RELIABLE);
             enet_host_broadcast(MirrorHost, 1, pkt);
+            enet_host_flush(MirrorHost);
         }
     }
 
@@ -683,6 +684,7 @@ void SyncMirrorClients()
     data[1] = (u8)Config::ConsoleType;
     ENetPacket* pkt = enet_packet_create(&data, 2, ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(MirrorHost, 1, pkt);
+    enet_host_flush(MirrorHost);
 
     // wait for all clients to have caught up
     int ngood = 0;
@@ -711,6 +713,7 @@ void SyncMirrorClients()
     data[0] = 0x05;
     pkt = enet_packet_create(&data, 1, ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(MirrorHost, 1, pkt);
+    enet_host_flush(MirrorHost);
 
     StartLocal();
 }
