@@ -217,7 +217,7 @@ enum
     Blob_MAX
 };
 
-const u32 kChunkSize = 0x1000000;
+const u32 kChunkSize = 0x10000;
 u8 ChunkBuffer[0x10 + kChunkSize];
 u8* Blobs[Blob_MAX];
 u32 BlobLens[Blob_MAX];
@@ -511,7 +511,7 @@ bool SendBlobToMirrorClients(int type, u32 len, u8* data)
 
             ENetPacket* pkt = enet_packet_create(buf, 16+chunklen, ENET_PACKET_FLAG_RELIABLE);
             enet_host_broadcast(MirrorHost, 1, pkt);
-            enet_host_flush(MirrorHost);
+            //enet_host_flush(MirrorHost);
         }
     }
 
@@ -694,7 +694,7 @@ void SyncMirrorClients()
     data[1] = (u8)Config::ConsoleType;
     ENetPacket* pkt = enet_packet_create(&data, 2, ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(MirrorHost, 1, pkt);
-    enet_host_flush(MirrorHost);
+    //enet_host_flush(MirrorHost);
 
     // wait for all clients to have caught up
     int ngood = 0;
@@ -723,7 +723,7 @@ void SyncMirrorClients()
     data[0] = 0x05;
     pkt = enet_packet_create(&data, 1, ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(MirrorHost, 1, pkt);
-    enet_host_flush(MirrorHost);
+    //enet_host_flush(MirrorHost);
 
     StartLocal();
 }
@@ -1108,7 +1108,7 @@ printf("mirror client lag notify: %d\n", lag);
                 {
                     ENetPacket* pkt = enet_packet_create(&NDS::NumFrames, 4, ENET_PACKET_FLAG_RELIABLE);
                     enet_peer_send(event.peer, 0, pkt);
-                    enet_host_flush(MirrorHost);
+                    //enet_host_flush(MirrorHost);
                 }
             }
             else if (event.channelID == 1)
@@ -1178,7 +1178,7 @@ void ProcessInput()
         memcpy(cmd, &frame, sizeof(InputFrame));
         ENetPacket* pkt = enet_packet_create(cmd, sizeof(cmd), ENET_PACKET_FLAG_RELIABLE);
         enet_host_broadcast(MirrorHost, 0, pkt);
-        enet_host_flush(MirrorHost);
+        //enet_host_flush(MirrorHost);
     }
 
     if (InputQueue.empty())
