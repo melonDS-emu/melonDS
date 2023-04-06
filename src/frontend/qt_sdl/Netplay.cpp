@@ -615,7 +615,7 @@ printf("[MC] finish blob type=%d len=%d\n", type, len);
         if (Blobs[Blob_CartROM])
         {
             res = NDS::LoadCart(Blobs[Blob_CartROM], BlobLens[Blob_CartROM],
-                                     Blobs[Blob_CartSRAM], BlobLens[Blob_CartSRAM]);
+                                Blobs[Blob_CartSRAM], BlobLens[Blob_CartSRAM]);
             if (!res)
             {
                 printf("!!!! FAIL!!\n");
@@ -646,6 +646,10 @@ printf("[MC] finish blob type=%d len=%d\n", type, len);
             Blobs[i] = nullptr;
             BlobLens[i] = 0;
         }
+
+        /*Savestate* zorp = new Savestate("netplay3.mln", true);
+        NDS::DoSavestate(zorp);
+        delete zorp;*/
 
 printf("[MC] state loaded, PC=%08X/%08X\n", NDS::GetPC(0), NDS::GetPC(1));
         ENetPacket* resp = enet_packet_create(buf, 1, ENET_PACKET_FLAG_RELIABLE);

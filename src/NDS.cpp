@@ -935,7 +935,9 @@ bool DoSavestate(Savestate* file)
     {
         // 'dept of redundancy dept'
         // but we do need to update the mappings
-        MapSharedWRAM(WRAMCnt);
+        u8 wramcnt = WRAMCnt;
+        WRAMCnt ^= 0xFF;
+        MapSharedWRAM(wramcnt);
 
         InitTimings();
         SetGBASlotTimings();
