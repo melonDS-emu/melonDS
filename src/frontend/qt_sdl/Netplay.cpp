@@ -553,10 +553,16 @@ printf("[MC] start blob type=%d len=%d\n", type, len);
             {
                 RecvBlobFromMirrorHost(evt.peer, evt.packet);
                 if (evt.packet->dataLength >= 1 && evt.packet->data[0] == 0x03)
+                {
+                    printf("[MC] blob done while in fast recv loop\n");
                     break;
+                }
             }
             else
+            {
+                printf("[MC] fast recv loop aborted because evt %d ch %d\n", evt.type, evt.channelID);
                 break;
+            }
         }
     }
     else if (buf[0] == 0x02)
@@ -641,7 +647,7 @@ printf("[MC] finish blob type=%d len=%d\n", type, len);
             BlobLens[i] = 0;
         }
 
-printf("[MC] good\n");
+printf("[MC] state loaded, PC=%08X/%08X\n", NDS::GetPC(0), NDS::GetPC(1));
         ENetPacket* resp = enet_packet_create(buf, 1, ENET_PACKET_FLAG_RELIABLE);
         enet_peer_send(peer, 1, resp);
     }
@@ -665,7 +671,7 @@ void SyncMirrorClients()
     Savestate* state = new Savestate("netplay.mln", true);
     NDS::DoSavestate(state);
     delete state;
-    printf("[MH] state taken\n");
+    printf("[MH] state taken: PC=%08X/%08X\n", NDS::GetPC(0), NDS::GetPC(1));
     FILE* f = Platform::OpenLocalFile("netplay.mln", "rb");
     printf("[MH] state=%d\n", f?1:0);
     fseek(f, 0, SEEK_END);
