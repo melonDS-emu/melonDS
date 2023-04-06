@@ -583,7 +583,7 @@ printf("[MC] start blob type=%d len=%d\n", type, len);
         u8* dst = Blobs[type];
         if (!dst) return;
         if (BlobLens[type] != len) return;
-
+printf("[MC] recv blob data, type=%d pos=%08X len=%08X data=%08X\n", type, pos, len, pkt->dataLength-16);
         memcpy(&dst[pos], &buf[16], pkt->dataLength-16);
     }
     else if (buf[0] == 0x03)
@@ -695,7 +695,7 @@ void SyncMirrorClients()
     // wait for all clients to have caught up
     int ngood = 0;
     ENetEvent evt;
-    while (enet_host_service(MirrorHost, &evt, 120000) > 0)
+    while (enet_host_service(MirrorHost, &evt, 300000) > 0)
     {printf("EVENT %d CH %d\n", evt.type, evt.channelID);
         if (evt.type == ENET_EVENT_TYPE_RECEIVE && evt.channelID == 1)
         {
