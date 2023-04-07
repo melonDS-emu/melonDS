@@ -99,6 +99,10 @@
 
 #include "CLI.h"
 
+#include "LuaScript.h"
+#include "LuaFrontEnd.h"
+#include "LuaDialog.h"
+
 // TODO: uniform variable spelling
 
 const QString NdsRomMimeType = "application/x-nintendo-ds-rom";
@@ -1005,6 +1009,8 @@ ScreenHandler::~ScreenHandler()
 
 void ScreenHandler::screenSetupLayout(int w, int h)
 {
+    w=w-LuaFront::RightPadding;
+    h=h-LuaFront::BottomPadding;
     int sizing = Config::ScreenSizing;
     if (sizing == 3) sizing = autoScreenSizing;
 
@@ -1044,45 +1050,48 @@ QSize ScreenHandler::screenGetMinSize(int factor = 1)
 
     int w = 256 * factor;
     int h = 192 * factor;
+    int wp = LuaFront::RightPadding;
+    int hp = LuaFront::BottomPadding;
 
     if (Config::ScreenSizing == 4 || Config::ScreenSizing == 5)
     {
-        return QSize(w, h);
+        return QSize(w+wp, h+hp);
     }
 
     if (Config::ScreenLayout == 0) // natural
     {
         if (isHori)
-            return QSize(h+gap+h, w);
+            return QSize(h+gap+h+wp, w+hp);
         else
-            return QSize(w, h+gap+h);
+            return QSize(w+wp, h+gap+h+hp);
     }
     else if (Config::ScreenLayout == 1) // vertical
     {
         if (isHori)
-            return QSize(h, w+gap+w);
+            return QSize(h+wp, w+gap+w+hp);
         else
-            return QSize(w, h+gap+h);
+            return QSize(w+wp, h+gap+h+hp);
     }
     else if (Config::ScreenLayout == 2) // horizontal
     {
         if (isHori)
-            return QSize(h+gap+h, w);
+            return QSize(h+gap+h+wp, w+hp);
         else
-            return QSize(w+gap+w, h);
+            return QSize(w+gap+w+wp, h+hp);
     }
     else // hybrid
     {
         if (isHori)
-            return QSize(h+gap+h, 3*w + (int)ceil((4*gap) / 3.0));
+            return QSize(h+gap+h+wp, hp+3*w + (int)ceil((4*gap) / 3.0));
         else
-            return QSize(3*w + (int)ceil((4*gap) / 3.0), h+gap+h);
+            return QSize(wp+3*w + (int)ceil((4*gap) / 3.0), h+gap+h+hp);
     }
 }
 
 void ScreenHandler::screenOnMousePress(QMouseEvent* event)
 {
     event->accept();
+    LuaFront::onMousePress(event);
     if (event->button() != Qt::LeftButton) return;
 
     int x = event->pos().x();
@@ -1098,6 +1107,7 @@ void ScreenHandler::screenOnMousePress(QMouseEvent* event)
 void ScreenHandler::screenOnMouseRelease(QMouseEvent* event)
 {
     event->accept();
+    LuaFront::onMouseRelease(event);
     if (event->button() != Qt::LeftButton) return;
 
     if (touching)
@@ -1113,6 +1123,7 @@ void ScreenHandler::screenOnMouseMove(QMouseEvent* event)
 
     showCursor();
 
+    LuaFront::onMouseMove(event);
     if (!(event->buttons() & Qt::LeftButton)) return;
     if (!touching) return;
 
@@ -1265,6 +1276,9 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
 
     OSD::Update();
     OSD::DrawNative(painter);
+    if (luaThread!=nullptr){
+        luaThread->luaUpdate();
+    }
 }
 
 void ScreenPanelNative::resizeEvent(QResizeEvent* event)
@@ -1693,7 +1707,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actFrameStep, &QAction::triggered, this, &MainWindow::onFrameStep);
 
         menu->addSeparator();
+        actLoadLuaScript = menu->addAction("Load LUA Script");
+        connect(actLoadLuaScript,&QAction::triggered,this,&MainWindow::onOpenLua);
 
+        menu->addSeparator();
         actPowerManagement = menu->addAction("Power management");
         connect(actPowerManagement, &QAction::triggered, this, &MainWindow::onOpenPowerManagement);
 
@@ -2056,6 +2073,7 @@ void MainWindow::createScreenPanel()
     }
     setCentralWidget(panelWidget);
 
+    LuaFront::panel = panelWidget;//So LuaFront can track mouse pos.
     connect(this, SIGNAL(screenLayoutChange()), panelWidget, SLOT(onScreenLayoutChanged()));
     emit screenLayoutChange();
 }
@@ -2979,6 +2997,46 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
     if (!RunningSomething)
         actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
 }
+
+void MainWindow::onOpenLua()
+{
+    emuThread->emuPause();
+    QFileInfo file = QFileDialog::getOpenFileName(this, "Load Lua Script",QDir::currentPath());
+    if (!file.exists()){
+        emuThread->emuRun();
+        return;
+    }
+    if (luaThread != nullptr){
+        luaThread->terminate();//might cause issues!
+        luaThread->wait();
+        LuaFront::LuaOverlays.clear();
+    }
+    
+    luaThread = new LuaThread(file);
+    connect(luaThread,SIGNAL(signalChangeScreenLayout()),this,SLOT(onLuaChangeScreenLayout()));
+    connect(luaThread,SIGNAL(signalDialogFunction()),this,SLOT(onLuaDialogFunction()));
+    connect(luaThread,SIGNAL(signalStartDialog()),this,SLOT(onLuaStartDialog()));
+    luaThread->start();
+    emuThread->emuRun();
+
+        
+}
+
+void MainWindow::onLuaChangeScreenLayout()
+{
+    emit screenLayoutChange();
+}
+
+void MainWindow::onLuaDialogFunction()
+{
+    LuaDialog::DialogFunction();
+}
+
+void MainWindow::onLuaStartDialog()
+{
+    LuaDialog::StartDialog();
+}
+
 
 void MainWindow::onOpenPowerManagement()
 {

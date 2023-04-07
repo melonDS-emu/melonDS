@@ -290,6 +290,7 @@ private slots:
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
+    void onOpenLua();
     void onOpenPowerManagement();
     void onOpenInputConfig();
     void onInputConfigFinished(int res);
@@ -333,6 +334,10 @@ private slots:
 
     void onFullscreenToggled();
     void onScreenEmphasisToggled();
+
+    void onLuaChangeScreenLayout();
+    void onLuaDialogFunction();
+    void onLuaStartDialog();
 
 private:
     void closeEvent(QCloseEvent* event);
@@ -389,6 +394,7 @@ public:
 #ifdef __APPLE__
     QAction* actPreferences;
 #endif
+    QAction* actLoadLuaScript;
     QAction* actPowerManagement;
     QAction* actInputConfig;
     QAction* actVideoSettings;

@@ -31,6 +31,7 @@
 #include "font.h"
 
 #include "Config.h"
+#include "LuaFrontEnd.h"
 
 extern MainWindow* mainWindow;
 
@@ -397,6 +398,13 @@ void DrawNative(QPainter& painter)
 
     painter.resetTransform();
 
+    for (auto lo = LuaFront::LuaOverlays.begin(); lo != LuaFront::LuaOverlays.end();)
+    {
+        LuaFront::OverlayCanvas& overlay = *lo;
+        if (overlay.isActive){painter.drawImage(overlay.rectangle,*overlay.image);}
+        lo++;
+    }
+    
     for (auto it = ItemQueue.begin(); it != ItemQueue.end(); )
     {
         Item& item = *it;

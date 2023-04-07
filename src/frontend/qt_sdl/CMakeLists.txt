@@ -36,6 +36,9 @@ set(SOURCES_QT_SDL
     ROMManager.cpp
 	SaveManager.cpp
 	CameraManager.cpp
+    LuaFrontEnd.cpp
+    LuaScript.cpp
+    LuaDialog.cpp
     
     ArchiveUtil.h
     ArchiveUtil.cpp
@@ -53,6 +56,7 @@ set(SOURCES_QT_SDL
     CLI.h
     CLI.cpp
 )
+add_subdirectory(lua-5.4.4)
 
 if (APPLE)
     option(USE_QT6 "Build using Qt 6 instead of 5" ON)
@@ -146,6 +150,8 @@ endif()
 target_link_libraries(melonDS PRIVATE core)
 target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
+
+target_link_libraries(melonDS PRIVATE LuaLib)
 
 if (UNIX)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
