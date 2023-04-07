@@ -66,6 +66,7 @@ if (ENABLE_OGLRENDERER)
         GPU_OpenGL.cpp
         GPU_OpenGL_shaders.h
         GPU3D_OpenGL.cpp
+        GPU3D_Compute.cpp
         GPU3D_OpenGL_shaders.h
         OpenGLSupport.cpp)
 

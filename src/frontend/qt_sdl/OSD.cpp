@@ -57,7 +57,7 @@ struct Item
 
 std::deque<Item> ItemQueue;
 
-GLuint Shader[3];
+GLuint Shader;
 GLint uScreenSize, uOSDPos, uOSDSize;
 GLfloat uScaleFactor;
 GLuint OSDVertexArray;
@@ -70,20 +70,19 @@ bool Init(bool openGL)
 {
     if (openGL)
     {
-        OpenGL::BuildShaderProgram(kScreenVS_OSD, kScreenFS_OSD, Shader, "OSDShader");
+        OpenGL::CompileVertexFragmentProgram(Shader,
+            kScreenVS_OSD, kScreenFS_OSD,
+            "OSDShader",
+            {{"vPosition", 0}},
+            {{"oColor", 0}});
 
-        GLuint pid = Shader[2];
-        glBindAttribLocation(pid, 0, "vPosition");
-        glBindFragDataLocation(pid, 0, "oColor");
+        glUseProgram(Shader);
+        glUniform1i(glGetUniformLocation(Shader, "OSDTex"), 0);
 
-        OpenGL::LinkShaderProgram(Shader);
-        glUseProgram(pid);
-        glUniform1i(glGetUniformLocation(pid, "OSDTex"), 0);
-
-        uScreenSize = glGetUniformLocation(pid, "uScreenSize");
-        uOSDPos = glGetUniformLocation(pid, "uOSDPos");
-        uOSDSize = glGetUniformLocation(pid, "uOSDSize");
-        uScaleFactor = glGetUniformLocation(pid, "uScaleFactor");
+        uScreenSize = glGetUniformLocation(Shader, "uScreenSize");
+        uOSDPos = glGetUniformLocation(Shader, "uOSDPos");
+        uOSDSize = glGetUniformLocation(Shader, "uOSDSize");
+        uScaleFactor = glGetUniformLocation(Shader, "uScaleFactor");
 
         float vertices[6*2] =
         {
@@ -425,7 +424,7 @@ void DrawGL(float w, float h)
 
     u32 y = kOSDMargin;
 
-    glUseProgram(Shader[2]);
+    glUseProgram(Shader);
 
     glUniform2f(uScreenSize, w, h);
     glUniform1f(uScaleFactor, mainWindow->devicePixelRatioF());

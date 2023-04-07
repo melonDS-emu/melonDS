@@ -84,13 +84,13 @@ private:
     };
 
 
-    GLuint ClearShaderPlain[3] {};
+    GLuint ClearShaderPlain {};
 
-    GLuint RenderShader[16][3] {};
+    GLuint RenderShader[16] {};
     GLuint CurShaderID = -1;
 
-    GLuint FinalPassEdgeShader[3] {};
-    GLuint FinalPassFogShader[3] {};
+    GLuint FinalPassEdgeShader {};
+    GLuint FinalPassFogShader {};
 
     // std140 compliant structure
     struct

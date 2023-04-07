@@ -169,6 +169,7 @@ extern std::unique_ptr<Renderer3D> CurrentRenderer;
 
 #ifdef OGLRENDERER_ENABLED
 #include "GPU3D_OpenGL.h"
+#include "GPU3D_Compute.h"
 #endif
 
 #endif

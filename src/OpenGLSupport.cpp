@@ -24,7 +24,9 @@ using Platform::LogLevel;
 namespace OpenGL
 {
 
-bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char* name)
+#define checkGLError() if (glGetError() != GL_NO_ERROR) printf("error %d\n", __LINE__)
+
+bool CompilerShader(GLuint& id, const char* source, const char* name, const char* type)
 {
     int len;
     int res;
@@ -35,61 +37,31 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
         return false;
     }
 
-    ids[0] = glCreateShader(GL_VERTEX_SHADER);
-    len = strlen(vs);
-    glShaderSource(ids[0], 1, &vs, &len);
-    glCompileShader(ids[0]);
+    len = strlen(source);
+    glShaderSource(id, 1, &source, &len);
+    checkGLError();
+    glCompileShader(id);
+    checkGLError();
 
-    glGetShaderiv(ids[0], GL_COMPILE_STATUS, &res);
+    glGetShaderiv(id, GL_COMPILE_STATUS, &res);
+    checkGLError();
     if (res != GL_TRUE)
     {
-        glGetShaderiv(ids[0], GL_INFO_LOG_LENGTH, &res);
+        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &res);
         if (res < 1) res = 1024;
         char* log = new char[res+1];
-        glGetShaderInfoLog(ids[0], res+1, NULL, log);
-        Log(LogLevel::Error, "OpenGL: failed to compile vertex shader %s: %s\n", name, log);
-        Log(LogLevel::Debug, "shader source:\n--\n%s\n--\n", vs);
+        glGetShaderInfoLog(id, res+1, NULL, log);
+        Log(LogLevel::Error, "OpenGL: failed to compile %s shader %s: %s\n", type, name, log);
+        Log(LogLevel::Debug, "shader source:\n--\n%s\n--\n", source);
         delete[] log;
-
-        glDeleteShader(ids[0]);
 
         return false;
     }
-
-    ids[1] = glCreateShader(GL_FRAGMENT_SHADER);
-    len = strlen(fs);
-    glShaderSource(ids[1], 1, &fs, &len);
-    glCompileShader(ids[1]);
-
-    glGetShaderiv(ids[1], GL_COMPILE_STATUS, &res);
-    if (res != GL_TRUE)
-    {
-        glGetShaderiv(ids[1], GL_INFO_LOG_LENGTH, &res);
-        if (res < 1) res = 1024;
-        char* log = new char[res+1];
-        glGetShaderInfoLog(ids[1], res+1, NULL, log);
-        Log(LogLevel::Error, "OpenGL: failed to compile fragment shader %s: %s\n", name, log);
-        //printf("shader source:\n--\n%s\n--\n", fs);
-        delete[] log;
-
-        FILE* logf = fopen("shaderfail.log", "w");
-        fwrite(fs, len+1, 1, logf);
-        fclose(logf);
-
-        glDeleteShader(ids[0]);
-        glDeleteShader(ids[1]);
-
-        return false;
-    }
-
-    ids[2] = glCreateProgram();
-    glAttachShader(ids[2], ids[0]);
-    glAttachShader(ids[2], ids[1]);
 
     return true;
 }
 
-bool LinkShaderProgram(GLuint* ids)
+bool LinkProgram(GLuint& result, GLuint* ids, int numIds)
 {
     int res;
 
@@ -99,25 +71,26 @@ bool LinkShaderProgram(GLuint* ids)
         return false;
     }
 
-    glLinkProgram(ids[2]);
+    for (int i = 0; i < numIds; i++)
+    {
+        glAttachShader(result, ids[i]);
+        checkGLError();
+    }
 
-    glDetachShader(ids[2], ids[0]);
-    glDetachShader(ids[2], ids[1]);
+    glLinkProgram(result);
 
-    glDeleteShader(ids[0]);
-    glDeleteShader(ids[1]);
+    for (int i = 0; i < numIds; i++)
+        glDetachShader(result, ids[i]);
 
-    glGetProgramiv(ids[2], GL_LINK_STATUS, &res);
+    glGetProgramiv(result, GL_LINK_STATUS, &res);
     if (res != GL_TRUE)
     {
-        glGetProgramiv(ids[2], GL_INFO_LOG_LENGTH, &res);
+        glGetProgramiv(result, GL_INFO_LOG_LENGTH, &res);
         if (res < 1) res = 1024;
         char* log = new char[res+1];
-        glGetProgramInfoLog(ids[2], res+1, NULL, log);
+        glGetProgramInfoLog(result, res+1, NULL, log);
         Log(LogLevel::Error, "OpenGL: failed to link shader program: %s\n", log);
         delete[] log;
-
-        glDeleteProgram(ids[2]);
 
         return false;
     }
@@ -125,20 +98,73 @@ bool LinkShaderProgram(GLuint* ids)
     return true;
 }
 
-void DeleteShaderProgram(GLuint* ids)
+bool CompileComputeProgram(GLuint& result, const char* source, const char* name)
 {
+    GLuint shader = glCreateShader(GL_COMPUTE_SHADER);
+    bool linkingSucess = false;
     if (glDeleteProgram)
     { // If OpenGL isn't loaded, then there's no shader program to delete
-        glDeleteProgram(ids[2]);
+        goto error;
     }
+
+    result = glCreateProgram();
+
+    printf("compiling %s", name);
+    if (!CompilerShader(shader, source, name, "compute"))
+        goto error;
+
+    linkingSucess = LinkProgram(result, &shader, 1);
+
+error:
+    glDeleteShader(shader);
+
+    if (!linkingSucess)
+        glDeleteProgram(result);
+
+    return linkingSucess;
 }
 
-void UseShaderProgram(GLuint* ids)
+bool CompileVertexFragmentProgram(GLuint& result,
+    const char* vs, const char* fs,
+    const char* name,
+    const std::initializer_list<AttributeTarget>& vertexInAttrs,
+    const std::initializer_list<AttributeTarget>& fragmentOutAttrs)
 {
-    if (glUseProgram)
-    { // If OpenGL isn't loaded, then there's no shader program to use
-        glUseProgram(ids[2]);
+    GLuint shaders[2] =
+    {
+        glCreateShader(GL_VERTEX_SHADER),
+        glCreateShader(GL_FRAGMENT_SHADER)
+    };
+    result = glCreateProgram();
+
+    bool linkingSucess = false;
+
+    if (!CompilerShader(shaders[0], vs, name, "vertex"))
+        goto error;
+
+    if (!CompilerShader(shaders[1], fs, name, "fragment"))
+        goto error;
+
+
+    for (const AttributeTarget& target : vertexInAttrs)
+    {
+        glBindAttribLocation(result, target.Location, target.Name);
     }
+    for (const AttributeTarget& target : fragmentOutAttrs)
+    {
+        glBindFragDataLocation(result, target.Location, target.Name);
+    }
+
+    linkingSucess = LinkProgram(result, shaders, 2);
+
+error:
+    glDeleteShader(shaders[1]);
+    glDeleteShader(shaders[0]);
+
+    if (!linkingSucess)
+        glDeleteProgram(result);
+
+    return linkingSucess;
 }
 
 }

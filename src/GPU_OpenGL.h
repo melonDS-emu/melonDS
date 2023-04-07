@@ -44,12 +44,12 @@ public:
     void RenderFrame();
     void BindOutputTexture(int buf);
 private:
-    GLCompositor(std::array<GLuint, 3> CompShader) noexcept;
+    GLCompositor(GLuint CompShader) noexcept;
 
     int Scale;
     int ScreenH, ScreenW;
 
-    std::array<GLuint, 3> CompShader;
+    GLuint CompShader;
     GLuint CompScaleLoc;
     GLuint Comp3DXPosLoc;
 

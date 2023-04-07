@@ -121,7 +121,7 @@ private:
     GL::Context* oglContext = nullptr;
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;
-    GLuint screenShaderProgram[3];
+    GLuint screenShaderProgram;
     GLuint screenShaderTransformULoc, screenShaderScreenSizeULoc;
 
     QMutex screenSettingsLock;

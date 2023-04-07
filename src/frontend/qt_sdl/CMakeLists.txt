@@ -24,6 +24,7 @@ set(SOURCES_QT_SDL
     ROMInfoDialog.cpp
     RAMInfoDialog.cpp
     TitleManagerDialog.cpp
+    RTCSettingsDialog.cpp
     Input.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp

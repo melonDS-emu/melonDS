@@ -228,19 +228,17 @@ void EmuThread::initOpenGL()
     oglContext = windowctx;
     oglContext->MakeCurrent();
 
-    OpenGL::BuildShaderProgram(kScreenVS, kScreenFS, screenShaderProgram, "ScreenShader");
-    GLuint pid = screenShaderProgram[2];
-    glBindAttribLocation(pid, 0, "vPosition");
-    glBindAttribLocation(pid, 1, "vTexcoord");
-    glBindFragDataLocation(pid, 0, "oColor");
+    OpenGL::CompileVertexFragmentProgram(screenShaderProgram,
+        kScreenVS, kScreenFS,
+        "ScreenShader",
+        {{"vPosition", 0}, {"vTexcoord", 1}},
+        {{"oColor", 0}});
 
-    OpenGL::LinkShaderProgram(screenShaderProgram);
+    glUseProgram(screenShaderProgram);
+    glUniform1i(glGetUniformLocation(screenShaderProgram, "ScreenTex"), 0);
 
-    glUseProgram(pid);
-    glUniform1i(glGetUniformLocation(pid, "ScreenTex"), 0);
-
-    screenShaderScreenSizeULoc = glGetUniformLocation(pid, "uScreenSize");
-    screenShaderTransformULoc = glGetUniformLocation(pid, "uTransform");
+    screenShaderScreenSizeULoc = glGetUniformLocation(screenShaderProgram, "uScreenSize");
+    screenShaderTransformULoc = glGetUniformLocation(screenShaderProgram, "uTransform");
 
     // to prevent bleeding between both parts of the screen
     // with bilinear filtering enabled
@@ -300,7 +298,7 @@ void EmuThread::deinitOpenGL()
     glDeleteVertexArrays(1, &screenVertexArray);
     glDeleteBuffers(1, &screenVertexBuffer);
 
-    OpenGL::DeleteShaderProgram(screenShaderProgram);
+    glDeleteProgram(screenShaderProgram);
 
     OSD::DeInit();
 
@@ -749,7 +747,7 @@ void EmuThread::drawScreenGL()
 
     glViewport(0, 0, w, h);
 
-    glUseProgram(screenShaderProgram[2]);
+    glUseProgram(screenShaderProgram);
     glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
 
     int frontbuf = FrontBuffer;
