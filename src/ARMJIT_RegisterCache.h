@@ -21,6 +21,7 @@
 
 #include "ARMJIT.h"
 #include "ARMJIT_Internal.h"
+#include "Platform.h"
 
 // TODO: replace this in the future
 #include "dolphin/BitSet.h"
@@ -29,6 +30,9 @@
 
 namespace ARMJIT
 {
+    using Platform::Log;
+    using Platform::LogLevel;
+    // Imported inside the namespace so that other headers aren't polluted
 
 template <typename T, typename Reg>
 class RegisterCache
@@ -80,7 +84,7 @@ public:
             }
         }
 
-        printf("this is a JIT bug! LoadRegister failed\n");
+        Log(LogLevel::Error, "this is a JIT bug! LoadRegister failed\n");
         abort();
     }
 

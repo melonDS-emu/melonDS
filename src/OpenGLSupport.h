@@ -22,10 +22,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <epoxy/gl.h>
-
-
 #include "Platform.h"
+#include "PlatformOGL.h"
 
 
 namespace OpenGL

@@ -32,9 +32,13 @@ enum
     HK_FastForwardToggle,
     HK_FullscreenToggle,
     HK_SwapScreens,
+    HK_SwapScreenEmphasis,
     HK_SolarSensorDecrease,
     HK_SolarSensorIncrease,
     HK_FrameStep,
+    HK_PowerButton,
+    HK_VolumeUp,
+    HK_VolumeDown,
     HK_MAX
 };
 
@@ -162,10 +166,12 @@ extern bool SavestateRelocSRAM;
 extern int AudioInterp;
 extern int AudioBitrate;
 extern int AudioVolume;
+extern bool DSiVolumeSync;
 extern int MicInputType;
 extern std::string MicWavPath;
 
 extern std::string LastROMFolder;
+extern std::string LastBIOSFolder;
 
 extern std::string RecentROMList[10];
 

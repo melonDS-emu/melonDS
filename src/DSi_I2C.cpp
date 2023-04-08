@@ -18,15 +18,51 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #include "DSi.h"
 #include "DSi_I2C.h"
 #include "DSi_Camera.h"
 #include "ARM.h"
 #include "SPI.h"
+#include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace DSi_BPTWL
 {
+
+// TODO: These are purely approximations
+const double PowerButtonShutdownTime = 0.5;
+const double PowerButtonForcedShutdownTime = 5.0;
+const double VolumeSwitchRepeatStart = 0.5;
+const double VolumeSwitchRepeatRate = 1.0 / 6;
+
+// Could not find a pattern or a decent formula for these,
+// regardless, they're only 64 bytes in size
+const u8 VolumeDownTable[32] =
+{
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x03,
+    0x04, 0x05, 0x06, 0x06, 0x07, 0x08, 0x09, 0x0A,
+    0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12,
+    0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A,
+};
+
+const u8 VolumeUpTable[32] =
+{
+    0x02, 0x03, 0x06, 0x07, 0x08, 0x0A, 0x0B, 0x0C,
+    0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14,
+    0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C,
+    0x1D, 0x1E, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F,
+};
+
+double PowerButtonTime = 0.0;
+bool PowerButtonDownFlag = false;
+bool PowerButtonShutdownFlag = false;
+double VolumeSwitchTime = 0.0;
+double VolumeSwitchRepeatTime = 0.0;
+bool VolumeSwitchDownFlag = false;
+u32 VolumeSwitchKeysDown = 0;
 
 u8 Registers[0x100];
 u32 CurPos;
@@ -48,9 +84,9 @@ void Reset()
     Registers[0x00] = 0x33; // TODO: support others??
     Registers[0x01] = 0x00;
     Registers[0x02] = 0x50;
-    Registers[0x10] = 0x00; // power btn
+    Registers[0x10] = 0x00; // irq flag
     Registers[0x11] = 0x00; // reset
-    Registers[0x12] = 0x00; // power btn tap
+    Registers[0x12] = 0x00; // irq mode
     Registers[0x20] = 0x8F; // battery
     Registers[0x21] = 0x07;
     Registers[0x30] = 0x13;
@@ -71,6 +107,15 @@ void Reset()
     Registers[0x77] = 0x00;
     Registers[0x80] = 0x10;
     Registers[0x81] = 0x64;
+
+    // Ideally these should be replaced by a proper BPTWL core emulator
+    PowerButtonTime = 0.0;
+    PowerButtonDownFlag = false;
+    PowerButtonShutdownFlag = false;
+    VolumeSwitchTime = 0.0;
+    VolumeSwitchRepeatTime = 0.0;
+    VolumeSwitchKeysDown = 0;
+
 }
 
 void DoSavestate(Savestate* file)
@@ -79,6 +124,12 @@ void DoSavestate(Savestate* file)
 
     file->VarArray(Registers, 0x100);
     file->Var32(&CurPos);
+}
+
+// TODO: Needs more investigation on the other bits
+inline bool GetIRQMode()
+{
+    return Registers[0x12] & 0x01;
 }
 
 u8 GetBootFlag() { return Registers[0x70]; }
@@ -94,6 +145,242 @@ void SetBatteryLevel(u8 batteryLevel)
 {
     Registers[0x20] = ((Registers[0x20] & 0xF0) | (batteryLevel & 0x0F));
     SPI_Powerman::SetBatteryLevelOkay(batteryLevel > batteryLevel_Low ? true : false);
+
+    if (batteryLevel <= 1)
+    {
+        SetIRQ(batteryLevel ? IRQ_BatteryLow : IRQ_BatteryEmpty);
+    }
+
+}
+
+u8 GetVolumeLevel() { return Registers[0x40]; }
+void SetVolumeLevel(u8 volume)
+{
+    Registers[0x40] = volume & 0x1F;
+}
+
+u8 GetBacklightLevel() { return Registers[0x41]; }
+void SetBacklightLevel(u8 backlight)
+{
+    Registers[0x41] = backlight > 4 ? 4 : backlight;
+}
+
+
+void ResetButtonState()
+{
+    PowerButtonTime = 0.0;
+    PowerButtonDownFlag = false;
+    PowerButtonShutdownFlag = false;
+
+    VolumeSwitchKeysDown = 0;
+    VolumeSwitchDownFlag = false;
+    VolumeSwitchTime = 0.0;
+    VolumeSwitchRepeatTime = 0.0;
+}
+
+void DoHardwareReset(bool direct)
+{
+    ResetButtonState();
+
+    Log(LogLevel::Debug, "BPTWL: soft-reset\n");
+
+    if (direct)
+    {
+        // TODO: This doesn't seem to stop the SPU
+        DSi::SoftReset();
+        return;
+    }
+
+    // TODO: soft-reset might need to be scheduled later!
+    // TODO: this has been moved for the JIT to work, nothing is confirmed here
+    NDS::ARM7->Halt(4);
+}
+
+void DoShutdown()
+{
+    ResetButtonState();
+    NDS::Stop();
+}
+
+
+void SetPowerButtonHeld(double time)
+{
+    if (!PowerButtonDownFlag)
+    {
+        PowerButtonDownFlag = true;
+        PowerButtonTime = time;
+        DoPowerButtonPress();
+        return;
+    }
+
+    double elapsed = time - PowerButtonTime;
+    if (elapsed < 0)
+        return;
+
+    if (elapsed >= PowerButtonForcedShutdownTime)
+    {
+        Log(LogLevel::Debug, "Force power off via DSi power button\n");
+        DoPowerButtonForceShutdown();
+        return;
+    }
+
+    if (elapsed >= PowerButtonShutdownTime)
+    {
+        DoPowerButtonShutdown();
+    }
+}
+
+void SetPowerButtonReleased(double time)
+{
+    double elapsed = time - PowerButtonTime;
+    if (elapsed >= 0 && elapsed < PowerButtonShutdownTime)
+    {
+        DoPowerButtonReset();
+    }
+
+    PowerButtonTime = 0.0;
+    PowerButtonDownFlag = false;
+    PowerButtonShutdownFlag = false;
+}
+
+void SetVolumeSwitchHeld(u32 key)
+{
+    VolumeSwitchKeysDown |= (1 << key);
+}
+
+void SetVolumeSwitchReleased(u32 key)
+{
+    VolumeSwitchKeysDown &= ~(1 << key);
+    VolumeSwitchDownFlag = false;
+    VolumeSwitchTime = 0.0;
+    VolumeSwitchRepeatTime = 0.0;
+}
+
+inline bool CheckVolumeSwitchKeysValid()
+{
+    bool up = VolumeSwitchKeysDown & (1 << volumeKey_Up);
+    bool down = VolumeSwitchKeysDown & (1 << volumeKey_Down);
+
+    return up != down;
+}
+
+s32 ProcessVolumeSwitchInput(double time)
+{
+    if (!CheckVolumeSwitchKeysValid())
+        return -1;
+
+    s32 key = VolumeSwitchKeysDown & (1 << volumeKey_Up) ? volumeKey_Up : volumeKey_Down;
+
+    // Always fire an IRQ when first pressed
+    if (!VolumeSwitchDownFlag)
+    {
+        VolumeSwitchDownFlag = true;
+        VolumeSwitchTime = time;
+        DoVolumeSwitchPress(key);
+        return key;
+    }
+
+    // Handle key repetition mechanic
+    if (VolumeSwitchRepeatTime == 0)
+    {
+        double elapsed = time - VolumeSwitchTime;
+        if (elapsed < VolumeSwitchRepeatStart)
+            return -1;
+
+        VolumeSwitchRepeatTime = time;
+        DoVolumeSwitchPress(key);
+        return key;
+    }
+
+    double elapsed = time - VolumeSwitchRepeatTime;
+    if (elapsed < VolumeSwitchRepeatRate)
+        return -1;
+
+    double rem = fmod(elapsed, VolumeSwitchRepeatRate);
+    VolumeSwitchRepeatTime = time - rem;
+    DoVolumeSwitchPress(key);
+    return key;
+}
+
+
+void DoPowerButtonPress()
+{
+    // Set button pressed IRQ
+    SetIRQ(IRQ_PowerButtonPressed);
+
+    // There is no default hardware behavior for pressing the power button
+}
+
+void DoPowerButtonReset()
+{
+    // Reset via IRQ, handled by software
+    SetIRQ(IRQ_PowerButtonReset);
+
+    // Reset automatically via hardware
+    if (!GetIRQMode())
+    {
+        // Assumes this isn't called during normal CPU execution
+        DoHardwareReset(true);
+    }
+}
+
+void DoPowerButtonShutdown()
+{
+    // Shutdown via IRQ, handled by software
+    if (!PowerButtonShutdownFlag)
+    {
+        SetIRQ(IRQ_PowerButtonShutdown);
+    }
+
+    PowerButtonShutdownFlag = true;
+
+    // Shutdown automatically via hardware
+    if (!GetIRQMode())
+    {
+        DoShutdown();
+    }
+
+    // The IRQ is only fired once (hence the need for an if guard),
+    // but the hardware shutdown is continuously triggered.
+    // That way when switching the IRQ mode while holding
+    // down the power button, the DSi will still shut down
+}
+
+void DoPowerButtonForceShutdown()
+{
+    DoShutdown();
+}
+
+void DoVolumeSwitchPress(u32 key)
+{
+    u8 volume = Registers[0x40];
+
+    switch (key)
+    {
+
+    case volumeKey_Up:
+        volume = VolumeUpTable[volume];
+        break;
+
+    case volumeKey_Down:
+        volume = VolumeDownTable[volume];
+        break;
+
+    }
+
+    Registers[0x40] = volume;
+
+    SetIRQ(IRQ_VolumeSwitchPressed);
+}
+
+void SetIRQ(u8 irqFlag)
+{
+    Registers[0x10] |= irqFlag & IRQ_ValidMask;
+
+    if (GetIRQMode())
+    {
+        NDS::SetIRQ2(NDS::IRQ2_DSi_BPTWL);
+    }
 }
 
 void Start()
@@ -104,7 +391,15 @@ void Start()
 u8 Read(bool last)
 {
     //printf("BPTWL: read %02X -> %02X @ %08X\n", CurPos, Registers[CurPos], NDS::GetPC(1));
-    u8 ret = Registers[CurPos++];
+    u8 ret = Registers[CurPos];
+
+    // IRQ flags are automatically cleared upon read
+    if (CurPos == 0x10)
+    {
+        Registers[0x10] = 0;
+    }
+
+    CurPos++;
 
     if (last)
     {
@@ -131,19 +426,29 @@ void Write(u8 val, bool last)
 
     if (CurPos == 0x11 && val == 0x01)
     {
-        printf("BPTWL: soft-reset\n");
+        // Assumes this is called during normal CPU execution
+        DoHardwareReset(false);
         val = 0; // checkme
-        // TODO: soft-reset might need to be scheduled later!
-        // TODO: this has been moved for the JIT to work, nothing is confirmed here
-        NDS::ARM7->Halt(4);
         CurPos = -1;
         return;
+    }
+
+    // Mask volume level
+    if (CurPos == 0x40)
+    {
+        val &= 0x1F;
+    }
+
+    // Clamp backlight level
+    if (CurPos == 0x41)
+    {
+        val = val > 4 ? 4 : val;
     }
 
     if (CurPos == 0x11 || CurPos == 0x12 ||
         CurPos == 0x21 ||
         CurPos == 0x30 || CurPos == 0x31 ||
-        CurPos == 0x40 || CurPos == 0x31 ||
+        CurPos == 0x40 || CurPos == 0x41 ||
         CurPos == 0x60 || CurPos == 0x63 ||
         (CurPos >= 0x70 && CurPos <= 0x77) ||
         CurPos == 0x80 || CurPos == 0x81)
@@ -225,7 +530,7 @@ void WriteCnt(u8 val)
             case 0xA0:
             case 0xE0: Data = 0xFF; break;
             default:
-                printf("I2C: read on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, 0, islast);
+                Log(LogLevel::Warn, "I2C: read on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, 0, islast);
                 Data = 0xFF;
                 break;
             }
@@ -251,7 +556,7 @@ void WriteCnt(u8 val)
                 case 0xA0:
                 case 0xE0: ack = false; break;
                 default:
-                    printf("I2C: %s start on unknown device %02X\n", (Data&0x01)?"read":"write", Device);
+                    Log(LogLevel::Warn, "I2C: %s start on unknown device %02X\n", (Data&0x01)?"read":"write", Device);
                     ack = false;
                     break;
                 }
@@ -268,7 +573,7 @@ void WriteCnt(u8 val)
                 case 0xA0:
                 case 0xE0: ack = false; break;
                 default:
-                    printf("I2C: write on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+                    Log(LogLevel::Warn, "I2C: write on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
                     ack = false;
                     break;
                 }

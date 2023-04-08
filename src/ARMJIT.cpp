@@ -42,7 +42,10 @@
 #include "SPU.h"
 #include "Wifi.h"
 #include "NDSCart.h"
+#include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 #include "ARMJIT_x64/ARMJIT_Offsets.h"
 static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset, "");
@@ -53,7 +56,7 @@ namespace ARMJIT
 {
 
 #define JIT_DEBUGPRINT(msg, ...)
-//#define JIT_DEBUGPRINT(msg, ...) printf(msg, ## __VA_ARGS__)
+//#define JIT_DEBUGPRINT(msg, ...) Platform::Log(Platform::LogLevel::Debug, msg, ## __VA_ARGS__)
 
 Compiler* JITCompiler;
 
@@ -594,7 +597,7 @@ void CompileBlock(ARM* cpu)
     u32 localAddr = LocaliseCodeAddress(cpu->Num, blockAddr);
     if (!localAddr)
     {
-        printf("trying to compile non executable code? %x\n", blockAddr);
+        Log(LogLevel::Warn, "trying to compile non executable code? %x\n", blockAddr);
     }
 
     auto& map = cpu->Num == 0 ? JitBlocks9 : JitBlocks7;
@@ -764,7 +767,7 @@ void CompileBlock(ARM* cpu)
             u32 translatedAddr = LocaliseCodeAddress(cpu->Num, literalAddr);
             if (!translatedAddr)
             {
-                printf("literal in non executable memory?\n");
+                Log(LogLevel::Warn,"literal in non executable memory?\n");
             }
             if (InvalidLiterals.Find(translatedAddr) == -1)
             {
@@ -1175,7 +1178,7 @@ template void CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(u3
 
 void ResetBlockCache()
 {
-    printf("Resetting JIT block cache...\n");
+    Log(LogLevel::Debug, "Resetting JIT block cache...\n");
 
     // could be replace through a function which only resets
     // the permissions but we're too lazy

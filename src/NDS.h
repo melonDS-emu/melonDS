@@ -110,7 +110,7 @@ enum
     IRQ2_DSi_Unused3,
     IRQ2_DSi_GPIO33_0,
     IRQ2_DSi_Headphone,
-    IRQ2_DSi_PowerButton,
+    IRQ2_DSi_BPTWL,
     IRQ2_DSi_GPIO33_3, // "sound enable input"
     IRQ2_DSi_SDMMC,
     IRQ2_DSi_SD_Data1,

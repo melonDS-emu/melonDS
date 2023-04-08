@@ -16,6 +16,10 @@
 #include "../types.h"
 #include "MathUtil.h"
 
+#ifdef _WIN32
+    #include <windows.h>
+#endif
+
 #ifdef __APPLE__
     #include <libkern/OSCacheControl.h>
 #endif
@@ -392,6 +396,8 @@ void ARM64XEmitter::FlushIcacheSection(u8* start, u8* end)
 #if defined(__APPLE__)
   // Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
   sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
+#elif defined(_WIN32)
+  FlushInstructionCache(GetCurrentProcess(), start, end - start);
 #else
   // Don't rely on GCC's __clear_cache implementation, as it caches
   // icache/dcache cache line sizes, that can vary between cores on

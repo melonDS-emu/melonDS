@@ -29,6 +29,8 @@
 
 #include "fatfs/ff.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace DSi_NAND
 {
@@ -62,7 +64,7 @@ bool Init(u8* es_keyY)
         FILE* orig = Platform::OpenLocalFile(nandpath, "rb");
         if (!orig)
         {
-            printf("Failed to open DSi NAND\n");
+            Log(LogLevel::Error, "Failed to open DSi NAND\n");
             return false;
         }
 
@@ -103,7 +105,7 @@ bool Init(u8* es_keyY)
     res = f_mount(&CurFS, "0:", 0);
     if (res != FR_OK)
     {
-        printf("NAND mounting failed: %d\n", res);
+        Log(LogLevel::Error, "NAND mounting failed: %d\n", res);
         f_unmount("0:");
         ff_disk_close();
         return false;
@@ -125,7 +127,7 @@ bool Init(u8* es_keyY)
         fread(nand_footer, 1, 16, nandfile);
         if (memcmp(nand_footer, nand_footer_ref, 16))
         {
-            printf("ERROR: NAND missing nocash footer\n");
+            Log(LogLevel::Error, "ERROR: NAND missing nocash footer\n");
             return false;
         }
     }
@@ -471,7 +473,7 @@ bool ESDecrypt(u8* data, u32 len)
     u32 footerlen = footer[0] | (footer[1] << 8) | (footer[2] << 16);
     if (footerlen != len)
     {
-        printf("ESDecrypt: bad length %d (expected %d)\n", len, footerlen);
+        Log(LogLevel::Error, "ESDecrypt: bad length %d (expected %d)\n", len, footerlen);
         return false;
     }
 
@@ -479,7 +481,7 @@ bool ESDecrypt(u8* data, u32 len)
     {
         if (data[len+i] != mac[15-i])
         {
-            printf("ESDecrypt: bad MAC\n");
+            Log(LogLevel::Warn, "ESDecrypt: bad MAC\n");
             return false;
         }
     }
@@ -572,7 +574,7 @@ void PatchUserData()
         res = f_open(&file, filename, FA_OPEN_EXISTING | FA_READ | FA_WRITE);
         if (res != FR_OK)
         {
-            printf("NAND: editing file %s failed: %d\n", filename, res);
+            Log(LogLevel::Error, "NAND: editing file %s failed: %d\n", filename, res);
             continue;
         }
 
@@ -651,7 +653,7 @@ void debug_listfiles(const char* path)
 
         char fullname[512];
         sprintf(fullname, "%s/%s", path, info.fname);
-        printf("[%c] %s\n", (info.fattrib&AM_DIR)?'D':'F', fullname);
+        Log(LogLevel::Debug, "[%c] %s\n", (info.fattrib&AM_DIR)?'D':'F', fullname);
 
         if (info.fattrib & AM_DIR)
         {
@@ -838,7 +840,7 @@ void ListTitles(u32 category, std::vector<u32>& titlelist)
     res = f_opendir(&titledir, path);
     if (res != FR_OK)
     {
-        printf("NAND: !! no title dir (%s)\n", path);
+        Log(LogLevel::Warn, "NAND: !! no title dir (%s)\n", path);
         return;
     }
 
@@ -931,7 +933,7 @@ bool CreateTicket(const char* path, u32 titleid0, u32 titleid1, u8 version)
     res = f_open(&file, path, FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
-        printf("CreateTicket: failed to create file (%d)\n", res);
+        Log(LogLevel::Error, "CreateTicket: failed to create file (%d)\n", res);
         return false;
     }
 
@@ -1012,7 +1014,7 @@ bool CreateSaveFile(const char* path, u32 len)
     res = f_open(&file, path, FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
-        printf("CreateSaveFile: failed to create file (%d)\n", res);
+        Log(LogLevel::Error, "CreateSaveFile: failed to create file (%d)\n", res);
         return false;
     }
 
@@ -1058,11 +1060,11 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
     }
 
     u32 version = (tmd[0x1E4] << 24) | (tmd[0x1E5] << 16) | (tmd[0x1E6] << 8) | tmd[0x1E7];
-    printf(".app version: %08x\n", version);
+    Log(LogLevel::Info, ".app version: %08x\n", version);
 
     u32 titleid0 = (tmd[0x18C] << 24) | (tmd[0x18D] << 16) | (tmd[0x18E] << 8) | tmd[0x18F];
     u32 titleid1 = (tmd[0x190] << 24) | (tmd[0x191] << 16) | (tmd[0x192] << 8) | tmd[0x193];
-    printf("Title ID: %08x/%08x\n", titleid0, titleid1);
+    Log(LogLevel::Info, "Title ID: %08x/%08x\n", titleid0, titleid1);
 
     FRESULT res;
     FF_DIR ticketdir;
@@ -1110,7 +1112,7 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
         res = f_open(&file, fname, FA_CREATE_ALWAYS | FA_WRITE);
         if (res != FR_OK)
         {
-            printf("ImportTitle: failed to create banner.sav (%d)\n", res);
+            Log(LogLevel::Error, "ImportTitle: failed to create banner.sav (%d)\n", res);
             return false;
         }
 
@@ -1127,7 +1129,7 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
     res = f_open(&file, fname, FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
-        printf("ImportTitle: failed to create TMD (%d)\n", res);
+        Log(LogLevel::Error, "ImportTitle: failed to create TMD (%d)\n", res);
         return false;
     }
 
@@ -1142,7 +1144,7 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
     sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
     if (!ImportFile(fname, appfile))
     {
-        printf("ImportTitle: failed to create executable (%d)\n", res);
+        Log(LogLevel::Error, "ImportTitle: failed to create executable (%d)\n", res);
         return false;
     }
 

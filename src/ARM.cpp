@@ -24,11 +24,15 @@
 #include "ARMInterpreter.h"
 #include "AREngine.h"
 #include "ARMJIT.h"
+#include "Platform.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
 #endif
+
+using Platform::Log;
+using Platform::LogLevel;
 
 // instruction timing notes
 //
@@ -213,7 +217,7 @@ void ARM::DoSavestate(Savestate* file)
     file->VarArray(R_UND, 3*sizeof(u32));
     file->Var32(&CurInstr);
 #ifdef JIT_ENABLED
-    if (!file->Saving && NDS::EnableJIT)
+    if (file->Saving && NDS::EnableJIT)
     {
         // hack, the JIT doesn't really pipeline
         // but we still want JIT save states to be
@@ -419,7 +423,7 @@ void ARM::RestoreCPSR()
         break;
 
     default:
-        printf("!! attempt to restore CPSR under bad mode %02X, %08X\n", CPSR&0x1F, R[15]);
+        Log(LogLevel::Warn, "!! attempt to restore CPSR under bad mode %02X, %08X\n", CPSR&0x1F, R[15]);
         break;
     }
 
@@ -532,7 +536,7 @@ void ARM::TriggerIRQ()
 
 void ARMv5::PrefetchAbort()
 {
-    printf("ARM9: prefetch abort (%08X)\n", R[15]);
+    Log(LogLevel::Warn, "ARM9: prefetch abort (%08X)\n", R[15]);
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xBF;
@@ -543,7 +547,7 @@ void ARMv5::PrefetchAbort()
     // so better take care of it
     if (!(PU_Map[ExceptionBase>>12] & 0x04))
     {
-        printf("!!!!! EXCEPTION REGION NOT EXECUTABLE. THIS IS VERY BAD!!\n");
+        Log(LogLevel::Error, "!!!!! EXCEPTION REGION NOT EXECUTABLE. THIS IS VERY BAD!!\n");
         NDS::Stop();
         return;
     }
@@ -555,7 +559,7 @@ void ARMv5::PrefetchAbort()
 
 void ARMv5::DataAbort()
 {
-    printf("ARM9: data abort (%08X)\n", R[15]);
+    Log(LogLevel::Warn, "ARM9: data abort (%08X)\n", R[15]);
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xBF;
@@ -679,7 +683,7 @@ void ARMv5::ExecuteJIT()
             && !ARMJIT::SetupExecutableRegion(0, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
         {
             NDS::ARM9Timestamp = NDS::ARM9Target;
-            printf("ARMv5 PC in non executable region %08X\n", R[15]);
+            Log(LogLevel::Error, "ARMv5 PC in non executable region %08X\n", R[15]);
             return;
         }
 
@@ -830,7 +834,7 @@ void ARMv4::ExecuteJIT()
             && !ARMJIT::SetupExecutableRegion(1, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
         {
             NDS::ARM7Timestamp = NDS::ARM7Target;
-            printf("ARMv4 PC in non executable region %08X\n", R[15]);
+            Log(LogLevel::Error, "ARMv4 PC in non executable region %08X\n", R[15]);
             return;
         }
 

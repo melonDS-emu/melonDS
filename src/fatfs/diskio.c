@@ -30,7 +30,7 @@ void ff_disk_open(ff_disk_read_cb readcb, ff_disk_write_cb writecb, LBA_t seccnt
     else          Status &= ~STA_PROTECT;
 }
 
-void ff_disk_close()
+void ff_disk_close(void)
 {
     ReadCb = (void*)0;
     WriteCb = (void*)0;

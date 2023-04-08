@@ -28,6 +28,8 @@
 #include "ROMList.h"
 #include "melonDLDI.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace NDSCart
 {
@@ -381,6 +383,16 @@ void CartCommon::SetIRQ()
     NDS::SetIRQ(1, NDS::IRQ_CartIREQMC);
 }
 
+u8 *CartCommon::GetSaveMemory() const
+{
+    return nullptr;
+}
+
+u32 CartCommon::GetSaveMemoryLength() const
+{
+    return 0;
+}
+
 void CartCommon::ReadROM(u32 addr, u32 len, u8* data, u32 offset)
 {
     if (addr >= ROMLength) return;
@@ -422,8 +434,8 @@ void CartRetail::DoSavestate(Savestate* file)
     file->Var32(&SRAMLength);
     if (SRAMLength != oldlen)
     {
-        printf("savestate: VERY BAD!!!! SRAM LENGTH DIFFERENT. %d -> %d\n", oldlen, SRAMLength);
-        printf("oh well. loading it anyway. adsfgdsf\n");
+        Log(LogLevel::Warn, "savestate: VERY BAD!!!! SRAM LENGTH DIFFERENT. %d -> %d\n", oldlen, SRAMLength);
+        Log(LogLevel::Warn, "oh well. loading it anyway. adsfgdsf\n");
 
         if (oldlen) delete[] SRAM;
         SRAM = nullptr;
@@ -551,6 +563,16 @@ u8 CartRetail::SPIWrite(u8 val, u32 pos, bool last)
     }
 }
 
+u8 *CartRetail::GetSaveMemory() const
+{
+    return SRAM;
+}
+
+u32 CartRetail::GetSaveMemoryLength() const
+{
+    return SRAMLength;
+}
+
 void CartRetail::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
 {
     addr &= (ROMLength-1);
@@ -627,7 +649,7 @@ u8 CartRetail::SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last)
 
     default:
         if (pos == 1)
-            printf("unknown tiny EEPROM save command %02X\n", SRAMCmd);
+            Log(LogLevel::Warn, "unknown tiny EEPROM save command %02X\n", SRAMCmd);
         return 0xFF;
     }
 }
@@ -693,7 +715,7 @@ u8 CartRetail::SRAMWrite_EEPROM(u8 val, u32 pos, bool last)
 
     default:
         if (pos == 1)
-            printf("unknown EEPROM save command %02X\n", SRAMCmd);
+            Log(LogLevel::Warn, "unknown EEPROM save command %02X\n", SRAMCmd);
         return 0xFF;
     }
 }
@@ -837,7 +859,7 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
 
     default:
         if (pos == 1)
-            printf("unknown FLASH save command %02X\n", SRAMCmd);
+            Log(LogLevel::Warn, "unknown FLASH save command %02X\n", SRAMCmd);
         return 0xFF;
     }
 }
@@ -966,8 +988,8 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
             // window is 0x20000 bytes, address is aligned to that boundary
             // NAND remains stuck 'busy' forever if this is less than the starting SRAM address
             // TODO.
-            if (addr < SRAMBase) printf("NAND: !! BAD ADDR %08X < %08X\n", addr, SRAMBase);
-            if (addr >= (SRAMBase+SRAMLength)) printf("NAND: !! BAD ADDR %08X > %08X\n", addr, SRAMBase+SRAMLength);
+            if (addr < SRAMBase) Log(LogLevel::Warn,"NAND: !! BAD ADDR %08X < %08X\n", addr, SRAMBase);
+            if (addr >= (SRAMBase+SRAMLength)) Log(LogLevel::Warn,"NAND: !! BAD ADDR %08X > %08X\n", addr, SRAMBase+SRAMLength);
 
             SRAMWindow = addr;
         }
@@ -1118,7 +1140,7 @@ u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
 
 CartRetailBT::CartRetailBT(u8* rom, u32 len, u32 chipid) : CartRetail(rom, len, chipid)
 {
-    printf("POKETYPE CART\n");
+    Log(LogLevel::Info,"POKETYPE CART\n");
 }
 
 CartRetailBT::~CartRetailBT()
@@ -1137,7 +1159,7 @@ void CartRetailBT::DoSavestate(Savestate* file)
 
 u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 {
-    printf("POKETYPE SPI: %02X %d %d - %08X\n", val, pos, last, NDS::GetPC(0));
+    Log(LogLevel::Debug,"POKETYPE SPI: %02X %d %d - %08X\n", val, pos, last, NDS::GetPC(0));
 
     /*if (pos == 0)
     {
@@ -1295,12 +1317,12 @@ void CartHomebrew::ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch,
 {
     if (patch[0x0D] > binary[dldioffset+0x0F])
     {
-        printf("DLDI driver ain't gonna fit, sorry\n");
+        Log(LogLevel::Error, "DLDI driver ain't gonna fit, sorry\n");
         return;
     }
 
-    printf("existing driver is: %s\n", &binary[dldioffset+0x10]);
-    printf("new driver is: %s\n", &patch[0x10]);
+    Log(LogLevel::Info, "existing driver is: %s\n", &binary[dldioffset+0x10]);
+    Log(LogLevel::Info, "new driver is: %s\n", &patch[0x10]);
 
     u32 memaddr = *(u32*)&binary[dldioffset+0x40];
     if (memaddr == 0)
@@ -1389,7 +1411,7 @@ void CartHomebrew::ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch,
         *(u32*)&binary[writesec_addr+0x04] = 0xE12FFF1E; // bx lr
     }
 
-    printf("applied DLDI patch at %08X\n", dldioffset);
+    Log(LogLevel::Debug, "applied DLDI patch at %08X\n", dldioffset);
 }
 
 void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
@@ -1398,7 +1420,7 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
         *(u32*)&patch[4] != 0x69684320 ||
         *(u32*)&patch[8] != 0x006D6873)
     {
-        printf("bad DLDI patch\n");
+        Log(LogLevel::Error, "bad DLDI patch\n");
         return;
     }
 
@@ -1413,7 +1435,7 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
             *(u32*)&binary[i+4] == 0x69684320 &&
             *(u32*)&binary[i+8] == 0x006D6873)
         {
-            printf("DLDI structure found at %08X (%08X)\n", i, offset+i);
+            Log(LogLevel::Debug, "DLDI structure found at %08X (%08X)\n", i, offset+i);
             ApplyDLDIPatchAt(binary, i, patch, patchlen, readonly);
             i += patchlen;
         }
@@ -1567,13 +1589,13 @@ void DecryptSecureArea(u8* out)
 
     if (!strncmp((const char*)out, "encryObj", 8))
     {
-        printf("Secure area decryption OK\n");
+        Log(LogLevel::Info, "Secure area decryption OK\n");
         *(u32*)&out[0] = 0xE7FFDEFF;
         *(u32*)&out[4] = 0xE7FFDEFF;
     }
     else
     {
-        printf("Secure area decryption failed\n");
+        Log(LogLevel::Warn, "Secure area decryption failed\n");
         for (u32 i = 0; i < 0x800; i += 4)
             *(u32*)&out[i] = 0xE7FFDEFF;
     }
@@ -1597,7 +1619,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
     }
     catch (const std::bad_alloc& e)
     {
-        printf("NDSCart: failed to allocate memory for ROM (%d bytes)\n", CartROMSize);
+        Log(LogLevel::Error, "NDSCart: failed to allocate memory for ROM (%d bytes)\n", CartROMSize);
         return false;
     }
 
@@ -1615,7 +1637,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
         memcpy(&Banner, CartROM + Header.BannerOffset, bannersize);
     }
 
-    printf("Game code: %.4s\n", Header.GameCode);
+    Log(LogLevel::Info, "Game code: %.4s\n", Header.GameCode);
 
     u32 gamecode = (u32)Header.GameCode[3] << 24 |
                    (u32)Header.GameCode[2] << 16 |
@@ -1629,7 +1651,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
     if (!ReadROMParams(gamecode, &romparams))
     {
         // set defaults
-        printf("ROM entry not found\n");
+        Log(LogLevel::Warn, "ROM entry not found\n");
 
         romparams.GameCode = gamecode;
         romparams.ROMSize = CartROMSize;
@@ -1639,10 +1661,10 @@ bool LoadROM(const u8* romdata, u32 romlen)
             romparams.SaveMemType = 2; // assume EEPROM 64k (TODO FIXME)
     }
     else
-        printf("ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
+        Log(LogLevel::Info, "ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
 
     if (romparams.ROMSize != romlen)
-        printf("!! bad ROM size %d (expected %d) rounded to %d\n", romlen, romparams.ROMSize, CartROMSize);
+        Log(LogLevel::Warn, "!! bad ROM size %d (expected %d) rounded to %d\n", romlen, romparams.ROMSize, CartROMSize);
 
     // generate a ROM ID
     // note: most games don't check the actual value
@@ -1666,14 +1688,14 @@ bool LoadROM(const u8* romdata, u32 romlen)
     //CartID = 0x88017FEC;
     //CartID = 0x80007FC2; // pokémon typing adventure
 
-    printf("Cart ID: %08X\n", CartID);
+    Log(LogLevel::Info, "Cart ID: %08X\n", CartID);
 
     if (arm9base >= 0x4000 && arm9base < 0x8000)
     {
         // reencrypt secure area if needed
         if (*(u32*)&CartROM[arm9base] == 0xE7FFDEFF && *(u32*)&CartROM[arm9base+0x10] != 0xE7FFDEFF)
         {
-            printf("Re-encrypting cart secure area\n");
+            Log(LogLevel::Debug, "Re-encrypting cart secure area\n");
 
             strncpy((char*)&CartROM[arm9base], "encryObj", 8);
 
@@ -1728,6 +1750,16 @@ void SetupDirectBoot(std::string romname)
 {
     if (Cart)
         Cart->SetupDirectBoot(romname);
+}
+
+u8* GetSaveMemory()
+{
+    return Cart ? Cart->GetSaveMemory() : nullptr;
+}
+
+u32 GetSaveMemoryLength()
+{
+    return Cart ? Cart->GetSaveMemoryLength() : 0;
 }
 
 void EjectCart()
@@ -1832,10 +1864,10 @@ void WriteROMCnt(u32 val)
             if (seed1 & (1ULL << i)) Key2_Y |= (1ULL << (38-i));
         }
 
-        printf("seed0: %02X%08X\n", (u32)(seed0>>32), (u32)seed0);
-        printf("seed1: %02X%08X\n", (u32)(seed1>>32), (u32)seed1);
-        printf("key2 X: %02X%08X\n", (u32)(Key2_X>>32), (u32)Key2_X);
-        printf("key2 Y: %02X%08X\n", (u32)(Key2_Y>>32), (u32)Key2_Y);
+        Log(LogLevel::Debug, "seed0: %02X%08X\n", (u32)(seed0>>32), (u32)seed0);
+        Log(LogLevel::Debug, "seed1: %02X%08X\n", (u32)(seed1>>32), (u32)seed1);
+        Log(LogLevel::Debug, "key2 X: %02X%08X\n", (u32)(Key2_X>>32), (u32)Key2_X);
+        Log(LogLevel::Debug, "key2 Y: %02X%08X\n", (u32)(Key2_Y>>32), (u32)Key2_Y);
     }
 
     // transfers will only start when bit31 changes from 0 to 1
@@ -1872,7 +1904,7 @@ void WriteROMCnt(u32 val)
         TransferDir = Cart->ROMCommandStart(TransferCmd, TransferData, TransferLen);
 
     if ((datasize > 0) && (((ROMCnt >> 30) & 0x1) != TransferDir))
-        printf("NDSCART: !! BAD TRANSFER DIRECTION FOR CMD %02X, DIR=%d, ROMCNT=%08X\n", ROMCommand[0], TransferDir, ROMCnt);
+        Log(LogLevel::Debug, "NDSCART: !! BAD TRANSFER DIRECTION FOR CMD %02X, DIR=%d, ROMCNT=%08X\n", ROMCommand[0], TransferDir, ROMCnt);
 
     ROMCnt &= ~(1<<23);
 
@@ -1967,7 +1999,7 @@ void WriteSPICnt(u16 val)
     // in this case, the transfer continues until the end, even if bit13 or bit15 are cleared
     // if the transfer speed is changed, the transfer continues at the new speed (TODO)
     if (SPICnt & (1<<7))
-        printf("!! CHANGING AUXSPICNT DURING TRANSFER: %04X\n", val);
+        Log(LogLevel::Debug, "!! CHANGING AUXSPICNT DURING TRANSFER: %04X\n", val);
 }
 
 void SPITransferDone(u32 param)

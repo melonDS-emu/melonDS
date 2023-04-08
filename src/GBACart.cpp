@@ -23,6 +23,8 @@
 #include "CRC32.h"
 #include "Platform.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 namespace GBACart
 {
@@ -98,6 +100,15 @@ void CartCommon::SRAMWrite(u32 addr, u8 val)
 {
 }
 
+u8* CartCommon::GetSaveMemory() const
+{
+    return nullptr;
+}
+
+u32 CartCommon::GetSaveMemoryLength() const
+{
+    return 0;
+}
 
 CartGame::CartGame(u8* rom, u32 len) : CartCommon()
 {
@@ -210,7 +221,7 @@ void CartGame::SetupSave(u32 type)
         SRAMType = S_NULL;
         break;
     default:
-        printf("!! BAD GBA SAVE LENGTH %d\n", SRAMLength);
+        Log(LogLevel::Warn, "!! BAD GBA SAVE LENGTH %d\n", SRAMLength);
     }
 
     if (SRAMType == S_FLASH512K)
@@ -283,7 +294,7 @@ void CartGame::ROMWrite(u32 addr, u16 val)
             break;
 
         default:
-            printf("Unknown GBA GPIO write 0x%02X @ 0x%04X\n", val, addr);
+            Log(LogLevel::Warn, "Unknown GBA GPIO write 0x%02X @ 0x%04X\n", val, addr);
             break;
     }
 }
@@ -332,6 +343,16 @@ void CartGame::SRAMWrite(u32 addr, u8 val)
     }
 }
 
+u8* CartGame::GetSaveMemory() const
+{
+    return SRAM;
+}
+
+u32 CartGame::GetSaveMemoryLength() const
+{
+    return SRAMLength;
+}
+
 void CartGame::ProcessGPIO()
 {
 }
@@ -369,7 +390,7 @@ u8 CartGame::SRAMRead_FLASH(u32 addr)
         case 0xB0: // bank switching (128K only)
             break; // ignore here, handled in Write_Flash()
         default:
-            printf("GBACart_SRAM::Read_Flash: unknown command 0x%02X @ 0x%04X\n", SRAMFlashState.cmd, addr);
+            Log(LogLevel::Warn, "GBACart_SRAM::Read_Flash: unknown command 0x%02X @ 0x%04X\n", SRAMFlashState.cmd, addr);
             break;
     }
 
@@ -502,7 +523,7 @@ void CartGame::SRAMWrite_FLASH(u32 addr, u8 val)
         return;
     }
 
-    printf("GBACart_SRAM::Write_Flash: unknown write 0x%02X @ 0x%04X (state: 0x%02X)\n",
+    Log(LogLevel::Warn, "GBACart_SRAM::Write_Flash: unknown write 0x%02X @ 0x%04X (state: 0x%02X)\n",
         val, addr, SRAMFlashState.state);
 }
 
@@ -586,7 +607,7 @@ void CartGameSolarSensor::ProcessGPIO()
         u8 prev = LightSample;
         LightCounter = 0;
         LightSample = (0xFF - (0x16 + kLuxLevels[LightLevel]));
-        printf("Solar sensor reset (sample: 0x%02X -> 0x%02X)\n", prev, LightSample);
+        Log(LogLevel::Debug, "Solar sensor reset (sample: 0x%02X -> 0x%02X)\n", prev, LightSample);
     }
     if (GPIO.data & 1 && LightEdge) LightCounter++;
 
@@ -815,7 +836,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
     }
     catch (const std::bad_alloc& e)
     {
-        printf("GBACart: failed to allocate memory for ROM (%d bytes)\n", CartROMSize);
+        Log(LogLevel::Error, "GBACart: failed to allocate memory for ROM (%d bytes)\n", CartROMSize);
         return false;
     }
 
@@ -824,7 +845,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
 
     char gamecode[5] = { '\0' };
     memcpy(&gamecode, CartROM + 0xAC, 4);
-    printf("GBA game code: %s\n", gamecode);
+    Log(LogLevel::Info, "GBA game code: %s\n", gamecode);
 
     bool solarsensor = false;
     for (size_t i = 0; i < sizeof(SOLAR_SENSOR_GAMECODES)/sizeof(SOLAR_SENSOR_GAMECODES[0]); i++)
@@ -835,7 +856,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
 
     if (solarsensor)
     {
-        printf("GBA solar sensor support detected!\n");
+        Log(LogLevel::Info, "GBA solar sensor support detected!\n");
     }
 
     CartInserted = true;
@@ -886,7 +907,7 @@ void LoadAddon(int type)
         break;
 
     default:
-        printf("GBACart: !! invalid addon type %d\n", type);
+        Log(LogLevel::Warn, "GBACart: !! invalid addon type %d\n", type);
         return;
     }
 
@@ -943,6 +964,16 @@ u8 SRAMRead(u32 addr)
 void SRAMWrite(u32 addr, u8 val)
 {
     if (Cart) Cart->SRAMWrite(addr, val);
+}
+
+u8* GetSaveMemory()
+{
+    return Cart ? Cart->GetSaveMemory() : nullptr;
+}
+
+u32 GetSaveMemoryLength()
+{
+    return Cart ? Cart->GetSaveMemoryLength() : 0;
 }
 
 }

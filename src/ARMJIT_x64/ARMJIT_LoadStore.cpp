@@ -51,7 +51,7 @@ u8* Compiler::RewriteMemAccess(u8* pc)
         return pc + (ptrdiff_t)patch.Offset;
     }
 
-    printf("this is a JIT bug %sx\n", pc);
+    Log(LogLevel::Error, "this is a JIT bug %sx\n", pc);
     abort();
 }
 
@@ -382,7 +382,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
     if (!(flags & memop_Store) && rd == 15)
     {
         if (size < 32)
-            printf("!!! LDR <32 bit PC %08X %x\n", R15, CurInstr.Instr);
+            Log(LogLevel::Debug, "!!! LDR <32 bit PC %08X %x\n", R15, CurInstr.Instr);
         {
             if (Num == 1)
             {

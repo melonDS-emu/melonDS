@@ -24,6 +24,9 @@
 #include "DSi.h"
 #include "SPU.h"
 
+using Platform::Log;
+using Platform::LogLevel;
+
 
 // SPU TODO
 // * capture addition modes, overflow bugs
@@ -1006,7 +1009,7 @@ u8 Read8(u32 addr)
         }
     }
 
-    printf("unknown SPU read8 %08X\n", addr);
+    Log(LogLevel::Warn, "unknown SPU read8 %08X\n", addr);
     return 0;
 }
 
@@ -1033,7 +1036,7 @@ u16 Read16(u32 addr)
         }
     }
 
-    printf("unknown SPU read16 %08X\n", addr);
+    Log(LogLevel::Warn, "unknown SPU read16 %08X\n", addr);
     return 0;
 }
 
@@ -1062,7 +1065,7 @@ u32 Read32(u32 addr)
         }
     }
 
-    printf("unknown SPU read32 %08X\n", addr);
+    Log(LogLevel::Warn, "unknown SPU read32 %08X\n", addr);
     return 0;
 }
 
@@ -1095,16 +1098,16 @@ void Write8(u32 addr, u8 val)
 
         case 0x04000508:
             Capture[0]->SetCnt(val);
-            if (val & 0x03) printf("!! UNSUPPORTED SPU CAPTURE MODE %02X\n", val);
+            if (val & 0x03) Log(LogLevel::Warn, "!! UNSUPPORTED SPU CAPTURE MODE %02X\n", val);
             return;
         case 0x04000509:
             Capture[1]->SetCnt(val);
-            if (val & 0x03) printf("!! UNSUPPORTED SPU CAPTURE MODE %02X\n", val);
+            if (val & 0x03) Log(LogLevel::Warn, "!! UNSUPPORTED SPU CAPTURE MODE %02X\n", val);
             return;
         }
     }
 
-    printf("unknown SPU write8 %08X %02X\n", addr, val);
+    Log(LogLevel::Warn, "unknown SPU write8 %08X %02X\n", addr, val);
 }
 
 void Write16(u32 addr, u16 val)
@@ -1145,7 +1148,7 @@ void Write16(u32 addr, u16 val)
         case 0x04000508:
             Capture[0]->SetCnt(val & 0xFF);
             Capture[1]->SetCnt(val >> 8);
-            if (val & 0x0303) printf("!! UNSUPPORTED SPU CAPTURE MODE %04X\n", val);
+            if (val & 0x0303) Log(LogLevel::Warn, "!! UNSUPPORTED SPU CAPTURE MODE %04X\n", val);
             return;
 
         case 0x04000514: Capture[0]->SetLength(val); return;
@@ -1153,7 +1156,7 @@ void Write16(u32 addr, u16 val)
         }
     }
 
-    printf("unknown SPU write16 %08X %04X\n", addr, val);
+    Log(LogLevel::Warn, "unknown SPU write16 %08X %04X\n", addr, val);
 }
 
 void Write32(u32 addr, u32 val)
@@ -1193,7 +1196,7 @@ void Write32(u32 addr, u32 val)
         case 0x04000508:
             Capture[0]->SetCnt(val & 0xFF);
             Capture[1]->SetCnt(val >> 8);
-            if (val & 0x0303) printf("!! UNSUPPORTED SPU CAPTURE MODE %04X\n", val);
+            if (val & 0x0303) Log(LogLevel::Warn, "!! UNSUPPORTED SPU CAPTURE MODE %04X\n", val);
             return;
 
         case 0x04000510: Capture[0]->SetDstAddr(val); return;

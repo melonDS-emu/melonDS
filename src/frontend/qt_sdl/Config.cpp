@@ -118,10 +118,12 @@ bool SavestateRelocSRAM;
 int AudioInterp;
 int AudioBitrate;
 int AudioVolume;
+bool DSiVolumeSync;
 int MicInputType;
 std::string MicWavPath;
 
 std::string LastROMFolder;
+std::string LastBIOSFolder;
 
 std::string RecentROMList[10];
 
@@ -182,9 +184,13 @@ ConfigEntry ConfigFile[] =
     {"HKKey_FastForwardToggle",   0, &HKKeyMapping[HK_FastForwardToggle],   -1, true},
     {"HKKey_FullscreenToggle",    0, &HKKeyMapping[HK_FullscreenToggle],    -1, true},
     {"HKKey_SwapScreens",         0, &HKKeyMapping[HK_SwapScreens],         -1, true},
+    {"HKKey_SwapScreenEmphasis",  0, &HKKeyMapping[HK_SwapScreenEmphasis],  -1, true},
     {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1, true},
     {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1, true},
     {"HKKey_FrameStep",           0, &HKKeyMapping[HK_FrameStep],           -1, true},
+    {"HKKey_PowerButton",         0, &HKKeyMapping[HK_PowerButton],         -1, true},
+    {"HKKey_VolumeUp",            0, &HKKeyMapping[HK_VolumeUp],            -1, true},
+    {"HKKey_VolumeDown",          0, &HKKeyMapping[HK_VolumeDown],          -1, true},
 
     {"HKJoy_Lid",                 0, &HKJoyMapping[HK_Lid],                 -1, true},
     {"HKJoy_Mic",                 0, &HKJoyMapping[HK_Mic],                 -1, true},
@@ -194,9 +200,13 @@ ConfigEntry ConfigFile[] =
     {"HKJoy_FastForwardToggle",   0, &HKJoyMapping[HK_FastForwardToggle],   -1, true},
     {"HKJoy_FullscreenToggle",    0, &HKJoyMapping[HK_FullscreenToggle],    -1, true},
     {"HKJoy_SwapScreens",         0, &HKJoyMapping[HK_SwapScreens],         -1, true},
+    {"HKJoy_SwapScreenEmphasis",  0, &HKJoyMapping[HK_SwapScreenEmphasis],  -1, true},
     {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1, true},
     {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1, true},
     {"HKJoy_FrameStep",           0, &HKJoyMapping[HK_FrameStep],           -1, true},
+    {"HKJoy_PowerButton",         0, &HKJoyMapping[HK_PowerButton],         -1, true},
+    {"HKJoy_VolumeUp",            0, &HKJoyMapping[HK_VolumeUp],            -1, true},
+    {"HKJoy_VolumeDown",          0, &HKJoyMapping[HK_VolumeDown],          -1, true},
 
     {"JoystickID", 0, &JoystickID, 0, true},
 
@@ -288,10 +298,12 @@ ConfigEntry ConfigFile[] =
     {"AudioInterp", 0, &AudioInterp, 0, false},
     {"AudioBitrate", 0, &AudioBitrate, 0, false},
     {"AudioVolume", 0, &AudioVolume, 256, true},
+    {"DSiVolumeSync", 0, &DSiVolumeSync, 0, true},
     {"MicInputType", 0, &MicInputType, 1, false},
     {"MicWavPath", 2, &MicWavPath, (std::string)"", false},
 
     {"LastROMFolder", 2, &LastROMFolder, (std::string)"", true},
+    {"LastBIOSFolder", 2, &LastBIOSFolder, (std::string)"", true},
 
     {"RecentROM_0", 2, &RecentROMList[0], (std::string)"", true},
     {"RecentROM_1", 2, &RecentROMList[1], (std::string)"", true},

@@ -30,6 +30,8 @@
 #include "ui_TitleManagerDialog.h"
 #include "ui_TitleImportDialog.h"
 
+using Platform::Log;
+using Platform::LogLevel;
 
 bool TitleManagerDialog::NANDInited = false;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
@@ -262,25 +264,35 @@ void TitleManagerDialog::onImportTitleData()
     QListWidgetItem* cur = ui->lstTitleList->currentItem();
     if (!cur)
     {
-        printf("what??\n");
+        Log(LogLevel::Error, "what??\n");
         return;
     }
 
+    QString extensions = "*.sav";
     u32 wantedsize;
     switch (type)
     {
-    case DSi_NAND::TitleData_PublicSav:  wantedsize = cur->data(Qt::UserRole+1).toUInt(); break;
-    case DSi_NAND::TitleData_PrivateSav: wantedsize = cur->data(Qt::UserRole+2).toUInt(); break;
-    case DSi_NAND::TitleData_BannerSav:  wantedsize = cur->data(Qt::UserRole+3).toUInt(); break;
+    case DSi_NAND::TitleData_PublicSav:
+        extensions += " *.pub";
+        wantedsize = cur->data(Qt::UserRole+1).toUInt();
+        break;
+    case DSi_NAND::TitleData_PrivateSav:
+        extensions += " *.prv";
+        wantedsize = cur->data(Qt::UserRole+2).toUInt();
+        break;
+    case DSi_NAND::TitleData_BannerSav:
+        extensions += " *.bnr";
+        wantedsize = cur->data(Qt::UserRole+3).toUInt();
+        break;
     default:
-        printf("what??\n");
+        Log(LogLevel::Warn, "what??\n");
         return;
     }
 
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select file to import...",
                                                 QString::fromStdString(EmuDirectory),
-                                                "Title data files (*.sav);;Any file (*.*)");
+                                                "Title data files (" + extensions + ");;Any file (*.*)");
 
     if (file.isEmpty()) return;
 
@@ -322,35 +334,39 @@ void TitleManagerDialog::onExportTitleData()
     QListWidgetItem* cur = ui->lstTitleList->currentItem();
     if (!cur)
     {
-        printf("what??\n");
+        Log(LogLevel::Error, "what??\n");
         return;
     }
 
     QString exportname;
+    QString extensions = "*.sav";
     u32 wantedsize;
     switch (type)
     {
     case DSi_NAND::TitleData_PublicSav:
         exportname = "/public.sav";
+        extensions += " *.pub";
         wantedsize = cur->data(Qt::UserRole+1).toUInt();
         break;
     case DSi_NAND::TitleData_PrivateSav:
         exportname = "/private.sav";
+        extensions += " *.prv";
         wantedsize = cur->data(Qt::UserRole+2).toUInt();
         break;
     case DSi_NAND::TitleData_BannerSav:
         exportname = "/banner.sav";
+        extensions += " *.bnr";
         wantedsize = cur->data(Qt::UserRole+3).toUInt();
         break;
     default:
-        printf("what??\n");
+        Log(LogLevel::Warn, "what??\n");
         return;
     }
 
     QString file = QFileDialog::getSaveFileName(this,
                                                 "Select path to export to...",
                                                 QString::fromStdString(EmuDirectory) + exportname,
-                                                "Title data files (*.sav);;Any file (*.*)");
+                                                "Title data files (" + extensions + ");;Any file (*.*)");
 
     if (file.isEmpty()) return;
 

@@ -59,6 +59,16 @@
         </property>
        </widget>
       </item>
+      <item row="3" column="1">
+        <widget class="QCheckBox" name="chkSyncDSiVolume">
+         <property name="whatsThis">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Synchronizes the output volume with the DSi hardware volume.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="text">
+          <string>Sync with DSi volume</string>
+         </property>
+        </widget>
+      </item>
       <item row="0" column="0">
        <widget class="QLabel" name="label_2">
         <property name="text">

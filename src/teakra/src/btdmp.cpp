@@ -28,16 +28,15 @@ void Btdmp::Tick() {
             std::array<std::int16_t, 2> sample;
             for (int i = 0; i < 2; ++i) {
                 if (transmit_queue.empty()) {
-                    std::printf("BTDMP: transmit buffer underrun\n");
+                    //std::printf("BTDMP: transmit buffer underrun\n");
                     sample[i] = 0;
                 } else {
                     sample[i] = static_cast<s16>(transmit_queue.front());
                     transmit_queue.pop();
                     transmit_empty = transmit_queue.empty();
                     transmit_full = false;
-                    if (transmit_empty) {
+                    if (transmit_empty)
                         interrupt_handler();
-                    }
                 }
             }
             if (audio_callback) {
