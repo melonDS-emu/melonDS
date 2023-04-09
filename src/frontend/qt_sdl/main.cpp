@@ -1680,6 +1680,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             actInsertGBAAddon[2] = submenu->addAction("Guitar Grip");
             actInsertGBAAddon[2]->setData(QVariant(NDS::GBAAddon_GuitarGrip));
             connect(actInsertGBAAddon[2], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
+
+            actInsertGBAAddon[3] = submenu->addAction("Araknoid Paddle");
+            actInsertGBAAddon[3]->setData(QVariant(NDS::GBAAddon_AraknoidPaddle));
+            connect(actInsertGBAAddon[3], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
+
+            actInsertGBAAddon[4] = submenu->addAction("Easy Piano Keyboard");
+            actInsertGBAAddon[4]->setData(QVariant(NDS::GBAAddon_PianoKeyboard));
+            connect(actInsertGBAAddon[4], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
         }
 
         actEjectGBACart = menu->addAction("Eject cart");

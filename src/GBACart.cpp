@@ -749,6 +749,7 @@ void CartGuitarGrip::Reset()
 void CartGuitarGrip::DoSavestate(Savestate* file)
 {
     CartCommon::DoSavestate(file);
+    file->Var8(&GuitarKeyStatus);
 }
 
 u16 CartGuitarGrip::ROMRead(u32 addr)
@@ -764,6 +765,44 @@ u8 CartGuitarGrip::SRAMRead(u32 addr)
     }
 
     return 0xFF;
+}
+
+CartAraknoidPaddle::CartAraknoidPaddle() : CartCommon()
+{
+}
+
+CartAraknoidPaddle::~CartAraknoidPaddle()
+{
+}
+
+CartPianoKeyboard::CartPianoKeyboard() : CartCommon()
+{
+}
+
+CartPianoKeyboard::~CartPianoKeyboard()
+{
+}
+
+void CartPianoKeyboard::Reset()
+{
+    PianoKeyStatus = 0xE7FF;
+}
+
+void CartPianoKeyboard::DoSavestate(Savestate* file)
+{
+    CartCommon::DoSavestate(file);
+    file->Var16(&PianoKeyStatus);
+}
+
+u16 CartPianoKeyboard::ROMRead(u32 addr)
+{
+    if (addr == 0x9FFFFFE)
+    {
+	Log(LogLevel::Info, "Reading piano key status...\n");
+	return (PianoKeyStatus & ~0x1800);
+    }
+
+    return 0xE7FF;
 }
 
 bool Init()
@@ -904,6 +943,18 @@ void LoadAddon(int type)
 
     case NDS::GBAAddon_RumblePak:
         Cart = new CartRumblePak();
+        break;
+
+    case NDS::GBAAddon_GuitarGrip:
+        Cart = new CartGuitarGrip();
+        break;
+
+    case NDS::GBAAddon_AraknoidPaddle:
+        Cart = new CartAraknoidPaddle();
+        break;
+
+    case NDS::GBAAddon_PianoKeyboard:
+        Cart = new CartPianoKeyboard();
         break;
 
     default:

@@ -213,6 +213,34 @@ private:
     u8 GuitarKeyStatus;
 };
 
+// CartAraknoidPaddle -- Araknoid DS (WIP)
+class CartAraknoidPaddle : public CartCommon
+{
+public:
+    CartAraknoidPaddle();
+    ~CartAraknoidPaddle();
+
+    virtual u32 Type() override { return 0x204; }
+};
+
+// CartPianoKeyboard -- Easy Piano (DS version) (WIP)
+class CartPianoKeyboard : public CartCommon
+{
+public:
+    CartPianoKeyboard();
+    ~CartPianoKeyboard();
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    virtual u32 Type() override { return 0x205; }
+    u16 ROMRead(u32 addr) override;
+
+private:
+    u16 PianoKeyStatus;
+};
+
 // possible inputs for GBA carts that might accept user input
 enum
 {

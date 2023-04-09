@@ -168,6 +168,8 @@ enum
     GBAAddon_RAMExpansion = 1,
     GBAAddon_RumblePak = 2,
     GBAAddon_GuitarGrip = 3,
+    GBAAddon_AraknoidPaddle = 4,
+    GBAAddon_PianoKeyboard = 5
 };
 
 #ifdef JIT_ENABLED
