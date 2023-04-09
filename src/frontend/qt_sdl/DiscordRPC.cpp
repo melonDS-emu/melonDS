@@ -25,13 +25,13 @@
 #include <time.h>
 
 #include <discord_rpc.h>
+#include <NDSCart.h>
 
 using namespace Platform;
 
-const char* APP_ID          = "1049597419152744458";
+const char* APP_ID          = "1094484548437422182";
 
-const char* DETAILS_IDLE    = "Not playing";
-const char* DETAILS_PLAYING = "Currently in game";
+const char* DETAILS_IDLE    = "Not in-game";
 
 static void DiscordReady(const DiscordUser* user)
 {
@@ -119,7 +119,7 @@ void DiscordRPC::SetPresence(const bool isGameActive, const char* title)
         .endTimestamp   = 0,
 
         .largeImageKey  = "melonds",
-        .largeImageText = "DS emulator, sorta",
+        .largeImageText = "melonDS - DS emulator, sorta",
 
         .smallImageKey  = NULL,
         .smallImageText = NULL,
@@ -138,8 +138,12 @@ void DiscordRPC::SetPresence(const bool isGameActive, const char* title)
 
     if (isGameActive)
     {
-        presence.state   = title;
-        presence.details = DETAILS_PLAYING;
+        presence.state = title; // State shows game title
+        presence.largeImageKey = strlwr(NDSCart::Header.GameCode); //Hack and a half to add support for game box art to discord rpc using lowercase gameids. Discord doe not convert to uppercase keys.
+        presence.largeImageText = NDSCart::Header.GameCode; // Show game ID
+        presence.smallImageKey = "melonds";
+        presence.smallImageText = "melonDS";
+
     }
 
     if (!Config::Discord_TrackTime)
