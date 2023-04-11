@@ -181,9 +181,9 @@ void GLCompositor::Stop()
 
 void GLCompositor::RenderFrame()
 {
-    int frontbuf = GPU::FrontBuffer;
+    int backbuf = GPU::FrontBuffer ^ 1;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[frontbuf]);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[backbuf]);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
@@ -204,12 +204,12 @@ void GLCompositor::RenderFrame()
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, CompScreenInputTex);
 
-    if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
+    if (GPU::Framebuffer[backbuf][0] && GPU::Framebuffer[backbuf][1])
     {
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
-                        GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+                        GL_UNSIGNED_BYTE, GPU::Framebuffer[backbuf][0]);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256*3 + 1, 192, GL_RGBA_INTEGER,
-                        GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+                        GL_UNSIGNED_BYTE, GPU::Framebuffer[backbuf][1]);
     }
 
     glActiveTexture(GL_TEXTURE1);

@@ -232,29 +232,26 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, result->IndexBufferID);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(IndexBuffer), nullptr, GL_DYNAMIC_DRAW);
 
-    glGenFramebuffers(4, &result->FramebufferID[0]);
-    glBindFramebuffer(GL_FRAMEBUFFER, result->FramebufferID[0]);
-
-    glGenTextures(8, &result->FramebufferTex[0]);
-    result->FrontBuffer = 0;
+    glGenFramebuffers(1, &result->MainFramebuffer);
 
     // color buffers
-    SetupDefaultTexParams(result->FramebufferTex[0]);
-    SetupDefaultTexParams(result->FramebufferTex[1]);
+    glGenTextures(1, &result->ColorBufferTex);
+    SetupDefaultTexParams(result->ColorBufferTex);
 
     // depth/stencil buffer
-    SetupDefaultTexParams(result->FramebufferTex[4]);
-    SetupDefaultTexParams(result->FramebufferTex[6]);
+    glGenTextures(1, &result->DepthBufferTex);
+    SetupDefaultTexParams(result->DepthBufferTex);
 
     // attribute buffer
     // R: opaque polyID (for edgemarking)
     // G: edge flag
     // B: fog flag
-    SetupDefaultTexParams(result->FramebufferTex[5]);
-    SetupDefaultTexParams(result->FramebufferTex[7]);
+    glGenTextures(1, &result->AttrBufferTex);
+    SetupDefaultTexParams(result->AttrBufferTex);
 
     // downscale framebuffer for display capture (always 256x192)
-    SetupDefaultTexParams(result->FramebufferTex[3]);
+    glGenTextures(1, &result->DownScaleBufferTex);
+    SetupDefaultTexParams(result->DownScaleBufferTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
     glEnable(GL_BLEND);
@@ -292,8 +289,12 @@ GLRenderer::~GLRenderer()
     glDeleteTextures(1, &TexMemID);
     glDeleteTextures(1, &TexPalMemID);
 
-    glDeleteFramebuffers(4, &FramebufferID[0]);
-    glDeleteTextures(8, &FramebufferTex[0]);
+    glDeleteFramebuffers(1, &MainFramebuffer);
+    glDeleteFramebuffers(1, &DownscaleFramebuffer);
+    glDeleteTextures(1, &ColorBufferTex);
+    glDeleteTextures(1, &DepthBufferTex);
+    glDeleteTextures(1, &AttrBufferTex);
+    glDeleteTextures(1, &DownScaleBufferTex);
 
     glDeleteVertexArrays(1, &VertexArrayID);
     glDeleteBuffers(1, &VertexBufferID);
@@ -323,39 +324,24 @@ void GLRenderer::SetRenderSettings(GPU::RenderSettings& settings)
     ScreenW = 256 * scale;
     ScreenH = 192 * scale;
 
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
+    glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
+    glBindTexture(GL_TEXTURE_2D, DepthBufferTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
+    glBindTexture(GL_TEXTURE_2D, AttrBufferTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ScreenW, ScreenH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[6]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ScreenW, ScreenH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[3]);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[3], 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, DownscaleFramebuffer);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, DownScaleBufferTex, 0);
 
     GLenum fbassign[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
 
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[0], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, ColorBufferTex, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, DepthBufferTex, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, AttrBufferTex, 0);
     glDrawBuffers(2, fbassign);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[1], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[6], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[7], 0);
-    glDrawBuffers(2, fbassign);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
@@ -1065,9 +1051,9 @@ void GLRenderer::RenderSceneChunk(int y, int h)
         glStencilMask(0);
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[FrontBuffer ? 6 : 4]);
+        glBindTexture(GL_TEXTURE_2D, DepthBufferTex);
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[FrontBuffer ? 7 : 5]);
+        glBindTexture(GL_TEXTURE_2D, AttrBufferTex);
 
         glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
         glBindVertexArray(ClearVertexArrayID);
@@ -1116,7 +1102,7 @@ void GLRenderer::RenderFrame()
     CurShaderID = -1;
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[FrontBuffer]);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, MainFramebuffer);
 
     ShaderConfig.uScreenSize[0] = ScreenW;
     ShaderConfig.uScreenSize[1] = ScreenH;
@@ -1282,22 +1268,17 @@ void GLRenderer::RenderFrame()
 
         RenderSceneChunk(0, 192);
     }
-
-    FrontBuffer = FrontBuffer ? 0 : 1;
 }
 
 void GLRenderer::PrepareCaptureFrame()
 {
-    // TODO: make sure this picks the right buffer when doing antialiasing
-    int original_fb = FrontBuffer^1;
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[original_fb]);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, MainFramebuffer);
     glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[3]);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, DownscaleFramebuffer);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
     glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, 256, 192, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[3]);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, DownscaleFramebuffer);
     glReadPixels(0, 0, 256, 192, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 }
 
@@ -1326,7 +1307,7 @@ u32* GLRenderer::GetLine(int line)
 
 void GLRenderer::SetupAccelFrame()
 {
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[FrontBuffer]);
+    glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
 }
 
 }
