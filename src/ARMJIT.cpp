@@ -818,7 +818,7 @@ void CompileBlock(ARM* cpu)
                 {
                     for (int j = 0; j < i; j++)
                     {
-                        if (instrs[i].Addr == target)
+                        if (instrs[j].Addr == target)
                         {
                             isBackJump = true;
                             break;
