@@ -163,9 +163,63 @@ bool ComputeRenderer::Init()
 
 void ComputeRenderer::DeInit()
 {
+    ResetTexcache();
+
+    glDeleteBuffers(1, &YSpanSetupMemory);
+    glDeleteBuffers(1, &RenderPolygonMemory);
+    glDeleteBuffers(1, &TileMemory);
+    glDeleteBuffers(1, &XSpanSetupMemory);
+    glDeleteBuffers(1, &BinResultMemory);
+    glDeleteBuffers(1, &FinalTileMemory);
+    glDeleteBuffers(1, &YSpanIndicesTextureMemory);
+    glDeleteTextures(1, &YSpanIndicesTexture);
+    glDeleteTextures(1, &Framebuffer);
+    glDeleteBuffers(1, &MetaUniformMemory);
+
+    std::initializer_list<GLuint> allPrograms =
+    {
+        ShaderInterpXSpans[0],
+        ShaderInterpXSpans[1],
+        ShaderBinCombined,
+        ShaderDepthBlend[0],
+        ShaderDepthBlend[1],
+        ShaderRasteriseNoTexture[0],
+        ShaderRasteriseNoTexture[1],
+        ShaderRasteriseNoTextureToon[0],
+        ShaderRasteriseNoTextureToon[1],
+        ShaderRasteriseNoTextureHighlight[0],
+        ShaderRasteriseNoTextureHighlight[1],
+        ShaderRasteriseUseTextureDecal[0],
+        ShaderRasteriseUseTextureDecal[1],
+        ShaderRasteriseUseTextureModulate[0],
+        ShaderRasteriseUseTextureModulate[1],
+        ShaderRasteriseUseTextureToon[0],
+        ShaderRasteriseUseTextureToon[1],
+        ShaderRasteriseUseTextureHighlight[0],
+        ShaderRasteriseUseTextureHighlight[1],
+        ShaderRasteriseShadowMask[0],
+        ShaderRasteriseShadowMask[1],
+        ShaderClearCoarseBinMask,
+        ShaderClearIndirectWorkCount,
+        ShaderCalculateWorkListOffset,
+        ShaderSortWork,
+        ShaderFinalPass[0],
+        ShaderFinalPass[1],
+        ShaderFinalPass[2],
+        ShaderFinalPass[3],
+        ShaderFinalPass[4],
+        ShaderFinalPass[5],
+        ShaderFinalPass[6],
+        ShaderFinalPass[7],
+    };
+    for (GLuint program : allPrograms)
+        glDeleteProgram(program);
+
+    glDeleteSamplers(9, Samplers);
+    glDeleteBuffers(1, &PixelBuffer);
 }
 
-void ComputeRenderer::Reset()
+void ComputeRenderer::ResetTexcache()
 {
     for (u32 i = 0; i < 8; i++)
     {
@@ -178,6 +232,11 @@ void ComputeRenderer::Reset()
         }
     }
     TexCache.clear();
+}
+
+void ComputeRenderer::Reset()
+{
+    ResetTexcache();
 }
 
 void ComputeRenderer::SetRenderSettings(GPU::RenderSettings& settings)

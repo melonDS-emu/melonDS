@@ -247,6 +247,8 @@ private:
 
     TexCacheEntry& GetTexture(u32 textureParam, u32 paletteParam);
 
+    void ResetTexcache();
+
     void SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int to);
     void SetupYSpan(int polynum, SpanSetupY* span, Polygon* poly, int from, int to, u32 y, int side);
     void SetupYSpanDummy(SpanSetupY* span, Polygon* poly, int vertex, int side);
