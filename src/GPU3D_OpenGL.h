@@ -40,6 +40,8 @@ public:
     void SetupAccelFrame() override;
     void PrepareCaptureFrame();
 
+    void PrepareCaptureFrame() override;
+
     static std::unique_ptr<GLRenderer> New() noexcept;
 private:
     // Used by New()

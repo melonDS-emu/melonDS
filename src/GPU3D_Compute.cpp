@@ -154,12 +154,15 @@ bool ComputeRenderer::Init()
         }
     }
 
+    glGenBuffers(1, &PixelBuffer);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelBuffer);
+    glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
+
     return true;
 }
 
 void ComputeRenderer::DeInit()
 {
-
 }
 
 void ComputeRenderer::Reset()
@@ -1395,12 +1398,38 @@ void ComputeRenderer::RestartFrame()
 
 u32* ComputeRenderer::GetLine(int line)
 {
-    return DummyLine;
+    int stride = 256;
+
+    if (line == 0)
+    {
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelBuffer);
+        u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+        if (data) memcpy(&FramebufferCPU[0], data, 4*stride*192);
+        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+    }
+
+    u64* ptr = (u64*)&FramebufferCPU[stride * line];
+    for (int i = 0; i < stride; i+=2)
+    {
+        u64 rgb = *ptr & 0x00FCFCFC00FCFCFC;
+        u64 a = *ptr & 0xF8000000F8000000;
+
+        *ptr++ = (rgb >> 2) | (a >> 3);
+    }
+
+    return &FramebufferCPU[stride * line];
 }
 
 void ComputeRenderer::SetupAccelFrame()
 {
     glBindTexture(GL_TEXTURE_2D, Framebuffer);
+}
+
+void ComputeRenderer::PrepareCaptureFrame()
+{
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelBuffer);
+    glBindTexture(GL_TEXTURE_2D, Framebuffer);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
 }
 
 }

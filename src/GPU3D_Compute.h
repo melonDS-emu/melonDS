@@ -49,6 +49,7 @@ public:
     u32* GetLine(int line) override;
 
     void SetupAccelFrame() override;
+    void PrepareCaptureFrame() override;
 private:
     GLuint ShaderInterpXSpans[2];
     GLuint ShaderBinCombined;
@@ -240,6 +241,9 @@ private:
     u32 TextureDecodingBuffer[1024*1024];
 
     GLuint Framebuffer;
+    GLuint PixelBuffer;
+
+    u32 FramebufferCPU[256*192];
 
     TexCacheEntry& GetTexture(u32 textureParam, u32 paletteParam);
 
