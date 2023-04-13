@@ -99,6 +99,14 @@ bool ComputeRenderer::Init()
     glBindTexture(GL_TEXTURE_BUFFER, YSpanIndicesTexture);
     glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA16UI, YSpanIndicesTextureMemory);
 
+    glGenTextures(1, &Framebuffer);
+    glBindTexture(GL_TEXTURE_2D, Framebuffer);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 256, 192);
+
+    glGenBuffers(1, &MetaUniformMemory);
+    glBindBuffer(GL_UNIFORM_BUFFER, MetaUniformMemory);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(MetaUniform), nullptr, GL_DYNAMIC_DRAW);
+
     CompileShader(ShaderInterpXSpans[0], ComputeRendererShaders::InterpSpans, {"InterpSpans", "ZBuffer"});
     CompileShader(ShaderInterpXSpans[1], ComputeRendererShaders::InterpSpans, {"InterpSpans", "WBuffer"});
     CompileShader(ShaderBinCombined, ComputeRendererShaders::BinCombined, {"BinCombined"});
@@ -133,6 +141,19 @@ bool ComputeRenderer::Init()
     CompileShader(ShaderFinalPass[6], ComputeRendererShaders::FinalPass, {"FinalPass", "AntiAliasing", "Fog"});
     CompileShader(ShaderFinalPass[7], ComputeRendererShaders::FinalPass, {"FinalPass", "AntiAliasing", "EdgeMarking", "Fog"});
 
+    glGenSamplers(9, Samplers);
+    for (u32 j = 0; j < 3; j++)
+    {
+        for (u32 i = 0; i < 3; i++)
+        {
+            const GLenum translateWrapMode[3] = {GL_CLAMP_TO_EDGE, GL_REPEAT, GL_MIRRORED_REPEAT};
+            glSamplerParameteri(Samplers[i+j*3], GL_TEXTURE_WRAP_S, translateWrapMode[i]);
+            glSamplerParameteri(Samplers[i+j*3], GL_TEXTURE_WRAP_T, translateWrapMode[j]);
+            glSamplerParameteri(Samplers[i+j*3], GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glSamplerParameterf(Samplers[i+j*3], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        }
+    }
+
     return true;
 }
 
@@ -143,23 +164,17 @@ void ComputeRenderer::DeInit()
 
 void ComputeRenderer::Reset()
 {
-    /*for (u32 i = 0; i < 8; i++)
+    for (u32 i = 0; i < 8; i++)
     {
         for (u32 j = 0; j < 8; j++)
         {
             for (u32 k = 0; k < TexArrays[i][j].size(); k++)
-                Gfx::TextureHeap->Free(TexArrays[i][j][k].Memory);
+                glDeleteTextures(1, &TexArrays[i][j][k]);
             TexArrays[i][j].clear();
             FreeTextures[i][j].clear();
         }
-    }*/
-    TexCache.clear();
-
-    FreeImageDescriptorsCount = TexCacheMaxImages;
-    for (int i = 0; i < TexCacheMaxImages; i++)
-    {
-        FreeImageDescriptors[i] = i;
     }
+    TexCache.clear();
 }
 
 void ComputeRenderer::SetRenderSettings(GPU::RenderSettings& settings)
@@ -401,28 +416,6 @@ inline u16 Color3of5(u16 color0, u16 color1)
     return r | g | b;
 }
 
-/*
-inline void RGB5ToRGB6(uint8x16_t lo, uint8x16_t hi, uint8x16_t& red, uint8x16_t& green, uint8x16_t& blue)
-{
-    red = vandq_u8(vshlq_n_u8(lo, 1), vdupq_n_u8(0x3E));
-    green = vbslq_u8(vdupq_n_u8(0xCE), vshrq_n_u8(lo, 4), vshlq_n_u8(hi, 4));
-    blue = vandq_u8(vshrq_n_u8(hi, 1), vdupq_n_u8(0x3E));
-    red = vandq_u8(vtstq_u8(red, red), vaddq_u8(red, vdupq_n_u8(1)));
-    green = vandq_u8(vtstq_u8(green, green), vaddq_u8(green, vdupq_n_u8(1)));
-    blue =  vandq_u8(vtstq_u8(blue, blue), vaddq_u8(blue, vdupq_n_u8(1)));
-}
-
-inline void RGB5ToRGB6(uint8x8_t lo, uint8x8_t hi, uint8x8_t& red, uint8x8_t& green, uint8x8_t& blue)
-{
-    red   = vand_u8(vshl_n_u8(lo, 1), vdup_n_u8(0x3E));
-    green = vbsl_u8(vdup_n_u8(0xCE), vshr_n_u8(lo, 4), vshl_n_u8(hi, 4));
-    blue  = vand_u8(vshr_n_u8(hi, 1), vdup_n_u8(0x3E));
-
-    red   = vand_u8(vtst_u8(red, red), vadd_u8(red, vdup_n_u8(1)));
-    green = vand_u8(vtst_u8(green, green), vadd_u8(green, vdup_n_u8(1)));
-    blue  = vand_u8(vtst_u8(blue, blue), vadd_u8(blue, vdup_n_u8(1)));
-}*/
-
 inline u32 ConvertRGB5ToRGB8(u16 val)
 {
     return (((u32)val & 0x1F) << 3)
@@ -555,7 +548,7 @@ void ConvertCompressedTexture(u32 width, u32 height, u32* output, u8* texData, u
 template <int outputFmt, int X, int Y>
 void ConvertAXIYTexture(u32 width, u32 height, u32* output, u8* texData, u16* palData)
 {
-    /*for (int y = 0; y < height; y++)
+    for (int y = 0; y < height; y++)
     {
         for (int x = 0; x < width; x++)
         {
@@ -578,43 +571,7 @@ void ConvertAXIYTexture(u32 width, u32 height, u32* output, u8* texData, u16* pa
             }
             output[x + y * width] = res;
         }
-    }*/
-}
-
-void Convert16ColorsTexture(u32 width, u32 height, u32* output, u8* texData, u16* palData, bool color0Transparent)
-{
-    /*uint8x16x2_t palette = vld2q_u8((u8*)palData);
-
-    uint8x16_t paletteR, paletteG, paletteB;
-    RGB5ToRGB6(palette.val[0], palette.val[1], paletteR, paletteG, paletteB);
-
-    uint8x16_t firstEntryAlpha = vdupq_n_u8(color0Transparent ? 0 : 0x1F);
-
-    for (int i = 0; i < width*height/2; i += 16)
-    {
-        uint8x16_t packedIndices = vld1q_u8(&texData[i]);
-
-        // unpack indices
-        uint8x16_t oddIndices = vandq_u8(packedIndices, vdupq_n_u8(0xF));
-        uint8x16_t evenIndices = vshrq_n_u8(packedIndices, 4);
-
-        uint8x16_t indices0 = vzip1q_u8(oddIndices, evenIndices);
-        uint8x16_t indices1 = vzip2q_u8(oddIndices, evenIndices);
-
-        // palettise
-        uint8x16x4_t finalPixels0, finalPixels1;
-        finalPixels0.val[0] = vqtbl1q_u8(paletteR, indices0);
-        finalPixels0.val[1] = vqtbl1q_u8(paletteG, indices0);
-        finalPixels0.val[2] = vqtbl1q_u8(paletteB, indices0);
-        finalPixels0.val[3] = vbslq_u8(vceqzq_u8(indices0), firstEntryAlpha, vdupq_n_u8(0x1F));
-        finalPixels1.val[0] = vqtbl1q_u8(paletteR, indices1);
-        finalPixels1.val[1] = vqtbl1q_u8(paletteG, indices1);
-        finalPixels1.val[2] = vqtbl1q_u8(paletteB, indices1);
-        finalPixels1.val[3] = vbslq_u8(vceqzq_u8(indices1), firstEntryAlpha, vdupq_n_u8(0x1F));
-
-        vst4q_u8((u8*)&output[i*2], finalPixels0);
-        vst4q_u8((u8*)&output[i*2+16], finalPixels1);
-    }*/
+    }
 }
 
 template <int outputFmt, int colorBits>
@@ -688,22 +645,12 @@ ComputeRenderer::TexCacheEntry& ComputeRenderer::GetTexture(u32 texParam, u32 pa
     {
         entry.TextureRAMSize[0] = width*height*2;
 
-        /*for (u32 i = 0; i < width*height; i += 16)
+        for (u32 i = 0; i < width*height; i += 2)
         {
-            uint8x16x2_t pixels = vld2q_u8(&GPU::VRAMFlat_Texture[addr + i * 2]);
+            u16 value = *(u16*)&GPU::VRAMFlat_Texture[addr + i * 2];
 
-            uint8x16_t red, green, blue;
-            RGB5ToRGB6(pixels.val[0], pixels.val[1], red, green, blue);
-            uint8x16_t alpha = vbslq_u8(vtstq_u8(pixels.val[1], vdupq_n_u8(0x80)), vdupq_n_u8(0x1F), vdupq_n_u8(0));
-
-            vst4q_u8((u8*)&TextureDecodingBuffer[i],
-            {
-                red,
-                green,
-                blue,
-                alpha
-            });
-        }*/
+            TextureDecodingBuffer[i] = ConvertRGB5ToRGB6(value);
+        }
     }
     else if (fmt == 5)
     {
@@ -756,7 +703,7 @@ ComputeRenderer::TexCacheEntry& ComputeRenderer::GetTexture(u32 texParam, u32 pa
         case 1: ConvertAXIYTexture<outputFmt_RGB6A5, 3, 5>(width, height, TextureDecodingBuffer, texData, palData); break;
         case 6: ConvertAXIYTexture<outputFmt_RGB6A5, 5, 3>(width, height, TextureDecodingBuffer, texData, palData); break;
         case 2: ConvertNColorsTexture<outputFmt_RGB6A5, 2>(width, height, TextureDecodingBuffer, texData, palData, color0Transparent); break;
-        case 3: Convert16ColorsTexture(width, height, TextureDecodingBuffer, texData, palData, color0Transparent); break;
+        case 3: ConvertNColorsTexture<outputFmt_RGB6A5, 4>(width, height, TextureDecodingBuffer, texData, palData, color0Transparent); break;
         case 4: ConvertNColorsTexture<outputFmt_RGB6A5, 8>(width, height, TextureDecodingBuffer, texData, palData, color0Transparent); break;
         }
     }
@@ -772,55 +719,36 @@ ComputeRenderer::TexCacheEntry& ComputeRenderer::GetTexture(u32 texParam, u32 pa
     auto& texArrays = TexArrays[widthLog2][heightLog2];
     auto& freeTextures = FreeTextures[widthLog2][heightLog2];
 
-    /*if (freeTextures.size() == 0)
+    if (freeTextures.size() == 0)
     {
         texArrays.resize(texArrays.size()+1);
-        TexArray& array = texArrays[texArrays.size()-1];
+        GLuint& array = texArrays[texArrays.size()-1];
 
         u32 layers = std::min<u32>((8*1024*1024) / (width*height*4), 64);
 
         // allocate new array texture
-        dk::ImageLayout imageLayout;
-        dk::ImageLayoutMaker{Gfx::Device}
-            .setType(DkImageType_2DArray)
-            .setFormat(DkImageFormat_RGBA8_Uint)
-            .setDimensions(width, height, layers)
-            .initialize(imageLayout);
-
-        assert(FreeImageDescriptorsCount > 0);
-        array.ImageDescriptor = FreeImageDescriptors[--FreeImageDescriptorsCount];
-
-        array.Memory = Gfx::TextureHeap->Alloc(imageLayout.getSize(), imageLayout.getAlignment());
-        array.Image.initialize(imageLayout, Gfx::TextureHeap->MemBlock, array.Memory.Offset);
-
-        dk::ImageDescriptor descriptor;
-        descriptor.initialize(array.Image);
-        DkGpuAddr descriptors = Gfx::DataHeap->GpuAddr(ImageDescriptors);
-        EmuCmdBuf.pushData(descriptors + (descriptorOffset_TexcacheStart + array.ImageDescriptor) * sizeof(DkImageDescriptor),
-            &descriptor,
-            sizeof(DkImageDescriptor));
-
+        glGenTextures(1, &array);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, array);
+        glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8UI, width, height, layers);
         //printf("allocating new layer set for %d %d %d %d\n", width, height, texArrays.size()-1, array.ImageDescriptor);
 
-        for (u16 i = 0; i < layers; i++)
+        for (u32 i = 0; i < layers; i++)
         {
-            freeTextures.push_back(TexArrayEntry{(u16)(texArrays.size()-1), i});
+            freeTextures.push_back(TexArrayEntry{array, i});
         }
-    }*/
+    }
 
     TexArrayEntry storagePlace = freeTextures[freeTextures.size()-1];
     freeTextures.pop_back();
 
-    TexArray& array = texArrays[storagePlace.TexArrayIdx];
     //printf("using storage place %d %d | %d %d (%d)\n", width, height, storagePlace.TexArrayIdx, storagePlace.LayerIdx, array.ImageDescriptor);
 
-    /*UploadBuf.UploadAndCopyTexture(Gfx::EmuCmdBuf, array.Image,
-        (u8*)TextureDecodingBuffer,
-        0, 0, width, height,
-        width*4,
-        storagePlace.LayerIdx);*/
+    glBindTexture(GL_TEXTURE_2D_ARRAY, storagePlace.TextureID);
+    glTexSubImage3D(GL_TEXTURE_2D_ARRAY,
+        0, 0, 0, storagePlace.Layer,
+        width, height, 1,
+        GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, TextureDecodingBuffer);
 
-    entry.DescriptorIdx = array.ImageDescriptor;
     entry.Texture = storagePlace;
 
     return TexCache.emplace(std::make_pair(key, entry)).first->second;
@@ -828,7 +756,7 @@ ComputeRenderer::TexCacheEntry& ComputeRenderer::GetTexture(u32 texParam, u32 pa
 
 struct Variant
 {
-    s16 Texture, Sampler;
+    GLuint Texture, Sampler;
     u16 Width, Height;
     u8 BlendMode;
 
@@ -841,11 +769,11 @@ struct Variant
 /*
     Antialiasing
     W-Buffer
-    Mit Textur
+    With Texture
     0
     1, 3
     2
-    Ohne Textur
+    without Texture
     2
     0, 1, 3
 
@@ -925,6 +853,18 @@ void ComputeRenderer::RenderFrame()
     int numYSpans = 0;
     int numSetupIndices = 0;
 
+    /*
+        Some games really like to spam small textures, often
+        to store the data like PPU tiles. E.g. Shantae
+        or some Mega Man game. Fortunately they are usually kind
+        enough to not vary the texture size all too often (usually
+        they just use 8x8 or 16x for everything).
+
+        This is the reason we have this whole mess where textures of
+        the same size are put into array textures. This allows
+        to increase the batch size.
+        Less variance between each Variant hah!
+    */
     u32 numVariants = 0, prevVariant, prevTexLayer;
     Variant variants[MaxVariants];
 
@@ -951,6 +891,8 @@ void ComputeRenderer::RenderFrame()
         bool foundVariant = false;
         if (i > 0)
         {
+            // if the whole texture attribute matches
+            // the texture layer will also match
             Polygon* prevPolygon = RenderPolygonRAM[i - 1];
             foundVariant = prevPolygon->TexParam == polygon->TexParam
                 && prevPolygon->TexPalette == polygon->TexPalette
@@ -964,9 +906,10 @@ void ComputeRenderer::RenderFrame()
         {
             Variant variant;
             variant.BlendMode = polygon->IsShadowMask ? 4 : ((polygon->Attr >> 4) & 0x3);
-            variant.Texture = -1;
-            variant.Sampler = -1;
+            variant.Texture = 0;
+            variant.Sampler = 0;
             TexCacheEntry* texcacheEntry = nullptr;
+            // we always need to look up the texture to get the layer of the array texture
             if (enableTextureMaps && (polygon->TexParam >> 26) & 0x7)
             {
                 texcacheEntry = &GetTexture(polygon->TexParam, polygon->TexPalette);
@@ -974,9 +917,10 @@ void ComputeRenderer::RenderFrame()
                 bool wrapT = (polygon->TexParam >> 17) & 1;
                 bool mirrorS = (polygon->TexParam >> 18) & 1;
                 bool mirrorT = (polygon->TexParam >> 19) & 1;
-                variant.Sampler = (wrapS ? (mirrorS ? 2 : 1) : 0) + (wrapT ? (mirrorT ? 2 : 1) : 0) * 3;
-                variant.Texture = texcacheEntry->DescriptorIdx;
-                prevTexLayer = texcacheEntry->Texture.LayerIdx;
+                variant.Sampler = Samplers[(wrapS ? (mirrorS ? 2 : 1) : 0) + (wrapT ? (mirrorT ? 2 : 1) : 0) * 3];
+                variant.Texture = texcacheEntry->Texture.TextureID;
+                prevTexLayer = texcacheEntry->Texture.Layer;
+
                 if (texcacheEntry->LastVariant < numVariants && variants[texcacheEntry->LastVariant] == variant)
                 {
                     foundVariant = true;
@@ -1272,7 +1216,8 @@ void ComputeRenderer::RenderFrame()
         u32 fogA = (RenderFogColor >> 16) & 0x1F;
         meta.FogColor = fogR | (fogG << 8) | (fogB << 16) | (fogA << 24);
     }
-    meta.XScroll = RenderXPos;
+    meta.XScroll = 0;
+    //meta.XScroll = RenderXPos;
 
     glBindBuffer(GL_UNIFORM_BUFFER, MetaUniformMemory);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(MetaUniform), &meta);
@@ -1312,6 +1257,8 @@ void ComputeRenderer::RenderFrame()
         glDispatchComputeIndirect(offsetof(BinResult, SortWorkWorkCount));
         glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
 
+        glActiveTexture(GL_TEXTURE0);
+
         // rasterise
         {
             bool highLightMode = RenderDispCnt & (1<<1);
@@ -1338,7 +1285,7 @@ void ComputeRenderer::RenderFrame()
             };
 
             GLuint prevShader = 0;
-            s32 prevTexture = -1, prevSampler = -1;
+            s32 prevTexture = 0, prevSampler = 0;
             for (int i = 0; i < numVariants; i++)
             {
                 GLuint shader = 0;
@@ -1349,11 +1296,14 @@ void ComputeRenderer::RenderFrame()
                 else
                 {
                     shader = shadersUseTexture[variants[i].BlendMode];
-                    if (variants[i].Texture != prevTexture || variants[i].Sampler != prevSampler)
+                    if (variants[i].Texture != prevTexture)
                     {
-                        assert(variants[i].Sampler < 9);
-                        glBindTexture(GL_TEXTURE_2D, variants[i].Texture);
+                        glBindTexture(GL_TEXTURE_2D_ARRAY, variants[i].Texture);
                         prevTexture = variants[i].Texture;
+                    }
+                    if (variants[i].Sampler != prevSampler)
+                    {
+                        glBindSampler(0, variants[i].Sampler);
                         prevSampler = variants[i].Sampler;
                     }
                 }
@@ -1364,7 +1314,7 @@ void ComputeRenderer::RenderFrame()
                     prevShader = shader;
                 }
 
-                glUniform1i(UniformIdxCurVariant, i);
+                glUniform1ui(UniformIdxCurVariant, i);
                 glUniform2f(UniformIdxTextureSize, 1.f / variants[i].Width, 1.f / variants[i].Height);
                 glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
                 glDispatchComputeIndirect(offsetof(BinResult, VariantWorkCount) + i*4*4);
@@ -1378,7 +1328,7 @@ void ComputeRenderer::RenderFrame()
     glDispatchCompute(256/8, 192/8, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-    //glBindTexture(GL_TEXTURE_2D, )
+    glBindImageTexture(0, Framebuffer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
     u32 finalPassShader = 0;
     if (RenderDispCnt & (1<<4))
         finalPassShader |= 0x4;
@@ -1446,6 +1396,11 @@ void ComputeRenderer::RestartFrame()
 u32* ComputeRenderer::GetLine(int line)
 {
     return DummyLine;
+}
+
+void ComputeRenderer::SetupAccelFrame()
+{
+    glBindTexture(GL_TEXTURE_2D, Framebuffer);
 }
 
 }

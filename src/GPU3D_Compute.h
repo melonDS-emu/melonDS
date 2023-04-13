@@ -48,8 +48,7 @@ public:
     void RestartFrame() override;
     u32* GetLine(int line) override;
 
-    //dk::Fence FrameReady = {};
-    //dk::Fence FrameReserveFence = {};
+    void SetupAccelFrame() override;
 private:
     GLuint ShaderInterpXSpans[2];
     GLuint ShaderBinCombined;
@@ -197,18 +196,12 @@ private:
 
     struct TexArrayEntry
     {
-        u16 TexArrayIdx;
-        u16 LayerIdx;
-    };
-    struct TexArray
-    {
-        GLuint Image;
-        u32 ImageDescriptor;
+        GLuint TextureID;
+        u32 Layer;
     };
 
     struct TexCacheEntry
     {
-        u32 DescriptorIdx;
         u32 LastVariant; // very cheap way to make variant lookup faster
 
         u32 TextureRAMStart[2], TextureRAMSize[2];
@@ -239,15 +232,14 @@ private:
     };
     GLuint MetaUniformMemory;
 
-    static const u32 TexCacheMaxImages = 4096;
-
-    u32 FreeImageDescriptorsCount = 0;
-    u32 FreeImageDescriptors[TexCacheMaxImages];
-
     std::vector<TexArrayEntry> FreeTextures[8][8];
-    std::vector<TexArray> TexArrays[8][8];
+    std::vector<GLuint> TexArrays[8][8];
+
+    GLuint Samplers[9];
 
     u32 TextureDecodingBuffer[1024*1024];
+
+    GLuint Framebuffer;
 
     TexCacheEntry& GetTexture(u32 textureParam, u32 paletteParam);
 

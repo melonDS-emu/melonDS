@@ -223,12 +223,7 @@ layout (std140, binding = 0) uniform MetaUniform
     uint FogOffset, FogShift, FogColor;
 
     int XScroll;
-
-    // only used/updated for rasteriation
-    uint CurVariant;
-    vec2 InvTextureSize;
 };
-
 
 #if defined(InterpSpans) || defined(Rasterise)
 uint Umulh(uint a, uint b)
@@ -920,6 +915,9 @@ layout (local_size_x = TileSize, local_size_y = TileSize) in;
 
 layout (binding = 0) uniform usampler2DArray CurrentTexture;
 
+layout (location = 0) uniform uint CurVariant;
+layout (location = 1) uniform vec2 InvTextureSize;
+
 void main()
 {
     uvec2 workDesc = SortedWork[SortedWorkOffset[CurVariant] + gl_WorkGroupID.z];
@@ -1328,7 +1326,7 @@ const char* FinalPass = R"(
 
 layout (local_size_x = 32) in;
 
-layout (binding = 0, r32ui) writeonly uniform uimage2D FinalFB; 
+layout (binding = 0, rgba8) writeonly uniform image2D FinalFB; 
 
 uint BlendFog(uint color, uint depth)
 {
@@ -1482,15 +1480,17 @@ void main()
     }
 #endif
 
-    if (bitfieldExtract(color.x, 24, 8) != 0U)
-        color.x |= 0x40000000U;
-    else
-        color.x = 0U;
+//    if (bitfieldExtract(color.x, 24, 8) != 0U)
+//        color.x |= 0x40000000U;
+//    else
+//        color.x = 0U;
 
     //if (gl_LocalInvocationID.x == 7 || gl_LocalInvocationID.y == 7)
         //color.x = 0x1F00001FU | 0x40000000U;
 
-    imageStore(FinalFB, ivec2(gl_GlobalInvocationID.xy), uvec4(color.x, 0, 0, 0));
+    vec4 result = vec4(bitfieldExtract(color.x, 16, 8), bitfieldExtract(color.x, 8, 8), color.x & 0x3FU, bitfieldExtract(color.x, 24, 8));
+    result /= vec4(63.0, 63.0, 63.0, 31.0);
+    imageStore(FinalFB, ivec2(gl_GlobalInvocationID.xy), result);
 }
 
 )";
