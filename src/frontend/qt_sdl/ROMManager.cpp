@@ -21,8 +21,10 @@
 
 #include <string>
 #include <utility>
-#include <zstd.h>
 
+#ifdef ZSTD_ENABLED
+#include <zstd.h>
+#endif
 #ifdef ARCHIVE_SUPPORT_ENABLED
 #include "ArchiveUtil.h"
 #endif
@@ -479,6 +481,7 @@ bool LoadBIOS()
     return true;
 }
 
+#ifdef ZSTD_ENABLED
 u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
 {
     u64 realSize = ZSTD_getFrameContentSize(inContent, inSize);
@@ -500,6 +503,7 @@ u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
     *outContent = realContent;
     return realSize;
 }
+#endif
 
 bool LoadROM(QStringList filepath, bool reset)
 {
