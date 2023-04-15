@@ -39,6 +39,10 @@
                 <string>srl</string>
                 <string>dsi</string>
                 <string>ids</string>
+                <string>nds.zst</string>
+                <string>srl.zst</string>
+                <string>dsi.zst</string>
+                <string>ids.zst</string>
             </array>
             <key>CFBundleTypeRole</key>
             <string>Viewer</string>
@@ -50,6 +54,8 @@
             <array>
                 <string>gba</string>
                 <string>agb</string>
+                <string>gba.zst</string>
+                <string>agb.zst</string>
             </array>
             <key>CFBundleTypeRole</key>
             <string>Viewer</string>
