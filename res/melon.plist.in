@@ -31,13 +31,64 @@
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
+            <key>CFBundleTypeName</key>
+            <string>Nintendo DS ROM</string>
             <key>CFBundleTypeExtensions</key>
             <array>
                 <string>nds</string>
                 <string>srl</string>
+                <string>dsi</string>
+                <string>ids</string>
             </array>
             <key>CFBundleTypeRole</key>
             <string>Viewer</string>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Game Boy Advance ROM</string>
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>gba</string>
+                <string>agb</string>
+            </array>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Archive containing ROM</string>
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <key>zip</key>
+                <key>7z</key>
+                <key>rar</key>
+                <key>tar</key>
+                <key>tar.gz</key>
+                <key>tgz</key>
+                <key>tar.xz</key>
+                <key>txz</key>
+                <key>tar.bz2</key>
+                <key>tbz2</key>
+                <key>tar.lz4</key>
+                <key>tlz4</key>
+                <key>tar.zst</key>
+                <key>tzst</key>
+                <key>tar.Z</key>
+                <key>taz</key>
+                <key>tar.lz</key>
+                <key>tar.lzma</key>
+                <key>tlz</key>
+                <key>tar.lrz</key>
+                <key>tlrz</key>
+                <key>tar.lzo</key>
+                <key>tzo</key>
+            </array>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
         </dict>
     </array>
 </dict>
