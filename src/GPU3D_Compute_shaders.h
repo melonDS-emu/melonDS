@@ -52,6 +52,24 @@ namespace ComputeRendererShaders
 // Highlight
 // ShadowMask
 
+
+/*
+    Some notes on signed division:
+
+    we want to avoid it, so we can avoid higher precision numbers
+    in a few places.
+    
+    Fortunately all divisions *should* assuming I'm not mistaken
+    have the same sign on the divisor and the dividend.
+
+    Thus we apply:
+
+    assuming n < 0 <=> d < 0
+    n/d = abs(n)/abs(d)
+
+*/
+
+
 const char* Common = R"(
 struct Polygon
 {
@@ -149,14 +167,14 @@ const int CoarseTileCountY = 4;
 const int CoarseTileW = (CoarseTileCountX * TileSize);
 const int CoarseTileH = (CoarseTileCountY * TileSize);
 
-const int FramebufferStride = 256*192;
-const int TilesPerLine = 256/TileSize;
-const int TileLines = 192/TileSize;
+const int FramebufferStride = ScreenWidth*ScreenHeight;
+const int TilesPerLine = ScreenWidth/TileSize;
+const int TileLines = ScreenHeight/TileSize;
 
 const int BinStride = 2048/32;
 const int CoarseBinStride = BinStride/32;
 
-const int MaxWorkTiles = TilesPerLine*TileLines*48;
+
 const int MaxVariants = 256;
 
 layout (std430, binding = 3)
@@ -199,9 +217,9 @@ readonly
 #endif
 buffer RasterResult
 {
-    uint ColorResult[256*192*2];
-    uint DepthResult[256*192*2];
-    uint AttrResult[256*192*2];
+    uint ColorResult[ScreenWidth*ScreenHeight*2];
+    uint DepthResult[ScreenWidth*ScreenHeight*2];
+    uint AttrResult[ScreenWidth*ScreenHeight*2];
 };
 
 layout (std140, binding = 0) uniform MetaUniform
@@ -221,8 +239,6 @@ layout (std140, binding = 0) uniform MetaUniform
     uint ClearColor, ClearDepth, ClearAttr;
 
     uint FogOffset, FogShift, FogColor;
-
-    int XScroll;
 };
 
 #if defined(InterpSpans) || defined(Rasterise)
@@ -238,7 +254,7 @@ const uint startTable[256] = uint[256](
 157, 156, 154, 153, 152, 151, 149, 148, 147, 146, 144, 143, 142, 141, 139, 138, 137, 136, 135, 134, 132, 131, 130, 129, 128, 127, 126, 125, 123, 122, 121, 120, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 88, 87, 86, 85, 84, 83, 82, 81, 80, 80, 79, 78, 77, 76, 75, 74, 74, 73, 72, 71, 70, 70, 69, 68, 67, 66, 66, 65, 64, 63, 62, 62, 61, 60, 59, 59, 58, 57, 56, 56, 55, 54, 53, 53, 52, 51, 50, 50, 49, 48, 48, 47, 46, 46, 45, 44, 43, 43, 42, 41, 41, 40, 39, 39, 38, 37, 37, 36, 35, 35, 34, 33, 33, 32, 32, 31, 30, 30, 29, 28, 28, 27, 27, 26, 25, 25, 24, 24, 23, 22, 22, 21, 21, 20, 19, 19, 18, 18, 17, 17, 16, 15, 15, 14, 14, 13, 13, 12, 12, 11, 10, 10, 9, 9, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1, 0, 0
 );
 
-uint Div(uint x, uint y)
+uint Div(uint x, uint y, out uint r)
 {
     // https://www.microsoft.com/en-us/research/publication/software-integer-division/
     uint k = 31 - findMSB(y);
@@ -251,7 +267,7 @@ uint Div(uint x, uint y)
     z += Umulh(z, my * z);
 
     uint q = Umulh(x, z);
-    uint r = x - y * q;
+    r = x - y * q;
     if(r >= y)
     {
         r = r - y;
@@ -266,16 +282,77 @@ uint Div(uint x, uint y)
     return q;
 }
 
+uint Div64_32_32(uint numHi, uint numLo, uint den)
+{
+    // based on https://github.com/ridiculousfish/libdivide/blob/3bd34388573681ce563348cdf04fe15d24770d04/libdivide.h#L469
+    // modified to work with half the size 64/32=32 instead of 128/64=64
+    // for further details see https://ridiculousfish.com/blog/posts/labor-of-division-episode-iv.html
+
+    // We work in base 2**16.
+    // A uint32 holds a single digit (in the lower 16 bit). A uint32 holds two digits.
+    // Our numerator is conceptually [num3, num2, num1, num0].
+    // Our denominator is [den1, den0].
+    const uint b = (1U << 16);
+
+    // Determine the normalization factor. We multiply den by this, so that its leading digit is at
+    // least half b. In binary this means just shifting left by the number of leading zeros, so that
+    // there's a 1 in the MSB.
+    // We also shift numer by the same amount. This cannot overflow because numHi < den.
+    // The expression (-shift & 63) is the same as (64 - shift), except it avoids the UB of shifting
+    // by 64. <---- in C. I'm pretty sure shifts are masked in GLSL, but whatever.
+    uint shift = 31 - findMSB(den);
+    den <<= shift;
+    numHi <<= shift;
+    numHi |= (numLo >> (-shift & 63U)) & uint(-int(shift) >> 63);
+    numLo <<= shift;
+
+    // Extract the low digits of the numerator and both digits of the denominator.
+    uint num1 = (numLo >> 16);
+    uint num0 = (numLo & 0xFFFFU);
+    uint den1 = (den >> 16);
+    uint den0 = (den & 0xFFFFU);
+
+    // We wish to compute q1 = [n3 n2 n1] / [d1 d0].
+    // Estimate q1 as [n3 n2] / [d1], and then correct it.
+    // Note while qhat may be 2 digits, q1 is always 1 digit.
+
+    uint rhat;
+    uint qhat = Div(numHi, den1, rhat);
+    uint c1 = qhat * den0;
+    uint c2 = rhat * b + num1;
+    if (c1 > c2) qhat -= (c1 - c2 > den) ? 2 : 1;
+    uint q1 = qhat & 0xFFFFU;
+
+    // Compute the true (partial) remainder.
+    uint rem = numHi * b + num1 - q1 * den;
+
+    // We wish to compute q0 = [rem1 rem0 n0] / [d1 d0].
+    // Estimate q0 as [rem1 rem0] / [d1] and correct it.
+    qhat = Div(rem, den1, rhat);
+    c1 = qhat * den0;
+    c2 = rhat * b + num0;
+    if (c1 > c2) qhat -= (c1 - c2 > den) ? 2 : 1;
+
+    return bitfieldInsert(qhat, q1, 16, 16);
+}
+
 #ifdef InterpSpans
-const int Shift = 9;
+const int YFactorShift = 9;
 #else
-const int Shift = 8;
+const int YFactorShift = 8;
 #endif
 
 int CalcYFactorY(YSpanSetup span, int i)
 {
-    int num = abs((i) * span.W0n) << Shift;
-    int den = abs(((i) * span.W0d) + (((span.I1 - span.I0 - i) * span.W1d)));
+    /*
+        maybe it would be better to do use a 32x32=64 multiplication?
+    */
+    uint numLo = abs(i * span.W0n);
+    uint numHi = 0U;
+    numHi |= numLo >> (32-YFactorShift);
+    numLo <<= YFactorShift;
+
+    uint den = abs(i * span.W0d + (span.I1 - span.I0 - i) * span.W1d);
 
     if (den == 0)
     {
@@ -283,10 +360,7 @@ int CalcYFactorY(YSpanSetup span, int i)
     }
     else
     {
-        int q = int(Div(num, den));
-        //if ((num < 0) != (den < 0))
-        //    return -q;
-        return q;
+        return int(Div64_32_32(numHi, numLo, den));
     }
 }
 
@@ -296,13 +370,17 @@ int CalcYFactorX(XSpanSetup span, int x)
 
     if (span.X0 != span.X1)
     {
-        uint num = (uint(x) * span.W0) << Shift;
+        uint numLo = uint(x) * span.W0;
+        uint numHi = 0U;
+        numHi |= numLo >> (32-YFactorShift);
+        numLo <<= YFactorShift;
+
         uint den = (uint(x) * span.W0) + (uint(span.X1 - span.X0 - x) * span.W1);
 
         if (den == 0)
             return 0;
         else
-            return int(Div(num, den));
+            return int(Div64_32_32(numHi, numLo, den));
     }
     else
     {
@@ -316,9 +394,9 @@ int InterpolateAttrPersp(int y0, int y1, int ifactor)
         return y0;
 
     if (y0 < y1)
-        return y0 + (((y1-y0) * ifactor) >> Shift);
+        return y0 + (((y1-y0) * ifactor) >> YFactorShift);
     else
-        return y1 + (((y0-y1) * ((1<<Shift)-ifactor)) >> Shift);
+        return y1 + (((y0-y1) * ((1<<YFactorShift)-ifactor)) >> YFactorShift);
 }
 
 int InterpolateAttrLinear(int y0, int y1, int i, int irecip, int idiff)
@@ -439,11 +517,11 @@ uint InterpolateZWBuffer(int z0, int z1, int ifactor)
     // since the precision along x spans is only 8 bit the result will always fit in 32-bit
     if (z0 < z1)
     {
-        return uint(z0) + (((z1-z0) * ifactor) >> Shift);
+        return uint(z0) + (((z1-z0) * ifactor) >> YFactorShift);
     }
     else
     {
-        return uint(z1) + (((z0-z1) * ((1<<Shift)-ifactor)) >> Shift);
+        return uint(z1) + (((z0-z1) * ((1<<YFactorShift)-ifactor)) >> YFactorShift);
     }
 #else
     uint mulLo, mulHi;
@@ -451,21 +529,21 @@ uint InterpolateZWBuffer(int z0, int z1, int ifactor)
     {
         umulExtended(z1-z0, ifactor, mulHi, mulLo);
         // 64-bit shift
-        return uint(z0) + ((mulLo >> Shift) | (mulHi << (32-Shift)));
+        return uint(z0) + ((mulLo >> YFactorShift) | (mulHi << (32-YFactorShift)));
     }
     else
     {
-        umulExtended(z0-z1, (1<<Shift)-ifactor, mulHi, mulLo);
-        return uint(z1) + ((mulLo >> Shift) | (mulHi << (32-Shift)));
+        umulExtended(z0-z1, (1<<YFactorShift)-ifactor, mulHi, mulLo);
+        return uint(z1) + ((mulLo >> YFactorShift) | (mulHi << (32-YFactorShift)));
     }
 #endif
     /*if (z0 < z1)
     {
-        return uint(z0) + uint((int64_t(z1-z0) * int64_t(ifactor)) >> Shift);
+        return uint(z0) + uint((int64_t(z1-z0) * int64_t(ifactor)) >> YFactorShift);
     }
     else
     {
-        return uint(z1) + uint((int64_t(z0-z1) * int64_t((1<<Shift)-ifactor)) >> Shift);
+        return uint(z1) + uint((int64_t(z0-z1) * int64_t((1<<YFactorShift)-ifactor)) >> YFactorShift);
     }*/
 }
 
@@ -499,7 +577,8 @@ void EdgeParams_XMajor(bool side, int dx, YSpanSetup span, out int edgelen, out 
     if (negative) startx = xlen - startx;
     if (side) startx = startx - len + 1;
 
-    int startcov = int(Div(uint(((startx << 10) + 0x1FF) * (span.Y1 - span.Y0)), uint(xlen)));
+    uint r;
+    int startcov = int(Div(uint(((startx << 10) + 0x1FF) * (span.Y1 - span.Y0)), uint(xlen), r));
     edgecov = (1<<31) | ((startcov & 0x3FF) << 12) | (span.XCovIncr & 0x3FF);
 }
 
@@ -713,7 +792,8 @@ void main()
     }
     {
 #endif
-        xspan.XRecip = int(Div(1U<<30, uint(xspan.X1 - xspan.X0)));
+        uint r;
+        xspan.XRecip = int(Div(1U<<30, uint(xspan.X1 - xspan.X0), r));
     }
 
     XSpanSetups[gl_GlobalInvocationID.x] = xspan;
@@ -950,7 +1030,7 @@ void main()
                 attr |= 0x1U;
 
                 int cov = xspan.EdgeCovL;
-                if ((cov & (1U<<31)) != 0U)
+                if (cov < 0)
                 {
                     int xcov = xspan.CovLInitial + (xspan.EdgeCovL & 0x3FF) * (position.x - xspan.X0);
                     cov = min(xcov >> 5, 31);
@@ -963,7 +1043,7 @@ void main()
                 attr |= 0x2U;
 
                 int cov = xspan.EdgeCovR;
-                if ((cov & (1U<<31)) != 0U)
+                if (cov < 0)
                 {
                     int xcov = xspan.CovRInitial + (xspan.EdgeCovR & 0x3FF) * (position.x - xspan.InsideEnd);
                     cov = max(0x1F - (xcov >> 5), 0);
@@ -1311,7 +1391,7 @@ void main()
     ProcessCoarseMask(linearTile, coarseMaskLo, 0, color, depth, attr, stencil, prevIsShadowMask);
     ProcessCoarseMask(linearTile, coarseMaskHi, BinStride/2, color, depth, attr, stencil, prevIsShadowMask);
 
-    int resultOffset = int(gl_GlobalInvocationID.x) + int(gl_GlobalInvocationID.y) * 256;
+    int resultOffset = int(gl_GlobalInvocationID.x) + int(gl_GlobalInvocationID.y) * ScreenWidth;
     ColorResult[resultOffset] = color.x;
     ColorResult[resultOffset+FramebufferStride] = color.y;
     DepthResult[resultOffset] = depth.x;
@@ -1327,6 +1407,7 @@ const char* FinalPass = R"(
 layout (local_size_x = 32) in;
 
 layout (binding = 0, rgba8) writeonly uniform image2D FinalFB; 
+layout (binding = 1, rgba8ui) writeonly uniform uimage2D LowResFB; 
 
 uint BlendFog(uint color, uint depth)
 {
@@ -1373,18 +1454,12 @@ uint BlendFog(uint color, uint depth)
 
 void main()
 {
-    int srcX = (int(gl_GlobalInvocationID.x) + XScroll) & 0x1FF;
-    int resultOffset = int(srcX) + int(gl_GlobalInvocationID.y) * 256;
+    int srcX = int(gl_GlobalInvocationID.x);
+    int resultOffset = int(srcX) + int(gl_GlobalInvocationID.y) * ScreenWidth;
 
-    uvec2 color = uvec2(0);
-    uvec2 depth = uvec2(0);
-    uvec2 attr = uvec2(0);
-    if (srcX < 256)
-    {
-        color = uvec2(ColorResult[resultOffset], ColorResult[resultOffset+FramebufferStride]);
-        depth = uvec2(DepthResult[resultOffset], DepthResult[resultOffset+FramebufferStride]);
-        attr = uvec2(AttrResult[resultOffset], AttrResult[resultOffset+FramebufferStride]);
-    }
+    uvec2 color = uvec2(ColorResult[resultOffset], ColorResult[resultOffset+FramebufferStride]);
+    uvec2 depth = uvec2(DepthResult[resultOffset], DepthResult[resultOffset+FramebufferStride]);
+    uvec2 attr = uvec2(AttrResult[resultOffset], AttrResult[resultOffset+FramebufferStride]);
 
 #ifdef EdgeMarking
     if ((attr.x & 0xFU) != 0U)
@@ -1397,20 +1472,20 @@ void main()
             otherAttr.x = AttrResult[resultOffset-1];
             otherDepth.x = DepthResult[resultOffset-1];
         }
-        if (srcX < 255U)
+        if (srcX < ScreenWidth-1)
         {
             otherAttr.y = AttrResult[resultOffset+1];
             otherDepth.y = DepthResult[resultOffset+1];
         }
         if (gl_GlobalInvocationID.y > 0U)
         {
-            otherAttr.z = AttrResult[resultOffset-256];
-            otherDepth.z = DepthResult[resultOffset-256];
+            otherAttr.z = AttrResult[resultOffset-ScreenWidth];
+            otherDepth.z = DepthResult[resultOffset-ScreenWidth];
         }
-        if (gl_GlobalInvocationID.y < 191U)
+        if (gl_GlobalInvocationID.y < ScreenHeight-1)
         {
-            otherAttr.w = AttrResult[resultOffset+256];
-            otherDepth.w = DepthResult[resultOffset+256];
+            otherAttr.w = AttrResult[resultOffset+ScreenWidth];
+            otherDepth.w = DepthResult[resultOffset+ScreenWidth];
         }
 
         uint polyId = bitfieldExtract(attr.x, 24, 5);
@@ -1491,6 +1566,20 @@ void main()
     vec4 result = vec4(bitfieldExtract(color.x, 16, 8), bitfieldExtract(color.x, 8, 8), color.x & 0x3FU, bitfieldExtract(color.x, 24, 8));
     result /= vec4(63.0, 63.0, 63.0, 31.0);
     imageStore(FinalFB, ivec2(gl_GlobalInvocationID.xy), result);
+
+    // It's a division by constant, so using the builtin division is fine
+    const int scale = ScreenWidth/256;
+    ivec2 lowresCoordinate = ivec2(gl_GlobalInvocationID.xy) / scale;
+    ivec2 lowresCoordinateRest = ivec2(gl_GlobalInvocationID.xy) % scale;
+    if (lowresCoordinateRest == ivec2(0, 0))
+    {
+        uvec4 color8;
+        color8.x = bitfieldExtract(color.x, 0, 8);
+        color8.y = bitfieldExtract(color.x, 8, 8);
+        color8.z = bitfieldExtract(color.x, 16, 8);
+        color8.w = bitfieldExtract(color.x, 24, 8);
+        imageStore(LowResFB, lowresCoordinate, color8);
+    }
 }
 
 )";

@@ -52,6 +52,13 @@ bool ComputeRenderer::CompileShader(GLuint& shader, const char* source, const st
         shaderName += define;
         shaderName += ',';
     }
+    shaderSource += "#define ScreenWidth ";
+    shaderSource += std::to_string(ScreenWidth);
+    shaderSource += "\n#define ScreenHeight ";
+    shaderSource += std::to_string(ScreenHeight);
+    shaderSource += "\n#define MaxWorkTiles ";
+    shaderSource += std::to_string(MaxWorkTiles);
+
     shaderSource += ComputeRendererShaders::Common;
     shaderSource += source;
 
@@ -65,8 +72,8 @@ void blah(GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,con
 
 bool ComputeRenderer::Init()
 {
-    glDebugMessageCallback(blah, NULL);
-    glEnable(GL_DEBUG_OUTPUT);
+    //glDebugMessageCallback(blah, NULL);
+    //glEnable(GL_DEBUG_OUTPUT);
     glGenBuffers(1, &YSpanSetupMemory);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, YSpanSetupMemory);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SpanSetupY)*MaxYSpanSetups, nullptr, GL_DYNAMIC_DRAW);
@@ -75,71 +82,21 @@ bool ComputeRenderer::Init()
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, RenderPolygonMemory);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(RenderPolygon)*2048, nullptr, GL_DYNAMIC_DRAW);
 
-    glGenBuffers(1, &TileMemory);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, TileMemory);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Tiles), nullptr, GL_DYNAMIC_DRAW);
-
     glGenBuffers(1, &XSpanSetupMemory);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, XSpanSetupMemory);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SpanSetupX)*MaxYSpanIndices, nullptr, GL_DYNAMIC_DRAW);
-
     glGenBuffers(1, &BinResultMemory);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, BinResultMemory);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(BinResult), nullptr, GL_DYNAMIC_DRAW);
-
     glGenBuffers(1, &FinalTileMemory);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, FinalTileMemory);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(FinalTiles), nullptr, GL_DYNAMIC_DRAW);
-
     glGenBuffers(1, &YSpanIndicesTextureMemory);
-    glBindBuffer(GL_TEXTURE_BUFFER, YSpanIndicesTextureMemory);
-    glBufferData(GL_TEXTURE_BUFFER, MaxYSpanIndices*2*4, nullptr, GL_DYNAMIC_DRAW);
+    glGenBuffers(1, &TileMemory);
 
     glGenTextures(1, &YSpanIndicesTexture);
-    glBindTexture(GL_TEXTURE_BUFFER, YSpanIndicesTexture);
-    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA16UI, YSpanIndicesTextureMemory);
-
     glGenTextures(1, &Framebuffer);
-    glBindTexture(GL_TEXTURE_2D, Framebuffer);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 256, 192);
+    glGenTextures(1, &LowResFramebuffer);
+    glBindTexture(GL_TEXTURE_2D, LowResFramebuffer);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8UI, 256, 192);
 
     glGenBuffers(1, &MetaUniformMemory);
     glBindBuffer(GL_UNIFORM_BUFFER, MetaUniformMemory);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(MetaUniform), nullptr, GL_DYNAMIC_DRAW);
-
-    CompileShader(ShaderInterpXSpans[0], ComputeRendererShaders::InterpSpans, {"InterpSpans", "ZBuffer"});
-    CompileShader(ShaderInterpXSpans[1], ComputeRendererShaders::InterpSpans, {"InterpSpans", "WBuffer"});
-    CompileShader(ShaderBinCombined, ComputeRendererShaders::BinCombined, {"BinCombined"});
-    CompileShader(ShaderDepthBlend[0], ComputeRendererShaders::DepthBlend, {"DepthBlend", "ZBuffer"});
-    CompileShader(ShaderDepthBlend[1], ComputeRendererShaders::DepthBlend, {"DepthBlend", "WBuffer"});
-    CompileShader(ShaderRasteriseNoTexture[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "NoTexture"});
-    CompileShader(ShaderRasteriseNoTexture[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "NoTexture"});
-    CompileShader(ShaderRasteriseNoTextureToon[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "NoTexture", "Toon"});
-    CompileShader(ShaderRasteriseNoTextureToon[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "NoTexture", "Toon"});
-    CompileShader(ShaderRasteriseNoTextureHighlight[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "NoTexture", "Highlight"});
-    CompileShader(ShaderRasteriseNoTextureHighlight[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "NoTexture", "Highlight"});
-    CompileShader(ShaderRasteriseUseTextureDecal[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "UseTexture", "Decal"});
-    CompileShader(ShaderRasteriseUseTextureDecal[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "UseTexture", "Decal"});
-    CompileShader(ShaderRasteriseUseTextureModulate[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "UseTexture", "Modulate"});
-    CompileShader(ShaderRasteriseUseTextureModulate[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "UseTexture", "Modulate"});
-    CompileShader(ShaderRasteriseUseTextureToon[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "UseTexture", "Toon"});
-    CompileShader(ShaderRasteriseUseTextureToon[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "UseTexture", "Toon"});
-    CompileShader(ShaderRasteriseUseTextureHighlight[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "UseTexture", "Highlight"});
-    CompileShader(ShaderRasteriseUseTextureHighlight[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "UseTexture", "Highlight"});
-    CompileShader(ShaderRasteriseShadowMask[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "ShadowMask"});
-    CompileShader(ShaderRasteriseShadowMask[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "ShadowMask"});
-    CompileShader(ShaderClearCoarseBinMask, ComputeRendererShaders::ClearCoarseBinMask, {"ClearCoarseBinMask"});
-    CompileShader(ShaderClearIndirectWorkCount, ComputeRendererShaders::ClearIndirectWorkCount, {"ClearIndirectWorkCount"});
-    CompileShader(ShaderCalculateWorkListOffset, ComputeRendererShaders::CalcOffsets, {"CalculateWorkOffsets"});
-    CompileShader(ShaderSortWork, ComputeRendererShaders::SortWork, {"SortWork"});
-    CompileShader(ShaderFinalPass[0], ComputeRendererShaders::FinalPass, {"FinalPass"});
-    CompileShader(ShaderFinalPass[1], ComputeRendererShaders::FinalPass, {"FinalPass", "EdgeMarking"});
-    CompileShader(ShaderFinalPass[2], ComputeRendererShaders::FinalPass, {"FinalPass", "Fog"});
-    CompileShader(ShaderFinalPass[3], ComputeRendererShaders::FinalPass, {"FinalPass", "EdgeMarking", "Fog"});
-    CompileShader(ShaderFinalPass[4], ComputeRendererShaders::FinalPass, {"FinalPass", "AntiAliasing"});
-    CompileShader(ShaderFinalPass[5], ComputeRendererShaders::FinalPass, {"FinalPass", "AntiAliasing", "EdgeMarking"});
-    CompileShader(ShaderFinalPass[6], ComputeRendererShaders::FinalPass, {"FinalPass", "AntiAliasing", "Fog"});
-    CompileShader(ShaderFinalPass[7], ComputeRendererShaders::FinalPass, {"FinalPass", "AntiAliasing", "EdgeMarking", "Fog"});
 
     glGenSamplers(9, Samplers);
     for (u32 j = 0; j < 3; j++)
@@ -176,6 +133,12 @@ void ComputeRenderer::DeInit()
     glDeleteTextures(1, &Framebuffer);
     glDeleteBuffers(1, &MetaUniformMemory);
 
+    glDeleteSamplers(9, Samplers);
+    glDeleteBuffers(1, &PixelBuffer);
+}
+
+void ComputeRenderer::DeleteShaders()
+{
     std::initializer_list<GLuint> allPrograms =
     {
         ShaderInterpXSpans[0],
@@ -214,9 +177,6 @@ void ComputeRenderer::DeInit()
     };
     for (GLuint program : allPrograms)
         glDeleteProgram(program);
-
-    glDeleteSamplers(9, Samplers);
-    glDeleteBuffers(1, &PixelBuffer);
 }
 
 void ComputeRenderer::ResetTexcache()
@@ -241,7 +201,85 @@ void ComputeRenderer::Reset()
 
 void ComputeRenderer::SetRenderSettings(GPU::RenderSettings& settings)
 {
+    if (ScaleFactor != -1)
+    {
+        DeleteShaders();
+    }
 
+    ScaleFactor = settings.GL_ScaleFactor;
+    ScreenWidth = 256 * ScaleFactor;
+    ScreenHeight = 192 * ScaleFactor;
+
+    TilesPerLine = ScreenWidth/TileSize;
+    TileLines = ScreenHeight/TileSize;
+
+    MaxWorkTiles = TilesPerLine*TileLines*8;
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, TileMemory);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, 4*3*TileSize*TileSize*MaxWorkTiles, nullptr, GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, FinalTileMemory);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, 4*3*2*ScreenWidth*ScreenHeight, nullptr, GL_DYNAMIC_DRAW);
+
+    int binResultSize = sizeof(BinResultHeader)
+        + MaxWorkTiles*2*4 // UnsortedWorkDescs
+        + MaxWorkTiles*2*4 // SortedWork
+        + TilesPerLine*TileLines*CoarseBinStride*4 // BinnedMaskCoarse
+        + TilesPerLine*TileLines*BinStride*4 // BinnedMask
+        + TilesPerLine*TileLines*BinStride*4; // WorkOffsets
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, BinResultMemory);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, binResultSize, nullptr, GL_DYNAMIC_DRAW);
+
+    glBindTexture(GL_TEXTURE_2D, Framebuffer);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, ScreenWidth, ScreenHeight);
+
+    // eh those are pretty bad guesses
+    // though real hw shouldn't be eable to render all 2048 polygons on every line either
+    int maxYSpanIndices = 64*2048 * ScaleFactor;
+    YSpanIndices.resize(maxYSpanIndices);
+
+    glBindBuffer(GL_TEXTURE_BUFFER, YSpanIndicesTextureMemory);
+    glBufferData(GL_TEXTURE_BUFFER, maxYSpanIndices*2*4, nullptr, GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, XSpanSetupMemory);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SpanSetupX)*maxYSpanIndices, nullptr, GL_DYNAMIC_DRAW);
+
+    glBindTexture(GL_TEXTURE_BUFFER, YSpanIndicesTexture);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA16UI, YSpanIndicesTextureMemory);
+
+    CompileShader(ShaderInterpXSpans[0], ComputeRendererShaders::InterpSpans, {"InterpSpans", "ZBuffer"});
+    CompileShader(ShaderInterpXSpans[1], ComputeRendererShaders::InterpSpans, {"InterpSpans", "WBuffer"});
+    CompileShader(ShaderBinCombined, ComputeRendererShaders::BinCombined, {"BinCombined"});
+    CompileShader(ShaderDepthBlend[0], ComputeRendererShaders::DepthBlend, {"DepthBlend", "ZBuffer"});
+    CompileShader(ShaderDepthBlend[1], ComputeRendererShaders::DepthBlend, {"DepthBlend", "WBuffer"});
+    CompileShader(ShaderRasteriseNoTexture[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "NoTexture"});
+    CompileShader(ShaderRasteriseNoTexture[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "NoTexture"});
+    CompileShader(ShaderRasteriseNoTextureToon[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "NoTexture", "Toon"});
+    CompileShader(ShaderRasteriseNoTextureToon[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "NoTexture", "Toon"});
+    CompileShader(ShaderRasteriseNoTextureHighlight[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "NoTexture", "Highlight"});
+    CompileShader(ShaderRasteriseNoTextureHighlight[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "NoTexture", "Highlight"});
+    CompileShader(ShaderRasteriseUseTextureDecal[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "UseTexture", "Decal"});
+    CompileShader(ShaderRasteriseUseTextureDecal[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "UseTexture", "Decal"});
+    CompileShader(ShaderRasteriseUseTextureModulate[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "UseTexture", "Modulate"});
+    CompileShader(ShaderRasteriseUseTextureModulate[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "UseTexture", "Modulate"});
+    CompileShader(ShaderRasteriseUseTextureToon[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "UseTexture", "Toon"});
+    CompileShader(ShaderRasteriseUseTextureToon[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "UseTexture", "Toon"});
+    CompileShader(ShaderRasteriseUseTextureHighlight[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "UseTexture", "Highlight"});
+    CompileShader(ShaderRasteriseUseTextureHighlight[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "UseTexture", "Highlight"});
+    CompileShader(ShaderRasteriseShadowMask[0], ComputeRendererShaders::Rasterise, {"Rasterise", "ZBuffer", "ShadowMask"});
+    CompileShader(ShaderRasteriseShadowMask[1], ComputeRendererShaders::Rasterise, {"Rasterise", "WBuffer", "ShadowMask"});
+    CompileShader(ShaderClearCoarseBinMask, ComputeRendererShaders::ClearCoarseBinMask, {"ClearCoarseBinMask"});
+    CompileShader(ShaderClearIndirectWorkCount, ComputeRendererShaders::ClearIndirectWorkCount, {"ClearIndirectWorkCount"});
+    CompileShader(ShaderCalculateWorkListOffset, ComputeRendererShaders::CalcOffsets, {"CalculateWorkOffsets"});
+    CompileShader(ShaderSortWork, ComputeRendererShaders::SortWork, {"SortWork"});
+    CompileShader(ShaderFinalPass[0], ComputeRendererShaders::FinalPass, {"FinalPass"});
+    CompileShader(ShaderFinalPass[1], ComputeRendererShaders::FinalPass, {"FinalPass", "EdgeMarking"});
+    CompileShader(ShaderFinalPass[2], ComputeRendererShaders::FinalPass, {"FinalPass", "Fog"});
+    CompileShader(ShaderFinalPass[3], ComputeRendererShaders::FinalPass, {"FinalPass", "EdgeMarking", "Fog"});
+    CompileShader(ShaderFinalPass[4], ComputeRendererShaders::FinalPass, {"FinalPass", "AntiAliasing"});
+    CompileShader(ShaderFinalPass[5], ComputeRendererShaders::FinalPass, {"FinalPass", "AntiAliasing", "EdgeMarking"});
+    CompileShader(ShaderFinalPass[6], ComputeRendererShaders::FinalPass, {"FinalPass", "AntiAliasing", "Fog"});
+    CompileShader(ShaderFinalPass[7], ComputeRendererShaders::FinalPass, {"FinalPass", "AntiAliasing", "EdgeMarking", "Fog"});
 }
 
 void ComputeRenderer::VCount144()
@@ -267,9 +305,9 @@ void ComputeRenderer::SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int 
     span->TexcoordV1 = poly->Vertices[to]->TexCoords[1];
 }
 
-void ComputeRenderer::SetupYSpanDummy(SpanSetupY* span, Polygon* poly, int vertex, int side)
+void ComputeRenderer::SetupYSpanDummy(SpanSetupY* span, Polygon* poly, int vertex, int side, s32 positions[10][2])
 {
-    s32 x0 = poly->Vertices[vertex]->FinalPosition[0];
+    s32 x0 = positions[vertex][0];
     if (side)
     {
         span->DxInitial = -0x40000;
@@ -283,7 +321,7 @@ void ComputeRenderer::SetupYSpanDummy(SpanSetupY* span, Polygon* poly, int verte
     span->X0 = span->X1 = x0;
     span->XMin = x0;
     span->XMax = x0;
-    span->Y0 = span->Y1 = poly->Vertices[vertex]->FinalPosition[1];
+    span->Y0 = span->Y1 = positions[vertex][1];
 
     span->Increment = 0;
 
@@ -297,12 +335,12 @@ void ComputeRenderer::SetupYSpanDummy(SpanSetupY* span, Polygon* poly, int verte
     SetupAttrs(span, poly, vertex, vertex);
 }
 
-void ComputeRenderer::SetupYSpan(int polynum, SpanSetupY* span, Polygon* poly, int from, int to, u32 y, int side)
+void ComputeRenderer::SetupYSpan(int polynum, SpanSetupY* span, Polygon* poly, int from, int to, u32 y, int side, s32 positions[10][2])
 {
-    span->X0 = poly->Vertices[from]->FinalPosition[0];
-    span->X1 = poly->Vertices[to]->FinalPosition[0];
-    span->Y0 = poly->Vertices[from]->FinalPosition[1];
-    span->Y1 = poly->Vertices[to]->FinalPosition[1];
+    span->X0 = positions[from][0];
+    span->X1 = positions[to][0];
+    span->Y0 = positions[from][1];
+    span->Y1 = positions[to][1];
 
     SetupAttrs(span, poly, from, to);
 
@@ -395,9 +433,6 @@ void ComputeRenderer::SetupYSpan(int polynum, SpanSetupY* span, Polygon* poly, i
         span->I0 = span->Y0;
         span->I1 = span->Y1;
     }
-
-    //if (span->I1 < span->I0)
-    //    std::swap(span->I0, span->I1);
 
     if (span->I0 != span->I1)
         span->IRecip = (1<<30) / (span->I1 - span->I0);
@@ -940,14 +975,11 @@ void ComputeRenderer::RenderFrame()
 
         u32 nverts = polygon->NumVertices;
         u32 vtop = polygon->VTop, vbot = polygon->VBottom;
-        s32 ytop = polygon->YTop, ybot = polygon->YBottom;
 
         u32 curVL = vtop, curVR = vtop;
         u32 nextVL, nextVR;
 
         RenderPolygons[i].FirstXSpan = numSetupIndices;
-        RenderPolygons[i].YTop = ytop;
-        RenderPolygons[i].YBot = ybot;
         RenderPolygons[i].Attr = polygon->Attr;
 
         bool foundVariant = false;
@@ -1034,10 +1066,22 @@ void ComputeRenderer::RenderFrame()
             if (nextVR >= nverts) nextVR = 0;
         }
 
-        s32 minX = polygon->Vertices[vtop]->FinalPosition[0];
-        s32 minXY = polygon->Vertices[vtop]->FinalPosition[1];
-        s32 maxX = polygon->Vertices[vtop]->FinalPosition[0];
-        s32 maxXY = polygon->Vertices[vtop]->FinalPosition[1];
+        s32 scaledPositions[10][2];
+        s32 ytop = ScreenHeight, ybot = 0;
+        for (int i = 0; i < polygon->NumVertices; i++)
+        {
+            scaledPositions[i][0] = (polygon->Vertices[i]->HiresPosition[0] * ScaleFactor) >> 4;
+            scaledPositions[i][1] = (polygon->Vertices[i]->HiresPosition[1] * ScaleFactor) >> 4;
+            ytop = std::min(scaledPositions[i][1], ytop);
+            ybot = std::max(scaledPositions[i][1], ybot);
+        }
+        RenderPolygons[i].YTop = ytop;
+        RenderPolygons[i].YBot = ybot;
+
+        s32 minX = scaledPositions[vtop][0];
+        s32 minXY = scaledPositions[vtop][1];
+        s32 maxX = scaledPositions[vtop][0];
+        s32 maxXY = scaledPositions[vtop][1];
 
         if (ybot == ytop)
         {
@@ -1046,19 +1090,19 @@ void ComputeRenderer::RenderFrame()
             RenderPolygons[i].YBot++;
 
             int j = 1;
-            if (polygon->Vertices[j]->FinalPosition[0] < polygon->Vertices[vtop]->FinalPosition[0]) vtop = j;
-            if (polygon->Vertices[j]->FinalPosition[0] > polygon->Vertices[vbot]->FinalPosition[0]) vbot = j;
+            if (scaledPositions[j][0] < scaledPositions[vtop][0]) vtop = j;
+            if (scaledPositions[j][0] > scaledPositions[vbot][0]) vbot = j;
 
             j = nverts - 1;
-            if (polygon->Vertices[j]->FinalPosition[0] < polygon->Vertices[vtop]->FinalPosition[0]) vtop = j;
-            if (polygon->Vertices[j]->FinalPosition[0] > polygon->Vertices[vbot]->FinalPosition[0]) vbot = j;
+            if (scaledPositions[j][0] < scaledPositions[vtop][0]) vtop = j;
+            if (scaledPositions[j][0] > scaledPositions[vbot][0]) vbot = j;
 
             assert(numYSpans < MaxYSpanSetups);
             u32 curSpanL = numYSpans;
-            SetupYSpanDummy(&YSpanSetups[numYSpans++], polygon, vtop, 0);
+            SetupYSpanDummy(&YSpanSetups[numYSpans++], polygon, vtop, 0, scaledPositions);
             assert(numYSpans < MaxYSpanSetups);
             u32 curSpanR = numYSpans;
-            SetupYSpanDummy(&YSpanSetups[numYSpans++], polygon, vbot, 1);
+            SetupYSpanDummy(&YSpanSetups[numYSpans++], polygon, vbot, 1, scaledPositions);
 
             minX = YSpanSetups[curSpanL].X0;
             minXY = YSpanSetups[curSpanL].Y0;
@@ -1070,7 +1114,6 @@ void ComputeRenderer::RenderFrame()
                 std::swap(minXY, maxXY);
             }
 
-            assert(numSetupIndices < MaxYSpanIndices);
             YSpanIndices[numSetupIndices].PolyIdx = i;
             YSpanIndices[numSetupIndices].SpanIdxL = curSpanL;
             YSpanIndices[numSetupIndices].SpanIdxR = curSpanR;
@@ -1081,16 +1124,16 @@ void ComputeRenderer::RenderFrame()
         {
             u32 curSpanL = numYSpans;
             assert(numYSpans < MaxYSpanSetups);
-            SetupYSpan(i, &YSpanSetups[numYSpans++], polygon, curVL, nextVL, ytop, 0);
+            SetupYSpan(i, &YSpanSetups[numYSpans++], polygon, curVL, nextVL, ytop, 0, scaledPositions);
             u32 curSpanR = numYSpans;
             assert(numYSpans < MaxYSpanSetups);
-            SetupYSpan(i, &YSpanSetups[numYSpans++], polygon, curVR, nextVR, ytop, 1);
+            SetupYSpan(i, &YSpanSetups[numYSpans++], polygon, curVR, nextVR, ytop, 1, scaledPositions);
 
             for (u32 y = ytop; y < ybot; y++)
             {
-                if (y >= polygon->Vertices[nextVL]->FinalPosition[1] && curVL != polygon->VBottom)
+                if (y >= scaledPositions[nextVL][1] && curVL != polygon->VBottom)
                 {
-                    while (y >= polygon->Vertices[nextVL]->FinalPosition[1] && curVL != polygon->VBottom)
+                    while (y >= scaledPositions[nextVL][1] && curVL != polygon->VBottom)
                     {
                         curVL = nextVL;
                         if (polygon->FacingView)
@@ -1107,24 +1150,24 @@ void ComputeRenderer::RenderFrame()
                         }
                     }
 
-                    if (polygon->Vertices[curVL]->FinalPosition[0] < minX)
+                    if (scaledPositions[curVL][0] < minX)
                     {
-                        minX = polygon->Vertices[curVL]->FinalPosition[0];
-                        minXY = polygon->Vertices[curVL]->FinalPosition[1];
+                        minX = scaledPositions[curVL][0];
+                        minXY = scaledPositions[curVL][1];
                     }
-                    if (polygon->Vertices[curVL]->FinalPosition[0] > maxX)
+                    if (scaledPositions[curVL][0] > maxX)
                     {
-                        maxX = polygon->Vertices[curVL]->FinalPosition[0];
-                        maxXY = polygon->Vertices[curVL]->FinalPosition[1];
+                        maxX = scaledPositions[curVL][0];
+                        maxXY = scaledPositions[curVL][1];
                     }
 
                     assert(numYSpans < MaxYSpanSetups);
                     curSpanL = numYSpans;
-                    SetupYSpan(i,&YSpanSetups[numYSpans++], polygon, curVL, nextVL, y, 0);
+                    SetupYSpan(i,&YSpanSetups[numYSpans++], polygon, curVL, nextVL, y, 0, scaledPositions);
                 }
-                if (y >= polygon->Vertices[nextVR]->FinalPosition[1] && curVR != polygon->VBottom)
+                if (y >= scaledPositions[nextVR][1] && curVR != polygon->VBottom)
                 {
-                    while (y >= polygon->Vertices[nextVR]->FinalPosition[1] && curVR != polygon->VBottom)
+                    while (y >= scaledPositions[nextVR][1] && curVR != polygon->VBottom)
                     {
                         curVR = nextVR;
                         if (polygon->FacingView)
@@ -1141,23 +1184,22 @@ void ComputeRenderer::RenderFrame()
                         }
                     }
 
-                    if (polygon->Vertices[curVR]->FinalPosition[0] < minX)
+                    if (scaledPositions[curVR][0] < minX)
                     {
-                        minX = polygon->Vertices[curVR]->FinalPosition[0];
-                        minXY = polygon->Vertices[curVR]->FinalPosition[1];
+                        minX = scaledPositions[curVR][0];
+                        minXY = scaledPositions[curVR][1];
                     }
-                    if (polygon->Vertices[curVR]->FinalPosition[0] > maxX)
+                    if (scaledPositions[curVR][0] > maxX)
                     {
-                        maxX = polygon->Vertices[curVR]->FinalPosition[0];
-                        maxXY = polygon->Vertices[curVR]->FinalPosition[1];
+                        maxX = scaledPositions[curVR][0];
+                        maxXY = scaledPositions[curVR][1];
                     }
 
                     assert(numYSpans < MaxYSpanSetups);
                     curSpanR = numYSpans;
-                    SetupYSpan(i,&YSpanSetups[numYSpans++], polygon, curVR, nextVR, y, 1);
+                    SetupYSpan(i,&YSpanSetups[numYSpans++], polygon, curVR, nextVR, y, 1, scaledPositions);
                 }
 
-                assert(numSetupIndices < MaxYSpanIndices);
                 YSpanIndices[numSetupIndices].PolyIdx = i;
                 YSpanIndices[numSetupIndices].SpanIdxL = curSpanL;
                 YSpanIndices[numSetupIndices].SpanIdxR = curSpanR;
@@ -1166,25 +1208,25 @@ void ComputeRenderer::RenderFrame()
             }
         }
 
-        if (polygon->Vertices[nextVL]->FinalPosition[0] < minX)
+        if (scaledPositions[nextVL][0] < minX)
         {
-            minX = polygon->Vertices[nextVL]->FinalPosition[0];
-            minXY = polygon->Vertices[nextVL]->FinalPosition[1];
+            minX = scaledPositions[nextVL][0];
+            minXY = scaledPositions[nextVL][1];
         }
-        if (polygon->Vertices[nextVL]->FinalPosition[0] > maxX)
+        if (scaledPositions[nextVL][0] > maxX)
         {
-            maxX = polygon->Vertices[nextVL]->FinalPosition[0];
-            maxXY = polygon->Vertices[nextVL]->FinalPosition[1];
+            maxX = scaledPositions[nextVL][0];
+            maxXY = scaledPositions[nextVL][1];
         }
-        if (polygon->Vertices[nextVR]->FinalPosition[0] < minX)
+        if (scaledPositions[nextVR][0] < minX)
         {
-            minX = polygon->Vertices[nextVR]->FinalPosition[0];
-            minXY = polygon->Vertices[nextVR]->FinalPosition[1];
+            minX = scaledPositions[nextVR][0];
+            minXY = scaledPositions[nextVR][1];
         }
-        if (polygon->Vertices[nextVR]->FinalPosition[0] > maxX)
+        if (scaledPositions[nextVR][0] > maxX)
         {
-            maxX = polygon->Vertices[nextVR]->FinalPosition[0];
-            maxXY = polygon->Vertices[nextVR]->FinalPosition[1];
+            maxX = scaledPositions[nextVR][0];
+            maxXY = scaledPositions[nextVR][1];
         }
 
         RenderPolygons[i].XMin = minX;
@@ -1210,7 +1252,7 @@ void ComputeRenderer::RenderFrame()
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(SpanSetupY)*numYSpans, YSpanSetups);
 
         glBindBuffer(GL_TEXTURE_BUFFER, YSpanIndicesTextureMemory);
-        glBufferSubData(GL_TEXTURE_BUFFER, 0, numSetupIndices*4*2, YSpanIndices);
+        glBufferSubData(GL_TEXTURE_BUFFER, 0, numSetupIndices*4*2, YSpanIndices.data());
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, RenderPolygonMemory);
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, RenderNumPolygons*sizeof(RenderPolygon), RenderPolygons);
@@ -1278,8 +1320,6 @@ void ComputeRenderer::RenderFrame()
         u32 fogA = (RenderFogColor >> 16) & 0x1F;
         meta.FogColor = fogR | (fogG << 8) | (fogB << 16) | (fogA << 24);
     }
-    meta.XScroll = 0;
-    //meta.XScroll = RenderXPos;
 
     glBindBuffer(GL_UNIFORM_BUFFER, MetaUniformMemory);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(MetaUniform), &meta);
@@ -1304,7 +1344,7 @@ void ComputeRenderer::RenderFrame()
 
         // bin polygons
         glUseProgram(ShaderBinCombined);
-        glDispatchCompute(((RenderNumPolygons + 31) / 32), 256/CoarseTileW, 192/CoarseTileH);
+        glDispatchCompute(((RenderNumPolygons + 31) / 32), ScreenWidth/CoarseTileW, ScreenHeight/CoarseTileH);
         glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
 
         // calculate list offsets
@@ -1316,7 +1356,7 @@ void ComputeRenderer::RenderFrame()
         // sort shader work
         glUseProgram(ShaderSortWork);
         glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
-        glDispatchComputeIndirect(offsetof(BinResult, SortWorkWorkCount));
+        glDispatchComputeIndirect(offsetof(BinResultHeader, SortWorkWorkCount));
         glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
 
         glActiveTexture(GL_TEXTURE0);
@@ -1379,7 +1419,7 @@ void ComputeRenderer::RenderFrame()
                 glUniform1ui(UniformIdxCurVariant, i);
                 glUniform2f(UniformIdxTextureSize, 1.f / variants[i].Width, 1.f / variants[i].Height);
                 glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
-                glDispatchComputeIndirect(offsetof(BinResult, VariantWorkCount) + i*4*4);
+                glDispatchComputeIndirect(offsetof(BinResultHeader, VariantWorkCount) + i*4*4);
             }
         }
     }
@@ -1387,10 +1427,11 @@ void ComputeRenderer::RenderFrame()
 
     // compose final image
     glUseProgram(ShaderDepthBlend[wbuffer]);
-    glDispatchCompute(256/8, 192/8, 1);
+    glDispatchCompute(ScreenWidth/TileSize, ScreenHeight/TileSize, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     glBindImageTexture(0, Framebuffer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+    glBindImageTexture(1, LowResFramebuffer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8UI);
     u32 finalPassShader = 0;
     if (RenderDispCnt & (1<<4))
         finalPassShader |= 0x4;
@@ -1400,7 +1441,7 @@ void ComputeRenderer::RenderFrame()
         finalPassShader |= 0x1;
     
     glUseProgram(ShaderFinalPass[finalPassShader]);
-    glDispatchCompute(256/32, 192, 1);
+    glDispatchCompute(ScreenWidth/32, ScreenHeight, 1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     /*u64 starttime = armGetSystemTick();
@@ -1467,15 +1508,6 @@ u32* ComputeRenderer::GetLine(int line)
         glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
     }
 
-    u64* ptr = (u64*)&FramebufferCPU[stride * line];
-    for (int i = 0; i < stride; i+=2)
-    {
-        u64 rgb = *ptr & 0x00FCFCFC00FCFCFC;
-        u64 a = *ptr & 0xF8000000F8000000;
-
-        *ptr++ = (rgb >> 2) | (a >> 3);
-    }
-
     return &FramebufferCPU[stride * line];
 }
 
@@ -1487,8 +1519,8 @@ void ComputeRenderer::SetupAccelFrame()
 void ComputeRenderer::PrepareCaptureFrame()
 {
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelBuffer);
-    glBindTexture(GL_TEXTURE_2D, Framebuffer);
-    glGetTexImage(GL_TEXTURE_2D, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
+    glBindTexture(GL_TEXTURE_2D, LowResFramebuffer);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, nullptr);
 }
 
 }

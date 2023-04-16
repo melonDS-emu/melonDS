@@ -141,57 +141,32 @@ private:
         u32 __pad0, __pad1;
     };
 
-    static const int TileSize = 8;
-    static const int CoarseTileCountX = 8;
-    static const int CoarseTileCountY = 4;
-    static const int CoarseTileW = CoarseTileCountX * TileSize;
-    static const int CoarseTileH = CoarseTileCountY * TileSize;
+    static constexpr int TileSize = 8;
+    static constexpr int CoarseTileCountX = 8;
+    static constexpr int CoarseTileCountY = 4;
+    static constexpr int CoarseTileW = CoarseTileCountX * TileSize;
+    static constexpr int CoarseTileH = CoarseTileCountY * TileSize;
 
-    static const int TilesPerLine = 256/TileSize;
-    static const int TileLines = 192/TileSize;
+    static constexpr int BinStride = 2048/32;
+    static constexpr int CoarseBinStride = BinStride/32;
 
-    static const int BinStride = 2048/32;
-    static const int CoarseBinStride = BinStride/32;
+    static constexpr int MaxVariants = 256;
 
-    static const int MaxWorkTiles = TilesPerLine*TileLines*48;
-    static const int MaxVariants = 256;
+    static constexpr int UniformIdxCurVariant = 0;
+    static constexpr int UniformIdxTextureSize = 1;
 
-    static const int UniformIdxCurVariant = 0;
-    static const int UniformIdxTextureSize = 1;
+    static constexpr int MaxFullscreenLayers = 16;
 
-    struct BinResult
+    struct BinResultHeader
     {
         u32 VariantWorkCount[MaxVariants*4];
         u32 SortedWorkOffset[MaxVariants];
 
         u32 SortWorkWorkCount[4];
-        u32 UnsortedWorkDescs[MaxWorkTiles*2];
-        u32 SortedWork[MaxWorkTiles*2];
-
-        u32 BinnedMaskCoarse[TilesPerLine*TileLines*CoarseBinStride];
-        u32 BinnedMask[TilesPerLine*TileLines*BinStride];
-        u32 WorkOffsets[TilesPerLine*TileLines*BinStride];
     };
 
-    struct Tiles
-    {
-        u32 ColorTiles[MaxWorkTiles*TileSize*TileSize];
-        u32 DepthTiles[MaxWorkTiles*TileSize*TileSize];
-        u32 AttrStencilTiles[MaxWorkTiles*TileSize*TileSize];
-    };
-
-    struct FinalTiles
-    {
-        u32 ColorResult[256*192*2];
-        u32 DepthResult[256*192*2];
-        u32 AttrResult[256*192*2];
-    };
-
-    // eh those are pretty bad guesses
-    // though real hw shouldn't be eable to render all 2048 polygons on every line either
-    static const int MaxYSpanIndices = 64*2048;
     static const int MaxYSpanSetups = 6144*2;
-    SetupIndices YSpanIndices[MaxYSpanIndices];
+    std::vector<SetupIndices> YSpanIndices;
     SpanSetupY YSpanSetups[MaxYSpanSetups];
     RenderPolygon RenderPolygons[2048];
 
@@ -228,8 +203,6 @@ private:
         u32 ClearColor, ClearDepth, ClearAttr;
 
         u32 FogOffset, FogShift, FogColor;
-
-        u32 XScroll;
     };
     GLuint MetaUniformMemory;
 
@@ -241,17 +214,24 @@ private:
     u32 TextureDecodingBuffer[1024*1024];
 
     GLuint Framebuffer;
+    GLuint LowResFramebuffer;
     GLuint PixelBuffer;
 
     u32 FramebufferCPU[256*192];
 
     TexCacheEntry& GetTexture(u32 textureParam, u32 paletteParam);
 
+    int ScreenWidth, ScreenHeight;
+    int TilesPerLine, TileLines;
+    int ScaleFactor = -1;
+    int MaxWorkTiles;
+
     void ResetTexcache();
+    void DeleteShaders();
 
     void SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int to);
-    void SetupYSpan(int polynum, SpanSetupY* span, Polygon* poly, int from, int to, u32 y, int side);
-    void SetupYSpanDummy(SpanSetupY* span, Polygon* poly, int vertex, int side);
+    void SetupYSpan(int polynum, SpanSetupY* span, Polygon* poly, int from, int to, u32 y, int side, s32 positions[10][2]);
+    void SetupYSpanDummy(SpanSetupY* span, Polygon* poly, int vertex, int side, s32 positions[10][2]);
 
     bool CompileShader(GLuint& shader, const char* source, const std::initializer_list<const char*>& defines);
 };
