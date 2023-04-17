@@ -683,7 +683,7 @@ void main()
         xspan.InsideEnd = xspan.X1;
 
     bool isShadowMask = ((polygon.Attr & 0x3F000030U) == 0x00000030U);
-    bool fillAllEdges = /*polyalpha < 31*/true;
+    bool fillAllEdges = polyalpha < 31 || (DispCnt & (3U<<4)) != 0U;
 
     if (fillAllEdges || spanL.X1 < spanL.X0 || spanL.Increment <= 0x40000)
         xspan.Flags |= XSpanSetup_FillLeft;
