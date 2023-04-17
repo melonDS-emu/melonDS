@@ -744,11 +744,11 @@ ComputeRenderer::TexCacheEntry& ComputeRenderer::GetTexture(u32 texParam, u32 pa
     {
         entry.TextureRAMSize[0] = width*height*2;
 
-        for (u32 i = 0; i < width*height; i += 2)
+        for (u32 i = 0; i < width*height; i++)
         {
             u16 value = *(u16*)&GPU::VRAMFlat_Texture[addr + i * 2];
 
-            TextureDecodingBuffer[i] = ConvertRGB5ToRGB6(value);
+            TextureDecodingBuffer[i] = ConvertRGB5ToRGB6(value) | (value & 0x8000 ? 0x1F000000 : 0);
         }
     }
     else if (fmt == 5)
