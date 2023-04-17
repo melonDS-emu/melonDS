@@ -213,7 +213,7 @@ private:
 
     u32 TextureDecodingBuffer[1024*1024];
 
-    GLuint Framebuffer;
+    GLuint Framebuffer = 0;
     GLuint LowResFramebuffer;
     GLuint PixelBuffer;
 

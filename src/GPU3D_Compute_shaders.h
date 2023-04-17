@@ -299,11 +299,11 @@ uint Div64_32_32(uint numHi, uint numLo, uint den)
     // there's a 1 in the MSB.
     // We also shift numer by the same amount. This cannot overflow because numHi < den.
     // The expression (-shift & 63) is the same as (64 - shift), except it avoids the UB of shifting
-    // by 64. <---- in C. I'm pretty sure shifts are masked in GLSL, but whatever.
+    // by 64. (it's also UB in GLSL!!!!)
     uint shift = 31 - findMSB(den);
     den <<= shift;
     numHi <<= shift;
-    numHi |= (numLo >> (-shift & 63U)) & uint(-int(shift) >> 63);
+    numHi |= (numLo >> (-shift & 31U)) & uint(-int(shift) >> 31);
     numLo <<= shift;
 
     // Extract the low digits of the numerator and both digits of the denominator.
@@ -347,12 +347,12 @@ int CalcYFactorY(YSpanSetup span, int i)
     /*
         maybe it would be better to do use a 32x32=64 multiplication?
     */
-    uint numLo = abs(i * span.W0n);
+    uint numLo = uint(abs(i)) * uint(span.W0n);
     uint numHi = 0U;
-    numHi |= numLo >> (32-YFactorShift);
+    numHi |= numLo >> (32U-YFactorShift);
     numLo <<= YFactorShift;
 
-    uint den = abs(i * span.W0d + (span.I1 - span.I0 - i) * span.W1d);
+    uint den = uint(abs(i)) * uint(span.W0d) + uint(abs(span.I1 - span.I0 - i)) * span.W1d;
 
     if (den == 0)
     {
@@ -370,12 +370,12 @@ int CalcYFactorX(XSpanSetup span, int x)
 
     if (span.X0 != span.X1)
     {
-        uint numLo = uint(x) * span.W0;
+        uint numLo = uint(x) * uint(span.W0);
         uint numHi = 0U;
-        numHi |= numLo >> (32-YFactorShift);
+        numHi |= numLo >> (32U-YFactorShift);
         numLo <<= YFactorShift;
 
-        uint den = (uint(x) * span.W0) + (uint(span.X1 - span.X0 - x) * span.W1);
+        uint den = uint(x) * uint(span.W0) + uint(span.X1 - span.X0 - x) * uint(span.W1);
 
         if (den == 0)
             return 0;

@@ -89,7 +89,6 @@ bool ComputeRenderer::Init()
     glGenBuffers(1, &TileMemory);
 
     glGenTextures(1, &YSpanIndicesTexture);
-    glGenTextures(1, &Framebuffer);
     glGenTextures(1, &LowResFramebuffer);
     glBindTexture(GL_TEXTURE_2D, LowResFramebuffer);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8UI, 256, 192);
@@ -230,6 +229,9 @@ void ComputeRenderer::SetRenderSettings(GPU::RenderSettings& settings)
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, BinResultMemory);
     glBufferData(GL_SHADER_STORAGE_BUFFER, binResultSize, nullptr, GL_DYNAMIC_DRAW);
 
+    if (Framebuffer != 0)
+        glDeleteTextures(1, &Framebuffer);
+    glGenTextures(1, &Framebuffer);
     glBindTexture(GL_TEXTURE_2D, Framebuffer);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, ScreenWidth, ScreenHeight);
 
@@ -1391,7 +1393,7 @@ void ComputeRenderer::RenderFrame()
             for (int i = 0; i < numVariants; i++)
             {
                 GLuint shader = 0;
-                if (variants[i].Texture == -1)
+                if (variants[i].Texture == 0)
                 {
                     shader = shadersNoTexture[variants[i].BlendMode];
                 }
