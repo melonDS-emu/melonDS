@@ -1488,16 +1488,13 @@ void main()
             otherDepth.w = DepthResult[resultOffset+ScreenWidth];
         }
 
-        uint polyId = bitfieldExtract(attr.x, 24, 5);
-        uvec4 otherPolyId = bitfieldExtract(otherAttr, 24, 5);
+        uint polyId = bitfieldExtract(attr.x, 24, 6);
+        uvec4 otherPolyId = bitfieldExtract(otherAttr, 24, 6);
 
-        bvec4 polyIdMatch = equal(uvec4(polyId), otherPolyId);
+        bvec4 polyIdMismatch = notEqual(uvec4(polyId), otherPolyId);
         bvec4 nearer = lessThan(uvec4(depth.x), otherDepth);
 
-        if ((!polyIdMatch.x && nearer.x)
-            || (!polyIdMatch.y && nearer.y)
-            || (!polyIdMatch.z && nearer.z)
-            || (!polyIdMatch.w && nearer.w))
+        if (any(polyIdMismatch & nearer))
         {
             color.x = ToonTable[polyId >> 3].b | (color.x & 0xFF000000U);
             attr.x = (attr.x & 0xFFFFE0FFU) | 0x00001000U;
