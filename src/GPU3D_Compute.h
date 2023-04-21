@@ -230,8 +230,8 @@ private:
     void DeleteShaders();
 
     void SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int to);
-    void SetupYSpan(int polynum, SpanSetupY* span, Polygon* poly, int from, int to, u32 y, int side, s32 positions[10][2]);
-    void SetupYSpanDummy(SpanSetupY* span, Polygon* poly, int vertex, int side, s32 positions[10][2]);
+    void SetupYSpan(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int from, int to, int side, s32 positions[10][2]);
+    void SetupYSpanDummy(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int vertex, int side, s32 positions[10][2]);
 
     bool CompileShader(GLuint& shader, const char* source, const std::initializer_list<const char*>& defines);
 };

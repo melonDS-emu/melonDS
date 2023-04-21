@@ -24,8 +24,6 @@ using Platform::LogLevel;
 namespace OpenGL
 {
 
-#define checkGLError() if (glGetError() != GL_NO_ERROR) printf("error %d\n", __LINE__)
-
 bool CompilerShader(GLuint& id, const char* source, const char* name, const char* type)
 {
     int len;
@@ -39,12 +37,9 @@ bool CompilerShader(GLuint& id, const char* source, const char* name, const char
 
     len = strlen(source);
     glShaderSource(id, 1, &source, &len);
-    checkGLError();
     glCompileShader(id);
-    checkGLError();
 
     glGetShaderiv(id, GL_COMPILE_STATUS, &res);
-    checkGLError();
     if (res != GL_TRUE)
     {
         glGetShaderiv(id, GL_INFO_LOG_LENGTH, &res);
@@ -74,7 +69,6 @@ bool LinkProgram(GLuint& result, GLuint* ids, int numIds)
     for (int i = 0; i < numIds; i++)
     {
         glAttachShader(result, ids[i]);
-        checkGLError();
     }
 
     glLinkProgram(result);

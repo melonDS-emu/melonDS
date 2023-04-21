@@ -208,6 +208,7 @@ buffer TilesBuffer
 };
 #endif
 
+#if defined(DepthBlend) || defined(FinalPass)
 layout (std430, binding = 5)
 #ifdef DepthBlend
 writeonly
@@ -221,6 +222,7 @@ buffer RasterResult
     uint DepthResult[ScreenWidth*ScreenHeight*2];
     uint AttrResult[ScreenWidth*ScreenHeight*2];
 };
+#endif
 
 layout (std140, binding = 0) uniform MetaUniform
 {
@@ -835,6 +837,28 @@ bool BinPolygon(Polygon polygon, ivec2 topLeft, ivec2 botRight)
 
     int polygonHeight = polygon.YBot - polygon.YTop;
 
+    /*
+        All (good) polygons are convex. So the following holds true:
+
+        Starting from the top most point where both edges originate
+        the X coordinate of the left edge will stay the same or falls until
+        the minimum X-axis coordinate is reached. Then it stays the same or
+        rises until the point it meets with the right edge.
+
+        The same applies to the right edge, except that it first may rise or stay equal and
+        after the maximum point may only fall or stay the same.
+
+        This means that for every tile which doesn't contain the point where the direction changes
+        we can just get the maximum point by sampling the top most and bottom most coordinate
+        within the tile.
+
+        For a tile which is that the height of the direction change
+
+        As a sidenote another consequence of this design decision is
+        that malformed polygons aren't binned properly.
+
+        As a note bottom Y is exclusive!
+    */
     int polyInnerTopY = clamp(topLeft.y - polygon.YTop, 0, max(polygonHeight-1, 0));
     int polyInnerBotY = clamp(botRight.y - polygon.YTop, 0, max(polygonHeight-1, 0));
 
@@ -1557,8 +1581,8 @@ void main()
 //    else
 //        color.x = 0U;
 
-    //if (gl_LocalInvocationID.x == 7 || gl_LocalInvocationID.y == 7)
-        //color.x = 0x1F00001FU | 0x40000000U;
+    //if ((gl_GlobalInvocationID.y % 8) == 7 || (gl_GlobalInvocationID.y % 8) == 7)
+    //    color.x = 0x1F00001FU | 0x40000000U;
 
     vec4 result = vec4(bitfieldExtract(color.x, 16, 8), bitfieldExtract(color.x, 8, 8), color.x & 0x3FU, bitfieldExtract(color.x, 24, 8));
     result /= vec4(63.0, 63.0, 63.0, 31.0);

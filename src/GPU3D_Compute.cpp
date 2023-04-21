@@ -307,7 +307,7 @@ void ComputeRenderer::SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int 
     span->TexcoordV1 = poly->Vertices[to]->TexCoords[1];
 }
 
-void ComputeRenderer::SetupYSpanDummy(SpanSetupY* span, Polygon* poly, int vertex, int side, s32 positions[10][2])
+void ComputeRenderer::SetupYSpanDummy(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int vertex, int side, s32 positions[10][2])
 {
     s32 x0 = positions[vertex][0];
     if (side)
@@ -325,6 +325,17 @@ void ComputeRenderer::SetupYSpanDummy(SpanSetupY* span, Polygon* poly, int verte
     span->XMax = x0;
     span->Y0 = span->Y1 = positions[vertex][1];
 
+    if (span->XMin < rp->XMin)
+    {
+        rp->XMin = span->XMin;
+        rp->XMinY = span->Y0;
+    }
+    if (span->XMax > rp->XMax)
+    {
+        rp->XMax = span->XMax;
+        rp->XMaxY = span->Y0;
+    }
+
     span->Increment = 0;
 
     span->I0 = span->I1 = span->IRecip = 0;
@@ -337,7 +348,7 @@ void ComputeRenderer::SetupYSpanDummy(SpanSetupY* span, Polygon* poly, int verte
     SetupAttrs(span, poly, vertex, vertex);
 }
 
-void ComputeRenderer::SetupYSpan(int polynum, SpanSetupY* span, Polygon* poly, int from, int to, u32 y, int side, s32 positions[10][2])
+void ComputeRenderer::SetupYSpan(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int from, int to, int side, s32 positions[10][2])
 {
     span->X0 = positions[from][0];
     span->X1 = positions[to][0];
@@ -346,23 +357,45 @@ void ComputeRenderer::SetupYSpan(int polynum, SpanSetupY* span, Polygon* poly, i
 
     SetupAttrs(span, poly, from, to);
 
+    s32 minXY, maxXY;
     bool negative = false;
     if (span->X1 > span->X0)
     {
         span->XMin = span->X0;
         span->XMax = span->X1-1;
+
+        minXY = span->Y0;
+        maxXY = span->Y1;
     }
     else if (span->X1 < span->X0)
     {
         span->XMin = span->X1;
         span->XMax = span->X0-1;
         negative = true;
+
+        minXY = span->Y1;
+        maxXY = span->Y0;
     }
     else
     {
         span->XMin = span->X0;
         if (side) span->XMin--;
         span->XMax = span->XMin;
+
+        // doesn't matter for completely vertical slope
+        minXY = span->Y0;
+        maxXY = span->Y0;
+    }
+
+    if (span->XMin < rp->XMin)
+    {
+        rp->XMin = span->XMin;
+        rp->XMinY = minXY;
+    }
+    if (span->XMax > rp->XMax)
+    {
+        rp->XMax = span->XMax;
+        rp->XMaxY = maxXY;
     }
 
     span->IsDummy = false;
@@ -1072,18 +1105,15 @@ void ComputeRenderer::RenderFrame()
         s32 ytop = ScreenHeight, ybot = 0;
         for (int i = 0; i < polygon->NumVertices; i++)
         {
-            scaledPositions[i][0] = (polygon->Vertices[i]->HiresPosition[0] * ScaleFactor) >> 4;
-            scaledPositions[i][1] = (polygon->Vertices[i]->HiresPosition[1] * ScaleFactor) >> 4;
+            scaledPositions[i][0] = (polygon->Vertices[i]->FinalPosition[0] * ScaleFactor);
+            scaledPositions[i][1] = (polygon->Vertices[i]->FinalPosition[1] * ScaleFactor);
             ytop = std::min(scaledPositions[i][1], ytop);
             ybot = std::max(scaledPositions[i][1], ybot);
         }
         RenderPolygons[i].YTop = ytop;
         RenderPolygons[i].YBot = ybot;
-
-        s32 minX = scaledPositions[vtop][0];
-        s32 minXY = scaledPositions[vtop][1];
-        s32 maxX = scaledPositions[vtop][0];
-        s32 maxXY = scaledPositions[vtop][1];
+        RenderPolygons[i].XMin = ScreenWidth;
+        RenderPolygons[i].XMax = 0;
 
         if (ybot == ytop)
         {
@@ -1101,20 +1131,10 @@ void ComputeRenderer::RenderFrame()
 
             assert(numYSpans < MaxYSpanSetups);
             u32 curSpanL = numYSpans;
-            SetupYSpanDummy(&YSpanSetups[numYSpans++], polygon, vtop, 0, scaledPositions);
+            SetupYSpanDummy(&RenderPolygons[i], &YSpanSetups[numYSpans++], polygon, vtop, 0, scaledPositions);
             assert(numYSpans < MaxYSpanSetups);
             u32 curSpanR = numYSpans;
-            SetupYSpanDummy(&YSpanSetups[numYSpans++], polygon, vbot, 1, scaledPositions);
-
-            minX = YSpanSetups[curSpanL].X0;
-            minXY = YSpanSetups[curSpanL].Y0;
-            maxX = YSpanSetups[curSpanR].X0;
-            maxXY = YSpanSetups[curSpanR].Y0;
-            if (maxX < minX)
-            {
-                std::swap(minX, maxX);
-                std::swap(minXY, maxXY);
-            }
+            SetupYSpanDummy(&RenderPolygons[i], &YSpanSetups[numYSpans++], polygon, vbot, 1, scaledPositions);
 
             YSpanIndices[numSetupIndices].PolyIdx = i;
             YSpanIndices[numSetupIndices].SpanIdxL = curSpanL;
@@ -1126,10 +1146,10 @@ void ComputeRenderer::RenderFrame()
         {
             u32 curSpanL = numYSpans;
             assert(numYSpans < MaxYSpanSetups);
-            SetupYSpan(i, &YSpanSetups[numYSpans++], polygon, curVL, nextVL, ytop, 0, scaledPositions);
+            SetupYSpan(&RenderPolygons[i], &YSpanSetups[numYSpans++], polygon, curVL, nextVL, 0, scaledPositions);
             u32 curSpanR = numYSpans;
             assert(numYSpans < MaxYSpanSetups);
-            SetupYSpan(i, &YSpanSetups[numYSpans++], polygon, curVR, nextVR, ytop, 1, scaledPositions);
+            SetupYSpan(&RenderPolygons[i], &YSpanSetups[numYSpans++], polygon, curVR, nextVR, 1, scaledPositions);
 
             for (u32 y = ytop; y < ybot; y++)
             {
@@ -1152,20 +1172,10 @@ void ComputeRenderer::RenderFrame()
                         }
                     }
 
-                    if (scaledPositions[curVL][0] < minX)
-                    {
-                        minX = scaledPositions[curVL][0];
-                        minXY = scaledPositions[curVL][1];
-                    }
-                    if (scaledPositions[curVL][0] > maxX)
-                    {
-                        maxX = scaledPositions[curVL][0];
-                        maxXY = scaledPositions[curVL][1];
-                    }
 
                     assert(numYSpans < MaxYSpanSetups);
                     curSpanL = numYSpans;
-                    SetupYSpan(i,&YSpanSetups[numYSpans++], polygon, curVL, nextVL, y, 0, scaledPositions);
+                    SetupYSpan(&RenderPolygons[i], &YSpanSetups[numYSpans++], polygon, curVL, nextVL, 0, scaledPositions);
                 }
                 if (y >= scaledPositions[nextVR][1] && curVR != polygon->VBottom)
                 {
@@ -1186,20 +1196,9 @@ void ComputeRenderer::RenderFrame()
                         }
                     }
 
-                    if (scaledPositions[curVR][0] < minX)
-                    {
-                        minX = scaledPositions[curVR][0];
-                        minXY = scaledPositions[curVR][1];
-                    }
-                    if (scaledPositions[curVR][0] > maxX)
-                    {
-                        maxX = scaledPositions[curVR][0];
-                        maxXY = scaledPositions[curVR][1];
-                    }
-
                     assert(numYSpans < MaxYSpanSetups);
                     curSpanR = numYSpans;
-                    SetupYSpan(i,&YSpanSetups[numYSpans++], polygon, curVR, nextVR, y, 1, scaledPositions);
+                    SetupYSpan(&RenderPolygons[i] ,&YSpanSetups[numYSpans++], polygon, curVR, nextVR, 1, scaledPositions);
                 }
 
                 YSpanIndices[numSetupIndices].PolyIdx = i;
@@ -1209,32 +1208,6 @@ void ComputeRenderer::RenderFrame()
                 numSetupIndices++;
             }
         }
-
-        if (scaledPositions[nextVL][0] < minX)
-        {
-            minX = scaledPositions[nextVL][0];
-            minXY = scaledPositions[nextVL][1];
-        }
-        if (scaledPositions[nextVL][0] > maxX)
-        {
-            maxX = scaledPositions[nextVL][0];
-            maxXY = scaledPositions[nextVL][1];
-        }
-        if (scaledPositions[nextVR][0] < minX)
-        {
-            minX = scaledPositions[nextVR][0];
-            minXY = scaledPositions[nextVR][1];
-        }
-        if (scaledPositions[nextVR][0] > maxX)
-        {
-            maxX = scaledPositions[nextVR][0];
-            maxXY = scaledPositions[nextVR][1];
-        }
-
-        RenderPolygons[i].XMin = minX;
-        RenderPolygons[i].XMinY = minXY;
-        RenderPolygons[i].XMax = maxX;
-        RenderPolygons[i].XMaxY = maxXY;
 
         //printf("polygon min max %d %d | %d %d\n", RenderPolygons[i].XMin, RenderPolygons[i].XMinY, RenderPolygons[i].XMax, RenderPolygons[i].XMaxY);
     }
