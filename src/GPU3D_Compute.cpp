@@ -1105,8 +1105,8 @@ void ComputeRenderer::RenderFrame()
         s32 ytop = ScreenHeight, ybot = 0;
         for (int i = 0; i < polygon->NumVertices; i++)
         {
-            scaledPositions[i][0] = (polygon->Vertices[i]->FinalPosition[0] * ScaleFactor);
-            scaledPositions[i][1] = (polygon->Vertices[i]->FinalPosition[1] * ScaleFactor);
+            scaledPositions[i][0] = (polygon->Vertices[i]->HiresPosition[0] * ScaleFactor) >> 4;
+            scaledPositions[i][1] = (polygon->Vertices[i]->HiresPosition[1] * ScaleFactor) >> 4;
             ytop = std::min(scaledPositions[i][1], ytop);
             ybot = std::max(scaledPositions[i][1], ybot);
         }
