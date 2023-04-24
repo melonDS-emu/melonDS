@@ -42,10 +42,25 @@ public:
 
     void Section(const char* magic);
 
-    void Var8(u8* var);
-    void Var16(u16* var);
-    void Var32(u32* var);
-    void Var64(u64* var);
+    void Var8(u8* var)
+    {
+        VarArray(var, sizeof(*var));
+    }
+
+    void Var16(u16* var)
+    {
+        VarArray(var, sizeof(*var));
+    }
+
+    void Var32(u32* var)
+    {
+        VarArray(var, sizeof(*var));
+    }
+
+    void Var64(u64* var)
+    {
+        VarArray(var, sizeof(*var));
+    }
 
     void Bool32(bool* var);
 
