@@ -937,6 +937,8 @@ bool DoSavestate(Savestate* file)
     }
 #endif
 
+    file->Finish();
+
     return true;
 }
 

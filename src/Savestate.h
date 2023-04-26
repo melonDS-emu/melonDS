@@ -29,14 +29,18 @@
 class Savestate
 {
 public:
-    Savestate(std::string filename, bool save);
+    static constexpr u32 DEFAULT_SIZE = 16 * 1024 * 1024; // 16 MB
+    [[deprecated]] Savestate(std::string filename, bool save);
+    Savestate(void* buffer, u32 size, bool save);
+    Savestate(u32 initial_size = DEFAULT_SIZE);
+
     ~Savestate();
 
     bool Error;
 
     bool Saving;
-    u32 VersionMajor;
-    u32 VersionMinor;
+    u16 VersionMajor;
+    u16 VersionMinor;
 
     u32 CurSection;
 
@@ -66,6 +70,11 @@ public:
 
     void VarArray(void* data, u32 len);
 
+    void Finish();
+
+    // TODO rewinds the stream
+    void Reset(bool save);
+
     bool IsAtleastVersion(u32 major, u32 minor)
     {
         if (VersionMajor > major) return true;
@@ -73,8 +82,23 @@ public:
         return false;
     }
 
+    void* Buffer() { return buffer; }
+    [[nodiscard]] const void* Buffer() const { return buffer; }
+
+    [[nodiscard]] u32 BufferLength() const { return buffer_length; }
+
+    [[nodiscard]] u32 Length() const { return buffer_offset; }
+
 private:
-    FILE* file;
+    static constexpr u32 NO_SECTION = 0xffffffff;
+    void CloseCurrentSection();
+    bool Resize(u32 new_length);
+    void WriteSavestateHeader();
+    u8* buffer;
+    u32 buffer_offset;
+    u32 buffer_length;
+    bool buffer_owned;
+    bool finished;
 };
 
 #endif // SAVESTATE_H

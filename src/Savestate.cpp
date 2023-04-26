@@ -17,11 +17,15 @@
 */
 
 #include <stdio.h>
+#include <cassert>
+#include <cstring>
 #include "Savestate.h"
 #include "Platform.h"
 
 using Platform::Log;
 using Platform::LogLevel;
+
+static const char* SAVESTATE_MAGIC = "MELN";
 
 /*
     Savestate format
@@ -46,64 +50,40 @@ using Platform::LogLevel;
     * different minor means adjustments may have to be made
 */
 
-// TODO: buffering system! or something of that sort
-// repeated fread/fwrite is slow on Switch
-
-Savestate::Savestate(std::string filename, bool save)
+Savestate::Savestate(void *buffer, u32 size, bool save) :
+    Error(false),
+    Saving(save),
+    VersionMajor(SAVESTATE_MAJOR),
+    VersionMinor(SAVESTATE_MINOR),
+    CurSection(NO_SECTION),
+    buffer(static_cast<u8 *>(buffer)),
+    buffer_offset(0),
+    buffer_length(size),
+    buffer_owned(false),
+    finished(false)
 {
-    const char* magic = "MELN";
-
-    Error = false;
-
-    if (save)
+    if (Saving)
     {
-        Saving = true;
-        file = Platform::OpenLocalFile(filename, "wb");
-        if (!file)
-        {
-            Log(LogLevel::Error, "savestate: file %s doesn't exist\n", filename.c_str());
-            Error = true;
-            return;
-        }
-
-        VersionMajor = SAVESTATE_MAJOR;
-        VersionMinor = SAVESTATE_MINOR;
-
-        fwrite(magic, 4, 1, file);
-        fwrite(&VersionMajor, 2, 1, file);
-        fwrite(&VersionMinor, 2, 1, file);
-        fseek(file, 8, SEEK_CUR); // length to be fixed later
+        WriteSavestateHeader();
     }
     else
     {
-        Saving = false;
-        file = Platform::OpenFile(filename, "rb");
-        if (!file)
+        // Ensure that the file starts with "MELN"
+        u32 read_magic = 0;
+        Var32(&read_magic);
+
+        if (read_magic != *((u32*)SAVESTATE_MAGIC))
         {
-            Log(LogLevel::Error, "savestate: file %s doesn't exist\n", filename.c_str());
+            Log(LogLevel::Error, "savestate: expected magic number %#08x (%s), got %#08x\n",
+                *((u32*)SAVESTATE_MAGIC),
+                SAVESTATE_MAGIC,
+                read_magic
+            );
             Error = true;
             return;
         }
 
-        u32 len;
-        fseek(file, 0, SEEK_END);
-        len = (u32)ftell(file);
-        fseek(file, 0, SEEK_SET);
-
-        u32 buf = 0;
-
-        fread(&buf, 4, 1, file);
-        if (buf != ((u32*)magic)[0])
-        {
-            Log(LogLevel::Error, "savestate: invalid magic %08X\n", buf);
-            Error = true;
-            return;
-        }
-
-        VersionMajor = 0;
-        VersionMinor = 0;
-
-        fread(&VersionMajor, 2, 1, file);
+        Var16(&VersionMajor);
         if (VersionMajor != SAVESTATE_MAJOR)
         {
             Log(LogLevel::Error, "savestate: bad version major %d, expecting %d\n", VersionMajor, SAVESTATE_MAJOR);
@@ -111,7 +91,7 @@ Savestate::Savestate(std::string filename, bool save)
             return;
         }
 
-        fread(&VersionMinor, 2, 1, file);
+        Var16(&VersionMinor);
         if (VersionMinor > SAVESTATE_MINOR)
         {
             Log(LogLevel::Error, "savestate: state from the future, %d > %d\n", VersionMinor, SAVESTATE_MINOR);
@@ -119,93 +99,111 @@ Savestate::Savestate(std::string filename, bool save)
             return;
         }
 
-        buf = 0;
-        fread(&buf, 4, 1, file);
-        if (buf != len)
+        u32 read_length = 0;
+        Var32(&read_length);
+        if (read_length != buffer_length)
         {
-            Log(LogLevel::Error, "savestate: bad length %d\n", buf);
+            Log(LogLevel::Error, "savestate: expected a length of %d, got %d\n", buffer_length, read_length);
             Error = true;
             return;
         }
 
-        fseek(file, 4, SEEK_CUR);
+        // The next 4 bytes are reserved
+        buffer_offset += 4;
+    }
+}
+
+
+Savestate::Savestate(u32 initial_size) :
+    Error(false),
+    Saving(true), // Can't load from an empty buffer
+    VersionMajor(SAVESTATE_MAJOR),
+    VersionMinor(SAVESTATE_MINOR),
+    CurSection(NO_SECTION),
+    buffer(nullptr),
+    buffer_offset(0),
+    buffer_length(initial_size),
+    buffer_owned(true),
+    finished(false)
+{
+    buffer = static_cast<u8 *>(malloc(buffer_length));
+
+    if (buffer == nullptr)
+    {
+        Log(LogLevel::Error, "savestate: failed to allocate %d bytes\n", buffer_length);
+        Error = true;
+        return;
     }
 
-    CurSection = -1;
+    WriteSavestateHeader();
 }
 
 Savestate::~Savestate()
 {
-    if (Error) return;
-
-    if (Saving)
-    {
-        if (CurSection != 0xFFFFFFFF)
-        {
-            u32 pos = (u32)ftell(file);
-            fseek(file, CurSection+4, SEEK_SET);
-
-            u32 len = pos - CurSection;
-            fwrite(&len, 4, 1, file);
-
-            fseek(file, pos, SEEK_SET);
-        }
-
-        fseek(file, 0, SEEK_END);
-        u32 len = (u32)ftell(file);
-        fseek(file, 8, SEEK_SET);
-        fwrite(&len, 4, 1, file);
+    if (Saving && !finished && !buffer_owned && !Error)
+    { // If we haven't finished saving, and there hasn't been an error...
+        CloseCurrentSection();
+        // No need to close the active section for an owned buffer,
+        // it's about to be thrown out.
     }
 
-    if (file) fclose(file);
+    if (buffer_owned)
+    {
+        free(buffer);
+    }
 }
 
 void Savestate::Section(const char* magic)
 {
-    if (Error) return;
+    if (Error || finished) return;
 
     if (Saving)
     {
-        if (CurSection != 0xFFFFFFFF)
-        {
-            u32 pos = (u32)ftell(file);
-            fseek(file, CurSection+4, SEEK_SET);
+        // Go back to the current section's header and write the length
+        CloseCurrentSection();
 
-            u32 len = pos - CurSection;
-            fwrite(&len, 4, 1, file);
+        CurSection = buffer_offset;
 
-            fseek(file, pos, SEEK_SET);
-        }
+        // Write the new section's magic number
+        VarArray((void*)magic, 4);
 
-        CurSection = (u32)ftell(file);
+        // The next 4 bytes are the length, which we'll come back to later.
+        u32 zero = 0;
+        Var32(&zero);
 
-        fwrite(magic, 4, 1, file);
-        fseek(file, 12, SEEK_CUR);
+        // The 8 bytes afterward are reserved, so we skip them.
+        Var32(&zero);
+        Var32(&zero);
     }
     else
     {
-        fseek(file, 0x10, SEEK_SET);
+        // Start looking at the savestate's beginning, right after its header
 
-        for (;;)
-        {
-            u32 buf = 0;
+        for (u32 offset = 0x10;;)
+        { // Until we've found the desired section...
+            // Get this section's magic number
+            u32 read_magic = 0;
+            memcpy(&read_magic, buffer + offset, sizeof(read_magic));
+            offset += sizeof(read_magic);
 
-            fread(&buf, 4, 1, file);
-            if (buf != ((u32*)magic)[0])
-            {
-                if (buf == 0)
-                {
+            if (read_magic != ((u32*)magic)[0])
+            { // If this isn't the right section...
+                if (offset >= buffer_length)
+                { // If we've reached the end of the file without finding this section...
                     Log(LogLevel::Error, "savestate: section %s not found. blarg\n", magic);
                     return;
                 }
 
-                buf = 0;
-                fread(&buf, 4, 1, file);
-                fseek(file, buf-8, SEEK_CUR);
+                // ...otherwise, let's keep looking
+                u32 read_length = 0;
+                memcpy(&read_length, buffer + offset, sizeof(read_length));
+
+                // Skip past the remainder of this section
+                offset += sizeof(read_length) + read_length - sizeof(read_length);
                 continue;
             }
 
-            fseek(file, 12, SEEK_CUR);
+            offset += 12; // Skip the extra 12 bytes we don't need
             break;
         }
     }
@@ -213,7 +211,7 @@ void Savestate::Section(const char* magic)
 
 void Savestate::Bool32(bool* var)
 {
-    // for compability
+    // for compatibility
     if (Saving)
     {
         u32 val = *var;
@@ -229,14 +227,101 @@ void Savestate::Bool32(bool* var)
 
 void Savestate::VarArray(void* data, u32 len)
 {
-    if (Error) return;
+    if (Error || finished) return;
+
+    assert(buffer_offset <= buffer_length);
 
     if (Saving)
     {
-        fwrite(data, len, 1, file);
+        if (buffer_offset + len > buffer_length)
+        { // If writing the given data would take us past the buffer's end...
+            Log(LogLevel::Warn, "savestate: %u-byte write would exceed %u-byte savestate buffer\n", len, buffer_length);
+
+            if (!(buffer_owned && Resize(buffer_length * 2 + len)))
+            { // If we're not allowed to resize this buffer, or if we are but failed...
+                Log(LogLevel::Error, "savestate: Failed to write %d bytes to savestate\n", len);
+                Error = true;
+                return;
+            }
+            // The buffer's length is doubled, plus however much memory is needed for this write.
+            // This way we can write the data and reduce the chance of needing to resize again.
+        }
+
+        memcpy(buffer + buffer_offset, data, len);
     }
     else
     {
-        fread(data, len, 1, file);
+        if (buffer_offset + len > buffer_length)
+        { // If reading the requested amount of data would take us past the buffer's edge...
+            Log(LogLevel::Error, "savestate: %u-byte read would exceed %u-byte savestate buffer\n", len, buffer_length);
+            Error = true;
+            return;
+
+            // Can't realloc here.
+            // Not only do we not own the buffer pointer (when loading a state),
+            // but we can't magically make the desired data appear.
+        }
+
+        memcpy(data, buffer + buffer_offset, len);
     }
+
+    buffer_offset += len;
+}
+
+void Savestate::CloseCurrentSection()
+{
+    if (CurSection != NO_SECTION)
+    { // If we're in the middle of writing a section...
+
+        // Go back to the section's header
+        // Get the length of the section we've written thus far
+        u32 section_length = buffer_offset - CurSection;
+
+        // Write the length in the section's header
+        // (specifically the first 4 bytes after the magic number)
+        memcpy(buffer + CurSection + 4, &section_length, sizeof(section_length));
+
+        CurSection = NO_SECTION;
+    }
+}
+
+bool Savestate::Resize(u32 new_length)
+{
+    if (!buffer_owned)
+    { // If we're not allowed to resize this buffer...
+        Log(LogLevel::Error, "savestate: Buffer is externally-owned, cannot resize it\n");
+        return false;
+    }
+
+    u32 old_length = buffer_length;
+    void* resized = realloc(buffer, new_length);
+    if (!resized)
+    { // If the buffer couldn't be expanded...
+        Log(LogLevel::Error, "savestate: Failed to resize owned savestate buffer from %dB to %dB\n", old_length, new_length);
+        return false;
+    }
+
+    u32 length_diff = new_length - old_length;
+    buffer = static_cast<u8 *>(resized);
+    buffer_length = new_length;
+
+    // Zero out the newly-allocated memory (to ensure we don't introduce a security hole)
+    memset(buffer + old_length, 0, length_diff);
+    return true;
+}
+
+void Savestate::WriteSavestateHeader()
+{// The magic number
+    VarArray((void *) SAVESTATE_MAGIC, 4);
+
+    // The major and minor versions
+    Var16(&VersionMajor);
+    Var16(&VersionMinor);
+
+    // The next 4 bytes are the file's length, which will be filled in at the end
+    u32 zero = 0;
+    Var32(&zero);
+
+    // The following 4 bytes are reserved
+    Var32(&zero);
 }
