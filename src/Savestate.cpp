@@ -268,9 +268,15 @@ void Savestate::VarArray(void* data, u32 len)
     buffer_offset += len;
 }
 
+void Savestate::Finish()
+{
+    CloseCurrentSection();
+    finished = true;
+}
+
 void Savestate::CloseCurrentSection()
 {
-    if (CurSection != NO_SECTION)
+    if (CurSection != NO_SECTION && !finished)
     { // If we're in the middle of writing a section...
 
         // Go back to the section's header
