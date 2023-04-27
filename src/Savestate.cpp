@@ -272,6 +272,16 @@ void Savestate::Finish()
     finished = true;
 }
 
+void Savestate::Rewind(bool save)
+{
+    Error = false;
+    Saving = save;
+    CurSection = NO_SECTION;
+
+    buffer_offset = 0;
+    finished = false;
+}
+
 void Savestate::CloseCurrentSection()
 {
     if (CurSection != NO_SECTION && !finished)
