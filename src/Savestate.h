@@ -73,7 +73,7 @@ public:
     // TODO rewinds the stream
     void Rewind(bool save);
 
-    bool IsAtleastVersion(u32 major, u32 minor)
+    bool IsAtLeastVersion(u32 major, u32 minor)
     {
         u16 major_version = MajorVersion();
         if (MajorVersion() > major) return true;
