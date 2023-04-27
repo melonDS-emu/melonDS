@@ -29,7 +29,7 @@
 class Savestate
 {
 public:
-    static constexpr u32 DEFAULT_SIZE = 16 * 1024 * 1024; // 16 MB
+    static constexpr u32 DEFAULT_SIZE = 32 * 1024 * 1024; // 32 MB
     [[deprecated]] Savestate(std::string filename, bool save);
     Savestate(void* buffer, u32 size, bool save);
     explicit Savestate(u32 initial_size = DEFAULT_SIZE);
