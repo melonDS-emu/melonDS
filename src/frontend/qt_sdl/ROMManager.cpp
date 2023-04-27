@@ -295,7 +295,7 @@ bool LoadState(std::string filename)
     FILE* file = fopen(filename.c_str(), "rb");
     if (file == nullptr)
     { // If we couldn't open the state file...
-        Platform::Log(Platform::LogLevel::Error, "Failed to open state file %s\n", filename.c_str());
+        Platform::Log(Platform::LogLevel::Error, "Failed to open state file \"%s\"\n", filename.c_str());
         return false;
     }
 
@@ -309,7 +309,7 @@ bool LoadState(std::string filename)
 
     if (!NDS::DoSavestate(backup.get()) || backup->Error)
     { // Back up the emulator's state. If that failed...
-        Platform::Log(Platform::LogLevel::Error, "Failed to back up state, aborting load (from %s)\n", filename.c_str());
+        Platform::Log(Platform::LogLevel::Error, "Failed to back up state, aborting load (from \"%s\")\n", filename.c_str());
         fclose(file);
         return false;
     }
@@ -319,7 +319,7 @@ bool LoadState(std::string filename)
     // Get the size of the file that we opened
     if (fseek(file, 0, SEEK_END) != 0)
     {
-        Platform::Log(Platform::LogLevel::Error, "Failed to seek to end of state file %s\n", filename.c_str());
+        Platform::Log(Platform::LogLevel::Error, "Failed to seek to end of state file \"%s\"\n", filename.c_str());
         fclose(file);
         return false;
     }
@@ -330,7 +330,7 @@ bool LoadState(std::string filename)
     std::vector<u8> buffer(size);
     if (fread(buffer.data(), size, 1, file) == 0)
     { // Read the state file into the buffer. If that failed...
-        Platform::Log(Platform::LogLevel::Error, "Failed to read %u-byte state file %s\n", size, filename.c_str());
+        Platform::Log(Platform::LogLevel::Error, "Failed to read %u-byte state file \"%s\"\n", size, filename.c_str());
         fclose(file);
         return false;
     }
@@ -341,7 +341,7 @@ bool LoadState(std::string filename)
 
     if (!NDS::DoSavestate(state.get()) || state->Error)
     { // If we couldn't load the savestate from the buffer...
-        Platform::Log(Platform::LogLevel::Error, "Failed to load state file %s into emulator\n", filename.c_str());
+        Platform::Log(Platform::LogLevel::Error, "Failed to load state file \"%s\" into emulator\n", filename.c_str());
         return false;
     }
 
