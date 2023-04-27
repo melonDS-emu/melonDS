@@ -109,6 +109,7 @@ private:
     void CloseCurrentSection();
     bool Resize(u32 new_length);
     void WriteSavestateHeader();
+    void WriteStateLength();
     u8* buffer;
     u32 buffer_offset;
     u32 buffer_length;

@@ -140,7 +140,7 @@ Savestate::~Savestate()
 {
     if (Saving && !finished && !buffer_owned && !Error)
     { // If we haven't finished saving, and there hasn't been an error...
-        CloseCurrentSection();
+        Finish();
         // No need to close the active section for an owned buffer,
         // it's about to be thrown out.
     }
@@ -268,7 +268,9 @@ void Savestate::VarArray(void* data, u32 len)
 
 void Savestate::Finish()
 {
+    if (Error || finished) return;
     CloseCurrentSection();
+    WriteStateLength();
     finished = true;
 }
 
@@ -343,4 +345,15 @@ void Savestate::WriteSavestateHeader()
 
     // The following 4 bytes are reserved
     Var32(&zero);
+}
+
+void Savestate::WriteStateLength()
+{
+    // Not to be confused with the buffer length.
+    // The buffer might not be full,
+    // so we don't want to write out the extra stuff.
+    u32 state_length = buffer_offset;
+
+    // Write the length in the header
+    memcpy(buffer + 0x08, &state_length, sizeof(state_length));
 }
