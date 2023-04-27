@@ -315,7 +315,8 @@ bool Savestate::Resize(u32 new_length)
 }
 
 void Savestate::WriteSavestateHeader()
-{// The magic number
+{
+    // The magic number
     VarArray((void *) SAVESTATE_MAGIC, 4);
 
     // The major and minor versions
