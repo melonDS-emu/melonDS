@@ -71,7 +71,7 @@ public:
     void Finish();
 
     // TODO rewinds the stream
-    void Reset(bool save);
+    void Rewind(bool save);
 
     bool IsAtleastVersion(u32 major, u32 minor)
     {
