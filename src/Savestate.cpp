@@ -319,6 +319,7 @@ bool Savestate::Resize(u32 new_length)
     buffer = static_cast<u8 *>(resized);
     buffer_length = new_length;
 
+    Log(LogLevel::Debug, "savestate: Expanded %uB savestate buffer to %uB\n", old_length, new_length);
     // Zero out the newly-allocated memory (to ensure we don't introduce a security hole)
     memset(buffer + old_length, 0, length_diff);
     return true;
