@@ -478,6 +478,13 @@ bool LoadBIOS()
     return true;
 }
 
+void ClearBackupState()
+{
+    if (BackupState != nullptr)
+    {
+        BackupState = nullptr;
+    }
+}
 
 bool LoadROM(QStringList filepath, bool reset)
 {
