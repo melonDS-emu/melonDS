@@ -292,11 +292,8 @@ bool SavestateExists(int slot)
 
 bool LoadState(std::string filename)
 {
-    // We use unique_ptr and filebuf to mitigate resource leaks.
-    // (Arisotura is not the only derp here.)
-    // Now let's actually open the file...
-    std::basic_filebuf<u8> file;
-    if (!file.open(filename, std::ios::in | std::ios::binary))
+    FILE* file = fopen(filename.c_str(), "rb");
+    if (file == nullptr)
     { // If we couldn't open the state file...
         Platform::Log(Platform::LogLevel::Error, "Failed to open state file %s\n", filename.c_str());
         return false;
@@ -306,24 +303,38 @@ bool LoadState(std::string filename)
     if (backup->Error)
     { // If we couldn't allocate memory for the backup...
         Platform::Log(Platform::LogLevel::Error, "Failed to allocate memory for state backup\n");
+        fclose(file);
         return false;
     }
 
     if (!NDS::DoSavestate(backup.get()) || backup->Error)
     { // Back up the emulator's state. If that failed...
         Platform::Log(Platform::LogLevel::Error, "Failed to back up state, aborting load (from %s)\n", filename.c_str());
+        fclose(file);
         return false;
     }
     // We'll store the backup once we're sure that the state was loaded.
     // Now that we know the file and backup are both good, let's load the new state.
 
     // Get the size of the file that we opened
-    std::streamsize size = file.pubseekoff(0, std::ios::end, std::ios::in);
-    file.pubseekpos(0, std::ios::in); // reset the filebuf's position
+    if (fseek(file, 0, SEEK_END) != 0)
+    {
+        Platform::Log(Platform::LogLevel::Error, "Failed to seek to end of state file %s\n", filename.c_str());
+        fclose(file);
+        return false;
+    }
+    size_t size = ftell(file);
+    rewind(file); // reset the filebuf's position
 
     // Allocate exactly as much memory as we need for the savestate
     std::vector<u8> buffer(size);
-    file.sgetn(buffer.data(), size); // read the file into the buffer
+    if (fread(buffer.data(), size, 1, file) == 0)
+    { // Read the state file into the buffer. If that failed...
+        Platform::Log(Platform::LogLevel::Error, "Failed to read %u-byte state file %s\n", size, filename.c_str());
+        fclose(file);
+        return false;
+    }
+    fclose(file); // done with the file now
 
     // Get ready to load the state from the buffer into the emulator
     std::unique_ptr<Savestate> state = std::make_unique<Savestate>(buffer.data(), size, false);
@@ -355,10 +366,9 @@ bool LoadState(std::string filename)
 
 bool SaveState(std::string filename)
 {
-    std::basic_filebuf<u8> file;
-    // Using std::filebuf so that RAII will close the file
+    FILE* file = fopen(filename.c_str(), "wb");
 
-    if (!file.open(filename, std::ios::out | std::ios::binary))
+    if (file == nullptr)
     { // If the file couldn't be opened...
         return false;
     }
@@ -366,6 +376,7 @@ bool SaveState(std::string filename)
     Savestate state;
     if (state.Error)
     { // If there was an error creating the state (and allocating its memory)...
+        fclose(file);
         return false;
     }
 
@@ -374,21 +385,22 @@ bool SaveState(std::string filename)
 
     if (state.Error)
     {
+        fclose(file);
         return false;
     }
 
-    // Write the buffer to the file
-    u32 bytesWritten = file.sputn(static_cast<const u8*>(state.Buffer()), state.Length());
-    if (bytesWritten != state.Length())
-    {
+    if (fwrite(state.Buffer(), state.Length(), 1, file) == 0)
+    { // Write the Savestate buffer to the file. If that fails...
         Platform::Log(Platform::Error,
-            "Expected to write %d-byte savestate to %s, but only wrote %d bytes\n",
+            "Failed to write %d-byte savestate to %s\n",
             state.Length(),
-            filename.c_str(),
-            bytesWritten
+            filename.c_str()
         );
+        fclose(file);
         return false;
     }
+
+    fclose(file);
 
     if (Config::SavestateRelocSRAM && NDSSave)
     {
