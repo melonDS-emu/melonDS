@@ -32,7 +32,7 @@ public:
     static constexpr u32 DEFAULT_SIZE = 16 * 1024 * 1024; // 16 MB
     [[deprecated]] Savestate(std::string filename, bool save);
     Savestate(void* buffer, u32 size, bool save);
-    Savestate(u32 initial_size = DEFAULT_SIZE);
+    explicit Savestate(u32 initial_size = DEFAULT_SIZE);
 
     ~Savestate();
 
