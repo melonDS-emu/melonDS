@@ -39,8 +39,6 @@ public:
     bool Error;
 
     bool Saving;
-    u16 VersionMajor;
-    u16 VersionMinor;
 
     u32 CurSection;
 
@@ -77,8 +75,9 @@ public:
 
     bool IsAtleastVersion(u32 major, u32 minor)
     {
-        if (VersionMajor > major) return true;
-        if (VersionMajor == major && VersionMinor >= minor) return true;
+        u16 major_version = MajorVersion();
+        if (MajorVersion() > major) return true;
+        if (major_version == major && MinorVersion() >= minor) return true;
         return false;
     }
 
@@ -88,6 +87,22 @@ public:
     [[nodiscard]] u32 BufferLength() const { return buffer_length; }
 
     [[nodiscard]] u32 Length() const { return buffer_offset; }
+
+    [[nodiscard]] u16 MajorVersion() const
+    {
+        // major version is stored at offset 0x04
+        u16 major = 0;
+        memcpy(&major, buffer + 0x04, sizeof(major));
+        return major;
+    }
+
+    [[nodiscard]] u16 MinorVersion() const
+    {
+        // minor version is stored at offset 0x06
+        u16 minor = 0;
+        memcpy(&minor, buffer + 0x06, sizeof(minor));
+        return minor;
+    }
 
 private:
     static constexpr u32 NO_SECTION = 0xffffffff;

@@ -53,8 +53,6 @@ static const char* SAVESTATE_MAGIC = "MELN";
 Savestate::Savestate(void *buffer, u32 size, bool save) :
     Error(false),
     Saving(save),
-    VersionMajor(SAVESTATE_MAJOR),
-    VersionMinor(SAVESTATE_MINOR),
     CurSection(NO_SECTION),
     buffer(static_cast<u8 *>(buffer)),
     buffer_offset(0),
@@ -83,18 +81,20 @@ Savestate::Savestate(void *buffer, u32 size, bool save) :
             return;
         }
 
-        Var16(&VersionMajor);
-        if (VersionMajor != SAVESTATE_MAJOR)
+        u16 major = 0;
+        Var16(&major);
+        if (major != SAVESTATE_MAJOR)
         {
-            Log(LogLevel::Error, "savestate: bad version major %d, expecting %d\n", VersionMajor, SAVESTATE_MAJOR);
+            Log(LogLevel::Error, "savestate: bad version major %d, expecting %d\n", major, SAVESTATE_MAJOR);
             Error = true;
             return;
         }
 
-        Var16(&VersionMinor);
-        if (VersionMinor > SAVESTATE_MINOR)
+        u16 minor = 0;
+        Var16(&minor);
+        if (minor > SAVESTATE_MINOR)
         {
-            Log(LogLevel::Error, "savestate: state from the future, %d > %d\n", VersionMinor, SAVESTATE_MINOR);
+            Log(LogLevel::Error, "savestate: state from the future, %d > %d\n", minor, SAVESTATE_MINOR);
             Error = true;
             return;
         }
@@ -117,8 +117,6 @@ Savestate::Savestate(void *buffer, u32 size, bool save) :
 Savestate::Savestate(u32 initial_size) :
     Error(false),
     Saving(true), // Can't load from an empty buffer
-    VersionMajor(SAVESTATE_MAJOR),
-    VersionMinor(SAVESTATE_MINOR),
     CurSection(NO_SECTION),
     buffer(nullptr),
     buffer_offset(0),
@@ -321,8 +319,11 @@ void Savestate::WriteSavestateHeader()
     VarArray((void *) SAVESTATE_MAGIC, 4);
 
     // The major and minor versions
-    Var16(&VersionMajor);
-    Var16(&VersionMinor);
+    u16 major = SAVESTATE_MAJOR;
+    Var16(&major);
+
+    u16 minor = SAVESTATE_MINOR;
+    Var16(&minor);
 
     // The next 4 bytes are the file's length, which will be filled in at the end
     u32 zero = 0;
