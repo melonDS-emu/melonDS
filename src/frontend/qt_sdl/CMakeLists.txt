@@ -82,9 +82,7 @@ endif()
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 pkg_check_modules(Slirp REQUIRED IMPORTED_TARGET slirp)
 pkg_check_modules(LibArchive REQUIRED IMPORTED_TARGET libarchive)
-pkg_check_modules(Zstd IMPORTED_TARGET libzstd)
-
-cmake_dependent_option(ENABLE_ZSTD "Enable support for Zstandard-compressed ROMs" ON "Zstd_FOUND" OFF)
+pkg_check_modules(Zstd REQUIRED IMPORTED_TARGET libzstd)
 
 fix_interface_includes(PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
 
@@ -157,13 +155,8 @@ else()
     target_include_directories(melonDS PUBLIC ${Qt5Gui_PRIVATE_INCLUDE_DIRS})
 endif()
 target_link_libraries(melonDS PRIVATE core)
-target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
+target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive PkgConfig::Zstd)
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
-
-if (ENABLE_ZSTD)
-    target_compile_definitions(melonDS PRIVATE ZSTD_ENABLED)
-    target_link_libraries(melonDS PRIVATE PkgConfig::Zstd)
-endif()
 
 if (UNIX)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)

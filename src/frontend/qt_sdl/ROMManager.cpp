@@ -22,9 +22,7 @@
 #include <string>
 #include <utility>
 
-#ifdef ZSTD_ENABLED
 #include <zstd.h>
-#endif
 #ifdef ARCHIVE_SUPPORT_ENABLED
 #include "ArchiveUtil.h"
 #endif
@@ -481,7 +479,6 @@ bool LoadBIOS()
     return true;
 }
 
-#ifdef ZSTD_ENABLED
 u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
 {
     u64 realSize = ZSTD_getFrameContentSize(inContent, inSize);
@@ -503,7 +500,6 @@ u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
     *outContent = realContent;
     return realSize;
 }
-#endif
 
 bool LoadROM(QStringList filepath, bool reset)
 {
@@ -546,7 +542,6 @@ bool LoadROM(QStringList filepath, bool reset)
         fclose(f);
         filelen = (u32)len;
 
-#if ZSTD_ENABLED
         if (filename.length() > 4 && filename.substr(filename.length() - 4) == ".zst")
         {
             u8* outContent = nullptr;
@@ -565,7 +560,6 @@ bool LoadROM(QStringList filepath, bool reset)
                 return false;
             }
         }
-#endif
 
         int pos = LastSep(filename);
         if(pos != -1)
@@ -729,7 +723,6 @@ bool LoadGBAROM(QStringList filepath)
         fclose(f);
         filelen = (u32)len;
 
-#if ZSTD_ENABLED
         if (filename.length() > 4 && filename.substr(filename.length() - 4) == ".zst")
         {
             u8* outContent = nullptr;
@@ -748,7 +741,6 @@ bool LoadGBAROM(QStringList filepath)
                 return false;
             }
         }
-#endif
 
         int pos = LastSep(filename);
         basepath = filename.substr(0, pos);

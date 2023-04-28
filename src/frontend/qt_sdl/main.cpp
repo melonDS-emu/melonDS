@@ -1568,7 +1568,6 @@ static bool SupportedArchiveByMimetype(const QMimeType& mimetype)
     return MimeTypeInList(mimetype, ArchiveMimeTypes);
 }
 
-#ifdef ZSTD_ENABLED
 static bool ZstdNdsRomByExtension(const QString& filename)
 {
     if (filename.endsWith(".zst", Qt::CaseInsensitive))
@@ -1580,14 +1579,12 @@ static bool ZstdGbaRomByExtension(const QString& filename)
     if (filename.endsWith(".zst", Qt::CaseInsensitive))
         return GbaRomByExtension(filename.left(filename.size() - 4));
 }
-#endif
 
 static bool FileIsSupportedFiletype(const QString& filename, bool insideArchive = false)
 {
-#ifdef ZSTD_ENABLED
     if (ZstdNdsRomByExtension(filename) || ZstdGbaRomByExtension(filename))
         return true;
-#endif
+
     if (NdsRomByExtension(filename) || GbaRomByExtension(filename) || SupportedArchiveByExtension(filename))
         return true;
 
@@ -2226,10 +2223,8 @@ void MainWindow::dropEvent(QDropEvent* event)
 
     bool isNdsRom = NdsRomByExtension(filename) || NdsRomByMimetype(mimetype);
     bool isGbaRom = GbaRomByExtension(filename) || GbaRomByMimetype(mimetype);
-#ifdef ZSTD_ENABLED
     isNdsRom |= ZstdNdsRomByExtension(filename);
     isGbaRom |= ZstdGbaRomByExtension(filename);
-#endif
 
     if (isNdsRom)
     {
@@ -2480,11 +2475,10 @@ QStringList MainWindow::pickROM(bool gba)
     QString extraFilters = ";;" + console + " ROMs (*" + rawROMs;
     QString allROMs = rawROMs;
 
-#ifdef ZSTD_ENABLED
     QString zstdROMs = "*" + romexts.join(".zst *") + ".zst";
     extraFilters += ");;Zstandard-compressed " + console + " ROMs (" + zstdROMs + ")";
     allROMs += " " + zstdROMs;
-#endif
+
 #ifdef ARCHIVE_SUPPORT_ENABLED
     QString archives = "*" + ArchiveExtensions.join(" *");
     extraFilters += ";;Archives (" + archives + ")";
