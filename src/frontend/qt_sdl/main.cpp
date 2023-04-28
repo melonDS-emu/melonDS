@@ -146,7 +146,7 @@ const QStringList ArchiveExtensions
     ".tar.lz",
     ".tar.lzma", ".tlz",
     ".tar.lrz", ".tlrz",
-    ".tar.lzo", ".tzo",
+    ".tar.lzo", ".tzo"
 #endif
 };
 
@@ -1568,9 +1568,23 @@ static bool SupportedArchiveByMimetype(const QMimeType& mimetype)
     return MimeTypeInList(mimetype, ArchiveMimeTypes);
 }
 
+static bool ZstdNdsRomByExtension(const QString& filename)
+{
+    if (filename.endsWith(".zst", Qt::CaseInsensitive))
+        return NdsRomByExtension(filename.left(filename.size() - 4));
+}
+
+static bool ZstdGbaRomByExtension(const QString& filename)
+{
+    if (filename.endsWith(".zst", Qt::CaseInsensitive))
+        return GbaRomByExtension(filename.left(filename.size() - 4));
+}
 
 static bool FileIsSupportedFiletype(const QString& filename, bool insideArchive = false)
 {
+    if (ZstdNdsRomByExtension(filename) || ZstdGbaRomByExtension(filename))
+        return true;
+
     if (NdsRomByExtension(filename) || GbaRomByExtension(filename) || SupportedArchiveByExtension(filename))
         return true;
 
@@ -2207,7 +2221,12 @@ void MainWindow::dropEvent(QDropEvent* event)
     const auto matchMode = romInsideArchive ? QMimeDatabase::MatchExtension : QMimeDatabase::MatchDefault;
     const QMimeType mimetype = QMimeDatabase().mimeTypeForFile(filename, matchMode);
 
-    if (NdsRomByExtension(filename) || NdsRomByMimetype(mimetype))
+    bool isNdsRom = NdsRomByExtension(filename) || NdsRomByMimetype(mimetype);
+    bool isGbaRom = GbaRomByExtension(filename) || GbaRomByMimetype(mimetype);
+    isNdsRom |= ZstdNdsRomByExtension(filename);
+    isGbaRom |= ZstdGbaRomByExtension(filename);
+
+    if (isNdsRom)
     {
         if (!ROMManager::LoadROM(file, true))
         {
@@ -2227,7 +2246,7 @@ void MainWindow::dropEvent(QDropEvent* event)
 
         updateCartInserted(false);
     }
-    else if (GbaRomByExtension(filename) || GbaRomByMimetype(mimetype))
+    else if (isGbaRom)
     {
         if (!ROMManager::LoadGBAROM(file))
         {
@@ -2452,14 +2471,25 @@ QStringList MainWindow::pickROM(bool gba)
     const QString console = gba ? "GBA" : "DS";
     const QStringList& romexts = gba ? GbaRomExtensions : NdsRomExtensions;
 
-    static const QString filterSuffix = ArchiveExtensions.empty()
-        ? ");;Any file (*.*)"
-        : " *" + ArchiveExtensions.join(" *") + ");;Any file (*.*)";
+    QString rawROMs = romexts.join(" *");
+    QString extraFilters = ";;" + console + " ROMs (*" + rawROMs;
+    QString allROMs = rawROMs;
+
+    QString zstdROMs = "*" + romexts.join(".zst *") + ".zst";
+    extraFilters += ");;Zstandard-compressed " + console + " ROMs (" + zstdROMs + ")";
+    allROMs += " " + zstdROMs;
+
+#ifdef ARCHIVE_SUPPORT_ENABLED
+    QString archives = "*" + ArchiveExtensions.join(" *");
+    extraFilters += ";;Archives (" + archives + ")";
+    allROMs += " " + archives;
+#endif
+    extraFilters += ";;All files (*.*)";
 
     const QString filename = QFileDialog::getOpenFileName(
         this, "Open " + console + " ROM",
         QString::fromStdString(Config::LastROMFolder),
-        console + " ROMs (*" + romexts.join(" *") + filterSuffix
+        "All supported files (*" + allROMs + ")" + extraFilters
     );
 
     if (filename.isEmpty()) return {};
