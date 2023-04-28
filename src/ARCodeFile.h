@@ -46,7 +46,7 @@ typedef std::list<ARCodeCat> ARCodeCatList;
 class ARCodeFile
 {
 public:
-    ARCodeFile(std::string filename);
+    ARCodeFile(const std::string& filename);
     ~ARCodeFile();
 
     bool Error;

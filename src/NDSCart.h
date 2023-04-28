@@ -40,7 +40,7 @@ public:
     virtual u32 Checksum();
 
     virtual void Reset();
-    virtual void SetupDirectBoot(std::string romname);
+    virtual void SetupDirectBoot(const std::string& romname);
 
     virtual void DoSavestate(Savestate* file);
 
@@ -161,7 +161,7 @@ private:
     u8 IRCmd;
 };
 
-// CartRetailBT - Pokémon Typing Adventure (SPI BT controller)
+// CartRetailBT - Pokï¿½mon Typing Adventure (SPI BT controller)
 class CartRetailBT : public CartRetail
 {
 public:
@@ -187,7 +187,7 @@ public:
     virtual u32 Type() override { return 0x201; }
 
     void Reset() override;
-    void SetupDirectBoot(std::string romname) override;
+    void SetupDirectBoot(const std::string& romname) override;
 
     void DoSavestate(Savestate* file) override;
 
@@ -227,7 +227,7 @@ void DecryptSecureArea(u8* out);
 
 bool LoadROM(const u8* romdata, u32 romlen);
 void LoadSave(const u8* savedata, u32 savelen);
-void SetupDirectBoot(std::string romname);
+void SetupDirectBoot(const std::string& romname);
 
 /// This function is intended to allow frontends to save and load SRAM
 /// without using melonDS APIs.

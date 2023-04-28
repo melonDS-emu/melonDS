@@ -232,7 +232,7 @@ void CartCommon::Reset()
     DSiMode = false;
 }
 
-void CartCommon::SetupDirectBoot(std::string romname)
+void CartCommon::SetupDirectBoot(const std::string& romname)
 {
     CmdEncMode = 2;
     DataEncMode = 2;
@@ -1217,7 +1217,7 @@ void CartHomebrew::Reset()
         SD = nullptr;
 }
 
-void CartHomebrew::SetupDirectBoot(std::string romname)
+void CartHomebrew::SetupDirectBoot(const std::string& romname)
 {
     CartCommon::SetupDirectBoot(romname);
 
@@ -1746,7 +1746,7 @@ void LoadSave(const u8* savedata, u32 savelen)
         Cart->LoadSave(savedata, savelen);
 }
 
-void SetupDirectBoot(std::string romname)
+void SetupDirectBoot(const std::string& romname)
 {
     if (Cart)
         Cart->SetupDirectBoot(romname);

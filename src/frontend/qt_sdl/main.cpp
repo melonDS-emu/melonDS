@@ -279,7 +279,7 @@ void micClose()
     micDevice = 0;
 }
 
-void micLoadWav(std::string name)
+void micLoadWav(const std::string& name)
 {
     SDL_AudioSpec format;
     memset(&format, 0, sizeof(SDL_AudioSpec));

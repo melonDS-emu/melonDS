@@ -58,7 +58,7 @@ ARCodeFile* CheatFile = nullptr;
 bool CheatsOn = false;
 
 
-int LastSep(std::string path)
+int LastSep(const std::string& path)
 {
     int i = path.length() - 1;
     while (i >= 0)
@@ -72,32 +72,45 @@ int LastSep(std::string path)
     return -1;
 }
 
-std::string GetAssetPath(bool gba, std::string configpath, std::string ext, std::string file="")
+std::string GetAssetPath(bool gba, const std::string& configpath, const std::string& ext, const std::string& file = "")
 {
+    std::string result;
+
     if (configpath.empty())
-        configpath = gba ? BaseGBAROMDir : BaseROMDir;
+        result = gba ? BaseGBAROMDir : BaseROMDir;
+    else
+        result = configpath;
 
-    if (file.empty())
-    {
-        file = gba ? BaseGBAAssetName : BaseAssetName;
-        if (file.empty())
-            file = "firmware";
-    }
-
+    // cut off trailing slashes
     for (;;)
     {
-        int i = configpath.length() - 1;
+        int i = result.length() - 1;
         if (i < 0) break;
-        if (configpath[i] == '/' || configpath[i] == '\\')
-            configpath = configpath.substr(0, i);
+        if (result[i] == '/' || result[i] == '\\')
+            result.resize(i);
         else
             break;
     }
 
-    if (!configpath.empty())
-        configpath += "/";
+    if (!result.empty())
+        result += '/';
 
-    return configpath + file + ext;
+    if (file.empty())
+    {
+        std::string& baseName = gba ? BaseGBAAssetName : BaseAssetName;
+        if (baseName.empty())
+            result += "firmware";
+        else
+            result += baseName;
+    }
+    else
+    {
+        result += file;
+    }
+
+    result += ext;
+
+    return result;
 }
 
 
@@ -288,7 +301,7 @@ bool SavestateExists(int slot)
     return Platform::FileExists(ssfile);
 }
 
-bool LoadState(std::string filename)
+bool LoadState(const std::string& filename)
 {
     // backup
     Savestate* backup = new Savestate("timewarp.mln", true);
@@ -335,7 +348,7 @@ bool LoadState(std::string filename)
     return true;
 }
 
-bool SaveState(std::string filename)
+bool SaveState(const std::string& filename)
 {
     Savestate* state = new Savestate(filename, true);
     if (state->Error)

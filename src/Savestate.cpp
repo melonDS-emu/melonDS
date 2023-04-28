@@ -49,7 +49,7 @@ using Platform::LogLevel;
 // TODO: buffering system! or something of that sort
 // repeated fread/fwrite is slow on Switch
 
-Savestate::Savestate(std::string filename, bool save)
+Savestate::Savestate(const std::string& filename, bool save)
 {
     const char* magic = "MELN";
 

@@ -37,7 +37,7 @@ namespace fs = std::filesystem;
 #endif // __WIN32__
 
 
-FATStorage::FATStorage(std::string filename, u64 size, bool readonly, std::string sourcedir)
+FATStorage::FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir)
 {
     ReadOnly = readonly;
     Load(filename, size, sourcedir);
@@ -69,7 +69,7 @@ void FATStorage::Close()
 }
 
 
-bool FATStorage::InjectFile(std::string path, u8* data, u32 len)
+bool FATStorage::InjectFile(const std::string& path, u8* data, u32 len)
 {
     if (!File) return false;
     if (FF_File) return false;
@@ -89,9 +89,10 @@ bool FATStorage::InjectFile(std::string path, u8* data, u32 len)
         return false;
     }
 
-    path = "0:/" + path;
+    std::string prefixedPath("0:/");
+    prefixedPath += path;
     FF_FIL file;
-    res = f_open(&file, path.c_str(), FA_CREATE_ALWAYS | FA_WRITE);
+    res = f_open(&file, prefixedPath.c_str(), FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
         f_unmount("0:");
@@ -345,7 +346,7 @@ void FATStorage::SaveIndex()
 }
 
 
-bool FATStorage::ExportFile(std::string path, fs::path out)
+bool FATStorage::ExportFile(const std::string& path, fs::path out)
 {
     FF_FIL file;
     FILE* fout;
@@ -393,7 +394,7 @@ bool FATStorage::ExportFile(std::string path, fs::path out)
     return true;
 }
 
-void FATStorage::ExportDirectory(std::string path, std::string outbase, int level)
+void FATStorage::ExportDirectory(const std::string& path, const std::string& outbase, int level)
 {
     if (level >= 32) return;
 
@@ -492,7 +493,7 @@ void FATStorage::ExportDirectory(std::string path, std::string outbase, int leve
     }
 }
 
-bool FATStorage::DeleteHostDirectory(std::string path, std::string outbase, int level)
+bool FATStorage::DeleteHostDirectory(const std::string& path, const std::string& outbase, int level)
 {
     if (level >= 32) return false;
 
@@ -565,7 +566,7 @@ bool FATStorage::DeleteHostDirectory(std::string path, std::string outbase, int 
     return true;
 }
 
-void FATStorage::ExportChanges(std::string outbase)
+void FATStorage::ExportChanges(const std::string& outbase)
 {
     // reflect changes in the FAT volume to the host filesystem
     // * delete directories and files that exist in the index but not in the volume
@@ -652,7 +653,7 @@ bool FATStorage::CanFitFile(u32 len)
     return (freeclusters >= len);
 }
 
-bool FATStorage::DeleteDirectory(std::string path, int level)
+bool FATStorage::DeleteDirectory(const std::string& path, int level)
 {
     if (level >= 32) return false;
     if (path.length() < 1) return false;
@@ -710,7 +711,7 @@ bool FATStorage::DeleteDirectory(std::string path, int level)
     return true;
 }
 
-void FATStorage::CleanupDirectory(std::string sourcedir, std::string path, int level)
+void FATStorage::CleanupDirectory(const std::string& sourcedir, const std::string& path, int level)
 {
     if (level >= 32) return;
 
@@ -778,7 +779,7 @@ void FATStorage::CleanupDirectory(std::string sourcedir, std::string path, int l
     }
 }
 
-bool FATStorage::ImportFile(std::string path, fs::path in)
+bool FATStorage::ImportFile(const std::string& path, fs::path in)
 {
     FF_FIL file;
     FILE* fin;
@@ -825,7 +826,7 @@ bool FATStorage::ImportFile(std::string path, fs::path in)
     return true;
 }
 
-bool FATStorage::ImportDirectory(std::string sourcedir)
+bool FATStorage::ImportDirectory(const std::string& sourcedir)
 {
     // remove whatever isn't in the index
     CleanupDirectory(sourcedir, "", 0);
@@ -938,7 +939,7 @@ u64 FATStorage::GetDirectorySize(fs::path sourcedir)
     return ret;
 }
 
-bool FATStorage::Load(std::string filename, u64 size, std::string sourcedir)
+bool FATStorage::Load(const std::string& filename, u64 size, const std::string& sourcedir)
 {
     FilePath = filename;
     FileSize = size;

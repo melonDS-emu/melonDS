@@ -28,7 +28,7 @@ using Platform::LogLevel;
 // TODO: more user-friendly error reporting
 
 
-ARCodeFile::ARCodeFile(std::string filename)
+ARCodeFile::ARCodeFile(const std::string& filename)
 {
     Filename = filename;
 

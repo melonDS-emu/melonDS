@@ -31,13 +31,13 @@
 class FATStorage
 {
 public:
-    FATStorage(std::string filename, u64 size, bool readonly, std::string sourcedir);
+    FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir);
     ~FATStorage();
 
     bool Open();
     void Close();
 
-    bool InjectFile(std::string path, u8* data, u32 len);
+    bool InjectFile(const std::string& path, u8* data, u32 len);
 
     u32 ReadSectors(u32 start, u32 num, u8* data);
     u32 WriteSectors(u32 start, u32 num, u8* data);
@@ -62,19 +62,19 @@ private:
     void LoadIndex();
     void SaveIndex();
 
-    bool ExportFile(std::string path, std::filesystem::path out);
-    void ExportDirectory(std::string path, std::string outbase, int level);
-    bool DeleteHostDirectory(std::string path, std::string outbase, int level);
-    void ExportChanges(std::string outbase);
+    bool ExportFile(const std::string& path, std::filesystem::path out);
+    void ExportDirectory(const std::string& path, const std::string& outbase, int level);
+    bool DeleteHostDirectory(const std::string& path, const std::string& outbase, int level);
+    void ExportChanges(const std::string& outbase);
 
     bool CanFitFile(u32 len);
-    bool DeleteDirectory(std::string path, int level);
-    void CleanupDirectory(std::string sourcedir, std::string path, int level);
-    bool ImportFile(std::string path, std::filesystem::path in);
-    bool ImportDirectory(std::string sourcedir);
+    bool DeleteDirectory(const std::string& path, int level);
+    void CleanupDirectory(const std::string& sourcedir, const std::string& path, int level);
+    bool ImportFile(const std::string& path, std::filesystem::path in);
+    bool ImportDirectory(const std::string& sourcedir);
     u64 GetDirectorySize(std::filesystem::path sourcedir);
 
-    bool Load(std::string filename, u64 size, std::string sourcedir);
+    bool Load(const std::string& filename, u64 size, const std::string& sourcedir);
     bool Save();
 
     typedef struct
