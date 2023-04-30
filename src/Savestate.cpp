@@ -176,8 +176,8 @@ void Savestate::Section(const char* magic)
     else
     {
         // Start looking at the savestate's beginning, right after its header
-
-        for (u32 offset = 0x10;;)
+        u32 offset = 0x10;
+        for (offset = 0x10;;)
         { // Until we've found the desired section...
             // Get this section's magic number
             u32 read_magic = 0;
@@ -195,15 +195,20 @@ void Savestate::Section(const char* magic)
                 // ...otherwise, let's keep looking
                 u32 read_length = 0;
                 memcpy(&read_length, buffer + offset, sizeof(read_length));
+                offset += sizeof(read_length);
 
                 // Skip past the remainder of this section
-                offset += sizeof(read_length) + read_length - sizeof(read_length);
+                // (read_length includes the size of the header;
+                // we already processed the magic and the size, so we don't need to skip them)
+                offset += read_length - sizeof(read_magic) + sizeof(read_length);
                 continue;
             }
 
             offset += 12; // Skip the extra 12 bytes we don't need
             break;
         }
+
+        buffer_offset = offset;
     }
 }
 
