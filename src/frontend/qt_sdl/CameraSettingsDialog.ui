@@ -132,6 +132,16 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>cbCameraSel</tabstop>
+  <tabstop>rbPictureNone</tabstop>
+  <tabstop>rbPictureImg</tabstop>
+  <tabstop>txtSrcImagePath</tabstop>
+  <tabstop>btnSrcImageBrowse</tabstop>
+  <tabstop>rbPictureCamera</tabstop>
+  <tabstop>cbPhysicalCamera</tabstop>
+  <tabstop>chkFlipPicture</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

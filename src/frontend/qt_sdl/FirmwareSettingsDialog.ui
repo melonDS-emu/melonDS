@@ -172,6 +172,16 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>overrideFirmwareBox</tabstop>
+  <tabstop>usernameEdit</tabstop>
+  <tabstop>languageBox</tabstop>
+  <tabstop>cbxBirthdayDay</tabstop>
+  <tabstop>cbxBirthdayMonth</tabstop>
+  <tabstop>colorsEdit</tabstop>
+  <tabstop>messageEdit</tabstop>
+  <tabstop>txtMAC</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

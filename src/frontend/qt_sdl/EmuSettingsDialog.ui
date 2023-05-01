@@ -580,10 +580,45 @@
   </customwidget>
  </customwidgets>
  <tabstops>
+  <tabstop>tabWidget</tabstop>
   <tabstop>cbxConsoleType</tabstop>
   <tabstop>chkDirectBoot</tabstop>
+  <tabstop>chkExternalBIOS</tabstop>
+  <tabstop>txtBIOS9Path</tabstop>
+  <tabstop>btnBIOS9Browse</tabstop>
+  <tabstop>txtBIOS7Path</tabstop>
+  <tabstop>btnBIOS7Browse</tabstop>
+  <tabstop>txtFirmwarePath</tabstop>
+  <tabstop>btnFirmwareBrowse</tabstop>
+  <tabstop>txtDSiBIOS9Path</tabstop>
+  <tabstop>btnDSiBIOS9Browse</tabstop>
+  <tabstop>txtDSiBIOS7Path</tabstop>
+  <tabstop>btnDSiBIOS7Browse</tabstop>
+  <tabstop>txtDSiFirmwarePath</tabstop>
+  <tabstop>btnDSiFirmwareBrowse</tabstop>
+  <tabstop>txtDSiNANDPath</tabstop>
+  <tabstop>btnDSiNANDBrowse</tabstop>
+  <tabstop>cbDSiSDEnable</tabstop>
+  <tabstop>txtDSiSDPath</tabstop>
+  <tabstop>btnDSiSDBrowse</tabstop>
+  <tabstop>cbxDSiSDSize</tabstop>
+  <tabstop>cbDSiSDReadOnly</tabstop>
+  <tabstop>cbDSiSDFolder</tabstop>
+  <tabstop>txtDSiSDFolder</tabstop>
+  <tabstop>btnDSiSDFolderBrowse</tabstop>
   <tabstop>chkEnableJIT</tabstop>
   <tabstop>spnJITMaximumBlockSize</tabstop>
+  <tabstop>chkJITBranchOptimisations</tabstop>
+  <tabstop>chkJITLiteralOptimisations</tabstop>
+  <tabstop>chkJITFastMemory</tabstop>
+  <tabstop>cbDLDIEnable</tabstop>
+  <tabstop>txtDLDISDPath</tabstop>
+  <tabstop>btnDLDISDBrowse</tabstop>
+  <tabstop>cbxDLDISize</tabstop>
+  <tabstop>cbDLDIReadOnly</tabstop>
+  <tabstop>cbDLDIFolder</tabstop>
+  <tabstop>txtDLDIFolder</tabstop>
+  <tabstop>btnDLDIFolderBrowse</tabstop>
  </tabstops>
  <resources/>
  <connections>

@@ -63,6 +63,11 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>cbMouseHide</tabstop>
+  <tabstop>spinMouseHideSeconds</tabstop>
+  <tabstop>cbPauseLostFocus</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
