@@ -36,6 +36,7 @@ set(SOURCES_QT_SDL
     ROMManager.cpp
     SaveManager.cpp
     CameraManager.cpp
+    AudioInOut.cpp
     
     ArchiveUtil.h
     ArchiveUtil.cpp
