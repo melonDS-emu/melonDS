@@ -1325,14 +1325,14 @@ static bool SupportedArchiveByMimetype(const QMimeType& mimetype)
 
 static bool ZstdNdsRomByExtension(const QString& filename)
 {
-    if (filename.endsWith(".zst", Qt::CaseInsensitive))
-        return NdsRomByExtension(filename.left(filename.size() - 4));
+    return filename.endsWith(".zst", Qt::CaseInsensitive) &&
+        NdsRomByExtension(filename.left(filename.size() - 4));
 }
 
 static bool ZstdGbaRomByExtension(const QString& filename)
 {
-    if (filename.endsWith(".zst", Qt::CaseInsensitive))
-        return GbaRomByExtension(filename.left(filename.size() - 4));
+    return filename.endsWith(".zst", Qt::CaseInsensitive) &&
+        GbaRomByExtension(filename.left(filename.size() - 4));
 }
 
 static bool FileIsSupportedFiletype(const QString& filename, bool insideArchive = false)
