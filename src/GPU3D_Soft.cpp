@@ -1185,7 +1185,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         {
             u32 attr = polyattr | edge;
             
-            if (RenderDispCnt & (1<<4))
+            if ((RenderDispCnt & (1<<4)) && (attr & 0xF))
             {
                 // anti-aliasing: all edges are rendered
 
