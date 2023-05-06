@@ -1057,8 +1057,6 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
         memcpy(screen[1].scanLine(0), GPU::Framebuffer[frontbuf][1], 256 * 192 * 4);
         emuThread->FrontBufferLock.unlock();
 
-        painter.setRenderHint(QPainter::SmoothPixmapTransform, Config::ScreenFilter != 0);
-
         QRect screenrc(0, 0, 256, 192);
 
         for (int i = 0; i < numScreens; i++)
@@ -1874,6 +1872,8 @@ void MainWindow::createScreenPanel()
         panelWidget->show();
     }
     setCentralWidget(panelWidget);
+
+    actScreenFiltering->setEnabled(hasOGL);
 
     connect(this, SIGNAL(screenLayoutChange()), panelWidget, SLOT(onScreenLayoutChanged()));
     emit screenLayoutChange();
