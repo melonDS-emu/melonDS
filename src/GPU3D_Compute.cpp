@@ -39,7 +39,7 @@ ComputeRenderer::~ComputeRenderer()
 
 
 
-bool ComputeRenderer::CompileShader(GLuint& shader, const char* source, const std::initializer_list<const char*>& defines)
+bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, const std::initializer_list<const char*>& defines)
 {
     std::string shaderName;
     std::string shaderSource;
@@ -72,8 +72,8 @@ void blah(GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,con
 
 bool ComputeRenderer::Init()
 {
-    //glDebugMessageCallback(blah, NULL);
-    //glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(blah, NULL);
+    glEnable(GL_DEBUG_OUTPUT);
     glGenBuffers(1, &YSpanSetupMemory);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, YSpanSetupMemory);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SpanSetupY)*MaxYSpanSetups, nullptr, GL_DYNAMIC_DRAW);
@@ -86,7 +86,8 @@ bool ComputeRenderer::Init()
     glGenBuffers(1, &BinResultMemory);
     glGenBuffers(1, &FinalTileMemory);
     glGenBuffers(1, &YSpanIndicesTextureMemory);
-    glGenBuffers(1, &TileMemory);
+    glGenBuffers(tilememoryLayer_Num, TileMemory);
+    glGenBuffers(1, &WorkDescMemory);
 
     glGenTextures(1, &YSpanIndicesTexture);
     glGenTextures(1, &LowResFramebuffer);
@@ -123,9 +124,10 @@ void ComputeRenderer::DeInit()
 
     glDeleteBuffers(1, &YSpanSetupMemory);
     glDeleteBuffers(1, &RenderPolygonMemory);
-    glDeleteBuffers(1, &TileMemory);
     glDeleteBuffers(1, &XSpanSetupMemory);
     glDeleteBuffers(1, &BinResultMemory);
+    glDeleteBuffers(tilememoryLayer_Num, TileMemory);
+    glDeleteBuffers(1, &WorkDescMemory);
     glDeleteBuffers(1, &FinalTileMemory);
     glDeleteBuffers(1, &YSpanIndicesTextureMemory);
     glDeleteTextures(1, &YSpanIndicesTexture);
@@ -214,20 +216,24 @@ void ComputeRenderer::SetRenderSettings(GPU::RenderSettings& settings)
 
     MaxWorkTiles = TilesPerLine*TileLines*8;
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, TileMemory);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, 4*3*TileSize*TileSize*MaxWorkTiles, nullptr, GL_DYNAMIC_DRAW);
+    for (int i = 0; i < tilememoryLayer_Num; i++)
+    {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, TileMemory[i]);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, 4*TileSize*TileSize*MaxWorkTiles, nullptr, GL_DYNAMIC_DRAW);
+    }
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, FinalTileMemory);
     glBufferData(GL_SHADER_STORAGE_BUFFER, 4*3*2*ScreenWidth*ScreenHeight, nullptr, GL_DYNAMIC_DRAW);
 
     int binResultSize = sizeof(BinResultHeader)
-        + MaxWorkTiles*2*4 // UnsortedWorkDescs
-        + MaxWorkTiles*2*4 // SortedWork
         + TilesPerLine*TileLines*CoarseBinStride*4 // BinnedMaskCoarse
         + TilesPerLine*TileLines*BinStride*4 // BinnedMask
         + TilesPerLine*TileLines*BinStride*4; // WorkOffsets
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, BinResultMemory);
     glBufferData(GL_SHADER_STORAGE_BUFFER, binResultSize, nullptr, GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, WorkDescMemory);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, MaxWorkTiles*2*4*2, nullptr, GL_DYNAMIC_DRAW);
 
     if (Framebuffer != 0)
         glDeleteTextures(1, &Framebuffer);
@@ -1237,12 +1243,14 @@ void ComputeRenderer::RenderFrame()
     //printf("found via %d %d %d of %d\n", foundviatexcache, foundviaprev, numslow, RenderNumPolygons);
 
     // bind everything
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, YSpanSetupMemory);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, RenderPolygonMemory);
+
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, XSpanSetupMemory);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, RenderPolygonMemory);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, BinResultMemory);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, TileMemory);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, YSpanSetupMemory);
+
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, FinalTileMemory);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, BinResultMemory);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, WorkDescMemory);
 
     MetaUniform meta;
     meta.DispCnt = RenderDispCnt;
@@ -1327,7 +1335,6 @@ void ComputeRenderer::RenderFrame()
         glDispatchCompute((numVariants + 31) / 32, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
 
-
         // sort shader work
         glUseProgram(ShaderSortWork);
         glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
@@ -1335,6 +1342,9 @@ void ComputeRenderer::RenderFrame()
         glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
 
         glActiveTexture(GL_TEXTURE0);
+
+        for (int i = 0; i < tilememoryLayer_Num; i++)
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2+i, TileMemory[i]);
 
         // rasterise
         {

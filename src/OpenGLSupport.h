@@ -29,19 +29,23 @@
 namespace OpenGL
 {
 
+void LoadShaderCache();
+void SaveShaderCache();
+
 struct AttributeTarget
 {
     const char* Name;
     u32 Location;
 };
 
+
 bool CompileVertexFragmentProgram(GLuint& result,
-    const char* vs, const char* fs,
-    const char* name,
+    const std::string& vs, const std::string& fs,
+    const std::string& name,
     const std::initializer_list<AttributeTarget>& vertexInAttrs,
     const std::initializer_list<AttributeTarget>& fragmentOutAttrs);
 
-bool CompileComputeProgram(GLuint& result, const char* source, const char* name);
+bool CompileComputeProgram(GLuint& result, const std::string& source, const std::string& name);
 
 }
 

@@ -28,26 +28,22 @@
 namespace GPU3D
 {
 
-bool GLRenderer::BuildRenderShader(u32 flags, const char* vs, const char* fs)
+bool GLRenderer::BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs)
 {
     char shadername[32];
     sprintf(shadername, "RenderShader%02X", flags);
 
     int headerlen = strlen(kShaderHeader);
 
-    int vslen = strlen(vs);
-    int vsclen = strlen(kRenderVSCommon);
-    char* vsbuf = new char[headerlen + vsclen + vslen + 1];
-    strcpy(&vsbuf[0], kShaderHeader);
-    strcpy(&vsbuf[headerlen], kRenderVSCommon);
-    strcpy(&vsbuf[headerlen + vsclen], vs);
+    std::string vsbuf;
+    vsbuf += kShaderHeader;
+    vsbuf += kRenderVSCommon;
+    vsbuf += vs;
 
-    int fslen = strlen(fs);
-    int fsclen = strlen(kRenderFSCommon);
-    char* fsbuf = new char[headerlen + fsclen + fslen + 1];
-    strcpy(&fsbuf[0], kShaderHeader);
-    strcpy(&fsbuf[headerlen], kRenderFSCommon);
-    strcpy(&fsbuf[headerlen + fsclen], fs);
+    std::string fsbuf;
+    fsbuf += kShaderHeader;
+    fsbuf += kRenderFSCommon;
+    fsbuf += fs;
 
     GLuint prog;
     bool ret = OpenGL::CompileVertexFragmentProgram(prog,
@@ -55,9 +51,6 @@ bool GLRenderer::BuildRenderShader(u32 flags, const char* vs, const char* fs)
         shadername,
         {{"vPosition", 0}, {"vColor", 1}, {"vTexcoord", 2}, {"vPolygonAttr", 3}},
         {{"oColor", 0}, {"oAttr", 1}});
-
-    delete[] vsbuf;
-    delete[] fsbuf;
 
     if (!ret) return false;
 

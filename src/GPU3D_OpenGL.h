@@ -67,7 +67,7 @@ private:
 
     RendererPolygon PolygonList[2048] {};
 
-    bool BuildRenderShader(u32 flags, const char* vs, const char* fs);
+    bool BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs);
     void UseRenderShader(u32 flags);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon);
     u32* SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u32* vptr);

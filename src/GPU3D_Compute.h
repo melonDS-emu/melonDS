@@ -74,7 +74,17 @@ private:
     GLuint XSpanSetupMemory;
     GLuint BinResultMemory;
     GLuint RenderPolygonMemory;
-    GLuint TileMemory;
+    GLuint WorkDescMemory;
+
+    enum
+    {
+        tilememoryLayer_Color,
+        tilememoryLayer_Depth,
+        tilememoryLayer_Attr,
+        tilememoryLayer_Num,
+    };
+
+    GLuint TileMemory[tilememoryLayer_Num];
     GLuint FinalTileMemory;
 
     u32 DummyLine[256] = {};
@@ -102,7 +112,7 @@ private:
         s32 DxInitial;
 
         s32 XCovIncr;
-        u32 IsDummy, __pad1;
+        u32 IsDummy;
     };
     struct SpanSetupX
     {
@@ -138,7 +148,6 @@ private:
         u32 Attr;
 
         float TextureLayer;
-        u32 __pad0, __pad1;
     };
 
     static constexpr int TileSize = 8;
@@ -233,7 +242,7 @@ private:
     void SetupYSpan(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int from, int to, int side, s32 positions[10][2]);
     void SetupYSpanDummy(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int vertex, int side, s32 positions[10][2]);
 
-    bool CompileShader(GLuint& shader, const char* source, const std::initializer_list<const char*>& defines);
+    bool CompileShader(GLuint& shader, const std::string& source, const std::initializer_list<const char*>& defines);
 };
 
 }
