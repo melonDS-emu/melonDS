@@ -194,14 +194,14 @@ void Key2_Encrypt(u8* data, u32 len)
 }
 
 
-CartCommon::CartCommon(u8* rom, u32 len, u32 chipid)
+CartCommon::CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump)
 {
     ROM = rom;
     ROMLength = len;
     ChipID = chipid;
 
     u8 unitcode = ROM[0x12];
-    IsDSi = (unitcode & 0x02) != 0;
+    IsDSi = (unitcode & 0x02) != 0 && !badDSiDump;
     DSiBase = *(u16*)&ROM[0x92] << 19;
 }
 
@@ -403,7 +403,7 @@ void CartCommon::ReadROM(u32 addr, u32 len, u8* data, u32 offset)
 }
 
 
-CartRetail::CartRetail(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid)
+CartRetail::CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump) : CartCommon(rom, len, chipid, badDSiDump)
 {
     SRAM = nullptr;
 }
@@ -865,7 +865,7 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
 }
 
 
-CartRetailNAND::CartRetailNAND(u8* rom, u32 len, u32 chipid) : CartRetail(rom, len, chipid)
+CartRetailNAND::CartRetailNAND(u8* rom, u32 len, u32 chipid) : CartRetail(rom, len, chipid, false)
 {
 }
 
@@ -1092,7 +1092,7 @@ void CartRetailNAND::BuildSRAMID()
 }
 
 
-CartRetailIR::CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion) : CartRetail(rom, len, chipid)
+CartRetailIR::CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump) : CartRetail(rom, len, chipid, badDSiDump)
 {
     IRVersion = irversion;
 }
@@ -1138,7 +1138,7 @@ u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
 }
 
 
-CartRetailBT::CartRetailBT(u8* rom, u32 len, u32 chipid) : CartRetail(rom, len, chipid)
+CartRetailBT::CartRetailBT(u8* rom, u32 len, u32 chipid) : CartRetail(rom, len, chipid, false)
 {
     Log(LogLevel::Info,"POKETYPE CART\n");
 }
@@ -1172,7 +1172,7 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 }
 
 
-CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid)
+CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid, false)
 {
     SD = nullptr;
 }
@@ -1630,6 +1630,15 @@ bool LoadROM(const u8* romdata, u32 romlen)
 
     u8 unitcode = Header.UnitCode;
     bool dsi = (unitcode & 0x02) != 0;
+    bool badDSiDump = false;
+
+    u32 dsiRegion = *(u32*)&CartROM[0x1B0];
+    if (dsi && dsiRegion == 0)
+    {
+        Log(LogLevel::Info, "DS header indicates DSi, but region is zero. Going in bad dump mode.\n");
+        badDSiDump = true;
+        dsi = false;
+    }
 
     size_t bannersize = dsi ? 0x23C0 : 0xA40;
     if (Header.BannerOffset >= 0x200 && Header.BannerOffset < (CartROMSize - bannersize))
@@ -1725,11 +1734,11 @@ bool LoadROM(const u8* romdata, u32 romlen)
     else if (CartID & 0x08000000)
         Cart = new CartRetailNAND(CartROM, CartROMSize, CartID);
     else if (irversion != 0)
-        Cart = new CartRetailIR(CartROM, CartROMSize, CartID, irversion);
+        Cart = new CartRetailIR(CartROM, CartROMSize, CartID, irversion, badDSiDump);
     else if ((gamecode & 0xFFFFFF) == 0x505A55) // UZPx
         Cart = new CartRetailBT(CartROM, CartROMSize, CartID);
     else
-        Cart = new CartRetail(CartROM, CartROMSize, CartID);
+        Cart = new CartRetail(CartROM, CartROMSize, CartID, badDSiDump);
 
     if (Cart)
         Cart->Reset();

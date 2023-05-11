@@ -33,7 +33,7 @@ namespace NDSCart
 class CartCommon
 {
 public:
-    CartCommon(u8* rom, u32 len, u32 chipid);
+    CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump);
     virtual ~CartCommon();
 
     virtual u32 Type() { return 0x001; }
@@ -75,7 +75,7 @@ protected:
 class CartRetail : public CartCommon
 {
 public:
-    CartRetail(u8* rom, u32 len, u32 chipid);
+    CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump);
     virtual ~CartRetail() override;
 
     virtual u32 Type() override { return 0x101; }
@@ -145,7 +145,7 @@ private:
 class CartRetailIR : public CartRetail
 {
 public:
-    CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion);
+    CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump);
     ~CartRetailIR() override;
 
     virtual u32 Type() override { return 0x103; }
