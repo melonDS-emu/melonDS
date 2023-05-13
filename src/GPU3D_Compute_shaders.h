@@ -1568,7 +1568,10 @@ void main()
         bvec4 polyIdMismatch = notEqual(uvec4(polyId), otherPolyId);
         bvec4 nearer = lessThan(uvec4(depth.x), otherDepth);
 
-        if (any(polyIdMismatch & nearer))
+        if ((polyIdMismatch.x && nearer.x)
+            || (polyIdMismatch.y && nearer.y)
+            || (polyIdMismatch.z && nearer.z)
+            || (polyIdMismatch.w && nearer.w))
         {
             color.x = ToonTable[polyId >> 3].b | (color.x & 0xFF000000U);
             attr.x = (attr.x & 0xFFFFE0FFU) | 0x00001000U;
