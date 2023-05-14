@@ -956,6 +956,8 @@ void ComputeRenderer::RenderFrame()
     glDispatchCompute(ScreenWidth/32, ScreenHeight, 1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
+    glBindSampler(0, 0);
+
     /*u64 starttime = armGetSystemTick();
     EmuQueue.waitIdle();
     printf("total time %f\n", armTicksToNs(armGetSystemTick()-starttime)*0.000001f);*/
