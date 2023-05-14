@@ -20,9 +20,6 @@
 
 #include <assert.h>
 
-#define XXH_STATIC_LINKING_ONLY
-#include "xxhash/xxhash.h"
-
 #include "OpenGLSupport.h"
 
 #include "GPU3D_Compute_shaders.h"
@@ -31,7 +28,7 @@ namespace GPU3D
 {
 
 ComputeRenderer::ComputeRenderer()
-    : Renderer3D(true)
+    : Renderer3D(true), Texcache(TexcacheOpenGLLoader())
 {}
 
 ComputeRenderer::~ComputeRenderer()
@@ -72,8 +69,8 @@ void blah(GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,con
 
 bool ComputeRenderer::Init()
 {
-    glDebugMessageCallback(blah, NULL);
-    glEnable(GL_DEBUG_OUTPUT);
+    //glDebugMessageCallback(blah, NULL);
+    //glEnable(GL_DEBUG_OUTPUT);
     glGenBuffers(1, &YSpanSetupMemory);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, YSpanSetupMemory);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SpanSetupY)*MaxYSpanSetups, nullptr, GL_DYNAMIC_DRAW);
@@ -120,7 +117,7 @@ bool ComputeRenderer::Init()
 
 void ComputeRenderer::DeInit()
 {
-    ResetTexcache();
+    Texcache.Reset();
 
     glDeleteBuffers(1, &YSpanSetupMemory);
     glDeleteBuffers(1, &RenderPolygonMemory);
@@ -180,24 +177,9 @@ void ComputeRenderer::DeleteShaders()
         glDeleteProgram(program);
 }
 
-void ComputeRenderer::ResetTexcache()
-{
-    for (u32 i = 0; i < 8; i++)
-    {
-        for (u32 j = 0; j < 8; j++)
-        {
-            for (u32 k = 0; k < TexArrays[i][j].size(); k++)
-                glDeleteTextures(1, &TexArrays[i][j][k]);
-            TexArrays[i][j].clear();
-            FreeTextures[i][j].clear();
-        }
-    }
-    TexCache.clear();
-}
-
 void ComputeRenderer::Reset()
 {
-    ResetTexcache();
+    Texcache.Reset();
 }
 
 void ComputeRenderer::SetRenderSettings(GPU::RenderSettings& settings)
@@ -496,402 +478,6 @@ void ComputeRenderer::SetupYSpan(RenderPolygon* rp, SpanSetupY* span, Polygon* p
     }
 }
 
-inline u32 TextureWidth(u32 texparam)
-{
-    return 8 << ((texparam >> 20) & 0x7);
-}
-
-inline u32 TextureHeight(u32 texparam)
-{
-    return 8 << ((texparam >> 23) & 0x7);
-}
-
-inline u16 ColorAvg(u16 color0, u16 color1)
-{
-    u32 r0 = color0 & 0x001F;
-    u32 g0 = color0 & 0x03E0;
-    u32 b0 = color0 & 0x7C00;
-    u32 r1 = color1 & 0x001F;
-    u32 g1 = color1 & 0x03E0;
-    u32 b1 = color1 & 0x7C00;
-
-    u32 r = (r0 + r1) >> 1;
-    u32 g = ((g0 + g1) >> 1) & 0x03E0;
-    u32 b = ((b0 + b1) >> 1) & 0x7C00;
-
-    return r | g | b;
-}
-
-inline u16 Color5of3(u16 color0, u16 color1)
-{
-    u32 r0 = color0 & 0x001F;
-    u32 g0 = color0 & 0x03E0;
-    u32 b0 = color0 & 0x7C00;
-    u32 r1 = color1 & 0x001F;
-    u32 g1 = color1 & 0x03E0;
-    u32 b1 = color1 & 0x7C00;
-
-    u32 r = (r0*5 + r1*3) >> 3;
-    u32 g = ((g0*5 + g1*3) >> 3) & 0x03E0;
-    u32 b = ((b0*5 + b1*3) >> 3) & 0x7C00;
-
-    return r | g | b;
-}
-
-inline u16 Color3of5(u16 color0, u16 color1)
-{
-    u32 r0 = color0 & 0x001F;
-    u32 g0 = color0 & 0x03E0;
-    u32 b0 = color0 & 0x7C00;
-    u32 r1 = color1 & 0x001F;
-    u32 g1 = color1 & 0x03E0;
-    u32 b1 = color1 & 0x7C00;
-
-    u32 r = (r0*3 + r1*5) >> 3;
-    u32 g = ((g0*3 + g1*5) >> 3) & 0x03E0;
-    u32 b = ((b0*3 + b1*5) >> 3) & 0x7C00;
-
-    return r | g | b;
-}
-
-inline u32 ConvertRGB5ToRGB8(u16 val)
-{
-    return (((u32)val & 0x1F) << 3)
-        | (((u32)val & 0x3E0) << 6)
-        | (((u32)val & 0x7C00) << 9);
-}
-inline u32 ConvertRGB5ToBGR8(u16 val)
-{
-    return (((u32)val & 0x1F) << 9)
-        | (((u32)val & 0x3E0) << 6)
-        | (((u32)val & 0x7C00) << 3);
-}
-inline u32 ConvertRGB5ToRGB6(u16 val)
-{
-    u8 r = (val & 0x1F) << 1;
-    u8 g = (val & 0x3E0) >> 4;
-    u8 b = (val & 0x7C00) >> 9;
-    if (r) r++;
-    if (g) g++;
-    if (b) b++;
-    return (u32)r | ((u32)g << 8) | ((u32)b << 16);
-}
-
-enum
-{
-    outputFmt_RGB6A5,
-    outputFmt_RGBA8,
-    outputFmt_BGRA8
-};
-
-template <int outputFmt>
-void ConvertCompressedTexture(u32 width, u32 height, u32* output, u8* texData, u8* texAuxData, u16* palData)
-{
-    // we process a whole block at the time
-    for (int y = 0; y < height / 4; y++)
-    {
-        for (int x = 0; x < width / 4; x++)
-        {
-            u32 data = ((u32*)texData)[x + y * (width / 4)];
-            u16 auxData = ((u16*)texAuxData)[x + y * (width / 4)];
-
-            u32 paletteOffset = auxData & 0x3FFF;
-            u16 color0 = palData[paletteOffset*2] | 0x8000;
-            u16 color1 = palData[paletteOffset*2+1] | 0x8000;
-            u16 color2, color3;
-
-            switch ((auxData >> 14) & 0x3)
-            {
-            case 0:
-                color2 = palData[paletteOffset*2+2] | 0x8000;
-                color3 = 0;
-                break;
-            case 1:
-                {
-                    u32 r0 = color0 & 0x001F;
-                    u32 g0 = color0 & 0x03E0;
-                    u32 b0 = color0 & 0x7C00;
-                    u32 r1 = color1 & 0x001F;
-                    u32 g1 = color1 & 0x03E0;
-                    u32 b1 = color1 & 0x7C00;
-
-                    u32 r = (r0 + r1) >> 1;
-                    u32 g = ((g0 + g1) >> 1) & 0x03E0;
-                    u32 b = ((b0 + b1) >> 1) & 0x7C00;
-                    color2 = r | g | b | 0x8000;
-                }
-                color3 = 0;
-                break;
-            case 2:
-                color2 = palData[paletteOffset*2+2] | 0x8000;
-                color3 = palData[paletteOffset*2+3] | 0x8000;
-                break;
-            case 3:
-                {
-                    u32 r0 = color0 & 0x001F;
-                    u32 g0 = color0 & 0x03E0;
-                    u32 b0 = color0 & 0x7C00;
-                    u32 r1 = color1 & 0x001F;
-                    u32 g1 = color1 & 0x03E0;
-                    u32 b1 = color1 & 0x7C00;
-
-                    u32 r = (r0*5 + r1*3) >> 3;
-                    u32 g = ((g0*5 + g1*3) >> 3) & 0x03E0;
-                    u32 b = ((b0*5 + b1*3) >> 3) & 0x7C00;
-
-                    color2 = r | g | b | 0x8000;
-                }
-                {
-                    u32 r0 = color0 & 0x001F;
-                    u32 g0 = color0 & 0x03E0;
-                    u32 b0 = color0 & 0x7C00;
-                    u32 r1 = color1 & 0x001F;
-                    u32 g1 = color1 & 0x03E0;
-                    u32 b1 = color1 & 0x7C00;
-
-                    u32 r = (r0*3 + r1*5) >> 3;
-                    u32 g = ((g0*3 + g1*5) >> 3) & 0x03E0;
-                    u32 b = ((b0*3 + b1*5) >> 3) & 0x7C00;
-
-                    color3 = r | g | b | 0x8000;
-                }
-                break;
-            }
-
-            // in 2020 our default data types are big enough to be used as lookup tables...
-            u64 packed = color0 | ((u64)color1 << 16) | ((u64)color2 << 32) | ((u64)color3 << 48);
-
-            for (int j = 0; j < 4; j++)
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    u16 color = (packed >> 16 * (data >> 2 * (i + j * 4))) & 0xFFFF;
-                    u32 res;
-                    switch (outputFmt)
-                    {
-                    case outputFmt_RGB6A5: res = ConvertRGB5ToRGB6(color)
-                        | ((color & 0x8000) ? 0x1F000000 : 0); break;
-                    case outputFmt_RGBA8: res = ConvertRGB5ToRGB8(color)
-                        | ((color & 0x8000) ? 0xFF000000 : 0); break;
-                    case outputFmt_BGRA8: res = ConvertRGB5ToBGR8(color)
-                        | ((color & 0x8000) ? 0xFF000000 : 0); break;
-                    }
-                    output[x * 4 + i + (y * 4 + j) * width] = res;
-                }
-            }
-        }
-    }
-}
-
-template <int outputFmt, int X, int Y>
-void ConvertAXIYTexture(u32 width, u32 height, u32* output, u8* texData, u16* palData)
-{
-    for (int y = 0; y < height; y++)
-    {
-        for (int x = 0; x < width; x++)
-        {
-            u8 val = texData[x + y * width];
-
-            u32 idx = val & ((1 << Y) - 1);
-
-            u16 color = palData[idx];
-            u32 alpha = (val >> Y) & ((1 << X) - 1);
-            if (X != 5)
-                alpha = alpha * 4 + alpha / 2;
-
-            u32 res;
-            switch (outputFmt)
-            {
-            case outputFmt_RGB6A5: res = ConvertRGB5ToRGB6(color) | alpha << 24; break;
-            // make sure full alpha == 255
-            case outputFmt_RGBA8: res = ConvertRGB5ToRGB8(color) | (alpha << 27 | (alpha & 0x1C) << 22); break;
-            case outputFmt_BGRA8: res = ConvertRGB5ToBGR8(color) | (alpha << 27 | (alpha & 0x1C) << 22); break;
-            }
-            output[x + y * width] = res;
-        }
-    }
-}
-
-template <int outputFmt, int colorBits>
-void ConvertNColorsTexture(u32 width, u32 height, u32* output, u8* texData, u16* palData, bool color0Transparent)
-{
-    for (int y = 0; y < height; y++)
-    {
-        for (int x = 0; x < width / (8 / colorBits); x++)
-        {
-            u8 val = texData[x + y * (width / (8 / colorBits))];
-
-            for (int i = 0; i < 8 / colorBits; i++)
-            {
-                u32 index = (val >> (i * colorBits)) & ((1 << colorBits) - 1);
-                u16 color = palData[index];
-
-                bool transparent = color0Transparent && index == 0;
-                u32 res;
-                switch (outputFmt)
-                {
-                case outputFmt_RGB6A5: res = ConvertRGB5ToRGB6(color)
-                    | (transparent ? 0 : 0x1F000000); break;
-                case outputFmt_RGBA8: res = ConvertRGB5ToRGB8(color)
-                    | (transparent ? 0 : 0xFF000000); break;
-                case outputFmt_BGRA8: res = ConvertRGB5ToBGR8(color)
-                    | (transparent ? 0 : 0xFF000000); break;
-                }
-                output[x * (8 / colorBits) + y * width + i] = res;
-            }
-        }
-    }
-}
-
-ComputeRenderer::TexCacheEntry& ComputeRenderer::GetTexture(u32 texParam, u32 palBase)
-{
-    // remove sampling and texcoord gen params
-    texParam &= ~0xC00F0000;
-
-    u32 fmt = (texParam >> 26) & 0x7;
-    u64 key = texParam;
-    if (fmt != 7)
-    {
-        key |= (u64)palBase << 32;
-        if (fmt == 5)
-            key &= ~((u64)1 << 29);
-    }
-    //printf("%" PRIx64 " %" PRIx32 " %" PRIx32 "\n", key, texParam, palBase);
-
-    assert(fmt != 0 && "no texture is not a texture format!");
-
-    auto it = TexCache.find(key);
-
-    if (it != TexCache.end())
-        return it->second;
-
-    u32 widthLog2 = (texParam >> 20) & 0x7;
-    u32 heightLog2 = (texParam >> 23) & 0x7;
-    u32 width = 8 << widthLog2;
-    u32 height = 8 << heightLog2;
-
-    u32 addr = (texParam & 0xFFFF) * 8;
-
-    TexCacheEntry entry = {0};
-
-    entry.TextureRAMStart[0] = addr;
-    entry.WidthLog2 = widthLog2;
-    entry.HeightLog2 = heightLog2;
-
-    // apparently a new texture
-    if (fmt == 7)
-    {
-        entry.TextureRAMSize[0] = width*height*2;
-
-        for (u32 i = 0; i < width*height; i++)
-        {
-            u16 value = *(u16*)&GPU::VRAMFlat_Texture[addr + i * 2];
-
-            TextureDecodingBuffer[i] = ConvertRGB5ToRGB6(value) | (value & 0x8000 ? 0x1F000000 : 0);
-        }
-    }
-    else if (fmt == 5)
-    {
-        u8* texData = &GPU::VRAMFlat_Texture[addr];
-        u32 slot1addr = 0x20000 + ((addr & 0x1FFFC) >> 1);
-        if (addr >= 0x40000)
-            slot1addr += 0x10000;
-        u8* texAuxData = &GPU::VRAMFlat_Texture[slot1addr];
-
-        u16* palData = (u16*)(GPU::VRAMFlat_TexPal + palBase*16);
-
-        entry.TextureRAMSize[0] = width*height/16*4;
-        entry.TextureRAMStart[1] = slot1addr;
-        entry.TextureRAMSize[1] = width*height/16*2;
-        entry.TexPalStart = palBase*16;
-        entry.TexPalSize = 0x10000;
-
-        ConvertCompressedTexture<outputFmt_RGB6A5>(width, height, TextureDecodingBuffer, texData, texAuxData, palData);
-    }
-    else
-    {
-        u32 texSize, palAddr = palBase*16, numPalEntries;
-        switch (fmt)
-        {
-        case 1: texSize = width*height; numPalEntries = 32; break;
-        case 6: texSize = width*height; numPalEntries = 8; break;
-        case 2: texSize = width*height/4; numPalEntries = 4; palAddr >>= 1; break;
-        case 3: texSize = width*height/2; numPalEntries = 16; break;
-        case 4: texSize = width*height; numPalEntries = 256; break;
-        }
-
-        palAddr &= 0x1FFFF;
-
-        /*printf("creating texture | fmt: %d | %dx%d | %08x | %08x\n", fmt, width, height, addr, palAddr);
-        svcSleepThread(1000*1000);*/
-
-        entry.TextureRAMSize[0] = texSize;
-        entry.TexPalStart = palAddr;
-        entry.TexPalSize = numPalEntries*2;
-
-        u8* texData = &GPU::VRAMFlat_Texture[addr];
-        u16* palData = (u16*)(GPU::VRAMFlat_TexPal + palAddr);
-
-        //assert(entry.TexPalStart+entry.TexPalSize <= 128*1024*1024);
-
-        bool color0Transparent = texParam & (1 << 29);
-
-        switch (fmt)
-        {
-        case 1: ConvertAXIYTexture<outputFmt_RGB6A5, 3, 5>(width, height, TextureDecodingBuffer, texData, palData); break;
-        case 6: ConvertAXIYTexture<outputFmt_RGB6A5, 5, 3>(width, height, TextureDecodingBuffer, texData, palData); break;
-        case 2: ConvertNColorsTexture<outputFmt_RGB6A5, 2>(width, height, TextureDecodingBuffer, texData, palData, color0Transparent); break;
-        case 3: ConvertNColorsTexture<outputFmt_RGB6A5, 4>(width, height, TextureDecodingBuffer, texData, palData, color0Transparent); break;
-        case 4: ConvertNColorsTexture<outputFmt_RGB6A5, 8>(width, height, TextureDecodingBuffer, texData, palData, color0Transparent); break;
-        }
-    }
-
-    for (int i = 0; i < 2; i++)
-    {
-        if (entry.TextureRAMSize[i])
-            entry.TextureHash[i] = XXH3_64bits(&GPU::VRAMFlat_Texture[entry.TextureRAMStart[i]], entry.TextureRAMSize[i]);
-    }
-    if (entry.TexPalSize)
-        entry.TexPalHash = XXH3_64bits(&GPU::VRAMFlat_TexPal[entry.TexPalStart], entry.TexPalSize);
-
-    auto& texArrays = TexArrays[widthLog2][heightLog2];
-    auto& freeTextures = FreeTextures[widthLog2][heightLog2];
-
-    if (freeTextures.size() == 0)
-    {
-        texArrays.resize(texArrays.size()+1);
-        GLuint& array = texArrays[texArrays.size()-1];
-
-        u32 layers = std::min<u32>((8*1024*1024) / (width*height*4), 64);
-
-        // allocate new array texture
-        glGenTextures(1, &array);
-        glBindTexture(GL_TEXTURE_2D_ARRAY, array);
-        glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8UI, width, height, layers);
-        //printf("allocating new layer set for %d %d %d %d\n", width, height, texArrays.size()-1, array.ImageDescriptor);
-
-        for (u32 i = 0; i < layers; i++)
-        {
-            freeTextures.push_back(TexArrayEntry{array, i});
-        }
-    }
-
-    TexArrayEntry storagePlace = freeTextures[freeTextures.size()-1];
-    freeTextures.pop_back();
-
-    //printf("using storage place %d %d | %d %d (%d)\n", width, height, storagePlace.TexArrayIdx, storagePlace.LayerIdx, array.ImageDescriptor);
-
-    glBindTexture(GL_TEXTURE_2D_ARRAY, storagePlace.TextureID);
-    glTexSubImage3D(GL_TEXTURE_2D_ARRAY,
-        0, 0, 0, storagePlace.Layer,
-        width, height, 1,
-        GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, TextureDecodingBuffer);
-
-    entry.Texture = storagePlace;
-
-    return TexCache.emplace(std::make_pair(key, entry)).first->second;
-}
-
 struct Variant
 {
     GLuint Texture, Sampler;
@@ -921,69 +507,8 @@ struct Variant
 void ComputeRenderer::RenderFrame()
 {
     //printf("render frame\n");
-    auto textureDirty = GPU::VRAMDirty_Texture.DeriveState(GPU::VRAMMap_Texture);
-    auto texPalDirty = GPU::VRAMDirty_TexPal.DeriveState(GPU::VRAMMap_TexPal);
 
-    bool textureChanged = GPU::MakeVRAMFlat_TextureCoherent(textureDirty);
-    bool texPalChanged = GPU::MakeVRAMFlat_TexPalCoherent(texPalDirty);
-
-    if (textureChanged || texPalChanged)
-    {
-        //printf("check invalidation %d\n", TexCache.size());
-        for (auto it = TexCache.begin(); it != TexCache.end();)
-        {
-            TexCacheEntry& entry = it->second;
-            if (textureChanged)
-            {
-                for (u32 i = 0; i < 2; i++)
-                {
-                    u32 startBit = entry.TextureRAMStart[i] / GPU::VRAMDirtyGranularity;
-                    u32 bitsCount = ((entry.TextureRAMStart[i] + entry.TextureRAMSize[i] + GPU::VRAMDirtyGranularity - 1) / GPU::VRAMDirtyGranularity) - startBit;
-
-                    u32 startEntry = startBit >> 6;
-                    u64 entriesCount = ((startBit + bitsCount + 0x3F) >> 6) - startEntry;
-                    for (u32 j = startEntry; j < startEntry + entriesCount; j++)
-                    {
-                        if (GetRangedBitMask(j, startBit, bitsCount) & textureDirty.Data[j])
-                        {
-                            u64 newTexHash = XXH3_64bits(&GPU::VRAMFlat_Texture[entry.TextureRAMStart[i]], entry.TextureRAMSize[i]);
-
-                            if (newTexHash != entry.TextureHash[i])
-                                goto invalidate;
-                        }
-                    }
-                }
-            }
-
-            if (texPalChanged && entry.TexPalSize > 0)
-            {
-                u32 startBit = entry.TexPalStart / GPU::VRAMDirtyGranularity;
-                u32 bitsCount = ((entry.TexPalStart + entry.TexPalSize + GPU::VRAMDirtyGranularity - 1) / GPU::VRAMDirtyGranularity) - startBit;
-
-                u32 startEntry = startBit >> 6;
-                u64 entriesCount = ((startBit + bitsCount + 0x3F) >> 6) - startEntry;
-                for (u32 j = startEntry; j < startEntry + entriesCount; j++)
-                {
-                    if (GetRangedBitMask(j, startBit, bitsCount) & texPalDirty.Data[j])
-                    {
-                        u64 newPalHash = XXH3_64bits(&GPU::VRAMFlat_TexPal[entry.TexPalStart], entry.TexPalSize);
-                        if (newPalHash != entry.TexPalHash)
-                            goto invalidate;
-                    }
-                }
-            }
-
-            it++;
-            continue;
-        invalidate:
-            FreeTextures[entry.WidthLog2][entry.HeightLog2].push_back(entry.Texture);
-
-            //printf("invalidating texture %d\n", entry.ImageDescriptor);
-
-            it = TexCache.erase(it);
-        }
-    }
-    else if (RenderFrameIdentical)
+    if (!Texcache.Update() && RenderFrameIdentical)
     {
         return;
     }
@@ -1005,8 +530,6 @@ void ComputeRenderer::RenderFrame()
     */
     u32 numVariants = 0, prevVariant, prevTexLayer;
     Variant variants[MaxVariants];
-
-    int foundviatexcache = 0, foundviaprev = 0, numslow = 0;
 
     bool enableTextureMaps = RenderDispCnt & (1<<0);
 
@@ -1033,8 +556,6 @@ void ComputeRenderer::RenderFrame()
                 && prevPolygon->TexPalette == polygon->TexPalette
                 && (prevPolygon->Attr & 0x30) == (polygon->Attr & 0x30)
                 && prevPolygon->IsShadowMask == polygon->IsShadowMask;
-            if (foundVariant)
-                foundviaprev++;
         }
 
         if (!foundVariant)
@@ -1043,30 +564,26 @@ void ComputeRenderer::RenderFrame()
             variant.BlendMode = polygon->IsShadowMask ? 4 : ((polygon->Attr >> 4) & 0x3);
             variant.Texture = 0;
             variant.Sampler = 0;
-            TexCacheEntry* texcacheEntry = nullptr;
+            u32* textureLastVariant = nullptr;
             // we always need to look up the texture to get the layer of the array texture
             if (enableTextureMaps && (polygon->TexParam >> 26) & 0x7)
             {
-                texcacheEntry = &GetTexture(polygon->TexParam, polygon->TexPalette);
+                Texcache.GetTexture(polygon->TexParam, polygon->TexPalette, variant.Texture, prevTexLayer, textureLastVariant);
                 bool wrapS = (polygon->TexParam >> 16) & 1;
                 bool wrapT = (polygon->TexParam >> 17) & 1;
                 bool mirrorS = (polygon->TexParam >> 18) & 1;
                 bool mirrorT = (polygon->TexParam >> 19) & 1;
                 variant.Sampler = Samplers[(wrapS ? (mirrorS ? 2 : 1) : 0) + (wrapT ? (mirrorT ? 2 : 1) : 0) * 3];
-                variant.Texture = texcacheEntry->Texture.TextureID;
-                prevTexLayer = texcacheEntry->Texture.Layer;
 
-                if (texcacheEntry->LastVariant < numVariants && variants[texcacheEntry->LastVariant] == variant)
+                if (*textureLastVariant < numVariants && variants[*textureLastVariant] == variant)
                 {
                     foundVariant = true;
-                    prevVariant = texcacheEntry->LastVariant;
-                    foundviatexcache++;
+                    prevVariant = *textureLastVariant;
                 }
             }
 
             if (!foundVariant)
             {
-                numslow++;
                 for (int j = numVariants - 1; j >= 0; j--)
                 {
                     if (variants[j] == variant)
@@ -1085,8 +602,8 @@ void ComputeRenderer::RenderFrame()
                 assert(numVariants <= MaxVariants);
             foundVariant:;
 
-                if (texcacheEntry)
-                    texcacheEntry->LastVariant = prevVariant;
+                if (textureLastVariant)
+                    *textureLastVariant = prevVariant;
             }
         }
         RenderPolygons[i].Variant = prevVariant;

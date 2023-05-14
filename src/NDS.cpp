@@ -33,6 +33,7 @@
 #include "AREngine.h"
 #include "Platform.h"
 #include "FreeBIOS.h"
+#include "GPU3D.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"

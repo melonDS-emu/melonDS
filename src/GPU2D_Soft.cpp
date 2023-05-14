@@ -18,6 +18,7 @@
 
 #include "GPU2D_Soft.h"
 #include "GPU.h"
+#include "GPU3D.h"
 
 namespace GPU2D
 {

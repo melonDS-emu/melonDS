@@ -20,6 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
+#include "GPU3D.h"
 
 using Platform::Log;
 using Platform::LogLevel;

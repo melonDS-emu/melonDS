@@ -23,9 +23,9 @@
 
 #include "OpenGLSupport.h"
 
-#include "NonStupidBitfield.h"
+#include "GPU3D_TexcacheOpenGL.h"
 
-#include <unordered_map>
+#include "NonStupidBitfield.h"
 
 namespace GPU3D
 {
@@ -179,25 +179,7 @@ private:
     SpanSetupY YSpanSetups[MaxYSpanSetups];
     RenderPolygon RenderPolygons[2048];
 
-    struct TexArrayEntry
-    {
-        GLuint TextureID;
-        u32 Layer;
-    };
-
-    struct TexCacheEntry
-    {
-        u32 LastVariant; // very cheap way to make variant lookup faster
-
-        u32 TextureRAMStart[2], TextureRAMSize[2];
-        u32 TexPalStart, TexPalSize;
-        u8 WidthLog2, HeightLog2;
-        TexArrayEntry Texture;
-
-        u64 TextureHash[2];
-        u64 TexPalHash;
-    };
-    std::unordered_map<u64, TexCacheEntry> TexCache;
+    TexcacheOpenGL Texcache;
 
     struct MetaUniform
     {
@@ -215,12 +197,7 @@ private:
     };
     GLuint MetaUniformMemory;
 
-    std::vector<TexArrayEntry> FreeTextures[8][8];
-    std::vector<GLuint> TexArrays[8][8];
-
     GLuint Samplers[9];
-
-    u32 TextureDecodingBuffer[1024*1024];
 
     GLuint Framebuffer = 0;
     GLuint LowResFramebuffer;
@@ -228,14 +205,11 @@ private:
 
     u32 FramebufferCPU[256*192];
 
-    TexCacheEntry& GetTexture(u32 textureParam, u32 paletteParam);
-
     int ScreenWidth, ScreenHeight;
     int TilesPerLine, TileLines;
     int ScaleFactor = -1;
     int MaxWorkTiles;
 
-    void ResetTexcache();
     void DeleteShaders();
 
     void SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int to);

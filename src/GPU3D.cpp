@@ -23,6 +23,7 @@
 #include "GPU.h"
 #include "FIFO.h"
 #include "Platform.h"
+#include "GPU3D.h"
 
 using Platform::Log;
 using Platform::LogLevel;

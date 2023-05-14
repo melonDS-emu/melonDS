@@ -21,6 +21,7 @@
 #include "DSi.h"
 #include "DMA.h"
 #include "GPU.h"
+#include "GPU3D.h"
 #include "DMA_Timings.h"
 #include "Platform.h"
 

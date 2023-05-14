@@ -25,6 +25,7 @@
 #endif
 
 #include "GPU2D_Soft.h"
+#include "GPU3D.h"
 
 using Platform::Log;
 using Platform::LogLevel;
