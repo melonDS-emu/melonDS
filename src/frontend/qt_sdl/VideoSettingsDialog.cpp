@@ -23,6 +23,7 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
+#include "GPU.h"
 
 #include "VideoSettingsDialog.h"
 #include "ui_VideoSettingsDialog.h"
@@ -30,11 +31,20 @@
 
 inline bool UsesGL()
 {
-    return (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+    return (Config::ScreenUseGL != 0) || (Config::_3DRenderer != GPU::renderer3D_Software);
 }
 
 VideoSettingsDialog* VideoSettingsDialog::currentDlg = nullptr;
 
+void VideoSettingsDialog::setEnabled()
+{
+    bool softwareRenderer = Config::_3DRenderer == GPU::renderer3D_Software;
+    ui->cbGLDisplay->setEnabled(softwareRenderer);
+    ui->cbSoftwareThreaded->setEnabled(softwareRenderer);
+    ui->cbxGLResolution->setEnabled(!softwareRenderer);
+    ui->cbBetterPolygons->setEnabled(Config::_3DRenderer == GPU::renderer3D_OpenGL);
+    ui->cbxComputeHiResCoords->setEnabled(Config::_3DRenderer == GPU::renderer3D_OpenGLCompute);
+}
 
 VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::VideoSettingsDialog)
 {
@@ -48,10 +58,12 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     oldSoftThreaded = Config::Threaded3D;
     oldGLScale = Config::GL_ScaleFactor;
     oldGLBetterPolygons = Config::GL_BetterPolygons;
+    oldHiresCoordinates = Config::GL_HiresCoordinates;
 
     grp3DRenderer = new QButtonGroup(this);
-    grp3DRenderer->addButton(ui->rb3DSoftware, 0);
-    grp3DRenderer->addButton(ui->rb3DOpenGL,   1);
+    grp3DRenderer->addButton(ui->rb3DSoftware, GPU::renderer3D_Software);
+    grp3DRenderer->addButton(ui->rb3DOpenGL,   GPU::renderer3D_OpenGL);
+    grp3DRenderer->addButton(ui->rb3DCompute,  GPU::renderer3D_OpenGLCompute);
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
     connect(grp3DRenderer, SIGNAL(buttonClicked(int)), this, SLOT(onChange3DRenderer(int)));
 #else
@@ -75,25 +87,13 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->cbxGLResolution->setCurrentIndex(Config::GL_ScaleFactor-1);
 
     ui->cbBetterPolygons->setChecked(Config::GL_BetterPolygons != 0);
+    ui->cbxComputeHiResCoords->setChecked(Config::GL_HiresCoordinates != 0);
 
     if (!Config::ScreenVSync)
         ui->sbVSyncInterval->setEnabled(false);
     setVsyncControlEnable(UsesGL());
 
-    if (Config::_3DRenderer == 0)
-    {
-        ui->cbGLDisplay->setEnabled(true);
-        ui->cbSoftwareThreaded->setEnabled(true);
-        ui->cbxGLResolution->setEnabled(false);
-        ui->cbBetterPolygons->setEnabled(false);
-    }
-    else
-    {
-        ui->cbGLDisplay->setEnabled(false);
-        ui->cbSoftwareThreaded->setEnabled(false);
-        ui->cbxGLResolution->setEnabled(true);
-        ui->cbBetterPolygons->setEnabled(true);
-    }
+    setEnabled();
 }
 
 VideoSettingsDialog::~VideoSettingsDialog()
@@ -119,6 +119,7 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
     Config::Threaded3D = oldSoftThreaded;
     Config::GL_ScaleFactor = oldGLScale;
     Config::GL_BetterPolygons = oldGLBetterPolygons;
+    Config::GL_HiresCoordinates = oldHiresCoordinates;
 
     emit updateVideoSettings(old_gl != UsesGL());
 
@@ -133,31 +134,18 @@ void VideoSettingsDialog::setVsyncControlEnable(bool hasOGL)
 
 void VideoSettingsDialog::onChange3DRenderer(int renderer)
 {
-    bool old_gl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+    bool old_gl = UsesGL();
 
     Config::_3DRenderer = renderer;
 
-    if (renderer == 0)
-    {
-        ui->cbGLDisplay->setEnabled(true);
-        ui->cbSoftwareThreaded->setEnabled(true);
-        ui->cbxGLResolution->setEnabled(false);
-        ui->cbBetterPolygons->setEnabled(false);
-    }
-    else
-    {
-        ui->cbGLDisplay->setEnabled(false);
-        ui->cbSoftwareThreaded->setEnabled(false);
-        ui->cbxGLResolution->setEnabled(true);
-        ui->cbBetterPolygons->setEnabled(true);
-    }
+    setEnabled();
 
     emit updateVideoSettings(old_gl != UsesGL());
 }
 
 void VideoSettingsDialog::on_cbGLDisplay_stateChanged(int state)
 {
-    bool old_gl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+    bool old_gl = UsesGL();
 
     Config::ScreenUseGL = (state != 0);
 
@@ -202,6 +190,13 @@ void VideoSettingsDialog::on_cbxGLResolution_currentIndexChanged(int idx)
 void VideoSettingsDialog::on_cbBetterPolygons_stateChanged(int state)
 {
     Config::GL_BetterPolygons = (state != 0);
+
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_cbxComputeHiResCoords_stateChanged(int state)
+{
+    Config::GL_HiresCoordinates = (state != 0);
 
     emit updateVideoSettings(false);
 }

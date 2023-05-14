@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>408</width>
+    <width>427</width>
     <height>262</height>
    </rect>
   </property>
@@ -24,7 +24,7 @@
     <enum>QLayout::SetFixedSize</enum>
    </property>
    <property name="horizontalSpacing">
-    <number>-1</number>
+    <number>6</number>
    </property>
    <item row="1" column="1">
     <widget class="QGroupBox" name="groupBox_3">
@@ -39,13 +39,6 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
-       <widget class="QComboBox" name="cbxGLResolution">
-        <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The resolution at which the 3D graphics will be rendered. Higher resolutions improve graphics quality when the main window is enlarged, but may also cause glitches.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-       </widget>
-      </item>
       <item row="2" column="0">
        <widget class="QCheckBox" name="cbBetterPolygons">
         <property name="whatsThis">
@@ -53,6 +46,20 @@
         </property>
         <property name="text">
          <string>Improved polygon splitting</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QComboBox" name="cbxGLResolution">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The resolution at which the 3D graphics will be rendered. Higher resolutions improve graphics quality when the main window is enlarged, but may also cause glitches.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QCheckBox" name="cbxComputeHiResCoords">
+        <property name="text">
+         <string>Use high resolution coordinates</string>
         </property>
        </widget>
       </item>
@@ -94,23 +101,7 @@
       <string>Display settings</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
-      <item row="6" column="0">
-       <widget class="QLabel" name="label_2">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The interval at which to synchronize to the monitor's refresh rate. Set to 1 for a 60Hz monitor, 2 for 120Hz, ...&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="text">
-         <string>VSync interval:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="6" column="1">
+      <item row="7" column="1">
        <widget class="QSpinBox" name="sbVSyncInterval">
         <property name="whatsThis">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The interval at which to synchronize to the monitor's refresh rate. Set to 1 for a 60Hz monitor, 2 for 120Hz, ...&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -123,7 +114,7 @@
         </property>
        </widget>
       </item>
-      <item row="4" column="0" colspan="2">
+      <item row="5" column="0" colspan="2">
        <widget class="QCheckBox" name="cbGLDisplay">
         <property name="whatsThis">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use OpenGL to draw the DS screens to the main window. May result in better frame pacing. Mandatory when using the OpenGL 3D renderer.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -133,17 +124,7 @@
         </property>
        </widget>
       </item>
-      <item row="5" column="0" colspan="2">
-       <widget class="QCheckBox" name="cbVSync">
-        <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When using OpenGL, synchronize the video output to your monitor's refresh rate.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="text">
-         <string>VSync</string>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="0" colspan="2">
+      <item row="4" column="0" colspan="2">
        <spacer name="verticalSpacer">
         <property name="orientation">
          <enum>Qt::Vertical</enum>
@@ -159,13 +140,39 @@
         </property>
        </spacer>
       </item>
+      <item row="6" column="0" colspan="2">
+       <widget class="QCheckBox" name="cbVSync">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When using OpenGL, synchronize the video output to your monitor's refresh rate.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>VSync</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The interval at which to synchronize to the monitor's refresh rate. Set to 1 for a 60Hz monitor, 2 for 120Hz, ...&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>VSync interval:</string>
+        </property>
+       </widget>
+      </item>
       <item row="2" column="0" colspan="2">
        <widget class="QRadioButton" name="rb3DOpenGL">
         <property name="whatsThis">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The OpenGL renderer may be faster than software and supports graphical enhancements, but is more prone to glitches.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>OpenGL</string>
+         <string>OpenGL (Classic)</string>
         </property>
        </widget>
       </item>
@@ -183,6 +190,13 @@
        <widget class="QLabel" name="label">
         <property name="text">
          <string>3D renderer:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QRadioButton" name="rb3DCompute">
+        <property name="text">
+         <string>OpenGL (Compute shader)</string>
         </property>
        </widget>
       </item>

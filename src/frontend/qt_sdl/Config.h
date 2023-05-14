@@ -103,6 +103,7 @@ extern bool Threaded3D;
 
 extern int GL_ScaleFactor;
 extern bool GL_BetterPolygons;
+extern bool GL_HiresCoordinates;
 
 extern bool LimitFPS;
 extern bool AudioSync;

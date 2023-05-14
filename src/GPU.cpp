@@ -396,7 +396,7 @@ void AssignFramebuffers()
 void InitRenderer(int renderer)
 {
 #ifdef OGLRENDERER_ENABLED
-    if (renderer == 1)
+    if (renderer != renderer3D_Software)
     {
         CurGLCompositor = GLCompositor::New();
         // Create opengl renderer

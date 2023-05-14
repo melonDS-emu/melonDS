@@ -196,6 +196,8 @@ void ComputeRenderer::SetRenderSettings(GPU::RenderSettings& settings)
     TilesPerLine = ScreenWidth/TileSize;
     TileLines = ScreenHeight/TileSize;
 
+    HiresCoordinates = settings.GL_HiresCoordinates;
+
     MaxWorkTiles = TilesPerLine*TileLines*8;
 
     for (int i = 0; i < tilememoryLayer_Num; i++)
@@ -628,8 +630,16 @@ void ComputeRenderer::RenderFrame()
         s32 ytop = ScreenHeight, ybot = 0;
         for (int i = 0; i < polygon->NumVertices; i++)
         {
-            scaledPositions[i][0] = (polygon->Vertices[i]->HiresPosition[0] * ScaleFactor) >> 4;
-            scaledPositions[i][1] = (polygon->Vertices[i]->HiresPosition[1] * ScaleFactor) >> 4;
+            if (HiresCoordinates)
+            {
+                scaledPositions[i][0] = (polygon->Vertices[i]->HiresPosition[0] * ScaleFactor) >> 4;
+                scaledPositions[i][1] = (polygon->Vertices[i]->HiresPosition[1] * ScaleFactor) >> 4;
+            }
+            else
+            {
+                scaledPositions[i][0] = polygon->Vertices[i]->FinalPosition[0] * ScaleFactor;
+                scaledPositions[i][1] = polygon->Vertices[i]->FinalPosition[1] * ScaleFactor;
+            }
             ytop = std::min(scaledPositions[i][1], ytop);
             ybot = std::max(scaledPositions[i][1], ybot);
         }

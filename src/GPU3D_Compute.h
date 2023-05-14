@@ -209,6 +209,7 @@ private:
     int TilesPerLine, TileLines;
     int ScaleFactor = -1;
     int MaxWorkTiles;
+    bool HiresCoordinates;
 
     void DeleteShaders();
 

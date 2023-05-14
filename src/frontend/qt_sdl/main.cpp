@@ -323,6 +323,7 @@ void EmuThread::run()
     videoSettings.Soft_Threaded = Config::Threaded3D != 0;
     videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
     videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
+    videoSettings.GL_HiresCoordinates = Config::GL_HiresCoordinates;
 
     if (mainWindow->hasOGL)
     {
@@ -444,16 +445,17 @@ void EmuThread::run()
                 else
 #endif
                 {
-                    videoRenderer = 0;
+                    videoRenderer = GPU::renderer3D_Software;
                 }
 
-                videoRenderer = oglContext ? Config::_3DRenderer : 0;
+                videoRenderer = oglContext ? Config::_3DRenderer : GPU::renderer3D_Software;
 
                 videoSettingsDirty = false;
 
                 videoSettings.Soft_Threaded = Config::Threaded3D != 0;
                 videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
                 videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
+                videoSettings.GL_HiresCoordinates = Config::GL_HiresCoordinates;
 
                 GPU::SetRenderSettings(videoRenderer, videoSettings);
             }
@@ -1860,7 +1862,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
 void MainWindow::createScreenPanel()
 {
-    hasOGL = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+    hasOGL = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != GPU::renderer3D_Software);
 
     if (hasOGL)
     {
@@ -3273,13 +3275,7 @@ int main(int argc, char** argv)
 
 #define SANITIZE(var, min, max)  { var = std::clamp(var, min, max); }
     SANITIZE(Config::ConsoleType, 0, 1);
-    SANITIZE(Config::_3DRenderer,
-    0,
-    0 // Minimum, Software renderer
-    #ifdef OGLRENDERER_ENABLED
-    + 1 // OpenGL Renderer
-    #endif
-    );
+    SANITIZE(Config::_3DRenderer, (int)GPU::renderer3D_Software, (int)GPU::renderer3D_Max);
     SANITIZE(Config::ScreenVSyncInterval, 1, 20);
     SANITIZE(Config::GL_ScaleFactor, 1, 16);
     SANITIZE(Config::AudioInterp, 0, 3);
