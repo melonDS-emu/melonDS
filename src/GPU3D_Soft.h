@@ -326,20 +326,12 @@ private:
 
             s32 x = XVal();
 
-            if (XMajor)
-            {
-                if (side) Interp.Setup(x0-1, x1-1, w0, w1); // checkme
-                else      Interp.Setup(x0, x1, w0, w1);
-                Interp.SetX(x);
+            int interpoffset = (Increment >= 0x40000) && (side ^ Negative);
+            Interp.Setup(y0-interpoffset, y1-interpoffset, w0, w1);
+            Interp.SetX(y);
 
-                // used for calculating AA coverage
-                xcov_incr = (ylen << 10) / xlen;
-            }
-            else
-            {
-                Interp.Setup(y0, y1, w0, w1);
-                Interp.SetX(y);
-            }
+            // used for calculating AA coverage
+            if (XMajor) xcov_incr = (ylen << 10) / xlen;
 
             return x;
         }
@@ -350,14 +342,7 @@ private:
             y++;
 
             s32 x = XVal();
-            if (XMajor)
-            {
-                Interp.SetX(x);
-            }
-            else
-            {
-                Interp.SetX(y);
-            }
+            Interp.SetX(y);
             return x;
         }
 
