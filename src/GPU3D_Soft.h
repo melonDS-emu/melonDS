@@ -156,11 +156,10 @@ private:
             else
             {
                 // linear interpolation
-                // checkme: the rounding bias there (3<<24) is a guess
                 if (y0 < y1)
-                    return y0 + ((((s64)(y1-y0) * x * xrecip) + (3<<24)) >> 30);
+                    return y0 + ((s64)(y1-y0) * x / xdiff);
                 else
-                    return y1 + ((((s64)(y0-y1) * (xdiff-x) * xrecip) + (3<<24)) >> 30);
+                    return y1 + (((s64)(y0-y1) * (xdiff - x)) / xdiff);
             }
         }
 
