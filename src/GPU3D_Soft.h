@@ -78,13 +78,12 @@ private:
             this->x1 = x1;
             this->xdiff = x1 - x0;
 
-            // calculate reciprocals for linear mode and Z interpolation
+            // calculate reciprocal for Z interpolation
             // TODO eventually: use a faster reciprocal function?
             if (this->xdiff != 0)
-                this->xrecip = (1<<30) / this->xdiff;
+                this->xrecip_z = (1<<22) / this->xdiff;
             else
-                this->xrecip = 0;
-            this->xrecip_z = this->xrecip >> 8;
+                this->xrecip_z = 0;
 
             // linear mode is used if both W values are equal and have
             // low-order bits cleared (0-6 along X, 1-6 along Y)
@@ -157,9 +156,9 @@ private:
             {
                 // linear interpolation
                 if (y0 < y1)
-                    return y0 + ((s64)(y1-y0) * x / xdiff);
+                    return y0 + (s64)(y1-y0) * x / xdiff;
                 else
-                    return y1 + (((s64)(y0-y1) * (xdiff - x)) / xdiff);
+                    return y1 + (s64)(y0-y1) * (xdiff - x) / xdiff;
             }
         }
 
@@ -219,7 +218,7 @@ private:
         int shift;
         bool linear;
 
-        s32 xrecip, xrecip_z;
+        s32 xrecip_z;
         s32 w0n, w0d, w1d;
 
         u32 yfactor;
