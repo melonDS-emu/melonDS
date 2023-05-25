@@ -1723,9 +1723,9 @@ void SoftRenderer::DrawSprites(u32 line, Unit* unit)
                 }
 
                 u32 ypos = attrib[0] & 0xFF;
-                ypos = (sprline - ypos) & 0xFF;
-                if (ypos >= (u32)boundheight)
+                if (((line - ypos) & 0xFF) >= (u32)boundheight)
                     continue;
+                ypos = (sprline - ypos) & 0xFF;
 
                 s32 xpos = (s32)(attrib[1] << 23) >> 23;
                 if (xpos <= -boundwidth)
