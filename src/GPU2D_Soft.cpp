@@ -1747,9 +1747,9 @@ void SoftRenderer::DrawSprites(u32 line, Unit* unit)
                 s32 height = spriteheight[sizeparam];
 
                 u32 ypos = attrib[0] & 0xFF;
-                ypos = (sprline - ypos) & 0xFF;
-                if (ypos >= (u32)height)
+                if (((line - ypos) & 0xFF) >= (u32)height)
                     continue;
+                ypos = (sprline - ypos) & 0xFF;
 
                 s32 xpos = (s32)(attrib[1] << 23) >> 23;
                 if (xpos <= -width)
