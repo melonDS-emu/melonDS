@@ -1561,7 +1561,6 @@ void SoftRenderer::ApplySpriteMosaicX()
     if (CurUnit->OBJMosaicSize[0] == 0) return;
 
     u32* objLine = OBJLine[CurUnit->Num];
-    u8* objIndex = OBJIndex[CurUnit->Num];
 
     u8* curOBJXMosaicTable = MosaicTable[CurUnit->OBJMosaicSize[1]];
 
@@ -1569,14 +1568,10 @@ void SoftRenderer::ApplySpriteMosaicX()
 
     for (u32 i = 1; i < 256; i++)
     {
-        if (!(objLine[i] & 0x100000))
-        {
-            // not a mosaic'd sprite pixel
-            continue;
-        }
+        u32 currentcolor = objLine[i];
 
-        if ((objIndex[i] != objIndex[i-1]) || (curOBJXMosaicTable[i] == 0))
-            lastcolor = objLine[i];
+        if (!(lastcolor & currentcolor & 0x100000) || curOBJXMosaicTable[i] == 0)
+            lastcolor = currentcolor;
         else
             objLine[i] = lastcolor;
     }
