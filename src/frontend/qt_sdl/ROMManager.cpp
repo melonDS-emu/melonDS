@@ -22,6 +22,7 @@
 #include <string>
 #include <utility>
 
+#include <zstd.h>
 #ifdef ARCHIVE_SUPPORT_ENABLED
 #include "ArchiveUtil.h"
 #endif
@@ -58,7 +59,7 @@ ARCodeFile* CheatFile = nullptr;
 bool CheatsOn = false;
 
 
-int LastSep(std::string path)
+int LastSep(const std::string& path)
 {
     int i = path.length() - 1;
     while (i >= 0)
@@ -72,32 +73,45 @@ int LastSep(std::string path)
     return -1;
 }
 
-std::string GetAssetPath(bool gba, std::string configpath, std::string ext, std::string file="")
+std::string GetAssetPath(bool gba, const std::string& configpath, const std::string& ext, const std::string& file = "")
 {
+    std::string result;
+
     if (configpath.empty())
-        configpath = gba ? BaseGBAROMDir : BaseROMDir;
+        result = gba ? BaseGBAROMDir : BaseROMDir;
+    else
+        result = configpath;
 
-    if (file.empty())
-    {
-        file = gba ? BaseGBAAssetName : BaseAssetName;
-        if (file.empty())
-            file = "firmware";
-    }
-
+    // cut off trailing slashes
     for (;;)
     {
-        int i = configpath.length() - 1;
+        int i = result.length() - 1;
         if (i < 0) break;
-        if (configpath[i] == '/' || configpath[i] == '\\')
-            configpath = configpath.substr(0, i);
+        if (result[i] == '/' || result[i] == '\\')
+            result.resize(i);
         else
             break;
     }
 
-    if (!configpath.empty())
-        configpath += "/";
+    if (!result.empty())
+        result += '/';
 
-    return configpath + file + ext;
+    if (file.empty())
+    {
+        std::string& baseName = gba ? BaseGBAAssetName : BaseAssetName;
+        if (baseName.empty())
+            result += "firmware";
+        else
+            result += baseName;
+    }
+    else
+    {
+        result += file;
+    }
+
+    result += ext;
+
+    return result;
 }
 
 
@@ -288,7 +302,7 @@ bool SavestateExists(int slot)
     return Platform::FileExists(ssfile);
 }
 
-bool LoadState(std::string filename)
+bool LoadState(const std::string& filename)
 {
     // backup
     Savestate* backup = new Savestate("timewarp.mln", true);
@@ -335,7 +349,7 @@ bool LoadState(std::string filename)
     return true;
 }
 
-bool SaveState(std::string filename)
+bool SaveState(const std::string& filename)
 {
     Savestate* state = new Savestate(filename, true);
     if (state->Error)
@@ -478,6 +492,27 @@ bool LoadBIOS()
     return true;
 }
 
+u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
+{
+    u64 realSize = ZSTD_getFrameContentSize(inContent, inSize);
+
+    if (realSize == ZSTD_CONTENTSIZE_UNKNOWN || realSize == ZSTD_CONTENTSIZE_ERROR || realSize > 0x40000000)
+    {
+        return 0;
+    }
+
+    u8* realContent = new u8[realSize];
+    u64 decompressed = ZSTD_decompress(realContent, realSize, inContent, inSize);
+
+    if (ZSTD_isError(decompressed))
+    {
+        delete[] realContent;
+        return 0;
+    }
+
+    *outContent = realContent;
+    return realSize;
+}
 
 bool LoadROM(QStringList filepath, bool reset)
 {
@@ -520,6 +555,25 @@ bool LoadROM(QStringList filepath, bool reset)
         fclose(f);
         filelen = (u32)len;
 
+        if (filename.length() > 4 && filename.substr(filename.length() - 4) == ".zst")
+        {
+            u8* outContent = nullptr;
+            u32 decompressed = DecompressROM(filedata, len, &outContent);
+
+            if (decompressed > 0)
+            {
+                delete[] filedata;
+                filedata = outContent;
+                filelen = decompressed;
+                filename = filename.substr(0, filename.length() - 4);
+            }
+            else
+            {
+                delete[] filedata;
+                return false;
+            }
+        }
+
         int pos = LastSep(filename);
         if(pos != -1)
             basepath = filename.substr(0, pos);
@@ -530,14 +584,14 @@ bool LoadROM(QStringList filepath, bool reset)
     {
         // file inside archive
 
-            s32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
-            if (lenread < 0) return false;
-            if (!filedata) return false;
-            if (lenread != filelen)
-            {
-                delete[] filedata;
-                return false;
-            }
+        s32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
+        if (lenread < 0) return false;
+        if (!filedata) return false;
+        if (lenread != filelen)
+        {
+            delete[] filedata;
+            return false;
+        }
 
         std::string std_archivepath = filepath.at(0).toStdString();
         basepath = std_archivepath.substr(0, LastSep(std_archivepath));
@@ -681,6 +735,25 @@ bool LoadGBAROM(QStringList filepath)
 
         fclose(f);
         filelen = (u32)len;
+
+        if (filename.length() > 4 && filename.substr(filename.length() - 4) == ".zst")
+        {
+            u8* outContent = nullptr;
+            u32 decompressed = DecompressROM(filedata, len, &outContent);
+
+            if (decompressed > 0)
+            {
+                delete[] filedata;
+                filedata = outContent;
+                filelen = decompressed;
+                filename = filename.substr(0, filename.length() - 4);
+            }
+            else
+            {
+                delete[] filedata;
+                return false;
+            }
+        }
 
         int pos = LastSep(filename);
         basepath = filename.substr(0, pos);

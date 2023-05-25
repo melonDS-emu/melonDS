@@ -769,7 +769,7 @@ void DSi_SDHost::CheckSwapFIFO()
 
 #define MMC_DESC  (Internal?"NAND":"SDcard")
 
-DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename)
+DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::string& filename)
     : DSi_SDDevice(host)
 {
     Internal = internal;
@@ -780,7 +780,7 @@ DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string file
     ReadOnly = false;
 }
 
-DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename, u64 size, bool readonly, std::string sourcedir)
+DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::string& filename, u64 size, bool readonly, const std::string& sourcedir)
     : DSi_SDDevice(host)
 {
     Internal = internal;

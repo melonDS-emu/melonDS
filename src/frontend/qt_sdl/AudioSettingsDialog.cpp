@@ -72,16 +72,16 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent, bool emuActive) : QDia
     }
 
     grpMicMode = new QButtonGroup(this);
-    grpMicMode->addButton(ui->rbMicNone,     0);
-    grpMicMode->addButton(ui->rbMicExternal, 1);
-    grpMicMode->addButton(ui->rbMicNoise,    2);
-    grpMicMode->addButton(ui->rbMicWav,      3);
+    grpMicMode->addButton(ui->rbMicNone,     micInputType_Silence);
+    grpMicMode->addButton(ui->rbMicExternal, micInputType_External);
+    grpMicMode->addButton(ui->rbMicNoise,    micInputType_Noise);
+    grpMicMode->addButton(ui->rbMicWav,      micInputType_Wav);
     connect(grpMicMode, SIGNAL(buttonClicked(int)), this, SLOT(onChangeMicMode(int)));
     grpMicMode->button(Config::MicInputType)->setChecked(true);
 
     ui->txtMicWavPath->setText(QString::fromStdString(Config::MicWavPath));
 
-    bool iswav = (Config::MicInputType == 3);
+    bool iswav = (Config::MicInputType == micInputType_Wav);
     ui->txtMicWavPath->setEnabled(iswav);
     ui->btnMicWavBrowse->setEnabled(iswav);
 

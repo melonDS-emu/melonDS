@@ -53,6 +53,15 @@ enum
     screenSizing_MAX,
 };
 
+enum
+{
+    micInputType_Silence,
+    micInputType_External,
+    micInputType_Noise,
+    micInputType_Wav,
+    micInputType_MAX,
+};
+
 namespace Config
 {
 

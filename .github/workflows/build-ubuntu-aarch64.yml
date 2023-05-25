@@ -33,7 +33,7 @@ jobs:
         rm /etc/apt/sources.list
         mv /etc/apt/sources.list{.new,}
         apt update
-        DEBIAN_FRONTEND=noninteractive apt install -y {gcc-10,g++-10,pkg-config}-aarch64-linux-gnu {libsdl2,qtbase5,qtbase5-private,qtmultimedia5,libslirp,libarchive}-dev:arm64 cmake extra-cmake-modules dpkg-dev
+        DEBIAN_FRONTEND=noninteractive apt install -y {gcc-10,g++-10,pkg-config}-aarch64-linux-gnu {libsdl2,qtbase5,qtbase5-private,qtmultimedia5,libslirp,libarchive,libzstd}-dev:arm64 zstd:arm64 cmake extra-cmake-modules dpkg-dev
     - name: Configure
       shell: bash
       run: |

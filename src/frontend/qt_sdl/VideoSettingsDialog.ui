@@ -6,12 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>482</width>
-    <height>244</height>
+    <width>408</width>
+    <height>262</height>
    </rect>
   </property>
   <property name="sizePolicy">
-   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
     <horstretch>0</horstretch>
     <verstretch>0</verstretch>
    </sizepolicy>
@@ -22,6 +22,9 @@
   <layout class="QGridLayout" name="gridLayout">
    <property name="sizeConstraint">
     <enum>QLayout::SetFixedSize</enum>
+   </property>
+   <property name="horizontalSpacing">
+    <number>-1</number>
    </property>
    <item row="1" column="1">
     <widget class="QGroupBox" name="groupBox_3">
@@ -85,20 +88,7 @@
      </property>
     </widget>
    </item>
-   <item row="2" column="1">
-    <spacer name="verticalSpacer_2">
-     <property name="orientation">
-      <enum>Qt::Vertical</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>20</width>
-       <height>40</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item row="0" column="0" rowspan="3">
+   <item row="0" column="0" rowspan="3" alignment="Qt::AlignTop">
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
       <string>Display settings</string>
@@ -201,6 +191,16 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>rb3DSoftware</tabstop>
+  <tabstop>rb3DOpenGL</tabstop>
+  <tabstop>cbGLDisplay</tabstop>
+  <tabstop>cbVSync</tabstop>
+  <tabstop>sbVSyncInterval</tabstop>
+  <tabstop>cbSoftwareThreaded</tabstop>
+  <tabstop>cbxGLResolution</tabstop>
+  <tabstop>cbBetterPolygons</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

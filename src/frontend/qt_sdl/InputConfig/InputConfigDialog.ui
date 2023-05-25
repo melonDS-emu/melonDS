@@ -2330,6 +2330,36 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>btnJoyMapSwitch</tabstop>
+  <tabstop>btnKeyL</tabstop>
+  <tabstop>btnKeyR</tabstop>
+  <tabstop>btnKeyX</tabstop>
+  <tabstop>btnKeyY</tabstop>
+  <tabstop>btnKeyA</tabstop>
+  <tabstop>btnKeyB</tabstop>
+  <tabstop>btnKeySelect</tabstop>
+  <tabstop>btnKeyStart</tabstop>
+  <tabstop>btnKeyUp</tabstop>
+  <tabstop>btnKeyLeft</tabstop>
+  <tabstop>btnKeyRight</tabstop>
+  <tabstop>btnKeyDown</tabstop>
+  <tabstop>btnKeyMapSwitch</tabstop>
+  <tabstop>btnJoyL</tabstop>
+  <tabstop>btnJoyR</tabstop>
+  <tabstop>btnJoyUp</tabstop>
+  <tabstop>btnJoyLeft</tabstop>
+  <tabstop>btnJoyRight</tabstop>
+  <tabstop>btnJoyDown</tabstop>
+  <tabstop>btnJoyX</tabstop>
+  <tabstop>btnJoyY</tabstop>
+  <tabstop>btnJoyA</tabstop>
+  <tabstop>btnJoyB</tabstop>
+  <tabstop>btnJoySelect</tabstop>
+  <tabstop>btnJoyStart</tabstop>
+  <tabstop>cbxJoystick</tabstop>
+ </tabstops>
  <resources>
   <include location="resources/ds.qrc"/>
  </resources>

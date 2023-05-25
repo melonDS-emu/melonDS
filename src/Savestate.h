@@ -29,7 +29,7 @@
 class Savestate
 {
 public:
-    Savestate(std::string filename, bool save);
+    Savestate(const std::string& filename, bool save);
     ~Savestate();
 
     bool Error;
