@@ -181,10 +181,13 @@ void Savestate::Section(const char* magic)
         { // Until we've found the desired section...
             // Get this section's magic number
             u32 read_magic = 0;
+            u32 magic_as_int = 0;
             memcpy(&read_magic, buffer + offset, sizeof(read_magic));
             offset += sizeof(read_magic);
 
-            if (read_magic != ((u32*)magic)[0])
+            memcpy(&magic_as_int, magic, sizeof(magic_as_int));
+
+            if (read_magic != magic_as_int)
             { // If this isn't the right section...
                 if (offset >= buffer_length)
                 { // If we've reached the end of the file without finding this section...
