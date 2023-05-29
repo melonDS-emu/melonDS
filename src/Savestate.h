@@ -19,6 +19,7 @@
 #ifndef SAVESTATE_H
 #define SAVESTATE_H
 
+#include <cstring>
 #include <string>
 #include <stdio.h>
 #include "types.h"
