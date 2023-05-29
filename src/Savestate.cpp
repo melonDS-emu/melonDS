@@ -175,43 +175,17 @@ void Savestate::Section(const char* magic)
     }
     else
     {
-        // Start looking at the savestate's beginning, right after its header
-        u32 offset = 0x10;
-        for (offset = 0x10;;)
-        { // Until we've found the desired section...
-            // Get this section's magic number
-            u32 read_magic = 0;
-            u32 magic_as_int = 0;
-            memcpy(&read_magic, buffer + offset, sizeof(read_magic));
-            offset += sizeof(read_magic);
+        u32 section_offset = FindSection(magic);
 
-            memcpy(&magic_as_int, magic, sizeof(magic_as_int));
-
-            if (read_magic != magic_as_int)
-            { // If this isn't the right section...
-                if (offset >= buffer_length)
-                { // If we've reached the end of the file without finding this section...
-                    Log(LogLevel::Error, "savestate: section %s not found. blarg\n", magic);
-                    return;
-                }
-
-                // ...otherwise, let's keep looking
-                u32 read_length = 0;
-                memcpy(&read_length, buffer + offset, sizeof(read_length));
-                offset += sizeof(read_length);
-
-                // Skip past the remainder of this section
-                // (read_length includes the size of the header;
-                // we already processed the magic and the size, so we don't need to skip them)
-                offset += read_length - sizeof(read_magic) + sizeof(read_length);
-                continue;
-            }
-
-            offset += 12; // Skip the extra 12 bytes we don't need
-            break;
+        if (section_offset != NO_SECTION)
+        {
+            buffer_offset = section_offset;
         }
-
-        buffer_offset = offset;
+        else
+        {
+            Log(LogLevel::Error, "savestate: section %s not found. blarg\n", magic);
+            Error = true;
+        }
     }
 }
 
@@ -364,4 +338,44 @@ void Savestate::WriteStateLength()
 
     // Write the length in the header
     memcpy(buffer + 0x08, &state_length, sizeof(state_length));
+}
+
+u32 Savestate::FindSection(const char* magic) const
+{
+    if (!magic) return NO_SECTION;
+
+    // Start looking at the savestate's beginning, right after its global header
+    // (we can't start from the current offset because then we'd lose the ability to rearrange sections)
+
+    for (u32 offset = 0x10; offset < buffer_length;)
+    { // Until we've found the desired section...
+
+        // Get this section's magic number
+        char read_magic[4] = {0};
+        memcpy(read_magic, buffer + offset, sizeof(read_magic));
+
+        if (memcmp(read_magic, magic, sizeof(read_magic)) == 0)
+        { // If this is the right section...
+            return offset + 16; // ...return the offset of the first byte of the section after the header
+        }
+
+        // Haven't found our section yet. Let's move on to the next one.
+
+        u32 section_length_offset = offset + sizeof(read_magic);
+        if (section_length_offset >= buffer_length)
+        { // If trying to read the section length would take us past the file's end...
+            break;
+        }
+
+        // First we need to find out how big this section is...
+        u32 section_length = 0;
+        memcpy(&section_length, buffer + section_length_offset, sizeof(section_length));
+
+        // ...then skip it. (The section length includes the 16-byte header.)
+        offset += section_length;
+    }
+
+    // We've reached the end of the file without finding the requested section...
+    Log(LogLevel::Error, "savestate: section %s not found. blarg\n", magic);
+    return NO_SECTION;
 }

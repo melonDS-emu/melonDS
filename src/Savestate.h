@@ -109,6 +109,7 @@ private:
     bool Resize(u32 new_length);
     void WriteSavestateHeader();
     void WriteStateLength();
+    u32 FindSection(const char* magic) const;
     u8* buffer;
     u32 buffer_offset;
     u32 buffer_length;
