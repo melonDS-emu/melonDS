@@ -104,6 +104,12 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>rbAudioAll</tabstop>
+  <tabstop>rbAudioOneOnly</tabstop>
+  <tabstop>rbAudioActiveOnly</tabstop>
+  <tabstop>sbReceiveTimeout</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

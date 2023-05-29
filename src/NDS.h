@@ -244,7 +244,7 @@ void EjectCart();
 bool CartInserted();
 
 bool NeedsDirectBoot();
-void SetupDirectBoot(std::string romname);
+void SetupDirectBoot(const std::string& romname);
 
 bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
 void LoadGBAAddon(int type);

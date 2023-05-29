@@ -377,7 +377,7 @@ bool NeedsDirectBoot()
     }
 }
 
-void SetupDirectBoot(std::string romname)
+void SetupDirectBoot(const std::string& romname)
 {
     if (ConsoleType == 1)
     {

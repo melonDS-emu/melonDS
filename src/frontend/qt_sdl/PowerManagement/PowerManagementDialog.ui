@@ -234,6 +234,12 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>rbDSBatteryOkay</tabstop>
+  <tabstop>rbDSBatteryLow</tabstop>
+  <tabstop>cbDSiBatteryCharging</tabstop>
+  <tabstop>sliderDSiBatteryLevel</tabstop>
+ </tabstops>
  <resources>
   <include location="resources/battery.qrc"/>
  </resources>

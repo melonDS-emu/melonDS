@@ -16,48 +16,29 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARCODEFILE_H
-#define ARCODEFILE_H
-
-#include <string>
-#include <list>
+#ifndef AUDIO_INOUT_H
+#define AUDIO_INOUT_H
 
 #include "types.h"
 
-struct ARCode
+#include <QMainWindow>
+
+namespace AudioInOut
 {
-    std::string Name;
-    bool Enabled;
-    u32 CodeLen;
-    u32 Code[2*64];
-};
 
-typedef std::list<ARCode> ARCodeList;
+void Init();
+void DeInit();
 
-struct ARCodeCat
-{
-    std::string Name;
-    ARCodeList Codes;
-};
+void MicProcess();
+void AudioMute(QMainWindow* mainWindow);
 
-typedef std::list<ARCodeCat> ARCodeCatList;
+void AudioSync();
 
+void UpdateSettings();
 
-class ARCodeFile
-{
-public:
-    ARCodeFile(const std::string& filename);
-    ~ARCodeFile();
+void Enable();
+void Disable();
 
-    bool Error;
+}
 
-    bool Load();
-    bool Save();
-
-    ARCodeCatList Categories;
-
-private:
-    std::string Filename;
-};
-
-#endif // ARCODEFILE_H
+#endif

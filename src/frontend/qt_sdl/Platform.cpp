@@ -288,7 +288,7 @@ bool GetConfigArray(ConfigEntry entry, void* data)
 }
 
 
-FILE* OpenFile(std::string path, std::string mode, bool mustexist)
+FILE* OpenFile(const std::string& path, const std::string& mode, bool mustexist)
 {
     QFile f(QString::fromStdString(path));
 
@@ -322,7 +322,7 @@ FILE* OpenFile(std::string path, std::string mode, bool mustexist)
     return file;
 }
 
-FILE* OpenLocalFile(std::string path, std::string mode)
+FILE* OpenLocalFile(const std::string& path, const std::string& mode)
 {
     QString qpath = QString::fromStdString(path);
 	QDir dir(qpath);

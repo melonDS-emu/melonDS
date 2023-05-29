@@ -188,6 +188,18 @@
    <header>QPathInput.h</header>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>cbInterpolation</tabstop>
+  <tabstop>cbBitrate</tabstop>
+  <tabstop>slVolume</tabstop>
+  <tabstop>chkSyncDSiVolume</tabstop>
+  <tabstop>rbMicNone</tabstop>
+  <tabstop>rbMicExternal</tabstop>
+  <tabstop>rbMicNoise</tabstop>
+  <tabstop>rbMicWav</tabstop>
+  <tabstop>txtMicWavPath</tabstop>
+  <tabstop>btnMicWavBrowse</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

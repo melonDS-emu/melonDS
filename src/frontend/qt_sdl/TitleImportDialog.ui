@@ -104,6 +104,15 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>txtAppFile</tabstop>
+  <tabstop>btnAppBrowse</tabstop>
+  <tabstop>rbTmdFromFile</tabstop>
+  <tabstop>txtTmdFile</tabstop>
+  <tabstop>btnTmdBrowse</tabstop>
+  <tabstop>rbTmdFromNUS</tabstop>
+  <tabstop>cbReadOnly</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

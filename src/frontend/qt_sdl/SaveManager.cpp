@@ -25,7 +25,7 @@
 using Platform::Log;
 using Platform::LogLevel;
 
-SaveManager::SaveManager(std::string path) : QThread()
+SaveManager::SaveManager(const std::string& path) : QThread()
 {
     SecondaryBuffer = nullptr;
     SecondaryBufferLength = 0;
@@ -71,7 +71,7 @@ std::string SaveManager::GetPath()
     return Path;
 }
 
-void SaveManager::SetPath(std::string path, bool reload)
+void SaveManager::SetPath(const std::string& path, bool reload)
 {
     Path = path;
 

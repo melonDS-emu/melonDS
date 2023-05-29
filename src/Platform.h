@@ -108,11 +108,11 @@ bool GetConfigArray(ConfigEntry entry, void* data);
 //     Looks in the user's data directory first, then the system's.
 //     If on Windows or a portable UNIX build, this simply calls OpenLocalFile().
 
-FILE* OpenFile(std::string path, std::string mode, bool mustexist=false);
-FILE* OpenLocalFile(std::string path, std::string mode);
-FILE* OpenDataFile(std::string path);
+FILE* OpenFile(const std::string& path, const std::string& mode, bool mustexist=false);
+FILE* OpenLocalFile(const std::string& path, const std::string& mode);
+FILE* OpenDataFile(const std::string& path);
 
-inline bool FileExists(std::string name)
+inline bool FileExists(const std::string& name)
 {
     FILE* f = OpenFile(name, "rb");
     if (!f) return false;
@@ -120,7 +120,7 @@ inline bool FileExists(std::string name)
     return true;
 }
 
-inline bool LocalFileExists(std::string name)
+inline bool LocalFileExists(const std::string& name)
 {
     FILE* f = OpenLocalFile(name, "rb");
     if (!f) return false;

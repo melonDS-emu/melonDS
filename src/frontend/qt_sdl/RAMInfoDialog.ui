@@ -232,6 +232,15 @@
    </property>
   </widget>
  </widget>
+ <tabstops>
+  <tabstop>ramTable</tabstop>
+  <tabstop>txtSearch</tabstop>
+  <tabstop>btnSearch</tabstop>
+  <tabstop>radiobtn1byte</tabstop>
+  <tabstop>radiobtn2bytes</tabstop>
+  <tabstop>radiobtn4bytes</tabstop>
+  <tabstop>btnClear</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>
