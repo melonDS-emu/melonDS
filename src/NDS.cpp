@@ -1156,10 +1156,10 @@ void NDS::CheckKeyIRQ(u32 cpu, u32 oldkey, u32 newkey)
 void NDS::SetKeyMask(u32 mask)
 {
     u32 key_lo = mask & 0x3FF;
-    u32 key_hi = (mask >> 10) & 0x3;
+    u32 key_hi = ((mask >> 10) & 0x3) | ((mask >> 9) & 0x8);
 
     u32 oldkey = KeyInput;
-    KeyInput &= 0xFFFCFC00;
+    KeyInput &= 0xFFF4FC00;
     KeyInput |= key_lo | (key_hi << 16);
 
     CheckKeyIRQ(0, oldkey, KeyInput);
