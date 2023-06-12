@@ -35,6 +35,7 @@ extern SaveManager* GBASave;
 QString VerifySetup();
 void Reset();
 bool LoadBIOS();
+void ClearBackupState();
 
 bool LoadROM(QStringList filepath, bool reset);
 void EjectCart();

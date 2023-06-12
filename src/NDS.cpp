@@ -815,7 +815,10 @@ bool DoSavestate(Savestate* file)
         u32 console;
         file->Var32(&console);
         if (console != ConsoleType)
+        {
+            Log(LogLevel::Error, "savestate: Expected console type %d, got console type %d. cannot load.\n", ConsoleType, console);
             return false;
+        }
     }
 
     file->VarArray(MainRAM, MainRAMMaxSize);
@@ -870,7 +873,11 @@ bool DoSavestate(Savestate* file)
 
     file->VarArray(DMA9Fill, 4*sizeof(u32));
 
-    if (!DoSavestate_Scheduler(file)) return false;
+    if (!DoSavestate_Scheduler(file))
+    {
+        Platform::Log(Platform::LogLevel::Error, "savestate: failed to %s scheduler state\n", file->Saving ? "save" : "load");
+        return false;
+    }
     file->Var32(&SchedListMask);
     file->Var64(&ARM9Timestamp);
     file->Var64(&ARM9Target);
@@ -936,6 +943,8 @@ bool DoSavestate(Savestate* file)
         ARMJIT_Memory::Reset();
     }
 #endif
+
+    file->Finish();
 
     return true;
 }
