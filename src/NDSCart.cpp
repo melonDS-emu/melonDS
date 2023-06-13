@@ -1599,38 +1599,50 @@ void DecryptSecureArea(u8* out)
     }
 }
 
-bool LoadROM(const u8* romdata, u32 romlen)
+NDSCartData::NDSCartData(const u8 *romdata, u32 romlen):
+    _header(),
+    _banner(),
+    _romparams(),
+    _cart_id(0),
+    _cart(nullptr),
+    _cart_rom(nullptr)
 {
-    if (CartInserted)
-        EjectCart();
+    if (romdata == nullptr) {
+        Log(LogLevel::Error, "NDSCart: romdata is null\n");
+        return;
+    }
 
-    memset(&Header, 0, sizeof(Header));
-    memset(&Banner, 0, sizeof(Banner));
-
-    CartROMSize = 0x200;
-    while (CartROMSize < romlen)
-        CartROMSize <<= 1;
+    _cart_rom_size = 0x200;
+    while (_cart_rom_size < romlen)
+        _cart_rom_size <<= 1; // ROM size must be a power of 2
 
     try
     {
-        CartROM = new u8[CartROMSize];
+        _cart_rom = new u8[_cart_rom_size];
     }
     catch (const std::bad_alloc& e)
     {
-        Log(LogLevel::Error, "NDSCart: failed to allocate memory for ROM (%d bytes)\n", CartROMSize);
-        return false;
+        Log(LogLevel::Error, "NDSCart: failed to allocate memory for ROM (%d bytes)\n", _cart_rom_size);
+
+        _cart_rom_size = 0;
+        _cart_rom = nullptr;
+        _cart_id = 0;
+        _cart = nullptr;
+        memset(&_header, 0, sizeof(_header));
+        memset(&_banner, 0, sizeof(_banner));
+        return; // _cart_rom is nullptr, so IsValid() will return false
     }
 
-    memset(CartROM, 0, CartROMSize);
-    memcpy(CartROM, romdata, romlen);
+    memset(_cart_rom, 0, _cart_rom_size);
+    memcpy(_cart_rom, romdata, romlen);
 
-    memcpy(&Header, CartROM, sizeof(Header));
+    memcpy(&_header, _cart_rom, sizeof(_header));
 
-    u8 unitcode = Header.UnitCode;
+    u8 unitcode = _header.UnitCode;
     bool dsi = (unitcode & 0x02) != 0;
     bool badDSiDump = false;
 
-    u32 dsiRegion = *(u32*)&CartROM[0x1B0];
+    u32 dsiRegion = *(u32*)&_cart_rom[0x1B0];
     if (dsi && dsiRegion == 0)
     {
         Log(LogLevel::Info, "DS header indicates DSi, but region is zero. Going in bad dump mode.\n");
@@ -1639,55 +1651,50 @@ bool LoadROM(const u8* romdata, u32 romlen)
     }
 
     size_t bannersize = dsi ? 0x23C0 : 0xA40;
-    if (Header.BannerOffset >= 0x200 && Header.BannerOffset < (CartROMSize - bannersize))
+    if (_header.BannerOffset >= 0x200 && _header.BannerOffset < (_cart_rom_size - bannersize))
     {
-        memcpy(&Banner, CartROM + Header.BannerOffset, bannersize);
+        memcpy(&_banner, _cart_rom + _header.BannerOffset, bannersize);
     }
 
-    Log(LogLevel::Info, "Game code: %.4s\n", Header.GameCode);
+    u32 gamecode = (u32)_header.GameCode[3] << 24 |
+                   (u32)_header.GameCode[2] << 16 |
+                   (u32)_header.GameCode[1] << 8 |
+                   (u32)_header.GameCode[0];
 
-    u32 gamecode = (u32)Header.GameCode[3] << 24 |
-                   (u32)Header.GameCode[2] << 16 |
-                   (u32)Header.GameCode[1] << 8  |
-                   (u32)Header.GameCode[0];
-
-    u32 arm9base = Header.ARM9ROMOffset;
+    u32 arm9base = _header.ARM9ROMOffset;
     bool homebrew = (arm9base < 0x4000) || (gamecode == 0x23232323);
 
-    ROMListEntry romparams;
-    if (!ReadROMParams(gamecode, &romparams))
+    if (!ReadROMParams(gamecode, &_romparams))
     {
         // set defaults
-        Log(LogLevel::Warn, "ROM entry not found\n");
+        Log(LogLevel::Warn, "ROM entry not found for gamecode %d\n", gamecode);
 
-        romparams.GameCode = gamecode;
-        romparams.ROMSize = CartROMSize;
+        _romparams.GameCode = gamecode;
+        _romparams.ROMSize = _cart_rom_size;
         if (homebrew)
-            romparams.SaveMemType = 0; // no saveRAM for homebrew
+            _romparams.SaveMemType = 0; // no saveRAM for homebrew
         else
-            romparams.SaveMemType = 2; // assume EEPROM 64k (TODO FIXME)
+            _romparams.SaveMemType = 2; // assume EEPROM 64k (TODO FIXME)
     }
-    else
-        Log(LogLevel::Info, "ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
 
-    if (romparams.ROMSize != romlen)
-        Log(LogLevel::Warn, "!! bad ROM size %d (expected %d) rounded to %d\n", romlen, romparams.ROMSize, CartROMSize);
+    if (_romparams.ROMSize != romlen)
+        Log(LogLevel::Warn, "!! bad ROM size %d (expected %d) rounded to %d\n", romlen, _romparams.ROMSize, _cart_rom_size);
 
     // generate a ROM ID
     // note: most games don't check the actual value
     // it just has to stay the same throughout gameplay
-    CartID = 0x000000C2;
+    _cart_id = 0x000000C2;
 
-    if (CartROMSize >= 1024*1024 && CartROMSize <= 128*1024*1024)
-        CartID |= ((CartROMSize >> 20) - 1) << 8;
+    if (_cart_rom_size >= 1024 * 1024 && _cart_rom_size <= 128 * 1024 * 1024)
+        _cart_id |= ((_cart_rom_size >> 20) - 1) << 8;
     else
-        CartID |= (0x100 - (CartROMSize >> 28)) << 8;
+        _cart_id |= (0x100 - (_cart_rom_size >> 28)) << 8;
 
-    if (romparams.SaveMemType >= 8 && romparams.SaveMemType <= 10)
-        CartID |= 0x08000000; // NAND flag
+    if (_romparams.SaveMemType >= 8 && _romparams.SaveMemType <= 10)
+        _cart_id |= 0x08000000; // NAND flag
 
     if (dsi)
-        CartID |= 0x40000000;
+        _cart_id |= 0x40000000;
 
     // cart ID for Jam with the Band
     // TODO: this kind of ID triggers different KEY1 phase
@@ -1695,28 +1702,23 @@ bool LoadROM(const u8* romdata, u32 romlen)
     //CartID = 0x88017FEC;
     //CartID = 0x80007FC2; // pokémon typing adventure
 
-    Log(LogLevel::Info, "Cart ID: %08X\n", CartID);
-
     if (arm9base >= 0x4000 && arm9base < 0x8000)
     {
         // reencrypt secure area if needed
-        if (*(u32*)&CartROM[arm9base] == 0xE7FFDEFF && *(u32*)&CartROM[arm9base+0x10] != 0xE7FFDEFF)
+        if (*(u32*)&_cart_rom[arm9base] == 0xE7FFDEFF && *(u32*)&_cart_rom[arm9base + 0x10] != 0xE7FFDEFF)
         {
             Log(LogLevel::Debug, "Re-encrypting cart secure area\n");
 
-            strncpy((char*)&CartROM[arm9base], "encryObj", 8);
+            strncpy((char*)&_cart_rom[arm9base], "encryObj", 8);
 
             Key1_InitKeycode(false, gamecode, 3, 2);
             for (u32 i = 0; i < 0x800; i += 8)
-                Key1_Encrypt((u32*)&CartROM[arm9base + i]);
+                Key1_Encrypt((u32*)&_cart_rom[arm9base + i]);
 
             Key1_InitKeycode(false, gamecode, 2, 2);
-            Key1_Encrypt((u32*)&CartROM[arm9base]);
+            Key1_Encrypt((u32*)&_cart_rom[arm9base]);
         }
     }
-
-    CartInserted = true;
-    DSi::SetCartInserted(true);
 
     u32 irversion = 0;
     if ((gamecode & 0xFF) == 'I')
@@ -1728,23 +1730,78 @@ bool LoadROM(const u8* romdata, u32 romlen)
     }
 
     if (homebrew)
-        Cart = new CartHomebrew(CartROM, CartROMSize, CartID);
-    else if (CartID & 0x08000000)
-        Cart = new CartRetailNAND(CartROM, CartROMSize, CartID);
+        _cart = new CartHomebrew(_cart_rom, _cart_rom_size, _cart_id);
+    else if (_cart_id & 0x08000000)
+        _cart = new CartRetailNAND(_cart_rom, _cart_rom_size, _cart_id);
     else if (irversion != 0)
-        Cart = new CartRetailIR(CartROM, CartROMSize, CartID, irversion, badDSiDump);
+        _cart = new CartRetailIR(_cart_rom, _cart_rom_size, _cart_id, irversion, badDSiDump);
     else if ((gamecode & 0xFFFFFF) == 0x505A55) // UZPx
-        Cart = new CartRetailBT(CartROM, CartROMSize, CartID);
+        _cart = new CartRetailBT(_cart_rom, _cart_rom_size, _cart_id);
     else
-        Cart = new CartRetail(CartROM, CartROMSize, CartID, badDSiDump);
+        _cart = new CartRetail(_cart_rom, _cart_rom_size, _cart_id, badDSiDump);
+}
 
-    if (Cart)
-        Cart->Reset();
+NDSCartData::~NDSCartData()
+{
+    delete _cart;
+    delete[] _cart_rom;
+}
 
-    if (Cart && romparams.SaveMemType > 0)
+// Why a move function? Because the Cart object is polymorphic,
+// and cloning polymorphic objects without knowing the underlying type is annoying.
+bool InsertROM(NDSCartData&& cart)
+{
+    if (!cart.IsValid()) {
+        Log(LogLevel::Error, "Failed to insert invalid cart; existing cart (if any) was not ejected.\n");
+        return false;
+    }
+
+    if (CartInserted)
+        EjectCart();
+
+    // The members of cart are cleared because cart is supposed to be moved;
+    // since cart is no longer valid, it doesn't make sense to keep around its members.
+    Header = cart.Header();
+    cart._header = {};
+
+    Banner = cart.Banner();
+    cart._banner = {};
+
+    CartROMSize = cart.CartROMSize();
+    cart._cart_rom_size = 0;
+
+    CartID = cart.CartID();
+    cart._cart_id = 0;
+
+    ROMListEntry romparams = cart.ROMParams();
+    cart._romparams = {};
+
+    CartROM = cart._cart_rom;
+    cart._cart_rom = nullptr;
+
+    Cart = cart._cart;
+    cart._cart = nullptr;
+
+    Log(LogLevel::Info, "Inserted cart with game code: %.4s\n", Header.GameCode);
+    Log(LogLevel::Info, "Inserted cart with ID: %08X\n", CartID);
+    Log(LogLevel::Info, "ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
+
+    Cart->Reset();
+
+    if (romparams.SaveMemType > 0)
         Cart->SetupSave(romparams.SaveMemType);
 
+    CartInserted = true;
+    DSi::SetCartInserted(true);
+
     return true;
+}
+
+bool LoadROM(const u8* romdata, u32 romlen)
+{
+    NDSCartData data(romdata, romlen);
+
+    return InsertROM(std::move(data));
 }
 
 void LoadSave(const u8* savedata, u32 savelen)

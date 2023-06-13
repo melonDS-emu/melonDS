@@ -25,6 +25,7 @@
 #include "Savestate.h"
 #include "NDS_Header.h"
 #include "FATStorage.h"
+#include "ROMList.h"
 
 namespace NDSCart
 {
@@ -203,6 +204,75 @@ private:
     bool ReadOnly;
 };
 
+/// Represents a NDS cart, including header, banner, and ROM data.
+/// Can be used to retrieve information about a cart before loading it.
+class NDSCartData {
+public:
+    /// Parses an NDS cart from the given ROM data.
+    /// If the ROM data is invalid, IsValid() will return false.
+    /// @param romdata The ROM data to parse.
+    /// The constructed object makes a copy of this buffer,
+    /// so the caller may free it after this constructor returns.
+    /// @param romlen The length of the ROM data in bytes.
+    /// @note This constructor does \em not modify emulator state,
+    /// so it can be called at any time.
+    /// Use this if you need to extract information from a ROM image
+    /// before loading it into the emulator.
+    /// @note \c CartCommon::Reset and \c CartCommon::SetupSave are not called
+    /// on the created \c CartCommon object;
+    /// that will occur when this \c NDSCartData is passed to \c NDSCart::InsertROM.
+    NDSCartData(const u8* romdata, u32 romlen);
+    NDSCartData(const NDSCartData&) = delete;
+    NDSCartData& operator=(const NDSCartData&) = delete;
+    NDSCartData(NDSCartData&&) = delete;
+    ~NDSCartData();
+
+    /// @returns The NDS header for this cart.
+    /// @note If \c IsValid() returns \c false,
+    /// the header is invalid and all values will be zero.
+    [[nodiscard]] const NDSHeader& Header() const { return _header; }
+
+    /// @returns The NDS banner for this cart.
+    /// @note If \c IsValid() returns \c false,
+    /// the banner is invalid and all values will be zero.
+    [[nodiscard]] const NDSBanner& Banner() const { return _banner; }
+
+    /// @returns The ROM parameters for this cart
+    /// @note If \c IsValid() returns \c false,
+    /// all values will be zero.
+    [[nodiscard]] const ROMListEntry& ROMParams() const { return _romparams; }
+
+    /// @returns A pointer to the ROM data for this cart.
+    /// @note If \c IsValid() returns \c false,
+    /// the pointer will be \c nullptr.
+    [[nodiscard]] const u8* CartROM() const { return _cart_rom; }
+
+    /// @returns The size of the ROM data for this cart in bytes.
+    /// @note If \c IsValid() returns \c false,
+    /// the size will be zero.
+    [[nodiscard]] u32 CartROMSize() const { return _cart_rom_size; }
+
+    /// @returns The cart ID for this cart.
+    /// @note If \c IsValid() returns \c false,
+    /// the ID will be zero.
+    [[nodiscard]] u32 CartID() const { return _cart_id; }
+
+    /// @returns A pointer to the \c CartCommon object for this cart, or nullptr if the cart is invalid.
+    [[nodiscard]] const CartCommon* Cart() const { return _cart; }
+
+    /// @returns \c true if the cart data is valid, \c false otherwise.
+    [[nodiscard]] bool IsValid() const { return _cart != nullptr; }
+private:
+    friend bool InsertROM(NDSCartData&& cart);
+    NDSHeader _header;
+    NDSBanner _banner;
+    ROMListEntry _romparams;
+    u8* _cart_rom;
+    u32 _cart_rom_size;
+    u32 _cart_id;
+    CartCommon* _cart;
+};
+
 extern u16 SPICnt;
 extern u32 ROMCnt;
 
@@ -225,6 +295,28 @@ void DoSavestate(Savestate* file);
 
 void DecryptSecureArea(u8* out);
 
+/// Loads a Nintendo DS cart object into the emulator.
+/// The emulator takes ownership of the cart object and its underlying resources.
+/// If a cartridge is already inserted, it is first ejected
+/// and its state is discarded.
+/// If the provided cart is not valid,
+/// then the currently-loaded ROM will not be ejected.
+///
+/// @param cart Movable reference to cart data.
+/// @returns \c true if the cart was successfully loaded,
+/// \c false otherwise.
+/// @post If the cart was successfully loaded,
+/// then \c cart.IsValid() is will be false.
+bool InsertROM(NDSCartData&& cart);
+
+/// Parses a ROM image and loads it into the emulator.
+/// This function is equivalent to calling ::ParseROM() and ::InsertROM() in sequence.
+/// @param romdata Pointer to the ROM image.
+/// The cart emulator maintains its own copy of this data,
+/// so the caller is free to discard this data after calling this function.
+/// @param romlen The length of the ROM image, in bytes.
+/// @returns \c true if the ROM image was successfully loaded,
+/// \c false if not.
 bool LoadROM(const u8* romdata, u32 romlen);
 void LoadSave(const u8* savedata, u32 savelen);
 void SetupDirectBoot(const std::string& romname);
