@@ -756,31 +756,30 @@ void DoSavestate(Savestate* file)
     if (Cart) Cart->DoSavestate(file);
 }
 
-bool LoadROM(const u8* romdata, u32 romlen)
+GBACartData::GBACartData(const u8 *romdata, u32 romlen) :
+    _cart(nullptr),
+    _cart_rom(nullptr),
+    _cart_rom_size(0)
 {
-    if (CartInserted)
-        EjectCart();
-
-    CartROMSize = 0x200;
-    while (CartROMSize < romlen)
-        CartROMSize <<= 1;
+    _cart_rom_size = 0x200;
+    while (_cart_rom_size < romlen)
+        _cart_rom_size <<= 1;
 
     try
     {
-        CartROM = new u8[CartROMSize];
+        _cart_rom = new u8[_cart_rom_size];
     }
     catch (const std::bad_alloc& e)
     {
-        Log(LogLevel::Error, "GBACart: failed to allocate memory for ROM (%d bytes)\n", CartROMSize);
-        return false;
+        Log(LogLevel::Error, "GBACart: failed to allocate memory for ROM (%d bytes)\n", _cart_rom_size);
+        _cart_rom_size = 0;
     }
 
-    memset(CartROM, 0, CartROMSize);
-    memcpy(CartROM, romdata, romlen);
+    memset(_cart_rom, 0, _cart_rom_size);
+    memcpy(_cart_rom, romdata, romlen);
 
     char gamecode[5] = { '\0' };
-    memcpy(&gamecode, CartROM + 0xAC, 4);
-    Log(LogLevel::Info, "GBA game code: %s\n", gamecode);
+    memcpy(&gamecode, _cart_rom + 0xAC, 4);
 
     bool solarsensor = false;
     for (size_t i = 0; i < sizeof(SOLAR_SENSOR_GAMECODES)/sizeof(SOLAR_SENSOR_GAMECODES[0]); i++)
@@ -794,25 +793,62 @@ bool LoadROM(const u8* romdata, u32 romlen)
         Log(LogLevel::Info, "GBA solar sensor support detected!\n");
     }
 
-    CartInserted = true;
-
     if (solarsensor)
-        Cart = new CartGameSolarSensor(CartROM, CartROMSize);
+        _cart = new CartGameSolarSensor(_cart_rom, _cart_rom_size);
     else
-        Cart = new CartGame(CartROM, CartROMSize);
+        _cart = new CartGame(_cart_rom, _cart_rom_size);
 
-    if (Cart)
-        Cart->Reset();
+    _cart->Reset();
+
+    // TODO: setup cart save here! from a list or something
 
     // save
     //printf("GBA save file: %s\n", sram);
 
     // TODO: have a list of sorts like in NDSCart? to determine the savemem type
     //if (Cart) Cart->LoadSave(sram, 0);
+}
 
-    // TODO: setup cart save here! from a list or something
+GBACartData::~GBACartData()
+{
+    delete[] _cart_rom;
+    delete _cart;
+}
+
+bool InsertROM(GBACartData&& cart)
+{
+    if (!cart.IsValid()) {
+        Log(LogLevel::Error, "Failed to insert invalid GBA cart; existing cart (if any) was not ejected.\n");
+        return false;
+    }
+
+    if (CartInserted)
+        EjectCart();
+
+    Cart = cart._cart;
+    cart._cart = nullptr;
+
+    CartROM = cart._cart_rom;
+    cart._cart_rom = nullptr;
+
+    CartROMSize = cart._cart_rom_size;
+    cart._cart_rom_size = 0;
+
+    CartInserted = true;
+
+    char gamecode[5] = { '\0' };
+    memcpy(&gamecode, CartROM + 0xAC, 4);
+    Log(LogLevel::Info, "Inserted GBA cart with game code: %s\n", gamecode);
 
     return true;
+
+}
+
+bool LoadROM(const u8* romdata, u32 romlen)
+{
+    GBACartData data(romdata, romlen);
+
+    return InsertROM(std::move(data));
 }
 
 void LoadSave(const u8* savedata, u32 savelen)

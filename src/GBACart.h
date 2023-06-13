@@ -173,6 +173,40 @@ private:
     u16 RAMEnable;
 };
 
+class GBACartData {
+public:
+    GBACartData(const u8* romdata, u32 romlen);
+    GBACartData(const GBACartData&) = delete;
+    GBACartData& operator=(const GBACartData&) = delete;
+    GBACartData(GBACartData&&) = delete;
+    ~GBACartData();
+
+    /// @returns A pointer to the ROM data for this cart.
+    /// @note If \c IsValid() returns \c false,
+    /// the pointer will be \c nullptr.
+    [[nodiscard]] const u8* CartROM() const { return _cart_rom; }
+
+    /// @returns The size of the ROM data for this cart in bytes.
+    /// @note If \c IsValid() returns \c false,
+    /// the size will be zero.
+    [[nodiscard]] u32 CartROMSize() const { return _cart_rom_size; }
+
+    /// @returns A pointer to the \c CartCommon object for this cart,
+    /// or \c nullptr if the cart is invalid.
+    [[nodiscard]] const CartCommon* Cart() const { return _cart; }
+
+    /// @returns \c true if the cart data is valid, \c false otherwise.
+    [[nodiscard]] bool IsValid() const { return _cart != nullptr; }
+private:
+    // This function installs the cart data globally
+    // but invalidates the provided object to prevent memory access errors,
+    // so it needs to access this class's private fields.
+    friend bool InsertROM(GBACartData&& cart);
+    u8* _cart_rom;
+    u32 _cart_rom_size;
+    CartCommon* _cart;
+};
+
 // possible inputs for GBA carts that might accept user input
 enum
 {
@@ -190,6 +224,7 @@ void Reset();
 
 void DoSavestate(Savestate* file);
 
+bool InsertROM(GBACartData&& cart);
 bool LoadROM(const u8* romdata, u32 romlen);
 void LoadSave(const u8* savedata, u32 savelen);
 
