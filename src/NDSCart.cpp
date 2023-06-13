@@ -1530,14 +1530,12 @@ void DoSavestate(Savestate* file)
 
 bool ReadROMParams(u32 gamecode, ROMListEntry* params)
 {
-    u32 len = sizeof(ROMList) / sizeof(ROMListEntry);
-
     u32 offset = 0;
-    u32 chk_size = len >> 1;
+    u32 chk_size = ROMListSize >> 1;
     for (;;)
     {
         u32 key = 0;
-        ROMListEntry* curentry = &ROMList[offset + chk_size];
+        const ROMListEntry* curentry = &ROMList[offset + chk_size];
         key = curentry->GameCode;
 
         if (key == gamecode)
@@ -1562,7 +1560,7 @@ bool ReadROMParams(u32 gamecode, ROMListEntry* params)
             chk_size >>= 1;
         }
 
-        if (offset >= len)
+        if (offset >= ROMListSize)
         {
             return false;
         }
