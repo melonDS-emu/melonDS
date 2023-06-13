@@ -208,7 +208,9 @@ private:
 /// Can be used to retrieve information about a cart before loading it.
 class NDSCartData {
 public:
-    /// Parses an NDS cart from the given ROM data.
+    /// Parses an NDS cart from the given ROM data,
+    /// resets its emulated state,
+    /// and initializes SRAM if applicable.
     /// If the ROM data is invalid, IsValid() will return false.
     /// @param romdata The ROM data to parse.
     /// The constructed object makes a copy of this buffer,
@@ -218,9 +220,6 @@ public:
     /// so it can be called at any time.
     /// Use this if you need to extract information from a ROM image
     /// before loading it into the emulator.
-    /// @note \c CartCommon::Reset and \c CartCommon::SetupSave are not called
-    /// on the created \c CartCommon object;
-    /// that will occur when this \c NDSCartData is passed to \c NDSCart::InsertROM.
     NDSCartData(const u8* romdata, u32 romlen);
     NDSCartData(const NDSCartData&) = delete;
     NDSCartData& operator=(const NDSCartData&) = delete;

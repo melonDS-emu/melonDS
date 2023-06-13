@@ -1739,6 +1739,11 @@ NDSCartData::NDSCartData(const u8 *romdata, u32 romlen):
         _cart = new CartRetailBT(_cart_rom, _cart_rom_size, _cart_id);
     else
         _cart = new CartRetail(_cart_rom, _cart_rom_size, _cart_id, badDSiDump);
+
+    _cart->Reset();
+
+    if (_romparams.SaveMemType > 0)
+        _cart->SetupSave(_romparams.SaveMemType);
 }
 
 NDSCartData::~NDSCartData()
@@ -1785,11 +1790,6 @@ bool InsertROM(NDSCartData&& cart)
     Log(LogLevel::Info, "Inserted cart with game code: %.4s\n", Header.GameCode);
     Log(LogLevel::Info, "Inserted cart with ID: %08X\n", CartID);
     Log(LogLevel::Info, "ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
-
-    Cart->Reset();
-
-    if (romparams.SaveMemType > 0)
-        Cart->SetupSave(romparams.SaveMemType);
 
     CartInserted = true;
     DSi::SetCartInserted(true);
