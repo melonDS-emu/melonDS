@@ -262,6 +262,9 @@ public:
     /// @returns \c true if the cart data is valid, \c false otherwise.
     [[nodiscard]] bool IsValid() const { return _cart != nullptr; }
 private:
+    // This function installs the cart data globally
+    // but invalidates the provided object to prevent memory access errors,
+    // so it needs to access this class's private fields.
     friend bool InsertROM(NDSCartData&& cart);
     NDSHeader _header;
     NDSBanner _banner;
