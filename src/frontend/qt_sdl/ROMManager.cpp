@@ -21,7 +21,6 @@
 
 #include <string>
 #include <utility>
-#include <fstream>
 
 #include <zstd.h>
 #ifdef ARCHIVE_SUPPORT_ENABLED
@@ -53,7 +52,6 @@ std::string BaseGBAAssetName = "";
 SaveManager* NDSSave = nullptr;
 SaveManager* GBASave = nullptr;
 
-std::unique_ptr<Savestate> BackupState = nullptr;
 bool SavestateLoaded = false;
 std::string PreviousSaveFile = "";
 
@@ -306,62 +304,35 @@ bool SavestateExists(int slot)
 
 bool LoadState(const std::string& filename)
 {
-    FILE* file = fopen(filename.c_str(), "rb");
-    if (file == nullptr)
-    { // If we couldn't open the state file...
-        Platform::Log(Platform::LogLevel::Error, "Failed to open state file \"%s\"\n", filename.c_str());
-        return false;
-    }
+    // backup
+    Savestate* backup = new Savestate("timewarp.mln", true);
+    NDS::DoSavestate(backup);
+    delete backup;
 
-    std::unique_ptr<Savestate> backup = std::make_unique<Savestate>(Savestate::DEFAULT_SIZE);
-    if (backup->Error)
-    { // If we couldn't allocate memory for the backup...
-        Platform::Log(Platform::LogLevel::Error, "Failed to allocate memory for state backup\n");
-        fclose(file);
-        return false;
-    }
+    bool failed = false;
 
-    if (!NDS::DoSavestate(backup.get()) || backup->Error)
-    { // Back up the emulator's state. If that failed...
-        Platform::Log(Platform::LogLevel::Error, "Failed to back up state, aborting load (from \"%s\")\n", filename.c_str());
-        fclose(file);
-        return false;
-    }
-    // We'll store the backup once we're sure that the state was loaded.
-    // Now that we know the file and backup are both good, let's load the new state.
-
-    // Get the size of the file that we opened
-    if (fseek(file, 0, SEEK_END) != 0)
+    Savestate* state = new Savestate(filename, false);
+    if (state->Error)
     {
-        Platform::Log(Platform::LogLevel::Error, "Failed to seek to end of state file \"%s\"\n", filename.c_str());
-        fclose(file);
-        return false;
-    }
-    size_t size = ftell(file);
-    rewind(file); // reset the filebuf's position
+        delete state;
 
-    // Allocate exactly as much memory as we need for the savestate
-    std::vector<u8> buffer(size);
-    if (fread(buffer.data(), size, 1, file) == 0)
-    { // Read the state file into the buffer. If that failed...
-        Platform::Log(Platform::LogLevel::Error, "Failed to read %u-byte state file \"%s\"\n", size, filename.c_str());
-        fclose(file);
-        return false;
-    }
-    fclose(file); // done with the file now
-
-    // Get ready to load the state from the buffer into the emulator
-    std::unique_ptr<Savestate> state = std::make_unique<Savestate>(buffer.data(), size, false);
-
-    if (!NDS::DoSavestate(state.get()) || state->Error)
-    { // If we couldn't load the savestate from the buffer...
-        Platform::Log(Platform::LogLevel::Error, "Failed to load state file \"%s\" into emulator\n", filename.c_str());
-        return false;
+        // current state might be crapoed, so restore from sane backup
+        state = new Savestate("timewarp.mln", false);
+        failed = true;
     }
 
-    // The backup was made and the state was loaded, so we can store the backup now.
-    BackupState = std::move(backup); // This will clean up any existing backup
-    assert(backup == nullptr);
+    bool res = NDS::DoSavestate(state);
+    delete state;
+
+    if (!res)
+    {
+        failed = true;
+        state = new Savestate("timewarp.mln", false);
+        NDS::DoSavestate(state);
+        delete state;
+    }
+
+    if (failed) return false;
 
     if (Config::SavestateRelocSRAM && NDSSave)
     {
@@ -380,41 +351,15 @@ bool LoadState(const std::string& filename)
 
 bool SaveState(const std::string& filename)
 {
-    FILE* file = fopen(filename.c_str(), "wb");
-
-    if (file == nullptr)
-    { // If the file couldn't be opened...
-        return false;
-    }
-
-    Savestate state;
-    if (state.Error)
-    { // If there was an error creating the state (and allocating its memory)...
-        fclose(file);
-        return false;
-    }
-
-    // Write the savestate to the in-memory buffer
-    NDS::DoSavestate(&state);
-
-    if (state.Error)
+    Savestate* state = new Savestate(filename, true);
+    if (state->Error)
     {
-        fclose(file);
+        delete state;
         return false;
     }
 
-    if (fwrite(state.Buffer(), state.Length(), 1, file) == 0)
-    { // Write the Savestate buffer to the file. If that fails...
-        Platform::Log(Platform::Error,
-            "Failed to write %d-byte savestate to %s\n",
-            state.Length(),
-            filename.c_str()
-        );
-        fclose(file);
-        return false;
-    }
-
-    fclose(file);
+    NDS::DoSavestate(state);
+    delete state;
 
     if (Config::SavestateRelocSRAM && NDSSave)
     {
@@ -429,14 +374,14 @@ bool SaveState(const std::string& filename)
 
 void UndoStateLoad()
 {
-    if (!SavestateLoaded || !BackupState) return;
+    if (!SavestateLoaded) return;
 
-    // Rewind the backup state and put it in load mode
-    BackupState->Rewind(false);
     // pray that this works
     // what do we do if it doesn't???
     // but it should work.
-    NDS::DoSavestate(BackupState.get());
+    Savestate* backup = new Savestate("timewarp.mln", false);
+    NDS::DoSavestate(backup);
+    delete backup;
 
     if (NDSSave && (!PreviousSaveFile.empty()))
     {
@@ -567,14 +512,6 @@ u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
 
     *outContent = realContent;
     return realSize;
-}
-
-void ClearBackupState()
-{
-    if (BackupState != nullptr)
-    {
-        BackupState = nullptr;
-    }
 }
 
 bool LoadROM(QStringList filepath, bool reset)

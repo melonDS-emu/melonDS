@@ -52,6 +52,19 @@ enum
     Event_DSi_CamTransfer,
     Event_DSi_DSP,
 
+    // HLE
+    Event_HLE_PollInput,
+    Event_HLE_SoundCmd,
+    Event_HLE_SoundAlarm0,
+    Event_HLE_SoundAlarm1,
+    Event_HLE_SoundAlarm2,
+    Event_HLE_SoundAlarm3,
+    Event_HLE_SoundAlarm4,
+    Event_HLE_SoundAlarm5,
+    Event_HLE_SoundAlarm6,
+    Event_HLE_SoundAlarm7,
+    Event_HLE_WifiIPCRetry,
+
     Event_MAX
 };
 

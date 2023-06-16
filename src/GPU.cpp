@@ -19,6 +19,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
+#include "HLE.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"
@@ -1185,6 +1186,8 @@ void StartScanline(u32 line)
 #endif
         }
     }
+
+    HLE::StartScanline(line);
 
     NDS::ScheduleEvent(NDS::Event_LCD, true, HBLANK_CYCLES, StartHBlank, line);
 }

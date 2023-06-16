@@ -764,6 +764,9 @@ void Reset()
 
     ConvResult = 0;
 
+    TouchX = 0;
+    TouchY = 0xFFF;
+
     MicBufferLen = 0;
 }
 

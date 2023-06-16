@@ -57,6 +57,9 @@ void Reset()
     Index = 0;
     Data = 0;
 
+    TouchX = 0;
+    TouchY = 0xFFF;
+
     memset(Bank3Regs, 0, 0x80);
     Bank3Regs[0x02] = 0x18;
     Bank3Regs[0x03] = 0x87;

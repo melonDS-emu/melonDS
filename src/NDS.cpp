@@ -45,6 +45,8 @@
 #include "DSi_Camera.h"
 #include "DSi_DSP.h"
 
+#include "HLE.h"
+
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -95,7 +97,7 @@ u64 FrameStartTimestamp;
 
 int CurCPU;
 
-const s32 kMaxIterationCycles = 64;
+const s32 kMaxIterationCycles = 4096;//64;
 const s32 kIterationCycleMargin = 8;
 
 u32 ARM9ClockShift;
@@ -683,6 +685,9 @@ void Reset()
     SPU::SetDegrade10Bit(degradeAudio);
 
     AREngine::Reset();
+
+
+    HLE::Reset();
 }
 
 void Start()
@@ -815,10 +820,7 @@ bool DoSavestate(Savestate* file)
         u32 console;
         file->Var32(&console);
         if (console != ConsoleType)
-        {
-            Log(LogLevel::Error, "savestate: Expected console type %d, got console type %d. cannot load.\n", ConsoleType, console);
             return false;
-        }
     }
 
     file->VarArray(MainRAM, MainRAMMaxSize);
@@ -873,11 +875,7 @@ bool DoSavestate(Savestate* file)
 
     file->VarArray(DMA9Fill, 4*sizeof(u32));
 
-    if (!DoSavestate_Scheduler(file))
-    {
-        Platform::Log(Platform::LogLevel::Error, "savestate: failed to %s scheduler state\n", file->Saving ? "save" : "load");
-        return false;
-    }
+    if (!DoSavestate_Scheduler(file)) return false;
     file->Var32(&SchedListMask);
     file->Var64(&ARM9Timestamp);
     file->Var64(&ARM9Target);
@@ -943,8 +941,6 @@ bool DoSavestate(Savestate* file)
         ARMJIT_Memory::Reset();
     }
 #endif
-
-    file->Finish();
 
     return true;
 }
@@ -1102,7 +1098,7 @@ u32 RunFrame()
             target = ARM9Timestamp >> ARM9ClockShift;
             CurCPU = 1;
 
-            while (ARM7Timestamp < target)
+            /*while (ARM7Timestamp < target)
             {
                 ARM7Target = target; // might be changed by a reschedule
 
@@ -1125,7 +1121,8 @@ u32 RunFrame()
                 }
 
                 RunTimers(1);
-            }
+            }*/
+            ARM7Timestamp = target;
 
             RunSystem(target);
 
@@ -2006,9 +2003,9 @@ void debug(u32 param)
 
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
-
+return;
     FILE*
-    shit = fopen("debug/crayon.bin", "wb");
+    shit = fopen("debug/mkds.bin", "wb");
     fwrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
@@ -2047,7 +2044,7 @@ void debug(u32 param)
 
 
 u8 ARM9Read8(u32 addr)
-{
+{if(addr>=0x0208DAE0 && addr<0x0208E7E0) printf("PRALON8 %08X %08X\n", addr, ARM9->R[15]);
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
     {
         return *(u8*)&ARM9BIOS[addr & 0xFFF];
@@ -2105,7 +2102,7 @@ u8 ARM9Read8(u32 addr)
 }
 
 u16 ARM9Read16(u32 addr)
-{
+{if(addr>=0x0208DAE0 && addr<0x0208E7E0) printf("PRALON16 %08X %08X\n", addr, ARM9->R[15]);
     addr &= ~0x1;
 
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
@@ -2165,7 +2162,7 @@ u16 ARM9Read16(u32 addr)
 }
 
 u32 ARM9Read32(u32 addr)
-{
+{if(addr>=0x0208DAE0 && addr<0x0208E7E0) printf("PRALON32 %08X %08X\n", addr, ARM9->R[15]);
     addr &= ~0x3;
 
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
@@ -2271,7 +2268,7 @@ void ARM9Write8(u32 addr, u8 val)
 }
 
 void ARM9Write16(u32 addr, u16 val)
-{
+{if(addr==0x027FFF96) printf("KPROAON %04X %08X\n", val, ARM9->R[15]);
     addr &= ~0x1;
 
     switch (addr & 0xFF000000)
@@ -3457,6 +3454,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
         {
             SetIRQ(1, IRQ_IPCSync);
         }
+        HLE::OnIPCSync();
         return;
 
     case 0x04000184:
@@ -3654,6 +3652,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
             {
                 bool wasempty = IPCFIFO9.IsEmpty();
                 IPCFIFO9.Write(val);
+                HLE::OnIPCRequest();
                 if ((IPCFIFOCnt7 & 0x0400) && wasempty)
                     SetIRQ(1, IRQ_IPCRecv);
             }

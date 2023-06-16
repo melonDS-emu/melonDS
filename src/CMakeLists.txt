@@ -47,6 +47,12 @@ add_library(core STATIC
     version.h
     Wifi.cpp
     WifiAP.cpp
+	
+	HLE.cpp
+	HLE_Retail/IPC.cpp
+	HLE_Retail/Sound_Nitro.cpp
+	HLE_Retail/Sound_Peach.cpp
+	HLE_Retail/Wifi.cpp
 
     fatfs/diskio.c
     fatfs/ff.c
