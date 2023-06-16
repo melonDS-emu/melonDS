@@ -729,6 +729,15 @@ void OnIPCRequest()
         OnIPCRequest_CartSave(data);
         break;
 
+    case 0xC:
+        if (data == 0x1000)
+        {
+            // TODO: stop/reset hardware
+
+            SendIPCReply(0xC, 0x1000);
+        }
+        break;
+
     case 0xD: // cart
         OnIPCRequest_Cart(data);
         break;

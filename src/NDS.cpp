@@ -2044,7 +2044,7 @@ return;
 
 
 u8 ARM9Read8(u32 addr)
-{if(addr>=0x0208DAE0 && addr<0x0208E7E0) printf("PRALON8 %08X %08X\n", addr, ARM9->R[15]);
+{
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
     {
         return *(u8*)&ARM9BIOS[addr & 0xFFF];
@@ -2102,7 +2102,7 @@ u8 ARM9Read8(u32 addr)
 }
 
 u16 ARM9Read16(u32 addr)
-{if(addr>=0x0208DAE0 && addr<0x0208E7E0) printf("PRALON16 %08X %08X\n", addr, ARM9->R[15]);
+{
     addr &= ~0x1;
 
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
@@ -2162,7 +2162,7 @@ u16 ARM9Read16(u32 addr)
 }
 
 u32 ARM9Read32(u32 addr)
-{if(addr>=0x0208DAE0 && addr<0x0208E7E0) printf("PRALON32 %08X %08X\n", addr, ARM9->R[15]);
+{
     addr &= ~0x3;
 
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
