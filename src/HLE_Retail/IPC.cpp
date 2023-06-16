@@ -72,7 +72,7 @@ namespace Retail
 
 u16 FW_Data[16];
 
-bool TS_Inited;
+int TS_Status;
 u16 TS_Data[16];
 u16 TS_NumSamples;
 u16 TS_SamplePos[4];
@@ -113,7 +113,7 @@ void Reset()
 {
     memset(FW_Data, 0, sizeof(FW_Data));
 
-    TS_Inited = false;
+    TS_Status = 0;
     memset(TS_Data, 0, sizeof(TS_Data));
     TS_NumSamples = 0;
     memset(TS_SamplePos, 0, sizeof(TS_SamplePos));
@@ -360,7 +360,7 @@ void OnIPCRequest_Touchscreen(u32 data)
 
     case 1: // setup auto sampling
         {
-            if (TS_Inited)
+            if (TS_Status != 0)
             {
                 SendIPCReply(0x6, 0x03008103);
                 break;
@@ -382,6 +382,8 @@ void OnIPCRequest_Touchscreen(u32 data)
                 break;
             }
 
+            TS_Status = 1;
+
             TS_NumSamples = num;
             for (int i = 0; i < num; i++)
             {
@@ -389,17 +391,25 @@ void OnIPCRequest_Touchscreen(u32 data)
                 TS_SamplePos[i] = ypos;
             }
 
-            TS_Inited = true;
+            TS_Status = 2;
             SendIPCReply(0x6, 0x03008100);
         }
         break;
 
     case 2: // stop autosampling
         {
+            if (TS_Status != 2)
+            {
+                SendIPCReply(0x6, 0x03008103);
+                break;
+            }
+
+            TS_Status = 3;
+
             // TODO CHECKME
-            // Mario Kart uses this
-            // but this here is wrong
             TS_NumSamples = 0;
+
+            TS_Status = 0;
             SendIPCReply(0x6, 0x03008200);
         }
         break;
