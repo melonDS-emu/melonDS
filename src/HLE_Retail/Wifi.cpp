@@ -20,6 +20,7 @@
 #include "../NDSCart.h"
 #include "../HLE.h"
 #include "../FIFO.h"
+#include "../SPI.h"
 
 #include "IPC.h"
 #include "Wifi.h"
@@ -85,6 +86,9 @@ void StartHostComm()
 
     BeaconInterval = NDS::ARM7Read16(paramblock + 0x18);
     u16 channel = NDS::ARM7Read16(paramblock + 0x32);
+
+    u16 cmd_len = NDS::ARM7Read16(paramblock + 0x34);
+    u16 reply_len = NDS::ARM7Read16(paramblock + 0x36);
 
     u8 beacontype = 0;
     if (NDS::ARM7Read16(paramblock + 0x0E) & 0x1) beacontype |= (1<<0);
@@ -358,7 +362,7 @@ void OnIPCRequest(u32 addr)
             extra[0] = 0;
             extra[1] = NDS::ARM7Read16(SharedMem[1]+0xE8+0x34);
             extra[2] = NDS::ARM7Read16(SharedMem[1]+0xE8+0x36);
-            WifiIPCReply(0x8, 0, 3, &extra);
+            WifiIPCReply(0x8, 0, 3, extra);
 
             NDS::ARM7Write16(SharedMem[1]+0xC2, 1);
         }
