@@ -390,8 +390,11 @@ void Reset()
     if (NDSCart::CartROM)
     {
         u32 gamecode = *(u32*)&NDSCart::CartROM[0xC];
-        if ((gamecode & 0xFFFFFF) == 0x4D5341) // ASMx / Super Mario 64 DS
+        gamecode &= 0xFFFFFF;
+        if (gamecode == 0x4D5341) // ASMx / Super Mario 64 DS
             Version = 1;
+        else if (gamecode == 0x595241) // ARYx / Rayman DS
+            Version = 2;
     }
 
     NDS::ScheduleEvent(NDS::Event_HLE_SoundCmd, true, 174592, Process, 1);
@@ -957,6 +960,11 @@ void ProcessCommands()
                 // COMMAND TRANSLATE for SM64DS (early sound engine version)
                 cmd = cmd_trans_early[cmd];
             }
+            else if (Version == 2)
+            {
+                if (cmd >= 2)
+                    cmd += 3;
+            }
 
             switch (cmd)
             {
@@ -1247,6 +1255,17 @@ void ProcessCommands()
                         if (!(args[0] & (1<<i))) continue;
 
                         SetChannelVolume(i, args[1], args[2]);
+                    }
+                }
+                break;
+
+            case 0x15: // set channel pan
+                {
+                    for (int i = 0; i < 16; i++)
+                    {
+                        if (!(args[0] & (1<<i))) continue;
+
+                        SetChannelPan(i, args[1]);
                     }
                 }
                 break;

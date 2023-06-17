@@ -322,6 +322,11 @@ void OnIPCRequest_RTC(u32 data)
 
     switch (cmd)
     {
+    case 0x10: // read date and time
+        RTC_Read(0x20, 0x027FFDE8, 7);
+        SendIPCReply(0x5, 0x9000);
+        break;
+
     case 0x11: // read date
         RTC_Read(0x20, 0x027FFDE8, 4);
         SendIPCReply(0x5, 0x9100);
@@ -460,93 +465,170 @@ void OnIPCRequest_Powerman(u32 data)
 
     u32 cmd = (PM_Data[0] >> 8) - 0x60;
     printf("PM CMD %04X %04X\n", PM_Data[0], PM_Data[1]);
-    switch (cmd)
+    if (false)
     {
-    case 3: // utility
+        // newer SDK revision
+        // TODO figure out condition for enabling this
+
+        switch (cmd)
         {
-            switch (PM_Data[1] & 0xFF)
+        case 1: // utility
             {
-            case 1: // power LED: steady
-                SPI_Powerman::Registers[0] &= ~0x10;
-                break;
-            case 2: // power LED: fast blink
-                SPI_Powerman::Registers[0] |= 0x30;
-                break;
-            case 3: // power LED: slow blink
-                SPI_Powerman::Registers[0] &= ~0x20;
-                SPI_Powerman::Registers[0] |= 0x10;
-                break;
-            case 4: // lower backlights on
-                SPI_Powerman::Registers[0] |= 0x04;
-                break;
-            case 5: // lower backlights off
-                SPI_Powerman::Registers[0] &= ~0x04;
-                break;
-            case 6: // upper backlights on
-                SPI_Powerman::Registers[0] |= 0x08;
-                break;
-            case 7: // upper backlights off
-                SPI_Powerman::Registers[0] &= ~0x08;
-                break;
-            case 8: // backlights on
-                SPI_Powerman::Registers[0] |= 0x0C;
-                break;
-            case 9: // backlights off
-                SPI_Powerman::Registers[0] &= ~0x0C;
-                break;
-            case 10: // sound amp on
-                SPI_Powerman::Registers[0] |= 0x01;
-                break;
-            case 11: // sound amp off
-                SPI_Powerman::Registers[0] &= ~0x01;
-                break;
-            case 12: // sound mute on
-                SPI_Powerman::Registers[0] |= 0x02;
-                break;
-            case 13: // sound mute off
-                SPI_Powerman::Registers[0] &= ~0x02;
-                break;
-            case 14: // shutdown
-                SPI_Powerman::Registers[0] &= ~0x01;
-                SPI_Powerman::Registers[0] |= 0x40;
-                NDS::Stop();
-                break;
-            case 15: // ????
-                SPI_Powerman::Registers[0] &= ~0x40;
-                break;
+                switch (PM_Data[1] & 0xFF)
+                {
+                case 1: // power LED: steady
+                    SPI_Powerman::Registers[0] &= ~0x10;
+                    break;
+                case 2: // power LED: fast blink
+                    SPI_Powerman::Registers[0] |= 0x30;
+                    break;
+                case 3: // power LED: slow blink
+                    SPI_Powerman::Registers[0] &= ~0x20;
+                    SPI_Powerman::Registers[0] |= 0x10;
+                    break;
+                case 4: // lower backlights on
+                    SPI_Powerman::Registers[0] |= 0x04;
+                    break;
+                case 5: // lower backlights off
+                    SPI_Powerman::Registers[0] &= ~0x04;
+                    break;
+                case 6: // upper backlights on
+                    SPI_Powerman::Registers[0] |= 0x08;
+                    break;
+                case 7: // upper backlights off
+                    SPI_Powerman::Registers[0] &= ~0x08;
+                    break;
+                case 8: // backlights on
+                    SPI_Powerman::Registers[0] |= 0x0C;
+                    break;
+                case 9: // backlights off
+                    SPI_Powerman::Registers[0] &= ~0x0C;
+                    break;
+                case 10: // sound amp on
+                    SPI_Powerman::Registers[0] |= 0x01;
+                    break;
+                case 11: // sound amp off
+                    SPI_Powerman::Registers[0] &= ~0x01;
+                    break;
+                case 12: // sound mute on
+                    SPI_Powerman::Registers[0] |= 0x02;
+                    break;
+                case 13: // sound mute off
+                    SPI_Powerman::Registers[0] &= ~0x02;
+                    break;
+                case 14: // shutdown
+                    SPI_Powerman::Registers[0] &= ~0x01;
+                    SPI_Powerman::Registers[0] |= 0x40;
+                    NDS::Stop();
+                    break;
+                case 15: // read register 0 bits
+                    printf("%04X %04X %04X %04X\n", PM_Data[0], PM_Data[1], PM_Data[2], PM_Data[3]);
+                    break;
+                }
+
+                SendIPCReply(0x8, 0x0300E100);
             }
+            break;
 
-            SendIPCReply(0x8, 0x0300E300);
+        default:
+            printf("IPC: unknown powerman command %02X %04X\n", cmd, PM_Data[0]);
+            break;
         }
-        break;
-
-    case 4: // write register
+    }
+    else
+    {
+        switch (cmd)
         {
-            u8 addr = PM_Data[0] & 0xFF;
-            u8 val = PM_Data[1] & 0xFF;
-            SPI_Powerman::Write(addr & 0x7F, true);
-            SPI_Powerman::Write(val, false);
-            SendIPCReply(0x8, 0x03008000 | (((PM_Data[1] + 0x70) & 0xFF) << 8));
-        }
-        break;
+        case 3: // utility
+            {
+                switch (PM_Data[1] & 0xFF)
+                {
+                case 1: // power LED: steady
+                    SPI_Powerman::Registers[0] &= ~0x10;
+                    break;
+                case 2: // power LED: fast blink
+                    SPI_Powerman::Registers[0] |= 0x30;
+                    break;
+                case 3: // power LED: slow blink
+                    SPI_Powerman::Registers[0] &= ~0x20;
+                    SPI_Powerman::Registers[0] |= 0x10;
+                    break;
+                case 4: // lower backlights on
+                    SPI_Powerman::Registers[0] |= 0x04;
+                    break;
+                case 5: // lower backlights off
+                    SPI_Powerman::Registers[0] &= ~0x04;
+                    break;
+                case 6: // upper backlights on
+                    SPI_Powerman::Registers[0] |= 0x08;
+                    break;
+                case 7: // upper backlights off
+                    SPI_Powerman::Registers[0] &= ~0x08;
+                    break;
+                case 8: // backlights on
+                    SPI_Powerman::Registers[0] |= 0x0C;
+                    break;
+                case 9: // backlights off
+                    SPI_Powerman::Registers[0] &= ~0x0C;
+                    break;
+                case 10: // sound amp on
+                    SPI_Powerman::Registers[0] |= 0x01;
+                    break;
+                case 11: // sound amp off
+                    SPI_Powerman::Registers[0] &= ~0x01;
+                    break;
+                case 12: // sound mute on
+                    SPI_Powerman::Registers[0] |= 0x02;
+                    break;
+                case 13: // sound mute off
+                    SPI_Powerman::Registers[0] &= ~0x02;
+                    break;
+                case 14: // shutdown
+                    SPI_Powerman::Registers[0] &= ~0x01;
+                    SPI_Powerman::Registers[0] |= 0x40;
+                    NDS::Stop();
+                    break;
+                case 15: // ????
+                    SPI_Powerman::Registers[0] &= ~0x40;
+                    break;
+                }
 
-    case 5: // read register
-        {
-            u8 addr = PM_Data[0] & 0xFF;
-            SPI_Powerman::Write((addr & 0x7F) | 0x80, true);
-            SPI_Powerman::Write(0, false);
-            u8 ret = SPI_Powerman::Read();
-            SendIPCReply(0x8, 0x03008000 | ret | (((PM_Data[1] + 0x70) & 0xFF) << 8));
-        }
-        break;
+                SendIPCReply(0x8, 0x0300E300);
+            }
+            break;
 
-    case 6:
-        {
-            // TODO
+        case 4: // write register
+            {
+                u8 addr = PM_Data[0] & 0xFF;
+                u8 val = PM_Data[1] & 0xFF;
+                SPI_Powerman::Write(addr & 0x7F, true);
+                SPI_Powerman::Write(val, false);
+                SendIPCReply(0x8, 0x03008000 | (((PM_Data[1] + 0x70) & 0xFF) << 8));
+            }
+            break;
 
-            SendIPCReply(0x8, 0x03008000 | (((PM_Data[1] + 0x70) & 0xFF) << 8));
+        case 5: // read register
+            {
+                u8 addr = PM_Data[0] & 0xFF;
+                SPI_Powerman::Write((addr & 0x7F) | 0x80, true);
+                SPI_Powerman::Write(0, false);
+                u8 ret = SPI_Powerman::Read();
+                SendIPCReply(0x8, 0x03008000 | ret | (((PM_Data[1] + 0x70) & 0xFF) << 8));
+            }
+            break;
+
+        case 6:
+            {
+                // TODO
+
+                SendIPCReply(0x8, 0x03008000 | (((PM_Data[1] + 0x70) & 0xFF) << 8));
+            }
+            break;
+
+        default:
+            printf("IPC: unknown powerman command %02X %04X\n", cmd, PM_Data[0]);
+            break;
         }
-        break;
     }
 }
 
