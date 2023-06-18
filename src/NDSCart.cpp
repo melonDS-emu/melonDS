@@ -1717,6 +1717,12 @@ NDSCartData::NDSCartData(const u8 *romdata, u32 romlen):
 
             Key1_InitKeycode(false, gamecode, 2, 2);
             Key1_Encrypt((u32*)&_cart_rom[arm9base]);
+
+            Log(LogLevel::Debug, "Re-encrypted cart secure area\n");
+        }
+        else
+        {
+            Log(LogLevel::Debug, "No need to re-encrypt cart secure area\n");
         }
     }
 
