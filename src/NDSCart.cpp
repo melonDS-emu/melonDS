@@ -149,12 +149,18 @@ void Key1_LoadKeyBuf(bool dsi)
             fseek(f, dsi ? 0xC6D0 : 0x0030, SEEK_SET);
             fread(Key1_KeyBuf, 0x1048, 1, f);
             fclose(f);
+            Platform::Log(LogLevel::Debug, "NDSCart: Loaded Key1_KeyBuf from \"%s\"\n", path.c_str());
+        }
+        else
+        {
+            Platform::Log(LogLevel::Warn, "NDSCart: Failed to load Key1_KeyBuf from missing file \"%s\"\n", path.c_str());
         }
     }
     else
     {
         // well
         memset(Key1_KeyBuf, 0, 0x1048);
+        Platform::Log(LogLevel::Debug, "NDSCart: Initialized Key1_KeyBuf to zero\n");
     }
 }
 
