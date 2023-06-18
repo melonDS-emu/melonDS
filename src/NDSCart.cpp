@@ -27,6 +27,7 @@
 #include "Platform.h"
 #include "ROMList.h"
 #include "melonDLDI.h"
+#include "xxhash/xxhash.h"
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -1796,6 +1797,9 @@ bool InsertROM(NDSCartData&& cart)
     Log(LogLevel::Info, "Inserted cart with game code: %.4s\n", Header.GameCode);
     Log(LogLevel::Info, "Inserted cart with ID: %08X\n", CartID);
     Log(LogLevel::Info, "ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
+
+    XXH64_hash_t hash = XXH64(CartROM, CartROMSize, 0);
+    Log(LogLevel::Debug, "xxh64 ROM hash: %zx\n", hash);
 
     CartInserted = true;
     DSi::SetCartInserted(true);
