@@ -3409,7 +3409,7 @@ int main(int argc, char** argv)
 
 int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdshow)
 {
-    int argc = 0;
+/*    int argc = 0;
     wchar_t** argv_w = CommandLineToArgvW(GetCommandLineW(), &argc);
     char nullarg[] = {'\0'};
 
@@ -3424,7 +3424,7 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
         if (res != len) { delete[] argv[i]; argv[i] = nullarg; }
     }
 
-    if (argv_w) LocalFree(argv_w);
+    if (argv_w) LocalFree(argv_w);*/
 
     //if (AttachConsole(ATTACH_PARENT_PROCESS))
     /*if (AllocConsole())
@@ -3434,12 +3434,12 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
         printf("\n");
     }*/
 
-    int ret = main(argc, argv);
-
+    //int ret = main(argc, argv);
+    int ret = main (__argc, __argv);
     printf("\n\n>");
 
-    for (int i = 0; i < argc; i++) if (argv[i] != nullarg) delete[] argv[i];
-    delete[] argv;
+    /*for (int i = 0; i < argc; i++) if (argv[i] != nullarg) delete[] argv[i];
+    delete[] argv;*/
 
     return ret;
 }
