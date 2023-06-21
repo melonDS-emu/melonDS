@@ -1712,30 +1712,6 @@ NDSCartData::NDSCartData(const u8 *romdata, u32 romlen):
     //CartID = 0x88017FEC;
     //CartID = 0x80007FC2; // pokémon typing adventure
 
-    if (arm9base >= 0x4000 && arm9base < 0x8000)
-    {
-        // reencrypt secure area if needed
-        if (*(u32*)&_cart_rom[arm9base] == 0xE7FFDEFF && *(u32*)&_cart_rom[arm9base + 0x10] != 0xE7FFDEFF)
-        {
-            Log(LogLevel::Debug, "Re-encrypting cart secure area\n");
-
-            strncpy((char*)&_cart_rom[arm9base], "encryObj", 8);
-
-            Key1_InitKeycode(false, gamecode, 3, 2);
-            for (u32 i = 0; i < 0x800; i += 8)
-                Key1_Encrypt((u32*)&_cart_rom[arm9base + i]);
-
-            Key1_InitKeycode(false, gamecode, 2, 2);
-            Key1_Encrypt((u32*)&_cart_rom[arm9base]);
-
-            Log(LogLevel::Debug, "Re-encrypted cart secure area\n");
-        }
-        else
-        {
-            Log(LogLevel::Debug, "No need to re-encrypt cart secure area\n");
-        }
-    }
-
     u32 irversion = 0;
     if ((gamecode & 0xFF) == 'I')
     {
@@ -1802,6 +1778,30 @@ bool InsertROM(NDSCartData&& cart)
 
     Cart = cart._cart;
     cart._cart = nullptr;
+
+    if (Header.ARM9ROMOffset >= 0x4000 && Header.ARM9ROMOffset < 0x8000)
+    {
+        // reencrypt secure area if needed
+        if (*(u32*)&CartROM[Header.ARM9ROMOffset] == 0xE7FFDEFF && *(u32*)&CartROM[Header.ARM9ROMOffset + 0x10] != 0xE7FFDEFF)
+        {
+            Log(LogLevel::Debug, "Re-encrypting cart secure area\n");
+
+            strncpy((char*)&CartROM[Header.ARM9ROMOffset], "encryObj", 8);
+
+            Key1_InitKeycode(false, romparams.GameCode, 3, 2);
+            for (u32 i = 0; i < 0x800; i += 8)
+                Key1_Encrypt((u32*)&CartROM[Header.ARM9ROMOffset + i]);
+
+            Key1_InitKeycode(false, romparams.GameCode, 2, 2);
+            Key1_Encrypt((u32*)&CartROM[Header.ARM9ROMOffset]);
+
+            Log(LogLevel::Debug, "Re-encrypted cart secure area\n");
+        }
+        else
+        {
+            Log(LogLevel::Debug, "No need to re-encrypt cart secure area\n");
+        }
+    }
 
     Log(LogLevel::Info, "Inserted cart with game code: %.4s\n", Header.GameCode);
     Log(LogLevel::Info, "Inserted cart with ID: %08X\n", CartID);
