@@ -135,25 +135,23 @@ void Key1_ApplyKeycode(u32* keycode, u32 mod)
     }
 }
 
-void Key1_LoadKeyBuf(bool dsi)
+void Key1_LoadKeyBuf(bool dsi, bool external_bios, u8 *bios, u32 bios_length)
 {
-    // it is possible that this gets called before the BIOSes are loaded
-    // so we will read from the BIOS files directly
-
-    if (Platform::GetConfigBool(Platform::ExternalBIOSEnable))
+    if (external_bios)
     {
-        std::string path = Platform::GetConfigString(dsi ? Platform::DSi_BIOS7Path : Platform::BIOS7Path);
-        FILE* f = Platform::OpenLocalFile(path, "rb");
-        if (f)
+        u32 expected_bios_length = dsi ? 0x10000 : 0x4000;
+        if (bios_length != expected_bios_length)
         {
-            fseek(f, dsi ? 0xC6D0 : 0x0030, SEEK_SET);
-            fread(Key1_KeyBuf, 0x1048, 1, f);
-            fclose(f);
-            Platform::Log(LogLevel::Debug, "NDSCart: Loaded Key1_KeyBuf from \"%s\"\n", path.c_str());
+            Platform::Log(LogLevel::Error, "NDSCart: Expected an ARM7 BIOS of %u bytes, got %u bytes\n", expected_bios_length, bios_length);
+        }
+        else if (bios == nullptr)
+        {
+            Platform::Log(LogLevel::Error, "NDSCart: Expected an ARM7 BIOS of %u bytes, got nullptr\n", expected_bios_length);
         }
         else
         {
-            Platform::Log(LogLevel::Warn, "NDSCart: Failed to load Key1_KeyBuf from missing file \"%s\"\n", path.c_str());
+            memcpy(Key1_KeyBuf, bios + (dsi ? 0xC6D0 : 0x0030), 0x1048);
+            Platform::Log(LogLevel::Debug, "NDSCart: Initialized Key1_KeyBuf from memory\n");
         }
     }
     else
@@ -164,9 +162,9 @@ void Key1_LoadKeyBuf(bool dsi)
     }
 }
 
-void Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod)
+void Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod, u8 *bios, u32 bios_length)
 {
-    Key1_LoadKeyBuf(dsi);
+    Key1_LoadKeyBuf(dsi, Platform::GetConfigBool(Platform::ExternalBIOSEnable), bios, bios_length);
 
     u32 keycode[3] = {idcode, idcode>>1, idcode<<1};
     if (level >= 1) Key1_ApplyKeycode(keycode, mod);
@@ -292,7 +290,7 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
 
         case 0x3C:
             CmdEncMode = 1;
-            Key1_InitKeycode(false, *(u32*)&ROM[0xC], 2, 2);
+            Key1_InitKeycode(false, *(u32*)&ROM[0xC], 2, 2, NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS));
             DSiMode = false;
             return 0;
 
@@ -300,7 +298,7 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
             if (IsDSi)
             {
                 CmdEncMode = 1;
-                Key1_InitKeycode(true, *(u32*)&ROM[0xC], 1, 2);
+                Key1_InitKeycode(true, *(u32*)&ROM[0xC], 1, 2, DSi::ARM7iBIOS, sizeof(DSi::ARM7iBIOS));
                 DSiMode = true;
             }
             return 0;
@@ -1585,10 +1583,10 @@ void DecryptSecureArea(u8* out)
 
     memcpy(out, &CartROM[arm9base], 0x800);
 
-    Key1_InitKeycode(false, gamecode, 2, 2);
+    Key1_InitKeycode(false, gamecode, 2, 2, NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS));
     Key1_Decrypt((u32*)&out[0]);
 
-    Key1_InitKeycode(false, gamecode, 3, 2);
+    Key1_InitKeycode(false, gamecode, 3, 2, NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS));
     for (u32 i = 0; i < 0x800; i += 8)
         Key1_Decrypt((u32*)&out[i]);
 
@@ -1788,11 +1786,11 @@ bool InsertROM(NDSCartData&& cart)
 
             strncpy((char*)&CartROM[Header.ARM9ROMOffset], "encryObj", 8);
 
-            Key1_InitKeycode(false, romparams.GameCode, 3, 2);
+            Key1_InitKeycode(false, romparams.GameCode, 3, 2, NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS));
             for (u32 i = 0; i < 0x800; i += 8)
                 Key1_Encrypt((u32*)&CartROM[Header.ARM9ROMOffset + i]);
 
-            Key1_InitKeycode(false, romparams.GameCode, 2, 2);
+            Key1_InitKeycode(false, romparams.GameCode, 2, 2, NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS));
             Key1_Encrypt((u32*)&CartROM[Header.ARM9ROMOffset]);
 
             Log(LogLevel::Debug, "Re-encrypted cart secure area\n");
