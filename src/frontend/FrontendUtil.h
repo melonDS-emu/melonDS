@@ -34,6 +34,7 @@ namespace Frontend
 //     1 = vertical
 //     2 = horizontal
 //     3 = hybrid
+//     4 = flipped hybrid
 // * rotation: angle at which the DS screens are presented: 0/1/2/3 = 0/90/180/270
 // * sizing: how the display size is shared between the two screens
 //     0 = even (both screens get same size)
