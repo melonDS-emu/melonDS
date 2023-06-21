@@ -1646,8 +1646,7 @@ NDSCartData::NDSCartData(const u8 *romdata, u32 romlen):
 
     memcpy(&_header, _cart_rom, sizeof(_header));
 
-    u8 unitcode = _header.UnitCode;
-    bool dsi = (unitcode & 0x02) != 0;
+    bool dsi = _header.IsDSi();
     bool badDSiDump = false;
 
     u32 dsiRegion = *(u32*)&_cart_rom[0x1B0];
@@ -1664,13 +1663,10 @@ NDSCartData::NDSCartData(const u8 *romdata, u32 romlen):
         memcpy(&_banner, _cart_rom + _header.BannerOffset, bannersize);
     }
 
-    u32 gamecode = (u32)_header.GameCode[3] << 24 |
-                   (u32)_header.GameCode[2] << 16 |
-                   (u32)_header.GameCode[1] << 8 |
-                   (u32)_header.GameCode[0];
+    u32 gamecode = _header.GameCodeAsU32();
 
     u32 arm9base = _header.ARM9ROMOffset;
-    bool homebrew = (arm9base < 0x4000) || (gamecode == 0x23232323);
+    bool homebrew = _header.IsHomebrew();
 
     if (!ReadROMParams(gamecode, &_romparams))
     {
