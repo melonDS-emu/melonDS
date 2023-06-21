@@ -30,6 +30,16 @@
 namespace NDSCart
 {
 
+enum CartType
+{
+    Default = 0x001,
+    Retail = 0x101,
+    RetailNAND = 0x102,
+    RetailIR = 0x103,
+    RetailBT = 0x104,
+    Homebrew = 0x201,
+};
+
 // CartCommon -- base code shared by all cart types
 class CartCommon
 {
@@ -37,7 +47,7 @@ public:
     CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump);
     virtual ~CartCommon();
 
-    virtual u32 Type() { return 0x001; }
+    virtual u32 Type() { return CartType::Default; }
     virtual u32 Checksum();
 
     virtual void Reset();
@@ -79,7 +89,7 @@ public:
     CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump);
     virtual ~CartRetail() override;
 
-    virtual u32 Type() override { return 0x101; }
+    virtual u32 Type() override { return CartType::Retail; }
 
     virtual void Reset() override;
 
@@ -119,7 +129,7 @@ public:
     CartRetailNAND(u8* rom, u32 len, u32 chipid);
     ~CartRetailNAND() override;
 
-    virtual u32 Type() override { return 0x102; }
+    virtual u32 Type() override { return CartType::RetailNAND; }
 
     void Reset() override;
 
@@ -149,7 +159,7 @@ public:
     CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump);
     ~CartRetailIR() override;
 
-    virtual u32 Type() override { return 0x103; }
+    virtual u32 Type() override { return CartType::RetailIR; }
 
     void Reset() override;
 
@@ -169,7 +179,7 @@ public:
     CartRetailBT(u8* rom, u32 len, u32 chipid);
     ~CartRetailBT() override;
 
-    virtual u32 Type() override { return 0x104; }
+    virtual u32 Type() override { return CartType::RetailBT; }
 
     void Reset() override;
 
@@ -185,7 +195,7 @@ public:
     CartHomebrew(u8* rom, u32 len, u32 chipid);
     ~CartHomebrew() override;
 
-    virtual u32 Type() override { return 0x201; }
+    virtual u32 Type() override { return CartType::Homebrew; }
 
     void Reset() override;
     void SetupDirectBoot(const std::string& romname) override;
