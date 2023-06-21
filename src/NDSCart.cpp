@@ -1726,8 +1726,6 @@ NDSCartData::NDSCartData(const u8 *romdata, u32 romlen):
     else
         _cart = new CartRetail(_cart_rom, _cart_rom_size, _cart_id, badDSiDump);
 
-    _cart->Reset();
-
     if (_romparams.SaveMemType > 0)
         _cart->SetupSave(_romparams.SaveMemType);
 }
@@ -1772,6 +1770,8 @@ bool InsertROM(NDSCartData&& cart)
 
     Cart = cart._cart;
     cart._cart = nullptr;
+
+    Cart->Reset();
 
     if (Header.ARM9ROMOffset >= 0x4000 && Header.ARM9ROMOffset < 0x8000)
     {
