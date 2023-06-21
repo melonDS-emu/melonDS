@@ -876,7 +876,14 @@ QSize ScreenHandler::screenGetMinSize(int factor = 1)
         else
             return QSize(w+gap+w, h);
     }
-    else // hybrid
+    else if (Config::ScreenLayout == 3) // hybrid
+    {
+        if (isHori)
+            return QSize(h+gap+h, 3*w + (int)ceil((4*gap) / 3.0));
+        else
+            return QSize(3*w + (int)ceil((4*gap) / 3.0), h+gap+h);
+    }
+    else // flipped hybrid
     {
         if (isHori)
             return QSize(h+gap+h, 3*w + (int)ceil((4*gap) / 3.0));
@@ -1641,9 +1648,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             QMenu* submenu = menu->addMenu("Screen layout");
             grpScreenLayout = new QActionGroup(submenu);
 
-            const char* screenlayout[] = {"Natural", "Vertical", "Horizontal", "Hybrid"};
+            const char* screenlayout[] = {"Natural", "Vertical", "Horizontal", "Hybrid", "Flipped Hybrid"};
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 5; i++)
             {
                 actScreenLayout[i] = submenu->addAction(QString(screenlayout[i]));
                 actScreenLayout[i]->setActionGroup(grpScreenLayout);
@@ -3280,7 +3287,7 @@ int main(int argc, char** argv)
     SANITIZE(Config::MicInputType, 0, (int)micInputType_MAX);
     SANITIZE(Config::ScreenRotation, 0, 3);
     SANITIZE(Config::ScreenGap, 0, 500);
-    SANITIZE(Config::ScreenLayout, 0, 3);
+    SANITIZE(Config::ScreenLayout, 0, 4);
     SANITIZE(Config::ScreenSizing, 0, (int)screenSizing_MAX);
     SANITIZE(Config::ScreenAspectTop, 0, 4);
     SANITIZE(Config::ScreenAspectBot, 0, 4);

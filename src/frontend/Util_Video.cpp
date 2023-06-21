@@ -31,13 +31,19 @@ namespace Frontend
 float TopScreenMtx[6];
 float BotScreenMtx[6];
 float HybScreenMtx[6];
+float HybFlippedScreenMtx[6];
 float TouchMtx[6];
 float HybTouchMtx[6];
+float HybFlippedTouchMtx[6];
 bool TopEnable;
 bool BotEnable;
+bool EitherHybEnable;
 bool HybEnable;
+bool HybFlippedEnable;
 int HybScreen;
+int HybFlippedScreen;
 int HybPrevTouchScreen; // 0:unknown, 1:buttom screen, 2:hybrid screen
+int HybFlippedPrevTouchScreen; // 0:unknown, 1:buttom screen, 2:hybrid screen
 
 void M23_Identity(float* m)
 {
@@ -142,6 +148,17 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
         HybPrevTouchScreen = 0;
     }
 
+    HybFlippedEnable = screenLayout == 4;
+    if (HybFlippedEnable)
+    {
+        screenLayout = 0;
+        sizing = 0;
+        HybFlippedScreen = swapScreens ? 1 : 0;
+        swapScreens = false;
+        topAspect = botAspect = 1;
+        HybFlippedPrevTouchScreen = 0;
+    }
+
     float refpoints[6][2] =
     {
         {0, 0}, {256, 192},
@@ -155,12 +172,15 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
 
     float botScale = 1;
     float hybScale = 1;
+    float hybFlippedScale = 1;
     float botTrans[4] = {0};
     float hybTrans[2] = {0};
+    float hybFlippedTrans[2] = {0};
 
     M23_Identity(TopScreenMtx);
     M23_Identity(BotScreenMtx);
     M23_Identity(HybScreenMtx);
+    M23_Identity(HybFlippedScreenMtx);
 
     M23_Translate(TopScreenMtx, -256/2, -192/2);
     M23_Translate(BotScreenMtx, -256/2, -192/2);
@@ -177,6 +197,7 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
         M23_Multiply(TopScreenMtx, rotmtx, TopScreenMtx);
         M23_Multiply(BotScreenMtx, rotmtx, BotScreenMtx);
         M23_Multiply(HybScreenMtx, rotmtx, HybScreenMtx);
+        M23_Multiply(HybFlippedScreenMtx, rotmtx, HybFlippedScreenMtx);
 
         M23_Transform(TopScreenMtx, refpoints[0][0], refpoints[0][1]);
         M23_Transform(TopScreenMtx, refpoints[1][0], refpoints[1][1]);
@@ -184,8 +205,10 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
         M23_Transform(BotScreenMtx, refpoints[3][0], refpoints[3][1]);
     }
 
+    EitherHybEnable = HybEnable || HybFlippedEnable;
+
     int posRefPointOffset = 0;
-    int posRefPointCount = HybEnable ? 6 : 4;
+    int posRefPointCount = EitherHybEnable ? 6 : 4;
 
     if (sizing == 4 || sizing == 5)
     {
@@ -271,6 +294,16 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
                     else
                         vSize += (hSize * 4) / 3;
                 }
+                if (HybFlippedEnable)
+                {
+                    hybFlippedScale = layout == 0
+                        ? (4 * vSize) / (3 * hSize)
+                        : (4 * hSize) / (3 * vSize);
+                    if (layout == 0)
+                        hSize += (vSize * 4) / 3;
+                    else
+                        vSize += (hSize * 4) / 3;
+                }
 
                 // scale evenly
                 float scale = std::min(screenWidth / hSize, screenHeight / vSize);
@@ -279,10 +312,12 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
                     scale = floor(scale);
 
                 hybScale *= scale;
+                hybFlippedScale *= scale;
 
                 M23_Scale(TopScreenMtx, scale);
                 M23_Scale(BotScreenMtx, scale);
                 M23_Scale(HybScreenMtx, hybScale);
+                M23_Scale(HybFlippedScreenMtx, hybFlippedScale);
 
                 for (int i = 0; i < 4; i++)
                 {
@@ -317,6 +352,39 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
 
                     M23_Transform(HybScreenMtx, refpoints[4][0], refpoints[4][1]);
                     M23_Transform(HybScreenMtx, refpoints[5][0], refpoints[5][1]);
+                }
+
+                if (HybFlippedEnable)
+                {
+                    float hybFlippedWidth = layout == 0
+                        ? (scale * vSize * 4) / 3
+                        : (scale * hSize * 4) / 3;
+
+                    if (rotation > 1)
+                        hybFlippedWidth *= -1;
+
+                    M23_Translate(TopScreenMtx, (layout==0)?hybFlippedWidth:0, (layout==1)?hybFlippedWidth:0);
+                    M23_Translate(BotScreenMtx, (layout==0)?hybFlippedWidth:0, (layout==1)?hybFlippedWidth:0);
+                    refpoints[0][layout] += hybFlippedWidth;
+                    refpoints[1][layout] += hybFlippedWidth;
+                    refpoints[2][layout] += hybFlippedWidth;
+                    refpoints[3][layout] += hybFlippedWidth;
+
+                    botTrans[2+layout] += hybFlippedWidth;
+                    if (rotation == 0 || rotation == 2)
+                    {
+                        hybFlippedTrans[0] = -5 * scale * (rotation == 0 || rotation == 3 ? minX : maxX);
+                        hybFlippedTrans[1] = scale * (rotation == 0 || rotation == 1 ? minY : maxY);
+                    }
+                    if (rotation == 1 || rotation == 3)
+                    {
+                        hybFlippedTrans[0] = scale * (rotation == 0 || rotation == 3 ? minX : maxX);
+                        hybFlippedTrans[1] = -5 * scale * (rotation == 0 || rotation == 1 ? minY : maxY);
+                    }
+                    M23_Translate(HybFlippedScreenMtx, hybFlippedTrans[0], hybFlippedTrans[1]);
+
+                    M23_Transform(HybFlippedScreenMtx, refpoints[4][0], refpoints[4][1]);
+                    M23_Transform(HybFlippedScreenMtx, refpoints[5][0], refpoints[5][1]);
                 }
             }
             else
@@ -413,9 +481,11 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
         M23_Translate(TopScreenMtx, tx, ty);
         M23_Translate(BotScreenMtx, tx, ty);
         M23_Translate(HybScreenMtx, tx, ty);
+        M23_Translate(HybFlippedScreenMtx, tx, ty);
 
         botTrans[2] += tx; botTrans[3] += ty;
         hybTrans[0] += tx; hybTrans[1] += ty;
+        hybFlippedTrans[0] += tx; hybFlippedTrans[1] += ty;
     }
 
     // prepare a 'reverse' matrix for the touchscreen
@@ -445,6 +515,14 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
             M23_Scale(HybTouchMtx, 1.f/hybScale);
             M23_Multiply(HybTouchMtx, rotmtx, HybTouchMtx);
         }
+        if (HybFlippedEnable && HybFlippedScreen == 1)
+        {
+            M23_Identity(HybFlippedTouchMtx);
+
+            M23_Translate(HybFlippedTouchMtx, -hybFlippedTrans[0], -hybFlippedTrans[1]);
+            M23_Scale(HybFlippedTouchMtx, 1.f/hybFlippedScale);
+            M23_Multiply(HybFlippedTouchMtx, rotmtx, HybFlippedTouchMtx);
+        }
     }
 }
 
@@ -465,6 +543,11 @@ int GetScreenTransforms(float* out, int* kind)
     {
         memcpy(out + 6*num, HybScreenMtx, sizeof(HybScreenMtx));
         kind[num++] = HybScreen;
+    }
+    if (HybFlippedEnable)
+    {
+        memcpy(out + 6*num, HybFlippedScreenMtx, sizeof(HybFlippedScreenMtx));
+        kind[num++] = HybFlippedScreen;
     }
     return num;
 }
@@ -512,6 +595,55 @@ bool GetTouchCoords(int& x, int& y, bool clamp)
             if (hvx >= 0 && hvx < 256 && hvy >= 0 && hvy < 192)
             {
                 HybPrevTouchScreen = 2;
+
+                x = (int)hvx;
+                y = (int)hvy;
+
+                return true;
+            }
+        }
+    }
+    else if (HybFlippedEnable && HybFlippedScreen == 1) 
+    {
+        float vx = x;
+        float vy = y;
+        float hvx = x;
+        float hvy = y;
+
+        M23_Transform(TouchMtx, vx, vy);
+        M23_Transform(HybFlippedTouchMtx, hvx, hvy);
+
+        if (clamp)
+        {
+            if (HybFlippedPrevTouchScreen == 1)
+            {
+                x = std::clamp((int)vx, 0, 255);
+                y = std::clamp((int)vy, 0, 191);
+                
+                return true;
+            }
+            if (HybFlippedPrevTouchScreen == 2)
+            {
+                x = std::clamp((int)hvx, 0, 255);
+                y = std::clamp((int)hvy, 0, 191);
+
+                return true;
+            }
+        }
+        else
+        {
+            if (vx >= 0 && vx < 256 && vy >= 0 && vy < 192)
+            {
+                HybFlippedPrevTouchScreen = 1;
+
+                x = (int)vx;
+                y = (int)vy;
+
+                return true;
+            }
+            if (hvx >= 0 && hvx < 256 && hvy >= 0 && hvy < 192)
+            {
+                HybFlippedPrevTouchScreen = 2;
 
                 x = (int)hvx;
                 y = (int)hvy;
