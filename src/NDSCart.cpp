@@ -1649,7 +1649,7 @@ NDSCartData::NDSCartData(const u8 *romdata, u32 romlen):
     bool dsi = _header.IsDSi();
     bool badDSiDump = false;
 
-    u32 dsiRegion = *(u32*)&_cart_rom[0x1B0];
+    u32 dsiRegion = _header.DSiRegionMask;
     if (dsi && dsiRegion == 0)
     {
         Log(LogLevel::Info, "DS header indicates DSi, but region is zero. Going in bad dump mode.\n");
