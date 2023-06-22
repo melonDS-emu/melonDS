@@ -324,6 +324,20 @@ void DecryptSecureArea(u8* out);
 /// then \c cart.IsValid() is will be false.
 bool InsertROM(NDSCartData&& cart);
 
+/// Loads a Nintendo DS cart object into the emulator.
+/// The emulator takes ownership of the cart object and its underlying resources.
+/// If a cartridge is already inserted, it is first ejected
+/// and its state is discarded.
+/// If the provided cart is not valid,
+/// then the currently-loaded ROM will not be ejected.
+///
+/// @param cart Movable reference to cart data.
+/// @returns \c true if the cart was successfully loaded,
+/// \c false otherwise.
+/// @post If the cart was successfully loaded,
+/// then \c cart.IsValid() is will be false.
+bool InsertROM(std::unique_ptr<NDSCartData>&& cart);
+
 /// Parses a ROM image and loads it into the emulator.
 /// This function is equivalent to calling ::ParseROM() and ::InsertROM() in sequence.
 /// @param romdata Pointer to the ROM image.

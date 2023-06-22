@@ -19,6 +19,7 @@
 #ifndef GBACART_H
 #define GBACART_H
 
+#include <memory>
 #include "types.h"
 #include "Savestate.h"
 
@@ -228,7 +229,15 @@ void Reset();
 
 void DoSavestate(Savestate* file);
 
+/// Applies the GBACartData to the emulator state and unloads an existing ROM if any.
+/// Upon successful insertion, \c cart will be invalidated and the global GBACart state
+/// (\c CartROM, CartInserted, etc.) will be updated.
 bool InsertROM(GBACartData&& cart);
+
+/// Applies the GBACartData to the emulator state and unloads an existing ROM if any.
+/// Upon successful insertion, \c cart will be nullptr and the global GBACart state
+/// (\c CartROM, CartInserted, etc.) will be updated.
+bool InsertROM(std::unique_ptr<GBACartData>&& cart);
 bool LoadROM(const u8* romdata, u32 romlen);
 void LoadSave(const u8* savedata, u32 savelen);
 
