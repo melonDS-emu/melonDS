@@ -269,6 +269,9 @@ public:
     /// @returns A pointer to the \c CartCommon object for this cart, or nullptr if the cart is invalid.
     [[nodiscard]] const CartCommon* Cart() const { return _cart; }
 
+    /// @returns A pointer to the \c CartCommon object for this cart, or nullptr if the cart is invalid.
+    [[nodiscard]] CartCommon* Cart() { return _cart; }
+
     /// @returns \c true if the cart data is valid, \c false otherwise.
     [[nodiscard]] bool IsValid() const { return _cart != nullptr; }
 private:
