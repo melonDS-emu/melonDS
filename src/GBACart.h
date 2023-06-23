@@ -185,20 +185,20 @@ public:
     /// @returns A pointer to the ROM data for this cart.
     /// @note If \c IsValid() returns \c false,
     /// the pointer will be \c nullptr.
-    [[nodiscard]] const u8* CartROM() const { return _cart_rom; }
+    [[nodiscard]] const u8* GetCartROM() const { return _cart_rom; }
 
     /// @returns The size of the ROM data for this cart in bytes.
     /// @note If \c IsValid() returns \c false,
     /// the size will be zero.
-    [[nodiscard]] u32 CartROMSize() const { return _cart_rom_size; }
+    [[nodiscard]] u32 GetCartROMSize() const { return _cart_rom_size; }
 
     /// @returns A pointer to the \c CartCommon object for this cart,
     /// or \c nullptr if the cart is invalid.
-    [[nodiscard]] const CartCommon* Cart() const { return _cart; }
+    [[nodiscard]] const CartCommon* GetCart() const { return _cart; }
 
     /// @returns A pointer to the \c CartCommon object for this cart,
     /// or \c nullptr if the cart is invalid.
-    [[nodiscard]] CartCommon* Cart() { return _cart; }
+    [[nodiscard]] CartCommon* GetCart() { return _cart; }
 
     /// @returns \c true if the cart data is valid, \c false otherwise.
     [[nodiscard]] bool IsValid() const { return _cart != nullptr; }

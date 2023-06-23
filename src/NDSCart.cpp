@@ -1751,19 +1751,19 @@ bool InsertROM(NDSCartData&& cart)
 
     // The members of cart are cleared because cart is supposed to be moved;
     // since cart is no longer valid, it doesn't make sense to keep around its members.
-    Header = cart.Header();
+    Header = cart.GetHeader();
     cart._header = {};
 
-    Banner = cart.Banner();
+    Banner = cart.GetBanner();
     cart._banner = {};
 
-    CartROMSize = cart.CartROMSize();
+    CartROMSize = cart.GetCartROMSize();
     cart._cart_rom_size = 0;
 
-    CartID = cart.CartID();
+    CartID = cart.GetCartID();
     cart._cart_id = 0;
 
-    ROMListEntry romparams = cart.ROMParams();
+    ROMListEntry romparams = cart.GetROMParams();
     cart._romparams = {};
 
     CartROM = cart._cart_rom;

@@ -239,38 +239,38 @@ public:
     /// @returns The NDS header for this cart.
     /// @note If \c IsValid() returns \c false,
     /// the header is invalid and all values will be zero.
-    [[nodiscard]] const NDSHeader& Header() const { return _header; }
+    [[nodiscard]] const NDSHeader& GetHeader() const { return _header; }
 
     /// @returns The NDS banner for this cart.
     /// @note If \c IsValid() returns \c false,
     /// the banner is invalid and all values will be zero.
-    [[nodiscard]] const NDSBanner& Banner() const { return _banner; }
+    [[nodiscard]] const NDSBanner& GetBanner() const { return _banner; }
 
     /// @returns The ROM parameters for this cart
     /// @note If \c IsValid() returns \c false,
     /// all values will be zero.
-    [[nodiscard]] const ROMListEntry& ROMParams() const { return _romparams; }
+    [[nodiscard]] const ROMListEntry& GetROMParams() const { return _romparams; }
 
     /// @returns A pointer to the ROM data for this cart.
     /// @note If \c IsValid() returns \c false,
     /// the pointer will be \c nullptr.
-    [[nodiscard]] const u8* CartROM() const { return _cart_rom; }
+    [[nodiscard]] const u8* GetCartROM() const { return _cart_rom; }
 
     /// @returns The size of the ROM data for this cart in bytes.
     /// @note If \c IsValid() returns \c false,
     /// the size will be zero.
-    [[nodiscard]] u32 CartROMSize() const { return _cart_rom_size; }
+    [[nodiscard]] u32 GetCartROMSize() const { return _cart_rom_size; }
 
     /// @returns The cart ID for this cart.
     /// @note If \c IsValid() returns \c false,
     /// the ID will be zero.
-    [[nodiscard]] u32 CartID() const { return _cart_id; }
+    [[nodiscard]] u32 GetCartID() const { return _cart_id; }
 
     /// @returns A pointer to the \c CartCommon object for this cart, or nullptr if the cart is invalid.
-    [[nodiscard]] const CartCommon* Cart() const { return _cart; }
+    [[nodiscard]] const CartCommon* GetCart() const { return _cart; }
 
     /// @returns A pointer to the \c CartCommon object for this cart, or nullptr if the cart is invalid.
-    [[nodiscard]] CartCommon* Cart() { return _cart; }
+    [[nodiscard]] CartCommon* GetCart() { return _cart; }
 
     /// @returns \c true if the cart data is valid, \c false otherwise.
     [[nodiscard]] bool IsValid() const { return _cart != nullptr; }
