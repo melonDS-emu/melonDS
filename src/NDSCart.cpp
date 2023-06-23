@@ -1816,7 +1816,7 @@ bool InsertROM(std::unique_ptr<NDSCartData>&& cart)
     std::unique_ptr<NDSCartData> to_insert = std::move(cart);
     assert(cart == nullptr);
     return InsertROM(std::move(*to_insert));
-    // When this function returns, to_insert will be deleted (and the now-invalid GBACartData object taken with it)
+    // When this function returns, to_insert will be deleted (and the now-invalid NDSCartData object taken with it)
 }
 
 bool LoadROM(const u8* romdata, u32 romlen)
