@@ -391,9 +391,11 @@ void Reset()
     {
         u32 gamecode = *(u32*)&NDSCart::CartROM[0xC];
         gamecode &= 0xFFFFFF;
-        if (gamecode == 0x4D5341) // ASMx / Super Mario 64 DS
+        if      (gamecode == 0x4D5341) // ASMx / Super Mario 64 DS
             Version = 1;
         else if (gamecode == 0x595241) // ARYx / Rayman DS
+            Version = 2;
+        else if (gamecode == 0x475541) // AUGx / Need for Speed Underground
             Version = 2;
     }
 
