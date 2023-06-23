@@ -185,31 +185,31 @@ public:
     /// @returns A pointer to the ROM data for this cart.
     /// @note If \c IsValid() returns \c false,
     /// the pointer will be \c nullptr.
-    [[nodiscard]] const u8* GetCartROM() const { return _cart_rom; }
+    [[nodiscard]] const u8* GetCartROM() const { return CartROM; }
 
     /// @returns The size of the ROM data for this cart in bytes.
     /// @note If \c IsValid() returns \c false,
     /// the size will be zero.
-    [[nodiscard]] u32 GetCartROMSize() const { return _cart_rom_size; }
+    [[nodiscard]] u32 GetCartROMSize() const { return CartROMSize; }
 
     /// @returns A pointer to the \c CartCommon object for this cart,
     /// or \c nullptr if the cart is invalid.
-    [[nodiscard]] const CartCommon* GetCart() const { return _cart; }
+    [[nodiscard]] const CartCommon* GetCart() const { return Cart; }
 
     /// @returns A pointer to the \c CartCommon object for this cart,
     /// or \c nullptr if the cart is invalid.
-    [[nodiscard]] CartCommon* GetCart() { return _cart; }
+    [[nodiscard]] CartCommon* GetCart() { return Cart; }
 
     /// @returns \c true if the cart data is valid, \c false otherwise.
-    [[nodiscard]] bool IsValid() const { return _cart != nullptr; }
+    [[nodiscard]] bool IsValid() const { return Cart != nullptr; }
 private:
     // This function installs the cart data globally
     // but invalidates the provided object to prevent memory access errors,
     // so it needs to access this class's private fields.
     friend bool InsertROM(GBACartData&& cart);
-    u8* _cart_rom;
-    u32 _cart_rom_size;
-    CartCommon* _cart;
+    u8* CartROM;
+    u32 CartROMSize;
+    CartCommon* Cart;
 };
 
 // possible inputs for GBA carts that might accept user input

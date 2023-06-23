@@ -758,29 +758,29 @@ void DoSavestate(Savestate* file)
 }
 
 GBACartData::GBACartData(const u8 *romdata, u32 romlen) :
-    _cart(nullptr),
-    _cart_rom(nullptr),
-    _cart_rom_size(0)
+    Cart(nullptr),
+    CartROM(nullptr),
+    CartROMSize(0)
 {
-    _cart_rom_size = 0x200;
-    while (_cart_rom_size < romlen)
-        _cart_rom_size <<= 1;
+    CartROMSize = 0x200;
+    while (CartROMSize < romlen)
+        CartROMSize <<= 1;
 
     try
     {
-        _cart_rom = new u8[_cart_rom_size];
+        CartROM = new u8[CartROMSize];
     }
     catch (const std::bad_alloc& e)
     {
-        Log(LogLevel::Error, "GBACart: failed to allocate memory for ROM (%d bytes)\n", _cart_rom_size);
-        _cart_rom_size = 0;
+        Log(LogLevel::Error, "GBACart: failed to allocate memory for ROM (%d bytes)\n", CartROMSize);
+        CartROMSize = 0;
     }
 
-    memset(_cart_rom, 0, _cart_rom_size);
-    memcpy(_cart_rom, romdata, romlen);
+    memset(CartROM, 0, CartROMSize);
+    memcpy(CartROM, romdata, romlen);
 
     char gamecode[5] = { '\0' };
-    memcpy(&gamecode, _cart_rom + 0xAC, 4);
+    memcpy(&gamecode, CartROM + 0xAC, 4);
 
     bool solarsensor = false;
     for (size_t i = 0; i < sizeof(SOLAR_SENSOR_GAMECODES)/sizeof(SOLAR_SENSOR_GAMECODES[0]); i++)
@@ -795,11 +795,11 @@ GBACartData::GBACartData(const u8 *romdata, u32 romlen) :
     }
 
     if (solarsensor)
-        _cart = new CartGameSolarSensor(_cart_rom, _cart_rom_size);
+        Cart = new CartGameSolarSensor(CartROM, CartROMSize);
     else
-        _cart = new CartGame(_cart_rom, _cart_rom_size);
+        Cart = new CartGame(CartROM, CartROMSize);
 
-    _cart->Reset();
+    Cart->Reset();
 
     // TODO: setup cart save here! from a list or something
 
@@ -812,8 +812,8 @@ GBACartData::GBACartData(const u8 *romdata, u32 romlen) :
 
 GBACartData::~GBACartData()
 {
-    delete[] _cart_rom;
-    delete _cart;
+    delete[] CartROM;
+    delete Cart;
 }
 
 bool InsertROM(GBACartData&& cart)
@@ -826,14 +826,14 @@ bool InsertROM(GBACartData&& cart)
     if (CartInserted)
         EjectCart();
 
-    Cart = cart._cart;
-    cart._cart = nullptr;
+    Cart = cart.Cart;
+    cart.Cart = nullptr;
 
-    CartROM = cart._cart_rom;
-    cart._cart_rom = nullptr;
+    CartROM = cart.CartROM;
+    cart.CartROM = nullptr;
 
-    CartROMSize = cart._cart_rom_size;
-    cart._cart_rom_size = 0;
+    CartROMSize = cart.CartROMSize;
+    cart.CartROMSize = 0;
 
     CartInserted = true;
 
