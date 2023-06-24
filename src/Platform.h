@@ -82,7 +82,7 @@ enum ConfigEntry
     Firm_Message,
     Firm_MAC,
 
-    AudioBitrate,
+    AudioBitDepth,
 };
 
 int GetConfigInt(ConfigEntry entry);

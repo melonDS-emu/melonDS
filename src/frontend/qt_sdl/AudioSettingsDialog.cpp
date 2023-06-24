@@ -40,7 +40,7 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent, bool emuActive) : QDia
     setAttribute(Qt::WA_DeleteOnClose);
 
     oldInterp = Config::AudioInterp;
-    oldBitrate = Config::AudioBitrate;
+    oldBitDepth = Config::AudioBitDepth;
     oldVolume = Config::AudioVolume;
     oldDSiSync = Config::DSiVolumeSync;
 
@@ -50,10 +50,10 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent, bool emuActive) : QDia
     ui->cbInterpolation->addItem("Cubic");
     ui->cbInterpolation->setCurrentIndex(Config::AudioInterp);
 
-    ui->cbBitrate->addItem("Automatic");
-    ui->cbBitrate->addItem("10-bit");
-    ui->cbBitrate->addItem("16-bit");
-    ui->cbBitrate->setCurrentIndex(Config::AudioBitrate);
+    ui->cbBitDepth->addItem("Automatic");
+    ui->cbBitDepth->addItem("10-bit");
+    ui->cbBitDepth->addItem("16-bit");
+    ui->cbBitDepth->setCurrentIndex(Config::AudioBitDepth);
 
     bool state = ui->slVolume->blockSignals(true);
     ui->slVolume->setValue(Config::AudioVolume);
@@ -90,7 +90,7 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent, bool emuActive) : QDia
     {
         ui->lblInstanceNum->setText(QString("Configuring settings for instance %1").arg(inst+1));
         ui->cbInterpolation->setEnabled(false);
-        ui->cbBitrate->setEnabled(false);
+        ui->cbBitDepth->setEnabled(false);
         for (QAbstractButton* btn : grpMicMode->buttons())
             btn->setEnabled(false);
         ui->txtMicWavPath->setEnabled(false);
@@ -133,19 +133,19 @@ void AudioSettingsDialog::on_AudioSettingsDialog_accepted()
 void AudioSettingsDialog::on_AudioSettingsDialog_rejected()
 {
     Config::AudioInterp = oldInterp;
-    Config::AudioBitrate = oldBitrate;
+    Config::AudioBitDepth = oldBitDepth;
     Config::AudioVolume = oldVolume;
     Config::DSiVolumeSync = oldDSiSync;
 
     closeDlg();
 }
 
-void AudioSettingsDialog::on_cbBitrate_currentIndexChanged(int idx)
+void AudioSettingsDialog::on_cbBitDepth_currentIndexChanged(int idx)
 {
     // prevent a spurious change
-    if (ui->cbBitrate->count() < 3) return;
+    if (ui->cbBitDepth->count() < 3) return;
 
-    Config::AudioBitrate = ui->cbBitrate->currentIndex();
+    Config::AudioBitDepth = ui->cbBitDepth->currentIndex();
 
     emit updateAudioSettings();
 }

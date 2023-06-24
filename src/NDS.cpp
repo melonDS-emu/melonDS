@@ -674,10 +674,10 @@ void Reset()
         degradeAudio = false;
     }
 
-    int bitrate = Platform::GetConfigInt(Platform::AudioBitrate);
-    if (bitrate == 1) // Always 10-bit
+    int bitDepth = Platform::GetConfigInt(Platform::AudioBitDepth);
+    if (bitDepth == 1) // Always 10-bit
         degradeAudio = true;
-    else if (bitrate == 2) // Always 16-bit
+    else if (bitDepth == 2) // Always 16-bit
         degradeAudio = false;
 
     SPU::SetDegrade10Bit(degradeAudio);

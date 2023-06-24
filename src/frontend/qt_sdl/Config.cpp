@@ -116,7 +116,7 @@ bool DirectLAN;
 bool SavestateRelocSRAM;
 
 int AudioInterp;
-int AudioBitrate;
+int AudioBitDepth;
 int AudioVolume;
 bool DSiVolumeSync;
 int MicInputType;
@@ -296,7 +296,7 @@ ConfigEntry ConfigFile[] =
     {"SavStaRelocSRAM", 1, &SavestateRelocSRAM, false, false},
 
     {"AudioInterp", 0, &AudioInterp, 0, false},
-    {"AudioBitrate", 0, &AudioBitrate, 0, false},
+    {"AudioBitDepth", 0, &AudioBitDepth, 0, false},
     {"AudioVolume", 0, &AudioVolume, 256, true},
     {"DSiVolumeSync", 0, &DSiVolumeSync, 0, true},
     {"MicInputType", 0, &MicInputType, 1, false},

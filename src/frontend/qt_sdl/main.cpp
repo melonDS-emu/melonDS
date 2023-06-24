@@ -2905,10 +2905,10 @@ void MainWindow::onUpdateAudioSettings()
 {
     SPU::SetInterpolation(Config::AudioInterp);
 
-    if (Config::AudioBitrate == 0)
+    if (Config::AudioBitDepth == 0)
         SPU::SetDegrade10Bit(NDS::ConsoleType == 0);
     else
-        SPU::SetDegrade10Bit(Config::AudioBitrate == 1);
+        SPU::SetDegrade10Bit(Config::AudioBitDepth == 1);
 }
 
 void MainWindow::onAudioSettingsFinished(int res)
