@@ -302,7 +302,10 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
                         : (scale * hSize * 4) / 3;
 
                     if (rotation > 1)
+                    {
                         hybWidth *= -1;
+                        screenGap *= -1;
+                    }
 
                     M23_Translate(TopScreenMtx, (layout==0)?hybWidth:0, (layout==1)?hybWidth:0);
                     M23_Translate(BotScreenMtx, (layout==0)?hybWidth:0, (layout==1)?hybWidth:0);
@@ -317,13 +320,13 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
                     {
                         if (rotation == 0 || rotation == 2)
                         {
-                            hybTrans[0] = -5 * scale * (rotation == 0 || rotation == 3 ? minX : maxX);
+                            hybTrans[0] = (screenGap * scale * 1.33) + -5 * scale * (rotation == 0 || rotation == 3 ? minX : maxX);
                             hybTrans[1] = scale * (rotation == 0 || rotation == 1 ? minY : maxY);
                         }
                         if (rotation == 1 || rotation == 3)
                         {
                             hybTrans[0] = scale * (rotation == 0 || rotation == 3 ? minX : maxX);
-                            hybTrans[1] = -5 * scale * (rotation == 0 || rotation == 1 ? minY : maxY);
+                            hybTrans[1] = (screenGap * scale * 1.33) + -5 * scale * (rotation == 0 || rotation == 1 ? minY : maxY);
                         }
                     }
                     else

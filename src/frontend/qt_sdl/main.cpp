@@ -876,14 +876,7 @@ QSize ScreenHandler::screenGetMinSize(int factor = 1)
         else
             return QSize(w+gap+w, h);
     }
-    else if (Config::ScreenLayout == 3) // hybrid
-    {
-        if (isHori)
-            return QSize(h+gap+h, 3*w + (int)ceil((4*gap) / 3.0));
-        else
-            return QSize(3*w + (int)ceil((4*gap) / 3.0), h+gap+h);
-    }
-    else // flipped hybrid
+    else // hybrid
     {
         if (isHori)
             return QSize(h+gap+h, 3*w + (int)ceil((4*gap) / 3.0));
