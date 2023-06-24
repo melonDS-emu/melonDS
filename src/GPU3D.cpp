@@ -562,7 +562,7 @@ void DoSavestate(Savestate* file)
         file->Bool32(&poly->IsShadowMask);
         file->Bool32(&poly->IsShadow);
 
-        if (file->IsAtleastVersion(4, 1))
+        if (file->IsAtLeastVersion(4, 1))
             file->Var32((u32*)&poly->Type);
         else
             poly->Type = 0;
