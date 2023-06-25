@@ -136,7 +136,7 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="0" colspan="3">
+      <item row="1" column="0">
        <widget class="QRadioButton" name="rbMicExternal">
         <property name="whatsThis">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Input from an external microphone, if available, will be forwarded to the emulated microphone.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -145,6 +145,13 @@
          <string>External microphone</string>
         </property>
        </widget>
+      </item>
+      <item row="1" column="1" colspan="2">
+        <widget class="QComboBox" name="cbMic">
+         <property name="whatsThis"> 
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The selected microphone to be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>       
+         </property>
+        </widget>
       </item>
       <item row="2" column="0" colspan="3">
        <widget class="QRadioButton" name="rbMicNoise">

@@ -133,7 +133,12 @@ void MicOpen()
     whatIwant.channels = 1;
     whatIwant.samples = 1024;
     whatIwant.callback = MicCallback;
-    micDevice = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
+    const char* mic = NULL;
+    if (Config::MicDevice != "")
+    {
+        mic = Config::MicDevice.c_str();
+    }
+    micDevice = SDL_OpenAudioDevice(mic, 1, &whatIwant, &whatIget, 0);
     if (!micDevice)
     {
         Platform::Log(Platform::LogLevel::Error, "Mic init failed: %s\n", SDL_GetError());
