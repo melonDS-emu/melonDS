@@ -200,11 +200,12 @@ void Key2_Encrypt(u8* data, u32 len)
 }
 
 
-CartCommon::CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump)
+CartCommon::CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams)
 {
     ROM = rom;
     ROMLength = len;
     ChipID = chipid;
+    ROMParams = romparams;
 
     u8 unitcode = ROM[0x12];
     IsDSi = (unitcode & 0x02) != 0 && !badDSiDump;
@@ -408,8 +409,7 @@ void CartCommon::ReadROM(u32 addr, u32 len, u8* data, u32 offset)
     memcpy(data+offset, ROM+addr, len);
 }
 
-
-CartRetail::CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump) : CartCommon(rom, len, chipid, badDSiDump)
+CartRetail::CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams) : CartCommon(rom, len, chipid, badDSiDump, romparams)
 {
     SRAM = nullptr;
 }
@@ -871,7 +871,7 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
 }
 
 
-CartRetailNAND::CartRetailNAND(u8* rom, u32 len, u32 chipid) : CartRetail(rom, len, chipid, false)
+CartRetailNAND::CartRetailNAND(u8* rom, u32 len, u32 chipid, ROMListEntry romparams) : CartRetail(rom, len, chipid, false, romparams)
 {
 }
 
@@ -1098,7 +1098,7 @@ void CartRetailNAND::BuildSRAMID()
 }
 
 
-CartRetailIR::CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump) : CartRetail(rom, len, chipid, badDSiDump)
+CartRetailIR::CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams) : CartRetail(rom, len, chipid, badDSiDump, romparams)
 {
     IRVersion = irversion;
 }
@@ -1144,7 +1144,7 @@ u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
 }
 
 
-CartRetailBT::CartRetailBT(u8* rom, u32 len, u32 chipid) : CartRetail(rom, len, chipid, false)
+CartRetailBT::CartRetailBT(u8* rom, u32 len, u32 chipid, ROMListEntry romparams) : CartRetail(rom, len, chipid, false, romparams)
 {
     Log(LogLevel::Info,"POKETYPE CART\n");
 }
@@ -1178,7 +1178,7 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 }
 
 
-CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid, false)
+CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams) : CartCommon(rom, len, chipid, false, romparams)
 {
     SD = nullptr;
 }

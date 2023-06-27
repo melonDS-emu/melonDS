@@ -44,7 +44,7 @@ enum CartType
 class CartCommon
 {
 public:
-    CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump);
+    CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
     virtual ~CartCommon();
 
     virtual u32 Type() { return CartType::Default; }
@@ -80,13 +80,14 @@ protected:
 
     u32 CmdEncMode;
     u32 DataEncMode;
+    ROMListEntry ROMParams;
 };
 
 // CartRetail -- regular retail cart (ROM, SPI SRAM)
 class CartRetail : public CartCommon
 {
 public:
-    CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump);
+    CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
     virtual ~CartRetail() override;
 
     virtual u32 Type() override { return CartType::Retail; }
@@ -126,7 +127,7 @@ protected:
 class CartRetailNAND : public CartRetail
 {
 public:
-    CartRetailNAND(u8* rom, u32 len, u32 chipid);
+    CartRetailNAND(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
     ~CartRetailNAND() override;
 
     virtual u32 Type() override { return CartType::RetailNAND; }
@@ -156,7 +157,7 @@ private:
 class CartRetailIR : public CartRetail
 {
 public:
-    CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump);
+    CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams);
     ~CartRetailIR() override;
 
     virtual u32 Type() override { return CartType::RetailIR; }
@@ -176,7 +177,7 @@ private:
 class CartRetailBT : public CartRetail
 {
 public:
-    CartRetailBT(u8* rom, u32 len, u32 chipid);
+    CartRetailBT(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
     ~CartRetailBT() override;
 
     virtual u32 Type() override { return CartType::RetailBT; }
@@ -192,7 +193,7 @@ public:
 class CartHomebrew : public CartCommon
 {
 public:
-    CartHomebrew(u8* rom, u32 len, u32 chipid);
+    CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
     ~CartHomebrew() override;
 
     virtual u32 Type() override { return CartType::Homebrew; }
