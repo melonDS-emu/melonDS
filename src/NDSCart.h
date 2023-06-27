@@ -47,7 +47,7 @@ public:
     CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
     virtual ~CartCommon();
 
-    virtual u32 Type() { return CartType::Default; }
+    virtual u32 Type() = 0;
     virtual u32 Checksum();
 
     virtual void Reset();
