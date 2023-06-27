@@ -409,6 +409,23 @@ void CartCommon::ReadROM(u32 addr, u32 len, u8* data, u32 offset)
     memcpy(data+offset, ROM+addr, len);
 }
 
+const NDSHeader& CartCommon::Header() const
+{
+    return reinterpret_cast<const NDSHeader&>(ROM);
+}
+
+const NDSBanner* CartCommon::Banner() const
+{
+    const NDSHeader& header = Header();
+    size_t bannersize = header.IsDSi() ? 0x23C0 : 0xA40;
+    if (header.BannerOffset >= 0x200 && header.BannerOffset < (ROMLength - bannersize))
+    {
+        return reinterpret_cast<const NDSBanner*>(ROM + header.BannerOffset);
+    }
+
+    return nullptr;
+}
+
 CartRetail::CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams) : CartCommon(rom, len, chipid, badDSiDump, romparams)
 {
     SRAM = nullptr;
