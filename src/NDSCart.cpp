@@ -218,15 +218,16 @@ CartCommon::~CartCommon()
 
 u32 CartCommon::Checksum()
 {
+    const NDSHeader& header = Header();
     u32 crc = CRC32(ROM, 0x40);
 
-    crc = CRC32(&ROM[Header.ARM9ROMOffset], Header.ARM9Size, crc);
-    crc = CRC32(&ROM[Header.ARM7ROMOffset], Header.ARM7Size, crc);
+    crc = CRC32(&ROM[header.ARM9ROMOffset], header.ARM9Size, crc);
+    crc = CRC32(&ROM[header.ARM7ROMOffset], header.ARM7Size, crc);
 
     if (IsDSi)
     {
-        crc = CRC32(&ROM[Header.DSiARM9iROMOffset], Header.DSiARM9iSize, crc);
-        crc = CRC32(&ROM[Header.DSiARM7iROMOffset], Header.DSiARM7iSize, crc);
+        crc = CRC32(&ROM[header.DSiARM9iROMOffset], header.DSiARM9iSize, crc);
+        crc = CRC32(&ROM[header.DSiARM7iROMOffset], header.DSiARM7iSize, crc);
     }
 
     return crc;
@@ -1260,9 +1261,10 @@ void CartHomebrew::SetupDirectBoot(const std::string& romname)
         strncat(argv, romname.c_str(), 511);
         argvlen = strlen(argv);
 
+        const NDSHeader& header = Header();
         void (*writefn)(u32,u32) = (NDS::ConsoleType==1) ? DSi::ARM9Write32 : NDS::ARM9Write32;
 
-        u32 argvbase = Header.ARM9RAMAddress + Header.ARM9Size;
+        u32 argvbase = header.ARM9RAMAddress + header.ARM9Size;
         argvbase = (argvbase + 0xF) & ~0xF;
 
         for (u32 i = 0; i <= argvlen; i+=4)
