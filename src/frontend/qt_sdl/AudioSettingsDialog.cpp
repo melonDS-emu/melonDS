@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include <SDL2/SDL.h>
 #include <QFileDialog>
 
 #include "types.h"
@@ -70,7 +71,21 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent, bool emuActive) : QDia
     {
         ui->chkSyncDSiVolume->setEnabled(false);
     }
+    bool isext = (Config::MicInputType == 1);
+    ui->cbMic->setEnabled(isext);
 
+    const int count = SDL_GetNumAudioDevices(true);
+    for (int i = 0; i < count; i++)
+    {
+        ui->cbMic->addItem(SDL_GetAudioDeviceName(i, true));   
+    }
+    if (Config::MicDevice == "" && count > 0)
+    {   
+        Config::MicDevice = SDL_GetAudioDeviceName(0, true);
+    }
+
+    ui->cbMic->setCurrentText(QString::fromStdString(Config::MicDevice));  
+    
     grpMicMode = new QButtonGroup(this);
     grpMicMode->addButton(ui->rbMicNone,     micInputType_Silence);
     grpMicMode->addButton(ui->rbMicExternal, micInputType_External);
@@ -95,6 +110,7 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent, bool emuActive) : QDia
             btn->setEnabled(false);
         ui->txtMicWavPath->setEnabled(false);
         ui->btnMicWavBrowse->setEnabled(false);
+        ui->cbMic->setEnabled(false);
     }
     else
         ui->lblInstanceNum->hide();
@@ -123,6 +139,7 @@ void AudioSettingsDialog::onConsoleReset()
 
 void AudioSettingsDialog::on_AudioSettingsDialog_accepted()
 {
+    Config::MicDevice = ui->cbMic->currentText().toStdString();
     Config::MicInputType = grpMicMode->checkedId();
     Config::MicWavPath = ui->txtMicWavPath->text().toStdString();
     Config::Save();
@@ -197,8 +214,10 @@ void AudioSettingsDialog::on_chkSyncDSiVolume_clicked(bool checked)
 void AudioSettingsDialog::onChangeMicMode(int mode)
 {
     bool iswav = (mode == 3);
+    bool isext = (mode == 1);
     ui->txtMicWavPath->setEnabled(iswav);
     ui->btnMicWavBrowse->setEnabled(iswav);
+    ui->cbMic->setEnabled(isext);
 }
 
 void AudioSettingsDialog::on_btnMicWavBrowse_clicked()

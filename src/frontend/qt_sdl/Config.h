@@ -177,6 +177,7 @@ extern int AudioBitDepth;
 extern int AudioVolume;
 extern bool DSiVolumeSync;
 extern int MicInputType;
+extern std::string MicDevice;
 extern std::string MicWavPath;
 
 extern std::string LastROMFolder;

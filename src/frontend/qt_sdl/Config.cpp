@@ -120,6 +120,7 @@ int AudioBitDepth;
 int AudioVolume;
 bool DSiVolumeSync;
 int MicInputType;
+std::string MicDevice;
 std::string MicWavPath;
 
 std::string LastROMFolder;
@@ -300,6 +301,7 @@ ConfigEntry ConfigFile[] =
     {"AudioVolume", 0, &AudioVolume, 256, true},
     {"DSiVolumeSync", 0, &DSiVolumeSync, 0, true},
     {"MicInputType", 0, &MicInputType, 1, false},
+    {"MicDevice", 2, &MicDevice, (std::string)"", false},
     {"MicWavPath", 2, &MicWavPath, (std::string)"", false},
 
     {"LastROMFolder", 2, &LastROMFolder, (std::string)"", true},
