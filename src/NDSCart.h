@@ -48,7 +48,7 @@ public:
     virtual ~CartCommon();
 
     virtual u32 Type() = 0;
-    virtual u32 Checksum();
+    [[nodiscard]] u32 Checksum() const;
 
     virtual void Reset();
     virtual void SetupDirectBoot(const std::string& romname);

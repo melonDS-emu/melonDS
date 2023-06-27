@@ -216,7 +216,7 @@ CartCommon::~CartCommon()
 {
 }
 
-u32 CartCommon::Checksum()
+u32 CartCommon::Checksum() const
 {
     const NDSHeader& header = Header();
     u32 crc = CRC32(ROM, 0x40);
