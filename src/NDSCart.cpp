@@ -214,6 +214,7 @@ CartCommon::CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEnt
 
 CartCommon::~CartCommon()
 {
+    delete[] ROM;
 }
 
 u32 CartCommon::Checksum() const
