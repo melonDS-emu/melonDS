@@ -188,6 +188,7 @@ struct NDSHeader
                (u32)GameCode[0];
     }
     [[nodiscard]] bool IsHomebrew() const { return (ARM9ROMOffset < 0x4000) || (GameCodeAsU32() == 0x23232323); }
+    [[nodiscard]] bool IsDSiWare() const { return IsDSi() && DSiRegionStart == 0; }
 };
 
 static_assert(sizeof(NDSHeader) == 4096, "NDSHeader is not 4096 bytes!");
