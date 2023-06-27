@@ -53,6 +53,7 @@ static constexpr std::initializer_list<int> hk_general =
     HK_Mic,
     HK_SwapScreens,
     HK_SwapScreenEmphasis,
+    HK_FocusScreens,
     HK_PowerButton,
     HK_VolumeUp,
     HK_VolumeDown
@@ -70,6 +71,7 @@ static constexpr std::initializer_list<const char*> hk_general_labels =
     "Microphone",
     "Swap screens",
     "Swap screen emphasis",
+    "Swap focused hybrid screen",
     "DSi Power button",
     "DSi Volume up",
     "DSi Volume down"

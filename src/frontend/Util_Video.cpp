@@ -130,6 +130,7 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
     int screenGap,
     bool integerScale,
     bool swapScreens,
+    bool focusScreens,
     float topAspect, float botAspect)
 {
     HybEnable = screenLayout == 3 || screenLayout == 4;
@@ -138,8 +139,7 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
     {
         screenLayout = 0;
         sizing = 0;
-        HybScreen = swapScreens ? 1 : 0;
-        swapScreens = false;
+        HybScreen = focusScreens ? 1 : 0;
         topAspect = botAspect = 1;
         HybPrevTouchScreen = 0;
     }

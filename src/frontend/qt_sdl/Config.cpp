@@ -42,6 +42,7 @@ int ScreenRotation;
 int ScreenGap;
 int ScreenLayout;
 bool ScreenSwap;
+bool ScreenFocus;
 int ScreenSizing;
 bool IntegerScaling;
 int ScreenAspectTop;
@@ -185,6 +186,7 @@ ConfigEntry ConfigFile[] =
     {"HKKey_FullscreenToggle",    0, &HKKeyMapping[HK_FullscreenToggle],    -1, true},
     {"HKKey_SwapScreens",         0, &HKKeyMapping[HK_SwapScreens],         -1, true},
     {"HKKey_SwapScreenEmphasis",  0, &HKKeyMapping[HK_SwapScreenEmphasis],  -1, true},
+    {"HKKey_FocusScreens",        0, &HKKeyMapping[HK_FocusScreens],        -1, true},
     {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1, true},
     {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1, true},
     {"HKKey_FrameStep",           0, &HKKeyMapping[HK_FrameStep],           -1, true},
@@ -201,6 +203,7 @@ ConfigEntry ConfigFile[] =
     {"HKJoy_FullscreenToggle",    0, &HKJoyMapping[HK_FullscreenToggle],    -1, true},
     {"HKJoy_SwapScreens",         0, &HKJoyMapping[HK_SwapScreens],         -1, true},
     {"HKJoy_SwapScreenEmphasis",  0, &HKJoyMapping[HK_SwapScreenEmphasis],  -1, true},
+    {"HKJoy_FocusScreens",        0, &HKJoyMapping[HK_FocusScreens],        -1, true},
     {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1, true},
     {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1, true},
     {"HKJoy_FrameStep",           0, &HKJoyMapping[HK_FrameStep],           -1, true},
@@ -218,6 +221,7 @@ ConfigEntry ConfigFile[] =
     {"ScreenGap",      0, &ScreenGap,      0, true},
     {"ScreenLayout",   0, &ScreenLayout,   0, true},
     {"ScreenSwap",     1, &ScreenSwap,     false, true},
+    {"ScreenFocus",    1, &ScreenFocus,    false, true},
     {"ScreenSizing",   0, &ScreenSizing,   0, true},
     {"IntegerScaling", 1, &IntegerScaling, false, true},
     {"ScreenAspectTop",0, &ScreenAspectTop,0, true},

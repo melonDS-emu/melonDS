@@ -45,6 +45,7 @@ namespace Frontend
 // * screenGap: size of the gap between the two screens
 // * integerScale: force screens to be scaled up at integer scaling factors
 // * screenSwap: whether to swap the position of both screens
+// * screenFocus: whether to swap the large screen in hybrid layout
 // * topAspect/botAspect: ratio by which to scale the top and bottom screen respectively
 void SetupScreenLayout(int screenWidth, int screenHeight,
     int screenLayout,
@@ -53,6 +54,7 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
     int screenGap,
     bool integerScale,
     bool swapScreens,
+    bool focusScreens,
     float topAspect, float botAspect);
 
 const int MaxScreenTransforms = 3;

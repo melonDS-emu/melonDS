@@ -86,6 +86,7 @@ signals:
 
     void swapScreensToggle();
     void screenEmphasisToggle();
+    void focusScreensToggle();
 
     void syncVolumeLevel();
 
@@ -318,6 +319,7 @@ private slots:
     void onChangeScreenGap(QAction* act);
     void onChangeScreenLayout(QAction* act);
     void onChangeScreenSwap(bool checked);
+    void onChangeScreenFocus(bool checked);
     void onChangeScreenSizing(QAction* act);
     void onChangeScreenAspect(QAction* act);
     void onChangeIntegerScaling(bool checked);
@@ -410,6 +412,7 @@ public:
     QActionGroup* grpScreenLayout;
     QAction* actScreenLayout[5];
     QAction* actScreenSwap;
+    QAction* actScreenFocus;
     QActionGroup* grpScreenSizing;
     QAction* actScreenSizing[6];
     QAction* actIntegerScaling;
