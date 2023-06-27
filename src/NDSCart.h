@@ -71,6 +71,9 @@ public:
     /// @return The cartridge's banner if available, or \c nullptr if not.
     [[nodiscard]] const NDSBanner* Banner() const;
     [[nodiscard]] const ROMListEntry& GetROMParams() const { return ROMParams; };
+    [[nodiscard]] u32 ID() const { return ChipID; }
+    [[nodiscard]] const u8* GetROM() const { return ROM; }
+    [[nodiscard]] u32 GetROMLength() const { return ROMLength; }
 protected:
     void ReadROM(u32 addr, u32 len, u8* data, u32 offset);
 
