@@ -180,6 +180,8 @@ struct NDSHeader
 
     u8 HeaderSignature[128]; // RSA-SHA1 across 0x000..0xDFF
 
+    /// @return \c true if this header represents a DSi title
+    /// (either a physical cartridge or a DSiWare title).
     [[nodiscard]] bool IsDSi() const { return (UnitCode & 0x02) != 0; }
     [[nodiscard]] u32 GameCodeAsU32() const {
         return (u32)GameCode[3] << 24 |
@@ -188,6 +190,8 @@ struct NDSHeader
                (u32)GameCode[0];
     }
     [[nodiscard]] bool IsHomebrew() const { return (ARM9ROMOffset < 0x4000) || (GameCodeAsU32() == 0x23232323); }
+
+    /// @return \c true if this header represents a DSiWare title.
     [[nodiscard]] bool IsDSiWare() const { return IsDSi() && DSiRegionStart == 0; }
 };
 
