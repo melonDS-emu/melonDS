@@ -128,14 +128,14 @@ void Key1_ApplyKeycode(u32* keycode, u32 mod)
     }
 }
 
-void Key1_LoadKeyBuf(bool dsi, bool external_bios, u8 *bios, u32 bios_length)
+void Key1_LoadKeyBuf(bool dsi, bool externalBios, u8 *bios, u32 biosLength)
 {
-    if (external_bios)
+    if (externalBios)
     {
         u32 expected_bios_length = dsi ? 0x10000 : 0x4000;
-        if (bios_length != expected_bios_length)
+        if (biosLength != expected_bios_length)
         {
-            Platform::Log(LogLevel::Error, "NDSCart: Expected an ARM7 BIOS of %u bytes, got %u bytes\n", expected_bios_length, bios_length);
+            Platform::Log(LogLevel::Error, "NDSCart: Expected an ARM7 BIOS of %u bytes, got %u bytes\n", expected_bios_length, biosLength);
         }
         else if (bios == nullptr)
         {
@@ -155,9 +155,9 @@ void Key1_LoadKeyBuf(bool dsi, bool external_bios, u8 *bios, u32 bios_length)
     }
 }
 
-void Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod, u8 *bios, u32 bios_length)
+void Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod, u8 *bios, u32 biosLength)
 {
-    Key1_LoadKeyBuf(dsi, Platform::GetConfigBool(Platform::ExternalBIOSEnable), bios, bios_length);
+    Key1_LoadKeyBuf(dsi, Platform::GetConfigBool(Platform::ExternalBIOSEnable), bios, biosLength);
 
     u32 keycode[3] = {idcode, idcode>>1, idcode<<1};
     if (level >= 1) Key1_ApplyKeycode(keycode, mod);
