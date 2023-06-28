@@ -122,7 +122,7 @@ CartGame::~CartGame()
     delete[] ROM;
 }
 
-u32 CartGame::Checksum()
+u32 CartGame::Checksum() const
 {
     u32 crc = CRC32(ROM, 0xC0, 0);
 

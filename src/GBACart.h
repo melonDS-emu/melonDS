@@ -42,7 +42,7 @@ public:
     virtual ~CartCommon();
 
     virtual u32 Type() const = 0;
-    virtual u32 Checksum() { return 0; }
+    virtual u32 Checksum() const { return 0; }
 
     virtual void Reset();
 
@@ -74,7 +74,7 @@ public:
     virtual ~CartGame() override;
 
     virtual u32 Type() const override { return CartType::Game; }
-    virtual u32 Checksum() override;
+    virtual u32 Checksum() const override;
 
     virtual void Reset() override;
 
