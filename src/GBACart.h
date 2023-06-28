@@ -30,6 +30,8 @@ enum CartType
 {
     Default = 0x001,
     Game = 0x101,
+    GameSolarSensor = 0x102,
+    RAMExpansion = 0x201,
 };
 
 // CartCommon -- base code shared by all cart types
@@ -39,7 +41,7 @@ public:
     CartCommon();
     virtual ~CartCommon();
 
-    virtual u32 Type() { return 0x001; }
+    virtual u32 Type() const = 0;
     virtual u32 Checksum() { return 0; }
 
     virtual void Reset();
@@ -71,7 +73,7 @@ public:
     CartGame(u8* rom, u32 len);
     virtual ~CartGame() override;
 
-    virtual u32 Type() override { return 0x101; }
+    virtual u32 Type() const override { return CartType::Game; }
     virtual u32 Checksum() override;
 
     virtual void Reset() override;
@@ -146,7 +148,7 @@ public:
     CartGameSolarSensor(u8* rom, u32 len);
     virtual ~CartGameSolarSensor() override;
 
-    virtual u32 Type() override { return 0x102; }
+    virtual u32 Type() const override { return CartType::GameSolarSensor; }
 
     virtual void Reset() override;
 
@@ -172,7 +174,7 @@ public:
     CartRAMExpansion();
     ~CartRAMExpansion() override;
 
-    virtual u32 Type() override { return 0x201; }
+    virtual u32 Type() const override { return CartType::RAMExpansion; }
 
     void Reset() override;
 
