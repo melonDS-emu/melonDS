@@ -19,7 +19,7 @@
 #ifndef ROMLIST_H
 #define ROMLIST_H
 
-#include <cstddef>
+#include <stddef.h>
 
 #include "types.h"
 
