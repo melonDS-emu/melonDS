@@ -52,7 +52,7 @@ void _inittable()
     }
 }
 
-u32 CRC32(u8 *data, int len, u32 start)
+u32 CRC32(const u8 *data, int len, u32 start)
 {
     if (!tableinited)
     {
