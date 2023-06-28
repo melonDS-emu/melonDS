@@ -1728,6 +1728,8 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
 
     if (romparams.SaveMemType > 0)
         cart->SetupSave(romparams.SaveMemType);
+
+    return cart;
 }
 
 // Why a move function? Because the Cart object is polymorphic,
