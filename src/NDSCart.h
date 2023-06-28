@@ -20,6 +20,7 @@
 #define NDSCART_H
 
 #include <string>
+#include <memory>
 
 #include "types.h"
 #include "Savestate.h"
@@ -66,7 +67,8 @@ public:
     virtual u8* GetSaveMemory() const;
     virtual u32 GetSaveMemoryLength() const;
 
-    [[nodiscard]] const NDSHeader& Header() const;
+    [[nodiscard]] const NDSHeader& GetHeader() const { return Header; }
+    [[nodiscard]] NDSHeader& GetHeader() { return Header; }
 
     /// @return The cartridge's banner if available, or \c nullptr if not.
     [[nodiscard]] const NDSBanner* Banner() const;
@@ -88,6 +90,9 @@ protected:
 
     u32 CmdEncMode;
     u32 DataEncMode;
+    // Kept separate from the ROM data so we can decrypt the modcrypt area
+    // without touching the overall ROM data
+    NDSHeader Header;
     ROMListEntry ROMParams;
 };
 
@@ -223,93 +228,13 @@ private:
     bool ReadOnly;
 };
 
-/// Represents a NDS cart, including header, banner, and ROM data.
-/// Can be used to retrieve information about a cart before loading it.
-class NDSCartData {
-public:
-    /// Parses an NDS cart from the given ROM data,
-    /// resets its emulated state,
-    /// and initializes SRAM if applicable.
-    /// If the ROM data is invalid, IsValid() will return false.
-    /// @param romdata The ROM data to parse.
-    /// The constructed object makes a copy of this buffer,
-    /// so the caller may free it after this constructor returns.
-    /// @param romlen The length of the ROM data in bytes.
-    /// @note This constructor does \em not modify emulator state,
-    /// so it can be called at any time.
-    /// Use this if you need to extract information from a ROM image
-    /// before loading it into the emulator.
-    NDSCartData(const u8* romdata, u32 romlen);
-    NDSCartData(const NDSCartData&) = delete;
-    NDSCartData& operator=(const NDSCartData&) = delete;
-    NDSCartData(NDSCartData&&) = delete;
-    ~NDSCartData();
-
-    /// @returns The NDS header for this cart.
-    /// @note If \c IsValid() returns \c false,
-    /// the header is invalid and all values will be zero.
-    [[nodiscard]] const NDSHeader& GetHeader() const { return Header; }
-
-    /// @returns The NDS banner for this cart.
-    /// @note If \c IsValid() returns \c false,
-    /// the banner is invalid and all values will be zero.
-    [[nodiscard]] const NDSBanner& GetBanner() const { return Banner; }
-
-    /// @returns The ROM parameters for this cart
-    /// @note If \c IsValid() returns \c false,
-    /// all values will be zero.
-    [[nodiscard]] const ROMListEntry& GetROMParams() const { return ROMParams; }
-
-    /// @returns A pointer to the ROM data for this cart.
-    /// @note If \c IsValid() returns \c false,
-    /// the pointer will be \c nullptr.
-    [[nodiscard]] const u8* GetCartROM() const { return CartROM; }
-
-    /// @returns The size of the ROM data for this cart in bytes.
-    /// @note If \c IsValid() returns \c false,
-    /// the size will be zero.
-    [[nodiscard]] u32 GetCartROMSize() const { return CartROMSize; }
-
-    /// @returns The cart ID for this cart.
-    /// @note If \c IsValid() returns \c false,
-    /// the ID will be zero.
-    [[nodiscard]] u32 GetCartID() const { return CartID; }
-
-    /// @returns A pointer to the \c CartCommon object for this cart, or nullptr if the cart is invalid.
-    [[nodiscard]] const CartCommon* GetCart() const { return Cart; }
-
-    /// @returns A pointer to the \c CartCommon object for this cart, or nullptr if the cart is invalid.
-    [[nodiscard]] CartCommon* GetCart() { return Cart; }
-
-    /// @returns \c true if the cart data is valid, \c false otherwise.
-    [[nodiscard]] bool IsValid() const { return Cart != nullptr; }
-private:
-    // This function installs the cart data globally
-    // but invalidates the provided object to prevent memory access errors,
-    // so it needs to access this class's private fields.
-    friend bool InsertROM(NDSCartData&& cart);
-    NDSHeader Header;
-    NDSBanner Banner;
-    ROMListEntry ROMParams;
-    u8* CartROM;
-    u32 CartROMSize;
-    u32 CartID;
-    CartCommon* Cart;
-};
-
 extern u16 SPICnt;
 extern u32 ROMCnt;
 
 extern u8 ROMCommand[8];
 
-extern bool CartInserted;
-extern u8* CartROM;
-extern u32 CartROMSize;
-
-extern u32 CartID;
-
-extern NDSHeader Header;
-extern NDSBanner Banner;
+/// The currently loaded NDS cart.
+extern std::unique_ptr<CartCommon> Cart;
 
 bool Init();
 void DeInit();
@@ -319,33 +244,32 @@ void DoSavestate(Savestate* file);
 
 void DecryptSecureArea(u8* out);
 
-/// Loads a Nintendo DS cart object into the emulator.
-/// The emulator takes ownership of the cart object and its underlying resources.
-/// If a cartridge is already inserted, it is first ejected
-/// and its state is discarded.
-/// If the provided cart is not valid,
-/// then the currently-loaded ROM will not be ejected.
-///
-/// @param cart Movable reference to cart data.
-/// @returns \c true if the cart was successfully loaded,
-/// \c false otherwise.
-/// @post If the cart was successfully loaded,
-/// then \c cart.IsValid() is will be false.
-bool InsertROM(NDSCartData&& cart);
+/// Parses the given ROM data and constructs a \c NDSCart::CartCommon subclass
+/// that can be inserted into the emulator or used to extract information about the cart beforehand.
+/// @param romdata The ROM data to parse.
+/// The returned cartridge will contain a copy of this data,
+/// so the caller may deallocate \c romdata after this function returns.
+/// @param romlen The length of the ROM data in bytes.
+/// @returns A \c NDSCart::CartCommon object representing the parsed ROM,
+/// or \c nullptr if the ROM data couldn't be parsed.
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen);
 
 /// Loads a Nintendo DS cart object into the emulator.
-/// The emulator takes ownership of the cart object and its underlying resources.
+/// The emulator takes ownership of the cart object and its underlying resources
+/// and re-encrypts the ROM's secure area if necessary.
 /// If a cartridge is already inserted, it is first ejected
 /// and its state is discarded.
 /// If the provided cart is not valid,
 /// then the currently-loaded ROM will not be ejected.
 ///
-/// @param cart Movable reference to cart data.
+/// @param cart Movable reference to the cart.
 /// @returns \c true if the cart was successfully loaded,
 /// \c false otherwise.
 /// @post If the cart was successfully loaded,
-/// then \c cart.IsValid() is will be false.
-bool InsertROM(std::unique_ptr<NDSCartData>&& cart);
+/// then \c cart will be \c nullptr
+/// and \c Cart will contain the object that \c cart previously pointed to.
+/// Otherwise, \c cart and \c Cart will be both be unchanged.
+bool InsertROM(std::unique_ptr<CartCommon>&& cart);
 
 /// Parses a ROM image and loads it into the emulator.
 /// This function is equivalent to calling ::ParseROM() and ::InsertROM() in sequence.

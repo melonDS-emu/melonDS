@@ -43,16 +43,17 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-
+    const NDSBanner* banner = NDSCart::Cart->Banner();
+    const NDSHeader& header = NDSCart::Cart->GetHeader();
     u32 iconData[32 * 32];
-    ROMManager::ROMIcon(NDSCart::Banner.Icon, NDSCart::Banner.Palette, iconData);
+    ROMManager::ROMIcon(banner->Icon, banner->Palette, iconData);
     iconImage = QImage(reinterpret_cast<unsigned char*>(iconData), 32, 32, QImage::Format_ARGB32).copy();
     ui->iconImage->setPixmap(QPixmap::fromImage(iconImage));
 
-    if (NDSCart::Banner.Version == 0x103)
+    if (banner->Version == 0x103)
     {
         u32 animatedIconData[32 * 32 * 64] = {0};
-        ROMManager::AnimatedROMIcon(NDSCart::Banner.DSiIcon, NDSCart::Banner.DSiPalette, NDSCart::Banner.DSiSequence, animatedIconData, animatedSequence);
+        ROMManager::AnimatedROMIcon(banner->DSiIcon, banner->DSiPalette, banner->DSiSequence, animatedIconData, animatedSequence);
 
         for (int i = 0; i < 64; i++)
         {
@@ -73,44 +74,44 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
         ui->dsiIconImage->setPixmap(QPixmap::fromImage(iconImage));
     }
 
-    ui->iconTitle->setText(QString::fromUtf16(NDSCart::Banner.EnglishTitle));
+    ui->iconTitle->setText(QString::fromUtf16(banner->EnglishTitle));
 
-    ui->japaneseTitle->setText(QString::fromUtf16(NDSCart::Banner.JapaneseTitle));
-    ui->englishTitle->setText(QString::fromUtf16(NDSCart::Banner.EnglishTitle));
-    ui->frenchTitle->setText(QString::fromUtf16(NDSCart::Banner.FrenchTitle));
-    ui->germanTitle->setText(QString::fromUtf16(NDSCart::Banner.GermanTitle));
-    ui->italianTitle->setText(QString::fromUtf16(NDSCart::Banner.ItalianTitle));
-    ui->spanishTitle->setText(QString::fromUtf16(NDSCart::Banner.SpanishTitle));
+    ui->japaneseTitle->setText(QString::fromUtf16(banner->JapaneseTitle));
+    ui->englishTitle->setText(QString::fromUtf16(banner->EnglishTitle));
+    ui->frenchTitle->setText(QString::fromUtf16(banner->FrenchTitle));
+    ui->germanTitle->setText(QString::fromUtf16(banner->GermanTitle));
+    ui->italianTitle->setText(QString::fromUtf16(banner->ItalianTitle));
+    ui->spanishTitle->setText(QString::fromUtf16(banner->SpanishTitle));
 
-    if (NDSCart::Banner.Version > 1)
-        ui->chineseTitle->setText(QString::fromUtf16(NDSCart::Banner.ChineseTitle));
+    if (banner->Version > 1)
+        ui->chineseTitle->setText(QString::fromUtf16(banner->ChineseTitle));
     else
         ui->chineseTitle->setText("None");
 
-    if (NDSCart::Banner.Version > 2)
-        ui->koreanTitle->setText(QString::fromUtf16(NDSCart::Banner.KoreanTitle));
+    if (banner->Version > 2)
+        ui->koreanTitle->setText(QString::fromUtf16(banner->KoreanTitle));
     else
         ui->koreanTitle->setText("None");
 
-    ui->gameTitle->setText(QString::fromLatin1(NDSCart::Header.GameTitle, 12));
-    ui->gameCode->setText(QString::fromLatin1(NDSCart::Header.GameCode, 4));
-    ui->makerCode->setText(QString::fromLatin1(NDSCart::Header.MakerCode, 2));
-    ui->cardSize->setText(QString::number(128 << NDSCart::Header.CardSize) + " KB");
+    ui->gameTitle->setText(QString::fromLatin1(header.GameTitle, 12));
+    ui->gameCode->setText(QString::fromLatin1(header.GameCode, 4));
+    ui->makerCode->setText(QString::fromLatin1(header.MakerCode, 2));
+    ui->cardSize->setText(QString::number(128 << header.CardSize) + " KB");
 
-    ui->arm9RomOffset->setText(IntToHex(NDSCart::Header.ARM9ROMOffset));
-    ui->arm9EntryAddress->setText(IntToHex(NDSCart::Header.ARM9EntryAddress));
-    ui->arm9RamAddress->setText(IntToHex(NDSCart::Header.ARM9RAMAddress));
-    ui->arm9Size->setText(QStringBytes(NDSCart::Header.ARM9Size));
+    ui->arm9RomOffset->setText(IntToHex(header.ARM9ROMOffset));
+    ui->arm9EntryAddress->setText(IntToHex(header.ARM9EntryAddress));
+    ui->arm9RamAddress->setText(IntToHex(header.ARM9RAMAddress));
+    ui->arm9Size->setText(QStringBytes(header.ARM9Size));
 
-    ui->arm7RomOffset->setText(IntToHex(NDSCart::Header.ARM7ROMOffset));
-    ui->arm7EntryAddress->setText(IntToHex(NDSCart::Header.ARM7EntryAddress));
-    ui->arm7RamAddress->setText(IntToHex(NDSCart::Header.ARM7RAMAddress));
-    ui->arm7Size->setText(QStringBytes(NDSCart::Header.ARM7Size));
+    ui->arm7RomOffset->setText(IntToHex(header.ARM7ROMOffset));
+    ui->arm7EntryAddress->setText(IntToHex(header.ARM7EntryAddress));
+    ui->arm7RamAddress->setText(IntToHex(header.ARM7RAMAddress));
+    ui->arm7Size->setText(QStringBytes(header.ARM7Size));
 
-    ui->fntOffset->setText(IntToHex(NDSCart::Header.FNTOffset));
-    ui->fntSize->setText(QStringBytes(NDSCart::Header.FNTSize));
-    ui->fatOffset->setText(IntToHex(NDSCart::Header.FATOffset));
-    ui->fatSize->setText(QStringBytes(NDSCart::Header.FATSize));
+    ui->fntOffset->setText(IntToHex(header.FNTOffset));
+    ui->fntSize->setText(QStringBytes(header.FNTSize));
+    ui->fatOffset->setText(IntToHex(header.FATOffset));
+    ui->fatSize->setText(QStringBytes(header.FATSize));
 
 }
 
