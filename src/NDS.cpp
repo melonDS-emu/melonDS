@@ -1672,8 +1672,8 @@ void MonitorARM9Jump(u32 addr)
 
     if ((!RunningGame) && NDSCart::Cart)
     {
-        const u8* cartrom = NDSCart::Cart->GetROM();
-        if (addr == *(u32*)&cartrom[0x24])
+        const NDSHeader& header = NDSCart::Cart->GetHeader();
+        if (addr == header.ARM9EntryAddress)
         {
             Log(LogLevel::Info, "Game is now booting\n");
             RunningGame = true;
