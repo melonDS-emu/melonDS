@@ -26,6 +26,12 @@
 namespace GBACart
 {
 
+enum CartType
+{
+    Default = 0x001,
+    Game = 0x101,
+};
+
 // CartCommon -- base code shared by all cart types
 class CartCommon
 {
@@ -50,6 +56,9 @@ public:
 
     virtual u8 SRAMRead(u32 addr);
     virtual void SRAMWrite(u32 addr, u8 val);
+
+    [[nodiscard]] virtual const u8* GetROM() const { return nullptr; }
+    [[nodiscard]] virtual u32 GetROMLength() const { return 0; }
 
     virtual u8* GetSaveMemory() const;
     virtual u32 GetSaveMemoryLength() const;
@@ -77,6 +86,9 @@ public:
 
     virtual u8 SRAMRead(u32 addr) override;
     virtual void SRAMWrite(u32 addr, u8 val) override;
+
+    [[nodiscard]] const u8* GetROM() const override { return ROM; }
+    [[nodiscard]] u32 GetROMLength() const override { return ROMLength; }
 
     virtual u8* GetSaveMemory() const override;
     virtual u32 GetSaveMemoryLength() const override;
@@ -174,44 +186,6 @@ private:
     u16 RAMEnable;
 };
 
-class GBACartData {
-public:
-    GBACartData(const u8* romdata, u32 romlen);
-    GBACartData(const GBACartData&) = delete;
-    GBACartData& operator=(const GBACartData&) = delete;
-    GBACartData(GBACartData&&) = delete;
-    ~GBACartData();
-
-    /// @returns A pointer to the ROM data for this cart.
-    /// @note If \c IsValid() returns \c false,
-    /// the pointer will be \c nullptr.
-    [[nodiscard]] const u8* GetCartROM() const { return CartROM; }
-
-    /// @returns The size of the ROM data for this cart in bytes.
-    /// @note If \c IsValid() returns \c false,
-    /// the size will be zero.
-    [[nodiscard]] u32 GetCartROMSize() const { return CartROMSize; }
-
-    /// @returns A pointer to the \c CartCommon object for this cart,
-    /// or \c nullptr if the cart is invalid.
-    [[nodiscard]] const CartCommon* GetCart() const { return Cart; }
-
-    /// @returns A pointer to the \c CartCommon object for this cart,
-    /// or \c nullptr if the cart is invalid.
-    [[nodiscard]] CartCommon* GetCart() { return Cart; }
-
-    /// @returns \c true if the cart data is valid, \c false otherwise.
-    [[nodiscard]] bool IsValid() const { return Cart != nullptr; }
-private:
-    // This function installs the cart data globally
-    // but invalidates the provided object to prevent memory access errors,
-    // so it needs to access this class's private fields.
-    friend bool InsertROM(GBACartData&& cart);
-    u8* CartROM;
-    u32 CartROMSize;
-    CartCommon* Cart;
-};
-
 // possible inputs for GBA carts that might accept user input
 enum
 {
@@ -219,9 +193,7 @@ enum
     Input_SolarSensorUp,
 };
 
-extern bool CartInserted;
-extern u8* CartROM;
-extern u32 CartROMSize;
+extern std::unique_ptr<CartCommon> Cart;
 
 bool Init();
 void DeInit();
@@ -229,15 +201,20 @@ void Reset();
 
 void DoSavestate(Savestate* file);
 
-/// Applies the GBACartData to the emulator state and unloads an existing ROM if any.
-/// Upon successful insertion, \c cart will be invalidated and the global GBACart state
-/// (\c CartROM, CartInserted, etc.) will be updated.
-bool InsertROM(GBACartData&& cart);
+/// Parses the given ROM data and constructs a \c GBACart::CartCommon subclass
+/// that can be inserted into the emulator or used to extract information about the cart beforehand.
+/// @param romdata The ROM data to parse.
+/// The returned cartridge will contain a copy of this data,
+/// so the caller may deallocate \c romdata after this function returns.
+/// @param romlen The length of the ROM data in bytes.
+/// @returns A \c GBACart::CartCommon object representing the parsed ROM,
+/// or \c nullptr if the ROM data couldn't be parsed.
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen);
 
 /// Applies the GBACartData to the emulator state and unloads an existing ROM if any.
 /// Upon successful insertion, \c cart will be nullptr and the global GBACart state
 /// (\c CartROM, CartInserted, etc.) will be updated.
-bool InsertROM(std::unique_ptr<GBACartData>&& cart);
+bool InsertROM(std::unique_ptr<CartCommon>&& cart);
 bool LoadROM(const u8* romdata, u32 romlen);
 void LoadSave(const u8* savedata, u32 savelen);
 

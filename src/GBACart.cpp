@@ -42,13 +42,7 @@ const char SOLAR_SENSOR_GAMECODES[10][5] =
     "A3IJ"  // Boktai - The Sun Is in Your Hand (USA) (Sample)
 };
 
-
-bool CartInserted;
-u8* CartROM;
-u32 CartROMSize;
-u32 CartID;
-
-CartCommon* Cart;
+std::unique_ptr<CartCommon> Cart;
 
 u16 OpenBusDecay;
 
@@ -125,6 +119,7 @@ CartGame::CartGame(u8* rom, u32 len) : CartCommon()
 CartGame::~CartGame()
 {
     if (SRAM) delete[] SRAM;
+    delete[] ROM;
 }
 
 u32 CartGame::Checksum()
@@ -704,8 +699,6 @@ void CartRAMExpansion::ROMWrite(u32 addr, u16 val)
 
 bool Init()
 {
-    CartROM = nullptr;
-
     Cart = nullptr;
 
     return true;
@@ -713,9 +706,7 @@ bool Init()
 
 void DeInit()
 {
-    if (CartROM) delete[] CartROM;
-
-    if (Cart) delete Cart;
+    Cart = nullptr;
 }
 
 void Reset()
@@ -757,35 +748,47 @@ void DoSavestate(Savestate* file)
     if (Cart) Cart->DoSavestate(file);
 }
 
-GBACartData::GBACartData(const u8 *romdata, u32 romlen) :
-    Cart(nullptr),
-    CartROM(nullptr),
-    CartROMSize(0)
-{
-    CartROMSize = 0x200;
-    while (CartROMSize < romlen)
-        CartROMSize <<= 1;
 
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
+{
+    if (romdata == nullptr)
+    {
+        Log(LogLevel::Error, "GBACart: romdata is null\n");
+        return nullptr;
+    }
+
+    if (romlen == 0)
+    {
+        Log(LogLevel::Error, "GBACart: romlen is zero\n");
+        return nullptr;
+    }
+
+    u32 cartromsize = 0x200;
+    while (cartromsize < romlen)
+        cartromsize <<= 1;
+
+    u8* cartrom = nullptr;
     try
     {
-        CartROM = new u8[CartROMSize];
+        cartrom = new u8[cartromsize];
     }
     catch (const std::bad_alloc& e)
     {
-        Log(LogLevel::Error, "GBACart: failed to allocate memory for ROM (%d bytes)\n", CartROMSize);
-        CartROMSize = 0;
+        Log(LogLevel::Error, "GBACart: failed to allocate memory for ROM (%d bytes)\n", cartromsize);
+
+        return nullptr;
     }
 
-    memset(CartROM, 0, CartROMSize);
-    memcpy(CartROM, romdata, romlen);
+    memset(cartrom, 0, cartromsize);
+    memcpy(cartrom, romdata, romlen);
 
     char gamecode[5] = { '\0' };
-    memcpy(&gamecode, CartROM + 0xAC, 4);
+    memcpy(&gamecode, cartrom + 0xAC, 4);
 
     bool solarsensor = false;
-    for (size_t i = 0; i < sizeof(SOLAR_SENSOR_GAMECODES)/sizeof(SOLAR_SENSOR_GAMECODES[0]); i++)
+    for (const char* i : SOLAR_SENSOR_GAMECODES)
     {
-        if (strcmp(gamecode, SOLAR_SENSOR_GAMECODES[i]) == 0)
+        if (strcmp(gamecode, i) == 0)
             solarsensor = true;
     }
 
@@ -794,12 +797,13 @@ GBACartData::GBACartData(const u8 *romdata, u32 romlen) :
         Log(LogLevel::Info, "GBA solar sensor support detected!\n");
     }
 
+    std::unique_ptr<CartCommon> cart;
     if (solarsensor)
-        Cart = new CartGameSolarSensor(CartROM, CartROMSize);
+        cart = std::make_unique<CartGameSolarSensor>(cartrom, cartromsize);
     else
-        Cart = new CartGame(CartROM, CartROMSize);
+        cart = std::make_unique<CartGame>(cartrom, cartromsize);
 
-    Cart->Reset();
+    cart->Reset();
 
     // TODO: setup cart save here! from a list or something
 
@@ -808,54 +812,41 @@ GBACartData::GBACartData(const u8 *romdata, u32 romlen) :
 
     // TODO: have a list of sorts like in NDSCart? to determine the savemem type
     //if (Cart) Cart->LoadSave(sram, 0);
+
+    return cart;
 }
 
-GBACartData::~GBACartData()
+bool InsertROM(std::unique_ptr<CartCommon>&& cart)
 {
-    delete[] CartROM;
-    delete Cart;
-}
-
-bool InsertROM(GBACartData&& cart)
-{
-    if (!cart.IsValid()) {
+    if (!cart) {
         Log(LogLevel::Error, "Failed to insert invalid GBA cart; existing cart (if any) was not ejected.\n");
         return false;
     }
 
-    if (CartInserted)
+    if (Cart != nullptr)
         EjectCart();
 
-    Cart = cart.Cart;
-    cart.Cart = nullptr;
+    Cart = std::move(cart);
 
-    CartROM = cart.CartROM;
-    cart.CartROM = nullptr;
+    const u8* cartrom = Cart->GetROM();
 
-    CartROMSize = cart.CartROMSize;
-    cart.CartROMSize = 0;
-
-    CartInserted = true;
-
-    char gamecode[5] = { '\0' };
-    memcpy(&gamecode, CartROM + 0xAC, 4);
-    Log(LogLevel::Info, "Inserted GBA cart with game code: %s\n", gamecode);
+    if (cartrom)
+    {
+        char gamecode[5] = { '\0' };
+        memcpy(&gamecode, Cart->GetROM() + 0xAC, 4);
+        Log(LogLevel::Info, "Inserted GBA cart with game code: %s\n", gamecode);
+    }
+    else
+    {
+        Log(LogLevel::Info, "Inserted GBA cart with no game code (it's probably an accessory)\n");
+    }
 
     return true;
-
-}
-
-bool InsertROM(std::unique_ptr<GBACartData>&& cart)
-{
-    std::unique_ptr<GBACartData> to_insert = std::move(cart);
-    assert(cart == nullptr);
-    return InsertROM(std::move(*to_insert));
-    // When this function returns, to_insert will be deleted (and the now-invalid GBACartData object taken with it)
 }
 
 bool LoadROM(const u8* romdata, u32 romlen)
 {
-    GBACartData data(romdata, romlen);
+    std::unique_ptr<CartCommon> data = ParseROM(romdata, romlen);
 
     return InsertROM(std::move(data));
 }
@@ -873,34 +864,21 @@ void LoadSave(const u8* savedata, u32 savelen)
 
 void LoadAddon(int type)
 {
-    CartROMSize = 0;
-    CartROM = nullptr;
-
     switch (type)
     {
     case NDS::GBAAddon_RAMExpansion:
-        Cart = new CartRAMExpansion();
+        Cart = std::make_unique<CartRAMExpansion>();
         break;
 
     default:
         Log(LogLevel::Warn, "GBACart: !! invalid addon type %d\n", type);
         return;
     }
-
-    CartInserted = true;
 }
 
 void EjectCart()
 {
-    if (Cart) delete Cart;
     Cart = nullptr;
-
-    if (CartROM) delete[] CartROM;
-
-    CartInserted = false;
-    CartROM = nullptr;
-    CartROMSize = 0;
-    CartID = 0;
 }
 
 
