@@ -48,7 +48,7 @@ public:
     CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
     virtual ~CartCommon();
 
-    virtual u32 Type() = 0;
+    virtual u32 Type() const = 0;
     [[nodiscard]] u32 Checksum() const;
 
     virtual void Reset();
@@ -103,7 +103,7 @@ public:
     CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
     virtual ~CartRetail() override;
 
-    virtual u32 Type() override { return CartType::Retail; }
+    virtual u32 Type() const override { return CartType::Retail; }
 
     virtual void Reset() override;
 
@@ -143,7 +143,7 @@ public:
     CartRetailNAND(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
     ~CartRetailNAND() override;
 
-    virtual u32 Type() override { return CartType::RetailNAND; }
+    virtual u32 Type() const override { return CartType::RetailNAND; }
 
     void Reset() override;
 
@@ -173,7 +173,7 @@ public:
     CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams);
     ~CartRetailIR() override;
 
-    virtual u32 Type() override { return CartType::RetailIR; }
+    virtual u32 Type() const override { return CartType::RetailIR; }
 
     void Reset() override;
 
@@ -193,7 +193,7 @@ public:
     CartRetailBT(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
     ~CartRetailBT() override;
 
-    virtual u32 Type() override { return CartType::RetailBT; }
+    virtual u32 Type() const override { return CartType::RetailBT; }
 
     void Reset() override;
 
@@ -209,7 +209,7 @@ public:
     CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
     ~CartHomebrew() override;
 
-    virtual u32 Type() override { return CartType::Homebrew; }
+    virtual u32 Type() const override { return CartType::Homebrew; }
 
     void Reset() override;
     void SetupDirectBoot(const std::string& romname) override;
