@@ -189,7 +189,10 @@ struct NDSHeader
                (u32)GameCode[1] << 8 |
                (u32)GameCode[0];
     }
-    [[nodiscard]] bool IsHomebrew() const { return (ARM9ROMOffset < 0x4000) || (GameCodeAsU32() == 0x23232323); }
+    [[nodiscard]] bool IsHomebrew() const
+    {
+        return (ARM9ROMOffset < 0x4000) || (strncmp(GameCode, "####", 4) == 0);
+    }
 
     /// @return \c true if this header represents a DSiWare title.
     [[nodiscard]] bool IsDSiWare() const { return IsDSi() && DSiRegionStart == 0; }
