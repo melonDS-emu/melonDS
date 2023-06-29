@@ -1492,6 +1492,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actQuit = menu->addAction("Quit");
         connect(actQuit, &QAction::triggered, this, &MainWindow::onQuit);
+        actQuit->setShortcut(QKeySequence(QKeySequence::StandardKey::Quit));
     }
     {
         QMenu* menu = menubar->addMenu("System");
