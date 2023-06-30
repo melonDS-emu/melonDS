@@ -19,6 +19,7 @@
 #ifndef NDS_HEADER_H
 #define NDS_HEADER_H
 
+#include <string.h>
 #include "types.h"
 
 // Consult GBATEK for info on what these are
