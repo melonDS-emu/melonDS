@@ -379,33 +379,37 @@ bool NeedsDirectBoot()
 
 void SetupDirectBoot(const std::string& romname)
 {
+    const NDSHeader& header = NDSCart::Cart->GetHeader();
+
     if (ConsoleType == 1)
     {
         DSi::SetupDirectBoot();
     }
     else
     {
+        u32 cartid = NDSCart::Cart->ID();
+        const u8* cartrom = NDSCart::Cart->GetROM();
         MapSharedWRAM(3);
 
         // setup main RAM data
 
         for (u32 i = 0; i < 0x170; i+=4)
         {
-            u32 tmp = *(u32*)&NDSCart::CartROM[i];
+            u32 tmp = *(u32*)&cartrom[i];
             ARM9Write32(0x027FFE00+i, tmp);
         }
 
-        ARM9Write32(0x027FF800, NDSCart::CartID);
-        ARM9Write32(0x027FF804, NDSCart::CartID);
-        ARM9Write16(0x027FF808, NDSCart::Header.HeaderCRC16);
-        ARM9Write16(0x027FF80A, NDSCart::Header.SecureAreaCRC16);
+        ARM9Write32(0x027FF800, cartid);
+        ARM9Write32(0x027FF804, cartid);
+        ARM9Write16(0x027FF808, header.HeaderCRC16);
+        ARM9Write16(0x027FF80A, header.SecureAreaCRC16);
 
         ARM9Write16(0x027FF850, 0x5835);
 
-        ARM9Write32(0x027FFC00, NDSCart::CartID);
-        ARM9Write32(0x027FFC04, NDSCart::CartID);
-        ARM9Write16(0x027FFC08, NDSCart::Header.HeaderCRC16);
-        ARM9Write16(0x027FFC0A, NDSCart::Header.SecureAreaCRC16);
+        ARM9Write32(0x027FFC00, cartid);
+        ARM9Write32(0x027FFC04, cartid);
+        ARM9Write16(0x027FFC08, header.HeaderCRC16);
+        ARM9Write16(0x027FFC0A, header.SecureAreaCRC16);
 
         ARM9Write16(0x027FFC10, 0x5835);
         ARM9Write16(0x027FFC30, 0xFFFF);
@@ -414,30 +418,30 @@ void SetupDirectBoot(const std::string& romname)
         u32 arm9start = 0;
 
         // load the ARM9 secure area
-        if (NDSCart::Header.ARM9ROMOffset >= 0x4000 && NDSCart::Header.ARM9ROMOffset < 0x8000)
+        if (header.ARM9ROMOffset >= 0x4000 && header.ARM9ROMOffset < 0x8000)
         {
             u8 securearea[0x800];
             NDSCart::DecryptSecureArea(securearea);
 
             for (u32 i = 0; i < 0x800; i+=4)
             {
-                ARM9Write32(NDSCart::Header.ARM9RAMAddress+i, *(u32*)&securearea[i]);
+                ARM9Write32(header.ARM9RAMAddress+i, *(u32*)&securearea[i]);
                 arm9start += 4;
             }
         }
 
         // CHECKME: firmware seems to load this in 0x200 byte chunks
 
-        for (u32 i = arm9start; i < NDSCart::Header.ARM9Size; i+=4)
+        for (u32 i = arm9start; i < header.ARM9Size; i+=4)
         {
-            u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.ARM9ROMOffset+i];
-            ARM9Write32(NDSCart::Header.ARM9RAMAddress+i, tmp);
+            u32 tmp = *(u32*)&cartrom[header.ARM9ROMOffset+i];
+            ARM9Write32(header.ARM9RAMAddress+i, tmp);
         }
 
-        for (u32 i = 0; i < NDSCart::Header.ARM7Size; i+=4)
+        for (u32 i = 0; i < header.ARM7Size; i+=4)
         {
-            u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.ARM7ROMOffset+i];
-            ARM7Write32(NDSCart::Header.ARM7RAMAddress+i, tmp);
+            u32 tmp = *(u32*)&cartrom[header.ARM7ROMOffset+i];
+            ARM7Write32(header.ARM7RAMAddress+i, tmp);
         }
 
         ARM7BIOSProt = 0x1204;
@@ -472,20 +476,20 @@ void SetupDirectBoot(const std::string& romname)
 
     NDSCart::SetupDirectBoot(romname);
 
-    ARM9->R[12] = NDSCart::Header.ARM9EntryAddress;
+    ARM9->R[12] = header.ARM9EntryAddress;
     ARM9->R[13] = 0x03002F7C;
-    ARM9->R[14] = NDSCart::Header.ARM9EntryAddress;
+    ARM9->R[14] = header.ARM9EntryAddress;
     ARM9->R_IRQ[0] = 0x03003F80;
     ARM9->R_SVC[0] = 0x03003FC0;
 
-    ARM7->R[12] = NDSCart::Header.ARM7EntryAddress;
+    ARM7->R[12] = header.ARM7EntryAddress;
     ARM7->R[13] = 0x0380FD80;
-    ARM7->R[14] = NDSCart::Header.ARM7EntryAddress;
+    ARM7->R[14] = header.ARM7EntryAddress;
     ARM7->R_IRQ[0] = 0x0380FF80;
     ARM7->R_SVC[0] = 0x0380FFC0;
 
-    ARM9->JumpTo(NDSCart::Header.ARM9EntryAddress);
-    ARM7->JumpTo(NDSCart::Header.ARM7EntryAddress);
+    ARM9->JumpTo(header.ARM9EntryAddress);
+    ARM7->JumpTo(header.ARM7EntryAddress);
 
     PostFlag9 = 0x01;
     PostFlag7 = 0x01;
@@ -978,7 +982,7 @@ void EjectCart()
 
 bool CartInserted()
 {
-    return NDSCart::CartInserted;
+    return NDSCart::Cart != nullptr;
 }
 
 bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
@@ -1666,9 +1670,10 @@ void MonitorARM9Jump(u32 addr)
     // checkme: can the entrypoint addr be THUMB?
     // also TODO: make it work in DSi mode
 
-    if ((!RunningGame) && NDSCart::CartROM)
+    if ((!RunningGame) && NDSCart::Cart)
     {
-        if (addr == *(u32*)&NDSCart::CartROM[0x24])
+        const NDSHeader& header = NDSCart::Cart->GetHeader();
+        if (addr == header.ARM9EntryAddress)
         {
             Log(LogLevel::Info, "Game is now booting\n");
             RunningGame = true;

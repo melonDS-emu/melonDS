@@ -944,7 +944,7 @@ QString GBACartLabel()
 }
 
 
-void ROMIcon(u8 (&data)[512], u16 (&palette)[16], u32* iconRef)
+void ROMIcon(const u8 (&data)[512], const u16 (&palette)[16], u32* iconRef)
 {
     int index = 0;
     for (int i = 0; i < 4; i++)
@@ -975,7 +975,7 @@ void ROMIcon(u8 (&data)[512], u16 (&palette)[16], u32* iconRef)
 #define SEQ_BMP(i) ((i & 0b0000011100000000) >> 8)
 #define SEQ_DUR(i) ((i & 0b0000000011111111) >> 0)
 
-void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[64], u32 (&animatedTexRef)[32 * 32 * 64], std::vector<int> &animatedSequenceRef)
+void AnimatedROMIcon(const u8 (&data)[8][512], const u16 (&palette)[8][16], const u16 (&sequence)[64], u32 (&animatedTexRef)[32 * 32 * 64], std::vector<int> &animatedSequenceRef)
 {
     for (int i = 0; i < 64; i++)
     {

@@ -179,6 +179,23 @@ struct NDSHeader
     u8 Reserved10[384];
 
     u8 HeaderSignature[128]; // RSA-SHA1 across 0x000..0xDFF
+
+    /// @return \c true if this header represents a DSi title
+    /// (either a physical cartridge or a DSiWare title).
+    [[nodiscard]] bool IsDSi() const { return (UnitCode & 0x02) != 0; }
+    [[nodiscard]] u32 GameCodeAsU32() const {
+        return (u32)GameCode[3] << 24 |
+               (u32)GameCode[2] << 16 |
+               (u32)GameCode[1] << 8 |
+               (u32)GameCode[0];
+    }
+    [[nodiscard]] bool IsHomebrew() const
+    {
+        return (ARM9ROMOffset < 0x4000) || (strncmp(GameCode, "####", 4) == 0);
+    }
+
+    /// @return \c true if this header represents a DSiWare title.
+    [[nodiscard]] bool IsDSiWare() const { return IsDSi() && DSiRegionStart == 0; }
 };
 
 static_assert(sizeof(NDSHeader) == 4096, "NDSHeader is not 4096 bytes!");

@@ -20,24 +20,36 @@
 #define NDSCART_H
 
 #include <string>
+#include <memory>
 
 #include "types.h"
 #include "Savestate.h"
 #include "NDS_Header.h"
 #include "FATStorage.h"
+#include "ROMList.h"
 
 namespace NDSCart
 {
+
+enum CartType
+{
+    Default = 0x001,
+    Retail = 0x101,
+    RetailNAND = 0x102,
+    RetailIR = 0x103,
+    RetailBT = 0x104,
+    Homebrew = 0x201,
+};
 
 // CartCommon -- base code shared by all cart types
 class CartCommon
 {
 public:
-    CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump);
+    CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
     virtual ~CartCommon();
 
-    virtual u32 Type() { return 0x001; }
-    virtual u32 Checksum();
+    virtual u32 Type() const = 0;
+    [[nodiscard]] u32 Checksum() const;
 
     virtual void Reset();
     virtual void SetupDirectBoot(const std::string& romname);
@@ -55,6 +67,15 @@ public:
     virtual u8* GetSaveMemory() const;
     virtual u32 GetSaveMemoryLength() const;
 
+    [[nodiscard]] const NDSHeader& GetHeader() const { return Header; }
+    [[nodiscard]] NDSHeader& GetHeader() { return Header; }
+
+    /// @return The cartridge's banner if available, or \c nullptr if not.
+    [[nodiscard]] const NDSBanner* Banner() const;
+    [[nodiscard]] const ROMListEntry& GetROMParams() const { return ROMParams; };
+    [[nodiscard]] u32 ID() const { return ChipID; }
+    [[nodiscard]] const u8* GetROM() const { return ROM; }
+    [[nodiscard]] u32 GetROMLength() const { return ROMLength; }
 protected:
     void ReadROM(u32 addr, u32 len, u8* data, u32 offset);
 
@@ -69,16 +90,20 @@ protected:
 
     u32 CmdEncMode;
     u32 DataEncMode;
+    // Kept separate from the ROM data so we can decrypt the modcrypt area
+    // without touching the overall ROM data
+    NDSHeader Header;
+    ROMListEntry ROMParams;
 };
 
 // CartRetail -- regular retail cart (ROM, SPI SRAM)
 class CartRetail : public CartCommon
 {
 public:
-    CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump);
+    CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
     virtual ~CartRetail() override;
 
-    virtual u32 Type() override { return 0x101; }
+    virtual u32 Type() const override { return CartType::Retail; }
 
     virtual void Reset() override;
 
@@ -115,10 +140,10 @@ protected:
 class CartRetailNAND : public CartRetail
 {
 public:
-    CartRetailNAND(u8* rom, u32 len, u32 chipid);
+    CartRetailNAND(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
     ~CartRetailNAND() override;
 
-    virtual u32 Type() override { return 0x102; }
+    virtual u32 Type() const override { return CartType::RetailNAND; }
 
     void Reset() override;
 
@@ -145,10 +170,10 @@ private:
 class CartRetailIR : public CartRetail
 {
 public:
-    CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump);
+    CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams);
     ~CartRetailIR() override;
 
-    virtual u32 Type() override { return 0x103; }
+    virtual u32 Type() const override { return CartType::RetailIR; }
 
     void Reset() override;
 
@@ -165,10 +190,10 @@ private:
 class CartRetailBT : public CartRetail
 {
 public:
-    CartRetailBT(u8* rom, u32 len, u32 chipid);
+    CartRetailBT(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
     ~CartRetailBT() override;
 
-    virtual u32 Type() override { return 0x104; }
+    virtual u32 Type() const override { return CartType::RetailBT; }
 
     void Reset() override;
 
@@ -181,10 +206,10 @@ public:
 class CartHomebrew : public CartCommon
 {
 public:
-    CartHomebrew(u8* rom, u32 len, u32 chipid);
+    CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
     ~CartHomebrew() override;
 
-    virtual u32 Type() override { return 0x201; }
+    virtual u32 Type() const override { return CartType::Homebrew; }
 
     void Reset() override;
     void SetupDirectBoot(const std::string& romname) override;
@@ -208,14 +233,8 @@ extern u32 ROMCnt;
 
 extern u8 ROMCommand[8];
 
-extern bool CartInserted;
-extern u8* CartROM;
-extern u32 CartROMSize;
-
-extern u32 CartID;
-
-extern NDSHeader Header;
-extern NDSBanner Banner;
+/// The currently loaded NDS cart.
+extern std::unique_ptr<CartCommon> Cart;
 
 bool Init();
 void DeInit();
@@ -225,6 +244,41 @@ void DoSavestate(Savestate* file);
 
 void DecryptSecureArea(u8* out);
 
+/// Parses the given ROM data and constructs a \c NDSCart::CartCommon subclass
+/// that can be inserted into the emulator or used to extract information about the cart beforehand.
+/// @param romdata The ROM data to parse.
+/// The returned cartridge will contain a copy of this data,
+/// so the caller may deallocate \c romdata after this function returns.
+/// @param romlen The length of the ROM data in bytes.
+/// @returns A \c NDSCart::CartCommon object representing the parsed ROM,
+/// or \c nullptr if the ROM data couldn't be parsed.
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen);
+
+/// Loads a Nintendo DS cart object into the emulator.
+/// The emulator takes ownership of the cart object and its underlying resources
+/// and re-encrypts the ROM's secure area if necessary.
+/// If a cartridge is already inserted, it is first ejected
+/// and its state is discarded.
+/// If the provided cart is not valid,
+/// then the currently-loaded ROM will not be ejected.
+///
+/// @param cart Movable reference to the cart.
+/// @returns \c true if the cart was successfully loaded,
+/// \c false otherwise.
+/// @post If the cart was successfully loaded,
+/// then \c cart will be \c nullptr
+/// and \c Cart will contain the object that \c cart previously pointed to.
+/// Otherwise, \c cart and \c Cart will be both be unchanged.
+bool InsertROM(std::unique_ptr<CartCommon>&& cart);
+
+/// Parses a ROM image and loads it into the emulator.
+/// This function is equivalent to calling ::ParseROM() and ::InsertROM() in sequence.
+/// @param romdata Pointer to the ROM image.
+/// The cart emulator maintains its own copy of this data,
+/// so the caller is free to discard this data after calling this function.
+/// @param romlen The length of the ROM image, in bytes.
+/// @returns \c true if the ROM image was successfully loaded,
+/// \c false if not.
 bool LoadROM(const u8* romdata, u32 romlen);
 void LoadSave(const u8* savedata, u32 savelen);
 void SetupDirectBoot(const std::string& romname);

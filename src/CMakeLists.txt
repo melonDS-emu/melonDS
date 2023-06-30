@@ -38,6 +38,7 @@ add_library(core STATIC
     NDSCart.cpp
     Platform.h
     ROMList.h
+    ROMList.cpp
     FreeBIOS.h
     RTC.cpp
     Savestate.cpp
