@@ -29,6 +29,8 @@
 #include <QNetworkReply>
 #include <QNetworkAccessManager>
 
+#include "DSi_TMD.h"
+
 namespace Ui
 {
     class TitleManagerDialog;
@@ -90,7 +92,7 @@ private:
     Ui::TitleManagerDialog* ui;
 
     QString importAppPath;
-    u8 importTmdData[0x208];
+    DSi_TMD::TitleMetadata importTmdData;
     bool importReadOnly;
 
     QAction* actImportTitleData[3];
@@ -104,7 +106,7 @@ class TitleImportDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit TitleImportDialog(QWidget* parent, QString& apppath, u8* tmd, bool& readonly);
+    explicit TitleImportDialog(QWidget* parent, QString& apppath, const DSi_TMD::TitleMetadata* tmd, bool& readonly);
     ~TitleImportDialog();
 
 private slots:
@@ -124,7 +126,7 @@ private:
     QNetworkReply* netreply;
 
     QString& appPath;
-    u8* tmdData;
+    const DSi_TMD::TitleMetadata* tmdData;
     bool& readOnly;
 
     u32 titleid[2];

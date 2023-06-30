@@ -1049,7 +1049,7 @@ bool CreateSaveFile(const char* path, u32 len)
     return true;
 }
 
-bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
+bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool readonly)
 {
     u8 header[0x1000];
     {
@@ -1059,11 +1059,11 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
         fclose(f);
     }
 
-    u32 version = (tmd[0x1E4] << 24) | (tmd[0x1E5] << 16) | (tmd[0x1E6] << 8) | tmd[0x1E7];
+    u32 version = tmd.Contents.GetVersion();
     Log(LogLevel::Info, ".app version: %08x\n", version);
 
-    u32 titleid0 = (tmd[0x18C] << 24) | (tmd[0x18D] << 16) | (tmd[0x18E] << 8) | tmd[0x18F];
-    u32 titleid1 = (tmd[0x190] << 24) | (tmd[0x191] << 16) | (tmd[0x192] << 8) | tmd[0x193];
+    u32 titleid0 = tmd.GetCategory();
+    u32 titleid1 = tmd.GetID();
     Log(LogLevel::Info, "Title ID: %08x/%08x\n", titleid0, titleid1);
 
     FRESULT res;
@@ -1079,7 +1079,7 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
     f_mkdir(fname);
 
     sprintf(fname, "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
-    if (!CreateTicket(fname, *(u32*)&tmd[0x18C], *(u32*)&tmd[0x190], header[0x1E]))
+    if (!CreateTicket(fname, titleid0, titleid1, header[0x1E]))
         return false;
 
     if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
@@ -1133,7 +1133,7 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
         return false;
     }
 
-    f_write(&file, tmd, 0x208, &nwrite);
+    f_write(&file, &tmd, sizeof(DSi_TMD::TitleMetadata), &nwrite);
 
     f_close(&file);
 

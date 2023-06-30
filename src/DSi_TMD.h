@@ -27,7 +27,7 @@ namespace DSi_TMD
 
 struct [[gnu::packed]] TitleMetadataContent {
     /// Content ID (00,00,00,vv) ;lowercase/hex ;"0000000vv.app"
-    u32 ContentId;
+    u8 ContentId[4];
 
     /// Content Index (00,00)
     u16 ContentIndex;
@@ -40,6 +40,11 @@ struct [[gnu::packed]] TitleMetadataContent {
 
     /// Content SHA1 (on decrypted ".app" file)
     u8 ContentSha1Hash[0x14];
+
+    [[nodiscard]] u32 GetVersion() const noexcept
+    {
+        return (ContentId[0] << 24) | (ContentId[1] << 16) | (ContentId[2] << 8) | ContentId[3];
+    }
 };
 
 /// Metadata for a DSiWare title.
@@ -75,7 +80,7 @@ struct [[gnu::packed]] TitleMetadata
     u64 SystemVersion;
 
     /// Title ID (00,03,00,17,"HNAP")
-    u64 TitleId;
+    u8 TitleId[0x8];
 
     /// Title Type (0)
     u32 TitleType;
@@ -124,6 +129,15 @@ struct [[gnu::packed]] TitleMetadata
 
     [[nodiscard]] bool HasPublicSaveData() const noexcept { return PublicSaveSize != 0; }
     [[nodiscard]] bool HasPrivateSaveData() const noexcept { return PrivateSaveSize != 0; }
+    [[nodiscard]] u32 GetCategory() const noexcept
+    {
+       return (TitleId[0] << 24) | (TitleId[1] << 16) | (TitleId[2] << 8) | TitleId[3];
+    }
+
+    [[nodiscard]] u32 GetID() const noexcept
+    {
+        return (TitleId[4] << 24) | (TitleId[5] << 16) | (TitleId[6] << 8) | TitleId[7];
+    }
 };
 
 static_assert(sizeof(TitleMetadata) == 0x208, "TitleMetadata is not 520 bytes!");
