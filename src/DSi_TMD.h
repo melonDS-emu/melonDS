@@ -131,6 +131,7 @@ struct [[gnu::packed]] TitleMetadata
     /// There's always one or zero content entries in practice
     TitleMetadataContent Contents;
 
+    /// Only valid if NumberOfContents is 1.
     TitleMetadataCertificate Certificate;
 
     [[nodiscard]] bool HasPublicSaveData() const noexcept { return PublicSaveSize != 0; }
