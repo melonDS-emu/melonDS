@@ -42,15 +42,6 @@ struct [[gnu::packed]] TitleMetadataContent {
     u8 ContentSha1Hash[0x14];
 };
 
-struct [[gnu::packed]] TitleMetadataCertificate {
-    u32 SignatureType;
-
-    u8 Data[0x6fc]; // TODO: Replace with actual fields as needed
-
-    [[nodiscard]] bool IsValid() const noexcept { return SignatureType == 0x00010001; }
-};
-
-
 /// Metadata for a DSiWare title.
 /// Used to install DSiWare titles to NAND.
 /// @see https://problemkaputt.de/gbatek.htm#dsisdmmcdsiwareticketsandtitlemetadata
@@ -131,14 +122,11 @@ struct [[gnu::packed]] TitleMetadata
     /// There's always one or zero content entries in practice
     TitleMetadataContent Contents;
 
-    /// Only valid if NumberOfContents is 1.
-    TitleMetadataCertificate Certificate;
-
     [[nodiscard]] bool HasPublicSaveData() const noexcept { return PublicSaveSize != 0; }
     [[nodiscard]] bool HasPrivateSaveData() const noexcept { return PrivateSaveSize != 0; }
 };
 
-static_assert(sizeof(TitleMetadata) == 2312, "TitleMetadata is not 2312 bytes!");
+static_assert(sizeof(TitleMetadata) == 0x208, "TitleMetadata is not 520 bytes!");
 
 }
 
