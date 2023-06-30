@@ -28,6 +28,7 @@ namespace Input
 
 int JoystickID;
 SDL_Joystick* Joystick = nullptr;
+SDL_GameController* GameController = nullptr;
 
 u32 KeyInputMask, JoyInputMask;
 u32 KeyHotkeyMask, JoyHotkeyMask;
@@ -36,6 +37,16 @@ u32 HotkeyPress, HotkeyRelease;
 
 u32 InputMask;
 
+u8 JoyTouchX, JoyTouchY;
+bool JoyTouching;
+bool JoyTouchReleased;
+JoystickTouchMode TouchMode;
+AnalogStick TouchAnalogStick;
+JoystickTouchMovementStyle MovementStyle;
+
+bool touchpadTouching;
+float touchpadLastX;
+float touchpadLastY;
 
 void Init()
 {
@@ -47,6 +58,18 @@ void Init()
     JoyHotkeyMask = 0;
     HotkeyMask = 0;
     LastHotkeyMask = 0;
+
+    JoyTouchX = 0;
+    JoyTouchY = 0;
+    JoyTouching = false;
+
+    TouchMode = ANALOG;
+    JoyTouchReleased = false;
+    MovementStyle = ABSOLUTE;
+
+    touchpadLastX = 0;
+    touchpadLastY = 0;
+    touchpadTouching = false;
 }
 
 
@@ -65,6 +88,14 @@ void OpenJoystick()
         JoystickID = 0;
 
     Joystick = SDL_JoystickOpen(JoystickID);
+
+    if (Joystick != nullptr)
+    {
+        if (!SDL_IsGameController(JoystickID))
+            return;
+
+        GameController = SDL_GameControllerOpen(JoystickID);
+    }
 }
 
 void CloseJoystick()
@@ -184,6 +215,168 @@ bool JoystickButtonDown(int val)
     return false;
 }
 
+bool JoystickTouchModeAvailable(JoystickTouchMode mode, AnalogStick stick)
+{
+    if (GameController == nullptr)
+        return false;
+
+    switch (mode) {
+        case ANALOG:
+        {
+            SDL_GameControllerAxis xAxis = stick == LEFT
+                    ? SDL_CONTROLLER_AXIS_LEFTX
+                    : SDL_CONTROLLER_AXIS_RIGHTX;
+            SDL_GameControllerAxis yAxis = stick == LEFT
+                    ? SDL_CONTROLLER_AXIS_LEFTY
+                    : SDL_CONTROLLER_AXIS_RIGHTY;
+
+            return SDL_GameControllerHasAxis(GameController, xAxis)
+                   && SDL_GameControllerHasAxis(GameController, yAxis);
+        }
+        case TOUCHPAD:
+            return SDL_GameControllerGetNumTouchpads(GameController) != 0;
+        case GYROSCOPE:
+            return SDL_GameControllerHasSensor(GameController, SDL_SENSOR_GYRO);
+        case NONE:
+            return true;
+    }
+}
+
+constexpr float psTouchpadAspectMul = ((52.f / 23.f) / (4.f / 3.f));
+
+// The touchpad is about 52x23 mm on the PS4 controller, and the DualSense looks similar
+// so correct it to be more like the DS's aspect ratio
+float TouchPadCorrectAspect(float x)
+{
+    SDL_GameControllerType type = SDL_GameControllerGetType(GameController);
+
+    if (type != SDL_CONTROLLER_TYPE_PS4 && type != SDL_CONTROLLER_TYPE_PS5)
+        return x;
+
+
+    float pos = (x - 0.5f) * psTouchpadAspectMul;
+    pos = std::clamp(pos, -.5f, .5f);
+    return pos + 0.5f;
+}
+
+float JoyTouchXFloat, JoyTouchYFloat;
+
+void HandleRelativeInput(float dx, float dy, float sensitivity)
+{
+    JoyTouchXFloat = std::clamp((float) JoyTouchXFloat + (dx * sensitivity), 0.f, 255.f);
+    JoyTouchYFloat = std::clamp((float) JoyTouchYFloat + (dy * sensitivity), 0.f, 192.f);
+
+    JoyTouchX = (u8) std::round(JoyTouchXFloat);
+    JoyTouchY = (u8) std::round(JoyTouchYFloat);
+}
+
+void UpdateJoystickTouch()
+{
+    bool newTouching = false;
+
+    JoyTouchReleased = false;
+
+    if (!JoystickTouchModeAvailable(TouchMode, TouchAnalogStick))
+    {
+        if (JoyTouching)
+        {
+            JoyTouchReleased = true;
+            JoyTouching = false;
+        }
+
+        return;
+    }
+
+    if (TouchMode == TOUCHPAD)
+    {
+        u8 state;
+        float x, y, pressure;
+        SDL_GameControllerGetTouchpadFinger(GameController, 0, 0, &state, &x, &y, &pressure);
+        printf("Touchpad: state: %u, x: %f, y: %f, pressure: %f\n", state, x, y, pressure);
+
+        bool haveTouchpadButton = SDL_GameControllerHasButton(GameController, SDL_CONTROLLER_BUTTON_TOUCHPAD);
+
+        if (MovementStyle == RELATIVE && haveTouchpadButton)
+        {
+            if (state == 1)
+            {
+                float dx, dy;
+
+                if (!touchpadTouching)
+                {
+                    touchpadTouching = true;
+                    dx = 0;
+                    dy = 0;
+                }
+                else
+                {
+                    dx = (x - touchpadLastX) * psTouchpadAspectMul;
+                    dy = y - touchpadLastY;
+                }
+
+                HandleRelativeInput(dx, dy, 256.f);
+                newTouching = SDL_GameControllerGetButton(GameController, SDL_CONTROLLER_BUTTON_TOUCHPAD);
+
+                touchpadLastX = x;
+                touchpadLastY = y;
+            }
+            else
+            {
+                touchpadLastX = 0;
+                touchpadLastY = 0;
+                touchpadTouching = false;
+            }
+        }
+        else
+        {
+            if (SDL_GameControllerHasButton(GameController, SDL_CONTROLLER_BUTTON_TOUCHPAD))
+                newTouching = SDL_GameControllerGetButton(GameController, SDL_CONTROLLER_BUTTON_TOUCHPAD);
+            else
+                newTouching = state == 1;
+
+            JoyTouchX = (u8) round(TouchPadCorrectAspect(x) * 256.f);
+            JoyTouchY = (u8) round(y * 192.f);
+        }
+    }
+
+    if (TouchMode == ANALOG)
+    {
+        s16 x = SDL_GameControllerGetAxis(GameController, SDL_CONTROLLER_AXIS_LEFTX);
+        s16 y = SDL_GameControllerGetAxis(GameController, SDL_CONTROLLER_AXIS_LEFTY);
+        float fx = ((float) x) / 32768.f;
+        float fy = ((float) y) / 32768.f;
+
+        if (MovementStyle == RELATIVE)
+        {
+            HandleRelativeInput(fx, fy, 5.f);
+        }
+        else
+        {
+            JoyTouchX = (u8) std::round(((fx + 1.0f) / 2) * 256.f);
+            JoyTouchY = (u8) std::round(((fy + 1.0f) / 2) * 192.f);
+        }
+
+        newTouching = SDL_GameControllerGetAxis(GameController, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 0.5;
+    }
+
+    if (TouchMode == GYROSCOPE)
+    {
+        float gyroPos[3] = {0};
+
+        SDL_GameControllerSetSensorEnabled(GameController, SDL_SENSOR_GYRO, SDL_TRUE);
+
+        SDL_GameControllerGetSensorData(GameController, SDL_SENSOR_GYRO, (float*) &gyroPos, 3);
+        HandleRelativeInput(-gyroPos[1], -gyroPos[0], 5.f);
+
+        newTouching = SDL_GameControllerGetAxis(GameController, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 0.5;
+    }
+
+    if (!newTouching && JoyTouching)
+        JoyTouchReleased = true;
+
+    JoyTouching = newTouching;
+}
+
 void Process()
 {
     SDL_JoystickUpdate();
@@ -192,8 +385,14 @@ void Process()
     {
         if (!SDL_JoystickGetAttached(Joystick))
         {
+            if (GameController != nullptr)
+            {
+                SDL_GameControllerClose(GameController);
+                GameController = nullptr;
+            }
+
             SDL_JoystickClose(Joystick);
-            Joystick = NULL;
+            Joystick = nullptr;
         }
     }
     if (!Joystick && (SDL_NumJoysticks() > 0))
@@ -218,6 +417,9 @@ void Process()
     HotkeyPress = HotkeyMask & ~LastHotkeyMask;
     HotkeyRelease = LastHotkeyMask & ~HotkeyMask;
     LastHotkeyMask = HotkeyMask;
+
+    if (TouchMode != NONE)
+        UpdateJoystickTouch();
 }
 
 

@@ -29,6 +29,30 @@ extern SDL_Joystick* Joystick;
 
 extern u32 InputMask;
 
+
+extern u8 JoyTouchX, JoyTouchY;
+extern bool JoyTouching;
+extern bool JoyTouchReleased;
+
+enum JoystickTouchMode
+{
+    NONE = 0, ANALOG, TOUCHPAD, GYROSCOPE
+};
+
+enum AnalogStick
+{
+    LEFT = 0, RIGHT
+};
+
+enum JoystickTouchMovementStyle
+{
+    ABSOLUTE = 0, RELATIVE
+};
+
+extern JoystickTouchMode TouchMode;
+extern AnalogStick TouchAnalogStick;
+extern JoystickTouchMovementStyle MovementStyle;
+
 void Init();
 
 // set joystickID before calling openJoystick()

@@ -469,6 +469,12 @@ void EmuThread::run()
                 OSD::AddMessage(0, lid ? "Lid closed" : "Lid opened");
             }
 
+            if (Input::JoyTouching)
+                NDS::TouchScreen(Input::JoyTouchX, Input::JoyTouchY);
+
+            if (Input::JoyTouchReleased)
+                NDS::ReleaseScreen();
+
             // microphone input
             AudioInOut::MicProcess();
 
@@ -1063,6 +1069,15 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
         {
             painter.setTransform(screenTrans[i]);
             painter.drawImage(screenrc, screen[screenKind[i]]);
+
+            if (i == 1)
+            {
+                //QTransform cursorTrans = screenTrans[i].translate(Input::JoyTouchX, Input::JoyTouchY);
+                //painter.setTransform(cursorTrans);
+                QRect cursorRect = QRect(Input::JoyTouchX - 3, Input::JoyTouchY - 3, 5, 5);
+                painter.setPen(QColor::fromRgb(255, 0, 0));
+                painter.drawRoundedRect(cursorRect, 5, 5);
+            }
         }
     }
 
