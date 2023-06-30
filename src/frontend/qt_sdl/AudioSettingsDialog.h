@@ -62,7 +62,7 @@ private slots:
     void on_AudioSettingsDialog_rejected();
 
     void on_cbInterpolation_currentIndexChanged(int idx);
-    void on_cbBitrate_currentIndexChanged(int idx);
+    void on_cbBitDepth_currentIndexChanged(int idx);
     void on_slVolume_valueChanged(int val);
     void on_chkSyncDSiVolume_clicked(bool checked);
     void onChangeMicMode(int mode);
@@ -72,7 +72,7 @@ private:
     Ui::AudioSettingsDialog* ui;
 
     int oldInterp;
-    int oldBitrate;
+    int oldBitDepth;
     int oldVolume;
     bool oldDSiSync;
     QButtonGroup* grpMicMode;
