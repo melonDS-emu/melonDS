@@ -22,6 +22,9 @@
 #include "types.h"
 #include <array>
 
+namespace DSi_TMD
+{
+
 struct [[gnu::packed]] TitleMetadataContent {
     /// Content ID (00,00,00,vv) ;lowercase/hex ;"0000000vv.app"
     u32 ContentId;
@@ -134,6 +137,8 @@ struct [[gnu::packed]] TitleMetadata
     [[nodiscard]] bool HasPrivateSaveData() const noexcept { return PrivateSaveSize != 0; }
 };
 
-static_assert(sizeof(TitleMetadata) == 2312, "NDSBanner is not 2312 bytes!");
+static_assert(sizeof(TitleMetadata) == 2312, "TitleMetadata is not 2312 bytes!");
+
+}
 
 #endif //DSI_TMD_H
