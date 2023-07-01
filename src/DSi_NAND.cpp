@@ -686,13 +686,13 @@ bool ImportFile(const char* path, const char* in)
     }
 
     u8 buf[0x1000];
-    for (u32 i = 0; i < len; i += 0x1000)
+    for (u32 i = 0; i < len; i += sizeof(buf))
     {
         u32 blocklen;
-        if ((i + 0x1000) > len)
+        if ((i + sizeof(buf)) > len)
             blocklen = len - i;
         else
-            blocklen = 0x1000;
+            blocklen = sizeof(buf);
 
         u32 nwrite;
         fread(buf, blocklen, 1, fin);
@@ -1051,11 +1051,11 @@ bool CreateSaveFile(const char* path, u32 len)
 
 bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool readonly)
 {
-    u8 header[0x1000];
+    NDSHeader header {};
     {
         FILE* f = fopen(appfile, "rb");
         if (!f) return false;
-        fread(header, 0x1000, 1, f);
+        fread(&header, sizeof(header), 1, f);
         fclose(f);
     }
 
@@ -1079,7 +1079,7 @@ bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool re
     f_mkdir(fname);
 
     sprintf(fname, "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
-    if (!CreateTicket(fname, titleid0, titleid1, header[0x1E]))
+    if (!CreateTicket(fname, titleid0, titleid1, header.ROMVersion))
         return false;
 
     if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
@@ -1098,14 +1098,14 @@ bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool re
     // data
 
     sprintf(fname, "0:/title/%08x/%08x/data/public.sav", titleid0, titleid1);
-    if (!CreateSaveFile(fname, *(u32*)&header[0x238]))
+    if (!CreateSaveFile(fname, header.DSiPublicSavSize))
         return false;
 
     sprintf(fname, "0:/title/%08x/%08x/data/private.sav", titleid0, titleid1);
-    if (!CreateSaveFile(fname, *(u32*)&header[0x23C]))
+    if (!CreateSaveFile(fname, header.DSiPrivateSavSize))
         return false;
 
-    if (header[0x1BF] & 0x04)
+    if (header.AppFlags & 0x04)
     {
         // custom banner file
         sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", titleid0, titleid1);
@@ -1117,8 +1117,8 @@ bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool re
         }
 
         u8 bannersav[0x4000];
-        memset(bannersav, 0, 0x4000);
-        f_write(&file, bannersav, 0x4000, &nwrite);
+        memset(bannersav, 0, sizeof(bannersav));
+        f_write(&file, bannersav, sizeof(bannersav), &nwrite);
 
         f_close(&file);
     }
