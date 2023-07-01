@@ -1082,23 +1082,10 @@ bool CreateSaveFile(const char* path, u32 len)
     return true;
 }
 
-bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool readonly)
+bool InitTitleFileStructure(const NDSHeader& header, const DSi_TMD::TitleMetadata& tmd, bool readonly)
 {
-    NDSHeader header {};
-    {
-        FILE* f = fopen(appfile, "rb");
-        if (!f) return false;
-        fread(&header, sizeof(header), 1, f);
-        fclose(f);
-    }
-
-    u32 version = tmd.Contents.GetVersion();
-    Log(LogLevel::Info, ".app version: %08x\n", version);
-
     u32 titleid0 = tmd.GetCategory();
     u32 titleid1 = tmd.GetID();
-    Log(LogLevel::Info, "Title ID: %08x/%08x\n", titleid0, titleid1);
-
     FRESULT res;
     FF_DIR ticketdir;
     FF_FILINFO info;
@@ -1172,12 +1159,39 @@ bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool re
 
     if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
 
+    return true;
+}
+
+bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool readonly)
+{
+    NDSHeader header {};
+    {
+        FILE* f = fopen(appfile, "rb");
+        if (!f) return false;
+        fread(&header, sizeof(header), 1, f);
+        fclose(f);
+    }
+
+    u32 version = tmd.Contents.GetVersion();
+    Log(LogLevel::Info, ".app version: %08x\n", version);
+
+    u32 titleid0 = tmd.GetCategory();
+    u32 titleid1 = tmd.GetID();
+    Log(LogLevel::Info, "Title ID: %08x/%08x\n", titleid0, titleid1);
+
+    if (!InitTitleFileStructure(header, tmd, readonly))
+    {
+        Log(LogLevel::Error, "ImportTitle: failed to initialize file structure for imported title\n");
+        return false;
+    }
+
     // executable
 
+    char fname[128];
     sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
     if (!ImportFile(fname, appfile))
     {
-        Log(LogLevel::Error, "ImportTitle: failed to create executable (%d)\n", res);
+        Log(LogLevel::Error, "ImportTitle: failed to create executable\n");
         return false;
     }
 
