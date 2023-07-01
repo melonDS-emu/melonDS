@@ -664,6 +664,39 @@ void debug_listfiles(const char* path)
     f_closedir(&dir);
 }
 
+bool ImportFile(const char* path, const u8* data, size_t len)
+{
+    if (!data || !len || !path)
+        return false;
+
+    FF_FIL file;
+    FRESULT res;
+
+    res = f_open(&file, path, FA_CREATE_ALWAYS | FA_WRITE);
+    if (res != FR_OK)
+    {
+        return false;
+    }
+
+    u8 buf[0x1000];
+    for (u32 i = 0; i < len; i += sizeof(buf))
+    { // For each block in the file...
+        u32 blocklen;
+        if ((i + sizeof(buf)) > len)
+            blocklen = len - i;
+        else
+            blocklen = sizeof(buf);
+
+        u32 nwrite;
+        memcpy(buf, data + i, blocklen);
+        f_write(&file, buf, blocklen, &nwrite);
+    }
+
+    f_close(&file);
+
+    return true;
+}
+
 bool ImportFile(const char* path, const char* in)
 {
     FF_FIL file;
