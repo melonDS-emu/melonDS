@@ -1200,6 +1200,42 @@ bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool re
     return true;
 }
 
+bool ImportTitle(const u8* app, size_t appLength, const DSi_TMD::TitleMetadata& tmd, bool readonly)
+{
+    if (!app || appLength < sizeof(NDSHeader))
+        return false;
+
+    NDSHeader header {};
+    memcpy(&header, app, sizeof(header));
+
+    u32 version = tmd.Contents.GetVersion();
+    Log(LogLevel::Info, ".app version: %08x\n", version);
+
+    u32 titleid0 = tmd.GetCategory();
+    u32 titleid1 = tmd.GetID();
+    Log(LogLevel::Info, "Title ID: %08x/%08x\n", titleid0, titleid1);
+
+    if (!InitTitleFileStructure(header, tmd, readonly))
+    {
+        Log(LogLevel::Error, "ImportTitle: failed to initialize file structure for imported title\n");
+        return false;
+    }
+
+    // executable
+
+    char fname[128];
+    sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
+    if (!ImportFile(fname, app, appLength))
+    {
+        Log(LogLevel::Error, "ImportTitle: failed to create executable\n");
+        return false;
+    }
+
+    if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
+
+    return true;
+}
+
 void DeleteTitle(u32 category, u32 titleid)
 {
     char fname[128];
