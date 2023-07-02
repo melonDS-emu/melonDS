@@ -693,6 +693,7 @@ bool ImportFile(const char* path, const u8* data, size_t len)
     }
 
     f_close(&file);
+    Log(LogLevel::Debug, "Imported file from memory to %s\n", path);
 
     return true;
 }
@@ -735,6 +736,8 @@ bool ImportFile(const char* path, const char* in)
     fclose(fin);
     f_close(&file);
 
+    Log(LogLevel::Debug, "Imported file from %s to %s\n", in, path);
+
     return true;
 }
 
@@ -774,6 +777,8 @@ bool ExportFile(const char* path, const char* out)
     fclose(fout);
     f_close(&file);
 
+    Log(LogLevel::Debug, "Exported file from %s to %s\n", path, out);
+
     return true;
 }
 
@@ -787,6 +792,7 @@ void RemoveFile(const char* path)
         f_chmod(path, 0, AM_RDO);
 
     f_unlink(path);
+    Log(LogLevel::Debug, "Removed file at %s\n", path);
 }
 
 void RemoveDir(const char* path)
@@ -840,6 +846,7 @@ void RemoveDir(const char* path)
     }
 
     f_unlink(path);
+    Log(LogLevel::Debug, "Removed directory at %s\n", path);
 }
 
 
