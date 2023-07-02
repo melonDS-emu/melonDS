@@ -1099,7 +1099,7 @@ bool InitTitleFileStructure(const NDSHeader& header, const DSi_TMD::TitleMetadat
     f_mkdir(fname);
 
     sprintf(fname, "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
-    if (!CreateTicket(fname, titleid0, titleid1, header.ROMVersion))
+    if (!CreateTicket(fname, tmd.GetCategoryNoByteswap(), tmd.GetIDNoByteswap(), header.ROMVersion))
         return false;
 
     if (readonly) f_chmod(fname, AM_RDO, AM_RDO);

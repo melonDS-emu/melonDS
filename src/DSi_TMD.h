@@ -134,9 +134,19 @@ struct [[gnu::packed]] TitleMetadata
        return (TitleId[0] << 24) | (TitleId[1] << 16) | (TitleId[2] << 8) | TitleId[3];
     }
 
+    [[nodiscard]] u32 GetCategoryNoByteswap() const noexcept
+    {
+        return reinterpret_cast<const u32&>(TitleId);
+    }
+
     [[nodiscard]] u32 GetID() const noexcept
     {
         return (TitleId[4] << 24) | (TitleId[5] << 16) | (TitleId[6] << 8) | TitleId[7];
+    }
+
+    [[nodiscard]] u32 GetIDNoByteswap() const noexcept
+    {
+        return *reinterpret_cast<const u32*>(&TitleId[4]);
     }
 };
 
