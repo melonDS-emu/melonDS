@@ -440,7 +440,7 @@ void TitleImportDialog::accept()
             return;
         }
 
-        fread(&tmdData, sizeof(DSi_TMD::TitleMetadata), 1, f);
+        fread((void *) tmdData, sizeof(DSi_TMD::TitleMetadata), 1, f);
         fclose(f);
 
         u32 tmdtitleid[2];
