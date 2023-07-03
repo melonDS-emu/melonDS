@@ -1070,10 +1070,8 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
             painter.setTransform(screenTrans[i]);
             painter.drawImage(screenrc, screen[screenKind[i]]);
 
-            if (i == 1)
+            if (i == 1 && Input::JoystickTouch.mode != Input::JoystickTouchMode::NONE)
             {
-                //QTransform cursorTrans = screenTrans[i].translate(Input::JoyTouchX, Input::JoyTouchY);
-                //painter.setTransform(cursorTrans);
                 QRect cursorRect = QRect(Input::JoyTouchX - 3, Input::JoyTouchY - 3, 5, 5);
                 painter.setPen(QColor::fromRgb(255, 0, 0));
                 painter.drawRoundedRect(cursorRect, 5, 5);

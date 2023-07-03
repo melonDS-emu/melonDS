@@ -29,29 +29,24 @@ extern SDL_Joystick* Joystick;
 
 extern u32 InputMask;
 
-
 extern u8 JoyTouchX, JoyTouchY;
 extern bool JoyTouching;
 extern bool JoyTouchReleased;
 
-enum JoystickTouchMode
-{
-    NONE = 0, ANALOG, TOUCHPAD, GYROSCOPE
+struct JoystickTouchMode {
+    enum Mode { NONE = 0, ANALOG_STICK, TOUCHPAD, GYROSCOPE };
+    enum Style { ABSOLUTE = 0, RELATIVE };
+    enum AnalogStick { LEFT_STICK = 0, RIGHT_STICK };
+
+    Mode mode;
+    Style style;
+    AnalogStick stick;
+
+    float sensitivity;
+    int touchButton;
 };
 
-enum AnalogStick
-{
-    LEFT = 0, RIGHT
-};
-
-enum JoystickTouchMovementStyle
-{
-    ABSOLUTE = 0, RELATIVE
-};
-
-extern JoystickTouchMode TouchMode;
-extern AnalogStick TouchAnalogStick;
-extern JoystickTouchMovementStyle MovementStyle;
+extern JoystickTouchMode JoystickTouch;
 
 void Init();
 
@@ -61,6 +56,8 @@ void CloseJoystick();
 
 void KeyPress(QKeyEvent* event);
 void KeyRelease(QKeyEvent* event);
+
+bool SetJoystickTouchMode(JoystickTouchMode mode);
 
 void Process();
 
