@@ -34,9 +34,9 @@ extern bool JoyTouching;
 extern bool JoyTouchReleased;
 
 struct JoystickTouchMode {
-    enum Mode { NONE = 0, ANALOG_STICK, TOUCHPAD, GYROSCOPE };
-    enum Style { ABSOLUTE = 0, RELATIVE };
-    enum AnalogStick { LEFT_STICK = 0, RIGHT_STICK };
+    enum Mode { none = 0, analogStick, touchpad, gyroscope };
+    enum Style { absolute = 0, relative };
+    enum AnalogStick { leftStick = 0, rightStick };
 
     Mode mode;
     Style style;

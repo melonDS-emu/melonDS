@@ -216,26 +216,26 @@ bool JoystickTouchModeAvailable(JoystickTouchMode mode)
         return false;
 
     switch (mode.mode) {
-        case JoystickTouchMode::ANALOG_STICK:
+        case JoystickTouchMode::analogStick:
         {
-            SDL_GameControllerAxis xAxis = mode.stick == JoystickTouchMode::LEFT_STICK
+            SDL_GameControllerAxis xAxis = mode.stick == JoystickTouchMode::leftStick
                     ? SDL_CONTROLLER_AXIS_LEFTX
                     : SDL_CONTROLLER_AXIS_RIGHTX;
-            SDL_GameControllerAxis yAxis = mode.stick == JoystickTouchMode::LEFT_STICK
+            SDL_GameControllerAxis yAxis = mode.stick == JoystickTouchMode::leftStick
                     ? SDL_CONTROLLER_AXIS_LEFTY
                     : SDL_CONTROLLER_AXIS_RIGHTY;
 
             return SDL_GameControllerHasAxis(GameController, xAxis)
                    && SDL_GameControllerHasAxis(GameController, yAxis);
         }
-        case JoystickTouchMode::TOUCHPAD:
-            if (mode.style == JoystickTouchMode::RELATIVE && !SDL_GameControllerHasButton(GameController, SDL_CONTROLLER_BUTTON_TOUCHPAD))
+        case JoystickTouchMode::touchpad:
+            if (mode.style == JoystickTouchMode::relative && !SDL_GameControllerHasButton(GameController, SDL_CONTROLLER_BUTTON_TOUCHPAD))
                 return false;
 
             return SDL_GameControllerGetNumTouchpads(GameController) != 0;
-        case JoystickTouchMode::GYROSCOPE:
+        case JoystickTouchMode::gyroscope:
             return SDL_GameControllerHasSensor(GameController, SDL_SENSOR_GYRO);
-        case JoystickTouchMode::NONE:
+        case JoystickTouchMode::none:
             return true;
     }
 }
@@ -245,7 +245,7 @@ bool SetJoystickTouchMode(JoystickTouchMode mode)
     if (!JoystickTouchModeAvailable(mode))
         return false;
 
-    SDL_GameControllerSetSensorEnabled(GameController, SDL_SENSOR_GYRO, mode.mode == JoystickTouchMode::GYROSCOPE ? SDL_TRUE : SDL_FALSE);
+    SDL_GameControllerSetSensorEnabled(GameController, SDL_SENSOR_GYRO, mode.mode == JoystickTouchMode::gyroscope ? SDL_TRUE : SDL_FALSE);
 
     JoystickTouch = mode;
     return true;
@@ -301,14 +301,14 @@ void UpdateJoystickTouch()
         return;
     }
 
-    if (mode == JoystickTouchMode::TOUCHPAD)
+    if (mode == JoystickTouchMode::touchpad)
     {
         u8 state;
         float x, y, pressure;
 
         SDL_GameControllerGetTouchpadFinger(GameController, 0, 0, &state, &x, &y, &pressure);
 
-        if (style == JoystickTouchMode::RELATIVE)
+        if (style == JoystickTouchMode::relative)
         {
             if (state == 1)
             {
@@ -350,11 +350,11 @@ void UpdateJoystickTouch()
             JoyTouchY = (u8) round(y * 192.f);
         }
     }
-    else if (mode == JoystickTouchMode::ANALOG_STICK)
+    else if (mode == JoystickTouchMode::analogStick)
     {
-        SDL_GameControllerAxis axisX = stick == JoystickTouchMode::LEFT_STICK
+        SDL_GameControllerAxis axisX = stick == JoystickTouchMode::leftStick
             ? SDL_CONTROLLER_AXIS_LEFTX : SDL_CONTROLLER_AXIS_RIGHTX;
-        SDL_GameControllerAxis axisY = stick == JoystickTouchMode::LEFT_STICK
+        SDL_GameControllerAxis axisY = stick == JoystickTouchMode::leftStick
             ? SDL_CONTROLLER_AXIS_LEFTY : SDL_CONTROLLER_AXIS_RIGHTY;
 
         s16 x = SDL_GameControllerGetAxis(GameController, axisX);
@@ -362,7 +362,7 @@ void UpdateJoystickTouch()
         float fx = ((float) x) / 32768.f;
         float fy = ((float) y) / 32768.f;
 
-        if (style == JoystickTouchMode::RELATIVE)
+        if (style == JoystickTouchMode::relative)
         {
             HandleRelativeInput(fx, fy, JoystickTouch.sensitivity);
         }
@@ -374,7 +374,7 @@ void UpdateJoystickTouch()
 
         newTouching = JoystickButtonDown(JoystickTouch.touchButton);
     }
-    else if (mode == JoystickTouchMode::GYROSCOPE)
+    else if (mode == JoystickTouchMode::gyroscope)
     {
         float gyroPos[3] = {0};
 
@@ -433,7 +433,7 @@ void Process()
     HotkeyRelease = LastHotkeyMask & ~HotkeyMask;
     LastHotkeyMask = HotkeyMask;
 
-    if (JoystickTouch.mode != JoystickTouchMode::NONE)
+    if (JoystickTouch.mode != JoystickTouchMode::none)
         UpdateJoystickTouch();
 }
 
