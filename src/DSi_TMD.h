@@ -54,79 +54,55 @@ static_assert(sizeof(TitleMetadataContent) == 36, "TitleMetadataContent is not 3
 /// @see https://problemkaputt.de/gbatek.htm#dsisdmmcdsiwareticketsandtitlemetadata
 struct TitleMetadata
 {
-    /// Signature Type (00h,01h,00h,01h) (100h-byte RSA)
     u32 SignatureType;
 
-    /// Signature RSA-OpenPGP-SHA1 across 140h..207h
     u8 Signature[256];
 
-    /// Signature padding/alignment (zerofilled)
     u8 SignatureAlignment[60];
 
-    /// Signature Name "Root-CA00000001-CP00000007", 00h-padded
     char SignatureName[64];
 
-    /// TMD Version (00h) (unlike 3DS)
     u8 TmdVersion;
 
-    /// ca_crl_version (00h)
     u8 CaCrlVersion;
 
-    /// signer_crl_version (00h)
     u8 SignerCrlVersion;
 
-    /// (padding/align 4h)
     u8 Padding0;
 
-    /// System Version (0)
     u8 SystemVersion[8];
 
-    /// Title ID (00,03,00,17,"HNAP")
     u8 TitleId[8];
 
-    /// Title Type (0)
     u32 TitleType;
 
-    /// Group ID (eg. "01"=Nintendo)
     u8 GroupId[2];
 
-    /// SD/MMC "public.sav" filesize in bytes (0=none)
     u8 PublicSaveSize[4];
 
-    /// SD/MMC "private.sav" filesize in bytes (0=none)
     u8 PrivateSaveSize[4];
 
-    /// Zero
     u8 Padding1[4];
 
-    /// (3DS: SRL Flag)
     u8 SrlFlag;
 
-    /// Zero
     u8 Padding2[3];
 
-    /// Parental Control Age Ratings
     u8 AgeRatings[16];
 
-    /// Zerofilled
     u8 Padding3[30];
 
-    /// Access rights (0)
     u32 AccessRights;
 
-    /// Title Version (vv,00) (LITTLE-ENDIAN!?)
     u16 TitleVersion;
 
-    /// Number of contents (at 1E4h and up) (usually 0 or 1)
+    /// There's always one or zero content entries in practice
     u16 NumberOfContents;
 
-    /// boot content index (0)
     u16 BootContentIndex;
 
-    /// Zerofilled (padding/align 4h)
     u8 Padding4[2];
 
-    /// There's always one or zero content entries in practice
     TitleMetadataContent Contents;
 
     [[nodiscard]] bool HasPublicSaveData() const noexcept { return GetPublicSaveSize() != 0; }
