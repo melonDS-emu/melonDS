@@ -47,6 +47,8 @@ struct [[gnu::packed]] TitleMetadataContent {
     }
 };
 
+static_assert(sizeof(TitleMetadataContent) == 36, "TitleMetadataContent is not 36 bytes!");
+
 /// Metadata for a DSiWare title.
 /// Used to install DSiWare titles to NAND.
 /// @see https://problemkaputt.de/gbatek.htm#dsisdmmcdsiwareticketsandtitlemetadata
