@@ -64,7 +64,7 @@ struct [[gnu::packed]] TitleMetadata
     u8 SignatureAlignment[60];
 
     /// Signature Name "Root-CA00000001-CP00000007", 00h-padded
-    u8 SignatureName[64];
+    char SignatureName[64];
 
     /// TMD Version (00h) (unlike 3DS)
     u8 TmdVersion;
