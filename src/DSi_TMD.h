@@ -154,4 +154,4 @@ static_assert(sizeof(TitleMetadata) == 520, "TitleMetadata is not 520 bytes!");
 
 }
 
-#endif //DSI_TMD_H
+#endif // DSI_TMD_H
