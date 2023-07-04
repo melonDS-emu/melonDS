@@ -25,18 +25,18 @@
 namespace DSi_TMD
 {
 
-struct [[gnu::packed]] TitleMetadataContent {
+struct TitleMetadataContent {
     /// Content ID (00,00,00,vv) ;lowercase/hex ;"0000000vv.app"
     u8 ContentId[4];
 
     /// Content Index (00,00)
-    u16 ContentIndex;
+    u8 ContentIndex[2];
 
     /// Content Type (00,01) ;aka DSi .app
-    u16 ContentType;
+    u8 ContentType[2];
 
     /// Content Size (00,00,00,00,00,19,E4,00)
-    u64 ContentSize;
+    u8 ContentSize[8];
 
     /// Content SHA1 (on decrypted ".app" file)
     u8 ContentSha1Hash[20];
@@ -52,7 +52,7 @@ static_assert(sizeof(TitleMetadataContent) == 36, "TitleMetadataContent is not 3
 /// Metadata for a DSiWare title.
 /// Used to install DSiWare titles to NAND.
 /// @see https://problemkaputt.de/gbatek.htm#dsisdmmcdsiwareticketsandtitlemetadata
-struct [[gnu::packed]] TitleMetadata
+struct TitleMetadata
 {
     /// Signature Type (00h,01h,00h,01h) (100h-byte RSA)
     u32 SignatureType;
@@ -79,7 +79,7 @@ struct [[gnu::packed]] TitleMetadata
     u8 Padding0;
 
     /// System Version (0)
-    u64 SystemVersion;
+    u8 SystemVersion[8];
 
     /// Title ID (00,03,00,17,"HNAP")
     u8 TitleId[8];
@@ -88,13 +88,13 @@ struct [[gnu::packed]] TitleMetadata
     u32 TitleType;
 
     /// Group ID (eg. "01"=Nintendo)
-    u16 GroupId;
+    u8 GroupId[2];
 
     /// SD/MMC "public.sav" filesize in bytes (0=none)
-    u32 PublicSaveSize;
+    u8 PublicSaveSize[4];
 
     /// SD/MMC "private.sav" filesize in bytes (0=none)
-    u32 PrivateSaveSize;
+    u8 PrivateSaveSize[4];
 
     /// Zero
     u8 Padding1[4];
@@ -129,8 +129,19 @@ struct [[gnu::packed]] TitleMetadata
     /// There's always one or zero content entries in practice
     TitleMetadataContent Contents;
 
-    [[nodiscard]] bool HasPublicSaveData() const noexcept { return PublicSaveSize != 0; }
-    [[nodiscard]] bool HasPrivateSaveData() const noexcept { return PrivateSaveSize != 0; }
+    [[nodiscard]] bool HasPublicSaveData() const noexcept { return GetPublicSaveSize() != 0; }
+    [[nodiscard]] bool HasPrivateSaveData() const noexcept { return GetPrivateSaveSize() != 0; }
+
+    [[nodiscard]] u32 GetPublicSaveSize() const noexcept
+    {
+        return (PublicSaveSize[0] << 24) | (PublicSaveSize[1] << 16) | (PublicSaveSize[2] << 8) | PublicSaveSize[3];
+    }
+
+    [[nodiscard]] u32 GetPrivateSaveSize() const noexcept
+    {
+        return (PrivateSaveSize[0] << 24) | (PrivateSaveSize[1] << 16) | (PrivateSaveSize[2] << 8) | PrivateSaveSize[3];
+    }
+
     [[nodiscard]] u32 GetCategory() const noexcept
     {
        return (TitleId[0] << 24) | (TitleId[1] << 16) | (TitleId[2] << 8) | TitleId[3];
