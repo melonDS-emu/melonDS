@@ -39,7 +39,7 @@ struct [[gnu::packed]] TitleMetadataContent {
     u64 ContentSize;
 
     /// Content SHA1 (on decrypted ".app" file)
-    u8 ContentSha1Hash[0x14];
+    u8 ContentSha1Hash[20];
 
     [[nodiscard]] u32 GetVersion() const noexcept
     {
@@ -56,13 +56,13 @@ struct [[gnu::packed]] TitleMetadata
     u32 SignatureType;
 
     /// Signature RSA-OpenPGP-SHA1 across 140h..207h
-    u8 Signature[0x100];
+    u8 Signature[256];
 
     /// Signature padding/alignment (zerofilled)
-    u8 SignatureAlignment[0x3C];
+    u8 SignatureAlignment[60];
 
     /// Signature Name "Root-CA00000001-CP00000007", 00h-padded
-    u8 SignatureName[0x40];
+    u8 SignatureName[64];
 
     /// TMD Version (00h) (unlike 3DS)
     u8 TmdVersion;
@@ -80,7 +80,7 @@ struct [[gnu::packed]] TitleMetadata
     u64 SystemVersion;
 
     /// Title ID (00,03,00,17,"HNAP")
-    u8 TitleId[0x8];
+    u8 TitleId[8];
 
     /// Title Type (0)
     u32 TitleType;
@@ -95,19 +95,19 @@ struct [[gnu::packed]] TitleMetadata
     u32 PrivateSaveSize;
 
     /// Zero
-    u8 Padding1[0x4];
+    u8 Padding1[4];
 
     /// (3DS: SRL Flag)
     u8 SrlFlag;
 
     /// Zero
-    u8 Padding2[0x3];
+    u8 Padding2[3];
 
     /// Parental Control Age Ratings
-    u8 AgeRatings[0x10];
+    u8 AgeRatings[16];
 
     /// Zerofilled
-    u8 Padding3[0x1e];
+    u8 Padding3[30];
 
     /// Access rights (0)
     u32 AccessRights;
@@ -122,7 +122,7 @@ struct [[gnu::packed]] TitleMetadata
     u16 BootContentIndex;
 
     /// Zerofilled (padding/align 4h)
-    u8 Padding4[0x2];
+    u8 Padding4[2];
 
     /// There's always one or zero content entries in practice
     TitleMetadataContent Contents;
@@ -150,7 +150,7 @@ struct [[gnu::packed]] TitleMetadata
     }
 };
 
-static_assert(sizeof(TitleMetadata) == 0x208, "TitleMetadata is not 520 bytes!");
+static_assert(sizeof(TitleMetadata) == 520, "TitleMetadata is not 520 bytes!");
 
 }
 
