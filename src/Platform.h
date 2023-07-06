@@ -201,6 +201,28 @@ void Camera_Start(int num);
 void Camera_Stop(int num);
 void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv);
 
+struct DynamicLibrary;
+
+/**
+ * @param lib The name of the library to load.
+ * @return A handle to the loaded library, or \c nullptr if the library could not be loaded.
+ */
+DynamicLibrary* DynamicLibrary_Load(const char* lib);
+
+/**
+ * Releases a loaded library.
+ * Pointers to functions in the library will be invalidated.
+ * @param lib The library to unload.
+ */
+void DynamicLibrary_Unload(DynamicLibrary* lib);
+
+/**
+ * Loads a function from a library.
+ * @param lib The library to load the function from.
+ * @param name The name of the function to load.
+ * @return A pointer to the loaded function, or \c nullptr if the function could not be loaded.
+ */
+void *DynamicLibrary_LoadFunction(DynamicLibrary *lib, const char *name);
 }
 
 #endif // PLATFORM_H

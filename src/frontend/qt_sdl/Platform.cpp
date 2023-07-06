@@ -29,6 +29,7 @@
 #include <QMutex>
 #include <QOpenGLContext>
 #include <QSharedMemory>
+#include <SDL_loadso.h>
 
 #include "Platform.h"
 #include "Config.h"
@@ -564,6 +565,21 @@ void Camera_Stop(int num)
 void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv)
 {
     return camManager[num]->captureFrame(frame, width, height, yuv);
+}
+
+DynamicLibrary* DynamicLibrary_Load(const char* lib)
+{
+    return (DynamicLibrary*) SDL_LoadObject(lib);
+}
+
+void DynamicLibrary_Unload(DynamicLibrary* lib)
+{
+    SDL_UnloadObject(lib);
+}
+
+void *DynamicLibrary_LoadFunction(DynamicLibrary *lib, const char *name)
+{
+    return SDL_LoadFunction(lib, name);
 }
 
 }
