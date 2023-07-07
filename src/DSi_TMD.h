@@ -26,20 +26,11 @@ namespace DSi_TMD
 {
 
 struct TitleMetadataContent {
-    /// Content ID (00,00,00,vv) ;lowercase/hex ;"0000000vv.app"
-    u8 ContentId[4];
-
-    /// Content Index (00,00)
-    u8 ContentIndex[2];
-
-    /// Content Type (00,01) ;aka DSi .app
-    u8 ContentType[2];
-
-    /// Content Size (00,00,00,00,00,19,E4,00)
-    u8 ContentSize[8];
-
-    /// Content SHA1 (on decrypted ".app" file)
-    u8 ContentSha1Hash[20];
+    u8 ContentId[4]; /// Content ID (00,00,00,vv) ;lowercase/hex ;"0000000vv.app"
+    u8 ContentIndex[2]; /// Content Index (00,00)
+    u8 ContentType[2]; /// Content Type (00,01) ;aka DSi .app
+    u8 ContentSize[8]; /// Content Size (00,00,00,00,00,19,E4,00)
+    u8 ContentSha1Hash[20]; /// Content SHA1 (on decrypted ".app" file)
 
     [[nodiscard]] u32 GetVersion() const noexcept
     {
@@ -55,52 +46,34 @@ static_assert(sizeof(TitleMetadataContent) == 36, "TitleMetadataContent is not 3
 struct TitleMetadata
 {
     u32 SignatureType;
-
     u8 Signature[256];
-
     u8 SignatureAlignment[60];
-
     char SignatureName[64];
 
     u8 TmdVersion;
-
     u8 CaCrlVersion;
-
     u8 SignerCrlVersion;
-
     u8 Padding0;
 
     u8 SystemVersion[8];
-
     u8 TitleId[8];
-
     u32 TitleType;
-
     u8 GroupId[2];
-
     u8 PublicSaveSize[4];
-
     u8 PrivateSaveSize[4];
-
     u8 Padding1[4];
 
     u8 SrlFlag;
-
     u8 Padding2[3];
 
     u8 AgeRatings[16];
-
     u8 Padding3[30];
 
     u32 AccessRights;
-
     u16 TitleVersion;
 
-    /// There's always one or zero content entries in practice
-    u16 NumberOfContents;
-
+    u16 NumberOfContents; /// There's always one or zero content entries in practice
     u16 BootContentIndex;
-
     u8 Padding4[2];
 
     TitleMetadataContent Contents;
