@@ -130,8 +130,11 @@ endif()
 
 if (WIN32)
     target_link_libraries(core PRIVATE ole32 comctl32 ws2_32)
-elseif(LINUX AND NOT ANDROID)
-    target_link_libraries(core PRIVATE rt)
+elseif(NOT APPLE)
+    check_library_exists(rt shm_open "" NEED_LIBRT)
+    if (NEED_LIBRT)
+        target_link_libraries(core PRIVATE rt)
+    endif()
 endif()
 
 if (ENABLE_JIT_PROFILING)
