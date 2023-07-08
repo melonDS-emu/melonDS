@@ -21,6 +21,7 @@
 
 #include "types.h"
 #include "NDS_Header.h"
+#include "DSi_TMD.h"
 #include <vector>
 #include <string>
 
@@ -49,7 +50,8 @@ void PatchUserData();
 void ListTitles(u32 category, std::vector<u32>& titlelist);
 bool TitleExists(u32 category, u32 titleid);
 void GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, NDSBanner* banner);
-bool ImportTitle(const char* appfile, u8* tmd, bool readonly);
+bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool readonly);
+bool ImportTitle(const u8* app, size_t appLength, const DSi_TMD::TitleMetadata& tmd, bool readonly);
 void DeleteTitle(u32 category, u32 titleid);
 
 u32 GetTitleDataMask(u32 category, u32 titleid);

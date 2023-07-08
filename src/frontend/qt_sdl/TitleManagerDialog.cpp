@@ -176,7 +176,7 @@ void TitleManagerDialog::done(int r)
 
 void TitleManagerDialog::on_btnImportTitle_clicked()
 {
-    TitleImportDialog* importdlg = new TitleImportDialog(this, importAppPath, importTmdData, importReadOnly);
+    TitleImportDialog* importdlg = new TitleImportDialog(this, importAppPath, &importTmdData, importReadOnly);
     importdlg->open();
     connect(importdlg, &TitleImportDialog::finished, this, &TitleManagerDialog::onImportTitleFinished);
 
@@ -188,8 +188,8 @@ void TitleManagerDialog::onImportTitleFinished(int res)
     if (res != QDialog::Accepted) return;
 
     u32 titleid[2];
-    titleid[0] = (importTmdData[0x18C] << 24) | (importTmdData[0x18D] << 16) | (importTmdData[0x18E] << 8) | importTmdData[0x18F];
-    titleid[1] = (importTmdData[0x190] << 24) | (importTmdData[0x191] << 16) | (importTmdData[0x192] << 8) | importTmdData[0x193];
+    titleid[0] = importTmdData.GetCategory();
+    titleid[1] = importTmdData.GetID();
 
     // remove anything that might hinder the install
     DSi_NAND::DeleteTitle(titleid[0], titleid[1]);
@@ -381,7 +381,7 @@ void TitleManagerDialog::onExportTitleData()
 }
 
 
-TitleImportDialog::TitleImportDialog(QWidget* parent, QString& apppath, u8* tmd, bool& readonly)
+TitleImportDialog::TitleImportDialog(QWidget* parent, QString& apppath, const DSi_TMD::TitleMetadata* tmd, bool& readonly)
 : QDialog(parent), ui(new Ui::TitleImportDialog), appPath(apppath), tmdData(tmd), readOnly(readonly)
 {
     ui->setupUi(this);
@@ -440,12 +440,12 @@ void TitleImportDialog::accept()
             return;
         }
 
-        fread(tmdData, 0x208, 1, f);
+        fread((void *) tmdData, sizeof(DSi_TMD::TitleMetadata), 1, f);
         fclose(f);
 
         u32 tmdtitleid[2];
-        tmdtitleid[0] = (tmdData[0x18C] << 24) | (tmdData[0x18D] << 16) | (tmdData[0x18E] << 8) | tmdData[0x18F];
-        tmdtitleid[1] = (tmdData[0x190] << 24) | (tmdData[0x191] << 16) | (tmdData[0x192] << 8) | tmdData[0x193];
+        tmdtitleid[0] = tmdData->GetCategory();
+        tmdtitleid[1] = tmdData->GetID();
 
         if (tmdtitleid[1] != titleid[0] || tmdtitleid[0] != titleid[1])
         {
@@ -507,11 +507,11 @@ void TitleImportDialog::tmdDownloaded()
     }
     else
     {
-        netreply->read((char*)tmdData, 520);
+        netreply->read((char*)tmdData, sizeof(*tmdData));
 
         u32 tmdtitleid[2];
-        tmdtitleid[0] = (tmdData[0x18C] << 24) | (tmdData[0x18D] << 16) | (tmdData[0x18E] << 8) | tmdData[0x18F];
-        tmdtitleid[1] = (tmdData[0x190] << 24) | (tmdData[0x191] << 16) | (tmdData[0x192] << 8) | tmdData[0x193];
+        tmdtitleid[0] = tmdData->GetCategory();
+        tmdtitleid[1] = tmdData->GetID();
 
         if (tmdtitleid[1] != titleid[0] || tmdtitleid[0] != titleid[1])
         {

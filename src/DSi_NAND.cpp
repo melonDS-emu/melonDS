@@ -664,6 +664,40 @@ void debug_listfiles(const char* path)
     f_closedir(&dir);
 }
 
+bool ImportFile(const char* path, const u8* data, size_t len)
+{
+    if (!data || !len || !path)
+        return false;
+
+    FF_FIL file;
+    FRESULT res;
+
+    res = f_open(&file, path, FA_CREATE_ALWAYS | FA_WRITE);
+    if (res != FR_OK)
+    {
+        return false;
+    }
+
+    u8 buf[0x1000];
+    for (u32 i = 0; i < len; i += sizeof(buf))
+    { // For each block in the file...
+        u32 blocklen;
+        if ((i + sizeof(buf)) > len)
+            blocklen = len - i;
+        else
+            blocklen = sizeof(buf);
+
+        u32 nwrite;
+        memcpy(buf, data + i, blocklen);
+        f_write(&file, buf, blocklen, &nwrite);
+    }
+
+    f_close(&file);
+    Log(LogLevel::Debug, "Imported file from memory to %s\n", path);
+
+    return true;
+}
+
 bool ImportFile(const char* path, const char* in)
 {
     FF_FIL file;
@@ -686,13 +720,13 @@ bool ImportFile(const char* path, const char* in)
     }
 
     u8 buf[0x1000];
-    for (u32 i = 0; i < len; i += 0x1000)
+    for (u32 i = 0; i < len; i += sizeof(buf))
     {
         u32 blocklen;
-        if ((i + 0x1000) > len)
+        if ((i + sizeof(buf)) > len)
             blocklen = len - i;
         else
-            blocklen = 0x1000;
+            blocklen = sizeof(buf);
 
         u32 nwrite;
         fread(buf, blocklen, 1, fin);
@@ -701,6 +735,8 @@ bool ImportFile(const char* path, const char* in)
 
     fclose(fin);
     f_close(&file);
+
+    Log(LogLevel::Debug, "Imported file from %s to %s\n", in, path);
 
     return true;
 }
@@ -741,6 +777,8 @@ bool ExportFile(const char* path, const char* out)
     fclose(fout);
     f_close(&file);
 
+    Log(LogLevel::Debug, "Exported file from %s to %s\n", path, out);
+
     return true;
 }
 
@@ -754,6 +792,7 @@ void RemoveFile(const char* path)
         f_chmod(path, 0, AM_RDO);
 
     f_unlink(path);
+    Log(LogLevel::Debug, "Removed file at %s\n", path);
 }
 
 void RemoveDir(const char* path)
@@ -807,6 +846,7 @@ void RemoveDir(const char* path)
     }
 
     f_unlink(path);
+    Log(LogLevel::Debug, "Removed directory at %s\n", path);
 }
 
 
@@ -1049,23 +1089,10 @@ bool CreateSaveFile(const char* path, u32 len)
     return true;
 }
 
-bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
+bool InitTitleFileStructure(const NDSHeader& header, const DSi_TMD::TitleMetadata& tmd, bool readonly)
 {
-    u8 header[0x1000];
-    {
-        FILE* f = fopen(appfile, "rb");
-        if (!f) return false;
-        fread(header, 0x1000, 1, f);
-        fclose(f);
-    }
-
-    u32 version = (tmd[0x1E4] << 24) | (tmd[0x1E5] << 16) | (tmd[0x1E6] << 8) | tmd[0x1E7];
-    Log(LogLevel::Info, ".app version: %08x\n", version);
-
-    u32 titleid0 = (tmd[0x18C] << 24) | (tmd[0x18D] << 16) | (tmd[0x18E] << 8) | tmd[0x18F];
-    u32 titleid1 = (tmd[0x190] << 24) | (tmd[0x191] << 16) | (tmd[0x192] << 8) | tmd[0x193];
-    Log(LogLevel::Info, "Title ID: %08x/%08x\n", titleid0, titleid1);
-
+    u32 titleid0 = tmd.GetCategory();
+    u32 titleid1 = tmd.GetID();
     FRESULT res;
     FF_DIR ticketdir;
     FF_FILINFO info;
@@ -1079,7 +1106,7 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
     f_mkdir(fname);
 
     sprintf(fname, "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
-    if (!CreateTicket(fname, *(u32*)&tmd[0x18C], *(u32*)&tmd[0x190], header[0x1E]))
+    if (!CreateTicket(fname, tmd.GetCategoryNoByteswap(), tmd.GetIDNoByteswap(), header.ROMVersion))
         return false;
 
     if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
@@ -1098,14 +1125,14 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
     // data
 
     sprintf(fname, "0:/title/%08x/%08x/data/public.sav", titleid0, titleid1);
-    if (!CreateSaveFile(fname, *(u32*)&header[0x238]))
+    if (!CreateSaveFile(fname, header.DSiPublicSavSize))
         return false;
 
     sprintf(fname, "0:/title/%08x/%08x/data/private.sav", titleid0, titleid1);
-    if (!CreateSaveFile(fname, *(u32*)&header[0x23C]))
+    if (!CreateSaveFile(fname, header.DSiPrivateSavSize))
         return false;
 
-    if (header[0x1BF] & 0x04)
+    if (header.AppFlags & 0x04)
     {
         // custom banner file
         sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", titleid0, titleid1);
@@ -1117,8 +1144,8 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
         }
 
         u8 bannersav[0x4000];
-        memset(bannersav, 0, 0x4000);
-        f_write(&file, bannersav, 0x4000, &nwrite);
+        memset(bannersav, 0, sizeof(bannersav));
+        f_write(&file, bannersav, sizeof(bannersav), &nwrite);
 
         f_close(&file);
     }
@@ -1133,18 +1160,81 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
         return false;
     }
 
-    f_write(&file, tmd, 0x208, &nwrite);
+    f_write(&file, &tmd, sizeof(DSi_TMD::TitleMetadata), &nwrite);
 
     f_close(&file);
 
     if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
 
+    return true;
+}
+
+bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool readonly)
+{
+    NDSHeader header {};
+    {
+        FILE* f = fopen(appfile, "rb");
+        if (!f) return false;
+        fread(&header, sizeof(header), 1, f);
+        fclose(f);
+    }
+
+    u32 version = tmd.Contents.GetVersion();
+    Log(LogLevel::Info, ".app version: %08x\n", version);
+
+    u32 titleid0 = tmd.GetCategory();
+    u32 titleid1 = tmd.GetID();
+    Log(LogLevel::Info, "Title ID: %08x/%08x\n", titleid0, titleid1);
+
+    if (!InitTitleFileStructure(header, tmd, readonly))
+    {
+        Log(LogLevel::Error, "ImportTitle: failed to initialize file structure for imported title\n");
+        return false;
+    }
+
     // executable
 
+    char fname[128];
     sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
     if (!ImportFile(fname, appfile))
     {
-        Log(LogLevel::Error, "ImportTitle: failed to create executable (%d)\n", res);
+        Log(LogLevel::Error, "ImportTitle: failed to create executable\n");
+        return false;
+    }
+
+    if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
+
+    return true;
+}
+
+bool ImportTitle(const u8* app, size_t appLength, const DSi_TMD::TitleMetadata& tmd, bool readonly)
+{
+    if (!app || appLength < sizeof(NDSHeader))
+        return false;
+
+    NDSHeader header {};
+    memcpy(&header, app, sizeof(header));
+
+    u32 version = tmd.Contents.GetVersion();
+    Log(LogLevel::Info, ".app version: %08x\n", version);
+
+    u32 titleid0 = tmd.GetCategory();
+    u32 titleid1 = tmd.GetID();
+    Log(LogLevel::Info, "Title ID: %08x/%08x\n", titleid0, titleid1);
+
+    if (!InitTitleFileStructure(header, tmd, readonly))
+    {
+        Log(LogLevel::Error, "ImportTitle: failed to initialize file structure for imported title\n");
+        return false;
+    }
+
+    // executable
+
+    char fname[128];
+    sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
+    if (!ImportFile(fname, app, appLength))
+    {
+        Log(LogLevel::Error, "ImportTitle: failed to create executable\n");
         return false;
     }
 
