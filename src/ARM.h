@@ -26,6 +26,7 @@
 
 #ifdef GDBSTUB_ENABLED
 #include "debug/gdbstub.h"
+#include "debug/gdbarch.h"
 #endif
 
 inline u32 ROR(u32 x, u32 n)
@@ -95,6 +96,18 @@ public:
         if (z) CPSR |= 0x40000000;
         if (c) CPSR |= 0x20000000;
         if (v) CPSR |= 0x10000000;
+    }
+
+    inline bool ModeIs(u32 mode)
+    {
+        uint32_t cm = CPSR & 0x1f;
+        mode &= 0x1f;
+
+        if (mode == cm) return true;
+        if (mode == 0x17) return cm >= 0x14 && cm <= 0x17; // abt
+        if (mode == 0x1b) return cm >= 0x18 && cm <= 0x1b; // und
+
+        return false;
     }
 
     void UpdateMode(u32 oldmode, u32 newmode, bool phony = false);

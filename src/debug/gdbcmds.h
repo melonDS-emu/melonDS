@@ -5,6 +5,7 @@
 #include "gdbstub.h"
 #include "gdbproto.h"
 
+
 enum gdbproto_exec_result gdb_handle_g(struct gdbstub* stub,
 		const uint8_t* cmd, ssize_t len);
 enum gdbproto_exec_result gdb_handle_G(struct gdbstub* stub,

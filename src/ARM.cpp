@@ -986,20 +986,107 @@ uint32_t ARM::GdbReadReg(void* ud, int reg)
 {
     ARM* cpu = (ARM*)ud;
 
-    if (reg < 15) return cpu->R[reg];
-    else if (reg == 15)
+    if (reg < gdb_reg_pc) return cpu->R[reg];
+    else if (reg == gdb_reg_pc)
         return cpu->R[reg] - ((cpu->CPSR & 0x20) ? 2 : 4);
-    else if (reg == 16) return cpu->CPSR;
-    else return 0xdeadbeef;
+    else if (reg == gdb_reg_cpsr) return cpu->CPSR;
+    else if (reg == gdb_reg_sp_usr || reg == gdb_reg_lr_usr) {
+        reg -= gdb_reg_sp_usr;
+        if (ModeIs(0x10) || ModeIs(0x1f))
+            return cpu->R[13 + reg];
+        else switch (CPSR & 0x1f) {
+        case 0x11: return cpu->R_FIQ[5 + reg];
+        case 0x12: return cpu->R_IRQ[0 + reg];
+        case 0x13: return cpu->R_SVC[0 + reg];
+        case 0x17: return cpu->R_ABT[0 + reg];
+        case 0x1b: return cpu->R_UND[0 + reg];
+        }
+    }
+    else if (reg >= gdb_reg_r8_fiq && reg <= gdb_reg_lr_fiq) {
+        reg -= gdb_reg_r8_fiq;
+        return ModeIs(0x11) ? &cpu->R[ 8 + reg] : c&pu->R_FIQ[reg];
+    }
+    else if (reg == gdb_reg_sp_irq || reg == gdb_reg_lr_irq) {
+        reg -= gdb_reg_sp_irq;
+        return ModeIs(0x12) ? &cpu->R[13 + reg] : &cpu->R_IRQ[reg];
+    }
+    else if (reg == gdb_reg_sp_svc || reg == gdb_reg_lr_svc) {
+        reg -= gdb_reg_sp_svc;
+        return ModeIs(0x13) ? &cpu->R[13 + reg] : &cpu->R_SVC[reg];
+    }
+    else if (reg == gdb_reg_sp_abt || reg == gdb_reg_lr_abt) {
+        reg -= gdb_reg_sp_abt;
+        return ModeIs(0x17) ? &cpu->R[13 + reg] : &cpu->R_ABT[reg];
+    }
+    else if (reg == gdb_reg_sp_und || reg == gdb_reg_lr_und) {
+        reg -= gdb_reg_sp_und;
+        return ModeIs(0x1b) ? &cpu->R[13 + reg] : &cpu->R_UND[reg];
+    }
+    else if (reg == gdb_reg_spsr_fiq) return ModeIs(0x11) ? cpu->CPSR : cpu->R_FIQ[7];
+    else if (reg == gdb_reg_spsr_irq) return ModeIs(0x12) ? cpu->CPSR : cpu->R_IRQ[2];
+    else if (reg == gdb_reg_spsr_svc) return ModeIs(0x13) ? cpu->CPSR : cpu->R_SVC[2];
+    else if (reg == gdb_reg_spsr_abt) return ModeIs(0x17) ? cpu->CPSR : cpu->R_ABT[2];
+    else if (reg == gdb_reg_spsr_und) return ModeIs(0x1b) ? cpu->CPSR : cpu->R_UND[2];
+    else {
+        Log(LogLevel::Warn, "GDB reg read: unknown reg no %d\n", reg);
+        return 0xdeadbeef;
+    }
 }
 void ARM::GdbWriteReg(void* ud, int reg, uint32_t v)
 {
     ARM* cpu = (ARM*)ud;
 
-    if (reg < 15) cpu->R[reg] = v;
-    else if (reg == 15) cpu->JumpTo(v);
-    else if (reg == 16) cpu->CPSR = v;
-    else {}
+    if (reg < gdb_reg_pc) cpu->R[reg] = v;
+    else if (reg == gdb_reg_pc) cpu->JumpTo(v);
+    else if (reg == gdb_reg_cpsr) cpu->CPSR = v;
+    else if (reg == gdb_reg_sp_usr || reg == gdb_reg_lr_usr) {
+        reg -= gdb_reg_sp_usr;
+        if (ModeIs(0x10) || ModeIs(0x1f))
+            cpu->R[13 + reg] = v;
+        else switch (CPSR & 0x1f) {
+        case 0x11: cpu->R_FIQ[5 + reg] = v; break;
+        case 0x12: cpu->R_IRQ[0 + reg] = v; break;
+        case 0x13: cpu->R_SVC[0 + reg] = v; break;
+        case 0x17: cpu->R_ABT[0 + reg] = v; break;
+        case 0x1b: cpu->R_UND[0 + reg] = v; break;
+        }
+    }
+    else if (reg >= gdb_reg_r8_fiq && reg <= gdb_reg_lr_fiq) {
+        reg -= gdb_reg_r8_fiq;
+        *(ModeIs(0x11) ? &cpu->R[ 8 + reg] : c&pu->R_FIQ[reg]) = v;
+    }
+    else if (reg == gdb_reg_sp_irq || reg == gdb_reg_lr_irq) {
+        reg -= gdb_reg_sp_irq;
+        *(ModeIs(0x12) ? &cpu->R[13 + reg] : &cpu->R_IRQ[reg]) = v;
+    }
+    else if (reg == gdb_reg_sp_svc || reg == gdb_reg_lr_svc) {
+        reg -= gdb_reg_sp_svc;
+        *(ModeIs(0x13) ? &cpu->R[13 + reg] : &cpu->R_SVC[reg]) = v;
+    }
+    else if (reg == gdb_reg_sp_abt || reg == gdb_reg_lr_abt) {
+        reg -= gdb_reg_sp_abt;
+        *(ModeIs(0x17) ? &cpu->R[13 + reg] : &cpu->R_ABT[reg]) = v;
+    }
+    else if (reg == gdb_reg_sp_und || reg == gdb_reg_lr_und) {
+        reg -= gdb_reg_sp_und;
+        *(ModeIs(0x1b) ? &cpu->R[13 + reg] : &cpu->R_UND[reg]) = v;
+    }
+    else if (reg == gdb_reg_spsr_fiq) {
+        *(ModeIs(0x11) ? &cpu->CPSR : &cpu->R_FIQ[7]) = v;
+    }
+    else if (reg == gdb_reg_spsr_irq) {
+        *(ModeIs(0x12) ? &cpu->CPSR : &cpu->R_IRQ[2]) = v;
+    }
+    else if (reg == gdb_reg_spsr_svc) {
+        *(ModeIs(0x13) ? &cpu->CPSR : &cpu->R_SVC[2]) = v;
+    }
+    else if (reg == gdb_reg_spsr_abt) {
+        *(ModeIs(0x17) ? &cpu->CPSR : &cpu->R_ABT[2]) = v;
+    }
+    else if (reg == gdb_reg_spsr_und) {
+        *(ModeIs(0x1b) ? &cpu->CPSR : &cpu->R_UND[2]) = v;
+    }
+    else Log(LogLevel::Warn, "GDB reg write: unknown reg no %d (write 0x%08x)\n", reg, v);
 }
 uint32_t ARM::GdbReadMem(void* ud, uint32_t addr, int size)
 {

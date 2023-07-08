@@ -8,10 +8,9 @@
 #include "../CRC32.h"
 
 #include "gdbcmds.h"
+#include "gdbarch.h"
 
 #include "gdbstub_internal.h"
-
-#define ARCH_N_REG 17
 
 
 enum gdb_signal {
@@ -26,53 +25,73 @@ enum gdb_signal {
 static const char* TARGET_INFO_ARM7 = "cputype:arm;cpusubtype:armv4t:ostype:none;vendor:none;endian:little;ptrsize:4;";
 static const char* TARGET_INFO_ARM9 = "cputype:arm;cpusubtype:armv5te:ostype:none;vendor:none;endian:little;ptrsize:4;";
 
+
+#define TARGET_XML__CORE_REGS \
+	"<reg name=\"r0\" bitsize=\"32\" type=\"uint32\"/>" \
+	"<reg name=\"r1\" bitsize=\"32\" type=\"uint32\"/>" \
+	"<reg name=\"r2\" bitsize=\"32\" type=\"uint32\"/>" \
+	"<reg name=\"r3\" bitsize=\"32\" type=\"uint32\"/>" \
+	"<reg name=\"r4\" bitsize=\"32\" type=\"uint32\"/>" \
+	"<reg name=\"r5\" bitsize=\"32\" type=\"uint32\"/>" \
+	"<reg name=\"r6\" bitsize=\"32\" type=\"uint32\"/>" \
+	"<reg name=\"r7\" bitsize=\"32\" type=\"uint32\"/>" \
+	"<reg name=\"r8\" bitsize=\"32\" type=\"uint32\"/>" \
+	"<reg name=\"r9\" bitsize=\"32\" type=\"uint32\"/>" \
+	"<reg name=\"r10\" bitsize=\"32\" type=\"uint32\"/>" \
+	"<reg name=\"r11\" bitsize=\"32\" type=\"uint32\"/>" \
+	"<reg name=\"r12\" bitsize=\"32\" type=\"uint32\"/>" \
+	"<reg name=\"sp\" bitsize=\"32\" type=\"data_ptr\"/>" \
+	"<reg name=\"lr\" bitsize=\"32\" type=\"code_ptr\"/>" \
+	"<reg name=\"pc\" bitsize=\"32\" type=\"code_ptr\"/>" \
+	/* 16 regs */ \
+
+#define TARGET_XML__MODE_REGS \
+	"<reg name=\"cpsr\" bitsize=\"32\" regnum=\"25\"/>" \
+	"<reg name=\"sp_usr\" bitsize=\"32\" regnum=\"26\" type=\"data_ptr\"/>" \
+	"<reg name=\"lr_usr\" bitsize=\"32\" regnum=\"27\" type=\"code_ptr\"/>" \
+	"<reg name=\"r8_fiq\" bitsize=\"32\" type=\"uint32\" regnum=\"28\"/>" \
+	"<reg name=\"r9_fiq\" bitsize=\"32\" type=\"uint32\" regnum=\"29\"/>" \
+	"<reg name=\"r10_fiq\" bitsize=\"32\" type=\"uint32\" regnum=\"30\"/>" \
+	"<reg name=\"r11_fiq\" bitsize=\"32\" type=\"uint32\" regnum=\"31\"/>" \
+	"<reg name=\"r12_fiq\" bitsize=\"32\" type=\"uint32\" regnum=\"32\"/>" \
+	"<reg name=\"sp_fiq\" bitsize=\"32\" regnum=\"33\" type=\"data_ptr\"/>" \
+	"<reg name=\"lr_fiq\" bitsize=\"32\" regnum=\"34\" type=\"code_ptr\"/>" \
+	"<reg name=\"sp_irq\" bitsize=\"32\" regnum=\"35\" type=\"data_ptr\"/>" \
+	"<reg name=\"lr_irq\" bitsize=\"32\" regnum=\"36\" type=\"code_ptr\"/>" \
+	"<reg name=\"sp_svc\" bitsize=\"32\" regnum=\"37\" type=\"data_ptr\"/>" \
+	"<reg name=\"lr_svc\" bitsize=\"32\" regnum=\"38\" type=\"code_ptr\"/>" \
+	"<reg name=\"sp_abt\" bitsize=\"32\" regnum=\"39\" type=\"data_ptr\"/>" \
+	"<reg name=\"lr_abt\" bitsize=\"32\" regnum=\"40\" type=\"code_ptr\"/>" \
+	"<reg name=\"sp_und\" bitsize=\"32\" regnum=\"41\" type=\"data_ptr\"/>" \
+	"<reg name=\"lr_und\" bitsize=\"32\" regnum=\"42\" type=\"code_ptr\"/>" \
+	"<reg name=\"spsr_fiq\" bitsize=\"32\" regnum=\"43\"/>" \
+	"<reg name=\"spsr_irq\" bitsize=\"32\" regnum=\"44\"/>" \
+	"<reg name=\"spsr_svc\" bitsize=\"32\" regnum=\"45\"/>" \
+	"<reg name=\"spsr_abt\" bitsize=\"32\" regnum=\"46\"/>" \
+	"<reg name=\"spsr_und\" bitsize=\"32\" regnum=\"47\"/>" \
+	/* 23 regs */ \
+
+
 static const char* TARGET_XML_ARM7 =
 	"<target version=\"1.0\">"
 	"<architecture>armv4t</architecture>"
 	"<osabi>none</osabi>"
 	"<feature name=\"org.gnu.gdb.arm.core\">"
-	"<reg name=\"r0\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r1\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r2\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r3\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r4\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r5\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r6\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r7\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r8\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r9\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r10\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r11\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r12\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"sp\" bitsize=\"32\" type=\"data_ptr\"/>"
-	"<reg name=\"lr\" bitsize=\"32\"/>"
-	"<reg name=\"pc\" bitsize=\"32\" type=\"code_ptr\"/>"
-	"<reg name=\"cpsr\" bitsize=\"32\" regnum=\"25\"/>"
+	TARGET_XML__CORE_REGS
+	TARGET_XML__MODE_REGS
+	// 39 regs total
 	"</feature>"
 	"</target>";
+
 
 static const char* TARGET_XML_ARM9 =
 	"<target version=\"1.0\">"
 	"<architecture>armv5te</architecture>"
 	"<osabi>none</osabi>"
 	"<feature name=\"org.gnu.gdb.arm.core\">"
-	"<reg name=\"r0\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r1\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r2\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r3\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r4\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r5\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r6\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r7\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r8\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r9\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r10\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r11\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"r12\" bitsize=\"32\" type=\"uint32\"/>"
-	"<reg name=\"sp\" bitsize=\"32\" type=\"data_ptr\"/>"
-	"<reg name=\"lr\" bitsize=\"32\"/>"
-	"<reg name=\"pc\" bitsize=\"32\" type=\"code_ptr\"/>"
-	"<reg name=\"cpsr\" bitsize=\"32\" regnum=\"25\"/>"
+	TARGET_XML__CORE_REGS
+	TARGET_XML__MODE_REGS
+	// 39 regs total
 	"</feature>"
 	"</target>";
 	// TODO: CP15?
