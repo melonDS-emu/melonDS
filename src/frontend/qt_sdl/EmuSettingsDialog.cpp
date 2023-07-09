@@ -541,14 +541,12 @@ void EmuSettingsDialog::on_chkEnableJIT_toggled()
     #endif
     ui->spnJITMaximumBlockSize->setDisabled(disabled);
 
-#ifdef GDBSTUB_ENABLED
-    if (ui->cbGdbEnabled->isChecked() && !disabled)
-        ui->cbGdbEnabled->setChecked(false);
-#endif
+    on_cbGdbEnabled_toggled();
 }
 
 void EmuSettingsDialog::on_cbGdbEnabled_toggled()
 {
+#ifdef GDBSTUB_ENABLED
     bool disabled = !ui->cbGdbEnabled->isChecked();
     bool jitenable = ui->chkEnableJIT->isChecked();
 
@@ -556,8 +554,13 @@ void EmuSettingsDialog::on_cbGdbEnabled_toggled()
         ui->cbGdbEnabled->setChecked(false);
         disabled = true;
     }
+#else
+    bool disabled = true;
+    bool jitenable = true;
+    ui->cbGdbEnabled->setChecked(false);
+#endif
 
-    ui->cbGdbEnabled->setDisabled(disabled);
+    ui->cbGdbEnabled->setDisabled(jitenable);
     ui->intGdbPortA7->setDisabled(disabled);
     ui->intGdbPortA9->setDisabled(disabled);
     ui->cbGdbBOSA7->setDisabled(disabled);
