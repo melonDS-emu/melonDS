@@ -86,9 +86,13 @@ enum ConfigEntry
 
     DSi_FullBIOSBoot,
 
+#ifdef GDBSTUB_ENABLED
     GdbEnabled,
     GdbPortARM7,
-    GdbPortARM9
+    GdbPortARM9,
+    GdbARM7BreakOnStartup,
+    GdbARM9BreakOnStartup,
+#endif
 };
 
 int GetConfigInt(ConfigEntry entry);

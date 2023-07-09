@@ -187,6 +187,7 @@ protected:
 #ifdef GDBSTUB_ENABLED
     bool is_single_step;
     bool break_req;
+    bool break_on_startup;
 
     static u32 GdbReadReg(void* ud, Gdb::Register reg);
     static void GdbWriteReg(void* ud, Gdb::Register reg, u32 v);

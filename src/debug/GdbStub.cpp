@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <poll.h>
 #ifndef _WIN32
+#include <fcntl.h>
 #include <signal.h>
 #endif
 
@@ -187,10 +188,26 @@ StubState GdbStub::HandlePacket() {
 	// ---+
 }
 
-StubState GdbStub::Poll() {
+int sock_set_block(int fd, bool block) {
+	if (fd < 0) return -1;
+
+#ifdef _WIN32
+	unsigned long mode = block ? 0 : 1;
+	return ioctlsocket(fd, FIONBIO, &mode);
+#else
+	int flags = fcntl(fd, F_GETFL, 0);
+	if (flags == -1) return -1;
+	flags = block ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
+	return fcntl(fd, F_SETFL, flags);
+#endif
+}
+
+StubState GdbStub::Poll(bool wait) {
 	int r;
 
 	if (connfd <= 0) {
+		sock_set_block(sockfd, wait);
+
 		// not yet connected, so let's wait for one
 		// nonblocking only done in part of read_packet(), so that it can still
 		// quickly handle partly-received packets
@@ -217,7 +234,7 @@ StubState GdbStub::Poll() {
 	pfd.events = POLLIN;
 	pfd.revents = 0;
 
-	r = poll(&pfd, 1, 0);
+	r = poll(&pfd, 1, wait ? -1 : 0);
 
 	if (r == 0) return StubState::None; // nothing is happening
 
@@ -322,14 +339,14 @@ void GdbStub::SignalStatus(TgtStatus stat, u32 arg) {
 }
 
 
-StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg) {
+StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn) {
 	if (stat != TgtStatus::NoEvent) SignalStatus(stat, arg);
 
 	StubState st;
 	bool do_next = true;
 	do {
 		bool was_conn = connfd > 0;
-		st = Poll();
+		st = Poll(wait_for_conn);
 		bool has_conn = connfd > 0;
 
 		if (has_conn && !was_conn) stay = true;
@@ -377,7 +394,7 @@ void GdbStub::AddBkpt(u32 addr, int kind) {
 	Log(LogLevel::Debug, "[GDB] added bkpt:\n");
 	size_t i = 0;
 	for (auto search = bp_list.begin(); search != bp_list.end(); ++search, ++i) {
-		Log(LogLevel::Debug, "\t[%zu]: addr=%08x, kind=%d, used=%c\n", i, search->first, search->second.kind);
+		Log(LogLevel::Debug, "\t[%zu]: addr=%08x, kind=%d\n", i, search->first, search->second.kind);
 	}
 }
 void GdbStub::AddWatchpt(u32 addr, u32 len, int kind) {

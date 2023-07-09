@@ -105,9 +105,9 @@ public:
 	bool Init();
 	void Close();
 
-	StubState Poll();
+	StubState Poll(bool wait = false);
 	void SignalStatus(TgtStatus stat, u32 arg);
-	StubState Enter(bool stay, TgtStatus stat=TgtStatus::NoEvent, u32 arg=~(u32)0u);
+	StubState Enter(bool stay, TgtStatus stat=TgtStatus::NoEvent, u32 arg=~(u32)0u, bool wait_for_conn=false);
 
 	// kind: 2=thumb, 3=thumb2 (not relevant), 4=arm
 	void AddBkpt(u32 addr, int kind);

@@ -38,7 +38,8 @@ using Platform::LogLevel;
 #ifdef GDBSTUB_ENABLED
 #define GDB_CHECK_A() do{\
         if (!is_single_step && !break_req) { /* check if eg. break signal is incoming etc. */ \
-            Gdb::StubState st = gdbstub.Enter(false); \
+            Gdb::StubState st = gdbstub.Enter(false, Gdb::TgtStatus::NoEvent, ~(u32)0u, break_on_startup); \
+            break_on_startup = false; \
             is_single_step = st == Gdb::StubState::Step; \
             break_req = st == Gdb::StubState::Attach || st == Gdb::StubState::Break; \
         } \
@@ -189,6 +190,13 @@ void ARM::Reset()
     FastBlockLookup = NULL;
     FastBlockLookupStart = 0;
     FastBlockLookupSize = 0;
+#endif
+
+#ifdef GDBSTUB_ENABLED
+    is_single_step = false;
+    break_req = false;
+    break_on_startup = Platform::GetConfigBool(
+        Num ? Platform::GdbARM7BreakOnStartup : Platform::GdbARM9BreakOnStartup);
 #endif
 
     // zorp

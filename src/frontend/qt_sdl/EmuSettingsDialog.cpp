@@ -92,10 +92,14 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->cbGdbEnabled->setChecked(Config::GdbEnabled);
     ui->intGdbPortA7->setValue(Config::GdbPortARM7);
     ui->intGdbPortA9->setValue(Config::GdbPortARM9);
+    ui->cbGdbBOSA7->setChecked(Config::GdbARM7BreakOnStartup);
+    ui->cbGdbBOSA9->setChecked(Config::GdbARM9BreakOnStartup);
 #else
     ui->cbGdbEnabled->setDisabled(true);
     ui->intGdbPortA7->setDisabled(true);
     ui->intGdbPortA9->setDisabled(true);
+    ui->cbGdbBOSA7->setDisabled(true);
+    ui->cbGdbBOSA9->setDisabled(true);
 #endif
 
     on_chkEnableJIT_toggled();
@@ -236,6 +240,8 @@ void EmuSettingsDialog::done(int r)
         bool gdbEnabled = ui->cbGdbEnabled->isChecked();
         int gdbPortA7 = ui->intGdbPortA7->value();
         int gdbPortA9 = ui->intGdbPortA9->value();
+        bool gdbBOSA7 = ui->cbGdbBOSA7->isChecked();
+        bool gdbBOSA9 = ui->cbGdbBOSA9->isChecked();
 
         if (consoleType != Config::ConsoleType
             || directBoot != Config::DirectBoot
@@ -250,6 +256,8 @@ void EmuSettingsDialog::done(int r)
             || gdbEnabled != Config::GdbEnabled
             || gdbPortA7 != Config::GdbPortARM7
             || gdbPortA9 != Config::GdbPortARM9
+            || gdbBOSA7 != Config::GdbARM7BreakOnStartup
+            || gdbBOSA9 != Config::GdbARM9BreakOnStartup
 #endif
             || externalBiosEnable != Config::ExternalBIOSEnable
             || bios9Path != Config::BIOS9Path
@@ -315,6 +323,8 @@ void EmuSettingsDialog::done(int r)
             Config::GdbEnabled = gdbEnabled;
             Config::GdbPortARM7 = gdbPortA7;
             Config::GdbPortARM9 = gdbPortA9;
+            Config::GdbARM7BreakOnStartup = gdbBOSA7;
+            Config::GdbARM9BreakOnStartup = gdbBOSA9;
 #endif
 
             Config::ConsoleType = consoleType;
@@ -549,6 +559,8 @@ void EmuSettingsDialog::on_cbGdbEnabled_toggled()
 
     ui->intGdbPortA7->setDisabled(disabled);
     ui->intGdbPortA9->setDisabled(disabled);
+    ui->cbGdbBOSA7->setDisabled(disabled);
+    ui->cbGdbBOSA9->setDisabled(disabled);
 }
 
 void EmuSettingsDialog::on_chkExternalBIOS_toggled()
