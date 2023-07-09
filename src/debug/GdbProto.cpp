@@ -9,13 +9,15 @@
 #include <errno.h>
 #include <poll.h>
 
+#include "../Platform.h"
 #include "hexutil.h"
 
-#include "gdbproto.h"
+#include "GdbProto.h"
 
-#include "gdbstub_internal.h"
+using Platform::Log;
+using Platform::LogLevel;
 
-static uint8_t packetbuf[GDBPROTO_BUFFER_CAPACITY];
+namespace Gdb {
 
 /*
  * TODO commands to support:
@@ -28,15 +30,15 @@ static uint8_t packetbuf[GDBPROTO_BUFFER_CAPACITY];
  * vKill;pid
  * qRcmd? qSupported?
  */
-uint8_t gdbproto_cmdbuf[GDBPROTO_BUFFER_CAPACITY];
-ssize_t gdbproto_cmdlen;
-#define cmdbuf gdbproto_cmdbuf
-#define cmdlen gdbproto_cmdlen
+u8 Cmdbuf[GDBPROTO_BUFFER_CAPACITY];
+ssize_t Cmdlen;
 
-static uint8_t respbuf[GDBPROTO_BUFFER_CAPACITY+5];
+namespace Proto {
 
-enum gdbproto_read_result gdbproto_msg_recv(int connfd,
-		uint8_t cmd_dest[static GDBPROTO_BUFFER_CAPACITY]) {
+u8 packetbuf[GDBPROTO_BUFFER_CAPACITY];
+u8 respbuf[GDBPROTO_BUFFER_CAPACITY+5];
+
+ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/]) {
 	static ssize_t dataoff = 0;
 
 	ssize_t recv_total = dataoff;
@@ -47,10 +49,10 @@ enum gdbproto_read_result gdbproto_msg_recv(int connfd,
 
 	if (dataoff != 0) {
 		if (packetbuf[0] == '\x04') { // EOF
-			return gdbp_eof;
+			return ReadResult::Eof;
 		} else if (packetbuf[0] != '$') {
 			__builtin_trap();
-			return gdbp_wut;
+			return ReadResult::Wut;
 		}
 
 		for (ssize_t i = 1; i < dataoff; ++i) {
@@ -71,29 +73,29 @@ enum gdbproto_read_result gdbproto_msg_recv(int connfd,
 	}
 
 	while (cksumoff < 0) {
-		uint8_t* pkt = &packetbuf[dataoff];
+		u8* pkt = &packetbuf[dataoff];
 		ssize_t n, blehoff = 0;
 
 		memset(pkt, 0, sizeof(packetbuf) - dataoff);
 		n = recv(connfd, pkt, sizeof(packetbuf) - dataoff, first ? MSG_DONTWAIT : 0);
 
 		if (n <= 0) {
-			if (first) return gdbp_no_packet;
+			if (first) return ReadResult::NoPacket;
 			else {
-				//printf("[GDB] recv() error %zi, errno=%d (%s)\n", n, errno, strerror(errno));
-				return gdbp_eof;
+				Log(LogLevel::Debug, "[GDB] recv() error %zi, errno=%d (%s)\n", n, errno, strerror(errno));
+				return ReadResult::Eof;
 			}
 		}
 
-		//printf("[GDB] recv() %zd bytes: '%s' (%02x)\n", n, pkt, pkt[0]);
+		Log(LogLevel::Debug, "[GDB] recv() %zd bytes: '%s' (%02x)\n", n, pkt, pkt[0]);
 		first = false;
 
 		do {
 			if (dataoff == 0) {
 				if (pkt[blehoff] == '\x04') { // EOF
-					return gdbp_eof;
+					return ReadResult::Eof;
 				} else if (pkt[blehoff] == '\x03') { // break request
-					return gdbp_break;
+					return ReadResult::Break;
 				} else if (pkt[blehoff] != '$') {
 					++blehoff;
 					--n;
@@ -112,7 +114,7 @@ enum gdbproto_read_result gdbproto_msg_recv(int connfd,
 
 		recv_total += n;
 
-		//printf("[GDB] recv() after skipping: n=%zd, recv_total=%zd\n", n, recv_total);
+		Log(LogLevel::Debug, "[GDB] recv() after skipping: n=%zd, recv_total=%zd\n", n, recv_total);
 
 		for (ssize_t i = (dataoff == 0) ? 1 : 0; i < n; ++i) {
 			uint8_t v = pkt[i];
@@ -135,21 +137,21 @@ enum gdbproto_read_result gdbproto_msg_recv(int connfd,
 	uint8_t ck = (hex2nyb(packetbuf[cksumoff+0]) << 4)
 		| hex2nyb(packetbuf[cksumoff+1]);
 
-	//printf("[GDB] got pkt, checksum: %02x vs %02x\n", ck, sum);
+	Log(LogLevel::Debug, "[GDB] got pkt, checksum: %02x vs %02x\n", ck, sum);
 
 	if (ck != sum) {
 		__builtin_trap();
-		return gdbp_cksum_err;
+		return ReadResult::CksumErr;
 	}
 
 	if (cksumoff + 2 > recv_total) {
-		printf("[GDB] BIG MISTAKE: %zi > %zi which shouldn't happen!\n", cksumoff + 2, recv_total);
+		Log(LogLevel::Error, "[GDB] BIG MISTAKE: %zi > %zi which shouldn't happen!\n", cksumoff + 2, recv_total);
 		//__builtin_trap();
-		return gdbp_wut;
+		return ReadResult::Wut;
 	} else {
-		cmdlen = cksumoff - 2;
-		memcpy(cmdbuf, &packetbuf[1], cmdlen);
-		cmdbuf[cmdlen] = 0;
+		Cmdlen = cksumoff - 2;
+		memcpy(Cmdbuf, &packetbuf[1], Cmdlen);
+		Cmdbuf[Cmdlen] = 0;
 
 		if (cksumoff + 2 < recv_total) {
 			// huh, we have the start of the next packet
@@ -160,22 +162,22 @@ enum gdbproto_read_result gdbproto_msg_recv(int connfd,
 		}
 	}
 
-	return gdbp_cmd_recvd;
+	return ReadResult::CmdRecvd;
 }
 
-int gdbproto_send_ack(int connfd) {
-	//printf("[GDB] send ack\n");
+int SendAck(int connfd) {
+	Log(LogLevel::Debug, "[GDB] send ack\n");
 	uint8_t v = '+';
 	return send(connfd, &v, 1, 0);
 }
 
-int gdbproto_send_nak(int connfd) {
-	//printf("[GDB] send nak\n");
+int SendNak(int connfd) {
+	Log(LogLevel::Debug, "[GDB] send nak\n");
 	uint8_t v = '-';
 	return send(connfd, &v, 1, 0);
 }
 
-static int wait_ack_blocking(int connfd, uint8_t* ackp, int to_ms) {
+int wait_ack_blocking(int connfd, u8* ackp, int to_ms) {
 	struct pollfd pfd;
 
 	pfd.fd = connfd;
@@ -196,14 +198,16 @@ static int wait_ack_blocking(int connfd, uint8_t* ackp, int to_ms) {
 	return (r == 1) ? 0 : -1;
 }
 
-int gdbproto_resp_2(int connfd, const uint8_t* data1, size_t len1,
-                                const uint8_t* data2, size_t len2) {
-	uint8_t cksum = 0;
+int Resp(int connfd, const u8* data1, size_t len1, const u8* data2, size_t len2) {
+	u8 cksum = 0;
 	int tries = 0;
 
 	size_t totallen = len1 + len2;
 
-	if (totallen >= GDBPROTO_BUFFER_CAPACITY) return -42;
+	if (totallen >= GDBPROTO_BUFFER_CAPACITY) {
+		Log(LogLevel::Error, "[GDB] packet with len %zu can't fit in buffer!\n", totallen);
+		return -42;
+	}
 
 	respbuf[0] = '$';
 	for (size_t i = 0; i < len1; ++i) {
@@ -222,12 +226,12 @@ int gdbproto_resp_2(int connfd, const uint8_t* data1, size_t len1,
 		ssize_t r;
 		uint8_t ack;
 
-		//printf("[GDB] send resp: '%s'\n", respbuf);
+		Log(LogLevel::Debug, "[GDB] send resp: '%s'\n", respbuf);
 		r = send(connfd, respbuf, totallen+4, 0);
 		if (r < 0) return r;
 
 		r = wait_ack_blocking(connfd, &ack, 2000);
-		//printf("[GDB] got ack: '%c'\n", ack);
+		Log(LogLevel::Debug, "[GDB] got ack: '%c'\n", ack);
 		if (r == 0 && ack == '+') break;
 
 		++tries;
@@ -237,20 +241,24 @@ int gdbproto_resp_2(int connfd, const uint8_t* data1, size_t len1,
 }
 
 __attribute__((__format__(printf, 2, 3)))
-int gdbproto_resp_fmt(int connfd, const char* fmt, ...) {
+int RespFmt(int connfd, const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	int r = vsnprintf(&respbuf[1], sizeof(respbuf)-5, fmt, args);
+	int r = vsnprintf((char*)&respbuf[1], sizeof(respbuf)-5, fmt, args);
 	va_end(args);
 
 	if (r < 0) return r;
 
-	if (r >= sizeof(respbuf)-5) {
-		printf("[GDB] truncated response in send_fmt()! (lost %zd bytes)\n",
+	if ((size_t)r >= sizeof(respbuf)-5) {
+		Log(LogLevel::Error, "[GDB] truncated response in send_fmt()! (lost %zd bytes)\n",
 				(ssize_t)r - (ssize_t)(sizeof(respbuf)-5));
 		r = sizeof(respbuf)-5;
 	}
 
-	return gdbproto_resp(connfd, &respbuf[1], r);
+	return Resp(connfd, &respbuf[1], r);
+}
+
+}
+
 }
 

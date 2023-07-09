@@ -62,9 +62,9 @@ add_library(core STATIC
 if (ENABLE_GDBSTUB)
     message(NOTICE "Enabling GDB stub")
     target_sources(core PRIVATE
-        debug/gdbstub.c
-        debug/gdbproto.c
-        debug/gdbcmds.c
+        debug/GdbStub.cpp
+        debug/GdbProto.cpp
+        debug/GdbCmds.cpp
     )
 endif()
 

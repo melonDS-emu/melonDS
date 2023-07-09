@@ -25,8 +25,7 @@
 #include "NDS.h"
 
 #ifdef GDBSTUB_ENABLED
-#include "debug/gdbstub.h"
-#include "debug/gdbarch.h"
+#include "debug/GdbStub.h"
 #endif
 
 inline u32 ROR(u32 x, u32 n)
@@ -174,7 +173,7 @@ public:
 
     static u32 ConditionTable[16];
 #ifdef GDBSTUB_ENABLED
-    struct gdbstub* stub;
+    Gdb::GdbStub gdbstub;
 #endif
 
 protected:
@@ -189,13 +188,13 @@ protected:
     bool is_single_step;
     bool break_req;
 
-    static uint32_t GdbReadReg(void* ud, int reg);
-    static void GdbWriteReg(void* ud, int reg, uint32_t v);
-    static uint32_t GdbReadMem(void* ud, uint32_t addr, int size);
-    static void GdbWriteMem(void* ud, uint32_t addr, int size, uint32_t v);
+    static u32 GdbReadReg(void* ud, Gdb::Register reg);
+    static void GdbWriteReg(void* ud, Gdb::Register reg, u32 v);
+    static u32 GdbReadMem(void* ud, u32 addr, int size);
+    static void GdbWriteMem(void* ud, u32 addr, int size, u32 v);
 
     static void GdbReset(void* ud);
-    static int GdbRemoteCmd(void* ud, const uint8_t* cmd, size_t len);
+    static int GdbRemoteCmd(void* ud, const u8* cmd, size_t len);
 #endif
 };
 
@@ -338,7 +337,7 @@ public:
     bool (*GetMemRegion)(u32 addr, bool write, NDS::MemRegion* region);
 
 #ifdef GDBSTUB_ENABLED
-    static const struct gdbstub_callbacks GdbStubCallbacks;
+    static const Gdb::StubCallbacks GdbStubCallbacks;
 #endif
 };
 
@@ -498,7 +497,7 @@ public:
     }
 
 #ifdef GDBSTUB_ENABLED
-    static const struct gdbstub_callbacks GdbStubCallbacks;
+    static const Gdb::StubCallbacks GdbStubCallbacks;
 #endif
 };
 

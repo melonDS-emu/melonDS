@@ -2,6 +2,10 @@
 #ifndef HEXUTIL_GDB_H_
 #define HEXUTIL_GDB_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 inline static uint8_t hex2nyb(uint8_t v) {
@@ -50,6 +54,10 @@ inline static uint32_t unhex32(const uint8_t* src) {
 	}
 	return v;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

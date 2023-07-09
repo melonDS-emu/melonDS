@@ -28,7 +28,7 @@ using Platform::Log;
 using Platform::LogLevel;
 
 #ifdef GDBSTUB_ENABLED
-#include "debug/gdbstub.h"
+#include "debug/GdbStub.h"
 #endif
 
 namespace ARMInterpreter
@@ -39,7 +39,7 @@ void A_UNK(ARM* cpu)
 {
     Log(LogLevel::Warn, "undefined ARM%d instruction %08X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-8);
 #ifdef GDBSTUB_ENABLED
-    gdbstub_enter_reason(cpu->stub, true, gdbt_fault_insn, cpu->R[15]-8);
+    cpu->gdbstub.Enter(true, Gdb::TgtStatus::FaultInsn, cpu->R[15]-8);
 #endif
     //for (int i = 0; i < 16; i++) printf("R%d: %08X\n", i, cpu->R[i]);
     //NDS::Halt();
@@ -57,7 +57,7 @@ void T_UNK(ARM* cpu)
 {
     Log(LogLevel::Warn, "undefined THUMB%d instruction %04X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-4);
 #ifdef GDBSTUB_ENABLED
-    gdbstub_enter_reason(cpu->stub, true, gdbt_fault_insn, cpu->R[15]-4);
+    cpu->gdbstub.Enter(true, Gdb::TgtStatus::FaultInsn, cpu->R[15]-4);
 #endif
     //NDS::Halt();
     u32 oldcpsr = cpu->CPSR;

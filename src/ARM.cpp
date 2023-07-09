@@ -38,9 +38,9 @@ using Platform::LogLevel;
 #ifdef GDBSTUB_ENABLED
 #define GDB_CHECK_A() do{\
         if (!is_single_step && !break_req) { /* check if eg. break signal is incoming etc. */ \
-            enum gdbstub_state st = gdbstub_enter(stub, false); \
-            is_single_step = st == gdbstat_step; \
-            break_req = st == gdbstat_attach || st == gdbstat_break; \
+            Gdb::StubState st = gdbstub.Enter(false); \
+            is_single_step = st == Gdb::StubState::Step; \
+            break_req = st == Gdb::StubState::Attach || st == Gdb::StubState::Break; \
         } \
     } while (0) \
 
@@ -48,19 +48,19 @@ using Platform::LogLevel;
         if (is_single_step || break_req) \
         { /* use else here or we singnle-step the same insn twice in gdb */ \
             uint32_t pc_real = R[15] - ((CPSR & 0x20) ? 2 : 4); \
-            enum gdbstub_state st = gdbstub_enter_reason(stub, true, gdbt_singlestep, pc_real); \
-            is_single_step = st == gdbstat_step; \
-            break_req = st == gdbstat_attach || st == gdbstat_break; \
+            Gdb::StubState st = gdbstub.Enter(true, Gdb::TgtStatus::SingleStep, pc_real); \
+            is_single_step = st == Gdb::StubState::Step; \
+            break_req = st == Gdb::StubState::Attach || st == Gdb::StubState::Break; \
         } \
     } while (0) \
 
 
 #define GDB_CHECK_C() do{\
         uint32_t pc_real = R[15] - ((CPSR & 0x20) ? 2 : 4); \
-        enum gdbstub_state st = gdbstub_check_bkpt(stub, pc_real, true, true); \
-        if (st != gdbstat_check_no_hit) { \
-            is_single_step = st == gdbstat_step; \
-            break_req = st == gdbstat_attach || st == gdbstat_break; \
+        Gdb::StubState st = gdbstub.CheckBkpt(pc_real, true, true); \
+        if (st != Gdb::StubState::CheckNoHit) { \
+            is_single_step = st == Gdb::StubState::Step; \
+            break_req = st == Gdb::StubState::Attach || st == Gdb::StubState::Break; \
         } else GDB_CHECK_B(true); \
     } while (0) \
 
@@ -107,23 +107,22 @@ u32 ARM::ConditionTable[16] =
 
 
 ARM::ARM(u32 num)
+#ifdef GDBSTUB_ENABLED
+    : gdbstub(num ? &ARMv4::GdbStubCallbacks : &ARMv5::GdbStubCallbacks,
+            3333 + (int)num, this)
+#endif
 {
     // well uh
     Num = num;
 
 #ifdef GDBSTUB_ENABLED
-    stub = gdbstub_new(
-            num ? &ARMv4::GdbStubCallbacks : &ARMv5::GdbStubCallbacks,
-            3333 + (int)num, this);
+    gdbstub.Init();
     is_single_step = false;
 #endif
 }
 
 ARM::~ARM()
 {
-#ifdef GDBSTUB_ENABLED
-    gdbstub_close(stub);
-#endif
     // dorp
 }
 
@@ -982,113 +981,116 @@ void ARMv4::FillPipeline()
 }
 
 #ifdef GDBSTUB_ENABLED
-uint32_t ARM::GdbReadReg(void* ud, int reg)
+u32 ARM::GdbReadReg(void* ud, Gdb::Register reg)
 {
+    using Gdb::Register;
     ARM* cpu = (ARM*)ud;
+    int r = static_cast<int>(reg);
 
-    if (reg < gdb_reg_pc) return cpu->R[reg];
-    else if (reg == gdb_reg_pc)
-        return cpu->R[reg] - ((cpu->CPSR & 0x20) ? 2 : 4);
-    else if (reg == gdb_reg_cpsr) return cpu->CPSR;
-    else if (reg == gdb_reg_sp_usr || reg == gdb_reg_lr_usr) {
-        reg -= gdb_reg_sp_usr;
-        if (ModeIs(0x10) || ModeIs(0x1f))
-            return cpu->R[13 + reg];
-        else switch (CPSR & 0x1f) {
-        case 0x11: return cpu->R_FIQ[5 + reg];
-        case 0x12: return cpu->R_IRQ[0 + reg];
-        case 0x13: return cpu->R_SVC[0 + reg];
-        case 0x17: return cpu->R_ABT[0 + reg];
-        case 0x1b: return cpu->R_UND[0 + reg];
+    if (reg < Register::pc) return cpu->R[r];
+    else if (reg == Register::pc)
+        return cpu->R[r] - ((cpu->CPSR & 0x20) ? 2 : 4);
+    else if (reg == Register::cpsr) return cpu->CPSR;
+    else if (reg == Register::sp_usr || reg == Register::lr_usr) {
+        r -= static_cast<int>(Register::sp_usr);
+        if (cpu->ModeIs(0x10) || cpu->ModeIs(0x1f))
+            return cpu->R[13 + r];
+        else switch (cpu->CPSR & 0x1f) {
+        case 0x11: return cpu->R_FIQ[5 + r];
+        case 0x12: return cpu->R_IRQ[0 + r];
+        case 0x13: return cpu->R_SVC[0 + r];
+        case 0x17: return cpu->R_ABT[0 + r];
+        case 0x1b: return cpu->R_UND[0 + r];
         }
     }
-    else if (reg >= gdb_reg_r8_fiq && reg <= gdb_reg_lr_fiq) {
-        reg -= gdb_reg_r8_fiq;
-        return ModeIs(0x11) ? &cpu->R[ 8 + reg] : c&pu->R_FIQ[reg];
+    else if (reg >= Register::r8_fiq && reg <= Register::lr_fiq) {
+        r -= static_cast<int>(Register::r8_fiq);
+        return cpu->ModeIs(0x11) ? cpu->R[ 8 + r] : cpu->R_FIQ[r];
     }
-    else if (reg == gdb_reg_sp_irq || reg == gdb_reg_lr_irq) {
-        reg -= gdb_reg_sp_irq;
-        return ModeIs(0x12) ? &cpu->R[13 + reg] : &cpu->R_IRQ[reg];
+    else if (reg == Register::sp_irq || reg == Register::lr_irq) {
+        r -= static_cast<int>(Register::sp_irq);
+        return cpu->ModeIs(0x12) ? cpu->R[13 + r] : cpu->R_IRQ[r];
     }
-    else if (reg == gdb_reg_sp_svc || reg == gdb_reg_lr_svc) {
-        reg -= gdb_reg_sp_svc;
-        return ModeIs(0x13) ? &cpu->R[13 + reg] : &cpu->R_SVC[reg];
+    else if (reg == Register::sp_svc || reg == Register::lr_svc) {
+        r -= static_cast<int>(Register::sp_svc);
+        return cpu->ModeIs(0x13) ? cpu->R[13 + r] : cpu->R_SVC[r];
     }
-    else if (reg == gdb_reg_sp_abt || reg == gdb_reg_lr_abt) {
-        reg -= gdb_reg_sp_abt;
-        return ModeIs(0x17) ? &cpu->R[13 + reg] : &cpu->R_ABT[reg];
+    else if (reg == Register::sp_abt || reg == Register::lr_abt) {
+        r -= static_cast<int>(Register::sp_abt);
+        return cpu->ModeIs(0x17) ? cpu->R[13 + r] : cpu->R_ABT[r];
     }
-    else if (reg == gdb_reg_sp_und || reg == gdb_reg_lr_und) {
-        reg -= gdb_reg_sp_und;
-        return ModeIs(0x1b) ? &cpu->R[13 + reg] : &cpu->R_UND[reg];
+    else if (reg == Register::sp_und || reg == Register::lr_und) {
+        r -= static_cast<int>(Register::sp_und);
+        return cpu->ModeIs(0x1b) ? cpu->R[13 + r] : cpu->R_UND[r];
     }
-    else if (reg == gdb_reg_spsr_fiq) return ModeIs(0x11) ? cpu->CPSR : cpu->R_FIQ[7];
-    else if (reg == gdb_reg_spsr_irq) return ModeIs(0x12) ? cpu->CPSR : cpu->R_IRQ[2];
-    else if (reg == gdb_reg_spsr_svc) return ModeIs(0x13) ? cpu->CPSR : cpu->R_SVC[2];
-    else if (reg == gdb_reg_spsr_abt) return ModeIs(0x17) ? cpu->CPSR : cpu->R_ABT[2];
-    else if (reg == gdb_reg_spsr_und) return ModeIs(0x1b) ? cpu->CPSR : cpu->R_UND[2];
-    else {
-        Log(LogLevel::Warn, "GDB reg read: unknown reg no %d\n", reg);
-        return 0xdeadbeef;
-    }
-}
-void ARM::GdbWriteReg(void* ud, int reg, uint32_t v)
-{
-    ARM* cpu = (ARM*)ud;
+    else if (reg == Register::spsr_fiq) return cpu->ModeIs(0x11) ? cpu->CPSR : cpu->R_FIQ[7];
+    else if (reg == Register::spsr_irq) return cpu->ModeIs(0x12) ? cpu->CPSR : cpu->R_IRQ[2];
+    else if (reg == Register::spsr_svc) return cpu->ModeIs(0x13) ? cpu->CPSR : cpu->R_SVC[2];
+    else if (reg == Register::spsr_abt) return cpu->ModeIs(0x17) ? cpu->CPSR : cpu->R_ABT[2];
+    else if (reg == Register::spsr_und) return cpu->ModeIs(0x1b) ? cpu->CPSR : cpu->R_UND[2];
 
-    if (reg < gdb_reg_pc) cpu->R[reg] = v;
-    else if (reg == gdb_reg_pc) cpu->JumpTo(v);
-    else if (reg == gdb_reg_cpsr) cpu->CPSR = v;
-    else if (reg == gdb_reg_sp_usr || reg == gdb_reg_lr_usr) {
-        reg -= gdb_reg_sp_usr;
-        if (ModeIs(0x10) || ModeIs(0x1f))
-            cpu->R[13 + reg] = v;
-        else switch (CPSR & 0x1f) {
-        case 0x11: cpu->R_FIQ[5 + reg] = v; break;
-        case 0x12: cpu->R_IRQ[0 + reg] = v; break;
-        case 0x13: cpu->R_SVC[0 + reg] = v; break;
-        case 0x17: cpu->R_ABT[0 + reg] = v; break;
-        case 0x1b: cpu->R_UND[0 + reg] = v; break;
+    Log(LogLevel::Warn, "GDB reg read: unknown reg no %d\n", r);
+    return 0xdeadbeef;
+}
+void ARM::GdbWriteReg(void* ud, Gdb::Register reg, u32 v)
+{
+    using Gdb::Register;
+    ARM* cpu = (ARM*)ud;
+    int r = static_cast<int>(reg);
+
+    if (reg < Register::pc) cpu->R[r] = v;
+    else if (reg == Register::pc) cpu->JumpTo(v);
+    else if (reg == Register::cpsr) cpu->CPSR = v;
+    else if (reg == Register::sp_usr || reg == Register::lr_usr) {
+        r -= static_cast<int>(Register::sp_usr);
+        if (cpu->ModeIs(0x10) || cpu->ModeIs(0x1f))
+            cpu->R[13 + r] = v;
+        else switch (cpu->CPSR & 0x1f) {
+        case 0x11: cpu->R_FIQ[5 + r] = v; break;
+        case 0x12: cpu->R_IRQ[0 + r] = v; break;
+        case 0x13: cpu->R_SVC[0 + r] = v; break;
+        case 0x17: cpu->R_ABT[0 + r] = v; break;
+        case 0x1b: cpu->R_UND[0 + r] = v; break;
         }
     }
-    else if (reg >= gdb_reg_r8_fiq && reg <= gdb_reg_lr_fiq) {
-        reg -= gdb_reg_r8_fiq;
-        *(ModeIs(0x11) ? &cpu->R[ 8 + reg] : c&pu->R_FIQ[reg]) = v;
+    else if (reg >= Register::r8_fiq && reg <= Register::lr_fiq) {
+        r -= static_cast<int>(Register::r8_fiq);
+        *(cpu->ModeIs(0x11) ? &cpu->R[ 8 + r] : &cpu->R_FIQ[r]) = v;
     }
-    else if (reg == gdb_reg_sp_irq || reg == gdb_reg_lr_irq) {
-        reg -= gdb_reg_sp_irq;
-        *(ModeIs(0x12) ? &cpu->R[13 + reg] : &cpu->R_IRQ[reg]) = v;
+    else if (reg == Register::sp_irq || reg == Register::lr_irq) {
+        r -= static_cast<int>(Register::sp_irq);
+        *(cpu->ModeIs(0x12) ? &cpu->R[13 + r] : &cpu->R_IRQ[r]) = v;
     }
-    else if (reg == gdb_reg_sp_svc || reg == gdb_reg_lr_svc) {
-        reg -= gdb_reg_sp_svc;
-        *(ModeIs(0x13) ? &cpu->R[13 + reg] : &cpu->R_SVC[reg]) = v;
+    else if (reg == Register::sp_svc || reg == Register::lr_svc) {
+        r -= static_cast<int>(Register::sp_svc);
+        *(cpu->ModeIs(0x13) ? &cpu->R[13 + r] : &cpu->R_SVC[r]) = v;
     }
-    else if (reg == gdb_reg_sp_abt || reg == gdb_reg_lr_abt) {
-        reg -= gdb_reg_sp_abt;
-        *(ModeIs(0x17) ? &cpu->R[13 + reg] : &cpu->R_ABT[reg]) = v;
+    else if (reg == Register::sp_abt || reg == Register::lr_abt) {
+        r -= static_cast<int>(Register::sp_abt);
+        *(cpu->ModeIs(0x17) ? &cpu->R[13 + r] : &cpu->R_ABT[r]) = v;
     }
-    else if (reg == gdb_reg_sp_und || reg == gdb_reg_lr_und) {
-        reg -= gdb_reg_sp_und;
-        *(ModeIs(0x1b) ? &cpu->R[13 + reg] : &cpu->R_UND[reg]) = v;
+    else if (reg == Register::sp_und || reg == Register::lr_und) {
+        r -= static_cast<int>(Register::sp_und);
+        *(cpu->ModeIs(0x1b) ? &cpu->R[13 + r] : &cpu->R_UND[r]) = v;
     }
-    else if (reg == gdb_reg_spsr_fiq) {
-        *(ModeIs(0x11) ? &cpu->CPSR : &cpu->R_FIQ[7]) = v;
+    else if (reg == Register::spsr_fiq) {
+        *(cpu->ModeIs(0x11) ? &cpu->CPSR : &cpu->R_FIQ[7]) = v;
     }
-    else if (reg == gdb_reg_spsr_irq) {
-        *(ModeIs(0x12) ? &cpu->CPSR : &cpu->R_IRQ[2]) = v;
+    else if (reg == Register::spsr_irq) {
+        *(cpu->ModeIs(0x12) ? &cpu->CPSR : &cpu->R_IRQ[2]) = v;
     }
-    else if (reg == gdb_reg_spsr_svc) {
-        *(ModeIs(0x13) ? &cpu->CPSR : &cpu->R_SVC[2]) = v;
+    else if (reg == Register::spsr_svc) {
+        *(cpu->ModeIs(0x13) ? &cpu->CPSR : &cpu->R_SVC[2]) = v;
     }
-    else if (reg == gdb_reg_spsr_abt) {
-        *(ModeIs(0x17) ? &cpu->CPSR : &cpu->R_ABT[2]) = v;
+    else if (reg == Register::spsr_abt) {
+        *(cpu->ModeIs(0x17) ? &cpu->CPSR : &cpu->R_ABT[2]) = v;
     }
-    else if (reg == gdb_reg_spsr_und) {
-        *(ModeIs(0x1b) ? &cpu->CPSR : &cpu->R_UND[2]) = v;
+    else if (reg == Register::spsr_und) {
+        *(cpu->ModeIs(0x1b) ? &cpu->CPSR : &cpu->R_UND[2]) = v;
     }
-    else Log(LogLevel::Warn, "GDB reg write: unknown reg no %d (write 0x%08x)\n", reg, v);
+    else Log(LogLevel::Warn, "GDB reg write: unknown reg no %d (write 0x%08x)\n", r, v);
 }
-uint32_t ARM::GdbReadMem(void* ud, uint32_t addr, int size)
+u32 ARM::GdbReadMem(void* ud, u32 addr, int size)
 {
     ARM* cpu = (ARM*)ud;
 
@@ -1117,7 +1119,7 @@ uint32_t ARM::GdbReadMem(void* ud, uint32_t addr, int size)
     else if (size == 32) return cpu->BusRead32(addr);
     else return 0xfeedface;
 }
-void ARM::GdbWriteMem(void* ud, uint32_t addr, int size, uint32_t v)
+void ARM::GdbWriteMem(void* ud, u32 addr, int size, u32 v)
 {
     ARM* cpu = (ARM*)ud;
 
@@ -1157,11 +1159,11 @@ void ARM::GdbReset(void* ud)
     NDS::Reset();
     GPU::StartFrame(); // need this to properly kick off the scheduler & frame output
 }
-int ARM::GdbRemoteCmd(void* ud, const uint8_t* cmd, size_t len)
+int ARM::GdbRemoteCmd(void* ud, const u8* cmd, size_t len)
 {
     (void)len;
 
-    printf("[ARMGDB] Rcmd: \"%s\"\n", cmd);
+    Log(LogLevel::Info, "[ARMGDB] Rcmd: \"%s\"\n", cmd);
     if (!strcmp((const char*)cmd, "reset") || !strcmp((const char*)cmd, "r")) {
         GdbReset(ud);
         return 0;
@@ -1170,27 +1172,27 @@ int ARM::GdbRemoteCmd(void* ud, const uint8_t* cmd, size_t len)
     return 1; // not implemented (yet)
 }
 
-const struct gdbstub_callbacks ARMv4::GdbStubCallbacks ={
+const Gdb::StubCallbacks ARMv4::GdbStubCallbacks ={
     .cpu = 7,
 
-    .read_reg  = ARM::GdbReadReg ,
-    .write_reg = ARM::GdbWriteReg,
-    .read_mem  = ARM::GdbReadMem ,
-    .write_mem = ARM::GdbWriteMem,
+    .ReadReg  = ARM::GdbReadReg ,
+    .WriteReg = ARM::GdbWriteReg,
+    .ReadMem  = ARM::GdbReadMem ,
+    .WriteMem = ARM::GdbWriteMem,
 
-    .reset = ARM::GdbReset,
-    .remote_cmd = ARM::GdbRemoteCmd,
+    .Reset = ARM::GdbReset,
+    .RemoteCmd = ARM::GdbRemoteCmd,
 };
-const struct gdbstub_callbacks ARMv5::GdbStubCallbacks ={
+const Gdb::StubCallbacks ARMv5::GdbStubCallbacks ={
     .cpu = 9,
 
-    .read_reg  = ARM::GdbReadReg ,
-    .write_reg = ARM::GdbWriteReg,
-    .read_mem  = ARM::GdbReadMem ,
-    .write_mem = ARM::GdbWriteMem,
+    .ReadReg  = ARM::GdbReadReg ,
+    .WriteReg = ARM::GdbWriteReg,
+    .ReadMem  = ARM::GdbReadMem ,
+    .WriteMem = ARM::GdbWriteMem,
 
-    .reset = ARM::GdbReset,
-    .remote_cmd = ARM::GdbRemoteCmd,
+    .Reset = ARM::GdbReset,
+    .RemoteCmd = ARM::GdbRemoteCmd,
 };
 #endif
 
