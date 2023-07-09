@@ -1,16 +1,25 @@
 
-#define _GNU_SOURCE
+#ifdef _WIN32
+#include <WS2tcpip.h>
+#include <winsock.h>
+#include <winsock2.h>
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <poll.h>
+
 #ifndef _WIN32
+#include <sys/socket.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <signal.h>
+#include <arpa/inet.h>
+#include <netinet/tcp.h>
 #endif
+
 
 #include "../Platform.h"
 #include "GdbProto.h"
@@ -18,12 +27,28 @@
 using Platform::Log;
 using Platform::LogLevel;
 
+static int sock_set_block(int fd, bool block) {
+	if (fd < 0) return -1;
+
+#ifdef _WIN32
+	unsigned long mode = block ? 0 : 1;
+	return ioctlsocket(fd, FIONBIO, &mode);
+#else
+	int flags = fcntl(fd, F_GETFL, 0);
+	if (flags == -1) return -1;
+	flags = block ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
+	return fcntl(fd, F_SETFL, flags);
+#endif
+}
+
 namespace Gdb {
 
 GdbStub::GdbStub(const StubCallbacks* cb, int port, void* ud)
 	: cb(cb), ud(ud), port(port)
 	, sockfd(0), connfd(0)
 	, stat(TgtStatus::None), cur_bkpt(0), cur_watchpt(0), stat_flag(false)
+	, serversa((void*)new struct sockaddr_in())
+	, clientsa((void*)new struct sockaddr_in())
 { }
 
 bool GdbStub::Init() {
@@ -39,21 +64,36 @@ bool GdbStub::Init() {
 		Log(LogLevel::Warn, "[GDB] couldn't ignore SIGPIPE, stuff may fail on GDB disconnect.\n");
 	}*/
 	signal(SIGPIPE, SIG_IGN);
+#else
+	WSADATA wsa;
+	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+		Log(LogLevel::Error, "[GDB] winsock could not be initialized (%d).\n", WSAGetLastError());
+		return false;
+	}
 #endif
 
 	int r;
+	struct sockaddr_in* server = (struct sockaddr_in*)serversa;
+	struct sockaddr_in* client = (struct sockaddr_in*)clientsa;
 
-	sockfd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
+	int typ = SOCK_STREAM;
+#ifdef __linux__
+	typ |= SOCK_NONBLOCK;
+#endif
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0) {
 		Log(LogLevel::Error, "[GDB] err: can't create a socket fd\n");
 		goto err;
 	}
+#ifndef __linux__
+	sock_set_block(sockfd, false);
+#endif
 
-	server.sin_family = AF_INET;
-	server.sin_addr.s_addr = htonl(INADDR_ANY);
-	server.sin_port = htons(port);
+	server->sin_family = AF_INET;
+	server->sin_addr.s_addr = htonl(INADDR_ANY);
+	server->sin_port = htons(port);
 
-	r = bind(sockfd, (const sockaddr*)(&server), sizeof(server));
+	r = bind(sockfd, (const sockaddr*)server, sizeof(*server));
 	if (r < 0) {
 		Log(LogLevel::Error, "[GDB] err: can't bind to address <any> and port %d\n", port);
 		goto err;
@@ -69,7 +109,11 @@ bool GdbStub::Init() {
 
 err:
 	if (sockfd != 0) {
+#ifdef _WIN32
+		closesocket(sockfd);
+#else
 		close(sockfd);
+#endif
 		sockfd = 0;
 	}
 
@@ -87,7 +131,11 @@ void GdbStub::Disconnect() {
 	connfd = 0;
 }
 
-GdbStub::~GdbStub() { Close(); }
+GdbStub::~GdbStub() {
+	Close();
+	delete (struct sockaddr_in*)serversa;
+	delete (struct sockaddr_in*)clientsa;
+}
 
 SubcmdHandler GdbStub::handlers_v[] = {
 	{ .maincmd = 'v', .substr = "Attach;"       , .handler = GdbStub::Handle_v_Attach },
@@ -188,20 +236,6 @@ StubState GdbStub::HandlePacket() {
 	// ---+
 }
 
-int sock_set_block(int fd, bool block) {
-	if (fd < 0) return -1;
-
-#ifdef _WIN32
-	unsigned long mode = block ? 0 : 1;
-	return ioctlsocket(fd, FIONBIO, &mode);
-#else
-	int flags = fcntl(fd, F_GETFL, 0);
-	if (flags == -1) return -1;
-	flags = block ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
-	return fcntl(fd, F_SETFL, flags);
-#endif
-}
-
 StubState GdbStub::Poll(bool wait) {
 	int r;
 
@@ -211,8 +245,13 @@ StubState GdbStub::Poll(bool wait) {
 		// not yet connected, so let's wait for one
 		// nonblocking only done in part of read_packet(), so that it can still
 		// quickly handle partly-received packets
-		socklen_t len = sizeof(client);
-		connfd = accept4(sockfd, (struct sockaddr*)&client, &len, /*SOCK_NONBLOCK|*/SOCK_CLOEXEC);
+		struct sockaddr_in* client = (struct sockaddr_in*)clientsa;
+		socklen_t len = sizeof(*client);
+#ifdef __linux__
+		connfd = accept4(sockfd, (struct sockaddr*)client, &len, /*SOCK_NONBLOCK|*/SOCK_CLOEXEC);
+#else
+		connfd = accept(sockfd, (struct sockaddr*)client, &len);
+#endif
 
 		if (connfd < 0) {
 			return StubState::NoConn;
@@ -229,6 +268,7 @@ StubState GdbStub::Poll(bool wait) {
 		Handle_Question(this, NULL, 0); // ugly hack but it should work
 	}
 
+#ifndef _WIN32
 	struct pollfd pfd;
 	pfd.fd = connfd;
 	pfd.events = POLLIN;
@@ -243,6 +283,27 @@ StubState GdbStub::Poll(bool wait) {
 		Disconnect();
 		return StubState::Disconnect;
 	}
+#else
+	fd_set infd, outfd, errfd;
+	FD_ZERO(&infd); FD_ZERO(&outfd); FD_ZERO(&errfd);
+	FD_SET(connfd, &infd);
+
+	struct timeval to;
+	if (wait) {
+		to.tv_sec = ~(time_t)0; to.tv_usec = ~(long)0;
+	} else {
+		to.tv_sec = 0; to.tv_usec = 0;
+	}
+
+	r = select(1+1, &infd, &outfd, &errfd, &to);
+
+	if (FD_ISSET(connfd, &errfd)) {
+		Disconnect();
+		return StubState::Disconnect;
+	} else if (!FD_ISSET(connfd, &infd)) {
+		return StubState::None;
+	}
+#endif
 
 	ReadResult res = Proto::MsgRecv(connfd, Cmdbuf);
 

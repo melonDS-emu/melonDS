@@ -3,8 +3,6 @@
 #define GDBSTUB_H_
 
 #include <stddef.h>
-#include <arpa/inet.h>
-#include <netinet/tcp.h>
 #include <map>
 #include <vector>
 
@@ -134,7 +132,8 @@ private:
 	const StubCallbacks* cb;
     void* ud;
 
-	struct sockaddr_in server, client;
+	//struct sockaddr_in server, client;
+	void *serversa, *clientsa;
 	int port;
 	int sockfd;
 	int connfd;

@@ -14,11 +14,11 @@ using Platform::LogLevel;
 namespace Gdb {
 
 enum class GdbSignal : int {
-	SIGINT  = 2,
-	SIGTRAP = 5,
-	SIGEMT  = 7, // "emulation trap"
-	SIGSEGV = 11,
-	SIGILL  = 4
+	INT  = 2,
+	TRAP = 5,
+	EMT  = 7, // "emulation trap"
+	SEGV = 11,
+	ILL  = 4
 };
 
 
@@ -478,11 +478,11 @@ ExecResult GdbStub::Handle_Question(GdbStub* stub, const u8* cmd, ssize_t len) {
 
 	case TgtStatus::Running: // will break very soon due to retval
 	case TgtStatus::BreakReq:
-		Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::SIGINT);
+		Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::INT);
 		break;
 
 	case TgtStatus::SingleStep:
-		Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::SIGTRAP);
+		Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::TRAP);
 		break;
 
 	case TgtStatus::Bkpt:
@@ -494,25 +494,25 @@ ExecResult GdbStub::Handle_Question(GdbStub* stub, const u8* cmd, ssize_t len) {
 		typ = 2;
 	bkpt_rest:
 		if (!~arg) {
-			Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::SIGTRAP);
+			Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::TRAP);
 		} else {
 			switch (typ) {
 			case 1:
-				Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::SIGTRAP);
-				//Proto::RespFmt(stub->connfd, "T%02Xhwbreak:"/*"%08X"*/";", GdbSignal::SIGTRAP/*, arg*/);
+				Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::TRAP);
+				//Proto::RespFmt(stub->connfd, "T%02Xhwbreak:"/*"%08X"*/";", GdbSignal::TRAP/*, arg*/);
 				break;
 			case 2:
-				Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::SIGTRAP);
-				//Proto::RespFmt(stub->connfd, "T%02Xwatch:"/*"%08X"*/";", GdbSignal::SIGTRAP/*, arg*/);
+				Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::TRAP);
+				//Proto::RespFmt(stub->connfd, "T%02Xwatch:"/*"%08X"*/";", GdbSignal::TRAP/*, arg*/);
 				break;
 			default:
-				Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::SIGTRAP);
+				Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::TRAP);
 				break;
 			}
 		}
 		break;
 	case TgtStatus::BkptInsn:
-		Proto::RespFmt(stub->connfd, "T%02Xswbreak:%08X;", GdbSignal::SIGTRAP,
+		Proto::RespFmt(stub->connfd, "T%02Xswbreak:%08X;", GdbSignal::TRAP,
 				stub->cb->ReadReg(stub->ud, Register::pc));
 		break;
 
@@ -520,10 +520,10 @@ ExecResult GdbStub::Handle_Question(GdbStub* stub, const u8* cmd, ssize_t len) {
 		// like that (plus it sounds confusing)
 	case TgtStatus::FaultData:
 	case TgtStatus::FaultIAcc:
-		Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::SIGSEGV);
+		Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::SEGV);
 		break;
 	case TgtStatus::FaultInsn:
-		Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::SIGILL);
+		Proto::RespFmt(stub->connfd, "S%02X", GdbSignal::ILL);
 		break;
 	}
 

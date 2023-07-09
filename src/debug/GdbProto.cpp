@@ -1,13 +1,23 @@
 
+#ifdef _WIN32
+#include <WS2tcpip.h>
+#include <winsock.h>
+#include <winsock2.h>
+#endif
+
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <errno.h>
+
+#ifndef _WIN32
 #include <poll.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#endif
 
 #include "../Platform.h"
 #include "hexutil.h"
@@ -77,7 +87,14 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 		ssize_t n, blehoff = 0;
 
 		memset(pkt, 0, sizeof(packetbuf) - dataoff);
-		n = recv(connfd, pkt, sizeof(packetbuf) - dataoff, first ? MSG_DONTWAIT : 0);
+		int flag = 0;
+#ifndef _WIN32
+		if (first) flag |= MSG_DONTWAIT;
+		n = recv(connfd, pkt, sizeof(packetbuf) - dataoff, flag);
+#else
+		// fuck windows
+		n = recv(connfd, (char*)pkt, sizeof(packetbuf) - dataoff, flag);
+#endif
 
 		if (n <= 0) {
 			if (first) return ReadResult::NoPacket;
@@ -168,16 +185,47 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 int SendAck(int connfd) {
 	//Log(LogLevel::Debug, "[GDB] send ack\n");
 	uint8_t v = '+';
+#ifdef _WIN32
+	// fuck windows
+	return send(connfd, (const char*)&v, 1, 0);
+#else
 	return send(connfd, &v, 1, 0);
+#endif
 }
 
 int SendNak(int connfd) {
 	//Log(LogLevel::Debug, "[GDB] send nak\n");
 	uint8_t v = '-';
+#ifdef _WIN32
+	// fuck windows
+	return send(connfd, (const char*)&v, 1, 0);
+#else
 	return send(connfd, &v, 1, 0);
+#endif
 }
 
 int wait_ack_blocking(int connfd, u8* ackp, int to_ms) {
+#ifdef _WIN32
+	fd_set infd, outfd, errfd;
+	FD_ZERO(&infd); FD_ZERO(&outfd); FD_ZERO(&errfd);
+	FD_SET(connfd, &infd);
+
+	struct timeval to;
+	to.tv_sec = to_ms / 1000;
+	to.tv_usec = (to_ms % 1000) * 1000;
+
+	int r = select(1+1, &infd, &outfd, &errfd, &to);
+
+	if (FD_ISSET(connfd, &errfd)) {
+		return -1;
+	} else if (FD_ISSET(connfd, &infd)) {
+		r = recv(connfd, (char*)ackp, 1, 0);
+		if (r < 0) return r;
+		return 0;
+	}
+
+	return -1;
+#else
 	struct pollfd pfd;
 
 	pfd.fd = connfd;
@@ -196,6 +244,7 @@ int wait_ack_blocking(int connfd, u8* ackp, int to_ms) {
 	if (r < 0) return r;
 
 	return (r == 1) ? 0 : -1;
+#endif
 }
 
 int Resp(int connfd, const u8* data1, size_t len1, const u8* data2, size_t len2) {
@@ -227,7 +276,11 @@ int Resp(int connfd, const u8* data1, size_t len1, const u8* data2, size_t len2)
 		uint8_t ack;
 
 		//Log(LogLevel::Debug, "[GDB] send resp: '%s'\n", respbuf);
+#ifdef _WIN32
+		r = send(connfd, (const char*)respbuf, totallen+4, 0);
+#else
 		r = send(connfd, respbuf, totallen+4, 0);
+#endif
 		if (r < 0) return r;
 
 		r = wait_ack_blocking(connfd, &ack, 2000);

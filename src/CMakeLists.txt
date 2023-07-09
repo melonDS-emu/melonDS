@@ -138,7 +138,7 @@ if (ENABLE_JIT)
 endif()
 
 if (WIN32)
-    target_link_libraries(core PRIVATE ole32 comctl32 ws2_32)
+    target_link_libraries(core PRIVATE ole32 comctl32 wsock32 ws2_32)
 elseif(NOT APPLE)
     check_library_exists(rt shm_open "" NEED_LIBRT)
     if (NEED_LIBRT)
