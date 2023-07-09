@@ -117,7 +117,11 @@ ARM::ARM(u32 num)
     Num = num;
 
 #ifdef GDBSTUB_ENABLED
-    if (Platform::GetConfigBool(Platform::GdbEnabled))
+    if (Platform::GetConfigBool(Platform::GdbEnabled)
+#ifdef JIT_ENABLED
+            && !Platform::GetConfigBool(Platform::JIT_Enable)
+#endif
+    )
         gdbstub.Init();
     is_single_step = false;
 #endif
