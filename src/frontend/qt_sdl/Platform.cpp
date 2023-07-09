@@ -192,6 +192,9 @@ int GetConfigInt(ConfigEntry entry)
     case Firm_Color: return Config::FirmwareFavouriteColour;
 
     case AudioBitDepth: return Config::AudioBitDepth;
+
+    case GdbPortARM7: return Config::GdbPortARM7;
+    case GdbPortARM9: return Config::GdbPortARM9;
     }
 
     return 0;
@@ -220,6 +223,7 @@ bool GetConfigBool(ConfigEntry entry)
 
     case Firm_OverrideSettings: return Config::FirmwareOverrideSettings != 0;
     case DSi_FullBIOSBoot: return Config::DSiFullBIOSBoot != 0;
+    case GdbEnabled: return Config::GdbEnabled;
     }
 
     return false;

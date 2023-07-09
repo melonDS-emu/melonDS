@@ -145,6 +145,10 @@ bool DSiBatteryCharging;
 
 bool DSiFullBIOSBoot;
 
+bool GdbEnabled;
+int GdbPortARM7;
+int GdbPortARM9;
+
 CameraConfig Camera[2];
 
 
@@ -334,7 +338,12 @@ ConfigEntry ConfigFile[] =
     {"DSiBatteryLevel",    0, &DSiBatteryLevel, 0xF, true},
     {"DSiBatteryCharging", 1, &DSiBatteryCharging, true, true},
 
+
     {"DSiFullBIOSBoot", 1, &DSiFullBIOSBoot, false, true},
+
+    {"GdbEnabled", 1, &GdbEnabled, false, false},
+    {"GdbPortARM7", 0, &GdbPortARM7, 3334, true},
+    {"GdbPortARM9", 0, &GdbPortARM9, 3333, true},
 
     // TODO!!
     // we need a more elegant way to deal with this

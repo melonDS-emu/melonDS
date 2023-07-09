@@ -84,7 +84,11 @@ enum ConfigEntry
 
     AudioBitDepth,
 
-    DSi_FullBIOSBoot
+    DSi_FullBIOSBoot,
+
+    GdbEnabled,
+    GdbPortARM7,
+    GdbPortARM9
 };
 
 int GetConfigInt(ConfigEntry entry);

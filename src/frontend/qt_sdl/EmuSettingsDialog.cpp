@@ -88,7 +88,18 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->spnJITMaximumBlockSize->setDisabled(true);
 #endif
 
+#ifdef GDBSTUB_ENABLED
+    ui->cbGdbEnabled->setChecked(Config::GdbEnabled);
+    ui->intGdbPortA7->setValue(Config::GdbPortARM7);
+    ui->intGdbPortA9->setValue(Config::GdbPortARM9);
+#else
+    ui->cbGdbEnabled->setDisabled(true);
+    ui->intGdbPortA7->setDisabled(true);
+    ui->intGdbPortA9->setDisabled(true);
+#endif
+
     on_chkEnableJIT_toggled();
+    on_cbGdbEnabled_toggled();
     on_chkExternalBIOS_toggled();
 
     const int imgsizes[] = {256, 512, 1024, 2048, 4096, 0};
@@ -222,6 +233,10 @@ void EmuSettingsDialog::done(int r)
         bool dsiSDFolderSync = ui->cbDSiSDFolder->isChecked();
         std::string dsiSDFolderPath = ui->txtDSiSDFolder->text().toStdString();
 
+        bool gdbEnabled = ui->cbGdbEnabled->isChecked();
+        int gdbPortA7 = ui->intGdbPortA7->value();
+        int gdbPortA9 = ui->intGdbPortA9->value();
+
         if (consoleType != Config::ConsoleType
             || directBoot != Config::DirectBoot
 #ifdef JIT_ENABLED
@@ -230,6 +245,11 @@ void EmuSettingsDialog::done(int r)
             || jitBranchOptimisations != Config::JIT_BranchOptimisations
             || jitLiteralOptimisations != Config::JIT_LiteralOptimisations
             || jitFastMemory != Config::JIT_FastMemory
+#endif
+#ifdef GDBSTUB_ENABLED
+            || gdbEnabled != Config::GdbEnabled
+            || gdbPortA7 != Config::GdbPortARM7
+            || gdbPortA9 != Config::GdbPortARM9
 #endif
             || externalBiosEnable != Config::ExternalBIOSEnable
             || bios9Path != Config::BIOS9Path
@@ -284,13 +304,18 @@ void EmuSettingsDialog::done(int r)
             Config::DSiSDFolderSync = dsiSDFolderSync;
             Config::DSiSDFolderPath = dsiSDFolderPath;
 
-    #ifdef JIT_ENABLED
+#ifdef JIT_ENABLED
             Config::JIT_Enable = jitEnable;
             Config::JIT_MaxBlockSize = jitMaxBlockSize;
             Config::JIT_BranchOptimisations = jitBranchOptimisations;
             Config::JIT_LiteralOptimisations = jitLiteralOptimisations;
             Config::JIT_FastMemory = jitFastMemory;
-    #endif
+#endif
+#ifdef GDBSTUB_ENABLED
+            Config::GdbEnabled = gdbEnabled;
+            Config::GdbPortARM7 = gdbPortA7;
+            Config::GdbPortARM9 = gdbPortA9;
+#endif
 
             Config::ConsoleType = consoleType;
             Config::DirectBoot = directBoot;
@@ -505,6 +530,25 @@ void EmuSettingsDialog::on_chkEnableJIT_toggled()
         ui->chkJITFastMemory->setDisabled(disabled);
     #endif
     ui->spnJITMaximumBlockSize->setDisabled(disabled);
+
+#ifdef GDBSTUB_ENABLED
+    if (ui->cbGdbEnabled->isChecked() && !disabled)
+        ui->cbGdbEnabled->setChecked(false);
+#endif
+}
+
+void EmuSettingsDialog::on_cbGdbEnabled_toggled()
+{
+    bool disabled = !ui->cbGdbEnabled->isChecked();
+    bool jitenable = ui->chkEnableJIT->isChecked();
+
+    if (jitenable && !disabled) {
+        ui->cbGdbEnabled->setChecked(false);
+        disabled = true;
+    }
+
+    ui->intGdbPortA7->setDisabled(disabled);
+    ui->intGdbPortA9->setDisabled(disabled);
 }
 
 void EmuSettingsDialog::on_chkExternalBIOS_toggled()

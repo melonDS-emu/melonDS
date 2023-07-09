@@ -87,7 +87,7 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 			}
 		}
 
-		Log(LogLevel::Debug, "[GDB] recv() %zd bytes: '%s' (%02x)\n", n, pkt, pkt[0]);
+		//Log(LogLevel::Debug, "[GDB] recv() %zd bytes: '%s' (%02x)\n", n, pkt, pkt[0]);
 		first = false;
 
 		do {
@@ -114,7 +114,7 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 
 		recv_total += n;
 
-		Log(LogLevel::Debug, "[GDB] recv() after skipping: n=%zd, recv_total=%zd\n", n, recv_total);
+		//Log(LogLevel::Debug, "[GDB] recv() after skipping: n=%zd, recv_total=%zd\n", n, recv_total);
 
 		for (ssize_t i = (dataoff == 0) ? 1 : 0; i < n; ++i) {
 			uint8_t v = pkt[i];
@@ -137,7 +137,7 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 	uint8_t ck = (hex2nyb(packetbuf[cksumoff+0]) << 4)
 		| hex2nyb(packetbuf[cksumoff+1]);
 
-	Log(LogLevel::Debug, "[GDB] got pkt, checksum: %02x vs %02x\n", ck, sum);
+	//Log(LogLevel::Debug, "[GDB] got pkt, checksum: %02x vs %02x\n", ck, sum);
 
 	if (ck != sum) {
 		__builtin_trap();
@@ -166,13 +166,13 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 }
 
 int SendAck(int connfd) {
-	Log(LogLevel::Debug, "[GDB] send ack\n");
+	//Log(LogLevel::Debug, "[GDB] send ack\n");
 	uint8_t v = '+';
 	return send(connfd, &v, 1, 0);
 }
 
 int SendNak(int connfd) {
-	Log(LogLevel::Debug, "[GDB] send nak\n");
+	//Log(LogLevel::Debug, "[GDB] send nak\n");
 	uint8_t v = '-';
 	return send(connfd, &v, 1, 0);
 }
@@ -226,12 +226,12 @@ int Resp(int connfd, const u8* data1, size_t len1, const u8* data2, size_t len2)
 		ssize_t r;
 		uint8_t ack;
 
-		Log(LogLevel::Debug, "[GDB] send resp: '%s'\n", respbuf);
+		//Log(LogLevel::Debug, "[GDB] send resp: '%s'\n", respbuf);
 		r = send(connfd, respbuf, totallen+4, 0);
 		if (r < 0) return r;
 
 		r = wait_ack_blocking(connfd, &ack, 2000);
-		Log(LogLevel::Debug, "[GDB] got ack: '%c'\n", ack);
+		//Log(LogLevel::Debug, "[GDB] got ack: '%c'\n", ack);
 		if (r == 0 && ack == '+') break;
 
 		++tries;

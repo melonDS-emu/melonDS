@@ -109,14 +109,16 @@ u32 ARM::ConditionTable[16] =
 ARM::ARM(u32 num)
 #ifdef GDBSTUB_ENABLED
     : gdbstub(num ? &ARMv4::GdbStubCallbacks : &ARMv5::GdbStubCallbacks,
-            3333 + (int)num, this)
+            Platform::GetConfigInt(num ? Platform::GdbPortARM7 : Platform::GdbPortARM9),
+            this)
 #endif
 {
     // well uh
     Num = num;
 
 #ifdef GDBSTUB_ENABLED
-    gdbstub.Init();
+    if (Platform::GetConfigBool(Platform::GdbEnabled))
+        gdbstub.Init();
     is_single_step = false;
 #endif
 }

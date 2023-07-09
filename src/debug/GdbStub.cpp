@@ -7,6 +7,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <poll.h>
+#ifndef _WIN32
+#include <signal.h>
+#endif
 
 #include "../Platform.h"
 #include "GdbProto.h"
@@ -23,6 +26,20 @@ GdbStub::GdbStub(const StubCallbacks* cb, int port, void* ud)
 { }
 
 bool GdbStub::Init() {
+	Log(LogLevel::Info, "[GDB] initializing GDB stub for core %d on port %d\n",
+		cb->cpu, port);
+
+#ifndef _WIN32
+	/*void* fn = SIG_IGN;
+	struct sigaction act = { 0 };
+	act.sa_flags = SA_SIGINFO;
+	act.sa_sigaction = (sighandler_t)fn;
+	if (sigaction(SIGPIPE, &act, NULL) == -1) {
+		Log(LogLevel::Warn, "[GDB] couldn't ignore SIGPIPE, stuff may fail on GDB disconnect.\n");
+	}*/
+	signal(SIGPIPE, SIG_IGN);
+#endif
+
 	int r;
 
 	sockfd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
@@ -190,7 +207,7 @@ StubState GdbStub::Poll() {
 
 	if (stat_flag) {
 		stat_flag = false;
-		Log(LogLevel::Debug, "[GDB] STAT FLAG WAS TRUE\n");
+		//Log(LogLevel::Debug, "[GDB] STAT FLAG WAS TRUE\n");
 
 		Handle_Question(this, NULL, 0); // ugly hack but it should work
 	}
@@ -244,7 +261,7 @@ StubState GdbStub::Poll() {
 }
 
 ExecResult GdbStub::SubcmdExec(const u8* cmd, ssize_t len, const SubcmdHandler* handlers) {
-	Log(LogLevel::Debug, "[GDB] subcommand in: '%s'\n", cmd);
+	//Log(LogLevel::Debug, "[GDB] subcommand in: '%s'\n", cmd);
 
 	for (size_t i = 0; handlers[i].handler != NULL; ++i) {
 		// check if prefix matches
@@ -268,7 +285,7 @@ ExecResult GdbStub::SubcmdExec(const u8* cmd, ssize_t len, const SubcmdHandler* 
 }
 
 ExecResult GdbStub::CmdExec(const CmdHandler* handlers) {
-	Log(LogLevel::Debug, "[GDB] command in: '%s'\n", Cmdbuf);
+	//Log(LogLevel::Debug, "[GDB] command in: '%s'\n", Cmdbuf);
 
 	for (size_t i = 0; handlers[i].handler != NULL; ++i) {
 		if (handlers[i].cmd == Cmdbuf[0]) {
@@ -292,7 +309,7 @@ ExecResult GdbStub::CmdExec(const CmdHandler* handlers) {
 
 
 void GdbStub::SignalStatus(TgtStatus stat, u32 arg) {
-	Log(LogLevel::Debug, "[GDB] SIGNAL STATUS %d!\n", stat);
+	//Log(LogLevel::Debug, "[GDB] SIGNAL STATUS %d!\n", stat);
 
 	this->stat = stat;
 	stat_flag = true;
