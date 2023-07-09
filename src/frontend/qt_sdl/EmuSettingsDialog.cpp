@@ -557,6 +557,7 @@ void EmuSettingsDialog::on_cbGdbEnabled_toggled()
         disabled = true;
     }
 
+    ui->cbGdbEnabled->setDisabled(disabled);
     ui->intGdbPortA7->setDisabled(disabled);
     ui->intGdbPortA9->setDisabled(disabled);
     ui->cbGdbBOSA7->setDisabled(disabled);
