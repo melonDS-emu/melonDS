@@ -99,7 +99,7 @@ if (CCACHE)
     set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
 endif()
 
-option(ENABLE_GDBSTUB "Enable GDB stub" OFF)
+option(ENABLE_GDBSTUB "Enable GDB stub" ON)
 if (ENABLE_GDBSTUB)
     add_definitions(-DGDBSTUB_ENABLED)
 endif()
