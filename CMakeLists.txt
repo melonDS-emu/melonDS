@@ -104,11 +104,6 @@ if (ENABLE_GDBSTUB)
     add_definitions(-DGDBSTUB_ENABLED)
 endif()
 
-if (NOT WIN32)
-    add_compile_options(-fno-pic)
-    add_link_options(-no-pie)
-endif()
-
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)
 
 add_subdirectory(src)

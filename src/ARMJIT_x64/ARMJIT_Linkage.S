@@ -104,3 +104,6 @@ ARM_Ret:
 #endif
 
     ret
+
+.section .note.GNU-stack,"",@progbits
+

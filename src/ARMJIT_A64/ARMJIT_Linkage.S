@@ -94,3 +94,6 @@ ARM_RestoreContext:
     mov sp, x17
 
     br x18
+
+.section .note.GNU-stack,"",@progbits
+
