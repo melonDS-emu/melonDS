@@ -39,9 +39,10 @@ struct IPCReply
     u16 Command;
     u16 Status;
     int NumExtra;
-    u16 Extra[16];
+    u16 Extra[280];
 };
 
+u32 IPCCmdAddr;
 FIFO<IPCReply, 16> IPCReplyQueue;
 
 s32 TimerError;
@@ -53,6 +54,7 @@ u16 TXSeqNo;
 u64 Timestamp;
 u16 Channel;
 
+u8 TXBuffer[2048];
 u8 RXBuffer[2048];
 
 u16 BeaconCount;
@@ -60,15 +62,33 @@ u16 BeaconInterval;
 u8 BeaconFrame[1024];
 u8* BeaconTagDD;
 
+u32 ClientMask;
+int ClientStatus[16];
+u8 ClientMAC[16][6];
+
+u16 ClientID;
+
 u16 HostScanCount;
 u32 HostScanBuffer;
 
+u32 MPUnkBuffer;
+u32 MPFrameMetadata[6];
+
+u64 CmdTimestamp;
+u32 CmdCount;
+u16 CmdClientMask;
+u16 CmdClientFail;
+
 void ScheduleTimer(bool first);
+void MPSignalTX();
+void SetCmdFrameSize(u16 size);
+void SetReplyFrameSize(u16 size);
 void WifiIPCReply(u16 cmd, u16 status, int numextra=0, u16* extra=nullptr);
 
 
 void Reset()
 {
+    IPCCmdAddr = 0;
     IPCReplyQueue.Clear();
 
     TimerError = 0;
@@ -82,6 +102,7 @@ void Reset()
     Timestamp = 0;
     Channel = 0;
 
+    memset(TXBuffer, 0, sizeof(TXBuffer));
     memset(RXBuffer, 0, sizeof(RXBuffer));
 
     BeaconCount = 0;
@@ -89,16 +110,46 @@ void Reset()
     memset(BeaconFrame, 0, sizeof(BeaconFrame));
     BeaconTagDD = nullptr;
 
+    ClientMask = 0;
+    memset(ClientStatus, 0, sizeof(ClientStatus));
+    memset(ClientMAC, 0, sizeof(ClientMAC));
+
+    ClientID = 0;
+
     HostScanCount = 0;
     HostScanBuffer = 0;
+
+    MPUnkBuffer = 0;
+    memset(MPFrameMetadata, 0, sizeof(MPFrameMetadata));
+
+    CmdTimestamp = 0;
+    CmdCount = 0;
+    CmdClientMask = 0;
+    CmdClientFail = 0;
 
     u16 chanmask = 0x2082;
     NDS::ARM7Write16(0x027FFCFA, chanmask);
 }
 
 
+
+int ReceiveFrame()
+{
+    int rxlen = Platform::MP_RecvPacket(RXBuffer, nullptr);
+    if (rxlen <= (12+24)) return -1;
+
+    u16 framelen = *(u16*)&RXBuffer[10];
+    if (framelen != rxlen-12)
+    {
+        //Log(LogLevel::Error, "bad frame length %d/%d\n", framelen, rxlen-12);
+        return -1;
+    }
+
+    return rxlen;
+}
+
 void SendHostBeacon()
-{printf("HOST BEACON\n");
+{
     *(u16*)&BeaconFrame[12 + 22] = (TXSeqNo << 4);
     TXSeqNo++;
 
@@ -108,22 +159,20 @@ void SendHostBeacon()
     *(u16*)&BeaconTagDD[8] = syncval;
 
     Platform::MP_SendPacket(BeaconFrame, 12+*(u16*)&BeaconFrame[10], Timestamp);
+
+    u16 extra = 2;
+    WifiIPCReply(0x8, 0, 1, &extra);
 }
 
 bool ReceiveHostBeacon()
 {
-    int rxlen = Platform::MP_RecvPacket(RXBuffer, nullptr);
-    if (rxlen <= (12+24)) return false;
-
-    u16 framelen = *(u16*)&RXBuffer[10];
-    if (framelen != rxlen-12)
-    {
-        //Log(LogLevel::Error, "bad frame length %d/%d\n", framelen, rxlen-12);
+    int rxlen = ReceiveFrame();
+    if (rxlen <= 0)
         return false;
-    }
 
     u16 framectl = *(u16*)&RXBuffer[12+0];
-    if ((framectl & 0xE7FF) != 0x0080) return false;
+    if ((framectl & 0xE7FF) != 0x0080)
+        return false;
 
     u8* tagpos = &RXBuffer[12+24+8+2+2];
     u8* frameend = &RXBuffer[rxlen];
@@ -145,8 +194,287 @@ bool ReceiveHostBeacon()
     return false;
 }
 
+void SendAuthFrame(u8* dest, int algo, int seq, int status)
+{
+    u8 frame[12+64];
+    u8* ptr = &frame[0xC];
+
+    *(u16*)&frame[0x0] = 0;
+    *(u16*)&frame[0x2] = 0;
+    *(u16*)&frame[0x4] = 0;
+    *(u16*)&frame[0x6] = 0;
+    *(u16*)&frame[0x8] = 0x14;
+
+    *(u16*)ptr = 0x00B0;       ptr += 2; // frame control
+    *(u16*)ptr = 0;            ptr += 2; // duration
+    memcpy(ptr, dest, 6);      ptr += 6; // destination MAC
+    memcpy(ptr, MAC, 6);       ptr += 6; // source MAC
+    memcpy(ptr, (seq&1) ? dest:MAC, 6); ptr += 6; // BSSID
+    *(u16*)ptr = TXSeqNo << 4; ptr += 2; // sequence number
+    TXSeqNo++;
+
+    *(u16*)ptr = algo;    ptr += 2; // auth algorithm
+    *(u16*)ptr = seq;     ptr += 2; // auth sequence
+    *(u16*)ptr = status;  ptr += 2; // status code
+
+    int len = (int)(ptr - (&frame[0xC]));
+    len = (len + 3) & ~3;
+
+    // FCS placeholder
+    *(u32*)&frame[0xC+len] = 0x1D46B6B8;
+    len += 4;
+
+    // frame length
+    *(u16*)&frame[0xA] = len;
+
+    Platform::MP_SendPacket(frame, 12+len, Timestamp);
+}
+
+void SendAssocRequest(u8* dest)
+{
+    u8 frame[12+64];
+    u8* ptr = &frame[0xC];
+
+    *(u16*)&frame[0x0] = 0;
+    *(u16*)&frame[0x2] = 0;
+    *(u16*)&frame[0x4] = 0;
+    *(u16*)&frame[0x6] = 0;
+    *(u16*)&frame[0x8] = 0x14;
+
+    *(u16*)ptr = 0x0000;       ptr += 2; // frame control
+    *(u16*)ptr = 0;            ptr += 2; // duration
+    memcpy(ptr, dest, 6);      ptr += 6; // destination MAC
+    memcpy(ptr, MAC, 6);       ptr += 6; // source MAC
+    memcpy(ptr, dest, 6);      ptr += 6; // BSSID
+    *(u16*)ptr = TXSeqNo << 4; ptr += 2; // sequence number
+    TXSeqNo++;
+
+    *(u16*)ptr = 0x0021;    ptr += 2; // capability
+    *(u16*)ptr = 0x0001;    ptr += 2; // listen interval
+
+    // SSID
+    *ptr++ = 0x00; *ptr++ = 0x20;
+    *(u16*)ptr = NDS::ARM7Read16(HostScanBuffer + 0x40); ptr += 2;
+    *(u16*)ptr = NDS::ARM7Read16(HostScanBuffer + 0x42); ptr += 2;
+    *(u16*)ptr = NDS::ARM7Read16(HostScanBuffer + 0x44); ptr += 2;
+    memset(ptr, 0, 0x1A); ptr += 0x1A;
+
+    // supported rates
+    *ptr++ = 0x01; *ptr++ = 0x02;
+    *ptr++ = 0x82;
+    *ptr++ = 0x84;
+
+    int len = (int)(ptr - (&frame[0xC]));
+    len = (len + 3) & ~3;
+
+    // FCS placeholder
+    *(u32*)&frame[0xC+len] = 0x1D46B6B8;
+    len += 4;
+
+    // frame length
+    *(u16*)&frame[0xA] = len;
+
+    Platform::MP_SendPacket(frame, 12+len, Timestamp);
+}
+
+void SendAssocResponse(u8* dest, u16 status, u16 aid)
+{
+    u8 frame[12+64];
+    u8* ptr = &frame[0xC];
+
+    *(u16*)&frame[0x0] = 0;
+    *(u16*)&frame[0x2] = 0;
+    *(u16*)&frame[0x4] = 0;
+    *(u16*)&frame[0x6] = 0;
+    *(u16*)&frame[0x8] = 0x14;
+
+    *(u16*)ptr = 0x0010;       ptr += 2; // frame control
+    *(u16*)ptr = 0;            ptr += 2; // duration
+    memcpy(ptr, dest, 6);      ptr += 6; // destination MAC
+    memcpy(ptr, MAC, 6);       ptr += 6; // source MAC
+    memcpy(ptr, MAC, 6);       ptr += 6; // BSSID
+    *(u16*)ptr = TXSeqNo << 4; ptr += 2; // sequence number
+    TXSeqNo++;
+
+    *(u16*)ptr = 0x0021;    ptr += 2; // capability
+    *(u16*)ptr = status;    ptr += 2; // status
+    *(u16*)ptr = aid;       ptr += 2; // association ID
+
+    // supported rates
+    *ptr++ = 0x01; *ptr++ = 0x02;
+    *ptr++ = 0x82;
+    *ptr++ = 0x84;
+
+    int len = (int)(ptr - (&frame[0xC]));
+    len = (len + 3) & ~3;
+
+    // FCS placeholder
+    *(u32*)&frame[0xC+len] = 0x1D46B6B8;
+    len += 4;
+
+    // frame length
+    *(u16*)&frame[0xA] = len;
+
+    Platform::MP_SendPacket(frame, 12+len, Timestamp);
+}
+
+void SendCmdFrame(u32 bodyaddr, u32 bodylen, u16 clientmask, u32 stream)
+{
+    u8* frame = &TXBuffer[0];
+    u8* ptr = &frame[0xC];
+    u8 dest[6] = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x00};
+
+    if (bodylen & 1) bodylen++;
+
+    u16 clienttime = NDS::ARM7Read16(SharedMem[1]+0x3A);
+    clienttime = (clienttime*4) + 0xE2;
+
+    *(u16*)&frame[0x0] = 0;
+    *(u16*)&frame[0x2] = clientmask;
+    *(u16*)&frame[0x4] = 0;
+    *(u16*)&frame[0x6] = 0;
+    *(u16*)&frame[0x8] = 0x14;
+
+    *(u16*)ptr = 0x0228;       ptr += 2; // frame control
+    *(u16*)ptr = 0;            ptr += 2; // duration (TODO)
+    memcpy(ptr, dest, 6);      ptr += 6; // destination MAC
+    memcpy(ptr, MAC, 6);       ptr += 6; // BSSID
+    memcpy(ptr, MAC, 6);       ptr += 6; // source MAC
+    *(u16*)ptr = TXSeqNo << 4; ptr += 2; // sequence number
+    TXSeqNo++;
+
+    *(u16*)ptr = clienttime;    ptr += 2;
+    *(u16*)ptr = clientmask;    ptr += 2;
+
+    if (bodylen)
+    {
+        u16 flags = (bodylen >> 1) & 0xFF;
+        flags |= ((stream & 0xF) << 8);
+        flags |= 0x9000;
+        *(u16*)ptr = flags;         ptr += 2;
+
+        for (int i = 0; i < bodylen; i+=2)
+        {
+            *(u16*)ptr = NDS::ARM7Read16(bodyaddr+i);
+            ptr += 2;
+        }
+
+        u16 clientID = NDS::ARM7Read16(SharedMem[1]+0x188);
+        u32 snptr = SharedMem[1] + 0x1F8 + (clientID << 4) + ((stream & 0x7) << 1);
+        u16 mpseqno = NDS::ARM7Read16(snptr);
+        mpseqno++;
+        NDS::ARM7Write16(snptr, mpseqno);
+
+        *(u16*)ptr = mpseqno; ptr += 2;
+        *(u16*)ptr = clientmask; ptr += 2;
+    }
+    else
+    {
+        *(u16*)ptr = 0x8000; ptr += 2;
+    }
+
+    int len = (int)(ptr - (&frame[0xC]));
+    len = (len + 3) & ~3;
+
+    // FCS placeholder
+    *(u32*)&frame[0xC+len] = 0x1D46B6B8;
+    len += 4;
+
+    // frame length
+    *(u16*)&frame[0xA] = len;
+
+    CmdTimestamp = Timestamp;
+    CmdCount = 4; // TODO not hardcode this!
+    CmdClientMask = clientmask;
+    CmdClientFail = 0;
+printf("MP: CMD\n");
+    Platform::MP_SendCmd(frame, 12+len, Timestamp);
+}
+
+void SendReplyFrame()
+{
+    //
+}
+
+void SendAckFrame()
+{
+    u8 frame[12+32];
+    u8* ptr = &frame[0xC];
+    u8 dest[6] = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x03};
+
+    *(u16*)&frame[0x0] = 0;
+    *(u16*)&frame[0x2] = 0;
+    *(u16*)&frame[0x4] = 0;
+    *(u16*)&frame[0x6] = 0;
+    *(u16*)&frame[0x8] = 0x14;
+
+    *(u16*)ptr = 0x0218;       ptr += 2; // frame control
+    *(u16*)ptr = 0;            ptr += 2; // duration
+    memcpy(ptr, dest, 6);      ptr += 6; // destination MAC
+    memcpy(ptr, MAC, 6);       ptr += 6; // BSSID
+    memcpy(ptr, MAC, 6);       ptr += 6; // source MAC
+    *(u16*)ptr = TXSeqNo << 4; ptr += 2; // sequence number
+    TXSeqNo++;
+
+    *(u16*)ptr = 0x0033;        ptr += 2; // ???
+    *(u16*)ptr = CmdClientFail; ptr += 2;
+
+    int len = (int)(ptr - (&frame[0xC]));
+    len = (len + 3) & ~3;
+
+    // FCS placeholder
+    *(u32*)&frame[0xC+len] = 0x1D46B6B8;
+    len += 4;
+
+    // frame length
+    *(u16*)&frame[0xA] = len;
+
+    Platform::MP_SendAck(frame, 12+len, Timestamp);
+printf("MP: ACK\n");
+    if (MPFrameMetadata[2])
+        MPSignalTX();
+
+    u32 extra = MPUnkBuffer;
+    MPUnkBuffer ^= 0x100; // CHECKME!!!
+    WifiIPCReply(0xE, 0, 2, (u16*)&extra);
+}
+
+void MPSignalTX()
+{
+    u16 extra[16];
+    extra[0] = 0x14;
+    extra[1] = MPFrameMetadata[3];
+    extra[2] = MPFrameMetadata[2];
+    extra[3] = CmdClientFail; // CHECKME
+    extra[4] = MPFrameMetadata[2] & ~CmdClientFail; // CHECKME
+    extra[5] = 0;
+    *(u32*)&extra[6] = MPFrameMetadata[0];
+    extra[8] = MPFrameMetadata[1];
+    extra[9] = extra[2] ? extra[4] : 0xFFFF; // CHECKME
+    *(u32*)&extra[10] = MPFrameMetadata[4];
+    *(u32*)&extra[12] = MPFrameMetadata[5];
+
+    u16 clientID = NDS::ARM7Read16(SharedMem[1]+0x188);
+    if (clientID == 0)
+    {
+        extra[14] = NDS::ARM7Read16(SharedMem[1]+0x30); // CMD
+        extra[15] = NDS::ARM7Read16(SharedMem[1]+0x32); // REPLY
+    }
+    else
+    {
+        extra[14] = NDS::ARM7Read16(SharedMem[1]+0x32); // REPLY
+        extra[15] = NDS::ARM7Read16(SharedMem[1]+0x30); // CMD
+    }
+
+    WifiIPCReply(0x81, 0, 16, extra);
+}
+
 void HostScan()
 {
+    int numextra = 1;
+    u16 extra[8+128];
+    extra[0] = Channel;
+
     bool res = ReceiveHostBeacon();
     if (res)
     {
@@ -158,11 +486,11 @@ void HostScan()
         u16 dd_len = 0;
 
         NDS::ARM7Write16(HostScanBuffer+0x02, RXBuffer[12]); // CHECKME
-        NDS::ARM7Write16(HostScanBuffer+0x04, RXBuffer[12+10]);
-        NDS::ARM7Write16(HostScanBuffer+0x06, RXBuffer[12+12]);
-        NDS::ARM7Write16(HostScanBuffer+0x08, RXBuffer[12+14]);
-        NDS::ARM7Write16(HostScanBuffer+0x2C, RXBuffer[12+24+8+2]);
-        NDS::ARM7Write16(HostScanBuffer+0x32, RXBuffer[12+24+8]);
+        NDS::ARM7Write16(HostScanBuffer+0x04, *(u16*)&RXBuffer[12+10]);
+        NDS::ARM7Write16(HostScanBuffer+0x06, *(u16*)&RXBuffer[12+12]);
+        NDS::ARM7Write16(HostScanBuffer+0x08, *(u16*)&RXBuffer[12+14]);
+        NDS::ARM7Write16(HostScanBuffer+0x2C, *(u16*)&RXBuffer[12+24+8+2]);
+        NDS::ARM7Write16(HostScanBuffer+0x32, *(u16*)&RXBuffer[12+24+8]);
 
         NDS::ARM7Write16(HostScanBuffer+0x0A, 0);
         NDS::ARM7Write16(HostScanBuffer+0x34, 0);
@@ -272,12 +600,284 @@ void HostScan()
         NDS::ARM7Write16(HostScanBuffer+0x00, (buf_len >> 1));
 
         // fill reply buffer
+        extra[1] = *(u16*)&RXBuffer[12+10];
+        extra[2] = *(u16*)&RXBuffer[12+12];
+        extra[3] = *(u16*)&RXBuffer[12+14];
+        extra[4] = dd_len;
+        memcpy(&extra[5], dd_offset, dd_len);
+        numextra = 5 + ((dd_len+1) >> 1);
 
-        WifiIPCReply(0xA, 0, dd_len, (u16*)dd_offset);
+        WifiIPCReply(0xA, 0, numextra, extra);
+
+        NDS::ARM7Write32(SharedMem[1]+0x4, 0);
+        NDS::ARM7Write16(IPCCmdAddr, 0x800A);
     }
     else if (HostScanCount == 0)
     {
-        WifiIPCReply(0xA, 0);
+        WifiIPCReply(0xA, 0, numextra, extra);
+
+        NDS::ARM7Write32(SharedMem[1]+0x4, 0);
+        NDS::ARM7Write16(IPCCmdAddr, 0x800A);
+    }
+}
+
+bool HostConnect()
+{
+    switch (ClientStatus[0])
+    {
+    case 0: // waiting for beacon
+        {
+            if (!ReceiveHostBeacon())
+                return false;
+
+            u8 wanted_mac[6];
+            *(u16*)&wanted_mac[0] = NDS::ARM7Read16(SharedMem[0]+0x14);
+            *(u16*)&wanted_mac[2] = NDS::ARM7Read16(SharedMem[0]+0x16);
+            *(u16*)&wanted_mac[4] = NDS::ARM7Read16(SharedMem[0]+0x18);
+
+            // check MAC
+            if (memcmp(&RXBuffer[12+10], wanted_mac, 6))
+                return false;
+
+            // TODO: other checks?
+
+            ClientStatus[0] = 1;
+            SendAuthFrame(wanted_mac, 0, 1, 0);
+        }
+        return false;
+
+    case 1: // waiting for auth frame
+        {
+            if (ReceiveFrame() <= 0)
+                return false;
+
+            u16 framectl = *(u16*)&RXBuffer[12+0];
+            framectl &= 0xE7FF;
+
+            if ((framectl & 0x00FC) != 0xB0)
+                return false;
+
+            // TODO check shito!
+
+            u8* srcmac = &RXBuffer[12+10];
+
+            ClientStatus[0] = 2;
+            SendAssocRequest(srcmac);
+        }
+        return false;
+
+    case 2: // waiting for assoc frame
+        {
+            if (ReceiveFrame() <= 0)
+                return false;
+
+            u16 framectl = *(u16*)&RXBuffer[12+0];
+            framectl &= 0xE7FF;
+
+            if ((framectl & 0x00FC) != 0x10)
+                return false;
+
+            // TODO check shito!
+
+            u16 aid = *(u16*)&RXBuffer[12+24+4];
+            printf("wifi HLE: client connected, AID=%04X\n", aid);
+
+            ClientID = aid & 0xF;
+            ClientMask |= (1<<0);
+            u8* srcmac = &RXBuffer[12+10];
+            memcpy(ClientMAC[0], srcmac, 6);
+            ClientStatus[0] = 3;
+
+            NDS::ARM7Write16(SharedMem[1], 8);
+
+            NDS::ARM7Write16(SharedMem[1]+0x188, ClientID);
+            NDS::ARM7Write16(SharedMem[1]+0x182, 1);
+            NDS::ARM7Write16(SharedMem[1]+0x86, 1);
+
+            u8 flags = NDS::ARM7Read8(SharedMem[0]+0x5B);
+            u16 cmd_len = NDS::ARM7Read16(SharedMem[0]+0x5C);
+            u16 reply_len = NDS::ARM7Read16(SharedMem[0]+0x5E);
+            if (flags & (1<<2))
+            {
+                cmd_len += 0x2A;
+                reply_len += 6;
+            }
+            SetCmdFrameSize(cmd_len);
+            SetReplyFrameSize(reply_len);
+
+            u16 extra[7];
+            extra[0] = 7;
+            extra[1] = ClientID;
+            memcpy(&extra[2], srcmac, 6);
+            // TODO: not right!
+            extra[5] = cmd_len;
+            extra[6] = reply_len;
+            WifiIPCReply(0xC, 0, 7, extra);
+
+            NDS::ARM7Write32(SharedMem[1]+0x4, 0);
+            NDS::ARM7Write16(IPCCmdAddr, 0x800C);
+        }
+        return true;
+    }
+
+    return false;
+}
+
+
+void HostComm(int status)
+{
+    if (ReceiveFrame() <= 0)
+        return;
+
+    u16 framectl = *(u16*)&RXBuffer[12+0];
+    framectl &= 0xE7FF;
+
+    switch ((framectl >> 2) & 0x3)
+    {
+    case 0: // management frame
+        {
+            u8* srcmac = &RXBuffer[12+10];
+
+            switch ((framectl >> 4) & 0xF)
+            {
+            case 0x0: // association request
+                {
+                    // TODO check shito here
+
+                    int clientnum = -1;
+                    for (int i = 1; i < 16; i++)
+                    {
+                        if (!memcmp(srcmac, ClientMAC[i], 6))
+                        {
+                            clientnum = i;
+                            break;
+                        }
+                    }
+
+                    if (clientnum < 0)
+                    {
+                        printf("wifi HLE: bad client MAC\n");
+                        break;
+                    }
+
+                    if ((!(ClientMask & (0x10000 << clientnum))) ||
+                        (ClientStatus[clientnum] != 1))
+                    {
+                        printf("wifi HLE: ?????\n");
+                        break;
+                    }
+
+                    ClientMask &= ~(0x10000 << clientnum);
+                    ClientMask |= (1 << clientnum);
+                    ClientStatus[clientnum] = 3;
+                    SendAssocResponse(srcmac, 0, 0xC000|clientnum);
+
+                    u16 temp = NDS::ARM7Read16(SharedMem[1]+0x182);
+                    temp |= (1 << clientnum);
+                    NDS::ARM7Write16(SharedMem[1]+0x182, temp);
+                    temp = NDS::ARM7Read16(SharedMem[1]+0x86);
+                    temp &= ~(1 << clientnum);
+                    NDS::ARM7Write16(SharedMem[1]+0x86, temp);
+
+                    u32 mac_addr = SharedMem[1] + 0x128 + ((clientnum-1) * 6);
+                    NDS::ARM7Write16(mac_addr+0, *(u16*)&srcmac[0]);
+                    NDS::ARM7Write16(mac_addr+2, *(u16*)&srcmac[2]);
+                    NDS::ARM7Write16(mac_addr+4, *(u16*)&srcmac[4]);
+
+                    u32 tmp_addr = SharedMem[1] + 0x1F8 + (clientnum << 4);
+                    for (int i = 0; i < 16; i+=2)
+                        NDS::ARM7Write16(tmp_addr+i, 0);
+
+                    u16 extra[19];
+                    extra[0] = 7;
+                    memcpy(&extra[1], srcmac, 6);
+                    extra[4] = clientnum;
+                    memset(&extra[5], 0, 0x18); // TODO -- what is this? WEP related?
+                    extra[17] = NDS::ARM7Read16(SharedMem[1]+0x30);
+                    extra[18] = NDS::ARM7Read16(SharedMem[1]+0x32);
+                    WifiIPCReply(0x8, 0, 19, extra);
+                }
+                break;
+
+            case 0xB: // auth frame
+                {
+                    // TODO check shito here
+
+                    int clientnum = -1;
+                    for (int i = 1; i < 16; i++)
+                    {
+                        if (!memcmp(srcmac, ClientMAC[i], 6))
+                        {
+                            clientnum = i;
+                            break;
+                        }
+                    }
+                    if (clientnum < 0)
+                    {
+                        u16 mask = ClientMask | (ClientMask >> 16);
+                        for (int i = 1; i < 16; i++)
+                        {
+                            if (!(mask & (1<<i)))
+                            {
+                                clientnum = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (clientnum < 0)
+                    {
+                        printf("wifi HLE: ran out of client IDs\n");
+                        break;
+                    }
+
+                    ClientMask |= (0x10000 << clientnum);
+                    memcpy(ClientMAC[clientnum], srcmac, 6);
+                    ClientStatus[clientnum] = 1;
+                    SendAuthFrame(ClientMAC[clientnum], 0, 2, 0);
+
+                    u16 extra = 0x13;
+                    WifiIPCReply(0x80, 0, 1, &extra);
+                }
+                break;
+            }
+        }
+        break;
+
+    case 2: // data frame
+        {
+            printf("HOST DATA FRAME: %04X\n", framectl);
+        }
+        break;
+    }
+}
+
+void ClientComm(int status)
+{
+    if (ReceiveFrame() <= 0)
+        return;
+
+    u16 framectl = *(u16*)&RXBuffer[12+0];
+    framectl &= 0xE7FF;
+
+    switch ((framectl >> 2) & 0x3)
+    {
+    case 0: // management frame
+        {
+            u8* srcmac = &RXBuffer[12+10];
+
+            switch ((framectl >> 4) & 0xF)
+            {
+                // TODO.
+            }
+        }
+        break;
+
+    case 2: // data frame
+        {
+            //
+        }
+        break;
     }
 }
 
@@ -290,6 +890,13 @@ void MSTimer(u32 param)
 
     switch (status)
     {
+    case 3: // connecting to host
+        {
+            if (!HostConnect())
+                ScheduleTimer(false);
+        }
+        break;
+
     case 5: // scanning for host beacons
         {
             if (HostScanCount > 0)
@@ -312,6 +919,24 @@ void MSTimer(u32 param)
                 BeaconCount = 0;
                 SendHostBeacon();
             }
+
+            HostComm(status);
+
+            if ((status == 9) && (CmdCount > 0))
+            {
+                CmdCount--;
+                if (CmdCount == 0)
+                    SendAckFrame();
+            }
+
+            ScheduleTimer(false);
+        }
+        break;
+
+    case 8:
+    case 10: // client comm
+        {
+            ClientComm(status);
 
             ScheduleTimer(false);
         }
@@ -336,6 +961,45 @@ void ScheduleTimer(bool first)
 }
 
 
+void SetCmdFrameSize(u16 size)
+{
+    NDS::ARM7Write16(SharedMem[1]+0x30, size);
+    NDS::ARM7Write16(SharedMem[1]+0x34, size);
+printf("SET CMD FRAME SIZE: %04X\n", size);
+    size += 4;
+    u16 clientID = NDS::ARM7Read16(SharedMem[1]+0x188);
+    if (clientID)
+    {printf("schprout %04X\n", size);
+        NDS::ARM7Write16(SharedMem[1]+0x3E, size);
+        NDS::ARM7Write16(SharedMem[1]+0x3A, size);
+    }
+    else
+    {
+        NDS::ARM7Write16(SharedMem[1]+0x3C, size);
+        NDS::ARM7Write16(SharedMem[1]+0x38, size);
+    }
+}
+
+void SetReplyFrameSize(u16 size)
+{
+    NDS::ARM7Write16(SharedMem[1]+0x36, size);
+    NDS::ARM7Write16(SharedMem[1]+0x32, size);
+
+    size += 2;
+    u16 clientID = NDS::ARM7Read16(SharedMem[1]+0x188);
+    if (clientID)
+    {
+        NDS::ARM7Write16(SharedMem[1]+0x3C, size);
+        NDS::ARM7Write16(SharedMem[1]+0x38, size);
+    }
+    else
+    {
+        NDS::ARM7Write16(SharedMem[1]+0x3E, size);
+        NDS::ARM7Write16(SharedMem[1]+0x3A, size);
+    }
+}
+
+
 void StartHostComm()
 {
     memset(BeaconFrame, 0xFF, sizeof(BeaconFrame));
@@ -356,11 +1020,17 @@ void StartHostComm()
     u16 cmd_len = NDS::ARM7Read16(paramblock + 0x34);
     u16 reply_len = NDS::ARM7Read16(paramblock + 0x36);
 
+    u16 flags[4];
+    flags[0] = NDS::ARM7Read16(paramblock + 0x0E);
+    flags[1] = NDS::ARM7Read16(paramblock + 0x12);
+    flags[2] = NDS::ARM7Read16(paramblock + 0x14);
+    flags[3] = NDS::ARM7Read16(paramblock + 0x16);
+
     u8 beacontype = 0;
-    if (NDS::ARM7Read16(paramblock + 0x0E) & 0x1) beacontype |= (1<<0);
-    if (NDS::ARM7Read16(paramblock + 0x12) & 0x1) beacontype |= (1<<1);
-    if (NDS::ARM7Read16(paramblock + 0x14) & 0x1) beacontype |= (1<<2);
-    if (NDS::ARM7Read16(paramblock + 0x16) & 0x1) beacontype |= (1<<3);
+    if (flags[0] & 0x1) beacontype |= (1<<0);
+    if (flags[1] & 0x1) beacontype |= (1<<1);
+    if (flags[2] & 0x1) beacontype |= (1<<2);
+    if (flags[3] & 0x1) beacontype |= (1<<3);
 
     // TX header (required by comm layer)
     *(u16*)ptr = 0;         ptr += 2;
@@ -435,6 +1105,12 @@ void StartHostComm()
 
     // frame length
     *(u16*)&BeaconFrame[0xA] = len;
+
+
+    // setup extra stuff
+
+    SetCmdFrameSize(cmd_len + (flags[2] ? 0x2A : 0));
+    SetReplyFrameSize(reply_len + (flags[2] ? 6 : 0));
 }
 
 
@@ -442,7 +1118,7 @@ void WifiIPCRetry(u32 param)
 {
     u16 flag = NDS::ARM7Read16(0x027FFF96);
     if (flag & 0x1)
-    {
+    {printf("PRONSCHMO %04X\n", param);
         NDS::ScheduleEvent(NDS::Event_HLE_WifiIPCRetry, true, 1024, WifiIPCRetry, 0);
         return;
     }
@@ -461,7 +1137,7 @@ void WifiIPCReply(u16 cmd, u16 status, int numextra, u16* extra)
         reply.Status = status;
         reply.NumExtra = numextra;
         if (numextra) memcpy(reply.Extra, extra, numextra*sizeof(u16));
-        IPCReplyQueue.Write(reply);
+        IPCReplyQueue.Write(reply);printf("PRONCHIASSE %04X\n", cmd);
         NDS::ScheduleEvent(NDS::Event_HLE_WifiIPCRetry, false, 1024, WifiIPCRetry, 0);
         return;
     }
@@ -481,38 +1157,68 @@ void WifiIPCReply(u16 cmd, u16 status, int numextra, u16* extra)
             NDS::ARM7Write16(replybuf+0x2C, extra[1]);
             NDS::ARM7Write16(replybuf+0x2E, extra[2]);
         }
+        else if (numextra == 19)
+        {
+            NDS::ARM7Write16(replybuf+0xA, extra[1]); // client MAC
+            NDS::ARM7Write16(replybuf+0xC, extra[2]);
+            NDS::ARM7Write16(replybuf+0xE, extra[3]);
+            NDS::ARM7Write16(replybuf+0x10, extra[4]); // client ID
+            for (int i = 0; i < 12; i++)
+            {
+                NDS::ARM7Write16(replybuf+0x14+(i<<1), extra[5+i]);
+            }
+            NDS::ARM7Write16(replybuf+0x2C, extra[17]);
+            NDS::ARM7Write16(replybuf+0x2E, extra[18]);
+        }
     }
     else if (cmd == 0xA)
     {
-        if (numextra > 0)
+        if (numextra >= 5)
         {
             NDS::ARM7Write16(replybuf+0x8, 5);
-            NDS::ARM7Write16(replybuf+0x10, Channel);
+            NDS::ARM7Write16(replybuf+0x10, extra[0]); // channel
             NDS::ARM7Write16(replybuf+0x12, 0);
 
             // source MAC
-            NDS::ARM7Write16(replybuf+0xA, *(u16*)&RXBuffer[12+10]);
-            NDS::ARM7Write16(replybuf+0xC, *(u16*)&RXBuffer[12+12]);
-            NDS::ARM7Write16(replybuf+0xE, *(u16*)&RXBuffer[12+14]);
+            NDS::ARM7Write16(replybuf+0xA, extra[1]);
+            NDS::ARM7Write16(replybuf+0xC, extra[2]);
+            NDS::ARM7Write16(replybuf+0xE, extra[3]);
 
             NDS::ARM7Write16(replybuf+0x14, 0); // ???
 
-            NDS::ARM7Write16(replybuf+0x36, numextra);
-            for (int i = 0; i < numextra; i+=2)
+            NDS::ARM7Write16(replybuf+0x36, extra[4]);
+            for (int i = 0; i < extra[4]; i+=2)
             {
-                NDS::ARM7Write16(replybuf+0x38+i, extra[i>>1]);
+                NDS::ARM7Write16(replybuf+0x38+i, extra[5+(i>>1)]);
             }
         }
-        else
+        else if (numextra >= 1)
         {
             NDS::ARM7Write16(replybuf+0x8, 4);
-            NDS::ARM7Write16(replybuf+0x10, Channel);
+            NDS::ARM7Write16(replybuf+0x10, extra[0]);
             NDS::ARM7Write16(replybuf+0x12, 0);
+        }
+    }
+    else if (cmd == 0xC && status == 0)
+    {
+        NDS::ARM7Write16(replybuf+0x8, extra[0]);
+        if (extra[0] == 7)
+        {
+            NDS::ARM7Write16(replybuf+0xA, extra[1]);
+            NDS::ARM7Write16(replybuf+0x10, extra[2]);
+            NDS::ARM7Write16(replybuf+0x12, extra[3]);
+            NDS::ARM7Write16(replybuf+0x14, extra[4]);
+            NDS::ARM7Write16(replybuf+0x16, extra[5]);
+            NDS::ARM7Write16(replybuf+0x18, extra[6]);
         }
     }
     else if (cmd == 0xE && status == 0)
     {
         NDS::ARM7Write16(replybuf+0x04, 0xA);
+    }
+    else if (cmd == 0x80)
+    {
+        NDS::ARM7Write16(replybuf+0x04, extra[0]);
     }
     else
     {
@@ -530,6 +1236,8 @@ void WifiIPCReply(u16 cmd, u16 status, int numextra, u16* extra)
 
 void OnIPCRequest(u32 addr)
 {
+    IPCCmdAddr = addr;
+
     u16 cmd = NDS::ARM7Read16(addr);
     cmd &= ~0x8000;
 
@@ -542,6 +1250,94 @@ void OnIPCRequest(u32 addr)
         {
         case 0x0: // init
             {
+                // SHAREDMEM LAYOUT
+                //
+                // SHAREDMEM 0
+                // offset  size  desc.
+                // 00      4     pointer to sharedmem 1
+                // 08      4     pointer to IPC response buffer
+                // 10      0xC0  host data buffer (see command 0xC)
+                // D0      32*4  ??? initialized to 0x8000 each
+                //
+                // SHAREDMEM 1
+                // offset  size  desc.
+                // 00      2     status
+                //                   0 = disabled
+                //                   1 = enabled
+                //                   2 = inited, ready for operation
+                //                   3 = connecting to host
+                //                       (command 0xA also briefly transitions to state 3 before state 5)
+                //                   5 = scanning for hosts
+                //                   7 = host comm, waiting for clients
+                //                   8 = client comm, connected to host
+                //                   9 = host comm, local MP comm started
+                //                   10 = client comm, local MP comm started
+                // 02      2     last valid IPC command
+                // 04      4     busy flag (1 = processing IPC command)
+                // 08
+                // 0C      4     init flag for something??
+                // 10      4     ???
+                // 14      4     ???
+                // 18
+                // 1C      4     ???
+                // 20
+                // 30      2     CMD frame size
+                // 32      2     REPLY frame size
+                // 34      2     CMD frame size
+                // 36      2     REPLY frame size
+                // 38      2     TX frame size (ie. CMD on host side, REPLY on client side)
+                // 3A      2     RX frame size
+                // 3C      2     TX frame size
+                // 3E      2     RX frame size
+                // 40      2     ??? inited to 0104
+                // 42      2     ??? inited to 00F0
+                // 44      2     ??? inited to 03E8
+                // 46      2     ???
+                // 48      4     ??? inited to 020B
+                // 4C      4     ???
+                // 50      4     ???
+                // 54      4     ???
+                // 58      2     ??? inited to 1
+                // 5A      2     ??? inited to 1
+                // 5C      2     ??? inited to 6
+                // 60
+                // 70      2     current RX buffer (0/1)
+                // 72      2     length of RX buffer (see command 0xE)
+                // 74      4     pointer to RX buffer 0
+                // 78      4     pointer to RX buffer 1
+                // 7C      4     pointer to TX buffer
+                // 80      2     length of TX buffer
+                // 86      2     available client slots?? (bitmask)
+                // 88
+                // 92      2     ???
+                // 94      2     ???
+                // 96
+                // 98      2     ???
+                // 9A      2     ???
+                // 9C      2     ???
+                // 9E
+                // C2      2     ???
+                // C4
+                // C6      2     ???
+                // C8
+                // CE      2     ???
+                // D0
+                // E8      0x40  host: param block for host beacon (see command 0x7)
+                // 128     6*15  host: client MAC addresses
+                // 182     2     host: connected clients (bitmask)
+                // 184
+                // 188     2     client: client ID
+                // 18A     6     client: host MAC address
+                // 1EC     2     TX rate? (1/2)
+                // 1EE     2     ??? inited to 1
+                // 1F0
+                // 1F4     2     allowed channels (bitmask)
+                // 1F6     2     allowed channels (bitmask) (again?)
+                // 1F8     16*16 sequence numbers (2 bytes, per stream, 8 streams per client)
+                // 2F8
+                // 71C     4*4   ???
+                // 738     8*16  tick count at client connection (ID 0 on client side, 1-15 on host side)
+
                 SharedMem[0] = NDS::ARM7Read32(addr+0x4);
                 SharedMem[1] = NDS::ARM7Read32(addr+0x8);
                 u32 respbuf = NDS::ARM7Read32(addr+0xC);
@@ -609,7 +1405,7 @@ void OnIPCRequest(u32 addr)
 
         case 0x7: // set host param
             {
-                // PARAM BLOCK FORMAT
+                // PARAM BLOCK FORMAT -- 0x40 bytes
                 // offset  size  desc.
                 // 00      4     tag DD: pointer to extra data
                 // 04      2     tag DD: length of extra data (tag DD length minus 0x18)
@@ -656,8 +1452,8 @@ void OnIPCRequest(u32 addr)
 
                 u16 extra[3];
                 extra[0] = 0;
-                extra[1] = NDS::ARM7Read16(SharedMem[1]+0xE8+0x34);
-                extra[2] = NDS::ARM7Read16(SharedMem[1]+0xE8+0x36);
+                extra[1] = NDS::ARM7Read16(SharedMem[1]+0x30);
+                extra[2] = NDS::ARM7Read16(SharedMem[1]+0x32);
                 WifiIPCReply(0x8, 0, 3, extra);
 
                 NDS::ARM7Write16(SharedMem[1]+0xC2, 1);
@@ -668,7 +1464,6 @@ void OnIPCRequest(u32 addr)
         case 0xA: // start host scan
             {
                 // scan for viable host beacons
-                // timeout: ~20480*64 cycles (with value 0x22)
                 //
                 // COMMAND BUFFER
                 // offset  size  desc.
@@ -685,7 +1480,7 @@ void OnIPCRequest(u32 addr)
                 // 36      2     length of tag DD data (minus first 8 bytes) (zero if none)
                 // 38      X     tag DD data (minus first 8 bytes)
                 //
-                // BEACON DATA BUFFER
+                // BEACON DATA BUFFER -- 0xC0 bytes
                 // offset  size  desc.
                 // 00      2     buffer length in halfwords ((tag DD length - 8 + 0x41) >> 1)
                 // 02      2     frame control? AND 0xFF -- 0080
@@ -743,11 +1538,91 @@ void OnIPCRequest(u32 addr)
                 NDS::ARM7Write16(SharedMem[1], 5);
                 ScheduleTimer(true);
             }
+            return;
+
+        case 0xB: // stop host scan
+            {
+                u16 status = NDS::ARM7Read16(SharedMem[1]);
+                if (status != 5)
+                {
+                    WifiIPCReply(0xB, 3);
+                    break;
+                }
+
+                NDS::ARM7Write16(SharedMem[1], 2);
+                HostScanCount = 0;
+
+                WifiIPCReply(0xB, 0);
+
+                // CHECKME
+                WifiIPCReply(0xA, 0, 1, &Channel);
+            }
             break;
+
+        case 0xC: // connect to host
+            {
+                // COMMAND BUFFER
+                // offset  size  desc.
+                // 04      4     host data buffer
+                //
+                // HOST DATA BUFFER -- 0xC0 bytes
+                // same format as beacon data buffer returned by command 0xA
+                // except first word of tag DD is changed to 00000100?
+
+                u16 status = NDS::ARM7Read16(SharedMem[1]);
+                if (status != 2)
+                {
+                    u16 ext = 6;
+                    WifiIPCReply(0xC, 3, 1, &ext);
+                    break;
+                }
+
+                // copy host data buffer to sharedmem
+                u32 hostdata = NDS::ARM7Read32(addr+0x4);
+                for (int i = 0; i < 0xC0; i+=2)
+                {
+                    u16 tmp = NDS::ARM7Read16(hostdata+i);
+                    NDS::ARM7Write16(SharedMem[0]+0x10+i, tmp);
+                }
+
+                if ((NDS::ARM7Read16(SharedMem[0]+0x4C) >= 16) &&
+                    (!(NDS::ARM7Read8(SharedMem[0]+0x5B) & 0x01)))
+                {
+                    u16 ext = 6;
+                    WifiIPCReply(0xC, 11, 1, &ext);
+                    break;
+                }
+
+                // TODO check against 1F4 (allowed channels)
+                // and other shit (TX rate)
+
+                u16 ext = 6;
+                WifiIPCReply(0xC, 0, 1, &ext);
+
+                NDS::ARM7Write16(SharedMem[1], 3);
+
+                u32 flag = NDS::ARM7Read32(addr+0x20);
+                NDS::ARM7Write16(SharedMem[1]+0xC6, flag?1:0);
+
+                ClientStatus[0] = 0;
+                ScheduleTimer(true);
+
+                // continue process after receiving host beacon
+                // TODO: add timeouts to this
+            }
+            return;
 
         case 0xE: // start local MP
             {
-                // TODO!!
+                // COMMAND BUFFER
+                // offset  size  desc.
+                // 04      4     pointer to RX buffers (two contiguous buffers)
+                // 08      4     RX buffer size
+                // 0C      4     pointer to TX buffer
+                // 10      4     TX buffer size
+                // 14      28    parameter block (see command 0x23)
+
+                MPUnkBuffer = NDS::ARM7Read32(addr+0x4);
 
                 u16 status = NDS::ARM7Read16(SharedMem[1]);
                 if (status == 8)
@@ -755,9 +1630,90 @@ void OnIPCRequest(u32 addr)
                 else if (status == 7)
                     NDS::ARM7Write16(SharedMem[1], 9);
 
+                ScheduleTimer(true);
+
                 printf("WIFI HLE: START MP\n");
 
                 WifiIPCReply(0xE, 0);
+            }
+            break;
+
+        case 0xF: // send MP data
+            {
+                // COMMAND BUFFER
+                // offset  size  desc.
+                // 04      4     pointer to frame data
+                // 08      4     frame size
+                // 0C      4     destination bitmask (forced to 1 on clients)
+                // 10      4     bit0-2: stream number
+                //               bit3: include sequence number
+                // 14      4     ??
+                // 18      4     callback
+                // 1C      4     callback parameter
+                //
+                // REPLY 1:
+                // REPLY BUFFER
+                // offset  size  desc.
+                // 00      2     0x81
+                // 02      2     status (0)
+                // 08      2     0x14
+                // 0A      2     stream#/flag (from command buffer)
+                // 0C      2     destination bitmask (from command buffer; 1 if client)
+                // 0E      2     transmit failure bitmask?
+                // 10      2     success bitmask?
+                // 14      4     pointer to frame data (from command buffer)
+                // 18      2     frame size (from command buffer)
+                // 1A      2     success bitmask? (FFFF if destination bitmask is zero)
+                // 1C      4     callback (from command buffer)
+                // 20      4     callback parameter (from command buffer)
+                // 24      2     TX frame size
+                // 26      2     RX frame size
+                //
+                // REPLY 2: end of exchange
+                // REPLY BUFFER
+                // offset  size  desc.
+                // 00      2     0xE
+                // 02      2     status (0)
+                // 04      2     0xB
+                // 08      4     received frame data
+
+                u32 framedata = NDS::ARM7Read32(addr+0x4);
+                u32 framesize = NDS::ARM7Read32(addr+0x8);
+                u32 destmask = NDS::ARM7Read32(addr+0xC);
+                u32 flags = NDS::ARM7Read32(addr+0x10);
+                u32 cb = NDS::ARM7Read32(addr+0x18);
+                u32 cbparam = NDS::ARM7Read32(addr+0x1C);
+
+                MPFrameMetadata[0] = framedata;
+                MPFrameMetadata[1] = framesize;
+                MPFrameMetadata[3] = flags;
+                MPFrameMetadata[4] = cb;
+                MPFrameMetadata[5] = cbparam;
+
+                u16 clientID = NDS::ARM7Read16(SharedMem[1]+0x188);
+                if (clientID)
+                {
+                    destmask = 0x0001;
+                    MPFrameMetadata[2] = destmask;
+printf("CLIENT FRAME SEND\n");
+                    // client side TODO
+                }
+                else
+                {
+                    u16 connmask = NDS::ARM7Read16(SharedMem[1]+0x182);
+                    destmask &= connmask;
+                    MPFrameMetadata[2] = destmask; // CHECKME
+
+                    if (destmask)
+                    {
+                        SendCmdFrame(framedata, framesize, destmask, flags);
+                    }
+                    else
+                    {
+                        SendCmdFrame(0, 0, connmask, flags);
+                        MPSignalTX();
+                    }
+                }
             }
             break;
 
