@@ -56,6 +56,7 @@ u16 Channel;
 
 u8 TXBuffer[2048];
 u8 RXBuffer[2048];
+u8 MPReplyBuffer[15*1024];
 
 u16 BeaconCount;
 u16 BeaconInterval;
@@ -71,13 +72,14 @@ u16 ClientID;
 u16 HostScanCount;
 u32 HostScanBuffer;
 
-u32 MPUnkBuffer;
 u32 MPFrameMetadata[6];
 u16 MPSeqNo;
 
 u64 CmdTimestamp;
 u32 CmdCount;
+u16 CmdClientTime;
 u16 CmdClientMask;
+u16 CmdClientDone;
 u16 CmdClientFail;
 
 void ScheduleTimer(bool first);
@@ -106,6 +108,7 @@ void Reset()
 
     memset(TXBuffer, 0, sizeof(TXBuffer));
     memset(RXBuffer, 0, sizeof(RXBuffer));
+    memset(MPReplyBuffer, 0, sizeof(MPReplyBuffer));
 
     BeaconCount = 0;
     BeaconInterval = 0;
@@ -121,13 +124,14 @@ void Reset()
     HostScanCount = 0;
     HostScanBuffer = 0;
 
-    MPUnkBuffer = 0;
     memset(MPFrameMetadata, 0, sizeof(MPFrameMetadata));
     MPSeqNo = 0;
 
     CmdTimestamp = 0;
     CmdCount = 0;
+    CmdClientTime = 0;
     CmdClientMask = 0;
+    CmdClientDone = 0;
     CmdClientFail = 0;
 
     u16 chanmask = 0x2082;
@@ -329,8 +333,8 @@ void SendCmdFrame(u32 bodyaddr, u32 bodylen, u16 clientmask, u32 stream)
 
     if (bodylen & 1) bodylen++;
 
-    u16 clienttime = NDS::ARM7Read16(SharedMem[1]+0x3A);
-    clienttime = (clienttime*4) + 0xE2;
+    u16 clientlen = bodylen ? NDS::ARM7Read16(SharedMem[1]+0x3A) : 8;
+    u16 clienttime = (clientlen*4) + 0xE6;
 
     *(u16*)&frame[0x0] = 0;
     *(u16*)&frame[0x2] = clientmask;
@@ -346,12 +350,12 @@ void SendCmdFrame(u32 bodyaddr, u32 bodylen, u16 clientmask, u32 stream)
     *(u16*)ptr = TXSeqNo << 4; ptr += 2; // sequence number
     TXSeqNo++;
 
+    *(u16*)ptr = clienttime;    ptr += 2;
+    *(u16*)ptr = clientmask;    ptr += 2;
+
 printf("SEND CMD: BODYLEN=%04X\n", bodylen);
     if (bodylen)
     {
-        *(u16*)ptr = clienttime;    ptr += 2;
-        *(u16*)ptr = clientmask;    ptr += 2;
-
         u16 flags = (bodylen >> 1) & 0xFF;
         flags |= ((stream & 0xF) << 8);
         flags |= 0x9000;
@@ -374,8 +378,6 @@ printf("SEND CMD: BODYLEN=%04X\n", bodylen);
     }
     else
     {
-        *(u16*)ptr = 0x106;       ptr += 2;
-        *(u16*)ptr = clientmask;  ptr += 2;
         *(u16*)ptr = 0x8000;      ptr += 2;
     }
 
@@ -391,10 +393,32 @@ printf("SEND CMD: BODYLEN=%04X\n", bodylen);
 
     CmdTimestamp = Timestamp;
     CmdCount = 4; // TODO not hardcode this!
+    CmdClientTime = clienttime;
     CmdClientMask = clientmask;
+    CmdClientDone = 0;
     CmdClientFail = 0;
 
     Platform::MP_SendCmd(frame, 12+len, Timestamp);
+
+    u16 curbuf = NDS::ARM7Read16(SharedMem[1]+0x70);
+    u32 dstaddr = NDS::ARM7Read32(SharedMem[1]+0x74 + (curbuf<<2));
+
+    u16 rxlen = clientlen + 0xE;
+    u16 nclients = 0;
+    for (int i = 1; i < 16; i++)
+    {
+        if (!(clientmask & (1<<i))) continue;
+
+        // CHECKME
+        u32 rxbuf = dstaddr+0x8 + (rxlen*nclients);
+        NDS::ARM7Write16(rxbuf+0x00, 0x0001);
+        NDS::ARM7Write16(rxbuf+0x02, 0xFFFF);
+        nclients++;
+    }
+
+    NDS::ARM7Write32(dstaddr, 0); // ??
+    NDS::ARM7Write16(dstaddr+0x4, nclients);
+    NDS::ARM7Write16(dstaddr+0x6, rxlen);
 }
 
 void SendReplyFrame(u32 bodyaddr, u32 bodylen, u32 stream)
@@ -462,11 +486,89 @@ printf("SEND REPLY: BODYLEN=%04X\n", bodylen);
     Platform::MP_SendReply(frame, 12+len, Timestamp, clientID);
 }
 
+void ReceiveReplyFrames()
+{
+    u16 remmask = CmdClientMask & ~CmdClientDone;
+    if (!remmask) return;
+
+    // TODO: only block on the last attempt
+    u16 res = Platform::MP_RecvReplies(MPReplyBuffer, CmdTimestamp, remmask);
+    if (!res) return;
+
+    res &= remmask;
+    for (int i = 1; i < 16; i++)
+    {
+        if (!(res & (1<<i))) continue;
+
+        u8* frame = &MPReplyBuffer[(i-1)*1024];
+        u16 framelen = *(u16*)&frame[10];
+
+        u16 frametime = (framelen * 4) + 0x60;
+        if (frametime > CmdClientTime) continue;
+
+        u8* dstmac = &frame[12+16];
+        if (*(u16*)&dstmac[0] != 0x0903) continue;
+        if (*(u16*)&dstmac[2] != 0x00BF) continue;
+        if (*(u16*)&dstmac[4] != 0x1000) continue;
+
+        // TODO check source MAC and all that
+
+        u16 curbuf = NDS::ARM7Read16(SharedMem[1]+0x70);
+        u32 _dstaddr = NDS::ARM7Read32(SharedMem[1]+0x74 + (curbuf<<2));
+        u16 dstlen = NDS::ARM7Read16(SharedMem[1]+0x72);
+
+        u16 nclients = NDS::ARM7Read16(_dstaddr+0x4);
+        u16 rxlen = NDS::ARM7Read16(_dstaddr+0x6);
+        if (i > nclients) continue;
+
+        u16 bodylen;
+        if (framelen >= 0x26) bodylen = framelen - 0x26;
+        else bodylen = 0;
+
+        u16 writelen = framelen - 0x1A;
+        if ((writelen+0xA) > rxlen) continue;
+
+        u32 dstaddr = _dstaddr + (0x8 + (rxlen * (i-1)));
+
+        // TODO a lot more of the stuff
+
+        NDS::ARM7Write16(dstaddr+0x00, 0);
+        NDS::ARM7Write16(dstaddr+0x02, 0x0040);
+        NDS::ARM7Write16(dstaddr+0x04, 0x8014);
+        NDS::ARM7Write16(dstaddr+0x06, i);
+        NDS::ARM7Write16(dstaddr+0x08, 0);
+
+        for (u32 i = 0; i < writelen; i+=2)
+        {
+            NDS::ARM7Write16(dstaddr+0xA + i, *(u16*)&frame[12+24 + i]);
+        }
+
+        u16 tmp = NDS::ARM7Read16(SharedMem[1]+0x86);
+        tmp |= (1<<i);
+        NDS::ARM7Write16(SharedMem[1]+0x86, tmp);
+
+        /*u16 extra[3];
+        extra[0] = 0xC;
+        *(u32*)&extra[1] = dstaddr;
+        WifiIPCReply(0xE, 0, 3, extra);*/
+
+        if (bodylen)
+        {
+            u16 cmdflags = *(u16*)&frame[12+24];
+            MPSignalRX(_dstaddr, dstaddr, i, cmdflags);
+        }
+    }
+
+    CmdClientDone |= res;
+}
+
 void SendAckFrame()
 {
     u8 frame[12+32];
     u8* ptr = &frame[0xC];
     u8 dest[6] = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x03};
+
+    CmdClientFail = CmdClientMask & ~CmdClientDone;
 
     *(u16*)&frame[0x0] = 0;
     *(u16*)&frame[0x2] = 0;
@@ -502,11 +604,17 @@ printf("MP: ACK\n");
         MPSignalTX(MPSeqNo);
     }
 
+    u16 curbuf = NDS::ARM7Read16(SharedMem[1]+0x70);
+    u32 dstaddr = NDS::ARM7Read32(SharedMem[1]+0x74 + (curbuf<<2));
+    //u16 dstlen = NDS::ARM7Read16(SharedMem[1]+0x72);
+
     u16 extra[3];
     extra[0] = 0xB;
-    *(u32*)&extra[1] = MPUnkBuffer;
-    MPUnkBuffer ^= 0x100; // CHECKME!!!
+    *(u32*)&extra[1] = dstaddr;
     WifiIPCReply(0xE, 0, 3, extra);
+
+    curbuf ^= 1;
+    NDS::ARM7Write16(SharedMem[1]+0x70, curbuf);
 }
 
 void MPSignalTX(u16 seqno)
@@ -1044,7 +1152,7 @@ void ClientComm(int status)
                 if (clientmask & (1<<clientID))
                 {
                     u16 framelen = MPFrameMetadata[1];
-                    framelen = (framelen*4) + 0xE2;
+                    framelen = (framelen*4) + 0xE0;
                     if (framelen <= clienttime)
                         doreply = true;
                 }
@@ -1057,6 +1165,8 @@ void ClientComm(int status)
                 {
                     Platform::MP_SendReply(nullptr, 0, Timestamp, clientID);
                 }
+
+                MPFrameMetadata[1] = 0;
             }
             else if (*(u16*)&dstmac[4] == 0x0300)
             {
@@ -1124,6 +1234,7 @@ void MSTimer(u32 param)
             if ((status == 9) && (CmdCount > 0))
             {
                 CmdCount--;
+                ReceiveReplyFrames();
                 if (CmdCount == 0)
                     SendAckFrame();
             }
@@ -1859,9 +1970,6 @@ void OnIPCRequest(u32 addr)
                 u32 rxlen = NDS::ARM7Read32(addr+0x8);
                 u32 txbuf = NDS::ARM7Read32(addr+0xC);
                 u32 txlen = NDS::ARM7Read32(addr+0x10);
-
-                // HAX
-                MPUnkBuffer = rxbuf;
 
                 NDS::ARM7Write32(SharedMem[1]+0x74, rxbuf);
                 NDS::ARM7Write16(SharedMem[1]+0x72, rxlen);
