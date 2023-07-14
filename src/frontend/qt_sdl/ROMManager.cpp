@@ -550,23 +550,88 @@ bool LoadBIOS()
 u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
 {
     u64 realSize = ZSTD_getFrameContentSize(inContent, inSize);
+    const u32 maxSize = 0x40000000;
 
-    if (realSize == ZSTD_CONTENTSIZE_UNKNOWN || realSize == ZSTD_CONTENTSIZE_ERROR || realSize > 0x40000000)
+    if (realSize == ZSTD_CONTENTSIZE_ERROR || (realSize > maxSize && realSize != ZSTD_CONTENTSIZE_UNKNOWN))
     {
         return 0;
     }
 
-    u8* realContent = new u8[realSize];
-    u64 decompressed = ZSTD_decompress(realContent, realSize, inContent, inSize);
-
-    if (ZSTD_isError(decompressed))
+    if (realSize != ZSTD_CONTENTSIZE_UNKNOWN)
     {
-        delete[] realContent;
-        return 0;
-    }
+        u8* realContent = new u8[realSize];
+        u64 decompressed = ZSTD_decompress(realContent, realSize, inContent, inSize);
 
-    *outContent = realContent;
-    return realSize;
+        if (ZSTD_isError(decompressed))
+        {
+            delete[] realContent;
+            return 0;
+        }
+
+        *outContent = realContent;
+        return realSize;
+    }
+    else
+    {
+        ZSTD_DStream* dStream = ZSTD_createDStream();
+        ZSTD_initDStream(dStream);
+
+        ZSTD_inBuffer inBuf = {
+            .src = inContent,
+            .size = inSize,
+            .pos = 0
+        };
+
+        const u32 startSize = 1024 * 1024 * 16;
+        u8* partialOutContent = (u8*) malloc(startSize);
+
+        ZSTD_outBuffer outBuf = {
+                .dst = partialOutContent,
+                .size = startSize,
+                .pos = 0
+        };
+
+        size_t result;
+
+        do
+        {
+            result = ZSTD_decompressStream(dStream, &outBuf, &inBuf);
+
+            if (ZSTD_isError(result))
+            {
+                ZSTD_freeDStream(dStream);
+                free(outBuf.dst);
+                return 0;
+            }
+
+            // if result == 0 and not inBuf.pos < inBuf.size, go again to let zstd flush everything.
+            if (result == 0)
+                continue;
+
+            if (outBuf.pos == outBuf.size)
+            {
+                outBuf.size *= 2;
+
+                if (outBuf.size > maxSize)
+                {
+                    ZSTD_freeDStream(dStream);
+                    free(outBuf.dst);
+                    return 0;
+                }
+
+                outBuf.dst = realloc(outBuf.dst, outBuf.size);
+            }
+        } while (inBuf.pos < inBuf.size);
+
+        ZSTD_freeDStream(dStream);
+        *outContent = new u8[outBuf.pos];
+        memcpy(*outContent, outBuf.dst, outBuf.pos);
+
+        ZSTD_freeDStream(dStream);
+        free(outBuf.dst);
+
+        return outBuf.size;
+    }
 }
 
 void ClearBackupState()
