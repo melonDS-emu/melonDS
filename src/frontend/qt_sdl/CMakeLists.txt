@@ -108,11 +108,27 @@ elseif (APPLE)
         ../duckstation/gl/context_agl.mm
     )
 else()
-    find_package(X11 REQUIRED)
     find_package(EGL REQUIRED)
 
-    option(ENABLE_WAYLAND "Enable Wayland support" ON)
+    option(ENABLE_X11 "Enable X11 support" ON)
+    if(ENABLE_X11)
+        find_package(X11 REQUIRED)
 
+        target_compile_definitions(melonDS PRIVATE X11_ENABLED)
+
+        target_sources(melonDS PRIVATE
+            ../duckstation/gl/context_egl_x11.cpp
+            ../duckstation/gl/context_glx.cpp
+            ../duckstation/gl/x11_window.cpp
+
+            ../glad/glad_glx.c
+        )
+
+        target_link_libraries(melonDS PRIVATE "${X11_LIBRARIES}")
+        target_include_directories(melonDS PRIVATE "${X11_INCLUDE_DIR}")
+    endif()
+
+    option(ENABLE_WAYLAND "Enable Wayland support" ON)
     if (ENABLE_WAYLAND)
         # we only need ECM for Wayland
         # so we only require it from here
@@ -130,15 +146,9 @@ else()
 
     target_sources(melonDS PRIVATE
         ../duckstation/gl/context_egl.cpp
-        ../duckstation/gl/context_egl_x11.cpp
-        ../duckstation/gl/context_glx.cpp
-        ../duckstation/gl/x11_window.cpp
-
         ../glad/glad_egl.c
-        ../glad/glad_glx.c
     )
-    target_link_libraries(melonDS PRIVATE "${X11_LIBRARIES}" "${EGL_LIBRARIES}")
-    target_include_directories(melonDS PRIVATE "${X11_INCLUDE_DIR}")
+    target_link_libraries(melonDS PRIVATE "${EGL_LIBRARIES}")
 endif()
 
 
