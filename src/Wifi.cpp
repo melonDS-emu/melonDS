@@ -530,6 +530,18 @@ void ReportMPReplyErrors(u16 clientfail)
     }
 }
 
+void PreTXAdjust(TXSlot* slot, int num)
+{
+    u32 noseqno = 0;
+    if (num == 1) noseqno = (IOPORT(W_TXSlotCmd) & 0x4000);
+
+    if (!noseqno)
+    {
+        *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
+        IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+    }
+}
+
 void StartTX_LocN(int nslot, int loc)
 {
     TXSlot* slot = &TXSlots[nslot];
@@ -704,6 +716,8 @@ void SendMPReply(u16 clienttime, u16 clientmask)
         IncrementTXCount(slot);
 
         slot->CurPhase = 0;
+        PreTXAdjust(slot, 5);
+
         int txlen = Platform::MP_SendReply(&RAM[slot->Addr], 12 + slot->Length, USTimestamp, IOPORT(W_AIDLow));
         WIFI_LOG("wifi: sent %d/%d bytes of MP reply\n", txlen, 12 + slot->Length);
     }
@@ -864,15 +878,6 @@ bool ProcessTX(TXSlot* slot, int num)
                 *(u64*)&RAM[slot->Addr + 0xC + 24] = USCounter;
             }
 
-            u32 noseqno = 0;
-            if (num == 1) noseqno = (IOPORT(W_TXSlotCmd) & 0x4000);
-
-            if (!noseqno)
-            {
-                *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
-                IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
-            }
-
             if ((num != 5) && (RAM[slot->Addr+4] > 0))
                 Log(LogLevel::Debug, "SLOT %d RETRY COUNTER %d\n", num, RAM[slot->Addr+4]);
 
@@ -881,6 +886,8 @@ bool ProcessTX(TXSlot* slot, int num)
 
             if (num == 1)
             {
+                PreTXAdjust(slot, num);
+
                 // send
                 int txlen = Platform::MP_SendCmd(&RAM[slot->Addr], 12 + slot->Length, USTimestamp);
                 WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
@@ -897,6 +904,8 @@ bool ProcessTX(TXSlot* slot, int num)
             }
             else //if (num != 5)
             {
+                PreTXAdjust(slot, num);
+
                 // send
                 int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length, USTimestamp);
                 WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
