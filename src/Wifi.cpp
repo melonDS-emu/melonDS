@@ -110,6 +110,7 @@ bool ForcePowerOn;
 bool IsMPClient;
 u64 NextSync;           // for clients: timestamp for next sync point
 u64 RXTimestamp;
+int MPEarlyReply;
 
 // multiplayer host TX sequence:
 // 1. preamble
@@ -264,6 +265,7 @@ void Reset()
     IsMPClient = false;
     NextSync = 0;
     RXTimestamp = 0;
+    MPEarlyReply = 0;
 
     WifiAP::Reset();
 }
@@ -577,7 +579,25 @@ void StartTX_Cmd()
     else              slot->Rate = 1;
 
     slot->CurPhase = 0;
-    slot->CurPhaseTime = PreambleLen(slot->Rate);
+    PreTXAdjust(slot, 1);
+
+    // delay the frame to give clients time to catch up and respond
+
+    u16 clientmask = *(u16*)&RAM[slot->Addr + 0xC + 24 + 2];
+    int cmdtime = PreambleLen(slot->Rate) + (slot->Length * (slot->Rate==2 ? 4:8));
+    int replytime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(clientmask));
+    int acktime = 32 * (slot->Rate==2 ? 4:8);
+
+    int nlines = 186 - (int)GPU::VCount;
+    if (nlines < 0) nlines += 263;
+    int time = (nlines * 127) / 2;
+
+    if (time > CmdCounter) time = CmdCounter;
+    slot->CurPhaseTime = time - (cmdtime+replytime+acktime+128);
+    if (slot->CurPhaseTime < 96) slot->CurPhaseTime = 96;
+
+    int txlen = Platform::MP_SendCmd(&RAM[slot->Addr], 12 + slot->Length, USTimestamp + slot->CurPhaseTime);
+    WIFI_LOG("wifi: sent %d/%d bytes of MP CMD\n", txlen, slot->Length+12);
 }
 
 void StartTX_Beacon()
@@ -641,7 +661,7 @@ void FireTX()
     }
 }
 
-void SendMPDefaultReply()
+void SendMPDefaultReply(u64 ts=0)
 {
     u8 reply[12 + 32];
 
@@ -667,7 +687,7 @@ void SendMPDefaultReply()
     *(u16*)&reply[0xC + 0x16] = IOPORT(W_TXSeqNo) << 4;
     *(u32*)&reply[0xC + 0x18] = 0;
 
-    int txlen = Platform::MP_SendReply(reply, 12+28, USTimestamp, IOPORT(W_AIDLow));
+    int txlen = Platform::MP_SendReply(reply, 12+28, ts?ts:USTimestamp, IOPORT(W_AIDLow));
     WIFI_LOG("wifi: sent %d/40 bytes of MP default reply\n", txlen);
 }
 
@@ -716,16 +736,21 @@ void SendMPReply(u16 clienttime, u16 clientmask)
         IncrementTXCount(slot);
 
         slot->CurPhase = 0;
-        PreTXAdjust(slot, 5);
 
-        int txlen = Platform::MP_SendReply(&RAM[slot->Addr], 12 + slot->Length, USTimestamp, IOPORT(W_AIDLow));
-        WIFI_LOG("wifi: sent %d/%d bytes of MP reply\n", txlen, 12 + slot->Length);
+        if (MPEarlyReply != 2)
+        {
+            PreTXAdjust(slot, 5);
+
+            int txlen = Platform::MP_SendReply(&RAM[slot->Addr], 12 + slot->Length, USTimestamp, IOPORT(W_AIDLow));
+            WIFI_LOG("wifi: sent %d/%d bytes of MP reply\n", txlen, 12 + slot->Length);
+        }
     }
     else
     {
         slot->CurPhase = 10;
 
-        SendMPDefaultReply();
+        if (MPEarlyReply != 2)
+            SendMPDefaultReply();
     }
 
     u16 clientnum = 0;
@@ -738,6 +763,51 @@ void SendMPReply(u16 clienttime, u16 clientmask)
     slot->CurPhaseTime = 16 + ((clienttime + 10) * clientnum) + PreambleLen(slot->Rate);
 
     IOPORT(W_TXBusy) |= 0x0080;
+    MPEarlyReply = 0;
+}
+
+void SendMPEarlyReply()
+{
+    if (MPEarlyReply != 1)
+        return;
+
+    u16 clienttime = *(u16*)&RXBuffer[12+24];
+    u16 clientmask = *(u16*)&RXBuffer[12+26];
+
+    if (!IOPORT(W_AIDLow))
+        return;
+    if (!(clientmask & (1 << IOPORT(W_AIDLow))))
+        return;
+
+    if (!(IOPORT(W_TXSlotReply1) & 0x8000))
+        return;
+
+    bool valid = true;
+    u16 addr = (IOPORT(W_TXSlotReply1) & 0x0FFF) << 1;
+    u16 len = *(u16*)&RAM[addr + 0xA] & 0x3FFF;
+    u16 rate = 2;
+
+    u16 rxrate = *(u16*)&RXBuffer[6];
+    u16 rxlen = *(u16*)&RXBuffer[8];
+    u64 ts = RXTimestamp + (rxlen * (rxrate==2 ? 4:8));
+
+    // the packet is entirely ignored if it lasts longer than the maximum reply time
+    u32 duration = PreambleLen(rate) + (len * (rate==2 ? 4:8));
+    if (duration > clienttime)
+        valid = false;
+
+    if (valid)
+    {
+        PreTXAdjust(&TXSlots[5], 5);
+
+        int txlen = Platform::MP_SendReply(&RAM[addr], 12 + len, ts, IOPORT(W_AIDLow));
+        WIFI_LOG("wifi: sent %d/%d bytes of MP reply\n", txlen, 12 + len);
+    }
+    else
+    {
+        SendMPDefaultReply(ts);
+    }
+    MPEarlyReply = 2;
 }
 
 void SendMPAck(u16 clientfail)
@@ -885,14 +955,14 @@ bool ProcessTX(TXSlot* slot, int num)
             IOPORT(W_RXTXAddr) = slot->Addr >> 1;
 
             if (num == 1)
-            {
-                PreTXAdjust(slot, num);
+            {//printf("[%03d] actually send CMD\n", NDS::ARM7Read16(0x04000006));
+                /*PreTXAdjust(slot, num);
 
                 // send
                 int txlen = Platform::MP_SendCmd(&RAM[slot->Addr], 12 + slot->Length, USTimestamp);
                 WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
                          txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
-                         *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
+                         *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);*/
             }
             else if (num == 5)
             {
@@ -1561,6 +1631,9 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 
             // include the MP reply time window
             NextSync += 112 + ((clienttime + 10) * NumClients(clientmask));
+
+            MPEarlyReply = 1;
+            SendMPEarlyReply();
         }
     }
     else
@@ -2023,6 +2096,7 @@ void Write(u32 addr, u16 val)
 
     case W_AIDLow:
         IOPORT(W_AIDLow) = val & 0x000F;
+        SendMPEarlyReply();
         return;
     case W_AIDFull:
         IOPORT(W_AIDFull) = val & 0x07FF;
@@ -2236,6 +2310,11 @@ void Write(u32 addr, u16 val)
         FireTX();
         return;
 
+    case W_TXSlotReply1:
+        IOPORT(W_TXSlotReply1) = val;
+        SendMPEarlyReply();
+        return;
+
     case 0x228:
     case 0x244:
         //printf("wifi: write port%03X %04X\n", addr, val);
@@ -2245,6 +2324,7 @@ void Write(u32 addr, u16 val)
     case 0x000:
     case 0x044:
     case 0x054:
+    case 0x098:
     case 0x0B0:
     case 0x0B6:
     case 0x0B8:
