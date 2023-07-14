@@ -2214,13 +2214,15 @@ void Write(u32 addr, u16 val)
         val &= 0x0FFF;
         break;
 
+    case W_TXSlotCmd:
+        if (CmdCounter == 0)
+            val = (val & 0x7FFF) | (IOPORT(W_TXSlotCmd) & 0x8000);
+        // fall-through
     case W_TXSlotLoc1:
     case W_TXSlotLoc2:
     case W_TXSlotLoc3:
-    case W_TXSlotCmd:
         // checkme: is it possible to cancel a queued transfer that hasn't started yet
         // by clearing bit15 here?
-        // TODO: "W_TXBUF_CMD.Bit15 can be set ONLY while W_CMD_COUNT is non-zero."
         IOPORT(addr&0xFFF) = val;
         FireTX();
         return;
