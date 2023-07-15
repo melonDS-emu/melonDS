@@ -10,9 +10,11 @@
 
 #include "GdbArch.h"
 
-namespace Gdb {
+namespace Gdb
+{
 
-enum class TgtStatus {
+enum class TgtStatus
+{
 	NoEvent,
 
 	None,
@@ -27,23 +29,29 @@ enum class TgtStatus {
 	FaultInsn, // illegal instruction
 };
 
-struct StubCallbacks {
-	int cpu; // 7 or 9 (currently, maybe also xtensa in the future?)
+class StubCallbacks
+{
+public:
+	StubCallbacks(){}
+	virtual ~StubCallbacks(){};
+
+	virtual int GetCPU() const = 0; // 7 or 9 (currently, maybe also xtensa in the future?)
 
 	// 0..14: as usual
 	// 15: pc *pipeline-corrected*
 	// 16: cpsr
-	u32  (* ReadReg)(void* ud, Register reg);
-	void (*WriteReg)(void* ud, Register reg, u32 value);
+	virtual u32  ReadReg (Register reg) = 0;
+	virtual void WriteReg(Register reg, u32 value) = 0;
 
-	u32  (* ReadMem)(void* ud, u32 addr, int len);
-	void (*WriteMem)(void* ud, u32 addr, int len, u32 value);
+	virtual u32  ReadMem (u32 addr, int len) = 0;
+	virtual void WriteMem(u32 addr, int len, u32 value) = 0;
 
-	void (*Reset)(void* ud);
-	int (*RemoteCmd)(void* ud, const u8* cmd, size_t len);
+	virtual void ResetGdb() = 0;
+	virtual int RemoteCmd(const u8* cmd, size_t len) = 0;
 };
 
-enum class StubState {
+enum class StubState
+{
 	NoConn,
 	None,
 	Break,
@@ -54,7 +62,8 @@ enum class StubState {
 	CheckNoHit
 };
 
-enum class ReadResult {
+enum class ReadResult
+{
 	NoPacket,
 	Eof,
 	CksumErr,
@@ -63,7 +72,8 @@ enum class ReadResult {
 	Break
 };
 
-enum class ExecResult {
+enum class ExecResult
+{
 	Ok,
 	UnkCmd,
 	NetErr,
@@ -78,26 +88,30 @@ class GdbStub;
 
 typedef ExecResult (*GdbProtoCmd)(GdbStub* stub, const u8* cmd, ssize_t len);
 
-struct SubcmdHandler {
-	char maincmd;
-	const char* substr;
-	GdbProtoCmd handler;
+struct SubcmdHandler
+{
+	char MainCmd;
+	const char* SubStr;
+	GdbProtoCmd Handler;
 };
 
-struct CmdHandler {
-	char cmd;
-	GdbProtoCmd handler;
+struct CmdHandler
+{
+	char Cmd;
+	GdbProtoCmd Handler;
 };
 
-class GdbStub {
+class GdbStub
+{
 public:
-	struct BpWp {
+	struct BpWp
+	{
 	public:
 		u32 addr, len;
 		int kind;
 	};
 
-	GdbStub(const StubCallbacks* cb, int port, void* ud);
+	GdbStub(StubCallbacks* cb, int port);
 	~GdbStub();
 
 	bool Init();
@@ -129,25 +143,24 @@ private:
 	StubState HandlePacket();
 
 private:
-	const StubCallbacks* cb;
-    void* ud;
+	StubCallbacks* Cb;
 
 	//struct sockaddr_in server, client;
-	void *serversa, *clientsa;
-	int port;
-	int sockfd;
-	int connfd;
+	void *ServerSA, *ClientSA;
+	int Port;
+	int SockFd;
+	int ConnFd;
 
-	TgtStatus stat;
-	u32 cur_bkpt, cur_watchpt;
-	bool stat_flag;
+	TgtStatus Stat;
+	u32 CurBkpt, CurWatchpt;
+	bool StatFlag;
 
-	std::map<u32, BpWp> bp_list;
-	std::vector<BpWp> wp_list;
+	std::map<u32, BpWp> BpList;
+	std::vector<BpWp> WpList;
 
-	static SubcmdHandler handlers_v[];
-	static SubcmdHandler handlers_q[];
-	static CmdHandler handlers_top[];
+	static SubcmdHandler Handlers_v[];
+	static SubcmdHandler Handlers_q[];
+	static CmdHandler Handlers_top[];
 };
 
 }

@@ -27,7 +27,8 @@
 using Platform::Log;
 using Platform::LogLevel;
 
-static int sock_set_block(int fd, bool block) {
+static int SocketSetBlocking(int fd, bool block)
+{
 	if (fd < 0) return -1;
 
 #ifdef _WIN32
@@ -41,19 +42,21 @@ static int sock_set_block(int fd, bool block) {
 #endif
 }
 
-namespace Gdb {
+namespace Gdb
+{
 
-GdbStub::GdbStub(const StubCallbacks* cb, int port, void* ud)
-	: cb(cb), ud(ud), port(port)
-	, sockfd(0), connfd(0)
-	, stat(TgtStatus::None), cur_bkpt(0), cur_watchpt(0), stat_flag(false)
-	, serversa((void*)new struct sockaddr_in())
-	, clientsa((void*)new struct sockaddr_in())
+GdbStub::GdbStub(StubCallbacks* cb, int port)
+	: Cb(cb), Port(port)
+	, SockFd(0), ConnFd(0)
+	, Stat(TgtStatus::None), CurBkpt(0), CurWatchpt(0), StatFlag(false)
+	, ServerSA((void*)new struct sockaddr_in())
+	, ClientSA((void*)new struct sockaddr_in())
 { }
 
-bool GdbStub::Init() {
+bool GdbStub::Init()
+{
 	Log(LogLevel::Info, "[GDB] initializing GDB stub for core %d on port %d\n",
-		cb->cpu, port);
+		Cb->GetCPU(), Port);
 
 #ifndef _WIN32
 	/*void* fn = SIG_IGN;
@@ -66,203 +69,216 @@ bool GdbStub::Init() {
 	signal(SIGPIPE, SIG_IGN);
 #else
 	WSADATA wsa;
-	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
+	{
 		Log(LogLevel::Error, "[GDB] winsock could not be initialized (%d).\n", WSAGetLastError());
 		return false;
 	}
 #endif
 
 	int r;
-	struct sockaddr_in* server = (struct sockaddr_in*)serversa;
-	struct sockaddr_in* client = (struct sockaddr_in*)clientsa;
+	struct sockaddr_in* server = (struct sockaddr_in*)ServerSA;
+	struct sockaddr_in* client = (struct sockaddr_in*)ClientSA;
 
 	int typ = SOCK_STREAM;
 #ifdef __linux__
 	typ |= SOCK_NONBLOCK;
 #endif
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (sockfd < 0) {
+	SockFd = socket(AF_INET, SOCK_STREAM, 0);
+	if (SockFd < 0)
+	{
 		Log(LogLevel::Error, "[GDB] err: can't create a socket fd\n");
 		goto err;
 	}
 #ifndef __linux__
-	sock_set_block(sockfd, false);
+	SocketSetBlocking(SockFd, false);
 #endif
 
 	server->sin_family = AF_INET;
 	server->sin_addr.s_addr = htonl(INADDR_ANY);
-	server->sin_port = htons(port);
+	server->sin_port = htons(Port);
 
-	r = bind(sockfd, (const sockaddr*)server, sizeof(*server));
-	if (r < 0) {
-		Log(LogLevel::Error, "[GDB] err: can't bind to address <any> and port %d\n", port);
+	r = bind(SockFd, (const sockaddr*)server, sizeof(*server));
+	if (r < 0)
+	{
+		Log(LogLevel::Error, "[GDB] err: can't bind to address <any> and port %d\n", Port);
 		goto err;
 	}
 
-	r = listen(sockfd, 5);
-	if (r < 0) {
-		Log(LogLevel::Error, "[GDB] err: can't listen to sockfd\n");
+	r = listen(SockFd, 5);
+	if (r < 0)
+	{
+		Log(LogLevel::Error, "[GDB] err: can't listen to SockFd\n");
 		goto err;
 	}
 
 	return true;
 
 err:
-	if (sockfd != 0) {
+	if (SockFd != 0)
+	{
 #ifdef _WIN32
-		closesocket(sockfd);
+		closesocket(SockFd);
 #else
-		close(sockfd);
+		close(SockFd);
 #endif
-		sockfd = 0;
+		SockFd = 0;
 	}
 
 	return false;
 }
 
-void GdbStub::Close() {
+void GdbStub::Close()
+{
 	Disconnect();
-	if (sockfd > 0) close(sockfd);
-	sockfd = 0;
+	if (SockFd > 0) close(SockFd);
+	SockFd = 0;
 }
 
-void GdbStub::Disconnect() {
-	if (connfd > 0) close(connfd);
-	connfd = 0;
+void GdbStub::Disconnect()
+{
+	if (ConnFd > 0) close(ConnFd);
+	ConnFd = 0;
 }
 
-GdbStub::~GdbStub() {
+GdbStub::~GdbStub()
+{
 	Close();
-	delete (struct sockaddr_in*)serversa;
-	delete (struct sockaddr_in*)clientsa;
+	delete (struct sockaddr_in*)ServerSA;
+	delete (struct sockaddr_in*)ClientSA;
 }
 
-SubcmdHandler GdbStub::handlers_v[] = {
-	{ .maincmd = 'v', .substr = "Attach;"       , .handler = GdbStub::Handle_v_Attach },
-	{ .maincmd = 'v', .substr = "Kill;"         , .handler = GdbStub::Handle_v_Kill },
-	{ .maincmd = 'v', .substr = "Run"           , .handler = GdbStub::Handle_v_Run },
-	{ .maincmd = 'v', .substr = "Stopped"       , .handler = GdbStub::Handle_v_Stopped },
-	{ .maincmd = 'v', .substr = "MustReplyEmpty", .handler = GdbStub::Handle_v_MustReplyEmpty },
+SubcmdHandler GdbStub::Handlers_v[] = {
+	{ .MainCmd = 'v', .SubStr = "Attach;"       , .Handler = GdbStub::Handle_v_Attach },
+	{ .MainCmd = 'v', .SubStr = "Kill;"         , .Handler = GdbStub::Handle_v_Kill },
+	{ .MainCmd = 'v', .SubStr = "Run"           , .Handler = GdbStub::Handle_v_Run },
+	{ .MainCmd = 'v', .SubStr = "Stopped"       , .Handler = GdbStub::Handle_v_Stopped },
+	{ .MainCmd = 'v', .SubStr = "MustReplyEmpty", .Handler = GdbStub::Handle_v_MustReplyEmpty },
 
-	{ .maincmd = 'v', .substr = NULL, .handler = NULL }
+	{ .MainCmd = 'v', .SubStr = NULL, .Handler = NULL }
 };
 
-SubcmdHandler GdbStub::handlers_q[] = {
-	{ .maincmd = 'q', .substr = "HostInfo"   , .handler = GdbStub::Handle_q_HostInfo },
-	{ .maincmd = 'q', .substr = "Rcmd,"      , .handler = GdbStub::Handle_q_Rcmd },
-	{ .maincmd = 'q', .substr = "Supported:" , .handler = GdbStub::Handle_q_Supported },
-	{ .maincmd = 'q', .substr = "CRC:"       , .handler = GdbStub::Handle_q_CRC },
-	{ .maincmd = 'q', .substr = "C"          , .handler = GdbStub::Handle_q_C },
-	{ .maincmd = 'q', .substr = "fThreadInfo", .handler = GdbStub::Handle_q_fThreadInfo },
-	{ .maincmd = 'q', .substr = "sThreadInfo", .handler = GdbStub::Handle_q_sThreadInfo },
-	{ .maincmd = 'q', .substr = "Attached"   , .handler = GdbStub::Handle_q_Attached },
-	{ .maincmd = 'q', .substr = "Xfer:features:read:target.xml:", .handler = GdbStub::Handle_q_features },
+SubcmdHandler GdbStub::Handlers_q[] = {
+	{ .MainCmd = 'q', .SubStr = "HostInfo"   , .Handler = GdbStub::Handle_q_HostInfo },
+	{ .MainCmd = 'q', .SubStr = "Rcmd,"      , .Handler = GdbStub::Handle_q_Rcmd },
+	{ .MainCmd = 'q', .SubStr = "Supported:" , .Handler = GdbStub::Handle_q_Supported },
+	{ .MainCmd = 'q', .SubStr = "CRC:"       , .Handler = GdbStub::Handle_q_CRC },
+	{ .MainCmd = 'q', .SubStr = "C"          , .Handler = GdbStub::Handle_q_C },
+	{ .MainCmd = 'q', .SubStr = "fThreadInfo", .Handler = GdbStub::Handle_q_fThreadInfo },
+	{ .MainCmd = 'q', .SubStr = "sThreadInfo", .Handler = GdbStub::Handle_q_sThreadInfo },
+	{ .MainCmd = 'q', .SubStr = "Attached"   , .Handler = GdbStub::Handle_q_Attached },
+	{ .MainCmd = 'q', .SubStr = "Xfer:features:read:target.xml:", .Handler = GdbStub::Handle_q_features },
 
-	{ .maincmd = 'q', .substr = NULL, .handler = NULL },
+	{ .MainCmd = 'q', .SubStr = NULL, .Handler = NULL },
 };
 
-ExecResult GdbStub::Handle_q(GdbStub* stub, const u8* cmd, ssize_t len) {
-	return stub->SubcmdExec(cmd, len, handlers_q);
+ExecResult GdbStub::Handle_q(GdbStub* stub, const u8* cmd, ssize_t len)
+{
+	return stub->SubcmdExec(cmd, len, Handlers_q);
 }
 
-ExecResult GdbStub::Handle_v(GdbStub* stub, const u8* cmd, ssize_t len) {
-	return stub->SubcmdExec(cmd, len, handlers_v);
+ExecResult GdbStub::Handle_v(GdbStub* stub, const u8* cmd, ssize_t len)
+{
+	return stub->SubcmdExec(cmd, len, Handlers_v);
 }
 
-CmdHandler GdbStub::handlers_top[] = {
-	{ .cmd = 'g', .handler = GdbStub::Handle_g },
-	{ .cmd = 'G', .handler = GdbStub::Handle_G },
-	{ .cmd = 'm', .handler = GdbStub::Handle_m },
-	{ .cmd = 'M', .handler = GdbStub::Handle_M },
-	{ .cmd = 'X', .handler = GdbStub::Handle_X },
-	{ .cmd = 'c', .handler = GdbStub::Handle_c },
-	{ .cmd = 's', .handler = GdbStub::Handle_s },
-	{ .cmd = 'p', .handler = GdbStub::Handle_p },
-	{ .cmd = 'P', .handler = GdbStub::Handle_P },
-	{ .cmd = 'H', .handler = GdbStub::Handle_H },
-	{ .cmd = 'T', .handler = GdbStub::Handle_H },
+CmdHandler GdbStub::Handlers_top[] = {
+	{ .Cmd = 'g', .Handler = GdbStub::Handle_g },
+	{ .Cmd = 'G', .Handler = GdbStub::Handle_G },
+	{ .Cmd = 'm', .Handler = GdbStub::Handle_m },
+	{ .Cmd = 'M', .Handler = GdbStub::Handle_M },
+	{ .Cmd = 'X', .Handler = GdbStub::Handle_X },
+	{ .Cmd = 'c', .Handler = GdbStub::Handle_c },
+	{ .Cmd = 's', .Handler = GdbStub::Handle_s },
+	{ .Cmd = 'p', .Handler = GdbStub::Handle_p },
+	{ .Cmd = 'P', .Handler = GdbStub::Handle_P },
+	{ .Cmd = 'H', .Handler = GdbStub::Handle_H },
+	{ .Cmd = 'T', .Handler = GdbStub::Handle_H },
 
-	{ .cmd = '?', .handler = GdbStub::Handle_Question },
-	{ .cmd = '!', .handler = GdbStub::Handle_Exclamation },
-	{ .cmd = 'D', .handler = GdbStub::Handle_D },
-	{ .cmd = 'r', .handler = GdbStub::Handle_r },
-	{ .cmd = 'R', .handler = GdbStub::Handle_R },
+	{ .Cmd = '?', .Handler = GdbStub::Handle_Question },
+	{ .Cmd = '!', .Handler = GdbStub::Handle_Exclamation },
+	{ .Cmd = 'D', .Handler = GdbStub::Handle_D },
+	{ .Cmd = 'r', .Handler = GdbStub::Handle_r },
+	{ .Cmd = 'R', .Handler = GdbStub::Handle_R },
 
-	{ .cmd = 'z', .handler = GdbStub::Handle_z },
-	{ .cmd = 'Z', .handler = GdbStub::Handle_Z },
+	{ .Cmd = 'z', .Handler = GdbStub::Handle_z },
+	{ .Cmd = 'Z', .Handler = GdbStub::Handle_Z },
 
-	{ .cmd = 'q', .handler = GdbStub::Handle_q },
-	{ .cmd = 'v', .handler = GdbStub::Handle_v },
+	{ .Cmd = 'q', .Handler = GdbStub::Handle_q },
+	{ .Cmd = 'v', .Handler = GdbStub::Handle_v },
 
-	{ .cmd = 0, .handler = NULL }
+	{ .Cmd = 0, .Handler = NULL }
 };
 
 
-StubState GdbStub::HandlePacket() {
-	ExecResult r = CmdExec(handlers_top);
+StubState GdbStub::HandlePacket()
+{
+	ExecResult r = CmdExec(Handlers_top);
 
-	if (r == ExecResult::MustBreak) {
-		if (stat == TgtStatus::None || stat == TgtStatus::Running)
-			stat = TgtStatus::BreakReq;
+	if (r == ExecResult::MustBreak)
+	{
+		if (Stat == TgtStatus::None || Stat == TgtStatus::Running)
+			Stat = TgtStatus::BreakReq;
 		return StubState::Break;
-	} else if (r == ExecResult::InitialBreak) {
-		stat = TgtStatus::BreakReq;
+	}
+	else if (r == ExecResult::InitialBreak)
+	{
+		Stat = TgtStatus::BreakReq;
 		return StubState::Attach;
-	/*} else if (r == ExecResult::Detached) {
-		stat = TgtStatus::None;
+	/*}
+	else if (r == ExecResult::Detached)
+	{
+		Stat = TgtStatus::None;
 		return StubState::Disconnect;*/
-	} else if (r == ExecResult::Continue) {
-		stat = TgtStatus::Running;
+	}
+	else if (r == ExecResult::Continue)
+	{
+		Stat = TgtStatus::Running;
 		return StubState::Continue;
-	} else if (r == ExecResult::Step) {
+	}
+	else if (r == ExecResult::Step)
+	{
 		return StubState::Step;
-	} else if (r == ExecResult::Ok || r == ExecResult::UnkCmd) {
+	}
+	else if (r == ExecResult::Ok || r == ExecResult::UnkCmd)
+	{
 		return StubState::None;
-	} else {
-		stat = TgtStatus::None;
+	}
+	else
+	{
+		Stat = TgtStatus::None;
 		return StubState::Disconnect;
 	}
-
-	// +
-	// $qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;memory-tagging+#ec
-	// $qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;memory-tagging+#ec
-	// $qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;memory-tagging+#ec
-	// $qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;memory-tagging+#ec
-	// ---+
-	// $vMustReplyEmpty#3a
-	// $vMustReplyEmpty#3a
-	// $vMustReplyEmpty#3a
-	// $vMustReplyEmpty#3a
-	// ---+
 }
 
-StubState GdbStub::Poll(bool wait) {
+StubState GdbStub::Poll(bool wait)
+{
 	int r;
 
-	if (connfd <= 0) {
-		sock_set_block(sockfd, wait);
+	if (ConnFd <= 0)
+	{
+		SocketSetBlocking(SockFd, wait);
 
 		// not yet connected, so let's wait for one
 		// nonblocking only done in part of read_packet(), so that it can still
 		// quickly handle partly-received packets
-		struct sockaddr_in* client = (struct sockaddr_in*)clientsa;
+		struct sockaddr_in* client = (struct sockaddr_in*)ClientSA;
 		socklen_t len = sizeof(*client);
 #ifdef __linux__
-		connfd = accept4(sockfd, (struct sockaddr*)client, &len, /*SOCK_NONBLOCK|*/SOCK_CLOEXEC);
+		ConnFd = accept4(SockFd, (struct sockaddr*)client, &len, /*SOCK_NONBLOCK|*/SOCK_CLOEXEC);
 #else
-		connfd = accept(sockfd, (struct sockaddr*)client, &len);
+		ConnFd = accept(SockFd, (struct sockaddr*)client, &len);
 #endif
 
-		if (connfd < 0) {
-			return StubState::NoConn;
-		}
+		if (ConnFd < 0) return StubState::NoConn;
 
-		stat = TgtStatus::Running; // on connected
-		stat_flag = false;
+		Stat = TgtStatus::Running; // on connected
+		StatFlag = false;
 	}
 
-	if (stat_flag) {
-		stat_flag = false;
+	if (StatFlag)
+	{
+		StatFlag = false;
 		//Log(LogLevel::Debug, "[GDB] STAT FLAG WAS TRUE\n");
 
 		Handle_Question(this, NULL, 0); // ugly hack but it should work
@@ -270,7 +286,7 @@ StubState GdbStub::Poll(bool wait) {
 
 #ifndef _WIN32
 	struct pollfd pfd;
-	pfd.fd = connfd;
+	pfd.fd = ConnFd;
 	pfd.events = POLLIN;
 	pfd.revents = 0;
 
@@ -278,7 +294,8 @@ StubState GdbStub::Poll(bool wait) {
 
 	if (r == 0) return StubState::None; // nothing is happening
 
-	if (pfd.revents & (POLLHUP|POLLERR|POLLNVAL)) {
+	if (pfd.revents & (POLLHUP|POLLERR|POLLNVAL))
+	{
 		// oopsie, something happened
 		Disconnect();
 		return StubState::Disconnect;
@@ -286,28 +303,37 @@ StubState GdbStub::Poll(bool wait) {
 #else
 	fd_set infd, outfd, errfd;
 	FD_ZERO(&infd); FD_ZERO(&outfd); FD_ZERO(&errfd);
-	FD_SET(connfd, &infd);
+	FD_SET(ConnFd, &infd);
 
 	struct timeval to;
-	if (wait) {
-		to.tv_sec = ~(time_t)0; to.tv_usec = ~(long)0;
-	} else {
-		to.tv_sec = 0; to.tv_usec = 0;
+	if (wait)
+	{
+		to.tv_sec = ~(time_t)0;
+		to.tv_usec = ~(long)0;
+	}
+	else
+	{
+		to.tv_sec = 0;
+		to.tv_usec = 0;
 	}
 
 	r = select(1+1, &infd, &outfd, &errfd, &to);
 
-	if (FD_ISSET(connfd, &errfd)) {
+	if (FD_ISSET(ConnFd, &errfd))
+	{
 		Disconnect();
 		return StubState::Disconnect;
-	} else if (!FD_ISSET(connfd, &infd)) {
+	}
+	else if (!FD_ISSET(ConnFd, &infd))
+	{
 		return StubState::None;
 	}
 #endif
 
-	ReadResult res = Proto::MsgRecv(connfd, Cmdbuf);
+	ReadResult res = Proto::MsgRecv(ConnFd, Cmdbuf);
 
-	switch (res) {
+	switch (res)
+	{
 	case ReadResult::NoPacket:
 		return StubState::None;
 	case ReadResult::Break:
@@ -317,18 +343,18 @@ StubState GdbStub::Poll(bool wait) {
 	case_gdbp_eof:
 	case ReadResult::Eof:
 		Log(LogLevel::Info, "[GDB] EOF!\n");
-		close(connfd);
-		connfd = 0;
+		close(ConnFd);
+		ConnFd = 0;
 		return StubState::Disconnect;
 	case ReadResult::CksumErr:
 		Log(LogLevel::Info, "[GDB] checksum err!\n");
-		if (Proto::SendNak(connfd) < 0) {
+		if (Proto::SendNak(ConnFd) < 0) {
 			Log(LogLevel::Error, "[GDB] send nak after cksum fail errored!\n");
 			goto case_gdbp_eof;
 		}
 		return StubState::None;
 	case ReadResult::CmdRecvd:
-		/*if (Proto::SendAck(connfd) < 0) {
+		/*if (Proto::SendAck(ConnFd) < 0) {
 			Log(LogLevel::Error, "[GDB] send packet ack failed!\n");
 			goto case_gdbp_eof;
 		}*/
@@ -338,81 +364,91 @@ StubState GdbStub::Poll(bool wait) {
 	return HandlePacket();
 }
 
-ExecResult GdbStub::SubcmdExec(const u8* cmd, ssize_t len, const SubcmdHandler* handlers) {
+ExecResult GdbStub::SubcmdExec(const u8* cmd, ssize_t len, const SubcmdHandler* handlers)
+{
 	//Log(LogLevel::Debug, "[GDB] subcommand in: '%s'\n", cmd);
 
-	for (size_t i = 0; handlers[i].handler != NULL; ++i) {
+	for (size_t i = 0; handlers[i].Handler != NULL; ++i) {
 		// check if prefix matches
-		if (!strncmp((const char*)cmd, handlers[i].substr, strlen(handlers[i].substr))) {
-			if (Proto::SendAck(connfd) < 0) {
+		if (!strncmp((const char*)cmd, handlers[i].SubStr, strlen(handlers[i].SubStr)))
+		{
+			if (Proto::SendAck(ConnFd) < 0)
+			{
 				Log(LogLevel::Error, "[GDB] send packet ack failed!\n");
 				return ExecResult::NetErr;
 			}
-			return handlers[i].handler(this, &cmd[strlen(handlers[i].substr)], len-strlen(handlers[i].substr));
+			return handlers[i].Handler(this, &cmd[strlen(handlers[i].SubStr)], len-strlen(handlers[i].SubStr));
 		}
 	}
 
 	Log(LogLevel::Info, "[GDB] unknown subcommand '%s'!\n", cmd);
-	/*if (Proto::SendNak(connfd) < 0) {
+	/*if (Proto::SendNak(ConnFd) < 0)
+	{
 		Log(LogLevel::Error, "[GDB] send nak after cksum fail errored!\n");
 		return ExecResult::NetErr;
 	}*/
-	//Proto::RespStr(connfd, "E99");
-	Proto::Resp(connfd, NULL, 0);
+	//Proto::RespStr(ConnFd, "E99");
+	Proto::Resp(ConnFd, NULL, 0);
 	return ExecResult::UnkCmd;
 }
 
-ExecResult GdbStub::CmdExec(const CmdHandler* handlers) {
+ExecResult GdbStub::CmdExec(const CmdHandler* handlers)
+{
 	//Log(LogLevel::Debug, "[GDB] command in: '%s'\n", Cmdbuf);
 
-	for (size_t i = 0; handlers[i].handler != NULL; ++i) {
-		if (handlers[i].cmd == Cmdbuf[0]) {
-			if (Proto::SendAck(connfd) < 0) {
+	for (size_t i = 0; handlers[i].Handler != NULL; ++i)
+	{
+		if (handlers[i].Cmd == Cmdbuf[0])
+		{
+			if (Proto::SendAck(ConnFd) < 0)
+			{
 				Log(LogLevel::Error, "[GDB] send packet ack failed!\n");
 				return ExecResult::NetErr;
 			}
-			return handlers[i].handler(this, &Cmdbuf[1], Cmdlen-1);
+			return handlers[i].Handler(this, &Cmdbuf[1], Cmdlen-1);
 		}
 	}
 
 	Log(LogLevel::Info, "[GDB] unknown command '%c'!\n", Cmdbuf[0]);
-	/*if (Proto::SendNak(connfd) < 0) {
+	/*if (Proto::SendNak(ConnFd) < 0)
+	{
 		Log(LogLevel::Error, "[GDB] send nak after cksum fail errored!\n");
 		return ExecResult::NetErr;
 	}*/
-	//Proto::RespStr(connfd, "E99");
-	Proto::Resp(connfd, NULL, 0);
+	//Proto::RespStr(ConnFd, "E99");
+	Proto::Resp(ConnFd, NULL, 0);
 	return ExecResult::UnkCmd;
 }
 
 
-void GdbStub::SignalStatus(TgtStatus stat, u32 arg) {
+void GdbStub::SignalStatus(TgtStatus stat, u32 arg)
+{
 	//Log(LogLevel::Debug, "[GDB] SIGNAL STATUS %d!\n", stat);
 
-	this->stat = stat;
-	stat_flag = true;
+	this->Stat = stat;
+	StatFlag = true;
 
-	if (stat == TgtStatus::Bkpt) {
-		cur_bkpt = arg;
-	} else if (stat == TgtStatus::Watchpt) {
-		cur_watchpt = arg;
-	}
+	if (stat == TgtStatus::Bkpt) CurBkpt = arg;
+	else if (stat == TgtStatus::Watchpt) CurWatchpt = arg;
 }
 
 
-StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn) {
+StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn)
+{
 	if (stat != TgtStatus::NoEvent) SignalStatus(stat, arg);
 
 	StubState st;
 	bool do_next = true;
-	do {
-		bool was_conn = connfd > 0;
+	do
+	{
+		bool was_conn = ConnFd > 0;
 		st = Poll(wait_for_conn);
-		bool has_conn = connfd > 0;
+		bool has_conn = ConnFd > 0;
 
 		if (has_conn && !was_conn) stay = true;
 
-		switch (st) {
+		switch (st)
+		{
 		case StubState::Break:
 			Log(LogLevel::Info, "[GDB] break execution\n");
 			SignalStatus(TgtStatus::BreakReq, ~(u32)0);
@@ -430,15 +466,20 @@ StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn)
 			SignalStatus(TgtStatus::None, ~(u32)0);
 			do_next = false;
 			break;
+		default: break;
 		}
-	} while (do_next && stay);
+	}
+	while (do_next && stay);
 
 	if (st != StubState::None && st != StubState::NoConn)
+	{
 		Log(LogLevel::Debug, "[GDB] enter exit: %d\n", st);
+	}
 	return st;
 }
 
-void GdbStub::AddBkpt(u32 addr, int kind) {
+void GdbStub::AddBkpt(u32 addr, int kind)
+{
 	BpWp np;
 	np.addr = addr ^ (addr & 1); // clear lowest bit to not break on thumb mode weirdnesses
 	np.len = 0;
@@ -446,82 +487,104 @@ void GdbStub::AddBkpt(u32 addr, int kind) {
 
 	{
 		// already in the map
-		auto search = bp_list.find(np.addr);
-		if (search != bp_list.end()) return;
+		auto search = BpList.find(np.addr);
+		if (search != BpList.end()) return;
 	}
 
-	bp_list.insert({np.addr, np});
+	BpList.insert({np.addr, np});
 
 	Log(LogLevel::Debug, "[GDB] added bkpt:\n");
 	size_t i = 0;
-	for (auto search = bp_list.begin(); search != bp_list.end(); ++search, ++i) {
+	for (auto search = BpList.begin(); search != BpList.end(); ++search, ++i)
+	{
 		Log(LogLevel::Debug, "\t[%zu]: addr=%08x, kind=%d\n", i, search->first, search->second.kind);
 	}
 }
-void GdbStub::AddWatchpt(u32 addr, u32 len, int kind) {
+void GdbStub::AddWatchpt(u32 addr, u32 len, int kind)
+{
 	BpWp np;
 	np.addr = addr;
 	np.len = len;
 	np.kind = kind;
 
-	for (auto search = wp_list.begin(); search != wp_list.end(); ++search) {
-		if (search->addr > addr) {
-			wp_list.insert(search, np);
+	for (auto search = WpList.begin(); search != WpList.end(); ++search)
+	{
+		if (search->addr > addr)
+		{
+			WpList.insert(search, np);
 			return;
-		} else if (search->addr == addr && search->kind == kind) {
+		}
+		else if (search->addr == addr && search->kind == kind)
+		{
 			if (search->len < len) search->len = len;
 			return;
 		}
 	}
 
-	wp_list.push_back(np);
+	WpList.push_back(np);
 }
 
-void GdbStub::DelBkpt(u32 addr, int kind) {
+void GdbStub::DelBkpt(u32 addr, int kind)
+{
 	addr = addr ^ (addr & 1);
 
-	auto search = bp_list.find(addr);
-	if (search != bp_list.end())
-		bp_list.erase(search);
+	auto search = BpList.find(addr);
+	if (search != BpList.end())
+	{
+		BpList.erase(search);
+	}
 }
-void GdbStub::DelWatchpt(u32 addr, u32 len, int kind) {
+void GdbStub::DelWatchpt(u32 addr, u32 len, int kind)
+{
 	(void)len; (void)kind;
 
-	for (auto search = wp_list.begin(); search != wp_list.end(); ++search) {
-		if (search->addr == addr && search->kind == kind) {
-			wp_list.erase(search);
+	for (auto search = WpList.begin(); search != WpList.end(); ++search)
+	{
+		if (search->addr == addr && search->kind == kind)
+		{
+			WpList.erase(search);
 			return;
-		} else if (search->addr > addr) return;
+		}
+		else if (search->addr > addr) return;
 	}
 }
 
-void GdbStub::DelAllBpWp() {
-	bp_list.erase(bp_list.begin(), bp_list.end());
-	wp_list.erase(wp_list.begin(), wp_list.end());
+void GdbStub::DelAllBpWp()
+{
+	BpList.erase(BpList.begin(), BpList.end());
+	WpList.erase(WpList.begin(), WpList.end());
 }
 
-StubState GdbStub::CheckBkpt(u32 addr, bool enter, bool stay) {
+StubState GdbStub::CheckBkpt(u32 addr, bool enter, bool stay)
+{
 	addr ^= (addr & 1); // clear lowest bit to not break on thumb mode weirdnesses
 
-	auto search = bp_list.find(addr);
-	if (search == bp_list.end()) return StubState::CheckNoHit;
+	auto search = BpList.find(addr);
+	if (search == BpList.end()) return StubState::CheckNoHit;
 
-	if (enter) {
+	if (enter)
+	{
 		StubState r = Enter(stay, TgtStatus::Bkpt, addr);
 		Log(LogLevel::Debug, "[GDB] ENTER st=%d\n", r);
 		return r;
-	} else {
+	}
+	else
+	{
 		SignalStatus(TgtStatus::Bkpt, addr);
 		return StubState::None;
 	}
 }
-StubState GdbStub::CheckWatchpt(u32 addr, int kind, bool enter, bool stay) {
-	for (auto search = wp_list.begin(); search != wp_list.end(); ++search) {
+StubState GdbStub::CheckWatchpt(u32 addr, int kind, bool enter, bool stay)
+{
+	for (auto search = WpList.begin(); search != WpList.end(); ++search)
+	{
 		if (search->addr > addr) break;
 
-		if (addr >= search->addr && addr < search->addr + search->len && search->kind == kind) {
+		if (addr >= search->addr && addr < search->addr + search->len && search->kind == kind)
+		{
 			if (enter) return Enter(stay, TgtStatus::Watchpt, addr);
-			else {
+			else
+			{
 				SignalStatus(TgtStatus::Watchpt, addr);
 				return StubState::None;
 			}

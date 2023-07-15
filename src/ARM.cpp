@@ -36,39 +36,41 @@ using Platform::Log;
 using Platform::LogLevel;
 
 #ifdef GDBSTUB_ENABLED
-#define GDB_CHECK_A() do{\
-        if (!is_single_step && !break_req) { /* check if eg. break signal is incoming etc. */ \
-            Gdb::StubState st = gdbstub.Enter(false, Gdb::TgtStatus::NoEvent, ~(u32)0u, break_on_startup); \
-            break_on_startup = false; \
-            is_single_step = st == Gdb::StubState::Step; \
-            break_req = st == Gdb::StubState::Attach || st == Gdb::StubState::Break; \
-        } \
-    } while (0) \
-
-#define GDB_CHECK_B(...) do{\
-        if (is_single_step || break_req) \
-        { /* use else here or we singnle-step the same insn twice in gdb */ \
-            uint32_t pc_real = R[15] - ((CPSR & 0x20) ? 2 : 4); \
-            Gdb::StubState st = gdbstub.Enter(true, Gdb::TgtStatus::SingleStep, pc_real); \
-            is_single_step = st == Gdb::StubState::Step; \
-            break_req = st == Gdb::StubState::Attach || st == Gdb::StubState::Break; \
-        } \
-    } while (0) \
-
-
-#define GDB_CHECK_C() do{\
-        uint32_t pc_real = R[15] - ((CPSR & 0x20) ? 2 : 4); \
-        Gdb::StubState st = gdbstub.CheckBkpt(pc_real, true, true); \
-        if (st != Gdb::StubState::CheckNoHit) { \
-            is_single_step = st == Gdb::StubState::Step; \
-            break_req = st == Gdb::StubState::Attach || st == Gdb::StubState::Break; \
-        } else GDB_CHECK_B(true); \
-    } while (0) \
-
+void ARM::GdbCheckA()
+{
+    if (!IsSingleStep && !BreakReq)
+    { // check if eg. break signal is incoming etc.
+        Gdb::StubState st = GdbStub.Enter(false, Gdb::TgtStatus::NoEvent, ~(u32)0u, BreakOnStartup);
+        BreakOnStartup = false;
+        IsSingleStep = st == Gdb::StubState::Step;
+        BreakReq = st == Gdb::StubState::Attach || st == Gdb::StubState::Break;
+    }
+}
+void ARM::GdbCheckB()
+{
+    if (IsSingleStep || BreakReq)
+    { // use else here or we single-step the same insn twice in gdb
+        u32 pc_real = R[15] - ((CPSR & 0x20) ? 2 : 4);
+        Gdb::StubState st = GdbStub.Enter(true, Gdb::TgtStatus::SingleStep, pc_real);
+        IsSingleStep = st == Gdb::StubState::Step;
+        BreakReq = st == Gdb::StubState::Attach || st == Gdb::StubState::Break;
+    }
+}
+void ARM::GdbCheckC()
+{
+    u32 pc_real = R[15] - ((CPSR & 0x20) ? 2 : 4);
+    Gdb::StubState st = GdbStub.CheckBkpt(pc_real, true, true);
+    if (st != Gdb::StubState::CheckNoHit)
+    {
+        IsSingleStep = st == Gdb::StubState::Step;
+        BreakReq = st == Gdb::StubState::Attach || st == Gdb::StubState::Break;
+    }
+    else GdbCheckB();
+}
 #else
-#define GDB_CHECK_A() do{}while(0)
-#define GDB_CHECK_B() do{}while(0)
-#define GDB_CHECK_C() do{}while(0)
+ARM::GdbCheckA() {}
+ARM::GdbCheckB() {}
+ARM::GdbCheckC() {}
 #endif
 
 
@@ -109,9 +111,7 @@ u32 ARM::ConditionTable[16] =
 
 ARM::ARM(u32 num)
 #ifdef GDBSTUB_ENABLED
-    : gdbstub(num ? &ARMv4::GdbStubCallbacks : &ARMv5::GdbStubCallbacks,
-            Platform::GetConfigInt(num ? Platform::GdbPortARM7 : Platform::GdbPortARM9),
-            this)
+    : GdbStub(this, Platform::GetConfigInt(num ? Platform::GdbPortARM7 : Platform::GdbPortARM9))
 #endif
 {
     // well uh
@@ -123,8 +123,8 @@ ARM::ARM(u32 num)
             && !Platform::GetConfigBool(Platform::JIT_Enable)
 #endif
     )
-        gdbstub.Init();
-    is_single_step = false;
+        GdbStub.Init();
+    IsSingleStep = false;
 #endif
 }
 
@@ -193,9 +193,9 @@ void ARM::Reset()
 #endif
 
 #ifdef GDBSTUB_ENABLED
-    is_single_step = false;
-    break_req = false;
-    break_on_startup = Platform::GetConfigBool(
+    IsSingleStep = false;
+    BreakReq = false;
+    BreakOnStartup = Platform::GetConfigBool(
         Num ? Platform::GdbARM7BreakOnStartup : Platform::GdbARM9BreakOnStartup);
 #endif
 
@@ -633,12 +633,12 @@ void ARMv5::DataAbort()
 
 void ARM::CheckGdbIncoming()
 {
-    GDB_CHECK_A();
+    GdbCheckA();
 }
 
 void ARMv5::Execute()
 {
-    GDB_CHECK_B();
+    GdbCheckB();
 
     if (Halted)
     {
@@ -663,7 +663,7 @@ void ARMv5::Execute()
     {
         if (CPSR & 0x20) // THUMB
         {
-            GDB_CHECK_C();
+            GdbCheckC();
 
             // prefetch
             R[15] += 2;
@@ -678,7 +678,7 @@ void ARMv5::Execute()
         }
         else
         {
-            GDB_CHECK_C();
+            GdbCheckC();
 
             // prefetch
             R[15] += 4;
@@ -794,7 +794,7 @@ void ARMv5::ExecuteJIT()
 
 void ARMv4::Execute()
 {
-    GDB_CHECK_B();
+    GdbCheckB();
 
     if (Halted)
     {
@@ -819,7 +819,7 @@ void ARMv4::Execute()
     {
         if (CPSR & 0x20) // THUMB
         {
-            GDB_CHECK_C();
+            GdbCheckC();
 
             // prefetch
             R[15] += 2;
@@ -833,7 +833,7 @@ void ARMv4::Execute()
         }
         else
         {
-            GDB_CHECK_C();
+            GdbCheckC();
 
             // prefetch
             R[15] += 4;
@@ -995,218 +995,210 @@ void ARMv4::FillPipeline()
 }
 
 #ifdef GDBSTUB_ENABLED
-u32 ARM::GdbReadReg(void* ud, Gdb::Register reg)
+u32 ARM::ReadReg(Gdb::Register reg)
 {
     using Gdb::Register;
-    ARM* cpu = (ARM*)ud;
     int r = static_cast<int>(reg);
 
-    if (reg < Register::pc) return cpu->R[r];
+    if (reg < Register::pc) return R[r];
     else if (reg == Register::pc)
-        return cpu->R[r] - ((cpu->CPSR & 0x20) ? 2 : 4);
-    else if (reg == Register::cpsr) return cpu->CPSR;
-    else if (reg == Register::sp_usr || reg == Register::lr_usr) {
+    {
+        return R[r] - ((CPSR & 0x20) ? 2 : 4);
+    }
+    else if (reg == Register::cpsr) return CPSR;
+    else if (reg == Register::sp_usr || reg == Register::lr_usr)
+    {
         r -= static_cast<int>(Register::sp_usr);
-        if (cpu->ModeIs(0x10) || cpu->ModeIs(0x1f))
-            return cpu->R[13 + r];
-        else switch (cpu->CPSR & 0x1f) {
-        case 0x11: return cpu->R_FIQ[5 + r];
-        case 0x12: return cpu->R_IRQ[0 + r];
-        case 0x13: return cpu->R_SVC[0 + r];
-        case 0x17: return cpu->R_ABT[0 + r];
-        case 0x1b: return cpu->R_UND[0 + r];
+        if (ModeIs(0x10) || ModeIs(0x1f))
+        {
+            return R[13 + r];
+        }
+        else switch (CPSR & 0x1f)
+        {
+        case 0x11: return R_FIQ[5 + r];
+        case 0x12: return R_IRQ[0 + r];
+        case 0x13: return R_SVC[0 + r];
+        case 0x17: return R_ABT[0 + r];
+        case 0x1b: return R_UND[0 + r];
         }
     }
-    else if (reg >= Register::r8_fiq && reg <= Register::lr_fiq) {
+    else if (reg >= Register::r8_fiq && reg <= Register::lr_fiq)
+    {
         r -= static_cast<int>(Register::r8_fiq);
-        return cpu->ModeIs(0x11) ? cpu->R[ 8 + r] : cpu->R_FIQ[r];
+        return ModeIs(0x11) ? R[ 8 + r] : R_FIQ[r];
     }
-    else if (reg == Register::sp_irq || reg == Register::lr_irq) {
+    else if (reg == Register::sp_irq || reg == Register::lr_irq)
+    {
         r -= static_cast<int>(Register::sp_irq);
-        return cpu->ModeIs(0x12) ? cpu->R[13 + r] : cpu->R_IRQ[r];
+        return ModeIs(0x12) ? R[13 + r] : R_IRQ[r];
     }
-    else if (reg == Register::sp_svc || reg == Register::lr_svc) {
+    else if (reg == Register::sp_svc || reg == Register::lr_svc)
+    {
         r -= static_cast<int>(Register::sp_svc);
-        return cpu->ModeIs(0x13) ? cpu->R[13 + r] : cpu->R_SVC[r];
+        return ModeIs(0x13) ? R[13 + r] : R_SVC[r];
     }
-    else if (reg == Register::sp_abt || reg == Register::lr_abt) {
+    else if (reg == Register::sp_abt || reg == Register::lr_abt)
+    {
         r -= static_cast<int>(Register::sp_abt);
-        return cpu->ModeIs(0x17) ? cpu->R[13 + r] : cpu->R_ABT[r];
+        return ModeIs(0x17) ? R[13 + r] : R_ABT[r];
     }
-    else if (reg == Register::sp_und || reg == Register::lr_und) {
+    else if (reg == Register::sp_und || reg == Register::lr_und)
+    {
         r -= static_cast<int>(Register::sp_und);
-        return cpu->ModeIs(0x1b) ? cpu->R[13 + r] : cpu->R_UND[r];
+        return ModeIs(0x1b) ? R[13 + r] : R_UND[r];
     }
-    else if (reg == Register::spsr_fiq) return cpu->ModeIs(0x11) ? cpu->CPSR : cpu->R_FIQ[7];
-    else if (reg == Register::spsr_irq) return cpu->ModeIs(0x12) ? cpu->CPSR : cpu->R_IRQ[2];
-    else if (reg == Register::spsr_svc) return cpu->ModeIs(0x13) ? cpu->CPSR : cpu->R_SVC[2];
-    else if (reg == Register::spsr_abt) return cpu->ModeIs(0x17) ? cpu->CPSR : cpu->R_ABT[2];
-    else if (reg == Register::spsr_und) return cpu->ModeIs(0x1b) ? cpu->CPSR : cpu->R_UND[2];
+    else if (reg == Register::spsr_fiq) return ModeIs(0x11) ? CPSR : R_FIQ[7];
+    else if (reg == Register::spsr_irq) return ModeIs(0x12) ? CPSR : R_IRQ[2];
+    else if (reg == Register::spsr_svc) return ModeIs(0x13) ? CPSR : R_SVC[2];
+    else if (reg == Register::spsr_abt) return ModeIs(0x17) ? CPSR : R_ABT[2];
+    else if (reg == Register::spsr_und) return ModeIs(0x1b) ? CPSR : R_UND[2];
 
     Log(LogLevel::Warn, "GDB reg read: unknown reg no %d\n", r);
     return 0xdeadbeef;
 }
-void ARM::GdbWriteReg(void* ud, Gdb::Register reg, u32 v)
+void ARM::WriteReg(Gdb::Register reg, u32 v)
 {
     using Gdb::Register;
-    ARM* cpu = (ARM*)ud;
     int r = static_cast<int>(reg);
 
-    if (reg < Register::pc) cpu->R[r] = v;
-    else if (reg == Register::pc) cpu->JumpTo(v);
-    else if (reg == Register::cpsr) cpu->CPSR = v;
-    else if (reg == Register::sp_usr || reg == Register::lr_usr) {
+    if (reg < Register::pc) R[r] = v;
+    else if (reg == Register::pc) JumpTo(v);
+    else if (reg == Register::cpsr) CPSR = v;
+    else if (reg == Register::sp_usr || reg == Register::lr_usr)
+    {
         r -= static_cast<int>(Register::sp_usr);
-        if (cpu->ModeIs(0x10) || cpu->ModeIs(0x1f))
-            cpu->R[13 + r] = v;
-        else switch (cpu->CPSR & 0x1f) {
-        case 0x11: cpu->R_FIQ[5 + r] = v; break;
-        case 0x12: cpu->R_IRQ[0 + r] = v; break;
-        case 0x13: cpu->R_SVC[0 + r] = v; break;
-        case 0x17: cpu->R_ABT[0 + r] = v; break;
-        case 0x1b: cpu->R_UND[0 + r] = v; break;
+        if (ModeIs(0x10) || ModeIs(0x1f))
+        {
+            R[13 + r] = v;
+        }
+        else switch (CPSR & 0x1f)
+        {
+        case 0x11: R_FIQ[5 + r] = v; break;
+        case 0x12: R_IRQ[0 + r] = v; break;
+        case 0x13: R_SVC[0 + r] = v; break;
+        case 0x17: R_ABT[0 + r] = v; break;
+        case 0x1b: R_UND[0 + r] = v; break;
         }
     }
-    else if (reg >= Register::r8_fiq && reg <= Register::lr_fiq) {
+    else if (reg >= Register::r8_fiq && reg <= Register::lr_fiq)
+    {
         r -= static_cast<int>(Register::r8_fiq);
-        *(cpu->ModeIs(0x11) ? &cpu->R[ 8 + r] : &cpu->R_FIQ[r]) = v;
+        *(ModeIs(0x11) ? &R[ 8 + r] : &R_FIQ[r]) = v;
     }
-    else if (reg == Register::sp_irq || reg == Register::lr_irq) {
+    else if (reg == Register::sp_irq || reg == Register::lr_irq)
+    {
         r -= static_cast<int>(Register::sp_irq);
-        *(cpu->ModeIs(0x12) ? &cpu->R[13 + r] : &cpu->R_IRQ[r]) = v;
+        *(ModeIs(0x12) ? &R[13 + r] : &R_IRQ[r]) = v;
     }
-    else if (reg == Register::sp_svc || reg == Register::lr_svc) {
+    else if (reg == Register::sp_svc || reg == Register::lr_svc)
+    {
         r -= static_cast<int>(Register::sp_svc);
-        *(cpu->ModeIs(0x13) ? &cpu->R[13 + r] : &cpu->R_SVC[r]) = v;
+        *(ModeIs(0x13) ? &R[13 + r] : &R_SVC[r]) = v;
     }
-    else if (reg == Register::sp_abt || reg == Register::lr_abt) {
+    else if (reg == Register::sp_abt || reg == Register::lr_abt)
+    {
         r -= static_cast<int>(Register::sp_abt);
-        *(cpu->ModeIs(0x17) ? &cpu->R[13 + r] : &cpu->R_ABT[r]) = v;
+        *(ModeIs(0x17) ? &R[13 + r] : &R_ABT[r]) = v;
     }
-    else if (reg == Register::sp_und || reg == Register::lr_und) {
+    else if (reg == Register::sp_und || reg == Register::lr_und)
+    {
         r -= static_cast<int>(Register::sp_und);
-        *(cpu->ModeIs(0x1b) ? &cpu->R[13 + r] : &cpu->R_UND[r]) = v;
+        *(ModeIs(0x1b) ? &R[13 + r] : &R_UND[r]) = v;
     }
-    else if (reg == Register::spsr_fiq) {
-        *(cpu->ModeIs(0x11) ? &cpu->CPSR : &cpu->R_FIQ[7]) = v;
+    else if (reg == Register::spsr_fiq)
+    {
+        *(ModeIs(0x11) ? &CPSR : &R_FIQ[7]) = v;
     }
-    else if (reg == Register::spsr_irq) {
-        *(cpu->ModeIs(0x12) ? &cpu->CPSR : &cpu->R_IRQ[2]) = v;
+    else if (reg == Register::spsr_irq)
+    {
+        *(ModeIs(0x12) ? &CPSR : &R_IRQ[2]) = v;
     }
-    else if (reg == Register::spsr_svc) {
-        *(cpu->ModeIs(0x13) ? &cpu->CPSR : &cpu->R_SVC[2]) = v;
+    else if (reg == Register::spsr_svc)
+    {
+        *(ModeIs(0x13) ? &CPSR : &R_SVC[2]) = v;
     }
-    else if (reg == Register::spsr_abt) {
-        *(cpu->ModeIs(0x17) ? &cpu->CPSR : &cpu->R_ABT[2]) = v;
+    else if (reg == Register::spsr_abt)
+    {
+        *(ModeIs(0x17) ? &CPSR : &R_ABT[2]) = v;
     }
-    else if (reg == Register::spsr_und) {
-        *(cpu->ModeIs(0x1b) ? &cpu->CPSR : &cpu->R_UND[2]) = v;
+    else if (reg == Register::spsr_und)
+    {
+        *(ModeIs(0x1b) ? &CPSR : &R_UND[2]) = v;
     }
     else Log(LogLevel::Warn, "GDB reg write: unknown reg no %d (write 0x%08x)\n", r, v);
 }
-u32 ARM::GdbReadMem(void* ud, u32 addr, int size)
+u32 ARM::ReadMem(u32 addr, int size)
 {
-    ARM* cpu = (ARM*)ud;
-
-    if (cpu == NDS::ARM9)
-    {
-        ARMv5* a9 = (ARMv5*)ud;
-
-        if (addr < a9->ITCMSize)
-        {
-            if (size == 8) return *(u8*)&a9->ITCM[addr & (ITCMPhysicalSize - 1)];
-            else if (size == 16) return *(u16*)&a9->ITCM[addr & (ITCMPhysicalSize - 1)];
-            else if (size == 32) return *(u32*)&a9->ITCM[addr & (ITCMPhysicalSize - 1)];
-            else return 0xfeedface;
-        }
-        else if ((addr & a9->DTCMMask) == a9->DTCMBase)
-        {
-            if (size == 8) return *(u8*)&a9->DTCM[addr & (DTCMPhysicalSize - 1)];
-            else if (size == 16) return *(u16*)&a9->DTCM[addr & (DTCMPhysicalSize - 1)];
-            else if (size == 32) return *(u32*)&a9->DTCM[addr & (DTCMPhysicalSize - 1)];
-            else return 0xfeedface;
-        }
-    }
-
-    if (size == 8) return cpu->BusRead8(addr);
-    else if (size == 16) return cpu->BusRead16(addr);
-    else if (size == 32) return cpu->BusRead32(addr);
+    if (size == 8) return BusRead8(addr);
+    else if (size == 16) return BusRead16(addr);
+    else if (size == 32) return BusRead32(addr);
     else return 0xfeedface;
 }
-void ARM::GdbWriteMem(void* ud, u32 addr, int size, u32 v)
+void ARM::WriteMem(u32 addr, int size, u32 v)
 {
-    ARM* cpu = (ARM*)ud;
-
-    if (cpu == NDS::ARM9)
-    {
-        ARMv5* a9 = (ARMv5*)ud;
-
-        if (addr < a9->ITCMSize)
-        {
-            if (size == 8) *(u8*)&a9->ITCM[addr & (ITCMPhysicalSize - 1)] = (u8)v;
-            else if (size == 16) *(u16*)&a9->ITCM[addr & (ITCMPhysicalSize - 1)] = (u16)v;
-            else if (size == 32) *(u32*)&a9->ITCM[addr & (ITCMPhysicalSize - 1)] = (u32)v;
-            else {}
-            return;
-        }
-        else if ((addr & a9->DTCMMask) == a9->DTCMBase)
-        {
-            if (size == 8) *(u8*)&a9->DTCM[addr & (DTCMPhysicalSize - 1)] = (u8)v;
-            else if (size == 16) *(u16*)&a9->DTCM[addr & (DTCMPhysicalSize - 1)] = (u16)v;
-            else if (size == 32) *(u32*)&a9->DTCM[addr & (DTCMPhysicalSize - 1)] = (u32)v;
-            else {}
-            return;
-        }
-    }
-
-
-    if (size == 8) cpu->BusWrite8(addr, (uint8_t)v);
-    else if (size == 16) cpu->BusWrite16(addr, (uint16_t)v);
-    else if (size == 32) cpu->BusWrite32(addr, v);
-    else {}
+    if (size == 8) BusWrite8(addr, (u8)v);
+    else if (size == 16) BusWrite16(addr, (u16)v);
+    else if (size == 32) BusWrite32(addr, v);
 }
 
-void ARM::GdbReset(void* ud)
+void ARM::ResetGdb()
 {
-    (void)ud;
-
     NDS::Reset();
     GPU::StartFrame(); // need this to properly kick off the scheduler & frame output
 }
-int ARM::GdbRemoteCmd(void* ud, const u8* cmd, size_t len)
+int ARM::RemoteCmd(const u8* cmd, size_t len)
 {
     (void)len;
 
     Log(LogLevel::Info, "[ARMGDB] Rcmd: \"%s\"\n", cmd);
-    if (!strcmp((const char*)cmd, "reset") || !strcmp((const char*)cmd, "r")) {
-        GdbReset(ud);
+    if (!strcmp((const char*)cmd, "reset") || !strcmp((const char*)cmd, "r"))
+    {
+        Reset();
         return 0;
     }
 
     return 1; // not implemented (yet)
 }
 
-const Gdb::StubCallbacks ARMv4::GdbStubCallbacks ={
-    .cpu = 7,
+void ARMv5::WriteMem(u32 addr, int size, u32 v)
+{
+    if (addr < ITCMSize)
+    {
+        if (size == 8) *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)] = (u8)v;
+        else if (size == 16) *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)] = (u16)v;
+        else if (size == 32) *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = (u32)v;
+        else {}
+        return;
+    }
+    else if ((addr & DTCMMask) == DTCMBase)
+    {
+        if (size == 8) *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)] = (u8)v;
+        else if (size == 16) *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)] = (u16)v;
+        else if (size == 32) *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = (u32)v;
+        else {}
+        return;
+    }
 
-    .ReadReg  = ARM::GdbReadReg ,
-    .WriteReg = ARM::GdbWriteReg,
-    .ReadMem  = ARM::GdbReadMem ,
-    .WriteMem = ARM::GdbWriteMem,
+    ARM::WriteMem(addr, size, v);
+}
+u32 ARMv5::ReadMem(u32 addr, int size)
+{
+    if (addr < ITCMSize)
+    {
+        if (size == 8) return *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        else if (size == 16) return *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        else if (size == 32) return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        else return 0xfeedface;
+    }
+    else if ((addr & DTCMMask) == DTCMBase)
+    {
+        if (size == 8) return *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)];
+        else if (size == 16) return *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)];
+        else if (size == 32) return *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
+        else return 0xfeedface;
+    }
 
-    .Reset = ARM::GdbReset,
-    .RemoteCmd = ARM::GdbRemoteCmd,
-};
-const Gdb::StubCallbacks ARMv5::GdbStubCallbacks ={
-    .cpu = 9,
-
-    .ReadReg  = ARM::GdbReadReg ,
-    .WriteReg = ARM::GdbWriteReg,
-    .ReadMem  = ARM::GdbReadMem ,
-    .WriteMem = ARM::GdbWriteMem,
-
-    .Reset = ARM::GdbReset,
-    .RemoteCmd = ARM::GdbRemoteCmd,
-};
+    return ARM::ReadMem(addr, size);
+}
 #endif
 

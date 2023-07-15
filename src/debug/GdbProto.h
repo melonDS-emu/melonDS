@@ -9,7 +9,7 @@
 
 namespace Gdb {
 
-#define GDBPROTO_BUFFER_CAPACITY (1024+128)
+constexpr int GDBPROTO_BUFFER_CAPACITY = 1024+128;
 
 extern u8 Cmdbuf[GDBPROTO_BUFFER_CAPACITY];
 extern ssize_t Cmdlen;

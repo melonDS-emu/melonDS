@@ -2,9 +2,11 @@
 #ifndef GDBARCH_H_
 #define GDBARCH_H_
 
-namespace Gdb {
+namespace Gdb
+{
 
-enum class Register : int {
+enum class Register : int
+{
 	r0,
 	r1,
 	r2,
@@ -52,7 +54,7 @@ enum class Register : int {
 	COUNT
 };
 
-#define GDB_ARCH_N_REG ((int)Register::COUNT)
+constexpr int GDB_ARCH_N_REG = (int)Register::COUNT;
 
 }
 
