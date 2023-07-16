@@ -219,6 +219,7 @@ bool GetConfigBool(ConfigEntry entry)
     case DSiSD_FolderSync: return Config::DSiSDFolderSync != 0;
 
     case Firm_OverrideSettings: return Config::FirmwareOverrideSettings != 0;
+    case DSi_FullBIOSBoot: return Config::DSiFullBIOSBoot != 0;
     }
 
     return false;

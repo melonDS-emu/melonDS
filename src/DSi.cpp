@@ -82,6 +82,14 @@ DSi_SDHost* SDIO;
 u64 ConsoleID;
 u8 eMMC_CID[16];
 
+// FIXME: these currently have no effect (and aren't stored in a savestate)
+//        ... not that they matter all that much
+u8 GPIO_Data;
+u8 GPIO_Dir;
+u8 GPIO_IEdgeSel;
+u8 GPIO_IE;
+u8 GPIO_WiFi;
+
 
 void Set_SCFG_Clock9(u16 val);
 void Set_SCFG_MC(u32 val);
@@ -159,7 +167,14 @@ void Reset()
 
     DSi_AES::Reset();
 
-    SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
+    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    {
+        SCFG_BIOS = 0x0000;
+    }
+    else
+    {
+        SCFG_BIOS = 0x0101;
+    }
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
@@ -168,6 +183,12 @@ void Reset()
     SCFG_RST = 0;
 
     DSi_DSP::SetRstLine(false);
+
+    GPIO_Data = 0xff; // these actually initialize to high after reset
+    GPIO_Dir = 0x80; // enable sound out, all others input
+    GPIO_IEdgeSel = 0;
+    GPIO_IE = 0;
+    GPIO_WiFi = 0;
 
     // LCD init flag
     GPU::DispStat[0] |= (1<<6);
@@ -673,7 +694,14 @@ void SoftReset()
 
     DSi_AES::Reset();
 
-    SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
+    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    {
+        SCFG_BIOS = 0x0000;
+    }
+    else
+    {
+        SCFG_BIOS = 0x0101;
+    }
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
@@ -733,12 +761,16 @@ bool LoadBIOS()
         fclose(f);
     }
 
-    // herp
-    *(u32*)&ARM9iBIOS[0] = 0xEAFFFFFE;
-    *(u32*)&ARM7iBIOS[0] = 0xEAFFFFFE;
+    if (!Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    {
+        // herp
+        *(u32*)&ARM9iBIOS[0] = 0xEAFFFFFE;
+        *(u32*)&ARM7iBIOS[0] = 0xEAFFFFFE;
 
-    // TODO!!!!
-    // hax the upper 32K out of the goddamn DSi
+        // TODO!!!!
+        // hax the upper 32K out of the goddamn DSi
+        // done that :)  -pcy
+    }
 
     return true;
 }
@@ -775,115 +807,138 @@ bool LoadNAND()
     memset(NWRAMMask, 0, sizeof(NWRAMMask));
 
     u32 bootparams[8];
-    fseek(nand, 0x220, SEEK_SET);
-    fread(bootparams, 4, 8, nand);
-
-    Log(LogLevel::Debug, "ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
-           bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
-    Log(LogLevel::Debug, "ARM7: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
-           bootparams[4], bootparams[5], bootparams[6], bootparams[7]);
-
-    // read and apply new-WRAM settings
-
-    MBK[0][8] = 0;
-    MBK[1][8] = 0;
-
-    u32 mbk[12];
-    fseek(nand, 0x380, SEEK_SET);
-    fread(mbk, 4, 12, nand);
-
-    MapNWRAM_A(0, mbk[0] & 0xFF);
-    MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
-    MapNWRAM_A(2, (mbk[0] >> 16) & 0xFF);
-    MapNWRAM_A(3, mbk[0] >> 24);
-
-    MapNWRAM_B(0, mbk[1] & 0xFF);
-    MapNWRAM_B(1, (mbk[1] >> 8) & 0xFF);
-    MapNWRAM_B(2, (mbk[1] >> 16) & 0xFF);
-    MapNWRAM_B(3, mbk[1] >> 24);
-    MapNWRAM_B(4, mbk[2] & 0xFF);
-    MapNWRAM_B(5, (mbk[2] >> 8) & 0xFF);
-    MapNWRAM_B(6, (mbk[2] >> 16) & 0xFF);
-    MapNWRAM_B(7, mbk[2] >> 24);
-
-    MapNWRAM_C(0, mbk[3] & 0xFF);
-    MapNWRAM_C(1, (mbk[3] >> 8) & 0xFF);
-    MapNWRAM_C(2, (mbk[3] >> 16) & 0xFF);
-    MapNWRAM_C(3, mbk[3] >> 24);
-    MapNWRAM_C(4, mbk[4] & 0xFF);
-    MapNWRAM_C(5, (mbk[4] >> 8) & 0xFF);
-    MapNWRAM_C(6, (mbk[4] >> 16) & 0xFF);
-    MapNWRAM_C(7, mbk[4] >> 24);
-
-    MapNWRAMRange(0, 0, mbk[5]);
-    MapNWRAMRange(0, 1, mbk[6]);
-    MapNWRAMRange(0, 2, mbk[7]);
-
-    MapNWRAMRange(1, 0, mbk[8]);
-    MapNWRAMRange(1, 1, mbk[9]);
-    MapNWRAMRange(1, 2, mbk[10]);
-
-    // TODO: find out why it is 0xFF000000
-    mbk[11] &= 0x00FFFF0F;
-    MBK[0][8] = mbk[11];
-    MBK[1][8] = mbk[11];
-
-    // load boot2 binaries
-
-    AES_ctx ctx;
-    const u8 boot2key[16] = {0xAD, 0x34, 0xEC, 0xF9, 0x62, 0x6E, 0xC2, 0x3A, 0xF6, 0xB4, 0x6C, 0x00, 0x80, 0x80, 0xEE, 0x98};
-    u8 boot2iv[16];
-    u8 tmp[16];
-    u32 dstaddr;
-
-    *(u32*)&tmp[0] = bootparams[3];
-    *(u32*)&tmp[4] = -bootparams[3];
-    *(u32*)&tmp[8] = ~bootparams[3];
-    *(u32*)&tmp[12] = 0;
-    for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
-
-    AES_init_ctx_iv(&ctx, boot2key, boot2iv);
-
-    fseek(nand, bootparams[0], SEEK_SET);
-    dstaddr = bootparams[2];
-    for (u32 i = 0; i < bootparams[3]; i += 16)
+    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
     {
-        u8 data[16];
-        fread(data, 16, 1, nand);
-
-        for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
-        AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
-        for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
-
-        ARM9Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
-        ARM9Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
-        ARM9Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
-        ARM9Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
+        // TODO: figure out default MBK mapping
+        // MBK1..5: disable mappings
+        for (int i = 0; i < 8; ++i)
+        {
+            if (i < 4)
+                MapNWRAM_A(i, 0);
+            MapNWRAM_B(i, 0);
+            MapNWRAM_C(i, 0);
+        }
+        // MBK6..8: address mappings: nothing mapped
+        for (int i = 0; i < 6; ++i)
+        {
+            MapNWRAMRange(i & 1, i >> 1, 0);
+        }
+        // MBK9: ARM9 allowed to write
+        MBK[0][8] = 0;
+        MBK[1][8] = 0;
     }
-
-    *(u32*)&tmp[0] = bootparams[7];
-    *(u32*)&tmp[4] = -bootparams[7];
-    *(u32*)&tmp[8] = ~bootparams[7];
-    *(u32*)&tmp[12] = 0;
-    for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
-
-    AES_init_ctx_iv(&ctx, boot2key, boot2iv);
-
-    fseek(nand, bootparams[4], SEEK_SET);
-    dstaddr = bootparams[6];
-    for (u32 i = 0; i < bootparams[7]; i += 16)
+    else
     {
-        u8 data[16];
-        fread(data, 16, 1, nand);
+        fseek(nand, 0x220, SEEK_SET);
+        fread(bootparams, 4, 8, nand);
 
-        for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
-        AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
-        for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
+        Log(LogLevel::Debug, "ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
+               bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
+        Log(LogLevel::Debug, "ARM7: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
+               bootparams[4], bootparams[5], bootparams[6], bootparams[7]);
 
-        ARM7Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
-        ARM7Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
-        ARM7Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
-        ARM7Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
+        // read and apply new-WRAM settings
+
+        MBK[0][8] = 0;
+        MBK[1][8] = 0;
+
+        u32 mbk[12];
+        fseek(nand, 0x380, SEEK_SET);
+        fread(mbk, 4, 12, nand);
+
+        MapNWRAM_A(0, mbk[0] & 0xFF);
+        MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
+        MapNWRAM_A(2, (mbk[0] >> 16) & 0xFF);
+        MapNWRAM_A(3, mbk[0] >> 24);
+
+        MapNWRAM_B(0, mbk[1] & 0xFF);
+        MapNWRAM_B(1, (mbk[1] >> 8) & 0xFF);
+        MapNWRAM_B(2, (mbk[1] >> 16) & 0xFF);
+        MapNWRAM_B(3, mbk[1] >> 24);
+        MapNWRAM_B(4, mbk[2] & 0xFF);
+        MapNWRAM_B(5, (mbk[2] >> 8) & 0xFF);
+        MapNWRAM_B(6, (mbk[2] >> 16) & 0xFF);
+        MapNWRAM_B(7, mbk[2] >> 24);
+
+        MapNWRAM_C(0, mbk[3] & 0xFF);
+        MapNWRAM_C(1, (mbk[3] >> 8) & 0xFF);
+        MapNWRAM_C(2, (mbk[3] >> 16) & 0xFF);
+        MapNWRAM_C(3, mbk[3] >> 24);
+        MapNWRAM_C(4, mbk[4] & 0xFF);
+        MapNWRAM_C(5, (mbk[4] >> 8) & 0xFF);
+        MapNWRAM_C(6, (mbk[4] >> 16) & 0xFF);
+        MapNWRAM_C(7, mbk[4] >> 24);
+
+        MapNWRAMRange(0, 0, mbk[5]);
+        MapNWRAMRange(0, 1, mbk[6]);
+        MapNWRAMRange(0, 2, mbk[7]);
+
+        MapNWRAMRange(1, 0, mbk[8]);
+        MapNWRAMRange(1, 1, mbk[9]);
+        MapNWRAMRange(1, 2, mbk[10]);
+
+        // TODO: find out why it is 0xFF000000
+        mbk[11] &= 0x00FFFF0F;
+        MBK[0][8] = mbk[11];
+        MBK[1][8] = mbk[11];
+
+        // load boot2 binaries
+
+        AES_ctx ctx;
+        const u8 boot2key[16] = {0xAD, 0x34, 0xEC, 0xF9, 0x62, 0x6E, 0xC2, 0x3A, 0xF6, 0xB4, 0x6C, 0x00, 0x80, 0x80, 0xEE, 0x98};
+        u8 boot2iv[16];
+        u8 tmp[16];
+        u32 dstaddr;
+
+        *(u32*)&tmp[0] = bootparams[3];
+        *(u32*)&tmp[4] = -bootparams[3];
+        *(u32*)&tmp[8] = ~bootparams[3];
+        *(u32*)&tmp[12] = 0;
+        for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
+
+        AES_init_ctx_iv(&ctx, boot2key, boot2iv);
+
+        fseek(nand, bootparams[0], SEEK_SET);
+        dstaddr = bootparams[2];
+        for (u32 i = 0; i < bootparams[3]; i += 16)
+        {
+            u8 data[16];
+            fread(data, 16, 1, nand);
+
+            for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
+            AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+            for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
+
+            ARM9Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
+            ARM9Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
+            ARM9Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
+            ARM9Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
+        }
+
+        *(u32*)&tmp[0] = bootparams[7];
+        *(u32*)&tmp[4] = -bootparams[7];
+        *(u32*)&tmp[8] = ~bootparams[7];
+        *(u32*)&tmp[12] = 0;
+        for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
+
+        AES_init_ctx_iv(&ctx, boot2key, boot2iv);
+
+        fseek(nand, bootparams[4], SEEK_SET);
+        dstaddr = bootparams[6];
+        for (u32 i = 0; i < bootparams[7]; i += 16)
+        {
+            u8 data[16];
+            fread(data, 16, 1, nand);
+
+            for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
+            AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+            for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
+
+            ARM7Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
+            ARM7Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
+            ARM7Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
+            ARM7Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
+        }
     }
 
 #define printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
@@ -894,35 +949,44 @@ bool LoadNAND()
     Log(LogLevel::Debug, "eMMC CID: "); printhex(eMMC_CID, 16);
     Log(LogLevel::Debug, "Console ID: %" PRIx64 "\n", ConsoleID);
 
-    u32 eaddr = 0x03FFE6E4;
-    ARM7Write32(eaddr+0x00, *(u32*)&eMMC_CID[0]);
-    ARM7Write32(eaddr+0x04, *(u32*)&eMMC_CID[4]);
-    ARM7Write32(eaddr+0x08, *(u32*)&eMMC_CID[8]);
-    ARM7Write32(eaddr+0x0C, *(u32*)&eMMC_CID[12]);
-    ARM7Write16(eaddr+0x2C, 0x0001);
-    ARM7Write16(eaddr+0x2E, 0x0001);
-    ARM7Write16(eaddr+0x3C, 0x0100);
-    ARM7Write16(eaddr+0x3E, 0x40E0);
-    ARM7Write16(eaddr+0x42, 0x0001);
+    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    {
+        // point CPUs to boot ROM reset vectors
+        NDS::ARM9->JumpTo(0xFFFF0000);
+        NDS::ARM7->JumpTo(0x00000000);
+    }
+    else
+    {
+        u32 eaddr = 0x03FFE6E4;
+        ARM7Write32(eaddr+0x00, *(u32*)&eMMC_CID[0]);
+        ARM7Write32(eaddr+0x04, *(u32*)&eMMC_CID[4]);
+        ARM7Write32(eaddr+0x08, *(u32*)&eMMC_CID[8]);
+        ARM7Write32(eaddr+0x0C, *(u32*)&eMMC_CID[12]);
+        ARM7Write16(eaddr+0x2C, 0x0001);
+        ARM7Write16(eaddr+0x2E, 0x0001);
+        ARM7Write16(eaddr+0x3C, 0x0100);
+        ARM7Write16(eaddr+0x3E, 0x40E0);
+        ARM7Write16(eaddr+0x42, 0x0001);
 
-    memcpy(&NDS::ARM9->ITCM[0x4400], &ARM9iBIOS[0x87F4], 0x400);
-    memcpy(&NDS::ARM9->ITCM[0x4800], &ARM9iBIOS[0x9920], 0x80);
-    memcpy(&NDS::ARM9->ITCM[0x4894], &ARM9iBIOS[0x99A0], 0x1048);
-    memcpy(&NDS::ARM9->ITCM[0x58DC], &ARM9iBIOS[0xA9E8], 0x1048);
+        memcpy(&NDS::ARM9->ITCM[0x4400], &ARM9iBIOS[0x87F4], 0x400);
+        memcpy(&NDS::ARM9->ITCM[0x4800], &ARM9iBIOS[0x9920], 0x80);
+        memcpy(&NDS::ARM9->ITCM[0x4894], &ARM9iBIOS[0x99A0], 0x1048);
+        memcpy(&NDS::ARM9->ITCM[0x58DC], &ARM9iBIOS[0xA9E8], 0x1048);
 
-    u8 ARM7Init[0x3C00];
-    memset(ARM7Init, 0, 0x3C00);
-    memcpy(&ARM7Init[0x0000], &ARM7iBIOS[0x8188], 0x200);
-    memcpy(&ARM7Init[0x0200], &ARM7iBIOS[0xB5D8], 0x40);
-    memcpy(&ARM7Init[0x0254], &ARM7iBIOS[0xC6D0], 0x1048);
-    memcpy(&ARM7Init[0x129C], &ARM7iBIOS[0xD718], 0x1048);
+        u8 ARM7Init[0x3C00];
+        memset(ARM7Init, 0, 0x3C00);
+        memcpy(&ARM7Init[0x0000], &ARM7iBIOS[0x8188], 0x200);
+        memcpy(&ARM7Init[0x0200], &ARM7iBIOS[0xB5D8], 0x40);
+        memcpy(&ARM7Init[0x0254], &ARM7iBIOS[0xC6D0], 0x1048);
+        memcpy(&ARM7Init[0x129C], &ARM7iBIOS[0xD718], 0x1048);
 
-    for (u32 i = 0; i < 0x3C00; i+=4)
-        ARM7Write32(0x03FFC400+i, *(u32*)&ARM7Init[i]);
+        for (u32 i = 0; i < 0x3C00; i+=4)
+            ARM7Write32(0x03FFC400+i, *(u32*)&ARM7Init[i]);
 
-    // repoint the CPUs to the boot2 binaries
-    NDS::ARM9->JumpTo(bootparams[2]);
-    NDS::ARM7->JumpTo(bootparams[6]);
+        // repoint the CPUs to the boot2 binaries
+        NDS::ARM9->JumpTo(bootparams[2]);
+        NDS::ARM7->JumpTo(bootparams[6]);
+    }
 
     DSi_NAND::PatchUserData();
 
@@ -2680,6 +2744,7 @@ u8 ARM7IORead8(u32 addr)
     case 0x04004000:
         return SCFG_BIOS & 0xFF;
     case 0x04004001: return SCFG_BIOS >> 8;
+    case 0x04004002: return 0; // SCFG_ROMWE, always 0
 
     CASE_READ8_32BIT(0x04004040, MBK[1][0])
     CASE_READ8_32BIT(0x04004044, MBK[1][1])
@@ -2706,6 +2771,13 @@ u8 ARM7IORead8(u32 addr)
 
     case 0x4004700: return DSi_DSP::SNDExCnt;
     case 0x4004701: return DSi_DSP::SNDExCnt >> 8;
+
+    case 0x04004C00: return GPIO_Data;
+    case 0x04004C01: return GPIO_Dir;
+    case 0x04004C02: return GPIO_IEdgeSel;
+    case 0x04004C03: return GPIO_IE;
+    case 0x04004C04: return GPIO_WiFi & 0xff;
+    case 0x04004C05: return GPIO_WiFi >> 8;
     }
 
     return NDS::ARM7IORead8(addr);
@@ -2719,6 +2791,7 @@ u16 ARM7IORead16(u32 addr)
     case 0x0400021C: return NDS::IF2;
 
     case 0x04004000: return SCFG_BIOS;
+    case 0x04004002: return 0; // SCFG_ROMWE, always 0
     case 0x04004004: return SCFG_Clock7;
     case 0x04004006: return 0; // JTAG register
     case 0x04004010: return SCFG_MC & 0xFFFF;
@@ -2740,6 +2813,10 @@ u16 ARM7IORead16(u32 addr)
     case 0x04004D08: return 0;
 
     case 0x4004700: return DSi_DSP::SNDExCnt;
+
+    case 0x04004C00: return GPIO_Data | ((u16)GPIO_Dir << 8);
+    case 0x04004C02: return GPIO_IEdgeSel | ((u16)GPIO_IE << 8);
+    case 0x04004C04: return GPIO_WiFi;
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
@@ -2845,6 +2922,9 @@ void ARM7IOWrite8(u32 addr, u8 val)
             return;
         SCFG_BIOS |= ((val & 0x07) << 8);
         return;
+    case 0x04004002:
+        // SCFG_ROMWE. ignored, as it always reads as 0
+        return;
     case 0x04004060:
     case 0x04004061:
     case 0x04004062:
@@ -2868,6 +2948,22 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
     case 0x4004701:
         DSi_DSP::WriteSNDExCnt(((u16)val << 8) | (DSi_DSP::SNDExCnt & 0x00FF));
+        return;
+
+    case 0x04004C00:
+        GPIO_Data = val;
+        return;
+    case 0x04004C01:
+        GPIO_Dir = val;
+        return;
+    case 0x04004C02:
+        GPIO_IEdgeSel = val;
+        return;
+    case 0x04004C03:
+        GPIO_IE = val;
+        return;
+    case 0x04004C04:
+        GPIO_WiFi = val | (GPIO_WiFi & 0xff00);
         return;
     }
 
@@ -2919,6 +3015,9 @@ void ARM7IOWrite16(u32 addr, u16 val)
                 return;
             SCFG_BIOS |= (val & 0x0703);
             return;
+        case 0x04004002:
+            // SCFG_ROMWE. ignored, as it always reads as 0
+            return;
         case 0x04004004:
             if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
                 return;
@@ -2942,8 +3041,24 @@ void ARM7IOWrite16(u32 addr, u16 val)
             }
             return;
 
+        case 0x04004406:
+            DSi_AES::WriteBlkCnt(val<<16);
+            return;
+
         case 0x4004700:
             DSi_DSP::WriteSNDExCnt(val);
+            return;
+
+        case 0x04004C00:
+            GPIO_Data = val & 0xff;
+            GPIO_Dir = val >> 8;
+            return;
+        case 0x04004C02:
+            GPIO_IEdgeSel = val & 0xff;
+            GPIO_IE = val >> 8;
+            return;
+        case 0x04004C04:
+            GPIO_WiFi = val;
             return;
     }
 
