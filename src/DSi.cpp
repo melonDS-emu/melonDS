@@ -184,6 +184,12 @@ void Reset()
 
     DSi_DSP::SetRstLine(false);
 
+    GPIO_Data = 0xff; // these actually initialize to high after reset
+    GPIO_Dir = 0x80; // enable sound out, all others input
+    GPIO_IEdgeSel = 0;
+    GPIO_IE = 0;
+    GPIO_WiFi = 0;
+
     // LCD init flag
     GPU::DispStat[0] |= (1<<6);
     GPU::DispStat[1] |= (1<<6);
