@@ -192,6 +192,9 @@ protected:
     bool BreakReq;
     bool BreakOnStartup;
 
+public:
+    int GetCPU() const override { return Num ? 7 : 9; }
+
     u32 ReadReg(Gdb::Register reg) override;
     void WriteReg(Gdb::Register reg, u32 v) override;
     u32 ReadMem(u32 addr, int size) override;
@@ -199,6 +202,8 @@ protected:
 
     void ResetGdb() override;
     int RemoteCmd(const u8* cmd, size_t len) override;
+
+protected:
 #endif
 
     void GdbCheckA();
@@ -345,8 +350,6 @@ public:
     bool (*GetMemRegion)(u32 addr, bool write, NDS::MemRegion* region);
 
 #ifdef GDBSTUB_ENABLED
-    int GetCPU() const override { return 9; }
-
     u32 ReadMem(u32 addr, int size) override;
     void WriteMem(u32 addr, int size, u32 v) override;
 #endif
@@ -506,10 +509,6 @@ public:
             Cycles += numC + numD;
         }
     }
-
-#ifdef GDBSTUB_ENABLED
-    int GetCPU() const override { return 7; }
-#endif
 };
 
 namespace ARMInterpreter
