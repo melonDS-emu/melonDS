@@ -730,7 +730,7 @@ ExecResult GdbStub::Handle_q_Supported(GdbStub* stub,
 		const u8* cmd, ssize_t len) {
 	// TODO: support Xfer:memory-map:read::
 	//       but NWRAM is super annoying with that
-	Proto::RespFmt(stub->ConnFd, "PacketSize=%X;qXfer:features:read+;swbreak-;hwbreak+", GDBPROTO_BUFFER_CAPACITY);
+	Proto::RespFmt(stub->ConnFd, "PacketSize=%X;qXfer:features:read+;swbreak-;hwbreak+", GDBPROTO_BUFFER_CAPACITY-1);
 	return ExecResult::Ok;
 }
 
