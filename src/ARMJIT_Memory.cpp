@@ -72,6 +72,10 @@ using Platform::LogLevel;
 
 */
 
+#if defined(__APPLE__) || defined(__FreeBSD__)
+#define NEEDS_ANON_MAP
+#endif
+
 namespace ARMJIT_Memory
 {
 struct FaultDescription
@@ -334,6 +338,8 @@ bool UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size)
     return R_SUCCEEDED(r);
 #elif defined(_WIN32)
     return UnmapViewOfFile(dst);
+#elif defined(NEEDS_ANON_MAP)
+    return mmap(dst, size, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0) == 0;
 #else
     return munmap(dst, size) == 0;
 #endif
@@ -751,7 +757,7 @@ void Init()
     // but something was bad about this so instead we take this vmem eating monster
     // which seems to work better.
     MemoryBase = (u8*)mmap(NULL, AddrSpaceSize*4, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
-#if !defined(__APPLE__) && !defined(__FreeBSD__)
+#if defined(NEEDS_ANON_MAP)
     munmap(MemoryBase, AddrSpaceSize*4);
 #endif
     FastMem9Start = MemoryBase;
