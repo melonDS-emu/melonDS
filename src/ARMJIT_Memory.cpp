@@ -687,7 +687,11 @@ bool FaultHandler(FaultDescription& faultDesc)
             rewriteToSlowPath = !MapAtAddress(faultDesc.EmulatedFaultAddr);
 
         if (rewriteToSlowPath)
+        {
+            ARMJIT::JitEnableWrite();
             faultDesc.FaultPC = ARMJIT::JITCompiler->RewriteMemAccess(faultDesc.FaultPC);
+            ARMJIT::JitEnableExecute();
+        }
 
         return true;
     }
@@ -747,7 +751,9 @@ void Init()
     // but something was bad about this so instead we take this vmem eating monster
     // which seems to work better.
     MemoryBase = (u8*)mmap(NULL, AddrSpaceSize*4, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
+#if !defined(__APPLE__) && !defined(__FreeBSD__)
     munmap(MemoryBase, AddrSpaceSize*4);
+#endif
     FastMem9Start = MemoryBase;
     FastMem7Start = MemoryBase + AddrSpaceSize;
     MemoryBase = MemoryBase + AddrSpaceSize*2;
