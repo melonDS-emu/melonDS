@@ -339,7 +339,7 @@ bool UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size)
 #elif defined(_WIN32)
     return UnmapViewOfFile(dst);
 #elif defined(NEEDS_ANON_MAP)
-    return mmap(dst, size, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0) == 0;
+    return mmap(dst, size, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0) != MAP_FAILED;
 #else
     return munmap(dst, size) == 0;
 #endif
