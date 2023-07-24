@@ -317,7 +317,7 @@ StubState GdbStub::Poll(bool wait)
 		to.tv_usec = 0;
 	}
 
-	r = select(1+1, &infd, &outfd, &errfd, &to);
+	r = select(ConnFd+1, &infd, &outfd, &errfd, &to);
 
 	if (FD_ISSET(ConnFd, &errfd))
 	{

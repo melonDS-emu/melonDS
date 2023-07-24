@@ -234,7 +234,7 @@ static int WaitAckBlocking(int connfd, u8* ackp, int to_ms)
 	to.tv_sec = to_ms / 1000;
 	to.tv_usec = (to_ms % 1000) * 1000;
 
-	int r = select(1+1, &infd, &outfd, &errfd, &to);
+	int r = select(connfd+1, &infd, &outfd, &errfd, &to);
 
 	if (FD_ISSET(connfd, &errfd)) return -1;
 	else if (FD_ISSET(connfd, &infd))
