@@ -740,7 +740,7 @@ void SendMPReply(u16 clienttime, u16 clientmask)
     IOPORT(W_TXBusy) |= 0x0080;
 }
 
-void SendMPAck(u16 clientfail)
+void SendMPAck(u16 cmdcount, u16 clientfail)
 {
     u8 ack[12 + 32];
 
@@ -762,7 +762,7 @@ void SendMPAck(u16 clientfail)
     *(u16*)&ack[0xC + 0x12] = IOPORT(W_MACAddr1);
     *(u16*)&ack[0xC + 0x14] = IOPORT(W_MACAddr2);
     *(u16*)&ack[0xC + 0x16] = IOPORT(W_TXSeqNo) << 4;
-    *(u16*)&ack[0xC + 0x18] = 0x0033; // ???
+    *(u16*)&ack[0xC + 0x18] = cmdcount;
     *(u16*)&ack[0xC + 0x1A] = clientfail;
     *(u32*)&ack[0xC + 0x1C] = 0;
 
@@ -1044,7 +1044,8 @@ bool ProcessTX(TXSlot* slot, int num)
             ReportMPReplyErrors(MPClientFail);
 
             // send
-            SendMPAck(MPClientFail);
+            u16 cmdcount = (CmdCounter + 9) / 10;
+            SendMPAck(cmdcount-3, MPClientFail);
 
             slot->CurPhase = 3;
         }
