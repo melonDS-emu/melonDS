@@ -72,7 +72,7 @@ using Platform::LogLevel;
 
 */
 
-#if defined(__APPLE__) || defined(__FreeBSD__)
+#if defined(__APPLE__)
 #define NEEDS_ANON_MAP
 #endif
 
