@@ -564,8 +564,6 @@ void StartTX_Cmd()
 {
     TXSlot* slot = &TXSlots[1];
 
-    // TODO: cancel the transfer if there isn't enough time left (check CMDCOUNT)
-
     if (IOPORT(W_TXSlotCmd) & 0x3000)
         Log(LogLevel::Warn,"wifi: !! unusual TXSLOT_CMD bits set %04X\n", IOPORT(W_TXSlotCmd));
 
@@ -576,8 +574,21 @@ void StartTX_Cmd()
     if (rate == 0x14) slot->Rate = 2;
     else              slot->Rate = 1;
 
-    slot->CurPhase = 0;
-    slot->CurPhaseTime = PreambleLen(slot->Rate);
+    u32 duration = PreambleLen(slot->Rate) + (slot->Length * (slot->Rate==2 ? 4:8));
+    u16 clientmask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2] & 0xFFFE;
+    duration += 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(clientmask));
+    duration += (32 * (slot->Rate==2 ? 4:8));
+
+    if (CmdCounter > (duration + 100))
+    {
+        slot->CurPhase = 0;
+        slot->CurPhaseTime = PreambleLen(slot->Rate);
+    }
+    else
+    {
+        slot->CurPhase = 13;
+        slot->CurPhaseTime = CmdCounter - 100;
+    }
 }
 
 void StartTX_Beacon()
@@ -950,7 +961,7 @@ bool ProcessTX(TXSlot* slot, int num)
 
             //slot->Addr = 0;
             //slot->Length = 28;
-            slot->CurPhase = 4;
+            slot->CurPhase = 11;
             slot->CurPhaseTime = 28*4;
             slot->HalfwordTimeMask = 0xFFFFFFFF;
         }
@@ -1031,6 +1042,16 @@ bool ProcessTX(TXSlot* slot, int num)
         }
         return true;
 
+    case 11: // MP default reply transfer finished
+        {
+            IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+
+            IOPORT(W_TXBusy) &= ~0x80;
+            SetStatus(1);
+            FireTX();
+        }
+        return true;
+
     case 2: // MP host transfer done
         {
             SetIRQ(7);
@@ -1045,7 +1066,7 @@ bool ProcessTX(TXSlot* slot, int num)
 
             // send
             u16 cmdcount = (CmdCounter + 9) / 10;
-            SendMPAck(cmdcount-3, MPClientFail);
+            SendMPAck(cmdcount, MPClientFail);
 
             slot->CurPhase = 3;
         }
@@ -1084,12 +1105,18 @@ bool ProcessTX(TXSlot* slot, int num)
         }
         return true;
 
-    case 4: // MP default reply transfer finished
+    case 13: // MP transfer failed (timeout)
         {
+            IOPORT(W_TXBusy) &= ~(1<<1);
+            IOPORT(W_TXSlotCmd) &= 0x7FFF;
+
+            *(u16*)&RAM[slot->Addr] = 0x0005;
+
             IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
 
-            IOPORT(W_TXBusy) &= ~0x80;
             SetStatus(1);
+            SetIRQ(12);
+
             FireTX();
         }
         return true;
