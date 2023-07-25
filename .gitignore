@@ -12,6 +12,7 @@ cmake-build-debug
 compile_commands.json
 .idea
 .cache
+.vscode
 
 *.exe
 

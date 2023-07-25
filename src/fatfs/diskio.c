@@ -106,7 +106,7 @@ DRESULT disk_write (
 	if (Status & STA_PROTECT) return RES_WRPRT;
 	if (!WriteCb) return RES_ERROR;
 
-	UINT res = WriteCb(buff, sector, count);
+	UINT res = WriteCb((BYTE*)buff, sector, count);
 	if (res != count) return RES_ERROR;
 	return RES_OK;
 }

@@ -212,6 +212,8 @@ int GetConfigInt(ConfigEntry entry)
     case Firm_Color: return Config::FirmwareFavouriteColour;
 
     case AudioBitDepth: return Config::AudioBitDepth;
+
+    default: break;
     }
 
     return 0;
@@ -304,6 +306,8 @@ bool GetConfigArray(ConfigEntry entry, void* data)
             }
         }
         return false;
+
+    default: break;
     }
 
     return false;

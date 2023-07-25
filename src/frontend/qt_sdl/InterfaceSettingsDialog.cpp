@@ -34,6 +34,21 @@ InterfaceSettingsDialog::InterfaceSettingsDialog(QWidget* parent) : QDialog(pare
     ui->spinMouseHideSeconds->setEnabled(Config::MouseHide != 0);
     ui->spinMouseHideSeconds->setValue(Config::MouseHideSeconds);
     ui->cbPauseLostFocus->setChecked(Config::PauseLostFocus != 0);
+
+#ifdef DISCORDRPC_ENABLED
+    ui->cbDiscordEnable->setVisible(true);
+    ui->cbDiscordEnable->setChecked(Config::Discord_Enable != 0);
+    
+    ui->cbDiscordTrackTime->setVisible(true);
+    ui->cbDiscordTrackTime->setChecked(Config::Discord_TrackTime != 0);
+
+    ui->cbDiscordGetImageFromInternet->setVisible(true);
+    ui->cbDiscordGetImageFromInternet->setChecked(Config::Discord_GetImageFromGameTDB != 0);
+#else
+    ui->cbDiscordEnable->setVisible(false); // Designer didn't let me set this by default :(
+    ui->cbDiscordTrackTime->setVisible(false);
+    ui->cbDiscordGetImageFromInternet->setVisible(false);
+#endif
 }
 
 InterfaceSettingsDialog::~InterfaceSettingsDialog()
@@ -60,6 +75,12 @@ void InterfaceSettingsDialog::done(int r)
         Config::MouseHide = ui->cbMouseHide->isChecked() ? 1:0;
         Config::MouseHideSeconds = ui->spinMouseHideSeconds->value();
         Config::PauseLostFocus = ui->cbPauseLostFocus->isChecked() ? 1:0;
+
+#ifdef DISCORDRPC_ENABLED
+        Config::Discord_Enable = ui->cbDiscordEnable->isChecked() ? 1:0;
+        Config::Discord_TrackTime = ui->cbDiscordTrackTime->isChecked() ? 1:0;
+        Config::Discord_GetImageFromGameTDB = ui->cbDiscordGetImageFromInternet->isChecked() ? 1:0;
+#endif
 
         Config::Save();
 

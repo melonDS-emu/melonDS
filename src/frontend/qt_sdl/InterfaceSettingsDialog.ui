@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>262</width>
-    <height>113</height>
+    <width>256</width>
+    <height>224</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -19,45 +19,82 @@
   <property name="windowTitle">
    <string>Interface settings - melonDS</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
-   <item row="1" column="0" alignment="Qt::AlignLeft">
-    <widget class="QLabel" name="label">
-     <property name="text">
-      <string>Hide after</string>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="0" colspan="4">
-    <widget class="QCheckBox" name="cbPauseLostFocus">
-     <property name="text">
-      <string>Pause emulation when window is not in focus</string>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="0" colspan="5">
+  <layout class="QVBoxLayout" name="verticalLayout_2">
+   <property name="sizeConstraint">
+    <enum>QLayout::SetFixedSize</enum>
+   </property>
+   <item>
     <widget class="QCheckBox" name="cbMouseHide">
      <property name="text">
       <string>Hide mouse after inactivity</string>
      </property>
     </widget>
    </item>
-   <item row="1" column="1" alignment="Qt::AlignLeft">
-    <widget class="QSpinBox" name="spinMouseHideSeconds"/>
+   <item>
+    <layout class="QHBoxLayout" name="inactivityBox">
+     <item>
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>Hide after</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QSpinBox" name="spinMouseHideSeconds"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_2">
+       <property name="text">
+        <string>seconds of inactivity</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
-   <item row="3" column="0" colspan="5">
+   <item>
+    <widget class="QCheckBox" name="cbPauseLostFocus">
+     <property name="text">
+      <string>Pause emulation when window is not in focus</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="discordBox">
+     <property name="title">
+      <string>Discord Rich Presence</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <widget class="QCheckBox" name="cbDiscordEnable">
+        <property name="text">
+         <string>Display the currently active game</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="cbDiscordTrackTime">
+        <property name="text">
+         <string>Track time</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="cbDiscordGetImageFromInternet">
+        <property name="text">
+         <string>Get cover image from GameTDB</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
      <property name="standardButtons">
       <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="2">
-    <widget class="QLabel" name="label_2">
-     <property name="text">
-      <string>seconds of inactivity</string>
      </property>
     </widget>
    </item>
@@ -99,6 +136,22 @@
     <hint type="destinationlabel">
      <x>286</x>
      <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>cbDiscordEnable</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>cbDiscordTrackTime</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>114</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>127</x>
+     <y>137</y>
     </hint>
    </hints>
   </connection>

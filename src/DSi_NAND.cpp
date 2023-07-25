@@ -16,6 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#define _LIBCPP_DISABLE_DEPRECATION_WARNINGS
+
 #include <stdio.h>
 #include <codecvt>
 

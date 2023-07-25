@@ -93,6 +93,8 @@ if (ENABLE_JIT)
             ARMJIT_x64/ARMJIT_Branch.cpp
 
             ARMJIT_x64/ARMJIT_Linkage.S)
+
+        target_compile_options(core PRIVATE -Wno-invalid-offsetof)
     endif()
     if (ARCHITECTURE STREQUAL ARM64)
         target_sources(core PRIVATE

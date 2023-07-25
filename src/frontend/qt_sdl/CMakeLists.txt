@@ -55,6 +55,8 @@ set(SOURCES_QT_SDL
     CLI.cpp
 )
 
+option(ENABLE_DISCORDRPC "Enable Discord Rich Presence" ON)
+
 if (APPLE)
     option(USE_QT6 "Build using Qt 6 instead of 5" ON)
 else()
@@ -145,6 +147,18 @@ endif()
 if (BUILD_STATIC)
     qt_import_plugins(melonDS INCLUDE Qt::QSvgPlugin)
     target_link_options(melonDS PRIVATE -static)
+endif()
+
+if (ENABLE_DISCORDRPC)
+    add_subdirectory(externals/discord-rpc)
+
+    target_sources(melonDS PRIVATE
+        DiscordRPC.cpp
+        DiscordRPC.h
+    )
+
+    target_compile_definitions(melonDS PRIVATE DISCORDRPC_ENABLED)
+    target_link_libraries(melonDS PRIVATE discord-rpc)
 endif()
 
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

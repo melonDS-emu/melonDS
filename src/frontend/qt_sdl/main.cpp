@@ -101,6 +101,10 @@
 
 #include "CLI.h"
 
+#ifdef DISCORDRPC_ENABLED
+#include "DiscordRPC.h"
+#endif
+
 // TODO: uniform variable spelling
 
 const QString NdsRomMimeType = "application/x-nintendo-ds-rom";
@@ -165,6 +169,10 @@ bool videoSettingsDirty;
 
 CameraManager* camManager[2];
 bool camStarted[2];
+
+#ifdef DISCORDRPC_ENABLED
+DiscordRPC rpc;
+#endif
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
@@ -990,8 +998,6 @@ void ScreenHandler::screenHandleTouch(QTouchEvent* event)
             touching = false;
         }
         break;
-    default:
-        break;
     }
 }
 
@@ -1395,6 +1401,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     setFocusPolicy(Qt::ClickFocus);
 
     int inst = Platform::InstanceID();
+
+#ifdef DISCORDRPC_ENABLED
+    if (Config::Discord_Enable)
+    {
+        rpc.Initialize();
+    }
+#endif
+
+    QTimer* timer = new QTimer(this);
+    connect(timer, SIGNAL(timeout()), this, SLOT(onUpdateTimerElapsed()));
+
+    timer->start(1000);
 
     QMenuBar* menubar = new QMenuBar();
     {
@@ -1842,8 +1860,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 }
 
 MainWindow::~MainWindow()
-{
-}
+{}
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
@@ -1853,6 +1870,10 @@ void MainWindow::closeEvent(QCloseEvent* event)
         emuThread->emuPause();
         emuThread->deinitContext();
     }
+
+#ifdef DISCORDRPC_ENABLED
+    rpc.ShutDown();
+#endif
 
     QMainWindow::closeEvent(event);
 }
@@ -2281,6 +2302,26 @@ void MainWindow::updateCartInserted(bool gba)
         actRAMInfo->setEnabled(inserted);
     }
 }
+
+void MainWindow::onUpdateTimerElapsed()
+{
+#ifdef DISCORDRPC_ENABLED
+    rpc.Update();
+
+    QString title  = "Unknown game";
+    char* gameCode = nullptr;
+    if (NDSCart::Cart != nullptr)
+    {
+        title = QString::fromUtf16(NDSCart::Cart->Banner()->EnglishTitle);
+        title = title.left(title.lastIndexOf("\n")).replace("\n", " ");
+
+        gameCode = NDSCart::Cart->GetHeader().GameCode;
+    }
+
+    rpc.SetPresence(emuThread->emuIsActive(), title.toUtf8().constData(), gameCode);
+#endif
+}
+
 
 void MainWindow::onOpenFile()
 {
@@ -2973,6 +3014,17 @@ void MainWindow::onUpdateMouseTimer()
 void MainWindow::onInterfaceSettingsFinished(int res)
 {
     emuThread->emuUnpause();
+
+#ifdef DISCORDRPC_ENABLED
+    if (!Config::Discord_Enable && rpc.IsConnected())
+    {
+        rpc.ShutDown();
+    }
+    else if (Config::Discord_Enable && !rpc.IsConnected())
+    {
+        rpc.Initialize();
+    }
+#endif
 }
 
 void MainWindow::onChangeSavestateSRAMReloc(bool checked)
@@ -3226,6 +3278,8 @@ bool MelonApplication::event(QEvent *event)
 int main(int argc, char** argv)
 {
     srand(time(nullptr));
+
+    setvbuf(stdout, NULL, _IONBF, 0);
 
     qputenv("QT_SCALE_FACTOR", "1");
 

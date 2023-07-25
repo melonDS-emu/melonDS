@@ -353,6 +353,8 @@ private slots:
     void onFullscreenToggled();
     void onScreenEmphasisToggled();
 
+    void onUpdateTimerElapsed();
+
 private:
     virtual void closeEvent(QCloseEvent* event) override;
 
