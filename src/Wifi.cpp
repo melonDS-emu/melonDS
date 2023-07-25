@@ -2245,6 +2245,7 @@ void Write(u32 addr, u16 val)
     case 0x000:
     case 0x044:
     case 0x054:
+    case 0x098:
     case 0x0B0:
     case 0x0B6:
     case 0x0B8:
