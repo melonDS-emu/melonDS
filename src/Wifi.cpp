@@ -101,6 +101,8 @@ u16 MPClientMask, MPClientFail;
 
 u8 MPClientReplies[15*1024];
 
+u16 MPLastSeqno;
+
 bool MPInited;
 bool LANInited;
 
@@ -259,6 +261,8 @@ void Reset()
     MPClientFail = 0;
     memset(MPClientReplies, 0, sizeof(MPClientReplies));
 
+    MPLastSeqno = 0xFFFF;
+
     CmdCounter = 0;
 
     USUntilPowerOn = 0;
@@ -334,6 +338,8 @@ void DoSavestate(Savestate* file)
     file->Var16(&MPClientFail);
 
     file->VarArray(MPClientReplies, sizeof(MPClientReplies));
+
+    file->Var16(&MPLastSeqno);
 
     file->Var32((u32*)&USUntilPowerOn);
     file->Bool32(&ForcePowerOn);
@@ -591,6 +597,7 @@ void TXSendFrame(TXSlot* slot, int num)
         break;
 
     case 1:
+        *(u16*)&TXBuffer[12 + 24+2] = MPClientMask;
         Platform::MP_SendCmd(TXBuffer, 12+len, USTimestamp);
         break;
 
@@ -642,9 +649,11 @@ void StartTX_Cmd()
     if (rate == 0x14) slot->Rate = 2;
     else              slot->Rate = 1;
 
+    MPClientMask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2] & MPClientFail;
+    MPClientFail &= MPClientMask;
+
     u32 duration = PreambleLen(slot->Rate) + (slot->Length * (slot->Rate==2 ? 4:8));
-    u16 clientmask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2] & 0xFFFE;
-    duration += 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(clientmask));
+    duration += 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(MPClientMask));
     duration += (32 * (slot->Rate==2 ? 4:8));
 
     if (CmdCounter > (duration + 100))
@@ -711,6 +720,7 @@ void FireTX()
 
     if (txstart & 0x0002)
     {
+        MPClientFail = 0xFFFE;
         StartTX_Cmd();
         return;
     }
@@ -724,7 +734,7 @@ void FireTX()
 
 void SendMPDefaultReply()
 {
-    u8 reply[12 + 32];
+    u8 reply[12 + 28];
 
     *(u16*)&reply[0xA] = 28; // length
 
@@ -961,20 +971,17 @@ bool ProcessTX(TXSlot* slot, int num)
                 }
                 SetStatus(5);
 
-                u16 clientmask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2] & 0xFFFE;
                 MPReplyTimer = 16 + PreambleLen(slot->Rate);
-                MPClientMask = clientmask;
-                MPClientFail = clientmask;
 
                 u16 res = 0;
-                if (clientmask)
-                    res = Platform::MP_RecvReplies(MPClientReplies, USTimestamp, clientmask);
+                if (MPClientMask)
+                    res = Platform::MP_RecvReplies(MPClientReplies, USTimestamp, MPClientMask);
                 MPClientFail &= ~res;
 
                 // TODO: 112 likely includes the ack preamble, which needs adjusted
                 // for long-preamble settings
                 slot->CurPhase = 2;
-                slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(clientmask));
+                slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(MPClientMask));
 
                 break;
             }
@@ -1051,10 +1058,6 @@ bool ProcessTX(TXSlot* slot, int num)
 
     case 3: // MP host ack transfer (reply wait done)
         {
-            // checkme
-            IOPORT(W_TXBusy) &= ~(1<<1);
-            IOPORT(W_TXSlotCmd) &= 0x7FFF; // confirmed
-
             if (!MPClientFail)
                 *(u16*)&RAM[slot->Addr] = 0x0001;
             else
@@ -1072,14 +1075,23 @@ bool ProcessTX(TXSlot* slot, int num)
                 IOPORT(W_TXStat) = 0x0B01;
                 SetIRQ(1);
             }
-            SetStatus(1);
 
-            // TODO: retry the whole cycle if some clients failed to respond
-            // AND if there is enough time left in CMDCOUNT
-            // (games seem to always configure CMDCOUNT such that there is no time for retries)
-            SetIRQ(12);
+            if (MPClientFail)
+            {
+                // if some clients failed to respond: try again
+                StartTX_Cmd();
+                break;
+            }
+            else
+            {
+                IOPORT(W_TXBusy) &= ~(1<<1);
+                IOPORT(W_TXSlotCmd) &= 0x7FFF;
 
-            FireTX();
+                SetStatus(1);
+                SetIRQ(12);
+
+                FireTX();
+            }
         }
         return true;
 
@@ -1159,6 +1171,7 @@ void FinishRX()
     // TODO: RX stats
 
     u16 framectl = *(u16*)&RXBuffer[12];
+    u16 seqno = *(u16*)&RXBuffer[12 + 22];
 
     // check the frame's destination address
     // note: the hardware always checks the first address field, regardless of the frame type/etc
@@ -1187,6 +1200,7 @@ void FinishRX()
     // * MP CMD frames with a duplicate sequence number are ignored
 
     u16 rxflags = 0x0010;
+    bool cmd_dupe = false;
 
     switch ((framectl >> 2) & 0x3)
     {
@@ -1288,6 +1302,9 @@ void FinishRX()
             }
             else if (MACEqual(&RXBuffer[12 + 4], MPCmdMAC))
             {
+                if (seqno == MPLastSeqno) cmd_dupe = true;
+                MPLastSeqno = seqno;
+
                 rxflags |= 0x000C;
             }
             else if (MACEqual(&RXBuffer[12 + 4], MPAckMAC))
@@ -1353,26 +1370,29 @@ void FinishRX()
         break;
     }
 
-    // build the RX header
+    if (!cmd_dupe)
+    {
+        // build the RX header
 
-    u16 headeraddr = IOPORT(W_RXBufWriteCursor) << 1;
-    *(u16*)&RAM[headeraddr] = rxflags;
-    IncrementRXAddr(headeraddr);
-    *(u16*)&RAM[headeraddr] = 0x0040; // ???
-    IncrementRXAddr(headeraddr, 4);
-    *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[6]; // TX rate
-    IncrementRXAddr(headeraddr);
-    *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[8]; // frame length
-    IncrementRXAddr(headeraddr);
-    *(u16*)&RAM[headeraddr] = 0x4080; // RSSI
+        u16 headeraddr = IOPORT(W_RXBufWriteCursor) << 1;
+        *(u16*)&RAM[headeraddr] = rxflags;
+        IncrementRXAddr(headeraddr);
+        *(u16*)&RAM[headeraddr] = 0x0040; // ???
+        IncrementRXAddr(headeraddr, 4);
+        *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[6]; // TX rate
+        IncrementRXAddr(headeraddr);
+        *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[8]; // frame length
+        IncrementRXAddr(headeraddr);
+        *(u16*)&RAM[headeraddr] = 0x4080; // RSSI
 
-    // signal successful reception
+        // signal successful reception
 
-    u16 addr = IOPORT(W_RXTXAddr) << 1;
-    if (addr & 0x2) IncrementRXAddr(addr);
-    IOPORT(W_RXBufWriteCursor) = (addr & ~0x3) >> 1;
+        u16 addr = IOPORT(W_RXTXAddr) << 1;
+        if (addr & 0x2) IncrementRXAddr(addr);
+        IOPORT(W_RXBufWriteCursor) = (addr & ~0x3) >> 1;
 
-    SetIRQ(0);
+        SetIRQ(0);
+    }
 
     if ((rxflags & 0x800F) == 0x800C)
     {
