@@ -849,6 +849,22 @@ void SendMPAck(u16 cmdcount, u16 clientfail)
     *(u16*)&ack[0xC + 0x1A] = clientfail;
     *(u32*)&ack[0xC + 0x1C] = 0;
 
+    if (!clientfail)
+    {
+        u32 nextbeacon;
+        if (IOPORT(W_TXBusy) & 0x0010)
+            nextbeacon = 0;
+        else
+            nextbeacon = ((IOPORT(W_BeaconCount1) - 1) << 10) + (0x400 - (USCounter & 0x3FF));
+        int runahead = std::min(CmdCounter, nextbeacon);
+        if (CmdCounter < 1000) runahead -= 210;
+        *(u32*)&ack[0] = std::max(runahead - (32*(TXSlots[1].Rate==2?4:8)), 0);
+    }
+    else
+    {
+        *(u32*)&ack[0] = PreambleLen(TXSlots[1].Rate);
+    }
+
     int txlen = Platform::MP_SendAck(ack, 12+32, USTimestamp);
     WIFI_LOG("wifi: sent %d/44 bytes of MP ack, %d %d\n", txlen, ComStatus, RXTime);
 }
@@ -1076,9 +1092,10 @@ bool ProcessTX(TXSlot* slot, int num)
                 SetIRQ(1);
             }
 
-            if (MPClientFail)
+            if (MPClientFail && false)
             {
                 // if some clients failed to respond: try again
+                // TODO: fix this (causes instability)
                 StartTX_Cmd();
                 break;
             }
@@ -1580,6 +1597,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
         // we also need to determine how far we can run after having received this frame
 
         RXTimestamp = timestamp;
+        //if (RXTimestamp < USTimestamp) printf("CRAP!! %04X %016llX %016llX\n", framectl, RXTimestamp, USTimestamp);
         if (RXTimestamp < USTimestamp) RXTimestamp = USTimestamp;
         NextSync = RXTimestamp + (framelen * (txrate==0x14 ? 4:8));
 
@@ -1590,6 +1608,12 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 
             // include the MP reply time window
             NextSync += 112 + ((clienttime + 10) * NumClients(clientmask));
+        }
+        else if (MACEqual(&RXBuffer[12 + 4], MPAckMAC))
+        {
+            u32 runahead = *(u32*)&RXBuffer[0];
+
+            NextSync += runahead;
         }
     }
     else
