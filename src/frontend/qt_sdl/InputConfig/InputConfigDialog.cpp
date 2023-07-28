@@ -204,6 +204,14 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         i++;
     }
 
+    i = 0;
+    for (int hotkey : hk_save_load)
+    {
+        Config::HKKeyMapping[hotkey] = hkSaveLoadKeyMap[i];
+        Config::HKJoyMapping[hotkey] = hkSaveLoadJoyMap[i];
+        i++;
+    }
+
     Config::JoystickID = Input::JoystickID;
     Config::Save();
 
