@@ -171,6 +171,11 @@ void DeInit()
     if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
     if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
     if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
+
+    Framebuffer[0][0] = nullptr;
+    Framebuffer[0][1] = nullptr;
+    Framebuffer[1][0] = nullptr;
+    Framebuffer[1][1] = nullptr;
 }
 
 void ResetVRAMCache()
@@ -390,7 +395,7 @@ void InitRenderer(int renderer)
     {
         CurGLCompositor = std::make_unique<GLCompositor>();
         // Create opengl rendrerer
-        if (!CurGLCompositor->Init())
+        if (!CurGLCompositor->IsValid())
         {
             // Fallback on software renderer
             renderer = 0;
@@ -401,7 +406,6 @@ void InitRenderer(int renderer)
         if (!GPU3D::CurrentRenderer->Init())
         {
             // Fallback on software renderer
-            CurGLCompositor->DeInit();
             CurGLCompositor.reset();
             renderer = 0;
             GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
@@ -419,9 +423,13 @@ void InitRenderer(int renderer)
 
 void DeInitRenderer()
 {
-    GPU3D::CurrentRenderer->DeInit();
+    if (GPU3D::CurrentRenderer)
+    {
+        GPU3D::CurrentRenderer->DeInit();
+    }
+
 #ifdef OGLRENDERER_ENABLED
-    if (Renderer == 1)
+    if (Renderer == 1 && CurGLCompositor)
     {
         CurGLCompositor->DeInit();
     }

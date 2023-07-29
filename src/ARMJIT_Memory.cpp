@@ -818,10 +818,24 @@ void DeInit()
     svcUnmapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, (u64)MemoryBase, MemoryTotalSize);
     free(MemoryBase);
 #elif defined(_WIN32)
-    assert(UnmapViewOfFile(MemoryBase));
-    CloseHandle(MemoryFile);
+    if (MemoryBase)
+    {
+        bool viewUnmapped = UnmapViewOfFile(MemoryBase);
+        assert(viewUnmapped);
+        MemoryBase = nullptr;
+    }
 
-    RemoveVectoredExceptionHandler(ExceptionHandlerHandle);
+    if (MemoryFile)
+    {
+        CloseHandle(MemoryFile);
+        MemoryFile = nullptr;
+    }
+
+    if (ExceptionHandlerHandle)
+    {
+        RemoveVectoredExceptionHandler(ExceptionHandlerHandle);
+        ExceptionHandlerHandle = nullptr;
+    }
 #else
     sigaction(SIGSEGV, &OldSaSegv, nullptr);
 #ifdef __APPLE__

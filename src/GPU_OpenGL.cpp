@@ -32,12 +32,13 @@ namespace GPU
 
 using namespace OpenGL;
 
-bool GLCompositor::Init()
+GLCompositor::GLCompositor() : Valid(false)
 {
     if (!OpenGL::BuildShaderProgram(kCompositorVS, kCompositorFS_Nearest, CompShader[0], "CompositorShader"))
-    //if (!OpenGL::BuildShaderProgram(kCompositorVS, kCompositorFS_Linear, CompShader[0], "CompositorShader"))
-    //if (!OpenGL::BuildShaderProgram(kCompositorVS_xBRZ, kCompositorFS_xBRZ, CompShader[0], "CompositorShader"))
-        return false;
+    {
+        Valid = false;
+        return;
+    }
 
     for (int i = 0; i < 1; i++)
     {
@@ -48,7 +49,10 @@ bool GLCompositor::Init()
         glBindFragDataLocation(CompShader[i][2], 0, "oColor");
 
         if (!OpenGL::LinkShaderProgram(CompShader[i]))
-            return false;
+        {
+            Valid = false;
+            return;
+        }
 
         CompScaleLoc[i] = glGetUniformLocation(CompShader[i][2], "u3DScale");
         Comp3DXPosLoc[i] = glGetUniformLocation(CompShader[i][2], "u3DXPos");
@@ -120,10 +124,10 @@ bool GLCompositor::Init()
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    return true;
+    Valid = true;
 }
 
-void GLCompositor::DeInit()
+GLCompositor::~GLCompositor()
 {
     glDeleteFramebuffers(2, CompScreenOutputFB);
     glDeleteTextures(1, &CompScreenInputTex);

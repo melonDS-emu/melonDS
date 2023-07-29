@@ -28,12 +28,12 @@ struct RenderSettings;
 class GLCompositor
 {
 public:
-    GLCompositor() = default;
+    GLCompositor();
     GLCompositor(const GLCompositor&) = delete;
     GLCompositor& operator=(const GLCompositor&) = delete;
+    ~GLCompositor();
 
-    bool Init();
-    void DeInit();
+    bool IsValid() const noexcept { return Valid; }
     void Reset();
 
     void SetRenderSettings(RenderSettings& settings);
@@ -42,6 +42,7 @@ public:
     void RenderFrame();
     void BindOutputTexture(int buf);
 private:
+    bool Valid;
 
     int Scale;
     int ScreenH, ScreenW;
