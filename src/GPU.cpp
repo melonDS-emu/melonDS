@@ -429,10 +429,8 @@ void DeInitRenderer()
     }
 
 #ifdef OGLRENDERER_ENABLED
-    if (Renderer == 1 && CurGLCompositor)
-    {
-        CurGLCompositor->DeInit();
-    }
+    // Delete the compositor, if one exists
+    CurGLCompositor.reset();
 #endif
 }
 
