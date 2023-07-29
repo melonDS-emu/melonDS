@@ -29,9 +29,7 @@ class GLRenderer : public Renderer3D
 {
 public:
     GLRenderer();
-    virtual ~GLRenderer() override {};
-    virtual bool Init() override;
-    virtual void DeInit() override;
+    virtual ~GLRenderer() override;
     virtual void Reset() override;
 
     virtual void SetRenderSettings(GPU::RenderSettings& settings) override;

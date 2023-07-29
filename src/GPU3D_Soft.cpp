@@ -74,11 +74,6 @@ void SoftRenderer::SetupRenderThread()
 SoftRenderer::SoftRenderer()
     : Renderer3D(false)
 {
-
-}
-
-bool SoftRenderer::Init()
-{
     Sema_RenderStart = Platform::Semaphore_Create();
     Sema_RenderDone = Platform::Semaphore_Create();
     Sema_ScanlineCount = Platform::Semaphore_Create();
@@ -87,10 +82,10 @@ bool SoftRenderer::Init()
     RenderThreadRunning = false;
     RenderThreadRendering = false;
 
-    return true;
+    Valid = true;
 }
 
-void SoftRenderer::DeInit()
+SoftRenderer::~SoftRenderer()
 {
     StopRenderThread();
 

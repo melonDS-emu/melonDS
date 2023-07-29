@@ -99,10 +99,6 @@ void SetupDefaultTexParams(GLuint tex)
 GLRenderer::GLRenderer()
     : Renderer3D(true)
 {
-}
-
-bool GLRenderer::Init()
-{
     GLint uni_id;
 
     glEnable(GL_DEPTH_TEST);
@@ -113,14 +109,20 @@ bool GLRenderer::Init()
 
 
     if (!OpenGL::BuildShaderProgram(kClearVS, kClearFS, ClearShaderPlain, "ClearShader"))
-        return false;
+    {
+        Valid = false;
+        return;
+    }
 
     glBindAttribLocation(ClearShaderPlain[2], 0, "vPosition");
     glBindFragDataLocation(ClearShaderPlain[2], 0, "oColor");
     glBindFragDataLocation(ClearShaderPlain[2], 1, "oAttr");
 
     if (!OpenGL::LinkShaderProgram(ClearShaderPlain))
-        return false;
+    {
+        Valid = false;
+        return;
+    }
 
     ClearUniformLoc[0] = glGetUniformLocation(ClearShaderPlain[2], "uColor");
     ClearUniformLoc[1] = glGetUniformLocation(ClearShaderPlain[2], "uDepth");
@@ -129,34 +131,75 @@ bool GLRenderer::Init()
 
     memset(RenderShader, 0, sizeof(RenderShader));
 
-    if (!BuildRenderShader(0,
-                           kRenderVS_Z, kRenderFS_ZO)) return false;
-    if (!BuildRenderShader(RenderFlag_WBuffer,
-                           kRenderVS_W, kRenderFS_WO)) return false;
-    if (!BuildRenderShader(RenderFlag_Edge,
-                           kRenderVS_Z, kRenderFS_ZE)) return false;
-    if (!BuildRenderShader(RenderFlag_Edge | RenderFlag_WBuffer,
-                           kRenderVS_W, kRenderFS_WE)) return false;
-    if (!BuildRenderShader(RenderFlag_Trans,
-                           kRenderVS_Z, kRenderFS_ZT)) return false;
-    if (!BuildRenderShader(RenderFlag_Trans | RenderFlag_WBuffer,
-                           kRenderVS_W, kRenderFS_WT)) return false;
-    if (!BuildRenderShader(RenderFlag_ShadowMask,
-                           kRenderVS_Z, kRenderFS_ZSM)) return false;
-    if (!BuildRenderShader(RenderFlag_ShadowMask | RenderFlag_WBuffer,
-                           kRenderVS_W, kRenderFS_WSM)) return false;
+    if (!BuildRenderShader(0, kRenderVS_Z, kRenderFS_ZO))
+    {
+        Valid = false;
+        return;
+    }
+
+    if (!BuildRenderShader(RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WO))
+    {
+        Valid = false;
+        return;
+    }
+
+    if (!BuildRenderShader(RenderFlag_Edge, kRenderVS_Z, kRenderFS_ZE))
+    {
+        Valid = false;
+        return;
+    }
+
+    if (!BuildRenderShader(RenderFlag_Edge | RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WE))
+    {
+        Valid = false;
+        return;
+    }
+
+    if (!BuildRenderShader(RenderFlag_Trans, kRenderVS_Z, kRenderFS_ZT))
+    {
+        Valid = false;
+        return;
+    }
+
+    if (!BuildRenderShader(RenderFlag_Trans | RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WT))
+    {
+        Valid = false;
+        return;
+    }
+
+    if (!BuildRenderShader(RenderFlag_ShadowMask, kRenderVS_Z, kRenderFS_ZSM))
+    {
+        Valid = false;
+        return;
+    }
+
+    if (!BuildRenderShader(RenderFlag_ShadowMask | RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WSM))
+    {
+        Valid = false;
+        return;
+    }
 
 
     if (!OpenGL::BuildShaderProgram(kFinalPassVS, kFinalPassEdgeFS, FinalPassEdgeShader, "FinalPassEdgeShader"))
-        return false;
+    {
+        Valid = false;
+        return;
+    }
+
     if (!OpenGL::BuildShaderProgram(kFinalPassVS, kFinalPassFogFS, FinalPassFogShader, "FinalPassFogShader"))
-        return false;
+    {
+        Valid = false;
+        return;
+    }
 
     glBindAttribLocation(FinalPassEdgeShader[2], 0, "vPosition");
     glBindFragDataLocation(FinalPassEdgeShader[2], 0, "oColor");
 
     if (!OpenGL::LinkShaderProgram(FinalPassEdgeShader))
-        return false;
+    {
+        Valid = false;
+        return;
+    }
 
     uni_id = glGetUniformBlockIndex(FinalPassEdgeShader[2], "uConfig");
     glUniformBlockBinding(FinalPassEdgeShader[2], uni_id, 0);
@@ -172,7 +215,10 @@ bool GLRenderer::Init()
     glBindFragDataLocation(FinalPassFogShader[2], 0, "oColor");
 
     if (!OpenGL::LinkShaderProgram(FinalPassFogShader))
-        return false;
+    {
+        Valid = false;
+        return;
+    }
 
     uni_id = glGetUniformBlockIndex(FinalPassFogShader[2], "uConfig");
     glUniformBlockBinding(FinalPassFogShader[2], uni_id, 0);
@@ -284,10 +330,10 @@ bool GLRenderer::Init()
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    return true;
+    Valid = true;
 }
 
-void GLRenderer::DeInit()
+GLRenderer::~GLRenderer()
 {
     glDeleteTextures(1, &TexMemID);
     glDeleteTextures(1, &TexPalMemID);

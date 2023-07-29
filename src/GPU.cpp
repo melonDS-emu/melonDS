@@ -394,16 +394,15 @@ void InitRenderer(int renderer)
     if (renderer == 1)
     {
         CurGLCompositor = std::make_unique<GLCompositor>();
-        // Create opengl rendrerer
+        // Create opengl renderer
         if (!CurGLCompositor->IsValid())
         {
             // Fallback on software renderer
             renderer = 0;
             GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
-            GPU3D::CurrentRenderer->Init();
         }
         GPU3D::CurrentRenderer = std::make_unique<GPU3D::GLRenderer>();
-        if (!GPU3D::CurrentRenderer->Init())
+        if (!GPU3D::CurrentRenderer->IsValid())
         {
             // Fallback on software renderer
             CurGLCompositor.reset();
@@ -415,7 +414,6 @@ void InitRenderer(int renderer)
 #endif
     {
         GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
-        GPU3D::CurrentRenderer->Init();
     }
 
     Renderer = renderer;
@@ -423,10 +421,8 @@ void InitRenderer(int renderer)
 
 void DeInitRenderer()
 {
-    if (GPU3D::CurrentRenderer)
-    {
-        GPU3D::CurrentRenderer->DeInit();
-    }
+    // Delete the 3D renderer, if it exists
+    GPU3D::CurrentRenderer.reset();
 
 #ifdef OGLRENDERER_ENABLED
     // Delete the compositor, if one exists

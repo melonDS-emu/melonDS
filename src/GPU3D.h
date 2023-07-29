@@ -137,14 +137,12 @@ void Write32(u32 addr, u32 val);
 class Renderer3D
 {
 public:
-    Renderer3D(bool Accelerated);
     virtual ~Renderer3D() {};
 
     Renderer3D(const Renderer3D&) = delete;
     Renderer3D& operator=(const Renderer3D&) = delete;
 
-    virtual bool Init() = 0;
-    virtual void DeInit() = 0;
+    bool IsValid() const noexcept { return Valid; }
     virtual void Reset() = 0;
 
     // This "Accelerated" flag currently communicates if the framebuffer should
@@ -159,6 +157,9 @@ public:
     virtual void RenderFrame() = 0;
     virtual void RestartFrame() {};
     virtual u32* GetLine(int line) = 0;
+protected:
+    Renderer3D(bool Accelerated);
+    bool Valid;
 };
 
 extern int Renderer;
