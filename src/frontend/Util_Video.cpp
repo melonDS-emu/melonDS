@@ -36,6 +36,7 @@ float HybTouchMtx[6];
 bool TopEnable;
 bool BotEnable;
 bool HybEnable;
+bool HybFlippedEnable;
 int HybScreen;
 int HybPrevTouchScreen; // 0:unknown, 1:buttom screen, 2:hybrid screen
 
@@ -129,15 +130,16 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
     int screenGap,
     bool integerScale,
     bool swapScreens,
+    bool focusScreens,
     float topAspect, float botAspect)
 {
-    HybEnable = screenLayout == 3;
+    HybEnable = screenLayout == 3 || screenLayout == 4;
+    HybFlippedEnable = screenLayout == 4;
     if (HybEnable)
     {
         screenLayout = 0;
         sizing = 0;
-        HybScreen = swapScreens ? 1 : 0;
-        swapScreens = false;
+        HybScreen = focusScreens ? 1 : 0;
         topAspect = botAspect = 1;
         HybPrevTouchScreen = 0;
     }
@@ -300,7 +302,10 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
                         : (scale * hSize * 4) / 3;
 
                     if (rotation > 1)
+                    {
                         hybWidth *= -1;
+                        screenGap *= -1;
+                    }
 
                     M23_Translate(TopScreenMtx, (layout==0)?hybWidth:0, (layout==1)?hybWidth:0);
                     M23_Translate(BotScreenMtx, (layout==0)?hybWidth:0, (layout==1)?hybWidth:0);
@@ -311,8 +316,24 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
 
                     botTrans[2+layout] += hybWidth;
 
-                    hybTrans[0] = scale * (rotation == 0 || rotation == 3 ? minX : maxX);
-                    hybTrans[1] = scale * (rotation == 0 || rotation == 1 ? minY : maxY);
+                    if (HybFlippedEnable)
+                    {
+                        if (rotation == 0 || rotation == 2)
+                        {
+                            hybTrans[0] = (screenGap * scale * 1.33) + -5 * scale * (rotation == 0 || rotation == 3 ? minX : maxX);
+                            hybTrans[1] = scale * (rotation == 0 || rotation == 1 ? minY : maxY);
+                        }
+                        if (rotation == 1 || rotation == 3)
+                        {
+                            hybTrans[0] = scale * (rotation == 0 || rotation == 3 ? minX : maxX);
+                            hybTrans[1] = (screenGap * scale * 1.33) + -5 * scale * (rotation == 0 || rotation == 1 ? minY : maxY);
+                        }
+                    }
+                    else
+                    {
+                        hybTrans[0] = scale * (rotation == 0 || rotation == 3 ? minX : maxX);
+                        hybTrans[1] = scale * (rotation == 0 || rotation == 1 ? minY : maxY);
+                    }
                     M23_Translate(HybScreenMtx, hybTrans[0], hybTrans[1]);
 
                     M23_Transform(HybScreenMtx, refpoints[4][0], refpoints[4][1]);

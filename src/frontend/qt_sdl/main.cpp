@@ -194,6 +194,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panelWidget, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
+    connect(this, SIGNAL(focusScreensToggle()), mainWindow->actScreenFocus, SLOT(trigger()));
     connect(this, SIGNAL(screenEmphasisToggle()), mainWindow, SLOT(onScreenEmphasisToggled()));
 
     static_cast<ScreenPanelGL*>(mainWindow->panel)->transferLayout(this);
@@ -367,6 +368,7 @@ void EmuThread::run()
 
         if (Input::HotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
         if (Input::HotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
+        if (Input::HotkeyPressed(HK_FocusScreens)) emit focusScreensToggle();
 
         if (Input::HotkeyPressed(HK_SolarSensorDecrease))
         {
@@ -836,6 +838,7 @@ void ScreenHandler::screenSetupLayout(int w, int h)
                                 Config::ScreenGap,
                                 Config::IntegerScaling != 0,
                                 Config::ScreenSwap != 0,
+                                Config::ScreenFocus != 0,
                                 aspectTop,
                                 aspectBot);
 
@@ -1642,9 +1645,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             QMenu* submenu = menu->addMenu("Screen layout");
             grpScreenLayout = new QActionGroup(submenu);
 
-            const char* screenlayout[] = {"Natural", "Vertical", "Horizontal", "Hybrid"};
+            const char* screenlayout[] = {"Natural", "Vertical", "Horizontal", "Hybrid", "Flipped Hybrid"};
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 5; i++)
             {
                 actScreenLayout[i] = submenu->addAction(QString(screenlayout[i]));
                 actScreenLayout[i]->setActionGroup(grpScreenLayout);
@@ -1659,6 +1662,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             actScreenSwap = submenu->addAction("Swap screens");
             actScreenSwap->setCheckable(true);
             connect(actScreenSwap, &QAction::triggered, this, &MainWindow::onChangeScreenSwap);
+
+            actScreenFocus = submenu->addAction("Swap focused hybrid screen");
+            actScreenFocus->setCheckable(true);
+            connect(actScreenFocus, &QAction::triggered, this, &MainWindow::onChangeScreenFocus);
         }
         {
             QMenu* submenu = menu->addMenu("Screen sizing");
@@ -1805,6 +1812,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actIntegerScaling->setChecked(Config::IntegerScaling);
 
     actScreenSwap->setChecked(Config::ScreenSwap);
+    actScreenFocus->setChecked(Config::ScreenFocus);
 
     for (int i = 0; i < sizeof(aspectRatios) / sizeof(aspectRatios[0]); i++)
     {
@@ -3029,6 +3037,29 @@ void MainWindow::onChangeScreenSwap(bool checked)
     emit screenLayoutChange();
 }
 
+void MainWindow::onChangeScreenFocus(bool checked)
+{
+    Config::ScreenFocus = checked?1:0;
+
+    // Swap between top and bottom screen on large screen area when displaying hybrid layout.
+    if (Config::ScreenSizing == screenSizing_TopOnly)
+    {
+        // Bottom Screen.
+        Config::ScreenSizing = screenSizing_BotOnly;
+        actScreenSizing[screenSizing_TopOnly]->setChecked(false);
+        actScreenSizing[Config::ScreenSizing]->setChecked(true);
+    }
+    else if (Config::ScreenSizing == screenSizing_BotOnly)
+    {
+        // Top Screen.
+        Config::ScreenSizing = screenSizing_TopOnly;
+        actScreenSizing[screenSizing_BotOnly]->setChecked(false);
+        actScreenSizing[Config::ScreenSizing]->setChecked(true);
+    }
+
+    emit screenLayoutChange();
+}
+
 void MainWindow::onChangeScreenSizing(QAction* act)
 {
     int sizing = act->data().toInt();
@@ -3281,7 +3312,7 @@ int main(int argc, char** argv)
     SANITIZE(Config::MicInputType, 0, (int)micInputType_MAX);
     SANITIZE(Config::ScreenRotation, 0, 3);
     SANITIZE(Config::ScreenGap, 0, 500);
-    SANITIZE(Config::ScreenLayout, 0, 3);
+    SANITIZE(Config::ScreenLayout, 0, 4);
     SANITIZE(Config::ScreenSizing, 0, (int)screenSizing_MAX);
     SANITIZE(Config::ScreenAspectTop, 0, 4);
     SANITIZE(Config::ScreenAspectBot, 0, 4);

@@ -33,6 +33,7 @@ enum
     HK_FullscreenToggle,
     HK_SwapScreens,
     HK_SwapScreenEmphasis,
+    HK_FocusScreens,
     HK_SolarSensorDecrease,
     HK_SolarSensorIncrease,
     HK_FrameStep,
@@ -99,6 +100,7 @@ extern int ScreenRotation;
 extern int ScreenGap;
 extern int ScreenLayout;
 extern bool ScreenSwap;
+extern bool ScreenFocus;
 extern int ScreenSizing;
 extern int ScreenAspectTop;
 extern int ScreenAspectBot;
