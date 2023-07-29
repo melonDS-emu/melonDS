@@ -307,7 +307,7 @@ HANDLE MemoryFile;
 LPVOID ExceptionHandlerHandle;
 #else
 u8* MemoryBase;
-int MemoryFile;
+int MemoryFile = -1;
 #endif
 
 bool MapIntoRange(u32 addr, u32 num, u32 offset, u32 size)
@@ -823,6 +823,8 @@ void DeInit()
         bool viewUnmapped = UnmapViewOfFile(MemoryBase);
         assert(viewUnmapped);
         MemoryBase = nullptr;
+        FastMem9Start = nullptr;
+        FastMem7Start = nullptr;
     }
 
     if (MemoryFile)
@@ -841,9 +843,19 @@ void DeInit()
 #ifdef __APPLE__
     sigaction(SIGBUS, &OldSaBus, nullptr);
 #endif
+    if (MemoryBase)
+    {
+        munmap(MemoryBase, MemoryTotalSize);
+        MemoryBase = nullptr;
+        FastMem9Start = nullptr;
+        FastMem7Start = nullptr;
+    }
 
-    munmap(MemoryBase, MemoryTotalSize);
-    close(MemoryFile);
+    if (MemoryFile >= 0)
+    {
+        close(MemoryFile);
+        MemoryFile = -1;
+    }
 #endif
 }
 
