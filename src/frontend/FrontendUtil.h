@@ -27,28 +27,48 @@
 namespace Frontend
 {
 
+enum ScreenLayout
+{
+    screenLayout_Natural, // top screen above bottom screen always
+    screenLayout_Horizontal,
+    screenLayout_Vertical,
+    screenLayout_Hybrid,
+    screenLayout_MAX,
+};
+
+enum ScreenRotation
+{
+    screenRot_0Deg,
+    screenRot_90Deg,
+    screenRot_180Deg,
+    screenRot_270Deg,
+    screenRot_MAX,
+};
+
+enum ScreenSizing
+{
+    screenSizing_Even, // both screens get same size
+    screenSizing_EmphTop, // make top screen as big as possible, fit bottom screen in remaining space
+    screenSizing_EmphBot,
+    screenSizing_Auto, // not applied in SetupScreenLayout
+    screenSizing_TopOnly,
+    screenSizing_BotOnly,
+    screenSizing_MAX,
+};
+
 // setup the display layout based on the provided display size and parameters
 // * screenWidth/screenHeight: size of the host display
 // * screenLayout: how the DS screens are laid out
-//     0 = natural (top screen above bottom screen always)
-//     1 = vertical
-//     2 = horizontal
-//     3 = hybrid
-// * rotation: angle at which the DS screens are presented: 0/1/2/3 = 0/90/180/270
+// * rotation: angle at which the DS screens are presented
 // * sizing: how the display size is shared between the two screens
-//     0 = even (both screens get same size)
-//     1 = emphasize top screen (make top screen as big as possible, fit bottom screen in remaining space)
-//     2 = emphasize bottom screen
-//     4 = top only
-//     5 = bottom only
-// * screenGap: size of the gap between the two screens
+// * screenGap: size of the gap between the two screens in pixels
 // * integerScale: force screens to be scaled up at integer scaling factors
 // * screenSwap: whether to swap the position of both screens
 // * topAspect/botAspect: ratio by which to scale the top and bottom screen respectively
 void SetupScreenLayout(int screenWidth, int screenHeight,
-    int screenLayout,
-    int rotation,
-    int sizing,
+    ScreenLayout screenLayout,
+    ScreenRotation rotation,
+    ScreenSizing sizing,
     int screenGap,
     bool integerScale,
     bool swapScreens,

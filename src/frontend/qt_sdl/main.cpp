@@ -174,13 +174,14 @@ const struct { int id; float ratio; const char* label; } aspectRatios[] =
     { 2, (21.f / 9) / (4.f / 3),  "21:9" },
     { 3, 0,                       "window" }
 };
+constexpr int AspectRatiosNum = sizeof(aspectRatios) / sizeof(aspectRatios[0]);
 
 
 EmuThread::EmuThread(QObject* parent) : QThread(parent)
 {
-    EmuStatus = 0;
-    EmuRunning = 2;
-    EmuPause = 0;
+    EmuStatus = emuStatus_Exit;
+    EmuRunning = emuStatus_Paused;
+    EmuPauseStack = EmuPauseStackRunning;
     RunningSomething = false;
 
     connect(this, SIGNAL(windowUpdate()), mainWindow->panelWidget, SLOT(repaint()));
@@ -353,7 +354,7 @@ void EmuThread::run()
 
     char melontitle[100];
 
-    while (EmuRunning != 0)
+    while (EmuRunning != emuStatus_Exit)
     {
         Input::Process();
 
@@ -425,10 +426,10 @@ void EmuThread::run()
             DSi_BPTWL::ProcessVolumeSwitchInput(currentTime);
         }
 
-        if (EmuRunning == 1 || EmuRunning == 3)
+        if (EmuRunning == emuStatus_Running || EmuRunning == emuStatus_FrameStep)
         {
-            EmuStatus = 1;
-            if (EmuRunning == 3) EmuRunning = 2;
+            EmuStatus = emuStatus_Running;
+            if (EmuRunning == emuStatus_FrameStep) EmuRunning = emuStatus_Paused;
 
             // update render settings if needed
             // HACK:
@@ -473,7 +474,7 @@ void EmuThread::run()
             AudioInOut::MicProcess();
 
             // auto screen layout
-            if (Config::ScreenSizing == screenSizing_Auto)
+            if (Config::ScreenSizing == Frontend::screenSizing_Auto)
             {
                 mainScreenPos[2] = mainScreenPos[1];
                 mainScreenPos[1] = mainScreenPos[0];
@@ -485,14 +486,14 @@ void EmuThread::run()
                 {
                     // constant flickering, likely displaying 3D on both screens
                     // TODO: when both screens are used for 2D only...???
-                    guess = screenSizing_Even;
+                    guess = Frontend::screenSizing_Even;
                 }
                 else
                 {
                     if (mainScreenPos[0] == 1)
-                        guess = screenSizing_EmphTop;
+                        guess = Frontend::screenSizing_EmphTop;
                     else
-                        guess = screenSizing_EmphBot;
+                        guess = Frontend::screenSizing_EmphBot;
                 }
 
                 if (guess != autoScreenSizing)
@@ -528,7 +529,7 @@ void EmuThread::run()
             MelonCap::Update();
 #endif // MELONCAP
 
-            if (EmuRunning == 0) break;
+            if (EmuRunning == emuStatus_Exit) break;
 
             winUpdateCount++;
             if (winUpdateCount >= winUpdateFreq && !oglContext)
@@ -632,21 +633,21 @@ void EmuThread::run()
             if (oglContext)
                 drawScreenGL();
 
-            int contextRequest = ContextRequest;
-            if (contextRequest == 1)
+            ContextRequestKind contextRequest = ContextRequest;
+            if (contextRequest == contextRequest_InitGL)
             {
                 initOpenGL();
-                ContextRequest = 0;
+                ContextRequest = contextRequest_None;
             }
-            else if (contextRequest == 2)
+            else if (contextRequest == contextRequest_DeInitGL)
             {
                 deinitOpenGL();
-                ContextRequest = 0;
+                ContextRequest = contextRequest_None;
             }
         }
     }
 
-    EmuStatus = 0;
+    EmuStatus = emuStatus_Exit;
 
     GPU::DeInitRenderer();
     NDS::DeInit();
@@ -660,8 +661,8 @@ void EmuThread::changeWindowTitle(char* title)
 
 void EmuThread::emuRun()
 {
-    EmuRunning = 1;
-    EmuPause = 0;
+    EmuRunning = emuStatus_Running;
+    EmuPauseStack = EmuPauseStackRunning;
     RunningSomething = true;
 
     // checkme
@@ -671,34 +672,34 @@ void EmuThread::emuRun()
 
 void EmuThread::initContext()
 {
-    ContextRequest = 1;
-    while (ContextRequest != 0);
+    ContextRequest = contextRequest_InitGL;
+    while (ContextRequest != contextRequest_None);
 }
 
 void EmuThread::deinitContext()
 {
-    ContextRequest = 2;
-    while (ContextRequest != 0);
+    ContextRequest = contextRequest_DeInitGL;
+    while (ContextRequest != contextRequest_None);
 }
 
 void EmuThread::emuPause()
 {
-    EmuPause++;
-    if (EmuPause > 1) return;
+    EmuPauseStack++;
+    if (EmuPauseStack > EmuPauseStackPauseThreshold) return;
 
     PrevEmuStatus = EmuRunning;
-    EmuRunning = 2;
-    while (EmuStatus != 2);
+    EmuRunning = emuStatus_Paused;
+    while (EmuStatus != emuStatus_Paused);
 
     AudioInOut::Disable();
 }
 
 void EmuThread::emuUnpause()
 {
-    if (EmuPause < 1) return;
+    if (EmuPauseStack < EmuPauseStackPauseThreshold) return;
 
-    EmuPause--;
-    if (EmuPause > 0) return;
+    EmuPauseStack--;
+    if (EmuPauseStack >= EmuPauseStackPauseThreshold) return;
 
     EmuRunning = PrevEmuStatus;
 
@@ -707,21 +708,21 @@ void EmuThread::emuUnpause()
 
 void EmuThread::emuStop()
 {
-    EmuRunning = 0;
-    EmuPause = 0;
+    EmuRunning = emuStatus_Exit;
+    EmuPauseStack = EmuPauseStackRunning;
 
     AudioInOut::Disable();
 }
 
 void EmuThread::emuFrameStep()
 {
-    if (EmuPause < 1) emit windowEmuPause();
-    EmuRunning = 3;
+    if (EmuPauseStack < EmuPauseStackPauseThreshold) emit windowEmuPause();
+    EmuRunning = emuStatus_FrameStep;
 }
 
 bool EmuThread::emuIsRunning()
 {
-    return (EmuRunning == 1);
+    return EmuRunning == emuStatus_Running;
 }
 
 bool EmuThread::emuIsActive()
@@ -830,9 +831,9 @@ void ScreenHandler::screenSetupLayout(int w, int h)
         aspectBot = ((float) w / h) / (4.f / 3.f);
 
     Frontend::SetupScreenLayout(w, h,
-                                Config::ScreenLayout,
-                                Config::ScreenRotation,
-                                sizing,
+                                static_cast<Frontend::ScreenLayout>(Config::ScreenLayout),
+                                static_cast<Frontend::ScreenRotation>(Config::ScreenRotation),
+                                static_cast<Frontend::ScreenSizing>(sizing),
                                 Config::ScreenGap,
                                 Config::IntegerScaling != 0,
                                 Config::ScreenSwap != 0,
@@ -844,32 +845,34 @@ void ScreenHandler::screenSetupLayout(int w, int h)
 
 QSize ScreenHandler::screenGetMinSize(int factor = 1)
 {
-    bool isHori = (Config::ScreenRotation == 1 || Config::ScreenRotation == 3);
+    bool isHori = (Config::ScreenRotation == Frontend::screenRot_90Deg
+        || Config::ScreenRotation == Frontend::screenRot_270Deg);
     int gap = Config::ScreenGap * factor;
 
     int w = 256 * factor;
     int h = 192 * factor;
 
-    if (Config::ScreenSizing == 4 || Config::ScreenSizing == 5)
+    if (Config::ScreenSizing == Frontend::screenSizing_TopOnly
+        || Config::ScreenSizing == Frontend::screenSizing_BotOnly)
     {
         return QSize(w, h);
     }
 
-    if (Config::ScreenLayout == 0) // natural
+    if (Config::ScreenLayout == Frontend::screenLayout_Natural)
     {
         if (isHori)
             return QSize(h+gap+h, w);
         else
             return QSize(w, h+gap+h);
     }
-    else if (Config::ScreenLayout == 1) // vertical
+    else if (Config::ScreenLayout == Frontend::screenLayout_Vertical)
     {
         if (isHori)
             return QSize(h, w+gap+w);
         else
             return QSize(w, h+gap+h);
     }
-    else if (Config::ScreenLayout == 2) // horizontal
+    else if (Config::ScreenLayout == Frontend::screenLayout_Horizontal)
     {
         if (isHori)
             return QSize(h+gap+h, w);
@@ -1610,7 +1613,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             QMenu* submenu = menu->addMenu("Screen rotation");
             grpScreenRotation = new QActionGroup(submenu);
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < Frontend::screenRot_MAX; i++)
             {
                 int data = i*90;
                 actScreenRotation[i] = submenu->addAction(QString("%1°").arg(data));
@@ -1644,7 +1647,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             const char* screenlayout[] = {"Natural", "Vertical", "Horizontal", "Hybrid"};
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < Frontend::screenLayout_MAX; i++)
             {
                 actScreenLayout[i] = submenu->addAction(QString(screenlayout[i]));
                 actScreenLayout[i]->setActionGroup(grpScreenLayout);
@@ -1666,7 +1669,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only", "Bottom only"};
 
-            for (int i = 0; i < screenSizing_MAX; i++)
+            for (int i = 0; i < Frontend::screenSizing_MAX; i++)
             {
                 actScreenSizing[i] = submenu->addAction(QString(screensizing[i]));
                 actScreenSizing[i]->setActionGroup(grpScreenSizing);
@@ -1686,8 +1689,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             QMenu* submenu = menu->addMenu("Aspect ratio");
             grpScreenAspectTop = new QActionGroup(submenu);
             grpScreenAspectBot = new QActionGroup(submenu);
-            actScreenAspectTop = new QAction*[sizeof(aspectRatios) / sizeof(aspectRatios[0])];
-            actScreenAspectBot = new QAction*[sizeof(aspectRatios) / sizeof(aspectRatios[0])];
+            actScreenAspectTop = new QAction*[AspectRatiosNum];
+            actScreenAspectBot = new QAction*[AspectRatiosNum];
 
             for (int i = 0; i < 2; i++)
             {
@@ -1701,7 +1704,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                     actions = actScreenAspectBot;
                 }
 
-                for (int j = 0; j < sizeof(aspectRatios) / sizeof(aspectRatios[0]); j++)
+                for (int j = 0; j < AspectRatiosNum; j++)
                 {
                     auto ratio = aspectRatios[j];
                     QString label = QString("%1 %2").arg(i ? "Bottom" : "Top", ratio.label);
@@ -1806,7 +1809,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     actScreenSwap->setChecked(Config::ScreenSwap);
 
-    for (int i = 0; i < sizeof(aspectRatios) / sizeof(aspectRatios[0]); i++)
+    for (int i = 0; i < AspectRatiosNum; i++)
     {
         if (Config::ScreenAspectTop == aspectRatios[i].id)
             actScreenAspectTop[i]->setChecked(true);
@@ -3011,18 +3014,18 @@ void MainWindow::onChangeScreenSwap(bool checked)
     Config::ScreenSwap = checked?1:0;
 
     // Swap between top and bottom screen when displaying one screen.
-    if (Config::ScreenSizing == screenSizing_TopOnly)
+    if (Config::ScreenSizing == Frontend::screenSizing_TopOnly)
     {
         // Bottom Screen.
-        Config::ScreenSizing = screenSizing_BotOnly;
-        actScreenSizing[screenSizing_TopOnly]->setChecked(false);
+        Config::ScreenSizing = Frontend::screenSizing_BotOnly;
+        actScreenSizing[Frontend::screenSizing_TopOnly]->setChecked(false);
         actScreenSizing[Config::ScreenSizing]->setChecked(true);
     }
-    else if (Config::ScreenSizing == screenSizing_BotOnly)
+    else if (Config::ScreenSizing == Frontend::screenSizing_BotOnly)
     {
         // Top Screen.
-        Config::ScreenSizing = screenSizing_TopOnly;
-        actScreenSizing[screenSizing_BotOnly]->setChecked(false);
+        Config::ScreenSizing = Frontend::screenSizing_TopOnly;
+        actScreenSizing[Frontend::screenSizing_BotOnly]->setChecked(false);
         actScreenSizing[Config::ScreenSizing]->setChecked(true);
     }
 
@@ -3111,13 +3114,13 @@ void MainWindow::onFullscreenToggled()
 void MainWindow::onScreenEmphasisToggled()
 {
     int currentSizing = Config::ScreenSizing;
-    if (currentSizing == screenSizing_EmphTop)
+    if (currentSizing == Frontend::screenSizing_EmphTop)
     {
-        Config::ScreenSizing = screenSizing_EmphBot;
+        Config::ScreenSizing = Frontend::screenSizing_EmphBot;
     }
-    else if (currentSizing == screenSizing_EmphBot)
+    else if (currentSizing == Frontend::screenSizing_EmphBot)
     {
-        Config::ScreenSizing = screenSizing_EmphTop;
+        Config::ScreenSizing = Frontend::screenSizing_EmphTop;
     }
 
     emit screenLayoutChange();
@@ -3279,12 +3282,12 @@ int main(int argc, char** argv)
     SANITIZE(Config::AudioInterp, 0, 3);
     SANITIZE(Config::AudioVolume, 0, 256);
     SANITIZE(Config::MicInputType, 0, (int)micInputType_MAX);
-    SANITIZE(Config::ScreenRotation, 0, 3);
+    SANITIZE(Config::ScreenRotation, 0, (int)Frontend::screenRot_MAX);
     SANITIZE(Config::ScreenGap, 0, 500);
-    SANITIZE(Config::ScreenLayout, 0, 3);
-    SANITIZE(Config::ScreenSizing, 0, (int)screenSizing_MAX);
-    SANITIZE(Config::ScreenAspectTop, 0, 4);
-    SANITIZE(Config::ScreenAspectBot, 0, 4);
+    SANITIZE(Config::ScreenLayout, 0, (int)Frontend::screenLayout_MAX);
+    SANITIZE(Config::ScreenSizing, 0, (int)Frontend::screenSizing_MAX);
+    SANITIZE(Config::ScreenAspectTop, 0, AspectRatiosNum);
+    SANITIZE(Config::ScreenAspectBot, 0, AspectRatiosNum);
 #undef SANITIZE
 
     AudioInOut::Init();
