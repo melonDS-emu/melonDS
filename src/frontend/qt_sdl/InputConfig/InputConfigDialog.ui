@@ -55,6 +55,9 @@
        <property name="text">
         <string>Joystick:</string>
        </property>
+       <property name="buddy">
+        <cstring>cbxJoystick</cstring>
+       </property>
       </widget>
      </item>
      <item>
@@ -2371,9 +2374,12 @@
                </property>
                <layout class="QFormLayout" name="formLayout_2">
                 <item row="0" column="0">
-                 <widget class="QLabel" name="label_32">
+                 <widget class="QLabel" name="lblJoyTouchInput">
                   <property name="text">
                    <string>Controller input</string>
+                  </property>
+                  <property name="buddy">
+                   <cstring>rbTouchNone</cstring>
                   </property>
                  </widget>
                 </item>
@@ -2396,40 +2402,55 @@
                     <number>0</number>
                    </property>
                    <item>
-                    <widget class="QRadioButton" name="radioButton">
+                    <widget class="QRadioButton" name="rbTouchNone">
                      <property name="text">
                       <string>None (mouse only)</string>
                      </property>
+                     <attribute name="buttonGroup">
+                      <string notr="true">grpJoyTouchInput</string>
+                     </attribute>
                     </widget>
                    </item>
                    <item>
-                    <widget class="QRadioButton" name="radioButton_2">
+                    <widget class="QRadioButton" name="rbTouchAnalog">
                      <property name="text">
                       <string>Analog stick</string>
                      </property>
+                     <attribute name="buttonGroup">
+                      <string notr="true">grpJoyTouchInput</string>
+                     </attribute>
                     </widget>
                    </item>
                    <item>
-                    <widget class="QRadioButton" name="radioButton_3">
+                    <widget class="QRadioButton" name="rbTouchTouchpad">
                      <property name="text">
                       <string>Touchpad</string>
                      </property>
+                     <attribute name="buttonGroup">
+                      <string notr="true">grpJoyTouchInput</string>
+                     </attribute>
                     </widget>
                    </item>
                    <item>
-                    <widget class="QRadioButton" name="radioButton_4">
+                    <widget class="QRadioButton" name="rbTouchGyro">
                      <property name="text">
                       <string>Gyroscope</string>
                      </property>
+                     <attribute name="buttonGroup">
+                      <string notr="true">grpJoyTouchInput</string>
+                     </attribute>
                     </widget>
                    </item>
                   </layout>
                  </widget>
                 </item>
                 <item row="1" column="0">
-                 <widget class="QLabel" name="label_36">
+                 <widget class="QLabel" name="lblJoyTouchStyle">
                   <property name="text">
                    <string>Movement style</string>
+                  </property>
+                  <property name="buddy">
+                   <cstring>rbTouchRelative</cstring>
                   </property>
                  </widget>
                 </item>
@@ -2458,40 +2479,35 @@
                     <number>0</number>
                    </property>
                    <item>
-                    <widget class="QRadioButton" name="radioButton_5">
+                    <widget class="QRadioButton" name="rbTouchRelative">
                      <property name="text">
                       <string>Relative</string>
                      </property>
+                     <attribute name="buttonGroup">
+                      <string notr="true">grpJoyTouchStyle</string>
+                     </attribute>
                     </widget>
                    </item>
                    <item>
-                    <widget class="QRadioButton" name="radioButton_6">
+                    <widget class="QRadioButton" name="rbTouchAbsolute">
                      <property name="text">
                       <string>Absolute</string>
                      </property>
+                     <attribute name="buttonGroup">
+                      <string notr="true">grpJoyTouchStyle</string>
+                     </attribute>
                     </widget>
                    </item>
                   </layout>
                  </widget>
                 </item>
-                <item row="3" column="0">
-                 <widget class="QLabel" name="label_37">
-                  <property name="text">
-                   <string>Recenter</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="3" column="1">
-                 <widget class="QPushButton" name="pushButton_2">
-                  <property name="text">
-                   <string>[PLACEHOLDER]</string>
-                  </property>
-                 </widget>
-                </item>
                 <item row="2" column="0">
-                 <widget class="QLabel" name="label_38">
+                 <widget class="QLabel" name="lblAnalogStick">
                   <property name="text">
                    <string>Analog stick</string>
+                  </property>
+                  <property name="buddy">
+                   <cstring>rbStickLeft</cstring>
                   </property>
                  </widget>
                 </item>
@@ -2520,20 +2536,60 @@
                     <number>0</number>
                    </property>
                    <item>
-                    <widget class="QRadioButton" name="radioButton_7">
+                    <widget class="QRadioButton" name="rbStickLeft">
                      <property name="text">
                       <string>Left</string>
                      </property>
+                     <attribute name="buttonGroup">
+                      <string notr="true">grpJoyTouchStick</string>
+                     </attribute>
                     </widget>
                    </item>
                    <item>
-                    <widget class="QRadioButton" name="radioButton_8">
+                    <widget class="QRadioButton" name="rbStickRight">
                      <property name="text">
                       <string>Right</string>
                      </property>
+                     <attribute name="buttonGroup">
+                      <string notr="true">grpJoyTouchStick</string>
+                     </attribute>
                     </widget>
                    </item>
                   </layout>
+                 </widget>
+                </item>
+                <item row="3" column="0">
+                 <widget class="QLabel" name="lblRecenter">
+                  <property name="text">
+                   <string>Recenter</string>
+                  </property>
+                  <property name="buddy">
+                   <cstring>btnJoyTouchRecenter</cstring>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="1">
+                 <widget class="QPushButton" name="btnJoyTouchRecenter">
+                  <property name="text">
+                   <string>[PLACEHOLDER]</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="0">
+                 <widget class="QLabel" name="lblJoyTouchPress">
+                  <property name="text">
+                   <string>Touch</string>
+                  </property>
+                  <property name="buddy">
+                   <cstring>btnJoyTouchPress</cstring>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="1">
+                 <widget class="QPushButton" name="btnJoyTouchPress">
+                  <property name="text">
+                   <string>[PLACEHOLDER]</string>
+                  </property>
                  </widget>
                 </item>
                </layout>
@@ -2568,6 +2624,9 @@
                   <property name="text">
                    <string>Color</string>
                   </property>
+                  <property name="buddy">
+                   <cstring>pushButton</cstring>
+                  </property>
                  </widget>
                 </item>
                 <item row="0" column="1">
@@ -2581,6 +2640,9 @@
                  <widget class="QLabel" name="label_34">
                   <property name="text">
                    <string>Hide after</string>
+                  </property>
+                  <property name="buddy">
+                   <cstring>spinBox</cstring>
                   </property>
                  </widget>
                 </item>
@@ -2677,8 +2739,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>248</x>
-     <y>254</y>
+     <x>496</x>
+     <y>763</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -2693,8 +2755,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>316</x>
-     <y>260</y>
+     <x>564</x>
+     <y>763</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -2703,4 +2765,9 @@
    </hints>
   </connection>
  </connections>
+ <buttongroups>
+  <buttongroup name="grpJoyTouchStyle"/>
+  <buttongroup name="grpJoyTouchStick"/>
+  <buttongroup name="grpJoyTouchInput"/>
+ </buttongroups>
 </ui>

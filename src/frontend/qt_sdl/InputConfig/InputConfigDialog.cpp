@@ -90,6 +90,16 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         ui->lblInstanceNum->setText(QString("Configuring mappings for instance %1").arg(inst+1));
     else
         ui->lblInstanceNum->hide();
+
+    QLayout* layout = ui->btnJoyTouchPress->parentWidget()->layout();
+
+    recenterBtn = new JoyMapButton(&recenterMapping, false);
+    joyPressBtn = new JoyMapButton(&joyPressMapping, false);
+    layout->replaceWidget(ui->btnJoyTouchRecenter, recenterBtn);
+    layout->replaceWidget(ui->btnJoyTouchPress, joyPressBtn);
+
+    joyTouchModeToUI(Input::JoystickTouch);
+    updateJoyTouchOptions();
 }
 
 InputConfigDialog::~InputConfigDialog()
@@ -196,6 +206,10 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
     }
 
     Config::JoystickID = Input::JoystickID;
+
+    Input::SetJoystickTouchMode(joyTouchModeFromUI());
+    Input::SaveJoystickTouchMode();
+
     Config::Save();
 
     closeDlg();
@@ -226,4 +240,126 @@ void InputConfigDialog::on_cbxJoystick_currentIndexChanged(int id)
 
     Input::JoystickID = id;
     Input::OpenJoystick();
+
+    updateJoyTouchOptions();
+}
+
+Input::JoystickTouchMode InputConfigDialog::joyTouchModeFromUI()
+{
+    using Mode = Input::JoystickTouchMode;
+
+    Mode mode = {};
+
+    QAbstractButton* uiMode = ui->grpJoyTouchInput->checkedButton();
+    QAbstractButton* uiStyle = ui->grpJoyTouchStyle->checkedButton();
+    QAbstractButton* uiStick = ui->grpJoyTouchStick->checkedButton();
+
+    if (uiMode == ui->rbTouchNone)
+        mode.mode = Mode::none;
+    else if (uiMode == ui->rbTouchAnalog)
+        mode.mode = Mode::analogStick;
+    else if (uiMode == ui->rbTouchTouchpad)
+        mode.mode = Mode::touchpad;
+    else if (uiMode == ui->rbTouchGyro)
+        mode.mode = Mode::gyroscope;
+
+    mode.style = uiStyle == ui->rbTouchAbsolute ? Mode::absolute : Mode::relative;
+    mode.stick = uiStick == ui->rbStickLeft ? Mode::leftStick : Mode::rightStick;
+
+    mode.touchButton = joyPressMapping;
+    mode.recenterButton = recenterMapping;
+
+    return mode;
+}
+
+void InputConfigDialog::joyTouchModeToUI(Input::JoystickTouchMode mode)
+{
+    using Mode = Input::JoystickTouchMode;
+
+    switch (mode.mode)
+    {
+        case Mode::none:
+            ui->rbTouchNone->setChecked(true);
+            break;
+        case Mode::analogStick:
+            ui->rbTouchAnalog->setChecked(true);
+            break;
+        case Mode::touchpad:
+            ui->rbTouchTouchpad->setChecked(true);
+            break;
+        case Mode::gyroscope:
+            ui->rbTouchGyro->setChecked(true);
+            break;
+    }
+
+    if (mode.style == Mode::relative)
+        ui->rbTouchRelative->setChecked(true);
+    else
+        ui->rbTouchAbsolute->setChecked(true);
+
+    if (mode.stick == Mode::leftStick)
+        ui->rbStickLeft->setChecked(true);
+    else
+        ui->rbStickRight->setChecked(true);
+
+    recenterMapping = mode.recenterButton;
+    joyPressMapping = mode.touchButton;
+}
+
+void InputConfigDialog::updateJoyTouchOptions()
+{
+    using namespace Input;
+    using Mode = JoystickTouchMode;
+
+    JoystickTouchMode tempMode = {};
+
+    QAbstractButton* currentMode = ui->grpJoyTouchInput->checkedButton();
+    bool relative = ui->grpJoyTouchStyle->checkedButton() == ui->rbTouchRelative;
+
+    JoystickTouchMode analogMode = { .mode = JoystickTouchMode::gyroscope };
+
+    bool currentAvailable = JoystickTouchModeAvailable(JoystickTouch);
+
+    bool styleEnabled = (currentMode == ui->rbTouchAnalog || currentMode == ui->rbTouchTouchpad) && currentAvailable;
+    bool stickEnabled = currentMode == ui->rbTouchAnalog && currentAvailable;
+    bool recenterEnabled = (currentMode == ui->rbTouchGyro || relative) && currentAvailable;
+    bool pressEnabled = currentMode != ui->rbTouchNone && currentAvailable;
+
+    tempMode.mode = Mode::analogStick;
+    tempMode.stick = Mode::leftStick;
+    bool leftAvailable = JoystickTouchModeAvailable(tempMode);
+    tempMode.stick = Mode::rightStick;
+    bool rightAvailable = JoystickTouchModeAvailable(tempMode);
+    tempMode.mode = Mode::touchpad;
+    bool touchpadAvailable = JoystickTouchModeAvailable(tempMode);
+    tempMode.mode = Mode::gyroscope;
+    bool gyroAvailable = JoystickTouchModeAvailable(tempMode);
+
+    ui->rbTouchAnalog->setEnabled(leftAvailable || rightAvailable);
+    ui->rbTouchTouchpad->setEnabled(touchpadAvailable);
+    ui->rbTouchGyro->setEnabled(gyroAvailable);
+
+    ui->lblJoyTouchStyle->setEnabled(styleEnabled);
+    ui->rbTouchRelative->setEnabled(styleEnabled);
+    ui->rbTouchAbsolute->setEnabled(styleEnabled);
+
+    ui->lblAnalogStick->setEnabled(stickEnabled && (leftAvailable || rightAvailable));
+    ui->rbStickLeft->setEnabled(stickEnabled && leftAvailable);
+    ui->rbStickRight->setEnabled(stickEnabled && rightAvailable);
+
+    ui->lblRecenter->setEnabled(recenterEnabled);
+    ui->lblJoyTouchPress->setEnabled(pressEnabled);
+
+    recenterBtn->setEnabled(recenterEnabled);
+    joyPressBtn->setEnabled(pressEnabled);
+}
+
+void InputConfigDialog::on_grpJoyTouchInput_buttonClicked(QAbstractButton* btn)
+{
+    updateJoyTouchOptions();
+}
+
+void InputConfigDialog::on_grpJoyTouchStyle_buttonClicked(QAbstractButton* btn)
+{
+    updateJoyTouchOptions();
 }

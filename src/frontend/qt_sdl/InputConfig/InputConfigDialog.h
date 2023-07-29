@@ -21,9 +21,12 @@
 
 #include <QDialog>
 #include <QPushButton>
+#include <QRadioButton>
 #include <initializer_list>
 
 #include "Config.h"
+#include "Input.h"
+#include "MapButton.h"
 
 static constexpr int keypad_num = 12;
 
@@ -115,17 +118,28 @@ private slots:
     void on_btnJoyMapSwitch_clicked();
     void on_cbxJoystick_currentIndexChanged(int id);
 
+    void on_grpJoyTouchInput_buttonClicked(QAbstractButton* btn);
+    void on_grpJoyTouchStyle_buttonClicked(QAbstractButton* btn);
+
 private:
     void populatePage(QWidget* page,
         const std::initializer_list<const char*>& labels,
         int* keymap, int* joymap);
     void setupKeypadPage();
+    void updateJoyTouchOptions();
+    Input::JoystickTouchMode joyTouchModeFromUI();
+    void joyTouchModeToUI(Input::JoystickTouchMode mode);
 
     Ui::InputConfigDialog* ui;
 
     int keypadKeyMap[12], keypadJoyMap[12];
     int addonsKeyMap[hk_addons.size()], addonsJoyMap[hk_addons.size()];
     int hkGeneralKeyMap[hk_general.size()], hkGeneralJoyMap[hk_general.size()];
+    int recenterMapping;
+    int joyPressMapping;
+
+    JoyMapButton* recenterBtn;
+    JoyMapButton* joyPressBtn;
 };
 
 

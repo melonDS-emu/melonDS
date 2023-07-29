@@ -242,12 +242,12 @@ bool JoystickTouchModeAvailable(JoystickTouchMode mode)
 
 bool SetJoystickTouchMode(JoystickTouchMode mode)
 {
+    JoystickTouch = mode;
+
     if (!JoystickTouchModeAvailable(mode))
         return false;
 
     SDL_GameControllerSetSensorEnabled(GameController, SDL_SENSOR_GYRO, mode.mode == JoystickTouchMode::gyroscope ? SDL_TRUE : SDL_FALSE);
-
-    JoystickTouch = mode;
     return true;
 }
 
@@ -437,6 +437,33 @@ void Process()
         UpdateJoystickTouch();
 }
 
+void SaveJoystickTouchMode()
+{
+    using Mode = JoystickTouchMode;
+    Mode mode = JoystickTouch;
+
+    Config::JoyTouchMode = mode.mode;
+    Config::JoyTouchMovementStyle = mode.style;
+    Config::JoyTouchStick = mode.stick;
+    Config::JoyTouchButton = mode.touchButton;
+    Config::JoyTouchRecenterButton = mode.recenterButton;
+    Config::JoyTouchSensitivity = (int) std::round(mode.sensitivity * 100.f);
+}
+
+void LoadJoystickTouchMode()
+{
+    using Mode = JoystickTouchMode;
+    Mode mode = {
+        .mode = (Mode::Mode) Config::JoyTouchMode,
+        .style = (Mode::Style) Config::JoyTouchMovementStyle,
+        .stick = (Mode::AnalogStick) Config::JoyTouchStick,
+        .sensitivity = ((float) Config::JoyTouchSensitivity) / 100.f,
+        .touchButton = Config::JoyTouchButton,
+        .recenterButton = Config::JoyTouchRecenterButton
+    };
+
+    SetJoystickTouchMode(mode);
+}
 
 bool HotkeyDown(int id)     { return HotkeyMask    & (1<<id); }
 bool HotkeyPressed(int id)  { return HotkeyPress   & (1<<id); }

@@ -19,6 +19,8 @@
 #ifndef INPUT_H
 #define INPUT_H
 
+#include <SDL2/SDL.h>
+
 #include "types.h"
 
 namespace Input
@@ -44,6 +46,7 @@ struct JoystickTouchMode {
 
     float sensitivity;
     int touchButton;
+    int recenterButton;
 };
 
 extern JoystickTouchMode JoystickTouch;
@@ -57,7 +60,10 @@ void CloseJoystick();
 void KeyPress(QKeyEvent* event);
 void KeyRelease(QKeyEvent* event);
 
+bool JoystickTouchModeAvailable(JoystickTouchMode mode);
 bool SetJoystickTouchMode(JoystickTouchMode mode);
+void SaveJoystickTouchMode();
+void LoadJoystickTouchMode();
 
 void Process();
 

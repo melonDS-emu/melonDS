@@ -34,6 +34,15 @@ int HKJoyMapping[HK_MAX];
 
 int JoystickID;
 
+int JoyTouchMode;
+int JoyTouchMovementStyle;
+int JoyTouchStick;
+int JoyTouchButton;
+int JoyTouchRecenterButton;
+std::string JoyTouchCursorColor;
+int JoyTouchCursorHideDelay;
+int JoyTouchSensitivity;
+
 int WindowWidth;
 int WindowHeight;
 bool WindowMaximized;
@@ -210,6 +219,15 @@ ConfigEntry ConfigFile[] =
     {"HKJoy_VolumeDown",          0, &HKJoyMapping[HK_VolumeDown],          -1, true},
 
     {"JoystickID", 0, &JoystickID, 0, true},
+
+    {"JoyTouchMode", 0, &JoyTouchMode, 0, true},
+    {"JoyTouchMovementStyle", 0, &JoyTouchMovementStyle, 0, true},
+    {"JoyTouchStick", 0, &JoyTouchStick, 0, true},
+    {"JoyTouchButton", 0, &JoyTouchButton, -1, true},
+    {"JoyTouchRecenterButton", 0, &JoyTouchRecenterButton, -1, true},
+    {"JoyTouchSensitivity", 0, &JoyTouchSensitivity, 100, true},
+    {"JoyTouchCursorColor", 2, &JoyTouchCursorColor, (std::string)"#FF0000", true},
+    {"JoyTouchCursorHideDelay", 0, &JoyTouchCursorHideDelay, 5, true},
 
     {"WindowWidth",  0, &WindowWidth,  256, true},
     {"WindowHeight", 0, &WindowHeight, 384, true},

@@ -3312,6 +3312,7 @@ int main(int argc, char** argv)
 
     Input::JoystickID = Config::JoystickID;
     Input::OpenJoystick();
+    Input::LoadJoystickTouchMode();
 
     mainWindow = new MainWindow();
     if (options->fullscreen)

@@ -91,6 +91,15 @@ extern int HKJoyMapping[HK_MAX];
 
 extern int JoystickID;
 
+extern int JoyTouchMode;
+extern int JoyTouchMovementStyle;
+extern int JoyTouchStick;
+extern int JoyTouchButton;
+extern int JoyTouchRecenterButton;
+extern std::string JoyTouchCursorColor;
+extern int JoyTouchCursorHideDelay;
+extern int JoyTouchSensitivity;
+
 extern int WindowWidth;
 extern int WindowHeight;
 extern bool WindowMaximized;
