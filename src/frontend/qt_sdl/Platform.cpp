@@ -351,6 +351,11 @@ FILE* OpenLocalFile(const std::string& path, const std::string& mode)
     return OpenFile(fullpath.toStdString(), mode, mode[0] != 'w');
 }
 
+u32 WriteFATSectors(const u8* data, u32 length, u32 count, FILE* file)
+{
+    return fwrite(data, length, count, file);
+}
+
 void Log(LogLevel level, const char* fmt, ...)
 {
     if (fmt == nullptr)

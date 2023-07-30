@@ -183,7 +183,7 @@ u32 FATStorage::WriteSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num
 
     melon_fseek(file, addr, SEEK_SET);
 
-    u32 res = fwrite(data, 0x200, num, file);
+    u32 res = Platform::WriteFATSectors(data, 0x200, num, file);
     return res;
 }
 
