@@ -265,7 +265,7 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
             DSi_AES::Swap16(&tempbuf[i], tmp);
         }
 
-        u32 res = fwrite(tempbuf, 0x200, 1, CurFile);
+        u32 res = Platform::WriteFATSectors(tempbuf, sizeof(tempbuf), 1, CurFile);
         if (!res) return 0;
     }
 

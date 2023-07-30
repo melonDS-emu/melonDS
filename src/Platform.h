@@ -112,6 +112,18 @@ FILE* OpenFile(const std::string& path, const std::string& mode, bool mustexist=
 FILE* OpenLocalFile(const std::string& path, const std::string& mode);
 FILE* OpenDataFile(const std::string& path);
 
+/**
+ * Wrapper for \c fwrite that can be customized by frontends.
+ * Called by the emulator when writing a block to an emulated FAT filesystem.
+ *
+ * @param data The FAT sectors to write.
+ * @param blocklength The length of each sector.
+ * @param blockcount The number of sectors to write.
+ * @param file The file on the host filesystem to write to.
+ * @return The number of sectors (\em not bytes) written to the host filesystem.
+ */
+u32 WriteFATSectors(const u8* data, u32 blocklength, u32 blockcount, FILE* file);
+
 inline bool FileExists(const std::string& name)
 {
     FILE* f = OpenFile(name, "rb");
