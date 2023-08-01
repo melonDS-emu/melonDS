@@ -301,7 +301,7 @@ ConfigEntry ConfigFile[] =
     {"AudioInterp", 0, &AudioInterp, 0, false},
     {"AudioBitDepth", 0, &AudioBitDepth, 0, false},
     {"AudioVolume", 0, &AudioVolume, 256, true},
-    {"DSiVolumeSync", 0, &DSiVolumeSync, 0, true},
+    {"DSiVolumeSync", 1, &DSiVolumeSync, false, true},
     {"MicInputType", 0, &MicInputType, 1, false},
     {"MicDevice", 2, &MicDevice, (std::string)"", false},
     {"MicWavPath", 2, &MicWavPath, (std::string)"", false},

@@ -451,6 +451,7 @@ void UnloadCheats()
     {
         delete CheatFile;
         CheatFile = nullptr;
+        AREngine::SetCodeFile(nullptr);
     }
 }
 
