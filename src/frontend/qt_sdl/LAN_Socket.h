@@ -19,7 +19,7 @@
 #ifndef LAN_SOCKET_H
 #define LAN_SOCKET_H
 
-#include "../types.h"
+#include "types.h"
 
 namespace LAN_Socket
 {
