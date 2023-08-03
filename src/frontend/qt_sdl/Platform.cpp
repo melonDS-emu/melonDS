@@ -38,6 +38,7 @@
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 #include "LocalMP.h"
+#include "OSD.h"
 
 
 std::string EmuDirectory;
@@ -585,6 +586,13 @@ void DynamicLibrary_Unload(DynamicLibrary* lib)
 void *DynamicLibrary_LoadFunction(DynamicLibrary *lib, const char *name)
 {
     return SDL_LoadFunction(lib, name);
+}
+
+void EnterGBAMode()
+{
+    Log(LogLevel::Error, "!! GBA MODE NOT SUPPORTED\n");
+    OSD::AddMessage(0xFFA0A0, "GBA mode not supported.");
+    Platform::StopEmu();
 }
 
 }

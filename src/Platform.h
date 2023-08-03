@@ -235,6 +235,14 @@ void DynamicLibrary_Unload(DynamicLibrary* lib);
  * @return A pointer to the loaded function, or \c nullptr if the function could not be loaded.
  */
 void *DynamicLibrary_LoadFunction(DynamicLibrary *lib, const char *name);
+
+/**
+ * Called when the emulated DS attempts to enter GBA mode.
+ * MelonDS does not support GBA emulation;
+ * this callback is intended for frontends to gracefully shut down the emulator
+ * and notify the user.
+ */
+void EnterGBAMode();
 }
 
 #endif // PLATFORM_H
