@@ -952,7 +952,7 @@ void DSi_NWifi::WMI_Command()
                 if (ConnectionStatus != 1)
                     Log(LogLevel::Warn, "WMI: ?? trying to disconnect while not connected\n");
 
-                Log(LogLevel::Info, "WMI: disconnect\n");
+                Log(LogLevel::Debug, "WMI: disconnect\n");
                 ConnectionStatus = 0;
 
                 u8 reply[11];
@@ -1218,7 +1218,7 @@ void DSi_NWifi::WMI_ConnectToNetwork()
         return;
     }
 
-    Log(LogLevel::Info, "WMI: connecting to network %s\n", ssid);
+    Log(LogLevel::Debug, "WMI: connecting to network %s\n", ssid);
 
     u8 reply[20];
 
