@@ -163,7 +163,7 @@ int HandleManagementFrame(u8* data, int len)
             }
 
             ClientStatus = 2;
-            Log(LogLevel::Info, "wifiAP: client associated\n");
+            Log(LogLevel::Debug, "wifiAP: client associated\n");
 
             PWRITE_16(p, 0x0010);
             PWRITE_16(p, 0x0000); // duration??
@@ -213,7 +213,7 @@ int HandleManagementFrame(u8* data, int len)
                 return 0;
 
             ClientStatus = 1;
-            Log(LogLevel::Info, "wifiAP: client deassociated\n");
+            Log(LogLevel::Debug, "wifiAP: client deassociated\n");
 
             PWRITE_16(p, 0x00A0);
             PWRITE_16(p, 0x0000); // duration??
@@ -235,7 +235,7 @@ int HandleManagementFrame(u8* data, int len)
                 return 0;
 
             ClientStatus = 1;
-            Log(LogLevel::Info, "wifiAP: client authenticated\n");
+            Log(LogLevel::Debug, "wifiAP: client authenticated\n");
 
             PWRITE_16(p, 0x00B0);
             PWRITE_16(p, 0x0000); // duration??
@@ -259,7 +259,7 @@ int HandleManagementFrame(u8* data, int len)
                 return 0;
 
             ClientStatus = 0;
-            Log(LogLevel::Info, "wifiAP: client deauthenticated\n");
+            Log(LogLevel::Debug, "wifiAP: client deauthenticated\n");
 
             PWRITE_16(p, 0x00C0);
             PWRITE_16(p, 0x0000); // duration??
