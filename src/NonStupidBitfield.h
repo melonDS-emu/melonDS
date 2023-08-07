@@ -37,14 +37,14 @@ inline u64 GetRangedBitMask(u32 idx, u32 startBit, u32 bitsCount)
             return 0xFFFFFFFFFFFFFFFF << (startBit & 0x3F);
         if (((startBit + bitsCount) & 0x3F) && idx == startEntry + entriesCount - 1)
             return ~(0xFFFFFFFFFFFFFFFF << ((startBit + bitsCount) & 0x3F));
-        else
-            return 0xFFFFFFFFFFFFFFFF;
 
         return 0xFFFFFFFFFFFFFFFF;
     }
     else if (idx == startEntry)
     {
-        return ((1ULL << bitsCount) - 1) << (startBit & 0x3F);
+        return bitsCount == 64
+            ? 0xFFFFFFFFFFFFFFFF
+            : ((1ULL << bitsCount) - 1) << (startBit & 0x3F);
     }
     else
     {
