@@ -664,7 +664,7 @@ void DynamicLibrary_Unload(DynamicLibrary* lib)
     SDL_UnloadObject(lib);
 }
 
-void *DynamicLibrary_LoadFunction(DynamicLibrary *lib, const char *name)
+void* DynamicLibrary_LoadFunction(DynamicLibrary* lib, const char* name)
 {
     return SDL_LoadFunction(lib, name);
 }
