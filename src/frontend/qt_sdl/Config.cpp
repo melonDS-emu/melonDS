@@ -353,24 +353,24 @@ ConfigEntry ConfigFile[] =
 
 void LoadFile(int inst)
 {
-    FILE* f;
+    Platform::FileHandle* f;
     if (inst > 0)
     {
         char name[100] = {0};
         snprintf(name, 99, kUniqueConfigFile, inst+1);
-        f = Platform::OpenLocalFile(name, "r");
+        f = Platform::OpenLocalFile(name, "r", Platform::FileType::Config);
     }
     else
-        f = Platform::OpenLocalFile(kConfigFile, "r");
+        f = Platform::OpenLocalFile(kConfigFile, "r", Platform::FileType::Config);
 
     if (!f) return;
 
     char linebuf[1024];
     char entryname[32];
     char entryval[1024];
-    while (!feof(f))
+    while (!Platform::IsEndOfFile(f))
     {
-        if (fgets(linebuf, 1024, f) == nullptr)
+        if (!Platform::FileGetString(linebuf, 1024, f))
             break;
 
         int ret = sscanf(linebuf, "%31[A-Za-z_0-9]=%[^\t\r\n]", entryname, entryval);
@@ -396,7 +396,7 @@ void LoadFile(int inst)
         }
     }
 
-    fclose(f);
+    CloseFile(f);
 }
 
 void Load()
@@ -423,15 +423,15 @@ void Save()
 {
     int inst = Platform::InstanceID();
 
-    FILE* f;
+    Platform::FileHandle* f;
     if (inst > 0)
     {
         char name[100] = {0};
         snprintf(name, 99, kUniqueConfigFile, inst+1);
-        f = Platform::OpenLocalFile(name, "w");
+        f = Platform::OpenLocalFile(name, "w", Platform::FileType::Config);
     }
     else
-        f = Platform::OpenLocalFile(kConfigFile, "w");
+        f = Platform::OpenLocalFile(kConfigFile, "w", Platform::FileType::Config);
 
     if (!f) return;
 
@@ -442,13 +442,13 @@ void Save()
 
         switch (entry->Type)
         {
-        case 0: fprintf(f, "%s=%d\r\n", entry->Name, *(int*)entry->Value); break;
-        case 1: fprintf(f, "%s=%d\r\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
-        case 2: fprintf(f, "%s=%s\r\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
+        case 0: Platform::FileWriteFormatted(f, "%s=%d\r\n", entry->Name, *(int*)entry->Value); break;
+        case 1: Platform::FileWriteFormatted(f, "%s=%d\r\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
+        case 2: Platform::FileWriteFormatted(f, "%s=%s\r\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
         }
     }
 
-    fclose(f);
+    CloseFile(f);
 }
 
 }

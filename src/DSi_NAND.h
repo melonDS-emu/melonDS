@@ -38,7 +38,7 @@ enum
 bool Init(u8* es_keyY);
 void DeInit();
 
-FILE* GetFile();
+Platform::FileHandle* GetFile();
 
 void GetIDs(u8* emmc_cid, u64& consoleid);
 

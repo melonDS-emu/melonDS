@@ -92,55 +92,79 @@ bool GetConfigBool(ConfigEntry entry);
 std::string GetConfigString(ConfigEntry entry);
 bool GetConfigArray(ConfigEntry entry, void* data);
 
-// fopen() wrappers
-// * OpenFile():
-//     simple fopen() wrapper that supports UTF8.
-//     can be optionally restricted to only opening a file that already exists.
-// * OpenLocalFile():
-//     opens files local to the emulator (melonDS.ini, BIOS, firmware, ...)
-//     For Windows builds, or portable UNIX builds it checks, by order of priority:
-//     * current working directory
-//     * emulator directory (essentially where the melonDS executable is) if supported
-//     * any platform-specific application data directories
-//     in create mode, if the file doesn't exist, it will be created in the emulator
-//     directory if supported, or in the current directory otherwise
-//     For regular UNIX builds, the user's configuration directory is always used.
-// * OpenDataFile():
-//     Opens a file that was installed alongside melonDS on UNIX systems in /usr/share, etc.
-//     Looks in the user's data directory first, then the system's.
-//     If on Windows or a portable UNIX build, this simply calls OpenLocalFile().
+/// The type of file that the provided path points to.
+/// Possible use cases include:
+///   - Validating a file path before opening it
+///   - Validating a file before returning its contents
+///   - Setting buffering/flushing options on some kinds of files
+///   - Logging file operations
+enum class FileType {
+    Generic,
+    ARCodeFile,
+    BIOS7,
+    BIOS9,
+    Config,
+    DSiBIOS7,
+    DSiBIOS9,
+    DSiFirmware,
+    DSiNANDImage,
+    Firmware,
+    GBAROM,
+    GBASaveFile,
+    HostFile,
+    NDSROM,
+    SDCardImage,
+    SDCardIndex,
+    SaveFile,
+    WifiSettings,
+};
 
-FILE* OpenFile(const std::string& path, const std::string& mode, bool mustexist=false);
-FILE* OpenLocalFile(const std::string& path, const std::string& mode);
-FILE* OpenDataFile(const std::string& path);
+enum class FileSeekOrigin {
+    Set,
+    Current,
+    End,
+};
 
-/**
- * Wrapper for \c fwrite that can be customized by frontends.
- * Called by the emulator when writing a block to an emulated FAT filesystem.
- *
- * @param data The FAT sectors to write.
- * @param blocklength The length of each sector.
- * @param blockcount The number of sectors to write.
- * @param file The file on the host filesystem to write to.
- * @return The number of sectors (\em not bytes) written to the host filesystem.
- */
-u32 WriteFATSectors(const u8* data, u32 blocklength, u32 blockcount, FILE* file);
+struct FileHandle;
 
-inline bool FileExists(const std::string& name)
-{
-    FILE* f = OpenFile(name, "rb");
-    if (!f) return false;
-    fclose(f);
-    return true;
-}
+// Simple fopen() wrapper that supports UTF8.
+// Can be optionally restricted to only opening a file that already exists.
+FileHandle* OpenFile(const std::string& path, const std::string& mode, bool mustexist=false, FileType type=FileType::Generic);
 
-inline bool LocalFileExists(const std::string& name)
-{
-    FILE* f = OpenLocalFile(name, "rb");
-    if (!f) return false;
-    fclose(f);
-    return true;
-}
+// opens files local to the emulator (melonDS.ini, BIOS, firmware, ...)
+// For Windows builds, or portable UNIX builds it checks, by order of priority:
+//   * current working directory
+//   * emulator directory (essentially where the melonDS executable is) if supported
+//   * any platform-specific application data directories
+// in create mode, if the file doesn't exist, it will be created in the emulator
+// directory if supported, or in the current directory otherwise
+// For regular UNIX builds, the user's configuration directory is always used.
+FileHandle* OpenLocalFile(const std::string& path, const std::string& mode, FileType type=FileType::Generic);
+
+// Opens a file that was installed alongside melonDS on UNIX systems in /usr/share, etc.
+// Looks in the user's data directory first, then the system's.
+// If on Windows or a portable UNIX build, this simply calls OpenLocalFile().
+FileHandle* OpenDataFile(const std::string& path, FileType type=FileType::Generic);
+
+/// Returns true if the given file exists.
+bool FileExists(const std::string& name);
+bool LocalFileExists(const std::string& name);
+
+/// Close a file opened with \c OpenFile.
+/// @returns \c true if the file was closed successfully, false otherwise.
+bool CloseFile(FileHandle* file);
+
+/// Returns true if there is no more data left to read in this file.
+bool IsEndOfFile(FileHandle* file);
+
+bool FileGetString(char* str, int count, FileHandle* file);
+bool FileSeek(FileHandle* file, s32 offset, FileSeekOrigin origin);
+void FileRewind(FileHandle* file);
+u64 FileRead(void* data, u64 size, u64 count, FileHandle* file);
+bool FlushFile(FileHandle* file);
+u64 FileWrite(const void* data, u64 size, u64 count, FileHandle* file);
+u64 FileWriteFormatted(FileHandle* file, const char* fmt, ...);
+u64 FileLength(FileHandle* file);
 
 enum LogLevel
 {

@@ -45,8 +45,7 @@
 #include "DSi_Camera.h"
 #include "DSi_DSP.h"
 
-using Platform::Log;
-using Platform::LogLevel;
+using namespace Platform;
 
 namespace NDS
 {
@@ -509,7 +508,7 @@ void SetupDirectBoot(const std::string& romname)
 
 void Reset()
 {
-    FILE* f;
+    Platform::FileHandle* f;
     u32 i;
 
 #ifdef JIT_ENABLED
@@ -527,7 +526,7 @@ void Reset()
 
     if (Platform::GetConfigBool(Platform::ExternalBIOSEnable))
     {
-        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS9Path), "rb");
+        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS9Path), "rb", Platform::FileType::BIOS9);
         if (!f)
         {
             Log(LogLevel::Warn, "ARM9 BIOS not found\n");
@@ -537,14 +536,14 @@ void Reset()
         }
         else
         {
-            fseek(f, 0, SEEK_SET);
-            fread(ARM9BIOS, 0x1000, 1, f);
+            FileRewind(f);
+            FileRead(ARM9BIOS, 0x1000, 1, f);
 
             Log(LogLevel::Info, "ARM9 BIOS loaded\n");
-            fclose(f);
+            Platform::CloseFile(f);
         }
 
-        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS7Path), "rb");
+        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS7Path), "rb", Platform::FileType::BIOS7);
         if (!f)
         {
             Log(LogLevel::Warn, "ARM7 BIOS not found\n");
@@ -554,11 +553,11 @@ void Reset()
         }
         else
         {
-            fseek(f, 0, SEEK_SET);
-            fread(ARM7BIOS, 0x4000, 1, f);
+            FileRewind(f);
+            FileRead(ARM7BIOS, 0x4000, 1, f);
 
             Log(LogLevel::Info, "ARM7 BIOS loaded\n");
-            fclose(f);
+            Platform::CloseFile(f);
         }
     }
     else

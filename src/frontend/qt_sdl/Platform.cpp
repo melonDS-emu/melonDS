@@ -291,7 +291,7 @@ bool GetConfigArray(ConfigEntry entry, void* data)
 }
 
 
-FILE* OpenFile(const std::string& path, const std::string& mode, bool mustexist)
+FileHandle* OpenFile(const std::string& path, const std::string& mode, bool mustexist, FileType type)
 {
     QFile f(QString::fromStdString(path));
 
@@ -322,10 +322,10 @@ FILE* OpenFile(const std::string& path, const std::string& mode, bool mustexist)
     FILE* file = fdopen(dup(f.handle()), mode.c_str());
     f.close();
 
-    return file;
+    return reinterpret_cast<FileHandle *>(file);
 }
 
-FILE* OpenLocalFile(const std::string& path, const std::string& mode)
+FileHandle* OpenLocalFile(const std::string& path, const std::string& mode, FileType type)
 {
     QString qpath = QString::fromStdString(path);
 	QDir dir(qpath);
@@ -349,12 +349,93 @@ FILE* OpenLocalFile(const std::string& path, const std::string& mode)
 #endif
     }
 
-    return OpenFile(fullpath.toStdString(), mode, mode[0] != 'w');
+    return OpenFile(fullpath.toStdString(), mode, mode[0] != 'w', type);
 }
 
-u32 WriteFATSectors(const u8* data, u32 length, u32 count, FILE* file)
+bool CloseFile(FileHandle* file)
 {
-    return fwrite(data, length, count, file);
+    return fclose(reinterpret_cast<FILE *>(file)) == 0;
+}
+
+bool IsEndOfFile(FileHandle* file)
+{
+    return feof(reinterpret_cast<FILE *>(file)) != 0;
+}
+
+bool FileGetString(char* str, int count, FileHandle* file)
+{
+    return fgets(str, count, reinterpret_cast<FILE *>(file)) != nullptr;
+}
+
+bool FileExists(const std::string& name)
+{
+    FileHandle* f = OpenFile(name, "rb");
+    if (!f) return false;
+    CloseFile(f);
+    return true;
+}
+
+bool LocalFileExists(const std::string& name)
+{
+    FileHandle* f = OpenLocalFile(name, "rb");
+    if (!f) return false;
+    CloseFile(f);
+    return true;
+}
+
+bool FileSeek(FileHandle* file, s32 offset, FileSeekOrigin origin)
+{
+    int stdorigin;
+    switch (origin)
+    {
+        case FileSeekOrigin::Set: stdorigin = SEEK_SET; break;
+        case FileSeekOrigin::Current: stdorigin = SEEK_CUR; break;
+        case FileSeekOrigin::End: stdorigin = SEEK_END; break;
+    }
+
+    return fseek(reinterpret_cast<FILE *>(file), offset, stdorigin) == 0;
+}
+
+void FileRewind(FileHandle* file)
+{
+    rewind(reinterpret_cast<FILE *>(file));
+}
+
+u64 FileRead(void* data, u64 size, u64 count, FileHandle* file)
+{
+    return fread(data, size, count, reinterpret_cast<FILE *>(file));
+}
+
+bool FlushFile(FileHandle* file)
+{
+    return fflush(reinterpret_cast<FILE *>(file)) == 0;
+}
+
+u64 FileWrite(const void* data, u64 size, u64 count, FileHandle* file)
+{
+    return fwrite(data, size, count, reinterpret_cast<FILE *>(file));
+}
+
+u64 FileWriteFormatted(FileHandle* file, const char* fmt, ...)
+{
+    if (fmt == nullptr)
+        return 0;
+
+    va_list args;
+    va_start(args, fmt);
+    u64 ret = vfprintf(reinterpret_cast<FILE *>(file), fmt, args);
+    va_end(args);
+    return ret;
+}
+
+u64 FileLength(FileHandle* file)
+{
+    FILE* stdfile = reinterpret_cast<FILE *>(file);
+    long pos = ftell(stdfile);
+    fseek(stdfile, 0, SEEK_END);
+    long len = ftell(stdfile);
+    fseek(stdfile, pos, SEEK_SET);
+    return len;
 }
 
 void Log(LogLevel level, const char* fmt, ...)
