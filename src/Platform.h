@@ -258,7 +258,7 @@ void DynamicLibrary_Unload(DynamicLibrary* lib);
  * @param name The name of the function to load.
  * @return A pointer to the loaded function, or \c nullptr if the function could not be loaded.
  */
-void *DynamicLibrary_LoadFunction(DynamicLibrary *lib, const char *name);
+void* DynamicLibrary_LoadFunction(DynamicLibrary* lib, const char* name);
 
 /**
  * Called when the emulated DS attempts to enter GBA mode.
