@@ -371,8 +371,6 @@ public:
     QAction* actInsertGBAAddon[1];
     QAction* actEjectGBACart;
     QAction* actImportSavefile;
-    QAction* actSaveState[9];
-    QAction* actLoadState[9];
     QAction* actUndoStateLoad;
     QAction* actQuit;
 

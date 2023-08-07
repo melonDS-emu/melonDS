@@ -209,6 +209,17 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
     {
         Config::HKKeyMapping[hotkey] = hkSaveLoadKeyMap[i];
         Config::HKJoyMapping[hotkey] = hkSaveLoadJoyMap[i];
+
+        // Reset load and save state shortcuts.
+        if (hotkey >= HK_LoadSlot1 && hotkey <= HK_LoadSlot8)
+            Config::setLoadStateShortcut(hotkey - HK_LoadSlot1 + 1);
+        else if (hotkey == HK_LoadSlotFile)
+            Config::setLoadStateShortcut(0);
+        else if (hotkey >= HK_SaveSlot1 && hotkey <= HK_SaveSlot8)
+            Config::setSaveStateShortcut(hotkey - HK_SaveSlot1 + 1);
+        else if (hotkey == HK_SaveSlotFile)
+            Config::setSaveStateShortcut(0);
+
         i++;
     }
 

@@ -1456,36 +1456,48 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             for (int i = 1; i < 9; i++)
             {
-                actSaveState[i] = submenu->addAction(QString("%1").arg(i));
-                actSaveState[i]->setShortcut(QKeySequence(Qt::ShiftModifier | (Qt::Key_F1+i-1)));
-                actSaveState[i]->setData(QVariant(i));
-                connect(actSaveState[i], &QAction::triggered, this, &MainWindow::onSaveState);
+                Config::actSaveState[i] = submenu->addAction(QString("%1").arg(i));
+                Config::setSaveStateShortcut(i);
+                Config::actSaveState[i]->setData(QVariant(i));
+                connect(Config::actSaveState[i], &QAction::triggered, this, &MainWindow::onSaveState);
             }
 
-            actSaveState[0] = submenu->addAction("File...");
-            actSaveState[0]->setShortcut(QKeySequence(Qt::ShiftModifier | Qt::Key_F9));
-            actSaveState[0]->setData(QVariant(0));
-            connect(actSaveState[0], &QAction::triggered, this, &MainWindow::onSaveState);
+            Config::actSaveState[0] = submenu->addAction("File...");
+            Config::setSaveStateShortcut(0);
+            Config::actSaveState[0]->setShortcut(QKeySequence(Config::HKKeyMapping[HK_SaveSlotFile]));
+            Config::actSaveState[0]->setData(QVariant(0));
+            connect(Config::actSaveState[0], &QAction::triggered, this, &MainWindow::onSaveState);
         }
         {
             QMenu* submenu = menu->addMenu("Load state");
 
             for (int i = 1; i < 9; i++)
             {
-                actLoadState[i] = submenu->addAction(QString("%1").arg(i));
-                actLoadState[i]->setShortcut(QKeySequence(Qt::Key_F1+i-1));
-                actLoadState[i]->setData(QVariant(i));
-                connect(actLoadState[i], &QAction::triggered, this, &MainWindow::onLoadState);
+                Config::actLoadState[i] = submenu->addAction(QString("%1").arg(i));
+                Config::setLoadStateShortcut(i);
+                Config::actLoadState[i]->setData(QVariant(i));
+                connect(Config::actLoadState[i], &QAction::triggered, this, &MainWindow::onLoadState);
             }
 
-            actLoadState[0] = submenu->addAction("File...");
-            actLoadState[0]->setShortcut(QKeySequence(Qt::Key_F9));
-            actLoadState[0]->setData(QVariant(0));
-            connect(actLoadState[0], &QAction::triggered, this, &MainWindow::onLoadState);
+
+            Config::actLoadState[0] = submenu->addAction("File...");
+            Config::setLoadStateShortcut(0);
+            Config::actLoadState[0]->setData(QVariant(0));
+            connect(Config::actLoadState[0], &QAction::triggered, this, &MainWindow::onLoadState);
         }
 
         actUndoStateLoad = menu->addAction("Undo state load");
         actUndoStateLoad->setShortcut(QKeySequence(Qt::Key_F12));
+
+        QList<QKeySequence> shortcuts;
+        if (Config::HKKeyMapping[HK_LoadSlotFile]!=-1)
+            shortcuts.append(Config::HKKeyMapping[HK_LoadSlotFile]);
+        else // Default in case hotkey is not set.
+            shortcuts.append(QKeySequence(Qt::Key_F9));
+        if (Config::HKJoyMapping[HK_LoadSlotFile]!=-1)
+            shortcuts.append(Config::HKJoyMapping[HK_LoadSlotFile]);
+        Config::actLoadState[0]->setShortcuts(shortcuts);
+
         connect(actUndoStateLoad, &QAction::triggered, this, &MainWindow::onUndoStateLoad);
 
         menu->addSeparator();
@@ -1766,8 +1778,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     for (int i = 0; i < 9; i++)
     {
-        actSaveState[i]->setEnabled(false);
-        actLoadState[i]->setEnabled(false);
+        Config::actSaveState[i]->setEnabled(false);
+        Config::actLoadState[i]->setEnabled(false);
     }
     actUndoStateLoad->setEnabled(false);
     actImportSavefile->setEnabled(false);
@@ -2548,7 +2560,7 @@ void MainWindow::onSaveState()
         else          sprintf(msg, "State saved to file");
         OSD::AddMessage(0, msg);
 
-        actLoadState[slot]->setEnabled(true);
+        Config::actLoadState[slot]->setEnabled(true);
     }
     else
     {
@@ -3127,11 +3139,11 @@ void MainWindow::onEmuStart()
 {
     for (int i = 1; i < 9; i++)
     {
-        actSaveState[i]->setEnabled(true);
-        actLoadState[i]->setEnabled(ROMManager::SavestateExists(i));
+        Config::actSaveState[i]->setEnabled(true);
+        Config::actLoadState[i]->setEnabled(ROMManager::SavestateExists(i));
     }
-    actSaveState[0]->setEnabled(true);
-    actLoadState[0]->setEnabled(true);
+    Config::actSaveState[0]->setEnabled(true);
+    Config::actLoadState[0]->setEnabled(true);
     actUndoStateLoad->setEnabled(false);
 
     actPause->setEnabled(true);
@@ -3151,8 +3163,8 @@ void MainWindow::onEmuStop()
 
     for (int i = 0; i < 9; i++)
     {
-        actSaveState[i]->setEnabled(false);
-        actLoadState[i]->setEnabled(false);
+        Config::actSaveState[i]->setEnabled(false);
+        Config::actLoadState[i]->setEnabled(false);
     }
     actUndoStateLoad->setEnabled(false);
 

@@ -21,10 +21,11 @@
 
 #include <variant>
 #include <string>
+#include <QAction>
 
 enum
 {
-    HK_Lid = 0,
+    HK_Lid = 0, //The problem lies here!
     HK_Mic,
     HK_Pause,
     HK_Reset,
@@ -39,24 +40,24 @@ enum
     HK_PowerButton,
     HK_VolumeUp,
     HK_VolumeDown,
-    HK_Save_Slot_1,
-    HK_Save_Slot_2,
-    HK_Save_Slot_3,
-    HK_Save_Slot_4,
-    HK_Save_Slot_5,
-    HK_Save_Slot_6,
-    HK_Save_Slot_7,
-    HK_Save_Slot_8,
-    HK_Save_Slot_File,
-    HK_Load_Slot_1,
-    HK_Load_Slot_2,
-    HK_Load_Slot_3,
-    HK_Load_Slot_4,
-    HK_Load_Slot_5,
-    HK_Load_Slot_6,
-    HK_Load_Slot_7,
-    HK_Load_Slot_8,
-    HK_Load_Slot_File,
+    HK_SaveSlot1,
+    HK_SaveSlot2,
+    HK_SaveSlot3,
+    HK_SaveSlot4,
+    HK_SaveSlot5,
+    HK_SaveSlot6,
+    HK_SaveSlot7,
+    HK_SaveSlot8,
+    HK_SaveSlotFile,
+    HK_LoadSlot1,
+    HK_LoadSlot2,
+    HK_LoadSlot3,
+    HK_LoadSlot4,
+    HK_LoadSlot5,
+    HK_LoadSlot6,
+    HK_LoadSlot7,
+    HK_LoadSlot8,
+    HK_LoadSlotFile,
     HK_MAX
 };
 
@@ -221,6 +222,12 @@ extern bool DSiFullBIOSBoot;
 
 extern CameraConfig Camera[2];
 
+
+extern QAction* actSaveState[9];
+extern QAction* actLoadState[9];
+
+void setLoadStateShortcut(int stateIdx);
+void setSaveStateShortcut(int stateIdx);
 
 void Load();
 void Save();
