@@ -158,7 +158,7 @@ bool CloseFile(FileHandle* file);
 bool IsEndOfFile(FileHandle* file);
 
 bool FileGetString(char* str, int count, FileHandle* file);
-bool FileSeek(FileHandle* file, s32 offset, FileSeekOrigin origin);
+bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin);
 void FileRewind(FileHandle* file);
 u64 FileRead(void* data, u64 size, u64 count, FileHandle* file);
 bool FlushFile(FileHandle* file);

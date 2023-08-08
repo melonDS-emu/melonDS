@@ -383,7 +383,7 @@ bool LocalFileExists(const std::string& name)
     return true;
 }
 
-bool FileSeek(FileHandle* file, s32 offset, FileSeekOrigin origin)
+bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin)
 {
     int stdorigin;
     switch (origin)
