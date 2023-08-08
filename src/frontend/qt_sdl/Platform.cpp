@@ -151,10 +151,24 @@ void DeInit()
     IPCDeInit();
 }
 
-
-void StopEmu()
+void SignalStop(StopReason reason)
 {
     emuStop();
+    switch (reason)
+    {
+        case StopReason::GBAModeNotSupported:
+            Log(LogLevel::Error, "!! GBA MODE NOT SUPPORTED\n");
+            OSD::AddMessage(0xFFA0A0, "GBA mode not supported.");
+            break;
+        case StopReason::BadExceptionRegion:
+            OSD::AddMessage(0xFFA0A0, "Internal error.");
+            break;
+        case StopReason::PowerOff:
+        case StopReason::External:
+            OSD::AddMessage(0xFFC040, "Shutdown");
+        default:
+            break;
+    }
 }
 
 
@@ -667,13 +681,6 @@ void DynamicLibrary_Unload(DynamicLibrary* lib)
 void* DynamicLibrary_LoadFunction(DynamicLibrary* lib, const char* name)
 {
     return SDL_LoadFunction(lib, name);
-}
-
-void EnterGBAMode()
-{
-    Log(LogLevel::Error, "!! GBA MODE NOT SUPPORTED\n");
-    OSD::AddMessage(0xFFA0A0, "GBA mode not supported.");
-    Platform::StopEmu();
 }
 
 }

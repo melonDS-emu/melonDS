@@ -722,7 +722,7 @@ void Write(u8 val, u32 hold)
             switch (regid)
             {
             case 0:
-                if (val & 0x40) NDS::Stop(); // shutdown
+                if (val & 0x40) NDS::Stop(StopReason::PowerOff); // shutdown
                 //printf("power %02X\n", val);
                 break;
             case 4:

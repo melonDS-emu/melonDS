@@ -693,11 +693,44 @@ void Start()
     Running = true;
 }
 
-void Stop()
+static const char* StopReasonName(Platform::StopReason reason)
 {
-    Log(LogLevel::Info, "Stopping: shutdown\n");
+    switch (reason)
+    {
+        case Platform::StopReason::External:
+            return "External";
+        case Platform::StopReason::PowerOff:
+            return "PowerOff";
+        case Platform::StopReason::GBAModeNotSupported:
+            return "GBAModeNotSupported";
+        case Platform::StopReason::BadExceptionRegion:
+            return "BadExceptionRegion";
+        default:
+            return "Unknown";
+    }
+}
+
+void Stop(Platform::StopReason reason)
+{
+    Platform::LogLevel level;
+    switch (reason)
+    {
+        case Platform::StopReason::External:
+        case Platform::StopReason::PowerOff:
+            level = LogLevel::Info;
+            break;
+        case Platform::StopReason::GBAModeNotSupported:
+        case Platform::StopReason::BadExceptionRegion:
+            level = LogLevel::Error;
+            break;
+        default:
+            level = LogLevel::Warn;
+            break;
+    }
+
+    Log(level, "Stopping emulated console (Reason: %s)\n", StopReasonName(reason));
     Running = false;
-    Platform::StopEmu();
+    Platform::SignalStop(reason);
     GPU::Stop();
     SPU::Stop();
 
@@ -4120,7 +4153,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
 
     case 0x04000301:
         val &= 0xC0;
-        if      (val == 0x40) Platform::EnterGBAMode();
+        if      (val == 0x40) Stop(StopReason::GBAModeNotSupported);
         else if (val == 0x80) ARM7->Halt(1);
         else if (val == 0xC0) EnterSleepMode();
         return;

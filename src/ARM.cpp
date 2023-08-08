@@ -548,7 +548,7 @@ void ARMv5::PrefetchAbort()
     if (!(PU_Map[ExceptionBase>>12] & 0x04))
     {
         Log(LogLevel::Error, "!!!!! EXCEPTION REGION NOT EXECUTABLE. THIS IS VERY BAD!!\n");
-        NDS::Stop();
+        NDS::Stop(Platform::StopReason::BadExceptionRegion);
         return;
     }
 

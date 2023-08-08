@@ -3194,8 +3194,6 @@ void emuStop()
     RunningSomething = false;
 
     emit emuThread->windowEmuStop();
-
-    OSD::AddMessage(0xFFC040, "Shutdown");
 }
 
 MelonApplication::MelonApplication(int& argc, char** argv)

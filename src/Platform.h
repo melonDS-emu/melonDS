@@ -30,7 +30,45 @@ namespace Platform
 void Init(int argc, char** argv);
 void DeInit();
 
-void StopEmu();
+enum StopReason {
+    /**
+     * The emulator stopped for some unspecified reason.
+     */
+    Unknown,
+
+    /**
+     * The emulator stopped due to an external call to \c NDS::Stop,
+     * most likely because the user stopped the game manually.
+     */
+    External,
+
+    /**
+     * The emulator stopped because it tried to enter GBA mode,
+     * which melonDS does not support.
+     */
+    GBAModeNotSupported,
+
+    /**
+     * The emulator stopped because of an error
+     * within in the emulated console,
+     * not necessarily because of an error in melonDS.
+     */
+    BadExceptionRegion,
+
+    /**
+     * The emulated console shut down normally,
+     * likely because its system settings were adjusted
+     * or its "battery" ran out.
+     */
+    PowerOff,
+};
+
+/**
+ * Signals to the frontend that no more frames should be requested.
+ * Frontends should not call this directly;
+ * use \c NDS::Stop instead.
+ */
+void SignalStop(StopReason reason);
 
 // instance ID, for local multiplayer
 int InstanceID();
@@ -259,14 +297,6 @@ void DynamicLibrary_Unload(DynamicLibrary* lib);
  * @return A pointer to the loaded function, or \c nullptr if the function could not be loaded.
  */
 void* DynamicLibrary_LoadFunction(DynamicLibrary* lib, const char* name);
-
-/**
- * Called when the emulated DS attempts to enter GBA mode.
- * MelonDS does not support GBA emulation;
- * this callback is intended for frontends to gracefully shut down the emulator
- * and notify the user.
- */
-void EnterGBAMode();
 }
 
 #endif // PLATFORM_H
