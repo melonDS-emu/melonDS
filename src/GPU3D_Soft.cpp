@@ -753,8 +753,8 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         interp_start = &rp->SlopeR.Interp;
         interp_end = &rp->SlopeL.Interp;
 
-        rp->SlopeR.EdgeParams_YMajor(&l_edgelen, &l_edgecov);
-        rp->SlopeL.EdgeParams_YMajor(&r_edgelen, &r_edgecov);
+        rp->SlopeR.EdgeParams_YMajor(&l_edgelen, &l_edgecov, 1);
+        rp->SlopeL.EdgeParams_YMajor(&r_edgelen, &r_edgecov, 1);
 
         std::swap(xstart, xend);
         std::swap(wl, wr);
@@ -973,8 +973,8 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         interp_start = &rp->SlopeR.Interp;
         interp_end = &rp->SlopeL.Interp;
 
-        rp->SlopeR.EdgeParams_YMajor(&l_edgelen, &l_edgecov);
-        rp->SlopeL.EdgeParams_YMajor(&r_edgelen, &r_edgecov);
+        rp->SlopeR.EdgeParams_YMajor(&l_edgelen, &l_edgecov, 1);
+        rp->SlopeL.EdgeParams_YMajor(&r_edgelen, &r_edgecov, 1);
 
         std::swap(xstart, xend);
         std::swap(wl, wr);

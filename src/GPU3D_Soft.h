@@ -390,7 +390,7 @@ private:
             *coverage = (1<<31) | ((startcov & 0x3FF) << 12) | (xcov_incr & 0x3FF);
         }
 
-        void EdgeParams_YMajor(s32* length, s32* coverage)
+        void EdgeParams_YMajor(s32* length, s32* coverage, bool flipped)
         {
             *length = 1;
 
@@ -403,7 +403,7 @@ private:
                 s32 cov = ((dx >> 9) + (Increment >> 10)) >> 4;
                 if ((cov >> 5) != (dx >> 18)) cov = 31;
                 cov &= 0x1F;
-                if (!(side ^ Negative)) cov = 0x1F - cov;
+                if ((!(side ^ Negative)) ^ flipped) cov = 0x1F - cov;
 
                 *coverage = cov;
             }
@@ -414,7 +414,7 @@ private:
             if (XMajor)
                 return EdgeParams_XMajor(length, coverage);
             else
-                return EdgeParams_YMajor(length, coverage);
+                return EdgeParams_YMajor(length, coverage, 0);
         }
 
         s32 Increment;
