@@ -189,7 +189,7 @@ void FATStorage::LoadIndex()
     char linebuf[1536];
     while (!IsEndOfFile(f))
     {
-        if (!FileGetString(linebuf, 1536, f))
+        if (!FileReadLine(linebuf, 1536, f))
             break;
 
         if (linebuf[0] == 'S')

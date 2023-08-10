@@ -195,7 +195,7 @@ bool CloseFile(FileHandle* file);
 /// Returns true if there is no more data left to read in this file.
 bool IsEndOfFile(FileHandle* file);
 
-bool FileGetString(char* str, int count, FileHandle* file);
+bool FileReadLine(char* str, int count, FileHandle* file);
 bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin);
 void FileRewind(FileHandle* file);
 u64 FileRead(void* data, u64 size, u64 count, FileHandle* file);

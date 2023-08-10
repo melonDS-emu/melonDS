@@ -60,7 +60,7 @@ bool ARCodeFile::Load()
     char linebuf[1024];
     while (!IsEndOfFile(f))
     {
-        if (!FileGetString(linebuf, 1024, f))
+        if (!FileReadLine(linebuf, 1024, f))
             break;
 
         linebuf[1023] = '\0';

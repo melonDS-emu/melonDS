@@ -370,7 +370,7 @@ void LoadFile(int inst)
     char entryval[1024];
     while (!Platform::IsEndOfFile(f))
     {
-        if (!Platform::FileGetString(linebuf, 1024, f))
+        if (!Platform::FileReadLine(linebuf, 1024, f))
             break;
 
         int ret = sscanf(linebuf, "%31[A-Za-z_0-9]=%[^\t\r\n]", entryname, entryval);
