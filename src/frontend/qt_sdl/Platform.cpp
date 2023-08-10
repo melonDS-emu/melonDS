@@ -376,7 +376,7 @@ bool IsEndOfFile(FileHandle* file)
     return feof(reinterpret_cast<FILE *>(file)) != 0;
 }
 
-bool FileGetString(char* str, int count, FileHandle* file)
+bool FileReadLine(char* str, int count, FileHandle* file)
 {
     return fgets(str, count, reinterpret_cast<FILE *>(file)) != nullptr;
 }
