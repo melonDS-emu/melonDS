@@ -420,7 +420,7 @@ u64 FileRead(void* data, u64 size, u64 count, FileHandle* file)
     return fread(data, size, count, reinterpret_cast<FILE *>(file));
 }
 
-bool FlushFile(FileHandle* file)
+bool FileFlush(FileHandle* file)
 {
     return fflush(reinterpret_cast<FILE *>(file)) == 0;
 }

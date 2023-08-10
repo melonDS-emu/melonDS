@@ -199,7 +199,7 @@ bool FileReadLine(char* str, int count, FileHandle* file);
 bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin);
 void FileRewind(FileHandle* file);
 u64 FileRead(void* data, u64 size, u64 count, FileHandle* file);
-bool FlushFile(FileHandle* file);
+bool FileFlush(FileHandle* file);
 u64 FileWrite(const void* data, u64 size, u64 count, FileHandle* file);
 u64 FileWriteFormatted(FileHandle* file, const char* fmt, ...);
 u64 FileLength(FileHandle* file);
