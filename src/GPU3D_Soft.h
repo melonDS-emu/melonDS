@@ -78,13 +78,12 @@ private:
             this->x1 = x1;
             this->xdiff = x1 - x0;
 
-            // calculate reciprocals for linear mode and Z interpolation
+            // calculate reciprocal for Z interpolation
             // TODO eventually: use a faster reciprocal function?
             if (this->xdiff != 0)
-                this->xrecip = (1<<30) / this->xdiff;
+                this->xrecip_z = (1<<22) / this->xdiff;
             else
-                this->xrecip = 0;
-            this->xrecip_z = this->xrecip >> 8;
+                this->xrecip_z = 0;
 
             // linear mode is used if both W values are equal and have
             // low-order bits cleared (0-6 along X, 1-6 along Y)
@@ -156,11 +155,10 @@ private:
             else
             {
                 // linear interpolation
-                // checkme: the rounding bias there (3<<24) is a guess
                 if (y0 < y1)
-                    return y0 + ((((s64)(y1-y0) * x * xrecip) + (3<<24)) >> 30);
+                    return y0 + (s64)(y1-y0) * x / xdiff;
                 else
-                    return y1 + ((((s64)(y0-y1) * (xdiff-x) * xrecip) + (3<<24)) >> 30);
+                    return y1 + (s64)(y0-y1) * (xdiff - x) / xdiff;
             }
         }
 
@@ -220,7 +218,7 @@ private:
         int shift;
         bool linear;
 
-        s32 xrecip, xrecip_z;
+        s32 xrecip_z;
         s32 w0n, w0d, w1d;
 
         u32 yfactor;
@@ -326,20 +324,12 @@ private:
 
             s32 x = XVal();
 
-            if (XMajor)
-            {
-                if (side) Interp.Setup(x0-1, x1-1, w0, w1); // checkme
-                else      Interp.Setup(x0, x1, w0, w1);
-                Interp.SetX(x);
+            int interpoffset = (Increment >= 0x40000) && (side ^ Negative);
+            Interp.Setup(y0-interpoffset, y1-interpoffset, w0, w1);
+            Interp.SetX(y);
 
-                // used for calculating AA coverage
-                xcov_incr = (ylen << 10) / xlen;
-            }
-            else
-            {
-                Interp.Setup(y0, y1, w0, w1);
-                Interp.SetX(y);
-            }
+            // used for calculating AA coverage
+            if (XMajor) xcov_incr = (ylen << 10) / xlen;
 
             return x;
         }
@@ -350,14 +340,7 @@ private:
             y++;
 
             s32 x = XVal();
-            if (XMajor)
-            {
-                Interp.SetX(x);
-            }
-            else
-            {
-                Interp.SetX(y);
-            }
+            Interp.SetX(y);
             return x;
         }
 
