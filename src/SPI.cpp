@@ -605,7 +605,7 @@ void Write(u8 val, u32 hold)
             if (f)
             {
                 u32 cutoff = ((NDS::ConsoleType==1) ? 0x7F400 : 0x7FA00) & FirmwareMask;
-                FileSeek(f, cutoff, FileSeekOrigin::Set);
+                FileSeek(f, cutoff, FileSeekOrigin::Start);
                 FileWrite(&Firmware[cutoff], FirmwareLength-cutoff, 1, f);
                 CloseFile(f);
             }

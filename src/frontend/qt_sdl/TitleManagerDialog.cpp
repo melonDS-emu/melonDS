@@ -144,7 +144,7 @@ bool TitleManagerDialog::openNAND()
         return false;
 
     u8 es_keyY[16];
-    FileSeek(bios7i, 0x8308, FileSeekOrigin::Set);
+    FileSeek(bios7i, 0x8308, FileSeekOrigin::Start);
     FileRead(es_keyY, 16, 1, bios7i);
     CloseFile(bios7i);
 

@@ -158,7 +158,7 @@ enum class FileType {
 };
 
 enum class FileSeekOrigin {
-    Set,
+    Start,
     Current,
     End,
 };

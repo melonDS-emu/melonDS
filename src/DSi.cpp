@@ -828,7 +828,7 @@ bool LoadNAND()
     }
     else
     {
-        FileSeek(nand, 0x220, FileSeekOrigin::Set);
+        FileSeek(nand, 0x220, FileSeekOrigin::Start);
         FileRead(bootparams, 4, 8, nand);
 
         Log(LogLevel::Debug, "ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
@@ -842,7 +842,7 @@ bool LoadNAND()
         MBK[1][8] = 0;
 
         u32 mbk[12];
-        FileSeek(nand, 0x380, FileSeekOrigin::Set);
+        FileSeek(nand, 0x380, FileSeekOrigin::Start);
         FileRead(mbk, 4, 12, nand);
 
         MapNWRAM_A(0, mbk[0] & 0xFF);
@@ -897,7 +897,7 @@ bool LoadNAND()
 
         AES_init_ctx_iv(&ctx, boot2key, boot2iv);
 
-        FileSeek(nand, bootparams[0], FileSeekOrigin::Set);
+        FileSeek(nand, bootparams[0], FileSeekOrigin::Start);
         dstaddr = bootparams[2];
         for (u32 i = 0; i < bootparams[3]; i += 16)
         {
@@ -922,7 +922,7 @@ bool LoadNAND()
 
         AES_init_ctx_iv(&ctx, boot2key, boot2iv);
 
-        FileSeek(nand, bootparams[4], FileSeekOrigin::Set);
+        FileSeek(nand, bootparams[4], FileSeekOrigin::Start);
         dstaddr = bootparams[6];
         for (u32 i = 0; i < bootparams[7]; i += 16)
         {

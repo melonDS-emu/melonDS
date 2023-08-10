@@ -119,7 +119,7 @@ bool Init(u8* es_keyY)
         // There is another copy of the footer at 000FF800h for the case
         // that by external tools the image was cut off
         // See https://problemkaputt.de/gbatek.htm#dsisdmmcimages
-        FileSeek(nandfile, 0x000FF800, FileSeekOrigin::Set);
+        FileSeek(nandfile, 0x000FF800, FileSeekOrigin::Start);
         FileRead(nand_footer, 1, 16, nandfile);
         if (memcmp(nand_footer, nand_footer_ref, 16))
         {
@@ -225,7 +225,7 @@ u32 ReadFATBlock(u64 addr, u32 len, u8* buf)
     AES_ctx ctx;
     SetupFATCrypto(&ctx, ctr);
 
-    FileSeek(CurFile, addr, FileSeekOrigin::Set);
+    FileSeek(CurFile, addr, FileSeekOrigin::Start);
     u32 res = FileRead(buf, len, 1, CurFile);
     if (!res) return 0;
 
@@ -247,7 +247,7 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
     AES_ctx ctx;
     SetupFATCrypto(&ctx, ctr);
 
-    FileSeek(CurFile, addr, FileSeekOrigin::Set);
+    FileSeek(CurFile, addr, FileSeekOrigin::Start);
 
     for (u32 s = 0; s < len; s += 0x200)
     {

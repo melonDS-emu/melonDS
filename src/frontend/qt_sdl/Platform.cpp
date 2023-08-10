@@ -402,7 +402,7 @@ bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin)
     int stdorigin;
     switch (origin)
     {
-        case FileSeekOrigin::Set: stdorigin = SEEK_SET; break;
+        case FileSeekOrigin::Start: stdorigin = SEEK_SET; break;
         case FileSeekOrigin::Current: stdorigin = SEEK_CUR; break;
         case FileSeekOrigin::End: stdorigin = SEEK_END; break;
     }

@@ -1054,7 +1054,7 @@ u32 DSi_MMCStorage::ReadBlock(u64 addr)
     }
     else if (File)
     {
-        FileSeek(File, addr, FileSeekOrigin::Set);
+        FileSeek(File, addr, FileSeekOrigin::Start);
         FileRead(&data[addr & 0x1FF], 1, len, File);
     }
 
@@ -1084,7 +1084,7 @@ u32 DSi_MMCStorage::WriteBlock(u64 addr)
             }
             else if (File)
             {
-                FileSeek(File, addr, FileSeekOrigin::Set);
+                FileSeek(File, addr, FileSeekOrigin::Start);
                 FileWrite(&data[addr & 0x1FF], 1, len, File);
             }
         }

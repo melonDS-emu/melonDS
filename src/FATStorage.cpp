@@ -142,7 +142,7 @@ u32 FATStorage::ReadSectorsInternal(FileHandle* file, u64 filelen, u32 start, u3
         num = len >> 9;
     }
 
-    FileSeek(file, addr, FileSeekOrigin::Set);
+    FileSeek(file, addr, FileSeekOrigin::Start);
 
     u32 res = FileRead(data, 0x200, num, file);
     if (res < num)
@@ -171,7 +171,7 @@ u32 FATStorage::WriteSectorsInternal(FileHandle* file, u64 filelen, u32 start, u
         num = len >> 9;
     }
 
-    FileSeek(file, addr, FileSeekOrigin::Set);
+    FileSeek(file, addr, FileSeekOrigin::Start);
 
     u32 res = Platform::FileWrite(data, 0x200, num, file);
     return res;
