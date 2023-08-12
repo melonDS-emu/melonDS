@@ -233,24 +233,6 @@ ConfigEntry ConfigFile[] =
     {"HKJoy_PowerButton",         0, &HKJoyMapping[HK_PowerButton],         -1, true},
     {"HKJoy_VolumeUp",            0, &HKJoyMapping[HK_VolumeUp],            -1, true},
     {"HKJoy_VolumeDown",          0, &HKJoyMapping[HK_VolumeDown],          -1, true},
-    {"HKJoy_SaveSlot1",           0, &HKJoyMapping[HK_SaveSlot1],         -1, true},
-    {"HKJoy_SaveSlot2",           0, &HKJoyMapping[HK_SaveSlot2],         -1, true},
-    {"HKJoy_SaveSlot3",           0, &HKJoyMapping[HK_SaveSlot3],         -1, true},
-    {"HKJoy_SaveSlot4",           0, &HKJoyMapping[HK_SaveSlot4],         -1, true},
-    {"HKJoy_SaveSlot5",           0, &HKJoyMapping[HK_SaveSlot5],         -1, true},
-    {"HKJoy_SaveSlot6",           0, &HKJoyMapping[HK_SaveSlot6],         -1, true},
-    {"HKJoy_SaveSlot7",           0, &HKJoyMapping[HK_SaveSlot7],         -1, true},
-    {"HKJoy_SaveSlot8",           0, &HKJoyMapping[HK_SaveSlot8],         -1, true},
-    {"HKJoy_SaveSlotFile",        0, &HKJoyMapping[HK_SaveSlotFile],      -1, true},
-    {"HKJoy_LoadSlot1",           0, &HKJoyMapping[HK_LoadSlot1],         -1, true},
-    {"HKJoy_LoadSlot2",           0, &HKJoyMapping[HK_LoadSlot2],         -1, true},
-    {"HKJoy_LoadSlot3",           0, &HKJoyMapping[HK_LoadSlot3],         -1, true},
-    {"HKJoy_LoadSlot4",           0, &HKJoyMapping[HK_LoadSlot4],         -1, true},
-    {"HKJoy_LoadSlot5",           0, &HKJoyMapping[HK_LoadSlot5],         -1, true},
-    {"HKJoy_LoadSlot6",           0, &HKJoyMapping[HK_LoadSlot6],         -1, true},
-    {"HKJoy_LoadSlot7",           0, &HKJoyMapping[HK_LoadSlot7],         -1, true},
-    {"HKJoy_LoadSlot8",           0, &HKJoyMapping[HK_LoadSlot8],         -1, true},
-    {"HKJoy_LoadSlotFile",        0, &HKJoyMapping[HK_LoadSlotFile],      -1, true},
 
     {"JoystickID", 0, &JoystickID, 0, true},
 
@@ -394,8 +376,7 @@ ConfigEntry ConfigFile[] =
 /*
  * Some non-alphabetic keys are not correctly registered as shorcuts when used with shift (e.g. Shift+! or Shift+?).
  * However, these shortcuts can be converted to another format (e.g. Shift+1 or Shift+/) to achieve the desired effect.
- * This is a very hacky, and USA specific fix to get such shortcuts to work. This will eventually be fixed once someone
- * answers my stack overflow question.
+ * This is a very hacky, and USA specific fix to get such shortcuts to work.
  * 
  * TODO: Find alternative solution that works for all keyboard layouts. 
  */
@@ -487,34 +468,30 @@ int formatShortcut(int shortcut) {
 
 void setLoadStateShortcut(int stateIdx) {
     int hkLoadSlot = stateIdx ? HK_LoadSlot1+stateIdx-1 : HK_LoadSlotFile;
-    QList<QKeySequence> shortcuts;
+    QKeySequence shortcut;
 
     if (HKKeyMapping[hkLoadSlot]!=-1) {
-        int shortcut = formatShortcut(HKKeyMapping[hkLoadSlot]);
-        shortcuts.append(QKeySequence(shortcut));
+        int shortcutKey = formatShortcut(HKKeyMapping[hkLoadSlot]);
+        shortcut = QKeySequence(shortcutKey);
     }
     else // Default in case hotkey is not set.
-        shortcuts.append(QKeySequence(Qt::Key_F1+stateIdx-1));
-    if (HKJoyMapping[hkLoadSlot]!=-1)
-        shortcuts.append(HKJoyMapping[hkLoadSlot]);
+        shortcut = QKeySequence(Qt::Key_F1+stateIdx-1);
 
-    actLoadState[stateIdx]->setShortcuts(shortcuts);
+    actLoadState[stateIdx]->setShortcut(shortcut);
 }
 
 void setSaveStateShortcut(int stateIdx) {
     int hkSaveSlot = stateIdx ? HK_SaveSlot1+stateIdx-1 : HK_SaveSlotFile;
-    QList<QKeySequence> shortcuts;
+    QKeySequence shortcut;
 
     if (HKKeyMapping[hkSaveSlot]!=-1) {
-        int shortcut = formatShortcut(HKKeyMapping[hkSaveSlot]);
-        shortcuts.append(QKeySequence(shortcut));
+        int shortcutKey = formatShortcut(HKKeyMapping[hkSaveSlot]);
+        shortcut=QKeySequence(shortcutKey);
     }
     else // Default in case hotkey is not set.
-        shortcuts.append(QKeySequence(Qt::ShiftModifier | (Qt::Key_F1+stateIdx-1)));
-    if (HKJoyMapping[hkSaveSlot]!=-1)
-        shortcuts.append(HKJoyMapping[hkSaveSlot]);
+        shortcut = QKeySequence(Qt::ShiftModifier | (Qt::Key_F1+stateIdx-1));
         
-    actSaveState[stateIdx]->setShortcuts(shortcuts);
+    actSaveState[stateIdx]->setShortcut(shortcut);
 }
 
 void LoadFile(int inst)

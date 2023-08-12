@@ -1488,16 +1488,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actUndoStateLoad = menu->addAction("Undo state load");
         actUndoStateLoad->setShortcut(QKeySequence(Qt::Key_F12));
-
-        QList<QKeySequence> shortcuts;
-        if (Config::HKKeyMapping[HK_LoadSlotFile]!=-1)
-            shortcuts.append(Config::HKKeyMapping[HK_LoadSlotFile]);
-        else // Default in case hotkey is not set.
-            shortcuts.append(QKeySequence(Qt::Key_F9));
-        if (Config::HKJoyMapping[HK_LoadSlotFile]!=-1)
-            shortcuts.append(Config::HKJoyMapping[HK_LoadSlotFile]);
-        Config::actLoadState[0]->setShortcuts(shortcuts);
-
         connect(actUndoStateLoad, &QAction::triggered, this, &MainWindow::onUndoStateLoad);
 
         menu->addSeparator();
