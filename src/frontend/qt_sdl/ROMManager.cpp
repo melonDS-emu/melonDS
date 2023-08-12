@@ -747,8 +747,8 @@ bool LoadROM(QStringList filepath, bool reset)
     std::string origsav = savname;
     savname += Platform::InstanceFileSuffix();
 
-    FileHandle* sav = Platform::OpenFile(savname, FileMode::Read, FileType::SaveFile);
-    if (!sav) sav = Platform::OpenFile(origsav, FileMode::Read, FileType::SaveFile);
+    FileHandle* sav = Platform::OpenFile(savname, FileMode::Read, FileType::NDSSaveFile);
+    if (!sav) sav = Platform::OpenFile(origsav, FileMode::Read, FileType::NDSSaveFile);
     if (sav)
     {
         savelen = (u32)Platform::FileLength(sav);

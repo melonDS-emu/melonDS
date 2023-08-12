@@ -147,6 +147,7 @@ bool GetConfigArray(ConfigEntry entry, void* data);
 enum class FileType {
     Generic,
     ARCodeFile,
+    NDSSaveFile,
     BIOS7,
     BIOS9,
     Config,
@@ -160,7 +161,6 @@ enum class FileType {
     NDSROM,
     SDCardImage,
     SDCardIndex,
-    SaveFile,
     WifiSettings,
 
     /// A file being transferred to or from an emulated SD card or NAND image.
