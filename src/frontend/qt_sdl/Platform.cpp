@@ -40,6 +40,10 @@
 #include "LocalMP.h"
 #include "OSD.h"
 
+#ifdef __WIN32__
+#define fseek _fseeki64
+#define ftell _ftelli64
+#endif // __WIN32__
 
 std::string EmuDirectory;
 
