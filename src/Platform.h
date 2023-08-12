@@ -155,12 +155,17 @@ enum class FileType {
     Firmware,
     GBAROM,
     GBASaveFile,
-    HostFile,
     NDSROM,
     SDCardImage,
     SDCardIndex,
     SaveFile,
     WifiSettings,
+
+    /// A file being transferred to or from an emulated SD card or NAND image.
+    /// If opened in read mode, the file is being saved to the emulated filesystem.
+    /// If opened in write mode, the file is being read from the emulated filesystem
+    /// and saved to the host.
+    HostFile,
 };
 
 enum class FileSeekOrigin
