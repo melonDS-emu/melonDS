@@ -221,19 +221,6 @@ enum FileMode : unsigned {
     ReadWriteExisting = Read | Write | Preserve | NoCreate,
 };
 
-constexpr bool IsBinaryFile(FileType type)
-{
-    switch (type)
-    {
-        case FileType::Config:
-        case FileType::ARCodeFile:
-        case FileType::SDCardIndex:
-            return false;
-        default:
-            return true;
-    }
-}
-
 constexpr const char* FileTypeName(FileType type)
 {
     switch (type)

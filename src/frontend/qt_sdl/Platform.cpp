@@ -367,6 +367,19 @@ constexpr bool IsExtended(FileMode mode)
     return (mode & FileMode::ReadWrite) == FileMode::ReadWrite;
 }
 
+constexpr bool IsBinaryFile(FileType type)
+{
+    switch (type)
+    {
+        case FileType::Config:
+        case FileType::ARCodeFile:
+        case FileType::SDCardIndex:
+        return false;
+        default:
+        return true;
+    }
+}
+
 static std::string GetModeString(FileMode mode, FileType type, bool file_exists)
 {
     std::string modeString;
