@@ -157,7 +157,8 @@ enum class FileType {
     WifiSettings,
 };
 
-enum class FileSeekOrigin {
+enum class FileSeekOrigin
+{
     Start,
     Current,
     End,
