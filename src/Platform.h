@@ -62,7 +62,7 @@ enum StopReason {
     BadExceptionRegion,
 
     /**
-     * The emulated console shut down normally,
+     * The emulated console shut itself down normally,
      * likely because its system settings were adjusted
      * or its "battery" ran out.
      */
@@ -76,8 +76,17 @@ enum StopReason {
  */
 void SignalStop(StopReason reason);
 
-// instance ID, for local multiplayer
+/**
+ * @returns The ID of the running melonDS instance if running in local multiplayer mode,
+ * or 0 if not.
+ */
 int InstanceID();
+
+/**
+ * @returns A suffix that should be appended to all instance-specific paths
+ * if running in local multiplayer mode,
+ * or the empty string if not.
+ */
 std::string InstanceFileSuffix();
 
 // configuration values
@@ -140,34 +149,81 @@ bool GetConfigArray(ConfigEntry entry, void* data);
 
 /// The type of file that the provided path points to.
 /// Possible use cases include:
-///   - Validating a file path before opening it
-///   - Validating a file before returning its contents
-///   - Setting buffering/flushing options on some kinds of files
-///   - Logging file operations
+///     \li Validating a file path before opening it
+///     \li Validating a file before returning its contents
+///     \li Setting buffering/flushing options on some kinds of files
+///     \li Logging file operations
+///
+/// @note All files are binary unless otherwise specified.
 enum class FileType {
+    /// The file type is unspecified.
+    /// It should be opened as a binary file.
     Generic,
+
+    /// Text file containing Action Replay cheat codes for the current game.
+    /// May be read or written.
     ARCodeFile,
-    NDSSaveFile,
-    BIOS7,
-    BIOS9,
-    Config,
-    DSiBIOS7,
-    DSiBIOS9,
-    DSiFirmware,
-    DSiNANDImage,
-    Firmware,
-    GBAROM,
-    GBASaveFile,
+
+    /// A ROM image for the NDS, including DSiWare.
+    /// Will not be written.
     NDSROM,
-    SDCardImage,
-    SDCardIndex,
+
+    /// A dump of an NDS game's SRAM.
+    /// Will be saved and loaded occasionally.
+    NDSSaveFile,
+
+    /// BIOS image for the NDS's ARM7 processor (not the DSi).
+    BIOS7,
+
+    /// BIOS image for the NDS's ARM9 processor (not the DSi).
+    BIOS9,
+
+    /// Firmware image for the NDS (not the DSi).
+    /// @note May be written to by the emulator.
+    Firmware,
+
+    /// A subset of the NDS or DSi firmware containing only the Wi-fi configuration.
     WifiSettings,
 
-    /// A file being transferred to or from an emulated SD card or NAND image.
-    /// If opened in read mode, the file is being saved to the emulated filesystem.
-    /// If opened in write mode, the file is being read from the emulated filesystem
-    /// and saved to the host.
+    /// BIOS image for the DSi's ARM7 processor.
+    DSiBIOS7,
+
+    /// BIOS image for the DSi's ARM9 processor.
+    DSiBIOS9,
+
+    /// Firmware image for the DSi.
+    /// @note May be written to by the emulator.
+    DSiFirmware,
+
+    /// An image of the DSi's NAND flash memory.
+    /// Frequently read and written to by the emulator in DSi mode.
+    DSiNANDImage,
+
+    /// An image of a virtual SD card.
+    /// May be frequently read and written to by the emulator in DSi mode
+    /// or when running homebrew.
+    SDCardImage,
+
+    /// Text file containing a list of files and accompanying metadata in the virtual SD card.
+    SDCardIndex,
+
+    /// A GBA ROM.
+    /// Will not be written.
+    GBAROM,
+
+    /// A dump of a GBA game's SRAM.
+    /// May be read or written.
+    GBASaveFile,
+
+    /// An unspecified file being copied to or from an emulated SD card or NAND image.
+    /// Should be opened in binary mode.
+    /// \c Read mode means the file is being copied to the emulated filesystem.
+    /// \c Write mode means the file is being copied to the host.
     HostFile,
+
+    /// A configuration file for the frontend.
+    /// May be text or binary, depending on the frontend.
+    Config,
 };
 
 /**
@@ -255,7 +311,7 @@ constexpr const char* FileTypeName(FileType type)
             return "SDCardImage";
         case FileType::SDCardIndex:
             return "SDCardIndex";
-        case FileType::SaveFile:
+        case FileType::NDSSaveFile:
             return "SaveFile";
         case FileType::WifiSettings:
             return "WifiSettings";
@@ -266,6 +322,10 @@ constexpr const char* FileTypeName(FileType type)
     }
 }
 
+/**
+ * Denotes the origin of a seek operation.
+ * Similar to \c fseek's \c SEEK_* constants.
+ */
 enum class FileSeekOrigin
 {
     Start,
@@ -273,6 +333,13 @@ enum class FileSeekOrigin
     End,
 };
 
+/**
+ * Opaque handle for a file object.
+ * This can be implemented as a struct defined by the frontend,
+ * or as a simple pointer cast.
+ * The core will never look inside this struct,
+ * but frontends may do so freely.
+ */
 struct FileHandle;
 
 // Simple fopen() wrapper that supports UTF8.
@@ -293,20 +360,44 @@ FileHandle* OpenLocalFile(const std::string& path, FileMode mode, FileType type=
 bool FileExists(const std::string& name);
 bool LocalFileExists(const std::string& name);
 
-/// Close a file opened with \c OpenFile.
-/// @returns \c true if the file was closed successfully, false otherwise.
+/** Close a file opened with \c OpenFile.
+ * @returns \c true if the file was closed successfully, false otherwise.
+ * @post \c file is no longer valid and should not be used.
+ * The underlying object may still be allocated (e.g. if the frontend refcounts files),
+ * but that's an implementation detail.
+ * @see fclose
+ */
 bool CloseFile(FileHandle* file);
 
-/// Returns true if there is no more data left to read in this file.
+/// @returns \c true if there is no more data left to read in this file,
+/// \c false if there is still data left to read or if there was an error.
+/// @see feof
 bool IsEndOfFile(FileHandle* file);
 
+/// @see fgets
 bool FileReadLine(char* str, int count, FileHandle* file);
+
+/// @see fseek
 bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin);
+
+/// @see rewind
 void FileRewind(FileHandle* file);
+
+/// @see fread
 u64 FileRead(void* data, u64 size, u64 count, FileHandle* file);
+
+/// @see fflush
 bool FileFlush(FileHandle* file);
+
+/// @see fwrite
 u64 FileWrite(const void* data, u64 size, u64 count, FileHandle* file);
+
+/// @see fprintf
 u64 FileWriteFormatted(FileHandle* file, const char* fmt, ...);
+
+/// @returns The length of the file in bytes, or 0 if there was an error.
+/// @note If this function checks the length by using \c fseek and \c ftell
+/// (or local equivalents), it must leave the stream position as it was found.
 u64 FileLength(FileHandle* file);
 
 enum LogLevel
