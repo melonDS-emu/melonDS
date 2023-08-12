@@ -405,7 +405,7 @@ FileHandle* OpenFile(const std::string& path, FileMode mode, FileType type)
 FileHandle* OpenLocalFile(const std::string& path, FileMode mode, FileType type)
 {
     QString qpath = QString::fromStdString(path);
-	QDir dir(qpath);
+    QDir dir(qpath);
     QString fullpath;
 
     if (dir.isAbsolute())
