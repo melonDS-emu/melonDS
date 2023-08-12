@@ -38,6 +38,7 @@ void DeInit();
 enum StopReason {
     /**
      * The emulator stopped for some unspecified reason.
+     * Not necessarily an error.
      */
     Unknown,
 
