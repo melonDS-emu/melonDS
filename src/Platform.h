@@ -191,10 +191,6 @@ FileHandle* OpenFile(const std::string& path, const std::string& mode, bool must
 // For regular UNIX builds, the user's configuration directory is always used.
 FileHandle* OpenLocalFile(const std::string& path, const std::string& mode, FileType type=FileType::Generic);
 
-// Opens a file that was installed alongside melonDS on UNIX systems in /usr/share, etc.
-// Looks in the user's data directory first, then the system's.
-// If on Windows or a portable UNIX build, this simply calls OpenLocalFile().
-FileHandle* OpenDataFile(const std::string& path, FileType type=FileType::Generic);
 
 /// Returns true if the given file exists.
 bool FileExists(const std::string& name);
