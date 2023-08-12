@@ -245,8 +245,6 @@ constexpr const char* FileTypeName(FileType type)
             return "DSiNANDImage";
         case FileType::Firmware:
             return "Firmware";
-        case FileType::FirmwareBackup:
-            return "FirmwareBackup";
         case FileType::GBAROM:
             return "GBAROM";
         case FileType::GBASaveFile:
