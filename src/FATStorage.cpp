@@ -43,7 +43,7 @@ FATStorage::~FATStorage()
 
 bool FATStorage::Open()
 {
-    File = Platform::OpenLocalFile(FilePath.c_str(), "r+b", FileType::SDCardImage);
+    File = Platform::OpenLocalFile(FilePath, FileMode::ReadWriteExisting, FileType::SDCardImage);
     if (!File)
     {
         return false;
@@ -183,7 +183,7 @@ void FATStorage::LoadIndex()
     DirIndex.clear();
     FileIndex.clear();
 
-    FileHandle* f = OpenLocalFile(IndexPath.c_str(), "r", Platform::FileType::SDCardIndex);
+    FileHandle* f = OpenLocalFile(IndexPath, FileMode::Read, Platform::FileType::SDCardIndex);
     if (!f) return;
 
     char linebuf[1536];
@@ -315,7 +315,7 @@ void FATStorage::LoadIndex()
 
 void FATStorage::SaveIndex()
 {
-    FileHandle* f = OpenLocalFile(IndexPath.c_str(), "w", FileType::SDCardIndex);
+    FileHandle* f = OpenLocalFile(IndexPath, FileMode::Write, FileType::SDCardIndex);
     if (!f) return;
 
     FileWriteFormatted(f, "SIZE %" PRIu64 "\r\n", FileSize);
@@ -357,7 +357,7 @@ bool FATStorage::ExportFile(const std::string& path, fs::path out)
                         err);
     }
 
-    fout = OpenFile(out.u8string().c_str(), "wb", false, FileType::HostFile);
+    fout = OpenFile(out.u8string(), FileMode::Write, FileType::HostFile);
     if (!fout)
     {
         f_close(&file);
@@ -775,7 +775,7 @@ bool FATStorage::ImportFile(const std::string& path, fs::path in)
     FileHandle* fin;
     FRESULT res;
 
-    fin = Platform::OpenFile(in.u8string().c_str(), "rb", false, FileType::HostFile);
+    fin = Platform::OpenFile(in.u8string(), FileMode::Read, FileType::HostFile);
     if (!fin)
         return false;
 
@@ -949,16 +949,10 @@ bool FATStorage::Load(const std::string& filename, u64 size, const std::string& 
     // * if no image: if sourcing from a directory, size is calculated from that
     //   with a minimum 128MB extra, otherwise size is defaulted to 512MB
 
-    bool isnew = false;
-    FF_File = Platform::OpenLocalFile(filename.c_str(), "r+b", FileType::SDCardImage);
+    bool isnew = !Platform::LocalFileExists(filename);
+    FF_File = Platform::OpenLocalFile(filename, static_cast<FileMode>(FileMode::ReadWrite | FileMode::Preserve), FileType::SDCardImage);
     if (!FF_File)
-    {
-        FF_File = Platform::OpenLocalFile(filename.c_str(), "w+b", FileType::SDCardImage);
-        if (!FF_File)
-            return false;
-
-        isnew = true;
-    }
+        return false;
 
     IndexPath = FilePath + ".idx";
     if (isnew)
@@ -1076,7 +1070,7 @@ bool FATStorage::Save()
         return true;
     }
 
-    FF_File = Platform::OpenLocalFile(FilePath.c_str(), "r+b", FileType::SDCardImage);
+    FF_File = Platform::OpenLocalFile(FilePath, FileMode::ReadWriteExisting, FileType::SDCardImage);
     if (!FF_File)
     {
         return false;

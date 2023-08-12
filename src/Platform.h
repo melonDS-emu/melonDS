@@ -126,6 +126,8 @@ enum ConfigEntry
     Firm_Message,
     Firm_MAC,
 
+    WifiSettingsPath,
+
     AudioBitDepth,
 
     DSi_FullBIOSBoot
@@ -168,6 +170,117 @@ enum class FileType {
     HostFile,
 };
 
+/**
+ * Denotes how a file will be opened and accessed.
+ * Flags may or may not correspond to the operating system's file API.
+ * @note This enum does not specify text or binary mode;
+ * that should be determined by the \c FileType.
+ */
+enum FileMode : unsigned {
+    None = 0,
+
+    /**
+     * Opens a file for reading.
+     * Either this or \c Write must be set.
+     * Similar to \c "r" in \c fopen.
+     */
+    Read = 0b00'00'01,
+
+    /**
+     * Opens a file for writing, creating it if it doesn't exist.
+     * Will truncate existing files unless \c Preserve is set.
+     * Either this or \c Read must be set.
+     * Similar to <tt>fopen</tt>'s \c "w" flag.
+     */
+    Write = 0b00'00'10,
+
+    /**
+     * Opens an existing file as-is without truncating it.
+     * The file may still be created unless \c NoCreate is set.
+     * @note This flag has no effect if \c Write is not set.
+     */
+    Preserve = 0b00'01'00,
+
+    /**
+     * Do not create the file if it doesn't exist.
+     * @note This flag has no effect if \c Write is not set.
+     */
+    NoCreate = 0b00'10'00,
+
+    /**
+     * Opens a file for reading and writing.
+     * Equivalent to <tt>Read | Write</tt>.
+     */
+    ReadWrite = Read | Write,
+
+    /**
+     * Opens a file for reading and writing
+     * without truncating it or creating a new one.
+     * Equivalent to <tt>Read | Write | Preserve | NoCreate</tt>.
+     */
+    ReadWriteExisting = Read | Write | Preserve | NoCreate,
+};
+
+constexpr bool IsBinaryFile(FileType type)
+{
+    switch (type)
+    {
+        case FileType::Config:
+        case FileType::ARCodeFile:
+        case FileType::SDCardIndex:
+            return false;
+        default:
+            return true;
+    }
+}
+
+constexpr const char* FileTypeName(FileType type)
+{
+    switch (type)
+    {
+        case FileType::Generic:
+            return "Generic";
+        case FileType::ARCodeFile:
+            return "ARCodeFile";
+        case FileType::BIOS7:
+            return "BIOS7";
+        case FileType::BIOS9:
+            return "BIOS9";
+        case FileType::Config:
+            return "Config";
+        case FileType::DSiBIOS7:
+            return "DSiBIOS7";
+        case FileType::DSiBIOS9:
+            return "DSiBIOS9";
+        case FileType::DSiFirmware:
+            return "DSiFirmware";
+        case FileType::DSiNANDImage:
+            return "DSiNANDImage";
+        case FileType::Firmware:
+            return "Firmware";
+        case FileType::FirmwareBackup:
+            return "FirmwareBackup";
+        case FileType::GBAROM:
+            return "GBAROM";
+        case FileType::GBASaveFile:
+            return "GBASaveFile";
+        case FileType::NDSROM:
+            return "NDSROM";
+        case FileType::SDCardImage:
+            return "SDCardImage";
+        case FileType::SDCardIndex:
+            return "SDCardIndex";
+        case FileType::SaveFile:
+            return "SaveFile";
+        case FileType::WifiSettings:
+            return "WifiSettings";
+        case FileType::HostFile:
+            return "HostFile";
+        default:
+            return "Unknown";
+    }
+}
+
 enum class FileSeekOrigin
 {
     Start,
@@ -179,7 +292,7 @@ struct FileHandle;
 
 // Simple fopen() wrapper that supports UTF8.
 // Can be optionally restricted to only opening a file that already exists.
-FileHandle* OpenFile(const std::string& path, const std::string& mode, bool mustexist=false, FileType type=FileType::Generic);
+FileHandle* OpenFile(const std::string& path, FileMode mode, FileType type=FileType::Generic);
 
 // opens files local to the emulator (melonDS.ini, BIOS, firmware, ...)
 // For Windows builds, or portable UNIX builds it checks, by order of priority:
@@ -189,8 +302,7 @@ FileHandle* OpenFile(const std::string& path, const std::string& mode, bool must
 // in create mode, if the file doesn't exist, it will be created in the emulator
 // directory if supported, or in the current directory otherwise
 // For regular UNIX builds, the user's configuration directory is always used.
-FileHandle* OpenLocalFile(const std::string& path, const std::string& mode, FileType type=FileType::Generic);
-
+FileHandle* OpenLocalFile(const std::string& path, FileMode mode, FileType type=FileType::Generic);
 
 /// Returns true if the given file exists.
 bool FileExists(const std::string& name);

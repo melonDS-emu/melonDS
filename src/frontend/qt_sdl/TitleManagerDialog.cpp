@@ -139,7 +139,7 @@ bool TitleManagerDialog::openNAND()
 {
     NANDInited = false;
 
-    FileHandle* bios7i = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb", FileType::DSiBIOS7);
+    FileHandle* bios7i = Platform::OpenLocalFile(Config::DSiBIOS7Path, FileMode::Read, FileType::DSiBIOS7);
     if (!bios7i)
         return false;
 

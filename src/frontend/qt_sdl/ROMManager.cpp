@@ -123,7 +123,7 @@ QString VerifyDSBIOS()
     FileHandle* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::BIOS9Path, "rb", FileType::BIOS9);
+    f = Platform::OpenLocalFile(Config::BIOS9Path, FileMode::Read, FileType::BIOS9);
     if (!f) return "DS ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
 
     len = FileLength(f);
@@ -135,7 +135,7 @@ QString VerifyDSBIOS()
 
     CloseFile(f);
 
-    f = Platform::OpenLocalFile(Config::BIOS7Path, "rb", FileType::BIOS7);
+    f = Platform::OpenLocalFile(Config::BIOS7Path, FileMode::Read, FileType::BIOS7);
     if (!f) return "DS ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
 
     len = FileLength(f);
@@ -157,7 +157,7 @@ QString VerifyDSiBIOS()
 
     // TODO: check the first 32 bytes
 
-    f = Platform::OpenLocalFile(Config::DSiBIOS9Path, "rb", FileType::DSiBIOS9);
+    f = Platform::OpenLocalFile(Config::DSiBIOS9Path, FileMode::Read, FileType::DSiBIOS9);
     if (!f) return "DSi ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
 
     len = FileLength(f);
@@ -169,7 +169,7 @@ QString VerifyDSiBIOS()
 
     CloseFile(f);
 
-    f = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb", FileType::DSiBIOS7);
+    f = Platform::OpenLocalFile(Config::DSiBIOS7Path, FileMode::Read, FileType::DSiBIOS7);
     if (!f) return "DSi ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
 
     len = FileLength(f);
@@ -189,7 +189,7 @@ QString VerifyDSFirmware()
     FileHandle* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::FirmwarePath, "rb", FileType::Firmware);
+    f = Platform::OpenLocalFile(Config::FirmwarePath, FileMode::Read, FileType::Firmware);
     if (!f) return "DS firmware was not found or could not be accessed. Check your emu settings.";
 
     len = FileLength(f);
@@ -216,7 +216,7 @@ QString VerifyDSiFirmware()
     FileHandle* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::DSiFirmwarePath, "rb", FileType::DSiFirmware);
+    f = Platform::OpenLocalFile(Config::DSiFirmwarePath, FileMode::Read, FileType::DSiFirmware);
     if (!f) return "DSi firmware was not found or could not be accessed. Check your emu settings.";
 
     len = FileLength(f);
@@ -238,7 +238,7 @@ QString VerifyDSiNAND()
     FileHandle* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::DSiNANDPath, "r+b", FileType::DSiNANDImage);
+    f = Platform::OpenLocalFile(Config::DSiNANDPath, FileMode::ReadWriteExisting, FileType::DSiNANDImage);
     if (!f) return "DSi NAND was not found or could not be accessed. Check your emu settings.";
 
     // TODO: some basic checks
@@ -653,7 +653,7 @@ bool LoadROM(QStringList filepath, bool reset)
         // regular file
 
         std::string filename = filepath.at(0).toStdString();
-        Platform::FileHandle* f = Platform::OpenFile(filename, "rb", true, Platform::FileType::NDSROM);
+        Platform::FileHandle* f = Platform::OpenFile(filename, FileMode::Read, Platform::FileType::NDSROM);
         if (!f) return false;
 
         long len = Platform::FileLength(f);
@@ -747,8 +747,8 @@ bool LoadROM(QStringList filepath, bool reset)
     std::string origsav = savname;
     savname += Platform::InstanceFileSuffix();
 
-    FileHandle* sav = Platform::OpenFile(savname, "rb", true, FileType::SaveFile);
-    if (!sav) sav = Platform::OpenFile(origsav, "rb", true, FileType::SaveFile);
+    FileHandle* sav = Platform::OpenFile(savname, FileMode::Read, FileType::SaveFile);
+    if (!sav) sav = Platform::OpenFile(origsav, FileMode::Read, FileType::SaveFile);
     if (sav)
     {
         savelen = (u32)Platform::FileLength(sav);
@@ -833,7 +833,7 @@ bool LoadGBAROM(QStringList filepath)
         // regular file
 
         std::string filename = filepath.at(0).toStdString();
-        FileHandle* f = Platform::OpenFile(filename, "rb", true, FileType::GBAROM);
+        FileHandle* f = Platform::OpenFile(filename, FileMode::Read, FileType::GBAROM);
         if (!f) return false;
 
         long len = FileLength(f);
@@ -917,8 +917,8 @@ bool LoadGBAROM(QStringList filepath)
     std::string origsav = savname;
     savname += Platform::InstanceFileSuffix();
 
-    FileHandle* sav = Platform::OpenFile(savname, "rb", true, FileType::GBASaveFile);
-    if (!sav) sav = Platform::OpenFile(origsav, "rb", true, FileType::GBASaveFile);
+    FileHandle* sav = Platform::OpenFile(savname, FileMode::Read, FileType::GBASaveFile);
+    if (!sav) sav = Platform::OpenFile(origsav, FileMode::Read, FileType::GBASaveFile);
     if (sav)
     {
         savelen = (u32)FileLength(sav);

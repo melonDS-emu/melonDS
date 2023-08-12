@@ -106,6 +106,7 @@ int FirmwareBirthdayDay;
 int FirmwareFavouriteColour;
 std::string FirmwareMessage;
 std::string FirmwareMAC;
+std::string WifiSettingsPath = "wfcsettings.bin"; // Should this be configurable?
 
 int MPAudioMode;
 int MPRecvTimeout;
@@ -358,10 +359,10 @@ void LoadFile(int inst)
     {
         char name[100] = {0};
         snprintf(name, 99, kUniqueConfigFile, inst+1);
-        f = Platform::OpenLocalFile(name, "r", Platform::FileType::Config);
+        f = Platform::OpenLocalFile(name, Platform::FileMode::Read, Platform::FileType::Config);
     }
     else
-        f = Platform::OpenLocalFile(kConfigFile, "r", Platform::FileType::Config);
+        f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::Read, Platform::FileType::Config);
 
     if (!f) return;
 
@@ -428,10 +429,10 @@ void Save()
     {
         char name[100] = {0};
         snprintf(name, 99, kUniqueConfigFile, inst+1);
-        f = Platform::OpenLocalFile(name, "w", Platform::FileType::Config);
+        f = Platform::OpenLocalFile(name, Platform::FileMode::Write, Platform::FileType::Config);
     }
     else
-        f = Platform::OpenLocalFile(kConfigFile, "w", Platform::FileType::Config);
+        f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::Write, Platform::FileType::Config);
 
     if (!f) return;
 

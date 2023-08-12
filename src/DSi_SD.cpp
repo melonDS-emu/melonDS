@@ -772,7 +772,7 @@ DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::strin
     : DSi_SDDevice(host)
 {
     Internal = internal;
-    File = Platform::OpenLocalFile(filename, "r+b", Platform::FileType::SDCardImage);
+    File = Platform::OpenLocalFile(filename, FileMode::ReadWriteExisting, Platform::FileType::SDCardImage);
 
     SD = nullptr;
 

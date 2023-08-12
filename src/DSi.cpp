@@ -724,7 +724,7 @@ bool LoadBIOS()
     memset(ARM9iBIOS, 0, 0x10000);
     memset(ARM7iBIOS, 0, 0x10000);
 
-    f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_BIOS9Path), "rb", Platform::FileType::DSiBIOS9);
+    f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_BIOS9Path), FileMode::Read, Platform::FileType::DSiBIOS9);
     if (!f)
     {
         Log(LogLevel::Warn, "ARM9i BIOS not found\n");
@@ -741,7 +741,7 @@ bool LoadBIOS()
         Platform::CloseFile(f);
     }
 
-    f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_BIOS7Path), "rb", Platform::FileType::DSiBIOS7);
+    f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_BIOS7Path), FileMode::Read, Platform::FileType::DSiBIOS7);
     if (!f)
     {
         Log(LogLevel::Warn, "ARM7i BIOS not found\n");
