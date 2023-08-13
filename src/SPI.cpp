@@ -91,6 +91,8 @@ bool Init()
 
 void DeInit()
 {
+    FirmwareLength = 0;
+    FirmwareMask = 0;
     if (Firmware) delete[] Firmware;
 }
 
