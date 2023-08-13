@@ -1423,26 +1423,27 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
             u32 density, srccolor, srcR, srcG, srcB, srcA;
 
             u32 attr = AttrBuffer[pixeladdr];
-            if (!(attr & (1<<15))) continue;
-
-            density = CalculateFogDensity(pixeladdr);
-
-            srccolor = ColorBuffer[pixeladdr];
-            srcR = srccolor & 0x3F;
-            srcG = (srccolor >> 8) & 0x3F;
-            srcB = (srccolor >> 16) & 0x3F;
-            srcA = (srccolor >> 24) & 0x1F;
-
-            if (fogcolor)
+            if (attr & (1<<15))
             {
-                srcR = ((fogR * density) + (srcR * (128-density))) >> 7;
-                srcG = ((fogG * density) + (srcG * (128-density))) >> 7;
-                srcB = ((fogB * density) + (srcB * (128-density))) >> 7;
+                density = CalculateFogDensity(pixeladdr);
+
+                srccolor = ColorBuffer[pixeladdr];
+                srcR = srccolor & 0x3F;
+                srcG = (srccolor >> 8) & 0x3F;
+                srcB = (srccolor >> 16) & 0x3F;
+                srcA = (srccolor >> 24) & 0x1F;
+
+                if (fogcolor)
+                {
+                    srcR = ((fogR * density) + (srcR * (128-density))) >> 7;
+                    srcG = ((fogG * density) + (srcG * (128-density))) >> 7;
+                    srcB = ((fogB * density) + (srcB * (128-density))) >> 7;
+                }
+
+                srcA = ((fogA * density) + (srcA * (128-density))) >> 7;
+
+                ColorBuffer[pixeladdr] = srcR | (srcG << 8) | (srcB << 16) | (srcA << 24);
             }
-
-            srcA = ((fogA * density) + (srcA * (128-density))) >> 7;
-
-            ColorBuffer[pixeladdr] = srcR | (srcG << 8) | (srcB << 16) | (srcA << 24);
 
             // fog for lower pixel
             // TODO: make this code nicer, but avoid using a loop
