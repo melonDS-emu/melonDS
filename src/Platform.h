@@ -55,8 +55,7 @@ enum StopReason {
     GBAModeNotSupported,
 
     /**
-     * The emulator stopped because of an error
-     * within in the emulated console,
+     * The emulator stopped because of an error in the emulated console,
      * not necessarily because of an error in melonDS.
      */
     BadExceptionRegion,
