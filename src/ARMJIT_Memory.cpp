@@ -112,6 +112,7 @@ bool FaultHandler(FaultDescription& faultDesc);
 
 #if defined(__ANDROID__)
 #define ASHMEM_DEVICE "/dev/ashmem"
+Platform::DynamicLibrary* Libandroid = nullptr;
 #endif
 
 #if defined(__SWITCH__)
@@ -753,14 +754,13 @@ void Init()
     MemoryBase = MemoryBase + AddrSpaceSize*2;
 
 #if defined(__ANDROID__)
-    static void* libandroid = dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
+    Libandroid = Platform::DynamicLibrary_Load("libandroid.so");
     using type_ASharedMemory_create = int(*)(const char* name, size_t size);
-    static void* symbol = dlsym(libandroid, "ASharedMemory_create");
-    static auto shared_memory_create = reinterpret_cast<type_ASharedMemory_create>(symbol);
+    auto ASharedMemory_create = reinterpret_cast<type_ASharedMemory_create>(Platform::DynamicLibrary_LoadFunction(Libandroid, "ASharedMemory_create"));
 
-    if (shared_memory_create)
+    if (ASharedMemory_create)
     {
-        MemoryFile = shared_memory_create("melondsfastmem", MemoryTotalSize);
+        MemoryFile = ASharedMemory_create("melondsfastmem", MemoryTotalSize);
     }
     else
     {
@@ -830,6 +830,15 @@ void DeInit()
 
     munmap(MemoryBase, MemoryTotalSize);
     close(MemoryFile);
+
+#if defined(__ANDROID__)
+    if (Libandroid)
+    {
+        Platform::DynamicLibrary_Unload(Libandroid);
+        Libandroid = nullptr;
+    }
+#endif
+
 #endif
 }
 
