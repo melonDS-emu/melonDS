@@ -798,6 +798,7 @@ void EmuThread::drawScreenGL()
 
 ScreenHandler::ScreenHandler(QWidget* widget)
 {
+
     widget->setMouseTracking(true);
     widget->setAttribute(Qt::WA_AcceptTouchEvents);
     QTimer* mouseTimer = setupMouseTimer();
@@ -993,7 +994,10 @@ void ScreenHandler::screenHandleTouch(QTouchEvent* event)
 
 void ScreenHandler::showCursor()
 {
-    mainWindow->panelWidget->setCursor(Qt::ArrowCursor);
+    QPixmap p = QPixmap(":/ds/cursor");
+    QCursor c = QCursor(p, 0, -1);
+    mainWindow->panelWidget->setCursor(c);
+    //mainWindow->panelWidget->setCursor(Qt::ArrowCursor);
     mouseTimer->start();
 }
 

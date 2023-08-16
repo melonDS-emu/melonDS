@@ -20,6 +20,7 @@
 #define WIFISETTINGSDIALOG_H
 
 #include <QDialog>
+#include <QButtonGroup>
 
 namespace Ui { class WifiSettingsDialog; }
 class WifiSettingsDialog;
@@ -58,13 +59,16 @@ private slots:
     void on_rbDirectMode_clicked();
     void on_rbIndirectMode_clicked();
     void on_cbxDirectAdapter_currentIndexChanged(int sel);
+   
 
 private:
     Ui::WifiSettingsDialog* ui;
+    QButtonGroup* grpCustomDns;
 
     bool haspcap;
 
     void updateAdapterControls();
+    void updateCustomDNS();
 };
 
 #endif // WIFISETTINGSDIALOG_H

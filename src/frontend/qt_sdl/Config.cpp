@@ -147,6 +147,10 @@ bool DSiFullBIOSBoot;
 
 CameraConfig Camera[2];
 
+int customDnsSel;
+char* customDnsIp;
+std::string customDnsIpOther;
+bool useCustomDNS;
 
 const char* kConfigFile = "melonDS.ini";
 const char* kUniqueConfigFile = "melonDS.%d.ini";
@@ -347,7 +351,13 @@ ConfigEntry ConfigFile[] =
     {"Camera1_CamDeviceName", 2, &Camera[1].CamDeviceName, (std::string)"", false},
     {"Camera1_XFlip", 1, &Camera[1].XFlip, false, false},
 
-    {"", -1, nullptr, 0, false}
+    {"", -1, nullptr, 0, false},
+
+    {"useCustomDNS", 1, &useCustomDNS, true, true},
+    {"CustomDnsSelection", 0, &customDnsSel, true, true},
+    {"customDnsIp", 2, &customDnsIp, " 178.62.43.212 ", true},
+
+
 };
 
 

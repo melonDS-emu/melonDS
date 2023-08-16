@@ -74,6 +74,28 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->rbIndirectMode->setChecked(!Config::DirectLAN);
     if (!haspcap) ui->rbDirectMode->setEnabled(false);
 
+    grpCustomDns= new QButtonGroup(this);
+    grpCustomDns->addButton(ui->rbKaeru,        0);
+    grpCustomDns->addButton(ui->rbOther, 1);
+     grpCustomDns->addButton(ui->rbNoneCDNS, 2);
+   
+    switch (Config::customDnsSel)
+    {
+    case customDNS_Kaeru:
+        ui->rbKaeru->setChecked(true);
+        break;
+    case customDNS_Other:
+        ui->rbOther->setChecked(true);  
+        break;
+    case customDNS_None:
+       ui->rbNoneCDNS->setChecked(true);
+        break;
+    }
+    if(Config::customDnsIpOther[0] != '\0')
+        ui->txtSrcOtherDNS->setText(QString::fromStdString(Config::customDnsIpOther));
+    
+
+
     updateAdapterControls();
 }
 
@@ -89,7 +111,7 @@ void WifiSettingsDialog::done(int r)
     if (r == QDialog::Accepted)
     {
         Config::DirectLAN = ui->rbDirectMode->isChecked();
-
+    
         int sel = ui->cbxDirectAdapter->currentIndex();
         if (sel < 0 || sel >= LAN_PCap::NumAdapters) sel = 0;
         if (LAN_PCap::NumAdapters < 1)
@@ -100,6 +122,9 @@ void WifiSettingsDialog::done(int r)
         {
             Config::LANDevice = LAN_PCap::Adapters[sel].DeviceName;
         }
+
+        updateCustomDNS();
+
 
         Config::Save();
     }
@@ -147,4 +172,24 @@ void WifiSettingsDialog::updateAdapterControls()
     ui->cbxDirectAdapter->setEnabled(enable);
     ui->lblAdapterMAC->setEnabled(enable);
     ui->lblAdapterIP->setEnabled(enable);
+}
+
+void WifiSettingsDialog::updateCustomDNS()
+{
+    Config::customDnsSel = grpCustomDns->checkedId();
+
+    switch (Config::customDnsSel)
+    {
+    case customDNS_Kaeru:
+       Config::customDnsIp = "178.62.43.212";
+       Config::useCustomDNS = true; 
+        break;
+    case customDNS_Other:
+        Config::customDnsIpOther = ui->txtSrcOtherDNS->text().toStdString();
+        Config::customDnsIp = (char *)Config::customDnsIpOther.c_str();
+        Config::useCustomDNS = true; 
+        break;
+    case customDNS_None:
+        Config::useCustomDNS = false; 
+    }
 }

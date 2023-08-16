@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>570</width>
-    <height>341</height>
+    <height>500</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -133,6 +133,51 @@
      </layout>
     </widget>
    </item>
+  <item>
+    <widget class="QGroupBox" name="groupBoxCDNS">
+     <property name="title">
+      <string>Custom DNS Server:</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout">
+    <item row="1" column="0">
+       <widget class="QRadioButton" name="rbKaeru">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Kaeru .&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Kaeru WFC (178.62.43.212)</string>
+        </property>
+       </widget>
+      </item>
+      
+      <item row="3" column="0">
+       <widget class="QRadioButton" name="rbOther">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Kaeru .&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Other:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+         <widget class="QLineEdit" name="txtSrcOtherDNS"/>
+        </item>
+        <item row="4" column="0">
+       <widget class="QRadioButton" name="rbNoneCDNS">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Kaeru .&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>None</string>
+        </property>
+       </widget>
+      </item>
+      </layout>
+      </widget>
+      </item>
+
+
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">

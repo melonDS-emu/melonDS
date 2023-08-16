@@ -26,6 +26,7 @@ set(SOURCES_QT_SDL
     TitleManagerDialog.cpp
     Input.cpp
     LAN_PCap.cpp
+    CustomDnsQuery.h
     LAN_Socket.cpp
     LocalMP.cpp
     OSD.cpp

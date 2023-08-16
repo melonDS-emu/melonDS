@@ -25,8 +25,6 @@ namespace LAN_Socket
 {
 
 //
-
-
 bool Init();
 void DeInit();
 
