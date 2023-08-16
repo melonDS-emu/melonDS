@@ -51,8 +51,17 @@ enum
     micInputType_MAX,
 };
 
+enum
+{
+    customDNS_Kaeru = 0,
+    customDNS_Other,
+    customDNS_None,
+
+};    
+
 namespace Config
 {
+
 
 struct ConfigEntry
 {
@@ -191,6 +200,11 @@ extern bool DSiBatteryCharging;
 extern bool DSiFullBIOSBoot;
 
 extern CameraConfig Camera[2];
+
+extern char* customDnsIp;
+extern std::string customDnsIpOther;
+extern bool useCustomDNS;
+extern int customDnsSel;
 
 
 void Load();

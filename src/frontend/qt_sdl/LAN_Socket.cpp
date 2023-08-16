@@ -24,6 +24,9 @@
 #include "Wifi.h"
 #include "LAN_Socket.h"
 #include "FIFO.h"
+#include "CustomDnsQuery.h"
+#include "Config.h"
+
 
 #include <slirp/libslirp.h>
 
@@ -381,6 +384,12 @@ void HandleDNSFrame(u8* data, int len)
 
 		memset(&dns_hint, 0, sizeof(dns_hint));
 		dns_hint.ai_family = AF_INET; // TODO: other address types (INET6, etc)
+        
+      if(Config::useCustomDNS)  
+        ngethostbyname((unsigned char*)domainname,T_A, &addr_res);
+      else
+      {
+
 		if (getaddrinfo(domainname, "0", &dns_hint, &dns_res) == 0)
         {
             struct addrinfo* p = dns_res;
@@ -402,6 +411,7 @@ void HandleDNSFrame(u8* data, int len)
             printf(" shat itself :(");
             addr_res = 0;
         }
+      }
 
 		printf("\n");
 		curoffset += 4;
