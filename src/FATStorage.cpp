@@ -27,10 +27,10 @@
 namespace fs = std::filesystem;
 using namespace Platform;
 
-FATStorage::FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir)
+FATStorage::FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir, FileType type)
 {
     ReadOnly = readonly;
-    Load(filename, size, sourcedir);
+    Load(filename, size, sourcedir, type);
 
     File = nullptr;
 }
@@ -927,7 +927,7 @@ u64 FATStorage::GetDirectorySize(fs::path sourcedir)
     return ret;
 }
 
-bool FATStorage::Load(const std::string& filename, u64 size, const std::string& sourcedir)
+bool FATStorage::Load(const std::string& filename, u64 size, const std::string& sourcedir, FileType type)
 {
     FilePath = filename;
     FileSize = size;
@@ -950,7 +950,7 @@ bool FATStorage::Load(const std::string& filename, u64 size, const std::string& 
     //   with a minimum 128MB extra, otherwise size is defaulted to 512MB
 
     bool isnew = !Platform::LocalFileExists(filename);
-    FF_File = Platform::OpenLocalFile(filename, static_cast<FileMode>(FileMode::ReadWrite | FileMode::Preserve), FileType::SDCardImage);
+    FF_File = Platform::OpenLocalFile(filename, static_cast<FileMode>(FileMode::ReadWrite | FileMode::Preserve), type);
     if (!FF_File)
         return false;
 
