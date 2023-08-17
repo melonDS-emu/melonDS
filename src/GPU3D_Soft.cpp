@@ -723,19 +723,6 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     xstart = rp->XL;
     xend = rp->XR;
 
-    // CHECKME: edge fill rules for opaque shadow mask polygons
-
-    if ((polyalpha < 31) || (RenderDispCnt & (3<<4)))
-    {
-        l_filledge = true;
-        r_filledge = true;
-    }
-    else
-    {
-        l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor);
-        r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0);
-    }
-
     s32 wl = rp->SlopeL.Interp.Interpolate(polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
     s32 wr = rp->SlopeR.Interp.Interpolate(polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
 
@@ -760,6 +747,18 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         std::swap(wl, wr);
         std::swap(zl, zr);
         std::swap(l_filledge, r_filledge);
+        
+        // CHECKME: edge fill rules for opaque shadow mask polygons
+        if ((polyalpha < 31) || (RenderDispCnt & (3<<4)))
+        {
+            l_filledge = true;
+            r_filledge = true;
+        }
+        else
+        {
+            l_filledge = (rp->SlopeR.Negative || !rp->SlopeR.XMajor);
+            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor);
+        }
     }
     else
     {
@@ -773,6 +772,17 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
         rp->SlopeL.EdgeParams(&l_edgelen, &l_edgecov);
         rp->SlopeR.EdgeParams(&r_edgelen, &r_edgecov);
+
+        if ((polyalpha < 31) || (RenderDispCnt & (3<<4)))
+        {
+            l_filledge = true;
+            r_filledge = true;
+        }
+        else
+        {
+            l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor);
+            r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0);
+        }
     }
 
     // color/texcoord attributes aren't needed for shadow masks
@@ -932,24 +942,6 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     xstart = rp->XL;
     xend = rp->XR;
 
-    // edge fill rules for opaque pixels:
-    // * right edge is filled if slope > 1
-    // * left edge is filled if slope <= 1
-    // * edges with slope = 0 are always filled
-    // right vertical edges are pushed 1px to the left
-    // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
-
-    if (wireframe || (RenderDispCnt & ((1<<4)|(1<<5))))
-    {
-        l_filledge = true;
-        r_filledge = true;
-    }
-    else
-    {
-        l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor);
-        r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0);
-    }
-
     s32 wl = rp->SlopeL.Interp.Interpolate(polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
     s32 wr = rp->SlopeR.Interp.Interpolate(polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
 
@@ -979,7 +971,23 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         std::swap(xstart, xend);
         std::swap(wl, wr);
         std::swap(zl, zr);
-        std::swap(l_filledge, r_filledge);
+
+        // swapped edge fill rules
+        // not accurate in all situations: needs more research
+        // * right edge is filled if slope < -1
+        // * left edge is filled if slope >= -1
+        // * right edges with slope = 0 are *not* filled, unless the below rule is true
+        // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
+        if ((polyalpha < 31) || wireframe || (RenderDispCnt & ((1<<4)|(1<<5))))
+        {
+            l_filledge = true;
+            r_filledge = true;
+        }
+        else
+        {
+            l_filledge = (rp->SlopeR.Negative || !rp->SlopeR.XMajor);
+            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor);
+        }
     }
     else
     {
@@ -993,6 +1001,22 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
         rp->SlopeL.EdgeParams(&l_edgelen, &l_edgecov);
         rp->SlopeR.EdgeParams(&r_edgelen, &r_edgecov);
+
+        // edge fill rules for unswapped opaque edges:
+        // * right edge is filled if slope > 1
+        // * left edge is filled if slope <= 1
+        // * edges with slope = 0 are always filled
+        // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
+        if ((polyalpha < 31) || wireframe || (RenderDispCnt & ((1<<4)|(1<<5))))
+        {
+            l_filledge = true;
+            r_filledge = true;
+        }
+        else
+        {
+            l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor);
+            r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0);
+        }
     }
 
     // interpolate attributes along Y
