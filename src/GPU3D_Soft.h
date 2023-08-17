@@ -372,12 +372,17 @@ private:
             return ret;
         }
 
-        void EdgeParams_XMajor(s32* length, s32* coverage)
+        void EdgeParams_XMajor(s32* length, s32* coverage, bool swapped)
         {
-            if (side ^ Negative)
-                *length = (dx >> 18) - ((dx-Increment) >> 18);
-            else
-                *length = ((dx+Increment) >> 18) - (dx >> 18);
+            // length is only relevant to right side aa calcs
+            // when swapped, as actual line spans are broken
+            if (!swapped || side)
+            {
+                if (side ^ Negative)
+                    *length = (dx >> 18) - ((dx-Increment) >> 18);
+                else
+                    *length = ((dx+Increment) >> 18) - (dx >> 18);
+            }
 
             // for X-major edges, we return the coverage
             // for the first pixel, and the increment for
@@ -388,33 +393,36 @@ private:
 
             s32 startcov = (((startx << 10) + 0x1FF) * ylen) / xlen;
             *coverage = (1<<31) | ((startcov & 0x3FF) << 12) | (xcov_incr & 0x3FF);
+
+            if (swapped) *length = 1;
         }
 
-        void EdgeParams_YMajor(s32* length, s32* coverage, bool flipped)
+        void EdgeParams_YMajor(s32* length, s32* coverage, bool swapped)
         {
             *length = 1;
 
             if (Increment == 0)
             {
-                *coverage = 31;
+                // for some reason vertical edges' aa values are inverted too when the edges are swapped
+                *coverage = swapped ? 0 : 31;
             }
             else
             {
                 s32 cov = ((dx >> 9) + (Increment >> 10)) >> 4;
                 if ((cov >> 5) != (dx >> 18)) cov = 31;
                 cov &= 0x1F;
-                if ((!(side ^ Negative)) ^ flipped) cov = 0x1F - cov;
+                if ((!(side ^ Negative)) ^ swapped) cov = 0x1F - cov;
 
                 *coverage = cov;
             }
         }
 
-        void EdgeParams(s32* length, s32* coverage)
+        void EdgeParams(s32* length, s32* coverage, bool swapped)
         {
             if (XMajor)
-                return EdgeParams_XMajor(length, coverage);
+                return EdgeParams_XMajor(length, coverage, swapped);
             else
-                return EdgeParams_YMajor(length, coverage, 0);
+                return EdgeParams_YMajor(length, coverage, swapped);
         }
 
         s32 Increment;
