@@ -371,12 +371,13 @@ private:
             else if (ret > xmax) ret = xmax;
             return ret;
         }
-
-        void EdgeParams_XMajor(s32* length, s32* coverage, bool swapped)
+        
+        template<bool swapped>
+        void EdgeParams_XMajor(s32* length, s32* coverage)
         {
-            // length is only relevant to right side aa calcs
-            // when swapped, as actual line spans are broken
-            if (!swapped || side)
+            // only do length calc for right side when swapped as it's
+            // only needed for aa calcs, as actual line spans are broken
+            if constexpr (!swapped || side)
             {
                 if (side ^ Negative)
                     *length = (dx >> 18) - ((dx-Increment) >> 18);
@@ -394,35 +395,48 @@ private:
             s32 startcov = (((startx << 10) + 0x1FF) * ylen) / xlen;
             *coverage = (1<<31) | ((startcov & 0x3FF) << 12) | (xcov_incr & 0x3FF);
 
-            if (swapped) *length = 1;
+            if constexpr (swapped) *length = 1;
         }
 
-        void EdgeParams_YMajor(s32* length, s32* coverage, bool swapped)
+        template<bool swapped>
+        void EdgeParams_YMajor(s32* length, s32* coverage)
         {
             *length = 1;
 
             if (Increment == 0)
             {
-                // for some reason vertical edges' aa values are inverted too when the edges are swapped
-                *coverage = swapped ? 0 : 31;
+                // for some reason vertical edges' aa values
+                // are inverted too when the edges are swapped
+                if constexpr (swapped)
+                    *coverage = 0;
+                else
+                    *coverage = 31;
             }
             else
             {
                 s32 cov = ((dx >> 9) + (Increment >> 10)) >> 4;
                 if ((cov >> 5) != (dx >> 18)) cov = 31;
                 cov &= 0x1F;
-                if ((!(side ^ Negative)) ^ swapped) cov = 0x1F - cov;
+                if constexpr (swapped)
+                {
+                    if (side ^ Negative) cov = 0x1F - cov;
+                }
+                else
+                {
+                    if (!(side ^ Negative)) cov = 0x1F - cov;
+                }
 
                 *coverage = cov;
             }
         }
-
-        void EdgeParams(s32* length, s32* coverage, bool swapped)
+        
+        template<bool swapped>
+        void EdgeParams(s32* length, s32* coverage)
         {
             if (XMajor)
-                return EdgeParams_XMajor(length, coverage, swapped);
+                return EdgeParams_XMajor<swapped>(length, coverage);
             else
-                return EdgeParams_YMajor(length, coverage, swapped);
+                return EdgeParams_YMajor<swapped>(length, coverage);
         }
 
         s32 Increment;
