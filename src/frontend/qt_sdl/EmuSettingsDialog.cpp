@@ -29,6 +29,7 @@
 #include "EmuSettingsDialog.h"
 #include "ui_EmuSettingsDialog.h"
 
+using namespace Platform;
 
 EmuSettingsDialog* EmuSettingsDialog::currentDlg = nullptr;
 
@@ -156,19 +157,19 @@ void EmuSettingsDialog::verifyFirmware()
     // bytes 0x0C-0x14 are different.
 
     std::string filename = ui->txtFirmwarePath->text().toStdString();
-    FILE* f = Platform::OpenLocalFile(filename, "rb");
+    FileHandle* f = Platform::OpenLocalFile(filename, FileMode::Read);
     if (!f) return;
     u8 chk1[0x180], chk2[0x180];
 
-    fseek(f, 0, SEEK_SET);
-    fread(chk1, 1, 0x180, f);
-    fseek(f, -0x380, SEEK_END);
-    fread(chk2, 1, 0x180, f);
+    FileRewind(f);
+    FileRead(chk1, 1, 0x180, f);
+    FileSeek(f, -0x380, FileSeekOrigin::End);
+    FileRead(chk2, 1, 0x180, f);
 
     memset(&chk1[0x0C], 0, 8);
     memset(&chk2[0x0C], 0, 8);
 
-    fclose(f);
+    CloseFile(f);
 
     if (!memcmp(chk1, chk2, 0x180))
     {

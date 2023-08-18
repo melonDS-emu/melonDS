@@ -19,7 +19,7 @@
 #ifndef LAN_PCAP_H
 #define LAN_PCAP_H
 
-#include "../types.h"
+#include "types.h"
 
 namespace LAN_PCap
 {

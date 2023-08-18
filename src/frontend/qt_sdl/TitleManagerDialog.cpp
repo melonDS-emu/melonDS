@@ -30,8 +30,7 @@
 #include "ui_TitleManagerDialog.h"
 #include "ui_TitleImportDialog.h"
 
-using Platform::Log;
-using Platform::LogLevel;
+using namespace Platform;
 
 bool TitleManagerDialog::NANDInited = false;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
@@ -140,14 +139,14 @@ bool TitleManagerDialog::openNAND()
 {
     NANDInited = false;
 
-    FILE* bios7i = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
+    FileHandle* bios7i = Platform::OpenLocalFile(Config::DSiBIOS7Path, FileMode::Read);
     if (!bios7i)
         return false;
 
     u8 es_keyY[16];
-    fseek(bios7i, 0x8308, SEEK_SET);
-    fread(es_keyY, 16, 1, bios7i);
-    fclose(bios7i);
+    FileSeek(bios7i, 0x8308, FileSeekOrigin::Start);
+    FileRead(es_keyY, 16, 1, bios7i);
+    CloseFile(bios7i);
 
     if (!DSi_NAND::Init(es_keyY))
     {

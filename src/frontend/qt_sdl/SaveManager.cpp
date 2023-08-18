@@ -22,8 +22,7 @@
 #include "SaveManager.h"
 #include "Platform.h"
 
-using Platform::Log;
-using Platform::LogLevel;
+using namespace Platform;
 
 SaveManager::SaveManager(const std::string& path) : QThread()
 {
@@ -77,11 +76,11 @@ void SaveManager::SetPath(const std::string& path, bool reload)
 
     if (reload)
     {
-        FILE* f = Platform::OpenFile(Path, "rb", true);
+        FileHandle* f = Platform::OpenFile(Path, FileMode::Read);
         if (f)
         {
-            fread(Buffer, 1, Length, f);
-            fclose(f);
+            FileRead(Buffer, 1, Length, f);
+            CloseFile(f);
         }
     }
     else
@@ -177,12 +176,12 @@ void SaveManager::FlushSecondaryBuffer(u8* dst, u32 dstLength)
     }
     else
     {
-        FILE* f = Platform::OpenFile(Path, "wb");
+        FileHandle* f = Platform::OpenFile(Path, FileMode::Write);
         if (f)
         {
             Log(LogLevel::Info, "SaveManager: Written\n");
-            fwrite(SecondaryBuffer, SecondaryBufferLength, 1, f);
-            fclose(f);
+            FileWrite(SecondaryBuffer, SecondaryBufferLength, 1, f);
+            CloseFile(f);
         }
     }
     PreviousFlushVersion = FlushVersion;
