@@ -976,7 +976,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // not accurate in all situations: needs more research
         // * right edge is filled if slope < -1
         // * left edge is filled if slope >= -1
-        // * right edges with slope = 0 are *not* filled, unless the below rule is true
+        // * right edges with slope = 0 are filled if the left edge slope = 0 ...because reasons.
         // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
         if ((polyalpha < 31) || wireframe || (RenderDispCnt & ((1<<4)|(1<<5))))
         {
@@ -986,7 +986,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         else
         {
             l_filledge = (rp->SlopeR.Negative || !rp->SlopeR.XMajor);
-            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor);
+            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor || (rp->SlopeR.Increment==0));
         }
     }
     else
