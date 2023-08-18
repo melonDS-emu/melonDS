@@ -224,8 +224,8 @@ void LoadDefaultFirmware()
 
     std::string wfcsettings = Platform::GetConfigString(ConfigEntry::WifiSettingsPath);
 
-    FileHandle* f = Platform::OpenLocalFile(wfcsettings+Platform::InstanceFileSuffix(), FileMode::Read, FileType::WifiSettings);
-    if (!f) f = Platform::OpenLocalFile(wfcsettings, FileMode::Read, FileType::WifiSettings);
+    FileHandle* f = Platform::OpenLocalFile(wfcsettings + Platform::InstanceFileSuffix(), FileMode::Read);
+    if (!f) f = Platform::OpenLocalFile(wfcsettings, FileMode::Read);
     if (f)
     {
         u32 apdata = userdata - 0xA00;
@@ -282,10 +282,10 @@ void LoadFirmwareFromFile(FileHandle* f, bool makecopy)
     std::string fwBackupPath;
     if (!makecopy) fwBackupPath = FirmwarePath + ".bak";
     else           fwBackupPath = FirmwarePath;
-    FileHandle* bf = Platform::OpenLocalFile(fwBackupPath, FileMode::Read, FileType::Firmware);
+    FileHandle* bf = Platform::OpenLocalFile(fwBackupPath, FileMode::Read);
     if (!bf)
     {
-        bf = Platform::OpenLocalFile(fwBackupPath, FileMode::Write, FileType::Firmware);
+        bf = Platform::OpenLocalFile(fwBackupPath, FileMode::Write);
         if (bf)
         {
             FileWrite(Firmware, 1, FirmwareLength, bf);
@@ -349,10 +349,10 @@ void Reset()
         std::string origpath = FirmwarePath;
         FirmwarePath += Platform::InstanceFileSuffix();
 
-        FileHandle* f = Platform::OpenLocalFile(FirmwarePath, FileMode::Read, FileType::Firmware);
+        FileHandle* f = Platform::OpenLocalFile(FirmwarePath, FileMode::Read);
         if (!f)
         {
-            f = Platform::OpenLocalFile(origpath, FileMode::Read, FileType::Firmware);
+            f = Platform::OpenLocalFile(origpath, FileMode::Read);
             makecopy = true;
         }
         if (!f)
@@ -603,7 +603,7 @@ void Write(u8 val, u32 hold)
     {
         if (!FirmwarePath.empty())
         {
-            FileHandle* f = Platform::OpenLocalFile(FirmwarePath, FileMode::ReadWriteExisting, FileType::Firmware);
+            FileHandle* f = Platform::OpenLocalFile(FirmwarePath, FileMode::ReadWriteExisting);
             if (f)
             {
                 u32 cutoff = ((NDS::ConsoleType==1) ? 0x7F400 : 0x7FA00) & FirmwareMask;
@@ -617,7 +617,7 @@ void Write(u8 val, u32 hold)
             std::string wfcfile = Platform::GetConfigString(ConfigEntry::WifiSettingsPath);
             if (Platform::InstanceID() > 0) wfcfile += Platform::InstanceFileSuffix();
 
-            FileHandle* f = Platform::OpenLocalFile(wfcfile, FileMode::Write, FileType::WifiSettings);
+            FileHandle* f = Platform::OpenLocalFile(wfcfile, FileMode::Write);
             if (f)
             {
                 u32 cutoff = 0x7F400 & FirmwareMask;

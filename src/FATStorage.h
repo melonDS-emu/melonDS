@@ -32,7 +32,7 @@
 class FATStorage
 {
 public:
-    FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir, Platform::FileType type);
+    FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir);
     ~FATStorage();
 
     bool Open();
@@ -75,7 +75,7 @@ private:
     bool ImportDirectory(const std::string& sourcedir);
     u64 GetDirectorySize(std::filesystem::path sourcedir);
 
-    bool Load(const std::string& filename, u64 size, const std::string& sourcedir, Platform::FileType type);
+    bool Load(const std::string& filename, u64 size, const std::string& sourcedir);
     bool Save();
 
     typedef struct

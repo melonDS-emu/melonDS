@@ -125,8 +125,8 @@ protected:
 class DSi_MMCStorage : public DSi_SDDevice
 {
 public:
-    DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::string& filename, Platform::FileType type);
-    DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::string& filename, u64 size, bool readonly, const std::string& sourcedir, Platform::FileType type);
+    DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::string& filename);
+    DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::string& filename, u64 size, bool readonly, const std::string& sourcedir);
     ~DSi_MMCStorage();
 
     void Reset();

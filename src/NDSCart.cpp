@@ -1220,8 +1220,7 @@ void CartHomebrew::Reset()
         SD = new FATStorage(Platform::GetConfigString(Platform::DLDI_ImagePath),
                             (u64)Platform::GetConfigInt(Platform::DLDI_ImageSize) * 1024 * 1024,
                             ReadOnly,
-                            folderpath,
-                            Platform::FileType::SDCardImage);
+                            folderpath);
         SD->Open();
     }
     else

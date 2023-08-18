@@ -359,10 +359,10 @@ void LoadFile(int inst)
     {
         char name[100] = {0};
         snprintf(name, 99, kUniqueConfigFile, inst+1);
-        f = Platform::OpenLocalFile(name, Platform::FileMode::Read, Platform::FileType::Config);
+        f = Platform::OpenLocalFile(name, Platform::FileMode::ReadText);
     }
     else
-        f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::Read, Platform::FileType::Config);
+        f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::ReadText);
 
     if (!f) return;
 
@@ -429,10 +429,10 @@ void Save()
     {
         char name[100] = {0};
         snprintf(name, 99, kUniqueConfigFile, inst+1);
-        f = Platform::OpenLocalFile(name, Platform::FileMode::Write, Platform::FileType::Config);
+        f = Platform::OpenLocalFile(name, Platform::FileMode::WriteText);
     }
     else
-        f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::Write, Platform::FileType::Config);
+        f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::WriteText);
 
     if (!f) return;
 

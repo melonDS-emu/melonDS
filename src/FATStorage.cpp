@@ -27,10 +27,10 @@
 namespace fs = std::filesystem;
 using namespace Platform;
 
-FATStorage::FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir, FileType type)
+FATStorage::FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir)
 {
     ReadOnly = readonly;
-    Load(filename, size, sourcedir, type);
+    Load(filename, size, sourcedir);
 
     File = nullptr;
 }
@@ -43,7 +43,7 @@ FATStorage::~FATStorage()
 
 bool FATStorage::Open()
 {
-    File = Platform::OpenLocalFile(FilePath, FileMode::ReadWriteExisting, FileType::SDCardImage);
+    File = Platform::OpenLocalFile(FilePath, FileMode::ReadWriteExisting);
     if (!File)
     {
         return false;
@@ -183,7 +183,7 @@ void FATStorage::LoadIndex()
     DirIndex.clear();
     FileIndex.clear();
 
-    FileHandle* f = OpenLocalFile(IndexPath, FileMode::Read, Platform::FileType::SDCardIndex);
+    FileHandle* f = OpenLocalFile(IndexPath, FileMode::ReadText);
     if (!f) return;
 
     char linebuf[1536];
@@ -315,7 +315,7 @@ void FATStorage::LoadIndex()
 
 void FATStorage::SaveIndex()
 {
-    FileHandle* f = OpenLocalFile(IndexPath, FileMode::Write, FileType::SDCardIndex);
+    FileHandle* f = OpenLocalFile(IndexPath, FileMode::WriteText);
     if (!f) return;
 
     FileWriteFormatted(f, "SIZE %" PRIu64 "\r\n", FileSize);
@@ -357,7 +357,7 @@ bool FATStorage::ExportFile(const std::string& path, fs::path out)
                         err);
     }
 
-    fout = OpenFile(out.u8string(), FileMode::Write, FileType::HostFile);
+    fout = OpenFile(out.u8string(), FileMode::Write);
     if (!fout)
     {
         f_close(&file);
@@ -775,7 +775,7 @@ bool FATStorage::ImportFile(const std::string& path, fs::path in)
     FileHandle* fin;
     FRESULT res;
 
-    fin = Platform::OpenFile(in.u8string(), FileMode::Read, FileType::HostFile);
+    fin = Platform::OpenFile(in.u8string(), FileMode::Read);
     if (!fin)
         return false;
 
@@ -927,7 +927,7 @@ u64 FATStorage::GetDirectorySize(fs::path sourcedir)
     return ret;
 }
 
-bool FATStorage::Load(const std::string& filename, u64 size, const std::string& sourcedir, FileType type)
+bool FATStorage::Load(const std::string& filename, u64 size, const std::string& sourcedir)
 {
     FilePath = filename;
     FileSize = size;
@@ -950,7 +950,7 @@ bool FATStorage::Load(const std::string& filename, u64 size, const std::string& 
     //   with a minimum 128MB extra, otherwise size is defaulted to 512MB
 
     bool isnew = !Platform::LocalFileExists(filename);
-    FF_File = Platform::OpenLocalFile(filename, static_cast<FileMode>(FileMode::ReadWrite | FileMode::Preserve), type);
+    FF_File = Platform::OpenLocalFile(filename, static_cast<FileMode>(FileMode::ReadWrite | FileMode::Preserve));
     if (!FF_File)
         return false;
 
@@ -1070,7 +1070,7 @@ bool FATStorage::Save()
         return true;
     }
 
-    FF_File = Platform::OpenLocalFile(FilePath, FileMode::ReadWriteExisting, FileType::SDCardImage);
+    FF_File = Platform::OpenLocalFile(FilePath, FileMode::ReadWriteExisting);
     if (!FF_File)
     {
         return false;

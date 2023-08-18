@@ -57,10 +57,10 @@ bool Init(u8* es_keyY)
     std::string nandpath = Platform::GetConfigString(Platform::DSi_NANDPath);
     std::string instnand = nandpath + Platform::InstanceFileSuffix();
 
-    FileHandle* nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting, FileType::DSiNANDImage);
+    FileHandle* nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
     if ((!nandfile) && (Platform::InstanceID() > 0))
     {
-        FileHandle* orig = Platform::OpenLocalFile(nandpath, FileMode::Read, FileType::DSiNANDImage);
+        FileHandle* orig = Platform::OpenLocalFile(nandpath, FileMode::Read);
         if (!orig)
         {
             Log(LogLevel::Error, "Failed to open DSi NAND\n");
@@ -69,7 +69,7 @@ bool Init(u8* es_keyY)
 
         long len = FileLength(orig);
 
-        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWrite, FileType::DSiNANDImage);
+        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWrite);
         if (nandfile)
         {
             u8* tmpbuf = new u8[0x10000];
@@ -87,7 +87,7 @@ bool Init(u8* es_keyY)
         Platform::CloseFile(orig);
         Platform::CloseFile(nandfile);
 
-        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting, FileType::DSiNANDImage);
+        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
     }
 
     if (!nandfile)

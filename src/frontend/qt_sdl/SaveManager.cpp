@@ -76,7 +76,7 @@ void SaveManager::SetPath(const std::string& path, bool reload)
 
     if (reload)
     {
-        FileHandle* f = Platform::OpenFile(Path, FileMode::Read, FileType::NDSSaveFile);
+        FileHandle* f = Platform::OpenFile(Path, FileMode::Read);
         if (f)
         {
             FileRead(Buffer, 1, Length, f);
@@ -176,7 +176,7 @@ void SaveManager::FlushSecondaryBuffer(u8* dst, u32 dstLength)
     }
     else
     {
-        FileHandle* f = Platform::OpenFile(Path, FileMode::Write, FileType::NDSSaveFile);
+        FileHandle* f = Platform::OpenFile(Path, FileMode::Write);
         if (f)
         {
             Log(LogLevel::Info, "SaveManager: Written\n");

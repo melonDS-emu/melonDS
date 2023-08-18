@@ -309,41 +309,6 @@ bool GetConfigArray(ConfigEntry entry, void* data)
     return false;
 }
 
-
-FileHandle* OpenFile(const std::string& path, const std::string& mode, bool mustexist, FileType type)
-{
-    QFile f(QString::fromStdString(path));
-
-    if (mustexist && !f.exists())
-    {
-        return nullptr;
-    }
-
-    QIODevice::OpenMode qmode;
-    if (mode.length() > 1 && mode[0] == 'r' && mode[1] == '+')
-    {
-		qmode = QIODevice::OpenModeFlag::ReadWrite;
-	}
-	else if (mode.length() > 1 && mode[0] == 'w' && mode[1] == '+')
-    {
-    	qmode = QIODevice::OpenModeFlag::Truncate | QIODevice::OpenModeFlag::ReadWrite;
-	}
-	else if (mode[0] == 'w')
-    {
-        qmode = QIODevice::OpenModeFlag::Truncate | QIODevice::OpenModeFlag::WriteOnly;
-    }
-    else
-    {
-        qmode = QIODevice::OpenModeFlag::ReadOnly;
-    }
-
-    f.open(qmode);
-    FILE* file = fdopen(dup(f.handle()), mode.c_str());
-    f.close();
-
-    return reinterpret_cast<FileHandle *>(file);
-}
-
 constexpr char AccessMode(FileMode mode, bool file_exists)
 {
     if (!(mode & FileMode::Write))
@@ -367,20 +332,7 @@ constexpr bool IsExtended(FileMode mode)
     return (mode & FileMode::ReadWrite) == FileMode::ReadWrite;
 }
 
-constexpr bool IsBinaryFile(FileType type)
-{
-    switch (type)
-    {
-        case FileType::Config:
-        case FileType::ARCodeFile:
-        case FileType::SDCardIndex:
-        return false;
-        default:
-        return true;
-    }
-}
-
-static std::string GetModeString(FileMode mode, FileType type, bool file_exists)
+static std::string GetModeString(FileMode mode, bool file_exists)
 {
     std::string modeString;
 
@@ -389,37 +341,37 @@ static std::string GetModeString(FileMode mode, FileType type, bool file_exists)
     if (IsExtended(mode))
         modeString += '+';
 
-    if (IsBinaryFile(type))
+    if (!(mode & FileMode::Text))
         modeString += 'b';
 
     return modeString;
 }
 
-FileHandle* OpenFile(const std::string& path, FileMode mode, FileType type)
+FileHandle* OpenFile(const std::string& path, FileMode mode)
 {
     if ((mode & FileMode::ReadWrite) == FileMode::None)
     { // If we aren't reading or writing, then we can't open the file
-        Log(LogLevel::Error, "Attempted to open %s \"%s\" in neither read nor write mode (FileMode 0x%x)\n", FileTypeName(type), path.c_str(), mode);
+        Log(LogLevel::Error, "Attempted to open \"%s\" in neither read nor write mode (FileMode 0x%x)\n", path.c_str(), mode);
         return nullptr;
     }
 
     bool file_exists = QFile::exists(QString::fromStdString(path));
-    std::string modeString = GetModeString(mode, type, file_exists);
+    std::string modeString = GetModeString(mode, file_exists);
 
     FILE* file = fopen(path.c_str(), modeString.c_str());
     if (file)
     {
-        Log(LogLevel::Debug, "Opened %s \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", FileTypeName(type), path.c_str(), mode, modeString.c_str());
+        Log(LogLevel::Debug, "Opened \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", path.c_str(), mode, modeString.c_str());
         return reinterpret_cast<FileHandle *>(file);
     }
     else
     {
-        Log(LogLevel::Warn, "Failed to open %s \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", FileTypeName(type), path.c_str(), mode, modeString.c_str());
+        Log(LogLevel::Warn, "Failed to open \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", path.c_str(), mode, modeString.c_str());
         return nullptr;
     }
 }
 
-FileHandle* OpenLocalFile(const std::string& path, FileMode mode, FileType type)
+FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
 {
     QString qpath = QString::fromStdString(path);
     QDir dir(qpath);
@@ -443,7 +395,7 @@ FileHandle* OpenLocalFile(const std::string& path, FileMode mode, FileType type)
 #endif
     }
 
-    return OpenFile(fullpath.toStdString(), mode, type);
+    return OpenFile(fullpath.toStdString(), mode);
 }
 
 bool CloseFile(FileHandle* file)

@@ -146,90 +146,9 @@ bool GetConfigBool(ConfigEntry entry);
 std::string GetConfigString(ConfigEntry entry);
 bool GetConfigArray(ConfigEntry entry, void* data);
 
-/// The type of file that the provided path points to.
-/// Possible use cases include:
-///     \li Validating a file path before opening it
-///     \li Validating a file before returning its contents
-///     \li Setting buffering/flushing options on some kinds of files
-///     \li Logging file operations
-///
-/// @note All files are binary unless otherwise specified.
-enum class FileType {
-    /// The file type is unspecified.
-    /// It should be opened as a binary file.
-    Generic,
-
-    /// Text file containing Action Replay cheat codes for the current game.
-    /// May be read or written.
-    ARCodeFile,
-
-    /// A ROM image for the NDS, including DSiWare.
-    /// Will not be written.
-    NDSROM,
-
-    /// A dump of an NDS game's SRAM.
-    /// Will be saved and loaded occasionally.
-    NDSSaveFile,
-
-    /// BIOS image for the NDS's ARM7 processor (not the DSi).
-    BIOS7,
-
-    /// BIOS image for the NDS's ARM9 processor (not the DSi).
-    BIOS9,
-
-    /// Firmware image for the NDS (not the DSi).
-    /// @note May be written to by the emulator.
-    Firmware,
-
-    /// A subset of the NDS or DSi firmware containing only the Wi-fi configuration.
-    WifiSettings,
-
-    /// BIOS image for the DSi's ARM7 processor.
-    DSiBIOS7,
-
-    /// BIOS image for the DSi's ARM9 processor.
-    DSiBIOS9,
-
-    /// Firmware image for the DSi.
-    /// @note May be written to by the emulator.
-    DSiFirmware,
-
-    /// An image of the DSi's NAND flash memory.
-    /// Frequently read and written to by the emulator in DSi mode.
-    DSiNANDImage,
-
-    /// An image of a virtual SD card.
-    /// May be frequently read and written to by the emulator in DSi mode
-    /// or when running homebrew.
-    SDCardImage,
-
-    /// Text file containing a list of files and accompanying metadata in the virtual SD card.
-    SDCardIndex,
-
-    /// A GBA ROM.
-    /// Will not be written.
-    GBAROM,
-
-    /// A dump of a GBA game's SRAM.
-    /// May be read or written.
-    GBASaveFile,
-
-    /// An unspecified file being copied to or from an emulated SD card or NAND image.
-    /// Should be opened in binary mode.
-    /// \c Read mode means the file is being copied to the emulated filesystem.
-    /// \c Write mode means the file is being copied to the host.
-    HostFile,
-
-    /// A configuration file for the frontend.
-    /// May be text or binary, depending on the frontend.
-    Config,
-};
-
 /**
  * Denotes how a file will be opened and accessed.
  * Flags may or may not correspond to the operating system's file API.
- * @note This enum does not specify text or binary mode;
- * that should be determined by the \c FileType.
  */
 enum FileMode : unsigned {
     None = 0,
@@ -263,6 +182,15 @@ enum FileMode : unsigned {
     NoCreate = 0b00'10'00,
 
     /**
+     * Opens a file in text mode,
+     * rather than the default binary mode.
+     * Text-mode files may have their line endings converted
+     * to match the operating system,
+     * and may also be line-buffered.
+     */
+    Text = 0b01'00'00,
+
+    /**
      * Opens a file for reading and writing.
      * Equivalent to <tt>Read | Write</tt>.
      */
@@ -274,52 +202,20 @@ enum FileMode : unsigned {
      * Equivalent to <tt>Read | Write | Preserve | NoCreate</tt>.
      */
     ReadWriteExisting = Read | Write | Preserve | NoCreate,
-};
 
-constexpr const char* FileTypeName(FileType type)
-{
-    switch (type)
-    {
-        case FileType::Generic:
-            return "Generic";
-        case FileType::ARCodeFile:
-            return "ARCodeFile";
-        case FileType::BIOS7:
-            return "BIOS7";
-        case FileType::BIOS9:
-            return "BIOS9";
-        case FileType::Config:
-            return "Config";
-        case FileType::DSiBIOS7:
-            return "DSiBIOS7";
-        case FileType::DSiBIOS9:
-            return "DSiBIOS9";
-        case FileType::DSiFirmware:
-            return "DSiFirmware";
-        case FileType::DSiNANDImage:
-            return "DSiNANDImage";
-        case FileType::Firmware:
-            return "Firmware";
-        case FileType::GBAROM:
-            return "GBAROM";
-        case FileType::GBASaveFile:
-            return "GBASaveFile";
-        case FileType::NDSROM:
-            return "NDSROM";
-        case FileType::SDCardImage:
-            return "SDCardImage";
-        case FileType::SDCardIndex:
-            return "SDCardIndex";
-        case FileType::NDSSaveFile:
-            return "SaveFile";
-        case FileType::WifiSettings:
-            return "WifiSettings";
-        case FileType::HostFile:
-            return "HostFile";
-        default:
-            return "Unknown";
-    }
-}
+    /**
+     * Opens a file for reading in text mode.
+     * Equivalent to <tt>Read | Text</tt>.
+     */
+    ReadText = Read | Text,
+
+    /**
+     * Opens a file for writing in text mode,
+     * creating it if it doesn't exist.
+     * Equivalent to <tt>Write | Text</tt>.
+     */
+    WriteText = Write | Text,
+};
 
 /**
  * Denotes the origin of a seek operation.
@@ -343,7 +239,7 @@ struct FileHandle;
 
 // Simple fopen() wrapper that supports UTF8.
 // Can be optionally restricted to only opening a file that already exists.
-FileHandle* OpenFile(const std::string& path, FileMode mode, FileType type=FileType::Generic);
+FileHandle* OpenFile(const std::string& path, FileMode mode);
 
 // opens files local to the emulator (melonDS.ini, BIOS, firmware, ...)
 // For Windows builds, or portable UNIX builds it checks, by order of priority:
@@ -353,7 +249,7 @@ FileHandle* OpenFile(const std::string& path, FileMode mode, FileType type=FileT
 // in create mode, if the file doesn't exist, it will be created in the emulator
 // directory if supported, or in the current directory otherwise
 // For regular UNIX builds, the user's configuration directory is always used.
-FileHandle* OpenLocalFile(const std::string& path, FileMode mode, FileType type=FileType::Generic);
+FileHandle* OpenLocalFile(const std::string& path, FileMode mode);
 
 /// Returns true if the given file exists.
 bool FileExists(const std::string& name);

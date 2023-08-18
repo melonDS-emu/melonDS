@@ -46,7 +46,7 @@ ARCodeFile::~ARCodeFile()
 
 bool ARCodeFile::Load()
 {
-    FileHandle* f = OpenFile(Filename, FileMode::Read, FileType::ARCodeFile);
+    FileHandle* f = OpenFile(Filename, FileMode::ReadText);
     if (!f) return true;
 
     Categories.clear();
@@ -164,7 +164,7 @@ bool ARCodeFile::Load()
 
 bool ARCodeFile::Save()
 {
-    FileHandle* f = Platform::OpenFile(Filename, FileMode::Write, FileType::ARCodeFile);
+    FileHandle* f = Platform::OpenFile(Filename, FileMode::WriteText);
     if (!f) return false;
 
     for (ARCodeCatList::iterator it = Categories.begin(); it != Categories.end(); it++)

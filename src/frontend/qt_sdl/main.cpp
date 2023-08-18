@@ -2639,7 +2639,7 @@ void MainWindow::onImportSavefile()
         return;
     }
 
-    Platform::FileHandle* f = Platform::OpenFile(path.toStdString(), Platform::FileMode::Read, Platform::FileType::NDSSaveFile);
+    Platform::FileHandle* f = Platform::OpenFile(path.toStdString(), Platform::FileMode::Read);
     if (!f)
     {
         QMessageBox::critical(this, "melonDS", "Could not open the given savefile.");

@@ -526,7 +526,7 @@ void Reset()
 
     if (Platform::GetConfigBool(Platform::ExternalBIOSEnable))
     {
-        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS9Path), FileMode::Read, FileType::BIOS9);
+        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS9Path), FileMode::Read);
         if (!f)
         {
             Log(LogLevel::Warn, "ARM9 BIOS not found\n");
@@ -543,7 +543,7 @@ void Reset()
             Platform::CloseFile(f);
         }
 
-        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS7Path), FileMode::Read, FileType::BIOS7);
+        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS7Path), FileMode::Read);
         if (!f)
         {
             Log(LogLevel::Warn, "ARM7 BIOS not found\n");
