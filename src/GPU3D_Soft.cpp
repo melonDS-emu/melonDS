@@ -748,7 +748,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         std::swap(zl, zr);
         std::swap(l_filledge, r_filledge);
         
-        // CHECKME: edge fill rules for opaque shadow mask polygons
+        // CHECKME: edge fill rules for swapped opaque shadow mask polygons
         if ((polyalpha < 31) || (RenderDispCnt & (3<<4)))
         {
             l_filledge = true;
@@ -757,7 +757,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         else
         {
             l_filledge = (rp->SlopeR.Negative || !rp->SlopeR.XMajor);
-            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor);
+            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor) || (!(rp->SlopeL.Negative && rp->SlopeL.XMajor) && rp->SlopeR.Increment==0);
         }
     }
     else
@@ -772,7 +772,8 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
         rp->SlopeL.EdgeParams(&l_edgelen, &l_edgecov);
         rp->SlopeR.EdgeParams(&r_edgelen, &r_edgecov);
-
+        
+        // CHECKME: edge fill rules for unswapped opaque shadow mask polygons
         if ((polyalpha < 31) || (RenderDispCnt & (3<<4)))
         {
             l_filledge = true;
@@ -972,11 +973,9 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         std::swap(wl, wr);
         std::swap(zl, zr);
 
-        // swapped edge fill rules
-        // not accurate in all situations: needs more research
-        // * right edge is filled if slope < -1
-        // * left edge is filled if slope >= -1
-        // * right edges with slope = 0 are filled if the left edge slope = 0 ...because reasons.
+        // edge fill rules for swapped opaque edges:
+        // * right edge is filled if slope > 1, or if the left edge = 0, but is never filled if it is < -1
+        // * left edge is filled if slope <= 1
         // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
         if ((polyalpha < 31) || wireframe || (RenderDispCnt & ((1<<4)|(1<<5))))
         {
@@ -986,7 +985,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         else
         {
             l_filledge = (rp->SlopeR.Negative || !rp->SlopeR.XMajor);
-            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor || (rp->SlopeR.Increment==0));
+            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor) || (!(rp->SlopeL.Negative && rp->SlopeL.XMajor) && rp->SlopeR.Increment==0);
         }
     }
     else
