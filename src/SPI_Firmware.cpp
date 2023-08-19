@@ -194,9 +194,9 @@ SPI_Firmware::Firmware::Firmware(int consoletype)
 
     u32 apdata = userdata - 0x400;
     accesspoints = {
-            WifiAccessPoint(consoletype),
-            WifiAccessPoint(),
-            WifiAccessPoint()
+        WifiAccessPoint(consoletype),
+        WifiAccessPoint(),
+        WifiAccessPoint(),
     };
 
     if (consoletype == 1)
@@ -205,9 +205,9 @@ SPI_Firmware::Firmware::Firmware(int consoletype)
         auto& extendedaccesspoints = reinterpret_cast<std::array<ExtendedWifiAccessPoint, 3>&>(extendedaccesspointsaddress);
 
         extendedaccesspoints = {
-                ExtendedWifiAccessPoint(),
-                ExtendedWifiAccessPoint(),
-                ExtendedWifiAccessPoint()
+            ExtendedWifiAccessPoint(),
+            ExtendedWifiAccessPoint(),
+            ExtendedWifiAccessPoint(),
         };
     }
 }
