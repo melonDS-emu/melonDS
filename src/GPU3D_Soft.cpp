@@ -756,8 +756,11 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         }
         else
         {
-            l_filledge = (rp->SlopeR.Negative || !rp->SlopeR.XMajor);
-            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor) || (!(rp->SlopeL.Negative && rp->SlopeL.XMajor) && rp->SlopeR.Increment==0);
+            l_filledge = (rp->SlopeR.Negative || !rp->SlopeR.XMajor)
+            || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (rp->NextVL != rp->NextVR);
+            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor)
+            || (!(rp->SlopeL.Negative && rp->SlopeL.XMajor) && rp->SlopeR.Increment==0)
+            || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (rp->NextVL != rp->NextVR);
         }
     }
     else
@@ -781,8 +784,10 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         }
         else
         {
-            l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor);
-            r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0);
+            l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor)
+            || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (rp->NextVL != rp->NextVR);
+            r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0)
+            || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (rp->NextVL != rp->NextVR);
         }
     }
 
@@ -976,6 +981,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // edge fill rules for swapped opaque edges:
         // * right edge is filled if slope > 1, or if the left edge = 0, but is never filled if it is < -1
         // * left edge is filled if slope <= 1
+        // * the bottom-most pixel of negative x-major slopes are filled if they are next to a flat bottom edge
         // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
         if ((polyalpha < 31) || wireframe || (RenderDispCnt & ((1<<4)|(1<<5))))
         {
@@ -984,8 +990,11 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         }
         else
         {
-            l_filledge = (rp->SlopeR.Negative || !rp->SlopeR.XMajor);
-            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor) || (!(rp->SlopeL.Negative && rp->SlopeL.XMajor) && rp->SlopeR.Increment==0);
+            l_filledge = (rp->SlopeR.Negative || !rp->SlopeR.XMajor)
+            || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (rp->NextVL != rp->NextVR);
+            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor)
+            || (!(rp->SlopeL.Negative && rp->SlopeL.XMajor) && rp->SlopeR.Increment==0)
+            || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (rp->NextVL != rp->NextVR);
         }
     }
     else
@@ -1005,6 +1014,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // * right edge is filled if slope > 1
         // * left edge is filled if slope <= 1
         // * edges with slope = 0 are always filled
+        // * the bottom-most pixel of negative x-major slopes are filled if they are next to a flat bottom edge
         // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
         if ((polyalpha < 31) || wireframe || (RenderDispCnt & ((1<<4)|(1<<5))))
         {
@@ -1013,8 +1023,10 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         }
         else
         {
-            l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor);
-            r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0);
+            l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor)
+            || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (rp->NextVL != rp->NextVR);
+            r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0)
+            || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (rp->NextVL != rp->NextVR);
         }
     }
 
