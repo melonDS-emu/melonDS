@@ -102,7 +102,7 @@ SPI_Firmware::FirmwareHeader::FirmwareHeader(int consoletype)
         ConsoleType = FirmwareConsoleType::DSLite; // TODO: make configurable?
         WifiVersion = WifiVersion::W006;
     }
-    Identifier = {'M', 'E', 'L', 'N'};
+    Identifier = GENERATED_FIRMWARE_IDENTIFIER;
 
 
     // wifi calibration

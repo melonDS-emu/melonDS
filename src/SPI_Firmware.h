@@ -203,6 +203,8 @@ enum BootMenu : u8
 using FirmwareIdentifier = std::array<u8, 4>;
 using MacAddress = std::array<u8, 6>;
 
+constexpr FirmwareIdentifier GENERATED_FIRMWARE_IDENTIFIER = {'M', 'E', 'L', 'N'};
+
 /**
  * @note GBATek says the header is actually 511 bytes;
  * this header struct is 512 bytes due to padding,
