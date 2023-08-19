@@ -757,10 +757,10 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         else
         {
             l_filledge = (rp->SlopeR.Negative || !rp->SlopeR.XMajor)
-            || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (rp->NextVL != rp->NextVR);
+            || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
             r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor)
             || (!(rp->SlopeL.Negative && rp->SlopeL.XMajor) && rp->SlopeR.Increment==0)
-            || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (rp->NextVL != rp->NextVR);
+            || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
         }
     }
     else
@@ -785,9 +785,9 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         else
         {
             l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor)
-            || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (rp->NextVL != rp->NextVR);
+            || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
             r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0)
-            || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (rp->NextVL != rp->NextVR);
+            || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
         }
     }
 
@@ -991,10 +991,10 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         else
         {
             l_filledge = (rp->SlopeR.Negative || !rp->SlopeR.XMajor)
-            || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (rp->NextVL != rp->NextVR);
+            || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
             r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor)
             || (!(rp->SlopeL.Negative && rp->SlopeL.XMajor) && rp->SlopeR.Increment==0)
-            || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (rp->NextVL != rp->NextVR);
+            || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
         }
     }
     else
@@ -1024,9 +1024,9 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         else
         {
             l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor)
-            || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (rp->NextVL != rp->NextVR);
+            || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
             r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0)
-            || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (rp->NextVL != rp->NextVR);
+            || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
         }
     }
 
