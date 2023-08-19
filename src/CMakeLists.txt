@@ -43,6 +43,7 @@ add_library(core STATIC
     RTC.cpp
     Savestate.cpp
     SPI.cpp
+    SPI_Firmware.cpp
     SPU.cpp
     types.h
     version.h
