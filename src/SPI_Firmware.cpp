@@ -18,7 +18,6 @@
 
 #include "SPI_Firmware.h"
 #include "SPI.h"
-#include "ByteOrder.h"
 
 #include <string.h>
 
