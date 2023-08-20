@@ -72,7 +72,14 @@ enum class AccessPointStatus : u8
  */
 union WifiAccessPoint
 {
+    /**
+     * Constructs an unconfigured access point.
+     */
     WifiAccessPoint();
+
+    /**
+     * Constructs an access point configured with melonDS's defaults.
+     */
     explicit WifiAccessPoint(int consoletype);
     void UpdateChecksum();
     u8 Bytes[256];
