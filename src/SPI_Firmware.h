@@ -23,7 +23,6 @@
 #include <string_view>
 #include "types.h"
 #include "Platform.h"
-#include "SPI.h"
 
 namespace SPI_Firmware
 {
