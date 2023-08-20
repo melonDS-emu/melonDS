@@ -49,10 +49,9 @@ u8 Data;
 u8 StatusReg;
 u32 Addr;
 
-
-u16 CRC16(u8* data, u32 len, u32 start)
+u16 CRC16(const u8* data, u32 len, u32 start)
 {
-    u16 blarg[8] = {0xC0C1, 0xC181, 0xC301, 0xC601, 0xCC01, 0xD801, 0xF001, 0xA001};
+    constexpr u16 blarg[8] = {0xC0C1, 0xC181, 0xC301, 0xC601, 0xCC01, 0xD801, 0xF001, 0xA001};
 
     for (u32 i = 0; i < len; i++)
     {
