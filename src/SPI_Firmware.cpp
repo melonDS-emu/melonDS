@@ -155,6 +155,8 @@ SPI_Firmware::UserData::UserData()
     BirthdayMonth = 1;
     BirthdayDay = 1;
     Settings = Language::English | BacklightLevel::Max; // NOLINT(*-suspicious-enum-usage)
+    memcpy(Nickname, DEFAULT_USERNAME.data(), DEFAULT_USERNAME.size() * sizeof(std::u16string_view::value_type));
+    NameLength = DEFAULT_USERNAME.size();
     Checksum = CRC16(Bytes, 0x70, 0xFFFF);
 }
 
