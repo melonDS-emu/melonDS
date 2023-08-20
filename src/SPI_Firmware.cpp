@@ -187,8 +187,11 @@ SPI_Firmware::Firmware::Firmware(int consoletype)
     *(u16*)&FirmwareBuffer[0x20] = userdata >> 3;
     u8* userdataaddress = FirmwareBuffer + userdata;
 
-    union UserData& settings = *reinterpret_cast<union UserData*>(userdataaddress);
-    settings = SPI_Firmware::UserData();
+    std::array<union UserData, 2>& settings = *reinterpret_cast<std::array<union UserData, 2>*>(userdataaddress);
+    settings = {
+        SPI_Firmware::UserData(),
+        SPI_Firmware::UserData(),
+    };
 
     // wifi access points
     // TODO: WFC ID??

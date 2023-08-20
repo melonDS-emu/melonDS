@@ -253,20 +253,21 @@ void Reset()
         LoadUserSettingsFromConfig();
 
     // fix touchscreen coords
-    auto& effectiveUserData = Firmware->EffectiveUserData();
-    effectiveUserData.TouchCalibrationADC1[0] = 0;
-    effectiveUserData.TouchCalibrationADC1[1] = 0;
-    effectiveUserData.TouchCalibrationPixel1[0] = 0;
-    effectiveUserData.TouchCalibrationPixel1[1] = 0;
-    effectiveUserData.TouchCalibrationADC2[0] = 255<<4;
-    effectiveUserData.TouchCalibrationADC2[1] = 191<<4;
-    effectiveUserData.TouchCalibrationPixel2[0] = 255;
-    effectiveUserData.TouchCalibrationPixel2[1] = 191;
+    for (UserData& u : userDataRegions)
+    {
+        u.TouchCalibrationADC1[0] = 0;
+        u.TouchCalibrationADC1[1] = 0;
+        u.TouchCalibrationPixel1[0] = 0;
+        u.TouchCalibrationPixel1[1] = 0;
+        u.TouchCalibrationADC2[0] = 255<<4;
+        u.TouchCalibrationADC2[1] = 191<<4;
+        u.TouchCalibrationPixel2[0] = 255;
+        u.TouchCalibrationPixel2[1] = 191;
+        u.UpdateChecksum();
+    }
 
     // disable autoboot
     //Firmware[userdata+0x64] &= 0xBF;
-
-    effectiveUserData.UpdateChecksum();
 
     //if (firmoverride)
     {
