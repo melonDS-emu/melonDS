@@ -432,6 +432,11 @@ public:
     [[nodiscard]] const std::array<ExtendedWifiAccessPoint, 3>& ExtendedAccessPoints() const;
     [[nodiscard]] std::array<ExtendedWifiAccessPoint, 3>& ExtendedAccessPoints();
 
+    /**
+     * @return The pointer to the firmware buffer,
+     * or \c nullptr if this object is invalid
+     * (e.g. it was moved from, or its constructor failed).
+     */
     [[nodiscard]] u8* Buffer() { return FirmwareBuffer; }
     [[nodiscard]] const u8* Buffer() const { return FirmwareBuffer; }
 
