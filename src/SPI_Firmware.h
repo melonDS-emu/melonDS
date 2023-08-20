@@ -22,6 +22,7 @@
 #include <array>
 #include <string_view>
 #include "types.h"
+#include "Platform.h"
 
 namespace SPI_Firmware
 {
