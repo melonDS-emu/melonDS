@@ -410,6 +410,12 @@ public:
     Firmware(int consoletype);
 
     /**
+     * Loads a firmware blob from the given file.
+     * Will rewind the file's stream offset to its initial position when finished.
+     */
+    Firmware(Platform::FileHandle* file);
+
+    /**
      * Constructs a firmware blob from a copy of the given data.
      * @param data Buffer containing the firmware data.
      * @param length Length of the buffer in bytes.

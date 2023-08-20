@@ -212,6 +212,32 @@ SPI_Firmware::Firmware::Firmware(int consoletype)
     }
 }
 
+SPI_Firmware::Firmware::Firmware(Platform::FileHandle* file) : FirmwareBuffer(nullptr), FirmwareBufferLength(0)
+{
+    if (file)
+    {
+        u64 length = Platform::FileLength(file);
+        if (length > 0)
+        {
+            FirmwareBufferLength = FixFirmwareLength(length);
+            FirmwareBuffer = new u8[FirmwareBufferLength];
+            FirmwareMask = FirmwareBufferLength - 1;
+
+            memset(FirmwareBuffer, 0, FirmwareBufferLength);
+            Platform::FileRewind(file);
+            if (!Platform::FileRead(FirmwareBuffer, length, 1, file))
+            {
+                delete[] FirmwareBuffer;
+                FirmwareBuffer = nullptr;
+                FirmwareBufferLength = 0;
+                FirmwareMask = 0;
+            }
+        }
+
+        Platform::FileRewind(file);
+    }
+}
+
 SPI_Firmware::Firmware::Firmware(const u8* data, u32 length) : FirmwareBuffer(nullptr), FirmwareBufferLength(FixFirmwareLength(length))
 {
     if (data)
