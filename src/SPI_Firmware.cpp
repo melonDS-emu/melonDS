@@ -305,3 +305,49 @@ SPI_Firmware::Firmware::~Firmware()
 {
     delete[] FirmwareBuffer;
 }
+
+const SPI_Firmware::UserData& SPI_Firmware::Firmware::EffectiveUserData() const {
+    const std::array<union UserData, 2>& userdata = UserData();
+    bool userdata0ChecksumOk = userdata[0].ChecksumValid();
+    bool userdata1ChecksumOk = userdata[1].ChecksumValid();
+
+    if (userdata0ChecksumOk && userdata1ChecksumOk)
+    {
+        return userdata[0].UpdateCounter > userdata[1].UpdateCounter ? userdata[0] : userdata[1];
+    }
+    else if (userdata0ChecksumOk)
+    {
+        return userdata[0];
+    }
+    else if (userdata1ChecksumOk)
+    {
+        return userdata[1];
+    }
+    else
+    {
+        return userdata[0];
+    }
+}
+
+SPI_Firmware::UserData& SPI_Firmware::Firmware::EffectiveUserData() {
+    std::array<union UserData, 2>& userdata = UserData();
+    bool userdata0ChecksumOk = userdata[0].ChecksumValid();
+    bool userdata1ChecksumOk = userdata[1].ChecksumValid();
+
+    if (userdata0ChecksumOk && userdata1ChecksumOk)
+    {
+        return userdata[0].UpdateCounter > userdata[1].UpdateCounter ? userdata[0] : userdata[1];
+    }
+    else if (userdata0ChecksumOk)
+    {
+        return userdata[0];
+    }
+    else if (userdata1ChecksumOk)
+    {
+        return userdata[1];
+    }
+    else
+    {
+        return userdata[0];
+    }
+}

@@ -23,10 +23,12 @@
 #include <string_view>
 #include "types.h"
 #include "Platform.h"
+#include "SPI.h"
 
 namespace SPI_Firmware
 {
 
+u16 CRC16(const u8* data, u32 len, u32 start);
 using MacAddress = std::array<u8, 6>;
 using IpAddress = std::array<u8, 4>;
 
@@ -356,6 +358,15 @@ union UserData
 {
     UserData();
     void UpdateChecksum();
+    [[nodiscard]] bool ChecksumValid() const
+    {
+        bool baseChecksumOk = Checksum == CRC16(Bytes, 0x70, 0xFFFF);
+        bool extendedChecksumOk = Bytes[0x74] != 1 || ExtendedSettings.Checksum == CRC16(Bytes + 0x74, 0x8A, 0xFFFF);
+        // For our purposes, the extended checksum is OK if we're not using extended data
+
+        return baseChecksumOk && extendedChecksumOk;
+    }
+
     u8 Bytes[256];
     struct
     {
@@ -467,19 +478,17 @@ public:
 
     /**
      * @return Reference to whichever of the two user data sections
-     * has the highest update counter.
+     * will be used by the firmware.
+     * Specifically, the firmware will use whichever one has the valid checksum
+     * (or the newer one if they're both valid).
      */
-    [[nodiscard]] const union UserData& EffectiveUserData() const {
-        return UserData()[0].UpdateCounter > UserData()[1].UpdateCounter ? UserData()[0] : UserData()[1];
-    }
+    [[nodiscard]] const union UserData& EffectiveUserData() const;
 
     /**
      * @return Reference to whichever of the two user data sections
      * has the highest update counter.
      */
-    [[nodiscard]] union UserData& EffectiveUserData() {
-        return UserData()[0].UpdateCounter > UserData()[1].UpdateCounter ? UserData()[0] : UserData()[1];
-    }
+    [[nodiscard]] union UserData& EffectiveUserData();
 
     u32 Hold;
     u8 CurCmd;
