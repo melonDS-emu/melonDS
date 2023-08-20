@@ -29,6 +29,10 @@ using Platform::LogLevel;
 
 static int SocketSetBlocking(int fd, bool block)
 {
+#if MOCKTEST
+	return 0;
+#endif
+
 	if (fd < 0) return -1;
 
 #ifdef _WIN32
@@ -57,6 +61,11 @@ bool GdbStub::Init()
 {
 	Log(LogLevel::Info, "[GDB] initializing GDB stub for core %d on port %d\n",
 		Cb->GetCPU(), Port);
+
+#if MOCKTEST
+	SockFd = 0;
+	return true;
+#endif
 
 #ifndef _WIN32
 	/*void* fn = SIG_IGN;
@@ -264,10 +273,14 @@ StubState GdbStub::Poll(bool wait)
 		// quickly handle partly-received packets
 		struct sockaddr_in* client = (struct sockaddr_in*)ClientSA;
 		socklen_t len = sizeof(*client);
+#if MOCKTEST
+		ConnFd = 0;
+#else
 #ifdef __linux__
 		ConnFd = accept4(SockFd, (struct sockaddr*)client, &len, /*SOCK_NONBLOCK|*/SOCK_CLOEXEC);
 #else
 		ConnFd = accept(SockFd, (struct sockaddr*)client, &len);
+#endif
 #endif
 
 		if (ConnFd < 0) return StubState::NoConn;
@@ -284,6 +297,9 @@ StubState GdbStub::Poll(bool wait)
 		Handle_Question(this, NULL, 0); // ugly hack but it should work
 	}
 
+#if MOCKTEST
+	// nothing...
+#else
 #ifndef _WIN32
 	struct pollfd pfd;
 	pfd.fd = ConnFd;
@@ -328,6 +344,7 @@ StubState GdbStub::Poll(bool wait)
 	{
 		return StubState::None;
 	}
+#endif
 #endif
 
 	ReadResult res = Proto::MsgRecv(ConnFd, Cmdbuf);
@@ -394,7 +411,7 @@ ExecResult GdbStub::SubcmdExec(const u8* cmd, ssize_t len, const SubcmdHandler* 
 
 ExecResult GdbStub::CmdExec(const CmdHandler* handlers)
 {
-	//Log(LogLevel::Debug, "[GDB] command in: '%s'\n", Cmdbuf);
+	Log(LogLevel::Debug, "[GDB] command in: '%s'\n", Cmdbuf);
 
 	for (size_t i = 0; handlers[i].Handler != NULL; ++i)
 	{

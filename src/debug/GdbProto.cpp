@@ -24,6 +24,7 @@
 
 #include "GdbProto.h"
 
+
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -60,19 +61,38 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 
 	bool first = true;
 
+	printf("--- dataoff=%zd\n", dataoff);
 	if (dataoff != 0) {
-		if (PacketBuf[0] == '\x04') return ReadResult::Eof;
-		else if (PacketBuf[0] != '$')
-		{
-			__builtin_trap();
-			return ReadResult::Wut;
-		}
+		printf("--- got preexisting: %s\n", PacketBuf);
 
-		for (ssize_t i = 1; i < dataoff; ++i)
+		ssize_t datastart = 0;
+		while (true)
+		{
+			if (PacketBuf[datastart] == '\x04') return ReadResult::Eof;
+			else if (PacketBuf[datastart] == '+' || PacketBuf[datastart] == '-')
+			{
+				++datastart;
+				continue;
+			}
+			else if (PacketBuf[datastart] == '$')
+			{
+				++datastart;
+				break;
+			}
+			else
+			{
+				__builtin_trap();
+				return ReadResult::Wut;
+			}
+		}
+		printf("--- datastart=%zd\n", datastart);
+
+		for (ssize_t i = datastart; i < dataoff; ++i)
 		{
 			if (PacketBuf[i] == '#')
 			{
-				cksumoff = dataoff + i + 1;
+				cksumoff = i + 1;
+				printf("--- cksumoff=%zd\n", cksumoff);
 				break;
 			}
 
@@ -81,9 +101,16 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 
 		if (cksumoff >= 0)
 		{
-			recv_total = dataoff;
-			dataoff = 0;
+			recv_total = dataoff - datastart + 1;
+			dataoff = cksumoff + 2 - datastart + 1;
+			cksumoff -= datastart - 1;
 
+			memmove(&PacketBuf[1], &PacketBuf[datastart], recv_total);
+			PacketBuf[0] = '$';
+			PacketBuf[recv_total] = 0;
+
+			printf("=== cksumoff=%zi recv_total=%zi datastart=%zi dataoff=%zi\n==> %s\n",
+					cksumoff, recv_total, datastart, dataoff, PacketBuf);
 			//break;
 		}
 	}
@@ -95,12 +122,29 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 
 		memset(pkt, 0, sizeof(PacketBuf) - dataoff);
 		int flag = 0;
+#if MOCKTEST
+		static bool FIRST = false;
+		if (FIRST) {
+			printf("%s", "[==>] TEST DONE\n");
+			__builtin_trap();
+		}
+		FIRST = true;
+
+		const char* testinp1 = "+$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;memory-tagging+;xmlRegisters=i386#77$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;memory-tagging+;xmlRegisters=i386#77$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;memory-tagging+;xmlRegisters=i386#77$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;memory-tagging+;xmlRegisters=i386#77";
+		const char* testinp2 = "+$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;memory-tagging+;xmlRegisters=i386#77$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;memory-tagging+;xmlRegisters=i386#77$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;memory-tagging+;xmlRegisters=i386#77$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;memory-tagging+;xmlRegisters=i386#77---+$vMustReplyEmpty#3a";
+
+		const char* testinp = testinp1;
+
+		n = strlen(testinp);
+		memcpy(pkt, testinp, strlen(testinp));
+#else
 #ifndef _WIN32
 		if (first) flag |= MSG_DONTWAIT;
 		n = recv(connfd, pkt, sizeof(PacketBuf) - dataoff, flag);
 #else
 		// fuck windows
 		n = recv(connfd, (char*)pkt, sizeof(PacketBuf) - dataoff, flag);
+#endif
 #endif
 
 		if (n <= 0)
@@ -113,7 +157,7 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 			}
 		}
 
-		//Log(LogLevel::Debug, "[GDB] recv() %zd bytes: '%s' (%02x)\n", n, pkt, pkt[0]);
+		Log(LogLevel::Debug, "[GDB] recv() %zd bytes: '%s' (%02x)\n", n, pkt, pkt[0]);
 		first = false;
 
 		do
@@ -142,7 +186,7 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 
 		recv_total += n;
 
-		//Log(LogLevel::Debug, "[GDB] recv() after skipping: n=%zd, recv_total=%zd\n", n, recv_total);
+		Log(LogLevel::Debug, "[GDB] recv() after skipping: n=%zd, recv_total=%zd\n", n, recv_total);
 
 		for (ssize_t i = (dataoff == 0) ? 1 : 0; i < n; ++i)
 		{
@@ -168,7 +212,7 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 	u8 ck = (hex2nyb(PacketBuf[cksumoff+0]) << 4)
 		| hex2nyb(PacketBuf[cksumoff+1]);
 
-	//Log(LogLevel::Debug, "[GDB] got pkt, checksum: %02x vs %02x\n", ck, sum);
+	Log(LogLevel::Debug, "[GDB] got pkt, checksum: %02x vs %02x\n", ck, sum);
 
 	if (ck != sum)
 	{
@@ -192,6 +236,8 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 			// huh, we have the start of the next packet
 			dataoff = recv_total - (cksumoff + 2);
 			memmove(PacketBuf, &PacketBuf[cksumoff + 2], (size_t)dataoff);
+			PacketBuf[dataoff] = 0;
+			Log(LogLevel::Debug, "[GDB] got more: cksumoff=%zd, recvtotal=%zd, remain=%zd\n==> %s\n", cksumoff, recv_total, dataoff, PacketBuf);
 		}
 		else dataoff = 0;
 	}
@@ -201,8 +247,12 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 
 int SendAck(int connfd)
 {
-	//Log(LogLevel::Debug, "[GDB] send ack\n");
+	Log(LogLevel::Debug, "[GDB] send ack\n");
 	u8 v = '+';
+#if MOCKTEST
+	return 1;
+#endif
+
 #ifdef _WIN32
 	// fuck windows
 	return send(connfd, (const char*)&v, 1, 0);
@@ -213,8 +263,12 @@ int SendAck(int connfd)
 
 int SendNak(int connfd)
 {
-	//Log(LogLevel::Debug, "[GDB] send nak\n");
+	Log(LogLevel::Debug, "[GDB] send nak\n");
 	u8 v = '-';
+#if MOCKTEST
+	return 1;
+#endif
+
 #ifdef _WIN32
 	// fuck windows
 	return send(connfd, (const char*)&v, 1, 0);
@@ -225,6 +279,11 @@ int SendNak(int connfd)
 
 static int WaitAckBlocking(int connfd, u8* ackp, int to_ms)
 {
+#if MOCKTEST
+	*ackp = '+';
+	return 0;
+#endif
+
 #ifdef _WIN32
 	fd_set infd, outfd, errfd;
 	FD_ZERO(&infd); FD_ZERO(&outfd); FD_ZERO(&errfd);
@@ -298,11 +357,15 @@ int Resp(int connfd, const u8* data1, size_t len1, const u8* data2, size_t len2)
 		ssize_t r;
 		u8 ack;
 
-		//Log(LogLevel::Debug, "[GDB] send resp: '%s'\n", RespBuf);
+		Log(LogLevel::Debug, "[GDB] send resp: '%s'\n", RespBuf);
+#if MOCKTEST
+		r = totallen+4;
+#else
 #ifdef _WIN32
 		r = send(connfd, (const char*)RespBuf, totallen+4, 0);
 #else
 		r = send(connfd, RespBuf, totallen+4, 0);
+#endif
 #endif
 		if (r < 0) return r;
 

@@ -7,6 +7,10 @@
 
 #include "GdbStub.h" /* class GdbStub */
 
+
+#define MOCKTEST 0
+
+
 namespace Gdb {
 
 constexpr int GDBPROTO_BUFFER_CAPACITY = 1024+128;
