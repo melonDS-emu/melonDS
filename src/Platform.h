@@ -125,7 +125,7 @@ enum ConfigEntry
     DSiSD_FolderSync,
     DSiSD_FolderPath,
 
-    Firm_OverrideSettings,
+    Firm_OverrideSettings [[deprecated("Individual fields can now be overridden")]],
     Firm_Username,
     Firm_Language,
     Firm_BirthdayMonth,

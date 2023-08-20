@@ -19,21 +19,28 @@
 #ifndef SPI_H
 #define SPI_H
 
+#include <algorithm>
+#include <array>
+#include <string_view>
+#include <string.h>
+
 #include "Savestate.h"
+#include "SPI_Firmware.h"
 
 namespace SPI_Firmware
 {
 
-void SetupDirectBoot(bool dsi);
+u16 CRC16(const u8* data, u32 len, u32 start);
 
 u32 FixFirmwareLength(u32 originalLength);
 
 u32 GetFirmwareLength();
-u8 GetConsoleType();
-u8 GetWifiVersion();
-u8 GetNWifiVersion();
-u8 GetRFVersion();
-u8* GetWifiMAC();
+[[deprecated("Use GetFirmwareHeader instead")]] u8 GetConsoleType();
+[[deprecated("Use GetFirmwareHeader instead")]] u8 GetWifiVersion();
+[[deprecated("Use GetFirmwareHeader instead")]] u8 GetNWifiVersion();
+[[deprecated("Use GetFirmwareHeader instead")]] u8 GetRFVersion();
+[[deprecated("Use GetFirmwareHeader instead")]] u8* GetWifiMAC();
+const FirmwareHeader* GetFirmwareHeader();
 
 }
 
