@@ -190,12 +190,6 @@ SPI_Firmware::Firmware::Firmware(int consoletype)
 
     auto& settings = reinterpret_cast<union UserData&>(userdataaddress);
     settings = SPI_Firmware::UserData();
-    memset(userdataaddress, 0, 0x74);
-    settings.Version = 5;
-    settings.BirthdayMonth = 1;
-    settings.BirthdayDay = 1;
-    settings.Settings = Language::English | BacklightLevel::Max; // NOLINT(*-suspicious-enum-usage)
-    settings.Checksum = CRC16(userdataaddress, 0x70, 0xFFFF);
 
     // wifi access points
     // TODO: WFC ID??
@@ -203,7 +197,6 @@ SPI_Firmware::Firmware::Firmware(int consoletype)
     u8* accesspointsaddress = FirmwareBuffer + 0x3fa00;
     auto& accesspoints = reinterpret_cast<std::array<WifiAccessPoint, 3>&>(accesspointsaddress);
 
-    u32 apdata = userdata - 0x400;
     accesspoints = {
         WifiAccessPoint(consoletype),
         WifiAccessPoint(),
