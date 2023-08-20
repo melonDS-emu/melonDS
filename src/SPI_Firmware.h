@@ -437,8 +437,19 @@ public:
 
     [[nodiscard]] u32 Length() const { return FirmwareBufferLength; }
 
-    [[nodiscard]] const std::array<UserData, 2>& UserData() const;
-    [[nodiscard]] std::array<union UserData, 2>& UserData();
+    [[nodiscard]] const std::array<UserData, 2>& UserData() const
+    {
+        u32 offset = Header().UserSettingsOffset << 3;
+        u8* userdataAddress = FirmwareBuffer + offset;
+        return *reinterpret_cast<const std::array<union UserData, 2>*>(userdataAddress);
+    };
+
+    [[nodiscard]] std::array<union UserData, 2>& UserData()
+    {
+        u32 offset = Header().UserSettingsOffset << 3;
+        u8* userdataAddress = FirmwareBuffer + offset;
+        return *reinterpret_cast<std::array<union UserData, 2>*>(userdataAddress);
+    }
 
     /**
      * @return Reference to whichever of the two user data sections
