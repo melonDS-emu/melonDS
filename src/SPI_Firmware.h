@@ -431,8 +431,8 @@ public:
     Firmware& operator=(Firmware&& other) noexcept;
     ~Firmware();
 
-    [[nodiscard]] FirmwareHeader& Header() { return reinterpret_cast<FirmwareHeader&>(FirmwareBuffer); }
-    [[nodiscard]] const FirmwareHeader& Header() const { return reinterpret_cast<const FirmwareHeader&>(FirmwareBuffer); }
+    [[nodiscard]] FirmwareHeader& Header() { return *reinterpret_cast<FirmwareHeader*>(FirmwareBuffer); }
+    [[nodiscard]] const FirmwareHeader& Header() const { return *reinterpret_cast<const FirmwareHeader*>(FirmwareBuffer); }
 
     [[nodiscard]] const std::array<WifiAccessPoint, 3>& AccessPoints() const;
     [[nodiscard]] std::array<WifiAccessPoint, 3>& AccessPoints();

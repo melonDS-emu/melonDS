@@ -174,13 +174,12 @@ SPI_Firmware::Firmware::Firmware(int consoletype)
     FirmwareBufferLength = DEFAULT_FIRMWARE_LENGTH;
     FirmwareBuffer = new u8[FirmwareBufferLength];
     memset(FirmwareBuffer, 0xFF, FirmwareBufferLength);
-    FirmwareBufferLength = FirmwareBufferLength - 1;
+    FirmwareMask = FirmwareBufferLength - 1;
 
     memset(FirmwareBuffer, 0, 0x1D);
-    auto& header = reinterpret_cast<FirmwareHeader&>(FirmwareBuffer);
+    FirmwareHeader& header = *reinterpret_cast<FirmwareHeader*>(FirmwareBuffer);
     header = FirmwareHeader(consoletype);
     FirmwareBuffer[0x2FF] = 0x80; // boot0: use NAND as stage2 medium
-    FirmwareMask = FirmwareBufferLength - 1;
 
     // user data
 
@@ -188,14 +187,14 @@ SPI_Firmware::Firmware::Firmware(int consoletype)
     *(u16*)&FirmwareBuffer[0x20] = userdata >> 3;
     u8* userdataaddress = FirmwareBuffer + userdata;
 
-    auto& settings = reinterpret_cast<union UserData&>(userdataaddress);
+    union UserData& settings = *reinterpret_cast<union UserData*>(userdataaddress);
     settings = SPI_Firmware::UserData();
 
     // wifi access points
     // TODO: WFC ID??
 
     u8* accesspointsaddress = FirmwareBuffer + 0x3fa00;
-    auto& accesspoints = reinterpret_cast<std::array<WifiAccessPoint, 3>&>(accesspointsaddress);
+    std::array<WifiAccessPoint, 3>& accesspoints = *reinterpret_cast<std::array<WifiAccessPoint, 3>*>(accesspointsaddress);
 
     accesspoints = {
         WifiAccessPoint(consoletype),
@@ -206,7 +205,7 @@ SPI_Firmware::Firmware::Firmware(int consoletype)
     if (consoletype == 1)
     {
         u8* extendedaccesspointsaddress = FirmwareBuffer + 0x1f400;
-        auto& extendedaccesspoints = reinterpret_cast<std::array<ExtendedWifiAccessPoint, 3>&>(extendedaccesspointsaddress);
+        std::array<ExtendedWifiAccessPoint, 3>& extendedaccesspoints = *reinterpret_cast<std::array<ExtendedWifiAccessPoint, 3>*>(extendedaccesspointsaddress);
 
         extendedaccesspoints = {
             ExtendedWifiAccessPoint(),
