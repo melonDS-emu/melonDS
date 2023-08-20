@@ -217,7 +217,7 @@ SPI_Firmware::Firmware::Firmware(int consoletype)
     }
 }
 
-SPI_Firmware::Firmware::Firmware(Platform::FileHandle* file) : FirmwareBuffer(nullptr), FirmwareBufferLength(0)
+SPI_Firmware::Firmware::Firmware(Platform::FileHandle* file) : FirmwareBuffer(nullptr), FirmwareBufferLength(0), FirmwareMask(0)
 {
     if (file)
     {
