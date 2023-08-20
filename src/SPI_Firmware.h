@@ -102,7 +102,7 @@ union WifiAccessPoint
         IpAddress SecondaryDns;
         u8 SubnetMask;
         u8 Unknown0[21];
-        WepMode WepMode; // todo union
+        WepMode WepMode;
         AccessPointStatus Status;
         u8 SSIDLength;
         u8 Unknown1;
