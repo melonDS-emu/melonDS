@@ -20,6 +20,7 @@
 #define MELONDS_SPI_FIRMWARE_H
 
 #include <array>
+#include <string_view>
 #include "types.h"
 
 namespace SPI_Firmware
@@ -31,6 +32,8 @@ using IpAddress = std::array<u8, 4>;
 constexpr unsigned DEFAULT_FIRMWARE_LENGTH = 0x20000;
 constexpr MacAddress DEFAULT_MAC = {0x00, 0x09, 0xBF, 0x11, 0x22, 0x33};
 constexpr unsigned MAX_SSID_LENGTH = 32;
+constexpr std::u16string_view  DEFAULT_USERNAME = u"melonDS";
+constexpr const char* const DEFAULT_SSID = "melonDS";
 
 enum class WepMode : u8
 {
