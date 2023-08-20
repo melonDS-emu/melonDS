@@ -436,6 +436,7 @@ public:
     [[nodiscard]] const u8* Buffer() const { return FirmwareBuffer; }
 
     [[nodiscard]] u32 Length() const { return FirmwareBufferLength; }
+    [[nodiscard]] u32 Mask() const { return FirmwareMask; }
 
     [[nodiscard]] const std::array<UserData, 2>& UserData() const
     {
