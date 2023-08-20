@@ -354,6 +354,7 @@ static_assert(sizeof(ExtendedUserSettings) == 0x28, "ExtendedUserSettings should
 union UserData
 {
     UserData();
+    void UpdateChecksum();
     u8 Bytes[256];
     struct
     {
@@ -391,7 +392,7 @@ union UserData
                 Language ExtendedLanguage; // padded
                 u16 SupportedLanguageMask;
                 u8 Unused0[0x86];
-                u16 ExtendedChecksum;
+                u16 Checksum;
             } ExtendedSettings;
         };
     };

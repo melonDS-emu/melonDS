@@ -160,6 +160,15 @@ SPI_Firmware::UserData::UserData()
     Checksum = CRC16(Bytes, 0x70, 0xFFFF);
 }
 
+void SPI_Firmware::UserData::UpdateChecksum()
+{
+    Checksum = CRC16(Bytes, 0x70, 0xFFFF);
+    if (ExtendedSettings.Unknown0 == 0x01)
+    {
+        ExtendedSettings.Checksum = CRC16(&Bytes[0x74], 0x8A, 0xFFFF);
+    }
+}
+
 SPI_Firmware::Firmware::Firmware(int consoletype)
 {
     FirmwareBufferLength = DEFAULT_FIRMWARE_LENGTH;
