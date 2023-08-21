@@ -233,16 +233,8 @@ private:
 
         s32 SetupDummy(s32 x0)
         {
-            if (side)
-            {
-                dx = -0x40000;
-                x0--;
-            }
-            else
-            {
-                dx = 0;
-            }
-
+            dx = 0;
+            
             this->x0 = x0;
             this->xmin = x0;
             this->xmax = x0;
@@ -278,7 +270,6 @@ private:
             else
             {
                 this->xmin = x0;
-                if (side) this->xmin--;
                 this->xmax = this->xmin;
                 this->Negative = false;
             }
@@ -309,7 +300,7 @@ private:
 
                 if (XMajor)              dx = Negative ? (0x20000 + 0x40000) : (Increment - 0x20000);
                 else if (Increment != 0) dx = Negative ? 0x40000 : 0;
-                else                     dx = -0x40000;
+                else                     dx = 0;
             }
             else
             {
