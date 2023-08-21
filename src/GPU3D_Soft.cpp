@@ -746,7 +746,6 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         std::swap(xstart, xend);
         std::swap(wl, wr);
         std::swap(zl, zr);
-        std::swap(l_filledge, r_filledge);
         
         // CHECKME: edge fill rules for swapped opaque shadow mask polygons
         if ((polyalpha < 31) || (RenderDispCnt & (3<<4)))
