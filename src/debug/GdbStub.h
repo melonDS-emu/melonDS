@@ -138,6 +138,19 @@ public:
 	Gdb::ExecResult SubcmdExec(const u8* cmd, ssize_t len, const SubcmdHandler* handlers);
 	Gdb::ExecResult CmdExec(const CmdHandler* handlers);
 
+public:
+	int SendAck();
+	int SendNak();
+
+	int Resp(const u8* data1, size_t len1, const u8* data2 = NULL, size_t len2 = 0);
+	int RespC(const char* data1, size_t len1, const u8* data2 = NULL, size_t len2 = 0);
+#if defined(__GCC__) || defined(__clang__)
+	__attribute__((__format__(printf, 2, 3)))
+#endif
+	int RespFmt(const char* fmt, ...);
+
+	int RespStr(const char* str);
+
 private:
 	void Disconnect();
 	StubState HandlePacket();
@@ -154,12 +167,14 @@ private:
 	TgtStatus Stat;
 	u32 CurBkpt, CurWatchpt;
 	bool StatFlag;
+	bool NoAck;
 
 	std::map<u32, BpWp> BpList;
 	std::vector<BpWp> WpList;
 
 	static SubcmdHandler Handlers_v[];
 	static SubcmdHandler Handlers_q[];
+	static SubcmdHandler Handlers_Q[];
 	static CmdHandler Handlers_top[];
 };
 

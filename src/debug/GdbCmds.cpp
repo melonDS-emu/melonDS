@@ -99,22 +99,22 @@ const char* TARGET_XML_ARM9 =
 	// TODO: CP15?
 
 
-static int DoQResponse(int connfd, const u8* query, const char* data, const size_t len)
+static int DoQResponse(GdbStub* stub, const u8* query, const char* data, const size_t len)
 {
 	size_t qaddr, qlen;
 
 	Log(LogLevel::Debug, "[GDB qresp] query='%s'\n", query);
 	if (sscanf((const char*)query, "%zx,%zx", &qaddr, &qlen) != 2)
 	{
-		return Proto::RespStr(connfd, "E01");
+		return stub->RespStr("E01");
 	}
 	else if (qaddr >  len)
 	{
-		return Proto::RespStr(connfd, "E01");
+		return stub->RespStr("E01");
 	}
 	else if (qaddr == len)
 	{
-		return Proto::RespStr(connfd, "l");
+		return stub->RespStr("l");
 	}
 
 	size_t bleft = len - qaddr;
@@ -123,7 +123,7 @@ static int DoQResponse(int connfd, const u8* query, const char* data, const size
 	Log(LogLevel::Debug, "[GDB qresp] qaddr=%zu qlen=%zu left=%zu outlen=%zu\n",
 			qaddr, qlen, bleft, outlen);
 
-	return Proto::RespC(connfd, "m", 1, (const u8*)&data[qaddr], outlen);
+	return stub->RespC("m", 1, (const u8*)&data[qaddr], outlen);
 }
 
 __attribute__((__aligned__(4)))
@@ -139,7 +139,7 @@ ExecResult GdbStub::Handle_g(GdbStub* stub, const u8* cmd, ssize_t len)
 		hexfmt32(&regstrbuf[i*4*2], v);
 	}
 
-	Proto::Resp(stub->ConnFd, regstrbuf, GDB_ARCH_N_REG*4*2);
+	stub->Resp(regstrbuf, GDB_ARCH_N_REG*4*2);
 
 	return ExecResult::Ok;
 }
@@ -149,7 +149,7 @@ ExecResult GdbStub::Handle_G(GdbStub* stub, const u8* cmd, ssize_t len)
 	if (len != GDB_ARCH_N_REG*4*2)
 	{
 		Log(LogLevel::Error, "[GDB] REG WRITE ERR: BAD LEN: %zd != %d!\n", len, GDB_ARCH_N_REG*4*2);
-		Proto::RespStr(stub->ConnFd, "E01");
+		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
 
@@ -159,7 +159,7 @@ ExecResult GdbStub::Handle_G(GdbStub* stub, const u8* cmd, ssize_t len)
 		stub->Cb->WriteReg(static_cast<Register>(i), v);
 	}
 
-	Proto::RespStr(stub->ConnFd, "OK");
+	stub->RespStr("OK");
 
 	return ExecResult::Ok;
 }
@@ -170,12 +170,12 @@ ExecResult GdbStub::Handle_m(GdbStub* stub, const u8* cmd, ssize_t len)
 
 	if (sscanf((const char*)cmd, "%08X,%08X", &addr, &llen) != 2)
 	{
-		Proto::RespStr(stub->ConnFd, "E01");
+		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
 	else if (llen > (GDBPROTO_BUFFER_CAPACITY/2))
 	{
-		Proto::RespStr(stub->ConnFd, "E02");
+		stub->RespStr("E02");
 		return ExecResult::Ok;
 	}
 	end = addr + llen;
@@ -248,7 +248,7 @@ ExecResult GdbStub::Handle_m(GdbStub* stub, const u8* cmd, ssize_t len)
 end:
 	assert(addr == end);
 
-	Proto::Resp(stub->ConnFd, datastr, llen*2);
+	stub->Resp(datastr, llen*2);
 
 	return ExecResult::Ok;
 }
@@ -260,12 +260,12 @@ ExecResult GdbStub::Handle_M(GdbStub* stub, const u8* cmd, ssize_t len)
 
 	if (sscanf((const char*)cmd, "%08X,%08X:%n", &addr, &llen, &inoff) != 2)
 	{
-		Proto::RespStr(stub->ConnFd, "E01");
+		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
 	else if (llen > (GDBPROTO_BUFFER_CAPACITY/2))
 	{
-		Proto::RespStr(stub->ConnFd, "E02");
+		stub->RespStr("E02");
 		return ExecResult::Ok;
 	}
 	end = addr + llen;
@@ -337,7 +337,7 @@ ExecResult GdbStub::Handle_M(GdbStub* stub, const u8* cmd, ssize_t len)
 end:
 	assert(addr == end);
 
-	Proto::RespStr(stub->ConnFd, "OK");
+	stub->RespStr("OK");
 
 	return ExecResult::Ok;
 }
@@ -349,12 +349,12 @@ ExecResult GdbStub::Handle_X(GdbStub* stub, const u8* cmd, ssize_t len)
 
 	if (sscanf((const char*)cmd, "%08X,%08X:%n", &addr, &llen, &inoff) != 2)
 	{
-		Proto::RespStr(stub->ConnFd, "E01");
+		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
 	else if (llen > (GDBPROTO_BUFFER_CAPACITY/2))
 	{
-		Proto::RespStr(stub->ConnFd, "E02");
+		stub->RespStr("E02");
 		return ExecResult::Ok;
 	}
 	end = addr + llen;
@@ -427,7 +427,7 @@ ExecResult GdbStub::Handle_X(GdbStub* stub, const u8* cmd, ssize_t len)
 end:
 	assert(addr == end);
 
-	Proto::RespStr(stub->ConnFd, "OK");
+	stub->RespStr("OK");
 
 	return ExecResult::Ok;
 }
@@ -442,12 +442,12 @@ ExecResult GdbStub::Handle_c(GdbStub* stub, const u8* cmd, ssize_t len)
 		{
 			if (sscanf((const char*)cmd, "%08X", &addr) != 1)
 			{
-				Proto::RespStr(stub->ConnFd, "E01");
+				stub->RespStr("E01");
 			} // else: ok
 		}
 		else
 		{
-			Proto::RespStr(stub->ConnFd, "E01");
+			stub->RespStr("E01");
 		}
 	} // else: continue at current
 
@@ -467,13 +467,13 @@ ExecResult GdbStub::Handle_s(GdbStub* stub, const u8* cmd, ssize_t len) {
 		if (len <= 8)
 		{
 			if (sscanf((const char*)cmd, "%08X", &addr) != 1) {
-				Proto::RespStr(stub->ConnFd, "E01");
+				stub->RespStr("E01");
 				return ExecResult::Ok;
 			} // else: ok
 		}
 		else
 		{
-			Proto::RespStr(stub->ConnFd, "E01");
+			stub->RespStr("E01");
 			return ExecResult::Ok;
 		}
 	} // else: continue at current
@@ -491,13 +491,13 @@ ExecResult GdbStub::Handle_p(GdbStub* stub, const u8* cmd, ssize_t len)
 	int reg;
 	if (sscanf((const char*)cmd, "%x", &reg) != 1 || reg < 0 || reg >= GDB_ARCH_N_REG)
 	{
-		Proto::RespStr(stub->ConnFd, "E01");
+		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
 
 	u32 v = stub->Cb->ReadReg(static_cast<Register>(reg));
 	hexfmt32(tempdatabuf, v);
-	Proto::Resp(stub->ConnFd, tempdatabuf, 4*2);
+	stub->Resp(tempdatabuf, 4*2);
 
 	return ExecResult::Ok;
 }
@@ -509,14 +509,14 @@ ExecResult GdbStub::Handle_P(GdbStub* stub, const u8* cmd, ssize_t len)
 	if (sscanf((const char*)cmd, "%x=%n", &reg, &dataoff) != 1 || reg < 0
 			|| reg >= GDB_ARCH_N_REG || dataoff + 4*2 > len)
 	{
-		Proto::RespStr(stub->ConnFd, "E01");
+		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
 
 	u32 v = unhex32(&cmd[dataoff]);
 	stub->Cb->WriteReg(static_cast<Register>(reg), v);
 
-	Proto::RespStr(stub->ConnFd, "OK");
+	stub->RespStr("OK");
 
 	return ExecResult::Ok;
 }
@@ -530,11 +530,11 @@ ExecResult GdbStub::Handle_H(GdbStub* stub, const u8* cmd, ssize_t len)
 	(void)operation;
 	if (thread_id <= 1)
 	{
-		Proto::RespStr(stub->ConnFd, "OK");
+		stub->RespStr("OK");
 	}
 	else
 	{
-		Proto::RespStr(stub->ConnFd, "E01");
+		stub->RespStr("E01");
 	}
 
 	return ExecResult::Ok;
@@ -552,16 +552,16 @@ ExecResult GdbStub::Handle_Question(GdbStub* stub, const u8* cmd, ssize_t len)
 	switch (st)
 	{
 	case TgtStatus::None: // no target!
-		Proto::RespStr(stub->ConnFd, "W00");
+		stub->RespStr("W00");
 		break;
 
 	case TgtStatus::Running: // will break very soon due to retval
 	case TgtStatus::BreakReq:
-		Proto::RespFmt(stub->ConnFd, "S%02X", GdbSignal::INT);
+		stub->RespFmt("S%02X", GdbSignal::INT);
 		break;
 
 	case TgtStatus::SingleStep:
-		Proto::RespFmt(stub->ConnFd, "S%02X", GdbSignal::TRAP);
+		stub->RespFmt("S%02X", GdbSignal::TRAP);
 		break;
 
 	case TgtStatus::Bkpt:
@@ -574,28 +574,28 @@ ExecResult GdbStub::Handle_Question(GdbStub* stub, const u8* cmd, ssize_t len)
 	bkpt_rest:
 		if (!~arg)
 		{
-			Proto::RespFmt(stub->ConnFd, "S%02X", GdbSignal::TRAP);
+			stub->RespFmt("S%02X", GdbSignal::TRAP);
 		}
 		else
 		{
 			switch (typ)
 			{
 			case 1:
-				Proto::RespFmt(stub->ConnFd, "S%02X", GdbSignal::TRAP);
-				//Proto::RespFmt(stub->ConnFd, "T%02Xhwbreak:"/*"%08X"*/";", GdbSignal::TRAP/*, arg*/);
+				stub->RespFmt("S%02X", GdbSignal::TRAP);
+				//stub->RespFmt("T%02Xhwbreak:"/*"%08X"*/";", GdbSignal::TRAP/*, arg*/);
 				break;
 			case 2:
-				Proto::RespFmt(stub->ConnFd, "S%02X", GdbSignal::TRAP);
-				//Proto::RespFmt(stub->ConnFd, "T%02Xwatch:"/*"%08X"*/";", GdbSignal::TRAP/*, arg*/);
+				stub->RespFmt("S%02X", GdbSignal::TRAP);
+				//stub->RespFmt("T%02Xwatch:"/*"%08X"*/";", GdbSignal::TRAP/*, arg*/);
 				break;
 			default:
-				Proto::RespFmt(stub->ConnFd, "S%02X", GdbSignal::TRAP);
+				stub->RespFmt("S%02X", GdbSignal::TRAP);
 				break;
 			}
 		}
 		break;
 	case TgtStatus::BkptInsn:
-		Proto::RespFmt(stub->ConnFd, "T%02Xswbreak:%08X;", GdbSignal::TRAP,
+		stub->RespFmt("T%02Xswbreak:%08X;", GdbSignal::TRAP,
 				stub->Cb->ReadReg(Register::pc));
 		break;
 
@@ -603,10 +603,10 @@ ExecResult GdbStub::Handle_Question(GdbStub* stub, const u8* cmd, ssize_t len)
 		// like that (plus it sounds confusing)
 	case TgtStatus::FaultData:
 	case TgtStatus::FaultIAcc:
-		Proto::RespFmt(stub->ConnFd, "S%02X", GdbSignal::SEGV);
+		stub->RespFmt("S%02X", GdbSignal::SEGV);
 		break;
 	case TgtStatus::FaultInsn:
-		Proto::RespFmt(stub->ConnFd, "S%02X", GdbSignal::ILL);
+		stub->RespFmt("S%02X", GdbSignal::ILL);
 		break;
 	default: break;
 	}
@@ -616,13 +616,13 @@ ExecResult GdbStub::Handle_Question(GdbStub* stub, const u8* cmd, ssize_t len)
 
 ExecResult GdbStub::Handle_Exclamation(GdbStub* stub, const u8* cmd, ssize_t len)
 {
-	Proto::RespStr(stub->ConnFd, "OK");
+	stub->RespStr("OK");
 	return ExecResult::Ok;
 }
 
 ExecResult GdbStub::Handle_D(GdbStub* stub, const u8* cmd, ssize_t len)
 {
-	Proto::RespStr(stub->ConnFd, "OK");
+	stub->RespStr("OK");
 	return ExecResult::Detached;
 }
 
@@ -645,7 +645,7 @@ ExecResult GdbStub::Handle_z(GdbStub* stub, const u8* cmd, ssize_t len)
 
 	if (sscanf((const char*)cmd, "%d,%x,%u", &typ, &addr, &kind) != 3)
 	{
-		Proto::RespStr(stub->ConnFd, "E01");
+		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
 
@@ -658,11 +658,11 @@ ExecResult GdbStub::Handle_z(GdbStub* stub, const u8* cmd, ssize_t len)
 		stub->DelWatchpt(addr, kind, typ);
 		break;
 	default:
-		Proto::RespStr(stub->ConnFd, "E02");
+		stub->RespStr("E02");
 		return ExecResult::Ok;
 	}
 
-	Proto::RespStr(stub->ConnFd, "OK");
+	stub->RespStr("OK");
 	return ExecResult::Ok;
 }
 
@@ -673,7 +673,7 @@ ExecResult GdbStub::Handle_Z(GdbStub* stub, const u8* cmd, ssize_t len)
 
 	if (sscanf((const char*)cmd, "%d,%x,%u", &typ, &addr, &kind) != 3)
 	{
-		Proto::RespStr(stub->ConnFd, "E01");
+		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
 
@@ -686,11 +686,11 @@ ExecResult GdbStub::Handle_Z(GdbStub* stub, const u8* cmd, ssize_t len)
 		stub->AddWatchpt(addr, kind, typ);
 		break;
 	default:
-		Proto::RespStr(stub->ConnFd, "E02");
+		stub->RespStr("E02");
 		return ExecResult::Ok;
 	}
 
-	Proto::RespStr(stub->ConnFd, "OK");
+	stub->RespStr("OK");
 	return ExecResult::Ok;
 }
 
@@ -705,7 +705,7 @@ ExecResult GdbStub::Handle_q_HostInfo(GdbStub* stub, const u8* cmd, ssize_t len)
 	default: break;
 	}
 
-	Proto::RespStr(stub->ConnFd, resp);
+	stub->RespStr(resp);
 	return ExecResult::Ok;
 }
 
@@ -720,8 +720,8 @@ ExecResult GdbStub::Handle_q_Rcmd(GdbStub* stub, const u8* cmd, ssize_t len)
 
 	int r = stub->Cb->RemoteCmd(tempdatabuf, len/2);
 
-	if (r) Proto::RespFmt(stub->ConnFd, "E%02X", r&0xff);
-	else Proto::RespStr(stub->ConnFd, "OK");
+	if (r) stub->RespFmt("E%02X", r&0xff);
+	else stub->RespStr("OK");
 
 	return ExecResult::Ok;
 }
@@ -730,7 +730,7 @@ ExecResult GdbStub::Handle_q_Supported(GdbStub* stub,
 		const u8* cmd, ssize_t len) {
 	// TODO: support Xfer:memory-map:read::
 	//       but NWRAM is super annoying with that
-	Proto::RespFmt(stub->ConnFd, "PacketSize=%X;qXfer:features:read+;swbreak-;hwbreak+", GDBPROTO_BUFFER_CAPACITY-1);
+	stub->RespFmt("PacketSize=%X;qXfer:features:read+;swbreak-;hwbreak+;QStartNoAckMode+", GDBPROTO_BUFFER_CAPACITY-1);
 	return ExecResult::Ok;
 }
 
@@ -742,7 +742,7 @@ ExecResult GdbStub::Handle_q_CRC(GdbStub* stub,
 	u32 addr, len;
 	if (sscanf((const char*)cmd, "%x,%x", &addr, &len) != 2)
 	{
-		Proto::RespStr(stub->ConnFd, "E01");
+		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
 
@@ -765,26 +765,26 @@ ExecResult GdbStub::Handle_q_CRC(GdbStub* stub,
 		val = CRC32(crcbuf, clen, val);
 	}
 
-	Proto::RespFmt(stub->ConnFd, "C%x", val);
+	stub->RespFmt("C%x", val);
 
 	return ExecResult::Ok;
 }
 
 ExecResult GdbStub::Handle_q_C(GdbStub* stub, const u8* cmd, ssize_t len)
 {
-	Proto::RespStr(stub->ConnFd, "QC1"); // current thread ID is 1
+	stub->RespStr("QC1"); // current thread ID is 1
 	return ExecResult::Ok;
 }
 
 ExecResult GdbStub::Handle_q_fThreadInfo(GdbStub* stub, const u8* cmd, ssize_t len)
 {
-	Proto::RespStr(stub->ConnFd, "m1"); // one thread
+	stub->RespStr("m1"); // one thread
 	return ExecResult::Ok;
 }
 
 ExecResult GdbStub::Handle_q_sThreadInfo(GdbStub* stub, const u8* cmd, ssize_t len)
 {
-	Proto::RespStr(stub->ConnFd, "l"); // end of thread list
+	stub->RespStr("l"); // end of thread list
 	return ExecResult::Ok;
 }
 
@@ -800,13 +800,13 @@ ExecResult GdbStub::Handle_q_features(GdbStub* stub, const u8* cmd, ssize_t len)
 	default: resp = ""; break;
 	}
 
-	DoQResponse(stub->ConnFd, cmd, resp, strlen(resp));
+	DoQResponse(stub, cmd, resp, strlen(resp));
 	return ExecResult::Ok;
 }
 
 ExecResult GdbStub::Handle_q_Attached(GdbStub* stub, const u8* cmd, ssize_t len)
 {
-	Proto::RespStr(stub->ConnFd, "1"); // always "attach to a process"
+	stub->RespStr("1"); // always "attach to a process"
 	return ExecResult::Ok;
 }
 
@@ -818,11 +818,11 @@ ExecResult GdbStub::Handle_v_Attach(GdbStub* stub, const u8* cmd, ssize_t len)
 	if (st == TgtStatus::None)
 	{
 		// no target
-		Proto::RespStr(stub->ConnFd, "E01");
+		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
 
-	Proto::RespStr(stub->ConnFd, "T05thread:1;");
+	stub->RespStr("T05thread:1;");
 
 	if (st == TgtStatus::Running) return ExecResult::MustBreak;
 	else return ExecResult::Ok;
@@ -834,7 +834,7 @@ ExecResult GdbStub::Handle_v_Kill(GdbStub* stub, const u8* cmd, ssize_t len)
 
 	stub->Cb->ResetGdb();
 
-	Proto::RespStr(stub->ConnFd, "OK");
+	stub->RespStr("OK");
 
 	return (st != TgtStatus::Running && st != TgtStatus::None) ? ExecResult::Detached : ExecResult::Ok;
 }
@@ -859,19 +859,26 @@ ExecResult GdbStub::Handle_v_Stopped(GdbStub* stub, const u8* cmd, ssize_t len)
 	// not sure if i understand this correctly
 	if (st != TgtStatus::Running)
 	{
-		if (notified) Proto::RespStr(stub->ConnFd, "OK");
-		else Proto::RespStr(stub->ConnFd, "W00");
+		if (notified) stub->RespStr("OK");
+		else stub->RespStr("W00");
 
 		notified = !notified;
 	}
-	else Proto::RespStr(stub->ConnFd, "OK");
+	else stub->RespStr("OK");
 
 	return ExecResult::Ok;
 }
 
 ExecResult GdbStub::Handle_v_MustReplyEmpty(GdbStub* stub, const u8* cmd, ssize_t len)
 {
-	Proto::Resp(stub->ConnFd, NULL, 0);
+	stub->Resp(NULL, 0);
+	return ExecResult::Ok;
+}
+
+ExecResult GdbStub::Handle_Q_StartNoAckMode(GdbStub* stub, const u8* cmd, ssize_t len)
+{
+	stub->RespStr("OK");
+	stub->NoAck = true;
 	return ExecResult::Ok;
 }
 

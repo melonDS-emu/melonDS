@@ -5,6 +5,7 @@
 #include <winsock2.h>
 #endif
 
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -52,7 +53,7 @@ namespace Gdb
 GdbStub::GdbStub(StubCallbacks* cb, int port)
 	: Cb(cb), Port(port)
 	, SockFd(0), ConnFd(0)
-	, Stat(TgtStatus::None), CurBkpt(0), CurWatchpt(0), StatFlag(false)
+	, Stat(TgtStatus::None), CurBkpt(0), CurWatchpt(0), StatFlag(false), NoAck(false)
 	, ServerSA((void*)new struct sockaddr_in())
 	, ClientSA((void*)new struct sockaddr_in())
 { }
@@ -181,6 +182,12 @@ SubcmdHandler GdbStub::Handlers_q[] = {
 	{ .MainCmd = 'q', .SubStr = NULL, .Handler = NULL },
 };
 
+SubcmdHandler GdbStub::Handlers_Q[] = {
+	{ .MainCmd = 'Q', .SubStr = "StartNoAckMode", .Handler = GdbStub::Handle_Q_StartNoAckMode },
+
+	{ .MainCmd = 'Q', .SubStr = NULL, .Handler = NULL },
+};
+
 ExecResult GdbStub::Handle_q(GdbStub* stub, const u8* cmd, ssize_t len)
 {
 	return stub->SubcmdExec(cmd, len, Handlers_q);
@@ -189,6 +196,11 @@ ExecResult GdbStub::Handle_q(GdbStub* stub, const u8* cmd, ssize_t len)
 ExecResult GdbStub::Handle_v(GdbStub* stub, const u8* cmd, ssize_t len)
 {
 	return stub->SubcmdExec(cmd, len, Handlers_v);
+}
+
+ExecResult GdbStub::Handle_Q(GdbStub* stub, const u8* cmd, ssize_t len)
+{
+	return stub->SubcmdExec(cmd, len, Handlers_Q);
 }
 
 CmdHandler GdbStub::Handlers_top[] = {
@@ -215,6 +227,7 @@ CmdHandler GdbStub::Handlers_top[] = {
 
 	{ .Cmd = 'q', .Handler = GdbStub::Handle_q },
 	{ .Cmd = 'v', .Handler = GdbStub::Handle_v },
+	{ .Cmd = 'Q', .Handler = GdbStub::Handle_Q },
 
 	{ .Cmd = 0, .Handler = NULL }
 };
@@ -365,13 +378,13 @@ StubState GdbStub::Poll(bool wait)
 		return StubState::Disconnect;
 	case ReadResult::CksumErr:
 		Log(LogLevel::Info, "[GDB] checksum err!\n");
-		if (Proto::SendNak(ConnFd) < 0) {
+		if (SendNak() < 0) {
 			Log(LogLevel::Error, "[GDB] send nak after cksum fail errored!\n");
 			goto case_gdbp_eof;
 		}
 		return StubState::None;
 	case ReadResult::CmdRecvd:
-		/*if (Proto::SendAck(ConnFd) < 0) {
+		/*if (SendAck() < 0) {
 			Log(LogLevel::Error, "[GDB] send packet ack failed!\n");
 			goto case_gdbp_eof;
 		}*/
@@ -389,7 +402,7 @@ ExecResult GdbStub::SubcmdExec(const u8* cmd, ssize_t len, const SubcmdHandler* 
 		// check if prefix matches
 		if (!strncmp((const char*)cmd, handlers[i].SubStr, strlen(handlers[i].SubStr)))
 		{
-			if (Proto::SendAck(ConnFd) < 0)
+			if (SendAck() < 0)
 			{
 				Log(LogLevel::Error, "[GDB] send packet ack failed!\n");
 				return ExecResult::NetErr;
@@ -399,13 +412,13 @@ ExecResult GdbStub::SubcmdExec(const u8* cmd, ssize_t len, const SubcmdHandler* 
 	}
 
 	Log(LogLevel::Info, "[GDB] unknown subcommand '%s'!\n", cmd);
-	/*if (Proto::SendNak(ConnFd) < 0)
+	/*if (SendNak() < 0)
 	{
 		Log(LogLevel::Error, "[GDB] send nak after cksum fail errored!\n");
 		return ExecResult::NetErr;
 	}*/
-	//Proto::RespStr(ConnFd, "E99");
-	Proto::Resp(ConnFd, NULL, 0);
+	//Resp("E99");
+	Resp(NULL, 0);
 	return ExecResult::UnkCmd;
 }
 
@@ -417,7 +430,7 @@ ExecResult GdbStub::CmdExec(const CmdHandler* handlers)
 	{
 		if (handlers[i].Cmd == Cmdbuf[0])
 		{
-			if (Proto::SendAck(ConnFd) < 0)
+			if (SendAck() < 0)
 			{
 				Log(LogLevel::Error, "[GDB] send packet ack failed!\n");
 				return ExecResult::NetErr;
@@ -427,13 +440,13 @@ ExecResult GdbStub::CmdExec(const CmdHandler* handlers)
 	}
 
 	Log(LogLevel::Info, "[GDB] unknown command '%c'!\n", Cmdbuf[0]);
-	/*if (Proto::SendNak(ConnFd) < 0)
+	/*if (SendNak() < 0)
 	{
 		Log(LogLevel::Error, "[GDB] send nak after cksum fail errored!\n");
 		return ExecResult::NetErr;
 	}*/
-	//Proto::RespStr(ConnFd, "E99");
-	Proto::Resp(ConnFd, NULL, 0);
+	//RespStr("E99");
+	Resp(NULL, 0);
 	return ExecResult::UnkCmd;
 }
 
@@ -609,6 +622,52 @@ StubState GdbStub::CheckWatchpt(u32 addr, int kind, bool enter, bool stay)
 	}
 
 	return StubState::CheckNoHit;
+}
+
+int GdbStub::SendAck()
+{
+	if (NoAck) return 1;
+	return Proto::SendAck(ConnFd);
+}
+int GdbStub::SendNak()
+{
+	if (NoAck) return 1;
+	return Proto::SendNak(ConnFd);
+}
+
+int GdbStub::Resp(const u8* data1, size_t len1, const u8* data2, size_t len2)
+{
+	return Proto::Resp(ConnFd, data1, len1, data2, len2, NoAck);
+}
+int GdbStub::RespC(const char* data1, size_t len1, const u8* data2, size_t len2)
+{
+	return Proto::Resp(ConnFd, (const u8*)data1, len1, data2, len2, NoAck);
+}
+#if defined(__GCC__) || defined(__clang__)
+__attribute__((__format__(printf, 2/*includes implicit this*/, 3)))
+#endif
+int GdbStub::RespFmt(const char* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	int r = vsnprintf((char*)&Proto::RespBuf[1], sizeof(Proto::RespBuf)-5, fmt, args);
+	va_end(args);
+
+	if (r < 0) return r;
+
+	if ((size_t)r >= sizeof(Proto::RespBuf)-5)
+	{
+		Log(LogLevel::Error, "[GDB] truncated response in send_fmt()! (lost %zd bytes)\n",
+				(ssize_t)r - (ssize_t)(sizeof(Proto::RespBuf)-5));
+		r = sizeof(Proto::RespBuf)-5;
+	}
+
+	return Resp(&Proto::RespBuf[1], r);
+}
+
+int GdbStub::RespStr(const char* str)
+{
+	return Resp((const u8*)str, strlen(str));
 }
 
 }

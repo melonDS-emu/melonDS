@@ -6,7 +6,6 @@
 #endif
 
 #include <stdlib.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -48,8 +47,8 @@ ssize_t Cmdlen;
 namespace Proto
 {
 
-static u8 PacketBuf[GDBPROTO_BUFFER_CAPACITY];
-static u8 RespBuf[GDBPROTO_BUFFER_CAPACITY+5];
+u8 PacketBuf[GDBPROTO_BUFFER_CAPACITY];
+u8 RespBuf[GDBPROTO_BUFFER_CAPACITY+5];
 
 ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 {
@@ -324,7 +323,7 @@ static int WaitAckBlocking(int connfd, u8* ackp, int to_ms)
 #endif
 }
 
-int Resp(int connfd, const u8* data1, size_t len1, const u8* data2, size_t len2)
+int Resp(int connfd, const u8* data1, size_t len1, const u8* data2, size_t len2, bool noack)
 {
 	u8 cksum = 0;
 	int tries = 0;
@@ -369,6 +368,8 @@ int Resp(int connfd, const u8* data1, size_t len1, const u8* data2, size_t len2)
 #endif
 		if (r < 0) return r;
 
+		if (noack) break;
+
 		r = WaitAckBlocking(connfd, &ack, 2000);
 		//Log(LogLevel::Debug, "[GDB] got ack: '%c'\n", ack);
 		if (r == 0 && ack == '+') break;
@@ -378,26 +379,6 @@ int Resp(int connfd, const u8* data1, size_t len1, const u8* data2, size_t len2)
 	while (tries < 3);
 
 	return 0;
-}
-
-__attribute__((__format__(printf, 2, 3)))
-int RespFmt(int connfd, const char* fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	int r = vsnprintf((char*)&RespBuf[1], sizeof(RespBuf)-5, fmt, args);
-	va_end(args);
-
-	if (r < 0) return r;
-
-	if ((size_t)r >= sizeof(RespBuf)-5)
-	{
-		Log(LogLevel::Error, "[GDB] truncated response in send_fmt()! (lost %zd bytes)\n",
-				(ssize_t)r - (ssize_t)(sizeof(RespBuf)-5));
-		r = sizeof(RespBuf)-5;
-	}
-
-	return Resp(connfd, &RespBuf[1], r);
 }
 
 }
