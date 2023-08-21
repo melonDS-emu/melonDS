@@ -877,8 +877,8 @@ ExecResult GdbStub::Handle_v_MustReplyEmpty(GdbStub* stub, const u8* cmd, ssize_
 
 ExecResult GdbStub::Handle_Q_StartNoAckMode(GdbStub* stub, const u8* cmd, ssize_t len)
 {
-	stub->RespStr("OK");
 	stub->NoAck = true;
+	stub->RespStr("OK");
 	return ExecResult::Ok;
 }
 

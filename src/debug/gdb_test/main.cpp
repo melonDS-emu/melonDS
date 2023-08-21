@@ -1,5 +1,6 @@
 
 #include <stdarg.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
 
@@ -58,7 +59,7 @@ public:
 int main(int argc, char** argv) {
 	Debug debug;
 
-	Gdb::GdbStub stub(&debug, 3333);
+	Gdb::GdbStub stub(&debug, (argc > 1) ? atoi(argv[1]) : 3333);
 	if (!stub.Init()) return 1;
 
 	do

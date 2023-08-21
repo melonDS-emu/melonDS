@@ -60,7 +60,7 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 
 	bool first = true;
 
-	printf("--- dataoff=%zd\n", dataoff);
+	//printf("--- dataoff=%zd\n", dataoff);
 	if (dataoff != 0) {
 		printf("--- got preexisting: %s\n", PacketBuf);
 
@@ -70,6 +70,8 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 			if (PacketBuf[datastart] == '\x04') return ReadResult::Eof;
 			else if (PacketBuf[datastart] == '+' || PacketBuf[datastart] == '-')
 			{
+				if (PacketBuf[datastart] == '+') SendAck(connfd);
+				else SendNak(connfd);
 				++datastart;
 				continue;
 			}
