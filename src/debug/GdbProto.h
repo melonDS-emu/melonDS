@@ -30,6 +30,8 @@ int SendNak(int connfd);
 
 int Resp(int connfd, const u8* data1, size_t len1, const u8* data2, size_t len2, bool noack);
 
+int WaitAckBlocking(int connfd, u8* ackp, int to_ms);
+
 }
 
 }

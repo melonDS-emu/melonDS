@@ -23,9 +23,11 @@ enum class GdbSignal : int
 	ILL  = 4
 };
 
-
-const char* TARGET_INFO_ARM7 = "cputype:arm;cpusubtype:armv4t:ostype:none;vendor:none;endian:little;ptrsize:4;";
-const char* TARGET_INFO_ARM9 = "cputype:arm;cpusubtype:armv5te:ostype:none;vendor:none;endian:little;ptrsize:4;";
+// 12: llvm::MachO::CPU_TYPE_ARM
+// 5: llvm::MachO::CPU_SUBTYPE_ARM_V4T
+// 7: llvm::MachO::CPU_SUBTYPE_ARM_V5TEJ
+const char* TARGET_INFO_ARM7 = "cputype:12;cpusubtype:5;triple:arm-none-eabi;ostype:none;vendor:none;endian:little;ptrsize:4;";
+const char* TARGET_INFO_ARM9 = "cputype:12;cpusubtype:7;triple:arm-none-eabi;ostype:none;vendor:none;endian:little;ptrsize:4;";
 
 
 #define TARGET_XML__CORE_REGS \
@@ -636,6 +638,10 @@ ExecResult GdbStub::Handle_R(GdbStub* stub, const u8* cmd, ssize_t len)
 	stub->Cb->ResetGdb();
 	return ExecResult::Ok;
 }
+ExecResult GdbStub::Handle_k(GdbStub* stub, const u8* cmd, ssize_t len)
+{
+	return ExecResult::Detached;
+}
 
 
 ExecResult GdbStub::Handle_z(GdbStub* stub, const u8* cmd, ssize_t len)
@@ -874,6 +880,38 @@ ExecResult GdbStub::Handle_v_MustReplyEmpty(GdbStub* stub, const u8* cmd, ssize_
 	stub->Resp(NULL, 0);
 	return ExecResult::Ok;
 }
+
+ExecResult GdbStub::Handle_v_Cont(GdbStub* stub, const u8* cmd, ssize_t len)
+{
+	if (len < 1)
+	{
+		stub->RespStr("E01");
+		return ExecResult::Ok;
+	}
+
+	switch (cmd[0])
+	{
+	case 'c':
+		stub->RespStr("OK");
+		return ExecResult::Continue;
+	case 's':
+		stub->RespStr("OK");
+		return ExecResult::Step;
+	case 't':
+		stub->RespStr("OK");
+		return ExecResult::MustBreak;
+	default:
+		stub->RespStr("E01");
+		return ExecResult::Ok;
+	}
+}
+
+ExecResult GdbStub::Handle_v_ContQuery(GdbStub* stub, const u8* cmd, ssize_t len)
+{
+	stub->RespStr("vCont;c;s;t");
+	return ExecResult::Ok;
+}
+
 
 ExecResult GdbStub::Handle_Q_StartNoAckMode(GdbStub* stub, const u8* cmd, ssize_t len)
 {

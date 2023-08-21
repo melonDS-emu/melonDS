@@ -164,12 +164,15 @@ SubcmdHandler GdbStub::Handlers_v[] = {
 	{ .MainCmd = 'v', .SubStr = "Run"           , .Handler = GdbStub::Handle_v_Run },
 	{ .MainCmd = 'v', .SubStr = "Stopped"       , .Handler = GdbStub::Handle_v_Stopped },
 	{ .MainCmd = 'v', .SubStr = "MustReplyEmpty", .Handler = GdbStub::Handle_v_MustReplyEmpty },
+	{ .MainCmd = 'v', .SubStr = "Cont?"         , .Handler = GdbStub::Handle_v_ContQuery },
+	{ .MainCmd = 'v', .SubStr = "Cont"          , .Handler = GdbStub::Handle_v_Cont },
 
 	{ .MainCmd = 'v', .SubStr = NULL, .Handler = NULL }
 };
 
 SubcmdHandler GdbStub::Handlers_q[] = {
 	{ .MainCmd = 'q', .SubStr = "HostInfo"   , .Handler = GdbStub::Handle_q_HostInfo },
+	{ .MainCmd = 'q', .SubStr = "ProcessInfo", .Handler = GdbStub::Handle_q_HostInfo },
 	{ .MainCmd = 'q', .SubStr = "Rcmd,"      , .Handler = GdbStub::Handle_q_Rcmd },
 	{ .MainCmd = 'q', .SubStr = "Supported:" , .Handler = GdbStub::Handle_q_Supported },
 	{ .MainCmd = 'q', .SubStr = "CRC:"       , .Handler = GdbStub::Handle_q_CRC },
@@ -221,6 +224,7 @@ CmdHandler GdbStub::Handlers_top[] = {
 	{ .Cmd = 'D', .Handler = GdbStub::Handle_D },
 	{ .Cmd = 'r', .Handler = GdbStub::Handle_r },
 	{ .Cmd = 'R', .Handler = GdbStub::Handle_R },
+	{ .Cmd = 'k', .Handler = GdbStub::Handle_k },
 
 	{ .Cmd = 'z', .Handler = GdbStub::Handle_z },
 	{ .Cmd = 'Z', .Handler = GdbStub::Handle_Z },
@@ -297,6 +301,21 @@ StubState GdbStub::Poll(bool wait)
 #endif
 
 		if (ConnFd < 0) return StubState::NoConn;
+
+		u8 a;
+		if (Proto::WaitAckBlocking(ConnFd, &a, 1000) < 0)
+		{
+			Log(LogLevel::Error, "[GDB] inital handshake: didn't receive inital ack!\n");
+			close(ConnFd);
+			ConnFd = 0;
+			return StubState::Disconnect;
+		}
+
+		if (a != '+')
+		{
+			Log(LogLevel::Error, "[GDB] inital handshake: unexpected character '%c'!\n", a);
+		}
+		SendAck();
 
 		Stat = TgtStatus::Running; // on connected
 		StatFlag = false;

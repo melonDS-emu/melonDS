@@ -21,6 +21,7 @@ private:
 	static ExecResult Handle_D(GdbStub* stub, const u8* cmd, ssize_t len);
 	static ExecResult Handle_r(GdbStub* stub, const u8* cmd, ssize_t len);
 	static ExecResult Handle_R(GdbStub* stub, const u8* cmd, ssize_t len);
+	static ExecResult Handle_k(GdbStub* stub, const u8* cmd, ssize_t len);
 
 	static ExecResult Handle_z(GdbStub* stub, const u8* cmd, ssize_t len);
 	static ExecResult Handle_Z(GdbStub* stub, const u8* cmd, ssize_t len);
@@ -45,6 +46,8 @@ private:
 	static ExecResult Handle_v_Run(GdbStub* stub, const u8* cmd, ssize_t len);
 	static ExecResult Handle_v_Stopped(GdbStub* stub, const u8* cmd, ssize_t len);
 	static ExecResult Handle_v_MustReplyEmpty(GdbStub* stub, const u8* cmd, ssize_t len);
+	static ExecResult Handle_v_Cont(GdbStub* stub, const u8* cmd, ssize_t len);
+	static ExecResult Handle_v_ContQuery(GdbStub* stub, const u8* cmd, ssize_t len);
 
 	static ExecResult Handle_Q_StartNoAckMode(GdbStub* stub, const u8* cmd, ssize_t len);
 

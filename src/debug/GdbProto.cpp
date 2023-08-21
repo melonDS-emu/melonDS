@@ -70,8 +70,8 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 			if (PacketBuf[datastart] == '\x04') return ReadResult::Eof;
 			else if (PacketBuf[datastart] == '+' || PacketBuf[datastart] == '-')
 			{
-				if (PacketBuf[datastart] == '+') SendAck(connfd);
-				else SendNak(connfd);
+				/*if (PacketBuf[datastart] == '+') SendAck(connfd);
+				else SendNak(connfd);*/
 				++datastart;
 				continue;
 			}
@@ -278,7 +278,7 @@ int SendNak(int connfd)
 #endif
 }
 
-static int WaitAckBlocking(int connfd, u8* ackp, int to_ms)
+int WaitAckBlocking(int connfd, u8* ackp, int to_ms)
 {
 #if MOCKTEST
 	*ackp = '+';
