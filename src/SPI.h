@@ -35,13 +35,10 @@ void SetupDirectBoot(bool dsi);
 
 u32 FixFirmwareLength(u32 originalLength);
 
-[[deprecated("Use GetFirmwareHeader instead")]] u32 GetFirmwareLength();
-[[deprecated("Use GetFirmwareHeader instead")]] u8 GetConsoleType();
-[[deprecated("Use GetFirmwareHeader instead")]] u8 GetWifiVersion();
-[[deprecated("Use GetFirmwareHeader instead")]] u8 GetNWifiVersion();
-[[deprecated("Use GetFirmwareHeader instead")]] u8 GetRFVersion();
-[[deprecated("Use GetFirmwareHeader instead")]] u8* GetWifiMAC();
-const FirmwareHeader* GetFirmwareHeader();
+/// @return A pointer to the installed firmware blob if one exists, otherwise \c nullptr.
+/// @warning The pointer refers to memory that melonDS owns. Do not deallocate it yourself.
+/// @see InstallFirmware
+const Firmware* GetFirmware();
 
 bool InstallFirmware(Firmware&& firmware);
 void RemoveFirmware();

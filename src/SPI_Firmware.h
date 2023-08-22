@@ -173,7 +173,7 @@ enum class WifiVersion : u8
     N3DS = 34,
 };
 
-enum class RFChipType : u8
+enum RFChipType : u8
 {
     Type2 = 0x2,
     Type3 = 0x3,

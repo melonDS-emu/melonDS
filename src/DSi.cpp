@@ -538,12 +538,12 @@ void SetupDirectBoot()
             DSi_NAND::DeInit();
         }
 
-        u8 nwifiver = SPI_Firmware::GetNWifiVersion();
-        ARM9Write8(0x020005E0, nwifiver);
+        SPI_Firmware::WifiBoard nwifiver = SPI_Firmware::GetFirmware()->Header().WifiBoard;
+        ARM9Write8(0x020005E0, static_cast<u8>(nwifiver));
 
         // TODO: these should be taken from the wifi firmware in NAND
         // but, hey, this works too.
-        if (nwifiver == 1)
+        if (nwifiver == SPI_Firmware::WifiBoard::W015)
         {
             ARM9Write16(0x020005E2, 0xB57E);
             ARM9Write32(0x020005E4, 0x00500400);

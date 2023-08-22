@@ -369,7 +369,7 @@ bool NeedsDirectBoot()
             return true;
 
         // DSi/3DS firmwares aren't bootable
-        if (SPI_Firmware::GetFirmwareLength() == 0x20000)
+        if (SPI_Firmware::GetFirmware()->Length() == 0x20000)
             return true;
 
         return false;

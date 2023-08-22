@@ -197,13 +197,10 @@ void SetupDirectBoot(bool dsi)
     }
 }
 
-u32 GetFirmwareLength() { return Firmware ? Firmware->Length() : 0; }
-u8 GetConsoleType() { return static_cast<u8>(GetFirmwareHeader()->ConsoleType); }
-u8 GetWifiVersion() { return static_cast<u8>(GetFirmwareHeader()->WifiVersion); }
-u8 GetNWifiVersion() { return static_cast<u8>(Firmware->Header().WifiBoard); } // for DSi; will return 0xFF on a DS
-u8 GetRFVersion() { return static_cast<u8>(GetFirmwareHeader()->RFChipType); }
-u8* GetWifiMAC() { return Firmware->Header().MacAddress.data(); }
-const FirmwareHeader* GetFirmwareHeader() { return Firmware ? &Firmware->Header() : nullptr; }
+const class Firmware* GetFirmware()
+{
+    return Firmware.get();
+}
 
 bool InstallFirmware(class Firmware&& firmware)
 {
