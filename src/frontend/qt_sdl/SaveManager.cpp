@@ -179,8 +179,8 @@ void SaveManager::FlushSecondaryBuffer(u8* dst, u32 dstLength)
         FileHandle* f = Platform::OpenFile(Path, FileMode::Write);
         if (f)
         {
-            Log(LogLevel::Info, "SaveManager: Written\n");
             FileWrite(SecondaryBuffer, SecondaryBufferLength, 1, f);
+            Log(LogLevel::Info, "SaveManager: Wrote %s\n", Path.c_str());
             CloseFile(f);
         }
     }
