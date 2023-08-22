@@ -366,6 +366,24 @@ u8 GetRFVersion() { return static_cast<u8>(GetFirmwareHeader()->RFChipType); }
 u8* GetWifiMAC() { return Firmware->Header().MacAddress.data(); }
 const FirmwareHeader* GetFirmwareHeader() { return Firmware ? &Firmware->Header() : nullptr; }
 
+bool InstallFirmware(class Firmware&& firmware)
+{
+    if (!firmware.Buffer())
+    {
+        Log(LogLevel::Error, "SPI firmware: firmware buffer is null!\n");
+        return false;
+    }
+
+    Firmware = std::make_unique<class Firmware>(std::move(firmware));
+
+    return true;
+}
+
+void RemoveFirmware()
+{
+    Firmware.reset();
+}
+
 u8 Read()
 {
     return Data;

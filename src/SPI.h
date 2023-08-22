@@ -42,6 +42,8 @@ u32 GetFirmwareLength();
 [[deprecated("Use GetFirmwareHeader instead")]] u8* GetWifiMAC();
 const FirmwareHeader* GetFirmwareHeader();
 
+bool InstallFirmware(Firmware&& firmware);
+void RemoveFirmware();
 }
 
 namespace SPI_Powerman
