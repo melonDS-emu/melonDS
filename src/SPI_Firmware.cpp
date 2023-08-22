@@ -81,8 +81,8 @@ SPI_Firmware::ExtendedWifiAccessPoint::ExtendedWifiAccessPoint()
 
 void SPI_Firmware::ExtendedWifiAccessPoint::UpdateChecksum()
 {
-    Data.ExtendedChecksum = CRC16(&Bytes[0x100], 0xFD, 0x0000);
     Data.Base.UpdateChecksum();
+    Data.ExtendedChecksum = CRC16(&Bytes[0x100], 0xFE, 0x0000);
 }
 
 SPI_Firmware::FirmwareHeader::FirmwareHeader(int consoletype)
