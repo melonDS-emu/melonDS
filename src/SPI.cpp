@@ -84,7 +84,7 @@ bool Init()
 
 void DeInit()
 {
-    Firmware.reset();
+    RemoveFirmware();
 }
 
 u32 FixFirmwareLength(u32 originalLength)
