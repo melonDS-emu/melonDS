@@ -37,6 +37,13 @@ constexpr unsigned MAX_SSID_LENGTH = 32;
 constexpr std::u16string_view  DEFAULT_USERNAME = u"melonDS";
 constexpr const char* const DEFAULT_SSID = "melonDS";
 
+/**
+ * The position of the first extended Wi-fi settings block in the DSi firmware,
+ * relative to the position of the first user settings block.
+ * The generated firmware also uses this offset.
+ */
+constexpr int EXTENDED_WIFI_SETTINGS_OFFSET = -0xA00;
+
 enum class WepMode : u8
 {
     None = 0,
@@ -416,6 +423,7 @@ public:
     /**
      * Constructs a default firmware blob
      * filled with data necessary for booting and configuring NDS games.
+     * The Wi-fi section has one access point configured with melonDS's defaults.
      * Will not contain executable code.
      * @param consoletype Console type to use. 1 for DSi, 0 for NDS.
      */
@@ -444,34 +452,88 @@ public:
     [[nodiscard]] FirmwareHeader& Header() { return *reinterpret_cast<FirmwareHeader*>(FirmwareBuffer); }
     [[nodiscard]] const FirmwareHeader& Header() const { return *reinterpret_cast<const FirmwareHeader*>(FirmwareBuffer); }
 
-    [[nodiscard]] const std::array<WifiAccessPoint, 3>& AccessPoints() const;
-    [[nodiscard]] std::array<WifiAccessPoint, 3>& AccessPoints();
+    /// @return The offset of the first basic Wi-fi settings block in the firmware
+    /// (not the extended Wi-fi settings block used by the DSi).
+    /// @see WifiAccessPointPosition
+    [[nodiscard]] u32 WifiAccessPointOffset() const { return UserDataOffset() - 0x400; }
 
-    [[nodiscard]] const std::array<ExtendedWifiAccessPoint, 3>& ExtendedAccessPoints() const;
-    [[nodiscard]] std::array<ExtendedWifiAccessPoint, 3>& ExtendedAccessPoints();
+    /// @return The address of the first basic Wi-fi settings block in the firmware.
+    [[nodiscard]] u8* WifiAccessPointPosition() { return FirmwareBuffer + WifiAccessPointOffset(); }
+    [[nodiscard]] const u8* WifiAccessPointPosition() const { return FirmwareBuffer + WifiAccessPointOffset(); }
 
-    /**
-     * @return The pointer to the firmware buffer,
-     * or \c nullptr if this object is invalid
-     * (e.g. it was moved from, or its constructor failed).
-     */
+    [[nodiscard]] const std::array<WifiAccessPoint, 3>& AccessPoints() const
+    {
+        // An std::array is a wrapper around a C array, so this cast is fine.
+        const u8* apAddress = WifiAccessPointPosition();
+        return *reinterpret_cast<const std::array<WifiAccessPoint, 3>*>(apAddress);
+    }
+
+    [[nodiscard]] std::array<WifiAccessPoint, 3>& AccessPoints()
+    {
+        // An std::array is a wrapper around a C array, so this cast is fine.
+        u8* apAddress = WifiAccessPointPosition();
+        return *reinterpret_cast<std::array<WifiAccessPoint, 3>*>(apAddress);
+    }
+
+    /// @return The address of thed first extended Wi-fi settings block in the firmware.
+    /// @warning Only meaningful if this is DSi firmware.
+    [[nodiscard]] u32 ExtendedAccessPointOffset() const { return UserDataOffset() + EXTENDED_WIFI_SETTINGS_OFFSET; }
+    [[nodiscard]] u8* ExtendedAccessPointPosition() { return FirmwareBuffer + ExtendedAccessPointOffset(); }
+    [[nodiscard]] const u8* ExtendedAccessPointPosition() const { return FirmwareBuffer + ExtendedAccessPointOffset(); }
+
+    [[nodiscard]] const std::array<ExtendedWifiAccessPoint, 3>& ExtendedAccessPoints() const
+    {
+        // An std::array is a wrapper around a C array, so this cast is fine.
+        const u8* apAddress = ExtendedAccessPointPosition();
+        return *reinterpret_cast<const std::array<ExtendedWifiAccessPoint, 3>*>(apAddress);
+    }
+
+    [[nodiscard]] std::array<ExtendedWifiAccessPoint, 3>& ExtendedAccessPoints()
+    {
+        // An std::array is a wrapper around a C array, so this cast is fine.
+        u8* apAddress = ExtendedAccessPointPosition();
+        return *reinterpret_cast<std::array<ExtendedWifiAccessPoint, 3>*>(apAddress);
+    }
+
+    /// @return The pointer to the firmware buffer,
+    /// or \c nullptr if this object is invalid
+    /// (e.g. it was moved from, or its constructor failed).
     [[nodiscard]] u8* Buffer() { return FirmwareBuffer; }
     [[nodiscard]] const u8* Buffer() const { return FirmwareBuffer; }
 
     [[nodiscard]] u32 Length() const { return FirmwareBufferLength; }
     [[nodiscard]] u32 Mask() const { return FirmwareMask; }
 
+    /// @return The offset of the first user data section in the firmware.
+    /// @see UserDataPosition
+    [[nodiscard]] u32 UserDataOffset() const { return Header().UserSettingsOffset << 3; }
+
+    /// @return The address of the first user data section in the firmware.
+    /// @see UserDataOffset
+    [[nodiscard]] u8* UserDataPosition() { return FirmwareBuffer + UserDataOffset(); }
+    [[nodiscard]] const u8* UserDataPosition() const { return FirmwareBuffer + UserDataOffset(); }
+
+
+     /// @return Reference to the two user data sections.
+     /// @note Either \c UserData object could be the "effective" one,
+     /// so prefer using \c EffectiveUserData() if you're not modifying both.
     [[nodiscard]] const std::array<UserData, 2>& UserData() const
     {
-        u32 offset = Header().UserSettingsOffset << 3;
-        u8* userdataAddress = FirmwareBuffer + offset;
+        // An std::array is a wrapper around a C array, so this cast is fine.
+        const u8* userdataAddress = UserDataPosition();
         return *reinterpret_cast<const std::array<union UserData, 2>*>(userdataAddress);
     };
 
+    /**
+     * @return Reference to the two user data sections.
+     * @note Either \c UserData object could be the "effective" one,
+     * so prefer using \c EffectiveUserData() if you're not modifying both.
+     * @warning Remember to call UserData::UpdateChecksum() after modifying any of its fields.
+     */
     [[nodiscard]] std::array<union UserData, 2>& UserData()
     {
-        u32 offset = Header().UserSettingsOffset << 3;
-        u8* userdataAddress = FirmwareBuffer + offset;
+        // An std::array is a wrapper around a C array, so this cast is fine.
+        u8* userdataAddress = UserDataPosition();
         return *reinterpret_cast<std::array<union UserData, 2>*>(userdataAddress);
     }
 
