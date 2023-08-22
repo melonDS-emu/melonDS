@@ -60,7 +60,7 @@ SPI_Firmware::WifiAccessPoint::WifiAccessPoint()
 SPI_Firmware::WifiAccessPoint::WifiAccessPoint(int consoletype)
 {
     memset(Bytes, 0, sizeof(Bytes));
-    strncpy(SSID, "melonAP", sizeof(SSID));
+    strncpy(SSID, DEFAULT_SSID, sizeof(SSID));
     if (consoletype == 1) Mtu = 1400;
     Status = AccessPointStatus::Normal;
     ConnectionConfigured = 0x01;
