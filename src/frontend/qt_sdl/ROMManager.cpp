@@ -825,6 +825,8 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
         header.MacAddress = mac;
         header.UpdateChecksum();
     }
+
+    firmware.UpdateChecksums();
 }
 
 bool InstallFirmware()

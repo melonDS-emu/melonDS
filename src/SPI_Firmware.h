@@ -551,6 +551,9 @@ public:
      */
     [[nodiscard]] union UserData& EffectiveUserData();
 
+    /// Updates the checksums of all used sections of the firmware.
+    void UpdateChecksums();
+
     u32 Hold;
     u8 CurCmd;
     u32 DataPos;

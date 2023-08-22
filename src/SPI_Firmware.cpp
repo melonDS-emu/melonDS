@@ -82,6 +82,7 @@ SPI_Firmware::ExtendedWifiAccessPoint::ExtendedWifiAccessPoint()
 void SPI_Firmware::ExtendedWifiAccessPoint::UpdateChecksum()
 {
     Data.ExtendedChecksum = CRC16(&Bytes[0x100], 0xFD, 0x0000);
+    Data.Base.UpdateChecksum();
 }
 
 SPI_Firmware::FirmwareHeader::FirmwareHeader(int consoletype)
@@ -144,7 +145,7 @@ SPI_Firmware::FirmwareHeader::FirmwareHeader(int consoletype)
 
 void SPI_Firmware::FirmwareHeader::UpdateChecksum()
 {
-    WifiConfigChecksum = SPI_Firmware::CRC16(&Bytes[0x2C], *(u16*)&Bytes[0x2C], 0x0000);
+    WifiConfigChecksum = SPI_Firmware::CRC16(&Bytes[0x2C], WifiConfigLength, 0x0000);
 }
 
 SPI_Firmware::UserData::UserData()
@@ -348,5 +349,25 @@ SPI_Firmware::UserData& SPI_Firmware::Firmware::EffectiveUserData() {
     else
     {
         return userdata[0];
+    }
+}
+
+void SPI_Firmware::Firmware::UpdateChecksums()
+{
+    Header().UpdateChecksum();
+
+    for (SPI_Firmware::WifiAccessPoint& ap : AccessPoints())
+    {
+        ap.UpdateChecksum();
+    }
+
+    for (SPI_Firmware::ExtendedWifiAccessPoint& eap : ExtendedAccessPoints())
+    {
+        eap.UpdateChecksum();
+    }
+
+    for (SPI_Firmware::UserData& u : UserData())
+    {
+        u.UpdateChecksum();
     }
 }
