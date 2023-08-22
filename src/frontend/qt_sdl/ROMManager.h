@@ -24,6 +24,7 @@
 #include "AREngine.h"
 
 #include <string>
+#include <memory>
 #include <vector>
 
 namespace ROMManager
@@ -31,6 +32,7 @@ namespace ROMManager
 
 extern SaveManager* NDSSave;
 extern SaveManager* GBASave;
+extern std::unique_ptr<SaveManager> FirmwareSave;
 
 QString VerifySetup();
 void Reset();

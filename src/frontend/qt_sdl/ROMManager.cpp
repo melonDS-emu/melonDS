@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <fstream>
@@ -53,6 +54,7 @@ std::string BaseGBAAssetName = "";
 
 SaveManager* NDSSave = nullptr;
 SaveManager* GBASave = nullptr;
+std::unique_ptr<SaveManager> FirmwareSave = nullptr;
 
 std::unique_ptr<Savestate> BackupState = nullptr;
 bool SavestateLoaded = false;
