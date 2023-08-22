@@ -39,6 +39,7 @@
 #include "LAN_PCap.h"
 #include "LocalMP.h"
 #include "OSD.h"
+#include "SPI_Firmware.h"
 
 #ifdef __WIN32__
 #define fseek _fseeki64
@@ -584,7 +585,11 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
         ROMManager::GBASave->RequestFlush(savedata, savelen, writeoffset, writelen);
 }
 
-
+void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset)
+{
+    if (ROMManager::FirmwareSave)
+        ROMManager::FirmwareSave->RequestFlush(firmware.Buffer(), firmware.Length(), writeoffset, 1);
+}
 
 bool MP_Init()
 {

@@ -24,6 +24,11 @@
 #include <functional>
 #include <string>
 
+namespace SPI_Firmware
+{
+    class Firmware;
+}
+
 namespace Platform
 {
 
@@ -332,6 +337,14 @@ void Sleep(u64 usecs);
 // writeoffset and writelen indicate which part of the memory was altered
 void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen);
 void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen);
+
+/// Called when the firmware needs to be written back to storage.
+/// @param firmware The firmware that was just written.
+/// @param writeoffset The offset of the byte that was written to firmware.
+/// @note The SPI only allows one byte at a time to be written to firmware;
+/// the frontend should not immediately flush anything to disk,
+/// as this function will be called several times in a row.
+void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset);
 
 
 // local multiplayer comm interface

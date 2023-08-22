@@ -352,7 +352,7 @@ void Write(u8 val, u32 hold)
 
     if (!hold && (CurCmd == 0x02 || CurCmd == 0x0A))
     { // If the SPI chip got a write instruction...
-        Platform::WriteFirmware(*Firmware);
+        Platform::WriteFirmware(*Firmware, (Addr-1) & Firmware->Mask());
     }
 }
 
