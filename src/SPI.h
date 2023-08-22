@@ -31,7 +31,7 @@ namespace SPI_Firmware
 {
 
 u16 CRC16(const u8* data, u32 len, u32 start);
-void SetupDirectBoot(const Firmware& firmware);
+void SetupDirectBoot(bool dsi);
 
 u32 FixFirmwareLength(u32 originalLength);
 

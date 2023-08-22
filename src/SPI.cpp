@@ -110,35 +110,6 @@ u32 FixFirmwareLength(u32 originalLength)
     return originalLength;
 }
 
-[[deprecated("Load firmware from memory instead of from disk")]]
-void LoadFirmwareFromFile(FileHandle* f, bool makecopy)
-{
-    Firmware = std::make_unique<class Firmware>(f);
-
-    // take a backup
-    std::string fwBackupPath;
-    if (!makecopy) fwBackupPath = FirmwarePath + ".bak";
-    else           fwBackupPath = FirmwarePath;
-    FileHandle* bf = Platform::OpenLocalFile(fwBackupPath, FileMode::Read);
-    if (!bf)
-    {
-        bf = Platform::OpenLocalFile(fwBackupPath, FileMode::Write);
-        if (bf)
-        {
-            FileWrite(Firmware->Buffer(), 1, Firmware->Length(), bf);
-            CloseFile(bf);
-        }
-        else
-        {
-            Log(LogLevel::Error, "Could not write firmware backup!\n");
-        }
-    }
-    else
-    {
-        CloseFile(bf);
-    }
-}
-
 void Reset()
 {
     if (!Firmware)
