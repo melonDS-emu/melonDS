@@ -39,6 +39,7 @@ void Reset();
 bool LoadBIOS();
 void ClearBackupState();
 
+bool InstallFirmware();
 bool LoadROM(QStringList filepath, bool reset);
 void EjectCart();
 bool CartInserted();

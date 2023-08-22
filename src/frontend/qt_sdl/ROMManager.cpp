@@ -37,6 +37,9 @@
 #include "SPI.h"
 #include "DSi_I2C.h"
 
+using std::make_unique;
+using std::string;
+using std::unique_ptr;
 using namespace Platform;
 
 namespace ROMManager
@@ -515,6 +518,14 @@ void Reset()
             GBASave->SetPath(newsave, false);
     }
 
+    if (FirmwareSave)
+    {
+        std::string oldsave = FirmwareSave->GetPath();
+        std::string newsave = Config::FirmwarePath + Platform::InstanceFileSuffix();
+        if (oldsave != newsave)
+            FirmwareSave->SetPath(newsave, false);
+    }
+
     if (!BaseROMName.empty())
     {
         if (Config::DirectBoot || NDS::NeedsDirectBoot())
@@ -530,6 +541,9 @@ bool LoadBIOS()
     NDS::SetConsoleType(Config::ConsoleType);
 
     if (NDS::NeedsDirectBoot())
+        return false;
+
+    if (!InstallFirmware())
         return false;
 
     /*if (NDSSave) delete NDSSave;
@@ -640,6 +654,216 @@ void ClearBackupState()
     }
 }
 
+// We want both the firmware object and the path that was used to load it,
+// since we'll need to give it to the save manager later
+bool LoadFirmwareFromFile(unique_ptr<SPI_Firmware::Firmware>& firmware, std::string& loadedpath)
+{
+    string firmwarepath = Config::ConsoleType == 0 ? Config::FirmwarePath : Config::DSiFirmwarePath;
+
+    Log(LogLevel::Debug, "SPI firmware: loading from file %s\n", firmwarepath.c_str());
+
+    std::string firmwareinstancepath = firmwarepath + Platform::InstanceFileSuffix();
+
+    loadedpath = firmwareinstancepath;
+    FileHandle* f = Platform::OpenLocalFile(firmwareinstancepath, FileMode::Read);
+    if (!f)
+    {
+        loadedpath = firmwarepath;
+        f = Platform::OpenLocalFile(firmwarepath, FileMode::Read);
+    }
+
+    if (f)
+    {
+        firmware = make_unique<SPI_Firmware::Firmware>(f);
+        if (!firmware->Buffer())
+        {
+            Log(LogLevel::Warn, "Couldn't read firmware file!\n");
+            firmware = nullptr;
+            loadedpath = "";
+        }
+
+        CloseFile(f);
+    }
+
+    return firmware != nullptr;
+}
+
+void GenerateDefaultFirmware(unique_ptr<SPI_Firmware::Firmware>& firmware, std::string& settingspath)
+{
+    using namespace SPI_Firmware;
+    // Construct the default firmware...
+    firmware = std::make_unique<Firmware>(Config::ConsoleType);
+
+    // Try to open the instanced Wi-fi settings, falling back to the regular Wi-fi settings if they don't exist.
+    // We don't need to save the whole firmware, just the part that may actually change.
+    std::string wfcsettingspath = Platform::GetConfigString(ConfigEntry::WifiSettingsPath);
+    settingspath = wfcsettingspath + Platform::InstanceFileSuffix();
+    FileHandle* f = Platform::OpenLocalFile(settingspath, FileMode::Read);
+    if (!f)
+    {
+        settingspath = wfcsettingspath;
+        f = Platform::OpenLocalFile(settingspath, FileMode::Read);
+    }
+
+    // If using generated firmware, we keep the wi-fi settings on the host disk separately.
+    // Wi-fi access point data includes Nintendo WFC settings,
+    // and if we didn't keep them then the player would have to reset them in each session.
+    if (f)
+    { // If we have Wi-fi settings to load...
+        constexpr unsigned TOTAL_WFC_SETTINGS_SIZE = 3 * (sizeof(WifiAccessPoint) + sizeof(ExtendedWifiAccessPoint));
+
+            // The access point and extended access point segments might
+            // be in different locations depending on the firmware revision,
+            // but our generated firmware always keeps them next to each other.
+            // (Extended access points first, then regular ones.)
+        u8* userdata = firmware->UserDataPosition();
+
+        u32 bytesRead = FileRead(userdata, TOTAL_WFC_SETTINGS_SIZE, 1, f);
+        if (bytesRead != 1)
+        { // If we couldn't read the Wi-fi settings from this file...
+            Platform::Log(Platform::LogLevel::Warn, "Failed to read Wi-fi settings from \"%s\"; using defaults instead\n", wfcsettingspath.c_str());
+
+            firmware->AccessPoints() = {
+                WifiAccessPoint(Config::ConsoleType),
+                WifiAccessPoint(),
+                WifiAccessPoint(),
+            };
+
+            firmware->ExtendedAccessPoints() = {
+                ExtendedWifiAccessPoint(),
+                ExtendedWifiAccessPoint(),
+                ExtendedWifiAccessPoint(),
+            };
+        }
+
+        CloseFile(f);
+    }
+
+    // If we don't have Wi-fi settings to load,
+    // then the defaults will have already been populated by the constructor.
+}
+
+void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
+{
+    using namespace SPI_Firmware;
+    UserData& currentData = firmware.EffectiveUserData();
+
+    // setting up username
+    std::string orig_username = Platform::GetConfigString(Platform::Firm_Username);
+    if (!orig_username.empty())
+    { // If the frontend defines a username, take it. If not, leave the existing one.
+        std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
+        size_t usernameLength = std::min(username.length(), (size_t) 10);
+        currentData.NameLength = usernameLength;
+        memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
+    }
+
+    auto language = static_cast<Language>(Platform::GetConfigInt(Platform::Firm_Language));
+    if (language != Language::Reserved)
+    { // If the frontend specifies a language (rather than using the existing value)...
+        currentData.Settings &= ~Language::Reserved; // ..clear the existing language...
+        currentData.Settings |= language; // ...and set the new one.
+    }
+
+    // setting up color
+    u8 favoritecolor = Platform::GetConfigInt(Platform::Firm_Color);
+    if (favoritecolor != 0xFF)
+    {
+        currentData.FavoriteColor = favoritecolor;
+    }
+
+    u8 birthmonth = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
+    if (birthmonth != 0)
+    { // If the frontend specifies a birth month (rather than using the existing value)...
+        currentData.BirthdayMonth = birthmonth;
+    }
+
+    u8 birthday = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
+    if (birthday != 0)
+    { // If the frontend specifies a birthday (rather than using the existing value)...
+        currentData.BirthdayDay = birthday;
+    }
+
+    // setup message
+    std::string orig_message = Platform::GetConfigString(Platform::Firm_Message);
+    if (!orig_message.empty())
+    {
+        std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
+        size_t messageLength = std::min(message.length(), (size_t) 26);
+        currentData.MessageLength = messageLength;
+        memcpy(currentData.Message, message.data(), messageLength * sizeof(char16_t));
+    }
+
+    MacAddress mac;
+    bool rep = false;
+    auto& header = firmware.Header();
+
+    memcpy(&mac, header.MacAddress.data(), sizeof(MacAddress));
+
+
+    MacAddress configuredMac;
+    rep = Platform::GetConfigArray(Platform::Firm_MAC, &configuredMac);
+    rep &= (configuredMac != MacAddress());
+
+    if (rep)
+    {
+        mac = configuredMac;
+    }
+
+    int inst = Platform::InstanceID();
+    if (inst > 0)
+    {
+        rep = true;
+        mac[3] += inst;
+        mac[4] += inst*0x44;
+        mac[5] += inst*0x10;
+    }
+
+    if (rep)
+    {
+        mac[0] &= 0xFC; // ensure the MAC isn't a broadcast MAC
+        header.MacAddress = mac;
+        header.UpdateChecksum();
+    }
+}
+
+bool InstallFirmware()
+{
+    using namespace SPI_Firmware;
+    FirmwareSave.reset();
+    unique_ptr<Firmware> firmware;
+    string firmwarepath;
+    bool generated = false;
+
+    if (Config::ExternalBIOSEnable)
+    { // If we want to try loading a firmware dump...
+        if (!LoadFirmwareFromFile(firmware, firmwarepath))
+        { // Try to load the configured firmware dump. If that fails...
+            Log(LogLevel::Warn, "Firmware not found! Generating default firmware.\n");
+        }
+    }
+
+    if (!firmware)
+    { // If we haven't yet loaded firmware (either because the load failed or we want to use the default...)
+        GenerateDefaultFirmware(firmware, firmwarepath);
+        generated = true;
+    }
+
+    if (!firmware)
+        return false;
+
+    if (Config::FirmwareOverrideSettings)
+    {
+        LoadUserSettingsFromConfig(*firmware);
+    }
+
+    FirmwareSave.reset();
+    FirmwareSave = std::make_unique<SaveManager>(std::move(firmwarepath));
+    InstallFirmware(std::move(*firmware.release()));
+
+    return true;
+}
+
 bool LoadROM(QStringList filepath, bool reset)
 {
     if (filepath.empty()) return false;
@@ -741,6 +965,11 @@ bool LoadROM(QStringList filepath, bool reset)
         NDS::EjectCart();
         NDS::Reset();
         SetBatteryLevels();
+    }
+
+    if (!InstallFirmware())
+    {
+        return false;
     }
 
     u32 savelen = 0;

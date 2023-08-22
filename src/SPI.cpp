@@ -35,7 +35,6 @@ using namespace Platform;
 namespace SPI_Firmware
 {
 
-[[deprecated("Load firmware from memory instead of from disk")]] std::string FirmwarePath;
 std::unique_ptr<Firmware> Firmware;
 
 u32 Hold;
@@ -79,7 +78,6 @@ bool VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
 
 bool Init()
 {
-    FirmwarePath = "";
     Firmware.reset();
     return true;
 }
@@ -141,119 +139,16 @@ void LoadFirmwareFromFile(FileHandle* f, bool makecopy)
     }
 }
 
-void LoadUserSettingsFromConfig()
-{
-    UserData& currentData = Firmware->EffectiveUserData();
-
-    // setting up username
-    std::string orig_username = Platform::GetConfigString(Platform::Firm_Username);
-    if (!orig_username.empty())
-    { // If the frontend defines a username, take it. If not, leave the existing one.
-        std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
-        size_t usernameLength = std::min(username.length(), (size_t) 10);
-        currentData.NameLength = usernameLength;
-        memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
-    }
-
-    auto language = static_cast<Language>(Platform::GetConfigInt(Platform::Firm_Language));
-    if (language != Language::Reserved)
-    { // If the frontend specifies a language (rather than using the existing value)...
-        currentData.Settings &= ~Language::Reserved; // ..clear the existing language...
-        currentData.Settings |= language; // ...and set the new one.
-    }
-
-    // setting up color
-    u8 favoritecolor = Platform::GetConfigInt(Platform::Firm_Color);
-    if (favoritecolor != 0xFF)
-    {
-        currentData.FavoriteColor = favoritecolor;
-    }
-
-    u8 birthmonth = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
-    if (birthmonth != 0)
-    { // If the frontend specifies a birth month (rather than using the existing value)...
-        currentData.BirthdayMonth = birthmonth;
-    }
-
-    u8 birthday = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
-    if (birthday != 0)
-    { // If the frontend specifies a birthday (rather than using the existing value)...
-        currentData.BirthdayDay = birthday;
-    }
-
-    // setup message
-    std::string orig_message = Platform::GetConfigString(Platform::Firm_Message);
-    if (!orig_message.empty())
-    {
-        std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
-        size_t messageLength = std::min(message.length(), (size_t) 26);
-        currentData.MessageLength = messageLength;
-        memcpy(currentData.Message, message.data(), messageLength * sizeof(char16_t));
-    }
-}
-
 void Reset()
 {
-    Firmware.reset();
-    FirmwarePath = "";
-    bool firmoverride = false;
-
-    if (Platform::GetConfigBool(Platform::ExternalBIOSEnable))
+    if (!Firmware)
     {
-        if (NDS::ConsoleType == 1)
-            FirmwarePath = Platform::GetConfigString(Platform::DSi_FirmwarePath);
-        else
-            FirmwarePath = Platform::GetConfigString(Platform::FirmwarePath);
-
-        Log(LogLevel::Debug, "SPI firmware: loading from file %s\n", FirmwarePath.c_str());
-
-        bool makecopy = false;
-        std::string origpath = FirmwarePath;
-        FirmwarePath += Platform::InstanceFileSuffix();
-
-        FileHandle* f = Platform::OpenLocalFile(FirmwarePath, FileMode::Read);
-        if (!f)
-        {
-            f = Platform::OpenLocalFile(origpath, FileMode::Read);
-            makecopy = true;
-        }
-        if (!f)
-        {
-            Log(LogLevel::Warn,"Firmware not found! Generating default firmware.\n");
-            FirmwarePath = "";
-        }
-        else
-        {
-            LoadFirmwareFromFile(f, makecopy);
-            CloseFile(f);
-        }
-    }
-
-    if (FirmwarePath.empty())
-    {
-        Log(Debug, "Creating default firmware image...\n");
-
+        Log(LogLevel::Warn, "SPI firmware: no firmware loaded! Using default\n");
         Firmware = std::make_unique<class Firmware>(NDS::ConsoleType);
-        firmoverride = true;
     }
-    else
-    {
-        firmoverride = Platform::GetConfigBool(Platform::Firm_OverrideSettings);
-    }
-
-    u32 userdata = 0x7FE00 & Firmware->Mask();
-    auto& userDataRegions = Firmware->UserData();
-    if (*(u16*)&Firmware->Buffer()[userdata+0x170] == ((*(u16*)&Firmware->Buffer()[userdata+0x70] + 1) & 0x7F))
-    { // If both user data regions have the same update counter...
-        if (VerifyCRC16(0xFFFF, userdata+0x100, 0x70, userdata+0x172))
-            userdata += 0x100;
-    }
-
-    if (firmoverride)
-        LoadUserSettingsFromConfig();
 
     // fix touchscreen coords
-    for (UserData& u : userDataRegions)
+    for (UserData& u : Firmware->UserData())
     {
         u.TouchCalibrationADC1[0] = 0;
         u.TouchCalibrationADC1[1] = 0;
@@ -269,35 +164,8 @@ void Reset()
     // disable autoboot
     //Firmware[userdata+0x64] &= 0xBF;
 
-    //if (firmoverride)
-    {
-        MacAddress mac;
-        bool rep = false;
-        auto& header = Firmware->Header();
-
-        memcpy(&mac, header.MacAddress.data(), sizeof(MacAddress));
-
-        if (firmoverride)
-            rep = Platform::GetConfigArray(Platform::Firm_MAC, &mac);
-
-        int inst = Platform::InstanceID();
-        if (inst > 0)
-        {
-            rep = true;
-            mac[3] += inst;
-            mac[4] += inst*0x44;
-            mac[5] += inst*0x10;
-        }
-
-        if (rep)
-        {
-            mac[0] &= 0xFC; // ensure the MAC isn't a broadcast MAC
-            header.MacAddress = mac;
-            header.UpdateChecksum();
-        }
-
-        Log(LogLevel::Info, "MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    }
+    MacAddress mac = Firmware->Header().MacAddress;
+    Log(LogLevel::Info, "MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     // verify shit
     u32 mask = Firmware->Mask();
@@ -483,31 +351,8 @@ void Write(u8 val, u32 hold)
     }
 
     if (!hold && (CurCmd == 0x02 || CurCmd == 0x0A))
-    {
-        if (!FirmwarePath.empty())
-        {
-            FileHandle* f = Platform::OpenLocalFile(FirmwarePath, FileMode::ReadWriteExisting);
-            if (f)
-            {
-                u32 cutoff = ((NDS::ConsoleType==1) ? 0x7F400 : 0x7FA00) & Firmware->Mask();
-                FileSeek(f, cutoff, FileSeekOrigin::Start);
-                FileWrite(&Firmware->Buffer()[cutoff], Firmware->Length()-cutoff, 1, f);
-                CloseFile(f);
-            }
-        }
-        else
-        {
-            std::string wfcfile = Platform::GetConfigString(ConfigEntry::WifiSettingsPath);
-            if (Platform::InstanceID() > 0) wfcfile += Platform::InstanceFileSuffix();
-
-            FileHandle* f = Platform::OpenLocalFile(wfcfile, FileMode::Write);
-            if (f)
-            {
-                u32 cutoff = 0x7F400 & Firmware->Mask();
-                FileWrite(&Firmware->Buffer()[cutoff], 0x900, 1, f);
-                CloseFile(f);
-            }
-        }
+    { // If the SPI chip got a write instruction...
+        Platform::WriteFirmware(*Firmware);
     }
 }
 

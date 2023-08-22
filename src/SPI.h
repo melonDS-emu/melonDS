@@ -31,10 +31,11 @@ namespace SPI_Firmware
 {
 
 u16 CRC16(const u8* data, u32 len, u32 start);
+void SetupDirectBoot(const Firmware& firmware);
 
 u32 FixFirmwareLength(u32 originalLength);
 
-u32 GetFirmwareLength();
+[[deprecated("Use GetFirmwareHeader instead")]] u32 GetFirmwareLength();
 [[deprecated("Use GetFirmwareHeader instead")]] u8 GetConsoleType();
 [[deprecated("Use GetFirmwareHeader instead")]] u8 GetWifiVersion();
 [[deprecated("Use GetFirmwareHeader instead")]] u8 GetNWifiVersion();
