@@ -23,8 +23,6 @@
 #include "Wifi.h"
 #include "WifiAP.h"
 #include "Platform.h"
-#include "ARM.h"
-#include "GPU.h"
 
 using Platform::Log;
 using Platform::LogLevel;

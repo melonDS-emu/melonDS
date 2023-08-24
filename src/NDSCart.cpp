@@ -1539,7 +1539,7 @@ void DoSavestate(Savestate* file)
 bool ReadROMParams(u32 gamecode, ROMListEntry* params)
 {
     u32 offset = 0;
-    u32 chk_size = ROMListSize >> 1;
+    u32 chk_size = ROMListEntryCount >> 1;
     for (;;)
     {
         u32 key = 0;
@@ -1568,7 +1568,7 @@ bool ReadROMParams(u32 gamecode, ROMListEntry* params)
             chk_size >>= 1;
         }
 
-        if (offset >= ROMListSize)
+        if (offset >= ROMListEntryCount)
         {
             return false;
         }

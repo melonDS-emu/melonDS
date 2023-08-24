@@ -34,6 +34,6 @@ struct ROMListEntry
 extern const ROMListEntry ROMList[];
 
 /// The number of elements in \c ROMList.
-extern const size_t ROMListSize;
+extern const size_t ROMListEntryCount;
 
 #endif // ROMLIST_H

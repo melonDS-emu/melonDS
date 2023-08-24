@@ -6800,4 +6800,4 @@ const ROMListEntry ROMList[] =
 	{0x5A5A5242, 0x04000000, 0x00000003},
 };
 
-const size_t ROMListSize = sizeof(ROMList) / sizeof(ROMListEntry);
+const size_t ROMListEntryCount = sizeof(ROMList) / sizeof(ROMListEntry);
