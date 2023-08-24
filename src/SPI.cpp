@@ -216,6 +216,25 @@ bool InstallFirmware(class Firmware&& firmware)
     return true;
 }
 
+bool InstallFirmware(std::unique_ptr<class Firmware>&& firmware)
+{
+    if (!firmware)
+    {
+        Log(LogLevel::Error, "SPI firmware: firmware is null!\n");
+        return false;
+    }
+
+    if (!firmware->Buffer())
+    {
+        Log(LogLevel::Error, "SPI firmware: firmware buffer is null!\n");
+        return false;
+    }
+
+    Firmware = std::move(firmware);
+
+    return true;
+}
+
 void RemoveFirmware()
 {
     Firmware.reset();

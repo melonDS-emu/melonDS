@@ -859,9 +859,8 @@ bool InstallFirmware()
         LoadUserSettingsFromConfig(*firmware);
     }
 
-    FirmwareSave.reset();
     FirmwareSave = std::make_unique<SaveManager>(firmwarepath);
-    InstallFirmware(std::move(*firmware.release()));
+    InstallFirmware(std::move(firmware));
 
     return true;
 }

@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <array>
+#include <memory>
 #include <string_view>
 #include <string.h>
 
@@ -41,6 +42,7 @@ u32 FixFirmwareLength(u32 originalLength);
 const Firmware* GetFirmware();
 
 bool InstallFirmware(Firmware&& firmware);
+bool InstallFirmware(std::unique_ptr<Firmware>&& firmware);
 void RemoveFirmware();
 }
 
