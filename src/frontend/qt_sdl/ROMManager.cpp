@@ -961,17 +961,17 @@ bool LoadROM(QStringList filepath, bool reset)
     BaseROMName = romname;
     BaseAssetName = romname.substr(0, romname.rfind('.'));
 
+    if (!InstallFirmware())
+    {
+        return false;
+    }
+
     if (reset)
     {
         NDS::SetConsoleType(Config::ConsoleType);
         NDS::EjectCart();
         NDS::Reset();
         SetBatteryLevels();
-    }
-
-    if (!InstallFirmware())
-    {
-        return false;
     }
 
     u32 savelen = 0;
