@@ -129,8 +129,9 @@ void Reset()
         u.TouchCalibrationADC2[1] = 191<<4;
         u.TouchCalibrationPixel2[0] = 255;
         u.TouchCalibrationPixel2[1] = 191;
-        u.UpdateChecksum();
     }
+
+    Firmware->UpdateChecksums();
 
     // disable autoboot
     //Firmware[userdata+0x64] &= 0xBF;
