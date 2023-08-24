@@ -464,15 +464,13 @@ public:
     [[nodiscard]] const std::array<WifiAccessPoint, 3>& AccessPoints() const
     {
         // An std::array is a wrapper around a C array, so this cast is fine.
-        const u8* apAddress = WifiAccessPointPosition();
-        return *reinterpret_cast<const std::array<WifiAccessPoint, 3>*>(apAddress);
+        return *reinterpret_cast<const std::array<WifiAccessPoint, 3>*>(WifiAccessPointPosition());
     }
 
     [[nodiscard]] std::array<WifiAccessPoint, 3>& AccessPoints()
     {
         // An std::array is a wrapper around a C array, so this cast is fine.
-        u8* apAddress = WifiAccessPointPosition();
-        return *reinterpret_cast<std::array<WifiAccessPoint, 3>*>(apAddress);
+        return *reinterpret_cast<std::array<WifiAccessPoint, 3>*>(WifiAccessPointPosition());
     }
 
     /// @return The address of thed first extended Wi-fi settings block in the firmware.
@@ -484,15 +482,13 @@ public:
     [[nodiscard]] const std::array<ExtendedWifiAccessPoint, 3>& ExtendedAccessPoints() const
     {
         // An std::array is a wrapper around a C array, so this cast is fine.
-        const u8* apAddress = ExtendedAccessPointPosition();
-        return *reinterpret_cast<const std::array<ExtendedWifiAccessPoint, 3>*>(apAddress);
+        return *reinterpret_cast<const std::array<ExtendedWifiAccessPoint, 3>*>(ExtendedAccessPointPosition());
     }
 
     [[nodiscard]] std::array<ExtendedWifiAccessPoint, 3>& ExtendedAccessPoints()
     {
         // An std::array is a wrapper around a C array, so this cast is fine.
-        u8* apAddress = ExtendedAccessPointPosition();
-        return *reinterpret_cast<std::array<ExtendedWifiAccessPoint, 3>*>(apAddress);
+        return *reinterpret_cast<std::array<ExtendedWifiAccessPoint, 3>*>(ExtendedAccessPointPosition());
     }
 
     /// @return The pointer to the firmware buffer,
@@ -520,8 +516,7 @@ public:
     [[nodiscard]] const std::array<UserData, 2>& UserData() const
     {
         // An std::array is a wrapper around a C array, so this cast is fine.
-        const u8* userdataAddress = UserDataPosition();
-        return *reinterpret_cast<const std::array<union UserData, 2>*>(userdataAddress);
+        return *reinterpret_cast<const std::array<union UserData, 2>*>(UserDataPosition());
     };
 
     /**
@@ -533,8 +528,7 @@ public:
     [[nodiscard]] std::array<union UserData, 2>& UserData()
     {
         // An std::array is a wrapper around a C array, so this cast is fine.
-        u8* userdataAddress = UserDataPosition();
-        return *reinterpret_cast<std::array<union UserData, 2>*>(userdataAddress);
+        return *reinterpret_cast<std::array<union UserData, 2>*>(UserDataPosition());
     }
 
     /**
