@@ -540,10 +540,10 @@ bool LoadBIOS()
 {
     NDS::SetConsoleType(Config::ConsoleType);
 
-    if (NDS::NeedsDirectBoot())
+    if (!InstallFirmware())
         return false;
 
-    if (!InstallFirmware())
+    if (NDS::NeedsDirectBoot())
         return false;
 
     /*if (NDSSave) delete NDSSave;
