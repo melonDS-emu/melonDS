@@ -712,14 +712,12 @@ void GenerateDefaultFirmware(unique_ptr<SPI_Firmware::Firmware>& firmware, std::
     { // If we have Wi-fi settings to load...
         constexpr unsigned TOTAL_WFC_SETTINGS_SIZE = 3 * (sizeof(WifiAccessPoint) + sizeof(ExtendedWifiAccessPoint));
 
-            // The access point and extended access point segments might
-            // be in different locations depending on the firmware revision,
-            // but our generated firmware always keeps them next to each other.
-            // (Extended access points first, then regular ones.)
-        u8* userdata = firmware->UserDataPosition();
+        // The access point and extended access point segments might
+        // be in different locations depending on the firmware revision,
+        // but our generated firmware always keeps them next to each other.
+        // (Extended access points first, then regular ones.)
 
-        u32 bytesRead = FileRead(userdata, TOTAL_WFC_SETTINGS_SIZE, 1, f);
-        if (bytesRead != 1)
+        if (!FileRead(firmware->UserDataPosition(), TOTAL_WFC_SETTINGS_SIZE, 1, f))
         { // If we couldn't read the Wi-fi settings from this file...
             Platform::Log(Platform::LogLevel::Warn, "Failed to read Wi-fi settings from \"%s\"; using defaults instead\n", wfcsettingspath.c_str());
 
@@ -735,6 +733,8 @@ void GenerateDefaultFirmware(unique_ptr<SPI_Firmware::Firmware>& firmware, std::
                 ExtendedWifiAccessPoint(),
             };
         }
+
+        firmware->UpdateChecksums();
 
         CloseFile(f);
     }
@@ -860,7 +860,7 @@ bool InstallFirmware()
     }
 
     FirmwareSave.reset();
-    FirmwareSave = std::make_unique<SaveManager>(std::move(firmwarepath));
+    FirmwareSave = std::make_unique<SaveManager>(firmwarepath);
     InstallFirmware(std::move(*firmware.release()));
 
     return true;
