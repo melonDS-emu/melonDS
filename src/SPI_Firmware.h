@@ -553,15 +553,6 @@ public:
 
     /// Updates the checksums of all used sections of the firmware.
     void UpdateChecksums();
-
-    u32 Hold;
-    u8 CurCmd;
-    u32 DataPos;
-    u8 Data;
-
-    u8 StatusReg;
-    u32 Addr;
-
 private:
     u8* FirmwareBuffer;
     u32 FirmwareBufferLength;
