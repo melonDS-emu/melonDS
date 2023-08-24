@@ -111,7 +111,7 @@ union WifiAccessPoint
         IpAddress SecondaryDns;
         u8 SubnetMask;
         u8 Unknown0[21];
-        WepMode WepMode;
+        enum WepMode WepMode;
         AccessPointStatus Status;
         u8 SSIDLength;
         u8 Unknown1;
@@ -274,17 +274,17 @@ union FirmwareHeader
         u16 WifiConfigChecksum;
         u16 WifiConfigLength;
         u8 Unused1;
-        WifiVersion WifiVersion;
+        enum WifiVersion WifiVersion;
 
         u8 Unused3[6];
 
-        MacAddress MacAddress;
+        SPI_Firmware::MacAddress MacAddress;
 
         u16 EnabledChannels;
 
         u8 Unknown2[2];
 
-        RFChipType RFChipType;
+        enum RFChipType RFChipType;
         u8 RFBitsPerEntry;
         u8 RFEntries;
         u8 Unknown3;
@@ -321,7 +321,7 @@ union FirmwareHeader
         u8 Unknown4;
         u8 Unused5;
         u8 Unused6[153];
-        WifiBoard WifiBoard;
+        enum WifiBoard WifiBoard;
         u8 WifiFlash;
         u8 Unused7;
     };
@@ -513,7 +513,7 @@ public:
      /// @return Reference to the two user data sections.
      /// @note Either \c UserData object could be the "effective" one,
      /// so prefer using \c EffectiveUserData() if you're not modifying both.
-    [[nodiscard]] const std::array<UserData, 2>& UserData() const
+    [[nodiscard]] const std::array<union UserData, 2>& UserData() const
     {
         // An std::array is a wrapper around a C array, so this cast is fine.
         return *reinterpret_cast<const std::array<union UserData, 2>*>(UserDataPosition());
