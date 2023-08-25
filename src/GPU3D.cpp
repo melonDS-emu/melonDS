@@ -1049,12 +1049,12 @@ void SubmitPolygon()
     v2 = &TempVertexBuffer[2];
     v3 = &TempVertexBuffer[3];
 
-    normalX = ((s64)(v1->Position[1]-v0->Position[1]) * (v2->Position[3]-v0->Position[3]))
-        - ((s64)(v1->Position[3]-v0->Position[3]) * (v2->Position[1]-v0->Position[1]));
-    normalY = ((s64)(v1->Position[3]-v0->Position[3]) * (v2->Position[0]-v0->Position[0]))
-        - ((s64)(v1->Position[0]-v0->Position[0]) * (v2->Position[3]-v0->Position[3]));
-    normalZ = ((s64)(v1->Position[0]-v0->Position[0]) * (v2->Position[1]-v0->Position[1]))
-        - ((s64)(v1->Position[1]-v0->Position[1]) * (v2->Position[0]-v0->Position[0]));
+    normalX = ((s64)(v0->Position[1]-v1->Position[1]) * (v2->Position[3]-v1->Position[3]))
+        - ((s64)(v0->Position[3]-v1->Position[3]) * (v2->Position[1]-v1->Position[1]));
+    normalY = ((s64)(v0->Position[3]-v1->Position[3]) * (v2->Position[0]-v1->Position[0]))
+        - ((s64)(v0->Position[0]-v1->Position[0]) * (v2->Position[3]-v1->Position[3]));
+    normalZ = ((s64)(v0->Position[0]-v1->Position[0]) * (v2->Position[1]-v1->Position[1]))
+        - ((s64)(v0->Position[1]-v1->Position[1]) * (v2->Position[0]-v1->Position[0]));
 
     while ((((normalX>>31) ^ (normalX>>63)) != 0) ||
            (((normalY>>31) ^ (normalY>>63)) != 0) ||
@@ -1065,9 +1065,9 @@ void SubmitPolygon()
         normalZ >>= 4;
     }
 
-    dot = ((s64)v0->Position[0] * normalX) + ((s64)v0->Position[1] * normalY) + ((s64)v0->Position[3] * normalZ);
+    dot = ((s64)v1->Position[0] * normalX) + ((s64)v1->Position[1] * normalY) + ((s64)v1->Position[3] * normalZ);
 
-    bool facingview = (dot >= 0);
+    bool facingview = (dot <= 0);
 
     if (facingview)
     {
@@ -1077,7 +1077,7 @@ void SubmitPolygon()
             return;
         }
     }
-    else if (dot <= 0)
+    else if (dot > 0)
     {
         if (!(CurPolygonAttr & (1<<6)))
         {
