@@ -473,7 +473,7 @@ public:
         return *reinterpret_cast<std::array<WifiAccessPoint, 3>*>(WifiAccessPointPosition());
     }
 
-    /// @return The address of thed first extended Wi-fi settings block in the firmware.
+    /// @return The address of the first extended Wi-fi settings block in the firmware.
     /// @warning Only meaningful if this is DSi firmware.
     [[nodiscard]] u32 ExtendedAccessPointOffset() const { return UserDataOffset() + EXTENDED_WIFI_SETTINGS_OFFSET; }
     [[nodiscard]] u8* ExtendedAccessPointPosition() { return FirmwareBuffer + ExtendedAccessPointOffset(); }
