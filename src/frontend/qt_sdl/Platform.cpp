@@ -587,8 +587,33 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 
 void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset)
 {
-    if (ROMManager::FirmwareSave)
+    if (!ROMManager::FirmwareSave)
+        return;
+
+    if (firmware.Header().Identifier != SPI_Firmware::GENERATED_FIRMWARE_IDENTIFIER)
+    { // If this is not the default built-in firmware...
+        // ...then write the whole thing back.
         ROMManager::FirmwareSave->RequestFlush(firmware.Buffer(), firmware.Length(), writeoffset, 1);
+    }
+    else
+    {
+        u32 eapstart = firmware.ExtendedAccessPointOffset();
+        u32 eapend = eapstart + sizeof(firmware.ExtendedAccessPoints());
+
+        u32 apstart = firmware.WifiAccessPointOffset();
+        u32 apend = apstart + sizeof(firmware.AccessPoints());
+
+        // assert that the extended access points come just before the regular ones
+        assert(eapend == apstart);
+
+        if ((eapstart <= writeoffset && writeoffset < apend))
+        { // If we're writing to the access points...
+            const u8* buffer = firmware.ExtendedAccessPointPosition();
+            u32 length = sizeof(firmware.ExtendedAccessPoints()) + sizeof(firmware.AccessPoints());
+            ROMManager::FirmwareSave->RequestFlush(buffer, length, writeoffset - eapstart, 1);
+        }
+    }
+
 }
 
 bool MP_Init()
