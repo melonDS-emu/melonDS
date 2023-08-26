@@ -78,7 +78,6 @@ bool VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
 
 bool Init()
 {
-    Firmware.reset();
     return true;
 }
 
