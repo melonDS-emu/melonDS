@@ -40,6 +40,7 @@ add_library(core STATIC
     ROMList.h
     ROMList.cpp
     FreeBIOS.h
+    FreeBIOS.cpp
     RTC.cpp
     Savestate.cpp
     SPI.cpp
