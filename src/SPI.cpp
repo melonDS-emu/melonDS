@@ -212,7 +212,8 @@ bool InstallFirmware(class Firmware&& firmware)
 
     Firmware = std::make_unique<class Firmware>(std::move(firmware));
 
-    Log(LogLevel::Debug, "Installed firmware (Identifier: %4s)", Firmware->Header().Identifier.data());
+    FirmwareIdentifier id = Firmware->Header().Identifier;
+    Log(LogLevel::Debug, "Installed firmware (Identifier: %c%c%c%c)\n", id[0], id[1], id[2], id[3]);
 
     return true;
 }
@@ -233,7 +234,8 @@ bool InstallFirmware(std::unique_ptr<class Firmware>&& firmware)
 
     Firmware = std::move(firmware);
 
-    Log(LogLevel::Debug, "Installed firmware (Identifier: %4s)", Firmware->Header().Identifier.data());
+    FirmwareIdentifier id = Firmware->Header().Identifier;
+    Log(LogLevel::Debug, "Installed firmware (Identifier: %c%c%c%c)\n", id[0], id[1], id[2], id[3]);
 
     return true;
 }
