@@ -292,7 +292,7 @@ private:
             // TODO: this is still not perfect (see for example x=169 y=33)
             if (ylen == 0)
                 Increment = 0;
-            else if (ylen == xlen)
+            else if (ylen == xlen && xlen != 1)
                 Increment = 0x40000;
             else
             {
