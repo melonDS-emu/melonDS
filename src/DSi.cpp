@@ -716,64 +716,6 @@ void SoftReset()
     GPU::DispStat[1] |= (1<<6);
 }
 
-bool LoadBIOS()
-{
-    Platform::FileHandle* f;
-    u32 i;
-
-    memset(ARM9iBIOS, 0, 0x10000);
-    memset(ARM7iBIOS, 0, 0x10000);
-
-    f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_BIOS9Path), FileMode::Read);
-    if (!f)
-    {
-        Log(LogLevel::Warn, "ARM9i BIOS not found\n");
-
-        for (i = 0; i < 16; i++)
-            ((u32*)ARM9iBIOS)[i] = 0xE7FFDEFF;
-    }
-    else
-    {
-        FileRewind(f);
-        FileRead(ARM9iBIOS, 0x10000, 1, f);
-
-        Log(LogLevel::Info, "ARM9i BIOS loaded\n");
-        Platform::CloseFile(f);
-    }
-
-    f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_BIOS7Path), FileMode::Read);
-    if (!f)
-    {
-        Log(LogLevel::Warn, "ARM7i BIOS not found\n");
-
-        for (i = 0; i < 16; i++)
-            ((u32*)ARM7iBIOS)[i] = 0xE7FFDEFF;
-    }
-    else
-    {
-        // TODO: check if the first 32 bytes are crapoed
-
-        FileRewind(f);
-        FileRead(ARM7iBIOS, 0x10000, 1, f);
-
-        Log(LogLevel::Info, "ARM7i BIOS loaded\n");
-        CloseFile(f);
-    }
-
-    if (!Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
-    {
-        // herp
-        *(u32*)&ARM9iBIOS[0] = 0xEAFFFFFE;
-        *(u32*)&ARM7iBIOS[0] = 0xEAFFFFFE;
-
-        // TODO!!!!
-        // hax the upper 32K out of the goddamn DSi
-        // done that :)  -pcy
-    }
-
-    return true;
-}
-
 bool LoadNAND()
 {
     Log(LogLevel::Info, "Loading DSi NAND\n");

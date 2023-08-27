@@ -65,7 +65,6 @@ void SetCartInserted(bool inserted);
 void SetupDirectBoot();
 void SoftReset();
 
-bool LoadBIOS();
 bool LoadNAND();
 
 void RunNDMAs(u32 cpu);

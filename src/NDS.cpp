@@ -518,53 +518,7 @@ void Reset()
     RunningGame = false;
     LastSysClockCycles = 0;
 
-    memset(ARM9BIOS, 0, 0x1000);
-    memset(ARM7BIOS, 0, 0x4000);
-
-    // DS BIOSes are always loaded, even in DSi mode
-    // we need them for DS-compatible mode
-
-    if (Platform::GetConfigBool(Platform::ExternalBIOSEnable))
-    {
-        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS9Path), FileMode::Read);
-        if (!f)
-        {
-            Log(LogLevel::Warn, "ARM9 BIOS not found\n");
-
-            for (i = 0; i < 16; i++)
-                ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
-        }
-        else
-        {
-            FileRewind(f);
-            FileRead(ARM9BIOS, 0x1000, 1, f);
-
-            Log(LogLevel::Info, "ARM9 BIOS loaded\n");
-            Platform::CloseFile(f);
-        }
-
-        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS7Path), FileMode::Read);
-        if (!f)
-        {
-            Log(LogLevel::Warn, "ARM7 BIOS not found\n");
-
-            for (i = 0; i < 16; i++)
-                ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
-        }
-        else
-        {
-            FileRewind(f);
-            FileRead(ARM7BIOS, 0x4000, 1, f);
-
-            Log(LogLevel::Info, "ARM7 BIOS loaded\n");
-            Platform::CloseFile(f);
-        }
-    }
-    else
-    {
-        memcpy(ARM9BIOS, bios_arm9_bin, sizeof(bios_arm9_bin));
-        memcpy(ARM7BIOS, bios_arm7_bin, sizeof(bios_arm7_bin));
-    }
+    // BIOS files are now loaded by the frontend
 
 #ifdef JIT_ENABLED
     ARMJIT::Reset();
@@ -572,7 +526,7 @@ void Reset()
 
     if (ConsoleType == 1)
     {
-        DSi::LoadBIOS();
+        // BIOS files are now loaded by the frontend
 
         ARM9ClockShift = 2;
         MainRAMMask = 0xFFFFFF;

@@ -36,6 +36,7 @@
 #include "DSi.h"
 #include "SPI.h"
 #include "DSi_I2C.h"
+#include "FreeBIOS.h"
 
 using std::make_unique;
 using std::string;
@@ -467,6 +468,94 @@ void LoadCheats()
     AREngine::SetCodeFile(CheatsOn ? CheatFile : nullptr);
 }
 
+void LoadBIOSFiles()
+{
+    if (Config::ExternalBIOSEnable)
+    {
+        if (FileHandle* f = Platform::OpenLocalFile(Config::BIOS9Path, FileMode::Read))
+        {
+            FileRewind(f);
+            FileRead(NDS::ARM9BIOS, sizeof(NDS::ARM9BIOS), 1, f);
+
+            Log(LogLevel::Info, "ARM9 BIOS loaded from %s\n", Config::BIOS9Path.c_str());
+            Platform::CloseFile(f);
+        }
+        else
+        {
+            Log(LogLevel::Warn, "ARM9 BIOS not found\n");
+
+            for (int i = 0; i < 16; i++)
+                ((u32*)NDS::ARM9BIOS)[i] = 0xE7FFDEFF;
+        }
+
+        if (FileHandle* f = Platform::OpenLocalFile(Config::BIOS7Path, FileMode::Read))
+        {
+            FileRead(NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS), 1, f);
+
+            Log(LogLevel::Info, "ARM7 BIOS loaded from\n", Config::BIOS7Path.c_str());
+            Platform::CloseFile(f);
+        }
+        else
+        {
+            Log(LogLevel::Warn, "ARM7 BIOS not found\n");
+
+            for (int i = 0; i < 16; i++)
+                ((u32*)NDS::ARM7BIOS)[i] = 0xE7FFDEFF;
+        }
+    }
+    else
+    {
+        Log(LogLevel::Info, "Using built-in ARM7 and ARM9 BIOSes\n");
+        memcpy(NDS::ARM9BIOS, bios_arm9_bin, sizeof(bios_arm9_bin));
+        memcpy(NDS::ARM7BIOS, bios_arm7_bin, sizeof(bios_arm7_bin));
+    }
+
+    if (Config::ConsoleType == 1)
+    {
+        if (FileHandle* f = Platform::OpenLocalFile(Config::DSiBIOS9Path, FileMode::Read))
+        {
+            FileRead(DSi::ARM9iBIOS, sizeof(DSi::ARM9iBIOS), 1, f);
+
+            Log(LogLevel::Info, "ARM9i BIOS loaded from %s\n", Config::DSiBIOS9Path.c_str());
+            Platform::CloseFile(f);
+        }
+        else
+        {
+            Log(LogLevel::Warn, "ARM9i BIOS not found\n");
+
+            for (int i = 0; i < 16; i++)
+                ((u32*)DSi::ARM9iBIOS)[i] = 0xE7FFDEFF;
+        }
+
+        if (FileHandle* f = Platform::OpenLocalFile(Config::DSiBIOS7Path, FileMode::Read))
+        {
+        // TODO: check if the first 32 bytes are crapoed
+            FileRead(DSi::ARM7iBIOS, sizeof(DSi::ARM7iBIOS), 1, f);
+
+            Log(LogLevel::Info, "ARM7i BIOS loaded from %s\n", Config::DSiBIOS7Path.c_str());
+            CloseFile(f);
+        }
+        else
+        {
+            Log(LogLevel::Warn, "ARM7i BIOS not found\n");
+
+            for (int i = 0; i < 16; i++)
+                ((u32*)DSi::ARM7iBIOS)[i] = 0xE7FFDEFF;
+        }
+
+        if (!Config::DSiFullBIOSBoot)
+        {
+            // herp
+            *(u32*)&DSi::ARM9iBIOS[0] = 0xEAFFFFFE;
+            *(u32*)&DSi::ARM7iBIOS[0] = 0xEAFFFFFE;
+
+            // TODO!!!!
+            // hax the upper 32K out of the goddamn DSi
+            // done that :)  -pcy
+        }
+    }
+}
+
 void EnableCheats(bool enable)
 {
     CheatsOn = enable;
@@ -497,6 +586,7 @@ void Reset()
 {
     NDS::SetConsoleType(Config::ConsoleType);
     if (Config::ConsoleType == 1) EjectGBACart();
+    LoadBIOSFiles();
     NDS::Reset();
     SetBatteryLevels();
 
@@ -539,6 +629,8 @@ void Reset()
 bool LoadBIOS()
 {
     NDS::SetConsoleType(Config::ConsoleType);
+
+    LoadBIOSFiles();
 
     if (!InstallFirmware())
         return false;
@@ -969,6 +1061,7 @@ bool LoadROM(QStringList filepath, bool reset)
     {
         NDS::SetConsoleType(Config::ConsoleType);
         NDS::EjectCart();
+        LoadBIOSFiles();
         NDS::Reset();
         SetBatteryLevels();
     }
