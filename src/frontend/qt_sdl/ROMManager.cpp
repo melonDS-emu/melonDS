@@ -717,7 +717,7 @@ void GenerateDefaultFirmware(unique_ptr<SPI_Firmware::Firmware>& firmware, std::
         // but our generated firmware always keeps them next to each other.
         // (Extended access points first, then regular ones.)
 
-        if (!FileRead(firmware->UserDataPosition(), TOTAL_WFC_SETTINGS_SIZE, 1, f))
+        if (!FileRead(firmware->ExtendedAccessPointPosition(), TOTAL_WFC_SETTINGS_SIZE, 1, f))
         { // If we couldn't read the Wi-fi settings from this file...
             Platform::Log(Platform::LogLevel::Warn, "Failed to read Wi-fi settings from \"%s\"; using defaults instead\n", wfcsettingspath.c_str());
 
