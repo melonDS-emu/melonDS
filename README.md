@@ -64,7 +64,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
    cd melonDS
    ```
 #### Dynamic builds (with DLLs)
-5. Install dependencies: `pacman -S mingw-w64-x86_64-{cmake,SDL2,toolchain,qt5-base,qt5-svg,qt5-multimedia,libslirp,libarchive,zstd}`
+5. Install dependencies: `pacman -S mingw-w64-x86_64-{cmake,SDL2,toolchain,qt5-base,qt5-svg,qt5-multimedia,qt5-tools,libslirp,libarchive,zstd}`
 6. Compile:
    ```bash
    cmake -B build
