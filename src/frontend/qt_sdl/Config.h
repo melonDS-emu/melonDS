@@ -152,6 +152,7 @@ extern int FirmwareBirthdayDay;
 extern int FirmwareFavouriteColour;
 extern std::string FirmwareMessage;
 extern std::string FirmwareMAC;
+extern std::string WifiSettingsPath;
 
 extern int MPAudioMode;
 extern int MPRecvTimeout;

@@ -25,17 +25,7 @@
 #include "Platform.h"
 
 namespace fs = std::filesystem;
-
-
-// really, Windows?
-#ifdef __WIN32__
-    #define melon_fseek _fseeki64
-    #define melon_ftell _ftelli64
-#else
-    #define melon_fseek fseek
-    #define melon_ftell ftell
-#endif // __WIN32__
-
+using namespace Platform;
 
 FATStorage::FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir)
 {
@@ -53,7 +43,7 @@ FATStorage::~FATStorage()
 
 bool FATStorage::Open()
 {
-    File = Platform::OpenLocalFile(FilePath.c_str(), "r+b");
+    File = Platform::OpenLocalFile(FilePath, FileMode::ReadWriteExisting);
     if (!File)
     {
         return false;
@@ -64,7 +54,7 @@ bool FATStorage::Open()
 
 void FATStorage::Close()
 {
-    if (File) fclose(File);
+    if (File) CloseFile(File);
     File = nullptr;
 }
 
@@ -124,7 +114,7 @@ u32 FATStorage::WriteSectors(u32 start, u32 num, u8* data)
 }
 
 
-FILE* FATStorage::FF_File;
+FileHandle* FATStorage::FF_File;
 u64 FATStorage::FF_FileSize;
 
 UINT FATStorage::FF_ReadStorage(BYTE* buf, LBA_t sector, UINT num)
@@ -138,7 +128,7 @@ UINT FATStorage::FF_WriteStorage(BYTE* buf, LBA_t sector, UINT num)
 }
 
 
-u32 FATStorage::ReadSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num, u8* data)
+u32 FATStorage::ReadSectorsInternal(FileHandle* file, u64 filelen, u32 start, u32 num, u8* data)
 {
     if (!file) return 0;
 
@@ -152,12 +142,12 @@ u32 FATStorage::ReadSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num,
         num = len >> 9;
     }
 
-    melon_fseek(file, addr, SEEK_SET);
+    FileSeek(file, addr, FileSeekOrigin::Start);
 
-    u32 res = fread(data, 0x200, num, file);
+    u32 res = FileRead(data, 0x200, num, file);
     if (res < num)
     {
-        if (feof(file))
+        if (IsEndOfFile(file))
         {
             memset(&data[0x200*res], 0, 0x200*(num-res));
             return num;
@@ -167,7 +157,7 @@ u32 FATStorage::ReadSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num,
     return res;
 }
 
-u32 FATStorage::WriteSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num, u8* data)
+u32 FATStorage::WriteSectorsInternal(FileHandle* file, u64 filelen, u32 start, u32 num, u8* data)
 {
     if (!file) return 0;
 
@@ -181,9 +171,9 @@ u32 FATStorage::WriteSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num
         num = len >> 9;
     }
 
-    melon_fseek(file, addr, SEEK_SET);
+    FileSeek(file, addr, FileSeekOrigin::Start);
 
-    u32 res = fwrite(data, 0x200, num, file);
+    u32 res = Platform::FileWrite(data, 0x200, num, file);
     return res;
 }
 
@@ -193,13 +183,13 @@ void FATStorage::LoadIndex()
     DirIndex.clear();
     FileIndex.clear();
 
-    FILE* f = Platform::OpenLocalFile(IndexPath.c_str(), "r");
+    FileHandle* f = OpenLocalFile(IndexPath, FileMode::ReadText);
     if (!f) return;
 
     char linebuf[1536];
-    while (!feof(f))
+    while (!IsEndOfFile(f))
     {
-        if (fgets(linebuf, 1536, f) == nullptr)
+        if (!FileReadLine(linebuf, 1536, f))
             break;
 
         if (linebuf[0] == 'S')
@@ -258,7 +248,7 @@ void FATStorage::LoadIndex()
         }
     }
 
-    fclose(f);
+    CloseFile(f);
 
     // ensure the indexes are sane
 
@@ -325,31 +315,31 @@ void FATStorage::LoadIndex()
 
 void FATStorage::SaveIndex()
 {
-    FILE* f = Platform::OpenLocalFile(IndexPath.c_str(), "w");
+    FileHandle* f = OpenLocalFile(IndexPath, FileMode::WriteText);
     if (!f) return;
 
-    fprintf(f, "SIZE %" PRIu64 "\r\n", FileSize);
+    FileWriteFormatted(f, "SIZE %" PRIu64 "\r\n", FileSize);
 
     for (const auto& [key, val] : DirIndex)
     {
-        fprintf(f, "DIR %u %s\r\n",
+        FileWriteFormatted(f, "DIR %u %s\r\n",
                 val.IsReadOnly?1:0, val.Path.c_str());
     }
 
     for (const auto& [key, val] : FileIndex)
     {
-        fprintf(f, "FILE %u %" PRIu64 " %" PRId64 " %u %s\r\n",
+        FileWriteFormatted(f, "FILE %u %" PRIu64 " %" PRId64 " %u %s\r\n",
                 val.IsReadOnly?1:0, val.Size, val.LastModified, val.LastModifiedInternal, val.Path.c_str());
     }
 
-    fclose(f);
+    CloseFile(f);
 }
 
 
 bool FATStorage::ExportFile(const std::string& path, fs::path out)
 {
     FF_FIL file;
-    FILE* fout;
+    FileHandle* fout;
     FRESULT res;
 
     res = f_open(&file, path.c_str(), FA_OPEN_EXISTING | FA_READ);
@@ -367,7 +357,7 @@ bool FATStorage::ExportFile(const std::string& path, fs::path out)
                         err);
     }
 
-    fout = Platform::OpenFile(out.u8string().c_str(), "wb");
+    fout = OpenFile(out.u8string(), FileMode::Write);
     if (!fout)
     {
         f_close(&file);
@@ -385,10 +375,10 @@ bool FATStorage::ExportFile(const std::string& path, fs::path out)
 
         u32 nread;
         f_read(&file, buf, blocklen, &nread);
-        fwrite(buf, blocklen, 1, fout);
+        FileWrite(buf, blocklen, 1, fout);
     }
 
-    fclose(fout);
+    CloseFile(fout);
     f_close(&file);
 
     return true;
@@ -782,27 +772,25 @@ void FATStorage::CleanupDirectory(const std::string& sourcedir, const std::strin
 bool FATStorage::ImportFile(const std::string& path, fs::path in)
 {
     FF_FIL file;
-    FILE* fin;
+    FileHandle* fin;
     FRESULT res;
 
-    fin = Platform::OpenFile(in.u8string().c_str(), "rb");
+    fin = Platform::OpenFile(in.u8string(), FileMode::Read);
     if (!fin)
         return false;
 
-    fseek(fin, 0, SEEK_END);
-    u32 len = (u32)ftell(fin);
-    fseek(fin, 0, SEEK_SET);
+    u32 len = FileLength(fin);
 
     if (!CanFitFile(len))
     {
-        fclose(fin);
+        CloseFile(fin);
         return false;
     }
 
     res = f_open(&file, path.c_str(), FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
-        fclose(fin);
+        CloseFile(fin);
         return false;
     }
 
@@ -816,11 +804,11 @@ bool FATStorage::ImportFile(const std::string& path, fs::path in)
             blocklen = 0x1000;
 
         u32 nwrite;
-        fread(buf, blocklen, 1, fin);
+        FileRead(buf, blocklen, 1, fin);
         f_write(&file, buf, blocklen, &nwrite);
     }
 
-    fclose(fin);
+    CloseFile(fin);
     f_close(&file);
 
     return true;
@@ -961,16 +949,10 @@ bool FATStorage::Load(const std::string& filename, u64 size, const std::string& 
     // * if no image: if sourcing from a directory, size is calculated from that
     //   with a minimum 128MB extra, otherwise size is defaulted to 512MB
 
-    bool isnew = false;
-    FF_File = Platform::OpenLocalFile(filename.c_str(), "r+b");
+    bool isnew = !Platform::LocalFileExists(filename);
+    FF_File = Platform::OpenLocalFile(filename, static_cast<FileMode>(FileMode::ReadWrite | FileMode::Preserve));
     if (!FF_File)
-    {
-        FF_File = Platform::OpenLocalFile(filename.c_str(), "w+b");
-        if (!FF_File)
-            return false;
-
-        isnew = true;
-    }
+        return false;
 
     IndexPath = FilePath + ".idx";
     if (isnew)
@@ -985,8 +967,7 @@ bool FATStorage::Load(const std::string& filename, u64 size, const std::string& 
 
         if (FileSize == 0)
         {
-            melon_fseek(FF_File, 0, SEEK_END);
-            FileSize = melon_ftell(FF_File);
+            FileSize = FileLength(FF_File);
         }
     }
 
@@ -1076,7 +1057,7 @@ bool FATStorage::Load(const std::string& filename, u64 size, const std::string& 
     f_unmount("0:");
 
     ff_disk_close();
-    fclose(FF_File);
+    CloseFile(FF_File);
     FF_File = nullptr;
 
     return true;
@@ -1089,7 +1070,7 @@ bool FATStorage::Save()
         return true;
     }
 
-    FF_File = Platform::OpenLocalFile(FilePath.c_str(), "r+b");
+    FF_File = Platform::OpenLocalFile(FilePath, FileMode::ReadWriteExisting);
     if (!FF_File)
     {
         return false;
@@ -1105,7 +1086,7 @@ bool FATStorage::Save()
     if (res != FR_OK)
     {
         ff_disk_close();
-        fclose(FF_File);
+        CloseFile(FF_File);
         FF_File = nullptr;
         return false;
     }
@@ -1117,7 +1098,7 @@ bool FATStorage::Save()
     f_unmount("0:");
 
     ff_disk_close();
-    fclose(FF_File);
+    CloseFile(FF_File);
     FF_File = nullptr;
 
     return true;

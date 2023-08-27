@@ -356,7 +356,7 @@ u8 DSi_NWifi::F0_Read(u32 addr)
         return CIS1[addr & 0xFF];
     }
 
-    Log(LogLevel::Warn, "NWIFI: unknown func0 read %05X\n", addr);
+    Log(LogLevel::Debug, "NWIFI: unknown func0 read %05X\n", addr);
     return 0;
 }
 
@@ -370,7 +370,7 @@ void DSi_NWifi::F0_Write(u32 addr, u8 val)
         return;
     }
 
-    Log(LogLevel::Warn, "NWIFI: unknown func0 write %05X %02X\n", addr, val);
+    Log(LogLevel::Debug, "NWIFI: unknown func0 write %05X %02X\n", addr, val);
 }
 
 
@@ -582,7 +582,7 @@ void DSi_NWifi::F1_Write(u32 addr, u8 val)
         return;
     }
 
-    Log(LogLevel::Warn, "NWIFI: unknown func1 write %05X %02X\n", addr, val);
+    Log(LogLevel::Debug, "NWIFI: unknown func1 write %05X %02X\n", addr, val);
 }
 
 
@@ -594,7 +594,7 @@ u8 DSi_NWifi::SDIO_Read(u32 func, u32 addr)
     case 1: return F1_Read(addr);
     }
 
-    Log(LogLevel::Warn, "NWIFI: unknown SDIO read %d %05X\n", func, addr);
+    Log(LogLevel::Debug, "NWIFI: unknown SDIO read %d %05X\n", func, addr);
     return 0;
 }
 
@@ -606,7 +606,7 @@ void DSi_NWifi::SDIO_Write(u32 func, u32 addr, u8 val)
     case 1: return F1_Write(addr, val);
     }
 
-    Log(LogLevel::Warn, "NWIFI: unknown SDIO write %d %05X %02X\n", func, addr, val);
+    Log(LogLevel::Debug, "NWIFI: unknown SDIO write %d %05X %02X\n", func, addr, val);
 }
 
 
@@ -874,7 +874,7 @@ void DSi_NWifi::HTC_Command()
         {
             u16 svc_id = MB_Read16(0);
             u16 conn_flags = MB_Read16(0);
-            Log(LogLevel::Info, "service connect %04X %04X %04X\n", svc_id, conn_flags, MB_Read16(0));
+            Log(LogLevel::Debug, "service connect %04X %04X %04X\n", svc_id, conn_flags, MB_Read16(0));
 
             u8 svc_resp[8];
             // responses from hardware:
@@ -952,7 +952,7 @@ void DSi_NWifi::WMI_Command()
                 if (ConnectionStatus != 1)
                     Log(LogLevel::Warn, "WMI: ?? trying to disconnect while not connected\n");
 
-                Log(LogLevel::Info, "WMI: disconnect\n");
+                Log(LogLevel::Debug, "WMI: disconnect\n");
                 ConnectionStatus = 0;
 
                 u8 reply[11];
@@ -1218,7 +1218,7 @@ void DSi_NWifi::WMI_ConnectToNetwork()
         return;
     }
 
-    Log(LogLevel::Info, "WMI: connecting to network %s\n", ssid);
+    Log(LogLevel::Debug, "WMI: connecting to network %s\n", ssid);
 
     u8 reply[20];
 

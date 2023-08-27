@@ -21,9 +21,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <SDL2/SDL.h>
 #include <pcap/pcap.h>
-#include "../Wifi.h"
+#include "Wifi.h"
 #include "LAN_PCap.h"
 #include "Config.h"
 #include "Platform.h"
@@ -88,7 +87,7 @@ const char* PCapLibNames[] =
 AdapterData* Adapters = NULL;
 int NumAdapters = 0;
 
-void* PCapLib = NULL;
+Platform::DynamicLibrary* PCapLib = NULL;
 pcap_t* PCapAdapter = NULL;
 AdapterData* PCapAdapterData;
 
@@ -98,10 +97,10 @@ volatile int RXNum;
 
 
 #define LOAD_PCAP_FUNC(sym) \
-    ptr_##sym = (type_##sym)SDL_LoadFunction(lib, #sym); \
+    ptr_##sym = (type_##sym)DynamicLibrary_LoadFunction(lib, #sym); \
     if (!ptr_##sym) return false;
 
-bool TryLoadPCap(void* lib)
+bool TryLoadPCap(Platform::DynamicLibrary *lib)
 {
     LOAD_PCAP_FUNC(pcap_findalldevs)
     LOAD_PCAP_FUNC(pcap_freealldevs)
@@ -130,12 +129,12 @@ bool Init(bool open_adapter)
 
         for (int i = 0; PCapLibNames[i]; i++)
         {
-            void* lib = SDL_LoadObject(PCapLibNames[i]);
+            Platform::DynamicLibrary* lib = Platform::DynamicLibrary_Load(PCapLibNames[i]);
             if (!lib) continue;
 
             if (!TryLoadPCap(lib))
             {
-                SDL_UnloadObject(lib);
+                Platform::DynamicLibrary_Unload(lib);
                 continue;
             }
 
@@ -355,7 +354,7 @@ void DeInit()
             PCapAdapter = NULL;
         }
 
-        SDL_UnloadObject(PCapLib);
+        Platform::DynamicLibrary_Unload(PCapLib);
         PCapLib = NULL;
     }
 }

@@ -29,8 +29,7 @@
 #include "DSi_SPI_TSC.h"
 #include "Platform.h"
 
-using Platform::Log;
-using Platform::LogLevel;
+using namespace Platform;
 
 namespace SPI_Firmware
 {
@@ -223,13 +222,15 @@ void LoadDefaultFirmware()
     // wifi access points
     // TODO: WFC ID??
 
-    FILE* f = Platform::OpenLocalFile("wfcsettings.bin"+Platform::InstanceFileSuffix(), "rb");
-    if (!f) f = Platform::OpenLocalFile("wfcsettings.bin", "rb");
+    std::string wfcsettings = Platform::GetConfigString(ConfigEntry::WifiSettingsPath);
+
+    FileHandle* f = Platform::OpenLocalFile(wfcsettings + Platform::InstanceFileSuffix(), FileMode::Read);
+    if (!f) f = Platform::OpenLocalFile(wfcsettings, FileMode::Read);
     if (f)
     {
         u32 apdata = userdata - 0xA00;
-        fread(&Firmware[apdata], 0x900, 1, f);
-        fclose(f);
+        FileRead(&Firmware[apdata], 0x900, 1, f);
+        CloseFile(f);
     }
     else
     {
@@ -268,29 +269,27 @@ void LoadDefaultFirmware()
     }
 }
 
-void LoadFirmwareFromFile(FILE* f, bool makecopy)
+void LoadFirmwareFromFile(FileHandle* f, bool makecopy)
 {
-    fseek(f, 0, SEEK_END);
-
-    FirmwareLength = FixFirmwareLength((u32)ftell(f));
+    FirmwareLength = FixFirmwareLength(FileLength(f));
 
     Firmware = new u8[FirmwareLength];
 
-    fseek(f, 0, SEEK_SET);
-    fread(Firmware, 1, FirmwareLength, f);
+    FileRewind(f);
+    FileRead(Firmware, 1, FirmwareLength, f);
 
     // take a backup
     std::string fwBackupPath;
     if (!makecopy) fwBackupPath = FirmwarePath + ".bak";
     else           fwBackupPath = FirmwarePath;
-    FILE* bf = Platform::OpenLocalFile(fwBackupPath, "rb");
+    FileHandle* bf = Platform::OpenLocalFile(fwBackupPath, FileMode::Read);
     if (!bf)
     {
-        bf = Platform::OpenLocalFile(fwBackupPath, "wb");
+        bf = Platform::OpenLocalFile(fwBackupPath, FileMode::Write);
         if (bf)
         {
-            fwrite(Firmware, 1, FirmwareLength, bf);
-            fclose(bf);
+            FileWrite(Firmware, 1, FirmwareLength, bf);
+            CloseFile(bf);
         }
         else
         {
@@ -299,7 +298,7 @@ void LoadFirmwareFromFile(FILE* f, bool makecopy)
     }
     else
     {
-        fclose(bf);
+        CloseFile(bf);
     }
 }
 
@@ -350,10 +349,10 @@ void Reset()
         std::string origpath = FirmwarePath;
         FirmwarePath += Platform::InstanceFileSuffix();
 
-        FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
+        FileHandle* f = Platform::OpenLocalFile(FirmwarePath, FileMode::Read);
         if (!f)
         {
-            f = Platform::OpenLocalFile(origpath, "rb");
+            f = Platform::OpenLocalFile(origpath, FileMode::Read);
             makecopy = true;
         }
         if (!f)
@@ -364,7 +363,7 @@ void Reset()
         else
         {
             LoadFirmwareFromFile(f, makecopy);
-            fclose(f);
+            CloseFile(f);
         }
     }
 
@@ -604,28 +603,26 @@ void Write(u8 val, u32 hold)
     {
         if (!FirmwarePath.empty())
         {
-            FILE* f = Platform::OpenLocalFile(FirmwarePath, "r+b");
+            FileHandle* f = Platform::OpenLocalFile(FirmwarePath, FileMode::ReadWriteExisting);
             if (f)
             {
                 u32 cutoff = ((NDS::ConsoleType==1) ? 0x7F400 : 0x7FA00) & FirmwareMask;
-                fseek(f, cutoff, SEEK_SET);
-                fwrite(&Firmware[cutoff], FirmwareLength-cutoff, 1, f);
-                fclose(f);
+                FileSeek(f, cutoff, FileSeekOrigin::Start);
+                FileWrite(&Firmware[cutoff], FirmwareLength-cutoff, 1, f);
+                CloseFile(f);
             }
         }
         else
         {
-            char wfcfile[50] = {0};
-            int inst = Platform::InstanceID();
-            if (inst > 0) snprintf(wfcfile, 49, "wfcsettings.bin", Platform::InstanceID());
-            else          strncpy(wfcfile, "wfcsettings.bin", 49);
+            std::string wfcfile = Platform::GetConfigString(ConfigEntry::WifiSettingsPath);
+            if (Platform::InstanceID() > 0) wfcfile += Platform::InstanceFileSuffix();
 
-            FILE* f = Platform::OpenLocalFile(wfcfile, "wb");
+            FileHandle* f = Platform::OpenLocalFile(wfcfile, FileMode::Write);
             if (f)
             {
                 u32 cutoff = 0x7F400 & FirmwareMask;
-                fwrite(&Firmware[cutoff], 0x900, 1, f);
-                fclose(f);
+                FileWrite(&Firmware[cutoff], 0x900, 1, f);
+                CloseFile(f);
             }
         }
     }
@@ -725,7 +722,7 @@ void Write(u8 val, u32 hold)
             switch (regid)
             {
             case 0:
-                if (val & 0x40) NDS::Stop(); // shutdown
+                if (val & 0x40) NDS::Stop(StopReason::PowerOff); // shutdown
                 //printf("power %02X\n", val);
                 break;
             case 4:

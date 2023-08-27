@@ -21,8 +21,7 @@
 #include "ARCodeFile.h"
 #include "Platform.h"
 
-using Platform::Log;
-using Platform::LogLevel;
+using namespace Platform;
 
 // TODO: import codes from other sources (usrcheat.dat, ...)
 // TODO: more user-friendly error reporting
@@ -47,7 +46,7 @@ ARCodeFile::~ARCodeFile()
 
 bool ARCodeFile::Load()
 {
-    FILE* f = Platform::OpenFile(Filename, "r");
+    FileHandle* f = OpenFile(Filename, FileMode::ReadText);
     if (!f) return true;
 
     Categories.clear();
@@ -59,9 +58,9 @@ bool ARCodeFile::Load()
     ARCode curcode;
 
     char linebuf[1024];
-    while (!feof(f))
+    while (!IsEndOfFile(f))
     {
-        if (fgets(linebuf, 1024, f) == nullptr)
+        if (!FileReadLine(linebuf, 1024, f))
             break;
 
         linebuf[1023] = '\0';
@@ -82,7 +81,7 @@ bool ARCodeFile::Load()
             if (ret < 1)
             {
                 Log(LogLevel::Error, "AR: malformed CAT line: %s\n", start);
-                fclose(f);
+                CloseFile(f);
                 return false;
             }
 
@@ -105,14 +104,14 @@ bool ARCodeFile::Load()
             if (ret < 2)
             {
                 Log(LogLevel::Error, "AR: malformed CODE line: %s\n", start);
-                fclose(f);
+                CloseFile(f);
                 return false;
             }
 
             if (!isincat)
             {
                 Log(LogLevel::Error, "AR: encountered CODE line with no category started\n");
-                fclose(f);
+                CloseFile(f);
                 return false;
             }
 
@@ -131,21 +130,21 @@ bool ARCodeFile::Load()
             if (ret < 2)
             {
                 Log(LogLevel::Error, "AR: malformed data line: %s\n", start);
-                fclose(f);
+                CloseFile(f);
                 return false;
             }
 
             if (!isincode)
             {
                 Log(LogLevel::Error, "AR: encountered data line with no code started\n");
-                fclose(f);
+                CloseFile(f);
                 return false;
             }
 
             if (curcode.CodeLen >= 2*64)
             {
                 Log(LogLevel::Error, "AR: code too long!\n");
-                fclose(f);
+                CloseFile(f);
                 return false;
             }
 
@@ -159,36 +158,36 @@ bool ARCodeFile::Load()
     if (isincode) curcat.Codes.push_back(curcode);
     if (isincat) Categories.push_back(curcat);
 
-    fclose(f);
+    CloseFile(f);
     return true;
 }
 
 bool ARCodeFile::Save()
 {
-    FILE* f = Platform::OpenFile(Filename, "w");
+    FileHandle* f = Platform::OpenFile(Filename, FileMode::WriteText);
     if (!f) return false;
 
     for (ARCodeCatList::iterator it = Categories.begin(); it != Categories.end(); it++)
     {
         ARCodeCat& cat = *it;
 
-        if (it != Categories.begin()) fprintf(f, "\r\n");
-        fprintf(f, "CAT %s\r\n\r\n", cat.Name.c_str());
+        if (it != Categories.begin()) FileWriteFormatted(f, "\r\n");
+        FileWriteFormatted(f, "CAT %s\r\n\r\n", cat.Name.c_str());
 
         for (ARCodeList::iterator jt = cat.Codes.begin(); jt != cat.Codes.end(); jt++)
         {
             ARCode& code = *jt;
-            fprintf(f, "CODE %d %s\r\n", code.Enabled, code.Name.c_str());
+            FileWriteFormatted(f, "CODE %d %s\r\n", code.Enabled, code.Name.c_str());
 
             for (u32 i = 0; i < code.CodeLen; i+=2)
             {
-                fprintf(f, "%08X %08X\r\n", code.Code[i], code.Code[i+1]);
+                FileWriteFormatted(f, "%08X %08X\r\n", code.Code[i], code.Code[i + 1]);
             }
 
-            fprintf(f, "\r\n");
+            FileWriteFormatted(f, "\r\n");
         }
     }
 
-    fclose(f);
+    CloseFile(f);
     return true;
 }

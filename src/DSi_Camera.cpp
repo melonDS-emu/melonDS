@@ -247,7 +247,7 @@ u8 Read8(u32 addr)
 {
     //
 
-    Log(LogLevel::Warn, "unknown DSi cam read8 %08X\n", addr);
+    Log(LogLevel::Debug, "unknown DSi cam read8 %08X\n", addr);
     return 0;
 }
 
@@ -259,7 +259,7 @@ u16 Read16(u32 addr)
     case 0x04004202: return Cnt;
     }
 
-    Log(LogLevel::Warn, "unknown DSi cam read16 %08X\n", addr);
+    Log(LogLevel::Debug, "unknown DSi cam read16 %08X\n", addr);
     return 0;
 }
 
@@ -285,7 +285,7 @@ u32 Read32(u32 addr)
     case 0x04004214: return CropEnd;
     }
 
-    Log(LogLevel::Warn, "unknown DSi cam read32 %08X\n", addr);
+    Log(LogLevel::Debug, "unknown DSi cam read32 %08X\n", addr);
     return 0;
 }
 
@@ -293,7 +293,7 @@ void Write8(u32 addr, u8 val)
 {
     //
 
-    Log(LogLevel::Warn, "unknown DSi cam write8 %08X %02X\n", addr, val);
+    Log(LogLevel::Debug, "unknown DSi cam write8 %08X %02X\n", addr, val);
 }
 
 void Write16(u32 addr, u16 val)
@@ -372,7 +372,7 @@ void Write16(u32 addr, u16 val)
         return;
     }
 
-    Log(LogLevel::Warn, "unknown DSi cam write16 %08X %04X\n", addr, val);
+    Log(LogLevel::Debug, "unknown DSi cam write16 %08X %04X\n", addr, val);
 }
 
 void Write32(u32 addr, u32 val)
@@ -389,7 +389,7 @@ void Write32(u32 addr, u32 val)
         return;
     }
 
-    Log(LogLevel::Warn, "unknown DSi cam write32 %08X %08X\n", addr, val);
+    Log(LogLevel::Debug, "unknown DSi cam write32 %08X %08X\n", addr, val);
 }
 
 
@@ -638,7 +638,7 @@ u16 Camera::I2C_ReadReg(u16 addr)
     case 0x301A: return ((~StandbyCnt) & 0x4000) >> 12;
     }
 
-    if(Num==1) Log(LogLevel::Warn, "DSi_Camera%d: unknown read %04X\n", Num, addr);
+    if(Num==1) Log(LogLevel::Debug, "DSi_Camera%d: unknown read %04X\n", Num, addr);
     return 0;
 }
 
@@ -704,7 +704,7 @@ void Camera::I2C_WriteReg(u16 addr, u16 val)
         return;
     }
 
-    if(Num==1) Log(LogLevel::Warn, "DSi_Camera%d: unknown write %04X %04X\n", Num, addr, val);
+    if(Num==1) Log(LogLevel::Debug, "DSi_Camera%d: unknown write %04X %04X\n", Num, addr, val);
 }
 
 
