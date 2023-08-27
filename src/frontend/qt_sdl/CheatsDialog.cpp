@@ -162,8 +162,7 @@ void CheatsDialog::on_btnNewARCode_clicked()
     ARCode code;
     code.Name = "(new AR code)";
     code.Enabled = true;
-    code.CodeLen = 0;
-    memset(code.Code, 0, sizeof(code.Code));
+    code.Code.clear();
 
     cat.Codes.push_back(code);
     ARCodeList::iterator id = cat.Codes.end(); id--;
@@ -251,7 +250,7 @@ void CheatsDialog::onCheatSelectionChanged(const QItemSelection& sel, const QIte
             ui->txtCode->setPlaceholderText("(enter AR code here)");
 
             QString codestr = "";
-            for (u32 i = 0; i < code.CodeLen; i += 2)
+            for (size_t i = 0; i < code.Code.size(); i += 2)
             {
                 u32 c0 = code.Code[i+0];
                 u32 c1 = code.Code[i+1];
@@ -312,8 +311,8 @@ void CheatsDialog::on_txtCode_textChanged()
         return;
 
     bool error = false;
-    u32 codeout[2*64];
-    u32 codelen = 0;
+    std::vector<u32> codeout;
+    codeout.reserve(64);
 
     QString text = ui->txtCode->document()->toPlainText();
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
@@ -356,14 +355,8 @@ void CheatsDialog::on_txtCode_textChanged()
             break;
         }
 
-        if (codelen >= 2*64)
-        {
-            error = true;
-            break;
-        }
-
-        codeout[codelen++] = c0;
-        codeout[codelen++] = c1;
+        codeout.push_back(c0);
+        codeout.push_back(c1);
     }
 
     ui->btnNewCat->setEnabled(!error);
@@ -375,8 +368,7 @@ void CheatsDialog::on_txtCode_textChanged()
     if (error) return;
 
     ARCode& code = *(data.value<ARCodeList::iterator>());
-    memcpy(code.Code, codeout, codelen*sizeof(u32));
-    code.CodeLen = codelen;
+    code.Code = codeout;
 }
 
 void ARCodeChecker::highlightBlock(const QString& text)
