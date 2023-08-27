@@ -320,7 +320,8 @@ private:
                 if (side ^ Negative)
                 {
                     dxold = dx;
-                    // I dont think the first span can have a gap but i think its technically correct to do this calc anyway?
+                    // I dont think the first span can have a gap but
+                    // I think its technically correct to do this calc anyway?
                     // could probably be removed as a minor optimization
                     dx &= ~0x1FF;
                 }
@@ -337,7 +338,7 @@ private:
 
         constexpr s32 Step()
         {   
-            if (XMajor && (side ^ Negative)) // tl, br (right side start) & tr, bl (left side start)
+            if (XMajor && (side ^ Negative)) // tl, br = \ (right side end) & tr, bl = / (left side start)
             {
                 // round dx; required to create gaps in lines like on hw
                 // increment using dxold to make the line not completely borked after rendering a gap
@@ -372,10 +373,10 @@ private:
             // only needed for aa calcs, as actual line spans are broken
             if constexpr (!swapped || side)
             {
-                if (side ^ Negative) // tr, bl (left side end) & tl br (right side end)
+                if (side ^ Negative) // tr, bl = / (left side end) & tl br = \ (right side start)
                 // dxold used here to avoid rounding the endpoint
                 *length = (dx >> 18) - (dxold - Increment >> 18);
-                else // tl, br (left side end) & tr, bl (right side end)
+                else // tl, br = \ (left side end) & tr, bl = / (right side start)
                 // dx rounded down to create gaps in lines like on hw
                 *length = ((dx & ~0x1FF) + Increment >> 18) - (dx >> 18);
             }
@@ -383,7 +384,7 @@ private:
             // for X-major edges, we return the coverage
             // for the first pixel, and the increment for
             // further pixels on the same scanline
-            // TODO: check how coverage interacts with line gaps
+            // TODO: check how coverage interacts with line gaps, I think it's correct though?
             s32 startx = dx >> 18;
             if (Negative) startx = xlen - startx;
             if (side)     startx = startx - *length + 1;
