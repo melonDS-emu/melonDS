@@ -821,7 +821,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
-        if (dstattr & 0x3)
+        if (dstattr & 0xF)
         {
             pixeladdr += BufferSize;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
@@ -847,7 +847,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
-        if (dstattr & 0x3)
+        if (dstattr & 0xF)
         {
             pixeladdr += BufferSize;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
@@ -876,7 +876,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
-        if (dstattr & 0x3)
+        if (dstattr & 0xF)
         {
             pixeladdr += BufferSize;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
@@ -1053,7 +1053,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
             if (!(stencil & 0x1))
                 pixeladdr += BufferSize;
             if (!(stencil & 0x2))
-                dstattr &= ~0x3; // quick way to prevent drawing the shadow under antialiased edges
+                dstattr &= ~0xF; // quick way to prevent drawing the shadow under antialiased edges
         }
 
         interpX.SetX(x);
@@ -1064,7 +1064,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
         {
-            if (!(dstattr & 0x3) || pixeladdr >= BufferSize) continue;
+            if (!(dstattr & 0xF) || pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1122,7 +1122,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
             PlotTranslucentPixel(pixeladdr, color, z, polyattr, polygon->IsShadow);
 
             // blend with bottom pixel too, if needed
-            if ((dstattr & 0x3) && (pixeladdr < BufferSize))
+            if ((dstattr & 0xF) && (pixeladdr < BufferSize))
                 PlotTranslucentPixel(pixeladdr+BufferSize, color, z, polyattr, polygon->IsShadow);
         }
     }
@@ -1149,7 +1149,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
             if (!(stencil & 0x1))
                 pixeladdr += BufferSize;
             if (!(stencil & 0x2))
-                dstattr &= ~0x3; // quick way to prevent drawing the shadow under antialiased edges
+                dstattr &= ~0xF; // quick way to prevent drawing the shadow under antialiased edges
         }
 
         interpX.SetX(x);
@@ -1160,7 +1160,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
         {
-            if (!(dstattr & 0x3) || pixeladdr >= BufferSize) continue;
+            if (!(dstattr & 0xF) || pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1184,6 +1184,23 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         if (alpha == 31)
         {
             u32 attr = polyattr | edge;
+            
+            if ((RenderDispCnt & (1<<4)) && (attr & 0xF))
+            {
+                // anti-aliasing: all edges are rendered
+
+                // set coverage to avoid black lines from anti-aliasing
+                attr |= (0x1F << 8);
+
+                // push old pixel down if needed
+                if (pixeladdr < BufferSize)
+                {
+                    ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
+                    DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
+                    AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
+                }
+            }
+
             DepthBuffer[pixeladdr] = z;
             ColorBuffer[pixeladdr] = color;
             AttrBuffer[pixeladdr] = attr;
@@ -1194,7 +1211,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
             PlotTranslucentPixel(pixeladdr, color, z, polyattr, polygon->IsShadow);
 
             // blend with bottom pixel too, if needed
-            if ((dstattr & 0x3) && (pixeladdr < BufferSize))
+            if ((dstattr & 0xF) && (pixeladdr < BufferSize))
                 PlotTranslucentPixel(pixeladdr+BufferSize, color, z, polyattr, polygon->IsShadow);
         }
     }
@@ -1224,7 +1241,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
             if (!(stencil & 0x1))
                 pixeladdr += BufferSize;
             if (!(stencil & 0x2))
-                dstattr &= ~0x3; // quick way to prevent drawing the shadow under antialiased edges
+                dstattr &= ~0xF; // quick way to prevent drawing the shadow under antialiased edges
         }
 
         interpX.SetX(x);
@@ -1235,7 +1252,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
         {
-            if (!(dstattr & 0x3) || pixeladdr >= BufferSize) continue;
+            if (!(dstattr & 0xF) || pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1293,7 +1310,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
             PlotTranslucentPixel(pixeladdr, color, z, polyattr, polygon->IsShadow);
 
             // blend with bottom pixel too, if needed
-            if ((dstattr & 0x3) && (pixeladdr < BufferSize))
+            if ((dstattr & 0xF) && (pixeladdr < BufferSize))
                 PlotTranslucentPixel(pixeladdr+BufferSize, color, z, polyattr, polygon->IsShadow);
         }
     }
@@ -1448,7 +1465,7 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
             // fog for lower pixel
             // TODO: make this code nicer, but avoid using a loop
 
-            if (!(attr & 0x3)) continue;
+            if (!(attr & 0xF)) continue;
             pixeladdr += BufferSize;
 
             attr = AttrBuffer[pixeladdr];
@@ -1487,7 +1504,7 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
             u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
 
             u32 attr = AttrBuffer[pixeladdr];
-            if (!(attr & 0x3)) continue;
+            if (!(attr & 0xF)) continue;
 
             u32 coverage = (attr >> 8) & 0x1F;
             if (coverage == 0x1F) continue;
