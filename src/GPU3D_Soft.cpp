@@ -723,19 +723,6 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     xstart = rp->XL;
     xend = rp->XR;
 
-    // CHECKME: edge fill rules for opaque shadow mask polygons
-
-    if ((polyalpha < 31) || (RenderDispCnt & (3<<4)))
-    {
-        l_filledge = true;
-        r_filledge = true;
-    }
-    else
-    {
-        l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor);
-        r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0);
-    }
-
     s32 wl = rp->SlopeL.Interp.Interpolate(polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
     s32 wr = rp->SlopeR.Interp.Interpolate(polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
 
@@ -764,7 +751,21 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         std::swap(xstart, xend);
         std::swap(wl, wr);
         std::swap(zl, zr);
-        std::swap(l_filledge, r_filledge);
+        
+        // CHECKME: edge fill rules for swapped opaque shadow mask polygons
+        if ((polyalpha < 31) || (RenderDispCnt & (3<<4)))
+        {
+            l_filledge = true;
+            r_filledge = true;
+        }
+        else
+        {
+            l_filledge = (rp->SlopeR.Negative || !rp->SlopeR.XMajor)
+                || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
+            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor)
+                || (!(rp->SlopeL.Negative && rp->SlopeL.XMajor) && rp->SlopeR.Increment==0)
+                || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
+        }
     }
     else
     {
@@ -778,6 +779,21 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
         rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
         rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
+        
+        // CHECKME: edge fill rules for unswapped opaque shadow mask polygons
+        if ((polyalpha < 31) || (RenderDispCnt & (3<<4)))
+        {
+            l_filledge = true;
+            r_filledge = true;
+        }
+        else
+        {
+            l_filledge = ((rp->SlopeL.Negative || !rp->SlopeL.XMajor)
+                || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]))
+                || (rp->SlopeL.Increment == rp->SlopeR.Increment) && (xstart+l_edgelen == xend+1);
+            r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0)
+                || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
+        }
     }
 
     // color/texcoord attributes aren't needed for shadow masks
@@ -810,6 +826,8 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
 
+    if (!l_filledge) x = xlimit;
+    else
     for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
@@ -818,10 +836,6 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
-
-        // checkme
-        if (!l_filledge)
-            continue;
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
             StencilBuffer[256*(y&0x1) + x] = 1;
@@ -839,7 +853,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     xlimit = xend-r_edgelen+1;
     if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
-    if (wireframe && !edge) x = xlimit;
+    if (wireframe && !edge) x = std::max(x, xlimit);
     else for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
@@ -864,7 +878,8 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     edge = yedge | 0x2;
     xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
-
+    
+    if (r_filledge)
     for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
@@ -873,10 +888,6 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
-
-        // checkme
-        if (!r_filledge)
-            continue;
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
             StencilBuffer[256*(y&0x1) + x] = 1;
@@ -937,24 +948,6 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     xstart = rp->XL;
     xend = rp->XR;
 
-    // edge fill rules for opaque pixels:
-    // * right edge is filled if slope > 1
-    // * left edge is filled if slope <= 1
-    // * edges with slope = 0 are always filled
-    // right vertical edges are pushed 1px to the left
-    // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
-
-    if (wireframe || (RenderDispCnt & ((1<<4)|(1<<5))))
-    {
-        l_filledge = true;
-        r_filledge = true;
-    }
-    else
-    {
-        l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor);
-        r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0);
-    }
-
     s32 wl = rp->SlopeL.Interp.Interpolate(polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
     s32 wr = rp->SlopeR.Interp.Interpolate(polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
 
@@ -987,7 +980,26 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         std::swap(xstart, xend);
         std::swap(wl, wr);
         std::swap(zl, zr);
-        std::swap(l_filledge, r_filledge);
+
+        // edge fill rules for swapped opaque edges:
+        // * right edge is filled if slope > 1, or if the left edge = 0, but is never filled if it is < -1
+        // * left edge is filled if slope <= 1
+        // * the bottom-most pixel of negative x-major slopes are filled if they are next to a flat bottom edge
+        // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
+        // checkme: do swapped line polygons exist?
+        if ((polyalpha < 31) || wireframe || (RenderDispCnt & ((1<<4)|(1<<5))))
+        {
+            l_filledge = true;
+            r_filledge = true;
+        }
+        else
+        {
+            l_filledge = (rp->SlopeR.Negative || !rp->SlopeR.XMajor)
+                || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
+            r_filledge = (!rp->SlopeL.Negative && rp->SlopeL.XMajor)
+                || (!(rp->SlopeL.Negative && rp->SlopeL.XMajor) && rp->SlopeR.Increment==0)
+                || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
+        }
     }
     else
     {
@@ -1001,6 +1013,27 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
         rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
         rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
+
+        // edge fill rules for unswapped opaque edges:
+        // * right edge is filled if slope > 1
+        // * left edge is filled if slope <= 1
+        // * edges with slope = 0 are always filled
+        // * the bottom-most pixel of negative x-major slopes are filled if they are next to a flat bottom edge
+        // * edges are filled if both sides are identical and fully overlapping
+        // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
+        if ((polyalpha < 31) || wireframe || (RenderDispCnt & ((1<<4)|(1<<5))))
+        {
+            l_filledge = true;
+            r_filledge = true;
+        }
+        else
+        {
+            l_filledge = ((rp->SlopeL.Negative || !rp->SlopeL.XMajor)
+                || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]))
+                || (rp->SlopeL.Increment == rp->SlopeR.Increment) && (xstart+l_edgelen == xend+1);
+            r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0)
+                || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
+        }
     }
 
     // interpolate attributes along Y
@@ -1045,7 +1078,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         if (xcov == 0x3FF) xcov = 0;
     }
 
-    if (!l_filledge) x = std::min(xlimit, xend-r_edgelen+1);
+    if (!l_filledge) x = xlimit;
     else
     for (; x < xlimit; x++)
     {
@@ -1141,7 +1174,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
 
-    if (wireframe && !edge) x = xlimit;
+    if (wireframe && !edge) x = std::max(x, xlimit);
     else
     for (; x < xlimit; x++)
     {
