@@ -23,8 +23,7 @@
 #include "DSi_NWifi.h"
 #include "Platform.h"
 
-using Platform::Log;
-using Platform::LogLevel;
+using namespace Platform;
 
 // observed IRQ behavior during transfers
 //
@@ -773,7 +772,7 @@ DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::strin
     : DSi_SDDevice(host)
 {
     Internal = internal;
-    File = Platform::OpenLocalFile(filename, "r+b");
+    File = Platform::OpenLocalFile(filename, FileMode::ReadWriteExisting);
 
     SD = nullptr;
 
@@ -801,7 +800,7 @@ DSi_MMCStorage::~DSi_MMCStorage()
     }
     if (File)
     {
-        fclose(File);
+        CloseFile(File);
     }
 }
 
@@ -926,7 +925,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
 
     case 12: // stop operation
         SetState(0x04);
-        if (File) fflush(File);
+        if (File) FileFlush(File);
         RWCommand = 0;
         Host->SendResponse(CSR, true);
         return;
@@ -1055,8 +1054,8 @@ u32 DSi_MMCStorage::ReadBlock(u64 addr)
     }
     else if (File)
     {
-        fseek(File, addr, SEEK_SET);
-        fread(&data[addr & 0x1FF], 1, len, File);
+        FileSeek(File, addr, FileSeekOrigin::Start);
+        FileRead(&data[addr & 0x1FF], 1, len, File);
     }
 
     return Host->DataRX(&data[addr & 0x1FF], len);
@@ -1085,8 +1084,8 @@ u32 DSi_MMCStorage::WriteBlock(u64 addr)
             }
             else if (File)
             {
-                fseek(File, addr, SEEK_SET);
-                fwrite(&data[addr & 0x1FF], 1, len, File);
+                FileSeek(File, addr, FileSeekOrigin::Start);
+                FileWrite(&data[addr & 0x1FF], 1, len, File);
             }
         }
     }

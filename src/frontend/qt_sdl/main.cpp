@@ -2639,7 +2639,7 @@ void MainWindow::onImportSavefile()
         return;
     }
 
-    FILE* f = Platform::OpenFile(path.toStdString(), "rb", true);
+    Platform::FileHandle* f = Platform::OpenFile(path.toStdString(), Platform::FileMode::Read);
     if (!f)
     {
         QMessageBox::critical(this, "melonDS", "Could not open the given savefile.");
@@ -2661,18 +2661,16 @@ void MainWindow::onImportSavefile()
         ROMManager::Reset();
     }
 
-    u32 len;
-    fseek(f, 0, SEEK_END);
-    len = (u32)ftell(f);
+    u32 len = FileLength(f);
 
     u8* data = new u8[len];
-    fseek(f, 0, SEEK_SET);
-    fread(data, len, 1, f);
+    Platform::FileRewind(f);
+    Platform::FileRead(data, len, 1, f);
 
     NDS::LoadSave(data, len);
     delete[] data;
 
-    fclose(f);
+    CloseFile(f);
     emuThread->emuUnpause();
 }
 
@@ -3196,8 +3194,6 @@ void emuStop()
     RunningSomething = false;
 
     emit emuThread->windowEmuStop();
-
-    OSD::AddMessage(0xFFC040, "Shutdown");
 }
 
 MelonApplication::MelonApplication(int& argc, char** argv)

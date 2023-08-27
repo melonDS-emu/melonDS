@@ -385,7 +385,7 @@ void UpdatePowerOn()
     PowerOn = on;
     if (on)
     {
-        Log(LogLevel::Info, "WIFI: ON\n");
+        Log(LogLevel::Debug, "WIFI: ON\n");
 
         ScheduleTimer(true);
 
@@ -393,7 +393,7 @@ void UpdatePowerOn()
     }
     else
     {
-        Log(LogLevel::Info, "WIFI: OFF\n");
+        Log(LogLevel::Debug, "WIFI: OFF\n");
 
         NDS::CancelEvent(NDS::Event_Wifi);
 

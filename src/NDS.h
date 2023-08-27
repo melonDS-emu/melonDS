@@ -21,6 +21,7 @@
 
 #include <string>
 
+#include "Platform.h"
 #include "Savestate.h"
 #include "types.h"
 
@@ -226,7 +227,9 @@ bool Init();
 void DeInit();
 void Reset();
 void Start();
-void Stop();
+
+/// Stop the emulator.
+void Stop(Platform::StopReason reason = Platform::StopReason::External);
 
 bool DoSavestate(Savestate* file);
 

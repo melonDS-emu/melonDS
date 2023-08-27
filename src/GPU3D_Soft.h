@@ -78,13 +78,12 @@ private:
             this->x1 = x1;
             this->xdiff = x1 - x0;
 
-            // calculate reciprocals for linear mode and Z interpolation
+            // calculate reciprocal for Z interpolation
             // TODO eventually: use a faster reciprocal function?
             if (this->xdiff != 0)
-                this->xrecip = (1<<30) / this->xdiff;
+                this->xrecip_z = (1<<22) / this->xdiff;
             else
-                this->xrecip = 0;
-            this->xrecip_z = this->xrecip >> 8;
+                this->xrecip_z = 0;
 
             // linear mode is used if both W values are equal and have
             // low-order bits cleared (0-6 along X, 1-6 along Y)
@@ -156,11 +155,10 @@ private:
             else
             {
                 // linear interpolation
-                // checkme: the rounding bias there (3<<24) is a guess
                 if (y0 < y1)
-                    return y0 + ((((s64)(y1-y0) * x * xrecip) + (3<<24)) >> 30);
+                    return y0 + (s64)(y1-y0) * x / xdiff;
                 else
-                    return y1 + ((((s64)(y0-y1) * (xdiff-x) * xrecip) + (3<<24)) >> 30);
+                    return y1 + (s64)(y0-y1) * (xdiff - x) / xdiff;
             }
         }
 
@@ -220,7 +218,7 @@ private:
         int shift;
         bool linear;
 
-        s32 xrecip, xrecip_z;
+        s32 xrecip_z;
         s32 w0n, w0d, w1d;
 
         u32 yfactor;
@@ -235,16 +233,8 @@ private:
 
         s32 SetupDummy(s32 x0)
         {
-            if (side)
-            {
-                dx = -0x40000;
-                x0--;
-            }
-            else
-            {
-                dx = 0;
-            }
-
+            dx = 0;
+            
             this->x0 = x0;
             this->xmin = x0;
             this->xmax = x0;
@@ -280,7 +270,6 @@ private:
             else
             {
                 this->xmin = x0;
-                if (side) this->xmin--;
                 this->xmax = this->xmin;
                 this->Negative = false;
             }
@@ -294,7 +283,7 @@ private:
             // TODO: this is still not perfect (see for example x=169 y=33)
             if (ylen == 0)
                 Increment = 0;
-            else if (ylen == xlen)
+            else if (ylen == xlen && xlen != 1)
                 Increment = 0x40000;
             else
             {
@@ -311,7 +300,7 @@ private:
 
                 if (XMajor)              dx = Negative ? (0x20000 + 0x40000) : (Increment - 0x20000);
                 else if (Increment != 0) dx = Negative ? 0x40000 : 0;
-                else                     dx = -0x40000;
+                else                     dx = 0;
             }
             else
             {
@@ -326,20 +315,12 @@ private:
 
             s32 x = XVal();
 
-            if (XMajor)
-            {
-                if (side) Interp.Setup(x0-1, x1-1, w0, w1); // checkme
-                else      Interp.Setup(x0, x1, w0, w1);
-                Interp.SetX(x);
+            int interpoffset = (Increment >= 0x40000) && (side ^ Negative);
+            Interp.Setup(y0-interpoffset, y1-interpoffset, w0, w1);
+            Interp.SetX(y);
 
-                // used for calculating AA coverage
-                xcov_incr = (ylen << 10) / xlen;
-            }
-            else
-            {
-                Interp.Setup(y0, y1, w0, w1);
-                Interp.SetX(y);
-            }
+            // used for calculating AA coverage
+            if (XMajor) xcov_incr = (ylen << 10) / xlen;
 
             return x;
         }
@@ -350,14 +331,7 @@ private:
             y++;
 
             s32 x = XVal();
-            if (XMajor)
-            {
-                Interp.SetX(x);
-            }
-            else
-            {
-                Interp.SetX(y);
-            }
+            Interp.SetX(y);
             return x;
         }
 
@@ -371,13 +345,19 @@ private:
             else if (ret > xmax) ret = xmax;
             return ret;
         }
-
+        
+        template<bool swapped>
         void EdgeParams_XMajor(s32* length, s32* coverage)
         {
-            if (side ^ Negative)
-                *length = (dx >> 18) - ((dx-Increment) >> 18);
-            else
-                *length = ((dx+Increment) >> 18) - (dx >> 18);
+            // only do length calc for right side when swapped as it's
+            // only needed for aa calcs, as actual line spans are broken
+            if constexpr (!swapped || side)
+            {
+                if (side ^ Negative)
+                    *length = (dx >> 18) - ((dx-Increment) >> 18);
+                else
+                    *length = ((dx+Increment) >> 18) - (dx >> 18);
+            }
 
             // for X-major edges, we return the coverage
             // for the first pixel, and the increment for
@@ -388,33 +368,49 @@ private:
 
             s32 startcov = (((startx << 10) + 0x1FF) * ylen) / xlen;
             *coverage = (1<<31) | ((startcov & 0x3FF) << 12) | (xcov_incr & 0x3FF);
+
+            if constexpr (swapped) *length = 1;
         }
 
+        template<bool swapped>
         void EdgeParams_YMajor(s32* length, s32* coverage)
         {
             *length = 1;
 
             if (Increment == 0)
             {
-                *coverage = 31;
+                // for some reason vertical edges' aa values
+                // are inverted too when the edges are swapped
+                if constexpr (swapped)
+                    *coverage = 0;
+                else
+                    *coverage = 31;
             }
             else
             {
                 s32 cov = ((dx >> 9) + (Increment >> 10)) >> 4;
                 if ((cov >> 5) != (dx >> 18)) cov = 31;
                 cov &= 0x1F;
-                if (!(side ^ Negative)) cov = 0x1F - cov;
+                if constexpr (swapped)
+                {
+                    if (side ^ Negative) cov = 0x1F - cov;
+                }
+                else
+                {
+                    if (!(side ^ Negative)) cov = 0x1F - cov;
+                }
 
                 *coverage = cov;
             }
         }
-
+        
+        template<bool swapped>
         void EdgeParams(s32* length, s32* coverage)
         {
             if (XMajor)
-                return EdgeParams_XMajor(length, coverage);
+                return EdgeParams_XMajor<swapped>(length, coverage);
             else
-                return EdgeParams_YMajor(length, coverage);
+                return EdgeParams_YMajor<swapped>(length, coverage);
         }
 
         s32 Increment;

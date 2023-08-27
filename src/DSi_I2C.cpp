@@ -199,7 +199,7 @@ void DoHardwareReset(bool direct)
 void DoShutdown()
 {
     ResetButtonState();
-    NDS::Stop();
+    NDS::Stop(Platform::StopReason::PowerOff);
 }
 
 

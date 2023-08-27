@@ -24,6 +24,7 @@
 #include "Wifi.h"
 #include "LAN_Socket.h"
 #include "FIFO.h"
+#include "Platform.h"
 
 #include <slirp/libslirp.h>
 
@@ -39,6 +40,9 @@
 
 namespace LAN_Socket
 {
+
+using Platform::Log;
+using Platform::LogLevel;
 
 const u32 kSubnet   = 0x0A400000;
 const u32 kServerIP = kSubnet | 0x01;
@@ -87,7 +91,7 @@ void RXEnqueue(const void* buf, int len)
 
     if (!RXBuffer.CanFit(totallen >> 2))
     {
-        printf("slirp: !! NOT ENOUGH SPACE IN RX BUFFER\n");
+        Log(LogLevel::Warn, "slirp: !! NOT ENOUGH SPACE IN RX BUFFER\n");
         return;
     }
 
@@ -101,11 +105,11 @@ ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
 {
     if (len > 2048)
     {
-        printf("slirp: packet too big (%zu)\n", len);
+        Log(LogLevel::Warn, "slirp: packet too big (%zu)\n", len);
         return 0;
     }
 
-    printf("slirp: response packet of %zu bytes, type %04X\n", len, ntohs(((u16*)buf)[6]));
+    Log(LogLevel::Debug, "slirp: response packet of %zu bytes, type %04X\n", len, ntohs(((u16*)buf)[6]));
 
     RXEnqueue(buf, len);
 
@@ -114,7 +118,7 @@ ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
 
 void SlirpCbGuestError(const char* msg, void* opaque)
 {
-    printf("SLIRP: error: %s\n", msg);
+    Log(LogLevel::Error, "SLIRP: error: %s\n", msg);
 }
 
 int64_t SlirpCbClockGetNS(void* opaque)
@@ -139,7 +143,7 @@ void SlirpCbTimerMod(void* timer, int64_t expire_time, void* opaque)
 
 void SlirpCbRegisterPollFD(int fd, void* opaque)
 {
-    printf("Slirp: register poll FD %d\n", fd);
+    Log(LogLevel::Debug, "Slirp: register poll FD %d\n", fd);
 
     /*if (FDListSize >= FDListMax)
     {
@@ -158,7 +162,7 @@ void SlirpCbRegisterPollFD(int fd, void* opaque)
 
 void SlirpCbUnregisterPollFD(int fd, void* opaque)
 {
-    printf("Slirp: unregister poll FD %d\n", fd);
+    Log(LogLevel::Debug, "Slirp: unregister poll FD %d\n", fd);
 
     /*if (FDListSize < 1)
     {
@@ -178,7 +182,7 @@ void SlirpCbUnregisterPollFD(int fd, void* opaque)
 
 void SlirpCbNotify(void* opaque)
 {
-    printf("Slirp: notify???\n");
+    Log(LogLevel::Debug, "Slirp: notify???\n");
 }
 
 SlirpCb cb =
@@ -283,7 +287,7 @@ void HandleDNSFrame(u8* data, int len)
     u16 numauth = ntohs(*(u16*)&dnsbody[8]);
     u16 numadd = ntohs(*(u16*)&dnsbody[10]);
 
-    printf("DNS: ID=%04X, flags=%04X, Q=%d, A=%d, auth=%d, add=%d\n",
+    Log(LogLevel::Debug, "DNS: ID=%04X, flags=%04X, Q=%d, A=%d, auth=%d, add=%d\n",
            id, flags, numquestions, numanswers, numauth, numadd);
 
     // for now we only take 'simple' DNS requests
@@ -429,7 +433,7 @@ int SendPacket(u8* data, int len)
 
     if (len > 2048)
     {
-        printf("LAN_SendPacket: error: packet too long (%d)\n", len);
+        Log(LogLevel::Error, "LAN_SendPacket: error: packet too long (%d)\n", len);
         return 0;
     }
 
@@ -461,7 +465,7 @@ int SlirpCbAddPoll(int fd, int events, void* opaque)
 {
     if (PollListSize >= PollListMax)
     {
-        printf("slirp: POLL LIST FULL\n");
+        Log(LogLevel::Error, "slirp: POLL LIST FULL\n");
         return -1;
     }
 
