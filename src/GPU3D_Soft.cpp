@@ -753,8 +753,8 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         interp_start = &rp->SlopeR.Interp;
         interp_end = &rp->SlopeL.Interp;
 
-        rp->SlopeR.EdgeParams_YMajor(&l_edgelen, &l_edgecov);
-        rp->SlopeL.EdgeParams_YMajor(&r_edgelen, &r_edgecov);
+        rp->SlopeR.EdgeParams<true>(&l_edgelen, &l_edgecov);
+        rp->SlopeL.EdgeParams<true>(&r_edgelen, &r_edgecov);
 
         std::swap(xstart, xend);
         std::swap(wl, wr);
@@ -771,8 +771,8 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         interp_start = &rp->SlopeL.Interp;
         interp_end = &rp->SlopeR.Interp;
 
-        rp->SlopeL.EdgeParams(&l_edgelen, &l_edgecov);
-        rp->SlopeR.EdgeParams(&r_edgelen, &r_edgecov);
+        rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
+        rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
     }
 
     // color/texcoord attributes aren't needed for shadow masks
@@ -958,10 +958,8 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
     // if the left and right edges are swapped, render backwards.
     // on hardware, swapped edges seem to break edge length calculation,
-    // causing X-major edges to be rendered wrong when
-    // wireframe/edgemarking/antialiasing are used
-    // it also causes bad antialiasing, but not sure what's going on (TODO)
-    // most probable explanation is that such slopes are considered to be Y-major
+    // causing X-major edges to be rendered wrong when filled,
+    // and resulting in buggy looking anti-aliasing on X-major edges
 
     if (xstart > xend)
     {
@@ -973,8 +971,8 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         interp_start = &rp->SlopeR.Interp;
         interp_end = &rp->SlopeL.Interp;
 
-        rp->SlopeR.EdgeParams_YMajor(&l_edgelen, &l_edgecov);
-        rp->SlopeL.EdgeParams_YMajor(&r_edgelen, &r_edgecov);
+        rp->SlopeR.EdgeParams<true>(&l_edgelen, &l_edgecov);
+        rp->SlopeL.EdgeParams<true>(&r_edgelen, &r_edgecov);
 
         std::swap(xstart, xend);
         std::swap(wl, wr);
@@ -991,8 +989,8 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         interp_start = &rp->SlopeL.Interp;
         interp_end = &rp->SlopeR.Interp;
 
-        rp->SlopeL.EdgeParams(&l_edgelen, &l_edgecov);
-        rp->SlopeR.EdgeParams(&r_edgelen, &r_edgecov);
+        rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
+        rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
     }
 
     // interpolate attributes along Y
