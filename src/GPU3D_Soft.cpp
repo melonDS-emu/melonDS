@@ -577,7 +577,7 @@ void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y
     {
         rp->CurVL = rp->NextVL;
 
-        if (polygon->CounterClockwise)
+        if (polygon->FacingView)
         {
             rp->NextVL = rp->CurVL + 1;
             if (rp->NextVL >= polygon->NumVertices)
@@ -604,7 +604,7 @@ void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 
     {
         rp->CurVR = rp->NextVR;
 
-        if (polygon->CounterClockwise)
+        if (polygon->FacingView)
         {
             rp->NextVR = rp->CurVR - 1;
             if ((s32)rp->NextVR < 0)
@@ -635,7 +635,7 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
     rp->CurVL = vtop;
     rp->CurVR = vtop;
 
-    if (polygon->CounterClockwise)
+    if (polygon->FacingView)
     {
         rp->NextVL = rp->CurVL + 1;
         if (rp->NextVL >= nverts) rp->NextVL = 0;

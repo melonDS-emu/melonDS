@@ -65,7 +65,6 @@ struct Polygon
 
     bool FacingView;
     bool Translucent;
-    bool CounterClockwise;
 
     bool IsShadowMask;
     bool IsShadow;

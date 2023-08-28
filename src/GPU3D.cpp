@@ -558,7 +558,6 @@ void DoSavestate(Savestate* file)
 
         file->Bool32(&poly->FacingView);
         file->Bool32(&poly->Translucent);
-        file->Bool32(&poly->CounterClockwise);
 
         file->Bool32(&poly->IsShadowMask);
         file->Bool32(&poly->IsShadow);
@@ -1068,10 +1067,9 @@ void SubmitPolygon()
 
     dot = ((s64)v1->Position[0] * normalX) + ((s64)v1->Position[1] * normalY) + ((s64)v1->Position[3] * normalZ);
 
-    bool facingview = (dot < 0);
-    bool counterclockwise = (dot <= 0);
+    bool facingview = (dot <= 0);
 
-    if (facingview)
+    if (dot < 0)
     {
         if (!(CurPolygonAttr & (1<<7)))
         {
@@ -1287,7 +1285,6 @@ void SubmitPolygon()
     poly->Type = 0;
 
     poly->FacingView = facingview;
-    poly->CounterClockwise = counterclockwise;
 
     u32 texfmt = (TexParam >> 26) & 0x7;
     u32 polyalpha = (CurPolygonAttr >> 16) & 0x1F;
