@@ -957,6 +957,8 @@ void ScreenHandler::screenHandleTablet(QTabletEvent* event)
             touching = false;
         }
         break;
+    default:
+        break;
     }
 }
 
@@ -987,6 +989,8 @@ void ScreenHandler::screenHandleTouch(QTouchEvent* event)
             NDS::ReleaseScreen();
             touching = false;
         }
+        break;
+    default:
         break;
     }
 }

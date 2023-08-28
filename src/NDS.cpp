@@ -518,9 +518,6 @@ void Reset()
     RunningGame = false;
     LastSysClockCycles = 0;
 
-    memset(ARM9BIOS, 0, 0x1000);
-    memset(ARM7BIOS, 0, 0x4000);
-
     // DS BIOSes are always loaded, even in DSi mode
     // we need them for DS-compatible mode
 
@@ -562,8 +559,8 @@ void Reset()
     }
     else
     {
-        memcpy(ARM9BIOS, bios_arm9_bin, bios_arm9_bin_len);
-        memcpy(ARM7BIOS, bios_arm7_bin, bios_arm7_bin_len);
+        memcpy(ARM9BIOS, bios_arm9_bin, sizeof(bios_arm9_bin));
+        memcpy(ARM7BIOS, bios_arm7_bin, sizeof(bios_arm7_bin));
     }
 
 #ifdef JIT_ENABLED
