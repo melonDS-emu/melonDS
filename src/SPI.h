@@ -41,6 +41,7 @@ u32 FixFirmwareLength(u32 originalLength);
 /// @see InstallFirmware
 const Firmware* GetFirmware();
 
+bool IsLoadedFirmwareBuiltIn();
 bool InstallFirmware(Firmware&& firmware);
 bool InstallFirmware(std::unique_ptr<Firmware>&& firmware);
 void RemoveFirmware();

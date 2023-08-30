@@ -997,6 +997,15 @@ void LoadBIOS()
     Reset();
 }
 
+bool IsLoadedARM9BIOSBuiltIn()
+{
+    return memcmp(NDS::ARM9BIOS, bios_arm9_bin, sizeof(NDS::ARM9BIOS)) == 0;
+}
+
+bool IsLoadedARM7BIOSBuiltIn()
+{
+    return memcmp(NDS::ARM7BIOS, bios_arm7_bin, sizeof(NDS::ARM7BIOS)) == 0;
+}
 
 u64 NextTarget()
 {

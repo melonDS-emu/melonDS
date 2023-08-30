@@ -202,6 +202,11 @@ const class Firmware* GetFirmware()
     return Firmware.get();
 }
 
+bool IsLoadedFirmwareBuiltIn()
+{
+    return Firmware->Header().Identifier == GENERATED_FIRMWARE_IDENTIFIER;
+}
+
 bool InstallFirmware(class Firmware&& firmware)
 {
     if (!firmware.Buffer())
