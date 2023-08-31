@@ -250,13 +250,6 @@ std::string GetConfigString(ConfigEntry entry)
 {
     switch (entry)
     {
-    case BIOS9Path: return Config::BIOS9Path;
-    case BIOS7Path: return Config::BIOS7Path;
-    case FirmwarePath: return Config::FirmwarePath;
-
-    case DSi_BIOS9Path: return Config::DSiBIOS9Path;
-    case DSi_BIOS7Path: return Config::DSiBIOS7Path;
-    case DSi_FirmwarePath: return Config::DSiFirmwarePath;
     case DSi_NANDPath: return Config::DSiNANDPath;
 
     case DLDI_ImagePath: return Config::DLDISDPath;

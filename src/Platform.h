@@ -107,13 +107,6 @@ enum ConfigEntry
 
     ExternalBIOSEnable,
 
-    BIOS9Path [[deprecated("The core no longer uses this")]],
-    BIOS7Path [[deprecated("The core no longer uses this")]],
-    FirmwarePath [[deprecated("The core no longer uses this")]],
-
-    DSi_BIOS9Path [[deprecated("The core no longer uses this")]],
-    DSi_BIOS7Path [[deprecated("The core no longer uses this")]],
-    DSi_FirmwarePath [[deprecated("The core no longer uses this")]],
     DSi_NANDPath,
 
     DLDI_Enable,
