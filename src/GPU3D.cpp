@@ -1067,7 +1067,7 @@ void SubmitPolygon()
 
     dot = ((s64)v1->Position[0] * normalX) + ((s64)v1->Position[1] * normalY) + ((s64)v1->Position[3] * normalZ);
 
-    bool facingview = (dot < 0);
+    bool facingview = (dot <= 0);
 
     if (facingview)
     {

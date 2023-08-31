@@ -960,6 +960,8 @@ void ScreenHandler::screenHandleTablet(QTabletEvent* event)
             touching = false;
         }
         break;
+    default:
+        break;
     }
 }
 
@@ -990,6 +992,8 @@ void ScreenHandler::screenHandleTouch(QTouchEvent* event)
             NDS::ReleaseScreen();
             touching = false;
         }
+        break;
+    default:
         break;
     }
 }
@@ -3202,7 +3206,9 @@ void emuStop()
 MelonApplication::MelonApplication(int& argc, char** argv)
     : QApplication(argc, argv)
 {
+#ifndef __APPLE__
     setWindowIcon(QIcon(":/melon-icon"));
+#endif
 }
 
 bool MelonApplication::event(QEvent *event)

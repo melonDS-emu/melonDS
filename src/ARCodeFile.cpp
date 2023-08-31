@@ -120,7 +120,7 @@ bool ARCodeFile::Load()
 
             curcode.Name = codename;
             curcode.Enabled = enable!=0;
-            curcode.CodeLen = 0;
+            curcode.Code.clear();
         }
         else
         {
@@ -141,17 +141,8 @@ bool ARCodeFile::Load()
                 return false;
             }
 
-            if (curcode.CodeLen >= 2*64)
-            {
-                Log(LogLevel::Error, "AR: code too long!\n");
-                CloseFile(f);
-                return false;
-            }
-
-            u32 idx = curcode.CodeLen;
-            curcode.Code[idx+0] = c0;
-            curcode.Code[idx+1] = c1;
-            curcode.CodeLen += 2;
+            curcode.Code.push_back(c0);
+            curcode.Code.push_back(c1);
         }
     }
 
@@ -179,7 +170,7 @@ bool ARCodeFile::Save()
             ARCode& code = *jt;
             FileWriteFormatted(f, "CODE %d %s\r\n", code.Enabled, code.Name.c_str());
 
-            for (u32 i = 0; i < code.CodeLen; i+=2)
+            for (size_t i = 0; i < code.Code.size(); i+=2)
             {
                 FileWriteFormatted(f, "%08X %08X\r\n", code.Code[i], code.Code[i + 1]);
             }

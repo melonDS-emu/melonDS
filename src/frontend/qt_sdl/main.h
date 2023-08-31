@@ -354,7 +354,7 @@ private slots:
     void onScreenEmphasisToggled();
 
 private:
-    void closeEvent(QCloseEvent* event);
+    virtual void closeEvent(QCloseEvent* event) override;
 
     QStringList currentROM;
     QStringList currentGBAROM;

@@ -61,13 +61,6 @@ bool OutputMACDue;
 
 AES_ctx Ctx;
 
-
-void Swap16(u8* dst, u8* src)
-{
-    for (int i = 0; i < 16; i++)
-        dst[i] = src[15-i];
-}
-
 void ROL16(u8* val, u32 n)
 {
     u32 n_coarse = n >> 3;
@@ -205,7 +198,7 @@ void ProcessBlock_CCM_Extra()
     *(u32*)&data[8] = InputFIFO.Read();
     *(u32*)&data[12] = InputFIFO.Read();
 
-    Swap16(data_rev, data);
+    Bswap128(data_rev, data);
 
     for (int i = 0; i < 16; i++) CurMAC[i] ^= data_rev[i];
     AES_ECB_encrypt(&Ctx, CurMAC);
@@ -223,13 +216,13 @@ void ProcessBlock_CCM_Decrypt()
 
     //printf("AES-CCM: "); _printhex2(data, 16);
 
-    Swap16(data_rev, data);
+    Bswap128(data_rev, data);
 
     AES_CTR_xcrypt_buffer(&Ctx, data_rev, 16);
     for (int i = 0; i < 16; i++) CurMAC[i] ^= data_rev[i];
     AES_ECB_encrypt(&Ctx, CurMAC);
 
-    Swap16(data, data_rev);
+    Bswap128(data, data_rev);
 
     //printf(" -> "); _printhex2(data, 16);
 
@@ -251,13 +244,13 @@ void ProcessBlock_CCM_Encrypt()
 
     //printf("AES-CCM: "); _printhex2(data, 16);
 
-    Swap16(data_rev, data);
+    Bswap128(data_rev, data);
 
     for (int i = 0; i < 16; i++) CurMAC[i] ^= data_rev[i];
     AES_CTR_xcrypt_buffer(&Ctx, data_rev, 16);
     AES_ECB_encrypt(&Ctx, CurMAC);
 
-    Swap16(data, data_rev);
+    Bswap128(data, data_rev);
 
     //printf(" -> "); _printhex2(data, 16);
 
@@ -279,9 +272,9 @@ void ProcessBlock_CTR()
 
     //printf("AES-CTR: "); _printhex2(data, 16);
 
-    Swap16(data_rev, data);
+    Bswap128(data_rev, data);
     AES_CTR_xcrypt_buffer(&Ctx, data_rev, 16);
-    Swap16(data, data_rev);
+    Bswap128(data, data_rev);
 
     //printf(" -> "); _printhex(data, 16);
 
@@ -341,8 +334,8 @@ void WriteCnt(u32 val)
             u8 key[16];
             u8 iv[16];
 
-            Swap16(key, CurKey);
-            Swap16(iv, IV);
+            Bswap128(key, CurKey);
+            Bswap128(iv, IV);
 
             if (AESMode < 2)
             {
@@ -510,7 +503,7 @@ void Update()
             Ctx.Iv[15] = 0x00;
             AES_CTR_xcrypt_buffer(&Ctx, CurMAC, 16);
 
-            Swap16(OutputMAC, CurMAC);
+            Bswap128(OutputMAC, CurMAC);
 
             if (OutputFIFO.Level() <= 12)
             {
