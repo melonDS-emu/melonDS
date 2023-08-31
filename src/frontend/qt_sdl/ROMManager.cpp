@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <locale>
 #include <memory>
 #include <string>
 #include <utility>
