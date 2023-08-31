@@ -427,13 +427,13 @@ public:
      * Will not contain executable code.
      * @param consoletype Console type to use. 1 for DSi, 0 for NDS.
      */
-    Firmware(int consoletype);
+    explicit Firmware(int consoletype);
 
     /**
      * Loads a firmware blob from the given file.
      * Will rewind the file's stream offset to its initial position when finished.
      */
-    Firmware(Platform::FileHandle* file);
+    explicit Firmware(Platform::FileHandle* file);
 
     /**
      * Constructs a firmware blob from a copy of the given data.
