@@ -19,11 +19,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <string>
-#include <algorithm>
-#include <codecvt>
-#include <locale>
 #include <memory>
+#include <utility>
 #include "NDS.h"
 #include "DSi.h"
 #include "SPI.h"
