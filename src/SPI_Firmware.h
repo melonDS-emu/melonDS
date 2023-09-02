@@ -473,6 +473,12 @@ public:
         return *reinterpret_cast<std::array<WifiAccessPoint, 3>*>(WifiAccessPointPosition());
     }
 
+    /// @returns \c true if this firmware image contains bootable code.
+    /// @note Non-bootable firmware can still be valid;
+    /// DSi firmware is non-bootable for instance.
+    /// If this firmware is not bootable, then melonDS should use direct-boot mode.
+    [[nodiscard]] bool IsBootable() const;
+
     /// @return The address of the first extended Wi-fi settings block in the firmware.
     /// @warning Only meaningful if this is DSi firmware.
     [[nodiscard]] u32 ExtendedAccessPointOffset() const { return UserDataOffset() + EXTENDED_WIFI_SETTINGS_OFFSET; }

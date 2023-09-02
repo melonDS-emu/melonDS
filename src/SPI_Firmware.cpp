@@ -301,6 +301,14 @@ SPI_Firmware::Firmware::~Firmware()
     delete[] FirmwareBuffer;
 }
 
+bool SPI_Firmware::Firmware::IsBootable() const
+{
+    return
+        FirmwareBufferLength != DEFAULT_FIRMWARE_LENGTH &&
+        Header().Identifier != GENERATED_FIRMWARE_IDENTIFIER
+    ;
+}
+
 const SPI_Firmware::UserData& SPI_Firmware::Firmware::EffectiveUserData() const {
     const std::array<union UserData, 2>& userdata = UserData();
     bool userdata0ChecksumOk = userdata[0].ChecksumValid();
