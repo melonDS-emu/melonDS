@@ -26,6 +26,7 @@ set(SOURCES_QT_SDL
     TitleManagerDialog.cpp
     Input.cpp
 	IPC.cpp
+	LAN.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp
 	Netplay.cpp

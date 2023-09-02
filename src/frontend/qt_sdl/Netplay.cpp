@@ -633,6 +633,7 @@ printf("[MC] finish blob type=%d len=%d\n", type, len);
 
         // load initial state
         // TODO: terrible hack!!
+        #if 0
         FILE* f = Platform::OpenFile("netplay2.mln", "wb");
         fwrite(Blobs[Blob_InitState], BlobLens[Blob_InitState], 1, f);
         fclose(f);
@@ -654,6 +655,7 @@ printf("[MC] finish blob type=%d len=%d\n", type, len);
 printf("[MC] state loaded, PC=%08X/%08X\n", NDS::GetPC(0), NDS::GetPC(1));
         ENetPacket* resp = enet_packet_create(buf, 1, ENET_PACKET_FLAG_RELIABLE);
         enet_peer_send(peer, 1, resp);
+        #endif
     }
     else if (buf[0] == 0x05)
     {
@@ -666,12 +668,12 @@ void SyncMirrorClients()
 {
     printf("[MIRROR HOST] syncing clients\n");
 
-    SendBlobToMirrorClients(Blob_CartROM, NDSCart::CartROMSize, NDSCart::CartROM);
+    //SendBlobToMirrorClients(Blob_CartROM, NDSCart::CartROMSize, NDSCart::CartROM);
     SendBlobToMirrorClients(Blob_CartSRAM, NDSCart::GetSaveMemoryLength(), NDSCart::GetSaveMemory());
 
     // send initial state
     // TODO: this is a terrible hack!
-    printf("[MH] state start\n");
+    /*printf("[MH] state start\n");
     Savestate* state = new Savestate("netplay.mln", true);
     NDS::DoSavestate(state);
     delete state;
@@ -687,7 +689,7 @@ void SyncMirrorClients()
     printf("[MH] state read, len=%d\n", flen);
     SendBlobToMirrorClients(Blob_InitState, flen, statebuf);
     printf("[MH] state sent\n");
-    delete[] statebuf;
+    delete[] statebuf;*/
 
     u8 data[2];
     data[0] = 0x04;

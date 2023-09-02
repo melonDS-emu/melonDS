@@ -98,9 +98,6 @@ const u32 kMPReplyEnd = kBufferSize;
 int MPRecvTimeout;
 int MPLastHostID;
 
-int MPRecvTimeout;
-int MPLastHostID;
-
 // we need to come up with our own abstraction layer for named semaphores
 // because QSystemSemaphore doesn't support waiting with a timeout
 // and, as such, is unsuitable to our needs
