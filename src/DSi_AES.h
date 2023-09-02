@@ -28,14 +28,14 @@
 // NOTE: Yes, the compiler does *not* recognize this code pattern, so it is indeed an optimization.
 __attribute((always_inline)) static void Bswap128(void* Dst, void* Src)
 {
-    *(__int128*)&Dst = __builtin_bswap128(*(__int128*)&Src);
+    *(__int128*)Dst = __builtin_bswap128(*(__int128*)Src);
 }
 #else
 __attribute((always_inline)) static void Bswap128(void* Dst, void* Src)
 {
     for (int i = 0; i < 16; ++i) 
     { 
-        ((char*)Src)[i] = ((char*)Src)[15 - i]; 
+        ((u8*)Dst)[i] = ((u8*)Src)[15 - i]; 
     }
 }
 #endif
