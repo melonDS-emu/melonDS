@@ -311,6 +311,8 @@ private slots:
     void onRAMInfo();
     void onOpenTitleManager();
     void onMPNewInstance();
+    void onLANStartHost();
+    void onLANStartClient();
     void onMPStartHost();
     void onMPStartClient();
     void onMPTest();
@@ -411,6 +413,8 @@ public:
     QAction* actRAMInfo;
     QAction* actTitleManager;
     QAction* actMPNewInstance;
+    QAction* actLANStartHost;
+    QAction* actLANStartClient;
     QAction* actMPStartHost;
     QAction* actMPStartClient;
     QAction* actMPTest;
