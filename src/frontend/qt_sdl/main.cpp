@@ -88,6 +88,7 @@
 #include "Wifi.h"
 #include "Platform.h"
 #include "IPC.h"
+#include "LAN.h"
 #include "Netplay.h"
 #include "Config.h"
 #include "DSi_I2C.h"
@@ -1584,6 +1585,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             submenu->addSeparator();
 
+            actLANStartHost = submenu->addAction("Host LAN game");
+            connect(actLANStartHost, &QAction::triggered, this, &MainWindow::onLANStartHost);
+
+            actLANStartClient = submenu->addAction("Join LAN game");
+            connect(actLANStartClient, &QAction::triggered, this, &MainWindow::onLANStartClient);
+
+            submenu->addSeparator();
+
             actMPStartHost = submenu->addAction("NETPLAY HOST");
             connect(actMPStartHost, &QAction::triggered, this, &MainWindow::onMPStartHost);
 
@@ -2857,6 +2866,16 @@ void MainWindow::onMPNewInstance()
 #endif
 
     newinst.startDetached();
+}
+
+void MainWindow::onLANStartHost()
+{
+    LANStartHostDialog::openDlg(this);
+}
+
+void MainWindow::onLANStartClient()
+{
+    LANStartClientDialog::openDlg(this);
 }
 
 void MainWindow::onMPStartHost()

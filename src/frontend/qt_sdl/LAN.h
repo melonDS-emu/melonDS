@@ -20,8 +20,100 @@
 #define LAN_H
 
 #include <string>
+#include <QDialog>
 
 #include "types.h"
+
+namespace Ui
+{
+class LANStartHostDialog;
+class LANStartClientDialog;
+class LANDialog;
+}
+
+namespace LAN
+{
+struct Player
+{
+    int ID;
+    char Name[32];
+    int Status; // 0=no player 1=normal 2=host 3=connecting
+    u32 Address;
+};
+}
+
+class LANStartHostDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit LANStartHostDialog(QWidget* parent);
+    ~LANStartHostDialog();
+
+    static LANStartHostDialog* openDlg(QWidget* parent)
+    {
+        LANStartHostDialog* dlg = new LANStartHostDialog(parent);
+        dlg->open();
+        return dlg;
+    }
+
+private slots:
+    void done(int r);
+
+private:
+    Ui::LANStartHostDialog* ui;
+};
+
+class LANStartClientDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit LANStartClientDialog(QWidget* parent);
+    ~LANStartClientDialog();
+
+    static LANStartClientDialog* openDlg(QWidget* parent)
+    {
+        LANStartClientDialog* dlg = new LANStartClientDialog(parent);
+        dlg->open();
+        return dlg;
+    }
+
+private slots:
+    void done(int r);
+
+private:
+    Ui::LANStartClientDialog* ui;
+};
+
+class LANDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit LANDialog(QWidget* parent);
+    ~LANDialog();
+
+    static LANDialog* openDlg(QWidget* parent)
+    {
+        LANDialog* dlg = new LANDialog(parent);
+        dlg->show();
+        return dlg;
+    }
+
+    void updatePlayerList(LAN::Player* players, int num);
+
+signals:
+    void sgUpdatePlayerList(LAN::Player* players, int num);
+
+private slots:
+    void done(int r);
+
+    void doUpdatePlayerList(LAN::Player* players, int num);
+
+private:
+    Ui::LANDialog* ui;
+};
 
 namespace LAN
 {
