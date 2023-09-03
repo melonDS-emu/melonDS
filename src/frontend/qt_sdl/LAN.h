@@ -126,15 +126,11 @@ void DeInit();
 void StartHost(const char* player, int numplayers);
 void StartClient(const char* player, const char* host);
 
-void Process();
+void Process(bool block = false);
 
 void SetMPRecvTimeout(int timeout);
 void MPBegin();
 void MPEnd();
-
-void SetActive(bool active);
-
-u16 GetInstanceBitmask();
 
 int SendMPPacket(u8* data, int len, u64 timestamp);
 int RecvMPPacket(u8* data, u64* timestamp);
