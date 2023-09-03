@@ -204,6 +204,7 @@ bool Lag;
 
 int MPRecvTimeout;
 int LastHostID;
+ENetPeer* LastHostPeer;
 std::queue<ENetPacket*> RXQueue;
 
 
@@ -223,6 +224,7 @@ bool Init()
 
     MPRecvTimeout = 25;
     LastHostID = -1;
+    LastHostPeer = nullptr;
 
     // TODO we init enet here but also in Netplay
     // that is redundant
@@ -270,6 +272,7 @@ void StartHost(const char* playername, int numplayers)
 
     HostAddress = 0x0100007F;
     LastHostID = -1;
+    LastHostPeer = nullptr;
 
     Active = true;
     IsHost = true;
@@ -325,6 +328,7 @@ void StartClient(const char* playername, const char* host)
 
     HostAddress = addr.host;
     LastHostID = -1;
+    LastHostPeer = nullptr;
 
     Active = true;
     IsHost = false;
@@ -593,6 +597,7 @@ void Process(bool block)
     {
         if (event.type == ENET_EVENT_TYPE_RECEIVE && event.channelID == 1)
         {
+            event.packet->userData = event.peer;
             RXQueue.push(event.packet);
             if (block) return;
         }
@@ -619,6 +624,7 @@ void MPBegin()
 {
     ConnectedBitmask |= (1<<MyPlayer.ID);
     LastHostID = -1;
+    LastHostPeer = nullptr;
 
     u8 cmd[2] = {0x04, (u8)MyPlayer.ID};
     ENetPacket* pkt = enet_packet_create(cmd, 2, ENET_PACKET_FLAG_RELIABLE);
@@ -654,7 +660,10 @@ int SendMPPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
     if (len)
         memcpy(&enetpacket->data[sizeof(MPPacketHeader)], packet, len);
 
-    enet_host_broadcast(Host, 1, enetpacket);
+    if (((type & 0xFFFF) == 2) && LastHostPeer)
+        enet_peer_send(LastHostPeer, 1, enetpacket);
+    else
+        enet_host_broadcast(Host, 1, enetpacket);
     enet_host_flush(Host);
 
     return len;
@@ -692,7 +701,10 @@ int RecvMPPacketGeneric(u8* packet, bool block, u64* timestamp)
         memcpy(packet, &enetpacket->data[sizeof(MPPacketHeader)], len);
 
         if (header->Type == 1)
+        {
             LastHostID = header->SenderID;
+            LastHostPeer = (ENetPeer*)enetpacket->userData;
+        }
     }
 
     if (timestamp) *timestamp = header->Timestamp;
@@ -756,6 +768,7 @@ u16 RecvMPReplies(u8* packets, u64 timestamp, u16 aidmask)
         if (RXQueue.empty())
         {
             // no more replies available
+            printf("RecvMPReplies timeout, ret=%04X myinstmask=%04X conn=%04X aidmask=%04X\n", ret, myinstmask, ConnectedBitmask, aidmask);
             return ret;
         }
 
@@ -796,6 +809,7 @@ u16 RecvMPReplies(u8* packets, u64 timestamp, u16 aidmask)
                 return ret;
             }
         }
+        else printf("RecvMPReplies received frame but bad\n");
 
         enet_packet_destroy(enetpacket);
     }
