@@ -809,7 +809,7 @@ u16 RecvMPReplies(u8* packets, u64 timestamp, u16 aidmask)
                 return ret;
             }
         }
-        else printf("RecvMPReplies received frame but bad\n");
+        else printf("RecvMPReplies received frame but bad (type=%08X ts=%016llX/%016llX)\n", header->Type, header->Timestamp, timestamp);
 
         enet_packet_destroy(enetpacket);
     }
