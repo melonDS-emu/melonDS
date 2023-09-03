@@ -247,13 +247,13 @@ bool Init()
     CurBlobType = -1;
     CurBlobLen = 0;
 
-    if (enet_initialize() != 0)
+    /*if (enet_initialize() != 0)
     {
         printf("enet shat itself :(\n");
         return false;
     }
 
-    printf("enet init OK\n");
+    printf("enet init OK\n");*/
     return true;
 }
 
@@ -261,7 +261,7 @@ void DeInit()
 {
     // TODO: cleanup resources properly!!
 
-    enet_deinitialize();
+    //enet_deinitialize();
 }
 
 

@@ -118,8 +118,15 @@ private:
 namespace LAN
 {
 
+extern bool Active;
+
 bool Init();
 void DeInit();
+
+void StartHost(const char* player, int numplayers);
+void StartClient(const char* player, const char* host);
+
+void Process();
 
 void SetMPRecvTimeout(int timeout);
 void MPBegin();
