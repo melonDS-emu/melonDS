@@ -337,13 +337,16 @@ bool ESEncrypt(u8* data, u32 len)
     {
         u8 rem[16];
 
-        Bswap128(rem, &data[coarselen]);
+        memset(rem, 0, 16);
+        for (int i = 0; i < remlen; i++)
+            rem[15-i] = data[coarselen+i];
 
         for (int i = 0; i < 16; i++) mac[i] ^= rem[i];
         AES_CTR_xcrypt_buffer(&ctx, rem, sizeof(rem));
         AES_ECB_encrypt(&ctx, mac);
 
-        Bswap128(&data[coarselen], rem);
+        for (int i = 0; i < remlen; i++)
+            data[coarselen+i] = rem[15-i];
     }
 
     ctx.Iv[13] = 0x00;
@@ -424,14 +427,20 @@ bool ESDecrypt(u8* data, u32 len)
         iv[14] = (ivnum >> 8) & 0xFF;
         iv[15] = ivnum & 0xFF;
 
-        Bswap128(rem, &data[coarselen]);
+        memset(rem, 0, 16);
+        AES_ctx_set_iv(&ctx, iv);
+        AES_CTR_xcrypt_buffer(&ctx, rem, 16);
+
+        for (int i = 0; i < remlen; i++)
+            rem[15-i] = data[coarselen+i];
 
         AES_ctx_set_iv(&ctx, iv);
         AES_CTR_xcrypt_buffer(&ctx, rem, 16);
         for (int i = 0; i < 16; i++) mac[i] ^= rem[i];
         AES_ECB_encrypt(&ctx, mac);
 
-        Bswap128(&data[coarselen], rem);
+        for (int i = 0; i < remlen; i++)
+            data[coarselen+i] = rem[15-i];
     }
 
     ctx.Iv[13] = 0x00;
