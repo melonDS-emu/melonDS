@@ -19,8 +19,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <queue>
 
 #include <enet/enet.h>
+#include <SDL2/SDL.h>
 
 #include <QStandardItemModel>
 
@@ -173,6 +175,15 @@ void LANDialog::doUpdatePlayerList(LAN::Player* players, int num)
 namespace LAN
 {
 
+struct MPPacketHeader
+{
+    u32 Magic;
+    u32 SenderID;
+    u32 Type;       // 0=regular 1=CMD 2=reply 3=ack
+    u32 Length;
+    u64 Timestamp;
+};
+
 const int kLANPort = 7064;
 
 bool Active;
@@ -185,9 +196,14 @@ Player Players[16];
 int NumPlayers;
 int MaxPlayers;
 
+u16 ConnectedBitmask;
+
 Player MyPlayer;
 u32 HostAddress;
 bool Lag;
+
+int MPRecvTimeout;
+std::queue<ENetPacket*> RXQueue;
 
 
 bool Init()
@@ -201,6 +217,10 @@ bool Init()
     memset(Players, 0, sizeof(Players));
     NumPlayers = 0;
     MaxPlayers = 0;
+
+    ConnectedBitmask = 0;
+
+    MPRecvTimeout = 25;
 
     // TODO we init enet here but also in Netplay
     // that is redundant
@@ -228,7 +248,7 @@ void StartHost(const char* playername, int numplayers)
     addr.host = ENET_HOST_ANY;
     addr.port = kLANPort;
 
-    Host = enet_host_create(&addr, 16, 1, 0, 0);
+    Host = enet_host_create(&addr, 16, 2, 0, 0);
     if (!Host)
     {
         // TODO handle this gracefully
@@ -256,7 +276,7 @@ void StartHost(const char* playername, int numplayers)
 
 void StartClient(const char* playername, const char* host)
 {
-    Host = enet_host_create(nullptr, 16, 1, 0, 0);
+    Host = enet_host_create(nullptr, 16, 2, 0, 0);
     if (!Host)
     {
         // TODO handle this gracefully
@@ -269,7 +289,7 @@ void StartClient(const char* playername, const char* host)
     ENetAddress addr;
     enet_address_set_host(&addr, host);
     addr.port = kLANPort;
-    ENetPeer* peer = enet_host_connect(Host, &addr, 1, 0);
+    ENetPeer* peer = enet_host_connect(Host, &addr, 2, 0);
     if (!peer)
     {
         printf("connect shat itself :(\n");
@@ -307,286 +327,391 @@ void StartClient(const char* playername, const char* host)
 }
 
 
-void ProcessHost()
+void ProcessHostEvent(ENetEvent& event)
 {
-    if (!Host) return;
-
-    ENetEvent event;
-    while (enet_host_service(Host, &event, 0) > 0)
+    switch (event.type)
     {
-        switch (event.type)
+    case ENET_EVENT_TYPE_CONNECT:
         {
-        case ENET_EVENT_TYPE_CONNECT:
+            if ((NumPlayers >= MaxPlayers) || (NumPlayers >= 16))
             {
-                if ((NumPlayers >= MaxPlayers) || (NumPlayers >= 16))
-                {
-                    // game is full, reject connection
-                    enet_peer_disconnect(event.peer, 0);
-                    break;
-                }
-
-                // client connected; assign player number
-
-                int id;
-                for (id = 0; id < 16; id++)
-                {
-                    if (id >= NumPlayers) break;
-                    if (Players[id].Status == 0) break;
-                }
-
-                if (id < 16)
-                {
-                    u8 cmd[3];
-                    cmd[0] = 0x01;
-                    cmd[1] = (u8)id;
-                    cmd[2] = MaxPlayers;
-                    ENetPacket* pkt = enet_packet_create(cmd, 3, ENET_PACKET_FLAG_RELIABLE);
-                    enet_peer_send(event.peer, 0, pkt);
-
-                    Players[id].ID = id;
-                    Players[id].Status = 3;
-                    Players[id].Address = event.peer->address.host;
-                    event.peer->data = &Players[id];
-                    NumPlayers++;
-
-                    RemotePeers[id] = event.peer;
-                }
-                else
-                {
-                    // ???
-                    enet_peer_disconnect(event.peer, 0);
-                }
+                // game is full, reject connection
+                enet_peer_disconnect(event.peer, 0);
+                break;
             }
-            break;
 
-        case ENET_EVENT_TYPE_DISCONNECT:
+            // client connected; assign player number
+
+            int id;
+            for (id = 0; id < 16; id++)
             {
-                // TODO
-                printf("disco\n");
+                if (id >= NumPlayers) break;
+                if (Players[id].Status == 0) break;
             }
-            break;
 
-        case ENET_EVENT_TYPE_RECEIVE:
+            if (id < 16)
             {
-                if (event.packet->dataLength < 1) break;
+                u8 cmd[3];
+                cmd[0] = 0x01;
+                cmd[1] = (u8)id;
+                cmd[2] = MaxPlayers;
+                ENetPacket* pkt = enet_packet_create(cmd, 3, ENET_PACKET_FLAG_RELIABLE);
+                enet_peer_send(event.peer, 0, pkt);
 
-                u8* data = (u8*)event.packet->data;
-                switch (data[0])
-                {
-                case 0x02: // client sending player info
-                    {
-                        if (event.packet->dataLength != (1+sizeof(Player))) break;
+                Players[id].ID = id;
+                Players[id].Status = 3;
+                Players[id].Address = event.peer->address.host;
+                event.peer->data = &Players[id];
+                NumPlayers++;
 
-                        Player player;
-                        memcpy(&player, &data[1], sizeof(Player));
-                        player.Name[31] = '\0';
-
-                        Player* hostside = (Player*)event.peer->data;
-                        if (player.ID != hostside->ID)
-                        {
-                            printf("what??? %d =/= %d\n", player.ID, hostside->ID);
-                            // TODO: disconnect
-                            break;
-                        }
-
-                        player.Status = 1;
-                        player.Address = event.peer->address.host;
-                        memcpy(hostside, &player, sizeof(Player));
-
-                        // broadcast updated player list
-                        u8 cmd[2+sizeof(Players)];
-                        cmd[0] = 0x03;
-                        cmd[1] = (u8)NumPlayers;
-                        memcpy(&cmd[2], Players, sizeof(Players));
-                        ENetPacket* pkt = enet_packet_create(cmd, 2+sizeof(Players), ENET_PACKET_FLAG_RELIABLE);
-                        enet_host_broadcast(Host, 0, pkt);
-
-                        lanDlg->updatePlayerList(Players, NumPlayers);
-                    }
-                    break;
-                }
+                RemotePeers[id] = event.peer;
             }
-            break;
+            else
+            {
+                // ???
+                enet_peer_disconnect(event.peer, 0);
+            }
         }
+        break;
+
+    case ENET_EVENT_TYPE_DISCONNECT:
+        {
+            // TODO
+            printf("disco\n");
+        }
+        break;
+
+    case ENET_EVENT_TYPE_RECEIVE:
+        {
+            if (event.packet->dataLength < 1) break;
+
+            u8* data = (u8*)event.packet->data;
+            switch (data[0])
+            {
+            case 0x02: // client sending player info
+                {
+                    if (event.packet->dataLength != (1+sizeof(Player))) break;
+
+                    Player player;
+                    memcpy(&player, &data[1], sizeof(Player));
+                    player.Name[31] = '\0';
+
+                    Player* hostside = (Player*)event.peer->data;
+                    if (player.ID != hostside->ID)
+                    {
+                        printf("what??? %d =/= %d\n", player.ID, hostside->ID);
+                        // TODO: disconnect
+                        break;
+                    }
+
+                    player.Status = 1;
+                    player.Address = event.peer->address.host;
+                    memcpy(hostside, &player, sizeof(Player));
+
+                    // broadcast updated player list
+                    u8 cmd[2+sizeof(Players)];
+                    cmd[0] = 0x03;
+                    cmd[1] = (u8)NumPlayers;
+                    memcpy(&cmd[2], Players, sizeof(Players));
+                    ENetPacket* pkt = enet_packet_create(cmd, 2+sizeof(Players), ENET_PACKET_FLAG_RELIABLE);
+                    enet_host_broadcast(Host, 0, pkt);
+
+                    lanDlg->updatePlayerList(Players, NumPlayers);
+                }
+                break;
+
+            case 0x04: // player connected
+                {
+                    if (event.packet->dataLength != 2) break;
+                    if (data[1] > 15) break;
+
+                    ConnectedBitmask |= (1<<data[1]);
+                }
+                break;
+
+            case 0x05: // player disconnected
+                {
+                    if (event.packet->dataLength != 2) break;
+                    if (data[1] > 15) break;
+
+                    ConnectedBitmask &= ~(1<<data[1]);
+                }
+                break;
+            }
+
+            enet_packet_destroy(event.packet);
+        }
+        break;
     }
 }
 
-void ProcessClient()
+void ProcessClientEvent(ENetEvent& event)
 {
-    if (!Host) return;
-
-    ENetEvent event;
-    while (enet_host_service(Host, &event, 0) > 0)
+    switch (event.type)
     {
-        switch (event.type)
+    case ENET_EVENT_TYPE_CONNECT:
         {
-        case ENET_EVENT_TYPE_CONNECT:
+            // another client is establishing a direct connection to us
+
+            int playerid = -1;
+            for (int i = 0; i < 16; i++)
             {
-                // another client is establishing a direct connection to us
+                Player* player = &Players[i];
+                if (player->ID == MyPlayer.ID) continue;
+                if (player->Status != 1) continue;
 
-                int playerid = -1;
-                for (int i = 0; i < 16; i++)
+                if (player->Address == event.peer->address.host)
                 {
-                    Player* player = &Players[i];
-                    if (player->ID == MyPlayer.ID) continue;
-                    if (player->Status != 1) continue;
-
-                    if (player->Address == event.peer->address.host)
-                    {
-                        playerid = i;
-                        break;
-                    }
-                }
-
-                if (playerid < 0)
-                {
-                    enet_peer_disconnect(event.peer, 0);
+                    playerid = i;
                     break;
                 }
-
-                RemotePeers[playerid] = event.peer;
             }
-            break;
 
-        case ENET_EVENT_TYPE_DISCONNECT:
+            if (playerid < 0)
             {
-                // TODO
-                printf("shma\n");
+                enet_peer_disconnect(event.peer, 0);
+                break;
             }
-            break;
 
-        case ENET_EVENT_TYPE_RECEIVE:
+            RemotePeers[playerid] = event.peer;
+        }
+        break;
+
+    case ENET_EVENT_TYPE_DISCONNECT:
+        {
+            // TODO
+            printf("shma\n");
+        }
+        break;
+
+    case ENET_EVENT_TYPE_RECEIVE:
+        {
+            if (event.packet->dataLength < 1) break;
+
+            u8* data = (u8*)event.packet->data;
+            switch (data[0])
             {
-                if (event.packet->dataLength < 1) break;
-
-                u8* data = (u8*)event.packet->data;
-                switch (data[0])
+            case 0x01: // host sending player ID
                 {
-                case 0x01: // host sending player ID
+                    if (event.packet->dataLength != 3) break;
+
+                    MaxPlayers = data[2];
+
+                    // send player information
+                    MyPlayer.ID = data[1];
+                    u8 cmd[1+sizeof(Player)];
+                    cmd[0] = 0x02;
+                    memcpy(&cmd[1], &MyPlayer, sizeof(Player));
+                    ENetPacket* pkt = enet_packet_create(cmd, 1+sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
+                    enet_peer_send(event.peer, 0, pkt);
+                }
+                break;
+
+            case 0x03: // host sending player list
+                {
+                    if (event.packet->dataLength != (2+sizeof(Players))) break;
+                    if (data[1] > 16) break;
+
+                    NumPlayers = data[1];
+                    memcpy(Players, &data[2], sizeof(Players));
+                    for (int i = 0; i < 16; i++)
                     {
-                        if (event.packet->dataLength != 3) break;
-
-                        MaxPlayers = data[2];
-
-                        // send player information
-                        MyPlayer.ID = data[1];
-                        u8 cmd[1+sizeof(Player)];
-                        cmd[0] = 0x02;
-                        memcpy(&cmd[1], &MyPlayer, sizeof(Player));
-                        ENetPacket* pkt = enet_packet_create(cmd, 1+sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
-                        enet_peer_send(event.peer, 0, pkt);
+                        Players[i].Name[31] = '\0';
                     }
-                    break;
 
-                case 0x03: // host sending player list
+                    lanDlg->updatePlayerList(Players, NumPlayers);
+
+                    // establish connections to any new clients
+                    for (int i = 0; i < 16; i++)
                     {
-                        if (event.packet->dataLength != (2+sizeof(Players))) break;
-                        if (data[1] > 16) break;
+                        Player* player = &Players[i];
+                        if (player->ID == MyPlayer.ID) continue;
+                        if (player->Status != 1) continue;
 
-                        NumPlayers = data[1];
-                        memcpy(Players, &data[2], sizeof(Players));
-                        for (int i = 0; i < 16; i++)
+                        if (!RemotePeers[i])
                         {
-                            Players[i].Name[31] = '\0';
-                        }
-
-                        lanDlg->updatePlayerList(Players, NumPlayers);
-
-                        // establish connections to any new clients
-                        for (int i = 0; i < 16; i++)
-                        {
-                            Player* player = &Players[i];
-                            if (player->ID == MyPlayer.ID) continue;
-                            if (player->Status != 1) continue;
-
-                            if (!RemotePeers[i])
+                            ENetAddress peeraddr;
+                            peeraddr.host = player->Address;
+                            peeraddr.port = kLANPort;
+                            ENetPeer* peer = enet_host_connect(Host, &peeraddr, 2, 0);
+                            if (!peer)
                             {
-                                ENetAddress peeraddr;
-                                peeraddr.host = player->Address;
-                                peeraddr.port = kLANPort;
-                                ENetPeer* peer = enet_host_connect(Host, &peeraddr, 1, 0);
-                                if (!peer)
-                                {
-                                    // TODO deal with this
-                                    continue;
-                                }
+                                // TODO deal with this
+                                continue;
                             }
                         }
                     }
-                    break;
-
-                case 0x04: // start game
-                    {
-                        //
-                    }
-                    break;
                 }
+                break;
+
+            case 0x04: // player connected
+                {
+                    if (event.packet->dataLength != 2) break;
+                    if (data[1] > 15) break;
+
+                    ConnectedBitmask |= (1<<data[1]);
+                }
+                break;
+
+            case 0x05: // player disconnected
+                {
+                    if (event.packet->dataLength != 2) break;
+                    if (data[1] > 15) break;
+
+                    ConnectedBitmask &= ~(1<<data[1]);
+                }
+                break;
             }
-            break;
+
+            enet_packet_destroy(event.packet);
         }
+        break;
     }
 }
 
-void Process()
+void ProcessEvent(ENetEvent& event)
 {
     if (IsHost)
-        ProcessHost();
+        ProcessHostEvent(event);
     else
-        ProcessClient();
+        ProcessClientEvent(event);
+}
+
+void Process(bool block)
+{
+    if (!Host) return;
+
+    int timeout = block ? MPRecvTimeout : 0;
+    u32 time_last = SDL_GetTicks();
+
+    ENetEvent event;
+    while (enet_host_service(Host, &event, timeout) > 0)
+    {
+        if (event.type == ENET_EVENT_TYPE_RECEIVE && event.channelID == 1)
+        {
+            RXQueue.push(event.packet);
+            if (block) return;
+        }
+        else
+        {
+            ProcessEvent(event);
+            if (block)
+            {
+                u32 time = SDL_GetTicks();
+                timeout -= (time - time_last);
+                if (timeout <= 0) return;
+            }
+        }
+    }
 }
 
 
 void SetMPRecvTimeout(int timeout)
 {
-    //MPRecvTimeout = timeout;
+    MPRecvTimeout = timeout;
 }
 
 void MPBegin()
 {
-    //
+    ConnectedBitmask |= (1<<MyPlayer.ID);
+
+    u8 cmd[2] = {0x04, MyPlayer.ID};
+    ENetPacket* pkt = enet_packet_create(cmd, 2, ENET_PACKET_FLAG_RELIABLE);
+    enet_host_broadcast(Host, 0, pkt);
 }
 
 void MPEnd()
 {
-    //
+    ConnectedBitmask &= ~(1<<MyPlayer.ID);
+
+    u8 cmd[2] = {0x05, MyPlayer.ID};
+    ENetPacket* pkt = enet_packet_create(&cmd, 2, ENET_PACKET_FLAG_RELIABLE);
+    enet_host_broadcast(Host, 0, pkt);
 }
 
-void SetActive(bool active)
+
+int SendMPPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
 {
-    //
+    if (!Host) return 0;
+
+    // TODO make the reliable part optional?
+    u32 flags = ENET_PACKET_FLAG_RELIABLE;
+
+    ENetPacket* enetpacket = enet_packet_create(nullptr, sizeof(MPPacketHeader)+len, flags);
+
+    MPPacketHeader pktheader;
+    pktheader.Magic = 0x4946494E;
+    pktheader.SenderID = MyPlayer.ID;
+    pktheader.Type = type;
+    pktheader.Length = len;
+    pktheader.Timestamp = timestamp;
+    memcpy(&enetpacket->data[0], &pktheader, sizeof(MPPacketHeader));
+    if (len)
+        memcpy(&enetpacket->data[sizeof(MPPacketHeader)], packet, len);
+
+    enet_host_broadcast(Host, 1, enetpacket);
+    enet_host_flush(Host);
+
+    return len;
 }
 
-u16 GetInstanceBitmask()
+int RecvMPPacketGeneric(u8* packet, bool block, u64* timestamp)
 {
-    //
-    return 0;
+    if (!Host) return 0;
+
+    Process(block);
+    if (RXQueue.empty()) return 0;
+
+    ENetPacket* enetpacket = RXQueue.front();
+    RXQueue.pop();
+    MPPacketHeader* header = (MPPacketHeader*)&enetpacket->data[0];
+    bool good = true;
+    if (enetpacket->dataLength < sizeof(MPPacketHeader))
+        good = false;
+    else if (header->Magic != 0x4946494E)
+        good = false;
+    else if (header->SenderID == MyPlayer.ID)
+        good = false;
+
+    if (!good)
+    {
+        enet_packet_destroy(enetpacket);
+        return 0;
+    }
+
+    u32 len = header->Length;
+    if (len)
+        memcpy(packet, &enetpacket->data[sizeof(MPPacketHeader)], len);
+
+    if (timestamp) *timestamp = header->Timestamp;
+    return len;
 }
 
 
 int SendMPPacket(u8* packet, int len, u64 timestamp)
 {
-    return 0;
+    return SendMPPacketGeneric(0, packet, len, timestamp);
 }
 
 int RecvMPPacket(u8* packet, u64* timestamp)
 {
-    return 0;
+    return RecvMPPacketGeneric(packet, false, timestamp);
 }
 
 
 int SendMPCmd(u8* packet, int len, u64 timestamp)
 {
-    return 0;
+    return SendMPPacketGeneric(1, packet, len, timestamp);
 }
 
 int SendMPReply(u8* packet, int len, u64 timestamp, u16 aid)
 {
-    return 0;
+    return SendMPPacketGeneric(2 | (aid<<16), packet, len, timestamp);
 }
 
 int SendMPAck(u8* packet, int len, u64 timestamp)
 {
-    return 0;
+    return SendMPPacketGeneric(3, packet, len, timestamp);
 }
 
 int RecvMPHostPacket(u8* packet, u64* timestamp)
