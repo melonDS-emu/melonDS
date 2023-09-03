@@ -38,6 +38,8 @@
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 #include "IPC.h"
+#include "IPC.h"
+#include "LAN.h"
 #include "OSD.h"
 
 #ifdef __WIN32__
@@ -533,47 +535,56 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 
 void MP_Begin()
 {
-    return IPC::MPBegin();
+    //return IPC::MPBegin();
+    return LAN::MPBegin();
 }
 
 void MP_End()
 {
-    return IPC::MPEnd();
+    //return IPC::MPEnd();
+    return LAN::MPEnd();
 }
 
 int MP_SendPacket(u8* data, int len, u64 timestamp)
 {
-    return IPC::SendMPPacket(data, len, timestamp);
+    //return IPC::SendMPPacket(data, len, timestamp);
+    return LAN::SendMPPacket(data, len, timestamp);
 }
 
 int MP_RecvPacket(u8* data, u64* timestamp)
 {
-    return IPC::RecvMPPacket(data, timestamp);
+    //return IPC::RecvMPPacket(data, timestamp);
+    return LAN::RecvMPPacket(data, timestamp);
 }
 
 int MP_SendCmd(u8* data, int len, u64 timestamp)
 {
-    return IPC::SendMPCmd(data, len, timestamp);
+    //return IPC::SendMPCmd(data, len, timestamp);
+    return LAN::SendMPCmd(data, len, timestamp);
 }
 
 int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid)
 {
-    return IPC::SendMPReply(data, len, timestamp, aid);
+    //return IPC::SendMPReply(data, len, timestamp, aid);
+    return LAN::SendMPReply(data, len, timestamp, aid);
 }
 
 int MP_SendAck(u8* data, int len, u64 timestamp)
 {
-    return IPC::SendMPAck(data, len, timestamp);
+    //return IPC::SendMPAck(data, len, timestamp);
+    return LAN::SendMPAck(data, len, timestamp);
 }
 
 int MP_RecvHostPacket(u8* data, u64* timestamp)
 {
-    return IPC::RecvMPHostPacket(data, timestamp);
+    //return IPC::RecvMPHostPacket(data, timestamp);
+    return LAN::RecvMPHostPacket(data, timestamp);
 }
 
 u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask)
 {
-    return IPC::RecvMPReplies(data, timestamp, aidmask);
+    //return IPC::RecvMPReplies(data, timestamp, aidmask);
+    return LAN::RecvMPReplies(data, timestamp, aidmask);
 }
 
 bool LAN_Init()
