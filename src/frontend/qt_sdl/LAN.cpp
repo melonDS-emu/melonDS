@@ -203,6 +203,7 @@ u32 HostAddress;
 bool Lag;
 
 int MPRecvTimeout;
+int LastHostID;
 std::queue<ENetPacket*> RXQueue;
 
 
@@ -221,6 +222,7 @@ bool Init()
     ConnectedBitmask = 0;
 
     MPRecvTimeout = 25;
+    LastHostID = -1;
 
     // TODO we init enet here but also in Netplay
     // that is redundant
@@ -267,6 +269,7 @@ void StartHost(const char* playername, int numplayers)
     memcpy(&MyPlayer, player, sizeof(Player));
 
     HostAddress = 0x0100007F;
+    LastHostID = -1;
 
     Active = true;
     IsHost = true;
@@ -321,6 +324,7 @@ void StartClient(const char* playername, const char* host)
     player->Status = 3;
 
     HostAddress = addr.host;
+    LastHostID = -1;
 
     Active = true;
     IsHost = false;
@@ -614,8 +618,9 @@ void SetMPRecvTimeout(int timeout)
 void MPBegin()
 {
     ConnectedBitmask |= (1<<MyPlayer.ID);
+    LastHostID = -1;
 
-    u8 cmd[2] = {0x04, MyPlayer.ID};
+    u8 cmd[2] = {0x04, (u8)MyPlayer.ID};
     ENetPacket* pkt = enet_packet_create(cmd, 2, ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(Host, 0, pkt);
 }
@@ -624,7 +629,7 @@ void MPEnd()
 {
     ConnectedBitmask &= ~(1<<MyPlayer.ID);
 
-    u8 cmd[2] = {0x05, MyPlayer.ID};
+    u8 cmd[2] = {0x05, (u8)MyPlayer.ID};
     ENetPacket* pkt = enet_packet_create(&cmd, 2, ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(Host, 0, pkt);
 }
@@ -681,9 +686,17 @@ int RecvMPPacketGeneric(u8* packet, bool block, u64* timestamp)
 
     u32 len = header->Length;
     if (len)
+    {
+        if (len > 2048) len = 2048;
+
         memcpy(packet, &enetpacket->data[sizeof(MPPacketHeader)], len);
 
+        if (header->Type == 1)
+            LastHostID = header->SenderID;
+    }
+
     if (timestamp) *timestamp = header->Timestamp;
+    enet_packet_destroy(enetpacket);
     return len;
 }
 
@@ -716,12 +729,76 @@ int SendMPAck(u8* packet, int len, u64 timestamp)
 
 int RecvMPHostPacket(u8* packet, u64* timestamp)
 {
-    return 0;
+    if (LastHostID != -1)
+    {
+        // check if the host is still connected
+
+        if (!(ConnectedBitmask & (1<<LastHostID)))
+            return -1;
+    }
+
+    return RecvMPPacketGeneric(packet, true, timestamp);
 }
 
 u16 RecvMPReplies(u8* packets, u64 timestamp, u16 aidmask)
 {
-    return 0;
+    if (!Host) return 0;
+
+    u16 ret = 0;
+    u16 myinstmask = 1 << MyPlayer.ID;
+
+    if ((myinstmask & ConnectedBitmask) == ConnectedBitmask)
+        return 0;
+
+    for (;;)
+    {
+        Process(true);
+        if (RXQueue.empty())
+        {
+            // no more replies available
+            return ret;
+        }
+
+        ENetPacket* enetpacket = RXQueue.front();
+        RXQueue.pop();
+        MPPacketHeader* header = (MPPacketHeader*)&enetpacket->data[0];
+        bool good = true;
+        if (enetpacket->dataLength < sizeof(MPPacketHeader))
+            good = false;
+        else if (header->Magic != 0x4946494E)
+            good = false;
+        else if (header->SenderID == MyPlayer.ID)
+            good = false;
+        else if ((header->Type & 0xFFFF) != 2)
+            good = false;
+        else if (header->Timestamp < (timestamp - 32))
+            good = false;
+
+        if (good)
+        {
+            u32 len = header->Length;
+            if (len)
+            {
+                if (len > 1024) len = 1024;
+
+                u32 aid = header->Type >> 16;
+                memcpy(&packets[(aid-1)*1024], &enetpacket->data[sizeof(MPPacketHeader)], len);
+
+                ret |= (1<<aid);
+            }
+
+            myinstmask |= (1<<header->SenderID);
+            if (((myinstmask & ConnectedBitmask) == ConnectedBitmask) ||
+                ((ret & aidmask) == aidmask))
+            {
+                // all the clients have sent their reply
+                enet_packet_destroy(enetpacket);
+                return ret;
+            }
+        }
+
+        enet_packet_destroy(enetpacket);
+    }
 }
 
 }
