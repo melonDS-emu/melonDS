@@ -320,6 +320,7 @@ void EmuThread::run()
 
     IPC::InitSema();
     IPC::SetMPRecvTimeout(Config::MPRecvTimeout);
+    LAN::Init();
     Netplay::Init();
 
     NDS::Init();
@@ -364,7 +365,10 @@ void EmuThread::run()
 
     while (EmuRunning != emuStatus_Exit)
     {
-        if (Netplay::Active) Netplay::ProcessFrame();
+        if (LAN::Active)
+            LAN::Process();
+        else if (Netplay::Active)
+            Netplay::ProcessFrame();
 
         IPC::ProcessCommands();
 
@@ -673,6 +677,7 @@ void EmuThread::run()
     GPU::DeInitRenderer();
     NDS::DeInit();
     Netplay::DeInit();
+    LAN::DeInit();
     IPC::DeInitSema();
     //Platform::LAN_DeInit();
 }
