@@ -193,6 +193,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuFrameStep()), mainWindow->actFrameStep, SLOT(trigger()));
     connect(this, SIGNAL(windowLimitFPSChange()), mainWindow->actLimitFramerate, SLOT(trigger()));
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panelWidget, SLOT(onScreenLayoutChanged()));
+    connect(this, SIGNAL(menuBarToggle()), mainWindow, SLOT(onMenuBarToggled()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
     connect(this, SIGNAL(screenEmphasisToggle()), mainWindow, SLOT(onScreenEmphasisToggled()));
@@ -364,6 +365,7 @@ void EmuThread::run()
         if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
         if (Input::HotkeyPressed(HK_FrameStep)) emit windowEmuFrameStep();
 
+        if (Input::HotkeyPressed(HK_MenuBarToggle)) emit menuBarToggle();
         if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
         if (Input::HotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
@@ -3093,19 +3095,38 @@ void MainWindow::onTitleUpdate(QString title)
     setWindowTitle(title);
 }
 
+void SetMenuBar(MainWindow* mainWindow)
+{
+    if (Config::ShowMenuBar && !mainWindow->isFullScreen())
+    {
+        int menuBarHeight = mainWindow->menuBar()->sizeHint().height();
+        mainWindow->menuBar()->setFixedHeight(menuBarHeight);
+    }
+    else
+    {
+        // Don't use hide() as menubar actions stop working
+        mainWindow->menuBar()->setFixedHeight(0);
+    }
+}
+
+void MainWindow::onMenuBarToggled()
+{
+    Config::ShowMenuBar = !Config::ShowMenuBar;
+    SetMenuBar(this);
+}
+
 void ToggleFullscreen(MainWindow* mainWindow)
 {
     if (!mainWindow->isFullScreen())
     {
         mainWindow->showFullScreen();
-        mainWindow->menuBar()->setFixedHeight(0); // Don't use hide() as menubar actions stop working
     }
     else
     {
         mainWindow->showNormal();
-        int menuBarHeight = mainWindow->menuBar()->sizeHint().height();
-        mainWindow->menuBar()->setFixedHeight(menuBarHeight);
     }
+    // Menu bar visibility is affected by fullscreen
+    SetMenuBar(mainWindow);
 }
 
 void MainWindow::onFullscreenToggled()

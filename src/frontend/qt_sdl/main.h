@@ -82,6 +82,7 @@ signals:
 
     void screenLayoutChange();
 
+    void menuBarToggle();
     void windowFullscreenToggle();
 
     void swapScreensToggle();
@@ -350,6 +351,7 @@ private slots:
 
     void onUpdateVideoSettings(bool glchange);
 
+    void onMenuBarToggled();
     void onFullscreenToggled();
     void onScreenEmphasisToggled();
 

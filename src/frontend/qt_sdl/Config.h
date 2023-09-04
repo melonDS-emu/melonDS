@@ -30,6 +30,7 @@ enum
     HK_Reset,
     HK_FastForward,
     HK_FastForwardToggle,
+    HK_MenuBarToggle,
     HK_FullscreenToggle,
     HK_SwapScreens,
     HK_SwapScreenEmphasis,
@@ -83,6 +84,7 @@ extern int JoystickID;
 extern int WindowWidth;
 extern int WindowHeight;
 extern bool WindowMaximized;
+extern bool ShowMenuBar;
 
 extern int ScreenRotation;
 extern int ScreenGap;
