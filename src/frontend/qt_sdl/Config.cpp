@@ -148,9 +148,7 @@ bool DSiFullBIOSBoot;
 
 CameraConfig Camera[2];
 
-QAction* actSaveState[9];
-QAction* actLoadState[9];
-
+std::vector<std::tuple<QAction*, int>> shortcuts;
 
 const char* kConfigFile = "melonDS.ini";
 const char* kUniqueConfigFile = "melonDS.%d.ini";
@@ -198,25 +196,26 @@ ConfigEntry ConfigFile[] =
     {"HKKey_PowerButton",         0, &HKKeyMapping[HK_PowerButton],         -1,        true},
     {"HKKey_VolumeUp",            0, &HKKeyMapping[HK_VolumeUp],            -1,        true},
     {"HKKey_VolumeDown",          0, &HKKeyMapping[HK_VolumeDown],          -1,        true},
-    {"HKKey_SaveSlot1",           0, &HKKeyMapping[HK_SaveSlot1],         0x3000030, true},
-    {"HKKey_SaveSlot2",           0, &HKKeyMapping[HK_SaveSlot2],         0x3000031, true},
-    {"HKKey_SaveSlot3",           0, &HKKeyMapping[HK_SaveSlot3],         0x3000032, true},
-    {"HKKey_SaveSlot4",           0, &HKKeyMapping[HK_SaveSlot4],         0x3000033, true},
-    {"HKKey_SaveSlot5",           0, &HKKeyMapping[HK_SaveSlot5],         0x3000034, true},
-    {"HKKey_SaveSlot6",           0, &HKKeyMapping[HK_SaveSlot6],         0x3000035, true},
-    {"HKKey_SaveSlot7",           0, &HKKeyMapping[HK_SaveSlot7],         0x3000036, true},
-    {"HKKey_SaveSlot8",           0, &HKKeyMapping[HK_SaveSlot8],         0x3000037, true},
-    {"HKKey_SaveSlotFile",        0, &HKKeyMapping[HK_SaveSlotFile],      0x3000038, true},
-    {"HKKey_LoadSlot1",           0, &HKKeyMapping[HK_LoadSlot1],         0x1000030, true},
-    {"HKKey_LoadSlot2",           0, &HKKeyMapping[HK_LoadSlot2],         0x1000031, true},
-    {"HKKey_LoadSlot3",           0, &HKKeyMapping[HK_LoadSlot3],         0x1000032, true},
-    {"HKKey_LoadSlot4",           0, &HKKeyMapping[HK_LoadSlot4],         0x1000033, true},
-    {"HKKey_LoadSlot5",           0, &HKKeyMapping[HK_LoadSlot5],         0x1000034, true},
-    {"HKKey_LoadSlot6",           0, &HKKeyMapping[HK_LoadSlot6],         0x1000035, true},
-    {"HKKey_LoadSlot7",           0, &HKKeyMapping[HK_LoadSlot7],         0x1000036, true},
-    {"HKKey_LoadSlot8",           0, &HKKeyMapping[HK_LoadSlot8],         0x1000037, true},
-    {"HKKey_LoadSlotFile",        0, &HKKeyMapping[HK_LoadSlotFile],      0x1000038, true},
-    
+    {"HKKey_SaveSlot1",           0, &HKKeyMapping[HK_SaveSlot1],           0x3000030, true},
+    {"HKKey_SaveSlot2",           0, &HKKeyMapping[HK_SaveSlot2],           0x3000031, true},
+    {"HKKey_SaveSlot3",           0, &HKKeyMapping[HK_SaveSlot3],           0x3000032, true},
+    {"HKKey_SaveSlot4",           0, &HKKeyMapping[HK_SaveSlot4],           0x3000033, true},
+    {"HKKey_SaveSlot5",           0, &HKKeyMapping[HK_SaveSlot5],           0x3000034, true},
+    {"HKKey_SaveSlot6",           0, &HKKeyMapping[HK_SaveSlot6],           0x3000035, true},
+    {"HKKey_SaveSlot7",           0, &HKKeyMapping[HK_SaveSlot7],           0x3000036, true},
+    {"HKKey_SaveSlot8",           0, &HKKeyMapping[HK_SaveSlot8],           0x3000037, true},
+    {"HKKey_SaveSlotFile",        0, &HKKeyMapping[HK_SaveSlotFile],        0x3000038, true},
+    {"HKKey_LoadSlot1",           0, &HKKeyMapping[HK_LoadSlot1],           0x1000030, true},
+    {"HKKey_LoadSlot2",           0, &HKKeyMapping[HK_LoadSlot2],           0x1000031, true},
+    {"HKKey_LoadSlot3",           0, &HKKeyMapping[HK_LoadSlot3],           0x1000032, true},
+    {"HKKey_LoadSlot4",           0, &HKKeyMapping[HK_LoadSlot4],           0x1000033, true},
+    {"HKKey_LoadSlot5",           0, &HKKeyMapping[HK_LoadSlot5],           0x1000034, true},
+    {"HKKey_LoadSlot6",           0, &HKKeyMapping[HK_LoadSlot6],           0x1000035, true},
+    {"HKKey_LoadSlot7",           0, &HKKeyMapping[HK_LoadSlot7],           0x1000036, true},
+    {"HKKey_LoadSlot8",           0, &HKKeyMapping[HK_LoadSlot8],           0x1000037, true},
+    {"HKKey_LoadSlotFile",        0, &HKKeyMapping[HK_LoadSlotFile],        0x1000038, true},
+    {"HKKey_UndoStateLoad",       0, &HKKeyMapping[HK_UndoStateLoad],       0x100003B, true},
+
 
     {"HKJoy_Lid",                 0, &HKJoyMapping[HK_Lid],                 -1, true},
     {"HKJoy_Mic",                 0, &HKJoyMapping[HK_Mic],                 -1, true},
@@ -233,6 +232,25 @@ ConfigEntry ConfigFile[] =
     {"HKJoy_PowerButton",         0, &HKJoyMapping[HK_PowerButton],         -1, true},
     {"HKJoy_VolumeUp",            0, &HKJoyMapping[HK_VolumeUp],            -1, true},
     {"HKJoy_VolumeDown",          0, &HKJoyMapping[HK_VolumeDown],          -1, true},
+    {"HKJoy_SaveSlot1",           0, &HKJoyMapping[HK_SaveSlot1],           -1, true},
+    {"HKJoy_SaveSlot2",           0, &HKJoyMapping[HK_SaveSlot2],           -1, true},
+    {"HKJoy_SaveSlot3",           0, &HKJoyMapping[HK_SaveSlot3],           -1, true},
+    {"HKJoy_SaveSlot4",           0, &HKJoyMapping[HK_SaveSlot4],           -1, true},
+    {"HKJoy_SaveSlot5",           0, &HKJoyMapping[HK_SaveSlot5],           -1, true},
+    {"HKJoy_SaveSlot6",           0, &HKJoyMapping[HK_SaveSlot6],           -1, true},
+    {"HKJoy_SaveSlot7",           0, &HKJoyMapping[HK_SaveSlot7],           -1, true},
+    {"HKJoy_SaveSlot8",           0, &HKJoyMapping[HK_SaveSlot8],           -1, true},
+    {"HKJoy_SaveSlotFile",        0, &HKJoyMapping[HK_SaveSlotFile],        -1, true},
+    {"HKJoy_LoadSlot1",           0, &HKJoyMapping[HK_LoadSlot1],           -1, true},
+    {"HKJoy_LoadSlot2",           0, &HKJoyMapping[HK_LoadSlot2],           -1, true},
+    {"HKJoy_LoadSlot3",           0, &HKJoyMapping[HK_LoadSlot3],           -1, true},
+    {"HKJoy_LoadSlot4",           0, &HKJoyMapping[HK_LoadSlot4],           -1, true},
+    {"HKJoy_LoadSlot5",           0, &HKJoyMapping[HK_LoadSlot5],           -1, true},
+    {"HKJoy_LoadSlot6",           0, &HKJoyMapping[HK_LoadSlot6],           -1, true},
+    {"HKJoy_LoadSlot7",           0, &HKJoyMapping[HK_LoadSlot7],           -1, true},
+    {"HKJoy_LoadSlot8",           0, &HKJoyMapping[HK_LoadSlot8],           -1, true},
+    {"HKJoy_LoadSlotFile",        0, &HKJoyMapping[HK_LoadSlotFile],        -1, true},
+    {"HKJoy_UndoStateLoad",       0, &HKJoyMapping[HK_UndoStateLoad],       -1, true},
 
     {"JoystickID", 0, &JoystickID, 0, true},
 
@@ -373,125 +391,19 @@ ConfigEntry ConfigFile[] =
     {"", -1, nullptr, 0, false}
 };
 
-/*
- * Some non-alphabetic keys are not correctly registered as shorcuts when used with shift (e.g. Shift+! or Shift+?).
- * However, these shortcuts can be converted to another format (e.g. Shift+1 or Shift+/) to achieve the desired effect.
- * This is a very hacky, and USA specific fix to get such shortcuts to work.
- * 
- * TODO: Find alternative solution that works for all keyboard layouts. 
- */
-int formatShortcut(int shortcut) {
-    // Attempt to detect keyboard layout.
-    int country = QLocale::system().country();
-    int language = QLocale::system().language();
-    if (!((language == QLocale::Language::English || language == QLocale::Language::C) && country == QLocale::Country::UnitedStates))
-        return shortcut;
+void UpdateShortcuts()
+{
+    for(std::tuple<QAction*, int> shortcut : shortcuts)
+    {
+        QAction* action = std::get<0>(shortcut);
+        int hotkey = HKKeyMapping[std::get<1>(shortcut)];
 
-    if (((shortcut >> 25) & 0x01) != 0x01) // Only format if Shift Modifier is detected.
-        return shortcut;
+        QString text = action->text();
 
-    if ((shortcut & 0x00ffff00) != 0) // Checks if shorcut uses a special key (e.g. F1, NumLock, etc...)
-        return shortcut;
-
-    // Use case statement to remap shortcut to one that works.
-    int key = shortcut & 0xff;
-    switch (key) {
-        case Qt::Key_Exclam : 
-            key = Qt::Key_1;
-            break;
-        case Qt::Key_At : 
-            key = Qt::Key_2;
-            break;
-        case Qt::Key_NumberSign : 
-            key = Qt::Key_3;
-            break;
-        case Qt::Key_Dollar : 
-            key = Qt::Key_4;
-            break;
-        case Qt::Key_Percent : 
-            key = Qt::Key_5;
-            break;
-        case Qt::Key_AsciiCircum : 
-            key = Qt::Key_6;
-            break;
-        case Qt::Key_Ampersand : 
-            key = Qt::Key_7;
-            break;
-        case Qt::Key_Asterisk : 
-            key = Qt::Key_8;
-            break;
-        case Qt::Key_ParenLeft : 
-            key = Qt::Key_9;
-            break;
-        case Qt::Key_ParenRight : 
-            key = Qt::Key_0;
-            break;
-        case Qt::Key_Underscore : 
-            key = Qt::Key_Minus;
-            break;
-        case Qt::Key_Plus : 
-            key = Qt::Key_Equal;
-            break;
-        case Qt::Key_BraceLeft : 
-            key = Qt::Key_BracketLeft;
-            break;
-        case Qt::Key_BraceRight : 
-            key = Qt::Key_BracketRight;
-            break;
-        case Qt::Key_Bar : 
-            key = Qt::Key_Backslash;
-            break;
-        case Qt::Key_Colon : 
-            key = Qt::Key_Semicolon;
-            break;
-        case Qt::Key_QuoteDbl : 
-            key = Qt::Key_Apostrophe;
-            break;
-        case Qt::Key_Less : 
-            key = Qt::Key_Comma;
-            break;
-        case Qt::Key_Greater : 
-            key = Qt::Key_Period;
-            break;
-        case Qt::Key_Question : 
-            key = Qt::Key_Slash;
-            break;
-        case Qt::Key_AsciiTilde : 
-            key = Qt::Key_QuoteLeft;
-            break;
-        default:
-            break;
+        text = text.split('\t')[0];
+        action->setText(QString("%1\t%2").arg(text).arg(QKeySequence(hotkey).toString()));
+        action->setShortcutVisibleInContextMenu(false);
     }
-
-    return (shortcut & 0xffffff00) | key;    
-}
-
-void setLoadStateShortcut(int stateIdx) {
-    int hkLoadSlot = stateIdx ? HK_LoadSlot1+stateIdx-1 : HK_LoadSlotFile;
-    QKeySequence shortcut;
-
-    if (HKKeyMapping[hkLoadSlot]!=-1) {
-        int shortcutKey = formatShortcut(HKKeyMapping[hkLoadSlot]);
-        shortcut = QKeySequence(shortcutKey);
-    }
-    else // Default in case hotkey is not set.
-        shortcut = QKeySequence(Qt::Key_F1+stateIdx-1);
-
-    actLoadState[stateIdx]->setShortcut(shortcut);
-}
-
-void setSaveStateShortcut(int stateIdx) {
-    int hkSaveSlot = stateIdx ? HK_SaveSlot1+stateIdx-1 : HK_SaveSlotFile;
-    QKeySequence shortcut;
-
-    if (HKKeyMapping[hkSaveSlot]!=-1) {
-        int shortcutKey = formatShortcut(HKKeyMapping[hkSaveSlot]);
-        shortcut=QKeySequence(shortcutKey);
-    }
-    else // Default in case hotkey is not set.
-        shortcut = QKeySequence(Qt::ShiftModifier | (Qt::Key_F1+stateIdx-1));
-        
-    actSaveState[stateIdx]->setShortcut(shortcut);
 }
 
 void LoadFile(int inst)
@@ -544,6 +456,7 @@ void LoadFile(int inst)
 
 void Load()
 {
+
     for (ConfigEntry* entry = &ConfigFile[0]; entry->Value; entry++)
     {
         switch (entry->Type)

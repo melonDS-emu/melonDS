@@ -68,12 +68,13 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     for (int hotkey : hk_save_load)
     {
         hkSaveLoadKeyMap[i] = Config::HKKeyMapping[hotkey];
+        hkSaveLoadJoyMap[i] = Config::HKJoyMapping[hotkey];
         i++;
     }
 
     populatePage(ui->tabAddons, hk_addons_labels, addonsKeyMap, addonsJoyMap);
     populatePage(ui->tabHotkeysGeneral, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
-    populatePage(ui->tabSaveLoad, hk_save_load_labels, hkSaveLoadKeyMap, NULL);
+    populatePage(ui->tabSaveLoad, hk_save_load_labels, hkSaveLoadKeyMap, hkSaveLoadJoyMap);
 
     int njoy = SDL_NumJoysticks();
     if (njoy > 0)
@@ -158,25 +159,23 @@ void InputConfigDialog::populatePage(QWidget* page,
     group->setLayout(group_layout);
     group->setMinimumWidth(275);
 
-    if (joymap != NULL) {
-        group = new QGroupBox("Joystick mappings:");
-        main_layout->addWidget(group);
-        group_layout = new QGridLayout();
-        group_layout->setSpacing(1);
-        i = 0;
-        for (const char* labelStr : labels)
-        {
-            QLabel* label = new QLabel(QString(labelStr)+":");
-            JoyMapButton* btn = new JoyMapButton(&joymap[i], ishotkey);
+    group = new QGroupBox("Joystick mappings:");
+    main_layout->addWidget(group);
+    group_layout = new QGridLayout();
+    group_layout->setSpacing(1);
+    i = 0;
+    for (const char* labelStr : labels)
+    {
+        QLabel* label = new QLabel(QString(labelStr)+":");
+        JoyMapButton* btn = new JoyMapButton(&joymap[i], ishotkey);
 
-            group_layout->addWidget(label, i, 0);
-            group_layout->addWidget(btn, i, 1);
-            i++;
-        }
-        group_layout->setRowStretch(labels.size(), 1);
-        group->setLayout(group_layout);
-        group->setMinimumWidth(275);
+        group_layout->addWidget(label, i, 0);
+        group_layout->addWidget(btn, i, 1);
+        i++;
     }
+    group_layout->setRowStretch(labels.size(), 1);
+    group->setLayout(group_layout);
+    group->setMinimumWidth(275);
 
     page->setLayout(main_layout);
 }
@@ -209,19 +208,11 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
     for (int hotkey : hk_save_load)
     {
         Config::HKKeyMapping[hotkey] = hkSaveLoadKeyMap[i];
-
-        // Reset load and save state shortcuts.
-        if (hotkey >= HK_LoadSlot1 && hotkey <= HK_LoadSlot8)
-            Config::setLoadStateShortcut(hotkey - HK_LoadSlot1 + 1);
-        else if (hotkey == HK_LoadSlotFile)
-            Config::setLoadStateShortcut(0);
-        else if (hotkey >= HK_SaveSlot1 && hotkey <= HK_SaveSlot8)
-            Config::setSaveStateShortcut(hotkey - HK_SaveSlot1 + 1);
-        else if (hotkey == HK_SaveSlotFile)
-            Config::setSaveStateShortcut(0);
-
+        Config::HKJoyMapping[hotkey] = hkSaveLoadJoyMap[i];
         i++;
     }
+
+    Config::UpdateShortcuts();
 
     Config::JoystickID = Input::JoystickID;
     Config::Save();

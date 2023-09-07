@@ -21,11 +21,14 @@
 
 #include <variant>
 #include <string>
+#include <tuple>
+#include <vector>
 #include <QAction>
+
 
 enum
 {
-    HK_Lid = 0, //The problem lies here!
+    HK_Lid = 0,
     HK_Mic,
     HK_Pause,
     HK_Reset,
@@ -58,6 +61,7 @@ enum
     HK_LoadSlot7,
     HK_LoadSlot8,
     HK_LoadSlotFile,
+    HK_UndoStateLoad,
     HK_MAX
 };
 
@@ -222,12 +226,9 @@ extern bool DSiFullBIOSBoot;
 
 extern CameraConfig Camera[2];
 
+extern std::vector<std::tuple<QAction*, int>> shortcuts;
 
-extern QAction* actSaveState[9];
-extern QAction* actLoadState[9];
-
-void setLoadStateShortcut(int stateIdx);
-void setSaveStateShortcut(int stateIdx);
+void UpdateShortcuts();
 
 void Load();
 void Save();

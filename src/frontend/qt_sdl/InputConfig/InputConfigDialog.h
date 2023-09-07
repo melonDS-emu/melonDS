@@ -96,7 +96,8 @@ static constexpr std::initializer_list<int> hk_save_load =
     HK_LoadSlot6,
     HK_LoadSlot7,
     HK_LoadSlot8,
-    HK_LoadSlotFile
+    HK_LoadSlotFile,
+    HK_UndoStateLoad
 };
 
 static constexpr std::initializer_list<const char*> hk_save_load_labels =
@@ -118,7 +119,8 @@ static constexpr std::initializer_list<const char*> hk_save_load_labels =
     "Load slot 6",
     "Load slot 7",
     "Load slot 8",
-    "Load slot File"
+    "Load slot File",
+    "Undo State Load"
 };
 
 static_assert(hk_save_load.size() == hk_save_load_labels.size());
@@ -172,7 +174,7 @@ private:
     int keypadKeyMap[12], keypadJoyMap[12];
     int addonsKeyMap[hk_addons.size()], addonsJoyMap[hk_addons.size()];
     int hkGeneralKeyMap[hk_general.size()], hkGeneralJoyMap[hk_general.size()];
-    int hkSaveLoadKeyMap[hk_save_load.size()];
+    int hkSaveLoadKeyMap[hk_save_load.size()], hkSaveLoadJoyMap[hk_save_load.size()];
 };
 
 
