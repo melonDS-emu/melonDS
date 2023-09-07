@@ -184,6 +184,7 @@ extern bool EnableCheats;
 extern bool MouseHide;
 extern int MouseHideSeconds;
 extern bool PauseLostFocus;
+extern bool ConfirmReset;
 
 extern bool DSBatteryLevelOkay;
 extern int DSiBatteryLevel;

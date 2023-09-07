@@ -34,6 +34,7 @@ InterfaceSettingsDialog::InterfaceSettingsDialog(QWidget* parent) : QDialog(pare
     ui->spinMouseHideSeconds->setEnabled(Config::MouseHide != 0);
     ui->spinMouseHideSeconds->setValue(Config::MouseHideSeconds);
     ui->cbPauseLostFocus->setChecked(Config::PauseLostFocus != 0);
+    ui->cbConfirmReset->setChecked(Config::ConfirmReset != 0);
 }
 
 InterfaceSettingsDialog::~InterfaceSettingsDialog()
@@ -60,6 +61,7 @@ void InterfaceSettingsDialog::done(int r)
         Config::MouseHide = ui->cbMouseHide->isChecked() ? 1:0;
         Config::MouseHideSeconds = ui->spinMouseHideSeconds->value();
         Config::PauseLostFocus = ui->cbPauseLostFocus->isChecked() ? 1:0;
+        Config::ConfirmReset = ui->cbConfirmReset->isChecked() ? 1:0;
 
         Config::Save();
 

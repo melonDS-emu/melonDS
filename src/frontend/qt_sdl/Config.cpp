@@ -139,6 +139,7 @@ bool MouseHide;
 int MouseHideSeconds;
 
 bool PauseLostFocus;
+bool ConfirmReset;
 
 bool DSBatteryLevelOkay;
 int DSiBatteryLevel;
@@ -330,6 +331,7 @@ ConfigEntry ConfigFile[] =
     {"MouseHide",        1, &MouseHide,        false, false},
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, false},
     {"PauseLostFocus",   1, &PauseLostFocus,   false, false},
+    {"ConfirmReset",   1, &ConfirmReset,   false, false},
 
     {"DSBatteryLevelOkay",   1, &DSBatteryLevelOkay, true, true},
     {"DSiBatteryLevel",    0, &DSiBatteryLevel, 0xF, true},
