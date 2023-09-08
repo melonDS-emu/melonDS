@@ -646,7 +646,8 @@ int SendMPPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
     if (!Host) return 0;
 
     // TODO make the reliable part optional?
-    u32 flags = ENET_PACKET_FLAG_RELIABLE;
+    //u32 flags = ENET_PACKET_FLAG_RELIABLE;
+    u32 flags = ENET_PACKET_FLAG_UNSEQUENCED;
 
     ENetPacket* enetpacket = enet_packet_create(nullptr, sizeof(MPPacketHeader)+len, flags);
 
