@@ -23,6 +23,7 @@
 #include <map>
 #include <QDialog>
 #include <QMutex>
+#include <QItemSelection>
 
 #include "types.h"
 
@@ -100,6 +101,8 @@ signals:
     void sgUpdateDiscoveryList();
 
 private slots:
+    void onGameSelectionChanged(const QItemSelection& cur, const QItemSelection& prev);
+    void on_tvAvailableGames_doubleClicked(QModelIndex index);
     void onDirectConnect();
     void done(int r);
 

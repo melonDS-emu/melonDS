@@ -61,7 +61,11 @@
     </layout>
    </item>
    <item>
-    <widget class="QTreeView" name="tvAvailableGames"/>
+    <widget class="QTreeView" name="tvAvailableGames">
+     <property name="editTriggers">
+      <set>QAbstractItemView::NoEditTriggers</set>
+     </property>
+    </widget>
    </item>
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
