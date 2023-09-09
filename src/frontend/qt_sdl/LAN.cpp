@@ -825,6 +825,8 @@ void SetMPRecvTimeout(int timeout)
 
 void MPBegin()
 {
+    if (!Host) return;
+
     ConnectedBitmask |= (1<<MyPlayer.ID);
     LastHostID = -1;
     LastHostPeer = nullptr;
@@ -836,6 +838,8 @@ void MPBegin()
 
 void MPEnd()
 {
+    if (!Host) return;
+
     ConnectedBitmask &= ~(1<<MyPlayer.ID);
 
     u8 cmd[2] = {0x05, (u8)MyPlayer.ID};
