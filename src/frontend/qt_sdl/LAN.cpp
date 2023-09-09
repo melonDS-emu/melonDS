@@ -42,6 +42,10 @@
     #define closesocket close
 #endif
 
+#ifndef INVALID_SOCKET
+    #define INVALID_SOCKET  (socket_t)-1
+#endif
+
 #include <enet/enet.h>
 #include <SDL2/SDL.h>
 
@@ -466,7 +470,7 @@ void ProcessDiscovery()
 
             DiscoveryData beacon;
             sockaddr_in_t raddr;
-            int ralen = sizeof(raddr);
+            socklen_t ralen = sizeof(raddr);
 
             int rlen = recvfrom(DiscoverySocket, (char*)&beacon, sizeof(beacon), 0, (sockaddr_t*)&raddr, &ralen);
             if (rlen < sizeof(beacon)) continue;
