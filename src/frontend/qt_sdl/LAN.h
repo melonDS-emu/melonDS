@@ -20,7 +20,9 @@
 #define LAN_H
 
 #include <string>
+#include <map>
 #include <QDialog>
+#include <QMutex>
 
 #include "types.h"
 
@@ -33,6 +35,7 @@ class LANDialog;
 
 namespace LAN
 {
+
 struct Player
 {
     int ID;
@@ -40,6 +43,18 @@ struct Player
     int Status; // 0=no player 1=normal 2=host 3=connecting
     u32 Address;
 };
+
+struct DiscoveryData
+{
+    u32 Magic;
+    u32 Version;
+    u32 Tick;
+    char SessionName[64];
+    u8 NumPlayers;
+    u8 MaxPlayers;
+    u8 Status; // 0=idle 1=playing
+};
+
 }
 
 class LANStartHostDialog : public QDialog
@@ -79,8 +94,16 @@ public:
         return dlg;
     }
 
+    void updateDiscoveryList();
+
+signals:
+    void sgUpdateDiscoveryList();
+
 private slots:
+    void onDirectConnect();
     void done(int r);
+
+    void doUpdateDiscoveryList();
 
 private:
     Ui::LANStartClientDialog* ui;
@@ -120,12 +143,16 @@ namespace LAN
 
 extern bool Active;
 
+extern std::map<u32, DiscoveryData> DiscoveryList;
+extern QMutex DiscoveryMutex;
+
 bool Init();
 void DeInit();
 
-void StartDiscovery();
-void StartHost(const char* player, int numplayers);
-void StartClient(const char* player, const char* host);
+bool StartDiscovery();
+void EndDiscovery();
+bool StartHost(const char* player, int numplayers);
+bool StartClient(const char* player, const char* host);
 
 void ProcessFrame();
 

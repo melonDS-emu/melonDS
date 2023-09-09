@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <queue>
-#include <map>
 #include <vector>
 
 #ifdef __WIN32__
@@ -50,6 +49,8 @@
 #include <SDL2/SDL.h>
 
 #include <QStandardItemModel>
+#include <QPushButton>
+#include <QInputDialog>
 
 #include "LAN.h"
 #include "Config.h"
@@ -61,7 +62,8 @@
 
 
 extern EmuThread* emuThread;
-LANDialog* lanDlg;
+LANStartClientDialog* lanClientDlg = nullptr;
+LANDialog* lanDlg = nullptr;
 
 
 LANStartHostDialog::LANStartHostDialog(QWidget* parent) : QDialog(parent), ui(new Ui::LANStartHostDialog)
@@ -102,11 +104,36 @@ LANStartClientDialog::LANStartClientDialog(QWidget* parent) : QDialog(parent), u
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
+
+    QStandardItemModel* model = new QStandardItemModel();
+    ui->tvAvailableGames->setModel(model);
+    const QStringList listheader = {"Name", "Players", "Status"};
+    model->setHorizontalHeaderLabels(listheader);
+
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setText("Connect");
+
+    QPushButton* btn = ui->buttonBox->addButton("Direct connect...", QDialogButtonBox::ActionRole);
+    connect(btn, SIGNAL(clicked()), this, SLOT(onDirectConnect()));
+
+    connect(this, &LANStartClientDialog::sgUpdateDiscoveryList, this, &LANStartClientDialog::doUpdateDiscoveryList);
+
+    lanClientDlg = this;
+    LAN::StartDiscovery();
 }
 
 LANStartClientDialog::~LANStartClientDialog()
 {
+    lanClientDlg = nullptr;
     delete ui;
+}
+
+void LANStartClientDialog::onDirectConnect()
+{
+    QString host = QInputDialog::getText(this, "Direct connect", "Host address:");
+    if (host.isEmpty()) return;
+
+    printf("dicks: %s\n", host.toStdString().c_str());
+    //QDialog::done(QDialog::Accepted);
 }
 
 void LANStartClientDialog::done(int r)
@@ -114,22 +141,72 @@ void LANStartClientDialog::done(int r)
     if (r == QDialog::Accepted)
     {
         std::string player = ui->txtPlayerName->text().toStdString();
-        std::string host = ui->txtIPAddress->text().toStdString();
+        //std::string host = ui->txtIPAddress->text().toStdString();
 
         // TODO validate input!!
 
         lanDlg = LANDialog::openDlg(parentWidget());
 
-        LAN::StartClient(player.c_str(), host.c_str());
+        //LAN::StartClient(player.c_str(), host.c_str());
     }
     else
     {
         // TEST!!
         printf("borp\n");
-        LAN::StartDiscovery();
+        //LAN::StartDiscovery();
     }
 
     QDialog::done(r);
+}
+
+void LANStartClientDialog::updateDiscoveryList()
+{
+    emit sgUpdateDiscoveryList();
+}
+
+void LANStartClientDialog::doUpdateDiscoveryList()
+{
+    LAN::DiscoveryMutex.lock();
+
+    QStandardItemModel* model = (QStandardItemModel*)ui->tvAvailableGames->model();
+    int curcount = model->rowCount();
+    int newcount = LAN::DiscoveryList.size();
+    if (curcount > newcount)
+    {
+        model->removeRows(newcount, curcount-newcount);
+    }
+    else if (curcount < newcount)
+    {
+        for (int i = curcount; i < newcount; i++)
+        {
+            QList<QStandardItem*> row;
+            row.append(new QStandardItem());
+            row.append(new QStandardItem());
+            row.append(new QStandardItem());
+            model->appendRow(row);
+        }
+    }
+
+    int i = 0;
+    for (const auto& [key, data] : LAN::DiscoveryList)
+    {
+        model->item(i, 0)->setText(data.SessionName);
+
+        QString plcount = QString("%0/%1").arg(data.NumPlayers).arg(data.MaxPlayers);
+        model->item(i, 1)->setText(plcount);
+
+        QString status;
+        switch (data.Status)
+        {
+        case 0: status = "Idle"; break;
+        case 1: status = "Playing"; break;
+        }
+        model->item(i, 2)->setText(status);
+
+        i++;
+    }
+
+    LAN::DiscoveryMutex.unlock();
 }
 
 
@@ -211,17 +288,6 @@ const u32 kPacketMagic = 0x4946494E; // NIFI
 
 const u32 kProtocolVersion = 1;
 
-struct DiscoveryData
-{
-    u32 Magic;
-    u32 Version;
-    u32 Tick;
-    char SessionName[64];
-    u8 NumPlayers;
-    u8 MaxPlayers;
-    u8 Status; // 0=idle 1=playing
-};
-
 struct MPPacketHeader
 {
     u32 Magic;
@@ -237,6 +303,7 @@ const int kLANPort = 7064;
 socket_t DiscoverySocket;
 u32 DiscoveryLastTick;
 std::map<u32, DiscoveryData> DiscoveryList;
+QMutex DiscoveryMutex;
 
 bool Active;
 bool IsHost;
@@ -315,7 +382,7 @@ void DeInit()
 }
 
 
-void StartDiscovery()
+bool StartDiscovery()
 {
     int res;
 
@@ -323,7 +390,7 @@ void StartDiscovery()
     if (DiscoverySocket < 0)
     {
         DiscoverySocket = INVALID_SOCKET;
-        return;
+        return false;
     }
 
     sockaddr_in_t saddr;
@@ -336,7 +403,7 @@ void StartDiscovery()
     {
         closesocket(DiscoverySocket);
         DiscoverySocket = INVALID_SOCKET;
-        return;
+        return false;
     }
 
     int opt_true = 1;
@@ -345,16 +412,29 @@ void StartDiscovery()
     {
         closesocket(DiscoverySocket);
         DiscoverySocket = INVALID_SOCKET;
-        return;
+        return false;
     }
-printf("startdisco\n");
+
     DiscoveryLastTick = SDL_GetTicks();
     DiscoveryList.clear();
 
     Active = true;
+    return true;
 }
 
-void StartHost(const char* playername, int numplayers)
+void EndDiscovery()
+{
+    if (DiscoverySocket != INVALID_SOCKET)
+    {
+        closesocket(DiscoverySocket);
+        DiscoverySocket = INVALID_SOCKET;
+    }
+
+    if (!IsHost)
+        Active = false;
+}
+
+bool StartHost(const char* playername, int numplayers)
 {
     ENetAddress addr;
     addr.host = ENET_HOST_ANY;
@@ -363,9 +443,7 @@ void StartHost(const char* playername, int numplayers)
     Host = enet_host_create(&addr, 16, 2, 0, 0);
     if (!Host)
     {
-        // TODO handle this gracefully
-        printf("host shat itself :(\n");
-        return;
+        return false;
     }
 
     Player* player = &Players[0];
@@ -388,19 +466,16 @@ void StartHost(const char* playername, int numplayers)
     lanDlg->updatePlayerList(Players, NumPlayers);
 
     StartDiscovery();
+    return true;
 }
 
-void StartClient(const char* playername, const char* host)
+bool StartClient(const char* playername, const char* host)
 {
     Host = enet_host_create(nullptr, 16, 2, 0, 0);
     if (!Host)
     {
-        // TODO handle this gracefully
-        printf("client shat itself :(\n");
-        return;
+        return false;
     }
-
-    printf("client created, connecting (%s, %s:%d)\n", playername, host, kLANPort);
 
     ENetAddress addr;
     enet_address_set_host(&addr, host);
@@ -408,8 +483,9 @@ void StartClient(const char* playername, const char* host)
     ENetPeer* peer = enet_host_connect(Host, &addr, 2, 0);
     if (!peer)
     {
-        printf("connect shat itself :(\n");
-        return;
+        enet_host_destroy(Host);
+        Host = nullptr;
+        return false;
     }
 
     ENetEvent event;
@@ -418,16 +494,16 @@ void StartClient(const char* playername, const char* host)
     {
         if (event.type == ENET_EVENT_TYPE_CONNECT)
         {
-            printf("connected!\n");
             conn = true;
         }
     }
 
     if (!conn)
     {
-        printf("connection failed\n");
         enet_peer_reset(peer);
-        return;
+        enet_host_destroy(Host);
+        Host = nullptr;
+        return false;
     }
 
     Player* player = &MyPlayer;
@@ -442,6 +518,7 @@ void StartClient(const char* playername, const char* host)
 
     Active = true;
     IsHost = false;
+    return true;
 }
 
 
@@ -480,6 +557,8 @@ void ProcessDiscovery()
     }
     else
     {
+        DiscoveryMutex.lock();
+
         // listen for LAN sessions
 
         fd_set fd;
@@ -503,6 +582,13 @@ void ProcessDiscovery()
             if (beacon.NumPlayers > beacon.MaxPlayers) continue;
 
             u32 key = ntohl(raddr.sin_addr.s_addr);
+
+            if (DiscoveryList.find(key) != DiscoveryList.end())
+            {
+                if (beacon.Tick <= DiscoveryList[key].Tick)
+                    continue;
+            }
+
             beacon.Magic = tick;
             DiscoveryList[key] = beacon;
         }
@@ -524,11 +610,12 @@ void ProcessDiscovery()
             DiscoveryList.erase(key);
         }
 
-        for (const auto& [key, data] : DiscoveryList)
-        {
-            printf("DISCOVERY: %d.%d.%d.%d\n", key>>24, (key>>16)&0xFF, (key>>8)&0xFF, key&0xFF);
-            printf("- game: %s, %d/%d players\n", data.SessionName, data.NumPlayers, data.MaxPlayers);
-        }
+        DiscoveryMutex.unlock();
+
+        // update the list in the connect dialog if needed
+
+        if (lanClientDlg)
+            lanClientDlg->updateDiscoveryList();
     }
 }
 
