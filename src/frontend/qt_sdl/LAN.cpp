@@ -122,6 +122,11 @@ void LANStartClientDialog::done(int r)
 
         LAN::StartClient(player.c_str(), host.c_str());
     }
+    else
+    {
+        // TEST!!
+        LAN::StartDiscovery();
+    }
 
     QDialog::done(r);
 }
@@ -329,7 +334,6 @@ void StartDiscovery()
     }
 
     DiscoveryLastTick = SDL_GetTicks();
-
     DiscoveryList.clear();
 }
 
@@ -365,6 +369,8 @@ void StartHost(const char* playername, int numplayers)
     IsHost = true;
 
     lanDlg->updatePlayerList(Players, NumPlayers);
+
+    StartDiscovery();
 }
 
 void StartClient(const char* playername, const char* host)
