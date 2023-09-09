@@ -20,6 +20,27 @@
 #include <stdlib.h>
 #include <string.h>
 #include <queue>
+#include <map>
+#include <vector>
+
+#ifdef __WIN32__
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+
+    #define socket_t    SOCKET
+    #define sockaddr_t  SOCKADDR
+    #define sockaddr_in_t  SOCKADDR_IN
+#else
+    #include <unistd.h>
+    #include <netinet/in.h>
+    #include <sys/select.h>
+    #include <sys/socket.h>
+
+    #define socket_t    int
+    #define sockaddr_t  struct sockaddr
+    #define sockaddr_in_t  struct sockaddr_in
+    #define closesocket close
+#endif
 
 #include <enet/enet.h>
 #include <SDL2/SDL.h>
@@ -175,6 +196,22 @@ void LANDialog::doUpdatePlayerList(LAN::Player* players, int num)
 namespace LAN
 {
 
+const u32 kDiscoveryMagic = 0x444E414C; // LAND
+const u32 kPacketMagic = 0x4946494E; // NIFI
+
+const u32 kProtocolVersion = 1;
+
+struct DiscoveryData
+{
+    u32 Magic;
+    u32 Version;
+    u32 Tick;
+    char SessionName[64];
+    u8 NumPlayers;
+    u8 MaxPlayers;
+    u8 Status; // 0=idle 1=playing
+};
+
 struct MPPacketHeader
 {
     u32 Magic;
@@ -184,7 +221,12 @@ struct MPPacketHeader
     u64 Timestamp;
 };
 
+const int kDiscoveryPort = 7063;
 const int kLANPort = 7064;
+
+socket_t DiscoverySocket;
+u32 DiscoveryLastTick;
+std::map<u32, DiscoveryData> DiscoveryList;
 
 bool Active;
 bool IsHost;
@@ -210,6 +252,9 @@ std::queue<ENetPacket*> RXQueue;
 
 bool Init()
 {
+    DiscoverySocket = INVALID_SOCKET;
+    DiscoveryLastTick = 0;
+
     Active = false;
     IsHost = false;
     Host = nullptr;
@@ -245,6 +290,44 @@ void DeInit()
     enet_deinitialize();
 }
 
+
+void StartDiscovery()
+{
+    int res;
+
+    DiscoverySocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (DiscoverySocket < 0)
+    {
+        DiscoverySocket = INVALID_SOCKET;
+        return;
+    }
+
+    sockaddr_in_t saddr;
+    memset(&saddr, 0, sizeof(saddr));
+    saddr.sin_family = AF_INET;
+    saddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    saddr.sin_port = htons(kDiscoveryPort);
+    res = bind(DiscoverySocket, (const sockaddr_t*)&saddr, sizeof(saddr));
+    if (res < 0)
+    {
+        closesocket(DiscoverySocket);
+        DiscoverySocket = INVALID_SOCKET;
+        return;
+    }
+
+    int opt_true = 1;
+    res = setsockopt(DiscoverySocket, SOL_SOCKET, SO_BROADCAST, (const char*)&opt_true, sizeof(int));
+    if (res < 0)
+    {
+        closesocket(DiscoverySocket);
+        DiscoverySocket = INVALID_SOCKET;
+        return;
+    }
+
+    DiscoveryLastTick = SDL_GetTicks();
+
+    DiscoveryList.clear();
+}
 
 void StartHost(const char* playername, int numplayers)
 {
@@ -334,6 +417,93 @@ void StartClient(const char* playername, const char* host)
     IsHost = false;
 }
 
+
+void ProcessDiscovery()
+{
+    if (DiscoverySocket == INVALID_SOCKET)
+        return;
+
+    u32 tick = SDL_GetTicks();
+    if ((tick - DiscoveryLastTick) < 1000)
+        return;
+
+    DiscoveryLastTick = tick;
+
+    if (IsHost)
+    {
+        // advertise this LAN session over the network
+
+        DiscoveryData beacon;
+        memset(&beacon, 0, sizeof(beacon));
+        beacon.Magic = kDiscoveryMagic;
+        beacon.Version = kProtocolVersion;
+        beacon.Tick = tick;
+        snprintf(beacon.SessionName, 64, "%s's game", MyPlayer.Name);
+        beacon.NumPlayers = NumPlayers;
+        beacon.MaxPlayers = MaxPlayers;
+        beacon.Status = 0; // TODO
+
+        sockaddr_in_t saddr;
+        memset(&saddr, 0, sizeof(saddr));
+        saddr.sin_family = AF_INET;
+        saddr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+        saddr.sin_port = htons(kDiscoveryPort);
+
+        sendto(DiscoverySocket, (const char*)&beacon, sizeof(beacon), 0, (const sockaddr_t*)&saddr, sizeof(saddr));
+    }
+    else
+    {
+        // listen for LAN sessions
+
+        fd_set fd;
+        struct timeval tv;
+        for (;;)
+        {
+            FD_ZERO(&fd); FD_SET(DiscoverySocket, &fd);
+            tv.tv_sec = 0; tv.tv_usec = 0;
+            if (!select(DiscoverySocket+1, &fd, nullptr, nullptr, &tv))
+                break;
+
+            DiscoveryData beacon;
+            sockaddr_in_t raddr;
+            int ralen = sizeof(raddr);
+
+            int rlen = recvfrom(DiscoverySocket, (char*)&beacon, sizeof(beacon), 0, (sockaddr_t*)&raddr, &ralen);
+            if (rlen < sizeof(beacon)) continue;
+            if (beacon.Magic != kDiscoveryMagic) continue;
+            if (beacon.Version != kProtocolVersion) continue;
+            if (beacon.MaxPlayers > 16) continue;
+            if (beacon.NumPlayers > beacon.MaxPlayers) continue;
+
+            u32 key = ntohl(raddr.sin_addr.s_addr);
+            beacon.Magic = tick;
+            DiscoveryList[key] = beacon;
+        }
+
+        // cleanup: remove hosts that haven't given a sign of life in the last 5 seconds
+
+        std::vector<u32> deletelist;
+
+        for (const auto& [key, data] : DiscoveryList)
+        {
+            u32 age = tick - data.Magic;
+            if (age < 5000) continue;
+
+            deletelist.push_back(key);
+        }
+
+        for (const auto& key : deletelist)
+        {
+            DiscoveryList.erase(key);
+        }
+
+        for (const auto& [key, data] : DiscoveryList)
+        {
+            printf("DISCOVERY: %d.%d.%d.%d\n", key>>24, (key>>16)&0xFF, (key>>8)&0xFF, key&0xFF);
+            printf("- game: %s, %d/%d players\n", data.SessionName, data.NumPlayers, data.MaxPlayers);
+        }
+    }
+}
 
 void ProcessHostEvent(ENetEvent& event)
 {
@@ -612,6 +782,12 @@ void Process(bool block)
             }
         }
     }
+}
+
+void ProcessFrame()
+{
+    ProcessDiscovery();
+    Process(false);
 }
 
 
