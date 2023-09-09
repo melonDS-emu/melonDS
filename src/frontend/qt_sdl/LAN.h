@@ -123,6 +123,7 @@ extern bool Active;
 bool Init();
 void DeInit();
 
+void StartDiscovery();
 void StartHost(const char* player, int numplayers);
 void StartClient(const char* player, const char* host);
 
