@@ -125,6 +125,7 @@ void LANStartClientDialog::done(int r)
     else
     {
         // TEST!!
+        printf("borp\n");
         LAN::StartDiscovery();
     }
 
@@ -332,9 +333,11 @@ void StartDiscovery()
         DiscoverySocket = INVALID_SOCKET;
         return;
     }
-
+printf("startdisco\n");
     DiscoveryLastTick = SDL_GetTicks();
     DiscoveryList.clear();
+
+    Active = true;
 }
 
 void StartHost(const char* playername, int numplayers)
