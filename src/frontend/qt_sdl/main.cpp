@@ -752,8 +752,8 @@ void EmuThread::emuStop()
 
 void EmuThread::emuFrameStep()
 {
-    if (EmuRunning != 3) IPC::SetActive(false);
-    EmuRunning = 3;
+    if (EmuRunning != emuStatus_FrameStep) IPC::SetActive(false);
+    EmuRunning = emuStatus_FrameStep;
 }
 
 bool EmuThread::emuIsRunning()
