@@ -366,7 +366,7 @@ void EmuThread::run()
     while (EmuRunning != emuStatus_Exit)
     {
         if (LAN::Active)
-            LAN::Process();
+            LAN::ProcessFrame();
         else if (Netplay::Active)
             Netplay::ProcessFrame();
 
