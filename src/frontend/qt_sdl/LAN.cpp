@@ -295,7 +295,21 @@ bool Init()
 
 void DeInit()
 {
-    // TODO: cleanup resources properly!!
+    if (DiscoverySocket)
+    {
+        closesocket(DiscoverySocket);
+        DiscoverySocket = INVALID_SOCKET;
+    }
+
+    while (!RXQueue.empty())
+    {
+        ENetPacket* packet = RXQueue.front();
+        RXQueue.pop();
+        enet_packet_destroy(packet);
+    }
+
+    enet_host_destroy(Host);
+    Host = nullptr;
 
     enet_deinitialize();
 }
