@@ -71,7 +71,7 @@ void SoftRenderer::SetupRenderThread()
 }
 
 
-SoftRenderer::SoftRenderer()
+SoftRenderer::SoftRenderer() noexcept
     : Renderer3D(false)
 {
     Sema_RenderStart = Platform::Semaphore_Create();
@@ -81,8 +81,6 @@ SoftRenderer::SoftRenderer()
     Threaded = false;
     RenderThreadRunning = false;
     RenderThreadRendering = false;
-
-    Valid = true;
 }
 
 SoftRenderer::~SoftRenderer()

@@ -28,7 +28,7 @@ namespace GPU3D
 class SoftRenderer : public Renderer3D
 {
 public:
-    SoftRenderer();
+    SoftRenderer() noexcept;
     virtual ~SoftRenderer() override;
     virtual void Reset() override;
 

@@ -393,16 +393,16 @@ void InitRenderer(int renderer)
 #ifdef OGLRENDERER_ENABLED
     if (renderer == 1)
     {
-        CurGLCompositor = std::make_unique<GLCompositor>();
+        CurGLCompositor = GLCompositor::New();
         // Create opengl renderer
-        if (!CurGLCompositor->IsValid())
+        if (!CurGLCompositor)
         {
             // Fallback on software renderer
             renderer = 0;
             GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
         }
-        GPU3D::CurrentRenderer = std::make_unique<GPU3D::GLRenderer>();
-        if (!GPU3D::CurrentRenderer->IsValid())
+        GPU3D::CurrentRenderer = GPU3D::GLRenderer::New();
+        if (!GPU3D::CurrentRenderer)
         {
             // Fallback on software renderer
             CurGLCompositor.reset();
