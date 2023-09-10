@@ -164,15 +164,18 @@ void LANStartClientDialog::onDirectConnect()
     std::string hostname = host.toStdString();
     std::string player = ui->txtPlayerName->text().toStdString();
 
+    setEnabled(false);
     LAN::EndDiscovery();
     if (!LAN::StartClient(player.c_str(), hostname.c_str()))
     {
         QString msg = QString("Failed to connect to the host %0.").arg(QString::fromStdString(hostname));
         QMessageBox::warning(this, "melonDS", msg);
+        setEnabled(true);
         LAN::StartDiscovery();
         return;
     }
 
+    setEnabled(true);
     lanDlg = LANDialog::openDlg(parentWidget());
     QDialog::done(QDialog::Accepted);
 }
@@ -198,15 +201,18 @@ void LANStartClientDialog::done(int r)
 
         std::string player = ui->txtPlayerName->text().toStdString();
 
+        setEnabled(false);
         LAN::EndDiscovery();
         if (!LAN::StartClient(player.c_str(), hostname))
         {
             QString msg = QString("Failed to connect to the host %0.").arg(QString(hostname));
             QMessageBox::warning(this, "melonDS", msg);
+            setEnabled(true);
             LAN::StartDiscovery();
             return;
         }
 
+        setEnabled(true);
         lanDlg = LANDialog::openDlg(parentWidget());
     }
     else
@@ -548,29 +554,58 @@ bool StartClient(const char* playername, const char* host)
         return false;
     }
 
+    Player* player = &MyPlayer;
+    memset(player, 0, sizeof(Player));
+    player->ID = 0;
+    strncpy(player->Name, playername, 31);
+    player->Status = 3;
+
     ENetEvent event;
-    bool conn = false;
-    if (enet_host_service(Host, &event, 5000) > 0)
+    int conn = 0;
+    u32 starttick = SDL_GetTicks();
+    const u32 conntimeout = 5000;
+    for (;;)
     {
-        if (event.type == ENET_EVENT_TYPE_CONNECT)
+        u32 curtick = SDL_GetTicks();
+        u32 timeout = conntimeout - (curtick - starttick);
+        if (enet_host_service(Host, &event, timeout) > 0)
         {
-            conn = true;
+            if (conn == 0 && event.type == ENET_EVENT_TYPE_CONNECT)
+            {
+                conn = 1;
+            }
+            else if (conn == 1 && event.type == ENET_EVENT_TYPE_RECEIVE)
+            {
+                u8* data = event.packet->data;
+                if (event.channelID != 0) continue;
+                if (data[0] != 0x01) continue;
+                if (event.packet->dataLength != 3) continue;
+
+                MaxPlayers = data[2];
+
+                // send player information
+                MyPlayer.ID = data[1];
+                u8 cmd[1+sizeof(Player)];
+                cmd[0] = 0x02;
+                memcpy(&cmd[1], &MyPlayer, sizeof(Player));
+                ENetPacket* pkt = enet_packet_create(cmd, 1+sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
+                enet_peer_send(event.peer, 0, pkt);
+
+                conn = 2;
+                break;
+            }
         }
+        else
+            break;
     }
 
-    if (!conn)
+    if (conn != 2)
     {
         enet_peer_reset(peer);
         enet_host_destroy(Host);
         Host = nullptr;
         return false;
     }
-
-    Player* player = &MyPlayer;
-    memset(player, 0, sizeof(Player));
-    player->ID = 0;
-    strncpy(player->Name, playername, 31);
-    player->Status = 3;
 
     HostAddress = addr.host;
     LastHostID = -1;
@@ -844,22 +879,6 @@ void ProcessClientEvent(ENetEvent& event)
             u8* data = (u8*)event.packet->data;
             switch (data[0])
             {
-            case 0x01: // host sending player ID
-                {
-                    if (event.packet->dataLength != 3) break;
-
-                    MaxPlayers = data[2];
-
-                    // send player information
-                    MyPlayer.ID = data[1];
-                    u8 cmd[1+sizeof(Player)];
-                    cmd[0] = 0x02;
-                    memcpy(&cmd[1], &MyPlayer, sizeof(Player));
-                    ENetPacket* pkt = enet_packet_create(cmd, 1+sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
-                    enet_peer_send(event.peer, 0, pkt);
-                }
-                break;
-
             case 0x03: // host sending player list
                 {
                     if (event.packet->dataLength != (2+sizeof(Players))) break;
