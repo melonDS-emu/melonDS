@@ -811,12 +811,19 @@ void DeInit()
 {
 #if defined(__SWITCH__)
     virtmemLock();
-    virtmemRemoveReservation(FastMem9Reservation);
-    virtmemRemoveReservation(FastMem7Reservation);
+    if (FastMem9Reservation)
+        virtmemRemoveReservation(FastMem9Reservation);
+
+    if (FastMem7Reservation)
+        virtmemRemoveReservation(FastMem7Reservation);
+
+    FastMem9Reservation = nullptr;
+    FastMem7Reservation = nullptr;
     virtmemUnlock();
 
     svcUnmapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, (u64)MemoryBase, MemoryTotalSize);
     free(MemoryBase);
+    MemoryBase = nullptr;
 #elif defined(_WIN32)
     if (MemoryBase)
     {
