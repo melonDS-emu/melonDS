@@ -869,47 +869,12 @@ int ClipPolygon(GPU3D& gpu, Vertex* vertices, int nverts, int clipstart)
     return nverts;
 }
 
-template<bool ogl>
-bool ClipCoordsEqual(Vertex a, Vertex b)
+bool ClipCoordsEqual(Vertex* a, Vertex* b)
 {
-    if constexpr (ogl)
-    return a.Position[0] == b.Position[0] &&
-           a.Position[1] == b.Position[1] &&
-           a.Position[2] == b.Position[2] &&
-           a.Position[3] == b.Position[3];
-    else
-    return a.FinalPosition[0] == b.FinalPosition[0] &&
-           a.FinalPosition[1] == b.FinalPosition[1];
-}
-
-template<bool ogl>
-bool LineCheck(Vertex* vertices, int nverts)
-{
-    // todo: check for more lines (perfectly vertical, horizontal or diagonal) for opengl renderer?
-    if (nverts == 3)
-    {
-        if (ClipCoordsEqual<ogl>(vertices[0], vertices[1]) ||
-            ClipCoordsEqual<ogl>(vertices[0], vertices[2]) ||
-            ClipCoordsEqual<ogl>(vertices[1], vertices[2]))
-        {
-            return true;
-        }
-    }
-    else if (nverts == 4)
-    {
-        int vertsequal = 0;
-
-        for (int a = 0; a < 3; a++)
-            for (int b = a+1; b < 4; b++)
-                if (ClipCoordsEqual<ogl>(vertices[a], vertices[b]))
-                {
-                    vertsequal++;
-
-                    if (vertsequal == 2)
-                        return true;
-                }
-    }
-    return false;
+    return a->Position[0] == b->Position[0] &&
+           a->Position[1] == b->Position[1] &&
+           a->Position[2] == b->Position[2] &&
+           a->Position[3] == b->Position[3];
 }
 
 void GPU3D::SubmitPolygon() noexcept
@@ -1027,7 +992,21 @@ void GPU3D::SubmitPolygon() noexcept
         clippedvertices[i] = TempVertexBuffer[i];
 
     // detect lines, for the OpenGL renderer
-    int polytype = (GPU3D::CurrentRenderer->Accelerated) ? LineCheck<true>(clippedvertices, nverts) : 0;
+
+    int polytype = 0;
+    if (nverts == 3)
+    {
+        if (ClipCoordsEqual(&clippedvertices[0], &clippedvertices[1]) ||
+            ClipCoordsEqual(&clippedvertices[0], &clippedvertices[2]) ||
+            ClipCoordsEqual(&clippedvertices[1], &clippedvertices[2]))
+        {
+            polytype = 1;
+        }
+    }
+    else if (nverts == 4)
+    {
+        // TODO
+    }
 
     // clipping
 
@@ -1174,6 +1153,8 @@ void GPU3D::SubmitPolygon() noexcept
 
     if (!poly->Translucent) NumOpaquePolygons++;
 
+    poly->Type = polytype;
+
     if (LastStripPolygon && clipstart > 0)
     {
         if (nverts == lastpolyverts)
@@ -1294,12 +1275,6 @@ void GPU3D::SubmitPolygon() noexcept
         poly->FinalZ[i] = z;
         poly->FinalW[i] = w;
     }
-    
-    // check for line polygons for the software renderer
-    // checkme: can a line polygon have more than 4 or less than 3 vertices? 
-    polytype = (!GPU3D::CurrentRenderer->Accelerated) ? LineCheck<false>(*poly->Vertices, nverts) : polytype;
-    
-    poly->Type = polytype;
 
     if (PolygonMode >= 2)
         LastStripPolygon = poly;
