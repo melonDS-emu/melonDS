@@ -108,7 +108,7 @@ LANStartClientDialog::LANStartClientDialog(QWidget* parent) : QDialog(parent), u
 
     QStandardItemModel* model = new QStandardItemModel();
     ui->tvAvailableGames->setModel(model);
-    const QStringList listheader = {"Name", "Players", "Status"};
+    const QStringList listheader = {"Name", "Players", "Status", "Host IP"};
     model->setHorizontalHeaderLabels(listheader);
 
     connect(ui->tvAvailableGames->selectionModel(), SIGNAL(selectionChanged(const QItemSelection&, const QItemSelection&)),
@@ -247,6 +247,7 @@ void LANStartClientDialog::doUpdateDiscoveryList()
             row.append(new QStandardItem());
             row.append(new QStandardItem());
             row.append(new QStandardItem());
+            row.append(new QStandardItem());
             model->appendRow(row);
         }
     }
@@ -267,6 +268,9 @@ void LANStartClientDialog::doUpdateDiscoveryList()
         case 1: status = "Playing"; break;
         }
         model->item(i, 2)->setText(status);
+
+        QString ip = QString("%0.%1.%2.%3").arg(key>>24).arg((key>>16)&0xFF).arg((key>>8)&0xFF).arg(key&0xFF);
+        model->item(i, 3)->setText(ip);
 
         i++;
     }
