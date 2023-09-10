@@ -449,6 +449,7 @@ private:
         s32 XL, XR;
         u32 CurVL, CurVR;
         u32 NextVL, NextVR;
+        bool Line;
 
     };
 
@@ -457,6 +458,7 @@ private:
     void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha);
     u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t);
     void PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
+    void CheckForLine(RendererPolygon* rp);
     void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y);
     void SetupPolygonRightEdge(RendererPolygon* rp, s32 y);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon);
