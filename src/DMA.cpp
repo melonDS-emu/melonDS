@@ -79,6 +79,7 @@ void DMA::Reset()
     Stall = false;
 
     Running = false;
+    Executing = false;
     InProgress = false;
     MRAMBurstCount = 0;
 }

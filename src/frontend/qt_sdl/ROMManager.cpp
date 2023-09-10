@@ -36,6 +36,7 @@
 #include "SPI.h"
 #include "DSi_I2C.h"
 
+using namespace Platform;
 
 namespace ROMManager
 {
@@ -119,137 +120,131 @@ std::string GetAssetPath(bool gba, const std::string& configpath, const std::str
 
 QString VerifyDSBIOS()
 {
-    FILE* f;
+    FileHandle* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
+    f = Platform::OpenLocalFile(Config::BIOS9Path, FileMode::Read);
     if (!f) return "DS ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
 
-    fseek(f, 0, SEEK_END);
-    len = ftell(f);
+    len = FileLength(f);
     if (len != 0x1000)
     {
-        fclose(f);
+        CloseFile(f);
         return "DS ARM9 BIOS is not a valid BIOS dump.";
     }
 
-    fclose(f);
+    CloseFile(f);
 
-    f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
+    f = Platform::OpenLocalFile(Config::BIOS7Path, FileMode::Read);
     if (!f) return "DS ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
 
-    fseek(f, 0, SEEK_END);
-    len = ftell(f);
+    len = FileLength(f);
     if (len != 0x4000)
     {
-        fclose(f);
+        CloseFile(f);
         return "DS ARM7 BIOS is not a valid BIOS dump.";
     }
 
-    fclose(f);
+    CloseFile(f);
 
     return "";
 }
 
 QString VerifyDSiBIOS()
 {
-    FILE* f;
+    FileHandle* f;
     long len;
 
     // TODO: check the first 32 bytes
 
-    f = Platform::OpenLocalFile(Config::DSiBIOS9Path, "rb");
+    f = Platform::OpenLocalFile(Config::DSiBIOS9Path, FileMode::Read);
     if (!f) return "DSi ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
 
-    fseek(f, 0, SEEK_END);
-    len = ftell(f);
+    len = FileLength(f);
     if (len != 0x10000)
     {
-        fclose(f);
+        CloseFile(f);
         return "DSi ARM9 BIOS is not a valid BIOS dump.";
     }
 
-    fclose(f);
+    CloseFile(f);
 
-    f = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
+    f = Platform::OpenLocalFile(Config::DSiBIOS7Path, FileMode::Read);
     if (!f) return "DSi ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
 
-    fseek(f, 0, SEEK_END);
-    len = ftell(f);
+    len = FileLength(f);
     if (len != 0x10000)
     {
-        fclose(f);
+        CloseFile(f);
         return "DSi ARM7 BIOS is not a valid BIOS dump.";
     }
 
-    fclose(f);
+    CloseFile(f);
 
     return "";
 }
 
 QString VerifyDSFirmware()
 {
-    FILE* f;
+    FileHandle* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::FirmwarePath, "rb");
+    f = Platform::OpenLocalFile(Config::FirmwarePath, FileMode::Read);
     if (!f) return "DS firmware was not found or could not be accessed. Check your emu settings.";
 
-    fseek(f, 0, SEEK_END);
-    len = ftell(f);
+    len = FileLength(f);
     if (len == 0x20000)
     {
         // 128KB firmware, not bootable
-        fclose(f);
+        CloseFile(f);
         // TODO report it somehow? detect in core?
         return "";
     }
     else if (len != 0x40000 && len != 0x80000)
     {
-        fclose(f);
+        CloseFile(f);
         return "DS firmware is not a valid firmware dump.";
     }
 
-    fclose(f);
+    CloseFile(f);
 
     return "";
 }
 
 QString VerifyDSiFirmware()
 {
-    FILE* f;
+    FileHandle* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::DSiFirmwarePath, "rb");
+    f = Platform::OpenLocalFile(Config::DSiFirmwarePath, FileMode::Read);
     if (!f) return "DSi firmware was not found or could not be accessed. Check your emu settings.";
 
-    fseek(f, 0, SEEK_END);
-    len = ftell(f);
+    len = FileLength(f);
     if (len != 0x20000)
     {
         // not 128KB
         // TODO: check whether those work
-        fclose(f);
+        CloseFile(f);
         return "DSi firmware is not a valid firmware dump.";
     }
 
-    fclose(f);
+    CloseFile(f);
 
     return "";
 }
 
 QString VerifyDSiNAND()
 {
-    FILE* f;
+    FileHandle* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::DSiNANDPath, "r+b");
+    f = Platform::OpenLocalFile(Config::DSiNANDPath, FileMode::ReadWriteExisting);
     if (!f) return "DSi NAND was not found or could not be accessed. Check your emu settings.";
 
     // TODO: some basic checks
     // check that it has the nocash footer, and all
 
-    fclose(f);
+    CloseFile(f);
 
     return "";
 }
@@ -451,6 +446,7 @@ void UnloadCheats()
     {
         delete CheatFile;
         CheatFile = nullptr;
+        AREngine::SetCodeFile(nullptr);
     }
 }
 
@@ -550,23 +546,88 @@ bool LoadBIOS()
 u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
 {
     u64 realSize = ZSTD_getFrameContentSize(inContent, inSize);
+    const u32 maxSize = 0x40000000;
 
-    if (realSize == ZSTD_CONTENTSIZE_UNKNOWN || realSize == ZSTD_CONTENTSIZE_ERROR || realSize > 0x40000000)
+    if (realSize == ZSTD_CONTENTSIZE_ERROR || (realSize > maxSize && realSize != ZSTD_CONTENTSIZE_UNKNOWN))
     {
         return 0;
     }
 
-    u8* realContent = new u8[realSize];
-    u64 decompressed = ZSTD_decompress(realContent, realSize, inContent, inSize);
-
-    if (ZSTD_isError(decompressed))
+    if (realSize != ZSTD_CONTENTSIZE_UNKNOWN)
     {
-        delete[] realContent;
-        return 0;
-    }
+        u8* realContent = new u8[realSize];
+        u64 decompressed = ZSTD_decompress(realContent, realSize, inContent, inSize);
 
-    *outContent = realContent;
-    return realSize;
+        if (ZSTD_isError(decompressed))
+        {
+            delete[] realContent;
+            return 0;
+        }
+
+        *outContent = realContent;
+        return realSize;
+    }
+    else
+    {
+        ZSTD_DStream* dStream = ZSTD_createDStream();
+        ZSTD_initDStream(dStream);
+
+        ZSTD_inBuffer inBuf = {
+            .src = inContent,
+            .size = inSize,
+            .pos = 0
+        };
+
+        const u32 startSize = 1024 * 1024 * 16;
+        u8* partialOutContent = (u8*) malloc(startSize);
+
+        ZSTD_outBuffer outBuf = {
+                .dst = partialOutContent,
+                .size = startSize,
+                .pos = 0
+        };
+
+        size_t result;
+
+        do
+        {
+            result = ZSTD_decompressStream(dStream, &outBuf, &inBuf);
+
+            if (ZSTD_isError(result))
+            {
+                ZSTD_freeDStream(dStream);
+                free(outBuf.dst);
+                return 0;
+            }
+
+            // if result == 0 and not inBuf.pos < inBuf.size, go again to let zstd flush everything.
+            if (result == 0)
+                continue;
+
+            if (outBuf.pos == outBuf.size)
+            {
+                outBuf.size *= 2;
+
+                if (outBuf.size > maxSize)
+                {
+                    ZSTD_freeDStream(dStream);
+                    free(outBuf.dst);
+                    return 0;
+                }
+
+                outBuf.dst = realloc(outBuf.dst, outBuf.size);
+            }
+        } while (inBuf.pos < inBuf.size);
+
+        ZSTD_freeDStream(dStream);
+        *outContent = new u8[outBuf.pos];
+        memcpy(*outContent, outBuf.dst, outBuf.pos);
+
+        ZSTD_freeDStream(dStream);
+        free(outBuf.dst);
+
+        return outBuf.size;
+    }
 }
 
 void ClearBackupState()
@@ -593,29 +654,28 @@ bool LoadROM(QStringList filepath, bool reset)
         // regular file
 
         std::string filename = filepath.at(0).toStdString();
-        FILE* f = Platform::OpenFile(filename, "rb", true);
+        Platform::FileHandle* f = Platform::OpenFile(filename, FileMode::Read);
         if (!f) return false;
 
-        fseek(f, 0, SEEK_END);
-        long len = ftell(f);
+        long len = Platform::FileLength(f);
         if (len > 0x40000000)
         {
-            fclose(f);
+            Platform::CloseFile(f);
             delete[] filedata;
             return false;
         }
 
-        fseek(f, 0, SEEK_SET);
+        Platform::FileRewind(f);
         filedata = new u8[len];
-        size_t nread = fread(filedata, (size_t)len, 1, f);
+        size_t nread = Platform::FileRead(filedata, (size_t)len, 1, f);
         if (nread != 1)
         {
-            fclose(f);
+            Platform::CloseFile(f);
             delete[] filedata;
             return false;
         }
 
-        fclose(f);
+        Platform::CloseFile(f);
         filelen = (u32)len;
 
         if (filename.length() > 4 && filename.substr(filename.length() - 4) == ".zst")
@@ -688,17 +748,16 @@ bool LoadROM(QStringList filepath, bool reset)
     std::string origsav = savname;
     savname += Platform::InstanceFileSuffix();
 
-    FILE* sav = Platform::OpenFile(savname, "rb", true);
-    if (!sav) sav = Platform::OpenFile(origsav, "rb", true);
+    FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
+    if (!sav) sav = Platform::OpenFile(origsav, FileMode::Read);
     if (sav)
     {
-        fseek(sav, 0, SEEK_END);
-        savelen = (u32)ftell(sav);
+        savelen = (u32)Platform::FileLength(sav);
 
-        fseek(sav, 0, SEEK_SET);
+        FileRewind(sav);
         savedata = new u8[savelen];
-        fread(savedata, savelen, 1, sav);
-        fclose(sav);
+        FileRead(savedata, savelen, 1, sav);
+        CloseFile(sav);
     }
 
     bool res = NDS::LoadCart(filedata, filelen, savedata, savelen);
@@ -775,28 +834,27 @@ bool LoadGBAROM(QStringList filepath)
         // regular file
 
         std::string filename = filepath.at(0).toStdString();
-        FILE* f = Platform::OpenFile(filename, "rb", true);
+        FileHandle* f = Platform::OpenFile(filename, FileMode::Read);
         if (!f) return false;
 
-        fseek(f, 0, SEEK_END);
-        long len = ftell(f);
+        long len = FileLength(f);
         if (len > 0x40000000)
         {
-            fclose(f);
+            CloseFile(f);
             return false;
         }
 
-        fseek(f, 0, SEEK_SET);
+        FileRewind(f);
         filedata = new u8[len];
-        size_t nread = fread(filedata, (size_t)len, 1, f);
+        size_t nread = FileRead(filedata, (size_t)len, 1, f);
         if (nread != 1)
         {
-            fclose(f);
+            CloseFile(f);
             delete[] filedata;
             return false;
         }
 
-        fclose(f);
+        CloseFile(f);
         filelen = (u32)len;
 
         if (filename.length() > 4 && filename.substr(filename.length() - 4) == ".zst")
@@ -860,17 +918,16 @@ bool LoadGBAROM(QStringList filepath)
     std::string origsav = savname;
     savname += Platform::InstanceFileSuffix();
 
-    FILE* sav = Platform::OpenFile(savname, "rb", true);
-    if (!sav) sav = Platform::OpenFile(origsav, "rb", true);
+    FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
+    if (!sav) sav = Platform::OpenFile(origsav, FileMode::Read);
     if (sav)
     {
-        fseek(sav, 0, SEEK_END);
-        savelen = (u32)ftell(sav);
+        savelen = (u32)FileLength(sav);
 
-        fseek(sav, 0, SEEK_SET);
+        FileRewind(sav);
         savedata = new u8[savelen];
-        fread(savedata, savelen, 1, sav);
-        fclose(sav);
+        FileRead(savedata, savelen, 1, sav);
+        CloseFile(sav);
     }
 
     bool res = NDS::LoadGBACart(filedata, filelen, savedata, savelen);

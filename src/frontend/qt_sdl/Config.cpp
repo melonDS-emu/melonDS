@@ -106,6 +106,7 @@ int FirmwareBirthdayDay;
 int FirmwareFavouriteColour;
 std::string FirmwareMessage;
 std::string FirmwareMAC;
+std::string WifiSettingsPath = "wfcsettings.bin"; // Should this be configurable?
 
 int MPAudioMode;
 int MPRecvTimeout;
@@ -142,6 +143,8 @@ bool PauseLostFocus;
 bool DSBatteryLevelOkay;
 int DSiBatteryLevel;
 bool DSiBatteryCharging;
+
+bool DSiFullBIOSBoot;
 
 CameraConfig Camera[2];
 
@@ -299,7 +302,7 @@ ConfigEntry ConfigFile[] =
     {"AudioInterp", 0, &AudioInterp, 0, false},
     {"AudioBitDepth", 0, &AudioBitDepth, 0, false},
     {"AudioVolume", 0, &AudioVolume, 256, true},
-    {"DSiVolumeSync", 0, &DSiVolumeSync, 0, true},
+    {"DSiVolumeSync", 1, &DSiVolumeSync, false, true},
     {"MicInputType", 0, &MicInputType, 1, false},
     {"MicDevice", 2, &MicDevice, (std::string)"", false},
     {"MicWavPath", 2, &MicWavPath, (std::string)"", false},
@@ -332,6 +335,8 @@ ConfigEntry ConfigFile[] =
     {"DSiBatteryLevel",    0, &DSiBatteryLevel, 0xF, true},
     {"DSiBatteryCharging", 1, &DSiBatteryCharging, true, true},
 
+    {"DSiFullBIOSBoot", 1, &DSiFullBIOSBoot, false, true},
+
     // TODO!!
     // we need a more elegant way to deal with this
     {"Camera0_InputType", 0, &Camera[0].InputType, 0, false},
@@ -349,24 +354,24 @@ ConfigEntry ConfigFile[] =
 
 void LoadFile(int inst)
 {
-    FILE* f;
+    Platform::FileHandle* f;
     if (inst > 0)
     {
         char name[100] = {0};
         snprintf(name, 99, kUniqueConfigFile, inst+1);
-        f = Platform::OpenLocalFile(name, "r");
+        f = Platform::OpenLocalFile(name, Platform::FileMode::ReadText);
     }
     else
-        f = Platform::OpenLocalFile(kConfigFile, "r");
+        f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::ReadText);
 
     if (!f) return;
 
     char linebuf[1024];
     char entryname[32];
     char entryval[1024];
-    while (!feof(f))
+    while (!Platform::IsEndOfFile(f))
     {
-        if (fgets(linebuf, 1024, f) == nullptr)
+        if (!Platform::FileReadLine(linebuf, 1024, f))
             break;
 
         int ret = sscanf(linebuf, "%31[A-Za-z_0-9]=%[^\t\r\n]", entryname, entryval);
@@ -392,7 +397,7 @@ void LoadFile(int inst)
         }
     }
 
-    fclose(f);
+    CloseFile(f);
 }
 
 void Load()
@@ -419,15 +424,15 @@ void Save()
 {
     int inst = Platform::InstanceID();
 
-    FILE* f;
+    Platform::FileHandle* f;
     if (inst > 0)
     {
         char name[100] = {0};
         snprintf(name, 99, kUniqueConfigFile, inst+1);
-        f = Platform::OpenLocalFile(name, "w");
+        f = Platform::OpenLocalFile(name, Platform::FileMode::WriteText);
     }
     else
-        f = Platform::OpenLocalFile(kConfigFile, "w");
+        f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::WriteText);
 
     if (!f) return;
 
@@ -438,13 +443,13 @@ void Save()
 
         switch (entry->Type)
         {
-        case 0: fprintf(f, "%s=%d\r\n", entry->Name, *(int*)entry->Value); break;
-        case 1: fprintf(f, "%s=%d\r\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
-        case 2: fprintf(f, "%s=%s\r\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
+        case 0: Platform::FileWriteFormatted(f, "%s=%d\r\n", entry->Name, *(int*)entry->Value); break;
+        case 1: Platform::FileWriteFormatted(f, "%s=%d\r\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
+        case 2: Platform::FileWriteFormatted(f, "%s=%s\r\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
         }
     }
 
-    fclose(f);
+    CloseFile(f);
 }
 
 }

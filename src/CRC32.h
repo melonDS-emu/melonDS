@@ -19,6 +19,8 @@
 #ifndef CRC32_H
 #define CRC32_H
 
+#include <array>
+
 #include "types.h"
 
 u32 CRC32(const u8* data, int len, u32 start=0);

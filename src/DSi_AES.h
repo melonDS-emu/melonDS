@@ -22,6 +22,25 @@
 #include "types.h"
 #include "Savestate.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wattributes"
+#if defined(__GNUC__) && (__GNUC__ >= 11) // gcc 11.*
+// NOTE: Yes, the compiler does *not* recognize this code pattern, so it is indeed an optimization.
+__attribute((always_inline)) static void Bswap128(void* Dst, void* Src)
+{
+    *(__int128*)Dst = __builtin_bswap128(*(__int128*)Src);
+}
+#else
+__attribute((always_inline)) static void Bswap128(void* Dst, void* Src)
+{
+    for (int i = 0; i < 16; ++i) 
+    { 
+        ((u8*)Dst)[i] = ((u8*)Src)[15 - i]; 
+    }
+}
+#endif
+#pragma GCC diagnostic pop
+
 namespace DSi_AES
 {
 
@@ -49,7 +68,6 @@ void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask);
 void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask);
 void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask);
 
-void Swap16(u8* dst, u8* src);
 void DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey);
 
 }

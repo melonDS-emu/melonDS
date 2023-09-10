@@ -39,7 +39,6 @@ private:
     alignas(8) u8 WindowMask[256];
 
     alignas(8) u32 OBJLine[2][256];
-    alignas(8) u8 OBJIndex[2][256];
     alignas(8) u8 OBJWindow[2][256];
 
     u32 NumSprites[2];

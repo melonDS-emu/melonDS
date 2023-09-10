@@ -144,10 +144,11 @@ struct NonStupidBitField
     {
         for (u32 i = 0; i < DataLength; i++)
         {
-            u32 idx = __builtin_ctzll(Data[i]);
-            if (Data[i] && idx + i * 64 < Size)
+            if (Data[i])
             {
-                return {*this, i, idx, Data[i] & ~(1ULL << idx)};
+                u32 idx = __builtin_ctzll(Data[i]);
+                if (idx + i * 64 < Size)
+                    return {*this, i, idx, Data[i] & ~(1ULL << idx)};
             }
         }
         return End();

@@ -110,7 +110,7 @@ void RunCheat(ARCode& arcode)
 
     for (;;)
     {
-        if (code >= &arcode.Code[arcode.CodeLen])
+        if (code >= &arcode.Code[arcode.Code.size()])
             break;
 
         u32 a = *code++;

@@ -29,13 +29,12 @@
 
 #include "fatfs/ff.h"
 
-using Platform::Log;
-using Platform::LogLevel;
+using namespace Platform;
 
 namespace DSi_NAND
 {
 
-FILE* CurFile;
+FileHandle* CurFile;
 FATFS CurFS;
 
 u8 eMMC_CID[16];
@@ -58,21 +57,19 @@ bool Init(u8* es_keyY)
     std::string nandpath = Platform::GetConfigString(Platform::DSi_NANDPath);
     std::string instnand = nandpath + Platform::InstanceFileSuffix();
 
-    FILE* nandfile = Platform::OpenLocalFile(instnand, "r+b");
+    FileHandle* nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
     if ((!nandfile) && (Platform::InstanceID() > 0))
     {
-        FILE* orig = Platform::OpenLocalFile(nandpath, "rb");
+        FileHandle* orig = Platform::OpenLocalFile(nandpath, FileMode::Read);
         if (!orig)
         {
             Log(LogLevel::Error, "Failed to open DSi NAND\n");
             return false;
         }
 
-        fseek(orig, 0, SEEK_END);
-        long len = ftell(orig);
-        fseek(orig, 0, SEEK_SET);
+        long len = FileLength(orig);
 
-        nandfile = Platform::OpenLocalFile(instnand, "w+b");
+        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWrite);
         if (nandfile)
         {
             u8* tmpbuf = new u8[0x10000];
@@ -81,23 +78,22 @@ bool Init(u8* es_keyY)
                 long blklen = 0x10000;
                 if ((i+blklen) > len) blklen = len-i;
 
-                fread(tmpbuf, blklen, 1, orig);
-                fwrite(tmpbuf, blklen, 1, nandfile);
+                FileRead(tmpbuf, blklen, 1, orig);
+                FileWrite(tmpbuf, blklen, 1, nandfile);
             }
             delete[] tmpbuf;
         }
 
-        fclose(orig);
-        fclose(nandfile);
+        Platform::CloseFile(orig);
+        Platform::CloseFile(nandfile);
 
-        nandfile = Platform::OpenLocalFile(instnand, "r+b");
+        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
     }
 
     if (!nandfile)
         return false;
 
-    fseek(nandfile, 0, SEEK_END);
-    u64 nandlen = ftell(nandfile);
+    u64 nandlen = FileLength(nandfile);
 
     ff_disk_open(FF_ReadNAND, FF_WriteNAND, (LBA_t)(nandlen>>9));
 
@@ -113,27 +109,30 @@ bool Init(u8* es_keyY)
 
     // read the nocash footer
 
-    fseek(nandfile, -0x40, SEEK_END);
+    FileSeek(nandfile, -0x40, FileSeekOrigin::End);
 
     char nand_footer[16];
     const char* nand_footer_ref = "DSi eMMC CID/CPU";
-    fread(nand_footer, 1, 16, nandfile);
+    FileRead(nand_footer, 1, 16, nandfile);
     if (memcmp(nand_footer, nand_footer_ref, 16))
     {
         // There is another copy of the footer at 000FF800h for the case
         // that by external tools the image was cut off
         // See https://problemkaputt.de/gbatek.htm#dsisdmmcimages
-        fseek(nandfile, 0x000FF800, SEEK_SET);
-        fread(nand_footer, 1, 16, nandfile);
+        FileSeek(nandfile, 0x000FF800, FileSeekOrigin::Start);
+        FileRead(nand_footer, 1, 16, nandfile);
         if (memcmp(nand_footer, nand_footer_ref, 16))
         {
             Log(LogLevel::Error, "ERROR: NAND missing nocash footer\n");
+            CloseFile(nandfile);
+            f_unmount("0:");
+            ff_disk_close();
             return false;
         }
     }
 
-    fread(eMMC_CID, 1, 16, nandfile);
-    fread(&ConsoleID, 1, 8, nandfile);
+    FileRead(eMMC_CID, 1, 16, nandfile);
+    FileRead(&ConsoleID, 1, 8, nandfile);
 
     // init NAND crypto
 
@@ -145,7 +144,7 @@ bool Init(u8* es_keyY)
     SHA1Update(&sha, eMMC_CID, 16);
     SHA1Final(tmp, &sha);
 
-    DSi_AES::Swap16(FATIV, tmp);
+    Bswap128(FATIV, tmp);
 
     *(u32*)&keyX[0] = (u32)ConsoleID;
     *(u32*)&keyX[4] = (u32)ConsoleID ^ 0x24EE6906;
@@ -158,7 +157,7 @@ bool Init(u8* es_keyY)
     *(u32*)&keyY[12] = 0xE1A00005;
 
     DSi_AES::DeriveNormalKey(keyX, keyY, tmp);
-    DSi_AES::Swap16(FATKey, tmp);
+    Bswap128(FATKey, tmp);
 
 
     *(u32*)&keyX[0] = 0x4E00004A;
@@ -169,7 +168,7 @@ bool Init(u8* es_keyY)
     memcpy(keyY, es_keyY, 16);
 
     DSi_AES::DeriveNormalKey(keyX, keyY, tmp);
-    DSi_AES::Swap16(ESKey, tmp);
+    Bswap128(ESKey, tmp);
 
     CurFile = nandfile;
     return true;
@@ -180,12 +179,12 @@ void DeInit()
     f_unmount("0:");
     ff_disk_close();
 
-    if (CurFile) fclose(CurFile);
+    if (CurFile) CloseFile(CurFile);
     CurFile = nullptr;
 }
 
 
-FILE* GetFile()
+FileHandle* GetFile()
 {
     return CurFile;
 }
@@ -201,7 +200,7 @@ void GetIDs(u8* emmc_cid, u64& consoleid)
 void SetupFATCrypto(AES_ctx* ctx, u32 ctr)
 {
     u8 iv[16];
-    memcpy(iv, FATIV, 16);
+    memcpy(iv, FATIV, sizeof(iv));
 
     u32 res;
     res = iv[15] + (ctr & 0xFF);
@@ -229,16 +228,16 @@ u32 ReadFATBlock(u64 addr, u32 len, u8* buf)
     AES_ctx ctx;
     SetupFATCrypto(&ctx, ctr);
 
-    fseek(CurFile, addr, SEEK_SET);
-    u32 res = fread(buf, len, 1, CurFile);
+    FileSeek(CurFile, addr, FileSeekOrigin::Start);
+    u32 res = FileRead(buf, len, 1, CurFile);
     if (!res) return 0;
 
     for (u32 i = 0; i < len; i += 16)
     {
         u8 tmp[16];
-        DSi_AES::Swap16(tmp, &buf[i]);
-        AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
-        DSi_AES::Swap16(&buf[i], tmp);
+        Bswap128(tmp, &buf[i]);
+        AES_CTR_xcrypt_buffer(&ctx, tmp, sizeof(tmp));
+        Bswap128(&buf[i], tmp);
     }
 
     return len;
@@ -251,7 +250,7 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
     AES_ctx ctx;
     SetupFATCrypto(&ctx, ctr);
 
-    fseek(CurFile, addr, SEEK_SET);
+    FileSeek(CurFile, addr, FileSeekOrigin::Start);
 
     for (u32 s = 0; s < len; s += 0x200)
     {
@@ -260,12 +259,12 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
         for (u32 i = 0; i < 0x200; i += 16)
         {
             u8 tmp[16];
-            DSi_AES::Swap16(tmp, &buf[s+i]);
-            AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
-            DSi_AES::Swap16(&tempbuf[i], tmp);
+            Bswap128(tmp, &buf[s+i]);
+            AES_CTR_xcrypt_buffer(&ctx, tmp, sizeof(tmp));
+            Bswap128(&tempbuf[i], tmp);
         }
 
-        u32 res = fwrite(tempbuf, 0x200, 1, CurFile);
+        u32 res = FileWrite(tempbuf, sizeof(tempbuf), 1, CurFile);
         if (!res) return 0;
     }
 
@@ -324,13 +323,13 @@ bool ESEncrypt(u8* data, u32 len)
     {
         u8 tmp[16];
 
-        DSi_AES::Swap16(tmp, &data[i]);
+        Bswap128(tmp, &data[i]);
 
         for (int i = 0; i < 16; i++) mac[i] ^= tmp[i];
         AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
         AES_ECB_encrypt(&ctx, mac);
 
-        DSi_AES::Swap16(&data[i], tmp);
+        Bswap128(&data[i], tmp);
     }
 
     u32 remlen = len - coarselen;
@@ -339,12 +338,11 @@ bool ESEncrypt(u8* data, u32 len)
         u8 rem[16];
 
         memset(rem, 0, 16);
-
         for (int i = 0; i < remlen; i++)
             rem[15-i] = data[coarselen+i];
 
         for (int i = 0; i < 16; i++) mac[i] ^= rem[i];
-        AES_CTR_xcrypt_buffer(&ctx, rem, 16);
+        AES_CTR_xcrypt_buffer(&ctx, rem, sizeof(rem));
         AES_ECB_encrypt(&ctx, mac);
 
         for (int i = 0; i < remlen; i++)
@@ -354,10 +352,9 @@ bool ESEncrypt(u8* data, u32 len)
     ctx.Iv[13] = 0x00;
     ctx.Iv[14] = 0x00;
     ctx.Iv[15] = 0x00;
-    AES_CTR_xcrypt_buffer(&ctx, mac, 16);
+    AES_CTR_xcrypt_buffer(&ctx, mac, sizeof(mac));
 
-    for (int i = 0; i < 16; i++)
-        data[len+i] = mac[15-i];
+    Bswap128(&data[len], mac);
 
     u8 footer[16];
 
@@ -373,7 +370,7 @@ bool ESEncrypt(u8* data, u32 len)
     footer[0] = len & 0xFF;
 
     AES_ctx_set_iv(&ctx, iv);
-    AES_CTR_xcrypt_buffer(&ctx, footer, 16);
+    AES_CTR_xcrypt_buffer(&ctx, footer, sizeof(footer));
 
     data[len+0x10] = footer[15];
     data[len+0x1D] = footer[2];
@@ -411,13 +408,13 @@ bool ESDecrypt(u8* data, u32 len)
     {
         u8 tmp[16];
 
-        DSi_AES::Swap16(tmp, &data[i]);
+        Bswap128(tmp, &data[i]);
 
-        AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+        AES_CTR_xcrypt_buffer(&ctx, tmp, sizeof(tmp));
         for (int i = 0; i < 16; i++) mac[i] ^= tmp[i];
         AES_ECB_encrypt(&ctx, mac);
 
-        DSi_AES::Swap16(&data[i], tmp);
+        Bswap128(&data[i], tmp);
     }
 
     u32 remlen = len - coarselen;
@@ -459,11 +456,10 @@ bool ESDecrypt(u8* data, u32 len)
     for (int i = 0; i < 12; i++) iv[3+i] = data[len+0x1C-i];
     iv[15] = 0x00;
 
-    for (int i = 0; i < 16; i++)
-        footer[15-i] = data[len+0x10+i];
+    Bswap128(footer, &data[len+0x10]);
 
     AES_ctx_set_iv(&ctx, iv);
-    AES_CTR_xcrypt_buffer(&ctx, footer, 16);
+    AES_CTR_xcrypt_buffer(&ctx, footer, sizeof(footer));
 
     data[len+0x10] = footer[15];
     data[len+0x1D] = footer[2];

@@ -20,10 +20,7 @@
 
 // http://www.codeproject.com/KB/recipes/crc32_large.aspx
 
-u32 crctable[256];
-bool tableinited = false;
-
-u32 _reflect(u32 refl, char ch)
+constexpr u32 _reflect(u32 refl, char ch)
 {
     u32 value = 0;
 
@@ -37,33 +34,31 @@ u32 _reflect(u32 refl, char ch)
 	return value;
 }
 
-void _inittable()
+constexpr auto GetCRC32Table()
 {
+    std::array<u32, 256> Crc32Table { 0 };
 	u32 polynomial = 0x04C11DB7;
 
 	for (int i = 0; i < 0x100; i++)
     {
-        crctable[i] = _reflect(i, 8) << 24;
+        Crc32Table[i] = _reflect(i, 8) << 24;
 
         for (int j = 0; j < 8; j++)
-            crctable[i] = (crctable[i] << 1) ^ (crctable[i] & (1 << 31) ? polynomial : 0);
+            Crc32Table[i] = (Crc32Table[i] << 1) ^ (Crc32Table[i] & (1 << 31) ? polynomial : 0);
 
-        crctable[i] = _reflect(crctable[i],  32);
+        Crc32Table[i] = _reflect(Crc32Table[i],  32);
     }
+    return Crc32Table;
 }
 
 u32 CRC32(const u8 *data, int len, u32 start)
 {
-    if (!tableinited)
-    {
-        _inittable();
-        tableinited = true;
-    }
+    auto Crc32Table = GetCRC32Table();
 
 	u32 crc = start ^ 0xFFFFFFFF;
 
 	while (len--)
-        crc = (crc >> 8) ^ crctable[(crc & 0xFF) ^ *data++];
+        crc = (crc >> 8) ^ Crc32Table[(crc & 0xFF) ^ *data++];
 
 	return (crc ^ 0xFFFFFFFF);
 }

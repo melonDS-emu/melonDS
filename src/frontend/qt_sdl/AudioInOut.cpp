@@ -126,6 +126,10 @@ void MicOpen()
         return;
     }
 
+    int numMics = SDL_GetNumAudioDevices(1);
+    if (numMics == 0)
+        return;
+
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
     whatIwant.freq = 44100;

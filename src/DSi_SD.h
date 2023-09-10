@@ -142,7 +142,7 @@ public:
 
 private:
     bool Internal;
-    FILE* File;
+    Platform::FileHandle* File;
     FATStorage* SD;
 
     u8 CID[16];

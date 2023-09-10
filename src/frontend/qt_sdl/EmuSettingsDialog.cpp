@@ -29,6 +29,7 @@
 #include "EmuSettingsDialog.h"
 #include "ui_EmuSettingsDialog.h"
 
+using namespace Platform;
 
 EmuSettingsDialog* EmuSettingsDialog::currentDlg = nullptr;
 
@@ -122,6 +123,8 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->txtDLDIFolder->setText(QString::fromStdString(Config::DLDIFolderPath));
     on_cbDLDIEnable_toggled();
 
+    ui->cbDSiFullBIOSBoot->setChecked(Config::DSiFullBIOSBoot);
+
     ui->cbDSiSDEnable->setChecked(Config::DSiSDEnable);
     ui->txtDSiSDPath->setText(QString::fromStdString(Config::DSiSDPath));
     ui->cbxDSiSDSize->setCurrentIndex(Config::DSiSDSize);
@@ -154,19 +157,19 @@ void EmuSettingsDialog::verifyFirmware()
     // bytes 0x0C-0x14 are different.
 
     std::string filename = ui->txtFirmwarePath->text().toStdString();
-    FILE* f = Platform::OpenLocalFile(filename, "rb");
+    FileHandle* f = Platform::OpenLocalFile(filename, FileMode::Read);
     if (!f) return;
     u8 chk1[0x180], chk2[0x180];
 
-    fseek(f, 0, SEEK_SET);
-    fread(chk1, 1, 0x180, f);
-    fseek(f, -0x380, SEEK_END);
-    fread(chk2, 1, 0x180, f);
+    FileRewind(f);
+    FileRead(chk1, 1, 0x180, f);
+    FileSeek(f, -0x380, FileSeekOrigin::End);
+    FileRead(chk2, 1, 0x180, f);
 
     memset(&chk1[0x0C], 0, 8);
     memset(&chk2[0x0C], 0, 8);
 
-    fclose(f);
+    CloseFile(f);
 
     if (!memcmp(chk1, chk2, 0x180))
     {
@@ -211,6 +214,7 @@ void EmuSettingsDialog::done(int r)
         std::string dsiBios7Path = ui->txtDSiBIOS7Path->text().toStdString();
         std::string dsiFirmwarePath = ui->txtDSiFirmwarePath->text().toStdString();
         std::string dsiNANDPath = ui->txtDSiNANDPath->text().toStdString();
+        bool dsiFullBiosBoot = ui->cbDSiFullBIOSBoot->isChecked();
 
         bool dsiSDEnable = ui->cbDSiSDEnable->isChecked();
         std::string dsiSDPath = ui->txtDSiSDPath->text().toStdString();
@@ -242,6 +246,7 @@ void EmuSettingsDialog::done(int r)
             || dsiBios7Path != Config::DSiBIOS7Path
             || dsiFirmwarePath != Config::DSiFirmwarePath
             || dsiNANDPath != Config::DSiNANDPath
+            || dsiFullBiosBoot != Config::DSiFullBIOSBoot
             || dsiSDEnable != Config::DSiSDEnable
             || dsiSDPath != Config::DSiSDPath
             || dsiSDSize != Config::DSiSDSize
@@ -271,6 +276,7 @@ void EmuSettingsDialog::done(int r)
             Config::DSiBIOS7Path = dsiBios7Path;
             Config::DSiFirmwarePath = dsiFirmwarePath;
             Config::DSiNANDPath = dsiNANDPath;
+            Config::DSiFullBIOSBoot = dsiFullBiosBoot;
 
             Config::DSiSDEnable = dsiSDEnable;
             Config::DSiSDPath = dsiSDPath;
