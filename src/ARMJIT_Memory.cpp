@@ -837,7 +837,7 @@ void DeInit()
     if (MemoryFile)
     {
         CloseHandle(MemoryFile);
-        MemoryFile = nullptr;
+        MemoryFile = INVALID_HANDLE_VALUE;
     }
 
     if (ExceptionHandlerHandle)
