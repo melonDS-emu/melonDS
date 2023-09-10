@@ -810,19 +810,21 @@ void ProcessHostEvent(ENetEvent& event)
 
             case 0x04: // player connected
                 {
-                    if (event.packet->dataLength != 2) break;
-                    if (data[1] > 15) break;
+                    if (event.packet->dataLength != 1) break;
+                    Player* player = (Player*)event.peer->data;
+                    if (!player) break;
 
-                    ConnectedBitmask |= (1<<data[1]);
+                    ConnectedBitmask |= (1 << player->ID);
                 }
                 break;
 
             case 0x05: // player disconnected
                 {
-                    if (event.packet->dataLength != 2) break;
-                    if (data[1] > 15) break;
+                    if (event.packet->dataLength != 1) break;
+                    Player* player = (Player*)event.peer->data;
+                    if (!player) break;
 
-                    ConnectedBitmask &= ~(1<<data[1]);
+                    ConnectedBitmask &= ~(1 << player->ID);
                 }
                 break;
             }
@@ -862,6 +864,7 @@ void ProcessClientEvent(ENetEvent& event)
             }
 
             RemotePeers[playerid] = event.peer;
+            event.peer->data = &Players[playerid];
         }
         break;
 
@@ -919,19 +922,21 @@ void ProcessClientEvent(ENetEvent& event)
 
             case 0x04: // player connected
                 {
-                    if (event.packet->dataLength != 2) break;
-                    if (data[1] > 15) break;
+                    if (event.packet->dataLength != 1) break;
+                    Player* player = (Player*)event.peer->data;
+                    if (!player) break;
 
-                    ConnectedBitmask |= (1<<data[1]);
+                    ConnectedBitmask |= (1 << player->ID);
                 }
                 break;
 
             case 0x05: // player disconnected
                 {
-                    if (event.packet->dataLength != 2) break;
-                    if (data[1] > 15) break;
+                    if (event.packet->dataLength != 1) break;
+                    Player* player = (Player*)event.peer->data;
+                    if (!player) break;
 
-                    ConnectedBitmask &= ~(1<<data[1]);
+                    ConnectedBitmask &= ~(1 << player->ID);
                 }
                 break;
             }
@@ -995,12 +1000,12 @@ void MPBegin()
 {
     if (!Host) return;
 
-    ConnectedBitmask |= (1<<MyPlayer.ID);
+    ConnectedBitmask |= (1 << MyPlayer.ID);
     LastHostID = -1;
     LastHostPeer = nullptr;
 
-    u8 cmd[2] = {0x04, (u8)MyPlayer.ID};
-    ENetPacket* pkt = enet_packet_create(cmd, 2, ENET_PACKET_FLAG_RELIABLE);
+    u8 cmd = 0x04;
+    ENetPacket* pkt = enet_packet_create(&cmd, 1, ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(Host, 0, pkt);
 }
 
@@ -1008,10 +1013,10 @@ void MPEnd()
 {
     if (!Host) return;
 
-    ConnectedBitmask &= ~(1<<MyPlayer.ID);
+    ConnectedBitmask &= ~(1 << MyPlayer.ID);
 
-    u8 cmd[2] = {0x05, (u8)MyPlayer.ID};
-    ENetPacket* pkt = enet_packet_create(&cmd, 2, ENET_PACKET_FLAG_RELIABLE);
+    u8 cmd = 0x05;
+    ENetPacket* pkt = enet_packet_create(&cmd, 1, ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(Host, 0, pkt);
 }
 
