@@ -348,7 +348,7 @@ void LANDialog::doUpdatePlayerList()
         LAN::Player* player = &playerList[i];
         if (player->Status == 0) break;
 
-        QString id = QString("%0").arg(player->ID+1);
+        QString id = QString("%0/%1").arg(player->ID+1).arg(maxPlayers);
         model->item(i, 0)->setText(id);
 
         QString name = player->Name;
@@ -365,7 +365,7 @@ void LANDialog::doUpdatePlayerList()
 
         if (i == myPlayerID)
         {
-            model->item(i, 3)->setText("");
+            model->item(i, 3)->setText("-");
             model->item(i, 4)->setText("(local)");
         }
         else
@@ -377,7 +377,7 @@ void LANDialog::doUpdatePlayerList()
             // * we make an exception for the host -- the player list is issued by the host, so the host IP would be 127.0.0.1
             // * for the same reason, the host can't know its own IP, so for the current player we force it to 127.0.0.1
             u32 ip;
-            if (player->Status == 1)
+            if (player->Status == 2)
                 ip = hostAddress;
             else
                 ip = player->Address;
