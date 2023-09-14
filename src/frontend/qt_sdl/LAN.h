@@ -127,18 +127,26 @@ public:
         return dlg;
     }
 
-    void updatePlayerList(LAN::Player* players, int num);
+    void updatePlayerList();
 
 signals:
-    void sgUpdatePlayerList(LAN::Player* players, int num);
+    void sgUpdatePlayerList();
 
 private slots:
     void done(int r);
 
-    void doUpdatePlayerList(LAN::Player* players, int num);
+    void doUpdatePlayerList();
 
 private:
     Ui::LANDialog* ui;
+
+    LAN::Player playerList[16];
+    u32 playerPing[16];
+    int numPlayers;
+    int maxPlayers;
+    int myPlayerID;
+    u32 hostAddress;
+    QMutex playerListMutex;
 };
 
 namespace LAN
@@ -148,6 +156,14 @@ extern bool Active;
 
 extern std::map<u32, DiscoveryData> DiscoveryList;
 extern QMutex DiscoveryMutex;
+
+extern Player Players[16];
+extern u32 PlayerPing[16];
+extern int NumPlayers;
+extern int MaxPlayers;
+
+extern Player MyPlayer;
+extern u32 HostAddress;
 
 bool Init();
 void DeInit();

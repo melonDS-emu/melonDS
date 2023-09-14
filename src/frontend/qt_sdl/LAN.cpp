@@ -286,6 +286,8 @@ LANDialog::LANDialog(QWidget* parent) : QDialog(parent), ui(new Ui::LANDialog)
 
     QStandardItemModel* model = new QStandardItemModel();
     ui->tvPlayerList->setModel(model);
+    const QStringList header = {"#", "Player", "Status", "Ping", "IP"};
+    model->setHorizontalHeaderLabels(header);
 
     connect(this, &LANDialog::sgUpdatePlayerList, this, &LANDialog::doUpdatePlayerList);
 }
@@ -302,50 +304,90 @@ void LANDialog::done(int r)
     QDialog::done(r);
 }
 
-void LANDialog::updatePlayerList(LAN::Player* players, int num)
+void LANDialog::updatePlayerList()
 {
-    emit sgUpdatePlayerList(players, num);
+    playerListMutex.lock();
+    memcpy(playerList, LAN::Players, sizeof(playerList));
+    memcpy(playerPing, LAN::PlayerPing, sizeof(playerPing));
+    numPlayers = LAN::NumPlayers;
+    maxPlayers = LAN::MaxPlayers;
+    myPlayerID = LAN::MyPlayer.ID;
+    hostAddress = LAN::HostAddress;
+    playerListMutex.unlock();
+
+    emit sgUpdatePlayerList();
 }
 
-void LANDialog::doUpdatePlayerList(LAN::Player* players, int num)
+void LANDialog::doUpdatePlayerList()
 {
+    playerListMutex.lock();
+
     QStandardItemModel* model = (QStandardItemModel*)ui->tvPlayerList->model();
-
-    model->clear();
-    model->setRowCount(num);
-
-    // TODO: remove IP column in final product
-
-    const QStringList header = {"#", "Player", "Status", "Ping", "IP"};
-    model->setHorizontalHeaderLabels(header);
-
-    for (int i = 0; i < num; i++)
+    int curcount = model->rowCount();
+    int newcount = numPlayers;
+    if (curcount > newcount)
     {
-        LAN::Player* player = &players[i];
+        model->removeRows(newcount, curcount-newcount);
+    }
+    else if (curcount < newcount)
+    {
+        for (int i = curcount; i < newcount; i++)
+        {
+            QList<QStandardItem*> row;
+            row.append(new QStandardItem());
+            row.append(new QStandardItem());
+            row.append(new QStandardItem());
+            row.append(new QStandardItem());
+            row.append(new QStandardItem());
+            model->appendRow(row);
+        }
+    }
+
+    for (int i = 0; i < 16; i++)
+    {
+        LAN::Player* player = &playerList[i];
+        if (player->Status == 0) break;
 
         QString id = QString("%0").arg(player->ID+1);
-        model->setItem(i, 0, new QStandardItem(id));
+        model->item(i, 0)->setText(id);
 
         QString name = player->Name;
-        model->setItem(i, 1, new QStandardItem(name));
+        model->item(i, 1)->setText(name);
 
         QString status;
         switch (player->Status)
         {
-        case 1: status = ""; break;
+        case 1: status = "Ready"; break;
         case 2: status = "Host"; break;
-        default: status = "ded"; break;
+        case 3: status = "Connecting"; break;
         }
-        model->setItem(i, 2, new QStandardItem(status));
+        model->item(i, 2)->setText(status);
 
-        // TODO: ping
-        model->setItem(i, 3, new QStandardItem("x"));
+        if (i == myPlayerID)
+        {
+            model->item(i, 3)->setText("");
+            model->item(i, 4)->setText("(local)");
+        }
+        else
+        {
+            QString ping = QString("%0 ms").arg(playerPing[i]);
+            model->item(i, 3)->setText(ping);
 
-        char ip[32];
-        u32 addr = player->Address;
-        sprintf(ip, "%d.%d.%d.%d", addr&0xFF, (addr>>8)&0xFF, (addr>>16)&0xFF, addr>>24);
-        model->setItem(i, 4, new QStandardItem(ip));
+            // note on the player IP display
+            // * we make an exception for the host -- the player list is issued by the host, so the host IP would be 127.0.0.1
+            // * for the same reason, the host can't know its own IP, so for the current player we force it to 127.0.0.1
+            u32 ip;
+            if (player->Status == 1)
+                ip = hostAddress;
+            else
+                ip = player->Address;
+
+            QString ips = QString("%0.%1.%2.%3").arg(ip&0xFF).arg((ip>>8)&0xFF).arg((ip>>16)&0xFF).arg(ip>>24);
+            model->item(i, 4)->setText(ips);
+        }
     }
+
+    playerListMutex.unlock();
 }
 
 
@@ -353,6 +395,7 @@ namespace LAN
 {
 
 const u32 kDiscoveryMagic = 0x444E414C; // LAND
+const u32 kLANMagic = 0x504E414C; // LANP
 const u32 kPacketMagic = 0x4946494E; // NIFI
 
 const u32 kProtocolVersion = 1;
@@ -381,6 +424,7 @@ ENetHost* Host;
 ENetPeer* RemotePeers[16];
 
 Player Players[16];
+u32 PlayerPing[16];
 int NumPlayers;
 int MaxPlayers;
 
@@ -395,6 +439,8 @@ int LastHostID;
 ENetPeer* LastHostPeer;
 std::queue<ENetPacket*> RXQueue;
 
+u32 FrameCount;
+
 
 bool Init()
 {
@@ -408,6 +454,7 @@ bool Init()
 
     memset(RemotePeers, 0, sizeof(RemotePeers));
     memset(Players, 0, sizeof(Players));
+    memset(PlayerPing, 0, sizeof(PlayerPing));
     NumPlayers = 0;
     MaxPlayers = 0;
 
@@ -416,6 +463,8 @@ bool Init()
     MPRecvTimeout = 25;
     LastHostID = -1;
     LastHostPeer = nullptr;
+
+    FrameCount = 0;
 
     // TODO we init enet here but also in Netplay
     // that is redundant
@@ -533,7 +582,7 @@ bool StartHost(const char* playername, int numplayers)
     IsHost = true;
 
     if (lanDlg)
-        lanDlg->updatePlayerList(Players, NumPlayers);
+        lanDlg->updatePlayerList();
 
     StartDiscovery();
     return true;
@@ -583,19 +632,37 @@ bool StartClient(const char* playername, const char* host)
                 u8* data = event.packet->data;
                 if (event.channelID != 0) continue;
                 if (data[0] != 0x01) continue;
-                if (event.packet->dataLength != 3) continue;
+                if (event.packet->dataLength != 11) continue;
 
-                MaxPlayers = data[2];
+                u32 magic = data[1] | (data[2] << 8) | (data[3] << 16) | (data[4] << 24);
+                u32 version = data[5] | (data[6] << 8) | (data[7] << 16) | (data[8] << 24);
+                if (magic != kLANMagic) continue;
+                if (version != kProtocolVersion) continue;
+
+                MaxPlayers = data[10];
 
                 // send player information
-                MyPlayer.ID = data[1];
-                u8 cmd[1+sizeof(Player)];
+                MyPlayer.ID = data[9];
+                u8 cmd[9+sizeof(Player)];
                 cmd[0] = 0x02;
-                memcpy(&cmd[1], &MyPlayer, sizeof(Player));
-                ENetPacket* pkt = enet_packet_create(cmd, 1+sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
+                cmd[1] = (u8)kLANMagic;
+                cmd[2] = (u8)(kLANMagic >> 8);
+                cmd[3] = (u8)(kLANMagic >> 16);
+                cmd[4] = (u8)(kLANMagic >> 24);
+                cmd[5] = (u8)kProtocolVersion;
+                cmd[6] = (u8)(kProtocolVersion >> 8);
+                cmd[7] = (u8)(kProtocolVersion >> 16);
+                cmd[8] = (u8)(kProtocolVersion >> 24);
+                memcpy(&cmd[9], &MyPlayer, sizeof(Player));
+                ENetPacket* pkt = enet_packet_create(cmd, 9+sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
                 enet_peer_send(event.peer, 0, pkt);
 
                 conn = 2;
+                break;
+            }
+            else if (event.type == ENET_EVENT_TYPE_DISCONNECT)
+            {
+                conn = 0;
                 break;
             }
         }
@@ -614,6 +681,7 @@ bool StartClient(const char* playername, const char* host)
     HostAddress = addr.host;
     LastHostID = -1;
     LastHostPeer = nullptr;
+    RemotePeers[0] = peer;
 
     Active = true;
     IsHost = false;
@@ -689,6 +757,7 @@ void ProcessDiscovery()
             }
 
             beacon.Magic = tick;
+            beacon.SessionName[63] = '\0';
             DiscoveryList[key] = beacon;
         }
 
@@ -718,6 +787,19 @@ void ProcessDiscovery()
     }
 }
 
+void HostUpdatePlayerList()
+{
+    u8 cmd[2+sizeof(Players)];
+    cmd[0] = 0x03;
+    cmd[1] = (u8)NumPlayers;
+    memcpy(&cmd[2], Players, sizeof(Players));
+    ENetPacket* pkt = enet_packet_create(cmd, 2+sizeof(Players), ENET_PACKET_FLAG_RELIABLE);
+    enet_host_broadcast(Host, 0, pkt);
+
+    if (lanDlg)
+        lanDlg->updatePlayerList();
+}
+
 void ProcessHostEvent(ENetEvent& event)
 {
     switch (event.type)
@@ -742,11 +824,19 @@ void ProcessHostEvent(ENetEvent& event)
 
             if (id < 16)
             {
-                u8 cmd[3];
+                u8 cmd[11];
                 cmd[0] = 0x01;
-                cmd[1] = (u8)id;
-                cmd[2] = MaxPlayers;
-                ENetPacket* pkt = enet_packet_create(cmd, 3, ENET_PACKET_FLAG_RELIABLE);
+                cmd[1] = (u8)kLANMagic;
+                cmd[2] = (u8)(kLANMagic >> 8);
+                cmd[3] = (u8)(kLANMagic >> 16);
+                cmd[4] = (u8)(kLANMagic >> 24);
+                cmd[5] = (u8)kProtocolVersion;
+                cmd[6] = (u8)(kProtocolVersion >> 8);
+                cmd[7] = (u8)(kProtocolVersion >> 16);
+                cmd[8] = (u8)(kProtocolVersion >> 24);
+                cmd[9] = (u8)id;
+                cmd[10] = MaxPlayers;
+                ENetPacket* pkt = enet_packet_create(cmd, 11, ENET_PACKET_FLAG_RELIABLE);
                 enet_peer_send(event.peer, 0, pkt);
 
                 Players[id].ID = id;
@@ -767,8 +857,18 @@ void ProcessHostEvent(ENetEvent& event)
 
     case ENET_EVENT_TYPE_DISCONNECT:
         {
-            // TODO
-            printf("disco\n");
+            Player* player = (Player*)event.peer->data;
+            if (!player) break;
+
+            int id = player->ID;
+            RemotePeers[id] = nullptr;
+
+            player->ID = 0;
+            player->Status = 0;
+            NumPlayers--;
+
+            // broadcast updated player list
+            HostUpdatePlayerList();
         }
         break;
 
@@ -781,17 +881,24 @@ void ProcessHostEvent(ENetEvent& event)
             {
             case 0x02: // client sending player info
                 {
-                    if (event.packet->dataLength != (1+sizeof(Player))) break;
+                    if (event.packet->dataLength != (9+sizeof(Player))) break;
+
+                    u32 magic = data[1] | (data[2] << 8) | (data[3] << 16) | (data[4] << 24);
+                    u32 version = data[5] | (data[6] << 8) | (data[7] << 16) | (data[8] << 24);
+                    if ((magic != kLANMagic) || (version != kProtocolVersion))
+                    {
+                        enet_peer_disconnect(event.peer, 0);
+                        break;
+                    }
 
                     Player player;
-                    memcpy(&player, &data[1], sizeof(Player));
+                    memcpy(&player, &data[9], sizeof(Player));
                     player.Name[31] = '\0';
 
                     Player* hostside = (Player*)event.peer->data;
                     if (player.ID != hostside->ID)
                     {
-                        printf("what??? %d =/= %d\n", player.ID, hostside->ID);
-                        // TODO: disconnect
+                        enet_peer_disconnect(event.peer, 0);
                         break;
                     }
 
@@ -800,15 +907,7 @@ void ProcessHostEvent(ENetEvent& event)
                     memcpy(hostside, &player, sizeof(Player));
 
                     // broadcast updated player list
-                    u8 cmd[2+sizeof(Players)];
-                    cmd[0] = 0x03;
-                    cmd[1] = (u8)NumPlayers;
-                    memcpy(&cmd[2], Players, sizeof(Players));
-                    ENetPacket* pkt = enet_packet_create(cmd, 2+sizeof(Players), ENET_PACKET_FLAG_RELIABLE);
-                    enet_host_broadcast(Host, 0, pkt);
-
-                    if (lanDlg)
-                        lanDlg->updatePlayerList(Players, NumPlayers);
+                    HostUpdatePlayerList();
                 }
                 break;
 
@@ -851,7 +950,7 @@ void ProcessClientEvent(ENetEvent& event)
             for (int i = 0; i < 16; i++)
             {
                 Player* player = &Players[i];
-                if (player->ID == MyPlayer.ID) continue;
+                if (i == MyPlayer.ID) continue;
                 if (player->Status != 1) continue;
 
                 if (player->Address == event.peer->address.host)
@@ -874,8 +973,11 @@ void ProcessClientEvent(ENetEvent& event)
 
     case ENET_EVENT_TYPE_DISCONNECT:
         {
-            // TODO
-            printf("shma\n");
+            Player* player = (Player*)event.peer->data;
+            if (!player) break;
+
+            int id = player->ID;
+            RemotePeers[id] = nullptr;
         }
         break;
 
@@ -899,13 +1001,13 @@ void ProcessClientEvent(ENetEvent& event)
                     }
 
                     if (lanDlg)
-                        lanDlg->updatePlayerList(Players, NumPlayers);
+                        lanDlg->updatePlayerList();
 
                     // establish connections to any new clients
                     for (int i = 0; i < 16; i++)
                     {
                         Player* player = &Players[i];
-                        if (player->ID == MyPlayer.ID) continue;
+                        if (i == MyPlayer.ID) continue;
                         if (player->Status != 1) continue;
 
                         if (!RemotePeers[i])
@@ -992,6 +1094,24 @@ void ProcessFrame()
 {
     ProcessDiscovery();
     Process(false);
+
+    FrameCount++;
+    if (FrameCount >= 60)
+    {
+        FrameCount = 0;
+
+        for (int i = 0; i < 16; i++)
+        {
+            if (Players[i].Status == 0) continue;
+            if (i == MyPlayer.ID) continue;
+            if (!RemotePeers[i]) continue;
+
+            PlayerPing[i] = RemotePeers[i]->roundTripTime;
+        }
+
+        if (lanDlg)
+            lanDlg->updatePlayerList();
+    }
 }
 
 
