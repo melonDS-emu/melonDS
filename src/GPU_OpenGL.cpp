@@ -34,6 +34,12 @@ using namespace OpenGL;
 
 std::unique_ptr<GLCompositor> GLCompositor::New() noexcept
 {
+    if (!glBindAttribLocation)
+    {
+        Log(Platform::LogLevel::Error, "OpenGL: Cannot initialize compositor, OpenGL hasn't been loaded\n");
+        return nullptr;
+    }
+
     std::array<GLuint, 3> CompShader {};
     if (!OpenGL::BuildShaderProgram(kCompositorVS, kCompositorFS_Nearest, &CompShader[0], "CompositorShader"))
         return nullptr;
@@ -124,6 +130,10 @@ GLCompositor::GLCompositor(std::array<GLuint, 3> compShader) noexcept : CompShad
 
 GLCompositor::~GLCompositor()
 {
+    if (!glDeleteFramebuffers)
+        return;
+    // If no OpenGL context is available, then there's nothing to delete
+
     glDeleteFramebuffers(2, CompScreenOutputFB);
     glDeleteTextures(1, &CompScreenInputTex);
     glDeleteTextures(2, CompScreenOutputTex);
