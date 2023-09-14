@@ -616,11 +616,13 @@ bool StartClient(const char* playername, const char* host)
     ENetEvent event;
     int conn = 0;
     u32 starttick = SDL_GetTicks();
-    const u32 conntimeout = 5000;
+    const int conntimeout = 5000;
     for (;;)
     {
         u32 curtick = SDL_GetTicks();
-        u32 timeout = conntimeout - (curtick - starttick);
+        if (curtick < starttick) break;
+        int timeout = conntimeout - (int)(curtick - starttick);
+        if (timeout < 0) break;
         if (enet_host_service(Host, &event, timeout) > 0)
         {
             if (conn == 0 && event.type == ENET_EVENT_TYPE_CONNECT)
@@ -1083,8 +1085,10 @@ void Process(bool block)
             if (block)
             {
                 u32 time = SDL_GetTicks();
-                timeout -= (time - time_last);
+                if (time < time_last) return;
+                timeout -= (int)(time - time_last);
                 if (timeout <= 0) return;
+                time_last = time;
             }
         }
     }
