@@ -18,6 +18,7 @@
 
 #include "GPU3D_OpenGL.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
@@ -105,11 +106,7 @@ GLRenderer::GLRenderer() noexcept : Renderer3D(true)
 
 std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
 {
-    if (!glEnable)
-    {
-        Log(Platform::LogLevel::Error, "OpenGL: Cannot initialize renderer, OpenGL hasn't been loaded\n");
-        return nullptr;
-    }
+    assert(glEnable != nullptr);
 
     // Will be returned if the initialization succeeds,
     // or cleaned up via RAII if it fails.
@@ -306,9 +303,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
 
 GLRenderer::~GLRenderer()
 {
-    if (!glDeleteTextures)
-        return;
-    // If no OpenGL context is available, then there's nothing to delete
+    assert(glDeleteTextures != nullptr);
 
     glDeleteTextures(1, &TexMemID);
     glDeleteTextures(1, &TexPalMemID);
