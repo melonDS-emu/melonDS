@@ -28,10 +28,7 @@ namespace GPU3D
 class GLRenderer : public Renderer3D
 {
 public:
-    GLRenderer();
-    virtual ~GLRenderer() override {};
-    virtual bool Init() override;
-    virtual void DeInit() override;
+    virtual ~GLRenderer() override;
     virtual void Reset() override;
 
     virtual void SetRenderSettings(GPU::RenderSettings& settings) override;
@@ -42,7 +39,11 @@ public:
 
     void SetupAccelFrame();
     void PrepareCaptureFrame();
+
+    static std::unique_ptr<GLRenderer> New() noexcept;
 private:
+    // Used by New()
+    GLRenderer() noexcept;
 
     // GL version requirements
     // * texelFetch: 3.0 (GLSL 1.30)     (3.2/1.50 for MS)
@@ -62,7 +63,7 @@ private:
         u32 RenderKey;
     };
 
-    RendererPolygon PolygonList[2048];
+    RendererPolygon PolygonList[2048] {};
 
     bool BuildRenderShader(u32 flags, const char* vs, const char* fs);
     void UseRenderShader(u32 flags);
@@ -83,13 +84,13 @@ private:
     };
 
 
-    GLuint ClearShaderPlain[3];
+    GLuint ClearShaderPlain[3] {};
 
-    GLuint RenderShader[16][3];
+    GLuint RenderShader[16][3] {};
     GLuint CurShaderID = -1;
 
-    GLuint FinalPassEdgeShader[3];
-    GLuint FinalPassFogShader[3];
+    GLuint FinalPassEdgeShader[3] {};
+    GLuint FinalPassFogShader[3] {};
 
     // std140 compliant structure
     struct
@@ -104,13 +105,13 @@ private:
         u32 uFogOffset;             // int        304 / 1
         u32 uFogShift;              // int        305 / 1
         u32 _pad1[2];               // int        306 / 2
-    } ShaderConfig;
+    } ShaderConfig {};
 
-    GLuint ShaderConfigUBO;
-    int NumFinalPolys, NumOpaqueFinalPolys;
+    GLuint ShaderConfigUBO {};
+    int NumFinalPolys {}, NumOpaqueFinalPolys {};
 
-    GLuint ClearVertexBufferID, ClearVertexArrayID;
-    GLint ClearUniformLoc[4];
+    GLuint ClearVertexBufferID = 0, ClearVertexArrayID {};
+    GLint ClearUniformLoc[4] {};
 
     // vertex buffer
     // * XYZW: 4x16bit
@@ -124,28 +125,28 @@ private:
     // * bit8: front-facing (?)
     // * bit9: W-buffering (?)
 
-    GLuint VertexBufferID;
-    u32 VertexBuffer[10240 * 7];
-    u32 NumVertices;
+    GLuint VertexBufferID {};
+    u32 VertexBuffer[10240 * 7] {};
+    u32 NumVertices {};
 
-    GLuint VertexArrayID;
-    GLuint IndexBufferID;
-    u16 IndexBuffer[2048 * 40];
-    u32 NumIndices, NumEdgeIndices;
+    GLuint VertexArrayID {};
+    GLuint IndexBufferID {};
+    u16 IndexBuffer[2048 * 40] {};
+    u32 NumIndices {}, NumEdgeIndices {};
 
     const u32 EdgeIndicesOffset = 2048 * 30;
 
-    GLuint TexMemID;
-    GLuint TexPalMemID;
+    GLuint TexMemID {};
+    GLuint TexPalMemID {};
 
-    int ScaleFactor;
-    bool BetterPolygons;
-    int ScreenW, ScreenH;
+    int ScaleFactor {};
+    bool BetterPolygons {};
+    int ScreenW {}, ScreenH {};
 
-    GLuint FramebufferTex[8];
-    int FrontBuffer;
-    GLuint FramebufferID[4], PixelbufferID;
-    u32 Framebuffer[256*192];
+    GLuint FramebufferTex[8] {};
+    int FrontBuffer {};
+    GLuint FramebufferID[4] {}, PixelbufferID {};
+    u32 Framebuffer[256*192] {};
 
 
 };

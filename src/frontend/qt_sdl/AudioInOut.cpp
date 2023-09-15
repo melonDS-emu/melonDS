@@ -334,12 +334,17 @@ void Init()
 void DeInit()
 {
     if (audioDevice) SDL_CloseAudioDevice(audioDevice);
+    audioDevice = 0;
     MicClose();
 
-    SDL_DestroyCond(audioSync);
-    SDL_DestroyMutex(audioSyncLock);
+    if (audioSync) SDL_DestroyCond(audioSync);
+    audioSync = nullptr;
+
+    if (audioSyncLock) SDL_DestroyMutex(audioSyncLock);
+    audioSyncLock = nullptr;
 
     if (micWavBuffer) delete[] micWavBuffer;
+    micWavBuffer = nullptr;
 }
 
 void AudioSync()

@@ -128,6 +128,10 @@ void DeInit()
     delete[] NWRAM_A;
     delete[] NWRAM_B;
     delete[] NWRAM_C;
+
+    NWRAM_A = nullptr;
+    NWRAM_B = nullptr;
+    NWRAM_C = nullptr;
 #endif
 
     DSi_I2C::DeInit();
@@ -135,10 +139,16 @@ void DeInit()
     DSi_AES::DeInit();
     DSi_DSP::DeInit();
 
-    for (int i = 0; i < 8; i++) delete NDMAs[i];
+    for (int i = 0; i < 8; i++)
+    {
+        delete NDMAs[i];
+        NDMAs[i] = nullptr;
+    }
 
     delete SDMMC;
+    SDMMC = nullptr;
     delete SDIO;
+    SDIO = nullptr;
 }
 
 void Reset()

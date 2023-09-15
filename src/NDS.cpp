@@ -226,10 +226,16 @@ void DeInit()
 #endif
 
     delete ARM9;
+    ARM9 = nullptr;
+
     delete ARM7;
+    ARM7 = nullptr;
 
     for (int i = 0; i < 8; i++)
+    {
         delete DMAs[i];
+        DMAs[i] = nullptr;
+    }
 
     NDSCart::DeInit();
     GBACart::DeInit();
