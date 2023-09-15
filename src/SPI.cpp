@@ -245,7 +245,7 @@ bool InstallFirmware(std::unique_ptr<class Firmware>&& firmware)
 void RemoveFirmware()
 {
     Firmware.reset();
-    Log(LogLevel::Debug, "Removed installed firmware (if any)");
+    Log(LogLevel::Debug, "Removed installed firmware (if any)\n");
 }
 
 u8 Read()
