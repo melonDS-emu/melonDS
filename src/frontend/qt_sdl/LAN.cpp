@@ -1067,6 +1067,8 @@ void Process(bool block)
 {
     if (!Host) return;
 
+    if (!RXQueue.empty()) block = false;
+
     int timeout = block ? MPRecvTimeout : 0;
     u32 time_last = SDL_GetTicks();
 
