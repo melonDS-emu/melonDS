@@ -308,7 +308,7 @@ HANDLE MemoryFile;
 LPVOID ExceptionHandlerHandle;
 #else
 u8* MemoryBase;
-int MemoryFile;
+int MemoryFile = -1;
 #endif
 
 bool MapIntoRange(u32 addr, u32 num, u32 offset, u32 size)
@@ -811,25 +811,58 @@ void DeInit()
 {
 #if defined(__SWITCH__)
     virtmemLock();
-    virtmemRemoveReservation(FastMem9Reservation);
-    virtmemRemoveReservation(FastMem7Reservation);
+    if (FastMem9Reservation)
+        virtmemRemoveReservation(FastMem9Reservation);
+
+    if (FastMem7Reservation)
+        virtmemRemoveReservation(FastMem7Reservation);
+
+    FastMem9Reservation = nullptr;
+    FastMem7Reservation = nullptr;
     virtmemUnlock();
 
     svcUnmapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, (u64)MemoryBase, MemoryTotalSize);
     free(MemoryBase);
+    MemoryBase = nullptr;
 #elif defined(_WIN32)
-    assert(UnmapViewOfFile(MemoryBase));
-    CloseHandle(MemoryFile);
+    if (MemoryBase)
+    {
+        bool viewUnmapped = UnmapViewOfFile(MemoryBase);
+        assert(viewUnmapped);
+        MemoryBase = nullptr;
+        FastMem9Start = nullptr;
+        FastMem7Start = nullptr;
+    }
 
-    RemoveVectoredExceptionHandler(ExceptionHandlerHandle);
+    if (MemoryFile)
+    {
+        CloseHandle(MemoryFile);
+        MemoryFile = INVALID_HANDLE_VALUE;
+    }
+
+    if (ExceptionHandlerHandle)
+    {
+        RemoveVectoredExceptionHandler(ExceptionHandlerHandle);
+        ExceptionHandlerHandle = nullptr;
+    }
 #else
     sigaction(SIGSEGV, &OldSaSegv, nullptr);
 #ifdef __APPLE__
     sigaction(SIGBUS, &OldSaBus, nullptr);
 #endif
+    if (MemoryBase)
+    {
+        munmap(MemoryBase, MemoryTotalSize);
+        MemoryBase = nullptr;
+        FastMem9Start = nullptr;
+        FastMem7Start = nullptr;
+    }
 
-    munmap(MemoryBase, MemoryTotalSize);
-    close(MemoryFile);
+    if (MemoryFile >= 0)
+    {
+        close(MemoryFile);
+        MemoryFile = -1;
+    }
 
 #if defined(__ANDROID__)
     if (Libandroid)

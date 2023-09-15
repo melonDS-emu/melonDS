@@ -63,6 +63,9 @@ void DeInit()
 {
     delete Camera0;
     delete Camera1;
+
+    Camera0 = nullptr;
+    Camera1 = nullptr;
 }
 
 void Reset()

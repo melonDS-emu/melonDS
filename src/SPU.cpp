@@ -135,12 +135,18 @@ bool Init()
 void DeInit()
 {
     for (int i = 0; i < 16; i++)
+    {
         delete Channels[i];
+        Channels[i] = nullptr;
+    }
 
     delete Capture[0];
     delete Capture[1];
+    Capture[0] = nullptr;
+    Capture[1] = nullptr;
 
     Platform::Mutex_Free(AudioLock);
+    AudioLock = nullptr;
 }
 
 void Reset()

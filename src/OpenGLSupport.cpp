@@ -29,6 +29,12 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
     int len;
     int res;
 
+    if (!glCreateShader)
+    {
+        Log(LogLevel::Error, "OpenGL: Cannot build shader program, OpenGL hasn't been loaded\n");
+        return false;
+    }
+
     ids[0] = glCreateShader(GL_VERTEX_SHADER);
     len = strlen(vs);
     glShaderSource(ids[0], 1, &vs, &len);
@@ -87,6 +93,12 @@ bool LinkShaderProgram(GLuint* ids)
 {
     int res;
 
+    if (!glLinkProgram)
+    {
+        Log(LogLevel::Error, "OpenGL: Cannot link shader program, OpenGL hasn't been loaded\n");
+        return false;
+    }
+
     glLinkProgram(ids[2]);
 
     glDetachShader(ids[2], ids[0]);
@@ -115,12 +127,18 @@ bool LinkShaderProgram(GLuint* ids)
 
 void DeleteShaderProgram(GLuint* ids)
 {
-    glDeleteProgram(ids[2]);
+    if (glDeleteProgram)
+    { // If OpenGL isn't loaded, then there's no shader program to delete
+        glDeleteProgram(ids[2]);
+    }
 }
 
 void UseShaderProgram(GLuint* ids)
 {
-    glUseProgram(ids[2]);
+    if (glUseProgram)
+    { // If OpenGL isn't loaded, then there's no shader program to use
+        glUseProgram(ids[2]);
+    }
 }
 
 }

@@ -91,6 +91,7 @@ bool Init()
 void DeInit()
 {
     if (Firmware) delete[] Firmware;
+    Firmware = nullptr;
 }
 
 u32 FixFirmwareLength(u32 originalLength)
