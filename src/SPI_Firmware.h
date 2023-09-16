@@ -235,7 +235,7 @@ constexpr FirmwareIdentifier GENERATED_FIRMWARE_IDENTIFIER = {'M', 'E', 'L', 'N'
 */
 union FirmwareHeader
 {
-    FirmwareHeader(int consoletype);
+    explicit FirmwareHeader(int consoletype);
     void UpdateChecksum();
     u8 Bytes[512];
     struct
