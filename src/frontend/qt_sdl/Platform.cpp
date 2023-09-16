@@ -599,7 +599,7 @@ void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset)
         // assert that the extended access points come just before the regular ones
         assert(eapend == apstart);
 
-        if ((eapstart <= writeoffset && writeoffset < apend))
+        if (eapstart <= writeoffset && writeoffset < apend)
         { // If we're writing to the access points...
             const u8* buffer = firmware.ExtendedAccessPointPosition();
             u32 length = sizeof(firmware.ExtendedAccessPoints()) + sizeof(firmware.AccessPoints());
