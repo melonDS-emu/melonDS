@@ -16,12 +16,14 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
 #include <codecvt>
 #include <locale>
 #include <memory>
+#include <tuple>
 #include <string>
 #include <utility>
 #include <fstream>
@@ -41,7 +43,9 @@
 #include "FreeBIOS.h"
 
 using std::make_unique;
+using std::pair;
 using std::string;
+using std::tie;
 using std::unique_ptr;
 using namespace Platform;
 
@@ -750,13 +754,15 @@ void ClearBackupState()
 
 // We want both the firmware object and the path that was used to load it,
 // since we'll need to give it to the save manager later
-bool LoadFirmwareFromFile(unique_ptr<SPI_Firmware::Firmware>& firmware, std::string& loadedpath)
+pair<unique_ptr<SPI_Firmware::Firmware>, string> LoadFirmwareFromFile()
 {
+    string loadedpath;
+    unique_ptr<SPI_Firmware::Firmware> firmware = nullptr;
     string firmwarepath = Config::ConsoleType == 0 ? Config::FirmwarePath : Config::DSiFirmwarePath;
 
     Log(LogLevel::Debug, "SPI firmware: loading from file %s\n", firmwarepath.c_str());
 
-    std::string firmwareinstancepath = firmwarepath + Platform::InstanceFileSuffix();
+    string firmwareinstancepath = firmwarepath + Platform::InstanceFileSuffix();
 
     loadedpath = firmwareinstancepath;
     FileHandle* f = Platform::OpenLocalFile(firmwareinstancepath, FileMode::Read);
@@ -779,14 +785,16 @@ bool LoadFirmwareFromFile(unique_ptr<SPI_Firmware::Firmware>& firmware, std::str
         CloseFile(f);
     }
 
-    return firmware != nullptr;
+    return std::make_pair(std::move(firmware), loadedpath);
 }
 
-void GenerateDefaultFirmware(unique_ptr<SPI_Firmware::Firmware>& firmware, std::string& settingspath)
+pair<unique_ptr<SPI_Firmware::Firmware>, string> GenerateDefaultFirmware()
 {
     using namespace SPI_Firmware;
     // Construct the default firmware...
-    firmware = std::make_unique<Firmware>(Config::ConsoleType);
+    string settingspath;
+    std::unique_ptr<Firmware> firmware = std::make_unique<Firmware>(Config::ConsoleType);
+    assert(firmware->Buffer() != nullptr);
 
     // Try to open the instanced Wi-fi settings, falling back to the regular Wi-fi settings if they don't exist.
     // We don't need to save the whole firmware, just the part that may actually change.
@@ -835,6 +843,7 @@ void GenerateDefaultFirmware(unique_ptr<SPI_Firmware::Firmware>& firmware, std::
 
     // If we don't have Wi-fi settings to load,
     // then the defaults will have already been populated by the constructor.
+    return std::make_pair(std::move(firmware), std::move(wfcsettingspath));
 }
 
 void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
@@ -933,7 +942,9 @@ bool InstallFirmware()
 
     if (Config::ExternalBIOSEnable)
     { // If we want to try loading a firmware dump...
-        if (!LoadFirmwareFromFile(firmware, firmwarepath))
+
+        tie(firmware, firmwarepath) = LoadFirmwareFromFile();
+        if (!firmware)
         { // Try to load the configured firmware dump. If that fails...
             Log(LogLevel::Warn, "Firmware not found! Generating default firmware.\n");
         }
@@ -941,7 +952,7 @@ bool InstallFirmware()
 
     if (!firmware)
     { // If we haven't yet loaded firmware (either because the load failed or we want to use the default...)
-        GenerateDefaultFirmware(firmware, firmwarepath);
+        tie(firmware, firmwarepath) = GenerateDefaultFirmware();
         generated = true;
     }
 
