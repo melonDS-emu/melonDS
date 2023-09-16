@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <atomic>
+#include <memory>
 #include <QThread>
 #include <QMutex>
 
@@ -51,12 +52,12 @@ private:
 
     std::atomic_bool Running;
 
-    u8* Buffer;
+    std::unique_ptr<u8[]> Buffer;
     u32 Length;
     bool FlushRequested;
 
     QMutex* SecondaryBufferLock;
-    u8* SecondaryBuffer;
+    std::unique_ptr<u8[]> SecondaryBuffer;
     u32 SecondaryBufferLength;
 
     time_t TimeAtLastFlushRequest;
