@@ -578,7 +578,7 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
         ROMManager::GBASave->RequestFlush(savedata, savelen, writeoffset, writelen);
 }
 
-void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset)
+void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset, u32 writelen)
 {
     if (!ROMManager::FirmwareSave)
         return;
@@ -586,7 +586,7 @@ void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset)
     if (firmware.Header().Identifier != SPI_Firmware::GENERATED_FIRMWARE_IDENTIFIER)
     { // If this is not the default built-in firmware...
         // ...then write the whole thing back.
-        ROMManager::FirmwareSave->RequestFlush(firmware.Buffer(), firmware.Length(), writeoffset, 1);
+        ROMManager::FirmwareSave->RequestFlush(firmware.Buffer(), firmware.Length(), writeoffset, writelen);
     }
     else
     {
@@ -603,7 +603,7 @@ void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset)
         { // If we're writing to the access points...
             const u8* buffer = firmware.ExtendedAccessPointPosition();
             u32 length = sizeof(firmware.ExtendedAccessPoints()) + sizeof(firmware.AccessPoints());
-            ROMManager::FirmwareSave->RequestFlush(buffer, length, writeoffset - eapstart, 1);
+            ROMManager::FirmwareSave->RequestFlush(buffer, length, writeoffset - eapstart, writelen);
         }
     }
 

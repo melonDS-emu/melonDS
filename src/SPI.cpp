@@ -347,8 +347,14 @@ void Write(u8 val, u32 hold)
     }
 
     if (!hold && (CurCmd == 0x02 || CurCmd == 0x0A))
-    { // If the SPI chip got a write instruction...
-        Platform::WriteFirmware(*Firmware, (Addr-1) & Firmware->Mask());
+    { // If the SPI firmware chip just finished a write...
+        // We only notify the frontend of changes to the Wi-fi/userdata settings region
+        // (although it might still decide to flush the whole thing)
+        u32 wifioffset = Firmware->WifiAccessPointOffset();
+
+        // Request that the start of the Wi-fi/userdata settings region
+        // through the end of the firmware blob be flushed to disk
+        Platform::WriteFirmware(*Firmware, wifioffset, Firmware->Length() - wifioffset);
     }
 }
 

@@ -331,13 +331,12 @@ void Sleep(u64 usecs);
 void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen);
 void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen);
 
-/// Called when the firmware needs to be written back to storage.
+/// Called when the firmware needs to be written back to storage,
+/// after one of the supported write commands finishes execution.
 /// @param firmware The firmware that was just written.
-/// @param writeoffset The offset of the byte that was written to firmware.
-/// @note The SPI only allows one byte at a time to be written to firmware;
-/// the frontend should not immediately flush anything to disk,
-/// as this function will be called several times in a row.
-void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset);
+/// @param writeoffset The offset of the first byte that was written to firmware.
+/// @param writelen The number of bytes that were written to firmware.
+void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset, u32 writelen);
 
 
 // local multiplayer comm interface

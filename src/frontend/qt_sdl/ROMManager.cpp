@@ -617,9 +617,23 @@ void Reset()
     if (FirmwareSave)
     {
         std::string oldsave = FirmwareSave->GetPath();
-        std::string newsave = Config::FirmwarePath + Platform::InstanceFileSuffix();
+        string newsave;
+        if (Config::ExternalBIOSEnable)
+        {
+            if (Config::ConsoleType == 1)
+                newsave = Config::DSiFirmwarePath + Platform::InstanceFileSuffix();
+            else
+                newsave = Config::FirmwarePath + Platform::InstanceFileSuffix();
+        }
+        else
+        {
+            newsave = Config::WifiSettingsPath + Platform::InstanceFileSuffix();
+        }
+
         if (oldsave != newsave)
-            FirmwareSave->SetPath(newsave, false);
+        { // If the player toggled the ConsoleType or ExternalBIOSEnable...
+            FirmwareSave->SetPath(newsave, true);
+        }
     }
 
     if (!BaseROMName.empty())
