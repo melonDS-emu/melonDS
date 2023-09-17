@@ -296,7 +296,7 @@ void SetCartInserted(bool inserted)
         SCFG_MC |= 1;
 }
 
-void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
+void DecryptModcryptArea(u32 offset, u32 size, const u8* iv)
 {
     AES_ctx ctx;
     u8 key[16];
@@ -398,7 +398,7 @@ void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
 void SetupDirectBoot()
 {
     bool dsmode = false;
-    NDSHeader& header = NDSCart::Cart->GetHeader();
+    const NDSHeader& header = NDSCart::Cart->GetHeader();
     const u8* cartrom = NDSCart::Cart->GetROM();
     u32 cartid = NDSCart::Cart->ID();
 
