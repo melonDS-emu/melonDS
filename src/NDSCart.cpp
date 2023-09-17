@@ -1644,8 +1644,7 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
     memcpy(cartrom, romdata, romlen);
     memset(cartrom + romlen, 0, cartromsize - romlen);
 
-    NDSHeader header {};
-    memcpy(&header, cartrom, sizeof(header));
+    const NDSHeader& header = *reinterpret_cast<const NDSHeader*>(cartrom);
 
     bool dsi = header.IsDSi();
     bool badDSiDump = false;
