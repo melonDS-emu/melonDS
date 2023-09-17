@@ -967,7 +967,6 @@ bool InstallFirmware()
     if (!firmware)
     { // If we haven't yet loaded firmware (either because the load failed or we want to use the default...)
         tie(firmware, firmwarepath) = GenerateDefaultFirmware();
-        generated = true;
     }
 
     if (!firmware)
@@ -979,9 +978,8 @@ bool InstallFirmware()
     }
 
     FirmwareSave = std::make_unique<SaveManager>(firmwarepath);
-    InstallFirmware(std::move(firmware));
 
-    return true;
+    return InstallFirmware(std::move(firmware));
 }
 
 bool LoadROM(QStringList filepath, bool reset)

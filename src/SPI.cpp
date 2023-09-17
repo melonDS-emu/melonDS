@@ -311,7 +311,7 @@ void Write(u8 val, u32 hold)
         {
             // TODO: what happens if you write too many bytes? (max 256, they say)
             if (DataPos < 4)
-            {
+            { // If we're in the middle of writing the address...
                 Addr <<= 8;
                 Addr |= val;
                 Data = 0;
