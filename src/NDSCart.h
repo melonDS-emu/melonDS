@@ -67,8 +67,7 @@ public:
     virtual u8* GetSaveMemory() const;
     virtual u32 GetSaveMemoryLength() const;
 
-    [[nodiscard]] const NDSHeader& GetHeader() const { return Header; }
-    [[nodiscard]] NDSHeader& GetHeader() { return Header; }
+    [[nodiscard]] const NDSHeader& GetHeader() const { return *reinterpret_cast<const NDSHeader*>(ROM); }
 
     /// @return The cartridge's banner if available, or \c nullptr if not.
     [[nodiscard]] const NDSBanner* Banner() const;
@@ -90,9 +89,6 @@ protected:
 
     u32 CmdEncMode;
     u32 DataEncMode;
-    // Kept separate from the ROM data so we can decrypt the modcrypt area
-    // without touching the overall ROM data
-    NDSHeader Header;
     ROMListEntry ROMParams;
 };
 

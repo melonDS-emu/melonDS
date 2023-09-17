@@ -197,9 +197,9 @@ CartCommon::CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEnt
     ChipID = chipid;
     ROMParams = romparams;
 
-    memcpy(&Header, rom, sizeof(Header));
-    IsDSi = Header.IsDSi() && !badDSiDump;
-    DSiBase = Header.DSiRegionStart << 19;
+    const NDSHeader& header = GetHeader();
+    IsDSi = header.IsDSi() && !badDSiDump;
+    DSiBase = header.DSiRegionStart << 19;
 }
 
 CartCommon::~CartCommon()
