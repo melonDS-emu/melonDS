@@ -32,6 +32,7 @@
 #include "Platform.h"
 
 #include "NDS.h"
+#include "NDSCart.h"
 #include "DSi.h"
 #include "SPI.h"
 #include "DSi_I2C.h"
@@ -519,6 +520,10 @@ void Reset()
         {
             NDS::SetupDirectBoot(BaseROMName);
         }
+        else
+        {
+            NDSCart::Cart->EnsureSecureAreaEncrypted();
+        }
     }
 }
 
@@ -766,6 +771,10 @@ bool LoadROM(QStringList filepath, bool reset)
         if (Config::DirectBoot || NDS::NeedsDirectBoot())
         {
             NDS::SetupDirectBoot(romname);
+        }
+        else
+        { // The DS itself will want to decrypt the ROM
+            NDSCart::Cart->EnsureSecureAreaEncrypted();
         }
     }
 

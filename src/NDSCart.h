@@ -41,6 +41,26 @@ enum CartType
     Homebrew = 0x201,
 };
 
+enum class SecureAreaState
+{
+    /// Indicates that this cart has no secure area
+    None,
+
+    /// Indicates that this ROM's secure area is raw (unencrypted),
+    /// and that the secure area ID has not been destroyed
+    /// as it would be in the boot process
+    Raw,
+
+    /// Indicates that this ROM's secure area is encrypted
+    Encrypted,
+
+    /// Indicates that this ROM's secure area is decrypted
+    Decrypted,
+
+    /// Indicates that this ROM's secure area wasn't properly decrypted
+    DecryptionFailed,
+};
+
 // CartCommon -- base code shared by all cart types
 class CartCommon
 {
@@ -75,6 +95,31 @@ public:
     [[nodiscard]] u32 ID() const { return ChipID; }
     [[nodiscard]] const u8* GetROM() const { return ROM; }
     [[nodiscard]] u32 GetROMLength() const { return ROMLength; }
+
+    [[nodiscard]] bool HasSecureArea() const
+    {
+        const NDSHeader& header = GetHeader();
+        return 0x4000 <= header.ARM9ROMOffset && header.ARM9ROMOffset < 0x8000;
+    }
+
+    [[nodiscard]] u32 SecureAreaOffset() const
+    {
+        return HasSecureArea() ? GetHeader().ARM9ROMOffset : 0;
+    }
+
+    [[nodiscard]] const u8* SecureAreaPosition() const { return HasSecureArea() ? ROM + SecureAreaOffset() : nullptr; }
+    [[nodiscard]] u8* SecureAreaPosition() { return HasSecureArea() ? ROM + SecureAreaOffset() : nullptr; }
+
+    [[nodiscard]] const std::array<u8, 0x800>& SecureArea() const
+    {
+        return *reinterpret_cast<const std::array<u8, 0x800>*>(SecureAreaPosition());
+    }
+
+    [[nodiscard]] SecureAreaState SecureAreaState() const;
+
+    bool EnsureSecureAreaEncrypted();
+    bool EnsureSecureAreaDecrypted();
+
 protected:
     void ReadROM(u32 addr, u32 len, u8* data, u32 offset);
 
@@ -237,8 +282,6 @@ void DeInit();
 void Reset();
 
 void DoSavestate(Savestate* file);
-
-void DecryptSecureArea(u8* out);
 
 /// Parses the given ROM data and constructs a \c NDSCart::CartCommon subclass
 /// that can be inserted into the emulator or used to extract information about the cart beforehand.

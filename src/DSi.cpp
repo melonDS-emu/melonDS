@@ -583,10 +583,10 @@ void SetupDirectBoot()
     u32 arm9start = 0;
 
     // load the ARM9 secure area
-    if (header.ARM9ROMOffset >= 0x4000 && header.ARM9ROMOffset < 0x8000)
+    if (NDSCart::Cart->HasSecureArea())
     {
-        u8 securearea[0x800];
-        NDSCart::DecryptSecureArea(securearea);
+        NDSCart::Cart->EnsureSecureAreaDecrypted();
+        const std::array<u8, 0x800>& securearea = NDSCart::Cart->SecureArea();
 
         for (u32 i = 0; i < 0x800; i+=4)
         {

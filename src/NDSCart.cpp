@@ -16,6 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <assert.h>
 #include <string.h>
 #include "NDS.h"
 #include "DSi.h"
@@ -411,6 +412,134 @@ const NDSBanner* CartCommon::Banner() const
     }
 
     return nullptr;
+}
+
+
+SecureAreaState CartCommon::SecureAreaState() const
+{
+    const NDSHeader& header = GetHeader();
+    if (!(0x4000 <= header.ARM9ROMOffset && header.ARM9ROMOffset < 0x8000))
+        // If the ARM9 ROM start isn't in the range that defines a secure area...
+        return SecureAreaState::None;
+
+    const std::array<u8, 0x800>& securearea = SecureArea();
+
+    if (strncmp((const char*)securearea.data(), "encryObj", 8) == 0)
+    { // If the secure area hasn't been encrypted...
+        return SecureAreaState::Raw;
+    }
+
+    if (*(u32*)&securearea[0] == 0xE7FFDEFF && *(u32*)&securearea[4] == 0xE7FFDEFF)
+    { // If the secure area has tried to be decrypted...
+        if (*(u32*)&securearea[0x10] != 0xE7FFDEFF)
+        { // ...and it succeeded...
+            return SecureAreaState::Decrypted;
+        }
+        else
+        {
+            return SecureAreaState::DecryptionFailed;
+        }
+    }
+
+    return SecureAreaState::Encrypted;
+}
+
+bool CartCommon::EnsureSecureAreaEncrypted()
+{
+    enum SecureAreaState secureareastate = SecureAreaState();
+    switch (secureareastate)
+    {
+    case SecureAreaState::None:
+        Log(LogLevel::Debug, "Cart has no secure area, no action required.\n");
+        return true;
+    case SecureAreaState::Encrypted:
+        Log(LogLevel::Debug, "Secure area is encrypted, no action required.\n");
+        return true;
+    case SecureAreaState::DecryptionFailed:
+        Log(LogLevel::Error, "Secure area was not properly decrypted! The game will likely not run.\n");
+        return false;
+    case SecureAreaState::Raw:
+        Log(LogLevel::Debug, "Secure area is raw and decrypted, encrypting now.\n");
+        break;
+    case SecureAreaState::Decrypted:
+        Log(LogLevel::Debug, "Secure area is decrypted, encrypting now.\n");
+        break;
+    }
+
+    Log(LogLevel::Debug, "Re-encrypting cart secure area\n");
+
+    u8* securearea = SecureAreaPosition();
+    strncpy((char*)securearea, "encryObj", 8);
+
+    Key1_InitKeycode(false, ROMParams.GameCode, 3, 2, NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS));
+    for (u32 i = 0; i < 0x800; i += 8)
+        Key1_Encrypt((u32*)(securearea + i));
+
+    Key1_InitKeycode(false, ROMParams.GameCode, 2, 2, NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS));
+    Key1_Encrypt((u32*)securearea);
+    Log(LogLevel::Debug, "Re-encrypted cart secure area\n");
+
+    return true;
+}
+
+bool CartCommon::EnsureSecureAreaDecrypted()
+{
+    enum SecureAreaState secureareastate = SecureAreaState();
+    switch (secureareastate)
+    {
+    case SecureAreaState::None:
+        Log(LogLevel::Debug, "Cart has no secure area, no action required.\n");
+        return true;
+    case SecureAreaState::Decrypted:
+        Log(LogLevel::Debug, "Secure area already decrypted, no action required.\n");
+        return true;
+    case SecureAreaState::DecryptionFailed:
+        Log(LogLevel::Error, "Secure area was not properly decrypted! The game will likely not run.\n");
+        return false;
+    case SecureAreaState::Raw:
+        Log(LogLevel::Debug, "Secure area is raw and decrypted; overwriting secure area ID.\n");
+        break;
+    case SecureAreaState::Encrypted:
+        Log(LogLevel::Debug, "Secure area is encrypted; decrypting now.\n");
+        break;
+    }
+
+    u8* securearea = ROM + SecureAreaOffset();
+    if (secureareastate == SecureAreaState::Encrypted)
+    {
+        const NDSHeader& header = GetHeader();
+
+        u32 gamecode = header.GameCodeAsU32();
+
+        Key1_InitKeycode(false, gamecode, 2, 2, NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS));
+        Key1_Decrypt((u32*)&securearea[0]);
+
+        Key1_InitKeycode(false, gamecode, 3, 2, NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS));
+        for (u32 i = 0; i < 0x800; i += 8)
+            Key1_Decrypt((u32*)&securearea[i]);
+
+        XXH64_hash_t hash = XXH64(securearea, 0x800, 0);
+        Log(LogLevel::Debug, "Secure area post-decryption xxh64 hash: %zx\n", hash);
+    }
+
+    if (strncmp((const char*)securearea, "encryObj", 8) == 0)
+    {
+        Log(LogLevel::Info, "Secure area decryption OK\n");
+        *(u32*)&securearea[0] = 0xE7FFDEFF;
+        *(u32*)&securearea[4] = 0xE7FFDEFF;
+
+        assert(SecureAreaState() == SecureAreaState::Decrypted);
+        return true;
+    }
+    else
+    {
+        Log(LogLevel::Warn, "Secure area decryption failed\n");
+        for (u32 i = 0; i < 0x800; i += 4)
+            *(u32*)&securearea[i] = 0xE7FFDEFF;
+
+        assert(SecureAreaState() == SecureAreaState::DecryptionFailed);
+        return false;
+    }
 }
 
 CartRetail::CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams) : CartCommon(rom, len, chipid, badDSiDump, romparams)
@@ -1575,41 +1704,6 @@ bool ReadROMParams(u32 gamecode, ROMListEntry* params)
     }
 }
 
-
-void DecryptSecureArea(u8* out)
-{
-    const NDSHeader& header = Cart->GetHeader();
-    const u8* cartrom = Cart->GetROM();
-
-    u32 gamecode = header.GameCodeAsU32();
-    u32 arm9base = header.ARM9ROMOffset;
-
-    memcpy(out, &cartrom[arm9base], 0x800);
-
-    Key1_InitKeycode(false, gamecode, 2, 2, NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS));
-    Key1_Decrypt((u32*)&out[0]);
-
-    Key1_InitKeycode(false, gamecode, 3, 2, NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS));
-    for (u32 i = 0; i < 0x800; i += 8)
-        Key1_Decrypt((u32*)&out[i]);
-
-    XXH64_hash_t hash = XXH64(out, 0x800, 0);
-    Log(LogLevel::Debug, "Secure area post-decryption xxh64 hash: %zx\n", hash);
-
-    if (!strncmp((const char*)out, "encryObj", 8))
-    {
-        Log(LogLevel::Info, "Secure area decryption OK\n");
-        *(u32*)&out[0] = 0xE7FFDEFF;
-        *(u32*)&out[4] = 0xE7FFDEFF;
-    }
-    else
-    {
-        Log(LogLevel::Warn, "Secure area decryption failed\n");
-        for (u32 i = 0; i < 0x800; i += 4)
-            *(u32*)&out[i] = 0xE7FFDEFF;
-    }
-}
-
 std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
 {
     if (romdata == nullptr)
@@ -1747,29 +1841,6 @@ bool InsertROM(std::unique_ptr<CartCommon>&& cart)
     const NDSHeader& header = Cart->GetHeader();
     const ROMListEntry romparams = Cart->GetROMParams();
     const u8* cartrom = Cart->GetROM();
-    if (header.ARM9ROMOffset >= 0x4000 && header.ARM9ROMOffset < 0x8000)
-    {
-        // reencrypt secure area if needed
-        if (*(u32*)&cartrom[header.ARM9ROMOffset] == 0xE7FFDEFF && *(u32*)&cartrom[header.ARM9ROMOffset + 0x10] != 0xE7FFDEFF)
-        {
-            Log(LogLevel::Debug, "Re-encrypting cart secure area\n");
-
-            strncpy((char*)&cartrom[header.ARM9ROMOffset], "encryObj", 8);
-
-            Key1_InitKeycode(false, romparams.GameCode, 3, 2, NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS));
-            for (u32 i = 0; i < 0x800; i += 8)
-                Key1_Encrypt((u32*)&cartrom[header.ARM9ROMOffset + i]);
-
-            Key1_InitKeycode(false, romparams.GameCode, 2, 2, NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS));
-            Key1_Encrypt((u32*)&cartrom[header.ARM9ROMOffset]);
-
-            Log(LogLevel::Debug, "Re-encrypted cart secure area\n");
-        }
-        else
-        {
-            Log(LogLevel::Debug, "No need to re-encrypt cart secure area\n");
-        }
-    }
 
     Log(LogLevel::Info, "Inserted cart with game code: %.4s\n", header.GameCode);
     Log(LogLevel::Info, "Inserted cart with ID: %08X\n", Cart->ID());
