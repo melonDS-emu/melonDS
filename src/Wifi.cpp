@@ -176,6 +176,7 @@ void DeInit()
 
 void Reset()
 {
+    using namespace SPI_Firmware;
     memset(RAM, 0, 0x2000);
     memset(IO, 0, 0x1000);
 
@@ -215,15 +216,15 @@ void Reset()
     }
     #undef BBREG_FIXED
 
-    RFVersion = SPI_Firmware::GetRFVersion();
+    RFVersion = GetFirmware()->Header().RFChipType;
     memset(RFRegs, 0, 4*0x40);
 
-    u8 console = SPI_Firmware::GetConsoleType();
-    if (console == 0xFF)
+    FirmwareConsoleType console = GetFirmware()->Header().ConsoleType;
+    if (console == FirmwareConsoleType::DS)
         IOPORT(0x000) = 0x1440;
-    else if (console == 0x20)
+    else if (console == FirmwareConsoleType::DSLite)
         IOPORT(0x000) = 0xC340;
-    else if (NDS::ConsoleType == 1 && console == 0x57)
+    else if (NDS::ConsoleType == 1 && console == FirmwareConsoleType::DSi)
         IOPORT(0x000) = 0xC340; // DSi has the modern DS-wifi variant
     else
     {
