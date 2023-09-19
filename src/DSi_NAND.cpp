@@ -564,7 +564,7 @@ void PatchUserData()
     for (int i = 0; i < 2; i++)
     {
         char filename[64];
-        sprintf(filename, "0:/shared1/TWLCFG%d.dat", i);
+        snprintf(filename, sizeof(filename), "0:/shared1/TWLCFG%d.dat", i);
 
         FF_FIL file;
         res = f_open(&file, filename, FA_OPEN_EXISTING | FA_READ | FA_WRITE);
@@ -648,7 +648,7 @@ void debug_listfiles(const char* path)
         if (!info.fname[0]) break;
 
         char fullname[512];
-        sprintf(fullname, "%s/%s", path, info.fname);
+        snprintf(fullname, sizeof(fullname), "%s/%s", path, info.fname);
         Log(LogLevel::Debug, "[%c] %s\n", (info.fattrib&AM_DIR)?'D':'F', fullname);
 
         if (info.fattrib & AM_DIR)
@@ -816,7 +816,7 @@ void RemoveDir(const char* path)
         if (!info.fname[0]) break;
 
         char fullname[512];
-        sprintf(fullname, "%s/%s", path, info.fname);
+        snprintf(fullname, sizeof(fullname), "%s/%s", path, info.fname);
 
         if (info.fattrib & AM_RDO)
             f_chmod(path, 0, AM_RDO);
@@ -850,7 +850,7 @@ u32 GetTitleVersion(u32 category, u32 titleid)
 {
     FRESULT res;
     char path[256];
-    sprintf(path, "0:/title/%08x/%08x/content/title.tmd", category, titleid);
+    snprintf(path, sizeof(path), "0:/title/%08x/%08x/content/title.tmd", category, titleid);
     FF_FIL file;
     res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
     if (res != FR_OK)
@@ -872,7 +872,7 @@ void ListTitles(u32 category, std::vector<u32>& titlelist)
     FF_DIR titledir;
     char path[256];
 
-    sprintf(path, "0:/title/%08x", category);
+    snprintf(path, sizeof(path), "0:/title/%08x", category);
     res = f_opendir(&titledir, path);
     if (res != FR_OK)
     {
@@ -898,7 +898,7 @@ void ListTitles(u32 category, std::vector<u32>& titlelist)
         if (version == 0xFFFFFFFF)
             continue;
 
-        sprintf(path, "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
+        snprintf(path, sizeof(path), "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
         FF_FILINFO appinfo;
         res = f_stat(path, &appinfo);
         if (res != FR_OK)
@@ -918,7 +918,7 @@ void ListTitles(u32 category, std::vector<u32>& titlelist)
 bool TitleExists(u32 category, u32 titleid)
 {
     char path[256];
-    sprintf(path, "0:/title/%08x/%08x/content/title.tmd", category, titleid);
+    snprintf(path, sizeof(path), "0:/title/%08x/%08x/content/title.tmd", category, titleid);
 
     FRESULT res = f_stat(path, nullptr);
     return (res == FR_OK);
@@ -933,7 +933,7 @@ void GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, ND
     FRESULT res;
 
     char path[256];
-    sprintf(path, "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
+    snprintf(path, sizeof(path), "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
     FF_FIL file;
     res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
     if (res != FR_OK)
@@ -1098,10 +1098,10 @@ bool InitTitleFileStructure(const NDSHeader& header, const DSi_TMD::TitleMetadat
     u32 nwrite;
 
     // ticket
-    sprintf(fname, "0:/ticket/%08x", titleid0);
+    snprintf(fname, sizeof(fname), "0:/ticket/%08x", titleid0);
     f_mkdir(fname);
 
-    sprintf(fname, "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
     if (!CreateTicket(fname, tmd.GetCategoryNoByteswap(), tmd.GetIDNoByteswap(), header.ROMVersion))
         return false;
 
@@ -1109,29 +1109,29 @@ bool InitTitleFileStructure(const NDSHeader& header, const DSi_TMD::TitleMetadat
 
     // folder
 
-    sprintf(fname, "0:/title/%08x", titleid0);
+    snprintf(fname, sizeof(fname), "0:/title/%08x", titleid0);
     f_mkdir(fname);
-    sprintf(fname, "0:/title/%08x/%08x", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x", titleid0, titleid1);
     f_mkdir(fname);
-    sprintf(fname, "0:/title/%08x/%08x/content", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/content", titleid0, titleid1);
     f_mkdir(fname);
-    sprintf(fname, "0:/title/%08x/%08x/data", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data", titleid0, titleid1);
     f_mkdir(fname);
 
     // data
 
-    sprintf(fname, "0:/title/%08x/%08x/data/public.sav", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/public.sav", titleid0, titleid1);
     if (!CreateSaveFile(fname, header.DSiPublicSavSize))
         return false;
 
-    sprintf(fname, "0:/title/%08x/%08x/data/private.sav", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/private.sav", titleid0, titleid1);
     if (!CreateSaveFile(fname, header.DSiPrivateSavSize))
         return false;
 
     if (header.AppFlags & 0x04)
     {
         // custom banner file
-        sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", titleid0, titleid1);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/banner.sav", titleid0, titleid1);
         res = f_open(&file, fname, FA_CREATE_ALWAYS | FA_WRITE);
         if (res != FR_OK)
         {
@@ -1148,7 +1148,7 @@ bool InitTitleFileStructure(const NDSHeader& header, const DSi_TMD::TitleMetadat
 
     // TMD
 
-    sprintf(fname, "0:/title/%08x/%08x/content/title.tmd", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/content/title.tmd", titleid0, titleid1);
     res = f_open(&file, fname, FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
@@ -1191,7 +1191,7 @@ bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool re
     // executable
 
     char fname[128];
-    sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
     if (!ImportFile(fname, appfile))
     {
         Log(LogLevel::Error, "ImportTitle: failed to create executable\n");
@@ -1227,7 +1227,7 @@ bool ImportTitle(const u8* app, size_t appLength, const DSi_TMD::TitleMetadata& 
     // executable
 
     char fname[128];
-    sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
     if (!ImportFile(fname, app, appLength))
     {
         Log(LogLevel::Error, "ImportTitle: failed to create executable\n");
@@ -1243,10 +1243,10 @@ void DeleteTitle(u32 category, u32 titleid)
 {
     char fname[128];
 
-    sprintf(fname, "0:/ticket/%08x/%08x.tik", category, titleid);
+    snprintf(fname, sizeof(fname), "0:/ticket/%08x/%08x.tik", category, titleid);
     RemoveFile(fname);
 
-    sprintf(fname, "0:/title/%08x/%08x", category, titleid);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x", category, titleid);
     RemoveDir(fname);
 }
 
@@ -1274,15 +1274,15 @@ bool ImportTitleData(u32 category, u32 titleid, int type, const char* file)
     switch (type)
     {
     case TitleData_PublicSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/public.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/public.sav", category, titleid);
         break;
 
     case TitleData_PrivateSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/private.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/private.sav", category, titleid);
         break;
 
     case TitleData_BannerSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/banner.sav", category, titleid);
         break;
 
     default:
@@ -1300,15 +1300,15 @@ bool ExportTitleData(u32 category, u32 titleid, int type, const char* file)
     switch (type)
     {
     case TitleData_PublicSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/public.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/public.sav", category, titleid);
         break;
 
     case TitleData_PrivateSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/private.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/private.sav", category, titleid);
         break;
 
     case TitleData_BannerSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/banner.sav", category, titleid);
         break;
 
     default:
