@@ -364,9 +364,12 @@ void SPI_Firmware::Firmware::UpdateChecksums()
         ap.UpdateChecksum();
     }
 
-    for (SPI_Firmware::ExtendedWifiAccessPoint& eap : ExtendedAccessPoints())
+    if (Header().ConsoleType == FirmwareConsoleType::DSi)
     {
-        eap.UpdateChecksum();
+        for (SPI_Firmware::ExtendedWifiAccessPoint& eap : ExtendedAccessPoints())
+        {
+            eap.UpdateChecksum();
+        }
     }
 
     for (SPI_Firmware::UserData& u : UserData())
