@@ -593,6 +593,8 @@ void Reset()
     NDS::SetConsoleType(Config::ConsoleType);
     if (Config::ConsoleType == 1) EjectGBACart();
     LoadBIOSFiles();
+
+    InstallFirmware();
     NDS::Reset();
     SetBatteryLevels();
 
