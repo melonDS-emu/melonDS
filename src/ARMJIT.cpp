@@ -55,8 +55,11 @@ static_assert(offsetof(ARM, StopExecution) == ARM_StopExecution_offset, "");
 namespace ARMJIT
 {
 
+#ifdef ENABLE_JIT_DEBUGPRINT
+#define JIT_DEBUGPRINT(msg, ...) Platform::Log(Platform::LogLevel::Debug, msg, ## __VA_ARGS__)
+#else
 #define JIT_DEBUGPRINT(msg, ...)
-//#define JIT_DEBUGPRINT(msg, ...) Platform::Log(Platform::LogLevel::Debug, msg, ## __VA_ARGS__)
+#endif
 
 Compiler* JITCompiler;
 
