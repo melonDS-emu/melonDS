@@ -286,6 +286,7 @@ bool Init()
 
 void DeInit()
 {
+    CurrentRenderer = nullptr;
 }
 
 void ResetRenderingState()

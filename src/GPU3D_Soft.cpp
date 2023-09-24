@@ -39,6 +39,7 @@ void SoftRenderer::StopRenderThread()
         Platform::Semaphore_Post(Sema_RenderStart);
         Platform::Thread_Wait(RenderThread);
         Platform::Thread_Free(RenderThread);
+        RenderThread = nullptr;
     }
 }
 
@@ -81,6 +82,7 @@ SoftRenderer::SoftRenderer() noexcept
     Threaded = false;
     RenderThreadRunning = false;
     RenderThreadRendering = false;
+    RenderThread = nullptr;
 }
 
 SoftRenderer::~SoftRenderer()
