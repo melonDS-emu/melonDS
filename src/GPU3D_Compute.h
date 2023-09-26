@@ -19,6 +19,8 @@
 #ifndef GPU3D_COMPUTE
 #define GPU3D_COMPUTE
 
+#include <memory>
+
 #include "GPU3D.h"
 
 #include "OpenGLSupport.h"
@@ -33,11 +35,9 @@ namespace GPU3D
 class ComputeRenderer : public Renderer3D
 {
 public:
-    ComputeRenderer();
+    static std::unique_ptr<ComputeRenderer> New();
     ~ComputeRenderer() override;
 
-    bool Init() override;
-    void DeInit() override;
     void Reset() override;
 
     void SetRenderSettings(GPU::RenderSettings& settings) override;
@@ -51,6 +51,8 @@ public:
     void SetupAccelFrame() override;
     void PrepareCaptureFrame() override;
 private:
+    ComputeRenderer();
+
     GLuint ShaderInterpXSpans[2];
     GLuint ShaderBinCombined;
     GLuint ShaderDepthBlend[2];

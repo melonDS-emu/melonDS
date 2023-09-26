@@ -158,10 +158,10 @@ public:
     virtual u32* GetLine(int line) = 0;
 
     virtual void SetupAccelFrame() {}
+    virtual void PrepareCaptureFrame() {}
 
 protected:
     Renderer3D(bool Accelerated);
-    virtual void PrepareCaptureFrame() {}
 };
 
 extern int Renderer;

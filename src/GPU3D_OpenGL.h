@@ -38,8 +38,6 @@ public:
     virtual u32* GetLine(int line) override;
 
     void SetupAccelFrame() override;
-    void PrepareCaptureFrame();
-
     void PrepareCaptureFrame() override;
 
     static std::unique_ptr<GLRenderer> New() noexcept;

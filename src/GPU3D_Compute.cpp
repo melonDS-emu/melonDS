@@ -31,11 +31,6 @@ ComputeRenderer::ComputeRenderer()
     : Renderer3D(true), Texcache(TexcacheOpenGLLoader())
 {}
 
-ComputeRenderer::~ComputeRenderer()
-{}
-
-
-
 bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, const std::initializer_list<const char*>& defines)
 {
     std::string shaderName;
@@ -67,55 +62,57 @@ void blah(GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,con
     printf("%s\n", message);
 }
 
-bool ComputeRenderer::Init()
+std::unique_ptr<ComputeRenderer> ComputeRenderer::New()
 {
+    std::unique_ptr<ComputeRenderer> result = std::unique_ptr<ComputeRenderer>(new ComputeRenderer());
+
     //glDebugMessageCallback(blah, NULL);
     //glEnable(GL_DEBUG_OUTPUT);
-    glGenBuffers(1, &YSpanSetupMemory);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, YSpanSetupMemory);
+    glGenBuffers(1, &result->YSpanSetupMemory);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, result->YSpanSetupMemory);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SpanSetupY)*MaxYSpanSetups, nullptr, GL_DYNAMIC_DRAW);
     
-    glGenBuffers(1, &RenderPolygonMemory);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, RenderPolygonMemory);
+    glGenBuffers(1, &result->RenderPolygonMemory);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, result->RenderPolygonMemory);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(RenderPolygon)*2048, nullptr, GL_DYNAMIC_DRAW);
 
-    glGenBuffers(1, &XSpanSetupMemory);
-    glGenBuffers(1, &BinResultMemory);
-    glGenBuffers(1, &FinalTileMemory);
-    glGenBuffers(1, &YSpanIndicesTextureMemory);
-    glGenBuffers(tilememoryLayer_Num, TileMemory);
-    glGenBuffers(1, &WorkDescMemory);
+    glGenBuffers(1, &result->XSpanSetupMemory);
+    glGenBuffers(1, &result->BinResultMemory);
+    glGenBuffers(1, &result->FinalTileMemory);
+    glGenBuffers(1, &result->YSpanIndicesTextureMemory);
+    glGenBuffers(tilememoryLayer_Num, result->TileMemory);
+    glGenBuffers(1, &result->WorkDescMemory);
 
-    glGenTextures(1, &YSpanIndicesTexture);
-    glGenTextures(1, &LowResFramebuffer);
-    glBindTexture(GL_TEXTURE_2D, LowResFramebuffer);
+    glGenTextures(1, &result->YSpanIndicesTexture);
+    glGenTextures(1, &result->LowResFramebuffer);
+    glBindTexture(GL_TEXTURE_2D, result->LowResFramebuffer);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8UI, 256, 192);
 
-    glGenBuffers(1, &MetaUniformMemory);
-    glBindBuffer(GL_UNIFORM_BUFFER, MetaUniformMemory);
+    glGenBuffers(1, &result->MetaUniformMemory);
+    glBindBuffer(GL_UNIFORM_BUFFER, result->MetaUniformMemory);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(MetaUniform), nullptr, GL_DYNAMIC_DRAW);
 
-    glGenSamplers(9, Samplers);
+    glGenSamplers(9, result->Samplers);
     for (u32 j = 0; j < 3; j++)
     {
         for (u32 i = 0; i < 3; i++)
         {
             const GLenum translateWrapMode[3] = {GL_CLAMP_TO_EDGE, GL_REPEAT, GL_MIRRORED_REPEAT};
-            glSamplerParameteri(Samplers[i+j*3], GL_TEXTURE_WRAP_S, translateWrapMode[i]);
-            glSamplerParameteri(Samplers[i+j*3], GL_TEXTURE_WRAP_T, translateWrapMode[j]);
-            glSamplerParameteri(Samplers[i+j*3], GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glSamplerParameterf(Samplers[i+j*3], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glSamplerParameteri(result->Samplers[i+j*3], GL_TEXTURE_WRAP_S, translateWrapMode[i]);
+            glSamplerParameteri(result->Samplers[i+j*3], GL_TEXTURE_WRAP_T, translateWrapMode[j]);
+            glSamplerParameteri(result->Samplers[i+j*3], GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glSamplerParameterf(result->Samplers[i+j*3], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         }
     }
 
-    glGenBuffers(1, &PixelBuffer);
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelBuffer);
+    glGenBuffers(1, &result->PixelBuffer);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, result->PixelBuffer);
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
 
-    return true;
+    return result;
 }
 
-void ComputeRenderer::DeInit()
+ComputeRenderer::~ComputeRenderer()
 {
     Texcache.Reset();
 

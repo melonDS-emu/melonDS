@@ -73,7 +73,7 @@ void LoadShaderCache()
 {
     // for now the shader cache only contains only compute shaders
     // because they take the longest to compile
-    FILE* file = Platform::OpenLocalFile("shadercache", "rb");
+    Platform::FileHandle* file = Platform::OpenLocalFile("shadercache", Platform::FileMode::Read);
     if (file == nullptr)
     {
         Log(LogLevel::Error, "Could not find shader cache\n");
@@ -81,19 +81,19 @@ void LoadShaderCache()
     }
 
     u32 magic, version, numPrograms;
-    if (fread(&magic, 4, 1, file) != 1 || magic != ShaderCacheMagic)
+    if (Platform::FileRead(&magic, 4, 1, file) != 1 || magic != ShaderCacheMagic)
     {
         Log(LogLevel::Error, "Shader cache file has invalid magic\n");
         goto fileInvalid;
     }
 
-    if (fread(&version, 4, 1, file) != 1 || version != ShaderCacheVersion)
+    if (Platform::FileRead(&version, 4, 1, file) != 1 || version != ShaderCacheVersion)
     {
         Log(LogLevel::Error, "Shader cache file has bad version\n");
         goto fileInvalid;
     }
 
-    if (fread(&numPrograms, 4, 1, file) != 1)
+    if (Platform::FileRead(&numPrograms, 4, 1, file) != 1)
     {
         Log(LogLevel::Error, "Shader cache file invalid program count\n");
         goto fileInvalid;
@@ -107,9 +107,9 @@ void LoadShaderCache()
 
         u32 length, binaryFormat;
         u64 sourceHash;
-        error -= fread(&sourceHash, 8, 1, file);
-        error -= fread(&length, 4, 1, file);
-        error -= fread(&binaryFormat, 4, 1, file);
+        error -= Platform::FileRead(&sourceHash, 8, 1, file);
+        error -= Platform::FileRead(&length, 4, 1, file);
+        error -= Platform::FileRead(&binaryFormat, 4, 1, file);
 
         if (error != 0)
         {
@@ -118,7 +118,7 @@ void LoadShaderCache()
         }
 
         u8* data = new u8[length];
-        if (fread(data, length, 1, file) != 1)
+        if (Platform::FileRead(data, length, 1, file) != 1)
         {
             Log(LogLevel::Error, "Could not read shader cache entry data\n");
             delete[] data;
@@ -130,14 +130,12 @@ void LoadShaderCache()
     }
 
 fileInvalid:
-    fclose(file);
+    Platform::CloseFile(file);
 }
 
 void SaveShaderCache()
 {
-    FILE* file = Platform::OpenLocalFile("shadercache", "rb+");
-    if (file == nullptr)
-        file = Platform::OpenLocalFile("shadercache", "wb");
+    Platform::FileHandle* file = Platform::OpenLocalFile("shadercache", Platform::FileMode::ReadWrite);
 
     if (file == nullptr)
     {
@@ -147,9 +145,9 @@ void SaveShaderCache()
 
     int written = 3;
     u32 magic = ShaderCacheMagic, version = ShaderCacheVersion, numPrograms = ShaderCache.size();
-    written -= fwrite(&magic, 4, 1, file);
-    written -= fwrite(&version, 4, 1, file);
-    written -= fwrite(&numPrograms, 4, 1, file);
+    written -= Platform::FileWrite(&magic, 4, 1, file);
+    written -= Platform::FileWrite(&version, 4, 1, file);
+    written -= Platform::FileWrite(&numPrograms, 4, 1, file);
 
     if (written != 0)
     {
@@ -157,7 +155,7 @@ void SaveShaderCache()
         goto writeError;
     }
 
-    fseek(file, 0, SEEK_END);
+    Platform::FileSeek(file, 0, Platform::FileSeekOrigin::End);
 
     printf("new shaders %d\n", NewShaders.size());
 
@@ -166,10 +164,10 @@ void SaveShaderCache()
         int error = 4;
         auto it = ShaderCache.find(newShader);
 
-        error -= fwrite(&it->first, 8, 1, file);
-        error -= fwrite(&it->second.Length, 4, 1, file);
-        error -= fwrite(&it->second.BinaryFormat, 4, 1, file);
-        error -= fwrite(it->second.Data, it->second.Length, 1, file);
+        error -= Platform::FileWrite(&it->first, 8, 1, file);
+        error -= Platform::FileWrite(&it->second.Length, 4, 1, file);
+        error -= Platform::FileWrite(&it->second.BinaryFormat, 4, 1, file);
+        error -= Platform::FileWrite(it->second.Data, it->second.Length, 1, file);
 
         if (error != 0)
         {
@@ -179,7 +177,7 @@ void SaveShaderCache()
     }
 
 writeError:
-    fclose(file);
+    Platform::CloseFile(file);
 
     NewShaders.clear();
 }
