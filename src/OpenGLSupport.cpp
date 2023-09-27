@@ -274,12 +274,13 @@ bool CompileComputeProgram(GLuint& result, const std::string& source, const std:
     }*/
     Log(LogLevel::Error, "Shader %s from cache was rejected\n", name.c_str());
 
-    GLuint shader = glCreateShader(GL_COMPUTE_SHADER);
+    GLuint shader;
     bool linkingSucess = false;
-    if (glDeleteProgram)
-    { // If OpenGL isn't loaded, then there's no shader program to delete
+
+    if (!glCreateShader || !glDeleteShader)
         goto error;
-    }
+
+    shader = glCreateShader(GL_COMPUTE_SHADER);
 
     if (!CompilerShader(shader, source, name, "compute"))
         goto error;
