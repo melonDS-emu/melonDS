@@ -64,6 +64,7 @@ typedef std::array<u8, 20> SHA1Hash;
 typedef std::array<u8, 8> TitleID;
 
 /// Firmware settings for the DSi, saved to the NAND as TWLCFG0.dat or TWLCFG1.dat.
+/// The DSi mirrors this information to its own firmware for compatibility with NDS games.
 /// @note The file is normally 16KiB, but only the first 432 bytes are used;
 /// the rest is FF-padded.
 /// This struct excludes the padding.
