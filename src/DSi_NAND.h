@@ -37,6 +37,8 @@ enum
     TitleData_BannerSav,
 };
 
+union DSiFirmwareSystemSettings;
+
 bool Init(u8* es_keyY);
 void DeInit();
 
@@ -46,7 +48,7 @@ void GetIDs(u8* emmc_cid, u64& consoleid);
 
 void ReadHardwareInfo(u8* dataS, u8* dataN);
 
-void ReadUserData(u8* data);
+void ReadUserData(DSiFirmwareSystemSettings& data);
 void PatchUserData();
 
 void ListTitles(u32 category, std::vector<u32>& titlelist);
