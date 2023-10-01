@@ -38,6 +38,8 @@ enum
 };
 
 union DSiFirmwareSystemSettings;
+union DSiSerialData;
+using DSiHardwareInfoN = std::array<u8, 0x9C>;
 
 bool Init(u8* es_keyY);
 void DeInit();
@@ -46,7 +48,7 @@ Platform::FileHandle* GetFile();
 
 void GetIDs(u8* emmc_cid, u64& consoleid);
 
-void ReadHardwareInfo(u8* dataS, u8* dataN);
+void ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN);
 
 void ReadUserData(DSiFirmwareSystemSettings& data);
 void PatchUserData();
@@ -127,6 +129,40 @@ union DSiFirmwareSystemSettings
 };
 
 static_assert(sizeof(DSiFirmwareSystemSettings) == 432, "DSiFirmwareSystemSettings must be exactly 432 bytes");
+
+enum class ConsoleRegion : u8
+{
+    Japan,
+    USA,
+    Europe,
+    Australia,
+    China,
+    Korea,
+};
+
+/// Data file saved to 0:/sys/HWINFO_S.dat.
+/// @note The file is normally 16KiB, but only the first 164 bytes are used;
+/// the rest is FF-padded.
+/// This struct excludes the padding.
+/// @see https://problemkaputt.de/gbatek.htm#dsisdmmcfirmwaremiscfiles
+union DSiSerialData
+{
+    struct
+    {
+        u8 RsaSha1HMAC[0x80];
+        u32 Version;
+        u32 EntrySize;
+        u32 SupportedLanguages;
+        u8 Unknown0[4];
+        ConsoleRegion Region;
+        char Serial[12];
+        u8 Unknown1[3];
+        u8 TitleIDLSBs[4];
+    };
+    u8 Bytes[164];
+};
+
+static_assert(sizeof(DSiSerialData) == 164, "DSiSerialData must be exactly 164 bytes");
 
 }
 

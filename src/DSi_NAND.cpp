@@ -486,7 +486,7 @@ bool ESDecrypt(u8* data, u32 len)
 }
 
 
-void ReadHardwareInfo(u8* dataS, u8* dataN)
+void ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN)
 {
     FF_FIL file;
     FRESULT res;
@@ -495,14 +495,14 @@ void ReadHardwareInfo(u8* dataS, u8* dataN)
     res = f_open(&file, "0:/sys/HWINFO_S.dat", FA_OPEN_EXISTING | FA_READ);
     if (res == FR_OK)
     {
-        f_read(&file, dataS, 0xA4, &nread);
+        f_read(&file, &dataS, sizeof(DSiSerialData), &nread);
         f_close(&file);
     }
 
     res = f_open(&file, "0:/sys/HWINFO_N.dat", FA_OPEN_EXISTING | FA_READ);
     if (res == FR_OK)
     {
-        f_read(&file, dataN, 0x9C, &nread);
+        f_read(&file, dataN.data(), sizeof(dataN), &nread);
         f_close(&file);
     }
 }
