@@ -96,10 +96,10 @@ struct DSiFirmwareSystemSettings
     u8 Unknown1;
     u8 Zero07[3];
     TitleID SystemMenuMostRecentTitleID;
-    u16 TouchCalibrationADC1[2];
-    u8 TouchCalibrationPixel1[2];
-    u16 TouchCalibrationADC2[2];
-    u8 TouchCalibrationPixel2[2];
+    std::array<u16, 2> TouchCalibrationADC1;
+    std::array<u8, 2> TouchCalibrationPixel1;
+    std::array<u16, 2> TouchCalibrationADC2;
+    std::array<u8, 2> TouchCalibrationPixel2;
     u8 Unknown2[4];
     u8 Zero08[4];
     u8 FavoriteColor;
