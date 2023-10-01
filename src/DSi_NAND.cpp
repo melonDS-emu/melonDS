@@ -615,10 +615,7 @@ void PatchUserData()
         contents.TouchCalibrationADC2 = {255 << 4, 191 << 4};
         contents.TouchCalibrationPixel2 = {255, 191};
 
-        SHA1_CTX sha;
-        SHA1Init(&sha);
-        SHA1Update(&sha, &contents.Bytes[0x88], 0x128);
-        SHA1Final(contents.Hash.data(), &sha);
+        contents.UpdateHash();
 
         f_lseek(&file, 0);
         f_write(&file, &contents, sizeof(DSiFirmwareSystemSettings), &nres);
@@ -1312,6 +1309,14 @@ bool ExportTitleData(u32 category, u32 titleid, int type, const char* file)
     }
 
     return ExportFile(fname, file);
+}
+
+void DSiFirmwareSystemSettings::UpdateHash()
+{
+    SHA1_CTX sha;
+    SHA1Init(&sha);
+    SHA1Update(&sha, &Bytes[0x88], 0x128);
+    SHA1Final(Hash.data(), &sha);
 }
 
 }
