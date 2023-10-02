@@ -530,20 +530,20 @@ void SetupDirectBoot()
 
         if (DSi_NAND::Init(&DSi::ARM7iBIOS[0x8308]))
         {
-            u8 userdata[0x1B0];
+            DSi_NAND::DSiFirmwareSystemSettings userdata {};
             DSi_NAND::ReadUserData(userdata);
             for (u32 i = 0; i < 0x128; i+=4)
-                ARM9Write32(0x02000400+i, *(u32*)&userdata[0x88+i]);
+                ARM9Write32(0x02000400+i, *(u32*)&userdata.Bytes[0x88+i]);
 
-            u8 hwinfoS[0xA4];
-            u8 hwinfoN[0x9C];
+            DSi_NAND::DSiSerialData hwinfoS {};
+            DSi_NAND::DSiHardwareInfoN hwinfoN;
             DSi_NAND::ReadHardwareInfo(hwinfoS, hwinfoN);
 
             for (u32 i = 0; i < 0x14; i+=4)
                 ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
 
             for (u32 i = 0; i < 0x18; i+=4)
-                ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS[0x88+i]);
+                ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS.Bytes[0x88+i]);
 
             DSi_NAND::DeInit();
         }

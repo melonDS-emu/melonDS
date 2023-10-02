@@ -486,7 +486,7 @@ bool ESDecrypt(u8* data, u32 len)
 }
 
 
-void ReadHardwareInfo(u8* dataS, u8* dataN)
+void ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN)
 {
     FF_FIL file;
     FRESULT res;
@@ -495,20 +495,20 @@ void ReadHardwareInfo(u8* dataS, u8* dataN)
     res = f_open(&file, "0:/sys/HWINFO_S.dat", FA_OPEN_EXISTING | FA_READ);
     if (res == FR_OK)
     {
-        f_read(&file, dataS, 0xA4, &nread);
+        f_read(&file, &dataS, sizeof(DSiSerialData), &nread);
         f_close(&file);
     }
 
     res = f_open(&file, "0:/sys/HWINFO_N.dat", FA_OPEN_EXISTING | FA_READ);
     if (res == FR_OK)
     {
-        f_read(&file, dataN, 0x9C, &nread);
+        f_read(&file, dataN.data(), sizeof(dataN), &nread);
         f_close(&file);
     }
 }
 
 
-void ReadUserData(u8* data)
+void ReadUserData(DSiFirmwareSystemSettings& data)
 {
     FF_FIL file;
     FRESULT res;
@@ -553,7 +553,7 @@ void ReadUserData(u8* data)
     }
 
     f_lseek(&file, 0);
-    f_read(&file, data, 0x1B0, &nread);
+    f_read(&file, &data, sizeof(DSiFirmwareSystemSettings), &nread);
     f_close(&file);
 }
 
@@ -574,10 +574,10 @@ void PatchUserData()
             continue;
         }
 
-        u8 contents[0x1B0];
+        DSiFirmwareSystemSettings contents;
         u32 nres;
         f_lseek(&file, 0);
-        f_read(&file, contents, 0x1B0, &nres);
+        f_read(&file, &contents, sizeof(DSiFirmwareSystemSettings), &nres);
 
         // override user settings, if needed
         if (Platform::GetConfigBool(Platform::Firm_OverrideSettings))
@@ -586,46 +586,39 @@ void PatchUserData()
             std::string orig_username = Platform::GetConfigString(Platform::Firm_Username);
             std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
             size_t usernameLength = std::min(username.length(), (size_t) 10);
-            memset(contents + 0xD0, 0, 11 * sizeof(char16_t));
-            memcpy(contents + 0xD0, username.data(), usernameLength * sizeof(char16_t));
+            memset(&contents.Nickname, 0, sizeof(contents.Nickname));
+            memcpy(&contents.Nickname, username.data(), usernameLength * sizeof(char16_t));
 
             // setting language
-            contents[0x8E] = Platform::GetConfigInt(Platform::Firm_Language);
+            contents.Language = static_cast<SPI_Firmware::Language>(Platform::GetConfigInt(Platform::Firm_Language));
 
             // setting up color
-            contents[0xCC] = Platform::GetConfigInt(Platform::Firm_Color);
+            contents.FavoriteColor = Platform::GetConfigInt(Platform::Firm_Color);
 
             // setting up birthday
-            contents[0xCE] = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
-            contents[0xCF] = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
+            contents.BirthdayMonth = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
+            contents.BirthdayDay = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
 
             // setup message
             std::string orig_message = Platform::GetConfigString(Platform::Firm_Message);
             std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
             size_t messageLength = std::min(message.length(), (size_t) 26);
-            memset(contents + 0xE6, 0, 27 * sizeof(char16_t));
-            memcpy(contents + 0xE6, message.data(), messageLength * sizeof(char16_t));
+            memset(&contents.Message, 0, sizeof(contents.Message));
+            memcpy(&contents.Message, message.data(), messageLength * sizeof(char16_t));
 
             // TODO: make other items configurable?
         }
 
         // fix touchscreen coords
-        *(u16*)&contents[0xB8] = 0;
-        *(u16*)&contents[0xBA] = 0;
-        contents[0xBC] = 0;
-        contents[0xBD] = 0;
-        *(u16*)&contents[0xBE] = 255<<4;
-        *(u16*)&contents[0xC0] = 191<<4;
-        contents[0xC2] = 255;
-        contents[0xC3] = 191;
+        contents.TouchCalibrationADC1 = {0, 0};
+        contents.TouchCalibrationPixel1 = {0, 0};
+        contents.TouchCalibrationADC2 = {255 << 4, 191 << 4};
+        contents.TouchCalibrationPixel2 = {255, 191};
 
-        SHA1_CTX sha;
-        SHA1Init(&sha);
-        SHA1Update(&sha, &contents[0x88], 0x128);
-        SHA1Final(&contents[0], &sha);
+        contents.UpdateHash();
 
         f_lseek(&file, 0);
-        f_write(&file, contents, 0x1B0, &nres);
+        f_write(&file, &contents, sizeof(DSiFirmwareSystemSettings), &nres);
 
         f_close(&file);
     }
@@ -1316,6 +1309,14 @@ bool ExportTitleData(u32 category, u32 titleid, int type, const char* file)
     }
 
     return ExportFile(fname, file);
+}
+
+void DSiFirmwareSystemSettings::UpdateHash()
+{
+    SHA1_CTX sha;
+    SHA1Init(&sha);
+    SHA1Update(&sha, &Bytes[0x88], 0x128);
+    SHA1Final(Hash.data(), &sha);
 }
 
 }
