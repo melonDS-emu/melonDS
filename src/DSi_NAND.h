@@ -20,12 +20,15 @@
 #define DSI_NAND_H
 
 #include "types.h"
+#include "fatfs/ff.h"
 #include "NDS_Header.h"
 #include "DSi_TMD.h"
 #include "SPI_Firmware.h"
 #include <array>
 #include <vector>
 #include <string>
+
+struct AES_ctx;
 
 namespace DSi_NAND
 {
@@ -40,29 +43,74 @@ enum
 union DSiFirmwareSystemSettings;
 union DSiSerialData;
 using DSiHardwareInfoN = std::array<u8, 0x9C>;
+using DSiKey = std::array<u8, 16>;
 
-bool Init(u8* es_keyY);
-void DeInit();
+class NANDMount
+{
+public:
+    explicit NANDMount(const DSiKey& es_keyY) noexcept;
+    explicit NANDMount(const u8* es_keyY) noexcept;
+    ~NANDMount();
+    NANDMount(const NANDMount&) = delete;
+    NANDMount& operator=(const NANDMount&) = delete;
 
-Platform::FileHandle* GetFile();
+    NANDMount(NANDMount&&) noexcept;
+    NANDMount& operator=(NANDMount&&) noexcept;
 
-void GetIDs(u8* emmc_cid, u64& consoleid);
+    Platform::FileHandle* GetFile() { return CurFile; }
 
-void ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN);
+    [[nodiscard]] const DSiKey& GetEMMCID() const noexcept { return eMMC_CID; }
+    [[nodiscard]] u64 GetConsoleID() const noexcept { return ConsoleID; }
 
-void ReadUserData(DSiFirmwareSystemSettings& data);
-void PatchUserData();
+    void ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN);
 
-void ListTitles(u32 category, std::vector<u32>& titlelist);
-bool TitleExists(u32 category, u32 titleid);
-void GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, NDSBanner* banner);
-bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool readonly);
-bool ImportTitle(const u8* app, size_t appLength, const DSi_TMD::TitleMetadata& tmd, bool readonly);
-void DeleteTitle(u32 category, u32 titleid);
+    void ReadUserData(DSiFirmwareSystemSettings& data);
+    void PatchUserData();
 
-u32 GetTitleDataMask(u32 category, u32 titleid);
-bool ImportTitleData(u32 category, u32 titleid, int type, const char* file);
-bool ExportTitleData(u32 category, u32 titleid, int type, const char* file);
+    void ListTitles(u32 category, std::vector<u32>& titlelist);
+    bool TitleExists(u32 category, u32 titleid);
+    void GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, NDSBanner* banner);
+    bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool readonly);
+    bool ImportTitle(const u8* app, size_t appLength, const DSi_TMD::TitleMetadata& tmd, bool readonly);
+    void DeleteTitle(u32 category, u32 titleid);
+
+    u32 GetTitleDataMask(u32 category, u32 titleid);
+    bool ImportTitleData(u32 category, u32 titleid, int type, const char* file);
+    bool ExportTitleData(u32 category, u32 titleid, int type, const char* file);
+
+    bool ImportFile(const char* path, const u8* data, size_t len);
+    bool ImportFile(const char* path, const char* in);
+    bool ExportFile(const char* path, const char* out);
+    void RemoveFile(const char* path);
+    void RemoveDir(const char* path);
+
+    explicit operator bool() const { return CurFile != nullptr; }
+private:
+    void SetupFATCrypto(AES_ctx* ctx, u32 ctr);
+    u32 ReadFATBlock(u64 addr, u32 len, u8* buf);
+    u32 WriteFATBlock(u64 addr, u32 len, const u8* buf);
+    bool ESEncrypt(u8* data, u32 len);
+    bool ESDecrypt(u8* data, u32 len);
+    u32 GetTitleVersion(u32 category, u32 titleid);
+    bool CreateTicket(const char* path, u32 titleid0, u32 titleid1, u8 version);
+    bool CreateSaveFile(const char* path, u32 len);
+    bool InitTitleFileStructure(const NDSHeader& header, const DSi_TMD::TitleMetadata& tmd, bool readonly);
+    UINT FF_ReadNAND(BYTE* buf, LBA_t sector, UINT num);
+    UINT FF_WriteNAND(const BYTE* buf, LBA_t sector, UINT num);
+
+    Platform::FileHandle* CurFile;
+
+    // We keep a pointer to CurFS because fatfs maintains a global pointer to it;
+    // therefore if we embed the FATFS directly in the object,
+    // we can't give it move semantics.
+    std::unique_ptr<FATFS> CurFS;
+    DSiKey eMMC_CID;
+    u64 ConsoleID;
+    DSiKey FATIV;
+    DSiKey FATKey;
+    DSiKey ESKey;
+};
+
 
 typedef std::array<u8, 20> SHA1Hash;
 typedef std::array<u8, 8> TitleID;

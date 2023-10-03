@@ -32,7 +32,7 @@
 
 using namespace Platform;
 
-bool TitleManagerDialog::NANDInited = false;
+std::unique_ptr<DSi_NAND::NANDMount> TitleManagerDialog::nand = nullptr;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
 
 extern std::string EmuDirectory;
@@ -47,7 +47,7 @@ TitleManagerDialog::TitleManagerDialog(QWidget* parent) : QDialog(parent), ui(ne
 
     const u32 category = 0x00030004;
     std::vector<u32> titlelist;
-    DSi_NAND::ListTitles(category, titlelist);
+    nand->ListTitles(category, titlelist);
 
     for (std::vector<u32>::iterator it = titlelist.begin(); it != titlelist.end(); it++)
     {
@@ -109,7 +109,7 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
     NDSHeader header;
     NDSBanner banner;
 
-    DSi_NAND::GetTitleInfo(category, titleid, version, &header, &banner);
+    nand->GetTitleInfo(category, titleid, version, &header, &banner);
 
     u32 icondata[32*32];
     ROMManager::ROMIcon(banner.Icon, banner.Palette, icondata);
@@ -137,7 +137,7 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
 
 bool TitleManagerDialog::openNAND()
 {
-    NANDInited = false;
+    nand = nullptr;
 
     FileHandle* bios7i = Platform::OpenLocalFile(Config::DSiBIOS7Path, FileMode::Read);
     if (!bios7i)
@@ -148,22 +148,19 @@ bool TitleManagerDialog::openNAND()
     FileRead(es_keyY, 16, 1, bios7i);
     CloseFile(bios7i);
 
-    if (!DSi_NAND::Init(es_keyY))
-    {
+    nand = std::make_unique<DSi_NAND::NANDMount>(es_keyY);
+    if (!*nand)
+    { // If loading and mounting the NAND image failed...
+        nand = nullptr;
         return false;
     }
 
-    NANDInited = true;
     return true;
 }
 
 void TitleManagerDialog::closeNAND()
 {
-    if (NANDInited)
-    {
-        DSi_NAND::DeInit();
-        NANDInited = false;
-    }
+    nand = nullptr;
 }
 
 void TitleManagerDialog::done(int r)
@@ -175,7 +172,7 @@ void TitleManagerDialog::done(int r)
 
 void TitleManagerDialog::on_btnImportTitle_clicked()
 {
-    TitleImportDialog* importdlg = new TitleImportDialog(this, importAppPath, &importTmdData, importReadOnly);
+    TitleImportDialog* importdlg = new TitleImportDialog(this, importAppPath, &importTmdData, importReadOnly, nand);
     importdlg->open();
     connect(importdlg, &TitleImportDialog::finished, this, &TitleManagerDialog::onImportTitleFinished);
 
@@ -190,14 +187,16 @@ void TitleManagerDialog::onImportTitleFinished(int res)
     titleid[0] = importTmdData.GetCategory();
     titleid[1] = importTmdData.GetID();
 
+    assert(nand != nullptr);
+    assert(*nand);
     // remove anything that might hinder the install
-    DSi_NAND::DeleteTitle(titleid[0], titleid[1]);
+    nand->DeleteTitle(titleid[0], titleid[1]);
 
-    bool importres = DSi_NAND::ImportTitle(importAppPath.toStdString().c_str(), importTmdData, importReadOnly);
+    bool importres = nand->ImportTitle(importAppPath.toStdString().c_str(), importTmdData, importReadOnly);
     if (!importres)
     {
         // remove a potential half-completed install
-        DSi_NAND::DeleteTitle(titleid[0], titleid[1]);
+        nand->DeleteTitle(titleid[0], titleid[1]);
 
         QMessageBox::critical(this,
                               "Import title - melonDS",
@@ -224,7 +223,7 @@ void TitleManagerDialog::on_btnDeleteTitle_clicked()
         return;
 
     u64 titleid = cur->data(Qt::UserRole).toULongLong();
-    DSi_NAND::DeleteTitle((u32)(titleid >> 32), (u32)titleid);
+    nand->DeleteTitle((u32)(titleid >> 32), (u32)titleid);
 
     delete cur;
 }
@@ -317,7 +316,7 @@ void TitleManagerDialog::onImportTitleData()
     }
 
     u64 titleid = cur->data(Qt::UserRole).toULongLong();
-    bool res = DSi_NAND::ImportTitleData((u32)(titleid >> 32), (u32)titleid, type, file.toStdString().c_str());
+    bool res = nand->ImportTitleData((u32)(titleid >> 32), (u32)titleid, type, file.toStdString().c_str());
     if (!res)
     {
         QMessageBox::critical(this,
@@ -370,7 +369,7 @@ void TitleManagerDialog::onExportTitleData()
     if (file.isEmpty()) return;
 
     u64 titleid = cur->data(Qt::UserRole).toULongLong();
-    bool res = DSi_NAND::ExportTitleData((u32)(titleid >> 32), (u32)titleid, type, file.toStdString().c_str());
+    bool res = nand->ExportTitleData((u32)(titleid >> 32), (u32)titleid, type, file.toStdString().c_str());
     if (!res)
     {
         QMessageBox::critical(this,
@@ -380,8 +379,8 @@ void TitleManagerDialog::onExportTitleData()
 }
 
 
-TitleImportDialog::TitleImportDialog(QWidget* parent, QString& apppath, const DSi_TMD::TitleMetadata* tmd, bool& readonly)
-: QDialog(parent), ui(new Ui::TitleImportDialog), appPath(apppath), tmdData(tmd), readOnly(readonly)
+TitleImportDialog::TitleImportDialog(QWidget* parent, QString& apppath, const DSi_TMD::TitleMetadata* tmd, bool& readonly, std::unique_ptr<DSi_NAND::NANDMount>& nand)
+: QDialog(parent), ui(new Ui::TitleImportDialog), appPath(apppath), tmdData(tmd), readOnly(readonly), nand(nand)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
@@ -455,7 +454,7 @@ void TitleImportDialog::accept()
         }
     }
 
-    if (DSi_NAND::TitleExists(titleid[1], titleid[0]))
+    if (nand->TitleExists(titleid[1], titleid[0]))
     {
         if (QMessageBox::question(this,
                                   "Import title - melonDS",

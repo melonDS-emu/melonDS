@@ -528,24 +528,22 @@ void SetupDirectBoot()
             ARM9Write32(0x02FFE000+i, tmp);
         }
 
-        if (DSi_NAND::Init(&DSi::ARM7iBIOS[0x8308]))
+        if (DSi_NAND::NANDMount nand = DSi_NAND::NANDMount(&DSi::ARM7iBIOS[0x8308]))
         {
             DSi_NAND::DSiFirmwareSystemSettings userdata {};
-            DSi_NAND::ReadUserData(userdata);
+            nand.ReadUserData(userdata);
             for (u32 i = 0; i < 0x128; i+=4)
                 ARM9Write32(0x02000400+i, *(u32*)&userdata.Bytes[0x88+i]);
 
             DSi_NAND::DSiSerialData hwinfoS {};
             DSi_NAND::DSiHardwareInfoN hwinfoN;
-            DSi_NAND::ReadHardwareInfo(hwinfoS, hwinfoN);
+            nand.ReadHardwareInfo(hwinfoS, hwinfoN);
 
             for (u32 i = 0; i < 0x14; i+=4)
                 ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
 
             for (u32 i = 0; i < 0x18; i+=4)
                 ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS.Bytes[0x88+i]);
-
-            DSi_NAND::DeInit();
         }
 
         SPI_Firmware::WifiBoard nwifiver = SPI_Firmware::GetFirmware()->Header().WifiBoard;
@@ -730,13 +728,14 @@ bool LoadNAND()
 {
     Log(LogLevel::Info, "Loading DSi NAND\n");
 
-    if (!DSi_NAND::Init(&DSi::ARM7iBIOS[0x8308]))
+    DSi_NAND::NANDMount nandmount(&DSi::ARM7iBIOS[0x8308]);
+    if (!nandmount)
     {
         Log(LogLevel::Error, "Failed to load DSi NAND\n");
         return false;
     }
 
-    FileHandle* nand = DSi_NAND::GetFile();
+    FileHandle* nand = nandmount.GetFile();
 
     // Make sure NWRAM is accessible.
     // The Bits are set to the startup values in Reset() and we might
@@ -895,7 +894,8 @@ bool LoadNAND()
 #define printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
 #define printhex_rev(str, size) { for (int z = (size)-1; z >= 0; z--) printf("%02X", (str)[z]); printf("\n"); }
 
-    DSi_NAND::GetIDs(eMMC_CID, ConsoleID);
+    memcpy(eMMC_CID, nandmount.GetEMMCID().data(), sizeof(eMMC_CID));
+    ConsoleID = nandmount.GetConsoleID();
 
     Log(LogLevel::Debug, "eMMC CID: "); printhex(eMMC_CID, 16);
     Log(LogLevel::Debug, "Console ID: %" PRIx64 "\n", ConsoleID);
@@ -939,9 +939,7 @@ bool LoadNAND()
         NDS::ARM7->JumpTo(bootparams[6]);
     }
 
-    DSi_NAND::PatchUserData();
-
-    DSi_NAND::DeInit();
+    nandmount.PatchUserData();
 
     return true;
 }
