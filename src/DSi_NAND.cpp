@@ -22,6 +22,7 @@
 #include "DSi.h"
 #include "DSi_AES.h"
 #include "DSi_NAND.h"
+#include "FATIO.h"
 #include "Platform.h"
 
 #include "sha1/sha1.hpp"

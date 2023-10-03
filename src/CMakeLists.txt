@@ -25,6 +25,7 @@ add_library(core STATIC
     DSi_NWifi.cpp
     DSi_SD.cpp
     DSi_SPI_TSC.cpp
+    FATIO.cpp
     FATStorage.cpp
     FIFO.h
     GBACart.cpp
@@ -51,7 +52,6 @@ add_library(core STATIC
     Wifi.cpp
     WifiAP.cpp
 
-    fatfs/diskio.c
     fatfs/ff.c
     fatfs/ffsystem.c
     fatfs/ffunicode.c
