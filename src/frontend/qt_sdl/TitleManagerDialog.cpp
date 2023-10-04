@@ -38,7 +38,7 @@ TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
 extern std::string EmuDirectory;
 
 
-TitleManagerDialog::TitleManagerDialog(QWidget* parent, DSi_NAND::NANDMount&& mount) : QDialog(parent), ui(new Ui::TitleManagerDialog), nandmount(std::move(mount))
+TitleManagerDialog::TitleManagerDialog(QWidget* parent, DSi_NAND::NANDImage& image) : QDialog(parent), ui(new Ui::TitleManagerDialog), nandmount(image)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);

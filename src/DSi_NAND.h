@@ -88,8 +88,9 @@ public:
     NANDMount(const NANDMount&) = delete;
     NANDMount& operator=(const NANDMount&) = delete;
 
-    NANDMount(NANDMount&&) noexcept;
-    NANDMount& operator=(NANDMount&&) noexcept;
+    // Move constructor deleted so that the closure passed to FATFS can't be invalidated
+    NANDMount(NANDMount&&) = delete;
+    NANDMount& operator=(NANDMount&&) = delete;
 
     void ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN);
 

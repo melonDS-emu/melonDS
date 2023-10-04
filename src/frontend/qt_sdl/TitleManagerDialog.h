@@ -46,7 +46,7 @@ class TitleManagerDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit TitleManagerDialog(QWidget* parent, DSi_NAND::NANDMount&& mount);
+    explicit TitleManagerDialog(QWidget* parent, DSi_NAND::NANDImage& image);
     ~TitleManagerDialog();
 
     static std::unique_ptr<DSi_NAND::NANDImage> nand;
@@ -73,7 +73,7 @@ public:
         assert(nand != nullptr);
         assert(*nand);
 
-        currentDlg = new TitleManagerDialog(parent, DSi_NAND::NANDMount(*nand));
+        currentDlg = new TitleManagerDialog(parent, *nand);
         currentDlg->open();
         return currentDlg;
     }

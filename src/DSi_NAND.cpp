@@ -173,27 +173,6 @@ NANDMount::NANDMount(NANDImage& nand) noexcept : Image(&nand)
 }
 
 
-NANDMount::NANDMount(NANDMount&& other) noexcept :
-    Image(other.Image),
-    CurFS(std::move(other.CurFS))
-{
-    other.Image = nullptr;
-}
-
-
-NANDMount& NANDMount::operator=(NANDMount&& other) noexcept
-{
-    if (this != &other)
-    {
-        Image = other.Image;
-        CurFS = std::move(other.CurFS);
-        other.Image = nullptr;
-    }
-
-    return *this;
-}
-
-
 NANDMount::~NANDMount()
 {
     f_unmount("0:");
