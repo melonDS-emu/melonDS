@@ -35,76 +35,17 @@ using namespace Platform;
 namespace DSi_NAND
 {
 
-NANDMount::NANDMount(const u8* es_keyY) noexcept : NANDMount(*reinterpret_cast<const DSiKey*>(es_keyY))
+NANDImage::NANDImage(Platform::FileHandle* nandfile, const DSiKey& es_keyY) noexcept :
+    CurFile(nandfile)
 {
 }
 
-NANDMount::NANDMount(const DSiKey& es_keyY) noexcept
+NANDImage::NANDImage(Platform::FileHandle* nandfile, const u8* es_keyY) noexcept : NANDImage(nandfile, *reinterpret_cast<const DSiKey*>(es_keyY))
 {
-    CurFile = nullptr;
-
-    std::string nandpath = Platform::GetConfigString(Platform::DSi_NANDPath);
-    std::string instnand = nandpath + Platform::InstanceFileSuffix();
-
-    FileHandle* nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
-    if ((!nandfile) && (Platform::InstanceID() > 0))
-    {
-        FileHandle* orig = Platform::OpenLocalFile(nandpath, FileMode::Read);
-        if (!orig)
-        {
-            Log(LogLevel::Error, "Failed to open DSi NAND\n");
-            return;
-        }
-
-        long len = FileLength(orig);
-
-        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWrite);
-        if (nandfile)
-        {
-            u8* tmpbuf = new u8[0x10000];
-            for (long i = 0; i < len; i+=0x10000)
-            {
-                long blklen = 0x10000;
-                if ((i+blklen) > len) blklen = len-i;
-
-                FileRead(tmpbuf, blklen, 1, orig);
-                FileWrite(tmpbuf, blklen, 1, nandfile);
-            }
-            delete[] tmpbuf;
-        }
-
-        Platform::CloseFile(orig);
-        Platform::CloseFile(nandfile);
-
-        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
-    }
-
     if (!nandfile)
         return;
 
-    u64 nandlen = FileLength(nandfile);
-
-    ff_disk_open(
-        [this](BYTE* buf, LBA_t sector, UINT num) {
-            return this->FF_ReadNAND(buf, sector, num);
-        },
-        [this](const BYTE* buf, LBA_t sector, UINT num) {
-            return this->FF_WriteNAND(buf, sector, num);
-        },
-        (LBA_t)(nandlen>>9)
-    );
-
-    CurFS = std::make_unique<FATFS>();
-
-    FRESULT res;
-    res = f_mount(CurFS.get(), "0:", 0);
-    if (res != FR_OK)
-    {
-        Log(LogLevel::Error, "NAND mounting failed: %d\n", res);
-        f_unmount("0:");
-        ff_disk_close();
-        return;
-    }
+    Length = FileLength(nandfile);
 
     // read the nocash footer
 
@@ -164,18 +105,20 @@ NANDMount::NANDMount(const DSiKey& es_keyY) noexcept
     *(u32*)&keyX[8] = (u32)(ConsoleID >> 32) ^ 0xC80C4B72;
     *(u32*)&keyX[12] = (u32)ConsoleID;
 
-    memcpy(keyY, es_keyY.data(), sizeof (es_keyY));
+    memcpy(keyY, es_keyY, sizeof(keyY));
 
     DSi_AES::DeriveNormalKey(keyX, keyY, tmp);
     Bswap128(ESKey.data(), tmp);
-
-    CurFile = nandfile;
 }
 
+NANDImage::~NANDImage()
+{
+    if (CurFile) CloseFile(CurFile);
+    CurFile = nullptr;
+}
 
-NANDMount::NANDMount(NANDMount&& other) noexcept :
+NANDImage::NANDImage(NANDImage&& other) noexcept :
     CurFile(other.CurFile),
-    CurFS(std::move(other.CurFS)),
     eMMC_CID(other.eMMC_CID),
     ConsoleID(other.ConsoleID),
     FATIV(other.FATIV),
@@ -185,13 +128,11 @@ NANDMount::NANDMount(NANDMount&& other) noexcept :
     other.CurFile = nullptr;
 }
 
-
-NANDMount& NANDMount::operator=(NANDMount&& other) noexcept
+NANDImage& NANDImage::operator=(NANDImage&& other) noexcept
 {
     if (this != &other)
     {
         CurFile = other.CurFile;
-        CurFS = std::move(other.CurFS);
         eMMC_CID = other.eMMC_CID;
         ConsoleID = other.ConsoleID;
         FATIV = other.FATIV;
@@ -204,18 +145,63 @@ NANDMount& NANDMount::operator=(NANDMount&& other) noexcept
     return *this;
 }
 
+NANDMount::NANDMount(NANDImage& nand) noexcept : Image(&nand)
+{
+    if (!nand)
+        return;
+
+    CurFS = std::make_unique<FATFS>();
+    ff_disk_open(
+        [this](BYTE* buf, LBA_t sector, UINT num) {
+            return this->FF_ReadNAND(buf, sector, num);
+        },
+        [this](const BYTE* buf, LBA_t sector, UINT num) {
+            return this->FF_WriteNAND(buf, sector, num);
+        },
+        (LBA_t)(nand.GetLength()>>9)
+    );
+
+    FRESULT res;
+    res = f_mount(CurFS.get(), "0:", 0);
+    if (res != FR_OK)
+    {
+        Log(LogLevel::Error, "NAND mounting failed: %d\n", res);
+        f_unmount("0:");
+        ff_disk_close();
+        return;
+    }
+}
+
+
+NANDMount::NANDMount(NANDMount&& other) noexcept :
+    Image(other.Image),
+    CurFS(std::move(other.CurFS))
+{
+    other.Image = nullptr;
+}
+
+
+NANDMount& NANDMount::operator=(NANDMount&& other) noexcept
+{
+    if (this != &other)
+    {
+        Image = other.Image;
+        CurFS = std::move(other.CurFS);
+        other.Image = nullptr;
+    }
+
+    return *this;
+}
+
 
 NANDMount::~NANDMount()
 {
     f_unmount("0:");
     ff_disk_close();
-
-    if (CurFile) CloseFile(CurFile);
-    CurFile = nullptr;
 }
 
 
-void NANDMount::SetupFATCrypto(AES_ctx* ctx, u32 ctr)
+void NANDImage::SetupFATCrypto(AES_ctx* ctx, u32 ctr)
 {
     u8 iv[16];
     memcpy(iv, FATIV.data(), sizeof(iv));
@@ -239,7 +225,7 @@ void NANDMount::SetupFATCrypto(AES_ctx* ctx, u32 ctr)
     AES_init_ctx_iv(ctx, FATKey.data(), iv);
 }
 
-u32 NANDMount::ReadFATBlock(u64 addr, u32 len, u8* buf)
+u32 NANDImage::ReadFATBlock(u64 addr, u32 len, u8* buf)
 {
     u32 ctr = (u32)(addr >> 4);
 
@@ -261,7 +247,7 @@ u32 NANDMount::ReadFATBlock(u64 addr, u32 len, u8* buf)
     return len;
 }
 
-u32 NANDMount::WriteFATBlock(u64 addr, u32 len, const u8* buf)
+u32 NANDImage::WriteFATBlock(u64 addr, u32 len, const u8* buf)
 {
     u32 ctr = (u32)(addr >> 4);
 
@@ -297,7 +283,7 @@ UINT NANDMount::FF_ReadNAND(BYTE* buf, LBA_t sector, UINT num)
 
     u64 blockaddr = baseaddr + (sector * 0x200ULL);
 
-    u32 res = ReadFATBlock(blockaddr, num*0x200, buf);
+    u32 res = Image->ReadFATBlock(blockaddr, num*0x200, buf);
     return res >> 9;
 }
 
@@ -308,12 +294,12 @@ UINT NANDMount::FF_WriteNAND(const BYTE* buf, LBA_t sector, UINT num)
 
     u64 blockaddr = baseaddr + (sector * 0x200ULL);
 
-    u32 res = WriteFATBlock(blockaddr, num*0x200, buf);
+    u32 res = Image->WriteFATBlock(blockaddr, num*0x200, buf);
     return res >> 9;
 }
 
 
-bool NANDMount::ESEncrypt(u8* data, u32 len)
+bool NANDImage::ESEncrypt(u8* data, u32 len) const
 {
     AES_ctx ctx;
     u8 iv[16];
@@ -398,7 +384,7 @@ bool NANDMount::ESEncrypt(u8* data, u32 len)
     return true;
 }
 
-bool NANDMount::ESDecrypt(u8* data, u32 len)
+bool NANDImage::ESDecrypt(u8* data, u32 len)
 {
     AES_ctx ctx;
     u8 iv[16];
@@ -997,7 +983,7 @@ bool NANDMount::CreateTicket(const char* path, u32 titleid0, u32 titleid1, u8 ve
 
     memset(&ticket[0x222], 0xFF, 0x20);
 
-    ESEncrypt(ticket, 0x2A4);
+    Image->ESEncrypt(ticket, 0x2A4);
 
     f_write(&file, ticket, 0x2C4, &nwrite);
 

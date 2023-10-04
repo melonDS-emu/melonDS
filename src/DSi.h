@@ -22,6 +22,11 @@
 #include "NDS.h"
 #include "DSi_SD.h"
 
+namespace DSi_NAND
+{
+    class NANDImage;
+}
+
 namespace DSi
 {
 

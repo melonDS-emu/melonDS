@@ -45,22 +45,51 @@ union DSiSerialData;
 using DSiHardwareInfoN = std::array<u8, 0x9C>;
 using DSiKey = std::array<u8, 16>;
 
+class NANDImage
+{
+public:
+    explicit NANDImage(Platform::FileHandle* nandfile, const DSiKey& es_keyY) noexcept;
+    explicit NANDImage(Platform::FileHandle* nandfile, const u8* es_keyY) noexcept;
+    ~NANDImage();
+    NANDImage(const NANDImage&) = delete;
+    NANDImage& operator=(const NANDImage&) = delete;
+
+    NANDImage(NANDImage&& other) noexcept;
+    NANDImage& operator=(NANDImage&& other) noexcept;
+
+    Platform::FileHandle* GetFile() { return CurFile; }
+
+    [[nodiscard]] const DSiKey& GetEMMCID() const noexcept { return eMMC_CID; }
+    [[nodiscard]] u64 GetConsoleID() const noexcept { return ConsoleID; }
+    [[nodiscard]] u64 GetLength() const noexcept { return Length; }
+
+    explicit operator bool() const { return CurFile != nullptr; }
+private:
+    friend class NANDMount;
+    void SetupFATCrypto(AES_ctx* ctx, u32 ctr);
+    u32 ReadFATBlock(u64 addr, u32 len, u8* buf);
+    u32 WriteFATBlock(u64 addr, u32 len, const u8* buf);
+    bool ESEncrypt(u8* data, u32 len) const;
+    bool ESDecrypt(u8* data, u32 len);
+    Platform::FileHandle* CurFile;
+    DSiKey eMMC_CID;
+    u64 ConsoleID;
+    DSiKey FATIV;
+    DSiKey FATKey;
+    DSiKey ESKey;
+    u64 Length;
+};
+
 class NANDMount
 {
 public:
-    explicit NANDMount(const DSiKey& es_keyY) noexcept;
-    explicit NANDMount(const u8* es_keyY) noexcept;
+    explicit NANDMount(NANDImage& nand) noexcept;
     ~NANDMount();
     NANDMount(const NANDMount&) = delete;
     NANDMount& operator=(const NANDMount&) = delete;
 
     NANDMount(NANDMount&&) noexcept;
     NANDMount& operator=(NANDMount&&) noexcept;
-
-    Platform::FileHandle* GetFile() { return CurFile; }
-
-    [[nodiscard]] const DSiKey& GetEMMCID() const noexcept { return eMMC_CID; }
-    [[nodiscard]] u64 GetConsoleID() const noexcept { return ConsoleID; }
 
     void ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN);
 
@@ -84,13 +113,8 @@ public:
     void RemoveFile(const char* path);
     void RemoveDir(const char* path);
 
-    explicit operator bool() const { return CurFile != nullptr; }
+    explicit operator bool() const { return Image != nullptr && CurFS != nullptr; }
 private:
-    void SetupFATCrypto(AES_ctx* ctx, u32 ctr);
-    u32 ReadFATBlock(u64 addr, u32 len, u8* buf);
-    u32 WriteFATBlock(u64 addr, u32 len, const u8* buf);
-    bool ESEncrypt(u8* data, u32 len);
-    bool ESDecrypt(u8* data, u32 len);
     u32 GetTitleVersion(u32 category, u32 titleid);
     bool CreateTicket(const char* path, u32 titleid0, u32 titleid1, u8 version);
     bool CreateSaveFile(const char* path, u32 len);
@@ -98,17 +122,13 @@ private:
     UINT FF_ReadNAND(BYTE* buf, LBA_t sector, UINT num);
     UINT FF_WriteNAND(const BYTE* buf, LBA_t sector, UINT num);
 
-    Platform::FileHandle* CurFile;
+    NANDImage* Image;
 
     // We keep a pointer to CurFS because fatfs maintains a global pointer to it;
     // therefore if we embed the FATFS directly in the object,
     // we can't give it move semantics.
     std::unique_ptr<FATFS> CurFS;
-    DSiKey eMMC_CID;
-    u64 ConsoleID;
-    DSiKey FATIV;
-    DSiKey FATKey;
-    DSiKey ESKey;
+
 };
 
 

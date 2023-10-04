@@ -395,6 +395,48 @@ void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
     }
 }
 
+[[deprecated("Will be moved to the frontend")]]
+static Platform::FileHandle* OpenNANDFile() noexcept
+{
+    std::string nandpath = Platform::GetConfigString(Platform::DSi_NANDPath);
+    std::string instnand = nandpath + Platform::InstanceFileSuffix();
+
+    FileHandle* nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
+    if ((!nandfile) && (Platform::InstanceID() > 0))
+    {
+        FileHandle* orig = Platform::OpenLocalFile(nandpath, FileMode::Read);
+        if (!orig)
+        {
+            Log(LogLevel::Error, "Failed to open DSi NAND\n");
+            return nullptr;
+        }
+
+        long len = FileLength(orig);
+
+        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWrite);
+        if (nandfile)
+        {
+            u8* tmpbuf = new u8[0x10000];
+            for (long i = 0; i < len; i+=0x10000)
+            {
+                long blklen = 0x10000;
+                if ((i+blklen) > len) blklen = len-i;
+
+                FileRead(tmpbuf, blklen, 1, orig);
+                FileWrite(tmpbuf, blklen, 1, nandfile);
+            }
+            delete[] tmpbuf;
+        }
+
+        Platform::CloseFile(orig);
+        Platform::CloseFile(nandfile);
+
+        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
+    }
+
+    return nandfile;
+}
+
 void SetupDirectBoot()
 {
     bool dsmode = false;
@@ -528,7 +570,9 @@ void SetupDirectBoot()
             ARM9Write32(0x02FFE000+i, tmp);
         }
 
-        if (DSi_NAND::NANDMount nand = DSi_NAND::NANDMount(&DSi::ARM7iBIOS[0x8308]))
+
+        DSi_NAND::NANDImage nandImage(OpenNANDFile(), &DSi::ARM7iBIOS[0x8308]);
+        if (DSi_NAND::NANDMount nand = DSi_NAND::NANDMount(nandImage))
         {
             DSi_NAND::DSiFirmwareSystemSettings userdata {};
             nand.ReadUserData(userdata);
@@ -728,14 +772,51 @@ bool LoadNAND()
 {
     Log(LogLevel::Info, "Loading DSi NAND\n");
 
-    DSi_NAND::NANDMount nandmount(&DSi::ARM7iBIOS[0x8308]);
+    std::string nandpath = Platform::GetConfigString(Platform::DSi_NANDPath);
+    std::string instnand = nandpath + Platform::InstanceFileSuffix();
+
+    FileHandle* nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
+    if ((!nandfile) && (Platform::InstanceID() > 0))
+    {
+        FileHandle* orig = Platform::OpenLocalFile(nandpath, FileMode::Read);
+        if (!orig)
+        {
+            Log(LogLevel::Error, "Failed to open DSi NAND\n");
+            return false;
+        }
+
+        long len = FileLength(orig);
+
+        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWrite);
+        if (nandfile)
+        {
+            u8* tmpbuf = new u8[0x10000];
+            for (long i = 0; i < len; i+=0x10000)
+            {
+                long blklen = 0x10000;
+                if ((i+blklen) > len) blklen = len-i;
+
+                FileRead(tmpbuf, blklen, 1, orig);
+                FileWrite(tmpbuf, blklen, 1, nandfile);
+            }
+            delete[] tmpbuf;
+        }
+
+        Platform::CloseFile(orig);
+        Platform::CloseFile(nandfile);
+
+        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
+    }
+
+    DSi_NAND::NANDImage nandimage(OpenNANDFile(), &DSi::ARM7iBIOS[0x8308]);
+    DSi_NAND::NANDMount nandmount(nandimage);
     if (!nandmount)
     {
         Log(LogLevel::Error, "Failed to load DSi NAND\n");
         return false;
     }
 
-    FileHandle* nand = nandmount.GetFile();
+    FileHandle* nand = nandimage.GetFile();
 
     // Make sure NWRAM is accessible.
     // The Bits are set to the startup values in Reset() and we might
@@ -894,8 +975,8 @@ bool LoadNAND()
 #define printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
 #define printhex_rev(str, size) { for (int z = (size)-1; z >= 0; z--) printf("%02X", (str)[z]); printf("\n"); }
 
-    memcpy(eMMC_CID, nandmount.GetEMMCID().data(), sizeof(eMMC_CID));
-    ConsoleID = nandmount.GetConsoleID();
+    memcpy(eMMC_CID, nandimage.GetEMMCID().data(), sizeof(eMMC_CID));
+    ConsoleID = nandimage.GetConsoleID();
 
     Log(LogLevel::Debug, "eMMC CID: "); printhex(eMMC_CID, 16);
     Log(LogLevel::Debug, "Console ID: %" PRIx64 "\n", ConsoleID);
