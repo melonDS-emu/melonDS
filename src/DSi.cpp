@@ -772,42 +772,6 @@ bool LoadNAND()
 {
     Log(LogLevel::Info, "Loading DSi NAND\n");
 
-    std::string nandpath = Platform::GetConfigString(Platform::DSi_NANDPath);
-    std::string instnand = nandpath + Platform::InstanceFileSuffix();
-
-    FileHandle* nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
-    if ((!nandfile) && (Platform::InstanceID() > 0))
-    {
-        FileHandle* orig = Platform::OpenLocalFile(nandpath, FileMode::Read);
-        if (!orig)
-        {
-            Log(LogLevel::Error, "Failed to open DSi NAND\n");
-            return false;
-        }
-
-        long len = FileLength(orig);
-
-        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWrite);
-        if (nandfile)
-        {
-            u8* tmpbuf = new u8[0x10000];
-            for (long i = 0; i < len; i+=0x10000)
-            {
-                long blklen = 0x10000;
-                if ((i+blklen) > len) blklen = len-i;
-
-                FileRead(tmpbuf, blklen, 1, orig);
-                FileWrite(tmpbuf, blklen, 1, nandfile);
-            }
-            delete[] tmpbuf;
-        }
-
-        Platform::CloseFile(orig);
-        Platform::CloseFile(nandfile);
-
-        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
-    }
-
     DSi_NAND::NANDImage nandimage(OpenNANDFile(), &DSi::ARM7iBIOS[0x8308]);
     DSi_NAND::NANDMount nandmount(nandimage);
     if (!nandmount)
