@@ -555,7 +555,7 @@ void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset, u32 
 
 }
 
-bool MP_Init()
+/*bool MP_Init()
 {
     return LocalMP::Init();
 }
@@ -563,7 +563,7 @@ bool MP_Init()
 void MP_DeInit()
 {
     return LocalMP::DeInit();
-}
+}*/
 
 void MP_Begin()
 {
