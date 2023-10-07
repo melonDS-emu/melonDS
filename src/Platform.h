@@ -24,6 +24,11 @@
 #include <functional>
 #include <string>
 
+namespace SPI_Firmware
+{
+    class Firmware;
+}
+
 namespace Platform
 {
 
@@ -102,13 +107,6 @@ enum ConfigEntry
 
     ExternalBIOSEnable,
 
-    BIOS9Path,
-    BIOS7Path,
-    FirmwarePath,
-
-    DSi_BIOS9Path,
-    DSi_BIOS7Path,
-    DSi_FirmwarePath,
     DSi_NANDPath,
 
     DLDI_Enable,
@@ -125,7 +123,7 @@ enum ConfigEntry
     DSiSD_FolderSync,
     DSiSD_FolderPath,
 
-    Firm_OverrideSettings,
+    Firm_OverrideSettings [[deprecated("Individual fields can now be overridden")]],
     Firm_Username,
     Firm_Language,
     Firm_BirthdayMonth,
@@ -332,6 +330,13 @@ void Sleep(u64 usecs);
 // writeoffset and writelen indicate which part of the memory was altered
 void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen);
 void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen);
+
+/// Called when the firmware needs to be written back to storage,
+/// after one of the supported write commands finishes execution.
+/// @param firmware The firmware that was just written.
+/// @param writeoffset The offset of the first byte that was written to firmware.
+/// @param writelen The number of bytes that were written to firmware.
+void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset, u32 writelen);
 
 
 // local multiplayer comm interface

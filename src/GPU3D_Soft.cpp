@@ -39,6 +39,7 @@ void SoftRenderer::StopRenderThread()
         Platform::Semaphore_Post(Sema_RenderStart);
         Platform::Thread_Wait(RenderThread);
         Platform::Thread_Free(RenderThread);
+        RenderThread = nullptr;
     }
 }
 
@@ -71,13 +72,8 @@ void SoftRenderer::SetupRenderThread()
 }
 
 
-SoftRenderer::SoftRenderer()
+SoftRenderer::SoftRenderer() noexcept
     : Renderer3D(false)
-{
-
-}
-
-bool SoftRenderer::Init()
 {
     Sema_RenderStart = Platform::Semaphore_Create();
     Sema_RenderDone = Platform::Semaphore_Create();
@@ -86,11 +82,10 @@ bool SoftRenderer::Init()
     Threaded = false;
     RenderThreadRunning = false;
     RenderThreadRendering = false;
-
-    return true;
+    RenderThread = nullptr;
 }
 
-void SoftRenderer::DeInit()
+SoftRenderer::~SoftRenderer()
 {
     StopRenderThread();
 

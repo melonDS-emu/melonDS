@@ -18,6 +18,7 @@
 
 #include "GPU_OpenGL.h"
 
+#include <assert.h>
 #include <cstdio>
 #include <cstring>
 
@@ -32,33 +33,36 @@ namespace GPU
 
 using namespace OpenGL;
 
-bool GLCompositor::Init()
+std::unique_ptr<GLCompositor> GLCompositor::New() noexcept
 {
-    if (!OpenGL::BuildShaderProgram(kCompositorVS, kCompositorFS_Nearest, CompShader[0], "CompositorShader"))
-    //if (!OpenGL::BuildShaderProgram(kCompositorVS, kCompositorFS_Linear, CompShader[0], "CompositorShader"))
-    //if (!OpenGL::BuildShaderProgram(kCompositorVS_xBRZ, kCompositorFS_xBRZ, CompShader[0], "CompositorShader"))
-        return false;
+    assert(glBindAttribLocation != nullptr);
 
-    for (int i = 0; i < 1; i++)
-    {
-        GLint uni_id;
+    std::array<GLuint, 3> CompShader {};
+    if (!OpenGL::BuildShaderProgram(kCompositorVS, kCompositorFS_Nearest, &CompShader[0], "CompositorShader"))
+        return nullptr;
 
-        glBindAttribLocation(CompShader[i][2], 0, "vPosition");
-        glBindAttribLocation(CompShader[i][2], 1, "vTexcoord");
-        glBindFragDataLocation(CompShader[i][2], 0, "oColor");
+    glBindAttribLocation(CompShader[2], 0, "vPosition");
+    glBindAttribLocation(CompShader[2], 1, "vTexcoord");
+    glBindFragDataLocation(CompShader[2], 0, "oColor");
 
-        if (!OpenGL::LinkShaderProgram(CompShader[i]))
-            return false;
+    if (!OpenGL::LinkShaderProgram(CompShader.data()))
+        // OpenGL::LinkShaderProgram already deletes the shader program object
+        // if linking the shaders together failed.
+        return nullptr;
 
-        CompScaleLoc[i] = glGetUniformLocation(CompShader[i][2], "u3DScale");
-        Comp3DXPosLoc[i] = glGetUniformLocation(CompShader[i][2], "u3DXPos");
+    return std::unique_ptr<GLCompositor>(new GLCompositor(CompShader));
+}
 
-        glUseProgram(CompShader[i][2]);
-        uni_id = glGetUniformLocation(CompShader[i][2], "ScreenTex");
-        glUniform1i(uni_id, 0);
-        uni_id = glGetUniformLocation(CompShader[i][2], "_3DTex");
-        glUniform1i(uni_id, 1);
-    }
+GLCompositor::GLCompositor(std::array<GLuint, 3> compShader) noexcept : CompShader(compShader)
+{
+    CompScaleLoc = glGetUniformLocation(CompShader[2], "u3DScale");
+    Comp3DXPosLoc = glGetUniformLocation(CompShader[2], "u3DXPos");
+
+    glUseProgram(CompShader[2]);
+    GLuint screenTextureUniform = glGetUniformLocation(CompShader[2], "ScreenTex");
+    glUniform1i(screenTextureUniform, 0);
+    GLuint _3dTextureUniform = glGetUniformLocation(CompShader[2], "_3DTex");
+    glUniform1i(_3dTextureUniform, 1);
 
     // all this mess is to prevent bleeding
 #define SETVERTEX(i, x, y, offset) \
@@ -119,12 +123,12 @@ bool GLCompositor::Init()
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    return true;
 }
 
-void GLCompositor::DeInit()
+GLCompositor::~GLCompositor()
 {
+    assert(glDeleteFramebuffers != nullptr);
+
     glDeleteFramebuffers(2, CompScreenOutputFB);
     glDeleteTextures(1, &CompScreenInputTex);
     glDeleteTextures(2, CompScreenOutputTex);
@@ -132,8 +136,7 @@ void GLCompositor::DeInit()
     glDeleteVertexArrays(1, &CompVertexArrayID);
     glDeleteBuffers(1, &CompVertexBufferID);
 
-    for (int i = 0; i < 1; i++)
-        OpenGL::DeleteShaderProgram(CompShader[i]);
+    OpenGL::DeleteShaderProgram(CompShader.data());
 }
 
 void GLCompositor::Reset()
@@ -197,11 +200,11 @@ void GLCompositor::RenderFrame()
     glClear(GL_COLOR_BUFFER_BIT);
 
     // TODO: select more shaders (filtering, etc)
-    OpenGL::UseShaderProgram(CompShader[0]);
-    glUniform1ui(CompScaleLoc[0], Scale);
+    OpenGL::UseShaderProgram(CompShader.data());
+    glUniform1ui(CompScaleLoc, Scale);
 
     // TODO: support setting this midframe, if ever needed
-    glUniform1i(Comp3DXPosLoc[0], ((int)GPU3D::RenderXPos << 23) >> 23);
+    glUniform1i(Comp3DXPosLoc, ((int)GPU3D::RenderXPos << 23) >> 23);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, CompScreenInputTex);

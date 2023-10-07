@@ -538,6 +538,9 @@ void EmuThread::run()
             if (ROMManager::GBASave)
                 ROMManager::GBASave->CheckFlush();
 
+            if (ROMManager::FirmwareSave)
+                ROMManager::FirmwareSave->CheckFlush();
+
             if (!oglContext)
             {
                 FrontBufferLock.lock();

@@ -24,6 +24,7 @@
 #include "AREngine.h"
 
 #include <string>
+#include <memory>
 #include <vector>
 
 namespace ROMManager
@@ -34,12 +35,14 @@ extern int CartType;
 
 extern SaveManager* NDSSave;
 extern SaveManager* GBASave;
+extern std::unique_ptr<SaveManager> FirmwareSave;
 
 QString VerifySetup();
 void Reset();
 bool LoadBIOS();
 void ClearBackupState();
 
+bool InstallFirmware();
 bool LoadROM(QStringList filepath, bool reset);
 void EjectCart();
 bool CartInserted();

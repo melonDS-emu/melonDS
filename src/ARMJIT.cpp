@@ -330,6 +330,7 @@ void DeInit()
     ARMJIT_Memory::DeInit();
 
     delete JITCompiler;
+    JITCompiler = nullptr;
 }
 
 void Reset()
