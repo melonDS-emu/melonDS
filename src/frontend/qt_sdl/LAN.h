@@ -41,7 +41,7 @@ struct Player
 {
     int ID;
     char Name[32];
-    int Status; // 0=no player 1=normal 2=host 3=connecting
+    int Status; // 0=no player 1=normal 2=host 3=connecting 4=disconnected
     u32 Address;
 };
 

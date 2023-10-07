@@ -357,9 +357,10 @@ void LANDialog::doUpdatePlayerList()
         QString status;
         switch (player->Status)
         {
-        case 1: status = "Ready"; break;
-        case 2: status = "Host"; break;
+        case 1: status = "Connected"; break;
+        case 2: status = "Game host"; break;
         case 3: status = "Connecting"; break;
+        case 4: status = "Connection lost"; break;
         }
         model->item(i, 2)->setText(status);
 
@@ -370,8 +371,15 @@ void LANDialog::doUpdatePlayerList()
         }
         else
         {
-            QString ping = QString("%0 ms").arg(playerPing[i]);
-            model->item(i, 3)->setText(ping);
+            if (player->Status == 1 || player->Status == 2)
+            {
+                QString ping = QString("%0 ms").arg(playerPing[i]);
+                model->item(i, 3)->setText(ping);
+            }
+            else
+            {
+                model->item(i, 3)->setText("-");
+            }
 
             // note on the player IP display
             // * we make an exception for the host -- the player list is issued by the host, so the host IP would be 127.0.0.1
@@ -491,6 +499,16 @@ void DeInit()
         ENetPacket* packet = RXQueue.front();
         RXQueue.pop();
         enet_packet_destroy(packet);
+    }
+
+    for (int i = 0; i < 16; i++)
+    {
+        if (i == MyPlayer.ID) continue;
+
+        if (RemotePeers[i])
+            enet_peer_disconnect(RemotePeers[i], 0);
+
+        RemotePeers[i] = nullptr;
     }
 
     enet_host_destroy(Host);
@@ -659,9 +677,6 @@ bool StartClient(const char* playername, const char* host)
                 ENetPacket* pkt = enet_packet_create(cmd, 9+sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
                 enet_peer_send(event.peer, 0, pkt);
 
-                RemotePeers[0] = event.peer;
-                event.peer->data = &Players[0];
-
                 conn = 2;
                 break;
             }
@@ -687,6 +702,7 @@ bool StartClient(const char* playername, const char* host)
     LastHostID = -1;
     LastHostPeer = nullptr;
     RemotePeers[0] = peer;
+    peer->data = &Players[0];
 
     Active = true;
     IsHost = false;
@@ -801,6 +817,12 @@ void HostUpdatePlayerList()
     ENetPacket* pkt = enet_packet_create(cmd, 2+sizeof(Players), ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(Host, 0, pkt);
 
+    if (lanDlg)
+        lanDlg->updatePlayerList();
+}
+
+void ClientUpdatePlayerList()
+{
     if (lanDlg)
         lanDlg->updatePlayerList();
 }
@@ -989,6 +1011,10 @@ void ProcessClientEvent(ENetEvent& event)
 
             int id = player->ID;
             RemotePeers[id] = nullptr;
+
+            player->Status = 4;
+
+            ClientUpdatePlayerList();
         }
         break;
 
