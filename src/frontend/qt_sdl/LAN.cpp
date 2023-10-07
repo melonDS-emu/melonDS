@@ -659,6 +659,9 @@ bool StartClient(const char* playername, const char* host)
                 ENetPacket* pkt = enet_packet_create(cmd, 9+sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
                 enet_peer_send(event.peer, 0, pkt);
 
+                RemotePeers[0] = event.peer;
+                event.peer->data = &Players[0];
+
                 conn = 2;
                 break;
             }
@@ -917,6 +920,7 @@ void ProcessHostEvent(ENetEvent& event)
                 {
                     if (event.packet->dataLength != 1) break;
                     Player* player = (Player*)event.peer->data;
+                    //printf("HOST: PLAYER CONNECT %p\n", player);
                     if (!player) break;
 
                     ConnectedBitmask |= (1 << player->ID);
@@ -927,6 +931,7 @@ void ProcessHostEvent(ENetEvent& event)
                 {
                     if (event.packet->dataLength != 1) break;
                     Player* player = (Player*)event.peer->data;
+                    //printf("HOST: PLAYER DISCONNECT %p\n", player);
                     if (!player) break;
 
                     ConnectedBitmask &= ~(1 << player->ID);
@@ -1032,6 +1037,7 @@ void ProcessClientEvent(ENetEvent& event)
                 {
                     if (event.packet->dataLength != 1) break;
                     Player* player = (Player*)event.peer->data;
+                    //printf("CLIENT: PLAYER CONNECT %p\n", player);
                     if (!player) break;
 
                     ConnectedBitmask |= (1 << player->ID);
@@ -1042,6 +1048,7 @@ void ProcessClientEvent(ENetEvent& event)
                 {
                     if (event.packet->dataLength != 1) break;
                     Player* player = (Player*)event.peer->data;
+                    //printf("CLIENT: PLAYER DISCONNECT %p\n", player);
                     if (!player) break;
 
                     ConnectedBitmask &= ~(1 << player->ID);
@@ -1069,7 +1076,7 @@ void ProcessEvent(ENetEvent& event)
 void Process(int type)
 {
     if (!Host) return;
-    printf("Process(%d): %d %d\n", type, RXQueue.empty(), RXQueue.size());
+    //printf("Process(%d): %d %d\n", type, RXQueue.empty(), RXQueue.size());
 
     u32 time_last = SDL_GetTicks();
 
@@ -1115,7 +1122,7 @@ void Process(int type)
         if (event.type == ENET_EVENT_TYPE_RECEIVE && event.channelID == 1)
         {
             MPPacketHeader* header = (MPPacketHeader*)&event.packet->data[0];
-            printf("- enet_host_service: (%d) got MP frame, len=%d type=%08X\n", type, event.packet->dataLength, header->Type);
+            //printf("- enet_host_service: (%d) got MP frame, len=%d type=%08X fc=%04X\n", type, event.packet->dataLength, header->Type, *(u16*)&event.packet->data[sizeof(MPPacketHeader)+12]);
             bool good = true;
             if (event.packet->dataLength < sizeof(MPPacketHeader))
                 good = false;
@@ -1123,9 +1130,7 @@ void Process(int type)
                 good = false;
             else if (header->SenderID == MyPlayer.ID)
                 good = false;
-            //else if ((type != 2) && (header->Type != 0))
-            //    good = false;
-printf("--- frame good? %d\n", good);
+
             if (!good)
             {
                 enet_packet_destroy(event.packet);
@@ -1145,7 +1150,7 @@ printf("--- frame good? %d\n", good);
         }
         else
         {
-            printf("- enet_host_service: got something else, time=%d\n", SDL_GetTicks()-time_last);
+            //printf("- enet_host_service: got something else, time=%d\n", SDL_GetTicks()-time_last);
             ProcessEvent(event);
         }
 
@@ -1330,7 +1335,7 @@ u16 RecvMPReplies(u8* packets, u64 timestamp, u16 aidmask)
         if (RXQueue.empty())
         {
             // no more replies available
-            printf("RecvMPReplies timeout, ret=%04X myinstmask=%04X conn=%04X aidmask=%04X\n", ret, myinstmask, ConnectedBitmask, aidmask);
+            //printf("RecvMPReplies timeout, ret=%04X myinstmask=%04X conn=%04X aidmask=%04X\n", ret, myinstmask, ConnectedBitmask, aidmask);
             return ret;
         }
 
@@ -1365,7 +1370,6 @@ u16 RecvMPReplies(u8* packets, u64 timestamp, u16 aidmask)
                 return ret;
             }
         }
-        else printf("RecvMPReplies received frame but bad (type=%08X ts=%016llX/%016llX)\n", header->Type, header->Timestamp, timestamp);
 
         enet_packet_destroy(enetpacket);
     }
