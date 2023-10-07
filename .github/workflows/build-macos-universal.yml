@@ -28,6 +28,11 @@ jobs:
     steps:
       - name: Create build directory
         run: mkdir -p ${{runner.workspace}}/build/arm64
+        
+      - name: INSTALL ENET
+        run: |
+          arch -arm64 brew update
+          arch -arm64 brew install enet
 
       - name: Configure
         working-directory: ${{runner.workspace}}/build/arm64
@@ -46,6 +51,11 @@ jobs:
     steps:
       - name: Create build directory
         run: mkdir -p ${{runner.workspace}}/build/x86_64
+        
+      - name: INSTALL ENET
+        run: |
+          arch -x86_64 brew update
+          arch -x86_64 brew install enet
 
       - name: Configure
         working-directory: ${{runner.workspace}}/build/x86_64

@@ -19,6 +19,9 @@
 #ifndef INPUT_H
 #define INPUT_H
 
+#include <SDL2/SDL.h>
+#include <QKeyEvent>
+
 #include "types.h"
 
 namespace Input
@@ -29,6 +32,9 @@ extern SDL_Joystick* Joystick;
 
 extern u32 InputMask;
 
+extern bool Touching;
+extern int TouchX, TouchY;
+
 void Init();
 
 // set joystickID before calling openJoystick()
@@ -37,6 +43,11 @@ void CloseJoystick();
 
 void KeyPress(QKeyEvent* event);
 void KeyRelease(QKeyEvent* event);
+
+void ExtHotkeyPress(int id);
+
+void TouchScreen(int x, int y);
+void ReleaseScreen();
 
 void Process();
 

@@ -156,6 +156,28 @@ void DoSavestate(Savestate* file)
 
     // CHECKME/TODO: trust the firmware to stay the same?????
     // embedding the whole firmware in the savestate would be derpo tho??
+    /*file->Var32(&FirmwareLength);
+    if (file->Saving)
+    {
+        file->VarArray(Firmware, FirmwareLength);
+    }
+    else
+    {
+        if (Firmware) delete[] Firmware;
+        Firmware = new u8[FirmwareLength];
+        file->VarArray(Firmware, FirmwareLength);
+
+        FirmwareMask = FirmwareLength - 1;
+
+        u32 userdata = 0x7FE00 & FirmwareMask;
+        if (*(u16*)&Firmware[userdata+0x170] == ((*(u16*)&Firmware[userdata+0x70] + 1) & 0x7F))
+        {
+            if (VerifyCRC16(0xFFFF, userdata+0x100, 0x70, userdata+0x172))
+                userdata += 0x100;
+        }
+
+        UserSettings = userdata;
+    }*/
 
     file->Var32(&Hold);
     file->Var8(&CurCmd);

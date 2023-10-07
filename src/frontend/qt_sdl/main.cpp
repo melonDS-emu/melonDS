@@ -87,7 +87,9 @@
 #include "SPU.h"
 #include "Wifi.h"
 #include "Platform.h"
-#include "LocalMP.h"
+#include "IPC.h"
+#include "LAN.h"
+#include "Netplay.h"
 #include "Config.h"
 #include "DSi_I2C.h"
 
@@ -196,6 +198,8 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
     connect(this, SIGNAL(screenEmphasisToggle()), mainWindow, SLOT(onScreenEmphasisToggled()));
+
+    connect(this, SIGNAL(windowIPCPause(bool)), mainWindow, SLOT(onIPCPause(bool)));
 
     static_cast<ScreenPanelGL*>(mainWindow->panel)->transferLayout(this);
 }
@@ -314,6 +318,11 @@ void EmuThread::run()
 {
     u32 mainScreenPos[3];
 
+    IPC::InitSema();
+    IPC::SetMPRecvTimeout(Config::MPRecvTimeout);
+    LAN::Init();
+    Netplay::Init();
+
     NDS::Init();
 
     mainScreenPos[0] = 0;
@@ -356,6 +365,13 @@ void EmuThread::run()
 
     while (EmuRunning != emuStatus_Exit)
     {
+        if (LAN::Active)
+            LAN::ProcessFrame();
+        else if (Netplay::Active)
+            Netplay::ProcessFrame();
+
+        IPC::ProcessCommands();
+
         Input::Process();
 
         if (Input::HotkeyPressed(HK_FastForwardToggle)) emit windowLimitFPSChange();
@@ -461,7 +477,16 @@ void EmuThread::run()
             }
 
             // process input and hotkeys
-            NDS::SetKeyMask(Input::InputMask);
+            if (Netplay::Active)
+            {
+                Netplay::ProcessInput();
+            }
+            else
+            {
+                NDS::SetKeyMask(Input::InputMask);
+                if (Input::Touching) NDS::TouchScreen(Input::TouchX, Input::TouchY);
+                else                 NDS::ReleaseScreen();
+            }
 
             if (Input::HotkeyPressed(HK_Lid))
             {
@@ -654,6 +679,9 @@ void EmuThread::run()
 
     GPU::DeInitRenderer();
     NDS::DeInit();
+    Netplay::DeInit();
+    LAN::DeInit();
+    IPC::DeInitSema();
     //Platform::LAN_DeInit();
 }
 
@@ -671,6 +699,7 @@ void EmuThread::emuRun()
     // checkme
     emit windowEmuStart();
     AudioInOut::Enable();
+    IPC::SetActive(true);
 }
 
 void EmuThread::initContext()
@@ -695,6 +724,7 @@ void EmuThread::emuPause()
     while (EmuStatus != emuStatus_Paused);
 
     AudioInOut::Disable();
+    IPC::SetActive(false);
 }
 
 void EmuThread::emuUnpause()
@@ -707,6 +737,7 @@ void EmuThread::emuUnpause()
     EmuRunning = PrevEmuStatus;
 
     AudioInOut::Enable();
+    IPC::SetActive(true);
 }
 
 void EmuThread::emuStop()
@@ -715,11 +746,13 @@ void EmuThread::emuStop()
     EmuPauseStack = EmuPauseStackRunning;
 
     AudioInOut::Disable();
+    IPC::SetActive(false);
 }
 
 void EmuThread::emuFrameStep()
 {
     if (EmuPauseStack < EmuPauseStackPauseThreshold) emit windowEmuPause();
+    if (EmuRunning != emuStatus_FrameStep) IPC::SetActive(false);
     EmuRunning = emuStatus_FrameStep;
 }
 
@@ -902,7 +935,7 @@ void ScreenHandler::screenOnMousePress(QMouseEvent* event)
     if (Frontend::GetTouchCoords(x, y, false))
     {
         touching = true;
-        NDS::TouchScreen(x, y);
+        Input::TouchScreen(x, y);
     }
 }
 
@@ -914,7 +947,7 @@ void ScreenHandler::screenOnMouseRelease(QMouseEvent* event)
     if (touching)
     {
         touching = false;
-        NDS::ReleaseScreen();
+        Input::ReleaseScreen();
     }
 }
 
@@ -931,7 +964,7 @@ void ScreenHandler::screenOnMouseMove(QMouseEvent* event)
     int y = event->pos().y();
 
     if (Frontend::GetTouchCoords(x, y, true))
-        NDS::TouchScreen(x, y);
+        Input::TouchScreen(x, y);
 }
 
 void ScreenHandler::screenHandleTablet(QTabletEvent* event)
@@ -949,14 +982,14 @@ void ScreenHandler::screenHandleTablet(QTabletEvent* event)
             if (Frontend::GetTouchCoords(x, y, event->type()==QEvent::TabletMove))
             {
                 touching = true;
-                NDS::TouchScreen(x, y);
+                Input::TouchScreen(x, y);
             }
         }
         break;
     case QEvent::TabletRelease:
         if (touching)
         {
-            NDS::ReleaseScreen();
+            Input::ReleaseScreen();
             touching = false;
         }
         break;
@@ -982,14 +1015,14 @@ void ScreenHandler::screenHandleTouch(QTouchEvent* event)
             if (Frontend::GetTouchCoords(x, y, event->type()==QEvent::TouchUpdate))
             {
                 touching = true;
-                NDS::TouchScreen(x, y);
+                Input::TouchScreen(x, y);
             }
         }
         break;
     case QEvent::TouchEnd:
         if (touching)
         {
-            NDS::ReleaseScreen();
+            Input::ReleaseScreen();
             touching = false;
         }
         break;
@@ -1554,6 +1587,25 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             actMPNewInstance = submenu->addAction("Launch new instance");
             connect(actMPNewInstance, &QAction::triggered, this, &MainWindow::onMPNewInstance);
+
+            submenu->addSeparator();
+
+            actLANStartHost = submenu->addAction("Host LAN game");
+            connect(actLANStartHost, &QAction::triggered, this, &MainWindow::onLANStartHost);
+
+            actLANStartClient = submenu->addAction("Join LAN game");
+            connect(actLANStartClient, &QAction::triggered, this, &MainWindow::onLANStartClient);
+
+            submenu->addSeparator();
+
+            actMPStartHost = submenu->addAction("NETPLAY HOST");
+            connect(actMPStartHost, &QAction::triggered, this, &MainWindow::onMPStartHost);
+
+            actMPStartClient = submenu->addAction("NETPLAY CLIENT");
+            connect(actMPStartClient, &QAction::triggered, this, &MainWindow::onMPStartClient);
+
+            actMPTest = submenu->addAction("NETPLAY GO");
+            connect(actMPTest, &QAction::triggered, this, &MainWindow::onMPTest);
         }
     }
     {
@@ -2315,8 +2367,11 @@ void MainWindow::onOpenFile()
     recentFileList.prepend(filename);
     updateRecentFilesMenu();
 
-    NDS::Start();
-    emuThread->emuRun();
+    if (!Netplay::Active)
+    {
+        NDS::Start();
+        emuThread->emuRun();
+    }
 
     updateCartInserted(false);
 }
@@ -2412,8 +2467,11 @@ void MainWindow::onClickRecentFile()
     recentFileList.prepend(filename);
     updateRecentFilesMenu();
 
-    NDS::Start();
-    emuThread->emuRun();
+    if (!Netplay::Active)
+    {
+        NDS::Start();
+        emuThread->emuRun();
+    }
 
     updateCartInserted(false);
 }
@@ -2436,8 +2494,11 @@ void MainWindow::onBootFirmware()
         return;
     }
 
-    NDS::Start();
-    emuThread->emuRun();
+    if (!Netplay::Active)
+    {
+        NDS::Start();
+        emuThread->emuRun();
+    }
 }
 
 void MainWindow::onInsertCart()
@@ -2706,6 +2767,30 @@ void MainWindow::onPause(bool checked)
         OSD::AddMessage(0, "Resumed");
         pausedManually = false;
     }
+
+    IPC::SendCommandU8(0xFFFF, IPC::Cmd_Pause, (u8)checked);
+}
+
+void MainWindow::onIPCPause(bool pause)
+{
+    // for IPC, using the normal way to trigger a pause (actPause->trigger())
+    // isn't viable, because it would lead to broadcasting more IPC 'pause' messages
+    // so we have to replicate it this way
+
+    actPause->setChecked(pause); // changes visual state, without triggering onPause()
+
+    if (pause)
+    {
+        emuThread->emuPause();
+        OSD::AddMessage(0, "Paused");
+        pausedManually = true;
+    }
+    else
+    {
+        emuThread->emuUnpause();
+        OSD::AddMessage(0, "Resumed");
+        pausedManually = false;
+    }
 }
 
 void MainWindow::onReset()
@@ -2786,6 +2871,34 @@ void MainWindow::onMPNewInstance()
 #endif
 
     newinst.startDetached();
+}
+
+void MainWindow::onLANStartHost()
+{
+    LANStartHostDialog::openDlg(this);
+}
+
+void MainWindow::onLANStartClient()
+{
+    LANStartClientDialog::openDlg(this);
+}
+
+void MainWindow::onMPStartHost()
+{
+    //Netplay::StartHost();
+    NetplayStartHostDialog::openDlg(this);
+}
+
+void MainWindow::onMPStartClient()
+{
+    //Netplay::StartClient();
+    NetplayStartClientDialog::openDlg(this);
+}
+
+void MainWindow::onMPTest()
+{
+    // HAX
+    Netplay::StartGame();
 }
 
 void MainWindow::onOpenEmuSettings()
@@ -2936,7 +3049,7 @@ void MainWindow::onOpenMPSettings()
 void MainWindow::onMPSettingsFinished(int res)
 {
     AudioInOut::AudioMute(mainWindow);
-    LocalMP::SetRecvTimeout(Config::MPRecvTimeout);
+    IPC::SetMPRecvTimeout(Config::MPRecvTimeout);
 
     emuThread->emuUnpause();
 }
@@ -3243,6 +3356,8 @@ int main(int argc, char** argv)
 
     MelonApplication melon(argc, argv);
 
+    IPC::Init();
+
     CLI::CommandLineOptions* options = CLI::ManageArgs(melon);
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
@@ -3357,6 +3472,7 @@ int main(int argc, char** argv)
 
     SDL_Quit();
     Platform::DeInit();
+    IPC::DeInit();
     return ret;
 }
 

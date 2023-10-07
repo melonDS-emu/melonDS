@@ -68,6 +68,8 @@ public:
 
     void updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix);
 
+    void IPCPause(bool pause) { emit windowIPCPause(pause); }
+
 signals:
     void windowUpdate();
     void windowTitleChange(QString title);
@@ -77,6 +79,8 @@ signals:
     void windowEmuPause();
     void windowEmuReset();
     void windowEmuFrameStep();
+
+    void windowIPCPause(bool pause);
 
     void windowLimitFPSChange();
 
@@ -296,6 +300,7 @@ private slots:
     void onQuit();
 
     void onPause(bool checked);
+    void onIPCPause(bool pause);
     void onReset();
     void onStop();
     void onFrameStep();
@@ -306,6 +311,11 @@ private slots:
     void onRAMInfo();
     void onOpenTitleManager();
     void onMPNewInstance();
+    void onLANStartHost();
+    void onLANStartClient();
+    void onMPStartHost();
+    void onMPStartClient();
+    void onMPTest();
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -403,6 +413,11 @@ public:
     QAction* actRAMInfo;
     QAction* actTitleManager;
     QAction* actMPNewInstance;
+    QAction* actLANStartHost;
+    QAction* actLANStartClient;
+    QAction* actMPStartHost;
+    QAction* actMPStartClient;
+    QAction* actMPTest;
 
     QAction* actEmuSettings;
 #ifdef __APPLE__

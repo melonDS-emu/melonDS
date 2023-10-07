@@ -341,8 +341,6 @@ void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset, u32 
 
 // local multiplayer comm interface
 // packet type: DS-style TX header (12 bytes) + original 802.11 frame
-bool MP_Init();
-void MP_DeInit();
 void MP_Begin();
 void MP_End();
 int MP_SendPacket(u8* data, int len, u64 timestamp);

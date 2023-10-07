@@ -37,7 +37,8 @@
 #include "CameraManager.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
-#include "LocalMP.h"
+#include "IPC.h"
+#include "LAN.h"
 #include "OSD.h"
 #include "SPI_Firmware.h"
 
@@ -55,64 +56,6 @@ void emuStop();
 
 namespace Platform
 {
-
-QSharedMemory* IPCBuffer = nullptr;
-int IPCInstanceID;
-
-void IPCInit()
-{
-    IPCInstanceID = 0;
-
-    IPCBuffer = new QSharedMemory("melonIPC");
-
-    if (!IPCBuffer->attach())
-    {
-        Log(LogLevel::Info, "IPC sharedmem doesn't exist. creating\n");
-        if (!IPCBuffer->create(1024))
-        {
-            Log(LogLevel::Error, "IPC sharedmem create failed :(\n");
-            delete IPCBuffer;
-            IPCBuffer = nullptr;
-            return;
-        }
-
-        IPCBuffer->lock();
-        memset(IPCBuffer->data(), 0, IPCBuffer->size());
-        IPCBuffer->unlock();
-    }
-
-    IPCBuffer->lock();
-    u8* data = (u8*)IPCBuffer->data();
-    u16 mask = *(u16*)&data[0];
-    for (int i = 0; i < 16; i++)
-    {
-        if (!(mask & (1<<i)))
-        {
-            IPCInstanceID = i;
-            *(u16*)&data[0] |= (1<<i);
-            break;
-        }
-    }
-    IPCBuffer->unlock();
-
-    Log(LogLevel::Info, "IPC: instance ID %d\n", IPCInstanceID);
-}
-
-void IPCDeInit()
-{
-    if (IPCBuffer)
-    {
-        IPCBuffer->lock();
-        u8* data = (u8*)IPCBuffer->data();
-        *(u16*)&data[0] &= ~(1<<IPCInstanceID);
-        IPCBuffer->unlock();
-
-        IPCBuffer->detach();
-        delete IPCBuffer;
-    }
-    IPCBuffer = nullptr;
-}
-
 
 void Init(int argc, char** argv)
 {
@@ -148,12 +91,13 @@ void Init(int argc, char** argv)
     EmuDirectory = confdir.toStdString();
 #endif
 
-    IPCInit();
+    //IPC::Init();
+    //IPC::SetMPRecvTimeout(Config::MPRecvTimeout);
 }
 
 void DeInit()
 {
-    IPCDeInit();
+    //IPC::DeInit();
 }
 
 void SignalStop(StopReason reason)
@@ -179,12 +123,12 @@ void SignalStop(StopReason reason)
 
 int InstanceID()
 {
-    return IPCInstanceID;
+    return IPC::InstanceID;
 }
 
 std::string InstanceFileSuffix()
 {
-    int inst = IPCInstanceID;
+    int inst = IPC::InstanceID;
     if (inst == 0) return "";
 
     char suffix[16] = {0};
@@ -482,6 +426,8 @@ void Log(LogLevel level, const char* fmt, ...)
 {
     if (fmt == nullptr)
         return;
+    if (level <= LogLevel::Debug)
+        return;
 
     va_list args;
     va_start(args, fmt);
@@ -611,57 +557,67 @@ void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset, u32 
 
 bool MP_Init()
 {
-    return LocalMP::Init();
+    //return LocalMP::Init();
+    return true;
 }
 
 void MP_DeInit()
 {
-    return LocalMP::DeInit();
+    //return LocalMP::DeInit();
 }
 
 void MP_Begin()
 {
-    return LocalMP::Begin();
+    //return IPC::MPBegin();
+    return LAN::MPBegin();
 }
 
 void MP_End()
 {
-    return LocalMP::End();
+    //return IPC::MPEnd();
+    return LAN::MPEnd();
 }
 
 int MP_SendPacket(u8* data, int len, u64 timestamp)
 {
-    return LocalMP::SendPacket(data, len, timestamp);
+    //return IPC::SendMPPacket(data, len, timestamp);
+    return LAN::SendMPPacket(data, len, timestamp);
 }
 
 int MP_RecvPacket(u8* data, u64* timestamp)
 {
-    return LocalMP::RecvPacket(data, timestamp);
+    //return IPC::RecvMPPacket(data, timestamp);
+    return LAN::RecvMPPacket(data, timestamp);
 }
 
 int MP_SendCmd(u8* data, int len, u64 timestamp)
 {
-    return LocalMP::SendCmd(data, len, timestamp);
+    //return IPC::SendMPCmd(data, len, timestamp);
+    return LAN::SendMPCmd(data, len, timestamp);
 }
 
 int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid)
 {
-    return LocalMP::SendReply(data, len, timestamp, aid);
+    //return IPC::SendMPReply(data, len, timestamp, aid);
+    return LAN::SendMPReply(data, len, timestamp, aid);
 }
 
 int MP_SendAck(u8* data, int len, u64 timestamp)
 {
-    return LocalMP::SendAck(data, len, timestamp);
+    //return IPC::SendMPAck(data, len, timestamp);
+    return LAN::SendMPAck(data, len, timestamp);
 }
 
 int MP_RecvHostPacket(u8* data, u64* timestamp)
 {
-    return LocalMP::RecvHostPacket(data, timestamp);
+    //return IPC::RecvMPHostPacket(data, timestamp);
+    return LAN::RecvMPHostPacket(data, timestamp);
 }
 
 u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask)
 {
-    return LocalMP::RecvReplies(data, timestamp, aidmask);
+    //return IPC::RecvMPReplies(data, timestamp, aidmask);
+    return LAN::RecvMPReplies(data, timestamp, aidmask);
 }
 
 bool LAN_Init()

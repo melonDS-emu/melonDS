@@ -30,11 +30,14 @@ int JoystickID;
 SDL_Joystick* Joystick = nullptr;
 
 u32 KeyInputMask, JoyInputMask;
-u32 KeyHotkeyMask, JoyHotkeyMask;
+u32 KeyHotkeyMask, JoyHotkeyMask, ExtHotkeyMask;
 u32 HotkeyMask, LastHotkeyMask;
 u32 HotkeyPress, HotkeyRelease;
 
 u32 InputMask;
+
+bool Touching;
+int TouchX, TouchY;
 
 
 void Init()
@@ -45,8 +48,13 @@ void Init()
 
     KeyHotkeyMask = 0;
     JoyHotkeyMask = 0;
+    ExtHotkeyMask = 0;
     HotkeyMask = 0;
     LastHotkeyMask = 0;
+
+    Touching = false;
+    TouchX = 0;
+    TouchY = 0;
 }
 
 
@@ -184,6 +192,23 @@ bool JoystickButtonDown(int val)
     return false;
 }
 
+void ExtHotkeyPress(int id)
+{
+    ExtHotkeyMask |= (1<<id);
+}
+
+void TouchScreen(int x, int y)
+{
+    TouchX = x;
+    TouchY = y;
+    Touching = true;
+}
+
+void ReleaseScreen()
+{
+    Touching = false;
+}
+
 void Process()
 {
     SDL_JoystickUpdate();
@@ -214,10 +239,11 @@ void Process()
         if (JoystickButtonDown(Config::HKJoyMapping[i]))
             JoyHotkeyMask |= (1<<i);
 
-    HotkeyMask = KeyHotkeyMask | JoyHotkeyMask;
+    HotkeyMask = KeyHotkeyMask | JoyHotkeyMask | ExtHotkeyMask;
     HotkeyPress = HotkeyMask & ~LastHotkeyMask;
     HotkeyRelease = LastHotkeyMask & ~HotkeyMask;
     LastHotkeyMask = HotkeyMask;
+    ExtHotkeyMask = 0;
 }
 
 

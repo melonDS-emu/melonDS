@@ -821,8 +821,8 @@ bool DoSavestate(Savestate* file)
     file->VarArray(SharedWRAM, SharedWRAMSize);
     file->VarArray(ARM7WRAM, ARM7WRAMSize);
 
-    //file->VarArray(ARM9BIOS, 0x1000);
-    //file->VarArray(ARM7BIOS, 0x4000);
+    file->VarArray(ARM9BIOS, 0x1000);
+    file->VarArray(ARM7BIOS, 0x4000);
 
     file->VarArray(ExMemCnt, 2*sizeof(u16));
     file->VarArray(ROMSeed0, 2*8);
@@ -898,7 +898,9 @@ bool DoSavestate(Savestate* file)
     {
         // 'dept of redundancy dept'
         // but we do need to update the mappings
-        MapSharedWRAM(WRAMCnt);
+        u8 wramcnt = WRAMCnt;
+        WRAMCnt ^= 0xFF;
+        MapSharedWRAM(wramcnt);
 
         InitTimings();
         SetGBASlotTimings();

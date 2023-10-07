@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>NetplayDialog</class>
+ <widget class="QDialog" name="NetplayDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>522</width>
+    <height>391</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>NETPLAY SHITO</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_2">
+   <item>
+    <widget class="QLabel" name="lblStatus">
+     <property name="text">
+      <string>STATUS PLACEHOLDER</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTreeView" name="tvPlayerList"/>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
