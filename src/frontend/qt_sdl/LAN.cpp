@@ -865,6 +865,8 @@ void ProcessHostEvent(ENetEvent& event)
             Player* player = (Player*)event.peer->data;
             if (!player) break;
 
+            ConnectedBitmask &= ~(1 << player->ID);
+
             int id = player->ID;
             RemotePeers[id] = nullptr;
 
@@ -982,6 +984,8 @@ void ProcessClientEvent(ENetEvent& event)
         {
             Player* player = (Player*)event.peer->data;
             if (!player) break;
+
+            ConnectedBitmask &= ~(1 << player->ID);
 
             int id = player->ID;
             RemotePeers[id] = nullptr;
