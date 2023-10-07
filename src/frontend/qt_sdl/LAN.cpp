@@ -1063,35 +1063,99 @@ void ProcessEvent(ENetEvent& event)
         ProcessClientEvent(event);
 }
 
-void Process(bool block)
+// 0 = per-frame processing of events and eventual misc. frame
+// 1 = checking if a misc. frame has arrived
+// 2 = waiting for a MP frame
+void Process(int type)
 {
     if (!Host) return;
+    printf("Process(%d): %d %d\n", type, RXQueue.empty(), RXQueue.size());
 
-    if (!RXQueue.empty()) block = false;
-
-    int timeout = block ? MPRecvTimeout : 0;
     u32 time_last = SDL_GetTicks();
+
+    // see if we have queued packets already, get rid of the stale ones
+    // any incoming packet should be consumed by the core quickly, so if
+    // they've been sitting in the queue for more than one frame's time,
+    // we can assume they're stale
+    while (!RXQueue.empty())
+    {
+        ENetPacket* enetpacket = RXQueue.front();
+        MPPacketHeader* header = (MPPacketHeader*)&enetpacket->data[0];
+        u32 packettime = header->Magic;
+
+        if ((packettime > time_last) || (packettime < (time_last - 16)))
+        {
+            RXQueue.pop();
+            enet_packet_destroy(enetpacket);
+        }
+        else
+        {
+            // we got a packet, depending on what the caller wants we might be able to return now
+            if (type == 2) return;
+            if (type == 1)
+            {
+                // if looking for a misc. frame, we shouldn't be receiving a MP frame
+                if (header->Type == 0)
+                    return;
+
+                RXQueue.pop();
+                enet_packet_destroy(enetpacket);
+            }
+
+            break;
+        }
+    }
+
+    int timeout = (type == 2) ? MPRecvTimeout : 0;
+    time_last = SDL_GetTicks();
 
     ENetEvent event;
     while (enet_host_service(Host, &event, timeout) > 0)
     {
         if (event.type == ENET_EVENT_TYPE_RECEIVE && event.channelID == 1)
         {
-            event.packet->userData = event.peer;
-            RXQueue.push(event.packet);
-            if (block) return;
+            MPPacketHeader* header = (MPPacketHeader*)&event.packet->data[0];
+            printf("- enet_host_service: (%d) got MP frame, len=%d type=%08X\n", type, event.packet->dataLength, header->Type);
+            bool good = true;
+            if (event.packet->dataLength < sizeof(MPPacketHeader))
+                good = false;
+            else if (header->Magic != 0x4946494E)
+                good = false;
+            else if (header->SenderID == MyPlayer.ID)
+                good = false;
+            //else if ((type != 2) && (header->Type != 0))
+            //    good = false;
+printf("--- frame good? %d\n", good);
+            if (!good)
+            {
+                enet_packet_destroy(event.packet);
+            }
+            else
+            {
+                // mark this packet with the time it was received
+                header->Magic = SDL_GetTicks();
+
+                event.packet->userData = event.peer;
+                RXQueue.push(event.packet);
+
+                // return now -- if we are receiving MP frames, if we keep going
+                // we'll consume too many even if we have no timeout set
+                return;
+            }
         }
         else
         {
+            printf("- enet_host_service: got something else, time=%d\n", SDL_GetTicks()-time_last);
             ProcessEvent(event);
-            if (block)
-            {
-                u32 time = SDL_GetTicks();
-                if (time < time_last) return;
-                timeout -= (int)(time - time_last);
-                if (timeout <= 0) return;
-                time_last = time;
-            }
+        }
+
+        if (type == 2)
+        {
+            u32 time = SDL_GetTicks();
+            if (time < time_last) return;
+            timeout -= (int)(time - time_last);
+            if (timeout <= 0) return;
+            time_last = time;
         }
     }
 }
@@ -1099,7 +1163,7 @@ void Process(bool block)
 void ProcessFrame()
 {
     ProcessDiscovery();
-    Process(false);
+    Process(0);
 
     FrameCount++;
     if (FrameCount >= 60)
@@ -1184,25 +1248,12 @@ int RecvMPPacketGeneric(u8* packet, bool block, u64* timestamp)
 {
     if (!Host) return 0;
 
-    Process(block);
+    Process(block ? 2 : 1);
     if (RXQueue.empty()) return 0;
 
     ENetPacket* enetpacket = RXQueue.front();
     RXQueue.pop();
     MPPacketHeader* header = (MPPacketHeader*)&enetpacket->data[0];
-    bool good = true;
-    if (enetpacket->dataLength < sizeof(MPPacketHeader))
-        good = false;
-    else if (header->Magic != 0x4946494E)
-        good = false;
-    else if (header->SenderID == MyPlayer.ID)
-        good = false;
-
-    if (!good)
-    {
-        enet_packet_destroy(enetpacket);
-        return 0;
-    }
 
     u32 len = header->Length;
     if (len)
@@ -1275,7 +1326,7 @@ u16 RecvMPReplies(u8* packets, u64 timestamp, u16 aidmask)
 
     for (;;)
     {
-        Process(true);
+        Process(2);
         if (RXQueue.empty())
         {
             // no more replies available
@@ -1287,13 +1338,7 @@ u16 RecvMPReplies(u8* packets, u64 timestamp, u16 aidmask)
         RXQueue.pop();
         MPPacketHeader* header = (MPPacketHeader*)&enetpacket->data[0];
         bool good = true;
-        if (enetpacket->dataLength < sizeof(MPPacketHeader))
-            good = false;
-        else if (header->Magic != 0x4946494E)
-            good = false;
-        else if (header->SenderID == MyPlayer.ID)
-            good = false;
-        else if ((header->Type & 0xFFFF) != 2)
+        if ((header->Type & 0xFFFF) != 2)
             good = false;
         else if (header->Timestamp < (timestamp - 32))
             good = false;
