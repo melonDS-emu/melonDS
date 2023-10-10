@@ -38,9 +38,7 @@ extern u32 SCFG_EXT[2];
 extern u8 ARM9iBIOS[0x10000];
 extern u8 ARM7iBIOS[0x10000];
 
-extern u8 eMMC_CID[16];
-extern u64 ConsoleID;
-
+extern std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
 extern DSi_SDHost* SDMMC;
 extern DSi_SDHost* SDIO;
 

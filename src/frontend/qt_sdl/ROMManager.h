@@ -22,6 +22,7 @@
 #include "types.h"
 #include "SaveManager.h"
 #include "AREngine.h"
+#include "DSi_NAND.h"
 
 #include <string>
 #include <memory>
@@ -40,6 +41,7 @@ bool LoadBIOS();
 void ClearBackupState();
 
 bool InstallFirmware();
+bool InstallNAND(const u8* es_keyY);
 bool LoadROM(QStringList filepath, bool reset);
 void EjectCart();
 bool CartInserted();
