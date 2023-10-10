@@ -35,12 +35,11 @@ using namespace Platform;
 namespace DSi_NAND
 {
 
-NANDImage::NANDImage(Platform::FileHandle* nandfile, const DSiKey& es_keyY) noexcept :
-    CurFile(nandfile)
+NANDImage::NANDImage(Platform::FileHandle* nandfile, const DSiKey& es_keyY) noexcept : NANDImage(nandfile, es_keyY.data())
 {
 }
 
-NANDImage::NANDImage(Platform::FileHandle* nandfile, const u8* es_keyY) noexcept : NANDImage(nandfile, *reinterpret_cast<const DSiKey*>(es_keyY))
+NANDImage::NANDImage(Platform::FileHandle* nandfile, const u8* es_keyY) noexcept
 {
     if (!nandfile)
         return;
@@ -53,20 +52,18 @@ NANDImage::NANDImage(Platform::FileHandle* nandfile, const u8* es_keyY) noexcept
 
     char nand_footer[16];
     const char* nand_footer_ref = "DSi eMMC CID/CPU";
-    FileRead(nand_footer, 1, 16, nandfile);
-    if (memcmp(nand_footer, nand_footer_ref, 16))
+    FileRead(nand_footer, 1, sizeof(nand_footer), nandfile);
+    if (memcmp(nand_footer, nand_footer_ref, sizeof(nand_footer)))
     {
         // There is another copy of the footer at 000FF800h for the case
         // that by external tools the image was cut off
         // See https://problemkaputt.de/gbatek.htm#dsisdmmcimages
         FileSeek(nandfile, 0x000FF800, FileSeekOrigin::Start);
-        FileRead(nand_footer, 1, 16, nandfile);
-        if (memcmp(nand_footer, nand_footer_ref, 16))
+        FileRead(nand_footer, 1, sizeof(nand_footer), nandfile);
+        if (memcmp(nand_footer, nand_footer_ref, sizeof(nand_footer)))
         {
             Log(LogLevel::Error, "ERROR: NAND missing nocash footer\n");
             CloseFile(nandfile);
-            f_unmount("0:");
-            ff_disk_close();
             return;
         }
     }
@@ -109,6 +106,8 @@ NANDImage::NANDImage(Platform::FileHandle* nandfile, const u8* es_keyY) noexcept
 
     DSi_AES::DeriveNormalKey(keyX, keyY, tmp);
     Bswap128(ESKey.data(), tmp);
+
+    CurFile = nandfile;
 }
 
 NANDImage::~NANDImage()

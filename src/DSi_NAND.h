@@ -71,7 +71,7 @@ private:
     u32 WriteFATBlock(u64 addr, u32 len, const u8* buf);
     bool ESEncrypt(u8* data, u32 len) const;
     bool ESDecrypt(u8* data, u32 len);
-    Platform::FileHandle* CurFile;
+    Platform::FileHandle* CurFile = nullptr;
     DSiKey eMMC_CID;
     u64 ConsoleID;
     DSiKey FATIV;
