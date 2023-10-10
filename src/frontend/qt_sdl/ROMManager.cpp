@@ -957,7 +957,7 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
 
 static Platform::FileHandle* OpenNANDFile() noexcept
 {
-    std::string nandpath = Platform::GetConfigString(Platform::DSi_NANDPath);
+    std::string nandpath = Config::DSiNANDPath;
     std::string instnand = nandpath + Platform::InstanceFileSuffix();
 
     FileHandle* nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
