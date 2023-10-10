@@ -20,6 +20,9 @@
 
 #include "OpenGLSupport.h"
 
+#include <array>
+#include <memory>
+
 namespace GPU
 {
 
@@ -28,12 +31,11 @@ struct RenderSettings;
 class GLCompositor
 {
 public:
-    GLCompositor() = default;
+    static std::unique_ptr<GLCompositor> New() noexcept;
     GLCompositor(const GLCompositor&) = delete;
     GLCompositor& operator=(const GLCompositor&) = delete;
+    ~GLCompositor();
 
-    bool Init();
-    void DeInit();
     void Reset();
 
     void SetRenderSettings(RenderSettings& settings);
@@ -42,13 +44,14 @@ public:
     void RenderFrame();
     void BindOutputTexture(int buf);
 private:
+    GLCompositor(std::array<GLuint, 3> CompShader) noexcept;
 
     int Scale;
     int ScreenH, ScreenW;
 
-    GLuint CompShader[1][3];
-    GLuint CompScaleLoc[1];
-    GLuint Comp3DXPosLoc[1];
+    std::array<GLuint, 3> CompShader;
+    GLuint CompScaleLoc;
+    GLuint Comp3DXPosLoc;
 
     GLuint CompVertexBufferID;
     GLuint CompVertexArrayID;

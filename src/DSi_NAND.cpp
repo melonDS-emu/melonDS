@@ -486,7 +486,7 @@ bool ESDecrypt(u8* data, u32 len)
 }
 
 
-void ReadHardwareInfo(u8* dataS, u8* dataN)
+void ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN)
 {
     FF_FIL file;
     FRESULT res;
@@ -495,20 +495,20 @@ void ReadHardwareInfo(u8* dataS, u8* dataN)
     res = f_open(&file, "0:/sys/HWINFO_S.dat", FA_OPEN_EXISTING | FA_READ);
     if (res == FR_OK)
     {
-        f_read(&file, dataS, 0xA4, &nread);
+        f_read(&file, &dataS, sizeof(DSiSerialData), &nread);
         f_close(&file);
     }
 
     res = f_open(&file, "0:/sys/HWINFO_N.dat", FA_OPEN_EXISTING | FA_READ);
     if (res == FR_OK)
     {
-        f_read(&file, dataN, 0x9C, &nread);
+        f_read(&file, dataN.data(), sizeof(dataN), &nread);
         f_close(&file);
     }
 }
 
 
-void ReadUserData(u8* data)
+void ReadUserData(DSiFirmwareSystemSettings& data)
 {
     FF_FIL file;
     FRESULT res;
@@ -553,7 +553,7 @@ void ReadUserData(u8* data)
     }
 
     f_lseek(&file, 0);
-    f_read(&file, data, 0x1B0, &nread);
+    f_read(&file, &data, sizeof(DSiFirmwareSystemSettings), &nread);
     f_close(&file);
 }
 
@@ -564,7 +564,7 @@ void PatchUserData()
     for (int i = 0; i < 2; i++)
     {
         char filename[64];
-        sprintf(filename, "0:/shared1/TWLCFG%d.dat", i);
+        snprintf(filename, sizeof(filename), "0:/shared1/TWLCFG%d.dat", i);
 
         FF_FIL file;
         res = f_open(&file, filename, FA_OPEN_EXISTING | FA_READ | FA_WRITE);
@@ -574,10 +574,10 @@ void PatchUserData()
             continue;
         }
 
-        u8 contents[0x1B0];
+        DSiFirmwareSystemSettings contents;
         u32 nres;
         f_lseek(&file, 0);
-        f_read(&file, contents, 0x1B0, &nres);
+        f_read(&file, &contents, sizeof(DSiFirmwareSystemSettings), &nres);
 
         // override user settings, if needed
         if (Platform::GetConfigBool(Platform::Firm_OverrideSettings))
@@ -586,46 +586,39 @@ void PatchUserData()
             std::string orig_username = Platform::GetConfigString(Platform::Firm_Username);
             std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
             size_t usernameLength = std::min(username.length(), (size_t) 10);
-            memset(contents + 0xD0, 0, 11 * sizeof(char16_t));
-            memcpy(contents + 0xD0, username.data(), usernameLength * sizeof(char16_t));
+            memset(&contents.Nickname, 0, sizeof(contents.Nickname));
+            memcpy(&contents.Nickname, username.data(), usernameLength * sizeof(char16_t));
 
             // setting language
-            contents[0x8E] = Platform::GetConfigInt(Platform::Firm_Language);
+            contents.Language = static_cast<SPI_Firmware::Language>(Platform::GetConfigInt(Platform::Firm_Language));
 
             // setting up color
-            contents[0xCC] = Platform::GetConfigInt(Platform::Firm_Color);
+            contents.FavoriteColor = Platform::GetConfigInt(Platform::Firm_Color);
 
             // setting up birthday
-            contents[0xCE] = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
-            contents[0xCF] = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
+            contents.BirthdayMonth = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
+            contents.BirthdayDay = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
 
             // setup message
             std::string orig_message = Platform::GetConfigString(Platform::Firm_Message);
             std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
             size_t messageLength = std::min(message.length(), (size_t) 26);
-            memset(contents + 0xE6, 0, 27 * sizeof(char16_t));
-            memcpy(contents + 0xE6, message.data(), messageLength * sizeof(char16_t));
+            memset(&contents.Message, 0, sizeof(contents.Message));
+            memcpy(&contents.Message, message.data(), messageLength * sizeof(char16_t));
 
             // TODO: make other items configurable?
         }
 
         // fix touchscreen coords
-        *(u16*)&contents[0xB8] = 0;
-        *(u16*)&contents[0xBA] = 0;
-        contents[0xBC] = 0;
-        contents[0xBD] = 0;
-        *(u16*)&contents[0xBE] = 255<<4;
-        *(u16*)&contents[0xC0] = 191<<4;
-        contents[0xC2] = 255;
-        contents[0xC3] = 191;
+        contents.TouchCalibrationADC1 = {0, 0};
+        contents.TouchCalibrationPixel1 = {0, 0};
+        contents.TouchCalibrationADC2 = {255 << 4, 191 << 4};
+        contents.TouchCalibrationPixel2 = {255, 191};
 
-        SHA1_CTX sha;
-        SHA1Init(&sha);
-        SHA1Update(&sha, &contents[0x88], 0x128);
-        SHA1Final(&contents[0], &sha);
+        contents.UpdateHash();
 
         f_lseek(&file, 0);
-        f_write(&file, contents, 0x1B0, &nres);
+        f_write(&file, &contents, sizeof(DSiFirmwareSystemSettings), &nres);
 
         f_close(&file);
     }
@@ -648,7 +641,7 @@ void debug_listfiles(const char* path)
         if (!info.fname[0]) break;
 
         char fullname[512];
-        sprintf(fullname, "%s/%s", path, info.fname);
+        snprintf(fullname, sizeof(fullname), "%s/%s", path, info.fname);
         Log(LogLevel::Debug, "[%c] %s\n", (info.fattrib&AM_DIR)?'D':'F', fullname);
 
         if (info.fattrib & AM_DIR)
@@ -816,7 +809,7 @@ void RemoveDir(const char* path)
         if (!info.fname[0]) break;
 
         char fullname[512];
-        sprintf(fullname, "%s/%s", path, info.fname);
+        snprintf(fullname, sizeof(fullname), "%s/%s", path, info.fname);
 
         if (info.fattrib & AM_RDO)
             f_chmod(path, 0, AM_RDO);
@@ -850,7 +843,7 @@ u32 GetTitleVersion(u32 category, u32 titleid)
 {
     FRESULT res;
     char path[256];
-    sprintf(path, "0:/title/%08x/%08x/content/title.tmd", category, titleid);
+    snprintf(path, sizeof(path), "0:/title/%08x/%08x/content/title.tmd", category, titleid);
     FF_FIL file;
     res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
     if (res != FR_OK)
@@ -872,7 +865,7 @@ void ListTitles(u32 category, std::vector<u32>& titlelist)
     FF_DIR titledir;
     char path[256];
 
-    sprintf(path, "0:/title/%08x", category);
+    snprintf(path, sizeof(path), "0:/title/%08x", category);
     res = f_opendir(&titledir, path);
     if (res != FR_OK)
     {
@@ -898,7 +891,7 @@ void ListTitles(u32 category, std::vector<u32>& titlelist)
         if (version == 0xFFFFFFFF)
             continue;
 
-        sprintf(path, "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
+        snprintf(path, sizeof(path), "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
         FF_FILINFO appinfo;
         res = f_stat(path, &appinfo);
         if (res != FR_OK)
@@ -918,7 +911,7 @@ void ListTitles(u32 category, std::vector<u32>& titlelist)
 bool TitleExists(u32 category, u32 titleid)
 {
     char path[256];
-    sprintf(path, "0:/title/%08x/%08x/content/title.tmd", category, titleid);
+    snprintf(path, sizeof(path), "0:/title/%08x/%08x/content/title.tmd", category, titleid);
 
     FRESULT res = f_stat(path, nullptr);
     return (res == FR_OK);
@@ -933,7 +926,7 @@ void GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, ND
     FRESULT res;
 
     char path[256];
-    sprintf(path, "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
+    snprintf(path, sizeof(path), "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
     FF_FIL file;
     res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
     if (res != FR_OK)
@@ -1098,10 +1091,10 @@ bool InitTitleFileStructure(const NDSHeader& header, const DSi_TMD::TitleMetadat
     u32 nwrite;
 
     // ticket
-    sprintf(fname, "0:/ticket/%08x", titleid0);
+    snprintf(fname, sizeof(fname), "0:/ticket/%08x", titleid0);
     f_mkdir(fname);
 
-    sprintf(fname, "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
     if (!CreateTicket(fname, tmd.GetCategoryNoByteswap(), tmd.GetIDNoByteswap(), header.ROMVersion))
         return false;
 
@@ -1109,29 +1102,29 @@ bool InitTitleFileStructure(const NDSHeader& header, const DSi_TMD::TitleMetadat
 
     // folder
 
-    sprintf(fname, "0:/title/%08x", titleid0);
+    snprintf(fname, sizeof(fname), "0:/title/%08x", titleid0);
     f_mkdir(fname);
-    sprintf(fname, "0:/title/%08x/%08x", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x", titleid0, titleid1);
     f_mkdir(fname);
-    sprintf(fname, "0:/title/%08x/%08x/content", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/content", titleid0, titleid1);
     f_mkdir(fname);
-    sprintf(fname, "0:/title/%08x/%08x/data", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data", titleid0, titleid1);
     f_mkdir(fname);
 
     // data
 
-    sprintf(fname, "0:/title/%08x/%08x/data/public.sav", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/public.sav", titleid0, titleid1);
     if (!CreateSaveFile(fname, header.DSiPublicSavSize))
         return false;
 
-    sprintf(fname, "0:/title/%08x/%08x/data/private.sav", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/private.sav", titleid0, titleid1);
     if (!CreateSaveFile(fname, header.DSiPrivateSavSize))
         return false;
 
     if (header.AppFlags & 0x04)
     {
         // custom banner file
-        sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", titleid0, titleid1);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/banner.sav", titleid0, titleid1);
         res = f_open(&file, fname, FA_CREATE_ALWAYS | FA_WRITE);
         if (res != FR_OK)
         {
@@ -1148,7 +1141,7 @@ bool InitTitleFileStructure(const NDSHeader& header, const DSi_TMD::TitleMetadat
 
     // TMD
 
-    sprintf(fname, "0:/title/%08x/%08x/content/title.tmd", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/content/title.tmd", titleid0, titleid1);
     res = f_open(&file, fname, FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
@@ -1191,7 +1184,7 @@ bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool re
     // executable
 
     char fname[128];
-    sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
     if (!ImportFile(fname, appfile))
     {
         Log(LogLevel::Error, "ImportTitle: failed to create executable\n");
@@ -1227,7 +1220,7 @@ bool ImportTitle(const u8* app, size_t appLength, const DSi_TMD::TitleMetadata& 
     // executable
 
     char fname[128];
-    sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
     if (!ImportFile(fname, app, appLength))
     {
         Log(LogLevel::Error, "ImportTitle: failed to create executable\n");
@@ -1243,10 +1236,10 @@ void DeleteTitle(u32 category, u32 titleid)
 {
     char fname[128];
 
-    sprintf(fname, "0:/ticket/%08x/%08x.tik", category, titleid);
+    snprintf(fname, sizeof(fname), "0:/ticket/%08x/%08x.tik", category, titleid);
     RemoveFile(fname);
 
-    sprintf(fname, "0:/title/%08x/%08x", category, titleid);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x", category, titleid);
     RemoveDir(fname);
 }
 
@@ -1274,15 +1267,15 @@ bool ImportTitleData(u32 category, u32 titleid, int type, const char* file)
     switch (type)
     {
     case TitleData_PublicSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/public.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/public.sav", category, titleid);
         break;
 
     case TitleData_PrivateSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/private.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/private.sav", category, titleid);
         break;
 
     case TitleData_BannerSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/banner.sav", category, titleid);
         break;
 
     default:
@@ -1300,15 +1293,15 @@ bool ExportTitleData(u32 category, u32 titleid, int type, const char* file)
     switch (type)
     {
     case TitleData_PublicSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/public.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/public.sav", category, titleid);
         break;
 
     case TitleData_PrivateSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/private.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/private.sav", category, titleid);
         break;
 
     case TitleData_BannerSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/banner.sav", category, titleid);
         break;
 
     default:
@@ -1316,6 +1309,14 @@ bool ExportTitleData(u32 category, u32 titleid, int type, const char* file)
     }
 
     return ExportFile(fname, file);
+}
+
+void DSiFirmwareSystemSettings::UpdateHash()
+{
+    SHA1_CTX sha;
+    SHA1Init(&sha);
+    SHA1Update(&sha, &Bytes[0x88], 0x128);
+    SHA1Final(Hash.data(), &sha);
 }
 
 }

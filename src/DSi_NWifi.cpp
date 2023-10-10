@@ -147,6 +147,7 @@ DSi_NWifi::~DSi_NWifi()
 
 void DSi_NWifi::Reset()
 {
+    using namespace SPI_Firmware;
     TransferCmd = 0xFFFFFFFF;
     RemSize = 0;
 
@@ -163,26 +164,26 @@ void DSi_NWifi::Reset()
     for (int i = 0; i < 9; i++)
         Mailbox[i].Clear();
 
-    u8* mac = SPI_Firmware::GetWifiMAC();
+    MacAddress mac = GetFirmware()->Header().MacAddress;
     Log(LogLevel::Info, "NWifi MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-    u8 type = SPI_Firmware::GetNWifiVersion();
+    WifiBoard type = GetFirmware()->Header().WifiBoard;
     switch (type)
     {
-    case 1: // AR6002
+    case WifiBoard::W015: // AR6002
         ROMID = 0x20000188;
         ChipID = 0x02000001;
         HostIntAddr = 0x00500400;
         break;
 
-    case 2: // AR6013
+    case WifiBoard::W024: // AR6013
         ROMID = 0x23000024;
         ChipID = 0x0D000000;
         HostIntAddr = 0x00520000;
         break;
 
-    case 3: // AR6014 (3DS)
+    case WifiBoard::W028: // AR6014 (3DS)
         ROMID = 0x2300006F;
         ChipID = 0x0D000001;
         HostIntAddr = 0x00520000;
@@ -190,7 +191,7 @@ void DSi_NWifi::Reset()
         break;
 
     default:
-        Log(LogLevel::Warn, "NWifi: unknown hardware type, assuming AR6002\n");
+        Log(LogLevel::Warn, "NWifi: unknown hardware type 0x%x, assuming AR6002\n", static_cast<u8>(type));
         ROMID = 0x20000188;
         ChipID = 0x02000001;
         HostIntAddr = 0x00500400;
@@ -201,7 +202,7 @@ void DSi_NWifi::Reset()
 
     *(u32*)&EEPROM[0x000] = 0x300;
     *(u16*)&EEPROM[0x008] = 0x8348; // TODO: determine properly (country code)
-    memcpy(&EEPROM[0x00A], mac, 6);
+    memcpy(&EEPROM[0x00A], mac.data(), mac.size());
     *(u32*)&EEPROM[0x010] = 0x60000000;
 
     memset(&EEPROM[0x03C], 0xFF, 0x70);
@@ -894,8 +895,9 @@ void DSi_NWifi::HTC_Command()
 
     case 0x0004: // setup complete
         {
+            SPI_Firmware::MacAddress mac = SPI_Firmware::GetFirmware()->Header().MacAddress;
             u8 ready_evt[12];
-            memcpy(&ready_evt[0], SPI_Firmware::GetWifiMAC(), 6);
+            memcpy(&ready_evt[0], &mac, mac.size());
             ready_evt[6] = 0x02;
             ready_evt[7] = 0;
             *(u32*)&ready_evt[8] = 0x2300006C;

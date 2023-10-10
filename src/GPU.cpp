@@ -171,6 +171,15 @@ void DeInit()
     if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
     if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
     if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
+
+    Framebuffer[0][0] = nullptr;
+    Framebuffer[0][1] = nullptr;
+    Framebuffer[1][0] = nullptr;
+    Framebuffer[1][1] = nullptr;
+
+#ifdef OGLRENDERER_ENABLED
+    CurGLCompositor = nullptr;
+#endif
 }
 
 void ResetVRAMCache()
@@ -388,20 +397,18 @@ void InitRenderer(int renderer)
 #ifdef OGLRENDERER_ENABLED
     if (renderer == 1)
     {
-        CurGLCompositor = std::make_unique<GLCompositor>();
-        // Create opengl rendrerer
-        if (!CurGLCompositor->Init())
+        CurGLCompositor = GLCompositor::New();
+        // Create opengl renderer
+        if (!CurGLCompositor)
         {
             // Fallback on software renderer
             renderer = 0;
             GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
-            GPU3D::CurrentRenderer->Init();
         }
-        GPU3D::CurrentRenderer = std::make_unique<GPU3D::GLRenderer>();
-        if (!GPU3D::CurrentRenderer->Init())
+        GPU3D::CurrentRenderer = GPU3D::GLRenderer::New();
+        if (!GPU3D::CurrentRenderer)
         {
             // Fallback on software renderer
-            CurGLCompositor->DeInit();
             CurGLCompositor.reset();
             renderer = 0;
             GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
@@ -411,7 +418,6 @@ void InitRenderer(int renderer)
 #endif
     {
         GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
-        GPU3D::CurrentRenderer->Init();
     }
 
     Renderer = renderer;
@@ -419,12 +425,12 @@ void InitRenderer(int renderer)
 
 void DeInitRenderer()
 {
-    GPU3D::CurrentRenderer->DeInit();
+    // Delete the 3D renderer, if it exists
+    GPU3D::CurrentRenderer.reset();
+
 #ifdef OGLRENDERER_ENABLED
-    if (Renderer == 1)
-    {
-        CurGLCompositor->DeInit();
-    }
+    // Delete the compositor, if one exists
+    CurGLCompositor.reset();
 #endif
 }
 

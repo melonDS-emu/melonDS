@@ -297,16 +297,21 @@ bool Init()
 
 void DeInit()
 {
-    MPQueue->lock();
-    MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
-    header->ConnectedBitmask &= ~(1 << InstanceID);
-    header->InstanceBitmask &= ~(1 << InstanceID);
-    header->NumInstances--;
-    MPQueue->unlock();
+    if (MPQueue)
+    {
+        MPQueue->lock();
+        MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
+        header->ConnectedBitmask &= ~(1 << InstanceID);
+        header->InstanceBitmask &= ~(1 << InstanceID);
+        header->NumInstances--;
+        MPQueue->unlock();
 
-    SemPoolDeinit();
+        SemPoolDeinit();
 
-    MPQueue->detach();
+        MPQueue->detach();
+    }
+
+    MPQueue = nullptr;
     delete MPQueue;
 }
 

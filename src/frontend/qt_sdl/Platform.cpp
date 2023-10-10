@@ -39,6 +39,7 @@
 #include "LAN_PCap.h"
 #include "LocalMP.h"
 #include "OSD.h"
+#include "SPI_Firmware.h"
 
 #ifdef __WIN32__
 #define fseek _fseeki64
@@ -249,13 +250,6 @@ std::string GetConfigString(ConfigEntry entry)
 {
     switch (entry)
     {
-    case BIOS9Path: return Config::BIOS9Path;
-    case BIOS7Path: return Config::BIOS7Path;
-    case FirmwarePath: return Config::FirmwarePath;
-
-    case DSi_BIOS9Path: return Config::DSiBIOS9Path;
-    case DSi_BIOS7Path: return Config::DSiBIOS7Path;
-    case DSi_FirmwarePath: return Config::DSiFirmwarePath;
     case DSi_NANDPath: return Config::DSiNANDPath;
 
     case DLDI_ImagePath: return Config::DLDISDPath;
@@ -584,7 +578,36 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
         ROMManager::GBASave->RequestFlush(savedata, savelen, writeoffset, writelen);
 }
 
+void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset, u32 writelen)
+{
+    if (!ROMManager::FirmwareSave)
+        return;
 
+    if (firmware.Header().Identifier != SPI_Firmware::GENERATED_FIRMWARE_IDENTIFIER)
+    { // If this is not the default built-in firmware...
+        // ...then write the whole thing back.
+        ROMManager::FirmwareSave->RequestFlush(firmware.Buffer(), firmware.Length(), writeoffset, writelen);
+    }
+    else
+    {
+        u32 eapstart = firmware.ExtendedAccessPointOffset();
+        u32 eapend = eapstart + sizeof(firmware.ExtendedAccessPoints());
+
+        u32 apstart = firmware.WifiAccessPointOffset();
+        u32 apend = apstart + sizeof(firmware.AccessPoints());
+
+        // assert that the extended access points come just before the regular ones
+        assert(eapend == apstart);
+
+        if (eapstart <= writeoffset && writeoffset < apend)
+        { // If we're writing to the access points...
+            const u8* buffer = firmware.ExtendedAccessPointPosition();
+            u32 length = sizeof(firmware.ExtendedAccessPoints()) + sizeof(firmware.AccessPoints());
+            ROMManager::FirmwareSave->RequestFlush(buffer, length, writeoffset - eapstart, writelen);
+        }
+    }
+
+}
 
 bool MP_Init()
 {

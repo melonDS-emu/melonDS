@@ -19,22 +19,32 @@
 #ifndef SPI_H
 #define SPI_H
 
+#include <algorithm>
+#include <array>
+#include <memory>
+#include <string_view>
+#include <string.h>
+
 #include "Savestate.h"
+#include "SPI_Firmware.h"
 
 namespace SPI_Firmware
 {
 
+u16 CRC16(const u8* data, u32 len, u32 start);
 void SetupDirectBoot(bool dsi);
 
 u32 FixFirmwareLength(u32 originalLength);
 
-u32 GetFirmwareLength();
-u8 GetConsoleType();
-u8 GetWifiVersion();
-u8 GetNWifiVersion();
-u8 GetRFVersion();
-u8* GetWifiMAC();
+/// @return A pointer to the installed firmware blob if one exists, otherwise \c nullptr.
+/// @warning The pointer refers to memory that melonDS owns. Do not deallocate it yourself.
+/// @see InstallFirmware
+const Firmware* GetFirmware();
 
+bool IsLoadedFirmwareBuiltIn();
+bool InstallFirmware(Firmware&& firmware);
+bool InstallFirmware(std::unique_ptr<Firmware>&& firmware);
+void RemoveFirmware();
 }
 
 namespace SPI_Powerman
