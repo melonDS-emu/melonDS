@@ -133,7 +133,7 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    void SetCID(u8* cid) { memcpy(CID, cid, 16); }
+    void SetCID(const u8* cid) { memcpy(CID, cid, sizeof(CID)); }
 
     void SendCMD(u8 cmd, u32 param);
     void SendACMD(u8 cmd, u32 param);
