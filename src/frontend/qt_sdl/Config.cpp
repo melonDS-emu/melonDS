@@ -247,11 +247,7 @@ ConfigEntry ConfigFile[] =
     {"JIT_MaxBlockSize", 0, &JIT_MaxBlockSize, 32, false},
     {"JIT_BranchOptimisations", 1, &JIT_BranchOptimisations, true, false},
     {"JIT_LiteralOptimisations", 1, &JIT_LiteralOptimisations, true, false},
-    #ifdef __APPLE__
-        {"JIT_FastMemory", 1, &JIT_FastMemory, false, false},
-    #else
-        {"JIT_FastMemory", 1, &JIT_FastMemory, true, false},
-    #endif
+    {"JIT_FastMemory", 1, &JIT_FastMemory, true, false},
 #endif
 
     {"ExternalBIOSEnable", 1, &ExternalBIOSEnable, false, false},

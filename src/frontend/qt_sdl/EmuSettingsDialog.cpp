@@ -493,9 +493,7 @@ void EmuSettingsDialog::on_chkEnableJIT_toggled()
     bool disabled = !ui->chkEnableJIT->isChecked();
     ui->chkJITBranchOptimisations->setDisabled(disabled);
     ui->chkJITLiteralOptimisations->setDisabled(disabled);
-    #ifndef __APPLE__
-        ui->chkJITFastMemory->setDisabled(disabled);
-    #endif
+    ui->chkJITFastMemory->setDisabled(disabled);
     ui->spnJITMaximumBlockSize->setDisabled(disabled);
 }
 
