@@ -250,8 +250,6 @@ std::string GetConfigString(ConfigEntry entry)
 {
     switch (entry)
     {
-    case DSi_NANDPath: return Config::DSiNANDPath;
-
     case DLDI_ImagePath: return Config::DLDISDPath;
     case DLDI_FolderPath: return Config::DLDIFolderPath;
 

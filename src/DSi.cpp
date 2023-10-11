@@ -75,11 +75,9 @@ u32 NWRAMMask[2][3];
 u32 NDMACnt[2];
 DSi_NDMA* NDMAs[8];
 
+std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
 DSi_SDHost* SDMMC;
 DSi_SDHost* SDIO;
-
-u64 ConsoleID;
-u8 eMMC_CID[16];
 
 // FIXME: these currently have no effect (and aren't stored in a savestate)
 //        ... not that they matter all that much
@@ -149,6 +147,10 @@ void DeInit()
     SDMMC = nullptr;
     delete SDIO;
     SDIO = nullptr;
+
+    NANDImage = nullptr;
+    // The NANDImage is cleaned up (and its underlying file closed)
+    // as part of unique_ptr's destructor
 }
 
 void Reset()
@@ -528,24 +530,25 @@ void SetupDirectBoot()
             ARM9Write32(0x02FFE000+i, tmp);
         }
 
-        if (DSi_NAND::Init(&DSi::ARM7iBIOS[0x8308]))
-        {
-            DSi_NAND::DSiFirmwareSystemSettings userdata {};
-            DSi_NAND::ReadUserData(userdata);
-            for (u32 i = 0; i < 0x128; i+=4)
-                ARM9Write32(0x02000400+i, *(u32*)&userdata.Bytes[0x88+i]);
+        if (NANDImage && *NANDImage)
+        { // If a NAND image is installed, and it's valid...
+            if (DSi_NAND::NANDMount nand = DSi_NAND::NANDMount(*NANDImage))
+            {
+                DSi_NAND::DSiFirmwareSystemSettings userdata {};
+                nand.ReadUserData(userdata);
+                for (u32 i = 0; i < 0x128; i+=4)
+                    ARM9Write32(0x02000400+i, *(u32*)&userdata.Bytes[0x88+i]);
 
-            DSi_NAND::DSiSerialData hwinfoS {};
-            DSi_NAND::DSiHardwareInfoN hwinfoN;
-            DSi_NAND::ReadHardwareInfo(hwinfoS, hwinfoN);
+                DSi_NAND::DSiSerialData hwinfoS {};
+                DSi_NAND::DSiHardwareInfoN hwinfoN;
+                nand.ReadHardwareInfo(hwinfoS, hwinfoN);
 
-            for (u32 i = 0; i < 0x14; i+=4)
-                ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
+                for (u32 i = 0; i < 0x14; i+=4)
+                    ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
 
-            for (u32 i = 0; i < 0x18; i+=4)
-                ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS.Bytes[0x88+i]);
-
-            DSi_NAND::DeInit();
+                for (u32 i = 0; i < 0x18; i+=4)
+                    ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS.Bytes[0x88+i]);
+            }
         }
 
         SPI_Firmware::WifiBoard nwifiver = SPI_Firmware::GetFirmware()->Header().WifiBoard;
@@ -728,15 +731,21 @@ void SoftReset()
 
 bool LoadNAND()
 {
+    if (!NANDImage)
+    {
+        Log(LogLevel::Error, "No NAND image loaded\n");
+        return false;
+    }
     Log(LogLevel::Info, "Loading DSi NAND\n");
 
-    if (!DSi_NAND::Init(&DSi::ARM7iBIOS[0x8308]))
+    DSi_NAND::NANDMount nandmount(*NANDImage);
+    if (!nandmount)
     {
         Log(LogLevel::Error, "Failed to load DSi NAND\n");
         return false;
     }
 
-    FileHandle* nand = DSi_NAND::GetFile();
+    FileHandle* nand = NANDImage->GetFile();
 
     // Make sure NWRAM is accessible.
     // The Bits are set to the startup values in Reset() and we might
@@ -892,13 +901,9 @@ bool LoadNAND()
         }
     }
 
-#define printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
-#define printhex_rev(str, size) { for (int z = (size)-1; z >= 0; z--) printf("%02X", (str)[z]); printf("\n"); }
-
-    DSi_NAND::GetIDs(eMMC_CID, ConsoleID);
-
-    Log(LogLevel::Debug, "eMMC CID: "); printhex(eMMC_CID, 16);
-    Log(LogLevel::Debug, "Console ID: %" PRIx64 "\n", ConsoleID);
+    const DSi_NAND::DSiKey& emmccid = NANDImage->GetEMMCID();
+    Log(LogLevel::Debug, "eMMC CID: %08llX%08llX\n", *(const u64*)&emmccid[0], *(const u64*)&emmccid[8]);
+    Log(LogLevel::Debug, "Console ID: %" PRIx64 "\n", NANDImage->GetConsoleID());
 
     if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
     {
@@ -909,10 +914,10 @@ bool LoadNAND()
     else
     {
         u32 eaddr = 0x03FFE6E4;
-        ARM7Write32(eaddr+0x00, *(u32*)&eMMC_CID[0]);
-        ARM7Write32(eaddr+0x04, *(u32*)&eMMC_CID[4]);
-        ARM7Write32(eaddr+0x08, *(u32*)&eMMC_CID[8]);
-        ARM7Write32(eaddr+0x0C, *(u32*)&eMMC_CID[12]);
+        ARM7Write32(eaddr+0x00, *(const u32*)&emmccid[0]);
+        ARM7Write32(eaddr+0x04, *(const u32*)&emmccid[4]);
+        ARM7Write32(eaddr+0x08, *(const u32*)&emmccid[8]);
+        ARM7Write32(eaddr+0x0C, *(const u32*)&emmccid[12]);
         ARM7Write16(eaddr+0x2C, 0x0001);
         ARM7Write16(eaddr+0x2E, 0x0001);
         ARM7Write16(eaddr+0x3C, 0x0100);
@@ -939,9 +944,7 @@ bool LoadNAND()
         NDS::ARM7->JumpTo(bootparams[6]);
     }
 
-    DSi_NAND::PatchUserData();
-
-    DSi_NAND::DeInit();
+    nandmount.PatchUserData();
 
     return true;
 }
@@ -2690,6 +2693,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
 u8 ARM7IORead8(u32 addr)
 {
+
     switch (addr)
     {
     case 0x04004000:
@@ -2710,14 +2714,14 @@ u8 ARM7IORead8(u32 addr)
     case 0x04004500: return DSi_I2C::ReadData();
     case 0x04004501: return DSi_I2C::Cnt;
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID & 0xFF;
-    case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 8) & 0xFF;
-    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 16) & 0xFF;
-    case 0x04004D03: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 24) & 0xFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 32) & 0xFF;
-    case 0x04004D05: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 40) & 0xFF;
-    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 48) & 0xFF;
-    case 0x04004D07: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID >> 56;
+    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() & 0xFF;
+    case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 8) & 0xFF;
+    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 16) & 0xFF;
+    case 0x04004D03: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 24) & 0xFF;
+    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 32) & 0xFF;
+    case 0x04004D05: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 40) & 0xFF;
+    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 48) & 0xFF;
+    case 0x04004D07: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() >> 56;
     case 0x04004D08: return 0;
 
     case 0x4004700: return DSi_DSP::SNDExCnt;
@@ -2757,10 +2761,10 @@ u16 ARM7IORead16(u32 addr)
     CASE_READ16_32BIT(0x0400405C, MBK[1][7])
     CASE_READ16_32BIT(0x04004060, MBK[1][8])
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID & 0xFFFF;
-    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 16) & 0xFFFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 32) & 0xFFFF;
-    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID >> 48;
+    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() & 0xFFFF;
+    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 16) & 0xFFFF;
+    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 32) & 0xFFFF;
+    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() >> 48;
     case 0x04004D08: return 0;
 
     case 0x4004700: return DSi_DSP::SNDExCnt;
@@ -2836,8 +2840,8 @@ u32 ARM7IORead32(u32 addr)
     case 0x04004400: return DSi_AES::ReadCnt();
     case 0x0400440C: return DSi_AES::ReadOutputFIFO();
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID & 0xFFFFFFFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID >> 32;
+    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() & 0xFFFFFFFF;
+    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() >> 32;
     case 0x04004D08: return 0;
 
     case 0x4004700:

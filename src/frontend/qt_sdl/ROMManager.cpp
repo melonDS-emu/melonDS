@@ -595,6 +595,10 @@ void Reset()
     LoadBIOSFiles();
 
     InstallFirmware();
+    if (Config::ConsoleType == 1)
+    {
+        InstallNAND(&DSi::ARM7iBIOS[0x8308]);
+    }
     NDS::Reset();
     SetBatteryLevels();
 
@@ -655,6 +659,9 @@ bool LoadBIOS()
     LoadBIOSFiles();
 
     if (!InstallFirmware())
+        return false;
+
+    if (Config::ConsoleType == 1 && !InstallNAND(&DSi::ARM7iBIOS[0x8308]))
         return false;
 
     if (NDS::NeedsDirectBoot())
@@ -948,6 +955,47 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
     firmware.UpdateChecksums();
 }
 
+static Platform::FileHandle* OpenNANDFile() noexcept
+{
+    std::string nandpath = Config::DSiNANDPath;
+    std::string instnand = nandpath + Platform::InstanceFileSuffix();
+
+    FileHandle* nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
+    if ((!nandfile) && (Platform::InstanceID() > 0))
+    {
+        FileHandle* orig = Platform::OpenLocalFile(nandpath, FileMode::Read);
+        if (!orig)
+        {
+            Log(LogLevel::Error, "Failed to open DSi NAND\n");
+            return nullptr;
+        }
+
+        QFile::copy(QString::fromStdString(nandpath), QString::fromStdString(instnand));
+
+        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
+    }
+
+    return nandfile;
+}
+
+bool InstallNAND(const u8* es_keyY)
+{
+    Platform::FileHandle* nandfile = OpenNANDFile();
+    if (!nandfile)
+        return false;
+
+    if (auto nand = std::make_unique<DSi_NAND::NANDImage>(nandfile, es_keyY); *nand)
+    {
+        DSi::NANDImage = std::move(nand);
+        return true;
+    }
+    else
+    {
+        DSi::NANDImage = nullptr;
+        return false;
+    }
+}
+
 bool InstallFirmware()
 {
     using namespace SPI_Firmware;
@@ -1089,6 +1137,9 @@ bool LoadROM(QStringList filepath, bool reset)
         NDS::SetConsoleType(Config::ConsoleType);
         NDS::EjectCart();
         LoadBIOSFiles();
+        if (Config::ConsoleType == 1)
+            InstallNAND(&DSi::ARM7iBIOS[0x8308]);
+
         NDS::Reset();
         SetBatteryLevels();
     }

@@ -107,8 +107,6 @@ enum ConfigEntry
 
     ExternalBIOSEnable,
 
-    DSi_NANDPath,
-
     DLDI_Enable,
     DLDI_ImagePath,
     DLDI_ImageSize,

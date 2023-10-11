@@ -19,6 +19,7 @@
 #ifndef TITLEMANAGERDIALOG_H
 #define TITLEMANAGERDIALOG_H
 
+#include <memory>
 #include <QDialog>
 #include <QMessageBox>
 #include <QListWidget>
@@ -30,6 +31,7 @@
 #include <QNetworkAccessManager>
 
 #include "DSi_TMD.h"
+#include "DSi_NAND.h"
 
 namespace Ui
 {
@@ -44,10 +46,10 @@ class TitleManagerDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit TitleManagerDialog(QWidget* parent);
+    explicit TitleManagerDialog(QWidget* parent, DSi_NAND::NANDImage& image);
     ~TitleManagerDialog();
 
-    static bool NANDInited;
+    static std::unique_ptr<DSi_NAND::NANDImage> nand;
     static bool openNAND();
     static void closeNAND();
 
@@ -68,7 +70,10 @@ public:
             return nullptr;
         }
 
-        currentDlg = new TitleManagerDialog(parent);
+        assert(nand != nullptr);
+        assert(*nand);
+
+        currentDlg = new TitleManagerDialog(parent, *nand);
         currentDlg->open();
         return currentDlg;
     }
@@ -89,6 +94,7 @@ private slots:
     void onExportTitleData();
 
 private:
+    DSi_NAND::NANDMount nandmount;
     Ui::TitleManagerDialog* ui;
 
     QString importAppPath;
@@ -106,7 +112,7 @@ class TitleImportDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit TitleImportDialog(QWidget* parent, QString& apppath, const DSi_TMD::TitleMetadata* tmd, bool& readonly);
+    explicit TitleImportDialog(QWidget* parent, QString& apppath, const DSi_TMD::TitleMetadata* tmd, bool& readonly, DSi_NAND::NANDMount& nand);
     ~TitleImportDialog();
 
 private slots:
@@ -119,6 +125,7 @@ private slots:
 
 private:
     Ui::TitleImportDialog* ui;
+    DSi_NAND::NANDMount& nandmount;
 
     QButtonGroup* grpTmdSource;
 

@@ -20,12 +20,15 @@
 #define DSI_NAND_H
 
 #include "types.h"
+#include "fatfs/ff.h"
 #include "NDS_Header.h"
 #include "DSi_TMD.h"
 #include "SPI_Firmware.h"
 #include <array>
 #include <vector>
 #include <string>
+
+struct AES_ctx;
 
 namespace DSi_NAND
 {
@@ -40,29 +43,95 @@ enum
 union DSiFirmwareSystemSettings;
 union DSiSerialData;
 using DSiHardwareInfoN = std::array<u8, 0x9C>;
+using DSiKey = std::array<u8, 16>;
 
-bool Init(u8* es_keyY);
-void DeInit();
+class NANDImage
+{
+public:
+    explicit NANDImage(Platform::FileHandle* nandfile, const DSiKey& es_keyY) noexcept;
+    explicit NANDImage(Platform::FileHandle* nandfile, const u8* es_keyY) noexcept;
+    ~NANDImage();
+    NANDImage(const NANDImage&) = delete;
+    NANDImage& operator=(const NANDImage&) = delete;
 
-Platform::FileHandle* GetFile();
+    NANDImage(NANDImage&& other) noexcept;
+    NANDImage& operator=(NANDImage&& other) noexcept;
 
-void GetIDs(u8* emmc_cid, u64& consoleid);
+    Platform::FileHandle* GetFile() { return CurFile; }
 
-void ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN);
+    [[nodiscard]] const DSiKey& GetEMMCID() const noexcept { return eMMC_CID; }
+    [[nodiscard]] u64 GetConsoleID() const noexcept { return ConsoleID; }
+    [[nodiscard]] u64 GetLength() const noexcept { return Length; }
 
-void ReadUserData(DSiFirmwareSystemSettings& data);
-void PatchUserData();
+    explicit operator bool() const { return CurFile != nullptr; }
+private:
+    friend class NANDMount;
+    void SetupFATCrypto(AES_ctx* ctx, u32 ctr);
+    u32 ReadFATBlock(u64 addr, u32 len, u8* buf);
+    u32 WriteFATBlock(u64 addr, u32 len, const u8* buf);
+    bool ESEncrypt(u8* data, u32 len) const;
+    bool ESDecrypt(u8* data, u32 len);
+    Platform::FileHandle* CurFile = nullptr;
+    DSiKey eMMC_CID;
+    u64 ConsoleID;
+    DSiKey FATIV;
+    DSiKey FATKey;
+    DSiKey ESKey;
+    u64 Length;
+};
 
-void ListTitles(u32 category, std::vector<u32>& titlelist);
-bool TitleExists(u32 category, u32 titleid);
-void GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, NDSBanner* banner);
-bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool readonly);
-bool ImportTitle(const u8* app, size_t appLength, const DSi_TMD::TitleMetadata& tmd, bool readonly);
-void DeleteTitle(u32 category, u32 titleid);
+class NANDMount
+{
+public:
+    explicit NANDMount(NANDImage& nand) noexcept;
+    ~NANDMount();
+    NANDMount(const NANDMount&) = delete;
+    NANDMount& operator=(const NANDMount&) = delete;
 
-u32 GetTitleDataMask(u32 category, u32 titleid);
-bool ImportTitleData(u32 category, u32 titleid, int type, const char* file);
-bool ExportTitleData(u32 category, u32 titleid, int type, const char* file);
+    // Move constructor deleted so that the closure passed to FATFS can't be invalidated
+    NANDMount(NANDMount&&) = delete;
+    NANDMount& operator=(NANDMount&&) = delete;
+
+    void ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN);
+
+    void ReadUserData(DSiFirmwareSystemSettings& data);
+    void PatchUserData();
+
+    void ListTitles(u32 category, std::vector<u32>& titlelist);
+    bool TitleExists(u32 category, u32 titleid);
+    void GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, NDSBanner* banner);
+    bool ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool readonly);
+    bool ImportTitle(const u8* app, size_t appLength, const DSi_TMD::TitleMetadata& tmd, bool readonly);
+    void DeleteTitle(u32 category, u32 titleid);
+
+    u32 GetTitleDataMask(u32 category, u32 titleid);
+    bool ImportTitleData(u32 category, u32 titleid, int type, const char* file);
+    bool ExportTitleData(u32 category, u32 titleid, int type, const char* file);
+
+    bool ImportFile(const char* path, const u8* data, size_t len);
+    bool ImportFile(const char* path, const char* in);
+    bool ExportFile(const char* path, const char* out);
+    void RemoveFile(const char* path);
+    void RemoveDir(const char* path);
+
+    explicit operator bool() const { return Image != nullptr && CurFS != nullptr; }
+private:
+    u32 GetTitleVersion(u32 category, u32 titleid);
+    bool CreateTicket(const char* path, u32 titleid0, u32 titleid1, u8 version);
+    bool CreateSaveFile(const char* path, u32 len);
+    bool InitTitleFileStructure(const NDSHeader& header, const DSi_TMD::TitleMetadata& tmd, bool readonly);
+    UINT FF_ReadNAND(BYTE* buf, LBA_t sector, UINT num);
+    UINT FF_WriteNAND(const BYTE* buf, LBA_t sector, UINT num);
+
+    NANDImage* Image;
+
+    // We keep a pointer to CurFS because fatfs maintains a global pointer to it;
+    // therefore if we embed the FATFS directly in the object,
+    // we can't give it move semantics.
+    std::unique_ptr<FATFS> CurFS;
+
+};
+
 
 typedef std::array<u8, 20> SHA1Hash;
 typedef std::array<u8, 8> TitleID;
