@@ -217,6 +217,29 @@ enum class ConsoleRegion : u8
     Korea,
 };
 
+/// Languages that the given NAND image supports.
+/// @see https://problemkaputt.de/gbatek.htm#dsiregions
+enum DSiSupportedLanguageMask : u32 {
+    NoLanguagesSet = 0,
+    JapaneseSupported = 1 << 0,
+    EnglishSupported = 1 << 1,
+    FrenchSupported = 1 << 2,
+    GermanSupported = 1 << 3,
+    ItalianSupported = 1 << 4,
+    SpanishSupported = 1 << 5,
+    ChineseSupported = 1 << 6,
+    KoreanSupported = 1 << 7,
+
+    JapanLanguages = JapaneseSupported,
+    AmericaLanguages = EnglishSupported | FrenchSupported | SpanishSupported,
+    EuropeLanguages = EnglishSupported | FrenchSupported | GermanSupported | ItalianSupported | SpanishSupported,
+    AustraliaLanguages = EnglishSupported,
+
+    // "Unknown (supposedly Chinese/Mandarin?, and maybe English or so)"
+    ChinaLanguages = ChineseSupported | EnglishSupported,
+    KoreaLanguages = KoreanSupported,
+};
+
 /// Data file saved to 0:/sys/HWINFO_S.dat.
 /// @note The file is normally 16KiB, but only the first 164 bytes are used;
 /// the rest is FF-padded.
@@ -229,7 +252,7 @@ union DSiSerialData
         u8 RsaSha1HMAC[0x80];
         u32 Version;
         u32 EntrySize;
-        u32 SupportedLanguages;
+        DSiSupportedLanguageMask SupportedLanguages;
         u8 Unknown0[4];
         ConsoleRegion Region;
         char Serial[12];
