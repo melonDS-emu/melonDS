@@ -876,7 +876,7 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
     UserData& currentData = firmware.EffectiveUserData();
 
     // setting up username
-    std::string orig_username = Platform::GetConfigString(Platform::Firm_Username);
+    std::string orig_username = Config::FirmwareUsername;
     if (!orig_username.empty())
     { // If the frontend defines a username, take it. If not, leave the existing one.
         std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
@@ -885,7 +885,7 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
         memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
     }
 
-    auto language = static_cast<Language>(Platform::GetConfigInt(Platform::Firm_Language));
+    auto language = static_cast<Language>(Config::FirmwareLanguage);
     if (language != Language::Reserved)
     { // If the frontend specifies a language (rather than using the existing value)...
         currentData.Settings &= ~Language::Reserved; // ..clear the existing language...
@@ -893,26 +893,26 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
     }
 
     // setting up color
-    u8 favoritecolor = Platform::GetConfigInt(Platform::Firm_Color);
+    u8 favoritecolor = Config::FirmwareFavouriteColour;
     if (favoritecolor != 0xFF)
     {
         currentData.FavoriteColor = favoritecolor;
     }
 
-    u8 birthmonth = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
+    u8 birthmonth = Config::FirmwareBirthdayMonth;
     if (birthmonth != 0)
     { // If the frontend specifies a birth month (rather than using the existing value)...
         currentData.BirthdayMonth = birthmonth;
     }
 
-    u8 birthday = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
+    u8 birthday = Config::FirmwareBirthdayDay;
     if (birthday != 0)
     { // If the frontend specifies a birthday (rather than using the existing value)...
         currentData.BirthdayDay = birthday;
     }
 
     // setup message
-    std::string orig_message = Platform::GetConfigString(Platform::Firm_Message);
+    std::string orig_message = Config::FirmwareMessage;
     if (!orig_message.empty())
     {
         std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
