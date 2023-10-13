@@ -93,6 +93,8 @@ public:
     NANDMount(NANDMount&&) = delete;
     NANDMount& operator=(NANDMount&&) = delete;
 
+    bool ReadSerialData(DSiSerialData& dataS);
+    bool ReadHardwareInfoN(DSiHardwareInfoN& dataN);
     void ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN);
 
     void ReadUserData(DSiFirmwareSystemSettings& data);

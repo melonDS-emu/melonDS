@@ -467,28 +467,41 @@ bool NANDImage::ESDecrypt(u8* data, u32 len)
     return true;
 }
 
-
-void NANDMount::ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN)
+bool NANDMount::ReadSerialData(DSiSerialData& dataS)
 {
     FF_FIL file;
-    FRESULT res;
-    u32 nread;
+    FRESULT res = f_open(&file, "0:/sys/HWINFO_S.dat", FA_OPEN_EXISTING | FA_READ);
 
-    res = f_open(&file, "0:/sys/HWINFO_S.dat", FA_OPEN_EXISTING | FA_READ);
     if (res == FR_OK)
     {
+        u32 nread;
         f_read(&file, &dataS, sizeof(DSiSerialData), &nread);
         f_close(&file);
     }
 
-    res = f_open(&file, "0:/sys/HWINFO_N.dat", FA_OPEN_EXISTING | FA_READ);
+    return res == FR_OK;
+}
+
+bool NANDMount::ReadHardwareInfoN(DSiHardwareInfoN& dataN)
+{
+    FF_FIL file;
+    FRESULT res = f_open(&file, "0:/sys/HWINFO_N.dat", FA_OPEN_EXISTING | FA_READ);
+
     if (res == FR_OK)
     {
+        u32 nread;
         f_read(&file, dataN.data(), sizeof(dataN), &nread);
         f_close(&file);
     }
+
+    return res == FR_OK;
 }
 
+void NANDMount::ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN)
+{
+    ReadSerialData(dataS);
+    ReadHardwareInfoN(dataN);
+}
 
 void NANDMount::ReadUserData(DSiFirmwareSystemSettings& data)
 {
