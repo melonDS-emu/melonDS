@@ -25,6 +25,7 @@
 #include "DSi_TMD.h"
 #include "SPI_Firmware.h"
 #include <array>
+#include <memory>
 #include <vector>
 #include <string>
 
