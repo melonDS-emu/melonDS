@@ -672,21 +672,18 @@ bool NANDMount::ImportFile(const char* path, const u8* data, size_t len)
 bool NANDMount::ImportFile(const char* path, const char* in)
 {
     FF_FIL file;
-    FILE* fin;
     FRESULT res;
 
-    fin = fopen(in, "rb");
+    Platform::FileHandle* fin = OpenLocalFile(in, FileMode::Read);
     if (!fin)
         return false;
 
-    fseek(fin, 0, SEEK_END);
-    u32 len = (u32)ftell(fin);
-    fseek(fin, 0, SEEK_SET);
+    u32 len = FileLength(fin);
 
     res = f_open(&file, path, FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
-        fclose(fin);
+        CloseFile(fin);
         return false;
     }
 
@@ -700,11 +697,11 @@ bool NANDMount::ImportFile(const char* path, const char* in)
             blocklen = sizeof(buf);
 
         u32 nwrite;
-        fread(buf, blocklen, 1, fin);
+        FileRead(buf, blocklen, 1, fin);
         f_write(&file, buf, blocklen, &nwrite);
     }
 
-    fclose(fin);
+    CloseFile(fin);
     f_close(&file);
 
     Log(LogLevel::Debug, "Imported file from %s to %s\n", in, path);
@@ -715,7 +712,6 @@ bool NANDMount::ImportFile(const char* path, const char* in)
 bool NANDMount::ExportFile(const char* path, const char* out)
 {
     FF_FIL file;
-    FILE* fout;
     FRESULT res;
 
     res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
@@ -724,7 +720,7 @@ bool NANDMount::ExportFile(const char* path, const char* out)
 
     u32 len = f_size(&file);
 
-    fout = fopen(out, "wb");
+    Platform::FileHandle* fout = OpenLocalFile(out, FileMode::Write);
     if (!fout)
     {
         f_close(&file);
@@ -742,10 +738,10 @@ bool NANDMount::ExportFile(const char* path, const char* out)
 
         u32 nread;
         f_read(&file, buf, blocklen, &nread);
-        fwrite(buf, blocklen, 1, fout);
+        FileWrite(buf, blocklen, 1, fout);
     }
 
-    fclose(fout);
+    CloseFile(fout);
     f_close(&file);
 
     Log(LogLevel::Debug, "Exported file from %s to %s\n", path, out);
@@ -1144,10 +1140,10 @@ bool NANDMount::ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& t
 {
     NDSHeader header {};
     {
-        FILE* f = fopen(appfile, "rb");
+        Platform::FileHandle* f = OpenLocalFile(appfile, FileMode::Read);
         if (!f) return false;
-        fread(&header, sizeof(header), 1, f);
-        fclose(f);
+        FileRead(&header, sizeof(header), 1, f);
+        CloseFile(f);
     }
 
     u32 version = tmd.Contents.GetVersion();
