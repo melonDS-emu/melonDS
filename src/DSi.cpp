@@ -945,7 +945,7 @@ bool LoadNAND()
         NDS::ARM7->JumpTo(bootparams[6]);
     }
 
-    nandmount.PatchUserData();
+    // user data is now expected to be patched by the frontend
 
     return true;
 }

@@ -97,8 +97,11 @@ public:
     bool ReadHardwareInfoN(DSiHardwareInfoN& dataN);
     void ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN);
 
-    void ReadUserData(DSiFirmwareSystemSettings& data);
-    void PatchUserData();
+    bool ReadUserData(DSiFirmwareSystemSettings& data);
+
+    /// Saves the given system settings to the DSi NAND,
+    /// to both TWLCFG0.dat and TWLCFG1.dat.
+    bool ApplyUserData(const DSiFirmwareSystemSettings& data);
 
     void ListTitles(u32 category, std::vector<u32>& titlelist);
     bool TitleExists(u32 category, u32 titleid);
