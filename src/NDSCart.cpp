@@ -1165,12 +1165,12 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 }
 
 
-CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams) : CartCommon(rom, len, chipid, false, romparams)
+CartSD::CartSD(u8* rom, u32 len, u32 chipid, ROMListEntry romparams) : CartCommon(rom, len, chipid, false, romparams)
 {
     SD = nullptr;
 }
 
-CartHomebrew::~CartHomebrew()
+CartSD::~CartSD()
 {
     if (SD)
     {
@@ -1179,7 +1179,7 @@ CartHomebrew::~CartHomebrew()
     }
 }
 
-void CartHomebrew::Reset()
+void CartSD::Reset()
 {
     CartCommon::Reset();
 
@@ -1199,7 +1199,6 @@ void CartHomebrew::Reset()
         else
             folderpath = "";
 
-        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), ReadOnly);
         SD = new FATStorage(Platform::GetConfigString(Platform::DLDI_ImagePath),
                             (u64)Platform::GetConfigInt(Platform::DLDI_ImageSize) * 1024 * 1024,
                             ReadOnly,
@@ -1210,104 +1209,7 @@ void CartHomebrew::Reset()
         SD = nullptr;
 }
 
-void CartHomebrew::SetupDirectBoot(const std::string& romname)
-{
-    CartCommon::SetupDirectBoot(romname);
-
-    if (SD)
-    {
-        // add the ROM to the SD volume
-
-        if (!SD->InjectFile(romname, ROM, ROMLength))
-            return;
-
-        // setup argv command line
-
-        char argv[512] = {0};
-        int argvlen;
-
-        strncpy(argv, "fat:/", 511);
-        strncat(argv, romname.c_str(), 511);
-        argvlen = strlen(argv);
-
-        const NDSHeader& header = GetHeader();
-        void (*writefn)(u32,u32) = (NDS::ConsoleType==1) ? DSi::ARM9Write32 : NDS::ARM9Write32;
-
-        u32 argvbase = header.ARM9RAMAddress + header.ARM9Size;
-        argvbase = (argvbase + 0xF) & ~0xF;
-
-        for (u32 i = 0; i <= argvlen; i+=4)
-            writefn(argvbase+i, *(u32*)&argv[i]);
-
-        writefn(0x02FFFE70, 0x5F617267);
-        writefn(0x02FFFE74, argvbase);
-        writefn(0x02FFFE78, argvlen+1);
-    }
-}
-
-void CartHomebrew::DoSavestate(Savestate* file)
-{
-    CartCommon::DoSavestate(file);
-}
-
-int CartHomebrew::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
-{
-    if (CmdEncMode != 2) return CartCommon::ROMCommandStart(cartslot, cmd, data, len);
-
-    switch (cmd[0])
-    {
-    case 0xB7:
-        {
-            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            memset(data, 0, len);
-
-            if (((addr + len - 1) >> 12) != (addr >> 12))
-            {
-                u32 len1 = 0x1000 - (addr & 0xFFF);
-                ReadROM_B7(addr, len1, data, 0);
-                ReadROM_B7(addr+len1, len-len1, data, len1);
-            }
-            else
-                ReadROM_B7(addr, len, data, 0);
-        }
-        return 0;
-
-    case 0xC0: // SD read
-        {
-            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            if (SD) SD->ReadSectors(sector, len>>9, data);
-        }
-        return 0;
-
-    case 0xC1: // SD write
-        return 1;
-
-    default:
-        return CartCommon::ROMCommandStart(cartslot, cmd, data, len);
-    }
-}
-
-void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
-{
-    if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
-
-    // TODO: delayed SD writing? like we have for SRAM
-
-    switch (cmd[0])
-    {
-    case 0xC1:
-        {
-            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            if (SD && (!ReadOnly)) SD->WriteSectors(sector, len>>9, data);
-        }
-        break;
-
-    default:
-        return CartCommon::ROMCommandFinish(cmd, data, len);
-    }
-}
-
-void CartHomebrew::ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly)
+void CartSD::ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly)
 {
     if (patch[0x0D] > binary[dldioffset+0x0F])
     {
@@ -1408,7 +1310,7 @@ void CartHomebrew::ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch,
     Log(LogLevel::Debug, "applied DLDI patch at %08X\n", dldioffset);
 }
 
-void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
+void CartSD::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
 {
     if (*(u32*)&patch[0] != 0xBF8DA5ED ||
         *(u32*)&patch[4] != 0x69684320 ||
@@ -1438,13 +1340,126 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
     }
 }
 
-void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
+void CartSD::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
 {
     // TODO: how strict should this be for homebrew?
 
     addr &= (ROMLength-1);
 
     memcpy(data+offset, ROM+addr, len);
+}
+
+CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams) : CartSD(rom, len, chipid, romparams)
+{
+}
+
+CartHomebrew::~CartHomebrew()
+{
+}
+
+void CartHomebrew::Reset()
+{
+    CartSD::Reset();
+
+    if (SD)
+        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), ReadOnly);
+}
+
+void CartHomebrew::SetupDirectBoot(const std::string& romname)
+{
+    CartCommon::SetupDirectBoot(romname);
+
+    if (SD)
+    {
+        // add the ROM to the SD volume
+
+        if (!SD->InjectFile(romname, ROM, ROMLength))
+            return;
+
+        // setup argv command line
+
+        char argv[512] = {0};
+        int argvlen;
+
+        strncpy(argv, "fat:/", 511);
+        strncat(argv, romname.c_str(), 511);
+        argvlen = strlen(argv);
+
+        const NDSHeader& header = GetHeader();
+        void (*writefn)(u32,u32) = (NDS::ConsoleType==1) ? DSi::ARM9Write32 : NDS::ARM9Write32;
+
+        u32 argvbase = header.ARM9RAMAddress + header.ARM9Size;
+        argvbase = (argvbase + 0xF) & ~0xF;
+
+        for (u32 i = 0; i <= argvlen; i+=4)
+            writefn(argvbase+i, *(u32*)&argv[i]);
+
+        writefn(0x02FFFE70, 0x5F617267);
+        writefn(0x02FFFE74, argvbase);
+        writefn(0x02FFFE78, argvlen+1);
+    }
+}
+
+void CartHomebrew::DoSavestate(Savestate* file)
+{
+    CartCommon::DoSavestate(file);
+}
+
+int CartHomebrew::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
+{
+    if (CmdEncMode != 2) return CartCommon::ROMCommandStart(cartslot, cmd, data, len);
+
+    switch (cmd[0])
+    {
+    case 0xB7:
+        {
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            memset(data, 0, len);
+
+            if (((addr + len - 1) >> 12) != (addr >> 12))
+            {
+                u32 len1 = 0x1000 - (addr & 0xFFF);
+                ReadROM_B7(addr, len1, data, 0);
+                ReadROM_B7(addr+len1, len-len1, data, len1);
+            }
+            else
+                ReadROM_B7(addr, len, data, 0);
+        }
+        return 0;
+
+    case 0xC0: // SD read
+        {
+            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            if (SD) SD->ReadSectors(sector, len>>9, data);
+        }
+        return 0;
+
+    case 0xC1: // SD write
+        return 1;
+
+    default:
+        return CartCommon::ROMCommandStart(cartslot, cmd, data, len);
+    }
+}
+
+void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
+{
+    if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
+
+    // TODO: delayed SD writing? like we have for SRAM
+
+    switch (cmd[0])
+    {
+    case 0xC1:
+        {
+            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            if (SD && (!ReadOnly)) SD->WriteSectors(sector, len>>9, data);
+        }
+        break;
+
+    default:
+        return CartCommon::ROMCommandFinish(cmd, data, len);
+    }
 }
 
 
@@ -1645,6 +1660,7 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
         dsi = false;
     }
 
+    const char *gametitle = header.GameTitle;
     u32 gamecode = header.GameCodeAsU32();
 
     u32 arm9base = header.ARM9ROMOffset;
@@ -1701,6 +1717,8 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
     std::unique_ptr<CartCommon> cart;
     if (homebrew)
         cart = std::make_unique<CartHomebrew>(cartrom, cartromsize, cartid, romparams);
+    else if (gametitle[0] == 0 && !strcmp("SD/TF-NDS", gametitle + 1) && gamecode == 0x414D5341)
+        cart = std::make_unique<CartR4>(cartrom, cartromsize, cartid, romparams, CartR4TypeR4, CartR4LanguageEnglish);
     else if (cartid & 0x08000000)
         cart = std::make_unique<CartRetailNAND>(cartrom, cartromsize, cartid, romparams);
     else if (irversion != 0)

@@ -40,9 +40,11 @@ public:
     void Close();
 
     bool InjectFile(const std::string& path, u8* data, u32 len);
+    u32 ReadFile(const std::string& path, u32 start, u32 len, u8* data);
 
     u32 ReadSectors(u32 start, u32 num, u8* data);
     u32 WriteSectors(u32 start, u32 num, u8* data);
+    u64 GetSectorCount(void);
 
 private:
     std::string FilePath;

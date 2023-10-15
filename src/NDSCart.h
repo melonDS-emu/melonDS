@@ -41,6 +41,7 @@ enum CartType
     RetailIR = 0x103,
     RetailBT = 0x104,
     Homebrew = 0x201,
+    UnlicensedR4 = 0x301
 };
 
 class NDSCartSlot;
@@ -206,8 +207,26 @@ public:
     u8 SPIWrite(u8 val, u32 pos, bool last) override;
 };
 
+// CartSD -- any 'cart' with an SD card slot
+class CartSD : public CartCommon
+{
+public:
+    CartSD(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
+    ~CartSD() override;
+
+    void Reset() override;
+
+protected:
+    void ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly);
+    void ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly);
+    void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
+
+    FATStorage* SD;
+    bool ReadOnly;
+};
+
 // CartHomebrew -- homebrew 'cart' (no SRAM, DLDI)
-class CartHomebrew : public CartCommon
+class CartHomebrew : public CartSD
 {
 public:
     CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
@@ -222,14 +241,51 @@ public:
 
     int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
+};
+
+// CartR4 -- unlicensed R4 'cart' (NDSCartR4.cpp)
+enum CartR4Type
+{
+    CartR4TypeM3Simply = 0,
+    CartR4TypeR4 = 4
+};
+
+enum CartR4Language
+{
+    CartR4LanguageJapanese = (7 << 3) | 1,
+    CartR4LanguageEnglish = (7 << 3) | 2,
+    CartR4LanguageFrench = (2 << 3) | 2,
+    CartR4LanguageKorean = (4 << 3) | 2,
+    CartR4LanguageSimplifiedChinese = (6 << 3) | 3,
+    CartR4LanguageTraditionalChinese = (7 << 3) | 3
+};
+
+class CartR4 : public CartSD
+{
+public:
+    CartR4(u8* rom, u32 len, u32 chipid, ROMListEntry romparams, CartR4Type ctype, CartR4Language clanguage);
+    ~CartR4() override;
+
+    virtual u32 Type() const override { return CartType::UnlicensedR4; }
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
+    void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
 
 private:
-    void ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly);
-    void ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly);
-    void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
+    u16 GetEncryptionKey(u16 sector);
+    void ReadSDToBuffer(u32 sector, bool rom);
+    u32 SDFATEntrySectorGet(u32 entry, u32 addr);
 
-    FATStorage* SD;
-    bool ReadOnly;
+    s32 EncryptionKey;
+    u32 FATEntryOffset[2];
+    u8 Buffer[512];
+    u8 InitStatus;
+    CartR4Type CartType;
+    CartR4Language CartLanguage;
 };
 
 class NDSCartSlot
