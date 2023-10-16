@@ -99,6 +99,10 @@ void CartR4::Reset()
 void CartR4::DoSavestate(Savestate* file)
 {
     CartCommon::DoSavestate(file);
+
+    file->Var32(&FATEntryOffset[0]);
+    file->Var32(&FATEntryOffset[1]);
+    file->VarArray(Buffer, 512);
 }
 
 int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
