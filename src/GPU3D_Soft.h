@@ -236,6 +236,7 @@ private:
             dx = 0;
 
             this->x0 = x0;
+            this->y0 = y0;
             this->xmin = x0;
             this->xmax = x0;
 
@@ -253,6 +254,7 @@ private:
         constexpr s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y)
         {
             this->x0 = x0;
+            this->y0 = y0;
             this->y = y;
 
             if (x1 > x0)
@@ -367,7 +369,13 @@ private:
             if (side)     startx = startx - *length + 1;
 
             s32 startcov = (((startx << 10) + 0x1FF) * ylen) / xlen;
-            *coverage = (1<<31) | ((startcov & 0x3FF) << 12) | (xcov_incr & 0x3FF);
+
+            // fix the y value for negative slopes
+            s32 ycoord = Negative ? (ylen << 10) - startcov >> 10 : startcov >> 10;
+            // if yvalue is not equal to actual y value, invert coverage value
+            if (ycoord != y - y0) startcov = 0x3FF - (startcov & 0x3FF);
+
+            *coverage = (1<<31) | (startcov << 12) | (xcov_incr & 0x3FF);
 
             if constexpr (swapped) *length = 1;
         }
@@ -419,7 +427,7 @@ private:
         Interpolator<1> Interp;
 
     private:
-        s32 x0, xmin, xmax;
+        s32 x0, y0, xmin, xmax;
         s32 xlen, ylen;
         s32 dx;
         s32 y;

@@ -1070,11 +1070,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     xlimit = xstart+l_edgelen;
     if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
-    if (l_edgecov & (1<<31))
-    {
-        xcov = (l_edgecov >> 12) & 0x3FF;
-        if (xcov == 0x3FF) xcov = 0;
-    }
+    if (l_edgecov & (1<<31)) xcov = (l_edgecov >> 12) & 0x3FF;
 
     if (!l_filledge) x = xlimit;
     else
@@ -1259,11 +1255,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     edge = yedge | 0x2;
     xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
-    if (r_edgecov & (1<<31))
-    {
-        xcov = (r_edgecov >> 12) & 0x3FF;
-        if (xcov == 0x3FF) xcov = 0;
-    }
+    if (r_edgecov & (1<<31)) xcov = (r_edgecov >> 12) & 0x3FF;
 
     if (r_filledge)
     for (; x < xlimit; x++)
