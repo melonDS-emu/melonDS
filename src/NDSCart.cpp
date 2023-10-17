@@ -1717,7 +1717,7 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
     std::unique_ptr<CartCommon> cart;
     if (homebrew)
         cart = std::make_unique<CartHomebrew>(cartrom, cartromsize, cartid, romparams);
-    else if (gametitle[0] == 0 && !strcmp("SD/TF-NDS", gametitle + 1) && gamecode == 0x414D5341)
+    else if (gametitle[0] == 0 && !strncmp("SD/TF-NDS", gametitle + 1, 9) && gamecode == 0x414D5341)
         cart = std::make_unique<CartR4>(cartrom, cartromsize, cartid, romparams, CartR4TypeR4, CartR4LanguageEnglish);
     else if (cartid & 0x08000000)
         cart = std::make_unique<CartRetailNAND>(cartrom, cartromsize, cartid, romparams);
