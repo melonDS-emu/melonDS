@@ -47,19 +47,15 @@ using Platform::LogLevel;
 // TODO: timings are nonseq when address is fixed/decrementing
 
 
-DMA::DMA(u32 cpu, u32 num)
+DMA::DMA(u32 cpu, u32 num) :
+    CPU(cpu),
+    Num(num),
+    MRAMBurstTable(DMATiming::MRAMDummy)
 {
-    CPU = cpu;
-    Num = num;
-
     if (cpu == 0)
         CountMask = 0x001FFFFF;
     else
         CountMask = (num==3 ? 0x0000FFFF : 0x00003FFF);
-}
-
-DMA::~DMA()
-{
 }
 
 void DMA::Reset()
@@ -82,6 +78,7 @@ void DMA::Reset()
     Executing = false;
     InProgress = false;
     MRAMBurstCount = 0;
+    MRAMBurstTable = DMATiming::MRAMDummy;
 }
 
 void DMA::DoSavestate(Savestate* file)
