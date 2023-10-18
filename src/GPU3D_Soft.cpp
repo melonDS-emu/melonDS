@@ -1063,14 +1063,11 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     if (x < 0) x = 0;
     s32 xlimit;
 
-    s32 xcov = 0;
-
     // part 1: left edge
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
     if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
-    if (l_edgecov & (1<<31)) xcov = (l_edgecov >> 12) & 0x3FF;
 
     if (!l_filledge) x = xlimit;
     else
@@ -1129,14 +1126,12 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
                 // anti-aliasing: all edges are rendered
 
                 // calculate coverage
-                s32 cov = l_edgecov;
-                if (cov & (1<<31))
+                attr |= (l_edgecov >> 5) << 8;
+                if (x < xlimit-1)
                 {
-                    cov = xcov >> 5;
-                    if (cov > 31) cov = 31;
-                    xcov += (l_edgecov & 0x3FF);
+                    l_edgecov += rp->SlopeL.XCov_Incr;
+                    if (l_edgecov > 0x3FF) l_edgecov = 0x3FF;
                 }
-                attr |= (cov << 8);
 
                 // push old pixel down if needed
                 if (pixeladdr < BufferSize)
@@ -1255,7 +1250,6 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     edge = yedge | 0x2;
     xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
-    if (r_edgecov & (1<<31)) xcov = (r_edgecov >> 12) & 0x3FF;
 
     if (r_filledge)
     for (; x < xlimit; x++)
@@ -1313,14 +1307,12 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
                 // anti-aliasing: all edges are rendered
 
                 // calculate coverage
-                s32 cov = r_edgecov;
-                if (cov & (1<<31))
+                attr |= (r_edgecov >> 5) << 8;
+                if (x < xlimit-1)
                 {
-                    cov = 0x1F - (xcov >> 5);
-                    if (cov < 0) cov = 0;
-                    xcov += (r_edgecov & 0x3FF);
+                    r_edgecov -= rp->SlopeR.XCov_Incr;
+                    if (r_edgecov < 0) r_edgecov = 0;
                 }
-                attr |= (cov << 8);
 
                 // push old pixel down if needed
                 if (pixeladdr < BufferSize)

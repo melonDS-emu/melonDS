@@ -246,7 +246,7 @@ private:
             Interp.Setup(0, 0, 0, 0);
             Interp.SetX(0);
 
-            xcov_incr = 0;
+            XCov_Incr = 0;
 
             return x0;
         }
@@ -322,7 +322,7 @@ private:
             Interp.SetX(y);
 
             // used for calculating AA coverage
-            if (XMajor) xcov_incr = (ylen << 10) / xlen;
+            if (XMajor) XCov_Incr = ((ylen << 10) / xlen) & 0x3FF;
 
             return x;
         }
@@ -373,9 +373,11 @@ private:
             // fix the y value for negative slopes
             s32 ycoord = Negative ? (ylen << 10) - startcov >> 10 : startcov >> 10;
             // if yvalue is not equal to actual y value, invert coverage value
-            if (ycoord != y - y0) startcov = 0x3FF - (startcov & 0x3FF);
+            startcov &= 0x3FF;
+            if (ycoord != y - y0) startcov = 0x3FF - startcov;
+            if (side ^ swapped) startcov = 0x3FF - startcov;
 
-            *coverage = (1<<31) | (startcov << 12) | (xcov_incr & 0x3FF);
+            *coverage = startcov;
 
             if constexpr (swapped) *length = 1;
         }
@@ -389,26 +391,17 @@ private:
             {
                 // for some reason vertical edges' aa values
                 // are inverted too when the edges are swapped
-                if constexpr (swapped)
-                    *coverage = 0;
-                else
-                    *coverage = 31;
+                *coverage = swapped ? 0 : 31 << 5;
             }
             else
             {
                 s32 cov = ((dx >> 9) + (Increment >> 10)) >> 4;
                 if ((cov >> 5) != (dx >> 18)) cov = 31;
                 cov &= 0x1F;
-                if constexpr (swapped)
-                {
-                    if (side ^ Negative) cov = 0x1F - cov;
-                }
-                else
-                {
-                    if (!(side ^ Negative)) cov = 0x1F - cov;
-                }
+                if (side ^ !Negative ^ swapped) cov = 0x1F - cov;
 
-                *coverage = cov;
+                // shift left 5 just to make it align with xmajor coverage values
+                *coverage = cov << 5;
             }
         }
 
@@ -425,15 +418,13 @@ private:
         bool Negative;
         bool XMajor;
         Interpolator<1> Interp;
+        s32 XCov_Incr;
 
     private:
         s32 x0, y0, xmin, xmax;
         s32 xlen, ylen;
         s32 dx;
         s32 y;
-
-        s32 xcov_incr;
-        s32 ycoverage, ycov_incr;
     };
 
     template <typename T>
