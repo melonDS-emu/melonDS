@@ -907,7 +907,12 @@ bool DoSavestate(Savestate* file)
     }
 
     for (int i = 0; i < 8; i++)
-        DMAs[i]->DoSavestate(file);
+    {
+        if (!DMAs[i]->DoSavestate(file))
+        {
+            return false;
+        }
+    }
 
     ARM9->DoSavestate(file);
     ARM7->DoSavestate(file);
