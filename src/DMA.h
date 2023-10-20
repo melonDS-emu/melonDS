@@ -31,7 +31,7 @@ public:
 
     void Reset();
 
-    bool DoSavestate(Savestate* file);
+    void DoSavestate(Savestate* file);
 
     void WriteCnt(u32 val);
     void Start();

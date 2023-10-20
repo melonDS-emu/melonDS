@@ -16,8 +16,6 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <assert.h>
-#include <array>
 #include <stdio.h>
 #include "NDS.h"
 #include "DSi.h"
@@ -28,33 +26,6 @@
 
 using Platform::Log;
 using Platform::LogLevel;
-
-namespace DMATiming
-{
-
-// These pointers MUST NOT be reordered!
-// Or else it will break savestates
-static const std::array<const u8*, 15> TimingTables
-{
-    MRAMDummy,
-    MRAMRead16Bursts[0],
-    MRAMRead16Bursts[1],
-    MRAMRead16Bursts[2],
-    MRAMRead32Bursts[0],
-    MRAMRead32Bursts[1],
-    MRAMRead32Bursts[2],
-    MRAMRead32Bursts[3],
-    MRAMWrite16Bursts[0],
-    MRAMWrite16Bursts[1],
-    MRAMWrite16Bursts[2],
-    MRAMWrite32Bursts[0],
-    MRAMWrite32Bursts[1],
-    MRAMWrite32Bursts[2],
-    MRAMWrite32Bursts[3],
-};
-
-}
-
 
 // DMA TIMINGS
 //
@@ -109,7 +80,7 @@ void DMA::Reset()
     MRAMBurstTable = DMATiming::MRAMDummy;
 }
 
-bool DMA::DoSavestate(Savestate* file)
+void DMA::DoSavestate(Savestate* file)
 {
     char magic[5] = "DMAx";
     magic[3] = '0' + Num + (CPU*4);
@@ -135,8 +106,6 @@ bool DMA::DoSavestate(Savestate* file)
     file->Bool32(&Stall);
 
     file->VarArray((void*) MRAMBurstTable, sizeof (DMATiming::MRAMDummy));
-
-    return true;
 }
 
 void DMA::WriteCnt(u32 val)
