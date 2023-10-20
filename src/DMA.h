@@ -21,6 +21,7 @@
 
 #include "types.h"
 #include "Savestate.h"
+#include "DMA_Timings.h"
 
 class DMA
 {
@@ -98,7 +99,7 @@ private:
     bool IsGXFIFODMA {};
 
     u32 MRAMBurstCount {};
-    const u8* MRAMBurstTable;
+    const u8* MRAMBurstTable = DMATiming::MRAMDummy;
 };
 
 #endif

@@ -44,11 +44,8 @@ namespace DMATiming
 // Note about GBA slot/wifi timings: these take into account the sequential timing
 // setting. Timings are such that the nonseq setting only matters for the first
 // access, and minor edge cases (like the last of a 0x20000-byte block).
-//
-// The timing tables were moved to a source file to ensure that they each
-// reside at a unique address; the savestate code relies on this behavior.
 
-extern const u8 MRAMDummy[1];
+extern const u8 MRAMDummy[256];
 
 extern const u8 MRAMRead16Bursts[3][256];
 

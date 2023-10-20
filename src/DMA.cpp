@@ -78,8 +78,7 @@ static const std::array<const u8*, 15> TimingTables
 
 DMA::DMA(u32 cpu, u32 num) :
     CPU(cpu),
-    Num(num),
-    MRAMBurstTable(DMATiming::MRAMDummy)
+    Num(num)
 {
     if (cpu == 0)
         CountMask = 0x001FFFFF;
@@ -135,30 +134,7 @@ bool DMA::DoSavestate(Savestate* file)
     file->Bool32(&Executing);
     file->Bool32(&Stall);
 
-    if (file->Saving)
-    {
-        u8 index = 0;
-        for (const u8* table : DMATiming::TimingTables)
-        {
-            if (table == MRAMBurstTable)
-                break;
-            index++;
-        }
-
-        assert(index < DMATiming::TimingTables.size());
-        file->Var8(&index);
-    }
-    else
-    {
-        u8 index;
-        file->Var8(&index);
-        if (index >= DMATiming::TimingTables.size())
-        {
-            Log(LogLevel::Error, "DMA%d: invalid MRAM burst table index %d\n", Num + (CPU * 4), index);
-            return false;
-        }
-        MRAMBurstTable = DMATiming::TimingTables[index];
-    }
+    file->VarArray((void*) MRAMBurstTable, sizeof (DMATiming::MRAMDummy));
 
     return true;
 }

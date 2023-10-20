@@ -42,7 +42,7 @@ namespace DMATiming
 // setting. Timings are such that the nonseq setting only matters for the first
 // access, and minor edge cases (like the last of a 0x20000-byte block).
 
-extern const u8 MRAMDummy[1] = {0};
+extern const u8 MRAMDummy[256] = {0};
 
 extern const u8 MRAMRead16Bursts[][256] =
 {
