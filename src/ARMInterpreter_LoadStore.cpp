@@ -62,14 +62,20 @@ namespace ARMInterpreter
 
 #define A_STR \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    cpu->DataWrite32(offset, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
+    u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
+    if (((cpu->CurInstr>>12) & 0xF) == 0xF) \
+        storeval += 4; \
+    cpu->DataWrite32(offset, storeval); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     cpu->AddCycles_CD();
 
 // TODO: user mode (bit21)
 #define A_STR_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    cpu->DataWrite32(addr, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
+    u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
+    if (((cpu->CurInstr>>12) & 0xF) == 0xF) \
+        storeval += 4; \
+    cpu->DataWrite32(addr, storeval); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     cpu->AddCycles_CD();
 
