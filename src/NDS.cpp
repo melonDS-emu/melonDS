@@ -1068,6 +1068,9 @@ u32 RunFrame()
     bool runFrame = Running && !(CPUStop & 0x40000000);
     if (runFrame)
     {
+        ARM9->CheckGdbIncoming();
+        ARM7->CheckGdbIncoming();
+
         GPU::StartFrame();
 
         while (Running && GPU::TotalScanlines==0)

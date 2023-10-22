@@ -24,6 +24,10 @@
 #include "types.h"
 #include "NDS.h"
 
+#ifdef GDBSTUB_ENABLED
+#include "debug/GdbStub.h"
+#endif
+
 inline u32 ROR(u32 x, u32 n)
 {
     return (x >> (n&0x1F)) | (x << ((32-n)&0x1F));
@@ -39,6 +43,9 @@ const u32 ITCMPhysicalSize = 0x8000;
 const u32 DTCMPhysicalSize = 0x4000;
 
 class ARM
+#ifdef GDBSTUB_ENABLED
+    : public Gdb::StubCallbacks
+#endif
 {
 public:
     ARM(u32 num);
@@ -93,6 +100,18 @@ public:
         if (v) CPSR |= 0x10000000;
     }
 
+    inline bool ModeIs(u32 mode)
+    {
+        u32 cm = CPSR & 0x1f;
+        mode &= 0x1f;
+
+        if (mode == cm) return true;
+        if (mode == 0x17) return cm >= 0x14 && cm <= 0x17; // abt
+        if (mode == 0x1b) return cm >= 0x18 && cm <= 0x1b; // und
+
+        return false;
+    }
+
     void UpdateMode(u32 oldmode, u32 newmode, bool phony = false);
 
     void TriggerIRQ();
@@ -114,6 +133,7 @@ public:
     virtual void AddCycles_CDI() = 0;
     virtual void AddCycles_CD() = 0;
 
+    void CheckGdbIncoming();
 
     u32 Num;
 
@@ -155,6 +175,9 @@ public:
 #endif
 
     static u32 ConditionTable[16];
+#ifdef GDBSTUB_ENABLED
+    Gdb::GdbStub GdbStub;
+#endif
 
 protected:
     u8 (*BusRead8)(u32 addr);
@@ -163,6 +186,29 @@ protected:
     void (*BusWrite8)(u32 addr, u8 val);
     void (*BusWrite16)(u32 addr, u16 val);
     void (*BusWrite32)(u32 addr, u32 val);
+
+#ifdef GDBSTUB_ENABLED
+    bool IsSingleStep;
+    bool BreakReq;
+    bool BreakOnStartup;
+
+public:
+    int GetCPU() const override { return Num ? 7 : 9; }
+
+    u32 ReadReg(Gdb::Register reg) override;
+    void WriteReg(Gdb::Register reg, u32 v) override;
+    u32 ReadMem(u32 addr, int size) override;
+    void WriteMem(u32 addr, int size, u32 v) override;
+
+    void ResetGdb() override;
+    int RemoteCmd(const u8* cmd, size_t len) override;
+
+protected:
+#endif
+
+    void GdbCheckA();
+    void GdbCheckB();
+    void GdbCheckC();
 };
 
 class ARMv5 : public ARM
@@ -171,51 +217,51 @@ public:
     ARMv5();
     ~ARMv5();
 
-    void Reset();
+    void Reset() override;
 
-    void DoSavestate(Savestate* file);
+    void DoSavestate(Savestate* file) override;
 
     void UpdateRegionTimings(u32 addrstart, u32 addrend);
 
-    void FillPipeline();
+    void FillPipeline() override;
 
-    void JumpTo(u32 addr, bool restorecpsr = false);
+    void JumpTo(u32 addr, bool restorecpsr = false) override;
 
     void PrefetchAbort();
     void DataAbort();
 
-    void Execute();
+    void Execute() override;
 #ifdef JIT_ENABLED
-    void ExecuteJIT();
+    void ExecuteJIT() override;
 #endif
 
     // all code accesses are forced nonseq 32bit
     u32 CodeRead32(u32 addr, bool branch);
 
-    void DataRead8(u32 addr, u32* val);
-    void DataRead16(u32 addr, u32* val);
-    void DataRead32(u32 addr, u32* val);
-    void DataRead32S(u32 addr, u32* val);
-    void DataWrite8(u32 addr, u8 val);
-    void DataWrite16(u32 addr, u16 val);
-    void DataWrite32(u32 addr, u32 val);
-    void DataWrite32S(u32 addr, u32 val);
+    void DataRead8(u32 addr, u32* val) override;
+    void DataRead16(u32 addr, u32* val) override;
+    void DataRead32(u32 addr, u32* val) override;
+    void DataRead32S(u32 addr, u32* val) override;
+    void DataWrite8(u32 addr, u8 val) override;
+    void DataWrite16(u32 addr, u16 val) override;
+    void DataWrite32(u32 addr, u32 val) override;
+    void DataWrite32S(u32 addr, u32 val) override;
 
-    void AddCycles_C()
+    void AddCycles_C() override
     {
         // code only. always nonseq 32-bit for ARM9.
         s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
         Cycles += numC;
     }
 
-    void AddCycles_CI(s32 numI)
+    void AddCycles_CI(s32 numI) override
     {
         // code+internal
         s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
         Cycles += numC + numI;
     }
 
-    void AddCycles_CDI()
+    void AddCycles_CDI() override
     {
         // LDR/LDM cycles. ARM9 seems to skip the internal cycle there.
         // TODO: ITCM data fetches shouldn't be parallelized, they say
@@ -228,7 +274,7 @@ public:
         //    Cycles += numC + numD;
     }
 
-    void AddCycles_CD()
+    void AddCycles_CD() override
     {
         // TODO: ITCM data fetches shouldn't be parallelized, they say
         s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
@@ -302,6 +348,11 @@ public:
     u8* CurICacheLine;
 
     bool (*GetMemRegion)(u32 addr, bool write, NDS::MemRegion* region);
+
+#ifdef GDBSTUB_ENABLED
+    u32 ReadMem(u32 addr, int size) override;
+    void WriteMem(u32 addr, int size, u32 v) override;
+#endif
 };
 
 class ARMv4 : public ARM
@@ -309,15 +360,15 @@ class ARMv4 : public ARM
 public:
     ARMv4();
 
-    void Reset();
+    void Reset() override;
 
-    void FillPipeline();
+    void FillPipeline() override;
 
-    void JumpTo(u32 addr, bool restorecpsr = false);
+    void JumpTo(u32 addr, bool restorecpsr = false) override;
 
-    void Execute();
+    void Execute() override;
 #ifdef JIT_ENABLED
-    void ExecuteJIT();
+    void ExecuteJIT() override;
 #endif
 
     u16 CodeRead16(u32 addr)
@@ -330,14 +381,14 @@ public:
         return BusRead32(addr);
     }
 
-    void DataRead8(u32 addr, u32* val)
+    void DataRead8(u32 addr, u32* val) override
     {
         *val = BusRead8(addr);
         DataRegion = addr;
         DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
-    void DataRead16(u32 addr, u32* val)
+    void DataRead16(u32 addr, u32* val) override
     {
         addr &= ~1;
 
@@ -346,7 +397,7 @@ public:
         DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
-    void DataRead32(u32 addr, u32* val)
+    void DataRead32(u32 addr, u32* val) override
     {
         addr &= ~3;
 
@@ -355,7 +406,7 @@ public:
         DataCycles = NDS::ARM7MemTimings[addr >> 15][2];
     }
 
-    void DataRead32S(u32 addr, u32* val)
+    void DataRead32S(u32 addr, u32* val) override
     {
         addr &= ~3;
 
@@ -363,14 +414,14 @@ public:
         DataCycles += NDS::ARM7MemTimings[addr >> 15][3];
     }
 
-    void DataWrite8(u32 addr, u8 val)
+    void DataWrite8(u32 addr, u8 val) override
     {
         BusWrite8(addr, val);
         DataRegion = addr;
         DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
-    void DataWrite16(u32 addr, u16 val)
+    void DataWrite16(u32 addr, u16 val) override
     {
         addr &= ~1;
 
@@ -379,7 +430,7 @@ public:
         DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
-    void DataWrite32(u32 addr, u32 val)
+    void DataWrite32(u32 addr, u32 val) override
     {
         addr &= ~3;
 
@@ -388,7 +439,7 @@ public:
         DataCycles = NDS::ARM7MemTimings[addr >> 15][2];
     }
 
-    void DataWrite32S(u32 addr, u32 val)
+    void DataWrite32S(u32 addr, u32 val) override
     {
         addr &= ~3;
 
@@ -397,19 +448,19 @@ public:
     }
 
 
-    void AddCycles_C()
+    void AddCycles_C() override
     {
         // code only. this code fetch is sequential.
         Cycles += NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?1:3];
     }
 
-    void AddCycles_CI(s32 num)
+    void AddCycles_CI(s32 num) override
     {
         // code+internal. results in a nonseq code fetch.
         Cycles += NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2] + num;
     }
 
-    void AddCycles_CDI()
+    void AddCycles_CDI() override
     {
         // LDR/LDM cycles.
         s32 numC = NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2];
@@ -436,7 +487,7 @@ public:
         }
     }
 
-    void AddCycles_CD()
+    void AddCycles_CD() override
     {
         // TODO: max gain should be 5c when writing to mainRAM
         s32 numC = NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2];

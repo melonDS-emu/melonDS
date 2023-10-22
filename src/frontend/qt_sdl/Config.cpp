@@ -146,6 +146,14 @@ bool DSiBatteryCharging;
 
 bool DSiFullBIOSBoot;
 
+#ifdef GDBSTUB_ENABLED
+bool GdbEnabled;
+int GdbPortARM7;
+int GdbPortARM9;
+bool GdbARM7BreakOnStartup;
+bool GdbARM9BreakOnStartup;
+#endif
+
 CameraConfig Camera[2];
 
 
@@ -336,6 +344,14 @@ ConfigEntry ConfigFile[] =
     {"DSiBatteryCharging", 1, &DSiBatteryCharging, true, true},
 
     {"DSiFullBIOSBoot", 1, &DSiFullBIOSBoot, false, true},
+
+#ifdef GDBSTUB_ENABLED
+    {"GdbEnabled", 1, &GdbEnabled, false, false},
+    {"GdbPortARM7", 0, &GdbPortARM7, 3334, true},
+    {"GdbPortARM9", 0, &GdbPortARM9, 3333, true},
+    {"GdbARM7BreakOnStartup", 1, &GdbARM7BreakOnStartup, false, true},
+    {"GdbARM9BreakOnStartup", 1, &GdbARM9BreakOnStartup, false, true},
+#endif
 
     // TODO!!
     // we need a more elegant way to deal with this

@@ -94,3 +94,8 @@ ARM_RestoreContext:
     mov sp, x17
 
     br x18
+
+#ifndef __APPLE__
+.section .note.GNU-stack,"",@progbits
+#endif
+

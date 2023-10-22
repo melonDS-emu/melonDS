@@ -193,6 +193,12 @@ extern bool DSiFullBIOSBoot;
 
 extern CameraConfig Camera[2];
 
+extern bool GdbEnabled;
+extern int GdbPortARM7;
+extern int GdbPortARM9;
+extern bool GdbARM7BreakOnStartup;
+extern bool GdbARM9BreakOnStartup;
+
 
 void Load();
 void Save();
