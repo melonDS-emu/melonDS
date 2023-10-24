@@ -61,6 +61,15 @@ add_library(core STATIC
     tiny-AES-c/aes.c
     xxhash/xxhash.c)
 
+if (ENABLE_GDBSTUB)
+    message(NOTICE "Enabling GDB stub")
+    target_sources(core PRIVATE
+        debug/GdbStub.cpp
+        debug/GdbProto.cpp
+        debug/GdbCmds.cpp
+    )
+endif()
+
 if (ENABLE_OGLRENDERER)
     target_sources(core PRIVATE
         GPU_OpenGL.cpp
@@ -131,7 +140,7 @@ if (ENABLE_JIT)
 endif()
 
 if (WIN32)
-    target_link_libraries(core PRIVATE ole32 comctl32 ws2_32)
+    target_link_libraries(core PRIVATE ole32 comctl32 wsock32 ws2_32)
 elseif(NOT APPLE)
     check_library_exists(rt shm_open "" NEED_LIBRT)
     if (NEED_LIBRT)
@@ -143,3 +152,14 @@ if (ENABLE_JIT_PROFILING)
     target_include_directories(core PRIVATE "${VTUNE_INCLUDE_DIR}")
     target_link_libraries(core PRIVATE "${VTUNE_LIBRARY}")
 endif()
+
+#if(CMAKE_BUILD_TYPE MATCHES "Debug")
+#  set(
+#    CMAKE_C_FLAGS
+#    "${CMAKE_C_FLAGS} -fsanitize=undefined -fsanitize=address"
+#  )
+#  target_link_options(core
+#    BEFORE PUBLIC -fsanitize=undefined PUBLIC -fsanitize=address
+#  )
+#endif()
+
