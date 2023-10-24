@@ -393,6 +393,12 @@ void DoSavestate(Savestate* file)
 {
     file->Section("GP3D");
 
+    SoftRenderer* softRenderer = dynamic_cast<SoftRenderer*>(CurrentRenderer.get());
+    if (softRenderer && softRenderer->IsThreaded())
+    {
+        softRenderer->SetupRenderThread();
+    }
+
     CmdFIFO.DoSavestate(file);
     CmdPIPE.DoSavestate(file);
 
@@ -630,6 +636,10 @@ void DoSavestate(Savestate* file)
     file->VarArray(ShininessTable, 128*sizeof(u8));
 
     file->Bool32(&AbortFrame);
+    if (softRenderer && softRenderer->IsThreaded())
+    {
+        softRenderer->EnableRenderThread();
+    }
 }
 
 

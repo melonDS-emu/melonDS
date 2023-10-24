@@ -40,7 +40,9 @@ public:
     virtual u32* GetLine(int line) override;
 
     void SetupRenderThread();
+    void EnableRenderThread();
     void StopRenderThread();
+    bool IsThreaded() const noexcept { return Threaded; }
 private:
     // Notes on the interpolator:
     //
