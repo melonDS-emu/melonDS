@@ -207,11 +207,6 @@ int GetConfigInt(ConfigEntry entry)
 
     case DSiSD_ImageSize: return imgsizes[Config::DSiSDSize];
 
-    case Firm_Language: return Config::FirmwareLanguage;
-    case Firm_BirthdayMonth: return Config::FirmwareBirthdayMonth;
-    case Firm_BirthdayDay: return Config::FirmwareBirthdayDay;
-    case Firm_Color: return Config::FirmwareFavouriteColour;
-
     case AudioBitDepth: return Config::AudioBitDepth;
 
 #ifdef GDBSTUB_ENABLED
@@ -244,7 +239,6 @@ bool GetConfigBool(ConfigEntry entry)
     case DSiSD_ReadOnly: return Config::DSiSDReadOnly != 0;
     case DSiSD_FolderSync: return Config::DSiSDFolderSync != 0;
 
-    case Firm_OverrideSettings: return Config::FirmwareOverrideSettings != 0;
     case DSi_FullBIOSBoot: return Config::DSiFullBIOSBoot != 0;
 
 #ifdef GDBSTUB_ENABLED
@@ -267,8 +261,6 @@ std::string GetConfigString(ConfigEntry entry)
     case DSiSD_ImagePath: return Config::DSiSDPath;
     case DSiSD_FolderPath: return Config::DSiSDFolderPath;
 
-    case Firm_Username: return Config::FirmwareUsername;
-    case Firm_Message: return Config::FirmwareMessage;
     case WifiSettingsPath: return Config::WifiSettingsPath;
     }
 

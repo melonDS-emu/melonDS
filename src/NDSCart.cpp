@@ -1650,8 +1650,7 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
     bool dsi = header.IsDSi();
     bool badDSiDump = false;
 
-    u32 dsiRegion = header.DSiRegionMask;
-    if (dsi && dsiRegion == 0)
+    if (dsi && header.DSiRegionMask == RegionMask::NoRegion)
     {
         Log(LogLevel::Info, "DS header indicates DSi, but region is zero. Going in bad dump mode.\n");
         badDSiDump = true;
