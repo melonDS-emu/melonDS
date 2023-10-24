@@ -19,14 +19,16 @@
 #ifndef DMA_H
 #define DMA_H
 
+#include <array>
 #include "types.h"
 #include "Savestate.h"
+#include "DMA_Timings.h"
 
 class DMA
 {
 public:
     DMA(u32 cpu, u32 num);
-    ~DMA();
+    ~DMA() = default;
 
     void Reset();
 
@@ -48,12 +50,12 @@ public:
     template <int ConsoleType>
     void Run7();
 
-    bool IsInMode(u32 mode)
+    bool IsInMode(u32 mode) const noexcept
     {
         return ((mode == StartMode) && (Cnt & 0x80000000));
     }
 
-    bool IsRunning() { return Running!=0; }
+    bool IsRunning() const noexcept { return Running!=0; }
 
     void StartIfNeeded(u32 mode)
     {
@@ -72,32 +74,33 @@ public:
         if (Executing) Stall = true;
     }
 
-    u32 SrcAddr;
-    u32 DstAddr;
-    u32 Cnt;
+    u32 SrcAddr {};
+    u32 DstAddr {};
+    u32 Cnt {};
 
 private:
-    u32 CPU, Num;
+    u32 CPU {};
+    u32 Num {};
 
-    u32 StartMode;
-    u32 CurSrcAddr;
-    u32 CurDstAddr;
-    u32 RemCount;
-    u32 IterCount;
-    s32 SrcAddrInc;
-    s32 DstAddrInc;
-    u32 CountMask;
+    u32 StartMode {};
+    u32 CurSrcAddr {};
+    u32 CurDstAddr {};
+    u32 RemCount {};
+    u32 IterCount {};
+    s32 SrcAddrInc {};
+    s32 DstAddrInc {};
+    u32 CountMask {};
 
-    u32 Running;
-    bool InProgress;
+    u32 Running {};
+    bool InProgress {};
 
-    bool Executing;
-    bool Stall;
+    bool Executing {};
+    bool Stall {};
 
-    bool IsGXFIFODMA;
+    bool IsGXFIFODMA {};
 
-    u32 MRAMBurstCount;
-    const u8* MRAMBurstTable;
+    u32 MRAMBurstCount {};
+    std::array<u8, 256> MRAMBurstTable;
 };
 
 #endif
