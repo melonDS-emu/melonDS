@@ -121,13 +121,6 @@ enum ConfigEntry
     DSiSD_FolderSync,
     DSiSD_FolderPath,
 
-    Firm_OverrideSettings [[deprecated("Individual fields can now be overridden")]],
-    Firm_Username,
-    Firm_Language,
-    Firm_BirthdayMonth,
-    Firm_BirthdayDay,
-    Firm_Color,
-    Firm_Message,
     Firm_MAC,
 
     WifiSettingsPath,

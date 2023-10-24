@@ -47,6 +47,7 @@ using std::pair;
 using std::string;
 using std::tie;
 using std::unique_ptr;
+using std::wstring_convert;
 using namespace Platform;
 
 namespace ROMManager
@@ -875,7 +876,7 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
     UserData& currentData = firmware.EffectiveUserData();
 
     // setting up username
-    std::string orig_username = Platform::GetConfigString(Platform::Firm_Username);
+    std::string orig_username = Config::FirmwareUsername;
     if (!orig_username.empty())
     { // If the frontend defines a username, take it. If not, leave the existing one.
         std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
@@ -884,7 +885,7 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
         memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
     }
 
-    auto language = static_cast<Language>(Platform::GetConfigInt(Platform::Firm_Language));
+    auto language = static_cast<Language>(Config::FirmwareLanguage);
     if (language != Language::Reserved)
     { // If the frontend specifies a language (rather than using the existing value)...
         currentData.Settings &= ~Language::Reserved; // ..clear the existing language...
@@ -892,26 +893,26 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
     }
 
     // setting up color
-    u8 favoritecolor = Platform::GetConfigInt(Platform::Firm_Color);
+    u8 favoritecolor = Config::FirmwareFavouriteColour;
     if (favoritecolor != 0xFF)
     {
         currentData.FavoriteColor = favoritecolor;
     }
 
-    u8 birthmonth = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
+    u8 birthmonth = Config::FirmwareBirthdayMonth;
     if (birthmonth != 0)
     { // If the frontend specifies a birth month (rather than using the existing value)...
         currentData.BirthdayMonth = birthmonth;
     }
 
-    u8 birthday = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
+    u8 birthday = Config::FirmwareBirthdayDay;
     if (birthday != 0)
     { // If the frontend specifies a birthday (rather than using the existing value)...
         currentData.BirthdayDay = birthday;
     }
 
     // setup message
-    std::string orig_message = Platform::GetConfigString(Platform::Firm_Message);
+    std::string orig_message = Config::FirmwareMessage;
     if (!orig_message.empty())
     {
         std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
@@ -966,7 +967,7 @@ static Platform::FileHandle* OpenNANDFile() noexcept
         FileHandle* orig = Platform::OpenLocalFile(nandpath, FileMode::Read);
         if (!orig)
         {
-            Log(LogLevel::Error, "Failed to open DSi NAND\n");
+            Log(LogLevel::Error, "Failed to open DSi NAND from %s\n", nandpath.c_str());
             return nullptr;
         }
 
@@ -984,16 +985,77 @@ bool InstallNAND(const u8* es_keyY)
     if (!nandfile)
         return false;
 
-    if (auto nand = std::make_unique<DSi_NAND::NANDImage>(nandfile, es_keyY); *nand)
+    DSi_NAND::NANDImage nandImage(nandfile, es_keyY);
+    if (!nandImage)
     {
-        DSi::NANDImage = std::move(nand);
-        return true;
-    }
-    else
-    {
-        DSi::NANDImage = nullptr;
+        Log(LogLevel::Error, "Failed to parse DSi NAND\n");
         return false;
     }
+
+    // scoped so that mount isn't alive when we move the NAND image to DSi::NANDImage
+    {
+        auto mount = DSi_NAND::NANDMount(nandImage);
+        if (!mount)
+        {
+            Log(LogLevel::Error, "Failed to mount DSi NAND\n");
+            return false;
+        }
+
+        DSi_NAND::DSiFirmwareSystemSettings settings {};
+        if (!mount.ReadUserData(settings))
+        {
+            Log(LogLevel::Error, "Failed to read DSi NAND user data\n");
+            return false;
+        }
+
+        // override user settings, if needed
+        if (Config::FirmwareOverrideSettings)
+        {
+            // we store relevant strings as UTF-8, so we need to convert them to UTF-16
+            auto converter = wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{};
+
+            // setting up username
+            std::u16string username = converter.from_bytes(Config::FirmwareUsername);
+            size_t usernameLength = std::min(username.length(), (size_t) 10);
+            memset(&settings.Nickname, 0, sizeof(settings.Nickname));
+            memcpy(&settings.Nickname, username.data(), usernameLength * sizeof(char16_t));
+
+            // setting language
+            settings.Language = static_cast<SPI_Firmware::Language>(Config::FirmwareLanguage);
+
+            // setting up color
+            settings.FavoriteColor = Config::FirmwareFavouriteColour;
+
+            // setting up birthday
+            settings.BirthdayMonth = Config::FirmwareBirthdayMonth;
+            settings.BirthdayDay = Config::FirmwareBirthdayDay;
+
+            // setup message
+            std::u16string message = converter.from_bytes(Config::FirmwareMessage);
+            size_t messageLength = std::min(message.length(), (size_t) 26);
+            memset(&settings.Message, 0, sizeof(settings.Message));
+            memcpy(&settings.Message, message.data(), messageLength * sizeof(char16_t));
+
+            // TODO: make other items configurable?
+        }
+
+        // fix touchscreen coords
+        settings.TouchCalibrationADC1 = {0, 0};
+        settings.TouchCalibrationPixel1 = {0, 0};
+        settings.TouchCalibrationADC2 = {255 << 4, 191 << 4};
+        settings.TouchCalibrationPixel2 = {255, 191};
+
+        settings.UpdateHash();
+
+        if (!mount.ApplyUserData(settings))
+        {
+            Log(LogLevel::Error, "Failed to write patched DSi NAND user data\n");
+            return false;
+        }
+    }
+
+    DSi::NANDImage = std::make_unique<DSi_NAND::NANDImage>(std::move(nandImage));
+    return true;
 }
 
 bool InstallFirmware()

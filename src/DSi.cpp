@@ -540,8 +540,9 @@ void SetupDirectBoot()
                     ARM9Write32(0x02000400+i, *(u32*)&userdata.Bytes[0x88+i]);
 
                 DSi_NAND::DSiSerialData hwinfoS {};
+                nand.ReadSerialData(hwinfoS);
                 DSi_NAND::DSiHardwareInfoN hwinfoN;
-                nand.ReadHardwareInfo(hwinfoS, hwinfoN);
+                nand.ReadHardwareInfoN(hwinfoN);
 
                 for (u32 i = 0; i < 0x14; i+=4)
                     ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
@@ -944,7 +945,7 @@ bool LoadNAND()
         NDS::ARM7->JumpTo(bootparams[6]);
     }
 
-    nandmount.PatchUserData();
+    // user data is now expected to be patched by the frontend
 
     return true;
 }
