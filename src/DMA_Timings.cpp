@@ -16,6 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include "DMA_Timings.h"
 #include "types.h"
 
 namespace DMATiming
@@ -42,9 +43,9 @@ namespace DMATiming
 // setting. Timings are such that the nonseq setting only matters for the first
 // access, and minor edge cases (like the last of a 0x20000-byte block).
 
-extern const u8 MRAMDummy[256] = {0};
+extern const std::array<u8, 256> MRAMDummy = {0};
 
-extern const u8 MRAMRead16Bursts[][256] =
+extern const std::array<u8, 256> MRAMRead16Bursts[] =
 {
     // main RAM to regular 16bit or 32bit bus (similar)
     {7, 3, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -118,7 +119,7 @@ extern const u8 MRAMRead16Bursts[][256] =
      0},
 };
 
-extern const u8 MRAMRead32Bursts[][256] =
+extern const std::array<u8, 256> MRAMRead32Bursts[] =
 {
     // main RAM to regular 16bit bus
     {9, 4, 3, 3, 3, 3, 3, 3, 3, 3,
@@ -177,7 +178,7 @@ extern const u8 MRAMRead32Bursts[][256] =
      0},
 };
 
-extern const u8 MRAMWrite16Bursts[][256] =
+extern const std::array<u8, 256> MRAMWrite16Bursts[] =
 {
     // regular 16bit or 32bit bus to main RAM (similar)
     {8, 2, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -208,7 +209,7 @@ extern const u8 MRAMWrite16Bursts[][256] =
      0},
 };
 
-extern const u8 MRAMWrite32Bursts[4][256] =
+extern const std::array<u8, 256> MRAMWrite32Bursts[4] =
 {
     // regular 16bit bus to main RAM
     {9, 4, 4, 4, 4, 4, 4, 4, 4, 4,

@@ -19,6 +19,7 @@
 #ifndef DMA_TIMINGS_H
 #define DMA_TIMINGS_H
 
+#include <array>
 #include "types.h"
 
 namespace DMATiming
@@ -45,15 +46,15 @@ namespace DMATiming
 // setting. Timings are such that the nonseq setting only matters for the first
 // access, and minor edge cases (like the last of a 0x20000-byte block).
 
-extern const u8 MRAMDummy[256];
+extern const std::array<u8, 256> MRAMDummy;
 
-extern const u8 MRAMRead16Bursts[3][256];
+extern const std::array<u8, 256> MRAMRead16Bursts[3];
 
-extern const u8 MRAMRead32Bursts[4][256];
+extern const std::array<u8, 256> MRAMRead32Bursts[4];
 
-extern const u8 MRAMWrite16Bursts[3][256];
+extern const std::array<u8, 256> MRAMWrite16Bursts[3];
 
-extern const u8 MRAMWrite32Bursts[4][256];
+extern const std::array<u8, 256> MRAMWrite32Bursts[4];
 
 }
 

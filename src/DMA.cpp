@@ -105,7 +105,7 @@ void DMA::DoSavestate(Savestate* file)
     file->Bool32(&Executing);
     file->Bool32(&Stall);
 
-    file->VarArray((void*) MRAMBurstTable, sizeof (DMATiming::MRAMDummy));
+    file->VarArray(MRAMBurstTable.data(), sizeof(MRAMBurstTable));
 }
 
 void DMA::WriteCnt(u32 val)

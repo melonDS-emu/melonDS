@@ -19,6 +19,7 @@
 #ifndef DMA_H
 #define DMA_H
 
+#include <array>
 #include "types.h"
 #include "Savestate.h"
 #include "DMA_Timings.h"
@@ -99,7 +100,7 @@ private:
     bool IsGXFIFODMA {};
 
     u32 MRAMBurstCount {};
-    const u8* MRAMBurstTable = DMATiming::MRAMDummy;
+    std::array<u8, 256> MRAMBurstTable;
 };
 
 #endif
