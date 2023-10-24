@@ -172,7 +172,7 @@ NANDMount::NANDMount(NANDImage& nand) noexcept : Image(&nand)
 }
 
 
-NANDMount::~NANDMount()
+NANDMount::~NANDMount() noexcept
 {
     f_unmount("0:");
     ff_disk_close();

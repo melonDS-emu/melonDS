@@ -85,7 +85,7 @@ class NANDMount
 {
 public:
     explicit NANDMount(NANDImage& nand) noexcept;
-    ~NANDMount();
+    ~NANDMount() noexcept;
     NANDMount(const NANDMount&) = delete;
     NANDMount& operator=(const NANDMount&) = delete;
 
