@@ -68,9 +68,9 @@ void ARM::GdbCheckC()
     else GdbCheckB();
 }
 #else
-ARM::GdbCheckA() {}
-ARM::GdbCheckB() {}
-ARM::GdbCheckC() {}
+void ARM::GdbCheckA() {}
+void ARM::GdbCheckB() {}
+void ARM::GdbCheckC() {}
 #endif
 
 
