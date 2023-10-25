@@ -48,6 +48,7 @@ u8 CurCmd;
 
 u8 StatusReg1;
 u8 StatusReg2;
+u8 DateTime[7];
 u8 Alarm1[3];
 u8 Alarm2[3];
 u8 ClockAdjust;
@@ -59,6 +60,9 @@ u8 FOUT1;
 u8 FOUT2;
 u8 AlarmDate1[3];
 u8 AlarmDate2[3];
+
+s32 TimerError;
+u32 ClockCount;
 
 
 bool Init()
@@ -81,18 +85,10 @@ void Reset()
 
     CurCmd = 0;
 
-    StatusReg1 = 0;
-    StatusReg2 = 0;
-    memset(Alarm1, 0, sizeof(Alarm1));
-    memset(Alarm2, 0, sizeof(Alarm2));
-    ClockAdjust = 0;
-    FreeReg = 0;
+    ResetRegisters();
 
-    MinuteCount = 0;
-    FOUT1 = 0;
-    FOUT2 = 0;
-    memset(AlarmDate1, 0, sizeof(AlarmDate1));
-    memset(AlarmDate2, 0, sizeof(AlarmDate2));
+    ClockCount = 0;
+    ScheduleTimer(true);
 }
 
 void DoSavestate(Savestate* file)
@@ -113,6 +109,7 @@ void DoSavestate(Savestate* file)
 
     file->Var8(&StatusReg1);
     file->Var8(&StatusReg2);
+    file->VarArray(DateTime, sizeof(DateTime));
     file->VarArray(Alarm1, sizeof(Alarm1));
     file->VarArray(Alarm2, sizeof(Alarm2));
     file->Var8(&ClockAdjust);
@@ -123,6 +120,192 @@ void DoSavestate(Savestate* file)
     file->Var8(&FOUT2);
     file->VarArray(AlarmDate1, sizeof(AlarmDate1));
     file->VarArray(AlarmDate2, sizeof(AlarmDate2));
+
+    file->Var32((u32*)&TimerError);
+    file->Var32(&ClockCount);
+}
+
+
+void ResetRegisters()
+{
+    StatusReg1 = 0;
+    StatusReg2 = 0;
+    DateTime[0] = 0; DateTime[1] = 1; DateTime[2] = 1; DateTime[3] = 0;
+    DateTime[4] = 0; DateTime[5] = 0; DateTime[6] = 0;
+    memset(Alarm1, 0, sizeof(Alarm1));
+    memset(Alarm2, 0, sizeof(Alarm2));
+    ClockAdjust = 0;
+    FreeReg = 0;
+
+    MinuteCount = 0;
+    FOUT1 = 0;
+    FOUT2 = 0;
+    memset(AlarmDate1, 0, sizeof(AlarmDate1));
+    memset(AlarmDate2, 0, sizeof(AlarmDate2));
+}
+
+
+u8 BCDIncrement(u8 val)
+{
+    val++;
+    if ((val & 0x0F) >= 0x0A)
+        val += 0x06;
+    if ((val & 0xF0) >= 0xA0)
+        val += 0x60;
+    return val;
+}
+
+u8 DaysInMonth()
+{
+    u8 numdays;
+
+    switch (DateTime[1])
+    {
+    case 0x01: // Jan
+    case 0x03: // Mar
+    case 0x05: // May
+    case 0x07: // Jul
+    case 0x08: // Aug
+    case 0x10: // Oct
+    case 0x12: // Dec
+        numdays = 0x31;
+        break;
+
+    case 0x04: // Apr
+    case 0x06: // Jun
+    case 0x09: // Sep
+    case 0x11: // Nov
+        numdays = 0x30;
+        break;
+
+    case 0x02: // Feb
+        {
+            numdays = 0x28;
+
+            // leap year: if year divisible by 4 and not divisible by 100 unless divisible by 400
+            // the limited year range (2000-2099) simplifies this
+            int year = DateTime[0];
+            year = (year & 0xF) + ((year >> 4) * 10);
+            if (!(year & 3))
+                numdays = 0x29;
+        }
+        break;
+
+    default: // ???
+        return 0;
+    }
+
+    return numdays;
+}
+
+void CountYear()
+{
+    DateTime[0] = BCDIncrement(DateTime[0]);
+}
+
+void CountMonth()
+{
+    DateTime[1] = BCDIncrement(DateTime[1]);
+    if (DateTime[1] > 0x12)
+    {
+        DateTime[1] = 1;
+        CountYear();
+    }
+}
+
+void CountDay()
+{
+    // day-of-week counter
+    DateTime[3]++;
+    if (DateTime[3] >= 7) DateTime[3] = 0;
+
+    // day counter
+    DateTime[2] = BCDIncrement(DateTime[2]);
+    if (DateTime[2] > DaysInMonth())
+    {
+        DateTime[2] = 1;
+        CountMonth();
+    }
+}
+
+void CountHour()
+{
+    u8 hour = BCDIncrement(DateTime[4] & 0x3F);
+    u8 pm = DateTime[4] & 0x40;
+
+    if (StatusReg1 & (1<<1))
+    {
+        // 24-hour mode
+
+        if (hour >= 0x24)
+        {
+            hour = 0;
+            CountDay();
+        }
+
+        pm = (hour >= 0x12) ? 0x40 : 0;
+    }
+    else
+    {
+        // 12-hour mode
+
+        if (hour >= 0x12)
+        {
+            hour = 0;
+            if (pm) CountDay();
+            pm ^= 0x40;
+        }
+    }
+
+    DateTime[4] = hour | pm;
+}
+
+void CountMinute()
+{
+    MinuteCount++;
+    DateTime[5] = BCDIncrement(DateTime[5]);
+    if (DateTime[5] >= 0x60)
+    {
+        DateTime[5] = 0;
+        CountHour();
+    }
+}
+
+void CountSecond()
+{
+    DateTime[6] = BCDIncrement(DateTime[6]);
+    if (DateTime[6] >= 0x60)
+    {
+        DateTime[6] = 0;
+        CountMinute();
+    }
+}
+
+
+void ScheduleTimer(bool first)
+{
+    if (first) TimerError = 0;
+
+    // the RTC clock runs at 32768Hz
+    // cycles = 33513982 / 32768
+    s32 sysclock = 33513982 + TimerError;
+    s32 delay = sysclock >> 15;
+    TimerError = sysclock & 0x7FFF;
+
+    NDS::ScheduleEvent(NDS::Event_RTC, !first, delay, ClockTimer, 0);
+}
+
+void ClockTimer(u32 param)
+{
+    ClockCount++;
+
+    if (!(ClockCount & 0x7FFF))
+    {
+        // count up one second
+        CountSecond();
+    }
+
+    ScheduleTimer(false);
 }
 
 
@@ -142,31 +325,19 @@ void CmdRead()
         case 0x40: Output[0] = StatusReg2; break;
 
         case 0x20:
-            {
-                time_t timestamp = time(NULL);
-                struct tm timedata;
-                localtime_r(&timestamp, &timedata);
-
-                Output[0] = BCD(timedata.tm_year - 100);
-                Output[1] = BCD(timedata.tm_mon + 1);
-                Output[2] = BCD(timedata.tm_mday);
-                Output[3] = BCD(timedata.tm_wday);
-                Output[4] = BCD(timedata.tm_hour);
-                Output[5] = BCD(timedata.tm_min);
-                Output[6] = BCD(timedata.tm_sec);
-            }
+            Output[0] = DateTime[0];
+            Output[1] = DateTime[1];
+            Output[2] = DateTime[2];
+            Output[3] = DateTime[3];
+            Output[4] = DateTime[4];
+            Output[5] = DateTime[5];
+            Output[6] = DateTime[6];
             break;
 
         case 0x60:
-            {
-                time_t timestamp = time(NULL);
-                struct tm timedata;
-                localtime_r(&timestamp, &timedata);
-
-                Output[0] = BCD(timedata.tm_hour);
-                Output[1] = BCD(timedata.tm_min);
-                Output[2] = BCD(timedata.tm_sec);
-            }
+            Output[0] = DateTime[4];
+            Output[1] = DateTime[5];
+            Output[2] = DateTime[6];
             break;
 
         case 0x10:

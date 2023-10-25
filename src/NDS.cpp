@@ -715,6 +715,7 @@ bool DoSavestate_Scheduler(Savestate* file)
         GPU::StartScanline, GPU::StartHBlank, GPU::FinishFrame,
         SPU::Mix,
         Wifi::USTimer,
+        RTC::ClockTimer,
 
         GPU::DisplayFIFO,
         NDSCart::ROMPrepareData, NDSCart::ROMEndTransfer,

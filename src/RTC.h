@@ -30,6 +30,11 @@ void DeInit();
 void Reset();
 void DoSavestate(Savestate* file);
 
+void ResetRegisters();
+
+void ScheduleTimer(bool first);
+void ClockTimer(u32 param);
+
 u16 Read();
 void Write(u16 val, bool byte);
 
