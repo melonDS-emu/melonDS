@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <time.h>
+#include "NDS.h"
 #include "RTC.h"
 #include "Platform.h"
 
@@ -52,6 +53,13 @@ u8 Alarm2[3];
 u8 ClockAdjust;
 u8 FreeReg;
 
+// DSi registers
+u32 MinuteCount;
+u8 FOUT1;
+u8 FOUT2;
+u8 AlarmDate1[3];
+u8 AlarmDate2[3];
+
 
 bool Init()
 {
@@ -79,6 +87,12 @@ void Reset()
     memset(Alarm2, 0, sizeof(Alarm2));
     ClockAdjust = 0;
     FreeReg = 0;
+
+    MinuteCount = 0;
+    FOUT1 = 0;
+    FOUT2 = 0;
+    memset(AlarmDate1, 0, sizeof(AlarmDate1));
+    memset(AlarmDate2, 0, sizeof(AlarmDate2));
 }
 
 void DoSavestate(Savestate* file)
@@ -103,6 +117,12 @@ void DoSavestate(Savestate* file)
     file->VarArray(Alarm2, sizeof(Alarm2));
     file->Var8(&ClockAdjust);
     file->Var8(&FreeReg);
+
+    file->Var32(&MinuteCount);
+    file->Var8(&FOUT1);
+    file->Var8(&FOUT2);
+    file->VarArray(AlarmDate1, sizeof(AlarmDate1));
+    file->VarArray(AlarmDate2, sizeof(AlarmDate2));
 }
 
 
@@ -111,6 +131,198 @@ u8 BCD(u8 val)
     return (val % 10) | ((val / 10) << 4);
 }
 
+
+void CmdRead()
+{
+    if ((CurCmd & 0x0F) == 0x06)
+    {
+        switch (CurCmd & 0x70)
+        {
+        case 0x00: Output[0] = StatusReg1; break;
+        case 0x40: Output[0] = StatusReg2; break;
+
+        case 0x20:
+            {
+                time_t timestamp = time(NULL);
+                struct tm timedata;
+                localtime_r(&timestamp, &timedata);
+
+                Output[0] = BCD(timedata.tm_year - 100);
+                Output[1] = BCD(timedata.tm_mon + 1);
+                Output[2] = BCD(timedata.tm_mday);
+                Output[3] = BCD(timedata.tm_wday);
+                Output[4] = BCD(timedata.tm_hour);
+                Output[5] = BCD(timedata.tm_min);
+                Output[6] = BCD(timedata.tm_sec);
+            }
+            break;
+
+        case 0x60:
+            {
+                time_t timestamp = time(NULL);
+                struct tm timedata;
+                localtime_r(&timestamp, &timedata);
+
+                Output[0] = BCD(timedata.tm_hour);
+                Output[1] = BCD(timedata.tm_min);
+                Output[2] = BCD(timedata.tm_sec);
+            }
+            break;
+
+        case 0x10:
+            if (StatusReg2 & 0x04)
+            {
+                Output[0] = Alarm1[0];
+                Output[1] = Alarm1[1];
+                Output[2] = Alarm1[2];
+            }
+            else
+                Output[0] = Alarm1[2];
+            break;
+
+        case 0x50:
+            Output[0] = Alarm2[0];
+            Output[1] = Alarm2[1];
+            Output[2] = Alarm2[2];
+            break;
+
+        case 0x30: Output[0] = ClockAdjust; break;
+        case 0x70: Output[0] = FreeReg; break;
+        }
+
+        return;
+    }
+    else if ((CurCmd & 0x0F) == 0x0E)
+    {
+        if (NDS::ConsoleType != 1)
+        {
+            Log(LogLevel::Debug, "RTC: unknown read command %02X\n", CurCmd);
+            return;
+        }
+
+        switch (CurCmd & 0x70)
+        {
+        case 0x00:
+            Output[0] = (MinuteCount >> 16) & 0xFF;
+            Output[1] = (MinuteCount >> 8) & 0xFF;
+            Output[2] = MinuteCount & 0xFF;
+            break;
+
+        case 0x40: Output[0] = FOUT1; break;
+        case 0x20: Output[0] = FOUT2; break;
+
+        case 0x10:
+            Output[0] = AlarmDate1[0];
+            Output[1] = AlarmDate1[1];
+            Output[2] = AlarmDate1[2];
+            break;
+
+        case 0x50:
+            Output[0] = AlarmDate2[0];
+            Output[1] = AlarmDate2[1];
+            Output[2] = AlarmDate2[2];
+            break;
+
+        default:
+            Log(LogLevel::Debug, "RTC: unknown read command %02X\n", CurCmd);
+            break;
+        }
+
+        return;
+    }
+
+    Log(LogLevel::Debug, "RTC: unknown read command %02X\n", CurCmd);
+}
+
+void CmdWrite(u8 val)
+{
+    if ((CurCmd & 0x0F) == 0x06)
+    {
+        switch (CurCmd & 0x70)
+        {
+        case 0x00:
+            if (InputPos == 1) StatusReg1 = val & 0x0E;
+            break;
+
+        case 0x40:
+            if (InputPos == 1) StatusReg2 = val;
+            if (StatusReg2 & 0x4F) Log(LogLevel::Debug, "RTC INTERRUPT ON: %02X\n", StatusReg2);
+            break;
+
+        case 0x20:
+            // TODO: set time somehow??
+            break;
+
+        case 0x60:
+            // same shit
+            break;
+
+        case 0x10:
+            if (StatusReg2 & 0x04)
+            {
+                if (InputPos <= 3) Alarm1[InputPos-1] = val;
+            }
+            else
+            {
+                if (InputPos == 1) Alarm1[2] = val;
+            }
+            break;
+
+        case 0x50:
+            if (InputPos <= 3) Alarm2[InputPos-1] = val;
+            break;
+
+        case 0x30:
+            if (InputPos == 1) ClockAdjust = val;
+            break;
+
+        case 0x70:
+            if (InputPos == 1) FreeReg = val;
+            break;
+        }
+
+        return;
+    }
+    else if ((CurCmd & 0x0F) == 0x0E)
+    {
+        if (NDS::ConsoleType != 1)
+        {
+            Log(LogLevel::Debug, "RTC: unknown write command %02X\n", CurCmd);
+            return;
+        }
+
+        switch (CurCmd & 0x70)
+        {
+        case 0x00:
+            Log(LogLevel::Debug, "RTC: trying to write read-only minute counter\n");
+            break;
+
+        case 0x40:
+            if (InputPos == 1) FOUT1 = val;
+            break;
+
+        case 0x20:
+            if (InputPos == 1) FOUT2 = val;
+            break;
+
+        case 0x10:
+            if (InputPos <= 3) AlarmDate1[InputPos-1] = val;
+            break;
+
+        case 0x50:
+            if (InputPos <= 3) AlarmDate2[InputPos-1] = val;
+            break;
+
+        default:
+            Log(LogLevel::Debug, "RTC: unknown write command %02X\n", CurCmd);
+            break;
+        }
+
+        return;
+    }
+
+    Log(LogLevel::Debug, "RTC: unknown write command %02X\n", CurCmd);
+}
 
 void ByteIn(u8 val)
 {
@@ -124,107 +336,25 @@ void ByteIn(u8 val)
         else
             CurCmd = val;
 
+        if (NDS::ConsoleType == 1)
+        {
+            // for DSi: handle extra commands
+
+            if (((CurCmd & 0xF0) == 0x70) && ((CurCmd & 0xFE) != 0x76))
+            {
+                u8 rev[16] = {0x0E, 0x8E, 0x4E, 0xCE, 0x2E, 0xAE, 0x6E, 0xEE, 0x1E, 0x9E, 0x5E, 0xDE, 0x3E, 0xBE, 0x7E, 0xFE};
+                CurCmd = rev[CurCmd & 0xF];
+            }
+        }
+
         if (CurCmd & 0x80)
         {
-            switch (CurCmd & 0x70)
-            {
-            case 0x00: Output[0] = StatusReg1; break;
-            case 0x40: Output[0] = StatusReg2; break;
-
-            case 0x20:
-                {
-                    time_t timestamp = time(NULL);
-                    struct tm timedata;
-                    localtime_r(&timestamp, &timedata);
-
-                    Output[0] = BCD(timedata.tm_year - 100);
-                    Output[1] = BCD(timedata.tm_mon + 1);
-                    Output[2] = BCD(timedata.tm_mday);
-                    Output[3] = BCD(timedata.tm_wday);
-                    Output[4] = BCD(timedata.tm_hour);
-                    Output[5] = BCD(timedata.tm_min);
-                    Output[6] = BCD(timedata.tm_sec);
-                }
-                break;
-
-            case 0x60:
-                {
-                    time_t timestamp = time(NULL);
-                    struct tm timedata;
-                    localtime_r(&timestamp, &timedata);
-
-                    Output[0] = BCD(timedata.tm_hour);
-                    Output[1] = BCD(timedata.tm_min);
-                    Output[2] = BCD(timedata.tm_sec);
-                }
-                break;
-
-            case 0x10:
-                if (StatusReg2 & 0x04)
-                {
-                    Output[0] = Alarm1[0];
-                    Output[1] = Alarm1[1];
-                    Output[2] = Alarm1[2];
-                }
-                else
-                    Output[0] = Alarm1[2];
-                break;
-
-            case 0x50:
-                Output[0] = Alarm2[0];
-                Output[1] = Alarm2[1];
-                Output[2] = Alarm2[2];
-                break;
-
-            case 0x30: Output[0] = ClockAdjust; break;
-            case 0x70: Output[0] = FreeReg; break;
-            }
+            CmdRead();
         }
         return;
     }
 
-    switch (CurCmd & 0x70)
-    {
-    case 0x00:
-        if (InputPos == 1) StatusReg1 = val & 0x0E;
-        break;
-
-    case 0x40:
-        if (InputPos == 1) StatusReg2 = val;
-        if (StatusReg2 & 0x4F) Log(LogLevel::Debug, "RTC INTERRUPT ON: %02X\n", StatusReg2);
-        break;
-
-    case 0x20:
-        // TODO: set time somehow??
-        break;
-
-    case 0x60:
-        // same shit
-        break;
-
-    case 0x10:
-        if (StatusReg2 & 0x04)
-        {
-            if (InputPos <= 3) Alarm1[InputPos-1] = val;
-        }
-        else
-        {
-            if (InputPos == 1) Alarm1[2] = val;
-        }
-        break;
-
-    case 0x50:
-        if (InputPos <= 3) Alarm2[InputPos-1] = val;
-        break;
-
-    case 0x30:
-        if (InputPos == 1) ClockAdjust = val;
-        break;
-
-    case 0x70:
-        if (InputPos == 1) FreeReg = val;
-        break;
-    }
+    CmdWrite(val);
 }
 
 
