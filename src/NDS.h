@@ -37,6 +37,7 @@ enum
     Event_LCD = 0,
     Event_SPU,
     Event_Wifi,
+    Event_RTC,
 
     Event_DisplayFIFO,
     Event_ROMTransfer,
