@@ -211,7 +211,6 @@ void Savestate::Bool32(bool* var)
 
 void Savestate::VarArray(void* data, u32 len)
 {
-    ZoneScopedN(TracyFunction);
     if (Error || finished) return;
 
     assert(buffer_offset <= buffer_length);
