@@ -36,6 +36,7 @@ u32 HotkeyPress, HotkeyRelease;
 
 u32 InputMask;
 
+std::vector<int> Keystrokes;
 
 void Init()
 {
@@ -98,6 +99,7 @@ int GetEventKeyVal(QKeyEvent* event)
 void KeyPress(QKeyEvent* event)
 {
     int keyHK = GetEventKeyVal(event);
+    Keystrokes.push_back(keyHK);
     int keyKP = keyHK;
     if (event->modifiers() != Qt::KeypadModifier)
         keyKP &= ~event->modifiers();

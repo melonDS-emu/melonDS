@@ -63,6 +63,12 @@ public:
     void initContext();
     void deinitContext();
 
+    void onLuaPrint(const QString&);
+    void onLuaClearConsole();
+    void onLuaLoadState(const QString&);
+    void onLuaSaveState(const QString&);
+    void onLuaLayoutChange();
+
     int FrontBuffer = 0;
     QMutex FrontBufferLock;
 
@@ -88,6 +94,11 @@ signals:
     void screenEmphasisToggle();
 
     void syncVolumeLevel();
+
+    void signalLuaPrint(const QString&);
+    void signalLuaClearConsole();
+    void signalLuaSaveState(const QString&);
+    void signalLuaLoadState(const QString&);
 
 private:
     void drawScreenGL();
@@ -289,7 +300,9 @@ private slots:
     void onInsertGBACart();
     void onInsertGBAAddon();
     void onEjectGBACart();
+    void onLuaSaveState(const QString& filename);
     void onSaveState();
+    void onLuaLoadState(const QString& filename);
     void onLoadState();
     void onUndoStateLoad();
     void onImportSavefile();
@@ -310,6 +323,7 @@ private slots:
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
     void onOpenPowerManagement();
+    void onOpenLuaScript();
     void onOpenInputConfig();
     void onInputConfigFinished(int res);
     void onOpenVideoSettings();
@@ -409,6 +423,7 @@ public:
     QAction* actPreferences;
 #endif
     QAction* actPowerManagement;
+    QAction* actLuaScript;
     QAction* actInputConfig;
     QAction* actVideoSettings;
     QAction* actCameraSettings;

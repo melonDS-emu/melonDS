@@ -20,6 +20,7 @@
 #define INPUT_H
 
 #include "types.h"
+#include <vector>
 
 namespace Input
 {
@@ -28,6 +29,8 @@ extern int JoystickID;
 extern SDL_Joystick* Joystick;
 
 extern u32 InputMask;
+
+extern std::vector<int> Keystrokes; //used by Luascripts 
 
 void Init();
 

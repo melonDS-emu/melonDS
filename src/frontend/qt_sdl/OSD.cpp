@@ -32,6 +32,8 @@
 
 #include "Config.h"
 
+#include "LuaMain.h"
+
 extern MainWindow* mainWindow;
 
 namespace OSD
@@ -397,6 +399,14 @@ void DrawNative(QPainter& painter)
 
     painter.resetTransform();
 
+    for (auto lo = LuaScript::LuaOverlays.begin(); lo != LuaScript::LuaOverlays.end();)
+    {
+        LuaScript::OverlayCanvas& overlay = *lo;
+        if (overlay.isActive)
+            painter.drawImage(overlay.rectangle,*overlay.displayBuffer);
+        lo++;
+    }
+
     for (auto it = ItemQueue.begin(); it != ItemQueue.end(); )
     {
         Item& item = *it;
@@ -437,6 +447,35 @@ void DrawGL(float w, float h)
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    for (auto lo = LuaScript::LuaOverlays.begin(); lo != LuaScript::LuaOverlays.end();)
+    {
+        LuaScript::OverlayCanvas& overlay = *lo;
+        if (!overlay.GLTextureLoaded)
+        {
+            glGenTextures(1,&overlay.GLTexture);
+            glBindTexture(GL_TEXTURE_2D, overlay.GLTexture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, overlay.rectangle.width(), overlay.rectangle.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, overlay.displayBuffer->bits());
+            overlay.GLTextureLoaded = true;
+        }
+        if (overlay.flipped)
+        {
+            glBindTexture(GL_TEXTURE_2D, overlay.GLTexture);
+            glTexSubImage2D(GL_TEXTURE_2D,0,0,0,overlay.rectangle.width(),overlay.rectangle.height(),GL_RGBA,GL_UNSIGNED_BYTE,overlay.displayBuffer->bits());
+            overlay.flipped = false;
+        }
+        if (overlay.isActive){ //only active overlays get drawn. (textures are still updated though)
+            glBindTexture(GL_TEXTURE_2D, overlay.GLTexture);
+            glUniform2i(uOSDPos,overlay.rectangle.left(),overlay.rectangle.top());
+            glUniform2i(uOSDSize,overlay.rectangle.width(),overlay.rectangle.height());
+            glDrawArrays(GL_TRIANGLES, 0, 2*3);
+        }
+        lo++;
+    }
 
     for (auto it = ItemQueue.begin(); it != ItemQueue.end(); )
     {
