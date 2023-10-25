@@ -772,7 +772,6 @@ void MatrixTranslate(s32* m, s32* s)
 
 void UpdateClipMatrix()
 {
-    ZoneScopedN(TracyFunction);
     if (!ClipMatrixDirty) return;
     ClipMatrixDirty = false;
 
