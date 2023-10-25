@@ -90,6 +90,7 @@
 #include "LocalMP.h"
 #include "Config.h"
 #include "DSi_I2C.h"
+#include "Tracy.h"
 
 #include "Savestate.h"
 
@@ -612,6 +613,7 @@ void EmuThread::run()
                     sprintf(melontitle, "[%d/%.0f] melonDS (%d)", fps, fpstarget, inst+1);
                 changeWindowTitle(melontitle);
             }
+            FrameMark;
         }
         else
         {

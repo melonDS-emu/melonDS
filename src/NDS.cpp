@@ -33,6 +33,7 @@
 #include "AREngine.h"
 #include "Platform.h"
 #include "FreeBIOS.h"
+#include "Tracy.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"
@@ -184,6 +185,7 @@ void SetGBASlotTimings();
 
 bool Init()
 {
+    ZoneScopedN(TracyFunction);
     ARM9 = new ARMv5();
     ARM7 = new ARMv4();
 
@@ -221,6 +223,7 @@ bool Init()
 
 void DeInit()
 {
+    ZoneScopedN(TracyFunction);
 #ifdef JIT_ENABLED
     ARMJIT::DeInit();
 #endif
@@ -253,6 +256,7 @@ void DeInit()
 
 void SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq)
 {
+    ZoneScopedN(TracyFunction);
     addrstart >>= 2;
     addrend   >>= 2;
 
@@ -295,6 +299,7 @@ void SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, 
 
 void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq)
 {
+    ZoneScopedN(TracyFunction);
     addrstart >>= 3;
     addrend   >>= 3;
 
@@ -326,6 +331,7 @@ void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, 
 
 void InitTimings()
 {
+    ZoneScopedN(TracyFunction);
     // TODO, eventually:
     // VRAM is initially unmapped. The timings should be those of void regions.
     // Similarly for any unmapped VRAM area.
@@ -384,6 +390,7 @@ bool NeedsDirectBoot()
 
 void SetupDirectBoot(const std::string& romname)
 {
+    ZoneScopedN(TracyFunction);
     const NDSHeader& header = NDSCart::Cart->GetHeader();
 
     if (ConsoleType == 1)
@@ -514,6 +521,7 @@ void SetupDirectBoot(const std::string& romname)
 
 void Reset()
 {
+    ZoneScopedN(TracyFunction);
     Platform::FileHandle* f;
     u32 i;
 
@@ -672,6 +680,7 @@ static const char* StopReasonName(Platform::StopReason reason)
 
 void Stop(Platform::StopReason reason)
 {
+    ZoneScopedN(TracyFunction);
     Platform::LogLevel level;
     switch (reason)
     {
@@ -700,6 +709,7 @@ void Stop(Platform::StopReason reason)
 
 bool DoSavestate_Scheduler(Savestate* file)
 {
+    ZoneScopedN(TracyFunction);
     // this is a bit of a hack
     // but uh, your local coder realized that the scheduler list contains function pointers
     // and that storing those as-is is not a very good idea
@@ -799,6 +809,7 @@ bool DoSavestate_Scheduler(Savestate* file)
 
 bool DoSavestate(Savestate* file)
 {
+    ZoneScopedN(TracyFunction);
     file->Section("NDSG");
 
     if (file->Saving)
@@ -952,6 +963,7 @@ void SetConsoleType(int type)
 
 bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
 {
+    ZoneScopedN(TracyFunction);
     if (!NDSCart::LoadROM(romdata, romlen))
         return false;
 
@@ -963,6 +975,7 @@ bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
 
 void LoadSave(const u8* savedata, u32 savelen)
 {
+    ZoneScopedN(TracyFunction);
     if (savedata && savelen)
         NDSCart::LoadSave(savedata, savelen);
 }
@@ -979,6 +992,7 @@ bool CartInserted()
 
 bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
 {
+    ZoneScopedN(TracyFunction);
     if (!GBACart::LoadROM(romdata, romlen))
         return false;
 
@@ -990,11 +1004,13 @@ bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
 
 void LoadGBAAddon(int type)
 {
+    ZoneScopedN(TracyFunction);
     GBACart::LoadAddon(type);
 }
 
 void EjectGBACart()
 {
+    ZoneScopedN(TracyFunction);
     GBACart::EjectCart();
 }
 
@@ -1062,6 +1078,7 @@ void RunSystem(u64 timestamp)
 template <bool EnableJIT, int ConsoleType>
 u32 RunFrame()
 {
+    ZoneScopedN(TracyFunction);
     FrameStartTimestamp = SysTimestamp;
 
     LagFrameFlag = true;
@@ -1170,6 +1187,7 @@ u32 RunFrame()
 
 u32 RunFrame()
 {
+    ZoneScopedN(TracyFunction);
 #ifdef JIT_ENABLED
     if (EnableJIT)
         return NDS::ConsoleType == 1
@@ -1226,6 +1244,7 @@ void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 para
 
 void ScheduleEvent(u32 id, u64 timestamp, void (*func)(u32), u32 param)
 {
+    ZoneScopedN(TracyFunction);
     if (SchedListMask & (1<<id))
     {
         Log(LogLevel::Debug, "!! EVENT %d ALREADY SCHEDULED\n", id);
@@ -1251,6 +1270,7 @@ void CancelEvent(u32 id)
 
 void TouchScreen(u16 x, u16 y)
 {
+    ZoneScopedN(TracyFunction);
     if (ConsoleType == 1)
     {
         DSi_SPI_TSC::SetTouchCoords(x, y);
@@ -1264,6 +1284,7 @@ void TouchScreen(u16 x, u16 y)
 
 void ReleaseScreen()
 {
+    ZoneScopedN(TracyFunction);
     if (ConsoleType == 1)
     {
         DSi_SPI_TSC::SetTouchCoords(0x000, 0xFFF);
@@ -1293,6 +1314,7 @@ bool IsLidClosed()
 
 void SetLidClosed(bool closed)
 {
+    ZoneScopedN(TracyFunction);
     if (closed)
     {
         KeyInput |= (1<<23);
@@ -1341,6 +1363,7 @@ void Halt()
 
 void MapSharedWRAM(u8 val)
 {
+    ZoneScopedN(TracyFunction);
     if (val == WRAMCnt)
         return;
 
@@ -1385,6 +1408,7 @@ void MapSharedWRAM(u8 val)
 
 void UpdateWifiTimings()
 {
+    ZoneScopedN(TracyFunction);
     if (PowerControl7 & 0x0002)
     {
         const int ntimings[4] = {10, 8, 6, 18};
@@ -1402,6 +1426,7 @@ void UpdateWifiTimings()
 
 void SetWifiWaitCnt(u16 val)
 {
+    ZoneScopedN(TracyFunction);
     if (WifiWaitCnt == val) return;
 
     WifiWaitCnt = val;
@@ -1410,6 +1435,7 @@ void SetWifiWaitCnt(u16 val)
 
 void SetGBASlotTimings()
 {
+    ZoneScopedN(TracyFunction);
     const int ntimings[4] = {10, 8, 6, 18};
     const u16 openbus[4] = {0xFE08, 0x0000, 0x0000, 0xFFFF};
 
@@ -1506,6 +1532,7 @@ bool HaltInterrupted(u32 cpu)
 
 void StopCPU(u32 cpu, u32 mask)
 {
+    ZoneScopedN(TracyFunction);
     if (cpu)
     {
         CPUStop |= (mask << 16);
@@ -1526,6 +1553,7 @@ void ResumeCPU(u32 cpu, u32 mask)
 
 void GXFIFOStall()
 {
+    ZoneScopedN(TracyFunction);
     if (CPUStop & 0x80000000) return;
 
     CPUStop |= 0x80000000;
@@ -1548,6 +1576,7 @@ void GXFIFOUnstall()
 
 void EnterSleepMode()
 {
+    ZoneScopedN(TracyFunction);
     if (CPUStop & 0x40000000) return;
 
     CPUStop |= 0x40000000;
@@ -1588,6 +1617,7 @@ u64 GetSysClockCycles(int num)
 
 void NocashPrint(u32 ncpu, u32 addr)
 {
+    ZoneScopedN(TracyFunction);
     // addr: debug string
 
     ARM* cpu = ncpu ? (ARM*)ARM7 : (ARM*)ARM9;
@@ -1689,6 +1719,7 @@ void MonitorARM9Jump(u32 addr)
 
 void HandleTimerOverflow(u32 tid)
 {
+    ZoneScopedN(TracyFunction);
     Timer* timer = &Timers[tid];
 
     timer->Counter += (timer->Reload << 10);
@@ -1762,6 +1793,7 @@ u16 TimerGetCounter(u32 timer)
 
 void TimerStart(u32 id, u16 cnt)
 {
+    ZoneScopedN(TracyFunction);
     Timer* timer = &Timers[id];
     u16 curstart = timer->Cnt & (1<<7);
     u16 newstart = cnt & (1<<7);

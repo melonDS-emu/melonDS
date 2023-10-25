@@ -23,6 +23,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
+#include "Tracy.h"
 
 
 namespace GPU3D
@@ -33,6 +34,7 @@ void RenderThreadFunc();
 
 void SoftRenderer::StopRenderThread()
 {
+    ZoneScopedN(TracyFunction);
     if (RenderThreadRunning.load(std::memory_order_relaxed))
     {
         RenderThreadRunning = false;
@@ -45,6 +47,7 @@ void SoftRenderer::StopRenderThread()
 
 void SoftRenderer::SetupRenderThread()
 {
+    ZoneScopedN(TracyFunction);
     if (Threaded)
     {
         if (!RenderThreadRunning.load(std::memory_order_relaxed))
@@ -96,6 +99,7 @@ SoftRenderer::~SoftRenderer()
 
 void SoftRenderer::Reset()
 {
+    ZoneScopedN(TracyFunction);
     memset(ColorBuffer, 0, BufferSize * 2 * 4);
     memset(DepthBuffer, 0, BufferSize * 2 * 4);
     memset(AttrBuffer, 0, BufferSize * 2 * 4);
@@ -107,6 +111,7 @@ void SoftRenderer::Reset()
 
 void SoftRenderer::SetRenderSettings(GPU::RenderSettings& settings)
 {
+    ZoneScopedN(TracyFunction);
     Threaded = settings.Soft_Threaded;
     SetupRenderThread();
 }
@@ -566,6 +571,7 @@ void SoftRenderer::PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 pol
 
 void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y)
 {
+    ZoneScopedN(TracyFunction);
     Polygon* polygon = rp->PolyData;
 
     while (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
@@ -593,6 +599,7 @@ void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y
 
 void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 y)
 {
+    ZoneScopedN(TracyFunction);
     Polygon* polygon = rp->PolyData;
 
     while (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
@@ -620,6 +627,7 @@ void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 
 
 void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* polygon)
 {
+    ZoneScopedN(TracyFunction);
     u32 nverts = polygon->NumVertices;
 
     u32 vtop = polygon->VTop, vbot = polygon->VBottom;
@@ -673,6 +681,7 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
 
 void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 {
+    ZoneScopedN(TracyFunction);
     Polygon* polygon = rp->PolyData;
 
     u32 polyattr = (polygon->Attr & 0x3F008000);
@@ -901,6 +910,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
 void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
 {
+    ZoneScopedN(TracyFunction);
     Polygon* polygon = rp->PolyData;
 
     u32 polyattr = (polygon->Attr & 0x3F008000);
@@ -1357,6 +1367,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
 void SoftRenderer::RenderScanline(s32 y, int npolys)
 {
+    ZoneScopedN(TracyFunction);
     for (int i = 0; i < npolys; i++)
     {
         RendererPolygon* rp = &PolygonList[i];
@@ -1413,6 +1424,7 @@ u32 SoftRenderer::CalculateFogDensity(u32 pixeladdr)
 
 void SoftRenderer::ScanlineFinalPass(s32 y)
 {
+    ZoneScopedN(TracyFunction);
     // to consider:
     // clearing all polygon fog flags if the master flag isn't set?
     // merging all final pass loops into one?
@@ -1583,6 +1595,7 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
 
 void SoftRenderer::ClearBuffers()
 {
+    ZoneScopedN(TracyFunction);
     u32 clearz = ((RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
     u32 polyid = RenderClearAttr1 & 0x3F000000; // this sets the opaque polygonID
 
@@ -1672,6 +1685,7 @@ void SoftRenderer::ClearBuffers()
 
 void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 {
+    ZoneScopedN(TracyFunction);
     int j = 0;
     for (int i = 0; i < npolys; i++)
     {
@@ -1732,6 +1746,7 @@ void SoftRenderer::RenderThreadFunc()
 {
     for (;;)
     {
+        ZoneScopedN(TracyFunction);
         Platform::Semaphore_Wait(Sema_RenderStart);
         if (!RenderThreadRunning) return;
 

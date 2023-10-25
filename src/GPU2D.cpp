@@ -20,6 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
+#include "Tracy.h"
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -142,6 +143,7 @@ void Unit::Reset()
 
 void Unit::DoSavestate(Savestate* file)
 {
+    ZoneScopedN(TracyFunction);
     file->Section((char*)(Num ? "GP2B" : "GP2A"));
 
     file->Var32(&DispCnt);

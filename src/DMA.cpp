@@ -23,6 +23,7 @@
 #include "GPU.h"
 #include "DMA_Timings.h"
 #include "Platform.h"
+#include "Tracy.h"
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -82,6 +83,7 @@ void DMA::Reset()
 
 void DMA::DoSavestate(Savestate* file)
 {
+    ZoneScopedN(TracyFunction);
     char magic[5] = "DMAx";
     magic[3] = '0' + Num + (CPU*4);
     file->Section(magic);

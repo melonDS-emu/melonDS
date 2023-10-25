@@ -25,6 +25,7 @@
 #endif
 
 #include "GPU2D_Soft.h"
+#include "Tracy.h"
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -184,6 +185,7 @@ void DeInit()
 
 void ResetVRAMCache()
 {
+    ZoneScopedN(TracyFunction);
     for (int i = 0; i < 9; i++)
         VRAMDirty[i] = NonStupidBitField<128*1024/VRAMDirtyGranularity>();
 
@@ -315,6 +317,7 @@ void Stop()
 
 void DoSavestate(Savestate* file)
 {
+    ZoneScopedN(TracyFunction);
     file->Section("GPUG");
 
     file->Var16(&VCount);

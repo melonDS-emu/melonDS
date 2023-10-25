@@ -45,6 +45,7 @@
 #include "Wifi.h"
 #include "NDSCart.h"
 #include "SPU.h"
+#include "Tracy.h"
 
 #include <stdlib.h>
 
@@ -877,6 +878,7 @@ void DeInit()
 
 void Reset()
 {
+    ZoneScopedN(TracyFunction);
     for (int region = 0; region < memregions_Count; region++)
     {
         for (int i = 0; i < Mappings[region].Length; i++)
