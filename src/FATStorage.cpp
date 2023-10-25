@@ -21,6 +21,7 @@
 #include <inttypes.h>
 #include <vector>
 
+#include "FATIO.h"
 #include "FATStorage.h"
 #include "Platform.h"
 
@@ -122,7 +123,7 @@ UINT FATStorage::FF_ReadStorage(BYTE* buf, LBA_t sector, UINT num)
     return ReadSectorsInternal(FF_File, FF_FileSize, sector, num, buf);
 }
 
-UINT FATStorage::FF_WriteStorage(BYTE* buf, LBA_t sector, UINT num)
+UINT FATStorage::FF_WriteStorage(const BYTE* buf, LBA_t sector, UINT num)
 {
     return WriteSectorsInternal(FF_File, FF_FileSize, sector, num, buf);
 }
@@ -157,7 +158,7 @@ u32 FATStorage::ReadSectorsInternal(FileHandle* file, u64 filelen, u32 start, u3
     return res;
 }
 
-u32 FATStorage::WriteSectorsInternal(FileHandle* file, u64 filelen, u32 start, u32 num, u8* data)
+u32 FATStorage::WriteSectorsInternal(FileHandle* file, u64 filelen, u32 start, u32 num, const u8* data)
 {
     if (!file) return 0;
 

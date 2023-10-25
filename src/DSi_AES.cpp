@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "DSi.h"
+#include "DSi_NAND.h"
 #include "DSi_AES.h"
 #include "FIFO.h"
 #include "tiny-AES-c/aes.hpp"
@@ -129,6 +130,7 @@ void Reset()
     OutputMACDue = false;
 
     // initialize keys
+    u64 consoleid = DSi::NANDImage->GetConsoleID();
 
     // slot 0: modcrypt
     *(u32*)&KeyX[0][0] = 0x746E694E;
@@ -137,14 +139,14 @@ void Reset()
     // slot 1: 'Tad'/dev.kp
     *(u32*)&KeyX[1][0] = 0x4E00004A;
     *(u32*)&KeyX[1][4] = 0x4A00004E;
-    *(u32*)&KeyX[1][8] = (u32)(DSi::ConsoleID >> 32) ^ 0xC80C4B72;
-    *(u32*)&KeyX[1][12] = (u32)DSi::ConsoleID;
+    *(u32*)&KeyX[1][8] = (u32)(consoleid >> 32) ^ 0xC80C4B72;
+    *(u32*)&KeyX[1][12] = (u32)consoleid;
 
     // slot 3: console-unique eMMC crypto
-    *(u32*)&KeyX[3][0] = (u32)DSi::ConsoleID;
-    *(u32*)&KeyX[3][4] = (u32)DSi::ConsoleID ^ 0x24EE6906;
-    *(u32*)&KeyX[3][8] = (u32)(DSi::ConsoleID >> 32) ^ 0xE65B601D;
-    *(u32*)&KeyX[3][12] = (u32)(DSi::ConsoleID >> 32);
+    *(u32*)&KeyX[3][0] = (u32)consoleid;
+    *(u32*)&KeyX[3][4] = (u32)consoleid ^ 0x24EE6906;
+    *(u32*)&KeyX[3][8] = (u32)(consoleid >> 32) ^ 0xE65B601D;
+    *(u32*)&KeyX[3][12] = (u32)(consoleid >> 32);
     *(u32*)&KeyY[3][0] = 0x0AB9DC76;
     *(u32*)&KeyY[3][4] = 0xBD4DC4D3;
     *(u32*)&KeyY[3][8] = 0x202DDD1D;

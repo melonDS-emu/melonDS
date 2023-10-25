@@ -856,9 +856,13 @@ void Mix(u32 dummy)
 
     // OutputBufferFrame can never get full because it's
     // transfered to OutputBuffer at the end of the frame
-    OutputBackbuffer[OutputBackbufferWritePosition    ] = leftoutput >> 1;
-    OutputBackbuffer[OutputBackbufferWritePosition + 1] = rightoutput >> 1;
-    OutputBackbufferWritePosition += 2;
+    // FIXME: apparently this does happen!!!
+    if (OutputBackbufferWritePosition * 2 < OutputBufferSize - 1)
+    {
+        OutputBackbuffer[OutputBackbufferWritePosition    ] = leftoutput >> 1;
+        OutputBackbuffer[OutputBackbufferWritePosition + 1] = rightoutput >> 1;
+        OutputBackbufferWritePosition += 2;
+    }
 
     NDS::ScheduleEvent(NDS::Event_SPU, true, 1024, Mix, 0);
 }

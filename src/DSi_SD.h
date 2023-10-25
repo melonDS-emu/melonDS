@@ -24,6 +24,11 @@
 #include "FATStorage.h"
 #include "Savestate.h"
 
+namespace DSi_NAND
+{
+    class NANDImage;
+}
+
 class DSi_SDDevice;
 
 
@@ -125,7 +130,7 @@ protected:
 class DSi_MMCStorage : public DSi_SDDevice
 {
 public:
-    DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::string& filename);
+    DSi_MMCStorage(DSi_SDHost* host, DSi_NAND::NANDImage& nand);
     DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::string& filename, u64 size, bool readonly, const std::string& sourcedir);
     ~DSi_MMCStorage();
 
@@ -133,7 +138,7 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    void SetCID(u8* cid) { memcpy(CID, cid, 16); }
+    void SetCID(const u8* cid) { memcpy(CID, cid, sizeof(CID)); }
 
     void SendCMD(u8 cmd, u32 param);
     void SendACMD(u8 cmd, u32 param);
@@ -142,7 +147,7 @@ public:
 
 private:
     bool Internal;
-    Platform::FileHandle* File;
+    DSi_NAND::NANDImage* NAND;
     FATStorage* SD;
 
     u8 CID[16];

@@ -22,6 +22,21 @@
 #include <string.h>
 #include "types.h"
 
+/// Set to indicate the console regions that a ROM (including DSiWare)
+/// can be played on.
+enum RegionMask : u32
+{
+    NoRegion = 0,
+    Japan = 1 << 0,
+    USA = 1 << 1,
+    Europe = 1 << 2,
+    Australia = 1 << 3,
+    China = 1 << 4,
+    Korea = 1 << 5,
+    Reserved = ~(Japan | USA | Europe | Australia | China | Korea),
+    RegionFree = 0xFFFFFFFF,
+};
+
 // Consult GBATEK for info on what these are
 struct NDSHeader
 {
@@ -105,7 +120,7 @@ struct NDSHeader
     u8 DSiMBKWriteProtect[3]; // global MBK9 setting
     u8 DSiWRAMCntSetting; // global WRAMCNT setting
 
-    u32 DSiRegionMask;
+    RegionMask DSiRegionMask;
     u32 DSiPermissions[2];
     u8 Reserved6[3];
     u8 AppFlags; // flags at 1BF
