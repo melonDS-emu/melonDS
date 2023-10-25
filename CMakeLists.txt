@@ -19,6 +19,7 @@ include(CheckSymbolExists)
 include(CheckLibraryExists)
 include(CMakeDependentOption)
 include(CheckIPOSupported)
+include(cmake/FetchDependencies.cmake)
 
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 
