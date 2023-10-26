@@ -26,6 +26,7 @@
 #include "ARMJIT.h"
 #include "Platform.h"
 #include "GPU.h"
+#include "Tracy.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"
@@ -114,6 +115,7 @@ ARM::ARM(u32 num)
     : GdbStub(this, Platform::GetConfigInt(num ? Platform::GdbPortARM7 : Platform::GdbPortARM9))
 #endif
 {
+    ZoneScopedN(TracyFunction);
     // well uh
     Num = num;
 
@@ -135,6 +137,7 @@ ARM::~ARM()
 
 ARMv5::ARMv5() : ARM(0)
 {
+    ZoneScopedN(TracyFunction);
 #ifndef JIT_ENABLED
     DTCM = new u8[DTCMPhysicalSize];
 #endif
@@ -258,6 +261,7 @@ void ARMv4::Reset()
 
 void ARM::DoSavestate(Savestate* file)
 {
+    ZoneScopedN(TracyFunction);
     file->Section((char*)(Num ? "ARM7" : "ARM9"));
 
     file->Var32((u32*)&Cycles);
@@ -318,6 +322,7 @@ void ARM::DoSavestate(Savestate* file)
 
 void ARMv5::DoSavestate(Savestate* file)
 {
+    ZoneScopedN(TracyFunction);
     ARM::DoSavestate(file);
     CP15DoSavestate(file);
 }

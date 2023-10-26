@@ -23,6 +23,7 @@
 #include "GPU.h"
 #include "FIFO.h"
 #include "Platform.h"
+#include "Tracy.h"
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -310,6 +311,7 @@ void ResetRenderingState()
 
 void Reset()
 {
+    ZoneScopedN(TracyFunction);
     CmdFIFO.Clear();
     CmdPIPE.Clear();
 
@@ -391,6 +393,7 @@ void Reset()
 
 void DoSavestate(Savestate* file)
 {
+    ZoneScopedN(TracyFunction);
     file->Section("GP3D");
 
     CmdFIFO.DoSavestate(file);
@@ -811,6 +814,7 @@ void AddCycles(s32 num)
 
 void NextVertexSlot()
 {
+    ZoneScopedN(TracyFunction);
     s32 num = (9 - VertexSlotCounter) + 1;
 
     for (;;)
@@ -854,6 +858,7 @@ void NextVertexSlot()
 
 void StallPolygonPipeline(s32 delay, s32 nonstalldelay)
 {
+    ZoneScopedN(TracyFunction);
     if (PolygonPipeline > 0)
     {
         CycleCount += PolygonPipeline + delay;
@@ -880,6 +885,7 @@ void StallPolygonPipeline(s32 delay, s32 nonstalldelay)
 template<int comp, s32 plane, bool attribs>
 void ClipSegment(Vertex* outbuf, Vertex* vin, Vertex* vout)
 {
+    ZoneScopedN(TracyFunction);
     s64 factor_num = vin->Position[3] - (plane*vin->Position[comp]);
     s32 factor_den = factor_num - (vout->Position[3] - (plane*vout->Position[comp]));
 
@@ -909,6 +915,7 @@ void ClipSegment(Vertex* outbuf, Vertex* vin, Vertex* vout)
 template<int comp, bool attribs>
 int ClipAgainstPlane(Vertex* vertices, int nverts, int clipstart)
 {
+    ZoneScopedN(TracyFunction);
     Vertex temp[10];
     int prev, next;
     int c = clipstart;
@@ -990,6 +997,7 @@ int ClipAgainstPlane(Vertex* vertices, int nverts, int clipstart)
 template<bool attribs>
 int ClipPolygon(Vertex* vertices, int nverts, int clipstart)
 {
+    ZoneScopedN(TracyFunction);
     // clip.
     // for each vertex:
     // if it's outside, check if the previous and next vertices are inside
@@ -1022,6 +1030,7 @@ bool ClipCoordsEqual(Vertex* a, Vertex* b)
 
 void SubmitPolygon()
 {
+    ZoneScopedN(TracyFunction);
     Vertex clippedvertices[10];
     Vertex* reusedvertices[2];
     int clipstart = 0;
@@ -1834,6 +1843,7 @@ inline void VertexPipelineCmdDelayed4()
 
 void ExecuteCommand()
 {
+    ZoneScopedN(TracyFunction);
     CmdFIFOEntry entry = CmdFIFORead();
 
     //printf("FIFO: processing %02X %08X. Levels: FIFO=%d, PIPE=%d\n", entry.Command, entry.Param, CmdFIFO->Level(), CmdPIPE->Level());
@@ -2452,6 +2462,7 @@ void FinishWork(s32 cycles)
 
 void Run()
 {
+    ZoneScopedN(TracyFunction);
     if (!GeometryEnabled || FlushRequest ||
         (CmdPIPE.IsEmpty() && !(GXStat & (1<<27))))
     {
@@ -2529,6 +2540,7 @@ bool YSort(Polygon* a, Polygon* b)
 
 void VBlank()
 {
+    ZoneScopedN(TracyFunction);
     if (GeometryEnabled)
     {
         if (RenderingEnabled)

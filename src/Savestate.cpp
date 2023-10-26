@@ -21,6 +21,7 @@
 #include <cstring>
 #include "Savestate.h"
 #include "Platform.h"
+#include "Tracy.h"
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -60,6 +61,7 @@ Savestate::Savestate(void *buffer, u32 size, bool save) :
     buffer_owned(false),
     finished(false)
 {
+    ZoneScopedN(TracyFunction);
     if (Saving)
     {
         WriteSavestateHeader();
@@ -124,6 +126,7 @@ Savestate::Savestate(u32 initial_size) :
     buffer_owned(true),
     finished(false)
 {
+    ZoneScopedN(TracyFunction);
     buffer = static_cast<u8 *>(malloc(buffer_length));
 
     if (buffer == nullptr)
@@ -153,6 +156,7 @@ Savestate::~Savestate()
 
 void Savestate::Section(const char* magic)
 {
+    ZoneScopedN(TracyFunction);
     if (Error || finished) return;
 
     if (Saving)
@@ -285,6 +289,7 @@ void Savestate::CloseCurrentSection()
 
 bool Savestate::Resize(u32 new_length)
 {
+    ZoneScopedN(TracyFunction);
     if (!buffer_owned)
     { // If we're not allowed to resize this buffer...
         Log(LogLevel::Error, "savestate: Buffer is externally-owned, cannot resize it\n");
@@ -311,6 +316,7 @@ bool Savestate::Resize(u32 new_length)
 
 void Savestate::WriteSavestateHeader()
 {
+    ZoneScopedN(TracyFunction);
     // The magic number
     VarArray((void *) SAVESTATE_MAGIC, 4);
 
@@ -342,6 +348,7 @@ void Savestate::WriteStateLength()
 
 u32 Savestate::FindSection(const char* magic) const
 {
+    ZoneScopedN(TracyFunction);
     if (!magic) return NO_SECTION;
 
     // Start looking at the savestate's beginning, right after its global header

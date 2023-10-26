@@ -27,6 +27,7 @@
 #include "ROMList.h"
 #include "melonDLDI.h"
 #include "xxhash/xxhash.h"
+#include "Tracy.h"
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -1485,6 +1486,7 @@ void Reset()
 
 void DoSavestate(Savestate* file)
 {
+    ZoneScopedN(TracyFunction);
     file->Section("NDSC");
 
     file->Var16(&SPICnt);

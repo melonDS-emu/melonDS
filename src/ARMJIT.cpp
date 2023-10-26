@@ -43,6 +43,7 @@
 #include "Wifi.h"
 #include "NDSCart.h"
 #include "Platform.h"
+#include "Tracy.h"
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -1179,6 +1180,7 @@ template void CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(u3
 
 void ResetBlockCache()
 {
+    ZoneScopedN(TracyFunction);
     Log(LogLevel::Debug, "Resetting JIT block cache...\n");
 
     // could be replace through a function which only resets

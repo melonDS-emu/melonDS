@@ -25,6 +25,7 @@
 #endif
 
 #include "GPU2D_Soft.h"
+#include "Tracy.h"
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -184,6 +185,7 @@ void DeInit()
 
 void ResetVRAMCache()
 {
+    ZoneScopedN(TracyFunction);
     for (int i = 0; i < 9; i++)
         VRAMDirty[i] = NonStupidBitField<128*1024/VRAMDirtyGranularity>();
 
@@ -212,6 +214,7 @@ void ResetVRAMCache()
 
 void Reset()
 {
+    ZoneScopedN(TracyFunction);
     VCount = 0;
     NextVCount = -1;
     TotalScanlines = 0;
@@ -315,6 +318,7 @@ void Stop()
 
 void DoSavestate(Savestate* file)
 {
+    ZoneScopedN(TracyFunction);
     file->Section("GPUG");
 
     file->Var16(&VCount);
@@ -1030,6 +1034,7 @@ void DisplayFIFO(u32 x)
 
 void StartFrame()
 {
+    ZoneScopedN(TracyFunction);
     // only run the display FIFO if needed:
     // * if it is used for display or capture
     // * if we have display FIFO DMA
@@ -1041,6 +1046,8 @@ void StartFrame()
 
 void StartHBlank(u32 line)
 {
+    ZoneScopedN(TracyFunction);
+    ZoneValue(line);
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
 
@@ -1084,6 +1091,8 @@ void StartHBlank(u32 line)
 
 void FinishFrame(u32 lines)
 {
+    ZoneScopedN(TracyFunction);
+    ZoneValue(lines);
     FrontBuffer = FrontBuffer ? 0 : 1;
     AssignFramebuffers();
 
@@ -1098,6 +1107,8 @@ void FinishFrame(u32 lines)
 
 void StartScanline(u32 line)
 {
+    ZoneScopedN(TracyFunction);
+    ZoneValue(line);
     if (line == 0)
         VCount = 0;
     else if (NextVCount != 0xFFFFFFFF)

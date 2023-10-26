@@ -140,6 +140,12 @@ if (ENABLE_JIT)
     endif()
 endif()
 
+if (TRACY_ENABLE)
+    target_link_libraries(core PUBLIC TracyClient)
+    target_include_directories(core SYSTEM PUBLIC TracyClient)
+    target_compile_definitions(core PUBLIC HAVE_TRACY TRACY_ENABLE TRACY_ENABLED)
+endif()
+
 if (WIN32)
     target_link_libraries(core PRIVATE ole32 comctl32 wsock32 ws2_32)
 elseif(NOT APPLE)

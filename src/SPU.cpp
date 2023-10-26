@@ -23,6 +23,7 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "SPU.h"
+#include "Tracy.h"
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -869,6 +870,7 @@ void Mix(u32 dummy)
 
 void TransferOutput()
 {
+    ZoneScopedN(TracyFunction);
     Platform::Mutex_Lock(AudioLock);
     for (u32 i = 0; i < OutputBackbufferWritePosition; i += 2)
     {

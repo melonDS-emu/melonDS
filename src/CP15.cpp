@@ -22,6 +22,7 @@
 #include "DSi.h"
 #include "ARM.h"
 #include "Platform.h"
+#include "Tracy.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"
@@ -75,6 +76,7 @@ void ARMv5::CP15Reset()
 
 void ARMv5::CP15DoSavestate(Savestate* file)
 {
+    ZoneScopedN(TracyFunction);
     file->Section("CP15");
 
     file->Var32(&CP15Control);
@@ -105,6 +107,7 @@ void ARMv5::CP15DoSavestate(Savestate* file)
 
 void ARMv5::UpdateDTCMSetting()
 {
+    ZoneScopedN(TracyFunction);
     u32 newDTCMBase;
     u32 newDTCMMask;
     u32 newDTCMSize;
@@ -135,6 +138,7 @@ void ARMv5::UpdateDTCMSetting()
 
 void ARMv5::UpdateITCMSetting()
 {
+    ZoneScopedN(TracyFunction);
     if (CP15Control & (1<<18))
     {
         ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
@@ -260,6 +264,7 @@ void ARMv5::UpdatePURegion(u32 n)
 
 void ARMv5::UpdatePURegions(bool update_all)
 {
+    ZoneScopedN(TracyFunction);
     if (!(CP15Control & (1<<0)))
     {
         // PU disabled
@@ -295,6 +300,7 @@ void ARMv5::UpdatePURegions(bool update_all)
 
 void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
 {
+    ZoneScopedN(TracyFunction);
     for (u32 i = addrstart; i < addrend; i++)
     {
         u8 pu = PU_Map[i];
