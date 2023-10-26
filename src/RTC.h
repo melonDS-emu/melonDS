@@ -25,12 +25,30 @@
 namespace RTC
 {
 
+struct StateData
+{
+    u8 StatusReg1;
+    u8 StatusReg2;
+    u8 DateTime[7];
+    u8 Alarm1[3];
+    u8 Alarm2[3];
+    u8 ClockAdjust;
+    u8 FreeReg;
+
+    // DSi registers
+    u32 MinuteCount;
+    u8 FOUT1;
+    u8 FOUT2;
+    u8 AlarmDate1[3];
+    u8 AlarmDate2[3];
+};
+
 bool Init();
 void DeInit();
 void Reset();
 void DoSavestate(Savestate* file);
 
-void ResetRegisters();
+void ResetState();
 
 void ScheduleTimer(bool first);
 void ClockTimer(u32 param);

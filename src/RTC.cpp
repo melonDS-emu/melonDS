@@ -46,20 +46,7 @@ u32 OutputPos;
 
 u8 CurCmd;
 
-u8 StatusReg1;
-u8 StatusReg2;
-u8 DateTime[7];
-u8 Alarm1[3];
-u8 Alarm2[3];
-u8 ClockAdjust;
-u8 FreeReg;
-
-// DSi registers
-u32 MinuteCount;
-u8 FOUT1;
-u8 FOUT2;
-u8 AlarmDate1[3];
-u8 AlarmDate2[3];
+StateData State;
 
 s32 TimerError;
 u32 ClockCount;
@@ -85,8 +72,12 @@ void Reset()
 
     CurCmd = 0;
 
-    MinuteCount = 0;
-    ResetRegisters();
+    State.MinuteCount = 0;
+    ResetState();
+
+    // indicate the power was off
+    // this will be changed if a previously saved RTC state is loaded
+    State.StatusReg1 = 0x80;
 
     ClockCount = 0;
     ScheduleTimer(true);
@@ -108,40 +99,18 @@ void DoSavestate(Savestate* file)
 
     file->Var8(&CurCmd);
 
-    file->Var8(&StatusReg1);
-    file->Var8(&StatusReg2);
-    file->VarArray(DateTime, sizeof(DateTime));
-    file->VarArray(Alarm1, sizeof(Alarm1));
-    file->VarArray(Alarm2, sizeof(Alarm2));
-    file->Var8(&ClockAdjust);
-    file->Var8(&FreeReg);
-
-    file->Var32(&MinuteCount);
-    file->Var8(&FOUT1);
-    file->Var8(&FOUT2);
-    file->VarArray(AlarmDate1, sizeof(AlarmDate1));
-    file->VarArray(AlarmDate2, sizeof(AlarmDate2));
+    file->VarArray(&State, sizeof(State));
 
     file->Var32((u32*)&TimerError);
     file->Var32(&ClockCount);
 }
 
 
-void ResetRegisters()
+void ResetState()
 {
-    StatusReg1 = 0;
-    StatusReg2 = 0;
-    DateTime[0] = 0; DateTime[1] = 1; DateTime[2] = 1; DateTime[3] = 0;
-    DateTime[4] = 0; DateTime[5] = 0; DateTime[6] = 0;
-    memset(Alarm1, 0, sizeof(Alarm1));
-    memset(Alarm2, 0, sizeof(Alarm2));
-    ClockAdjust = 0;
-    FreeReg = 0;
-
-    FOUT1 = 0;
-    FOUT2 = 0;
-    memset(AlarmDate1, 0, sizeof(AlarmDate1));
-    memset(AlarmDate2, 0, sizeof(AlarmDate2));
+    memset(&State, 0, sizeof(State));
+    State.DateTime[1] = 1;
+    State.DateTime[2] = 1;
 }
 
 
@@ -176,7 +145,7 @@ u8 DaysInMonth()
 {
     u8 numdays;
 
-    switch (DateTime[1])
+    switch (State.DateTime[1])
     {
     case 0x01: // Jan
     case 0x03: // Mar
@@ -201,7 +170,7 @@ u8 DaysInMonth()
 
             // leap year: if year divisible by 4 and not divisible by 100 unless divisible by 400
             // the limited year range (2000-2099) simplifies this
-            int year = DateTime[0];
+            int year = State.DateTime[0];
             year = (year & 0xF) + ((year >> 4) * 10);
             if (!(year & 3))
                 numdays = 0x29;
@@ -217,24 +186,24 @@ u8 DaysInMonth()
 
 void CountYear()
 {
-    DateTime[0] = BCDIncrement(DateTime[0]);
+    State.DateTime[0] = BCDIncrement(State.DateTime[0]);
 }
 
 void CountMonth()
 {
-    DateTime[1] = BCDIncrement(DateTime[1]);
-    if (DateTime[1] > 0x12)
+    State.DateTime[1] = BCDIncrement(State.DateTime[1]);
+    if (State.DateTime[1] > 0x12)
     {
-        DateTime[1] = 1;
+        State.DateTime[1] = 1;
         CountYear();
     }
 }
 
 void CheckEndOfMonth()
 {
-    if (DateTime[2] > DaysInMonth())
+    if (State.DateTime[2] > DaysInMonth())
     {
-        DateTime[2] = 1;
+        State.DateTime[2] = 1;
         CountMonth();
     }
 }
@@ -242,20 +211,21 @@ void CheckEndOfMonth()
 void CountDay()
 {
     // day-of-week counter
-    DateTime[3]++;
-    if (DateTime[3] >= 7) DateTime[3] = 0;
+    State.DateTime[3]++;
+    if (State.DateTime[3] >= 7)
+        State.DateTime[3] = 0;
 
     // day counter
-    DateTime[2] = BCDIncrement(DateTime[2]);
+    State.DateTime[2] = BCDIncrement(State.DateTime[2]);
     CheckEndOfMonth();
 }
 
 void CountHour()
 {
-    u8 hour = BCDIncrement(DateTime[4] & 0x3F);
-    u8 pm = DateTime[4] & 0x40;
+    u8 hour = BCDIncrement(State.DateTime[4] & 0x3F);
+    u8 pm = State.DateTime[4] & 0x40;
 
-    if (StatusReg1 & (1<<1))
+    if (State.StatusReg1 & (1<<1))
     {
         // 24-hour mode
 
@@ -279,26 +249,26 @@ void CountHour()
         }
     }
 
-    DateTime[4] = hour | pm;
+    State.DateTime[4] = hour | pm;
 }
 
 void CountMinute()
 {
-    MinuteCount++;
-    DateTime[5] = BCDIncrement(DateTime[5]);
-    if (DateTime[5] >= 0x60)
+    State.MinuteCount++;
+    State.DateTime[5] = BCDIncrement(State.DateTime[5]);
+    if (State.DateTime[5] >= 0x60)
     {
-        DateTime[5] = 0;
+        State.DateTime[5] = 0;
         CountHour();
     }
 }
 
 void CountSecond()
 {
-    DateTime[6] = BCDIncrement(DateTime[6]);
-    if (DateTime[6] >= 0x60)
+    State.DateTime[6] = BCDIncrement(State.DateTime[6]);
+    if (State.DateTime[6] >= 0x60)
     {
-        DateTime[6] = 0;
+        State.DateTime[6] = 0;
         CountMinute();
     }
 }
@@ -336,20 +306,20 @@ void WriteDateTime(int num, u8 val)
     switch (num)
     {
     case 1: // year
-        DateTime[0] = BCDSanitize(val, 0x00, 0x99);
+        State.DateTime[0] = BCDSanitize(val, 0x00, 0x99);
         break;
 
     case 2: // month
-        DateTime[1] = BCDSanitize(val & 0x1F, 0x01, 0x12);
+        State.DateTime[1] = BCDSanitize(val & 0x1F, 0x01, 0x12);
         break;
 
     case 3: // day
-        DateTime[2] = BCDSanitize(val & 0x3F, 0x01, 0x31);
+        State.DateTime[2] = BCDSanitize(val & 0x3F, 0x01, 0x31);
         CheckEndOfMonth();
         break;
 
     case 4: // day of week
-        DateTime[3] = BCDSanitize(val & 0x07, 0x00, 0x06);
+        State.DateTime[3] = BCDSanitize(val & 0x07, 0x00, 0x06);
         break;
 
     case 5: // hour
@@ -357,7 +327,7 @@ void WriteDateTime(int num, u8 val)
             u8 hour = val & 0x3F;
             u8 pm = val & 0x40;
 
-            if (StatusReg1 & (1<<1))
+            if (State.StatusReg1 & (1<<1))
             {
                 // 24-hour mode
 
@@ -371,16 +341,16 @@ void WriteDateTime(int num, u8 val)
                 hour = BCDSanitize(hour, 0x00, 0x11);
             }
 
-            DateTime[4] = hour | pm;
+            State.DateTime[4] = hour | pm;
         }
         break;
 
     case 6: // minute
-        DateTime[5] = BCDSanitize(val & 0x7F, 0x00, 0x59);
+        State.DateTime[5] = BCDSanitize(val & 0x7F, 0x00, 0x59);
         break;
 
     case 7: // second
-        DateTime[6] = BCDSanitize(val & 0x7F, 0x00, 0x59);
+        State.DateTime[6] = BCDSanitize(val & 0x7F, 0x00, 0x59);
         break;
     }
 }
@@ -391,44 +361,36 @@ void CmdRead()
     {
         switch (CurCmd & 0x70)
         {
-        case 0x00: Output[0] = StatusReg1; break;
-        case 0x40: Output[0] = StatusReg2; break;
+        case 0x00:
+            Output[0] = State.StatusReg1;
+            State.StatusReg1 &= 0x0F; // clear auto-clearing bit4-7
+            break;
+
+        case 0x40:
+            Output[0] = State.StatusReg2;
+            break;
 
         case 0x20:
-            Output[0] = DateTime[0];
-            Output[1] = DateTime[1];
-            Output[2] = DateTime[2];
-            Output[3] = DateTime[3];
-            Output[4] = DateTime[4];
-            Output[5] = DateTime[5];
-            Output[6] = DateTime[6];
+            memcpy(Output, &State.DateTime[0], 7);
             break;
 
         case 0x60:
-            Output[0] = DateTime[4];
-            Output[1] = DateTime[5];
-            Output[2] = DateTime[6];
+            memcpy(Output, &State.DateTime[4], 3);
             break;
 
         case 0x10:
-            if (StatusReg2 & 0x04)
-            {
-                Output[0] = Alarm1[0];
-                Output[1] = Alarm1[1];
-                Output[2] = Alarm1[2];
-            }
+            if (State.StatusReg2 & 0x04)
+                memcpy(Output, &State.Alarm1[0], 3);
             else
-                Output[0] = Alarm1[2];
+                Output[0] = State.Alarm1[2];
             break;
 
         case 0x50:
-            Output[0] = Alarm2[0];
-            Output[1] = Alarm2[1];
-            Output[2] = Alarm2[2];
+            memcpy(Output, &State.Alarm2[0], 3);
             break;
 
-        case 0x30: Output[0] = ClockAdjust; break;
-        case 0x70: Output[0] = FreeReg; break;
+        case 0x30: Output[0] = State.ClockAdjust; break;
+        case 0x70: Output[0] = State.FreeReg; break;
         }
 
         return;
@@ -444,24 +406,20 @@ void CmdRead()
         switch (CurCmd & 0x70)
         {
         case 0x00:
-            Output[0] = (MinuteCount >> 16) & 0xFF;
-            Output[1] = (MinuteCount >> 8) & 0xFF;
-            Output[2] = MinuteCount & 0xFF;
+            Output[0] = (State.MinuteCount >> 16) & 0xFF;
+            Output[1] = (State.MinuteCount >> 8) & 0xFF;
+            Output[2] = State.MinuteCount & 0xFF;
             break;
 
-        case 0x40: Output[0] = FOUT1; break;
-        case 0x20: Output[0] = FOUT2; break;
+        case 0x40: Output[0] = State.FOUT1; break;
+        case 0x20: Output[0] = State.FOUT2; break;
 
         case 0x10:
-            Output[0] = AlarmDate1[0];
-            Output[1] = AlarmDate1[1];
-            Output[2] = AlarmDate1[2];
+            memcpy(Output, &State.AlarmDate1[0], 3);
             break;
 
         case 0x50:
-            Output[0] = AlarmDate2[0];
-            Output[1] = AlarmDate2[1];
-            Output[2] = AlarmDate2[2];
+            memcpy(Output, &State.AlarmDate2[0], 3);
             break;
 
         default:
@@ -484,23 +442,24 @@ void CmdWrite(u8 val)
         case 0x00:
             if (InputPos == 1)
             {
-                u8 oldval = StatusReg1;
+                u8 oldval = State.StatusReg1;
 
                 if (val & (1<<0)) // reset
-                    ResetRegisters();
+                    ResetState();
 
-                StatusReg1 = (StatusReg1 & 0xF0) | (val & 0x0E);
+                State.StatusReg1 = (State.StatusReg1 & 0xF0) | (val & 0x0E);
 
-                if ((StatusReg1 ^ oldval) & (1<<1)) // AM/PM changed
-                    WriteDateTime(5, DateTime[4]);
+                if ((State.StatusReg1 ^ oldval) & (1<<1)) // AM/PM changed
+                    WriteDateTime(5, State.DateTime[4]);
             }
             break;
 
         case 0x40:
             if (InputPos == 1)
             {
-                StatusReg2 = val;
-                if (StatusReg2 & 0x4F) Log(LogLevel::Debug, "RTC INTERRUPT ON: %02X\n", StatusReg2);
+                State.StatusReg2 = val;
+                if (State.StatusReg2 & 0x4F)
+                    Log(LogLevel::Debug, "RTC INTERRUPT ON: %02X\n", State.StatusReg2);
             }
             break;
 
@@ -515,34 +474,34 @@ void CmdWrite(u8 val)
             break;
 
         case 0x10:
-            if (StatusReg2 & 0x04)
+            if (State.StatusReg2 & 0x04)
             {
                 if (InputPos <= 3)
-                    Alarm1[InputPos-1] = val;
+                    State.Alarm1[InputPos-1] = val;
             }
             else
             {
                 if (InputPos == 1)
-                    Alarm1[2] = val;
+                    State.Alarm1[2] = val;
             }
             break;
 
         case 0x50:
             if (InputPos <= 3)
-                Alarm2[InputPos-1] = val;
+                State.Alarm2[InputPos-1] = val;
             break;
 
         case 0x30:
             if (InputPos == 1)
             {
-                ClockAdjust = val;
+                State.ClockAdjust = val;
                 Log(LogLevel::Debug, "RTC: CLOCK ADJUST = %02X\n", val);
             }
             break;
 
         case 0x70:
             if (InputPos == 1)
-                FreeReg = val;
+                State.FreeReg = val;
             break;
         }
 
@@ -564,22 +523,22 @@ void CmdWrite(u8 val)
 
         case 0x40:
             if (InputPos == 1)
-                FOUT1 = val;
+                State.FOUT1 = val;
             break;
 
         case 0x20:
             if (InputPos == 1)
-                FOUT2 = val;
+                State.FOUT2 = val;
             break;
 
         case 0x10:
             if (InputPos <= 3)
-                AlarmDate1[InputPos-1] = val;
+                State.AlarmDate1[InputPos-1] = val;
             break;
 
         case 0x50:
             if (InputPos <= 3)
-                AlarmDate2[InputPos-1] = val;
+                State.AlarmDate2[InputPos-1] = val;
             break;
 
         default:
