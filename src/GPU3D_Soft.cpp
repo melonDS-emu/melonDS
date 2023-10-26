@@ -1736,7 +1736,6 @@ void SoftRenderer::RestartFrame()
     EnableRenderThread();
 }
 
-extern Platform::Mutex* StateLock;
 void SoftRenderer::RenderThreadFunc()
 {
     for (;;)
@@ -1751,10 +1750,8 @@ void SoftRenderer::RenderThreadFunc()
         }
         else
         {
-            Platform::Mutex_Lock(StateLock);
             ClearBuffers();
             RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
-            Platform::Mutex_Unlock(StateLock);
         }
 
         Platform::Semaphore_Post(Sema_RenderDone);
