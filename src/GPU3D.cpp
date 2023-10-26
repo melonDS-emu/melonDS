@@ -646,7 +646,6 @@ void DoSavestate(Savestate* file)
     file->Var32(&CurPolygonAttr);
     file->Var32(&TexParam);
     file->Var32(&TexPalette);
-    file->VarArray(TempVertexBuffer, sizeof(TempVertexBuffer));
     if (softRenderer && softRenderer->IsThreaded())
     {
         softRenderer->EnableRenderThread();
