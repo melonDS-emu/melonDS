@@ -1712,12 +1712,14 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 
 void SoftRenderer::VCount144()
 {
+    ZoneScopedN(TracyFunction);
     if (RenderThreadRunning.load(std::memory_order_relaxed) && !GPU3D::AbortFrame)
         Platform::Semaphore_Wait(Sema_RenderDone);
 }
 
 void SoftRenderer::RenderFrame()
 {
+    ZoneScopedN(TracyFunction);
     auto textureDirty = GPU::VRAMDirty_Texture.DeriveState(GPU::VRAMMap_Texture);
     auto texPalDirty = GPU::VRAMDirty_TexPal.DeriveState(GPU::VRAMMap_TexPal);
 
