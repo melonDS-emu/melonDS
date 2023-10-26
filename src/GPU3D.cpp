@@ -1843,6 +1843,7 @@ inline void VertexPipelineCmdDelayed4()
 
 void ExecuteCommand()
 {
+    ZoneScopedN(TracyFunction);
     CmdFIFOEntry entry = CmdFIFORead();
 
     //printf("FIFO: processing %02X %08X. Levels: FIFO=%d, PIPE=%d\n", entry.Command, entry.Param, CmdFIFO->Level(), CmdPIPE->Level());
@@ -2461,6 +2462,7 @@ void FinishWork(s32 cycles)
 
 void Run()
 {
+    ZoneScopedN(TracyFunction);
     if (!GeometryEnabled || FlushRequest ||
         (CmdPIPE.IsEmpty() && !(GXStat & (1<<27))))
     {
@@ -2538,6 +2540,7 @@ bool YSort(Polygon* a, Polygon* b)
 
 void VBlank()
 {
+    ZoneScopedN(TracyFunction);
     if (GeometryEnabled)
     {
         if (RenderingEnabled)
