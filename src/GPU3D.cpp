@@ -636,6 +636,17 @@ void DoSavestate(Savestate* file)
     file->VarArray(ShininessTable, 128*sizeof(u8));
 
     file->Bool32(&AbortFrame);
+    file->Bool32(&GeometryEnabled);
+    file->Bool32(&RenderingEnabled);
+    file->Bool32(&RenderFrameIdentical);
+    file->VarArray(ClipMatrix, sizeof(ClipMatrix));
+    file->Bool32(&ClipMatrixDirty);
+    file->Var32(&PolygonMode);
+    file->Var32(&PolygonAttr);
+    file->Var32(&CurPolygonAttr);
+    file->Var32(&TexParam);
+    file->Var32(&TexPalette);
+    file->VarArray(TempVertexBuffer, sizeof(TempVertexBuffer));
     if (softRenderer && softRenderer->IsThreaded())
     {
         softRenderer->EnableRenderThread();
