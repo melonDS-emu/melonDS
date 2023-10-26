@@ -85,6 +85,7 @@ void Reset()
 
     CurCmd = 0;
 
+    MinuteCount = 0;
     ResetRegisters();
 
     ClockCount = 0;
@@ -137,13 +138,17 @@ void ResetRegisters()
     ClockAdjust = 0;
     FreeReg = 0;
 
-    MinuteCount = 0;
     FOUT1 = 0;
     FOUT2 = 0;
     memset(AlarmDate1, 0, sizeof(AlarmDate1));
     memset(AlarmDate2, 0, sizeof(AlarmDate2));
 }
 
+
+u8 BCD(u8 val)
+{
+    return (val % 10) | ((val / 10) << 4);
+}
 
 u8 BCDIncrement(u8 val)
 {
@@ -152,6 +157,18 @@ u8 BCDIncrement(u8 val)
         val += 0x06;
     if ((val & 0xF0) >= 0xA0)
         val += 0x60;
+    return val;
+}
+
+u8 BCDSanitize(u8 val, u8 vmin, u8 vmax)
+{
+    if (val < vmin || val > vmax)
+        val = vmin;
+    else if ((val & 0x0F) >= 0x0A)
+        val = vmin;
+    else if ((val & 0xF0) >= 0xA0)
+        val = vmin;
+
     return val;
 }
 
@@ -213,6 +230,15 @@ void CountMonth()
     }
 }
 
+void CheckEndOfMonth()
+{
+    if (DateTime[2] > DaysInMonth())
+    {
+        DateTime[2] = 1;
+        CountMonth();
+    }
+}
+
 void CountDay()
 {
     // day-of-week counter
@@ -221,11 +247,7 @@ void CountDay()
 
     // day counter
     DateTime[2] = BCDIncrement(DateTime[2]);
-    if (DateTime[2] > DaysInMonth())
-    {
-        DateTime[2] = 1;
-        CountMonth();
-    }
+    CheckEndOfMonth();
 }
 
 void CountHour()
@@ -309,11 +331,59 @@ void ClockTimer(u32 param)
 }
 
 
-u8 BCD(u8 val)
+void WriteDateTime(int num, u8 val)
 {
-    return (val % 10) | ((val / 10) << 4);
-}
+    switch (num)
+    {
+    case 1: // year
+        DateTime[0] = BCDSanitize(val, 0x00, 0x99);
+        break;
 
+    case 2: // month
+        DateTime[1] = BCDSanitize(val & 0x1F, 0x01, 0x12);
+        break;
+
+    case 3: // day
+        DateTime[2] = BCDSanitize(val & 0x3F, 0x01, 0x31);
+        CheckEndOfMonth();
+        break;
+
+    case 4: // day of week
+        DateTime[3] = BCDSanitize(val & 0x07, 0x00, 0x06);
+        break;
+
+    case 5: // hour
+        {
+            u8 hour = val & 0x3F;
+            u8 pm = val & 0x40;
+
+            if (StatusReg1 & (1<<1))
+            {
+                // 24-hour mode
+
+                hour = BCDSanitize(hour, 0x00, 0x23);
+                pm = (hour >= 0x12) ? 0x40 : 0;
+            }
+            else
+            {
+                // 12-hour mode
+
+                hour = BCDSanitize(hour, 0x00, 0x11);
+            }
+
+            DateTime[4] = hour | pm;
+        }
+        break;
+
+    case 6: // minute
+        DateTime[5] = BCDSanitize(val & 0x7F, 0x00, 0x59);
+        break;
+
+    case 7: // second
+        DateTime[6] = BCDSanitize(val & 0x7F, 0x00, 0x59);
+        break;
+    }
+}
 
 void CmdRead()
 {
@@ -412,43 +482,67 @@ void CmdWrite(u8 val)
         switch (CurCmd & 0x70)
         {
         case 0x00:
-            if (InputPos == 1) StatusReg1 = val & 0x0E;
+            if (InputPos == 1)
+            {
+                u8 oldval = StatusReg1;
+
+                if (val & (1<<0)) // reset
+                    ResetRegisters();
+
+                StatusReg1 = (StatusReg1 & 0xF0) | (val & 0x0E);
+
+                if ((StatusReg1 ^ oldval) & (1<<1)) // AM/PM changed
+                    WriteDateTime(5, DateTime[4]);
+            }
             break;
 
         case 0x40:
-            if (InputPos == 1) StatusReg2 = val;
-            if (StatusReg2 & 0x4F) Log(LogLevel::Debug, "RTC INTERRUPT ON: %02X\n", StatusReg2);
+            if (InputPos == 1)
+            {
+                StatusReg2 = val;
+                if (StatusReg2 & 0x4F) Log(LogLevel::Debug, "RTC INTERRUPT ON: %02X\n", StatusReg2);
+            }
             break;
 
         case 0x20:
-            // TODO: set time somehow??
+            if (InputPos <= 7)
+                WriteDateTime(InputPos, val);
             break;
 
         case 0x60:
-            // same shit
+            if (InputPos <= 3)
+                WriteDateTime(InputPos+4, val);
             break;
 
         case 0x10:
             if (StatusReg2 & 0x04)
             {
-                if (InputPos <= 3) Alarm1[InputPos-1] = val;
+                if (InputPos <= 3)
+                    Alarm1[InputPos-1] = val;
             }
             else
             {
-                if (InputPos == 1) Alarm1[2] = val;
+                if (InputPos == 1)
+                    Alarm1[2] = val;
             }
             break;
 
         case 0x50:
-            if (InputPos <= 3) Alarm2[InputPos-1] = val;
+            if (InputPos <= 3)
+                Alarm2[InputPos-1] = val;
             break;
 
         case 0x30:
-            if (InputPos == 1) ClockAdjust = val;
+            if (InputPos == 1)
+            {
+                ClockAdjust = val;
+                Log(LogLevel::Debug, "RTC: CLOCK ADJUST = %02X\n", val);
+            }
             break;
 
         case 0x70:
-            if (InputPos == 1) FreeReg = val;
+            if (InputPos == 1)
+                FreeReg = val;
             break;
         }
 
@@ -469,19 +563,23 @@ void CmdWrite(u8 val)
             break;
 
         case 0x40:
-            if (InputPos == 1) FOUT1 = val;
+            if (InputPos == 1)
+                FOUT1 = val;
             break;
 
         case 0x20:
-            if (InputPos == 1) FOUT2 = val;
+            if (InputPos == 1)
+                FOUT2 = val;
             break;
 
         case 0x10:
-            if (InputPos <= 3) AlarmDate1[InputPos-1] = val;
+            if (InputPos <= 3)
+                AlarmDate1[InputPos-1] = val;
             break;
 
         case 0x50:
-            if (InputPos <= 3) AlarmDate2[InputPos-1] = val;
+            if (InputPos <= 3)
+                AlarmDate2[InputPos-1] = val;
             break;
 
         default:
