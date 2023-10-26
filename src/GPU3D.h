@@ -46,6 +46,7 @@ struct Vertex
     // TODO maybe: hi-res color? (that survives clipping)
     s32 HiresPosition[2];
 
+    void DoSavestate(Savestate* file) noexcept;
 };
 
 struct Polygon
@@ -77,6 +78,7 @@ struct Polygon
 
     u32 SortKey;
 
+    void DoSavestate(Savestate* file) noexcept;
 };
 
 extern u32 RenderDispCnt;
