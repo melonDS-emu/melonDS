@@ -58,6 +58,7 @@
 #include "main.h"
 #include "Input.h"
 #include "CheatsDialog.h"
+#include "DateTimeDialog.h"
 #include "EmuSettingsDialog.h"
 #include "InputConfig/InputConfigDialog.h"
 #include "VideoSettingsDialog.h"
@@ -1525,6 +1526,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actPowerManagement = menu->addAction("Power management");
         connect(actPowerManagement, &QAction::triggered, this, &MainWindow::onOpenPowerManagement);
 
+        actDateTime = menu->addAction("Date and time");
+        connect(actDateTime, &QAction::triggered, this, &MainWindow::onOpenDateTime);
+
         menu->addSeparator();
 
         actEnableCheats = menu->addAction("Enable cheats");
@@ -1787,6 +1791,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actStop->setEnabled(false);
     actFrameStep->setEnabled(false);
 
+    actDateTime->setEnabled(true);
     actPowerManagement->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
@@ -2737,6 +2742,16 @@ void MainWindow::onFrameStep()
     emuThread->emuFrameStep();
 }
 
+void MainWindow::onOpenDateTime()
+{
+    DateTimeDialog* dlg = DateTimeDialog::openDlg(this);
+}
+
+void MainWindow::onOpenPowerManagement()
+{
+    PowerManagementDialog* dlg = PowerManagementDialog::openDlg(this);
+}
+
 void MainWindow::onEnableCheats(bool checked)
 {
     Config::EnableCheats = checked?1:0;
@@ -2822,11 +2837,6 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
 
     if (!RunningSomething)
         actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
-}
-
-void MainWindow::onOpenPowerManagement()
-{
-    PowerManagementDialog* dlg = PowerManagementDialog::openDlg(this);
 }
 
 void MainWindow::onOpenInputConfig()
@@ -3148,6 +3158,7 @@ void MainWindow::onEmuStart()
     actStop->setEnabled(true);
     actFrameStep->setEnabled(true);
 
+    actDateTime->setEnabled(false);
     actPowerManagement->setEnabled(true);
 
     actTitleManager->setEnabled(false);
@@ -3169,6 +3180,7 @@ void MainWindow::onEmuStop()
     actStop->setEnabled(false);
     actFrameStep->setEnabled(false);
 
+    actDateTime->setEnabled(true);
     actPowerManagement->setEnabled(false);
 
     actTitleManager->setEnabled(!Config::DSiNANDPath.empty());

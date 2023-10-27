@@ -299,6 +299,8 @@ private slots:
     void onReset();
     void onStop();
     void onFrameStep();
+    void onOpenPowerManagement();
+    void onOpenDateTime();
     void onEnableCheats(bool checked);
     void onSetupCheats();
     void onCheatsDialogFinished(int res);
@@ -309,7 +311,6 @@ private slots:
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
-    void onOpenPowerManagement();
     void onOpenInputConfig();
     void onInputConfigFinished(int res);
     void onOpenVideoSettings();
@@ -397,6 +398,8 @@ public:
     QAction* actReset;
     QAction* actStop;
     QAction* actFrameStep;
+    QAction* actPowerManagement;
+    QAction* actDateTime;
     QAction* actEnableCheats;
     QAction* actSetupCheats;
     QAction* actROMInfo;
@@ -408,7 +411,6 @@ public:
 #ifdef __APPLE__
     QAction* actPreferences;
 #endif
-    QAction* actPowerManagement;
     QAction* actInputConfig;
     QAction* actVideoSettings;
     QAction* actCameraSettings;

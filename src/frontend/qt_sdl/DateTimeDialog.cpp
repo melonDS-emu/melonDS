@@ -16,49 +16,36 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef RTC_H
-#define RTC_H
+#include <stdio.h>
 
 #include "types.h"
-#include "Savestate.h"
+#include "Config.h"
 
-namespace RTC
+#include "DateTimeDialog.h"
+#include "ui_DateTimeDialog.h"
+
+DateTimeDialog* DateTimeDialog::currentDlg = nullptr;
+
+
+DateTimeDialog::DateTimeDialog(QWidget* parent) : QDialog(parent), ui(new Ui::DateTimeDialog)
 {
+    ui->setupUi(this);
+    setAttribute(Qt::WA_DeleteOnClose);
 
-struct StateData
-{
-    u8 StatusReg1;
-    u8 StatusReg2;
-    u8 DateTime[7];
-    u8 Alarm1[3];
-    u8 Alarm2[3];
-    u8 ClockAdjust;
-    u8 FreeReg;
-
-    // DSi registers
-    u32 MinuteCount;
-    u8 FOUT1;
-    u8 FOUT2;
-    u8 AlarmDate1[3];
-    u8 AlarmDate2[3];
-};
-
-bool Init();
-void DeInit();
-void Reset();
-void DoSavestate(Savestate* file);
-
-void GetState(StateData& state);
-void SetState(StateData& state);
-void SetDateTime(int year, int month, int day, int hour, int minute, int second);
-void ResetState();
-
-void ScheduleTimer(bool first);
-void ClockTimer(u32 param);
-
-u16 Read();
-void Write(u16 val, bool byte);
-
+    //
 }
 
-#endif
+DateTimeDialog::~DateTimeDialog()
+{
+    delete ui;
+}
+
+void DateTimeDialog::done(int r)
+{
+    QDialog::done(r);
+
+    closeDlg();
+}
+
+//
+

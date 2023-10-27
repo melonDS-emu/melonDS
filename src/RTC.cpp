@@ -52,6 +52,9 @@ s32 TimerError;
 u32 ClockCount;
 
 
+void WriteDateTime(int num, u8 val);
+
+
 bool Init()
 {
     return true;
@@ -106,14 +109,6 @@ void DoSavestate(Savestate* file)
 }
 
 
-void ResetState()
-{
-    memset(&State, 0, sizeof(State));
-    State.DateTime[1] = 1;
-    State.DateTime[2] = 1;
-}
-
-
 u8 BCD(u8 val)
 {
     return (val % 10) | ((val / 10) << 4);
@@ -140,6 +135,80 @@ u8 BCDSanitize(u8 val, u8 vmin, u8 vmax)
 
     return val;
 }
+
+
+void GetState(StateData& state)
+{
+    memcpy(&state, &State, sizeof(State));
+}
+
+void SetState(StateData& state)
+{
+    memcpy(&State, &state, sizeof(State));
+
+    // sanitize the input state
+
+    for (int i = 0; i < 7; i++)
+        WriteDateTime(i+1, State.DateTime[i]);
+}
+
+void SetDateTime(int year, int month, int day, int hour, int minute, int second)
+{
+    int monthdays[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+    // the year range of the DS RTC is limited to 2000-2099
+    year %= 100;
+    if (year < 0) year = 0;
+
+    if (!(year & 3)) monthdays[2] = 29;
+
+    if (month < 1 || month > 12) month = 1;
+    if (day < 1 || day > monthdays[month]) day = 1;
+    if (hour < 0 || hour > 23) hour = 0;
+    if (minute < 0 || minute > 59) minute = 0;
+    if (second < 0 || second > 59) second = 0;
+
+    // note on day-of-week value
+    // that RTC register is a simple incrementing counter and the assignation is defined by software
+    // DS/DSi firmware counts from 0=Sunday
+
+    int numdays = (year * 365) + ((year+3) / 4); // account for leap years
+
+    for (int m = 1; m < month; m++)
+    {
+        numdays += monthdays[m];
+    }
+    numdays += (day-1);
+
+    // 01/01/2000 is a Saturday, so the starting value is 6
+    int dayofweek = (6 + numdays) % 7;
+
+    int pm = (hour >= 12) ? 0x40 : 0;
+    if (!(State.StatusReg1 & (1<<1)))
+    {
+        // 12-hour mode
+
+        if (pm) hour -= 12;
+    }
+
+    State.DateTime[0] = BCD(year);
+    State.DateTime[1] = BCD(month);
+    State.DateTime[2] = BCD(day);
+    State.DateTime[3] = dayofweek;
+    State.DateTime[4] = BCD(hour) | pm;
+    State.DateTime[5] = BCD(minute);
+    State.DateTime[6] = BCD(second);
+
+    State.StatusReg1 &= ~0x80;
+}
+
+void ResetState()
+{
+    memset(&State, 0, sizeof(State));
+    State.DateTime[1] = 1;
+    State.DateTime[2] = 1;
+}
+
 
 u8 DaysInMonth()
 {
@@ -449,8 +518,46 @@ void CmdWrite(u8 val)
 
                 State.StatusReg1 = (State.StatusReg1 & 0xF0) | (val & 0x0E);
 
-                if ((State.StatusReg1 ^ oldval) & (1<<1)) // AM/PM changed
-                    WriteDateTime(5, State.DateTime[4]);
+                if ((State.StatusReg1 ^ oldval) & (1<<1))
+                {
+                    // AM/PM changed
+
+                    u8 hour = State.DateTime[4] & 0x3F;
+                    u8 pm = State.DateTime[4] & 0x40;
+
+                    if (State.StatusReg1 & (1<<1))
+                    {
+                        // 24-hour mode
+
+                        if (pm)
+                        {
+                            hour += 0x12;
+                            if ((hour & 0x0F) >= 0x0A)
+                                hour += 0x06;
+                        }
+
+                        hour = BCDSanitize(hour, 0x00, 0x23);
+                    }
+                    else
+                    {
+                        // 12-hour mode
+
+                        if (hour >= 0x12)
+                        {
+                            pm = 0x40;
+
+                            hour -= 0x12;
+                            if ((hour & 0x0F) >= 0x0A)
+                                hour -= 0x06;
+                        }
+                        else
+                            pm = 0;
+
+                        hour = BCDSanitize(hour, 0x00, 0x11);
+                    }
+
+                    State.DateTime[4] = hour | pm;
+                }
             }
             break;
 
@@ -459,7 +566,10 @@ void CmdWrite(u8 val)
             {
                 State.StatusReg2 = val;
                 if (State.StatusReg2 & 0x4F)
-                    Log(LogLevel::Debug, "RTC INTERRUPT ON: %02X\n", State.StatusReg2);
+                    Log(LogLevel::Debug, "RTC INTERRUPT ON: %02X, %02X %02X %02X, %02X %02X %02X\n",
+                        State.StatusReg2,
+                        State.Alarm1[0], State.Alarm1[1], State.Alarm1[2],
+                        State.Alarm2[0], State.Alarm2[1], State.Alarm2[2]);
             }
             break;
 
