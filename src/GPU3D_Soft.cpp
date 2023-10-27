@@ -1775,10 +1775,8 @@ void SoftRenderer::RenderThreadFunc()
         }
         else
         {
-            Platform::Mutex_Lock(StateLock);
             ClearBuffers();
             RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
-            Platform::Mutex_Unlock(StateLock);
         }
 
         // "Main thread, I'm done.."
