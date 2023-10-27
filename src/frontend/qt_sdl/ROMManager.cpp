@@ -28,6 +28,8 @@
 #include <utility>
 #include <fstream>
 
+#include <QDateTime>
+
 #include <zstd.h>
 #ifdef ARCHIVE_SUPPORT_ENABLED
 #include "ArchiveUtil.h"
@@ -39,6 +41,7 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "SPI.h"
+#include "RTC.h"
 #include "DSi_I2C.h"
 #include "FreeBIOS.h"
 
@@ -589,6 +592,54 @@ void SetBatteryLevels()
     }
 }
 
+void SetDateTime()
+{
+    QDateTime hosttime = QDateTime::currentDateTime();
+    QDateTime time;
+
+    if (Config::RTCMode == 0)
+    {
+        // use current system time
+
+        time = hosttime;
+    }
+    else
+    {
+        // use custom time
+
+        if (Config::RTCNewTime != "")
+        {
+            // assign a new custom time
+
+            time = QDateTime::fromString(QString::fromStdString(Config::RTCNewTime), Qt::ISODate);
+            if (!time.isValid())
+                return;
+        }
+        else if (Config::RTCLastTime != "" && Config::RTCLastHostTime != "")
+        {
+            // deduce the custom time based on the last saved times
+
+            QDateTime lasttime = QDateTime::fromString(QString::fromStdString(Config::RTCLastTime), Qt::ISODate);
+            QDateTime lasthost = QDateTime::fromString(QString::fromStdString(Config::RTCLastHostTime), Qt::ISODate);
+
+            if (lasttime.isValid() && lasthost.isValid())
+            {
+                qint64 offset = lasthost.secsTo(hosttime);
+                time = lasttime.addSecs(offset);
+            }
+            else
+                return;
+        }
+    }
+
+    RTC::SetDateTime(time.date().year(), time.date().month(), time.date().day(),
+                     time.time().hour(), time.time().minute(), time.time().second());
+
+    Config::RTCLastTime = time.toString(Qt::ISODate).toStdString();
+    Config::RTCLastHostTime = hosttime.toString(Qt::ISODate).toStdString();
+    Config::RTCNewTime = "";
+}
+
 void Reset()
 {
     NDS::SetConsoleType(Config::ConsoleType);
@@ -602,6 +653,7 @@ void Reset()
     }
     NDS::Reset();
     SetBatteryLevels();
+    SetDateTime();
 
     if ((CartType != -1) && NDSSave)
     {
@@ -678,6 +730,7 @@ bool LoadBIOS()
 
     NDS::Reset();
     SetBatteryLevels();
+    SetDateTime();
     return true;
 }
 
@@ -1204,6 +1257,7 @@ bool LoadROM(QStringList filepath, bool reset)
 
         NDS::Reset();
         SetBatteryLevels();
+        SetDateTime();
     }
 
     u32 savelen = 0;

@@ -185,6 +185,11 @@ extern bool MouseHide;
 extern int MouseHideSeconds;
 extern bool PauseLostFocus;
 
+extern int RTCMode;
+extern std::string RTCLastTime;
+extern std::string RTCLastHostTime;
+extern std::string RTCNewTime;
+
 extern bool DSBatteryLevelOkay;
 extern int DSiBatteryLevel;
 extern bool DSiBatteryCharging;

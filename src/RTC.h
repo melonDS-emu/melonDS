@@ -50,6 +50,7 @@ void DoSavestate(Savestate* file);
 
 void GetState(StateData& state);
 void SetState(StateData& state);
+void GetDateTime(int& year, int& month, int& day, int& hour, int& minute, int& second);
 void SetDateTime(int year, int month, int day, int hour, int minute, int second);
 void ResetState();
 

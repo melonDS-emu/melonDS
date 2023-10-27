@@ -20,6 +20,8 @@
 #define DATETIMEDIALOG_H
 
 #include <QDialog>
+#include <QButtonGroup>
+#include <QDateTime>
 
 namespace Ui {class DateTimeDialog; }
 class DateTimeDialog;
@@ -50,15 +52,21 @@ public:
         currentDlg = nullptr;
     }
 
+protected:
+    void timerEvent(QTimerEvent* event) override;
+
 private slots:
     void done(int r);
 
-    // slots here
+    void on_chkChangeTime_clicked(bool checked);
+    void onChangeTimeMode(int mode);
 
 private:
     Ui::DateTimeDialog* ui;
 
-    //
+    QButtonGroup* grpTimeMode;
+
+    QDateTime customTime;
 };
 
 #endif // DATETIMEDIALOG_H

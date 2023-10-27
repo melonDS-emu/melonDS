@@ -20,7 +20,6 @@
 #define _POSIX_THREAD_SAFE_FUNCTIONS
 
 #include <string.h>
-#include <time.h>
 #include "NDS.h"
 #include "RTC.h"
 #include "Platform.h"
@@ -57,6 +56,13 @@ void WriteDateTime(int num, u8 val);
 
 bool Init()
 {
+    State.MinuteCount = 0;
+    ResetState();
+
+    // indicate the power was off
+    // this will be changed if a previously saved RTC state is loaded
+    State.StatusReg1 = 0x80;
+
     return true;
 }
 
@@ -74,13 +80,6 @@ void Reset()
     OutputPos = 0;
 
     CurCmd = 0;
-
-    State.MinuteCount = 0;
-    ResetState();
-
-    // indicate the power was off
-    // this will be changed if a previously saved RTC state is loaded
-    State.StatusReg1 = 0x80;
 
     ClockCount = 0;
     ScheduleTimer(true);
@@ -150,6 +149,38 @@ void SetState(StateData& state)
 
     for (int i = 0; i < 7; i++)
         WriteDateTime(i+1, State.DateTime[i]);
+}
+
+void GetDateTime(int& year, int& month, int& day, int& hour, int& minute, int& second)
+{
+    int val;
+
+    val = State.DateTime[0];
+    year = (val & 0xF) + ((val >> 4) * 10);
+    year += 2000;
+
+    val = State.DateTime[1] & 0x3F;
+    month = (val & 0xF) + ((val >> 4) * 10);
+
+    val = State.DateTime[2] & 0x3F;
+    day = (val & 0xF) + ((val >> 4) * 10);
+
+    val = State.DateTime[4] & 0x3F;
+    hour = (val & 0xF) + ((val >> 4) * 10);
+
+    if (!(State.StatusReg1 & (1<<1)))
+    {
+        // 12-hour mode
+
+        if (State.DateTime[4] & 0x40)
+            hour += 12;
+    }
+
+    val = State.DateTime[5] & 0x7F;
+    minute = (val & 0xF) + ((val >> 4) * 10);
+
+    val = State.DateTime[6] & 0x7F;
+    second = (val & 0xF) + ((val >> 4) * 10);
 }
 
 void SetDateTime(int year, int month, int day, int hour, int minute, int second)

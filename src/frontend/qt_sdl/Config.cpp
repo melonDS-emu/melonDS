@@ -140,6 +140,11 @@ int MouseHideSeconds;
 
 bool PauseLostFocus;
 
+int RTCMode;
+std::string RTCLastTime;
+std::string RTCLastHostTime;
+std::string RTCNewTime;
+
 bool DSBatteryLevelOkay;
 int DSiBatteryLevel;
 bool DSiBatteryCharging;
@@ -338,6 +343,11 @@ ConfigEntry ConfigFile[] =
     {"MouseHide",        1, &MouseHide,        false, false},
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, false},
     {"PauseLostFocus",   1, &PauseLostFocus,   false, false},
+
+    {"RTCMode",         0, &RTCMode,         0, true},
+    {"RTCLastTime",     2, &RTCLastTime,     (std::string)"", true},
+    {"RTCLastHostTime", 2, &RTCLastHostTime, (std::string)"", true},
+    {"RTCNewTime",      2, &RTCNewTime,      (std::string)"", true},
 
     {"DSBatteryLevelOkay",   1, &DSBatteryLevelOkay, true, true},
     {"DSiBatteryLevel",    0, &DSiBatteryLevel, 0xF, true},

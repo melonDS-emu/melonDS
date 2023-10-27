@@ -91,6 +91,7 @@
 #include "LocalMP.h"
 #include "Config.h"
 #include "DSi_I2C.h"
+#include "RTC.h"
 
 #include "Savestate.h"
 
@@ -314,6 +315,8 @@ void EmuThread::deinitOpenGL()
 void EmuThread::run()
 {
     u32 mainScreenPos[3];
+    Platform::FileHandle* file;
+    bool hasrun = false;
 
     NDS::Init();
 
@@ -352,6 +355,15 @@ void EmuThread::run()
 
     u32 winUpdateCount = 0, winUpdateFreq = 1;
     u8 dsiVolumeLevel = 0x1F;
+
+    file = Platform::OpenLocalFile("rtc.bin", Platform::FileMode::Read);
+    if (file)
+    {
+        RTC::StateData state;
+        Platform::FileRead(&state, sizeof(state), 1, file);
+        Platform::CloseFile(file);
+        RTC::SetState(state);
+    }
 
     char melontitle[100];
 
@@ -429,6 +441,8 @@ void EmuThread::run()
 
         if (EmuRunning == emuStatus_Running || EmuRunning == emuStatus_FrameStep)
         {
+            hasrun = true;
+
             EmuStatus = emuStatus_Running;
             if (EmuRunning == emuStatus_FrameStep) EmuRunning = emuStatus_Paused;
 
@@ -649,6 +663,26 @@ void EmuThread::run()
                 ContextRequest = contextRequest_None;
             }
         }
+    }
+
+    file = Platform::OpenLocalFile("rtc.bin", Platform::FileMode::Write);
+    if (file)
+    {
+        RTC::StateData state;
+        RTC::GetState(state);
+        Platform::FileWrite(&state, sizeof(state), 1, file);
+        Platform::CloseFile(file);
+    }
+    if (hasrun)
+    {
+        int y, m, d, h, i, s;
+        RTC::GetDateTime(y, m, d, h, i, s);
+
+        QDateTime hosttime = QDateTime::currentDateTime();
+        QDateTime time = QDateTime(QDate(y, m, d), QTime(h, i, s));
+
+        Config::RTCLastTime = time.toString(Qt::ISODate).toStdString();
+        Config::RTCLastHostTime = hosttime.toString(Qt::ISODate).toStdString();
     }
 
     EmuStatus = emuStatus_Exit;
@@ -3305,6 +3339,7 @@ int main(int argc, char** argv)
     SANITIZE(Config::ScreenSizing, 0, (int)Frontend::screenSizing_MAX);
     SANITIZE(Config::ScreenAspectTop, 0, AspectRatiosNum);
     SANITIZE(Config::ScreenAspectBot, 0, AspectRatiosNum);
+    SANITIZE(Config::RTCMode, 0, 1);
 #undef SANITIZE
 
     AudioInOut::Init();
