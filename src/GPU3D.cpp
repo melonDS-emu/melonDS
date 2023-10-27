@@ -2480,10 +2480,12 @@ void FinishWork(s32 cycles)
 
 void Run()
 {
+    Platform::Mutex_Lock(GPU3D::StateLock);
     if (!GeometryEnabled || FlushRequest ||
         (CmdPIPE.IsEmpty() && !(GXStat & (1<<27))))
     {
         Timestamp = NDS::ARM9Timestamp >> NDS::ARM9ClockShift;
+        Platform::Mutex_Unlock(GPU3D::StateLock);
         return;
     }
 
@@ -2510,6 +2512,8 @@ void Run()
         if (NumPushPopCommands == 0) GXStat &= ~(1<<14);
         if (NumTestCommands == 0)    GXStat &= ~(1<<0);
     }
+
+    Platform::Mutex_Unlock(GPU3D::StateLock);
 }
 
 
