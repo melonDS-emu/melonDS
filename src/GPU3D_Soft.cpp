@@ -1760,7 +1760,6 @@ void SoftRenderer::RestartFrame()
     EnableRenderThread();
 }
 
-extern Platform::Mutex* StateLock;
 void SoftRenderer::RenderThreadFunc()
 {
     for (;;)

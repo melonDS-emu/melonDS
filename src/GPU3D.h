@@ -102,6 +102,7 @@ extern u32 RenderNumPolygons;
 extern bool AbortFrame;
 
 extern u64 Timestamp;
+extern Platform::Mutex* StateLock;
 
 bool Init();
 void DeInit();

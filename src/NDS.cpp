@@ -1062,6 +1062,7 @@ void RunSystem(u64 timestamp)
 template <bool EnableJIT, int ConsoleType>
 u32 RunFrame()
 {
+    Platform::Mutex_Lock(GPU3D::StateLock);
     FrameStartTimestamp = SysTimestamp;
 
     LagFrameFlag = true;
@@ -1162,6 +1163,7 @@ u32 RunFrame()
     if (LagFrameFlag)
         NumLagFrames++;
 
+    Platform::Mutex_Unlock(GPU3D::StateLock);
     if (runFrame)
         return GPU::TotalScanlines;
     else
