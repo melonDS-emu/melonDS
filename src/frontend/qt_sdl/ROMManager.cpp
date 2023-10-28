@@ -595,49 +595,10 @@ void SetBatteryLevels()
 void SetDateTime()
 {
     QDateTime hosttime = QDateTime::currentDateTime();
-    QDateTime time;
-
-    if (Config::RTCMode == 0)
-    {
-        // use current system time
-
-        time = hosttime;
-    }
-    else
-    {
-        // use custom time
-
-        if (Config::RTCNewTime != "")
-        {
-            // assign a new custom time
-
-            time = QDateTime::fromString(QString::fromStdString(Config::RTCNewTime), Qt::ISODate);
-            if (!time.isValid())
-                return;
-        }
-        else if (Config::RTCLastTime != "" && Config::RTCLastHostTime != "")
-        {
-            // deduce the custom time based on the last saved times
-
-            QDateTime lasttime = QDateTime::fromString(QString::fromStdString(Config::RTCLastTime), Qt::ISODate);
-            QDateTime lasthost = QDateTime::fromString(QString::fromStdString(Config::RTCLastHostTime), Qt::ISODate);
-
-            if (lasttime.isValid() && lasthost.isValid())
-            {
-                qint64 offset = lasthost.secsTo(hosttime);
-                time = lasttime.addSecs(offset);
-            }
-            else
-                return;
-        }
-    }
+    QDateTime time = hosttime.addSecs(Config::RTCOffset);
 
     RTC::SetDateTime(time.date().year(), time.date().month(), time.date().day(),
                      time.time().hour(), time.time().minute(), time.time().second());
-
-    Config::RTCLastTime = time.toString(Qt::ISODate).toStdString();
-    Config::RTCLastHostTime = hosttime.toString(Qt::ISODate).toStdString();
-    Config::RTCNewTime = "";
 }
 
 void Reset()

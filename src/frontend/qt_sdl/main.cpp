@@ -316,7 +316,6 @@ void EmuThread::run()
 {
     u32 mainScreenPos[3];
     Platform::FileHandle* file;
-    bool hasrun = false;
 
     NDS::Init();
 
@@ -441,8 +440,6 @@ void EmuThread::run()
 
         if (EmuRunning == emuStatus_Running || EmuRunning == emuStatus_FrameStep)
         {
-            hasrun = true;
-
             EmuStatus = emuStatus_Running;
             if (EmuRunning == emuStatus_FrameStep) EmuRunning = emuStatus_Paused;
 
@@ -672,17 +669,6 @@ void EmuThread::run()
         RTC::GetState(state);
         Platform::FileWrite(&state, sizeof(state), 1, file);
         Platform::CloseFile(file);
-    }
-    if (hasrun)
-    {
-        int y, m, d, h, i, s;
-        RTC::GetDateTime(y, m, d, h, i, s);
-
-        QDateTime hosttime = QDateTime::currentDateTime();
-        QDateTime time = QDateTime(QDate(y, m, d), QTime(h, i, s));
-
-        Config::RTCLastTime = time.toString(Qt::ISODate).toStdString();
-        Config::RTCLastHostTime = hosttime.toString(Qt::ISODate).toStdString();
     }
 
     EmuStatus = emuStatus_Exit;
@@ -3339,7 +3325,6 @@ int main(int argc, char** argv)
     SANITIZE(Config::ScreenSizing, 0, (int)Frontend::screenSizing_MAX);
     SANITIZE(Config::ScreenAspectTop, 0, AspectRatiosNum);
     SANITIZE(Config::ScreenAspectBot, 0, AspectRatiosNum);
-    SANITIZE(Config::RTCMode, 0, 1);
 #undef SANITIZE
 
     AudioInOut::Init();

@@ -455,6 +455,13 @@ void WriteDateTime(int num, u8 val)
     }
 }
 
+void SaveDateTime()
+{
+    int y, m, d, h, i, s;
+    GetDateTime(y, m, d, h, i, s);
+    Platform::WriteDateTime(y, m, d, h, i, s);
+}
+
 void CmdRead()
 {
     if ((CurCmd & 0x0F) == 0x06)
@@ -607,11 +614,15 @@ void CmdWrite(u8 val)
         case 0x20:
             if (InputPos <= 7)
                 WriteDateTime(InputPos, val);
+            if (InputPos == 7)
+                SaveDateTime();
             break;
 
         case 0x60:
             if (InputPos <= 3)
                 WriteDateTime(InputPos+4, val);
+            if (InputPos == 3)
+                SaveDateTime();
             break;
 
         case 0x10:

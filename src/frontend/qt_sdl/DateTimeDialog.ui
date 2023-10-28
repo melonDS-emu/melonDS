@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>357</width>
-    <height>259</height>
+    <height>161</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -15,32 +15,9 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QGroupBox" name="groupBox">
-     <property name="title">
-      <string>General settings</string>
-     </property>
-     <layout class="QFormLayout" name="formLayout">
-      <item row="1" column="0" colspan="2">
-       <widget class="QRadioButton" name="rbCustomTime">
-        <property name="text">
-         <string>Use custom date and time</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="0" colspan="2">
-       <widget class="QRadioButton" name="rbSystemTime">
-        <property name="text">
-         <string>Always use system date and time</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
-      <string>Custom date and time</string>
+      <string>Date and time</string>
      </property>
      <layout class="QFormLayout" name="formLayout_2">
       <item row="0" column="0">
@@ -64,28 +41,14 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="0" colspan="2">
+      <item row="2" column="0">
        <widget class="QCheckBox" name="chkChangeTime">
         <property name="text">
-         <string>Change</string>
+         <string>Change to:</string>
         </property>
        </widget>
       </item>
-      <item row="3" column="0">
-       <widget class="QLabel" name="label_3">
-        <property name="text">
-         <string>New value:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="0" colspan="2">
-       <widget class="QLabel" name="label_5">
-        <property name="text">
-         <string>The new value will be applied on the next boot.</string>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="1">
+      <item row="2" column="1">
        <widget class="QDateTimeEdit" name="txtNewCustomTime">
         <property name="dateTime">
          <datetime>
@@ -122,6 +85,13 @@
         </property>
         <property name="calendarPopup">
          <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0" colspan="2">
+       <widget class="QCheckBox" name="chkResetTime">
+        <property name="text">
+         <string>Reset to system date and time</string>
         </property>
        </widget>
       </item>

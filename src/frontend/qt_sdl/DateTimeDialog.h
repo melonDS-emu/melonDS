@@ -59,12 +59,10 @@ private slots:
     void done(int r);
 
     void on_chkChangeTime_clicked(bool checked);
-    void onChangeTimeMode(int mode);
+    void on_chkResetTime_clicked(bool checked);
 
 private:
     Ui::DateTimeDialog* ui;
-
-    QButtonGroup* grpTimeMode;
 
     QDateTime customTime;
 };

@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include "Platform.h"
 #include "Config.h"
 
@@ -140,10 +141,7 @@ int MouseHideSeconds;
 
 bool PauseLostFocus;
 
-int RTCMode;
-std::string RTCLastTime;
-std::string RTCLastHostTime;
-std::string RTCNewTime;
+int64_t RTCOffset;
 
 bool DSBatteryLevelOkay;
 int DSiBatteryLevel;
@@ -344,10 +342,7 @@ ConfigEntry ConfigFile[] =
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, false},
     {"PauseLostFocus",   1, &PauseLostFocus,   false, false},
 
-    {"RTCMode",         0, &RTCMode,         0, true},
-    {"RTCLastTime",     2, &RTCLastTime,     (std::string)"", true},
-    {"RTCLastHostTime", 2, &RTCLastHostTime, (std::string)"", true},
-    {"RTCNewTime",      2, &RTCNewTime,      (std::string)"", true},
+    {"RTCOffset",       3, &RTCOffset,       0LL, true},
 
     {"DSBatteryLevelOkay",   1, &DSBatteryLevelOkay, true, true},
     {"DSiBatteryLevel",    0, &DSiBatteryLevel, 0xF, true},
@@ -416,6 +411,7 @@ void LoadFile(int inst)
                 case 0: *(int*)entry->Value = strtol(entryval, NULL, 10); break;
                 case 1: *(bool*)entry->Value = strtol(entryval, NULL, 10) ? true:false; break;
                 case 2: *(std::string*)entry->Value = entryval; break;
+                case 3: *(int64_t*)entry->Value = strtoll(entryval, NULL, 10); break;
                 }
 
                 break;
@@ -436,6 +432,7 @@ void Load()
         case 0: *(int*)entry->Value = std::get<int>(entry->Default); break;
         case 1: *(bool*)entry->Value = std::get<bool>(entry->Default); break;
         case 2: *(std::string*)entry->Value = std::get<std::string>(entry->Default); break;
+        case 3: *(int64_t*)entry->Value = std::get<int64_t>(entry->Default); break;
         }
     }
 
@@ -472,6 +469,7 @@ void Save()
         case 0: Platform::FileWriteFormatted(f, "%s=%d\r\n", entry->Name, *(int*)entry->Value); break;
         case 1: Platform::FileWriteFormatted(f, "%s=%d\r\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
         case 2: Platform::FileWriteFormatted(f, "%s=%s\r\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
+        case 3: Platform::FileWriteFormatted(f, "%s=%"PRId64"\r\n", entry->Name, *(int64_t*)entry->Value); break;
         }
     }
 
