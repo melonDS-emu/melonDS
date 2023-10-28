@@ -56,7 +56,6 @@ void WriteDateTime(int num, u8 val);
 
 bool Init()
 {
-    State.MinuteCount = 0;
     ResetState();
 
     // indicate the power was off
@@ -241,6 +240,28 @@ void ResetState()
 }
 
 
+void SetIRQ(u8 irq)
+{
+    u8 oldstat = State.IRQFlag;
+    State.IRQFlag |= irq;
+    State.StatusReg1 |= irq;
+
+    if ((!(oldstat & 0x30)) && (State.IRQFlag & 0x30))
+    {
+        if ((NDS::RCnt & 0xC100) == 0x8100)
+        {printf("IRQ\n");
+            // CHECKME: is the IRQ status readable in RCNT?
+            NDS::SetIRQ(1, NDS::IRQ_RTC);
+        }
+    }
+}
+
+void ClearIRQ(u8 irq)
+{
+    State.IRQFlag &= ~irq;
+}
+
+
 u8 DaysInMonth()
 {
     u8 numdays;
@@ -395,6 +416,29 @@ void ClockTimer(u32 param)
     {
         // count up one second
         CountSecond();
+    }
+
+    if (State.StatusReg2 & (1<<3))
+    {
+        // 32KHz IRQ output
+        SetIRQ(0x10);
+        ClearIRQ(0x10);
+    }
+    else if ((State.StatusReg2 & 0x03) == 0x01)
+    {
+        // selected frequency steady interrupt
+
+        u32 mask = 0;
+        if (State.Alarm1[2] & (1<<0)) mask |= 0x4000;
+        if (State.Alarm1[2] & (1<<1)) mask |= 0x2000;
+        if (State.Alarm1[2] & (1<<2)) mask |= 0x1000;
+        if (State.Alarm1[2] & (1<<3)) mask |= 0x0800;
+        if (State.Alarm1[2] & (1<<4)) mask |= 0x0400;
+
+        if (mask && ((ClockCount & mask) != mask))
+            SetIRQ(0x10);
+        else
+            ClearIRQ(0x10);
     }
 
     ScheduleTimer(false);
@@ -645,10 +689,7 @@ void CmdWrite(u8 val)
 
         case 0x30:
             if (InputPos == 1)
-            {
                 State.ClockAdjust = val;
-                Log(LogLevel::Debug, "RTC: CLOCK ADJUST = %02X\n", val);
-            }
             break;
 
         case 0x70:

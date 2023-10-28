@@ -35,6 +35,8 @@ struct StateData
     u8 ClockAdjust;
     u8 FreeReg;
 
+    u8 IRQFlag;
+
     // DSi registers
     u32 MinuteCount;
     u8 FOUT1;

@@ -220,6 +220,7 @@ extern MemRegion SWRAM_ARM9;
 extern MemRegion SWRAM_ARM7;
 
 extern u32 KeyInput;
+extern u16 RCnt;
 
 const u32 ARM7WRAMSize = 0x10000;
 extern u8* ARM7WRAM;
