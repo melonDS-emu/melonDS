@@ -158,7 +158,8 @@ u32 FATStorage::WriteSectors(u32 start, u32 num, u8* data)
     return WriteSectorsInternal(File, FileSize, start, num, data);
 }
 
-u64 FATStorage::GetSectorCount(void) {
+u64 FATStorage::GetSectorCount(void)
+{
     return FileSize / 0x200;
 }
 

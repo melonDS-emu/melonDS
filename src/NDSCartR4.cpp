@@ -88,8 +88,8 @@ void CartR4::Reset()
         InitStatus = 1;
     else
     {
-        u8 Buffer[512];
-        if (!SD->ReadFile("_DS_MENU.DAT", 0, 512, Buffer))
+        u8 buffer[512];
+        if (!SD->ReadFile("_DS_MENU.DAT", 0, 512, buffer))
             InitStatus = 3;
         else
             InitStatus = 4;
@@ -114,23 +114,23 @@ int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u
     {
     case 0xB0: /* Get card information */
         {
-            u32 Info = 0x75A00000 | ((CartType | CartLanguage) << 3) | InitStatus;
+            u32 info = 0x75A00000 | ((CartType | CartLanguage) << 3) | InitStatus;
             for (u32 pos = 0; pos < len; pos += 4)
-                *(u32*)&data[pos] = Info;
+                *(u32*)&data[pos] = info;
             return 0;
         }
     case 0xB4: /* FAT entry */
         {
-            u8 EntryBuffer[512];
+            u8 entryBuffer[512];
             u32 sector = ((cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4]) & (~0x1F);
             // set FAT entry offset to the starting cluster, to gain a bit of speed
-            SD->ReadSectors(sector >> 9, 1, EntryBuffer);
-            u16 FileEntryOffset = sector & 0x1FF;
-            u32 ClusterStart = (EntryBuffer[FileEntryOffset + 27] << 8)
-                | EntryBuffer[FileEntryOffset + 26]
-                | (EntryBuffer[FileEntryOffset + 21] << 24)
-                | (EntryBuffer[FileEntryOffset + 20] << 16);
-            FATEntryOffset[cmd[4] & 0x01] = ClusterStart;
+            SD->ReadSectors(sector >> 9, 1, entryBuffer);
+            u16 fileEntryOffset = sector & 0x1FF;
+            u32 clusterStart = (entryBuffer[fileEntryOffset + 27] << 8)
+                | entryBuffer[fileEntryOffset + 26]
+                | (entryBuffer[fileEntryOffset + 21] << 24)
+                | (entryBuffer[fileEntryOffset + 20] << 16);
+            FATEntryOffset[cmd[4] & 0x01] = clusterStart;
             for (u32 pos = 0; pos < len; pos += 4)
                 *(u32*)&data[pos] = 0;
             return 0;
@@ -232,14 +232,14 @@ u16 CartR4::GetEncryptionKey(u16 sector)
 {
     if (EncryptionKey == -1)
     {
-        u8 EncryptedBuffer[512];
-        u8 DecryptedBuffer[512];
-        SD->ReadFile("_DS_MENU.DAT", 0, 512, EncryptedBuffer);
+        u8 encryptedBuffer[512];
+        u8 decryptedBuffer[512];
+        SD->ReadFile("_DS_MENU.DAT", 0, 512, encryptedBuffer);
         for (u32 key = 0; key < 0x10000; key++)
         {
-            DecryptR4Sector(DecryptedBuffer, EncryptedBuffer, key);
-            if (DecryptedBuffer[12] == '#' && DecryptedBuffer[13] == '#'
-                && DecryptedBuffer[14] == '#' && DecryptedBuffer[15] == '#')
+            DecryptR4Sector(decryptedBuffer, encryptedBuffer, key);
+            if (decryptedBuffer[12] == '#' && decryptedBuffer[13] == '#'
+                && decryptedBuffer[14] == '#' && decryptedBuffer[15] == '#')
             {
                 EncryptionKey = key;
                 break;
@@ -281,58 +281,57 @@ void CartR4::ReadSDToBuffer(u32 sector, bool rom)
 
 u32 CartR4::SDFATEntrySectorGet(u32 entry, u32 addr)
 {
-    u8 Buffer[512];
-    u32 BufferSector = 0xFFFFFFFF;
+    u8 buffer[512];
+    u32 bufferSector = 0xFFFFFFFF;
 
     // Parse FAT header.
-    SD->ReadSectors(0, 1, Buffer);
-    u16 BytesPerSector = (Buffer[12] << 8) | Buffer[11];
-    u8 SectorsPerCluster = Buffer[13];
-    u16 FirstFATSector = (Buffer[15] << 8) | Buffer[14];
-    u8 FATTableCount = Buffer[16];
-    u32 ClustersTotal = SD->GetSectorCount() / SectorsPerCluster;
-    bool IsFat32 = ClustersTotal >= 65526;
+    SD->ReadSectors(0, 1, buffer);
+    u16 bytesPerSector = (buffer[12] << 8) | buffer[11];
+    u8 sectorsPerCluster = buffer[13];
+    u16 firstFatSector = (buffer[15] << 8) | buffer[14];
+    u8 fatTableCount = buffer[16];
+    u32 clustersTotal = SD->GetSectorCount() / sectorsPerCluster;
+    bool isFat32 = clustersTotal >= 65526;
 
-    u32 FATTableSize = (Buffer[23] << 8) | Buffer[22];
-    if (FATTableSize == 0 && IsFat32)
-        FATTableSize = (Buffer[39] << 24) | (Buffer[38] << 16) | (Buffer[37] << 8) | Buffer[36];
-    u32 BytesPerCluster = BytesPerSector * SectorsPerCluster;
-    u32 RootDirSectors = 0;
-    if (!IsFat32) {
-        u32 RootDirEntries = (Buffer[18] << 8) | Buffer[17];
-        RootDirSectors = ((RootDirEntries * 32) + (BytesPerSector - 1)) / BytesPerSector;
+    u32 fatTableSize = (buffer[23] << 8) | buffer[22];
+    if (fatTableSize == 0 && isFat32)
+        fatTableSize = (buffer[39] << 24) | (buffer[38] << 16) | (buffer[37] << 8) | buffer[36];
+    u32 bytesPerCluster = bytesPerSector * sectorsPerCluster;
+    u32 rootDirSectors = 0;
+    if (!isFat32) {
+        u32 rootDirEntries = (buffer[18] << 8) | buffer[17];
+        rootDirSectors = ((rootDirEntries * 32) + (bytesPerSector - 1)) / bytesPerSector;
     }
-    u32 FirstDataSector = FirstFATSector + FATTableCount * FATTableSize + RootDirSectors;
+    u32 firstDataSector = firstFatSector + fatTableCount * fatTableSize + rootDirSectors;
 
     // Parse file entry (done when processing command 0xB4).
-    u32 ClusterStart = entry;
+    u32 clusterStart = entry;
 
     // Parse cluster table.
-    u32 CurrentCluster = ClusterStart;
+    u32 currentCluster = clusterStart;
     while (true)
     {
-        CurrentCluster &= IsFat32 ? 0x0FFFFFFF : 0xFFFF;
-        if (addr < BytesPerCluster)
+        currentCluster &= isFat32 ? 0x0FFFFFFF : 0xFFFF;
+        if (addr < bytesPerCluster)
         {
-            // Read from this cluster.    
-            u32 SectorAddr = (FirstDataSector + ((CurrentCluster - 2) * SectorsPerCluster)) * BytesPerSector + addr;
-            return SectorAddr;
+            // Read from this cluster.
+            return (firstDataSector + ((currentCluster - 2) * sectorsPerCluster)) * bytesPerSector + addr;
         }
-        else if (CurrentCluster >= 2 && CurrentCluster <= (IsFat32 ? 0x0FFFFFF6 : 0xFFF6))
+        else if (currentCluster >= 2 && currentCluster <= (isFat32 ? 0x0FFFFFF6 : 0xFFF6))
         {
             // Follow into next cluster.
-            u32 NextClusterOffset = FirstFATSector * BytesPerSector + CurrentCluster * (IsFat32 ? 4 : 2);
-            u32 NextClusterTableSector = NextClusterOffset >> 9;
-            if (BufferSector != NextClusterTableSector)
+            u32 nextClusterOffset = firstFatSector * bytesPerSector + currentCluster * (isFat32 ? 4 : 2);
+            u32 nextClusterTableSector = nextClusterOffset >> 9;
+            if (bufferSector != nextClusterTableSector)
             {
-                SD->ReadSectors(NextClusterTableSector, 1, Buffer);
-                BufferSector = NextClusterTableSector;
+                SD->ReadSectors(nextClusterTableSector, 1, buffer);
+                bufferSector = nextClusterTableSector;
             }
-            NextClusterOffset &= 0x1FF;
-            CurrentCluster = (Buffer[NextClusterOffset + 1] << 8) | Buffer[NextClusterOffset];
-            if (IsFat32)
-                CurrentCluster |= (Buffer[NextClusterOffset + 3] << 24) | (Buffer[NextClusterOffset + 2] << 16);
-            addr -= BytesPerCluster;
+            nextClusterOffset &= 0x1FF;
+            currentCluster = (buffer[nextClusterOffset + 1] << 8) | buffer[nextClusterOffset];
+            if (isFat32)
+                currentCluster |= (buffer[nextClusterOffset + 3] << 24) | (buffer[nextClusterOffset + 2] << 16);
+            addr -= bytesPerCluster;
         }
         else
         {
