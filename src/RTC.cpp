@@ -249,7 +249,7 @@ void SetIRQ(u8 irq)
     if ((!(oldstat & 0x30)) && (State.IRQFlag & 0x30))
     {
         if ((NDS::RCnt & 0xC100) == 0x8100)
-        {printf("IRQ\n");
+        {
             // CHECKME: is the IRQ status readable in RCNT?
             NDS::SetIRQ(1, NDS::IRQ_RTC);
         }
@@ -259,6 +259,125 @@ void SetIRQ(u8 irq)
 void ClearIRQ(u8 irq)
 {
     State.IRQFlag &= ~irq;
+}
+
+void ProcessIRQ(int type) // 0=minute carry 1=periodic 2=status reg write
+{
+    // INT1
+
+    switch (State.StatusReg2 & 0x0F)
+    {
+    case 0b0000: // none
+        if (type == 2)
+        {
+            ClearIRQ(0x10);
+        }
+        break;
+
+    case 0b0001:
+    case 0b0101: // selected frequency steady interrupt
+        if ((type == 1 && (!(ClockCount & 0x3FF))) || (type == 2))
+        {
+            u32 mask = 0;
+            if (State.Alarm1[2] & (1<<0)) mask |= 0x4000;
+            if (State.Alarm1[2] & (1<<1)) mask |= 0x2000;
+            if (State.Alarm1[2] & (1<<2)) mask |= 0x1000;
+            if (State.Alarm1[2] & (1<<3)) mask |= 0x0800;
+            if (State.Alarm1[2] & (1<<4)) mask |= 0x0400;
+
+            if (mask && ((ClockCount & mask) != mask))
+                SetIRQ(0x10);
+            else
+                ClearIRQ(0x10);
+        }
+        break;
+
+    case 0b0010:
+    case 0b0110: // per-minute edge interrupt
+        if ((type == 0) || (type == 2 && (State.IRQFlag & 0x01)))
+        {
+            SetIRQ(0x10);
+        }
+        break;
+
+    case 0b0011: // per-minute steady interrupt 1 (duty 30s)
+        if ((type == 0) || (type == 2 && (State.IRQFlag & 0x01)))
+        {
+            SetIRQ(0x10);
+        }
+        else if ((type == 1) && (State.DateTime[6] == 0x30))
+        {
+            ClearIRQ(0x10);
+        }
+        break;
+
+    case 0b0111: // per-minute steady interrupt 2 (duty 256 cycles)
+        if ((type == 0) || (type == 2 && (State.IRQFlag & 0x01)))
+        {
+            SetIRQ(0x10);
+        }
+        else if ((type == 1) && (State.DateTime[6] == 0x00) && ((ClockCount & 0x7FFF) == 256))
+        {
+            ClearIRQ(0x10);
+        }
+        break;
+
+    case 0b0100: // alarm interrupt
+        if (type == 0)
+        {
+            bool cond = true;
+            if (State.Alarm1[0] & (1<<7))
+                cond = cond && ((State.Alarm1[0] & 0x07) == State.DateTime[3]);
+            if (State.Alarm1[1] & (1<<7))
+                cond = cond && ((State.Alarm1[1] & 0x7F) == State.DateTime[4]);
+            if (State.Alarm1[2] & (1<<7))
+                cond = cond && ((State.Alarm1[2] & 0x7F) == State.DateTime[5]);
+
+            if (cond)
+                SetIRQ(0x10);
+            else
+                ClearIRQ(0x10);
+        }
+        break;
+
+    default: // 32KHz output
+        if (type == 1)
+        {
+            SetIRQ(0x10);
+            ClearIRQ(0x10);
+        }
+        break;
+    }
+
+    // INT2
+
+    if (State.StatusReg2 & (1<<6))
+    {
+        // alarm interrupt
+
+        if (type == 0)
+        {
+            bool cond = true;
+            if (State.Alarm2[0] & (1<<7))
+                cond = cond && ((State.Alarm2[0] & 0x07) == State.DateTime[3]);
+            if (State.Alarm2[1] & (1<<7))
+                cond = cond && ((State.Alarm2[1] & 0x7F) == State.DateTime[4]);
+            if (State.Alarm2[2] & (1<<7))
+                cond = cond && ((State.Alarm2[2] & 0x7F) == State.DateTime[5]);
+
+            if (cond)
+                SetIRQ(0x20);
+            else
+                ClearIRQ(0x20);
+        }
+    }
+    else
+    {
+        if (type == 2)
+        {
+            ClearIRQ(0x20);
+        }
+    }
 }
 
 
@@ -382,6 +501,9 @@ void CountMinute()
         State.DateTime[5] = 0;
         CountHour();
     }
+
+    State.IRQFlag |= 0x01;  // store minute carry flag
+    ProcessIRQ(0);
 }
 
 void CountSecond()
@@ -417,29 +539,13 @@ void ClockTimer(u32 param)
         // count up one second
         CountSecond();
     }
-
-    if (State.StatusReg2 & (1<<3))
+    else if ((ClockCount & 0x7FFF) == 4)
     {
-        // 32KHz IRQ output
-        SetIRQ(0x10);
-        ClearIRQ(0x10);
+        // minute-carry flag lasts 4 cycles
+        State.IRQFlag &= ~0x01;
     }
-    else if ((State.StatusReg2 & 0x03) == 0x01)
-    {
-        // selected frequency steady interrupt
 
-        u32 mask = 0;
-        if (State.Alarm1[2] & (1<<0)) mask |= 0x4000;
-        if (State.Alarm1[2] & (1<<1)) mask |= 0x2000;
-        if (State.Alarm1[2] & (1<<2)) mask |= 0x1000;
-        if (State.Alarm1[2] & (1<<3)) mask |= 0x0800;
-        if (State.Alarm1[2] & (1<<4)) mask |= 0x0400;
-
-        if (mask && ((ClockCount & mask) != mask))
-            SetIRQ(0x10);
-        else
-            ClearIRQ(0x10);
-    }
+    ProcessIRQ(1);
 
     ScheduleTimer(false);
 }
@@ -647,11 +753,7 @@ void CmdWrite(u8 val)
             if (InputPos == 1)
             {
                 State.StatusReg2 = val;
-                if (State.StatusReg2 & 0x4F)
-                    Log(LogLevel::Debug, "RTC INTERRUPT ON: %02X, %02X %02X %02X, %02X %02X %02X\n",
-                        State.StatusReg2,
-                        State.Alarm1[0], State.Alarm1[1], State.Alarm1[2],
-                        State.Alarm2[0], State.Alarm2[1], State.Alarm2[2]);
+                ProcessIRQ(2);
             }
             break;
 
