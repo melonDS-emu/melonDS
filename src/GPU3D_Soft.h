@@ -44,6 +44,7 @@ public:
     void StopRenderThread();
     bool IsThreaded() const noexcept { return Threaded; }
 private:
+    friend void GPU3D::DoSavestate(Savestate* file);
     // Notes on the interpolator:
     //
     // This is a theory on how the DS hardware interpolates values. It matches hardware output
@@ -511,6 +512,9 @@ private:
 
     // Used by the render thread to tell the main thread that it's done rendering a frame
     Platform::Semaphore* Sema_RenderDone;
+
+    // Used by the main thread to tell the render thread that it needs to read the GPU state
+    Platform::Mutex* StateBusy;
 
     // Used to allow the main thread to read some scanlines
     // before (the 3D portion of) the entire frame is rasterized.
