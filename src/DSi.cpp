@@ -959,10 +959,10 @@ void RunNDMAs(u32 cpu)
     {
         if (NDS::ARM9Timestamp >= NDS::ARM9Target) return;
 
-        if (!(NDS::CPUStop & 0x80000000)) NDMAs[0]->Run();
-        if (!(NDS::CPUStop & 0x80000000)) NDMAs[1]->Run();
-        if (!(NDS::CPUStop & 0x80000000)) NDMAs[2]->Run();
-        if (!(NDS::CPUStop & 0x80000000)) NDMAs[3]->Run();
+        if (!(NDS::CPUStop & NDS::CPUStop_GXStall)) NDMAs[0]->Run();
+        if (!(NDS::CPUStop & NDS::CPUStop_GXStall)) NDMAs[1]->Run();
+        if (!(NDS::CPUStop & NDS::CPUStop_GXStall)) NDMAs[2]->Run();
+        if (!(NDS::CPUStop & NDS::CPUStop_GXStall)) NDMAs[3]->Run();
     }
     else
     {

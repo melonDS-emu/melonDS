@@ -1060,92 +1060,192 @@ void RunSystem(u64 timestamp)
     }
 }
 
+u64 NextTargetSleep()
+{
+    u64 minEvent = UINT64_MAX;
+
+    u32 mask = SchedListMask;
+    for (int i = 0; i < Event_MAX; i++)
+    {
+        if (!mask) break;
+        if (i == Event_SPU || i == Event_RTC)
+        {
+            if (mask & 0x1)
+            {
+                if (SchedList[i].Timestamp < minEvent)
+                    minEvent = SchedList[i].Timestamp;
+            }
+        }
+
+        mask >>= 1;
+    }
+
+    return minEvent;
+}
+
+void RunSystemSleep(u64 timestamp)
+{
+    u64 offset = timestamp - SysTimestamp;
+    SysTimestamp = timestamp;
+
+    u32 mask = SchedListMask;
+    for (int i = 0; i < Event_MAX; i++)
+    {
+        if (!mask) break;
+        if (i == Event_SPU || i == Event_RTC)
+        {
+            if (mask & 0x1)
+            {
+                if (SchedList[i].Timestamp <= SysTimestamp)
+                {
+                    SchedListMask &= ~(1<<i);
+
+                    u32 param;
+                    if (i == Event_SPU)
+                        param = 1;
+                    else
+                        param = SchedList[i].Param;
+
+                    SchedList[i].Func(param);
+                }
+            }
+        }
+        else if (mask & 0x1)
+        {
+            if (SchedList[i].Timestamp <= SysTimestamp)
+            {
+                SchedList[i].Timestamp += offset;
+            }
+        }
+
+        mask >>= 1;
+    }
+}
+
 template <bool EnableJIT, int ConsoleType>
 u32 RunFrame()
 {
     FrameStartTimestamp = SysTimestamp;
 
     LagFrameFlag = true;
-    bool runFrame = Running && !(CPUStop & 0x40000000);
-    if (runFrame)
+    bool runFrame = Running && !(CPUStop & CPUStop_Sleep);
+    while (Running)
     {
-        ARM9->CheckGdbIncoming();
-        ARM7->CheckGdbIncoming();
+        u64 frametarget = SysTimestamp + 560190;
 
-        GPU::StartFrame();
-
-        while (Running && GPU::TotalScanlines==0)
+        if (CPUStop & CPUStop_Sleep)
         {
-            u64 target = NextTarget();
-            ARM9Target = target << ARM9ClockShift;
-            CurCPU = 0;
+            // we are running in sleep mode
+            // we still need to run the RTC during this mode
+            // we also keep outputting audio, so that frontends using audio sync don't skyrocket to 1000+FPS
 
-            if (CPUStop & 0x80000000)
+            while (Running && (SysTimestamp < frametarget))
             {
-                // GXFIFO stall
-                s32 cycles = GPU3D::CyclesToRunFor();
+                u64 target = NextTargetSleep();
+                if (target > frametarget)
+                    target = frametarget;
 
-                ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
-            }
-            else if (CPUStop & 0x0FFF)
-            {
-                DMAs[0]->Run<ConsoleType>();
-                if (!(CPUStop & 0x80000000)) DMAs[1]->Run<ConsoleType>();
-                if (!(CPUStop & 0x80000000)) DMAs[2]->Run<ConsoleType>();
-                if (!(CPUStop & 0x80000000)) DMAs[3]->Run<ConsoleType>();
-                if (ConsoleType == 1) DSi::RunNDMAs(0);
-            }
-            else
-            {
-#ifdef JIT_ENABLED
-                if (EnableJIT)
-                    ARM9->ExecuteJIT();
-                else
-#endif
-                    ARM9->Execute();
+                ARM9Timestamp = target << ARM9ClockShift;
+                ARM7Timestamp = target;
+                TimerTimestamp[0] = target;
+                TimerTimestamp[1] = target;
+                GPU3D::Timestamp = target;
+                RunSystemSleep(target);
+
+                if (!(CPUStop & CPUStop_Sleep))
+                    break;
             }
 
-            RunTimers(0);
-            GPU3D::Run();
-
-            target = ARM9Timestamp >> ARM9ClockShift;
-            CurCPU = 1;
-
-            while (ARM7Timestamp < target)
-            {
-                ARM7Target = target; // might be changed by a reschedule
-
-                if (CPUStop & 0x0FFF0000)
-                {
-                    DMAs[4]->Run<ConsoleType>();
-                    DMAs[5]->Run<ConsoleType>();
-                    DMAs[6]->Run<ConsoleType>();
-                    DMAs[7]->Run<ConsoleType>();
-                    if (ConsoleType == 1) DSi::RunNDMAs(1);
-                }
-                else
-                {
-#ifdef JIT_ENABLED
-                    if (EnableJIT)
-                        ARM7->ExecuteJIT();
-                    else
-#endif
-                        ARM7->Execute();
-                }
-
-                RunTimers(1);
-            }
-
-            RunSystem(target);
-
-            if (CPUStop & 0x40000000)
-            {
-                // checkme: when is sleep mode effective?
-                CancelEvent(Event_LCD);
+            if (SysTimestamp >= frametarget)
                 GPU::TotalScanlines = 263;
-                break;
+        }
+        else
+        {
+            ARM9->CheckGdbIncoming();
+            ARM7->CheckGdbIncoming();
+
+            if (!(CPUStop & CPUStop_Wakeup))
+            {
+                GPU::StartFrame();
+            }
+            CPUStop &= ~CPUStop_Wakeup;
+
+            while (Running && GPU::TotalScanlines==0)
+            {
+                u64 target = NextTarget();
+                ARM9Target = target << ARM9ClockShift;
+                CurCPU = 0;
+
+                if (CPUStop & CPUStop_GXStall)
+                {
+                    // GXFIFO stall
+                    s32 cycles = GPU3D::CyclesToRunFor();
+
+                    ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
+                }
+                else if (CPUStop & CPUStop_DMA9)
+                {
+                    DMAs[0]->Run<ConsoleType>();
+                    if (!(CPUStop & CPUStop_GXStall)) DMAs[1]->Run<ConsoleType>();
+                    if (!(CPUStop & CPUStop_GXStall)) DMAs[2]->Run<ConsoleType>();
+                    if (!(CPUStop & CPUStop_GXStall)) DMAs[3]->Run<ConsoleType>();
+                    if (ConsoleType == 1) DSi::RunNDMAs(0);
+                }
+                else
+                {
+    #ifdef JIT_ENABLED
+                    if (EnableJIT)
+                        ARM9->ExecuteJIT();
+                    else
+    #endif
+                        ARM9->Execute();
+                }
+
+                RunTimers(0);
+                GPU3D::Run();
+
+                target = ARM9Timestamp >> ARM9ClockShift;
+                CurCPU = 1;
+
+                while (ARM7Timestamp < target)
+                {
+                    ARM7Target = target; // might be changed by a reschedule
+
+                    if (CPUStop & CPUStop_DMA7)
+                    {
+                        DMAs[4]->Run<ConsoleType>();
+                        DMAs[5]->Run<ConsoleType>();
+                        DMAs[6]->Run<ConsoleType>();
+                        DMAs[7]->Run<ConsoleType>();
+                        if (ConsoleType == 1) DSi::RunNDMAs(1);
+                    }
+                    else
+                    {
+    #ifdef JIT_ENABLED
+                        if (EnableJIT)
+                            ARM7->ExecuteJIT();
+                        else
+    #endif
+                            ARM7->Execute();
+                    }
+
+                    RunTimers(1);
+                }
+
+                RunSystem(target);
+
+                if (CPUStop & CPUStop_Sleep)
+                {
+                    // checkme: when is sleep mode effective?
+                    //CancelEvent(Event_LCD);
+                    //GPU::TotalScanlines = 263;
+                    break;
+                }
             }
         }
+
+        if (GPU::TotalScanlines == 0)
+            continue;
 
 #ifdef DEBUG_CHECK_DESYNC
         Log(LogLevel::Debug, "[%08X%08X] ARM9=%ld, ARM7=%ld, GPU=%ld\n",
@@ -1155,15 +1255,17 @@ u32 RunFrame()
             GPU3D::Timestamp-SysTimestamp);
 #endif
         SPU::TransferOutput();
+        break;
     }
 
+printf("FRAME %08X %d %016llX\n", CPUStop, GPU::TotalScanlines, SysTimestamp-FrameStartTimestamp);
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
     // so it needs to be tracked even if NDS is powered off.
     NumFrames++;
     if (LagFrameFlag)
         NumLagFrames++;
 
-    if (runFrame)
+    if (Running)
         return GPU::TotalScanlines;
     else
         return 263;
@@ -1302,8 +1404,6 @@ void SetLidClosed(bool closed)
     {
         KeyInput &= ~(1<<23);
         SetIRQ(1, IRQ_LidOpen);
-        CPUStop &= ~0x40000000;
-        GPU3D::RestartFrame();
     }
 }
 
@@ -1468,6 +1568,16 @@ void SetIRQ(u32 cpu, u32 irq)
 {
     IF[cpu] |= (1 << irq);
     UpdateIRQ(cpu);
+
+    if ((cpu == 1) && (CPUStop & CPUStop_Sleep))
+    {
+        if (IE[1] & (1 << irq))
+        {
+            CPUStop &= ~CPUStop_Sleep;
+            CPUStop |= CPUStop_Wakeup;
+            GPU3D::RestartFrame();
+        }
+    }
 }
 
 void ClearIRQ(u32 cpu, u32 irq)
@@ -1527,9 +1637,9 @@ void ResumeCPU(u32 cpu, u32 mask)
 
 void GXFIFOStall()
 {
-    if (CPUStop & 0x80000000) return;
+    if (CPUStop & CPUStop_GXStall) return;
 
-    CPUStop |= 0x80000000;
+    CPUStop |= CPUStop_GXStall;
 
     if (CurCPU == 1) ARM9->Halt(2);
     else
@@ -1544,14 +1654,14 @@ void GXFIFOStall()
 
 void GXFIFOUnstall()
 {
-    CPUStop &= ~0x80000000;
+    CPUStop &= ~CPUStop_GXStall;
 }
 
 void EnterSleepMode()
 {
-    if (CPUStop & 0x40000000) return;
+    if (CPUStop & CPUStop_Sleep) return;
 
-    CPUStop |= 0x40000000;
+    CPUStop |= CPUStop_Sleep;
     ARM7->Halt(2);
 }
 
@@ -2018,7 +2128,7 @@ void debug(u32 param)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
     FILE*
-    shit = fopen("debug/crayon.bin", "wb");
+    shit = fopen("debug/DSfirmware.bin", "wb");
     fwrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
