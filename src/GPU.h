@@ -607,6 +607,7 @@ void SetPowerCnt(u32 val);
 
 void StartFrame();
 void FinishFrame(u32 lines);
+void BlankFrame();
 void StartScanline(u32 line);
 void StartHBlank(u32 line);
 

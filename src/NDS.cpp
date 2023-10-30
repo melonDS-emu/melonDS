@@ -1128,6 +1128,8 @@ u32 RunFrame()
 {
     FrameStartTimestamp = SysTimestamp;
 
+    GPU::TotalScanlines = 0;
+
     LagFrameFlag = true;
     bool runFrame = Running && !(CPUStop & CPUStop_Sleep);
     while (Running)
@@ -1158,7 +1160,7 @@ u32 RunFrame()
             }
 
             if (SysTimestamp >= frametarget)
-                GPU::TotalScanlines = 263;
+                GPU::BlankFrame();
         }
         else
         {
@@ -1194,11 +1196,11 @@ u32 RunFrame()
                 }
                 else
                 {
-    #ifdef JIT_ENABLED
+#ifdef JIT_ENABLED
                     if (EnableJIT)
                         ARM9->ExecuteJIT();
                     else
-    #endif
+#endif
                         ARM9->Execute();
                 }
 
@@ -1222,11 +1224,11 @@ u32 RunFrame()
                     }
                     else
                     {
-    #ifdef JIT_ENABLED
+#ifdef JIT_ENABLED
                         if (EnableJIT)
                             ARM7->ExecuteJIT();
                         else
-    #endif
+#endif
                             ARM7->Execute();
                     }
 
@@ -1237,9 +1239,6 @@ u32 RunFrame()
 
                 if (CPUStop & CPUStop_Sleep)
                 {
-                    // checkme: when is sleep mode effective?
-                    //CancelEvent(Event_LCD);
-                    //GPU::TotalScanlines = 263;
                     break;
                 }
             }
@@ -1259,7 +1258,6 @@ u32 RunFrame()
         break;
     }
 
-printf("FRAME %08X %d %016llX\n", CPUStop, GPU::TotalScanlines, SysTimestamp-FrameStartTimestamp);
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
     // so it needs to be tracked even if NDS is powered off.
     NumFrames++;
