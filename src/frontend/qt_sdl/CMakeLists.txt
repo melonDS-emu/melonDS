@@ -7,7 +7,7 @@ set(SOURCES_QT_SDL
     main_shaders.h
     CheatsDialog.cpp
     Config.cpp
-	DateTimeDialog.cpp
+    DateTimeDialog.cpp
     EmuSettingsDialog.cpp
     PowerManagement/PowerManagementDialog.cpp
     PowerManagement/resources/battery.qrc
