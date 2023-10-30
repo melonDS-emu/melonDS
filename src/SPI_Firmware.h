@@ -396,7 +396,7 @@ union UserData
         u8 TouchCalibrationPixel2[2];
         u16 Settings;
         u8 Year;
-        u8 Unknown1;
+        u8 RTCClockAdjust;
         u32 RTCOffset;
         u8 Unused2[4];
         u16 UpdateCounter;

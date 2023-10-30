@@ -1096,6 +1096,24 @@ void FinishFrame(u32 lines)
     }
 }
 
+void BlankFrame()
+{
+    int backbuf = FrontBuffer ? 0 : 1;
+    int fbsize;
+    if (GPU3D::CurrentRenderer->Accelerated)
+        fbsize = (256*3 + 1) * 192;
+    else
+        fbsize = 256 * 192;
+
+    memset(Framebuffer[backbuf][0], 0, fbsize*4);
+    memset(Framebuffer[backbuf][1], 0, fbsize*4);
+
+    FrontBuffer = backbuf;
+    AssignFramebuffers();
+
+    TotalScanlines = 263;
+}
+
 void StartScanline(u32 line)
 {
     if (line == 0)

@@ -28,6 +28,8 @@
 #include <utility>
 #include <fstream>
 
+#include <QDateTime>
+
 #include <zstd.h>
 #ifdef ARCHIVE_SUPPORT_ENABLED
 #include "ArchiveUtil.h"
@@ -39,6 +41,7 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "SPI.h"
+#include "RTC.h"
 #include "DSi_I2C.h"
 #include "FreeBIOS.h"
 
@@ -589,6 +592,15 @@ void SetBatteryLevels()
     }
 }
 
+void SetDateTime()
+{
+    QDateTime hosttime = QDateTime::currentDateTime();
+    QDateTime time = hosttime.addSecs(Config::RTCOffset);
+
+    RTC::SetDateTime(time.date().year(), time.date().month(), time.date().day(),
+                     time.time().hour(), time.time().minute(), time.time().second());
+}
+
 void Reset()
 {
     NDS::SetConsoleType(Config::ConsoleType);
@@ -602,6 +614,7 @@ void Reset()
     }
     NDS::Reset();
     SetBatteryLevels();
+    SetDateTime();
 
     if ((CartType != -1) && NDSSave)
     {
@@ -678,6 +691,7 @@ bool LoadBIOS()
 
     NDS::Reset();
     SetBatteryLevels();
+    SetDateTime();
     return true;
 }
 
@@ -1204,6 +1218,7 @@ bool LoadROM(QStringList filepath, bool reset)
 
         NDS::Reset();
         SetBatteryLevels();
+        SetDateTime();
     }
 
     u32 savelen = 0;

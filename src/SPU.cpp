@@ -726,7 +726,7 @@ void Mix(u32 dummy)
     s32 left = 0, right = 0;
     s32 leftoutput = 0, rightoutput = 0;
 
-    if (Cnt & (1<<15))
+    if ((Cnt & (1<<15)) && (!dummy))
     {
         s32 ch0 = Channels[0]->DoRun();
         s32 ch1 = Channels[1]->DoRun();

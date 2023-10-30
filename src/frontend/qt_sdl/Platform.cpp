@@ -23,6 +23,7 @@
 #include <string>
 #include <QStandardPaths>
 #include <QString>
+#include <QDateTime>
 #include <QDir>
 #include <QThread>
 #include <QSemaphore>
@@ -608,6 +609,15 @@ void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset, u32 
         }
     }
 
+}
+
+void WriteDateTime(int year, int month, int day, int hour, int minute, int second)
+{
+    QDateTime hosttime = QDateTime::currentDateTime();
+    QDateTime time = QDateTime(QDate(year, month, day), QTime(hour, minute, second));
+
+    Config::RTCOffset = hosttime.secsTo(time);
+    Config::Save();
 }
 
 bool MP_Init()

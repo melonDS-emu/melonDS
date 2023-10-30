@@ -337,6 +337,9 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 /// @param writelen The number of bytes that were written to firmware.
 void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset, u32 writelen);
 
+// called when the RTC date/time is changed and the frontend might need to take it into account
+void WriteDateTime(int year, int month, int day, int hour, int minute, int second);
+
 
 // local multiplayer comm interface
 // packet type: DS-style TX header (12 bytes) + original 802.11 frame
