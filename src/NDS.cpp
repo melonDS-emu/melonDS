@@ -167,7 +167,7 @@ u32 SqrtVal[2];
 u32 SqrtRes;
 
 u32 KeyInput;
-u16 KeyCnt;
+u16 KeyCnt[2];
 u16 RCnt;
 
 bool Running;
@@ -612,7 +612,8 @@ void Reset()
     SchedListMask = 0;
 
     KeyInput = 0x007F03FF;
-    KeyCnt = 0;
+    KeyCnt[0] = 0;
+    KeyCnt[1] = 0;
     RCnt = 0;
 
     NDSCart::Reset();
@@ -888,7 +889,7 @@ bool DoSavestate(Savestate* file)
     file->Bool32(&LagFrameFlag);
 
     // TODO: save KeyInput????
-    file->Var16(&KeyCnt);
+    file->VarArray(KeyCnt, 2*sizeof(u16));
     file->Var16(&RCnt);
 
     file->Var8(&WRAMCnt);
@@ -1379,13 +1380,47 @@ void ReleaseScreen()
 }
 
 
+void CheckKeyIRQ(u32 cpu, u32 oldkey, u32 newkey)
+{
+    u16 cnt = KeyCnt[cpu];
+    if (!(cnt & (1<<14))) // IRQ disabled
+        return;
+
+    u32 mask = (cnt & 0x03FF);
+    oldkey &= mask;
+    newkey &= mask;
+
+    bool oldmatch, newmatch;
+    if (cnt & (1<<15))
+    {
+        // logical AND
+
+        oldmatch = (oldkey == 0);
+        newmatch = (newkey == 0);
+    }
+    else
+    {
+        // logical OR
+
+        oldmatch = (oldkey != mask);
+        newmatch = (newkey != mask);
+    }
+
+    if ((!oldmatch) && newmatch)
+        SetIRQ(cpu, IRQ_Keypad);
+}
+
 void SetKeyMask(u32 mask)
 {
     u32 key_lo = mask & 0x3FF;
     u32 key_hi = (mask >> 10) & 0x3;
 
+    u32 oldkey = KeyInput;
     KeyInput &= 0xFFFCFC00;
     KeyInput |= key_lo | (key_hi << 16);
+
+    CheckKeyIRQ(0, oldkey, KeyInput);
+    CheckKeyIRQ(1, oldkey, KeyInput);
 }
 
 bool IsLidClosed()
@@ -3053,8 +3088,8 @@ u8 ARM9IORead8(u32 addr)
     {
     case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFF;
     case 0x04000131: LagFrameFlag = false; return (KeyInput >> 8) & 0xFF;
-    case 0x04000132: return KeyCnt & 0xFF;
-    case 0x04000133: return KeyCnt >> 8;
+    case 0x04000132: return KeyCnt[0] & 0xFF;
+    case 0x04000133: return KeyCnt[0] >> 8;
 
     case 0x040001A2:
         if (!(ExMemCnt[0] & (1<<11)))
@@ -3190,7 +3225,7 @@ u16 ARM9IORead16(u32 addr)
     case 0x0400010E: return Timers[3].Cnt;
 
     case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFFFF;
-    case 0x04000132: return KeyCnt;
+    case 0x04000132: return KeyCnt[0];
 
     case 0x04000180: return IPCSync9;
     case 0x04000184:
@@ -3332,7 +3367,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000108: return TimerGetCounter(2) | (Timers[2].Cnt << 16);
     case 0x0400010C: return TimerGetCounter(3) | (Timers[3].Cnt << 16);
 
-    case 0x04000130: LagFrameFlag = false; return (KeyInput & 0xFFFF) | (KeyCnt << 16);
+    case 0x04000130: LagFrameFlag = false; return (KeyInput & 0xFFFF) | (KeyCnt[0] << 16);
 
     case 0x04000180: return IPCSync9;
     case 0x04000184: return ARM9IORead16(addr);
@@ -3452,10 +3487,10 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x0400106D: GPU::GPU2D_B.Write8(addr, val); return;
 
     case 0x04000132:
-        KeyCnt = (KeyCnt & 0xFF00) | val;
+        KeyCnt[0] = (KeyCnt[0] & 0xFF00) | val;
         return;
     case 0x04000133:
-        KeyCnt = (KeyCnt & 0x00FF) | (val << 8);
+        KeyCnt[0] = (KeyCnt[0] & 0x00FF) | (val << 8);
         return;
 
     case 0x04000188:
@@ -3565,7 +3600,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
     case 0x0400010E: TimerStart(3, val); return;
 
     case 0x04000132:
-        KeyCnt = val;
+        KeyCnt[0] = val;
         return;
 
     case 0x04000180:
@@ -3758,7 +3793,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04000130:
-        KeyCnt = val >> 16;
+        KeyCnt[0] = val >> 16;
         return;
 
     case 0x04000180:
@@ -3911,8 +3946,8 @@ u8 ARM7IORead8(u32 addr)
     {
     case 0x04000130: return KeyInput & 0xFF;
     case 0x04000131: return (KeyInput >> 8) & 0xFF;
-    case 0x04000132: return KeyCnt & 0xFF;
-    case 0x04000133: return KeyCnt >> 8;
+    case 0x04000132: return KeyCnt[1] & 0xFF;
+    case 0x04000133: return KeyCnt[1] >> 8;
     case 0x04000134: return RCnt & 0xFF;
     case 0x04000135: return RCnt >> 8;
     case 0x04000136: return (KeyInput >> 16) & 0xFF;
@@ -4005,7 +4040,7 @@ u16 ARM7IORead16(u32 addr)
     case 0x0400010E: return Timers[7].Cnt;
 
     case 0x04000130: return KeyInput & 0xFFFF;
-    case 0x04000132: return KeyCnt;
+    case 0x04000132: return KeyCnt[1];
     case 0x04000134: return RCnt;
     case 0x04000136: return KeyInput >> 16;
 
@@ -4097,8 +4132,8 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000108: return TimerGetCounter(6) | (Timers[6].Cnt << 16);
     case 0x0400010C: return TimerGetCounter(7) | (Timers[7].Cnt << 16);
 
-    case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
-    case 0x04000134: return RCnt | (KeyCnt & 0xFFFF0000);
+    case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt[1] << 16);
+    case 0x04000134: return RCnt | (KeyInput & 0xFFFF0000);
     case 0x04000138: return RTC::Read();
 
     case 0x04000180: return IPCSync7;
@@ -4179,10 +4214,10 @@ void ARM7IOWrite8(u32 addr, u8 val)
     switch (addr)
     {
     case 0x04000132:
-        KeyCnt = (KeyCnt & 0xFF00) | val;
+        KeyCnt[1] = (KeyCnt[1] & 0xFF00) | val;
         return;
     case 0x04000133:
-        KeyCnt = (KeyCnt & 0x00FF) | (val << 8);
+        KeyCnt[1] = (KeyCnt[1] & 0x00FF) | (val << 8);
         return;
     case 0x04000134:
         RCnt = (RCnt & 0xFF00) | val;
@@ -4276,7 +4311,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
     case 0x0400010C: Timers[7].Reload = val; return;
     case 0x0400010E: TimerStart(7, val); return;
 
-    case 0x04000132: KeyCnt = val; return;
+    case 0x04000132: KeyCnt[1] = val; return;
     case 0x04000134: RCnt = val; return;
 
     case 0x04000138: RTC::Write(val, false); return;
@@ -4445,7 +4480,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
         TimerStart(7, val>>16);
         return;
 
-    case 0x04000130: KeyCnt = val >> 16; return;
+    case 0x04000130: KeyCnt[1] = val >> 16; return;
     case 0x04000134: RCnt = val & 0xFFFF; return;
     case 0x04000138: RTC::Write(val & 0xFFFF, false); return;
 
