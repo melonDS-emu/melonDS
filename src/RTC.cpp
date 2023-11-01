@@ -16,9 +16,6 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-// Required by MinGW to enable localtime_r in time.h
-#define _POSIX_THREAD_SAFE_FUNCTIONS
-
 #include <string.h>
 #include "NDS.h"
 #include "RTC.h"
@@ -112,6 +109,11 @@ u8 BCD(u8 val)
     return (val % 10) | ((val / 10) << 4);
 }
 
+u8 FromBCD(u8 val)
+{
+    return (val & 0xF) + ((val >> 4) * 10);
+}
+
 u8 BCDIncrement(u8 val)
 {
     val++;
@@ -152,20 +154,12 @@ void SetState(StateData& state)
 
 void GetDateTime(int& year, int& month, int& day, int& hour, int& minute, int& second)
 {
-    int val;
-
-    val = State.DateTime[0];
-    year = (val & 0xF) + ((val >> 4) * 10);
+    year = FromBCD(State.DateTime[0]);
     year += 2000;
+    month = FromBCD(State.DateTime[1] & 0x3F);
+    day = FromBCD(State.DateTime[2] & 0x3F);
 
-    val = State.DateTime[1] & 0x3F;
-    month = (val & 0xF) + ((val >> 4) * 10);
-
-    val = State.DateTime[2] & 0x3F;
-    day = (val & 0xF) + ((val >> 4) * 10);
-
-    val = State.DateTime[4] & 0x3F;
-    hour = (val & 0xF) + ((val >> 4) * 10);
+    hour = FromBCD(State.DateTime[4] & 0x3F);
 
     if (!(State.StatusReg1 & (1<<1)))
     {
@@ -175,11 +169,8 @@ void GetDateTime(int& year, int& month, int& day, int& hour, int& minute, int& s
             hour += 12;
     }
 
-    val = State.DateTime[5] & 0x7F;
-    minute = (val & 0xF) + ((val >> 4) * 10);
-
-    val = State.DateTime[6] & 0x7F;
-    second = (val & 0xF) + ((val >> 4) * 10);
+    minute = FromBCD(State.DateTime[5] & 0x7F);
+    second = FromBCD(State.DateTime[6] & 0x7F);
 }
 
 void SetDateTime(int year, int month, int day, int hour, int minute, int second)
@@ -305,7 +296,7 @@ void ProcessIRQ(int type) // 0=minute carry 1=periodic 2=status reg write
         {
             SetIRQ(0x10);
         }
-        else if ((type == 1) && (State.DateTime[6] == 0x30))
+        else if ((type == 1) && (State.DateTime[6] == 0x30) && ((ClockCount & 0x7FFF) == 0))
         {
             ClearIRQ(0x10);
         }
