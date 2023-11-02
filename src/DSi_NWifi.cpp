@@ -908,7 +908,7 @@ void DSi_NWifi::HTC_Command()
             SendWMIEvent(1, 0x1006, regdomain_evt, 4);
 
             BootPhase = 2;
-            NDS::ScheduleEvent(NDS::Event_DSi_NWifi, true, 33611, MSTimer, 0);
+            NDS::ScheduleEvent(NDS::Event_DSi_NWifi, false, 33611, MSTimer, 0);
         }
         break;
 
