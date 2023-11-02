@@ -84,18 +84,24 @@ void RAMInfoDialog::OnSearchFinished()
 
 void RAMInfoDialog::ShowRowsInTable()
 {
-    const u32& scrollValue = ui->ramTable->verticalScrollBar()->sliderPosition();
     std::vector<ramInfo_RowData>* RowDataVector = SearchThread->GetResults();
 
-    for (u32 row = scrollValue; row < std::min<u32>(scrollValue+25, RowDataVector->size()); row++)
+    const s32 currRowIdx = GetCurrentRowIndex();
+
+    const s32 srtRowIdx = std::max<s32>(currRowIdx-20, 0);
+    const s32 endRowIdx = std::min<s32>(currRowIdx+100, RowDataVector->size());
+
+    for (u32 row = srtRowIdx; row < endRowIdx; row++)
     {
         ramInfo_RowData& rowData = RowDataVector->at(row);
-        rowData.Update(SearchThread->GetSearchByteType());
+
+        // Update Row
+        rowData.Value = GetMainRAMValue(rowData.Address, SearchThread->GetSearchByteType());
 
         if (ui->ramTable->item(row, ramInfo_Address) == nullptr)
         {
             // A new row
-            QTableWidgetItem* addressItem = new QTableWidgetItem(QString("%1").arg(rowData.Address, 8, 16));
+            QTableWidgetItem* addressItem = new QTableWidgetItem(QString("%1").arg(rowData.Address, 8, 16, QChar('0')));
             QTableWidgetItem* valueItem = new QTableWidgetItem(QString("%1").arg(rowData.Value));
             QTableWidgetItem* previousItem = new QTableWidgetItem(QString("%1").arg(rowData.Previous));
 
@@ -110,7 +116,7 @@ void RAMInfoDialog::ShowRowsInTable()
         else
         {
             // A row that exists
-            ui->ramTable->item(row, ramInfo_Address)->setText(QString("%1").arg(rowData.Address, 8, 16));
+            ui->ramTable->item(row, ramInfo_Address)->setText(QString("%1").arg(rowData.Address, 8, 16, QChar('0')));
             ui->ramTable->item(row, ramInfo_Value)->setText(QString("%1").arg(rowData.Value));
             ui->ramTable->item(row, ramInfo_Previous)->setText(QString("%1").arg(rowData.Previous));
             if (rowData.Value != rowData.Previous) 
@@ -128,6 +134,18 @@ void RAMInfoDialog::ClearTableContents()
 void RAMInfoDialog::SetProgressbarValue(const u32& value)
 {
     ui->progressBar->setValue(value);
+}
+
+s32 RAMInfoDialog::GetCurrentRowIndex()
+{
+    std::vector<ramInfo_RowData>* RowDataVector = SearchThread->GetResults();
+
+    const s32 scrollPositionMaximum = ui->ramTable->verticalScrollBar()->maximum();
+    const s32 scrollPosition = ui->ramTable->verticalScrollBar()->sliderPosition();
+
+    const s32 currRowIdx = RowDataVector->size() * ((float)scrollPosition / scrollPositionMaximum);
+
+    return currRowIdx;
 }
 
 void RAMInfoDialog::done(int r)
@@ -182,10 +200,15 @@ void RAMInfoDialog::on_radiobtn4bytes_clicked()
 void RAMInfoDialog::on_ramTable_itemChanged(QTableWidgetItem *item)
 {
     ramInfo_RowData& rowData = SearchThread->GetResults()->at(item->row());
-    s32 itemValue = item->text().toInt();
+    s32 newValue = item->text().toInt();
 
-    if (rowData.Value != itemValue)
-        rowData.SetValue(itemValue);
+    if (rowData.Value != newValue)
+    {
+        rowData.Value = newValue;
+
+        if (item->isSelected())
+            NDS::MainRAM[rowData.Address&NDS::MainRAMMask] = (u32)newValue;
+    }
 }
 
 /**
@@ -233,18 +256,17 @@ void RAMSearchThread::run()
     SearchRunning = true;
     u32 progress = 0;
 
-    // Pause game running
-    emuThread->emuPause();
-
     // For following search modes below, RowDataVector must be filled.
     if (SearchMode == ramInfoSTh_SearchAll || RowDataVector->size() == 0)
     {
         // First search mode
+        std::vector<ramInfo_RowData>* newRowDataVector = new std::vector<ramInfo_RowData>();
+
         for (u32 addr = 0x02000000; SearchRunning && addr < 0x02000000+NDS::MainRAMMaxSize; addr += SearchByteType)
         {
             const s32& value = GetMainRAMValue(addr, SearchByteType);
 
-            RowDataVector->push_back({ addr, value, value });
+            newRowDataVector->push_back({ addr, value, value });
 
             // A solution to prevent to call too many slot.
             u32 newProgress = (int)((addr-0x02000000) / (NDS::MainRAMMaxSize-1.0f) * 100);
@@ -254,12 +276,16 @@ void RAMSearchThread::run()
                 emit SetProgressbarValue(progress);
             }
         }
+
+        delete RowDataVector;
+        RowDataVector = newRowDataVector;
     }
     
     if (SearchMode == ramInfoSTh_Default)
     {
         // Next search mode
         std::vector<ramInfo_RowData>* newRowDataVector = new std::vector<ramInfo_RowData>();
+
         for (u32 row = 0; SearchRunning && row < RowDataVector->size(); row++)
         {
             const u32& addr = RowDataVector->at(row).Address;
@@ -269,7 +295,7 @@ void RAMSearchThread::run()
                 newRowDataVector->push_back({ addr, value, value });
 
             // A solution to prevent to call too many slot.
-            u32 newProgress = (int)(row / (RowDataVector->size()-1.0f) * 100);
+            u32 newProgress = (int)(row / (newRowDataVector->size()-1.0f) * 100);
             if (progress < newProgress)
             {
                 progress = newProgress;
@@ -279,9 +305,6 @@ void RAMSearchThread::run()
         delete RowDataVector;
         RowDataVector = newRowDataVector;
     }
-
-    // Unpause game running
-    emuThread->emuUnpause();
 
     SearchRunning = false;
 }

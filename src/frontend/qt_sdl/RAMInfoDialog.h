@@ -60,17 +60,6 @@ struct ramInfo_RowData
     u32 Address;
     s32 Value;
     s32 Previous;
-
-    void Update(const ramInfo_ByteType& byteType)
-    {
-        Value = GetMainRAMValue(Address, byteType);
-    }
-
-    void SetValue(const s32& value)
-    {
-        NDS::MainRAM[Address&NDS::MainRAMMask] = (u32)value;
-        Value = value;
-    }
 };
 
 class RAMInfoDialog : public QDialog
@@ -116,6 +105,8 @@ private slots:
     void OnSearchFinished();
     void ShowRowsInTable();
     void SetProgressbarValue(const u32& value);
+    
+    s32 GetCurrentRowIndex();
 
 private:
     Ui::RAMInfoDialog* ui;
@@ -149,7 +140,7 @@ private:
 
     ramInfoSTh_SearchMode SearchMode;
     s32 SearchValue;
-    ramInfo_ByteType SearchByteType = ramInfo_OneByte;
+    ramInfo_ByteType SearchByteType = ramInfo_FourBytes;
     std::vector<ramInfo_RowData>* RowDataVector = nullptr;
 
     void ClearTableContents();

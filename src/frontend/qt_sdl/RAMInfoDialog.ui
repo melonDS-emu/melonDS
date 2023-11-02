@@ -107,9 +107,6 @@
     <property name="text">
      <string>1byte</string>
     </property>
-    <property name="checked">
-     <bool>true</bool>
-    </property>
    </widget>
    <widget class="QRadioButton" name="radiobtn2bytes">
     <property name="geometry">
@@ -135,6 +132,9 @@
     </property>
     <property name="text">
      <string>4bytes</string>
+    </property>
+    <property name="checked">
+     <bool>true</bool>
     </property>
    </widget>
   </widget>
@@ -223,7 +223,7 @@
     <rect>
      <x>10</x>
      <y>10</y>
-     <width>101</width>
+     <width>200</width>
      <height>16</height>
     </rect>
    </property>
