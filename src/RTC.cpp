@@ -324,6 +324,16 @@ void ProcessIRQ(int type) // 0=minute carry 1=periodic 2=status reg write
             if (State.Alarm1[2] & (1<<7))
                 cond = cond && ((State.Alarm1[2] & 0x7F) == State.DateTime[5]);
 
+            if (NDS::ConsoleType == 1)
+            {
+                if (State.AlarmDate1[1] & (1<<6))
+                    cond = cond && (State.AlarmDate1[0] == State.DateTime[0]);
+                if (State.AlarmDate1[1] & (1<<7))
+                    cond = cond && ((State.AlarmDate1[1] & 0x1F) == State.DateTime[1]);
+                if (State.AlarmDate1[2] & (1<<7))
+                    cond = cond && ((State.AlarmDate1[2] & 0x3F) == State.DateTime[2]);
+            }
+
             if (cond)
                 SetIRQ(0x10);
             else
@@ -355,6 +365,16 @@ void ProcessIRQ(int type) // 0=minute carry 1=periodic 2=status reg write
                 cond = cond && ((State.Alarm2[1] & 0x7F) == State.DateTime[4]);
             if (State.Alarm2[2] & (1<<7))
                 cond = cond && ((State.Alarm2[2] & 0x7F) == State.DateTime[5]);
+
+            if (NDS::ConsoleType == 1)
+            {
+                if (State.AlarmDate2[1] & (1<<6))
+                    cond = cond && (State.AlarmDate2[0] == State.DateTime[0]);
+                if (State.AlarmDate2[1] & (1<<7))
+                    cond = cond && ((State.AlarmDate2[1] & 0x1F) == State.DateTime[1]);
+                if (State.AlarmDate2[2] & (1<<7))
+                    cond = cond && ((State.AlarmDate2[2] & 0x3F) == State.DateTime[2]);
+            }
 
             if (cond)
                 SetIRQ(0x20);
