@@ -116,9 +116,6 @@ const u8 CIS1[256] =
 };
 
 
-DSi_NWifi* Ctx = nullptr;
-
-
 DSi_NWifi::DSi_NWifi(DSi_SDHost* host)
     : DSi_SDDevice(host),
         Mailbox
@@ -133,16 +130,17 @@ DSi_NWifi::DSi_NWifi(DSi_SDHost* host)
             DynamicFIFO<u8>(0x8000)
         }
 {
+    NDS::RegisterEventFunc(NDS::Event_DSi_NWifi, 0, MemberEventFunc(DSi_NWifi, MSTimer));
+
     // this seems to control whether the firmware upload is done
     EEPROMReady = 0;
-
-    Ctx = this;
 }
 
 DSi_NWifi::~DSi_NWifi()
 {
     NDS::CancelEvent(NDS::Event_DSi_NWifi);
-    Ctx = nullptr;
+
+    NDS::UnregisterEventFunc(NDS::Event_DSi_NWifi, 0);
 }
 
 void DSi_NWifi::Reset()
@@ -908,7 +906,7 @@ void DSi_NWifi::HTC_Command()
             SendWMIEvent(1, 0x1006, regdomain_evt, 4);
 
             BootPhase = 2;
-            NDS::ScheduleEvent(NDS::Event_DSi_NWifi, false, 33611, MSTimer, 0);
+            NDS::ScheduleEvent(NDS::Event_DSi_NWifi, false, 33611, 0, 0);
         }
         break;
 
@@ -1549,7 +1547,26 @@ void DSi_NWifi::WindowWrite(u32 addr, u32 val)
 }
 
 
-void DSi_NWifi::_MSTimer()
+void DSi_NWifi::DrainRXBuffer()
+{
+    while (Mailbox[8].Level() >= 6)
+    {
+        u16 len = Mailbox[8].Peek(2) | (Mailbox[8].Peek(3) << 8);
+        u32 totallen = len + 6;
+        u32 required = (totallen + 0x7F) & ~0x7F;
+
+        if (!Mailbox[4].CanFit(required))
+            break;
+
+        u32 i = 0;
+        for (; i < totallen; i++) Mailbox[4].Write(Mailbox[8].Read());
+        for (; i < required; i++) Mailbox[4].Write(0);
+    }
+
+    UpdateIRQ_F1();
+}
+
+void DSi_NWifi::MSTimer(u32 param)
 {
     BeaconTimer++;
 
@@ -1587,29 +1604,6 @@ void DSi_NWifi::_MSTimer()
         //if (Mailbox[4].IsEmpty())
             CheckRX();
     }
-}
 
-void DSi_NWifi::DrainRXBuffer()
-{
-    while (Mailbox[8].Level() >= 6)
-    {
-        u16 len = Mailbox[8].Peek(2) | (Mailbox[8].Peek(3) << 8);
-        u32 totallen = len + 6;
-        u32 required = (totallen + 0x7F) & ~0x7F;
-
-        if (!Mailbox[4].CanFit(required))
-            break;
-
-        u32 i = 0;
-        for (; i < totallen; i++) Mailbox[4].Write(Mailbox[8].Read());
-        for (; i < required; i++) Mailbox[4].Write(0);
-    }
-
-    UpdateIRQ_F1();
-}
-
-void DSi_NWifi::MSTimer(u32 param)
-{
-    Ctx->_MSTimer();
-    NDS::ScheduleEvent(NDS::Event_DSi_NWifi, true, 33611, MSTimer, 0);
+    NDS::ScheduleEvent(NDS::Event_DSi_NWifi, true, 33611, 0, 0);
 }

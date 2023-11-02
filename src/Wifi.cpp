@@ -150,6 +150,8 @@ u64 RXTimestamp;
 
 bool Init()
 {
+    NDS::RegisterEventFunc(NDS::Event_Wifi, 0, USTimer);
+
     //MPInited = false;
     //LANInited = false;
 
@@ -172,6 +174,8 @@ void DeInit()
         Platform::LAN_DeInit();
 
     WifiAP::DeInit();
+
+    NDS::UnregisterEventFunc(NDS::Event_Wifi, 0);
 }
 
 void Reset()
@@ -359,7 +363,7 @@ void ScheduleTimer(bool first)
     s32 delay = (cycles + 999999) / 1000000;
     TimerError = (delay * 1000000) - cycles;
 
-    NDS::ScheduleEvent(NDS::Event_Wifi, !first, delay, USTimer, 0);
+    NDS::ScheduleEvent(NDS::Event_Wifi, !first, delay, 0, 0);
 }
 
 void UpdatePowerOn()

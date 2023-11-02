@@ -93,6 +93,8 @@ CaptureUnit* Capture[2];
 
 bool Init()
 {
+    NDS::RegisterEventFunc(NDS::Event_SPU, 0, Mix);
+
     for (int i = 0; i < 16; i++)
         Channels[i] = new Channel(i);
 
@@ -147,6 +149,8 @@ void DeInit()
 
     Platform::Mutex_Free(AudioLock);
     AudioLock = nullptr;
+
+    NDS::UnregisterEventFunc(NDS::Event_SPU, 0);
 }
 
 void Reset()
@@ -163,7 +167,7 @@ void Reset()
     Capture[0]->Reset();
     Capture[1]->Reset();
 
-    NDS::ScheduleEvent(NDS::Event_SPU, false, 1024, Mix, 0);
+    NDS::ScheduleEvent(NDS::Event_SPU, false, 1024, 0, 0);
 }
 
 void Stop()
@@ -864,7 +868,7 @@ void Mix(u32 dummy)
         OutputBackbufferWritePosition += 2;
     }
 
-    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024, Mix, 0);
+    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024, 0, 0);
 }
 
 void TransferOutput()

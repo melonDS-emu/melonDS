@@ -129,6 +129,8 @@ void AudioCb(std::array<s16, 2> frame)
 
 bool Init()
 {
+    NDS::RegisterEventFunc(NDS::Event_DSi_DSP, 0, DSPCatchUpU32);
+
     TeakraCore = new Teakra::Teakra();
     SCFG_RST = false;
 
@@ -171,6 +173,8 @@ void DeInit()
     //PDATAReadFifo = NULL;
     //PDATAWriteFifo = NULL;
     TeakraCore = NULL;
+
+    NDS::UnregisterEventFunc(NDS::Event_DSi_DSP, 0);
 }
 
 void Reset()
@@ -579,7 +583,7 @@ void Run(u32 cycles)
 
     NDS::CancelEvent(NDS::Event_DSi_DSP);
     NDS::ScheduleEvent(NDS::Event_DSi_DSP, false,
-            16384/*from citra (TeakraSlice)*/, DSPCatchUpU32, 0);
+            16384/*from citra (TeakraSlice)*/, 0, 0);
 }
 
 void DoSavestate(Savestate* file)

@@ -36,6 +36,13 @@ namespace GPU
 #define HBLANK_CYCLES (48+(256*6))
 #define FRAME_CYCLES  (LINE_CYCLES * 263)
 
+enum
+{
+    LCD_StartHBlank = 0,
+    LCD_StartScanline,
+    LCD_FinishFrame,
+};
+
 u16 VCount;
 u32 NextVCount;
 u16 TotalScanlines;
@@ -151,6 +158,11 @@ std::unique_ptr<GLCompositor> CurGLCompositor = {};
 
 bool Init()
 {
+    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartHBlank, StartHBlank);
+    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartScanline, StartScanline);
+    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_FinishFrame, FinishFrame);
+    NDS::RegisterEventFunc(NDS::Event_DisplayFIFO, 0, DisplayFIFO);
+
     GPU2D_Renderer = std::make_unique<GPU2D::SoftRenderer>();
     if (!GPU3D::Init()) return false;
 
@@ -180,6 +192,11 @@ void DeInit()
 #ifdef OGLRENDERER_ENABLED
     CurGLCompositor = nullptr;
 #endif
+
+    NDS::UnregisterEventFunc(NDS::Event_LCD, LCD_StartHBlank);
+    NDS::UnregisterEventFunc(NDS::Event_LCD, LCD_StartScanline);
+    NDS::UnregisterEventFunc(NDS::Event_LCD, LCD_FinishFrame);
+    NDS::UnregisterEventFunc(NDS::Event_DisplayFIFO, 0);
 }
 
 void ResetVRAMCache()
@@ -1022,7 +1039,7 @@ void DisplayFIFO(u32 x)
     {
         // transfer the next 8 pixels
         NDS::CheckDMAs(0, 0x04);
-        NDS::ScheduleEvent(NDS::Event_DisplayFIFO, true, 6*8, DisplayFIFO, x+8);
+        NDS::ScheduleEvent(NDS::Event_DisplayFIFO, true, 6*8, 0, x+8);
     }
     else
         GPU2D_A.SampleFIFO(253, 3); // sample the remaining pixels
@@ -1077,9 +1094,9 @@ void StartHBlank(u32 line)
     if (DispStat[1] & (1<<4)) NDS::SetIRQ(1, NDS::IRQ_HBlank);
 
     if (VCount < 262)
-        NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), StartScanline, line+1);
+        NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), LCD_StartScanline, line+1);
     else
-        NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), FinishFrame, line+1);
+        NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), LCD_FinishFrame, line+1);
 }
 
 void FinishFrame(u32 lines)
@@ -1164,7 +1181,7 @@ void StartScanline(u32 line)
         }
 
         if (RunFIFO)
-            NDS::ScheduleEvent(NDS::Event_DisplayFIFO, false, 32, DisplayFIFO, 0);
+            NDS::ScheduleEvent(NDS::Event_DisplayFIFO, false, 32, 0, 0);
     }
 
     if (VCount == 262)
@@ -1210,7 +1227,7 @@ void StartScanline(u32 line)
         }
     }
 
-    NDS::ScheduleEvent(NDS::Event_LCD, true, HBLANK_CYCLES, StartHBlank, line);
+    NDS::ScheduleEvent(NDS::Event_LCD, true, HBLANK_CYCLES, LCD_StartHBlank, line);
 }
 
 

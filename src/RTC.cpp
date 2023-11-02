@@ -53,6 +53,8 @@ void WriteDateTime(int num, u8 val);
 
 bool Init()
 {
+    NDS::RegisterEventFunc(NDS::Event_RTC, 0, ClockTimer);
+
     ResetState();
 
     // indicate the power was off
@@ -64,6 +66,7 @@ bool Init()
 
 void DeInit()
 {
+    NDS::UnregisterEventFunc(NDS::Event_RTC, 0);
 }
 
 void Reset()
@@ -538,7 +541,7 @@ void ScheduleTimer(bool first)
     s32 delay = sysclock >> 15;
     TimerError = sysclock & 0x7FFF;
 
-    NDS::ScheduleEvent(NDS::Event_RTC, !first, delay, ClockTimer, 0);
+    NDS::ScheduleEvent(NDS::Event_RTC, !first, delay, 0, 0);
 }
 
 void ClockTimer(u32 param)

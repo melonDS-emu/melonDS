@@ -40,9 +40,7 @@ public:
 
     void SetIRQ_F1_Counter(u32 n);
 
-    void _MSTimer();
-
-    static void MSTimer(u32 param);
+    void MSTimer(u32 param);
 
 private:
     u32 TransferCmd;

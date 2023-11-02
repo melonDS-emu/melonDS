@@ -43,8 +43,8 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    static void FinishRX(u32 param);
-    static void FinishTX(u32 param);
+    void FinishRX(u32 param);
+    void FinishTX(u32 param);
     void SendResponse(u32 val, bool last);
     u32 DataRX(u8* data, u32 len);
     u32 DataTX(u8* data, u32 len);

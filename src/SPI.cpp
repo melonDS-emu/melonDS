@@ -612,6 +612,8 @@ u32 CurDevice; // remove me
 
 bool Init()
 {
+    NDS::RegisterEventFunc(NDS::Event_SPITransfer, 0, TransferDone);
+
     if (!SPI_Firmware::Init()) return false;
     if (!SPI_Powerman::Init()) return false;
     if (!SPI_TSC::Init()) return false;
@@ -626,6 +628,8 @@ void DeInit()
     SPI_Powerman::DeInit();
     SPI_TSC::DeInit();
     DSi_SPI_TSC::DeInit();
+
+    NDS::UnregisterEventFunc(NDS::Event_SPITransfer, 0);
 }
 
 void Reset()
@@ -725,7 +729,7 @@ void WriteData(u8 val)
 
     // SPI transfers one bit per cycle -> 8 cycles per byte
     u32 delay = 8 * (8 << (Cnt & 0x3));
-    NDS::ScheduleEvent(NDS::Event_SPITransfer, false, delay, TransferDone, 0);
+    NDS::ScheduleEvent(NDS::Event_SPITransfer, false, delay, 0, 0);
 }
 
 }

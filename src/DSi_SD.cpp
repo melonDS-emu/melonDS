@@ -48,10 +48,21 @@ using namespace Platform;
 
 #define SD_DESC  Num?"SDIO":"SD/MMC"
 
+enum
+{
+    Transfer_TX = 0,
+    Transfer_RX,
+};
+
 
 DSi_SDHost::DSi_SDHost(u32 num)
 {
     Num = num;
+
+    NDS::RegisterEventFunc(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+                           Transfer_TX, MemberEventFunc(DSi_SDHost, FinishTX));
+    NDS::RegisterEventFunc(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+                           Transfer_RX, MemberEventFunc(DSi_SDHost, FinishRX));
 
     Ports[0] = nullptr;
     Ports[1] = nullptr;
@@ -61,6 +72,11 @@ DSi_SDHost::~DSi_SDHost()
 {
     if (Ports[0]) delete Ports[0];
     if (Ports[1]) delete Ports[1];
+
+    NDS::UnregisterEventFunc(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+                           Transfer_TX);
+    NDS::UnregisterEventFunc(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+                           Transfer_RX);
 }
 
 void DSi_SDHost::CloseHandles()
@@ -281,14 +297,12 @@ void DSi_SDHost::SendResponse(u32 val, bool last)
 
 void DSi_SDHost::FinishRX(u32 param)
 {
-    DSi_SDHost* host = (param & 0x1) ? DSi::SDIO : DSi::SDMMC;
+    CheckSwapFIFO();
 
-    host->CheckSwapFIFO();
-
-    if (host->DataMode == 1)
-        host->UpdateFIFO32();
+    if (DataMode == 1)
+        UpdateFIFO32();
     else
-        host->SetIRQ(24);
+        SetIRQ(24);
 }
 
 u32 DSi_SDHost::DataRX(u8* data, u32 len)
@@ -308,21 +322,19 @@ u32 DSi_SDHost::DataRX(u8* data, u32 len)
     // we need a delay because DSi boot2 will send a command and then wait for IRQ0
     // but if IRQ24 is thrown instantly, the handler clears IRQ0 before the
     // send-command function starts polling IRQ status
-    u32 param = Num | (last << 1);
     NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
-                       false, 512, FinishRX, param);
+                       false, 512, Transfer_RX, 0);
 
     return len;
 }
 
 void DSi_SDHost::FinishTX(u32 param)
 {
-    DSi_SDHost* host = (param & 0x1) ? DSi::SDIO : DSi::SDMMC;
-    DSi_SDDevice* dev = host->Ports[host->PortSelect & 0x1];
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
 
-    if (host->BlockCountInternal == 0)
+    if (BlockCountInternal == 0)
     {
-        if (host->StopAction & (1<<8))
+        if (StopAction & (1<<8))
         {
             if (dev) dev->SendCMD(12, 0);
         }
@@ -330,8 +342,8 @@ void DSi_SDHost::FinishTX(u32 param)
         // CHECKME: presumably IRQ2 should not trigger here, but rather
         // when the data transfer is done
         //SetIRQ(0);
-        host->SetIRQ(2);
-        host->TXReq = false;
+        SetIRQ(2);
+        TXReq = false;
     }
     else
     {
@@ -392,7 +404,7 @@ u32 DSi_SDHost::DataTX(u8* data, u32 len)
     BlockCountInternal--;
 
     NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
-                       false, 512, FinishTX, Num);
+                       false, 512, Transfer_TX, 0);
 
     return len;
 }

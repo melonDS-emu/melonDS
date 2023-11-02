@@ -53,6 +53,9 @@ const u32 kTransferStart = 60000;
 
 bool Init()
 {
+    NDS::RegisterEventFunc(NDS::Event_DSi_CamIRQ, 0, IRQ);
+    NDS::RegisterEventFunc(NDS::Event_DSi_CamTransfer, 0, TransferScanline);
+
     Camera0 = new Camera(0);
     Camera1 = new Camera(1);
 
@@ -66,6 +69,9 @@ void DeInit()
 
     Camera0 = nullptr;
     Camera1 = nullptr;
+
+    NDS::UnregisterEventFunc(NDS::Event_DSi_CamIRQ, 0);
+    NDS::UnregisterEventFunc(NDS::Event_DSi_CamTransfer, 0);
 }
 
 void Reset()
@@ -85,7 +91,7 @@ void Reset()
     BufferNumLines = 0;
     CurCamera = nullptr;
 
-    NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, false, kIRQInterval, IRQ, 0);
+    NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, false, kIRQInterval, 0, 0);
 }
 
 void Stop()
@@ -132,11 +138,11 @@ void IRQ(u32 param)
             BufferWritePos = 0;
             BufferNumLines = 0;
             CurCamera = activecam;
-            NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, kTransferStart, TransferScanline, 0);
+            NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, kTransferStart, 0, 0);
         }
     }
 
-    NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, IRQ, 0);
+    NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, 0, 0);
 }
 
 void TransferScanline(u32 line)
@@ -162,7 +168,7 @@ void TransferScanline(u32 line)
         if (line < ystart || line > yend)
         {
             if (!CurCamera->TransferDone())
-                NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, TransferScanline, line+1);
+                NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, 0, line+1);
 
             return;
         }
@@ -242,7 +248,7 @@ void TransferScanline(u32 line)
     if (CurCamera->TransferDone())
         return;
 
-    NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, TransferScanline, line+1);
+    NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, 0, line+1);
 }
 
 
