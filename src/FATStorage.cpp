@@ -319,17 +319,17 @@ void FATStorage::SaveIndex()
     FileHandle* f = OpenLocalFile(IndexPath, FileMode::WriteText);
     if (!f) return;
 
-    FileWriteFormatted(f, "SIZE %" PRIu64 "\r\n", FileSize);
+    FileWriteFormatted(f, "SIZE %" PRIu64 "\n", FileSize);
 
     for (const auto& [key, val] : DirIndex)
     {
-        FileWriteFormatted(f, "DIR %u %s\r\n",
+        FileWriteFormatted(f, "DIR %u %s\n",
                 val.IsReadOnly?1:0, val.Path.c_str());
     }
 
     for (const auto& [key, val] : FileIndex)
     {
-        FileWriteFormatted(f, "FILE %u %" PRIu64 " %" PRId64 " %u %s\r\n",
+        FileWriteFormatted(f, "FILE %u %" PRIu64 " %" PRId64 " %u %s\n",
                 val.IsReadOnly?1:0, val.Size, val.LastModified, val.LastModifiedInternal, val.Path.c_str());
     }
 

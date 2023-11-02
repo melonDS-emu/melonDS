@@ -466,10 +466,10 @@ void Save()
 
         switch (entry->Type)
         {
-        case 0: Platform::FileWriteFormatted(f, "%s=%d\r\n", entry->Name, *(int*)entry->Value); break;
-        case 1: Platform::FileWriteFormatted(f, "%s=%d\r\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
-        case 2: Platform::FileWriteFormatted(f, "%s=%s\r\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
-        case 3: Platform::FileWriteFormatted(f, "%s=%" PRId64 "\r\n", entry->Name, *(int64_t*)entry->Value); break;
+        case 0: Platform::FileWriteFormatted(f, "%s=%d\n", entry->Name, *(int*)entry->Value); break;
+        case 1: Platform::FileWriteFormatted(f, "%s=%d\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
+        case 2: Platform::FileWriteFormatted(f, "%s=%s\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
+        case 3: Platform::FileWriteFormatted(f, "%s=%" PRId64 "\n", entry->Name, *(int64_t*)entry->Value); break;
         }
     }
 
