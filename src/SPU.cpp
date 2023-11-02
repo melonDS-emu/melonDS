@@ -163,7 +163,7 @@ void Reset()
     Capture[0]->Reset();
     Capture[1]->Reset();
 
-    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024, Mix, 0);
+    NDS::ScheduleEvent(NDS::Event_SPU, false, 1024, Mix, 0);
 }
 
 void Stop()

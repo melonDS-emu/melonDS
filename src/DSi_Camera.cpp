@@ -85,7 +85,7 @@ void Reset()
     BufferNumLines = 0;
     CurCamera = nullptr;
 
-    NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, IRQ, 0);
+    NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, false, kIRQInterval, IRQ, 0);
 }
 
 void Stop()
