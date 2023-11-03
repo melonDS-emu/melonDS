@@ -403,6 +403,7 @@ void SetupDirectBoot()
     NDSHeader& header = NDSCart::Cart->GetHeader();
     const u8* cartrom = NDSCart::Cart->GetROM();
     u32 cartid = NDSCart::Cart->ID();
+    DSi_TSC* tsc = (DSi_TSC*)NDS::SPI->GetTSC();
 
     // TODO: add controls for forcing DS or DSi mode?
     if (!(header.UnitCode & 0x02))
@@ -429,7 +430,7 @@ void SetupDirectBoot()
 
         NDS::MapSharedWRAM(3);
 
-        DSi_SPI_TSC::SetMode(0x00);
+        tsc->SetMode(0x00);
         Set_SCFG_Clock9(0x0000);
     }
     else
@@ -481,7 +482,7 @@ void SetupDirectBoot()
         NDS::MapSharedWRAM(mbk[11] >> 24);
 
         if (!(header.AppFlags & (1<<0)))
-            DSi_SPI_TSC::SetMode(0x00);
+            tsc->SetMode(0x00);
     }
 
     // setup main RAM data
@@ -552,12 +553,12 @@ void SetupDirectBoot()
             }
         }
 
-        SPI_Firmware::WifiBoard nwifiver = SPI_Firmware::GetFirmware()->Header().WifiBoard;
+        Firmware::WifiBoard nwifiver = NDS::SPI->GetFirmware()->GetHeader().WifiBoard;
         ARM9Write8(0x020005E0, static_cast<u8>(nwifiver));
 
         // TODO: these should be taken from the wifi firmware in NAND
         // but, hey, this works too.
-        if (nwifiver == SPI_Firmware::WifiBoard::W015)
+        if (nwifiver == Firmware::WifiBoard::W015)
         {
             ARM9Write16(0x020005E2, 0xB57E);
             ARM9Write32(0x020005E4, 0x00500400);
@@ -642,7 +643,7 @@ void SetupDirectBoot()
 
     NDS::ARM7BIOSProt = 0x20;
 
-    SPI_Firmware::SetupDirectBoot(true);
+    NDS::SPI->GetFirmwareMem()->SetupDirectBoot(true);
 
     NDS::ARM9->CP15Write(0x100, 0x00056078);
     NDS::ARM9->CP15Write(0x200, 0x0000004A);

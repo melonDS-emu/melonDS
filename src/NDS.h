@@ -30,6 +30,8 @@
 // with this enabled, to make sure it doesn't desync
 //#define DEBUG_CHECK_DESYNC
 
+class SPIHost;
+
 namespace NDS
 {
 
@@ -245,6 +247,8 @@ extern MemRegion SWRAM_ARM7;
 
 extern u32 KeyInput;
 extern u16 RCnt;
+
+extern SPIHost* SPI;
 
 const u32 ARM7WRAMSize = 0x10000;
 extern u8* ARM7WRAM;

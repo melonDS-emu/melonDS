@@ -144,7 +144,7 @@ u8 GetBatteryLevel() { return Registers[0x20] & 0xF; }
 void SetBatteryLevel(u8 batteryLevel)
 {
     Registers[0x20] = ((Registers[0x20] & 0xF0) | (batteryLevel & 0x0F));
-    SPI_Powerman::SetBatteryLevelOkay(batteryLevel > batteryLevel_Low ? true : false);
+    //SPI_Powerman::SetBatteryLevelOkay(batteryLevel > batteryLevel_Low ? true : false);
 
     if (batteryLevel <= 1)
     {

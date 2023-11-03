@@ -161,7 +161,7 @@ union DSiFirmwareSystemSettings
         u32 ConfigFlags;
         u8 Zero02;
         u8 CountryCode;
-        SPI_Firmware::Language Language;
+        Firmware::Language Language;
         u8 RTCYear;
         u32 RTCOffset;
         u8 Zero3[4];

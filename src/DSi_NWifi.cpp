@@ -145,7 +145,6 @@ DSi_NWifi::~DSi_NWifi()
 
 void DSi_NWifi::Reset()
 {
-    using namespace SPI_Firmware;
     TransferCmd = 0xFFFFFFFF;
     RemSize = 0;
 
@@ -162,26 +161,28 @@ void DSi_NWifi::Reset()
     for (int i = 0; i < 9; i++)
         Mailbox[i].Clear();
 
-    MacAddress mac = GetFirmware()->Header().MacAddress;
+    const Firmware* fw = NDS::SPI->GetFirmware();
+
+    MacAddress mac = fw->GetHeader().MacAddress;
     Log(LogLevel::Info, "NWifi MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-    WifiBoard type = GetFirmware()->Header().WifiBoard;
+    Firmware::WifiBoard type = fw->GetHeader().WifiBoard;
     switch (type)
     {
-    case WifiBoard::W015: // AR6002
+    case Firmware::WifiBoard::W015: // AR6002
         ROMID = 0x20000188;
         ChipID = 0x02000001;
         HostIntAddr = 0x00500400;
         break;
 
-    case WifiBoard::W024: // AR6013
+    case Firmware::WifiBoard::W024: // AR6013
         ROMID = 0x23000024;
         ChipID = 0x0D000000;
         HostIntAddr = 0x00520000;
         break;
 
-    case WifiBoard::W028: // AR6014 (3DS)
+    case Firmware::WifiBoard::W028: // AR6014 (3DS)
         ROMID = 0x2300006F;
         ChipID = 0x0D000001;
         HostIntAddr = 0x00520000;
@@ -893,9 +894,8 @@ void DSi_NWifi::HTC_Command()
 
     case 0x0004: // setup complete
         {
-            SPI_Firmware::MacAddress mac = SPI_Firmware::GetFirmware()->Header().MacAddress;
             u8 ready_evt[12];
-            memcpy(&ready_evt[0], &mac, mac.size());
+            memcpy(&ready_evt[0], &EEPROM[0xA], 6); // MAC address
             ready_evt[6] = 0x02;
             ready_evt[7] = 0;
             *(u32*)&ready_evt[8] = 0x2300006C;

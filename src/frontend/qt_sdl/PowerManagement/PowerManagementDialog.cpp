@@ -49,7 +49,7 @@ PowerManagementDialog::PowerManagementDialog(QWidget* parent) : QDialog(parent),
     {
         ui->grpDSiBattery->setEnabled(false);
 
-        oldDSBatteryLevel = SPI_Powerman::GetBatteryLevelOkay();
+        oldDSBatteryLevel = NDS::SPI->GetPowerMan()->GetBatteryLevelOkay();
     }
 
     updateDSBatteryLevelControls();
@@ -91,7 +91,7 @@ void PowerManagementDialog::done(int r)
         }
         else
         {
-            Config::DSBatteryLevelOkay = SPI_Powerman::GetBatteryLevelOkay();
+            Config::DSBatteryLevelOkay = NDS::SPI->GetPowerMan()->GetBatteryLevelOkay();
         }
     }
     else
@@ -103,7 +103,7 @@ void PowerManagementDialog::done(int r)
         }
         else
         {
-            SPI_Powerman::SetBatteryLevelOkay(oldDSBatteryLevel);
+            NDS::SPI->GetPowerMan()->SetBatteryLevelOkay(oldDSBatteryLevel);
         }
     }
 
@@ -114,17 +114,17 @@ void PowerManagementDialog::done(int r)
 
 void PowerManagementDialog::on_rbDSBatteryLow_clicked()
 {
-    SPI_Powerman::SetBatteryLevelOkay(false);
+    NDS::SPI->GetPowerMan()->SetBatteryLevelOkay(false);
 }
 
 void PowerManagementDialog::on_rbDSBatteryOkay_clicked()
 {
-    SPI_Powerman::SetBatteryLevelOkay(true);
+    NDS::SPI->GetPowerMan()->SetBatteryLevelOkay(true);
 }
 
 void PowerManagementDialog::updateDSBatteryLevelControls()
 {
-    if (SPI_Powerman::GetBatteryLevelOkay())
+    if (NDS::SPI->GetPowerMan()->GetBatteryLevelOkay())
         ui->rbDSBatteryOkay->setChecked(true);
     else
         ui->rbDSBatteryLow->setChecked(true);

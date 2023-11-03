@@ -588,7 +588,7 @@ void SetBatteryLevels()
     }
     else
     {
-        SPI_Powerman::SetBatteryLevelOkay(Config::DSBatteryLevelOkay);
+        NDS::SPI->GetPowerMan()->SetBatteryLevelOkay(Config::DSBatteryLevelOkay);
     }
 }
 
@@ -792,10 +792,10 @@ void ClearBackupState()
 
 // We want both the firmware object and the path that was used to load it,
 // since we'll need to give it to the save manager later
-pair<unique_ptr<SPI_Firmware::Firmware>, string> LoadFirmwareFromFile()
+pair<unique_ptr<Firmware>, string> LoadFirmwareFromFile()
 {
     string loadedpath;
-    unique_ptr<SPI_Firmware::Firmware> firmware = nullptr;
+    unique_ptr<Firmware> firmware = nullptr;
     string firmwarepath = Config::ConsoleType == 0 ? Config::FirmwarePath : Config::DSiFirmwarePath;
 
     Log(LogLevel::Debug, "SPI firmware: loading from file %s\n", firmwarepath.c_str());
@@ -812,7 +812,7 @@ pair<unique_ptr<SPI_Firmware::Firmware>, string> LoadFirmwareFromFile()
 
     if (f)
     {
-        firmware = make_unique<SPI_Firmware::Firmware>(f);
+        firmware = make_unique<Firmware>(f);
         if (!firmware->Buffer())
         {
             Log(LogLevel::Warn, "Couldn't read firmware file!\n");
@@ -826,9 +826,8 @@ pair<unique_ptr<SPI_Firmware::Firmware>, string> LoadFirmwareFromFile()
     return std::make_pair(std::move(firmware), loadedpath);
 }
 
-pair<unique_ptr<SPI_Firmware::Firmware>, string> GenerateDefaultFirmware()
+pair<unique_ptr<Firmware>, string> GenerateDefaultFirmware()
 {
-    using namespace SPI_Firmware;
     // Construct the default firmware...
     string settingspath;
     std::unique_ptr<Firmware> firmware = std::make_unique<Firmware>(Config::ConsoleType);
@@ -850,27 +849,27 @@ pair<unique_ptr<SPI_Firmware::Firmware>, string> GenerateDefaultFirmware()
     // and if we didn't keep them then the player would have to reset them in each session.
     if (f)
     { // If we have Wi-fi settings to load...
-        constexpr unsigned TOTAL_WFC_SETTINGS_SIZE = 3 * (sizeof(WifiAccessPoint) + sizeof(ExtendedWifiAccessPoint));
+        constexpr unsigned TOTAL_WFC_SETTINGS_SIZE = 3 * (sizeof(Firmware::WifiAccessPoint) + sizeof(Firmware::ExtendedWifiAccessPoint));
 
         // The access point and extended access point segments might
         // be in different locations depending on the firmware revision,
         // but our generated firmware always keeps them next to each other.
         // (Extended access points first, then regular ones.)
 
-        if (!FileRead(firmware->ExtendedAccessPointPosition(), TOTAL_WFC_SETTINGS_SIZE, 1, f))
+        if (!FileRead(firmware->GetExtendedAccessPointPosition(), TOTAL_WFC_SETTINGS_SIZE, 1, f))
         { // If we couldn't read the Wi-fi settings from this file...
             Platform::Log(Platform::LogLevel::Warn, "Failed to read Wi-fi settings from \"%s\"; using defaults instead\n", wfcsettingspath.c_str());
 
-            firmware->AccessPoints() = {
-                WifiAccessPoint(Config::ConsoleType),
-                WifiAccessPoint(),
-                WifiAccessPoint(),
+            firmware->GetAccessPoints() = {
+                Firmware::WifiAccessPoint(Config::ConsoleType),
+                Firmware::WifiAccessPoint(),
+                Firmware::WifiAccessPoint(),
             };
 
-            firmware->ExtendedAccessPoints() = {
-                ExtendedWifiAccessPoint(),
-                ExtendedWifiAccessPoint(),
-                ExtendedWifiAccessPoint(),
+            firmware->GetExtendedAccessPoints() = {
+                Firmware::ExtendedWifiAccessPoint(),
+                Firmware::ExtendedWifiAccessPoint(),
+                Firmware::ExtendedWifiAccessPoint(),
             };
         }
 
@@ -884,10 +883,9 @@ pair<unique_ptr<SPI_Firmware::Firmware>, string> GenerateDefaultFirmware()
     return std::make_pair(std::move(firmware), std::move(wfcsettingspath));
 }
 
-void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
+void LoadUserSettingsFromConfig(Firmware& firmware)
 {
-    using namespace SPI_Firmware;
-    UserData& currentData = firmware.EffectiveUserData();
+    auto& currentData = firmware.GetEffectiveUserData();
 
     // setting up username
     std::string orig_username = Config::FirmwareUsername;
@@ -899,10 +897,10 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
         memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
     }
 
-    auto language = static_cast<Language>(Config::FirmwareLanguage);
-    if (language != Language::Reserved)
+    auto language = static_cast<Firmware::Language>(Config::FirmwareLanguage);
+    if (language != Firmware::Language::Reserved)
     { // If the frontend specifies a language (rather than using the existing value)...
-        currentData.Settings &= ~Language::Reserved; // ..clear the existing language...
+        currentData.Settings &= ~Firmware::Language::Reserved; // ..clear the existing language...
         currentData.Settings |= language; // ...and set the new one.
     }
 
@@ -937,7 +935,7 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
 
     MacAddress mac;
     bool rep = false;
-    auto& header = firmware.Header();
+    auto& header = firmware.GetHeader();
 
     memcpy(&mac, header.MacAddress.data(), sizeof(MacAddress));
 
@@ -1035,7 +1033,7 @@ bool InstallNAND(const u8* es_keyY)
             memcpy(&settings.Nickname, username.data(), usernameLength * sizeof(char16_t));
 
             // setting language
-            settings.Language = static_cast<SPI_Firmware::Language>(Config::FirmwareLanguage);
+            settings.Language = static_cast<Firmware::Language>(Config::FirmwareLanguage);
 
             // setting up color
             settings.FavoriteColor = Config::FirmwareFavouriteColour;
@@ -1074,7 +1072,6 @@ bool InstallNAND(const u8* es_keyY)
 
 bool InstallFirmware()
 {
-    using namespace SPI_Firmware;
     FirmwareSave.reset();
     unique_ptr<Firmware> firmware;
     string firmwarepath;
@@ -1105,7 +1102,7 @@ bool InstallFirmware()
 
     FirmwareSave = std::make_unique<SaveManager>(firmwarepath);
 
-    return InstallFirmware(std::move(firmware));
+    return NDS::SPI->GetFirmwareMem()->InstallFirmware(std::move(firmware));
 }
 
 bool LoadROM(QStringList filepath, bool reset)

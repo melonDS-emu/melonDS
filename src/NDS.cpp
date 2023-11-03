@@ -178,6 +178,8 @@ u32 KeyInput;
 u16 KeyCnt[2];
 u16 RCnt;
 
+SPIHost* SPI;
+
 bool Running;
 
 bool RunningGame;
@@ -215,11 +217,12 @@ bool Init()
     DMAs[6] = new DMA(1, 2);
     DMAs[7] = new DMA(1, 3);
 
+    SPI = new SPIHost();
+
     if (!NDSCart::Init()) return false;
     if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
     if (!SPU::Init()) return false;
-    if (!SPI::Init()) return false;
     if (!RTC::Init()) return false;
     if (!Wifi::Init()) return false;
 
@@ -248,11 +251,13 @@ void DeInit()
         DMAs[i] = nullptr;
     }
 
+    delete SPI;
+    SPI = nullptr;
+
     NDSCart::DeInit();
     GBACart::DeInit();
     GPU::DeInit();
     SPU::DeInit();
-    SPI::DeInit();
     RTC::DeInit();
     Wifi::DeInit();
 
@@ -389,7 +394,7 @@ bool NeedsDirectBoot()
             return true;
 
         // DSi/3DS firmwares aren't bootable
-        if (!SPI_Firmware::GetFirmware()->IsBootable())
+        if (!SPI->GetFirmware()->IsBootable())
             return true;
 
         return false;
@@ -465,7 +470,7 @@ void SetupDirectBoot(const std::string& romname)
 
         ARM7BIOSProt = 0x1204;
 
-        SPI_Firmware::SetupDirectBoot(false);
+        SPI->GetFirmwareMem()->SetupDirectBoot(false);
 
         ARM9->CP15Write(0x100, 0x00012078);
         ARM9->CP15Write(0x200, 0x00000042);
@@ -641,7 +646,7 @@ void Reset()
     GBACart::Reset();
     GPU::Reset();
     SPU::Reset();
-    SPI::Reset();
+    SPI->Reset();
     RTC::Reset();
     Wifi::Reset();
 
@@ -843,7 +848,7 @@ bool DoSavestate(Savestate* file)
         GBACart::DoSavestate(file);
     GPU::DoSavestate(file);
     SPU::DoSavestate(file);
-    SPI::DoSavestate(file);
+    SPI->DoSavestate(file);
     RTC::DoSavestate(file);
     Wifi::DoSavestate(file);
 
@@ -1279,28 +1284,12 @@ void CancelEvent(u32 id)
 
 void TouchScreen(u16 x, u16 y)
 {
-    if (ConsoleType == 1)
-    {
-        DSi_SPI_TSC::SetTouchCoords(x, y);
-    }
-    else
-    {
-        SPI_TSC::SetTouchCoords(x, y);
-        KeyInput &= ~(1 << (16+6));
-    }
+    SPI->GetTSC()->SetTouchCoords(x, y);
 }
 
 void ReleaseScreen()
 {
-    if (ConsoleType == 1)
-    {
-        DSi_SPI_TSC::SetTouchCoords(0x000, 0xFFF);
-    }
-    else
-    {
-        SPI_TSC::SetTouchCoords(0x000, 0xFFF);
-        KeyInput |= (1 << (16+6));
-    }
+    SPI->GetTSC()->SetTouchCoords(0x000, 0xFFF);
 }
 
 
@@ -1383,7 +1372,7 @@ void CamInputFrame(int cam, u32* data, int width, int height, bool rgb)
 
 void MicInputFrame(s16* data, int samples)
 {
-    return SPI_TSC::MicInputFrame(data, samples);
+    return SPI->GetTSC()->MicInputFrame(data, samples);
 }
 
 /*int ImportSRAM(u8* data, u32 length)
@@ -3917,7 +3906,7 @@ u8 ARM7IORead8(u32 addr)
             return NDSCart::ROMCommand[7];
         return 0;
 
-    case 0x040001C2: return SPI::ReadData();
+    case 0x040001C2: return SPI->ReadData();
 
     case 0x04000208: return IME[1];
 
@@ -4005,8 +3994,8 @@ u16 ARM7IORead16(u32 addr)
                   (NDSCart::ROMCommand[7] << 8);
         return 0;
 
-    case 0x040001C0: return SPI::Cnt;
-    case 0x040001C2: return SPI::ReadData();
+    case 0x040001C0: return SPI->ReadCnt();
+    case 0x040001C2: return SPI->ReadData();
 
     case 0x04000204: return ExMemCnt[1];
     case 0x04000206:
@@ -4088,7 +4077,7 @@ u32 ARM7IORead32(u32 addr)
         return 0;
 
     case 0x040001C0:
-        return SPI::Cnt | (SPI::ReadData() << 16);
+        return SPI->ReadCnt() | (SPI->ReadData() << 16);
 
     case 0x04000208: return IME[1];
     case 0x04000210: return IE[1];
@@ -4181,7 +4170,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
     case 0x040001AF: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[7] = val; return;
 
     case 0x040001C2:
-        SPI::WriteData(val);
+        SPI->WriteData(val);
         return;
 
     case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
@@ -4309,10 +4298,10 @@ void ARM7IOWrite16(u32 addr, u16 val)
     case 0x040001BA: ROMSeed1[12] = val & 0x7F; return;
 
     case 0x040001C0:
-        SPI::WriteCnt(val);
+        SPI->WriteCnt(val);
         return;
     case 0x040001C2:
-        SPI::WriteData(val & 0xFF);
+        SPI->WriteData(val & 0xFF);
         return;
 
     case 0x04000204:
@@ -4462,8 +4451,8 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x040001B4: *(u32*)&ROMSeed1[8] = val; return;
 
     case 0x040001C0:
-        SPI::WriteCnt(val & 0xFFFF);
-        SPI::WriteData((val >> 16) & 0xFF);
+        SPI->WriteCnt(val & 0xFFFF);
+        SPI->WriteData((val >> 16) & 0xFF);
         return;
 
     case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;

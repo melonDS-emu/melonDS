@@ -580,31 +580,31 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
         ROMManager::GBASave->RequestFlush(savedata, savelen, writeoffset, writelen);
 }
 
-void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset, u32 writelen)
+void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen)
 {
     if (!ROMManager::FirmwareSave)
         return;
 
-    if (firmware.Header().Identifier != SPI_Firmware::GENERATED_FIRMWARE_IDENTIFIER)
+    if (firmware.GetHeader().Identifier != GENERATED_FIRMWARE_IDENTIFIER)
     { // If this is not the default built-in firmware...
         // ...then write the whole thing back.
         ROMManager::FirmwareSave->RequestFlush(firmware.Buffer(), firmware.Length(), writeoffset, writelen);
     }
     else
     {
-        u32 eapstart = firmware.ExtendedAccessPointOffset();
-        u32 eapend = eapstart + sizeof(firmware.ExtendedAccessPoints());
+        u32 eapstart = firmware.GetExtendedAccessPointOffset();
+        u32 eapend = eapstart + sizeof(firmware.GetExtendedAccessPoints());
 
-        u32 apstart = firmware.WifiAccessPointOffset();
-        u32 apend = apstart + sizeof(firmware.AccessPoints());
+        u32 apstart = firmware.GetWifiAccessPointOffset();
+        u32 apend = apstart + sizeof(firmware.GetAccessPoints());
 
         // assert that the extended access points come just before the regular ones
         assert(eapend == apstart);
 
         if (eapstart <= writeoffset && writeoffset < apend)
         { // If we're writing to the access points...
-            const u8* buffer = firmware.ExtendedAccessPointPosition();
-            u32 length = sizeof(firmware.ExtendedAccessPoints()) + sizeof(firmware.AccessPoints());
+            const u8* buffer = firmware.GetExtendedAccessPointPosition();
+            u32 length = sizeof(firmware.GetExtendedAccessPoints()) + sizeof(firmware.GetAccessPoints());
             ROMManager::FirmwareSave->RequestFlush(buffer, length, writeoffset - eapstart, writelen);
         }
     }
