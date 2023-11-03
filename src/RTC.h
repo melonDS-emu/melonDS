@@ -22,46 +22,95 @@
 #include "types.h"
 #include "Savestate.h"
 
-namespace RTC
+class RTC
 {
+public:
 
-struct StateData
-{
-    u8 StatusReg1;
-    u8 StatusReg2;
-    u8 DateTime[7];
-    u8 Alarm1[3];
-    u8 Alarm2[3];
-    u8 ClockAdjust;
-    u8 FreeReg;
+    struct StateData
+    {
+        u8 StatusReg1;
+        u8 StatusReg2;
+        u8 DateTime[7];
+        u8 Alarm1[3];
+        u8 Alarm2[3];
+        u8 ClockAdjust;
+        u8 FreeReg;
 
-    u8 IRQFlag;
+        u8 IRQFlag;
 
-    // DSi registers
-    u32 MinuteCount;
-    u8 FOUT1;
-    u8 FOUT2;
-    u8 AlarmDate1[3];
-    u8 AlarmDate2[3];
+        // DSi registers
+        u32 MinuteCount;
+        u8 FOUT1;
+        u8 FOUT2;
+        u8 AlarmDate1[3];
+        u8 AlarmDate2[3];
+    };
+
+    RTC();
+    ~RTC();
+
+    void Reset();
+
+    void DoSavestate(Savestate* file);
+
+    void GetState(StateData& state);
+    void SetState(StateData& state);
+    void GetDateTime(int& year, int& month, int& day, int& hour, int& minute, int& second);
+    void SetDateTime(int year, int month, int day, int hour, int minute, int second);
+
+    void ClockTimer(u32 param);
+
+    u16 Read();
+    void Write(u16 val, bool byte);
+
+private:
+    /// This value represents the Nintendo DS IO register,
+    /// \em not the value of the system's clock.
+    /// The actual system time is taken directly from the host.
+    u16 IO;
+
+    u8 Input;
+    u32 InputBit;
+    u32 InputPos;
+
+    u8 Output[8];
+    u32 OutputBit;
+    u32 OutputPos;
+
+    u8 CurCmd;
+
+    StateData State;
+
+    s32 TimerError;
+    u32 ClockCount;
+
+    void ResetState();
+    void ScheduleTimer(bool first);
+
+    u8 BCD(u8 val);
+    u8 FromBCD(u8 val);
+    u8 BCDIncrement(u8 val);
+    u8 BCDSanitize(u8 val, u8 vmin, u8 vmax);
+
+    void SetIRQ(u8 irq);
+    void ClearIRQ(u8 irq);
+    void ProcessIRQ(int type);
+
+    u8 DaysInMonth();
+    void CountYear();
+    void CountMonth();
+    void CheckEndOfMonth();
+    void CountDay();
+    void CountHour();
+    void CountMinute();
+    void CountSecond();
+
+    void WriteDateTime(int num, u8 val);
+    void SaveDateTime();
+
+    void CmdRead();
+    void CmdWrite(u8 val);
+    void ByteIn(u8 val);
 };
-
-bool Init();
-void DeInit();
-void Reset();
-void DoSavestate(Savestate* file);
-
-void GetState(StateData& state);
-void SetState(StateData& state);
-void GetDateTime(int& year, int& month, int& day, int& hour, int& minute, int& second);
-void SetDateTime(int year, int month, int day, int hour, int minute, int second);
-void ResetState();
-
-void ScheduleTimer(bool first);
-void ClockTimer(u32 param);
-
-u16 Read();
-void Write(u16 val, bool byte);
-
-}
 
 #endif

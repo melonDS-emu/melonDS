@@ -31,6 +31,7 @@
 //#define DEBUG_CHECK_DESYNC
 
 class SPIHost;
+class RTC;
 
 namespace NDS
 {
@@ -249,6 +250,7 @@ extern u32 KeyInput;
 extern u16 RCnt;
 
 extern SPIHost* SPI;
+extern class RTC* RTC;
 
 const u32 ARM7WRAMSize = 0x10000;
 extern u8* ARM7WRAM;

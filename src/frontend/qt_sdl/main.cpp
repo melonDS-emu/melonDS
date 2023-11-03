@@ -361,7 +361,7 @@ void EmuThread::run()
         RTC::StateData state;
         Platform::FileRead(&state, sizeof(state), 1, file);
         Platform::CloseFile(file);
-        RTC::SetState(state);
+        NDS::RTC->SetState(state);
     }
 
     char melontitle[100];
@@ -666,7 +666,7 @@ void EmuThread::run()
     if (file)
     {
         RTC::StateData state;
-        RTC::GetState(state);
+        NDS::RTC->GetState(state);
         Platform::FileWrite(&state, sizeof(state), 1, file);
         Platform::CloseFile(file);
     }

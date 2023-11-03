@@ -179,6 +179,7 @@ u16 KeyCnt[2];
 u16 RCnt;
 
 SPIHost* SPI;
+class RTC* RTC;
 
 bool Running;
 
@@ -218,12 +219,12 @@ bool Init()
     DMAs[7] = new DMA(1, 3);
 
     SPI = new SPIHost();
+    RTC = new class RTC();
 
     if (!NDSCart::Init()) return false;
     if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
     if (!SPU::Init()) return false;
-    if (!RTC::Init()) return false;
     if (!Wifi::Init()) return false;
 
     if (!DSi::Init()) return false;
@@ -254,11 +255,13 @@ void DeInit()
     delete SPI;
     SPI = nullptr;
 
+    delete RTC;
+    RTC = nullptr;
+
     NDSCart::DeInit();
     GBACart::DeInit();
     GPU::DeInit();
     SPU::DeInit();
-    RTC::DeInit();
     Wifi::DeInit();
 
     DSi::DeInit();
@@ -647,7 +650,7 @@ void Reset()
     GPU::Reset();
     SPU::Reset();
     SPI->Reset();
-    RTC::Reset();
+    RTC->Reset();
     Wifi::Reset();
 
     // TODO: move the SOUNDBIAS/degrade logic to SPU?
@@ -849,7 +852,7 @@ bool DoSavestate(Savestate* file)
     GPU::DoSavestate(file);
     SPU::DoSavestate(file);
     SPI->DoSavestate(file);
-    RTC::DoSavestate(file);
+    RTC->DoSavestate(file);
     Wifi::DoSavestate(file);
 
     if (ConsoleType == 1)
@@ -3866,7 +3869,7 @@ u8 ARM7IORead8(u32 addr)
     case 0x04000136: return (KeyInput >> 16) & 0xFF;
     case 0x04000137: return KeyInput >> 24;
 
-    case 0x04000138: return RTC::Read() & 0xFF;
+    case 0x04000138: return RTC->Read() & 0xFF;
 
     case 0x040001A2:
         if (ExMemCnt[0] & (1<<11))
@@ -3957,7 +3960,7 @@ u16 ARM7IORead16(u32 addr)
     case 0x04000134: return RCnt;
     case 0x04000136: return KeyInput >> 16;
 
-    case 0x04000138: return RTC::Read();
+    case 0x04000138: return RTC->Read();
 
     case 0x04000180: return IPCSync7;
     case 0x04000184:
@@ -4047,7 +4050,7 @@ u32 ARM7IORead32(u32 addr)
 
     case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt[1] << 16);
     case 0x04000134: return RCnt | (KeyInput & 0xFFFF0000);
-    case 0x04000138: return RTC::Read();
+    case 0x04000138: return RTC->Read();
 
     case 0x04000180: return IPCSync7;
     case 0x04000184: return ARM7IORead16(addr);
@@ -4139,7 +4142,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         RCnt = (RCnt & 0x00FF) | (val << 8);
         return;
 
-    case 0x04000138: RTC::Write(val, true); return;
+    case 0x04000138: RTC->Write(val, true); return;
 
     case 0x04000188:
         ARM7IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
@@ -4227,7 +4230,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
     case 0x04000132: KeyCnt[1] = val; return;
     case 0x04000134: RCnt = val; return;
 
-    case 0x04000138: RTC::Write(val, false); return;
+    case 0x04000138: RTC->Write(val, false); return;
 
     case 0x04000180:
         IPCSync9 &= 0xFFF0;
@@ -4395,7 +4398,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
     case 0x04000130: KeyCnt[1] = val >> 16; return;
     case 0x04000134: RCnt = val & 0xFFFF; return;
-    case 0x04000138: RTC::Write(val & 0xFFFF, false); return;
+    case 0x04000138: RTC->Write(val & 0xFFFF, false); return;
 
     case 0x04000180:
     case 0x04000184:
