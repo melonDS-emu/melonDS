@@ -45,7 +45,6 @@ constexpr const char* const DEFAULT_SSID = "melonAP";
 constexpr int EXTENDED_WIFI_SETTINGS_OFFSET = -0xA00;
 
 using FirmwareIdentifier = std::array<u8, 4>;
-using MacAddress = std::array<u8, 6>;
 
 constexpr FirmwareIdentifier GENERATED_FIRMWARE_IDENTIFIER = {'M', 'E', 'L', 'N'};
 
@@ -283,7 +282,7 @@ public:
 
             u8 Unused3[6];
 
-            MacAddress MacAddress;
+            MacAddress MacAddr;
 
             u16 EnabledChannels;
 

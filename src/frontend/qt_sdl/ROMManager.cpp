@@ -937,7 +937,7 @@ void LoadUserSettingsFromConfig(Firmware& firmware)
     bool rep = false;
     auto& header = firmware.GetHeader();
 
-    memcpy(&mac, header.MacAddress.data(), sizeof(MacAddress));
+    memcpy(&mac, header.MacAddr.data(), sizeof(MacAddress));
 
 
     MacAddress configuredMac;
@@ -961,7 +961,7 @@ void LoadUserSettingsFromConfig(Firmware& firmware)
     if (rep)
     {
         mac[0] &= 0xFC; // ensure the MAC isn't a broadcast MAC
-        header.MacAddress = mac;
+        header.MacAddr = mac;
         header.UpdateChecksum();
     }
 

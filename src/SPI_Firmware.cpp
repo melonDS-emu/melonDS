@@ -113,7 +113,7 @@ Firmware::FirmwareHeader::FirmwareHeader(int consoletype)
     WifiConfigLength = 0x138;
     Unused1 = 0;
     memcpy(&Unused3, DEFAULT_UNUSED3, sizeof(DEFAULT_UNUSED3));
-    MacAddress = DEFAULT_MAC;
+    MacAddr = DEFAULT_MAC;
     EnabledChannels = 0x3FFE;
     memset(&Unknown2, 0xFF, sizeof(Unknown2));
     RFChipType = RFChipType::Type3;

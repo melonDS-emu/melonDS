@@ -85,7 +85,7 @@ public:
     void Release() override;
 
 private:
-    std::unique_ptr<Firmware> Firmware;
+    std::unique_ptr<class Firmware> Firmware;
 
     u8 CurCmd;
 
