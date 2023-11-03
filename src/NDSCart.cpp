@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,7 +22,6 @@
 #include "NDSCart.h"
 #include "ARM.h"
 #include "CRC32.h"
-#include "DSi_AES.h"
 #include "Platform.h"
 #include "ROMList.h"
 #include "melonDLDI.h"

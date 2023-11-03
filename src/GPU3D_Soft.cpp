@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -746,7 +746,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         std::swap(xstart, xend);
         std::swap(wl, wr);
         std::swap(zl, zr);
-        
+
         // CHECKME: edge fill rules for swapped opaque shadow mask polygons
         if ((polyalpha < 31) || (RenderDispCnt & (3<<4)))
         {
@@ -774,7 +774,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
         rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
         rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
-        
+
         // CHECKME: edge fill rules for unswapped opaque shadow mask polygons
         if ((polyalpha < 31) || (RenderDispCnt & (3<<4)))
         {
@@ -873,7 +873,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     edge = yedge | 0x2;
     xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
-    
+
     if (r_filledge)
     for (; x < xlimit; x++)
     {
@@ -948,7 +948,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
     s32 zl = rp->SlopeL.Interp.InterpolateZ(polygon->FinalZ[rp->CurVL], polygon->FinalZ[rp->NextVL], polygon->WBuffer);
     s32 zr = rp->SlopeR.Interp.InterpolateZ(polygon->FinalZ[rp->CurVR], polygon->FinalZ[rp->NextVR], polygon->WBuffer);
-    
+
     // right vertical edges are pushed 1px to the left as long as either:
     // the left edge slope is not 0, or the span is not 0 pixels wide, and it is not at the leftmost pixel of the screen
     if (rp->SlopeR.Increment==0 && (rp->SlopeL.Increment!=0 || xstart != xend) && (xend != 0))
@@ -1220,7 +1220,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         if (alpha == 31)
         {
             u32 attr = polyattr | edge;
-            
+
             if ((RenderDispCnt & (1<<4)) && (attr & 0xF))
             {
                 // anti-aliasing: all edges are rendered

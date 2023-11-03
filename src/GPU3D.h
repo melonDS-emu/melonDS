@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -146,7 +146,7 @@ public:
 
     // This "Accelerated" flag currently communicates if the framebuffer should
     // be allocated differently and other little misc handlers. Ideally there
-    // are more detailed "traits" that we can ask of the Renderer3D type 
+    // are more detailed "traits" that we can ask of the Renderer3D type
     const bool Accelerated;
 
     virtual void SetRenderSettings(GPU::RenderSettings& settings) = 0;

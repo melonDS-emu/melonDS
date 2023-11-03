@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -33,9 +33,9 @@ __attribute((always_inline)) static void Bswap128(void* Dst, const void* Src)
 #else
 __attribute((always_inline)) static void Bswap128(void* Dst, const void* Src)
 {
-    for (int i = 0; i < 16; ++i) 
-    { 
-        ((u8*)Dst)[i] = ((u8*)Src)[15 - i]; 
+    for (int i = 0; i < 16; ++i)
+    {
+        ((u8*)Dst)[i] = ((u8*)Src)[15 - i];
     }
 }
 #endif
