@@ -35,6 +35,8 @@ class SPIHost;
 class RTC;
 class Wifi;
 
+class AREngine;
+
 namespace NDS
 {
 
@@ -255,6 +257,8 @@ extern class SPU* SPU;
 extern class SPIHost* SPI;
 extern class RTC* RTC;
 extern class Wifi* Wifi;
+
+extern class AREngine* AREngine;
 
 const u32 ARM7WRAMSize = 0x10000;
 extern u8* ARM7WRAM;

@@ -26,32 +26,17 @@
 using Platform::Log;
 using Platform::LogLevel;
 
-namespace AREngine
-{
 
-// AR code file - frontend is responsible for managing this
-ARCodeFile* CodeFile;
-
-u8 (*BusRead8)(u32 addr);
-u16 (*BusRead16)(u32 addr);
-u32 (*BusRead32)(u32 addr);
-void (*BusWrite8)(u32 addr, u8 val);
-void (*BusWrite16)(u32 addr, u16 val);
-void (*BusWrite32)(u32 addr, u32 val);
-
-
-bool Init()
+AREngine::AREngine()
 {
     CodeFile = nullptr;
-
-    return true;
 }
 
-void DeInit()
+AREngine::~AREngine()
 {
 }
 
-void Reset()
+void AREngine::Reset()
 {
     if (NDS::ConsoleType == 1)
     {
@@ -74,16 +59,6 @@ void Reset()
 }
 
 
-ARCodeFile* GetCodeFile()
-{
-    return CodeFile;
-}
-
-void SetCodeFile(ARCodeFile* file)
-{
-    CodeFile = file;
-}
-
 
 #define case16(x) \
     case ((x)+0x00): case ((x)+0x01): case ((x)+0x02): case ((x)+0x03): \
@@ -91,7 +66,7 @@ void SetCodeFile(ARCodeFile* file)
     case ((x)+0x08): case ((x)+0x09): case ((x)+0x0A): case ((x)+0x0B): \
     case ((x)+0x0C): case ((x)+0x0D): case ((x)+0x0E): case ((x)+0x0F)
 
-void RunCheat(ARCode& arcode)
+void AREngine::RunCheat(ARCode& arcode)
 {
     u32* code = &arcode.Code[0];
 
@@ -437,7 +412,7 @@ void RunCheat(ARCode& arcode)
     }
 }
 
-void RunCheats()
+void AREngine::RunCheats()
 {
     if (!CodeFile) return;
 
@@ -453,6 +428,4 @@ void RunCheats()
                 RunCheat(code);
         }
     }
-}
-
 }

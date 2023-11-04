@@ -183,6 +183,8 @@ class SPIHost* SPI;
 class RTC* RTC;
 class Wifi* Wifi;
 
+class AREngine* AREngine;
+
 bool Running;
 
 bool RunningGame;
@@ -231,7 +233,7 @@ bool Init()
 
     if (!DSi::Init()) return false;
 
-    if (!AREngine::Init()) return false;
+    AREngine = new class AREngine();
 
     return true;
 }
@@ -262,7 +264,7 @@ void DeInit()
 
     DSi::DeInit();
 
-    AREngine::DeInit();
+    delete AREngine; AREngine = nullptr;
 
     UnregisterEventFunc(Event_Div, 0);
     UnregisterEventFunc(Event_Sqrt, 0);
@@ -671,7 +673,7 @@ void Reset()
 
     SPU->SetDegrade10Bit(degradeAudio);
 
-    AREngine::Reset();
+    AREngine->Reset();
 }
 
 void Start()

@@ -462,7 +462,7 @@ void UnloadCheats()
     {
         delete CheatFile;
         CheatFile = nullptr;
-        AREngine::SetCodeFile(nullptr);
+        NDS::AREngine->SetCodeFile(nullptr);
     }
 }
 
@@ -475,7 +475,7 @@ void LoadCheats()
     // TODO: check for error (malformed cheat file, ...)
     CheatFile = new ARCodeFile(filename);
 
-    AREngine::SetCodeFile(CheatsOn ? CheatFile : nullptr);
+    NDS::AREngine->SetCodeFile(CheatsOn ? CheatFile : nullptr);
 }
 
 void LoadBIOSFiles()
@@ -570,7 +570,7 @@ void EnableCheats(bool enable)
 {
     CheatsOn = enable;
     if (CheatFile)
-        AREngine::SetCodeFile(CheatsOn ? CheatFile : nullptr);
+        NDS::AREngine->SetCodeFile(CheatsOn ? CheatFile : nullptr);
 }
 
 ARCodeFile* GetCheatFile()

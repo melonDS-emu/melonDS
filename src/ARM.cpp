@@ -590,7 +590,7 @@ void ARM::TriggerIRQ()
     if (Num == 1)
     {
         if ((NDS::IF[1] & NDS::IE[1]) & (1<<NDS::IRQ_VBlank))
-            AREngine::RunCheats();
+            NDS::AREngine->RunCheats();
     }
 }
 
