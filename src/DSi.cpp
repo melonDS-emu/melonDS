@@ -79,6 +79,8 @@ std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
 DSi_SDHost* SDMMC;
 DSi_SDHost* SDIO;
 
+DSi_AES* AES;
+
 // FIXME: these currently have no effect (and aren't stored in a savestate)
 //        ... not that they matter all that much
 u8 GPIO_Data;
@@ -102,7 +104,6 @@ bool Init()
 
     if (!DSi_I2C::Init()) return false;
     if (!DSi_CamModule::Init()) return false;
-    if (!DSi_AES::Init()) return false;
     if (!DSi_DSP::Init()) return false;
 
     NDMAs[0] = new DSi_NDMA(0, 0);
@@ -116,6 +117,8 @@ bool Init()
 
     SDMMC = new DSi_SDHost(0);
     SDIO = new DSi_SDHost(1);
+
+    AES = new DSi_AES();
 
     return true;
 }
@@ -134,7 +137,6 @@ void DeInit()
 
     DSi_I2C::DeInit();
     DSi_CamModule::DeInit();
-    DSi_AES::DeInit();
     DSi_DSP::DeInit();
 
     for (int i = 0; i < 8; i++)
@@ -143,10 +145,10 @@ void DeInit()
         NDMAs[i] = nullptr;
     }
 
-    delete SDMMC;
-    SDMMC = nullptr;
-    delete SDIO;
-    SDIO = nullptr;
+    delete SDMMC; SDMMC = nullptr;
+    delete SDIO; SDIO = nullptr;
+
+    delete AES; AES = nullptr;
 
     NANDImage = nullptr;
     // The NANDImage is cleaned up (and its underlying file closed)
@@ -176,7 +178,7 @@ void Reset()
     SDMMC->Reset();
     SDIO->Reset();
 
-    DSi_AES::Reset();
+    AES->Reset();
 
     if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
     {
@@ -282,7 +284,7 @@ void DoSavestate(Savestate* file)
     for (int i = 0; i < 8; i++)
         NDMAs[i]->DoSavestate(file);
 
-    DSi_AES::DoSavestate(file);
+    AES->DoSavestate(file);
     DSi_CamModule::DoSavestate(file);
     DSi_DSP::DoSavestate(file);
     DSi_I2C::DoSavestate(file);
@@ -706,7 +708,7 @@ void SoftReset()
     SDMMC->Reset();
     SDIO->Reset();
 
-    DSi_AES::Reset();
+    AES->Reset();
 
     if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
     {
@@ -2839,8 +2841,8 @@ u32 ARM7IORead32(u32 addr)
     case 0x0400416C: return NDMAs[7]->FillData;
     case 0x04004170: return NDMAs[7]->Cnt;
 
-    case 0x04004400: return DSi_AES::ReadCnt();
-    case 0x0400440C: return DSi_AES::ReadOutputFIFO();
+    case 0x04004400: return AES->ReadCnt();
+    case 0x0400440C: return AES->ReadOutputFIFO();
 
     case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() & 0xFFFFFFFF;
     case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() >> 32;
@@ -2929,7 +2931,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         u32 shift = (addr&3)*8;
         addr -= 0x04004420;
         addr &= ~3;
-        DSi_AES::WriteIV(addr, (u32)val << shift, 0xFF << shift);
+        AES->WriteIV(addr, (u32)val << shift, 0xFF << shift);
         return;
     }
     if (addr >= 0x04004430 && addr < 0x04004440)
@@ -2937,7 +2939,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         u32 shift = (addr&3)*8;
         addr -= 0x04004430;
         addr &= ~3;
-        DSi_AES::WriteMAC(addr, (u32)val << shift, 0xFF << shift);
+        AES->WriteMAC(addr, (u32)val << shift, 0xFF << shift);
         return;
     }
     if (addr >= 0x04004440 && addr < 0x04004500)
@@ -2951,9 +2953,9 @@ void ARM7IOWrite8(u32 addr, u8 val)
 
         switch (addr >> 4)
         {
-        case 0: DSi_AES::WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
-        case 1: DSi_AES::WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
-        case 2: DSi_AES::WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        case 0: AES->WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        case 1: AES->WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        case 2: AES->WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
         }
     }
 
@@ -2999,7 +3001,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
             return;
 
         case 0x04004406:
-            DSi_AES::WriteBlkCnt(val<<16);
+            AES->WriteBlkCnt(val<<16);
             return;
 
         case 0x4004700:
@@ -3024,7 +3026,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
         u32 shift = (addr&1)*16;
         addr -= 0x04004420;
         addr &= ~1;
-        DSi_AES::WriteIV(addr, (u32)val << shift, 0xFFFF << shift);
+        AES->WriteIV(addr, (u32)val << shift, 0xFFFF << shift);
         return;
     }
     if (addr >= 0x04004430 && addr < 0x04004440)
@@ -3032,7 +3034,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
         u32 shift = (addr&1)*16;
         addr -= 0x04004430;
         addr &= ~1;
-        DSi_AES::WriteMAC(addr, (u32)val << shift, 0xFFFF << shift);
+        AES->WriteMAC(addr, (u32)val << shift, 0xFFFF << shift);
         return;
     }
     if (addr >= 0x04004440 && addr < 0x04004500)
@@ -3046,9 +3048,9 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
         switch (addr >> 4)
         {
-        case 0: DSi_AES::WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
-        case 1: DSi_AES::WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
-        case 2: DSi_AES::WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        case 0: AES->WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        case 1: AES->WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        case 2: AES->WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
         }
     }
 
@@ -3146,9 +3148,9 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x0400416C: NDMAs[7]->FillData = val; return;
     case 0x04004170: NDMAs[7]->WriteCnt(val); return;
 
-    case 0x04004400: DSi_AES::WriteCnt(val); return;
-    case 0x04004404: DSi_AES::WriteBlkCnt(val); return;
-    case 0x04004408: DSi_AES::WriteInputFIFO(val); return;
+    case 0x04004400: AES->WriteCnt(val); return;
+    case 0x04004404: AES->WriteBlkCnt(val); return;
+    case 0x04004408: AES->WriteInputFIFO(val); return;
 
     case 0x4004700:
         Log(LogLevel::Debug, "32-Bit SNDExCnt write? %08X %08X\n", val, NDS::ARM7->R[15]);
@@ -3159,13 +3161,13 @@ void ARM7IOWrite32(u32 addr, u32 val)
     if (addr >= 0x04004420 && addr < 0x04004430)
     {
         addr -= 0x04004420;
-        DSi_AES::WriteIV(addr, val, 0xFFFFFFFF);
+        AES->WriteIV(addr, val, 0xFFFFFFFF);
         return;
     }
     if (addr >= 0x04004430 && addr < 0x04004440)
     {
         addr -= 0x04004430;
-        DSi_AES::WriteMAC(addr, val, 0xFFFFFFFF);
+        AES->WriteMAC(addr, val, 0xFFFFFFFF);
         return;
     }
     if (addr >= 0x04004440 && addr < 0x04004500)
@@ -3176,9 +3178,9 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
         switch (addr >> 4)
         {
-        case 0: DSi_AES::WriteKeyNormal(n, addr&0xF, val, 0xFFFFFFFF); return;
-        case 1: DSi_AES::WriteKeyX(n, addr&0xF, val, 0xFFFFFFFF); return;
-        case 2: DSi_AES::WriteKeyY(n, addr&0xF, val, 0xFFFFFFFF); return;
+        case 0: AES->WriteKeyNormal(n, addr&0xF, val, 0xFFFFFFFF); return;
+        case 1: AES->WriteKeyX(n, addr&0xF, val, 0xFFFFFFFF); return;
+        case 2: AES->WriteKeyY(n, addr&0xF, val, 0xFFFFFFFF); return;
         }
     }
 

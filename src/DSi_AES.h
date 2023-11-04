@@ -21,6 +21,8 @@
 
 #include "types.h"
 #include "Savestate.h"
+#include "FIFO.h"
+#include "tiny-AES-c/aes.hpp"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wattributes"
@@ -41,35 +43,69 @@ __attribute((always_inline)) static void Bswap128(void* Dst, const void* Src)
 #endif
 #pragma GCC diagnostic pop
 
-namespace DSi_AES
+class DSi_AES
 {
+public:
+    DSi_AES();
+    ~DSi_AES();
+    void Reset();
+    void DoSavestate(Savestate* file);
 
-extern u32 Cnt;
+    u32 ReadCnt();
+    void WriteCnt(u32 val);
+    void WriteBlkCnt(u32 val);
 
-bool Init();
-void DeInit();
-void Reset();
+    u32 ReadOutputFIFO();
+    void WriteInputFIFO(u32 val);
+    void CheckInputDMA();
+    void CheckOutputDMA();
+    void Update();
 
-void DoSavestate(Savestate* file);
+    void WriteIV(u32 offset, u32 val, u32 mask);
+    void WriteMAC(u32 offset, u32 val, u32 mask);
+    void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask);
+    void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask);
+    void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask);
 
-u32 ReadCnt();
-void WriteCnt(u32 val);
-void WriteBlkCnt(u32 val);
+    static void ROL16(u8* val, u32 n);
+    static void DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey);
 
-u32 ReadOutputFIFO();
-void WriteInputFIFO(u32 val);
-void CheckInputDMA();
-void CheckOutputDMA();
-void Update();
+private:
+    u32 Cnt;
 
-void WriteIV(u32 offset, u32 val, u32 mask);
-void WriteMAC(u32 offset, u32 val, u32 mask);
-void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask);
-void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask);
-void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask);
+    u32 BlkCnt;
+    u32 RemExtra;
+    u32 RemBlocks;
 
-void DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey);
+    bool OutputFlush;
 
-}
+    u32 InputDMASize, OutputDMASize;
+    u32 AESMode;
+
+    FIFO<u32, 16> InputFIFO;
+    FIFO<u32, 16> OutputFIFO;
+
+    u8 IV[16];
+
+    u8 MAC[16];
+
+    u8 KeyNormal[4][16];
+    u8 KeyX[4][16];
+    u8 KeyY[4][16];
+
+    u8 CurKey[16];
+    u8 CurMAC[16];
+
+    // output MAC for CCM encrypt
+    u8 OutputMAC[16];
+    bool OutputMACDue;
+
+    AES_ctx Ctx;
+
+    void ProcessBlock_CCM_Extra();
+    void ProcessBlock_CCM_Decrypt();
+    void ProcessBlock_CCM_Encrypt();
+    void ProcessBlock_CTR();
+};
 
 #endif // DSI_AES_H

@@ -347,8 +347,8 @@ void DSi_NDMA::Run7()
             Running = 0;
             NDS::ResumeCPU(1, 1<<(Num+4));
 
-            DSi_AES::CheckInputDMA();
-            DSi_AES::CheckOutputDMA();
+            DSi::AES->CheckInputDMA();
+            DSi::AES->CheckOutputDMA();
         }
 
         return;
@@ -372,6 +372,6 @@ void DSi_NDMA::Run7()
     InProgress = false;
     NDS::ResumeCPU(1, 1<<(Num+4));
 
-    DSi_AES::CheckInputDMA();
-    DSi_AES::CheckOutputDMA();
+    DSi::AES->CheckInputDMA();
+    DSi::AES->CheckOutputDMA();
 }
