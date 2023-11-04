@@ -1320,7 +1320,7 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
         switch (addr & 0xFF800000)
         {
         case 0x04000000:
-            if (addr >= 0x04000400 && addr < 0x04000520)
+            /*if (addr >= 0x04000400 && addr < 0x04000520)
             {
                 switch (size | store)
                 {
@@ -1331,7 +1331,7 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
                 case 32: return (void*)SPU::Read32;
                 case 33: return (void*)SPU::Write32;
                 }
-            }
+            }*/
 
             if (NDS::ConsoleType == 0)
             {

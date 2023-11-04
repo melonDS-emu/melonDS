@@ -22,6 +22,7 @@
 
 #include "FrontendUtil.h"
 #include "Config.h"
+#include "NDS.h"
 #include "SPU.h"
 #include "Platform.h"
 #include "Input.h"
@@ -54,7 +55,7 @@ void AudioCallback(void* data, Uint8* stream, int len)
     int num_in;
 
     SDL_LockMutex(audioSyncLock);
-    num_in = SPU::ReadOutput(buf_in, len_in);
+    num_in = NDS::SPU->ReadOutput(buf_in, len_in);
     SDL_CondSignal(audioSync);
     SDL_UnlockMutex(audioSyncLock);
 
@@ -352,7 +353,7 @@ void AudioSync()
     if (audioDevice)
     {
         SDL_LockMutex(audioSyncLock);
-        while (SPU::GetOutputSize() > 1024)
+        while (NDS::SPU->GetOutputSize() > 1024)
         {
             int ret = SDL_CondWaitTimeout(audioSync, audioSyncLock, 500);
             if (ret == SDL_MUTEX_TIMEDOUT) break;
@@ -365,7 +366,7 @@ void UpdateSettings()
 {
     MicClose();
 
-    SPU::SetInterpolation(Config::AudioInterp);
+    NDS::SPU->SetInterpolation(Config::AudioInterp);
     SetupMicInputData();
 
     MicOpen();

@@ -342,7 +342,7 @@ void EmuThread::run()
     GPU::InitRenderer(videoRenderer);
     GPU::SetRenderSettings(videoRenderer, videoSettings);
 
-    SPU::SetInterpolation(Config::AudioInterp);
+    NDS::SPU->SetInterpolation(Config::AudioInterp);
 
     Input::Init();
 
@@ -2942,12 +2942,12 @@ void MainWindow::onPathSettingsFinished(int res)
 
 void MainWindow::onUpdateAudioSettings()
 {
-    SPU::SetInterpolation(Config::AudioInterp);
+    NDS::SPU->SetInterpolation(Config::AudioInterp);
 
     if (Config::AudioBitDepth == 0)
-        SPU::SetDegrade10Bit(NDS::ConsoleType == 0);
+        NDS::SPU->SetDegrade10Bit(NDS::ConsoleType == 0);
     else
-        SPU::SetDegrade10Bit(Config::AudioBitDepth == 1);
+        NDS::SPU->SetDegrade10Bit(Config::AudioBitDepth == 1);
 }
 
 void MainWindow::onAudioSettingsFinished(int res)

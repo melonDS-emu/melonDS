@@ -30,6 +30,7 @@
 // with this enabled, to make sure it doesn't desync
 //#define DEBUG_CHECK_DESYNC
 
+class SPU;
 class SPIHost;
 class RTC;
 
@@ -249,7 +250,8 @@ extern MemRegion SWRAM_ARM7;
 extern u32 KeyInput;
 extern u16 RCnt;
 
-extern SPIHost* SPI;
+extern class SPU* SPU;
+extern class SPIHost* SPI;
 extern class RTC* RTC;
 
 const u32 ARM7WRAMSize = 0x10000;

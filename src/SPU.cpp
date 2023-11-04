@@ -32,12 +32,10 @@ using Platform::LogLevel;
 // * capture addition modes, overflow bugs
 // * channel hold
 
-namespace SPU
-{
 
-const s8 ADPCMIndexTable[8] = {-1, -1, -1, -1, 2, 4, 6, 8};
+const s8 SPUChannel::ADPCMIndexTable[8] = {-1, -1, -1, -1, 2, 4, 6, 8};
 
-const u16 ADPCMTable[89] =
+const u16 SPUChannel::ADPCMTable[89] =
 {
     0x0007, 0x0008, 0x0009, 0x000A, 0x000B, 0x000C, 0x000D, 0x000E,
     0x0010, 0x0011, 0x0013, 0x0015, 0x0017, 0x0019, 0x001C, 0x001F,
@@ -53,7 +51,7 @@ const u16 ADPCMTable[89] =
     0x7FFF
 };
 
-const s16 PSGTable[8][8] =
+const s16 SPUChannel::PSGTable[8][8] =
 {
     {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF},
     {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF},
@@ -65,76 +63,63 @@ const s16 PSGTable[8][8] =
     {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF}
 };
 
-// audio interpolation is an improvement upon the original hardware
-// (which performs no interpolation)
-int InterpType;
-s16 InterpCos[0x100];
-s16 InterpCubic[0x100][4];
-
-const u32 OutputBufferSize = 2*2048;
-s16 OutputBackbuffer[2 * OutputBufferSize];
-u32 OutputBackbufferWritePosition;
-
-s16 OutputFrontBuffer[2 * OutputBufferSize];
-u32 OutputFrontBufferWritePosition;
-u32 OutputFrontBufferReadPosition;
-
-Platform::Mutex* AudioLock;
-
-u16 Cnt;
-u8 MasterVolume;
-u16 Bias;
-bool ApplyBias;
-bool Degrade10Bit;
-
-Channel* Channels[16];
-CaptureUnit* Capture[2];
+s16 SPUChannel::InterpCos[0x100];
+s16 SPUChannel::InterpCubic[0x100][4];
+bool SPUChannel::InterpInited = false;
 
 
-bool Init()
+SPU::SPU()
 {
-    NDS::RegisterEventFunc(NDS::Event_SPU, 0, Mix);
+    NDS::RegisterEventFunc(NDS::Event_SPU, 0, MemberEventFunc(SPU, Mix));
 
     for (int i = 0; i < 16; i++)
-        Channels[i] = new Channel(i);
+        Channels[i] = new SPUChannel(i);
 
-    Capture[0] = new CaptureUnit(0);
-    Capture[1] = new CaptureUnit(1);
+    Capture[0] = new SPUCaptureUnit(0);
+    Capture[1] = new SPUCaptureUnit(1);
 
     AudioLock = Platform::Mutex_Create();
 
-    InterpType = 0;
     ApplyBias = true;
     Degrade10Bit = false;
 
-    // generate interpolation tables
-    // values are 1:1:14 fixed-point
+    memset(OutputFrontBuffer, 0, 2*OutputBufferSize*2);
 
-    float m_pi = std::acos(-1.0f);
-    for (int i = 0; i < 0x100; i++)
+    OutputBackbufferWritePosition = 0;
+    OutputFrontBufferReadPosition = 0;
+    OutputFrontBufferWritePosition = 0;
+
+    if (!SPUChannel::InterpInited)
     {
-        float ratio = (i * m_pi) / 255.0f;
-        ratio = 1.0f - std::cos(ratio);
+        // generate interpolation tables
+        // values are 1:1:14 fixed-point
 
-        InterpCos[i] = (s16)(ratio * 0x2000);
+        float m_pi = std::acos(-1.0f);
+        for (int i = 0; i < 0x100; i++)
+        {
+            float ratio = (i * m_pi) / 255.0f;
+            ratio = 1.0f - std::cos(ratio);
+
+            SPUChannel::InterpCos[i] = (s16)(ratio * 0x2000);
+        }
+
+        for (int i = 0; i < 0x100; i++)
+        {
+            s32 i1 = i << 6;
+            s32 i2 = (i * i) >> 2;
+            s32 i3 = (i * i * i) >> 10;
+
+            SPUChannel::InterpCubic[i][0] = -i3 + 2*i2 - i1;
+            SPUChannel::InterpCubic[i][1] = i3 - 2*i2 + 0x4000;
+            SPUChannel::InterpCubic[i][2] = -i3 + i2 + i1;
+            SPUChannel::InterpCubic[i][3] = i3 - i2;
+        }
+
+        SPUChannel::InterpInited = true;
     }
-
-    for (int i = 0; i < 0x100; i++)
-    {
-        s32 i1 = i << 6;
-        s32 i2 = (i * i) >> 2;
-        s32 i3 = (i * i * i) >> 10;
-
-        InterpCubic[i][0] = -i3 + 2*i2 - i1;
-        InterpCubic[i][1] = i3 - 2*i2 + 0x4000;
-        InterpCubic[i][2] = -i3 + i2 + i1;
-        InterpCubic[i][3] = i3 - i2;
-    }
-
-    return true;
 }
 
-void DeInit()
+SPU::~SPU()
 {
     for (int i = 0; i < 16; i++)
     {
@@ -153,7 +138,7 @@ void DeInit()
     NDS::UnregisterEventFunc(NDS::Event_SPU, 0);
 }
 
-void Reset()
+void SPU::Reset()
 {
     InitOutput();
 
@@ -170,7 +155,7 @@ void Reset()
     NDS::ScheduleEvent(NDS::Event_SPU, false, 1024, 0, 0);
 }
 
-void Stop()
+void SPU::Stop()
 {
     Platform::Mutex_Lock(AudioLock);
     memset(OutputFrontBuffer, 0, 2*OutputBufferSize*2);
@@ -181,7 +166,7 @@ void Stop()
     Platform::Mutex_Unlock(AudioLock);
 }
 
-void DoSavestate(Savestate* file)
+void SPU::DoSavestate(Savestate* file)
 {
     file->Section("SPU.");
 
@@ -197,43 +182,46 @@ void DoSavestate(Savestate* file)
 }
 
 
-void SetPowerCnt(u32 val)
+void SPU::SetPowerCnt(u32 val)
 {
     // TODO
 }
 
 
-void SetInterpolation(int type)
+void SPU::SetInterpolation(int type)
 {
-    InterpType = type;
+    for (int i = 0; i < 16; i++)
+        Channels[i]->InterpType = type;
 }
 
-void SetBias(u16 bias)
+void SPU::SetBias(u16 bias)
 {
     Bias = bias;
 }
 
-void SetApplyBias(bool enable)
+void SPU::SetApplyBias(bool enable)
 {
     ApplyBias = enable;
 }
 
-void SetDegrade10Bit(bool enable)
+void SPU::SetDegrade10Bit(bool enable)
 {
     Degrade10Bit = enable;
 }
 
 
-Channel::Channel(u32 num)
+SPUChannel::SPUChannel(u32 num)
 {
     Num = num;
+
+    InterpType = 0;
 }
 
-Channel::~Channel()
+SPUChannel::~SPUChannel()
 {
 }
 
-void Channel::Reset()
+void SPUChannel::Reset()
 {
     if (NDS::ConsoleType == 1)
         BusRead32 = DSi::ARM7Read32;
@@ -257,7 +245,7 @@ void Channel::Reset()
     FIFOLevel = 0;
 }
 
-void Channel::DoSavestate(Savestate* file)
+void SPUChannel::DoSavestate(Savestate* file)
 {
     file->Var32(&Cnt);
     file->Var32(&SrcAddr);
@@ -289,7 +277,7 @@ void Channel::DoSavestate(Savestate* file)
     file->VarArray(FIFO, sizeof(FIFO));
 }
 
-void Channel::FIFO_BufferData()
+void SPUChannel::FIFO_BufferData()
 {
     u32 totallen = LoopPos + Length;
 
@@ -330,7 +318,7 @@ void Channel::FIFO_BufferData()
 }
 
 template<typename T>
-T Channel::FIFO_ReadData()
+T SPUChannel::FIFO_ReadData()
 {
     T ret = *(T*)&((u8*)FIFO)[FIFOReadPos];
 
@@ -344,7 +332,7 @@ T Channel::FIFO_ReadData()
     return ret;
 }
 
-void Channel::Start()
+void SPUChannel::Start()
 {
     Timer = TimerReload;
 
@@ -372,7 +360,7 @@ void Channel::Start()
     }
 }
 
-void Channel::NextSample_PCM8()
+void SPUChannel::NextSample_PCM8()
 {
     Pos++;
     if (Pos < 0) return;
@@ -395,7 +383,7 @@ void Channel::NextSample_PCM8()
     CurSample = val << 8;
 }
 
-void Channel::NextSample_PCM16()
+void SPUChannel::NextSample_PCM16()
 {
     Pos++;
     if (Pos < 0) return;
@@ -418,7 +406,7 @@ void Channel::NextSample_PCM16()
     CurSample = val;
 }
 
-void Channel::NextSample_ADPCM()
+void SPUChannel::NextSample_ADPCM()
 {
     Pos++;
     if (Pos < 8)
@@ -493,13 +481,13 @@ void Channel::NextSample_ADPCM()
     CurSample = ADPCMVal;
 }
 
-void Channel::NextSample_PSG()
+void SPUChannel::NextSample_PSG()
 {
     Pos++;
     CurSample = PSGTable[(Cnt >> 24) & 0x7][Pos & 0x7];
 }
 
-void Channel::NextSample_Noise()
+void SPUChannel::NextSample_Noise()
 {
     if (NoiseVal & 0x1)
     {
@@ -514,7 +502,7 @@ void Channel::NextSample_Noise()
 }
 
 template<u32 type>
-s32 Channel::Run()
+s32 SPUChannel::Run()
 {
     if (!(Cnt & (1<<31))) return 0;
 
@@ -586,23 +574,23 @@ s32 Channel::Run()
     return val;
 }
 
-void Channel::PanOutput(s32 in, s32& left, s32& right)
+void SPUChannel::PanOutput(s32 in, s32& left, s32& right)
 {
     left += ((s64)in * (128-Pan)) >> 10;
     right += ((s64)in * Pan) >> 10;
 }
 
 
-CaptureUnit::CaptureUnit(u32 num)
+SPUCaptureUnit::SPUCaptureUnit(u32 num)
 {
     Num = num;
 }
 
-CaptureUnit::~CaptureUnit()
+SPUCaptureUnit::~SPUCaptureUnit()
 {
 }
 
-void CaptureUnit::Reset()
+void SPUCaptureUnit::Reset()
 {
     if (NDS::ConsoleType == 1)
         BusWrite32 = DSi::ARM7Write32;
@@ -623,7 +611,7 @@ void CaptureUnit::Reset()
     FIFOLevel = 0;
 }
 
-void CaptureUnit::DoSavestate(Savestate* file)
+void SPUCaptureUnit::DoSavestate(Savestate* file)
 {
     file->Var8(&Cnt);
     file->Var32(&DstAddr);
@@ -640,7 +628,7 @@ void CaptureUnit::DoSavestate(Savestate* file)
     file->VarArray(FIFO, 4*4);
 }
 
-void CaptureUnit::FIFO_FlushData()
+void SPUCaptureUnit::FIFO_FlushData()
 {
     for (u32 i = 0; i < 4; i++)
     {
@@ -660,7 +648,7 @@ void CaptureUnit::FIFO_FlushData()
 }
 
 template<typename T>
-void CaptureUnit::FIFO_WriteData(T val)
+void SPUCaptureUnit::FIFO_WriteData(T val)
 {
     *(T*)&((u8*)FIFO)[FIFOWritePos] = val;
 
@@ -672,7 +660,7 @@ void CaptureUnit::FIFO_WriteData(T val)
         FIFO_FlushData();
 }
 
-void CaptureUnit::Run(s32 sample)
+void SPUCaptureUnit::Run(s32 sample)
 {
     Timer += 512;
 
@@ -725,7 +713,7 @@ void CaptureUnit::Run(s32 sample)
 }
 
 
-void Mix(u32 dummy)
+void SPU::Mix(u32 dummy)
 {
     s32 left = 0, right = 0;
     s32 leftoutput = 0, rightoutput = 0;
@@ -746,7 +734,7 @@ void Mix(u32 dummy)
 
         for (int i = 4; i < 16; i++)
         {
-            Channel* chan = Channels[i];
+            SPUChannel* chan = Channels[i];
 
             s32 channel = chan->DoRun();
             chan->PanOutput(channel, left, right);
@@ -871,7 +859,7 @@ void Mix(u32 dummy)
     NDS::ScheduleEvent(NDS::Event_SPU, true, 1024, 0, 0);
 }
 
-void TransferOutput()
+void SPU::TransferOutput()
 {
     Platform::Mutex_Lock(AudioLock);
     for (u32 i = 0; i < OutputBackbufferWritePosition; i += 2)
@@ -889,10 +877,10 @@ void TransferOutput()
         }
     }
     OutputBackbufferWritePosition = 0;
-    Platform::Mutex_Unlock(AudioLock);
+    Platform::Mutex_Unlock(AudioLock);;
 }
 
-void TrimOutput()
+void SPU::TrimOutput()
 {
     Platform::Mutex_Lock(AudioLock);
     const int halflimit = (OutputBufferSize / 2);
@@ -904,7 +892,7 @@ void TrimOutput()
     Platform::Mutex_Unlock(AudioLock);
 }
 
-void DrainOutput()
+void SPU::DrainOutput()
 {
     Platform::Mutex_Lock(AudioLock);
     OutputFrontBufferWritePosition = 0;
@@ -912,7 +900,7 @@ void DrainOutput()
     Platform::Mutex_Unlock(AudioLock);
 }
 
-void InitOutput()
+void SPU::InitOutput()
 {
     Platform::Mutex_Lock(AudioLock);
     memset(OutputBackbuffer, 0, 2*OutputBufferSize*2);
@@ -922,7 +910,7 @@ void InitOutput()
     Platform::Mutex_Unlock(AudioLock);
 }
 
-int GetOutputSize()
+int SPU::GetOutputSize()
 {
     Platform::Mutex_Lock(AudioLock);
 
@@ -938,7 +926,7 @@ int GetOutputSize()
     return ret;
 }
 
-void Sync(bool wait)
+void SPU::Sync(bool wait)
 {
     // this function is currently not used anywhere
     // depending on the usage context the thread safety measures could be made
@@ -968,7 +956,7 @@ void Sync(bool wait)
     }
 }
 
-int ReadOutput(s16* data, int samples)
+int SPU::ReadOutput(s16* data, int samples)
 {
     Platform::Mutex_Lock(AudioLock);
     if (OutputFrontBufferReadPosition == OutputFrontBufferWritePosition)
@@ -997,11 +985,11 @@ int ReadOutput(s16* data, int samples)
 }
 
 
-u8 Read8(u32 addr)
+u8 SPU::Read8(u32 addr)
 {
     if (addr < 0x04000500)
     {
-        Channel* chan = Channels[(addr >> 4) & 0xF];
+        SPUChannel* chan = Channels[(addr >> 4) & 0xF];
 
         switch (addr & 0xF)
         {
@@ -1027,11 +1015,11 @@ u8 Read8(u32 addr)
     return 0;
 }
 
-u16 Read16(u32 addr)
+u16 SPU::Read16(u32 addr)
 {
     if (addr < 0x04000500)
     {
-        Channel* chan = Channels[(addr >> 4) & 0xF];
+        SPUChannel* chan = Channels[(addr >> 4) & 0xF];
 
         switch (addr & 0xF)
         {
@@ -1054,11 +1042,11 @@ u16 Read16(u32 addr)
     return 0;
 }
 
-u32 Read32(u32 addr)
+u32 SPU::Read32(u32 addr)
 {
     if (addr < 0x04000500)
     {
-        Channel* chan = Channels[(addr >> 4) & 0xF];
+        SPUChannel* chan = Channels[(addr >> 4) & 0xF];
 
         switch (addr & 0xF)
         {
@@ -1083,11 +1071,11 @@ u32 Read32(u32 addr)
     return 0;
 }
 
-void Write8(u32 addr, u8 val)
+void SPU::Write8(u32 addr, u8 val)
 {
     if (addr < 0x04000500)
     {
-        Channel* chan = Channels[(addr >> 4) & 0xF];
+        SPUChannel* chan = Channels[(addr >> 4) & 0xF];
 
         switch (addr & 0xF)
         {
@@ -1124,11 +1112,11 @@ void Write8(u32 addr, u8 val)
     Log(LogLevel::Warn, "unknown SPU write8 %08X %02X\n", addr, val);
 }
 
-void Write16(u32 addr, u16 val)
+void SPU::Write16(u32 addr, u16 val)
 {
     if (addr < 0x04000500)
     {
-        Channel* chan = Channels[(addr >> 4) & 0xF];
+        SPUChannel* chan = Channels[(addr >> 4) & 0xF];
 
         switch (addr & 0xF)
         {
@@ -1173,11 +1161,11 @@ void Write16(u32 addr, u16 val)
     Log(LogLevel::Warn, "unknown SPU write16 %08X %04X\n", addr, val);
 }
 
-void Write32(u32 addr, u32 val)
+void SPU::Write32(u32 addr, u32 val)
 {
     if (addr < 0x04000500)
     {
-        Channel* chan = Channels[(addr >> 4) & 0xF];
+        SPUChannel* chan = Channels[(addr >> 4) & 0xF];
 
         switch (addr & 0xF)
         {
@@ -1219,6 +1207,4 @@ void Write32(u32 addr, u32 val)
         case 0x0400051C: Capture[1]->SetLength(val & 0xFFFF); return;
         }
     }
-}
-
 }

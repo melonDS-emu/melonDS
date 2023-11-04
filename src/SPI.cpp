@@ -533,7 +533,11 @@ SPIHost::SPIHost()
 
     Devices[SPIDevice_FirmwareMem] = new FirmwareMem(this);
     Devices[SPIDevice_PowerMan] = new PowerMan(this);
-    Devices[SPIDevice_TSC] = nullptr;
+
+    if (NDS::ConsoleType == 1)
+        Devices[SPIDevice_TSC] = new DSi_TSC(this);
+    else
+        Devices[SPIDevice_TSC] = new TSC(this);
 }
 
 SPIHost::~SPIHost()
@@ -552,14 +556,6 @@ SPIHost::~SPIHost()
 void SPIHost::Reset()
 {
     Cnt = 0;
-
-    if (Devices[SPIDevice_TSC])
-        delete Devices[SPIDevice_TSC];
-
-    if (NDS::ConsoleType == 1)
-        Devices[SPIDevice_TSC] = new DSi_TSC(this);
-    else
-        Devices[SPIDevice_TSC] = new TSC(this);
 
     for (int i = 0; i < SPIDevice_MAX; i++)
     {
