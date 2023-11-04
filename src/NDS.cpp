@@ -1365,8 +1365,8 @@ void CamInputFrame(int cam, u32* data, int width, int height, bool rgb)
     {
         switch (cam)
         {
-        case 0: return DSi_CamModule::Camera0->InputFrame(data, width, height, rgb);
-        case 1: return DSi_CamModule::Camera1->InputFrame(data, width, height, rgb);
+        case 0: return DSi::CamModule->GetOuterCamera()->InputFrame(data, width, height, rgb);
+        case 1: return DSi::CamModule->GetInnerCamera()->InputFrame(data, width, height, rgb);
         }
     }
 }

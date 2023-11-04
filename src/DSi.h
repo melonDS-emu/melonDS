@@ -22,6 +22,8 @@
 #include "NDS.h"
 #include "DSi_SD.h"
 
+class DSi_I2CHost;
+class DSi_CamModule;
 class DSi_AES;
 
 namespace DSi_NAND
@@ -58,6 +60,8 @@ extern u32 NWRAMStart[2][3];
 extern u32 NWRAMEnd[2][3];
 extern u32 NWRAMMask[2][3];
 
+extern DSi_I2CHost* I2C;
+extern DSi_CamModule* CamModule;
 extern DSi_AES* AES;
 
 bool Init();

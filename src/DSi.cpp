@@ -79,6 +79,8 @@ std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
 DSi_SDHost* SDMMC;
 DSi_SDHost* SDIO;
 
+DSi_I2CHost* I2C;
+DSi_CamModule* CamModule;
 DSi_AES* AES;
 
 // FIXME: these currently have no effect (and aren't stored in a savestate)
@@ -102,8 +104,6 @@ bool Init()
     NWRAM_C = new u8[NWRAMSize];
 #endif
 
-    if (!DSi_I2C::Init()) return false;
-    if (!DSi_CamModule::Init()) return false;
     if (!DSi_DSP::Init()) return false;
 
     NDMAs[0] = new DSi_NDMA(0, 0);
@@ -118,6 +118,8 @@ bool Init()
     SDMMC = new DSi_SDHost(0);
     SDIO = new DSi_SDHost(1);
 
+    I2C = new DSi_I2CHost();
+    CamModule = new DSi_CamModule();
     AES = new DSi_AES();
 
     return true;
@@ -135,8 +137,6 @@ void DeInit()
     NWRAM_C = nullptr;
 #endif
 
-    DSi_I2C::DeInit();
-    DSi_CamModule::DeInit();
     DSi_DSP::DeInit();
 
     for (int i = 0; i < 8; i++)
@@ -148,6 +148,8 @@ void DeInit()
     delete SDMMC; SDMMC = nullptr;
     delete SDIO; SDIO = nullptr;
 
+    delete I2C; I2C = nullptr;
+    delete CamModule; CamModule = nullptr;
     delete AES; AES = nullptr;
 
     NANDImage = nullptr;
@@ -166,8 +168,8 @@ void Reset()
     NDMACnt[0] = 0; NDMACnt[1] = 0;
     for (int i = 0; i < 8; i++) NDMAs[i]->Reset();
 
-    DSi_I2C::Reset();
-    DSi_CamModule::Reset();
+    I2C->Reset();
+    CamModule->Reset();
     DSi_DSP::Reset();
 
     SDMMC->CloseHandles();
@@ -210,7 +212,7 @@ void Reset()
 
 void Stop()
 {
-    DSi_CamModule::Stop();
+    CamModule->Stop();
 }
 
 void DoSavestate(Savestate* file)
@@ -285,9 +287,9 @@ void DoSavestate(Savestate* file)
         NDMAs[i]->DoSavestate(file);
 
     AES->DoSavestate(file);
-    DSi_CamModule::DoSavestate(file);
+    CamModule->DoSavestate(file);
     DSi_DSP::DoSavestate(file);
-    DSi_I2C::DoSavestate(file);
+    I2C->DoSavestate(file);
     SDMMC->DoSavestate(file);
     SDIO->DoSavestate(file);
 }
@@ -581,7 +583,7 @@ void SetupDirectBoot()
         ARM9Write32(0x02FFFC00, cartid);
         ARM9Write16(0x02FFFC40, 0x0001); // boot indicator
 
-        ARM9Write8(0x02FFFDFA, DSi_BPTWL::GetBootFlag() | 0x80);
+        ARM9Write8(0x02FFFDFA, I2C->GetBPTWL()->GetBootFlag() | 0x80);
         ARM9Write8(0x02FFFDFB, 0x01);
     }
 
@@ -2302,7 +2304,7 @@ u8 ARM9IORead8(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return DSi_CamModule::Read8(addr);
+        return CamModule->Read8(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
@@ -2337,7 +2339,7 @@ u16 ARM9IORead16(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return DSi_CamModule::Read16(addr);
+        return CamModule->Read16(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
@@ -2402,7 +2404,7 @@ u32 ARM9IORead32(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return DSi_CamModule::Read32(addr);
+        return CamModule->Read32(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
@@ -2472,7 +2474,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return DSi_CamModule::Write8(addr, val);
+        return CamModule->Write8(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
@@ -2532,7 +2534,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return DSi_CamModule::Write16(addr, val);
+        return CamModule->Write16(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
@@ -2682,7 +2684,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return DSi_CamModule::Write32(addr, val);
+        return CamModule->Write32(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
@@ -2715,8 +2717,8 @@ u8 ARM7IORead8(u32 addr)
     CASE_READ8_32BIT(0x0400405C, MBK[1][7])
     CASE_READ8_32BIT(0x04004060, MBK[1][8])
 
-    case 0x04004500: return DSi_I2C::ReadData();
-    case 0x04004501: return DSi_I2C::Cnt;
+    case 0x04004500: return I2C->ReadData();
+    case 0x04004501: return I2C->ReadCnt();
 
     case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() & 0xFF;
     case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 8) & 0xFF;
@@ -2899,8 +2901,8 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
     }
 
-    case 0x04004500: DSi_I2C::WriteData(val); return;
-    case 0x04004501: DSi_I2C::WriteCnt(val); return;
+    case 0x04004500: I2C->WriteData(val); return;
+    case 0x04004501: I2C->WriteCnt(val); return;
 
     case 0x4004700:
         DSi_DSP::WriteSNDExCnt((u16)val | (DSi_DSP::SNDExCnt & 0xFF00));

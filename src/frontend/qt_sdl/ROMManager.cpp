@@ -583,8 +583,8 @@ void SetBatteryLevels()
 {
     if (NDS::ConsoleType == 1)
     {
-        DSi_BPTWL::SetBatteryLevel(Config::DSiBatteryLevel);
-        DSi_BPTWL::SetBatteryCharging(Config::DSiBatteryCharging);
+        DSi::I2C->GetBPTWL()->SetBatteryLevel(Config::DSiBatteryLevel);
+        DSi::I2C->GetBPTWL()->SetBatteryCharging(Config::DSiBatteryCharging);
     }
     else
     {

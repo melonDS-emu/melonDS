@@ -24,6 +24,7 @@
 #include "Platform.h"
 #include "Config.h"
 #include "NDS.h"
+#include "DSi.h"
 #include "DSi_I2C.h"
 
 #include "AudioSettingsDialog.h"
@@ -126,7 +127,7 @@ void AudioSettingsDialog::onSyncVolumeLevel()
     if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
     {
         bool state = ui->slVolume->blockSignals(true);
-        ui->slVolume->setValue(DSi_BPTWL::GetVolumeLevel());
+        ui->slVolume->setValue(DSi::I2C->GetBPTWL()->GetVolumeLevel());
         ui->slVolume->blockSignals(state);
     }
 }
@@ -181,7 +182,7 @@ void AudioSettingsDialog::on_slVolume_valueChanged(int val)
 {
     if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
     {
-        DSi_BPTWL::SetVolumeLevel(val);
+        DSi::I2C->GetBPTWL()->SetVolumeLevel(val);
         return;
     }
 
@@ -196,7 +197,7 @@ void AudioSettingsDialog::on_chkSyncDSiVolume_clicked(bool checked)
     if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
     {
         ui->slVolume->setMaximum(31);
-        ui->slVolume->setValue(DSi_BPTWL::GetVolumeLevel());
+        ui->slVolume->setValue(DSi::I2C->GetBPTWL()->GetVolumeLevel());
         ui->slVolume->setPageStep(4);
         ui->slVolume->setTickPosition(QSlider::TicksBelow);
     }

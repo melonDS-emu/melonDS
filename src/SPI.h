@@ -46,9 +46,7 @@ class SPIDevice
 public:
     SPIDevice(SPIHost* host) : Host(host), Hold(false), DataPos(0) {}
     virtual ~SPIDevice() {}
-
     virtual void Reset() = 0;
-
     virtual void DoSavestate(Savestate* file) = 0;
 
     virtual u8 Read() { return Data; }
@@ -68,9 +66,7 @@ class FirmwareMem : public SPIDevice
 public:
     FirmwareMem(SPIHost* host);
     ~FirmwareMem() override;
-
     void Reset() override;
-
     void DoSavestate(Savestate* file) override;
 
     void SetupDirectBoot(bool dsi);
@@ -100,9 +96,7 @@ class PowerMan : public SPIDevice
 public:
     PowerMan(SPIHost* host);
     ~PowerMan() override;
-
     void Reset() override;
-
     void DoSavestate(Savestate* file) override;
 
     bool GetBatteryLevelOkay();
@@ -122,9 +116,7 @@ class TSC : public SPIDevice
 public:
     TSC(SPIHost* host);
     virtual ~TSC() override;
-
     virtual void Reset() override;
-
     virtual void DoSavestate(Savestate* file) override;
 
     virtual void SetTouchCoords(u16 x, u16 y);
@@ -149,9 +141,7 @@ class SPIHost
 public:
     SPIHost();
     ~SPIHost();
-
     void Reset();
-
     void DoSavestate(Savestate* file);
 
     FirmwareMem* GetFirmwareMem() { return (FirmwareMem*)Devices[SPIDevice_FirmwareMem]; }

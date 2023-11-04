@@ -29,18 +29,16 @@
 using Platform::Log;
 using Platform::LogLevel;
 
-namespace DSi_BPTWL
-{
 
 // TODO: These are purely approximations
-const double PowerButtonShutdownTime = 0.5;
-const double PowerButtonForcedShutdownTime = 5.0;
-const double VolumeSwitchRepeatStart = 0.5;
-const double VolumeSwitchRepeatRate = 1.0 / 6;
+const double DSi_BPTWL::PowerButtonShutdownTime = 0.5;
+const double DSi_BPTWL::PowerButtonForcedShutdownTime = 5.0;
+const double DSi_BPTWL::VolumeSwitchRepeatStart = 0.5;
+const double DSi_BPTWL::VolumeSwitchRepeatRate = 1.0 / 6;
 
 // Could not find a pattern or a decent formula for these,
 // regardless, they're only 64 bytes in size
-const u8 VolumeDownTable[32] =
+const u8 DSi_BPTWL::VolumeDownTable[32] =
 {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x03,
     0x04, 0x05, 0x06, 0x06, 0x07, 0x08, 0x09, 0x0A,
@@ -48,7 +46,7 @@ const u8 VolumeDownTable[32] =
     0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A,
 };
 
-const u8 VolumeUpTable[32] =
+const u8 DSi_BPTWL::VolumeUpTable[32] =
 {
     0x02, 0x03, 0x06, 0x07, 0x08, 0x0A, 0x0B, 0x0C,
     0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14,
@@ -56,27 +54,16 @@ const u8 VolumeUpTable[32] =
     0x1D, 0x1E, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F,
 };
 
-double PowerButtonTime = 0.0;
-bool PowerButtonDownFlag = false;
-bool PowerButtonShutdownFlag = false;
-double VolumeSwitchTime = 0.0;
-double VolumeSwitchRepeatTime = 0.0;
-bool VolumeSwitchDownFlag = false;
-u32 VolumeSwitchKeysDown = 0;
 
-u8 Registers[0x100];
-u32 CurPos;
-
-bool Init()
-{
-    return true;
-}
-
-void DeInit()
+DSi_BPTWL::DSi_BPTWL(DSi_I2CHost* host) : DSi_I2CDevice(host)
 {
 }
 
-void Reset()
+DSi_BPTWL::~DSi_BPTWL()
+{
+}
+
+void DSi_BPTWL::Reset()
 {
     CurPos = -1;
     memset(Registers, 0x5A, 0x100);
@@ -115,10 +102,11 @@ void Reset()
     VolumeSwitchTime = 0.0;
     VolumeSwitchRepeatTime = 0.0;
     VolumeSwitchKeysDown = 0;
+    VolumeSwitchDownFlag = false;
 
 }
 
-void DoSavestate(Savestate* file)
+void DSi_BPTWL::DoSavestate(Savestate* file)
 {
     file->Section("I2BP");
 
@@ -127,21 +115,21 @@ void DoSavestate(Savestate* file)
 }
 
 // TODO: Needs more investigation on the other bits
-inline bool GetIRQMode()
+inline bool DSi_BPTWL::GetIRQMode()
 {
     return Registers[0x12] & 0x01;
 }
 
-u8 GetBootFlag() { return Registers[0x70]; }
+u8 DSi_BPTWL::GetBootFlag() { return Registers[0x70]; }
 
-bool GetBatteryCharging() { return Registers[0x20] >> 7; }
-void SetBatteryCharging(bool charging)
+bool DSi_BPTWL::GetBatteryCharging() { return Registers[0x20] >> 7; }
+void DSi_BPTWL::SetBatteryCharging(bool charging)
 {
     Registers[0x20] = (((charging ? 0x8 : 0x0) << 4) | (Registers[0x20] & 0x0F));
 }
 
-u8 GetBatteryLevel() { return Registers[0x20] & 0xF; }
-void SetBatteryLevel(u8 batteryLevel)
+u8 DSi_BPTWL::GetBatteryLevel() { return Registers[0x20] & 0xF; }
+void DSi_BPTWL::SetBatteryLevel(u8 batteryLevel)
 {
     Registers[0x20] = ((Registers[0x20] & 0xF0) | (batteryLevel & 0x0F));
     //SPI_Powerman::SetBatteryLevelOkay(batteryLevel > batteryLevel_Low ? true : false);
@@ -153,20 +141,20 @@ void SetBatteryLevel(u8 batteryLevel)
 
 }
 
-u8 GetVolumeLevel() { return Registers[0x40]; }
-void SetVolumeLevel(u8 volume)
+u8 DSi_BPTWL::GetVolumeLevel() { return Registers[0x40]; }
+void DSi_BPTWL::SetVolumeLevel(u8 volume)
 {
     Registers[0x40] = volume & 0x1F;
 }
 
-u8 GetBacklightLevel() { return Registers[0x41]; }
-void SetBacklightLevel(u8 backlight)
+u8 DSi_BPTWL::GetBacklightLevel() { return Registers[0x41]; }
+void DSi_BPTWL::SetBacklightLevel(u8 backlight)
 {
     Registers[0x41] = backlight > 4 ? 4 : backlight;
 }
 
 
-void ResetButtonState()
+void DSi_BPTWL::ResetButtonState()
 {
     PowerButtonTime = 0.0;
     PowerButtonDownFlag = false;
@@ -178,7 +166,7 @@ void ResetButtonState()
     VolumeSwitchRepeatTime = 0.0;
 }
 
-void DoHardwareReset(bool direct)
+void DSi_BPTWL::DoHardwareReset(bool direct)
 {
     ResetButtonState();
 
@@ -196,14 +184,14 @@ void DoHardwareReset(bool direct)
     NDS::ARM7->Halt(4);
 }
 
-void DoShutdown()
+void DSi_BPTWL::DoShutdown()
 {
     ResetButtonState();
     NDS::Stop(Platform::StopReason::PowerOff);
 }
 
 
-void SetPowerButtonHeld(double time)
+void DSi_BPTWL::SetPowerButtonHeld(double time)
 {
     if (!PowerButtonDownFlag)
     {
@@ -230,7 +218,7 @@ void SetPowerButtonHeld(double time)
     }
 }
 
-void SetPowerButtonReleased(double time)
+void DSi_BPTWL::SetPowerButtonReleased(double time)
 {
     double elapsed = time - PowerButtonTime;
     if (elapsed >= 0 && elapsed < PowerButtonShutdownTime)
@@ -243,12 +231,12 @@ void SetPowerButtonReleased(double time)
     PowerButtonShutdownFlag = false;
 }
 
-void SetVolumeSwitchHeld(u32 key)
+void DSi_BPTWL::SetVolumeSwitchHeld(u32 key)
 {
     VolumeSwitchKeysDown |= (1 << key);
 }
 
-void SetVolumeSwitchReleased(u32 key)
+void DSi_BPTWL::SetVolumeSwitchReleased(u32 key)
 {
     VolumeSwitchKeysDown &= ~(1 << key);
     VolumeSwitchDownFlag = false;
@@ -256,7 +244,7 @@ void SetVolumeSwitchReleased(u32 key)
     VolumeSwitchRepeatTime = 0.0;
 }
 
-inline bool CheckVolumeSwitchKeysValid()
+inline bool DSi_BPTWL::CheckVolumeSwitchKeysValid()
 {
     bool up = VolumeSwitchKeysDown & (1 << volumeKey_Up);
     bool down = VolumeSwitchKeysDown & (1 << volumeKey_Down);
@@ -264,7 +252,7 @@ inline bool CheckVolumeSwitchKeysValid()
     return up != down;
 }
 
-s32 ProcessVolumeSwitchInput(double time)
+s32 DSi_BPTWL::ProcessVolumeSwitchInput(double time)
 {
     if (!CheckVolumeSwitchKeysValid())
         return -1;
@@ -303,7 +291,7 @@ s32 ProcessVolumeSwitchInput(double time)
 }
 
 
-void DoPowerButtonPress()
+void DSi_BPTWL::DoPowerButtonPress()
 {
     // Set button pressed IRQ
     SetIRQ(IRQ_PowerButtonPressed);
@@ -311,7 +299,7 @@ void DoPowerButtonPress()
     // There is no default hardware behavior for pressing the power button
 }
 
-void DoPowerButtonReset()
+void DSi_BPTWL::DoPowerButtonReset()
 {
     // Reset via IRQ, handled by software
     SetIRQ(IRQ_PowerButtonReset);
@@ -324,7 +312,7 @@ void DoPowerButtonReset()
     }
 }
 
-void DoPowerButtonShutdown()
+void DSi_BPTWL::DoPowerButtonShutdown()
 {
     // Shutdown via IRQ, handled by software
     if (!PowerButtonShutdownFlag)
@@ -346,12 +334,12 @@ void DoPowerButtonShutdown()
     // down the power button, the DSi will still shut down
 }
 
-void DoPowerButtonForceShutdown()
+void DSi_BPTWL::DoPowerButtonForceShutdown()
 {
     DoShutdown();
 }
 
-void DoVolumeSwitchPress(u32 key)
+void DSi_BPTWL::DoVolumeSwitchPress(u32 key)
 {
     u8 volume = Registers[0x40];
 
@@ -373,7 +361,7 @@ void DoVolumeSwitchPress(u32 key)
     SetIRQ(IRQ_VolumeSwitchPressed);
 }
 
-void SetIRQ(u8 irqFlag)
+void DSi_BPTWL::SetIRQ(u8 irqFlag)
 {
     Registers[0x10] |= irqFlag & IRQ_ValidMask;
 
@@ -383,12 +371,12 @@ void SetIRQ(u8 irqFlag)
     }
 }
 
-void Start()
+void DSi_BPTWL::Acquire()
 {
     //printf("BPTWL: start\n");
 }
 
-u8 Read(bool last)
+u8 DSi_BPTWL::Read(bool last)
 {
     //printf("BPTWL: read %02X -> %02X @ %08X\n", CurPos, Registers[CurPos], NDS::GetPC(1));
     u8 ret = Registers[CurPos];
@@ -409,7 +397,7 @@ u8 Read(bool last)
     return ret;
 }
 
-void Write(u8 val, bool last)
+void DSi_BPTWL::Write(u8 val, bool last)
 {
     if (last)
     {
@@ -460,51 +448,69 @@ void Write(u8 val, bool last)
     CurPos++; // CHECKME
 }
 
+
+DSi_I2CHost::DSi_I2CHost()
+{
+    BPTWL = new DSi_BPTWL(this);
+    Camera0 = new DSi_Camera(this, 0);
+    Camera1 = new DSi_Camera(this, 1);
 }
 
-
-namespace DSi_I2C
+DSi_I2CHost::~DSi_I2CHost()
 {
-
-u8 Cnt;
-u8 Data;
-
-u32 Device;
-
-bool Init()
-{
-    if (!DSi_BPTWL::Init()) return false;
-
-    return true;
+    delete BPTWL; BPTWL = nullptr;
+    delete Camera0; Camera0 = nullptr;
+    delete Camera1; Camera1 = nullptr;
 }
 
-void DeInit()
-{
-    DSi_BPTWL::DeInit();
-}
-
-void Reset()
+void DSi_I2CHost::Reset()
 {
     Cnt = 0;
     Data = 0;
 
-    Device = -1;
+    CurDeviceID = 0;
+    CurDevice = nullptr;
 
-    DSi_BPTWL::Reset();
+    BPTWL->Reset();
+    Camera0->Reset();
+    Camera1->Reset();
 }
 
-void DoSavestate(Savestate* file)
+void DSi_I2CHost::DoSavestate(Savestate* file)
 {
     file->Section("I2Ci");
 
     file->Var8(&Cnt);
     file->Var8(&Data);
-    file->Var32(&Device);
+    file->Var8(&CurDeviceID);
 
-    DSi_BPTWL::DoSavestate(file);
+    if (!file->Saving)
+    {
+        GetCurDevice();
+    }
+
+    BPTWL->DoSavestate(file);
+    Camera0->DoSavestate(file);
+    Camera1->DoSavestate(file);
 }
 
-void WriteCnt(u8 val)
+void DSi_I2CHost::GetCurDevice()
+{
+    switch (CurDeviceID)
+    {
+    case 0x4A: CurDevice = BPTWL; break;
+    case 0x78: CurDevice = Camera0; break;
+    case 0x7A: CurDevice = Camera1; break;
+    case 0xA0:
+    case 0xE0: CurDevice = nullptr; break;
+    default:
+        Log(LogLevel::Warn, "I2C: unknown device %02X\n", CurDeviceID);
+        CurDevice = nullptr;
+        break;
+    }
+}
+
+void DSi_I2CHost::WriteCnt(u8 val)
 {
     //printf("I2C: write CNT %02X, %02X, %08X\n", val, Data, NDS::GetPC(1));
 
@@ -522,17 +528,13 @@ void WriteCnt(u8 val)
             // read
             val &= 0xF7;
 
-            switch (Device)
+            if (CurDevice)
             {
-            case 0x4A: Data = DSi_BPTWL::Read(islast); break;
-            case 0x78: Data = DSi_CamModule::Camera0->I2C_Read(islast); break;
-            case 0x7A: Data = DSi_CamModule::Camera1->I2C_Read(islast); break;
-            case 0xA0:
-            case 0xE0: Data = 0xFF; break;
-            default:
-                Log(LogLevel::Warn, "I2C: read on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, 0, islast);
+                Data = CurDevice->Read(islast);
+            }
+            else
+            {
                 Data = 0xFF;
-                break;
             }
 
             //printf("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
@@ -545,37 +547,30 @@ void WriteCnt(u8 val)
 
             if (val & (1<<1))
             {
-                Device = Data & 0xFE;
+                CurDeviceID = Data & 0xFE;
                 //printf("I2C: %s start, device=%02X\n", (Data&0x01)?"read":"write", Device);
 
-                switch (Device)
+                GetCurDevice();
+                if (CurDevice)
                 {
-                case 0x4A: DSi_BPTWL::Start(); break;
-                case 0x78: DSi_CamModule::Camera0->I2C_Start(); break;
-                case 0x7A: DSi_CamModule::Camera1->I2C_Start(); break;
-                case 0xA0:
-                case 0xE0: ack = false; break;
-                default:
-                    Log(LogLevel::Warn, "I2C: %s start on unknown device %02X\n", (Data&0x01)?"read":"write", Device);
+                    CurDevice->Acquire();
+                }
+                else
+                {
                     ack = false;
-                    break;
                 }
             }
             else
             {
                 //printf("I2C write, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
 
-                switch (Device)
+                if (CurDevice)
                 {
-                case 0x4A: DSi_BPTWL::Write(Data, islast); break;
-                case 0x78: DSi_CamModule::Camera0->I2C_Write(Data, islast); break;
-                case 0x7A: DSi_CamModule::Camera1->I2C_Write(Data, islast); break;
-                case 0xA0:
-                case 0xE0: ack = false; break;
-                default:
-                    Log(LogLevel::Warn, "I2C: write on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+                    CurDevice->Write(Data, islast);
+                }
+                else
+                {
                     ack = false;
-                    break;
                 }
             }
 
@@ -588,14 +583,12 @@ void WriteCnt(u8 val)
     Cnt = val;
 }
 
-u8 ReadData()
+u8 DSi_I2CHost::ReadData()
 {
     return Data;
 }
 
-void WriteData(u8 val)
+void DSi_I2CHost::WriteData(u8 val)
 {
     Data = val;
-}
-
 }

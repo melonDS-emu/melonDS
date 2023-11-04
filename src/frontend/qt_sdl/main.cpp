@@ -90,8 +90,9 @@
 #include "Platform.h"
 #include "LocalMP.h"
 #include "Config.h"
-#include "DSi_I2C.h"
 #include "RTC.h"
+#include "DSi.h"
+#include "DSi_I2C.h"
 
 #include "Savestate.h"
 
@@ -409,33 +410,33 @@ void EmuThread::run()
             // Handle power button
             if (Input::HotkeyDown(HK_PowerButton))
             {
-                DSi_BPTWL::SetPowerButtonHeld(currentTime);
+                DSi::I2C->GetBPTWL()->SetPowerButtonHeld(currentTime);
             }
             else if (Input::HotkeyReleased(HK_PowerButton))
             {
-                DSi_BPTWL::SetPowerButtonReleased(currentTime);
+                DSi::I2C->GetBPTWL()->SetPowerButtonReleased(currentTime);
             }
 
             // Handle volume buttons
             if (Input::HotkeyDown(HK_VolumeUp))
             {
-                DSi_BPTWL::SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Up);
+                DSi::I2C->GetBPTWL()->SetVolumeSwitchHeld(DSi::I2C->GetBPTWL()->volumeKey_Up);
             }
             else if (Input::HotkeyReleased(HK_VolumeUp))
             {
-                DSi_BPTWL::SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Up);
+                DSi::I2C->GetBPTWL()->SetVolumeSwitchReleased(DSi::I2C->GetBPTWL()->volumeKey_Up);
             }
 
             if (Input::HotkeyDown(HK_VolumeDown))
             {
-                DSi_BPTWL::SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Down);
+                DSi::I2C->GetBPTWL()->SetVolumeSwitchHeld(DSi::I2C->GetBPTWL()->volumeKey_Down);
             }
             else if (Input::HotkeyReleased(HK_VolumeDown))
             {
-                DSi_BPTWL::SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Down);
+                DSi::I2C->GetBPTWL()->SetVolumeSwitchReleased(DSi::I2C->GetBPTWL()->volumeKey_Down);
             }
 
-            DSi_BPTWL::ProcessVolumeSwitchInput(currentTime);
+            DSi::I2C->GetBPTWL()->ProcessVolumeSwitchInput(currentTime);
         }
 
         if (EmuRunning == emuStatus_Running || EmuRunning == emuStatus_FrameStep)
@@ -562,7 +563,7 @@ void EmuThread::run()
 
             if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
             {
-                u8 volumeLevel = DSi_BPTWL::GetVolumeLevel();
+                u8 volumeLevel = DSi::I2C->GetBPTWL()->GetVolumeLevel();
                 if (volumeLevel != dsiVolumeLevel)
                 {
                     dsiVolumeLevel = volumeLevel;

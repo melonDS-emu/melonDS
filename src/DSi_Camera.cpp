@@ -25,48 +25,27 @@
 using Platform::Log;
 using Platform::LogLevel;
 
-namespace DSi_CamModule
-{
-
-Camera* Camera0; // 78 / facing outside
-Camera* Camera1; // 7A / selfie cam
-
-u16 ModuleCnt;
-u16 Cnt;
-
-u32 CropStart, CropEnd;
-
-// pixel data buffer holds a maximum of 512 words, regardless of how long scanlines are
-u32 DataBuffer[512];
-u32 BufferReadPos, BufferWritePos;
-u32 BufferNumLines;
-Camera* CurCamera;
 
 // note on camera data/etc intervals
 // on hardware those are likely affected by several factors
 // namely, how long cameras take to process frames
 // camera IRQ is fired at roughly 15FPS with default config
 
-const u32 kIRQInterval = 1120000; // ~30 FPS
-const u32 kTransferStart = 60000;
+const u32 DSi_CamModule::kIRQInterval = 1120000; // ~30 FPS
+const u32 DSi_CamModule::kTransferStart = 60000;
 
 
-bool Init()
+DSi_CamModule::DSi_CamModule()
 {
-    NDS::RegisterEventFunc(NDS::Event_DSi_CamIRQ, 0, IRQ);
-    NDS::RegisterEventFunc(NDS::Event_DSi_CamTransfer, 0, TransferScanline);
+    NDS::RegisterEventFunc(NDS::Event_DSi_CamIRQ, 0, MemberEventFunc(DSi_CamModule, IRQ));
+    NDS::RegisterEventFunc(NDS::Event_DSi_CamTransfer, 0, MemberEventFunc(DSi_CamModule, TransferScanline));
 
-    Camera0 = new Camera(0);
-    Camera1 = new Camera(1);
-
-    return true;
+    Camera0 = DSi::I2C->GetOuterCamera();
+    Camera1 = DSi::I2C->GetInnerCamera();
 }
 
-void DeInit()
+DSi_CamModule::~DSi_CamModule()
 {
-    delete Camera0;
-    delete Camera1;
-
     Camera0 = nullptr;
     Camera1 = nullptr;
 
@@ -74,11 +53,8 @@ void DeInit()
     NDS::UnregisterEventFunc(NDS::Event_DSi_CamTransfer, 0);
 }
 
-void Reset()
+void DSi_CamModule::Reset()
 {
-    Camera0->Reset();
-    Camera1->Reset();
-
     ModuleCnt = 0; // CHECKME
     Cnt = 0;
 
@@ -94,13 +70,13 @@ void Reset()
     NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, false, kIRQInterval, 0, 0);
 }
 
-void Stop()
+void DSi_CamModule::Stop()
 {
     Camera0->Stop();
     Camera1->Stop();
 }
 
-void DoSavestate(Savestate* file)
+void DSi_CamModule::DoSavestate(Savestate* file)
 {
     file->Section("CAMi");
 
@@ -110,15 +86,12 @@ void DoSavestate(Savestate* file)
     /*file->VarArray(FrameBuffer, sizeof(FrameBuffer));
     file->Var32(&TransferPos);
     file->Var32(&FrameLength);*/
-
-    Camera0->DoSavestate(file);
-    Camera1->DoSavestate(file);
 }
 
 
-void IRQ(u32 param)
+void DSi_CamModule::IRQ(u32 param)
 {
-    Camera* activecam = nullptr;
+    DSi_Camera* activecam = nullptr;
 
     // TODO: cameras don't have any priority!
     // activating both together will jumble the image data together
@@ -145,7 +118,7 @@ void IRQ(u32 param)
     NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, 0, 0);
 }
 
-void TransferScanline(u32 line)
+void DSi_CamModule::TransferScanline(u32 line)
 {
     u32* dstbuf = &DataBuffer[BufferWritePos];
     int maxlen = 512 - BufferWritePos;
@@ -252,7 +225,7 @@ void TransferScanline(u32 line)
 }
 
 
-u8 Read8(u32 addr)
+u8 DSi_CamModule::Read8(u32 addr)
 {
     //
 
@@ -260,7 +233,7 @@ u8 Read8(u32 addr)
     return 0;
 }
 
-u16 Read16(u32 addr)
+u16 DSi_CamModule::Read16(u32 addr)
 {
     switch (addr)
     {
@@ -272,7 +245,7 @@ u16 Read16(u32 addr)
     return 0;
 }
 
-u32 Read32(u32 addr)
+u32 DSi_CamModule::Read32(u32 addr)
 {
     switch (addr)
     {
@@ -298,14 +271,14 @@ u32 Read32(u32 addr)
     return 0;
 }
 
-void Write8(u32 addr, u8 val)
+void DSi_CamModule::Write8(u32 addr, u8 val)
 {
     //
 
     Log(LogLevel::Debug, "unknown DSi cam write8 %08X %02X\n", addr, val);
 }
 
-void Write16(u32 addr, u16 val)
+void DSi_CamModule::Write16(u32 addr, u16 val)
 {
     switch (addr)
     {
@@ -384,7 +357,7 @@ void Write16(u32 addr, u16 val)
     Log(LogLevel::Debug, "unknown DSi cam write16 %08X %04X\n", addr, val);
 }
 
-void Write32(u32 addr, u32 val)
+void DSi_CamModule::Write32(u32 addr, u32 val)
 {
     switch (addr)
     {
@@ -403,16 +376,15 @@ void Write32(u32 addr, u32 val)
 
 
 
-Camera::Camera(u32 num)
-{
-    Num = num;
-}
-
-Camera::~Camera()
+DSi_Camera::DSi_Camera(DSi_I2CHost* host, u32 num) : DSi_I2CDevice(host), Num(num)
 {
 }
 
-void Camera::DoSavestate(Savestate* file)
+DSi_Camera::~DSi_Camera()
+{
+}
+
+void DSi_Camera::DoSavestate(Savestate* file)
 {
     char magic[5] = "CAMx";
     magic[3] = '0' + Num;
@@ -433,7 +405,7 @@ void Camera::DoSavestate(Savestate* file)
     file->VarArray(MCURegs, 0x8000);
 }
 
-void Camera::Reset()
+void DSi_Camera::Reset()
 {
     Platform::Camera_Stop(Num);
 
@@ -458,12 +430,12 @@ void Camera::Reset()
     memset(FrameBuffer, 0, (640*480/2)*sizeof(u32));
 }
 
-void Camera::Stop()
+void DSi_Camera::Stop()
 {
     Platform::Camera_Stop(Num);
 }
 
-bool Camera::IsActivated()
+bool DSi_Camera::IsActivated()
 {
     if (StandbyCnt & (1<<14)) return false; // standby
     if (!(MiscCnt & (1<<9))) return false; // data transfer not enabled
@@ -472,7 +444,7 @@ bool Camera::IsActivated()
 }
 
 
-void Camera::StartTransfer()
+void DSi_Camera::StartTransfer()
 {
     TransferY = 0;
 
@@ -502,12 +474,12 @@ void Camera::StartTransfer()
     Platform::Camera_CaptureFrame(Num, FrameBuffer, 640, 480, true);
 }
 
-bool Camera::TransferDone()
+bool DSi_Camera::TransferDone()
 {
     return TransferY >= FrameHeight;
 }
 
-int Camera::TransferScanline(u32* buffer, int maxlen)
+int DSi_Camera::TransferScanline(u32* buffer, int maxlen)
 {
     if (TransferY >= FrameHeight)
         return 0;
@@ -560,12 +532,12 @@ int Camera::TransferScanline(u32* buffer, int maxlen)
 }
 
 
-void Camera::I2C_Start()
+void DSi_Camera::Acquire()
 {
     DataPos = 0;
 }
 
-u8 Camera::I2C_Read(bool last)
+u8 DSi_Camera::Read(bool last)
 {
     u8 ret;
 
@@ -586,7 +558,7 @@ u8 Camera::I2C_Read(bool last)
     return ret;
 }
 
-void Camera::I2C_Write(u8 val, bool last)
+void DSi_Camera::Write(u8 val, bool last)
 {
     if (DataPos < 2)
     {
@@ -615,7 +587,7 @@ void Camera::I2C_Write(u8 val, bool last)
     else      DataPos++;
 }
 
-u16 Camera::I2C_ReadReg(u16 addr)
+u16 DSi_Camera::I2C_ReadReg(u16 addr)
 {
     switch (addr)
     {
@@ -651,7 +623,7 @@ u16 Camera::I2C_ReadReg(u16 addr)
     return 0;
 }
 
-void Camera::I2C_WriteReg(u16 addr, u16 val)
+void DSi_Camera::I2C_WriteReg(u16 addr, u16 val)
 {
     switch (addr)
     {
@@ -720,14 +692,14 @@ void Camera::I2C_WriteReg(u16 addr, u16 val)
 // TODO: not sure at all what is the accessible range
 // or if there is any overlap in the address range
 
-u8 Camera::MCU_Read(u16 addr)
+u8 DSi_Camera::MCU_Read(u16 addr)
 {
     addr &= 0x7FFF;
 
     return MCURegs[addr];
 }
 
-void Camera::MCU_Write(u16 addr, u8 val)
+void DSi_Camera::MCU_Write(u16 addr, u8 val)
 {
     addr &= 0x7FFF;
 
@@ -749,7 +721,7 @@ void Camera::MCU_Write(u16 addr, u8 val)
 }
 
 
-void Camera::InputFrame(u32* data, int width, int height, bool rgb)
+void DSi_Camera::InputFrame(u32* data, int width, int height, bool rgb)
 {
     // TODO: double-buffering?
 
@@ -820,19 +792,3 @@ void Camera::InputFrame(u32* data, int width, int height, bool rgb)
         }
     }
 }
-
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
