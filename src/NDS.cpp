@@ -181,6 +181,7 @@ u16 RCnt;
 class SPU* SPU;
 class SPIHost* SPI;
 class RTC* RTC;
+class Wifi* Wifi;
 
 bool Running;
 
@@ -222,11 +223,11 @@ bool Init()
     SPU = new class SPU;
     SPI = new class SPIHost();
     RTC = new class RTC();
+    Wifi = new class Wifi();
 
     if (!NDSCart::Init()) return false;
     if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
-    if (!Wifi::Init()) return false;
 
     if (!DSi::Init()) return false;
 
@@ -253,11 +254,11 @@ void DeInit()
     delete SPU; SPU = nullptr;
     delete SPI; SPI = nullptr;
     delete RTC; RTC = nullptr;
+    delete Wifi; Wifi = nullptr;
 
     NDSCart::DeInit();
     GBACart::DeInit();
     GPU::DeInit();
-    Wifi::DeInit();
 
     DSi::DeInit();
 
@@ -646,7 +647,7 @@ void Reset()
     SPU->Reset();
     SPI->Reset();
     RTC->Reset();
-    Wifi::Reset();
+    Wifi->Reset();
 
     // TODO: move the SOUNDBIAS/degrade logic to SPU?
 
@@ -848,7 +849,7 @@ bool DoSavestate(Savestate* file)
     SPU->DoSavestate(file);
     SPI->DoSavestate(file);
     RTC->DoSavestate(file);
-    Wifi::DoSavestate(file);
+    Wifi->DoSavestate(file);
 
     if (ConsoleType == 1)
         DSi::DoSavestate(file);
@@ -858,7 +859,7 @@ bool DoSavestate(Savestate* file)
         GPU::SetPowerCnt(PowerControl9);
 
         SPU->SetPowerCnt(PowerControl7 & 0x0001);
-        Wifi::SetPowerCnt(PowerControl7 & 0x0002);
+        Wifi->SetPowerCnt(PowerControl7 & 0x0002);
     }
 
 #ifdef JIT_ENABLED
@@ -2542,8 +2543,8 @@ u8 ARM7Read8(u32 addr)
         if (addr < 0x04810000)
         {
             if (!(PowerControl7 & (1<<1))) return 0;
-            if (addr & 0x1) return Wifi::Read(addr-1) >> 8;
-            return Wifi::Read(addr) & 0xFF;
+            if (addr & 0x1) return Wifi->Read(addr-1) >> 8;
+            return Wifi->Read(addr) & 0xFF;
         }
         break;
 
@@ -2609,7 +2610,7 @@ u16 ARM7Read16(u32 addr)
         if (addr < 0x04810000)
         {
             if (!(PowerControl7 & (1<<1))) return 0;
-            return Wifi::Read(addr);
+            return Wifi->Read(addr);
         }
         break;
 
@@ -2675,7 +2676,7 @@ u32 ARM7Read32(u32 addr)
         if (addr < 0x04810000)
         {
             if (!(PowerControl7 & (1<<1))) return 0;
-            return Wifi::Read(addr) | (Wifi::Read(addr+2) << 16);
+            return Wifi->Read(addr) | (Wifi->Read(addr+2) << 16);
         }
         break;
 
@@ -2818,7 +2819,7 @@ void ARM7Write16(u32 addr, u16 val)
         if (addr < 0x04810000)
         {
             if (!(PowerControl7 & (1<<1))) return;
-            Wifi::Write(addr, val);
+            Wifi->Write(addr, val);
             return;
         }
         break;
@@ -2898,8 +2899,8 @@ void ARM7Write32(u32 addr, u32 val)
         if (addr < 0x04810000)
         {
             if (!(PowerControl7 & (1<<1))) return;
-            Wifi::Write(addr, val & 0xFFFF);
-            Wifi::Write(addr+2, val >> 16);
+            Wifi->Write(addr, val & 0xFFFF);
+            Wifi->Write(addr+2, val >> 16);
             return;
         }
         break;
@@ -4332,7 +4333,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
             u16 change = PowerControl7 ^ val;
             PowerControl7 = val & 0x0003;
             SPU->SetPowerCnt(val & 0x0001);
-            Wifi::SetPowerCnt(val & 0x0002);
+            Wifi->SetPowerCnt(val & 0x0002);
             if (change & 0x0002) UpdateWifiTimings();
         }
         return;
@@ -4462,7 +4463,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
             u16 change = PowerControl7 ^ val;
             PowerControl7 = val & 0x0003;
             SPU->SetPowerCnt(val & 0x0001);
-            Wifi::SetPowerCnt(val & 0x0002);
+            Wifi->SetPowerCnt(val & 0x0002);
             if (change & 0x0002) UpdateWifiTimings();
         }
         return;

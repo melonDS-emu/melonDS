@@ -1212,7 +1212,7 @@ int ClassifyAddress7(u32 addr)
     }
 }
 
-void WifiWrite32(u32 addr, u32 val)
+/*void WifiWrite32(u32 addr, u32 val)
 {
     Wifi::Write(addr, val & 0xFFFF);
     Wifi::Write(addr + 2, val >> 16);
@@ -1221,7 +1221,7 @@ void WifiWrite32(u32 addr, u32 val)
 u32 WifiRead32(u32 addr)
 {
     return (u32)Wifi::Read(addr) | ((u32)Wifi::Read(addr + 2) << 16);
-}
+}*/
 
 template <typename T>
 void VRAMWrite(u32 addr, T val)
@@ -1358,7 +1358,8 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
                 }
             }
             break;
-        case 0x04800000:
+            // TODO: the wifi funcs also ought to check POWCNT
+        /*case 0x04800000:
             if (addr < 0x04810000 && size >= 16)
             {
                 switch (size | store)
@@ -1369,7 +1370,7 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
                 case 33: return (void*)WifiWrite32;
                 }
             }
-            break;
+            break;*/
         case 0x06000000:
         case 0x06800000:
             switch (size | store)

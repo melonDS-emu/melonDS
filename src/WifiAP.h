@@ -21,24 +21,44 @@
 
 #include "types.h"
 
-namespace WifiAP
+class Wifi;
+
+class WifiAP
 {
+public:
+    WifiAP(Wifi* wifi);
+    ~WifiAP();
+    void Reset();
 
-#define AP_MAC  0x00, 0xF0, 0x77, 0x77, 0x77, 0x77
-#define AP_NAME "melonAP"
+    static const char* APName;
+    static const u8 APMac[6];
 
-extern const u8 APMac[6];
+    void MSTimer();
 
-bool Init();
-void DeInit();
-void Reset();
+    // packet format: 12-byte TX header + original 802.11 frame
+    int SendPacket(u8* data, int len);
+    int RecvPacket(u8* data);
 
-void MSTimer();
+private:
+    class Wifi* Wifi;
 
-// packet format: 12-byte TX header + original 802.11 frame
-int SendPacket(u8* data, int len);
-int RecvPacket(u8* data);
+    u64 USCounter;
 
-}
+    u16 SeqNo;
+
+    bool BeaconDue;
+
+    u8 PacketBuffer[2048];
+    int PacketLen;
+    int RXNum;
+
+    u8 LANBuffer[2048];
+
+    // this is a lazy AP, we only keep track of one client
+    // 0=disconnected 1=authenticated 2=associated
+    int ClientStatus;
+
+    int HandleManagementFrame(u8* data, int len);
+};
 
 #endif

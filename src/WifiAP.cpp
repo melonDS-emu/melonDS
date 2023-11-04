@@ -30,10 +30,9 @@
 using Platform::Log;
 using Platform::LogLevel;
 
-namespace WifiAP
-{
 
-const u8 APMac[6] = {AP_MAC};
+const char* WifiAP::APName = "melonAP";
+const u8 WifiAP::APMac[6] = {0x00, 0xF0, 0x77, 0x77, 0x77, 0x77};
 
 #define PWRITE_8(p, v)      *p++ = v;
 #define PWRITE_16(p, v)     *(u16*)p = v; p += 2;
@@ -65,33 +64,19 @@ const u8 APMac[6] = {AP_MAC};
 #define PALIGN_4(p, base)  while (PLEN(p,base) & 0x3) *p++ = 0xFF;
 
 
-u64 USCounter;
-
-u16 SeqNo;
-
-bool BeaconDue;
-
-u8 PacketBuffer[2048];
-int PacketLen;
-int RXNum;
-
-u8 LANBuffer[2048];
-
-// this is a lazy AP, we only keep track of one client
-// 0=disconnected 1=authenticated 2=associated
-int ClientStatus;
+bool MACEqual(u8* a, const u8* b);
+bool MACIsBroadcast(u8* a);
 
 
-bool Init()
-{
-    return true;
-}
-
-void DeInit()
+WifiAP::WifiAP(class Wifi* wifi) : Wifi(wifi)
 {
 }
 
-void Reset()
+WifiAP::~WifiAP()
+{
+}
+
+void WifiAP::Reset()
 {
     // random starting point for the counter
     USCounter = 0x428888000ULL;
@@ -107,18 +92,7 @@ void Reset()
 }
 
 
-bool MACEqual(u8* a, u8* b)
-{
-    return (*(u32*)&a[0] == *(u32*)&b[0]) && (*(u16*)&a[4] == *(u16*)&b[4]);
-}
-
-bool MACIsBroadcast(u8* a)
-{
-    return (*(u32*)&a[0] == 0xFFFFFFFF) && (*(u16*)&a[4] == 0xFFFF);
-}
-
-
-void MSTimer()
+void WifiAP::MSTimer()
 {
     USCounter += 0x400;
 
@@ -131,7 +105,7 @@ void MSTimer()
 }
 
 
-int HandleManagementFrame(u8* data, int len)
+int WifiAP::HandleManagementFrame(u8* data, int len)
 {
     // TODO: perfect this
     // noting that frames sent pre-auth/assoc don't have a proper BSSID
@@ -199,8 +173,8 @@ int HandleManagementFrame(u8* data, int len)
             PWRITE_16(p, 0x0021); // capability
             PWRITE_8(p, 0x01); PWRITE_8(p, 0x02); PWRITE_8(p, 0x82); PWRITE_8(p, 0x84); // rates
             PWRITE_8(p, 0x03); PWRITE_8(p, 0x01); PWRITE_8(p, 0x06); // current channel
-            PWRITE_8(p, 0x00); PWRITE_8(p, strlen(AP_NAME));
-            memcpy(p, AP_NAME, strlen(AP_NAME)); p += strlen(AP_NAME);
+            PWRITE_8(p, 0x00); PWRITE_8(p, strlen(APName));
+            memcpy(p, APName, strlen(APName)); p += strlen(APName);
 
             PacketLen = PLEN(p, base);
             RXNum = 1;
@@ -282,7 +256,7 @@ int HandleManagementFrame(u8* data, int len)
 }
 
 
-int SendPacket(u8* data, int len)
+int WifiAP::SendPacket(u8* data, int len)
 {
     data += 12;
 
@@ -330,7 +304,7 @@ int SendPacket(u8* data, int len)
     return 0;
 }
 
-int RecvPacket(u8* data)
+int WifiAP::RecvPacket(u8* data)
 {
     if (BeaconDue)
     {
@@ -353,8 +327,8 @@ int RecvPacket(u8* data)
         PWRITE_8(p, 0x01); PWRITE_8(p, 0x02); PWRITE_8(p, 0x82); PWRITE_8(p, 0x84); // rates
         PWRITE_8(p, 0x03); PWRITE_8(p, 0x01); PWRITE_8(p, 0x06); // current channel
         PWRITE_8(p, 0x05); PWRITE_8(p, 0x04); PWRITE_8(p, 0); PWRITE_8(p, 0); PWRITE_8(p, 0); PWRITE_8(p, 0); // TIM
-        PWRITE_8(p, 0x00); PWRITE_8(p, strlen(AP_NAME));
-        memcpy(p, AP_NAME, strlen(AP_NAME)); p += strlen(AP_NAME);
+        PWRITE_8(p, 0x00); PWRITE_8(p, strlen(APName));
+        memcpy(p, APName, strlen(APName)); p += strlen(APName);
 
         PALIGN_4(p, base);
         PWRITE_32(p, 0xDEADBEEF); // checksum. doesn't matter for now
@@ -394,7 +368,7 @@ int RecvPacket(u8* data)
         // check destination MAC
         if (!MACIsBroadcast(&LANBuffer[0]))
         {
-            if (!MACEqual(&LANBuffer[0], Wifi::GetMAC()))
+            if (!MACEqual(&LANBuffer[0], Wifi->GetMAC()))
                 return 0;
         }
 
@@ -426,6 +400,4 @@ int RecvPacket(u8* data)
     }
 
     return 0;
-}
-
 }
