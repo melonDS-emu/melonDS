@@ -68,7 +68,7 @@ bool MACEqual(u8* a, const u8* b);
 bool MACIsBroadcast(u8* a);
 
 
-WifiAP::WifiAP(class Wifi* wifi) : Wifi(wifi)
+WifiAP::WifiAP(Wifi* client) : Client(client)
 {
 }
 
@@ -368,7 +368,7 @@ int WifiAP::RecvPacket(u8* data)
         // check destination MAC
         if (!MACIsBroadcast(&LANBuffer[0]))
         {
-            if (!MACEqual(&LANBuffer[0], Wifi->GetMAC()))
+            if (!MACEqual(&LANBuffer[0], Client->GetMAC()))
                 return 0;
         }
 

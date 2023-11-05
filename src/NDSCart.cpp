@@ -1741,8 +1741,6 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
     return cart;
 }
 
-// Why a move function? Because the Cart object is polymorphic,
-// and cloning polymorphic objects without knowing the underlying type is annoying.
 bool InsertROM(std::unique_ptr<CartCommon>&& cart)
 {
     if (!cart) {
@@ -1753,6 +1751,8 @@ bool InsertROM(std::unique_ptr<CartCommon>&& cart)
     if (Cart)
         EjectCart();
 
+    // Why a move function? Because the Cart object is polymorphic,
+    // and cloning polymorphic objects without knowing the underlying type is annoying.
     Cart = std::move(cart);
 
     Cart->Reset();
