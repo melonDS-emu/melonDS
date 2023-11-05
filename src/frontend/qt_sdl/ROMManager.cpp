@@ -1109,7 +1109,7 @@ bool LoadROM(QStringList filepath, bool reset)
 {
     if (filepath.empty()) return false;
 
-    u8* filedata;
+    u8* filedata = nullptr;
     u32 filelen;
 
     std::string basepath;
