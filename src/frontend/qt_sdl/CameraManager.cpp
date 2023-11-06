@@ -146,6 +146,7 @@ CameraManager::~CameraManager()
     // save settings here?
 
     delete[] frameBuffer;
+    delete[] tempFrameBuffer;
 }
 
 void CameraManager::init()

@@ -832,6 +832,7 @@ ScreenHandler::ScreenHandler(QWidget* widget)
 ScreenHandler::~ScreenHandler()
 {
     mouseTimer->stop();
+    delete mouseTimer;
 }
 
 void ScreenHandler::screenSetupLayout(int w, int h)
@@ -1872,6 +1873,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
 MainWindow::~MainWindow()
 {
+    delete[] actScreenAspectTop;
+    delete[] actScreenAspectBot;
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
@@ -3375,6 +3378,8 @@ int main(int argc, char** argv)
     mainWindow->preloadROMs(dsfile, gbafile, options->boot);
 
     int ret = melon.exec();
+
+    delete options;
 
     emuThread->emuStop();
     emuThread->wait();

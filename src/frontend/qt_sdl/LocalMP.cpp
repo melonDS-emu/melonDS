@@ -311,8 +311,8 @@ void DeInit()
         MPQueue->detach();
     }
 
-    MPQueue = nullptr;
     delete MPQueue;
+    MPQueue = nullptr;
 }
 
 void SetRecvTimeout(int timeout)
