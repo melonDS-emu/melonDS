@@ -1362,7 +1362,7 @@ bool LoadGBAROM(QStringList filepath)
     {
         // file inside archive
 
-        u32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
+        s32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
         if (lenread < 0) return false;
         if (!filedata) return false;
         if (lenread != filelen)

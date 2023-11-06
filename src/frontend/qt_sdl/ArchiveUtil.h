@@ -36,7 +36,7 @@ namespace Archive
 {
 
 QVector<QString> ListArchive(QString path);
-u32 ExtractFileFromArchive(QString path, QString wantedFile, u8** filedata, u32* filesize);
+s32 ExtractFileFromArchive(QString path, QString wantedFile, u8** filedata, u32* filesize);
 //QVector<QString> ExtractFileFromArchive(QString path, QString wantedFile, QByteArray *romBuffer);
 //u32 ExtractFileFromArchive(const char* path, const char* wantedFile, u8 **romdata);
 

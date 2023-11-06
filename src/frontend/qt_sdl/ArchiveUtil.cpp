@@ -119,7 +119,7 @@ QVector<QString> ExtractFileFromArchive(QString path, QString wantedFile, QByteA
 
 }
 
-u32 ExtractFileFromArchive(QString path, QString wantedFile, u8** filedata, u32* filesize)
+s32 ExtractFileFromArchive(QString path, QString wantedFile, u8** filedata, u32* filesize)
 {
     struct archive *a = archive_read_new();
     struct archive_entry *entry;
