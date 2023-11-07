@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -24,10 +24,7 @@
 #include <functional>
 #include <string>
 
-namespace SPI_Firmware
-{
-    class Firmware;
-}
+class Firmware;
 
 namespace Platform
 {
@@ -335,7 +332,10 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 /// @param firmware The firmware that was just written.
 /// @param writeoffset The offset of the first byte that was written to firmware.
 /// @param writelen The number of bytes that were written to firmware.
-void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset, u32 writelen);
+void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen);
+
+// called when the RTC date/time is changed and the frontend might need to take it into account
+void WriteDateTime(int year, int month, int day, int hour, int minute, int second);
 
 
 // local multiplayer comm interface

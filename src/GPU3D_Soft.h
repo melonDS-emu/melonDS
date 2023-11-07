@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -235,7 +235,7 @@ private:
         s32 SetupDummy(s32 x0)
         {
             dx = 0;
-            
+
             this->x0 = x0;
             this->xmin = x0;
             this->xmax = x0;
@@ -346,7 +346,7 @@ private:
             else if (ret > xmax) ret = xmax;
             return ret;
         }
-        
+
         template<bool swapped>
         void EdgeParams_XMajor(s32* length, s32* coverage)
         {
@@ -404,7 +404,7 @@ private:
                 *coverage = cov;
             }
         }
-        
+
         template<bool swapped>
         void EdgeParams(s32* length, s32* coverage)
         {

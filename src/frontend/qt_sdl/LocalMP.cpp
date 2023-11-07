@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -311,8 +311,8 @@ void DeInit()
         MPQueue->detach();
     }
 
-    MPQueue = nullptr;
     delete MPQueue;
+    MPQueue = nullptr;
 }
 
 void SetRecvTimeout(int timeout)

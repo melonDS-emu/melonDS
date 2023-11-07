@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -68,9 +68,9 @@ void ARM::GdbCheckC()
     else GdbCheckB();
 }
 #else
-ARM::GdbCheckA() {}
-ARM::GdbCheckB() {}
-ARM::GdbCheckC() {}
+void ARM::GdbCheckA() {}
+void ARM::GdbCheckB() {}
+void ARM::GdbCheckC() {}
 #endif
 
 
@@ -590,7 +590,7 @@ void ARM::TriggerIRQ()
     if (Num == 1)
     {
         if ((NDS::IF[1] & NDS::IE[1]) & (1<<NDS::IRQ_VBlank))
-            AREngine::RunCheats();
+            NDS::AREngine->RunCheats();
     }
 }
 

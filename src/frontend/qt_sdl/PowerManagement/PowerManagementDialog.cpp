@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,6 +22,7 @@
 #include "SPI.h"
 #include "DSi_I2C.h"
 #include "NDS.h"
+#include "DSi.h"
 #include "Config.h"
 #include "Platform.h"
 
@@ -42,21 +43,21 @@ PowerManagementDialog::PowerManagementDialog(QWidget* parent) : QDialog(parent),
     {
         ui->grpDSBattery->setEnabled(false);
 
-        oldDSiBatteryLevel = DSi_BPTWL::GetBatteryLevel();
-        oldDSiBatteryCharging = DSi_BPTWL::GetBatteryCharging();
+        oldDSiBatteryLevel = DSi::I2C->GetBPTWL()->GetBatteryLevel();
+        oldDSiBatteryCharging = DSi::I2C->GetBPTWL()->GetBatteryCharging();
     }
     else
     {
         ui->grpDSiBattery->setEnabled(false);
 
-        oldDSBatteryLevel = SPI_Powerman::GetBatteryLevelOkay();
+        oldDSBatteryLevel = NDS::SPI->GetPowerMan()->GetBatteryLevelOkay();
     }
 
     updateDSBatteryLevelControls();
 
-    ui->cbDSiBatteryCharging->setChecked(DSi_BPTWL::GetBatteryCharging());
+    ui->cbDSiBatteryCharging->setChecked(DSi::I2C->GetBPTWL()->GetBatteryCharging());
     int dsiBatterySliderPos;
-    switch (DSi_BPTWL::GetBatteryLevel())
+    switch (DSi::I2C->GetBPTWL()->GetBatteryLevel())
     {
         case DSi_BPTWL::batteryLevel_AlmostEmpty:   dsiBatterySliderPos = 0; break;
         case DSi_BPTWL::batteryLevel_Low:           dsiBatterySliderPos = 1; break;
@@ -86,24 +87,24 @@ void PowerManagementDialog::done(int r)
     {
         if (NDS::ConsoleType == 1)
         {
-            Config::DSiBatteryLevel = DSi_BPTWL::GetBatteryLevel();
-            Config::DSiBatteryCharging = DSi_BPTWL::GetBatteryCharging();
+            Config::DSiBatteryLevel = DSi::I2C->GetBPTWL()->GetBatteryLevel();
+            Config::DSiBatteryCharging = DSi::I2C->GetBPTWL()->GetBatteryCharging();
         }
         else
         {
-            Config::DSBatteryLevelOkay = SPI_Powerman::GetBatteryLevelOkay();
+            Config::DSBatteryLevelOkay = NDS::SPI->GetPowerMan()->GetBatteryLevelOkay();
         }
     }
     else
     {
         if (NDS::ConsoleType == 1)
         {
-            DSi_BPTWL::SetBatteryLevel(oldDSiBatteryLevel);
-            DSi_BPTWL::SetBatteryCharging(oldDSiBatteryCharging);
+            DSi::I2C->GetBPTWL()->SetBatteryLevel(oldDSiBatteryLevel);
+            DSi::I2C->GetBPTWL()->SetBatteryCharging(oldDSiBatteryCharging);
         }
         else
         {
-            SPI_Powerman::SetBatteryLevelOkay(oldDSBatteryLevel);
+            NDS::SPI->GetPowerMan()->SetBatteryLevelOkay(oldDSBatteryLevel);
         }
     }
 
@@ -114,17 +115,17 @@ void PowerManagementDialog::done(int r)
 
 void PowerManagementDialog::on_rbDSBatteryLow_clicked()
 {
-    SPI_Powerman::SetBatteryLevelOkay(false);
+    NDS::SPI->GetPowerMan()->SetBatteryLevelOkay(false);
 }
 
 void PowerManagementDialog::on_rbDSBatteryOkay_clicked()
 {
-    SPI_Powerman::SetBatteryLevelOkay(true);
+    NDS::SPI->GetPowerMan()->SetBatteryLevelOkay(true);
 }
 
 void PowerManagementDialog::updateDSBatteryLevelControls()
 {
-    if (SPI_Powerman::GetBatteryLevelOkay())
+    if (NDS::SPI->GetPowerMan()->GetBatteryLevelOkay())
         ui->rbDSBatteryOkay->setChecked(true);
     else
         ui->rbDSBatteryLow->setChecked(true);
@@ -132,7 +133,7 @@ void PowerManagementDialog::updateDSBatteryLevelControls()
 
 void PowerManagementDialog::on_cbDSiBatteryCharging_toggled()
 {
-    DSi_BPTWL::SetBatteryCharging(ui->cbDSiBatteryCharging->isChecked());
+    DSi::I2C->GetBPTWL()->SetBatteryCharging(ui->cbDSiBatteryCharging->isChecked());
 }
 
 void PowerManagementDialog::on_sliderDSiBatteryLevel_valueChanged(int value)
@@ -142,13 +143,13 @@ void PowerManagementDialog::on_sliderDSiBatteryLevel_valueChanged(int value)
     u8 newBatteryLevel;
     switch (value)
     {
-        case 0: newBatteryLevel = DSi_BPTWL::batteryLevel_AlmostEmpty; break;
-        case 1: newBatteryLevel = DSi_BPTWL::batteryLevel_Low; break;
-        case 2: newBatteryLevel = DSi_BPTWL::batteryLevel_Half; break;
-        case 3: newBatteryLevel = DSi_BPTWL::batteryLevel_ThreeQuarters; break;
-        case 4: newBatteryLevel = DSi_BPTWL::batteryLevel_Full; break;
+        case 0: newBatteryLevel = DSi::I2C->GetBPTWL()->batteryLevel_AlmostEmpty; break;
+        case 1: newBatteryLevel = DSi::I2C->GetBPTWL()->batteryLevel_Low; break;
+        case 2: newBatteryLevel = DSi::I2C->GetBPTWL()->batteryLevel_Half; break;
+        case 3: newBatteryLevel = DSi::I2C->GetBPTWL()->batteryLevel_ThreeQuarters; break;
+        case 4: newBatteryLevel = DSi::I2C->GetBPTWL()->batteryLevel_Full; break;
     }
-    DSi_BPTWL::SetBatteryLevel(newBatteryLevel);
+    DSi::I2C->GetBPTWL()->SetBatteryLevel(newBatteryLevel);
     updateDSBatteryLevelControls();
 }
 

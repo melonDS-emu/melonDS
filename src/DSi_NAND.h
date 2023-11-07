@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -161,7 +161,7 @@ union DSiFirmwareSystemSettings
         u32 ConfigFlags;
         u8 Zero02;
         u8 CountryCode;
-        SPI_Firmware::Language Language;
+        Firmware::Language Language;
         u8 RTCYear;
         u32 RTCOffset;
         u8 Zero3[4];

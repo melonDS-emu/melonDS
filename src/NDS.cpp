@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -104,6 +104,14 @@ u64 ARM9Timestamp, ARM9Target;
 u64 ARM7Timestamp, ARM7Target;
 u64 SysTimestamp;
 
+struct SchedEvent
+{
+    std::map<u32, EventFunc> Funcs;
+    u64 Timestamp;
+    u32 FuncID;
+    u32 Param;
+};
+
 SchedEvent SchedList[Event_MAX];
 u32 SchedListMask;
 
@@ -167,8 +175,15 @@ u32 SqrtVal[2];
 u32 SqrtRes;
 
 u32 KeyInput;
-u16 KeyCnt;
+u16 KeyCnt[2];
 u16 RCnt;
+
+class SPU* SPU;
+class SPIHost* SPI;
+class RTC* RTC;
+class Wifi* Wifi;
+
+class AREngine* AREngine;
 
 bool Running;
 
@@ -184,6 +199,9 @@ void SetGBASlotTimings();
 
 bool Init()
 {
+    RegisterEventFunc(Event_Div, 0, DivDone);
+    RegisterEventFunc(Event_Sqrt, 0, SqrtDone);
+
     ARM9 = new ARMv5();
     ARM7 = new ARMv4();
 
@@ -204,17 +222,18 @@ bool Init()
     DMAs[6] = new DMA(1, 2);
     DMAs[7] = new DMA(1, 3);
 
+    SPU = new class SPU;
+    SPI = new class SPIHost();
+    RTC = new class RTC();
+    Wifi = new class Wifi();
+
     if (!NDSCart::Init()) return false;
     if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
-    if (!SPU::Init()) return false;
-    if (!SPI::Init()) return false;
-    if (!RTC::Init()) return false;
-    if (!Wifi::Init()) return false;
 
     if (!DSi::Init()) return false;
 
-    if (!AREngine::Init()) return false;
+    AREngine = new class AREngine();
 
     return true;
 }
@@ -225,11 +244,8 @@ void DeInit()
     ARMJIT::DeInit();
 #endif
 
-    delete ARM9;
-    ARM9 = nullptr;
-
-    delete ARM7;
-    ARM7 = nullptr;
+    delete ARM9; ARM9 = nullptr;
+    delete ARM7; ARM7 = nullptr;
 
     for (int i = 0; i < 8; i++)
     {
@@ -237,17 +253,21 @@ void DeInit()
         DMAs[i] = nullptr;
     }
 
+    delete SPU; SPU = nullptr;
+    delete SPI; SPI = nullptr;
+    delete RTC; RTC = nullptr;
+    delete Wifi; Wifi = nullptr;
+
     NDSCart::DeInit();
     GBACart::DeInit();
     GPU::DeInit();
-    SPU::DeInit();
-    SPI::DeInit();
-    RTC::DeInit();
-    Wifi::DeInit();
 
     DSi::DeInit();
 
-    AREngine::DeInit();
+    delete AREngine; AREngine = nullptr;
+
+    UnregisterEventFunc(Event_Div, 0);
+    UnregisterEventFunc(Event_Sqrt, 0);
 }
 
 
@@ -375,7 +395,7 @@ bool NeedsDirectBoot()
             return true;
 
         // DSi/3DS firmwares aren't bootable
-        if (!SPI_Firmware::GetFirmware()->IsBootable())
+        if (!SPI->GetFirmware()->IsBootable())
             return true;
 
         return false;
@@ -451,7 +471,7 @@ void SetupDirectBoot(const std::string& romname)
 
         ARM7BIOSProt = 0x1204;
 
-        SPI_Firmware::SetupDirectBoot(false);
+        SPI->GetFirmwareMem()->SetupDirectBoot(false);
 
         ARM9->CP15Write(0x100, 0x00012078);
         ARM9->CP15Write(0x200, 0x00000042);
@@ -507,7 +527,7 @@ void SetupDirectBoot(const std::string& romname)
 
     NDSCart::SPICnt = 0x8000;
 
-    SPU::SetBias(0x200);
+    SPU->SetBias(0x200);
 
     SetWifiWaitCnt(0x0030);
 }
@@ -608,25 +628,33 @@ void Reset()
     for (i = 0; i < 8; i++) DMAs[i]->Reset();
     memset(DMA9Fill, 0, 4*4);
 
-    memset(SchedList, 0, sizeof(SchedList));
+    for (i = 0; i < Event_MAX; i++)
+    {
+        SchedEvent& evt = SchedList[i];
+
+        evt.Timestamp = 0;
+        evt.FuncID = 0;
+        evt.Param = 0;
+    }
     SchedListMask = 0;
 
     KeyInput = 0x007F03FF;
-    KeyCnt = 0;
+    KeyCnt[0] = 0;
+    KeyCnt[1] = 0;
     RCnt = 0;
 
     NDSCart::Reset();
     GBACart::Reset();
     GPU::Reset();
-    SPU::Reset();
-    SPI::Reset();
-    RTC::Reset();
-    Wifi::Reset();
+    SPU->Reset();
+    SPI->Reset();
+    RTC->Reset();
+    Wifi->Reset();
 
     // TODO: move the SOUNDBIAS/degrade logic to SPU?
 
     // The SOUNDBIAS register does nothing on DSi
-    SPU::SetApplyBias(ConsoleType == 0);
+    SPU->SetApplyBias(ConsoleType == 0);
 
     bool degradeAudio = true;
 
@@ -643,9 +671,9 @@ void Reset()
     else if (bitDepth == 2) // Always 16-bit
         degradeAudio = false;
 
-    SPU::SetDegrade10Bit(degradeAudio);
+    SPU->SetDegrade10Bit(degradeAudio);
 
-    AREngine::Reset();
+    AREngine->Reset();
 }
 
 void Start()
@@ -692,109 +720,10 @@ void Stop(Platform::StopReason reason)
     Running = false;
     Platform::SignalStop(reason);
     GPU::Stop();
-    SPU::Stop();
+    SPU->Stop();
 
     if (ConsoleType == 1)
         DSi::Stop();
-}
-
-bool DoSavestate_Scheduler(Savestate* file)
-{
-    // this is a bit of a hack
-    // but uh, your local coder realized that the scheduler list contains function pointers
-    // and that storing those as-is is not a very good idea
-    // unless you want it to crash and burn
-
-    // this is the solution your local coder came up with.
-    // it's gross but I think it's the best solution for this problem.
-    // just remember to add here if you add more event callbacks, kay?
-    // atleast until we come up with something more elegant.
-
-    void (*eventfuncs[])(u32) =
-    {
-        GPU::StartScanline, GPU::StartHBlank, GPU::FinishFrame,
-        SPU::Mix,
-        Wifi::USTimer,
-
-        GPU::DisplayFIFO,
-        NDSCart::ROMPrepareData, NDSCart::ROMEndTransfer,
-        NDSCart::SPITransferDone,
-        SPI::TransferDone,
-        DivDone,
-        SqrtDone,
-
-        DSi_SDHost::FinishRX,
-        DSi_SDHost::FinishTX,
-        DSi_NWifi::MSTimer,
-        DSi_CamModule::IRQ,
-        DSi_CamModule::TransferScanline,
-        DSi_DSP::DSPCatchUpU32,
-
-        nullptr
-    };
-
-    int len = Event_MAX;
-    if (file->Saving)
-    {
-        for (int i = 0; i < len; i++)
-        {
-            SchedEvent* evt = &SchedList[i];
-
-            u32 funcid = 0xFFFFFFFF;
-            if (evt->Func)
-            {
-                for (int j = 0; eventfuncs[j]; j++)
-                {
-                    if (evt->Func == eventfuncs[j])
-                    {
-                        funcid = j;
-                        break;
-                    }
-                }
-                if (funcid == 0xFFFFFFFF)
-                {
-                    Log(LogLevel::Error, "savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK ARISOTURA.\n", i);
-                    return false;
-                }
-            }
-
-            file->Var32(&funcid);
-            file->Var64(&evt->Timestamp);
-            file->Var32(&evt->Param);
-        }
-    }
-    else
-    {
-        for (int i = 0; i < len; i++)
-        {
-            SchedEvent* evt = &SchedList[i];
-
-            u32 funcid;
-            file->Var32(&funcid);
-
-            if (funcid != 0xFFFFFFFF)
-            {
-                for (int j = 0; ; j++)
-                {
-                    if (!eventfuncs[j])
-                    {
-                        Log(LogLevel::Error, "savestate: VERY BAD!!!!!! EVENT FUNCTION POINTER ID %d IS OUT OF RANGE. HAX?????\n", j);
-                        return false;
-                    }
-                    if (j == funcid) break;
-                }
-
-                evt->Func = eventfuncs[funcid];
-            }
-            else
-                evt->Func = nullptr;
-
-            file->Var64(&evt->Timestamp);
-            file->Var32(&evt->Param);
-        }
-    }
-
-    return true;
 }
 
 bool DoSavestate(Savestate* file)
@@ -869,10 +798,13 @@ bool DoSavestate(Savestate* file)
 
     file->VarArray(DMA9Fill, 4*sizeof(u32));
 
-    if (!DoSavestate_Scheduler(file))
+    for (int i = 0; i < Event_MAX; i++)
     {
-        Platform::Log(Platform::LogLevel::Error, "savestate: failed to %s scheduler state\n", file->Saving ? "save" : "load");
-        return false;
+        SchedEvent& evt = SchedList[i];
+
+        file->Var64(&evt.Timestamp);
+        file->Var32(&evt.FuncID);
+        file->Var32(&evt.Param);
     }
     file->Var32(&SchedListMask);
     file->Var64(&ARM9Timestamp);
@@ -887,7 +819,7 @@ bool DoSavestate(Savestate* file)
     file->Bool32(&LagFrameFlag);
 
     // TODO: save KeyInput????
-    file->Var16(&KeyCnt);
+    file->VarArray(KeyCnt, 2*sizeof(u16));
     file->Var16(&RCnt);
 
     file->Var8(&WRAMCnt);
@@ -916,10 +848,10 @@ bool DoSavestate(Savestate* file)
     if (ConsoleType == 0)
         GBACart::DoSavestate(file);
     GPU::DoSavestate(file);
-    SPU::DoSavestate(file);
-    SPI::DoSavestate(file);
-    RTC::DoSavestate(file);
-    Wifi::DoSavestate(file);
+    SPU->DoSavestate(file);
+    SPI->DoSavestate(file);
+    RTC->DoSavestate(file);
+    Wifi->DoSavestate(file);
 
     if (ConsoleType == 1)
         DSi::DoSavestate(file);
@@ -928,8 +860,8 @@ bool DoSavestate(Savestate* file)
     {
         GPU::SetPowerCnt(PowerControl9);
 
-        SPU::SetPowerCnt(PowerControl7 & 0x0001);
-        Wifi::SetPowerCnt(PowerControl7 & 0x0002);
+        SPU->SetPowerCnt(PowerControl7 & 0x0001);
+        Wifi->SetPowerCnt(PowerControl7 & 0x0002);
     }
 
 #ifdef JIT_ENABLED
@@ -1048,10 +980,79 @@ void RunSystem(u64 timestamp)
         if (!mask) break;
         if (mask & 0x1)
         {
-            if (SchedList[i].Timestamp <= SysTimestamp)
+            SchedEvent& evt = SchedList[i];
+
+            if (evt.Timestamp <= SysTimestamp)
             {
                 SchedListMask &= ~(1<<i);
-                SchedList[i].Func(SchedList[i].Param);
+
+                EventFunc func = evt.Funcs[evt.FuncID];
+                func(evt.Param);
+            }
+        }
+
+        mask >>= 1;
+    }
+}
+
+u64 NextTargetSleep()
+{
+    u64 minEvent = UINT64_MAX;
+
+    u32 mask = SchedListMask;
+    for (int i = 0; i < Event_MAX; i++)
+    {
+        if (!mask) break;
+        if (i == Event_SPU || i == Event_RTC)
+        {
+            if (mask & 0x1)
+            {
+                if (SchedList[i].Timestamp < minEvent)
+                    minEvent = SchedList[i].Timestamp;
+            }
+        }
+
+        mask >>= 1;
+    }
+
+    return minEvent;
+}
+
+void RunSystemSleep(u64 timestamp)
+{
+    u64 offset = timestamp - SysTimestamp;
+    SysTimestamp = timestamp;
+
+    u32 mask = SchedListMask;
+    for (int i = 0; i < Event_MAX; i++)
+    {
+        if (!mask) break;
+        if (i == Event_SPU || i == Event_RTC)
+        {
+            if (mask & 0x1)
+            {
+                SchedEvent& evt = SchedList[i];
+
+                if (evt.Timestamp <= SysTimestamp)
+                {
+                    SchedListMask &= ~(1<<i);
+
+                    u32 param;
+                    if (i == Event_SPU)
+                        param = 1;
+                    else
+                        param = evt.Param;
+
+                    EventFunc func = evt.Funcs[evt.FuncID];
+                    func(param);
+                }
+            }
+        }
+        else if (mask & 0x1)
+        {
+            if (SchedList[i].Timestamp <= SysTimestamp)
+            {
+                SchedList[i].Timestamp += offset;
             }
         }
 
@@ -1064,87 +1065,124 @@ u32 RunFrame()
 {
     FrameStartTimestamp = SysTimestamp;
 
+    GPU::TotalScanlines = 0;
+
     LagFrameFlag = true;
-    bool runFrame = Running && !(CPUStop & 0x40000000);
-    if (runFrame)
+    bool runFrame = Running && !(CPUStop & CPUStop_Sleep);
+    while (Running)
     {
-        ARM9->CheckGdbIncoming();
-        ARM7->CheckGdbIncoming();
+        u64 frametarget = SysTimestamp + 560190;
 
-        GPU::StartFrame();
-
-        while (Running && GPU::TotalScanlines==0)
+        if (CPUStop & CPUStop_Sleep)
         {
-            u64 target = NextTarget();
-            ARM9Target = target << ARM9ClockShift;
-            CurCPU = 0;
+            // we are running in sleep mode
+            // we still need to run the RTC during this mode
+            // we also keep outputting audio, so that frontends using audio sync don't skyrocket to 1000+FPS
 
-            if (CPUStop & 0x80000000)
+            while (Running && (SysTimestamp < frametarget))
             {
-                // GXFIFO stall
-                s32 cycles = GPU3D::CyclesToRunFor();
+                u64 target = NextTargetSleep();
+                if (target > frametarget)
+                    target = frametarget;
 
-                ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
-            }
-            else if (CPUStop & 0x0FFF)
-            {
-                DMAs[0]->Run<ConsoleType>();
-                if (!(CPUStop & 0x80000000)) DMAs[1]->Run<ConsoleType>();
-                if (!(CPUStop & 0x80000000)) DMAs[2]->Run<ConsoleType>();
-                if (!(CPUStop & 0x80000000)) DMAs[3]->Run<ConsoleType>();
-                if (ConsoleType == 1) DSi::RunNDMAs(0);
-            }
-            else
-            {
-#ifdef JIT_ENABLED
-                if (EnableJIT)
-                    ARM9->ExecuteJIT();
-                else
-#endif
-                    ARM9->Execute();
+                ARM9Timestamp = target << ARM9ClockShift;
+                ARM7Timestamp = target;
+                TimerTimestamp[0] = target;
+                TimerTimestamp[1] = target;
+                GPU3D::Timestamp = target;
+                RunSystemSleep(target);
+
+                if (!(CPUStop & CPUStop_Sleep))
+                    break;
             }
 
-            RunTimers(0);
-            GPU3D::Run();
+            if (SysTimestamp >= frametarget)
+                GPU::BlankFrame();
+        }
+        else
+        {
+            ARM9->CheckGdbIncoming();
+            ARM7->CheckGdbIncoming();
 
-            target = ARM9Timestamp >> ARM9ClockShift;
-            CurCPU = 1;
-
-            while (ARM7Timestamp < target)
+            if (!(CPUStop & CPUStop_Wakeup))
             {
-                ARM7Target = target; // might be changed by a reschedule
+                GPU::StartFrame();
+            }
+            CPUStop &= ~CPUStop_Wakeup;
 
-                if (CPUStop & 0x0FFF0000)
+            while (Running && GPU::TotalScanlines==0)
+            {
+                u64 target = NextTarget();
+                ARM9Target = target << ARM9ClockShift;
+                CurCPU = 0;
+
+                if (CPUStop & CPUStop_GXStall)
                 {
-                    DMAs[4]->Run<ConsoleType>();
-                    DMAs[5]->Run<ConsoleType>();
-                    DMAs[6]->Run<ConsoleType>();
-                    DMAs[7]->Run<ConsoleType>();
-                    if (ConsoleType == 1) DSi::RunNDMAs(1);
+                    // GXFIFO stall
+                    s32 cycles = GPU3D::CyclesToRunFor();
+
+                    ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
+                }
+                else if (CPUStop & CPUStop_DMA9)
+                {
+                    DMAs[0]->Run<ConsoleType>();
+                    if (!(CPUStop & CPUStop_GXStall)) DMAs[1]->Run<ConsoleType>();
+                    if (!(CPUStop & CPUStop_GXStall)) DMAs[2]->Run<ConsoleType>();
+                    if (!(CPUStop & CPUStop_GXStall)) DMAs[3]->Run<ConsoleType>();
+                    if (ConsoleType == 1) DSi::RunNDMAs(0);
                 }
                 else
                 {
 #ifdef JIT_ENABLED
                     if (EnableJIT)
-                        ARM7->ExecuteJIT();
+                        ARM9->ExecuteJIT();
                     else
 #endif
-                        ARM7->Execute();
+                        ARM9->Execute();
                 }
 
-                RunTimers(1);
-            }
+                RunTimers(0);
+                GPU3D::Run();
 
-            RunSystem(target);
+                target = ARM9Timestamp >> ARM9ClockShift;
+                CurCPU = 1;
 
-            if (CPUStop & 0x40000000)
-            {
-                // checkme: when is sleep mode effective?
-                CancelEvent(Event_LCD);
-                GPU::TotalScanlines = 263;
-                break;
+                while (ARM7Timestamp < target)
+                {
+                    ARM7Target = target; // might be changed by a reschedule
+
+                    if (CPUStop & CPUStop_DMA7)
+                    {
+                        DMAs[4]->Run<ConsoleType>();
+                        DMAs[5]->Run<ConsoleType>();
+                        DMAs[6]->Run<ConsoleType>();
+                        DMAs[7]->Run<ConsoleType>();
+                        if (ConsoleType == 1) DSi::RunNDMAs(1);
+                    }
+                    else
+                    {
+#ifdef JIT_ENABLED
+                        if (EnableJIT)
+                            ARM7->ExecuteJIT();
+                        else
+#endif
+                            ARM7->Execute();
+                    }
+
+                    RunTimers(1);
+                }
+
+                RunSystem(target);
+
+                if (CPUStop & CPUStop_Sleep)
+                {
+                    break;
+                }
             }
         }
+
+        if (GPU::TotalScanlines == 0)
+            continue;
 
 #ifdef DEBUG_CHECK_DESYNC
         Log(LogLevel::Debug, "[%08X%08X] ARM9=%ld, ARM7=%ld, GPU=%ld\n",
@@ -1153,7 +1191,8 @@ u32 RunFrame()
             ARM7Timestamp-SysTimestamp,
             GPU3D::Timestamp-SysTimestamp);
 #endif
-        SPU::TransferOutput();
+        SPU->TransferOutput();
+        break;
     }
 
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
@@ -1162,7 +1201,7 @@ u32 RunFrame()
     if (LagFrameFlag)
         NumLagFrames++;
 
-    if (runFrame)
+    if (Running)
         return GPU::TotalScanlines;
     else
         return 263;
@@ -1196,7 +1235,21 @@ void Reschedule(u64 target)
     }
 }
 
-void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param)
+void RegisterEventFunc(u32 id, u32 funcid, EventFunc func)
+{
+    SchedEvent& evt = SchedList[id];
+
+    evt.Funcs[funcid] = func;
+}
+
+void UnregisterEventFunc(u32 id, u32 funcid)
+{
+    SchedEvent& evt = SchedList[id];
+
+    evt.Funcs.erase(funcid);
+}
+
+void ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param)
 {
     if (SchedListMask & (1<<id))
     {
@@ -1204,43 +1257,24 @@ void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 para
         return;
     }
 
-    SchedEvent* evt = &SchedList[id];
+    SchedEvent& evt = SchedList[id];
 
     if (periodic)
-        evt->Timestamp += delay;
+        evt.Timestamp += delay;
     else
     {
         if (CurCPU == 0)
-            evt->Timestamp = (ARM9Timestamp >> ARM9ClockShift) + delay;
+            evt.Timestamp = (ARM9Timestamp >> ARM9ClockShift) + delay;
         else
-            evt->Timestamp = ARM7Timestamp + delay;
+            evt.Timestamp = ARM7Timestamp + delay;
     }
 
-    evt->Func = func;
-    evt->Param = param;
+    evt.FuncID = funcid;
+    evt.Param = param;
 
     SchedListMask |= (1<<id);
 
-    Reschedule(evt->Timestamp);
-}
-
-void ScheduleEvent(u32 id, u64 timestamp, void (*func)(u32), u32 param)
-{
-    if (SchedListMask & (1<<id))
-    {
-        Log(LogLevel::Debug, "!! EVENT %d ALREADY SCHEDULED\n", id);
-        return;
-    }
-
-    SchedEvent* evt = &SchedList[id];
-
-    evt->Timestamp = timestamp;
-    evt->Func = func;
-    evt->Param = param;
-
-    SchedListMask |= (1<<id);
-
-    Reschedule(evt->Timestamp);
+    Reschedule(evt.Timestamp);
 }
 
 void CancelEvent(u32 id)
@@ -1251,38 +1285,56 @@ void CancelEvent(u32 id)
 
 void TouchScreen(u16 x, u16 y)
 {
-    if (ConsoleType == 1)
-    {
-        DSi_SPI_TSC::SetTouchCoords(x, y);
-    }
-    else
-    {
-        SPI_TSC::SetTouchCoords(x, y);
-        KeyInput &= ~(1 << (16+6));
-    }
+    SPI->GetTSC()->SetTouchCoords(x, y);
 }
 
 void ReleaseScreen()
 {
-    if (ConsoleType == 1)
+    SPI->GetTSC()->SetTouchCoords(0x000, 0xFFF);
+}
+
+
+void CheckKeyIRQ(u32 cpu, u32 oldkey, u32 newkey)
+{
+    u16 cnt = KeyCnt[cpu];
+    if (!(cnt & (1<<14))) // IRQ disabled
+        return;
+
+    u32 mask = (cnt & 0x03FF);
+    oldkey &= mask;
+    newkey &= mask;
+
+    bool oldmatch, newmatch;
+    if (cnt & (1<<15))
     {
-        DSi_SPI_TSC::SetTouchCoords(0x000, 0xFFF);
+        // logical AND
+
+        oldmatch = (oldkey == 0);
+        newmatch = (newkey == 0);
     }
     else
     {
-        SPI_TSC::SetTouchCoords(0x000, 0xFFF);
-        KeyInput |= (1 << (16+6));
-    }
-}
+        // logical OR
 
+        oldmatch = (oldkey != mask);
+        newmatch = (newkey != mask);
+    }
+
+    if ((!oldmatch) && newmatch)
+        SetIRQ(cpu, IRQ_Keypad);
+}
 
 void SetKeyMask(u32 mask)
 {
     u32 key_lo = mask & 0x3FF;
     u32 key_hi = (mask >> 10) & 0x3;
 
+    u32 oldkey = KeyInput;
     KeyInput &= 0xFFFCFC00;
     KeyInput |= key_lo | (key_hi << 16);
+
+    CheckKeyIRQ(0, oldkey, KeyInput);
+    CheckKeyIRQ(1, oldkey, KeyInput);
 }
 
 bool IsLidClosed()
@@ -1301,8 +1353,6 @@ void SetLidClosed(bool closed)
     {
         KeyInput &= ~(1<<23);
         SetIRQ(1, IRQ_LidOpen);
-        CPUStop &= ~0x40000000;
-        GPU3D::RestartFrame();
     }
 }
 
@@ -1315,15 +1365,15 @@ void CamInputFrame(int cam, u32* data, int width, int height, bool rgb)
     {
         switch (cam)
         {
-        case 0: return DSi_CamModule::Camera0->InputFrame(data, width, height, rgb);
-        case 1: return DSi_CamModule::Camera1->InputFrame(data, width, height, rgb);
+        case 0: return DSi::CamModule->GetOuterCamera()->InputFrame(data, width, height, rgb);
+        case 1: return DSi::CamModule->GetInnerCamera()->InputFrame(data, width, height, rgb);
         }
     }
 }
 
 void MicInputFrame(s16* data, int samples)
 {
-    return SPI_TSC::MicInputFrame(data, samples);
+    return SPI->GetTSC()->MicInputFrame(data, samples);
 }
 
 /*int ImportSRAM(u8* data, u32 length)
@@ -1467,6 +1517,16 @@ void SetIRQ(u32 cpu, u32 irq)
 {
     IF[cpu] |= (1 << irq);
     UpdateIRQ(cpu);
+
+    if ((cpu == 1) && (CPUStop & CPUStop_Sleep))
+    {
+        if (IE[1] & (1 << irq))
+        {
+            CPUStop &= ~CPUStop_Sleep;
+            CPUStop |= CPUStop_Wakeup;
+            GPU3D::RestartFrame();
+        }
+    }
 }
 
 void ClearIRQ(u32 cpu, u32 irq)
@@ -1526,9 +1586,9 @@ void ResumeCPU(u32 cpu, u32 mask)
 
 void GXFIFOStall()
 {
-    if (CPUStop & 0x80000000) return;
+    if (CPUStop & CPUStop_GXStall) return;
 
-    CPUStop |= 0x80000000;
+    CPUStop |= CPUStop_GXStall;
 
     if (CurCPU == 1) ARM9->Halt(2);
     else
@@ -1543,14 +1603,14 @@ void GXFIFOStall()
 
 void GXFIFOUnstall()
 {
-    CPUStop &= ~0x80000000;
+    CPUStop &= ~CPUStop_GXStall;
 }
 
 void EnterSleepMode()
 {
-    if (CPUStop & 0x40000000) return;
+    if (CPUStop & CPUStop_Sleep) return;
 
-    CPUStop |= 0x40000000;
+    CPUStop |= CPUStop_Sleep;
     ARM7->Halt(2);
 }
 
@@ -1952,7 +2012,7 @@ void StartDiv()
 {
     NDS::CancelEvent(NDS::Event_Div);
     DivCnt |= 0x8000;
-    NDS::ScheduleEvent(NDS::Event_Div, false, ((DivCnt&0x3)==0) ? 18:34, DivDone, 0);
+    NDS::ScheduleEvent(NDS::Event_Div, false, ((DivCnt&0x3)==0) ? 18:34, 0, 0);
 }
 
 // http://stackoverflow.com/questions/1100090/looking-for-an-efficient-integer-square-root-algorithm-for-arm-thumb2
@@ -2000,7 +2060,7 @@ void StartSqrt()
 {
     NDS::CancelEvent(NDS::Event_Sqrt);
     SqrtCnt |= 0x8000;
-    NDS::ScheduleEvent(NDS::Event_Sqrt, false, 13, SqrtDone, 0);
+    NDS::ScheduleEvent(NDS::Event_Sqrt, false, 13, 0, 0);
 }
 
 
@@ -2017,7 +2077,7 @@ void debug(u32 param)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
     FILE*
-    shit = fopen("debug/crayon.bin", "wb");
+    shit = fopen("debug/DSfirmware.bin", "wb");
     fwrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
@@ -2485,8 +2545,8 @@ u8 ARM7Read8(u32 addr)
         if (addr < 0x04810000)
         {
             if (!(PowerControl7 & (1<<1))) return 0;
-            if (addr & 0x1) return Wifi::Read(addr-1) >> 8;
-            return Wifi::Read(addr) & 0xFF;
+            if (addr & 0x1) return Wifi->Read(addr-1) >> 8;
+            return Wifi->Read(addr) & 0xFF;
         }
         break;
 
@@ -2552,7 +2612,7 @@ u16 ARM7Read16(u32 addr)
         if (addr < 0x04810000)
         {
             if (!(PowerControl7 & (1<<1))) return 0;
-            return Wifi::Read(addr);
+            return Wifi->Read(addr);
         }
         break;
 
@@ -2618,7 +2678,7 @@ u32 ARM7Read32(u32 addr)
         if (addr < 0x04810000)
         {
             if (!(PowerControl7 & (1<<1))) return 0;
-            return Wifi::Read(addr) | (Wifi::Read(addr+2) << 16);
+            return Wifi->Read(addr) | (Wifi->Read(addr+2) << 16);
         }
         break;
 
@@ -2761,7 +2821,7 @@ void ARM7Write16(u32 addr, u16 val)
         if (addr < 0x04810000)
         {
             if (!(PowerControl7 & (1<<1))) return;
-            Wifi::Write(addr, val);
+            Wifi->Write(addr, val);
             return;
         }
         break;
@@ -2841,8 +2901,8 @@ void ARM7Write32(u32 addr, u32 val)
         if (addr < 0x04810000)
         {
             if (!(PowerControl7 & (1<<1))) return;
-            Wifi::Write(addr, val & 0xFFFF);
-            Wifi::Write(addr+2, val >> 16);
+            Wifi->Write(addr, val & 0xFFFF);
+            Wifi->Write(addr+2, val >> 16);
             return;
         }
         break;
@@ -2942,8 +3002,8 @@ u8 ARM9IORead8(u32 addr)
     {
     case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFF;
     case 0x04000131: LagFrameFlag = false; return (KeyInput >> 8) & 0xFF;
-    case 0x04000132: return KeyCnt & 0xFF;
-    case 0x04000133: return KeyCnt >> 8;
+    case 0x04000132: return KeyCnt[0] & 0xFF;
+    case 0x04000133: return KeyCnt[0] >> 8;
 
     case 0x040001A2:
         if (!(ExMemCnt[0] & (1<<11)))
@@ -3079,7 +3139,7 @@ u16 ARM9IORead16(u32 addr)
     case 0x0400010E: return Timers[3].Cnt;
 
     case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFFFF;
-    case 0x04000132: return KeyCnt;
+    case 0x04000132: return KeyCnt[0];
 
     case 0x04000180: return IPCSync9;
     case 0x04000184:
@@ -3221,7 +3281,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000108: return TimerGetCounter(2) | (Timers[2].Cnt << 16);
     case 0x0400010C: return TimerGetCounter(3) | (Timers[3].Cnt << 16);
 
-    case 0x04000130: LagFrameFlag = false; return (KeyInput & 0xFFFF) | (KeyCnt << 16);
+    case 0x04000130: LagFrameFlag = false; return (KeyInput & 0xFFFF) | (KeyCnt[0] << 16);
 
     case 0x04000180: return IPCSync9;
     case 0x04000184: return ARM9IORead16(addr);
@@ -3341,10 +3401,10 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x0400106D: GPU::GPU2D_B.Write8(addr, val); return;
 
     case 0x04000132:
-        KeyCnt = (KeyCnt & 0xFF00) | val;
+        KeyCnt[0] = (KeyCnt[0] & 0xFF00) | val;
         return;
     case 0x04000133:
-        KeyCnt = (KeyCnt & 0x00FF) | (val << 8);
+        KeyCnt[0] = (KeyCnt[0] & 0x00FF) | (val << 8);
         return;
 
     case 0x04000188:
@@ -3454,7 +3514,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
     case 0x0400010E: TimerStart(3, val); return;
 
     case 0x04000132:
-        KeyCnt = val;
+        KeyCnt[0] = val;
         return;
 
     case 0x04000180:
@@ -3647,7 +3707,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04000130:
-        KeyCnt = val >> 16;
+        KeyCnt[0] = val >> 16;
         return;
 
     case 0x04000180:
@@ -3800,14 +3860,14 @@ u8 ARM7IORead8(u32 addr)
     {
     case 0x04000130: return KeyInput & 0xFF;
     case 0x04000131: return (KeyInput >> 8) & 0xFF;
-    case 0x04000132: return KeyCnt & 0xFF;
-    case 0x04000133: return KeyCnt >> 8;
+    case 0x04000132: return KeyCnt[1] & 0xFF;
+    case 0x04000133: return KeyCnt[1] >> 8;
     case 0x04000134: return RCnt & 0xFF;
     case 0x04000135: return RCnt >> 8;
     case 0x04000136: return (KeyInput >> 16) & 0xFF;
     case 0x04000137: return KeyInput >> 24;
 
-    case 0x04000138: return RTC::Read() & 0xFF;
+    case 0x04000138: return RTC->Read() & 0xFF;
 
     case 0x040001A2:
         if (ExMemCnt[0] & (1<<11))
@@ -3847,7 +3907,7 @@ u8 ARM7IORead8(u32 addr)
             return NDSCart::ROMCommand[7];
         return 0;
 
-    case 0x040001C2: return SPI::ReadData();
+    case 0x040001C2: return SPI->ReadData();
 
     case 0x04000208: return IME[1];
 
@@ -3860,7 +3920,7 @@ u8 ARM7IORead8(u32 addr)
 
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
-        return SPU::Read8(addr);
+        return SPU->Read8(addr);
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
@@ -3894,11 +3954,11 @@ u16 ARM7IORead16(u32 addr)
     case 0x0400010E: return Timers[7].Cnt;
 
     case 0x04000130: return KeyInput & 0xFFFF;
-    case 0x04000132: return KeyCnt;
+    case 0x04000132: return KeyCnt[1];
     case 0x04000134: return RCnt;
     case 0x04000136: return KeyInput >> 16;
 
-    case 0x04000138: return RTC::Read();
+    case 0x04000138: return RTC->Read();
 
     case 0x04000180: return IPCSync7;
     case 0x04000184:
@@ -3935,8 +3995,8 @@ u16 ARM7IORead16(u32 addr)
                   (NDSCart::ROMCommand[7] << 8);
         return 0;
 
-    case 0x040001C0: return SPI::Cnt;
-    case 0x040001C2: return SPI::ReadData();
+    case 0x040001C0: return SPI->ReadCnt();
+    case 0x040001C2: return SPI->ReadData();
 
     case 0x04000204: return ExMemCnt[1];
     case 0x04000206:
@@ -3954,7 +4014,7 @@ u16 ARM7IORead16(u32 addr)
 
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
-        return SPU::Read16(addr);
+        return SPU->Read16(addr);
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
@@ -3986,9 +4046,9 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000108: return TimerGetCounter(6) | (Timers[6].Cnt << 16);
     case 0x0400010C: return TimerGetCounter(7) | (Timers[7].Cnt << 16);
 
-    case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
-    case 0x04000134: return RCnt | (KeyCnt & 0xFFFF0000);
-    case 0x04000138: return RTC::Read();
+    case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt[1] << 16);
+    case 0x04000134: return RCnt | (KeyInput & 0xFFFF0000);
+    case 0x04000138: return RTC->Read();
 
     case 0x04000180: return IPCSync7;
     case 0x04000184: return ARM7IORead16(addr);
@@ -4018,7 +4078,7 @@ u32 ARM7IORead32(u32 addr)
         return 0;
 
     case 0x040001C0:
-        return SPI::Cnt | (SPI::ReadData() << 16);
+        return SPI->ReadCnt() | (SPI->ReadData() << 16);
 
     case 0x04000208: return IME[1];
     case 0x04000210: return IE[1];
@@ -4055,7 +4115,7 @@ u32 ARM7IORead32(u32 addr)
 
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
-        return SPU::Read32(addr);
+        return SPU->Read32(addr);
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
@@ -4068,10 +4128,10 @@ void ARM7IOWrite8(u32 addr, u8 val)
     switch (addr)
     {
     case 0x04000132:
-        KeyCnt = (KeyCnt & 0xFF00) | val;
+        KeyCnt[1] = (KeyCnt[1] & 0xFF00) | val;
         return;
     case 0x04000133:
-        KeyCnt = (KeyCnt & 0x00FF) | (val << 8);
+        KeyCnt[1] = (KeyCnt[1] & 0x00FF) | (val << 8);
         return;
     case 0x04000134:
         RCnt = (RCnt & 0xFF00) | val;
@@ -4080,7 +4140,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         RCnt = (RCnt & 0x00FF) | (val << 8);
         return;
 
-    case 0x04000138: RTC::Write(val, true); return;
+    case 0x04000138: RTC->Write(val, true); return;
 
     case 0x04000188:
         ARM7IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
@@ -4111,7 +4171,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
     case 0x040001AF: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[7] = val; return;
 
     case 0x040001C2:
-        SPI::WriteData(val);
+        SPI->WriteData(val);
         return;
 
     case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
@@ -4133,7 +4193,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
 
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
-        SPU::Write8(addr, val);
+        SPU->Write8(addr, val);
         return;
     }
 
@@ -4165,10 +4225,10 @@ void ARM7IOWrite16(u32 addr, u16 val)
     case 0x0400010C: Timers[7].Reload = val; return;
     case 0x0400010E: TimerStart(7, val); return;
 
-    case 0x04000132: KeyCnt = val; return;
+    case 0x04000132: KeyCnt[1] = val; return;
     case 0x04000134: RCnt = val; return;
 
-    case 0x04000138: RTC::Write(val, false); return;
+    case 0x04000138: RTC->Write(val, false); return;
 
     case 0x04000180:
         IPCSync9 &= 0xFFF0;
@@ -4239,10 +4299,10 @@ void ARM7IOWrite16(u32 addr, u16 val)
     case 0x040001BA: ROMSeed1[12] = val & 0x7F; return;
 
     case 0x040001C0:
-        SPI::WriteCnt(val);
+        SPI->WriteCnt(val);
         return;
     case 0x040001C2:
-        SPI::WriteData(val & 0xFF);
+        SPI->WriteData(val & 0xFF);
         return;
 
     case 0x04000204:
@@ -4274,8 +4334,8 @@ void ARM7IOWrite16(u32 addr, u16 val)
         {
             u16 change = PowerControl7 ^ val;
             PowerControl7 = val & 0x0003;
-            SPU::SetPowerCnt(val & 0x0001);
-            Wifi::SetPowerCnt(val & 0x0002);
+            SPU->SetPowerCnt(val & 0x0001);
+            Wifi->SetPowerCnt(val & 0x0002);
             if (change & 0x0002) UpdateWifiTimings();
         }
         return;
@@ -4288,7 +4348,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
-        SPU::Write16(addr, val);
+        SPU->Write16(addr, val);
         return;
     }
 
@@ -4334,9 +4394,9 @@ void ARM7IOWrite32(u32 addr, u32 val)
         TimerStart(7, val>>16);
         return;
 
-    case 0x04000130: KeyCnt = val >> 16; return;
+    case 0x04000130: KeyCnt[1] = val >> 16; return;
     case 0x04000134: RCnt = val & 0xFFFF; return;
-    case 0x04000138: RTC::Write(val & 0xFFFF, false); return;
+    case 0x04000138: RTC->Write(val & 0xFFFF, false); return;
 
     case 0x04000180:
     case 0x04000184:
@@ -4392,8 +4452,8 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x040001B4: *(u32*)&ROMSeed1[8] = val; return;
 
     case 0x040001C0:
-        SPI::WriteCnt(val & 0xFFFF);
-        SPI::WriteData((val >> 16) & 0xFF);
+        SPI->WriteCnt(val & 0xFFFF);
+        SPI->WriteData((val >> 16) & 0xFF);
         return;
 
     case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
@@ -4404,8 +4464,8 @@ void ARM7IOWrite32(u32 addr, u32 val)
         {
             u16 change = PowerControl7 ^ val;
             PowerControl7 = val & 0x0003;
-            SPU::SetPowerCnt(val & 0x0001);
-            Wifi::SetPowerCnt(val & 0x0002);
+            SPU->SetPowerCnt(val & 0x0001);
+            Wifi->SetPowerCnt(val & 0x0002);
             if (change & 0x0002) UpdateWifiTimings();
         }
         return;
@@ -4422,7 +4482,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
-        SPU::Write32(addr, val);
+        SPU->Write32(addr, val);
         return;
     }
 

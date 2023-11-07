@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -79,6 +79,11 @@ std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
 DSi_SDHost* SDMMC;
 DSi_SDHost* SDIO;
 
+DSi_I2CHost* I2C;
+DSi_CamModule* CamModule;
+DSi_AES* AES;
+DSi_DSP* DSP;
+
 // FIXME: these currently have no effect (and aren't stored in a savestate)
 //        ... not that they matter all that much
 u8 GPIO_Data;
@@ -100,11 +105,6 @@ bool Init()
     NWRAM_C = new u8[NWRAMSize];
 #endif
 
-    if (!DSi_I2C::Init()) return false;
-    if (!DSi_CamModule::Init()) return false;
-    if (!DSi_AES::Init()) return false;
-    if (!DSi_DSP::Init()) return false;
-
     NDMAs[0] = new DSi_NDMA(0, 0);
     NDMAs[1] = new DSi_NDMA(0, 1);
     NDMAs[2] = new DSi_NDMA(0, 2);
@@ -116,6 +116,11 @@ bool Init()
 
     SDMMC = new DSi_SDHost(0);
     SDIO = new DSi_SDHost(1);
+
+    I2C = new DSi_I2CHost();
+    CamModule = new DSi_CamModule();
+    AES = new DSi_AES();
+    DSP = new DSi_DSP();
 
     return true;
 }
@@ -132,21 +137,19 @@ void DeInit()
     NWRAM_C = nullptr;
 #endif
 
-    DSi_I2C::DeInit();
-    DSi_CamModule::DeInit();
-    DSi_AES::DeInit();
-    DSi_DSP::DeInit();
-
     for (int i = 0; i < 8; i++)
     {
         delete NDMAs[i];
         NDMAs[i] = nullptr;
     }
 
-    delete SDMMC;
-    SDMMC = nullptr;
-    delete SDIO;
-    SDIO = nullptr;
+    delete SDMMC; SDMMC = nullptr;
+    delete SDIO; SDIO = nullptr;
+
+    delete I2C; I2C = nullptr;
+    delete CamModule; CamModule = nullptr;
+    delete AES; AES = nullptr;
+    delete DSP; DSP = nullptr;
 
     NANDImage = nullptr;
     // The NANDImage is cleaned up (and its underlying file closed)
@@ -164,9 +167,9 @@ void Reset()
     NDMACnt[0] = 0; NDMACnt[1] = 0;
     for (int i = 0; i < 8; i++) NDMAs[i]->Reset();
 
-    DSi_I2C::Reset();
-    DSi_CamModule::Reset();
-    DSi_DSP::Reset();
+    I2C->Reset();
+    CamModule->Reset();
+    DSP->Reset();
 
     SDMMC->CloseHandles();
     SDIO->CloseHandles();
@@ -176,7 +179,7 @@ void Reset()
     SDMMC->Reset();
     SDIO->Reset();
 
-    DSi_AES::Reset();
+    AES->Reset();
 
     if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
     {
@@ -193,7 +196,7 @@ void Reset()
     SCFG_MC = 0x0010 | (~((u32)(NDSCart::Cart != nullptr))&1);//0x0011;
     SCFG_RST = 0;
 
-    DSi_DSP::SetRstLine(false);
+    DSP->SetRstLine(false);
 
     GPIO_Data = 0xff; // these actually initialize to high after reset
     GPIO_Dir = 0x80; // enable sound out, all others input
@@ -208,7 +211,7 @@ void Reset()
 
 void Stop()
 {
-    DSi_CamModule::Stop();
+    CamModule->Stop();
 }
 
 void DoSavestate(Savestate* file)
@@ -235,7 +238,7 @@ void DoSavestate(Savestate* file)
     {
         Set_SCFG_Clock9(SCFG_Clock9);
         Set_SCFG_MC(SCFG_MC);
-        DSi_DSP::SetRstLine(SCFG_RST & 0x0001);
+        DSP->SetRstLine(SCFG_RST & 0x0001);
 
         MBK[0][8] = 0;
         MBK[1][8] = 0;
@@ -282,10 +285,10 @@ void DoSavestate(Savestate* file)
     for (int i = 0; i < 8; i++)
         NDMAs[i]->DoSavestate(file);
 
-    DSi_AES::DoSavestate(file);
-    DSi_CamModule::DoSavestate(file);
-    DSi_DSP::DoSavestate(file);
-    DSi_I2C::DoSavestate(file);
+    AES->DoSavestate(file);
+    CamModule->DoSavestate(file);
+    DSP->DoSavestate(file);
+    I2C->DoSavestate(file);
     SDMMC->DoSavestate(file);
     SDIO->DoSavestate(file);
 }
@@ -403,6 +406,7 @@ void SetupDirectBoot()
     NDSHeader& header = NDSCart::Cart->GetHeader();
     const u8* cartrom = NDSCart::Cart->GetROM();
     u32 cartid = NDSCart::Cart->ID();
+    DSi_TSC* tsc = (DSi_TSC*)NDS::SPI->GetTSC();
 
     // TODO: add controls for forcing DS or DSi mode?
     if (!(header.UnitCode & 0x02))
@@ -429,7 +433,7 @@ void SetupDirectBoot()
 
         NDS::MapSharedWRAM(3);
 
-        DSi_SPI_TSC::SetMode(0x00);
+        tsc->SetMode(0x00);
         Set_SCFG_Clock9(0x0000);
     }
     else
@@ -481,7 +485,7 @@ void SetupDirectBoot()
         NDS::MapSharedWRAM(mbk[11] >> 24);
 
         if (!(header.AppFlags & (1<<0)))
-            DSi_SPI_TSC::SetMode(0x00);
+            tsc->SetMode(0x00);
     }
 
     // setup main RAM data
@@ -552,12 +556,12 @@ void SetupDirectBoot()
             }
         }
 
-        SPI_Firmware::WifiBoard nwifiver = SPI_Firmware::GetFirmware()->Header().WifiBoard;
+        Firmware::WifiBoard nwifiver = NDS::SPI->GetFirmware()->GetHeader().WifiBoard;
         ARM9Write8(0x020005E0, static_cast<u8>(nwifiver));
 
         // TODO: these should be taken from the wifi firmware in NAND
         // but, hey, this works too.
-        if (nwifiver == SPI_Firmware::WifiBoard::W015)
+        if (nwifiver == Firmware::WifiBoard::W015)
         {
             ARM9Write16(0x020005E2, 0xB57E);
             ARM9Write32(0x020005E4, 0x00500400);
@@ -578,7 +582,7 @@ void SetupDirectBoot()
         ARM9Write32(0x02FFFC00, cartid);
         ARM9Write16(0x02FFFC40, 0x0001); // boot indicator
 
-        ARM9Write8(0x02FFFDFA, DSi_BPTWL::GetBootFlag() | 0x80);
+        ARM9Write8(0x02FFFDFA, I2C->GetBPTWL()->GetBootFlag() | 0x80);
         ARM9Write8(0x02FFFDFB, 0x01);
     }
 
@@ -642,7 +646,7 @@ void SetupDirectBoot()
 
     NDS::ARM7BIOSProt = 0x20;
 
-    SPI_Firmware::SetupDirectBoot(true);
+    NDS::SPI->GetFirmwareMem()->SetupDirectBoot(true);
 
     NDS::ARM9->CP15Write(0x100, 0x00056078);
     NDS::ARM9->CP15Write(0x200, 0x0000004A);
@@ -695,7 +699,7 @@ void SoftReset()
     // TODO: does the DSP get reset? NWRAM doesn't, so I'm assuming no
     // *HOWEVER*, the bootrom (which does get rerun) does remap NWRAM, and thus
     // the DSP most likely gets reset
-    DSi_DSP::Reset();
+    DSP->Reset();
 
     SDMMC->CloseHandles();
     SDIO->CloseHandles();
@@ -705,7 +709,7 @@ void SoftReset()
     SDMMC->Reset();
     SDIO->Reset();
 
-    DSi_AES::Reset();
+    AES->Reset();
 
     if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
     {
@@ -722,7 +726,7 @@ void SoftReset()
     SCFG_MC = 0x0010;//0x0011;
     // TODO: is this actually reset?
     SCFG_RST = 0;
-    DSi_DSP::SetRstLine(false);
+    DSP->SetRstLine(false);
 
 
     // LCD init flag
@@ -959,10 +963,10 @@ void RunNDMAs(u32 cpu)
     {
         if (NDS::ARM9Timestamp >= NDS::ARM9Target) return;
 
-        if (!(NDS::CPUStop & 0x80000000)) NDMAs[0]->Run();
-        if (!(NDS::CPUStop & 0x80000000)) NDMAs[1]->Run();
-        if (!(NDS::CPUStop & 0x80000000)) NDMAs[2]->Run();
-        if (!(NDS::CPUStop & 0x80000000)) NDMAs[3]->Run();
+        if (!(NDS::CPUStop & NDS::CPUStop_GXStall)) NDMAs[0]->Run();
+        if (!(NDS::CPUStop & NDS::CPUStop_GXStall)) NDMAs[1]->Run();
+        if (!(NDS::CPUStop & NDS::CPUStop_GXStall)) NDMAs[2]->Run();
+        if (!(NDS::CPUStop & NDS::CPUStop_GXStall)) NDMAs[3]->Run();
     }
     else
     {
@@ -2299,13 +2303,13 @@ u8 ARM9IORead8(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return DSi_CamModule::Read8(addr);
+        return CamModule->Read8(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
         if (!(SCFG_EXT[0] & (1<<18))) return 0;
-        return DSi_DSP::Read8(addr);
+        return DSP->Read8(addr);
     }
 
     return NDS::ARM9IORead8(addr);
@@ -2334,13 +2338,13 @@ u16 ARM9IORead16(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return DSi_CamModule::Read16(addr);
+        return CamModule->Read16(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
         if (!(SCFG_EXT[0] & (1<<18))) return 0;
-        return DSi_DSP::Read16(addr);
+        return DSP->Read16(addr);
     }
 
     return NDS::ARM9IORead16(addr);
@@ -2399,13 +2403,13 @@ u32 ARM9IORead32(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return DSi_CamModule::Read32(addr);
+        return CamModule->Read32(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
         if (!(SCFG_EXT[0] & (1<<18))) return 0;
-        return DSi_DSP::Read32(addr);
+        return DSP->Read32(addr);
     }
 
     return NDS::ARM9IORead32(addr);
@@ -2429,7 +2433,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         SCFG_RST = (SCFG_RST & 0xFF00) | val;
-        DSi_DSP::SetRstLine(val & 1);
+        DSP->SetRstLine(val & 1);
         return;
 
     case 0x04004040:
@@ -2469,13 +2473,13 @@ void ARM9IOWrite8(u32 addr, u8 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return DSi_CamModule::Write8(addr, val);
+        return CamModule->Write8(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
         if (!(SCFG_EXT[0] & (1<<18))) return;
-        return DSi_DSP::Write8(addr, val);
+        return DSP->Write8(addr, val);
     }
 
     return NDS::ARM9IOWrite8(addr, val);
@@ -2495,7 +2499,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         SCFG_RST = val;
-        DSi_DSP::SetRstLine(val & 1);
+        DSP->SetRstLine(val & 1);
         return;
 
     case 0x04004040:
@@ -2529,13 +2533,13 @@ void ARM9IOWrite16(u32 addr, u16 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return DSi_CamModule::Write16(addr, val);
+        return CamModule->Write16(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
         if (!(SCFG_EXT[0] & (1<<18))) return;
-        return DSi_DSP::Write16(addr, val);
+        return DSP->Write16(addr, val);
     }
 
     return NDS::ARM9IOWrite16(addr, val);
@@ -2550,7 +2554,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
             return;
         Set_SCFG_Clock9(val & 0xFFFF);
         SCFG_RST = val >> 16;
-        DSi_DSP::SetRstLine((val >> 16) & 1);
+        DSP->SetRstLine((val >> 16) & 1);
         break;
 
     case 0x04004008:
@@ -2679,13 +2683,13 @@ void ARM9IOWrite32(u32 addr, u32 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return DSi_CamModule::Write32(addr, val);
+        return CamModule->Write32(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
         if (!(SCFG_EXT[0] & (1<<18))) return;
-        return DSi_DSP::Write32(addr, val);
+        return DSP->Write32(addr, val);
     }
 
     return NDS::ARM9IOWrite32(addr, val);
@@ -2712,8 +2716,8 @@ u8 ARM7IORead8(u32 addr)
     CASE_READ8_32BIT(0x0400405C, MBK[1][7])
     CASE_READ8_32BIT(0x04004060, MBK[1][8])
 
-    case 0x04004500: return DSi_I2C::ReadData();
-    case 0x04004501: return DSi_I2C::Cnt;
+    case 0x04004500: return I2C->ReadData();
+    case 0x04004501: return I2C->ReadCnt();
 
     case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() & 0xFF;
     case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 8) & 0xFF;
@@ -2725,8 +2729,8 @@ u8 ARM7IORead8(u32 addr)
     case 0x04004D07: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() >> 56;
     case 0x04004D08: return 0;
 
-    case 0x4004700: return DSi_DSP::SNDExCnt;
-    case 0x4004701: return DSi_DSP::SNDExCnt >> 8;
+    case 0x4004700: return DSP->ReadSNDExCnt() & 0xFF;
+    case 0x4004701: return DSP->ReadSNDExCnt() >> 8;
 
     case 0x04004C00: return GPIO_Data;
     case 0x04004C01: return GPIO_Dir;
@@ -2768,7 +2772,7 @@ u16 ARM7IORead16(u32 addr)
     case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() >> 48;
     case 0x04004D08: return 0;
 
-    case 0x4004700: return DSi_DSP::SNDExCnt;
+    case 0x4004700: return DSP->ReadSNDExCnt();
 
     case 0x04004C00: return GPIO_Data | ((u16)GPIO_Dir << 8);
     case 0x04004C02: return GPIO_IEdgeSel | ((u16)GPIO_IE << 8);
@@ -2838,8 +2842,8 @@ u32 ARM7IORead32(u32 addr)
     case 0x0400416C: return NDMAs[7]->FillData;
     case 0x04004170: return NDMAs[7]->Cnt;
 
-    case 0x04004400: return DSi_AES::ReadCnt();
-    case 0x0400440C: return DSi_AES::ReadOutputFIFO();
+    case 0x04004400: return AES->ReadCnt();
+    case 0x0400440C: return AES->ReadOutputFIFO();
 
     case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() & 0xFFFFFFFF;
     case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() >> 32;
@@ -2847,7 +2851,7 @@ u32 ARM7IORead32(u32 addr)
 
     case 0x4004700:
         Log(LogLevel::Debug, "32-Bit SNDExCnt read? %08X\n", NDS::ARM7->R[15]);
-        return DSi_DSP::SNDExCnt;
+        return DSP->ReadSNDExCnt();
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
@@ -2896,14 +2900,14 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
     }
 
-    case 0x04004500: DSi_I2C::WriteData(val); return;
-    case 0x04004501: DSi_I2C::WriteCnt(val); return;
+    case 0x04004500: I2C->WriteData(val); return;
+    case 0x04004501: I2C->WriteCnt(val); return;
 
     case 0x4004700:
-        DSi_DSP::WriteSNDExCnt((u16)val | (DSi_DSP::SNDExCnt & 0xFF00));
+        DSP->WriteSNDExCnt((u16)val, 0xFF);
         return;
     case 0x4004701:
-        DSi_DSP::WriteSNDExCnt(((u16)val << 8) | (DSi_DSP::SNDExCnt & 0x00FF));
+        DSP->WriteSNDExCnt(((u16)val << 8), 0xFF00);
         return;
 
     case 0x04004C00:
@@ -2928,7 +2932,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         u32 shift = (addr&3)*8;
         addr -= 0x04004420;
         addr &= ~3;
-        DSi_AES::WriteIV(addr, (u32)val << shift, 0xFF << shift);
+        AES->WriteIV(addr, (u32)val << shift, 0xFF << shift);
         return;
     }
     if (addr >= 0x04004430 && addr < 0x04004440)
@@ -2936,7 +2940,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         u32 shift = (addr&3)*8;
         addr -= 0x04004430;
         addr &= ~3;
-        DSi_AES::WriteMAC(addr, (u32)val << shift, 0xFF << shift);
+        AES->WriteMAC(addr, (u32)val << shift, 0xFF << shift);
         return;
     }
     if (addr >= 0x04004440 && addr < 0x04004500)
@@ -2950,9 +2954,9 @@ void ARM7IOWrite8(u32 addr, u8 val)
 
         switch (addr >> 4)
         {
-        case 0: DSi_AES::WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
-        case 1: DSi_AES::WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
-        case 2: DSi_AES::WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        case 0: AES->WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        case 1: AES->WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        case 2: AES->WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
         }
     }
 
@@ -2998,11 +3002,11 @@ void ARM7IOWrite16(u32 addr, u16 val)
             return;
 
         case 0x04004406:
-            DSi_AES::WriteBlkCnt(val<<16);
+            AES->WriteBlkCnt(val<<16);
             return;
 
         case 0x4004700:
-            DSi_DSP::WriteSNDExCnt(val);
+            DSP->WriteSNDExCnt(val, 0xFFFF);
             return;
 
         case 0x04004C00:
@@ -3023,7 +3027,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
         u32 shift = (addr&1)*16;
         addr -= 0x04004420;
         addr &= ~1;
-        DSi_AES::WriteIV(addr, (u32)val << shift, 0xFFFF << shift);
+        AES->WriteIV(addr, (u32)val << shift, 0xFFFF << shift);
         return;
     }
     if (addr >= 0x04004430 && addr < 0x04004440)
@@ -3031,7 +3035,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
         u32 shift = (addr&1)*16;
         addr -= 0x04004430;
         addr &= ~1;
-        DSi_AES::WriteMAC(addr, (u32)val << shift, 0xFFFF << shift);
+        AES->WriteMAC(addr, (u32)val << shift, 0xFFFF << shift);
         return;
     }
     if (addr >= 0x04004440 && addr < 0x04004500)
@@ -3045,9 +3049,9 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
         switch (addr >> 4)
         {
-        case 0: DSi_AES::WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
-        case 1: DSi_AES::WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
-        case 2: DSi_AES::WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        case 0: AES->WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        case 1: AES->WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        case 2: AES->WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
         }
     }
 
@@ -3145,26 +3149,26 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x0400416C: NDMAs[7]->FillData = val; return;
     case 0x04004170: NDMAs[7]->WriteCnt(val); return;
 
-    case 0x04004400: DSi_AES::WriteCnt(val); return;
-    case 0x04004404: DSi_AES::WriteBlkCnt(val); return;
-    case 0x04004408: DSi_AES::WriteInputFIFO(val); return;
+    case 0x04004400: AES->WriteCnt(val); return;
+    case 0x04004404: AES->WriteBlkCnt(val); return;
+    case 0x04004408: AES->WriteInputFIFO(val); return;
 
     case 0x4004700:
         Log(LogLevel::Debug, "32-Bit SNDExCnt write? %08X %08X\n", val, NDS::ARM7->R[15]);
-        DSi_DSP::WriteSNDExCnt(val);
+        DSP->WriteSNDExCnt(val, 0xFFFF);
         return;
     }
 
     if (addr >= 0x04004420 && addr < 0x04004430)
     {
         addr -= 0x04004420;
-        DSi_AES::WriteIV(addr, val, 0xFFFFFFFF);
+        AES->WriteIV(addr, val, 0xFFFFFFFF);
         return;
     }
     if (addr >= 0x04004430 && addr < 0x04004440)
     {
         addr -= 0x04004430;
-        DSi_AES::WriteMAC(addr, val, 0xFFFFFFFF);
+        AES->WriteMAC(addr, val, 0xFFFFFFFF);
         return;
     }
     if (addr >= 0x04004440 && addr < 0x04004500)
@@ -3175,9 +3179,9 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
         switch (addr >> 4)
         {
-        case 0: DSi_AES::WriteKeyNormal(n, addr&0xF, val, 0xFFFFFFFF); return;
-        case 1: DSi_AES::WriteKeyX(n, addr&0xF, val, 0xFFFFFFFF); return;
-        case 2: DSi_AES::WriteKeyY(n, addr&0xF, val, 0xFFFFFFFF); return;
+        case 0: AES->WriteKeyNormal(n, addr&0xF, val, 0xFFFFFFFF); return;
+        case 1: AES->WriteKeyX(n, addr&0xF, val, 0xFFFFFFFF); return;
+        case 2: AES->WriteKeyY(n, addr&0xF, val, 0xFFFFFFFF); return;
         }
     }
 
@@ -3199,7 +3203,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
     if (addr >= 0x04004300 && addr <= 0x04004400)
     {
-        DSi_DSP::Write32(addr, val);
+        DSP->Write32(addr, val);
         return;
     }
 

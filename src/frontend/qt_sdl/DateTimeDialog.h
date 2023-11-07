@@ -16,27 +16,26 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef POWERMANAGEMENTDIALOG_H
-#define POWERMANAGEMENTDIALOG_H
+#ifndef DATETIMEDIALOG_H
+#define DATETIMEDIALOG_H
 
 #include <QDialog>
-#include <QAbstractButton>
+#include <QButtonGroup>
+#include <QDateTime>
 
-#include "types.h"
+namespace Ui {class DateTimeDialog; }
+class DateTimeDialog;
 
-namespace Ui { class PowerManagementDialog; }
-class PowerManagementDialog;
-
-class PowerManagementDialog : public QDialog
+class DateTimeDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit PowerManagementDialog(QWidget* parent);
-    ~PowerManagementDialog();
+    explicit DateTimeDialog(QWidget* parent);
+    ~DateTimeDialog();
 
-    static PowerManagementDialog* currentDlg;
-    static PowerManagementDialog* openDlg(QWidget* parent)
+    static DateTimeDialog* currentDlg;
+    static DateTimeDialog* openDlg(QWidget* parent)
     {
         if (currentDlg)
         {
@@ -44,7 +43,7 @@ public:
             return currentDlg;
         }
 
-        currentDlg = new PowerManagementDialog(parent);
+        currentDlg = new DateTimeDialog(parent);
         currentDlg->open();
         return currentDlg;
     }
@@ -53,25 +52,19 @@ public:
         currentDlg = nullptr;
     }
 
+protected:
+    void timerEvent(QTimerEvent* event) override;
+
 private slots:
     void done(int r);
 
-    void on_rbDSBatteryLow_clicked();
-    void on_rbDSBatteryOkay_clicked();
-
-    void on_cbDSiBatteryCharging_toggled();
-    void on_sliderDSiBatteryLevel_valueChanged(int value);
+    void on_chkChangeTime_clicked(bool checked);
+    void on_chkResetTime_clicked(bool checked);
 
 private:
-    Ui::PowerManagementDialog* ui;
+    Ui::DateTimeDialog* ui;
 
-    bool inited;
-    bool oldDSBatteryLevel;
-    u8 oldDSiBatteryLevel;
-    bool oldDSiBatteryCharging;
-
-    void updateDSBatteryLevelControls();
+    QDateTime customTime;
 };
 
-#endif // POWERMANAGEMENTDIALOG_H
-
+#endif // DATETIMEDIALOG_H

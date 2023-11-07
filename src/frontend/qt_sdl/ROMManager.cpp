@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -28,6 +28,8 @@
 #include <utility>
 #include <fstream>
 
+#include <QDateTime>
+
 #include <zstd.h>
 #ifdef ARCHIVE_SUPPORT_ENABLED
 #include "ArchiveUtil.h"
@@ -39,6 +41,7 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "SPI.h"
+#include "RTC.h"
 #include "DSi_I2C.h"
 #include "FreeBIOS.h"
 
@@ -459,7 +462,7 @@ void UnloadCheats()
     {
         delete CheatFile;
         CheatFile = nullptr;
-        AREngine::SetCodeFile(nullptr);
+        NDS::AREngine->SetCodeFile(nullptr);
     }
 }
 
@@ -472,7 +475,7 @@ void LoadCheats()
     // TODO: check for error (malformed cheat file, ...)
     CheatFile = new ARCodeFile(filename);
 
-    AREngine::SetCodeFile(CheatsOn ? CheatFile : nullptr);
+    NDS::AREngine->SetCodeFile(CheatsOn ? CheatFile : nullptr);
 }
 
 void LoadBIOSFiles()
@@ -567,7 +570,7 @@ void EnableCheats(bool enable)
 {
     CheatsOn = enable;
     if (CheatFile)
-        AREngine::SetCodeFile(CheatsOn ? CheatFile : nullptr);
+        NDS::AREngine->SetCodeFile(CheatsOn ? CheatFile : nullptr);
 }
 
 ARCodeFile* GetCheatFile()
@@ -580,13 +583,22 @@ void SetBatteryLevels()
 {
     if (NDS::ConsoleType == 1)
     {
-        DSi_BPTWL::SetBatteryLevel(Config::DSiBatteryLevel);
-        DSi_BPTWL::SetBatteryCharging(Config::DSiBatteryCharging);
+        DSi::I2C->GetBPTWL()->SetBatteryLevel(Config::DSiBatteryLevel);
+        DSi::I2C->GetBPTWL()->SetBatteryCharging(Config::DSiBatteryCharging);
     }
     else
     {
-        SPI_Powerman::SetBatteryLevelOkay(Config::DSBatteryLevelOkay);
+        NDS::SPI->GetPowerMan()->SetBatteryLevelOkay(Config::DSBatteryLevelOkay);
     }
+}
+
+void SetDateTime()
+{
+    QDateTime hosttime = QDateTime::currentDateTime();
+    QDateTime time = hosttime.addSecs(Config::RTCOffset);
+
+    NDS::RTC->SetDateTime(time.date().year(), time.date().month(), time.date().day(),
+                          time.time().hour(), time.time().minute(), time.time().second());
 }
 
 void Reset()
@@ -602,6 +614,7 @@ void Reset()
     }
     NDS::Reset();
     SetBatteryLevels();
+    SetDateTime();
 
     if ((CartType != -1) && NDSSave)
     {
@@ -678,6 +691,7 @@ bool LoadBIOS()
 
     NDS::Reset();
     SetBatteryLevels();
+    SetDateTime();
     return true;
 }
 
@@ -778,10 +792,10 @@ void ClearBackupState()
 
 // We want both the firmware object and the path that was used to load it,
 // since we'll need to give it to the save manager later
-pair<unique_ptr<SPI_Firmware::Firmware>, string> LoadFirmwareFromFile()
+pair<unique_ptr<Firmware>, string> LoadFirmwareFromFile()
 {
     string loadedpath;
-    unique_ptr<SPI_Firmware::Firmware> firmware = nullptr;
+    unique_ptr<Firmware> firmware = nullptr;
     string firmwarepath = Config::ConsoleType == 0 ? Config::FirmwarePath : Config::DSiFirmwarePath;
 
     Log(LogLevel::Debug, "SPI firmware: loading from file %s\n", firmwarepath.c_str());
@@ -798,7 +812,7 @@ pair<unique_ptr<SPI_Firmware::Firmware>, string> LoadFirmwareFromFile()
 
     if (f)
     {
-        firmware = make_unique<SPI_Firmware::Firmware>(f);
+        firmware = make_unique<Firmware>(f);
         if (!firmware->Buffer())
         {
             Log(LogLevel::Warn, "Couldn't read firmware file!\n");
@@ -812,9 +826,8 @@ pair<unique_ptr<SPI_Firmware::Firmware>, string> LoadFirmwareFromFile()
     return std::make_pair(std::move(firmware), loadedpath);
 }
 
-pair<unique_ptr<SPI_Firmware::Firmware>, string> GenerateDefaultFirmware()
+pair<unique_ptr<Firmware>, string> GenerateDefaultFirmware()
 {
-    using namespace SPI_Firmware;
     // Construct the default firmware...
     string settingspath;
     std::unique_ptr<Firmware> firmware = std::make_unique<Firmware>(Config::ConsoleType);
@@ -836,27 +849,27 @@ pair<unique_ptr<SPI_Firmware::Firmware>, string> GenerateDefaultFirmware()
     // and if we didn't keep them then the player would have to reset them in each session.
     if (f)
     { // If we have Wi-fi settings to load...
-        constexpr unsigned TOTAL_WFC_SETTINGS_SIZE = 3 * (sizeof(WifiAccessPoint) + sizeof(ExtendedWifiAccessPoint));
+        constexpr unsigned TOTAL_WFC_SETTINGS_SIZE = 3 * (sizeof(Firmware::WifiAccessPoint) + sizeof(Firmware::ExtendedWifiAccessPoint));
 
         // The access point and extended access point segments might
         // be in different locations depending on the firmware revision,
         // but our generated firmware always keeps them next to each other.
         // (Extended access points first, then regular ones.)
 
-        if (!FileRead(firmware->ExtendedAccessPointPosition(), TOTAL_WFC_SETTINGS_SIZE, 1, f))
+        if (!FileRead(firmware->GetExtendedAccessPointPosition(), TOTAL_WFC_SETTINGS_SIZE, 1, f))
         { // If we couldn't read the Wi-fi settings from this file...
             Platform::Log(Platform::LogLevel::Warn, "Failed to read Wi-fi settings from \"%s\"; using defaults instead\n", wfcsettingspath.c_str());
 
-            firmware->AccessPoints() = {
-                WifiAccessPoint(Config::ConsoleType),
-                WifiAccessPoint(),
-                WifiAccessPoint(),
+            firmware->GetAccessPoints() = {
+                Firmware::WifiAccessPoint(Config::ConsoleType),
+                Firmware::WifiAccessPoint(),
+                Firmware::WifiAccessPoint(),
             };
 
-            firmware->ExtendedAccessPoints() = {
-                ExtendedWifiAccessPoint(),
-                ExtendedWifiAccessPoint(),
-                ExtendedWifiAccessPoint(),
+            firmware->GetExtendedAccessPoints() = {
+                Firmware::ExtendedWifiAccessPoint(),
+                Firmware::ExtendedWifiAccessPoint(),
+                Firmware::ExtendedWifiAccessPoint(),
             };
         }
 
@@ -870,10 +883,9 @@ pair<unique_ptr<SPI_Firmware::Firmware>, string> GenerateDefaultFirmware()
     return std::make_pair(std::move(firmware), std::move(wfcsettingspath));
 }
 
-void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
+void LoadUserSettingsFromConfig(Firmware& firmware)
 {
-    using namespace SPI_Firmware;
-    UserData& currentData = firmware.EffectiveUserData();
+    auto& currentData = firmware.GetEffectiveUserData();
 
     // setting up username
     std::string orig_username = Config::FirmwareUsername;
@@ -885,10 +897,10 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
         memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
     }
 
-    auto language = static_cast<Language>(Config::FirmwareLanguage);
-    if (language != Language::Reserved)
+    auto language = static_cast<Firmware::Language>(Config::FirmwareLanguage);
+    if (language != Firmware::Language::Reserved)
     { // If the frontend specifies a language (rather than using the existing value)...
-        currentData.Settings &= ~Language::Reserved; // ..clear the existing language...
+        currentData.Settings &= ~Firmware::Language::Reserved; // ..clear the existing language...
         currentData.Settings |= language; // ...and set the new one.
     }
 
@@ -923,9 +935,9 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
 
     MacAddress mac;
     bool rep = false;
-    auto& header = firmware.Header();
+    auto& header = firmware.GetHeader();
 
-    memcpy(&mac, header.MacAddress.data(), sizeof(MacAddress));
+    memcpy(&mac, header.MacAddr.data(), sizeof(MacAddress));
 
 
     MacAddress configuredMac;
@@ -949,7 +961,7 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
     if (rep)
     {
         mac[0] &= 0xFC; // ensure the MAC isn't a broadcast MAC
-        header.MacAddress = mac;
+        header.MacAddr = mac;
         header.UpdateChecksum();
     }
 
@@ -1021,7 +1033,7 @@ bool InstallNAND(const u8* es_keyY)
             memcpy(&settings.Nickname, username.data(), usernameLength * sizeof(char16_t));
 
             // setting language
-            settings.Language = static_cast<SPI_Firmware::Language>(Config::FirmwareLanguage);
+            settings.Language = static_cast<Firmware::Language>(Config::FirmwareLanguage);
 
             // setting up color
             settings.FavoriteColor = Config::FirmwareFavouriteColour;
@@ -1060,7 +1072,6 @@ bool InstallNAND(const u8* es_keyY)
 
 bool InstallFirmware()
 {
-    using namespace SPI_Firmware;
     FirmwareSave.reset();
     unique_ptr<Firmware> firmware;
     string firmwarepath;
@@ -1091,14 +1102,14 @@ bool InstallFirmware()
 
     FirmwareSave = std::make_unique<SaveManager>(firmwarepath);
 
-    return InstallFirmware(std::move(firmware));
+    return NDS::SPI->GetFirmwareMem()->InstallFirmware(std::move(firmware));
 }
 
 bool LoadROM(QStringList filepath, bool reset)
 {
     if (filepath.empty()) return false;
 
-    u8* filedata;
+    u8* filedata = nullptr;
     u32 filelen;
 
     std::string basepath;
@@ -1204,6 +1215,7 @@ bool LoadROM(QStringList filepath, bool reset)
 
         NDS::Reset();
         SetBatteryLevels();
+        SetDateTime();
     }
 
     u32 savelen = 0;
@@ -1350,7 +1362,7 @@ bool LoadGBAROM(QStringList filepath)
     {
         // file inside archive
 
-        u32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
+        s32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
         if (lenread < 0) return false;
         if (!filedata) return false;
         if (lenread != filelen)

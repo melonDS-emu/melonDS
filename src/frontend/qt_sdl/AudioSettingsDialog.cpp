@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -24,6 +24,7 @@
 #include "Platform.h"
 #include "Config.h"
 #include "NDS.h"
+#include "DSi.h"
 #include "DSi_I2C.h"
 
 #include "AudioSettingsDialog.h"
@@ -77,15 +78,15 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent, bool emuActive) : QDia
     const int count = SDL_GetNumAudioDevices(true);
     for (int i = 0; i < count; i++)
     {
-        ui->cbMic->addItem(SDL_GetAudioDeviceName(i, true));   
+        ui->cbMic->addItem(SDL_GetAudioDeviceName(i, true));
     }
     if (Config::MicDevice == "" && count > 0)
-    {   
+    {
         Config::MicDevice = SDL_GetAudioDeviceName(0, true);
     }
 
-    ui->cbMic->setCurrentText(QString::fromStdString(Config::MicDevice));  
-    
+    ui->cbMic->setCurrentText(QString::fromStdString(Config::MicDevice));
+
     grpMicMode = new QButtonGroup(this);
     grpMicMode->addButton(ui->rbMicNone,     micInputType_Silence);
     grpMicMode->addButton(ui->rbMicExternal, micInputType_External);
@@ -126,7 +127,7 @@ void AudioSettingsDialog::onSyncVolumeLevel()
     if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
     {
         bool state = ui->slVolume->blockSignals(true);
-        ui->slVolume->setValue(DSi_BPTWL::GetVolumeLevel());
+        ui->slVolume->setValue(DSi::I2C->GetBPTWL()->GetVolumeLevel());
         ui->slVolume->blockSignals(state);
     }
 }
@@ -181,7 +182,7 @@ void AudioSettingsDialog::on_slVolume_valueChanged(int val)
 {
     if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
     {
-        DSi_BPTWL::SetVolumeLevel(val);
+        DSi::I2C->GetBPTWL()->SetVolumeLevel(val);
         return;
     }
 
@@ -196,7 +197,7 @@ void AudioSettingsDialog::on_chkSyncDSiVolume_clicked(bool checked)
     if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
     {
         ui->slVolume->setMaximum(31);
-        ui->slVolume->setValue(DSi_BPTWL::GetVolumeLevel());
+        ui->slVolume->setValue(DSi::I2C->GetBPTWL()->GetVolumeLevel());
         ui->slVolume->setPageStep(4);
         ui->slVolume->setTickPosition(QSlider::TicksBelow);
     }

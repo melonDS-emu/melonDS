@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -24,7 +24,7 @@
 #include <stdio.h>
 #include "types.h"
 
-#define SAVESTATE_MAJOR 10
+#define SAVESTATE_MAJOR 11
 #define SAVESTATE_MINOR 1
 
 class Savestate

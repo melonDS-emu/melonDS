@@ -95,7 +95,7 @@ ARM_RestoreContext:
 
     br x18
 
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(__WIN32__)
 .section .note.GNU-stack,"",@progbits
 #endif
 
