@@ -1070,7 +1070,7 @@ void SubmitPolygon()
 
     bool facingview = (dot <= 0);
 
-    if (facingview)
+    if (dot < 0)
     {
         if (!(CurPolygonAttr & (1<<7)))
         {
