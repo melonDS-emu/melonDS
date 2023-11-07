@@ -20,7 +20,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <inttypes.h>
-#include <QLocale>
 #include "Platform.h"
 #include "Config.h"
 
