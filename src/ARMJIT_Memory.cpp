@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -112,6 +112,7 @@ bool FaultHandler(FaultDescription& faultDesc);
 
 #if defined(__ANDROID__)
 #define ASHMEM_DEVICE "/dev/ashmem"
+Platform::DynamicLibrary* Libandroid = nullptr;
 #endif
 
 #if defined(__SWITCH__)
@@ -307,7 +308,7 @@ HANDLE MemoryFile;
 LPVOID ExceptionHandlerHandle;
 #else
 u8* MemoryBase;
-int MemoryFile;
+int MemoryFile = -1;
 #endif
 
 bool MapIntoRange(u32 addr, u32 num, u32 offset, u32 size)
@@ -753,14 +754,13 @@ void Init()
     MemoryBase = MemoryBase + AddrSpaceSize*2;
 
 #if defined(__ANDROID__)
-    static void* libandroid = dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
+    Libandroid = Platform::DynamicLibrary_Load("libandroid.so");
     using type_ASharedMemory_create = int(*)(const char* name, size_t size);
-    static void* symbol = dlsym(libandroid, "ASharedMemory_create");
-    static auto shared_memory_create = reinterpret_cast<type_ASharedMemory_create>(symbol);
+    auto ASharedMemory_create = reinterpret_cast<type_ASharedMemory_create>(Platform::DynamicLibrary_LoadFunction(Libandroid, "ASharedMemory_create"));
 
-    if (shared_memory_create)
+    if (ASharedMemory_create)
     {
-        MemoryFile = shared_memory_create("melondsfastmem", MemoryTotalSize);
+        MemoryFile = ASharedMemory_create("melondsfastmem", MemoryTotalSize);
     }
     else
     {
@@ -775,13 +775,13 @@ void Init()
     MemoryFile = shm_open(fastmemPidName, O_RDWR | O_CREAT | O_EXCL, 0600);
     if (MemoryFile == -1)
     {
-        Log(LogLevel::Error, "Failed to open memory using shm_open!");
+        Log(LogLevel::Error, "Failed to open memory using shm_open! (%s)", strerror(errno));
     }
     shm_unlink(fastmemPidName);
 #endif
     if (ftruncate(MemoryFile, MemoryTotalSize) < 0)
     {
-        Log(LogLevel::Error, "Failed to allocate memory using ftruncate!");
+        Log(LogLevel::Error, "Failed to allocate memory using ftruncate! (%s)", strerror(errno));
     }
 
     struct sigaction sa;
@@ -811,25 +811,67 @@ void DeInit()
 {
 #if defined(__SWITCH__)
     virtmemLock();
-    virtmemRemoveReservation(FastMem9Reservation);
-    virtmemRemoveReservation(FastMem7Reservation);
+    if (FastMem9Reservation)
+        virtmemRemoveReservation(FastMem9Reservation);
+
+    if (FastMem7Reservation)
+        virtmemRemoveReservation(FastMem7Reservation);
+
+    FastMem9Reservation = nullptr;
+    FastMem7Reservation = nullptr;
     virtmemUnlock();
 
     svcUnmapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, (u64)MemoryBase, MemoryTotalSize);
     free(MemoryBase);
+    MemoryBase = nullptr;
 #elif defined(_WIN32)
-    assert(UnmapViewOfFile(MemoryBase));
-    CloseHandle(MemoryFile);
+    if (MemoryBase)
+    {
+        bool viewUnmapped = UnmapViewOfFile(MemoryBase);
+        assert(viewUnmapped);
+        MemoryBase = nullptr;
+        FastMem9Start = nullptr;
+        FastMem7Start = nullptr;
+    }
 
-    RemoveVectoredExceptionHandler(ExceptionHandlerHandle);
+    if (MemoryFile)
+    {
+        CloseHandle(MemoryFile);
+        MemoryFile = INVALID_HANDLE_VALUE;
+    }
+
+    if (ExceptionHandlerHandle)
+    {
+        RemoveVectoredExceptionHandler(ExceptionHandlerHandle);
+        ExceptionHandlerHandle = nullptr;
+    }
 #else
     sigaction(SIGSEGV, &OldSaSegv, nullptr);
 #ifdef __APPLE__
     sigaction(SIGBUS, &OldSaBus, nullptr);
 #endif
+    if (MemoryBase)
+    {
+        munmap(MemoryBase, MemoryTotalSize);
+        MemoryBase = nullptr;
+        FastMem9Start = nullptr;
+        FastMem7Start = nullptr;
+    }
 
-    munmap(MemoryBase, MemoryTotalSize);
-    close(MemoryFile);
+    if (MemoryFile >= 0)
+    {
+        close(MemoryFile);
+        MemoryFile = -1;
+    }
+
+#if defined(__ANDROID__)
+    if (Libandroid)
+    {
+        Platform::DynamicLibrary_Unload(Libandroid);
+        Libandroid = nullptr;
+    }
+#endif
+
 #endif
 }
 
@@ -1170,7 +1212,7 @@ int ClassifyAddress7(u32 addr)
     }
 }
 
-void WifiWrite32(u32 addr, u32 val)
+/*void WifiWrite32(u32 addr, u32 val)
 {
     Wifi::Write(addr, val & 0xFFFF);
     Wifi::Write(addr + 2, val >> 16);
@@ -1179,7 +1221,7 @@ void WifiWrite32(u32 addr, u32 val)
 u32 WifiRead32(u32 addr)
 {
     return (u32)Wifi::Read(addr) | ((u32)Wifi::Read(addr + 2) << 16);
-}
+}*/
 
 template <typename T>
 void VRAMWrite(u32 addr, T val)
@@ -1278,7 +1320,7 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
         switch (addr & 0xFF800000)
         {
         case 0x04000000:
-            if (addr >= 0x04000400 && addr < 0x04000520)
+            /*if (addr >= 0x04000400 && addr < 0x04000520)
             {
                 switch (size | store)
                 {
@@ -1289,7 +1331,7 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
                 case 32: return (void*)SPU::Read32;
                 case 33: return (void*)SPU::Write32;
                 }
-            }
+            }*/
 
             if (NDS::ConsoleType == 0)
             {
@@ -1316,7 +1358,8 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
                 }
             }
             break;
-        case 0x04800000:
+            // TODO: the wifi funcs also ought to check POWCNT
+        /*case 0x04800000:
             if (addr < 0x04810000 && size >= 16)
             {
                 switch (size | store)
@@ -1327,7 +1370,7 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
                 case 33: return (void*)WifiWrite32;
                 }
             }
-            break;
+            break;*/
         case 0x06000000:
         case 0x06800000:
             switch (size | store)

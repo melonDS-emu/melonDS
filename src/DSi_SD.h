@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -24,6 +24,11 @@
 #include "FATStorage.h"
 #include "Savestate.h"
 
+namespace DSi_NAND
+{
+    class NANDImage;
+}
+
 class DSi_SDDevice;
 
 
@@ -38,8 +43,8 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    static void FinishRX(u32 param);
-    static void FinishTX(u32 param);
+    void FinishRX(u32 param);
+    void FinishTX(u32 param);
     void SendResponse(u32 val, bool last);
     u32 DataRX(u8* data, u32 len);
     u32 DataTX(u8* data, u32 len);
@@ -125,7 +130,7 @@ protected:
 class DSi_MMCStorage : public DSi_SDDevice
 {
 public:
-    DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::string& filename);
+    DSi_MMCStorage(DSi_SDHost* host, DSi_NAND::NANDImage& nand);
     DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::string& filename, u64 size, bool readonly, const std::string& sourcedir);
     ~DSi_MMCStorage();
 
@@ -133,7 +138,7 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    void SetCID(u8* cid) { memcpy(CID, cid, 16); }
+    void SetCID(const u8* cid) { memcpy(CID, cid, sizeof(CID)); }
 
     void SendCMD(u8 cmd, u32 param);
     void SendACMD(u8 cmd, u32 param);
@@ -142,7 +147,7 @@ public:
 
 private:
     bool Internal;
-    FILE* File;
+    DSi_NAND::NANDImage* NAND;
     FATStorage* SD;
 
     u8 CID[16];

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -40,9 +40,7 @@ public:
 
     void SetIRQ_F1_Counter(u32 n);
 
-    void _MSTimer();
-
-    static void MSTimer(u32 param);
+    void MSTimer(u32 param);
 
 private:
     u32 TransferCmd;

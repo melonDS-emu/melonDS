@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,7 +22,6 @@
 #include "NDSCart.h"
 #include "ARM.h"
 #include "CRC32.h"
-#include "DSi_AES.h"
 #include "Platform.h"
 #include "ROMList.h"
 #include "melonDLDI.h"
@@ -33,6 +32,12 @@ using Platform::LogLevel;
 
 namespace NDSCart
 {
+
+enum
+{
+    ROMTransfer_PrepareData = 0,
+    ROMTransfer_End
+};
 
 // SRAM TODO: emulate write delays???
 
@@ -1468,6 +1473,10 @@ void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
 
 bool Init()
 {
+    NDS::RegisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_PrepareData, ROMPrepareData);
+    NDS::RegisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_End, ROMEndTransfer);
+    NDS::RegisterEventFunc(NDS::Event_ROMSPITransfer, 0, SPITransferDone);
+
     Cart = nullptr;
 
     return true;
@@ -1476,6 +1485,10 @@ bool Init()
 void DeInit()
 {
     Cart = nullptr;
+
+    NDS::UnregisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_PrepareData);
+    NDS::UnregisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_End);
+    NDS::UnregisterEventFunc(NDS::Event_ROMSPITransfer, 0);
 }
 
 void Reset()
@@ -1539,7 +1552,7 @@ void DoSavestate(Savestate* file)
 bool ReadROMParams(u32 gamecode, ROMListEntry* params)
 {
     u32 offset = 0;
-    u32 chk_size = ROMListSize >> 1;
+    u32 chk_size = ROMListEntryCount >> 1;
     for (;;)
     {
         u32 key = 0;
@@ -1568,7 +1581,7 @@ bool ReadROMParams(u32 gamecode, ROMListEntry* params)
             chk_size >>= 1;
         }
 
-        if (offset >= ROMListSize)
+        if (offset >= ROMListEntryCount)
         {
             return false;
         }
@@ -1650,8 +1663,7 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
     bool dsi = header.IsDSi();
     bool badDSiDump = false;
 
-    u32 dsiRegion = header.DSiRegionMask;
-    if (dsi && dsiRegion == 0)
+    if (dsi && header.DSiRegionMask == RegionMask::NoRegion)
     {
         Log(LogLevel::Info, "DS header indicates DSi, but region is zero. Going in bad dump mode.\n");
         badDSiDump = true;
@@ -1729,8 +1741,6 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
     return cart;
 }
 
-// Why a move function? Because the Cart object is polymorphic,
-// and cloning polymorphic objects without knowing the underlying type is annoying.
 bool InsertROM(std::unique_ptr<CartCommon>&& cart)
 {
     if (!cart) {
@@ -1741,6 +1751,8 @@ bool InsertROM(std::unique_ptr<CartCommon>&& cart)
     if (Cart)
         EjectCart();
 
+    // Why a move function? Because the Cart object is polymorphic,
+    // and cloning polymorphic objects without knowing the underlying type is annoying.
     Cart = std::move(cart);
 
     Cart->Reset();
@@ -1968,9 +1980,9 @@ void WriteROMCnt(u32 val)
     }
 
     if (datasize == 0)
-        NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*cmddelay, ROMEndTransfer, 0);
+        NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*cmddelay, ROMTransfer_End, 0);
     else
-        NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*(cmddelay+4), ROMPrepareData, 0);
+        NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*(cmddelay+4), ROMTransfer_PrepareData, 0);
 }
 
 void AdvanceROMTransfer()
@@ -1987,7 +1999,7 @@ void AdvanceROMTransfer()
                 delay += ((ROMCnt >> 16) & 0x3F);
         }
 
-        NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*delay, ROMPrepareData, 0);
+        NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*delay, ROMTransfer_PrepareData, 0);
     }
     else
         ROMEndTransfer(0);
@@ -2089,7 +2101,7 @@ void WriteSPIData(u8 val)
 
     // SPI transfers one bit per cycle -> 8 cycles per byte
     u32 delay = 8 * (8 << (SPICnt & 0x3));
-    NDS::ScheduleEvent(NDS::Event_ROMSPITransfer, false, delay, SPITransferDone, 0);
+    NDS::ScheduleEvent(NDS::Event_ROMSPITransfer, false, delay, 0, 0);
 }
 
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -47,19 +47,14 @@ using Platform::LogLevel;
 // TODO: timings are nonseq when address is fixed/decrementing
 
 
-DMA::DMA(u32 cpu, u32 num)
+DMA::DMA(u32 cpu, u32 num) :
+    CPU(cpu),
+    Num(num)
 {
-    CPU = cpu;
-    Num = num;
-
     if (cpu == 0)
         CountMask = 0x001FFFFF;
     else
         CountMask = (num==3 ? 0x0000FFFF : 0x00003FFF);
-}
-
-DMA::~DMA()
-{
 }
 
 void DMA::Reset()
@@ -79,8 +74,10 @@ void DMA::Reset()
     Stall = false;
 
     Running = false;
+    Executing = false;
     InProgress = false;
     MRAMBurstCount = 0;
+    MRAMBurstTable = DMATiming::MRAMDummy;
 }
 
 void DMA::DoSavestate(Savestate* file)
@@ -105,6 +102,10 @@ void DMA::DoSavestate(Savestate* file)
     file->Bool32(&InProgress);
     file->Bool32(&IsGXFIFODMA);
     file->Var32(&MRAMBurstCount);
+    file->Bool32(&Executing);
+    file->Bool32(&Stall);
+
+    file->VarArray(MRAMBurstTable.data(), sizeof(MRAMBurstTable));
 }
 
 void DMA::WriteCnt(u32 val)

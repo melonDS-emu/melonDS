@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,60 +19,149 @@
 #ifndef SPI_H
 #define SPI_H
 
+#include <algorithm>
+#include <array>
+#include <memory>
+#include <string_view>
+#include <string.h>
+
 #include "Savestate.h"
+#include "SPI_Firmware.h"
 
-namespace SPI_Firmware
+enum
 {
+    SPIDevice_PowerMan = 0,
+    SPIDevice_FirmwareMem,
+    SPIDevice_TSC,
 
-void SetupDirectBoot(bool dsi);
+    SPIDevice_MAX
+};
 
-u32 FixFirmwareLength(u32 originalLength);
+u16 CRC16(const u8* data, u32 len, u32 start);
 
-u32 GetFirmwareLength();
-u8 GetConsoleType();
-u8 GetWifiVersion();
-u8 GetNWifiVersion();
-u8 GetRFVersion();
-u8* GetWifiMAC();
+class SPIHost;
 
-}
-
-namespace SPI_Powerman
+class SPIDevice
 {
+public:
+    SPIDevice(SPIHost* host) : Host(host), Hold(false), DataPos(0) {}
+    virtual ~SPIDevice() {}
+    virtual void Reset() = 0;
+    virtual void DoSavestate(Savestate* file) = 0;
 
-bool GetBatteryLevelOkay();
-void SetBatteryLevelOkay(bool okay);
+    virtual u8 Read() { return Data; }
+    virtual void Write(u8 val) = 0;
+    virtual void Release() { Hold = false; DataPos = 0; }
 
-}
+protected:
+    SPIHost* Host;
 
-namespace SPI_TSC
+    bool Hold;
+    u32 DataPos;
+    u8 Data;
+};
+
+class FirmwareMem : public SPIDevice
 {
+public:
+    FirmwareMem(SPIHost* host);
+    ~FirmwareMem() override;
+    void Reset() override;
+    void DoSavestate(Savestate* file) override;
 
-void SetTouchCoords(u16 x, u16 y);
-void MicInputFrame(s16* data, int samples);
+    void SetupDirectBoot(bool dsi);
 
-u8 Read();
-void Write(u8 val, u32 hold);
+    const class Firmware* GetFirmware();
+    bool IsLoadedFirmwareBuiltIn();
+    bool InstallFirmware(class Firmware&& firmware);
+    bool InstallFirmware(std::unique_ptr<class Firmware>&& firmware);
+    void RemoveFirmware();
 
-}
+    void Write(u8 val) override;
+    void Release() override;
 
-namespace SPI
+private:
+    std::unique_ptr<class Firmware> Firmware;
+
+    u8 CurCmd;
+
+    u8 StatusReg;
+    u32 Addr;
+
+    bool VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset);
+};
+
+class PowerMan : public SPIDevice
 {
+public:
+    PowerMan(SPIHost* host);
+    ~PowerMan() override;
+    void Reset() override;
+    void DoSavestate(Savestate* file) override;
 
-extern u16 Cnt;
+    bool GetBatteryLevelOkay();
+    void SetBatteryLevelOkay(bool okay);
 
-bool Init();
-void DeInit();
-void Reset();
-void DoSavestate(Savestate* file);
+    void Write(u8 val) override;
 
-void WriteCnt(u16 val);
+private:
+    u8 Index;
 
-u8 ReadData();
-void WriteData(u8 val);
+    u8 Registers[8];
+    u8 RegMasks[8];
+};
 
-void TransferDone(u32 param);
+class TSC : public SPIDevice
+{
+public:
+    TSC(SPIHost* host);
+    virtual ~TSC() override;
+    virtual void Reset() override;
+    virtual void DoSavestate(Savestate* file) override;
 
-}
+    virtual void SetTouchCoords(u16 x, u16 y);
+    virtual void MicInputFrame(s16* data, int samples);
+
+    virtual void Write(u8 val) override;
+
+protected:
+    u8 ControlByte;
+
+    u16 ConvResult;
+
+    u16 TouchX, TouchY;
+
+    s16 MicBuffer[1024];
+    int MicBufferLen;
+};
+
+
+class SPIHost
+{
+public:
+    SPIHost();
+    ~SPIHost();
+    void Reset();
+    void DoSavestate(Savestate* file);
+
+    FirmwareMem* GetFirmwareMem() { return (FirmwareMem*)Devices[SPIDevice_FirmwareMem]; }
+    PowerMan* GetPowerMan() { return (PowerMan*)Devices[SPIDevice_PowerMan]; }
+    TSC* GetTSC() { return (TSC*)Devices[SPIDevice_TSC]; }
+
+    const Firmware* GetFirmware() { return GetFirmwareMem()->GetFirmware(); }
+
+    u16 ReadCnt() { return Cnt; }
+    void WriteCnt(u16 val);
+
+    u8 ReadData();
+    void WriteData(u8 val);
+
+    void TransferDone(u32 param);
+
+private:
+    u16 Cnt;
+
+    SPIDevice* Devices[3];
+};
 
 #endif

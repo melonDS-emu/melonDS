@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,8 +22,10 @@
 #include "types.h"
 #include "SaveManager.h"
 #include "AREngine.h"
+#include "DSi_NAND.h"
 
 #include <string>
+#include <memory>
 #include <vector>
 
 namespace ROMManager
@@ -31,12 +33,15 @@ namespace ROMManager
 
 extern SaveManager* NDSSave;
 extern SaveManager* GBASave;
+extern std::unique_ptr<SaveManager> FirmwareSave;
 
 QString VerifySetup();
 void Reset();
 bool LoadBIOS();
 void ClearBackupState();
 
+bool InstallFirmware();
+bool InstallNAND(const u8* es_keyY);
 bool LoadROM(QStringList filepath, bool reset);
 void EjectCart();
 bool CartInserted();

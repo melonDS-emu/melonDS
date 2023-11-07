@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -29,6 +29,7 @@
 #include "EmuSettingsDialog.h"
 #include "ui_EmuSettingsDialog.h"
 
+using namespace Platform;
 
 EmuSettingsDialog* EmuSettingsDialog::currentDlg = nullptr;
 
@@ -88,7 +89,22 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->spnJITMaximumBlockSize->setDisabled(true);
 #endif
 
+#ifdef GDBSTUB_ENABLED
+    ui->cbGdbEnabled->setChecked(Config::GdbEnabled);
+    ui->intGdbPortA7->setValue(Config::GdbPortARM7);
+    ui->intGdbPortA9->setValue(Config::GdbPortARM9);
+    ui->cbGdbBOSA7->setChecked(Config::GdbARM7BreakOnStartup);
+    ui->cbGdbBOSA9->setChecked(Config::GdbARM9BreakOnStartup);
+#else
+    ui->cbGdbEnabled->setDisabled(true);
+    ui->intGdbPortA7->setDisabled(true);
+    ui->intGdbPortA9->setDisabled(true);
+    ui->cbGdbBOSA7->setDisabled(true);
+    ui->cbGdbBOSA9->setDisabled(true);
+#endif
+
     on_chkEnableJIT_toggled();
+    on_cbGdbEnabled_toggled();
     on_chkExternalBIOS_toggled();
 
     const int imgsizes[] = {256, 512, 1024, 2048, 4096, 0};
@@ -156,19 +172,19 @@ void EmuSettingsDialog::verifyFirmware()
     // bytes 0x0C-0x14 are different.
 
     std::string filename = ui->txtFirmwarePath->text().toStdString();
-    FILE* f = Platform::OpenLocalFile(filename, "rb");
+    FileHandle* f = Platform::OpenLocalFile(filename, FileMode::Read);
     if (!f) return;
     u8 chk1[0x180], chk2[0x180];
 
-    fseek(f, 0, SEEK_SET);
-    fread(chk1, 1, 0x180, f);
-    fseek(f, -0x380, SEEK_END);
-    fread(chk2, 1, 0x180, f);
+    FileRewind(f);
+    FileRead(chk1, 1, 0x180, f);
+    FileSeek(f, -0x380, FileSeekOrigin::End);
+    FileRead(chk2, 1, 0x180, f);
 
     memset(&chk1[0x0C], 0, 8);
     memset(&chk2[0x0C], 0, 8);
 
-    fclose(f);
+    CloseFile(f);
 
     if (!memcmp(chk1, chk2, 0x180))
     {
@@ -222,6 +238,12 @@ void EmuSettingsDialog::done(int r)
         bool dsiSDFolderSync = ui->cbDSiSDFolder->isChecked();
         std::string dsiSDFolderPath = ui->txtDSiSDFolder->text().toStdString();
 
+        bool gdbEnabled = ui->cbGdbEnabled->isChecked();
+        int gdbPortA7 = ui->intGdbPortA7->value();
+        int gdbPortA9 = ui->intGdbPortA9->value();
+        bool gdbBOSA7 = ui->cbGdbBOSA7->isChecked();
+        bool gdbBOSA9 = ui->cbGdbBOSA9->isChecked();
+
         if (consoleType != Config::ConsoleType
             || directBoot != Config::DirectBoot
 #ifdef JIT_ENABLED
@@ -230,6 +252,13 @@ void EmuSettingsDialog::done(int r)
             || jitBranchOptimisations != Config::JIT_BranchOptimisations
             || jitLiteralOptimisations != Config::JIT_LiteralOptimisations
             || jitFastMemory != Config::JIT_FastMemory
+#endif
+#ifdef GDBSTUB_ENABLED
+            || gdbEnabled != Config::GdbEnabled
+            || gdbPortA7 != Config::GdbPortARM7
+            || gdbPortA9 != Config::GdbPortARM9
+            || gdbBOSA7 != Config::GdbARM7BreakOnStartup
+            || gdbBOSA9 != Config::GdbARM9BreakOnStartup
 #endif
             || externalBiosEnable != Config::ExternalBIOSEnable
             || bios9Path != Config::BIOS9Path
@@ -284,13 +313,20 @@ void EmuSettingsDialog::done(int r)
             Config::DSiSDFolderSync = dsiSDFolderSync;
             Config::DSiSDFolderPath = dsiSDFolderPath;
 
-    #ifdef JIT_ENABLED
+#ifdef JIT_ENABLED
             Config::JIT_Enable = jitEnable;
             Config::JIT_MaxBlockSize = jitMaxBlockSize;
             Config::JIT_BranchOptimisations = jitBranchOptimisations;
             Config::JIT_LiteralOptimisations = jitLiteralOptimisations;
             Config::JIT_FastMemory = jitFastMemory;
-    #endif
+#endif
+#ifdef GDBSTUB_ENABLED
+            Config::GdbEnabled = gdbEnabled;
+            Config::GdbPortARM7 = gdbPortA7;
+            Config::GdbPortARM9 = gdbPortA9;
+            Config::GdbARM7BreakOnStartup = gdbBOSA7;
+            Config::GdbARM9BreakOnStartup = gdbBOSA9;
+#endif
 
             Config::ConsoleType = consoleType;
             Config::DirectBoot = directBoot;
@@ -505,6 +541,31 @@ void EmuSettingsDialog::on_chkEnableJIT_toggled()
         ui->chkJITFastMemory->setDisabled(disabled);
     #endif
     ui->spnJITMaximumBlockSize->setDisabled(disabled);
+
+    on_cbGdbEnabled_toggled();
+}
+
+void EmuSettingsDialog::on_cbGdbEnabled_toggled()
+{
+#ifdef GDBSTUB_ENABLED
+    bool disabled = !ui->cbGdbEnabled->isChecked();
+    bool jitenable = ui->chkEnableJIT->isChecked();
+
+    if (jitenable && !disabled) {
+        ui->cbGdbEnabled->setChecked(false);
+        disabled = true;
+    }
+#else
+    bool disabled = true;
+    bool jitenable = true;
+    ui->cbGdbEnabled->setChecked(false);
+#endif
+
+    ui->cbGdbEnabled->setDisabled(jitenable);
+    ui->intGdbPortA7->setDisabled(disabled);
+    ui->intGdbPortA9->setDisabled(disabled);
+    ui->cbGdbBOSA7->setDisabled(disabled);
+    ui->cbGdbBOSA9->setDisabled(disabled);
 }
 
 void EmuSettingsDialog::on_chkExternalBIOS_toggled()

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,6 +22,16 @@
 #include "NDS.h"
 #include "DSi_SD.h"
 
+class DSi_I2CHost;
+class DSi_CamModule;
+class DSi_AES;
+class DSi_DSP;
+
+namespace DSi_NAND
+{
+    class NANDImage;
+}
+
 namespace DSi
 {
 
@@ -33,9 +43,7 @@ extern u32 SCFG_EXT[2];
 extern u8 ARM9iBIOS[0x10000];
 extern u8 ARM7iBIOS[0x10000];
 
-extern u8 eMMC_CID[16];
-extern u64 ConsoleID;
-
+extern std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
 extern DSi_SDHost* SDMMC;
 extern DSi_SDHost* SDIO;
 
@@ -53,6 +61,11 @@ extern u32 NWRAMStart[2][3];
 extern u32 NWRAMEnd[2][3];
 extern u32 NWRAMMask[2][3];
 
+extern DSi_I2CHost* I2C;
+extern DSi_CamModule* CamModule;
+extern DSi_AES* AES;
+extern DSi_DSP* DSP;
+
 bool Init();
 void DeInit();
 void Reset();
@@ -65,7 +78,6 @@ void SetCartInserted(bool inserted);
 void SetupDirectBoot();
 void SoftReset();
 
-bool LoadBIOS();
 bool LoadNAND();
 
 void RunNDMAs(u32 cpu);

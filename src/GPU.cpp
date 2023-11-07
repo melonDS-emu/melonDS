@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -35,6 +35,13 @@ namespace GPU
 #define LINE_CYCLES  (355*6)
 #define HBLANK_CYCLES (48+(256*6))
 #define FRAME_CYCLES  (LINE_CYCLES * 263)
+
+enum
+{
+    LCD_StartHBlank = 0,
+    LCD_StartScanline,
+    LCD_FinishFrame,
+};
 
 u16 VCount;
 u32 NextVCount;
@@ -151,6 +158,11 @@ std::unique_ptr<GLCompositor> CurGLCompositor = {};
 
 bool Init()
 {
+    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartHBlank, StartHBlank);
+    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartScanline, StartScanline);
+    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_FinishFrame, FinishFrame);
+    NDS::RegisterEventFunc(NDS::Event_DisplayFIFO, 0, DisplayFIFO);
+
     GPU2D_Renderer = std::make_unique<GPU2D::SoftRenderer>();
     if (!GPU3D::Init()) return false;
 
@@ -171,6 +183,20 @@ void DeInit()
     if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
     if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
     if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
+
+    Framebuffer[0][0] = nullptr;
+    Framebuffer[0][1] = nullptr;
+    Framebuffer[1][0] = nullptr;
+    Framebuffer[1][1] = nullptr;
+
+#ifdef OGLRENDERER_ENABLED
+    CurGLCompositor = nullptr;
+#endif
+
+    NDS::UnregisterEventFunc(NDS::Event_LCD, LCD_StartHBlank);
+    NDS::UnregisterEventFunc(NDS::Event_LCD, LCD_StartScanline);
+    NDS::UnregisterEventFunc(NDS::Event_LCD, LCD_FinishFrame);
+    NDS::UnregisterEventFunc(NDS::Event_DisplayFIFO, 0);
 }
 
 void ResetVRAMCache()
@@ -388,20 +414,18 @@ void InitRenderer(int renderer)
 #ifdef OGLRENDERER_ENABLED
     if (renderer == 1)
     {
-        CurGLCompositor = std::make_unique<GLCompositor>();
-        // Create opengl rendrerer
-        if (!CurGLCompositor->Init())
+        CurGLCompositor = GLCompositor::New();
+        // Create opengl renderer
+        if (!CurGLCompositor)
         {
             // Fallback on software renderer
             renderer = 0;
             GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
-            GPU3D::CurrentRenderer->Init();
         }
-        GPU3D::CurrentRenderer = std::make_unique<GPU3D::GLRenderer>();
-        if (!GPU3D::CurrentRenderer->Init())
+        GPU3D::CurrentRenderer = GPU3D::GLRenderer::New();
+        if (!GPU3D::CurrentRenderer)
         {
             // Fallback on software renderer
-            CurGLCompositor->DeInit();
             CurGLCompositor.reset();
             renderer = 0;
             GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
@@ -411,7 +435,6 @@ void InitRenderer(int renderer)
 #endif
     {
         GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
-        GPU3D::CurrentRenderer->Init();
     }
 
     Renderer = renderer;
@@ -419,12 +442,12 @@ void InitRenderer(int renderer)
 
 void DeInitRenderer()
 {
-    GPU3D::CurrentRenderer->DeInit();
+    // Delete the 3D renderer, if it exists
+    GPU3D::CurrentRenderer.reset();
+
 #ifdef OGLRENDERER_ENABLED
-    if (Renderer == 1)
-    {
-        CurGLCompositor->DeInit();
-    }
+    // Delete the compositor, if one exists
+    CurGLCompositor.reset();
 #endif
 }
 
@@ -1016,7 +1039,7 @@ void DisplayFIFO(u32 x)
     {
         // transfer the next 8 pixels
         NDS::CheckDMAs(0, 0x04);
-        NDS::ScheduleEvent(NDS::Event_DisplayFIFO, true, 6*8, DisplayFIFO, x+8);
+        NDS::ScheduleEvent(NDS::Event_DisplayFIFO, true, 6*8, 0, x+8);
     }
     else
         GPU2D_A.SampleFIFO(253, 3); // sample the remaining pixels
@@ -1071,9 +1094,9 @@ void StartHBlank(u32 line)
     if (DispStat[1] & (1<<4)) NDS::SetIRQ(1, NDS::IRQ_HBlank);
 
     if (VCount < 262)
-        NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), StartScanline, line+1);
+        NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), LCD_StartScanline, line+1);
     else
-        NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), FinishFrame, line+1);
+        NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), LCD_FinishFrame, line+1);
 }
 
 void FinishFrame(u32 lines)
@@ -1088,6 +1111,24 @@ void FinishFrame(u32 lines)
         GPU3D::RestartFrame();
         GPU3D::AbortFrame = false;
     }
+}
+
+void BlankFrame()
+{
+    int backbuf = FrontBuffer ? 0 : 1;
+    int fbsize;
+    if (GPU3D::CurrentRenderer->Accelerated)
+        fbsize = (256*3 + 1) * 192;
+    else
+        fbsize = 256 * 192;
+
+    memset(Framebuffer[backbuf][0], 0, fbsize*4);
+    memset(Framebuffer[backbuf][1], 0, fbsize*4);
+
+    FrontBuffer = backbuf;
+    AssignFramebuffers();
+
+    TotalScanlines = 263;
 }
 
 void StartScanline(u32 line)
@@ -1140,7 +1181,7 @@ void StartScanline(u32 line)
         }
 
         if (RunFIFO)
-            NDS::ScheduleEvent(NDS::Event_DisplayFIFO, false, 32, DisplayFIFO, 0);
+            NDS::ScheduleEvent(NDS::Event_DisplayFIFO, false, 32, 0, 0);
     }
 
     if (VCount == 262)
@@ -1186,7 +1227,7 @@ void StartScanline(u32 line)
         }
     }
 
-    NDS::ScheduleEvent(NDS::Event_LCD, true, HBLANK_CYCLES, StartHBlank, line);
+    NDS::ScheduleEvent(NDS::Event_LCD, true, HBLANK_CYCLES, LCD_StartHBlank, line);
 }
 
 

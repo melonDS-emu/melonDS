@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -519,7 +519,7 @@ void CartGame::SRAMWrite_FLASH(u32 addr, u8 val)
         return;
     }
 
-    Log(LogLevel::Warn, "GBACart_SRAM::Write_Flash: unknown write 0x%02X @ 0x%04X (state: 0x%02X)\n",
+    Log(LogLevel::Debug, "GBACart_SRAM::Write_Flash: unknown write 0x%02X @ 0x%04X (state: 0x%02X)\n",
         val, addr, SRAMFlashState.state);
 }
 

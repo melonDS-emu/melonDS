@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -137,19 +137,16 @@ void Write32(u32 addr, u32 val);
 class Renderer3D
 {
 public:
-    Renderer3D(bool Accelerated);
-    virtual ~Renderer3D() {};
+    virtual ~Renderer3D() = default;
 
     Renderer3D(const Renderer3D&) = delete;
     Renderer3D& operator=(const Renderer3D&) = delete;
 
-    virtual bool Init() = 0;
-    virtual void DeInit() = 0;
     virtual void Reset() = 0;
 
     // This "Accelerated" flag currently communicates if the framebuffer should
     // be allocated differently and other little misc handlers. Ideally there
-    // are more detailed "traits" that we can ask of the Renderer3D type 
+    // are more detailed "traits" that we can ask of the Renderer3D type
     const bool Accelerated;
 
     virtual void SetRenderSettings(GPU::RenderSettings& settings) = 0;
@@ -159,6 +156,8 @@ public:
     virtual void RenderFrame() = 0;
     virtual void RestartFrame() {};
     virtual u32* GetLine(int line) = 0;
+protected:
+    Renderer3D(bool Accelerated);
 };
 
 extern int Renderer;

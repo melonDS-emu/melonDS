@@ -1,15 +1,24 @@
-/*-----------------------------------------------------------------------*/
-/* Low level disk I/O module SKELETON for FatFs     (C)ChaN, 2019        */
-/*-----------------------------------------------------------------------*/
-/* If a working storage control module is available, it should be        */
-/* attached to the FatFs via a glue function rather than modifying it.   */
-/* This is an example of glue functions to attach various exsisting      */
-/* storage control modules to the FatFs module with a defined API.       */
-/*-----------------------------------------------------------------------*/
+/*
+    Copyright 2016-2023 melonDS team
 
-#include "ff.h"			/* Obtains integer types */
-#include "diskio.h"		/* Declarations of disk functions */
+    This file is part of melonDS.
 
+    melonDS is free software: you can redistribute it and/or modify it under
+    the terms of the GNU General Public License as published by the Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
+
+    melonDS is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with melonDS. If not, see http://www.gnu.org/licenses/.
+*/
+
+#include "FATIO.h"
+#include "fatfs/ff.h"
+#include "fatfs/diskio.h"
 
 static ff_disk_read_cb ReadCb;
 static ff_disk_write_cb WriteCb;
@@ -17,7 +26,7 @@ static LBA_t SectorCount;
 static DSTATUS Status = STA_NOINIT | STA_NODISK;
 
 
-void ff_disk_open(ff_disk_read_cb readcb, ff_disk_write_cb writecb, LBA_t seccnt)
+void ff_disk_open(const ff_disk_read_cb& readcb, const ff_disk_write_cb& writecb, LBA_t seccnt)
 {
     if (!readcb) return;
 
@@ -30,10 +39,10 @@ void ff_disk_open(ff_disk_read_cb readcb, ff_disk_write_cb writecb, LBA_t seccnt
     else          Status &= ~STA_PROTECT;
 }
 
-void ff_disk_close(void)
+void ff_disk_close()
 {
-    ReadCb = (void*)0;
-    WriteCb = (void*)0;
+    ReadCb = nullptr;
+    WriteCb = nullptr;
     SectorCount = 0;
 
     Status &= ~STA_PROTECT;

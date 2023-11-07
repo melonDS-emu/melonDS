@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -141,12 +141,29 @@ private:
     void initOpenGL();
     void deinitOpenGL();
 
-    std::atomic<int> EmuStatus;
-    int PrevEmuStatus;
-    int EmuRunning;
-    int EmuPause;
+    enum EmuStatusKind
+    {
+        emuStatus_Exit,
+        emuStatus_Running,
+        emuStatus_Paused,
+        emuStatus_FrameStep,
+    };
+    std::atomic<EmuStatusKind> EmuStatus;
 
-    std::atomic<int> ContextRequest = 0;
+    EmuStatusKind PrevEmuStatus;
+    EmuStatusKind EmuRunning;
+
+    constexpr static int EmuPauseStackRunning = 0;
+    constexpr static int EmuPauseStackPauseThreshold = 1;
+    int EmuPauseStack;
+
+    enum ContextRequestKind
+    {
+        contextRequest_None = 0,
+        contextRequest_InitGL,
+        contextRequest_DeInitGL
+    };
+    std::atomic<ContextRequestKind> ContextRequest = contextRequest_None;
 
     GL::Context* oglContext = nullptr;
     GLuint screenVertexBuffer, screenVertexArray;
@@ -329,6 +346,8 @@ private slots:
     void onReset();
     void onStop();
     void onFrameStep();
+    void onOpenPowerManagement();
+    void onOpenDateTime();
     void onEnableCheats(bool checked);
     void onSetupCheats();
     void onCheatsDialogFinished(int res);
@@ -339,7 +358,6 @@ private slots:
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
-    void onOpenPowerManagement();
     void onOpenInputConfig();
     void onInputConfigFinished(int res);
     void onOpenVideoSettings();
@@ -384,7 +402,7 @@ private slots:
     void onScreenEmphasisToggled();
 
 private:
-    void closeEvent(QCloseEvent* event);
+    virtual void closeEvent(QCloseEvent* event) override;
 
     QStringList currentROM;
     QStringList currentGBAROM;
@@ -427,6 +445,8 @@ public:
     QAction* actReset;
     QAction* actStop;
     QAction* actFrameStep;
+    QAction* actPowerManagement;
+    QAction* actDateTime;
     QAction* actEnableCheats;
     QAction* actSetupCheats;
     QAction* actROMInfo;
@@ -438,7 +458,6 @@ public:
 #ifdef __APPLE__
     QAction* actPreferences;
 #endif
-    QAction* actPowerManagement;
     QAction* actInputConfig;
     QAction* actVideoSettings;
     QAction* actCameraSettings;
@@ -451,14 +470,14 @@ public:
     QAction* actSavestateSRAMReloc;
     QAction* actScreenSize[4];
     QActionGroup* grpScreenRotation;
-    QAction* actScreenRotation[4];
+    QAction* actScreenRotation[Frontend::screenRot_MAX];
     QActionGroup* grpScreenGap;
     QAction* actScreenGap[6];
     QActionGroup* grpScreenLayout;
-    QAction* actScreenLayout[4];
+    QAction* actScreenLayout[Frontend::screenLayout_MAX];
     QAction* actScreenSwap;
     QActionGroup* grpScreenSizing;
-    QAction* actScreenSizing[6];
+    QAction* actScreenSizing[Frontend::screenSizing_MAX];
     QAction* actIntegerScaling;
     QActionGroup* grpScreenAspectTop;
     QAction** actScreenAspectTop;
