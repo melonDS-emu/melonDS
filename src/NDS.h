@@ -25,6 +25,7 @@
 #include "Platform.h"
 #include "Savestate.h"
 #include "types.h"
+#include "NDSCart.h"
 
 // when touching the main loop/timing code, pls test a lot of shit
 // with this enabled, to make sure it doesn't desync
@@ -257,7 +258,7 @@ extern class SPU* SPU;
 extern class SPIHost* SPI;
 extern class RTC* RTC;
 extern class Wifi* Wifi;
-
+extern std::unique_ptr<NDSCart::NDSCartSlot> NDSCartSlot;
 extern class AREngine* AREngine;
 
 const u32 ARM7WRAMSize = 0x10000;

@@ -41,6 +41,8 @@ enum CartType
     Homebrew = 0x201,
 };
 
+class NDSCartSlot;
+
 // CartCommon -- base code shared by all cart types
 class CartCommon
 {
@@ -59,7 +61,7 @@ public:
     virtual void SetupSave(u32 type);
     virtual void LoadSave(const u8* savedata, u32 savelen);
 
-    virtual int ROMCommandStart(u8* cmd, u8* data, u32 len);
+    virtual int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len);
     virtual void ROMCommandFinish(u8* cmd, u8* data, u32 len);
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last);
@@ -112,7 +114,7 @@ public:
     virtual void SetupSave(u32 type) override;
     virtual void LoadSave(const u8* savedata, u32 savelen) override;
 
-    virtual int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
+    virtual int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
@@ -151,7 +153,7 @@ public:
 
     void LoadSave(const u8* savedata, u32 savelen) override;
 
-    int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
+    int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
 
     u8 SPIWrite(u8 val, u32 pos, bool last) override;
@@ -216,7 +218,7 @@ public:
 
     void DoSavestate(Savestate* file) override;
 
-    int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
+    int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
 
 private:
@@ -228,21 +230,110 @@ private:
     bool ReadOnly;
 };
 
-extern u16 SPICnt;
-extern u32 ROMCnt;
+class NDSCartSlot
+{
+public:
+    NDSCartSlot() noexcept;
+    ~NDSCartSlot() noexcept;
+    void Reset() noexcept;
+    void ResetCart() noexcept;
+    void DoSavestate(Savestate* file) noexcept;
+    void DecryptSecureArea(u8* out) noexcept;
 
-extern u8 ROMCommand[8];
+    /// Loads a Nintendo DS cart object into the cart slot.
+    /// The cart slot takes ownership of the cart object and its underlying resources
+    /// and re-encrypts the ROM's secure area if necessary.
+    /// If a cartridge is already inserted, it is first ejected
+    /// and its state is discarded.
+    /// If the provided cart is not valid,
+    /// then the currently-loaded ROM will not be ejected.
+    ///
+    /// @param cart Movable reference to the cart.
+    /// @returns \c true if the cart was successfully loaded,
+    /// \c false otherwise.
+    /// @post If the cart was successfully loaded,
+    /// then \c cart will be \c nullptr
+    /// and \c Cart will contain the object that \c cart previously pointed to.
+    /// Otherwise, \c cart and \c Cart will be both be unchanged.
+    bool InsertROM(std::unique_ptr<CartCommon>&& cart) noexcept;
 
-/// The currently loaded NDS cart.
-extern std::unique_ptr<CartCommon> Cart;
+    /// Parses a ROM image and loads it into the emulator.
+    /// This function is equivalent to calling ::ParseROM() and ::InsertROM() in sequence.
+    /// @param romdata Pointer to the ROM image.
+    /// The cart emulator maintains its own copy of this data,
+    /// so the caller is free to discard this data after calling this function.
+    /// @param romlen The length of the ROM image, in bytes.
+    /// @returns \c true if the ROM image was successfully loaded,
+    /// \c false if not.
+    bool LoadROM(const u8* romdata, u32 romlen) noexcept;
+    void LoadSave(const u8* savedata, u32 savelen) noexcept;
+    void SetupDirectBoot(const std::string& romname) noexcept;
 
-bool Init();
-void DeInit();
-void Reset();
+    /// This function is intended to allow frontends to save and load SRAM
+    /// without using melonDS APIs.
+    /// Modifying the emulated SRAM for any other reason is strongly discouraged.
+    /// The returned pointer may be invalidated if the emulator is reset,
+    /// or when a new game is loaded.
+    /// Consequently, don't store the returned pointer for any longer than necessary.
+    /// @returns Pointer to this cart's SRAM if a cart is loaded and supports SRAM, otherwise \c nullptr.
+    [[nodiscard]] const u8* GetSaveMemory() const noexcept { return Cart ? Cart->GetSaveMemory() : nullptr; }
+    [[nodiscard]] u8* GetSaveMemory() noexcept { return Cart ? Cart->GetSaveMemory() : nullptr; }
 
-void DoSavestate(Savestate* file);
+    /// @returns The length of the buffer returned by ::GetSaveMemory()
+    /// if a cart is loaded and supports SRAM, otherwise zero.
+    [[nodiscard]] u32 GetSaveMemoryLength() const noexcept { return Cart ? Cart->GetSaveMemoryLength() : 0; }
+    void EjectCart() noexcept;
+    u32 ReadROMData() noexcept;
+    void WriteROMData(u32 val) noexcept;
+    void WriteSPICnt(u16 val) noexcept;
+    void WriteROMCnt(u32 val) noexcept;
+    [[nodiscard]] u8 ReadSPIData() const noexcept;
+    void WriteSPIData(u8 val) noexcept;
 
-void DecryptSecureArea(u8* out);
+    [[nodiscard]] CartCommon* GetCart() noexcept { return Cart.get(); }
+    [[nodiscard]] const CartCommon* GetCart() const noexcept { return Cart.get(); }
+
+    [[nodiscard]] u8 GetROMCommand(u8 index) const noexcept { return ROMCommand[index]; }
+    void SetROMCommand(u8 index, u8 val) noexcept { ROMCommand[index] = val; }
+
+    [[nodiscard]] u32 GetROMCnt() const noexcept { return ROMCnt; }
+    [[nodiscard]] u16 GetSPICnt() const noexcept { return SPICnt; }
+    void SetSPICnt(u16 val) noexcept { SPICnt = val; }
+private:
+    friend class CartCommon;
+    u16 SPICnt {};
+    u32 ROMCnt {};
+    std::array<u8, 8> ROMCommand {};
+    u8 SPIData;
+    u32 SPIDataPos;
+    bool SPIHold;
+
+    u32 ROMData;
+
+    std::array<u8, 0x4000> TransferData;
+    u32 TransferPos;
+    u32 TransferLen;
+    u32 TransferDir;
+    std::array<u8, 8> TransferCmd;
+
+    std::unique_ptr<CartCommon> Cart;
+
+    std::array<u32, 0x412> Key1_KeyBuf;
+
+    u64 Key2_X;
+    u64 Key2_Y;
+
+    void Key1_Encrypt(u32* data) noexcept;
+    void Key1_Decrypt(u32* data) noexcept;
+    void Key1_ApplyKeycode(u32* keycode, u32 mod) noexcept;
+    void Key1_LoadKeyBuf(bool dsi, bool externalBios, u8 *bios, u32 biosLength) noexcept;
+    void Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod, u8 *bios, u32 biosLength) noexcept;
+    void Key2_Encrypt(u8* data, u32 len) noexcept;
+    void ROMEndTransfer(u32 param) noexcept;
+    void ROMPrepareData(u32 param) noexcept;
+    void AdvanceROMTransfer() noexcept;
+    void SPITransferDone(u32 param) noexcept;
+};
 
 /// Parses the given ROM data and constructs a \c NDSCart::CartCommon subclass
 /// that can be inserted into the emulator or used to extract information about the cart beforehand.
@@ -253,65 +344,6 @@ void DecryptSecureArea(u8* out);
 /// @returns A \c NDSCart::CartCommon object representing the parsed ROM,
 /// or \c nullptr if the ROM data couldn't be parsed.
 std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen);
-
-/// Loads a Nintendo DS cart object into the emulator.
-/// The emulator takes ownership of the cart object and its underlying resources
-/// and re-encrypts the ROM's secure area if necessary.
-/// If a cartridge is already inserted, it is first ejected
-/// and its state is discarded.
-/// If the provided cart is not valid,
-/// then the currently-loaded ROM will not be ejected.
-///
-/// @param cart Movable reference to the cart.
-/// @returns \c true if the cart was successfully loaded,
-/// \c false otherwise.
-/// @post If the cart was successfully loaded,
-/// then \c cart will be \c nullptr
-/// and \c Cart will contain the object that \c cart previously pointed to.
-/// Otherwise, \c cart and \c Cart will be both be unchanged.
-bool InsertROM(std::unique_ptr<CartCommon>&& cart);
-
-/// Parses a ROM image and loads it into the emulator.
-/// This function is equivalent to calling ::ParseROM() and ::InsertROM() in sequence.
-/// @param romdata Pointer to the ROM image.
-/// The cart emulator maintains its own copy of this data,
-/// so the caller is free to discard this data after calling this function.
-/// @param romlen The length of the ROM image, in bytes.
-/// @returns \c true if the ROM image was successfully loaded,
-/// \c false if not.
-bool LoadROM(const u8* romdata, u32 romlen);
-void LoadSave(const u8* savedata, u32 savelen);
-void SetupDirectBoot(const std::string& romname);
-
-/// This function is intended to allow frontends to save and load SRAM
-/// without using melonDS APIs.
-/// Modifying the emulated SRAM for any other reason is strongly discouraged.
-/// The returned pointer may be invalidated if the emulator is reset,
-/// or when a new game is loaded.
-/// Consequently, don't store the returned pointer for any longer than necessary.
-/// @returns Pointer to this cart's SRAM if a cart is loaded and supports SRAM, otherwise \c nullptr.
-u8* GetSaveMemory();
-
-/// @returns The length of the buffer returned by ::GetSaveMemory()
-/// if a cart is loaded and supports SRAM, otherwise zero.
-u32 GetSaveMemoryLength();
-
-void EjectCart();
-
-void ResetCart();
-
-void WriteROMCnt(u32 val);
-u32 ReadROMData();
-void WriteROMData(u32 val);
-
-void WriteSPICnt(u16 val);
-u8 ReadSPIData();
-void WriteSPIData(u8 val);
-
-void ROMPrepareData(u32 param);
-void ROMEndTransfer(u32 param);
-void SPITransferDone(u32 param);
-
 }
 
 #endif

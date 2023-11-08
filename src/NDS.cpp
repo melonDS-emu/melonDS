@@ -182,6 +182,7 @@ class SPU* SPU;
 class SPIHost* SPI;
 class RTC* RTC;
 class Wifi* Wifi;
+std::unique_ptr<NDSCart::NDSCartSlot> NDSCartSlot;
 
 class AREngine* AREngine;
 
@@ -226,8 +227,7 @@ bool Init()
     SPI = new class SPIHost();
     RTC = new class RTC();
     Wifi = new class Wifi();
-
-    if (!NDSCart::Init()) return false;
+    NDSCartSlot = std::make_unique<NDSCart::NDSCartSlot>();
     if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
 
@@ -258,7 +258,7 @@ void DeInit()
     delete RTC; RTC = nullptr;
     delete Wifi; Wifi = nullptr;
 
-    NDSCart::DeInit();
+    NDSCartSlot = nullptr;
     GBACart::DeInit();
     GPU::DeInit();
 
@@ -404,7 +404,7 @@ bool NeedsDirectBoot()
 
 void SetupDirectBoot(const std::string& romname)
 {
-    const NDSHeader& header = NDSCart::Cart->GetHeader();
+    const NDSHeader& header = NDSCartSlot->GetCart()->GetHeader();
 
     if (ConsoleType == 1)
     {
@@ -412,8 +412,8 @@ void SetupDirectBoot(const std::string& romname)
     }
     else
     {
-        u32 cartid = NDSCart::Cart->ID();
-        const u8* cartrom = NDSCart::Cart->GetROM();
+        u32 cartid = NDSCartSlot->GetCart()->ID();
+        const u8* cartrom = NDSCartSlot->GetCart()->GetROM();
         MapSharedWRAM(3);
 
         // setup main RAM data
@@ -446,7 +446,7 @@ void SetupDirectBoot(const std::string& romname)
         if (header.ARM9ROMOffset >= 0x4000 && header.ARM9ROMOffset < 0x8000)
         {
             u8 securearea[0x800];
-            NDSCart::DecryptSecureArea(securearea);
+            NDSCartSlot->DecryptSecureArea(securearea);
 
             for (u32 i = 0; i < 0x800; i+=4)
             {
@@ -499,7 +499,7 @@ void SetupDirectBoot(const std::string& romname)
         ARM9->CP15Write(0x911, 0x00000020);
     }
 
-    NDSCart::SetupDirectBoot(romname);
+    NDSCartSlot->SetupDirectBoot(romname);
 
     ARM9->R[12] = header.ARM9EntryAddress;
     ARM9->R[13] = 0x03002F7C;
@@ -525,7 +525,7 @@ void SetupDirectBoot(const std::string& romname)
     // checkme
     RCnt = 0x8000;
 
-    NDSCart::SPICnt = 0x8000;
+    NDSCartSlot->SetSPICnt(0x8000);
 
     SPU->SetBias(0x200);
 
@@ -643,7 +643,7 @@ void Reset()
     KeyCnt[1] = 0;
     RCnt = 0;
 
-    NDSCart::Reset();
+    NDSCartSlot->Reset();
     GBACart::Reset();
     GPU::Reset();
     SPU->Reset();
@@ -844,7 +844,7 @@ bool DoSavestate(Savestate* file)
     ARM9->DoSavestate(file);
     ARM7->DoSavestate(file);
 
-    NDSCart::DoSavestate(file);
+    NDSCartSlot->DoSavestate(file);
     if (ConsoleType == 0)
         GBACart::DoSavestate(file);
     GPU::DoSavestate(file);
@@ -884,11 +884,11 @@ void SetConsoleType(int type)
 
 bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
 {
-    if (!NDSCart::LoadROM(romdata, romlen))
+    if (!NDSCartSlot->LoadROM(romdata, romlen))
         return false;
 
     if (savedata && savelen)
-        NDSCart::LoadSave(savedata, savelen);
+        NDSCartSlot->LoadSave(savedata, savelen);
 
     return true;
 }
@@ -896,17 +896,17 @@ bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
 void LoadSave(const u8* savedata, u32 savelen)
 {
     if (savedata && savelen)
-        NDSCart::LoadSave(savedata, savelen);
+        NDSCartSlot->LoadSave(savedata, savelen);
 }
 
 void EjectCart()
 {
-    NDSCart::EjectCart();
+    NDSCartSlot->EjectCart();
 }
 
 bool CartInserted()
 {
-    return NDSCart::Cart != nullptr;
+    return NDSCartSlot->GetCart() != nullptr;
 }
 
 bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
@@ -1734,9 +1734,9 @@ void MonitorARM9Jump(u32 addr)
     // checkme: can the entrypoint addr be THUMB?
     // also TODO: make it work in DSi mode
 
-    if ((!RunningGame) && NDSCart::Cart)
+    if ((!RunningGame) && NDSCartSlot->GetCart())
     {
-        const NDSHeader& header = NDSCart::Cart->GetHeader();
+        const NDSHeader& header = NDSCartSlot->GetCart()->GetHeader();
         if (addr == header.ARM9EntryAddress)
         {
             Log(LogLevel::Info, "Game is now booting\n");
@@ -3007,40 +3007,40 @@ u8 ARM9IORead8(u32 addr)
 
     case 0x040001A2:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ReadSPIData();
+            return NDSCartSlot->ReadSPIData();
         return 0;
 
     case 0x040001A8:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[0];
+            return NDSCartSlot->GetROMCommand(0);
         return 0;
     case 0x040001A9:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[1];
+            return NDSCartSlot->GetROMCommand(1);
         return 0;
     case 0x040001AA:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[2];
+            return NDSCartSlot->GetROMCommand(2);
         return 0;
     case 0x040001AB:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[3];
+            return NDSCartSlot->GetROMCommand(3);
         return 0;
     case 0x040001AC:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[4];
+            return NDSCartSlot->GetROMCommand(4);
         return 0;
     case 0x040001AD:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[5];
+            return NDSCartSlot->GetROMCommand(5);
         return 0;
     case 0x040001AE:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[6];
+            return NDSCartSlot->GetROMCommand(6);
         return 0;
     case 0x040001AF:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[7];
+            return NDSCartSlot->GetROMCommand(7);
         return 0;
 
     case 0x04000208: return IME[0];
@@ -3154,32 +3154,32 @@ u16 ARM9IORead16(u32 addr)
 
     case 0x040001A0:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::SPICnt;
+            return NDSCartSlot->GetSPICnt();
         return 0;
     case 0x040001A2:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ReadSPIData();
+            return NDSCartSlot->ReadSPIData();
         return 0;
 
     case 0x040001A8:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[0] |
-                  (NDSCart::ROMCommand[1] << 8);
+            return NDSCartSlot->GetROMCommand(0) |
+                  (NDSCartSlot->GetROMCommand(1) << 8);
         return 0;
     case 0x040001AA:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[2] |
-                  (NDSCart::ROMCommand[3] << 8);
+            return NDSCartSlot->GetROMCommand(2) |
+                  (NDSCartSlot->GetROMCommand(3) << 8);
         return 0;
     case 0x040001AC:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[4] |
-                  (NDSCart::ROMCommand[5] << 8);
+            return NDSCartSlot->GetROMCommand(4) |
+                  (NDSCartSlot->GetROMCommand(5) << 8);
         return 0;
     case 0x040001AE:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[6] |
-                  (NDSCart::ROMCommand[7] << 8);
+            return NDSCartSlot->GetROMCommand(6) |
+                  (NDSCartSlot->GetROMCommand(7) << 8);
         return 0;
 
     case 0x04000204: return ExMemCnt[0];
@@ -3288,26 +3288,26 @@ u32 ARM9IORead32(u32 addr)
 
     case 0x040001A0:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
+            return NDSCartSlot->GetSPICnt() | (NDSCartSlot->ReadSPIData() << 16);
         return 0;
     case 0x040001A4:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCnt;
+            return NDSCartSlot->GetROMCnt();
         return 0;
 
     case 0x040001A8:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[0] |
-                  (NDSCart::ROMCommand[1] << 8) |
-                  (NDSCart::ROMCommand[2] << 16) |
-                  (NDSCart::ROMCommand[3] << 24);
+            return NDSCartSlot->GetROMCommand(0) |
+                  (NDSCartSlot->GetROMCommand(1) << 8) |
+                  (NDSCartSlot->GetROMCommand(2) << 16) |
+                  (NDSCartSlot->GetROMCommand(3) << 24);
         return 0;
     case 0x040001AC:
         if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCart::ROMCommand[4] |
-                  (NDSCart::ROMCommand[5] << 8) |
-                  (NDSCart::ROMCommand[6] << 16) |
-                  (NDSCart::ROMCommand[7] << 24);
+            return NDSCartSlot->GetROMCommand(4) |
+                  (NDSCartSlot->GetROMCommand(5) << 8) |
+                  (NDSCartSlot->GetROMCommand(6) << 16) |
+                  (NDSCartSlot->GetROMCommand(7) << 24);
         return 0;
 
     case 0x04000208: return IME[0];
@@ -3358,7 +3358,7 @@ u32 ARM9IORead32(u32 addr)
             return IPCFIFO7.Peek();
 
     case 0x04100010:
-        if (!(ExMemCnt[0] & (1<<11))) return NDSCart::ReadROMData();
+        if (!(ExMemCnt[0] & (1<<11))) return NDSCartSlot->ReadROMData();
         return 0;
 
     case 0x04004000:
@@ -3413,25 +3413,25 @@ void ARM9IOWrite8(u32 addr, u8 val)
 
     case 0x040001A0:
         if (!(ExMemCnt[0] & (1<<11)))
-            NDSCart::WriteSPICnt((NDSCart::SPICnt & 0xFF00) | val);
+            NDSCartSlot->WriteSPICnt((NDSCartSlot->GetSPICnt() & 0xFF00) | val);
         return;
     case 0x040001A1:
         if (!(ExMemCnt[0] & (1<<11)))
-            NDSCart::WriteSPICnt((NDSCart::SPICnt & 0x00FF) | (val << 8));
+            NDSCartSlot->WriteSPICnt((NDSCartSlot->GetSPICnt() & 0x00FF) | (val << 8));
         return;
     case 0x040001A2:
         if (!(ExMemCnt[0] & (1<<11)))
-            NDSCart::WriteSPIData(val);
+            NDSCartSlot->WriteSPIData(val);
         return;
 
-    case 0x040001A8: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[0] = val; return;
-    case 0x040001A9: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[1] = val; return;
-    case 0x040001AA: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[2] = val; return;
-    case 0x040001AB: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[3] = val; return;
-    case 0x040001AC: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[4] = val; return;
-    case 0x040001AD: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[5] = val; return;
-    case 0x040001AE: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[6] = val; return;
-    case 0x040001AF: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[7] = val; return;
+    case 0x040001A8: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot->SetROMCommand(0, val); return;
+    case 0x040001A9: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot->SetROMCommand(1, val); return;
+    case 0x040001AA: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot->SetROMCommand(2, val); return;
+    case 0x040001AB: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot->SetROMCommand(3, val); return;
+    case 0x040001AC: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot->SetROMCommand(4, val); return;
+    case 0x040001AD: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot->SetROMCommand(5, val); return;
+    case 0x040001AE: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot->SetROMCommand(6, val); return;
+    case 0x040001AF: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot->SetROMCommand(7, val); return;
 
     case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
 
@@ -3546,39 +3546,39 @@ void ARM9IOWrite16(u32 addr, u16 val)
 
     case 0x040001A0:
         if (!(ExMemCnt[0] & (1<<11)))
-            NDSCart::WriteSPICnt(val);
+            NDSCartSlot->WriteSPICnt(val);
         return;
     case 0x040001A2:
         if (!(ExMemCnt[0] & (1<<11)))
-            NDSCart::WriteSPIData(val & 0xFF);
+            NDSCartSlot->WriteSPIData(val & 0xFF);
         return;
 
     case 0x040001A8:
         if (!(ExMemCnt[0] & (1<<11)))
         {
-            NDSCart::ROMCommand[0] = val & 0xFF;
-            NDSCart::ROMCommand[1] = val >> 8;
+            NDSCartSlot->SetROMCommand(0, val & 0xFF);
+            NDSCartSlot->SetROMCommand(1, val >> 8);
         }
         return;
     case 0x040001AA:
         if (!(ExMemCnt[0] & (1<<11)))
         {
-            NDSCart::ROMCommand[2] = val & 0xFF;
-            NDSCart::ROMCommand[3] = val >> 8;
+            NDSCartSlot->SetROMCommand(2, val & 0xFF);
+            NDSCartSlot->SetROMCommand(3, val >> 8);
         }
         return;
     case 0x040001AC:
         if (!(ExMemCnt[0] & (1<<11)))
         {
-            NDSCart::ROMCommand[4] = val & 0xFF;
-            NDSCart::ROMCommand[5] = val >> 8;
+            NDSCartSlot->SetROMCommand(4, val & 0xFF);
+            NDSCartSlot->SetROMCommand(5, val >> 8);
         }
         return;
     case 0x040001AE:
         if (!(ExMemCnt[0] & (1<<11)))
         {
-            NDSCart::ROMCommand[6] = val & 0xFF;
-            NDSCart::ROMCommand[7] = val >> 8;
+            NDSCartSlot->SetROMCommand(6, val & 0xFF);
+            NDSCartSlot->SetROMCommand(7, val >> 8);
         }
         return;
 
@@ -3732,31 +3732,31 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x040001A0:
         if (!(ExMemCnt[0] & (1<<11)))
         {
-            NDSCart::WriteSPICnt(val & 0xFFFF);
-            NDSCart::WriteSPIData((val >> 16) & 0xFF);
+            NDSCartSlot->WriteSPICnt(val & 0xFFFF);
+            NDSCartSlot->WriteSPIData((val >> 16) & 0xFF);
         }
         return;
     case 0x040001A4:
         if (!(ExMemCnt[0] & (1<<11)))
-            NDSCart::WriteROMCnt(val);
+            NDSCartSlot->WriteROMCnt(val);
         return;
 
     case 0x040001A8:
         if (!(ExMemCnt[0] & (1<<11)))
         {
-            NDSCart::ROMCommand[0] = val & 0xFF;
-            NDSCart::ROMCommand[1] = (val >> 8) & 0xFF;
-            NDSCart::ROMCommand[2] = (val >> 16) & 0xFF;
-            NDSCart::ROMCommand[3] = val >> 24;
+            NDSCartSlot->SetROMCommand(0, val & 0xFF);
+            NDSCartSlot->SetROMCommand(1, (val >> 8) & 0xFF);
+            NDSCartSlot->SetROMCommand(2, (val >> 16) & 0xFF);
+            NDSCartSlot->SetROMCommand(3, val >> 24);
         }
         return;
     case 0x040001AC:
         if (!(ExMemCnt[0] & (1<<11)))
         {
-            NDSCart::ROMCommand[4] = val & 0xFF;
-            NDSCart::ROMCommand[5] = (val >> 8) & 0xFF;
-            NDSCart::ROMCommand[6] = (val >> 16) & 0xFF;
-            NDSCart::ROMCommand[7] = val >> 24;
+            NDSCartSlot->SetROMCommand(4, val & 0xFF);
+            NDSCartSlot->SetROMCommand(5, (val >> 8) & 0xFF);
+            NDSCartSlot->SetROMCommand(6, (val >> 16) & 0xFF);
+            NDSCartSlot->SetROMCommand(7, val >> 24);
         }
         return;
 
@@ -3802,7 +3802,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04100010:
-        if (!(ExMemCnt[0] & (1<<11)))  NDSCart::WriteROMData(val);
+        if (!(ExMemCnt[0] & (1<<11)))  NDSCartSlot->WriteROMData(val);
         return;
 
     // NO$GBA debug register "String Out (raw)"
@@ -3871,40 +3871,40 @@ u8 ARM7IORead8(u32 addr)
 
     case 0x040001A2:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ReadSPIData();
+            return NDSCartSlot->ReadSPIData();
         return 0;
 
     case 0x040001A8:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[0];
+            return NDSCartSlot->GetROMCommand(0);
         return 0;
     case 0x040001A9:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[1];
+            return NDSCartSlot->GetROMCommand(1);
         return 0;
     case 0x040001AA:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[2];
+            return NDSCartSlot->GetROMCommand(2);
         return 0;
     case 0x040001AB:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[3];
+            return NDSCartSlot->GetROMCommand(3);
         return 0;
     case 0x040001AC:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[4];
+            return NDSCartSlot->GetROMCommand(4);
         return 0;
     case 0x040001AD:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[5];
+            return NDSCartSlot->GetROMCommand(5);
         return 0;
     case 0x040001AE:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[6];
+            return NDSCartSlot->GetROMCommand(6);
         return 0;
     case 0x040001AF:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[7];
+            return NDSCartSlot->GetROMCommand(7);
         return 0;
 
     case 0x040001C2: return SPI->ReadData();
@@ -3971,28 +3971,28 @@ u16 ARM7IORead16(u32 addr)
             return val;
         }
 
-    case 0x040001A0: if (ExMemCnt[0] & (1<<11)) return NDSCart::SPICnt;        return 0;
-    case 0x040001A2: if (ExMemCnt[0] & (1<<11)) return NDSCart::ReadSPIData(); return 0;
+    case 0x040001A0: if (ExMemCnt[0] & (1<<11)) return NDSCartSlot->GetSPICnt();   return 0;
+    case 0x040001A2: if (ExMemCnt[0] & (1<<11)) return NDSCartSlot->ReadSPIData(); return 0;
 
     case 0x040001A8:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[0] |
-                  (NDSCart::ROMCommand[1] << 8);
+            return NDSCartSlot->GetROMCommand(0) |
+                  (NDSCartSlot->GetROMCommand(1) << 8);
         return 0;
     case 0x040001AA:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[2] |
-                  (NDSCart::ROMCommand[3] << 8);
+            return NDSCartSlot->GetROMCommand(2) |
+                  (NDSCartSlot->GetROMCommand(3) << 8);
         return 0;
     case 0x040001AC:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[4] |
-                  (NDSCart::ROMCommand[5] << 8);
+            return NDSCartSlot->GetROMCommand(4) |
+                  (NDSCartSlot->GetROMCommand(5) << 8);
         return 0;
     case 0x040001AE:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[6] |
-                  (NDSCart::ROMCommand[7] << 8);
+            return NDSCartSlot->GetROMCommand(6) |
+                  (NDSCartSlot->GetROMCommand(7) << 8);
         return 0;
 
     case 0x040001C0: return SPI->ReadCnt();
@@ -4055,26 +4055,26 @@ u32 ARM7IORead32(u32 addr)
 
     case 0x040001A0:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
+            return NDSCartSlot->GetSPICnt() | (NDSCartSlot->ReadSPIData() << 16);
         return 0;
     case 0x040001A4:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCnt;
+            return NDSCartSlot->GetROMCnt();
         return 0;
 
     case 0x040001A8:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[0] |
-                  (NDSCart::ROMCommand[1] << 8) |
-                  (NDSCart::ROMCommand[2] << 16) |
-                  (NDSCart::ROMCommand[3] << 24);
+            return NDSCartSlot->GetROMCommand(0) |
+                  (NDSCartSlot->GetROMCommand(1) << 8) |
+                  (NDSCartSlot->GetROMCommand(2) << 16) |
+                  (NDSCartSlot->GetROMCommand(3) << 24);
         return 0;
     case 0x040001AC:
         if (ExMemCnt[0] & (1<<11))
-            return NDSCart::ROMCommand[4] |
-                  (NDSCart::ROMCommand[5] << 8) |
-                  (NDSCart::ROMCommand[6] << 16) |
-                  (NDSCart::ROMCommand[7] << 24);
+            return NDSCartSlot->GetROMCommand(4) |
+                  (NDSCartSlot->GetROMCommand(5) << 8) |
+                  (NDSCartSlot->GetROMCommand(6) << 16) |
+                  (NDSCartSlot->GetROMCommand(7) << 24);
         return 0;
 
     case 0x040001C0:
@@ -4109,7 +4109,7 @@ u32 ARM7IORead32(u32 addr)
             return IPCFIFO9.Peek();
 
     case 0x04100010:
-        if (ExMemCnt[0] & (1<<11)) return NDSCart::ReadROMData();
+        if (ExMemCnt[0] & (1<<11)) return NDSCartSlot->ReadROMData();
         return 0;
     }
 
@@ -4149,26 +4149,26 @@ void ARM7IOWrite8(u32 addr, u8 val)
     case 0x040001A0:
         if (ExMemCnt[0] & (1<<11))
         {
-            NDSCart::WriteSPICnt((NDSCart::SPICnt & 0xFF00) | val);
+            NDSCartSlot->WriteSPICnt((NDSCartSlot->GetSPICnt() & 0xFF00) | val);
         }
         return;
     case 0x040001A1:
         if (ExMemCnt[0] & (1<<11))
-            NDSCart::WriteSPICnt((NDSCart::SPICnt & 0x00FF) | (val << 8));
+            NDSCartSlot->WriteSPICnt((NDSCartSlot->GetSPICnt() & 0x00FF) | (val << 8));
         return;
     case 0x040001A2:
         if (ExMemCnt[0] & (1<<11))
-            NDSCart::WriteSPIData(val);
+            NDSCartSlot->WriteSPIData(val);
         return;
 
-    case 0x040001A8: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[0] = val; return;
-    case 0x040001A9: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[1] = val; return;
-    case 0x040001AA: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[2] = val; return;
-    case 0x040001AB: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[3] = val; return;
-    case 0x040001AC: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[4] = val; return;
-    case 0x040001AD: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[5] = val; return;
-    case 0x040001AE: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[6] = val; return;
-    case 0x040001AF: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[7] = val; return;
+    case 0x040001A8: if (ExMemCnt[0] & (1<<11)) NDSCartSlot->SetROMCommand(0, val); return;
+    case 0x040001A9: if (ExMemCnt[0] & (1<<11)) NDSCartSlot->SetROMCommand(1, val); return;
+    case 0x040001AA: if (ExMemCnt[0] & (1<<11)) NDSCartSlot->SetROMCommand(2, val); return;
+    case 0x040001AB: if (ExMemCnt[0] & (1<<11)) NDSCartSlot->SetROMCommand(3, val); return;
+    case 0x040001AC: if (ExMemCnt[0] & (1<<11)) NDSCartSlot->SetROMCommand(4, val); return;
+    case 0x040001AD: if (ExMemCnt[0] & (1<<11)) NDSCartSlot->SetROMCommand(5, val); return;
+    case 0x040001AE: if (ExMemCnt[0] & (1<<11)) NDSCartSlot->SetROMCommand(6, val); return;
+    case 0x040001AF: if (ExMemCnt[0] & (1<<11)) NDSCartSlot->SetROMCommand(7, val); return;
 
     case 0x040001C2:
         SPI->WriteData(val);
@@ -4259,39 +4259,39 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
     case 0x040001A0:
         if (ExMemCnt[0] & (1<<11))
-            NDSCart::WriteSPICnt(val);
+            NDSCartSlot->WriteSPICnt(val);
         return;
     case 0x040001A2:
         if (ExMemCnt[0] & (1<<11))
-            NDSCart::WriteSPIData(val & 0xFF);
+            NDSCartSlot->WriteSPIData(val & 0xFF);
         return;
 
     case 0x040001A8:
         if (ExMemCnt[0] & (1<<11))
         {
-            NDSCart::ROMCommand[0] = val & 0xFF;
-            NDSCart::ROMCommand[1] = val >> 8;
+            NDSCartSlot->SetROMCommand(0, val & 0xFF);
+            NDSCartSlot->SetROMCommand(1, val >> 8);
         }
         return;
     case 0x040001AA:
         if (ExMemCnt[0] & (1<<11))
         {
-            NDSCart::ROMCommand[2] = val & 0xFF;
-            NDSCart::ROMCommand[3] = val >> 8;
+            NDSCartSlot->SetROMCommand(2, val & 0xFF);
+            NDSCartSlot->SetROMCommand(3, val >> 8);
         }
         return;
     case 0x040001AC:
         if (ExMemCnt[0] & (1<<11))
         {
-            NDSCart::ROMCommand[4] = val & 0xFF;
-            NDSCart::ROMCommand[5] = val >> 8;
+            NDSCartSlot->SetROMCommand(4, val & 0xFF);
+            NDSCartSlot->SetROMCommand(5, val >> 8);
         }
         return;
     case 0x040001AE:
         if (ExMemCnt[0] & (1<<11))
         {
-            NDSCart::ROMCommand[6] = val & 0xFF;
-            NDSCart::ROMCommand[7] = val >> 8;
+            NDSCartSlot->SetROMCommand(6, val & 0xFF);
+            NDSCartSlot->SetROMCommand(7, val >> 8);
         }
         return;
 
@@ -4420,31 +4420,31 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x040001A0:
         if (ExMemCnt[0] & (1<<11))
         {
-            NDSCart::WriteSPICnt(val & 0xFFFF);
-            NDSCart::WriteSPIData((val >> 16) & 0xFF);
+            NDSCartSlot->WriteSPICnt(val & 0xFFFF);
+            NDSCartSlot->WriteSPIData((val >> 16) & 0xFF);
         }
         return;
     case 0x040001A4:
         if (ExMemCnt[0] & (1<<11))
-            NDSCart::WriteROMCnt(val);
+            NDSCartSlot->WriteROMCnt(val);
         return;
 
     case 0x040001A8:
         if (ExMemCnt[0] & (1<<11))
         {
-            NDSCart::ROMCommand[0] = val & 0xFF;
-            NDSCart::ROMCommand[1] = (val >> 8) & 0xFF;
-            NDSCart::ROMCommand[2] = (val >> 16) & 0xFF;
-            NDSCart::ROMCommand[3] = val >> 24;
+            NDSCartSlot->SetROMCommand(0, val & 0xFF);
+            NDSCartSlot->SetROMCommand(1, (val >> 8) & 0xFF);
+            NDSCartSlot->SetROMCommand(2, (val >> 16) & 0xFF);
+            NDSCartSlot->SetROMCommand(3, val >> 24);
         }
         return;
     case 0x040001AC:
         if (ExMemCnt[0] & (1<<11))
         {
-            NDSCart::ROMCommand[4] = val & 0xFF;
-            NDSCart::ROMCommand[5] = (val >> 8) & 0xFF;
-            NDSCart::ROMCommand[6] = (val >> 16) & 0xFF;
-            NDSCart::ROMCommand[7] = val >> 24;
+            NDSCartSlot->SetROMCommand(4, val & 0xFF);
+            NDSCartSlot->SetROMCommand(5, (val >> 8) & 0xFF);
+            NDSCartSlot->SetROMCommand(6, (val >> 16) & 0xFF);
+            NDSCartSlot->SetROMCommand(7, val >> 24);
         }
         return;
 
@@ -4476,7 +4476,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04100010:
-        if (ExMemCnt[0] & (1<<11))  NDSCart::WriteROMData(val);
+        if (ExMemCnt[0] & (1<<11))  NDSCartSlot->WriteROMData(val);
         return;
     }
 

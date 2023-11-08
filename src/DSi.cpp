@@ -193,7 +193,7 @@ void Reset()
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
     SCFG_EXT[1] = 0x93FFFB06;
-    SCFG_MC = 0x0010 | (~((u32)(NDSCart::Cart != nullptr))&1);//0x0011;
+    SCFG_MC = 0x0010 | (~((u32)(NDS::NDSCartSlot->GetCart() != nullptr))&1);//0x0011;
     SCFG_RST = 0;
 
     DSP->SetRstLine(false);
@@ -310,13 +310,13 @@ void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
     if ((offset == 0) || (size == 0))
         return;
 
-    const NDSHeader& header = NDSCart::Cart->GetHeader();
+    const NDSHeader& header = NDS::NDSCartSlot->GetCart()->GetHeader();
 
     if ((header.DSiCryptoFlags & (1<<4)) ||
         (header.AppFlags & (1<<7)))
     {
         // dev key
-        const u8* cartrom = NDSCart::Cart->GetROM();
+        const u8* cartrom = NDS::NDSCartSlot->GetCart()->GetROM();
         memcpy(key, &cartrom[0], 16);
     }
     else
@@ -403,9 +403,9 @@ void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
 void SetupDirectBoot()
 {
     bool dsmode = false;
-    NDSHeader& header = NDSCart::Cart->GetHeader();
-    const u8* cartrom = NDSCart::Cart->GetROM();
-    u32 cartid = NDSCart::Cart->ID();
+    NDSHeader& header = NDS::NDSCartSlot->GetCart()->GetHeader();
+    const u8* cartrom = NDS::NDSCartSlot->GetCart()->GetROM();
+    u32 cartid = NDS::NDSCartSlot->GetCart()->ID();
     DSi_TSC* tsc = (DSi_TSC*)NDS::SPI->GetTSC();
 
     // TODO: add controls for forcing DS or DSi mode?
@@ -594,7 +594,7 @@ void SetupDirectBoot()
     if (header.ARM9ROMOffset >= 0x4000 && header.ARM9ROMOffset < 0x8000)
     {
         u8 securearea[0x800];
-        NDSCart::DecryptSecureArea(securearea);
+        NDS::NDSCartSlot->DecryptSecureArea(securearea);
 
         for (u32 i = 0; i < 0x800; i+=4)
         {
@@ -1289,7 +1289,7 @@ void Set_SCFG_MC(u32 val)
 
     if ((oldslotstatus == 0x0) && ((SCFG_MC & 0xC) == 0x4))
     {
-        NDSCart::ResetCart();
+        NDS::NDSCartSlot->ResetCart();
     }
 }
 
