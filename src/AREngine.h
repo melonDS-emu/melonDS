@@ -32,7 +32,7 @@ public:
     void SetCodeFile(ARCodeFile* file) { CodeFile = file; }
 
     void RunCheats();
-
+    void RunCheat(ARCode& arcode);
 private:
     ARCodeFile* CodeFile; // AR code file - frontend is responsible for managing this
 
@@ -43,8 +43,6 @@ private:
     void (*BusWrite8)(u32 addr, u8 val);
     void (*BusWrite16)(u32 addr, u16 val);
     void (*BusWrite32)(u32 addr, u32 val);
-
-    void RunCheat(ARCode& arcode);
 };
 
 #endif // ARENGINE_H
