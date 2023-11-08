@@ -16,6 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
@@ -182,7 +183,7 @@ class SPU* SPU;
 class SPIHost* SPI;
 class RTC* RTC;
 class Wifi* Wifi;
-
+std::unique_ptr<GBACart::GBACartSlot> GBACartSlot;
 class AREngine* AREngine;
 
 bool Running;
@@ -226,9 +227,9 @@ bool Init()
     SPI = new class SPIHost();
     RTC = new class RTC();
     Wifi = new class Wifi();
+    GBACartSlot = std::make_unique<GBACart::GBACartSlot>();
 
     if (!NDSCart::Init()) return false;
-    if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
 
     if (!DSi::Init()) return false;
@@ -259,7 +260,7 @@ void DeInit()
     delete Wifi; Wifi = nullptr;
 
     NDSCart::DeInit();
-    GBACart::DeInit();
+    GBACartSlot = nullptr;
     GPU::DeInit();
 
     DSi::DeInit();
@@ -644,7 +645,7 @@ void Reset()
     RCnt = 0;
 
     NDSCart::Reset();
-    GBACart::Reset();
+    GBACartSlot->Reset();
     GPU::Reset();
     SPU->Reset();
     SPI->Reset();
@@ -846,7 +847,7 @@ bool DoSavestate(Savestate* file)
 
     NDSCart::DoSavestate(file);
     if (ConsoleType == 0)
-        GBACart::DoSavestate(file);
+        GBACartSlot->DoSavestate(file);
     GPU::DoSavestate(file);
     SPU->DoSavestate(file);
     SPI->DoSavestate(file);
@@ -911,23 +912,28 @@ bool CartInserted()
 
 bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
 {
-    if (!GBACart::LoadROM(romdata, romlen))
+    if (!GBACartSlot)
+        return false;
+
+    if (!GBACartSlot->LoadROM(romdata, romlen))
         return false;
 
     if (savedata && savelen)
-        GBACart::LoadSave(savedata, savelen);
+        GBACartSlot->LoadSave(savedata, savelen);
 
     return true;
 }
 
 void LoadGBAAddon(int type)
 {
-    GBACart::LoadAddon(type);
+    if (GBACartSlot)
+        GBACartSlot->LoadAddon(type);
 }
 
 void EjectGBACart()
 {
-    GBACart::EjectCart();
+    if (GBACartSlot)
+        GBACartSlot->EjectCart();
 }
 
 void LoadBIOS()
@@ -1493,7 +1499,8 @@ void SetGBASlotTimings()
     // for example, the Cartridge Construction Kit relies on this to determine that
     // the GBA slot is empty
 
-    GBACart::SetOpenBusDecay(openbus[(curcnt>>2) & 0x3]);
+    assert(GBACartSlot != nullptr);
+    GBACartSlot->SetOpenBusDecay(openbus[(curcnt>>2) & 0x3]);
 }
 
 
@@ -2161,12 +2168,14 @@ u8 ARM9Read8(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00; // deselected CPU is 00h-filled
-        if (addr & 0x1) return GBACart::ROMRead(addr-1) >> 8;
-        return GBACart::ROMRead(addr) & 0xFF;
+        assert(GBACartSlot != nullptr);
+        if (addr & 0x1) return GBACartSlot->ROMRead(addr-1) >> 8;
+        return GBACartSlot->ROMRead(addr) & 0xFF;
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00; // deselected CPU is 00h-filled
-        return GBACart::SRAMRead(addr);
+        assert(GBACartSlot != nullptr);
+        return GBACartSlot->SRAMRead(addr);
     }
 
     Log(LogLevel::Debug, "unknown arm9 read8 %08X\n", addr);
@@ -2221,12 +2230,14 @@ u16 ARM9Read16(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0x0000; // deselected CPU is 00h-filled
-        return GBACart::ROMRead(addr);
+        assert(GBACartSlot != nullptr);
+        return GBACartSlot->ROMRead(addr);
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0x0000; // deselected CPU is 00h-filled
-        return GBACart::SRAMRead(addr) |
-              (GBACart::SRAMRead(addr+1) << 8);
+        assert(GBACartSlot != nullptr);
+        return GBACartSlot->SRAMRead(addr) |
+              (GBACartSlot->SRAMRead(addr+1) << 8);
     }
 
     //if (addr) Log(LogLevel::Warn, "unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
@@ -2281,15 +2292,17 @@ u32 ARM9Read32(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00000000; // deselected CPU is 00h-filled
-        return GBACart::ROMRead(addr) |
-              (GBACart::ROMRead(addr+2) << 16);
+        assert(GBACartSlot != nullptr);
+        return GBACartSlot->ROMRead(addr) |
+              (GBACartSlot->ROMRead(addr+2) << 16);
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00000000; // deselected CPU is 00h-filled
-        return GBACart::SRAMRead(addr) |
-              (GBACart::SRAMRead(addr+1) << 8) |
-              (GBACart::SRAMRead(addr+2) << 16) |
-              (GBACart::SRAMRead(addr+3) << 24);
+        assert(GBACartSlot != nullptr);
+        return GBACartSlot->SRAMRead(addr) |
+              (GBACartSlot->SRAMRead(addr+1) << 8) |
+              (GBACartSlot->SRAMRead(addr+2) << 16) |
+              (GBACartSlot->SRAMRead(addr+3) << 24);
     }
 
     //Log(LogLevel::Warn, "unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9->R[15], ARM9->R[12]);
@@ -2332,7 +2345,8 @@ void ARM9Write8(u32 addr, u8 val)
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        GBACart::SRAMWrite(addr, val);
+        assert(GBACartSlot != nullptr);
+        GBACartSlot->SRAMWrite(addr, val);
         return;
     }
 
@@ -2392,13 +2406,15 @@ void ARM9Write16(u32 addr, u16 val)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        GBACart::ROMWrite(addr, val);
+        assert(GBACartSlot != nullptr);
+        GBACartSlot->ROMWrite(addr, val);
         return;
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        GBACart::SRAMWrite(addr, val & 0xFF);
-        GBACart::SRAMWrite(addr+1, val >> 8);
+        assert(GBACartSlot != nullptr);
+        GBACartSlot->SRAMWrite(addr, val & 0xFF);
+        GBACartSlot->SRAMWrite(addr+1, val >> 8);
         return;
     }
 
@@ -2458,16 +2474,18 @@ void ARM9Write32(u32 addr, u32 val)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        GBACart::ROMWrite(addr, val & 0xFFFF);
-        GBACart::ROMWrite(addr+2, val >> 16);
+        assert(GBACartSlot != nullptr);
+        GBACartSlot->ROMWrite(addr, val & 0xFFFF);
+        GBACartSlot->ROMWrite(addr+2, val >> 16);
         return;
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        GBACart::SRAMWrite(addr, val & 0xFF);
-        GBACart::SRAMWrite(addr+1, (val >> 8) & 0xFF);
-        GBACart::SRAMWrite(addr+2, (val >> 16) & 0xFF);
-        GBACart::SRAMWrite(addr+3, val >> 24);
+        assert(GBACartSlot != nullptr);
+        GBACartSlot->SRAMWrite(addr, val & 0xFF);
+        GBACartSlot->SRAMWrite(addr+1, (val >> 8) & 0xFF);
+        GBACartSlot->SRAMWrite(addr+2, (val >> 16) & 0xFF);
+        GBACartSlot->SRAMWrite(addr+3, val >> 24);
         return;
     }
 
@@ -2559,13 +2577,15 @@ u8 ARM7Read8(u32 addr)
     case 0x09000000:
     case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00; // deselected CPU is 00h-filled
-        if (addr & 0x1) return GBACart::ROMRead(addr-1) >> 8;
-        return GBACart::ROMRead(addr) & 0xFF;
+        assert(GBACartSlot != nullptr);
+        if (addr & 0x1) return GBACartSlot->ROMRead(addr-1) >> 8;
+        return GBACartSlot->ROMRead(addr) & 0xFF;
 
     case 0x0A000000:
     case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00; // deselected CPU is 00h-filled
-        return GBACart::SRAMRead(addr);
+        assert(GBACartSlot != nullptr);
+        return GBACartSlot->SRAMRead(addr);
     }
 
     Log(LogLevel::Debug, "unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
@@ -2625,13 +2645,15 @@ u16 ARM7Read16(u32 addr)
     case 0x09000000:
     case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x0000; // deselected CPU is 00h-filled
-        return GBACart::ROMRead(addr);
+        assert(GBACartSlot != nullptr);
+        return GBACartSlot->ROMRead(addr);
 
     case 0x0A000000:
     case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x0000; // deselected CPU is 00h-filled
-        return GBACart::SRAMRead(addr) |
-              (GBACart::SRAMRead(addr+1) << 8);
+        assert(GBACartSlot != nullptr);
+        return GBACartSlot->SRAMRead(addr) |
+              (GBACartSlot->SRAMRead(addr+1) << 8);
     }
 
     Log(LogLevel::Debug, "unknown arm7 read16 %08X %08X\n", addr, ARM7->R[15]);
@@ -2691,16 +2713,18 @@ u32 ARM7Read32(u32 addr)
     case 0x09000000:
     case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00000000; // deselected CPU is 00h-filled
-        return GBACart::ROMRead(addr) |
-              (GBACart::ROMRead(addr+2) << 16);
+        assert(GBACartSlot != nullptr);
+        return GBACartSlot->ROMRead(addr) |
+              (GBACartSlot->ROMRead(addr+2) << 16);
 
     case 0x0A000000:
     case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00000000; // deselected CPU is 00h-filled
-        return GBACart::SRAMRead(addr) |
-              (GBACart::SRAMRead(addr+1) << 8) |
-              (GBACart::SRAMRead(addr+2) << 16) |
-              (GBACart::SRAMRead(addr+3) << 24);
+        assert(GBACartSlot != nullptr);
+        return GBACartSlot->SRAMRead(addr) |
+              (GBACartSlot->SRAMRead(addr+1) << 8) |
+              (GBACartSlot->SRAMRead(addr+2) << 16) |
+              (GBACartSlot->SRAMRead(addr+3) << 24);
     }
 
     //Log(LogLevel::Warn, "unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
@@ -2765,7 +2789,8 @@ void ARM7Write8(u32 addr, u8 val)
     case 0x0A000000:
     case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        GBACart::SRAMWrite(addr, val);
+        assert(GBACartSlot != nullptr);
+        GBACartSlot->SRAMWrite(addr, val);
         return;
     }
 
@@ -2839,14 +2864,15 @@ void ARM7Write16(u32 addr, u16 val)
     case 0x09000000:
     case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        GBACart::ROMWrite(addr, val);
+        assert(GBACartSlot != nullptr);
+        GBACartSlot->ROMWrite(addr, val);
         return;
 
     case 0x0A000000:
     case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        GBACart::SRAMWrite(addr, val & 0xFF);
-        GBACart::SRAMWrite(addr+1, val >> 8);
+        GBACartSlot->SRAMWrite(addr, val & 0xFF);
+        GBACartSlot->SRAMWrite(addr+1, val >> 8);
         return;
     }
 
@@ -2920,17 +2946,19 @@ void ARM7Write32(u32 addr, u32 val)
     case 0x09000000:
     case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        GBACart::ROMWrite(addr, val & 0xFFFF);
-        GBACart::ROMWrite(addr+2, val >> 16);
+        assert(GBACartSlot != nullptr);
+        GBACartSlot->ROMWrite(addr, val & 0xFFFF);
+        GBACartSlot->ROMWrite(addr+2, val >> 16);
         return;
 
     case 0x0A000000:
     case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        GBACart::SRAMWrite(addr, val & 0xFF);
-        GBACart::SRAMWrite(addr+1, (val >> 8) & 0xFF);
-        GBACart::SRAMWrite(addr+2, (val >> 16) & 0xFF);
-        GBACart::SRAMWrite(addr+3, val >> 24);
+        assert(GBACartSlot != nullptr);
+        GBACartSlot->SRAMWrite(addr, val & 0xFF);
+        GBACartSlot->SRAMWrite(addr+1, (val >> 8) & 0xFF);
+        GBACartSlot->SRAMWrite(addr+2, (val >> 16) & 0xFF);
+        GBACartSlot->SRAMWrite(addr+3, val >> 24);
         return;
     }
 
