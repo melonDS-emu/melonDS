@@ -1248,6 +1248,11 @@ T VRAMRead(u32 addr)
     }
 }
 
+u32 NDSCartSlot_ReadROMData()
+{ // TODO: Add a NDS* parameter, when NDS* is eventually implemented
+    return NDS::NDSCartSlot->ReadROMData();
+}
+
 void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
 {
     if (cpu->Num == 0)
@@ -1256,7 +1261,7 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
         {
         case 0x04000000:
             if (!store && size == 32 && addr == 0x04100010 && NDS::ExMemCnt[0] & (1<<11))
-                return (void*)NDSCart::ReadROMData;
+                return (void*)NDSCartSlot_ReadROMData;
 
             /*
                 unfortunately we can't map GPU2D this way

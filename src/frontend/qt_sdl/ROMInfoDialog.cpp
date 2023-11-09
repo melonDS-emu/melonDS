@@ -43,8 +43,8 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    const NDSBanner* banner = NDSCart::Cart->Banner();
-    const NDSHeader& header = NDSCart::Cart->GetHeader();
+    const NDSBanner* banner = NDS::NDSCartSlot->GetCart()->Banner();
+    const NDSHeader& header = NDS::NDSCartSlot->GetCart()->GetHeader();
     u32 iconData[32 * 32];
     ROMManager::ROMIcon(banner->Icon, banner->Palette, iconData);
     iconImage = QImage(reinterpret_cast<unsigned char*>(iconData), 32, 32, QImage::Format_ARGB32).copy();
