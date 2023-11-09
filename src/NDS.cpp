@@ -1089,7 +1089,7 @@ u32 RunFrame()
                 ARM7Timestamp = target;
                 TimerTimestamp[0] = target;
                 TimerTimestamp[1] = target;
-                GPU3D::Timestamp = target;
+                GPU::GPU3D->Timestamp = target;
                 RunSystemSleep(target);
 
                 if (!(CPUStop & CPUStop_Sleep))
@@ -1119,7 +1119,7 @@ u32 RunFrame()
                 if (CPUStop & CPUStop_GXStall)
                 {
                     // GXFIFO stall
-                    s32 cycles = GPU3D::CyclesToRunFor();
+                    s32 cycles = GPU::GPU3D->CyclesToRunFor();
 
                     ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
                 }
@@ -1142,7 +1142,7 @@ u32 RunFrame()
                 }
 
                 RunTimers(0);
-                GPU3D::Run();
+                GPU::GPU3D->Run();
 
                 target = ARM9Timestamp >> ARM9ClockShift;
                 CurCPU = 1;
@@ -1524,7 +1524,7 @@ void SetIRQ(u32 cpu, u32 irq)
         {
             CPUStop &= ~CPUStop_Sleep;
             CPUStop |= CPUStop_Wakeup;
-            GPU3D::RestartFrame();
+            GPU::GPU3D->RestartFrame();
         }
     }
 }
@@ -3084,7 +3084,7 @@ u8 ARM9IORead8(u32 addr)
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
-        return GPU3D::Read8(addr);
+        return GPU::GPU3D->Read8(addr);
     }
     // NO$GBA debug register "Emulation ID"
     if(addr >= 0x04FFFA00 && addr < 0x04FFFA10)
@@ -3107,7 +3107,7 @@ u16 ARM9IORead16(u32 addr)
     case 0x04000004: return GPU::DispStat[0];
     case 0x04000006: return GPU::VCount;
 
-    case 0x04000060: return GPU3D::Read16(addr);
+    case 0x04000060: return GPU::GPU3D->Read16(addr);
     case 0x04000064:
     case 0x04000066: return GPU::GPU2D_A.Read16(addr);
 
@@ -3239,7 +3239,7 @@ u16 ARM9IORead16(u32 addr)
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
-        return GPU3D::Read16(addr);
+        return GPU::GPU3D->Read16(addr);
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
@@ -3253,7 +3253,7 @@ u32 ARM9IORead32(u32 addr)
     {
     case 0x04000004: return GPU::DispStat[0] | (GPU::VCount << 16);
 
-    case 0x04000060: return GPU3D::Read32(addr);
+    case 0x04000060: return GPU::GPU3D->Read32(addr);
     case 0x04000064: return GPU::GPU2D_A.Read32(addr);
 
     case 0x040000B0: return DMAs[0]->SrcAddr;
@@ -3383,7 +3383,7 @@ u32 ARM9IORead32(u32 addr)
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
-        return GPU3D::Read32(addr);
+        return GPU::GPU3D->Read32(addr);
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
@@ -3464,7 +3464,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
-        GPU3D::Write8(addr, val);
+        GPU::GPU3D->Write8(addr, val);
         return;
     }
 
@@ -3478,7 +3478,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
     case 0x04000004: GPU::SetDispStat(0, val); return;
     case 0x04000006: GPU::SetVCount(val); return;
 
-    case 0x04000060: GPU3D::Write16(addr, val); return;
+    case 0x04000060: GPU::GPU3D->Write16(addr, val); return;
 
     case 0x04000068:
     case 0x0400006A: GPU::GPU2D_A.Write16(addr, val); return;
@@ -3648,7 +3648,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
-        GPU3D::Write16(addr, val);
+        GPU::GPU3D->Write16(addr, val);
         return;
     }
 
@@ -3664,7 +3664,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
         GPU::SetVCount(val >> 16);
         return;
 
-    case 0x04000060: GPU3D::Write32(addr, val); return;
+    case 0x04000060: GPU::GPU3D->Write32(addr, val); return;
     case 0x04000064:
     case 0x04000068: GPU::GPU2D_A.Write32(addr, val); return;
 
@@ -3765,7 +3765,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
     case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
     case 0x04000210: IE[0] = val; UpdateIRQ(0); return;
-    case 0x04000214: IF[0] &= ~val; GPU3D::CheckFIFOIRQ(); UpdateIRQ(0); return;
+    case 0x04000214: IF[0] &= ~val; GPU::GPU3D->CheckFIFOIRQ(); UpdateIRQ(0); return;
 
     case 0x04000240:
         GPU::MapVRAM_AB(0, val & 0xFF);
@@ -3846,7 +3846,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
-        GPU3D::Write32(addr, val);
+        GPU::GPU3D->Write32(addr, val);
         return;
     }
 

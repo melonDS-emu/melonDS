@@ -1248,6 +1248,36 @@ T VRAMRead(u32 addr)
     }
 }
 
+static u8 GPU3D_Read8(u32 addr) noexcept
+{
+    return GPU::GPU3D->Read8(addr);
+}
+
+static u16 GPU3D_Read16(u32 addr) noexcept
+{
+    return GPU::GPU3D->Read16(addr);
+}
+
+static u32 GPU3D_Read32(u32 addr) noexcept
+{
+    return GPU::GPU3D->Read32(addr);
+}
+
+static void GPU3D_Write8(u32 addr, u8 val) noexcept
+{
+    GPU::GPU3D->Write8(addr, val);
+}
+
+static void GPU3D_Write16(u32 addr, u16 val) noexcept
+{
+    GPU::GPU3D->Write16(addr, val);
+}
+
+static void GPU3D_Write32(u32 addr, u32 val) noexcept
+{
+    GPU::GPU3D->Write32(addr, val);
+}
+
 void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
 {
     if (cpu->Num == 0)
@@ -1268,12 +1298,12 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
             {
                 switch (size | store)
                 {
-                case 8: return (void*)GPU3D::Read8;
-                case 9: return (void*)GPU3D::Write8;
-                case 16: return (void*)GPU3D::Read16;
-                case 17: return (void*)GPU3D::Write16;
-                case 32: return (void*)GPU3D::Read32;
-                case 33: return (void*)GPU3D::Write32;
+                case 8: return (void*)GPU3D_Read8;
+                case 9: return (void*)GPU3D_Write8;
+                case 16: return (void*)GPU3D_Read16;
+                case 17: return (void*)GPU3D_Write16;
+                case 32: return (void*)GPU3D_Read32;
+                case 33: return (void*)GPU3D_Write32;
                 }
             }
 

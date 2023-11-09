@@ -287,10 +287,10 @@ void Unit::Write8(u32 addr, u8 val)
         return;
 
     case 0x10:
-        if (!Num) GPU3D::SetRenderXPos((GPU3D::RenderXPos & 0xFF00) | val);
+        if (!Num) GPU::GPU3D->SetRenderXPos((GPU::GPU3D->GetRenderXPos() & 0xFF00) | val);
         break;
     case 0x11:
-        if (!Num) GPU3D::SetRenderXPos((GPU3D::RenderXPos & 0x00FF) | (val << 8));
+        if (!Num) GPU::GPU3D->SetRenderXPos((GPU::GPU3D->GetRenderXPos() & 0x00FF) | (val << 8));
         break;
     }
 
@@ -383,7 +383,7 @@ void Unit::Write16(u32 addr, u16 val)
         return;
 
     case 0x010:
-        if (!Num) GPU3D::SetRenderXPos(val);
+        if (!Num) GPU::GPU3D->SetRenderXPos(val);
         break;
 
     case 0x068:

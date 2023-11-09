@@ -142,7 +142,7 @@ void DMA::WriteCnt(u32 val)
         if ((StartMode & 0x7) == 0)
             Start();
         else if (StartMode == 0x07)
-            GPU3D::CheckFIFODMA();
+            GPU::GPU3D->CheckFIFODMA();
 
         if (StartMode==0x06 || StartMode==0x13)
             Log(LogLevel::Warn, "UNIMPLEMENTED ARM%d DMA%d START MODE %02X, %08X->%08X\n", CPU?7:9, Num, StartMode, SrcAddr, DstAddr);
@@ -609,7 +609,7 @@ void DMA::Run9()
             NDS::ResumeCPU(0, 1<<Num);
 
             if (StartMode == 0x07)
-                GPU3D::CheckFIFODMA();
+                GPU::GPU3D->CheckFIFODMA();
         }
 
         return;

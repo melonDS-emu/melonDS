@@ -138,158 +138,9 @@ const u8 CmdNumParams[256] =
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-typedef union
-{
-    u64 _contents;
-    struct
-    {
-        u32 Param;
-        u8 Command;
-    };
-
-} CmdFIFOEntry;
-
-FIFO<CmdFIFOEntry, 256> CmdFIFO;
-FIFO<CmdFIFOEntry, 4> CmdPIPE;
-
-FIFO<CmdFIFOEntry, 64> CmdStallQueue;
-
-u32 NumCommands, CurCommand, ParamCount, TotalParams;
-
-bool GeometryEnabled;
-bool RenderingEnabled;
-
-u32 DispCnt;
-u8 AlphaRefVal, AlphaRef;
-
-u16 ToonTable[32];
-u16 EdgeTable[8];
-
-u32 FogColor, FogOffset;
-u8 FogDensityTable[32];
-
-u32 ClearAttr1, ClearAttr2;
-
-u32 RenderDispCnt;
-u8 RenderAlphaRef;
-
-u16 RenderToonTable[32];
-u16 RenderEdgeTable[8];
-
-u32 RenderFogColor, RenderFogOffset, RenderFogShift;
-u8 RenderFogDensityTable[34];
-
-u32 RenderClearAttr1, RenderClearAttr2;
-
-bool RenderFrameIdentical;
-
-u16 RenderXPos;
-
-u32 ZeroDotWLimit;
-
-u32 GXStat;
-
-u32 ExecParams[32];
-u32 ExecParamCount;
-
-u64 Timestamp;
-s32 CycleCount;
-s32 VertexPipeline;
-s32 NormalPipeline;
-s32 PolygonPipeline;
-s32 VertexSlotCounter;
-u32 VertexSlotsFree;
-
-u32 NumPushPopCommands;
-u32 NumTestCommands;
-
-
-u32 MatrixMode;
-
-s32 ProjMatrix[16];
-s32 PosMatrix[16];
-s32 VecMatrix[16];
-s32 TexMatrix[16];
-
-s32 ClipMatrix[16];
-bool ClipMatrixDirty;
-
-u32 Viewport[6];
-
-s32 ProjMatrixStack[16];
-s32 PosMatrixStack[32][16];
-s32 VecMatrixStack[32][16];
-s32 TexMatrixStack[16];
-s32 ProjMatrixStackPointer;
-s32 PosMatrixStackPointer;
-s32 TexMatrixStackPointer;
-
 void MatrixLoadIdentity(s32* m);
-void UpdateClipMatrix();
 
-
-u32 PolygonMode;
-s16 CurVertex[3];
-u8 VertexColor[3];
-s16 TexCoords[2];
-s16 RawTexCoords[2];
-s16 Normal[3];
-
-s16 LightDirection[4][3];
-u8 LightColor[4][3];
-u8 MatDiffuse[3];
-u8 MatAmbient[3];
-u8 MatSpecular[3];
-u8 MatEmission[3];
-
-bool UseShininessTable;
-u8 ShininessTable[128];
-
-u32 PolygonAttr;
-u32 CurPolygonAttr;
-
-u32 TexParam;
-u32 TexPalette;
-
-s32 PosTestResult[4];
-s16 VecTestResult[3];
-
-Vertex TempVertexBuffer[4];
-u32 VertexNum;
-u32 VertexNumInPoly;
-u32 NumConsecutivePolygons;
-Polygon* LastStripPolygon;
-u32 NumOpaquePolygons;
-
-Vertex VertexRAM[6144 * 2];
-Polygon PolygonRAM[2048 * 2];
-
-Vertex* CurVertexRAM;
-Polygon* CurPolygonRAM;
-u32 NumVertices, NumPolygons;
-u32 CurRAMBank;
-
-std::array<Polygon*,2048> RenderPolygonRAM;
-u32 RenderNumPolygons;
-
-u32 FlushRequest;
-u32 FlushAttributes;
-
-std::unique_ptr<GPU3D::Renderer3D> CurrentRenderer = {};
-
-bool AbortFrame;
-
-bool Init()
-{
-    return true;
-}
-
-void DeInit()
-{
-    CurrentRenderer = nullptr;
-}
-
-void ResetRenderingState()
+void GPU3D::ResetRenderingState() noexcept
 {
     RenderNumPolygons = 0;
 
@@ -308,7 +159,7 @@ void ResetRenderingState()
     RenderClearAttr2 = 0x00007FFF;
 }
 
-void Reset()
+void GPU3D::Reset() noexcept
 {
     CmdFIFO.Clear();
     CmdPIPE.Clear();
@@ -389,7 +240,7 @@ void Reset()
     AbortFrame = false;
 }
 
-void DoSavestate(Savestate* file)
+void GPU3D::DoSavestate(Savestate* file) noexcept
 {
     file->Section("GP3D");
 
@@ -634,7 +485,7 @@ void DoSavestate(Savestate* file)
 
 
 
-void SetEnabled(bool geometry, bool rendering)
+void GPU3D::SetEnabled(bool geometry, bool rendering) noexcept
 {
     GeometryEnabled = geometry;
     RenderingEnabled = rendering;
@@ -767,7 +618,7 @@ void MatrixTranslate(s32* m, s32* s)
     m[15] += ((s64)s[0]*m[3] + (s64)s[1]*m[7] + (s64)s[2]*m[11]) >> 12;
 }
 
-void UpdateClipMatrix()
+void GPU3D::UpdateClipMatrix() noexcept
 {
     if (!ClipMatrixDirty) return;
     ClipMatrixDirty = false;
@@ -778,7 +629,7 @@ void UpdateClipMatrix()
 
 
 
-void AddCycles(s32 num)
+void GPU3D::AddCycles(s32 num) noexcept
 {
     CycleCount += num;
 
@@ -809,7 +660,7 @@ void AddCycles(s32 num)
     }
 }
 
-void NextVertexSlot()
+void GPU3D::NextVertexSlot() noexcept
 {
     s32 num = (9 - VertexSlotCounter) + 1;
 
@@ -852,7 +703,7 @@ void NextVertexSlot()
     }
 }
 
-void StallPolygonPipeline(s32 delay, s32 nonstalldelay)
+void GPU3D::StallPolygonPipeline(s32 delay, s32 nonstalldelay) noexcept
 {
     if (PolygonPipeline > 0)
     {
@@ -907,7 +758,7 @@ void ClipSegment(Vertex* outbuf, Vertex* vin, Vertex* vout)
 }
 
 template<int comp, bool attribs>
-int ClipAgainstPlane(Vertex* vertices, int nverts, int clipstart)
+int ClipAgainstPlane(const GPU3D& gpu, Vertex* vertices, int nverts, int clipstart)
 {
     Vertex temp[10];
     int prev, next;
@@ -927,7 +778,7 @@ int ClipAgainstPlane(Vertex* vertices, int nverts, int clipstart)
         Vertex vtx = vertices[i];
         if (vtx.Position[comp] > vtx.Position[3])
         {
-            if ((comp == 2) && (!(CurPolygonAttr & (1<<12)))) return 0;
+            if ((comp == 2) && (!(gpu.CurPolygonAttr & (1<<12)))) return 0;
 
             Vertex* vprev = &vertices[prev];
             if (vprev->Position[comp] <= vprev->Position[3])
@@ -988,7 +839,7 @@ int ClipAgainstPlane(Vertex* vertices, int nverts, int clipstart)
 }
 
 template<bool attribs>
-int ClipPolygon(Vertex* vertices, int nverts, int clipstart)
+int ClipPolygon(GPU3D& gpu, Vertex* vertices, int nverts, int clipstart)
 {
     // clip.
     // for each vertex:
@@ -1001,13 +852,13 @@ int ClipPolygon(Vertex* vertices, int nverts, int clipstart)
     // clipping seems to process the Y plane before the X plane.
 
     // Z clipping
-    nverts = ClipAgainstPlane<2, attribs>(vertices, nverts, clipstart);
+    nverts = ClipAgainstPlane<2, attribs>(gpu, vertices, nverts, clipstart);
 
     // Y clipping
-    nverts = ClipAgainstPlane<1, attribs>(vertices, nverts, clipstart);
+    nverts = ClipAgainstPlane<1, attribs>(gpu, vertices, nverts, clipstart);
 
     // X clipping
-    nverts = ClipAgainstPlane<0, attribs>(vertices, nverts, clipstart);
+    nverts = ClipAgainstPlane<0, attribs>(gpu, vertices, nverts, clipstart);
 
     return nverts;
 }
@@ -1020,7 +871,7 @@ bool ClipCoordsEqual(Vertex* a, Vertex* b)
            a->Position[3] == b->Position[3];
 }
 
-void SubmitPolygon()
+void GPU3D::SubmitPolygon() noexcept
 {
     Vertex clippedvertices[10];
     Vertex* reusedvertices[2];
@@ -1153,7 +1004,7 @@ void SubmitPolygon()
 
     // clipping
 
-    nverts = ClipPolygon<true>(clippedvertices, nverts, clipstart);
+    nverts = ClipPolygon<true>(*this, clippedvertices, nverts, clipstart);
     if (nverts == 0)
     {
         LastStripPolygon = NULL;
@@ -1425,7 +1276,7 @@ void SubmitPolygon()
         LastStripPolygon = NULL;
 }
 
-void SubmitVertex()
+void GPU3D::SubmitVertex() noexcept
 {
     s64 vertex[4] = {(s64)CurVertex[0], (s64)CurVertex[1], (s64)CurVertex[2], 0x1000};
     Vertex* vertextrans = &TempVertexBuffer[VertexNumInPoly];
@@ -1523,7 +1374,7 @@ void SubmitVertex()
     AddCycles(3);
 }
 
-void CalculateLighting()
+void GPU3D::CalculateLighting() noexcept
 {
     if ((TexParam >> 30) == 2)
     {
@@ -1598,7 +1449,7 @@ void CalculateLighting()
 }
 
 
-void BoxTest(u32* params)
+void GPU3D::BoxTest(u32* params) noexcept
 {
     Vertex cube[8];
     Vertex face[10];
@@ -1642,7 +1493,7 @@ void BoxTest(u32* params)
 
     // front face (-Z)
     face[0] = cube[0]; face[1] = cube[1]; face[2] = cube[2]; face[3] = cube[3];
-    res = ClipPolygon<false>(face, 4, 0);
+    res = ClipPolygon<false>(*this, face, 4, 0);
     if (res > 0)
     {
         GXStat |= (1<<1);
@@ -1651,7 +1502,7 @@ void BoxTest(u32* params)
 
     // back face (+Z)
     face[0] = cube[4]; face[1] = cube[5]; face[2] = cube[6]; face[3] = cube[7];
-    res = ClipPolygon<false>(face, 4, 0);
+    res = ClipPolygon<false>(*this, face, 4, 0);
     if (res > 0)
     {
         GXStat |= (1<<1);
@@ -1660,7 +1511,7 @@ void BoxTest(u32* params)
 
     // left face (-X)
     face[0] = cube[0]; face[1] = cube[3]; face[2] = cube[4]; face[3] = cube[5];
-    res = ClipPolygon<false>(face, 4, 0);
+    res = ClipPolygon<false>(*this, face, 4, 0);
     if (res > 0)
     {
         GXStat |= (1<<1);
@@ -1669,7 +1520,7 @@ void BoxTest(u32* params)
 
     // right face (+X)
     face[0] = cube[1]; face[1] = cube[2]; face[2] = cube[7]; face[3] = cube[6];
-    res = ClipPolygon<false>(face, 4, 0);
+    res = ClipPolygon<false>(*this, face, 4, 0);
     if (res > 0)
     {
         GXStat |= (1<<1);
@@ -1678,7 +1529,7 @@ void BoxTest(u32* params)
 
     // bottom face (-Y)
     face[0] = cube[0]; face[1] = cube[1]; face[2] = cube[6]; face[3] = cube[5];
-    res = ClipPolygon<false>(face, 4, 0);
+    res = ClipPolygon<false>(*this, face, 4, 0);
     if (res > 0)
     {
         GXStat |= (1<<1);
@@ -1687,7 +1538,7 @@ void BoxTest(u32* params)
 
     // top face (+Y)
     face[0] = cube[2]; face[1] = cube[3]; face[2] = cube[4]; face[3] = cube[7];
-    res = ClipPolygon<false>(face, 4, 0);
+    res = ClipPolygon<false>(*this, face, 4, 0);
     if (res > 0)
     {
         GXStat |= (1<<1);
@@ -1695,7 +1546,7 @@ void BoxTest(u32* params)
     }
 }
 
-void PosTest()
+void GPU3D::PosTest() noexcept
 {
     s64 vertex[4] = {(s64)CurVertex[0], (s64)CurVertex[1], (s64)CurVertex[2], 0x1000};
 
@@ -1708,7 +1559,7 @@ void PosTest()
     AddCycles(5);
 }
 
-void VecTest(u32 param)
+void GPU3D::VecTest(u32 param) noexcept
 {
     // TODO: maybe it overwrites the normal registers, too
 
@@ -1731,7 +1582,7 @@ void VecTest(u32 param)
 
 
 
-void CmdFIFOWrite(CmdFIFOEntry& entry)
+void GPU3D::CmdFIFOWrite(CmdFIFOEntry& entry) noexcept
 {
     if (CmdFIFO.IsEmpty() && !CmdPIPE.IsFull())
     {
@@ -1767,7 +1618,7 @@ void CmdFIFOWrite(CmdFIFOEntry& entry)
     }
 }
 
-CmdFIFOEntry CmdFIFORead()
+GPU3D::CmdFIFOEntry GPU3D::CmdFIFORead() noexcept
 {
     CmdFIFOEntry ret = CmdPIPE.Read();
 
@@ -1800,39 +1651,7 @@ CmdFIFOEntry CmdFIFORead()
     return ret;
 }
 
-inline void VertexPipelineSubmitCmd()
-{
-    // vertex commands 0x24, 0x25, 0x26, 0x27, 0x28
-    if (!(VertexSlotsFree & 0x1)) NextVertexSlot();
-    else                          AddCycles(1);
-    NormalPipeline = 0;
-}
-
-inline void VertexPipelineCmdDelayed6()
-{
-    // commands 0x20, 0x30, 0x31, 0x72 that can run 6 cycles after a vertex
-    if (VertexPipeline > 2) AddCycles((VertexPipeline - 2) + 1);
-    else                    AddCycles(NormalPipeline + 1);
-    NormalPipeline = 0;
-}
-
-inline void VertexPipelineCmdDelayed8()
-{
-    // commands 0x29, 0x2A, 0x2B, 0x33, 0x34, 0x41, 0x60, 0x71 that can run 8 cycles after a vertex
-    if (VertexPipeline > 0) AddCycles(VertexPipeline + 1);
-    else                    AddCycles(NormalPipeline + 1);
-    NormalPipeline = 0;
-}
-
-inline void VertexPipelineCmdDelayed4()
-{
-    // all other commands can run 4 cycles after a vertex
-    // no need to do much here since that is the minimum
-    AddCycles(NormalPipeline + 1);
-    NormalPipeline = 0;
-}
-
-void ExecuteCommand()
+void GPU3D::ExecuteCommand() noexcept
 {
     CmdFIFOEntry entry = CmdFIFORead();
 
@@ -2430,13 +2249,13 @@ void ExecuteCommand()
     }
 }
 
-s32 CyclesToRunFor()
+s32 GPU3D::CyclesToRunFor() const noexcept
 {
     if (CycleCount < 0) return 0;
     return CycleCount;
 }
 
-void FinishWork(s32 cycles)
+void GPU3D::FinishWork(s32 cycles) noexcept
 {
     AddCycles(cycles);
     if (NormalPipeline)
@@ -2450,7 +2269,7 @@ void FinishWork(s32 cycles)
     GXStat &= ~(1<<27);
 }
 
-void Run()
+void GPU3D::Run() noexcept
 {
     if (!GeometryEnabled || FlushRequest ||
         (CmdPIPE.IsEmpty() && !(GXStat & (1<<27))))
@@ -2485,7 +2304,7 @@ void Run()
 }
 
 
-void CheckFIFOIRQ()
+void GPU3D::CheckFIFOIRQ() noexcept
 {
     bool irq = false;
     switch (GXStat >> 30)
@@ -2498,18 +2317,18 @@ void CheckFIFOIRQ()
     else     NDS::ClearIRQ(0, NDS::IRQ_GXFIFO);
 }
 
-void CheckFIFODMA()
+void GPU3D::CheckFIFODMA() noexcept
 {
     if (CmdFIFO.Level() < 128)
         NDS::CheckDMAs(0, 0x07);
 }
 
-void VCount144()
+void GPU3D::VCount144() noexcept
 {
     CurrentRenderer->VCount144();
 }
 
-void RestartFrame()
+void GPU3D::RestartFrame() noexcept
 {
     CurrentRenderer->RestartFrame();
 }
@@ -2527,7 +2346,7 @@ bool YSort(Polygon* a, Polygon* b)
     return a->SortKey < b->SortKey;
 }
 
-void VBlank()
+void GPU3D::VBlank() noexcept
 {
     if (GeometryEnabled)
     {
@@ -2604,21 +2423,20 @@ void VBlank()
     }
 }
 
-void VCount215()
+void GPU3D::VCount215() noexcept
 {
     CurrentRenderer->RenderFrame();
 }
 
-void SetRenderXPos(u16 xpos)
+void GPU3D::SetRenderXPos(u16 xpos) noexcept
 {
     if (!RenderingEnabled) return;
 
     RenderXPos = xpos & 0x01FF;
 }
 
-u32 ScrolledLine[256];
 
-u32* GetLine(int line)
+u32* GPU3D::GetLine(int line) noexcept
 {
     if (!AbortFrame)
     {
@@ -2653,8 +2471,12 @@ u32* GetLine(int line)
     return ScrolledLine;
 }
 
+bool GPU3D::IsRendererAccelerated() const noexcept
+{
+    return CurrentRenderer && CurrentRenderer->Accelerated;
+}
 
-void WriteToGXFIFO(u32 val)
+void GPU3D::WriteToGXFIFO(u32 val) noexcept
 {
     if (NumCommands == 0)
     {
@@ -2693,7 +2515,7 @@ void WriteToGXFIFO(u32 val)
 }
 
 
-u8 Read8(u32 addr)
+u8 GPU3D::Read8(u32 addr) noexcept
 {
     switch (addr)
     {
@@ -2732,7 +2554,7 @@ u8 Read8(u32 addr)
     return 0;
 }
 
-u16 Read16(u32 addr)
+u16 GPU3D::Read16(u32 addr) noexcept
 {
     switch (addr)
     {
@@ -2776,7 +2598,7 @@ u16 Read16(u32 addr)
     return 0;
 }
 
-u32 Read32(u32 addr)
+u32 GPU3D::Read32(u32 addr) noexcept
 {
     switch (addr)
     {
@@ -2829,7 +2651,7 @@ u32 Read32(u32 addr)
     return 0;
 }
 
-void Write8(u32 addr, u8 val)
+void GPU3D::Write8(u32 addr, u8 val) noexcept
 {
     if (!RenderingEnabled && addr >= 0x04000320 && addr < 0x04000400) return;
     if (!GeometryEnabled  && addr >= 0x04000400 && addr < 0x04000700) return;
@@ -2879,7 +2701,7 @@ void Write8(u32 addr, u8 val)
     Log(LogLevel::Debug, "unknown GPU3D write8 %08X %02X\n", addr, val);
 }
 
-void Write16(u32 addr, u16 val)
+void GPU3D::Write16(u32 addr, u16 val) noexcept
 {
     if (!RenderingEnabled && addr >= 0x04000320 && addr < 0x04000400) return;
     if (!GeometryEnabled  && addr >= 0x04000400 && addr < 0x04000700) return;
@@ -2966,7 +2788,7 @@ void Write16(u32 addr, u16 val)
     Log(LogLevel::Debug, "unknown GPU3D write16 %08X %04X\n", addr, val);
 }
 
-void Write32(u32 addr, u32 val)
+void GPU3D::Write32(u32 addr, u32 val) noexcept
 {
     if (!RenderingEnabled && addr >= 0x04000320 && addr < 0x04000400) return;
     if (!GeometryEnabled  && addr >= 0x04000400 && addr < 0x04000700) return;

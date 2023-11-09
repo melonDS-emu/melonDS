@@ -165,7 +165,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 {
     CurUnit = unit;
 
-    int stride = GPU3D::CurrentRenderer->Accelerated ? (256*3 + 1) : 256;
+    int stride = GPU::GPU3D->IsRendererAccelerated() ? (256*3 + 1) : 256;
     u32* dst = &Framebuffer[CurUnit->Num][stride * line];
 
     int n3dline = line;
@@ -205,11 +205,11 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 
     if (CurUnit->Num == 0)
     {
-        if (!GPU3D::CurrentRenderer->Accelerated)
-            _3DLine = GPU3D::GetLine(n3dline);
+        if (!GPU::GPU3D->IsRendererAccelerated())
+            _3DLine = GPU::GPU3D->GetLine(n3dline);
         else if (CurUnit->CaptureLatch && (((CurUnit->CaptureCnt >> 29) & 0x3) != 1))
         {
-            _3DLine = GPU3D::GetLine(n3dline);
+            _3DLine = GPU::GPU3D->GetLine(n3dline);
             //GPU3D::GLRenderer::PrepareCaptureFrame();
         }
     }
@@ -219,7 +219,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
         for (int i = 0; i < 256; i++)
             dst[i] = 0xFFFFFFFF;
 
-        if (GPU3D::CurrentRenderer->Accelerated)
+        if (GPU::GPU3D->IsRendererAccelerated())
         {
             dst[256*3] = 0;
         }
@@ -311,7 +311,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 
     u32 masterBrightness = CurUnit->MasterBrightness;
 
-    if (GPU3D::CurrentRenderer->Accelerated)
+    if (GPU::GPU3D->IsRendererAccelerated())
     {
         dst[256*3] = masterBrightness | (CurUnit->DispCnt & 0x30000);
         return;
@@ -363,11 +363,11 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 void SoftRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
 {
 #ifdef OGLRENDERER_ENABLED
-    if (GPU3D::CurrentRenderer->Accelerated)
+    if (GPU::GPU3D->IsRendererAccelerated())
     {
         if ((unitA->CaptureCnt & (1<<31)) && (((unitA->CaptureCnt >> 29) & 0x3) != 1))
         {
-            reinterpret_cast<GPU3D::GLRenderer*>(GPU3D::CurrentRenderer.get())->PrepareCaptureFrame();
+            reinterpret_cast<GPU3D::GLRenderer*>(GPU::GPU3D->GetCurrentRenderer())->PrepareCaptureFrame();
         }
     }
 #endif
@@ -396,7 +396,7 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
     else
     {
         srcA = BGOBJLine;
-        if (GPU3D::CurrentRenderer->Accelerated)
+        if (GPU::GPU3D->IsRendererAccelerated())
         {
             // in GPU3D::CurrentRenderer->Accelerated mode, compositing is normally done on the GPU
             // but when doing display capture, we do need the composited output
@@ -600,12 +600,12 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
     { \
         if ((bgCnt[num] & 0x0040) && (CurUnit->BGMosaicSize[0] > 0)) \
         { \
-            if (GPU3D::CurrentRenderer->Accelerated) DrawBG_##type<true, DrawPixel_Accel>(line, num); \
+            if (GPU::GPU3D->IsRendererAccelerated()) DrawBG_##type<true, DrawPixel_Accel>(line, num); \
             else DrawBG_##type<true, DrawPixel_Normal>(line, num); \
         } \
         else \
         { \
-            if (GPU3D::CurrentRenderer->Accelerated) DrawBG_##type<false, DrawPixel_Accel>(line, num); \
+            if (GPU::GPU3D->IsRendererAccelerated()) DrawBG_##type<false, DrawPixel_Accel>(line, num); \
             else DrawBG_##type<false, DrawPixel_Normal>(line, num); \
         } \
     } while (false)
@@ -615,18 +615,18 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
     { \
         if ((bgCnt[2] & 0x0040) && (CurUnit->BGMosaicSize[0] > 0)) \
         { \
-            if (GPU3D::CurrentRenderer->Accelerated) DrawBG_Large<true, DrawPixel_Accel>(line); \
+            if (GPU::GPU3D->IsRendererAccelerated()) DrawBG_Large<true, DrawPixel_Accel>(line); \
             else DrawBG_Large<true, DrawPixel_Normal>(line); \
         } \
         else \
         { \
-            if (GPU3D::CurrentRenderer->Accelerated) DrawBG_Large<false, DrawPixel_Accel>(line); \
+            if (GPU::GPU3D->IsRendererAccelerated()) DrawBG_Large<false, DrawPixel_Accel>(line); \
             else DrawBG_Large<false, DrawPixel_Normal>(line); \
         } \
     } while (false)
 
 #define DoInterleaveSprites(prio) \
-    if (GPU3D::CurrentRenderer->Accelerated) InterleaveSprites<DrawPixel_Accel>(prio); else InterleaveSprites<DrawPixel_Normal>(prio);
+    if (GPU::GPU3D->IsRendererAccelerated()) InterleaveSprites<DrawPixel_Accel>(prio); else InterleaveSprites<DrawPixel_Normal>(prio);
 
 template<u32 bgmode>
 void SoftRenderer::DrawScanlineBGMode(u32 line)
@@ -794,7 +794,7 @@ void SoftRenderer::DrawScanline_BGOBJ(u32 line)
     // color special effects
     // can likely be optimized
 
-    if (!GPU3D::CurrentRenderer->Accelerated)
+    if (!GPU::GPU3D->IsRendererAccelerated())
     {
         for (int i = 0; i < 256; i++)
         {
@@ -940,7 +940,7 @@ void SoftRenderer::DrawBG_3D()
 {
     int i = 0;
 
-    if (GPU3D::CurrentRenderer->Accelerated)
+    if (GPU::GPU3D->IsRendererAccelerated())
     {
         for (i = 0; i < 256; i++)
         {

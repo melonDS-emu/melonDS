@@ -204,7 +204,7 @@ void GLCompositor::RenderFrame()
     glUniform1ui(CompScaleLoc, Scale);
 
     // TODO: support setting this midframe, if ever needed
-    glUniform1i(Comp3DXPosLoc, ((int)GPU3D::RenderXPos << 23) >> 23);
+    glUniform1i(Comp3DXPosLoc, ((int)GPU::GPU3D->GetRenderXPos() << 23) >> 23);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, CompScreenInputTex);
@@ -218,7 +218,7 @@ void GLCompositor::RenderFrame()
     }
 
     glActiveTexture(GL_TEXTURE1);
-    reinterpret_cast<GPU3D::GLRenderer*>(GPU3D::CurrentRenderer.get())->SetupAccelFrame();
+    reinterpret_cast<GPU3D::GLRenderer*>(GPU::GPU3D->GetCurrentRenderer())->SetupAccelFrame();
 
     glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);
     glBindVertexArray(CompVertexArrayID);

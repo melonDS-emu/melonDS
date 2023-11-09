@@ -152,6 +152,8 @@ u8 VRAMFlat_TexPal[128*1024];
 u32 OAMDirty;
 u32 PaletteDirty;
 
+std::unique_ptr<GPU3D::GPU3D> GPU3D = {};
+
 #ifdef OGLRENDERER_ENABLED
 std::unique_ptr<GLCompositor> CurGLCompositor = {};
 #endif
@@ -164,7 +166,7 @@ bool Init()
     NDS::RegisterEventFunc(NDS::Event_DisplayFIFO, 0, DisplayFIFO);
 
     GPU2D_Renderer = std::make_unique<GPU2D::SoftRenderer>();
-    if (!GPU3D::Init()) return false;
+    GPU3D = std::make_unique<GPU3D::GPU3D>();
 
     FrontBuffer = 0;
     Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
@@ -177,7 +179,7 @@ bool Init()
 void DeInit()
 {
     GPU2D_Renderer.reset();
-    GPU3D::DeInit();
+    GPU3D = nullptr;
 
     if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
     if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
@@ -278,7 +280,7 @@ void Reset()
     memset(VRAMPtr_BOBJ, 0, sizeof(VRAMPtr_BOBJ));
 
     size_t fbsize;
-    if (GPU3D::CurrentRenderer->Accelerated)
+    if (GPU3D->IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
     else
         fbsize = 256 * 192;
@@ -296,7 +298,7 @@ void Reset()
 
     GPU2D_A.Reset();
     GPU2D_B.Reset();
-    GPU3D::Reset();
+    GPU3D->Reset();
 
     int backbuf = FrontBuffer ? 0 : 1;
     GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1], Framebuffer[backbuf][0]);
@@ -312,7 +314,7 @@ void Reset()
 void Stop()
 {
     int fbsize;
-    if (GPU3D::CurrentRenderer->Accelerated)
+    if (GPU3D->IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
     else
         fbsize = 256 * 192;
@@ -325,7 +327,7 @@ void Stop()
 #ifdef OGLRENDERER_ENABLED
     // This needs a better way to know that we're
     // using the OpenGL renderer specifically
-    if (GPU3D::CurrentRenderer->Accelerated)
+    if (GPU3D->IsRendererAccelerated())
         CurGLCompositor->Stop();
 #endif
 }
@@ -391,7 +393,7 @@ void DoSavestate(Savestate* file)
 
     GPU2D_A.DoSavestate(file);
     GPU2D_B.DoSavestate(file);
-    GPU3D::DoSavestate(file);
+    GPU3D->DoSavestate(file);
 
     ResetVRAMCache();
 }
@@ -420,21 +422,21 @@ void InitRenderer(int renderer)
         {
             // Fallback on software renderer
             renderer = 0;
-            GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
+            GPU3D->SetCurrentRenderer(std::make_unique<GPU3D::SoftRenderer>());
         }
-        GPU3D::CurrentRenderer = GPU3D::GLRenderer::New();
-        if (!GPU3D::CurrentRenderer)
+        GPU3D->SetCurrentRenderer(GPU3D::GLRenderer::New());
+        if (!GPU3D->GetCurrentRenderer())
         {
             // Fallback on software renderer
             CurGLCompositor.reset();
             renderer = 0;
-            GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
+            GPU3D->SetCurrentRenderer(std::make_unique<GPU3D::SoftRenderer>());
         }
     }
     else
 #endif
     {
-        GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
+        GPU3D->SetCurrentRenderer(std::make_unique<GPU3D::SoftRenderer>());
     }
 
     Renderer = renderer;
@@ -443,7 +445,7 @@ void InitRenderer(int renderer)
 void DeInitRenderer()
 {
     // Delete the 3D renderer, if it exists
-    GPU3D::CurrentRenderer.reset();
+    GPU3D->SetCurrentRenderer(nullptr);
 
 #ifdef OGLRENDERER_ENABLED
     // Delete the compositor, if one exists
@@ -455,13 +457,13 @@ void ResetRenderer()
 {
     if (Renderer == 0)
     {
-        GPU3D::CurrentRenderer->Reset();
+        GPU3D->GetCurrentRenderer()->Reset();
     }
 #ifdef OGLRENDERER_ENABLED
     else
     {
         CurGLCompositor->Reset();
-        GPU3D::CurrentRenderer->Reset();
+        GPU3D->GetCurrentRenderer()->Reset();
     }
 #endif
 }
@@ -475,7 +477,7 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
     }
 
     int fbsize;
-    if (GPU3D::CurrentRenderer->Accelerated)
+    if (GPU3D->IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
     else
         fbsize = 256 * 192;
@@ -499,13 +501,13 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
 
     if (Renderer == 0)
     {
-        GPU3D::CurrentRenderer->SetRenderSettings(settings);
+        GPU3D->GetCurrentRenderer()->SetRenderSettings(settings);
     }
 #ifdef OGLRENDERER_ENABLED
     else
     {
         CurGLCompositor->SetRenderSettings(settings);
-        GPU3D::CurrentRenderer->SetRenderSettings(settings);
+        GPU3D->GetCurrentRenderer()->SetRenderSettings(settings);
     }
 #endif
 }
@@ -1016,7 +1018,7 @@ void SetPowerCnt(u32 val)
 
     GPU2D_A.SetEnabled(val & (1<<1));
     GPU2D_B.SetEnabled(val & (1<<9));
-    GPU3D::SetEnabled(val & (1<<3), val & (1<<2));
+    GPU3D->SetEnabled(val & (1<<3), val & (1<<2));
 
     AssignFramebuffers();
 }
@@ -1082,7 +1084,7 @@ void StartHBlank(u32 line)
     }
     else if (VCount == 215)
     {
-        GPU3D::VCount215();
+        GPU3D->VCount215();
     }
     else if (VCount == 262)
     {
@@ -1106,10 +1108,10 @@ void FinishFrame(u32 lines)
 
     TotalScanlines = lines;
 
-    if (GPU3D::AbortFrame)
+    if (GPU3D->AbortFrame)
     {
-        GPU3D::RestartFrame();
-        GPU3D::AbortFrame = false;
+        GPU3D->RestartFrame();
+        GPU3D->AbortFrame = false;
     }
 }
 
@@ -1117,7 +1119,7 @@ void BlankFrame()
 {
     int backbuf = FrontBuffer ? 0 : 1;
     int fbsize;
-    if (GPU3D::CurrentRenderer->Accelerated)
+    if (GPU3D->IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
     else
         fbsize = 256 * 192;
@@ -1201,7 +1203,7 @@ void StartScanline(u32 line)
             // texture memory anyway and only update it before the start
             //of the next frame.
             // So we can give the rasteriser a bit more headroom
-            GPU3D::VCount144();
+            GPU3D->VCount144();
 
             // VBlank
             DispStat[0] |= (1<<0);
@@ -1217,11 +1219,11 @@ void StartScanline(u32 line)
 
             GPU2D_A.VBlank();
             GPU2D_B.VBlank();
-            GPU3D::VBlank();
+            GPU3D->VBlank();
 
 #ifdef OGLRENDERER_ENABLED
             // Need a better way to identify the openGL renderer in particular
-            if (GPU3D::CurrentRenderer->Accelerated)
+            if (GPU3D->IsRendererAccelerated())
                 CurGLCompositor->RenderFrame();
 #endif
         }
@@ -1248,7 +1250,7 @@ void SetVCount(u16 val)
     // 3D engine seems to give up on the current frame in that situation, repeating the last two scanlines
     // TODO: also check the various DMA types that can be involved
 
-    GPU3D::AbortFrame |= NextVCount != val;
+    GPU3D->AbortFrame |= NextVCount != val;
     NextVCount = val;
 }
 

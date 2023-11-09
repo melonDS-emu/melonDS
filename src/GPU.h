@@ -28,6 +28,12 @@
 #include "GPU_OpenGL.h"
 #endif
 
+
+namespace GPU3D
+{
+class GPU3D;
+}
+
 namespace GPU
 {
 
@@ -153,6 +159,8 @@ extern u32 PaletteDirty;
 #ifdef OGLRENDERER_ENABLED
 extern std::unique_ptr<GLCompositor> CurGLCompositor;
 #endif
+
+extern std::unique_ptr<GPU3D::GPU3D> GPU3D;
 
 struct RenderSettings
 {
