@@ -36,7 +36,7 @@ public:
     virtual ~GLRenderer() override;
     virtual void Reset() override;
 
-    virtual void SetRenderSettings(Melon::RenderSettings& settings) override;
+    virtual void SetRenderSettings(const Melon::RenderSettings& settings) noexcept override;
 
     virtual void VCount144() override {};
     virtual void RenderFrame() override;

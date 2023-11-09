@@ -105,7 +105,7 @@ void SoftRenderer::Reset()
     SetupRenderThread();
 }
 
-void SoftRenderer::SetRenderSettings(Melon::RenderSettings& settings)
+void SoftRenderer::SetRenderSettings(const Melon::RenderSettings& settings) noexcept
 {
     Threaded = settings.Soft_Threaded;
     SetupRenderThread();

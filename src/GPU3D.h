@@ -340,7 +340,7 @@ public:
     // are more detailed "traits" that we can ask of the Renderer3D type
     const bool Accelerated;
 
-    virtual void SetRenderSettings(Melon::RenderSettings& settings) = 0;
+    virtual void SetRenderSettings(const Melon::RenderSettings& settings) noexcept = 0;
 
     virtual void VCount144() {};
 

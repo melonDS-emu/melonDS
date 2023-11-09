@@ -38,7 +38,7 @@ public:
 
     void Reset();
 
-    void SetRenderSettings(RenderSettings& settings);
+    void SetRenderSettings(const RenderSettings& settings) noexcept;
 
     void Stop();
     void RenderFrame();

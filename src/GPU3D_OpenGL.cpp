@@ -329,7 +329,7 @@ void GLRenderer::Reset()
 {
 }
 
-void GLRenderer::SetRenderSettings(Melon::RenderSettings& settings)
+void GLRenderer::SetRenderSettings(const Melon::RenderSettings& settings) noexcept
 {
     int scale = settings.GL_ScaleFactor;
 

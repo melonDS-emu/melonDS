@@ -144,7 +144,7 @@ void GLCompositor::Reset()
 }
 
 
-void GLCompositor::SetRenderSettings(RenderSettings& settings)
+void GLCompositor::SetRenderSettings(const RenderSettings& settings) noexcept
 {
     int scale = settings.GL_ScaleFactor;
 
