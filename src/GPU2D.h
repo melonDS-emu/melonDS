@@ -22,13 +22,20 @@
 #include "types.h"
 #include "Savestate.h"
 
+namespace Melon
+{
+class GPU;
+}
+
 namespace GPU2D
 {
 
 class Unit
 {
 public:
-    Unit(u32 num);
+    // take a reference to the GPU so we can access its state
+    // and ensure that it's not null
+    Unit(u32 num, Melon::GPU& gpu);
 
     Unit(const Unit&) = delete;
     Unit& operator=(const Unit&) = delete;
@@ -116,6 +123,8 @@ public:
     u32 CaptureCnt;
 
     u16 MasterBrightness;
+private:
+    Melon::GPU& GPU;
 };
 
 class Renderer2D

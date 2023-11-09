@@ -23,29 +23,29 @@
 #include <array>
 #include <memory>
 
-namespace GPU
+namespace Melon
 {
-
+class GPU;
 struct RenderSettings;
 
 class GLCompositor
 {
 public:
-    static std::unique_ptr<GLCompositor> New() noexcept;
+    static std::unique_ptr<GLCompositor> New(Melon::GPU& gpu) noexcept;
     GLCompositor(const GLCompositor&) = delete;
     GLCompositor& operator=(const GLCompositor&) = delete;
     ~GLCompositor();
 
     void Reset();
 
-    void SetRenderSettings(RenderSettings& settings);
+    void SetRenderSettings(const RenderSettings& settings) noexcept;
 
     void Stop();
     void RenderFrame();
     void BindOutputTexture(int buf);
 private:
-    GLCompositor(std::array<GLuint, 3> CompShader) noexcept;
-
+    GLCompositor(std::array<GLuint, 3> CompShader, Melon::GPU& gpu) noexcept;
+    Melon::GPU& GPU;
     int Scale;
     int ScreenH, ScreenW;
 

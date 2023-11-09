@@ -109,10 +109,11 @@ u32 ARM::ConditionTable[16] =
 };
 
 
-ARM::ARM(u32 num)
+ARM::ARM(u32 num, Melon::GPU& gpu) :
 #ifdef GDBSTUB_ENABLED
-    : GdbStub(this, Platform::GetConfigInt(num ? Platform::GdbPortARM7 : Platform::GdbPortARM9))
+    GdbStub(this, Platform::GetConfigInt(num ? Platform::GdbPortARM7 : Platform::GdbPortARM9)),
 #endif
+    GPU(gpu)
 {
     // well uh
     Num = num;
@@ -133,7 +134,7 @@ ARM::~ARM()
     // dorp
 }
 
-ARMv5::ARMv5() : ARM(0)
+ARMv5::ARMv5(Melon::GPU& gpu) : ARM(0, gpu)
 {
 #ifndef JIT_ENABLED
     DTCM = new u8[DTCMPhysicalSize];
@@ -142,7 +143,7 @@ ARMv5::ARMv5() : ARM(0)
     PU_Map = PU_PrivMap;
 }
 
-ARMv4::ARMv4() : ARM(1)
+ARMv4::ARMv4(Melon::GPU& gpu) : ARM(1, gpu)
 {
     //
 }
@@ -1144,7 +1145,7 @@ void ARM::WriteMem(u32 addr, int size, u32 v)
 void ARM::ResetGdb()
 {
     NDS::Reset();
-    GPU::StartFrame(); // need this to properly kick off the scheduler & frame output
+    GPU.StartFrame(); // need this to properly kick off the scheduler & frame output
 }
 int ARM::RemoteCmd(const u8* cmd, size_t len)
 {

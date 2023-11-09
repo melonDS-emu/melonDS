@@ -42,13 +42,18 @@ enum
 const u32 ITCMPhysicalSize = 0x8000;
 const u32 DTCMPhysicalSize = 0x4000;
 
+namespace Melon
+{
+class GPU;
+}
+
 class ARM
 #ifdef GDBSTUB_ENABLED
     : public Gdb::StubCallbacks
 #endif
 {
 public:
-    ARM(u32 num);
+    ARM(u32 num, Melon::GPU& gpu);
     virtual ~ARM(); // destroy shit
 
     virtual void Reset();
@@ -209,12 +214,14 @@ protected:
     void GdbCheckA();
     void GdbCheckB();
     void GdbCheckC();
+private:
+    Melon::GPU& GPU;
 };
 
 class ARMv5 : public ARM
 {
 public:
-    ARMv5();
+    ARMv5(Melon::GPU& gpu);
     ~ARMv5();
 
     void Reset() override;
@@ -358,7 +365,7 @@ public:
 class ARMv4 : public ARM
 {
 public:
-    ARMv4();
+    ARMv4(Melon::GPU& gpu);
 
     void Reset() override;
 

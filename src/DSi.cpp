@@ -105,14 +105,14 @@ bool Init()
     NWRAM_C = new u8[NWRAMSize];
 #endif
 
-    NDMAs[0] = new DSi_NDMA(0, 0);
-    NDMAs[1] = new DSi_NDMA(0, 1);
-    NDMAs[2] = new DSi_NDMA(0, 2);
-    NDMAs[3] = new DSi_NDMA(0, 3);
-    NDMAs[4] = new DSi_NDMA(1, 0);
-    NDMAs[5] = new DSi_NDMA(1, 1);
-    NDMAs[6] = new DSi_NDMA(1, 2);
-    NDMAs[7] = new DSi_NDMA(1, 3);
+    NDMAs[0] = new DSi_NDMA(0, 0, *NDS::GPU);
+    NDMAs[1] = new DSi_NDMA(0, 1, *NDS::GPU);
+    NDMAs[2] = new DSi_NDMA(0, 2, *NDS::GPU);
+    NDMAs[3] = new DSi_NDMA(0, 3, *NDS::GPU);
+    NDMAs[4] = new DSi_NDMA(1, 0, *NDS::GPU);
+    NDMAs[5] = new DSi_NDMA(1, 1, *NDS::GPU);
+    NDMAs[6] = new DSi_NDMA(1, 2, *NDS::GPU);
+    NDMAs[7] = new DSi_NDMA(1, 3, *NDS::GPU);
 
     SDMMC = new DSi_SDHost(0);
     SDIO = new DSi_SDHost(1);
@@ -205,8 +205,8 @@ void Reset()
     GPIO_WiFi = 0;
 
     // LCD init flag
-    GPU::DispStat[0] |= (1<<6);
-    GPU::DispStat[1] |= (1<<6);
+    NDS::GPU->DispStat[0] |= (1<<6);
+    NDS::GPU->DispStat[1] |= (1<<6);
 }
 
 void Stop()
@@ -730,8 +730,8 @@ void SoftReset()
 
 
     // LCD init flag
-    GPU::DispStat[0] |= (1<<6);
-    GPU::DispStat[1] |= (1<<6);
+    NDS::GPU->DispStat[0] |= (1<<6);
+    NDS::GPU->DispStat[1] |= (1<<6);
 }
 
 bool LoadNAND()
@@ -1528,11 +1528,11 @@ void ARM9Write8(u32 addr, u8 val)
 #endif
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: GPU::WriteVRAM_ABG<u8>(addr, val); return;
-        case 0x00200000: GPU::WriteVRAM_BBG<u8>(addr, val); return;
-        case 0x00400000: GPU::WriteVRAM_AOBJ<u8>(addr, val); return;
-        case 0x00600000: GPU::WriteVRAM_BOBJ<u8>(addr, val); return;
-        default: GPU::WriteVRAM_LCDC<u8>(addr, val); return;
+        case 0x00000000: NDS::GPU->WriteVRAM_ABG<u8>(addr, val); return;
+        case 0x00200000: NDS::GPU->WriteVRAM_BBG<u8>(addr, val); return;
+        case 0x00400000: NDS::GPU->WriteVRAM_AOBJ<u8>(addr, val); return;
+        case 0x00600000: NDS::GPU->WriteVRAM_BOBJ<u8>(addr, val); return;
+        default: NDS::GPU->WriteVRAM_LCDC<u8>(addr, val); return;
         }
 
     case 0x08000000:

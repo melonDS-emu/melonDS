@@ -25,17 +25,18 @@
 #endif
 
 #include "GPU2D_Soft.h"
+#include "GPU3D_Soft.h"
+#include "GPU3D_OpenGL.h"
 
 using Platform::Log;
 using Platform::LogLevel;
-
-namespace GPU
-{
 
 #define LINE_CYCLES  (355*6)
 #define HBLANK_CYCLES (48+(256*6))
 #define FRAME_CYCLES  (LINE_CYCLES * 263)
 
+namespace Melon
+{
 enum
 {
     LCD_StartHBlank = 0,
@@ -43,62 +44,6 @@ enum
     LCD_FinishFrame,
 };
 
-u16 VCount;
-u32 NextVCount;
-u16 TotalScanlines;
-
-bool RunFIFO;
-
-u16 DispStat[2], VMatch[2];
-
-u8 Palette[2*1024];
-u8 OAM[2*1024];
-
-u8 VRAM_A[128*1024];
-u8 VRAM_B[128*1024];
-u8 VRAM_C[128*1024];
-u8 VRAM_D[128*1024];
-u8 VRAM_E[ 64*1024];
-u8 VRAM_F[ 16*1024];
-u8 VRAM_G[ 16*1024];
-u8 VRAM_H[ 32*1024];
-u8 VRAM_I[ 16*1024];
-u8* const VRAM[9]     = {VRAM_A,  VRAM_B,  VRAM_C,  VRAM_D,  VRAM_E, VRAM_F, VRAM_G, VRAM_H, VRAM_I};
-u32 const VRAMMask[9] = {0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0xFFFF, 0x3FFF, 0x3FFF, 0x7FFF, 0x3FFF};
-
-u8 VRAMCNT[9];
-u8 VRAMSTAT;
-
-u32 VRAMMap_LCDC;
-
-u32 VRAMMap_ABG[0x20];
-u32 VRAMMap_AOBJ[0x10];
-u32 VRAMMap_BBG[0x8];
-u32 VRAMMap_BOBJ[0x8];
-
-u32 VRAMMap_ABGExtPal[4];
-u32 VRAMMap_AOBJExtPal;
-u32 VRAMMap_BBGExtPal[4];
-u32 VRAMMap_BOBJExtPal;
-
-u32 VRAMMap_Texture[4];
-u32 VRAMMap_TexPal[8];
-
-u32 VRAMMap_ARM7[2];
-
-u8* VRAMPtr_ABG[0x20];
-u8* VRAMPtr_AOBJ[0x10];
-u8* VRAMPtr_BBG[0x8];
-u8* VRAMPtr_BOBJ[0x8];
-
-int FrontBuffer;
-u32* Framebuffer[2][2];
-int Renderer = 0;
-
-GPU2D::Unit GPU2D_A(0);
-GPU2D::Unit GPU2D_B(1);
-
-std::unique_ptr<GPU2D::Renderer2D> GPU2D_Renderer = {};
 
 /*
     VRAM invalidation tracking
@@ -121,64 +66,24 @@ std::unique_ptr<GPU2D::Renderer2D> GPU2D_Renderer = {};
                 VRAMDirty need to be reset for the respective VRAM bank.
 */
 
-VRAMTrackingSet<512*1024, 16*1024> VRAMDirty_ABG;
-VRAMTrackingSet<256*1024, 16*1024> VRAMDirty_AOBJ;
-VRAMTrackingSet<128*1024, 16*1024> VRAMDirty_BBG;
-VRAMTrackingSet<128*1024, 16*1024> VRAMDirty_BOBJ;
-
-VRAMTrackingSet<32*1024, 8*1024> VRAMDirty_ABGExtPal;
-VRAMTrackingSet<32*1024, 8*1024> VRAMDirty_BBGExtPal;
-VRAMTrackingSet<8*1024, 8*1024> VRAMDirty_AOBJExtPal;
-VRAMTrackingSet<8*1024, 8*1024> VRAMDirty_BOBJExtPal;
-
-VRAMTrackingSet<512*1024, 128*1024> VRAMDirty_Texture;
-VRAMTrackingSet<128*1024, 16*1024> VRAMDirty_TexPal;
-
-NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMDirty[9];
-
-u8 VRAMFlat_ABG[512*1024];
-u8 VRAMFlat_BBG[128*1024];
-u8 VRAMFlat_AOBJ[256*1024];
-u8 VRAMFlat_BOBJ[128*1024];
-
-u8 VRAMFlat_ABGExtPal[32*1024];
-u8 VRAMFlat_BBGExtPal[32*1024];
-u8 VRAMFlat_AOBJExtPal[8*1024];
-u8 VRAMFlat_BOBJExtPal[8*1024];
-
-u8 VRAMFlat_Texture[512*1024];
-u8 VRAMFlat_TexPal[128*1024];
-
-u32 OAMDirty;
-u32 PaletteDirty;
-
-#ifdef OGLRENDERER_ENABLED
-std::unique_ptr<GLCompositor> CurGLCompositor = {};
-#endif
-
-bool Init()
+GPU::GPU() noexcept : GPU2D_A(0, *this), GPU2D_B(1, *this)
 {
-    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartHBlank, StartHBlank);
-    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartScanline, StartScanline);
-    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_FinishFrame, FinishFrame);
-    NDS::RegisterEventFunc(NDS::Event_DisplayFIFO, 0, DisplayFIFO);
+    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartHBlank, MemberEventFunc(GPU, StartHBlank));
+    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartScanline, MemberEventFunc(GPU, StartScanline));
+    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_FinishFrame, MemberEventFunc(GPU, FinishFrame));
+    NDS::RegisterEventFunc(NDS::Event_DisplayFIFO, 0, MemberEventFunc(GPU, DisplayFIFO));
 
-    GPU2D_Renderer = std::make_unique<GPU2D::SoftRenderer>();
-    if (!GPU3D::Init()) return false;
+    GPU2D_Renderer = std::make_unique<GPU2D::SoftRenderer>(*this);
 
     FrontBuffer = 0;
     Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
     Framebuffer[1][0] = NULL; Framebuffer[1][1] = NULL;
     Renderer = 0;
-
-    return true;
 }
 
-void DeInit()
+GPU::~GPU() noexcept
 {
-    GPU2D_Renderer.reset();
-    GPU3D::DeInit();
-
+    // All unique_ptr fields are automatically cleaned up
     if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
     if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
     if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
@@ -189,17 +94,13 @@ void DeInit()
     Framebuffer[1][0] = nullptr;
     Framebuffer[1][1] = nullptr;
 
-#ifdef OGLRENDERER_ENABLED
-    CurGLCompositor = nullptr;
-#endif
-
     NDS::UnregisterEventFunc(NDS::Event_LCD, LCD_StartHBlank);
     NDS::UnregisterEventFunc(NDS::Event_LCD, LCD_StartScanline);
     NDS::UnregisterEventFunc(NDS::Event_LCD, LCD_FinishFrame);
     NDS::UnregisterEventFunc(NDS::Event_DisplayFIFO, 0);
 }
 
-void ResetVRAMCache()
+void GPU::ResetVRAMCache() noexcept
 {
     for (int i = 0; i < 9; i++)
         VRAMDirty[i] = NonStupidBitField<128*1024/VRAMDirtyGranularity>();
@@ -227,7 +128,7 @@ void ResetVRAMCache()
     memset(VRAMFlat_TexPal, 0, sizeof(VRAMFlat_TexPal));
 }
 
-void Reset()
+void GPU::Reset() noexcept
 {
     VCount = 0;
     NextVCount = -1;
@@ -278,7 +179,7 @@ void Reset()
     memset(VRAMPtr_BOBJ, 0, sizeof(VRAMPtr_BOBJ));
 
     size_t fbsize;
-    if (GPU3D::CurrentRenderer->Accelerated)
+    if (GPU3D.IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
     else
         fbsize = 256 * 192;
@@ -296,7 +197,7 @@ void Reset()
 
     GPU2D_A.Reset();
     GPU2D_B.Reset();
-    GPU3D::Reset();
+    GPU3D.Reset();
 
     int backbuf = FrontBuffer ? 0 : 1;
     GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1], Framebuffer[backbuf][0]);
@@ -309,10 +210,10 @@ void Reset()
     PaletteDirty = 0xF;
 }
 
-void Stop()
+void GPU::Stop() noexcept
 {
     int fbsize;
-    if (GPU3D::CurrentRenderer->Accelerated)
+    if (GPU3D.IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
     else
         fbsize = 256 * 192;
@@ -325,12 +226,12 @@ void Stop()
 #ifdef OGLRENDERER_ENABLED
     // This needs a better way to know that we're
     // using the OpenGL renderer specifically
-    if (GPU3D::CurrentRenderer->Accelerated)
+    if (GPU3D.IsRendererAccelerated())
         CurGLCompositor->Stop();
 #endif
 }
 
-void DoSavestate(Savestate* file)
+void GPU::DoSavestate(Savestate* file) noexcept
 {
     file->Section("GPUG");
 
@@ -391,12 +292,12 @@ void DoSavestate(Savestate* file)
 
     GPU2D_A.DoSavestate(file);
     GPU2D_B.DoSavestate(file);
-    GPU3D::DoSavestate(file);
+    GPU3D.DoSavestate(file);
 
     ResetVRAMCache();
 }
 
-void AssignFramebuffers()
+void GPU::AssignFramebuffers() noexcept
 {
     int backbuf = FrontBuffer ? 0 : 1;
     if (NDS::PowerControl9 & (1<<15))
@@ -409,41 +310,41 @@ void AssignFramebuffers()
     }
 }
 
-void InitRenderer(int renderer)
+void GPU::InitRenderer(int renderer) noexcept
 {
 #ifdef OGLRENDERER_ENABLED
     if (renderer == 1)
     {
-        CurGLCompositor = GLCompositor::New();
+        CurGLCompositor = GLCompositor::New(*this);
         // Create opengl renderer
         if (!CurGLCompositor)
         {
             // Fallback on software renderer
             renderer = 0;
-            GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
+            GPU3D.SetCurrentRenderer(std::make_unique<GPU3D::SoftRenderer>(*this));
         }
-        GPU3D::CurrentRenderer = GPU3D::GLRenderer::New();
-        if (!GPU3D::CurrentRenderer)
+        GPU3D.SetCurrentRenderer(GPU3D::GLRenderer::New(*this));
+        if (!GPU3D.GetCurrentRenderer())
         {
             // Fallback on software renderer
             CurGLCompositor.reset();
             renderer = 0;
-            GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
+            GPU3D.SetCurrentRenderer(std::make_unique<GPU3D::SoftRenderer>(*this));
         }
     }
     else
 #endif
     {
-        GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
+        GPU3D.SetCurrentRenderer(std::make_unique<GPU3D::SoftRenderer>(*this));
     }
 
     Renderer = renderer;
 }
 
-void DeInitRenderer()
+void GPU::DeInitRenderer() noexcept
 {
     // Delete the 3D renderer, if it exists
-    GPU3D::CurrentRenderer.reset();
+    GPU3D.SetCurrentRenderer(nullptr);
 
 #ifdef OGLRENDERER_ENABLED
     // Delete the compositor, if one exists
@@ -451,22 +352,22 @@ void DeInitRenderer()
 #endif
 }
 
-void ResetRenderer()
+void GPU::ResetRenderer() noexcept
 {
     if (Renderer == 0)
     {
-        GPU3D::CurrentRenderer->Reset();
+        GPU3D.GetCurrentRenderer()->Reset();
     }
 #ifdef OGLRENDERER_ENABLED
     else
     {
         CurGLCompositor->Reset();
-        GPU3D::CurrentRenderer->Reset();
+        GPU3D.GetCurrentRenderer()->Reset();
     }
 #endif
 }
 
-void SetRenderSettings(int renderer, RenderSettings& settings)
+void GPU::SetRenderSettings(int renderer, RenderSettings& settings) noexcept
 {
     if (renderer != Renderer)
     {
@@ -475,7 +376,7 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
     }
 
     int fbsize;
-    if (GPU3D::CurrentRenderer->Accelerated)
+    if (GPU3D.IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
     else
         fbsize = 256 * 192;
@@ -499,13 +400,13 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
 
     if (Renderer == 0)
     {
-        GPU3D::CurrentRenderer->SetRenderSettings(settings);
+        GPU3D.GetCurrentRenderer()->SetRenderSettings(settings);
     }
 #ifdef OGLRENDERER_ENABLED
     else
     {
         CurGLCompositor->SetRenderSettings(settings);
-        GPU3D::CurrentRenderer->SetRenderSettings(settings);
+        GPU3D.GetCurrentRenderer()->SetRenderSettings(settings);
     }
 #endif
 }
@@ -541,7 +442,14 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
 // when reading: values are read from each bank and ORed together
 // when writing: value is written to each bank
 
-u8* GetUniqueBankPtr(u32 mask, u32 offset)
+u8* GPU::GetUniqueBankPtr(u32 mask, u32 offset) noexcept
+{
+    if (!mask || (mask & (mask - 1)) != 0) return NULL;
+    int num = __builtin_ctz(mask);
+    return &VRAM[num][offset & VRAMMask[num]];
+}
+
+const u8* GPU::GetUniqueBankPtr(u32 mask, u32 offset) const noexcept
 {
     if (!mask || (mask & (mask - 1)) != 0) return NULL;
     int num = __builtin_ctz(mask);
@@ -556,7 +464,7 @@ u8* GetUniqueBankPtr(u32 mask, u32 offset)
 #define UNMAP_RANGE_PTR(map, base, n) \
     for (int i = 0; i < n; i++) { VRAMMap_##map[(base)+i] &= ~bankmask; VRAMPtr_##map[(base)+i] = GetUniqueBankPtr(VRAMMap_##map[(base)+i], ((base)+i)<<14); }
 
-void MapVRAM_AB(u32 bank, u8 cnt)
+void GPU::MapVRAM_AB(u32 bank, u8 cnt) noexcept
 {
     cnt &= 0x9B;
 
@@ -616,7 +524,7 @@ void MapVRAM_AB(u32 bank, u8 cnt)
     }
 }
 
-void MapVRAM_CD(u32 bank, u8 cnt)
+void GPU::MapVRAM_CD(u32 bank, u8 cnt) noexcept
 {
     cnt &= 0x9F;
 
@@ -705,7 +613,7 @@ void MapVRAM_CD(u32 bank, u8 cnt)
     }
 }
 
-void MapVRAM_E(u32 bank, u8 cnt)
+void GPU::MapVRAM_E(u32 bank, u8 cnt) noexcept
 {
     cnt &= 0x87;
 
@@ -769,7 +677,7 @@ void MapVRAM_E(u32 bank, u8 cnt)
     }
 }
 
-void MapVRAM_FG(u32 bank, u8 cnt)
+void GPU::MapVRAM_FG(u32 bank, u8 cnt) noexcept
 {
     cnt &= 0x9F;
 
@@ -869,7 +777,7 @@ void MapVRAM_FG(u32 bank, u8 cnt)
     }
 }
 
-void MapVRAM_H(u32 bank, u8 cnt)
+void GPU::MapVRAM_H(u32 bank, u8 cnt) noexcept
 {
     cnt &= 0x83;
 
@@ -931,7 +839,7 @@ void MapVRAM_H(u32 bank, u8 cnt)
     }
 }
 
-void MapVRAM_I(u32 bank, u8 cnt)
+void GPU::MapVRAM_I(u32 bank, u8 cnt) noexcept
 {
     cnt &= 0x83;
 
@@ -1002,7 +910,7 @@ void MapVRAM_I(u32 bank, u8 cnt)
 }
 
 
-void SetPowerCnt(u32 val)
+void GPU::SetPowerCnt(u32 val) noexcept
 {
     // POWCNT1 effects:
     // * bit0: asplodes hardware??? not tested.
@@ -1016,13 +924,13 @@ void SetPowerCnt(u32 val)
 
     GPU2D_A.SetEnabled(val & (1<<1));
     GPU2D_B.SetEnabled(val & (1<<9));
-    GPU3D::SetEnabled(val & (1<<3), val & (1<<2));
+    GPU3D.SetEnabled(val & (1<<3), val & (1<<2));
 
     AssignFramebuffers();
 }
 
 
-void DisplayFIFO(u32 x)
+void GPU::DisplayFIFO(u32 x) noexcept
 {
     // sample the FIFO
     // as this starts 16 cycles (~3 pixels) before display start,
@@ -1045,7 +953,7 @@ void DisplayFIFO(u32 x)
         GPU2D_A.SampleFIFO(253, 3); // sample the remaining pixels
 }
 
-void StartFrame()
+void GPU::StartFrame() noexcept
 {
     // only run the display FIFO if needed:
     // * if it is used for display or capture
@@ -1056,7 +964,7 @@ void StartFrame()
     StartScanline(0);
 }
 
-void StartHBlank(u32 line)
+void GPU::StartHBlank(u32 line) noexcept
 {
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
@@ -1082,7 +990,7 @@ void StartHBlank(u32 line)
     }
     else if (VCount == 215)
     {
-        GPU3D::VCount215();
+        GPU3D.VCount215();
     }
     else if (VCount == 262)
     {
@@ -1099,25 +1007,25 @@ void StartHBlank(u32 line)
         NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), LCD_FinishFrame, line+1);
 }
 
-void FinishFrame(u32 lines)
+void GPU::FinishFrame(u32 lines) noexcept
 {
     FrontBuffer = FrontBuffer ? 0 : 1;
     AssignFramebuffers();
 
     TotalScanlines = lines;
 
-    if (GPU3D::AbortFrame)
+    if (GPU3D.AbortFrame)
     {
-        GPU3D::RestartFrame();
-        GPU3D::AbortFrame = false;
+        GPU3D.RestartFrame();
+        GPU3D.AbortFrame = false;
     }
 }
 
-void BlankFrame()
+void GPU::BlankFrame() noexcept
 {
     int backbuf = FrontBuffer ? 0 : 1;
     int fbsize;
-    if (GPU3D::CurrentRenderer->Accelerated)
+    if (GPU3D.IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
     else
         fbsize = 256 * 192;
@@ -1131,7 +1039,7 @@ void BlankFrame()
     TotalScanlines = 263;
 }
 
-void StartScanline(u32 line)
+void GPU::StartScanline(u32 line) noexcept
 {
     if (line == 0)
         VCount = 0;
@@ -1201,7 +1109,7 @@ void StartScanline(u32 line)
             // texture memory anyway and only update it before the start
             //of the next frame.
             // So we can give the rasteriser a bit more headroom
-            GPU3D::VCount144();
+            GPU3D.VCount144();
 
             // VBlank
             DispStat[0] |= (1<<0);
@@ -1217,11 +1125,11 @@ void StartScanline(u32 line)
 
             GPU2D_A.VBlank();
             GPU2D_B.VBlank();
-            GPU3D::VBlank();
+            GPU3D.VBlank();
 
 #ifdef OGLRENDERER_ENABLED
             // Need a better way to identify the openGL renderer in particular
-            if (GPU3D::CurrentRenderer->Accelerated)
+            if (GPU3D.IsRendererAccelerated())
                 CurGLCompositor->RenderFrame();
 #endif
         }
@@ -1231,7 +1139,7 @@ void StartScanline(u32 line)
 }
 
 
-void SetDispStat(u32 cpu, u16 val)
+void GPU::SetDispStat(u32 cpu, u16 val) noexcept
 {
     val &= 0xFFB8;
     DispStat[cpu] &= 0x0047;
@@ -1240,7 +1148,7 @@ void SetDispStat(u32 cpu, u16 val)
     VMatch[cpu] = (val >> 8) | ((val & 0x80) << 1);
 }
 
-void SetVCount(u16 val)
+void GPU::SetVCount(u16 val) noexcept
 {
     // VCount write is delayed until the next scanline
 
@@ -1248,12 +1156,12 @@ void SetVCount(u16 val)
     // 3D engine seems to give up on the current frame in that situation, repeating the last two scanlines
     // TODO: also check the various DMA types that can be involved
 
-    GPU3D::AbortFrame |= NextVCount != val;
+    GPU3D.AbortFrame |= NextVCount != val;
     NextVCount = val;
 }
 
 template <u32 Size, u32 MappingGranularity>
-NonStupidBitField<Size/VRAMDirtyGranularity> VRAMTrackingSet<Size, MappingGranularity>::DeriveState(u32* currentMappings)
+NonStupidBitField<Size/VRAMDirtyGranularity> VRAMTrackingSet<Size, MappingGranularity>::DeriveState(u32* currentMappings, GPU& gpu)
 {
     NonStupidBitField<Size/VRAMDirtyGranularity> result;
     u16 banksToBeZeroed = 0;
@@ -1282,20 +1190,20 @@ NonStupidBitField<Size/VRAMDirtyGranularity> VRAMTrackingSet<Size, MappingGranul
                 static_assert(VRAMDirtyGranularity == 512, "");
                 if (MappingGranularity == 16*1024)
                 {
-                    u32 dirty = ((u32*)VRAMDirty[num].Data)[i & (VRAMMask[num] >> 14)];
+                    u32 dirty = ((u32*)gpu.VRAMDirty[num].Data)[i & (gpu.VRAMMask[num] >> 14)];
                     result.Data[i / 2] |= (u64)dirty << ((i&1)*32);
                 }
                 else if (MappingGranularity == 8*1024)
                 {
-                    u16 dirty = ((u16*)VRAMDirty[num].Data)[i & (VRAMMask[num] >> 13)];
+                    u16 dirty = ((u16*)gpu.VRAMDirty[num].Data)[i & (gpu.VRAMMask[num] >> 13)];
                     result.Data[i / 4] |= (u64)dirty << ((i&3)*16);
                 }
                 else if (MappingGranularity == 128*1024)
                 {
-                    result.Data[i * 4 + 0] |= VRAMDirty[num].Data[0];
-                    result.Data[i * 4 + 1] |= VRAMDirty[num].Data[1];
-                    result.Data[i * 4 + 2] |= VRAMDirty[num].Data[2];
-                    result.Data[i * 4 + 3] |= VRAMDirty[num].Data[3];
+                    result.Data[i * 4 + 0] |= gpu.VRAMDirty[num].Data[0];
+                    result.Data[i * 4 + 1] |= gpu.VRAMDirty[num].Data[1];
+                    result.Data[i * 4 + 2] |= gpu.VRAMDirty[num].Data[2];
+                    result.Data[i * 4 + 3] |= gpu.VRAMDirty[num].Data[3];
                 }
                 else
                 {
@@ -1310,137 +1218,63 @@ NonStupidBitField<Size/VRAMDirtyGranularity> VRAMTrackingSet<Size, MappingGranul
     {
         u32 num = __builtin_ctz(banksToBeZeroed);
         banksToBeZeroed &= ~(1 << num);
-        VRAMDirty[num].Clear();
+        gpu.VRAMDirty[num].Clear();
     }
 
     return result;
 }
 
-template NonStupidBitField<32*1024/VRAMDirtyGranularity> VRAMTrackingSet<32*1024, 8*1024>::DeriveState(u32*);
-template NonStupidBitField<8*1024/VRAMDirtyGranularity> VRAMTrackingSet<8*1024, 8*1024>::DeriveState(u32*);
-template NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMTrackingSet<512*1024, 128*1024>::DeriveState(u32*);
-template NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMTrackingSet<128*1024, 16*1024>::DeriveState(u32*);
-template NonStupidBitField<256*1024/VRAMDirtyGranularity> VRAMTrackingSet<256*1024, 16*1024>::DeriveState(u32*);
-template NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMTrackingSet<512*1024, 16*1024>::DeriveState(u32*);
+template NonStupidBitField<32*1024/VRAMDirtyGranularity> VRAMTrackingSet<32*1024, 8*1024>::DeriveState(u32*, GPU& gpu);
+template NonStupidBitField<8*1024/VRAMDirtyGranularity> VRAMTrackingSet<8*1024, 8*1024>::DeriveState(u32*, GPU& gpu);
+template NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMTrackingSet<512*1024, 128*1024>::DeriveState(u32*, GPU& gpu);
+template NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMTrackingSet<128*1024, 16*1024>::DeriveState(u32*, GPU& gpu);
+template NonStupidBitField<256*1024/VRAMDirtyGranularity> VRAMTrackingSet<256*1024, 16*1024>::DeriveState(u32*, GPU& gpu);
+template NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMTrackingSet<512*1024, 16*1024>::DeriveState(u32*, GPU& gpu);
 
-template <u32 MappingGranularity, u32 Size>
-inline bool CopyLinearVRAM(u8* flat, u32* mappings, NonStupidBitField<Size>& dirty, u64 (*slowAccess)(u32 addr))
+
+
+bool GPU::MakeVRAMFlat_TextureCoherent(NonStupidBitField<512*1024/VRAMDirtyGranularity>& dirty) noexcept
 {
-    const u32 VRAMBitsPerMapping = MappingGranularity / VRAMDirtyGranularity;
-
-    bool change = false;
-
-    typename NonStupidBitField<Size>::Iterator it = dirty.Begin();
-    while (it != dirty.End())
-    {
-        u32 offset = *it * VRAMDirtyGranularity;
-        u8* dst = flat + offset;
-        u8* fastAccess = GetUniqueBankPtr(mappings[*it / VRAMBitsPerMapping], offset);
-        if (fastAccess)
-        {
-            memcpy(dst, fastAccess, VRAMDirtyGranularity);
-        }
-        else
-        {
-            for (u32 i = 0; i < VRAMDirtyGranularity; i += 8)
-                *(u64*)&dst[i] = slowAccess(offset + i);
-        }
-        change = true;
-        it++;
-    }
-    return change;
+    return CopyLinearVRAM<128*1024>(VRAMFlat_Texture, VRAMMap_Texture, dirty, &GPU::ReadVRAM_Texture<u64>);
+}
+bool GPU::MakeVRAMFlat_TexPalCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty) noexcept
+{
+    return CopyLinearVRAM<16*1024>(VRAMFlat_TexPal, VRAMMap_TexPal, dirty, &GPU::ReadVRAM_TexPal<u64>);
 }
 
-bool MakeVRAMFlat_TextureCoherent(NonStupidBitField<512*1024/VRAMDirtyGranularity>& dirty)
+bool GPU::MakeVRAMFlat_ABGCoherent(NonStupidBitField<512*1024/VRAMDirtyGranularity>& dirty) noexcept
 {
-    return CopyLinearVRAM<128*1024>(VRAMFlat_Texture, VRAMMap_Texture, dirty, ReadVRAM_Texture<u64>);
+    return CopyLinearVRAM<16*1024>(VRAMFlat_ABG, VRAMMap_ABG, dirty, &GPU::ReadVRAM_ABG<u64>);
 }
-bool MakeVRAMFlat_TexPalCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty)
+bool GPU::MakeVRAMFlat_BBGCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty) noexcept
 {
-    return CopyLinearVRAM<16*1024>(VRAMFlat_TexPal, VRAMMap_TexPal, dirty, ReadVRAM_TexPal<u64>);
-}
-
-bool MakeVRAMFlat_ABGCoherent(NonStupidBitField<512*1024/VRAMDirtyGranularity>& dirty)
-{
-    return CopyLinearVRAM<16*1024>(VRAMFlat_ABG, VRAMMap_ABG, dirty, ReadVRAM_ABG<u64>);
-}
-bool MakeVRAMFlat_BBGCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty)
-{
-    return CopyLinearVRAM<16*1024>(VRAMFlat_BBG, VRAMMap_BBG, dirty, ReadVRAM_BBG<u64>);
+    return CopyLinearVRAM<16*1024>(VRAMFlat_BBG, VRAMMap_BBG, dirty, &GPU::ReadVRAM_BBG<u64>);
 }
 
-bool MakeVRAMFlat_AOBJCoherent(NonStupidBitField<256*1024/VRAMDirtyGranularity>& dirty)
+bool GPU::MakeVRAMFlat_AOBJCoherent(NonStupidBitField<256*1024/VRAMDirtyGranularity>& dirty) noexcept
 {
-    return CopyLinearVRAM<16*1024>(VRAMFlat_AOBJ, VRAMMap_AOBJ, dirty, ReadVRAM_AOBJ<u64>);
+    return CopyLinearVRAM<16*1024>(VRAMFlat_AOBJ, VRAMMap_AOBJ, dirty, &GPU::ReadVRAM_AOBJ<u64>);
 }
-bool MakeVRAMFlat_BOBJCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty)
+bool GPU::MakeVRAMFlat_BOBJCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty) noexcept
 {
-    return CopyLinearVRAM<16*1024>(VRAMFlat_BOBJ, VRAMMap_BOBJ, dirty, ReadVRAM_BOBJ<u64>);
-}
-
-template<typename T>
-T ReadVRAM_ABGExtPal(u32 addr)
-{
-    u32 mask = VRAMMap_ABGExtPal[(addr >> 13) & 0x3];
-
-    T ret = 0;
-    if (mask & (1<<4)) ret |= *(T*)&VRAM_E[addr & 0x7FFF];
-    if (mask & (1<<5)) ret |= *(T*)&VRAM_F[addr & 0x3FFF];
-    if (mask & (1<<6)) ret |= *(T*)&VRAM_G[addr & 0x3FFF];
-
-    return ret;
+    return CopyLinearVRAM<16*1024>(VRAMFlat_BOBJ, VRAMMap_BOBJ, dirty, &GPU::ReadVRAM_BOBJ<u64>);
 }
 
-template<typename T>
-T ReadVRAM_BBGExtPal(u32 addr)
+bool GPU::MakeVRAMFlat_ABGExtPalCoherent(NonStupidBitField<32*1024/VRAMDirtyGranularity>& dirty) noexcept
 {
-    u32 mask = VRAMMap_BBGExtPal[(addr >> 13) & 0x3];
-
-    T ret = 0;
-    if (mask & (1<<7)) ret |= *(T*)&VRAM_H[addr & 0x7FFF];
-
-    return ret;
+    return CopyLinearVRAM<8*1024>(VRAMFlat_ABGExtPal, VRAMMap_ABGExtPal, dirty, &GPU::ReadVRAM_ABGExtPal<u64>);
+}
+bool GPU::MakeVRAMFlat_BBGExtPalCoherent(NonStupidBitField<32*1024/VRAMDirtyGranularity>& dirty) noexcept
+{
+    return CopyLinearVRAM<8*1024>(VRAMFlat_BBGExtPal, VRAMMap_BBGExtPal, dirty, &GPU::ReadVRAM_BBGExtPal<u64>);
 }
 
-template<typename T>
-T ReadVRAM_AOBJExtPal(u32 addr)
+bool GPU::MakeVRAMFlat_AOBJExtPalCoherent(NonStupidBitField<8*1024/VRAMDirtyGranularity>& dirty) noexcept
 {
-    u32 mask = VRAMMap_AOBJExtPal;
-
-    T ret = 0;
-    if (mask & (1<<4)) ret |= *(T*)&VRAM_F[addr & 0x1FFF];
-    if (mask & (1<<5)) ret |= *(T*)&VRAM_G[addr & 0x1FFF];
-
-    return ret;
+    return CopyLinearVRAM<8*1024>(VRAMFlat_AOBJExtPal, &VRAMMap_AOBJExtPal, dirty, &GPU::ReadVRAM_AOBJExtPal<u64>);
 }
-
-template<typename T>
-T ReadVRAM_BOBJExtPal(u32 addr)
+bool GPU::MakeVRAMFlat_BOBJExtPalCoherent(NonStupidBitField<8*1024/VRAMDirtyGranularity>& dirty) noexcept
 {
-    u32 mask = VRAMMap_BOBJExtPal;
-
-    T ret = 0;
-    if (mask & (1<<8)) ret |= *(T*)&VRAM_I[addr & 0x1FFF];
-
-    return ret;
+    return CopyLinearVRAM<8*1024>(VRAMFlat_BOBJExtPal, &VRAMMap_BOBJExtPal, dirty, &GPU::ReadVRAM_BOBJExtPal<u64>);
 }
-
-bool MakeVRAMFlat_ABGExtPalCoherent(NonStupidBitField<32*1024/VRAMDirtyGranularity>& dirty)
-{
-    return CopyLinearVRAM<8*1024>(VRAMFlat_ABGExtPal, VRAMMap_ABGExtPal, dirty, ReadVRAM_ABGExtPal<u64>);
-}
-bool MakeVRAMFlat_BBGExtPalCoherent(NonStupidBitField<32*1024/VRAMDirtyGranularity>& dirty)
-{
-    return CopyLinearVRAM<8*1024>(VRAMFlat_BBGExtPal, VRAMMap_BBGExtPal, dirty, ReadVRAM_BBGExtPal<u64>);
-}
-
-bool MakeVRAMFlat_AOBJExtPalCoherent(NonStupidBitField<8*1024/VRAMDirtyGranularity>& dirty)
-{
-    return CopyLinearVRAM<8*1024>(VRAMFlat_AOBJExtPal, &VRAMMap_AOBJExtPal, dirty, ReadVRAM_AOBJExtPal<u64>);
-}
-bool MakeVRAMFlat_BOBJExtPalCoherent(NonStupidBitField<8*1024/VRAMDirtyGranularity>& dirty)
-{
-    return CopyLinearVRAM<8*1024>(VRAMFlat_BOBJExtPal, &VRAMMap_BOBJExtPal, dirty, ReadVRAM_BOBJExtPal<u64>);
-}
-
 }

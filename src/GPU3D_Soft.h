@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "GPU.h"
 #include "GPU3D.h"
 #include "Platform.h"
 #include <thread>
@@ -28,11 +29,11 @@ namespace GPU3D
 class SoftRenderer : public Renderer3D
 {
 public:
-    SoftRenderer() noexcept;
+    SoftRenderer(Melon::GPU& gpu) noexcept;
     virtual ~SoftRenderer() override;
     virtual void Reset() override;
 
-    virtual void SetRenderSettings(GPU::RenderSettings& settings) override;
+    virtual void SetRenderSettings(const Melon::RenderSettings& settings) noexcept override;
 
     virtual void VCount144() override;
     virtual void RenderFrame() override;
@@ -429,13 +430,14 @@ private:
     template <typename T>
     inline T ReadVRAM_Texture(u32 addr)
     {
-        return *(T*)&GPU::VRAMFlat_Texture[addr & 0x7FFFF];
+        return *(T*)&GPU.VRAMFlat_Texture[addr & 0x7FFFF];
     }
     template <typename T>
     inline T ReadVRAM_TexPal(u32 addr)
     {
-        return *(T*)&GPU::VRAMFlat_TexPal[addr & 0x1FFFF];
+        return *(T*)&GPU.VRAMFlat_TexPal[addr & 0x1FFFF];
     }
+    u32 AlphaBlend(u32 srccolor, u32 dstcolor, u32 alpha) noexcept;
 
     struct RendererPolygon
     {
@@ -449,6 +451,7 @@ private:
 
     };
 
+    Melon::GPU& GPU;
     RendererPolygon PolygonList[2048];
     void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha);
     u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t);

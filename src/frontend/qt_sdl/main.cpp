@@ -163,7 +163,7 @@ EmuThread* emuThread;
 int autoScreenSizing = 0;
 
 int videoRenderer;
-GPU::RenderSettings videoSettings;
+Melon::RenderSettings videoSettings;
 bool videoSettingsDirty;
 
 CameraManager* camManager[2];
@@ -340,8 +340,8 @@ void EmuThread::run()
         videoRenderer = 0;
     }
 
-    GPU::InitRenderer(videoRenderer);
-    GPU::SetRenderSettings(videoRenderer, videoSettings);
+    NDS::GPU->InitRenderer(videoRenderer);
+    NDS::GPU->SetRenderSettings(videoRenderer, videoSettings);
 
     NDS::SPU->SetInterpolation(Config::AudioInterp);
 
@@ -472,7 +472,7 @@ void EmuThread::run()
                 videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
                 videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
 
-                GPU::SetRenderSettings(videoRenderer, videoSettings);
+                NDS::GPU->SetRenderSettings(videoRenderer, videoSettings);
             }
 
             // process input and hotkeys
@@ -534,12 +534,12 @@ void EmuThread::run()
             if (!oglContext)
             {
                 FrontBufferLock.lock();
-                FrontBuffer = GPU::FrontBuffer;
+                FrontBuffer = NDS::GPU->FrontBuffer;
                 FrontBufferLock.unlock();
             }
             else
             {
-                FrontBuffer = GPU::FrontBuffer;
+                FrontBuffer = NDS::GPU->FrontBuffer;
                 drawScreenGL();
             }
 
@@ -676,7 +676,7 @@ void EmuThread::run()
 
     EmuStatus = emuStatus_Exit;
 
-    GPU::DeInitRenderer();
+    NDS::GPU->DeInitRenderer();
     NDS::DeInit();
     //Platform::LAN_DeInit();
 }
@@ -780,10 +780,10 @@ void EmuThread::drawScreenGL()
     glActiveTexture(GL_TEXTURE0);
 
 #ifdef OGLRENDERER_ENABLED
-    if (GPU::Renderer != 0)
+    if (NDS::GPU->Renderer != 0)
     {
         // hardware-accelerated render
-        GPU::CurGLCompositor->BindOutputTexture(frontbuf);
+        NDS::GPU->CurGLCompositor->BindOutputTexture(frontbuf);
     }
     else
 #endif
@@ -791,12 +791,12 @@ void EmuThread::drawScreenGL()
         // regular render
         glBindTexture(GL_TEXTURE_2D, screenTexture);
 
-        if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
+        if (NDS::GPU->Framebuffer[frontbuf][0] && NDS::GPU->Framebuffer[frontbuf][1])
         {
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
-                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+                            GL_UNSIGNED_BYTE, NDS::GPU->Framebuffer[frontbuf][0]);
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
-                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+                            GL_UNSIGNED_BYTE, NDS::GPU->Framebuffer[frontbuf][1]);
         }
     }
 
@@ -1082,14 +1082,14 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
     {
         emuThread->FrontBufferLock.lock();
         int frontbuf = emuThread->FrontBuffer;
-        if (!GPU::Framebuffer[frontbuf][0] || !GPU::Framebuffer[frontbuf][1])
+        if (!NDS::GPU->Framebuffer[frontbuf][0] || !NDS::GPU->Framebuffer[frontbuf][1])
         {
             emuThread->FrontBufferLock.unlock();
             return;
         }
 
-        memcpy(screen[0].scanLine(0), GPU::Framebuffer[frontbuf][0], 256 * 192 * 4);
-        memcpy(screen[1].scanLine(0), GPU::Framebuffer[frontbuf][1], 256 * 192 * 4);
+        memcpy(screen[0].scanLine(0), NDS::GPU->Framebuffer[frontbuf][0], 256 * 192 * 4);
+        memcpy(screen[1].scanLine(0), NDS::GPU->Framebuffer[frontbuf][1], 256 * 192 * 4);
         emuThread->FrontBufferLock.unlock();
 
         QRect screenrc(0, 0, 256, 192);
