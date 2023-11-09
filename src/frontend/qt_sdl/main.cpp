@@ -384,7 +384,8 @@ void EmuThread::run()
 
         if (Input::HotkeyPressed(HK_SolarSensorDecrease))
         {
-            int level = GBACart::SetInput(GBACart::Input_SolarSensorDown, true);
+            assert(NDS::GBACartSlot != nullptr);
+            int level = NDS::GBACartSlot->SetInput(GBACart::Input_SolarSensorDown, true);
             if (level != -1)
             {
                 char msg[64];
@@ -394,7 +395,8 @@ void EmuThread::run()
         }
         if (Input::HotkeyPressed(HK_SolarSensorIncrease))
         {
-            int level = GBACart::SetInput(GBACart::Input_SolarSensorUp, true);
+            assert(NDS::GBACartSlot != nullptr);
+            int level = NDS::GBACartSlot->SetInput(GBACart::Input_SolarSensorUp, true);
             if (level != -1)
             {
                 char msg[64];

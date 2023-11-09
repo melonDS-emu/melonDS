@@ -21,11 +21,13 @@
 
 #include <memory>
 #include <string>
+#include <memory>
 #include <functional>
 
 #include "Platform.h"
 #include "Savestate.h"
 #include "types.h"
+#include "GBACart.h"
 
 // when touching the main loop/timing code, pls test a lot of shit
 // with this enabled, to make sure it doesn't desync
@@ -263,6 +265,7 @@ extern class SPU* SPU;
 extern class SPIHost* SPI;
 extern class RTC* RTC;
 extern class Wifi* Wifi;
+extern std::unique_ptr<GBACart::GBACartSlot> GBACartSlot;
 extern std::unique_ptr<Melon::GPU> GPU;
 extern class AREngine* AREngine;
 
