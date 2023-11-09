@@ -26,6 +26,7 @@
 
 #include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
+#include "TinyVector.h"
 
 // here lands everything which doesn't fit into ARMJIT.h
 // where it would be included by pretty much everything
@@ -69,107 +70,7 @@ struct FetchedInstr
     ARMInstrInfo::Info Info;
 };
 
-/*
-    TinyVector
-        - because reinventing the wheel is the best!
-    
-    - meant to be used very often, with not so many elements
-    max 1 << 16 elements
-    - doesn't allocate while no elements are inserted
-    - not stl confirmant of course
-    - probably only works with POD types
-    - remove operations don't preserve order, but O(1)!
-*/
-template <typename T>
-struct __attribute__((packed)) TinyVector
-{
-    T* Data = NULL;
-    u16 Capacity = 0;
-    u16 Length = 0;
 
-    ~TinyVector()
-    {
-        delete[] Data;
-    }
-
-    void MakeCapacity(u32 capacity)
-    {
-        assert(capacity <= UINT16_MAX);
-        assert(capacity > Capacity);
-        T* newMem = new T[capacity];
-        if (Data != NULL)
-            memcpy(newMem, Data, sizeof(T) * Length);
-
-        T* oldData = Data;
-        Data = newMem;
-        if (oldData != NULL)
-            delete[] oldData;
-        
-        Capacity = capacity;
-    }
-
-    void SetLength(u16 length)
-    {
-        if (Capacity < length)
-            MakeCapacity(length);
-        
-        Length = length;
-    }
-
-    void Clear()
-    {
-        Length = 0;
-    }
-
-    void Add(T element)
-    {
-        assert(Length + 1 <= UINT16_MAX);
-        if (Length + 1 > Capacity)
-            MakeCapacity(((Capacity + 4) * 3) / 2);
-        
-        Data[Length++] = element;
-    }
-
-    void Remove(int index)
-    {
-        assert(Length > 0);
-        assert(index >= 0 && index < Length);
-
-        Length--;
-        Data[index] = Data[Length];
-        /*for (int i = index; i < Length; i++)
-            Data[i] = Data[i + 1];*/
-    }
-
-    int Find(T needle)
-    {
-        for (int i = 0; i < Length; i++)
-        {
-            if (Data[i] == needle)
-                return i;
-        }
-        return -1;
-    }
-
-    bool RemoveByValue(T needle)
-    {
-        for (int i = 0; i < Length; i++)
-        {
-            if (Data[i] == needle)
-            {
-                Remove(i);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    T& operator[](int index)
-    {
-        assert(index >= 0 && index < Length);
-        return Data[index];
-    }
-};
 
 class JitBlock
 {

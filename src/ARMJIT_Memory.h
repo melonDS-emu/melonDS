@@ -20,6 +20,7 @@
 #define ARMJIT_MEMORY
 
 #include "types.h"
+#include "TinyVector.h"
 
 #include "ARM.h"
 
