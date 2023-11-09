@@ -19,6 +19,7 @@
 #ifndef MELONDS_TINYVECTOR_H
 #define MELONDS_TINYVECTOR_H
 
+#include <assert.h>
 #include "types.h"
 
 namespace ARMJIT
