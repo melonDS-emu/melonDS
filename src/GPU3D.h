@@ -22,9 +22,13 @@
 #include <array>
 #include <memory>
 
-#include "GPU.h"
 #include "Savestate.h"
 #include "FIFO.h"
+
+namespace Melon
+{
+struct RenderSettings;
+}
 
 namespace GPU3D
 {
@@ -336,7 +340,7 @@ public:
     // are more detailed "traits" that we can ask of the Renderer3D type
     const bool Accelerated;
 
-    virtual void SetRenderSettings(GPU::RenderSettings& settings) = 0;
+    virtual void SetRenderSettings(Melon::RenderSettings& settings) = 0;
 
     virtual void VCount144() {};
 
@@ -348,11 +352,5 @@ protected:
 };
 
 }
-
-#include "GPU3D_Soft.h"
-
-#ifdef OGLRENDERER_ENABLED
-#include "GPU3D_OpenGL.h"
-#endif
 
 #endif

@@ -19,6 +19,7 @@
 #ifndef NDS_H
 #define NDS_H
 
+#include <memory>
 #include <string>
 #include <functional>
 
@@ -36,6 +37,11 @@ class RTC;
 class Wifi;
 
 class AREngine;
+
+namespace Melon
+{
+class GPU;
+}
 
 namespace NDS
 {
@@ -257,7 +263,7 @@ extern class SPU* SPU;
 extern class SPIHost* SPI;
 extern class RTC* RTC;
 extern class Wifi* Wifi;
-
+extern std::unique_ptr<Melon::GPU> GPU;
 extern class AREngine* AREngine;
 
 const u32 ARM7WRAMSize = 0x10000;
