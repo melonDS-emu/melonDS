@@ -27,6 +27,7 @@
 #include "Platform.h"
 #include "Savestate.h"
 #include "types.h"
+#include "NDSCart.h"
 #include "GBACart.h"
 
 // when touching the main loop/timing code, pls test a lot of shit
@@ -265,6 +266,7 @@ extern class SPU* SPU;
 extern class SPIHost* SPI;
 extern class RTC* RTC;
 extern class Wifi* Wifi;
+extern std::unique_ptr<NDSCart::NDSCartSlot> NDSCartSlot;
 extern std::unique_ptr<GBACart::GBACartSlot> GBACartSlot;
 extern std::unique_ptr<Melon::GPU> GPU;
 extern class AREngine* AREngine;
