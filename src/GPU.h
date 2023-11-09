@@ -704,10 +704,6 @@ private:
 
     std::unique_ptr<GPU2D::Renderer2D> GPU2D_Renderer = nullptr;
 
-
-
-
-
     u32 OAMDirty = 0;
     u32 PaletteDirty = 0;
 };
