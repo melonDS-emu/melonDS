@@ -20,19 +20,25 @@
 
 #include "GPU2D.h"
 
+namespace Melon
+{
+class GPU;
+}
+
 namespace GPU2D
 {
 
 class SoftRenderer : public Renderer2D
 {
 public:
-    SoftRenderer();
+    SoftRenderer(Melon::GPU& gpu);
     ~SoftRenderer() override {}
 
     void DrawScanline(u32 line, Unit* unit) override;
     void DrawSprites(u32 line, Unit* unit) override;
     void VBlankEnd(Unit* unitA, Unit* unitB) override;
 private:
+    Melon::GPU& GPU;
     alignas(8) u32 BGOBJLine[256*3];
     u32* _3DLine;
 

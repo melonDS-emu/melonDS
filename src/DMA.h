@@ -24,10 +24,15 @@
 #include "Savestate.h"
 #include "DMA_Timings.h"
 
+namespace Melon
+{
+class GPU;
+}
+
 class DMA
 {
 public:
-    DMA(u32 cpu, u32 num);
+    DMA(u32 cpu, u32 num, Melon::GPU& gpu);
     ~DMA() = default;
 
     void Reset();
@@ -79,6 +84,7 @@ public:
     u32 Cnt {};
 
 private:
+    Melon::GPU& GPU;
     u32 CPU {};
     u32 Num {};
 

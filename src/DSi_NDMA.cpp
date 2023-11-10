@@ -26,7 +26,7 @@
 using Platform::Log;
 using Platform::LogLevel;
 
-DSi_NDMA::DSi_NDMA(u32 cpu, u32 num)
+DSi_NDMA::DSi_NDMA(u32 cpu, u32 num, Melon::GPU& gpu) : GPU(gpu)
 {
     CPU = cpu;
     Num = num;
@@ -125,7 +125,7 @@ void DSi_NDMA::WriteCnt(u32 val)
         if ((StartMode & 0x1F) == 0x10)
             Start();
         else if (StartMode == 0x0A)
-            GPU3D::CheckFIFODMA();
+            GPU.GPU3D.CheckFIFODMA();
 
         // TODO: unsupported start modes:
         // * timers (00-03)
@@ -259,7 +259,7 @@ void DSi_NDMA::Run9()
             NDS::ResumeCPU(0, 1<<(Num+4));
 
             if (StartMode == 0x0A)
-                GPU3D::CheckFIFODMA();
+                GPU.GPU3D.CheckFIFODMA();
         }
 
         return;

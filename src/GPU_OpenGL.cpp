@@ -28,12 +28,12 @@
 #include "OpenGLSupport.h"
 #include "GPU_OpenGL_shaders.h"
 
-namespace GPU
+namespace Melon
 {
 
 using namespace OpenGL;
 
-std::unique_ptr<GLCompositor> GLCompositor::New() noexcept
+std::unique_ptr<GLCompositor> GLCompositor::New(Melon::GPU& gpu) noexcept
 {
     assert(glBindAttribLocation != nullptr);
 
@@ -50,10 +50,10 @@ std::unique_ptr<GLCompositor> GLCompositor::New() noexcept
         // if linking the shaders together failed.
         return nullptr;
 
-    return std::unique_ptr<GLCompositor>(new GLCompositor(CompShader));
+    return std::unique_ptr<GLCompositor>(new GLCompositor(CompShader, gpu));
 }
 
-GLCompositor::GLCompositor(std::array<GLuint, 3> compShader) noexcept : CompShader(compShader)
+GLCompositor::GLCompositor(std::array<GLuint, 3> compShader, Melon::GPU& gpu) noexcept : CompShader(compShader), GPU(gpu)
 {
     CompScaleLoc = glGetUniformLocation(CompShader[2], "u3DScale");
     Comp3DXPosLoc = glGetUniformLocation(CompShader[2], "u3DXPos");
@@ -144,7 +144,7 @@ void GLCompositor::Reset()
 }
 
 
-void GLCompositor::SetRenderSettings(RenderSettings& settings)
+void GLCompositor::SetRenderSettings(const RenderSettings& settings) noexcept
 {
     int scale = settings.GL_ScaleFactor;
 
@@ -174,7 +174,7 @@ void GLCompositor::Stop()
 {
     for (int i = 0; i < 2; i++)
     {
-        int frontbuf = GPU::FrontBuffer;
+        int frontbuf = GPU.FrontBuffer;
         glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[frontbuf]);
 
@@ -186,7 +186,7 @@ void GLCompositor::Stop()
 
 void GLCompositor::RenderFrame()
 {
-    int frontbuf = GPU::FrontBuffer;
+    int frontbuf = GPU.FrontBuffer;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[frontbuf]);
 
@@ -204,21 +204,21 @@ void GLCompositor::RenderFrame()
     glUniform1ui(CompScaleLoc, Scale);
 
     // TODO: support setting this midframe, if ever needed
-    glUniform1i(Comp3DXPosLoc, ((int)GPU3D::RenderXPos << 23) >> 23);
+    glUniform1i(Comp3DXPosLoc, ((int)GPU.GPU3D.GetRenderXPos() << 23) >> 23);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, CompScreenInputTex);
 
-    if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
+    if (GPU.Framebuffer[frontbuf][0] && GPU.Framebuffer[frontbuf][1])
     {
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
-                        GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+                        GL_UNSIGNED_BYTE, GPU.Framebuffer[frontbuf][0]);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256*3 + 1, 192, GL_RGBA_INTEGER,
-                        GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+                        GL_UNSIGNED_BYTE, GPU.Framebuffer[frontbuf][1]);
     }
 
     glActiveTexture(GL_TEXTURE1);
-    reinterpret_cast<GPU3D::GLRenderer*>(GPU3D::CurrentRenderer.get())->SetupAccelFrame();
+    reinterpret_cast<GPU3D::GLRenderer*>(GPU.GPU3D.GetCurrentRenderer())->SetupAccelFrame();
 
     glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);
     glBindVertexArray(CompVertexArrayID);

@@ -102,14 +102,14 @@ bool Init()
     NWRAM_B = ARMJIT::Memory->GetNWRAM_B();
     NWRAM_C = ARMJIT::Memory->GetNWRAM_C();
 
-    NDMAs[0] = new DSi_NDMA(0, 0);
-    NDMAs[1] = new DSi_NDMA(0, 1);
-    NDMAs[2] = new DSi_NDMA(0, 2);
-    NDMAs[3] = new DSi_NDMA(0, 3);
-    NDMAs[4] = new DSi_NDMA(1, 0);
-    NDMAs[5] = new DSi_NDMA(1, 1);
-    NDMAs[6] = new DSi_NDMA(1, 2);
-    NDMAs[7] = new DSi_NDMA(1, 3);
+    NDMAs[0] = new DSi_NDMA(0, 0, *NDS::GPU);
+    NDMAs[1] = new DSi_NDMA(0, 1, *NDS::GPU);
+    NDMAs[2] = new DSi_NDMA(0, 2, *NDS::GPU);
+    NDMAs[3] = new DSi_NDMA(0, 3, *NDS::GPU);
+    NDMAs[4] = new DSi_NDMA(1, 0, *NDS::GPU);
+    NDMAs[5] = new DSi_NDMA(1, 1, *NDS::GPU);
+    NDMAs[6] = new DSi_NDMA(1, 2, *NDS::GPU);
+    NDMAs[7] = new DSi_NDMA(1, 3, *NDS::GPU);
 
     SDMMC = new DSi_SDHost(0);
     SDIO = new DSi_SDHost(1);
@@ -185,7 +185,7 @@ void Reset()
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
     SCFG_EXT[1] = 0x93FFFB06;
-    SCFG_MC = 0x0010 | (~((u32)(NDSCart::Cart != nullptr))&1);//0x0011;
+    SCFG_MC = 0x0010 | (~((u32)(NDS::NDSCartSlot->GetCart() != nullptr))&1);//0x0011;
     SCFG_RST = 0;
 
     DSP->SetRstLine(false);
@@ -197,8 +197,8 @@ void Reset()
     GPIO_WiFi = 0;
 
     // LCD init flag
-    GPU::DispStat[0] |= (1<<6);
-    GPU::DispStat[1] |= (1<<6);
+    NDS::GPU->DispStat[0] |= (1<<6);
+    NDS::GPU->DispStat[1] |= (1<<6);
 }
 
 void Stop()
@@ -302,13 +302,13 @@ void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
     if ((offset == 0) || (size == 0))
         return;
 
-    const NDSHeader& header = NDSCart::Cart->GetHeader();
+    const NDSHeader& header = NDS::NDSCartSlot->GetCart()->GetHeader();
 
     if ((header.DSiCryptoFlags & (1<<4)) ||
         (header.AppFlags & (1<<7)))
     {
         // dev key
-        const u8* cartrom = NDSCart::Cart->GetROM();
+        const u8* cartrom = NDS::NDSCartSlot->GetCart()->GetROM();
         memcpy(key, &cartrom[0], 16);
     }
     else
@@ -395,9 +395,9 @@ void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
 void SetupDirectBoot()
 {
     bool dsmode = false;
-    NDSHeader& header = NDSCart::Cart->GetHeader();
-    const u8* cartrom = NDSCart::Cart->GetROM();
-    u32 cartid = NDSCart::Cart->ID();
+    NDSHeader& header = NDS::NDSCartSlot->GetCart()->GetHeader();
+    const u8* cartrom = NDS::NDSCartSlot->GetCart()->GetROM();
+    u32 cartid = NDS::NDSCartSlot->GetCart()->ID();
     DSi_TSC* tsc = (DSi_TSC*)NDS::SPI->GetTSC();
 
     // TODO: add controls for forcing DS or DSi mode?
@@ -586,7 +586,7 @@ void SetupDirectBoot()
     if (header.ARM9ROMOffset >= 0x4000 && header.ARM9ROMOffset < 0x8000)
     {
         u8 securearea[0x800];
-        NDSCart::DecryptSecureArea(securearea);
+        NDS::NDSCartSlot->DecryptSecureArea(securearea);
 
         for (u32 i = 0; i < 0x800; i+=4)
         {
@@ -722,8 +722,8 @@ void SoftReset()
 
 
     // LCD init flag
-    GPU::DispStat[0] |= (1<<6);
-    GPU::DispStat[1] |= (1<<6);
+    NDS::GPU->DispStat[0] |= (1<<6);
+    NDS::GPU->DispStat[1] |= (1<<6);
 }
 
 bool LoadNAND()
@@ -1273,7 +1273,7 @@ void Set_SCFG_MC(u32 val)
 
     if ((oldslotstatus == 0x0) && ((SCFG_MC & 0xC) == 0x4))
     {
-        NDSCart::ResetCart();
+        NDS::NDSCartSlot->ResetCart();
     }
 }
 
@@ -1512,11 +1512,11 @@ void ARM9Write8(u32 addr, u8 val)
 #endif
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: GPU::WriteVRAM_ABG<u8>(addr, val); return;
-        case 0x00200000: GPU::WriteVRAM_BBG<u8>(addr, val); return;
-        case 0x00400000: GPU::WriteVRAM_AOBJ<u8>(addr, val); return;
-        case 0x00600000: GPU::WriteVRAM_BOBJ<u8>(addr, val); return;
-        default: GPU::WriteVRAM_LCDC<u8>(addr, val); return;
+        case 0x00000000: NDS::GPU->WriteVRAM_ABG<u8>(addr, val); return;
+        case 0x00200000: NDS::GPU->WriteVRAM_BBG<u8>(addr, val); return;
+        case 0x00400000: NDS::GPU->WriteVRAM_AOBJ<u8>(addr, val); return;
+        case 0x00600000: NDS::GPU->WriteVRAM_BOBJ<u8>(addr, val); return;
+        default: NDS::GPU->WriteVRAM_LCDC<u8>(addr, val); return;
         }
 
     case 0x08000000:
