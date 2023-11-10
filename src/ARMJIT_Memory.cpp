@@ -888,14 +888,14 @@ bool ARMJIT_Memory::GetMirrorLocation(int region, u32 num, u32 addr, u32& memory
         {
             mirrorStart = addr & ~NDS::SWRAM_ARM9.Mask;
             mirrorSize = NDS::SWRAM_ARM9.Mask + 1;
-            memoryOffset = NDS::SWRAM_ARM9.Mem - NDS::SharedWRAM;
+            memoryOffset = NDS::SWRAM_ARM9.Mem - GetSharedWRAM();
             return true;
         }
         else if (num == 1 && NDS::SWRAM_ARM7.Mem)
         {
             mirrorStart = addr & ~NDS::SWRAM_ARM7.Mask;
             mirrorSize = NDS::SWRAM_ARM7.Mask + 1;
-            memoryOffset = NDS::SWRAM_ARM7.Mem - NDS::SharedWRAM;
+            memoryOffset = NDS::SWRAM_ARM7.Mem - GetSharedWRAM();
             return true;
         }
         return false;
@@ -928,7 +928,7 @@ bool ARMJIT_Memory::GetMirrorLocation(int region, u32 num, u32 addr, u32& memory
             u8* ptr = DSi::NWRAMMap_A[num][(addr >> 16) & DSi::NWRAMMask[num][0]];
             if (ptr)
             {
-                memoryOffset = ptr - DSi::NWRAM_A;
+                memoryOffset = ptr - GetNWRAM_A();
                 mirrorStart = addr & ~0xFFFF;
                 mirrorSize = 0x10000;
                 return true;
@@ -940,7 +940,7 @@ bool ARMJIT_Memory::GetMirrorLocation(int region, u32 num, u32 addr, u32& memory
             u8* ptr = DSi::NWRAMMap_B[num][(addr >> 15) & DSi::NWRAMMask[num][1]];
             if (ptr)
             {
-                memoryOffset = ptr - DSi::NWRAM_B;
+                memoryOffset = ptr - GetNWRAM_B();
                 mirrorStart = addr & ~0x7FFF;
                 mirrorSize = 0x8000;
                 return true;
@@ -952,7 +952,7 @@ bool ARMJIT_Memory::GetMirrorLocation(int region, u32 num, u32 addr, u32& memory
             u8* ptr = DSi::NWRAMMap_C[num][(addr >> 15) & DSi::NWRAMMask[num][2]];
             if (ptr)
             {
-                memoryOffset = ptr - DSi::NWRAM_C;
+                memoryOffset = ptr - GetNWRAM_C();
                 mirrorStart = addr & ~0x7FFF;
                 mirrorSize = 0x8000;
                 return true;
