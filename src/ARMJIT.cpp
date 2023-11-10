@@ -229,8 +229,6 @@ void SlowBlockTransfer7(u32 addr, u64* data, u32 num)
 INSTANTIATE_SLOWMEM(0)
 INSTANTIATE_SLOWMEM(1)
 
-std::unique_ptr<ARMJIT_Memory> Memory;
-
 ARMJIT::ARMJIT() noexcept : JITCompiler(*this), Memory(*this)
 {
 }
