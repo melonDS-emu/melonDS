@@ -40,6 +40,7 @@ extern bool LiteralOptimizations;
 extern bool BranchOptimizations;
 extern bool FastMemory;
 
+extern std::unique_ptr<ARMJIT_Memory> Memory;
 void Init();
 void DeInit();
 
