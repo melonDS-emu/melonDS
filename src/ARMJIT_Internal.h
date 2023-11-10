@@ -95,9 +95,6 @@ inline bool PageContainsCode(AddressRange* range)
     return false;
 }
 
-template <u32 Num>
-void LinkBlock(ARM* cpu, u32 codeOffset);
-
 template <typename T, int ConsoleType> T SlowRead9(u32 addr, ARMv5* cpu);
 template <typename T, int ConsoleType> void SlowWrite9(u32 addr, ARMv5* cpu, u32 val);
 template <typename T, int ConsoleType> T SlowRead7(u32 addr);
