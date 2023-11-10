@@ -81,6 +81,7 @@ void CartR4::Reset()
 {
     CartSD::Reset();
 
+    BufferInitialized = false;
     EncryptionKey = -1;
     FATEntryOffset[0] = 0xFFFFFFFF;
     FATEntryOffset[1] = 0xFFFFFFFF;
@@ -109,6 +110,7 @@ void CartR4::DoSavestate(Savestate* file)
 // FIXME: Ace3DS/clone behavior is only partially verified.
 int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
 {
+    Log(LogLevel::Warn, "R4: command %02X %02X %02X %02X %02X %02X %02X %02X (%d)\n", cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7], len);
     if (CmdEncMode != 2)
         return CartCommon::ROMCommandStart(cartslot, cmd, data, len);
 
@@ -179,8 +181,19 @@ int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u
                 *(u32*)&data[pos] = 0;
             return 0;
         }
-    case 0xB3: /* Save read data */
     case 0xB7: /* ROM read data */
+        {
+            /* If the buffer has not been initialized yet, emulate ROM. */
+            /* TODO: When does the R4 do this exactly? */
+            if (!BufferInitialized)
+            {
+                u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+                memcpy(data, ROM+(addr & ROMLength-1), len);
+                return 0;
+            }
+            /* Otherwise, fall through. */
+        }
+    case 0xB3: /* Save read data */
     case 0xBA: /* SD read data */
         {
             // TODO: Do these use separate buffers?
@@ -216,7 +229,7 @@ void CartR4::ROMCommandFinish(u8* cmd, u8* data, u32 len)
 
             // The official R4 firmware sends a superfluous write to card
             // (sector 0, byte 1) on boot. TODO: Is this correct?
-            if (GetAdjustedSector(sector) == sector && (sector & 0x1FF)) break;
+            if (GetAdjustedSector(sector) != sector && (sector & 0x1FF)) break;
 
             if (SD && (!ReadOnly))
                 SD->WriteSectors(GetAdjustedSector(sector), 1, data);
@@ -286,10 +299,11 @@ void CartR4::ReadSDToBuffer(u32 sector, bool rom)
                 1, Buffer
             );
         }
+        BufferInitialized = true;
     }
 }
 
-u32 CartR4::SDFATEntrySectorGet(u32 entry, u32 addr)
+u64 CartR4::SDFATEntrySectorGet(u32 entry, u32 addr)
 {
     u8 buffer[512];
     u32 bufferSector = 0xFFFFFFFF;
@@ -325,7 +339,7 @@ u32 CartR4::SDFATEntrySectorGet(u32 entry, u32 addr)
         if (addr < bytesPerCluster)
         {
             // Read from this cluster.
-            return (firstDataSector + ((currentCluster - 2) * sectorsPerCluster)) * bytesPerSector + addr;
+            return (u64) (firstDataSector + ((currentCluster - 2) * sectorsPerCluster)) * bytesPerSector + addr;
         }
         else if (currentCluster >= 2 && currentCluster <= (isFat32 ? 0x0FFFFFF6 : 0xFFF6))
         {

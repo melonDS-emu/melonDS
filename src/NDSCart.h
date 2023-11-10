@@ -285,7 +285,7 @@ private:
 
     u16 GetEncryptionKey(u16 sector);
     void ReadSDToBuffer(u32 sector, bool rom);
-    u32 SDFATEntrySectorGet(u32 entry, u32 addr);
+    u64 SDFATEntrySectorGet(u32 entry, u32 addr);
 
     s32 EncryptionKey;
     u32 FATEntryOffset[2];
@@ -293,6 +293,7 @@ private:
     u8 InitStatus;
     CartR4Type CartType;
     CartR4Language CartLanguage;
+    bool BufferInitialized;
 };
 
 class NDSCartSlot
