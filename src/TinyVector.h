@@ -20,6 +20,7 @@
 #define MELONDS_TINYVECTOR_H
 
 #include <assert.h>
+#include <string.h>
 #include "types.h"
 
 namespace ARMJIT

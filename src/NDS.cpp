@@ -35,16 +35,13 @@
 #include "Platform.h"
 #include "FreeBIOS.h"
 
-#ifdef JIT_ENABLED
-#include "ARMJIT.h"
-#include "ARMJIT_Memory.h"
-#endif
-
 #include "DSi.h"
 #include "DSi_SPI_TSC.h"
 #include "DSi_NWifi.h"
 #include "DSi_Camera.h"
 #include "DSi_DSP.h"
+#include "ARMJIT.h"
+#include "ARMJIT_Memory.h"
 
 using namespace Platform;
 
@@ -203,16 +200,13 @@ bool Init()
     RegisterEventFunc(Event_Div, 0, DivDone);
     RegisterEventFunc(Event_Sqrt, 0, SqrtDone);
 
-    ARM9 = new ARMv5();
-    ARM7 = new ARMv4();
-
-#ifdef JIT_ENABLED
     ARMJIT::Init();
-#else
-    MainRAM = new u8[0x1000000];
-    ARM7WRAM = new u8[ARM7WRAMSize];
-    SharedWRAM = new u8[SharedWRAMSize];
-#endif
+    MainRAM = ARMJIT::Memory->GetMainRAM();
+    SharedWRAM = ARMJIT::Memory->GetSharedWRAM();
+    ARM7WRAM = ARMJIT::Memory->GetARM7WRAM();
+
+    ARM9 = new ARMv5(*ARMJIT::Memory);
+    ARM7 = new ARMv4(*ARMJIT::Memory);
 
     DMAs[0] = new DMA(0, 0);
     DMAs[1] = new DMA(0, 1);
@@ -869,7 +863,7 @@ bool DoSavestate(Savestate* file)
     if (!file->Saving)
     {
         ARMJIT::ResetBlockCache();
-        ARMJIT_Memory::Reset();
+        ARMJIT::Memory->Reset();
     }
 #endif
 
@@ -1400,9 +1394,7 @@ void MapSharedWRAM(u8 val)
     if (val == WRAMCnt)
         return;
 
-#ifdef JIT_ENABLED
-    ARMJIT_Memory::RemapSWRAM();
-#endif
+    ARMJIT::Memory->RemapSWRAM();
 
     WRAMCnt = val;
 

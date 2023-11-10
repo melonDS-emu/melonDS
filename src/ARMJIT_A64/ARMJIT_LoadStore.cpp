@@ -185,10 +185,10 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         MOV(rnMapped, W0);
 
     u32 expectedTarget = Num == 0
-        ? ARMJIT_Memory::ClassifyAddress9(addrIsStatic ? staticAddress : CurInstr.DataRegion)
-        : ARMJIT_Memory::ClassifyAddress7(addrIsStatic ? staticAddress : CurInstr.DataRegion);
+        ? Memory.ClassifyAddress9(addrIsStatic ? staticAddress : CurInstr.DataRegion)
+        : Memory.ClassifyAddress7(addrIsStatic ? staticAddress : CurInstr.DataRegion);
 
-    if (ARMJIT::FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || ARMJIT_Memory::IsFastmemCompatible(expectedTarget)))
+    if (ARMJIT::FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || Memory.IsFastmemCompatible(expectedTarget)))
     {
         ptrdiff_t memopStart = GetCodeOffset();
         LoadStorePatch patch;
@@ -225,7 +225,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
     {
         void* func = NULL;
         if (addrIsStatic)
-            func = ARMJIT_Memory::GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
+            func = Memory.GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
 
         PushRegs(false, false);
 
@@ -494,11 +494,11 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         Comp_AddCycles_CDI();
 
     int expectedTarget = Num == 0
-        ? ARMJIT_Memory::ClassifyAddress9(CurInstr.DataRegion)
-        : ARMJIT_Memory::ClassifyAddress7(CurInstr.DataRegion);
+        ? Memory.ClassifyAddress9(CurInstr.DataRegion)
+        : Memory.ClassifyAddress7(CurInstr.DataRegion);
 
     bool compileFastPath = ARMJIT::FastMemory
-        && store && !usermode && (CurInstr.Cond() < 0xE || ARMJIT_Memory::IsFastmemCompatible(expectedTarget));
+        && store && !usermode && (CurInstr.Cond() < 0xE || Memory.IsFastmemCompatible(expectedTarget));
 
     {
         s32 offset = decrement

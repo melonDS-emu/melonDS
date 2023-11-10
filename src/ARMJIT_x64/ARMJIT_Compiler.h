@@ -31,6 +31,11 @@
 
 #include <unordered_map>
 
+namespace Melon
+{
+class ARMJIT_Memory;
+}
+
 namespace ARMJIT
 {
 
@@ -79,7 +84,7 @@ struct Op2
 class Compiler : public Gen::XEmitter
 {
 public:
-    Compiler();
+    Compiler(ARMJIT_Memory& memory);
 
     void Reset();
 
@@ -238,6 +243,7 @@ public:
     void CreateMethod(const char* namefmt, void* start, ...);
 #endif
 
+    ARMJIT_Memory& Memory;
     u8* FarCode;
     u8* NearCode;
     u32 FarSize;

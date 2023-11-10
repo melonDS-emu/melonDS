@@ -42,13 +42,15 @@ enum
 const u32 ITCMPhysicalSize = 0x8000;
 const u32 DTCMPhysicalSize = 0x4000;
 
+class ARMJIT_Memory;
+
 class ARM
 #ifdef GDBSTUB_ENABLED
     : public Gdb::StubCallbacks
 #endif
 {
 public:
-    ARM(u32 num);
+    ARM(u32 num, ARMJIT_Memory& memory);
     virtual ~ARM(); // destroy shit
 
     virtual void Reset();
@@ -174,12 +176,13 @@ public:
     u64* FastBlockLookup;
 #endif
 
-    static u32 ConditionTable[16];
+    static const u32 ConditionTable[16];
 #ifdef GDBSTUB_ENABLED
     Gdb::GdbStub GdbStub;
 #endif
 
 protected:
+    ARMJIT_Memory& Memory;
     u8 (*BusRead8)(u32 addr);
     u16 (*BusRead16)(u32 addr);
     u32 (*BusRead32)(u32 addr);
@@ -214,7 +217,7 @@ protected:
 class ARMv5 : public ARM
 {
 public:
-    ARMv5();
+    ARMv5(ARMJIT_Memory& memory);
     ~ARMv5();
 
     void Reset() override;
@@ -358,7 +361,7 @@ public:
 class ARMv4 : public ARM
 {
 public:
-    ARMv4();
+    ARMv4(ARMJIT_Memory& memory);
 
     void Reset() override;
 

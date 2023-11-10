@@ -232,7 +232,7 @@ void Compiler::A_Comp_MSR()
  */
 u8 CodeMemory[1024 * 1024 * 32];
 
-Compiler::Compiler()
+Compiler::Compiler(ARMJIT_Memory& memory) : XEmitter(), Memory(memory)
 {
     {
     #ifdef _WIN32

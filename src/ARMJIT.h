@@ -19,10 +19,12 @@
 #ifndef ARMJIT_H
 #define ARMJIT_H
 
+#include <memory>
 #include "types.h"
 
 #include "ARM.h"
 #include "ARM_InstrInfo.h"
+#include "ARMJIT_Memory.h"
 
 #if defined(__APPLE__) && defined(__aarch64__)
     #include <pthread.h>
@@ -49,7 +51,11 @@ void CheckAndInvalidateWVRAM(int bank);
 void InvalidateByAddr(u32 pseudoPhysical);
 
 template <u32 num, int region>
+#ifdef JIT_ENABLED
 void CheckAndInvalidate(u32 addr);
+#else
+inline void CheckAndInvalidate(u32 addr) {}
+#endif
 
 void CompileBlock(ARM* cpu);
 

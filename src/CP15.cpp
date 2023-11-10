@@ -22,10 +22,10 @@
 #include "DSi.h"
 #include "ARM.h"
 #include "Platform.h"
+#include "ARMJIT_Memory.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"
-#include "ARMJIT_Memory.h"
 #endif
 
 using Platform::Log;
@@ -125,9 +125,7 @@ void ARMv5::UpdateDTCMSetting()
 
     if (newDTCMBase != DTCMBase || newDTCMMask != DTCMMask)
     {
-#ifdef JIT_ENABLED
-        ARMJIT_Memory::RemapDTCM(newDTCMBase, newDTCMSize);
-#endif
+        Memory.RemapDTCM(newDTCMBase, newDTCMSize);
         DTCMBase = newDTCMBase;
         DTCMMask = newDTCMMask;
     }

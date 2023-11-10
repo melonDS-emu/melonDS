@@ -17,7 +17,7 @@
 */
 
 #include "ARMJIT.h"
-
+#include "ARMJIT_Memory.h"
 #include <string.h>
 #include <assert.h>
 #include <unordered_map>
@@ -170,11 +170,11 @@ u64* const FastBlockLookupRegions[ARMJIT_Memory::memregions_Count] =
 u32 LocaliseCodeAddress(u32 num, u32 addr)
 {
     int region = num == 0
-        ? ARMJIT_Memory::ClassifyAddress9(addr)
-        : ARMJIT_Memory::ClassifyAddress7(addr);
+        ? Memory->ClassifyAddress9(addr)
+        : Memory->ClassifyAddress7(addr);
 
     if (CodeMemRegions[region])
-        return ARMJIT_Memory::LocaliseAddress(region, num, addr);
+        return Memory->LocaliseAddress(region, num, addr);
     return 0;
 }
 
@@ -316,18 +316,19 @@ void SlowBlockTransfer7(u32 addr, u64* data, u32 num)
 INSTANTIATE_SLOWMEM(0)
 INSTANTIATE_SLOWMEM(1)
 
+std::unique_ptr<ARMJIT_Memory> Memory;
+
 void Init()
 {
-    JITCompiler = new Compiler();
-
-    ARMJIT_Memory::Init();
+    Memory = std::make_unique<ARMJIT_Memory>();
+    JITCompiler = new Compiler(*Memory);
 }
 
 void DeInit()
 {
     JitEnableWrite();
     ResetBlockCache();
-    ARMJIT_Memory::DeInit();
+    Memory = nullptr;
 
     delete JITCompiler;
     JITCompiler = nullptr;
@@ -348,7 +349,7 @@ void Reset()
     JitEnableWrite();
     ResetBlockCache();
 
-    ARMJIT_Memory::Reset();
+    Memory->Reset();
 }
 
 void FloodFillSetFlags(FetchedInstr instrs[], int start, u8 flags)
@@ -977,7 +978,7 @@ void CompileBlock(ARM* cpu)
         AddressRange* region = CodeMemRegions[addressRanges[j] >> 27];
 
         if (!PageContainsCode(&region[(addressRanges[j] & 0x7FFF000) / 512]))
-            ARMJIT_Memory::SetCodeProtection(addressRanges[j] >> 27, addressRanges[j] & 0x7FFFFFF, true);
+            Memory->SetCodeProtection(addressRanges[j] >> 27, addressRanges[j] & 0x7FFFFFF, true);
 
         AddressRange* range = &region[(addressRanges[j] & 0x7FFFFFF) / 512];
         range->Code |= addressMasks[j];
@@ -1031,7 +1032,7 @@ void InvalidateByAddr(u32 localAddr)
         if (range->Blocks.Length == 0
             && !PageContainsCode(&region[(localAddr & 0x7FFF000) / 512]))
         {
-            ARMJIT_Memory::SetCodeProtection(localAddr >> 27, localAddr & 0x7FFFFFF, false);
+            Memory->SetCodeProtection(localAddr >> 27, localAddr & 0x7FFFFFF, false);
         }
 
         bool literalInvalidation = false;
@@ -1064,7 +1065,7 @@ void InvalidateByAddr(u32 localAddr)
                 if (otherRange->Blocks.Length == 0)
                 {
                     if (!PageContainsCode(&otherRegion[(addr & 0x7FFF000) / 512]))
-                        ARMJIT_Memory::SetCodeProtection(addr >> 27, addr & 0x7FFFFFF, false);
+                        Memory->SetCodeProtection(addr >> 27, addr & 0x7FFFFFF, false);
 
                     otherRange->Code = 0;
                 }
@@ -1125,7 +1126,7 @@ void CheckAndInvalidateWVRAM(int bank)
 template <u32 num, int region>
 void CheckAndInvalidate(u32 addr)
 {
-    u32 localAddr = ARMJIT_Memory::LocaliseAddress(region, num, addr);
+    u32 localAddr = Memory->LocaliseAddress(region, num, addr);
     if (CodeMemRegions[region][(localAddr & 0x7FFFFFF) / 512].Code & (1 << ((localAddr & 0x1FF) / 16)))
         InvalidateByAddr(localAddr);
 }
@@ -1148,12 +1149,12 @@ bool SetupExecutableRegion(u32 num, u32 blockAddr, u64*& entry, u32& start, u32&
 {
     // amazingly ignoring the DTCM is the proper behaviour for code fetches
     int region = num == 0
-        ? ARMJIT_Memory::ClassifyAddress9(blockAddr)
-        : ARMJIT_Memory::ClassifyAddress7(blockAddr);
+        ? Memory->ClassifyAddress9(blockAddr)
+        : Memory->ClassifyAddress7(blockAddr);
 
     u32 memoryOffset;
     if (FastBlockLookupRegions[region]
-        && ARMJIT_Memory::GetMirrorLocation(region, num, blockAddr, memoryOffset, start, size))
+        && Memory->GetMirrorLocation(region, num, blockAddr, memoryOffset, start, size))
     {
         //printf("setup exec region %d %d %08x %08x %x %x\n", num, region, blockAddr, start, size, memoryOffset);
         entry = FastBlockLookupRegions[region] + memoryOffset / 2;
@@ -1183,7 +1184,7 @@ void ResetBlockCache()
 
     // could be replace through a function which only resets
     // the permissions but we're too lazy
-    ARMJIT_Memory::Reset();
+    Memory->Reset();
 
     InvalidLiterals.Clear();
     for (int i = 0; i < ARMJIT_Memory::memregions_Count; i++)

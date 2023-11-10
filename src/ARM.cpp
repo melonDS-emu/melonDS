@@ -26,11 +26,7 @@
 #include "ARMJIT.h"
 #include "Platform.h"
 #include "GPU.h"
-
-#ifdef JIT_ENABLED
-#include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
-#endif
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -88,7 +84,7 @@ void ARM::GdbCheckC() {}
 
 
 
-u32 ARM::ConditionTable[16] =
+const u32 ARM::ConditionTable[16] =
 {
     0xF0F0, // EQ
     0x0F0F, // NE
@@ -108,15 +104,13 @@ u32 ARM::ConditionTable[16] =
     0x0000  // NE
 };
 
-
-ARM::ARM(u32 num)
+ARM::ARM(u32 num, ARMJIT_Memory& memory) :
 #ifdef GDBSTUB_ENABLED
-    : GdbStub(this, Platform::GetConfigInt(num ? Platform::GdbPortARM7 : Platform::GdbPortARM9))
+    GdbStub(this, Platform::GetConfigInt(num ? Platform::GdbPortARM7 : Platform::GdbPortARM9)),
 #endif
+    Memory(memory),
+    Num(num) // well uh
 {
-    // well uh
-    Num = num;
-
 #ifdef GDBSTUB_ENABLED
     if (Platform::GetConfigBool(Platform::GdbEnabled)
 #ifdef JIT_ENABLED
@@ -133,25 +127,21 @@ ARM::~ARM()
     // dorp
 }
 
-ARMv5::ARMv5() : ARM(0)
+ARMv5::ARMv5(ARMJIT_Memory& memory) : ARM(0, memory)
 {
-#ifndef JIT_ENABLED
-    DTCM = new u8[DTCMPhysicalSize];
-#endif
+    DTCM = Memory.GetARM9DTCM();
 
     PU_Map = PU_PrivMap;
 }
 
-ARMv4::ARMv4() : ARM(1)
+ARMv4::ARMv4(ARMJIT_Memory& memory) : ARM(1, memory)
 {
     //
 }
 
 ARMv5::~ARMv5()
 {
-#ifndef JIT_ENABLED
-    delete[] DTCM;
-#endif
+    // DTCM is owned by Memory, not going to delete it
 }
 
 void ARM::Reset()

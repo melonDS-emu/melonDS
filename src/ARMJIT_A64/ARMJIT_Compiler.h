@@ -97,7 +97,7 @@ class Compiler : public Arm64Gen::ARM64XEmitter
 public:
     typedef void (Compiler::*CompileFunc)();
 
-    Compiler();
+    Compiler(ARMJIT_Memory& memory);
     ~Compiler();
 
     void PushRegs(bool saveHiRegs, bool saveRegsToBeChanged, bool allowUnload = true);
@@ -243,6 +243,7 @@ public:
         OtherCodeRegion = offset;
     }
 
+    ARMJIT_Memory& Memory;
     ptrdiff_t OtherCodeRegion;
 
     bool Exit;

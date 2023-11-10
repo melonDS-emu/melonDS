@@ -28,10 +28,8 @@
 #include "DSi_SPI_TSC.h"
 #include "Platform.h"
 
-#ifdef JIT_ENABLED
 #include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
-#endif
 
 #include "DSi_NDMA.h"
 #include "DSi_I2C.h"
@@ -99,11 +97,10 @@ void Set_SCFG_MC(u32 val);
 
 bool Init()
 {
-#ifndef JIT_ENABLED
-    NWRAM_A = new u8[NWRAMSize];
-    NWRAM_B = new u8[NWRAMSize];
-    NWRAM_C = new u8[NWRAMSize];
-#endif
+    // Memory is owned by ARMJIT_Memory, don't free it
+    NWRAM_A = ARMJIT::Memory->GetNWRAM_A();
+    NWRAM_B = ARMJIT::Memory->GetNWRAM_B();
+    NWRAM_C = ARMJIT::Memory->GetNWRAM_C();
 
     NDMAs[0] = new DSi_NDMA(0, 0);
     NDMAs[1] = new DSi_NDMA(0, 1);
@@ -127,15 +124,10 @@ bool Init()
 
 void DeInit()
 {
-#ifndef JIT_ENABLED
-    delete[] NWRAM_A;
-    delete[] NWRAM_B;
-    delete[] NWRAM_C;
-
+    // Memory is owned externally
     NWRAM_A = nullptr;
     NWRAM_B = nullptr;
     NWRAM_C = nullptr;
-#endif
 
     for (int i = 0; i < 8; i++)
     {
@@ -685,7 +677,7 @@ void SoftReset()
     // also, BPTWL[0x70] could be abused to quickly boot specific titles
 
 #ifdef JIT_ENABLED
-    ARMJIT_Memory::Reset();
+    ARMJIT::Memory->Reset();
     ARMJIT::CheckAndInvalidateITCM();
 #endif
 
@@ -1043,9 +1035,7 @@ void MapNWRAM_A(u32 num, u8 val)
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
     if (oldval == val) return;
 
-#ifdef JIT_ENABLED
-    ARMJIT_Memory::RemapNWRAM(0);
-#endif
+    ARMJIT::Memory->RemapNWRAM(0);
 
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
@@ -1090,9 +1080,7 @@ void MapNWRAM_B(u32 num, u8 val)
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
     if (oldval == val) return;
 
-#ifdef JIT_ENABLED
-    ARMJIT_Memory::RemapNWRAM(1);
-#endif
+    ARMJIT::Memory->RemapNWRAM(1);
 
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
@@ -1139,9 +1127,7 @@ void MapNWRAM_C(u32 num, u8 val)
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
     if (oldval == val) return;
 
-#ifdef JIT_ENABLED
-    ARMJIT_Memory::RemapNWRAM(2);
-#endif
+    ARMJIT::Memory->RemapNWRAM(2);
 
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
@@ -1190,9 +1176,7 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
     u32 oldval = MBK[cpu][5+num];
     if (oldval == val) return;
 
-#ifdef JIT_ENABLED
-    ARMJIT_Memory::RemapNWRAM(num);
-#endif
+    ARMJIT::Memory->RemapNWRAM(num);
 
     MBK[cpu][5+num] = val;
 

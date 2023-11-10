@@ -195,10 +195,10 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
         MOV(32, rnMapped, R(finalAddr));
 
     u32 expectedTarget = Num == 0
-        ? ARMJIT_Memory::ClassifyAddress9(CurInstr.DataRegion)
-        : ARMJIT_Memory::ClassifyAddress7(CurInstr.DataRegion);
+        ? Memory.ClassifyAddress9(CurInstr.DataRegion)
+        : Memory.ClassifyAddress7(CurInstr.DataRegion);
 
-    if (ARMJIT::FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || ARMJIT_Memory::IsFastmemCompatible(expectedTarget)))
+    if (ARMJIT::FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || Memory.IsFastmemCompatible(expectedTarget)))
     {
         if (rdMapped.IsImm())
         {
@@ -216,7 +216,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
 
         assert(patch.PatchFunc != NULL);
 
-        MOV(64, R(RSCRATCH), ImmPtr(Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start));
+        MOV(64, R(RSCRATCH), ImmPtr(Num == 0 ? Memory.FastMem9Start : Memory.FastMem7Start));
 
         X64Reg maskedAddr = RSCRATCH3;
         if (size > 8)
@@ -267,7 +267,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
 
         void* func = NULL;
         if (addrIsStatic)
-            func = ARMJIT_Memory::GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
+            func = Memory.GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
 
         if (func)
         {
@@ -421,8 +421,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     s32 offset = (regsCount * 4) * (decrement ? -1 : 1);
 
     int expectedTarget = Num == 0
-        ? ARMJIT_Memory::ClassifyAddress9(CurInstr.DataRegion)
-        : ARMJIT_Memory::ClassifyAddress7(CurInstr.DataRegion);
+        ? Memory.ClassifyAddress9(CurInstr.DataRegion)
+        : Memory.ClassifyAddress7(CurInstr.DataRegion);
 
     if (!store)
         Comp_AddCycles_CDI();
@@ -430,7 +430,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         Comp_AddCycles_CD();
 
     bool compileFastPath = FastMemory
-        && !usermode && (CurInstr.Cond() < 0xE || ARMJIT_Memory::IsFastmemCompatible(expectedTarget));
+        && !usermode && (CurInstr.Cond() < 0xE || Memory.IsFastmemCompatible(expectedTarget));
 
     // we need to make sure that the stack stays aligned to 16 bytes
 #ifdef _WIN32
@@ -453,7 +453,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         u8* fastPathStart = GetWritableCodePtr();
         u8* loadStoreAddr[16];
 
-        MOV(64, R(RSCRATCH2), ImmPtr(Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start));
+        MOV(64, R(RSCRATCH2), ImmPtr(Num == 0 ? Memory.FastMem9Start : Memory.FastMem7Start));
         ADD(64, R(RSCRATCH2), R(RSCRATCH4));
 
         u32 offset = 0;

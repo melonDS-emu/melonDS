@@ -219,7 +219,7 @@ void Compiler::PopRegs(bool saveHiRegs, bool saveRegsToBeChanged)
     }
 }
 
-Compiler::Compiler()
+Compiler::Compiler(ARMJIT_Memory& memory) : Arm64Gen::ARM64XEmitter(), Memory(memory)
 {
 #ifdef __SWITCH__
     JitRWBase = aligned_alloc(0x1000, JitMemSize);
@@ -722,7 +722,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
     CPSRDirty = false;
 
     if (hasMemInstr)
-        MOVP2R(RMemBase, Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
+        MOVP2R(RMemBase, Num == 0 ? Memory.FastMem9Start : Memory.FastMem7Start);
 
     for (int i = 0; i < instrsCount; i++)
     {
