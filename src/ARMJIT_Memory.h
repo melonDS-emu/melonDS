@@ -173,6 +173,9 @@ private:
     static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext);
     int MemoryFile = -1;
 #endif
+#ifdef ANDROID
+    Platform::DynamicLibrary* Libandroid = nullptr;
+#endif
     u8 MappingStatus9[1 << (32-12)] {};
     u8 MappingStatus7[1 << (32-12)] {};
     ARMJIT::TinyVector<Mapping> Mappings[memregions_Count] {};

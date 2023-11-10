@@ -102,7 +102,6 @@ using Platform::LogLevel;
 
 #if defined(__ANDROID__)
 #define ASHMEM_DEVICE "/dev/ashmem"
-Platform::DynamicLibrary* Libandroid = nullptr;
 #endif
 
 #if defined(__SWITCH__)
