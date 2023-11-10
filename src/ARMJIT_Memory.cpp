@@ -192,12 +192,12 @@ void ARMJIT_Memory::SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
     ucontext_t* context = (ucontext_t*)rawContext;
 
     FaultDescription desc {};
-    u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT::Memory->FastMem9Start : ARMJIT::Memory->FastMem7Start);
+    u8* curArea = (u8*)(NDS::CurCPU == 0 ? NDS::JIT->Memory.FastMem9Start : NDS::JIT->Memory.FastMem7Start);
 
     desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
     desc.FaultPC = (u8*)context->CONTEXT_PC;
 
-    if (FaultHandler(desc, *ARMJIT::Memory))
+    if (FaultHandler(desc, *NDS::JIT))
     {
         context->CONTEXT_PC = (u64)desc.FaultPC;
         return;
