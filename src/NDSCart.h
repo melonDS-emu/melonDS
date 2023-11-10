@@ -246,8 +246,11 @@ public:
 // CartR4 -- unlicensed R4 'cart' (NDSCartR4.cpp)
 enum CartR4Type
 {
+    /* non-SDHC carts */
     CartR4TypeM3Simply = 0,
-    CartR4TypeR4 = 4
+    CartR4TypeR4 = 1,
+    /* SDHC carts */
+    CartR4TypeAce3DS = 2
 };
 
 enum CartR4Language
@@ -276,6 +279,10 @@ public:
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
 
 private:
+    inline u32 GetAdjustedSector(u32 sector) const {
+        return CartType >= CartR4TypeAce3DS ? sector : sector >> 9;
+    }
+
     u16 GetEncryptionKey(u16 sector);
     void ReadSDToBuffer(u32 sector, bool rom);
     u32 SDFATEntrySectorGet(u32 entry, u32 addr);

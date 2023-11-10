@@ -20,6 +20,7 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "NDSCart.h"
+#include "Platform.h"
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -105,6 +106,7 @@ void CartR4::DoSavestate(Savestate* file)
     file->VarArray(Buffer, 512);
 }
 
+// FIXME: Ace3DS/clone behavior is only partially verified.
 int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2)
@@ -114,7 +116,7 @@ int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u
     {
     case 0xB0: /* Get card information */
         {
-            u32 info = 0x75A00000 | ((CartType | CartLanguage) << 3) | InitStatus;
+            u32 info = 0x75A00000 | (((CartType >= 1 ? 4 : 0) | CartLanguage) << 3) | InitStatus;
             for (u32 pos = 0; pos < len; pos += 4)
                 *(u32*)&data[pos] = info;
             return 0;
@@ -154,7 +156,7 @@ int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u
         {
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
             if (SD)
-                SD->ReadSectors(sector >> 9, 1, Buffer);
+                SD->ReadSectors(GetAdjustedSector(sector), 1, Buffer);
             for (u32 pos = 0; pos < len; pos += 4)
                 *(u32*)&data[pos] = 0;
             return 0;
@@ -165,6 +167,14 @@ int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u
     case 0xBC: /* SD write status */
     case 0xBE: /* Save write status */
         {
+            if (CartType == CartR4TypeAce3DS && cmd[0] == 0xBC)
+            {
+                uint8_t checksum = 0;
+                for (int i = 0; i < 7; i++)
+                    checksum ^= cmd[i];
+                if (checksum != cmd[7])
+                    Log(LogLevel::Warn, "R4: invalid 0xBC command checksum (%d != %d)", cmd[7], checksum);
+            }
             for (u32 pos = 0; pos < len; pos += 4)
                 *(u32*)&data[pos] = 0;
             return 0;
@@ -187,7 +197,7 @@ int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u
             return 0;        
         }
     default:
-        printf("R4: unknown command %02X %02X %02X %02X %02X %02X %02X %02X (%d)\n", cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7], len);
+        Log(LogLevel::Warn, "R4: unknown command %02X %02X %02X %02X %02X %02X %02X %02X (%d)\n", cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7], len);
         for (u32 pos = 0; pos < len; pos += 4)
             *(u32*)&data[pos] = 0;
         return 0;
@@ -206,10 +216,10 @@ void CartR4::ROMCommandFinish(u8* cmd, u8* data, u32 len)
 
             // The official R4 firmware sends a superfluous write to card
             // (sector 0, byte 1) on boot. TODO: Is this correct?
-            if (sector & 0x1FF) break;
+            if (GetAdjustedSector(sector) == sector && (sector & 0x1FF)) break;
 
             if (SD && (!ReadOnly))
-                SD->WriteSectors(sector >> 9, 1, data);
+                SD->WriteSectors(GetAdjustedSector(sector), 1, data);
             break;
         }
     case 0xBD: /* Save write start */
