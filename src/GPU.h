@@ -35,6 +35,11 @@ namespace GPU3D
 class GPU3D;
 }
 
+namespace ARMJIT
+{
+class ARMJIT;
+}
+
 namespace Melon
 {
 static constexpr u32 VRAMDirtyGranularity = 512;
@@ -70,7 +75,7 @@ struct RenderSettings
 class GPU
 {
 public:
-    GPU() noexcept;
+    GPU(ARMJIT::ARMJIT& jit) noexcept;
     ~GPU() noexcept;
     void Reset() noexcept;
     void Stop() noexcept;
@@ -539,6 +544,7 @@ public:
 
     void SyncDirtyFlags() noexcept;
 
+    ARMJIT::ARMJIT& JIT;
     u16 VCount = 0;
     u16 TotalScanlines = 0;
     u16 DispStat[2] {};

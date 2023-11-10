@@ -21,7 +21,6 @@
 
 #include "../dolphin/x64Emitter.h"
 
-#include "../ARMJIT.h"
 #include "../ARMJIT_Internal.h"
 #include "../ARMJIT_RegisterCache.h"
 
@@ -31,14 +30,11 @@
 
 #include <unordered_map>
 
-namespace Melon
-{
 class ARMJIT_Memory;
-}
 
 namespace ARMJIT
 {
-
+class ARMJIT;
 const Gen::X64Reg RCPU = Gen::RBP;
 const Gen::X64Reg RCPSR = Gen::R15;
 
@@ -84,7 +80,7 @@ struct Op2
 class Compiler : public Gen::XEmitter
 {
 public:
-    Compiler(ARMJIT_Memory& memory);
+    explicit Compiler(ARMJIT& jit);
 
     void Reset();
 
@@ -243,7 +239,7 @@ public:
     void CreateMethod(const char* namefmt, void* start, ...);
 #endif
 
-    ARMJIT_Memory& Memory;
+    ARMJIT& JIT;
     u8* FarCode;
     u8* NearCode;
     u32 FarSize;

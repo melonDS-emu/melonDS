@@ -34,6 +34,7 @@
 #include <sys/ioctl.h>
 #endif
 
+#include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
 
 #include "ARMJIT_Internal.h"
@@ -156,12 +157,12 @@ LONG ARMJIT_Memory::ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
         return EXCEPTION_CONTINUE_SEARCH;
     }
 
-    u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT::Memory->FastMem9Start : ARMJIT::Memory->FastMem7Start);
+    u8* curArea = (u8*)(NDS::CurCPU == 0 ? NDS::JIT->Memory.FastMem9Start : NDS::JIT->Memory.FastMem7Start);
     FaultDescription desc {};
     desc.EmulatedFaultAddr = (u8*)exceptionInfo->ExceptionRecord->ExceptionInformation[1] - curArea;
     desc.FaultPC = (u8*)exceptionInfo->ContextRecord->CONTEXT_PC;
 
-    if (FaultHandler(desc, *ARMJIT::Memory))
+    if (FaultHandler(desc, *NDS::JIT))
     {
         exceptionInfo->ContextRecord->CONTEXT_PC = (u64)desc.FaultPC;
         return EXCEPTION_CONTINUE_EXECUTION;
@@ -530,7 +531,7 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
 
     u8* states = num == 0 ? MappingStatus9 : MappingStatus7;
     //printf("mapping mirror %x, %x %x %d %d\n", mirrorStart, mirrorSize, memoryOffset, region, num);
-    bool isExecutable = ARMJIT::CodeMemRegions[region];
+    bool isExecutable = JIT.CodeMemRegions[region];
 
     u32 dtcmStart = NDS::ARM9->DTCMBase;
     u32 dtcmSize = ~NDS::ARM9->DTCMMask + 1;
@@ -562,7 +563,7 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
     }
 #endif
 
-    ARMJIT::AddressRange* range = ARMJIT::CodeMemRegions[region] + memoryOffset / 512;
+    ARMJIT::AddressRange* range = JIT.CodeMemRegions[region] + memoryOffset / 512;
 
     // this overcomplicated piece of code basically just finds whole pieces of code memory
     // which can be mapped/protected
@@ -617,19 +618,19 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
     return true;
 }
 
-bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, ARMJIT_Memory& armjit)
+bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, ARMJIT::ARMJIT& jit)
 {
-    if (ARMJIT::JITCompiler->IsJITFault(faultDesc.FaultPC))
+    if (jit.JITCompiler.IsJITFault(faultDesc.FaultPC))
     {
         bool rewriteToSlowPath = true;
 
-        u8* memStatus = NDS::CurCPU == 0 ? armjit.MappingStatus9 : armjit.MappingStatus7;
+        u8* memStatus = NDS::CurCPU == 0 ? jit.Memory.MappingStatus9 : jit.Memory.MappingStatus7;
 
         if (memStatus[faultDesc.EmulatedFaultAddr >> 12] == memstate_Unmapped)
-            rewriteToSlowPath = !armjit.MapAtAddress(faultDesc.EmulatedFaultAddr);
+            rewriteToSlowPath = !jit.Memory.MapAtAddress(faultDesc.EmulatedFaultAddr);
 
         if (rewriteToSlowPath)
-            faultDesc.FaultPC = ARMJIT::JITCompiler->RewriteMemAccess(faultDesc.FaultPC);
+            faultDesc.FaultPC = jit.JITCompiler.RewriteMemAccess(faultDesc.FaultPC);
 
         return true;
     }
@@ -638,7 +639,7 @@ bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, ARMJIT_Memory& arm
 
 const u64 AddrSpaceSize = 0x100000000;
 
-ARMJIT_Memory::ARMJIT_Memory() noexcept
+ARMJIT_Memory::ARMJIT_Memory(ARMJIT::ARMJIT& jit) noexcept : JIT(jit)
 {
 #if defined(__SWITCH__)
     MemoryBase = (u8*)aligned_alloc(0x1000, MemoryTotalSize);

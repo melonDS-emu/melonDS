@@ -42,6 +42,10 @@ enum
 const u32 ITCMPhysicalSize = 0x8000;
 const u32 DTCMPhysicalSize = 0x4000;
 
+namespace ARMJIT
+{
+class ARMJIT;
+}
 namespace Melon
 {
 class GPU;
@@ -55,7 +59,7 @@ class ARM
 #endif
 {
 public:
-    ARM(u32 num, ARMJIT_Memory& memory, Melon::GPU& gpu);
+    ARM(u32 num, ARMJIT::ARMJIT& jit, Melon::GPU& gpu);
     virtual ~ARM(); // destroy shit
 
     virtual void Reset();
@@ -186,8 +190,8 @@ public:
     Gdb::GdbStub GdbStub;
 #endif
 
+    ARMJIT::ARMJIT& JIT;
 protected:
-    ARMJIT_Memory& Memory;
     u8 (*BusRead8)(u32 addr);
     u16 (*BusRead16)(u32 addr);
     u32 (*BusRead32)(u32 addr);
@@ -224,7 +228,7 @@ private:
 class ARMv5 : public ARM
 {
 public:
-    ARMv5(ARMJIT_Memory& memory, Melon::GPU& gpu);
+    ARMv5(ARMJIT::ARMJIT& jit, Melon::GPU& gpu);
     ~ARMv5();
 
     void Reset() override;
@@ -368,7 +372,7 @@ public:
 class ARMv4 : public ARM
 {
 public:
-    ARMv4(ARMJIT_Memory& memory, Melon::GPU& gpu);
+    ARMv4(ARMJIT::ARMJIT& jit, Melon::GPU& gpu);
 
     void Reset() override;
 

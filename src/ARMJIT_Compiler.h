@@ -27,9 +27,4 @@
 #error "The current target platform doesn't have a JIT backend"
 #endif
 
-namespace ARMJIT
-{
-extern Compiler* JITCompiler;
-}
-
 #endif

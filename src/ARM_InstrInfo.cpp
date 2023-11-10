@@ -315,7 +315,7 @@ const u32 T_SVC = T_BranchAlways | T_WriteR14 | tk(tk_SVC);
 #include "ARM_InstrTable.h"
 #undef INSTRFUNC_PROTO
 
-Info Decode(bool thumb, u32 num, u32 instr)
+Info Decode(bool thumb, u32 num, u32 instr, bool literaloptimizations)
 {
     const u8 FlagsReadPerCond[7] = {
         flag_Z,
@@ -386,7 +386,7 @@ Info Decode(bool thumb, u32 num, u32 instr)
         {
             if (res.Kind == tk_LDR_PCREL)
             {
-                if (!ARMJIT::LiteralOptimizations)
+                if (!literaloptimizations)
                     res.SrcRegs |= 1 << 15;
                 res.SpecialKind = special_LoadLiteral;
             }

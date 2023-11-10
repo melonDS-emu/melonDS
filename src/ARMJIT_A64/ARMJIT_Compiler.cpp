@@ -699,17 +699,17 @@ void Compiler::Comp_BranchSpecialBehaviour(bool taken)
     }
 }
 
-JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount, bool hasMemInstr)
+JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount, bool hasMemInstr, ARMJIT::ARMJIT& jit)
 {
     if (JitMemMainSize - GetCodeOffset() < 1024 * 16)
     {
         Log(LogLevel::Debug, "JIT near memory full, resetting...\n");
-        ResetBlockCache();
+        jit.ResetBlockCache();
     }
     if ((JitMemMainSize +  JitMemSecondarySize) - OtherCodeRegion < 1024 * 8)
     {
         Log(LogLevel::Debug, "JIT far memory full, resetting...\n");
-        ResetBlockCache();
+        jit.ResetBlockCache();
     }
 
     JitBlockEntry res = (JitBlockEntry)GetRXPtr();

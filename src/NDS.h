@@ -46,6 +46,11 @@ namespace Melon
 class GPU;
 }
 
+namespace ARMJIT
+{
+class ARMJIT;
+}
+
 namespace NDS
 {
 
@@ -269,6 +274,7 @@ extern class Wifi* Wifi;
 extern std::unique_ptr<NDSCart::NDSCartSlot> NDSCartSlot;
 extern std::unique_ptr<GBACart::GBACartSlot> GBACartSlot;
 extern std::unique_ptr<Melon::GPU> GPU;
+extern std::unique_ptr<ARMJIT::ARMJIT> JIT;
 extern class AREngine* AREngine;
 
 const u32 ARM7WRAMSize = 0x10000;

@@ -24,9 +24,12 @@
 #include <string.h>
 #include <assert.h>
 
-#include "ARMJIT.h"
-#include "ARMJIT_Memory.h"
+#include "ARM_InstrInfo.h"
+#include "JitBlock.h"
 #include "TinyVector.h"
+
+class ARM;
+class ARMv5;
 
 // here lands everything which doesn't fit into ARMJIT.h
 // where it would be included by pretty much everything
@@ -70,39 +73,6 @@ struct FetchedInstr
     ARMInstrInfo::Info Info;
 };
 
-
-
-class JitBlock
-{
-public:
-    JitBlock(u32 num, u32 literalHash, u32 numAddresses, u32 numLiterals)
-    {
-        Num = num;
-        NumAddresses = numAddresses;
-        NumLiterals = numLiterals;
-        Data.SetLength(numAddresses * 2 + numLiterals);
-    }
-
-    u32 StartAddr;
-    u32 StartAddrLocal;
-    u32 InstrHash, LiteralHash;
-    u8 Num;
-    u16 NumAddresses;
-    u16 NumLiterals;
-
-    JitBlockEntry EntryPoint;
-
-    u32* AddressRanges()
-    { return &Data[0]; }
-    u32* AddressMasks()
-    { return &Data[NumAddresses]; }
-    u32* Literals()
-    { return &Data[NumAddresses * 2]; }
-
-private:
-    TinyVector<u32> Data;
-};
-
 // size should be 16 bytes because I'm to lazy to use mul and whatnot
 struct __attribute__((packed)) AddressRange
 {
@@ -115,10 +85,6 @@ typedef void (*InterpreterFunc)(ARM* cpu);
 extern InterpreterFunc InterpretARM[];
 extern InterpreterFunc InterpretTHUMB[];
 
-extern TinyVector<u32> InvalidLiterals;
-
-extern AddressRange* const CodeMemRegions[ARMJIT_Memory::memregions_Count];
-
 inline bool PageContainsCode(AddressRange* range)
 {
     for (int i = 0; i < 8; i++)
@@ -128,8 +94,6 @@ inline bool PageContainsCode(AddressRange* range)
     }
     return false;
 }
-
-u32 LocaliseCodeAddress(u32 num, u32 addr);
 
 template <u32 Num>
 void LinkBlock(ARM* cpu, u32 codeOffset);

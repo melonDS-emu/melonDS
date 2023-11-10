@@ -45,6 +45,7 @@
 namespace ARMJIT
 {
 class Compiler;
+class ARMJIT;
 }
 
 constexpr u32 RoundUp(u32 size) noexcept
@@ -96,7 +97,7 @@ public:
 
 #ifdef JIT_ENABLED
 public:
-    ARMJIT_Memory() noexcept;
+    ARMJIT_Memory(ARMJIT::ARMJIT& jit) noexcept;
     ~ARMJIT_Memory() noexcept;
     ARMJIT_Memory(const ARMJIT_Memory&) = delete;
     ARMJIT_Memory(ARMJIT_Memory&&) = delete;
@@ -152,11 +153,12 @@ private:
         u32 EmulatedFaultAddr;
         u8* FaultPC;
     };
-    static bool FaultHandler(FaultDescription& faultDesc, ARMJIT_Memory& armjit);
+    static bool FaultHandler(FaultDescription& faultDesc, ARMJIT::ARMJIT& jit);
     bool MapIntoRange(u32 addr, u32 num, u32 offset, u32 size) noexcept;
     bool UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size) noexcept;
     void SetCodeProtectionRange(u32 addr, u32 size, u32 num, int protection) noexcept;
 
+    ARMJIT::ARMJIT& JIT;
     void* FastMem9Start;
     void* FastMem7Start;
     u8* MemoryBase = nullptr;
@@ -176,7 +178,7 @@ private:
     ARMJIT::TinyVector<Mapping> Mappings[memregions_Count] {};
 #else
 public:
-    ARMJIT_Memory() = default;
+    ARMJIT_Memory(ARMJIT::ARMJIT& jit) = default;
     ~ARMJIT_Memory() = default;
     ARMJIT_Memory(const ARMJIT_Memory&) = delete;
     ARMJIT_Memory(ARMJIT_Memory&&) = delete;
