@@ -44,6 +44,7 @@ void ARMv5::CP15Reset()
     CP15Control = 0x2078; // dunno
 
     RNGSeed = 44203;
+    TraceProcessID = 0;
 
     DTCMSetting = 0;
     ITCMSetting = 0;
@@ -643,6 +644,10 @@ void ARMv5::CP15Write(u32 id, u32 val)
         UpdateITCMSetting();
         return;
 
+    case 0xD01:
+        TraceProcessID = val;
+        return;
+
     case 0xF00:
         //printf("cache debug index register %08X\n", val);
         return;
@@ -760,6 +765,9 @@ u32 ARMv5::CP15Read(u32 id) const
         return DTCMSetting;
     case 0x911:
         return ITCMSetting;
+
+    case 0xD01:
+        return TraceProcessID;
     }
 
     if ((id & 0xF00) == 0xF00) // test/debug shit?

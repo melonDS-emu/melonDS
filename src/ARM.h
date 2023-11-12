@@ -323,6 +323,7 @@ public:
     u32 CP15Control;
 
     u32 RNGSeed;
+    u32 TraceProcessID;
 
     u32 DTCMSetting, ITCMSetting;
 
