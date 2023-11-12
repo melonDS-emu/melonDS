@@ -31,7 +31,7 @@ using Platform::Log;
 using Platform::LogLevel;
 
 
-const u8 CIS0[256] =
+u8 CIS0[256] =
 {
     0x01, 0x03, 0xD9, 0x01, 0xFF,
     0x20, 0x04, 0x71, 0x02, 0x00, 0x02,
@@ -70,7 +70,7 @@ const u8 CIS0[256] =
     0x00, 0x00, 0x00
 };
 
-const u8 CIS1[256] =
+u8 CIS1[256] =
 {
     0x20, 0x04, 0x71, 0x02, 0x00, 0x02,
     0x21, 0x02, 0x0C, 0x00,
@@ -200,6 +200,9 @@ void DSi_NWifi::Reset()
         HostIntAddr = 0x00500400;
         break;
     }
+
+    CIS0[9] = ChipID >= 0x0D000000;
+    CIS1[4] = CIS0[9];
 
     memset(EEPROM, 0, 0x400);
 
