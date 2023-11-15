@@ -80,7 +80,11 @@ struct Op2
 class Compiler : public Gen::XEmitter
 {
 public:
+#ifdef JIT_ENABLED
     explicit Compiler(ARMJIT& jit);
+#else
+    explicit Compiler(ARMJIT& jit) : XEmitter(), JIT(jit) {}
+#endif
 
     void Reset();
 

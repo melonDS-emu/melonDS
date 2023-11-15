@@ -23,10 +23,7 @@
 #include "ARM.h"
 #include "Platform.h"
 #include "ARMJIT_Memory.h"
-
-#ifdef JIT_ENABLED
 #include "ARMJIT.h"
-#endif
 
 using Platform::Log;
 using Platform::LogLevel;

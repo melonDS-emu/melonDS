@@ -20,9 +20,7 @@
 #include "NDS.h"
 #include "GPU.h"
 
-#ifdef JIT_ENABLED
 #include "ARMJIT.h"
-#endif
 
 #include "GPU2D_Soft.h"
 #include "GPU3D_Soft.h"

@@ -229,10 +229,6 @@ void SlowBlockTransfer7(u32 addr, u64* data, u32 num)
 INSTANTIATE_SLOWMEM(0)
 INSTANTIATE_SLOWMEM(1)
 
-ARMJIT::ARMJIT() noexcept : JITCompiler(*this), Memory(*this)
-{
-}
-
 ARMJIT::~ARMJIT() noexcept
 {
     JitEnableWrite();

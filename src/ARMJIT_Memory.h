@@ -97,7 +97,7 @@ public:
 
 #ifdef JIT_ENABLED
 public:
-    ARMJIT_Memory(ARMJIT::ARMJIT& jit) noexcept;
+    explicit ARMJIT_Memory(ARMJIT::ARMJIT& jit) noexcept;
     ~ARMJIT_Memory() noexcept;
     ARMJIT_Memory(const ARMJIT_Memory&) = delete;
     ARMJIT_Memory(ARMJIT_Memory&&) = delete;
@@ -181,7 +181,7 @@ private:
     ARMJIT::TinyVector<Mapping> Mappings[memregions_Count] {};
 #else
 public:
-    ARMJIT_Memory(ARMJIT::ARMJIT& jit) = default;
+    explicit ARMJIT_Memory(ARMJIT::ARMJIT&) {};
     ~ARMJIT_Memory() = default;
     ARMJIT_Memory(const ARMJIT_Memory&) = delete;
     ARMJIT_Memory(ARMJIT_Memory&&) = delete;
