@@ -21,6 +21,7 @@
 
 #include <string>
 #include <memory>
+#include <array>
 
 #include "types.h"
 #include "Savestate.h"
