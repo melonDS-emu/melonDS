@@ -240,42 +240,42 @@ public:
 #endif
 
     ARMJIT& JIT;
-    u8* FarCode;
-    u8* NearCode;
-    u32 FarSize;
-    u32 NearSize;
+    u8* FarCode {};
+    u8* NearCode {};
+    u32 FarSize {};
+    u32 NearSize {};
 
-    u8* NearStart;
-    u8* FarStart;
+    u8* NearStart {};
+    u8* FarStart {};
 
-    void* PatchedStoreFuncs[2][2][3][16];
-    void* PatchedLoadFuncs[2][2][3][2][16];
+    void* PatchedStoreFuncs[2][2][3][16] {};
+    void* PatchedLoadFuncs[2][2][3][2][16] {};
 
-    std::unordered_map<u8*, LoadStorePatch> LoadStorePatches;
+    std::unordered_map<u8*, LoadStorePatch> LoadStorePatches {};
 
-    u8* ResetStart;
-    u32 CodeMemSize;
+    u8* ResetStart {};
+    u32 CodeMemSize {};
 
-    bool Exit;
-    bool IrregularCycles;
+    bool Exit {};
+    bool IrregularCycles {};
 
-    void* ReadBanked;
-    void* WriteBanked;
+    void* ReadBanked {};
+    void* WriteBanked {};
 
     bool CPSRDirty = false;
 
-    FetchedInstr CurInstr;
+    FetchedInstr CurInstr {};
 
-    RegisterCache<Compiler, Gen::X64Reg> RegCache;
+    RegisterCache<Compiler, Gen::X64Reg> RegCache {};
 
-    bool Thumb;
-    u32 Num;
-    u32 R15;
-    u32 CodeRegion;
+    bool Thumb {};
+    u32 Num {};
+    u32 R15 {};
+    u32 CodeRegion {};
 
-    u32 ConstantCycles;
+    u32 ConstantCycles {};
 
-    ARM* CurCPU;
+    ARM* CurCPU {};
 };
 
 }
