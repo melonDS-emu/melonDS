@@ -1,3 +1,16 @@
+include(FetchContent)
+
+set(_DEFAULT_VCPKG_ROOT "${CMAKE_SOURCE_DIR}/vcpkg")
+set(VCPKG_ROOT "${_DEFAULT_VCPKG_ROOT}" CACHE STRING "The path to the vcpkg repository")
+
+if (VCPKG_ROOT STREQUAL "${_DEFAULT_VCPKG_ROOT}")
+    FetchContent_Declare(vcpkg
+        GIT_REPOSITORY "https://github.com/Microsoft/vcpkg.git"
+        GIT_TAG 2023.10.19
+        SOURCE_DIR "${CMAKE_SOURCE_DIR}/vcpkg")
+    FetchContent_MakeAvailable(vcpkg)
+endif()
+
 set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_SOURCE_DIR}/cmake/overlay-triplets")
 
 option(USE_RECOMMENDED_TRIPLETS "Use the recommended triplets that are used for official builds" ON)
@@ -64,4 +77,4 @@ if (USE_RECOMMENDED_TRIPLETS)
     endif()
 endif()
 
-set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake")
+set(CMAKE_TOOLCHAIN_FILE "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
