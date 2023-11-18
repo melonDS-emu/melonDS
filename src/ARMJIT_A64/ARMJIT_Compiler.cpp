@@ -20,6 +20,7 @@
 
 #include "../ARMJIT_Internal.h"
 #include "../ARMInterpreter.h"
+#include "../ARMJIT.h"
 
 #if defined(__SWITCH__)
 #include <switch.h>
@@ -219,7 +220,7 @@ void Compiler::PopRegs(bool saveHiRegs, bool saveRegsToBeChanged)
     }
 }
 
-Compiler::Compiler()
+Compiler::Compiler(ARMJIT& jit) : Arm64Gen::ARM64XEmitter(), JIT(jit)
 {
 #ifdef __SWITCH__
     JitRWBase = aligned_alloc(0x1000, JitMemSize);
@@ -704,12 +705,12 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
     if (JitMemMainSize - GetCodeOffset() < 1024 * 16)
     {
         Log(LogLevel::Debug, "JIT near memory full, resetting...\n");
-        ResetBlockCache();
+        JIT.ResetBlockCache();
     }
     if ((JitMemMainSize +  JitMemSecondarySize) - OtherCodeRegion < 1024 * 8)
     {
         Log(LogLevel::Debug, "JIT far memory full, resetting...\n");
-        ResetBlockCache();
+        JIT.ResetBlockCache();
     }
 
     JitBlockEntry res = (JitBlockEntry)GetRXPtr();
@@ -722,7 +723,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
     CPSRDirty = false;
 
     if (hasMemInstr)
-        MOVP2R(RMemBase, Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
+        MOVP2R(RMemBase, Num == 0 ? JIT.Memory.FastMem9Start : JIT.Memory.FastMem7Start);
 
     for (int i = 0; i < instrsCount; i++)
     {

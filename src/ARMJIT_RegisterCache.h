@@ -19,7 +19,6 @@
 #ifndef ARMJIT_REGCACHE_H
 #define ARMJIT_REGCACHE_H
 
-#include "ARMJIT.h"
 #include "ARMJIT_Internal.h"
 #include "Platform.h"
 

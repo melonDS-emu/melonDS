@@ -20,9 +20,7 @@
 #include "NDS.h"
 #include "GPU.h"
 
-#ifdef JIT_ENABLED
 #include "ARMJIT.h"
-#endif
 
 #include "GPU2D_Soft.h"
 #include "GPU3D_Soft.h"
@@ -66,7 +64,7 @@ enum
                 VRAMDirty need to be reset for the respective VRAM bank.
 */
 
-GPU::GPU() noexcept : GPU2D_A(0, *this), GPU2D_B(1, *this)
+GPU::GPU(ARMJIT::ARMJIT& jit) noexcept : GPU2D_A(0, *this), GPU2D_B(1, *this), JIT(jit)
 {
     NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartHBlank, MemberEventFunc(GPU, StartHBlank));
     NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartScanline, MemberEventFunc(GPU, StartScanline));
@@ -590,9 +588,7 @@ void GPU::MapVRAM_CD(u32 bank, u8 cnt) noexcept
             VRAMMap_ARM7[ofs] |= bankmask;
             memset(VRAMDirty[bank].Data, 0xFF, sizeof(VRAMDirty[bank].Data));
             VRAMSTAT |= (1 << (bank-2));
-#ifdef JIT_ENABLED
-            ARMJIT::CheckAndInvalidateWVRAM(ofs);
-#endif
+            JIT.CheckAndInvalidateWVRAM(ofs);
             break;
 
         case 3: // texture

@@ -26,11 +26,7 @@
 #include "ARMJIT.h"
 #include "Platform.h"
 #include "GPU.h"
-
-#ifdef JIT_ENABLED
-#include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
-#endif
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -88,7 +84,7 @@ void ARM::GdbCheckC() {}
 
 
 
-u32 ARM::ConditionTable[16] =
+const u32 ARM::ConditionTable[16] =
 {
     0xF0F0, // EQ
     0x0F0F, // NE
@@ -108,16 +104,14 @@ u32 ARM::ConditionTable[16] =
     0x0000  // NE
 };
 
-
-ARM::ARM(u32 num, Melon::GPU& gpu) :
+ARM::ARM(u32 num, ARMJIT::ARMJIT& jit, Melon::GPU& gpu) :
 #ifdef GDBSTUB_ENABLED
     GdbStub(this, Platform::GetConfigInt(num ? Platform::GdbPortARM7 : Platform::GdbPortARM9)),
 #endif
+    JIT(jit),
+    Num(num), // well uh
     GPU(gpu)
 {
-    // well uh
-    Num = num;
-
 #ifdef GDBSTUB_ENABLED
     if (Platform::GetConfigBool(Platform::GdbEnabled)
 #ifdef JIT_ENABLED
@@ -134,25 +128,21 @@ ARM::~ARM()
     // dorp
 }
 
-ARMv5::ARMv5(Melon::GPU& gpu) : ARM(0, gpu)
+ARMv5::ARMv5(ARMJIT::ARMJIT& jit, Melon::GPU& gpu) : ARM(0, jit, gpu)
 {
-#ifndef JIT_ENABLED
-    DTCM = new u8[DTCMPhysicalSize];
-#endif
+    DTCM = JIT.Memory.GetARM9DTCM();
 
     PU_Map = PU_PrivMap;
 }
 
-ARMv4::ARMv4(Melon::GPU& gpu) : ARM(1, gpu)
+ARMv4::ARMv4(ARMJIT::ARMJIT& jit, Melon::GPU& gpu) : ARM(1, jit, gpu)
 {
     //
 }
 
 ARMv5::~ARMv5()
 {
-#ifndef JIT_ENABLED
-    delete[] DTCM;
-#endif
+    // DTCM is owned by Memory, not going to delete it
 }
 
 void ARM::Reset()
@@ -752,19 +742,19 @@ void ARMv5::ExecuteJIT()
         u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
 
         if ((instrAddr < FastBlockLookupStart || instrAddr >= (FastBlockLookupStart + FastBlockLookupSize))
-            && !ARMJIT::SetupExecutableRegion(0, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
+            && !JIT.SetupExecutableRegion(0, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
         {
             NDS::ARM9Timestamp = NDS::ARM9Target;
             Log(LogLevel::Error, "ARMv5 PC in non executable region %08X\n", R[15]);
             return;
         }
 
-        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(0, FastBlockLookup,
+        ARMJIT::JitBlockEntry block = JIT.LookUpBlock(0, FastBlockLookup,
             instrAddr - FastBlockLookupStart, instrAddr);
         if (block)
             ARM_Dispatch(this, block);
         else
-            ARMJIT::CompileBlock(this);
+            JIT.CompileBlock(this);
 
         if (StopExecution)
         {
@@ -909,19 +899,19 @@ void ARMv4::ExecuteJIT()
         u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
 
         if ((instrAddr < FastBlockLookupStart || instrAddr >= (FastBlockLookupStart + FastBlockLookupSize))
-            && !ARMJIT::SetupExecutableRegion(1, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
+            && !JIT.SetupExecutableRegion(1, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
         {
             NDS::ARM7Timestamp = NDS::ARM7Target;
             Log(LogLevel::Error, "ARMv4 PC in non executable region %08X\n", R[15]);
             return;
         }
 
-        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(1, FastBlockLookup,
+        ARMJIT::JitBlockEntry block = JIT.LookUpBlock(1, FastBlockLookup,
             instrAddr - FastBlockLookupStart, instrAddr);
         if (block)
             ARM_Dispatch(this, block);
         else
-            ARMJIT::CompileBlock(this);
+            JIT.CompileBlock(this);
 
         if (StopExecution)
         {

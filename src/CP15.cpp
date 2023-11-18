@@ -22,11 +22,8 @@
 #include "DSi.h"
 #include "ARM.h"
 #include "Platform.h"
-
-#ifdef JIT_ENABLED
-#include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
-#endif
+#include "ARMJIT.h"
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -125,9 +122,7 @@ void ARMv5::UpdateDTCMSetting()
 
     if (newDTCMBase != DTCMBase || newDTCMMask != DTCMMask)
     {
-#ifdef JIT_ENABLED
-        ARMJIT_Memory::RemapDTCM(newDTCMBase, newDTCMSize);
-#endif
+        JIT.Memory.RemapDTCM(newDTCMBase, newDTCMSize);
         DTCMBase = newDTCMBase;
         DTCMMask = newDTCMMask;
     }
@@ -926,9 +921,7 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
     {
         DataCycles = 1;
         *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
-#ifdef JIT_ENABLED
-        ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
-#endif
+        JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
@@ -958,9 +951,7 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
     {
         DataCycles = 1;
         *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
-#ifdef JIT_ENABLED
-        ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
-#endif
+        JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
@@ -990,9 +981,7 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
     {
         DataCycles = 1;
         *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
-#ifdef JIT_ENABLED
-        ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
-#endif
+        JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
@@ -1015,7 +1004,7 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
         DataCycles += 1;
         *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
 #ifdef JIT_ENABLED
-        ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
+        JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
 #endif
         return;
     }

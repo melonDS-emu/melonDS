@@ -19,6 +19,7 @@
 #ifndef NDSCART_H
 #define NDSCART_H
 
+#include <array>
 #include <string>
 #include <memory>
 #include <array>

@@ -17,6 +17,7 @@
 */
 
 #include "ARMJIT_Compiler.h"
+#include "../ARM.h"
 
 using namespace Gen;
 

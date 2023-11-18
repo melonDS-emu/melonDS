@@ -34,6 +34,7 @@
 #include <sys/ioctl.h>
 #endif
 
+#include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
 
 #include "ARMJIT_Internal.h"
@@ -72,17 +73,6 @@ using Platform::LogLevel;
 
 */
 
-namespace ARMJIT_Memory
-{
-struct FaultDescription
-{
-    u32 EmulatedFaultAddr;
-    u8* FaultPC;
-};
-
-bool FaultHandler(FaultDescription& faultDesc);
-}
-
 // Yes I know this looks messy, but better here than somewhere else in the code
 #if defined(__x86_64__)
     #if defined(_WIN32)
@@ -112,7 +102,6 @@ bool FaultHandler(FaultDescription& faultDesc);
 
 #if defined(__ANDROID__)
 #define ASHMEM_DEVICE "/dev/ashmem"
-Platform::DynamicLibrary* Libandroid = nullptr;
 #endif
 
 #if defined(__SWITCH__)
@@ -146,7 +135,7 @@ void __libnx_exception_handler(ThreadExceptionDump* ctx)
     integerRegisters[31] = ctx->sp.x;
     integerRegisters[32] = ctx->pc.x;
 
-    if (ARMJIT_Memory::FaultHandler(desc))
+    if (Melon::FaultHandler(desc))
     {
         integerRegisters[32] = (u64)desc.FaultPC;
 
@@ -160,19 +149,19 @@ void __libnx_exception_handler(ThreadExceptionDump* ctx)
 
 #elif defined(_WIN32)
 
-static LONG ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
+LONG ARMJIT_Memory::ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
 {
     if (exceptionInfo->ExceptionRecord->ExceptionCode != EXCEPTION_ACCESS_VIOLATION)
     {
         return EXCEPTION_CONTINUE_SEARCH;
     }
 
-    ARMJIT_Memory::FaultDescription desc;
-    u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
+    u8* curArea = (u8*)(NDS::CurCPU == 0 ? NDS::JIT->Memory.FastMem9Start : NDS::JIT->Memory.FastMem7Start);
+    FaultDescription desc {};
     desc.EmulatedFaultAddr = (u8*)exceptionInfo->ExceptionRecord->ExceptionInformation[1] - curArea;
     desc.FaultPC = (u8*)exceptionInfo->ContextRecord->CONTEXT_PC;
 
-    if (ARMJIT_Memory::FaultHandler(desc))
+    if (FaultHandler(desc, *NDS::JIT))
     {
         exceptionInfo->ContextRecord->CONTEXT_PC = (u64)desc.FaultPC;
         return EXCEPTION_CONTINUE_EXECUTION;
@@ -186,7 +175,7 @@ static LONG ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
 static struct sigaction OldSaSegv;
 static struct sigaction OldSaBus;
 
-static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
+void ARMJIT_Memory::SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
 {
     if (sig != SIGSEGV && sig != SIGBUS)
     {
@@ -201,13 +190,13 @@ static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
 
     ucontext_t* context = (ucontext_t*)rawContext;
 
-    ARMJIT_Memory::FaultDescription desc;
-    u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
+    FaultDescription desc {};
+    u8* curArea = (u8*)(NDS::CurCPU == 0 ? NDS::JIT->Memory.FastMem9Start : NDS::JIT->Memory.FastMem7Start);
 
     desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
     desc.FaultPC = (u8*)context->CONTEXT_PC;
 
-    if (ARMJIT_Memory::FaultHandler(desc))
+    if (FaultHandler(desc, *NDS::JIT))
     {
         context->CONTEXT_PC = (u64)desc.FaultPC;
         return;
@@ -239,33 +228,7 @@ static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
 
 #endif
 
-namespace ARMJIT_Memory
-{
-
-void* FastMem9Start, *FastMem7Start;
-
-#ifdef _WIN32
-inline u32 RoundUp(u32 size)
-{
-    return (size + 0xFFFF) & ~0xFFFF;
-}
-#else
-inline u32 RoundUp(u32 size)
-{
-    return size;
-}
-#endif
-
-const u32 MemBlockMainRAMOffset = 0;
-const u32 MemBlockSWRAMOffset = RoundUp(NDS::MainRAMMaxSize);
-const u32 MemBlockARM7WRAMOffset = MemBlockSWRAMOffset + RoundUp(NDS::SharedWRAMSize);
-const u32 MemBlockDTCMOffset = MemBlockARM7WRAMOffset + RoundUp(NDS::ARM7WRAMSize);
-const u32 MemBlockNWRAM_AOffset = MemBlockDTCMOffset + RoundUp(DTCMPhysicalSize);
-const u32 MemBlockNWRAM_BOffset = MemBlockNWRAM_AOffset + RoundUp(DSi::NWRAMSize);
-const u32 MemBlockNWRAM_COffset = MemBlockNWRAM_BOffset + RoundUp(DSi::NWRAMSize);
-const u32 MemoryTotalSize = MemBlockNWRAM_COffset + RoundUp(DSi::NWRAMSize);
-
-const u32 OffsetsPerRegion[memregions_Count] =
+const u32 OffsetsPerRegion[ARMJIT_Memory::memregions_Count] =
 {
     UINT32_MAX,
     UINT32_MAX,
@@ -295,23 +258,9 @@ enum
     memstate_MappedProtected,
 };
 
-u8 MappingStatus9[1 << (32-12)];
-u8 MappingStatus7[1 << (32-12)];
 
-#if defined(__SWITCH__)
-VirtmemReservation* FastMem9Reservation, *FastMem7Reservation;
-u8* MemoryBase;
-u8* MemoryBaseCodeMem;
-#elif defined(_WIN32)
-u8* MemoryBase;
-HANDLE MemoryFile;
-LPVOID ExceptionHandlerHandle;
-#else
-u8* MemoryBase;
-int MemoryFile = -1;
-#endif
 
-bool MapIntoRange(u32 addr, u32 num, u32 offset, u32 size)
+bool ARMJIT_Memory::MapIntoRange(u32 addr, u32 num, u32 offset, u32 size) noexcept
 {
     u8* dst = (u8*)(num == 0 ? FastMem9Start : FastMem7Start) + addr;
 #ifdef __SWITCH__
@@ -326,7 +275,7 @@ bool MapIntoRange(u32 addr, u32 num, u32 offset, u32 size)
 #endif
 }
 
-bool UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size)
+bool ARMJIT_Memory::UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size) noexcept
 {
     u8* dst = (u8*)(num == 0 ? FastMem9Start : FastMem7Start) + addr;
 #ifdef __SWITCH__
@@ -341,7 +290,7 @@ bool UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size)
 }
 
 #ifndef __SWITCH__
-void SetCodeProtectionRange(u32 addr, u32 size, u32 num, int protection)
+void ARMJIT_Memory::SetCodeProtectionRange(u32 addr, u32 size, u32 num, int protection) noexcept
 {
     u8* dst = (u8*)(num == 0 ? FastMem9Start : FastMem7Start) + addr;
 #if defined(_WIN32)
@@ -367,82 +316,74 @@ void SetCodeProtectionRange(u32 addr, u32 size, u32 num, int protection)
 }
 #endif
 
-struct Mapping
+void ARMJIT_Memory::Mapping::Unmap(int region, ARMJIT_Memory& memory) noexcept
 {
-    u32 Addr;
-    u32 Size, LocalOffset;
-    u32 Num;
-
-    void Unmap(int region)
+    u32 dtcmStart = NDS::ARM9->DTCMBase;
+    u32 dtcmSize = ~NDS::ARM9->DTCMMask + 1;
+    bool skipDTCM = Num == 0 && region != memregion_DTCM;
+    u8* statuses = Num == 0 ? memory.MappingStatus9 : memory.MappingStatus7;
+    u32 offset = 0;
+    while (offset < Size)
     {
-        u32 dtcmStart = NDS::ARM9->DTCMBase;
-        u32 dtcmSize = ~NDS::ARM9->DTCMMask + 1;
-        bool skipDTCM = Num == 0 && region != memregion_DTCM;
-        u8* statuses = Num == 0 ? MappingStatus9 : MappingStatus7;
-        u32 offset = 0;
-        while (offset < Size)
+        if (skipDTCM && Addr + offset == dtcmStart)
         {
-            if (skipDTCM && Addr + offset == dtcmStart)
+            offset += dtcmSize;
+        }
+        else
+        {
+            u32 segmentOffset = offset;
+            u8 status = statuses[(Addr + offset) >> 12];
+            while (statuses[(Addr + offset) >> 12] == status
+                   && offset < Size
+                   && (!skipDTCM || Addr + offset != dtcmStart))
             {
-                offset += dtcmSize;
+                assert(statuses[(Addr + offset) >> 12] != memstate_Unmapped);
+                statuses[(Addr + offset) >> 12] = memstate_Unmapped;
+                offset += 0x1000;
             }
-            else
-            {
-                u32 segmentOffset = offset;
-                u8 status = statuses[(Addr + offset) >> 12];
-                while (statuses[(Addr + offset) >> 12] == status
-                    && offset < Size
-                    && (!skipDTCM || Addr + offset != dtcmStart))
-                {
-                    assert(statuses[(Addr + offset) >> 12] != memstate_Unmapped);
-                    statuses[(Addr + offset) >> 12] = memstate_Unmapped;
-                    offset += 0x1000;
-                }
 
 #ifdef __SWITCH__
-                if (status == memstate_MappedRW)
-                {
-                    u32 segmentSize = offset - segmentOffset;
-                    Log(LogLevel::Debug, "unmapping %x %x %x %x\n", Addr + segmentOffset, Num, segmentOffset + LocalOffset + OffsetsPerRegion[region], segmentSize);
-                    bool success = UnmapFromRange(Addr + segmentOffset, Num, segmentOffset + LocalOffset + OffsetsPerRegion[region], segmentSize);
-                    assert(success);
-                }
-#endif
+            if (status == memstate_MappedRW)
+            {
+                u32 segmentSize = offset - segmentOffset;
+                Log(LogLevel::Debug, "unmapping %x %x %x %x\n", Addr + segmentOffset, Num, segmentOffset + LocalOffset + OffsetsPerRegion[region], segmentSize);
+                bool success = memory.UnmapFromRange(Addr + segmentOffset, Num, segmentOffset + LocalOffset + OffsetsPerRegion[region], segmentSize);
+                assert(success);
             }
+#endif
         }
+    }
 
 #ifndef __SWITCH__
 #ifndef _WIN32
-        u32 dtcmEnd = dtcmStart + dtcmSize;
-        if (Num == 0
-            && dtcmEnd >= Addr
-            && dtcmStart < Addr + Size)
+    u32 dtcmEnd = dtcmStart + dtcmSize;
+    if (Num == 0
+        && dtcmEnd >= Addr
+        && dtcmStart < Addr + Size)
+    {
+        bool success;
+        if (dtcmStart > Addr)
         {
-            bool success;
-            if (dtcmStart > Addr)
-            {
-                success = UnmapFromRange(Addr, 0, OffsetsPerRegion[region] + LocalOffset, dtcmStart - Addr);
-                assert(success);
-            }
-            if (dtcmEnd < Addr + Size)
-            {
-                u32 offset = dtcmStart - Addr + dtcmSize;
-                success = UnmapFromRange(dtcmEnd, 0, OffsetsPerRegion[region] + LocalOffset + offset, Size - offset);
-                assert(success);
-            }
+            success = memory.UnmapFromRange(Addr, 0, OffsetsPerRegion[region] + LocalOffset, dtcmStart - Addr);
+            assert(success);
         }
-        else
-#endif
+        if (dtcmEnd < Addr + Size)
         {
-            bool succeded = UnmapFromRange(Addr, Num, OffsetsPerRegion[region] + LocalOffset, Size);
-            assert(succeded);
+            u32 offset = dtcmStart - Addr + dtcmSize;
+            success = memory.UnmapFromRange(dtcmEnd, 0, OffsetsPerRegion[region] + LocalOffset + offset, Size - offset);
+            assert(success);
         }
-#endif
     }
-};
-ARMJIT::TinyVector<Mapping> Mappings[memregions_Count];
+    else
+#endif
+    {
+        bool succeded = memory.UnmapFromRange(Addr, Num, OffsetsPerRegion[region] + LocalOffset, Size);
+        assert(succeded);
+    }
+#endif
+}
 
-void SetCodeProtection(int region, u32 offset, bool protect)
+void ARMJIT_Memory::SetCodeProtection(int region, u32 offset, bool protect) noexcept
 {
     offset &= ~0xFFF;
     //printf("set code protection %d %x %d\n", region, offset, protect);
@@ -479,7 +420,7 @@ void SetCodeProtection(int region, u32 offset, bool protect)
     }
 }
 
-void RemapDTCM(u32 newBase, u32 newSize)
+void ARMJIT_Memory::RemapDTCM(u32 newBase, u32 newSize) noexcept
 {
     // this first part could be made more efficient
     // by unmapping DTCM first and then map the holes
@@ -510,7 +451,7 @@ void RemapDTCM(u32 newBase, u32 newSize)
 
             if (mapping.Num == 0 && overlap)
             {
-                mapping.Unmap(region);
+                mapping.Unmap(region, *this);
                 Mappings[region].Remove(i);
             }
             else
@@ -522,12 +463,12 @@ void RemapDTCM(u32 newBase, u32 newSize)
 
     for (int i = 0; i < Mappings[memregion_DTCM].Length; i++)
     {
-        Mappings[memregion_DTCM][i].Unmap(memregion_DTCM);
+        Mappings[memregion_DTCM][i].Unmap(memregion_DTCM, *this);
     }
     Mappings[memregion_DTCM].Clear();
 }
 
-void RemapNWRAM(int num)
+void ARMJIT_Memory::RemapNWRAM(int num) noexcept
 {
     for (int i = 0; i < Mappings[memregion_SharedWRAM].Length;)
     {
@@ -535,7 +476,7 @@ void RemapNWRAM(int num)
         if (DSi::NWRAMStart[mapping.Num][num] < mapping.Addr + mapping.Size
             && DSi::NWRAMEnd[mapping.Num][num] > mapping.Addr)
         {
-            mapping.Unmap(memregion_SharedWRAM);
+            mapping.Unmap(memregion_SharedWRAM, *this);
             Mappings[memregion_SharedWRAM].Remove(i);
         }
         else
@@ -545,12 +486,12 @@ void RemapNWRAM(int num)
     }
     for (int i = 0; i < Mappings[memregion_NewSharedWRAM_A + num].Length; i++)
     {
-        Mappings[memregion_NewSharedWRAM_A + num][i].Unmap(memregion_NewSharedWRAM_A + num);
+        Mappings[memregion_NewSharedWRAM_A + num][i].Unmap(memregion_NewSharedWRAM_A + num, *this);
     }
     Mappings[memregion_NewSharedWRAM_A + num].Clear();
 }
 
-void RemapSWRAM()
+void ARMJIT_Memory::RemapSWRAM() noexcept
 {
     Log(LogLevel::Debug, "remapping SWRAM\n");
     for (int i = 0; i < Mappings[memregion_WRAM7].Length;)
@@ -558,7 +499,7 @@ void RemapSWRAM()
         Mapping& mapping = Mappings[memregion_WRAM7][i];
         if (mapping.Addr + mapping.Size <= 0x03800000)
         {
-            mapping.Unmap(memregion_WRAM7);
+            mapping.Unmap(memregion_WRAM7, *this);
             Mappings[memregion_WRAM7].Remove(i);
         }
         else
@@ -566,12 +507,12 @@ void RemapSWRAM()
     }
     for (int i = 0; i < Mappings[memregion_SharedWRAM].Length; i++)
     {
-        Mappings[memregion_SharedWRAM][i].Unmap(memregion_SharedWRAM);
+        Mappings[memregion_SharedWRAM][i].Unmap(memregion_SharedWRAM, *this);
     }
     Mappings[memregion_SharedWRAM].Clear();
 }
 
-bool MapAtAddress(u32 addr)
+bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
 {
     u32 num = NDS::CurCPU;
 
@@ -589,7 +530,7 @@ bool MapAtAddress(u32 addr)
 
     u8* states = num == 0 ? MappingStatus9 : MappingStatus7;
     //printf("mapping mirror %x, %x %x %d %d\n", mirrorStart, mirrorSize, memoryOffset, region, num);
-    bool isExecutable = ARMJIT::CodeMemRegions[region];
+    bool isExecutable = JIT.CodeMemRegions[region];
 
     u32 dtcmStart = NDS::ARM9->DTCMBase;
     u32 dtcmSize = ~NDS::ARM9->DTCMMask + 1;
@@ -621,7 +562,7 @@ bool MapAtAddress(u32 addr)
     }
 #endif
 
-    ARMJIT::AddressRange* range = ARMJIT::CodeMemRegions[region] + memoryOffset / 512;
+    ARMJIT::AddressRange* range = JIT.CodeMemRegions[region] + memoryOffset / 512;
 
     // this overcomplicated piece of code basically just finds whole pieces of code memory
     // which can be mapped/protected
@@ -676,19 +617,19 @@ bool MapAtAddress(u32 addr)
     return true;
 }
 
-bool FaultHandler(FaultDescription& faultDesc)
+bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, ARMJIT::ARMJIT& jit)
 {
-    if (ARMJIT::JITCompiler->IsJITFault(faultDesc.FaultPC))
+    if (jit.JITCompiler.IsJITFault(faultDesc.FaultPC))
     {
         bool rewriteToSlowPath = true;
 
-        u8* memStatus = NDS::CurCPU == 0 ? MappingStatus9 : MappingStatus7;
+        u8* memStatus = NDS::CurCPU == 0 ? jit.Memory.MappingStatus9 : jit.Memory.MappingStatus7;
 
         if (memStatus[faultDesc.EmulatedFaultAddr >> 12] == memstate_Unmapped)
-            rewriteToSlowPath = !MapAtAddress(faultDesc.EmulatedFaultAddr);
+            rewriteToSlowPath = !jit.Memory.MapAtAddress(faultDesc.EmulatedFaultAddr);
 
         if (rewriteToSlowPath)
-            faultDesc.FaultPC = ARMJIT::JITCompiler->RewriteMemAccess(faultDesc.FaultPC);
+            faultDesc.FaultPC = jit.JITCompiler.RewriteMemAccess(faultDesc.FaultPC);
 
         return true;
     }
@@ -697,7 +638,7 @@ bool FaultHandler(FaultDescription& faultDesc)
 
 const u64 AddrSpaceSize = 0x100000000;
 
-void Init()
+ARMJIT_Memory::ARMJIT_Memory(ARMJIT::ARMJIT& jit) noexcept : JIT(jit)
 {
 #if defined(__SWITCH__)
     MemoryBase = (u8*)aligned_alloc(0x1000, MemoryTotalSize);
@@ -740,8 +681,6 @@ void Init()
     MemoryBase = MemoryBase + AddrSpaceSize*3;
 
     MapViewOfFileEx(MemoryFile, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, MemoryTotalSize, MemoryBase);
-
-    u8* basePtr = MemoryBase;
 #else
     // this used to be allocated with three different mmaps
     // The idea was to give the OS more freedom where to position the buffers,
@@ -798,16 +737,9 @@ void Init()
 
     u8* basePtr = MemoryBase;
 #endif
-    NDS::MainRAM = basePtr + MemBlockMainRAMOffset;
-    NDS::SharedWRAM = basePtr + MemBlockSWRAMOffset;
-    NDS::ARM7WRAM = basePtr + MemBlockARM7WRAMOffset;
-    NDS::ARM9->DTCM = basePtr + MemBlockDTCMOffset;
-    DSi::NWRAM_A = basePtr + MemBlockNWRAM_AOffset;
-    DSi::NWRAM_B = basePtr + MemBlockNWRAM_BOffset;
-    DSi::NWRAM_C = basePtr + MemBlockNWRAM_COffset;
 }
 
-void DeInit()
+ARMJIT_Memory::~ARMJIT_Memory() noexcept
 {
 #if defined(__SWITCH__)
     virtmemLock();
@@ -875,12 +807,12 @@ void DeInit()
 #endif
 }
 
-void Reset()
+void ARMJIT_Memory::Reset() noexcept
 {
     for (int region = 0; region < memregions_Count; region++)
     {
         for (int i = 0; i < Mappings[region].Length; i++)
-            Mappings[region][i].Unmap(region);
+            Mappings[region][i].Unmap(region, *this);
         Mappings[region].Clear();
     }
 
@@ -893,7 +825,7 @@ void Reset()
     Log(LogLevel::Debug, "done resetting jit mem\n");
 }
 
-bool IsFastmemCompatible(int region)
+bool ARMJIT_Memory::IsFastmemCompatible(int region) const noexcept
 {
 #ifdef _WIN32
     /*
@@ -909,7 +841,7 @@ bool IsFastmemCompatible(int region)
     return OffsetsPerRegion[region] != UINT32_MAX;
 }
 
-bool GetMirrorLocation(int region, u32 num, u32 addr, u32& memoryOffset, u32& mirrorStart, u32& mirrorSize)
+bool ARMJIT_Memory::GetMirrorLocation(int region, u32 num, u32 addr, u32& memoryOffset, u32& mirrorStart, u32& mirrorSize) const noexcept
 {
     memoryOffset = 0;
     switch (region)
@@ -955,14 +887,14 @@ bool GetMirrorLocation(int region, u32 num, u32 addr, u32& memoryOffset, u32& mi
         {
             mirrorStart = addr & ~NDS::SWRAM_ARM9.Mask;
             mirrorSize = NDS::SWRAM_ARM9.Mask + 1;
-            memoryOffset = NDS::SWRAM_ARM9.Mem - NDS::SharedWRAM;
+            memoryOffset = NDS::SWRAM_ARM9.Mem - GetSharedWRAM();
             return true;
         }
         else if (num == 1 && NDS::SWRAM_ARM7.Mem)
         {
             mirrorStart = addr & ~NDS::SWRAM_ARM7.Mask;
             mirrorSize = NDS::SWRAM_ARM7.Mask + 1;
-            memoryOffset = NDS::SWRAM_ARM7.Mem - NDS::SharedWRAM;
+            memoryOffset = NDS::SWRAM_ARM7.Mem - GetSharedWRAM();
             return true;
         }
         return false;
@@ -995,7 +927,7 @@ bool GetMirrorLocation(int region, u32 num, u32 addr, u32& memoryOffset, u32& mi
             u8* ptr = DSi::NWRAMMap_A[num][(addr >> 16) & DSi::NWRAMMask[num][0]];
             if (ptr)
             {
-                memoryOffset = ptr - DSi::NWRAM_A;
+                memoryOffset = ptr - GetNWRAM_A();
                 mirrorStart = addr & ~0xFFFF;
                 mirrorSize = 0x10000;
                 return true;
@@ -1007,7 +939,7 @@ bool GetMirrorLocation(int region, u32 num, u32 addr, u32& memoryOffset, u32& mi
             u8* ptr = DSi::NWRAMMap_B[num][(addr >> 15) & DSi::NWRAMMask[num][1]];
             if (ptr)
             {
-                memoryOffset = ptr - DSi::NWRAM_B;
+                memoryOffset = ptr - GetNWRAM_B();
                 mirrorStart = addr & ~0x7FFF;
                 mirrorSize = 0x8000;
                 return true;
@@ -1019,7 +951,7 @@ bool GetMirrorLocation(int region, u32 num, u32 addr, u32& memoryOffset, u32& mi
             u8* ptr = DSi::NWRAMMap_C[num][(addr >> 15) & DSi::NWRAMMask[num][2]];
             if (ptr)
             {
-                memoryOffset = ptr - DSi::NWRAM_C;
+                memoryOffset = ptr - GetNWRAM_C();
                 mirrorStart = addr & ~0x7FFF;
                 mirrorSize = 0x8000;
                 return true;
@@ -1048,7 +980,7 @@ bool GetMirrorLocation(int region, u32 num, u32 addr, u32& memoryOffset, u32& mi
     }
 }
 
-u32 LocaliseAddress(int region, u32 num, u32 addr)
+u32 ARMJIT_Memory::LocaliseAddress(int region, u32 num, u32 addr) const noexcept
 {
     switch (region)
     {
@@ -1062,9 +994,9 @@ u32 LocaliseAddress(int region, u32 num, u32 addr)
         return (addr & 0x3FFF) | (memregion_BIOS7 << 27);
     case memregion_SharedWRAM:
         if (num == 0)
-            return ((addr & NDS::SWRAM_ARM9.Mask) + (NDS::SWRAM_ARM9.Mem - NDS::SharedWRAM)) | (memregion_SharedWRAM << 27);
+            return ((addr & NDS::SWRAM_ARM9.Mask) + (NDS::SWRAM_ARM9.Mem - GetSharedWRAM())) | (memregion_SharedWRAM << 27);
         else
-            return ((addr & NDS::SWRAM_ARM7.Mask) + (NDS::SWRAM_ARM7.Mem - NDS::SharedWRAM)) | (memregion_SharedWRAM << 27);
+            return ((addr & NDS::SWRAM_ARM7.Mask) + (NDS::SWRAM_ARM7.Mem - GetSharedWRAM())) | (memregion_SharedWRAM << 27);
     case memregion_WRAM7:
         return (addr & (NDS::ARM7WRAMSize - 1)) | (memregion_WRAM7 << 27);
     case memregion_VRAM:
@@ -1077,7 +1009,7 @@ u32 LocaliseAddress(int region, u32 num, u32 addr)
         {
             u8* ptr = DSi::NWRAMMap_A[num][(addr >> 16) & DSi::NWRAMMask[num][0]];
             if (ptr)
-                return (ptr - DSi::NWRAM_A + (addr & 0xFFFF)) | (memregion_NewSharedWRAM_A << 27);
+                return (ptr - GetNWRAM_A() + (addr & 0xFFFF)) | (memregion_NewSharedWRAM_A << 27);
             else
                 return memregion_Other << 27; // zero filled memory
         }
@@ -1085,7 +1017,7 @@ u32 LocaliseAddress(int region, u32 num, u32 addr)
         {
             u8* ptr = DSi::NWRAMMap_B[num][(addr >> 15) & DSi::NWRAMMask[num][1]];
             if (ptr)
-                return (ptr - DSi::NWRAM_B + (addr & 0x7FFF)) | (memregion_NewSharedWRAM_B << 27);
+                return (ptr - GetNWRAM_B() + (addr & 0x7FFF)) | (memregion_NewSharedWRAM_B << 27);
             else
                 return memregion_Other << 27;
         }
@@ -1093,7 +1025,7 @@ u32 LocaliseAddress(int region, u32 num, u32 addr)
         {
             u8* ptr = DSi::NWRAMMap_C[num][(addr >> 15) & DSi::NWRAMMask[num][2]];
             if (ptr)
-                return (ptr - DSi::NWRAM_C + (addr & 0x7FFF)) | (memregion_NewSharedWRAM_C << 27);
+                return (ptr - GetNWRAM_C() + (addr & 0x7FFF)) | (memregion_NewSharedWRAM_C << 27);
             else
                 return memregion_Other << 27;
         }
@@ -1106,7 +1038,7 @@ u32 LocaliseAddress(int region, u32 num, u32 addr)
     }
 }
 
-int ClassifyAddress9(u32 addr)
+int ARMJIT_Memory::ClassifyAddress9(u32 addr) const noexcept
 {
     if (addr < NDS::ARM9->ITCMSize)
     {
@@ -1160,7 +1092,7 @@ int ClassifyAddress9(u32 addr)
     }
 }
 
-int ClassifyAddress7(u32 addr)
+int ARMJIT_Memory::ClassifyAddress7(u32 addr) const noexcept
 {
     if (NDS::ConsoleType == 1 && addr < 0x00010000 && !(DSi::SCFG_BIOS & (1<<9)))
     {
@@ -1295,7 +1227,7 @@ u32 NDSCartSlot_ReadROMData()
     return NDS::NDSCartSlot->ReadROMData();
 }
 
-void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
+void* ARMJIT_Memory::GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) const noexcept
 {
     if (cpu->Num == 0)
     {
@@ -1432,6 +1364,4 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
         }
     }
     return NULL;
-}
-
 }
