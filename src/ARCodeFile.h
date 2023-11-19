@@ -24,6 +24,8 @@
 #include <vector>
 #include "types.h"
 
+namespace melonDS
+{
 struct ARCode
 {
     std::string Name;
@@ -59,4 +61,5 @@ private:
     std::string Filename;
 };
 
+}
 #endif // ARCODEFILE_H

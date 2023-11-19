@@ -32,6 +32,8 @@
 
 #include "Config.h"
 
+using namespace melonDS;
+
 extern MainWindow* mainWindow;
 
 namespace OSD

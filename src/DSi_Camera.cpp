@@ -23,6 +23,8 @@
 #include "DSi_Camera.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -792,4 +794,6 @@ void DSi_Camera::InputFrame(u32* data, int width, int height, bool rgb)
             }
         }
     }
+}
+
 }

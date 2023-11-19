@@ -22,7 +22,7 @@
 
 #include "ARMJIT.h"
 
-namespace ARMInstrInfo
+namespace melonDS::ARMInstrInfo
 {
 
 #define ak(x) ((x) << 23)

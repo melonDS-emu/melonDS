@@ -28,6 +28,8 @@
 #include "GPU.h"
 #include "ARMJIT_Memory.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -104,7 +106,7 @@ const u32 ARM::ConditionTable[16] =
     0x0000  // NE
 };
 
-ARM::ARM(u32 num, ARMJIT::ARMJIT& jit, Melon::GPU& gpu) :
+ARM::ARM(u32 num, ARMJIT& jit, melonDS::GPU& gpu) :
 #ifdef GDBSTUB_ENABLED
     GdbStub(this, Platform::GetConfigInt(num ? Platform::GdbPortARM7 : Platform::GdbPortARM9)),
 #endif
@@ -128,14 +130,14 @@ ARM::~ARM()
     // dorp
 }
 
-ARMv5::ARMv5(ARMJIT::ARMJIT& jit, Melon::GPU& gpu) : ARM(0, jit, gpu)
+ARMv5::ARMv5(ARMJIT& jit, melonDS::GPU& gpu) : ARM(0, jit, gpu)
 {
     DTCM = JIT.Memory.GetARM9DTCM();
 
     PU_Map = PU_PrivMap;
 }
 
-ARMv4::ARMv4(ARMJIT::ARMJIT& jit, Melon::GPU& gpu) : ARM(1, jit, gpu)
+ARMv4::ARMv4(ARMJIT& jit, melonDS::GPU& gpu) : ARM(1, jit, gpu)
 {
     //
 }
@@ -749,7 +751,7 @@ void ARMv5::ExecuteJIT()
             return;
         }
 
-        ARMJIT::JitBlockEntry block = JIT.LookUpBlock(0, FastBlockLookup,
+        JitBlockEntry block = JIT.LookUpBlock(0, FastBlockLookup,
             instrAddr - FastBlockLookupStart, instrAddr);
         if (block)
             ARM_Dispatch(this, block);
@@ -906,7 +908,7 @@ void ARMv4::ExecuteJIT()
             return;
         }
 
-        ARMJIT::JitBlockEntry block = JIT.LookUpBlock(1, FastBlockLookup,
+        JitBlockEntry block = JIT.LookUpBlock(1, FastBlockLookup,
             instrAddr - FastBlockLookupStart, instrAddr);
         if (block)
             ARM_Dispatch(this, block);
@@ -1190,6 +1192,7 @@ u32 ARMv5::ReadMem(u32 addr, int size)
     }
 
     return ARM::ReadMem(addr, size);
+}
 }
 #endif
 

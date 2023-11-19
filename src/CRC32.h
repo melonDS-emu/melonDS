@@ -23,6 +23,9 @@
 
 #include "types.h"
 
+namespace melonDS
+{
 u32 CRC32(const u8* data, int len, u32 start=0);
+}
 
 #endif // CRC32_H

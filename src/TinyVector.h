@@ -23,7 +23,7 @@
 #include <string.h>
 #include "types.h"
 
-namespace ARMJIT
+namespace melonDS
 {
 /*
     TinyVector

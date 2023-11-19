@@ -25,6 +25,8 @@
 #include "ARMJIT_Memory.h"
 #include "ARMJIT.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -1031,3 +1033,4 @@ void ARMv5::GetCodeMemRegion(u32 addr, NDS::MemRegion* region)
     GetMemRegion(addr, false, &CodeMem);
 }
 
+}

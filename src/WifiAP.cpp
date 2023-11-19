@@ -27,6 +27,8 @@
 #include <stddef.h>
 #endif
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -400,4 +402,6 @@ int WifiAP::RecvPacket(u8* data)
     }
 
     return 0;
+}
+
 }

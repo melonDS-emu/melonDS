@@ -21,6 +21,8 @@
 
 #include "types.h"
 
+namespace melonDS
+{
 class Wifi;
 
 class WifiAP
@@ -61,4 +63,5 @@ private:
     int HandleManagementFrame(u8* data, int len);
 };
 
+}
 #endif

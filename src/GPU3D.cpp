@@ -24,6 +24,8 @@
 #include "FIFO.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -97,9 +99,6 @@ using Platform::LogLevel;
 //   except: only one time slot is taken if the polygon is rejected by culling/clipping
 // * additionally, some commands (BEGIN, LIGHT_VECTOR, BOXTEST) stall the polygon pipeline
 
-
-namespace GPU3D
-{
 
 const u8 CmdNumParams[256] =
 {

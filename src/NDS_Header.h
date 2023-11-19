@@ -22,6 +22,8 @@
 #include <string.h>
 #include "types.h"
 
+namespace melonDS
+{
 /// Set to indicate the console regions that a ROM (including DSiWare)
 /// can be played on.
 enum RegionMask : u32
@@ -242,5 +244,6 @@ struct NDSBanner
 
 static_assert(sizeof(NDSBanner) == 9152, "NDSBanner is not 9152 bytes!");
 
+}
 
 #endif //NDS_HEADER_H

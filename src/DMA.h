@@ -24,15 +24,14 @@
 #include "Savestate.h"
 #include "DMA_Timings.h"
 
-namespace Melon
+namespace melonDS
 {
 class GPU;
-}
 
 class DMA
 {
 public:
-    DMA(u32 cpu, u32 num, Melon::GPU& gpu);
+    DMA(u32 cpu, u32 num, GPU& gpu);
     ~DMA() = default;
 
     void Reset();
@@ -84,7 +83,7 @@ public:
     u32 Cnt {};
 
 private:
-    Melon::GPU& GPU;
+    melonDS::GPU& GPU;
     u32 CPU {};
     u32 Num {};
 
@@ -109,4 +108,5 @@ private:
     std::array<u8, 256> MRAMBurstTable;
 };
 
+}
 #endif

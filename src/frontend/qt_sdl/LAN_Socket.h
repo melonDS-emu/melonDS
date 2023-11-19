@@ -23,6 +23,7 @@
 
 namespace LAN_Socket
 {
+using namespace melonDS;
 
 //
 

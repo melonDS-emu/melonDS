@@ -19,7 +19,7 @@
 #ifndef ARMINTERPRETER_LOADSTORE_H
 #define ARMINTERPRETER_LOADSTORE_H
 
-namespace ARMInterpreter
+namespace melonDS::ARMInterpreter
 {
 
 #define A_PROTO_WB_LDRSTR(x) \

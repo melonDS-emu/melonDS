@@ -34,22 +34,16 @@
 // with this enabled, to make sure it doesn't desync
 //#define DEBUG_CHECK_DESYNC
 
+namespace melonDS
+{
 class SPU;
 class SPIHost;
 class RTC;
 class Wifi;
 
 class AREngine;
-
-namespace Melon
-{
 class GPU;
-}
-
-namespace ARMJIT
-{
 class ARMJIT;
-}
 
 namespace NDS
 {
@@ -273,8 +267,8 @@ extern class RTC* RTC;
 extern class Wifi* Wifi;
 extern std::unique_ptr<NDSCart::NDSCartSlot> NDSCartSlot;
 extern std::unique_ptr<GBACart::GBACartSlot> GBACartSlot;
-extern std::unique_ptr<Melon::GPU> GPU;
-extern std::unique_ptr<ARMJIT::ARMJIT> JIT;
+extern std::unique_ptr<GPU> GPU;
+extern std::unique_ptr<ARMJIT> JIT;
 extern class AREngine* AREngine;
 
 const u32 ARM7WRAMSize = 0x10000;
@@ -394,4 +388,5 @@ void ARM7IOWrite32(u32 addr, u32 val);
 
 }
 
+}
 #endif // NDS_H

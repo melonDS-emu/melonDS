@@ -43,17 +43,17 @@
 #include "Wifi.h"
 #include "NDSCart.h"
 #include "Platform.h"
+#include "ARMJIT_x64/ARMJIT_Offsets.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
-#include "ARMJIT_x64/ARMJIT_Offsets.h"
 static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset, "");
 static_assert(offsetof(ARM, Cycles) == ARM_Cycles_offset, "");
 static_assert(offsetof(ARM, StopExecution) == ARM_StopExecution_offset, "");
 
-namespace ARMJIT
-{
 
 #define JIT_DEBUGPRINT(msg, ...)
 //#define JIT_DEBUGPRINT(msg, ...) Platform::Log(Platform::LogLevel::Debug, msg, ## __VA_ARGS__)
@@ -1056,20 +1056,20 @@ bool ARMJIT::SetupExecutableRegion(u32 num, u32 blockAddr, u64*& entry, u32& sta
     return false;
 }
 
-template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(u32);
-template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(u32);
-template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_SharedWRAM>(u32);
-template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_SharedWRAM>(u32);
-template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_WRAM7>(u32);
-template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_VWRAM>(u32);
-template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_VRAM>(u32);
-template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(u32);
-template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(u32);
-template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(u32);
-template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(u32);
-template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(u32);
-template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(u32);
-template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(u32);
+template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(u32) noexcept;
+template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(u32) noexcept;
+template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_SharedWRAM>(u32) noexcept;
+template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_SharedWRAM>(u32) noexcept;
+template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_WRAM7>(u32) noexcept;
+template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_VWRAM>(u32) noexcept;
+template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_VRAM>(u32) noexcept;
+template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(u32) noexcept;
+template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(u32) noexcept;
+template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(u32) noexcept;
+template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(u32) noexcept;
+template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(u32) noexcept;
+template void ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(u32) noexcept;
+template void ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(u32) noexcept;
 
 void ARMJIT::ResetBlockCache() noexcept
 {

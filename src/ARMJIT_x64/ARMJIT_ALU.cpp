@@ -21,7 +21,7 @@
 
 using namespace Gen;
 
-namespace ARMJIT
+namespace melonDS
 {
 
 // uses RSCRATCH3
@@ -129,7 +129,7 @@ OpArg Compiler::A_Comp_GetALUOp2(bool S, bool& carryUsed)
         Comp_AddCycles_C();
 
         u32 shift = (CurInstr.Instr >> 7) & 0x1E;
-        u32 imm = ::ROR(CurInstr.Instr & 0xFF, shift);
+        u32 imm = melonDS::ROR(CurInstr.Instr & 0xFF, shift);
 
         carryUsed = false;
         if (S && shift)

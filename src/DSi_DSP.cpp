@@ -24,6 +24,8 @@
 #include "NDS.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -592,4 +594,6 @@ void DSi_DSP::DoSavestate(Savestate* file)
     file->Var8((u8*)&SCFG_RST);
 
     // TODO: save the Teakra state!!!
+}
+
 }

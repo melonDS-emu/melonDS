@@ -20,6 +20,8 @@
 #include "SPI.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -403,4 +405,6 @@ void Firmware::UpdateChecksums()
     {
         u.UpdateChecksum();
     }
+}
+
 }

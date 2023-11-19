@@ -21,7 +21,7 @@
 
 using namespace Gen;
 
-namespace ARMJIT
+namespace melonDS
 {
 
 template <typename T>
@@ -85,7 +85,7 @@ bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
     if (size == 32)
     {
         CurCPU->DataRead32(addr & ~0x3, &val);
-        val = ::ROR(val, (addr & 0x3) << 3);
+        val = melonDS::ROR(val, (addr & 0x3) << 3);
     }
     else if (size == 16)
     {

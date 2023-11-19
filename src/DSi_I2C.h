@@ -22,6 +22,8 @@
 #include "types.h"
 #include "Savestate.h"
 
+namespace melonDS
+{
 class DSi_I2CHost;
 class DSi_Camera;
 
@@ -180,4 +182,5 @@ private:
     void GetCurDevice();
 };
 
+}
 #endif // DSI_I2C_H

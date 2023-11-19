@@ -30,11 +30,11 @@
 
 #include <unordered_map>
 
-class ARMJIT_Memory;
 
-namespace ARMJIT
+namespace melonDS
 {
 class ARMJIT;
+class ARMJIT_Memory;
 const Gen::X64Reg RCPU = Gen::RBP;
 const Gen::X64Reg RCPSR = Gen::R15;
 
@@ -172,7 +172,7 @@ public:
         memop_SubtractOffset = 1 << 4
     };
     void Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flags);
-    s32 Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode, bool skipLoadingRn);
+    s32 Comp_MemAccessBlock(int rn, Common::BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode, bool skipLoadingRn);
     bool Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr);
 
     void Comp_ArithTriOp(void (Compiler::*op)(int, const Gen::OpArg&, const Gen::OpArg&),

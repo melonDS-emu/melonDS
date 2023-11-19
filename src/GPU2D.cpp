@@ -21,6 +21,8 @@
 #include "NDS.h"
 #include "GPU.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -84,8 +86,7 @@ using Platform::LogLevel;
 
 namespace GPU2D
 {
-
-Unit::Unit(u32 num, Melon::GPU& gpu) : Num(num), GPU(gpu)
+Unit::Unit(u32 num, melonDS::GPU& gpu) : Num(num), GPU(gpu)
 {
 }
 
@@ -721,4 +722,5 @@ void Unit::GetOBJVRAM(u8*& data, u32& mask)
     }
 }
 
+}
 }

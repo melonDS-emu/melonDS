@@ -24,6 +24,8 @@
 #include "WifiAP.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -2264,4 +2266,6 @@ u8* Wifi::GetMAC()
 u8* Wifi::GetBSSID()
 {
     return (u8*)&IOPORT(W_BSSID0);
+}
+
 }

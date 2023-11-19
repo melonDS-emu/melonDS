@@ -31,6 +31,7 @@
 #include "ui_AudioSettingsDialog.h"
 
 
+using namespace melonDS;
 AudioSettingsDialog* AudioSettingsDialog::currentDlg = nullptr;
 
 extern std::string EmuDirectory;
