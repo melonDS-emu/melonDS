@@ -2080,17 +2080,17 @@ void debug(u32 param)
     Platform::FileWrite(ARM9.ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
-        u32 val = ARM7Read32(i);
+        u32 val = NDS::ARM7Read32(i);
         Platform::FileWrite(&val, 4, 1, shit);
     }
     for (u32 i = 0x037F0000; i < 0x03810000; i+=4)
     {
-        u32 val = ARM7Read32(i);
+        u32 val = NDS::ARM7Read32(i);
         Platform::FileWrite(&val, 4, 1, shit);
     }
     for (u32 i = 0x06000000; i < 0x06040000; i+=4)
     {
-        u32 val = ARM7Read32(i);
+        u32 val = NDS::ARM7Read32(i);
         Platform::FileWrite(&val, 4, 1, shit);
     }
     Platform::CloseFile(shit);
@@ -2137,7 +2137,8 @@ u8 ARM9Read8(u32 addr)
         }
 
     case 0x04000000:
-        return ARM9IORead8(addr);
+        // Specifically want to call the NDS version, not a subclass
+        return NDS::ARM9IORead8(addr);
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
@@ -2199,7 +2200,7 @@ u16 ARM9Read16(u32 addr)
         }
 
     case 0x04000000:
-        return ARM9IORead16(addr);
+        return NDS::ARM9IORead16(addr);
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
@@ -2261,7 +2262,7 @@ u32 ARM9Read32(u32 addr)
         }
 
     case 0x04000000:
-        return ARM9IORead32(addr);
+        return NDS::ARM9IORead32(addr);
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
@@ -2319,7 +2320,7 @@ void ARM9Write8(u32 addr, u8 val)
         return;
 
     case 0x04000000:
-        ARM9IOWrite8(addr, val);
+        NDS::ARM9IOWrite8(addr, val);
         return;
 
     case 0x05000000:
@@ -2361,7 +2362,7 @@ void ARM9Write16(u32 addr, u16 val)
         return;
 
     case 0x04000000:
-        ARM9IOWrite16(addr, val);
+        NDS::ARM9IOWrite16(addr, val);
         return;
 
     case 0x05000000:
@@ -2423,7 +2424,7 @@ void ARM9Write32(u32 addr, u32 val)
         return;
 
     case 0x04000000:
-        ARM9IOWrite32(addr, val);
+        NDS::ARM9IOWrite32(addr, val);
         return;
 
     case 0x05000000:
@@ -2533,7 +2534,7 @@ u8 ARM7Read8(u32 addr)
         return *(u8*)&ARM7WRAM[addr & (ARM7WRAMSize - 1)];
 
     case 0x04000000:
-        return ARM7IORead8(addr);
+        return NDS::ARM7IORead8(addr);
 
     case 0x04800000:
         if (addr < 0x04810000)
@@ -2602,7 +2603,7 @@ u16 ARM7Read16(u32 addr)
         return *(u16*)&ARM7WRAM[addr & (ARM7WRAMSize - 1)];
 
     case 0x04000000:
-        return ARM7IORead16(addr);
+        return NDS::ARM7IORead16(addr);
 
     case 0x04800000:
         if (addr < 0x04810000)
@@ -2670,7 +2671,7 @@ u32 ARM7Read32(u32 addr)
         return *(u32*)&ARM7WRAM[addr & (ARM7WRAMSize - 1)];
 
     case 0x04000000:
-        return ARM7IORead32(addr);
+        return NDS::ARM7IORead32(addr);
 
     case 0x04800000:
         if (addr < 0x04810000)
@@ -2737,7 +2738,7 @@ void ARM7Write8(u32 addr, u8 val)
         return;
 
     case 0x04000000:
-        ARM7IOWrite8(addr, val);
+        NDS::ARM7IOWrite8(addr, val);
         return;
 
     case 0x06000000:
@@ -2797,7 +2798,7 @@ void ARM7Write16(u32 addr, u16 val)
         return;
 
     case 0x04000000:
-        ARM7IOWrite16(addr, val);
+        NDS::ARM7IOWrite16(addr, val);
         return;
 
     case 0x04800000:
@@ -2868,7 +2869,7 @@ void ARM7Write32(u32 addr, u32 val)
         return;
 
     case 0x04000000:
-        ARM7IOWrite32(addr, val);
+        NDS::ARM7IOWrite32(addr, val);
         return;
 
     case 0x04800000:
@@ -3258,7 +3259,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000130: LagFrameFlag = false; return (KeyInput & 0xFFFF) | (KeyCnt[0] << 16);
 
     case 0x04000180: return IPCSync9;
-    case 0x04000184: return ARM9IORead16(addr);
+    case 0x04000184: return NDS::ARM9IORead16(addr);
 
     case 0x040001A0:
         if (!(ExMemCnt[0] & (1<<11)))
@@ -3382,7 +3383,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04000188:
-        ARM9IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
+        NDS::ARM9IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
         return;
 
     case 0x040001A0:
@@ -3515,7 +3516,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000188:
-        ARM9IOWrite32(addr, val | (val << 16));
+        NDS::ARM9IOWrite32(addr, val | (val << 16));
         return;
 
     case 0x040001A0:
@@ -3686,7 +3687,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
     case 0x04000180:
     case 0x04000184:
-        ARM9IOWrite16(addr, val);
+        NDS::ARM9IOWrite16(addr, val);
         return;
     case 0x04000188:
         if (IPCFIFOCnt9 & 0x8000)
@@ -4025,7 +4026,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000138: return RTC->Read();
 
     case 0x04000180: return IPCSync7;
-    case 0x04000184: return ARM7IORead16(addr);
+    case 0x04000184: return NDS::ARM7IORead16(addr);
 
     case 0x040001A0:
         if (ExMemCnt[0] & (1<<11))
@@ -4117,7 +4118,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
     case 0x04000138: RTC->Write(val, true); return;
 
     case 0x04000188:
-        ARM7IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
+        NDS::ARM7IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
         return;
 
     case 0x040001A0:
@@ -4228,7 +4229,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000188:
-        ARM7IOWrite32(addr, val | (val << 16));
+        NDS::ARM7IOWrite32(addr, val | (val << 16));
         return;
 
     case 0x040001A0:
@@ -4374,7 +4375,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
     case 0x04000180:
     case 0x04000184:
-        ARM7IOWrite16(addr, val);
+        NDS::ARM7IOWrite16(addr, val);
         return;
     case 0x04000188:
         if (IPCFIFOCnt7 & 0x8000)
