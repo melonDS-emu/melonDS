@@ -28,4 +28,27 @@ constexpr u32 ARM7WRAMSize = 0x10000;
 constexpr u32 DSiNWRAMSize = 0x40000;
 constexpr u32 ARM9BIOSLength = 0x1000;
 constexpr u32 ARM7BIOSLength = 0x4000;
+
+// matching NDMA modes for DSi
+constexpr u32 NDMAModes[] =
+{
+    // ARM9
+
+    0x10, // immediate
+    0x06, // VBlank
+    0x07, // HBlank
+    0x08, // scanline start
+    0x09, // mainmem FIFO
+    0x04, // DS cart slot
+    0xFF, // GBA cart slot
+    0x0A, // GX FIFO
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+
+    // ARM7
+
+    0x30, // immediate
+    0x26, // VBlank
+    0x24, // DS cart slot
+    0xFF, // wifi / GBA cart slot (TODO)
+};
 }
