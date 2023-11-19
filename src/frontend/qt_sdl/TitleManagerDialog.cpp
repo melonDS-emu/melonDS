@@ -30,7 +30,8 @@
 #include "ui_TitleManagerDialog.h"
 #include "ui_TitleImportDialog.h"
 
-using namespace Platform;
+using namespace melonDS;
+using namespace melonDS::Platform;
 
 std::unique_ptr<DSi_NAND::NANDImage> TitleManagerDialog::nand = nullptr;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;

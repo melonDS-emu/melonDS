@@ -22,15 +22,14 @@
 #include "types.h"
 #include "Savestate.h"
 
-namespace Melon
+namespace melonDS
 {
 class GPU;
-}
 
 class DSi_NDMA
 {
 public:
-    DSi_NDMA(u32 cpu, u32 num, Melon::GPU& gpu);
+    DSi_NDMA(u32 cpu, u32 num, GPU& gpu);
     ~DSi_NDMA();
 
     void Reset();
@@ -78,7 +77,7 @@ public:
     u32 Cnt;
 
 private:
-    Melon::GPU& GPU;
+    melonDS::GPU& GPU;
     u32 CPU, Num;
 
     u32 StartMode;
@@ -100,4 +99,5 @@ private:
     bool IsGXFIFODMA;
 };
 
+}
 #endif // DSI_NDMA_H

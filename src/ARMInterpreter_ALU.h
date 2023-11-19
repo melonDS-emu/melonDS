@@ -19,6 +19,8 @@
 #ifndef ARMINTERPRETER_ALU_H
 #define ARMINTERPRETER_ALU_H
 
+namespace melonDS
+{
 namespace ARMInterpreter
 {
 
@@ -134,4 +136,5 @@ void T_ADD_SP(ARM* cpu);
 
 }
 
+}
 #endif

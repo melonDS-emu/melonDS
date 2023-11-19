@@ -28,12 +28,12 @@
 #include "OpenGLSupport.h"
 #include "GPU_OpenGL_shaders.h"
 
-namespace Melon
+namespace melonDS
 {
 
 using namespace OpenGL;
 
-std::unique_ptr<GLCompositor> GLCompositor::New(Melon::GPU& gpu) noexcept
+std::unique_ptr<GLCompositor> GLCompositor::New(melonDS::GPU& gpu) noexcept
 {
     assert(glBindAttribLocation != nullptr);
 
@@ -53,7 +53,7 @@ std::unique_ptr<GLCompositor> GLCompositor::New(Melon::GPU& gpu) noexcept
     return std::unique_ptr<GLCompositor>(new GLCompositor(CompShader, gpu));
 }
 
-GLCompositor::GLCompositor(std::array<GLuint, 3> compShader, Melon::GPU& gpu) noexcept : CompShader(compShader), GPU(gpu)
+GLCompositor::GLCompositor(std::array<GLuint, 3> compShader, melonDS::GPU& gpu) noexcept : CompShader(compShader), GPU(gpu)
 {
     CompScaleLoc = glGetUniformLocation(CompShader[2], "u3DScale");
     Comp3DXPosLoc = glGetUniformLocation(CompShader[2], "u3DXPos");
@@ -218,7 +218,7 @@ void GLCompositor::RenderFrame()
     }
 
     glActiveTexture(GL_TEXTURE1);
-    reinterpret_cast<GPU3D::GLRenderer*>(GPU.GPU3D.GetCurrentRenderer())->SetupAccelFrame();
+    reinterpret_cast<GLRenderer*>(GPU.GPU3D.GetCurrentRenderer())->SetupAccelFrame();
 
     glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);
     glBindVertexArray(CompVertexArrayID);

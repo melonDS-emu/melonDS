@@ -24,6 +24,7 @@
 namespace Input
 {
 
+using namespace melonDS;
 extern int JoystickID;
 extern SDL_Joystick* Joystick;
 

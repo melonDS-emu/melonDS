@@ -26,6 +26,8 @@
 #include "SPI.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -591,4 +593,6 @@ u8 DSi_I2CHost::ReadData()
 void DSi_I2CHost::WriteData(u8 val)
 {
     Data = val;
+}
+
 }

@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include "ARM.h"
 
-namespace ARMInterpreter
+namespace melonDS::ARMInterpreter
 {
 
 inline bool CarryAdd(u32 a, u32 b)

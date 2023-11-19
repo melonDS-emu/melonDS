@@ -24,6 +24,8 @@
 #include "FIFO.h"
 #include "tiny-AES-c/aes.hpp"
 
+namespace melonDS
+{
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wattributes"
 #if defined(__GNUC__) && (__GNUC__ >= 11) // gcc 11.*
@@ -108,4 +110,5 @@ private:
     void ProcessBlock_CTR();
 };
 
+}
 #endif // DSI_AES_H

@@ -67,7 +67,7 @@ private:
 
     bool inited;
     bool oldDSBatteryLevel;
-    u8 oldDSiBatteryLevel;
+    melonDS::u8 oldDSiBatteryLevel;
     bool oldDSiBatteryCharging;
 
     void updateDSBatteryLevelControls();

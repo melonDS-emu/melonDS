@@ -21,6 +21,8 @@
 
 #include "ARCodeFile.h"
 
+namespace melonDS
+{
 class AREngine
 {
 public:
@@ -45,4 +47,5 @@ private:
     void (*BusWrite32)(u32 addr, u32 val);
 };
 
+}
 #endif // ARENGINE_H

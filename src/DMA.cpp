@@ -24,6 +24,8 @@
 #include "DMA_Timings.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -47,7 +49,7 @@ using Platform::LogLevel;
 // TODO: timings are nonseq when address is fixed/decrementing
 
 
-DMA::DMA(u32 cpu, u32 num, Melon::GPU& gpu) :
+DMA::DMA(u32 cpu, u32 num, melonDS::GPU& gpu) :
     CPU(cpu),
     Num(num),
     GPU(gpu)
@@ -714,3 +716,5 @@ void DMA::Run()
 
 template void DMA::Run<0>();
 template void DMA::Run<1>();
+
+}

@@ -28,6 +28,7 @@
 #include "Input.h"
 #include "main.h"
 
+using namespace melonDS;
 namespace AudioInOut
 {
 

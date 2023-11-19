@@ -39,7 +39,7 @@ using namespace Arm64Gen;
 
 extern "C" void ARM_Ret();
 
-namespace ARMJIT
+namespace melonDS
 {
 
 /*
@@ -106,7 +106,7 @@ void Compiler::A_Comp_MSR()
     if (CurInstr.Instr & (1 << 25))
     {
         val = W0;
-        MOVI2R(val, ::ROR((CurInstr.Instr & 0xFF), ((CurInstr.Instr >> 7) & 0x1E)));
+        MOVI2R(val, melonDS::ROR((CurInstr.Instr & 0xFF), ((CurInstr.Instr >> 7) & 0x1E)));
     }
     else
     {

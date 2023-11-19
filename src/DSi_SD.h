@@ -24,6 +24,8 @@
 #include "FATStorage.h"
 #include "Savestate.h"
 
+namespace melonDS
+{
 namespace DSi_NAND
 {
     class NANDImage;
@@ -169,4 +171,5 @@ private:
     u32 WriteBlock(u64 addr);
 };
 
+}
 #endif // DSI_SD_H

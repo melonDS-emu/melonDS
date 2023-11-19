@@ -26,6 +26,8 @@
 #include "GPU3D_Soft.h"
 #include "GPU3D_OpenGL.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -33,8 +35,6 @@ using Platform::LogLevel;
 #define HBLANK_CYCLES (48+(256*6))
 #define FRAME_CYCLES  (LINE_CYCLES * 263)
 
-namespace Melon
-{
 enum
 {
     LCD_StartHBlank = 0,
@@ -64,7 +64,7 @@ enum
                 VRAMDirty need to be reset for the respective VRAM bank.
 */
 
-GPU::GPU(ARMJIT::ARMJIT& jit) noexcept : GPU2D_A(0, *this), GPU2D_B(1, *this), JIT(jit)
+GPU::GPU(ARMJIT& jit) noexcept : GPU2D_A(0, *this), GPU2D_B(1, *this), JIT(jit)
 {
     NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartHBlank, MemberEventFunc(GPU, StartHBlank));
     NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartScanline, MemberEventFunc(GPU, StartScanline));
@@ -319,21 +319,21 @@ void GPU::InitRenderer(int renderer) noexcept
         {
             // Fallback on software renderer
             renderer = 0;
-            GPU3D.SetCurrentRenderer(std::make_unique<GPU3D::SoftRenderer>(*this));
+            GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>(*this));
         }
-        GPU3D.SetCurrentRenderer(GPU3D::GLRenderer::New(*this));
+        GPU3D.SetCurrentRenderer(GLRenderer::New(*this));
         if (!GPU3D.GetCurrentRenderer())
         {
             // Fallback on software renderer
             CurGLCompositor.reset();
             renderer = 0;
-            GPU3D.SetCurrentRenderer(std::make_unique<GPU3D::SoftRenderer>(*this));
+            GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>(*this));
         }
     }
     else
 #endif
     {
-        GPU3D.SetCurrentRenderer(std::make_unique<GPU3D::SoftRenderer>(*this));
+        GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>(*this));
     }
 
     Renderer = renderer;

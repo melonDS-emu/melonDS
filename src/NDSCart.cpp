@@ -27,6 +27,8 @@
 #include "melonDLDI.h"
 #include "xxhash/xxhash.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -2065,6 +2067,8 @@ void NDSCartSlot::WriteSPIData(u8 val) noexcept
     // SPI transfers one bit per cycle -> 8 cycles per byte
     u32 delay = 8 * (8 << (SPICnt & 0x3));
     NDS::ScheduleEvent(NDS::Event_ROMSPITransfer, false, delay, 0, 0);
+}
+
 }
 
 }

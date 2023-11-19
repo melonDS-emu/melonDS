@@ -31,10 +31,10 @@
 
 #include "ARMJIT_Compiler.h"
 
+namespace melonDS
+{
 class ARM;
 
-namespace ARMJIT
-{
 class JitBlock;
 class ARMJIT
 {
@@ -74,7 +74,7 @@ public:
 
     TinyVector<u32> InvalidLiterals {};
 private:
-    friend class ::ARMJIT_Memory;
+    friend class ARMJIT_Memory;
     void blockSanityCheck(u32 num, u32 blockAddr, JitBlockEntry entry) noexcept;
     void RetireJitBlock(JitBlock* block) noexcept;
 
@@ -160,6 +160,6 @@ private:
 }
 
 // Defined in assembly
-extern "C" void ARM_Dispatch(ARM* cpu, ARMJIT::JitBlockEntry entry);
+extern "C" void ARM_Dispatch(melonDS::ARM* cpu, melonDS::JitBlockEntry entry);
 
 #endif

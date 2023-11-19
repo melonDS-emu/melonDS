@@ -13,6 +13,7 @@
 
 namespace Gdb {
 
+using namespace melonDS;
 constexpr int GDBPROTO_BUFFER_CAPACITY = 1024+128;
 
 extern u8 Cmdbuf[GDBPROTO_BUFFER_CAPACITY];

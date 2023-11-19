@@ -25,8 +25,7 @@
 #include "Platform.h"
 #include "PlatformOGL.h"
 
-
-namespace OpenGL
+namespace melonDS::OpenGL
 {
 
 bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char* name);

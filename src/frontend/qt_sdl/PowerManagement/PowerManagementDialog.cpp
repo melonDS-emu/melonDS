@@ -30,6 +30,8 @@
 
 #include <QtDebug>
 
+using namespace melonDS;
+
 PowerManagementDialog* PowerManagementDialog::currentDlg = nullptr;
 
 PowerManagementDialog::PowerManagementDialog(QWidget* parent) : QDialog(parent), ui(new Ui::PowerManagementDialog)

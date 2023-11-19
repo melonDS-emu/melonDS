@@ -21,7 +21,7 @@
 
 #include "types.h"
 
-namespace ARMInstrInfo
+namespace melonDS::ARMInstrInfo
 {
 
 // Instruction kinds, for faster dispatch

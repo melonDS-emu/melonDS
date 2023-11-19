@@ -28,6 +28,8 @@
 #include "Savestate.h"
 #include "SPI_Firmware.h"
 
+namespace melonDS
+{
 enum
 {
     SPIDevice_PowerMan = 0,
@@ -164,4 +166,5 @@ private:
     SPIDevice* Devices[3];
 };
 
+}
 #endif

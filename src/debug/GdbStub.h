@@ -13,6 +13,7 @@
 namespace Gdb
 {
 
+using namespace melonDS;
 enum class TgtStatus
 {
 	NoEvent,

@@ -24,8 +24,7 @@
 #include "NDS.h"
 #include "GPU.h"
 
-
-namespace GPU3D
+namespace melonDS
 {
 
 void RenderThreadFunc();
@@ -72,7 +71,7 @@ void SoftRenderer::SetupRenderThread()
 }
 
 
-SoftRenderer::SoftRenderer(Melon::GPU& gpu) noexcept
+SoftRenderer::SoftRenderer(melonDS::GPU& gpu) noexcept
     : Renderer3D(false), GPU(gpu)
 {
     Sema_RenderStart = Platform::Semaphore_Create();
@@ -105,7 +104,7 @@ void SoftRenderer::Reset()
     SetupRenderThread();
 }
 
-void SoftRenderer::SetRenderSettings(const Melon::RenderSettings& settings) noexcept
+void SoftRenderer::SetRenderSettings(const RenderSettings& settings) noexcept
 {
     Threaded = settings.Soft_Threaded;
     SetupRenderThread();

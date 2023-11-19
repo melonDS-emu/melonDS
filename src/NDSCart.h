@@ -30,7 +30,7 @@
 #include "FATStorage.h"
 #include "ROMList.h"
 
-namespace NDSCart
+namespace melonDS::NDSCart
 {
 
 enum CartType

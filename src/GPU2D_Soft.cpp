@@ -20,10 +20,11 @@
 #include "GPU.h"
 #include "GPU3D_OpenGL.h"
 
+namespace melonDS
+{
 namespace GPU2D
 {
-
-SoftRenderer::SoftRenderer(Melon::GPU& gpu)
+SoftRenderer::SoftRenderer(melonDS::GPU& gpu)
     : Renderer2D(), GPU(gpu)
 {
     // initialize mosaic table
@@ -368,7 +369,7 @@ void SoftRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
     {
         if ((unitA->CaptureCnt & (1<<31)) && (((unitA->CaptureCnt >> 29) & 0x3) != 1))
         {
-            reinterpret_cast<GPU3D::GLRenderer*>(GPU.GPU3D.GetCurrentRenderer())->PrepareCaptureFrame();
+            reinterpret_cast<GLRenderer*>(GPU.GPU3D.GetCurrentRenderer())->PrepareCaptureFrame();
         }
     }
 #endif
@@ -479,8 +480,8 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
     dstaddr &= 0xFFFF;
     srcBaddr &= 0xFFFF;
 
-    static_assert(Melon::VRAMDirtyGranularity == 512);
-    GPU.VRAMDirty[dstvram][(dstaddr * 2) / Melon::VRAMDirtyGranularity] = true;
+    static_assert(VRAMDirtyGranularity == 512);
+    GPU.VRAMDirty[dstvram][(dstaddr * 2) / VRAMDirtyGranularity] = true;
 
     switch ((captureCnt >> 29) & 0x3)
     {
@@ -2225,4 +2226,5 @@ void SoftRenderer::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s
     }
 }
 
+}
 }

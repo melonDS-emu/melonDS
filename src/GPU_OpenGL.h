@@ -23,7 +23,7 @@
 #include <array>
 #include <memory>
 
-namespace Melon
+namespace melonDS
 {
 class GPU;
 struct RenderSettings;
@@ -31,7 +31,7 @@ struct RenderSettings;
 class GLCompositor
 {
 public:
-    static std::unique_ptr<GLCompositor> New(Melon::GPU& gpu) noexcept;
+    static std::unique_ptr<GLCompositor> New(melonDS::GPU& gpu) noexcept;
     GLCompositor(const GLCompositor&) = delete;
     GLCompositor& operator=(const GLCompositor&) = delete;
     ~GLCompositor();
@@ -44,8 +44,8 @@ public:
     void RenderFrame();
     void BindOutputTexture(int buf);
 private:
-    GLCompositor(std::array<GLuint, 3> CompShader, Melon::GPU& gpu) noexcept;
-    Melon::GPU& GPU;
+    GLCompositor(std::array<GLuint, 3> CompShader, melonDS::GPU& gpu) noexcept;
+    melonDS::GPU& GPU;
     int Scale;
     int ScreenH, ScreenW;
 

@@ -27,6 +27,8 @@
 #define SAVESTATE_MAJOR 11
 #define SAVESTATE_MINOR 1
 
+namespace melonDS
+{
 class Savestate
 {
 public:
@@ -117,5 +119,6 @@ private:
     bool buffer_owned;
     bool finished;
 };
+}
 
 #endif // SAVESTATE_H

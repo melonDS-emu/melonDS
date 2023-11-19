@@ -22,6 +22,8 @@
 #include "NDS.h"
 #include "DSi_SD.h"
 
+namespace melonDS
+{
 class DSi_I2CHost;
 class DSi_CamModule;
 class DSi_AES;
@@ -126,4 +128,5 @@ void ARM7IOWrite32(u32 addr, u32 val);
 
 }
 
+}
 #endif // DSI_H

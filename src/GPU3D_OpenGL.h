@@ -23,20 +23,17 @@
 
 #include "OpenGLSupport.h"
 
-namespace Melon
+namespace melonDS
 {
 class GPU;
-}
 
-namespace GPU3D
-{
 class GLRenderer : public Renderer3D
 {
 public:
     virtual ~GLRenderer() override;
     virtual void Reset() override;
 
-    virtual void SetRenderSettings(const Melon::RenderSettings& settings) noexcept override;
+    virtual void SetRenderSettings(const RenderSettings& settings) noexcept override;
 
     virtual void VCount144() override {};
     virtual void RenderFrame() override;
@@ -45,10 +42,10 @@ public:
     void SetupAccelFrame();
     void PrepareCaptureFrame();
 
-    static std::unique_ptr<GLRenderer> New(Melon::GPU& gpu) noexcept;
+    static std::unique_ptr<GLRenderer> New(melonDS::GPU& gpu) noexcept;
 private:
     // Used by New()
-    GLRenderer(Melon::GPU& gpu) noexcept;
+    GLRenderer(melonDS::GPU& gpu) noexcept;
 
     // GL version requirements
     // * texelFetch: 3.0 (GLSL 1.30)     (3.2/1.50 for MS)
@@ -68,7 +65,7 @@ private:
         u32 RenderKey;
     };
 
-    Melon::GPU& GPU;
+    melonDS::GPU& GPU;
     RendererPolygon PolygonList[2048] {};
 
     bool BuildRenderShader(u32 flags, const char* vs, const char* fs);

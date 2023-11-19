@@ -24,6 +24,8 @@
 #include "types.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 u16 CRC16(const u8* data, u32 len, u32 start);
 
 
@@ -563,4 +565,5 @@ private:
     u32 FirmwareMask;
 };
 
+}
 #endif //MELONDS_SPI_FIRMWARE_H

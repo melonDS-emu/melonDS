@@ -27,6 +27,8 @@
 #include "DSi_SPI_TSC.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using namespace Platform;
 
 
@@ -640,4 +642,6 @@ void SPIHost::WriteData(u8 val)
     // SPI transfers one bit per cycle -> 8 cycles per byte
     u32 delay = 8 * (8 << (Cnt & 0x3));
     NDS::ScheduleEvent(NDS::Event_SPITransfer, false, delay, 0, 0);
+}
+
 }

@@ -23,6 +23,8 @@
 #include "DSi_AES.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -571,4 +573,6 @@ void DSi_AES::WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask)
     {
         DeriveNormalKey(KeyX[slot], KeyY[slot], KeyNormal[slot]);
     }
+}
+
 }

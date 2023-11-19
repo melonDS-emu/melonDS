@@ -24,16 +24,16 @@
 #include <thread>
 #include <atomic>
 
-namespace GPU3D
+namespace melonDS
 {
 class SoftRenderer : public Renderer3D
 {
 public:
-    SoftRenderer(Melon::GPU& gpu) noexcept;
+    SoftRenderer(melonDS::GPU& gpu) noexcept;
     virtual ~SoftRenderer() override;
     virtual void Reset() override;
 
-    virtual void SetRenderSettings(const Melon::RenderSettings& settings) noexcept override;
+    virtual void SetRenderSettings(const RenderSettings& settings) noexcept override;
 
     virtual void VCount144() override;
     virtual void RenderFrame() override;
@@ -451,7 +451,7 @@ private:
 
     };
 
-    Melon::GPU& GPU;
+    melonDS::GPU& GPU;
     RendererPolygon PolygonList[2048];
     void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha);
     u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t);

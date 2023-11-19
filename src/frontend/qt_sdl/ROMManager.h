@@ -31,6 +31,7 @@
 namespace ROMManager
 {
 
+using namespace melonDS;
 extern SaveManager* NDSSave;
 extern SaveManager* GBASave;
 extern std::unique_ptr<SaveManager> FirmwareSave;

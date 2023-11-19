@@ -29,19 +29,11 @@
 #include "GPU_OpenGL.h"
 #endif
 
-
-namespace GPU3D
+namespace melonDS
 {
 class GPU3D;
-}
-
-namespace ARMJIT
-{
 class ARMJIT;
-}
 
-namespace Melon
-{
 static constexpr u32 VRAMDirtyGranularity = 512;
 class GPU;
 
@@ -75,7 +67,7 @@ struct RenderSettings
 class GPU
 {
 public:
-    GPU(ARMJIT::ARMJIT& jit) noexcept;
+    GPU(ARMJIT& jit) noexcept;
     ~GPU() noexcept;
     void Reset() noexcept;
     void Stop() noexcept;
@@ -544,7 +536,7 @@ public:
 
     void SyncDirtyFlags() noexcept;
 
-    ARMJIT::ARMJIT& JIT;
+    ARMJIT& JIT;
     u16 VCount = 0;
     u16 TotalScanlines = 0;
     u16 DispStat[2] {};
@@ -590,7 +582,7 @@ public:
 
     GPU2D::Unit GPU2D_A;
     GPU2D::Unit GPU2D_B;
-    GPU3D::GPU3D GPU3D {};
+    melonDS::GPU3D GPU3D {};
 
     NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMDirty[9] {};
     VRAMTrackingSet<512*1024, 16*1024> VRAMDirty_ABG {};

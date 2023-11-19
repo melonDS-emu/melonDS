@@ -25,6 +25,8 @@
 #include "FATStorage.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 namespace fs = std::filesystem;
 using namespace Platform;
 
@@ -1103,4 +1105,6 @@ bool FATStorage::Save()
     FF_File = nullptr;
 
     return true;
+}
+
 }

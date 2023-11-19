@@ -21,6 +21,7 @@
 
 #include "main.h"
 
+using namespace melonDS;
 extern EmuThread* emuThread;
 
 s32 GetMainRAMValue(const u32& addr, const ramInfo_ByteType& byteType)
