@@ -2074,25 +2074,24 @@ void debug(u32 param)
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU->VRAMCNT[i]);
 
-    FILE*
-    shit = fopen("debug/DSfirmware.bin", "wb");
-    fwrite(ARM9->ITCM, 0x8000, 1, shit);
+    Platform::FileHandle* shit = Platform::OpenFile("debug/DSfirmware.bin", FileMode::Write);
+    Platform::FileWrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
         u32 val = ARM7Read32(i);
-        fwrite(&val, 4, 1, shit);
+        Platform::FileWrite(&val, 4, 1, shit);
     }
     for (u32 i = 0x037F0000; i < 0x03810000; i+=4)
     {
         u32 val = ARM7Read32(i);
-        fwrite(&val, 4, 1, shit);
+        Platform::FileWrite(&val, 4, 1, shit);
     }
     for (u32 i = 0x06000000; i < 0x06040000; i+=4)
     {
         u32 val = ARM7Read32(i);
-        fwrite(&val, 4, 1, shit);
+        Platform::FileWrite(&val, 4, 1, shit);
     }
-    fclose(shit);
+    Platform::CloseFile(shit);
 
     /*FILE*
     shit = fopen("debug/directboot9.bin", "wb");
