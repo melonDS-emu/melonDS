@@ -73,7 +73,8 @@ public:
 
     void SetupDirectBoot(bool dsi);
 
-    const class Firmware* GetFirmware();
+    Firmware* GetFirmware() { return Firmware.get(); };
+    [[nodiscard]] const Firmware* GetFirmware() const { return Firmware.get(); };
     bool IsLoadedFirmwareBuiltIn();
     bool InstallFirmware(class Firmware&& firmware);
     bool InstallFirmware(std::unique_ptr<class Firmware>&& firmware);
@@ -146,11 +147,14 @@ public:
     void Reset();
     void DoSavestate(Savestate* file);
 
-    FirmwareMem* GetFirmwareMem() { return (FirmwareMem*)Devices[SPIDevice_FirmwareMem]; }
-    PowerMan* GetPowerMan() { return (PowerMan*)Devices[SPIDevice_PowerMan]; }
-    TSC* GetTSC() { return (TSC*)Devices[SPIDevice_TSC]; }
-
-    const Firmware* GetFirmware() { return GetFirmwareMem()->GetFirmware(); }
+    [[nodiscard]] FirmwareMem* GetFirmwareMem() { return (FirmwareMem*)Devices[SPIDevice_FirmwareMem]; }
+    [[nodiscard]] const FirmwareMem* GetFirmwareMem() const { return (FirmwareMem*)Devices[SPIDevice_FirmwareMem]; }
+    [[nodiscard]] PowerMan* GetPowerMan() { return (PowerMan*)Devices[SPIDevice_PowerMan]; }
+    [[nodiscard]] const PowerMan* GetPowerMan() const { return (PowerMan*)Devices[SPIDevice_PowerMan]; }
+    [[nodiscard]] TSC* GetTSC() { return (TSC*)Devices[SPIDevice_TSC]; }
+    [[nodiscard]] const TSC* GetTSC() const { return (TSC*)Devices[SPIDevice_TSC]; }
+    [[nodiscard]] const Firmware* GetFirmware() const { return GetFirmwareMem()->GetFirmware(); }
+    [[nodiscard]] Firmware* GetFirmware() { return GetFirmwareMem()->GetFirmware(); }
 
     u16 ReadCnt() { return Cnt; }
     void WriteCnt(u16 val);
