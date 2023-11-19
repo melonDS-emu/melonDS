@@ -137,10 +137,10 @@ enum ConfigEntry
 #endif
 };
 
-int GetConfigInt(ConfigEntry entry);
-bool GetConfigBool(ConfigEntry entry);
-std::string GetConfigString(ConfigEntry entry);
-bool GetConfigArray(ConfigEntry entry, void* data);
+[[deprecated("Use constructor parameters instead")]] int GetConfigInt(ConfigEntry entry);
+[[deprecated("Use constructor parameters instead")]] bool GetConfigBool(ConfigEntry entry);
+[[deprecated("Use constructor parameters instead")]] std::string GetConfigString(ConfigEntry entry);
+[[deprecated("Use constructor parameters instead")]] bool GetConfigArray(ConfigEntry entry, void* data);
 
 /**
  * Denotes how a file will be opened and accessed.
