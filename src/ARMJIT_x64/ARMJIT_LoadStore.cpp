@@ -17,6 +17,7 @@
 */
 
 #include "ARMJIT_Compiler.h"
+#include "../ARMJIT.h"
 
 using namespace Gen;
 
@@ -67,9 +68,9 @@ u8* Compiler::RewriteMemAccess(u8* pc)
 
 bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
 {
-    u32 localAddr = LocaliseCodeAddress(Num, addr);
+    u32 localAddr = JIT.LocaliseCodeAddress(Num, addr);
 
-    int invalidLiteralIdx = InvalidLiterals.Find(localAddr);
+    int invalidLiteralIdx = JIT.InvalidLiterals.Find(localAddr);
     if (invalidLiteralIdx != -1)
     {
         return false;
@@ -117,7 +118,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
     if (size == 16)
         addressMask = ~1;
 
-    if (LiteralOptimizations && rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
+    if (JIT.LiteralOptimizations && rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
     {
         u32 addr = R15 + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
 
@@ -134,7 +135,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
         Comp_AddCycles_CDI();
     }
 
-    bool addrIsStatic = LiteralOptimizations
+    bool addrIsStatic = JIT.LiteralOptimizations
         && RegCache.IsLiteral(rn) && op2.IsImm && !(flags & (memop_Writeback|memop_Post));
     u32 staticAddress;
     if (addrIsStatic)
@@ -195,10 +196,10 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
         MOV(32, rnMapped, R(finalAddr));
 
     u32 expectedTarget = Num == 0
-        ? ARMJIT_Memory::ClassifyAddress9(CurInstr.DataRegion)
-        : ARMJIT_Memory::ClassifyAddress7(CurInstr.DataRegion);
+        ? JIT.Memory.ClassifyAddress9(CurInstr.DataRegion)
+        : JIT.Memory.ClassifyAddress7(CurInstr.DataRegion);
 
-    if (ARMJIT::FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || ARMJIT_Memory::IsFastmemCompatible(expectedTarget)))
+    if (JIT.FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || JIT.Memory.IsFastmemCompatible(expectedTarget)))
     {
         if (rdMapped.IsImm())
         {
@@ -216,7 +217,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
 
         assert(patch.PatchFunc != NULL);
 
-        MOV(64, R(RSCRATCH), ImmPtr(Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start));
+        MOV(64, R(RSCRATCH), ImmPtr(Num == 0 ? JIT.Memory.FastMem9Start : JIT.Memory.FastMem7Start));
 
         X64Reg maskedAddr = RSCRATCH3;
         if (size > 8)
@@ -267,7 +268,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
 
         void* func = NULL;
         if (addrIsStatic)
-            func = ARMJIT_Memory::GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
+            func = JIT.Memory.GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
 
         if (func)
         {
@@ -421,16 +422,16 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     s32 offset = (regsCount * 4) * (decrement ? -1 : 1);
 
     int expectedTarget = Num == 0
-        ? ARMJIT_Memory::ClassifyAddress9(CurInstr.DataRegion)
-        : ARMJIT_Memory::ClassifyAddress7(CurInstr.DataRegion);
+        ? JIT.Memory.ClassifyAddress9(CurInstr.DataRegion)
+        : JIT.Memory.ClassifyAddress7(CurInstr.DataRegion);
 
     if (!store)
         Comp_AddCycles_CDI();
     else
         Comp_AddCycles_CD();
 
-    bool compileFastPath = FastMemory
-        && !usermode && (CurInstr.Cond() < 0xE || ARMJIT_Memory::IsFastmemCompatible(expectedTarget));
+    bool compileFastPath = JIT.FastMemory
+        && !usermode && (CurInstr.Cond() < 0xE || JIT.Memory.IsFastmemCompatible(expectedTarget));
 
     // we need to make sure that the stack stays aligned to 16 bytes
 #ifdef _WIN32
@@ -453,7 +454,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         u8* fastPathStart = GetWritableCodePtr();
         u8* loadStoreAddr[16];
 
-        MOV(64, R(RSCRATCH2), ImmPtr(Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start));
+        MOV(64, R(RSCRATCH2), ImmPtr(Num == 0 ? JIT.Memory.FastMem9Start : JIT.Memory.FastMem7Start));
         ADD(64, R(RSCRATCH2), R(RSCRATCH4));
 
         u32 offset = 0;
@@ -807,7 +808,7 @@ void Compiler::T_Comp_LoadPCRel()
 {
     u32 offset = (CurInstr.Instr & 0xFF) << 2;
     u32 addr = (R15 & ~0x2) + offset;
-    if (!LiteralOptimizations || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
+    if (!JIT.LiteralOptimizations || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
         Comp_MemAccess(CurInstr.T_Reg(8), 15, Op2(offset), 32, 0);
 }
 

@@ -19,49 +19,147 @@
 #ifndef ARMJIT_H
 #define ARMJIT_H
 
+#include <memory>
 #include "types.h"
 
-#include "ARM.h"
-#include "ARM_InstrInfo.h"
+#include "ARMJIT_Memory.h"
+#include "JitBlock.h"
 
 #if defined(__APPLE__) && defined(__aarch64__)
     #include <pthread.h>
 #endif
 
+#include "ARMJIT_Compiler.h"
+
+class ARM;
+
 namespace ARMJIT
 {
+class JitBlock;
+class ARMJIT
+{
+public:
+    ARMJIT() noexcept : JITCompiler(*this), Memory(*this) {}
+    ~ARMJIT() noexcept NOOP_IF_NO_JIT;
+    void InvalidateByAddr(u32) noexcept NOOP_IF_NO_JIT;
+    void CheckAndInvalidateWVRAM(int) noexcept NOOP_IF_NO_JIT;
+    void CheckAndInvalidateITCM() noexcept NOOP_IF_NO_JIT;
+    void Reset() noexcept NOOP_IF_NO_JIT;
+    void JitEnableWrite() noexcept NOOP_IF_NO_JIT;
+    void JitEnableExecute() noexcept NOOP_IF_NO_JIT;
+    void CompileBlock(ARM* cpu) noexcept NOOP_IF_NO_JIT;
+    void ResetBlockCache() noexcept NOOP_IF_NO_JIT;
 
-typedef void (*JitBlockEntry)();
+#ifdef JIT_ENABLED
+    template <u32 num, int region>
+    void CheckAndInvalidate(u32 addr) noexcept
+    {
+        u32 localAddr = Memory.LocaliseAddress(region, num, addr);
+        if (CodeMemRegions[region][(localAddr & 0x7FFFFFF) / 512].Code & (1 << ((localAddr & 0x1FF) / 16)))
+            InvalidateByAddr(localAddr);
+    }
+    JitBlockEntry LookUpBlock(u32 num, u64* entries, u32 offset, u32 addr) noexcept;
+    bool SetupExecutableRegion(u32 num, u32 blockAddr, u64*& entry, u32& start, u32& size) noexcept;
+    u32 LocaliseCodeAddress(u32 num, u32 addr) const noexcept;
+#else
+    template <u32, int>
+    void CheckAndInvalidate(u32) noexcept {}
+#endif
 
-extern int MaxBlockSize;
-extern bool LiteralOptimizations;
-extern bool BranchOptimizations;
-extern bool FastMemory;
+    ARMJIT_Memory Memory;
+    int MaxBlockSize {};
+    bool LiteralOptimizations = false;
+    bool BranchOptimizations = false;
+    bool FastMemory = false;
 
-void Init();
-void DeInit();
+    TinyVector<u32> InvalidLiterals {};
+private:
+    friend class ::ARMJIT_Memory;
+    void blockSanityCheck(u32 num, u32 blockAddr, JitBlockEntry entry) noexcept;
+    void RetireJitBlock(JitBlock* block) noexcept;
 
-void Reset();
+    Compiler JITCompiler;
+    std::unordered_map<u32, JitBlock*> JitBlocks9 {};
+    std::unordered_map<u32, JitBlock*> JitBlocks7 {};
 
-void CheckAndInvalidateITCM();
-void CheckAndInvalidateWVRAM(int bank);
+    std::unordered_map<u32, JitBlock*> RestoreCandidates {};
 
-void InvalidateByAddr(u32 pseudoPhysical);
 
-template <u32 num, int region>
-void CheckAndInvalidate(u32 addr);
+    AddressRange CodeIndexITCM[ITCMPhysicalSize / 512] {};
+    AddressRange CodeIndexMainRAM[NDS::MainRAMMaxSize / 512] {};
+    AddressRange CodeIndexSWRAM[NDS::SharedWRAMSize / 512] {};
+    AddressRange CodeIndexVRAM[0x100000 / 512] {};
+    AddressRange CodeIndexARM9BIOS[sizeof(NDS::ARM9BIOS) / 512] {};
+    AddressRange CodeIndexARM7BIOS[sizeof(NDS::ARM7BIOS) / 512] {};
+    AddressRange CodeIndexARM7WRAM[NDS::ARM7WRAMSize / 512] {};
+    AddressRange CodeIndexARM7WVRAM[0x40000 / 512] {};
+    AddressRange CodeIndexBIOS9DSi[0x10000 / 512] {};
+    AddressRange CodeIndexBIOS7DSi[0x10000 / 512] {};
+    AddressRange CodeIndexNWRAM_A[DSi::NWRAMSize / 512] {};
+    AddressRange CodeIndexNWRAM_B[DSi::NWRAMSize / 512] {};
+    AddressRange CodeIndexNWRAM_C[DSi::NWRAMSize / 512] {};
 
-void CompileBlock(ARM* cpu);
+    u64 FastBlockLookupITCM[ITCMPhysicalSize / 2] {};
+    u64 FastBlockLookupMainRAM[NDS::MainRAMMaxSize / 2] {};
+    u64 FastBlockLookupSWRAM[NDS::SharedWRAMSize / 2] {};
+    u64 FastBlockLookupVRAM[0x100000 / 2] {};
+    u64 FastBlockLookupARM9BIOS[sizeof(NDS::ARM9BIOS) / 2] {};
+    u64 FastBlockLookupARM7BIOS[sizeof(NDS::ARM7BIOS) / 2] {};
+    u64 FastBlockLookupARM7WRAM[NDS::ARM7WRAMSize / 2] {};
+    u64 FastBlockLookupARM7WVRAM[0x40000 / 2] {};
+    u64 FastBlockLookupBIOS9DSi[0x10000 / 2] {};
+    u64 FastBlockLookupBIOS7DSi[0x10000 / 2] {};
+    u64 FastBlockLookupNWRAM_A[DSi::NWRAMSize / 2] {};
+    u64 FastBlockLookupNWRAM_B[DSi::NWRAMSize / 2] {};
+    u64 FastBlockLookupNWRAM_C[DSi::NWRAMSize / 2] {};
 
-void ResetBlockCache();
+    AddressRange* const CodeMemRegions[ARMJIT_Memory::memregions_Count] =
+    {
+        NULL,
+        CodeIndexITCM,
+        NULL,
+        CodeIndexARM9BIOS,
+        CodeIndexMainRAM,
+        CodeIndexSWRAM,
+        NULL,
+        CodeIndexVRAM,
+        CodeIndexARM7BIOS,
+        CodeIndexARM7WRAM,
+        NULL,
+        NULL,
+        CodeIndexARM7WVRAM,
+        CodeIndexBIOS9DSi,
+        CodeIndexBIOS7DSi,
+        CodeIndexNWRAM_A,
+        CodeIndexNWRAM_B,
+        CodeIndexNWRAM_C
+    };
 
-JitBlockEntry LookUpBlock(u32 num, u64* entries, u32 offset, u32 addr);
-bool SetupExecutableRegion(u32 num, u32 blockAddr, u64*& entry, u32& start, u32& size);
-
-void JitEnableWrite();
-void JitEnableExecute();
+    u64* const FastBlockLookupRegions[ARMJIT_Memory::memregions_Count] =
+    {
+        NULL,
+        FastBlockLookupITCM,
+        NULL,
+        FastBlockLookupARM9BIOS,
+        FastBlockLookupMainRAM,
+        FastBlockLookupSWRAM,
+        NULL,
+        FastBlockLookupVRAM,
+        FastBlockLookupARM7BIOS,
+        FastBlockLookupARM7WRAM,
+        NULL,
+        NULL,
+        FastBlockLookupARM7WVRAM,
+        FastBlockLookupBIOS9DSi,
+        FastBlockLookupBIOS7DSi,
+        FastBlockLookupNWRAM_A,
+        FastBlockLookupNWRAM_B,
+        FastBlockLookupNWRAM_C
+    };
+};
 }
 
+// Defined in assembly
 extern "C" void ARM_Dispatch(ARM* cpu, ARMJIT::JitBlockEntry entry);
 
 #endif

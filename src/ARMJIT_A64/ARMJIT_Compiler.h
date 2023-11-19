@@ -20,7 +20,6 @@
 #define ARMJIT_A64_COMPILER_H
 
 #include "../ARM.h"
-#include "../ARMJIT.h"
 
 #include "../dolphin/Arm64Emitter.h"
 
@@ -31,7 +30,7 @@
 
 namespace ARMJIT
 {
-
+class ARMJIT;
 const Arm64Gen::ARM64Reg RMemBase = Arm64Gen::X26;
 const Arm64Gen::ARM64Reg RCPSR = Arm64Gen::W27;
 const Arm64Gen::ARM64Reg RCycles = Arm64Gen::W28;
@@ -97,7 +96,7 @@ class Compiler : public Arm64Gen::ARM64XEmitter
 public:
     typedef void (Compiler::*CompileFunc)();
 
-    Compiler();
+    Compiler(ARMJIT& jit);
     ~Compiler();
 
     void PushRegs(bool saveHiRegs, bool saveRegsToBeChanged, bool allowUnload = true);
@@ -243,6 +242,7 @@ public:
         OtherCodeRegion = offset;
     }
 
+    ARMJIT& JIT;
     ptrdiff_t OtherCodeRegion;
 
     bool Exit;

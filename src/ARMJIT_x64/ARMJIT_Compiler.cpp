@@ -18,6 +18,7 @@
 
 #include "ARMJIT_Compiler.h"
 
+#include "../ARMJIT.h"
 #include "../ARMInterpreter.h"
 
 #include <assert.h>
@@ -232,7 +233,7 @@ void Compiler::A_Comp_MSR()
  */
 u8 CodeMemory[1024 * 1024 * 32];
 
-Compiler::Compiler()
+Compiler::Compiler(ARMJIT& jit) : XEmitter(), JIT(jit)
 {
     {
     #ifdef _WIN32
@@ -712,12 +713,12 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
     if (NearSize - (GetCodePtr() - NearStart) < 1024 * 32) // guess...
     {
         Log(LogLevel::Debug, "near reset\n");
-        ResetBlockCache();
+        JIT.ResetBlockCache();
     }
     if (FarSize - (FarCode - FarStart) < 1024 * 32) // guess...
     {
         Log(LogLevel::Debug, "far reset\n");
-        ResetBlockCache();
+        JIT.ResetBlockCache();
     }
 
     ConstantCycles = 0;

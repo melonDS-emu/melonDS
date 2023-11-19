@@ -274,7 +274,7 @@ struct Info
     }
 };
 
-Info Decode(bool thumb, u32 num, u32 instr);
+Info Decode(bool thumb, u32 num, u32 instr, bool literaloptimizations);
 
 }
 

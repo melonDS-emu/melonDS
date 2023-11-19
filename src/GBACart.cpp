@@ -42,11 +42,6 @@ const char SOLAR_SENSOR_GAMECODES[10][5] =
     "A3IJ"  // Boktai - The Sun Is in Your Hand (USA) (Sample)
 };
 
-std::unique_ptr<CartCommon> Cart;
-
-u16 OpenBusDecay;
-
-
 CartCommon::CartCommon()
 {
 }
@@ -77,7 +72,7 @@ int CartCommon::SetInput(int num, bool pressed)
     return -1;
 }
 
-u16 CartCommon::ROMRead(u32 addr)
+u16 CartCommon::ROMRead(u32 addr) const
 {
     return 0;
 }
@@ -243,7 +238,7 @@ void CartGame::LoadSave(const u8* savedata, u32 savelen)
     Platform::WriteGBASave(savedata, len, 0, len);
 }
 
-u16 CartGame::ROMRead(u32 addr)
+u16 CartGame::ROMRead(u32 addr) const
 {
     addr &= 0x01FFFFFF;
 
@@ -639,7 +634,7 @@ void CartRAMExpansion::DoSavestate(Savestate* file)
     file->Var16(&RAMEnable);
 }
 
-u16 CartRAMExpansion::ROMRead(u32 addr)
+u16 CartRAMExpansion::ROMRead(u32 addr) const
 {
     addr &= 0x01FFFFFF;
 
@@ -696,25 +691,12 @@ void CartRAMExpansion::ROMWrite(u32 addr, u16 val)
     }
 }
 
-
-bool Init()
-{
-    Cart = nullptr;
-
-    return true;
-}
-
-void DeInit()
-{
-    Cart = nullptr;
-}
-
-void Reset()
+void GBACartSlot::Reset() noexcept
 {
     if (Cart) Cart->Reset();
 }
 
-void DoSavestate(Savestate* file)
+void GBACartSlot::DoSavestate(Savestate* file) noexcept
 {
     file->Section("GBAC"); // Game Boy Advance Cartridge
 
@@ -816,7 +798,7 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
     return cart;
 }
 
-bool InsertROM(std::unique_ptr<CartCommon>&& cart)
+bool GBACartSlot::InsertROM(std::unique_ptr<CartCommon>&& cart) noexcept
 {
     if (!cart) {
         Log(LogLevel::Error, "Failed to insert invalid GBA cart; existing cart (if any) was not ejected.\n");
@@ -844,14 +826,14 @@ bool InsertROM(std::unique_ptr<CartCommon>&& cart)
     return true;
 }
 
-bool LoadROM(const u8* romdata, u32 romlen)
+bool GBACartSlot::LoadROM(const u8* romdata, u32 romlen) noexcept
 {
     std::unique_ptr<CartCommon> data = ParseROM(romdata, romlen);
 
     return InsertROM(std::move(data));
 }
 
-void LoadSave(const u8* savedata, u32 savelen)
+void GBACartSlot::LoadSave(const u8* savedata, u32 savelen) noexcept
 {
     if (Cart)
     {
@@ -862,7 +844,7 @@ void LoadSave(const u8* savedata, u32 savelen)
     }
 }
 
-void LoadAddon(int type)
+void GBACartSlot::LoadAddon(int type) noexcept
 {
     switch (type)
     {
@@ -876,13 +858,13 @@ void LoadAddon(int type)
     }
 }
 
-void EjectCart()
+void GBACartSlot::EjectCart() noexcept
 {
     Cart = nullptr;
 }
 
 
-int SetInput(int num, bool pressed)
+int GBACartSlot::SetInput(int num, bool pressed) noexcept
 {
     if (Cart) return Cart->SetInput(num, pressed);
 
@@ -890,44 +872,28 @@ int SetInput(int num, bool pressed)
 }
 
 
-void SetOpenBusDecay(u16 val)
-{
-    OpenBusDecay = val;
-}
-
-
-u16 ROMRead(u32 addr)
+u16 GBACartSlot::ROMRead(u32 addr) const noexcept
 {
     if (Cart) return Cart->ROMRead(addr);
 
     return ((addr >> 1) & 0xFFFF) | OpenBusDecay;
 }
 
-void ROMWrite(u32 addr, u16 val)
+void GBACartSlot::ROMWrite(u32 addr, u16 val) noexcept
 {
     if (Cart) Cart->ROMWrite(addr, val);
 }
 
-u8 SRAMRead(u32 addr)
+u8 GBACartSlot::SRAMRead(u32 addr) noexcept
 {
     if (Cart) return Cart->SRAMRead(addr);
 
     return 0xFF;
 }
 
-void SRAMWrite(u32 addr, u8 val)
+void GBACartSlot::SRAMWrite(u32 addr, u8 val) noexcept
 {
     if (Cart) Cart->SRAMWrite(addr, val);
-}
-
-u8* GetSaveMemory()
-{
-    return Cart ? Cart->GetSaveMemory() : nullptr;
-}
-
-u32 GetSaveMemoryLength()
-{
-    return Cart ? Cart->GetSaveMemoryLength() : 0;
 }
 
 }
