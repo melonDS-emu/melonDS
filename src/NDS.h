@@ -212,6 +212,9 @@ public:
     };
 
 public:
+    // The frontend should set and unset this manually after creating and destroying the NDS object.
+    [[deprecated("Temporary workaround until JIT code generation is revised to accommodate multiple NDS objects.")]] static NDS* Current;
+
     NDS() noexcept : NDS(0) {}
     virtual ~NDS() noexcept;
     NDS(const NDS&) = delete;
