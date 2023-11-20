@@ -5,6 +5,7 @@ include(FixInterfaceIncludes)
 add_library(core STATIC
     ARCodeFile.cpp
     AREngine.cpp
+    Arguments.cpp
     ARM.cpp
     ARM_InstrTable.h
     ARMInterpreter.cpp
