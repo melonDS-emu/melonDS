@@ -60,14 +60,14 @@ public:
     [[nodiscard]] u32 Checksum() const;
 
     virtual void Reset();
-    virtual void SetupDirectBoot(const std::string& romname);
+    virtual void SetupDirectBoot(const std::string& romname, NDS& nds);
 
     virtual void DoSavestate(Savestate* file);
 
     virtual void SetupSave(u32 type);
     virtual void LoadSave(const u8* savedata, u32 savelen);
 
-    virtual int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len);
+    virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len);
     virtual void ROMCommandFinish(u8* cmd, u8* data, u32 len);
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last);
@@ -118,7 +118,7 @@ public:
     virtual void SetupSave(u32 type) override;
     virtual void LoadSave(const u8* savedata, u32 savelen) override;
 
-    virtual int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
+    virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
@@ -157,7 +157,7 @@ public:
 
     void LoadSave(const u8* savedata, u32 savelen) override;
 
-    int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
+    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
 
     u8 SPIWrite(u8 val, u32 pos, bool last) override;
@@ -218,11 +218,11 @@ public:
     virtual u32 Type() const override { return CartType::Homebrew; }
 
     void Reset() override;
-    void SetupDirectBoot(const std::string& romname) override;
+    void SetupDirectBoot(const std::string& romname, NDS& nds) override;
 
     void DoSavestate(Savestate* file) override;
 
-    int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
+    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
 
 private:
