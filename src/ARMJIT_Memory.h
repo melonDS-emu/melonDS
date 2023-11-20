@@ -128,6 +128,7 @@ public:
     [[nodiscard]] u8* GetNWRAM_C() noexcept { return MemoryBase + MemBlockNWRAM_COffset; }
     [[nodiscard]] const u8* GetNWRAM_C() const noexcept { return MemoryBase + MemBlockNWRAM_COffset; }
 
+    void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) const noexcept;
     int ClassifyAddress9(u32 addr) const noexcept;
     int ClassifyAddress7(u32 addr) const noexcept;
     bool GetMirrorLocation(int region, u32 num, u32 addr, u32& memoryOffset, u32& mirrorStart, u32& mirrorSize) const noexcept;

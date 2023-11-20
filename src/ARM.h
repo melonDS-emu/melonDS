@@ -246,7 +246,7 @@ public:
 #ifdef JIT_ENABLED
     void ExecuteJIT() override;
 #endif
-
+    void CheckAndInvalidateITCM(u32 addr) noexcept;
     // all code accesses are forced nonseq 32bit
     u32 CodeRead32(u32 addr, bool branch);
 

@@ -155,19 +155,22 @@ void __libnx_exception_handler(ThreadExceptionDump* ctx)
 LONG ARMJIT_Memory::ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
 {
     if (exceptionInfo->ExceptionRecord->ExceptionCode != EXCEPTION_ACCESS_VIOLATION)
-    {
+    { // If an exception occurred for a reason besides a segfault...
         return EXCEPTION_CONTINUE_SEARCH;
     }
 
-    u8* curArea = (u8*)(NDS::CurCPU == 0 ? NDS::JIT->Memory.FastMem9Start : NDS::JIT->Memory.FastMem7Start);
-    FaultDescription desc {};
-    desc.EmulatedFaultAddr = (u8*)exceptionInfo->ExceptionRecord->ExceptionInformation[1] - curArea;
-    desc.FaultPC = (u8*)exceptionInfo->ContextRecord->CONTEXT_PC;
-
-    if (FaultHandler(desc, *NDS::JIT))
+    if (NDS::Current != nullptr)
     {
-        exceptionInfo->ContextRecord->CONTEXT_PC = (u64)desc.FaultPC;
-        return EXCEPTION_CONTINUE_EXECUTION;
+        u8* curArea = (u8*)(NDS::Current->CurCPU == 0 ? NDS::Current->JIT.Memory.FastMem9Start : NDS::Current->JIT.Memory.FastMem7Start);
+        FaultDescription desc {};
+        desc.EmulatedFaultAddr = (u8*)exceptionInfo->ExceptionRecord->ExceptionInformation[1] - curArea;
+        desc.FaultPC = (u8*)exceptionInfo->ContextRecord->CONTEXT_PC;
+
+        if (FaultHandler(desc, *NDS::Current))
+        {
+            exceptionInfo->ContextRecord->CONTEXT_PC = (u64)desc.FaultPC;
+            return EXCEPTION_CONTINUE_EXECUTION;
+        }
     }
 
     return EXCEPTION_CONTINUE_SEARCH;
@@ -1177,4 +1180,247 @@ u32 WifiRead32(u32 addr)
 {
     return (u32)Wifi::Read(addr) | ((u32)Wifi::Read(addr + 2) << 16);
 }*/
+
+template <typename T>
+void VRAMWrite(u32 addr, T val)
+{
+    switch (addr & 0x00E00000)
+    {
+    case 0x00000000: NDS::Current->GPU.WriteVRAM_ABG<T>(addr, val); return;
+    case 0x00200000: NDS::Current->GPU.WriteVRAM_BBG<T>(addr, val); return;
+    case 0x00400000: NDS::Current->GPU.WriteVRAM_AOBJ<T>(addr, val); return;
+    case 0x00600000: NDS::Current->GPU.WriteVRAM_BOBJ<T>(addr, val); return;
+    default: NDS::Current->GPU.WriteVRAM_LCDC<T>(addr, val); return;
+    }
+}
+template <typename T>
+T VRAMRead(u32 addr)
+{
+    switch (addr & 0x00E00000)
+    {
+    case 0x00000000: return NDS::Current->GPU.ReadVRAM_ABG<T>(addr);
+    case 0x00200000: return NDS::Current->GPU.ReadVRAM_BBG<T>(addr);
+    case 0x00400000: return NDS::Current->GPU.ReadVRAM_AOBJ<T>(addr);
+    case 0x00600000: return NDS::Current->GPU.ReadVRAM_BOBJ<T>(addr);
+    default: return NDS::Current->GPU.ReadVRAM_LCDC<T>(addr);
+    }
+}
+
+static u8 GPU3D_Read8(u32 addr) noexcept
+{
+    return NDS::Current->GPU.GPU3D.Read8(addr);
+}
+
+static u16 GPU3D_Read16(u32 addr) noexcept
+{
+    return NDS::Current->GPU.GPU3D.Read16(addr);
+}
+
+static u32 GPU3D_Read32(u32 addr) noexcept
+{
+    return NDS::Current->GPU.GPU3D.Read32(addr);
+}
+
+static void GPU3D_Write8(u32 addr, u8 val) noexcept
+{
+    NDS::Current->GPU.GPU3D.Write8(addr, val);
+}
+
+static void GPU3D_Write16(u32 addr, u16 val) noexcept
+{
+    NDS::Current->GPU.GPU3D.Write16(addr, val);
+}
+
+static void GPU3D_Write32(u32 addr, u32 val) noexcept
+{
+    NDS::Current->GPU.GPU3D.Write32(addr, val);
+}
+
+template<class T>
+static T GPU_ReadVRAM_ARM7(u32 addr) noexcept
+{
+    return NDS::Current->GPU.ReadVRAM_ARM7<T>(addr);
+}
+
+template<class T>
+static void GPU_WriteVRAM_ARM7(u32 addr, T val) noexcept
+{
+    NDS::Current->GPU.WriteVRAM_ARM7<T>(addr, val);
+}
+
+u32 NDSCartSlot_ReadROMData()
+{ // TODO: Add a NDS* parameter, when NDS* is eventually implemented
+    return NDS::Current->NDSCartSlot.ReadROMData();
+}
+
+static u8 NDS_ARM9IORead8(u32 addr)
+{
+    return NDS::Current->ARM9IORead8(addr);
+}
+
+static u16 NDS_ARM9IORead16(u32 addr)
+{
+    return NDS::Current->ARM9IORead16(addr);
+}
+
+static u32 NDS_ARM9IORead32(u32 addr)
+{
+    return NDS::Current->ARM9IORead32(addr);
+}
+
+static void NDS_ARM9IOWrite8(u32 addr, u8 val)
+{
+    NDS::Current->ARM9IOWrite8(addr, val);
+}
+
+static void NDS_ARM9IOWrite16(u32 addr, u16 val)
+{
+    NDS::Current->ARM9IOWrite16(addr, val);
+}
+
+static void NDS_ARM9IOWrite32(u32 addr, u32 val)
+{
+    NDS::Current->ARM9IOWrite32(addr, val);
+}
+
+static u8 NDS_ARM7IORead8(u32 addr)
+{
+    return NDS::Current->ARM7IORead8(addr);
+}
+
+static u16 NDS_ARM7IORead16(u32 addr)
+{
+    return NDS::Current->ARM7IORead16(addr);
+}
+
+static u32 NDS_ARM7IORead32(u32 addr)
+{
+    return NDS::Current->ARM7IORead32(addr);
+}
+
+static void NDS_ARM7IOWrite8(u32 addr, u8 val)
+{
+    NDS::Current->ARM7IOWrite8(addr, val);
+}
+
+static void NDS_ARM7IOWrite16(u32 addr, u16 val)
+{
+    NDS::Current->ARM7IOWrite16(addr, val);
+}
+
+static void NDS_ARM7IOWrite32(u32 addr, u32 val)
+{
+    NDS::Current->ARM7IOWrite32(addr, val);
+}
+
+void* ARMJIT_Memory::GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) const noexcept
+{
+    if (cpu->Num == 0)
+    {
+        switch (addr & 0xFF000000)
+        {
+        case 0x04000000:
+            if (!store && size == 32 && addr == 0x04100010 && NDS.ExMemCnt[0] & (1<<11))
+                return (void*)NDSCartSlot_ReadROMData;
+
+            /*
+                unfortunately we can't map GPU2D this way
+                since it's hidden inside an object
+
+                though GPU3D registers are accessed much more intensive
+            */
+            if (addr >= 0x04000320 && addr < 0x040006A4)
+            {
+                switch (size | store)
+                {
+                case 8: return (void*)GPU3D_Read8;
+                case 9: return (void*)GPU3D_Write8;
+                case 16: return (void*)GPU3D_Read16;
+                case 17: return (void*)GPU3D_Write16;
+                case 32: return (void*)GPU3D_Read32;
+                case 33: return (void*)GPU3D_Write32;
+                }
+            }
+
+            switch (size | store)
+            {
+            case 8: return (void*)NDS_ARM9IORead8;
+            case 9: return (void*)NDS_ARM9IOWrite8;
+            case 16: return (void*)NDS_ARM9IORead16;
+            case 17: return (void*)NDS_ARM9IOWrite16;
+            case 32: return (void*)NDS_ARM9IORead32;
+            case 33: return (void*)NDS_ARM9IOWrite32;
+            }
+            // NDS::Current will delegate to the DSi versions of these methods
+            // if it's really a DSi
+            break;
+        case 0x06000000:
+            switch (size | store)
+            {
+            case 8: return (void*)VRAMRead<u8>;
+            case 9: return NULL;
+            case 16: return (void*)VRAMRead<u16>;
+            case 17: return (void*)VRAMWrite<u16>;
+            case 32: return (void*)VRAMRead<u32>;
+            case 33: return (void*)VRAMWrite<u32>;
+            }
+            break;
+        }
+    }
+    else
+    {
+        switch (addr & 0xFF800000)
+        {
+        case 0x04000000:
+            /*if (addr >= 0x04000400 && addr < 0x04000520)
+            {
+                switch (size | store)
+                {
+                case 8: return (void*)SPU::Read8;
+                case 9: return (void*)SPU::Write8;
+                case 16: return (void*)SPU::Read16;
+                case 17: return (void*)SPU::Write16;
+                case 32: return (void*)SPU::Read32;
+                case 33: return (void*)SPU::Write32;
+                }
+            }*/
+
+            switch (size | store)
+            {
+            case 8: return (void*)NDS_ARM7IORead8;
+            case 9: return (void*)NDS_ARM7IOWrite8;
+            case 16: return (void*)NDS_ARM7IORead16;
+            case 17: return (void*)NDS_ARM7IOWrite16;
+            case 32: return (void*)NDS_ARM7IORead32;
+            case 33: return (void*)NDS_ARM7IOWrite32;
+            }
+            break;
+            // TODO: the wifi funcs also ought to check POWCNT
+        /*case 0x04800000:
+            if (addr < 0x04810000 && size >= 16)
+            {
+                switch (size | store)
+                {
+                case 16: return (void*)Wifi::Read;
+                case 17: return (void*)Wifi::Write;
+                case 32: return (void*)WifiRead32;
+                case 33: return (void*)WifiWrite32;
+                }
+            }
+            break;*/
+        case 0x06000000:
+        case 0x06800000:
+            switch (size | store)
+            {
+            case 8: return (void*)GPU_ReadVRAM_ARM7<u8>;
+            case 9: return (void*)GPU_WriteVRAM_ARM7<u8>;
+            case 16: return (void*)GPU_ReadVRAM_ARM7<u16>;
+            case 17: return (void*)GPU_WriteVRAM_ARM7<u16>;
+            case 32: return (void*)GPU_ReadVRAM_ARM7<u32>;
+            case 33: return (void*)GPU_WriteVRAM_ARM7<u32>;
+            }
+        }
+    }
+    return NULL;
+}
 }

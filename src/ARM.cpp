@@ -994,6 +994,10 @@ void ARMv4::ExecuteJIT()
 }
 #endif
 
+void ARMv5::CheckAndInvalidateITCM(u32 addr) noexcept
+{
+    NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
+}
 
 void ARMv5::FillPipeline()
 {
