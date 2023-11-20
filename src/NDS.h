@@ -387,7 +387,7 @@ public:
     bool HaltInterrupted(u32 cpu) const noexcept;
     void StopCPU(u32 cpu, u32 mask) noexcept;
     void ResumeCPU(u32 cpu, u32 mask) noexcept;
-    virtual void GXFIFOStall() noexcept;
+    void GXFIFOStall() noexcept;
     void GXFIFOUnstall() noexcept;
 
     u32 GetPC(u32 cpu) const noexcept;
