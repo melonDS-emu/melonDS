@@ -75,7 +75,7 @@ public:
     void DoSavestate(Savestate* file) noexcept;
 
     [[deprecated("Set the renderer directly instead of using an integer code")]] void InitRenderer(int renderer) noexcept;
-    void DeInitRenderer() noexcept;
+    [[deprecated("Don't expose a method to deinit the renderer; deinit it in the destructor or when setting a new renderer")]] void DeInitRenderer() noexcept;
     void ResetRenderer() noexcept;
 
     void SetRenderSettings(int renderer, RenderSettings& settings) noexcept;
