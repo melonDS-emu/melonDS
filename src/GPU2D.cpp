@@ -191,7 +191,7 @@ void Unit::DoSavestate(Savestate* file)
     file->Var32(&Win1Active);
 }
 
-u8 Unit::Read8(u32 addr)
+u8 Unit::Read8(u32 addr) const noexcept
 {
     switch (addr & 0x00000FFF)
     {
@@ -224,7 +224,7 @@ u8 Unit::Read8(u32 addr)
     return 0;
 }
 
-u16 Unit::Read16(u32 addr)
+u16 Unit::Read16(u32 addr) const noexcept
 {
     switch (addr & 0x00000FFF)
     {
@@ -253,7 +253,7 @@ u16 Unit::Read16(u32 addr)
     return 0;
 }
 
-u32 Unit::Read32(u32 addr)
+u32 Unit::Read32(u32 addr) const noexcept
 {
     switch (addr & 0x00000FFF)
     {

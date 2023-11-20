@@ -45,14 +45,14 @@ public:
 
     void SetEnabled(bool enable) { Enabled = enable; }
 
-    u8 Read8(u32 addr);
-    u16 Read16(u32 addr);
-    u32 Read32(u32 addr);
+    u8 Read8(u32 addr) const noexcept;
+    u16 Read16(u32 addr) const noexcept;
+    u32 Read32(u32 addr) const noexcept;
     void Write8(u32 addr, u8 val);
     void Write16(u32 addr, u16 val);
     void Write32(u32 addr, u32 val);
 
-    bool UsesFIFO()
+    bool UsesFIFO() const noexcept
     {
         if (((DispCnt >> 16) & 0x3) == 3)
             return true;
