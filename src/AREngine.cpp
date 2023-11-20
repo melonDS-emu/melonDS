@@ -29,39 +29,10 @@ namespace melonDS
 using Platform::Log;
 using Platform::LogLevel;
 
-
-AREngine::AREngine()
+AREngine::AREngine(melonDS::NDS& nds) : NDS(nds)
 {
     CodeFile = nullptr;
 }
-
-AREngine::~AREngine()
-{
-}
-
-void AREngine::Reset()
-{
-    if (NDS::ConsoleType == 1)
-    {
-        BusRead8 = DSi::ARM7Read8;
-        BusRead16 = DSi::ARM7Read16;
-        BusRead32 = DSi::ARM7Read32;
-        BusWrite8 = DSi::ARM7Write8;
-        BusWrite16 = DSi::ARM7Write16;
-        BusWrite32 = DSi::ARM7Write32;
-    }
-    else
-    {
-        BusRead8 = NDS::ARM7Read8;
-        BusRead16 = NDS::ARM7Read16;
-        BusRead32 = NDS::ARM7Read32;
-        BusWrite8 = NDS::ARM7Write8;
-        BusWrite16 = NDS::ARM7Write16;
-        BusWrite32 = NDS::ARM7Write32;
-    }
-}
-
-
 
 #define case16(x) \
     case ((x)+0x00): case ((x)+0x01): case ((x)+0x02): case ((x)+0x03): \
@@ -113,15 +84,15 @@ void AREngine::RunCheat(ARCode& arcode)
         switch (op)
         {
         case16(0x00): // 32-bit write
-            BusWrite32((a & 0x0FFFFFFF) + offset, b);
+            NDS.ARM7Write32((a & 0x0FFFFFFF) + offset, b);
             break;
 
         case16(0x10): // 16-bit write
-            BusWrite16((a & 0x0FFFFFFF) + offset, b & 0xFFFF);
+            NDS.ARM7Write16((a & 0x0FFFFFFF) + offset, b & 0xFFFF);
             break;
 
         case16(0x20): // 8-bit write
-            BusWrite8((a & 0x0FFFFFFF) + offset, b & 0xFF);
+            NDS.ARM7Write8((a & 0x0FFFFFFF) + offset, b & 0xFF);
             break;
 
         case16(0x30): // IF b > u32[a]
@@ -131,7 +102,7 @@ void AREngine::RunCheat(ARCode& arcode)
 
                 u32 addr = a & 0x0FFFFFFF;
                 if (!addr) addr = offset;
-                u32 chk = BusRead32(addr);
+                u32 chk = NDS.ARM7Read32(addr);
 
                 cond = (b > chk) ? 1:0;
             }
@@ -144,7 +115,7 @@ void AREngine::RunCheat(ARCode& arcode)
 
                 u32 addr = a & 0x0FFFFFFF;
                 if (!addr) addr = offset;
-                u32 chk = BusRead32(addr);
+                u32 chk = NDS.ARM7Read32(addr);
 
                 cond = (b < chk) ? 1:0;
             }
@@ -157,7 +128,7 @@ void AREngine::RunCheat(ARCode& arcode)
 
                 u32 addr = a & 0x0FFFFFFF;
                 if (!addr) addr = offset;
-                u32 chk = BusRead32(addr);
+                u32 chk = NDS.ARM7Read32(addr);
 
                 cond = (b == chk) ? 1:0;
             }
@@ -170,7 +141,7 @@ void AREngine::RunCheat(ARCode& arcode)
 
                 u32 addr = a & 0x0FFFFFFF;
                 if (!addr) addr = offset;
-                u32 chk = BusRead32(addr);
+                u32 chk = NDS.ARM7Read32(addr);
 
                 cond = (b != chk) ? 1:0;
             }
@@ -183,7 +154,7 @@ void AREngine::RunCheat(ARCode& arcode)
 
                 u32 addr = a & 0x0FFFFFFF;
                 if (!addr) addr = offset;
-                u16 val = BusRead16(addr);
+                u16 val = NDS.ARM7Read16(addr);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -198,7 +169,7 @@ void AREngine::RunCheat(ARCode& arcode)
 
                 u32 addr = a & 0x0FFFFFFF;
                 if (!addr) addr = offset;
-                u16 val = BusRead16(addr);
+                u16 val = NDS.ARM7Read16(addr);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -213,7 +184,7 @@ void AREngine::RunCheat(ARCode& arcode)
 
                 u32 addr = a & 0x0FFFFFFF;
                 if (!addr) addr = offset;
-                u16 val = BusRead16(addr);
+                u16 val = NDS.ARM7Read16(addr);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -228,7 +199,7 @@ void AREngine::RunCheat(ARCode& arcode)
 
                 u32 addr = a & 0x0FFFFFFF;
                 if (!addr) addr = offset;
-                u16 val = BusRead16(addr);
+                u16 val = NDS.ARM7Read16(addr);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -237,7 +208,7 @@ void AREngine::RunCheat(ARCode& arcode)
             break;
 
         case16(0xB0): // offset = u32[a + offset]
-            offset = BusRead32((a & 0x0FFFFFFF) + offset);
+            offset = NDS.ARM7Read32((a & 0x0FFFFFFF) + offset);
             break;
 
         case 0xC0: // FOR 0..b
@@ -274,7 +245,7 @@ void AREngine::RunCheat(ARCode& arcode)
             break;
 
         case 0xC6: // u32[b] = offset
-            BusWrite32(b, offset);
+            NDS.ARM7Write32(b, offset);
             break;
 
         case 0xD0: // ENDIF
@@ -323,30 +294,30 @@ void AREngine::RunCheat(ARCode& arcode)
             break;
 
         case 0xD6: // u32[b+offset] = datareg / offset += 4
-            BusWrite32(b + offset, datareg);
+            NDS.ARM7Write32(b + offset, datareg);
             offset += 4;
             break;
 
         case 0xD7: // u16[b+offset] = datareg / offset += 2
-            BusWrite16(b + offset, datareg & 0xFFFF);
+            NDS.ARM7Write16(b + offset, datareg & 0xFFFF);
             offset += 2;
             break;
 
         case 0xD8: // u8[b+offset] = datareg / offset += 1
-            BusWrite8(b + offset, datareg & 0xFF);
+            NDS.ARM7Write8(b + offset, datareg & 0xFF);
             offset += 1;
             break;
 
         case 0xD9: // datareg = u32[b+offset]
-            datareg = BusRead32(b + offset);
+            datareg = NDS.ARM7Read32(b + offset);
             break;
 
         case 0xDA: // datareg = u16[b+offset]
-            datareg = BusRead16(b + offset);
+            datareg = NDS.ARM7Read16(b + offset);
             break;
 
         case 0xDB: // datareg = u8[b+offset]
-            datareg = BusRead8(b + offset);
+            datareg = NDS.ARM7Read8(b + offset);
             break;
 
         case 0xDC: // offset += b
@@ -361,8 +332,8 @@ void AREngine::RunCheat(ARCode& arcode)
                 u32 bytesleft = b;
                 while (bytesleft >= 8)
                 {
-                    BusWrite32(dstaddr, *code++); dstaddr += 4;
-                    BusWrite32(dstaddr, *code++); dstaddr += 4;
+                    NDS.ARM7Write32(dstaddr, *code++); dstaddr += 4;
+                    NDS.ARM7Write32(dstaddr, *code++); dstaddr += 4;
                     bytesleft -= 8;
                 }
                 if (bytesleft > 0)
@@ -371,13 +342,13 @@ void AREngine::RunCheat(ARCode& arcode)
                     code += 2;
                     if (bytesleft >= 4)
                     {
-                        BusWrite32(dstaddr, *(u32*)leftover); dstaddr += 4;
+                        NDS.ARM7Write32(dstaddr, *(u32*)leftover); dstaddr += 4;
                         leftover += 4;
                         bytesleft -= 4;
                     }
                     while (bytesleft > 0)
                     {
-                        BusWrite8(dstaddr, *leftover++); dstaddr++;
+                        NDS.ARM7Write8(dstaddr, *leftover++); dstaddr++;
                         bytesleft--;
                     }
                 }
@@ -393,14 +364,14 @@ void AREngine::RunCheat(ARCode& arcode)
                 u32 bytesleft = b;
                 while (bytesleft >= 4)
                 {
-                    BusWrite32(dstaddr, BusRead32(srcaddr));
+                    NDS.ARM7Write32(dstaddr, NDS.ARM7Read32(srcaddr));
                     srcaddr += 4;
                     dstaddr += 4;
                     bytesleft -= 4;
                 }
                 while (bytesleft > 0)
                 {
-                    BusWrite8(dstaddr, BusRead8(srcaddr));
+                    NDS.ARM7Write8(dstaddr, NDS.ARM7Read8(srcaddr));
                     srcaddr++;
                     dstaddr++;
                     bytesleft--;
