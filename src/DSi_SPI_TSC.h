@@ -28,7 +28,7 @@ namespace melonDS
 class DSi_TSC : public TSC
 {
 public:
-    DSi_TSC(SPIHost* host);
+    DSi_TSC(melonDS::DSi& dsi, SPIHost* host);
     ~DSi_TSC() override;
 
     void Reset() override;
