@@ -42,11 +42,12 @@ enum
 u16 CRC16(const u8* data, u32 len, u32 start);
 
 class SPIHost;
+class NDS;
 
 class SPIDevice
 {
 public:
-    SPIDevice(SPIHost* host) : Host(host), Hold(false), DataPos(0) {}
+    SPIDevice(melonDS::NDS& nds, SPIHost* host) : NDS(nds), Host(host), Hold(false), DataPos(0) {}
     virtual ~SPIDevice() {}
     virtual void Reset() = 0;
     virtual void DoSavestate(Savestate* file) = 0;
@@ -56,6 +57,7 @@ public:
     virtual void Release() { Hold = false; DataPos = 0; }
 
 protected:
+    melonDS::NDS& NDS;
     SPIHost* Host;
 
     bool Hold;
@@ -66,12 +68,12 @@ protected:
 class FirmwareMem : public SPIDevice
 {
 public:
-    FirmwareMem(SPIHost* host);
+    FirmwareMem(melonDS::NDS& nds, SPIHost* host);
     ~FirmwareMem() override;
     void Reset() override;
     void DoSavestate(Savestate* file) override;
 
-    void SetupDirectBoot(bool dsi);
+    void SetupDirectBoot();
 
     Firmware* GetFirmware() { return Firmware.get(); };
     [[nodiscard]] const Firmware* GetFirmware() const { return Firmware.get(); };
@@ -97,7 +99,7 @@ private:
 class PowerMan : public SPIDevice
 {
 public:
-    PowerMan(SPIHost* host);
+    PowerMan(melonDS::NDS& nds, SPIHost* host);
     ~PowerMan() override;
     void Reset() override;
     void DoSavestate(Savestate* file) override;
@@ -117,7 +119,7 @@ private:
 class TSC : public SPIDevice
 {
 public:
-    TSC(SPIHost* host);
+    TSC(melonDS::NDS& nds, SPIHost* host);
     virtual ~TSC() override;
     virtual void Reset() override;
     virtual void DoSavestate(Savestate* file) override;
@@ -142,7 +144,7 @@ protected:
 class SPIHost
 {
 public:
-    SPIHost();
+    SPIHost(melonDS::NDS& nds);
     ~SPIHost();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -156,7 +158,7 @@ public:
     [[nodiscard]] const Firmware* GetFirmware() const { return GetFirmwareMem()->GetFirmware(); }
     [[nodiscard]] Firmware* GetFirmware() { return GetFirmwareMem()->GetFirmware(); }
 
-    u16 ReadCnt() { return Cnt; }
+    [[nodiscard]] u16 ReadCnt() const noexcept { return Cnt; }
     void WriteCnt(u16 val);
 
     u8 ReadData();
@@ -165,6 +167,7 @@ public:
     void TransferDone(u32 param);
 
 private:
+    melonDS::NDS& NDS;
     u16 Cnt;
 
     SPIDevice* Devices[3];

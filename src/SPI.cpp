@@ -65,7 +65,7 @@ bool FirmwareMem::VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
 }
 
 
-FirmwareMem::FirmwareMem(SPIHost* host) : SPIDevice(host)
+FirmwareMem::FirmwareMem(melonDS::NDS& nds, SPIHost* host) : SPIDevice(nds, host)
 {
 }
 
@@ -79,7 +79,7 @@ void FirmwareMem::Reset()
     if (!Firmware)
     {
         Log(LogLevel::Warn, "SPI firmware: no firmware loaded! Using default\n");
-        Firmware = std::make_unique<class Firmware>(NDS::ConsoleType);
+        Firmware = std::make_unique<class Firmware>(NDS.ConsoleType);
     }
 
     // fix touchscreen coords
@@ -134,31 +134,32 @@ void FirmwareMem::DoSavestate(Savestate* file)
     file->Var32(&Addr);
 }
 
-void FirmwareMem::SetupDirectBoot(bool dsi)
+void FirmwareMem::SetupDirectBoot()
 {
     const auto& header = Firmware->GetHeader();
     const auto& userdata = Firmware->GetEffectiveUserData();
-    if (dsi)
+    if (NDS.ConsoleType == 1)
     {
+        // The ARMWrite methods are virtual, they'll delegate to DSi if necessary
         for (u32 i = 0; i < 6; i += 2)
-            DSi::ARM9Write16(0x02FFFCF4, *(u16*)&header.MacAddr[i]); // MAC address
+            NDS.ARM9Write16(0x02FFFCF4, *(u16*)&header.MacAddr[i]); // MAC address
 
         // checkme
-        DSi::ARM9Write16(0x02FFFCFA, header.EnabledChannels); // enabled channels
+        NDS.ARM9Write16(0x02FFFCFA, header.EnabledChannels); // enabled channels
 
         for (u32 i = 0; i < 0x70; i += 4)
-            DSi::ARM9Write32(0x02FFFC80+i, *(u32*)&userdata.Bytes[i]);
+            NDS.ARM9Write32(0x02FFFC80+i, *(u32*)&userdata.Bytes[i]);
     }
     else
     {
-        NDS::ARM9Write32(0x027FF864, 0);
-        NDS::ARM9Write32(0x027FF868, header.UserSettingsOffset << 3); // user settings offset
+        NDS.ARM9Write32(0x027FF864, 0);
+        NDS.ARM9Write32(0x027FF868, header.UserSettingsOffset << 3); // user settings offset
 
-        NDS::ARM9Write16(0x027FF874, header.DataGfxChecksum); // CRC16 for data/gfx
-        NDS::ARM9Write16(0x027FF876, header.GUIWifiCodeChecksum); // CRC16 for GUI/wifi code
+        NDS.ARM9Write16(0x027FF874, header.DataGfxChecksum); // CRC16 for data/gfx
+        NDS.ARM9Write16(0x027FF876, header.GUIWifiCodeChecksum); // CRC16 for GUI/wifi code
 
         for (u32 i = 0; i < 0x70; i += 4)
-            NDS::ARM9Write32(0x027FFC80+i, *(u32*)&userdata.Bytes[i]);
+            NDS.ARM9Write32(0x027FFC80+i, *(u32*)&userdata.Bytes[i]);
     }
 }
 
@@ -321,7 +322,7 @@ void FirmwareMem::Release()
 
 
 
-PowerMan::PowerMan(SPIHost* host) : SPIDevice(host)
+PowerMan::PowerMan(melonDS::NDS& nds, SPIHost* host) : SPIDevice(nds, host)
 {
 }
 
@@ -390,7 +391,7 @@ void PowerMan::Write(u8 val)
             switch (regid)
             {
             case 0:
-                if (val & 0x40) NDS::Stop(StopReason::PowerOff); // shutdown
+                if (val & 0x40) NDS.Stop(StopReason::PowerOff); // shutdown
                 //printf("power %02X\n", val);
                 break;
             case 4:
@@ -405,7 +406,7 @@ void PowerMan::Write(u8 val)
 
 
 
-TSC::TSC(SPIHost* host) : SPIDevice(host)
+TSC::TSC(melonDS::NDS& nds, SPIHost* host) : SPIDevice(nds, host)
 {
 }
 
@@ -447,13 +448,13 @@ void TSC::SetTouchCoords(u16 x, u16 y)
     if (y == 0xFFF)
     {
         // released
-        NDS::KeyInput |= (1 << (16+6));
+        NDS.KeyInput |= (1 << (16+6));
         return;
     }
 
     TouchX <<= 4;
     TouchY <<= 4;
-    NDS::KeyInput &= ~(1 << (16+6));
+    NDS.KeyInput &= ~(1 << (16+6));
 }
 
 void TSC::MicInputFrame(s16* data, int samples)
@@ -495,7 +496,7 @@ void TSC::Write(u8 val)
                 else
                 {
                     // 560190 cycles per frame
-                    u32 cyclepos = (u32)NDS::GetSysClockCycles(2);
+                    u32 cyclepos = (u32)NDS.GetSysClockCycles(2);
                     u32 samplepos = (cyclepos * MicBufferLen) / 560190;
                     if (samplepos >= MicBufferLen) samplepos = MicBufferLen-1;
                     s16 sample = MicBuffer[samplepos];
@@ -524,17 +525,17 @@ void TSC::Write(u8 val)
 
 
 
-SPIHost::SPIHost()
+SPIHost::SPIHost(melonDS::NDS& nds) : NDS(nds)
 {
-    NDS::RegisterEventFunc(NDS::Event_SPITransfer, 0, MemberEventFunc(SPIHost, TransferDone));
+    NDS.RegisterEventFunc(NDS::Event_SPITransfer, 0, MemberEventFunc(SPIHost, TransferDone));
 
-    Devices[SPIDevice_FirmwareMem] = new FirmwareMem(this);
-    Devices[SPIDevice_PowerMan] = new PowerMan(this);
+    Devices[SPIDevice_FirmwareMem] = new FirmwareMem(NDS, this);
+    Devices[SPIDevice_PowerMan] = new PowerMan(NDS, this);
 
-    if (NDS::ConsoleType == 1)
-        Devices[SPIDevice_TSC] = new DSi_TSC(this);
+    if (NDS.ConsoleType == 1)
+        Devices[SPIDevice_TSC] = new DSi_TSC(dynamic_cast<melonDS::DSi&>(NDS), this);
     else
-        Devices[SPIDevice_TSC] = new TSC(this);
+        Devices[SPIDevice_TSC] = new TSC(NDS, this);
 }
 
 SPIHost::~SPIHost()
@@ -547,7 +548,7 @@ SPIHost::~SPIHost()
         Devices[i] = nullptr;
     }
 
-    NDS::UnregisterEventFunc(NDS::Event_SPITransfer, 0);
+    NDS.UnregisterEventFunc(NDS::Event_SPITransfer, 0);
 }
 
 void SPIHost::Reset()
@@ -598,7 +599,7 @@ void SPIHost::TransferDone(u32 param)
     Cnt &= ~(1<<7);
 
     if (Cnt & (1<<14))
-        NDS::SetIRQ(1, NDS::IRQ_SPI);
+        NDS.SetIRQ(1, NDS::IRQ_SPI);
 }
 
 u8 SPIHost::ReadData()
@@ -636,7 +637,7 @@ void SPIHost::WriteData(u8 val)
 
     // SPI transfers one bit per cycle -> 8 cycles per byte
     u32 delay = 8 * (8 << (Cnt & 0x3));
-    NDS::ScheduleEvent(NDS::Event_SPITransfer, false, delay, 0, 0);
+    NDS.ScheduleEvent(NDS::Event_SPITransfer, false, delay, 0, 0);
 }
 
 }
