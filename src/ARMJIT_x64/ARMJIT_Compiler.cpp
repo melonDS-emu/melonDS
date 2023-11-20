@@ -20,6 +20,7 @@
 
 #include "../ARMJIT.h"
 #include "../ARMInterpreter.h"
+#include "../NDS.h"
 
 #include <assert.h>
 #include <stdarg.h>
@@ -234,7 +235,7 @@ void Compiler::A_Comp_MSR()
  */
 u8 CodeMemory[1024 * 1024 * 32];
 
-Compiler::Compiler(ARMJIT& jit) : XEmitter(), JIT(jit)
+Compiler::Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds)
 {
     {
     #ifdef _WIN32
@@ -714,12 +715,12 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
     if (NearSize - (GetCodePtr() - NearStart) < 1024 * 32) // guess...
     {
         Log(LogLevel::Debug, "near reset\n");
-        JIT.ResetBlockCache();
+        NDS.JIT.ResetBlockCache();
     }
     if (FarSize - (FarCode - FarStart) < 1024 * 32) // guess...
     {
         Log(LogLevel::Debug, "far reset\n");
-        JIT.ResetBlockCache();
+        NDS.JIT.ResetBlockCache();
     }
 
     ConstantCycles = 0;
@@ -863,7 +864,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 void Compiler::Comp_AddCycles_C(bool forceNonConstant)
 {
     s32 cycles = Num ?
-        NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 1 : 3]
+        NDS.ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 1 : 3]
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles);
 
     if ((!Thumb && CurInstr.Cond() < 0xE) || forceNonConstant)
@@ -875,7 +876,7 @@ void Compiler::Comp_AddCycles_C(bool forceNonConstant)
 void Compiler::Comp_AddCycles_CI(u32 i)
 {
     s32 cycles = (Num ?
-        NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
+        NDS.ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles)) + i;
 
     if (!Thumb && CurInstr.Cond() < 0xE)
@@ -887,7 +888,7 @@ void Compiler::Comp_AddCycles_CI(u32 i)
 void Compiler::Comp_AddCycles_CI(Gen::X64Reg i, int add)
 {
     s32 cycles = Num ?
-        NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
+        NDS.ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles);
 
     if (!Thumb && CurInstr.Cond() < 0xE)
@@ -912,7 +913,7 @@ void Compiler::Comp_AddCycles_CDI()
 
         s32 cycles;
 
-        s32 numC = NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
+        s32 numC = NDS.ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
         s32 numD = CurInstr.DataCycles;
 
         if ((CurInstr.DataRegion >> 24) == 0x02) // mainRAM
@@ -957,7 +958,7 @@ void Compiler::Comp_AddCycles_CD()
     }
     else
     {
-        s32 numC = NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
+        s32 numC = NDS.ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
         s32 numD = CurInstr.DataCycles;
 
         if ((CurInstr.DataRegion >> 4) == 0x02)

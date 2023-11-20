@@ -142,7 +142,7 @@ void SlowWrite9(u32 addr, ARMv5* cpu, u32 val)
 
     if (addr < cpu->ITCMSize)
     {
-        cpu->JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
+        cpu->NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         *(T*)&cpu->ITCM[addr & 0x7FFF] = val;
     }
     else if ((addr & cpu->DTCMMask) == cpu->DTCMBase)

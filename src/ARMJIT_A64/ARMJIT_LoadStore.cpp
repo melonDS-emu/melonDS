@@ -195,8 +195,8 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
 
         assert((rdMapped >= W8 && rdMapped <= W15) || (rdMapped >= W19 && rdMapped <= W25) || rdMapped == W4);
         patch.PatchFunc = flags & memop_Store
-            ? PatchedStoreFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][rdMapped]
-            : PatchedLoadFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped];
+            ? PatchedStoreFuncs[NDS.ConsoleType][Num][__builtin_ctz(size) - 3][rdMapped]
+            : PatchedLoadFuncs[NDS.ConsoleType][Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped];
 
         // take a chance at fastmem
         if (size > 8)
@@ -263,7 +263,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                 if (flags & memop_Store)
                 {
                     MOV(W2, rdMapped);
-                    switch (size | NDS::ConsoleType)
+                    switch (size | NDS.ConsoleType)
                     {
                     case 32: QuickCallFunction(X3, SlowWrite9<u32, 0>); break;
                     case 33: QuickCallFunction(X3, SlowWrite9<u32, 1>); break;
@@ -275,7 +275,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                 }
                 else
                 {
-                    switch (size | NDS::ConsoleType)
+                    switch (size | NDS.ConsoleType)
                     {
                     case 32: QuickCallFunction(X3, SlowRead9<u32, 0>); break;
                     case 33: QuickCallFunction(X3, SlowRead9<u32, 1>); break;
@@ -291,7 +291,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                 if (flags & memop_Store)
                 {
                     MOV(W1, rdMapped);
-                    switch (size | NDS::ConsoleType)
+                    switch (size | NDS.ConsoleType)
                     {
                     case 32: QuickCallFunction(X3, SlowWrite7<u32, 0>); break;
                     case 33: QuickCallFunction(X3, SlowWrite7<u32, 1>); break;
@@ -303,7 +303,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                 }
                 else
                 {
-                    switch (size | NDS::ConsoleType)
+                    switch (size | NDS.ConsoleType)
                     {
                     case 32: QuickCallFunction(X3, SlowRead7<u32, 0>); break;
                     case 33: QuickCallFunction(X3, SlowRead7<u32, 1>); break;
@@ -680,7 +680,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     if (Num == 0)
     {
         MOV(X3, RCPU);
-        switch ((u32)store * 2 | NDS::ConsoleType)
+        switch ((u32)store * 2 | NDS.ConsoleType)
         {
         case 0: QuickCallFunction(X4, SlowBlockTransfer9<false, 0>); break;
         case 1: QuickCallFunction(X4, SlowBlockTransfer9<false, 1>); break;
@@ -690,7 +690,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     }
     else
     {
-        switch ((u32)store * 2 | NDS::ConsoleType)
+        switch ((u32)store * 2 | NDS.ConsoleType)
         {
         case 0: QuickCallFunction(X4, SlowBlockTransfer7<false, 0>); break;
         case 1: QuickCallFunction(X4, SlowBlockTransfer7<false, 1>); break;

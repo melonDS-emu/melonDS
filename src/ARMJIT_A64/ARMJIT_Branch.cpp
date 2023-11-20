@@ -132,7 +132,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             u32 compileTimePC = CurCPU->R[15];
             CurCPU->R[15] = newPC;
 
-            cycles += NDS::ARM7MemTimings[codeCycles][0] + NDS::ARM7MemTimings[codeCycles][1];
+            cycles += NDS.ARM7MemTimings[codeCycles][0] + NDS.ARM7MemTimings[codeCycles][1];
 
             CurCPU->R[15] = compileTimePC;
         }
@@ -144,7 +144,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             u32 compileTimePC = CurCPU->R[15];
             CurCPU->R[15] = newPC;
 
-            cycles += NDS::ARM7MemTimings[codeCycles][2] + NDS::ARM7MemTimings[codeCycles][3];
+            cycles += NDS.ARM7MemTimings[codeCycles][2] + NDS.ARM7MemTimings[codeCycles][3];
 
             CurCPU->R[15] = compileTimePC;
         }
