@@ -24,6 +24,8 @@
 
 namespace melonDS
 {
+class NDS;
+
 class RTC
 {
 public:
@@ -48,7 +50,7 @@ public:
         u8 AlarmDate2[3];
     };
 
-    RTC();
+    RTC(melonDS::NDS& nds);
     ~RTC();
 
     void Reset();
@@ -66,6 +68,7 @@ public:
     void Write(u16 val, bool byte);
 
 private:
+    melonDS::NDS& NDS;
     /// This value represents the Nintendo DS IO register,
     /// \em not the value of the system's clock.
     /// The actual system time is taken directly from the host.
