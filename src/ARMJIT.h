@@ -39,7 +39,7 @@ class JitBlock;
 class ARMJIT
 {
 public:
-    ARMJIT() noexcept : JITCompiler(*this), Memory(*this) {}
+    ARMJIT(melonDS::NDS& nds) noexcept : NDS(nds), JITCompiler(nds), Memory(nds) {}
     ~ARMJIT() noexcept NOOP_IF_NO_JIT;
     void InvalidateByAddr(u32) noexcept NOOP_IF_NO_JIT;
     void CheckAndInvalidateWVRAM(int) noexcept NOOP_IF_NO_JIT;
@@ -74,6 +74,7 @@ public:
 
     TinyVector<u32> InvalidLiterals {};
 private:
+    melonDS::NDS& NDS;
     friend class ARMJIT_Memory;
     void blockSanityCheck(u32 num, u32 blockAddr, JitBlockEntry entry) noexcept;
     void RetireJitBlock(JitBlock* block) noexcept;
@@ -86,32 +87,32 @@ private:
 
 
     AddressRange CodeIndexITCM[ITCMPhysicalSize / 512] {};
-    AddressRange CodeIndexMainRAM[NDS::MainRAMMaxSize / 512] {};
-    AddressRange CodeIndexSWRAM[NDS::SharedWRAMSize / 512] {};
+    AddressRange CodeIndexMainRAM[MainRAMMaxSize / 512] {};
+    AddressRange CodeIndexSWRAM[SharedWRAMSize / 512] {};
     AddressRange CodeIndexVRAM[0x100000 / 512] {};
-    AddressRange CodeIndexARM9BIOS[sizeof(NDS::ARM9BIOS) / 512] {};
-    AddressRange CodeIndexARM7BIOS[sizeof(NDS::ARM7BIOS) / 512] {};
-    AddressRange CodeIndexARM7WRAM[NDS::ARM7WRAMSize / 512] {};
+    AddressRange CodeIndexARM9BIOS[ARM9BIOSLength / 512] {};
+    AddressRange CodeIndexARM7BIOS[ARM7BIOSLength / 512] {};
+    AddressRange CodeIndexARM7WRAM[ARM7WRAMSize / 512] {};
     AddressRange CodeIndexARM7WVRAM[0x40000 / 512] {};
     AddressRange CodeIndexBIOS9DSi[0x10000 / 512] {};
     AddressRange CodeIndexBIOS7DSi[0x10000 / 512] {};
-    AddressRange CodeIndexNWRAM_A[DSi::NWRAMSize / 512] {};
-    AddressRange CodeIndexNWRAM_B[DSi::NWRAMSize / 512] {};
-    AddressRange CodeIndexNWRAM_C[DSi::NWRAMSize / 512] {};
+    AddressRange CodeIndexNWRAM_A[DSiNWRAMSize / 512] {};
+    AddressRange CodeIndexNWRAM_B[DSiNWRAMSize / 512] {};
+    AddressRange CodeIndexNWRAM_C[DSiNWRAMSize / 512] {};
 
     u64 FastBlockLookupITCM[ITCMPhysicalSize / 2] {};
-    u64 FastBlockLookupMainRAM[NDS::MainRAMMaxSize / 2] {};
-    u64 FastBlockLookupSWRAM[NDS::SharedWRAMSize / 2] {};
+    u64 FastBlockLookupMainRAM[MainRAMMaxSize / 2] {};
+    u64 FastBlockLookupSWRAM[SharedWRAMSize / 2] {};
     u64 FastBlockLookupVRAM[0x100000 / 2] {};
-    u64 FastBlockLookupARM9BIOS[sizeof(NDS::ARM9BIOS) / 2] {};
-    u64 FastBlockLookupARM7BIOS[sizeof(NDS::ARM7BIOS) / 2] {};
-    u64 FastBlockLookupARM7WRAM[NDS::ARM7WRAMSize / 2] {};
+    u64 FastBlockLookupARM9BIOS[ARM9BIOSLength / 2] {};
+    u64 FastBlockLookupARM7BIOS[ARM7BIOSLength / 2] {};
+    u64 FastBlockLookupARM7WRAM[ARM7WRAMSize / 2] {};
     u64 FastBlockLookupARM7WVRAM[0x40000 / 2] {};
     u64 FastBlockLookupBIOS9DSi[0x10000 / 2] {};
     u64 FastBlockLookupBIOS7DSi[0x10000 / 2] {};
-    u64 FastBlockLookupNWRAM_A[DSi::NWRAMSize / 2] {};
-    u64 FastBlockLookupNWRAM_B[DSi::NWRAMSize / 2] {};
-    u64 FastBlockLookupNWRAM_C[DSi::NWRAMSize / 2] {};
+    u64 FastBlockLookupNWRAM_A[DSiNWRAMSize / 2] {};
+    u64 FastBlockLookupNWRAM_B[DSiNWRAMSize / 2] {};
+    u64 FastBlockLookupNWRAM_C[DSiNWRAMSize / 2] {};
 
     AddressRange* const CodeMemRegions[ARMJIT_Memory::memregions_Count] =
     {
