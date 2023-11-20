@@ -1449,19 +1449,19 @@ void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
 
 
 
-NDSCartSlot::NDSCartSlot() noexcept
+NDSCartSlot::NDSCartSlot(melonDS::NDS& nds) noexcept : NDS(nds)
 {
-    NDS::RegisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_PrepareData, MemberEventFunc(NDSCartSlot, ROMPrepareData));
-    NDS::RegisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_End, MemberEventFunc(NDSCartSlot, ROMEndTransfer));
-    NDS::RegisterEventFunc(NDS::Event_ROMSPITransfer, 0, MemberEventFunc(NDSCartSlot, SPITransferDone));
+    NDS.RegisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_PrepareData, MemberEventFunc(NDSCartSlot, ROMPrepareData));
+    NDS.RegisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_End, MemberEventFunc(NDSCartSlot, ROMEndTransfer));
+    NDS.RegisterEventFunc(NDS::Event_ROMSPITransfer, 0, MemberEventFunc(NDSCartSlot, SPITransferDone));
     // All fields are default-constructed because they're listed as such in the class declaration
 }
 
 NDSCartSlot::~NDSCartSlot() noexcept
 {
-    NDS::UnregisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_PrepareData);
-    NDS::UnregisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_End);
-    NDS::UnregisterEventFunc(NDS::Event_ROMSPITransfer, 0);
+    NDS.UnregisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_PrepareData);
+    NDS.UnregisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_End);
+    NDS.UnregisterEventFunc(NDS::Event_ROMSPITransfer, 0);
 
     // Cart is cleaned up automatically because it's a unique_ptr
 }
@@ -1763,8 +1763,6 @@ bool NDSCartSlot::InsertROM(std::unique_ptr<CartCommon>&& cart) noexcept
     Log(LogLevel::Info, "Inserted cart with ID: %08X\n", Cart->ID());
     Log(LogLevel::Info, "ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
 
-    DSi::SetCartInserted(true);
-
     return true;
 }
 
@@ -1792,12 +1790,10 @@ void NDSCartSlot::EjectCart() noexcept
     if (!Cart) return;
 
     // ejecting the cart triggers the gamecard IRQ
-    NDS::SetIRQ(0, NDS::IRQ_CartIREQMC);
-    NDS::SetIRQ(1, NDS::IRQ_CartIREQMC);
+    NDS.SetIRQ(0, NDS::IRQ_CartIREQMC);
+    NDS.SetIRQ(1, NDS::IRQ_CartIREQMC);
 
     Cart = nullptr;
-
-    DSi::SetCartInserted(false);
 
     // CHECKME: does an eject imply anything for the ROM/SPI transfer registers?
 }
@@ -1835,7 +1831,7 @@ void NDSCartSlot::ROMEndTransfer(u32 param) noexcept
     ROMCnt &= ~(1<<31);
 
     if (SPICnt & (1<<14))
-        NDS::SetIRQ((NDS::ExMemCnt[0]>>11)&0x1, NDS::IRQ_CartXferDone);
+        NDS.SetIRQ((NDS.ExMemCnt[0]>>11)&0x1, NDS::IRQ_CartXferDone);
 
     if (Cart)
         Cart->ROMCommandFinish(TransferCmd.data(), TransferData.data(), TransferLen);
@@ -1855,10 +1851,10 @@ void NDSCartSlot::ROMPrepareData(u32 param) noexcept
 
     ROMCnt |= (1<<23);
 
-    if (NDS::ExMemCnt[0] & (1<<11))
-        NDS::CheckDMAs(1, 0x12);
+    if (NDS.ExMemCnt[0] & (1<<11))
+        NDS.CheckDMAs(1, 0x12);
     else
-        NDS::CheckDMAs(0, 0x05);
+        NDS.CheckDMAs(0, 0x05);
 }
 
 void NDSCartSlot::WriteROMCnt(u32 val) noexcept
@@ -1870,9 +1866,9 @@ void NDSCartSlot::WriteROMCnt(u32 val) noexcept
     // a DS cart reader
     if (val & (1<<15))
     {
-        u32 snum = (NDS::ExMemCnt[0]>>8)&0x8;
-        u64 seed0 = *(u32*)&NDS::ROMSeed0[snum] | ((u64)NDS::ROMSeed0[snum+4] << 32);
-        u64 seed1 = *(u32*)&NDS::ROMSeed1[snum] | ((u64)NDS::ROMSeed1[snum+4] << 32);
+        u32 snum = (NDS.ExMemCnt[0]>>8)&0x8;
+        u64 seed0 = *(u32*)&NDS.ROMSeed0[snum] | ((u64)NDS.ROMSeed0[snum+4] << 32);
+        u64 seed1 = *(u32*)&NDS.ROMSeed1[snum] | ((u64)NDS.ROMSeed1[snum+4] << 32);
 
         Key2_X = 0;
         Key2_Y = 0;
@@ -1945,9 +1941,9 @@ void NDSCartSlot::WriteROMCnt(u32 val) noexcept
     }
 
     if (datasize == 0)
-        NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*cmddelay, ROMTransfer_End, 0);
+        NDS.ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*cmddelay, ROMTransfer_End, 0);
     else
-        NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*(cmddelay+4), ROMTransfer_PrepareData, 0);
+        NDS.ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*(cmddelay+4), ROMTransfer_PrepareData, 0);
 }
 
 void NDSCartSlot::AdvanceROMTransfer() noexcept
@@ -1964,7 +1960,7 @@ void NDSCartSlot::AdvanceROMTransfer() noexcept
                 delay += ((ROMCnt >> 16) & 0x3F);
         }
 
-        NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*delay, ROMTransfer_PrepareData, 0);
+        NDS.ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*delay, ROMTransfer_PrepareData, 0);
     }
     else
         ROMEndTransfer(0);
@@ -2066,7 +2062,7 @@ void NDSCartSlot::WriteSPIData(u8 val) noexcept
 
     // SPI transfers one bit per cycle -> 8 cycles per byte
     u32 delay = 8 * (8 << (SPICnt & 0x3));
-    NDS::ScheduleEvent(NDS::Event_ROMSPITransfer, false, delay, 0, 0);
+    NDS.ScheduleEvent(NDS::Event_ROMSPITransfer, false, delay, 0, 0);
 }
 
 }
