@@ -64,7 +64,7 @@ enum
                 VRAMDirty need to be reset for the respective VRAM bank.
 */
 
-GPU::GPU(melonDS::NDS& nds) noexcept : GPU2D_A(0, *this), GPU2D_B(1, *this), NDS(nds)
+GPU::GPU(melonDS::NDS& nds) noexcept : GPU2D_A(0, *this), GPU2D_B(1, *this), GPU3D(nds), NDS(nds)
 {
     NDS.RegisterEventFunc(NDS::Event_LCD, LCD_StartHBlank, MemberEventFunc(GPU, StartHBlank));
     NDS.RegisterEventFunc(NDS::Event_LCD, LCD_StartScanline, MemberEventFunc(GPU, StartScanline));
