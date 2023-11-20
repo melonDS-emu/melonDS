@@ -48,6 +48,11 @@ public:
     void Stop(Platform::StopReason reason) noexcept override;
     bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen) noexcept override;
     void EjectCart() noexcept override;
+    bool NeedsDirectBoot() const noexcept override
+    {
+        // for now, DSi mode requires original BIOS/NAND
+        return false;
+    }
 protected:
     void DoSavestateExtra(Savestate* file) noexcept override;
 public:

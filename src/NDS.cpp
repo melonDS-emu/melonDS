@@ -224,23 +224,15 @@ void NDS::InitTimings() noexcept
 
 bool NDS::NeedsDirectBoot() const noexcept
 {
-    if (ConsoleType == 1)
-    {
-        // for now, DSi mode requires original BIOS/NAND
-        return false;
-    }
-    else
-    {
-        // internal BIOS does not support direct boot
-        if (!Platform::GetConfigBool(Platform::ExternalBIOSEnable))
-            return true;
+    // internal BIOS does not support direct boot
+    if (!Platform::GetConfigBool(Platform::ExternalBIOSEnable))
+        return true;
 
-        // DSi/3DS firmwares aren't bootable
-        if (!SPI.GetFirmware()->IsBootable())
-            return true;
+    // DSi/3DS firmwares aren't bootable
+    if (!SPI.GetFirmware()->IsBootable())
+        return true;
 
-        return false;
-    }
+    return false;
 }
 
 void NDS::SetupDirectBoot() noexcept
