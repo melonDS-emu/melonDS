@@ -236,6 +236,7 @@ public:
 
 protected:
     explicit NDS(int type) noexcept;
+    virtual void DoSavestateExtra(Savestate* file) noexcept {}
 public:
 #ifdef JIT_ENABLED
     bool EnableJIT;
@@ -343,9 +344,9 @@ public:
     bool IsLoadedARM9BIOSBuiltIn() const noexcept;
     bool IsLoadedARM7BIOSBuiltIn() const noexcept;
 
-    bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen) noexcept;
+    virtual bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen) noexcept;
     void LoadSave(const u8* savedata, u32 savelen) noexcept;
-    void EjectCart() noexcept;
+    virtual void EjectCart() noexcept;
     [[nodiscard]] bool CartInserted() const noexcept;
 
     [[nodiscard]] virtual bool NeedsDirectBoot() const noexcept;
@@ -451,7 +452,7 @@ private:
     void DivDone(u32 param) noexcept;
     void SqrtDone(u32 param) noexcept;
     void StartSqrt() noexcept;
-    void RunTimer(u32 tid, s32 cycles);
+    void RunTimer(u32 tid, s32 cycles) noexcept;
     void UpdateWifiTimings() noexcept;
     void SetWifiWaitCnt(u16 val) noexcept;
     void SetGBASlotTimings() noexcept;
