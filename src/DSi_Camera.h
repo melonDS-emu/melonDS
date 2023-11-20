@@ -30,7 +30,7 @@ class DSi_CamModule;
 class DSi_Camera : public DSi_I2CDevice
 {
 public:
-    DSi_Camera(DSi_I2CHost* host, u32 num);
+    DSi_Camera(melonDS::DSi& dsi, DSi_I2CHost* host, u32 num);
     ~DSi_Camera();
 
     void DoSavestate(Savestate* file);
@@ -84,7 +84,7 @@ private:
 class DSi_CamModule
 {
 public:
-    DSi_CamModule();
+    DSi_CamModule(melonDS::DSi& dsi);
     ~DSi_CamModule();
     void Reset();
     void Stop();
@@ -105,6 +105,7 @@ public:
     void Write32(u32 addr, u32 val);
 
 private:
+    melonDS::DSi& DSi;
     DSi_Camera* Camera0; // 78 / facing outside
     DSi_Camera* Camera1; // 7A / selfie cam
 
