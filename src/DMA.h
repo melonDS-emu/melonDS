@@ -31,7 +31,7 @@ class GPU;
 class DMA
 {
 public:
-    DMA(u32 cpu, u32 num, GPU& gpu);
+    DMA(u32 cpu, u32 num, NDS& nds);
     ~DMA() = default;
 
     void Reset();
@@ -83,7 +83,7 @@ public:
     u32 Cnt {};
 
 private:
-    melonDS::GPU& GPU;
+    melonDS::NDS& NDS;
     u32 CPU {};
     u32 Num {};
 
