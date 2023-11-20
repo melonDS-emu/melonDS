@@ -57,13 +57,13 @@ enum
 };
 
 
-DSi_SDHost::DSi_SDHost(u32 num)
+DSi_SDHost::DSi_SDHost(melonDS::DSi& dsi, u32 num) : DSi(dsi)
 {
     Num = num;
 
-    NDS::RegisterEventFunc(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+    DSi.RegisterEventFunc(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
                            Transfer_TX, MemberEventFunc(DSi_SDHost, FinishTX));
-    NDS::RegisterEventFunc(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+    DSi.RegisterEventFunc(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
                            Transfer_RX, MemberEventFunc(DSi_SDHost, FinishRX));
 
     Ports[0] = nullptr;
@@ -75,9 +75,9 @@ DSi_SDHost::~DSi_SDHost()
     if (Ports[0]) delete Ports[0];
     if (Ports[1]) delete Ports[1];
 
-    NDS::UnregisterEventFunc(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+    DSi.UnregisterEventFunc(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
                            Transfer_TX);
-    NDS::UnregisterEventFunc(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+    DSi.UnregisterEventFunc(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
                            Transfer_RX);
 }
 
@@ -144,7 +144,8 @@ void DSi_SDHost::Reset()
             else
                 folderpath = "";
 
-            sd = new DSi_MMCStorage(this,
+            sd = new DSi_MMCStorage(DSi,
+                                    this,
                                     false,
                                     Platform::GetConfigString(Platform::DSiSD_ImagePath),
                                     (u64)Platform::GetConfigInt(Platform::DSiSD_ImageSize) * 1024 * 1024,
@@ -156,15 +157,15 @@ void DSi_SDHost::Reset()
         else
             sd = nullptr;
 
-        mmc = new DSi_MMCStorage(this, *DSi::NANDImage);
-        mmc->SetCID(DSi::NANDImage->GetEMMCID().data());
+        mmc = new DSi_MMCStorage(DSi, this, *DSi.NANDImage);
+        mmc->SetCID(DSi.NANDImage->GetEMMCID().data());
 
         Ports[0] = sd;
         Ports[1] = mmc;
     }
     else
     {
-        DSi_NWifi* nwifi = new DSi_NWifi(this);
+        DSi_NWifi* nwifi = new DSi_NWifi(DSi, this);
 
         Ports[0] = nwifi;
     }
@@ -228,7 +229,7 @@ void DSi_SDHost::UpdateData32IRQ()
     newflags &= (Data32IRQ >> 11);
 
     if ((oldflags == 0) && (newflags != 0))
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
+        DSi.SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
 }
 
 void DSi_SDHost::ClearIRQ(u32 irq)
@@ -244,7 +245,7 @@ void DSi_SDHost::SetIRQ(u32 irq)
     u32 newflags = IRQStatus & ~IRQMask;
 
     if ((oldflags == 0) && (newflags != 0))
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
+        DSi.SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
 }
 
 void DSi_SDHost::UpdateIRQ(u32 oldmask)
@@ -253,7 +254,7 @@ void DSi_SDHost::UpdateIRQ(u32 oldmask)
     u32 newflags = IRQStatus & ~IRQMask;
 
     if ((oldflags == 0) && (newflags != 0))
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
+        DSi.SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
 }
 
 void DSi_SDHost::SetCardIRQ()
@@ -270,8 +271,8 @@ void DSi_SDHost::SetCardIRQ()
 
     if ((oldflags == 0) && (newflags != 0)) // checkme
     {
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO_Data1 : NDS::IRQ2_DSi_SD_Data1);
+        DSi.SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
+        DSi.SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO_Data1 : NDS::IRQ2_DSi_SD_Data1);
     }
 }
 
@@ -282,8 +283,8 @@ void DSi_SDHost::UpdateCardIRQ(u16 oldmask)
 
     if ((oldflags == 0) && (newflags != 0)) // checkme
     {
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO_Data1 : NDS::IRQ2_DSi_SD_Data1);
+        DSi.SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
+        DSi.SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO_Data1 : NDS::IRQ2_DSi_SD_Data1);
     }
 }
 
@@ -324,7 +325,7 @@ u32 DSi_SDHost::DataRX(u8* data, u32 len)
     // we need a delay because DSi boot2 will send a command and then wait for IRQ0
     // but if IRQ24 is thrown instantly, the handler clears IRQ0 before the
     // send-command function starts polling IRQ status
-    NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+    DSi.ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
                        false, 512, Transfer_RX, 0);
 
     return len;
@@ -366,7 +367,7 @@ u32 DSi_SDHost::DataTX(u8* data, u32 len)
             if (DataFIFO32.IsEmpty())
             {
                 SetIRQ(25);
-                DSi::CheckNDMAs(1, Num ? 0x29 : 0x28);
+                DSi.CheckNDMAs(1, Num ? 0x29 : 0x28);
             }
             return 0;
         }
@@ -405,7 +406,7 @@ u32 DSi_SDHost::DataTX(u8* data, u32 len)
     CurFIFO ^= 1;
     BlockCountInternal--;
 
-    NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+    DSi.ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
                        false, 512, Transfer_TX, 0);
 
     return len;
@@ -536,7 +537,7 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x10A: return 0;
     }
 
-    Log(LogLevel::Warn, "unknown %s read %08X @ %08X\n", SD_DESC, addr, NDS::GetPC(1));
+    Log(LogLevel::Warn, "unknown %s read %08X @ %08X\n", SD_DESC, addr, DSi.GetPC(1));
     return 0;
 }
 
@@ -761,7 +762,7 @@ void DSi_SDHost::UpdateFIFO32()
 
     if ((DataFIFO32.Level() << 2) >= BlockLen32)
     {
-        DSi::CheckNDMAs(1, Num ? 0x29 : 0x28);
+        DSi.CheckNDMAs(1, Num ? 0x29 : 0x28);
     }
 }
 
@@ -780,14 +781,14 @@ void DSi_SDHost::CheckSwapFIFO()
 
 #define MMC_DESC  (Internal?"NAND":"SDcard")
 
-DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, DSi_NAND::NANDImage& nand)
-    : DSi_SDDevice(host), Internal(true), NAND(&nand), SD(nullptr)
+DSi_MMCStorage::DSi_MMCStorage(melonDS::DSi& dsi, DSi_SDHost* host, DSi_NAND::NANDImage& nand)
+    : DSi_SDDevice(host), DSi(dsi), Internal(true), NAND(&nand), SD(nullptr)
 {
     ReadOnly = false;
 }
 
-DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::string& filename, u64 size, bool readonly, const std::string& sourcedir)
-    : DSi_SDDevice(host)
+DSi_MMCStorage::DSi_MMCStorage(melonDS::DSi& dsi, DSi_SDHost* host, bool internal, const std::string& filename, u64 size, bool readonly, const std::string& sourcedir)
+    : DSi_SDDevice(host), DSi(dsi)
 {
     Internal = internal;
     NAND = nullptr;

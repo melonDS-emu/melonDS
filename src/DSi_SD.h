@@ -32,12 +32,13 @@ namespace DSi_NAND
 }
 
 class DSi_SDDevice;
+class DSi;
 
 
 class DSi_SDHost
 {
 public:
-    DSi_SDHost(u32 num);
+    DSi_SDHost(melonDS::DSi& dsi, u32 num);
     ~DSi_SDHost();
 
     void CloseHandles();
@@ -69,6 +70,7 @@ public:
     void CheckSwapFIFO();
 
 private:
+    melonDS::DSi& DSi;
     u32 Num;
 
     u16 PortSelect;
@@ -132,8 +134,8 @@ protected:
 class DSi_MMCStorage : public DSi_SDDevice
 {
 public:
-    DSi_MMCStorage(DSi_SDHost* host, DSi_NAND::NANDImage& nand);
-    DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::string& filename, u64 size, bool readonly, const std::string& sourcedir);
+    DSi_MMCStorage(melonDS::DSi& dsi, DSi_SDHost* host, DSi_NAND::NANDImage& nand);
+    DSi_MMCStorage(melonDS::DSi& dsi, DSi_SDHost* host, bool internal, const std::string& filename, u64 size, bool readonly, const std::string& sourcedir);
     ~DSi_MMCStorage();
 
     void Reset();
@@ -149,6 +151,7 @@ public:
 
 private:
     bool Internal;
+    melonDS::DSi& DSi;
     DSi_NAND::NANDImage* NAND;
     FATStorage* SD;
 
