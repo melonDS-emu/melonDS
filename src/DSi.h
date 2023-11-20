@@ -46,6 +46,10 @@ public:
 
     void Reset() noexcept override;
     void Stop(Platform::StopReason reason) noexcept override;
+    bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen) noexcept override;
+    void EjectCart() noexcept override;
+protected:
+    void DoSavestateExtra(Savestate* file) noexcept override;
 public:
     u16 SCFG_BIOS;
     u16 SCFG_Clock9;
@@ -78,7 +82,6 @@ public:
 
     void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) noexcept override;
 
-    bool DoSavestate(Savestate* file);
 
     void SetCartInserted(bool inserted) noexcept;
 
