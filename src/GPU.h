@@ -67,7 +67,7 @@ struct RenderSettings
 class GPU
 {
 public:
-    GPU(ARMJIT& jit) noexcept;
+    GPU(melonDS::NDS& nds) noexcept;
     ~GPU() noexcept;
     void Reset() noexcept;
     void Stop() noexcept;
@@ -536,7 +536,7 @@ public:
 
     void SyncDirtyFlags() noexcept;
 
-    ARMJIT& JIT;
+    melonDS::NDS& NDS;
     u16 VCount = 0;
     u16 TotalScanlines = 0;
     u16 DispStat[2] {};
@@ -582,7 +582,7 @@ public:
 
     GPU2D::Unit GPU2D_A;
     GPU2D::Unit GPU2D_B;
-    melonDS::GPU3D GPU3D {};
+    melonDS::GPU3D GPU3D;
 
     NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMDirty[9] {};
     VRAMTrackingSet<512*1024, 16*1024> VRAMDirty_ABG {};
