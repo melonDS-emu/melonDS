@@ -25,17 +25,18 @@
 
 namespace melonDS
 {
+class DSi;
 class DSi_CamModule;
 
 class DSi_Camera : public DSi_I2CDevice
 {
 public:
-    DSi_Camera(DSi_I2CHost* host, u32 num);
+    DSi_Camera(melonDS::DSi& dsi, DSi_I2CHost* host, u32 num);
     ~DSi_Camera();
 
-    void DoSavestate(Savestate* file);
+    void DoSavestate(Savestate* file) override;
 
-    void Reset();
+    void Reset() override;
     void Stop();
     bool IsActivated();
 
@@ -45,9 +46,9 @@ public:
     // lengths in words
     int TransferScanline(u32* buffer, int maxlen);
 
-    void Acquire();
-    u8 Read(bool last);
-    void Write(u8 val, bool last);
+    void Acquire() override;
+    u8 Read(bool last) override;
+    void Write(u8 val, bool last) override;
 
     void InputFrame(u32* data, int width, int height, bool rgb);
 
@@ -84,7 +85,7 @@ private:
 class DSi_CamModule
 {
 public:
-    DSi_CamModule();
+    DSi_CamModule(melonDS::DSi& dsi);
     ~DSi_CamModule();
     void Reset();
     void Stop();
@@ -105,6 +106,7 @@ public:
     void Write32(u32 addr, u32 val);
 
 private:
+    melonDS::DSi& DSi;
     DSi_Camera* Camera0; // 78 / facing outside
     DSi_Camera* Camera1; // 7A / selfie cam
 

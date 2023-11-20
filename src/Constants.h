@@ -16,28 +16,16 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARENGINE_H
-#define ARENGINE_H
+#pragma once
 
-#include "ARCodeFile.h"
+#include "types.h"
 
 namespace melonDS
 {
-class NDS;
-class AREngine
-{
-public:
-    AREngine(melonDS::NDS& nds);
-
-    ARCodeFile* GetCodeFile() { return CodeFile; }
-    void SetCodeFile(ARCodeFile* file) { CodeFile = file; }
-
-    void RunCheats();
-    void RunCheat(ARCode& arcode);
-private:
-    melonDS::NDS& NDS;
-    ARCodeFile* CodeFile; // AR code file - frontend is responsible for managing this
-};
-
+constexpr u32 MainRAMMaxSize = 0x1000000;
+constexpr u32 SharedWRAMSize = 0x8000;
+constexpr u32 ARM7WRAMSize = 0x10000;
+constexpr u32 NWRAMSize = 0x40000;
+constexpr u32 ARM9BIOSSize = 0x1000;
+constexpr u32 ARM7BIOSSize = 0x4000;
 }
-#endif // ARENGINE_H

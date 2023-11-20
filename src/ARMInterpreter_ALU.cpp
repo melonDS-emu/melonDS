@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include "ARM.h"
+#include "NDS.h"
 
 namespace melonDS::ARMInterpreter
 {
@@ -692,7 +693,7 @@ void A_MOV_REG_LSL_IMM_DBG(ARM* cpu)
         // but since they serve no purpose ATTOW, we can skip them
         u32 addr = cpu->R[15] + 4; // Skip 2nd ID and flags
         // TODO: Pass flags to NocashPrint
-        NDS::NocashPrint(cpu->Num, addr);
+        cpu->NDS.NocashPrint(cpu->Num, addr);
     }
 }
 
@@ -1561,7 +1562,7 @@ void T_MOV_HIREG(ARM* cpu)
         // but since they serve no purpose ATTOW, we can skip them
         u32 addr = cpu->R[15] + 4; // Skip 2nd ID and flags
         // TODO: Pass flags to NocashPrint
-        NDS::NocashPrint(cpu->Num, addr);
+        cpu->NDS.NocashPrint(cpu->Num, addr);
     }
 }
 

@@ -16,28 +16,18 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARENGINE_H
-#define ARENGINE_H
+#ifndef MELONDS_MEMREGION_H
+#define MELONDS_MEMREGION_H
 
-#include "ARCodeFile.h"
+#include "types.h"
 
+// this file exists to break #include cycle loops
 namespace melonDS
 {
-class NDS;
-class AREngine
+struct MemRegion
 {
-public:
-    AREngine(melonDS::NDS& nds);
-
-    ARCodeFile* GetCodeFile() { return CodeFile; }
-    void SetCodeFile(ARCodeFile* file) { CodeFile = file; }
-
-    void RunCheats();
-    void RunCheat(ARCode& arcode);
-private:
-    melonDS::NDS& NDS;
-    ARCodeFile* CodeFile; // AR code file - frontend is responsible for managing this
+    u8* Mem;
+    u32 Mask;
 };
-
 }
-#endif // ARENGINE_H
+#endif //MELONDS_MEMREGION_H

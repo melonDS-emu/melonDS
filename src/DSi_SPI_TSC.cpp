@@ -28,7 +28,7 @@ using Platform::Log;
 using Platform::LogLevel;
 
 
-DSi_TSC::DSi_TSC(SPIHost* host) : TSC(host)
+DSi_TSC::DSi_TSC(melonDS::DSi& dsi) : TSC(dsi)
 {
 }
 
@@ -198,7 +198,7 @@ void DSi_TSC::Write(u8 val)
                     {
                         Log(LogLevel::Debug, "DSi_SPI_TSC: DS-compatibility mode\n");
                         DataPos = 0;
-                        NDS::KeyInput |= (1 << (16+6));
+                        NDS.KeyInput |= (1 << (16+6));
                         return;
                     }
                 }

@@ -45,135 +45,88 @@ namespace melonDS
 {
 using namespace Platform;
 
-namespace DSi
+// matching NDMA modes for DSi
+const u32 NDMAModes[] =
 {
+    // ARM9
 
-u16 SCFG_BIOS;
-u16 SCFG_Clock9;
-u16 SCFG_Clock7;
-u32 SCFG_EXT[2];
-u32 SCFG_MC;
-u16 SCFG_RST;
+    0x10, // immediate
+    0x06, // VBlank
+    0x07, // HBlank
+    0x08, // scanline start
+    0x09, // mainmem FIFO
+    0x04, // DS cart slot
+    0xFF, // GBA cart slot
+    0x0A, // GX FIFO
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 
-u8 ARM9iBIOS[0x10000] = { 0 };
-u8 ARM7iBIOS[0x10000] = { 0 };
+    // ARM7
 
-u32 MBK[2][9];
+    0x30, // immediate
+    0x26, // VBlank
+    0x24, // DS cart slot
+    0xFF, // wifi / GBA cart slot (TODO)
+};
 
-u8* NWRAM_A;
-u8* NWRAM_B;
-u8* NWRAM_C;
-
-u8* NWRAMMap_A[2][4];
-u8* NWRAMMap_B[3][8];
-u8* NWRAMMap_C[3][8];
-
-u32 NWRAMStart[2][3];
-u32 NWRAMEnd[2][3];
-u32 NWRAMMask[2][3];
-
-u32 NDMACnt[2];
-DSi_NDMA* NDMAs[8];
-
-std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
-DSi_SDHost* SDMMC;
-DSi_SDHost* SDIO;
-
-DSi_I2CHost* I2C;
-DSi_CamModule* CamModule;
-DSi_AES* AES;
-DSi_DSP* DSP;
-
-// FIXME: these currently have no effect (and aren't stored in a savestate)
-//        ... not that they matter all that much
-u8 GPIO_Data;
-u8 GPIO_Dir;
-u8 GPIO_IEdgeSel;
-u8 GPIO_IE;
-u8 GPIO_WiFi;
-
-
-void Set_SCFG_Clock9(u16 val);
-void Set_SCFG_MC(u32 val);
-
-
-bool Init()
+DSi::DSi() noexcept :
+    NDS(1),
+    NDMAs {
+        DSi_NDMA(0, 0, *this),
+        DSi_NDMA(0, 1, *this),
+        DSi_NDMA(0, 2, *this),
+        DSi_NDMA(0, 3, *this),
+        DSi_NDMA(1, 0, *this),
+        DSi_NDMA(1, 1, *this),
+        DSi_NDMA(1, 2, *this),
+        DSi_NDMA(1, 3, *this),
+    },
+    DSP(*this),
+    SDMMC(*this, 0),
+    SDIO(*this, 1),
+    I2C(*this),
+    CamModule(*this),
+    AES(*this)
 {
     // Memory is owned by ARMJIT_Memory, don't free it
-    NWRAM_A = NDS::JIT->Memory.GetNWRAM_A();
-    NWRAM_B = NDS::JIT->Memory.GetNWRAM_B();
-    NWRAM_C = NDS::JIT->Memory.GetNWRAM_C();
-
-    NDMAs[0] = new DSi_NDMA(0, 0, *NDS::GPU);
-    NDMAs[1] = new DSi_NDMA(0, 1, *NDS::GPU);
-    NDMAs[2] = new DSi_NDMA(0, 2, *NDS::GPU);
-    NDMAs[3] = new DSi_NDMA(0, 3, *NDS::GPU);
-    NDMAs[4] = new DSi_NDMA(1, 0, *NDS::GPU);
-    NDMAs[5] = new DSi_NDMA(1, 1, *NDS::GPU);
-    NDMAs[6] = new DSi_NDMA(1, 2, *NDS::GPU);
-    NDMAs[7] = new DSi_NDMA(1, 3, *NDS::GPU);
-
-    SDMMC = new DSi_SDHost(0);
-    SDIO = new DSi_SDHost(1);
-
-    I2C = new DSi_I2CHost();
-    CamModule = new DSi_CamModule();
-    AES = new DSi_AES();
-    DSP = new DSi_DSP();
-
-    return true;
+    NWRAM_A = JIT.Memory.GetNWRAM_A();
+    NWRAM_B = JIT.Memory.GetNWRAM_B();
+    NWRAM_C = NDS::JIT.Memory.GetNWRAM_C();
 }
 
-void DeInit()
+DSi::~DSi() noexcept
 {
     // Memory is owned externally
     NWRAM_A = nullptr;
     NWRAM_B = nullptr;
     NWRAM_C = nullptr;
-
-    for (int i = 0; i < 8; i++)
-    {
-        delete NDMAs[i];
-        NDMAs[i] = nullptr;
-    }
-
-    delete SDMMC; SDMMC = nullptr;
-    delete SDIO; SDIO = nullptr;
-
-    delete I2C; I2C = nullptr;
-    delete CamModule; CamModule = nullptr;
-    delete AES; AES = nullptr;
-    delete DSP; DSP = nullptr;
-
-    NANDImage = nullptr;
-    // The NANDImage is cleaned up (and its underlying file closed)
-    // as part of unique_ptr's destructor
 }
 
-void Reset()
+void DSi::Reset()
 {
-    //NDS::ARM9->CP15Write(0x910, 0x0D00000A);
-    //NDS::ARM9->CP15Write(0x911, 0x00000020);
-    //NDS::ARM9->CP15Write(0x100, NDS::ARM9->CP15Read(0x100) | 0x00050000);
+    //ARM9.CP15Write(0x910, 0x0D00000A);
+    //ARM9.CP15Write(0x911, 0x00000020);
+    //ARM9.CP15Write(0x100, ARM9.CP15Read(0x100) | 0x00050000);
+    NDS::Reset();
 
-    NDS::MapSharedWRAM(3);
+    KeyInput &= ~(1 << (16+6));
+    MapSharedWRAM(3);
 
     NDMACnt[0] = 0; NDMACnt[1] = 0;
-    for (int i = 0; i < 8; i++) NDMAs[i]->Reset();
+    for (int i = 0; i < 8; i++) NDMAs[i].Reset();
 
-    I2C->Reset();
-    CamModule->Reset();
-    DSP->Reset();
+    I2C.Reset();
+    CamModule.Reset();
+    DSP.Reset();
 
-    SDMMC->CloseHandles();
-    SDIO->CloseHandles();
+    SDMMC.CloseHandles();
+    SDIO.CloseHandles();
 
     LoadNAND();
 
-    SDMMC->Reset();
-    SDIO->Reset();
+    SDMMC.Reset();
+    SDIO.Reset();
 
-    AES->Reset();
+    AES.Reset();
 
     if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
     {
@@ -187,10 +140,10 @@ void Reset()
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
     SCFG_EXT[1] = 0x93FFFB06;
-    SCFG_MC = 0x0010 | (~((u32)(NDS::NDSCartSlot->GetCart() != nullptr))&1);//0x0011;
+    SCFG_MC = 0x0010 | (~((u32)(NDSCartSlot.GetCart() != nullptr))&1);//0x0011;
     SCFG_RST = 0;
 
-    DSP->SetRstLine(false);
+    DSP.SetRstLine(false);
 
     GPIO_Data = 0xff; // these actually initialize to high after reset
     GPIO_Dir = 0x80; // enable sound out, all others input
@@ -199,16 +152,44 @@ void Reset()
     GPIO_WiFi = 0;
 
     // LCD init flag
-    NDS::GPU->DispStat[0] |= (1<<6);
-    NDS::GPU->DispStat[1] |= (1<<6);
+    GPU.DispStat[0] |= (1<<6);
+    GPU.DispStat[1] |= (1<<6);
 }
 
-void Stop()
+void DSi::Stop(Platform::StopReason reason)
 {
-    CamModule->Stop();
+    NDS::Stop(reason);
+    CamModule.Stop();
 }
 
-void DoSavestate(Savestate* file)
+bool DSi::LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
+{
+    if (NDS::LoadCart(romdata, romlen, savedata, savelen))
+    {
+        SetCartInserted(true);
+        return true;
+    }
+
+    return false;
+}
+
+
+void DSi::EjectCart()
+{
+    NDS::EjectCart();
+
+    SetCartInserted(false);
+}
+void DSi::CamInputFrame(int cam, u32* data, int width, int height, bool rgb)
+{
+    switch (cam)
+    {
+    case 0: return I2C.GetOuterCamera()->InputFrame(data, width, height, rgb);
+    case 1: return I2C.GetInnerCamera()->InputFrame(data, width, height, rgb);
+    }
+}
+
+void DSi::DoSavestateExtra(Savestate* file)
 {
     file->Section("DSIG");
 
@@ -232,7 +213,7 @@ void DoSavestate(Savestate* file)
     {
         Set_SCFG_Clock9(SCFG_Clock9);
         Set_SCFG_MC(SCFG_MC);
-        DSP->SetRstLine(SCFG_RST & 0x0001);
+        DSP.SetRstLine(SCFG_RST & 0x0001);
 
         MBK[0][8] = 0;
         MBK[1][8] = 0;
@@ -277,17 +258,17 @@ void DoSavestate(Savestate* file)
     }
 
     for (int i = 0; i < 8; i++)
-        NDMAs[i]->DoSavestate(file);
+        NDMAs[i].DoSavestate(file);
 
-    AES->DoSavestate(file);
-    CamModule->DoSavestate(file);
-    DSP->DoSavestate(file);
-    I2C->DoSavestate(file);
-    SDMMC->DoSavestate(file);
-    SDIO->DoSavestate(file);
+    AES.DoSavestate(file);
+    CamModule.DoSavestate(file);
+    DSP.DoSavestate(file);
+    I2C.DoSavestate(file);
+    SDMMC.DoSavestate(file);
+    SDIO.DoSavestate(file);
 }
 
-void SetCartInserted(bool inserted)
+void DSi::SetCartInserted(bool inserted)
 {
     if (inserted)
         SCFG_MC &= ~1;
@@ -295,7 +276,7 @@ void SetCartInserted(bool inserted)
         SCFG_MC |= 1;
 }
 
-void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
+void DSi::DecryptModcryptArea(u32 offset, u32 size, u8* iv)
 {
     AES_ctx ctx;
     u8 key[16];
@@ -304,13 +285,13 @@ void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
     if ((offset == 0) || (size == 0))
         return;
 
-    const NDSHeader& header = NDS::NDSCartSlot->GetCart()->GetHeader();
+    const NDSHeader& header = NDSCartSlot.GetCart()->GetHeader();
 
     if ((header.DSiCryptoFlags & (1<<4)) ||
         (header.AppFlags & (1<<7)))
     {
         // dev key
-        const u8* cartrom = NDS::NDSCartSlot->GetCart()->GetROM();
+        const u8* cartrom = NDSCartSlot.GetCart()->GetROM();
         memcpy(key, &cartrom[0], 16);
     }
     else
@@ -394,13 +375,13 @@ void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
     }
 }
 
-void SetupDirectBoot()
+void DSi::SetupDirectBoot()
 {
     bool dsmode = false;
-    NDSHeader& header = NDS::NDSCartSlot->GetCart()->GetHeader();
-    const u8* cartrom = NDS::NDSCartSlot->GetCart()->GetROM();
-    u32 cartid = NDS::NDSCartSlot->GetCart()->ID();
-    DSi_TSC* tsc = (DSi_TSC*)NDS::SPI->GetTSC();
+    NDSHeader& header = NDSCartSlot.GetCart()->GetHeader();
+    const u8* cartrom = NDSCartSlot.GetCart()->GetROM();
+    u32 cartid = NDSCartSlot.GetCart()->ID();
+    DSi_TSC* tsc = (DSi_TSC*)SPI.GetTSC();
 
     // TODO: add controls for forcing DS or DSi mode?
     if (!(header.UnitCode & 0x02))
@@ -550,7 +531,7 @@ void SetupDirectBoot()
             }
         }
 
-        Firmware::WifiBoard nwifiver = NDS::SPI->GetFirmware()->GetHeader().WifiBoard;
+        Firmware::WifiBoard nwifiver = SPI.GetFirmware()->GetHeader().WifiBoard;
         ARM9Write8(0x020005E0, static_cast<u8>(nwifiver));
 
         // TODO: these should be taken from the wifi firmware in NAND
@@ -576,7 +557,7 @@ void SetupDirectBoot()
         ARM9Write32(0x02FFFC00, cartid);
         ARM9Write16(0x02FFFC40, 0x0001); // boot indicator
 
-        ARM9Write8(0x02FFFDFA, I2C->GetBPTWL()->GetBootFlag() | 0x80);
+        ARM9Write8(0x02FFFDFA, I2C.GetBPTWL()->GetBootFlag() | 0x80);
         ARM9Write8(0x02FFFDFB, 0x01);
     }
 
@@ -588,7 +569,7 @@ void SetupDirectBoot()
     if (header.ARM9ROMOffset >= 0x4000 && header.ARM9ROMOffset < 0x8000)
     {
         u8 securearea[0x800];
-        NDS::NDSCartSlot->DecryptSecureArea(securearea);
+        NDSCartSlot.DecryptSecureArea(securearea);
 
         for (u32 i = 0; i < 0x800; i+=4)
         {
@@ -638,37 +619,37 @@ void SetupDirectBoot()
         }
     }
 
-    NDS::ARM7BIOSProt = 0x20;
+    ARM7BIOSProt = 0x20;
 
-    NDS::SPI->GetFirmwareMem()->SetupDirectBoot(true);
+    SPI.GetFirmwareMem()->SetupDirectBoot();
 
-    NDS::ARM9->CP15Write(0x100, 0x00056078);
-    NDS::ARM9->CP15Write(0x200, 0x0000004A);
-    NDS::ARM9->CP15Write(0x201, 0x0000004A);
-    NDS::ARM9->CP15Write(0x300, 0x0000000A);
-    NDS::ARM9->CP15Write(0x502, 0x15111011);
-    NDS::ARM9->CP15Write(0x503, 0x05101011);
-    NDS::ARM9->CP15Write(0x600, 0x04000033);
-    NDS::ARM9->CP15Write(0x601, 0x04000033);
-    NDS::ARM9->CP15Write(0x610, 0x02000031);
-    NDS::ARM9->CP15Write(0x611, 0x02000031);
-    NDS::ARM9->CP15Write(0x620, 0x00000000);
-    NDS::ARM9->CP15Write(0x621, 0x00000000);
-    NDS::ARM9->CP15Write(0x630, 0x08000033);
-    NDS::ARM9->CP15Write(0x631, 0x08000033);
-    NDS::ARM9->CP15Write(0x640, 0x0E00001B);
-    NDS::ARM9->CP15Write(0x641, 0x0E00001B);
-    NDS::ARM9->CP15Write(0x650, 0x00000000);
-    NDS::ARM9->CP15Write(0x651, 0x00000000);
-    NDS::ARM9->CP15Write(0x660, 0xFFFF001D);
-    NDS::ARM9->CP15Write(0x661, 0xFFFF001D);
-    NDS::ARM9->CP15Write(0x670, 0x02FFC01B);
-    NDS::ARM9->CP15Write(0x671, 0x02FFC01B);
-    NDS::ARM9->CP15Write(0x910, 0x0E00000A);
-    NDS::ARM9->CP15Write(0x911, 0x00000020);
+    ARM9.CP15Write(0x100, 0x00056078);
+    ARM9.CP15Write(0x200, 0x0000004A);
+    ARM9.CP15Write(0x201, 0x0000004A);
+    ARM9.CP15Write(0x300, 0x0000000A);
+    ARM9.CP15Write(0x502, 0x15111011);
+    ARM9.CP15Write(0x503, 0x05101011);
+    ARM9.CP15Write(0x600, 0x04000033);
+    ARM9.CP15Write(0x601, 0x04000033);
+    ARM9.CP15Write(0x610, 0x02000031);
+    ARM9.CP15Write(0x611, 0x02000031);
+    ARM9.CP15Write(0x620, 0x00000000);
+    ARM9.CP15Write(0x621, 0x00000000);
+    ARM9.CP15Write(0x630, 0x08000033);
+    ARM9.CP15Write(0x631, 0x08000033);
+    ARM9.CP15Write(0x640, 0x0E00001B);
+    ARM9.CP15Write(0x641, 0x0E00001B);
+    ARM9.CP15Write(0x650, 0x00000000);
+    ARM9.CP15Write(0x651, 0x00000000);
+    ARM9.CP15Write(0x660, 0xFFFF001D);
+    ARM9.CP15Write(0x661, 0xFFFF001D);
+    ARM9.CP15Write(0x670, 0x02FFC01B);
+    ARM9.CP15Write(0x671, 0x02FFC01B);
+    ARM9.CP15Write(0x910, 0x0E00000A);
+    ARM9.CP15Write(0x911, 0x00000020);
 }
 
-void SoftReset()
+void DSi::SoftReset()
 {
     // TODO: check exactly what is reset
     // presumably, main RAM isn't reset, since the DSi can be told
@@ -678,30 +659,30 @@ void SoftReset()
 
     // also, BPTWL[0x70] could be abused to quickly boot specific titles
 
-    NDS::JIT->Reset();
-    NDS::JIT->CheckAndInvalidateITCM();
+    JIT.Reset();
+    JIT.CheckAndInvalidateITCM();
 
-    NDS::ARM9->Reset();
-    NDS::ARM7->Reset();
+    ARM9.Reset();
+    ARM7.Reset();
 
-    NDS::ARM9->CP15Reset();
+    ARM9.CP15Reset();
 
     NDS::MapSharedWRAM(3);
 
     // TODO: does the DSP get reset? NWRAM doesn't, so I'm assuming no
     // *HOWEVER*, the bootrom (which does get rerun) does remap NWRAM, and thus
     // the DSP most likely gets reset
-    DSP->Reset();
+    DSP.Reset();
 
-    SDMMC->CloseHandles();
-    SDIO->CloseHandles();
+    SDMMC.CloseHandles();
+    SDIO.CloseHandles();
 
     LoadNAND();
 
-    SDMMC->Reset();
-    SDIO->Reset();
+    SDMMC.Reset();
+    SDIO.Reset();
 
-    AES->Reset();
+    AES.Reset();
 
     if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
     {
@@ -718,15 +699,15 @@ void SoftReset()
     SCFG_MC = 0x0010;//0x0011;
     // TODO: is this actually reset?
     SCFG_RST = 0;
-    DSP->SetRstLine(false);
+    DSP.SetRstLine(false);
 
 
     // LCD init flag
-    NDS::GPU->DispStat[0] |= (1<<6);
-    NDS::GPU->DispStat[1] |= (1<<6);
+    GPU.DispStat[0] |= (1<<6);
+    GPU.DispStat[1] |= (1<<6);
 }
 
-bool LoadNAND()
+bool DSi::LoadNAND()
 {
     if (!NANDImage)
     {
@@ -905,8 +886,8 @@ bool LoadNAND()
     if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
     {
         // point CPUs to boot ROM reset vectors
-        NDS::ARM9->JumpTo(0xFFFF0000);
-        NDS::ARM7->JumpTo(0x00000000);
+        ARM9.JumpTo(0xFFFF0000);
+        ARM7.JumpTo(0x00000000);
     }
     else
     {
@@ -921,10 +902,10 @@ bool LoadNAND()
         ARM7Write16(eaddr+0x3E, 0x40E0);
         ARM7Write16(eaddr+0x42, 0x0001);
 
-        memcpy(&NDS::ARM9->ITCM[0x4400], &ARM9iBIOS[0x87F4], 0x400);
-        memcpy(&NDS::ARM9->ITCM[0x4800], &ARM9iBIOS[0x9920], 0x80);
-        memcpy(&NDS::ARM9->ITCM[0x4894], &ARM9iBIOS[0x99A0], 0x1048);
-        memcpy(&NDS::ARM9->ITCM[0x58DC], &ARM9iBIOS[0xA9E8], 0x1048);
+        memcpy(&ARM9.ITCM[0x4400], &ARM9iBIOS[0x87F4], 0x400);
+        memcpy(&ARM9.ITCM[0x4800], &ARM9iBIOS[0x9920], 0x80);
+        memcpy(&ARM9.ITCM[0x4894], &ARM9iBIOS[0x99A0], 0x1048);
+        memcpy(&ARM9.ITCM[0x58DC], &ARM9iBIOS[0xA9E8], 0x1048);
 
         u8 ARM7Init[0x3C00];
         memset(ARM7Init, 0, 0x3C00);
@@ -937,8 +918,8 @@ bool LoadNAND()
             ARM7Write32(0x03FFC400+i, *(u32*)&ARM7Init[i]);
 
         // repoint the CPUs to the boot2 binaries
-        NDS::ARM9->JumpTo(bootparams[2]);
-        NDS::ARM7->JumpTo(bootparams[6]);
+        ARM9.JumpTo(bootparams[2]);
+        ARM7.JumpTo(bootparams[6]);
     }
 
     // user data is now expected to be patched by the frontend
@@ -947,78 +928,104 @@ bool LoadNAND()
 }
 
 
-void RunNDMAs(u32 cpu)
+void DSi::RunNDMAs(u32 cpu)
 {
     // TODO: round-robin mode (requires DMA channels to have a subblock delay set)
 
     if (cpu == 0)
     {
-        if (NDS::ARM9Timestamp >= NDS::ARM9Target) return;
+        if (ARM9Timestamp >= ARM9Target) return;
 
-        if (!(NDS::CPUStop & NDS::CPUStop_GXStall)) NDMAs[0]->Run();
-        if (!(NDS::CPUStop & NDS::CPUStop_GXStall)) NDMAs[1]->Run();
-        if (!(NDS::CPUStop & NDS::CPUStop_GXStall)) NDMAs[2]->Run();
-        if (!(NDS::CPUStop & NDS::CPUStop_GXStall)) NDMAs[3]->Run();
+        if (!(CPUStop & CPUStop_GXStall)) NDMAs[0].Run();
+        if (!(CPUStop & CPUStop_GXStall)) NDMAs[1].Run();
+        if (!(CPUStop & CPUStop_GXStall)) NDMAs[2].Run();
+        if (!(CPUStop & CPUStop_GXStall)) NDMAs[3].Run();
     }
     else
     {
-        if (NDS::ARM7Timestamp >= NDS::ARM7Target) return;
+        if (ARM7Timestamp >= ARM7Target) return;
 
-        NDMAs[4]->Run();
-        NDMAs[5]->Run();
-        NDMAs[6]->Run();
-        NDMAs[7]->Run();
+        NDMAs[4].Run();
+        NDMAs[5].Run();
+        NDMAs[6].Run();
+        NDMAs[7].Run();
     }
 }
 
-void StallNDMAs()
+void DSi::StallNDMAs()
 {
     // TODO
 }
 
-bool NDMAsInMode(u32 cpu, u32 mode)
+
+bool DSi::DMAsInMode(u32 cpu, u32 mode)
+{
+    if (NDS::DMAsInMode(cpu, mode)) return true;
+
+    return NDMAsInMode(cpu, NDMAModes[mode]);
+}
+
+bool DSi::DMAsRunning(u32 cpu)
+{
+    if (NDS::DMAsRunning(cpu)) return true;
+
+    return NDMAsRunning(cpu);
+}
+
+bool DSi::NDMAsInMode(u32 cpu, u32 mode)
 {
     cpu <<= 2;
-    if (NDMAs[cpu+0]->IsInMode(mode)) return true;
-    if (NDMAs[cpu+1]->IsInMode(mode)) return true;
-    if (NDMAs[cpu+2]->IsInMode(mode)) return true;
-    if (NDMAs[cpu+3]->IsInMode(mode)) return true;
+    if (NDMAs[cpu+0].IsInMode(mode)) return true;
+    if (NDMAs[cpu+1].IsInMode(mode)) return true;
+    if (NDMAs[cpu+2].IsInMode(mode)) return true;
+    if (NDMAs[cpu+3].IsInMode(mode)) return true;
     return false;
 }
 
-bool NDMAsRunning(u32 cpu)
+bool DSi::NDMAsRunning(u32 cpu)
 {
     cpu <<= 2;
-    if (NDMAs[cpu+0]->IsRunning()) return true;
-    if (NDMAs[cpu+1]->IsRunning()) return true;
-    if (NDMAs[cpu+2]->IsRunning()) return true;
-    if (NDMAs[cpu+3]->IsRunning()) return true;
+    if (NDMAs[cpu+0].IsRunning()) return true;
+    if (NDMAs[cpu+1].IsRunning()) return true;
+    if (NDMAs[cpu+2].IsRunning()) return true;
+    if (NDMAs[cpu+3].IsRunning()) return true;
     return false;
 }
 
-void CheckNDMAs(u32 cpu, u32 mode)
+void DSi::CheckNDMAs(u32 cpu, u32 mode)
 {
     cpu <<= 2;
-    NDMAs[cpu+0]->StartIfNeeded(mode);
-    NDMAs[cpu+1]->StartIfNeeded(mode);
-    NDMAs[cpu+2]->StartIfNeeded(mode);
-    NDMAs[cpu+3]->StartIfNeeded(mode);
+    NDMAs[cpu+0].StartIfNeeded(mode);
+    NDMAs[cpu+1].StartIfNeeded(mode);
+    NDMAs[cpu+2].StartIfNeeded(mode);
+    NDMAs[cpu+3].StartIfNeeded(mode);
 }
 
-void StopNDMAs(u32 cpu, u32 mode)
+void DSi::StopNDMAs(u32 cpu, u32 mode)
 {
     cpu <<= 2;
-    NDMAs[cpu+0]->StopIfNeeded(mode);
-    NDMAs[cpu+1]->StopIfNeeded(mode);
-    NDMAs[cpu+2]->StopIfNeeded(mode);
-    NDMAs[cpu+3]->StopIfNeeded(mode);
+    NDMAs[cpu+0].StopIfNeeded(mode);
+    NDMAs[cpu+1].StopIfNeeded(mode);
+    NDMAs[cpu+2].StopIfNeeded(mode);
+    NDMAs[cpu+3].StopIfNeeded(mode);
 }
 
+void DSi::StopDMAs(u32 cpu, u32 mode)
+{
+    NDS::StopDMAs(cpu, mode);
+    StopNDMAs(cpu, mode);
+}
 
+void DSi::CheckDMAs(u32 cpu, u32 mode)
+{
+    NDS::CheckDMAs(cpu, mode);
+
+    CheckNDMAs(cpu, NDMAModes[mode]);
+}
 // new WRAM mapping
 // TODO: find out what happens upon overlapping slots!!
 
-void MapNWRAM_A(u32 num, u8 val)
+void DSi::MapNWRAM_A(u32 num, u8 val)
 {
     // NWRAM Bank A does not allow all bits to be set
     // possible non working combinations are caught by later code, but these are not set-able at all
@@ -1035,7 +1042,7 @@ void MapNWRAM_A(u32 num, u8 val)
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
     if (oldval == val) return;
 
-    NDS::JIT->Memory.RemapNWRAM(0);
+    JIT.Memory.RemapNWRAM(0);
 
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
@@ -1063,7 +1070,7 @@ void MapNWRAM_A(u32 num, u8 val)
     }
 }
 
-void MapNWRAM_B(u32 num, u8 val)
+void DSi::MapNWRAM_B(u32 num, u8 val)
 {
     // NWRAM Bank B does not allow all bits to be set
     // possible non working combinations are caught by later code, but these are not set-able at all
@@ -1080,7 +1087,7 @@ void MapNWRAM_B(u32 num, u8 val)
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
     if (oldval == val) return;
 
-    NDS::JIT->Memory.RemapNWRAM(1);
+    JIT.Memory.RemapNWRAM(1);
 
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
@@ -1110,7 +1117,7 @@ void MapNWRAM_B(u32 num, u8 val)
     }
 }
 
-void MapNWRAM_C(u32 num, u8 val)
+void DSi::MapNWRAM_C(u32 num, u8 val)
 {
     // NWRAM Bank C does not allow all bits to be set
     // possible non working combinations are caught by later code, but these are not set-able at all
@@ -1127,7 +1134,7 @@ void MapNWRAM_C(u32 num, u8 val)
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
     if (oldval == val) return;
 
-    NDS::JIT->Memory.RemapNWRAM(2);
+    JIT.Memory.RemapNWRAM(2);
 
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
@@ -1157,7 +1164,7 @@ void MapNWRAM_C(u32 num, u8 val)
     }
 }
 
-void MapNWRAMRange(u32 cpu, u32 num, u32 val)
+void DSi::MapNWRAMRange(u32 cpu, u32 num, u32 val)
 {
     // The windowing registers are not writeable in all bits
     // We need to do this before the change test, so we do not
@@ -1176,7 +1183,7 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
     u32 oldval = MBK[cpu][5+num];
     if (oldval == val) return;
 
-    NDS::JIT->Memory.RemapNWRAM(num);
+    JIT.Memory.RemapNWRAM(num);
 
     MBK[cpu][5+num] = val;
 
@@ -1228,41 +1235,41 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
     }
 }
 
-void ApplyNewRAMSize(u32 size)
+void DSi::ApplyNewRAMSize(u32 size)
 {
     switch (size)
     {
     case 0:
     case 1:
-        NDS::MainRAMMask = 0x3FFFFF;
+        MainRAMMask = 0x3FFFFF;
         Log(LogLevel::Debug, "RAM: 4MB\n");
         break;
     case 2:
     case 3: // TODO: debug console w/ 32MB?
-        NDS::MainRAMMask = 0xFFFFFF;
+        MainRAMMask = 0xFFFFFF;
         Log(LogLevel::Debug, "RAM: 16MB\n");
         break;
     }
 }
 
 
-void Set_SCFG_Clock9(u16 val)
+void DSi::Set_SCFG_Clock9(u16 val)
 {
-    NDS::ARM9Timestamp >>= NDS::ARM9ClockShift;
-    NDS::ARM9Target    >>= NDS::ARM9ClockShift;
+    ARM9Timestamp >>= ARM9ClockShift;
+    ARM9Target    >>= ARM9ClockShift;
 
     Log(LogLevel::Debug, "CLOCK9=%04X\n", val);
     SCFG_Clock9 = val & 0x0187;
 
-    if (SCFG_Clock9 & (1<<0)) NDS::ARM9ClockShift = 2;
-    else                      NDS::ARM9ClockShift = 1;
+    if (SCFG_Clock9 & (1<<0)) ARM9ClockShift = 2;
+    else                      ARM9ClockShift = 1;
 
-    NDS::ARM9Timestamp <<= NDS::ARM9ClockShift;
-    NDS::ARM9Target    <<= NDS::ARM9ClockShift;
-    NDS::ARM9->UpdateRegionTimings(0x00000, 0x100000);
+    ARM9Timestamp <<= ARM9ClockShift;
+    ARM9Target    <<= ARM9ClockShift;
+    ARM9.UpdateRegionTimings(0x00000, 0x100000);
 }
 
-void Set_SCFG_MC(u32 val)
+void DSi::Set_SCFG_MC(u32 val)
 {
     u32 oldslotstatus = SCFG_MC & 0xC;
 
@@ -1273,13 +1280,14 @@ void Set_SCFG_MC(u32 val)
 
     if ((oldslotstatus == 0x0) && ((SCFG_MC & 0xC) == 0x4))
     {
-        NDS::NDSCartSlot->ResetCart();
+        NDSCartSlot.ResetCart();
     }
 }
 
 
-u8 ARM9Read8(u32 addr)
+u8 DSi::ARM9Read8(u32 addr)
 {
+    assert(ConsoleType == 1);
     if ((addr >= 0xFFFF0000) && (!(SCFG_BIOS & (1<<1))))
     {
         if ((addr >= 0xFFFF8000) && (SCFG_BIOS & (1<<0)))
@@ -1317,17 +1325,18 @@ u8 ARM9Read8(u32 addr)
     case 0x08000000:
     case 0x09000000:
     case 0x0A000000:
-        return (NDS::ExMemCnt[0] & (1<<7)) ? 0 : 0xFF;
+        return (ExMemCnt[0] & (1<<7)) ? 0 : 0xFF;
 
     case 0x0C000000:
-        return *(u8*)&NDS::MainRAM[addr & NDS::MainRAMMask];
+        return *(u8*)&MainRAM[addr & MainRAMMask];
     }
 
     return NDS::ARM9Read8(addr);
 }
 
-u16 ARM9Read16(u32 addr)
+u16 DSi::ARM9Read16(u32 addr)
 {
+    assert(ConsoleType == 1);
     addr &= ~0x1;
 
     if ((addr >= 0xFFFF0000) && (!(SCFG_BIOS & (1<<1))))
@@ -1367,17 +1376,18 @@ u16 ARM9Read16(u32 addr)
     case 0x08000000:
     case 0x09000000:
     case 0x0A000000:
-        return (NDS::ExMemCnt[0] & (1<<7)) ? 0 : 0xFFFF;
+        return (ExMemCnt[0] & (1<<7)) ? 0 : 0xFFFF;
 
     case 0x0C000000:
-        return *(u16*)&NDS::MainRAM[addr & NDS::MainRAMMask];
+        return *(u16*)&MainRAM[addr & MainRAMMask];
     }
 
     return NDS::ARM9Read16(addr);
 }
 
-u32 ARM9Read32(u32 addr)
+u32 DSi::ARM9Read32(u32 addr)
 {
+    assert(ConsoleType == 1);
     addr &= ~0x3;
 
     if ((addr >= 0xFFFF0000) && (!(SCFG_BIOS & (1<<1))))
@@ -1422,17 +1432,18 @@ u32 ARM9Read32(u32 addr)
     case 0x08000000:
     case 0x09000000:
     case 0x0A000000:
-        return (NDS::ExMemCnt[0] & (1<<7)) ? 0 : 0xFFFFFFFF;
+        return (ExMemCnt[0] & (1<<7)) ? 0 : 0xFFFFFFFF;
 
     case 0x0C000000:
-        return *(u32*)&NDS::MainRAM[addr & NDS::MainRAMMask];
+        return *(u32*)&MainRAM[addr & MainRAMMask];
     }
 
     return NDS::ARM9Read32(addr);
 }
 
-void ARM9Write8(u32 addr, u8 val)
+void DSi::ARM9Write8(u32 addr, u8 val)
 {
+    assert(ConsoleType == 1);
     switch (addr & 0xFF000000)
     {
     case 0x03000000:
@@ -1452,7 +1463,7 @@ void ARM9Write8(u32 addr, u8 val)
                         continue;
                     u8* ptr = &NWRAM_A[page * 0x10000];
                     *(u8*)&ptr[addr & 0xFFFF] = val;
-                    NDS::JIT->CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+                    JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
                 }
                 return;
             }
@@ -1470,7 +1481,7 @@ void ARM9Write8(u32 addr, u8 val)
                         continue;
                     u8* ptr = &NWRAM_B[page * 0x8000];
                     *(u8*)&ptr[addr & 0x7FFF] = val;
-                    NDS::JIT->CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+                    JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
                 }
                 return;
             }
@@ -1488,7 +1499,7 @@ void ARM9Write8(u32 addr, u8 val)
                         continue;
                     u8* ptr = &NWRAM_C[page * 0x8000];
                     *(u8*)&ptr[addr & 0x7FFF] = val;
-                    NDS::JIT->CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+                    JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
                 }
                 return;
             }
@@ -1501,14 +1512,14 @@ void ARM9Write8(u32 addr, u8 val)
 
     case 0x06000000:
         if (!(SCFG_EXT[0] & (1<<13))) return;
-        NDS::JIT->CheckAndInvalidate<0, ARMJIT_Memory::memregion_VRAM>(addr);
+        JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_VRAM>(addr);
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: NDS::GPU->WriteVRAM_ABG<u8>(addr, val); return;
-        case 0x00200000: NDS::GPU->WriteVRAM_BBG<u8>(addr, val); return;
-        case 0x00400000: NDS::GPU->WriteVRAM_AOBJ<u8>(addr, val); return;
-        case 0x00600000: NDS::GPU->WriteVRAM_BOBJ<u8>(addr, val); return;
-        default: NDS::GPU->WriteVRAM_LCDC<u8>(addr, val); return;
+        case 0x00000000: GPU.WriteVRAM_ABG<u8>(addr, val); return;
+        case 0x00200000: GPU.WriteVRAM_BBG<u8>(addr, val); return;
+        case 0x00400000: GPU.WriteVRAM_AOBJ<u8>(addr, val); return;
+        case 0x00600000: GPU.WriteVRAM_BOBJ<u8>(addr, val); return;
+        default: GPU.WriteVRAM_LCDC<u8>(addr, val); return;
         }
 
     case 0x08000000:
@@ -1517,16 +1528,17 @@ void ARM9Write8(u32 addr, u8 val)
         return;
 
     case 0x0C000000:
-        NDS::JIT->CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
-        *(u8*)&NDS::MainRAM[addr & NDS::MainRAMMask] = val;
+        JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
+        *(u8*)&MainRAM[addr & MainRAMMask] = val;
         return;
     }
 
     return NDS::ARM9Write8(addr, val);
 }
 
-void ARM9Write16(u32 addr, u16 val)
+void DSi::ARM9Write16(u32 addr, u16 val)
 {
+    assert(ConsoleType == 1);
     addr &= ~0x1;
 
     switch (addr & 0xFF000000)
@@ -1548,7 +1560,7 @@ void ARM9Write16(u32 addr, u16 val)
                         continue;
                     u8* ptr = &NWRAM_A[page * 0x10000];
                     *(u16*)&ptr[addr & 0xFFFF] = val;
-                    NDS::JIT->CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+                    JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
                 }
                 return;
             }
@@ -1566,7 +1578,7 @@ void ARM9Write16(u32 addr, u16 val)
                         continue;
                     u8* ptr = &NWRAM_B[page * 0x8000];
                     *(u16*)&ptr[addr & 0x7FFF] = val;
-                    NDS::JIT->CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+                    JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
                 }
                 return;
             }
@@ -1584,7 +1596,7 @@ void ARM9Write16(u32 addr, u16 val)
                         continue;
                     u8* ptr = &NWRAM_C[page * 0x8000];
                     *(u16*)&ptr[addr & 0x7FFF] = val;
-                    NDS::JIT->CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+                    JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
                 }
                 return;
             }
@@ -1601,16 +1613,17 @@ void ARM9Write16(u32 addr, u16 val)
         return;
 
     case 0x0C000000:
-        NDS::JIT->CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
-        *(u16*)&NDS::MainRAM[addr & NDS::MainRAMMask] = val;
+        JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
+        *(u16*)&MainRAM[addr & MainRAMMask] = val;
         return;
     }
 
     return NDS::ARM9Write16(addr, val);
 }
 
-void ARM9Write32(u32 addr, u32 val)
+void DSi::ARM9Write32(u32 addr, u32 val)
 {
+    assert(ConsoleType == 1);
     addr &= ~0x3;
 
     switch (addr & 0xFF000000)
@@ -1632,7 +1645,7 @@ void ARM9Write32(u32 addr, u32 val)
                         continue;
                     u8* ptr = &NWRAM_A[page * 0x10000];
                     *(u32*)&ptr[addr & 0xFFFF] = val;
-                    NDS::JIT->CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+                    JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
                 }
                 return;
             }
@@ -1650,7 +1663,7 @@ void ARM9Write32(u32 addr, u32 val)
                         continue;
                     u8* ptr = &NWRAM_B[page * 0x8000];
                     *(u32*)&ptr[addr & 0x7FFF] = val;
-                    NDS::JIT->CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+                    JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
                 }
                 return;
             }
@@ -1668,7 +1681,7 @@ void ARM9Write32(u32 addr, u32 val)
                         continue;
                     u8* ptr = &NWRAM_C[page * 0x8000];
                     *(u32*)&ptr[addr & 0x7FFF] = val;
-                    NDS::JIT->CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+                    JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
                 }
                 return;
             }
@@ -1685,22 +1698,23 @@ void ARM9Write32(u32 addr, u32 val)
         return;
 
     case 0x0C000000:
-        NDS::JIT->CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
-        *(u32*)&NDS::MainRAM[addr & NDS::MainRAMMask] = val;
+        JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
+        *(u32*)&MainRAM[addr & MainRAMMask] = val;
         return;
     }
 
     return NDS::ARM9Write32(addr, val);
 }
 
-bool ARM9GetMemRegion(u32 addr, bool write, NDS::MemRegion* region)
+bool DSi::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
 {
+    assert(ConsoleType == 1);
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
     case 0x0C000000:
-        region->Mem = NDS::MainRAM;
-        region->Mask = NDS::MainRAMMask;
+        region->Mem = MainRAM;
+        region->Mask = MainRAMMask;
         return true;
     }
 
@@ -1714,7 +1728,7 @@ bool ARM9GetMemRegion(u32 addr, bool write, NDS::MemRegion* region)
                 return false;
             }
 
-            region->Mem = NDS::ARM9BIOS;
+            region->Mem = ARM9BIOS;
             region->Mask = 0xFFF;
         }
         else
@@ -1731,15 +1745,15 @@ bool ARM9GetMemRegion(u32 addr, bool write, NDS::MemRegion* region)
 
 
 
-u8 ARM7Read8(u32 addr)
+u8 DSi::ARM7Read8(u32 addr)
 {
     if ((addr < 0x00010000) && (!(SCFG_BIOS & (1<<9))))
     {
         if ((addr >= 0x00008000) && (SCFG_BIOS & (1<<8)))
             return 0xFF;
-        if (NDS::ARM7->R[15] >= 0x00010000)
+        if (ARM7.R[15] >= 0x00010000)
             return 0xFF;
-        if (addr < NDS::ARM7BIOSProt && NDS::ARM7->R[15] >= NDS::ARM7BIOSProt)
+        if (addr < ARM7BIOSProt && ARM7.R[15] >= ARM7BIOSProt)
             return 0xFF;
 
         return *(u8*)&ARM7iBIOS[addr & 0xFFFF];
@@ -1778,27 +1792,28 @@ u8 ARM7Read8(u32 addr)
     case 0x09800000:
     case 0x0A000000:
     case 0x0A800000:
-        return (NDS::ExMemCnt[0] & (1<<7)) ? 0xFF : 0;
+        return (ExMemCnt[0] & (1<<7)) ? 0xFF : 0;
 
     case 0x0C000000:
     case 0x0C800000:
-        return *(u8*)&NDS::MainRAM[addr & NDS::MainRAMMask];
+        return *(u8*)&MainRAM[addr & MainRAMMask];
     }
 
     return NDS::ARM7Read8(addr);
 }
 
-u16 ARM7Read16(u32 addr)
+u16 DSi::ARM7Read16(u32 addr)
 {
+    assert(ConsoleType == 1);
     addr &= ~0x1;
 
     if ((addr < 0x00010000) && (!(SCFG_BIOS & (1<<9))))
     {
         if ((addr >= 0x00008000) && (SCFG_BIOS & (1<<8)))
             return 0xFFFF;
-        if (NDS::ARM7->R[15] >= 0x00010000)
+        if (ARM7.R[15] >= 0x00010000)
             return 0xFFFF;
-        if (addr < NDS::ARM7BIOSProt && NDS::ARM7->R[15] >= NDS::ARM7BIOSProt)
+        if (addr < ARM7BIOSProt && ARM7.R[15] >= ARM7BIOSProt)
             return 0xFFFF;
 
         return *(u16*)&ARM7iBIOS[addr & 0xFFFF];
@@ -1837,17 +1852,17 @@ u16 ARM7Read16(u32 addr)
     case 0x09800000:
     case 0x0A000000:
     case 0x0A800000:
-        return (NDS::ExMemCnt[0] & (1<<7)) ? 0xFFFF : 0;
+        return (ExMemCnt[0] & (1<<7)) ? 0xFFFF : 0;
 
     case 0x0C000000:
     case 0x0C800000:
-        return *(u16*)&NDS::MainRAM[addr & NDS::MainRAMMask];
+        return *(u16*)&MainRAM[addr & MainRAMMask];
     }
 
     return NDS::ARM7Read16(addr);
 }
 
-u32 ARM7Read32(u32 addr)
+u32 DSi::ARM7Read32(u32 addr)
 {
     addr &= ~0x3;
 
@@ -1855,9 +1870,9 @@ u32 ARM7Read32(u32 addr)
     {
         if ((addr >= 0x00008000) && (SCFG_BIOS & (1<<8)))
             return 0xFFFFFFFF;
-        if (NDS::ARM7->R[15] >= 0x00010000)
+        if (ARM7.R[15] >= 0x00010000)
             return 0xFFFFFFFF;
-        if (addr < NDS::ARM7BIOSProt && NDS::ARM7->R[15] >= NDS::ARM7BIOSProt)
+        if (addr < ARM7BIOSProt && ARM7.R[15] >= ARM7BIOSProt)
             return 0xFFFFFFFF;
 
         return *(u32*)&ARM7iBIOS[addr & 0xFFFF];
@@ -1906,8 +1921,9 @@ u32 ARM7Read32(u32 addr)
     return NDS::ARM7Read32(addr);
 }
 
-void ARM7Write8(u32 addr, u8 val)
+void DSi::ARM7Write8(u32 addr, u8 val)
 {
+    assert(ConsoleType == 1);
     switch (addr & 0xFF800000)
     {
     case 0x03000000:
@@ -1928,7 +1944,7 @@ void ARM7Write8(u32 addr, u8 val)
                         continue;
                     u8* ptr = &NWRAM_A[page * 0x10000];
                     *(u8*)&ptr[addr & 0xFFFF] = val;
-                    NDS::JIT->CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+                    JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
                 }
                 return;
             }
@@ -1946,7 +1962,7 @@ void ARM7Write8(u32 addr, u8 val)
                         continue;
                     u8* ptr = &NWRAM_B[page * 0x8000];
                     *(u8*)&ptr[addr & 0x7FFF] = val;
-                    NDS::JIT->CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+                    JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
                 }
                 return;
             }
@@ -1964,7 +1980,7 @@ void ARM7Write8(u32 addr, u8 val)
                         continue;
                     u8* ptr = &NWRAM_C[page * 0x8000];
                     *(u8*)&ptr[addr & 0x7FFF] = val;
-                    NDS::JIT->CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+                    JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
                 }
                 return;
             }
@@ -1985,7 +2001,7 @@ void ARM7Write8(u32 addr, u8 val)
 
     case 0x0C000000:
     case 0x0C800000:
-        NDS::JIT->CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
+        JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
         *(u8*)&NDS::MainRAM[addr & NDS::MainRAMMask] = val;
         return;
     }
@@ -1993,8 +2009,9 @@ void ARM7Write8(u32 addr, u8 val)
     return NDS::ARM7Write8(addr, val);
 }
 
-void ARM7Write16(u32 addr, u16 val)
+void DSi::ARM7Write16(u32 addr, u16 val)
 {
+    assert(ConsoleType == 1);
     addr &= ~0x1;
 
     switch (addr & 0xFF800000)
@@ -2017,7 +2034,7 @@ void ARM7Write16(u32 addr, u16 val)
                         continue;
                     u8* ptr = &NWRAM_A[page * 0x10000];
                     *(u16*)&ptr[addr & 0xFFFF] = val;
-                    NDS::JIT->CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+                    JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
                 }
                 return;
             }
@@ -2035,7 +2052,7 @@ void ARM7Write16(u32 addr, u16 val)
                         continue;
                     u8* ptr = &NWRAM_B[page * 0x8000];
                     *(u16*)&ptr[addr & 0x7FFF] = val;
-                    NDS::JIT->CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+                    JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
                 }
                 return;
             }
@@ -2053,7 +2070,7 @@ void ARM7Write16(u32 addr, u16 val)
                         continue;
                     u8* ptr = &NWRAM_C[page * 0x8000];
                     *(u16*)&ptr[addr & 0x7FFF] = val;
-                    NDS::JIT->CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+                    JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
                 }
                 return;
             }
@@ -2074,7 +2091,7 @@ void ARM7Write16(u32 addr, u16 val)
 
     case 0x0C000000:
     case 0x0C800000:
-        NDS::JIT->CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
+        JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
         *(u16*)&NDS::MainRAM[addr & NDS::MainRAMMask] = val;
         return;
     }
@@ -2082,8 +2099,9 @@ void ARM7Write16(u32 addr, u16 val)
     return NDS::ARM7Write16(addr, val);
 }
 
-void ARM7Write32(u32 addr, u32 val)
+void DSi::ARM7Write32(u32 addr, u32 val)
 {
+    assert(ConsoleType == 1);
     addr &= ~0x3;
 
     switch (addr & 0xFF800000)
@@ -2106,7 +2124,7 @@ void ARM7Write32(u32 addr, u32 val)
                         continue;
                     u8* ptr = &NWRAM_A[page * 0x10000];
                     *(u32*)&ptr[addr & 0xFFFF] = val;
-                    NDS::JIT->CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+                    JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
                 }
                 return;
             }
@@ -2124,7 +2142,7 @@ void ARM7Write32(u32 addr, u32 val)
                         continue;
                     u8* ptr = &NWRAM_B[page * 0x8000];
                     *(u32*)&ptr[addr & 0x7FFF] = val;
-                    NDS::JIT->CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+                    JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
                 }
                 return;
             }
@@ -2142,7 +2160,7 @@ void ARM7Write32(u32 addr, u32 val)
                         continue;
                     u8* ptr = &NWRAM_C[page * 0x8000];
                     *(u32*)&ptr[addr & 0x7FFF] = val;
-                    NDS::JIT->CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+                    JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
                 }
                 return;
             }
@@ -2163,7 +2181,7 @@ void ARM7Write32(u32 addr, u32 val)
 
     case 0x0C000000:
     case 0x0C800000:
-        NDS::JIT->CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
+        JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
         *(u32*)&NDS::MainRAM[addr & NDS::MainRAMMask] = val;
         return;
     }
@@ -2171,8 +2189,9 @@ void ARM7Write32(u32 addr, u32 val)
     return NDS::ARM7Write32(addr, val);
 }
 
-bool ARM7GetMemRegion(u32 addr, bool write, NDS::MemRegion* region)
+bool DSi::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
 {
+    assert(ConsoleType == 1);
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -2216,7 +2235,7 @@ bool ARM7GetMemRegion(u32 addr, bool write, NDS::MemRegion* region)
     case (addr): return (val) & 0xFFFF; \
     case (addr+2): return (val) >> 16;
 
-u8 ARM9IORead8(u32 addr)
+u8 DSi::ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
@@ -2237,20 +2256,21 @@ u8 ARM9IORead8(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return CamModule->Read8(addr);
+        return CamModule.Read8(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
         if (!(SCFG_EXT[0] & (1<<18))) return 0;
-        return DSP->Read8(addr);
+        return DSP.Read8(addr);
     }
 
     return NDS::ARM9IORead8(addr);
 }
 
-u16 ARM9IORead16(u32 addr)
+u16 DSi::ARM9IORead16(u32 addr)
 {
+    assert(ConsoleType == 1);
     switch (addr)
     {
     case 0x04004000: return SCFG_BIOS & 0xFF;
@@ -2272,20 +2292,21 @@ u16 ARM9IORead16(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return CamModule->Read16(addr);
+        return CamModule.Read16(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
         if (!(SCFG_EXT[0] & (1<<18))) return 0;
-        return DSP->Read16(addr);
+        return DSP.Read16(addr);
     }
 
     return NDS::ARM9IORead16(addr);
 }
 
-u32 ARM9IORead32(u32 addr)
+u32 DSi::ARM9IORead32(u32 addr)
 {
+    assert(ConsoleType == 1);
     switch (addr)
     {
     case 0x04004000: return SCFG_BIOS & 0xFF;
@@ -2304,53 +2325,54 @@ u32 ARM9IORead32(u32 addr)
     case 0x04004060: return MBK[0][8];
 
     case 0x04004100: return NDMACnt[0];
-    case 0x04004104: return NDMAs[0]->SrcAddr;
-    case 0x04004108: return NDMAs[0]->DstAddr;
-    case 0x0400410C: return NDMAs[0]->TotalLength;
-    case 0x04004110: return NDMAs[0]->BlockLength;
-    case 0x04004114: return NDMAs[0]->SubblockTimer;
-    case 0x04004118: return NDMAs[0]->FillData;
-    case 0x0400411C: return NDMAs[0]->Cnt;
-    case 0x04004120: return NDMAs[1]->SrcAddr;
-    case 0x04004124: return NDMAs[1]->DstAddr;
-    case 0x04004128: return NDMAs[1]->TotalLength;
-    case 0x0400412C: return NDMAs[1]->BlockLength;
-    case 0x04004130: return NDMAs[1]->SubblockTimer;
-    case 0x04004134: return NDMAs[1]->FillData;
-    case 0x04004138: return NDMAs[1]->Cnt;
-    case 0x0400413C: return NDMAs[2]->SrcAddr;
-    case 0x04004140: return NDMAs[2]->DstAddr;
-    case 0x04004144: return NDMAs[2]->TotalLength;
-    case 0x04004148: return NDMAs[2]->BlockLength;
-    case 0x0400414C: return NDMAs[2]->SubblockTimer;
-    case 0x04004150: return NDMAs[2]->FillData;
-    case 0x04004154: return NDMAs[2]->Cnt;
-    case 0x04004158: return NDMAs[3]->SrcAddr;
-    case 0x0400415C: return NDMAs[3]->DstAddr;
-    case 0x04004160: return NDMAs[3]->TotalLength;
-    case 0x04004164: return NDMAs[3]->BlockLength;
-    case 0x04004168: return NDMAs[3]->SubblockTimer;
-    case 0x0400416C: return NDMAs[3]->FillData;
-    case 0x04004170: return NDMAs[3]->Cnt;
+    case 0x04004104: return NDMAs[0].SrcAddr;
+    case 0x04004108: return NDMAs[0].DstAddr;
+    case 0x0400410C: return NDMAs[0].TotalLength;
+    case 0x04004110: return NDMAs[0].BlockLength;
+    case 0x04004114: return NDMAs[0].SubblockTimer;
+    case 0x04004118: return NDMAs[0].FillData;
+    case 0x0400411C: return NDMAs[0].Cnt;
+    case 0x04004120: return NDMAs[1].SrcAddr;
+    case 0x04004124: return NDMAs[1].DstAddr;
+    case 0x04004128: return NDMAs[1].TotalLength;
+    case 0x0400412C: return NDMAs[1].BlockLength;
+    case 0x04004130: return NDMAs[1].SubblockTimer;
+    case 0x04004134: return NDMAs[1].FillData;
+    case 0x04004138: return NDMAs[1].Cnt;
+    case 0x0400413C: return NDMAs[2].SrcAddr;
+    case 0x04004140: return NDMAs[2].DstAddr;
+    case 0x04004144: return NDMAs[2].TotalLength;
+    case 0x04004148: return NDMAs[2].BlockLength;
+    case 0x0400414C: return NDMAs[2].SubblockTimer;
+    case 0x04004150: return NDMAs[2].FillData;
+    case 0x04004154: return NDMAs[2].Cnt;
+    case 0x04004158: return NDMAs[3].SrcAddr;
+    case 0x0400415C: return NDMAs[3].DstAddr;
+    case 0x04004160: return NDMAs[3].TotalLength;
+    case 0x04004164: return NDMAs[3].BlockLength;
+    case 0x04004168: return NDMAs[3].SubblockTimer;
+    case 0x0400416C: return NDMAs[3].FillData;
+    case 0x04004170: return NDMAs[3].Cnt;
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return CamModule->Read32(addr);
+        return CamModule.Read32(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
         if (!(SCFG_EXT[0] & (1<<18))) return 0;
-        return DSP->Read32(addr);
+        return DSP.Read32(addr);
     }
 
     return NDS::ARM9IORead32(addr);
 }
 
-void ARM9IOWrite8(u32 addr, u8 val)
+void DSi::ARM9IOWrite8(u32 addr, u8 val)
 {
+    assert(ConsoleType == 1);
     switch (addr)
     {
     case 0x04000301:
@@ -2367,7 +2389,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         SCFG_RST = (SCFG_RST & 0xFF00) | val;
-        DSP->SetRstLine(val & 1);
+        DSP.SetRstLine(val & 1);
         return;
 
     case 0x04004040:
@@ -2407,20 +2429,21 @@ void ARM9IOWrite8(u32 addr, u8 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return CamModule->Write8(addr, val);
+        return CamModule.Write8(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
         if (!(SCFG_EXT[0] & (1<<18))) return;
-        return DSP->Write8(addr, val);
+        return DSP.Write8(addr, val);
     }
 
     return NDS::ARM9IOWrite8(addr, val);
 }
 
-void ARM9IOWrite16(u32 addr, u16 val)
+void DSi::ARM9IOWrite16(u32 addr, u16 val)
 {
+    assert(ConsoleType == 1);
     switch (addr)
     {
     case 0x04004004:
@@ -2433,7 +2456,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         SCFG_RST = val;
-        DSP->SetRstLine(val & 1);
+        DSP.SetRstLine(val & 1);
         return;
 
     case 0x04004040:
@@ -2467,20 +2490,21 @@ void ARM9IOWrite16(u32 addr, u16 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return CamModule->Write16(addr, val);
+        return CamModule.Write16(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
         if (!(SCFG_EXT[0] & (1<<18))) return;
-        return DSP->Write16(addr, val);
+        return DSP.Write16(addr, val);
     }
 
     return NDS::ARM9IOWrite16(addr, val);
 }
 
-void ARM9IOWrite32(u32 addr, u32 val)
+void DSi::ARM9IOWrite32(u32 addr, u32 val)
 {
+    assert(ConsoleType == 1);
     switch (addr)
     {
     case 0x04004004:
@@ -2488,7 +2512,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
             return;
         Set_SCFG_Clock9(val & 0xFFFF);
         SCFG_RST = val >> 16;
-        DSP->SetRstLine((val >> 16) & 1);
+        DSP.SetRstLine((val >> 16) & 1);
         break;
 
     case 0x04004008:
@@ -2523,7 +2547,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
             // is still busy clearing/relocating shit
             //if (newram != oldram)
             //    NDS::ScheduleEvent(NDS::Event_DSi_RAMSizeChange, false, 512*512*512, ApplyNewRAMSize, newram);
-            Log(LogLevel::Debug, "from %08X, ARM7 %08X, %08X\n", NDS::GetPC(0), NDS::GetPC(1), NDS::ARM7->R[1]);
+            Log(LogLevel::Debug, "from %08X, ARM7 %08X, %08X\n", NDS::GetPC(0), NDS::GetPC(1), ARM7.R[1]);
         }
         return;
 
@@ -2584,54 +2608,55 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04004100: NDMACnt[0] = val & 0x800F0000; return;
-    case 0x04004104: NDMAs[0]->SrcAddr = val & 0xFFFFFFFC; return;
-    case 0x04004108: NDMAs[0]->DstAddr = val & 0xFFFFFFFC; return;
-    case 0x0400410C: NDMAs[0]->TotalLength = val & 0x0FFFFFFF; return;
-    case 0x04004110: NDMAs[0]->BlockLength = val & 0x00FFFFFF; return;
-    case 0x04004114: NDMAs[0]->SubblockTimer = val & 0x0003FFFF; return;
-    case 0x04004118: NDMAs[0]->FillData = val; return;
-    case 0x0400411C: NDMAs[0]->WriteCnt(val); return;
-    case 0x04004120: NDMAs[1]->SrcAddr = val & 0xFFFFFFFC; return;
-    case 0x04004124: NDMAs[1]->DstAddr = val & 0xFFFFFFFC; return;
-    case 0x04004128: NDMAs[1]->TotalLength = val & 0x0FFFFFFF; return;
-    case 0x0400412C: NDMAs[1]->BlockLength = val & 0x00FFFFFF; return;
-    case 0x04004130: NDMAs[1]->SubblockTimer = val & 0x0003FFFF; return;
-    case 0x04004134: NDMAs[1]->FillData = val; return;
-    case 0x04004138: NDMAs[1]->WriteCnt(val); return;
-    case 0x0400413C: NDMAs[2]->SrcAddr = val & 0xFFFFFFFC; return;
-    case 0x04004140: NDMAs[2]->DstAddr = val & 0xFFFFFFFC; return;
-    case 0x04004144: NDMAs[2]->TotalLength = val & 0x0FFFFFFF; return;
-    case 0x04004148: NDMAs[2]->BlockLength = val & 0x00FFFFFF; return;
-    case 0x0400414C: NDMAs[2]->SubblockTimer = val & 0x0003FFFF; return;
-    case 0x04004150: NDMAs[2]->FillData = val; return;
-    case 0x04004154: NDMAs[2]->WriteCnt(val); return;
-    case 0x04004158: NDMAs[3]->SrcAddr = val & 0xFFFFFFFC; return;
-    case 0x0400415C: NDMAs[3]->DstAddr = val & 0xFFFFFFFC; return;
-    case 0x04004160: NDMAs[3]->TotalLength = val & 0x0FFFFFFF; return;
-    case 0x04004164: NDMAs[3]->BlockLength = val & 0x00FFFFFF; return;
-    case 0x04004168: NDMAs[3]->SubblockTimer = val & 0x0003FFFF; return;
-    case 0x0400416C: NDMAs[3]->FillData = val; return;
-    case 0x04004170: NDMAs[3]->WriteCnt(val); return;
+    case 0x04004104: NDMAs[0].SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x04004108: NDMAs[0].DstAddr = val & 0xFFFFFFFC; return;
+    case 0x0400410C: NDMAs[0].TotalLength = val & 0x0FFFFFFF; return;
+    case 0x04004110: NDMAs[0].BlockLength = val & 0x00FFFFFF; return;
+    case 0x04004114: NDMAs[0].SubblockTimer = val & 0x0003FFFF; return;
+    case 0x04004118: NDMAs[0].FillData = val; return;
+    case 0x0400411C: NDMAs[0].WriteCnt(val); return;
+    case 0x04004120: NDMAs[1].SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x04004124: NDMAs[1].DstAddr = val & 0xFFFFFFFC; return;
+    case 0x04004128: NDMAs[1].TotalLength = val & 0x0FFFFFFF; return;
+    case 0x0400412C: NDMAs[1].BlockLength = val & 0x00FFFFFF; return;
+    case 0x04004130: NDMAs[1].SubblockTimer = val & 0x0003FFFF; return;
+    case 0x04004134: NDMAs[1].FillData = val; return;
+    case 0x04004138: NDMAs[1].WriteCnt(val); return;
+    case 0x0400413C: NDMAs[2].SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x04004140: NDMAs[2].DstAddr = val & 0xFFFFFFFC; return;
+    case 0x04004144: NDMAs[2].TotalLength = val & 0x0FFFFFFF; return;
+    case 0x04004148: NDMAs[2].BlockLength = val & 0x00FFFFFF; return;
+    case 0x0400414C: NDMAs[2].SubblockTimer = val & 0x0003FFFF; return;
+    case 0x04004150: NDMAs[2].FillData = val; return;
+    case 0x04004154: NDMAs[2].WriteCnt(val); return;
+    case 0x04004158: NDMAs[3].SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x0400415C: NDMAs[3].DstAddr = val & 0xFFFFFFFC; return;
+    case 0x04004160: NDMAs[3].TotalLength = val & 0x0FFFFFFF; return;
+    case 0x04004164: NDMAs[3].BlockLength = val & 0x00FFFFFF; return;
+    case 0x04004168: NDMAs[3].SubblockTimer = val & 0x0003FFFF; return;
+    case 0x0400416C: NDMAs[3].FillData = val; return;
+    case 0x04004170: NDMAs[3].WriteCnt(val); return;
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return CamModule->Write32(addr, val);
+        return CamModule.Write32(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
         if (!(SCFG_EXT[0] & (1<<18))) return;
-        return DSP->Write32(addr, val);
+        return DSP.Write32(addr, val);
     }
 
     return NDS::ARM9IOWrite32(addr, val);
 }
 
 
-u8 ARM7IORead8(u32 addr)
+u8 DSi::ARM7IORead8(u32 addr)
 {
+    assert(ConsoleType == 1);
 
     switch (addr)
     {
@@ -2650,8 +2675,8 @@ u8 ARM7IORead8(u32 addr)
     CASE_READ8_32BIT(0x0400405C, MBK[1][7])
     CASE_READ8_32BIT(0x04004060, MBK[1][8])
 
-    case 0x04004500: return I2C->ReadData();
-    case 0x04004501: return I2C->ReadCnt();
+    case 0x04004500: return I2C.ReadData();
+    case 0x04004501: return I2C.ReadCnt();
 
     case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() & 0xFF;
     case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 8) & 0xFF;
@@ -2663,8 +2688,8 @@ u8 ARM7IORead8(u32 addr)
     case 0x04004D07: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() >> 56;
     case 0x04004D08: return 0;
 
-    case 0x4004700: return DSP->ReadSNDExCnt() & 0xFF;
-    case 0x4004701: return DSP->ReadSNDExCnt() >> 8;
+    case 0x4004700: return DSP.ReadSNDExCnt() & 0xFF;
+    case 0x4004701: return DSP.ReadSNDExCnt() >> 8;
 
     case 0x04004C00: return GPIO_Data;
     case 0x04004C01: return GPIO_Dir;
@@ -2677,8 +2702,9 @@ u8 ARM7IORead8(u32 addr)
     return NDS::ARM7IORead8(addr);
 }
 
-u16 ARM7IORead16(u32 addr)
+u16 DSi::ARM7IORead16(u32 addr)
 {
+    assert(ConsoleType == 1);
     switch (addr)
     {
     case 0x04000218: return NDS::IE2;
@@ -2706,7 +2732,7 @@ u16 ARM7IORead16(u32 addr)
     case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() >> 48;
     case 0x04004D08: return 0;
 
-    case 0x4004700: return DSP->ReadSNDExCnt();
+    case 0x4004700: return DSP.ReadSNDExCnt();
 
     case 0x04004C00: return GPIO_Data | ((u16)GPIO_Dir << 8);
     case 0x04004C02: return GPIO_IEdgeSel | ((u16)GPIO_IE << 8);
@@ -2715,18 +2741,19 @@ u16 ARM7IORead16(u32 addr)
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
     {
-        return SDMMC->Read(addr);
+        return SDMMC.Read(addr);
     }
     if (addr >= 0x04004A00 && addr < 0x04004C00)
     {
-        return SDIO->Read(addr);
+        return SDIO.Read(addr);
     }
 
     return NDS::ARM7IORead16(addr);
 }
 
-u32 ARM7IORead32(u32 addr)
+u32 DSi::ARM7IORead32(u32 addr)
 {
+    assert(ConsoleType == 1);
     switch (addr)
     {
     case 0x04000218: return NDS::IE2;
@@ -2747,63 +2774,64 @@ u32 ARM7IORead32(u32 addr)
     case 0x04004060: return MBK[1][8];
 
     case 0x04004100: return NDMACnt[1];
-    case 0x04004104: return NDMAs[4]->SrcAddr;
-    case 0x04004108: return NDMAs[4]->DstAddr;
-    case 0x0400410C: return NDMAs[4]->TotalLength;
-    case 0x04004110: return NDMAs[4]->BlockLength;
-    case 0x04004114: return NDMAs[4]->SubblockTimer;
-    case 0x04004118: return NDMAs[4]->FillData;
-    case 0x0400411C: return NDMAs[4]->Cnt;
-    case 0x04004120: return NDMAs[5]->SrcAddr;
-    case 0x04004124: return NDMAs[5]->DstAddr;
-    case 0x04004128: return NDMAs[5]->TotalLength;
-    case 0x0400412C: return NDMAs[5]->BlockLength;
-    case 0x04004130: return NDMAs[5]->SubblockTimer;
-    case 0x04004134: return NDMAs[5]->FillData;
-    case 0x04004138: return NDMAs[5]->Cnt;
-    case 0x0400413C: return NDMAs[6]->SrcAddr;
-    case 0x04004140: return NDMAs[6]->DstAddr;
-    case 0x04004144: return NDMAs[6]->TotalLength;
-    case 0x04004148: return NDMAs[6]->BlockLength;
-    case 0x0400414C: return NDMAs[6]->SubblockTimer;
-    case 0x04004150: return NDMAs[6]->FillData;
-    case 0x04004154: return NDMAs[6]->Cnt;
-    case 0x04004158: return NDMAs[7]->SrcAddr;
-    case 0x0400415C: return NDMAs[7]->DstAddr;
-    case 0x04004160: return NDMAs[7]->TotalLength;
-    case 0x04004164: return NDMAs[7]->BlockLength;
-    case 0x04004168: return NDMAs[7]->SubblockTimer;
-    case 0x0400416C: return NDMAs[7]->FillData;
-    case 0x04004170: return NDMAs[7]->Cnt;
+    case 0x04004104: return NDMAs[4].SrcAddr;
+    case 0x04004108: return NDMAs[4].DstAddr;
+    case 0x0400410C: return NDMAs[4].TotalLength;
+    case 0x04004110: return NDMAs[4].BlockLength;
+    case 0x04004114: return NDMAs[4].SubblockTimer;
+    case 0x04004118: return NDMAs[4].FillData;
+    case 0x0400411C: return NDMAs[4].Cnt;
+    case 0x04004120: return NDMAs[5].SrcAddr;
+    case 0x04004124: return NDMAs[5].DstAddr;
+    case 0x04004128: return NDMAs[5].TotalLength;
+    case 0x0400412C: return NDMAs[5].BlockLength;
+    case 0x04004130: return NDMAs[5].SubblockTimer;
+    case 0x04004134: return NDMAs[5].FillData;
+    case 0x04004138: return NDMAs[5].Cnt;
+    case 0x0400413C: return NDMAs[6].SrcAddr;
+    case 0x04004140: return NDMAs[6].DstAddr;
+    case 0x04004144: return NDMAs[6].TotalLength;
+    case 0x04004148: return NDMAs[6].BlockLength;
+    case 0x0400414C: return NDMAs[6].SubblockTimer;
+    case 0x04004150: return NDMAs[6].FillData;
+    case 0x04004154: return NDMAs[6].Cnt;
+    case 0x04004158: return NDMAs[7].SrcAddr;
+    case 0x0400415C: return NDMAs[7].DstAddr;
+    case 0x04004160: return NDMAs[7].TotalLength;
+    case 0x04004164: return NDMAs[7].BlockLength;
+    case 0x04004168: return NDMAs[7].SubblockTimer;
+    case 0x0400416C: return NDMAs[7].FillData;
+    case 0x04004170: return NDMAs[7].Cnt;
 
-    case 0x04004400: return AES->ReadCnt();
-    case 0x0400440C: return AES->ReadOutputFIFO();
+    case 0x04004400: return AES.ReadCnt();
+    case 0x0400440C: return AES.ReadOutputFIFO();
 
     case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() & 0xFFFFFFFF;
     case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() >> 32;
     case 0x04004D08: return 0;
 
     case 0x4004700:
-        Log(LogLevel::Debug, "32-Bit SNDExCnt read? %08X\n", NDS::ARM7->R[15]);
-        return DSP->ReadSNDExCnt();
+        Log(LogLevel::Debug, "32-Bit SNDExCnt read? %08X\n", ARM7.R[15]);
+        return DSP.ReadSNDExCnt();
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
     {
-        if (addr == 0x0400490C) return SDMMC->ReadFIFO32();
-        return SDMMC->Read(addr) | (SDMMC->Read(addr+2) << 16);
+        if (addr == 0x0400490C) return SDMMC.ReadFIFO32();
+        return SDMMC.Read(addr) | (SDMMC.Read(addr+2) << 16);
     }
     if (addr >= 0x04004A00 && addr < 0x04004C00)
     {
-        if (addr == 0x04004B0C) return SDIO->ReadFIFO32();
-        return SDIO->Read(addr) | (SDIO->Read(addr+2) << 16);
+        if (addr == 0x04004B0C) return SDIO.ReadFIFO32();
+        return SDIO.Read(addr) | (SDIO.Read(addr+2) << 16);
     }
 
     return NDS::ARM7IORead32(addr);
 }
 
-void ARM7IOWrite8(u32 addr, u8 val)
+void DSi::ARM7IOWrite8(u32 addr, u8 val)
 {
+    assert(ConsoleType == 1);
     switch (addr)
     {
     case 0x04004000:
@@ -2834,14 +2862,14 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
     }
 
-    case 0x04004500: I2C->WriteData(val); return;
-    case 0x04004501: I2C->WriteCnt(val); return;
+    case 0x04004500: I2C.WriteData(val); return;
+    case 0x04004501: I2C.WriteCnt(val); return;
 
     case 0x4004700:
-        DSP->WriteSNDExCnt((u16)val, 0xFF);
+        DSP.WriteSNDExCnt((u16)val, 0xFF);
         return;
     case 0x4004701:
-        DSP->WriteSNDExCnt(((u16)val << 8), 0xFF00);
+        DSP.WriteSNDExCnt(((u16)val << 8), 0xFF00);
         return;
 
     case 0x04004C00:
@@ -2866,7 +2894,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         u32 shift = (addr&3)*8;
         addr -= 0x04004420;
         addr &= ~3;
-        AES->WriteIV(addr, (u32)val << shift, 0xFF << shift);
+        AES.WriteIV(addr, (u32)val << shift, 0xFF << shift);
         return;
     }
     if (addr >= 0x04004430 && addr < 0x04004440)
@@ -2874,7 +2902,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         u32 shift = (addr&3)*8;
         addr -= 0x04004430;
         addr &= ~3;
-        AES->WriteMAC(addr, (u32)val << shift, 0xFF << shift);
+        AES.WriteMAC(addr, (u32)val << shift, 0xFF << shift);
         return;
     }
     if (addr >= 0x04004440 && addr < 0x04004500)
@@ -2888,17 +2916,18 @@ void ARM7IOWrite8(u32 addr, u8 val)
 
         switch (addr >> 4)
         {
-        case 0: AES->WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
-        case 1: AES->WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
-        case 2: AES->WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        case 0: AES.WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        case 1: AES.WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        case 2: AES.WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
         }
     }
 
     return NDS::ARM7IOWrite8(addr, val);
 }
 
-void ARM7IOWrite16(u32 addr, u16 val)
+void DSi::ARM7IOWrite16(u32 addr, u16 val)
 {
+    assert(ConsoleType == 1);
     switch (addr)
     {
         case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
@@ -2936,11 +2965,11 @@ void ARM7IOWrite16(u32 addr, u16 val)
             return;
 
         case 0x04004406:
-            AES->WriteBlkCnt(val<<16);
+            AES.WriteBlkCnt(val<<16);
             return;
 
         case 0x4004700:
-            DSP->WriteSNDExCnt(val, 0xFFFF);
+            DSP.WriteSNDExCnt(val, 0xFFFF);
             return;
 
         case 0x04004C00:
@@ -2961,7 +2990,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
         u32 shift = (addr&1)*16;
         addr -= 0x04004420;
         addr &= ~1;
-        AES->WriteIV(addr, (u32)val << shift, 0xFFFF << shift);
+        AES.WriteIV(addr, (u32)val << shift, 0xFFFF << shift);
         return;
     }
     if (addr >= 0x04004430 && addr < 0x04004440)
@@ -2969,7 +2998,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
         u32 shift = (addr&1)*16;
         addr -= 0x04004430;
         addr &= ~1;
-        AES->WriteMAC(addr, (u32)val << shift, 0xFFFF << shift);
+        AES.WriteMAC(addr, (u32)val << shift, 0xFFFF << shift);
         return;
     }
     if (addr >= 0x04004440 && addr < 0x04004500)
@@ -2983,28 +3012,29 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
         switch (addr >> 4)
         {
-        case 0: AES->WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
-        case 1: AES->WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
-        case 2: AES->WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        case 0: AES.WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        case 1: AES.WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        case 2: AES.WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
         }
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
     {
-        SDMMC->Write(addr, val);
+        SDMMC.Write(addr, val);
         return;
     }
     if (addr >= 0x04004A00 && addr < 0x04004C00)
     {
-        SDIO->Write(addr, val);
+        SDIO.Write(addr, val);
         return;
     }
 
     return NDS::ARM7IOWrite16(addr, val);
 }
 
-void ARM7IOWrite32(u32 addr, u32 val)
+void DSi::ARM7IOWrite32(u32 addr, u32 val)
 {
+    assert(ConsoleType == 1);
     switch (addr)
     {
     case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
@@ -3054,55 +3084,55 @@ void ARM7IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04004100: NDMACnt[1] = val & 0x800F0000; return;
-    case 0x04004104: NDMAs[4]->SrcAddr = val & 0xFFFFFFFC; return;
-    case 0x04004108: NDMAs[4]->DstAddr = val & 0xFFFFFFFC; return;
-    case 0x0400410C: NDMAs[4]->TotalLength = val & 0x0FFFFFFF; return;
-    case 0x04004110: NDMAs[4]->BlockLength = val & 0x00FFFFFF; return;
-    case 0x04004114: NDMAs[4]->SubblockTimer = val & 0x0003FFFF; return;
-    case 0x04004118: NDMAs[4]->FillData = val; return;
-    case 0x0400411C: NDMAs[4]->WriteCnt(val); return;
-    case 0x04004120: NDMAs[5]->SrcAddr = val & 0xFFFFFFFC; return;
-    case 0x04004124: NDMAs[5]->DstAddr = val & 0xFFFFFFFC; return;
-    case 0x04004128: NDMAs[5]->TotalLength = val & 0x0FFFFFFF; return;
-    case 0x0400412C: NDMAs[5]->BlockLength = val & 0x00FFFFFF; return;
-    case 0x04004130: NDMAs[5]->SubblockTimer = val & 0x0003FFFF; return;
-    case 0x04004134: NDMAs[5]->FillData = val; return;
-    case 0x04004138: NDMAs[5]->WriteCnt(val); return;
-    case 0x0400413C: NDMAs[6]->SrcAddr = val & 0xFFFFFFFC; return;
-    case 0x04004140: NDMAs[6]->DstAddr = val & 0xFFFFFFFC; return;
-    case 0x04004144: NDMAs[6]->TotalLength = val & 0x0FFFFFFF; return;
-    case 0x04004148: NDMAs[6]->BlockLength = val & 0x00FFFFFF; return;
-    case 0x0400414C: NDMAs[6]->SubblockTimer = val & 0x0003FFFF; return;
-    case 0x04004150: NDMAs[6]->FillData = val; return;
-    case 0x04004154: NDMAs[6]->WriteCnt(val); return;
-    case 0x04004158: NDMAs[7]->SrcAddr = val & 0xFFFFFFFC; return;
-    case 0x0400415C: NDMAs[7]->DstAddr = val & 0xFFFFFFFC; return;
-    case 0x04004160: NDMAs[7]->TotalLength = val & 0x0FFFFFFF; return;
-    case 0x04004164: NDMAs[7]->BlockLength = val & 0x00FFFFFF; return;
-    case 0x04004168: NDMAs[7]->SubblockTimer = val & 0x0003FFFF; return;
-    case 0x0400416C: NDMAs[7]->FillData = val; return;
-    case 0x04004170: NDMAs[7]->WriteCnt(val); return;
+    case 0x04004104: NDMAs[4].SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x04004108: NDMAs[4].DstAddr = val & 0xFFFFFFFC; return;
+    case 0x0400410C: NDMAs[4].TotalLength = val & 0x0FFFFFFF; return;
+    case 0x04004110: NDMAs[4].BlockLength = val & 0x00FFFFFF; return;
+    case 0x04004114: NDMAs[4].SubblockTimer = val & 0x0003FFFF; return;
+    case 0x04004118: NDMAs[4].FillData = val; return;
+    case 0x0400411C: NDMAs[4].WriteCnt(val); return;
+    case 0x04004120: NDMAs[5].SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x04004124: NDMAs[5].DstAddr = val & 0xFFFFFFFC; return;
+    case 0x04004128: NDMAs[5].TotalLength = val & 0x0FFFFFFF; return;
+    case 0x0400412C: NDMAs[5].BlockLength = val & 0x00FFFFFF; return;
+    case 0x04004130: NDMAs[5].SubblockTimer = val & 0x0003FFFF; return;
+    case 0x04004134: NDMAs[5].FillData = val; return;
+    case 0x04004138: NDMAs[5].WriteCnt(val); return;
+    case 0x0400413C: NDMAs[6].SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x04004140: NDMAs[6].DstAddr = val & 0xFFFFFFFC; return;
+    case 0x04004144: NDMAs[6].TotalLength = val & 0x0FFFFFFF; return;
+    case 0x04004148: NDMAs[6].BlockLength = val & 0x00FFFFFF; return;
+    case 0x0400414C: NDMAs[6].SubblockTimer = val & 0x0003FFFF; return;
+    case 0x04004150: NDMAs[6].FillData = val; return;
+    case 0x04004154: NDMAs[6].WriteCnt(val); return;
+    case 0x04004158: NDMAs[7].SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x0400415C: NDMAs[7].DstAddr = val & 0xFFFFFFFC; return;
+    case 0x04004160: NDMAs[7].TotalLength = val & 0x0FFFFFFF; return;
+    case 0x04004164: NDMAs[7].BlockLength = val & 0x00FFFFFF; return;
+    case 0x04004168: NDMAs[7].SubblockTimer = val & 0x0003FFFF; return;
+    case 0x0400416C: NDMAs[7].FillData = val; return;
+    case 0x04004170: NDMAs[7].WriteCnt(val); return;
 
-    case 0x04004400: AES->WriteCnt(val); return;
-    case 0x04004404: AES->WriteBlkCnt(val); return;
-    case 0x04004408: AES->WriteInputFIFO(val); return;
+    case 0x04004400: AES.WriteCnt(val); return;
+    case 0x04004404: AES.WriteBlkCnt(val); return;
+    case 0x04004408: AES.WriteInputFIFO(val); return;
 
     case 0x4004700:
-        Log(LogLevel::Debug, "32-Bit SNDExCnt write? %08X %08X\n", val, NDS::ARM7->R[15]);
-        DSP->WriteSNDExCnt(val, 0xFFFF);
+        Log(LogLevel::Debug, "32-Bit SNDExCnt write? %08X %08X\n", val, ARM7.R[15]);
+        DSP.WriteSNDExCnt(val, 0xFFFF);
         return;
     }
 
     if (addr >= 0x04004420 && addr < 0x04004430)
     {
         addr -= 0x04004420;
-        AES->WriteIV(addr, val, 0xFFFFFFFF);
+        AES.WriteIV(addr, val, 0xFFFFFFFF);
         return;
     }
     if (addr >= 0x04004430 && addr < 0x04004440)
     {
         addr -= 0x04004430;
-        AES->WriteMAC(addr, val, 0xFFFFFFFF);
+        AES.WriteMAC(addr, val, 0xFFFFFFFF);
         return;
     }
     if (addr >= 0x04004440 && addr < 0x04004500)
@@ -3113,37 +3143,35 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
         switch (addr >> 4)
         {
-        case 0: AES->WriteKeyNormal(n, addr&0xF, val, 0xFFFFFFFF); return;
-        case 1: AES->WriteKeyX(n, addr&0xF, val, 0xFFFFFFFF); return;
-        case 2: AES->WriteKeyY(n, addr&0xF, val, 0xFFFFFFFF); return;
+        case 0: AES.WriteKeyNormal(n, addr&0xF, val, 0xFFFFFFFF); return;
+        case 1: AES.WriteKeyX(n, addr&0xF, val, 0xFFFFFFFF); return;
+        case 2: AES.WriteKeyY(n, addr&0xF, val, 0xFFFFFFFF); return;
         }
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
     {
-        if (addr == 0x0400490C) { SDMMC->WriteFIFO32(val); return; }
-        SDMMC->Write(addr, val & 0xFFFF);
-        SDMMC->Write(addr+2, val >> 16);
+        if (addr == 0x0400490C) { SDMMC.WriteFIFO32(val); return; }
+        SDMMC.Write(addr, val & 0xFFFF);
+        SDMMC.Write(addr+2, val >> 16);
         return;
     }
     if (addr >= 0x04004A00 && addr < 0x04004C00)
     {
-        if (addr == 0x04004B0C) { SDIO->WriteFIFO32(val); return; }
-        SDIO->Write(addr, val & 0xFFFF);
-        SDIO->Write(addr+2, val >> 16);
+        if (addr == 0x04004B0C) { SDIO.WriteFIFO32(val); return; }
+        SDIO.Write(addr, val & 0xFFFF);
+        SDIO.Write(addr+2, val >> 16);
         return;
     }
 
 
     if (addr >= 0x04004300 && addr <= 0x04004400)
     {
-        DSP->Write32(addr, val);
+        DSP.Write32(addr, val);
         return;
     }
 
     return NDS::ARM7IOWrite32(addr, val);
-}
-
 }
 
 }

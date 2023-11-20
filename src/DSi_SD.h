@@ -32,12 +32,13 @@ namespace DSi_NAND
 }
 
 class DSi_SDDevice;
+class DSi;
 
 
 class DSi_SDHost
 {
 public:
-    DSi_SDHost(u32 num);
+    DSi_SDHost(melonDS::DSi& dsi, u32 num);
     ~DSi_SDHost();
 
     void CloseHandles();
@@ -69,6 +70,7 @@ public:
     void CheckSwapFIFO();
 
 private:
+    melonDS::DSi& DSi;
     u32 Num;
 
     u16 PortSelect;

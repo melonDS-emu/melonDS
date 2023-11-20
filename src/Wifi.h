@@ -24,7 +24,7 @@
 namespace melonDS
 {
 class WifiAP;
-
+class NDS;
 class Wifi
 {
 public:
@@ -157,7 +157,7 @@ public:
         W_RXTXAddr = 0x268,
     };
 
-    Wifi();
+    Wifi(melonDS::NDS& nds);
     ~Wifi();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -173,6 +173,7 @@ public:
     u8* GetBSSID();
 
 private:
+    melonDS::NDS& NDS;
     u8 RAM[0x2000];
     u16 IO[0x1000>>1];
 

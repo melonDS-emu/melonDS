@@ -64,20 +64,20 @@ const u32 CodeRegionSizes[ARMJIT_Memory::memregions_Count] =
     ITCMPhysicalSize,
     0,
     sizeof(NDS::ARM9BIOS),
-    NDS::MainRAMMaxSize,
-    NDS::SharedWRAMSize,
+    MainRAMMaxSize,
+    SharedWRAMSize,
     0,
     0x100000,
     sizeof(NDS::ARM7BIOS),
-    NDS::ARM7WRAMSize,
+    ARM7WRAMSize,
     0,
     0,
     0x40000,
     0x10000,
     0x10000,
-    DSi::NWRAMSize,
-    DSi::NWRAMSize,
-    DSi::NWRAMSize,
+    NWRAMSize,
+    NWRAMSize,
+    NWRAMSize,
 };
 
 u32 ARMJIT::LocaliseCodeAddress(u32 num, u32 addr) const noexcept
@@ -103,11 +103,11 @@ T SlowRead9(u32 addr, ARMv5* cpu)
     else if ((addr & cpu->DTCMMask) == cpu->DTCMBase)
         val = *(T*)&cpu->DTCM[addr & 0x3FFF];
     else if (std::is_same<T, u32>::value)
-        val = (ConsoleType == 0 ? NDS::ARM9Read32 : DSi::ARM9Read32)(addr);
+        val = NDS::Current->ARM9Read32(addr);
     else if (std::is_same<T, u16>::value)
-        val = (ConsoleType == 0 ? NDS::ARM9Read16 : DSi::ARM9Read16)(addr);
+        val = NDS::Current->ARM9Read16(addr);
     else
-        val = (ConsoleType == 0 ? NDS::ARM9Read8 : DSi::ARM9Read8)(addr);
+        val = NDS::Current->ARM9Read8(addr);
 
     if (std::is_same<T, u32>::value)
         return ROR(val, offset << 3);
@@ -123,11 +123,11 @@ T SlowRead7(u32 addr)
 
     T val;
     if (std::is_same<T, u32>::value)
-        val = (ConsoleType == 0 ? NDS::ARM7Read32 : DSi::ARM7Read32)(addr);
+        val = NDS::Current->ARM7Read32(addr);
     else if (std::is_same<T, u16>::value)
-        val = (ConsoleType == 0 ? NDS::ARM7Read16 : DSi::ARM7Read16)(addr);
+        val = NDS::Current->ARM7Read16(addr);
     else
-        val = (ConsoleType == 0 ? NDS::ARM7Read8 : DSi::ARM7Read8)(addr);
+        val = NDS::Current->ARM7Read8(addr);
 
     if (std::is_same<T, u32>::value)
         return ROR(val, offset << 3);
@@ -142,7 +142,7 @@ void SlowWrite9(u32 addr, ARMv5* cpu, u32 val)
 
     if (addr < cpu->ITCMSize)
     {
-        cpu->JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
+        cpu->NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         *(T*)&cpu->ITCM[addr & 0x7FFF] = val;
     }
     else if ((addr & cpu->DTCMMask) == cpu->DTCMBase)
@@ -151,15 +151,15 @@ void SlowWrite9(u32 addr, ARMv5* cpu, u32 val)
     }
     else if (std::is_same<T, u32>::value)
     {
-        (ConsoleType == 0 ? NDS::ARM9Write32 : DSi::ARM9Write32)(addr, val);
+        NDS::Current->ARM9Write32(addr, val);
     }
     else if (std::is_same<T, u16>::value)
     {
-        (ConsoleType == 0 ? NDS::ARM9Write16 : DSi::ARM9Write16)(addr, val);
+        NDS::Current->ARM9Write16(addr, val);
     }
     else
     {
-        (ConsoleType == 0 ? NDS::ARM9Write8 : DSi::ARM9Write8)(addr, val);
+        NDS::Current->ARM9Write8(addr, val);
     }
 }
 
@@ -169,11 +169,11 @@ void SlowWrite7(u32 addr, u32 val)
     addr &= ~(sizeof(T) - 1);
 
     if (std::is_same<T, u32>::value)
-        (ConsoleType == 0 ? NDS::ARM7Write32 : DSi::ARM7Write32)(addr, val);
+        NDS::Current->ARM7Write32(addr, val);
     else if (std::is_same<T, u16>::value)
-        (ConsoleType == 0 ? NDS::ARM7Write16 : DSi::ARM7Write16)(addr, val);
+        NDS::Current->ARM7Write16(addr, val);
     else
-        (ConsoleType == 0 ? NDS::ARM7Write8 : DSi::ARM7Write8)(addr, val);
+        NDS::Current->ARM7Write8(addr, val);
 }
 
 template <bool Write, int ConsoleType>

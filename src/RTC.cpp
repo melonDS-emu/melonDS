@@ -32,9 +32,9 @@ using Platform::LogLevel;
 void WriteDateTime(int num, u8 val);
 
 
-RTC::RTC()
+RTC::RTC(melonDS::NDS& nds) : NDS(nds)
 {
-    NDS::RegisterEventFunc(NDS::Event_RTC, 0, MemberEventFunc(RTC, ClockTimer));
+    NDS.RegisterEventFunc(Event_RTC, 0, MemberEventFunc(RTC, ClockTimer));
 
     ResetState();
 
@@ -45,7 +45,7 @@ RTC::RTC()
 
 RTC::~RTC()
 {
-    NDS::UnregisterEventFunc(NDS::Event_RTC, 0);
+    NDS.UnregisterEventFunc(Event_RTC, 0);
 }
 
 void RTC::Reset()
@@ -221,10 +221,10 @@ void RTC::SetIRQ(u8 irq)
 
     if ((!(oldstat & 0x30)) && (State.IRQFlag & 0x30))
     {
-        if ((NDS::RCnt & 0xC100) == 0x8100)
+        if ((NDS.RCnt & 0xC100) == 0x8100)
         {
             // CHECKME: is the IRQ status readable in RCNT?
-            NDS::SetIRQ(1, NDS::IRQ_RTC);
+            NDS.SetIRQ(1, IRQ_RTC);
         }
     }
 }
@@ -306,7 +306,7 @@ void RTC::ProcessIRQ(int type) // 0=minute carry 1=periodic 2=status reg write
             if (State.Alarm1[2] & (1<<7))
                 cond = cond && ((State.Alarm1[2] & 0x7F) == State.DateTime[5]);
 
-            if (NDS::ConsoleType == 1)
+            if (NDS.ConsoleType == 1)
             {
                 if (State.AlarmDate1[1] & (1<<6))
                     cond = cond && (State.AlarmDate1[0] == State.DateTime[0]);
@@ -348,7 +348,7 @@ void RTC::ProcessIRQ(int type) // 0=minute carry 1=periodic 2=status reg write
             if (State.Alarm2[2] & (1<<7))
                 cond = cond && ((State.Alarm2[2] & 0x7F) == State.DateTime[5]);
 
-            if (NDS::ConsoleType == 1)
+            if (NDS.ConsoleType == 1)
             {
                 if (State.AlarmDate2[1] & (1<<6))
                     cond = cond && (State.AlarmDate2[0] == State.DateTime[0]);
@@ -520,7 +520,7 @@ void RTC::ScheduleTimer(bool first)
     s32 delay = sysclock >> 15;
     TimerError = sysclock & 0x7FFF;
 
-    NDS::ScheduleEvent(NDS::Event_RTC, !first, delay, 0, 0);
+    NDS.ScheduleEvent(Event_RTC, !first, delay, 0, 0);
 }
 
 void RTC::ClockTimer(u32 param)
@@ -647,7 +647,7 @@ void RTC::CmdRead()
     }
     else if ((CurCmd & 0x0F) == 0x0E)
     {
-        if (NDS::ConsoleType != 1)
+        if (NDS.ConsoleType != 1)
         {
             Log(LogLevel::Debug, "RTC: unknown read command %02X\n", CurCmd);
             return;
@@ -797,7 +797,7 @@ void RTC::CmdWrite(u8 val)
     }
     else if ((CurCmd & 0x0F) == 0x0E)
     {
-        if (NDS::ConsoleType != 1)
+        if (NDS.ConsoleType != 1)
         {
             Log(LogLevel::Debug, "RTC: unknown write command %02X\n", CurCmd);
             return;
@@ -852,7 +852,7 @@ void RTC::ByteIn(u8 val)
         else
             CurCmd = val;
 
-        if (NDS::ConsoleType == 1)
+        if (NDS.ConsoleType == 1)
         {
             // for DSi: handle extra commands
 

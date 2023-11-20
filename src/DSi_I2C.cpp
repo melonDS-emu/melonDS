@@ -57,7 +57,7 @@ const u8 DSi_BPTWL::VolumeUpTable[32] =
 };
 
 
-DSi_BPTWL::DSi_BPTWL(DSi_I2CHost* host) : DSi_I2CDevice(host)
+DSi_BPTWL::DSi_BPTWL(melonDS::DSi& dsi, DSi_I2CHost* host) : DSi_I2CDevice(dsi, host)
 {
 }
 
@@ -177,19 +177,19 @@ void DSi_BPTWL::DoHardwareReset(bool direct)
     if (direct)
     {
         // TODO: This doesn't seem to stop the SPU
-        DSi::SoftReset();
+        DSi.SoftReset();
         return;
     }
 
     // TODO: soft-reset might need to be scheduled later!
     // TODO: this has been moved for the JIT to work, nothing is confirmed here
-    NDS::ARM7->Halt(4);
+    DSi.ARM7.Halt(4);
 }
 
 void DSi_BPTWL::DoShutdown()
 {
     ResetButtonState();
-    NDS::Stop(Platform::StopReason::PowerOff);
+    DSi.Stop(Platform::StopReason::PowerOff);
 }
 
 
@@ -369,7 +369,7 @@ void DSi_BPTWL::SetIRQ(u8 irqFlag)
 
     if (GetIRQMode())
     {
-        NDS::SetIRQ2(NDS::IRQ2_DSi_BPTWL);
+        DSi.SetIRQ2(IRQ2_DSi_BPTWL);
     }
 }
 
@@ -451,11 +451,11 @@ void DSi_BPTWL::Write(u8 val, bool last)
 }
 
 
-DSi_I2CHost::DSi_I2CHost()
+DSi_I2CHost::DSi_I2CHost(melonDS::DSi& dsi) : DSi(dsi)
 {
-    BPTWL = new DSi_BPTWL(this);
-    Camera0 = new DSi_Camera(this, 0);
-    Camera1 = new DSi_Camera(this, 1);
+    BPTWL = new DSi_BPTWL(dsi, this);
+    Camera0 = new DSi_Camera(dsi, this, 0);
+    Camera1 = new DSi_Camera(dsi, this, 1);
 }
 
 DSi_I2CHost::~DSi_I2CHost()

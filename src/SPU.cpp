@@ -70,15 +70,15 @@ s16 SPUChannel::InterpCubic[0x100][4];
 bool SPUChannel::InterpInited = false;
 
 
-SPU::SPU()
+SPU::SPU(melonDS::NDS& nds) : NDS(nds)
 {
-    NDS::RegisterEventFunc(NDS::Event_SPU, 0, MemberEventFunc(SPU, Mix));
+    NDS.RegisterEventFunc(Event_SPU, 0, MemberEventFunc(SPU, Mix));
 
     for (int i = 0; i < 16; i++)
-        Channels[i] = new SPUChannel(i);
+        Channels[i] = new SPUChannel(i, NDS);
 
-    Capture[0] = new SPUCaptureUnit(0);
-    Capture[1] = new SPUCaptureUnit(1);
+    Capture[0] = new SPUCaptureUnit(0, NDS);
+    Capture[1] = new SPUCaptureUnit(1, NDS);
 
     AudioLock = Platform::Mutex_Create();
 
@@ -137,7 +137,7 @@ SPU::~SPU()
     Platform::Mutex_Free(AudioLock);
     AudioLock = nullptr;
 
-    NDS::UnregisterEventFunc(NDS::Event_SPU, 0);
+    NDS.UnregisterEventFunc(Event_SPU, 0);
 }
 
 void SPU::Reset()
@@ -154,7 +154,7 @@ void SPU::Reset()
     Capture[0]->Reset();
     Capture[1]->Reset();
 
-    NDS::ScheduleEvent(NDS::Event_SPU, false, 1024, 0, 0);
+    NDS.ScheduleEvent(Event_SPU, false, 1024, 0, 0);
 }
 
 void SPU::Stop()
@@ -212,7 +212,7 @@ void SPU::SetDegrade10Bit(bool enable)
 }
 
 
-SPUChannel::SPUChannel(u32 num)
+SPUChannel::SPUChannel(u32 num, melonDS::NDS& nds) : NDS(nds)
 {
     Num = num;
 
@@ -225,11 +225,6 @@ SPUChannel::~SPUChannel()
 
 void SPUChannel::Reset()
 {
-    if (NDS::ConsoleType == 1)
-        BusRead32 = DSi::ARM7Read32;
-    else
-        BusRead32 = NDS::ARM7Read32;
-
     KeyOn = false;
 
     SetCnt(0);
@@ -299,7 +294,7 @@ void SPUChannel::FIFO_BufferData()
     {
         for (u32 i = 0; i < burstlen; i += 4)
         {
-            FIFO[FIFOWritePos] = BusRead32(SrcAddr + FIFOReadOffset);
+            FIFO[FIFOWritePos] = NDS.ARM7Read32(SrcAddr + FIFOReadOffset);
             FIFOReadOffset += 4;
             FIFOWritePos++;
             FIFOWritePos &= 0x7;
@@ -583,7 +578,7 @@ void SPUChannel::PanOutput(s32 in, s32& left, s32& right)
 }
 
 
-SPUCaptureUnit::SPUCaptureUnit(u32 num)
+SPUCaptureUnit::SPUCaptureUnit(u32 num, melonDS::NDS& nds) : NDS(nds), Num(num)
 {
     Num = num;
 }
@@ -594,11 +589,6 @@ SPUCaptureUnit::~SPUCaptureUnit()
 
 void SPUCaptureUnit::Reset()
 {
-    if (NDS::ConsoleType == 1)
-        BusWrite32 = DSi::ARM7Write32;
-    else
-        BusWrite32 = NDS::ARM7Write32;
-
     SetCnt(0);
     DstAddr = 0;
     TimerReload = 0;
@@ -634,7 +624,8 @@ void SPUCaptureUnit::FIFO_FlushData()
 {
     for (u32 i = 0; i < 4; i++)
     {
-        BusWrite32(DstAddr + FIFOWriteOffset, FIFO[FIFOReadPos]);
+        NDS.ARM7Write32(DstAddr + FIFOWriteOffset, FIFO[FIFOReadPos]);
+        // Calls the NDS or DSi version, depending on the class
 
         FIFOReadPos++;
         FIFOReadPos &= 0x3;
@@ -858,7 +849,7 @@ void SPU::Mix(u32 dummy)
         OutputBackbufferWritePosition += 2;
     }
 
-    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024, 0, 0);
+    NDS.ScheduleEvent(Event_SPU, true, 1024, 0, 0);
 }
 
 void SPU::TransferOutput()

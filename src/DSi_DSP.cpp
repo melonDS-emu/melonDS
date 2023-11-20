@@ -55,33 +55,33 @@ u16 DSi_DSP::GetPSTS()
 
 void DSi_DSP::IrqRep0()
 {
-    if (DSP_PCFG & (1<< 9)) NDS::SetIRQ(0, NDS::IRQ_DSi_DSP);
+    if (DSP_PCFG & (1<< 9)) DSi.SetIRQ(0, IRQ_DSi_DSP);
 }
 void DSi_DSP::IrqRep1()
 {
-    if (DSP_PCFG & (1<<10)) NDS::SetIRQ(0, NDS::IRQ_DSi_DSP);
+    if (DSP_PCFG & (1<<10)) DSi.SetIRQ(0, IRQ_DSi_DSP);
 }
 void DSi_DSP::IrqRep2()
 {
-    if (DSP_PCFG & (1<<11)) NDS::SetIRQ(0, NDS::IRQ_DSi_DSP);
+    if (DSP_PCFG & (1<<11)) DSi.SetIRQ(0, IRQ_DSi_DSP);
 }
 void DSi_DSP::IrqSem()
 {
     DSP_PSTS |= 1<<9;
     // apparently these are always fired?
-    NDS::SetIRQ(0, NDS::IRQ_DSi_DSP);
+    DSi.SetIRQ(0, IRQ_DSi_DSP);
 }
 
 u16 DSi_DSP::DSPRead16(u32 addr)
 {
     if (!(addr & 0x40000))
     {
-        u8* ptr = DSi::NWRAMMap_B[2][(addr >> 15) & 0x7];
+        u8* ptr = DSi.NWRAMMap_B[2][(addr >> 15) & 0x7];
         return ptr ? *(u16*)&ptr[addr & 0x7FFF] : 0;
     }
     else
     {
-        u8* ptr = DSi::NWRAMMap_C[2][(addr >> 15) & 0x7];
+        u8* ptr = DSi.NWRAMMap_C[2][(addr >> 15) & 0x7];
         return ptr ? *(u16*)&ptr[addr & 0x7FFF] : 0;
     }
 }
@@ -92,12 +92,12 @@ void DSi_DSP::DSPWrite16(u32 addr, u16 val)
 
     if (!(addr & 0x40000))
     {
-        u8* ptr = DSi::NWRAMMap_B[2][(addr >> 15) & 0x7];
+        u8* ptr = DSi.NWRAMMap_B[2][(addr >> 15) & 0x7];
         if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
     }
     else
     {
-        u8* ptr = DSi::NWRAMMap_C[2][(addr >> 15) & 0x7];
+        u8* ptr = DSi.NWRAMMap_C[2][(addr >> 15) & 0x7];
         if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
     }
 }
@@ -107,9 +107,9 @@ void DSi_DSP::AudioCb(std::array<s16, 2> frame)
     // TODO
 }
 
-DSi_DSP::DSi_DSP()
+DSi_DSP::DSi_DSP(melonDS::DSi& dsi) : DSi(dsi)
 {
-    NDS::RegisterEventFunc(NDS::Event_DSi_DSP, 0, MemberEventFunc(DSi_DSP, DSPCatchUpU32));
+    DSi.RegisterEventFunc(Event_DSi_DSP, 0, MemberEventFunc(DSi_DSP, DSPCatchUpU32));
 
     TeakraCore = new Teakra::Teakra();
     SCFG_RST = false;
@@ -133,12 +133,12 @@ DSi_DSP::DSi_DSP()
     // these happen instantaneously and without too much regard for bus aribtration
     // rules, so, this might have to be changed later on
     Teakra::AHBMCallback cb;
-    cb.read8 = DSi::ARM9Read8;
-    cb.write8 = DSi::ARM9Write8;
-    cb.read16 = DSi::ARM9Read16;
-    cb.write16 = DSi::ARM9Write16;
-    cb.read32 = DSi::ARM9Read32;
-    cb.write32 = DSi::ARM9Write32;
+    cb.read8 = [this](auto addr) { return DSi.ARM9Read8(addr); };
+    cb.write8 = [this](auto addr, auto val) { DSi.ARM9Write8(addr, val); };
+    cb.read16 = [this](auto addr) { return DSi.ARM9Read16(addr); };
+    cb.write16 = [this](auto addr, auto val) { DSi.ARM9Write16(addr, val); };
+    cb.read32 = [this](auto addr) { return DSi.ARM9Read32(addr); };
+    cb.write32 = [this](auto addr, auto val) { DSi.ARM9Write32(addr, val); };
     TeakraCore->SetAHBMCallback(cb);
 
     TeakraCore->SetAudioCallback(std::bind(&DSi_DSP::AudioCb, this, _1));
@@ -156,7 +156,7 @@ DSi_DSP::~DSi_DSP()
     //PDATAWriteFifo = NULL;
     TeakraCore = NULL;
 
-    NDS::UnregisterEventFunc(NDS::Event_DSi_DSP, 0);
+    DSi.UnregisterEventFunc(Event_DSi_DSP, 0);
 }
 
 void DSi_DSP::Reset()
@@ -177,7 +177,7 @@ void DSi_DSP::Reset()
     //PDATAWriteFifo->Clear();
     TeakraCore->Reset();
 
-    NDS::CancelEvent(NDS::Event_DSi_DSP);
+    DSi.CancelEvent(Event_DSi_DSP);
 
     SNDExCnt = 0;
 }
@@ -190,17 +190,17 @@ void DSi_DSP::SetRstLine(bool release)
 {
     SCFG_RST = release;
     Reset();
-    DSPTimestamp = NDS::ARM9Timestamp; // only start now!
+    DSPTimestamp = DSi.ARM9Timestamp; // only start now!
 }
 
 inline bool DSi_DSP::IsDSPCoreEnabled()
 {
-    return (DSi::SCFG_Clock9 & (1<<1)) && SCFG_RST && (!(DSP_PCFG & (1<<0)));
+    return (DSi.SCFG_Clock9 & (1<<1)) && SCFG_RST && (!(DSP_PCFG & (1<<0)));
 }
 
 inline bool DSi_DSP::IsDSPIOEnabled()
 {
-    return (DSi::SCFG_Clock9 & (1<<1)) && SCFG_RST;
+    return (DSi.SCFG_Clock9 & (1<<1)) && SCFG_RST;
 }
 
 bool DSi_DSP::DSPCatchUp()
@@ -210,13 +210,13 @@ bool DSi_DSP::DSPCatchUp()
     {
         // nothing to do, but advance the current time so that we don't do an
         // unreasonable amount of cycles when rst is released
-        if (DSPTimestamp < NDS::ARM9Timestamp)
-            DSPTimestamp = NDS::ARM9Timestamp;
+        if (DSPTimestamp < DSi.ARM9Timestamp)
+            DSPTimestamp = DSi.ARM9Timestamp;
 
         return false;
     }
 
-    u64 curtime = NDS::ARM9Timestamp;
+    u64 curtime = DSi.ARM9Timestamp;
 
     if (DSPTimestamp >= curtime) return true; // ummmm?!
 
@@ -257,7 +257,7 @@ void DSi_DSP::PDataDMAWrite(u16 wrval)
         {
             switch (TeakraCore->AHBMGetUnitSize(0))
             {
-            case 0: /* 8bit */        DSi::ARM9Write8 (addr, (u8)wrval); break;
+            case 0: /* 8bit */        DSi.ARM9Write8 (addr, (u8)wrval); break;
             case 1: /* 16 b */ TeakraCore->AHBMWrite16(addr,     wrval); break;
             // does it work like this, or should it first buffer two u16's
             // until it has enough data to write to the actual destination?
@@ -272,7 +272,7 @@ void DSi_DSP::PDataDMAWrite(u16 wrval)
     if (DSP_PCFG & (1<<1)) // auto-increment
         ++DSP_PADR; // overflows and stays within a 64k 'page' // TODO: is this +1 or +2?
 
-    NDS::SetIRQ(0, NDS::IRQ_DSi_DSP); // wrfifo empty
+    DSi.SetIRQ(0, IRQ_DSi_DSP); // wrfifo empty
 }
 // TODO: FIFO interrupts! (rd full, nonempty)
 u16 DSi_DSP::PDataDMARead()
@@ -299,7 +299,7 @@ u16 DSi_DSP::PDataDMARead()
         {
             switch (TeakraCore->AHBMGetUnitSize(0))
             {
-            case 0: /* 8bit */ r =             DSi::ARM9Read8 (addr); break;
+            case 0: /* 8bit */ r =             DSi.ARM9Read8 (addr); break;
             case 1: /* 16 b */ r =      TeakraCore->AHBMRead16(addr); break;
             case 2: /* 32 b */ r = (u16)TeakraCore->AHBMRead32(addr); break;
             }
@@ -337,7 +337,7 @@ void DSi_DSP::PDataDMAStart()
     for (int i = 0; i < amt; ++i)
         PDataDMAFetch();
 
-    NDS::SetIRQ(0, NDS::IRQ_DSi_DSP);
+    DSi.SetIRQ(0, IRQ_DSi_DSP);
 
 }
 void DSi_DSP::PDataDMACancel()
@@ -372,7 +372,7 @@ u16 DSi_DSP::PDataDMAReadMMIO()
     }
 
     if (!PDATAReadFifo.IsEmpty() || PDATAReadFifo.IsFull())
-        NDS::SetIRQ(0, NDS::IRQ_DSi_DSP);
+        DSi.SetIRQ(0, IRQ_DSi_DSP);
 
     return ret;
 }
@@ -477,7 +477,7 @@ void DSi_DSP::Write8(u32 addr, u8 val)
 }
 void DSi_DSP::Write16(u32 addr, u16 val)
 {
-    Log(LogLevel::Debug,"DSP WRITE16 %d %08X %08X  %08X\n", IsDSPCoreEnabled(), addr, val, NDS::GetPC(0));
+    Log(LogLevel::Debug,"DSP WRITE16 %d %08X %08X  %08X\n", IsDSPCoreEnabled(), addr, val, DSi.GetPC(0));
     //if (!IsDSPIOEnabled()) return;
     DSPCatchUp();
 
@@ -565,8 +565,8 @@ void DSi_DSP::Run(u32 cycles)
 
     DSPTimestamp += cycles;
 
-    NDS::CancelEvent(NDS::Event_DSi_DSP);
-    NDS::ScheduleEvent(NDS::Event_DSi_DSP, false,
+    DSi.CancelEvent(Event_DSi_DSP);
+    DSi.ScheduleEvent(Event_DSi_DSP, false,
             16384/*from citra (TeakraSlice)*/, 0, 0);
 }
 
