@@ -94,7 +94,7 @@ std::string InstanceFileSuffix();
 
 // configuration values
 
-enum ConfigEntry
+enum [[deprecated("Use constructor parameters instead")]] ConfigEntry
 {
 #ifdef JIT_ENABLED
     JIT_Enable,
