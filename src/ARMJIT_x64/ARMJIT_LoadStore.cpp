@@ -268,8 +268,9 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
         PushRegs(false, false);
 
         void* func = NULL;
-        if (addrIsStatic)
-            func = NDS.JIT.Memory.GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
+        // if (addrIsStatic)
+        //    func = NDS.JIT.Memory.GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
+        // Disabled until we figure out what to do about resolving NDS instances
 
         if (func)
         {
