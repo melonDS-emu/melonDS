@@ -20,113 +20,146 @@
 #define DSI_H
 
 #include "NDS.h"
+#include "DSi_NDMA.h"
 #include "DSi_SD.h"
+#include "DSi_I2CHost.h"
+#include "DSi_DSP.h"
+#include "DSi_AES.h"
+#include "DSi_Camera.h"
 
 namespace melonDS
 {
-class DSi_I2CHost;
-class DSi_CamModule;
-class DSi_AES;
-class DSi_DSP;
-
 namespace DSi_NAND
 {
     class NANDImage;
 }
 
-namespace DSi
+class DSi final : public NDS
 {
+public:
+    DSi() noexcept;
+    ~DSi() noexcept override;
+    DSi(const DSi&) = delete;
+    DSi& operator=(const DSi&) = delete;
+    DSi(DSi&&) = delete;
+    DSi& operator=(DSi&&) = delete;
 
-extern u16 SCFG_BIOS;
-extern u16 SCFG_Clock9;
-extern u32 SCFG_EXT[2];
+    void Reset() noexcept override;
+    void Stop(Platform::StopReason reason) noexcept override;
+public:
+    u16 SCFG_BIOS;
+    u16 SCFG_Clock9;
+    u32 SCFG_EXT[2];
+
+    u8 ARM9iBIOS[0x10000];
+    u8 ARM7iBIOS[0x10000];
+
+    std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
+    DSi_SDHost SDMMC;
+    DSi_SDHost SDIO;
+
+    u8* NWRAM_A;
+    u8* NWRAM_B;
+    u8* NWRAM_C;
+
+    u8* NWRAMMap_A[2][4];
+    u8* NWRAMMap_B[3][8];
+    u8* NWRAMMap_C[3][8];
+
+    u32 NWRAMStart[2][3];
+    u32 NWRAMEnd[2][3];
+    u32 NWRAMMask[2][3];
+
+    DSi_I2CHost I2C;
+    DSi_CamModule CamModule;
+    DSi_AES AES;
+    DSi_DSP DSP;
 
 
-extern u8 ARM9iBIOS[0x10000];
-extern u8 ARM7iBIOS[0x10000];
+    void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) noexcept override;
 
-extern std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
-extern DSi_SDHost* SDMMC;
-extern DSi_SDHost* SDIO;
+    bool DoSavestate(Savestate* file);
 
-const u32 NWRAMSize = 0x40000;
+    void SetCartInserted(bool inserted) noexcept;
 
-extern u8* NWRAM_A;
-extern u8* NWRAM_B;
-extern u8* NWRAM_C;
+    void SetupDirectBoot() noexcept override;
+    void SoftReset() noexcept;
 
-extern u8* NWRAMMap_A[2][4];
-extern u8* NWRAMMap_B[3][8];
-extern u8* NWRAMMap_C[3][8];
+    bool LoadNAND() noexcept;
 
-extern u32 NWRAMStart[2][3];
-extern u32 NWRAMEnd[2][3];
-extern u32 NWRAMMask[2][3];
+    bool DMAsInMode(u32 cpu, u32 mode) const noexcept override;
+    bool DMAsRunning(u32 cpu) const noexcept override;
+    void StopDMAs(u32 cpu, u32 mode) noexcept override;
+    void CheckDMAs(u32 cpu, u32 mode) noexcept override;
 
-extern DSi_I2CHost* I2C;
-extern DSi_CamModule* CamModule;
-extern DSi_AES* AES;
-extern DSi_DSP* DSP;
+    void RunNDMAs(u32 cpu) noexcept;
+    void StallNDMAs() noexcept;
+    bool NDMAsInMode(u32 cpu, u32 mode) const noexcept;
+    bool NDMAsRunning(u32 cpu) const noexcept;
+    void CheckNDMAs(u32 cpu, u32 mode) noexcept;
+    void StopNDMAs(u32 cpu, u32 mode) noexcept;
 
-bool Init();
-void DeInit();
-void Reset();
-void Stop();
+    void MapNWRAM_A(u32 num, u8 val) noexcept;
+    void MapNWRAM_B(u32 num, u8 val) noexcept;
+    void MapNWRAM_C(u32 num, u8 val) noexcept;
+    void MapNWRAMRange(u32 cpu, u32 num, u32 val) noexcept;
 
-void DoSavestate(Savestate* file);
+    u8 ARM9Read8(u32 addr) noexcept override;
+    u16 ARM9Read16(u32 addr) noexcept override;
+    u32 ARM9Read32(u32 addr) noexcept override;
+    void ARM9Write8(u32 addr, u8 val) noexcept override;
+    void ARM9Write16(u32 addr, u16 val) noexcept override;
+    void ARM9Write32(u32 addr, u32 val) noexcept override;
 
-void SetCartInserted(bool inserted);
+    bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region) noexcept override;
 
-void SetupDirectBoot();
-void SoftReset();
+    u8 ARM7Read8(u32 addr) noexcept override;
+    u16 ARM7Read16(u32 addr) noexcept override;
+    u32 ARM7Read32(u32 addr) noexcept override;
+    void ARM7Write8(u32 addr, u8 val) noexcept override;
+    void ARM7Write16(u32 addr, u16 val) noexcept override;
+    void ARM7Write32(u32 addr, u32 val) noexcept override;
 
-bool LoadNAND();
+    bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region) noexcept override;
 
-void RunNDMAs(u32 cpu);
-void StallNDMAs();
-bool NDMAsInMode(u32 cpu, u32 mode);
-bool NDMAsRunning(u32 cpu);
-void CheckNDMAs(u32 cpu, u32 mode);
-void StopNDMAs(u32 cpu, u32 mode);
+    u8 ARM9IORead8(u32 addr) noexcept override;
+    u16 ARM9IORead16(u32 addr) noexcept override;
+    u32 ARM9IORead32(u32 addr) noexcept override;
+    void ARM9IOWrite8(u32 addr, u8 val) noexcept override;
+    void ARM9IOWrite16(u32 addr, u16 val) noexcept override;
+    void ARM9IOWrite32(u32 addr, u32 val) noexcept override;
 
-void MapNWRAM_A(u32 num, u8 val);
-void MapNWRAM_B(u32 num, u8 val);
-void MapNWRAM_C(u32 num, u8 val);
-void MapNWRAMRange(u32 cpu, u32 num, u32 val);
+    u8 ARM7IORead8(u32 addr) noexcept override;
+    u16 ARM7IORead16(u32 addr) noexcept override;
+    u32 ARM7IORead32(u32 addr) noexcept override;
+    void ARM7IOWrite8(u32 addr, u8 val) noexcept override;
+    void ARM7IOWrite16(u32 addr, u16 val) noexcept override;
+    void ARM7IOWrite32(u32 addr, u32 val) noexcept override;
+public:
+    u16 SCFG_Clock7;
+    u32 SCFG_MC;
+    u16 SCFG_RST;
 
-u8 ARM9Read8(u32 addr);
-u16 ARM9Read16(u32 addr);
-u32 ARM9Read32(u32 addr);
-void ARM9Write8(u32 addr, u8 val);
-void ARM9Write16(u32 addr, u16 val);
-void ARM9Write32(u32 addr, u32 val);
+    u32 MBK[2][9];
 
-bool ARM9GetMemRegion(u32 addr, bool write, NDS::MemRegion* region);
 
-u8 ARM7Read8(u32 addr);
-u16 ARM7Read16(u32 addr);
-u32 ARM7Read32(u32 addr);
-void ARM7Write8(u32 addr, u8 val);
-void ARM7Write16(u32 addr, u16 val);
-void ARM7Write32(u32 addr, u32 val);
+    u32 NDMACnt[2];
+    std::array<DSi_NDMA, 8> NDMAs;
 
-bool ARM7GetMemRegion(u32 addr, bool write, NDS::MemRegion* region);
+    // FIXME: these currently have no effect (and aren't stored in a savestate)
+    //        ... not that they matter all that much
+    u8 GPIO_Data;
+    u8 GPIO_Dir;
+    u8 GPIO_IEdgeSel;
+    u8 GPIO_IE;
+    u8 GPIO_WiFi;
 
-u8 ARM9IORead8(u32 addr);
-u16 ARM9IORead16(u32 addr);
-u32 ARM9IORead32(u32 addr);
-void ARM9IOWrite8(u32 addr, u8 val);
-void ARM9IOWrite16(u32 addr, u16 val);
-void ARM9IOWrite32(u32 addr, u32 val);
-
-u8 ARM7IORead8(u32 addr);
-u16 ARM7IORead16(u32 addr);
-u32 ARM7IORead32(u32 addr);
-void ARM7IOWrite8(u32 addr, u8 val);
-void ARM7IOWrite16(u32 addr, u16 val);
-void ARM7IOWrite32(u32 addr, u32 val);
-
-}
+private:
+    void Set_SCFG_Clock9(u16 val) noexcept;
+    void Set_SCFG_MC(u32 val) noexcept;
+    void DecryptModcryptArea(u32 offset, u32 size, u8* iv) noexcept;
+    void ApplyNewRAMSize(u32 size) noexcept;
+};
 
 }
 #endif // DSI_H
