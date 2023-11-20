@@ -75,7 +75,7 @@ public:
 
     Firmware* GetFirmware() { return Firmware.get(); };
     [[nodiscard]] const Firmware* GetFirmware() const { return Firmware.get(); };
-    bool IsLoadedFirmwareBuiltIn();
+    bool IsLoadedFirmwareBuiltIn() const;
     bool InstallFirmware(class Firmware&& firmware);
     bool InstallFirmware(std::unique_ptr<class Firmware>&& firmware);
     void RemoveFirmware();

@@ -167,7 +167,7 @@ const class Firmware* FirmwareMem::GetFirmware()
     return Firmware.get();
 }
 
-bool FirmwareMem::IsLoadedFirmwareBuiltIn()
+bool FirmwareMem::IsLoadedFirmwareBuiltIn() const
 {
     return Firmware->GetHeader().Identifier == GENERATED_FIRMWARE_IDENTIFIER;
 }
