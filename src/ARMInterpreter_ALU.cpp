@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include "ARM.h"
+#include "NDS.h"
 
 namespace melonDS::ARMInterpreter
 {
@@ -114,7 +115,7 @@ inline bool OverflowSbc(u32 a, u32 b, u32 carry)
     else \
     { \
         cpu->SetC(x & (1<<(s-1))); \
-        x = ROR(x, s); \
+        x = melonDS::ROR(x, s); \
     }
 
 #define LSL_REG(x, s) \
@@ -130,7 +131,7 @@ inline bool OverflowSbc(u32 a, u32 b, u32 carry)
     else        x = ((s32)x) >> s;
 
 #define ROR_REG(x, s) \
-    x = ROR(x, (s&0x1F));
+    x = melonDS::ROR(x, (s&0x1F));
 
 #define LSL_REG_S(x, s) \
     if (s > 31)     { cpu->SetC((s>32) ? 0 : (x & (1<<0))); x = 0; } \
@@ -146,15 +147,15 @@ inline bool OverflowSbc(u32 a, u32 b, u32 carry)
 
 #define ROR_REG_S(x, s) \
     if (s > 0) cpu->SetC(x & (1<<(s-1))); \
-    x = ROR(x, (s&0x1F));
+    x = melonDS::ROR(x, (s&0x1F));
 
 
 
 #define A_CALC_OP2_IMM \
-    u32 b = ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E);
+    u32 b = melonDS::ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E);
 
 #define A_CALC_OP2_IMM_S \
-    u32 b = ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E); \
+    u32 b = melonDS::ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E); \
     if ((cpu->CurInstr>>7)&0x1E) \
         cpu->SetC(b & 0x80000000);
 
