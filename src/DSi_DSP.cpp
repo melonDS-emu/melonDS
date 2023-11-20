@@ -133,12 +133,12 @@ DSi_DSP::DSi_DSP(melonDS::DSi& dsi) : DSi(dsi)
     // these happen instantaneously and without too much regard for bus aribtration
     // rules, so, this might have to be changed later on
     Teakra::AHBMCallback cb;
-    cb.read8 = DSi.ARM9Read8;
-    cb.write8 = DSi.ARM9Write8;
-    cb.read16 = DSi.ARM9Read16;
-    cb.write16 = DSi.ARM9Write16;
-    cb.read32 = DSi.ARM9Read32;
-    cb.write32 = DSi.ARM9Write32;
+    cb.read8 = [this](auto addr) { return DSi.ARM9Read8(addr); };
+    cb.write8 = [this](auto addr, auto val) { DSi.ARM9Write8(addr, val); };
+    cb.read16 = [this](auto addr) { return DSi.ARM9Read16(addr); };
+    cb.write16 = [this](auto addr, auto val) { DSi.ARM9Write16(addr, val); };
+    cb.read32 = [this](auto addr) { return DSi.ARM9Read32(addr); };
+    cb.write32 = [this](auto addr, auto val) { DSi.ARM9Write32(addr, val); };
     TeakraCore->SetAHBMCallback(cb);
 
     TeakraCore->SetAudioCallback(std::bind(&DSi_DSP::AudioCb, this, _1));
