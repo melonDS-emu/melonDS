@@ -359,12 +359,6 @@ u8 CartCommon::SPIWrite(u8 val, u32 pos, bool last)
     return 0xFF;
 }
 
-void CartCommon::SetIRQ()
-{
-    NDS::SetIRQ(0, NDS::IRQ_CartIREQMC);
-    NDS::SetIRQ(1, NDS::IRQ_CartIREQMC);
-}
-
 u8 *CartCommon::GetSaveMemory() const
 {
     return nullptr;

@@ -87,8 +87,6 @@ public:
 protected:
     void ReadROM(u32 addr, u32 len, u8* data, u32 offset);
 
-    void SetIRQ();
-
     u8* ROM;
     u32 ROMLength;
     u32 ChipID;
