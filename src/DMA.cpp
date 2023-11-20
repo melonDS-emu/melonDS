@@ -52,7 +52,8 @@ using Platform::LogLevel;
 DMA::DMA(u32 cpu, u32 num, melonDS::NDS& nds) :
     CPU(cpu),
     Num(num),
-    NDS(nds)
+    NDS(nds),
+    MRAMBurstTable(DMATiming::MRAMDummy)
 {
     if (cpu == 0)
         CountMask = 0x001FFFFF;
