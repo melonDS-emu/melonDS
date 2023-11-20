@@ -49,7 +49,7 @@ public:
     u8 Read(bool last);
     void Write(u8 val, bool last);
 
-    void InputFrame(u32* data, int width, int height, bool rgb);
+    void InputFrame(const u32* data, int width, int height, bool rgb);
 
     u32 Num;
 

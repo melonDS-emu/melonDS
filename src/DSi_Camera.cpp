@@ -724,7 +724,7 @@ void DSi_Camera::MCU_Write(u16 addr, u8 val)
 }
 
 
-void DSi_Camera::InputFrame(u32* data, int width, int height, bool rgb)
+void DSi_Camera::InputFrame(const u32* data, int width, int height, bool rgb)
 {
     // TODO: double-buffering?
 
