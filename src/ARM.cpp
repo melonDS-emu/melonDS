@@ -29,6 +29,9 @@
 #include "GPU.h"
 #include "ARMJIT_Memory.h"
 
+
+#include <cinttypes>
+
 namespace melonDS
 {
 using Platform::Log;
@@ -443,6 +446,86 @@ void ARM::RestoreCPSR()
     CPSR |= 0x00000010;
 
     UpdateMode(oldcpsr, CPSR);
+}
+
+void ARM::NocashPrint(u32 addr) noexcept
+{
+    // addr: debug string
+
+    u8 (NDS::*readfn)(u32) = Num ? &NDS::ARM7Read8 : &NDS::ARM9Read8;
+
+    char output[1024];
+    int ptr = 0;
+
+    for (int i = 0; i < 120 && ptr < 1023; )
+    {
+        char ch = (NDS.*readfn)(addr++);
+        i++;
+
+        if (ch == '%')
+        {
+            char cmd[16]; int j;
+            for (j = 0; j < 15; )
+            {
+                char ch2 = readfn(addr++);
+                i++;
+                if (i >= 120) break;
+                if (ch2 == '%') break;
+                cmd[j++] = ch2;
+            }
+            cmd[j] = '\0';
+
+            char subs[64];
+
+            if (cmd[0] == 'r')
+            {
+                if      (!strcmp(cmd, "r0")) sprintf(subs, "%08X", R[0]);
+                else if (!strcmp(cmd, "r1")) sprintf(subs, "%08X", R[1]);
+                else if (!strcmp(cmd, "r2")) sprintf(subs, "%08X", R[2]);
+                else if (!strcmp(cmd, "r3")) sprintf(subs, "%08X", R[3]);
+                else if (!strcmp(cmd, "r4")) sprintf(subs, "%08X", R[4]);
+                else if (!strcmp(cmd, "r5")) sprintf(subs, "%08X", R[5]);
+                else if (!strcmp(cmd, "r6")) sprintf(subs, "%08X", R[6]);
+                else if (!strcmp(cmd, "r7")) sprintf(subs, "%08X", R[7]);
+                else if (!strcmp(cmd, "r8")) sprintf(subs, "%08X", R[8]);
+                else if (!strcmp(cmd, "r9")) sprintf(subs, "%08X", R[9]);
+                else if (!strcmp(cmd, "r10")) sprintf(subs, "%08X", R[10]);
+                else if (!strcmp(cmd, "r11")) sprintf(subs, "%08X", R[11]);
+                else if (!strcmp(cmd, "r12")) sprintf(subs, "%08X", R[12]);
+                else if (!strcmp(cmd, "r13")) sprintf(subs, "%08X", R[13]);
+                else if (!strcmp(cmd, "r14")) sprintf(subs, "%08X", R[14]);
+                else if (!strcmp(cmd, "r15")) sprintf(subs, "%08X", R[15]);
+            }
+            else
+            {
+                if      (!strcmp(cmd, "sp")) sprintf(subs, "%08X", R[13]);
+                else if (!strcmp(cmd, "lr")) sprintf(subs, "%08X", R[14]);
+                else if (!strcmp(cmd, "pc")) sprintf(subs, "%08X", R[15]);
+                else if (!strcmp(cmd, "frame")) sprintf(subs, "%u", NDS.NumFrames);
+                else if (!strcmp(cmd, "scanline")) sprintf(subs, "%u", NDS.GPU.VCount);
+                else if (!strcmp(cmd, "totalclks")) sprintf(subs, "%" PRIu64, NDS.GetSysClockCycles(0));
+                else if (!strcmp(cmd, "lastclks")) sprintf(subs, "%" PRIu64, NDS.GetSysClockCycles(1));
+                else if (!strcmp(cmd, "zeroclks"))
+                {
+                    sprintf(subs, "%s", "");
+                    NDS.GetSysClockCycles(1);
+                }
+            }
+
+            int slen = strlen(subs);
+            if ((ptr+slen) > 1023) slen = 1023-ptr;
+            strncpy(&output[ptr], subs, slen);
+            ptr += slen;
+        }
+        else
+        {
+            output[ptr++] = ch;
+            if (ch == '\0') break;
+        }
+    }
+
+    output[ptr] = '\0';
+    Log(LogLevel::Debug, "%s", output);
 }
 
 void ARM::UpdateMode(u32 oldmode, u32 newmode, bool phony)

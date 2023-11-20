@@ -76,6 +76,7 @@ public:
         Halted = halt;
     }
 
+    void NocashPrint(u32 addr) noexcept;
     virtual void Execute() = 0;
 #ifdef JIT_ENABLED
     virtual void ExecuteJIT() = 0;
