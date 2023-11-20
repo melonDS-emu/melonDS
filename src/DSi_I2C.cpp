@@ -21,6 +21,7 @@
 #include <math.h>
 #include "DSi.h"
 #include "DSi_I2C.h"
+#include "DSi_I2CHost.h"
 #include "DSi_Camera.h"
 #include "ARM.h"
 #include "SPI.h"
@@ -57,7 +58,7 @@ const u8 DSi_BPTWL::VolumeUpTable[32] =
 };
 
 
-DSi_BPTWL::DSi_BPTWL(DSi_I2CHost* host) : DSi_I2CDevice(host)
+DSi_BPTWL::DSi_BPTWL(melonDS::DSi& dsi, DSi_I2CHost& host) : DSi_I2CDevice(dsi, host)
 {
 }
 
@@ -177,19 +178,19 @@ void DSi_BPTWL::DoHardwareReset(bool direct)
     if (direct)
     {
         // TODO: This doesn't seem to stop the SPU
-        DSi::SoftReset();
+        DSi.SoftReset();
         return;
     }
 
     // TODO: soft-reset might need to be scheduled later!
     // TODO: this has been moved for the JIT to work, nothing is confirmed here
-    NDS::ARM7->Halt(4);
+    DSi.ARM7.Halt(4);
 }
 
 void DSi_BPTWL::DoShutdown()
 {
     ResetButtonState();
-    NDS::Stop(Platform::StopReason::PowerOff);
+    DSi.Stop(Platform::StopReason::PowerOff);
 }
 
 
@@ -369,7 +370,7 @@ void DSi_BPTWL::SetIRQ(u8 irqFlag)
 
     if (GetIRQMode())
     {
-        NDS::SetIRQ2(NDS::IRQ2_DSi_BPTWL);
+        DSi.SetIRQ2(NDS::IRQ2_DSi_BPTWL);
     }
 }
 
@@ -451,18 +452,12 @@ void DSi_BPTWL::Write(u8 val, bool last)
 }
 
 
-DSi_I2CHost::DSi_I2CHost()
+DSi_I2CHost::DSi_I2CHost(melonDS::DSi& dsi) : DSi(dsi), BPTWL(dsi, *this), Camera0(dsi, this, 0), Camera1(dsi, this, 1)
 {
-    BPTWL = new DSi_BPTWL(this);
-    Camera0 = new DSi_Camera(this, 0);
-    Camera1 = new DSi_Camera(this, 1);
 }
 
 DSi_I2CHost::~DSi_I2CHost()
 {
-    delete BPTWL; BPTWL = nullptr;
-    delete Camera0; Camera0 = nullptr;
-    delete Camera1; Camera1 = nullptr;
 }
 
 void DSi_I2CHost::Reset()
@@ -473,9 +468,9 @@ void DSi_I2CHost::Reset()
     CurDeviceID = 0;
     CurDevice = nullptr;
 
-    BPTWL->Reset();
-    Camera0->Reset();
-    Camera1->Reset();
+    BPTWL.Reset();
+    Camera0.Reset();
+    Camera1.Reset();
 }
 
 void DSi_I2CHost::DoSavestate(Savestate* file)
@@ -491,18 +486,18 @@ void DSi_I2CHost::DoSavestate(Savestate* file)
         GetCurDevice();
     }
 
-    BPTWL->DoSavestate(file);
-    Camera0->DoSavestate(file);
-    Camera1->DoSavestate(file);
+    BPTWL.DoSavestate(file);
+    Camera0.DoSavestate(file);
+    Camera1.DoSavestate(file);
 }
 
 void DSi_I2CHost::GetCurDevice()
 {
     switch (CurDeviceID)
     {
-    case 0x4A: CurDevice = BPTWL; break;
-    case 0x78: CurDevice = Camera0; break;
-    case 0x7A: CurDevice = Camera1; break;
+    case 0x4A: CurDevice = &BPTWL; break;
+    case 0x78: CurDevice = &Camera0; break;
+    case 0x7A: CurDevice = &Camera1; break;
     case 0xA0:
     case 0xE0: CurDevice = nullptr; break;
     default:

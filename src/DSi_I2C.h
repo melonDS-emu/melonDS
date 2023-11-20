@@ -25,12 +25,11 @@
 namespace melonDS
 {
 class DSi_I2CHost;
-class DSi_Camera;
 
 class DSi_I2CDevice
 {
 public:
-    DSi_I2CDevice(DSi_I2CHost* host) : Host(host) {}
+    DSi_I2CDevice(melonDS::DSi& dsi, DSi_I2CHost& host) : DSi(dsi), Host(&host) {}
     virtual ~DSi_I2CDevice() {}
     virtual void Reset() = 0;
     virtual void DoSavestate(Savestate* file) = 0;
@@ -40,6 +39,7 @@ public:
     virtual void Write(u8 val, bool last) = 0;
 
 protected:
+    melonDS::DSi& DSi;
     DSi_I2CHost* Host;
 };
 
@@ -80,7 +80,7 @@ public:
         IRQ_ValidMask           = 0x7B,
     };
 
-    DSi_BPTWL(DSi_I2CHost* host);
+    DSi_BPTWL(melonDS::DSi& dsi, DSi_I2CHost& host);
     ~DSi_BPTWL() override;
     void Reset() override;
     void DoSavestate(Savestate* file) override;
@@ -147,39 +147,6 @@ private:
 
     void ResetButtonState();
     bool CheckVolumeSwitchKeysValid();
-};
-
-
-class DSi_I2CHost
-{
-public:
-    DSi_I2CHost();
-    ~DSi_I2CHost();
-    void Reset();
-    void DoSavestate(Savestate* file);
-
-    DSi_BPTWL* GetBPTWL() { return BPTWL; }
-    DSi_Camera* GetOuterCamera() { return Camera0; }
-    DSi_Camera* GetInnerCamera() { return Camera1; }
-
-    u8 ReadCnt() { return Cnt; }
-    void WriteCnt(u8 val);
-
-    u8 ReadData();
-    void WriteData(u8 val);
-
-private:
-    u8 Cnt;
-    u8 Data;
-
-    DSi_BPTWL* BPTWL;       // 4A / BPTWL IC
-    DSi_Camera* Camera0;    // 78 / facing outside
-    DSi_Camera* Camera1;    // 7A / selfie cam
-
-    u8 CurDeviceID;
-    DSi_I2CDevice* CurDevice;
-
-    void GetCurDevice();
 };
 
 }
