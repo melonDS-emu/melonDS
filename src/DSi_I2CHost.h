@@ -42,14 +42,15 @@ public:
     u8 ReadData();
     void WriteData(u8 val);
 
+    DSi_BPTWL BPTWL;       // 4A / BPTWL IC
+    DSi_Camera Camera0;    // 78 / facing outside
+    DSi_Camera Camera1;    // 7A / selfie cam
 private:
     melonDS::DSi& DSi;
     u8 Cnt;
     u8 Data;
 
-    DSi_BPTWL BPTWL;       // 4A / BPTWL IC
-    DSi_Camera Camera0;    // 78 / facing outside
-    DSi_Camera Camera1;    // 7A / selfie cam
+
 
     u8 CurDeviceID;
     DSi_I2CDevice* CurDevice;
