@@ -24,12 +24,13 @@
 
 namespace melonDS
 {
+class NDS;
 class SPU;
 
 class SPUChannel
 {
 public:
-    SPUChannel(u32 num);
+    SPUChannel(u32 num, melonDS::NDS& nds);
     ~SPUChannel();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -142,7 +143,7 @@ public:
     void PanOutput(s32 in, s32& left, s32& right);
 
 private:
-    u32 (*BusRead32)(u32 addr);
+    melonDS::NDS& NDS;
 };
 
 class SPUCaptureUnit
@@ -205,7 +206,7 @@ private:
 class SPU
 {
 public:
-    SPU();
+    explicit SPU(melonDS::NDS& nds) noexcept;
     ~SPU();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -231,14 +232,15 @@ public:
     int ReadOutput(s16* data, int samples);
     void TransferOutput();
 
-    u8 Read8(u32 addr);
-    u16 Read16(u32 addr);
-    u32 Read32(u32 addr);
+    u8 Read8(u32 addr) const;
+    u16 Read16(u32 addr) const;
+    u32 Read32(u32 addr) const;
     void Write8(u32 addr, u8 val);
     void Write16(u32 addr, u16 val);
     void Write32(u32 addr, u32 val);
 
 private:
+    melonDS::NDS& NDS;
     static const u32 OutputBufferSize = 2*2048;
     s16 OutputBackbuffer[2 * OutputBufferSize];
     u32 OutputBackbufferWritePosition;
@@ -255,8 +257,8 @@ private:
     bool ApplyBias;
     bool Degrade10Bit;
 
-    SPUChannel* Channels[16];
-    SPUCaptureUnit* Capture[2];
+    std::array<SPUChannel, 16> Channels;
+    std::array<SPUCaptureUnit, 2> Capture;
 };
 
 }
