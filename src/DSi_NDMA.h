@@ -25,11 +25,12 @@
 namespace melonDS
 {
 class GPU;
+class DSi;
 
 class DSi_NDMA
 {
 public:
-    DSi_NDMA(u32 cpu, u32 num, GPU& gpu);
+    DSi_NDMA(u32 cpu, u32 num, GPU& gpu, DSi& dsi);
     ~DSi_NDMA();
 
     void Reset();
@@ -77,6 +78,7 @@ public:
     u32 Cnt;
 
 private:
+    melonDS::DSi& DSi;
     melonDS::GPU& GPU;
     u32 CPU, Num;
 
