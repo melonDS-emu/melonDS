@@ -467,7 +467,7 @@ void ARM::NocashPrint(u32 addr) noexcept
             char cmd[16]; int j;
             for (j = 0; j < 15; )
             {
-                char ch2 = readfn(addr++);
+                char ch2 = (NDS.*readfn)(addr++);
                 i++;
                 if (i >= 120) break;
                 if (ch2 == '%') break;
