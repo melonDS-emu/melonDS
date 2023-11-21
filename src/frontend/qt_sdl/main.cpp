@@ -237,7 +237,8 @@ std::unique_ptr<NDS> EmuThread::CreateConsole()
     };
 #endif
 
-    InitArguments args = {
+    InitArguments args =
+    {
         .JIT = JITArgs,
         .GDBARM7 = GDBARM7,
         .GDBARM9 = GDBARM9,
