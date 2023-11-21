@@ -40,7 +40,7 @@ class JitBlock;
 class ARMJIT
 {
 public:
-    ARMJIT(melonDS::NDS& nds) noexcept : NDS(nds), JITCompiler(nds), Memory(nds) {}
+    ARMJIT(melonDS::NDS& nds, const std::optional<JITArguments>& args) noexcept;
     ~ARMJIT() noexcept NOOP_IF_NO_JIT;
     void InvalidateByAddr(u32) noexcept NOOP_IF_NO_JIT;
     void CheckAndInvalidateWVRAM(int) noexcept NOOP_IF_NO_JIT;

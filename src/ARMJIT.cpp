@@ -230,6 +230,16 @@ void SlowBlockTransfer7(u32 addr, u64* data, u32 num)
 INSTANTIATE_SLOWMEM(0)
 INSTANTIATE_SLOWMEM(1)
 
+ARMJIT::ARMJIT(melonDS::NDS& nds, const std::optional<JITArguments>& args) noexcept :
+    NDS(nds),
+    JITCompiler(nds),
+    Memory(nds),
+    MaxBlockSize(args.has_value() ? args->MaxBlockSize : 32),
+    LiteralOptimizations(args.has_value() ? args->LiteralOptimisations : true),
+    BranchOptimizations(args.has_value() ? args->BranchOptimisations : true),
+    FastMemory(args.has_value() ? args->FastMemory : FastMemoryDefault)
+{}
+
 ARMJIT::~ARMJIT() noexcept
 {
     JitEnableWrite();
