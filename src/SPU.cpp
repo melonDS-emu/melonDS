@@ -120,8 +120,8 @@ SPU::SPU(melonDS::NDS& nds) noexcept :
         SPUChannel(15, nds),
     },
     Capture {
-        SPUCaptureUnit(0),
-        SPUCaptureUnit(1),
+        SPUCaptureUnit(0, nds),
+        SPUCaptureUnit(1, nds),
     }
 {
     nds.RegisterEventFunc(NDS::Event_SPU, 0, MemberEventFunc(SPU, Mix));
@@ -584,7 +584,7 @@ void SPUChannel::PanOutput(s32 in, s32& left, s32& right)
 }
 
 
-SPUCaptureUnit::SPUCaptureUnit(u32 num)
+SPUCaptureUnit::SPUCaptureUnit(u32 num, melonDS::NDS& nds) : NDS(nds)
 {
     Num = num;
 }
@@ -630,7 +630,8 @@ void SPUCaptureUnit::FIFO_FlushData()
 {
     for (u32 i = 0; i < 4; i++)
     {
-        BusWrite32(DstAddr + FIFOWriteOffset, FIFO[FIFOReadPos]);
+        NDS.ARM7Write32(DstAddr + FIFOWriteOffset, FIFO[FIFOReadPos]);
+        // Calls the NDS or DSi version, depending on the class
 
         FIFOReadPos++;
         FIFOReadPos &= 0x3;

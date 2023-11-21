@@ -145,7 +145,7 @@ private:
 class SPUCaptureUnit
 {
 public:
-    SPUCaptureUnit(u32 num);
+    SPUCaptureUnit(u32 num, melonDS::NDS&);
     ~SPUCaptureUnit();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -194,9 +194,8 @@ public:
     }
 
     void Run(s32 sample);
-
 private:
-    void (*BusWrite32)(u32 addr, u32 val);
+    melonDS::NDS& NDS;
 };
 
 class SPU
