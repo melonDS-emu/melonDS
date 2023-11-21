@@ -39,10 +39,6 @@ public:
     static const u16 ADPCMTable[89];
     static const s16 PSGTable[8][8];
 
-    static s16 InterpCos[0x100];
-    static s16 InterpCubic[0x100][4];
-    static bool InterpInited;
-
     // audio interpolation is an improvement upon the original hardware
     // (which performs no interpolation)
     int InterpType;
