@@ -72,6 +72,8 @@ const s32 kIterationCycleMargin = 8;
 //
 // timings for GBA slot and wifi are set up at runtime
 
+NDS* NDS::Current = nullptr;
+
 NDS::NDS(int type) noexcept :
     ConsoleType(type),
     SPU(*this),
