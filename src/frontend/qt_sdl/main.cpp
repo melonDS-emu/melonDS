@@ -245,7 +245,29 @@ std::unique_ptr<NDS> EmuThread::CreateConsole()
         .DSiFullBIOSBoot = false,
     };
 
-    return std::unique_ptr<melonDS::NDS>(Config::ConsoleType == 1 ? new DSi(std::move(args)) : new melonDS::NDS(std::move(args)));
+    std::optional<Firmware> firmware = ROMManager::LoadFirmware(Config::ConsoleType);
+    NDSSysfileArguments ndsSysfiles =
+    {
+        .ARM9BIOS = ROMManager::LoadARM9BIOS().value_or(bios_arm9_bin),
+        .ARM7BIOS = ROMManager::LoadARM7BIOS().value_or(bios_arm7_bin),
+        .Firmware = firmware ? std::move(*firmware) : ROMManager::GenerateFirmware(Config::ConsoleType),
+        .DLDISDCard = std::nullopt, // TODO: Implement
+    };
+
+    if (Config::ConsoleType == 1)
+    {
+        auto arm7ibios = ROMManager::LoadDSiARM7BIOS().value_or<std::array<u8, DSiBIOSLength>>({});
+        DSiSysfileArguments dsiSysfiles =
+        {
+            .ARM9iBIOS = ROMManager::LoadDSiARM9BIOS().value_or(decltype(DSiSysfileArguments::ARM9iBIOS) {}),
+            .ARM7iBIOS = ROMManager::LoadDSiARM7BIOS().value_or(decltype(DSiSysfileArguments::ARM7iBIOS) {}),
+            .NANDImage = ROMManager::LoadNAND(arm7ibios).value(),
+            .DSiSDCard = std::nullopt, // TODO: Implement
+        };
+        return std::make_unique<melonDS::DSi>(std::move(ndsSysfiles), std::move(dsiSysfiles), args);
+    }
+
+    return std::make_unique<melonDS::NDS>(std::move(ndsSysfiles), args);
 }
 
 void EmuThread::RecreateConsole()

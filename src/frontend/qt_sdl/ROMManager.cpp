@@ -481,6 +481,220 @@ void LoadCheats(NDS& nds)
     nds.AREngine.SetCodeFile(CheatsOn ? CheatFile : nullptr);
 }
 
+std::optional<std::array<u8, ARM9BIOSLength>> LoadARM9BIOS() noexcept
+{
+    if (FileHandle* f = OpenLocalFile(Config::BIOS9Path, Read))
+    {
+        std::array<u8, ARM9BIOSLength> bios {};
+        FileRewind(f);
+        FileRead(bios.data(), sizeof(bios), 1, f);
+        CloseFile(f);
+        Log(Info, "ARM9 BIOS loaded from %s\n", Config::BIOS9Path.c_str());
+        return bios;
+    }
+
+    Log(Warn, "ARM9 BIOS not found\n");
+    return std::nullopt;
+}
+
+std::optional<std::array<u8, ARM7BIOSLength>> LoadARM7BIOS() noexcept
+{
+    if (FileHandle* f = OpenLocalFile(Config::BIOS7Path, Read))
+    {
+        std::array<u8, ARM7BIOSLength> bios {};
+        FileRead(bios.data(), sizeof(bios), 1, f);
+        CloseFile(f);
+        Log(Info, "ARM7 BIOS loaded from %s\n", Config::BIOS7Path.c_str());
+        return bios;
+    }
+
+    Log(Warn, "ARM7 BIOS not found\n");
+    return std::nullopt;
+}
+
+std::optional<std::array<u8, DSiBIOSLength>> LoadDSiARM9BIOS() noexcept
+{
+    if (FileHandle* f = OpenLocalFile(Config::DSiBIOS9Path, Read))
+    {
+        std::array<u8, DSiBIOSLength> bios {};
+        FileRead(bios.data(), sizeof(bios), 1, f);
+        CloseFile(f);
+        Log(Info, "ARM9i BIOS loaded from %s\n", Config::DSiBIOS9Path.c_str());
+        return bios;
+    }
+
+    Log(Warn, "ARM9i BIOS not found\n");
+    return std::nullopt;
+}
+
+std::optional<std::array<u8, DSiBIOSLength>> LoadDSiARM7BIOS() noexcept
+{
+    if (FileHandle* f = OpenLocalFile(Config::DSiBIOS7Path, Read))
+    {
+        std::array<u8, DSiBIOSLength> bios {};
+        FileRead(bios.data(), sizeof(bios), 1, f);
+        CloseFile(f);
+        Log(Info, "ARM7i BIOS loaded from %s\n", Config::DSiBIOS7Path.c_str());
+        return bios;
+    }
+
+    Log(Warn, "ARM7i BIOS not found\n");
+    return std::nullopt;
+}
+
+Firmware GenerateFirmware(int type) noexcept
+{
+    // Construct the default firmware...
+    string settingspath;
+    Firmware firmware = Firmware(type);
+    assert(firmware.Buffer() != nullptr);
+
+    // If using generated firmware, we keep the wi-fi settings on the host disk separately.
+    // Wi-fi access point data includes Nintendo WFC settings,
+    // and if we didn't keep them then the player would have to reset them in each session.
+    // We don't need to save the whole firmware, just the part that may actually change.
+    if (FileHandle* f = OpenLocalFile(Config::WifiSettingsPath, Read))
+    {// If we have Wi-fi settings to load...
+        constexpr unsigned TOTAL_WFC_SETTINGS_SIZE = 3 * (sizeof(Firmware::WifiAccessPoint) + sizeof(Firmware::ExtendedWifiAccessPoint));
+
+        if (!FileRead(firmware.GetExtendedAccessPointPosition(), TOTAL_WFC_SETTINGS_SIZE, 1, f))
+        { // If we couldn't read the Wi-fi settings from this file...
+            Log(Warn, "Failed to read Wi-fi settings from \"%s\"; using defaults instead\n", Config::WifiSettingsPath.c_str());
+
+            // The access point and extended access point segments might
+            // be in different locations depending on the firmware revision,
+            // but our generated firmware always keeps them next to each other.
+            // (Extended access points first, then regular ones.)
+            firmware.GetAccessPoints() = {
+                Firmware::WifiAccessPoint(type),
+                Firmware::WifiAccessPoint(),
+                Firmware::WifiAccessPoint(),
+            };
+
+            firmware.GetExtendedAccessPoints() = {
+                Firmware::ExtendedWifiAccessPoint(),
+                Firmware::ExtendedWifiAccessPoint(),
+                Firmware::ExtendedWifiAccessPoint(),
+            };
+            firmware.UpdateChecksums();
+            CloseFile(f);
+        }
+    }
+
+    CustomizeFirmware(firmware);
+
+    // If we don't have Wi-fi settings to load,
+    // then the defaults will have already been populated by the constructor.
+    return firmware;
+}
+
+std::optional<Firmware> LoadFirmware(int type) noexcept
+{
+    const string& firmwarepath = type == 1 ? Config::DSiFirmwarePath : Config::FirmwarePath;
+
+    Log(Debug, "SPI firmware: loading from file %s\n", firmwarepath.c_str());
+
+    FileHandle* file = OpenLocalFile(firmwarepath, Read);
+
+    if (!file)
+    {
+        Log(Error, "SPI firmware: couldn't open firmware file!\n");
+        return std::nullopt;
+    }
+    Firmware firmware(file);
+    CloseFile(file);
+
+    if (!firmware.Buffer())
+    {
+        Log(Error, "SPI firmware: couldn't read firmware file!\n");
+        return std::nullopt;
+    }
+
+    CustomizeFirmware(firmware);
+
+    return firmware;
+}
+
+
+std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSLength>& arm7ibios) noexcept
+{
+    FileHandle* nandfile = OpenLocalFile(Config::DSiNANDPath, ReadWriteExisting);
+    if (!nandfile)
+        return std::nullopt;
+
+    DSi_NAND::NANDImage nandImage(nandfile, &arm7ibios[0x8308]);
+    if (!nandImage)
+    {
+        Log(Error, "Failed to parse DSi NAND\n");
+        return std::nullopt;
+        // the NANDImage takes ownership of the FileHandle, no need to clean it up here
+    }
+
+    // scoped so that mount isn't alive when we move the NAND image to DSi::NANDImage
+    {
+        auto mount = DSi_NAND::NANDMount(nandImage);
+        if (!mount)
+        {
+            Log(Error, "Failed to mount DSi NAND\n");
+            return std::nullopt;
+        }
+
+        DSi_NAND::DSiFirmwareSystemSettings settings {};
+        if (!mount.ReadUserData(settings))
+        {
+            Log(Error, "Failed to read DSi NAND user data\n");
+            return std::nullopt;
+        }
+
+        // override user settings, if needed
+        if (Config::FirmwareOverrideSettings)
+        {
+            // we store relevant strings as UTF-8, so we need to convert them to UTF-16
+            auto converter = wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{};
+
+            // setting up username
+            std::u16string username = converter.from_bytes(Config::FirmwareUsername);
+            size_t usernameLength = std::min(username.length(), (size_t) 10);
+            memset(&settings.Nickname, 0, sizeof(settings.Nickname));
+            memcpy(&settings.Nickname, username.data(), usernameLength * sizeof(char16_t));
+
+            // setting language
+            settings.Language = static_cast<Firmware::Language>(Config::FirmwareLanguage);
+
+            // setting up color
+            settings.FavoriteColor = Config::FirmwareFavouriteColour;
+
+            // setting up birthday
+            settings.BirthdayMonth = Config::FirmwareBirthdayMonth;
+            settings.BirthdayDay = Config::FirmwareBirthdayDay;
+
+            // setup message
+            std::u16string message = converter.from_bytes(Config::FirmwareMessage);
+            size_t messageLength = std::min(message.length(), (size_t) 26);
+            memset(&settings.Message, 0, sizeof(settings.Message));
+            memcpy(&settings.Message, message.data(), messageLength * sizeof(char16_t));
+
+            // TODO: make other items configurable?
+        }
+
+        // fix touchscreen coords
+        settings.TouchCalibrationADC1 = {0, 0};
+        settings.TouchCalibrationPixel1 = {0, 0};
+        settings.TouchCalibrationADC2 = {255 << 4, 191 << 4};
+        settings.TouchCalibrationPixel2 = {255, 191};
+
+        settings.UpdateHash();
+
+        if (!mount.ApplyUserData(settings))
+        {
+            Log(LogLevel::Error, "Failed to write patched DSi NAND user data\n");
+            return std::nullopt;
+        }
+    }
+
+    return nandImage;
+}
+
 void LoadBIOSFiles(NDS& nds)
 {
     if (Config::ExternalBIOSEnable)
@@ -798,7 +1012,7 @@ void ClearBackupState()
 
 // We want both the firmware object and the path that was used to load it,
 // since we'll need to give it to the save manager later
-pair<unique_ptr<Firmware>, string> LoadFirmwareFromFile()
+[[deprecated("Rework as part of the multiplayer refactor")]] pair<unique_ptr<Firmware>, string> LoadFirmwareFromFile()
 {
     string loadedpath;
     unique_ptr<Firmware> firmware = nullptr;
@@ -889,7 +1103,7 @@ pair<unique_ptr<Firmware>, string> GenerateDefaultFirmware()
     return std::make_pair(std::move(firmware), std::move(wfcsettingspath));
 }
 
-void LoadUserSettingsFromConfig(Firmware& firmware)
+void CustomizeFirmware(Firmware& firmware) noexcept
 {
     auto& currentData = firmware.GetEffectiveUserData();
 
@@ -1072,7 +1286,7 @@ bool InstallNAND(DSi& dsi)
         }
     }
 
-    dsi.NANDImage = std::make_unique<DSi_NAND::NANDImage>(std::move(nandImage));
+    dsi.NANDImage = std::move(nandImage);
     return true;
 }
 
@@ -1103,7 +1317,7 @@ bool InstallFirmware(NDS& nds)
 
     if (Config::FirmwareOverrideSettings)
     {
-        LoadUserSettingsFromConfig(*firmware);
+        CustomizeFirmware(*firmware);
     }
 
     FirmwareSave = std::make_unique<SaveManager>(firmwarepath);

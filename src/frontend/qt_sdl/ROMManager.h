@@ -24,6 +24,8 @@
 #include "AREngine.h"
 #include "DSi_NAND.h"
 
+#include "Constants.h"
+#include <optional>
 #include <string>
 #include <memory>
 #include <vector>
@@ -47,6 +49,17 @@ void Reset(EmuThread* thread);
 bool LoadBIOS(EmuThread* thread);
 void ClearBackupState();
 
+std::optional<std::array<u8, ARM9BIOSLength>> LoadARM9BIOS() noexcept;
+std::optional<std::array<u8, ARM7BIOSLength>> LoadARM7BIOS() noexcept;
+std::optional<std::array<u8, DSiBIOSLength>> LoadDSiARM9BIOS() noexcept;
+std::optional<std::array<u8, DSiBIOSLength>> LoadDSiARM7BIOS() noexcept;
+
+void CustomizeFirmware(Firmware& firmware) noexcept;
+Firmware GenerateFirmware(int type) noexcept;
+/// Loads and customizes a firmware image based on the values in Config
+std::optional<Firmware> LoadFirmware(int type) noexcept;
+/// Loads and customizes a NAND image based on the values in Config
+std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSLength>& arm7ibios) noexcept;
 bool InstallFirmware(NDS& nds);
 bool InstallNAND(DSi& dsi);
 bool LoadROM(EmuThread*, QStringList filepath, bool reset);
