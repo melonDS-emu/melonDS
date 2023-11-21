@@ -48,8 +48,8 @@ struct JITArguments
 {
     bool Enabled;
     int MaxBlockSize = 32;
-    bool LiteralOptimizations = true;
-    bool BranchOptimizations = true;
+    bool LiteralOptimisations = true;
+    bool BranchOptimisations = true;
     bool FastMemory = FastMemoryDefault;
 };
 

@@ -241,8 +241,8 @@ void ARMJIT::Reset(const std::optional<JITArguments>& args) noexcept
     if (args)
     { // If we're adjusting any JIT parameters...
         MaxBlockSize = std::clamp(args->MaxBlockSize, 1, 32);
-        LiteralOptimizations = args->LiteralOptimizations;
-        BranchOptimizations = args->BranchOptimizations;
+        LiteralOptimizations = args->LiteralOptimisations;
+        BranchOptimizations = args->BranchOptimisations;
         FastMemory = args->FastMemory;
     }
 
