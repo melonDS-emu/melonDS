@@ -396,10 +396,10 @@ public:
             u8 Unknown0[2];
             u8 AlarmFlags;
             u8 Unused1;
-            u16 TouchCalibrationADC1[2];
-            u8 TouchCalibrationPixel1[2];
-            u16 TouchCalibrationADC2[2];
-            u8 TouchCalibrationPixel2[2];
+            std::array<u16, 2> TouchCalibrationADC1;
+            std::array<u8, 2> TouchCalibrationPixel1;
+            std::array<u16, 2> TouchCalibrationADC2;
+            std::array<u8, 2> TouchCalibrationPixel2;
             u16 Settings;
             u8 Year;
             u8 RTCClockAdjust;
