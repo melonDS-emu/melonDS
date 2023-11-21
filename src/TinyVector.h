@@ -97,7 +97,7 @@ struct __attribute__((packed)) TinyVector
             Data[i] = Data[i + 1];*/
     }
 
-    int Find(T needle)
+    int Find(T needle) const noexcept
     {
         for (int i = 0; i < Length; i++)
         {
