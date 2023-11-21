@@ -273,6 +273,7 @@ void RecreateConsole(EmuThread* thread)
     {
         thread->NDS = nullptr; // To ensure the destructor is called before a new one is created
         thread->NDS = unique_ptr<NDS>(Config::ConsoleType == 1 ? new DSi : new NDS);
+        NDS::Current = thread->NDS.get();
     }
 }
 

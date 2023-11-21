@@ -677,6 +677,7 @@ void EmuThread::run()
 
     EmuStatus = emuStatus_Exit;
 
+    NDS::Current = nullptr;
     // nds is out of scope, so unique_ptr cleans it up for us
 }
 
