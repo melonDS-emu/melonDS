@@ -107,6 +107,17 @@ NDS::NDS(NDSSysfileArguments&& sysfiles, const InitArguments& args, int type) no
     MainRAM = JIT.Memory.GetMainRAM();
     SharedWRAM = JIT.Memory.GetSharedWRAM();
     ARM7WRAM = JIT.Memory.GetARM7WRAM();
+
+    // The original DS and DS lite degrade the output from 16 to 10 bit before output
+    if (args.AudioBitDepth)
+    { // If we're not forcing 10-bit or 16-bit audio...
+        SPU.SetDegrade10Bit(*args.AudioBitDepth == AudioBitDepth::_10Bit);
+    }
+    else
+    {
+        // Degrade the audio in NDS mode, but not DSi mode
+        SPU.SetDegrade10Bit(ConsoleType == 0);
+    }
 }
 
 NDS::~NDS() noexcept
@@ -376,7 +387,7 @@ void NDS::SetupDirectBoot(const std::string& romname) noexcept
     SetWifiWaitCnt(0x0030);
 }
 
-void NDS::Reset(ResetArguments&& args) noexcept
+void NDS::Reset(InitArguments&& args) noexcept
 {
     u32 i;
 
@@ -502,22 +513,16 @@ void NDS::Reset(ResetArguments&& args) noexcept
     // The SOUNDBIAS register does nothing on DSi
     SPU.SetApplyBias(ConsoleType == 0);
 
-    bool degradeAudio = true;
-
-    if (ConsoleType == 1)
-    {
-        // DSi::Reset() call moved into the DSi subclass
-        KeyInput &= ~(1 << (16+6));
-        degradeAudio = false;
+    // The original DS and DS lite degrade the output from 16 to 10 bit before output
+    if (args.AudioBitDepth)
+    { // If we're not forcing 10-bit or 16-bit audio...
+        SPU.SetDegrade10Bit(*args.AudioBitDepth == AudioBitDepth::_10Bit);
     }
-
-    int bitDepth = Platform::GetConfigInt(Platform::AudioBitDepth);
-    if (bitDepth == 1) // Always 10-bit
-        degradeAudio = true;
-    else if (bitDepth == 2) // Always 16-bit
-        degradeAudio = false;
-
-    SPU.SetDegrade10Bit(degradeAudio);
+    else
+    {
+        // Degrade the audio in NDS mode, but not DSi mode
+        SPU.SetDegrade10Bit(ConsoleType == 0);
+    }
 }
 
 void NDS::Start() noexcept

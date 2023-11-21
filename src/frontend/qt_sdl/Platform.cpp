@@ -203,8 +203,6 @@ int GetConfigInt(ConfigEntry entry)
     case DLDI_ImageSize: return imgsizes[Config::DLDISize];
 
     case DSiSD_ImageSize: return imgsizes[Config::DSiSDSize];
-
-    case AudioBitDepth: return Config::AudioBitDepth;
     }
 
     return 0;

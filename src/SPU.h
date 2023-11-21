@@ -27,6 +27,12 @@ namespace melonDS
 class NDS;
 class SPU;
 
+enum class AudioBitDepth
+{
+    _10Bit,
+    _16Bit,
+};
+
 class SPUChannel
 {
 public:

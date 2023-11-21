@@ -38,7 +38,6 @@
 #include "GPU.h"
 #include "ARMJIT.h"
 #include "DMA.h"
-#include "Arguments.h"
 #include "FreeBIOS.h"
 
 // when touching the main loop/timing code, pls test a lot of shit
@@ -48,6 +47,7 @@
 namespace melonDS
 {
 
+class InitArguments;
 class NDS
 {
 
@@ -335,7 +335,7 @@ public:
     ARMv4 ARM7;
     std::array<DMA, 8> DMAs;
 public:
-    virtual void Reset(ResetArguments&& args) noexcept;
+    virtual void Reset(InitArguments&& args) noexcept;
     void Reset() noexcept { Reset({}); }
     void Start() noexcept;
     u32 RunFrame() noexcept;

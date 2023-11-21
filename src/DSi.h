@@ -47,7 +47,7 @@ public:
     DSi(DSi&&) = delete;
     DSi& operator=(DSi&&) = delete;
 
-    void Reset(ResetArguments&& args) noexcept override;
+    void Reset(InitArguments&& args) noexcept override;
     void Stop(Platform::StopReason reason) noexcept override;
     bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen) noexcept override;
     void EjectCart() noexcept override;

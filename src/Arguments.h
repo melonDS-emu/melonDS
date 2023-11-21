@@ -30,6 +30,7 @@
 #include "SPI_Firmware.h"
 #include "DSi_NAND.h"
 #include "FreeBIOS.h"
+#include "SPU.h"
 #include "types.h"
 
 namespace melonDS
@@ -104,17 +105,11 @@ struct InitArguments
     std::unique_ptr<GBACart::CartCommon> GBAROM = nullptr;
 
 
-    int AudioBitDepth;
+    std::optional<AudioBitDepth> AudioBitDepth;
     bool DSiFullBIOSBoot = false;
 
 };
 
-/// Arguments that can be set when resetting an existing NDS or DSi.
-/// nullopt means that the existing value is unchanged.
-struct ResetArguments
-{
-    std::optional<JITArguments> JIT = std::nullopt;
-};
 }
 
 #endif // MELONDS_ARGUMENTS_H

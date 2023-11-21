@@ -86,13 +86,14 @@ DSi::~DSi() noexcept
     // which are implicitly called by this one
 }
 
-void DSi::Reset(ResetArguments&& args) noexcept
+void DSi::Reset(InitArguments&& args) noexcept
 {
     //ARM9.CP15Write(0x910, 0x0D00000A);
     //ARM9.CP15Write(0x911, 0x00000020);
     //ARM9.CP15Write(0x100, ARM9.CP15Read(0x100) | 0x00050000);
-    NDS::Reset();
+    NDS::Reset(std::move(args));
 
+    KeyInput &= ~(1 << (16+6));
     MapSharedWRAM(3);
 
     NDMACnt[0] = 0; NDMACnt[1] = 0;
