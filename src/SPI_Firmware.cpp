@@ -163,6 +163,12 @@ Firmware::UserData::UserData()
     Settings = Language::English | BacklightLevel::Max; // NOLINT(*-suspicious-enum-usage)
     memcpy(Nickname, DEFAULT_USERNAME.data(), DEFAULT_USERNAME.size() * sizeof(std::u16string_view::value_type));
     NameLength = DEFAULT_USERNAME.size();
+
+    // fix touchscreen coords
+    TouchCalibrationADC1 = {0, 0};
+    TouchCalibrationPixel1 = {0, 0};
+    TouchCalibrationADC2 = {255 << 4, 191 << 4};
+    TouchCalibrationPixel2 = {255, 191};
     Checksum = CRC16(Bytes, 0x70, 0xFFFF);
 }
 
