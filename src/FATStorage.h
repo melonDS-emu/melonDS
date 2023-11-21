@@ -34,6 +34,10 @@ class FATStorage
 {
 public:
     FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir);
+    FATStorage(FATStorage&& other) noexcept;
+    FATStorage(const FATStorage& other) = delete;
+    FATStorage& operator=(const FATStorage& other) = delete;
+    FATStorage& operator=(FATStorage&& other) noexcept;
     ~FATStorage();
 
     bool Open();

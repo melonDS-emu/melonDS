@@ -38,6 +38,39 @@ FATStorage::FATStorage(const std::string& filename, u64 size, bool readonly, con
     File = nullptr;
 }
 
+FATStorage::FATStorage(FATStorage&& other) noexcept
+{
+    FilePath = std::move(other.FilePath);
+    IndexPath = std::move(other.IndexPath);
+    SourceDir = std::move(other.SourceDir);
+    ReadOnly = other.ReadOnly;
+    File = other.File;
+    FileSize = other.FileSize;
+    DirIndex = std::move(other.DirIndex);
+    FileIndex = std::move(other.FileIndex);
+
+    other.File = nullptr;
+}
+
+FATStorage& FATStorage::operator=(FATStorage&& other) noexcept
+{
+    if (this != &other)
+    {
+        FilePath = std::move(other.FilePath);
+        IndexPath = std::move(other.IndexPath);
+        SourceDir = std::move(other.SourceDir);
+        ReadOnly = other.ReadOnly;
+        File = other.File;
+        FileSize = other.FileSize;
+        DirIndex = std::move(other.DirIndex);
+        FileIndex = std::move(other.FileIndex);
+
+        other.File = nullptr;
+    }
+
+    return *this;
+}
+
 FATStorage::~FATStorage()
 {
     if (!ReadOnly) Save();
