@@ -239,12 +239,20 @@ std::unique_ptr<NDS> EmuThread::CreateConsole()
     }
 #endif
 
+    std::optional<AudioBitDepth> bitDepth;
+    switch (Config::AudioBitDepth)
+    {
+    case 0: bitDepth = std::nullopt; break;
+    case 1: bitDepth = AudioBitDepth::_10Bit; break;
+    case 2: bitDepth = AudioBitDepth::_16Bit; break;
+    }
     InitArguments args =
     {
         .JIT = JITArgs,
         .GDBARM7 = GDBARM7,
         .GDBARM9 = GDBARM9,
         .DSiFullBIOSBoot = false,
+        .AudioBitDepth = bitDepth,
     };
 
     std::optional<Firmware> firmware = ROMManager::LoadFirmware(Config::ConsoleType);
