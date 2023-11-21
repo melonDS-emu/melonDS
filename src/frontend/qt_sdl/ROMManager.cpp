@@ -267,16 +267,6 @@ QString VerifyDSiNAND()
     return "";
 }
 
-void RecreateConsole(EmuThread* thread)
-{
-    if (!thread->NDS || thread->NDS->ConsoleType != Config::ConsoleType)
-    {
-        thread->NDS = nullptr; // To ensure the destructor is called before a new one is created
-        NDS::Current = nullptr;
-        thread->NDS = unique_ptr<NDS>(Config::ConsoleType == 1 ? new DSi : new NDS);
-        NDS::Current = thread->NDS.get();
-    }
-}
 
 QString VerifySetup()
 {
@@ -618,7 +608,7 @@ void SetDateTime(NDS& nds)
 
 void Reset(EmuThread* thread)
 {
-    RecreateConsole(thread);
+    thread->RecreateConsole();
 
     if (Config::ConsoleType == 1) EjectGBACart(*thread->NDS);
     LoadBIOSFiles(*thread->NDS);
@@ -684,7 +674,7 @@ void Reset(EmuThread* thread)
 
 bool LoadBIOS(EmuThread* thread)
 {
-    RecreateConsole(thread);
+    thread->RecreateConsole();
 
     LoadBIOSFiles(*thread->NDS);
 
@@ -1216,7 +1206,7 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     BaseROMName = romname;
     BaseAssetName = romname.substr(0, romname.rfind('.'));
 
-    RecreateConsole(emuthread);
+    emuthread->RecreateConsole();
     if (!InstallFirmware(*emuthread->NDS))
     {
         return false;

@@ -72,7 +72,7 @@ public:
     QMutex FrontBufferLock;
 
     void updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix);
-
+    void RecreateConsole();
     std::unique_ptr<melonDS::NDS> NDS; // TODO: Proper encapsulation and synchronization
 signals:
     void windowUpdate();
@@ -96,6 +96,7 @@ signals:
     void syncVolumeLevel();
 
 private:
+    std::unique_ptr<melonDS::NDS> CreateConsole();
     void drawScreenGL();
     void initOpenGL();
     void deinitOpenGL();

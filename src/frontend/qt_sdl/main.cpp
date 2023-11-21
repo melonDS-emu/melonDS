@@ -203,6 +203,28 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     static_cast<ScreenPanelGL*>(mainWindow->panel)->transferLayout(this);
 }
 
+std::unique_ptr<NDS> EmuThread::CreateConsole()
+{
+    InitArguments args = {
+        .DSiFullBIOSBoot = false,
+    };
+
+    return std::unique_ptr<melonDS::NDS>(Config::ConsoleType == 1 ? new DSi(std::move(args)) : new melonDS::NDS(std::move(args)));
+}
+
+void EmuThread::RecreateConsole()
+{
+    if (!NDS || NDS->ConsoleType != Config::ConsoleType)
+    {
+        NDS = nullptr; // To ensure the destructor is called before a new one is created
+        NDS::Current = nullptr;
+
+        NDS = CreateConsole();
+        NDS::Current = NDS.get();
+    }
+}
+
+
 void EmuThread::updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix)
 {
     screenSettingsLock.lock();
@@ -318,8 +340,7 @@ void EmuThread::run()
     u32 mainScreenPos[3];
     Platform::FileHandle* file;
 
-    NDS = std::unique_ptr<melonDS::NDS>(Config::ConsoleType == 1 ? new melonDS::DSi : new melonDS::NDS);
-    NDS::Current = NDS.get();
+    RecreateConsole();
 
     mainScreenPos[0] = 0;
     mainScreenPos[1] = 0;
