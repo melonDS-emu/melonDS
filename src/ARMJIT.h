@@ -67,14 +67,20 @@ public:
 #endif
 
     ARMJIT_Memory Memory;
+
+    [[nodiscard]] int GetMaxBlockSize() const noexcept { return MaxBlockSize; }
+    [[nodiscard]] bool LiteralOptimizationsEnabled() const noexcept { return LiteralOptimizations; }
+    [[nodiscard]] bool BranchOptimizationsEnabled() const noexcept { return BranchOptimizations; }
+    [[nodiscard]] bool FastMemoryEnabled() const noexcept { return FastMemory; }
+    [[nodiscard]] const TinyVector<u32>& GetInvalidLiterals() const noexcept { return InvalidLiterals; }
+private:
+    melonDS::NDS& NDS;
     int MaxBlockSize {};
     bool LiteralOptimizations = false;
     bool BranchOptimizations = false;
     bool FastMemory = false;
 
     TinyVector<u32> InvalidLiterals {};
-private:
-    melonDS::NDS& NDS;
     friend class ARMJIT_Memory;
     void blockSanityCheck(u32 num, u32 blockAddr, JitBlockEntry entry) noexcept;
     void RetireJitBlock(JitBlock* block) noexcept;
