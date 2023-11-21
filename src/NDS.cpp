@@ -392,11 +392,7 @@ void NDS::Reset(InitArguments&& args) noexcept
     u32 i;
 
 #ifdef JIT_ENABLED
-    if (args.JIT)
-    { // If we're adjusting the JIT settings
-        EnableJIT = args.JIT->Enabled;
-    }
-    // Otherwise leave the JIT as it is
+    EnableJIT = args.JIT.has_value();
 #endif
 
     RunningGame = false;

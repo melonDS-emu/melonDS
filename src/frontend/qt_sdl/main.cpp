@@ -227,14 +227,16 @@ std::unique_ptr<NDS> EmuThread::CreateConsole()
 #endif
 
 #ifdef JIT_ENABLED
-    JITArgs =
+    if (Config::JIT_Enable)
     {
-        .Enabled = Config::JIT_Enable,
-        .MaxBlockSize = Config::JIT_MaxBlockSize,
-        .LiteralOptimisations = Config::JIT_LiteralOptimisations,
-        .BranchOptimisations = Config::JIT_BranchOptimisations,
-        .FastMemory = Config::JIT_FastMemory,
-    };
+        JITArgs =
+        {
+            .MaxBlockSize = Config::JIT_MaxBlockSize,
+            .LiteralOptimisations = Config::JIT_LiteralOptimisations,
+            .BranchOptimisations = Config::JIT_BranchOptimisations,
+            .FastMemory = Config::JIT_FastMemory,
+        };
+    }
 #endif
 
     InitArguments args =
