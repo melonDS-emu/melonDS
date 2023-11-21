@@ -251,8 +251,8 @@ std::unique_ptr<NDS> EmuThread::CreateConsole()
         .JIT = JITArgs,
         .GDBARM7 = GDBARM7,
         .GDBARM9 = GDBARM9,
-        .DSiFullBIOSBoot = Config::DSiFullBIOSBoot,
         .AudioBitDepth = bitDepth,
+        .DSiFullBIOSBoot = Config::DSiFullBIOSBoot,
     };
 
     std::optional<Firmware> firmware = ROMManager::LoadFirmware(Config::ConsoleType);
