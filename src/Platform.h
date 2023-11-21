@@ -96,8 +96,6 @@ std::string InstanceFileSuffix();
 
 enum [[deprecated("Use constructor parameters instead")]] ConfigEntry
 {
-    ExternalBIOSEnable,
-
     DLDI_Enable,
     DLDI_ImagePath,
     DLDI_ImageSize,

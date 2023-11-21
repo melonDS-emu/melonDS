@@ -50,6 +50,11 @@ using namespace Platform;
 
 DSi::DSi(InitArguments&& args) noexcept :
     NDS(std::move(args), 1),
+    ARM7iBIOS(args.BIOS ? args.BIOS->ARM7iBIOS : std::array<u8, 0x10000> {}),
+    ARM9iBIOS(args.BIOS ? args.BIOS->ARM9iBIOS : std::array<u8, 0x10000> {}),
+    NWRAM_A(JIT.Memory.GetNWRAM_A()),
+    NWRAM_B(JIT.Memory.GetNWRAM_B()),
+    NWRAM_C(JIT.Memory.GetNWRAM_C()),
     NDMAs {
         DSi_NDMA(0, 0, GPU, *this),
         DSi_NDMA(0, 1, GPU, *this),
@@ -67,15 +72,11 @@ DSi::DSi(InitArguments&& args) noexcept :
     CamModule(*this),
     AES(*this)
 {
-    // Memory is owned by ARMJIT_Memory, don't free it
-    NWRAM_A = JIT.Memory.GetNWRAM_A();
-    NWRAM_B = JIT.Memory.GetNWRAM_B();
-    NWRAM_C = JIT.Memory.GetNWRAM_C();
 }
 
 DSi::~DSi() noexcept
 {
-    // Memory is owned externally
+    // Memory is owned by ARMJIT_Memory, don't free it
     NWRAM_A = nullptr;
     NWRAM_B = nullptr;
     NWRAM_C = nullptr;
@@ -1715,7 +1716,7 @@ bool DSi::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region) noexcept
         }
         else
         {
-            region->Mem = ARM9iBIOS;
+            region->Mem = ARM9iBIOS.data();
             region->Mask = 0xFFFF;
         }
         return true;

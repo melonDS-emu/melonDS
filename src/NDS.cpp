@@ -77,10 +77,12 @@ NDS* NDS::Current = nullptr;
 
 NDS::NDS(InitArguments&& args, int type) noexcept :
     ConsoleType(type),
-    JIT(*this),
+    ARM9BIOS(args.BIOS ? args.BIOS->ARM9BIOS : bios_arm9_bin),
+    ARM7BIOS(args.BIOS ? args.BIOS->ARM7BIOS : bios_arm7_bin),
+    JIT(*this, args.JIT),
     SPU(*this),
     GPU(*this),
-    SPI(*this),
+    SPI(std::move(args), *this),
     RTC(*this),
     Wifi(*this),
     NDSCartSlot(*this),

@@ -28,7 +28,7 @@ using Platform::Log;
 using Platform::LogLevel;
 
 
-DSi_TSC::DSi_TSC(melonDS::DSi& dsi, SPIHost* host) : TSC(dsi, host)
+DSi_TSC::DSi_TSC(melonDS::DSi& dsi) : TSC(dsi)
 {
 }
 

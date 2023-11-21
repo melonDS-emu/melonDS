@@ -109,24 +109,12 @@ void NDSCartSlot::Key1_ApplyKeycode(u32* keycode, u32 mod) noexcept
     }
 }
 
-void NDSCartSlot::Key1_LoadKeyBuf(bool dsi, bool externalBios, u8 *bios, u32 biosLength) noexcept
+void NDSCartSlot::Key1_LoadKeyBuf(bool dsi, bool externalBios, const u8 *bios) noexcept
 {
     if (externalBios)
     {
-        u32 expected_bios_length = dsi ? 0x10000 : 0x4000;
-        if (biosLength != expected_bios_length)
-        {
-            Platform::Log(LogLevel::Error, "NDSCart: Expected an ARM7 BIOS of %u bytes, got %u bytes\n", expected_bios_length, biosLength);
-        }
-        else if (bios == nullptr)
-        {
-            Platform::Log(LogLevel::Error, "NDSCart: Expected an ARM7 BIOS of %u bytes, got nullptr\n", expected_bios_length);
-        }
-        else
-        {
-            memcpy(Key1_KeyBuf.data(), bios + (dsi ? 0xC6D0 : 0x0030), sizeof(Key1_KeyBuf));
-            Platform::Log(LogLevel::Debug, "NDSCart: Initialized Key1_KeyBuf from memory\n");
-        }
+        memcpy(Key1_KeyBuf.data(), bios + (dsi ? 0xC6D0 : 0x0030), sizeof(Key1_KeyBuf));
+        Platform::Log(LogLevel::Debug, "NDSCart: Initialized Key1_KeyBuf from memory\n");
     }
     else
     {
@@ -138,7 +126,7 @@ void NDSCartSlot::Key1_LoadKeyBuf(bool dsi, bool externalBios, u8 *bios, u32 bio
 
 void NDSCartSlot::Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod, u8 *bios, u32 biosLength) noexcept
 {
-    Key1_LoadKeyBuf(dsi, Platform::GetConfigBool(Platform::ExternalBIOSEnable), bios, biosLength);
+    Key1_LoadKeyBuf(dsi, dsi || !NDS.IsLoadedARM7BIOSBuiltIn(), bios);
 
     u32 keycode[3] = {idcode, idcode>>1, idcode<<1};
     if (level >= 1) Key1_ApplyKeycode(keycode, mod);
@@ -276,7 +264,7 @@ int CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, u8* cmd, u8* da
             {
                 auto& dsi = static_cast<DSi&>(nds);
                 CmdEncMode = 1;
-                cartslot.Key1_InitKeycode(true, *(u32*)&ROM[0xC], 1, 2, dsi.ARM7iBIOS, sizeof(DSi::ARM7iBIOS));
+                cartslot.Key1_InitKeycode(true, *(u32*)&ROM[0xC], 1, 2, dsi.ARM7iBIOS.data(), sizeof(DSi::ARM7iBIOS));
                 DSiMode = true;
             }
             return 0;

@@ -26,6 +26,7 @@
 #include "SPI.h"
 #include "DSi_SPI_TSC.h"
 #include "Platform.h"
+#include "Arguments.h"
 
 namespace melonDS
 {
@@ -65,7 +66,9 @@ bool FirmwareMem::VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
 }
 
 
-FirmwareMem::FirmwareMem(melonDS::NDS& nds, SPIHost* host) : SPIDevice(nds, host)
+FirmwareMem::FirmwareMem(melonDS::Firmware&& firmware, melonDS::NDS& nds) :
+    SPIDevice(nds),
+    Firmware(std::make_unique<melonDS::Firmware>(std::move(firmware)))
 {
 }
 
@@ -322,7 +325,7 @@ void FirmwareMem::Release()
 
 
 
-PowerMan::PowerMan(melonDS::NDS& nds, SPIHost* host) : SPIDevice(nds, host)
+PowerMan::PowerMan(melonDS::NDS& nds) : SPIDevice(nds)
 {
 }
 
@@ -406,7 +409,7 @@ void PowerMan::Write(u8 val)
 
 
 
-TSC::TSC(melonDS::NDS& nds, SPIHost* host) : SPIDevice(nds, host)
+TSC::TSC(melonDS::NDS& nds) : SPIDevice(nds)
 {
 }
 
@@ -525,19 +528,20 @@ void TSC::Write(u8 val)
 
 
 
-SPIHost::SPIHost(melonDS::NDS& nds) : NDS(nds)
+SPIHost::SPIHost(InitArguments&& args, melonDS::NDS& nds) : NDS(nds)
 {
     NDS.RegisterEventFunc(NDS::Event_SPITransfer, 0, MemberEventFunc(SPIHost, TransferDone));
 
-    Devices[SPIDevice_FirmwareMem] = new FirmwareMem(NDS, this);
-    Devices[SPIDevice_PowerMan] = new PowerMan(NDS, this);
+    Devices[SPIDevice_FirmwareMem] = new FirmwareMem(args.Firmware ? std::move(*args.Firmware) : Firmware(0), NDS);
+    Devices[SPIDevice_PowerMan] = new PowerMan(NDS);
+    args.Firmware = std::nullopt; // std::move from an optional doesn't set it to nullopt, so we do
 
     // Must not be a dynamic_cast; this constructor is running in the middle of NDS's constructor,
     // which is called before DSi's constructor, so the DSi object isn't fully constructed yet.
     if (NDS.ConsoleType == 1)
-        Devices[SPIDevice_TSC] = new DSi_TSC(static_cast<melonDS::DSi&>(NDS), this);
+        Devices[SPIDevice_TSC] = new DSi_TSC(static_cast<melonDS::DSi&>(NDS));
     else
-        Devices[SPIDevice_TSC] = new TSC(NDS, this);
+        Devices[SPIDevice_TSC] = new TSC(NDS);
 }
 
 SPIHost::~SPIHost()

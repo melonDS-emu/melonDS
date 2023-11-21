@@ -205,7 +205,42 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
 
 std::unique_ptr<NDS> EmuThread::CreateConsole()
 {
+    std::optional<GDBArguments> GDBARM7 = std::nullopt;
+    std::optional<GDBArguments> GDBARM9 = std::nullopt;
+    std::optional<JITArguments> JITArgs = std::nullopt;
+
+#ifdef GDBSTUB_ENABLED
+    if (Config::GdbEnabled)
+    {
+        GDBARM7 =
+        {
+            .Port = Config::GdbPortARM7,
+            .BreakOnStartup = Config::GdbARM7BreakOnStartup,
+        };
+
+        GDBARM9 =
+        {
+            .Port = Config::GdbPortARM9,
+            .BreakOnStartup = Config::GdbARM9BreakOnStartup,
+        };
+    }
+#endif
+
+#ifdef JIT_ENABLED
+    JITArgs =
+    {
+        .Enabled = Config::JIT_Enable,
+        .MaxBlockSize = Config::JIT_MaxBlockSize,
+        .LiteralOptimisations = Config::JIT_LiteralOptimisations,
+        .BranchOptimisations = Config::JIT_BranchOptimisations,
+        .FastMemory = Config::JIT_FastMemory,
+    };
+#endif
+
     InitArguments args = {
+        .JIT = JITArgs,
+        .GDBARM7 = GDBARM7,
+        .GDBARM9 = GDBARM9,
         .DSiFullBIOSBoot = false,
     };
 

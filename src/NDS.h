@@ -270,8 +270,8 @@ public:
     u8 ROMSeed0[2*8] {};
     u8 ROMSeed1[2*8] {};
 
-    std::array<u8, ARM9BIOSLength> ARM9BIOS = bios_arm9_bin;
-    std::array<u8, ARM7BIOSLength> ARM7BIOS = bios_arm7_bin;
+    std::array<u8, ARM9BIOSLength> ARM9BIOS;
+    std::array<u8, ARM7BIOSLength> ARM7BIOS;
     u16 ARM7BIOSProt = 0;
 
     u8* MainRAM = nullptr;

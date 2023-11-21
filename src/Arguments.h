@@ -75,6 +75,19 @@ struct NDSSysfileArguments
     std::optional<DSi_NAND::NANDImage> DSiNAND = std::nullopt;
 };
 
+struct BIOSArguments
+{
+    std::array<u8, ARM9BIOSLength> ARM9BIOS = bios_arm9_bin;
+    std::array<u8, ARM7BIOSLength> ARM7BIOS = bios_arm7_bin;
+
+    /// The ARM9 BIOS image for the DSi.
+    /// Must be provided in DSi mode.
+    std::array<u8, 0x10000> ARM9iBIOS {};
+
+    /// The ARM7 BIOS image for the DSi.
+    std::array<u8, 0x10000> ARM7iBIOS {};
+};
+
 struct DSiSysfileArguments
 {
     /// The ARM9 BIOS image for the DSi.
@@ -96,6 +109,10 @@ struct InitArguments
     /// Ignored in builds without JIT support.
     /// Cannot be adjusted on a live NDS; you will need to destroy it and create a new one.
     std::optional<JITArguments> JIT = std::make_optional<JITArguments>();
+
+    std::optional<BIOSArguments> BIOS = std::make_optional<BIOSArguments>();
+    std::optional<Firmware> Firmware = std::nullopt;
+    std::optional<DSi_NAND::NANDImage> NANDImage = std::nullopt;
 
     /// Arguments for initializing GDB support
     /// Ignored if GDB support is excluded from the build

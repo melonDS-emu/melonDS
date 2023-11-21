@@ -61,12 +61,8 @@ public:
     u16 SCFG_Clock9;
     u32 SCFG_EXT[2];
 
-    u8 ARM9iBIOS[0x10000];
-    u8 ARM7iBIOS[0x10000];
-
-    std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
-    DSi_SDHost SDMMC;
-    DSi_SDHost SDIO;
+    std::array<u8, 0x10000> ARM9iBIOS;
+    std::array<u8, 0x10000> ARM7iBIOS;
 
     u8* NWRAM_A;
     u8* NWRAM_B;
@@ -80,6 +76,9 @@ public:
     u32 NWRAMEnd[2][3];
     u32 NWRAMMask[2][3];
 
+    std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
+    DSi_SDHost SDMMC;
+    DSi_SDHost SDIO;
     DSi_I2CHost I2C;
     DSi_CamModule CamModule;
     DSi_AES AES;
