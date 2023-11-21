@@ -29,6 +29,7 @@
 
 namespace melonDS
 {
+class InitArguments;
 namespace DSi_NAND
 {
     class NANDImage;
@@ -37,14 +38,14 @@ namespace DSi_NAND
 class DSi final : public NDS
 {
 public:
-    DSi() noexcept;
+    DSi(InitArguments&& args) noexcept;
     ~DSi() noexcept override;
     DSi(const DSi&) = delete;
     DSi& operator=(const DSi&) = delete;
     DSi(DSi&&) = delete;
     DSi& operator=(DSi&&) = delete;
 
-    void Reset() noexcept override;
+    void Reset(ResetArguments&& args) noexcept override;
     void Stop(Platform::StopReason reason) noexcept override;
     bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen) noexcept override;
     void EjectCart() noexcept override;

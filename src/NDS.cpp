@@ -42,6 +42,7 @@
 #include "DSi_DSP.h"
 #include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
+#include "Arguments.h"
 
 namespace melonDS
 {
@@ -74,7 +75,7 @@ const s32 kIterationCycleMargin = 8;
 
 NDS* NDS::Current = nullptr;
 
-NDS::NDS(int type) noexcept :
+NDS::NDS(InitArguments&& args, int type) noexcept :
     ConsoleType(type),
     JIT(*this),
     SPU(*this),
@@ -85,8 +86,8 @@ NDS::NDS(int type) noexcept :
     NDSCartSlot(*this),
     GBACartSlot(),
     AREngine(*this),
-    ARM9(*this),
-    ARM7(*this),
+    ARM9(args.GDBARM9, args.JIT.has_value(), *this),
+    ARM7(args.GDBARM7, args.JIT.has_value(), *this),
     DMAs {
         DMA(0, 0, *this),
         DMA(0, 1, *this),
@@ -373,12 +374,16 @@ void NDS::SetupDirectBoot(const std::string& romname) noexcept
     SetWifiWaitCnt(0x0030);
 }
 
-void NDS::Reset() noexcept
+void NDS::Reset(ResetArguments&& args) noexcept
 {
     u32 i;
 
 #ifdef JIT_ENABLED
-    EnableJIT = Platform::GetConfigBool(Platform::JIT_Enable);
+    if (args.JIT)
+    { // If we're adjusting the JIT settings
+        EnableJIT = args.JIT->Enabled;
+    }
+    // Otherwise leave the JIT as it is
 #endif
 
     RunningGame = false;
@@ -386,7 +391,7 @@ void NDS::Reset() noexcept
 
     // BIOS files are now loaded by the frontend
 
-    JIT.Reset();
+    JIT.Reset(args.JIT);
 
     // TODO: move this next block to a virtual protected method
     if (ConsoleType == 1)
@@ -453,7 +458,7 @@ void NDS::Reset() noexcept
     DivCnt = 0;
     SqrtCnt = 0;
 
-    ARM9.Reset();
+    ARM9.Reset({});
     ARM7.Reset();
 
     CPUStop = 0;

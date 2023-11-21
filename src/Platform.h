@@ -96,14 +96,6 @@ std::string InstanceFileSuffix();
 
 enum [[deprecated("Use constructor parameters instead")]] ConfigEntry
 {
-#ifdef JIT_ENABLED
-    JIT_Enable,
-    JIT_MaxBlockSize,
-    JIT_LiteralOptimizations,
-    JIT_BranchOptimizations,
-    JIT_FastMemory,
-#endif
-
     ExternalBIOSEnable,
 
     DLDI_Enable,
@@ -127,14 +119,6 @@ enum [[deprecated("Use constructor parameters instead")]] ConfigEntry
     AudioBitDepth,
 
     DSi_FullBIOSBoot,
-
-#ifdef GDBSTUB_ENABLED
-    GdbEnabled,
-    GdbPortARM7,
-    GdbPortARM9,
-    GdbARM7BreakOnStartup,
-    GdbARM9BreakOnStartup,
-#endif
 };
 
 [[deprecated("Use constructor parameters instead")]] int GetConfigInt(ConfigEntry entry);

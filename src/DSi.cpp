@@ -38,6 +38,7 @@
 #include "DSi_NAND.h"
 #include "DSi_DSP.h"
 #include "DSi_Camera.h"
+#include "Arguments.h"
 
 #include "tiny-AES-c/aes.hpp"
 
@@ -47,8 +48,8 @@ using namespace Platform;
 
 
 
-DSi::DSi() noexcept :
-    NDS(1),
+DSi::DSi(InitArguments&& args) noexcept :
+    NDS(std::move(args), 1),
     NDMAs {
         DSi_NDMA(0, 0, GPU, *this),
         DSi_NDMA(0, 1, GPU, *this),
@@ -83,7 +84,7 @@ DSi::~DSi() noexcept
     // which are implicitly called by this one
 }
 
-void DSi::Reset() noexcept
+void DSi::Reset(ResetArguments&& args) noexcept
 {
     //ARM9.CP15Write(0x910, 0x0D00000A);
     //ARM9.CP15Write(0x911, 0x00000020);
@@ -643,7 +644,7 @@ void DSi::SoftReset() noexcept
     JIT.Reset();
     JIT.CheckAndInvalidateITCM();
 
-    ARM9.Reset();
+    ARM9.Reset({});
     ARM7.Reset();
 
     ARM9.CP15Reset();

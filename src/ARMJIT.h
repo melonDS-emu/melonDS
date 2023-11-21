@@ -20,6 +20,7 @@
 #define ARMJIT_H
 
 #include <memory>
+#include <optional>
 #include "types.h"
 
 #include "ARMJIT_Memory.h"
@@ -34,7 +35,7 @@
 namespace melonDS
 {
 class ARM;
-
+class JITArguments;
 class JitBlock;
 class ARMJIT
 {
@@ -44,7 +45,7 @@ public:
     void InvalidateByAddr(u32) noexcept NOOP_IF_NO_JIT;
     void CheckAndInvalidateWVRAM(int) noexcept NOOP_IF_NO_JIT;
     void CheckAndInvalidateITCM() noexcept NOOP_IF_NO_JIT;
-    void Reset() noexcept NOOP_IF_NO_JIT;
+    void Reset(const std::optional<JITArguments>& args = std::nullopt) noexcept NOOP_IF_NO_JIT;
     void JitEnableWrite() noexcept NOOP_IF_NO_JIT;
     void JitEnableExecute() noexcept NOOP_IF_NO_JIT;
     void CompileBlock(ARM* cpu) noexcept NOOP_IF_NO_JIT;

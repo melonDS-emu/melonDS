@@ -200,20 +200,11 @@ int GetConfigInt(ConfigEntry entry)
 
     switch (entry)
     {
-#ifdef JIT_ENABLED
-    case JIT_MaxBlockSize: return Config::JIT_MaxBlockSize;
-#endif
-
     case DLDI_ImageSize: return imgsizes[Config::DLDISize];
 
     case DSiSD_ImageSize: return imgsizes[Config::DSiSDSize];
 
     case AudioBitDepth: return Config::AudioBitDepth;
-
-#ifdef GDBSTUB_ENABLED
-    case GdbPortARM7: return Config::GdbPortARM7;
-    case GdbPortARM9: return Config::GdbPortARM9;
-#endif
     }
 
     return 0;
@@ -223,13 +214,6 @@ bool GetConfigBool(ConfigEntry entry)
 {
     switch (entry)
     {
-#ifdef JIT_ENABLED
-    case JIT_Enable: return Config::JIT_Enable != 0;
-    case JIT_LiteralOptimizations: return Config::JIT_LiteralOptimisations != 0;
-    case JIT_BranchOptimizations: return Config::JIT_BranchOptimisations != 0;
-    case JIT_FastMemory: return Config::JIT_FastMemory != 0;
-#endif
-
     case DLDI_Enable: return Config::DLDIEnable != 0;
     case DLDI_ReadOnly: return Config::DLDIReadOnly != 0;
     case DLDI_FolderSync: return Config::DLDIFolderSync != 0;
@@ -239,12 +223,6 @@ bool GetConfigBool(ConfigEntry entry)
     case DSiSD_FolderSync: return Config::DSiSDFolderSync != 0;
 
     case DSi_FullBIOSBoot: return Config::DSiFullBIOSBoot != 0;
-
-#ifdef GDBSTUB_ENABLED
-    case GdbEnabled: return Config::GdbEnabled;
-    case GdbARM7BreakOnStartup: return Config::GdbARM7BreakOnStartup;
-    case GdbARM9BreakOnStartup: return Config::GdbARM9BreakOnStartup;
-#endif
     }
 
     return false;

@@ -21,7 +21,7 @@
 
 #include <memory>
 #include <string>
-#include <memory>
+#include <optional>
 #include <functional>
 
 #include "Platform.h"
@@ -38,6 +38,7 @@
 #include "GPU.h"
 #include "ARMJIT.h"
 #include "DMA.h"
+#include "Arguments.h"
 #include "FreeBIOS.h"
 
 // when touching the main loop/timing code, pls test a lot of shit
@@ -216,7 +217,7 @@ public:
     // The frontend should set and unset this manually after creating and destroying the NDS object.
     [[deprecated("Temporary workaround until JIT code generation is revised to accommodate multiple NDS objects.")]] static NDS* Current;
 
-    NDS() noexcept : NDS(0) {}
+    NDS(InitArguments&& args) noexcept : NDS(std::move(args), 0) {}
     virtual ~NDS() noexcept;
     NDS(const NDS&) = delete;
     NDS& operator=(const NDS&) = delete;
@@ -224,7 +225,7 @@ public:
     NDS& operator=(NDS&&) = delete;
 
 protected:
-    explicit NDS(int type) noexcept;
+    explicit NDS(InitArguments&& args, int type) noexcept;
     virtual void DoSavestateExtra(Savestate* file) noexcept {}
 public:
 #ifdef JIT_ENABLED
@@ -334,7 +335,8 @@ public:
     ARMv4 ARM7;
     std::array<DMA, 8> DMAs;
 public:
-    virtual void Reset() noexcept;
+    virtual void Reset(ResetArguments&& args) noexcept;
+    void Reset() noexcept { Reset({}); }
     void Start() noexcept;
     u32 RunFrame() noexcept;
 

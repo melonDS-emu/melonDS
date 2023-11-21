@@ -19,6 +19,9 @@
 #ifndef MELONDS_ARGUMENTS_H
 #define MELONDS_ARGUMENTS_H
 
+#include "Constants.h"
+
+
 #include <memory>
 #include <optional>
 
@@ -26,6 +29,7 @@
 #include "GBACart.h"
 #include "SPI_Firmware.h"
 #include "DSi_NAND.h"
+#include "FreeBIOS.h"
 #include "types.h"
 
 namespace melonDS
@@ -42,6 +46,7 @@ constexpr bool FastMemoryDefault = false;
 
 struct JITArguments
 {
+    bool Enabled;
     int MaxBlockSize = 32;
     bool LiteralOptimizations = true;
     bool BranchOptimizations = true;
@@ -50,10 +55,8 @@ struct JITArguments
 
 struct GDBArguments
 {
-    int PortARM7 = 0;
-    int PortARM9 = 0;
-    bool ARM7BreakOnStartup = false;
-    bool ARM9BreakOnStartup = false;
+    int Port = 0;
+    bool BreakOnStartup = false;
 };
 
 struct SDCardArguments
@@ -63,11 +66,8 @@ struct SDCardArguments
 
 struct NDSSysfileArguments
 {
-    // TODO: Change this to an array that defaults to FreeBIOS7
-    std::unique_ptr<u8[]> NDSBIOS7 = nullptr;
-    // TODO: Change this to an array that defaults to FreeBIOS9
-    std::unique_ptr<u8[]> NDSBIOS9 = nullptr;
-    // TODO: Change this to an array that defaults to generated firmware
+    std::array<u8, ARM9BIOSLength> ARM9BIOS = bios_arm9_bin;
+    std::array<u8, ARM7BIOSLength> ARM7BIOS = bios_arm7_bin;
     std::optional<Firmware> Firmware = std::nullopt;
 
     std::unique_ptr<u8[]> DSiBIOS7 = nullptr;
@@ -77,12 +77,18 @@ struct NDSSysfileArguments
 
 struct DSiSysfileArguments
 {
-    std::unique_ptr<u8[]> DSiBIOS7 = nullptr;
-    std::unique_ptr<u8[]> DSiBIOS9 = nullptr;
+    /// The ARM9 BIOS image for the DSi.
+    /// Must be provided in DSi mode.
+    std::array<u8, 0x10000> ARM9iBIOS {};
+
+    /// The ARM7 BIOS image for the DSi.
+    std::array<u8, 0x10000> ARM7iBIOS {};
+
     std::optional<DSi_NAND::NANDImage> DSiNAND = std::nullopt;
 };
 
-struct Arguments
+/// Arguments that can be set when constructing a NDS or DSi.
+struct InitArguments
 {
     /// Arguments to initialize JIT support with.
     /// To disable the JIT, set this to std::nullopt.
@@ -93,11 +99,12 @@ struct Arguments
 
     /// Arguments for initializing GDB support
     /// Ignored if GDB support is excluded from the build
-    std::optional<GDBArguments> GDB = std::nullopt;
+    std::optional<GDBArguments> GDBARM7 = std::nullopt;
+    std::optional<GDBArguments> GDBARM9 = std::nullopt;
 
     /// Pointer to the ROM data that will be loaded.
     /// Can be changed on a live DS, although it will need to be reset.
-    std::unique_ptr<NDSCart::CartCommon> NDSROM = nullptr;
+    std::optional<std::unique_ptr<NDSCart::CartCommon>> NDSROM = std::nullopt;
 
     /// Pointer to a loaded and parsed GBA ROM.
     /// Ignored if initializing a DSi.
@@ -109,6 +116,13 @@ struct Arguments
     int AudioBitDepth;
     bool DSiFullBIOSBoot = false;
 
+};
+
+/// Arguments that can be set when resetting an existing NDS or DSi.
+/// nullopt means that the existing value is unchanged.
+struct ResetArguments
+{
+    std::optional<JITArguments> JIT = std::nullopt;
 };
 }
 

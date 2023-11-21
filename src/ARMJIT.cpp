@@ -35,6 +35,7 @@
 #include "ARMInterpreter_LoadStore.h"
 #include "ARMInterpreter_Branch.h"
 #include "ARMInterpreter.h"
+#include "Arguments.h"
 
 #include "DSi.h"
 #include "GPU.h"
@@ -235,17 +236,15 @@ ARMJIT::~ARMJIT() noexcept
     ResetBlockCache();
 }
 
-void ARMJIT::Reset() noexcept
+void ARMJIT::Reset(const std::optional<JITArguments>& args) noexcept
 {
-    MaxBlockSize = Platform::GetConfigInt(Platform::JIT_MaxBlockSize);
-    LiteralOptimizations = Platform::GetConfigBool(Platform::JIT_LiteralOptimizations);
-    BranchOptimizations = Platform::GetConfigBool(Platform::JIT_BranchOptimizations);
-    FastMemory = Platform::GetConfigBool(Platform::JIT_FastMemory);
-
-    if (MaxBlockSize < 1)
-        MaxBlockSize = 1;
-    if (MaxBlockSize > 32)
-        MaxBlockSize = 32;
+    if (args)
+    { // If we're adjusting any JIT parameters...
+        MaxBlockSize = std::clamp(args->MaxBlockSize, 1, 32);
+        LiteralOptimizations = args->LiteralOptimizations;
+        BranchOptimizations = args->BranchOptimizations;
+        FastMemory = args->FastMemory;
+    }
 
     JitEnableWrite();
     ResetBlockCache();

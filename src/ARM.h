@@ -19,11 +19,12 @@
 #ifndef ARM_H
 #define ARM_H
 
+#include <optional>
 #include <algorithm>
 
 #include "types.h"
 #include "MemRegion.h"
-
+#include "Arguments.h"
 #ifdef GDBSTUB_ENABLED
 #include "debug/GdbStub.h"
 #endif
@@ -44,7 +45,6 @@ enum
 const u32 ITCMPhysicalSize = 0x8000;
 const u32 DTCMPhysicalSize = 0x4000;
 
-
 class ARMJIT;
 class GPU;
 class ARMJIT_Memory;
@@ -58,10 +58,11 @@ class ARM
 #endif
 {
 public:
-    ARM(u32 num, NDS& nds);
+    ARM(u32 num, const std::optional<GDBArguments>& gdbArgs, bool jitEnabled, melonDS::NDS& nds);
     virtual ~ARM(); // destroy shit
 
-    virtual void Reset();
+    virtual void Reset(const std::optional<GDBArguments>& gdbArgs);
+    void Reset() { Reset({}); }
 
     virtual void DoSavestate(Savestate* file);
 
@@ -226,10 +227,10 @@ protected:
 class ARMv5 : public ARM
 {
 public:
-    ARMv5(melonDS::NDS& nds);
+    ARMv5(const std::optional<GDBArguments>& gdbArgs, bool jitEnabled, melonDS::NDS& nds);
     ~ARMv5();
 
-    void Reset() override;
+    void Reset(const std::optional<GDBArguments>& gdbArgs) override;
 
     void DoSavestate(Savestate* file) override;
 
@@ -376,9 +377,7 @@ protected:
 class ARMv4 : public ARM
 {
 public:
-    ARMv4(melonDS::NDS& nds);
-
-    void Reset() override;
+    ARMv4(const std::optional<GDBArguments>& args, bool jitEnabled, melonDS::NDS& nds);
 
     void FillPipeline() override;
 

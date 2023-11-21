@@ -110,17 +110,18 @@ const u32 ARM::ConditionTable[16] =
     0x0000  // NE
 };
 
-ARM::ARM(u32 num, melonDS::NDS& nds) :
+ARM::ARM(u32 num, const std::optional<GDBArguments>& gdbArgs, bool jitEnabled, melonDS::NDS& nds) :
 #ifdef GDBSTUB_ENABLED
-    GdbStub(this, Platform::GetConfigInt(num ? Platform::GdbPortARM7 : Platform::GdbPortARM9)),
+    GdbStub(this, gdbArgs ? gdbArgs->Port : 0),
+    BreakOnStartup(gdbArgs ? gdbArgs->BreakOnStartup : false),
 #endif
     Num(num), // well uh
     NDS(nds)
 {
 #ifdef GDBSTUB_ENABLED
-    if (Platform::GetConfigBool(Platform::GdbEnabled)
+    if (gdbArgs
 #ifdef JIT_ENABLED
-            && !Platform::GetConfigBool(Platform::JIT_Enable)
+            && !jitEnabled
 #endif
     )
         GdbStub.Init();
@@ -133,14 +134,14 @@ ARM::~ARM()
     // dorp
 }
 
-ARMv5::ARMv5(melonDS::NDS& nds) : ARM(0, nds)
+ARMv5::ARMv5(const std::optional<GDBArguments>& gdbArgs, bool jitEnabled, melonDS::NDS& nds) : ARM(0, gdbArgs, jitEnabled, nds)
 {
     DTCM = NDS.JIT.Memory.GetARM9DTCM();
 
     PU_Map = PU_PrivMap;
 }
 
-ARMv4::ARMv4(melonDS::NDS& nds) : ARM(1, nds)
+ARMv4::ARMv4(const std::optional<GDBArguments>& gdbArgs, bool jitEnabled, melonDS::NDS& nds) : ARM(1, gdbArgs, jitEnabled, nds)
 {
     //
 }
@@ -150,7 +151,7 @@ ARMv5::~ARMv5()
     // DTCM is owned by Memory, not going to delete it
 }
 
-void ARM::Reset()
+void ARM::Reset(const std::optional<GDBArguments>& gdbArgs)
 {
     Cycles = 0;
     Halted = 0;
@@ -191,24 +192,19 @@ void ARM::Reset()
 #ifdef GDBSTUB_ENABLED
     IsSingleStep = false;
     BreakReq = false;
-    BreakOnStartup = Platform::GetConfigBool(
-        Num ? Platform::GdbARM7BreakOnStartup : Platform::GdbARM9BreakOnStartup);
+    if (gdbArgs)
+        BreakOnStartup = gdbArgs->BreakOnStartup;
 #endif
 
     // zorp
     JumpTo(ExceptionBase);
 }
 
-void ARMv5::Reset()
+void ARMv5::Reset(const std::optional<GDBArguments>& gdbArgs)
 {
     PU_Map = PU_PrivMap;
 
-    ARM::Reset();
-}
-
-void ARMv4::Reset()
-{
-    ARM::Reset();
+    ARM::Reset(gdbArgs);
 }
 
 
@@ -1198,7 +1194,7 @@ int ARM::RemoteCmd(const u8* cmd, size_t len)
     Log(LogLevel::Info, "[ARMGDB] Rcmd: \"%s\"\n", cmd);
     if (!strcmp((const char*)cmd, "reset") || !strcmp((const char*)cmd, "r"))
     {
-        Reset();
+        Reset(std::nullopt);
         return 0;
     }
 
