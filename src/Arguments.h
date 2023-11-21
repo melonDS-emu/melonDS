@@ -64,7 +64,7 @@ struct NDSSysfileArguments
     std::array<u8, ARM9BIOSLength> ARM9BIOS = bios_arm9_bin;
     std::array<u8, ARM7BIOSLength> ARM7BIOS = bios_arm7_bin;
     Firmware Firmware;
-    std::unique_ptr<FATStorage> DLDISDCard;
+    std::optional<FATStorage> DLDISDCard;
 };
 
 struct DSiSysfileArguments
@@ -77,7 +77,7 @@ struct DSiSysfileArguments
     std::array<u8, DSiBIOSLength> ARM7iBIOS {};
 
     DSi_NAND::NANDImage NANDImage;
-    std::unique_ptr<FATStorage> DSiSDCard = nullptr;
+    std::optional<FATStorage> DSiSDCard;
 };
 
 /// Arguments that can be set when constructing a NDS or DSi.
