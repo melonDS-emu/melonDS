@@ -532,8 +532,10 @@ SPIHost::SPIHost(melonDS::NDS& nds) : NDS(nds)
     Devices[SPIDevice_FirmwareMem] = new FirmwareMem(NDS, this);
     Devices[SPIDevice_PowerMan] = new PowerMan(NDS, this);
 
+    // Must not be a dynamic_cast; this constructor is running in the middle of NDS's constructor,
+    // which is called before DSi's constructor, so the DSi object isn't fully constructed yet.
     if (NDS.ConsoleType == 1)
-        Devices[SPIDevice_TSC] = new DSi_TSC(dynamic_cast<melonDS::DSi&>(NDS), this);
+        Devices[SPIDevice_TSC] = new DSi_TSC(static_cast<melonDS::DSi&>(NDS), this);
     else
         Devices[SPIDevice_TSC] = new TSC(NDS, this);
 }
