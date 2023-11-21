@@ -112,8 +112,6 @@ enum [[deprecated("Use constructor parameters instead")]] ConfigEntry
 
     Firm_MAC,
 
-    WifiSettingsPath,
-
     AudioBitDepth,
 
     DSi_FullBIOSBoot,

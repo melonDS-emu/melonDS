@@ -237,8 +237,6 @@ std::string GetConfigString(ConfigEntry entry)
 
     case DSiSD_ImagePath: return Config::DSiSDPath;
     case DSiSD_FolderPath: return Config::DSiSDFolderPath;
-
-    case WifiSettingsPath: return Config::WifiSettingsPath;
     }
 
     return "";

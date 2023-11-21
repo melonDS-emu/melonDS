@@ -841,7 +841,7 @@ pair<unique_ptr<Firmware>, string> GenerateDefaultFirmware()
 
     // Try to open the instanced Wi-fi settings, falling back to the regular Wi-fi settings if they don't exist.
     // We don't need to save the whole firmware, just the part that may actually change.
-    std::string wfcsettingspath = Platform::GetConfigString(ConfigEntry::WifiSettingsPath);
+    std::string wfcsettingspath = Config::WifiSettingsPath;
     settingspath = wfcsettingspath + Platform::InstanceFileSuffix();
     FileHandle* f = Platform::OpenLocalFile(settingspath, FileMode::Read);
     if (!f)
