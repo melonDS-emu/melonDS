@@ -44,6 +44,7 @@
 #include "RTC.h"
 #include "DSi_I2C.h"
 #include "FreeBIOS.h"
+#include "main.h"
 
 using std::make_unique;
 using std::pair;
@@ -266,6 +267,15 @@ QString VerifyDSiNAND()
     return "";
 }
 
+void RecreateConsole(EmuThread* thread)
+{
+    if (!thread->NDS || thread->NDS->ConsoleType != Config::ConsoleType)
+    {
+        thread->NDS = nullptr; // To ensure the destructor is called before a new one is created
+        thread->NDS = unique_ptr<NDS>(Config::ConsoleType == 1 ? new DSi : new NDS);
+    }
+}
+
 QString VerifySetup()
 {
     QString res;
@@ -316,7 +326,7 @@ bool SavestateExists(int slot)
     return Platform::FileExists(ssfile);
 }
 
-bool LoadState(const std::string& filename)
+bool LoadState(NDS& nds, const std::string& filename)
 {
     FILE* file = fopen(filename.c_str(), "rb");
     if (file == nullptr)
@@ -333,7 +343,7 @@ bool LoadState(const std::string& filename)
         return false;
     }
 
-    if (!NDS::DoSavestate(backup.get()) || backup->Error)
+    if (!nds.DoSavestate(backup.get()) || backup->Error)
     { // Back up the emulator's state. If that failed...
         Platform::Log(Platform::LogLevel::Error, "Failed to back up state, aborting load (from \"%s\")\n", filename.c_str());
         fclose(file);
@@ -365,7 +375,7 @@ bool LoadState(const std::string& filename)
     // Get ready to load the state from the buffer into the emulator
     std::unique_ptr<Savestate> state = std::make_unique<Savestate>(buffer.data(), size, false);
 
-    if (!NDS::DoSavestate(state.get()) || state->Error)
+    if (!nds.DoSavestate(state.get()) || state->Error)
     { // If we couldn't load the savestate from the buffer...
         Platform::Log(Platform::LogLevel::Error, "Failed to load state file \"%s\" into emulator\n", filename.c_str());
         return false;
@@ -390,7 +400,7 @@ bool LoadState(const std::string& filename)
     return true;
 }
 
-bool SaveState(const std::string& filename)
+bool SaveState(NDS& nds, const std::string& filename)
 {
     FILE* file = fopen(filename.c_str(), "wb");
 
@@ -407,7 +417,7 @@ bool SaveState(const std::string& filename)
     }
 
     // Write the savestate to the in-memory buffer
-    NDS::DoSavestate(&state);
+    nds.DoSavestate(&state);
 
     if (state.Error)
     {
@@ -439,7 +449,7 @@ bool SaveState(const std::string& filename)
     return true;
 }
 
-void UndoStateLoad()
+void UndoStateLoad(NDS& nds)
 {
     if (!SavestateLoaded || !BackupState) return;
 
@@ -448,7 +458,7 @@ void UndoStateLoad()
     // pray that this works
     // what do we do if it doesn't???
     // but it should work.
-    NDS::DoSavestate(BackupState.get());
+    nds.DoSavestate(BackupState.get());
 
     if (NDSSave && (!PreviousSaveFile.empty()))
     {
@@ -457,36 +467,36 @@ void UndoStateLoad()
 }
 
 
-void UnloadCheats()
+void UnloadCheats(NDS& nds)
 {
     if (CheatFile)
     {
         delete CheatFile;
         CheatFile = nullptr;
-        NDS::AREngine->SetCodeFile(nullptr);
+        nds.AREngine.SetCodeFile(nullptr);
     }
 }
 
-void LoadCheats()
+void LoadCheats(NDS& nds)
 {
-    UnloadCheats();
+    UnloadCheats(nds);
 
     std::string filename = GetAssetPath(false, Config::CheatFilePath, ".mch");
 
     // TODO: check for error (malformed cheat file, ...)
     CheatFile = new ARCodeFile(filename);
 
-    NDS::AREngine->SetCodeFile(CheatsOn ? CheatFile : nullptr);
+    nds.AREngine.SetCodeFile(CheatsOn ? CheatFile : nullptr);
 }
 
-void LoadBIOSFiles()
+void LoadBIOSFiles(NDS& nds)
 {
     if (Config::ExternalBIOSEnable)
     {
         if (FileHandle* f = Platform::OpenLocalFile(Config::BIOS9Path, FileMode::Read))
         {
             FileRewind(f);
-            FileRead(NDS::ARM9BIOS, sizeof(NDS::ARM9BIOS), 1, f);
+            FileRead(nds.ARM9BIOS.data(), sizeof(NDS::ARM9BIOS), 1, f);
 
             Log(LogLevel::Info, "ARM9 BIOS loaded from %s\n", Config::BIOS9Path.c_str());
             Platform::CloseFile(f);
@@ -496,12 +506,12 @@ void LoadBIOSFiles()
             Log(LogLevel::Warn, "ARM9 BIOS not found\n");
 
             for (int i = 0; i < 16; i++)
-                ((u32*)NDS::ARM9BIOS)[i] = 0xE7FFDEFF;
+                ((u32*)nds.ARM9BIOS.data())[i] = 0xE7FFDEFF;
         }
 
         if (FileHandle* f = Platform::OpenLocalFile(Config::BIOS7Path, FileMode::Read))
         {
-            FileRead(NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS), 1, f);
+            FileRead(nds.ARM7BIOS.data(), sizeof(NDS::ARM7BIOS), 1, f);
 
             Log(LogLevel::Info, "ARM7 BIOS loaded from\n", Config::BIOS7Path.c_str());
             Platform::CloseFile(f);
@@ -511,21 +521,22 @@ void LoadBIOSFiles()
             Log(LogLevel::Warn, "ARM7 BIOS not found\n");
 
             for (int i = 0; i < 16; i++)
-                ((u32*)NDS::ARM7BIOS)[i] = 0xE7FFDEFF;
+                ((u32*)nds.ARM7BIOS.data())[i] = 0xE7FFDEFF;
         }
     }
     else
     {
         Log(LogLevel::Info, "Using built-in ARM7 and ARM9 BIOSes\n");
-        memcpy(NDS::ARM9BIOS, bios_arm9_bin, sizeof(bios_arm9_bin));
-        memcpy(NDS::ARM7BIOS, bios_arm7_bin, sizeof(bios_arm7_bin));
+        nds.ARM9BIOS = bios_arm9_bin;
+        nds.ARM7BIOS = bios_arm7_bin;
     }
 
     if (Config::ConsoleType == 1)
     {
+        DSi& dsi = static_cast<DSi&>(nds);
         if (FileHandle* f = Platform::OpenLocalFile(Config::DSiBIOS9Path, FileMode::Read))
         {
-            FileRead(DSi::ARM9iBIOS, sizeof(DSi::ARM9iBIOS), 1, f);
+            FileRead(dsi.ARM9iBIOS, sizeof(DSi::ARM9iBIOS), 1, f);
 
             Log(LogLevel::Info, "ARM9i BIOS loaded from %s\n", Config::DSiBIOS9Path.c_str());
             Platform::CloseFile(f);
@@ -535,13 +546,13 @@ void LoadBIOSFiles()
             Log(LogLevel::Warn, "ARM9i BIOS not found\n");
 
             for (int i = 0; i < 16; i++)
-                ((u32*)DSi::ARM9iBIOS)[i] = 0xE7FFDEFF;
+                ((u32*)dsi.ARM9iBIOS)[i] = 0xE7FFDEFF;
         }
 
         if (FileHandle* f = Platform::OpenLocalFile(Config::DSiBIOS7Path, FileMode::Read))
         {
         // TODO: check if the first 32 bytes are crapoed
-            FileRead(DSi::ARM7iBIOS, sizeof(DSi::ARM7iBIOS), 1, f);
+            FileRead(dsi.ARM7iBIOS, sizeof(DSi::ARM7iBIOS), 1, f);
 
             Log(LogLevel::Info, "ARM7i BIOS loaded from %s\n", Config::DSiBIOS7Path.c_str());
             CloseFile(f);
@@ -551,14 +562,14 @@ void LoadBIOSFiles()
             Log(LogLevel::Warn, "ARM7i BIOS not found\n");
 
             for (int i = 0; i < 16; i++)
-                ((u32*)DSi::ARM7iBIOS)[i] = 0xE7FFDEFF;
+                ((u32*)dsi.ARM7iBIOS)[i] = 0xE7FFDEFF;
         }
 
         if (!Config::DSiFullBIOSBoot)
         {
             // herp
-            *(u32*)&DSi::ARM9iBIOS[0] = 0xEAFFFFFE;
-            *(u32*)&DSi::ARM7iBIOS[0] = 0xEAFFFFFE;
+            *(u32*)&dsi.ARM9iBIOS[0] = 0xEAFFFFFE;
+            *(u32*)&dsi.ARM7iBIOS[0] = 0xEAFFFFFE;
 
             // TODO!!!!
             // hax the upper 32K out of the goddamn DSi
@@ -567,11 +578,11 @@ void LoadBIOSFiles()
     }
 }
 
-void EnableCheats(bool enable)
+void EnableCheats(NDS& nds, bool enable)
 {
     CheatsOn = enable;
     if (CheatFile)
-        NDS::AREngine->SetCodeFile(CheatsOn ? CheatFile : nullptr);
+        nds.AREngine.SetCodeFile(CheatsOn ? CheatFile : nullptr);
 }
 
 ARCodeFile* GetCheatFile()
@@ -580,42 +591,44 @@ ARCodeFile* GetCheatFile()
 }
 
 
-void SetBatteryLevels()
+void SetBatteryLevels(NDS& nds)
 {
-    if (NDS::ConsoleType == 1)
+    if (nds.ConsoleType == 1)
     {
-        DSi::I2C->GetBPTWL()->SetBatteryLevel(Config::DSiBatteryLevel);
-        DSi::I2C->GetBPTWL()->SetBatteryCharging(Config::DSiBatteryCharging);
+        auto& dsi = static_cast<DSi&>(nds);
+        dsi.I2C.BPTWL.SetBatteryLevel(Config::DSiBatteryLevel);
+        dsi.I2C.BPTWL.SetBatteryCharging(Config::DSiBatteryCharging);
     }
     else
     {
-        NDS::SPI->GetPowerMan()->SetBatteryLevelOkay(Config::DSBatteryLevelOkay);
+        nds.SPI.GetPowerMan()->SetBatteryLevelOkay(Config::DSBatteryLevelOkay);
     }
 }
 
-void SetDateTime()
+void SetDateTime(NDS& nds)
 {
     QDateTime hosttime = QDateTime::currentDateTime();
     QDateTime time = hosttime.addSecs(Config::RTCOffset);
 
-    NDS::RTC->SetDateTime(time.date().year(), time.date().month(), time.date().day(),
+    nds.RTC.SetDateTime(time.date().year(), time.date().month(), time.date().day(),
                           time.time().hour(), time.time().minute(), time.time().second());
 }
 
-void Reset()
+void Reset(EmuThread* thread)
 {
-    NDS::SetConsoleType(Config::ConsoleType);
-    if (Config::ConsoleType == 1) EjectGBACart();
-    LoadBIOSFiles();
+    RecreateConsole(thread);
 
-    InstallFirmware();
+    if (Config::ConsoleType == 1) EjectGBACart(*thread->NDS);
+    LoadBIOSFiles(*thread->NDS);
+
+    InstallFirmware(*thread->NDS);
     if (Config::ConsoleType == 1)
     {
-        InstallNAND(&DSi::ARM7iBIOS[0x8308]);
+        InstallNAND(static_cast<DSi&>(*thread->NDS));
     }
-    NDS::Reset();
-    SetBatteryLevels();
-    SetDateTime();
+    thread->NDS->Reset();
+    SetBatteryLevels(*thread->NDS);
+    SetDateTime(*thread->NDS);
 
     if ((CartType != -1) && NDSSave)
     {
@@ -659,27 +672,27 @@ void Reset()
 
     if (!BaseROMName.empty())
     {
-        if (Config::DirectBoot || NDS::NeedsDirectBoot())
+        if (Config::DirectBoot || thread->NDS->NeedsDirectBoot())
         {
-            NDS::SetupDirectBoot(BaseROMName);
+            thread->NDS->SetupDirectBoot(BaseROMName);
         }
     }
 }
 
 
-bool LoadBIOS()
+bool LoadBIOS(EmuThread* thread)
 {
-    NDS::SetConsoleType(Config::ConsoleType);
+    RecreateConsole(thread);
 
-    LoadBIOSFiles();
+    LoadBIOSFiles(*thread->NDS);
 
-    if (!InstallFirmware())
+    if (!InstallFirmware(*thread->NDS))
         return false;
 
-    if (Config::ConsoleType == 1 && !InstallNAND(&DSi::ARM7iBIOS[0x8308]))
+    if (Config::ConsoleType == 1 && !InstallNAND(static_cast<DSi&>(*thread->NDS)))
         return false;
 
-    if (NDS::NeedsDirectBoot())
+    if (thread->NDS->NeedsDirectBoot())
         return false;
 
     /*if (NDSSave) delete NDSSave;
@@ -690,9 +703,9 @@ bool LoadBIOS()
     BaseROMName = "";
     BaseAssetName = "";*/
 
-    NDS::Reset();
-    SetBatteryLevels();
-    SetDateTime();
+    thread->NDS->Reset();
+    SetBatteryLevels(*thread->NDS);
+    SetDateTime(*thread->NDS);
     return true;
 }
 
@@ -992,13 +1005,13 @@ static Platform::FileHandle* OpenNANDFile() noexcept
     return nandfile;
 }
 
-bool InstallNAND(const u8* es_keyY)
+bool InstallNAND(DSi& dsi)
 {
     Platform::FileHandle* nandfile = OpenNANDFile();
     if (!nandfile)
         return false;
 
-    DSi_NAND::NANDImage nandImage(nandfile, es_keyY);
+    DSi_NAND::NANDImage nandImage(nandfile, &dsi.ARM7iBIOS[0x8308]);
     if (!nandImage)
     {
         Log(LogLevel::Error, "Failed to parse DSi NAND\n");
@@ -1067,11 +1080,11 @@ bool InstallNAND(const u8* es_keyY)
         }
     }
 
-    DSi::NANDImage = std::make_unique<DSi_NAND::NANDImage>(std::move(nandImage));
+    dsi.NANDImage = std::make_unique<DSi_NAND::NANDImage>(std::move(nandImage));
     return true;
 }
 
-bool InstallFirmware()
+bool InstallFirmware(NDS& nds)
 {
     FirmwareSave.reset();
     unique_ptr<Firmware> firmware;
@@ -1103,10 +1116,10 @@ bool InstallFirmware()
 
     FirmwareSave = std::make_unique<SaveManager>(firmwarepath);
 
-    return NDS::SPI->GetFirmwareMem()->InstallFirmware(std::move(firmware));
+    return nds.SPI.GetFirmwareMem()->InstallFirmware(std::move(firmware));
 }
 
-bool LoadROM(QStringList filepath, bool reset)
+bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
 {
     if (filepath.empty()) return false;
 
@@ -1201,22 +1214,22 @@ bool LoadROM(QStringList filepath, bool reset)
     BaseROMName = romname;
     BaseAssetName = romname.substr(0, romname.rfind('.'));
 
-    if (!InstallFirmware())
+    RecreateConsole(emuthread);
+    if (!InstallFirmware(*emuthread->NDS))
     {
         return false;
     }
 
     if (reset)
     {
-        NDS::SetConsoleType(Config::ConsoleType);
-        NDS::EjectCart();
-        LoadBIOSFiles();
+        emuthread->NDS->EjectCart();
+        LoadBIOSFiles(*emuthread->NDS);
         if (Config::ConsoleType == 1)
-            InstallNAND(&DSi::ARM7iBIOS[0x8308]);
+            InstallNAND(static_cast<DSi&>(*emuthread->NDS));
 
-        NDS::Reset();
-        SetBatteryLevels();
-        SetDateTime();
+        emuthread->NDS->Reset();
+        SetBatteryLevels(*emuthread->NDS);
+        SetDateTime(*emuthread->NDS);
     }
 
     u32 savelen = 0;
@@ -1238,12 +1251,12 @@ bool LoadROM(QStringList filepath, bool reset)
         CloseFile(sav);
     }
 
-    bool res = NDS::LoadCart(filedata, filelen, savedata, savelen);
+    bool res =  emuthread->NDS->LoadCart(filedata, filelen, savedata, savelen);
     if (res && reset)
     {
-        if (Config::DirectBoot || NDS::NeedsDirectBoot())
+        if (Config::DirectBoot || emuthread->NDS->NeedsDirectBoot())
         {
-            NDS::SetupDirectBoot(romname);
+            emuthread->NDS->SetupDirectBoot(romname);
         }
     }
 
@@ -1252,7 +1265,7 @@ bool LoadROM(QStringList filepath, bool reset)
         CartType = 0;
         NDSSave = new SaveManager(savname);
 
-        LoadCheats();
+        LoadCheats(*emuthread->NDS);
     }
 
     if (savedata) delete[] savedata;
@@ -1260,14 +1273,14 @@ bool LoadROM(QStringList filepath, bool reset)
     return res;
 }
 
-void EjectCart()
+void EjectCart(NDS& nds)
 {
     if (NDSSave) delete NDSSave;
     NDSSave = nullptr;
 
-    UnloadCheats();
+    UnloadCheats(nds);
 
-    NDS::EjectCart();
+    nds.EjectCart();
 
     CartType = -1;
     BaseROMDir = "";
@@ -1295,7 +1308,7 @@ QString CartLabel()
 }
 
 
-bool LoadGBAROM(QStringList filepath)
+bool LoadGBAROM(NDS& nds, QStringList filepath)
 {
     if (Config::ConsoleType == 1) return false;
     if (filepath.empty()) return false;
@@ -1408,7 +1421,7 @@ bool LoadGBAROM(QStringList filepath)
         CloseFile(sav);
     }
 
-    bool res = NDS::LoadGBACart(filedata, filelen, savedata, savelen);
+    bool res = nds.LoadGBACart(filedata, filelen, savedata, savelen);
 
     if (res)
     {
@@ -1421,14 +1434,14 @@ bool LoadGBAROM(QStringList filepath)
     return res;
 }
 
-void LoadGBAAddon(int type)
+void LoadGBAAddon(NDS& nds, int type)
 {
     if (Config::ConsoleType == 1) return;
 
     if (GBASave) delete GBASave;
     GBASave = nullptr;
 
-    NDS::LoadGBAAddon(type);
+    nds.LoadGBAAddon(type);
 
     GBACartType = type;
     BaseGBAROMDir = "";
@@ -1436,12 +1449,12 @@ void LoadGBAAddon(int type)
     BaseGBAAssetName = "";
 }
 
-void EjectGBACart()
+void EjectGBACart(NDS& nds)
 {
     if (GBASave) delete GBASave;
     GBASave = nullptr;
 
-    NDS::EjectGBACart();
+    nds.EjectGBACart();
 
     GBACartType = -1;
     BaseGBAROMDir = "";

@@ -318,7 +318,8 @@ void EmuThread::run()
     u32 mainScreenPos[3];
     Platform::FileHandle* file;
 
-    NDS::Init();
+    NDS = std::unique_ptr<melonDS::NDS>(Config::ConsoleType == 1 ? new melonDS::DSi : new melonDS::NDS);
+    NDS::Current = NDS.get();
 
     mainScreenPos[0] = 0;
     mainScreenPos[1] = 0;
@@ -340,10 +341,10 @@ void EmuThread::run()
         videoRenderer = 0;
     }
 
-    NDS::GPU->InitRenderer(videoRenderer);
-    NDS::GPU->SetRenderSettings(videoRenderer, videoSettings);
+    NDS->GPU.InitRenderer(videoRenderer);
+    NDS->GPU.SetRenderSettings(videoRenderer, videoSettings);
 
-    NDS::SPU->SetInterpolation(Config::AudioInterp);
+    NDS->SPU.SetInterpolation(Config::AudioInterp);
 
     Input::Init();
 
@@ -362,7 +363,7 @@ void EmuThread::run()
         RTC::StateData state;
         Platform::FileRead(&state, sizeof(state), 1, file);
         Platform::CloseFile(file);
-        NDS::RTC->SetState(state);
+        NDS->RTC.SetState(state);
     }
 
     char melontitle[100];
@@ -384,8 +385,7 @@ void EmuThread::run()
 
         if (Input::HotkeyPressed(HK_SolarSensorDecrease))
         {
-            assert(NDS::GBACartSlot != nullptr);
-            int level = NDS::GBACartSlot->SetInput(GBACart::Input_SolarSensorDown, true);
+            int level = NDS->GBACartSlot.SetInput(GBACart::Input_SolarSensorDown, true);
             if (level != -1)
             {
                 char msg[64];
@@ -395,8 +395,7 @@ void EmuThread::run()
         }
         if (Input::HotkeyPressed(HK_SolarSensorIncrease))
         {
-            assert(NDS::GBACartSlot != nullptr);
-            int level = NDS::GBACartSlot->SetInput(GBACart::Input_SolarSensorUp, true);
+            int level = NDS->GBACartSlot.SetInput(GBACart::Input_SolarSensorUp, true);
             if (level != -1)
             {
                 char msg[64];
@@ -405,40 +404,41 @@ void EmuThread::run()
             }
         }
 
-        if (NDS::ConsoleType == 1)
+        if (NDS->ConsoleType == 1)
         {
+            DSi& dsi = static_cast<DSi&>(*NDS);
             double currentTime = SDL_GetPerformanceCounter() * perfCountsSec;
 
             // Handle power button
             if (Input::HotkeyDown(HK_PowerButton))
             {
-                DSi::I2C->GetBPTWL()->SetPowerButtonHeld(currentTime);
+                dsi.I2C.BPTWL.SetPowerButtonHeld(currentTime);
             }
             else if (Input::HotkeyReleased(HK_PowerButton))
             {
-                DSi::I2C->GetBPTWL()->SetPowerButtonReleased(currentTime);
+                dsi.I2C.BPTWL.SetPowerButtonReleased(currentTime);
             }
 
             // Handle volume buttons
             if (Input::HotkeyDown(HK_VolumeUp))
             {
-                DSi::I2C->GetBPTWL()->SetVolumeSwitchHeld(DSi::I2C->GetBPTWL()->volumeKey_Up);
+                dsi.I2C.BPTWL.SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Up);
             }
             else if (Input::HotkeyReleased(HK_VolumeUp))
             {
-                DSi::I2C->GetBPTWL()->SetVolumeSwitchReleased(DSi::I2C->GetBPTWL()->volumeKey_Up);
+                dsi.I2C.BPTWL.SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Up);
             }
 
             if (Input::HotkeyDown(HK_VolumeDown))
             {
-                DSi::I2C->GetBPTWL()->SetVolumeSwitchHeld(DSi::I2C->GetBPTWL()->volumeKey_Down);
+                dsi.I2C.BPTWL.SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Down);
             }
             else if (Input::HotkeyReleased(HK_VolumeDown))
             {
-                DSi::I2C->GetBPTWL()->SetVolumeSwitchReleased(DSi::I2C->GetBPTWL()->volumeKey_Down);
+                dsi.I2C.BPTWL.SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Down);
             }
 
-            DSi::I2C->GetBPTWL()->ProcessVolumeSwitchInput(currentTime);
+            dsi.I2C.BPTWL.ProcessVolumeSwitchInput(currentTime);
         }
 
         if (EmuRunning == emuStatus_Running || EmuRunning == emuStatus_FrameStep)
@@ -472,28 +472,28 @@ void EmuThread::run()
                 videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
                 videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
 
-                NDS::GPU->SetRenderSettings(videoRenderer, videoSettings);
+                NDS->GPU.SetRenderSettings(videoRenderer, videoSettings);
             }
 
             // process input and hotkeys
-            NDS::SetKeyMask(Input::InputMask);
+            NDS->SetKeyMask(Input::InputMask);
 
             if (Input::HotkeyPressed(HK_Lid))
             {
-                bool lid = !NDS::IsLidClosed();
-                NDS::SetLidClosed(lid);
+                bool lid = !NDS->IsLidClosed();
+                NDS->SetLidClosed(lid);
                 OSD::AddMessage(0, lid ? "Lid closed" : "Lid opened");
             }
 
             // microphone input
-            AudioInOut::MicProcess();
+            AudioInOut::MicProcess(*NDS);
 
             // auto screen layout
             if (Config::ScreenSizing == Frontend::screenSizing_Auto)
             {
                 mainScreenPos[2] = mainScreenPos[1];
                 mainScreenPos[1] = mainScreenPos[0];
-                mainScreenPos[0] = NDS::PowerControl9 >> 15;
+                mainScreenPos[0] = NDS->PowerControl9 >> 15;
 
                 int guess;
                 if (mainScreenPos[0] == mainScreenPos[2] &&
@@ -520,7 +520,7 @@ void EmuThread::run()
 
 
             // emulate
-            u32 nlines = NDS::RunFrame();
+            u32 nlines = NDS->RunFrame();
 
             if (ROMManager::NDSSave)
                 ROMManager::NDSSave->CheckFlush();
@@ -534,12 +534,12 @@ void EmuThread::run()
             if (!oglContext)
             {
                 FrontBufferLock.lock();
-                FrontBuffer = NDS::GPU->FrontBuffer;
+                FrontBuffer = NDS->GPU.FrontBuffer;
                 FrontBufferLock.unlock();
             }
             else
             {
-                FrontBuffer = NDS::GPU->FrontBuffer;
+                FrontBuffer = NDS->GPU.FrontBuffer;
                 drawScreenGL();
             }
 
@@ -563,9 +563,10 @@ void EmuThread::run()
                 oglContext->SetSwapInterval(0);
             }
 
-            if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
+            if (Config::DSiVolumeSync && NDS->ConsoleType == 1)
             {
-                u8 volumeLevel = DSi::I2C->GetBPTWL()->GetVolumeLevel();
+                DSi& dsi = static_cast<DSi&>(*NDS);
+                u8 volumeLevel = dsi.I2C.BPTWL.GetVolumeLevel();
                 if (volumeLevel != dsiVolumeLevel)
                 {
                     dsiVolumeLevel = volumeLevel;
@@ -576,7 +577,7 @@ void EmuThread::run()
             }
 
             if (Config::AudioSync && !fastforward)
-                AudioInOut::AudioSync();
+                AudioInOut::AudioSync(*emuThread->NDS);
 
             double frametimeStep = nlines / (60.0 * 263.0);
 
@@ -669,16 +670,14 @@ void EmuThread::run()
     if (file)
     {
         RTC::StateData state;
-        NDS::RTC->GetState(state);
+        NDS->RTC.GetState(state);
         Platform::FileWrite(&state, sizeof(state), 1, file);
         Platform::CloseFile(file);
     }
 
     EmuStatus = emuStatus_Exit;
 
-    NDS::GPU->DeInitRenderer();
-    NDS::DeInit();
-    //Platform::LAN_DeInit();
+    // nds is out of scope, so unique_ptr cleans it up for us
 }
 
 void EmuThread::changeWindowTitle(char* title)
@@ -759,6 +758,7 @@ bool EmuThread::emuIsActive()
 
 void EmuThread::drawScreenGL()
 {
+    if (!NDS) return;
     int w = windowInfo.surface_width;
     int h = windowInfo.surface_height;
     float factor = windowInfo.surface_scale;
@@ -780,10 +780,10 @@ void EmuThread::drawScreenGL()
     glActiveTexture(GL_TEXTURE0);
 
 #ifdef OGLRENDERER_ENABLED
-    if (NDS::GPU->Renderer != 0)
+    if (NDS->GPU.Renderer != 0)
     {
         // hardware-accelerated render
-        NDS::GPU->CurGLCompositor->BindOutputTexture(frontbuf);
+        NDS->GPU.CurGLCompositor->BindOutputTexture(frontbuf);
     }
     else
 #endif
@@ -791,12 +791,12 @@ void EmuThread::drawScreenGL()
         // regular render
         glBindTexture(GL_TEXTURE_2D, screenTexture);
 
-        if (NDS::GPU->Framebuffer[frontbuf][0] && NDS::GPU->Framebuffer[frontbuf][1])
+        if (NDS->GPU.Framebuffer[frontbuf][0] && NDS->GPU.Framebuffer[frontbuf][1])
         {
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
-                            GL_UNSIGNED_BYTE, NDS::GPU->Framebuffer[frontbuf][0]);
+                            GL_UNSIGNED_BYTE, NDS->GPU.Framebuffer[frontbuf][0]);
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
-                            GL_UNSIGNED_BYTE, NDS::GPU->Framebuffer[frontbuf][1]);
+                            GL_UNSIGNED_BYTE, NDS->GPU.Framebuffer[frontbuf][1]);
         }
     }
 
@@ -927,7 +927,8 @@ void ScreenHandler::screenOnMousePress(QMouseEvent* event)
     if (Frontend::GetTouchCoords(x, y, false))
     {
         touching = true;
-        NDS::TouchScreen(x, y);
+        assert(emuThread->NDS != nullptr);
+        emuThread->NDS->TouchScreen(x, y);
     }
 }
 
@@ -939,7 +940,8 @@ void ScreenHandler::screenOnMouseRelease(QMouseEvent* event)
     if (touching)
     {
         touching = false;
-        NDS::ReleaseScreen();
+        assert(emuThread->NDS != nullptr);
+        emuThread->NDS->ReleaseScreen();
     }
 }
 
@@ -956,7 +958,10 @@ void ScreenHandler::screenOnMouseMove(QMouseEvent* event)
     int y = event->pos().y();
 
     if (Frontend::GetTouchCoords(x, y, true))
-        NDS::TouchScreen(x, y);
+    {
+        assert(emuThread->NDS != nullptr);
+        emuThread->NDS->TouchScreen(x, y);
+    }
 }
 
 void ScreenHandler::screenHandleTablet(QTabletEvent* event)
@@ -974,14 +979,16 @@ void ScreenHandler::screenHandleTablet(QTabletEvent* event)
             if (Frontend::GetTouchCoords(x, y, event->type()==QEvent::TabletMove))
             {
                 touching = true;
-                NDS::TouchScreen(x, y);
+                assert(emuThread->NDS != nullptr);
+                emuThread->NDS->TouchScreen(x, y);
             }
         }
         break;
     case QEvent::TabletRelease:
         if (touching)
         {
-            NDS::ReleaseScreen();
+            assert(emuThread->NDS != nullptr);
+            emuThread->NDS->ReleaseScreen();
             touching = false;
         }
         break;
@@ -1007,14 +1014,16 @@ void ScreenHandler::screenHandleTouch(QTouchEvent* event)
             if (Frontend::GetTouchCoords(x, y, event->type()==QEvent::TouchUpdate))
             {
                 touching = true;
-                NDS::TouchScreen(x, y);
+                assert(emuThread->NDS != nullptr);
+                emuThread->NDS->TouchScreen(x, y);
             }
         }
         break;
     case QEvent::TouchEnd:
         if (touching)
         {
-            NDS::ReleaseScreen();
+            assert(emuThread->NDS != nullptr);
+            emuThread->NDS->ReleaseScreen();
             touching = false;
         }
         break;
@@ -1080,16 +1089,17 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
 
     if (emuThread->emuIsActive())
     {
+        assert(emuThread->NDS != nullptr);
         emuThread->FrontBufferLock.lock();
         int frontbuf = emuThread->FrontBuffer;
-        if (!NDS::GPU->Framebuffer[frontbuf][0] || !NDS::GPU->Framebuffer[frontbuf][1])
+        if (!emuThread->NDS->GPU.Framebuffer[frontbuf][0] || !emuThread->NDS->GPU.Framebuffer[frontbuf][1])
         {
             emuThread->FrontBufferLock.unlock();
             return;
         }
 
-        memcpy(screen[0].scanLine(0), NDS::GPU->Framebuffer[frontbuf][0], 256 * 192 * 4);
-        memcpy(screen[1].scanLine(0), NDS::GPU->Framebuffer[frontbuf][1], 256 * 192 * 4);
+        memcpy(screen[0].scanLine(0), emuThread->NDS->GPU.Framebuffer[frontbuf][0], 256 * 192 * 4);
+        memcpy(screen[1].scanLine(0), emuThread->NDS->GPU.Framebuffer[frontbuf][1], 256 * 192 * 4);
         emuThread->FrontBufferLock.unlock();
 
         QRect screenrc(0, 0, 256, 192);
@@ -2025,7 +2035,7 @@ void MainWindow::dropEvent(QDropEvent* event)
 
     if (isNdsRom)
     {
-        if (!ROMManager::LoadROM(file, true))
+        if (!ROMManager::LoadROM(emuThread, file, true))
         {
             // TODO: better error reporting?
             QMessageBox::critical(this, "melonDS", "Failed to load the DS ROM.");
@@ -2038,14 +2048,15 @@ void MainWindow::dropEvent(QDropEvent* event)
         recentFileList.prepend(barredFilename);
         updateRecentFilesMenu();
 
-        NDS::Start();
+        assert(emuThread->NDS != nullptr);
+        emuThread->NDS->Start();
         emuThread->emuRun();
 
         updateCartInserted(false);
     }
     else if (isGbaRom)
     {
-        if (!ROMManager::LoadGBAROM(file))
+        if (!ROMManager::LoadGBAROM(*emuThread->NDS, file))
         {
             // TODO: better error reporting?
             QMessageBox::critical(this, "melonDS", "Failed to load the GBA ROM.");
@@ -2111,7 +2122,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool gbaloaded = false;
     if (!gbafile.isEmpty())
     {
-        if (!ROMManager::LoadGBAROM(gbafile))
+        if (!ROMManager::LoadGBAROM(*emuThread->NDS, gbafile))
         {
             // TODO: better error reporting?
             QMessageBox::critical(this, "melonDS", "Failed to load the GBA ROM.");
@@ -2124,7 +2135,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool ndsloaded = false;
     if (!file.isEmpty())
     {
-        if (!ROMManager::LoadROM(file, true))
+        if (!ROMManager::LoadROM(emuThread, file, true))
         {
             // TODO: better error reporting?
             QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
@@ -2140,7 +2151,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     {
         if (ndsloaded)
         {
-            NDS::Start();
+            emuThread->NDS->Start();
             emuThread->emuRun();
         }
         else
@@ -2333,7 +2344,7 @@ void MainWindow::onOpenFile()
         return;
     }
 
-    if (!ROMManager::LoadROM(file, true))
+    if (!ROMManager::LoadROM(emuThread, file, true))
     {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
@@ -2346,7 +2357,8 @@ void MainWindow::onOpenFile()
     recentFileList.prepend(filename);
     updateRecentFilesMenu();
 
-    NDS::Start();
+    assert(emuThread->NDS != nullptr);
+    emuThread->NDS->Start();
     emuThread->emuRun();
 
     updateCartInserted(false);
@@ -2431,7 +2443,7 @@ void MainWindow::onClickRecentFile()
         return;
     }
 
-    if (!ROMManager::LoadROM(file, true))
+    if (!ROMManager::LoadROM(emuThread, file, true))
     {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
@@ -2443,7 +2455,8 @@ void MainWindow::onClickRecentFile()
     recentFileList.prepend(filename);
     updateRecentFilesMenu();
 
-    NDS::Start();
+    assert(emuThread->NDS != nullptr);
+    emuThread->NDS->Start();
     emuThread->emuRun();
 
     updateCartInserted(false);
@@ -2459,7 +2472,7 @@ void MainWindow::onBootFirmware()
         return;
     }
 
-    if (!ROMManager::LoadBIOS())
+    if (!ROMManager::LoadBIOS(emuThread))
     {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "This firmware is not bootable.");
@@ -2467,7 +2480,8 @@ void MainWindow::onBootFirmware()
         return;
     }
 
-    NDS::Start();
+    assert(emuThread->NDS != nullptr);
+    emuThread->NDS->Start();
     emuThread->emuRun();
 }
 
@@ -2482,7 +2496,7 @@ void MainWindow::onInsertCart()
         return;
     }
 
-    if (!ROMManager::LoadROM(file, false))
+    if (!ROMManager::LoadROM(emuThread, file, false))
     {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
@@ -2499,7 +2513,7 @@ void MainWindow::onEjectCart()
 {
     emuThread->emuPause();
 
-    ROMManager::EjectCart();
+    ROMManager::EjectCart(*emuThread->NDS);
 
     emuThread->emuUnpause();
 
@@ -2517,7 +2531,7 @@ void MainWindow::onInsertGBACart()
         return;
     }
 
-    if (!ROMManager::LoadGBAROM(file))
+    if (!ROMManager::LoadGBAROM(*emuThread->NDS, file))
     {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
@@ -2537,7 +2551,7 @@ void MainWindow::onInsertGBAAddon()
 
     emuThread->emuPause();
 
-    ROMManager::LoadGBAAddon(type);
+    ROMManager::LoadGBAAddon(*emuThread->NDS, type);
 
     emuThread->emuUnpause();
 
@@ -2548,7 +2562,7 @@ void MainWindow::onEjectGBACart()
 {
     emuThread->emuPause();
 
-    ROMManager::EjectGBACart();
+    ROMManager::EjectGBACart(*emuThread->NDS);
 
     emuThread->emuUnpause();
 
@@ -2582,7 +2596,7 @@ void MainWindow::onSaveState()
         filename = qfilename.toStdString();
     }
 
-    if (ROMManager::SaveState(filename))
+    if (ROMManager::SaveState(*emuThread->NDS, filename))
     {
         char msg[64];
         if (slot > 0) sprintf(msg, "State saved to slot %d", slot);
@@ -2637,7 +2651,7 @@ void MainWindow::onLoadState()
         return;
     }
 
-    if (ROMManager::LoadState(filename))
+    if (ROMManager::LoadState(*emuThread->NDS, filename))
     {
         char msg[64];
         if (slot > 0) sprintf(msg, "State loaded from slot %d", slot);
@@ -2657,7 +2671,7 @@ void MainWindow::onLoadState()
 void MainWindow::onUndoStateLoad()
 {
     emuThread->emuPause();
-    ROMManager::UndoStateLoad();
+    ROMManager::UndoStateLoad(*emuThread->NDS);
     emuThread->emuUnpause();
 
     OSD::AddMessage(0, "State load undone");
@@ -2696,7 +2710,7 @@ void MainWindow::onImportSavefile()
             return;
         }
 
-        ROMManager::Reset();
+        ROMManager::Reset(emuThread);
     }
 
     u32 len = FileLength(f);
@@ -2705,7 +2719,8 @@ void MainWindow::onImportSavefile()
     Platform::FileRewind(f);
     Platform::FileRead(data, len, 1, f);
 
-    NDS::LoadSave(data, len);
+    assert(emuThread->NDS != nullptr);
+    emuThread->NDS->LoadSave(data, len);
     delete[] data;
 
     CloseFile(f);
@@ -2747,7 +2762,7 @@ void MainWindow::onReset()
 
     actUndoStateLoad->setEnabled(false);
 
-    ROMManager::Reset();
+    ROMManager::Reset(emuThread);
 
     OSD::AddMessage(0, "Reset");
     emuThread->emuRun();
@@ -2758,7 +2773,7 @@ void MainWindow::onStop()
     if (!RunningSomething) return;
 
     emuThread->emuPause();
-    NDS::Stop();
+    emuThread->NDS->Stop();
 }
 
 void MainWindow::onFrameStep()
@@ -2775,13 +2790,13 @@ void MainWindow::onOpenDateTime()
 
 void MainWindow::onOpenPowerManagement()
 {
-    PowerManagementDialog* dlg = PowerManagementDialog::openDlg(this);
+    PowerManagementDialog* dlg = PowerManagementDialog::openDlg(this, emuThread);
 }
 
 void MainWindow::onEnableCheats(bool checked)
 {
     Config::EnableCheats = checked?1:0;
-    ROMManager::EnableCheats(Config::EnableCheats != 0);
+    ROMManager::EnableCheats(*emuThread->NDS, Config::EnableCheats != 0);
 }
 
 void MainWindow::onSetupCheats()
@@ -2799,12 +2814,14 @@ void MainWindow::onCheatsDialogFinished(int res)
 
 void MainWindow::onROMInfo()
 {
-    ROMInfoDialog* dlg = ROMInfoDialog::openDlg(this);
+    auto cart = emuThread->NDS->NDSCartSlot.GetCart();
+    if (cart)
+        ROMInfoDialog* dlg = ROMInfoDialog::openDlg(this, *cart);
 }
 
 void MainWindow::onRAMInfo()
 {
-    RAMInfoDialog* dlg = RAMInfoDialog::openDlg(this);
+    RAMInfoDialog* dlg = RAMInfoDialog::openDlg(this, emuThread);
 }
 
 void MainWindow::onOpenTitleManager()
@@ -2907,7 +2924,7 @@ void MainWindow::onCameraSettingsFinished(int res)
 
 void MainWindow::onOpenAudioSettings()
 {
-    AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this, emuThread->emuIsActive());
+    AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this, emuThread->emuIsActive(), emuThread);
     connect(emuThread, &EmuThread::syncVolumeLevel, dlg, &AudioSettingsDialog::onSyncVolumeLevel);
     connect(emuThread, &EmuThread::windowEmuStart, dlg, &AudioSettingsDialog::onConsoleReset);
     connect(dlg, &AudioSettingsDialog::updateAudioSettings, this, &MainWindow::onUpdateAudioSettings);
@@ -2948,17 +2965,18 @@ void MainWindow::onPathSettingsFinished(int res)
 
 void MainWindow::onUpdateAudioSettings()
 {
-    NDS::SPU->SetInterpolation(Config::AudioInterp);
+    assert(emuThread->NDS != nullptr);
+    emuThread->NDS->SPU.SetInterpolation(Config::AudioInterp);
 
     if (Config::AudioBitDepth == 0)
-        NDS::SPU->SetDegrade10Bit(NDS::ConsoleType == 0);
+        emuThread->NDS->SPU.SetDegrade10Bit(emuThread->NDS->ConsoleType == 0);
     else
-        NDS::SPU->SetDegrade10Bit(Config::AudioBitDepth == 1);
+        emuThread->NDS->SPU.SetDegrade10Bit(Config::AudioBitDepth == 1);
 }
 
 void MainWindow::onAudioSettingsFinished(int res)
 {
-    AudioInOut::UpdateSettings();
+    AudioInOut::UpdateSettings(*emuThread->NDS);
 }
 
 void MainWindow::onOpenMPSettings()
@@ -3333,7 +3351,6 @@ int main(int argc, char** argv)
     SANITIZE(Config::ScreenAspectBot, 0, AspectRatiosNum);
 #undef SANITIZE
 
-    AudioInOut::Init();
     camStarted[0] = false;
     camStarted[1] = false;
     camManager[0] = new CameraManager(0, 640, 480, true);
@@ -3341,7 +3358,6 @@ int main(int argc, char** argv)
     camManager[0]->setXFlip(Config::Camera[0].XFlip);
     camManager[1]->setXFlip(Config::Camera[1].XFlip);
 
-    ROMManager::EnableCheats(Config::EnableCheats != 0);
 
     Input::JoystickID = Config::JoystickID;
     Input::OpenJoystick();
@@ -3354,6 +3370,8 @@ int main(int argc, char** argv)
     emuThread->start();
     emuThread->emuPause();
 
+    AudioInOut::Init(emuThread);
+    ROMManager::EnableCheats(*emuThread->NDS, Config::EnableCheats != 0);
     AudioInOut::AudioMute(mainWindow);
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);

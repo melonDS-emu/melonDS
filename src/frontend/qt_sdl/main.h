@@ -40,6 +40,11 @@
 #include "FrontendUtil.h"
 #include "duckstation/gl/context.h"
 
+namespace melonDS
+{
+class NDS;
+}
+
 class EmuThread : public QThread
 {
     Q_OBJECT
@@ -68,6 +73,7 @@ public:
 
     void updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix);
 
+    std::unique_ptr<melonDS::NDS> NDS; // TODO: Proper encapsulation and synchronization
 signals:
     void windowUpdate();
     void windowTitleChange(QString title);

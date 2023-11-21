@@ -230,8 +230,6 @@ bool GetConfigBool(ConfigEntry entry)
     case JIT_FastMemory: return Config::JIT_FastMemory != 0;
 #endif
 
-    case ExternalBIOSEnable: return Config::ExternalBIOSEnable != 0;
-
     case DLDI_Enable: return Config::DLDIEnable != 0;
     case DLDI_ReadOnly: return Config::DLDIReadOnly != 0;
     case DLDI_FolderSync: return Config::DLDIFolderSync != 0;
