@@ -25,7 +25,7 @@
 namespace melonDS
 {
 class DSi_I2CHost;
-
+class DSi;
 class DSi_I2CDevice
 {
 public:
@@ -87,18 +87,18 @@ public:
 
     u8 GetBootFlag();
 
-    bool GetBatteryCharging();
+    bool GetBatteryCharging() const noexcept;
     void SetBatteryCharging(bool charging);
 
-    u8 GetBatteryLevel();
+    u8 GetBatteryLevel() const noexcept;
     void SetBatteryLevel(u8 batteryLevel);
 
     // 0-31
-    u8 GetVolumeLevel();
+    u8 GetVolumeLevel() const noexcept;
     void SetVolumeLevel(u8 volume);
 
     // 0-4
-    u8 GetBacklightLevel();
+    u8 GetBacklightLevel() const noexcept;
     void SetBacklightLevel(u8 backlight);
 
     void DoHardwareReset(bool direct);

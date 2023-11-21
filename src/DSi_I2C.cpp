@@ -125,13 +125,13 @@ inline bool DSi_BPTWL::GetIRQMode()
 
 u8 DSi_BPTWL::GetBootFlag() { return Registers[0x70]; }
 
-bool DSi_BPTWL::GetBatteryCharging() { return Registers[0x20] >> 7; }
+bool DSi_BPTWL::GetBatteryCharging() const noexcept { return Registers[0x20] >> 7; }
 void DSi_BPTWL::SetBatteryCharging(bool charging)
 {
     Registers[0x20] = (((charging ? 0x8 : 0x0) << 4) | (Registers[0x20] & 0x0F));
 }
 
-u8 DSi_BPTWL::GetBatteryLevel() { return Registers[0x20] & 0xF; }
+u8 DSi_BPTWL::GetBatteryLevel() const noexcept { return Registers[0x20] & 0xF; }
 void DSi_BPTWL::SetBatteryLevel(u8 batteryLevel)
 {
     Registers[0x20] = ((Registers[0x20] & 0xF0) | (batteryLevel & 0x0F));
@@ -144,13 +144,13 @@ void DSi_BPTWL::SetBatteryLevel(u8 batteryLevel)
 
 }
 
-u8 DSi_BPTWL::GetVolumeLevel() { return Registers[0x40]; }
+u8 DSi_BPTWL::GetVolumeLevel() const noexcept { return Registers[0x40]; }
 void DSi_BPTWL::SetVolumeLevel(u8 volume)
 {
     Registers[0x40] = volume & 0x1F;
 }
 
-u8 DSi_BPTWL::GetBacklightLevel() { return Registers[0x41]; }
+u8 DSi_BPTWL::GetBacklightLevel() const noexcept { return Registers[0x41]; }
 void DSi_BPTWL::SetBacklightLevel(u8 backlight)
 {
     Registers[0x41] = backlight > 4 ? 4 : backlight;
