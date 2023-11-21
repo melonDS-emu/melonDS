@@ -224,12 +224,19 @@ void NDS::InitTimings() noexcept
 
 bool NDS::NeedsDirectBoot() const noexcept
 {
-    // internal BIOS does not support direct boot
-    if (!Platform::GetConfigBool(Platform::ExternalBIOSEnable))
+    // internal firmware does not support direct boot
+    if (SPI.GetFirmware()->GetHeader().Identifier == GENERATED_FIRMWARE_IDENTIFIER)
         return true;
 
     // DSi/3DS firmwares aren't bootable
     if (!SPI.GetFirmware()->IsBootable())
+        return true;
+
+    // internal BIOS does not support direct boot
+    if (ARM7BIOS == bios_arm7_bin)
+        return true;
+
+    if (ARM9BIOS == bios_arm9_bin)
         return true;
 
     return false;
