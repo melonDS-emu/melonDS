@@ -50,6 +50,7 @@ using namespace Platform;
 
 DSi::DSi(NDSSysfileArguments&& ndsSysfiles, DSiSysfileArguments&& dsiSysfiles, const InitArguments& args) noexcept :
     NDS(std::move(ndsSysfiles), args, 1),
+    FullBIOSBoot(args.DSiFullBIOSBoot),
     ARM7iBIOS(dsiSysfiles.ARM7iBIOS),
     ARM9iBIOS(dsiSysfiles.ARM9iBIOS),
     NANDImage(std::move(dsiSysfiles.NANDImage)),
@@ -93,6 +94,8 @@ void DSi::Reset(InitArguments&& args) noexcept
     //ARM9.CP15Write(0x100, ARM9.CP15Read(0x100) | 0x00050000);
     NDS::Reset(std::move(args));
 
+    FullBIOSBoot = args.DSiFullBIOSBoot;
+
     KeyInput &= ~(1 << (16+6));
     MapSharedWRAM(3);
 
@@ -113,14 +116,7 @@ void DSi::Reset(InitArguments&& args) noexcept
 
     AES.Reset();
 
-    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
-    {
-        SCFG_BIOS = 0x0000;
-    }
-    else
-    {
-        SCFG_BIOS = 0x0101;
-    }
+    SCFG_BIOS = args.DSiFullBIOSBoot ? 0x0000 : 0x0101;
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
@@ -669,14 +665,7 @@ void DSi::SoftReset() noexcept
 
     AES.Reset();
 
-    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
-    {
-        SCFG_BIOS = 0x0000;
-    }
-    else
-    {
-        SCFG_BIOS = 0x0101;
-    }
+    SCFG_BIOS = FullBIOSBoot ? 0x0000 : 0x0101;
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
@@ -730,7 +719,7 @@ bool DSi::LoadNAND() noexcept
     memset(NWRAMMask, 0, sizeof(NWRAMMask));
 
     u32 bootparams[8];
-    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    if (FullBIOSBoot)
     {
         // TODO: figure out default MBK mapping
         // MBK1..5: disable mappings
@@ -868,7 +857,7 @@ bool DSi::LoadNAND() noexcept
     Log(LogLevel::Debug, "eMMC CID: %08llX%08llX\n", *(const u64*)&emmccid[0], *(const u64*)&emmccid[8]);
     Log(LogLevel::Debug, "Console ID: %" PRIx64 "\n", NANDImage.GetConsoleID());
 
-    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    if (FullBIOSBoot)
     {
         // point CPUs to boot ROM reset vectors
         ARM9.JumpTo(0xFFFF0000);

@@ -59,6 +59,7 @@ public:
 protected:
     void DoSavestateExtra(Savestate* file) noexcept override;
 public:
+    bool FullBIOSBoot;
     u16 SCFG_BIOS;
     u16 SCFG_Clock9;
     u32 SCFG_EXT[2];

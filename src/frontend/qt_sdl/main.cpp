@@ -251,7 +251,7 @@ std::unique_ptr<NDS> EmuThread::CreateConsole()
         .JIT = JITArgs,
         .GDBARM7 = GDBARM7,
         .GDBARM9 = GDBARM9,
-        .DSiFullBIOSBoot = false,
+        .DSiFullBIOSBoot = Config::DSiFullBIOSBoot,
         .AudioBitDepth = bitDepth,
     };
 

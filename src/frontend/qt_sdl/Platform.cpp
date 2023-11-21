@@ -219,8 +219,6 @@ bool GetConfigBool(ConfigEntry entry)
     case DSiSD_Enable: return Config::DSiSDEnable != 0;
     case DSiSD_ReadOnly: return Config::DSiSDReadOnly != 0;
     case DSiSD_FolderSync: return Config::DSiSDFolderSync != 0;
-
-    case DSi_FullBIOSBoot: return Config::DSiFullBIOSBoot != 0;
     }
 
     return false;

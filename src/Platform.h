@@ -111,8 +111,6 @@ enum [[deprecated("Use constructor parameters instead")]] ConfigEntry
     DSiSD_FolderPath,
 
     Firm_MAC,
-
-    DSi_FullBIOSBoot,
 };
 
 [[deprecated("Use constructor parameters instead")]] int GetConfigInt(ConfigEntry entry);
