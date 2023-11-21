@@ -43,7 +43,7 @@ u16 CRC16(const u8* data, u32 len, u32 start);
 
 class SPIHost;
 class NDS;
-class InitArguments;
+struct InitArguments;
 
 class SPIDevice
 {
