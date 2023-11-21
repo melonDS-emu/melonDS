@@ -1709,7 +1709,7 @@ bool DSi::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region) noexcept
                 return false;
             }
 
-            region->Mem = ARM9BIOS;
+            region->Mem = ARM9BIOS.data();
             region->Mask = 0xFFF;
         }
         else

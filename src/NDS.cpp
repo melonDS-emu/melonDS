@@ -760,12 +760,12 @@ void NDS::LoadBIOS() noexcept
 
 bool NDS::IsLoadedARM9BIOSBuiltIn() const noexcept
 {
-    return memcmp(NDS::ARM9BIOS, bios_arm9_bin, sizeof(ARM9BIOS)) == 0;
+    return ARM9BIOS == bios_arm9_bin;
 }
 
 bool NDS::IsLoadedARM7BIOSBuiltIn() const noexcept
 {
-    return memcmp(NDS::ARM7BIOS, bios_arm7_bin, sizeof(NDS::ARM7BIOS)) == 0;
+    return ARM7BIOS == bios_arm7_bin;
 }
 
 u64 NDS::NextTarget() noexcept
@@ -2178,7 +2178,7 @@ bool NDS::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region) noexcept
 
     if ((addr & 0xFFFFF000) == 0xFFFF0000 && !write)
     {
-        region->Mem = ARM9BIOS;
+        region->Mem = ARM9BIOS.data();
         region->Mask = 0xFFF;
         return true;
     }
@@ -2626,7 +2626,7 @@ bool NDS::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region) noexcept
     {
         if (ARM7.R[15] < 0x4000 && (addr >= ARM7BIOSProt || ARM7.R[15] < ARM7BIOSProt))
         {
-            region->Mem = ARM7BIOS;
+            region->Mem = ARM7BIOS.data();
             region->Mask = 0x3FFF;
             return true;
         }

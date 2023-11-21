@@ -281,8 +281,8 @@ public:
     u8 ROMSeed0[2*8];
     u8 ROMSeed1[2*8];
 
-    u8 ARM9BIOS[ARM9BIOSLength];
-    u8 ARM7BIOS[ARM7BIOSLength];
+    std::array<u8, ARM9BIOSLength> ARM9BIOS;
+    std::array<u8, ARM7BIOSLength> ARM7BIOS;
     u16 ARM7BIOSProt;
 
     u8* MainRAM;
