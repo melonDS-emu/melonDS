@@ -38,6 +38,7 @@
 #include "GPU.h"
 #include "ARMJIT.h"
 #include "DMA.h"
+#include "FreeBIOS.h"
 
 // when touching the main loop/timing code, pls test a lot of shit
 // with this enabled, to make sure it doesn't desync
@@ -221,6 +222,102 @@ public:
     NDS& operator=(const NDS&) = delete;
     NDS(NDS&&) = delete;
     NDS& operator=(NDS&&) = delete;
+
+protected:
+    explicit NDS(int type) noexcept;
+    virtual void DoSavestateExtra(Savestate* file) noexcept {}
+public:
+#ifdef JIT_ENABLED
+    bool EnableJIT = true;
+#endif
+    const int ConsoleType;
+    int CurCPU = 0;
+
+    u8 ARM9MemTimings[0x40000][8] {};
+    std::array<u32, 0x40000> ARM9Regions {};
+    u8 ARM7MemTimings[0x20000][4] {};
+    std::array<u32, 0x20000> ARM7Regions {};
+
+    u32 NumFrames = 0;
+    u32 NumLagFrames = 0;
+    bool LagFrameFlag = false;
+    u64 LastSysClockCycles = 0;
+    u64 FrameStartTimestamp = 0;
+
+    // no need to worry about those overflowing, they can keep going for atleast 4350 years
+    u64 ARM9Timestamp = 0, ARM9Target = 0;
+    u64 ARM7Timestamp = 0, ARM7Target = 0;
+    u32 ARM9ClockShift = 0;
+    u64 SysTimestamp = 0;
+
+    u32 IME[2] {};
+    u32 IE[2] {};
+    u32 IF[2] {};
+    u32 IE2 = 0;
+    u32 IF2 = 0;
+    Timer Timers[8] {};
+
+    std::array<SchedEvent, Event_MAX> SchedList {};
+    u32 SchedListMask = 0;
+    u32 CPUStop = 0;
+
+    u16 PowerControl9;
+
+    u16 ExMemCnt[2] {};
+
+    // TODO: these belong in NDSCart!
+    u8 ROMSeed0[2*8] {};
+    u8 ROMSeed1[2*8] {};
+
+    std::array<u8, ARM9BIOSLength> ARM9BIOS = bios_arm9_bin;
+    std::array<u8, ARM7BIOSLength> ARM7BIOS = bios_arm7_bin;
+    u16 ARM7BIOSProt = 0;
+
+    u8* MainRAM = nullptr;
+    u32 MainRAMMask = 0;
+    u8* SharedWRAM = nullptr;
+    u8 WRAMCnt = 0;
+
+    // putting them together so they're always next to each other
+    MemRegion SWRAM_ARM9 {};
+    MemRegion SWRAM_ARM7 {};
+
+    u32 KeyInput = 0;
+    u16 RCnt = 0;
+
+    u8* ARM7WRAM = nullptr;
+
+    u8 PostFlag9 = 0;
+    u8 PostFlag7 = 0;
+    u16 PowerControl7 = 0;
+
+    u16 WifiWaitCnt = 0;
+    u8 TimerCheckMask[2] {};
+    u64 TimerTimestamp[2] {};
+
+    u32 DMA9Fill[4] {};
+
+    u16 IPCSync9 = 0, IPCSync7 = 0;
+    u16 IPCFIFOCnt9 = 0, IPCFIFOCnt7 = 0;
+    FIFO<u32, 16> IPCFIFO9 {}; // FIFO in which the ARM9 writes
+    FIFO<u32, 16> IPCFIFO7 {};
+
+    u16 DivCnt = 0;
+    u32 DivNumerator[2] {};
+    u32 DivDenominator[2] {};
+    u32 DivQuotient[2] {};
+    u32 DivRemainder[2] {};
+
+    u16 SqrtCnt = 0;
+    u32 SqrtVal[2] {};
+    u32 SqrtRes = 0;
+
+    u16 KeyCnt[2] {};
+
+    bool Running = false;
+
+    bool RunningGame = false;
+
     // Keep these components in the same order (relative to each other),
     // as all constructors are run in the order of member declaration.
     // (regardless of the order that they're listed in the constructor's initializer)
@@ -236,98 +333,6 @@ public:
     ARMv5 ARM9;
     ARMv4 ARM7;
     std::array<DMA, 8> DMAs;
-
-protected:
-    explicit NDS(int type) noexcept;
-    virtual void DoSavestateExtra(Savestate* file) noexcept {}
-public:
-#ifdef JIT_ENABLED
-    bool EnableJIT;
-#endif
-    const int ConsoleType;
-    int CurCPU;
-
-    u8 ARM9MemTimings[0x40000][8];
-    std::array<u32, 0x40000> ARM9Regions;
-    u8 ARM7MemTimings[0x20000][4];
-    std::array<u32, 0x20000> ARM7Regions;
-
-    u32 NumFrames;
-    u32 NumLagFrames;
-    bool LagFrameFlag;
-    u64 LastSysClockCycles;
-    u64 FrameStartTimestamp;
-
-    // no need to worry about those overflowing, they can keep going for atleast 4350 years
-    u64 ARM9Timestamp, ARM9Target;
-    u64 ARM7Timestamp, ARM7Target;
-    u32 ARM9ClockShift;
-    u64 SysTimestamp;
-
-    u32 IME[2];
-    u32 IE[2];
-    u32 IF[2];
-    u32 IE2;
-    u32 IF2;
-    Timer Timers[8];
-
-    std::array<SchedEvent, Event_MAX> SchedList;
-    u32 SchedListMask;
-    u32 CPUStop;
-
-    u16 PowerControl9;
-
-    u16 ExMemCnt[2];
-    u8 ROMSeed0[2*8];
-    u8 ROMSeed1[2*8];
-
-    std::array<u8, ARM9BIOSLength> ARM9BIOS;
-    std::array<u8, ARM7BIOSLength> ARM7BIOS;
-    u16 ARM7BIOSProt;
-
-    u8* MainRAM;
-    u32 MainRAMMask;
-    u8* SharedWRAM;
-    u8 WRAMCnt;
-
-    MemRegion SWRAM_ARM9;
-    MemRegion SWRAM_ARM7;
-
-    u32 KeyInput;
-    u16 RCnt;
-
-    u8* ARM7WRAM;
-
-    u8 PostFlag9;
-    u8 PostFlag7;
-    u16 PowerControl7;
-
-    u16 WifiWaitCnt;
-    u8 TimerCheckMask[2];
-    u64 TimerTimestamp[2];
-
-    u32 DMA9Fill[4];
-
-    u16 IPCSync9, IPCSync7;
-    u16 IPCFIFOCnt9, IPCFIFOCnt7;
-    FIFO<u32, 16> IPCFIFO9; // FIFO in which the ARM9 writes
-    FIFO<u32, 16> IPCFIFO7;
-
-    u16 DivCnt;
-    u32 DivNumerator[2];
-    u32 DivDenominator[2];
-    u32 DivQuotient[2];
-    u32 DivRemainder[2];
-
-    u16 SqrtCnt;
-    u32 SqrtVal[2];
-    u32 SqrtRes;
-
-    u16 KeyCnt[2];
-
-    bool Running;
-
-    bool RunningGame;
 public:
     virtual void Reset() noexcept;
     void Start() noexcept;
