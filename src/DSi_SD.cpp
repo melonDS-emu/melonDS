@@ -157,8 +157,8 @@ void DSi_SDHost::Reset()
         else
             sd = nullptr;
 
-        mmc = new DSi_MMCStorage(DSi, this, *DSi.NANDImage);
-        mmc->SetCID(DSi.NANDImage->GetEMMCID().data());
+        mmc = new DSi_MMCStorage(DSi, this, DSi.NANDImage);
+        mmc->SetCID(DSi.NANDImage.GetEMMCID().data());
 
         Ports[0] = sd;
         Ports[1] = mmc;

@@ -528,13 +528,12 @@ void TSC::Write(u8 val)
 
 
 
-SPIHost::SPIHost(InitArguments&& args, melonDS::NDS& nds) : NDS(nds)
+SPIHost::SPIHost(Firmware&& firmware, melonDS::NDS& nds) : NDS(nds)
 {
     NDS.RegisterEventFunc(NDS::Event_SPITransfer, 0, MemberEventFunc(SPIHost, TransferDone));
 
-    Devices[SPIDevice_FirmwareMem] = new FirmwareMem(args.Firmware ? std::move(*args.Firmware) : Firmware(0), NDS);
+    Devices[SPIDevice_FirmwareMem] = new FirmwareMem(std::move(firmware), NDS);
     Devices[SPIDevice_PowerMan] = new PowerMan(NDS);
-    args.Firmware = std::nullopt; // std::move from an optional doesn't set it to nullopt, so we do
 
     // Must not be a dynamic_cast; this constructor is running in the middle of NDS's constructor,
     // which is called before DSi's constructor, so the DSi object isn't fully constructed yet.

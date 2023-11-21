@@ -75,21 +75,21 @@ const s32 kIterationCycleMargin = 8;
 
 NDS* NDS::Current = nullptr;
 
-NDS::NDS(InitArguments&& args, int type) noexcept :
+NDS::NDS(NDSSysfileArguments&& sysfiles, const InitArguments& args, int type) noexcept :
     ConsoleType(type),
-    ARM9BIOS(args.BIOS ? args.BIOS->ARM9BIOS : bios_arm9_bin),
-    ARM7BIOS(args.BIOS ? args.BIOS->ARM7BIOS : bios_arm7_bin),
+    ARM9BIOS(sysfiles.ARM9BIOS),
+    ARM7BIOS(sysfiles.ARM7BIOS),
     JIT(*this, args.JIT),
     SPU(*this),
     GPU(*this),
-    SPI(std::move(args), *this),
+    SPI(std::move(sysfiles.Firmware), *this),
     RTC(*this),
     Wifi(*this),
     NDSCartSlot(*this),
     GBACartSlot(),
     AREngine(*this),
-    ARM9(args.GDBARM9, args.JIT.has_value(), *this),
-    ARM7(args.GDBARM7, args.JIT.has_value(), *this),
+    ARM9(args, *this),
+    ARM7(args, *this),
     DMAs {
         DMA(0, 0, *this),
         DMA(0, 1, *this),

@@ -29,7 +29,9 @@
 
 namespace melonDS
 {
-class InitArguments;
+struct InitArguments;
+struct NDSSysfileArguments;
+struct DSiSysfileArguments;
 namespace DSi_NAND
 {
     class NANDImage;
@@ -38,7 +40,7 @@ namespace DSi_NAND
 class DSi final : public NDS
 {
 public:
-    DSi(InitArguments&& args) noexcept;
+    DSi(NDSSysfileArguments&& ndsSysfiles, DSiSysfileArguments&& dsiSysfiles, const InitArguments& args) noexcept;
     ~DSi() noexcept override;
     DSi(const DSi&) = delete;
     DSi& operator=(const DSi&) = delete;
@@ -76,7 +78,7 @@ public:
     u32 NWRAMEnd[2][3];
     u32 NWRAMMask[2][3];
 
-    std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
+    DSi_NAND::NANDImage NANDImage;
     DSi_SDHost SDMMC;
     DSi_SDHost SDIO;
     DSi_I2CHost I2C;

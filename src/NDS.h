@@ -217,7 +217,7 @@ public:
     // The frontend should set and unset this manually after creating and destroying the NDS object.
     [[deprecated("Temporary workaround until JIT code generation is revised to accommodate multiple NDS objects.")]] static NDS* Current;
 
-    NDS(InitArguments&& args) noexcept : NDS(std::move(args), 0) {}
+    NDS(NDSSysfileArguments&& sysfiles, const InitArguments& args) noexcept : NDS(std::move(sysfiles), args, 0) {}
     virtual ~NDS() noexcept;
     NDS(const NDS&) = delete;
     NDS& operator=(const NDS&) = delete;
@@ -225,7 +225,7 @@ public:
     NDS& operator=(NDS&&) = delete;
 
 protected:
-    explicit NDS(InitArguments&& args, int type) noexcept;
+    explicit NDS(NDSSysfileArguments&& sysfiles, const InitArguments& args, int type) noexcept;
     virtual void DoSavestateExtra(Savestate* file) noexcept {}
 public:
 #ifdef JIT_ENABLED

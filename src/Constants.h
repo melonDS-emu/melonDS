@@ -28,6 +28,7 @@ constexpr u32 ARM7WRAMSize = 0x10000;
 constexpr u32 DSiNWRAMSize = 0x40000;
 constexpr u32 ARM9BIOSLength = 0x1000;
 constexpr u32 ARM7BIOSLength = 0x4000;
+constexpr u32 DSiBIOSLength = 0x10000;
 
 // matching NDMA modes for DSi
 constexpr u32 NDMAModes[] =

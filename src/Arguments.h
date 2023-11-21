@@ -68,36 +68,21 @@ struct NDSSysfileArguments
 {
     std::array<u8, ARM9BIOSLength> ARM9BIOS = bios_arm9_bin;
     std::array<u8, ARM7BIOSLength> ARM7BIOS = bios_arm7_bin;
-    std::optional<Firmware> Firmware = std::nullopt;
-
-    std::unique_ptr<u8[]> DSiBIOS7 = nullptr;
-    std::unique_ptr<u8[]> DSiBIOS9 = nullptr;
-    std::optional<DSi_NAND::NANDImage> DSiNAND = std::nullopt;
-};
-
-struct BIOSArguments
-{
-    std::array<u8, ARM9BIOSLength> ARM9BIOS = bios_arm9_bin;
-    std::array<u8, ARM7BIOSLength> ARM7BIOS = bios_arm7_bin;
-
-    /// The ARM9 BIOS image for the DSi.
-    /// Must be provided in DSi mode.
-    std::array<u8, 0x10000> ARM9iBIOS {};
-
-    /// The ARM7 BIOS image for the DSi.
-    std::array<u8, 0x10000> ARM7iBIOS {};
+    Firmware Firmware;
+    std::unique_ptr<FATStorage> DLDISDCard;
 };
 
 struct DSiSysfileArguments
 {
     /// The ARM9 BIOS image for the DSi.
     /// Must be provided in DSi mode.
-    std::array<u8, 0x10000> ARM9iBIOS {};
+    std::array<u8, DSiBIOSLength> ARM9iBIOS {};
 
     /// The ARM7 BIOS image for the DSi.
-    std::array<u8, 0x10000> ARM7iBIOS {};
+    std::array<u8, DSiBIOSLength> ARM7iBIOS {};
 
-    std::optional<DSi_NAND::NANDImage> DSiNAND = std::nullopt;
+    DSi_NAND::NANDImage NANDImage;
+    std::unique_ptr<FATStorage> DSiSDCard = nullptr;
 };
 
 /// Arguments that can be set when constructing a NDS or DSi.
@@ -109,10 +94,6 @@ struct InitArguments
     /// Ignored in builds without JIT support.
     /// Cannot be adjusted on a live NDS; you will need to destroy it and create a new one.
     std::optional<JITArguments> JIT = std::make_optional<JITArguments>();
-
-    std::optional<BIOSArguments> BIOS = std::make_optional<BIOSArguments>();
-    std::optional<Firmware> Firmware = std::nullopt;
-    std::optional<DSi_NAND::NANDImage> NANDImage = std::nullopt;
 
     /// Arguments for initializing GDB support
     /// Ignored if GDB support is excluded from the build
@@ -127,8 +108,6 @@ struct InitArguments
     /// Ignored if initializing a DSi.
     std::unique_ptr<GBACart::CartCommon> GBAROM = nullptr;
 
-    std::unique_ptr<FATStorage> DLDISDCard = nullptr;
-    std::unique_ptr<FATStorage> DSiSDCard = nullptr;
 
     int AudioBitDepth;
     bool DSiFullBIOSBoot = false;

@@ -144,7 +144,7 @@ protected:
 class SPIHost
 {
 public:
-    SPIHost(InitArguments&& args, melonDS::NDS& nds);
+    SPIHost(Firmware&& firmware, melonDS::NDS& nds);
     ~SPIHost();
     void Reset();
     void DoSavestate(Savestate* file);
