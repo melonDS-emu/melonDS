@@ -59,11 +59,6 @@ struct GDBArguments
     bool BreakOnStartup = false;
 };
 
-struct SDCardArguments
-{
-    std::unique_ptr<FATStorage> SDCard;
-};
-
 struct NDSSysfileArguments
 {
     std::array<u8, ARM9BIOSLength> ARM9BIOS = bios_arm9_bin;
