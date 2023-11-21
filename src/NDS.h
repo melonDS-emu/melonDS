@@ -261,7 +261,7 @@ public:
     u32 SchedListMask = 0;
     u32 CPUStop = 0;
 
-    u16 PowerControl9;
+    u16 PowerControl9 = 0;
 
     u16 ExMemCnt[2] {};
 
