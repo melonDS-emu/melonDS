@@ -76,15 +76,15 @@ NDS* NDS::Current = nullptr;
 
 NDS::NDS(int type) noexcept :
     ConsoleType(type),
+    JIT(*this),
     SPU(*this),
+    GPU(*this),
     SPI(*this),
     RTC(*this),
     Wifi(*this),
     NDSCartSlot(*this),
     GBACartSlot(),
     AREngine(*this),
-    JIT(*this),
-    GPU(*this),
     ARM9(*this),
     ARM7(*this),
     DMAs {
