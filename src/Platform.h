@@ -109,14 +109,11 @@ enum [[deprecated("Use constructor parameters instead")]] ConfigEntry
     DSiSD_ReadOnly,
     DSiSD_FolderSync,
     DSiSD_FolderPath,
-
-    Firm_MAC,
 };
 
 [[deprecated("Use constructor parameters instead")]] int GetConfigInt(ConfigEntry entry);
 [[deprecated("Use constructor parameters instead")]] bool GetConfigBool(ConfigEntry entry);
 [[deprecated("Use constructor parameters instead")]] std::string GetConfigString(ConfigEntry entry);
-[[deprecated("Use constructor parameters instead")]] bool GetConfigArray(ConfigEntry entry, void* data);
 
 /**
  * Denotes how a file will be opened and accessed.

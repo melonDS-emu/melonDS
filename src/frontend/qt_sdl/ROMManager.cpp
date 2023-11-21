@@ -1159,14 +1159,10 @@ void CustomizeFirmware(Firmware& firmware) noexcept
 
     memcpy(&mac, header.MacAddr.data(), sizeof(MacAddress));
 
-
-    MacAddress configuredMac;
-    rep = Platform::GetConfigArray(Platform::Firm_MAC, &configuredMac);
-    rep &= (configuredMac != MacAddress());
-
-    if (rep)
+    if (std::optional<MacAddress> configuredMac = Config::ParseMacAddress(Config::FirmwareMAC))
     {
-        mac = configuredMac;
+        rep = true;
+        mac = *configuredMac;
     }
 
     int inst = Platform::InstanceID();

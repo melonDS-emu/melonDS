@@ -477,4 +477,33 @@ void Save()
     CloseFile(f);
 }
 
+std::optional<MacAddress> ParseMacAddress(const std::string& str) noexcept
+{
+    MacAddress mac_out;
+
+    int o = 0;
+    u8 tmp = 0;
+    for (int i = 0; i < 18; i++)
+    {
+        char c = str[i];
+        if (c == '\0') break;
+
+        int n;
+        if      (c >= '0' && c <= '9') n = c - '0';
+        else if (c >= 'a' && c <= 'f') n = c - 'a' + 10;
+        else if (c >= 'A' && c <= 'F') n = c - 'A' + 10;
+        else continue;
+
+        if (!(o & 1))
+            tmp = n;
+        else
+            mac_out[o >> 1] = n | (tmp << 4);
+
+        o++;
+        if (o >= 12) return mac_out;
+    }
+
+    return std::nullopt;
+}
+
 }

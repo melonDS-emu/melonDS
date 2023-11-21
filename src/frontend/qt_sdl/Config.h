@@ -21,7 +21,8 @@
 
 #include <variant>
 #include <string>
-
+#include "SPI_Firmware.h"
+#include <optional>
 enum
 {
     HK_Lid = 0,
@@ -204,6 +205,7 @@ extern bool GdbARM9BreakOnStartup;
 
 void Load();
 void Save();
+std::optional<melonDS::MacAddress> ParseMacAddress(const std::string& str) noexcept;
 
 }
 
