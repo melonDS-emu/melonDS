@@ -46,7 +46,7 @@ constexpr bool FastMemoryDefault = false;
 
 struct JITArguments
 {
-    bool Enabled;
+    bool Enabled = true;
     int MaxBlockSize = 32;
     bool LiteralOptimisations = true;
     bool BranchOptimisations = true;
