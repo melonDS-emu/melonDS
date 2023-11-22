@@ -47,6 +47,7 @@ public:
 
     u32 ReadSectors(u32 start, u32 num, u8* data);
     u32 WriteSectors(u32 start, u32 num, u8* data);
+    [[nodiscard]] bool IsReadOnly() const noexcept { return ReadOnly; }
 
 private:
     std::string FilePath;
