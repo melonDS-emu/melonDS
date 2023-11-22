@@ -965,10 +965,10 @@ u32 NDS::RunFrame() noexcept
                 }
                 else if (CPUStop & CPUStop_DMA9)
                 {
-                    DMAs[0].Run<ConsoleType>();
-                    if (!(CPUStop & CPUStop_GXStall)) DMAs[1].Run<ConsoleType>();
-                    if (!(CPUStop & CPUStop_GXStall)) DMAs[2].Run<ConsoleType>();
-                    if (!(CPUStop & CPUStop_GXStall)) DMAs[3].Run<ConsoleType>();
+                    DMAs[0].Run();
+                    if (!(CPUStop & CPUStop_GXStall)) DMAs[1].Run();
+                    if (!(CPUStop & CPUStop_GXStall)) DMAs[2].Run();
+                    if (!(CPUStop & CPUStop_GXStall)) DMAs[3].Run();
                     if (ConsoleType == 1)
                     {
                         auto& dsi = dynamic_cast<melonDS::DSi&>(*this);
@@ -997,10 +997,10 @@ u32 NDS::RunFrame() noexcept
 
                     if (CPUStop & CPUStop_DMA7)
                     {
-                        DMAs[4].Run<ConsoleType>();
-                        DMAs[5].Run<ConsoleType>();
-                        DMAs[6].Run<ConsoleType>();
-                        DMAs[7].Run<ConsoleType>();
+                        DMAs[4].Run();
+                        DMAs[5].Run();
+                        DMAs[6].Run();
+                        DMAs[7].Run();
                         if (ConsoleType == 1)
                         {
                             auto& dsi = dynamic_cast<melonDS::DSi&>(*this);
@@ -2781,14 +2781,14 @@ u16 NDS::ARM9IORead16(u32 addr) noexcept
     case 0x04000064:
     case 0x04000066: return GPU.GPU2D_A.Read16(addr);
 
-    case 0x040000B8: return DMAs[0].Cnt & 0xFFFF;
-    case 0x040000BA: return DMAs[0].Cnt >> 16;
-    case 0x040000C4: return DMAs[1].Cnt & 0xFFFF;
-    case 0x040000C6: return DMAs[1].Cnt >> 16;
-    case 0x040000D0: return DMAs[2].Cnt & 0xFFFF;
-    case 0x040000D2: return DMAs[2].Cnt >> 16;
-    case 0x040000DC: return DMAs[3].Cnt & 0xFFFF;
-    case 0x040000DE: return DMAs[3].Cnt >> 16;
+    case 0x040000B8: return DMAs[0].GetCnt() & 0xFFFF;
+    case 0x040000BA: return DMAs[0].GetCnt() >> 16;
+    case 0x040000C4: return DMAs[1].GetCnt() & 0xFFFF;
+    case 0x040000C6: return DMAs[1].GetCnt() >> 16;
+    case 0x040000D0: return DMAs[2].GetCnt() & 0xFFFF;
+    case 0x040000D2: return DMAs[2].GetCnt() >> 16;
+    case 0x040000DC: return DMAs[3].GetCnt() & 0xFFFF;
+    case 0x040000DE: return DMAs[3].GetCnt() >> 16;
 
     case 0x040000E0: return ((u16*)DMA9Fill)[0];
     case 0x040000E2: return ((u16*)DMA9Fill)[1];
@@ -2926,18 +2926,18 @@ u32 NDS::ARM9IORead32(u32 addr) noexcept
     case 0x04000060: return GPU.GPU3D.Read32(addr);
     case 0x04000064: return GPU.GPU2D_A.Read32(addr);
 
-    case 0x040000B0: return DMAs[0].SrcAddr;
-    case 0x040000B4: return DMAs[0].DstAddr;
-    case 0x040000B8: return DMAs[0].Cnt;
-    case 0x040000BC: return DMAs[1].SrcAddr;
-    case 0x040000C0: return DMAs[1].DstAddr;
-    case 0x040000C4: return DMAs[1].Cnt;
-    case 0x040000C8: return DMAs[2].SrcAddr;
-    case 0x040000CC: return DMAs[2].DstAddr;
-    case 0x040000D0: return DMAs[2].Cnt;
-    case 0x040000D4: return DMAs[3].SrcAddr;
-    case 0x040000D8: return DMAs[3].DstAddr;
-    case 0x040000DC: return DMAs[3].Cnt;
+    case 0x040000B0: return DMAs[0].GetSrcAddr();
+    case 0x040000B4: return DMAs[0].GetDstAddr();
+    case 0x040000B8: return DMAs[0].GetCnt();
+    case 0x040000BC: return DMAs[1].GetSrcAddr();
+    case 0x040000C0: return DMAs[1].GetDstAddr();
+    case 0x040000C4: return DMAs[1].GetCnt();
+    case 0x040000C8: return DMAs[2].GetSrcAddr();
+    case 0x040000CC: return DMAs[2].GetDstAddr();
+    case 0x040000D0: return DMAs[2].GetCnt();
+    case 0x040000D4: return DMAs[3].GetSrcAddr();
+    case 0x040000D8: return DMAs[3].GetDstAddr();
+    case 0x040000DC: return DMAs[3].GetCnt();
 
     case 0x040000E0: return DMA9Fill[0];
     case 0x040000E4: return DMA9Fill[1];
@@ -3156,14 +3156,14 @@ void NDS::ARM9IOWrite16(u32 addr, u16 val) noexcept
     case 0x0400006C: GPU.GPU2D_A.Write16(addr, val); return;
     case 0x0400106C: GPU.GPU2D_B.Write16(addr, val); return;
 
-    case 0x040000B8: DMAs[0].WriteCnt((DMAs[0].Cnt & 0xFFFF0000) | val); return;
-    case 0x040000BA: DMAs[0].WriteCnt((DMAs[0].Cnt & 0x0000FFFF) | (val << 16)); return;
-    case 0x040000C4: DMAs[1].WriteCnt((DMAs[1].Cnt & 0xFFFF0000) | val); return;
-    case 0x040000C6: DMAs[1].WriteCnt((DMAs[1].Cnt & 0x0000FFFF) | (val << 16)); return;
-    case 0x040000D0: DMAs[2].WriteCnt((DMAs[2].Cnt & 0xFFFF0000) | val); return;
-    case 0x040000D2: DMAs[2].WriteCnt((DMAs[2].Cnt & 0x0000FFFF) | (val << 16)); return;
-    case 0x040000DC: DMAs[3].WriteCnt((DMAs[3].Cnt & 0xFFFF0000) | val); return;
-    case 0x040000DE: DMAs[3].WriteCnt((DMAs[3].Cnt & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000B8: DMAs[0].WriteCnt((DMAs[0].GetCnt() & 0xFFFF0000) | val); return;
+    case 0x040000BA: DMAs[0].WriteCnt((DMAs[0].GetCnt() & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000C4: DMAs[1].WriteCnt((DMAs[1].GetCnt() & 0xFFFF0000) | val); return;
+    case 0x040000C6: DMAs[1].WriteCnt((DMAs[1].GetCnt() & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000D0: DMAs[2].WriteCnt((DMAs[2].GetCnt() & 0xFFFF0000) | val); return;
+    case 0x040000D2: DMAs[2].WriteCnt((DMAs[2].GetCnt() & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000DC: DMAs[3].WriteCnt((DMAs[3].GetCnt() & 0xFFFF0000) | val); return;
+    case 0x040000DE: DMAs[3].WriteCnt((DMAs[3].GetCnt() & 0x0000FFFF) | (val << 16)); return;
 
     case 0x040000E0: DMA9Fill[0] = (DMA9Fill[0] & 0xFFFF0000) | val; return;
     case 0x040000E2: DMA9Fill[0] = (DMA9Fill[0] & 0x0000FFFF) | (val << 16); return;
@@ -3341,17 +3341,17 @@ void NDS::ARM9IOWrite32(u32 addr, u32 val) noexcept
     case 0x0400006C: GPU.GPU2D_A.Write16(addr, val&0xFFFF); return;
     case 0x0400106C: GPU.GPU2D_B.Write16(addr, val&0xFFFF); return;
 
-    case 0x040000B0: DMAs[0].SrcAddr = val; return;
-    case 0x040000B4: DMAs[0].DstAddr = val; return;
+    case 0x040000B0: DMAs[0].SetSrcAddr(val); return;
+    case 0x040000B4: DMAs[0].SetDstAddr(val); return;
     case 0x040000B8: DMAs[0].WriteCnt(val); return;
-    case 0x040000BC: DMAs[1].SrcAddr = val; return;
-    case 0x040000C0: DMAs[1].DstAddr = val; return;
+    case 0x040000BC: DMAs[1].SetSrcAddr(val); return;
+    case 0x040000C0: DMAs[1].SetDstAddr(val); return;
     case 0x040000C4: DMAs[1].WriteCnt(val); return;
-    case 0x040000C8: DMAs[2].SrcAddr = val; return;
-    case 0x040000CC: DMAs[2].DstAddr = val; return;
+    case 0x040000C8: DMAs[2].SetSrcAddr(val); return;
+    case 0x040000CC: DMAs[2].SetDstAddr(val); return;
     case 0x040000D0: DMAs[2].WriteCnt(val); return;
-    case 0x040000D4: DMAs[3].SrcAddr = val; return;
-    case 0x040000D8: DMAs[3].DstAddr = val; return;
+    case 0x040000D4: DMAs[3].SetSrcAddr(val); return;
+    case 0x040000D8: DMAs[3].SetDstAddr(val); return;
     case 0x040000DC: DMAs[3].WriteCnt(val); return;
 
     case 0x040000E0: DMA9Fill[0] = val; return;
@@ -3605,14 +3605,14 @@ u16 NDS::ARM7IORead16(u32 addr) noexcept
     case 0x04000004: return GPU.DispStat[1];
     case 0x04000006: return GPU.VCount;
 
-    case 0x040000B8: return DMAs[4].Cnt & 0xFFFF;
-    case 0x040000BA: return DMAs[4].Cnt >> 16;
-    case 0x040000C4: return DMAs[5].Cnt & 0xFFFF;
-    case 0x040000C6: return DMAs[5].Cnt >> 16;
-    case 0x040000D0: return DMAs[6].Cnt & 0xFFFF;
-    case 0x040000D2: return DMAs[6].Cnt >> 16;
-    case 0x040000DC: return DMAs[7].Cnt & 0xFFFF;
-    case 0x040000DE: return DMAs[7].Cnt >> 16;
+    case 0x040000B8: return DMAs[4].GetCnt() & 0xFFFF;
+    case 0x040000BA: return DMAs[4].GetCnt() >> 16;
+    case 0x040000C4: return DMAs[5].GetCnt() & 0xFFFF;
+    case 0x040000C6: return DMAs[5].GetCnt() >> 16;
+    case 0x040000D0: return DMAs[6].GetCnt() & 0xFFFF;
+    case 0x040000D2: return DMAs[6].GetCnt() >> 16;
+    case 0x040000DC: return DMAs[7].GetCnt() & 0xFFFF;
+    case 0x040000DE: return DMAs[7].GetCnt() >> 16;
 
     case 0x04000100: return TimerGetCounter(4);
     case 0x04000102: return Timers[4].Cnt;
@@ -3698,18 +3698,18 @@ u32 NDS::ARM7IORead32(u32 addr) noexcept
     {
     case 0x04000004: return GPU.DispStat[1] | (GPU.VCount << 16);
 
-    case 0x040000B0: return DMAs[4].SrcAddr;
-    case 0x040000B4: return DMAs[4].DstAddr;
-    case 0x040000B8: return DMAs[4].Cnt;
-    case 0x040000BC: return DMAs[5].SrcAddr;
-    case 0x040000C0: return DMAs[5].DstAddr;
-    case 0x040000C4: return DMAs[5].Cnt;
-    case 0x040000C8: return DMAs[6].SrcAddr;
-    case 0x040000CC: return DMAs[6].DstAddr;
-    case 0x040000D0: return DMAs[6].Cnt;
-    case 0x040000D4: return DMAs[7].SrcAddr;
-    case 0x040000D8: return DMAs[7].DstAddr;
-    case 0x040000DC: return DMAs[7].Cnt;
+    case 0x040000B0: return DMAs[4].GetSrcAddr();
+    case 0x040000B4: return DMAs[4].GetDstAddr();
+    case 0x040000B8: return DMAs[4].GetCnt();
+    case 0x040000BC: return DMAs[5].GetSrcAddr();
+    case 0x040000C0: return DMAs[5].GetDstAddr();
+    case 0x040000C4: return DMAs[5].GetCnt();
+    case 0x040000C8: return DMAs[6].GetSrcAddr();
+    case 0x040000CC: return DMAs[6].GetDstAddr();
+    case 0x040000D0: return DMAs[6].GetCnt();
+    case 0x040000D4: return DMAs[7].GetSrcAddr();
+    case 0x040000D8: return DMAs[7].GetDstAddr();
+    case 0x040000DC: return DMAs[7].GetCnt();
 
     case 0x04000100: return TimerGetCounter(4) | (Timers[4].Cnt << 16);
     case 0x04000104: return TimerGetCounter(5) | (Timers[5].Cnt << 16);
@@ -3877,14 +3877,14 @@ void NDS::ARM7IOWrite16(u32 addr, u16 val) noexcept
     case 0x04000004: GPU.SetDispStat(1, val); return;
     case 0x04000006: GPU.SetVCount(val); return;
 
-    case 0x040000B8: DMAs[4].WriteCnt((DMAs[4].Cnt & 0xFFFF0000) | val); return;
-    case 0x040000BA: DMAs[4].WriteCnt((DMAs[4].Cnt & 0x0000FFFF) | (val << 16)); return;
-    case 0x040000C4: DMAs[5].WriteCnt((DMAs[5].Cnt & 0xFFFF0000) | val); return;
-    case 0x040000C6: DMAs[5].WriteCnt((DMAs[5].Cnt & 0x0000FFFF) | (val << 16)); return;
-    case 0x040000D0: DMAs[6].WriteCnt((DMAs[6].Cnt & 0xFFFF0000) | val); return;
-    case 0x040000D2: DMAs[6].WriteCnt((DMAs[6].Cnt & 0x0000FFFF) | (val << 16)); return;
-    case 0x040000DC: DMAs[7].WriteCnt((DMAs[7].Cnt & 0xFFFF0000) | val); return;
-    case 0x040000DE: DMAs[7].WriteCnt((DMAs[7].Cnt & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000B8: DMAs[4].WriteCnt((DMAs[4].GetCnt() & 0xFFFF0000) | val); return;
+    case 0x040000BA: DMAs[4].WriteCnt((DMAs[4].GetCnt() & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000C4: DMAs[5].WriteCnt((DMAs[5].GetCnt() & 0xFFFF0000) | val); return;
+    case 0x040000C6: DMAs[5].WriteCnt((DMAs[5].GetCnt() & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000D0: DMAs[6].WriteCnt((DMAs[6].GetCnt() & 0xFFFF0000) | val); return;
+    case 0x040000D2: DMAs[6].WriteCnt((DMAs[6].GetCnt() & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000DC: DMAs[7].WriteCnt((DMAs[7].GetCnt() & 0xFFFF0000) | val); return;
+    case 0x040000DE: DMAs[7].WriteCnt((DMAs[7].GetCnt() & 0x0000FFFF) | (val << 16)); return;
 
     case 0x04000100: Timers[4].Reload = val; return;
     case 0x04000102: TimerStart(4, val); return;
@@ -4034,17 +4034,17 @@ void NDS::ARM7IOWrite32(u32 addr, u32 val) noexcept
         GPU.SetVCount(val >> 16);
         return;
 
-    case 0x040000B0: DMAs[4].SrcAddr = val; return;
-    case 0x040000B4: DMAs[4].DstAddr = val; return;
+    case 0x040000B0: DMAs[4].SetSrcAddr(val); return;
+    case 0x040000B4: DMAs[4].SetDstAddr(val); return;
     case 0x040000B8: DMAs[4].WriteCnt(val); return;
-    case 0x040000BC: DMAs[5].SrcAddr = val; return;
-    case 0x040000C0: DMAs[5].DstAddr = val; return;
+    case 0x040000BC: DMAs[5].SetSrcAddr(val); return;
+    case 0x040000C0: DMAs[5].SetDstAddr(val); return;
     case 0x040000C4: DMAs[5].WriteCnt(val); return;
-    case 0x040000C8: DMAs[6].SrcAddr = val; return;
-    case 0x040000CC: DMAs[6].DstAddr = val; return;
+    case 0x040000C8: DMAs[6].SetSrcAddr(val); return;
+    case 0x040000CC: DMAs[6].SetDstAddr(val); return;
     case 0x040000D0: DMAs[6].WriteCnt(val); return;
-    case 0x040000D4: DMAs[7].SrcAddr = val; return;
-    case 0x040000D8: DMAs[7].DstAddr = val; return;
+    case 0x040000D4: DMAs[7].SetSrcAddr(val); return;
+    case 0x040000D8: DMAs[7].SetDstAddr(val); return;
     case 0x040000DC: DMAs[7].WriteCnt(val); return;
 
     case 0x04000100:

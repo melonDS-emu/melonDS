@@ -41,25 +41,20 @@ public:
     void WriteCnt(u32 val);
     void Start();
 
-    u32 UnitTimings9_16(bool burststart);
-    u32 UnitTimings9_32(bool burststart);
-    u32 UnitTimings7_16(bool burststart);
-    u32 UnitTimings7_32(bool burststart);
-
-    template <int ConsoleType>
     void Run();
 
-    template <int ConsoleType>
-    void Run9();
-    template <int ConsoleType>
-    void Run7();
-
-    bool IsInMode(u32 mode) const noexcept
+    [[nodiscard]] bool IsInMode(u32 mode) const noexcept
     {
         return ((mode == StartMode) && (Cnt & 0x80000000));
     }
 
-    bool IsRunning() const noexcept { return Running!=0; }
+    [[nodiscard]] bool IsRunning() const noexcept { return Running!=0; }
+
+    [[nodiscard]] u32 GetCnt() const noexcept { return Cnt; }
+    [[nodiscard]] u32 GetSrcAddr() const noexcept { return SrcAddr; }
+    void SetSrcAddr(u32 srcaddr) noexcept { SrcAddr = srcaddr; }
+    [[nodiscard]] u32 GetDstAddr() const noexcept { return DstAddr; }
+    void SetDstAddr(u32 dstaddr) noexcept { DstAddr = dstaddr; }
 
     void StartIfNeeded(u32 mode)
     {
@@ -78,34 +73,40 @@ public:
         if (Executing) Stall = true;
     }
 
-    u32 SrcAddr {};
-    u32 DstAddr {};
-    u32 Cnt {};
-
 private:
+    void Run9();
+    void Run7();
+    u32 UnitTimings9_16(bool burststart);
+    u32 UnitTimings9_32(bool burststart);
+    u32 UnitTimings7_16(bool burststart);
+    u32 UnitTimings7_32(bool burststart);
+
     melonDS::NDS& NDS;
-    u32 CPU {};
-    u32 Num {};
+    u32 CPU;
+    u32 Num;
 
-    u32 StartMode {};
-    u32 CurSrcAddr {};
-    u32 CurDstAddr {};
-    u32 RemCount {};
-    u32 IterCount {};
-    s32 SrcAddrInc {};
-    s32 DstAddrInc {};
-    u32 CountMask {};
+    u32 SrcAddr = 0;
+    u32 DstAddr = 0;
+    u32 Cnt = 0;
+    u32 StartMode = 0;
+    u32 CurSrcAddr = 0;
+    u32 CurDstAddr = 0;
+    u32 RemCount = 0;
+    u32 IterCount = 0;
+    s32 SrcAddrInc = 0;
+    s32 DstAddrInc = 0;
+    u32 CountMask = 0;
 
-    u32 Running {};
-    bool InProgress {};
+    u32 Running = 0;
+    bool InProgress = false;
 
-    bool Executing {};
-    bool Stall {};
+    bool Executing = false;
+    bool Stall = false;
 
-    bool IsGXFIFODMA {};
+    bool IsGXFIFODMA = false;
 
-    u32 MRAMBurstCount {};
-    std::array<u8, 256> MRAMBurstTable;
+    u32 MRAMBurstCount = 0;
+    std::array<u8, 256> MRAMBurstTable = DMATiming::MRAMDummy;
 };
 
 }
