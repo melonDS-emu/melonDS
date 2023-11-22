@@ -76,6 +76,9 @@ FATStorage& FATStorage::operator=(FATStorage&& other) noexcept
 {
     if (this != &other)
     {
+        if (File)
+            CloseFile(File);
+
         FilePath = std::move(other.FilePath);
         IndexPath = std::move(other.IndexPath);
         SourceDir = std::move(other.SourceDir);
