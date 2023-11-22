@@ -59,11 +59,29 @@ struct GDBArguments
     bool BreakOnStartup = false;
 };
 
+/// System files that are used for NDS mode.
 struct NDSSysfileArguments
 {
+    /// ARM 9 BIOS image for NDS mode.
+    /// Optional in NDS mode, in which case FreeBIOS will be used.
+    /// Must be a native BIOS image in DSi mode.
     std::array<u8, ARM9BIOSLength> ARM9BIOS = bios_arm9_bin;
+
+    /// ARM 7 BIOS image for NDS mode.
+    /// Optional in NDS mode, in which case FreeBIOS will be used.
+    /// Must be a native BIOS image in DSi mode.
     std::array<u8, ARM7BIOSLength> ARM7BIOS = bios_arm7_bin;
+
+    /// Firmware image for NDS or DSi mode.
+    /// Required in DSi mode.
+    /// Will be moved-from if passed to the NDS constructor,
+    /// at which point the object will be invalid.
     Firmware Firmware;
+
+    /// Homebrew SD card.
+    /// Ignored if the loaded game is not a homebrew title.
+    /// Will be moved-from if passed to the NDS constructor and not ignored,
+    /// at which point the object will be nullopt.
     std::optional<FATStorage> DLDISDCard;
 };
 
