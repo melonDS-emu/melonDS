@@ -212,7 +212,7 @@ public:
 class CartHomebrew : public CartCommon
 {
 public:
-    CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
+    CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams, const std::optional<FATStorageArgs>& sdcard = std::nullopt);
     ~CartHomebrew() override;
 
     virtual u32 Type() const override { return CartType::Homebrew; }
@@ -230,8 +230,7 @@ private:
     void ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly);
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
 
-    FATStorage* SD;
-    bool ReadOnly;
+    std::optional<FATStorage> SD;
 };
 
 class NDSCartSlot
@@ -346,9 +345,12 @@ private:
 /// The returned cartridge will contain a copy of this data,
 /// so the caller may deallocate \c romdata after this function returns.
 /// @param romlen The length of the ROM data in bytes.
+/// @param sdcard The arguments to use for initializing the SD card.
+/// Ignored if the parsed ROM is not homebrew.
+/// If not given, the ROM will not have an SD card.
 /// @returns A \c NDSCart::CartCommon object representing the parsed ROM,
 /// or \c nullptr if the ROM data couldn't be parsed.
-std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen);
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const std::optional<FATStorageArgs>& sdcard = std::nullopt);
 }
 
 #endif

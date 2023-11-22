@@ -25,6 +25,7 @@
 #include "Platform.h"
 #include "ROMList.h"
 #include "melonDLDI.h"
+#include "FATStorage.h"
 #include "xxhash/xxhash.h"
 
 namespace melonDS
@@ -1146,9 +1147,18 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 }
 
 
-CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams) : CartCommon(rom, len, chipid, false, romparams)
+CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams, const std::optional<FATStorageArgs>& sdcard) :
+    CartCommon(rom, len, chipid, false, romparams)
 {
-    SD = nullptr;
+    if (sdcard)
+    {
+        SD = std::make_optional<FATStorage>(sdcard->Filename, sdcard->Size, sdcard->ReadOnly, sdcard->SourceDir);
+        SD->Open();
+    }
+    else
+    {
+        SD = std::nullopt;
+    }
 }
 
 CartHomebrew::~CartHomebrew()
@@ -1156,20 +1166,21 @@ CartHomebrew::~CartHomebrew()
     if (SD)
     {
         SD->Close();
-        delete SD;
     }
+
+    // SD card is destroyed by the destructor of the optional
 }
 
 void CartHomebrew::Reset()
 {
     CartCommon::Reset();
 
-    ReadOnly = Platform::GetConfigBool(Platform::DLDI_ReadOnly);
+    //ReadOnly = Platform::GetConfigBool(Platform::DLDI_ReadOnly);
 
     if (SD)
     {
         SD->Close();
-        delete SD;
+        SD = std::nullopt;
     }
 
     if (Platform::GetConfigBool(Platform::DLDI_Enable))
@@ -1180,15 +1191,15 @@ void CartHomebrew::Reset()
         else
             folderpath = "";
 
-        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), ReadOnly);
-        SD = new FATStorage(Platform::GetConfigString(Platform::DLDI_ImagePath),
+        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), SD->IsReadOnly());
+        SD = std::make_optional<FATStorage>(Platform::GetConfigString(Platform::DLDI_ImagePath),
                             (u64)Platform::GetConfigInt(Platform::DLDI_ImageSize) * 1024 * 1024,
-                            ReadOnly,
+                            false,
                             folderpath);
         SD->Open();
     }
     else
-        SD = nullptr;
+        SD = std::nullopt;
 }
 
 void CartHomebrew::SetupDirectBoot(const std::string& romname, NDS& nds)
@@ -1279,7 +1290,8 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
     case 0xC1:
         {
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            if (SD && (!ReadOnly)) SD->WriteSectors(sector, len>>9, data);
+            if (SD) SD->WriteSectors(sector, len>>9, data);
+            // If the SD card is read-only, nothing will happen
         }
         break;
 
@@ -1579,7 +1591,7 @@ void NDSCartSlot::DecryptSecureArea(u8* out) noexcept
     }
 }
 
-std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const std::optional<FATStorageArgs>& sdcard)
 {
     if (romdata == nullptr)
     {
@@ -1681,7 +1693,7 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
 
     std::unique_ptr<CartCommon> cart;
     if (homebrew)
-        cart = std::make_unique<CartHomebrew>(cartrom, cartromsize, cartid, romparams);
+        cart = std::make_unique<CartHomebrew>(cartrom, cartromsize, cartid, romparams, sdcard);
     else if (cartid & 0x08000000)
         cart = std::make_unique<CartRetailNAND>(cartrom, cartromsize, cartid, romparams);
     else if (irversion != 0)
