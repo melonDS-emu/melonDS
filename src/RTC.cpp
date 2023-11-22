@@ -26,12 +26,6 @@ namespace melonDS
 using Platform::Log;
 using Platform::LogLevel;
 
-
-
-
-void WriteDateTime(int num, u8 val);
-
-
 RTC::RTC(melonDS::NDS& nds) : NDS(nds)
 {
     NDS.RegisterEventFunc(NDS::Event_RTC, 0, MemberEventFunc(RTC, ClockTimer));
