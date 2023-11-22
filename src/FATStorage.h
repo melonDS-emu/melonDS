@@ -30,10 +30,25 @@
 
 namespace melonDS
 {
+/// Contains information necessary to load an SD card image.
+/// The intended use case is for loading homebrew NDS ROMs;
+/// you won't know that a ROM is homebrew until you parse it,
+/// so if you load the SD card before the ROM
+/// then you might end up discarding it.
+struct FATStorageArgs
+{
+    std::string Filename;
+    u64 Size;
+    bool ReadOnly;
+    std::string SourceDir;
+};
+
 class FATStorage
 {
 public:
     FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir);
+    FATStorage(const FATStorageArgs& args) noexcept;
+    FATStorage(FATStorageArgs&& args) noexcept;
     FATStorage(FATStorage&& other) noexcept;
     FATStorage(const FATStorage& other) = delete;
     FATStorage& operator=(const FATStorage& other) = delete;

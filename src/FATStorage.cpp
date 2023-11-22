@@ -30,10 +30,29 @@ namespace melonDS
 namespace fs = std::filesystem;
 using namespace Platform;
 
-FATStorage::FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir)
+FATStorage::FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir) :
+    FilePath(filename),
+    FileSize(size),
+    ReadOnly(readonly),
+    SourceDir(sourcedir)
 {
-    ReadOnly = readonly;
     Load(filename, size, sourcedir);
+
+    File = nullptr;
+}
+
+FATStorage::FATStorage(const FATStorageArgs& args) noexcept :
+    FATStorage(args.Filename, args.Size, args.ReadOnly, args.SourceDir)
+{
+}
+
+FATStorage::FATStorage(FATStorageArgs&& args) noexcept :
+    FilePath(std::move(args.Filename)),
+    FileSize(args.Size),
+    ReadOnly(args.ReadOnly),
+    SourceDir(std::move(args.SourceDir))
+{
+    Load(FilePath, FileSize, SourceDir);
 
     File = nullptr;
 }
@@ -965,9 +984,7 @@ u64 FATStorage::GetDirectorySize(fs::path sourcedir)
 
 bool FATStorage::Load(const std::string& filename, u64 size, const std::string& sourcedir)
 {
-    FilePath = filename;
-    FileSize = size;
-    SourceDir = sourcedir;
+
 
     bool hasdir = !sourcedir.empty();
     if (hasdir)
