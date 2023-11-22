@@ -225,6 +225,23 @@ public:
     int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
 
+    [[nodiscard]] const std::optional<FATStorage>& GetSDCard() const noexcept { return SD; }
+    void SetSDCard(FATStorage&& sdcard) noexcept { SD = std::move(sdcard); }
+    void SetSDCard(std::optional<FATStorage>&& sdcard) noexcept
+    {
+        SD = std::move(sdcard);
+        sdcard = std::nullopt;
+        // moving from an optional doesn't set it to nullopt,
+        // it just leaves behind an optional with a moved-from value
+    }
+
+    FATStorage EjectSDCard() noexcept
+    {
+        FATStorage sdcard = std::move(*SD);
+        SD = std::nullopt;
+        return sdcard;
+    }
+
 private:
     void ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly);
     void ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly);
