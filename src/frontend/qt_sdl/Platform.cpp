@@ -200,7 +200,6 @@ int GetConfigInt(ConfigEntry entry)
 
     switch (entry)
     {
-    case DLDI_ImageSize: return imgsizes[Config::DLDISize];
 
     case DSiSD_ImageSize: return imgsizes[Config::DSiSDSize];
     }
@@ -212,9 +211,6 @@ bool GetConfigBool(ConfigEntry entry)
 {
     switch (entry)
     {
-    case DLDI_Enable: return Config::DLDIEnable != 0;
-    case DLDI_ReadOnly: return Config::DLDIReadOnly != 0;
-    case DLDI_FolderSync: return Config::DLDIFolderSync != 0;
 
     case DSiSD_Enable: return Config::DSiSDEnable != 0;
     case DSiSD_ReadOnly: return Config::DSiSDReadOnly != 0;
@@ -228,8 +224,6 @@ std::string GetConfigString(ConfigEntry entry)
 {
     switch (entry)
     {
-    case DLDI_ImagePath: return Config::DLDISDPath;
-    case DLDI_FolderPath: return Config::DLDIFolderPath;
 
     case DSiSD_ImagePath: return Config::DSiSDPath;
     case DSiSD_FolderPath: return Config::DSiSDFolderPath;

@@ -96,12 +96,6 @@ std::string InstanceFileSuffix();
 
 enum [[deprecated("Use constructor parameters instead")]] ConfigEntry
 {
-    DLDI_Enable,
-    DLDI_ImagePath,
-    DLDI_ImageSize,
-    DLDI_ReadOnly,
-    DLDI_FolderSync,
-    DLDI_FolderPath,
 
     DSiSD_Enable,
     DSiSD_ImagePath,

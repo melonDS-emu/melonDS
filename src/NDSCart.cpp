@@ -1175,31 +1175,10 @@ void CartHomebrew::Reset()
 {
     CartCommon::Reset();
 
-    //ReadOnly = Platform::GetConfigBool(Platform::DLDI_ReadOnly);
-
     if (SD)
     {
-        SD->Close();
-        SD = std::nullopt;
-    }
-
-    if (Platform::GetConfigBool(Platform::DLDI_Enable))
-    {
-        std::string folderpath;
-        if (Platform::GetConfigBool(Platform::DLDI_FolderSync))
-            folderpath = Platform::GetConfigString(Platform::DLDI_FolderPath);
-        else
-            folderpath = "";
-
         ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), SD->IsReadOnly());
-        SD = std::make_optional<FATStorage>(Platform::GetConfigString(Platform::DLDI_ImagePath),
-                            (u64)Platform::GetConfigInt(Platform::DLDI_ImageSize) * 1024 * 1024,
-                            false,
-                            folderpath);
-        SD->Open();
     }
-    else
-        SD = std::nullopt;
 }
 
 void CartHomebrew::SetupDirectBoot(const std::string& romname, NDS& nds)
