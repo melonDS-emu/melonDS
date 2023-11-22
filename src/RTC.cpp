@@ -79,46 +79,12 @@ void RTC::DoSavestate(Savestate* file)
     file->Var32(&ClockCount);
 }
 
-
-u8 RTC::BCD(u8 val)
-{
-    return (val % 10) | ((val / 10) << 4);
-}
-
-u8 RTC::FromBCD(u8 val)
-{
-    return (val & 0xF) + ((val >> 4) * 10);
-}
-
-u8 RTC::BCDIncrement(u8 val)
-{
-    val++;
-    if ((val & 0x0F) >= 0x0A)
-        val += 0x06;
-    if ((val & 0xF0) >= 0xA0)
-        val += 0x60;
-    return val;
-}
-
-u8 RTC::BCDSanitize(u8 val, u8 vmin, u8 vmax)
-{
-    if (val < vmin || val > vmax)
-        val = vmin;
-    else if ((val & 0x0F) >= 0x0A)
-        val = vmin;
-    else if ((val & 0xF0) >= 0xA0)
-        val = vmin;
-
-    return val;
-}
-
-
-void RTC::GetState(StateData& state)
+void RTC::GetState(StateData& state) const noexcept
 {
     memcpy(&state, &State, sizeof(State));
 }
 
-void RTC::SetState(StateData& state)
+void RTC::SetState(StateData& state) noexcept
 {
     memcpy(&State, &state, sizeof(State));
 
@@ -128,7 +94,7 @@ void RTC::SetState(StateData& state)
         WriteDateTime(i+1, State.DateTime[i]);
 }
 
-void RTC::GetDateTime(int& year, int& month, int& day, int& hour, int& minute, int& second)
+void RTC::GetDateTime(int& year, int& month, int& day, int& hour, int& minute, int& second) const noexcept
 {
     year = FromBCD(State.DateTime[0]);
     year += 2000;
@@ -149,7 +115,7 @@ void RTC::GetDateTime(int& year, int& month, int& day, int& hour, int& minute, i
     second = FromBCD(State.DateTime[6] & 0x7F);
 }
 
-void RTC::SetDateTime(int year, int month, int day, int hour, int minute, int second)
+void RTC::SetDateTime(int year, int month, int day, int hour, int minute, int second) noexcept
 {
     int monthdays[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
@@ -368,7 +334,7 @@ void RTC::ProcessIRQ(int type) // 0=minute carry 1=periodic 2=status reg write
 }
 
 
-u8 RTC::DaysInMonth()
+u8 RTC::DaysInMonth() const noexcept
 {
     u8 numdays;
 
@@ -592,7 +558,7 @@ void RTC::WriteDateTime(int num, u8 val)
     }
 }
 
-void RTC::SaveDateTime()
+void RTC::SaveDateTime() const noexcept
 {
     int y, m, d, h, i, s;
     GetDateTime(y, m, d, h, i, s);
@@ -868,7 +834,7 @@ void RTC::ByteIn(u8 val)
 }
 
 
-u16 RTC::Read()
+u16 RTC::Read() const noexcept
 {
     //printf("RTC READ %04X\n", IO);
     return IO;
