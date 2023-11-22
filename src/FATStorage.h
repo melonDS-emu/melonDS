@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string>
 #include <map>
+#include <optional>
 #include <filesystem>
 
 #include "Platform.h"
@@ -40,13 +41,13 @@ struct FATStorageArgs
     std::string Filename;
     u64 Size;
     bool ReadOnly;
-    std::string SourceDir;
+    std::optional<std::string> SourceDir;
 };
 
 class FATStorage
 {
 public:
-    FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir);
+    FATStorage(const std::string& filename, u64 size, bool readonly, const std::optional<std::string>& sourcedir);
     FATStorage(const FATStorageArgs& args) noexcept;
     FATStorage(FATStorageArgs&& args) noexcept;
     FATStorage(FATStorage&& other) noexcept;
@@ -67,7 +68,7 @@ public:
 private:
     std::string FilePath;
     std::string IndexPath;
-    std::string SourceDir;
+    std::optional<std::string> SourceDir;
     bool ReadOnly;
 
     Platform::FileHandle* File;
@@ -96,7 +97,7 @@ private:
     bool ImportDirectory(const std::string& sourcedir);
     u64 GetDirectorySize(std::filesystem::path sourcedir);
 
-    bool Load(const std::string& filename, u64 size, const std::string& sourcedir);
+    bool Load(const std::string& filename, u64 size, const std::optional<std::string>& sourcedir);
     bool Save();
 
     typedef struct

@@ -29,8 +29,9 @@ namespace melonDS
 {
 namespace fs = std::filesystem;
 using namespace Platform;
+using std::string;
 
-FATStorage::FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir) :
+FATStorage::FATStorage(const std::string& filename, u64 size, bool readonly, const std::optional<string>& sourcedir) :
     FilePath(filename),
     FileSize(size),
     ReadOnly(readonly),
@@ -982,17 +983,17 @@ u64 FATStorage::GetDirectorySize(fs::path sourcedir)
     return ret;
 }
 
-bool FATStorage::Load(const std::string& filename, u64 size, const std::string& sourcedir)
+bool FATStorage::Load(const std::string& filename, u64 size, const std::optional<string>& sourcedir)
 {
 
 
-    bool hasdir = !sourcedir.empty();
-    if (hasdir)
+    bool hasdir = sourcedir && !sourcedir->empty();
+    if (sourcedir)
     {
-        if (!fs::is_directory(fs::u8path(sourcedir)))
+        if (!fs::is_directory(fs::u8path(*sourcedir)))
         {
             hasdir = false;
-            SourceDir = "";
+            SourceDir = std::nullopt;
         }
     }
 
@@ -1055,7 +1056,7 @@ bool FATStorage::Load(const std::string& filename, u64 size, const std::string& 
         {
             if (hasdir)
             {
-                FileSize = GetDirectorySize(fs::u8path(sourcedir));
+                FileSize = GetDirectorySize(fs::u8path(*sourcedir));
                 FileSize += 0x8000000ULL; // 128MB leeway
 
                 // make it a power of two
@@ -1104,7 +1105,7 @@ bool FATStorage::Load(const std::string& filename, u64 size, const std::string& 
     if (res == FR_OK)
     {
         if (hasdir)
-            ImportDirectory(sourcedir);
+            ImportDirectory(*sourcedir);
     }
 
     f_unmount("0:");
@@ -1118,9 +1119,9 @@ bool FATStorage::Load(const std::string& filename, u64 size, const std::string& 
 
 bool FATStorage::Save()
 {
-    if (SourceDir.empty())
-    {
-        return true;
+    if (!SourceDir)
+    { // If we're not syncing the SD card image to a host directory...
+        return true; // Not an error.
     }
 
     FF_File = Platform::OpenLocalFile(FilePath, FileMode::ReadWriteExisting);
@@ -1144,7 +1145,7 @@ bool FATStorage::Save()
         return false;
     }
 
-    ExportChanges(SourceDir);
+    ExportChanges(*SourceDir);
 
     SaveIndex();
 
