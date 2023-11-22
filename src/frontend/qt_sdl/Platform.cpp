@@ -193,47 +193,6 @@ std::string InstanceFileSuffix()
     return suffix;
 }
 
-
-int GetConfigInt(ConfigEntry entry)
-{
-    const int imgsizes[] = {0, 256, 512, 1024, 2048, 4096};
-
-    switch (entry)
-    {
-
-    case DSiSD_ImageSize: return imgsizes[Config::DSiSDSize];
-    }
-
-    return 0;
-}
-
-bool GetConfigBool(ConfigEntry entry)
-{
-    switch (entry)
-    {
-
-    case DSiSD_Enable: return Config::DSiSDEnable != 0;
-    case DSiSD_ReadOnly: return Config::DSiSDReadOnly != 0;
-    case DSiSD_FolderSync: return Config::DSiSDFolderSync != 0;
-    }
-
-    return false;
-}
-
-std::string GetConfigString(ConfigEntry entry)
-{
-    switch (entry)
-    {
-
-    case DSiSD_ImagePath: return Config::DSiSDPath;
-    case DSiSD_FolderPath: return Config::DSiSDFolderPath;
-    }
-
-    return "";
-}
-
-
-
 constexpr char AccessMode(FileMode mode, bool file_exists)
 {
     if (!(mode & FileMode::Write))

@@ -92,23 +92,6 @@ int InstanceID();
  */
 std::string InstanceFileSuffix();
 
-// configuration values
-
-enum [[deprecated("Use constructor parameters instead")]] ConfigEntry
-{
-
-    DSiSD_Enable,
-    DSiSD_ImagePath,
-    DSiSD_ImageSize,
-    DSiSD_ReadOnly,
-    DSiSD_FolderSync,
-    DSiSD_FolderPath,
-};
-
-[[deprecated("Use constructor parameters instead")]] int GetConfigInt(ConfigEntry entry);
-[[deprecated("Use constructor parameters instead")]] bool GetConfigBool(ConfigEntry entry);
-[[deprecated("Use constructor parameters instead")]] std::string GetConfigString(ConfigEntry entry);
-
 /**
  * Denotes how a file will be opened and accessed.
  * Flags may or may not correspond to the operating system's file API.

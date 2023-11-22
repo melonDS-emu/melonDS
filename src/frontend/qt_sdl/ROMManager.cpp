@@ -1296,7 +1296,7 @@ bool InstallNAND(DSi& dsi)
         }
     }
 
-    dsi.NANDImage = std::move(nandImage);
+    dsi.SetNAND(std::move(nandImage));
     return true;
 }
 

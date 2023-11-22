@@ -56,6 +56,15 @@ public:
         // for now, DSi mode requires original BIOS/NAND
         return false;
     }
+
+    [[nodiscard]] const DSi_NAND::NANDImage& GetNAND() const noexcept { return *SDMMC.GetNAND(); }
+    void SetNAND(DSi_NAND::NANDImage&& nand) noexcept { SDMMC.SetNAND(std::move(nand)); }
+
+    [[nodiscard]] const FATStorage* GetSDCard() const noexcept { return SDMMC.GetSDCard(); }
+    void SetSDCard(FATStorage&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
+    void SetSDCard(std::optional<FATStorage>&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
+
+    u64 GetConsoleID() const noexcept { return SDMMC.GetNAND()->GetConsoleID(); }
 protected:
     void DoSavestateExtra(Savestate* file) noexcept override;
 public:
@@ -79,7 +88,6 @@ public:
     u32 NWRAMEnd[2][3];
     u32 NWRAMMask[2][3];
 
-    DSi_NAND::NANDImage NANDImage;
     DSi_SDHost SDMMC;
     DSi_SDHost SDIO;
     DSi_I2CHost I2C;
