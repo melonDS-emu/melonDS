@@ -38,10 +38,10 @@ enum CartType
 class CartCommon
 {
 public:
-    CartCommon();
+    explicit CartCommon(CartType type);
     virtual ~CartCommon();
 
-    virtual u32 Type() const = 0;
+    [[nodiscard]] u32 Type() const noexcept { return CartType; }
     virtual u32 Checksum() const { return 0; }
 
     virtual void Reset();
@@ -53,7 +53,7 @@ public:
 
     virtual int SetInput(int num, bool pressed);
 
-    virtual u16 ROMRead(u32 addr) const;
+    [[nodiscard]] virtual u16 ROMRead(u32 addr) const;
     virtual void ROMWrite(u32 addr, u16 val);
 
     virtual u8 SRAMRead(u32 addr);
@@ -62,8 +62,10 @@ public:
     [[nodiscard]] virtual const u8* GetROM() const { return nullptr; }
     [[nodiscard]] virtual u32 GetROMLength() const { return 0; }
 
-    virtual u8* GetSaveMemory() const;
-    virtual u32 GetSaveMemoryLength() const;
+    [[nodiscard]] virtual u8* GetSaveMemory() const;
+    [[nodiscard]] virtual u32 GetSaveMemoryLength() const;
+private:
+    const melonDS::GBACart::CartType CartType;
 };
 
 // CartGame -- regular retail game cart (ROM, SRAM)
@@ -71,30 +73,30 @@ class CartGame : public CartCommon
 {
 public:
     CartGame(u8* rom, u32 len);
-    virtual ~CartGame() override;
+    ~CartGame() override;
 
-    virtual u32 Type() const override { return CartType::Game; }
-    virtual u32 Checksum() const override;
+    [[nodiscard]] u32 Checksum() const override;
 
-    virtual void Reset() override;
+    void Reset() override;
 
-    virtual void DoSavestate(Savestate* file) override;
+    void DoSavestate(Savestate* file) override;
 
-    virtual void SetupSave(u32 type) override;
-    virtual void LoadSave(const u8* savedata, u32 savelen) override;
+    void SetupSave(u32 type) override;
+    void LoadSave(const u8* savedata, u32 savelen) override;
 
-    virtual u16 ROMRead(u32 addr) const override;
-    virtual void ROMWrite(u32 addr, u16 val) override;
+    [[nodiscard]] u16 ROMRead(u32 addr) const override;
+    void ROMWrite(u32 addr, u16 val) override;
 
-    virtual u8 SRAMRead(u32 addr) override;
-    virtual void SRAMWrite(u32 addr, u8 val) override;
+    u8 SRAMRead(u32 addr) override;
+    void SRAMWrite(u32 addr, u8 val) override;
 
-    [[nodiscard]] const u8* GetROM() const override { return ROM; }
+    [[nodiscard]] const u8* GetROM() const override { return ROM.get(); }
     [[nodiscard]] u32 GetROMLength() const override { return ROMLength; }
 
-    virtual u8* GetSaveMemory() const override;
-    virtual u32 GetSaveMemoryLength() const override;
+    [[nodiscard]] u8* GetSaveMemory() const override;
+    [[nodiscard]] u32 GetSaveMemoryLength() const override;
 protected:
+    CartGame(GBACart::CartType type, u8* rom, u32 len);
     virtual void ProcessGPIO();
 
     u8 SRAMRead_EEPROM(u32 addr);
@@ -104,16 +106,16 @@ protected:
     u8 SRAMRead_SRAM(u32 addr);
     void SRAMWrite_SRAM(u32 addr, u8 val);
 
-    u8* ROM;
+    std::unique_ptr<u8[]> ROM;
     u32 ROMLength;
 
     struct
     {
-        u16 data;
-        u16 direction;
-        u16 control;
+        u16 data = 0;
+        u16 direction = 0;
+        u16 control = 0;
 
-    } GPIO;
+    } GPIO {};
 
     enum SaveType
     {
@@ -128,17 +130,17 @@ protected:
     // from DeSmuME
     struct
     {
-        u8 state;
-        u8 cmd;
-        u8 device;
-        u8 manufacturer;
-        u8 bank;
+        u8 state = 0;
+        u8 cmd = 0;
+        u8 device = 0;
+        u8 manufacturer = 0;
+        u8 bank = 0;
 
-    } SRAMFlashState;
+    } SRAMFlashState {};
 
-    u8* SRAM;
-    u32 SRAMLength;
-    SaveType SRAMType;
+    std::unique_ptr<u8[]> SRAM = nullptr;
+    u32 SRAMLength = 0;
+    SaveType SRAMType = S_NULL;
 };
 
 // CartGameSolarSensor -- Boktai game cart
@@ -146,25 +148,23 @@ class CartGameSolarSensor : public CartGame
 {
 public:
     CartGameSolarSensor(u8* rom, u32 len);
-    virtual ~CartGameSolarSensor() override;
+    ~CartGameSolarSensor() override;
 
-    virtual u32 Type() const override { return CartType::GameSolarSensor; }
+    void Reset() override;
 
-    virtual void Reset() override;
+    void DoSavestate(Savestate* file) override;
 
-    virtual void DoSavestate(Savestate* file) override;
-
-    virtual int SetInput(int num, bool pressed) override;
+    int SetInput(int num, bool pressed) override;
 
 private:
-    virtual void ProcessGPIO() override;
+    void ProcessGPIO() override;
 
     static const int kLuxLevels[11];
 
-    bool LightEdge;
-    u8 LightCounter;
-    u8 LightSample;
-    u8 LightLevel;
+    bool LightEdge = false;
+    u8 LightCounter = 0;
+    u8 LightSample = 0xFF;
+    u8 LightLevel = 0;
 };
 
 // CartRAMExpansion -- RAM expansion cart (DS browser, ...)
@@ -174,18 +174,16 @@ public:
     CartRAMExpansion();
     ~CartRAMExpansion() override;
 
-    virtual u32 Type() const override { return CartType::RAMExpansion; }
-
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
 
-    u16 ROMRead(u32 addr) const override;
+    [[nodiscard]] u16 ROMRead(u32 addr) const override;
     void ROMWrite(u32 addr, u16 val) override;
 
 private:
-    u8 RAM[0x800000];
-    u16 RAMEnable;
+    std::array<u8, 0x800000> RAM {};
+    u16 RAMEnable = 1;
 };
 
 // possible inputs for GBA carts that might accept user input
@@ -218,7 +216,7 @@ public:
 
     void SetOpenBusDecay(u16 val) noexcept { OpenBusDecay = val; }
 
-    u16 ROMRead(u32 addr) const noexcept;
+    [[nodiscard]] u16 ROMRead(u32 addr) const noexcept;
     void ROMWrite(u32 addr, u16 val) noexcept;
 
     u8 SRAMRead(u32 addr) noexcept;

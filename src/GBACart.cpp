@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <memory>
 #include "NDS.h"
 #include "GBACart.h"
 #include "CRC32.h"
@@ -28,6 +29,7 @@ namespace melonDS
 {
 using Platform::Log;
 using Platform::LogLevel;
+using std::make_unique;
 
 namespace GBACart
 {
@@ -44,13 +46,11 @@ const char SOLAR_SENSOR_GAMECODES[10][5] =
     "A3IJ"  // Boktai - The Sun Is in Your Hand (USA) (Sample)
 };
 
-CartCommon::CartCommon()
+CartCommon::CartCommon(GBACart::CartType type) : CartType(type)
 {
 }
 
-CartCommon::~CartCommon()
-{
-}
+CartCommon::~CartCommon() = default;
 
 void CartCommon::Reset()
 {
@@ -102,26 +102,20 @@ u32 CartCommon::GetSaveMemoryLength() const
     return 0;
 }
 
-CartGame::CartGame(u8* rom, u32 len) : CartCommon()
+CartGame::CartGame(u8* rom, u32 len) : CartGame(Game, rom, len)
 {
-    ROM = rom;
-    ROMLength = len;
-
-    SRAM = nullptr;
-    SRAMLength = 0;
-    SRAMType = S_NULL;
-    SRAMFlashState = {};
 }
 
-CartGame::~CartGame()
+CartGame::CartGame(GBACart::CartType type, u8* rom, u32 len) : CartCommon(type), ROM(rom), ROMLength(len)
 {
-    if (SRAM) delete[] SRAM;
-    delete[] ROM;
 }
+
+CartGame::~CartGame() = default;
+// The ROM and SRAM are cleaned up by unique_ptr
 
 u32 CartGame::Checksum() const
 {
-    u32 crc = CRC32(ROM, 0xC0, 0);
+    u32 crc = CRC32(ROM.get(), 0xC0, 0);
 
     // TODO: hash more contents?
 
@@ -148,14 +142,13 @@ void CartGame::DoSavestate(Savestate* file)
     if (SRAMLength != oldlen)
     {
         // reallocate save memory
-        if (oldlen) delete[] SRAM;
-        SRAM = nullptr;
-        if (SRAMLength) SRAM = new u8[SRAMLength];
+        if (oldlen) SRAM = nullptr;
+        if (SRAMLength) SRAM = make_unique<u8[]>(SRAMLength);
     }
     if (SRAMLength)
     {
         // fill save memory if data is present
-        file->VarArray(SRAM, SRAMLength);
+        file->VarArray(SRAM.get(), SRAMLength);
     }
     else
     {
@@ -175,12 +168,11 @@ void CartGame::DoSavestate(Savestate* file)
     file->Var8((u8*)&SRAMType);
 
     if ((!file->Saving) && SRAM)
-        Platform::WriteGBASave(SRAM, SRAMLength, 0, SRAMLength);
+        Platform::WriteGBASave(SRAM.get(), SRAMLength, 0, SRAMLength);
 }
 
 void CartGame::SetupSave(u32 type)
 {
-    if (SRAM) delete[] SRAM;
     SRAM = nullptr;
 
     // TODO: have type be determined from some list, like in NDSCart
@@ -189,8 +181,8 @@ void CartGame::SetupSave(u32 type)
 
     if (SRAMLength)
     {
-        SRAM = new u8[SRAMLength];
-        memset(SRAM, 0xFF, SRAMLength);
+        SRAM = make_unique<u8[]>(SRAMLength);
+        memset(SRAM.get(), 0xFF, SRAMLength);
     }
 
     switch (SRAMLength)
@@ -236,7 +228,7 @@ void CartGame::LoadSave(const u8* savedata, u32 savelen)
     if (!SRAM) return;
 
     u32 len = std::min(savelen, SRAMLength);
-    memcpy(SRAM, savedata, len);
+    memcpy(SRAM.get(), savedata, len);
     Platform::WriteGBASave(savedata, len, 0, len);
 }
 
@@ -338,7 +330,7 @@ void CartGame::SRAMWrite(u32 addr, u8 val)
 
 u8* CartGame::GetSaveMemory() const
 {
-    return SRAM;
+    return SRAM.get();
 }
 
 u32 CartGame::GetSaveMemoryLength() const
@@ -478,7 +470,7 @@ void CartGame::SRAMWrite_FLASH(u32 addr, u8 val)
                 u32 start_addr = addr + 0x10000 * SRAMFlashState.bank;
                 memset((u8*)&SRAM[start_addr], 0xFF, 0x1000);
 
-                Platform::WriteGBASave(SRAM, SRAMLength, start_addr, 0x1000);
+                Platform::WriteGBASave(SRAM.get(), SRAMLength, start_addr, 0x1000);
             }
             SRAMFlashState.state = 0;
             SRAMFlashState.cmd = 0;
@@ -537,20 +529,18 @@ void CartGame::SRAMWrite_SRAM(u32 addr, u8 val)
         *(u8*)&SRAM[addr] = val;
 
         // TODO: optimize this!!
-        Platform::WriteGBASave(SRAM, SRAMLength, addr, 1);
+        Platform::WriteGBASave(SRAM.get(), SRAMLength, addr, 1);
     }
 }
 
 
 const int CartGameSolarSensor::kLuxLevels[11] = {0, 5, 11, 18, 27, 42, 62, 84, 109, 139, 183};
 
-CartGameSolarSensor::CartGameSolarSensor(u8* rom, u32 len) : CartGame(rom, len)
+CartGameSolarSensor::CartGameSolarSensor(u8* rom, u32 len) : CartGame(GameSolarSensor, rom, len)
 {
 }
 
-CartGameSolarSensor::~CartGameSolarSensor()
-{
-}
+CartGameSolarSensor::~CartGameSolarSensor() = default;
 
 void CartGameSolarSensor::Reset()
 {
@@ -614,17 +604,15 @@ void CartGameSolarSensor::ProcessGPIO()
 }
 
 
-CartRAMExpansion::CartRAMExpansion() : CartCommon()
+CartRAMExpansion::CartRAMExpansion() : CartCommon(RAMExpansion)
 {
 }
 
-CartRAMExpansion::~CartRAMExpansion()
-{
-}
+CartRAMExpansion::~CartRAMExpansion() = default;
 
 void CartRAMExpansion::Reset()
 {
-    memset(RAM, 0xFF, sizeof(RAM));
+    memset(RAM.data(), 0xFF, sizeof(RAM));
     RAMEnable = 1;
 }
 
@@ -632,7 +620,7 @@ void CartRAMExpansion::DoSavestate(Savestate* file)
 {
     CartCommon::DoSavestate(file);
 
-    file->VarArray(RAM, sizeof(RAM));
+    file->VarArray(RAM.data(), sizeof(RAM));
     file->Var16(&RAMEnable);
 }
 
