@@ -34,6 +34,7 @@ namespace melonDS
 {
 class NDS;
 class DSi;
+class FATStorage;
 }
 class EmuThread;
 namespace ROMManager
@@ -53,7 +54,7 @@ std::optional<std::array<u8, ARM9BIOSLength>> LoadARM9BIOS() noexcept;
 std::optional<std::array<u8, ARM7BIOSLength>> LoadARM7BIOS() noexcept;
 std::optional<std::array<u8, DSiBIOSLength>> LoadDSiARM9BIOS() noexcept;
 std::optional<std::array<u8, DSiBIOSLength>> LoadDSiARM7BIOS() noexcept;
-
+std::optional<FATStorage> LoadDSiSDCard() noexcept;
 void CustomizeFirmware(Firmware& firmware) noexcept;
 Firmware GenerateFirmware(int type) noexcept;
 /// Loads and customizes a firmware image based on the values in Config

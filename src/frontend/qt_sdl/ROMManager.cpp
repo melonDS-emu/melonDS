@@ -695,6 +695,20 @@ std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSLength>&
     return nandImage;
 }
 
+constexpr int imgsizes[] = {0, 256, 512, 1024, 2048, 4096};
+std::optional<FATStorage> LoadDSiSDCard() noexcept
+{
+    if (!Config::DSiSDEnable)
+        return std::nullopt;
+
+    return FATStorage(
+        Config::DSiSDPath,
+        imgsizes[Config::DSiSDSize],
+        Config::DSiSDReadOnly,
+        Config::DSiSDFolderSync ? Config::DSiSDFolderPath : ""
+    );
+}
+
 void LoadBIOSFiles(NDS& nds)
 {
     if (Config::ExternalBIOSEnable)
