@@ -164,8 +164,8 @@ void DSi::CamInputFrame(int cam, const u32* data, int width, int height, bool rg
 {
     switch (cam)
     {
-    case 0: return CamModule.GetOuterCamera()->InputFrame(data, width, height, rgb);
-    case 1: return CamModule.GetInnerCamera()->InputFrame(data, width, height, rgb);
+    case 0: return I2C.Camera0.InputFrame(data, width, height, rgb);
+    case 1: return I2C.Camera1.InputFrame(data, width, height, rgb);
     }
 }
 
@@ -537,7 +537,7 @@ void DSi::SetupDirectBoot() noexcept
         ARM9Write32(0x02FFFC00, cartid);
         ARM9Write16(0x02FFFC40, 0x0001); // boot indicator
 
-        ARM9Write8(0x02FFFDFA, I2C.GetBPTWL()->GetBootFlag() | 0x80);
+        ARM9Write8(0x02FFFDFA, I2C.BPTWL.GetBootFlag() | 0x80);
         ARM9Write8(0x02FFFDFB, 0x01);
     }
 

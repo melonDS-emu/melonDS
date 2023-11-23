@@ -43,8 +43,8 @@ DSi_CamModule::DSi_CamModule(melonDS::DSi& dsi) : DSi(dsi)
     DSi.RegisterEventFunc(NDS::Event_DSi_CamIRQ, 0, MemberEventFunc(DSi_CamModule, IRQ));
     DSi.RegisterEventFunc(NDS::Event_DSi_CamTransfer, 0, MemberEventFunc(DSi_CamModule, TransferScanline));
 
-    Camera0 = DSi.I2C.GetOuterCamera();
-    Camera1 = DSi.I2C.GetInnerCamera();
+    Camera0 = &DSi.I2C.Camera0;
+    Camera1 = &DSi.I2C.Camera1;
 }
 
 DSi_CamModule::~DSi_CamModule()
@@ -383,10 +383,6 @@ DSi_Camera::DSi_Camera(melonDS::DSi& dsi, DSi_I2CHost* host, u32 num) : DSi_I2CD
 {
 }
 
-DSi_Camera::~DSi_Camera()
-{
-}
-
 void DSi_Camera::DoSavestate(Savestate* file)
 {
     char magic[5] = "CAMx";
@@ -438,7 +434,7 @@ void DSi_Camera::Stop()
     Platform::Camera_Stop(Num);
 }
 
-bool DSi_Camera::IsActivated()
+bool DSi_Camera::IsActivated() const noexcept
 {
     if (StandbyCnt & (1<<14)) return false; // standby
     if (!(MiscCnt & (1<<9))) return false; // data transfer not enabled
@@ -477,7 +473,7 @@ void DSi_Camera::StartTransfer()
     Platform::Camera_CaptureFrame(Num, FrameBuffer, 640, 480, true);
 }
 
-bool DSi_Camera::TransferDone()
+bool DSi_Camera::TransferDone() const noexcept
 {
     return TransferY >= FrameHeight;
 }
@@ -590,7 +586,7 @@ void DSi_Camera::Write(u8 val, bool last)
     else      DataPos++;
 }
 
-u16 DSi_Camera::I2C_ReadReg(u16 addr)
+u16 DSi_Camera::I2C_ReadReg(u16 addr) const noexcept
 {
     switch (addr)
     {
@@ -695,7 +691,7 @@ void DSi_Camera::I2C_WriteReg(u16 addr, u16 val)
 // TODO: not sure at all what is the accessible range
 // or if there is any overlap in the address range
 
-u8 DSi_Camera::MCU_Read(u16 addr)
+u8 DSi_Camera::MCU_Read(u16 addr) const noexcept
 {
     addr &= 0x7FFF;
 

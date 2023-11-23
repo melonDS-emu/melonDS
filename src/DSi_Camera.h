@@ -31,53 +31,51 @@ class DSi_Camera : public DSi_I2CDevice
 {
 public:
     DSi_Camera(melonDS::DSi& dsi, DSi_I2CHost* host, u32 num);
-    ~DSi_Camera();
 
-    void DoSavestate(Savestate* file);
+    void DoSavestate(Savestate* file) override;
 
-    void Reset();
+    void Reset() override;
     void Stop();
-    bool IsActivated();
+    [[nodiscard]] bool IsActivated() const noexcept;
 
     void StartTransfer();
-    bool TransferDone();
+    [[nodiscard]] bool TransferDone() const noexcept;
 
     // lengths in words
     int TransferScanline(u32* buffer, int maxlen);
 
-    void Acquire();
-    u8 Read(bool last);
-    void Write(u8 val, bool last);
+    void Acquire() override;
+    u8 Read(bool last) override;
+    void Write(u8 val, bool last) override;
 
     void InputFrame(const u32* data, int width, int height, bool rgb);
 
-    u32 Num;
-
 private:
-    u32 DataPos;
-    u32 RegAddr;
-    u16 RegData;
+    u32 Num;
+    u32 DataPos = 0;
+    u32 RegAddr = 0;
+    u16 RegData = 0;
 
-    u16 I2C_ReadReg(u16 addr);
+    [[nodiscard]] u16 I2C_ReadReg(u16 addr) const noexcept;
     void I2C_WriteReg(u16 addr, u16 val);
 
-    u16 PLLDiv;
-    u16 PLLPDiv;
-    u16 PLLCnt;
-    u16 ClocksCnt;
-    u16 StandbyCnt;
-    u16 MiscCnt;
+    u16 PLLDiv = 0x0366;
+    u16 PLLPDiv = 0x00F5;
+    u16 PLLCnt = 0x21F9;
+    u16 ClocksCnt = 0;
+    u16 StandbyCnt = 0x4029; // checkme
+    u16 MiscCnt = 0;
 
-    u16 MCUAddr;
-    u8 MCURegs[0x8000];
+    u16 MCUAddr = 0;
+    u8 MCURegs[0x8000] {};
 
-    u8 MCU_Read(u16 addr);
+    [[nodiscard]] u8 MCU_Read(u16 addr) const noexcept;
     void MCU_Write(u16 addr, u8 val);
 
-    u16 FrameWidth, FrameHeight;
-    u16 FrameReadMode, FrameFormat;
-    int TransferY;
-    u32 FrameBuffer[640*480/2]; // YUYV framebuffer, two pixels per word
+    u16 FrameWidth = 0, FrameHeight = 0;
+    u16 FrameReadMode = 0, FrameFormat = 0;
+    int TransferY = 0;
+    u32 FrameBuffer[640*480/2] {}; // YUYV framebuffer, two pixels per word
 };
 
 
@@ -90,12 +88,6 @@ public:
     void Stop();
     void DoSavestate(Savestate* file);
 
-    DSi_Camera* GetOuterCamera() { return Camera0; }
-    DSi_Camera* GetInnerCamera() { return Camera1; }
-
-    void IRQ(u32 param);
-
-    void TransferScanline(u32 line);
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);
@@ -105,20 +97,23 @@ public:
     void Write32(u32 addr, u32 val);
 
 private:
+    void IRQ(u32 param);
+    void TransferScanline(u32 line);
+
     melonDS::DSi& DSi;
     DSi_Camera* Camera0; // 78 / facing outside
     DSi_Camera* Camera1; // 7A / selfie cam
 
-    u16 ModuleCnt;
-    u16 Cnt;
+    u16 ModuleCnt = 0;
+    u16 Cnt = 0;
 
-    u32 CropStart, CropEnd;
+    u32 CropStart = 0, CropEnd = 0;
 
     // pixel data buffer holds a maximum of 512 words, regardless of how long scanlines are
-    u32 DataBuffer[512];
-    u32 BufferReadPos, BufferWritePos;
-    u32 BufferNumLines;
-    DSi_Camera* CurCamera;
+    u32 DataBuffer[512] {};
+    u32 BufferReadPos = 0, BufferWritePos = 0;
+    u32 BufferNumLines = 0;
+    DSi_Camera* CurCamera = nullptr;
 
     static const u32 kIRQInterval;
     static const u32 kTransferStart;

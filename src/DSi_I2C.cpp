@@ -62,10 +62,6 @@ DSi_BPTWL::DSi_BPTWL(melonDS::DSi& dsi, DSi_I2CHost& host) : DSi_I2CDevice(dsi, 
 {
 }
 
-DSi_BPTWL::~DSi_BPTWL()
-{
-}
-
 void DSi_BPTWL::Reset()
 {
     CurPos = -1;
@@ -118,12 +114,12 @@ void DSi_BPTWL::DoSavestate(Savestate* file)
 }
 
 // TODO: Needs more investigation on the other bits
-inline bool DSi_BPTWL::GetIRQMode()
+inline bool DSi_BPTWL::GetIRQMode() const noexcept
 {
     return Registers[0x12] & 0x01;
 }
 
-u8 DSi_BPTWL::GetBootFlag() { return Registers[0x70]; }
+u8 DSi_BPTWL::GetBootFlag() const noexcept { return Registers[0x70]; }
 
 bool DSi_BPTWL::GetBatteryCharging() const noexcept { return Registers[0x20] >> 7; }
 void DSi_BPTWL::SetBatteryCharging(bool charging)
@@ -247,7 +243,7 @@ void DSi_BPTWL::SetVolumeSwitchReleased(u32 key)
     VolumeSwitchRepeatTime = 0.0;
 }
 
-inline bool DSi_BPTWL::CheckVolumeSwitchKeysValid()
+inline bool DSi_BPTWL::CheckVolumeSwitchKeysValid() const noexcept
 {
     bool up = VolumeSwitchKeysDown & (1 << volumeKey_Up);
     bool down = VolumeSwitchKeysDown & (1 << volumeKey_Down);
@@ -456,10 +452,6 @@ DSi_I2CHost::DSi_I2CHost(melonDS::DSi& dsi) : DSi(dsi), BPTWL(dsi, *this), Camer
 {
 }
 
-DSi_I2CHost::~DSi_I2CHost()
-{
-}
-
 void DSi_I2CHost::Reset()
 {
     Cnt = 0;
@@ -578,11 +570,6 @@ void DSi_I2CHost::WriteCnt(u8 val)
     }
 
     Cnt = val;
-}
-
-u8 DSi_I2CHost::ReadData()
-{
-    return Data;
 }
 
 void DSi_I2CHost::WriteData(u8 val)

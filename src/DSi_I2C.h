@@ -30,7 +30,7 @@ class DSi_I2CDevice
 {
 public:
     DSi_I2CDevice(melonDS::DSi& dsi, DSi_I2CHost& host) : DSi(dsi), Host(&host) {}
-    virtual ~DSi_I2CDevice() {}
+    virtual ~DSi_I2CDevice() = default;
     virtual void Reset() = 0;
     virtual void DoSavestate(Savestate* file) = 0;
 
@@ -81,24 +81,24 @@ public:
     };
 
     DSi_BPTWL(melonDS::DSi& dsi, DSi_I2CHost& host);
-    ~DSi_BPTWL() override;
+    ~DSi_BPTWL() override = default;
     void Reset() override;
     void DoSavestate(Savestate* file) override;
 
-    u8 GetBootFlag();
+    [[nodiscard]] u8 GetBootFlag() const noexcept;
 
-    bool GetBatteryCharging() const noexcept;
+    [[nodiscard]] bool GetBatteryCharging() const noexcept;
     void SetBatteryCharging(bool charging);
 
-    u8 GetBatteryLevel() const noexcept;
+    [[nodiscard]] u8 GetBatteryLevel() const noexcept;
     void SetBatteryLevel(u8 batteryLevel);
 
     // 0-31
-    u8 GetVolumeLevel() const noexcept;
+    [[nodiscard]] u8 GetVolumeLevel() const noexcept;
     void SetVolumeLevel(u8 volume);
 
     // 0-4
-    u8 GetBacklightLevel() const noexcept;
+    [[nodiscard]] u8 GetBacklightLevel() const noexcept;
     void SetBacklightLevel(u8 backlight);
 
     void DoHardwareReset(bool direct);
@@ -132,21 +132,21 @@ private:
     static const u8 VolumeDownTable[32];
     static const u8 VolumeUpTable[32];
 
-    double PowerButtonTime;
-    bool PowerButtonDownFlag;
-    bool PowerButtonShutdownFlag;
-    double VolumeSwitchTime;
-    double VolumeSwitchRepeatTime;
-    bool VolumeSwitchDownFlag ;
-    u32 VolumeSwitchKeysDown;
+    double PowerButtonTime = 0.0;
+    bool PowerButtonDownFlag = false;
+    bool PowerButtonShutdownFlag = false;
+    double VolumeSwitchTime = 0.0;
+    double VolumeSwitchRepeatTime = 0.0;
+    bool VolumeSwitchDownFlag = false;
+    u32 VolumeSwitchKeysDown = 0;
 
-    u8 Registers[0x100];
-    u32 CurPos;
+    u8 Registers[0x100] {};
+    u32 CurPos = -1;
 
-    bool GetIRQMode();
+    [[nodiscard]] bool GetIRQMode() const noexcept;
 
     void ResetButtonState();
-    bool CheckVolumeSwitchKeysValid();
+    [[nodiscard]] bool CheckVolumeSwitchKeysValid() const noexcept;
 };
 
 }

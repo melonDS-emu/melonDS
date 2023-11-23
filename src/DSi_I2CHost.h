@@ -28,18 +28,13 @@ class DSi_I2CHost
 {
 public:
     explicit DSi_I2CHost(melonDS::DSi& dsi);
-    ~DSi_I2CHost();
     void Reset();
     void DoSavestate(Savestate* file);
 
-    DSi_BPTWL* GetBPTWL() { return &BPTWL; }
-    DSi_Camera* GetOuterCamera() { return &Camera0; }
-    DSi_Camera* GetInnerCamera() { return &Camera1; }
-
-    u8 ReadCnt() const noexcept { return Cnt; }
+    [[nodiscard]] u8 ReadCnt() const noexcept { return Cnt; }
     void WriteCnt(u8 val);
 
-    u8 ReadData();
+    [[nodiscard]] u8 ReadData() const noexcept { return Data; }
     void WriteData(u8 val);
 
     DSi_BPTWL BPTWL;       // 4A / BPTWL IC
@@ -47,13 +42,10 @@ public:
     DSi_Camera Camera1;    // 7A / selfie cam
 private:
     melonDS::DSi& DSi;
-    u8 Cnt;
-    u8 Data;
-
-
-
-    u8 CurDeviceID;
-    DSi_I2CDevice* CurDevice;
+    u8 Cnt = 0;
+    u8 Data = 0;
+    u8 CurDeviceID = 0;
+    DSi_I2CDevice* CurDevice = nullptr;
 
     void GetCurDevice();
 };
