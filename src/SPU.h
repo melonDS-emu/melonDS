@@ -33,6 +33,14 @@ enum class AudioBitDepth
     _16Bit,
 };
 
+enum class Interpolation
+{
+    None,
+    Linear,
+    Cosine,
+    Cubic,
+};
+
 class SPUChannel
 {
 public:
@@ -41,110 +49,73 @@ public:
     void Reset();
     void DoSavestate(Savestate* file);
 
+    void SetSrcAddr(u32 val) { SrcAddr = val & 0x07FFFFFC; }
+    void SetTimerReload(u32 val) { TimerReload = val & 0xFFFF; }
+    void SetLoopPos(u32 val) { LoopPos = (val & 0xFFFF) << 2; }
+    void SetLength(u32 val) { Length = (val & 0x001FFFFF) << 2; }
+    void SetInterpolation(Interpolation type) noexcept { InterpType = type; }
+
+    void SetCnt(u32 val);
+    [[nodiscard]] u32 GetCnt() const noexcept { return Cnt; }
+    [[nodiscard]] u8 GetPan() const noexcept { return Pan; }
+    [[nodiscard]] u32 GetLength() const noexcept { return Length; }
+    void Start();
+
+
+    s32 DoRun();
+
+    void PanOutput(s32 in, s32& left, s32& right) const noexcept;
+
+private:
     static const s8 ADPCMIndexTable[8];
     static const u16 ADPCMTable[89];
     static const s16 PSGTable[8][8];
 
     // audio interpolation is an improvement upon the original hardware
     // (which performs no interpolation)
-    int InterpType;
+    Interpolation InterpType = Interpolation::None;
 
     u32 Num;
 
-    u32 Cnt;
-    u32 SrcAddr;
-    u16 TimerReload;
-    u32 LoopPos;
-    u32 Length;
+    u32 Cnt = 0;
+    u32 SrcAddr = 0;
+    u16 TimerReload = 0;
+    u32 LoopPos = 0;
+    u32 Length = 0;
 
-    u8 Volume;
-    u8 VolumeShift;
-    u8 Pan;
+    u8 Volume = 0;
+    u8 VolumeShift = 0;
+    u8 Pan = 0;
 
-    bool KeyOn;
-    u32 Timer;
-    s32 Pos;
-    s16 PrevSample[3];
-    s16 CurSample;
-    u16 NoiseVal;
+    bool KeyOn = false;
+    u32 Timer = 0;
+    s32 Pos = 0;
+    std::array<s16, 3> PrevSample {};
+    s16 CurSample = 0;
+    u16 NoiseVal = 0;
 
-    s32 ADPCMVal;
-    s32 ADPCMIndex;
-    s32 ADPCMValLoop;
-    s32 ADPCMIndexLoop;
-    u8 ADPCMCurByte;
+    s32 ADPCMVal = 0;
+    s32 ADPCMIndex = 0;
+    s32 ADPCMValLoop = 0;
+    s32 ADPCMIndexLoop = 0;
+    u8 ADPCMCurByte = 0;
 
-    u32 FIFO[8];
-    u32 FIFOReadPos;
-    u32 FIFOWritePos;
-    u32 FIFOReadOffset;
-    u32 FIFOLevel;
+    std::array<u32, 8> FIFO {};
+    u32 FIFOReadPos = 0;
+    u32 FIFOWritePos = 0;
+    u32 FIFOReadOffset = 0;
+    u32 FIFOLevel = 0;
 
     void FIFO_BufferData();
     template<typename T> T FIFO_ReadData();
 
-    void SetCnt(u32 val)
-    {
-        u32 oldcnt = Cnt;
-        Cnt = val & 0xFF7F837F;
-
-        Volume = Cnt & 0x7F;
-        if (Volume == 127) Volume++;
-
-        const u8 volshift[4] = {4, 3, 2, 0};
-        VolumeShift = volshift[(Cnt >> 8) & 0x3];
-
-        Pan = (Cnt >> 16) & 0x7F;
-        if (Pan == 127) Pan++;
-
-        if ((val & (1<<31)) && !(oldcnt & (1<<31)))
-        {
-            KeyOn = true;
-        }
-    }
-
-    void SetSrcAddr(u32 val) { SrcAddr = val & 0x07FFFFFC; }
-    void SetTimerReload(u32 val) { TimerReload = val & 0xFFFF; }
-    void SetLoopPos(u32 val) { LoopPos = (val & 0xFFFF) << 2; }
-    void SetLength(u32 val) { Length = (val & 0x001FFFFF) << 2; }
-
-    void Start();
-
+    template<u32 type> s32 Run();
     void NextSample_PCM8();
     void NextSample_PCM16();
     void NextSample_ADPCM();
     void NextSample_PSG();
     void NextSample_Noise();
 
-    template<u32 type> s32 Run();
-
-    s32 DoRun()
-    {
-        switch ((Cnt >> 29) & 0x3)
-        {
-        case 0: return Run<0>(); break;
-        case 1: return Run<1>(); break;
-        case 2: return Run<2>(); break;
-        case 3:
-            if (Num >= 14)
-            {
-                return Run<4>();
-                break;
-            }
-            else if (Num >= 8)
-            {
-                return Run<3>();
-                break;
-            }
-            [[fallthrough]];
-        default:
-            return 0;
-        }
-    }
-
-    void PanOutput(s32 in, s32& left, s32& right);
-
-private:
     melonDS::NDS& NDS;
 };
 
@@ -152,29 +123,11 @@ class SPUCaptureUnit
 {
 public:
     SPUCaptureUnit(u32 num, melonDS::NDS&);
-    ~SPUCaptureUnit();
     void Reset();
     void DoSavestate(Savestate* file);
+    void Run(s32 sample);
 
-    u32 Num;
-
-    u8 Cnt;
-    u32 DstAddr;
-    u16 TimerReload;
-    u32 Length;
-
-    u32 Timer;
-    s32 Pos;
-
-    u32 FIFO[4];
-    u32 FIFOReadPos;
-    u32 FIFOWritePos;
-    u32 FIFOWriteOffset;
-    u32 FIFOLevel;
-
-    void FIFO_FlushData();
-    template<typename T> void FIFO_WriteData(T val);
-
+    [[nodiscard]] u8 GetCnt() const noexcept { return Cnt; }
     void SetCnt(u8 val)
     {
         if ((val & 0x80) && !(Cnt & 0x80))
@@ -185,9 +138,33 @@ public:
         Cnt = val;
     }
 
+    [[nodiscard]] u32 GetDstAddr() const noexcept { return DstAddr; }
     void SetDstAddr(u32 val) { DstAddr = val & 0x07FFFFFC; }
+
     void SetTimerReload(u32 val) { TimerReload = val & 0xFFFF; }
     void SetLength(u32 val) { Length = val << 2; if (Length == 0) Length = 4; }
+
+private:
+    melonDS::NDS& NDS;
+    u32 Num;
+
+    u8 Cnt = 0;
+    u32 DstAddr = 0;
+    u16 TimerReload = 0;
+    u32 Length = 0;
+
+    u32 Timer = 0;
+    s32 Pos = 0;
+
+    std::array<u32, 4> FIFO {};
+    u32 FIFOReadPos = 0;
+    u32 FIFOWritePos = 0;
+    u32 FIFOWriteOffset = 0;
+    u32 FIFOLevel = 0;
+
+    void FIFO_FlushData();
+    template<typename T> void FIFO_WriteData(T val);
+
 
     void Start()
     {
@@ -199,9 +176,6 @@ public:
         FIFOLevel = 0;
     }
 
-    void Run(s32 sample);
-private:
-    melonDS::NDS& NDS;
 };
 
 class SPU
@@ -217,7 +191,7 @@ public:
     void SetPowerCnt(u32 val);
 
     // 0=none 1=linear 2=cosine 3=cubic
-    void SetInterpolation(int type);
+    void SetInterpolation(Interpolation type);
 
     void SetBias(u16 bias);
     void SetDegrade10Bit(bool enable);
@@ -225,38 +199,39 @@ public:
 
     void Mix(u32 dummy);
 
-    void TrimOutput();
-    void DrainOutput();
-    void InitOutput();
     int GetOutputSize();
-    void Sync(bool wait);
     int ReadOutput(s16* data, int samples);
     void TransferOutput();
 
-    u8 Read8(u32 addr) const;
-    u16 Read16(u32 addr) const;
-    u32 Read32(u32 addr) const;
+    [[nodiscard]] u8 Read8(u32 addr) const;
+    [[nodiscard]] u16 Read16(u32 addr) const;
+    [[nodiscard]] u32 Read32(u32 addr) const;
     void Write8(u32 addr, u8 val);
     void Write16(u32 addr, u16 val);
     void Write32(u32 addr, u32 val);
 
 private:
-    melonDS::NDS& NDS;
-    static const u32 OutputBufferSize = 2*2048;
-    s16 OutputBackbuffer[2 * OutputBufferSize];
-    u32 OutputBackbufferWritePosition;
+    static constexpr u32 OutputBufferSize = 2*2048;
+    void InitOutput();
+    void TrimOutput();
+    void DrainOutput();
+    void Sync(bool wait);
 
-    s16 OutputFrontBuffer[2 * OutputBufferSize];
-    u32 OutputFrontBufferWritePosition;
-    u32 OutputFrontBufferReadPosition;
+    melonDS::NDS& NDS;
+    s16 OutputBackbuffer[2 * OutputBufferSize] {};
+    u32 OutputBackbufferWritePosition = 0;
+
+    s16 OutputFrontBuffer[2 * OutputBufferSize] {};
+    u32 OutputFrontBufferWritePosition = 0;
+    u32 OutputFrontBufferReadPosition = 0;
 
     Platform::Mutex* AudioLock;
 
-    u16 Cnt;
-    u8 MasterVolume;
-    u16 Bias;
-    bool ApplyBias;
-    bool Degrade10Bit;
+    u16 Cnt = 0;
+    u8 MasterVolume = 0;
+    u16 Bias = 0;
+    bool ApplyBias = true;
+    bool Degrade10Bit = false;
 
     std::array<SPUChannel, 16> Channels;
     std::array<SPUCaptureUnit, 2> Capture;

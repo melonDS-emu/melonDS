@@ -122,16 +122,16 @@ SPU::SPU(melonDS::NDS& nds) noexcept :
     Capture {
         SPUCaptureUnit(0, nds),
         SPUCaptureUnit(1, nds),
-    }
+    },
+    AudioLock(Platform::Mutex_Create())
 {
     nds.RegisterEventFunc(NDS::Event_SPU, 0, MemberEventFunc(SPU, Mix));
 
-    AudioLock = Platform::Mutex_Create();
 
     ApplyBias = true;
     Degrade10Bit = false;
 
-    memset(OutputFrontBuffer, 0, 2*OutputBufferSize*2);
+    memset(OutputFrontBuffer, 0, sizeof(OutputFrontBuffer));
 
     OutputBackbufferWritePosition = 0;
     OutputFrontBufferReadPosition = 0;
@@ -140,7 +140,10 @@ SPU::SPU(melonDS::NDS& nds) noexcept :
 
 SPU::~SPU()
 {
-    Platform::Mutex_Free(AudioLock);
+    if (AudioLock)
+    {
+        Mutex_Free(AudioLock);
+    }
     AudioLock = nullptr;
 
     NDS.UnregisterEventFunc(NDS::Event_SPU, 0);
@@ -166,7 +169,7 @@ void SPU::Reset()
 void SPU::Stop()
 {
     Platform::Mutex_Lock(AudioLock);
-    memset(OutputFrontBuffer, 0, 2*OutputBufferSize*2);
+    memset(OutputFrontBuffer, 0, sizeof(OutputFrontBuffer));
 
     OutputBackbufferWritePosition = 0;
     OutputFrontBufferReadPosition = 0;
@@ -196,10 +199,10 @@ void SPU::SetPowerCnt(u32 val)
 }
 
 
-void SPU::SetInterpolation(int type)
+void SPU::SetInterpolation(Interpolation type)
 {
     for (int i = 0; i < 16; i++)
-        Channels[i].InterpType = type;
+        Channels[i].SetInterpolation(type);
 }
 
 void SPU::SetBias(u16 bias)
@@ -218,16 +221,11 @@ void SPU::SetDegrade10Bit(bool enable)
 }
 
 
-SPUChannel::SPUChannel(u32 num, melonDS::NDS& nds) : NDS(nds)
-{
-    Num = num;
-
-    InterpType = 0;
-}
-
-SPUChannel::~SPUChannel()
+SPUChannel::SPUChannel(u32 num, melonDS::NDS& nds) : NDS(nds), Num(num)
 {
 }
+
+SPUChannel::~SPUChannel() = default;
 
 void SPUChannel::Reset()
 {
@@ -263,7 +261,7 @@ void SPUChannel::DoSavestate(Savestate* file)
     file->Var8((u8*)&KeyOn);
     file->Var32(&Timer);
     file->Var32((u32*)&Pos);
-    file->VarArray(PrevSample, sizeof(PrevSample));
+    file->VarArray(PrevSample.data(), sizeof(PrevSample));
     file->Var16((u16*)&CurSample);
     file->Var16(&NoiseVal);
 
@@ -277,7 +275,27 @@ void SPUChannel::DoSavestate(Savestate* file)
     file->Var32(&FIFOWritePos);
     file->Var32(&FIFOReadOffset);
     file->Var32(&FIFOLevel);
-    file->VarArray(FIFO, sizeof(FIFO));
+    file->VarArray(FIFO.data(), sizeof(FIFO));
+}
+
+void SPUChannel::SetCnt(u32 val)
+{
+    u32 oldcnt = Cnt;
+    Cnt = val & 0xFF7F837F;
+
+    Volume = Cnt & 0x7F;
+    if (Volume == 127) Volume++;
+
+    const u8 volshift[4] = {4, 3, 2, 0};
+    VolumeShift = volshift[(Cnt >> 8) & 0x3];
+
+    Pan = (Cnt >> 16) & 0x7F;
+    if (Pan == 127) Pan++;
+
+    if ((val & (1<<31)) && !(oldcnt & (1<<31)))
+    {
+        KeyOn = true;
+    }
 }
 
 void SPUChannel::FIFO_BufferData()
@@ -323,7 +341,7 @@ void SPUChannel::FIFO_BufferData()
 template<typename T>
 T SPUChannel::FIFO_ReadData()
 {
-    T ret = *(T*)&((u8*)FIFO)[FIFOReadPos];
+    T ret = *(T*)&((u8*)FIFO.data())[FIFOReadPos];
 
     FIFOReadPos += sizeof(T);
     FIFOReadPos &= 0x1F;
@@ -526,7 +544,7 @@ s32 SPUChannel::Run()
         // for optional interpolation: save previous samples
         // the interpolated audio will be delayed by a couple samples,
         // but it's easier to deal with this way
-        if ((type < 3) && (InterpType != 0))
+        if ((type < 3) && (InterpType != Interpolation::None))
         {
             PrevSample[2] = PrevSample[1];
             PrevSample[1] = PrevSample[0];
@@ -546,24 +564,24 @@ s32 SPUChannel::Run()
     s32 val = (s32)CurSample;
 
     // interpolation (emulation improvement, not a hardware feature)
-    if ((type < 3) && (InterpType != 0))
+    if ((type < 3) && (InterpType != Interpolation::None))
     {
         s32 samplepos = ((Timer - TimerReload) * 0x100) / (0x10000 - TimerReload);
         if (samplepos > 0xFF) samplepos = 0xFF;
 
         switch (InterpType)
         {
-        case 1: // linear
+        case Interpolation::Linear: // linear
             val = ((val           * samplepos) +
                    (PrevSample[0] * (0xFF-samplepos))) >> 8;
             break;
 
-        case 2: // cosine
+        case Interpolation::Cosine: // cosine
             val = ((val           * InterpCos[samplepos]) +
                    (PrevSample[0] * InterpCos[0xFF-samplepos])) >> 14;
             break;
 
-        case 3: // cubic
+        case Interpolation::Cubic: // cubic
             val = ((PrevSample[2] * InterpCubic[samplepos][0]) +
                    (PrevSample[1] * InterpCubic[samplepos][1]) +
                    (PrevSample[0] * InterpCubic[samplepos][2]) +
@@ -577,20 +595,40 @@ s32 SPUChannel::Run()
     return val;
 }
 
-void SPUChannel::PanOutput(s32 in, s32& left, s32& right)
+s32 SPUChannel::DoRun()
+{
+    switch ((Cnt >> 29) & 0x3)
+    {
+    case 0: return Run<0>(); break;
+    case 1: return Run<1>(); break;
+    case 2: return Run<2>(); break;
+    case 3:
+        if (Num >= 14)
+        {
+            return Run<4>();
+            break;
+        }
+        else if (Num >= 8)
+        {
+            return Run<3>();
+            break;
+        }
+        [[fallthrough]];
+    default:
+        return 0;
+    }
+}
+
+void SPUChannel::PanOutput(s32 in, s32& left, s32& right) const noexcept
 {
     left += ((s64)in * (128-Pan)) >> 10;
     right += ((s64)in * Pan) >> 10;
 }
 
 
-SPUCaptureUnit::SPUCaptureUnit(u32 num, melonDS::NDS& nds) : NDS(nds)
+SPUCaptureUnit::SPUCaptureUnit(u32 num, melonDS::NDS& nds) : NDS(nds), Num(num)
 {
     Num = num;
-}
-
-SPUCaptureUnit::~SPUCaptureUnit()
-{
 }
 
 void SPUCaptureUnit::Reset()
@@ -623,7 +661,7 @@ void SPUCaptureUnit::DoSavestate(Savestate* file)
     file->Var32(&FIFOWritePos);
     file->Var32(&FIFOWriteOffset);
     file->Var32(&FIFOLevel);
-    file->VarArray(FIFO, 4*4);
+    file->VarArray(FIFO.data(), sizeof(FIFO));
 }
 
 void SPUCaptureUnit::FIFO_FlushData()
@@ -649,7 +687,7 @@ void SPUCaptureUnit::FIFO_FlushData()
 template<typename T>
 void SPUCaptureUnit::FIFO_WriteData(T val)
 {
-    *(T*)&((u8*)FIFO)[FIFOWritePos] = val;
+    *(T*)&((u8*)FIFO.data())[FIFOWritePos] = val;
 
     FIFOWritePos += sizeof(T);
     FIFOWritePos &= 0xF;
@@ -742,7 +780,7 @@ void SPU::Mix(u32 dummy)
         // sound capture
         // TODO: other sound capture sources, along with their bugs
 
-        if (Capture[0].Cnt & (1<<7))
+        if (Capture[0].GetCnt() & (1<<7))
         {
             s32 val = left;
 
@@ -753,7 +791,7 @@ void SPU::Mix(u32 dummy)
             Capture[0].Run(val);
         }
 
-        if (Capture[1].Cnt & (1<<7))
+        if (Capture[1].GetCnt() & (1<<7))
         {
             s32 val = right;
 
@@ -773,20 +811,20 @@ void SPU::Mix(u32 dummy)
             break;
         case 0x0100: // channel 1
             {
-                s32 pan = 128 - Channels[1].Pan;
+                s32 pan = 128 - Channels[1].GetPan();
                 leftoutput = ((s64)ch1 * pan) >> 10;
             }
             break;
         case 0x0200: // channel 3
             {
-                s32 pan = 128 - Channels[3].Pan;
+                s32 pan = 128 - Channels[3].GetPan();
                 leftoutput = ((s64)ch3 * pan) >> 10;
             }
             break;
         case 0x0300: // channel 1+3
             {
-                s32 pan1 = 128 - Channels[1].Pan;
-                s32 pan3 = 128 - Channels[3].Pan;
+                s32 pan1 = 128 - Channels[1].GetPan();
+                s32 pan3 = 128 - Channels[3].GetPan();
                 leftoutput = (((s64)ch1 * pan1) >> 10) + (((s64)ch3 * pan3) >> 10);
             }
             break;
@@ -799,20 +837,20 @@ void SPU::Mix(u32 dummy)
             break;
         case 0x0400: // channel 1
             {
-                s32 pan = Channels[1].Pan;
+                s32 pan = Channels[1].GetPan();
                 rightoutput = ((s64)ch1 * pan) >> 10;
             }
             break;
         case 0x0800: // channel 3
             {
-                s32 pan = Channels[3].Pan;
+                s32 pan = Channels[3].GetPan();
                 rightoutput = ((s64)ch3 * pan) >> 10;
             }
             break;
         case 0x0C00: // channel 1+3
             {
-                s32 pan1 = Channels[1].Pan;
-                s32 pan3 = Channels[3].Pan;
+                s32 pan1 = Channels[1].GetPan();
+                s32 pan3 = Channels[3].GetPan();
                 rightoutput = (((s64)ch1 * pan1) >> 10) + (((s64)ch3 * pan3) >> 10);
             }
             break;
@@ -992,10 +1030,10 @@ u8 SPU::Read8(u32 addr) const
 
         switch (addr & 0xF)
         {
-        case 0x0: return chan.Cnt & 0xFF;
-        case 0x1: return (chan.Cnt >> 8) & 0xFF;
-        case 0x2: return (chan.Cnt >> 16) & 0xFF;
-        case 0x3: return chan.Cnt >> 24;
+        case 0x0: return chan.GetCnt() & 0xFF;
+        case 0x1: return (chan.GetCnt() >> 8) & 0xFF;
+        case 0x2: return (chan.GetCnt() >> 16) & 0xFF;
+        case 0x3: return chan.GetCnt() >> 24;
         }
     }
     else
@@ -1005,8 +1043,8 @@ u8 SPU::Read8(u32 addr) const
         case 0x04000500: return Cnt & 0x7F;
         case 0x04000501: return Cnt >> 8;
 
-        case 0x04000508: return Capture[0].Cnt;
-        case 0x04000509: return Capture[1].Cnt;
+        case 0x04000508: return Capture[0].GetCnt();
+        case 0x04000509: return Capture[1].GetCnt();
         }
     }
 
@@ -1022,8 +1060,8 @@ u16 SPU::Read16(u32 addr) const
 
         switch (addr & 0xF)
         {
-        case 0x0: return chan.Cnt & 0xFFFF;
-        case 0x2: return chan.Cnt >> 16;
+        case 0x0: return chan.GetCnt() & 0xFFFF;
+        case 0x2: return chan.GetCnt() >> 16;
         }
     }
     else
@@ -1033,7 +1071,7 @@ u16 SPU::Read16(u32 addr) const
         case 0x04000500: return Cnt;
         case 0x04000504: return Bias;
 
-        case 0x04000508: return Capture[0].Cnt | (Capture[1].Cnt << 8);
+        case 0x04000508: return Capture[0].GetCnt() | (Capture[1].GetCnt() << 8);
         }
     }
 
@@ -1049,7 +1087,7 @@ u32 SPU::Read32(u32 addr) const
 
         switch (addr & 0xF)
         {
-        case 0x0: return chan.Cnt;
+        case 0x0: return chan.GetCnt();
         }
     }
     else
@@ -1059,10 +1097,10 @@ u32 SPU::Read32(u32 addr) const
         case 0x04000500: return Cnt;
         case 0x04000504: return Bias;
 
-        case 0x04000508: return Capture[0].Cnt | (Capture[1].Cnt << 8);
+        case 0x04000508: return Capture[0].GetCnt() | (Capture[1].GetCnt() << 8);
 
-        case 0x04000510: return Capture[0].DstAddr;
-        case 0x04000518: return Capture[1].DstAddr;
+        case 0x04000510: return Capture[0].GetDstAddr();
+        case 0x04000518: return Capture[1].GetDstAddr();
         }
     }
 
@@ -1078,10 +1116,10 @@ void SPU::Write8(u32 addr, u8 val)
 
         switch (addr & 0xF)
         {
-        case 0x0: chan.SetCnt((chan.Cnt & 0xFFFFFF00) | val); return;
-        case 0x1: chan.SetCnt((chan.Cnt & 0xFFFF00FF) | (val << 8)); return;
-        case 0x2: chan.SetCnt((chan.Cnt & 0xFF00FFFF) | (val << 16)); return;
-        case 0x3: chan.SetCnt((chan.Cnt & 0x00FFFFFF) | (val << 24)); return;
+        case 0x0: chan.SetCnt((chan.GetCnt() & 0xFFFFFF00) | val); return;
+        case 0x1: chan.SetCnt((chan.GetCnt() & 0xFFFF00FF) | (val << 8)); return;
+        case 0x2: chan.SetCnt((chan.GetCnt() & 0xFF00FFFF) | (val << 16)); return;
+        case 0x3: chan.SetCnt((chan.GetCnt() & 0x00FFFFFF) | (val << 24)); return;
         }
     }
     else
@@ -1119,8 +1157,8 @@ void SPU::Write16(u32 addr, u16 val)
 
         switch (addr & 0xF)
         {
-        case 0x0: chan.SetCnt((chan.Cnt & 0xFFFF0000) | val); return;
-        case 0x2: chan.SetCnt((chan.Cnt & 0x0000FFFF) | (val << 16)); return;
+        case 0x0: chan.SetCnt((chan.GetCnt() & 0xFFFF0000) | val); return;
+        case 0x2: chan.SetCnt((chan.GetCnt() & 0x0000FFFF) | (val << 16)); return;
         case 0x8:
             chan.SetTimerReload(val);
             if      ((addr & 0xF0) == 0x10) Capture[0].SetTimerReload(val);
@@ -1128,8 +1166,8 @@ void SPU::Write16(u32 addr, u16 val)
             return;
         case 0xA: chan.SetLoopPos(val); return;
 
-        case 0xC: chan.SetLength(((chan.Length >> 2) & 0xFFFF0000) | val); return;
-        case 0xE: chan.SetLength(((chan.Length >> 2) & 0x0000FFFF) | (val << 16)); return;
+        case 0xC: chan.SetLength(((chan.GetLength() >> 2) & 0xFFFF0000) | val); return;
+        case 0xE: chan.SetLength(((chan.GetLength() >> 2) & 0x0000FFFF) | (val << 16)); return;
         }
     }
     else

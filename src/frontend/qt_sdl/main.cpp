@@ -433,7 +433,7 @@ void EmuThread::run()
     NDS->GPU.InitRenderer(videoRenderer);
     NDS->GPU.SetRenderSettings(videoRenderer, videoSettings);
 
-    NDS->SPU.SetInterpolation(Config::AudioInterp);
+    NDS->SPU.SetInterpolation(static_cast<Interpolation>(Config::AudioInterp));
 
     Input::Init();
 
@@ -3056,7 +3056,7 @@ void MainWindow::onPathSettingsFinished(int res)
 void MainWindow::onUpdateAudioSettings()
 {
     assert(emuThread->NDS != nullptr);
-    emuThread->NDS->SPU.SetInterpolation(Config::AudioInterp);
+    emuThread->NDS->SPU.SetInterpolation(static_cast<Interpolation>(Config::AudioInterp));
 
     if (Config::AudioBitDepth == 0)
         emuThread->NDS->SPU.SetDegrade10Bit(emuThread->NDS->ConsoleType == 0);

@@ -369,7 +369,7 @@ void UpdateSettings(NDS& nds)
 {
     MicClose();
 
-    nds.SPU.SetInterpolation(Config::AudioInterp);
+    nds.SPU.SetInterpolation(static_cast<Interpolation>(Config::AudioInterp));
     SetupMicInputData();
 
     MicOpen();
