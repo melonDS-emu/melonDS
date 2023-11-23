@@ -74,12 +74,12 @@ public:
         return ret;
     }
 
-    T Peek()
+    T Peek() const noexcept
     {
         return Entries[ReadPos];
     }
 
-    T Peek(u32 offset)
+    T Peek(u32 offset) const noexcept
     {
         u32 pos = ReadPos + offset;
         if (pos >= NumEntries)
@@ -88,11 +88,11 @@ public:
         return Entries[pos];
     }
 
-    u32 Level() { return NumOccupied; }
-    bool IsEmpty() { return NumOccupied == 0; }
-    bool IsFull() { return NumOccupied >= NumEntries; }
+    [[nodiscard]] u32 Level() const noexcept { return NumOccupied; }
+    [[nodiscard]] bool IsEmpty() const noexcept { return NumOccupied == 0; }
+    [[nodiscard]] bool IsFull() const noexcept { return NumOccupied >= NumEntries; }
 
-    bool CanFit(u32 num) { return ((NumOccupied + num) <= NumEntries); }
+    [[nodiscard]] bool CanFit(u32 num) const noexcept { return ((NumOccupied + num) <= NumEntries); }
 
 private:
     T Entries[NumEntries] = {0};
@@ -105,7 +105,7 @@ template<typename T>
 class DynamicFIFO
 {
 public:
-    DynamicFIFO(u32 num)
+    explicit DynamicFIFO(u32 num)
     {
         NumEntries = num;
         Entries = new T[num];
@@ -164,12 +164,12 @@ public:
         return ret;
     }
 
-    T Peek()
+    T Peek() const noexcept
     {
         return Entries[ReadPos];
     }
 
-    T Peek(u32 offset)
+    T Peek(u32 offset) const noexcept
     {
         u32 pos = ReadPos + offset;
         if (pos >= NumEntries)
@@ -178,17 +178,17 @@ public:
         return Entries[pos];
     }
 
-    u32 Level() { return NumOccupied; }
-    bool IsEmpty() { return NumOccupied == 0; }
-    bool IsFull() { return NumOccupied >= NumEntries; }
+    [[nodiscard]] u32 Level() const noexcept { return NumOccupied; }
+    [[nodiscard]] bool IsEmpty() const noexcept { return NumOccupied == 0; }
+    [[nodiscard]] bool IsFull() const noexcept { return NumOccupied >= NumEntries; }
 
-    bool CanFit(u32 num) { return ((NumOccupied + num) <= NumEntries); }
+    [[nodiscard]] bool CanFit(u32 num) const noexcept { return ((NumOccupied + num) <= NumEntries); }
 
 private:
     u32 NumEntries;
     T* Entries;
-    u32 NumOccupied;
-    u32 ReadPos, WritePos;
+    u32 NumOccupied = 0;
+    u32 ReadPos = 0, WritePos = 0;
 };
 
 }
