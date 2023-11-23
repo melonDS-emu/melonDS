@@ -31,7 +31,6 @@ class DSi_NDMA
 {
 public:
     DSi_NDMA(u32 cpu, u32 num, GPU& gpu, DSi& dsi);
-    ~DSi_NDMA();
 
     void Reset();
 
@@ -41,10 +40,6 @@ public:
     void Start();
 
     void Run();
-
-    void Run9();
-    void Run7();
-
     bool IsInMode(u32 mode) const noexcept
     {
         return ((mode == StartMode) && (Cnt & 0x80000000));
@@ -69,36 +64,39 @@ public:
         if (Executing) Stall = true;
     }
 
-    u32 SrcAddr;
-    u32 DstAddr;
-    u32 TotalLength; // total length, when transferring multiple blocks
-    u32 BlockLength; // length of one transfer
-    u32 SubblockTimer; // optional delay between subblocks (only in round-robin mode)
-    u32 FillData;
-    u32 Cnt;
+    u32 SrcAddr = 0;
+    u32 DstAddr = 0;
+    u32 TotalLength = 0; // total length, when transferring multiple blocks
+    u32 BlockLength = 0; // length of one transfer
+    u32 SubblockTimer = 0; // optional delay between subblocks (only in round-robin mode)
+    u32 FillData = 0;
+    u32 Cnt = 0;
 
 private:
+    void Run9();
+    void Run7();
+
     melonDS::DSi& DSi;
     melonDS::GPU& GPU;
-    u32 CPU, Num;
+    u32 CPU = 0, Num = 0;
 
-    u32 StartMode;
-    u32 CurSrcAddr;
-    u32 CurDstAddr;
-    u32 SubblockLength; // length transferred per run when delay is used
-    u32 RemCount;
-    u32 IterCount;
-    u32 TotalRemCount;
-    u32 SrcAddrInc;
-    u32 DstAddrInc;
+    u32 StartMode = 0;
+    u32 CurSrcAddr = 0;
+    u32 CurDstAddr = 0;
+    u32 SubblockLength = 0; // length transferred per run when delay is used
+    u32 RemCount = 0;
+    u32 IterCount = 0;
+    u32 TotalRemCount = 0;
+    u32 SrcAddrInc = 0;
+    u32 DstAddrInc = 0;
 
-    u32 Running;
-    bool InProgress;
+    u32 Running = 0;
+    bool InProgress = false;
 
-    bool Executing;
-    bool Stall;
+    bool Executing = false;
+    bool Stall = false;
 
-    bool IsGXFIFODMA;
+    bool IsGXFIFODMA = false;
 };
 
 }

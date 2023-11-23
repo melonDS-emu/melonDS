@@ -28,16 +28,9 @@ namespace melonDS
 using Platform::Log;
 using Platform::LogLevel;
 
-DSi_NDMA::DSi_NDMA(u32 cpu, u32 num, melonDS::GPU& gpu, melonDS::DSi& dsi) : GPU(gpu), DSi(dsi)
+DSi_NDMA::DSi_NDMA(u32 cpu, u32 num, melonDS::GPU& gpu, melonDS::DSi& dsi) : GPU(gpu), DSi(dsi), CPU(cpu), Num(num)
 {
-    CPU = cpu;
-    Num = num;
-
     Reset();
-}
-
-DSi_NDMA::~DSi_NDMA()
-{
 }
 
 void DSi_NDMA::Reset()
