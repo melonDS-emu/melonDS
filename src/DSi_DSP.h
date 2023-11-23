@@ -21,6 +21,7 @@
 
 #include "types.h"
 #include "Savestate.h"
+#include "teakra/include/teakra/teakra.h"
 
 // TODO: for actual sound output
 // * audio callbacks
@@ -33,7 +34,7 @@ class DSi;
 class DSi_DSP
 {
 public:
-    DSi_DSP(melonDS::DSi& dsi);
+    explicit DSi_DSP(melonDS::DSi& dsi);
     ~DSi_DSP();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -41,7 +42,7 @@ public:
     void DSPCatchUpU32(u32 _);
 
     // SCFG_RST bit0
-    bool IsRstReleased();
+    [[nodiscard]] bool IsRstReleased() const noexcept;
     void SetRstLine(bool release);
 
     // DSP_* regs (0x040043xx) (NOTE: checks SCFG_EXT)
@@ -54,9 +55,10 @@ public:
     u32 Read32(u32 addr);
     void Write32(u32 addr, u32 val);
 
-    u16 ReadSNDExCnt() { return SNDExCnt; }
+    [[nodiscard]] u16 ReadSNDExCnt() const noexcept { return SNDExCnt; }
     void WriteSNDExCnt(u16 val, u16 mask);
 
+private:
     // NOTE: checks SCFG_CLK9
     void Run(u32 cycles);
 
@@ -64,39 +66,38 @@ public:
     void IrqRep1();
     void IrqRep2();
     void IrqSem();
-    u16 DSPRead16(u32 addr);
+    [[nodiscard]] u16 DSPRead16(u32 addr) const noexcept;
     void DSPWrite16(u32 addr, u16 val);
     void AudioCb(std::array<s16, 2> frame);
 
-private:
     melonDS::DSi& DSi;
     // not sure whether to not rather put it somewhere else
-    u16 SNDExCnt;
+    u16 SNDExCnt = 0;
 
-    Teakra::Teakra* TeakraCore;
+    Teakra::Teakra TeakraCore {};
 
-    bool SCFG_RST;
+    bool SCFG_RST = false;
 
-    u16 DSP_PADR;
-    u16 DSP_PCFG;
-    u16 DSP_PSTS;
-    u16 DSP_PSEM;
-    u16 DSP_PMASK;
-    u16 DSP_PCLEAR;
-    u16 DSP_CMD[3];
-    u16 DSP_REP[3];
+    u16 DSP_PADR = 0;
+    u16 DSP_PCFG = 0;
+    u16 DSP_PSTS = 0;
+    u16 DSP_PSEM = 0;
+    u16 DSP_PMASK = 0;
+    u16 DSP_PCLEAR = 0;
+    u16 DSP_CMD[3] {};
+    u16 DSP_REP[3] {};
 
-    u64 DSPTimestamp;
+    u64 DSPTimestamp = 0;
 
-    FIFO<u16, 16> PDATAReadFifo/*, *PDATAWriteFifo*/;
-    int PDataDMALen;
+    FIFO<u16, 16> PDATAReadFifo {};/*, *PDATAWriteFifo*/;
+    int PDataDMALen = 0;
 
     static const u32 DataMemoryOffset;
 
-    u16 GetPSTS();
+    [[nodiscard]] u16 GetPSTS() const noexcept;
 
-    inline bool IsDSPCoreEnabled();
-    inline bool IsDSPIOEnabled();
+    [[nodiscard]] inline bool IsDSPCoreEnabled() const noexcept;
+    [[nodiscard]] inline bool IsDSPIOEnabled() const noexcept;
 
     bool DSPCatchUp();
 
