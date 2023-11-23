@@ -42,10 +42,6 @@ DSi_AES::DSi_AES(melonDS::DSi& dsi) : DSi(dsi)
     AES_init_ctx_iv(&Ctx, zero, zero);
 }
 
-DSi_AES::~DSi_AES()
-{
-}
-
 void DSi_AES::Reset()
 {
     Cnt = 0;
@@ -235,7 +231,7 @@ void DSi_AES::ProcessBlock_CTR()
 }
 
 
-u32 DSi_AES::ReadCnt()
+u32 DSi_AES::ReadCnt() const noexcept
 {
     u32 ret = Cnt;
 
@@ -503,44 +499,6 @@ void DSi_AES::WriteMAC(u32 offset, u32 val, u32 mask)
     *(u32*)&MAC[offset] = (old & ~mask) | (val & mask);
 
     //printf("AES: MAC: "); _printhex(MAC, 16);
-}
-
-void DSi_AES::ROL16(u8* val, u32 n)
-{
-    u32 n_coarse = n >> 3;
-    u32 n_fine = n & 7;
-    u8 tmp[16];
-
-    for (u32 i = 0; i < 16; i++)
-    {
-        tmp[i] = val[(i - n_coarse) & 0xF];
-    }
-
-    for (u32 i = 0; i < 16; i++)
-    {
-        val[i] = (tmp[i] << n_fine) | (tmp[(i - 1) & 0xF] >> (8-n_fine));
-    }
-}
-
-void DSi_AES::DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey)
-{
-    const u8 key_const[16] = {0xFF, 0xFE, 0xFB, 0x4E, 0x29, 0x59, 0x02, 0x58, 0x2A, 0x68, 0x0F, 0x5F, 0x1A, 0x4F, 0x3E, 0x79};
-    u8 tmp[16];
-
-    for (int i = 0; i < 16; i++)
-        tmp[i] = keyX[i] ^ keyY[i];
-
-    u32 carry = 0;
-    for (int i = 0; i < 16; i++)
-    {
-        u32 res = tmp[i] + key_const[15-i] + carry;
-        tmp[i] = res & 0xFF;
-        carry = res >> 8;
-    }
-
-    ROL16(tmp, 42);
-
-    memcpy(normalkey, tmp, 16);
 }
 
 void DSi_AES::WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask)

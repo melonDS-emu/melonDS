@@ -49,12 +49,11 @@ class DSi;
 class DSi_AES
 {
 public:
-    DSi_AES(melonDS::DSi& dsi);
-    ~DSi_AES();
+    explicit DSi_AES(melonDS::DSi& dsi);
     void Reset();
     void DoSavestate(Savestate* file);
 
-    u32 ReadCnt();
+    [[nodiscard]] u32 ReadCnt() const noexcept;
     void WriteCnt(u32 val);
     void WriteBlkCnt(u32 val);
 
@@ -70,46 +69,81 @@ public:
     void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask);
     void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask);
 
-    static void ROL16(u8* val, u32 n);
-    static void DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey);
+    static constexpr void DeriveNormalKey(const u8* keyX, const u8* keyY, u8* normalkey) noexcept
+    {
+        constexpr u8 key_const[16] = {0xFF, 0xFE, 0xFB, 0x4E, 0x29, 0x59, 0x02, 0x58, 0x2A, 0x68, 0x0F, 0x5F, 0x1A, 0x4F, 0x3E, 0x79};
+        u8 tmp[16] {};
+
+        for (int i = 0; i < 16; i++)
+            tmp[i] = keyX[i] ^ keyY[i];
+
+        u32 carry = 0;
+        for (int i = 0; i < 16; i++)
+        {
+            u32 res = tmp[i] + key_const[15-i] + carry;
+            tmp[i] = res & 0xFF;
+            carry = res >> 8;
+        }
+
+        ROL16(tmp, 42);
+
+        memcpy(normalkey, tmp, 16);
+    }
 
 private:
     melonDS::DSi& DSi;
-    u32 Cnt;
+    u32 Cnt = 0;
 
-    u32 BlkCnt;
-    u32 RemExtra;
-    u32 RemBlocks;
+    u32 BlkCnt = 0;
+    u32 RemExtra = 0;
+    u32 RemBlocks = 0;
 
-    bool OutputFlush;
+    bool OutputFlush = false;
 
-    u32 InputDMASize, OutputDMASize;
-    u32 AESMode;
+    u32 InputDMASize = 0, OutputDMASize = 0;
+    u32 AESMode = 0;
 
-    FIFO<u32, 16> InputFIFO;
-    FIFO<u32, 16> OutputFIFO;
+    FIFO<u32, 16> InputFIFO {};
+    FIFO<u32, 16> OutputFIFO {};
 
-    u8 IV[16];
+    u8 IV[16] {};
 
-    u8 MAC[16];
+    u8 MAC[16] {};
 
-    u8 KeyNormal[4][16];
-    u8 KeyX[4][16];
-    u8 KeyY[4][16];
+    u8 KeyNormal[4][16] {};
+    u8 KeyX[4][16] {};
+    u8 KeyY[4][16] {};
 
-    u8 CurKey[16];
-    u8 CurMAC[16];
+    u8 CurKey[16] {};
+    u8 CurMAC[16] {};
 
     // output MAC for CCM encrypt
-    u8 OutputMAC[16];
-    bool OutputMACDue;
+    u8 OutputMAC[16] {};
+    bool OutputMACDue = false;
 
-    AES_ctx Ctx;
+    AES_ctx Ctx {};
 
     void ProcessBlock_CCM_Extra();
     void ProcessBlock_CCM_Decrypt();
     void ProcessBlock_CCM_Encrypt();
     void ProcessBlock_CTR();
+
+    static constexpr void ROL16(u8* val, u32 n) noexcept
+    {
+        u32 n_coarse = n >> 3;
+        u32 n_fine = n & 7;
+        u8 tmp[16] {};
+
+        for (u32 i = 0; i < 16; i++)
+        {
+            tmp[i] = val[(i - n_coarse) & 0xF];
+        }
+
+        for (u32 i = 0; i < 16; i++)
+        {
+            val[i] = (tmp[i] << n_fine) | (tmp[(i - 1) & 0xF] >> (8-n_fine));
+        }
+    }
 };
 
 }
