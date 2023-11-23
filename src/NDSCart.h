@@ -53,10 +53,10 @@ class NDSCartSlot;
 class CartCommon
 {
 public:
-    CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
+    CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, CartType type);
     virtual ~CartCommon();
 
-    virtual u32 Type() const = 0;
+    [[nodiscard]] u32 Type() const noexcept { return CartType; }
     [[nodiscard]] u32 Checksum() const;
 
     virtual void Reset();
@@ -67,13 +67,13 @@ public:
     virtual void SetupSave(u32 type);
     virtual void LoadSave(const u8* savedata, u32 savelen);
 
-    virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len);
-    virtual void ROMCommandFinish(u8* cmd, u8* data, u32 len);
+    virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len);
+    virtual void ROMCommandFinish(const u8* cmd, u8* data, u32 len);
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last);
 
-    virtual u8* GetSaveMemory() const;
-    virtual u32 GetSaveMemoryLength() const;
+    [[nodiscard]] virtual u8* GetSaveMemory() const;
+    [[nodiscard]] virtual u32 GetSaveMemoryLength() const;
 
     [[nodiscard]] const NDSHeader& GetHeader() const { return Header; }
     [[nodiscard]] NDSHeader& GetHeader() { return Header; }
@@ -82,23 +82,24 @@ public:
     [[nodiscard]] const NDSBanner* Banner() const;
     [[nodiscard]] const ROMListEntry& GetROMParams() const { return ROMParams; };
     [[nodiscard]] u32 ID() const { return ChipID; }
-    [[nodiscard]] const u8* GetROM() const { return ROM; }
+    [[nodiscard]] const u8* GetROM() const { return ROM.get(); }
     [[nodiscard]] u32 GetROMLength() const { return ROMLength; }
 protected:
-    void ReadROM(u32 addr, u32 len, u8* data, u32 offset);
+    void ReadROM(u32 addr, u32 len, u8* data, u32 offset) const noexcept;
 
-    u8* ROM;
-    u32 ROMLength;
-    u32 ChipID;
-    bool IsDSi;
-    bool DSiMode;
-    u32 DSiBase;
-
-    u32 CmdEncMode;
-    u32 DataEncMode;
+    const CartType CartType;
     // Kept separate from the ROM data so we can decrypt the modcrypt area
     // without touching the overall ROM data
     NDSHeader Header;
+    std::unique_ptr<u8[]> ROM;
+    u32 ROMLength;
+    u32 ChipID;
+    bool IsDSi;
+    bool DSiMode = false;
+    u32 DSiBase;
+
+    u32 CmdEncMode = 0;
+    u32 DataEncMode = 0;
     ROMListEntry ROMParams;
 };
 
@@ -107,39 +108,38 @@ class CartRetail : public CartCommon
 {
 public:
     CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
-    virtual ~CartRetail() override;
+    ~CartRetail() override;
 
-    virtual u32 Type() const override { return CartType::Retail; }
+    void Reset() override;
 
-    virtual void Reset() override;
+    void DoSavestate(Savestate* file) override;
 
-    virtual void DoSavestate(Savestate* file) override;
+    void SetupSave(u32 type) override;
+    void LoadSave(const u8* savedata, u32 savelen) override;
 
-    virtual void SetupSave(u32 type) override;
-    virtual void LoadSave(const u8* savedata, u32 savelen) override;
+    int ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
 
-    virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
+    u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
-    virtual u8 SPIWrite(u8 val, u32 pos, bool last) override;
-
-    virtual u8* GetSaveMemory() const override;
-    virtual u32 GetSaveMemoryLength() const override;
+    [[nodiscard]] u8* GetSaveMemory() const override;
+    [[nodiscard]] u32 GetSaveMemoryLength() const override;
 
 protected:
+    CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, NDSCart::CartType type);
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
 
     u8 SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last);
     u8 SRAMWrite_EEPROM(u8 val, u32 pos, bool last);
     u8 SRAMWrite_FLASH(u8 val, u32 pos, bool last);
 
-    u8* SRAM;
-    u32 SRAMLength;
-    u32 SRAMType;
+    std::unique_ptr<u8[]> SRAM = nullptr;
+    u32 SRAMLength = 0;
+    u32 SRAMType = 0;
 
-    u8 SRAMCmd;
-    u32 SRAMAddr;
-    u32 SRAMFirstAddr;
-    u8 SRAMStatus;
+    u8 SRAMCmd = 0;
+    u32 SRAMAddr = 0;
+    u32 SRAMFirstAddr = 0;
+    u8 SRAMStatus = 0;
 };
 
 // CartRetailNAND -- retail cart with NAND SRAM (WarioWare DIY, Jam with the Band, ...)
@@ -149,27 +149,25 @@ public:
     CartRetailNAND(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
     ~CartRetailNAND() override;
 
-    virtual u32 Type() const override { return CartType::RetailNAND; }
-
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
 
     void LoadSave(const u8* savedata, u32 savelen) override;
 
-    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
-    void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
+    int ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
+    void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
 
     u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
 private:
     void BuildSRAMID();
 
-    u32 SRAMBase;
-    u32 SRAMWindow;
+    u32 SRAMBase = 0;
+    u32 SRAMWindow = 0;
 
-    u8 SRAMWriteBuffer[0x800];
-    u32 SRAMWritePos;
+    std::array<u8, 0x800> SRAMWriteBuffer {};
+    u32 SRAMWritePos = 0;
 };
 
 // CartRetailIR -- SPI IR device and SRAM
@@ -179,8 +177,6 @@ public:
     CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams);
     ~CartRetailIR() override;
 
-    virtual u32 Type() const override { return CartType::RetailIR; }
-
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
@@ -189,7 +185,7 @@ public:
 
 private:
     u32 IRVersion;
-    u8 IRCmd;
+    u8 IRCmd = 0;
 };
 
 // CartRetailBT - Pok�mon Typing Adventure (SPI BT controller)
@@ -198,12 +194,6 @@ class CartRetailBT : public CartRetail
 public:
     CartRetailBT(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
     ~CartRetailBT() override;
-
-    virtual u32 Type() const override { return CartType::RetailBT; }
-
-    void Reset() override;
-
-    void DoSavestate(Savestate* file) override;
 
     u8 SPIWrite(u8 val, u32 pos, bool last) override;
 };
@@ -215,15 +205,13 @@ public:
     CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams, const std::optional<FATStorageArgs>& sdcard = std::nullopt);
     ~CartHomebrew() override;
 
-    virtual u32 Type() const override { return CartType::Homebrew; }
-
     void Reset() override;
     void SetupDirectBoot(const std::string& romname, NDS& nds) override;
 
-    void DoSavestate(Savestate* file) override;
+    // TODO: What to do about the SD card when taking savestates?
 
-    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
-    void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
+    int ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
+    void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
 
     [[nodiscard]] const std::optional<FATStorage>& GetSDCard() const noexcept { return SD; }
     void SetSDCard(FATStorage&& sdcard) noexcept { SD = std::move(sdcard); }
@@ -253,7 +241,7 @@ private:
 class NDSCartSlot
 {
 public:
-    NDSCartSlot(melonDS::NDS& nds) noexcept;
+    explicit NDSCartSlot(melonDS::NDS& nds) noexcept;
     ~NDSCartSlot() noexcept;
     void Reset() noexcept;
     void ResetCart() noexcept;
@@ -320,29 +308,29 @@ public:
     [[nodiscard]] u16 GetSPICnt() const noexcept { return SPICnt; }
     void SetSPICnt(u16 val) noexcept { SPICnt = val; }
 private:
-    friend class CartCommon;
+    friend class CartCommon; // For the Key1_* functions
     melonDS::NDS& NDS;
-    u16 SPICnt {};
-    u32 ROMCnt {};
+    u16 SPICnt = 0;
+    u32 ROMCnt = 0;
     std::array<u8, 8> ROMCommand {};
-    u8 SPIData;
-    u32 SPIDataPos;
-    bool SPIHold;
+    u8 SPIData = 0;
+    u32 SPIDataPos = 0;
+    bool SPIHold = false;
 
-    u32 ROMData;
+    u32 ROMData = 0;
 
-    std::array<u8, 0x4000> TransferData;
-    u32 TransferPos;
-    u32 TransferLen;
-    u32 TransferDir;
-    std::array<u8, 8> TransferCmd;
+    std::array<u8, 0x4000> TransferData {};
+    u32 TransferPos = 0;
+    u32 TransferLen = 0;
+    u32 TransferDir = 0;
+    std::array<u8, 8> TransferCmd {};
 
-    std::unique_ptr<CartCommon> Cart;
+    std::unique_ptr<CartCommon> Cart = nullptr;
 
-    std::array<u32, 0x412> Key1_KeyBuf;
+    std::array<u32, 0x412> Key1_KeyBuf {};
 
-    u64 Key2_X;
-    u64 Key2_Y;
+    u64 Key2_X = 0;
+    u64 Key2_Y = 0;
 
     void Key1_Encrypt(u32* data) noexcept;
     void Key1_Decrypt(u32* data) noexcept;

@@ -44,7 +44,7 @@ enum
 
 // SRAM TODO: emulate write delays???
 
-u32 ByteSwap(u32 val)
+constexpr u32 ByteSwap(u32 val) noexcept
 {
     return (val >> 24) | ((val >> 8) & 0xFF00) | ((val << 8) & 0xFF0000) | (val << 24);
 }
@@ -162,27 +162,24 @@ void NDSCartSlot::Key2_Encrypt(u8* data, u32 len) noexcept
 }
 
 
-CartCommon::CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams)
+CartCommon::CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, NDSCart::CartType type) :
+    CartType(type),
+    ROM(rom),
+    ROMLength(len),
+    ChipID(chipid),
+    ROMParams(romparams),
+    Header(*reinterpret_cast<const NDSHeader*>(rom)),
+    IsDSi(Header.IsDSi() && !badDSiDump),
+    DSiBase(Header.DSiRegionStart << 19)
 {
-    ROM = rom;
-    ROMLength = len;
-    ChipID = chipid;
-    ROMParams = romparams;
-
-    memcpy(&Header, rom, sizeof(Header));
-    IsDSi = Header.IsDSi() && !badDSiDump;
-    DSiBase = Header.DSiRegionStart << 19;
 }
 
-CartCommon::~CartCommon()
-{
-    delete[] ROM;
-}
+CartCommon::~CartCommon() = default;
 
 u32 CartCommon::Checksum() const
 {
     const NDSHeader& header = GetHeader();
-    u32 crc = CRC32(ROM, 0x40);
+    u32 crc = CRC32(ROM.get(), 0x40);
 
     crc = CRC32(&ROM[header.ARM9ROMOffset], header.ARM9Size, crc);
     crc = CRC32(&ROM[header.ARM7ROMOffset], header.ARM7Size, crc);
@@ -227,7 +224,7 @@ void CartCommon::LoadSave(const u8* savedata, u32 savelen)
 {
 }
 
-int CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
+int CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode == 0)
     {
@@ -340,7 +337,7 @@ int CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, u8* cmd, u8* da
     return 0;
 }
 
-void CartCommon::ROMCommandFinish(u8* cmd, u8* data, u32 len)
+void CartCommon::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
 {
 }
 
@@ -359,13 +356,13 @@ u32 CartCommon::GetSaveMemoryLength() const
     return 0;
 }
 
-void CartCommon::ReadROM(u32 addr, u32 len, u8* data, u32 offset)
+void CartCommon::ReadROM(u32 addr, u32 len, u8* data, u32 offset) const noexcept
 {
     if (addr >= ROMLength) return;
     if ((addr+len) > ROMLength)
         len = ROMLength - addr;
 
-    memcpy(data+offset, ROM+addr, len);
+    memcpy(data+offset, ROM.get()+addr, len);
 }
 
 const NDSBanner* CartCommon::Banner() const
@@ -374,21 +371,22 @@ const NDSBanner* CartCommon::Banner() const
     size_t bannersize = header.IsDSi() ? 0x23C0 : 0xA40;
     if (header.BannerOffset >= 0x200 && header.BannerOffset < (ROMLength - bannersize))
     {
-        return reinterpret_cast<const NDSBanner*>(ROM + header.BannerOffset);
+        return reinterpret_cast<const NDSBanner*>(ROM.get() + header.BannerOffset);
     }
 
     return nullptr;
 }
 
-CartRetail::CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams) : CartCommon(rom, len, chipid, badDSiDump, romparams)
+CartRetail::CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, NDSCart::CartType type) :
+    CartCommon(rom, len, chipid, badDSiDump, romparams, type)
 {
-    SRAM = nullptr;
+}
+CartRetail::CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams) :
+    CartRetail(rom, len, chipid, badDSiDump, romparams, Retail)
+{
 }
 
-CartRetail::~CartRetail()
-{
-    if (SRAM) delete[] SRAM;
-}
+CartRetail::~CartRetail() = default;
 
 void CartRetail::Reset()
 {
@@ -414,13 +412,12 @@ void CartRetail::DoSavestate(Savestate* file)
         Log(LogLevel::Warn, "savestate: VERY BAD!!!! SRAM LENGTH DIFFERENT. %d -> %d\n", oldlen, SRAMLength);
         Log(LogLevel::Warn, "oh well. loading it anyway. adsfgdsf\n");
 
-        if (oldlen) delete[] SRAM;
-        SRAM = nullptr;
-        if (SRAMLength) SRAM = new u8[SRAMLength];
+        if (oldlen) SRAM = nullptr;
+        if (SRAMLength) SRAM = std::make_unique<u8[]>(SRAMLength);
     }
     if (SRAMLength)
     {
-        file->VarArray(SRAM, SRAMLength);
+        file->VarArray(SRAM.get(), SRAMLength);
     }
 
     // SPI status shito
@@ -430,16 +427,15 @@ void CartRetail::DoSavestate(Savestate* file)
     file->Var8(&SRAMStatus);
 
     if ((!file->Saving) && SRAM)
-        Platform::WriteNDSSave(SRAM, SRAMLength, 0, SRAMLength);
+        Platform::WriteNDSSave(SRAM.get(), SRAMLength, 0, SRAMLength);
 }
 
 void CartRetail::SetupSave(u32 type)
 {
-    if (SRAM) delete[] SRAM;
     SRAM = nullptr;
 
     if (type > 10) type = 0;
-    int sramlen[] =
+    constexpr int sramlen[] =
     {
         0,
         512,
@@ -451,8 +447,8 @@ void CartRetail::SetupSave(u32 type)
 
     if (SRAMLength)
     {
-        SRAM = new u8[SRAMLength];
-        memset(SRAM, 0xFF, SRAMLength);
+        SRAM = std::make_unique<u8[]>(SRAMLength);
+        memset(SRAM.get(), 0xFF, SRAMLength);
     }
 
     switch (type)
@@ -476,11 +472,11 @@ void CartRetail::LoadSave(const u8* savedata, u32 savelen)
     if (!SRAM) return;
 
     u32 len = std::min(savelen, SRAMLength);
-    memcpy(SRAM, savedata, len);
+    memcpy(SRAM.get(), savedata, len);
     Platform::WriteNDSSave(savedata, len, 0, len);
 }
 
-int CartRetail::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
+int CartRetail::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
 
@@ -542,7 +538,7 @@ u8 CartRetail::SPIWrite(u8 val, u32 pos, bool last)
 
 u8 *CartRetail::GetSaveMemory() const
 {
-    return SRAM;
+    return SRAM.get();
 }
 
 u32 CartRetail::GetSaveMemoryLength() const
@@ -567,7 +563,7 @@ void CartRetail::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
             addr = 0x8000 + (addr & 0x1FF);
     }
 
-    memcpy(data+offset, ROM+addr, len);
+    memcpy(data+offset, ROM.get()+addr, len);
 }
 
 u8 CartRetail::SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last)
@@ -602,7 +598,7 @@ u8 CartRetail::SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last)
         if (last)
         {
             SRAMStatus &= ~(1<<1);
-            Platform::WriteNDSSave(SRAM, SRAMLength,
+            Platform::WriteNDSSave(SRAM.get(), SRAMLength,
                                    (SRAMFirstAddr + ((SRAMCmd==0x0A)?0x100:0)) & 0x1FF, SRAMAddr-SRAMFirstAddr);
         }
         return 0;
@@ -666,7 +662,7 @@ u8 CartRetail::SRAMWrite_EEPROM(u8 val, u32 pos, bool last)
         if (last)
         {
             SRAMStatus &= ~(1<<1);
-            Platform::WriteNDSSave(SRAM, SRAMLength,
+            Platform::WriteNDSSave(SRAM.get(), SRAMLength,
                                    SRAMFirstAddr & (SRAMLength-1), SRAMAddr-SRAMFirstAddr);
         }
         return 0;
@@ -723,7 +719,7 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
         if (last)
         {
             SRAMStatus &= ~(1<<1);
-            Platform::WriteNDSSave(SRAM, SRAMLength,
+            Platform::WriteNDSSave(SRAM.get(), SRAMLength,
                                    SRAMFirstAddr & (SRAMLength-1), SRAMAddr-SRAMFirstAddr);
         }
         return 0;
@@ -760,7 +756,7 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
         if (last)
         {
             SRAMStatus &= ~(1<<1);
-            Platform::WriteNDSSave(SRAM, SRAMLength,
+            Platform::WriteNDSSave(SRAM.get(), SRAMLength,
                                    SRAMFirstAddr & (SRAMLength-1), SRAMAddr-SRAMFirstAddr);
         }
         return 0;
@@ -806,7 +802,7 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
         if (last)
         {
             SRAMStatus &= ~(1<<1);
-            Platform::WriteNDSSave(SRAM, SRAMLength,
+            Platform::WriteNDSSave(SRAM.get(), SRAMLength,
                                    SRAMFirstAddr & (SRAMLength-1), SRAMAddr-SRAMFirstAddr);
         }
         return 0;
@@ -829,7 +825,7 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
         if (last)
         {
             SRAMStatus &= ~(1<<1);
-            Platform::WriteNDSSave(SRAM, SRAMLength,
+            Platform::WriteNDSSave(SRAM.get(), SRAMLength,
                                    SRAMFirstAddr & (SRAMLength-1), SRAMAddr-SRAMFirstAddr);
         }
         return 0;
@@ -842,13 +838,14 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
 }
 
 
-CartRetailNAND::CartRetailNAND(u8* rom, u32 len, u32 chipid, ROMListEntry romparams) : CartRetail(rom, len, chipid, false, romparams)
+CartRetailNAND::CartRetailNAND(u8* rom, u32 len, u32 chipid, ROMListEntry romparams) :
+    CartRetail(rom, len, chipid, false, romparams, RetailNAND),
+    SRAMBase(*(u16*)&ROM[0x96] << 17) // ROM header 94/96 = SRAM addr start / 0x20000
 {
+    SRAMStatus = 0x20;
 }
 
-CartRetailNAND::~CartRetailNAND()
-{
-}
+CartRetailNAND::~CartRetailNAND() = default;
 
 void CartRetailNAND::Reset()
 {
@@ -861,7 +858,7 @@ void CartRetailNAND::Reset()
     // ROM header 94/96 = SRAM addr start / 0x20000
     SRAMBase = *(u16*)&ROM[0x96] << 17;
 
-    memset(SRAMWriteBuffer, 0, 0x800);
+    memset(SRAMWriteBuffer.data(), 0, sizeof(SRAMWriteBuffer));
 }
 
 void CartRetailNAND::DoSavestate(Savestate* file)
@@ -871,7 +868,7 @@ void CartRetailNAND::DoSavestate(Savestate* file)
     file->Var32(&SRAMBase);
     file->Var32(&SRAMWindow);
 
-    file->VarArray(SRAMWriteBuffer, 0x800);
+    file->VarArray(SRAMWriteBuffer.data(), 0x800);
     file->Var32(&SRAMWritePos);
 
     if (!file->Saving)
@@ -884,7 +881,7 @@ void CartRetailNAND::LoadSave(const u8* savedata, u32 savelen)
     BuildSRAMID();
 }
 
-int CartRetailNAND::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
+int CartRetailNAND::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
 
@@ -912,8 +909,8 @@ int CartRetailNAND::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, u8* cmd, u8
         {
             if (SRAMLength && SRAMAddr < (SRAMBase+SRAMLength-0x20000))
             {
-                memcpy(&SRAM[SRAMAddr - SRAMBase], SRAMWriteBuffer, 0x800);
-                Platform::WriteNDSSave(SRAM, SRAMLength, SRAMAddr - SRAMBase, 0x800);
+                memcpy(&SRAM[SRAMAddr - SRAMBase], SRAMWriteBuffer.data(), sizeof(SRAMWriteBuffer));
+                Platform::WriteNDSSave(SRAM.get(), SRAMLength, SRAMAddr - SRAMBase, 0x800);
             }
 
             SRAMAddr = 0;
@@ -1020,7 +1017,7 @@ int CartRetailNAND::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, u8* cmd, u8
     }
 }
 
-void CartRetailNAND::ROMCommandFinish(u8* cmd, u8* data, u32 len)
+void CartRetailNAND::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
 
@@ -1063,20 +1060,19 @@ void CartRetailNAND::BuildSRAMID()
         // the ID data is also found in the response to command 94, and JwtB checks it.
         // WarioWare doesn't seem to care.
         // there is also more data here, but JwtB doesn't seem to care.
-        u8 iddata[0x10] = {0xEC, 0x00, 0x9E, 0xA1, 0x51, 0x65, 0x34, 0x35, 0x30, 0x35, 0x30, 0x31, 0x19, 0x19, 0x02, 0x0A};
+        constexpr u8 iddata[0x10] = {0xEC, 0x00, 0x9E, 0xA1, 0x51, 0x65, 0x34, 0x35, 0x30, 0x35, 0x30, 0x31, 0x19, 0x19, 0x02, 0x0A};
         memcpy(&SRAM[SRAMLength - 0x800], iddata, 16);
     }
 }
 
 
-CartRetailIR::CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams) : CartRetail(rom, len, chipid, badDSiDump, romparams)
+CartRetailIR::CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams) :
+    CartRetail(rom, len, chipid, badDSiDump, romparams, RetailIR),
+    IRVersion(irversion)
 {
-    IRVersion = irversion;
 }
 
-CartRetailIR::~CartRetailIR()
-{
-}
+CartRetailIR::~CartRetailIR() = default;
 
 void CartRetailIR::Reset()
 {
@@ -1115,24 +1111,13 @@ u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
 }
 
 
-CartRetailBT::CartRetailBT(u8* rom, u32 len, u32 chipid, ROMListEntry romparams) : CartRetail(rom, len, chipid, false, romparams)
+CartRetailBT::CartRetailBT(u8* rom, u32 len, u32 chipid, ROMListEntry romparams) :
+    CartRetail(rom, len, chipid, false, romparams, RetailBT)
 {
-    Log(LogLevel::Info,"POKETYPE CART\n");
+    Log(LogLevel::Debug,"POKETYPE CART\n");
 }
 
-CartRetailBT::~CartRetailBT()
-{
-}
-
-void CartRetailBT::Reset()
-{
-    CartRetail::Reset();
-}
-
-void CartRetailBT::DoSavestate(Savestate* file)
-{
-    CartRetail::DoSavestate(file);
-}
+CartRetailBT::~CartRetailBT() = default;
 
 u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 {
@@ -1148,7 +1133,7 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 
 
 CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams, const std::optional<FATStorageArgs>& sdcard) :
-    CartCommon(rom, len, chipid, false, romparams)
+    CartCommon(rom, len, chipid, false, romparams, Homebrew)
 {
     if (sdcard)
     {
@@ -1189,7 +1174,7 @@ void CartHomebrew::SetupDirectBoot(const std::string& romname, NDS& nds)
     {
         // add the ROM to the SD volume
 
-        if (!SD->InjectFile(romname, ROM, ROMLength))
+        if (!SD->InjectFile(romname, ROM.get(), ROMLength))
             return;
 
         // setup argv command line
@@ -1216,12 +1201,7 @@ void CartHomebrew::SetupDirectBoot(const std::string& romname, NDS& nds)
     }
 }
 
-void CartHomebrew::DoSavestate(Savestate* file)
-{
-    CartCommon::DoSavestate(file);
-}
-
-int CartHomebrew::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
+int CartHomebrew::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
 
@@ -1258,7 +1238,7 @@ int CartHomebrew::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, u8* cmd, u8* 
     }
 }
 
-void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
+void CartHomebrew::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
 
@@ -1416,7 +1396,7 @@ void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
 
     addr &= (ROMLength-1);
 
-    memcpy(data+offset, ROM+addr, len);
+    memcpy(data+offset, ROM.get()+addr, len);
 }
 
 
