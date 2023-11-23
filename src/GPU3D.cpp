@@ -146,13 +146,13 @@ void GPU3D::ResetRenderingState() noexcept
     RenderDispCnt = 0;
     RenderAlphaRef = 0;
 
-    memset(RenderEdgeTable, 0, 8*2);
-    memset(RenderToonTable, 0, 32*2);
+    memset(RenderEdgeTable.data(), 0, sizeof(RenderEdgeTable));
+    memset(RenderToonTable.data(), 0, sizeof(RenderToonTable));
 
     RenderFogColor = 0;
     RenderFogOffset = 0;
     RenderFogShift = 0;
-    memset(RenderFogDensityTable, 0, 34);
+    memset(RenderFogDensityTable.data(), 0, sizeof(RenderFogDensityTable));
 
     RenderClearAttr1 = 0x3F000000;
     RenderClearAttr2 = 0x00007FFF;
@@ -237,6 +237,8 @@ void GPU3D::Reset() noexcept
     RenderXPos = 0;
 
     AbortFrame = false;
+
+    CurrentRenderer->Reset();
 }
 
 void GPU3D::DoSavestate(Savestate* file) noexcept
@@ -271,13 +273,13 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     file->Var32(&RenderDispCnt);
     file->Var8(&RenderAlphaRef);
 
-    file->VarArray(RenderToonTable, 32*2);
-    file->VarArray(RenderEdgeTable, 8*2);
+    file->VarArray(RenderToonTable.data(), sizeof(RenderToonTable));
+    file->VarArray(RenderEdgeTable.data(), sizeof(RenderEdgeTable));
 
     file->Var32(&RenderFogColor);
     file->Var32(&RenderFogOffset);
     file->Var32(&RenderFogShift);
-    file->VarArray(RenderFogDensityTable, 34);
+    file->VarArray(RenderFogDensityTable.data(), sizeof(RenderFogDensityTable));
 
     file->Var32(&RenderClearAttr1);
     file->Var32(&RenderClearAttr2);
@@ -777,7 +779,7 @@ int ClipAgainstPlane(const GPU3D& gpu, Vertex* vertices, int nverts, int clipsta
         Vertex vtx = vertices[i];
         if (vtx.Position[comp] > vtx.Position[3])
         {
-            if ((comp == 2) && (!(gpu.CurPolygonAttr & (1<<12)))) return 0;
+            if ((comp == 2) && (!(gpu.GetCurPolygonAttr() & (1<<12)))) return 0;
 
             Vertex* vprev = &vertices[prev];
             if (vprev->Position[comp] <= vprev->Position[3])
@@ -2332,6 +2334,10 @@ void GPU3D::RestartFrame() noexcept
     CurrentRenderer->RestartFrame();
 }
 
+void GPU3D::Stop() noexcept
+{
+    CurrentRenderer->Stop();
+}
 
 bool YSort(Polygon* a, Polygon* b)
 {
@@ -2385,16 +2391,16 @@ void GPU3D::VBlank() noexcept
                     && RenderClearAttr2 == ClearAttr2
                     && RenderFogColor == FogColor
                     && RenderFogOffset == FogOffset * 0x200
-                    && memcmp(RenderEdgeTable, EdgeTable, 8*2) == 0
-                    && memcmp(RenderFogDensityTable + 1, FogDensityTable, 32) == 0
-                    && memcmp(RenderToonTable, ToonTable, 32*2) == 0;
+                    && memcmp(RenderEdgeTable.data(), EdgeTable, 8*2) == 0
+                    && memcmp(RenderFogDensityTable.data() + 1, FogDensityTable, 32) == 0
+                    && memcmp(RenderToonTable.data(), ToonTable, 32*2) == 0;
             }
 
             RenderDispCnt = DispCnt;
             RenderAlphaRef = AlphaRef;
 
-            memcpy(RenderEdgeTable, EdgeTable, 8*2);
-            memcpy(RenderToonTable, ToonTable, 32*2);
+            memcpy(RenderEdgeTable.data(), EdgeTable, 8*2);
+            memcpy(RenderToonTable.data(), ToonTable, 32*2);
 
             RenderFogColor = FogColor;
             RenderFogOffset = FogOffset * 0x200;
@@ -2472,7 +2478,13 @@ u32* GPU3D::GetLine(int line) noexcept
 
 bool GPU3D::IsRendererAccelerated() const noexcept
 {
-    return CurrentRenderer && CurrentRenderer->Accelerated;
+    return CurrentRenderer && CurrentRenderer->IsAccelerated();
+}
+
+void GPU3D::SetRenderSettings(const RenderSettings& settings) noexcept
+{
+    if (CurrentRenderer)
+        CurrentRenderer->SetRenderSettings(settings);
 }
 
 void GPU3D::WriteToGXFIFO(u32 val) noexcept
@@ -2882,6 +2894,12 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
     }
 
     Log(LogLevel::Debug, "unknown GPU3D write32 %08X %08X\n", addr, val);
+}
+
+void GPU3D::Blit() noexcept
+{
+    if (CurrentRenderer)
+        CurrentRenderer->Blit();
 }
 
 Renderer3D::Renderer3D(bool Accelerated)

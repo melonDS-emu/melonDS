@@ -30,15 +30,15 @@ class SoftRenderer : public Renderer3D
 {
 public:
     SoftRenderer(melonDS::GPU& gpu) noexcept;
-    virtual ~SoftRenderer() override;
-    virtual void Reset() override;
+    ~SoftRenderer() override;
+    void Reset() override;
 
-    virtual void SetRenderSettings(const RenderSettings& settings) noexcept override;
+    void SetRenderSettings(const RenderSettings& settings) noexcept override;
 
-    virtual void VCount144() override;
-    virtual void RenderFrame() override;
-    virtual void RestartFrame() override;
-    virtual u32* GetLine(int line) override;
+    void VCount144() override;
+    void RenderFrame() override;
+    void RestartFrame() override;
+    u32* GetLine(int line) override;
 
     void SetupRenderThread();
     void StopRenderThread();
@@ -428,32 +428,37 @@ private:
     };
 
     template <typename T>
-    inline T ReadVRAM_Texture(u32 addr)
+    inline T ReadVRAM_Texture(u32 addr) const noexcept
     {
         return *(T*)&GPU.VRAMFlat_Texture[addr & 0x7FFFF];
     }
     template <typename T>
-    inline T ReadVRAM_TexPal(u32 addr)
+    inline T ReadVRAM_TexPal(u32 addr) const noexcept
     {
         return *(T*)&GPU.VRAMFlat_TexPal[addr & 0x1FFFF];
     }
-    u32 AlphaBlend(u32 srccolor, u32 dstcolor, u32 alpha) noexcept;
+    u32 AlphaBlend(u32 srccolor, u32 dstcolor, u32 alpha) const noexcept;
 
     struct RendererPolygon
     {
-        Polygon* PolyData;
+        Polygon* PolyData = nullptr;
 
-        Slope<0> SlopeL;
-        Slope<1> SlopeR;
-        s32 XL, XR;
-        u32 CurVL, CurVR;
-        u32 NextVL, NextVR;
+        Slope<0> SlopeL {};
+        Slope<1> SlopeR {};
+        s32 XL = 0, XR = 0;
+        u32 CurVL = 0, CurVR = 0;
+        u32 NextVL = 0, NextVR = 0;
 
     };
 
+    static constexpr int ScanlineWidth = 258;
+    static constexpr int NumScanlines = 194;
+    static constexpr int BufferSize = ScanlineWidth * NumScanlines;
+    static constexpr int FirstPixelOffset = ScanlineWidth + 1;
+
     melonDS::GPU& GPU;
-    RendererPolygon PolygonList[2048];
-    void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha);
+    RendererPolygon PolygonList[2048] {};
+    void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const noexcept;
     u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t);
     void PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
     void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y);
@@ -462,7 +467,7 @@ private:
     void RenderShadowMaskScanline(RendererPolygon* rp, s32 y);
     void RenderPolygonScanline(RendererPolygon* rp, s32 y);
     void RenderScanline(s32 y, int npolys);
-    u32 CalculateFogDensity(u32 pixeladdr);
+    u32 CalculateFogDensity(u32 pixeladdr) const noexcept;
     void ScanlineFinalPass(s32 y);
     void ClearBuffers();
     void RenderPolygons(bool threaded, Polygon** polygons, int npolys);
@@ -475,14 +480,10 @@ private:
     // TODO: check if the hardware can accidentally plot pixels
     // offscreen in that border
 
-    static constexpr int ScanlineWidth = 258;
-    static constexpr int NumScanlines = 194;
-    static constexpr int BufferSize = ScanlineWidth * NumScanlines;
-    static constexpr int FirstPixelOffset = ScanlineWidth + 1;
 
-    u32 ColorBuffer[BufferSize * 2];
-    u32 DepthBuffer[BufferSize * 2];
-    u32 AttrBuffer[BufferSize * 2];
+    u32 ColorBuffer[BufferSize * 2] {};
+    u32 DepthBuffer[BufferSize * 2] {};
+    u32 AttrBuffer[BufferSize * 2] {};
 
     // attribute buffer:
     // bit0-3: edge flags (left/right/top/bottom)
@@ -493,21 +494,18 @@ private:
     // bit22: translucent flag
     // bit24-29: polygon ID for opaque pixels
 
-    u8 StencilBuffer[256*2];
-    bool PrevIsShadowMask;
-
-    bool Enabled;
-
-    bool FrameIdentical;
+    u8 StencilBuffer[256*2] {};
+    bool PrevIsShadowMask = false;
+    bool Enabled = false;
+    bool FrameIdentical = false;
 
     // threading
-
-    bool Threaded;
-    Platform::Thread* RenderThread;
-    std::atomic_bool RenderThreadRunning;
-    std::atomic_bool RenderThreadRendering;
-    Platform::Semaphore* Sema_RenderStart;
-    Platform::Semaphore* Sema_RenderDone;
-    Platform::Semaphore* Sema_ScanlineCount;
+    bool Threaded = false;
+    Platform::Thread* RenderThread = nullptr;
+    std::atomic_bool RenderThreadRunning = false;
+    std::atomic_bool RenderThreadRendering = false;
+    Platform::Semaphore* Sema_RenderStart = Platform::Semaphore_Create();
+    Platform::Semaphore* Sema_RenderDone = Platform::Semaphore_Create();
+    Platform::Semaphore* Sema_ScanlineCount = Platform::Semaphore_Create();
 };
 }

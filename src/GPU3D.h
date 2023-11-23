@@ -28,6 +28,7 @@
 namespace melonDS
 {
 struct RenderSettings;
+class GPU;
 
 struct Vertex
 {
@@ -86,7 +87,7 @@ class NDS;
 class GPU3D
 {
 public:
-    GPU3D(melonDS::NDS& nds) noexcept : NDS(nds) {}
+    explicit GPU3D(melonDS::NDS& nds) noexcept : NDS(nds) {}
     ~GPU3D() noexcept = default;
     void Reset() noexcept;
 
@@ -106,6 +107,7 @@ public:
     void VCount215() noexcept;
 
     void RestartFrame() noexcept;
+    void Stop() noexcept;
 
     void SetRenderXPos(u16 xpos) noexcept;
     [[nodiscard]] u16 GetRenderXPos() const noexcept { return RenderXPos; }
@@ -113,10 +115,32 @@ public:
 
     void WriteToGXFIFO(u32 val) noexcept;
 
+    void SetRenderSettings(const RenderSettings& settings) noexcept;
     [[nodiscard]] bool IsRendererAccelerated() const noexcept;
-    [[nodiscard]] Renderer3D* GetCurrentRenderer() noexcept { return CurrentRenderer.get(); }
-    [[nodiscard]] const Renderer3D* GetCurrentRenderer() const noexcept { return CurrentRenderer.get(); }
+    [[nodiscard]] Renderer3D& GetCurrentRenderer() noexcept { return *CurrentRenderer; }
+    [[nodiscard]] const Renderer3D& GetCurrentRenderer() const noexcept { return *CurrentRenderer; }
     void SetCurrentRenderer(std::unique_ptr<Renderer3D>&& renderer) noexcept { CurrentRenderer = std::move(renderer); }
+
+    [[nodiscard]] u32 GetCurPolygonAttr() const noexcept { return CurPolygonAttr; }
+    [[nodiscard]] const std::array<Polygon*, 2048>& GetRenderPolygonRAM() const noexcept { return RenderPolygonRAM; }
+    [[nodiscard]] std::array<Polygon*, 2048>& GetRenderPolygonRAM() noexcept { return RenderPolygonRAM; }
+    [[nodiscard]] u32 GetRenderNumPolygons() const noexcept { return RenderNumPolygons; }
+    [[nodiscard]] Polygon* GetRenderPolygon(u32 i) noexcept { return i < RenderNumPolygons ? RenderPolygonRAM[i] : nullptr; }
+    [[nodiscard]] u32 GetRenderDispCnt() const noexcept { return RenderDispCnt; }
+    [[nodiscard]] u32 GetRenderClearAttr1() const noexcept { return RenderClearAttr1; }
+    [[nodiscard]] u32 GetRenderClearAttr2() const noexcept { return RenderClearAttr2; }
+    [[nodiscard]] u32 GetRenderFogColor() const noexcept { return RenderFogColor; }
+    [[nodiscard]] const std::array<u16, 32>& GetRenderToonTable() const noexcept { return RenderToonTable; }
+    [[nodiscard]] const std::array<u16, 8>& GetRenderEdgeTable() const noexcept { return RenderEdgeTable; }
+    [[nodiscard]] const std::array<u8, 34>& GetRenderFogDensityTable() const noexcept { return RenderFogDensityTable; }
+    [[nodiscard]] u32 GetRenderFogOffset() const noexcept { return RenderFogOffset; }
+    [[nodiscard]] u32 GetRenderFogShift() const noexcept { return RenderFogShift; }
+    [[nodiscard]] bool GetAbortFrame() const noexcept { return AbortFrame; }
+    void SetAbortFrame(bool abortframe) { AbortFrame = abortframe; }
+    [[nodiscard]] u8 GetRenderAlphaRef() const noexcept { return RenderAlphaRef; }
+    [[nodiscard]] bool IsRenderFrameIdentical() const noexcept { return RenderFrameIdentical; }
+    [[nodiscard]] u64 GetTimestamp() const noexcept { return Timestamp; }
+    void SetTimestamp(u64 timestamp) noexcept { Timestamp = timestamp; }
 
     u8 Read8(u32 addr) noexcept;
     u16 Read16(u32 addr) noexcept;
@@ -124,6 +148,7 @@ public:
     void Write8(u32 addr, u8 val) noexcept;
     void Write16(u32 addr, u16 val) noexcept;
     void Write32(u32 addr, u32 val) noexcept;
+    void Blit() noexcept;
 private:
     melonDS::NDS& NDS;
     typedef union
@@ -187,7 +212,6 @@ private:
 
     u16 RenderXPos = 0;
 
-public:
     FIFO<CmdFIFOEntry, 256> CmdFIFO {};
     FIFO<CmdFIFOEntry, 4> CmdPIPE {};
 
@@ -250,18 +274,19 @@ public:
     u32 FogOffset = 0;
     u8 FogDensityTable[32] {};
 
-    u32 ClearAttr1 = 0;
-    u32 ClearAttr2 = 0;
+    // TODO: confirm initial polyid/color/fog values
+    u32 ClearAttr1 = 0x3F000000;
+    u32 ClearAttr2 = 0x00007FFF;
     u32 RenderDispCnt = 0;
     u8 RenderAlphaRef = 0;
 
-    u16 RenderToonTable[32] {};
-    u16 RenderEdgeTable[8] {};
+    std::array<u16, 32> RenderToonTable {};
+    std::array<u16, 8> RenderEdgeTable {};
 
     u32 RenderFogColor = 0;
     u32 RenderFogOffset = 0;
     u32 RenderFogShift = 0;
-    u8 RenderFogDensityTable[34] {};
+    std::array<u8, 34> RenderFogDensityTable {};
 
     u32 RenderClearAttr1 = 0;
     u32 RenderClearAttr2 = 0;
@@ -320,7 +345,7 @@ public:
 
     u32 FlushRequest = 0;
     u32 FlushAttributes = 0;
-    u32 ScrolledLine[256];
+    u32 ScrolledLine[256] {};
 };
 
 class Renderer3D
@@ -332,21 +357,24 @@ public:
     Renderer3D& operator=(const Renderer3D&) = delete;
 
     virtual void Reset() = 0;
+    virtual void SetRenderSettings(const RenderSettings& settings) noexcept = 0;
+
+    virtual void VCount144() {};
+    virtual void Stop() {}
+    virtual void RenderFrame() = 0;
+    virtual void RestartFrame() {};
+    virtual u32* GetLine(int line) = 0;
+
+    [[nodiscard]] bool IsAccelerated() const noexcept { return Accelerated; }
+    virtual void Blit() {};
+protected:
+    Renderer3D(bool Accelerated);
 
     // This "Accelerated" flag currently communicates if the framebuffer should
     // be allocated differently and other little misc handlers. Ideally there
     // are more detailed "traits" that we can ask of the Renderer3D type
     const bool Accelerated;
 
-    virtual void SetRenderSettings(const RenderSettings& settings) noexcept = 0;
-
-    virtual void VCount144() {};
-
-    virtual void RenderFrame() = 0;
-    virtual void RestartFrame() {};
-    virtual u32* GetLine(int line) = 0;
-protected:
-    Renderer3D(bool Accelerated);
 };
 
 }

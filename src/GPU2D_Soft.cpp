@@ -369,7 +369,7 @@ void SoftRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
     {
         if ((unitA->CaptureCnt & (1<<31)) && (((unitA->CaptureCnt >> 29) & 0x3) != 1))
         {
-            reinterpret_cast<GLRenderer*>(GPU.GPU3D.GetCurrentRenderer())->PrepareCaptureFrame();
+            reinterpret_cast<GLRenderer&>(GPU.GPU3D.GetCurrentRenderer()).PrepareCaptureFrame();
         }
     }
 #endif

@@ -67,21 +67,19 @@ struct RenderSettings
 class GPU
 {
 public:
-    GPU(melonDS::NDS& nds) noexcept;
+    explicit GPU(melonDS::NDS& nds) noexcept;
     ~GPU() noexcept;
     void Reset() noexcept;
     void Stop() noexcept;
 
     void DoSavestate(Savestate* file) noexcept;
 
-    [[deprecated("Set the renderer directly instead of using an integer code")]] void InitRenderer(int renderer) noexcept;
-    [[deprecated("Don't expose a method to deinit the renderer; deinit it in the destructor or when setting a new renderer")]] void DeInitRenderer() noexcept;
-    void ResetRenderer() noexcept;
+    void SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept { GPU3D.SetCurrentRenderer(std::move(renderer)); }
+    [[nodiscard]] const Renderer3D& GetRenderer3D() const noexcept { return GPU3D.GetCurrentRenderer(); }
+    [[nodiscard]] Renderer3D& GetRenderer3D() noexcept { return GPU3D.GetCurrentRenderer(); }
 
-    void SetRenderSettings(int renderer, RenderSettings& settings) noexcept;
-
-    u8* GetUniqueBankPtr(u32 mask, u32 offset) noexcept;
-    const u8* GetUniqueBankPtr(u32 mask, u32 offset) const noexcept;
+    void SetRenderSettings(std::unique_ptr<Renderer3D>&& renderer, const RenderSettings& settings) noexcept;
+    void SetRenderSettings(const RenderSettings& settings) noexcept;
 
     void MapVRAM_AB(u32 bank, u8 cnt) noexcept;
     void MapVRAM_CD(u32 bank, u8 cnt) noexcept;
@@ -514,8 +512,6 @@ public:
     void StartScanline(u32 line) noexcept;
     void StartHBlank(u32 line) noexcept;
 
-    void DisplayFIFO(u32 x) noexcept;
-
     void SetDispStat(u32 cpu, u16 val) noexcept;
 
     void SetVCount(u16 val) noexcept;
@@ -534,7 +530,7 @@ public:
     bool MakeVRAMFlat_TextureCoherent(NonStupidBitField<512*1024/VRAMDirtyGranularity>& dirty) noexcept;
     bool MakeVRAMFlat_TexPalCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty) noexcept;
 
-    void SyncDirtyFlags() noexcept;
+    static u32 constexpr VRAMMask[9] = {0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0xFFFF, 0x3FFF, 0x3FFF, 0x7FFF, 0x3FFF};
 
     melonDS::NDS& NDS;
     u16 VCount = 0;
@@ -557,7 +553,6 @@ public:
     u8 VRAM_I[ 16*1024] {};
 
     u8* const VRAM[9]     = {VRAM_A,  VRAM_B,  VRAM_C,  VRAM_D,  VRAM_E, VRAM_F, VRAM_G, VRAM_H, VRAM_I};
-    u32 const VRAMMask[9] = {0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0xFFFF, 0x3FFF, 0x3FFF, 0x7FFF, 0x3FFF};
 
     u32 VRAMMap_LCDC = 0;
     u32 VRAMMap_ABG[0x20] {};
@@ -578,7 +573,7 @@ public:
     u8* VRAMPtr_BOBJ[0x8] {};
 
     int FrontBuffer = 0;
-    u32* Framebuffer[2][2] {};
+    std::unique_ptr<u32[]> Framebuffer[2][2] {};
 
     GPU2D::Unit GPU2D_A;
     GPU2D::Unit GPU2D_B;
@@ -611,12 +606,10 @@ public:
 
     u8 VRAMFlat_Texture[512*1024] {};
     u8 VRAMFlat_TexPal[128*1024] {};
-
-    int Renderer = 0;
-#ifdef OGLRENDERER_ENABLED
-    std::unique_ptr<GLCompositor> CurGLCompositor = nullptr;
-#endif
 private:
+    void DisplayFIFO(u32 x) noexcept;
+    u8* GetUniqueBankPtr(u32 mask, u32 offset) noexcept;
+    [[nodiscard]] const u8* GetUniqueBankPtr(u32 mask, u32 offset) const noexcept;
     void ResetVRAMCache() noexcept;
     void AssignFramebuffers() noexcept;
     template<typename T>

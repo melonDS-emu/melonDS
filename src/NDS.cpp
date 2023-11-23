@@ -929,7 +929,7 @@ u32 NDS::RunFrame() noexcept
                 ARM7Timestamp = target;
                 TimerTimestamp[0] = target;
                 TimerTimestamp[1] = target;
-                GPU.GPU3D.Timestamp = target;
+                GPU.GPU3D.SetTimestamp(target);
                 RunSystemSleep(target);
 
                 if (!(CPUStop & CPUStop_Sleep))
