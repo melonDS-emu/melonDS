@@ -70,11 +70,7 @@ bool MACEqual(u8* a, const u8* b);
 bool MACIsBroadcast(u8* a);
 
 
-WifiAP::WifiAP(Wifi* client) : Client(client)
-{
-}
-
-WifiAP::~WifiAP()
+WifiAP::WifiAP(Wifi& client) noexcept : Client(client)
 {
 }
 
@@ -86,7 +82,7 @@ void WifiAP::Reset()
 
     BeaconDue = false;
 
-    memset(PacketBuffer, 0, sizeof(PacketBuffer));
+    memset(PacketBuffer.data(), 0, sizeof(PacketBuffer));
     PacketLen = 0;
     RXNum = 0;
 
@@ -297,7 +293,7 @@ int WifiAP::SendPacket(u8* data, int len)
                 *(u16*)&LANBuffer[12] = *(u16*)&data[30]; // type
                 memcpy(&LANBuffer[14], &data[32], lan_len - 14);
 
-                Platform::LAN_SendPacket(LANBuffer, lan_len);
+                Platform::LAN_SendPacket(LANBuffer.data(), lan_len);
             }
         }
         return len;
@@ -349,7 +345,7 @@ int WifiAP::RecvPacket(u8* data)
         u8* base = data + 12;
         u8* p = base;
 
-        memcpy(p, PacketBuffer, PacketLen);
+        memcpy(p, PacketBuffer.data(), PacketLen);
         p += PacketLen;
 
         PALIGN_4(p, base);
@@ -364,13 +360,13 @@ int WifiAP::RecvPacket(u8* data)
 
     if (ClientStatus < 2) return 0;
 
-    int rxlen = Platform::LAN_RecvPacket(LANBuffer);
+    int rxlen = Platform::LAN_RecvPacket(LANBuffer.data());
     if (rxlen > 0)
     {
         // check destination MAC
         if (!MACIsBroadcast(&LANBuffer[0]))
         {
-            if (!MACEqual(&LANBuffer[0], Client->GetMAC()))
+            if (!MACEqual(&LANBuffer[0], Client.GetMAC()))
                 return 0;
         }
 

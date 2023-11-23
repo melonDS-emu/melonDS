@@ -36,7 +36,7 @@ using Platform::LogLevel;
 #define PRINT_MAC(pf, mac) Log(LogLevel::Debug, "%s: %02X:%02X:%02X:%02X:%02X:%02X\n", pf, (mac)[0], (mac)[1], (mac)[2], (mac)[3], (mac)[4], (mac)[5]);
 
 #define IOPORT(x) IO[(x)>>1]
-#define IOPORT8(x) ((u8*)IO)[x]
+#define IOPORT8(x) ((u8*)IO.data())[x]
 
 // destination MACs for MP frames
 const u8 Wifi::MPCmdMAC[6]   = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x00};
@@ -89,7 +89,7 @@ bool MACIsBroadcast(u8* a)
 }
 
 
-Wifi::Wifi(melonDS::NDS& nds) : NDS(nds)
+Wifi::Wifi(melonDS::NDS& nds) noexcept : NDS(nds), WifiAP(*this)
 {
     NDS.RegisterEventFunc(NDS::Event_Wifi, 0, MemberEventFunc(Wifi, USTimer));
 
@@ -101,34 +101,37 @@ Wifi::Wifi(melonDS::NDS& nds) : NDS(nds)
 
     Platform::LAN_Init();
     LANInited = true;
-
-    WifiAP = new class WifiAP(this);
 }
 
 Wifi::~Wifi()
 {
     if (MPInited)
+    {
         Platform::MP_DeInit();
-    if (LANInited)
-        Platform::LAN_DeInit();
+        MPInited = false;
+    }
 
-    delete WifiAP; WifiAP = nullptr;
+    if (LANInited)
+    {
+        Platform::LAN_DeInit();
+        LANInited = false;
+    }
 
     NDS.UnregisterEventFunc(NDS::Event_Wifi, 0);
 }
 
 void Wifi::Reset()
 {
-    memset(RAM, 0, 0x2000);
-    memset(IO, 0, 0x1000);
+    memset(RAM.data(), 0, sizeof(RAM));
+    memset(IO.data(), 0, sizeof(IO));
 
     Enabled = false;
     PowerOn = false;
 
     Random = 1;
 
-    memset(BBRegs, 0, 0x100);
-    memset(BBRegsRO, 0, 0x100);
+    memset(BBRegs.data(), 0, sizeof(BBRegs));
+    memset(BBRegsRO.data(), 0, sizeof(BBRegsRO));
 
     #define BBREG_FIXED(id, val)  BBRegs[id] = val; BBRegsRO[id] = 1;
     BBREG_FIXED(0x00, 0x6D);
@@ -161,7 +164,7 @@ void Wifi::Reset()
     const Firmware* fw = NDS.SPI.GetFirmware();
 
     RFVersion = fw->GetHeader().RFChipType;
-    memset(RFRegs, 0, 4*0x40);
+    memset(RFRegs.data(), 0, sizeof(RFRegs));
 
     Firmware::FirmwareConsoleType console = fw->GetHeader().ConsoleType;
     if (console == Firmware::FirmwareConsoleType::DS)
@@ -188,13 +191,13 @@ void Wifi::Reset()
     USCompare = 0;
     BlockBeaconIRQ14 = false;
 
-    memset(TXSlots, 0, sizeof(TXSlots));
-    memset(TXBuffer, 0, sizeof(TXBuffer));
+    memset(TXSlots.data(), 0, sizeof(TXSlots));
+    memset(TXBuffer.data(), 0, sizeof(TXBuffer));
     ComStatus = 0;
     TXCurSlot = -1;
     RXCounter = 0;
 
-    memset(RXBuffer, 0, sizeof(RXBuffer));
+    memset(RXBuffer.data(), 0, sizeof(RXBuffer));
     RXBufferPtr = 0;
     RXTime = 0;
     RXHalfwordTimeMask = 0xFFFFFFFF;
@@ -202,7 +205,7 @@ void Wifi::Reset()
     MPReplyTimer = 0;
     MPClientMask = 0;
     MPClientFail = 0;
-    memset(MPClientReplies, 0, sizeof(MPClientReplies));
+    memset(MPClientReplies.data(), 0, sizeof(MPClientReplies));
 
     MPLastSeqno = 0xFFFF;
 
@@ -216,7 +219,7 @@ void Wifi::Reset()
     NextSync = 0;
     RXTimestamp = 0;
 
-    WifiAP->Reset();
+    WifiAP.Reset();
 }
 
 void Wifi::DoSavestate(Savestate* file)
@@ -228,8 +231,8 @@ void Wifi::DoSavestate(Savestate* file)
     // also: savestate and wifi can't fucking work together!!
     // or it can but you would be disconnected
 
-    file->VarArray(RAM, 0x2000);
-    file->VarArray(IO, 0x1000);
+    file->VarArray(RAM.data(), sizeof(RAM));
+    file->VarArray(IO.data(), sizeof(IO));
 
     file->Bool32(&Enabled);
     file->Bool32(&PowerOn);
@@ -238,11 +241,11 @@ void Wifi::DoSavestate(Savestate* file)
 
     file->Var32((u32*)&TimerError);
 
-    file->VarArray(BBRegs, 0x100);
-    file->VarArray(BBRegsRO, 0x100);
+    file->VarArray(BBRegs.data(), sizeof(BBRegs));
+    file->VarArray(BBRegsRO.data(), sizeof(BBRegsRO));
 
     file->Var8(&RFVersion);
-    file->VarArray(RFRegs, 4*0x40);
+    file->VarArray(RFRegs.data(), sizeof(RFRegs));
 
     file->Var64(&USCounter);
     file->Var64(&USCompare);
@@ -265,9 +268,9 @@ void Wifi::DoSavestate(Savestate* file)
         file->Var32(&slot->HalfwordTimeMask);
     }
 
-    file->VarArray(TXBuffer, sizeof(TXBuffer));
+    file->VarArray(TXBuffer.data(), sizeof(TXBuffer));
 
-    file->VarArray(RXBuffer, sizeof(RXBuffer));
+    file->VarArray(RXBuffer.data(), sizeof(RXBuffer));
     file->Var32(&RXBufferPtr);
     file->Var32((u32*)&RXTime);
     file->Var32(&RXHalfwordTimeMask);
@@ -280,7 +283,7 @@ void Wifi::DoSavestate(Savestate* file)
     file->Var16(&MPClientMask);
     file->Var16(&MPClientFail);
 
-    file->VarArray(MPClientReplies, sizeof(MPClientReplies));
+    file->VarArray(MPClientReplies.data(), sizeof(MPClientReplies));
 
     file->Var16(&MPLastSeqno);
 
@@ -516,7 +519,7 @@ void Wifi::TXSendFrame(TXSlot* slot, int num)
     if ((slot->Addr + len) > 0x1FF4)
         len = 0x1FF4 - slot->Addr;
 
-    memcpy(TXBuffer, &RAM[slot->Addr], 12+len);
+    memcpy(TXBuffer.data(), &RAM[slot->Addr], 12+len);
 
     if (noseqno == 2)
         *(u16*)&TXBuffer[0xC] |= (1<<11);
@@ -526,23 +529,23 @@ void Wifi::TXSendFrame(TXSlot* slot, int num)
     case 0:
     case 2:
     case 3:
-        Platform::MP_SendPacket(TXBuffer, 12+len, USTimestamp);
-        if (!IsMP) WifiAP->SendPacket(TXBuffer, 12+len);
+        Platform::MP_SendPacket(TXBuffer.data(), 12+len, USTimestamp);
+        if (!IsMP) WifiAP.SendPacket(TXBuffer.data(), 12+len);
         break;
 
     case 1:
         *(u16*)&TXBuffer[12 + 24+2] = MPClientMask;
-        Platform::MP_SendCmd(TXBuffer, 12+len, USTimestamp);
+        Platform::MP_SendCmd(TXBuffer.data(), 12+len, USTimestamp);
         break;
 
     case 5:
         IncrementTXCount(slot);
-        Platform::MP_SendReply(TXBuffer, 12+len, USTimestamp, IOPORT(W_AIDLow));
+        Platform::MP_SendReply(TXBuffer.data(), 12+len, USTimestamp, IOPORT(W_AIDLow));
         break;
 
     case 4:
         *(u64*)&TXBuffer[0xC + 24] = USCounter;
-        Platform::MP_SendPacket(TXBuffer, 12+len, USTimestamp);
+        Platform::MP_SendPacket(TXBuffer.data(), 12+len, USTimestamp);
         break;
     }
 }
@@ -922,7 +925,7 @@ bool Wifi::ProcessTX(TXSlot* slot, int num)
 
                 u16 res = 0;
                 if (MPClientMask)
-                    res = Platform::MP_RecvReplies(MPClientReplies, USTimestamp, MPClientMask);
+                    res = Platform::MP_RecvReplies(MPClientReplies.data(), USTimestamp, MPClientMask);
                 MPClientFail &= ~res;
 
                 // TODO: 112 likely includes the ack preamble, which needs adjusted
@@ -1410,7 +1413,7 @@ void Wifi::MPClientReplyRX(int client)
     if (framelen < 0) framelen = 0;
 
     // TODO rework RX system so we don't need this (by reading directly into MPClientReplies)
-    memcpy(RXBuffer, reply, 12+framelen);
+    memcpy(RXBuffer.data(), reply, 12+framelen);
 
     *(u16*)&RXBuffer[6] = txrate;
     *(u16*)&RXBuffer[8] = framelen;
@@ -1442,13 +1445,13 @@ bool Wifi::CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 
         if (type == 0)
         {
-            rxlen = Platform::MP_RecvPacket(RXBuffer, &timestamp);
+            rxlen = Platform::MP_RecvPacket(RXBuffer.data(), &timestamp);
             if ((rxlen <= 0) && (!IsMP))
-                rxlen = WifiAP->RecvPacket(RXBuffer);
+                rxlen = WifiAP.RecvPacket(RXBuffer.data());
         }
         else
         {
-            rxlen = Platform::MP_RecvHostPacket(RXBuffer, &timestamp);
+            rxlen = Platform::MP_RecvHostPacket(RXBuffer.data(), &timestamp);
             if (rxlen < 0)
             {
                 // host is gone
@@ -1603,7 +1606,7 @@ void Wifi::USTimer(u32 param)
     }
 
     if (!(USTimestamp & 0x3FF & kTimeCheckMask))
-        WifiAP->MSTimer();
+        WifiAP.MSTimer();
 
     bool switchOffPowerSaving = false;
     if (USUntilPowerOn < 0)

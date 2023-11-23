@@ -20,6 +20,7 @@
 #define WIFI_H
 
 #include "Savestate.h"
+#include "WifiAP.h"
 
 namespace melonDS
 {
@@ -159,7 +160,7 @@ public:
         W_RXTXAddr = 0x268,
     };
 
-    Wifi(melonDS::NDS& nds);
+    Wifi(melonDS::NDS& nds) noexcept;
     ~Wifi();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -175,10 +176,6 @@ public:
     u8* GetBSSID();
 
 private:
-    melonDS::NDS& NDS;
-    u8 RAM[0x2000];
-    u16 IO[0x1000>>1];
-
     static const u8 MPCmdMAC[6];
     static const u8 MPReplyMAC[6];
     static const u8 MPAckMAC[6];
@@ -186,71 +183,75 @@ private:
     static const int kTimerInterval = 8;
     static const u32 kTimeCheckMask = ~(kTimerInterval - 1);
 
-    bool Enabled;
-    bool PowerOn;
+    melonDS::NDS& NDS;
+    melonDS::WifiAP WifiAP;
+    std::array<u8, 0x2000> RAM {};
+    std::array<u16, (0x1000>>1)> IO {};
 
-    s32 TimerError;
+    bool Enabled = false;
+    bool PowerOn = false;
 
-    u16 Random;
+    s32 TimerError = 0;
+
+    u16 Random = 0;
 
     // general, always-on microsecond counter
-    u64 USTimestamp;
+    u64 USTimestamp = 0;
 
-    u64 USCounter;
-    u64 USCompare;
-    bool BlockBeaconIRQ14;
+    u64 USCounter = 0;
+    u64 USCompare = 0;
+    bool BlockBeaconIRQ14 = false;
 
-    u32 CmdCounter;
+    u32 CmdCounter = 0;
 
-    u8 BBRegs[0x100];
-    u8 BBRegsRO[0x100];
+    std::array<u8, 0x100> BBRegs {};
+    std::array<u8, 0x100> BBRegsRO {};
 
-    u8 RFVersion;
-    u32 RFRegs[0x40];
+    u8 RFVersion = 0;
+    std::array<u32, 0x40> RFRegs {};
 
     struct TXSlot
     {
-        bool Valid;
-        u16 Addr;
-        u16 Length;
-        u8 Rate;
-        u8 CurPhase;
-        int CurPhaseTime;
-        u32 HalfwordTimeMask;
+        bool Valid = false;
+        u16 Addr = 0;
+        u16 Length = 0;
+        u8 Rate = 0;
+        u8 CurPhase = 0;
+        int CurPhaseTime = 0;
+        u32 HalfwordTimeMask = 0;
     };
 
-    TXSlot TXSlots[6];
-    u8 TXBuffer[0x2000];
+    std::array<TXSlot, 6> TXSlots {};
+    std::array<u8, 0x2000> TXBuffer {};
 
-    u8 RXBuffer[2048];
-    u32 RXBufferPtr;
-    int RXTime;
-    u32 RXHalfwordTimeMask;
+    std::array<u8, 2048> RXBuffer {};
+    u32 RXBufferPtr = 0;
+    int RXTime = 0;
+    u32 RXHalfwordTimeMask = 0xFFFFFFFF;
 
-    u32 ComStatus; // 0=waiting for packets  1=receiving  2=sending
-    u32 TXCurSlot;
-    u32 RXCounter;
+    u32 ComStatus = 0; // 0=waiting for packets  1=receiving  2=sending
+    u32 TXCurSlot = -1;
+    u32 RXCounter = 0;
 
-    int MPReplyTimer;
-    u16 MPClientMask, MPClientFail;
+    int MPReplyTimer = 0;
+    u16 MPClientMask = 0, MPClientFail = 0;
 
-    u8 MPClientReplies[15*1024];
+    std::array<u8, 15*1024> MPClientReplies {};
 
-    u16 MPLastSeqno;
+    u16 MPLastSeqno = 0xFFFF;
 
-    bool MPInited;
-    bool LANInited;
+    bool MPInited = false;
+    bool LANInited = false;
 
-    int USUntilPowerOn;
-    bool ForcePowerOn;
+    int USUntilPowerOn = 0;
+    bool ForcePowerOn = false;
 
     // MULTIPLAYER SYNC APPARATUS
-    bool IsMP;
-    bool IsMPClient;
-    u64 NextSync;           // for clients: timestamp for next sync point
-    u64 RXTimestamp;
+    bool IsMP = false;
+    bool IsMPClient = false;
+    u64 NextSync = 0;           // for clients: timestamp for next sync point
+    u64 RXTimestamp = 0;
 
-    class WifiAP* WifiAP;
 
     void ScheduleTimer(bool first);
     void UpdatePowerOn();

@@ -28,13 +28,11 @@ class Wifi;
 class WifiAP
 {
 public:
-    WifiAP(Wifi* client);
-    ~WifiAP();
-    void Reset();
-
     static const char* APName;
     static const u8 APMac[6];
 
+    explicit WifiAP(Wifi& client) noexcept;
+    void Reset();
     void MSTimer();
 
     // packet format: 12-byte TX header + original 802.11 frame
@@ -42,23 +40,23 @@ public:
     int RecvPacket(u8* data);
 
 private:
-    Wifi* Client;
+    Wifi& Client;
 
-    u64 USCounter;
+    u64 USCounter = 0x428888000ULL;
 
-    u16 SeqNo;
+    u16 SeqNo = 0x0120;
 
-    bool BeaconDue;
+    bool BeaconDue = false;
 
-    u8 PacketBuffer[2048];
-    int PacketLen;
-    int RXNum;
+    std::array<u8, 2048> PacketBuffer {};
+    int PacketLen = 0;
+    int RXNum = 0;
 
-    u8 LANBuffer[2048];
+    std::array<u8, 2048> LANBuffer {};
 
     // this is a lazy AP, we only keep track of one client
     // 0=disconnected 1=authenticated 2=associated
-    int ClientStatus;
+    int ClientStatus = 0;
 
     int HandleManagementFrame(u8* data, int len);
 };
