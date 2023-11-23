@@ -54,7 +54,7 @@ PowerManagementDialog::PowerManagementDialog(QWidget* parent, EmuThread* emuThre
     {
         ui->grpDSiBattery->setEnabled(false);
 
-        oldDSBatteryLevel = emuThread->NDS->SPI.GetPowerMan()->GetBatteryLevelOkay();
+        oldDSBatteryLevel = emuThread->NDS->SPI.GetPowerMan().GetBatteryLevelOkay();
     }
 
     updateDSBatteryLevelControls();
@@ -109,7 +109,7 @@ void PowerManagementDialog::done(int r)
         }
         else
         {
-            Config::DSBatteryLevelOkay = emuThread->NDS->SPI.GetPowerMan()->GetBatteryLevelOkay();
+            Config::DSBatteryLevelOkay = emuThread->NDS->SPI.GetPowerMan().GetBatteryLevelOkay();
         }
     }
     else
@@ -122,7 +122,7 @@ void PowerManagementDialog::done(int r)
         }
         else
         {
-            emuThread->NDS->SPI.GetPowerMan()->SetBatteryLevelOkay(oldDSBatteryLevel);
+            emuThread->NDS->SPI.GetPowerMan().SetBatteryLevelOkay(oldDSBatteryLevel);
         }
     }
 
@@ -133,17 +133,17 @@ void PowerManagementDialog::done(int r)
 
 void PowerManagementDialog::on_rbDSBatteryLow_clicked()
 {
-    emuThread->NDS->SPI.GetPowerMan()->SetBatteryLevelOkay(false);
+    emuThread->NDS->SPI.GetPowerMan().SetBatteryLevelOkay(false);
 }
 
 void PowerManagementDialog::on_rbDSBatteryOkay_clicked()
 {
-    emuThread->NDS->SPI.GetPowerMan()->SetBatteryLevelOkay(true);
+    emuThread->NDS->SPI.GetPowerMan().SetBatteryLevelOkay(true);
 }
 
 void PowerManagementDialog::updateDSBatteryLevelControls()
 {
-    if (emuThread->NDS->SPI.GetPowerMan()->GetBatteryLevelOkay())
+    if (emuThread->NDS->SPI.GetPowerMan().GetBatteryLevelOkay())
         ui->rbDSBatteryOkay->setChecked(true);
     else
         ui->rbDSBatteryLow->setChecked(true);

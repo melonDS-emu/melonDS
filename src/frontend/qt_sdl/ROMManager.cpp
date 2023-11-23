@@ -821,7 +821,7 @@ void SetBatteryLevels(NDS& nds)
     }
     else
     {
-        nds.SPI.GetPowerMan()->SetBatteryLevelOkay(Config::DSBatteryLevelOkay);
+        nds.SPI.GetPowerMan().SetBatteryLevelOkay(Config::DSBatteryLevelOkay);
     }
 }
 
@@ -1332,7 +1332,9 @@ bool InstallFirmware(NDS& nds)
 
     FirmwareSave = std::make_unique<SaveManager>(firmwarepath);
 
-    return nds.SPI.GetFirmwareMem()->InstallFirmware(std::move(firmware));
+    nds.SPI.GetFirmwareMem().SetFirmware(std::move(*firmware));
+
+    return true;
 }
 
 bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)

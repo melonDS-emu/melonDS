@@ -39,8 +39,6 @@ enum
     SPIDevice_MAX
 };
 
-u16 CRC16(const u8* data, u32 len, u32 start);
-
 class SPIHost;
 class NDS;
 struct InitArguments;
@@ -48,24 +46,24 @@ struct InitArguments;
 class SPIDevice
 {
 public:
-    SPIDevice(melonDS::NDS& nds) : NDS(nds), Hold(false), DataPos(0) {}
-    virtual ~SPIDevice() {}
+    explicit SPIDevice(melonDS::NDS& nds) : NDS(nds) {}
+    virtual ~SPIDevice() = default;
     virtual void Reset() = 0;
     virtual void DoSavestate(Savestate* file) = 0;
 
-    virtual u8 Read() { return Data; }
+    [[nodiscard]] u8 Read() const { return Data; }
     virtual void Write(u8 val) = 0;
     virtual void Release() { Hold = false; DataPos = 0; }
 
 protected:
     melonDS::NDS& NDS;
 
-    bool Hold;
-    u32 DataPos;
-    u8 Data;
+    bool Hold = false;
+    u32 DataPos = 0;
+    u8 Data = 0;
 };
 
-class FirmwareMem : public SPIDevice
+class FirmwareMem final : public SPIDevice
 {
 public:
     FirmwareMem(Firmware&& firmware, melonDS::NDS& nds);
@@ -75,69 +73,68 @@ public:
 
     void SetupDirectBoot();
 
-    Firmware* GetFirmware() { return Firmware.get(); };
-    [[nodiscard]] const Firmware* GetFirmware() const { return Firmware.get(); };
-    bool IsLoadedFirmwareBuiltIn() const;
-    bool InstallFirmware(class Firmware&& firmware);
-    bool InstallFirmware(std::unique_ptr<class Firmware>&& firmware);
-    void RemoveFirmware();
+    [[nodiscard]] Firmware& GetFirmware() noexcept { return Firmware; }
+    [[nodiscard]] const Firmware& GetFirmware() const noexcept { return Firmware; }
+    void SetFirmware(melonDS::Firmware&& firmware) noexcept
+    {
+        Firmware = std::move(firmware);
+    }
+
+    [[nodiscard]] bool IsLoadedFirmwareBuiltIn() const noexcept
+    {
+        return Firmware.GetHeader().Identifier == GENERATED_FIRMWARE_IDENTIFIER;
+    }
 
     void Write(u8 val) override;
     void Release() override;
 
 private:
-    std::unique_ptr<class Firmware> Firmware;
+    melonDS::Firmware Firmware;
+    u8 CurCmd = 0;
+    u8 StatusReg = 0;
+    u32 Addr = 0;
 
-    u8 CurCmd;
-
-    u8 StatusReg;
-    u32 Addr;
-
-    bool VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset);
+    bool VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset) const;
 };
 
-class PowerMan : public SPIDevice
+class PowerMan final : public SPIDevice
 {
 public:
-    PowerMan(melonDS::NDS& nds);
-    ~PowerMan() override;
+    explicit PowerMan(melonDS::NDS& nds);
     void Reset() override;
     void DoSavestate(Savestate* file) override;
 
-    bool GetBatteryLevelOkay();
+    [[nodiscard]] bool GetBatteryLevelOkay() const;
     void SetBatteryLevelOkay(bool okay);
 
     void Write(u8 val) override;
 
 private:
-    u8 Index;
-
-    u8 Registers[8];
-    u8 RegMasks[8];
+    u8 Index = 0;
+    std::array<u8, 8> Registers { 0, 0, 0, 0, 0x40, 0, 0, 0 };
+    std::array<u8, 8> RegMasks { 0x7F, 0x00, 0x01, 0x03, 0x0F, 0, 0, 0 };
 };
 
 class TSC : public SPIDevice
 {
 public:
-    TSC(melonDS::NDS& nds);
-    virtual ~TSC() override;
-    virtual void Reset() override;
-    virtual void DoSavestate(Savestate* file) override;
+    explicit TSC(melonDS::NDS& nds);
+    void Reset() override;
+    void DoSavestate(Savestate* file) override;
 
-    virtual void SetTouchCoords(u16 x, u16 y);
-    virtual void MicInputFrame(s16* data, int samples);
+    virtual void SetTouchCoords(u16 x, u16 y) noexcept;
+    virtual void MicInputFrame(const s16* data, int samples) noexcept;
 
-    virtual void Write(u8 val) override;
+    void Write(u8 val) override;
 
 protected:
-    u8 ControlByte;
+    u8 ControlByte = 0;
+    u16 ConvResult = 0;
 
-    u16 ConvResult;
+    u16 TouchX = 0, TouchY = 0;
 
-    u16 TouchX, TouchY;
-
-    s16 MicBuffer[1024];
-    int MicBufferLen;
+    std::array<s16, 1024> MicBuffer {};
+    int MicBufferLen = 0;
 };
 
 
@@ -149,28 +146,33 @@ public:
     void Reset();
     void DoSavestate(Savestate* file);
 
-    [[nodiscard]] FirmwareMem* GetFirmwareMem() { return (FirmwareMem*)Devices[SPIDevice_FirmwareMem]; }
-    [[nodiscard]] const FirmwareMem* GetFirmwareMem() const { return (FirmwareMem*)Devices[SPIDevice_FirmwareMem]; }
-    [[nodiscard]] PowerMan* GetPowerMan() { return (PowerMan*)Devices[SPIDevice_PowerMan]; }
-    [[nodiscard]] const PowerMan* GetPowerMan() const { return (PowerMan*)Devices[SPIDevice_PowerMan]; }
-    [[nodiscard]] TSC* GetTSC() { return (TSC*)Devices[SPIDevice_TSC]; }
-    [[nodiscard]] const TSC* GetTSC() const { return (TSC*)Devices[SPIDevice_TSC]; }
-    [[nodiscard]] const Firmware* GetFirmware() const { return GetFirmwareMem()->GetFirmware(); }
-    [[nodiscard]] Firmware* GetFirmware() { return GetFirmwareMem()->GetFirmware(); }
+    [[nodiscard]] FirmwareMem& GetFirmwareMem() { return FirmwareMem; }
+    [[nodiscard]] const FirmwareMem& GetFirmwareMem() const { return FirmwareMem; }
+    [[nodiscard]] PowerMan& GetPowerMan() { return PowerMan; }
+    [[nodiscard]] const PowerMan& GetPowerMan() const { return PowerMan; }
+    [[nodiscard]] TSC& GetTSC() { return *TSC; }
+    [[nodiscard]] const TSC& GetTSC() const { return *TSC; }
+    [[nodiscard]] const Firmware& GetFirmware() const { return FirmwareMem.GetFirmware(); }
+    [[nodiscard]] Firmware& GetFirmware() { return FirmwareMem.GetFirmware(); }
+    void SetFirmware(Firmware&& firmware) noexcept
+    {
+        FirmwareMem.SetFirmware(std::move(firmware));
+    }
 
     [[nodiscard]] u16 ReadCnt() const noexcept { return Cnt; }
     void WriteCnt(u16 val);
 
-    u8 ReadData();
+    [[nodiscard]] u8 ReadData() const;
     void WriteData(u8 val);
 
-    void TransferDone(u32 param);
-
 private:
+    void TransferDone(u32 param);
     melonDS::NDS& NDS;
-    u16 Cnt;
+    u16 Cnt = 0;
 
-    SPIDevice* Devices[3];
+    melonDS::FirmwareMem FirmwareMem;
+    melonDS::PowerMan PowerMan;
+    const std::unique_ptr<melonDS::TSC> TSC;
 };
 
 }

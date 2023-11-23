@@ -28,9 +28,7 @@ namespace melonDS
 class DSi_TSC : public TSC
 {
 public:
-    DSi_TSC(melonDS::DSi& dsi);
-    ~DSi_TSC() override;
-
+    explicit DSi_TSC(melonDS::DSi& dsi);
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
@@ -38,18 +36,18 @@ public:
     // 00=DS-mode 01=normal
     void SetMode(u8 mode);
 
-    void SetTouchCoords(u16 x, u16 y) override;
-    void MicInputFrame(s16* data, int samples) override;
+    void SetTouchCoords(u16 x, u16 y) noexcept override;
+    void MicInputFrame(const s16* data, int samples) noexcept override;
 
     void Write(u8 val) override;
     void Release() override;
 
 private:
-    u8 Index;
-    u8 Bank;
+    u8 Index = 0;
+    u8 Bank = 0;
 
-    u8 Bank3Regs[0x80];
-    u8 TSCMode;
+    std::array<u8, 0x80> Bank3Regs {};
+    u8 TSCMode = 0x01; // DSi mode
 };
 
 }

@@ -26,7 +26,6 @@
 #include "SPI.h"
 #include "DSi_SPI_TSC.h"
 #include "Platform.h"
-#include "Arguments.h"
 
 namespace melonDS
 {
@@ -58,35 +57,32 @@ u16 CRC16(const u8* data, u32 len, u32 start)
 
 
 
-bool FirmwareMem::VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
+bool FirmwareMem::VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset) const
 {
-    u16 crc_stored =  *(u16*)&Firmware->Buffer()[crcoffset];
-    u16 crc_calced = CRC16(&Firmware->Buffer()[offset], len, start);
+    u16 crc_stored =  *(u16*)&Firmware.Buffer()[crcoffset];
+    u16 crc_calced = CRC16(&Firmware.Buffer()[offset], len, start);
     return (crc_stored == crc_calced);
 }
 
 
 FirmwareMem::FirmwareMem(melonDS::Firmware&& firmware, melonDS::NDS& nds) :
     SPIDevice(nds),
-    Firmware(std::make_unique<melonDS::Firmware>(std::move(firmware)))
+    Firmware(std::move(firmware))
 {
 }
 
-FirmwareMem::~FirmwareMem()
-{
-    RemoveFirmware();
-}
+FirmwareMem::~FirmwareMem() = default;
 
 void FirmwareMem::Reset()
 {
-    if (!Firmware)
+    if (!Firmware.Buffer())
     {
         Log(LogLevel::Warn, "SPI firmware: no firmware loaded! Using default\n");
-        Firmware = std::make_unique<class Firmware>(NDS.ConsoleType);
+        Firmware = melonDS::Firmware(NDS.ConsoleType);
     }
 
     // fix touchscreen coords
-    for (auto& u : Firmware->GetUserData())
+    for (auto& u : Firmware.GetUserData())
     {
         u.TouchCalibrationADC1[0] = 0;
         u.TouchCalibrationADC1[1] = 0;
@@ -98,24 +94,24 @@ void FirmwareMem::Reset()
         u.TouchCalibrationPixel2[1] = 191;
     }
 
-    Firmware->UpdateChecksums();
+    Firmware.UpdateChecksums();
 
     // disable autoboot
     //Firmware[userdata+0x64] &= 0xBF;
 
-    MacAddress mac = Firmware->GetHeader().MacAddr;
+    MacAddress mac = Firmware.GetHeader().MacAddr;
     Log(LogLevel::Info, "MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     // verify shit
-    u32 mask = Firmware->Mask();
-    Log(LogLevel::Debug, "FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware->Buffer()[0x2C], 0x2A)?"GOOD":"BAD");
+    u32 mask = Firmware.Mask();
+    Log(LogLevel::Debug, "FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware.Buffer()[0x2C], 0x2A)?"GOOD":"BAD");
     Log(LogLevel::Debug, "FW: AP1 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FA00&mask, 0xFE, 0x7FAFE&mask)?"GOOD":"BAD");
     Log(LogLevel::Debug, "FW: AP2 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FB00&mask, 0xFE, 0x7FBFE&mask)?"GOOD":"BAD");
     Log(LogLevel::Debug, "FW: AP3 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FC00&mask, 0xFE, 0x7FCFE&mask)?"GOOD":"BAD");
     Log(LogLevel::Debug, "FW: USER0 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FE00&mask, 0x70, 0x7FE72&mask)?"GOOD":"BAD");
     Log(LogLevel::Debug, "FW: USER1 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FF00&mask, 0x70, 0x7FF72&mask)?"GOOD":"BAD");
 
-    Hold = 0;
+    Hold = false;
     CurCmd = 0;
     Data = 0;
     StatusReg = 0x00;
@@ -139,8 +135,8 @@ void FirmwareMem::DoSavestate(Savestate* file)
 
 void FirmwareMem::SetupDirectBoot()
 {
-    const auto& header = Firmware->GetHeader();
-    const auto& userdata = Firmware->GetEffectiveUserData();
+    const auto& header = Firmware.GetHeader();
+    const auto& userdata = Firmware.GetEffectiveUserData();
     if (NDS.ConsoleType == 1)
     {
         // The ARMWrite methods are virtual, they'll delegate to DSi if necessary
@@ -164,55 +160,6 @@ void FirmwareMem::SetupDirectBoot()
         for (u32 i = 0; i < 0x70; i += 4)
             NDS.ARM9Write32(0x027FFC80+i, *(u32*)&userdata.Bytes[i]);
     }
-}
-
-bool FirmwareMem::IsLoadedFirmwareBuiltIn() const
-{
-    return Firmware->GetHeader().Identifier == GENERATED_FIRMWARE_IDENTIFIER;
-}
-
-bool FirmwareMem::InstallFirmware(class Firmware&& firmware)
-{
-    if (!firmware.Buffer())
-    {
-        Log(LogLevel::Error, "SPI firmware: firmware buffer is null!\n");
-        return false;
-    }
-
-    Firmware = std::make_unique<class Firmware>(std::move(firmware));
-
-    FirmwareIdentifier id = Firmware->GetHeader().Identifier;
-    Log(LogLevel::Debug, "Installed firmware (Identifier: %c%c%c%c)\n", id[0], id[1], id[2], id[3]);
-
-    return true;
-}
-
-bool FirmwareMem::InstallFirmware(std::unique_ptr<class Firmware>&& firmware)
-{
-    if (!firmware)
-    {
-        Log(LogLevel::Error, "SPI firmware: firmware is null!\n");
-        return false;
-    }
-
-    if (!firmware->Buffer())
-    {
-        Log(LogLevel::Error, "SPI firmware: firmware buffer is null!\n");
-        return false;
-    }
-
-    Firmware = std::move(firmware);
-
-    FirmwareIdentifier id = Firmware->GetHeader().Identifier;
-    Log(LogLevel::Debug, "Installed firmware (Identifier: %c%c%c%c)\n", id[0], id[1], id[2], id[3]);
-
-    return true;
-}
-
-void FirmwareMem::RemoveFirmware()
-{
-    Firmware.reset();
-    Log(LogLevel::Debug, "Removed installed firmware (if any)\n");
 }
 
 void FirmwareMem::Write(u8 val)
@@ -254,7 +201,7 @@ void FirmwareMem::Write(u8 val)
             }
             else
             {
-                Data = Firmware->Buffer()[Addr & Firmware->Mask()];
+                Data = Firmware.Buffer()[Addr & Firmware.Mask()];
                 Addr++;
             }
 
@@ -277,7 +224,7 @@ void FirmwareMem::Write(u8 val)
             }
             else
             {
-                Firmware->Buffer()[Addr & Firmware->Mask()] = val;
+                Firmware.Buffer()[Addr & Firmware.Mask()] = val;
                 Data = val;
                 Addr++;
             }
@@ -312,11 +259,11 @@ void FirmwareMem::Release()
     { // If the SPI firmware chip just finished a write...
         // We only notify the frontend of changes to the Wi-fi/userdata settings region
         // (although it might still decide to flush the whole thing)
-        u32 wifioffset = Firmware->GetWifiAccessPointOffset();
+        u32 wifioffset = Firmware.GetWifiAccessPointOffset();
 
         // Request that the start of the Wi-fi/userdata settings region
         // through the end of the firmware blob be flushed to disk
-        Platform::WriteFirmware(*Firmware, wifioffset, Firmware->Length() - wifioffset);
+        Platform::WriteFirmware(Firmware, wifioffset, Firmware.Length() - wifioffset);
     }
 
     SPIDevice::Release();
@@ -329,18 +276,14 @@ PowerMan::PowerMan(melonDS::NDS& nds) : SPIDevice(nds)
 {
 }
 
-PowerMan::~PowerMan()
-{
-}
-
 void PowerMan::Reset()
 {
     Hold = false;
     Index = 0;
     Data = 0;
 
-    memset(Registers, 0, sizeof(Registers));
-    memset(RegMasks, 0, sizeof(RegMasks));
+    memset(Registers.data(), 0, sizeof(Registers));
+    memset(RegMasks.data(), 0, sizeof(RegMasks));
 
     Registers[4] = 0x40;
 
@@ -360,11 +303,11 @@ void PowerMan::DoSavestate(Savestate* file)
     file->Var8(&Index);
     file->Var8(&Data);
 
-    file->VarArray(Registers, 8);
-    file->VarArray(RegMasks, 8); // is that needed??
+    file->VarArray(Registers.data(), sizeof(Registers));
+    file->VarArray(RegMasks.data(), sizeof(RegMasks)); // is that needed??
 }
 
-bool PowerMan::GetBatteryLevelOkay() { return !Registers[1]; }
+bool PowerMan::GetBatteryLevelOkay() const { return !Registers[1]; }
 void PowerMan::SetBatteryLevelOkay(bool okay) { Registers[1] = okay ? 0x00 : 0x01; }
 
 void PowerMan::Write(u8 val)
@@ -413,10 +356,6 @@ TSC::TSC(melonDS::NDS& nds) : SPIDevice(nds)
 {
 }
 
-TSC::~TSC()
-{
-}
-
 void TSC::Reset()
 {
     Hold = false;
@@ -439,7 +378,7 @@ void TSC::DoSavestate(Savestate* file)
     file->Var16(&ConvResult);
 }
 
-void TSC::SetTouchCoords(u16 x, u16 y)
+void TSC::SetTouchCoords(u16 x, u16 y) noexcept
 {
     // scr.x = (adc.x-adc.x1) * (scr.x2-scr.x1) / (adc.x2-adc.x1) + (scr.x1-1)
     // scr.y = (adc.y-adc.y1) * (scr.y2-scr.y1) / (adc.y2-adc.y1) + (scr.y1-1)
@@ -460,7 +399,7 @@ void TSC::SetTouchCoords(u16 x, u16 y)
     NDS.KeyInput &= ~(1 << (16+6));
 }
 
-void TSC::MicInputFrame(s16* data, int samples)
+void TSC::MicInputFrame(const s16* data, int samples) noexcept
 {
     if (!data)
     {
@@ -469,7 +408,7 @@ void TSC::MicInputFrame(s16* data, int samples)
     }
 
     if (samples > 1024) samples = 1024;
-    memcpy(MicBuffer, data, samples*sizeof(s16));
+    memcpy(MicBuffer.data(), data, samples*sizeof(s16));
     MicBufferLen = samples;
 }
 
@@ -528,31 +467,20 @@ void TSC::Write(u8 val)
 
 
 
-SPIHost::SPIHost(Firmware&& firmware, melonDS::NDS& nds) : NDS(nds)
-{
-    NDS.RegisterEventFunc(NDS::Event_SPITransfer, 0, MemberEventFunc(SPIHost, TransferDone));
-
-    Devices[SPIDevice_FirmwareMem] = new FirmwareMem(std::move(firmware), NDS);
-    Devices[SPIDevice_PowerMan] = new PowerMan(NDS);
-
+SPIHost::SPIHost(Firmware&& firmware, melonDS::NDS& nds) :
+    NDS(nds),
+    FirmwareMem(std::move(firmware), nds),
+    PowerMan(nds),
+    TSC(nds.ConsoleType == 1 ? new DSi_TSC(static_cast<melonDS::DSi&>(nds)) : new melonDS::TSC(nds))
     // Must not be a dynamic_cast; this constructor is running in the middle of NDS's constructor,
     // which is called before DSi's constructor, so the DSi object isn't fully constructed yet.
-    if (NDS.ConsoleType == 1)
-        Devices[SPIDevice_TSC] = new DSi_TSC(static_cast<melonDS::DSi&>(NDS));
-    else
-        Devices[SPIDevice_TSC] = new TSC(NDS);
+{
+    NDS.RegisterEventFunc(NDS::Event_SPITransfer, 0, MemberEventFunc(SPIHost, TransferDone));
 }
 
 SPIHost::~SPIHost()
 {
-    for (int i = 0; i < SPIDevice_MAX; i++)
-    {
-        if (Devices[i])
-            delete Devices[i];
-
-        Devices[i] = nullptr;
-    }
-
+    // The SPI devices are cleaned up implicitly
     NDS.UnregisterEventFunc(NDS::Event_SPITransfer, 0);
 }
 
@@ -560,10 +488,9 @@ void SPIHost::Reset()
 {
     Cnt = 0;
 
-    for (int i = 0; i < SPIDevice_MAX; i++)
-    {
-        Devices[i]->Reset();
-    }
+    FirmwareMem.Reset();
+    PowerMan.Reset();
+    TSC->Reset();
 }
 
 void SPIHost::DoSavestate(Savestate* file)
@@ -572,10 +499,9 @@ void SPIHost::DoSavestate(Savestate* file)
 
     file->Var16(&Cnt);
 
-    for (int i = 0; i < SPIDevice_MAX; i++)
-    {
-        Devices[i]->DoSavestate(file);
-    }
+    FirmwareMem.DoSavestate(file);
+    PowerMan.DoSavestate(file);
+    TSC->DoSavestate(file);
 }
 
 
@@ -586,9 +512,17 @@ void SPIHost::WriteCnt(u16 val)
     if ((Cnt & (1<<15)) && !(val & (1<<15)))
     {
         int dev = (Cnt >> 8) & 0x3;
-        if (dev < SPIDevice_MAX)
+        switch (dev)
         {
-            Devices[dev]->Release();
+        case SPIDevice_FirmwareMem:
+            FirmwareMem.Release();
+            break;
+        case SPIDevice_PowerMan:
+            PowerMan.Release();
+            break;
+        case SPIDevice_TSC:
+            TSC->Release();
+            break;
         }
     }
 
@@ -607,15 +541,17 @@ void SPIHost::TransferDone(u32 param)
         NDS.SetIRQ(1, NDS::IRQ_SPI);
 }
 
-u8 SPIHost::ReadData()
+u8 SPIHost::ReadData() const
 {
     if (!(Cnt & (1<<15))) return 0;
     if (Cnt & (1<<7)) return 0; // checkme
 
     int dev = (Cnt >> 8) & 0x3;
-    if (dev < SPIDevice_MAX)
+    switch (dev)
     {
-        return Devices[dev]->Read();
+    case SPIDevice_FirmwareMem: return FirmwareMem.Read();
+    case SPIDevice_PowerMan: return PowerMan.Read();
+    case SPIDevice_TSC: return TSC->Read();
     }
 
     return 0;
@@ -631,9 +567,22 @@ void SPIHost::WriteData(u8 val)
     int dev = (Cnt >> 8) & 0x3;
     if (dev < SPIDevice_MAX)
     {
-        Devices[dev]->Write(val);
+        switch (dev)
+        {
+        case SPIDevice_FirmwareMem: FirmwareMem.Write(val); break;
+        case SPIDevice_PowerMan: PowerMan.Write(val); break;
+        case SPIDevice_TSC: TSC->Write(val); break;
+        }
+
         if (!(Cnt & (1<<11))) // release chipselect
-            Devices[dev]->Release();
+        {
+            switch (dev)
+            {
+            case SPIDevice_FirmwareMem: FirmwareMem.Release(); break;
+            case SPIDevice_PowerMan: PowerMan.Release(); break;
+            case SPIDevice_TSC: TSC->Release(); break;
+            }
+        }
     }
     else
     {

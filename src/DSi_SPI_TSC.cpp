@@ -32,10 +32,6 @@ DSi_TSC::DSi_TSC(melonDS::DSi& dsi) : TSC(dsi)
 {
 }
 
-DSi_TSC::~DSi_TSC()
-{
-}
-
 void DSi_TSC::Reset()
 {
     TSC::Reset();
@@ -46,7 +42,7 @@ void DSi_TSC::Reset()
     Index = 0;
     Data = 0;
 
-    memset(Bank3Regs, 0, 0x80);
+    memset(Bank3Regs.data(), 0, sizeof(Bank3Regs));
     Bank3Regs[0x02] = 0x18;
     Bank3Regs[0x03] = 0x87;
     Bank3Regs[0x04] = 0x22;
@@ -72,7 +68,7 @@ void DSi_TSC::DoSavestate(Savestate* file)
     file->Var8(&Bank);
     file->Var8(&Data);
 
-    file->VarArray(Bank3Regs, 0x80);
+    file->VarArray(Bank3Regs.data(), sizeof(Bank3Regs));
     file->Var8(&TSCMode);
 }
 
@@ -81,7 +77,7 @@ void DSi_TSC::SetMode(u8 mode)
     TSCMode = mode;
 }
 
-void DSi_TSC::SetTouchCoords(u16 x, u16 y)
+void DSi_TSC::SetTouchCoords(u16 x, u16 y) noexcept
 {
     if (TSCMode == 0x00) return TSC::SetTouchCoords(x, y);
 
@@ -121,7 +117,7 @@ void DSi_TSC::SetTouchCoords(u16 x, u16 y)
     }
 }
 
-void DSi_TSC::MicInputFrame(s16* data, int samples)
+void DSi_TSC::MicInputFrame(const s16* data, int samples) noexcept
 {
     if (TSCMode == 0x00) return TSC::MicInputFrame(data, samples);
 

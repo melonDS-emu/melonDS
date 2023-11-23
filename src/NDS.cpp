@@ -241,11 +241,11 @@ void NDS::InitTimings() noexcept
 bool NDS::NeedsDirectBoot() const noexcept
 {
     // internal firmware does not support direct boot
-    if (SPI.GetFirmware()->GetHeader().Identifier == GENERATED_FIRMWARE_IDENTIFIER)
+    if (SPI.GetFirmware().GetHeader().Identifier == GENERATED_FIRMWARE_IDENTIFIER)
         return true;
 
     // DSi/3DS firmwares aren't bootable
-    if (!SPI.GetFirmware()->IsBootable())
+    if (!SPI.GetFirmware().IsBootable())
         return true;
 
     // internal BIOS does not support direct boot
@@ -320,7 +320,7 @@ void NDS::SetupDirectBoot() noexcept
 
     ARM7BIOSProt = 0x1204;
 
-    SPI.GetFirmwareMem()->SetupDirectBoot();
+    SPI.GetFirmwareMem().SetupDirectBoot();
 
     ARM9.CP15Write(0x100, 0x00012078);
     ARM9.CP15Write(0x200, 0x00000042);
@@ -1133,12 +1133,12 @@ void NDS::CancelEvent(u32 id) noexcept
 
 void NDS::TouchScreen(u16 x, u16 y) noexcept
 {
-    SPI.GetTSC()->SetTouchCoords(x, y);
+    SPI.GetTSC().SetTouchCoords(x, y);
 }
 
 void NDS::ReleaseScreen() noexcept
 {
-    SPI.GetTSC()->SetTouchCoords(0x000, 0xFFF);
+    SPI.GetTSC().SetTouchCoords(0x000, 0xFFF);
 }
 
 
@@ -1206,7 +1206,7 @@ void NDS::SetLidClosed(bool closed) noexcept
 
 void NDS::MicInputFrame(s16* data, int samples) noexcept
 {
-    return SPI.GetTSC()->MicInputFrame(data, samples);
+    return SPI.GetTSC().MicInputFrame(data, samples);
 }
 
 /*int ImportSRAM(u8* data, u32 length)
