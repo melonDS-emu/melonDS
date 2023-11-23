@@ -2261,12 +2261,12 @@ void Wifi::Write(u32 addr, u16 val)
 }
 
 
-u8* Wifi::GetMAC()
+const u8* Wifi::GetMAC() const noexcept
 {
     return (u8*)&IOPORT(W_MACAddr0);
 }
 
-u8* Wifi::GetBSSID()
+const u8* Wifi::GetBSSID() const noexcept
 {
     return (u8*)&IOPORT(W_BSSID0);
 }

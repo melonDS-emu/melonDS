@@ -172,8 +172,8 @@ public:
     u16 Read(u32 addr);
     void Write(u32 addr, u16 val);
 
-    u8* GetMAC();
-    u8* GetBSSID();
+    const u8* GetMAC() const noexcept;
+    const u8* GetBSSID() const noexcept;
 
 private:
     static const u8 MPCmdMAC[6];
