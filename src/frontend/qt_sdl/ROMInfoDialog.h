@@ -60,6 +60,7 @@ private slots:
     void done(int r);
 
     void on_saveIconButton_clicked();
+    void on_saveAnimatedIconButton_clicked();
 
     void iconSetFrame(int frame);
 
@@ -68,6 +69,7 @@ private:
 
     QImage iconImage;
     QTimeLine* iconTimeline;
+    u32 animatedIconData[64][32*32] = {0};
     std::vector<QPixmap> animatedIconImages;
     std::vector<int> animatedSequence;
 };

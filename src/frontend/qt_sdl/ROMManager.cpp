@@ -1478,7 +1478,7 @@ QString GBACartLabel()
 }
 
 
-void ROMIcon(const u8 (&data)[512], const u16 (&palette)[16], u32* iconRef)
+void ROMIcon(const u8 (&data)[512], const u16 (&palette)[16], u32 (&iconRef)[32*32])
 {
     int index = 0;
     for (int i = 0; i < 4; i++)
@@ -1495,7 +1495,7 @@ void ROMIcon(const u8 (&data)[512], const u16 (&palette)[16], u32* iconRef)
                     u8 b = ((palette[pal_index] >> 10) & 0x1F) * 255 / 31;
                     u8 a = pal_index ? 255: 0;
                     u32* row = &iconRef[256 * i + 32 * k + 8 * j];
-                    row[l] = (a << 24) | (r << 16) | (g << 8) | b;
+                    row[l] = r | (g << 8) | (b << 16) | (a << 24);
                     index++;
                 }
             }
@@ -1509,14 +1509,15 @@ void ROMIcon(const u8 (&data)[512], const u16 (&palette)[16], u32* iconRef)
 #define SEQ_BMP(i) ((i & 0b0000011100000000) >> 8)
 #define SEQ_DUR(i) ((i & 0b0000000011111111) >> 0)
 
-void AnimatedROMIcon(const u8 (&data)[8][512], const u16 (&palette)[8][16], const u16 (&sequence)[64], u32 (&animatedTexRef)[32 * 32 * 64], std::vector<int> &animatedSequenceRef)
+void AnimatedROMIcon(const u8 (&data)[8][512], const u16 (&palette)[8][16], const u16 (&sequence)[64], u32 (&animatedIconRef)[64][32*32], std::vector<int> &animatedSequenceRef)
 {
     for (int i = 0; i < 64; i++)
     {
         if (!sequence[i])
             break;
-        u32* frame = &animatedTexRef[32 * 32 * i];
-        ROMIcon(data[SEQ_BMP(sequence[i])], palette[SEQ_PAL(sequence[i])], frame);
+
+        ROMIcon(data[SEQ_BMP(sequence[i])], palette[SEQ_PAL(sequence[i])], animatedIconRef[i]);
+        u32* frame = animatedIconRef[i];
 
         if (SEQ_FLIPH(sequence[i]))
         {
