@@ -45,14 +45,14 @@ public:
 
     void SetEnabled(bool enable) { Enabled = enable; }
 
-    u8 Read8(u32 addr) const noexcept;
-    u16 Read16(u32 addr) const noexcept;
-    u32 Read32(u32 addr) const noexcept;
+    [[nodiscard]] u8 Read8(u32 addr) const noexcept;
+    [[nodiscard]] u16 Read16(u32 addr) const noexcept;
+    [[nodiscard]] u32 Read32(u32 addr) const noexcept;
     void Write8(u32 addr, u8 val);
     void Write16(u32 addr, u16 val);
     void Write32(u32 addr, u32 val);
 
-    bool UsesFIFO() const noexcept
+    [[nodiscard]] bool UsesFIFO() const noexcept
     {
         if (((DispCnt >> 16) & 0x3) == 3)
             return true;
@@ -69,59 +69,59 @@ public:
 
     void CheckWindows(u32 line);
 
-    u16* GetBGExtPal(u32 slot, u32 pal);
-    u16* GetOBJExtPal();
+    [[nodiscard]] const u16* GetBGExtPal(u32 slot, u32 pal) const noexcept;
+    [[nodiscard]] const u16* GetOBJExtPal() const noexcept;
 
-    void GetBGVRAM(u8*& data, u32& mask);
-    void GetOBJVRAM(u8*& data, u32& mask);
+    void GetBGVRAM(u8*& data, u32& mask) const noexcept;
+    void GetOBJVRAM(u8*& data, u32& mask) const noexcept;
 
     void UpdateMosaicCounters(u32 line);
-    void CalculateWindowMask(u32 line, u8* windowMask, u8* objWindow);
+    void CalculateWindowMask(u32 line, u8* windowMask, const u8* objWindow) noexcept;
 
-    u32 Num;
-    bool Enabled;
+    const u32 Num;
+    bool Enabled = false;
 
-    u16 DispFIFO[16];
-    u32 DispFIFOReadPtr;
-    u32 DispFIFOWritePtr;
+    u16 DispFIFO[16] {};
+    u32 DispFIFOReadPtr = 0;
+    u32 DispFIFOWritePtr = 0;
 
-    u16 DispFIFOBuffer[256];
+    u16 DispFIFOBuffer[256] {};
 
-    u32 DispCnt;
-    u16 BGCnt[4];
+    u32 DispCnt = 0;
+    u16 BGCnt[4] {};
 
-    u16 BGXPos[4];
-    u16 BGYPos[4];
+    u16 BGXPos[4] {};
+    u16 BGYPos[4] {};
 
-    s32 BGXRef[2];
-    s32 BGYRef[2];
-    s32 BGXRefInternal[2];
-    s32 BGYRefInternal[2];
-    s16 BGRotA[2];
-    s16 BGRotB[2];
-    s16 BGRotC[2];
-    s16 BGRotD[2];
+    s32 BGXRef[2] {};
+    s32 BGYRef[2] {};
+    s32 BGXRefInternal[2] {};
+    s32 BGYRefInternal[2] {};
+    s16 BGRotA[2] {};
+    s16 BGRotB[2] {};
+    s16 BGRotC[2] {};
+    s16 BGRotD[2] {};
 
-    u8 Win0Coords[4];
-    u8 Win1Coords[4];
-    u8 WinCnt[4];
-    u32 Win0Active;
-    u32 Win1Active;
+    u8 Win0Coords[4] {};
+    u8 Win1Coords[4] {};
+    u8 WinCnt[4] {};
+    u32 Win0Active = 0;
+    u32 Win1Active = 0;
 
-    u8 BGMosaicSize[2];
-    u8 OBJMosaicSize[2];
-    u8 BGMosaicY, BGMosaicYMax;
-    u8 OBJMosaicYCount, OBJMosaicY, OBJMosaicYMax;
+    u8 BGMosaicSize[2] {};
+    u8 OBJMosaicSize[2] {};
+    u8 BGMosaicY = 0, BGMosaicYMax = 0;
+    u8 OBJMosaicYCount = 0, OBJMosaicY = 0, OBJMosaicYMax = 0;
 
-    u16 BlendCnt;
-    u16 BlendAlpha;
-    u8 EVA, EVB;
-    u8 EVY;
+    u16 BlendCnt = 0;
+    u16 BlendAlpha = 0;
+    u8 EVA = 0, EVB = 0;
+    u8 EVY = 0;
 
-    bool CaptureLatch;
-    u32 CaptureCnt;
+    bool CaptureLatch = false;
+    u32 CaptureCnt = 0;
 
-    u16 MasterBrightness;
+    u16 MasterBrightness = 0;
 private:
     melonDS::GPU& GPU;
 };
@@ -129,7 +129,7 @@ private:
 class Renderer2D
 {
 public:
-    virtual ~Renderer2D() {}
+    virtual ~Renderer2D() = default;
 
     virtual void DrawScanline(u32 line, Unit* unit) = 0;
     virtual void DrawSprites(u32 line, Unit* unit) = 0;
@@ -142,9 +142,9 @@ public:
         Framebuffer[1] = unitB;
     }
 protected:
-    u32* Framebuffer[2];
+    u32* Framebuffer[2] {};
 
-    Unit* CurUnit;
+    Unit* CurUnit = nullptr;
 };
 
 }

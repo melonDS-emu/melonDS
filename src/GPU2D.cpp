@@ -623,7 +623,7 @@ void Unit::SampleFIFO(u32 offset, u32 num)
     }
 }
 
-u16* Unit::GetBGExtPal(u32 slot, u32 pal)
+const u16* Unit::GetBGExtPal(u32 slot, u32 pal) const noexcept
 {
     const u32 PaletteSize = 256 * 2;
     const u32 SlotSize = PaletteSize * 16;
@@ -632,7 +632,7 @@ u16* Unit::GetBGExtPal(u32 slot, u32 pal)
          : GPU.VRAMFlat_BBGExtPal)[slot * SlotSize + pal * PaletteSize];
 }
 
-u16* Unit::GetOBJExtPal()
+const u16* Unit::GetOBJExtPal() const noexcept
 {
     return Num == 0
          ? (u16*)GPU.VRAMFlat_AOBJExtPal
@@ -648,7 +648,7 @@ void Unit::CheckWindows(u32 line)
     else if (line == Win1Coords[2]) Win1Active |=  0x1;
 }
 
-void Unit::CalculateWindowMask(u32 line, u8* windowMask, u8* objWindow)
+void Unit::CalculateWindowMask(u32 line, u8* windowMask, const u8* objWindow) noexcept
 {
     for (u32 i = 0; i < 256; i++)
         windowMask[i] = WinCnt[2]; // window outside
@@ -694,7 +694,7 @@ void Unit::CalculateWindowMask(u32 line, u8* windowMask, u8* objWindow)
     }
 }
 
-void Unit::GetBGVRAM(u8*& data, u32& mask)
+void Unit::GetBGVRAM(u8*& data, u32& mask) const noexcept
 {
     if (Num == 0)
     {
@@ -708,7 +708,7 @@ void Unit::GetBGVRAM(u8*& data, u32& mask)
     }
 }
 
-void Unit::GetOBJVRAM(u8*& data, u32& mask)
+void Unit::GetOBJVRAM(u8*& data, u32& mask) const noexcept
 {
     if (Num == 0)
     {
