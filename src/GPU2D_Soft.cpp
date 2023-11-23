@@ -27,68 +27,7 @@ namespace GPU2D
 SoftRenderer::SoftRenderer(melonDS::GPU& gpu)
     : Renderer2D(), GPU(gpu)
 {
-    // initialize mosaic table
-    for (int m = 0; m < 16; m++)
-    {
-        for (int x = 0; x < 256; x++)
-        {
-            int offset = x % (m+1);
-            MosaicTable[m][x] = offset;
-        }
-    }
-}
-
-u32 SoftRenderer::ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb)
-{
-    u32 r =  (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb) + 0x000008) >> 4;
-    u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb) + 0x000800) >> 4) & 0x007F00;
-    u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb) + 0x080000) >> 4) & 0x7F0000;
-
-    if (r > 0x00003F) r = 0x00003F;
-    if (g > 0x003F00) g = 0x003F00;
-    if (b > 0x3F0000) b = 0x3F0000;
-
-    return r | g | b | 0xFF000000;
-}
-
-u32 SoftRenderer::ColorBlend5(u32 val1, u32 val2)
-{
-    u32 eva = ((val1 >> 24) & 0x1F) + 1;
-    u32 evb = 32 - eva;
-
-    if (eva == 32) return val1;
-
-    u32 r =  (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb) + 0x000010) >> 5;
-    u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb) + 0x001000) >> 5) & 0x007F00;
-    u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb) + 0x100000) >> 5) & 0x7F0000;
-
-    if (r > 0x00003F) r = 0x00003F;
-    if (g > 0x003F00) g = 0x003F00;
-    if (b > 0x3F0000) b = 0x3F0000;
-
-    return r | g | b | 0xFF000000;
-}
-
-u32 SoftRenderer::ColorBrightnessUp(u32 val, u32 factor, u32 bias)
-{
-    u32 rb = val & 0x3F003F;
-    u32 g = val & 0x003F00;
-
-    rb += (((((0x3F003F - rb) * factor) + (bias*0x010001)) >> 4) & 0x3F003F);
-    g +=  (((((0x003F00 - g ) * factor) + (bias*0x000100)) >> 4) & 0x003F00);
-
-    return rb | g | 0xFF000000;
-}
-
-u32 SoftRenderer::ColorBrightnessDown(u32 val, u32 factor, u32 bias)
-{
-    u32 rb = val & 0x3F003F;
-    u32 g = val & 0x003F00;
-
-    rb -= ((((rb * factor) + (bias*0x010001)) >> 4) & 0x3F003F);
-    g -=  ((((g  * factor) + (bias*0x000100)) >> 4) & 0x003F00);
-
-    return rb | g | 0xFF000000;
+    // mosaic table is initialized at compile-time
 }
 
 u32 SoftRenderer::ColorComposite(int i, u32 val1, u32 val2)
@@ -459,7 +398,7 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
         }
     }
 
-    u16* srcB = NULL;
+    u16* srcB = nullptr;
     u32 srcBaddr = line * 256;
 
     if (captureCnt & (1<<25))
@@ -779,8 +718,7 @@ void SoftRenderer::DrawScanline_BGOBJ(u32 line)
         memset(WindowMask, 0xFF, 256);
 
     ApplySpriteMosaicX();
-    CurBGXMosaicTable = MosaicTable[CurUnit->BGMosaicSize[0]];
-
+    CurBGXMosaicTable = MosaicTable[CurUnit->BGMosaicSize[0]].data();
     switch (CurUnit->DispCnt & 0x7)
     {
     case 0: DrawScanlineBGMode<0>(line); break;
@@ -1020,7 +958,7 @@ void SoftRenderer::DrawBG_Text(u32 line, u32 bgnum)
         tilemapaddr += ((yoff & 0xF8) << 3);
 
     u16 curtile;
-    u16* curpal;
+    const u16* curpal;
     u32 pixelsaddr;
     u8 color;
     u32 lastxpos;
@@ -1402,7 +1340,7 @@ void SoftRenderer::DrawBG_Extended(u32 line, u32 bgnum)
         }
 
         u16 curtile;
-        u16* curpal;
+        const u16* curpal;
         u8 color;
 
         yshift -= 3;
@@ -1564,7 +1502,7 @@ void SoftRenderer::ApplySpriteMosaicX()
 
     u32* objLine = OBJLine[CurUnit->Num];
 
-    u8* curOBJXMosaicTable = MosaicTable[CurUnit->OBJMosaicSize[1]];
+    u8* curOBJXMosaicTable = MosaicTable[CurUnit->OBJMosaicSize[1]].data();
 
     u32 lastcolor = objLine[0];
 
@@ -1587,7 +1525,7 @@ void SoftRenderer::InterleaveSprites(u32 prio)
 
     if (CurUnit->DispCnt & 0x80000000)
     {
-        u16* extpal = CurUnit->GetOBJExtPal();
+        const u16* extpal = CurUnit->GetOBJExtPal();
 
         for (u32 i = 0; i < 256; i++)
         {
