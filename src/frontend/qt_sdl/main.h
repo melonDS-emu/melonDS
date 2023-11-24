@@ -296,7 +296,7 @@ private slots:
     void onQuit();
 
     void onPause(bool checked);
-    void onReset();
+    void onReset(bool confirmed);
     void onStop();
     void onFrameStep();
     void onOpenPowerManagement();

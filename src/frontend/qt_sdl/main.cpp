@@ -1537,7 +1537,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actPause, &QAction::triggered, this, &MainWindow::onPause);
 
         actReset = menu->addAction("Reset");
-        connect(actReset, &QAction::triggered, this, &MainWindow::onReset);
+        connect(actReset, &QAction::triggered, this, [=] { this->onReset(false); });
 
         actStop = menu->addAction("Stop");
         connect(actStop, &QAction::triggered, this, &MainWindow::onStop);
@@ -2739,11 +2739,19 @@ void MainWindow::onPause(bool checked)
     }
 }
 
-void MainWindow::onReset()
+void MainWindow::onReset(bool confirmed)
 {
     if (!RunningSomething) return;
 
     emuThread->emuPause();
+
+    if (Config::ConfirmReset && !confirmed && QMessageBox::question(this, "melonDS",
+            "Are you sure you want to reset the emulation?",
+            QMessageBox::Yes, QMessageBox::No) == QMessageBox::No)
+    {
+        emuThread->emuUnpause();
+        return;
+    }
 
     actUndoStateLoad->setEnabled(false);
 
@@ -2758,6 +2766,15 @@ void MainWindow::onStop()
     if (!RunningSomething) return;
 
     emuThread->emuPause();
+
+    if (Config::ConfirmReset && QMessageBox::question(this, "melonDS",
+            "Are you sure you want to stop the emulation?",
+            QMessageBox::Yes, QMessageBox::No) == QMessageBox::No)
+    {
+        emuThread->emuUnpause();
+        return;
+    }
+
     NDS::Stop();
 }
 
@@ -2857,7 +2874,7 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
     }
 
     if (EmuSettingsDialog::needsReset)
-        onReset();
+        onReset(true);
 
     actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
 
@@ -2925,7 +2942,7 @@ void MainWindow::onOpenFirmwareSettings()
 void MainWindow::onFirmwareSettingsFinished(int res)
 {
     if (FirmwareSettingsDialog::needsReset)
-        onReset();
+        onReset(true);
 
     emuThread->emuUnpause();
 }
@@ -2941,7 +2958,7 @@ void MainWindow::onOpenPathSettings()
 void MainWindow::onPathSettingsFinished(int res)
 {
     if (PathSettingsDialog::needsReset)
-        onReset();
+        onReset(true);
 
     emuThread->emuUnpause();
 }
@@ -2991,7 +3008,7 @@ void MainWindow::onWifiSettingsFinished(int res)
     Platform::LAN_Init();
 
     if (WifiSettingsDialog::needsReset)
-        onReset();
+        onReset(true);
 
     emuThread->emuUnpause();
 }

@@ -140,6 +140,7 @@ bool MouseHide;
 int MouseHideSeconds;
 
 bool PauseLostFocus;
+bool ConfirmReset;
 
 int64_t RTCOffset;
 
@@ -341,6 +342,7 @@ ConfigEntry ConfigFile[] =
     {"MouseHide",        1, &MouseHide,        false, false},
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, false},
     {"PauseLostFocus",   1, &PauseLostFocus,   false, false},
+    {"ConfirmReset",   1, &ConfirmReset,   false, false},
 
     {"RTCOffset",       3, &RTCOffset,       (int64_t)0, true},
 
