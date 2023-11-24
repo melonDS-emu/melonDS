@@ -1064,7 +1064,6 @@ u32 ARMJIT_Memory::LocaliseAddress(int region, u32 num, u32 addr) const noexcept
 
 int ARMJIT_Memory::ClassifyAddress9(u32 addr) const noexcept
 {
-    auto& dsi = static_cast<DSi&>(NDS); // ONLY use this if ConsoleType == 1!
     if (addr < NDS.ARM9.ITCMSize)
     {
         return memregion_ITCM;
@@ -1075,6 +1074,7 @@ int ARMJIT_Memory::ClassifyAddress9(u32 addr) const noexcept
     }
     else
     {
+        auto& dsi = static_cast<DSi&>(NDS); // ONLY use this if ConsoleType == 1!
         if (NDS.ConsoleType == 1 && addr >= 0xFFFF0000 && !(dsi.SCFG_BIOS & (1<<1)))
         {
             if ((addr >= 0xFFFF8000) && (dsi.SCFG_BIOS & (1<<0)))
