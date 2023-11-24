@@ -76,6 +76,7 @@ const s32 kIterationCycleMargin = 8;
 NDS* NDS::Current = nullptr;
 
 NDS::NDS(NDSSysfileArguments&& sysfiles, const InitArguments& args, int type) noexcept :
+    EnableJIT(args.JIT.has_value()),
     ConsoleType(type),
     ARM9BIOS(sysfiles.ARM9BIOS),
     ARM7BIOS(sysfiles.ARM7BIOS),

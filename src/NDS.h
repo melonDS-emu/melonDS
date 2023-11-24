@@ -224,12 +224,17 @@ public:
     NDS(NDS&&) = delete;
     NDS& operator=(NDS&&) = delete;
 
+#ifdef JIT_ENABLED
+    [[nodiscard]] bool IsJITEnabled() const noexcept { return EnableJIT; }
+#else
+    [[nodiscard]] constexpr bool IsJITEnabled() const noexcept { return false; }
+#endif
 protected:
     explicit NDS(NDSSysfileArguments&& sysfiles, const InitArguments& args, int type) noexcept;
     virtual void DoSavestateExtra(Savestate* file) noexcept {}
 public:
 #ifdef JIT_ENABLED
-    bool EnableJIT = true;
+    const bool EnableJIT;
 #endif
     const int ConsoleType;
     int CurCPU = 0;
