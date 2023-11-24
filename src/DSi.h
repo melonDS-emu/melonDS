@@ -47,7 +47,7 @@ public:
     DSi(DSi&&) = delete;
     DSi& operator=(DSi&&) = delete;
 
-    void Reset(InitArguments&& args) noexcept override;
+    void Reset() noexcept override;
     void Stop(Platform::StopReason reason) noexcept override;
     bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen) noexcept override;
     void EjectCart() noexcept override;
@@ -65,10 +65,12 @@ public:
     void SetSDCard(std::optional<FATStorage>&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
 
     u64 GetConsoleID() const noexcept { return SDMMC.GetNAND()->GetConsoleID(); }
+
+    [[nodiscard]] bool HasFullBIOSBoot() const noexcept { return FullBIOSBoot; }
+    void SetFullBIOSBoot(bool fullBIOSBoot) noexcept { FullBIOSBoot = fullBIOSBoot; }
 protected:
     void DoSavestateExtra(Savestate* file) noexcept override;
 public:
-    bool FullBIOSBoot;
     u16 SCFG_BIOS;
     u16 SCFG_Clock9;
     u32 SCFG_EXT[2];
@@ -178,6 +180,7 @@ private:
     void Set_SCFG_MC(u32 val) noexcept;
     void DecryptModcryptArea(u32 offset, u32 size, u8* iv) noexcept;
     void ApplyNewRAMSize(u32 size) noexcept;
+    bool FullBIOSBoot;
 };
 
 }

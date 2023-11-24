@@ -61,8 +61,7 @@ public:
     ARM(u32 num, const InitArguments& args, const std::optional<GDBArguments>& gdbArgs, melonDS::NDS& nds);
     virtual ~ARM(); // destroy shit
 
-    virtual void Reset(const std::optional<GDBArguments>& gdbArgs);
-    void Reset() { Reset({}); }
+    virtual void Reset();
 
     virtual void DoSavestate(Savestate* file);
 
@@ -189,6 +188,9 @@ public:
     static const u32 ConditionTable[16];
 #ifdef GDBSTUB_ENABLED
     Gdb::GdbStub GdbStub;
+
+    bool GetBreakOnStartup() const noexcept { return BreakOnStartup; }
+    void SetBreakOnStartup(bool val) noexcept { BreakOnStartup = val; }
 #endif
 
 protected:
@@ -230,7 +232,7 @@ public:
     ARMv5(const InitArguments& args, melonDS::NDS& nds);
     ~ARMv5();
 
-    void Reset(const std::optional<GDBArguments>& gdbArgs) override;
+    void Reset() override;
 
     void DoSavestate(Savestate* file) override;
 

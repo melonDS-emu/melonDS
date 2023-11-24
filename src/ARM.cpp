@@ -151,7 +151,7 @@ ARMv5::~ARMv5()
     // DTCM is owned by Memory, not going to delete it
 }
 
-void ARM::Reset(const std::optional<GDBArguments>& gdbArgs)
+void ARM::Reset()
 {
     Cycles = 0;
     Halted = 0;
@@ -192,19 +192,17 @@ void ARM::Reset(const std::optional<GDBArguments>& gdbArgs)
 #ifdef GDBSTUB_ENABLED
     IsSingleStep = false;
     BreakReq = false;
-    if (gdbArgs)
-        BreakOnStartup = gdbArgs->BreakOnStartup;
 #endif
 
     // zorp
     JumpTo(ExceptionBase);
 }
 
-void ARMv5::Reset(const std::optional<GDBArguments>& gdbArgs)
+void ARMv5::Reset()
 {
     PU_Map = PU_PrivMap;
 
-    ARM::Reset(gdbArgs);
+    ARM::Reset();
 }
 
 
@@ -1194,7 +1192,7 @@ int ARM::RemoteCmd(const u8* cmd, size_t len)
     Log(LogLevel::Info, "[ARMGDB] Rcmd: \"%s\"\n", cmd);
     if (!strcmp((const char*)cmd, "reset") || !strcmp((const char*)cmd, "r"))
     {
-        Reset(std::nullopt);
+        Reset();
         return 0;
     }
 

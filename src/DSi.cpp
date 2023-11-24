@@ -86,7 +86,7 @@ DSi::~DSi() noexcept
     // which are implicitly called by this one
 }
 
-void DSi::Reset(InitArguments&& args) noexcept
+void DSi::Reset() noexcept
 {
     //ARM9.CP15Write(0x910, 0x0D00000A);
     //ARM9.CP15Write(0x911, 0x00000020);

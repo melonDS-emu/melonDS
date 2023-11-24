@@ -387,7 +387,7 @@ void NDS::SetupDirectBoot(const std::string& romname) noexcept
     SetWifiWaitCnt(0x0030);
 }
 
-void NDS::Reset(InitArguments&& args) noexcept
+void NDS::Reset() noexcept
 {
     u32 i;
 
@@ -467,7 +467,7 @@ void NDS::Reset(InitArguments&& args) noexcept
     DivCnt = 0;
     SqrtCnt = 0;
 
-    ARM9.Reset({});
+    ARM9.Reset();
     ARM7.Reset();
 
     CPUStop = 0;

@@ -45,7 +45,7 @@ public:
     void InvalidateByAddr(u32) noexcept NOOP_IF_NO_JIT;
     void CheckAndInvalidateWVRAM(int) noexcept NOOP_IF_NO_JIT;
     void CheckAndInvalidateITCM() noexcept NOOP_IF_NO_JIT;
-    void Reset(const std::optional<JITArguments>& args = std::nullopt) noexcept NOOP_IF_NO_JIT;
+    void Reset() noexcept NOOP_IF_NO_JIT;
     void JitEnableWrite() noexcept NOOP_IF_NO_JIT;
     void JitEnableExecute() noexcept NOOP_IF_NO_JIT;
     void CompileBlock(ARM* cpu) noexcept NOOP_IF_NO_JIT;
@@ -70,13 +70,17 @@ public:
     ARMJIT_Memory Memory;
 
     [[nodiscard]] int GetMaxBlockSize() const noexcept { return MaxBlockSize; }
+    void SetMaxBlockSize(int size) noexcept { MaxBlockSize = std::clamp(size, 1, 32); }
     [[nodiscard]] bool LiteralOptimizationsEnabled() const noexcept { return LiteralOptimizations; }
+    void SetLiteralOptimizations(bool enabled) noexcept { LiteralOptimizations = enabled; }
     [[nodiscard]] bool BranchOptimizationsEnabled() const noexcept { return BranchOptimizations; }
+    void SetBranchOptimizations(bool enabled) noexcept { BranchOptimizations = enabled; }
     [[nodiscard]] bool FastMemoryEnabled() const noexcept { return FastMemory; }
+    void SetFastMemory(bool enabled) noexcept { FastMemory = enabled; }
     [[nodiscard]] const TinyVector<u32>& GetInvalidLiterals() const noexcept { return InvalidLiterals; }
 private:
     melonDS::NDS& NDS;
-    int MaxBlockSize {};
+    int MaxBlockSize = 32;
     bool LiteralOptimizations = false;
     bool BranchOptimizations = false;
     bool FastMemory = false;

@@ -246,16 +246,8 @@ ARMJIT::~ARMJIT() noexcept
     ResetBlockCache();
 }
 
-void ARMJIT::Reset(const std::optional<JITArguments>& args) noexcept
+void ARMJIT::Reset() noexcept
 {
-    if (args)
-    { // If we're adjusting any JIT parameters...
-        MaxBlockSize = std::clamp(args->MaxBlockSize, 1, 32);
-        LiteralOptimizations = args->LiteralOptimisations;
-        BranchOptimizations = args->BranchOptimisations;
-        FastMemory = args->FastMemory;
-    }
-
     JitEnableWrite();
     ResetBlockCache();
 

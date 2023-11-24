@@ -335,8 +335,7 @@ public:
     ARMv4 ARM7;
     std::array<DMA, 8> DMAs;
 public:
-    virtual void Reset(InitArguments&& args) noexcept;
-    void Reset() noexcept { Reset({}); }
+    virtual void Reset() noexcept;
     void Start() noexcept;
     u32 RunFrame() noexcept;
 
