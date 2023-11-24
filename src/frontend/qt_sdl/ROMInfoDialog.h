@@ -69,7 +69,7 @@ private:
 
     QImage iconImage;
     QTimeLine* iconTimeline;
-    u32 animatedIconData[64][32*32] = {0};
+    melonDS::u32 animatedIconData[64][32*32] = {0};
     std::vector<QPixmap> animatedIconImages;
     std::vector<int> animatedSequence;
 };
