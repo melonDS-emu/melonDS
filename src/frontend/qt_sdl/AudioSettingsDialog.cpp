@@ -26,6 +26,7 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "DSi_I2C.h"
+#include "DSi_I2CHost.h"
 
 #include "AudioSettingsDialog.h"
 #include "ui_AudioSettingsDialog.h"

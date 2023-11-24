@@ -21,6 +21,7 @@
 #include <math.h>
 #include "DSi.h"
 #include "DSi_I2C.h"
+#include "DSi_I2CHost.h"
 #include "DSi_Camera.h"
 #include "ARM.h"
 #include "SPI.h"

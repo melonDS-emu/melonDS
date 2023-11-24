@@ -147,37 +147,4 @@ private:
     bool CheckVolumeSwitchKeysValid();
 };
 
-
-class DSi_I2CHost
-{
-public:
-    DSi_I2CHost();
-    ~DSi_I2CHost();
-    void Reset();
-    void DoSavestate(Savestate* file);
-
-    DSi_BPTWL* GetBPTWL() { return BPTWL; }
-    DSi_Camera* GetOuterCamera() { return Camera0; }
-    DSi_Camera* GetInnerCamera() { return Camera1; }
-
-    u8 ReadCnt() { return Cnt; }
-    void WriteCnt(u8 val);
-
-    u8 ReadData();
-    void WriteData(u8 val);
-
-private:
-    u8 Cnt;
-    u8 Data;
-
-    DSi_BPTWL* BPTWL;       // 4A / BPTWL IC
-    DSi_Camera* Camera0;    // 78 / facing outside
-    DSi_Camera* Camera1;    // 7A / selfie cam
-
-    u8 CurDeviceID;
-    DSi_I2CDevice* CurDevice;
-
-    void GetCurDevice();
-};
-
 #endif // DSI_I2C_H

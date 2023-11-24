@@ -26,6 +26,7 @@
 #include "NDSCart.h"
 #include "SPI.h"
 #include "DSi_SPI_TSC.h"
+#include "DSi_I2CHost.h"
 #include "Platform.h"
 
 #include "ARMJIT.h"

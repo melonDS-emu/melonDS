@@ -93,6 +93,7 @@
 #include "RTC.h"
 #include "DSi.h"
 #include "DSi_I2C.h"
+#include "DSi_I2CHost.h"
 
 #include "Savestate.h"
 

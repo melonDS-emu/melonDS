@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "DSi.h"
+#include "DSi_I2CHost.h"
 #include "DSi_Camera.h"
 #include "Platform.h"
 
