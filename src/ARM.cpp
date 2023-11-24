@@ -110,7 +110,7 @@ const u32 ARM::ConditionTable[16] =
     0x0000  // NE
 };
 
-ARM::ARM(u32 num, const InitArguments& args, const std::optional<GDBArguments>& gdbArgs, melonDS::NDS& nds) :
+ARM::ARM(u32 num, const InitArgs& args, const std::optional<GDBArguments>& gdbArgs, melonDS::NDS& nds) :
 #ifdef GDBSTUB_ENABLED
     GdbStub(this, gdbArgs ? gdbArgs->Port : 0),
     BreakOnStartup(gdbArgs ? gdbArgs->BreakOnStartup : false),
@@ -134,14 +134,14 @@ ARM::~ARM()
     // dorp
 }
 
-ARMv5::ARMv5(const InitArguments& args, melonDS::NDS& nds) : ARM(0, args, args.GDBARM9, nds)
+ARMv5::ARMv5(const InitArgs& args, melonDS::NDS& nds) : ARM(0, args, args.GDBARM9, nds)
 {
     DTCM = NDS.JIT.Memory.GetARM9DTCM();
 
     PU_Map = PU_PrivMap;
 }
 
-ARMv4::ARMv4(const InitArguments& args, melonDS::NDS& nds) : ARM(1, args, args.GDBARM7, nds)
+ARMv4::ARMv4(const InitArgs& args, melonDS::NDS& nds) : ARM(1, args, args.GDBARM7, nds)
 {
     //
 }

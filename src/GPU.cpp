@@ -64,14 +64,17 @@ enum
                 VRAMDirty need to be reset for the respective VRAM bank.
 */
 
-GPU::GPU(melonDS::NDS& nds) noexcept : GPU2D_A(0, *this), GPU2D_B(1, *this), GPU3D(nds), NDS(nds)
+GPU::GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d, std::unique_ptr<GPU2D::Renderer2D>&& renderer2d) noexcept :
+    NDS(nds),
+    GPU2D_A(0, *this),
+    GPU2D_B(1, *this),
+    GPU3D(nds, std::move(renderer3d)),
+    GPU2D_Renderer(renderer2d ? std::move(renderer2d) : std::make_unique<GPU2D::SoftRenderer>(*this))
 {
     NDS.RegisterEventFunc(NDS::Event_LCD, LCD_StartHBlank, MemberEventFunc(GPU, StartHBlank));
     NDS.RegisterEventFunc(NDS::Event_LCD, LCD_StartScanline, MemberEventFunc(GPU, StartScanline));
     NDS.RegisterEventFunc(NDS::Event_LCD, LCD_FinishFrame, MemberEventFunc(GPU, FinishFrame));
     NDS.RegisterEventFunc(NDS::Event_DisplayFIFO, 0, MemberEventFunc(GPU, DisplayFIFO));
-
-    GPU2D_Renderer = std::make_unique<GPU2D::SoftRenderer>(*this);
 }
 
 GPU::~GPU() noexcept

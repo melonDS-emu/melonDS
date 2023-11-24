@@ -248,8 +248,17 @@ std::unique_ptr<NDS> EmuThread::CreateConsole()
     case 1: bitDepth = AudioBitDepth::_10Bit; break;
     case 2: bitDepth = AudioBitDepth::_16Bit; break;
     }
-    InitArguments args =
+    std::optional<Firmware> firmware = ROMManager::LoadFirmware(Config::ConsoleType);
+    auto arm7ibios = ROMManager::LoadDSiARM7BIOS().value_or<std::array<u8, DSiBIOSLength>>({});
+    InitArgs args =
     {
+        .ARM9BIOS = ROMManager::LoadARM9BIOS().value_or(bios_arm9_bin),
+        .ARM7BIOS = ROMManager::LoadARM7BIOS().value_or(bios_arm7_bin),
+        .Firmware = firmware ? std::move(*firmware) : ROMManager::GenerateFirmware(Config::ConsoleType),
+        .ARM9iBIOS = ROMManager::LoadDSiARM9BIOS().value_or(std::array<u8, DSiBIOSLength> {}),
+        .ARM7iBIOS = arm7ibios,
+        .NANDImage = ROMManager::LoadNAND(arm7ibios).value(),
+        .DSiSDCard = ROMManager::LoadDSiSDCard(),
         .JIT = JITArgs,
         .GDBARM7 = GDBARM7,
         .GDBARM9 = GDBARM9,
@@ -257,29 +266,12 @@ std::unique_ptr<NDS> EmuThread::CreateConsole()
         .DSiFullBIOSBoot = Config::DSiFullBIOSBoot,
     };
 
-    std::optional<Firmware> firmware = ROMManager::LoadFirmware(Config::ConsoleType);
-    NDSSysfileArguments ndsSysfiles =
-    {
-        .ARM9BIOS = ROMManager::LoadARM9BIOS().value_or(bios_arm9_bin),
-        .ARM7BIOS = ROMManager::LoadARM7BIOS().value_or(bios_arm7_bin),
-        .Firmware = firmware ? std::move(*firmware) : ROMManager::GenerateFirmware(Config::ConsoleType),
-        .DLDISDCard = std::nullopt, // TODO: Implement
-    };
-
     if (Config::ConsoleType == 1)
     {
-        auto arm7ibios = ROMManager::LoadDSiARM7BIOS().value_or<std::array<u8, DSiBIOSLength>>({});
-        DSiSysfileArguments dsiSysfiles =
-        {
-            .ARM9iBIOS = ROMManager::LoadDSiARM9BIOS().value_or(decltype(DSiSysfileArguments::ARM9iBIOS) {}),
-            .ARM7iBIOS = ROMManager::LoadDSiARM7BIOS().value_or(decltype(DSiSysfileArguments::ARM7iBIOS) {}),
-            .NANDImage = ROMManager::LoadNAND(arm7ibios).value(),
-            .DSiSDCard = std::nullopt, // TODO: Implement
-        };
-        return std::make_unique<melonDS::DSi>(std::move(ndsSysfiles), std::move(dsiSysfiles), args);
+        return std::make_unique<melonDS::DSi>(std::move(args));
     }
 
-    return std::make_unique<melonDS::NDS>(std::move(ndsSysfiles), args);
+    return std::make_unique<melonDS::NDS>(std::move(args));
 }
 
 void EmuThread::RecreateConsole()
@@ -290,6 +282,7 @@ void EmuThread::RecreateConsole()
         NDS::Current = nullptr;
 
         NDS = CreateConsole();
+        // TODO: Insert ROMs
         NDS::Current = NDS.get();
     }
 }

@@ -47,7 +47,7 @@
 namespace melonDS
 {
 
-class InitArguments;
+class InitArgs;
 class NDS
 {
 
@@ -217,7 +217,7 @@ public:
     // The frontend should set and unset this manually after creating and destroying the NDS object.
     [[deprecated("Temporary workaround until JIT code generation is revised to accommodate multiple NDS objects.")]] static NDS* Current;
 
-    NDS(NDSSysfileArguments&& sysfiles, const InitArguments& args) noexcept : NDS(std::move(sysfiles), args, 0) {}
+    explicit NDS(InitArgs&& args) noexcept : NDS(args, 0) {}
     virtual ~NDS() noexcept;
     NDS(const NDS&) = delete;
     NDS& operator=(const NDS&) = delete;
@@ -230,7 +230,7 @@ public:
     [[nodiscard]] constexpr bool IsJITEnabled() const noexcept { return false; }
 #endif
 protected:
-    explicit NDS(NDSSysfileArguments&& sysfiles, const InitArguments& args, int type) noexcept;
+    explicit NDS(InitArgs& args, int type) noexcept;
     virtual void DoSavestateExtra(Savestate* file) noexcept {}
 public:
 #ifdef JIT_ENABLED

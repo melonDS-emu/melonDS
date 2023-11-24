@@ -196,7 +196,7 @@ enum
 class GBACartSlot
 {
 public:
-    GBACartSlot() noexcept = default;
+    GBACartSlot(std::unique_ptr<CartCommon>&& cart = nullptr, const u8* sram = nullptr, u32 sramlength = 0) noexcept;
     ~GBACartSlot() noexcept = default;
     void Reset() noexcept;
     void DoSavestate(Savestate* file) noexcept;

@@ -41,7 +41,7 @@ enum
 
 class SPIHost;
 class NDS;
-struct InitArguments;
+struct InitArgs;
 
 class SPIDevice
 {

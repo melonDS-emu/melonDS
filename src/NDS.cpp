@@ -75,19 +75,19 @@ const s32 kIterationCycleMargin = 8;
 
 NDS* NDS::Current = nullptr;
 
-NDS::NDS(NDSSysfileArguments&& sysfiles, const InitArguments& args, int type) noexcept :
+NDS::NDS(InitArgs& args, int type) noexcept :
     EnableJIT(args.JIT.has_value()),
     ConsoleType(type),
-    ARM9BIOS(sysfiles.ARM9BIOS),
-    ARM7BIOS(sysfiles.ARM7BIOS),
+    ARM9BIOS(args.ARM9BIOS),
+    ARM7BIOS(args.ARM7BIOS),
     JIT(*this, args.JIT),
-    SPU(*this),
-    GPU(*this),
-    SPI(std::move(sysfiles.Firmware), *this),
+    SPU(*this, args.AudioBitDepth, args.AudioInterpolation),
+    GPU(*this, std::move(args.Renderer3D), std::move(args.Renderer2D)),
+    SPI(std::move(args.Firmware), *this),
     RTC(*this),
     Wifi(*this),
-    NDSCartSlot(*this),
-    GBACartSlot(),
+    NDSCartSlot(*this, std::move(args.NDSROM)),
+    GBACartSlot(std::move(args.GBAROM), args.GBASRAM, args.GBASRAMLength),
     AREngine(*this),
     ARM9(args, *this),
     ARM7(args, *this),
@@ -392,16 +392,12 @@ void NDS::Reset() noexcept
 {
     u32 i;
 
-#ifdef JIT_ENABLED
-    EnableJIT = args.JIT.has_value();
-#endif
-
     RunningGame = false;
     LastSysClockCycles = 0;
 
     // BIOS files are now loaded by the frontend
 
-    JIT.Reset(args.JIT);
+    JIT.Reset();
 
     // TODO: move this next block to a virtual protected method
     if (ConsoleType == 1)
@@ -509,17 +505,6 @@ void NDS::Reset() noexcept
 
     // The SOUNDBIAS register does nothing on DSi
     SPU.SetApplyBias(ConsoleType == 0);
-
-    // The original DS and DS lite degrade the output from 16 to 10 bit before output
-    if (args.AudioBitDepth)
-    { // If we're not forcing 10-bit or 16-bit audio...
-        SPU.SetDegrade10Bit(*args.AudioBitDepth == AudioBitDepth::_10Bit);
-    }
-    else
-    {
-        // Degrade the audio in NDS mode, but not DSi mode
-        SPU.SetDegrade10Bit(ConsoleType == 0);
-    }
 }
 
 void NDS::Start() noexcept

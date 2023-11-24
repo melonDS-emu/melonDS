@@ -241,7 +241,7 @@ private:
 class NDSCartSlot
 {
 public:
-    explicit NDSCartSlot(melonDS::NDS& nds) noexcept;
+    explicit NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom = nullptr) noexcept;
     ~NDSCartSlot() noexcept;
     void Reset() noexcept;
     void ResetCart() noexcept;

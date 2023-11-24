@@ -48,11 +48,11 @@ using namespace Platform;
 
 
 
-DSi::DSi(NDSSysfileArguments&& ndsSysfiles, DSiSysfileArguments&& dsiSysfiles, const InitArguments& args) noexcept :
-    NDS(std::move(ndsSysfiles), args, 1),
+DSi::DSi(InitArgs&& args) noexcept :
+    NDS(args, 1),
     FullBIOSBoot(args.DSiFullBIOSBoot),
-    ARM7iBIOS(dsiSysfiles.ARM7iBIOS),
-    ARM9iBIOS(dsiSysfiles.ARM9iBIOS),
+    ARM7iBIOS(args.ARM7iBIOS),
+    ARM9iBIOS(args.ARM9iBIOS),
     NWRAM_A(JIT.Memory.GetNWRAM_A()),
     NWRAM_B(JIT.Memory.GetNWRAM_B()),
     NWRAM_C(JIT.Memory.GetNWRAM_C()),
@@ -67,12 +67,14 @@ DSi::DSi(NDSSysfileArguments&& ndsSysfiles, DSiSysfileArguments&& dsiSysfiles, c
         DSi_NDMA(1, 3, GPU, *this),
     },
     DSP(*this),
-    SDMMC(*this, std::move(dsiSysfiles.DSiSDCard), std::move(dsiSysfiles.NANDImage)),
+    SDMMC(*this, std::move(args.DSiSDCard), std::move(*args.NANDImage)),
     SDIO(*this),
     I2C(*this),
     CamModule(*this),
     AES(*this)
 {
+    args.NANDImage = std::nullopt;
+    args.DSiSDCard = std::nullopt;
 }
 
 DSi::~DSi() noexcept

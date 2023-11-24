@@ -1401,12 +1401,15 @@ void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
 
 
 
-NDSCartSlot::NDSCartSlot(melonDS::NDS& nds) noexcept : NDS(nds)
+NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) noexcept : NDS(nds)
 {
     NDS.RegisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_PrepareData, MemberEventFunc(NDSCartSlot, ROMPrepareData));
     NDS.RegisterEventFunc(NDS::Event_ROMTransfer, ROMTransfer_End, MemberEventFunc(NDSCartSlot, ROMEndTransfer));
     NDS.RegisterEventFunc(NDS::Event_ROMSPITransfer, 0, MemberEventFunc(NDSCartSlot, SPITransferDone));
     // All fields are default-constructed because they're listed as such in the class declaration
+
+    if (rom)
+        InsertROM(std::move(rom));
 }
 
 NDSCartSlot::~NDSCartSlot() noexcept

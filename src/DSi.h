@@ -29,9 +29,7 @@
 
 namespace melonDS
 {
-struct InitArguments;
-struct NDSSysfileArguments;
-struct DSiSysfileArguments;
+struct InitArgs;
 namespace DSi_NAND
 {
     class NANDImage;
@@ -40,7 +38,7 @@ namespace DSi_NAND
 class DSi final : public NDS
 {
 public:
-    DSi(NDSSysfileArguments&& ndsSysfiles, DSiSysfileArguments&& dsiSysfiles, const InitArguments& args) noexcept;
+    DSi(InitArgs&& args) noexcept;
     ~DSi() noexcept override;
     DSi(const DSi&) = delete;
     DSi& operator=(const DSi&) = delete;

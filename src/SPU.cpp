@@ -99,7 +99,7 @@ constexpr array2<s16, 0x100, 4> InterpCubic = [] {
 }();
 
 
-SPU::SPU(melonDS::NDS& nds) noexcept :
+SPU::SPU(melonDS::NDS& nds, std::optional<AudioBitDepth> depth, Interpolation interpolation) noexcept :
     NDS(nds),
     Channels {
         SPUChannel(0, nds),
@@ -123,13 +123,11 @@ SPU::SPU(melonDS::NDS& nds) noexcept :
         SPUCaptureUnit(0, nds),
         SPUCaptureUnit(1, nds),
     },
+    Degrade10Bit(depth ? *depth == AudioBitDepth::_10Bit : nds.ConsoleType == 0),
     AudioLock(Platform::Mutex_Create())
 {
     nds.RegisterEventFunc(NDS::Event_SPU, 0, MemberEventFunc(SPU, Mix));
-
-
-    ApplyBias = true;
-    Degrade10Bit = false;
+    SetInterpolation(interpolation);
 
     memset(OutputFrontBuffer, 0, sizeof(OutputFrontBuffer));
 

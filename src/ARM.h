@@ -58,7 +58,7 @@ class ARM
 #endif
 {
 public:
-    ARM(u32 num, const InitArguments& args, const std::optional<GDBArguments>& gdbArgs, melonDS::NDS& nds);
+    ARM(u32 num, const InitArgs& args, const std::optional<GDBArguments>& gdbArgs, melonDS::NDS& nds);
     virtual ~ARM(); // destroy shit
 
     virtual void Reset();
@@ -229,7 +229,7 @@ protected:
 class ARMv5 : public ARM
 {
 public:
-    ARMv5(const InitArguments& args, melonDS::NDS& nds);
+    ARMv5(const InitArgs& args, melonDS::NDS& nds);
     ~ARMv5();
 
     void Reset() override;
@@ -379,7 +379,7 @@ protected:
 class ARMv4 : public ARM
 {
 public:
-    ARMv4(const InitArguments& args, melonDS::NDS& nds);
+    ARMv4(const InitArgs& args, melonDS::NDS& nds);
 
     void FillPipeline() override;
 

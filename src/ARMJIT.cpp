@@ -237,7 +237,7 @@ ARMJIT::ARMJIT(melonDS::NDS& nds, const std::optional<JITArguments>& args) noexc
     MaxBlockSize(args.has_value() ? args->MaxBlockSize : 32),
     LiteralOptimizations(args.has_value() ? args->LiteralOptimisations : true),
     BranchOptimizations(args.has_value() ? args->BranchOptimisations : true),
-    FastMemory(args.has_value() ? args->FastMemory : FastMemoryDefault)
+    FastMemory(args.has_value() ? args->FastMemory : true)
 {}
 
 ARMJIT::~ARMJIT() noexcept

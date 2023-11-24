@@ -181,7 +181,7 @@ private:
 class SPU
 {
 public:
-    explicit SPU(melonDS::NDS& nds) noexcept;
+    explicit SPU(melonDS::NDS& nds, std::optional<AudioBitDepth> depth, Interpolation interpolation) noexcept;
     ~SPU();
     void Reset();
     void DoSavestate(Savestate* file);
