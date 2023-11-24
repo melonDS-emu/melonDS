@@ -23,7 +23,7 @@
 #include "TinyVector.h"
 
 #include "ARM.h"
-#include "DSi.h"
+#include "Constants.h"
 
 #if defined(__SWITCH__)
 #include <switch.h>
@@ -58,13 +58,13 @@ constexpr u32 RoundUp(u32 size) noexcept
 }
 
 const u32 MemBlockMainRAMOffset = 0;
-const u32 MemBlockSWRAMOffset = RoundUp(NDS::MainRAMMaxSize);
-const u32 MemBlockARM7WRAMOffset = MemBlockSWRAMOffset + RoundUp(NDS::SharedWRAMSize);
-const u32 MemBlockDTCMOffset = MemBlockARM7WRAMOffset + RoundUp(NDS::ARM7WRAMSize);
+const u32 MemBlockSWRAMOffset = RoundUp(melonDS::MainRAMMaxSize);
+const u32 MemBlockARM7WRAMOffset = MemBlockSWRAMOffset + RoundUp(melonDS::SharedWRAMSize);
+const u32 MemBlockDTCMOffset = MemBlockARM7WRAMOffset + RoundUp(melonDS::ARM7WRAMSize);
 const u32 MemBlockNWRAM_AOffset = MemBlockDTCMOffset + RoundUp(DTCMPhysicalSize);
-const u32 MemBlockNWRAM_BOffset = MemBlockNWRAM_AOffset + RoundUp(DSi::NWRAMSize);
-const u32 MemBlockNWRAM_COffset = MemBlockNWRAM_BOffset + RoundUp(DSi::NWRAMSize);
-const u32 MemoryTotalSize = MemBlockNWRAM_COffset + RoundUp(DSi::NWRAMSize);
+const u32 MemBlockNWRAM_BOffset = MemBlockNWRAM_AOffset + RoundUp(melonDS::NWRAMSize);
+const u32 MemBlockNWRAM_COffset = MemBlockNWRAM_BOffset + RoundUp(melonDS::NWRAMSize);
+const u32 MemoryTotalSize = MemBlockNWRAM_COffset + RoundUp(melonDS::NWRAMSize);
 
 class ARMJIT_Memory
 {
