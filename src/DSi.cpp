@@ -91,9 +91,7 @@ void DSi::Reset() noexcept
     //ARM9.CP15Write(0x910, 0x0D00000A);
     //ARM9.CP15Write(0x911, 0x00000020);
     //ARM9.CP15Write(0x100, ARM9.CP15Read(0x100) | 0x00050000);
-    NDS::Reset(std::move(args));
-
-    FullBIOSBoot = args.DSiFullBIOSBoot;
+    NDS::Reset();
 
     KeyInput &= ~(1 << (16+6));
     MapSharedWRAM(3);
@@ -115,7 +113,7 @@ void DSi::Reset() noexcept
 
     AES.Reset();
 
-    SCFG_BIOS = args.DSiFullBIOSBoot ? 0x0000 : 0x0101;
+    SCFG_BIOS = FullBIOSBoot ? 0x0000 : 0x0101;
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
@@ -642,7 +640,7 @@ void DSi::SoftReset() noexcept
     JIT.Reset();
     JIT.CheckAndInvalidateITCM();
 
-    ARM9.Reset({});
+    ARM9.Reset();
     ARM7.Reset();
 
     ARM9.CP15Reset();
