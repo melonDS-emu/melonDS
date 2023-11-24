@@ -448,7 +448,7 @@ u32 DSi_SDHost::DataTX(u8* data, u32 len)
     return len;
 }
 
-u32 DSi_SDHost::GetTransferrableLen(u32 len)
+u32 DSi_SDHost::GetTransferrableLen(u32 len) const noexcept
 {
     if (len > BlockLen16) len = BlockLen16; // checkme
     return len;

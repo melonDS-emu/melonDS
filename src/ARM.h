@@ -82,7 +82,7 @@ public:
     virtual void ExecuteJIT() = 0;
 #endif
 
-    bool CheckCondition(u32 code)
+    [[nodiscard]] bool CheckCondition(u32 code) const noexcept
     {
         if (code == 0xE) return true;
         if (ConditionTable[code] & (1 << (CPSR>>28))) return true;
@@ -111,7 +111,7 @@ public:
         if (v) CPSR |= 0x10000000;
     }
 
-    inline bool ModeIs(u32 mode)
+    [[nodiscard]] constexpr bool ModeIs(u32 mode) const noexcept
     {
         u32 cm = CPSR & 0x1f;
         mode &= 0x1f;
@@ -208,7 +208,7 @@ protected:
     bool BreakOnStartup;
 
 public:
-    int GetCPU() const override { return Num ? 7 : 9; }
+    [[nodiscard]] int GetCPU() const override { return Num ? 7 : 9; }
 
     u32 ReadReg(Gdb::Register reg) override;
     void WriteReg(Gdb::Register reg, u32 v) override;

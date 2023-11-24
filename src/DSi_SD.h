@@ -47,7 +47,7 @@ public:
     DSi_SDHost(melonDS::DSi& dsi, std::optional<FATStorage>&& sdcard, DSi_NAND::NANDImage&& nand) noexcept;
 
     // Creates an SDIO host
-    DSi_SDHost(melonDS::DSi& dsi) noexcept;
+    explicit DSi_SDHost(melonDS::DSi& dsi) noexcept;
     ~DSi_SDHost();
 
     void CloseHandles();
@@ -60,7 +60,7 @@ public:
     void SendResponse(u32 val, bool last);
     u32 DataRX(u8* data, u32 len);
     u32 DataTX(u8* data, u32 len);
-    u32 GetTransferrableLen(u32 len);
+    u32 GetTransferrableLen(u32 len) const noexcept;
 
     void CheckRX();
     void CheckTX();
