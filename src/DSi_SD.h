@@ -55,8 +55,6 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    void FinishRX(u32 param);
-    void FinishTX(u32 param);
     void SendResponse(u32 val, bool last);
     u32 DataRX(u8* data, u32 len);
     u32 DataTX(u8* data, u32 len);
@@ -64,7 +62,6 @@ public:
 
     void CheckRX();
     void CheckTX();
-    bool TXReq;
 
     void SetCardIRQ();
 
@@ -88,6 +85,8 @@ public:
     void CheckSwapFIFO();
 
 private:
+    void FinishRX(u32 param);
+    void FinishTX(u32 param);
     melonDS::DSi& DSi;
     u32 Num;
 
@@ -111,6 +110,7 @@ private:
     u16 StopAction;
 
     u16 Command;
+    bool TXReq;
     u32 Param;
     u16 ResponseBuffer[8];
 
