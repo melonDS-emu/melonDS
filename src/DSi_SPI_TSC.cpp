@@ -22,6 +22,8 @@
 #include "DSi_SPI_TSC.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -218,4 +220,6 @@ void DSi_TSC::Release()
     if (TSCMode == 0x00) return TSC::Release();
 
     DataPos = 0;
+}
+
 }

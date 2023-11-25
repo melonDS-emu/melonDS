@@ -19,9 +19,12 @@
 #ifndef OSD_H
 #define OSD_H
 
+#include "types.h"
+
 namespace OSD
 {
 
+using namespace melonDS;
 bool Init(bool openGL);
 void DeInit();
 

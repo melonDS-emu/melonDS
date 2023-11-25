@@ -31,7 +31,7 @@
 
 struct AES_ctx;
 
-namespace DSi_NAND
+namespace melonDS::DSi_NAND
 {
 
 enum

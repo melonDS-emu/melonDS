@@ -42,11 +42,10 @@
 #include "NDS.h"
 #endif
 
-namespace ARMJIT
+namespace melonDS
 {
 class Compiler;
 class ARMJIT;
-}
 
 constexpr u32 RoundUp(u32 size) noexcept
 {
@@ -97,7 +96,7 @@ public:
 
 #ifdef JIT_ENABLED
 public:
-    explicit ARMJIT_Memory(ARMJIT::ARMJIT& jit) noexcept;
+    explicit ARMJIT_Memory(ARMJIT& jit) noexcept;
     ~ARMJIT_Memory() noexcept;
     ARMJIT_Memory(const ARMJIT_Memory&) = delete;
     ARMJIT_Memory(ARMJIT_Memory&&) = delete;
@@ -138,7 +137,7 @@ public:
     void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) const noexcept;
     bool MapAtAddress(u32 addr) noexcept;
 private:
-    friend class ARMJIT::Compiler;
+    friend class Compiler;
     struct Mapping
     {
         u32 Addr;
@@ -153,12 +152,12 @@ private:
         u32 EmulatedFaultAddr;
         u8* FaultPC;
     };
-    static bool FaultHandler(FaultDescription& faultDesc, ARMJIT::ARMJIT& jit);
+    static bool FaultHandler(FaultDescription& faultDesc, ARMJIT& jit);
     bool MapIntoRange(u32 addr, u32 num, u32 offset, u32 size) noexcept;
     bool UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size) noexcept;
     void SetCodeProtectionRange(u32 addr, u32 size, u32 num, int protection) noexcept;
 
-    ARMJIT::ARMJIT& JIT;
+    ARMJIT& JIT;
     void* FastMem9Start;
     void* FastMem7Start;
     u8* MemoryBase = nullptr;
@@ -178,10 +177,10 @@ private:
 #endif
     u8 MappingStatus9[1 << (32-12)] {};
     u8 MappingStatus7[1 << (32-12)] {};
-    ARMJIT::TinyVector<Mapping> Mappings[memregions_Count] {};
+    TinyVector<Mapping> Mappings[memregions_Count] {};
 #else
 public:
-    explicit ARMJIT_Memory(ARMJIT::ARMJIT&) {};
+    explicit ARMJIT_Memory(ARMJIT&) {};
     ~ARMJIT_Memory() = default;
     ARMJIT_Memory(const ARMJIT_Memory&) = delete;
     ARMJIT_Memory(ARMJIT_Memory&&) = delete;
@@ -224,5 +223,5 @@ private:
     std::array<u8, DSi::NWRAMSize> NWRAM_C {};
 #endif
 };
-
+}
 #endif

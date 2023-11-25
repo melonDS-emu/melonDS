@@ -49,9 +49,6 @@
 
 #include <stdlib.h>
 
-using Platform::Log;
-using Platform::LogLevel;
-
 /*
     We're handling fastmem here.
 
@@ -99,6 +96,12 @@ using Platform::LogLevel;
         #define CONTEXT_PC uc_mcontext.__gregs[_REG_PC]
     #endif
 #endif
+
+namespace melonDS
+{
+
+using Platform::Log;
+using Platform::LogLevel;
 
 #if defined(__ANDROID__)
 #define ASHMEM_DEVICE "/dev/ashmem"
@@ -562,7 +565,7 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
     }
 #endif
 
-    ARMJIT::AddressRange* range = JIT.CodeMemRegions[region] + memoryOffset / 512;
+    AddressRange* range = JIT.CodeMemRegions[region] + memoryOffset / 512;
 
     // this overcomplicated piece of code basically just finds whole pieces of code memory
     // which can be mapped/protected
@@ -580,9 +583,9 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
         else
         {
             u32 sectionOffset = offset;
-            bool hasCode = isExecutable && ARMJIT::PageContainsCode(&range[offset / 512]);
+            bool hasCode = isExecutable && PageContainsCode(&range[offset / 512]);
             while (offset < mirrorSize
-                && (!isExecutable || ARMJIT::PageContainsCode(&range[offset / 512]) == hasCode)
+                && (!isExecutable || PageContainsCode(&range[offset / 512]) == hasCode)
                 && (!skipDTCM || mirrorStart + offset != NDS::ARM9->DTCMBase))
             {
                 assert(states[(mirrorStart + offset) >> 12] == memstate_Unmapped);
@@ -617,7 +620,7 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
     return true;
 }
 
-bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, ARMJIT::ARMJIT& jit)
+bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, ARMJIT& jit)
 {
     if (jit.JITCompiler.IsJITFault(faultDesc.FaultPC))
     {
@@ -638,7 +641,7 @@ bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, ARMJIT::ARMJIT& ji
 
 const u64 AddrSpaceSize = 0x100000000;
 
-ARMJIT_Memory::ARMJIT_Memory(ARMJIT::ARMJIT& jit) noexcept : JIT(jit)
+ARMJIT_Memory::ARMJIT_Memory(ARMJIT& jit) noexcept : JIT(jit)
 {
 #if defined(__SWITCH__)
     MemoryBase = (u8*)aligned_alloc(0x1000, MemoryTotalSize);
@@ -1364,4 +1367,5 @@ void* ARMJIT_Memory::GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) co
         }
     }
     return NULL;
+}
 }

@@ -24,6 +24,8 @@
 #include "DSi.h"
 #include "SPU.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -1207,4 +1209,6 @@ void SPU::Write32(u32 addr, u32 val)
         case 0x0400051C: Capture[1]->SetLength(val & 0xFFFF); return;
         }
     }
+}
+
 }

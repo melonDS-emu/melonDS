@@ -52,7 +52,7 @@ protected:
     {
         if (!isChecked()) return QPushButton::keyPressEvent(event);
 
-        Platform::Log(Platform::Debug, "KEY PRESSED = %08X %08X | %08X %08X %08X\n", event->key(), (int)event->modifiers(), event->nativeVirtualKey(), event->nativeModifiers(), event->nativeScanCode());
+        Log(melonDS::Platform::Debug, "KEY PRESSED = %08X %08X | %08X %08X %08X\n", event->key(), (int)event->modifiers(), event->nativeVirtualKey(), event->nativeModifiers(), event->nativeScanCode());
 
         int key = event->key();
         int mod = event->modifiers();

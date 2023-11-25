@@ -38,6 +38,9 @@
 #include "LocalMP.h"
 #include "Platform.h"
 
+using namespace melonDS;
+using namespace melonDS::Platform;
+
 using Platform::Log;
 using Platform::LogLevel;
 

@@ -23,6 +23,8 @@
 #include "Savestate.h"
 #include "DSi_I2C.h"
 
+namespace melonDS
+{
 class DSi_CamModule;
 
 class DSi_Camera : public DSi_I2CDevice
@@ -121,4 +123,5 @@ private:
     static const u32 kTransferStart;
 };
 
+}
 #endif // DSI_CAMERA_H

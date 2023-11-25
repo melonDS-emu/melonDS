@@ -21,7 +21,7 @@
 
 using namespace Gen;
 
-namespace ARMJIT
+namespace melonDS
 {
 
 template <typename T>

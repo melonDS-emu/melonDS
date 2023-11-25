@@ -24,6 +24,8 @@
 #include "CRC32.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -894,6 +896,8 @@ u8 GBACartSlot::SRAMRead(u32 addr) noexcept
 void GBACartSlot::SRAMWrite(u32 addr, u8 val) noexcept
 {
     if (Cart) Cart->SRAMWrite(addr, val);
+}
+
 }
 
 }

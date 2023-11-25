@@ -27,6 +27,8 @@
 
 namespace Teakra { class Teakra; }
 
+namespace melonDS
+{
 class DSi_DSP
 {
 public:
@@ -104,5 +106,6 @@ private:
     u16 PDataDMAReadMMIO();
 };
 
+}
 #endif // DSI_DSP_H
 

@@ -24,6 +24,8 @@
 #include <functional>
 #include <string>
 
+namespace melonDS
+{
 class Firmware;
 
 namespace Platform
@@ -394,4 +396,5 @@ void DynamicLibrary_Unload(DynamicLibrary* lib);
 void* DynamicLibrary_LoadFunction(DynamicLibrary* lib, const char* name);
 }
 
+}
 #endif // PLATFORM_H

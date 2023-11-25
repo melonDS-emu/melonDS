@@ -41,6 +41,8 @@
 
 #include "tiny-AES-c/aes.hpp"
 
+namespace melonDS
+{
 using namespace Platform;
 
 namespace DSi
@@ -3140,6 +3142,8 @@ void ARM7IOWrite32(u32 addr, u32 val)
     }
 
     return NDS::ARM7IOWrite32(addr, val);
+}
+
 }
 
 }

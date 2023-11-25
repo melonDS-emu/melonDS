@@ -19,6 +19,8 @@
 
 namespace Gen
 {
+using namespace melonDS;
+using namespace Common;
 enum CCFlags
 {
   CC_O = 0,

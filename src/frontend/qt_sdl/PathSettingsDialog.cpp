@@ -27,6 +27,8 @@
 #include "PathSettingsDialog.h"
 #include "ui_PathSettingsDialog.h"
 
+using namespace melonDS::Platform;
+namespace Platform = melonDS::Platform;
 
 PathSettingsDialog* PathSettingsDialog::currentDlg = nullptr;
 

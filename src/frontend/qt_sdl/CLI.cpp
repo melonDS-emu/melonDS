@@ -27,8 +27,8 @@
 #include "CLI.h"
 #include "Platform.h"
 
-using Platform::Log;
-using Platform::LogLevel;
+using melonDS::Platform::Log;
+using melonDS::Platform::LogLevel;
 
 namespace CLI
 {

@@ -24,6 +24,7 @@
 namespace LocalMP
 {
 
+using namespace melonDS;
 bool Init();
 void DeInit();
 

@@ -9,6 +9,8 @@ extern "C"
 
 #include <stdint.h>
 
+namespace melonDS
+{
 inline static uint8_t hex2nyb(uint8_t v)
 {
 	if (v >= '0' && v <= '9') return v - '0';
@@ -71,5 +73,6 @@ inline static uint32_t unhex32(const uint8_t* src)
 }
 #endif
 
+}
 #endif
 

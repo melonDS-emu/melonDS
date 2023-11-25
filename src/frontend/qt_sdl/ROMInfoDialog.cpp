@@ -28,6 +28,8 @@
 #include "Platform.h"
 #include "Config.h"
 
+using namespace melonDS;
+
 QString IntToHex(u64 num)
 {
     return ("0x" + QString::number(num, 16).toUpper());

@@ -28,13 +28,13 @@
 #include "JitBlock.h"
 #include "TinyVector.h"
 
+namespace melonDS
+{
 class ARM;
 class ARMv5;
 
 // here lands everything which doesn't fit into ARMJIT.h
 // where it would be included by pretty much everything
-namespace ARMJIT
-{
 
 enum
 {

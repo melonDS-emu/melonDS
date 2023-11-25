@@ -24,6 +24,8 @@
 #include "DSi_NWifi.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using namespace Platform;
 
 // observed IRQ behavior during transfers
@@ -1094,4 +1096,6 @@ u32 DSi_MMCStorage::WriteBlock(u64 addr)
     }
 
     return len;
+}
+
 }

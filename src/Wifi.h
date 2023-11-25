@@ -21,6 +21,8 @@
 
 #include "Savestate.h"
 
+namespace melonDS
+{
 class WifiAP;
 
 class Wifi
@@ -285,4 +287,5 @@ private:
     void RFTransfer_Type3();
 };
 
+}
 #endif

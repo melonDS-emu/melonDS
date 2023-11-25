@@ -23,6 +23,8 @@
 
 #include "types.h"
 
+namespace melonDS
+{
 struct ROMListEntry
 {
 	u32 GameCode;
@@ -36,4 +38,5 @@ extern const ROMListEntry ROMList[];
 /// The number of elements in \c ROMList.
 extern const size_t ROMListEntryCount;
 
+}
 #endif // ROMLIST_H

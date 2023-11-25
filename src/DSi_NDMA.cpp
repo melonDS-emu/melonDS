@@ -23,10 +23,12 @@
 #include "GPU.h"
 #include "DSi_AES.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
-DSi_NDMA::DSi_NDMA(u32 cpu, u32 num, Melon::GPU& gpu) : GPU(gpu)
+DSi_NDMA::DSi_NDMA(u32 cpu, u32 num, melonDS::GPU& gpu) : GPU(gpu)
 {
     CPU = cpu;
     Num = num;
@@ -374,4 +376,6 @@ void DSi_NDMA::Run7()
 
     DSi::AES->CheckInputDMA();
     DSi::AES->CheckOutputDMA();
+}
+
 }

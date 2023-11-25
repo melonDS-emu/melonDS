@@ -28,7 +28,10 @@
 #ifndef FREEBIOS_H
 #define FREEBIOS_H
 
+namespace melonDS
+{
 extern unsigned char bios_arm7_bin[16384];
 extern unsigned char bios_arm9_bin[4096];
+}
 
 #endif // FREEBIOS_H

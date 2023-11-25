@@ -43,6 +43,8 @@
 #include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
 
+namespace melonDS
+{
 using namespace Platform;
 
 namespace NDS
@@ -182,8 +184,8 @@ class RTC* RTC;
 class Wifi* Wifi;
 std::unique_ptr<NDSCart::NDSCartSlot> NDSCartSlot;
 std::unique_ptr<GBACart::GBACartSlot> GBACartSlot;
-std::unique_ptr<Melon::GPU> GPU;
-std::unique_ptr<ARMJIT::ARMJIT> JIT;
+std::unique_ptr<melonDS::GPU> GPU;
+std::unique_ptr<ARMJIT> JIT;
 class AREngine* AREngine;
 
 bool Running;
@@ -203,8 +205,8 @@ bool Init()
     RegisterEventFunc(Event_Div, 0, DivDone);
     RegisterEventFunc(Event_Sqrt, 0, SqrtDone);
 
-    JIT = std::make_unique<ARMJIT::ARMJIT>();
-    GPU = std::make_unique<Melon::GPU>(*JIT);
+    JIT = std::make_unique<ARMJIT>();
+    GPU = std::make_unique<melonDS::GPU>(*JIT);
 
     MainRAM = JIT->Memory.GetMainRAM();
     SharedWRAM = JIT->Memory.GetSharedWRAM();
@@ -4459,6 +4461,8 @@ void ARM7IOWrite32(u32 addr, u32 val)
     }
 
     Log(LogLevel::Debug, "unknown ARM7 IO write32 %08X %08X %08X\n", addr, val, ARM7->R[15]);
+}
+
 }
 
 }

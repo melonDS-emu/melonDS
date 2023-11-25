@@ -28,7 +28,7 @@
 
 #include <unordered_map>
 
-namespace ARMJIT
+namespace melonDS
 {
 class ARMJIT;
 const Arm64Gen::ARM64Reg RMemBase = Arm64Gen::X26;

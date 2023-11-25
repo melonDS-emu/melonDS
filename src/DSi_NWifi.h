@@ -23,6 +23,8 @@
 #include "FIFO.h"
 #include "Savestate.h"
 
+namespace melonDS
+{
 class DSi_NWifi : public DSi_SDDevice
 {
 public:
@@ -146,4 +148,5 @@ private:
     u8 LANBuffer[2048];
 };
 
+}
 #endif // DSI_NWIFI_H

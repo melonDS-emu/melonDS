@@ -26,6 +26,7 @@
 
 namespace Frontend
 {
+using namespace melonDS;
 
 enum ScreenLayout
 {
