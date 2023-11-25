@@ -2272,6 +2272,11 @@
        <string>Add-ons</string>
       </attribute>
      </widget>
+     <widget class="QWidget" name="tabSaveLoad">
+      <attribute name="title">
+       <string>Save/load</string>
+      </attribute>
+     </widget>
      <widget class="QWidget" name="tabHotkeysGeneral">
       <attribute name="title">
        <string>General hotkeys</string>

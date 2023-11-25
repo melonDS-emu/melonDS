@@ -68,9 +68,56 @@ public:
 
     void updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix);
 
+    typedef void(EmuThread::*saveFunc)();
+    saveFunc saveStateFuncs[8] =
+    {
+        &EmuThread::windowEmuSaveSlot1,
+        &EmuThread::windowEmuSaveSlot2,
+        &EmuThread::windowEmuSaveSlot3,
+        &EmuThread::windowEmuSaveSlot4,
+        &EmuThread::windowEmuSaveSlot5,
+        &EmuThread::windowEmuSaveSlot6,
+        &EmuThread::windowEmuSaveSlot7,
+        &EmuThread::windowEmuSaveSlot8,
+    };
+
+    typedef void(EmuThread::*loadFunc)();
+    loadFunc loadStateFuncs[8] =
+    {
+        &EmuThread::windowEmuLoadSlot1,
+        &EmuThread::windowEmuLoadSlot2,
+        &EmuThread::windowEmuLoadSlot3,
+        &EmuThread::windowEmuLoadSlot4,
+        &EmuThread::windowEmuLoadSlot5,
+        &EmuThread::windowEmuLoadSlot6,
+        &EmuThread::windowEmuLoadSlot7,
+        &EmuThread::windowEmuLoadSlot8,
+    };
+
 signals:
     void windowUpdate();
     void windowTitleChange(QString title);
+
+    void windowEmuSaveSlot1();
+    void windowEmuSaveSlot2();
+    void windowEmuSaveSlot3();
+    void windowEmuSaveSlot4();
+    void windowEmuSaveSlot5();
+    void windowEmuSaveSlot6();
+    void windowEmuSaveSlot7();
+    void windowEmuSaveSlot8();
+    void windowEmuSaveSlotFile();
+
+    void windowEmuLoadSlot1();
+    void windowEmuLoadSlot2();
+    void windowEmuLoadSlot3();
+    void windowEmuLoadSlot4();
+    void windowEmuLoadSlot5();
+    void windowEmuLoadSlot6();
+    void windowEmuLoadSlot7();
+    void windowEmuLoadSlot8();
+    void windowEmuLoadSlotFile();
+    void windowEmuUndoStateLoad();
 
     void windowEmuStart();
     void windowEmuStop();

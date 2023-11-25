@@ -77,6 +77,54 @@ static constexpr std::initializer_list<const char*> hk_general_labels =
 
 static_assert(hk_general.size() == hk_general_labels.size());
 
+static constexpr std::initializer_list<int> hk_save_load =
+{
+    HK_SaveSlot1,
+    HK_SaveSlot2,
+    HK_SaveSlot3,
+    HK_SaveSlot4,
+    HK_SaveSlot5,
+    HK_SaveSlot6,
+    HK_SaveSlot7,
+    HK_SaveSlot8,
+    HK_SaveSlotFile,
+    HK_LoadSlot1,
+    HK_LoadSlot2,
+    HK_LoadSlot3,
+    HK_LoadSlot4,
+    HK_LoadSlot5,
+    HK_LoadSlot6,
+    HK_LoadSlot7,
+    HK_LoadSlot8,
+    HK_LoadSlotFile,
+    HK_UndoStateLoad
+};
+
+static constexpr std::initializer_list<const char*> hk_save_load_labels =
+{
+    "Save slot 1",
+    "Save slot 2",
+    "Save slot 3",
+    "Save slot 4",
+    "Save slot 5",
+    "Save slot 6",
+    "Save slot 7",
+    "Save slot 8",
+    "Save slot File",
+    "Load slot 1",
+    "Load slot 2",
+    "Load slot 3",
+    "Load slot 4",
+    "Load slot 5",
+    "Load slot 6",
+    "Load slot 7",
+    "Load slot 8",
+    "Load slot File",
+    "Undo State Load"
+};
+
+static_assert(hk_save_load.size() == hk_save_load_labels.size());
+
 
 namespace Ui { class InputConfigDialog; }
 class InputConfigDialog;
@@ -126,6 +174,7 @@ private:
     int keypadKeyMap[12], keypadJoyMap[12];
     int addonsKeyMap[hk_addons.size()], addonsJoyMap[hk_addons.size()];
     int hkGeneralKeyMap[hk_general.size()], hkGeneralJoyMap[hk_general.size()];
+    int hkSaveLoadKeyMap[hk_save_load.size()], hkSaveLoadJoyMap[hk_save_load.size()];
 };
 
 

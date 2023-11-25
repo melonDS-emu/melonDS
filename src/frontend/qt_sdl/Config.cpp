@@ -160,6 +160,7 @@ bool GdbARM9BreakOnStartup;
 
 CameraConfig Camera[2];
 
+std::vector<std::tuple<QAction*, int>> shortcuts;
 
 const char* kConfigFile = "melonDS.ini";
 const char* kUniqueConfigFile = "melonDS.%d.ini";
@@ -192,21 +193,41 @@ ConfigEntry ConfigFile[] =
     {"Joy_X",      0, &JoyMapping[10], -1, true},
     {"Joy_Y",      0, &JoyMapping[11], -1, true},
 
-    {"HKKey_Lid",                 0, &HKKeyMapping[HK_Lid],                 -1, true},
-    {"HKKey_Mic",                 0, &HKKeyMapping[HK_Mic],                 -1, true},
-    {"HKKey_Pause",               0, &HKKeyMapping[HK_Pause],               -1, true},
-    {"HKKey_Reset",               0, &HKKeyMapping[HK_Reset],               -1, true},
-    {"HKKey_FastForward",         0, &HKKeyMapping[HK_FastForward],         -1, true},
-    {"HKKey_FastForwardToggle",   0, &HKKeyMapping[HK_FastForwardToggle],   -1, true},
-    {"HKKey_FullscreenToggle",    0, &HKKeyMapping[HK_FullscreenToggle],    -1, true},
-    {"HKKey_SwapScreens",         0, &HKKeyMapping[HK_SwapScreens],         -1, true},
-    {"HKKey_SwapScreenEmphasis",  0, &HKKeyMapping[HK_SwapScreenEmphasis],  -1, true},
-    {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1, true},
-    {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1, true},
-    {"HKKey_FrameStep",           0, &HKKeyMapping[HK_FrameStep],           -1, true},
-    {"HKKey_PowerButton",         0, &HKKeyMapping[HK_PowerButton],         -1, true},
-    {"HKKey_VolumeUp",            0, &HKKeyMapping[HK_VolumeUp],            -1, true},
-    {"HKKey_VolumeDown",          0, &HKKeyMapping[HK_VolumeDown],          -1, true},
+    {"HKKey_Lid",                 0, &HKKeyMapping[HK_Lid],                 -1,        true},
+    {"HKKey_Mic",                 0, &HKKeyMapping[HK_Mic],                 -1,        true},
+    {"HKKey_Pause",               0, &HKKeyMapping[HK_Pause],               -1,        true},
+    {"HKKey_Reset",               0, &HKKeyMapping[HK_Reset],               -1,        true},
+    {"HKKey_FastForward",         0, &HKKeyMapping[HK_FastForward],         -1,        true},
+    {"HKKey_FastForwardToggle",   0, &HKKeyMapping[HK_FastForwardToggle],   -1,        true},
+    {"HKKey_FullscreenToggle",    0, &HKKeyMapping[HK_FullscreenToggle],    -1,        true},
+    {"HKKey_SwapScreens",         0, &HKKeyMapping[HK_SwapScreens],         -1,        true},
+    {"HKKey_SwapScreenEmphasis",  0, &HKKeyMapping[HK_SwapScreenEmphasis],  -1,        true},
+    {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1,        true},
+    {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1,        true},
+    {"HKKey_FrameStep",           0, &HKKeyMapping[HK_FrameStep],           -1,        true},
+    {"HKKey_PowerButton",         0, &HKKeyMapping[HK_PowerButton],         -1,        true},
+    {"HKKey_VolumeUp",            0, &HKKeyMapping[HK_VolumeUp],            -1,        true},
+    {"HKKey_VolumeDown",          0, &HKKeyMapping[HK_VolumeDown],          -1,        true},
+    {"HKKey_SaveSlot1",           0, &HKKeyMapping[HK_SaveSlot1],           0x3000030, true},
+    {"HKKey_SaveSlot2",           0, &HKKeyMapping[HK_SaveSlot2],           0x3000031, true},
+    {"HKKey_SaveSlot3",           0, &HKKeyMapping[HK_SaveSlot3],           0x3000032, true},
+    {"HKKey_SaveSlot4",           0, &HKKeyMapping[HK_SaveSlot4],           0x3000033, true},
+    {"HKKey_SaveSlot5",           0, &HKKeyMapping[HK_SaveSlot5],           0x3000034, true},
+    {"HKKey_SaveSlot6",           0, &HKKeyMapping[HK_SaveSlot6],           0x3000035, true},
+    {"HKKey_SaveSlot7",           0, &HKKeyMapping[HK_SaveSlot7],           0x3000036, true},
+    {"HKKey_SaveSlot8",           0, &HKKeyMapping[HK_SaveSlot8],           0x3000037, true},
+    {"HKKey_SaveSlotFile",        0, &HKKeyMapping[HK_SaveSlotFile],        0x3000038, true},
+    {"HKKey_LoadSlot1",           0, &HKKeyMapping[HK_LoadSlot1],           0x1000030, true},
+    {"HKKey_LoadSlot2",           0, &HKKeyMapping[HK_LoadSlot2],           0x1000031, true},
+    {"HKKey_LoadSlot3",           0, &HKKeyMapping[HK_LoadSlot3],           0x1000032, true},
+    {"HKKey_LoadSlot4",           0, &HKKeyMapping[HK_LoadSlot4],           0x1000033, true},
+    {"HKKey_LoadSlot5",           0, &HKKeyMapping[HK_LoadSlot5],           0x1000034, true},
+    {"HKKey_LoadSlot6",           0, &HKKeyMapping[HK_LoadSlot6],           0x1000035, true},
+    {"HKKey_LoadSlot7",           0, &HKKeyMapping[HK_LoadSlot7],           0x1000036, true},
+    {"HKKey_LoadSlot8",           0, &HKKeyMapping[HK_LoadSlot8],           0x1000037, true},
+    {"HKKey_LoadSlotFile",        0, &HKKeyMapping[HK_LoadSlotFile],        0x1000038, true},
+    {"HKKey_UndoStateLoad",       0, &HKKeyMapping[HK_UndoStateLoad],       0x100003B, true},
+
 
     {"HKJoy_Lid",                 0, &HKJoyMapping[HK_Lid],                 -1, true},
     {"HKJoy_Mic",                 0, &HKJoyMapping[HK_Mic],                 -1, true},
@@ -223,6 +244,25 @@ ConfigEntry ConfigFile[] =
     {"HKJoy_PowerButton",         0, &HKJoyMapping[HK_PowerButton],         -1, true},
     {"HKJoy_VolumeUp",            0, &HKJoyMapping[HK_VolumeUp],            -1, true},
     {"HKJoy_VolumeDown",          0, &HKJoyMapping[HK_VolumeDown],          -1, true},
+    {"HKJoy_SaveSlot1",           0, &HKJoyMapping[HK_SaveSlot1],           -1, true},
+    {"HKJoy_SaveSlot2",           0, &HKJoyMapping[HK_SaveSlot2],           -1, true},
+    {"HKJoy_SaveSlot3",           0, &HKJoyMapping[HK_SaveSlot3],           -1, true},
+    {"HKJoy_SaveSlot4",           0, &HKJoyMapping[HK_SaveSlot4],           -1, true},
+    {"HKJoy_SaveSlot5",           0, &HKJoyMapping[HK_SaveSlot5],           -1, true},
+    {"HKJoy_SaveSlot6",           0, &HKJoyMapping[HK_SaveSlot6],           -1, true},
+    {"HKJoy_SaveSlot7",           0, &HKJoyMapping[HK_SaveSlot7],           -1, true},
+    {"HKJoy_SaveSlot8",           0, &HKJoyMapping[HK_SaveSlot8],           -1, true},
+    {"HKJoy_SaveSlotFile",        0, &HKJoyMapping[HK_SaveSlotFile],        -1, true},
+    {"HKJoy_LoadSlot1",           0, &HKJoyMapping[HK_LoadSlot1],           -1, true},
+    {"HKJoy_LoadSlot2",           0, &HKJoyMapping[HK_LoadSlot2],           -1, true},
+    {"HKJoy_LoadSlot3",           0, &HKJoyMapping[HK_LoadSlot3],           -1, true},
+    {"HKJoy_LoadSlot4",           0, &HKJoyMapping[HK_LoadSlot4],           -1, true},
+    {"HKJoy_LoadSlot5",           0, &HKJoyMapping[HK_LoadSlot5],           -1, true},
+    {"HKJoy_LoadSlot6",           0, &HKJoyMapping[HK_LoadSlot6],           -1, true},
+    {"HKJoy_LoadSlot7",           0, &HKJoyMapping[HK_LoadSlot7],           -1, true},
+    {"HKJoy_LoadSlot8",           0, &HKJoyMapping[HK_LoadSlot8],           -1, true},
+    {"HKJoy_LoadSlotFile",        0, &HKJoyMapping[HK_LoadSlotFile],        -1, true},
+    {"HKJoy_UndoStateLoad",       0, &HKJoyMapping[HK_UndoStateLoad],       -1, true},
 
     {"JoystickID", 0, &JoystickID, 0, true},
 
@@ -373,6 +413,20 @@ ConfigEntry ConfigFile[] =
     {"", -1, nullptr, 0, false}
 };
 
+void UpdateShortcuts()
+{
+    for(std::tuple<QAction*, int> shortcut : shortcuts)
+    {
+        QAction* action = std::get<0>(shortcut);
+        int hotkey = HKKeyMapping[std::get<1>(shortcut)];
+
+        QString text = action->text();
+
+        text = text.split('\t')[0];
+        action->setText(QString("%1\t%2").arg(text).arg(QKeySequence(hotkey).toString()));
+        action->setShortcutVisibleInContextMenu(false);
+    }
+}
 
 void LoadFile(int inst)
 {

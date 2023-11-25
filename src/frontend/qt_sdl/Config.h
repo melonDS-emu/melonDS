@@ -21,6 +21,10 @@
 
 #include <variant>
 #include <string>
+#include <tuple>
+#include <vector>
+#include <QAction>
+
 
 enum
 {
@@ -39,6 +43,25 @@ enum
     HK_PowerButton,
     HK_VolumeUp,
     HK_VolumeDown,
+    HK_SaveSlot1,
+    HK_SaveSlot2,
+    HK_SaveSlot3,
+    HK_SaveSlot4,
+    HK_SaveSlot5,
+    HK_SaveSlot6,
+    HK_SaveSlot7,
+    HK_SaveSlot8,
+    HK_SaveSlotFile,
+    HK_LoadSlot1,
+    HK_LoadSlot2,
+    HK_LoadSlot3,
+    HK_LoadSlot4,
+    HK_LoadSlot5,
+    HK_LoadSlot6,
+    HK_LoadSlot7,
+    HK_LoadSlot8,
+    HK_LoadSlotFile,
+    HK_UndoStateLoad,
     HK_MAX
 };
 
@@ -195,13 +218,15 @@ extern bool DSiFullBIOSBoot;
 
 extern CameraConfig Camera[2];
 
+extern std::vector<std::tuple<QAction*, int>> shortcuts;
+
 extern bool GdbEnabled;
 extern int GdbPortARM7;
 extern int GdbPortARM9;
 extern bool GdbARM7BreakOnStartup;
 extern bool GdbARM9BreakOnStartup;
 
-
+void UpdateShortcuts();
 void Load();
 void Save();
 

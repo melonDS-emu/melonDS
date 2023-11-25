@@ -65,8 +65,17 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         i++;
     }
 
+    i = 0;
+    for (int hotkey : hk_save_load)
+    {
+        hkSaveLoadKeyMap[i] = Config::HKKeyMapping[hotkey];
+        hkSaveLoadJoyMap[i] = Config::HKJoyMapping[hotkey];
+        i++;
+    }
+
     populatePage(ui->tabAddons, hk_addons_labels, addonsKeyMap, addonsJoyMap);
     populatePage(ui->tabHotkeysGeneral, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
+    populatePage(ui->tabSaveLoad, hk_save_load_labels, hkSaveLoadKeyMap, hkSaveLoadJoyMap);
 
     int njoy = SDL_NumJoysticks();
     if (njoy > 0)
@@ -195,6 +204,16 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         Config::HKJoyMapping[hotkey] = hkGeneralJoyMap[i];
         i++;
     }
+
+    i = 0;
+    for (int hotkey : hk_save_load)
+    {
+        Config::HKKeyMapping[hotkey] = hkSaveLoadKeyMap[i];
+        Config::HKJoyMapping[hotkey] = hkSaveLoadJoyMap[i];
+        i++;
+    }
+
+    Config::UpdateShortcuts();
 
     Config::JoystickID = Input::JoystickID;
     Config::Save();

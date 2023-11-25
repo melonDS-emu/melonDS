@@ -23,6 +23,7 @@
 
 #include <optional>
 #include <vector>
+#include <tuple>
 #include <string>
 #include <algorithm>
 
@@ -200,6 +201,30 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
     connect(this, SIGNAL(screenEmphasisToggle()), mainWindow, SLOT(onScreenEmphasisToggled()));
 
+
+    // The saveStateFuncs function pointer array does not work here as SIGNAL is a define pragma.
+    connect(this, SIGNAL(windowEmuSaveSlot1()), mainWindow->actSaveState[1], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuSaveSlot2()), mainWindow->actSaveState[2], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuSaveSlot3()), mainWindow->actSaveState[3], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuSaveSlot4()), mainWindow->actSaveState[4], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuSaveSlot5()), mainWindow->actSaveState[5], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuSaveSlot6()), mainWindow->actSaveState[6], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuSaveSlot7()), mainWindow->actSaveState[7], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuSaveSlot8()), mainWindow->actSaveState[8], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuSaveSlotFile()), mainWindow->actSaveState[0], SLOT(trigger()));
+
+    // The loadStateFuncs function pointer array does not work here as SIGNAL is a define pragma.
+    connect(this, SIGNAL(windowEmuLoadSlot1()), mainWindow->actLoadState[1], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuLoadSlot2()), mainWindow->actLoadState[2], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuLoadSlot3()), mainWindow->actLoadState[3], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuLoadSlot4()), mainWindow->actLoadState[4], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuLoadSlot5()), mainWindow->actLoadState[5], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuLoadSlot6()), mainWindow->actLoadState[6], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuLoadSlot7()), mainWindow->actLoadState[7], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuLoadSlot8()), mainWindow->actLoadState[8], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuLoadSlotFile()), mainWindow->actLoadState[0], SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuUndoStateLoad()), mainWindow->actUndoStateLoad, SLOT(trigger()));
+
     static_cast<ScreenPanelGL*>(mainWindow->panel)->transferLayout(this);
 }
 
@@ -373,9 +398,25 @@ void EmuThread::run()
 
         if (Input::HotkeyPressed(HK_FastForwardToggle)) emit windowLimitFPSChange();
 
+        for(int i = 0; i < 8; i++)
+        {
+            if(Input::HotkeyPressed(HK_SaveSlot1+i)) emit (this->*saveStateFuncs[i])();
+        }
+        if(Input::HotkeyPressed(HK_SaveSlotFile)) emit windowEmuSaveSlotFile();
+
+
+        for(int i = 0; i < 8; i++)
+        {
+            if(Input::HotkeyPressed(HK_LoadSlot1+i)) emit (this->*loadStateFuncs[i])();
+        }
+        if(Input::HotkeyPressed(HK_LoadSlotFile)) emit windowEmuLoadSlotFile();
+        if(Input::HotkeyPressed(HK_UndoStateLoad)) emit windowEmuUndoStateLoad();
+
+
         if (Input::HotkeyPressed(HK_Pause)) emit windowEmuPause();
         if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
         if (Input::HotkeyPressed(HK_FrameStep)) emit windowEmuFrameStep();
+
 
         if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
@@ -1492,15 +1533,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             for (int i = 1; i < 9; i++)
             {
                 actSaveState[i] = submenu->addAction(QString("%1").arg(i));
-                actSaveState[i]->setShortcut(QKeySequence(Qt::ShiftModifier | (Qt::Key_F1+i-1)));
                 actSaveState[i]->setData(QVariant(i));
                 connect(actSaveState[i], &QAction::triggered, this, &MainWindow::onSaveState);
+                Config::shortcuts.push_back(std::tuple <QAction*, int> (actSaveState[i], HK_SaveSlot1+i-1));
             }
 
             actSaveState[0] = submenu->addAction("File...");
-            actSaveState[0]->setShortcut(QKeySequence(Qt::ShiftModifier | Qt::Key_F9));
             actSaveState[0]->setData(QVariant(0));
             connect(actSaveState[0], &QAction::triggered, this, &MainWindow::onSaveState);
+            Config::shortcuts.push_back(std::tuple <QAction*, int> (actSaveState[0], HK_SaveSlotFile));
         }
         {
             QMenu* submenu = menu->addMenu("Load state");
@@ -1508,20 +1549,21 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             for (int i = 1; i < 9; i++)
             {
                 actLoadState[i] = submenu->addAction(QString("%1").arg(i));
-                actLoadState[i]->setShortcut(QKeySequence(Qt::Key_F1+i-1));
                 actLoadState[i]->setData(QVariant(i));
                 connect(actLoadState[i], &QAction::triggered, this, &MainWindow::onLoadState);
+                Config::shortcuts.push_back(std::tuple <QAction*, int> (actLoadState[i], HK_LoadSlot1+i-1));
             }
 
+
             actLoadState[0] = submenu->addAction("File...");
-            actLoadState[0]->setShortcut(QKeySequence(Qt::Key_F9));
             actLoadState[0]->setData(QVariant(0));
             connect(actLoadState[0], &QAction::triggered, this, &MainWindow::onLoadState);
+            Config::shortcuts.push_back(std::tuple <QAction*, int> (actLoadState[0], HK_LoadSlotFile));
         }
 
         actUndoStateLoad = menu->addAction("Undo state load");
-        actUndoStateLoad->setShortcut(QKeySequence(Qt::Key_F12));
         connect(actUndoStateLoad, &QAction::triggered, this, &MainWindow::onUndoStateLoad);
+        Config::shortcuts.push_back(std::tuple <QAction*, int> (actUndoStateLoad, HK_UndoStateLoad));
 
         menu->addSeparator();
 
@@ -1535,15 +1577,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actPause = menu->addAction("Pause");
         actPause->setCheckable(true);
         connect(actPause, &QAction::triggered, this, &MainWindow::onPause);
+        Config::shortcuts.push_back(std::tuple <QAction*, int> (actPause, HK_Pause));
 
         actReset = menu->addAction("Reset");
         connect(actReset, &QAction::triggered, this, &MainWindow::onReset);
+        Config::shortcuts.push_back(std::tuple <QAction*, int> (actReset, HK_Reset));
 
         actStop = menu->addAction("Stop");
         connect(actStop, &QAction::triggered, this, &MainWindow::onStop);
 
         actFrameStep = menu->addAction("Frame step");
         connect(actFrameStep, &QAction::triggered, this, &MainWindow::onFrameStep);
+        Config::shortcuts.push_back(std::tuple <QAction*, int> (actFrameStep, HK_FrameStep));
 
         menu->addSeparator();
 
@@ -1771,6 +1816,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actAudioSync->setCheckable(true);
         connect(actAudioSync, &QAction::triggered, this, &MainWindow::onChangeAudioSync);
     }
+    Config::UpdateShortcuts();
     setMenuBar(menubar);
 
     resize(Config::WindowWidth, Config::WindowHeight);
