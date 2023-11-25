@@ -23,6 +23,8 @@
 #include "Savestate.h"
 #include "SPI.h"
 
+namespace melonDS
+{
 class DSi_TSC : public TSC
 {
 public:
@@ -50,4 +52,5 @@ private:
     u8 TSCMode;
 };
 
+}
 #endif // DSI_SPI_TSC

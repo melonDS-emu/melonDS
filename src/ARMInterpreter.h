@@ -22,6 +22,8 @@
 #include "types.h"
 #include "ARM.h"
 
+namespace melonDS
+{
 namespace ARMInterpreter
 {
 
@@ -41,4 +43,5 @@ void A_BLX_IMM(ARM* cpu); // I'm a special one look at me
 
 }
 
+}
 #endif // ARMINTERPRETER_H

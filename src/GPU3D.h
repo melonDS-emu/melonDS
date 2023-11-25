@@ -25,13 +25,9 @@
 #include "Savestate.h"
 #include "FIFO.h"
 
-namespace Melon
+namespace melonDS
 {
 struct RenderSettings;
-}
-
-namespace GPU3D
-{
 
 struct Vertex
 {
@@ -340,7 +336,7 @@ public:
     // are more detailed "traits" that we can ask of the Renderer3D type
     const bool Accelerated;
 
-    virtual void SetRenderSettings(const Melon::RenderSettings& settings) noexcept = 0;
+    virtual void SetRenderSettings(const RenderSettings& settings) noexcept = 0;
 
     virtual void VCount144() {};
 

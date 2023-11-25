@@ -31,6 +31,7 @@
 namespace ROMManager
 {
 
+using namespace melonDS;
 extern SaveManager* NDSSave;
 extern SaveManager* GBASave;
 extern std::unique_ptr<SaveManager> FirmwareSave;
@@ -62,11 +63,10 @@ void UndoStateLoad();
 void EnableCheats(bool enable);
 ARCodeFile* GetCheatFile();
 
-void ROMIcon(const u8 (&data)[512], const u16 (&palette)[16], u32* iconRef);
+void ROMIcon(const u8 (&data)[512], const u16 (&palette)[16], u32 (&iconRef)[32*32]);
 void AnimatedROMIcon(const u8 (&data)[8][512], const u16 (&palette)[8][16],
-                     const u16 (&sequence)[64], u32 (&animatedTexRef)[32 * 32 * 64],
+                     const u16 (&sequence)[64], u32 (&animatedIconRef)[64][32*32],
                      std::vector<int> &animatedSequenceRef);
-
 }
 
 #endif // ROMMANAGER_H

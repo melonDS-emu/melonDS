@@ -41,6 +41,7 @@
         #endif
 #endif
 
+using namespace melonDS;
 using Platform::Log;
 using Platform::LogLevel;
 

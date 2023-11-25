@@ -24,6 +24,9 @@
 #include "WifiAP.h"
 #include "Platform.h"
 
+namespace melonDS
+{
+
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -1606,4 +1609,6 @@ void DSi_NWifi::MSTimer(u32 param)
     }
 
     NDS::ScheduleEvent(NDS::Event_DSi_NWifi, true, 33611, 0, 0);
+}
+
 }

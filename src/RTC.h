@@ -22,6 +22,8 @@
 #include "types.h"
 #include "Savestate.h"
 
+namespace melonDS
+{
 class RTC
 {
 public:
@@ -113,4 +115,5 @@ private:
     void ByteIn(u8 val);
 };
 
+}
 #endif

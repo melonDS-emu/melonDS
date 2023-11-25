@@ -24,11 +24,13 @@
 #include "fatfs/ff.h"
 
 // extra additions for interfacing with melonDS
-
+namespace melonDS
+{
 using ff_disk_read_cb = std::function<UINT(BYTE*, LBA_t, UINT)>;
 using ff_disk_write_cb = std::function<UINT(const BYTE*, LBA_t, UINT)>;
 
 void ff_disk_open(const ff_disk_read_cb& readcb, const ff_disk_write_cb& writecb, LBA_t seccnt);
 void ff_disk_close();
+}
 
 #endif // FATIO_H

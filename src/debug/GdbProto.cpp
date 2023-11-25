@@ -24,6 +24,7 @@
 #include "GdbProto.h"
 
 
+using namespace melonDS;
 using Platform::Log;
 using Platform::LogLevel;
 

@@ -5,6 +5,7 @@
 namespace Gdb
 {
 
+using namespace melonDS;
 enum class Register : int
 {
 	r0,

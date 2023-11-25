@@ -17,10 +17,11 @@
 */
 
 #include "ARMJIT_Compiler.h"
+#include "../ARM.h"
 
 using namespace Gen;
 
-namespace ARMJIT
+namespace melonDS
 {
 
 template <typename T>

@@ -21,6 +21,8 @@
 #include "RTC.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -939,4 +941,6 @@ void RTC::Write(u16 val, bool byte)
         IO = val;
     else
         IO = (IO & 0x0001) | (val & 0xFFFE);
+}
+
 }

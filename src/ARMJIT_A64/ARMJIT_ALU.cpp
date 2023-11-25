@@ -20,7 +20,7 @@
 
 using namespace Arm64Gen;
 
-namespace ARMJIT
+namespace melonDS
 {
 
 void Compiler::Comp_RegShiftReg(int op, bool S, Op2& op2, ARM64Reg rs)
@@ -480,7 +480,7 @@ void Compiler::A_Comp_GetOp2(bool S, Op2& op2)
         Comp_AddCycles_C();
 
         u32 shift = (CurInstr.Instr >> 7) & 0x1E;
-        u32 imm = ::ROR(CurInstr.Instr & 0xFF, shift);
+        u32 imm = melonDS::ROR(CurInstr.Instr & 0xFF, shift);
 
         if (S && shift && (CurInstr.SetFlags & 0x2))
         {

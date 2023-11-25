@@ -19,6 +19,7 @@
 #include "ArchiveUtil.h"
 #include "Platform.h"
 
+using namespace melonDS;
 using Platform::Log;
 using Platform::LogLevel;
 

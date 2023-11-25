@@ -28,6 +28,8 @@
 #include "debug/GdbStub.h"
 #endif
 
+namespace melonDS
+{
 inline u32 ROR(u32 x, u32 n)
 {
     return (x >> (n&0x1F)) | (x << ((32-n)&0x1F));
@@ -42,10 +44,10 @@ enum
 const u32 ITCMPhysicalSize = 0x8000;
 const u32 DTCMPhysicalSize = 0x4000;
 
-namespace Melon
-{
+
+class ARMJIT;
 class GPU;
-}
+class ARMJIT_Memory;
 
 class ARM
 #ifdef GDBSTUB_ENABLED
@@ -53,7 +55,7 @@ class ARM
 #endif
 {
 public:
-    ARM(u32 num, Melon::GPU& gpu);
+    ARM(u32 num, ARMJIT& jit, GPU& gpu);
     virtual ~ARM(); // destroy shit
 
     virtual void Reset();
@@ -179,11 +181,12 @@ public:
     u64* FastBlockLookup;
 #endif
 
-    static u32 ConditionTable[16];
+    static const u32 ConditionTable[16];
 #ifdef GDBSTUB_ENABLED
     Gdb::GdbStub GdbStub;
 #endif
 
+    ARMJIT& JIT;
 protected:
     u8 (*BusRead8)(u32 addr);
     u16 (*BusRead16)(u32 addr);
@@ -215,13 +218,13 @@ protected:
     void GdbCheckB();
     void GdbCheckC();
 private:
-    Melon::GPU& GPU;
+    melonDS::GPU& GPU;
 };
 
 class ARMv5 : public ARM
 {
 public:
-    ARMv5(Melon::GPU& gpu);
+    ARMv5(ARMJIT& jit, melonDS::GPU& gpu);
     ~ARMv5();
 
     void Reset() override;
@@ -365,7 +368,7 @@ public:
 class ARMv4 : public ARM
 {
 public:
-    ARMv4(Melon::GPU& gpu);
+    ARMv4(ARMJIT& jit, melonDS::GPU& gpu);
 
     void Reset() override;
 
@@ -534,4 +537,5 @@ extern ARMv4* ARM7;
 
 }
 
+}
 #endif // ARM_H

@@ -16,50 +16,46 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARCODEFILE_H
-#define ARCODEFILE_H
+#ifndef MELONDS_JITBLOCK_H
+#define MELONDS_JITBLOCK_H
 
-#include <string>
-#include <list>
-#include <vector>
 #include "types.h"
+#include "TinyVector.h"
 
 namespace melonDS
 {
-struct ARCode
-{
-    std::string Name;
-    bool Enabled;
-    std::vector<u32> Code;
-};
+typedef void (*JitBlockEntry)();
 
-typedef std::list<ARCode> ARCodeList;
-
-struct ARCodeCat
-{
-    std::string Name;
-    ARCodeList Codes;
-};
-
-typedef std::list<ARCodeCat> ARCodeCatList;
-
-
-class ARCodeFile
+class JitBlock
 {
 public:
-    ARCodeFile(const std::string& filename);
-    ~ARCodeFile();
+    JitBlock(u32 num, u32 literalHash, u32 numAddresses, u32 numLiterals)
+    {
+        Num = num;
+        NumAddresses = numAddresses;
+        NumLiterals = numLiterals;
+        Data.SetLength(numAddresses * 2 + numLiterals);
+    }
 
-    bool Error;
+    u32 StartAddr;
+    u32 StartAddrLocal;
+    u32 InstrHash, LiteralHash;
+    u8 Num;
+    u16 NumAddresses;
+    u16 NumLiterals;
 
-    bool Load();
-    bool Save();
+    JitBlockEntry EntryPoint;
 
-    ARCodeCatList Categories;
+    u32* AddressRanges()
+    { return &Data[0]; }
+    u32* AddressMasks()
+    { return &Data[NumAddresses]; }
+    u32* Literals()
+    { return &Data[NumAddresses * 2]; }
 
 private:
-    std::string Filename;
+    TinyVector<u32> Data;
 };
-
 }
-#endif // ARCODEFILE_H
+
+#endif //MELONDS_JITBLOCK_H

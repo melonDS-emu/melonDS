@@ -22,6 +22,8 @@
 #include "Savestate.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 class SPU;
 
 class SPUChannel
@@ -257,4 +259,5 @@ private:
     SPUCaptureUnit* Capture[2];
 };
 
+}
 #endif // SPU_H

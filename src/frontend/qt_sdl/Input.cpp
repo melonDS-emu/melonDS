@@ -75,26 +75,26 @@ void OpenJoystick()
 
     if (SDL_IsGameController(JoystickID))
     {
-	Controller = SDL_GameControllerOpen(JoystickID);
+        Controller = SDL_GameControllerOpen(JoystickID);
 
-	#if SDL_VERSION_ATLEAST(2, 0, 18)
-	if (SDL_GameControllerHasRumble(Controller))
-	{
-	    HasRumble = true;
-	}
-	#else
-	// Fallback for SDL2 versions less than 2.0.18 (required to get Ubuntu buildbots functional)
-	if (SDL_JoystickIsHaptic(Joystick))
-	{
-	    Haptic = SDL_HapticOpenFromJoystick(Joystick);
+        #if SDL_VERSION_ATLEAST(2, 0, 18)
+        if (SDL_GameControllerHasRumble(Controller))
+        {
+            HasRumble = true;
+        }
+        #else
+        // Fallback for SDL2 versions less than 2.0.18 (required to get Ubuntu buildbots functional)
+        if (SDL_JoystickIsHaptic(Joystick))
+        {
+            Haptic = SDL_HapticOpenFromJoystick(Joystick);
 
-	    if (SDL_HapticRumbleSupported(Haptic))
-	    {
-		SDL_HapticRumbleInit(Haptic);
-		HasRumble = true;
-	    }
-	}
-	#endif
+            if (SDL_HapticRumbleSupported(Haptic))
+            {
+              SDL_HapticRumbleInit(Haptic);
+              HasRumble = true;
+            }
+        }
+        #endif
     }
 }
 
@@ -103,8 +103,8 @@ void CloseJoystick()
     #if !SDL_VERSION_ATLEAST(2, 0, 18)
     if (Haptic)
     {
-	SDL_HapticClose(Haptic);
-	Haptic = nullptr;
+        SDL_HapticClose(Haptic);
+        Haptic = nullptr;
     }
     #endif
 
@@ -125,12 +125,12 @@ void RumbleStart(int len_ms)
 {
     if (Controller && HasRumble && !IsRumbling)
     {
-	#if SDL_VERSION_ATLEAST(2, 0, 18)
-	SDL_GameControllerRumble(Controller, 0xFFFF, 0xFFFF, len_ms);
-	#else
-	SDL_HapticRumblePlay(Haptic, 1.0, len_ms);
-	#endif
-	IsRumbling = true;
+        #if SDL_VERSION_ATLEAST(2, 0, 18)
+        SDL_GameControllerRumble(Controller, 0xFFFF, 0xFFFF, len_ms);
+        #else
+        SDL_HapticRumblePlay(Haptic, 1.0, len_ms);
+        #endif
+        IsRumbling = true;
     }
 }
 
@@ -138,12 +138,12 @@ void RumbleStop()
 {
     if (Controller && HasRumble && IsRumbling)
     {
-	#if SDL_VERSION_ATLEAST(2, 0, 18)
-	SDL_GameControllerRumble(Controller, 0, 0, 0);
-	#else
-	SDL_HapticRumbleStop(Haptic);
-	#endif
-	IsRumbling = false;
+        #if SDL_VERSION_ATLEAST(2, 0, 18)
+        SDL_GameControllerRumble(Controller, 0, 0, 0);
+        #else
+        SDL_HapticRumbleStop(Haptic);
+        #endif
+        IsRumbling = false;
     }
 }
 

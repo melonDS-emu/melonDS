@@ -29,6 +29,7 @@
 #include "CheatsDialog.h"
 #include "ui_CheatsDialog.h"
 
+using namespace melonDS;
 using Platform::Log;
 using Platform::LogLevel;
 

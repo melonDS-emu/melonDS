@@ -24,15 +24,14 @@
 #include "ARMInterpreter_LoadStore.h"
 #include "Platform.h"
 
-using Platform::Log;
-using Platform::LogLevel;
-
 #ifdef GDBSTUB_ENABLED
 #include "debug/GdbStub.h"
 #endif
 
-namespace ARMInterpreter
+namespace melonDS::ARMInterpreter
 {
+    using Platform::Log;
+    using Platform::LogLevel;
 
 
 void A_UNK(ARM* cpu)

@@ -25,7 +25,7 @@
 #include "GPU.h"
 #include "GPU3D_OpenGL_shaders.h"
 
-namespace GPU3D
+namespace melonDS
 {
 
 bool GLRenderer::BuildRenderShader(u32 flags, const char* vs, const char* fs)
@@ -97,14 +97,14 @@ void SetupDefaultTexParams(GLuint tex)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
-GLRenderer::GLRenderer(Melon::GPU& gpu) noexcept : Renderer3D(true), GPU(gpu)
+GLRenderer::GLRenderer(melonDS::GPU& gpu) noexcept : Renderer3D(true), GPU(gpu)
 {
     // GLRenderer::New() will be used to actually initialize the renderer;
     // The various glDelete* functions silently ignore invalid IDs,
     // so we can just let the destructor clean up a half-initialized renderer.
 }
 
-std::unique_ptr<GLRenderer> GLRenderer::New(Melon::GPU& gpu) noexcept
+std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
 {
     assert(glEnable != nullptr);
 
@@ -329,7 +329,7 @@ void GLRenderer::Reset()
 {
 }
 
-void GLRenderer::SetRenderSettings(const Melon::RenderSettings& settings) noexcept
+void GLRenderer::SetRenderSettings(const RenderSettings& settings) noexcept
 {
     int scale = settings.GL_ScaleFactor;
 

@@ -19,8 +19,10 @@
 #ifndef NDSCART_H
 #define NDSCART_H
 
+#include <array>
 #include <string>
 #include <memory>
+#include <array>
 
 #include "types.h"
 #include "Savestate.h"
@@ -28,7 +30,7 @@
 #include "FATStorage.h"
 #include "ROMList.h"
 
-namespace NDSCart
+namespace melonDS::NDSCart
 {
 
 enum CartType

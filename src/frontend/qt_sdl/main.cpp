@@ -105,7 +105,7 @@
 #include "CLI.h"
 
 // TODO: uniform variable spelling
-
+using namespace melonDS;
 const QString NdsRomMimeType = "application/x-nintendo-ds-rom";
 const QStringList NdsRomExtensions { ".nds", ".srl", ".dsi", ".ids" };
 
@@ -163,7 +163,7 @@ EmuThread* emuThread;
 int autoScreenSizing = 0;
 
 int videoRenderer;
-Melon::RenderSettings videoSettings;
+RenderSettings videoSettings;
 bool videoSettingsDirty;
 
 CameraManager* camManager[2];

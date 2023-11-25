@@ -28,7 +28,8 @@
 #include "types.h"
 #include "fatfs/ff.h"
 
-
+namespace melonDS
+{
 class FATStorage
 {
 public:
@@ -99,4 +100,5 @@ private:
     std::map<std::string, FileIndexEntry> FileIndex;
 };
 
+}
 #endif // FATSTORAGE_H
