@@ -200,6 +200,8 @@ public:
 
     void Reset() override;
 
+    void DoSavestate(Savestate* file) override;
+
     u16 ROMRead(u32 addr) const override;
     void ROMWrite(u32 addr, u16 val) override;
 

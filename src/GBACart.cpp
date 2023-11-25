@@ -704,6 +704,12 @@ void CartRumblePak::Reset()
     RumbleState = 0;
 }
 
+void CartRumblePak::DoSavestate(Savestate* file)
+{
+    CartCommon::DoSavestate(file);
+    file->Var16(&RumbleState);
+}
+
 u16 CartRumblePak::ROMRead(u32 addr) const
 {
     // TODO: Verify this
