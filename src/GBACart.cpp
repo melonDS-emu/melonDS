@@ -712,14 +712,16 @@ void CartRumblePak::DoSavestate(Savestate* file)
 
 u16 CartRumblePak::ROMRead(u32 addr) const
 {
-    // TODO: Verify this
+    // A1 is pulled low on a real Rumble Pak, so return the
+    // necessary detection value here,
+    // and let the existing open bus implementation take care of the rest
     return 0xFFFD;
 }
 
 void CartRumblePak::ROMWrite(u32 addr, u16 val)
 {
     addr &= 0x01FFFFFF;
-    if (((addr == 0) || (addr == 0x1000)) && (RumbleState != val))
+    if (RumbleState != val)
     {
 	Platform::Rumble_Stop();
 	RumbleState = val;

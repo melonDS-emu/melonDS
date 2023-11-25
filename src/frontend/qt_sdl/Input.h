@@ -27,6 +27,7 @@ namespace Input
 extern int JoystickID;
 extern SDL_Joystick* Joystick;
 extern SDL_GameController* Controller;
+extern SDL_Haptic* Haptic;
 
 extern u32 InputMask;
 extern bool IsRumbling;
