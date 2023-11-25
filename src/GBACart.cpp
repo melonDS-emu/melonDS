@@ -691,6 +691,36 @@ void CartRAMExpansion::ROMWrite(u32 addr, u16 val)
     }
 }
 
+CartRumblePak::CartRumblePak() : CartCommon()
+{
+}
+
+CartRumblePak::~CartRumblePak()
+{
+}
+
+void CartRumblePak::Reset()
+{
+    RumbleState = 0;
+}
+
+u16 CartRumblePak::ROMRead(u32 addr) const
+{
+    // TODO: Verify this
+    return 0xFFFD;
+}
+
+void CartRumblePak::ROMWrite(u32 addr, u16 val)
+{
+    addr &= 0x01FFFFFF;
+    if (((addr == 0) || (addr == 0x1000)) && (RumbleState != val))
+    {
+	Platform::Rumble_Stop();
+	RumbleState = val;
+	Platform::Rumble_Start(16);
+    }
+}
+
 void GBACartSlot::Reset() noexcept
 {
     if (Cart) Cart->Reset();
@@ -850,6 +880,9 @@ void GBACartSlot::LoadAddon(int type) noexcept
     {
     case NDS::GBAAddon_RAMExpansion:
         Cart = std::make_unique<CartRAMExpansion>();
+        break;
+    case NDS::GBAAddon_RumblePak:
+        Cart = std::make_unique<CartRumblePak>();
         break;
 
     default:

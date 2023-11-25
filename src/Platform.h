@@ -370,6 +370,11 @@ void Camera_Start(int num);
 void Camera_Stop(int num);
 void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv);
 
+// interface for rumble emulation
+// len is in milliseconds
+void Rumble_Start(int len);
+void Rumble_Stop();
+
 struct DynamicLibrary;
 
 /**

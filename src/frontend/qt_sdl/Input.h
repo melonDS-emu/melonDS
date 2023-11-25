@@ -26,8 +26,11 @@ namespace Input
 
 extern int JoystickID;
 extern SDL_Joystick* Joystick;
+extern SDL_GameController* Controller;
 
 extern u32 InputMask;
+extern bool IsRumbling;
+extern bool HasRumble;
 
 void Init();
 
@@ -37,6 +40,8 @@ void CloseJoystick();
 
 void KeyPress(QKeyEvent* event);
 void KeyRelease(QKeyEvent* event);
+void RumbleStart(int len);
+void RumbleStop();
 
 void Process();
 

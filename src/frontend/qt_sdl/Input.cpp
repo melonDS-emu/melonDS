@@ -28,6 +28,7 @@ namespace Input
 
 int JoystickID;
 SDL_Joystick* Joystick = nullptr;
+SDL_GameController* Controller = nullptr;
 
 u32 KeyInputMask, JoyInputMask;
 u32 KeyHotkeyMask, JoyHotkeyMask;
@@ -35,6 +36,8 @@ u32 HotkeyMask, LastHotkeyMask;
 u32 HotkeyPress, HotkeyRelease;
 
 u32 InputMask;
+bool IsRumbling;
+bool HasRumble;
 
 
 void Init()
@@ -42,6 +45,9 @@ void Init()
     KeyInputMask = 0xFFF;
     JoyInputMask = 0xFFF;
     InputMask = 0xFFF;
+
+    IsRumbling = false;
+    HasRumble = false;
 
     KeyHotkeyMask = 0;
     JoyHotkeyMask = 0;
@@ -52,6 +58,7 @@ void Init()
 
 void OpenJoystick()
 {
+    if (Controller) SDL_GameControllerClose(Controller);
     if (Joystick) SDL_JoystickClose(Joystick);
 
     int num = SDL_NumJoysticks();
@@ -65,14 +72,48 @@ void OpenJoystick()
         JoystickID = 0;
 
     Joystick = SDL_JoystickOpen(JoystickID);
+
+    if (SDL_IsGameController(JoystickID))
+    {
+	Controller = SDL_GameControllerOpen(JoystickID);
+
+	if (SDL_GameControllerHasRumble(Controller))
+	{
+	    HasRumble = true;
+	}
+    }
 }
 
 void CloseJoystick()
 {
+    if (Controller)
+    {
+        SDL_GameControllerClose(Controller);
+        Controller = nullptr;
+    }
+
     if (Joystick)
     {
         SDL_JoystickClose(Joystick);
         Joystick = nullptr;
+    }
+}
+
+void RumbleStart(int len_ms)
+{
+    if (Controller && HasRumble && !IsRumbling)
+    {
+	SDL_GameControllerRumble(Controller, 0xFFFF, 0xFFFF, len_ms);
+	IsRumbling = true;
+    }
+}
+
+void RumbleStop()
+{
+    if (Controller && HasRumble && IsRumbling)
+    {
+	SDL_GameControllerRumble(Controller, 0, 0, 0);
+	IsRumbling = false;
     }
 }
 

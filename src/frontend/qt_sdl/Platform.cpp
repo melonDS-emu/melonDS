@@ -30,6 +30,8 @@
 #include <QMutex>
 #include <QOpenGLContext>
 #include <QSharedMemory>
+#include <QKeyEvent>
+#include <SDL2/SDL.h>
 #include <SDL_loadso.h>
 
 #include "Platform.h"
@@ -41,6 +43,8 @@
 #include "LocalMP.h"
 #include "OSD.h"
 #include "SPI_Firmware.h"
+
+#include "Input.h"
 
 #ifdef __WIN32__
 #define fseek _fseeki64
@@ -732,6 +736,16 @@ void Camera_Stop(int num)
 void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv)
 {
     return camManager[num]->captureFrame(frame, width, height, yuv);
+}
+
+void Rumble_Start(int len)
+{
+    Input::RumbleStart(len);
+}
+
+void Rumble_Stop()
+{
+    Input::RumbleStop();
 }
 
 DynamicLibrary* DynamicLibrary_Load(const char* lib)

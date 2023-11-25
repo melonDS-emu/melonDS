@@ -1474,6 +1474,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             actInsertGBAAddon[0] = submenu->addAction("Memory expansion");
             actInsertGBAAddon[0]->setData(QVariant(NDS::GBAAddon_RAMExpansion));
             connect(actInsertGBAAddon[0], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
+
+	    actInsertGBAAddon[1] = submenu->addAction("Rumble Pak");
+	    actInsertGBAAddon[1]->setData(QVariant(NDS::GBAAddon_RumblePak));
+	    connect(actInsertGBAAddon[1], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
+	    
         }
 
         actEjectGBACart = menu->addAction("Eject cart");
@@ -1798,7 +1803,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     if (Config::ConsoleType == 1)
     {
         actInsertGBACart->setEnabled(false);
-        for (int i = 0; i < 1; i++)
+        for (int i = 0; i < 2; i++)
             actInsertGBAAddon[i]->setEnabled(false);
     }
 
