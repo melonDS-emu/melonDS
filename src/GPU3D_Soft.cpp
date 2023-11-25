@@ -747,7 +747,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         std::swap(zl, zr);
 
         // CHECKME: edge fill rules for swapped opaque shadow mask polygons
-        if ((polyalpha < 31) || (GPU.GPU3D.RenderDispCnt & (3<<4)))
+        if ((GPU.GPU3D.RenderDispCnt & ((1<<4)|(1<<5))) || ((polyalpha < 31) && (GPU.GPU3D.RenderDispCnt & (1<<3))) || wireframe)
         {
             l_filledge = true;
             r_filledge = true;
@@ -775,7 +775,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
 
         // CHECKME: edge fill rules for unswapped opaque shadow mask polygons
-        if ((polyalpha < 31) || (GPU.GPU3D.RenderDispCnt & (3<<4)))
+        if ((GPU.GPU3D.RenderDispCnt & ((1<<4)|(1<<5))) || ((polyalpha < 31) && (GPU.GPU3D.RenderDispCnt & (1<<3))) || wireframe)
         {
             l_filledge = true;
             r_filledge = true;
@@ -979,9 +979,10 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // * right edge is filled if slope > 1, or if the left edge = 0, but is never filled if it is < -1
         // * left edge is filled if slope <= 1
         // * the bottom-most pixel of negative x-major slopes are filled if they are next to a flat bottom edge
-        // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
+        // edges are always filled if antialiasing/edgemarking are enabled,
+        // if the pixels are translucent and alpha blending is enabled, or if the polygon is wireframe
         // checkme: do swapped line polygons exist?
-        if ((polyalpha < 31) || wireframe || (GPU.GPU3D.RenderDispCnt & ((1<<4)|(1<<5))))
+        if ((GPU.GPU3D.RenderDispCnt & ((1<<4)|(1<<5))) || ((polyalpha < 31) && (GPU.GPU3D.RenderDispCnt & (1<<3))) || wireframe)
         {
             l_filledge = true;
             r_filledge = true;
@@ -1014,8 +1015,9 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // * edges with slope = 0 are always filled
         // * the bottom-most pixel of negative x-major slopes are filled if they are next to a flat bottom edge
         // * edges are filled if both sides are identical and fully overlapping
-        // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
-        if ((polyalpha < 31) || wireframe || (GPU.GPU3D.RenderDispCnt & ((1<<4)|(1<<5))))
+        // edges are always filled if antialiasing/edgemarking are enabled,
+        // if the pixels are translucent and alpha blending is enabled, or if the polygon is wireframe
+        if ((GPU.GPU3D.RenderDispCnt & ((1<<4)|(1<<5))) || ((polyalpha < 31) && (GPU.GPU3D.RenderDispCnt & (1<<3))) || wireframe)
         {
             l_filledge = true;
             r_filledge = true;
