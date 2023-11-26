@@ -951,6 +951,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         Host->SendResponse(CSR, true);
         return;
 
+    case 17: // read single block
     case 18: // read multiple blocks
         //printf("READ_MULTIPLE_BLOCKS addr=%08X size=%08X\n", param, BlockSize);
         RWAddress = param;
@@ -959,12 +960,14 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
             RWAddress <<= 9;
             BlockSize = 512;
         }
-        RWCommand = 18;
+        if (cmd == 18)
+            RWCommand = 18;
         Host->SendResponse(CSR, true);
         RWAddress += ReadBlock(RWAddress);
         SetState(0x05);
         return;
 
+    case 24: // write single block
     case 25: // write multiple blocks
         //printf("WRITE_MULTIPLE_BLOCKS addr=%08X size=%08X\n", param, BlockSize);
         RWAddress = param;
@@ -973,7 +976,8 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
             RWAddress <<= 9;
             BlockSize = 512;
         }
-        RWCommand = 25;
+        if (cmd == 25)
+            RWCommand = 25;
         Host->SendResponse(CSR, true);
         RWAddress += WriteBlock(RWAddress);
         SetState(0x04);
