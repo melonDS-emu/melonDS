@@ -22,6 +22,8 @@
 #include "NDSCart.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -110,7 +112,6 @@ void CartR4::DoSavestate(Savestate* file)
 // FIXME: Ace3DS/clone behavior is only partially verified.
 int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
 {
-    Log(LogLevel::Warn, "R4: command %02X %02X %02X %02X %02X %02X %02X %02X (%d)\n", cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7], len);
     if (CmdEncMode != 2)
         return CartCommon::ROMCommandStart(cartslot, cmd, data, len);
 
@@ -188,7 +189,7 @@ int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u
             if (!BufferInitialized)
             {
                 u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-                memcpy(data, ROM+(addr & ROMLength-1), len);
+                memcpy(data, ROM+(addr & (ROMLength-1)), len);
                 return 0;
             }
             /* Otherwise, fall through. */
@@ -365,4 +366,5 @@ u64 CartR4::SDFATEntrySectorGet(u32 entry, u32 addr)
     }
 }   
 
+}
 }
