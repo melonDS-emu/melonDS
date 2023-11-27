@@ -280,13 +280,13 @@ public:
     melonDS::ARMJIT JIT;
     ARMv5 ARM9;
     ARMv4 ARM7;
-    SPU SPU;
+    melonDS::SPU SPU;
     SPIHost SPI;
-    RTC RTC;
-    Wifi Wifi;
+    melonDS::RTC RTC;
+    melonDS::Wifi Wifi;
     NDSCart::NDSCartSlot NDSCartSlot;
     GBACart::GBACartSlot GBACartSlot;
-    GPU GPU;
+    melonDS::GPU GPU;
     melonDS::AREngine AREngine;
 
     const u32 ARM7WRAMSize = 0x10000;

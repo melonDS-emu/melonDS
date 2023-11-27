@@ -194,12 +194,12 @@ void ARMJIT_Memory::SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
     ucontext_t* context = (ucontext_t*)rawContext;
 
     FaultDescription desc {};
-    u8* curArea = (u8*)(NDS::CurCPU == 0 ? NDS::JIT->Memory.FastMem9Start : NDS::JIT->Memory.FastMem7Start);
+    u8* curArea = (u8*)(NDS::Current->CurCPU == 0 ? NDS::Current->JIT.Memory.FastMem9Start : NDS::Current->JIT.Memory.FastMem7Start);
 
     desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
     desc.FaultPC = (u8*)context->CONTEXT_PC;
 
-    if (FaultHandler(desc, *NDS::JIT))
+    if (FaultHandler(desc, *NDS::Current))
     {
         context->CONTEXT_PC = (u64)desc.FaultPC;
         return;
@@ -367,13 +367,13 @@ void ARMJIT_Memory::Mapping::Unmap(int region, melonDS::NDS& nds) noexcept
         bool success;
         if (dtcmStart > Addr)
         {
-            success = memory.UnmapFromRange(Addr, 0, OffsetsPerRegion[region] + LocalOffset, dtcmStart - Addr);
+            success = nds.JIT.Memory.UnmapFromRange(Addr, 0, OffsetsPerRegion[region] + LocalOffset, dtcmStart - Addr);
             assert(success);
         }
         if (dtcmEnd < Addr + Size)
         {
             u32 offset = dtcmStart - Addr + dtcmSize;
-            success = memory.UnmapFromRange(dtcmEnd, 0, OffsetsPerRegion[region] + LocalOffset + offset, Size - offset);
+            success = nds.JIT.Memory.UnmapFromRange(dtcmEnd, 0, OffsetsPerRegion[region] + LocalOffset + offset, Size - offset);
             assert(success);
         }
     }
