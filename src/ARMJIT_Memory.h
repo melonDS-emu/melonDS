@@ -180,7 +180,7 @@ private:
     TinyVector<Mapping> Mappings[memregions_Count] {};
 #else
 public:
-    explicit ARMJIT_Memory(ARMJIT&) {};
+    explicit ARMJIT_Memory(melonDS::NDS&) {};
     ~ARMJIT_Memory() = default;
     ARMJIT_Memory(const ARMJIT_Memory&) = delete;
     ARMJIT_Memory(ARMJIT_Memory&&) = delete;
@@ -214,13 +214,13 @@ public:
     [[nodiscard]] u8* GetNWRAM_C() noexcept { return NWRAM_C.data(); }
     [[nodiscard]] const u8* GetNWRAM_C() const noexcept { return NWRAM_C.data(); }
 private:
-    std::array<u8, NDS::MainRAMMaxSize> MainRAM {};
-    std::array<u8, NDS::ARM7WRAMSize> ARM7WRAM {};
-    std::array<u8, NDS::SharedWRAMSize> SharedWRAM {};
+    std::array<u8, MainRAMMaxSize> MainRAM {};
+    std::array<u8, ARM7WRAMSize> ARM7WRAM {};
+    std::array<u8, SharedWRAMSize> SharedWRAM {};
     std::array<u8, DTCMPhysicalSize> DTCM {};
-    std::array<u8, DSi::NWRAMSize> NWRAM_A {};
-    std::array<u8, DSi::NWRAMSize> NWRAM_B {};
-    std::array<u8, DSi::NWRAMSize> NWRAM_C {};
+    std::array<u8, NWRAMSize> NWRAM_A {};
+    std::array<u8, NWRAMSize> NWRAM_B {};
+    std::array<u8, NWRAMSize> NWRAM_C {};
 #endif
 };
 }
