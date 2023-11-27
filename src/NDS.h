@@ -451,7 +451,7 @@ private:
     void SetWifiWaitCnt(u16 val);
     void SetGBASlotTimings();
     void EnterSleepMode();
-    template <bool EnableJIT, int ConsoleType>
+    template <bool EnableJIT>
     u32 RunFrame();
 public:
     NDS() noexcept : NDS(0) {}

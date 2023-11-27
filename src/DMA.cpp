@@ -549,7 +549,6 @@ u32 DMA::UnitTimings7_32(bool burststart)
     }
 }
 
-template <int ConsoleType>
 void DMA::Run9()
 {
     if (NDS.ARM9Timestamp >= NDS.ARM9Target) return;
@@ -623,7 +622,6 @@ void DMA::Run9()
     NDS.ResumeCPU(0, 1<<Num);
 }
 
-template <int ConsoleType>
 void DMA::Run7()
 {
     if (NDS.ARM7Timestamp >= NDS.ARM7Target) return;
@@ -694,15 +692,11 @@ void DMA::Run7()
     NDS.ResumeCPU(1, 1<<Num);
 }
 
-template <int ConsoleType>
 void DMA::Run()
 {
     if (!Running) return;
-    if (CPU == 0) return Run9<ConsoleType>();
-    else          return Run7<ConsoleType>();
+    if (CPU == 0) return Run9();
+    else          return Run7();
 }
-
-template void DMA::Run<0>();
-template void DMA::Run<1>();
 
 }

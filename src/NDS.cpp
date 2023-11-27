@@ -888,7 +888,7 @@ void NDS::RunSystemSleep(u64 timestamp)
     }
 }
 
-template <bool EnableJIT, int ConsoleType>
+template <bool EnableJIT>
 u32 NDS::RunFrame()
 {
     FrameStartTimestamp = SysTimestamp;
@@ -953,10 +953,10 @@ u32 NDS::RunFrame()
                 }
                 else if (CPUStop & CPUStop_DMA9)
                 {
-                    DMAs[0].Run<ConsoleType>();
-                    if (!(CPUStop & CPUStop_GXStall)) DMAs[1].Run<ConsoleType>();
-                    if (!(CPUStop & CPUStop_GXStall)) DMAs[2].Run<ConsoleType>();
-                    if (!(CPUStop & CPUStop_GXStall)) DMAs[3].Run<ConsoleType>();
+                    DMAs[0].Run();
+                    if (!(CPUStop & CPUStop_GXStall)) DMAs[1].Run();
+                    if (!(CPUStop & CPUStop_GXStall)) DMAs[2].Run();
+                    if (!(CPUStop & CPUStop_GXStall)) DMAs[3].Run();
                     if (ConsoleType == 1)
                     {
                         auto& dsi = dynamic_cast<melonDS::DSi&>(*this);
@@ -985,10 +985,10 @@ u32 NDS::RunFrame()
 
                     if (CPUStop & CPUStop_DMA7)
                     {
-                        DMAs[4].Run<ConsoleType>();
-                        DMAs[5].Run<ConsoleType>();
-                        DMAs[6].Run<ConsoleType>();
-                        DMAs[7].Run<ConsoleType>();
+                        DMAs[4].Run();
+                        DMAs[5].Run();
+                        DMAs[6].Run();
+                        DMAs[7].Run();
                         if (ConsoleType == 1)
                         {
                             auto& dsi = dynamic_cast<melonDS::DSi&>(*this);
@@ -1047,14 +1047,10 @@ u32 NDS::RunFrame()
 {
 #ifdef JIT_ENABLED
     if (EnableJIT)
-        return NDS::ConsoleType == 1
-            ? RunFrame<true, 1>()
-            : RunFrame<true, 0>();
+        return RunFrame<true>();
     else
 #endif
-        return NDS::ConsoleType == 1
-            ? RunFrame<false, 1>()
-            : RunFrame<false, 0>();
+        return RunFrame<false>();
 }
 
 void NDS::Reschedule(u64 target)
