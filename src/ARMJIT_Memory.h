@@ -23,7 +23,7 @@
 #include "TinyVector.h"
 
 #include "ARM.h"
-#include "Constants.h"
+#include "MemConstants.h"
 
 #if defined(__SWITCH__)
 #include <switch.h>

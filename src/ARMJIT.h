@@ -30,7 +30,7 @@
 #endif
 
 #include "ARMJIT_Compiler.h"
-#include "Constants.h"
+#include "MemConstants.h"
 
 namespace melonDS
 {

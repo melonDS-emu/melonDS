@@ -24,7 +24,7 @@
 #include "AREngine.h"
 #include "DSi_NAND.h"
 
-#include "Constants.h"
+#include "MemConstants.h"
 #include <optional>
 #include <string>
 #include <memory>
