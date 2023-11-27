@@ -1151,6 +1151,7 @@ u32 ARMv5::ReadMem(u32 addr, int size)
 
     return ARM::ReadMem(addr, size);
 }
+#endif
 
 void ARMv4::DataRead8(u32 addr, u32* val)
 {
@@ -1341,5 +1342,4 @@ void ARMv4::BusWrite32(u32 addr, u32 val)
     NDS.ARM7Write32(addr, val);
 }
 }
-#endif
 
