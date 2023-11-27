@@ -273,6 +273,11 @@ public:
     u32 KeyInput;
     u16 RCnt;
 
+    // JIT MUST be declared before all other component objects,
+    // as they'll need the memory that it allocates in its constructor!
+    // (Reminder: C++ fields are initialized in the order they're declared,
+    // regardless of what the constructor's initializer list says.)
+    melonDS::ARMJIT JIT;
     ARMv5 ARM9;
     ARMv4 ARM7;
     SPU SPU;
@@ -282,7 +287,6 @@ public:
     NDSCart::NDSCartSlot NDSCartSlot;
     GBACart::GBACartSlot GBACartSlot;
     GPU GPU;
-    melonDS::ARMJIT JIT;
     melonDS::AREngine AREngine;
 
     const u32 ARM7WRAMSize = 0x10000;
