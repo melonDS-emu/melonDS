@@ -16,7 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#pragma once
+#ifndef MELONDS_MEMCONSTANTS_H
+#define MELONDS_MEMCONSTANTS_H
 
 #include "types.h"
 
@@ -30,3 +31,5 @@ constexpr u32 ARM9BIOSSize = 0x1000;
 constexpr u32 ARM7BIOSSize = 0x4000;
 constexpr u32 DSiBIOSSize = 0x10000;
 }
+
+#endif // MELONDS_MEMCONSTANTS_H
