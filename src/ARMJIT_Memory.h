@@ -44,6 +44,7 @@
 
 namespace melonDS
 {
+namespace Platform { struct DynamicLibrary; }
 class Compiler;
 class ARMJIT;
 
