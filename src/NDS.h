@@ -225,6 +225,7 @@ public:
     int ConsoleType;
     int CurCPU;
 
+    SchedEvent SchedList[Event_MAX] {};
     u8 ARM9MemTimings[0x40000][8];
     u32 ARM9Regions[0x40000];
     u8 ARM7MemTimings[0x20000][4];
@@ -400,7 +401,6 @@ public:
 
 private:
     void InitTimings();
-    SchedEvent SchedList[Event_MAX];
     u32 SchedListMask;
     u64 SysTimestamp;
     u8 WRAMCnt;
