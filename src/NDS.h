@@ -325,6 +325,8 @@ public:
 
     u32 RunFrame();
 
+    bool IsRunning() const noexcept { return Running; }
+
     void TouchScreen(u16 x, u16 y);
     void ReleaseScreen();
 
