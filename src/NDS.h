@@ -328,7 +328,7 @@ public:
     bool IsLidClosed();
     void SetLidClosed(bool closed);
 
-    virtual void CamInputFrame(int cam, u32* data, int width, int height, bool rgb);
+    virtual void CamInputFrame(int cam, u32* data, int width, int height, bool rgb) {}
     void MicInputFrame(s16* data, int samples);
 
     void RegisterEventFunc(u32 id, u32 funcid, EventFunc func);

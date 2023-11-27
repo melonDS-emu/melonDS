@@ -378,7 +378,6 @@ class ARMv4 : public ARM
 {
 public:
     ARMv4(melonDS::NDS& nds);
-    void Reset() override;
 
     void FillPipeline() override;
 

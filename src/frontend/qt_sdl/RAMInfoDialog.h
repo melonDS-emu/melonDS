@@ -32,6 +32,7 @@ namespace Ui { class RAMInfoDialog; }
 class RAMInfoDialog;
 class RAMSearchThread;
 class RAMUpdateThread;
+class EmuThread;
 
 enum ramInfo_ByteType
 {
@@ -53,7 +54,7 @@ enum
     ramInfo_Previous
 };
 
-melonDS::s32 GetMainRAMValue(const melonDS::u32& addr, const ramInfo_ByteType& byteType);
+melonDS::s32 GetMainRAMValue(melonDS::NDS& nds, const melonDS::u32& addr, const ramInfo_ByteType& byteType);
 
 struct ramInfo_RowData
 {
@@ -61,14 +62,14 @@ struct ramInfo_RowData
     melonDS::s32 Value;
     melonDS::s32 Previous;
 
-    void Update(const ramInfo_ByteType& byteType)
+    void Update(melonDS::NDS& nds, const ramInfo_ByteType& byteType)
     {
-        Value = GetMainRAMValue(Address, byteType);
+        Value = GetMainRAMValue(nds, Address, byteType);
     }
 
-    void SetValue(const melonDS::s32& value)
+    void SetValue(melonDS::NDS& nds, const melonDS::s32& value)
     {
-        melonDS::NDS::MainRAM[Address&melonDS::NDS::MainRAMMask] = (melonDS::u32)value;
+        nds.MainRAM[Address&nds.MainRAMMask] = (melonDS::u32)value;
         Value = value;
     }
 };
@@ -78,11 +79,11 @@ class RAMInfoDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit RAMInfoDialog(QWidget* parent);
+    explicit RAMInfoDialog(QWidget* parent, EmuThread* emuThread);
     ~RAMInfoDialog();
 
     static RAMInfoDialog* currentDlg;
-    static RAMInfoDialog* openDlg(QWidget* parent)
+    static RAMInfoDialog* openDlg(QWidget* parent, EmuThread* emuThread)
     {
         if (currentDlg)
         {
@@ -90,7 +91,7 @@ public:
             return currentDlg;
         }
 
-        currentDlg = new RAMInfoDialog(parent);
+        currentDlg = new RAMInfoDialog(parent, emuThread);
         currentDlg->show();
         return currentDlg;
     }
@@ -118,6 +119,7 @@ private slots:
     void SetProgressbarValue(const melonDS::u32& value);
 
 private:
+    EmuThread* emuThread;
     Ui::RAMInfoDialog* ui;
     
     RAMSearchThread* SearchThread;

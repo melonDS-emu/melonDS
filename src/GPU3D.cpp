@@ -139,6 +139,10 @@ const u8 CmdNumParams[256] =
 
 void MatrixLoadIdentity(s32* m);
 
+GPU3D::GPU3D(melonDS::NDS& nds) noexcept : NDS(nds)
+{
+}
+
 void GPU3D::ResetRenderingState() noexcept
 {
     RenderNumPolygons = 0;

@@ -28,4 +28,5 @@ constexpr u32 ARM7WRAMSize = 0x10000;
 constexpr u32 NWRAMSize = 0x40000;
 constexpr u32 ARM9BIOSSize = 0x1000;
 constexpr u32 ARM7BIOSSize = 0x4000;
+constexpr u32 DSiBIOSSize = 0x10000;
 }
