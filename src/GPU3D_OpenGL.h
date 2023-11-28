@@ -30,14 +30,14 @@ class GPU;
 class GLRenderer : public Renderer3D
 {
 public:
-    virtual ~GLRenderer() override;
-    virtual void Reset() override;
+    ~GLRenderer() override;
+    void Reset() override;
 
-    virtual void SetRenderSettings(const RenderSettings& settings) noexcept override;
+    void SetRenderSettings(const RenderSettings& settings) noexcept override;
 
-    virtual void VCount144() override {};
-    virtual void RenderFrame() override;
-    virtual u32* GetLine(int line) override;
+    void VCount144() override {};
+    void RenderFrame() override;
+    u32* GetLine(int line) override;
 
     void SetupAccelFrame();
     void PrepareCaptureFrame() override;
