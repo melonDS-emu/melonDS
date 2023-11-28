@@ -304,11 +304,11 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 void SoftRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
 {
 #ifdef OGLRENDERER_ENABLED
-    if (GPU.GPU3D.IsRendererAccelerated())
+    if (Renderer3D& renderer3d = GPU.GPU3D.GetCurrentRenderer(); renderer3d.Accelerated)
     {
         if ((unitA->CaptureCnt & (1<<31)) && (((unitA->CaptureCnt >> 29) & 0x3) != 1))
         {
-            reinterpret_cast<GLRenderer*>(GPU.GPU3D.GetCurrentRenderer())->PrepareCaptureFrame();
+            renderer3d.PrepareCaptureFrame();
         }
     }
 #endif

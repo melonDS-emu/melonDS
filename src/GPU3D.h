@@ -345,6 +345,7 @@ public:
     virtual void RenderFrame() = 0;
     virtual void RestartFrame() {};
     virtual u32* GetLine(int line) = 0;
+    virtual void PrepareCaptureFrame() {}
 protected:
     Renderer3D(bool Accelerated);
 };

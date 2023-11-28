@@ -40,7 +40,7 @@ public:
     virtual u32* GetLine(int line) override;
 
     void SetupAccelFrame();
-    void PrepareCaptureFrame();
+    void PrepareCaptureFrame() override;
 
     static std::unique_ptr<GLRenderer> New(melonDS::GPU& gpu) noexcept;
 private:
