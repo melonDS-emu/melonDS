@@ -74,23 +74,12 @@ GPU::GPU(melonDS::NDS& nds) noexcept : NDS(nds), GPU2D_A(0, *this), GPU2D_B(1, *
     GPU2D_Renderer = std::make_unique<GPU2D::SoftRenderer>(*this);
 
     FrontBuffer = 0;
-    Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
-    Framebuffer[1][0] = NULL; Framebuffer[1][1] = NULL;
     Renderer = 0;
 }
 
 GPU::~GPU() noexcept
 {
     // All unique_ptr fields are automatically cleaned up
-    if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
-    if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
-    if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
-    if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
-
-    Framebuffer[0][0] = nullptr;
-    Framebuffer[0][1] = nullptr;
-    Framebuffer[1][0] = nullptr;
-    Framebuffer[1][1] = nullptr;
 
     NDS.UnregisterEventFunc(Event_LCD, LCD_StartHBlank);
     NDS.UnregisterEventFunc(Event_LCD, LCD_StartScanline);
@@ -198,7 +187,7 @@ void GPU::Reset() noexcept
     GPU3D.Reset();
 
     int backbuf = FrontBuffer ? 0 : 1;
-    GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1], Framebuffer[backbuf][0]);
+    GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1].get(), Framebuffer[backbuf][0].get());
 
     ResetRenderer();
 
@@ -216,10 +205,10 @@ void GPU::Stop() noexcept
     else
         fbsize = 256 * 192;
 
-    memset(Framebuffer[0][0], 0, fbsize*4);
-    memset(Framebuffer[0][1], 0, fbsize*4);
-    memset(Framebuffer[1][0], 0, fbsize*4);
-    memset(Framebuffer[1][1], 0, fbsize*4);
+    memset(Framebuffer[0][0].get(), 0, fbsize*4);
+    memset(Framebuffer[0][1].get(), 0, fbsize*4);
+    memset(Framebuffer[1][0].get(), 0, fbsize*4);
+    memset(Framebuffer[1][1].get(), 0, fbsize*4);
 
 #ifdef OGLRENDERER_ENABLED
     // This needs a better way to know that we're
@@ -300,11 +289,11 @@ void GPU::AssignFramebuffers() noexcept
     int backbuf = FrontBuffer ? 0 : 1;
     if (NDS.PowerControl9 & (1<<15))
     {
-        GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][0], Framebuffer[backbuf][1]);
+        GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][0].get(), Framebuffer[backbuf][1].get());
     }
     else
     {
-        GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1], Framebuffer[backbuf][0]);
+        GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1].get(), Framebuffer[backbuf][0].get());
     }
 }
 
@@ -379,20 +368,15 @@ void GPU::SetRenderSettings(int renderer, RenderSettings& settings) noexcept
     else
         fbsize = 256 * 192;
 
-    if (Framebuffer[0][0]) { delete[] Framebuffer[0][0]; Framebuffer[0][0] = nullptr; }
-    if (Framebuffer[1][0]) { delete[] Framebuffer[1][0]; Framebuffer[1][0] = nullptr; }
-    if (Framebuffer[0][1]) { delete[] Framebuffer[0][1]; Framebuffer[0][1] = nullptr; }
-    if (Framebuffer[1][1]) { delete[] Framebuffer[1][1]; Framebuffer[1][1] = nullptr; }
+    Framebuffer[0][0] = std::make_unique<u32[]>(fbsize);
+    Framebuffer[1][0] = std::make_unique<u32[]>(fbsize);
+    Framebuffer[0][1] = std::make_unique<u32[]>(fbsize);
+    Framebuffer[1][1] = std::make_unique<u32[]>(fbsize);
 
-    Framebuffer[0][0] = new u32[fbsize];
-    Framebuffer[1][0] = new u32[fbsize];
-    Framebuffer[0][1] = new u32[fbsize];
-    Framebuffer[1][1] = new u32[fbsize];
-
-    memset(Framebuffer[0][0], 0, fbsize*4);
-    memset(Framebuffer[1][0], 0, fbsize*4);
-    memset(Framebuffer[0][1], 0, fbsize*4);
-    memset(Framebuffer[1][1], 0, fbsize*4);
+    memset(Framebuffer[0][0].get(), 0, fbsize*4);
+    memset(Framebuffer[1][0].get(), 0, fbsize*4);
+    memset(Framebuffer[0][1].get(), 0, fbsize*4);
+    memset(Framebuffer[1][1].get(), 0, fbsize*4);
 
     AssignFramebuffers();
 
@@ -1026,8 +1010,8 @@ void GPU::BlankFrame() noexcept
     else
         fbsize = 256 * 192;
 
-    memset(Framebuffer[backbuf][0], 0, fbsize*4);
-    memset(Framebuffer[backbuf][1], 0, fbsize*4);
+    memset(Framebuffer[backbuf][0].get(), 0, fbsize*4);
+    memset(Framebuffer[backbuf][1].get(), 0, fbsize*4);
 
     FrontBuffer = backbuf;
     AssignFramebuffers();

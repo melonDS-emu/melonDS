@@ -212,9 +212,9 @@ void GLCompositor::RenderFrame()
     if (GPU.Framebuffer[frontbuf][0] && GPU.Framebuffer[frontbuf][1])
     {
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
-                        GL_UNSIGNED_BYTE, GPU.Framebuffer[frontbuf][0]);
+                        GL_UNSIGNED_BYTE, gpu.Framebuffer[frontbuf][0].get());
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256*3 + 1, 192, GL_RGBA_INTEGER,
-                        GL_UNSIGNED_BYTE, GPU.Framebuffer[frontbuf][1]);
+                        GL_UNSIGNED_BYTE, gpu.Framebuffer[frontbuf][1].get());
     }
 
     glActiveTexture(GL_TEXTURE1);
