@@ -22,7 +22,7 @@
 #include <algorithm>
 
 #include "types.h"
-#include "NDS.h"
+#include "MemRegion.h"
 
 #ifdef GDBSTUB_ENABLED
 #include "debug/GdbStub.h"
@@ -48,6 +48,8 @@ const u32 DTCMPhysicalSize = 0x4000;
 class ARMJIT;
 class GPU;
 class ARMJIT_Memory;
+class NDS;
+class Savestate;
 
 class ARM
 #ifdef GDBSTUB_ENABLED
@@ -55,7 +57,7 @@ class ARM
 #endif
 {
 public:
-    ARM(u32 num, ARMJIT& jit, GPU& gpu);
+    ARM(u32 num, NDS& nds);
     virtual ~ARM(); // destroy shit
 
     virtual void Reset();
@@ -73,6 +75,7 @@ public:
         Halted = halt;
     }
 
+    void NocashPrint(u32 addr) noexcept;
     virtual void Execute() = 0;
 #ifdef JIT_ENABLED
     virtual void ExecuteJIT() = 0;
@@ -174,7 +177,7 @@ public:
 
     u32 ExceptionBase;
 
-    NDS::MemRegion CodeMem;
+    MemRegion CodeMem;
 
 #ifdef JIT_ENABLED
     u32 FastBlockLookupStart, FastBlockLookupSize;
@@ -186,14 +189,14 @@ public:
     Gdb::GdbStub GdbStub;
 #endif
 
-    ARMJIT& JIT;
+    melonDS::NDS& NDS;
 protected:
-    u8 (*BusRead8)(u32 addr);
-    u16 (*BusRead16)(u32 addr);
-    u32 (*BusRead32)(u32 addr);
-    void (*BusWrite8)(u32 addr, u8 val);
-    void (*BusWrite16)(u32 addr, u16 val);
-    void (*BusWrite32)(u32 addr, u32 val);
+    virtual u8 BusRead8(u32 addr) = 0;
+    virtual u16 BusRead16(u32 addr) = 0;
+    virtual u32 BusRead32(u32 addr) = 0;
+    virtual void BusWrite8(u32 addr, u8 val) = 0;
+    virtual void BusWrite16(u32 addr, u16 val) = 0;
+    virtual void BusWrite32(u32 addr, u32 val) = 0;
 
 #ifdef GDBSTUB_ENABLED
     bool IsSingleStep;
@@ -217,14 +220,12 @@ protected:
     void GdbCheckA();
     void GdbCheckB();
     void GdbCheckC();
-private:
-    melonDS::GPU& GPU;
 };
 
 class ARMv5 : public ARM
 {
 public:
-    ARMv5(ARMJIT& jit, melonDS::GPU& gpu);
+    ARMv5(melonDS::NDS& nds);
     ~ARMv5();
 
     void Reset() override;
@@ -296,7 +297,7 @@ public:
         //    Cycles += numC + numD;
     }
 
-    void GetCodeMemRegion(u32 addr, NDS::MemRegion* region);
+    void GetCodeMemRegion(u32 addr, MemRegion* region);
 
     void CP15Reset();
     void CP15DoSavestate(Savestate* file);
@@ -357,20 +358,26 @@ public:
 
     u8* CurICacheLine;
 
-    bool (*GetMemRegion)(u32 addr, bool write, NDS::MemRegion* region);
+    bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
 
 #ifdef GDBSTUB_ENABLED
     u32 ReadMem(u32 addr, int size) override;
     void WriteMem(u32 addr, int size, u32 v) override;
 #endif
+
+protected:
+    u8 BusRead8(u32 addr) override;
+    u16 BusRead16(u32 addr) override;
+    u32 BusRead32(u32 addr) override;
+    void BusWrite8(u32 addr, u8 val) override;
+    void BusWrite16(u32 addr, u16 val) override;
+    void BusWrite32(u32 addr, u32 val) override;
 };
 
 class ARMv4 : public ARM
 {
 public:
-    ARMv4(ARMJIT& jit, melonDS::GPU& gpu);
-
-    void Reset() override;
+    ARMv4(melonDS::NDS& nds);
 
     void FillPipeline() override;
 
@@ -391,134 +398,25 @@ public:
         return BusRead32(addr);
     }
 
-    void DataRead8(u32 addr, u32* val) override
-    {
-        *val = BusRead8(addr);
-        DataRegion = addr;
-        DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
-    }
-
-    void DataRead16(u32 addr, u32* val) override
-    {
-        addr &= ~1;
-
-        *val = BusRead16(addr);
-        DataRegion = addr;
-        DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
-    }
-
-    void DataRead32(u32 addr, u32* val) override
-    {
-        addr &= ~3;
-
-        *val = BusRead32(addr);
-        DataRegion = addr;
-        DataCycles = NDS::ARM7MemTimings[addr >> 15][2];
-    }
-
-    void DataRead32S(u32 addr, u32* val) override
-    {
-        addr &= ~3;
-
-        *val = BusRead32(addr);
-        DataCycles += NDS::ARM7MemTimings[addr >> 15][3];
-    }
-
-    void DataWrite8(u32 addr, u8 val) override
-    {
-        BusWrite8(addr, val);
-        DataRegion = addr;
-        DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
-    }
-
-    void DataWrite16(u32 addr, u16 val) override
-    {
-        addr &= ~1;
-
-        BusWrite16(addr, val);
-        DataRegion = addr;
-        DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
-    }
-
-    void DataWrite32(u32 addr, u32 val) override
-    {
-        addr &= ~3;
-
-        BusWrite32(addr, val);
-        DataRegion = addr;
-        DataCycles = NDS::ARM7MemTimings[addr >> 15][2];
-    }
-
-    void DataWrite32S(u32 addr, u32 val) override
-    {
-        addr &= ~3;
-
-        BusWrite32(addr, val);
-        DataCycles += NDS::ARM7MemTimings[addr >> 15][3];
-    }
-
-
-    void AddCycles_C() override
-    {
-        // code only. this code fetch is sequential.
-        Cycles += NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?1:3];
-    }
-
-    void AddCycles_CI(s32 num) override
-    {
-        // code+internal. results in a nonseq code fetch.
-        Cycles += NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2] + num;
-    }
-
-    void AddCycles_CDI() override
-    {
-        // LDR/LDM cycles.
-        s32 numC = NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2];
-        s32 numD = DataCycles;
-
-        if ((DataRegion >> 24) == 0x02) // mainRAM
-        {
-            if (CodeRegion == 0x02)
-                Cycles += numC + numD;
-            else
-            {
-                numC++;
-                Cycles += std::max(numC + numD - 3, std::max(numC, numD));
-            }
-        }
-        else if (CodeRegion == 0x02)
-        {
-            numD++;
-            Cycles += std::max(numC + numD - 3, std::max(numC, numD));
-        }
-        else
-        {
-            Cycles += numC + numD + 1;
-        }
-    }
-
-    void AddCycles_CD() override
-    {
-        // TODO: max gain should be 5c when writing to mainRAM
-        s32 numC = NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2];
-        s32 numD = DataCycles;
-
-        if ((DataRegion >> 24) == 0x02)
-        {
-            if (CodeRegion == 0x02)
-                Cycles += numC + numD;
-            else
-                Cycles += std::max(numC + numD - 3, std::max(numC, numD));
-        }
-        else if (CodeRegion == 0x02)
-        {
-            Cycles += std::max(numC + numD - 3, std::max(numC, numD));
-        }
-        else
-        {
-            Cycles += numC + numD;
-        }
-    }
+    void DataRead8(u32 addr, u32* val) override;
+    void DataRead16(u32 addr, u32* val) override;
+    void DataRead32(u32 addr, u32* val) override;
+    void DataRead32S(u32 addr, u32* val) override;
+    void DataWrite8(u32 addr, u8 val) override;
+    void DataWrite16(u32 addr, u16 val) override;
+    void DataWrite32(u32 addr, u32 val) override;
+    void DataWrite32S(u32 addr, u32 val) override;
+    void AddCycles_C() override;
+    void AddCycles_CI(s32 num) override;
+    void AddCycles_CDI() override;
+    void AddCycles_CD() override;
+protected:
+    u8 BusRead8(u32 addr) override;
+    u16 BusRead16(u32 addr) override;
+    u32 BusRead32(u32 addr) override;
+    void BusWrite8(u32 addr, u8 val) override;
+    void BusWrite16(u32 addr, u16 val) override;
+    void BusWrite32(u32 addr, u32 val) override;
 };
 
 namespace ARMInterpreter
@@ -528,14 +426,5 @@ void A_UNK(ARM* cpu);
 void T_UNK(ARM* cpu);
 
 }
-
-namespace NDS
-{
-
-extern ARMv5* ARM9;
-extern ARMv4* ARM7;
-
-}
-
 }
 #endif // ARM_H

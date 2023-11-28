@@ -159,12 +159,12 @@ LONG ARMJIT_Memory::ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
         return EXCEPTION_CONTINUE_SEARCH;
     }
 
-    u8* curArea = (u8*)(NDS::CurCPU == 0 ? NDS::JIT->Memory.FastMem9Start : NDS::JIT->Memory.FastMem7Start);
+    u8* curArea = (u8*)(NDS::Current->CurCPU == 0 ? NDS::Current->JIT.Memory.FastMem9Start : NDS::Current->JIT.Memory.FastMem7Start);
     FaultDescription desc {};
     desc.EmulatedFaultAddr = (u8*)exceptionInfo->ExceptionRecord->ExceptionInformation[1] - curArea;
     desc.FaultPC = (u8*)exceptionInfo->ContextRecord->CONTEXT_PC;
 
-    if (FaultHandler(desc, *NDS::JIT))
+    if (FaultHandler(desc, *NDS::Current))
     {
         exceptionInfo->ContextRecord->CONTEXT_PC = (u64)desc.FaultPC;
         return EXCEPTION_CONTINUE_EXECUTION;
@@ -194,12 +194,12 @@ void ARMJIT_Memory::SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
     ucontext_t* context = (ucontext_t*)rawContext;
 
     FaultDescription desc {};
-    u8* curArea = (u8*)(NDS::CurCPU == 0 ? NDS::JIT->Memory.FastMem9Start : NDS::JIT->Memory.FastMem7Start);
+    u8* curArea = (u8*)(NDS::Current->CurCPU == 0 ? NDS::Current->JIT.Memory.FastMem9Start : NDS::Current->JIT.Memory.FastMem7Start);
 
     desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
     desc.FaultPC = (u8*)context->CONTEXT_PC;
 
-    if (FaultHandler(desc, *NDS::JIT))
+    if (FaultHandler(desc, *NDS::Current))
     {
         context->CONTEXT_PC = (u64)desc.FaultPC;
         return;
@@ -319,12 +319,12 @@ void ARMJIT_Memory::SetCodeProtectionRange(u32 addr, u32 size, u32 num, int prot
 }
 #endif
 
-void ARMJIT_Memory::Mapping::Unmap(int region, ARMJIT_Memory& memory) noexcept
+void ARMJIT_Memory::Mapping::Unmap(int region, melonDS::NDS& nds) noexcept
 {
-    u32 dtcmStart = NDS::ARM9->DTCMBase;
-    u32 dtcmSize = ~NDS::ARM9->DTCMMask + 1;
+    u32 dtcmStart = nds.ARM9.DTCMBase;
+    u32 dtcmSize = ~nds.ARM9.DTCMMask + 1;
     bool skipDTCM = Num == 0 && region != memregion_DTCM;
-    u8* statuses = Num == 0 ? memory.MappingStatus9 : memory.MappingStatus7;
+    u8* statuses = Num == 0 ? nds.JIT.Memory.MappingStatus9 : nds.JIT.Memory.MappingStatus7;
     u32 offset = 0;
     while (offset < Size)
     {
@@ -367,20 +367,20 @@ void ARMJIT_Memory::Mapping::Unmap(int region, ARMJIT_Memory& memory) noexcept
         bool success;
         if (dtcmStart > Addr)
         {
-            success = memory.UnmapFromRange(Addr, 0, OffsetsPerRegion[region] + LocalOffset, dtcmStart - Addr);
+            success = nds.JIT.Memory.UnmapFromRange(Addr, 0, OffsetsPerRegion[region] + LocalOffset, dtcmStart - Addr);
             assert(success);
         }
         if (dtcmEnd < Addr + Size)
         {
             u32 offset = dtcmStart - Addr + dtcmSize;
-            success = memory.UnmapFromRange(dtcmEnd, 0, OffsetsPerRegion[region] + LocalOffset + offset, Size - offset);
+            success = nds.JIT.Memory.UnmapFromRange(dtcmEnd, 0, OffsetsPerRegion[region] + LocalOffset + offset, Size - offset);
             assert(success);
         }
     }
     else
 #endif
     {
-        bool succeded = memory.UnmapFromRange(Addr, Num, OffsetsPerRegion[region] + LocalOffset, Size);
+        bool succeded = nds.JIT.Memory.UnmapFromRange(Addr, Num, OffsetsPerRegion[region] + LocalOffset, Size);
         assert(succeded);
     }
 #endif
@@ -401,7 +401,7 @@ void ARMJIT_Memory::SetCodeProtection(int region, u32 offset, bool protect) noex
         u32 effectiveAddr = mapping.Addr + (offset - mapping.LocalOffset);
         if (mapping.Num == 0
             && region != memregion_DTCM
-            && (effectiveAddr & NDS::ARM9->DTCMMask) == NDS::ARM9->DTCMBase)
+            && (effectiveAddr & NDS.ARM9.DTCMMask) == NDS.ARM9.DTCMBase)
             continue;
 
         u8* states = (u8*)(mapping.Num == 0 ? MappingStatus9 : MappingStatus7);
@@ -427,9 +427,9 @@ void ARMJIT_Memory::RemapDTCM(u32 newBase, u32 newSize) noexcept
 {
     // this first part could be made more efficient
     // by unmapping DTCM first and then map the holes
-    u32 oldDTCMBase = NDS::ARM9->DTCMBase;
-    u32 oldDTCMSize = ~NDS::ARM9->DTCMMask + 1;
-    u32 oldDTCMEnd = oldDTCMBase + NDS::ARM9->DTCMMask;
+    u32 oldDTCMBase = NDS.ARM9.DTCMBase;
+    u32 oldDTCMSize = ~NDS.ARM9.DTCMMask + 1;
+    u32 oldDTCMEnd = oldDTCMBase + NDS.ARM9.DTCMMask;
 
     u32 newEnd = newBase + newSize;
 
@@ -454,7 +454,7 @@ void ARMJIT_Memory::RemapDTCM(u32 newBase, u32 newSize) noexcept
 
             if (mapping.Num == 0 && overlap)
             {
-                mapping.Unmap(region, *this);
+                mapping.Unmap(region, NDS);
                 Mappings[region].Remove(i);
             }
             else
@@ -466,20 +466,22 @@ void ARMJIT_Memory::RemapDTCM(u32 newBase, u32 newSize) noexcept
 
     for (int i = 0; i < Mappings[memregion_DTCM].Length; i++)
     {
-        Mappings[memregion_DTCM][i].Unmap(memregion_DTCM, *this);
+        Mappings[memregion_DTCM][i].Unmap(memregion_DTCM, NDS);
     }
     Mappings[memregion_DTCM].Clear();
 }
 
 void ARMJIT_Memory::RemapNWRAM(int num) noexcept
 {
+    auto* dsi = dynamic_cast<DSi*>(&NDS);
+    assert(dsi != nullptr);
     for (int i = 0; i < Mappings[memregion_SharedWRAM].Length;)
     {
         Mapping& mapping = Mappings[memregion_SharedWRAM][i];
-        if (DSi::NWRAMStart[mapping.Num][num] < mapping.Addr + mapping.Size
-            && DSi::NWRAMEnd[mapping.Num][num] > mapping.Addr)
+        if (dsi->NWRAMStart[mapping.Num][num] < mapping.Addr + mapping.Size
+            && dsi->NWRAMEnd[mapping.Num][num] > mapping.Addr)
         {
-            mapping.Unmap(memregion_SharedWRAM, *this);
+            mapping.Unmap(memregion_SharedWRAM, NDS);
             Mappings[memregion_SharedWRAM].Remove(i);
         }
         else
@@ -489,7 +491,7 @@ void ARMJIT_Memory::RemapNWRAM(int num) noexcept
     }
     for (int i = 0; i < Mappings[memregion_NewSharedWRAM_A + num].Length; i++)
     {
-        Mappings[memregion_NewSharedWRAM_A + num][i].Unmap(memregion_NewSharedWRAM_A + num, *this);
+        Mappings[memregion_NewSharedWRAM_A + num][i].Unmap(memregion_NewSharedWRAM_A + num, NDS);
     }
     Mappings[memregion_NewSharedWRAM_A + num].Clear();
 }
@@ -502,7 +504,7 @@ void ARMJIT_Memory::RemapSWRAM() noexcept
         Mapping& mapping = Mappings[memregion_WRAM7][i];
         if (mapping.Addr + mapping.Size <= 0x03800000)
         {
-            mapping.Unmap(memregion_WRAM7, *this);
+            mapping.Unmap(memregion_WRAM7, NDS);
             Mappings[memregion_WRAM7].Remove(i);
         }
         else
@@ -510,14 +512,14 @@ void ARMJIT_Memory::RemapSWRAM() noexcept
     }
     for (int i = 0; i < Mappings[memregion_SharedWRAM].Length; i++)
     {
-        Mappings[memregion_SharedWRAM][i].Unmap(memregion_SharedWRAM, *this);
+        Mappings[memregion_SharedWRAM][i].Unmap(memregion_SharedWRAM, NDS);
     }
     Mappings[memregion_SharedWRAM].Clear();
 }
 
 bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
 {
-    u32 num = NDS::CurCPU;
+    u32 num = NDS.CurCPU;
 
     int region = num == 0
         ? ClassifyAddress9(addr)
@@ -533,10 +535,10 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
 
     u8* states = num == 0 ? MappingStatus9 : MappingStatus7;
     //printf("mapping mirror %x, %x %x %d %d\n", mirrorStart, mirrorSize, memoryOffset, region, num);
-    bool isExecutable = JIT.CodeMemRegions[region];
+    bool isExecutable = NDS.JIT.CodeMemRegions[region];
 
-    u32 dtcmStart = NDS::ARM9->DTCMBase;
-    u32 dtcmSize = ~NDS::ARM9->DTCMMask + 1;
+    u32 dtcmStart = NDS.ARM9.DTCMBase;
+    u32 dtcmSize = ~NDS.ARM9.DTCMMask + 1;
     u32 dtcmEnd = dtcmStart + dtcmSize;
 #ifndef __SWITCH__
 #ifndef _WIN32
@@ -565,7 +567,7 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
     }
 #endif
 
-    AddressRange* range = JIT.CodeMemRegions[region] + memoryOffset / 512;
+    AddressRange* range = NDS.JIT.CodeMemRegions[region] + memoryOffset / 512;
 
     // this overcomplicated piece of code basically just finds whole pieces of code memory
     // which can be mapped/protected
@@ -586,7 +588,7 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
             bool hasCode = isExecutable && PageContainsCode(&range[offset / 512]);
             while (offset < mirrorSize
                 && (!isExecutable || PageContainsCode(&range[offset / 512]) == hasCode)
-                && (!skipDTCM || mirrorStart + offset != NDS::ARM9->DTCMBase))
+                && (!skipDTCM || mirrorStart + offset != NDS.ARM9.DTCMBase))
             {
                 assert(states[(mirrorStart + offset) >> 12] == memstate_Unmapped);
                 states[(mirrorStart + offset) >> 12] = hasCode ? memstate_MappedProtected : memstate_MappedRW;
@@ -620,19 +622,19 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
     return true;
 }
 
-bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, ARMJIT& jit)
+bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, melonDS::NDS& nds)
 {
-    if (jit.JITCompiler.IsJITFault(faultDesc.FaultPC))
+    if (nds.JIT.JITCompiler.IsJITFault(faultDesc.FaultPC))
     {
         bool rewriteToSlowPath = true;
 
-        u8* memStatus = NDS::CurCPU == 0 ? jit.Memory.MappingStatus9 : jit.Memory.MappingStatus7;
+        u8* memStatus = nds.CurCPU == 0 ? nds.JIT.Memory.MappingStatus9 : nds.JIT.Memory.MappingStatus7;
 
         if (memStatus[faultDesc.EmulatedFaultAddr >> 12] == memstate_Unmapped)
-            rewriteToSlowPath = !jit.Memory.MapAtAddress(faultDesc.EmulatedFaultAddr);
+            rewriteToSlowPath = !nds.JIT.Memory.MapAtAddress(faultDesc.EmulatedFaultAddr);
 
         if (rewriteToSlowPath)
-            faultDesc.FaultPC = jit.JITCompiler.RewriteMemAccess(faultDesc.FaultPC);
+            faultDesc.FaultPC = nds.JIT.JITCompiler.RewriteMemAccess(faultDesc.FaultPC);
 
         return true;
     }
@@ -641,7 +643,7 @@ bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, ARMJIT& jit)
 
 const u64 AddrSpaceSize = 0x100000000;
 
-ARMJIT_Memory::ARMJIT_Memory(ARMJIT& jit) noexcept : JIT(jit)
+ARMJIT_Memory::ARMJIT_Memory(melonDS::NDS& nds) : NDS(nds)
 {
 #if defined(__SWITCH__)
     MemoryBase = (u8*)aligned_alloc(0x1000, MemoryTotalSize);
@@ -815,7 +817,7 @@ void ARMJIT_Memory::Reset() noexcept
     for (int region = 0; region < memregions_Count; region++)
     {
         for (int i = 0; i < Mappings[region].Length; i++)
-            Mappings[region][i].Unmap(region, *this);
+            Mappings[region][i].Unmap(region, NDS);
         Mappings[region].Clear();
     }
 
@@ -866,8 +868,8 @@ bool ARMJIT_Memory::GetMirrorLocation(int region, u32 num, u32 addr, u32& memory
         }
         return false;
     case memregion_MainRAM:
-        mirrorStart = addr & ~NDS::MainRAMMask;
-        mirrorSize = NDS::MainRAMMask + 1;
+        mirrorStart = addr & ~NDS.MainRAMMask;
+        mirrorSize = NDS.MainRAMMask + 1;
         return true;
     case memregion_BIOS9:
         if (num == 0)
@@ -886,26 +888,26 @@ bool ARMJIT_Memory::GetMirrorLocation(int region, u32 num, u32 addr, u32& memory
         }
         return false;
     case memregion_SharedWRAM:
-        if (num == 0 && NDS::SWRAM_ARM9.Mem)
+        if (num == 0 && NDS.SWRAM_ARM9.Mem)
         {
-            mirrorStart = addr & ~NDS::SWRAM_ARM9.Mask;
-            mirrorSize = NDS::SWRAM_ARM9.Mask + 1;
-            memoryOffset = NDS::SWRAM_ARM9.Mem - GetSharedWRAM();
+            mirrorStart = addr & ~NDS.SWRAM_ARM9.Mask;
+            mirrorSize = NDS.SWRAM_ARM9.Mask + 1;
+            memoryOffset = NDS.SWRAM_ARM9.Mem - GetSharedWRAM();
             return true;
         }
-        else if (num == 1 && NDS::SWRAM_ARM7.Mem)
+        else if (num == 1 && NDS.SWRAM_ARM7.Mem)
         {
-            mirrorStart = addr & ~NDS::SWRAM_ARM7.Mask;
-            mirrorSize = NDS::SWRAM_ARM7.Mask + 1;
-            memoryOffset = NDS::SWRAM_ARM7.Mem - GetSharedWRAM();
+            mirrorStart = addr & ~NDS.SWRAM_ARM7.Mask;
+            mirrorSize = NDS.SWRAM_ARM7.Mask + 1;
+            memoryOffset = NDS.SWRAM_ARM7.Mem - GetSharedWRAM();
             return true;
         }
         return false;
     case memregion_WRAM7:
         if (num == 1)
         {
-            mirrorStart = addr & ~(NDS::ARM7WRAMSize - 1);
-            mirrorSize = NDS::ARM7WRAMSize;
+            mirrorStart = addr & ~(ARM7WRAMSize - 1);
+            mirrorSize = ARM7WRAMSize;
             return true;
         }
         return false;
@@ -927,7 +929,9 @@ bool ARMJIT_Memory::GetMirrorLocation(int region, u32 num, u32 addr, u32& memory
         return false;
     case memregion_NewSharedWRAM_A:
         {
-            u8* ptr = DSi::NWRAMMap_A[num][(addr >> 16) & DSi::NWRAMMask[num][0]];
+            auto* dsi = dynamic_cast<DSi*>(&NDS);
+            assert(dsi != nullptr);
+            u8* ptr = dsi->NWRAMMap_A[num][(addr >> 16) & dsi->NWRAMMask[num][0]];
             if (ptr)
             {
                 memoryOffset = ptr - GetNWRAM_A();
@@ -939,7 +943,9 @@ bool ARMJIT_Memory::GetMirrorLocation(int region, u32 num, u32 addr, u32& memory
         }
     case memregion_NewSharedWRAM_B:
         {
-            u8* ptr = DSi::NWRAMMap_B[num][(addr >> 15) & DSi::NWRAMMask[num][1]];
+            auto* dsi = dynamic_cast<DSi*>(&NDS);
+            assert(dsi != nullptr);
+            u8* ptr = dsi->NWRAMMap_B[num][(addr >> 15) & dsi->NWRAMMask[num][1]];
             if (ptr)
             {
                 memoryOffset = ptr - GetNWRAM_B();
@@ -951,7 +957,9 @@ bool ARMJIT_Memory::GetMirrorLocation(int region, u32 num, u32 addr, u32& memory
         }
     case memregion_NewSharedWRAM_C:
         {
-            u8* ptr = DSi::NWRAMMap_C[num][(addr >> 15) & DSi::NWRAMMask[num][2]];
+            auto* dsi = dynamic_cast<DSi*>(&NDS);
+            assert(dsi != nullptr);
+            u8* ptr = dsi->NWRAMMap_C[num][(addr >> 15) & dsi->NWRAMMask[num][2]];
             if (ptr)
             {
                 memoryOffset = ptr - GetNWRAM_C();
@@ -964,16 +972,20 @@ bool ARMJIT_Memory::GetMirrorLocation(int region, u32 num, u32 addr, u32& memory
     case memregion_BIOS9DSi:
         if (num == 0)
         {
+            auto* dsi = dynamic_cast<DSi*>(&NDS);
+            assert(dsi != nullptr);
             mirrorStart = addr & ~0xFFFF;
-            mirrorSize = DSi::SCFG_BIOS & (1<<0) ? 0x8000 : 0x10000;
+            mirrorSize = dsi->SCFG_BIOS & (1<<0) ? 0x8000 : 0x10000;
             return true;
         }
         return false;
     case memregion_BIOS7DSi:
         if (num == 1)
         {
+            auto* dsi = dynamic_cast<DSi*>(&NDS);
+            assert(dsi != nullptr);
             mirrorStart = addr & ~0xFFFF;
-            mirrorSize = DSi::SCFG_BIOS & (1<<8) ? 0x8000 : 0x10000;
+            mirrorSize = dsi->SCFG_BIOS & (1<<8) ? 0x8000 : 0x10000;
             return true;
         }
         return false;
@@ -990,18 +1002,18 @@ u32 ARMJIT_Memory::LocaliseAddress(int region, u32 num, u32 addr) const noexcept
     case memregion_ITCM:
         return (addr & (ITCMPhysicalSize - 1)) | (memregion_ITCM << 27);
     case memregion_MainRAM:
-        return (addr & NDS::MainRAMMask) | (memregion_MainRAM << 27);
+        return (addr & NDS.MainRAMMask) | (memregion_MainRAM << 27);
     case memregion_BIOS9:
         return (addr & 0xFFF) | (memregion_BIOS9 << 27);
     case memregion_BIOS7:
         return (addr & 0x3FFF) | (memregion_BIOS7 << 27);
     case memregion_SharedWRAM:
         if (num == 0)
-            return ((addr & NDS::SWRAM_ARM9.Mask) + (NDS::SWRAM_ARM9.Mem - GetSharedWRAM())) | (memregion_SharedWRAM << 27);
+            return ((addr & NDS.SWRAM_ARM9.Mask) + (NDS.SWRAM_ARM9.Mem - GetSharedWRAM())) | (memregion_SharedWRAM << 27);
         else
-            return ((addr & NDS::SWRAM_ARM7.Mask) + (NDS::SWRAM_ARM7.Mem - GetSharedWRAM())) | (memregion_SharedWRAM << 27);
+            return ((addr & NDS.SWRAM_ARM7.Mask) + (NDS.SWRAM_ARM7.Mem - GetSharedWRAM())) | (memregion_SharedWRAM << 27);
     case memregion_WRAM7:
-        return (addr & (NDS::ARM7WRAMSize - 1)) | (memregion_WRAM7 << 27);
+        return (addr & (melonDS::ARM7WRAMSize - 1)) | (memregion_WRAM7 << 27);
     case memregion_VRAM:
         // TODO: take mapping properly into account
         return (addr & 0xFFFFF) | (memregion_VRAM << 27);
@@ -1010,7 +1022,9 @@ u32 ARMJIT_Memory::LocaliseAddress(int region, u32 num, u32 addr) const noexcept
         return (addr & 0x3FFFF) | (memregion_VWRAM << 27);
     case memregion_NewSharedWRAM_A:
         {
-            u8* ptr = DSi::NWRAMMap_A[num][(addr >> 16) & DSi::NWRAMMask[num][0]];
+            auto* dsi = dynamic_cast<DSi*>(&NDS);
+            assert(dsi != nullptr);
+            u8* ptr = dsi->NWRAMMap_A[num][(addr >> 16) & dsi->NWRAMMask[num][0]];
             if (ptr)
                 return (ptr - GetNWRAM_A() + (addr & 0xFFFF)) | (memregion_NewSharedWRAM_A << 27);
             else
@@ -1018,7 +1032,9 @@ u32 ARMJIT_Memory::LocaliseAddress(int region, u32 num, u32 addr) const noexcept
         }
     case memregion_NewSharedWRAM_B:
         {
-            u8* ptr = DSi::NWRAMMap_B[num][(addr >> 15) & DSi::NWRAMMask[num][1]];
+            auto* dsi = dynamic_cast<DSi*>(&NDS);
+            assert(dsi != nullptr);
+            u8* ptr = dsi->NWRAMMap_B[num][(addr >> 15) & dsi->NWRAMMask[num][1]];
             if (ptr)
                 return (ptr - GetNWRAM_B() + (addr & 0x7FFF)) | (memregion_NewSharedWRAM_B << 27);
             else
@@ -1026,7 +1042,9 @@ u32 ARMJIT_Memory::LocaliseAddress(int region, u32 num, u32 addr) const noexcept
         }
     case memregion_NewSharedWRAM_C:
         {
-            u8* ptr = DSi::NWRAMMap_C[num][(addr >> 15) & DSi::NWRAMMask[num][2]];
+            auto* dsi = dynamic_cast<DSi*>(&NDS);
+            assert(dsi != nullptr);
+            u8* ptr = dsi->NWRAMMap_C[num][(addr >> 15) & dsi->NWRAMMask[num][2]];
             if (ptr)
                 return (ptr - GetNWRAM_C() + (addr & 0x7FFF)) | (memregion_NewSharedWRAM_C << 27);
             else
@@ -1043,19 +1061,20 @@ u32 ARMJIT_Memory::LocaliseAddress(int region, u32 num, u32 addr) const noexcept
 
 int ARMJIT_Memory::ClassifyAddress9(u32 addr) const noexcept
 {
-    if (addr < NDS::ARM9->ITCMSize)
+    if (addr < NDS.ARM9.ITCMSize)
     {
         return memregion_ITCM;
     }
-    else if ((addr & NDS::ARM9->DTCMMask) == NDS::ARM9->DTCMBase)
+    else if ((addr & NDS.ARM9.DTCMMask) == NDS.ARM9.DTCMBase)
     {
         return memregion_DTCM;
     }
     else
     {
-        if (NDS::ConsoleType == 1 && addr >= 0xFFFF0000 && !(DSi::SCFG_BIOS & (1<<1)))
+        auto& dsi = static_cast<DSi&>(NDS); // ONLY use this if ConsoleType == 1!
+        if (NDS.ConsoleType == 1 && addr >= 0xFFFF0000 && !(dsi.SCFG_BIOS & (1<<1)))
         {
-            if ((addr >= 0xFFFF8000) && (DSi::SCFG_BIOS & (1<<0)))
+            if ((addr >= 0xFFFF8000) && (dsi.SCFG_BIOS & (1<<0)))
                 return memregion_Other;
 
             return memregion_BIOS9DSi;
@@ -1070,17 +1089,17 @@ int ARMJIT_Memory::ClassifyAddress9(u32 addr) const noexcept
         case 0x02000000:
             return memregion_MainRAM;
         case 0x03000000:
-            if (NDS::ConsoleType == 1)
+            if (NDS.ConsoleType == 1)
             {
-                if (addr >= DSi::NWRAMStart[0][0] && addr < DSi::NWRAMEnd[0][0])
+                if (addr >= dsi.NWRAMStart[0][0] && addr < dsi.NWRAMEnd[0][0])
                     return memregion_NewSharedWRAM_A;
-                if (addr >= DSi::NWRAMStart[0][1] && addr < DSi::NWRAMEnd[0][1])
+                if (addr >= dsi.NWRAMStart[0][1] && addr < dsi.NWRAMEnd[0][1])
                     return memregion_NewSharedWRAM_B;
-                if (addr >= DSi::NWRAMStart[0][2] && addr < DSi::NWRAMEnd[0][2])
+                if (addr >= dsi.NWRAMStart[0][2] && addr < dsi.NWRAMEnd[0][2])
                     return memregion_NewSharedWRAM_C;
             }
 
-            if (NDS::SWRAM_ARM9.Mem)
+            if (NDS.SWRAM_ARM9.Mem)
                 return memregion_SharedWRAM;
             return memregion_Other;
         case 0x04000000:
@@ -1088,7 +1107,7 @@ int ARMJIT_Memory::ClassifyAddress9(u32 addr) const noexcept
         case 0x06000000:
             return memregion_VRAM;
         case 0x0C000000:
-            return (NDS::ConsoleType==1) ? memregion_MainRAM : memregion_Other;
+            return (NDS.ConsoleType==1) ? memregion_MainRAM : memregion_Other;
         default:
             return memregion_Other;
         }
@@ -1097,9 +1116,10 @@ int ARMJIT_Memory::ClassifyAddress9(u32 addr) const noexcept
 
 int ARMJIT_Memory::ClassifyAddress7(u32 addr) const noexcept
 {
-    if (NDS::ConsoleType == 1 && addr < 0x00010000 && !(DSi::SCFG_BIOS & (1<<9)))
+    auto& dsi = static_cast<DSi&>(NDS);
+    if (NDS.ConsoleType == 1 && addr < 0x00010000 && !(dsi.SCFG_BIOS & (1<<9)))
     {
-        if (addr >= 0x00008000 && DSi::SCFG_BIOS & (1<<8))
+        if (addr >= 0x00008000 && dsi.SCFG_BIOS & (1<<8))
             return memregion_Other;
 
         return memregion_BIOS7DSi;
@@ -1116,17 +1136,17 @@ int ARMJIT_Memory::ClassifyAddress7(u32 addr) const noexcept
         case 0x02800000:
             return memregion_MainRAM;
         case 0x03000000:
-            if (NDS::ConsoleType == 1)
+            if (NDS.ConsoleType == 1)
             {
-                if (addr >= DSi::NWRAMStart[1][0] && addr < DSi::NWRAMEnd[1][0])
+                if (addr >= dsi.NWRAMStart[1][0] && addr < dsi.NWRAMEnd[1][0])
                     return memregion_NewSharedWRAM_A;
-                if (addr >= DSi::NWRAMStart[1][1] && addr < DSi::NWRAMEnd[1][1])
+                if (addr >= dsi.NWRAMStart[1][1] && addr < dsi.NWRAMEnd[1][1])
                     return memregion_NewSharedWRAM_B;
-                if (addr >= DSi::NWRAMStart[1][2] && addr < DSi::NWRAMEnd[1][2])
+                if (addr >= dsi.NWRAMStart[1][2] && addr < dsi.NWRAMEnd[1][2])
                     return memregion_NewSharedWRAM_C;
             }
 
-            if (NDS::SWRAM_ARM7.Mem)
+            if (NDS.SWRAM_ARM7.Mem)
                 return memregion_SharedWRAM;
             return memregion_WRAM7;
         case 0x03800000:
@@ -1140,7 +1160,7 @@ int ARMJIT_Memory::ClassifyAddress7(u32 addr) const noexcept
             return memregion_VWRAM;
         case 0x0C000000:
         case 0x0C800000:
-            return (NDS::ConsoleType==1) ? memregion_MainRAM : memregion_Other;
+            return (NDS.ConsoleType==1) ? memregion_MainRAM : memregion_Other;
         default:
             return memregion_Other;
         }
@@ -1163,11 +1183,11 @@ void VRAMWrite(u32 addr, T val)
 {
     switch (addr & 0x00E00000)
     {
-    case 0x00000000: NDS::GPU->WriteVRAM_ABG<T>(addr, val); return;
-    case 0x00200000: NDS::GPU->WriteVRAM_BBG<T>(addr, val); return;
-    case 0x00400000: NDS::GPU->WriteVRAM_AOBJ<T>(addr, val); return;
-    case 0x00600000: NDS::GPU->WriteVRAM_BOBJ<T>(addr, val); return;
-    default: NDS::GPU->WriteVRAM_LCDC<T>(addr, val); return;
+    case 0x00000000: NDS::Current->GPU.WriteVRAM_ABG<T>(addr, val); return;
+    case 0x00200000: NDS::Current->GPU.WriteVRAM_BBG<T>(addr, val); return;
+    case 0x00400000: NDS::Current->GPU.WriteVRAM_AOBJ<T>(addr, val); return;
+    case 0x00600000: NDS::Current->GPU.WriteVRAM_BOBJ<T>(addr, val); return;
+    default: NDS::Current->GPU.WriteVRAM_LCDC<T>(addr, val); return;
     }
 }
 template <typename T>
@@ -1175,59 +1195,119 @@ T VRAMRead(u32 addr)
 {
     switch (addr & 0x00E00000)
     {
-    case 0x00000000: return NDS::GPU->ReadVRAM_ABG<T>(addr);
-    case 0x00200000: return NDS::GPU->ReadVRAM_BBG<T>(addr);
-    case 0x00400000: return NDS::GPU->ReadVRAM_AOBJ<T>(addr);
-    case 0x00600000: return NDS::GPU->ReadVRAM_BOBJ<T>(addr);
-    default: return NDS::GPU->ReadVRAM_LCDC<T>(addr);
+    case 0x00000000: return NDS::Current->GPU.ReadVRAM_ABG<T>(addr);
+    case 0x00200000: return NDS::Current->GPU.ReadVRAM_BBG<T>(addr);
+    case 0x00400000: return NDS::Current->GPU.ReadVRAM_AOBJ<T>(addr);
+    case 0x00600000: return NDS::Current->GPU.ReadVRAM_BOBJ<T>(addr);
+    default: return NDS::Current->GPU.ReadVRAM_LCDC<T>(addr);
     }
 }
 
 static u8 GPU3D_Read8(u32 addr) noexcept
 {
-    return NDS::GPU->GPU3D.Read8(addr);
+    return NDS::Current->GPU.GPU3D.Read8(addr);
 }
 
 static u16 GPU3D_Read16(u32 addr) noexcept
 {
-    return NDS::GPU->GPU3D.Read16(addr);
+    return NDS::Current->GPU.GPU3D.Read16(addr);
 }
 
 static u32 GPU3D_Read32(u32 addr) noexcept
 {
-    return NDS::GPU->GPU3D.Read32(addr);
+    return NDS::Current->GPU.GPU3D.Read32(addr);
 }
 
 static void GPU3D_Write8(u32 addr, u8 val) noexcept
 {
-    NDS::GPU->GPU3D.Write8(addr, val);
+    NDS::Current->GPU.GPU3D.Write8(addr, val);
 }
 
 static void GPU3D_Write16(u32 addr, u16 val) noexcept
 {
-    NDS::GPU->GPU3D.Write16(addr, val);
+    NDS::Current->GPU.GPU3D.Write16(addr, val);
 }
 
 static void GPU3D_Write32(u32 addr, u32 val) noexcept
 {
-    NDS::GPU->GPU3D.Write32(addr, val);
+    NDS::Current->GPU.GPU3D.Write32(addr, val);
 }
 
 template<class T>
 static T GPU_ReadVRAM_ARM7(u32 addr) noexcept
 {
-    return NDS::GPU->ReadVRAM_ARM7<T>(addr);
+    return NDS::Current->GPU.ReadVRAM_ARM7<T>(addr);
 }
 
 template<class T>
 static void GPU_WriteVRAM_ARM7(u32 addr, T val) noexcept
 {
-    NDS::GPU->WriteVRAM_ARM7<T>(addr, val);
+    NDS::Current->GPU.WriteVRAM_ARM7<T>(addr, val);
 }
 
 u32 NDSCartSlot_ReadROMData()
 { // TODO: Add a NDS* parameter, when NDS* is eventually implemented
-    return NDS::NDSCartSlot->ReadROMData();
+    return NDS::Current->NDSCartSlot.ReadROMData();
+}
+
+static u8 NDS_ARM9IORead8(u32 addr)
+{
+    return NDS::Current->ARM9IORead8(addr);
+}
+
+static u16 NDS_ARM9IORead16(u32 addr)
+{
+    return NDS::Current->ARM9IORead16(addr);
+}
+
+static u32 NDS_ARM9IORead32(u32 addr)
+{
+    return NDS::Current->ARM9IORead32(addr);
+}
+
+static void NDS_ARM9IOWrite8(u32 addr, u8 val)
+{
+    NDS::Current->ARM9IOWrite8(addr, val);
+}
+
+static void NDS_ARM9IOWrite16(u32 addr, u16 val)
+{
+    NDS::Current->ARM9IOWrite16(addr, val);
+}
+
+static void NDS_ARM9IOWrite32(u32 addr, u32 val)
+{
+    NDS::Current->ARM9IOWrite32(addr, val);
+}
+
+static u8 NDS_ARM7IORead8(u32 addr)
+{
+    return NDS::Current->ARM7IORead8(addr);
+}
+
+static u16 NDS_ARM7IORead16(u32 addr)
+{
+    return NDS::Current->ARM7IORead16(addr);
+}
+
+static u32 NDS_ARM7IORead32(u32 addr)
+{
+    return NDS::Current->ARM7IORead32(addr);
+}
+
+static void NDS_ARM7IOWrite8(u32 addr, u8 val)
+{
+    NDS::Current->ARM7IOWrite8(addr, val);
+}
+
+static void NDS_ARM7IOWrite16(u32 addr, u16 val)
+{
+    NDS::Current->ARM7IOWrite16(addr, val);
+}
+
+static void NDS_ARM7IOWrite32(u32 addr, u32 val)
+{
+    NDS::Current->ARM7IOWrite32(addr, val);
 }
 
 void* ARMJIT_Memory::GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) const noexcept
@@ -1237,7 +1317,7 @@ void* ARMJIT_Memory::GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) co
         switch (addr & 0xFF000000)
         {
         case 0x04000000:
-            if (!store && size == 32 && addr == 0x04100010 && NDS::ExMemCnt[0] & (1<<11))
+            if (!store && size == 32 && addr == 0x04100010 && NDS.ExMemCnt[0] & (1<<11))
                 return (void*)NDSCartSlot_ReadROMData;
 
             /*
@@ -1259,30 +1339,17 @@ void* ARMJIT_Memory::GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) co
                 }
             }
 
-            if (NDS::ConsoleType == 0)
+            switch (size | store)
             {
-                switch (size | store)
-                {
-                case 8: return (void*)NDS::ARM9IORead8;
-                case 9: return (void*)NDS::ARM9IOWrite8;
-                case 16: return (void*)NDS::ARM9IORead16;
-                case 17: return (void*)NDS::ARM9IOWrite16;
-                case 32: return (void*)NDS::ARM9IORead32;
-                case 33: return (void*)NDS::ARM9IOWrite32;
-                }
+            case 8: return (void*)NDS_ARM9IORead8;
+            case 9: return (void*)NDS_ARM9IOWrite8;
+            case 16: return (void*)NDS_ARM9IORead16;
+            case 17: return (void*)NDS_ARM9IOWrite16;
+            case 32: return (void*)NDS_ARM9IORead32;
+            case 33: return (void*)NDS_ARM9IOWrite32;
             }
-            else
-            {
-                switch (size | store)
-                {
-                case 8: return (void*)DSi::ARM9IORead8;
-                case 9: return (void*)DSi::ARM9IOWrite8;
-                case 16: return (void*)DSi::ARM9IORead16;
-                case 17: return (void*)DSi::ARM9IOWrite16;
-                case 32: return (void*)DSi::ARM9IORead32;
-                case 33: return (void*)DSi::ARM9IOWrite32;
-                }
-            }
+            // NDS::Current will delegate to the DSi versions of these methods
+            // if it's really a DSi
             break;
         case 0x06000000:
             switch (size | store)
@@ -1315,29 +1382,14 @@ void* ARMJIT_Memory::GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) co
                 }
             }*/
 
-            if (NDS::ConsoleType == 0)
+            switch (size | store)
             {
-                switch (size | store)
-                {
-                case 8: return (void*)NDS::ARM7IORead8;
-                case 9: return (void*)NDS::ARM7IOWrite8;
-                case 16: return (void*)NDS::ARM7IORead16;
-                case 17: return (void*)NDS::ARM7IOWrite16;
-                case 32: return (void*)NDS::ARM7IORead32;
-                case 33: return (void*)NDS::ARM7IOWrite32;
-                }
-            }
-            else
-            {
-                switch (size | store)
-                {
-                case 8: return (void*)DSi::ARM7IORead8;
-                case 9: return (void*)DSi::ARM7IOWrite8;
-                case 16: return (void*)DSi::ARM7IORead16;
-                case 17: return (void*)DSi::ARM7IOWrite16;
-                case 32: return (void*)DSi::ARM7IORead32;
-                case 33: return (void*)DSi::ARM7IOWrite32;
-                }
+            case 8: return (void*)NDS_ARM7IORead8;
+            case 9: return (void*)NDS_ARM7IOWrite8;
+            case 16: return (void*)NDS_ARM7IORead16;
+            case 17: return (void*)NDS_ARM7IOWrite16;
+            case 32: return (void*)NDS_ARM7IORead32;
+            case 33: return (void*)NDS_ARM7IOWrite32;
             }
             break;
             // TODO: the wifi funcs also ought to check POWCNT

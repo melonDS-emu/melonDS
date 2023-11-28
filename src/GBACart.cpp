@@ -850,7 +850,7 @@ void GBACartSlot::LoadAddon(int type) noexcept
 {
     switch (type)
     {
-    case NDS::GBAAddon_RAMExpansion:
+    case GBAAddon_RAMExpansion:
         Cart = std::make_unique<CartRAMExpansion>();
         break;
 

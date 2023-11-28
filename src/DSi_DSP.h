@@ -29,10 +29,11 @@ namespace Teakra { class Teakra; }
 
 namespace melonDS
 {
+class DSi;
 class DSi_DSP
 {
 public:
-    DSi_DSP();
+    DSi_DSP(melonDS::DSi& dsi);
     ~DSi_DSP();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -68,6 +69,7 @@ public:
     void AudioCb(std::array<s16, 2> frame);
 
 private:
+    melonDS::DSi& DSi;
     // not sure whether to not rather put it somewhere else
     u16 SNDExCnt;
 

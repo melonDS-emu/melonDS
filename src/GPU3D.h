@@ -81,11 +81,12 @@ struct Polygon
 };
 
 class Renderer3D;
+class NDS;
 
 class GPU3D
 {
 public:
-    GPU3D() noexcept = default;
+    GPU3D(melonDS::NDS& nds) noexcept;
     ~GPU3D() noexcept = default;
     void Reset() noexcept;
 
@@ -124,6 +125,7 @@ public:
     void Write16(u32 addr, u16 val) noexcept;
     void Write32(u32 addr, u32 val) noexcept;
 private:
+    melonDS::NDS& NDS;
     typedef union
     {
         u64 _contents;

@@ -89,9 +89,9 @@ bool MACIsBroadcast(u8* a)
 }
 
 
-Wifi::Wifi()
+Wifi::Wifi(melonDS::NDS& nds) : NDS(nds)
 {
-    NDS::RegisterEventFunc(NDS::Event_Wifi, 0, MemberEventFunc(Wifi, USTimer));
+    NDS.RegisterEventFunc(Event_Wifi, 0, MemberEventFunc(Wifi, USTimer));
 
     //MPInited = false;
     //LANInited = false;
@@ -114,7 +114,7 @@ Wifi::~Wifi()
 
     delete WifiAP; WifiAP = nullptr;
 
-    NDS::UnregisterEventFunc(NDS::Event_Wifi, 0);
+    NDS.UnregisterEventFunc(Event_Wifi, 0);
 }
 
 void Wifi::Reset()
@@ -158,7 +158,7 @@ void Wifi::Reset()
     }
     #undef BBREG_FIXED
 
-    const Firmware* fw = NDS::SPI->GetFirmware();
+    const Firmware* fw = NDS.SPI.GetFirmware();
 
     RFVersion = fw->GetHeader().RFChipType;
     memset(RFRegs, 0, 4*0x40);
@@ -168,7 +168,7 @@ void Wifi::Reset()
         IOPORT(0x000) = 0x1440;
     else if (console == Firmware::FirmwareConsoleType::DSLite)
         IOPORT(0x000) = 0xC340;
-    else if (NDS::ConsoleType == 1 && console == Firmware::FirmwareConsoleType::DSi)
+    else if (NDS.ConsoleType == 1 && console == Firmware::FirmwareConsoleType::DSi)
         IOPORT(0x000) = 0xC340; // DSi has the modern DS-wifi variant
     else
     {
@@ -303,14 +303,14 @@ void Wifi::ScheduleTimer(bool first)
     s32 delay = (cycles + 999999) / 1000000;
     TimerError = (delay * 1000000) - cycles;
 
-    NDS::ScheduleEvent(NDS::Event_Wifi, !first, delay, 0, 0);
+    NDS.ScheduleEvent(Event_Wifi, !first, delay, 0, 0);
 }
 
 void Wifi::UpdatePowerOn()
 {
     bool on = Enabled;
 
-    if (NDS::ConsoleType == 1)
+    if (NDS.ConsoleType == 1)
     {
         // TODO for DSi:
         // * W_POWER_US doesn't work (atleast on DWM-W024)
@@ -338,7 +338,7 @@ void Wifi::UpdatePowerOn()
     {
         Log(LogLevel::Debug, "WIFI: OFF\n");
 
-        NDS::CancelEvent(NDS::Event_Wifi);
+        NDS.CancelEvent(Event_Wifi);
 
         Platform::MP_End();
     }
@@ -359,7 +359,7 @@ void Wifi::SetIRQ(u32 irq)
     u32 newflags = IOPORT(W_IF) & IOPORT(W_IE);
 
     if ((oldflags == 0) && (newflags != 0))
-        NDS::SetIRQ(1, NDS::IRQ_Wifi);
+        NDS.SetIRQ(1, IRQ_Wifi);
 }
 
 void Wifi::SetIRQ13()

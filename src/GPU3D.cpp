@@ -139,6 +139,10 @@ const u8 CmdNumParams[256] =
 
 void MatrixLoadIdentity(s32* m);
 
+GPU3D::GPU3D(melonDS::NDS& nds) noexcept : NDS(nds)
+{
+}
+
 void GPU3D::ResetRenderingState() noexcept
 {
     RenderNumPolygons = 0;
@@ -1596,7 +1600,7 @@ void GPU3D::CmdFIFOWrite(CmdFIFOEntry& entry) noexcept
             // has 64 entries. this is less complicated than trying to make STMxx stall-able.
 
             CmdStallQueue.Write(entry);
-            NDS::GXFIFOStall();
+            NDS.GXFIFOStall();
             return;
         }
 
@@ -1640,7 +1644,7 @@ GPU3D::CmdFIFOEntry GPU3D::CmdFIFORead() noexcept
             }
 
             if (CmdStallQueue.IsEmpty())
-                NDS::GXFIFOUnstall();
+                NDS.GXFIFOUnstall();
         }
 
         CheckFIFODMA();
@@ -2273,13 +2277,13 @@ void GPU3D::Run() noexcept
     if (!GeometryEnabled || FlushRequest ||
         (CmdPIPE.IsEmpty() && !(GXStat & (1<<27))))
     {
-        Timestamp = NDS::ARM9Timestamp >> NDS::ARM9ClockShift;
+        Timestamp = NDS.ARM9Timestamp >> NDS.ARM9ClockShift;
         return;
     }
 
-    s32 cycles = (NDS::ARM9Timestamp >> NDS::ARM9ClockShift) - Timestamp;
+    s32 cycles = (NDS.ARM9Timestamp >> NDS.ARM9ClockShift) - Timestamp;
     CycleCount -= cycles;
-    Timestamp = NDS::ARM9Timestamp >> NDS::ARM9ClockShift;
+    Timestamp = NDS.ARM9Timestamp >> NDS.ARM9ClockShift;
 
     if (CycleCount <= 0)
     {
@@ -2312,14 +2316,14 @@ void GPU3D::CheckFIFOIRQ() noexcept
     case 2: irq = CmdFIFO.IsEmpty(); break;
     }
 
-    if (irq) NDS::SetIRQ(0, NDS::IRQ_GXFIFO);
-    else     NDS::ClearIRQ(0, NDS::IRQ_GXFIFO);
+    if (irq) NDS.SetIRQ(0, IRQ_GXFIFO);
+    else     NDS.ClearIRQ(0, IRQ_GXFIFO);
 }
 
 void GPU3D::CheckFIFODMA() noexcept
 {
     if (CmdFIFO.Level() < 128)
-        NDS::CheckDMAs(0, 0x07);
+        NDS.CheckDMAs(0, 0x07);
 }
 
 void GPU3D::VCount144() noexcept

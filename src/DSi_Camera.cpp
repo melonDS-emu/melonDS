@@ -38,13 +38,13 @@ const u32 DSi_CamModule::kIRQInterval = 1120000; // ~30 FPS
 const u32 DSi_CamModule::kTransferStart = 60000;
 
 
-DSi_CamModule::DSi_CamModule()
+DSi_CamModule::DSi_CamModule(melonDS::DSi& dsi) : DSi(dsi)
 {
-    NDS::RegisterEventFunc(NDS::Event_DSi_CamIRQ, 0, MemberEventFunc(DSi_CamModule, IRQ));
-    NDS::RegisterEventFunc(NDS::Event_DSi_CamTransfer, 0, MemberEventFunc(DSi_CamModule, TransferScanline));
+    DSi.RegisterEventFunc(Event_DSi_CamIRQ, 0, MemberEventFunc(DSi_CamModule, IRQ));
+    DSi.RegisterEventFunc(Event_DSi_CamTransfer, 0, MemberEventFunc(DSi_CamModule, TransferScanline));
 
-    Camera0 = DSi::I2C->GetOuterCamera();
-    Camera1 = DSi::I2C->GetInnerCamera();
+    Camera0 = DSi.I2C.GetOuterCamera();
+    Camera1 = DSi.I2C.GetInnerCamera();
 }
 
 DSi_CamModule::~DSi_CamModule()
@@ -52,8 +52,8 @@ DSi_CamModule::~DSi_CamModule()
     Camera0 = nullptr;
     Camera1 = nullptr;
 
-    NDS::UnregisterEventFunc(NDS::Event_DSi_CamIRQ, 0);
-    NDS::UnregisterEventFunc(NDS::Event_DSi_CamTransfer, 0);
+    DSi.UnregisterEventFunc(Event_DSi_CamIRQ, 0);
+    DSi.UnregisterEventFunc(Event_DSi_CamTransfer, 0);
 }
 
 void DSi_CamModule::Reset()
@@ -70,7 +70,7 @@ void DSi_CamModule::Reset()
     BufferNumLines = 0;
     CurCamera = nullptr;
 
-    NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, false, kIRQInterval, 0, 0);
+    DSi.ScheduleEvent(Event_DSi_CamIRQ, false, kIRQInterval, 0, 0);
 }
 
 void DSi_CamModule::Stop()
@@ -106,7 +106,7 @@ void DSi_CamModule::IRQ(u32 param)
         activecam->StartTransfer();
 
         if (Cnt & (1<<11))
-            NDS::SetIRQ(0, NDS::IRQ_DSi_Camera);
+            DSi.SetIRQ(0, IRQ_DSi_Camera);
 
         if (Cnt & (1<<15))
         {
@@ -114,11 +114,11 @@ void DSi_CamModule::IRQ(u32 param)
             BufferWritePos = 0;
             BufferNumLines = 0;
             CurCamera = activecam;
-            NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, kTransferStart, 0, 0);
+            DSi.ScheduleEvent(Event_DSi_CamTransfer, false, kTransferStart, 0, 0);
         }
     }
 
-    NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, 0, 0);
+    DSi.ScheduleEvent(Event_DSi_CamIRQ, true, kIRQInterval, 0, 0);
 }
 
 void DSi_CamModule::TransferScanline(u32 line)
@@ -144,7 +144,7 @@ void DSi_CamModule::TransferScanline(u32 line)
         if (line < ystart || line > yend)
         {
             if (!CurCamera->TransferDone())
-                NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, 0, line+1);
+                DSi.ScheduleEvent(Event_DSi_CamTransfer, false, delay, 0, line+1);
 
             return;
         }
@@ -212,7 +212,7 @@ void DSi_CamModule::TransferScanline(u32 line)
         BufferReadPos = 0; // checkme
         BufferWritePos = 0;
         BufferNumLines = 0;
-        DSi::CheckNDMAs(0, 0x0B);
+        DSi.CheckNDMAs(0, 0x0B);
     }
     else
     {
@@ -224,7 +224,7 @@ void DSi_CamModule::TransferScanline(u32 line)
     if (CurCamera->TransferDone())
         return;
 
-    NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, 0, line+1);
+    DSi.ScheduleEvent(Event_DSi_CamTransfer, false, delay, 0, line+1);
 }
 
 
@@ -379,7 +379,7 @@ void DSi_CamModule::Write32(u32 addr, u32 val)
 
 
 
-DSi_Camera::DSi_Camera(DSi_I2CHost* host, u32 num) : DSi_I2CDevice(host), Num(num)
+DSi_Camera::DSi_Camera(melonDS::DSi& dsi, DSi_I2CHost* host, u32 num) : DSi_I2CDevice(dsi, host), Num(num)
 {
 }
 

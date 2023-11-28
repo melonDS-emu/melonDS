@@ -42,14 +42,13 @@ QString QStringBytes(u64 num)
 
 ROMInfoDialog* ROMInfoDialog::currentDlg = nullptr;
 
-ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMInfoDialog)
+ROMInfoDialog::ROMInfoDialog(QWidget* parent, const melonDS::NDSCart::CartCommon& rom) : QDialog(parent), ui(new Ui::ROMInfoDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    const NDSBanner* banner = NDS::NDSCartSlot->GetCart()->Banner();
-    const NDSHeader& header = NDS::NDSCartSlot->GetCart()->GetHeader();
-
+    const NDSBanner* banner = rom.Banner();
+    const NDSHeader& header = rom.GetHeader();
     u32 iconData[32 * 32];
     ROMManager::ROMIcon(banner->Icon, banner->Palette, iconData);
     iconImage = QImage(reinterpret_cast<u8*>(iconData), 32, 32, QImage::Format_RGBA8888).copy();

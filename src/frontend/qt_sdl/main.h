@@ -40,6 +40,11 @@
 #include "FrontendUtil.h"
 #include "duckstation/gl/context.h"
 
+namespace melonDS
+{
+class NDS;
+}
+
 class EmuThread : public QThread
 {
     Q_OBJECT
@@ -67,7 +72,8 @@ public:
     QMutex FrontBufferLock;
 
     void updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix);
-
+    void RecreateConsole();
+    std::unique_ptr<melonDS::NDS> NDS; // TODO: Proper encapsulation and synchronization
 signals:
     void windowUpdate();
     void windowTitleChange(QString title);
@@ -90,6 +96,7 @@ signals:
     void syncVolumeLevel();
 
 private:
+    std::unique_ptr<melonDS::NDS> CreateConsole();
     void drawScreenGL();
     void initOpenGL();
     void deinitOpenGL();

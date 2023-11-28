@@ -48,7 +48,7 @@ public:
         u8 AlarmDate2[3];
     };
 
-    RTC();
+    RTC(melonDS::NDS& nds);
     ~RTC();
 
     void Reset();
@@ -66,9 +66,7 @@ public:
     void Write(u16 val, bool byte);
 
 private:
-    /// This value represents the Nintendo DS IO register,
-    /// \em not the value of the system's clock.
-    /// The actual system time is taken directly from the host.
+    melonDS::NDS& NDS;
     u16 IO;
 
     u8 Input;

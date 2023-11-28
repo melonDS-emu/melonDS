@@ -30,6 +30,10 @@
 #include "FATStorage.h"
 #include "ROMList.h"
 
+namespace melonDS
+{
+class NDS;
+}
 namespace melonDS::NDSCart
 {
 
@@ -56,14 +60,14 @@ public:
     [[nodiscard]] u32 Checksum() const;
 
     virtual void Reset();
-    virtual void SetupDirectBoot(const std::string& romname);
+    virtual void SetupDirectBoot(const std::string& romname, NDS& nds);
 
     virtual void DoSavestate(Savestate* file);
 
     virtual void SetupSave(u32 type);
     virtual void LoadSave(const u8* savedata, u32 savelen);
 
-    virtual int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len);
+    virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len);
     virtual void ROMCommandFinish(u8* cmd, u8* data, u32 len);
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last);
@@ -82,8 +86,6 @@ public:
     [[nodiscard]] u32 GetROMLength() const { return ROMLength; }
 protected:
     void ReadROM(u32 addr, u32 len, u8* data, u32 offset);
-
-    void SetIRQ();
 
     u8* ROM;
     u32 ROMLength;
@@ -116,7 +118,7 @@ public:
     virtual void SetupSave(u32 type) override;
     virtual void LoadSave(const u8* savedata, u32 savelen) override;
 
-    virtual int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
+    virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
@@ -155,7 +157,7 @@ public:
 
     void LoadSave(const u8* savedata, u32 savelen) override;
 
-    int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
+    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
 
     u8 SPIWrite(u8 val, u32 pos, bool last) override;
@@ -216,11 +218,11 @@ public:
     virtual u32 Type() const override { return CartType::Homebrew; }
 
     void Reset() override;
-    void SetupDirectBoot(const std::string& romname) override;
+    void SetupDirectBoot(const std::string& romname, NDS& nds) override;
 
     void DoSavestate(Savestate* file) override;
 
-    int ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
+    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
 
 private:
@@ -235,7 +237,7 @@ private:
 class NDSCartSlot
 {
 public:
-    NDSCartSlot() noexcept;
+    NDSCartSlot(melonDS::NDS& nds) noexcept;
     ~NDSCartSlot() noexcept;
     void Reset() noexcept;
     void ResetCart() noexcept;
@@ -303,6 +305,7 @@ public:
     void SetSPICnt(u16 val) noexcept { SPICnt = val; }
 private:
     friend class CartCommon;
+    melonDS::NDS& NDS;
     u16 SPICnt {};
     u32 ROMCnt {};
     std::array<u8, 8> ROMCommand {};

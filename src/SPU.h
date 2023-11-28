@@ -24,12 +24,13 @@
 
 namespace melonDS
 {
+class NDS;
 class SPU;
 
 class SPUChannel
 {
 public:
-    SPUChannel(u32 num);
+    SPUChannel(u32 num, melonDS::NDS& nds);
     ~SPUChannel();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -142,13 +143,13 @@ public:
     void PanOutput(s32 in, s32& left, s32& right);
 
 private:
-    u32 (*BusRead32)(u32 addr);
+    melonDS::NDS& NDS;
 };
 
 class SPUCaptureUnit
 {
 public:
-    SPUCaptureUnit(u32 num);
+    SPUCaptureUnit(u32 num, melonDS::NDS&);
     ~SPUCaptureUnit();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -199,13 +200,13 @@ public:
     void Run(s32 sample);
 
 private:
-    void (*BusWrite32)(u32 addr, u32 val);
+    melonDS::NDS& NDS;
 };
 
 class SPU
 {
 public:
-    SPU();
+    SPU(melonDS::NDS& nds);
     ~SPU();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -240,6 +241,7 @@ public:
 
 private:
     static const u32 OutputBufferSize = 2*2048;
+    melonDS::NDS& NDS;
     s16 OutputBackbuffer[2 * OutputBufferSize];
     u32 OutputBackbufferWritePosition;
 

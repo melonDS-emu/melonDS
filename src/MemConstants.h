@@ -16,34 +16,20 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef AUDIO_INOUT_H
-#define AUDIO_INOUT_H
+#ifndef MELONDS_MEMCONSTANTS_H
+#define MELONDS_MEMCONSTANTS_H
 
 #include "types.h"
 
-#include <QMainWindow>
-
-class EmuThread;
 namespace melonDS
 {
-class NDS;
-}
-namespace AudioInOut
-{
-
-void Init(EmuThread* thread);
-void DeInit();
-
-void MicProcess(melonDS::NDS& nds);
-void AudioMute(QMainWindow* mainWindow);
-
-void AudioSync(melonDS::NDS& nds);
-
-void UpdateSettings(melonDS::NDS& nds);
-
-void Enable();
-void Disable();
-
+constexpr u32 MainRAMMaxSize = 0x1000000;
+constexpr u32 SharedWRAMSize = 0x8000;
+constexpr u32 ARM7WRAMSize = 0x10000;
+constexpr u32 NWRAMSize = 0x40000;
+constexpr u32 ARM9BIOSSize = 0x1000;
+constexpr u32 ARM7BIOSSize = 0x4000;
+constexpr u32 DSiBIOSSize = 0x10000;
 }
 
-#endif
+#endif // MELONDS_MEMCONSTANTS_H

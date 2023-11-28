@@ -23,7 +23,7 @@
 #include "TinyVector.h"
 
 #include "ARM.h"
-#include "DSi.h"
+#include "MemConstants.h"
 
 #if defined(__SWITCH__)
 #include <switch.h>
@@ -44,6 +44,7 @@
 
 namespace melonDS
 {
+namespace Platform { struct DynamicLibrary; }
 class Compiler;
 class ARMJIT;
 
@@ -57,13 +58,13 @@ constexpr u32 RoundUp(u32 size) noexcept
 }
 
 const u32 MemBlockMainRAMOffset = 0;
-const u32 MemBlockSWRAMOffset = RoundUp(NDS::MainRAMMaxSize);
-const u32 MemBlockARM7WRAMOffset = MemBlockSWRAMOffset + RoundUp(NDS::SharedWRAMSize);
-const u32 MemBlockDTCMOffset = MemBlockARM7WRAMOffset + RoundUp(NDS::ARM7WRAMSize);
+const u32 MemBlockSWRAMOffset = RoundUp(MainRAMMaxSize);
+const u32 MemBlockARM7WRAMOffset = MemBlockSWRAMOffset + RoundUp(SharedWRAMSize);
+const u32 MemBlockDTCMOffset = MemBlockARM7WRAMOffset + RoundUp(ARM7WRAMSize);
 const u32 MemBlockNWRAM_AOffset = MemBlockDTCMOffset + RoundUp(DTCMPhysicalSize);
-const u32 MemBlockNWRAM_BOffset = MemBlockNWRAM_AOffset + RoundUp(DSi::NWRAMSize);
-const u32 MemBlockNWRAM_COffset = MemBlockNWRAM_BOffset + RoundUp(DSi::NWRAMSize);
-const u32 MemoryTotalSize = MemBlockNWRAM_COffset + RoundUp(DSi::NWRAMSize);
+const u32 MemBlockNWRAM_BOffset = MemBlockNWRAM_AOffset + RoundUp(NWRAMSize);
+const u32 MemBlockNWRAM_COffset = MemBlockNWRAM_BOffset + RoundUp(NWRAMSize);
+const u32 MemoryTotalSize = MemBlockNWRAM_COffset + RoundUp(NWRAMSize);
 
 class ARMJIT_Memory
 {
@@ -96,7 +97,7 @@ public:
 
 #ifdef JIT_ENABLED
 public:
-    explicit ARMJIT_Memory(ARMJIT& jit) noexcept;
+    explicit ARMJIT_Memory(melonDS::NDS& nds);
     ~ARMJIT_Memory() noexcept;
     ARMJIT_Memory(const ARMJIT_Memory&) = delete;
     ARMJIT_Memory(ARMJIT_Memory&&) = delete;
@@ -144,7 +145,7 @@ private:
         u32 Size, LocalOffset;
         u32 Num;
 
-        void Unmap(int region, ARMJIT_Memory& memory) noexcept;
+        void Unmap(int region, NDS& nds) noexcept;
     };
 
     struct FaultDescription
@@ -152,12 +153,12 @@ private:
         u32 EmulatedFaultAddr;
         u8* FaultPC;
     };
-    static bool FaultHandler(FaultDescription& faultDesc, ARMJIT& jit);
+    static bool FaultHandler(FaultDescription& faultDesc, melonDS::NDS& nds);
     bool MapIntoRange(u32 addr, u32 num, u32 offset, u32 size) noexcept;
     bool UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size) noexcept;
     void SetCodeProtectionRange(u32 addr, u32 size, u32 num, int protection) noexcept;
 
-    ARMJIT& JIT;
+    melonDS::NDS& NDS;
     void* FastMem9Start;
     void* FastMem7Start;
     u8* MemoryBase = nullptr;
@@ -180,7 +181,7 @@ private:
     TinyVector<Mapping> Mappings[memregions_Count] {};
 #else
 public:
-    explicit ARMJIT_Memory(ARMJIT&) {};
+    explicit ARMJIT_Memory(melonDS::NDS&) {};
     ~ARMJIT_Memory() = default;
     ARMJIT_Memory(const ARMJIT_Memory&) = delete;
     ARMJIT_Memory(ARMJIT_Memory&&) = delete;
@@ -214,13 +215,13 @@ public:
     [[nodiscard]] u8* GetNWRAM_C() noexcept { return NWRAM_C.data(); }
     [[nodiscard]] const u8* GetNWRAM_C() const noexcept { return NWRAM_C.data(); }
 private:
-    std::array<u8, NDS::MainRAMMaxSize> MainRAM {};
-    std::array<u8, NDS::ARM7WRAMSize> ARM7WRAM {};
-    std::array<u8, NDS::SharedWRAMSize> SharedWRAM {};
+    std::array<u8, MainRAMMaxSize> MainRAM {};
+    std::array<u8, ARM7WRAMSize> ARM7WRAM {};
+    std::array<u8, SharedWRAMSize> SharedWRAM {};
     std::array<u8, DTCMPhysicalSize> DTCM {};
-    std::array<u8, DSi::NWRAMSize> NWRAM_A {};
-    std::array<u8, DSi::NWRAMSize> NWRAM_B {};
-    std::array<u8, DSi::NWRAMSize> NWRAM_C {};
+    std::array<u8, NWRAMSize> NWRAM_A {};
+    std::array<u8, NWRAMSize> NWRAM_B {};
+    std::array<u8, NWRAMSize> NWRAM_C {};
 #endif
 };
 }

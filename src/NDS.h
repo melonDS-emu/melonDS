@@ -29,23 +29,20 @@
 #include "types.h"
 #include "NDSCart.h"
 #include "GBACart.h"
+#include "SPU.h"
+#include "SPI.h"
+#include "RTC.h"
+#include "Wifi.h"
+#include "AREngine.h"
+#include "GPU.h"
+#include "ARMJIT.h"
+#include "DMA.h"
 
 // when touching the main loop/timing code, pls test a lot of shit
 // with this enabled, to make sure it doesn't desync
 //#define DEBUG_CHECK_DESYNC
 
 namespace melonDS
-{
-class SPU;
-class SPIHost;
-class RTC;
-class Wifi;
-
-class AREngine;
-class GPU;
-class ARMJIT;
-
-namespace NDS
 {
 
 enum
@@ -75,7 +72,13 @@ enum
 
 typedef std::function<void(u32)> EventFunc;
 #define MemberEventFunc(cls,func) std::bind(&cls::func,this,std::placeholders::_1)
-
+struct SchedEvent
+{
+    std::map<u32, EventFunc> Funcs;
+    u64 Timestamp;
+    u32 FuncID;
+    u32 Param;
+};
 enum
 {
     IRQ_VBlank = 0,
@@ -197,196 +200,274 @@ enum
     // TODO: add DSi regions!
 };
 
-struct MemRegion
-{
-    u8* Mem;
-    u32 Mask;
-};
-
 // supported GBA slot addon types
 enum
 {
     GBAAddon_RAMExpansion = 1,
 };
 
+class SPU;
+class SPIHost;
+class RTC;
+class Wifi;
+
+class AREngine;
+class GPU;
+class ARMJIT;
+
+class NDS
+{
+public:
+
 #ifdef JIT_ENABLED
-extern bool EnableJIT;
+    bool EnableJIT;
 #endif
-extern int ConsoleType;
-extern int CurCPU;
+    int ConsoleType;
+    int CurCPU;
 
-extern u8 ARM9MemTimings[0x40000][8];
-extern u32 ARM9Regions[0x40000];
-extern u8 ARM7MemTimings[0x20000][4];
-extern u32 ARM7Regions[0x20000];
+    SchedEvent SchedList[Event_MAX] {};
+    u8 ARM9MemTimings[0x40000][8];
+    u32 ARM9Regions[0x40000];
+    u8 ARM7MemTimings[0x20000][4];
+    u32 ARM7Regions[0x20000];
 
-extern u32 NumFrames;
-extern u32 NumLagFrames;
-extern bool LagFrameFlag;
+    u32 NumFrames;
+    u32 NumLagFrames;
+    bool LagFrameFlag;
 
-extern u64 ARM9Timestamp, ARM9Target;
-extern u64 ARM7Timestamp, ARM7Target;
-extern u32 ARM9ClockShift;
+    // no need to worry about those overflowing, they can keep going for atleast 4350 years
+    u64 ARM9Timestamp, ARM9Target;
+    u64 ARM7Timestamp, ARM7Target;
+    u32 ARM9ClockShift;
 
-extern u32 IME[2];
-extern u32 IE[2];
-extern u32 IF[2];
-extern u32 IE2;
-extern u32 IF2;
-extern Timer Timers[8];
+    u32 IME[2];
+    u32 IE[2];
+    u32 IF[2];
+    u32 IE2;
+    u32 IF2;
+    Timer Timers[8];
 
-extern u32 CPUStop;
+    u32 CPUStop;
 
-extern u16 PowerControl9;
+    u16 PowerControl9;
 
-extern u16 ExMemCnt[2];
-extern u8 ROMSeed0[2*8];
-extern u8 ROMSeed1[2*8];
+    u16 ExMemCnt[2];
+    u8 ROMSeed0[2*8];
+    u8 ROMSeed1[2*8];
 
-extern u8 ARM9BIOS[0x1000];
-extern u8 ARM7BIOS[0x4000];
-extern u16 ARM7BIOSProt;
+    u8 ARM9BIOS[0x1000];
+    u8 ARM7BIOS[0x4000];
+    u16 ARM7BIOSProt;
 
-extern u8* MainRAM;
-extern u32 MainRAMMask;
+    u8* MainRAM;
+    u32 MainRAMMask;
 
-const u32 MainRAMMaxSize = 0x1000000;
+    const u32 MainRAMMaxSize = 0x1000000;
 
-const u32 SharedWRAMSize = 0x8000;
-extern u8* SharedWRAM;
+    const u32 SharedWRAMSize = 0x8000;
+    u8* SharedWRAM;
 
-extern MemRegion SWRAM_ARM9;
-extern MemRegion SWRAM_ARM7;
+    MemRegion SWRAM_ARM9;
+    MemRegion SWRAM_ARM7;
 
-extern u32 KeyInput;
-extern u16 RCnt;
+    u32 KeyInput;
+    u16 RCnt;
 
-extern class SPU* SPU;
-extern class SPIHost* SPI;
-extern class RTC* RTC;
-extern class Wifi* Wifi;
-extern std::unique_ptr<NDSCart::NDSCartSlot> NDSCartSlot;
-extern std::unique_ptr<GBACart::GBACartSlot> GBACartSlot;
-extern std::unique_ptr<GPU> GPU;
-extern std::unique_ptr<ARMJIT> JIT;
-extern class AREngine* AREngine;
+    // JIT MUST be declared before all other component objects,
+    // as they'll need the memory that it allocates in its constructor!
+    // (Reminder: C++ fields are initialized in the order they're declared,
+    // regardless of what the constructor's initializer list says.)
+    melonDS::ARMJIT JIT;
+    ARMv5 ARM9;
+    ARMv4 ARM7;
+    melonDS::SPU SPU;
+    SPIHost SPI;
+    melonDS::RTC RTC;
+    melonDS::Wifi Wifi;
+    NDSCart::NDSCartSlot NDSCartSlot;
+    GBACart::GBACartSlot GBACartSlot;
+    melonDS::GPU GPU;
+    melonDS::AREngine AREngine;
 
-const u32 ARM7WRAMSize = 0x10000;
-extern u8* ARM7WRAM;
+    const u32 ARM7WRAMSize = 0x10000;
+    u8* ARM7WRAM;
 
-bool Init();
-void DeInit();
-void Reset();
-void Start();
+    virtual void Reset();
+    void Start();
 
-/// Stop the emulator.
-void Stop(Platform::StopReason reason = Platform::StopReason::External);
+    /// Stop the emulator.
+    virtual void Stop(Platform::StopReason reason = Platform::StopReason::External);
 
-bool DoSavestate(Savestate* file);
+    bool DoSavestate(Savestate* file);
 
-void SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
-void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
+    void SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
+    void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
 
-// 0=DS  1=DSi
-void SetConsoleType(int type);
+    // 0=DS  1=DSi
+    void SetConsoleType(int type);
 
-void LoadBIOS();
-bool IsLoadedARM9BIOSBuiltIn();
-bool IsLoadedARM7BIOSBuiltIn();
+    void LoadBIOS();
+    bool IsLoadedARM9BIOSBuiltIn();
+    bool IsLoadedARM7BIOSBuiltIn();
 
-bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
-void LoadSave(const u8* savedata, u32 savelen);
-void EjectCart();
-bool CartInserted();
+    virtual bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
+    void LoadSave(const u8* savedata, u32 savelen);
+    virtual void EjectCart();
+    bool CartInserted();
 
-bool NeedsDirectBoot();
-void SetupDirectBoot(const std::string& romname);
+    virtual bool NeedsDirectBoot();
+    void SetupDirectBoot(const std::string& romname);
+    virtual void SetupDirectBoot();
 
-bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
-void LoadGBAAddon(int type);
-void EjectGBACart();
+    bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
+    void LoadGBAAddon(int type);
+    void EjectGBACart();
 
-u32 RunFrame();
+    u32 RunFrame();
 
-void TouchScreen(u16 x, u16 y);
-void ReleaseScreen();
+    bool IsRunning() const noexcept { return Running; }
 
-void SetKeyMask(u32 mask);
+    void TouchScreen(u16 x, u16 y);
+    void ReleaseScreen();
 
-bool IsLidClosed();
-void SetLidClosed(bool closed);
+    void SetKeyMask(u32 mask);
 
-void CamInputFrame(int cam, u32* data, int width, int height, bool rgb);
-void MicInputFrame(s16* data, int samples);
+    bool IsLidClosed();
+    void SetLidClosed(bool closed);
 
-void RegisterEventFunc(u32 id, u32 funcid, EventFunc func);
-void UnregisterEventFunc(u32 id, u32 funcid);
-void ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param);
-void CancelEvent(u32 id);
+    virtual void CamInputFrame(int cam, u32* data, int width, int height, bool rgb) {}
+    void MicInputFrame(s16* data, int samples);
 
-void debug(u32 p);
+    void RegisterEventFunc(u32 id, u32 funcid, EventFunc func);
+    void UnregisterEventFunc(u32 id, u32 funcid);
+    void ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param);
+    void CancelEvent(u32 id);
 
-void Halt();
+    void debug(u32 p);
 
-void MapSharedWRAM(u8 val);
+    void Halt();
 
-void UpdateIRQ(u32 cpu);
-void SetIRQ(u32 cpu, u32 irq);
-void ClearIRQ(u32 cpu, u32 irq);
-void SetIRQ2(u32 irq);
-void ClearIRQ2(u32 irq);
-bool HaltInterrupted(u32 cpu);
-void StopCPU(u32 cpu, u32 mask);
-void ResumeCPU(u32 cpu, u32 mask);
-void GXFIFOStall();
-void GXFIFOUnstall();
+    void MapSharedWRAM(u8 val);
 
-u32 GetPC(u32 cpu);
-u64 GetSysClockCycles(int num);
-void NocashPrint(u32 cpu, u32 addr);
+    void UpdateIRQ(u32 cpu);
+    void SetIRQ(u32 cpu, u32 irq);
+    void ClearIRQ(u32 cpu, u32 irq);
+    void SetIRQ2(u32 irq);
+    void ClearIRQ2(u32 irq);
+    bool HaltInterrupted(u32 cpu);
+    void StopCPU(u32 cpu, u32 mask);
+    void ResumeCPU(u32 cpu, u32 mask);
+    void GXFIFOStall();
+    void GXFIFOUnstall();
 
-void MonitorARM9Jump(u32 addr);
+    u32 GetPC(u32 cpu);
+    u64 GetSysClockCycles(int num);
+    void NocashPrint(u32 cpu, u32 addr);
 
-bool DMAsInMode(u32 cpu, u32 mode);
-bool DMAsRunning(u32 cpu);
-void CheckDMAs(u32 cpu, u32 mode);
-void StopDMAs(u32 cpu, u32 mode);
+    void MonitorARM9Jump(u32 addr);
 
-void RunTimers(u32 cpu);
+    virtual bool DMAsInMode(u32 cpu, u32 mode);
+    virtual bool DMAsRunning(u32 cpu);
+    virtual void CheckDMAs(u32 cpu, u32 mode);
+    virtual void StopDMAs(u32 cpu, u32 mode);
 
-u8 ARM9Read8(u32 addr);
-u16 ARM9Read16(u32 addr);
-u32 ARM9Read32(u32 addr);
-void ARM9Write8(u32 addr, u8 val);
-void ARM9Write16(u32 addr, u16 val);
-void ARM9Write32(u32 addr, u32 val);
+    void RunTimers(u32 cpu);
 
-bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region);
+    virtual u8 ARM9Read8(u32 addr);
+    virtual u16 ARM9Read16(u32 addr);
+    virtual u32 ARM9Read32(u32 addr);
+    virtual void ARM9Write8(u32 addr, u8 val);
+    virtual void ARM9Write16(u32 addr, u16 val);
+    virtual void ARM9Write32(u32 addr, u32 val);
 
-u8 ARM7Read8(u32 addr);
-u16 ARM7Read16(u32 addr);
-u32 ARM7Read32(u32 addr);
-void ARM7Write8(u32 addr, u8 val);
-void ARM7Write16(u32 addr, u16 val);
-void ARM7Write32(u32 addr, u32 val);
+    virtual bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region);
 
-bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region);
+    virtual u8 ARM7Read8(u32 addr);
+    virtual u16 ARM7Read16(u32 addr);
+    virtual u32 ARM7Read32(u32 addr);
+    virtual void ARM7Write8(u32 addr, u8 val);
+    virtual void ARM7Write16(u32 addr, u16 val);
+    virtual void ARM7Write32(u32 addr, u32 val);
 
-u8 ARM9IORead8(u32 addr);
-u16 ARM9IORead16(u32 addr);
-u32 ARM9IORead32(u32 addr);
-void ARM9IOWrite8(u32 addr, u8 val);
-void ARM9IOWrite16(u32 addr, u16 val);
-void ARM9IOWrite32(u32 addr, u32 val);
+    virtual bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region);
 
-u8 ARM7IORead8(u32 addr);
-u16 ARM7IORead16(u32 addr);
-u32 ARM7IORead32(u32 addr);
-void ARM7IOWrite8(u32 addr, u8 val);
-void ARM7IOWrite16(u32 addr, u16 val);
-void ARM7IOWrite32(u32 addr, u32 val);
+    virtual u8 ARM9IORead8(u32 addr);
+    virtual u16 ARM9IORead16(u32 addr);
+    virtual u32 ARM9IORead32(u32 addr);
+    virtual void ARM9IOWrite8(u32 addr, u8 val);
+    virtual void ARM9IOWrite16(u32 addr, u16 val);
+    virtual void ARM9IOWrite32(u32 addr, u32 val);
 
-}
+    virtual u8 ARM7IORead8(u32 addr);
+    virtual u16 ARM7IORead16(u32 addr);
+    virtual u32 ARM7IORead32(u32 addr);
+    virtual void ARM7IOWrite8(u32 addr, u8 val);
+    virtual void ARM7IOWrite16(u32 addr, u16 val);
+    virtual void ARM7IOWrite32(u32 addr, u32 val);
+
+private:
+    void InitTimings();
+    u32 SchedListMask;
+    u64 SysTimestamp;
+    u8 WRAMCnt;
+    u8 PostFlag9;
+    u8 PostFlag7;
+    u16 PowerControl7;
+    u16 WifiWaitCnt;
+    u8 TimerCheckMask[2];
+    u64 TimerTimestamp[2];
+    DMA DMAs[8];
+    u32 DMA9Fill[4];
+    u16 IPCSync9, IPCSync7;
+    u16 IPCFIFOCnt9, IPCFIFOCnt7;
+    FIFO<u32, 16> IPCFIFO9; // FIFO in which the ARM9 writes
+    FIFO<u32, 16> IPCFIFO7;
+    u16 DivCnt;
+    u32 DivNumerator[2];
+    u32 DivDenominator[2];
+    u32 DivQuotient[2];
+    u32 DivRemainder[2];
+    u16 SqrtCnt;
+    u32 SqrtVal[2];
+    u32 SqrtRes;
+    u16 KeyCnt[2];
+    bool Running;
+    bool RunningGame;
+    u64 LastSysClockCycles;
+    u64 FrameStartTimestamp;
+    u64 NextTarget();
+    u64 NextTargetSleep();
+    void CheckKeyIRQ(u32 cpu, u32 oldkey, u32 newkey);
+    void Reschedule(u64 target);
+    void RunSystemSleep(u64 timestamp);
+    void RunSystem(u64 timestamp);
+    void HandleTimerOverflow(u32 tid);
+    u16 TimerGetCounter(u32 timer);
+    void TimerStart(u32 id, u16 cnt);
+    void StartDiv();
+    void DivDone(u32 param);
+    void SqrtDone(u32 param);
+    void StartSqrt();
+    void RunTimer(u32 tid, s32 cycles);
+    void UpdateWifiTimings();
+    void SetWifiWaitCnt(u16 val);
+    void SetGBASlotTimings();
+    void EnterSleepMode();
+    template <bool EnableJIT>
+    u32 RunFrame();
+public:
+    NDS() noexcept : NDS(0) {}
+    virtual ~NDS() noexcept;
+    NDS(const NDS&) = delete;
+    NDS& operator=(const NDS&) = delete;
+    NDS(NDS&&) = delete;
+    NDS& operator=(NDS&&) = delete;
+    // The frontend should set and unset this manually after creating and destroying the NDS object.
+    [[deprecated("Temporary workaround until JIT code generation is revised to accommodate multiple NDS objects.")]] static NDS* Current;
+protected:
+    explicit NDS(int type) noexcept;
+    virtual void DoSavestateExtra(Savestate* file) {}
+};
 
 }
 #endif // NDS_H

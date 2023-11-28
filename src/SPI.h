@@ -42,11 +42,11 @@ enum
 u16 CRC16(const u8* data, u32 len, u32 start);
 
 class SPIHost;
-
+class NDS;
 class SPIDevice
 {
 public:
-    SPIDevice(SPIHost* host) : Host(host), Hold(false), DataPos(0) {}
+    SPIDevice(melonDS::NDS& nds) : NDS(nds), Hold(false), DataPos(0) {}
     virtual ~SPIDevice() {}
     virtual void Reset() = 0;
     virtual void DoSavestate(Savestate* file) = 0;
@@ -56,7 +56,7 @@ public:
     virtual void Release() { Hold = false; DataPos = 0; }
 
 protected:
-    SPIHost* Host;
+    melonDS::NDS& NDS;
 
     bool Hold;
     u32 DataPos;
@@ -66,12 +66,12 @@ protected:
 class FirmwareMem : public SPIDevice
 {
 public:
-    FirmwareMem(SPIHost* host);
+    FirmwareMem(melonDS::NDS& nds);
     ~FirmwareMem() override;
     void Reset() override;
     void DoSavestate(Savestate* file) override;
 
-    void SetupDirectBoot(bool dsi);
+    void SetupDirectBoot();
 
     const class Firmware* GetFirmware();
     bool IsLoadedFirmwareBuiltIn();
@@ -96,7 +96,7 @@ private:
 class PowerMan : public SPIDevice
 {
 public:
-    PowerMan(SPIHost* host);
+    PowerMan(melonDS::NDS& nds);
     ~PowerMan() override;
     void Reset() override;
     void DoSavestate(Savestate* file) override;
@@ -116,7 +116,7 @@ private:
 class TSC : public SPIDevice
 {
 public:
-    TSC(SPIHost* host);
+    TSC(melonDS::NDS& nds);
     virtual ~TSC() override;
     virtual void Reset() override;
     virtual void DoSavestate(Savestate* file) override;
@@ -141,7 +141,7 @@ protected:
 class SPIHost
 {
 public:
-    SPIHost();
+    SPIHost(melonDS::NDS& nds);
     ~SPIHost();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -161,6 +161,7 @@ public:
     void TransferDone(u32 param);
 
 private:
+    melonDS::NDS& NDS;
     u16 Cnt;
 
     SPIDevice* Devices[3];

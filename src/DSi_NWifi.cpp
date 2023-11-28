@@ -119,21 +119,22 @@ const u8 CIS1[256] =
 };
 
 
-DSi_NWifi::DSi_NWifi(DSi_SDHost* host)
-    : DSi_SDDevice(host),
-        Mailbox
-        {
-            // HACK
-            // the mailboxes are supposed to be 0x80 bytes
-            // however, as we do things instantly, emulating this is meaningless
-            // and only adds complication
-            DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600),
-            DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600),
-            // mailbox 8: extra mailbox acting as a bigger RX buffer
-            DynamicFIFO<u8>(0x8000)
-        }
+DSi_NWifi::DSi_NWifi(melonDS::DSi& dsi, DSi_SDHost* host) :
+    DSi_SDDevice(host),
+    Mailbox
+    {
+        // HACK
+        // the mailboxes are supposed to be 0x80 bytes
+        // however, as we do things instantly, emulating this is meaningless
+        // and only adds complication
+        DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600),
+        DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600),
+        // mailbox 8: extra mailbox acting as a bigger RX buffer
+        DynamicFIFO<u8>(0x8000)
+    },
+    DSi(dsi)
 {
-    NDS::RegisterEventFunc(NDS::Event_DSi_NWifi, 0, MemberEventFunc(DSi_NWifi, MSTimer));
+    DSi.RegisterEventFunc(Event_DSi_NWifi, 0, MemberEventFunc(DSi_NWifi, MSTimer));
 
     // this seems to control whether the firmware upload is done
     EEPROMReady = 0;
@@ -141,9 +142,9 @@ DSi_NWifi::DSi_NWifi(DSi_SDHost* host)
 
 DSi_NWifi::~DSi_NWifi()
 {
-    NDS::CancelEvent(NDS::Event_DSi_NWifi);
+    DSi.CancelEvent(Event_DSi_NWifi);
 
-    NDS::UnregisterEventFunc(NDS::Event_DSi_NWifi, 0);
+    DSi.UnregisterEventFunc(Event_DSi_NWifi, 0);
 }
 
 void DSi_NWifi::Reset()
@@ -164,7 +165,7 @@ void DSi_NWifi::Reset()
     for (int i = 0; i < 9; i++)
         Mailbox[i].Clear();
 
-    const Firmware* fw = NDS::SPI->GetFirmware();
+    const Firmware* fw = DSi.SPI.GetFirmware();
 
     MacAddress mac = fw->GetHeader().MacAddr;
     Log(LogLevel::Info, "NWifi MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
@@ -226,7 +227,7 @@ void DSi_NWifi::Reset()
     BeaconTimer = 0x10A2220ULL;
     ConnectionStatus = 0;
 
-    NDS::CancelEvent(NDS::Event_DSi_NWifi);
+    DSi.CancelEvent(Event_DSi_NWifi);
 }
 
 void DSi_NWifi::DoSavestate(Savestate* file)
@@ -909,7 +910,7 @@ void DSi_NWifi::HTC_Command()
             SendWMIEvent(1, 0x1006, regdomain_evt, 4);
 
             BootPhase = 2;
-            NDS::ScheduleEvent(NDS::Event_DSi_NWifi, false, 33611, 0, 0);
+            DSi.ScheduleEvent(Event_DSi_NWifi, false, 33611, 0, 0);
         }
         break;
 
@@ -1608,7 +1609,7 @@ void DSi_NWifi::MSTimer(u32 param)
             CheckRX();
     }
 
-    NDS::ScheduleEvent(NDS::Event_DSi_NWifi, true, 33611, 0, 0);
+    DSi.ScheduleEvent(Event_DSi_NWifi, true, 33611, 0, 0);
 }
 
 }

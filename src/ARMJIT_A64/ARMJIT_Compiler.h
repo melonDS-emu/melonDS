@@ -96,7 +96,11 @@ class Compiler : public Arm64Gen::ARM64XEmitter
 public:
     typedef void (Compiler::*CompileFunc)();
 
-    Compiler(ARMJIT& jit);
+#ifdef JIT_ENABLED
+    explicit Compiler(melonDS::NDS& nds);
+#else
+    explicit Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds) {}
+#endif
     ~Compiler();
 
     void PushRegs(bool saveHiRegs, bool saveRegsToBeChanged, bool allowUnload = true);
@@ -242,7 +246,7 @@ public:
         OtherCodeRegion = offset;
     }
 
-    ARMJIT& JIT;
+    melonDS::NDS& NDS;
     ptrdiff_t OtherCodeRegion;
 
     bool Exit;

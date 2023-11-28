@@ -35,6 +35,7 @@ namespace melonDS
 {
 class ARMJIT;
 class ARMJIT_Memory;
+class NDS;
 const Gen::X64Reg RCPU = Gen::RBP;
 const Gen::X64Reg RCPSR = Gen::R15;
 
@@ -81,9 +82,9 @@ class Compiler : public Gen::XEmitter
 {
 public:
 #ifdef JIT_ENABLED
-    explicit Compiler(ARMJIT& jit);
+    explicit Compiler(melonDS::NDS& nds);
 #else
-    explicit Compiler(ARMJIT& jit) : XEmitter(), JIT(jit) {}
+    explicit Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds) {}
 #endif
 
     void Reset();
@@ -243,7 +244,7 @@ public:
     void CreateMethod(const char* namefmt, void* start, ...);
 #endif
 
-    ARMJIT& JIT;
+    melonDS::NDS& NDS;
     u8* FarCode {};
     u8* NearCode {};
     u32 FarSize {};
