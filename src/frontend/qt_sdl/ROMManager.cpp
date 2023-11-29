@@ -934,7 +934,7 @@ bool LoadBIOS(EmuThread* thread)
     return true;
 }
 
-u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
+u32 DecompressROM(const u8* inContent, const u32 inSize, unique_ptr<u8[]>& outContent)
 {
     u64 realSize = ZSTD_getFrameContentSize(inContent, inSize);
     const u32 maxSize = 0x40000000;
@@ -946,16 +946,15 @@ u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
 
     if (realSize != ZSTD_CONTENTSIZE_UNKNOWN)
     {
-        u8* realContent = new u8[realSize];
-        u64 decompressed = ZSTD_decompress(realContent, realSize, inContent, inSize);
+        outContent = make_unique<u8[]>(realSize);
+        u64 decompressed = ZSTD_decompress(outContent.get(), realSize, inContent, inSize);
 
         if (ZSTD_isError(decompressed))
         {
-            delete[] realContent;
+            outContent = nullptr;
             return 0;
         }
 
-        *outContent = realContent;
         return realSize;
     }
     else
@@ -1011,8 +1010,8 @@ u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
         } while (inBuf.pos < inBuf.size);
 
         ZSTD_freeDStream(dStream);
-        *outContent = new u8[outBuf.pos];
-        memcpy(*outContent, outBuf.dst, outBuf.pos);
+        outContent = make_unique<u8[]>(outBuf.pos);
+        memcpy(outContent.get(), outBuf.dst, outBuf.pos);
 
         ZSTD_freeDStream(dStream);
         free(outBuf.dst);
@@ -1346,18 +1345,12 @@ bool InstallFirmware(NDS& nds)
     return true;
 }
 
-bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
+// Loads ROM data without parsing it. Works for GBA and NDS ROMs.
+bool LoadROMData(const QStringList& filepath, std::unique_ptr<u8[]>& filedata, u32& filelen, string& basepath, string& romname) noexcept
 {
     if (filepath.empty()) return false;
 
-    u8* filedata = nullptr;
-    u32 filelen;
-
-    std::string basepath;
-    std::string romname;
-
-    int num = filepath.count();
-    if (num == 1)
+    if (int num = filepath.count(); num == 1)
     {
         // regular file
 
@@ -1369,38 +1362,35 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
         if (len > 0x40000000)
         {
             Platform::CloseFile(f);
-            delete[] filedata;
             return false;
         }
 
         Platform::FileRewind(f);
-        filedata = new u8[len];
-        size_t nread = Platform::FileRead(filedata, (size_t)len, 1, f);
+        filedata = make_unique<u8[]>(len);
+        size_t nread = Platform::FileRead(filedata.get(), (size_t)len, 1, f);
+        Platform::CloseFile(f);
         if (nread != 1)
         {
-            Platform::CloseFile(f);
-            delete[] filedata;
+            filedata = nullptr;
             return false;
         }
 
-        Platform::CloseFile(f);
         filelen = (u32)len;
 
         if (filename.length() > 4 && filename.substr(filename.length() - 4) == ".zst")
         {
-            u8* outContent = nullptr;
-            u32 decompressed = DecompressROM(filedata, len, &outContent);
+            filelen = DecompressROM(filedata.get(), len, filedata);
 
-            if (decompressed > 0)
+            if (filelen > 0)
             {
-                delete[] filedata;
-                filedata = outContent;
-                filelen = decompressed;
                 filename = filename.substr(0, filename.length() - 4);
             }
             else
             {
-                delete[] filedata;
+                filedata = nullptr;
+                filelen = 0;
+                basepath = "";
+                romname = "";
                 return false;
             }
         }
@@ -1408,6 +1398,7 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
         int pos = LastSep(filename);
         if(pos != -1)
             basepath = filename.substr(0, pos);
+
         romname = filename.substr(pos+1);
     }
 #ifdef ARCHIVE_SUPPORT_ENABLED
@@ -1415,7 +1406,7 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     {
         // file inside archive
 
-        s32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
+        s32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), filedata, &filelen);
         if (lenread < 0) return false;
         if (!filedata) return false;
         if (lenread != filelen)
@@ -1432,6 +1423,17 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     }
 #endif
     else
+        return false;
+}
+
+bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
+{
+    unique_ptr<u8[]> filedata = nullptr;
+    u32 filelen;
+    std::string basepath;
+    std::string romname;
+
+    if (!LoadROMData(filepath, filedata, filelen, basepath, romname))
         return false;
 
     if (NDSSave) delete NDSSave;
@@ -1541,89 +1543,14 @@ QString CartLabel()
 
 bool LoadGBAROM(NDS& nds, QStringList filepath)
 {
-    if (Config::ConsoleType == 1) return false;
-    if (filepath.empty()) return false;
+    if (Config::ConsoleType == 1) return false; // DSi doesn't have a GBA slot
 
-    u8* filedata;
+    unique_ptr<u8[]> filedata = nullptr;
     u32 filelen;
-
     std::string basepath;
     std::string romname;
 
-    int num = filepath.count();
-    if (num == 1)
-    {
-        // regular file
-
-        std::string filename = filepath.at(0).toStdString();
-        FileHandle* f = Platform::OpenFile(filename, FileMode::Read);
-        if (!f) return false;
-
-        long len = FileLength(f);
-        if (len > 0x40000000)
-        {
-            CloseFile(f);
-            return false;
-        }
-
-        FileRewind(f);
-        filedata = new u8[len];
-        size_t nread = FileRead(filedata, (size_t)len, 1, f);
-        if (nread != 1)
-        {
-            CloseFile(f);
-            delete[] filedata;
-            return false;
-        }
-
-        CloseFile(f);
-        filelen = (u32)len;
-
-        if (filename.length() > 4 && filename.substr(filename.length() - 4) == ".zst")
-        {
-            u8* outContent = nullptr;
-            u32 decompressed = DecompressROM(filedata, len, &outContent);
-
-            if (decompressed > 0)
-            {
-                delete[] filedata;
-                filedata = outContent;
-                filelen = decompressed;
-                filename = filename.substr(0, filename.length() - 4);
-            }
-            else
-            {
-                delete[] filedata;
-                return false;
-            }
-        }
-
-        int pos = LastSep(filename);
-        basepath = filename.substr(0, pos);
-        romname = filename.substr(pos+1);
-    }
-#ifdef ARCHIVE_SUPPORT_ENABLED
-    else if (num == 2)
-    {
-        // file inside archive
-
-        s32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
-        if (lenread < 0) return false;
-        if (!filedata) return false;
-        if (lenread != filelen)
-        {
-            delete[] filedata;
-            return false;
-        }
-
-        std::string std_archivepath = filepath.at(0).toStdString();
-        basepath = std_archivepath.substr(0, LastSep(std_archivepath));
-
-        std::string std_romname = filepath.at(1).toStdString();
-        romname = std_romname.substr(LastSep(std_romname)+1);
-    }
-#endif
-    else
+    if (!LoadROMData(filepath, filedata, filelen, basepath, romname))
         return false;
 
     if (GBASave) delete GBASave;

@@ -37,7 +37,7 @@ namespace Archive
 
 using namespace melonDS;
 QVector<QString> ListArchive(QString path);
-s32 ExtractFileFromArchive(QString path, QString wantedFile, u8** filedata, u32* filesize);
+s32 ExtractFileFromArchive(QString path, QString wantedFile, std::unique_ptr<u8[]>& filedata, u32* filesize);
 //QVector<QString> ExtractFileFromArchive(QString path, QString wantedFile, QByteArray *romBuffer);
 //u32 ExtractFileFromArchive(const char* path, const char* wantedFile, u8 **romdata);
 
