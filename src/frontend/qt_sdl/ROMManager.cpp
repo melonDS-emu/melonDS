@@ -1484,7 +1484,7 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
         CloseFile(sav);
     }
 
-    bool res =  emuthread->NDS->LoadCart(filedata, filelen, savedata, savelen);
+    bool res =  emuthread->NDS->LoadCart(filedata.get(), filelen, savedata, savelen);
     if (res && reset)
     {
         if (Config::DirectBoot || emuthread->NDS->NeedsDirectBoot())
@@ -1579,7 +1579,7 @@ bool LoadGBAROM(NDS& nds, QStringList filepath)
         CloseFile(sav);
     }
 
-    bool res = nds.LoadGBACart(filedata, filelen, savedata, savelen);
+    bool res = nds.LoadGBACart(filedata.get(), filelen, savedata, savelen);
 
     if (res)
     {
