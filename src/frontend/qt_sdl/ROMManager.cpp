@@ -1299,7 +1299,7 @@ bool InstallNAND(DSi& dsi)
         }
     }
 
-    dsi.NANDImage = std::make_unique<DSi_NAND::NANDImage>(std::move(nandImage));
+    dsi.SetNAND(std::move(nandImage));
     return true;
 }
 
