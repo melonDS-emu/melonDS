@@ -143,6 +143,15 @@ public:
         // for now, DSi mode requires original BIOS/NAND
         return false;
     }
+
+    [[nodiscard]] const DSi_NAND::NANDImage& GetNAND() const noexcept { return *SDMMC.GetNAND(); }
+    void SetNAND(DSi_NAND::NANDImage&& nand) noexcept { SDMMC.SetNAND(std::move(nand)); }
+    u64 GetConsoleID() const noexcept { return SDMMC.GetNAND()->GetConsoleID(); }
+
+    [[nodiscard]] const FATStorage* GetSDCard() const noexcept { return SDMMC.GetSDCard(); }
+    void SetSDCard(FATStorage&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
+    void SetSDCard(std::optional<FATStorage>&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
+
     void CamInputFrame(int cam, u32* data, int width, int height, bool rgb) override;
     bool DMAsInMode(u32 cpu, u32 mode) override;
     bool DMAsRunning(u32 cpu) override;
