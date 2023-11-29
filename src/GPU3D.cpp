@@ -22,6 +22,7 @@
 #include "NDS.h"
 #include "GPU.h"
 #include "FIFO.h"
+#include "GPU3D_Soft.h"
 #include "Platform.h"
 
 namespace melonDS
@@ -139,7 +140,9 @@ const u8 CmdNumParams[256] =
 
 void MatrixLoadIdentity(s32* m);
 
-GPU3D::GPU3D(melonDS::NDS& nds) noexcept : NDS(nds)
+GPU3D::GPU3D(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer) noexcept :
+    NDS(nds),
+    CurrentRenderer(renderer ? std::move(renderer) : std::make_unique<SoftRenderer>(nds.GPU))
 {
 }
 
@@ -2336,6 +2339,12 @@ void GPU3D::RestartFrame() noexcept
     CurrentRenderer->RestartFrame();
 }
 
+void GPU3D::Stop() noexcept
+{
+    if (CurrentRenderer)
+        CurrentRenderer->Stop();
+}
+
 
 bool YSort(Polygon* a, Polygon* b)
 {
@@ -2886,6 +2895,12 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
     }
 
     Log(LogLevel::Debug, "unknown GPU3D write32 %08X %08X\n", addr, val);
+}
+
+void GPU3D::Blit() noexcept
+{
+    if (CurrentRenderer)
+        CurrentRenderer->Blit();
 }
 
 Renderer3D::Renderer3D(bool Accelerated)
