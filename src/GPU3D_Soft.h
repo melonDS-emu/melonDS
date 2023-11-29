@@ -66,13 +66,13 @@ private:
     class Interpolator
     {
     public:
-        Interpolator() {}
-        Interpolator(s32 x0, s32 x1, s32 w0, s32 w1)
+        constexpr Interpolator() {}
+        constexpr Interpolator(s32 x0, s32 x1, s32 w0, s32 w1)
         {
             Setup(x0, x1, w0, w1);
         }
 
-        void Setup(s32 x0, s32 x1, s32 w0, s32 w1)
+        constexpr void Setup(s32 x0, s32 x1, s32 w0, s32 w1)
         {
             this->x0 = x0;
             this->x1 = x1;
@@ -124,7 +124,7 @@ private:
             }
         }
 
-        void SetX(s32 x)
+        constexpr void SetX(s32 x)
         {
             x -= x0;
             this->x = x;
@@ -140,7 +140,7 @@ private:
             }
         }
 
-        s32 Interpolate(s32 y0, s32 y1)
+        constexpr s32 Interpolate(s32 y0, s32 y1) const
         {
             if (xdiff == 0 || y0 == y1) return y0;
 
@@ -162,7 +162,7 @@ private:
             }
         }
 
-        s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer)
+        constexpr s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer) const
         {
             if (xdiff == 0 || z0 == z1) return z0;
 
@@ -229,9 +229,9 @@ private:
     class Slope
     {
     public:
-        Slope() {}
+        constexpr Slope() {}
 
-        s32 SetupDummy(s32 x0)
+        constexpr s32 SetupDummy(s32 x0)
         {
             dx = 0;
 
@@ -250,7 +250,7 @@ private:
             return x0;
         }
 
-        s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y)
+        constexpr s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y)
         {
             this->x0 = x0;
             this->y = y;
@@ -294,7 +294,7 @@ private:
 
             XMajor = (Increment > 0x40000);
 
-            if (side)
+            if constexpr (side)
             {
                 // right
 
@@ -325,7 +325,7 @@ private:
             return x;
         }
 
-        s32 Step()
+        constexpr s32 Step()
         {
             dx += Increment;
             y++;
@@ -335,7 +335,7 @@ private:
             return x;
         }
 
-        s32 XVal()
+        constexpr s32 XVal() const
         {
             s32 ret;
             if (Negative) ret = x0 - (dx >> 18);
@@ -347,7 +347,7 @@ private:
         }
 
         template<bool swapped>
-        void EdgeParams_XMajor(s32* length, s32* coverage)
+        constexpr void EdgeParams_XMajor(s32* length, s32* coverage) const
         {
             // only do length calc for right side when swapped as it's
             // only needed for aa calcs, as actual line spans are broken
@@ -373,7 +373,7 @@ private:
         }
 
         template<bool swapped>
-        void EdgeParams_YMajor(s32* length, s32* coverage)
+        constexpr void EdgeParams_YMajor(s32* length, s32* coverage) const
         {
             *length = 1;
 
@@ -405,7 +405,7 @@ private:
         }
 
         template<bool swapped>
-        void EdgeParams(s32* length, s32* coverage)
+        constexpr void EdgeParams(s32* length, s32* coverage) const
         {
             if (XMajor)
                 return EdgeParams_XMajor<swapped>(length, coverage);
