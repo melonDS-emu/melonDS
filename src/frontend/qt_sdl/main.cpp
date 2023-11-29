@@ -165,7 +165,6 @@ EmuThread* emuThread;
 int autoScreenSizing = 0;
 
 int videoRenderer;
-RenderSettings videoSettings;
 bool videoSettingsDirty;
 
 CameraManager* camManager[2];
@@ -352,9 +351,6 @@ void EmuThread::run()
     autoScreenSizing = 0;
 
     videoSettingsDirty = false;
-    videoSettings.Soft_Threaded = Config::Threaded3D != 0;
-    videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
-    videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
 
     if (mainWindow->hasOGL)
     {
@@ -366,9 +362,16 @@ void EmuThread::run()
         videoRenderer = 0;
     }
 
-    std::unique_ptr<melonDS::Renderer3D> renderer;
-    renderer = (videoRenderer == 0) ? (std::unique_ptr<melonDS::Renderer3D>)std::make_unique<melonDS::SoftRenderer>(NDS->GPU) : melonDS::GLRenderer::New(NDS->GPU);
-    NDS->GPU.SetRenderSettings(std::move(renderer), videoSettings);
+    if (videoRenderer == 0)
+    { // If we're using the software renderer...
+        NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(NDS->GPU, Config::Threaded3D != 0));
+    }
+    else
+    {
+        auto glrenderer =  melonDS::GLRenderer::New(NDS->GPU);
+        glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
+        NDS->GPU.SetRenderer3D(std::move(glrenderer));
+    }
 
     NDS->SPU.SetInterpolation(Config::AudioInterp);
 
@@ -494,13 +497,16 @@ void EmuThread::run()
 
                 videoSettingsDirty = false;
 
-                videoSettings.Soft_Threaded = Config::Threaded3D != 0;
-                videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
-                videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
-
-                std::unique_ptr<melonDS::Renderer3D> renderer;
-                renderer = (videoRenderer == 0) ? (std::unique_ptr<melonDS::Renderer3D>)std::make_unique<melonDS::SoftRenderer>(NDS->GPU) : melonDS::GLRenderer::New(NDS->GPU);
-                NDS->GPU.SetRenderSettings(std::move(renderer), videoSettings);
+                if (videoRenderer == 0)
+                { // If we're using the software renderer...
+                    NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(NDS->GPU, Config::Threaded3D != 0));
+                }
+                else
+                {
+                    auto glrenderer =  melonDS::GLRenderer::New(NDS->GPU);
+                    glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
+                    NDS->GPU.SetRenderer3D(std::move(glrenderer));
+                }
             }
 
             // process input and hotkeys
