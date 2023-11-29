@@ -21,7 +21,7 @@
 
 #include <memory>
 #include <string>
-#include <memory>
+#include <optional>
 #include <functional>
 
 #include "Platform.h"
@@ -44,7 +44,8 @@
 
 namespace melonDS
 {
-
+struct NDSArgs;
+class Firmware;
 enum
 {
     Event_LCD = 0,
@@ -255,8 +256,8 @@ public:
     u8 ROMSeed0[2*8];
     u8 ROMSeed1[2*8];
 
-    u8 ARM9BIOS[0x1000];
-    u8 ARM7BIOS[0x4000];
+    std::array<u8, ARM9BIOSSize> ARM9BIOS;
+    std::array<u8, ARM7BIOSSize> ARM7BIOS;
     u16 ARM7BIOSProt;
 
     u8* MainRAM;
@@ -314,6 +315,9 @@ public:
     void LoadSave(const u8* savedata, u32 savelen);
     virtual void EjectCart();
     bool CartInserted();
+
+    const Firmware& GetFirmware() const { return SPI.GetFirmwareMem()->GetFirmware(); }
+    Firmware& GetFirmware() { return SPI.GetFirmwareMem()->GetFirmware(); }
 
     virtual bool NeedsDirectBoot();
     void SetupDirectBoot(const std::string& romname);
@@ -456,7 +460,8 @@ private:
     template <bool EnableJIT>
     u32 RunFrame();
 public:
-    NDS() noexcept : NDS(0) {}
+    NDS(NDSArgs&& args) noexcept : NDS(std::move(args), 0) {}
+    NDS() noexcept;
     virtual ~NDS() noexcept;
     NDS(const NDS&) = delete;
     NDS& operator=(const NDS&) = delete;
@@ -465,7 +470,7 @@ public:
     // The frontend should set and unset this manually after creating and destroying the NDS object.
     [[deprecated("Temporary workaround until JIT code generation is revised to accommodate multiple NDS objects.")]] static NDS* Current;
 protected:
-    explicit NDS(int type) noexcept;
+    explicit NDS(NDSArgs&& args, int type) noexcept;
     virtual void DoSavestateExtra(Savestate* file) {}
 };
 

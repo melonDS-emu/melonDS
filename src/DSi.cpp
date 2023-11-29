@@ -70,7 +70,7 @@ const u32 NDMAModes[] =
 };
 
 DSi::DSi(DSiArgs&& args) noexcept :
-    NDS(1),
+    NDS(std::move(args), 1),
     NDMAs {
         DSi_NDMA(0, 0, *this),
         DSi_NDMA(0, 1, *this),
@@ -532,7 +532,7 @@ void DSi::SetupDirectBoot()
             }
         }
 
-        Firmware::WifiBoard nwifiver = SPI.GetFirmware()->GetHeader().WifiBoard;
+        Firmware::WifiBoard nwifiver = SPI.GetFirmware().GetHeader().WifiBoard;
         ARM9Write8(0x020005E0, static_cast<u8>(nwifiver));
 
         // TODO: these should be taken from the wifi firmware in NAND
@@ -1730,12 +1730,12 @@ bool DSi::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
                 return false;
             }
 
-            region->Mem = ARM9BIOS;
+            region->Mem = &ARM9BIOS[0];
             region->Mask = 0xFFF;
         }
         else
         {
-            region->Mem = ARM9iBIOS;
+            region->Mem = &ARM9iBIOS[0];
             region->Mask = 0xFFFF;
         }
         return true;

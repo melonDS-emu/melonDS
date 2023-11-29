@@ -28,10 +28,13 @@
 #ifndef FREEBIOS_H
 #define FREEBIOS_H
 
+#include <array>
+#include "MemConstants.h"
+
 namespace melonDS
 {
-extern unsigned char bios_arm7_bin[16384];
-extern unsigned char bios_arm9_bin[4096];
+extern std::array<u8, ARM7BIOSSize> bios_arm7_bin;
+extern std::array<u8, ARM9BIOSSize> bios_arm9_bin;
 }
 
 #endif // FREEBIOS_H
