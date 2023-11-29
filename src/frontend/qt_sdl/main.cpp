@@ -81,6 +81,7 @@
 #include "FrontendUtil.h"
 #include "OSD.h"
 
+#include "Args.h"
 #include "NDS.h"
 #include "NDSCart.h"
 #include "GBACart.h"
@@ -214,17 +215,19 @@ std::unique_ptr<NDS> EmuThread::CreateConsole()
     return std::make_unique<melonDS::NDS>();
 }
 
+bool EmuThread::NeedToRecreateConsole() const
+{
+    return !NDS || NDS->ConsoleType != Config::ConsoleType;
+}
+
 void EmuThread::RecreateConsole()
 {
-    if (!NDS || NDS->ConsoleType != Config::ConsoleType)
-    {
-        NDS = nullptr; // To ensure the destructor is called before a new one is created
-        NDS::Current = nullptr;
+    NDS = nullptr; // To ensure the destructor is called before a new one is created
+    NDS::Current = nullptr;
 
-        NDS = CreateConsole();
-        // TODO: Insert ROMs
-        NDS::Current = NDS.get();
-    }
+    NDS = CreateConsole();
+    // TODO: Insert ROMs
+    NDS::Current = NDS.get();
 }
 
 
@@ -343,7 +346,10 @@ void EmuThread::run()
     u32 mainScreenPos[3];
     Platform::FileHandle* file;
 
-    RecreateConsole();
+    if (NeedToRecreateConsole())
+    {
+        RecreateConsole();
+    }
 
     mainScreenPos[0] = 0;
     mainScreenPos[1] = 0;

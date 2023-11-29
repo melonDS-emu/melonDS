@@ -835,7 +835,10 @@ void SetDateTime(NDS& nds)
 
 void Reset(EmuThread* thread)
 {
-    thread->RecreateConsole();
+    if (thread->NeedToRecreateConsole())
+    {
+        thread->RecreateConsole();
+    }
 
     if (Config::ConsoleType == 1) EjectGBACart(*thread->NDS);
     LoadBIOSFiles(*thread->NDS);
@@ -901,7 +904,10 @@ void Reset(EmuThread* thread)
 
 bool LoadBIOS(EmuThread* thread)
 {
-    thread->RecreateConsole();
+    if (thread->NeedToRecreateConsole())
+    {
+        thread->RecreateConsole();
+    }
 
     LoadBIOSFiles(*thread->NDS);
 
@@ -1433,7 +1439,11 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     BaseROMName = romname;
     BaseAssetName = romname.substr(0, romname.rfind('.'));
 
-    emuthread->RecreateConsole();
+    if (emuthread->NeedToRecreateConsole())
+    {
+        emuthread->RecreateConsole();
+    }
+
     if (!InstallFirmware(*emuthread->NDS))
     {
         return false;

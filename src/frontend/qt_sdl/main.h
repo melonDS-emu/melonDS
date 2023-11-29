@@ -72,6 +72,7 @@ public:
     QMutex FrontBufferLock;
 
     void updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix);
+    bool NeedToRecreateConsole() const;
     void RecreateConsole();
     std::unique_ptr<melonDS::NDS> NDS; // TODO: Proper encapsulation and synchronization
 signals:
