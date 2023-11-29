@@ -50,7 +50,7 @@ std::optional<GLCompositor> GLCompositor::New() noexcept
         // if linking the shaders together failed.
         return std::nullopt;
 
-    return std::make_optional<GLCompositor>(CompShader);
+    return { GLCompositor(CompShader) };
 }
 
 GLCompositor::GLCompositor(std::array<GLuint, 3> compShader) noexcept : CompShader(compShader)
