@@ -25,6 +25,7 @@
 #include "Platform.h"
 #include "ROMList.h"
 #include "melonDLDI.h"
+#include "FATStorage.h"
 #include "xxhash/xxhash.h"
 
 namespace melonDS
@@ -1160,46 +1161,30 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 }
 
 
-CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams) : CartCommon(rom, len, chipid, false, romparams)
+CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams, const std::optional<FATStorageArgs>& sdcard) :
+    CartCommon(rom, len, chipid, false, romparams)
 {
-    SD = nullptr;
-}
-
-CartHomebrew::~CartHomebrew()
-{
-    if (SD)
+    if (sdcard)
     {
-        delete SD;
+        SD = std::make_optional<FATStorage>(sdcard->Filename, sdcard->Size, sdcard->ReadOnly, sdcard->SourceDir);
+    }
+    else
+    {
+        SD = std::nullopt;
     }
 }
+
+CartHomebrew::~CartHomebrew() = default;
+// The SD card is destroyed by the optional's destructor
 
 void CartHomebrew::Reset()
 {
     CartCommon::Reset();
 
-    ReadOnly = Platform::GetConfigBool(Platform::DLDI_ReadOnly);
-
     if (SD)
     {
-        delete SD;
+        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), SD->IsReadOnly());
     }
-
-    if (Platform::GetConfigBool(Platform::DLDI_Enable))
-    {
-        std::string folderpath;
-        if (Platform::GetConfigBool(Platform::DLDI_FolderSync))
-            folderpath = Platform::GetConfigString(Platform::DLDI_FolderPath);
-        else
-            folderpath = "";
-
-        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), ReadOnly);
-        SD = new FATStorage(Platform::GetConfigString(Platform::DLDI_ImagePath),
-                            (u64)Platform::GetConfigInt(Platform::DLDI_ImageSize) * 1024 * 1024,
-                            ReadOnly,
-                            folderpath);
-    }
-    else
-        SD = nullptr;
 }
 
 void CartHomebrew::SetupDirectBoot(const std::string& romname, NDS& nds)
@@ -1290,7 +1275,7 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
     case 0xC1:
         {
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            if (SD && (!ReadOnly)) SD->WriteSectors(sector, len>>9, data);
+            if (SD && !SD->IsReadOnly()) SD->WriteSectors(sector, len>>9, data);
         }
         break;
 
@@ -1441,12 +1426,15 @@ void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
 
 
 
-NDSCartSlot::NDSCartSlot(melonDS::NDS& nds) noexcept : NDS(nds)
+NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) noexcept : NDS(nds)
 {
     NDS.RegisterEventFunc(Event_ROMTransfer, ROMTransfer_PrepareData, MemberEventFunc(NDSCartSlot, ROMPrepareData));
     NDS.RegisterEventFunc(Event_ROMTransfer, ROMTransfer_End, MemberEventFunc(NDSCartSlot, ROMEndTransfer));
     NDS.RegisterEventFunc(Event_ROMSPITransfer, 0, MemberEventFunc(NDSCartSlot, SPITransferDone));
     // All fields are default-constructed because they're listed as such in the class declaration
+
+    if (rom)
+        InsertROM(std::move(rom));
 }
 
 NDSCartSlot::~NDSCartSlot() noexcept
@@ -1590,7 +1578,13 @@ void NDSCartSlot::DecryptSecureArea(u8* out) noexcept
     }
 }
 
-std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const std::optional<FATStorageArgs>& sdcard)
+{
+    auto sdcardcopy = sdcard;
+    return ParseROM(romdata, romlen, std::move(sdcardcopy));
+}
+
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, std::optional<FATStorageArgs>&& sdcard)
 {
     if (romdata == nullptr)
     {
@@ -1692,7 +1686,7 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
 
     std::unique_ptr<CartCommon> cart;
     if (homebrew)
-        cart = std::make_unique<CartHomebrew>(cartrom, cartromsize, cartid, romparams);
+        cart = std::make_unique<CartHomebrew>(cartrom, cartromsize, cartid, romparams, std::move(sdcard));
     else if (cartid & 0x08000000)
         cart = std::make_unique<CartRetailNAND>(cartrom, cartromsize, cartid, romparams);
     else if (irversion != 0)
