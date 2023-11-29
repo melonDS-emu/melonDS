@@ -71,14 +71,13 @@ void SoftRenderer::SetupRenderThread()
 }
 
 
-SoftRenderer::SoftRenderer(melonDS::GPU& gpu) noexcept
-    : Renderer3D(false), GPU(gpu)
+SoftRenderer::SoftRenderer(melonDS::GPU& gpu, bool threaded) noexcept
+    : Renderer3D(false), GPU(gpu), Threaded(threaded)
 {
     Sema_RenderStart = Platform::Semaphore_Create();
     Sema_RenderDone = Platform::Semaphore_Create();
     Sema_ScanlineCount = Platform::Semaphore_Create();
 
-    Threaded = false;
     RenderThreadRunning = false;
     RenderThreadRendering = false;
     RenderThread = nullptr;
@@ -104,10 +103,13 @@ void SoftRenderer::Reset()
     SetupRenderThread();
 }
 
-void SoftRenderer::SetRenderSettings(const RenderSettings& settings) noexcept
+void SoftRenderer::SetThreaded(bool threaded) noexcept
 {
-    Threaded = settings.Soft_Threaded;
-    SetupRenderThread();
+    if (Threaded != threaded)
+    {
+        Threaded = threaded;
+        SetupRenderThread();
+    }
 }
 
 void SoftRenderer::TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha)

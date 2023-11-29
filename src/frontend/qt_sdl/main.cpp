@@ -93,6 +93,8 @@
 #include "RTC.h"
 #include "DSi.h"
 #include "DSi_I2C.h"
+#include "GPU3D_Soft.h"
+#include "GPU3D_OpenGL.h"
 
 #include "Savestate.h"
 
@@ -163,7 +165,6 @@ EmuThread* emuThread;
 int autoScreenSizing = 0;
 
 int videoRenderer;
-RenderSettings videoSettings;
 bool videoSettingsDirty;
 
 CameraManager* camManager[2];
@@ -350,9 +351,6 @@ void EmuThread::run()
     autoScreenSizing = 0;
 
     videoSettingsDirty = false;
-    videoSettings.Soft_Threaded = Config::Threaded3D != 0;
-    videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
-    videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
 
     if (mainWindow->hasOGL)
     {
@@ -364,8 +362,16 @@ void EmuThread::run()
         videoRenderer = 0;
     }
 
-    NDS->GPU.InitRenderer(videoRenderer);
-    NDS->GPU.SetRenderSettings(videoRenderer, videoSettings);
+    if (videoRenderer == 0)
+    { // If we're using the software renderer...
+        NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(NDS->GPU, Config::Threaded3D != 0));
+    }
+    else
+    {
+        auto glrenderer =  melonDS::GLRenderer::New(NDS->GPU);
+        glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
+        NDS->GPU.SetRenderer3D(std::move(glrenderer));
+    }
 
     NDS->SPU.SetInterpolation(Config::AudioInterp);
 
@@ -491,11 +497,16 @@ void EmuThread::run()
 
                 videoSettingsDirty = false;
 
-                videoSettings.Soft_Threaded = Config::Threaded3D != 0;
-                videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
-                videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
-
-                NDS->GPU.SetRenderSettings(videoRenderer, videoSettings);
+                if (videoRenderer == 0)
+                { // If we're using the software renderer...
+                    NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(NDS->GPU, Config::Threaded3D != 0));
+                }
+                else
+                {
+                    auto glrenderer =  melonDS::GLRenderer::New(NDS->GPU);
+                    glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
+                    NDS->GPU.SetRenderer3D(std::move(glrenderer));
+                }
             }
 
             // process input and hotkeys
@@ -804,10 +815,10 @@ void EmuThread::drawScreenGL()
     glActiveTexture(GL_TEXTURE0);
 
 #ifdef OGLRENDERER_ENABLED
-    if (NDS->GPU.Renderer != 0)
+    if (NDS->GPU.GetRenderer3D().Accelerated)
     {
         // hardware-accelerated render
-        NDS->GPU.CurGLCompositor->BindOutputTexture(frontbuf);
+        static_cast<GLRenderer&>(NDS->GPU.GetRenderer3D()).GetCompositor().BindOutputTexture(frontbuf);
     }
     else
 #endif
@@ -818,9 +829,9 @@ void EmuThread::drawScreenGL()
         if (NDS->GPU.Framebuffer[frontbuf][0] && NDS->GPU.Framebuffer[frontbuf][1])
         {
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
-                            GL_UNSIGNED_BYTE, NDS->GPU.Framebuffer[frontbuf][0]);
+                            GL_UNSIGNED_BYTE, NDS->GPU.Framebuffer[frontbuf][0].get());
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
-                            GL_UNSIGNED_BYTE, NDS->GPU.Framebuffer[frontbuf][1]);
+                            GL_UNSIGNED_BYTE, NDS->GPU.Framebuffer[frontbuf][1].get());
         }
     }
 
@@ -1122,8 +1133,8 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
             return;
         }
 
-        memcpy(screen[0].scanLine(0), emuThread->NDS->GPU.Framebuffer[frontbuf][0], 256 * 192 * 4);
-        memcpy(screen[1].scanLine(0), emuThread->NDS->GPU.Framebuffer[frontbuf][1], 256 * 192 * 4);
+        memcpy(screen[0].scanLine(0), emuThread->NDS->GPU.Framebuffer[frontbuf][0].get(), 256 * 192 * 4);
+        memcpy(screen[1].scanLine(0), emuThread->NDS->GPU.Framebuffer[frontbuf][1].get(), 256 * 192 * 4);
         emuThread->FrontBufferLock.unlock();
 
         QRect screenrc(0, 0, 256, 192);

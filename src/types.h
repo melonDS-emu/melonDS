@@ -20,6 +20,7 @@
 #define TYPES_H
 
 #include <stdint.h>
+#include <array>
 
 namespace melonDS
 {
@@ -32,5 +33,7 @@ typedef int16_t     s16;
 typedef int32_t     s32;
 typedef int64_t     s64;
 
+template<class T, std::size_t A, std::size_t B>
+using array2d = std::array<std::array<T, B>, A>;
 }
 #endif // TYPES_H

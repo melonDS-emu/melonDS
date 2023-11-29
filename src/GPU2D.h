@@ -35,7 +35,7 @@ public:
     // take a reference to the GPU so we can access its state
     // and ensure that it's not null
     Unit(u32 num, melonDS::GPU& gpu);
-
+    virtual ~Unit() = default;
     Unit(const Unit&) = delete;
     Unit& operator=(const Unit&) = delete;
 

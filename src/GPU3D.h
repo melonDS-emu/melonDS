@@ -27,7 +27,7 @@
 
 namespace melonDS
 {
-struct RenderSettings;
+class GPU;
 
 struct Vertex
 {
@@ -86,7 +86,7 @@ class NDS;
 class GPU3D
 {
 public:
-    GPU3D(melonDS::NDS& nds) noexcept;
+    GPU3D(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer = nullptr) noexcept;
     ~GPU3D() noexcept = default;
     void Reset() noexcept;
 
@@ -106,6 +106,7 @@ public:
     void VCount215() noexcept;
 
     void RestartFrame() noexcept;
+    void Stop() noexcept;
 
     void SetRenderXPos(u16 xpos) noexcept;
     [[nodiscard]] u16 GetRenderXPos() const noexcept { return RenderXPos; }
@@ -114,8 +115,8 @@ public:
     void WriteToGXFIFO(u32 val) noexcept;
 
     [[nodiscard]] bool IsRendererAccelerated() const noexcept;
-    [[nodiscard]] Renderer3D* GetCurrentRenderer() noexcept { return CurrentRenderer.get(); }
-    [[nodiscard]] const Renderer3D* GetCurrentRenderer() const noexcept { return CurrentRenderer.get(); }
+    [[nodiscard]] Renderer3D& GetCurrentRenderer() noexcept { return *CurrentRenderer; }
+    [[nodiscard]] const Renderer3D& GetCurrentRenderer() const noexcept { return *CurrentRenderer; }
     void SetCurrentRenderer(std::unique_ptr<Renderer3D>&& renderer) noexcept { CurrentRenderer = std::move(renderer); }
 
     u8 Read8(u32 addr) noexcept;
@@ -124,6 +125,7 @@ public:
     void Write8(u32 addr, u8 val) noexcept;
     void Write16(u32 addr, u16 val) noexcept;
     void Write32(u32 addr, u32 val) noexcept;
+    void Blit() noexcept;
 private:
     melonDS::NDS& NDS;
     typedef union
@@ -338,13 +340,13 @@ public:
     // are more detailed "traits" that we can ask of the Renderer3D type
     const bool Accelerated;
 
-    virtual void SetRenderSettings(const RenderSettings& settings) noexcept = 0;
-
     virtual void VCount144() {};
-
+    virtual void Stop() {}
     virtual void RenderFrame() = 0;
     virtual void RestartFrame() {};
     virtual u32* GetLine(int line) = 0;
+    virtual void Blit() {};
+    virtual void PrepareCaptureFrame() {}
 protected:
     Renderer3D(bool Accelerated);
 };
