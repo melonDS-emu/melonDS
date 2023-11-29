@@ -20,7 +20,7 @@
 
 #ifdef OGLRENDERER_ENABLED
 #include "GPU3D.h"
-
+#include "GPU_OpenGL.h"
 #include "OpenGLSupport.h"
 
 namespace melonDS
@@ -37,15 +37,20 @@ public:
 
     void VCount144() override {};
     void RenderFrame() override;
+    void Stop() override;
     u32* GetLine(int line) override;
 
     void SetupAccelFrame();
-    void PrepareCaptureFrame() override;
+    void PrepareCaptureFrame();
+    void Blit() override;
+
+    [[nodiscard]] const GLCompositor& GetCompositor() const noexcept { return CurGLCompositor; }
+    GLCompositor& GetCompositor() noexcept { return CurGLCompositor; }
 
     static std::unique_ptr<GLRenderer> New(melonDS::GPU& gpu) noexcept;
 private:
     // Used by New()
-    GLRenderer(melonDS::GPU& gpu) noexcept;
+    GLRenderer(GLCompositor&& compositor, GPU& gpu) noexcept;
 
     // GL version requirements
     // * texelFetch: 3.0 (GLSL 1.30)     (3.2/1.50 for MS)
@@ -66,6 +71,7 @@ private:
     };
 
     melonDS::GPU& GPU;
+    GLCompositor CurGLCompositor;
     RendererPolygon PolygonList[2048] {};
 
     bool BuildRenderShader(u32 flags, const char* vs, const char* fs);

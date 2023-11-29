@@ -25,10 +25,6 @@
 #include "GPU3D.h"
 #include "NonStupidBitfield.h"
 
-#ifdef OGLRENDERER_ENABLED
-#include "GPU_OpenGL.h"
-#endif
-
 namespace melonDS
 {
 class GPU3D;
@@ -56,7 +52,8 @@ struct VRAMTrackingSet
     NonStupidBitField<Size/VRAMDirtyGranularity> DeriveState(u32* currentMappings, GPU& gpu);
 };
 
-struct RenderSettings
+
+struct [[deprecated]] RenderSettings
 {
     bool Soft_Threaded;
 
@@ -67,21 +64,25 @@ struct RenderSettings
 class GPU
 {
 public:
-    GPU(melonDS::NDS& nds) noexcept;
+    explicit GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d = nullptr, std::unique_ptr<GPU2D::Renderer2D>&& renderer2d = nullptr) noexcept;
     ~GPU() noexcept;
     void Reset() noexcept;
     void Stop() noexcept;
 
     void DoSavestate(Savestate* file) noexcept;
 
-    [[deprecated("Set the renderer directly instead of using an integer code")]] void InitRenderer(int renderer) noexcept;
-    void DeInitRenderer() noexcept;
-    void ResetRenderer() noexcept;
-
-    void SetRenderSettings(int renderer, RenderSettings& settings) noexcept;
+    void SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept { GPU3D.SetCurrentRenderer(std::move(renderer)); }
+    [[nodiscard]] const Renderer3D& GetRenderer3D() const noexcept { return GPU3D.GetCurrentRenderer(); }
+    [[nodiscard]] Renderer3D& GetRenderer3D() noexcept { return GPU3D.GetCurrentRenderer(); }
 
     u8* GetUniqueBankPtr(u32 mask, u32 offset) noexcept;
     const u8* GetUniqueBankPtr(u32 mask, u32 offset) const noexcept;
+
+    void SetRenderer2D(std::unique_ptr<GPU2D::Renderer2D>&& renderer) noexcept { GPU2D_Renderer = std::move(renderer); }
+    [[nodiscard]] const GPU2D::Renderer2D& GetRenderer2D() const noexcept { return *GPU2D_Renderer; }
+    [[nodiscard]] GPU2D::Renderer2D& GetRenderer2D() noexcept { return *GPU2D_Renderer; }
+    [[deprecated("Configure the renderer directly instead")]] void SetRenderSettings(std::unique_ptr<Renderer3D>&& renderer, const RenderSettings& settings) noexcept;
+    [[deprecated("Configure the renderer directly instead")]] void SetRenderSettings(const RenderSettings& settings) noexcept;
 
     void MapVRAM_AB(u32 bank, u8 cnt) noexcept;
     void MapVRAM_CD(u32 bank, u8 cnt) noexcept;
@@ -611,11 +612,6 @@ public:
 
     u8 VRAMFlat_Texture[512*1024] {};
     u8 VRAMFlat_TexPal[128*1024] {};
-
-    int Renderer = 0;
-#ifdef OGLRENDERER_ENABLED
-    std::unique_ptr<GLCompositor> CurGLCompositor = nullptr;
-#endif
 private:
     void ResetVRAMCache() noexcept;
     void AssignFramebuffers() noexcept;

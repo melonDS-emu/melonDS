@@ -22,6 +22,7 @@
 #include "NDS.h"
 #include "GPU.h"
 #include "FIFO.h"
+#include "GPU3D_Soft.h"
 #include "Platform.h"
 
 namespace melonDS
@@ -139,7 +140,9 @@ const u8 CmdNumParams[256] =
 
 void MatrixLoadIdentity(s32* m);
 
-GPU3D::GPU3D(melonDS::NDS& nds) noexcept : NDS(nds)
+GPU3D::GPU3D(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer) noexcept :
+    NDS(nds),
+    CurrentRenderer(renderer ? std::move(renderer) : std::make_unique<SoftRenderer>(nds.GPU))
 {
 }
 

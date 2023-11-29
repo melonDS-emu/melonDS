@@ -24,7 +24,6 @@
 
 #include "GPU2D_Soft.h"
 #include "GPU3D_Soft.h"
-#include "GPU3D_OpenGL.h"
 
 namespace melonDS
 {
@@ -64,17 +63,19 @@ enum
                 VRAMDirty need to be reset for the respective VRAM bank.
 */
 
-GPU::GPU(melonDS::NDS& nds) noexcept : NDS(nds), GPU2D_A(0, *this), GPU2D_B(1, *this), GPU3D(nds)
+GPU::GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d, std::unique_ptr<GPU2D::Renderer2D>&& renderer2d) noexcept :
+    NDS(nds),
+    GPU2D_A(0, *this),
+    GPU2D_B(1, *this),
+    GPU3D(nds, renderer3d ? std::move(renderer3d) : std::make_unique<SoftRenderer>(*this)),
+    GPU2D_Renderer(renderer2d ? std::move(renderer2d) : std::make_unique<GPU2D::SoftRenderer>(*this))
 {
     NDS.RegisterEventFunc(Event_LCD, LCD_StartHBlank, MemberEventFunc(GPU, StartHBlank));
     NDS.RegisterEventFunc(Event_LCD, LCD_StartScanline, MemberEventFunc(GPU, StartScanline));
     NDS.RegisterEventFunc(Event_LCD, LCD_FinishFrame, MemberEventFunc(GPU, FinishFrame));
     NDS.RegisterEventFunc(Event_DisplayFIFO, 0, MemberEventFunc(GPU, DisplayFIFO));
 
-    GPU2D_Renderer = std::make_unique<GPU2D::SoftRenderer>(*this);
-
     FrontBuffer = 0;
-    Renderer = 0;
 }
 
 GPU::~GPU() noexcept
@@ -189,8 +190,6 @@ void GPU::Reset() noexcept
     int backbuf = FrontBuffer ? 0 : 1;
     GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1].get(), Framebuffer[backbuf][0].get());
 
-    ResetRenderer();
-
     ResetVRAMCache();
 
     OAMDirty = 0x3;
@@ -210,12 +209,7 @@ void GPU::Stop() noexcept
     memset(Framebuffer[1][0].get(), 0, fbsize*4);
     memset(Framebuffer[1][1].get(), 0, fbsize*4);
 
-#ifdef OGLRENDERER_ENABLED
-    // This needs a better way to know that we're
-    // using the OpenGL renderer specifically
-    if (GPU3D.IsRendererAccelerated())
-        CurGLCompositor->Stop();
-#endif
+    GPU3D.Stop();
 }
 
 void GPU::DoSavestate(Savestate* file) noexcept
@@ -297,71 +291,14 @@ void GPU::AssignFramebuffers() noexcept
     }
 }
 
-void GPU::InitRenderer(int renderer) noexcept
+void GPU::SetRenderSettings(std::unique_ptr<Renderer3D>&& renderer, const RenderSettings& settings) noexcept
 {
-#ifdef OGLRENDERER_ENABLED
-    if (renderer == 1)
-    {
-        CurGLCompositor = GLCompositor::New(*this);
-        // Create opengl renderer
-        if (!CurGLCompositor)
-        {
-            // Fallback on software renderer
-            renderer = 0;
-            GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>(*this));
-        }
-        GPU3D.SetCurrentRenderer(GLRenderer::New(*this));
-        if (!GPU3D.GetCurrentRenderer())
-        {
-            // Fallback on software renderer
-            CurGLCompositor.reset();
-            renderer = 0;
-            GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>(*this));
-        }
-    }
-    else
-#endif
-    {
-        GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>(*this));
-    }
-
-    Renderer = renderer;
+    SetRenderer3D(std::move(renderer));
+    SetRenderSettings(settings);
 }
 
-void GPU::DeInitRenderer() noexcept
+void GPU::SetRenderSettings(const RenderSettings& settings) noexcept
 {
-    // Delete the 3D renderer, if it exists
-    GPU3D.SetCurrentRenderer(nullptr);
-
-#ifdef OGLRENDERER_ENABLED
-    // Delete the compositor, if one exists
-    CurGLCompositor.reset();
-#endif
-}
-
-void GPU::ResetRenderer() noexcept
-{
-    if (Renderer == 0)
-    {
-        GPU3D.GetCurrentRenderer()->Reset();
-    }
-#ifdef OGLRENDERER_ENABLED
-    else
-    {
-        CurGLCompositor->Reset();
-        GPU3D.GetCurrentRenderer()->Reset();
-    }
-#endif
-}
-
-void GPU::SetRenderSettings(int renderer, RenderSettings& settings) noexcept
-{
-    if (renderer != Renderer)
-    {
-        DeInitRenderer();
-        InitRenderer(renderer);
-    }
-
     int fbsize;
     if (GPU3D.IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
@@ -380,17 +317,7 @@ void GPU::SetRenderSettings(int renderer, RenderSettings& settings) noexcept
 
     AssignFramebuffers();
 
-    if (Renderer == 0)
-    {
-        GPU3D.GetCurrentRenderer()->SetRenderSettings(settings);
-    }
-#ifdef OGLRENDERER_ENABLED
-    else
-    {
-        CurGLCompositor->SetRenderSettings(settings);
-        GPU3D.GetCurrentRenderer()->SetRenderSettings(settings);
-    }
-#endif
+    GPU3D.SetRenderSettings(settings);
 }
 
 
@@ -1107,11 +1034,9 @@ void GPU::StartScanline(u32 line) noexcept
             GPU2D_B.VBlank();
             GPU3D.VBlank();
 
-#ifdef OGLRENDERER_ENABLED
             // Need a better way to identify the openGL renderer in particular
             if (GPU3D.IsRendererAccelerated())
-                CurGLCompositor->RenderFrame();
-#endif
+                GPU3D.Blit();
         }
     }
 
