@@ -339,13 +339,25 @@ void GLRenderer::Reset()
     // except there's no such method right now.
 }
 
-void GLRenderer::SetRenderSettings(const RenderSettings& settings) noexcept
+void GLRenderer::SetBetterPolygons(bool betterpolygons) noexcept
 {
-    CurGLCompositor.SetRenderSettings(settings);
-    int scale = settings.GL_ScaleFactor;
+    SetRenderSettings(betterpolygons, ScaleFactor);
+}
 
+void GLRenderer::SetScaleFactor(int scale) noexcept
+{
+    SetRenderSettings(BetterPolygons, scale);
+}
+
+
+void GLRenderer::SetRenderSettings(bool betterpolygons, int scale) noexcept
+{
+    if (betterpolygons == BetterPolygons && scale == ScaleFactor)
+        return;
+
+    CurGLCompositor.SetScaleFactor(scale);
     ScaleFactor = scale;
-    BetterPolygons = settings.GL_BetterPolygons;
+    BetterPolygons = betterpolygons;
 
     ScreenW = 256 * scale;
     ScreenH = 192 * scale;

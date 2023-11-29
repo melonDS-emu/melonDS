@@ -33,7 +33,11 @@ public:
     ~GLRenderer() override;
     void Reset() override;
 
-    void SetRenderSettings(const RenderSettings& settings) noexcept override;
+    void SetRenderSettings(bool betterpolygons, int scale) noexcept;
+    void SetBetterPolygons(bool betterpolygons) noexcept;
+    void SetScaleFactor(int scale) noexcept;
+    [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
+    [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
 
     void VCount144() override {};
     void RenderFrame() override;
@@ -41,7 +45,7 @@ public:
     u32* GetLine(int line) override;
 
     void SetupAccelFrame();
-    void PrepareCaptureFrame();
+    void PrepareCaptureFrame() override;
     void Blit() override;
 
     [[nodiscard]] const GLCompositor& GetCompositor() const noexcept { return CurGLCompositor; }

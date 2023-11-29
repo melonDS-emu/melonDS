@@ -204,9 +204,10 @@ GLCompositor& GLCompositor::operator=(GLCompositor&& other) noexcept
 }
 
 
-void GLCompositor::SetRenderSettings(const RenderSettings& settings) noexcept
+void GLCompositor::SetScaleFactor(int scale) noexcept
 {
-    int scale = settings.GL_ScaleFactor;
+    if (scale == Scale)
+        return;
 
     Scale = scale;
     ScreenW = 256 * scale;

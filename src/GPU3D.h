@@ -27,7 +27,6 @@
 
 namespace melonDS
 {
-struct RenderSettings;
 class GPU;
 
 struct Vertex
@@ -115,7 +114,6 @@ public:
 
     void WriteToGXFIFO(u32 val) noexcept;
 
-    void SetRenderSettings(const RenderSettings& settings) noexcept;
     [[nodiscard]] bool IsRendererAccelerated() const noexcept;
     [[nodiscard]] Renderer3D& GetCurrentRenderer() noexcept { return *CurrentRenderer; }
     [[nodiscard]] const Renderer3D& GetCurrentRenderer() const noexcept { return *CurrentRenderer; }
@@ -341,8 +339,6 @@ public:
     // be allocated differently and other little misc handlers. Ideally there
     // are more detailed "traits" that we can ask of the Renderer3D type
     const bool Accelerated;
-
-    virtual void SetRenderSettings(const RenderSettings& settings) noexcept = 0;
 
     virtual void VCount144() {};
     virtual void Stop() {}

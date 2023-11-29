@@ -38,7 +38,8 @@ public:
     GLCompositor& operator=(GLCompositor&&) noexcept;
     ~GLCompositor();
 
-    void SetRenderSettings(const RenderSettings& settings) noexcept;
+    void SetScaleFactor(int scale) noexcept;
+    [[nodiscard]] int GetScaleFactor() const noexcept { return Scale; }
 
     void Stop(const GPU& gpu) noexcept;
     void RenderFrame(const GPU& gpu, GLRenderer& renderer) noexcept;

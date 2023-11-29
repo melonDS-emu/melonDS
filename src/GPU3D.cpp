@@ -2483,12 +2483,6 @@ u32* GPU3D::GetLine(int line) noexcept
     return ScrolledLine;
 }
 
-void GPU3D::SetRenderSettings(const RenderSettings& settings) noexcept
-{
-    if (CurrentRenderer)
-        CurrentRenderer->SetRenderSettings(settings);
-}
-
 bool GPU3D::IsRendererAccelerated() const noexcept
 {
     return CurrentRenderer && CurrentRenderer->Accelerated;

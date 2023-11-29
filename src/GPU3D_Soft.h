@@ -29,11 +29,12 @@ namespace melonDS
 class SoftRenderer : public Renderer3D
 {
 public:
-    SoftRenderer(melonDS::GPU& gpu) noexcept;
+    SoftRenderer(melonDS::GPU& gpu, bool threaded = false) noexcept;
     ~SoftRenderer() override;
     void Reset() override;
 
-    virtual void SetRenderSettings(const RenderSettings& settings) noexcept override;
+    void SetThreaded(bool threaded) noexcept;
+    [[nodiscard]] bool IsThreaded() const noexcept { return Threaded; }
 
     void VCount144() override;
     void RenderFrame() override;

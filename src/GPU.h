@@ -52,15 +52,6 @@ struct VRAMTrackingSet
     NonStupidBitField<Size/VRAMDirtyGranularity> DeriveState(u32* currentMappings, GPU& gpu);
 };
 
-
-struct [[deprecated]] RenderSettings
-{
-    bool Soft_Threaded;
-
-    int GL_ScaleFactor;
-    bool GL_BetterPolygons;
-};
-
 class GPU
 {
 public:
@@ -71,7 +62,10 @@ public:
 
     void DoSavestate(Savestate* file) noexcept;
 
-    void SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept { GPU3D.SetCurrentRenderer(std::move(renderer)); }
+    /// Sets the active renderer to the renderer given in the provided pointer.
+    /// The pointer is moved-from, so it will be \c nullptr after this method is called.
+    /// If the pointer is \c nullptr, the renderer is reset to the default renderer.
+    void SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept;
     [[nodiscard]] const Renderer3D& GetRenderer3D() const noexcept { return GPU3D.GetCurrentRenderer(); }
     [[nodiscard]] Renderer3D& GetRenderer3D() noexcept { return GPU3D.GetCurrentRenderer(); }
 
@@ -81,8 +75,6 @@ public:
     void SetRenderer2D(std::unique_ptr<GPU2D::Renderer2D>&& renderer) noexcept { GPU2D_Renderer = std::move(renderer); }
     [[nodiscard]] const GPU2D::Renderer2D& GetRenderer2D() const noexcept { return *GPU2D_Renderer; }
     [[nodiscard]] GPU2D::Renderer2D& GetRenderer2D() noexcept { return *GPU2D_Renderer; }
-    [[deprecated("Configure the renderer directly instead")]] void SetRenderSettings(std::unique_ptr<Renderer3D>&& renderer, const RenderSettings& settings) noexcept;
-    [[deprecated("Configure the renderer directly instead")]] void SetRenderSettings(const RenderSettings& settings) noexcept;
 
     void MapVRAM_AB(u32 bank, u8 cnt) noexcept;
     void MapVRAM_CD(u32 bank, u8 cnt) noexcept;

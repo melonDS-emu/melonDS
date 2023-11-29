@@ -291,14 +291,13 @@ void GPU::AssignFramebuffers() noexcept
     }
 }
 
-void GPU::SetRenderSettings(std::unique_ptr<Renderer3D>&& renderer, const RenderSettings& settings) noexcept
+void GPU::SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
 {
-    SetRenderer3D(std::move(renderer));
-    SetRenderSettings(settings);
-}
+    if (renderer == nullptr)
+        GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>(*this));
+    else
+        GPU3D.SetCurrentRenderer(std::move(renderer));
 
-void GPU::SetRenderSettings(const RenderSettings& settings) noexcept
-{
     int fbsize;
     if (GPU3D.IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
@@ -316,8 +315,6 @@ void GPU::SetRenderSettings(const RenderSettings& settings) noexcept
     memset(Framebuffer[1][1].get(), 0, fbsize*4);
 
     AssignFramebuffers();
-
-    GPU3D.SetRenderSettings(settings);
 }
 
 
