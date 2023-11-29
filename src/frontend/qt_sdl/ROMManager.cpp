@@ -715,7 +715,7 @@ void LoadBIOSFiles(NDS& nds)
         if (FileHandle* f = Platform::OpenLocalFile(Config::BIOS9Path, FileMode::Read))
         {
             FileRewind(f);
-            FileRead(nds.ARM9BIOS, sizeof(NDS::ARM9BIOS), 1, f);
+            FileRead(nds.ARM9BIOS.data(), sizeof(NDS::ARM9BIOS), 1, f);
 
             Log(LogLevel::Info, "ARM9 BIOS loaded from %s\n", Config::BIOS9Path.c_str());
             Platform::CloseFile(f);
@@ -725,12 +725,12 @@ void LoadBIOSFiles(NDS& nds)
             Log(LogLevel::Warn, "ARM9 BIOS not found\n");
 
             for (int i = 0; i < 16; i++)
-                ((u32*)nds.ARM9BIOS)[i] = 0xE7FFDEFF;
+                ((u32*)nds.ARM9BIOS.data())[i] = 0xE7FFDEFF;
         }
 
         if (FileHandle* f = Platform::OpenLocalFile(Config::BIOS7Path, FileMode::Read))
         {
-            FileRead(nds.ARM7BIOS, sizeof(NDS::ARM7BIOS), 1, f);
+            FileRead(nds.ARM7BIOS.data(), sizeof(NDS::ARM7BIOS), 1, f);
 
             Log(LogLevel::Info, "ARM7 BIOS loaded from\n", Config::BIOS7Path.c_str());
             Platform::CloseFile(f);
@@ -740,14 +740,14 @@ void LoadBIOSFiles(NDS& nds)
             Log(LogLevel::Warn, "ARM7 BIOS not found\n");
 
             for (int i = 0; i < 16; i++)
-                ((u32*)nds.ARM7BIOS)[i] = 0xE7FFDEFF;
+                ((u32*)nds.ARM7BIOS.data())[i] = 0xE7FFDEFF;
         }
     }
     else
     {
         Log(LogLevel::Info, "Using built-in ARM7 and ARM9 BIOSes\n");
-        memcpy(nds.ARM9BIOS, bios_arm9_bin, sizeof(bios_arm9_bin));
-        memcpy(nds.ARM7BIOS, bios_arm7_bin, sizeof(bios_arm7_bin));
+        nds.ARM9BIOS = bios_arm9_bin;
+        nds.ARM7BIOS = bios_arm7_bin;
     }
 
     if (Config::ConsoleType == 1)
@@ -755,7 +755,7 @@ void LoadBIOSFiles(NDS& nds)
         DSi& dsi = static_cast<DSi&>(nds);
         if (FileHandle* f = Platform::OpenLocalFile(Config::DSiBIOS9Path, FileMode::Read))
         {
-            FileRead(dsi.ARM9iBIOS, sizeof(DSi::ARM9iBIOS), 1, f);
+            FileRead(dsi.ARM9iBIOS.data(), sizeof(DSi::ARM9iBIOS), 1, f);
 
             Log(LogLevel::Info, "ARM9i BIOS loaded from %s\n", Config::DSiBIOS9Path.c_str());
             Platform::CloseFile(f);
@@ -765,13 +765,13 @@ void LoadBIOSFiles(NDS& nds)
             Log(LogLevel::Warn, "ARM9i BIOS not found\n");
 
             for (int i = 0; i < 16; i++)
-                ((u32*)dsi.ARM9iBIOS)[i] = 0xE7FFDEFF;
+                ((u32*)dsi.ARM9iBIOS.data())[i] = 0xE7FFDEFF;
         }
 
         if (FileHandle* f = Platform::OpenLocalFile(Config::DSiBIOS7Path, FileMode::Read))
         {
         // TODO: check if the first 32 bytes are crapoed
-            FileRead(dsi.ARM7iBIOS, sizeof(DSi::ARM7iBIOS), 1, f);
+            FileRead(dsi.ARM7iBIOS.data(), sizeof(DSi::ARM7iBIOS), 1, f);
 
             Log(LogLevel::Info, "ARM7i BIOS loaded from %s\n", Config::DSiBIOS7Path.c_str());
             CloseFile(f);
@@ -781,7 +781,7 @@ void LoadBIOSFiles(NDS& nds)
             Log(LogLevel::Warn, "ARM7i BIOS not found\n");
 
             for (int i = 0; i < 16; i++)
-                ((u32*)dsi.ARM7iBIOS)[i] = 0xE7FFDEFF;
+                ((u32*)dsi.ARM7iBIOS.data())[i] = 0xE7FFDEFF;
         }
 
         if (!Config::DSiFullBIOSBoot)
@@ -1341,7 +1341,9 @@ bool InstallFirmware(NDS& nds)
 
     FirmwareSave = std::make_unique<SaveManager>(firmwarepath);
 
-    return nds.SPI.GetFirmwareMem()->InstallFirmware(std::move(firmware));
+    nds.SPI.GetFirmwareMem()->SetFirmware(std::move(*firmware));
+
+    return true;
 }
 
 bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)

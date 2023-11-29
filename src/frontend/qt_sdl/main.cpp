@@ -207,12 +207,36 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
 
 std::unique_ptr<NDS> EmuThread::CreateConsole()
 {
+    auto arm7bios = ROMManager::LoadARM7BIOS();
+    auto arm9bios = ROMManager::LoadARM9BIOS();
+    auto firmware = ROMManager::LoadFirmware(Config::ConsoleType);
+    NDSArgs ndsargs {
+        nullptr, // TODO: Set a NDSCart
+        nullptr, // TODO: Set a GBACart
+        *arm9bios,
+        *arm7bios,
+        std::move(*firmware),
+    };
     if (Config::ConsoleType == 1)
     {
-        return std::make_unique<melonDS::DSi>();
-    }
+        auto arm7ibios = ROMManager::LoadDSiARM7BIOS();
+        auto arm9ibios = ROMManager::LoadDSiARM9BIOS();
+        auto nand = ROMManager::LoadNAND(*arm7ibios);
+        auto sdcard = ROMManager::LoadDSiSDCard();
+        DSiArgs args {
+            std::move(ndsargs),
+            *arm9ibios,
+            *arm7ibios,
+            std::move(*nand),
+            std::move(sdcard),
+        };
 
-    return std::make_unique<melonDS::NDS>();
+        return std::make_unique<melonDS::DSi>(std::move(args));
+    }
+    else
+    {
+        return std::make_unique<melonDS::NDS>(std::move(ndsargs));
+    }
 }
 
 bool EmuThread::NeedToRecreateConsole() const
