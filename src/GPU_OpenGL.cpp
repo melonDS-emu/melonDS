@@ -230,13 +230,12 @@ void GLCompositor::SetRenderSettings(const RenderSettings& settings) noexcept
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void GLCompositor::Stop()
+void GLCompositor::Stop(const GPU& gpu) noexcept
 {
     for (int i = 0; i < 2; i++)
     {
-        int frontbuf = GPU.FrontBuffer;
         glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[frontbuf]);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[gpu.FrontBuffer]);
 
         glClear(GL_COLOR_BUFFER_BIT);
     }
@@ -244,9 +243,9 @@ void GLCompositor::Stop()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void GLCompositor::RenderFrame()
+void GLCompositor::RenderFrame(const GPU& gpu, GLRenderer& renderer) noexcept
 {
-    int frontbuf = GPU.FrontBuffer;
+    int frontbuf = gpu.FrontBuffer;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[frontbuf]);
 
@@ -264,12 +263,12 @@ void GLCompositor::RenderFrame()
     glUniform1ui(CompScaleLoc, Scale);
 
     // TODO: support setting this midframe, if ever needed
-    glUniform1i(Comp3DXPosLoc, ((int)GPU.GPU3D.GetRenderXPos() << 23) >> 23);
+    glUniform1i(Comp3DXPosLoc, ((int)gpu.GPU3D.GetRenderXPos() << 23) >> 23);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, CompScreenInputTex);
 
-    if (GPU.Framebuffer[frontbuf][0] && GPU.Framebuffer[frontbuf][1])
+    if (gpu.Framebuffer[frontbuf][0] && gpu.Framebuffer[frontbuf][1])
     {
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
                         GL_UNSIGNED_BYTE, gpu.Framebuffer[frontbuf][0].get());
@@ -278,7 +277,7 @@ void GLCompositor::RenderFrame()
     }
 
     glActiveTexture(GL_TEXTURE1);
-    reinterpret_cast<GLRenderer*>(GPU.GPU3D.GetCurrentRenderer())->SetupAccelFrame();
+    renderer.SetupAccelFrame();
 
     glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);
     glBindVertexArray(CompVertexArrayID);

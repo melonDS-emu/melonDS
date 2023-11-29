@@ -21,13 +21,13 @@
 #include "OpenGLSupport.h"
 
 #include <array>
-#include <memory>
+#include <optional>
 
 namespace melonDS
 {
 class GPU;
 struct RenderSettings;
-
+class GLRenderer;
 class GLCompositor
 {
 public:
@@ -38,12 +38,10 @@ public:
     GLCompositor& operator=(GLCompositor&&) noexcept;
     ~GLCompositor();
 
-    void Reset();
-
     void SetRenderSettings(const RenderSettings& settings) noexcept;
 
-    void Stop();
-    void RenderFrame();
+    void Stop(const GPU& gpu) noexcept;
+    void RenderFrame(const GPU& gpu, GLRenderer& renderer) noexcept;
     void BindOutputTexture(int buf);
 private:
     GLCompositor(std::array<GLuint, 3> CompShader) noexcept;
