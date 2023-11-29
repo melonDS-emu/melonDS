@@ -30,15 +30,15 @@ class SoftRenderer : public Renderer3D
 {
 public:
     SoftRenderer(melonDS::GPU& gpu) noexcept;
-    virtual ~SoftRenderer() override;
-    virtual void Reset() override;
+    ~SoftRenderer() override;
+    void Reset() override;
 
     virtual void SetRenderSettings(const RenderSettings& settings) noexcept override;
 
-    virtual void VCount144() override;
-    virtual void RenderFrame() override;
-    virtual void RestartFrame() override;
-    virtual u32* GetLine(int line) override;
+    void VCount144() override;
+    void RenderFrame() override;
+    void RestartFrame() override;
+    u32* GetLine(int line) override;
 
     void SetupRenderThread();
     void StopRenderThread();
