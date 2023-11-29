@@ -121,9 +121,6 @@ void DSi::Reset()
     CamModule.Reset();
     DSP.Reset();
 
-    SDMMC.CloseHandles();
-    SDIO.CloseHandles();
-
     LoadNAND();
 
     SDMMC.Reset();
@@ -676,9 +673,6 @@ void DSi::SoftReset()
     // *HOWEVER*, the bootrom (which does get rerun) does remap NWRAM, and thus
     // the DSP most likely gets reset
     DSP.Reset();
-
-    SDMMC.CloseHandles();
-    SDIO.CloseHandles();
 
     LoadNAND();
 

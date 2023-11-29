@@ -96,12 +96,6 @@ DSi_SDHost::~DSi_SDHost()
     // unique_ptr's destructor will clean up the ports
 }
 
-void DSi_SDHost::CloseHandles()
-{
-    Ports[0] = nullptr;
-    Ports[1] = nullptr;
-}
-
 void DSi_SDHost::Reset()
 {
     if (Num == 0)
@@ -141,8 +135,6 @@ void DSi_SDHost::Reset()
     StopAction = 0;
 
     TXReq = false;
-
-    CloseHandles();
 
     if (Ports[0]) Ports[0]->Reset();
     if (Ports[1]) Ports[1]->Reset();

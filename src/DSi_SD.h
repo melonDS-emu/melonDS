@@ -44,7 +44,6 @@ public:
     explicit DSi_SDHost(melonDS::DSi& dsi) noexcept;
     ~DSi_SDHost();
 
-    void CloseHandles();
     void Reset();
 
     void DoSavestate(Savestate* file);
