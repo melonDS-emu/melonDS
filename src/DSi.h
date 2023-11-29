@@ -49,8 +49,8 @@ public:
     u16 SCFG_Clock9;
     u32 SCFG_EXT[2];
 
-    u8 ARM9iBIOS[0x10000];
-    u8 ARM7iBIOS[0x10000];
+    std::array<u8, DSiBIOSSize> ARM9iBIOS;
+    std::array<u8, DSiBIOSSize> ARM7iBIOS;
     DSi_SDHost SDMMC;
     DSi_SDHost SDIO;
 
