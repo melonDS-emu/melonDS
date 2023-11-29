@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,6 +22,7 @@
 #include "DSi.h"
 #include "DSi_AES.h"
 #include "DSi_NAND.h"
+#include "FATIO.h"
 #include "Platform.h"
 
 #include "sha1/sha1.hpp"
@@ -29,111 +30,46 @@
 
 #include "fatfs/ff.h"
 
-using Platform::Log;
-using Platform::LogLevel;
+using namespace melonDS::Platform;
 
-namespace DSi_NAND
+namespace melonDS::DSi_NAND
 {
 
-FILE* CurFile;
-FATFS CurFS;
-
-u8 eMMC_CID[16];
-u64 ConsoleID;
-
-u8 FATIV[16];
-u8 FATKey[16];
-
-u8 ESKey[16];
-
-
-UINT FF_ReadNAND(BYTE* buf, LBA_t sector, UINT num);
-UINT FF_WriteNAND(BYTE* buf, LBA_t sector, UINT num);
-
-
-bool Init(u8* es_keyY)
+NANDImage::NANDImage(Platform::FileHandle* nandfile, const DSiKey& es_keyY) noexcept : NANDImage(nandfile, es_keyY.data())
 {
-    CurFile = nullptr;
+}
 
-    std::string nandpath = Platform::GetConfigString(Platform::DSi_NANDPath);
-    std::string instnand = nandpath + Platform::InstanceFileSuffix();
-
-    FILE* nandfile = Platform::OpenLocalFile(instnand, "r+b");
-    if ((!nandfile) && (Platform::InstanceID() > 0))
-    {
-        FILE* orig = Platform::OpenLocalFile(nandpath, "rb");
-        if (!orig)
-        {
-            Log(LogLevel::Error, "Failed to open DSi NAND\n");
-            return false;
-        }
-
-        fseek(orig, 0, SEEK_END);
-        long len = ftell(orig);
-        fseek(orig, 0, SEEK_SET);
-
-        nandfile = Platform::OpenLocalFile(instnand, "w+b");
-        if (nandfile)
-        {
-            u8* tmpbuf = new u8[0x10000];
-            for (long i = 0; i < len; i+=0x10000)
-            {
-                long blklen = 0x10000;
-                if ((i+blklen) > len) blklen = len-i;
-
-                fread(tmpbuf, blklen, 1, orig);
-                fwrite(tmpbuf, blklen, 1, nandfile);
-            }
-            delete[] tmpbuf;
-        }
-
-        fclose(orig);
-        fclose(nandfile);
-
-        nandfile = Platform::OpenLocalFile(instnand, "r+b");
-    }
-
+NANDImage::NANDImage(Platform::FileHandle* nandfile, const u8* es_keyY) noexcept
+{
     if (!nandfile)
-        return false;
+        return;
 
-    fseek(nandfile, 0, SEEK_END);
-    u64 nandlen = ftell(nandfile);
-
-    ff_disk_open(FF_ReadNAND, FF_WriteNAND, (LBA_t)(nandlen>>9));
-
-    FRESULT res;
-    res = f_mount(&CurFS, "0:", 0);
-    if (res != FR_OK)
-    {
-        Log(LogLevel::Error, "NAND mounting failed: %d\n", res);
-        f_unmount("0:");
-        ff_disk_close();
-        return false;
-    }
+    Length = FileLength(nandfile);
 
     // read the nocash footer
 
-    fseek(nandfile, -0x40, SEEK_END);
+    FileSeek(nandfile, -0x40, FileSeekOrigin::End);
 
     char nand_footer[16];
     const char* nand_footer_ref = "DSi eMMC CID/CPU";
-    fread(nand_footer, 1, 16, nandfile);
-    if (memcmp(nand_footer, nand_footer_ref, 16))
+    FileRead(nand_footer, 1, sizeof(nand_footer), nandfile);
+    if (memcmp(nand_footer, nand_footer_ref, sizeof(nand_footer)))
     {
         // There is another copy of the footer at 000FF800h for the case
         // that by external tools the image was cut off
         // See https://problemkaputt.de/gbatek.htm#dsisdmmcimages
-        fseek(nandfile, 0x000FF800, SEEK_SET);
-        fread(nand_footer, 1, 16, nandfile);
-        if (memcmp(nand_footer, nand_footer_ref, 16))
+        FileSeek(nandfile, 0x000FF800, FileSeekOrigin::Start);
+        FileRead(nand_footer, 1, sizeof(nand_footer), nandfile);
+        if (memcmp(nand_footer, nand_footer_ref, sizeof(nand_footer)))
         {
             Log(LogLevel::Error, "ERROR: NAND missing nocash footer\n");
-            return false;
+            CloseFile(nandfile);
+            return;
         }
     }
 
-    fread(eMMC_CID, 1, 16, nandfile);
-    fread(&ConsoleID, 1, 8, nandfile);
+    FileRead(eMMC_CID.data(), 1, sizeof(eMMC_CID), nandfile);
+    FileRead(&ConsoleID, 1, sizeof(ConsoleID), nandfile);
 
     // init NAND crypto
 
@@ -142,10 +78,10 @@ bool Init(u8* es_keyY)
     u8 keyX[16], keyY[16];
 
     SHA1Init(&sha);
-    SHA1Update(&sha, eMMC_CID, 16);
+    SHA1Update(&sha, eMMC_CID.data(), sizeof(eMMC_CID));
     SHA1Final(tmp, &sha);
 
-    DSi_AES::Swap16(FATIV, tmp);
+    Bswap128(FATIV.data(), tmp);
 
     *(u32*)&keyX[0] = (u32)ConsoleID;
     *(u32*)&keyX[4] = (u32)ConsoleID ^ 0x24EE6906;
@@ -158,7 +94,7 @@ bool Init(u8* es_keyY)
     *(u32*)&keyY[12] = 0xE1A00005;
 
     DSi_AES::DeriveNormalKey(keyX, keyY, tmp);
-    DSi_AES::Swap16(FATKey, tmp);
+    Bswap128(FATKey.data(), tmp);
 
 
     *(u32*)&keyX[0] = 0x4E00004A;
@@ -166,42 +102,87 @@ bool Init(u8* es_keyY)
     *(u32*)&keyX[8] = (u32)(ConsoleID >> 32) ^ 0xC80C4B72;
     *(u32*)&keyX[12] = (u32)ConsoleID;
 
-    memcpy(keyY, es_keyY, 16);
+    memcpy(keyY, es_keyY, sizeof(keyY));
 
     DSi_AES::DeriveNormalKey(keyX, keyY, tmp);
-    DSi_AES::Swap16(ESKey, tmp);
+    Bswap128(ESKey.data(), tmp);
 
     CurFile = nandfile;
-    return true;
 }
 
-void DeInit()
+NANDImage::~NANDImage()
 {
-    f_unmount("0:");
-    ff_disk_close();
-
-    if (CurFile) fclose(CurFile);
+    if (CurFile) CloseFile(CurFile);
     CurFile = nullptr;
 }
 
-
-FILE* GetFile()
+NANDImage::NANDImage(NANDImage&& other) noexcept :
+    CurFile(other.CurFile),
+    eMMC_CID(other.eMMC_CID),
+    ConsoleID(other.ConsoleID),
+    FATIV(other.FATIV),
+    FATKey(other.FATKey),
+    ESKey(other.ESKey)
 {
-    return CurFile;
+    other.CurFile = nullptr;
+}
+
+NANDImage& NANDImage::operator=(NANDImage&& other) noexcept
+{
+    if (this != &other)
+    {
+        CurFile = other.CurFile;
+        eMMC_CID = other.eMMC_CID;
+        ConsoleID = other.ConsoleID;
+        FATIV = other.FATIV;
+        FATKey = other.FATKey;
+        ESKey = other.ESKey;
+
+        other.CurFile = nullptr;
+    }
+
+    return *this;
+}
+
+NANDMount::NANDMount(NANDImage& nand) noexcept : Image(&nand)
+{
+    if (!nand)
+        return;
+
+    CurFS = std::make_unique<FATFS>();
+    ff_disk_open(
+        [this](BYTE* buf, LBA_t sector, UINT num) {
+            return this->FF_ReadNAND(buf, sector, num);
+        },
+        [this](const BYTE* buf, LBA_t sector, UINT num) {
+            return this->FF_WriteNAND(buf, sector, num);
+        },
+        (LBA_t)(nand.GetLength()>>9)
+    );
+
+    FRESULT res;
+    res = f_mount(CurFS.get(), "0:", 0);
+    if (res != FR_OK)
+    {
+        Log(LogLevel::Error, "NAND mounting failed: %d\n", res);
+        f_unmount("0:");
+        ff_disk_close();
+        return;
+    }
 }
 
 
-void GetIDs(u8* emmc_cid, u64& consoleid)
+NANDMount::~NANDMount() noexcept
 {
-    memcpy(emmc_cid, eMMC_CID, 16);
-    consoleid = ConsoleID;
+    f_unmount("0:");
+    ff_disk_close();
 }
 
 
-void SetupFATCrypto(AES_ctx* ctx, u32 ctr)
+void NANDImage::SetupFATCrypto(AES_ctx* ctx, u32 ctr)
 {
     u8 iv[16];
-    memcpy(iv, FATIV, 16);
+    memcpy(iv, FATIV.data(), sizeof(iv));
 
     u32 res;
     res = iv[15] + (ctr & 0xFF);
@@ -219,39 +200,39 @@ void SetupFATCrypto(AES_ctx* ctx, u32 ctr)
         else break;
     }
 
-    AES_init_ctx_iv(ctx, FATKey, iv);
+    AES_init_ctx_iv(ctx, FATKey.data(), iv);
 }
 
-u32 ReadFATBlock(u64 addr, u32 len, u8* buf)
+u32 NANDImage::ReadFATBlock(u64 addr, u32 len, u8* buf)
 {
     u32 ctr = (u32)(addr >> 4);
 
     AES_ctx ctx;
     SetupFATCrypto(&ctx, ctr);
 
-    fseek(CurFile, addr, SEEK_SET);
-    u32 res = fread(buf, len, 1, CurFile);
+    FileSeek(CurFile, addr, FileSeekOrigin::Start);
+    u32 res = FileRead(buf, len, 1, CurFile);
     if (!res) return 0;
 
     for (u32 i = 0; i < len; i += 16)
     {
         u8 tmp[16];
-        DSi_AES::Swap16(tmp, &buf[i]);
-        AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
-        DSi_AES::Swap16(&buf[i], tmp);
+        Bswap128(tmp, &buf[i]);
+        AES_CTR_xcrypt_buffer(&ctx, tmp, sizeof(tmp));
+        Bswap128(&buf[i], tmp);
     }
 
     return len;
 }
 
-u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
+u32 NANDImage::WriteFATBlock(u64 addr, u32 len, const u8* buf)
 {
     u32 ctr = (u32)(addr >> 4);
 
     AES_ctx ctx;
     SetupFATCrypto(&ctx, ctr);
 
-    fseek(CurFile, addr, SEEK_SET);
+    FileSeek(CurFile, addr, FileSeekOrigin::Start);
 
     for (u32 s = 0; s < len; s += 0x200)
     {
@@ -260,12 +241,12 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
         for (u32 i = 0; i < 0x200; i += 16)
         {
             u8 tmp[16];
-            DSi_AES::Swap16(tmp, &buf[s+i]);
-            AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
-            DSi_AES::Swap16(&tempbuf[i], tmp);
+            Bswap128(tmp, &buf[s+i]);
+            AES_CTR_xcrypt_buffer(&ctx, tmp, sizeof(tmp));
+            Bswap128(&tempbuf[i], tmp);
         }
 
-        u32 res = fwrite(tempbuf, 0x200, 1, CurFile);
+        u32 res = FileWrite(tempbuf, sizeof(tempbuf), 1, CurFile);
         if (!res) return 0;
     }
 
@@ -273,30 +254,30 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
 }
 
 
-UINT FF_ReadNAND(BYTE* buf, LBA_t sector, UINT num)
+UINT NANDMount::FF_ReadNAND(BYTE* buf, LBA_t sector, UINT num)
 {
     // TODO: allow selecting other partitions?
     u64 baseaddr = 0x10EE00;
 
     u64 blockaddr = baseaddr + (sector * 0x200ULL);
 
-    u32 res = ReadFATBlock(blockaddr, num*0x200, buf);
+    u32 res = Image->ReadFATBlock(blockaddr, num*0x200, buf);
     return res >> 9;
 }
 
-UINT FF_WriteNAND(BYTE* buf, LBA_t sector, UINT num)
+UINT NANDMount::FF_WriteNAND(const BYTE* buf, LBA_t sector, UINT num)
 {
     // TODO: allow selecting other partitions?
     u64 baseaddr = 0x10EE00;
 
     u64 blockaddr = baseaddr + (sector * 0x200ULL);
 
-    u32 res = WriteFATBlock(blockaddr, num*0x200, buf);
+    u32 res = Image->WriteFATBlock(blockaddr, num*0x200, buf);
     return res >> 9;
 }
 
 
-bool ESEncrypt(u8* data, u32 len)
+bool NANDImage::ESEncrypt(u8* data, u32 len) const
 {
     AES_ctx ctx;
     u8 iv[16];
@@ -308,7 +289,7 @@ bool ESEncrypt(u8* data, u32 len)
     iv[14] = 0x00;
     iv[15] = 0x01;
 
-    AES_init_ctx_iv(&ctx, ESKey, iv);
+    AES_init_ctx_iv(&ctx, ESKey.data(), iv);
 
     u32 blklen = (len + 0xF) & ~0xF;
     mac[0] = 0x3A;
@@ -324,13 +305,13 @@ bool ESEncrypt(u8* data, u32 len)
     {
         u8 tmp[16];
 
-        DSi_AES::Swap16(tmp, &data[i]);
+        Bswap128(tmp, &data[i]);
 
         for (int i = 0; i < 16; i++) mac[i] ^= tmp[i];
         AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
         AES_ECB_encrypt(&ctx, mac);
 
-        DSi_AES::Swap16(&data[i], tmp);
+        Bswap128(&data[i], tmp);
     }
 
     u32 remlen = len - coarselen;
@@ -339,12 +320,11 @@ bool ESEncrypt(u8* data, u32 len)
         u8 rem[16];
 
         memset(rem, 0, 16);
-
         for (int i = 0; i < remlen; i++)
             rem[15-i] = data[coarselen+i];
 
         for (int i = 0; i < 16; i++) mac[i] ^= rem[i];
-        AES_CTR_xcrypt_buffer(&ctx, rem, 16);
+        AES_CTR_xcrypt_buffer(&ctx, rem, sizeof(rem));
         AES_ECB_encrypt(&ctx, mac);
 
         for (int i = 0; i < remlen; i++)
@@ -354,10 +334,9 @@ bool ESEncrypt(u8* data, u32 len)
     ctx.Iv[13] = 0x00;
     ctx.Iv[14] = 0x00;
     ctx.Iv[15] = 0x00;
-    AES_CTR_xcrypt_buffer(&ctx, mac, 16);
+    AES_CTR_xcrypt_buffer(&ctx, mac, sizeof(mac));
 
-    for (int i = 0; i < 16; i++)
-        data[len+i] = mac[15-i];
+    Bswap128(&data[len], mac);
 
     u8 footer[16];
 
@@ -373,7 +352,7 @@ bool ESEncrypt(u8* data, u32 len)
     footer[0] = len & 0xFF;
 
     AES_ctx_set_iv(&ctx, iv);
-    AES_CTR_xcrypt_buffer(&ctx, footer, 16);
+    AES_CTR_xcrypt_buffer(&ctx, footer, sizeof(footer));
 
     data[len+0x10] = footer[15];
     data[len+0x1D] = footer[2];
@@ -383,7 +362,7 @@ bool ESEncrypt(u8* data, u32 len)
     return true;
 }
 
-bool ESDecrypt(u8* data, u32 len)
+bool NANDImage::ESDecrypt(u8* data, u32 len)
 {
     AES_ctx ctx;
     u8 iv[16];
@@ -395,7 +374,7 @@ bool ESDecrypt(u8* data, u32 len)
     iv[14] = 0x00;
     iv[15] = 0x01;
 
-    AES_init_ctx_iv(&ctx, ESKey, iv);
+    AES_init_ctx_iv(&ctx, ESKey.data(), iv);
 
     u32 blklen = (len + 0xF) & ~0xF;
     mac[0] = 0x3A;
@@ -411,13 +390,13 @@ bool ESDecrypt(u8* data, u32 len)
     {
         u8 tmp[16];
 
-        DSi_AES::Swap16(tmp, &data[i]);
+        Bswap128(tmp, &data[i]);
 
-        AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+        AES_CTR_xcrypt_buffer(&ctx, tmp, sizeof(tmp));
         for (int i = 0; i < 16; i++) mac[i] ^= tmp[i];
         AES_ECB_encrypt(&ctx, mac);
 
-        DSi_AES::Swap16(&data[i], tmp);
+        Bswap128(&data[i], tmp);
     }
 
     u32 remlen = len - coarselen;
@@ -459,11 +438,10 @@ bool ESDecrypt(u8* data, u32 len)
     for (int i = 0; i < 12; i++) iv[3+i] = data[len+0x1C-i];
     iv[15] = 0x00;
 
-    for (int i = 0; i < 16; i++)
-        footer[15-i] = data[len+0x10+i];
+    Bswap128(footer, &data[len+0x10]);
 
     AES_ctx_set_iv(&ctx, iv);
-    AES_CTR_xcrypt_buffer(&ctx, footer, 16);
+    AES_CTR_xcrypt_buffer(&ctx, footer, sizeof(footer));
 
     data[len+0x10] = footer[15];
     data[len+0x1D] = footer[2];
@@ -489,30 +467,43 @@ bool ESDecrypt(u8* data, u32 len)
     return true;
 }
 
-
-void ReadHardwareInfo(u8* dataS, u8* dataN)
+bool NANDMount::ReadSerialData(DSiSerialData& dataS)
 {
     FF_FIL file;
-    FRESULT res;
-    u32 nread;
+    FRESULT res = f_open(&file, "0:/sys/HWINFO_S.dat", FA_OPEN_EXISTING | FA_READ);
 
-    res = f_open(&file, "0:/sys/HWINFO_S.dat", FA_OPEN_EXISTING | FA_READ);
     if (res == FR_OK)
     {
-        f_read(&file, dataS, 0xA4, &nread);
+        u32 nread;
+        f_read(&file, &dataS, sizeof(DSiSerialData), &nread);
         f_close(&file);
     }
 
-    res = f_open(&file, "0:/sys/HWINFO_N.dat", FA_OPEN_EXISTING | FA_READ);
-    if (res == FR_OK)
-    {
-        f_read(&file, dataN, 0x9C, &nread);
-        f_close(&file);
-    }
+    return res == FR_OK;
 }
 
+bool NANDMount::ReadHardwareInfoN(DSiHardwareInfoN& dataN)
+{
+    FF_FIL file;
+    FRESULT res = f_open(&file, "0:/sys/HWINFO_N.dat", FA_OPEN_EXISTING | FA_READ);
 
-void ReadUserData(u8* data)
+    if (res == FR_OK)
+    {
+        u32 nread;
+        f_read(&file, dataN.data(), sizeof(dataN), &nread);
+        f_close(&file);
+    }
+
+    return res == FR_OK;
+}
+
+void NANDMount::ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN)
+{
+    ReadSerialData(dataS);
+    ReadHardwareInfoN(dataN);
+}
+
+bool NANDMount::ReadUserData(DSiFirmwareSystemSettings& data)
 {
     FF_FIL file;
     FRESULT res;
@@ -543,7 +534,7 @@ void ReadUserData(u8* data)
         v2 = tmp;
     }
 
-    if (v1 < 0 && v2 < 0) return;
+    if (v1 < 0 && v2 < 0) return false;
 
     if (v2 > v1)
     {
@@ -557,82 +548,42 @@ void ReadUserData(u8* data)
     }
 
     f_lseek(&file, 0);
-    f_read(&file, data, 0x1B0, &nread);
+    f_read(&file, &data, sizeof(DSiFirmwareSystemSettings), &nread);
     f_close(&file);
+
+    return true;
 }
 
-void PatchUserData()
+static bool SaveUserData(const char* filename, const DSiFirmwareSystemSettings& data)
 {
-    FRESULT res;
-
-    for (int i = 0; i < 2; i++)
+    FF_FIL file;
+    if (FRESULT res = f_open(&file, filename, FA_OPEN_EXISTING | FA_READ | FA_WRITE); res != FR_OK)
     {
-        char filename[64];
-        sprintf(filename, "0:/shared1/TWLCFG%d.dat", i);
-
-        FF_FIL file;
-        res = f_open(&file, filename, FA_OPEN_EXISTING | FA_READ | FA_WRITE);
-        if (res != FR_OK)
-        {
-            Log(LogLevel::Error, "NAND: editing file %s failed: %d\n", filename, res);
-            continue;
-        }
-
-        u8 contents[0x1B0];
-        u32 nres;
-        f_lseek(&file, 0);
-        f_read(&file, contents, 0x1B0, &nres);
-
-        // override user settings, if needed
-        if (Platform::GetConfigBool(Platform::Firm_OverrideSettings))
-        {
-            // setting up username
-            std::string orig_username = Platform::GetConfigString(Platform::Firm_Username);
-            std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
-            size_t usernameLength = std::min(username.length(), (size_t) 10);
-            memset(contents + 0xD0, 0, 11 * sizeof(char16_t));
-            memcpy(contents + 0xD0, username.data(), usernameLength * sizeof(char16_t));
-
-            // setting language
-            contents[0x8E] = Platform::GetConfigInt(Platform::Firm_Language);
-
-            // setting up color
-            contents[0xCC] = Platform::GetConfigInt(Platform::Firm_Color);
-
-            // setting up birthday
-            contents[0xCE] = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
-            contents[0xCF] = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
-
-            // setup message
-            std::string orig_message = Platform::GetConfigString(Platform::Firm_Message);
-            std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
-            size_t messageLength = std::min(message.length(), (size_t) 26);
-            memset(contents + 0xE6, 0, 27 * sizeof(char16_t));
-            memcpy(contents + 0xE6, message.data(), messageLength * sizeof(char16_t));
-
-            // TODO: make other items configurable?
-        }
-
-        // fix touchscreen coords
-        *(u16*)&contents[0xB8] = 0;
-        *(u16*)&contents[0xBA] = 0;
-        contents[0xBC] = 0;
-        contents[0xBD] = 0;
-        *(u16*)&contents[0xBE] = 255<<4;
-        *(u16*)&contents[0xC0] = 191<<4;
-        contents[0xC2] = 255;
-        contents[0xC3] = 191;
-
-        SHA1_CTX sha;
-        SHA1Init(&sha);
-        SHA1Update(&sha, &contents[0x88], 0x128);
-        SHA1Final(&contents[0], &sha);
-
-        f_lseek(&file, 0);
-        f_write(&file, contents, 0x1B0, &nres);
-
-        f_close(&file);
+        Log(LogLevel::Error, "NAND: editing file %s failed: %d\n", filename, res);
+        return false;
     }
+    // TODO: If the file couldn't be opened, try creating a new one in its place
+    // (after all, we have the data for that)
+
+    u32 bytes_written = 0;
+    FRESULT res = f_write(&file, &data, sizeof(DSiFirmwareSystemSettings), &bytes_written);
+    f_close(&file);
+
+    if (res != FR_OK || bytes_written != sizeof(DSiFirmwareSystemSettings))
+    {
+        Log(LogLevel::Error, "NAND: editing file %s failed: %d\n", filename, res);
+        return false;
+    }
+
+    return true;
+}
+
+bool NANDMount::ApplyUserData(const DSiFirmwareSystemSettings& data)
+{
+    bool ok0 = SaveUserData("0:/shared1/TWLCFG0.dat", data);
+    bool ok1 = SaveUserData("0:/shared1/TWLCFG1.dat", data);
+
+    return ok0 && ok1;
 }
 
 
@@ -652,7 +603,7 @@ void debug_listfiles(const char* path)
         if (!info.fname[0]) break;
 
         char fullname[512];
-        sprintf(fullname, "%s/%s", path, info.fname);
+        snprintf(fullname, sizeof(fullname), "%s/%s", path, info.fname);
         Log(LogLevel::Debug, "[%c] %s\n", (info.fattrib&AM_DIR)?'D':'F', fullname);
 
         if (info.fattrib & AM_DIR)
@@ -664,51 +615,83 @@ void debug_listfiles(const char* path)
     f_closedir(&dir);
 }
 
-bool ImportFile(const char* path, const char* in)
+bool NANDMount::ImportFile(const char* path, const u8* data, size_t len)
 {
-    FF_FIL file;
-    FILE* fin;
-    FRESULT res;
-
-    fin = fopen(in, "rb");
-    if (!fin)
+    if (!data || !len || !path)
         return false;
 
-    fseek(fin, 0, SEEK_END);
-    u32 len = (u32)ftell(fin);
-    fseek(fin, 0, SEEK_SET);
+    FF_FIL file;
+    FRESULT res;
 
     res = f_open(&file, path, FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
-        fclose(fin);
         return false;
     }
 
     u8 buf[0x1000];
-    for (u32 i = 0; i < len; i += 0x1000)
-    {
+    for (u32 i = 0; i < len; i += sizeof(buf))
+    { // For each block in the file...
         u32 blocklen;
-        if ((i + 0x1000) > len)
+        if ((i + sizeof(buf)) > len)
             blocklen = len - i;
         else
-            blocklen = 0x1000;
+            blocklen = sizeof(buf);
 
         u32 nwrite;
-        fread(buf, blocklen, 1, fin);
+        memcpy(buf, data + i, blocklen);
         f_write(&file, buf, blocklen, &nwrite);
     }
 
-    fclose(fin);
     f_close(&file);
+    Log(LogLevel::Debug, "Imported file from memory to %s\n", path);
 
     return true;
 }
 
-bool ExportFile(const char* path, const char* out)
+bool NANDMount::ImportFile(const char* path, const char* in)
 {
     FF_FIL file;
-    FILE* fout;
+    FRESULT res;
+
+    Platform::FileHandle* fin = OpenLocalFile(in, FileMode::Read);
+    if (!fin)
+        return false;
+
+    u32 len = FileLength(fin);
+
+    res = f_open(&file, path, FA_CREATE_ALWAYS | FA_WRITE);
+    if (res != FR_OK)
+    {
+        CloseFile(fin);
+        return false;
+    }
+
+    u8 buf[0x1000];
+    for (u32 i = 0; i < len; i += sizeof(buf))
+    {
+        u32 blocklen;
+        if ((i + sizeof(buf)) > len)
+            blocklen = len - i;
+        else
+            blocklen = sizeof(buf);
+
+        u32 nwrite;
+        FileRead(buf, blocklen, 1, fin);
+        f_write(&file, buf, blocklen, &nwrite);
+    }
+
+    CloseFile(fin);
+    f_close(&file);
+
+    Log(LogLevel::Debug, "Imported file from %s to %s\n", in, path);
+
+    return true;
+}
+
+bool NANDMount::ExportFile(const char* path, const char* out)
+{
+    FF_FIL file;
     FRESULT res;
 
     res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
@@ -717,7 +700,7 @@ bool ExportFile(const char* path, const char* out)
 
     u32 len = f_size(&file);
 
-    fout = fopen(out, "wb");
+    Platform::FileHandle* fout = OpenLocalFile(out, FileMode::Write);
     if (!fout)
     {
         f_close(&file);
@@ -735,16 +718,18 @@ bool ExportFile(const char* path, const char* out)
 
         u32 nread;
         f_read(&file, buf, blocklen, &nread);
-        fwrite(buf, blocklen, 1, fout);
+        FileWrite(buf, blocklen, 1, fout);
     }
 
-    fclose(fout);
+    CloseFile(fout);
     f_close(&file);
+
+    Log(LogLevel::Debug, "Exported file from %s to %s\n", path, out);
 
     return true;
 }
 
-void RemoveFile(const char* path)
+void NANDMount::RemoveFile(const char* path)
 {
     FF_FILINFO info;
     FRESULT res = f_stat(path, &info);
@@ -754,9 +739,10 @@ void RemoveFile(const char* path)
         f_chmod(path, 0, AM_RDO);
 
     f_unlink(path);
+    Log(LogLevel::Debug, "Removed file at %s\n", path);
 }
 
-void RemoveDir(const char* path)
+void NANDMount::RemoveDir(const char* path)
 {
     FF_DIR dir;
     FF_FILINFO info;
@@ -781,7 +767,7 @@ void RemoveDir(const char* path)
         if (!info.fname[0]) break;
 
         char fullname[512];
-        sprintf(fullname, "%s/%s", path, info.fname);
+        snprintf(fullname, sizeof(fullname), "%s/%s", path, info.fname);
 
         if (info.fattrib & AM_RDO)
             f_chmod(path, 0, AM_RDO);
@@ -807,14 +793,15 @@ void RemoveDir(const char* path)
     }
 
     f_unlink(path);
+    Log(LogLevel::Debug, "Removed directory at %s\n", path);
 }
 
 
-u32 GetTitleVersion(u32 category, u32 titleid)
+u32 NANDMount::GetTitleVersion(u32 category, u32 titleid)
 {
     FRESULT res;
     char path[256];
-    sprintf(path, "0:/title/%08x/%08x/content/title.tmd", category, titleid);
+    snprintf(path, sizeof(path), "0:/title/%08x/%08x/content/title.tmd", category, titleid);
     FF_FIL file;
     res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
     if (res != FR_OK)
@@ -830,13 +817,13 @@ u32 GetTitleVersion(u32 category, u32 titleid)
     return version;
 }
 
-void ListTitles(u32 category, std::vector<u32>& titlelist)
+void NANDMount::ListTitles(u32 category, std::vector<u32>& titlelist)
 {
     FRESULT res;
     FF_DIR titledir;
     char path[256];
 
-    sprintf(path, "0:/title/%08x", category);
+    snprintf(path, sizeof(path), "0:/title/%08x", category);
     res = f_opendir(&titledir, path);
     if (res != FR_OK)
     {
@@ -862,7 +849,7 @@ void ListTitles(u32 category, std::vector<u32>& titlelist)
         if (version == 0xFFFFFFFF)
             continue;
 
-        sprintf(path, "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
+        snprintf(path, sizeof(path), "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
         FF_FILINFO appinfo;
         res = f_stat(path, &appinfo);
         if (res != FR_OK)
@@ -879,16 +866,16 @@ void ListTitles(u32 category, std::vector<u32>& titlelist)
     f_closedir(&titledir);
 }
 
-bool TitleExists(u32 category, u32 titleid)
+bool NANDMount::TitleExists(u32 category, u32 titleid)
 {
     char path[256];
-    sprintf(path, "0:/title/%08x/%08x/content/title.tmd", category, titleid);
+    snprintf(path, sizeof(path), "0:/title/%08x/%08x/content/title.tmd", category, titleid);
 
     FRESULT res = f_stat(path, nullptr);
     return (res == FR_OK);
 }
 
-void GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, NDSBanner* banner)
+void NANDMount::GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, NDSBanner* banner)
 {
     version = GetTitleVersion(category, titleid);
     if (version == 0xFFFFFFFF)
@@ -897,7 +884,7 @@ void GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, ND
     FRESULT res;
 
     char path[256];
-    sprintf(path, "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
+    snprintf(path, sizeof(path), "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
     FF_FIL file;
     res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
     if (res != FR_OK)
@@ -924,7 +911,7 @@ void GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, ND
 }
 
 
-bool CreateTicket(const char* path, u32 titleid0, u32 titleid1, u8 version)
+bool NANDMount::CreateTicket(const char* path, u32 titleid0, u32 titleid1, u8 version)
 {
     FF_FIL file;
     FRESULT res;
@@ -950,7 +937,7 @@ bool CreateTicket(const char* path, u32 titleid0, u32 titleid1, u8 version)
 
     memset(&ticket[0x222], 0xFF, 0x20);
 
-    ESEncrypt(ticket, 0x2A4);
+    Image->ESEncrypt(ticket, 0x2A4);
 
     f_write(&file, ticket, 0x2C4, &nwrite);
 
@@ -959,7 +946,7 @@ bool CreateTicket(const char* path, u32 titleid0, u32 titleid1, u8 version)
     return true;
 }
 
-bool CreateSaveFile(const char* path, u32 len)
+bool NANDMount::CreateSaveFile(const char* path, u32 len)
 {
     if (len == 0) return true;
     if (len < 0x200) return false;
@@ -1049,23 +1036,10 @@ bool CreateSaveFile(const char* path, u32 len)
     return true;
 }
 
-bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
+bool NANDMount::InitTitleFileStructure(const NDSHeader& header, const DSi_TMD::TitleMetadata& tmd, bool readonly)
 {
-    u8 header[0x1000];
-    {
-        FILE* f = fopen(appfile, "rb");
-        if (!f) return false;
-        fread(header, 0x1000, 1, f);
-        fclose(f);
-    }
-
-    u32 version = (tmd[0x1E4] << 24) | (tmd[0x1E5] << 16) | (tmd[0x1E6] << 8) | tmd[0x1E7];
-    Log(LogLevel::Info, ".app version: %08x\n", version);
-
-    u32 titleid0 = (tmd[0x18C] << 24) | (tmd[0x18D] << 16) | (tmd[0x18E] << 8) | tmd[0x18F];
-    u32 titleid1 = (tmd[0x190] << 24) | (tmd[0x191] << 16) | (tmd[0x192] << 8) | tmd[0x193];
-    Log(LogLevel::Info, "Title ID: %08x/%08x\n", titleid0, titleid1);
-
+    u32 titleid0 = tmd.GetCategory();
+    u32 titleid1 = tmd.GetID();
     FRESULT res;
     FF_DIR ticketdir;
     FF_FILINFO info;
@@ -1075,40 +1049,40 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
     u32 nwrite;
 
     // ticket
-    sprintf(fname, "0:/ticket/%08x", titleid0);
+    snprintf(fname, sizeof(fname), "0:/ticket/%08x", titleid0);
     f_mkdir(fname);
 
-    sprintf(fname, "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
-    if (!CreateTicket(fname, *(u32*)&tmd[0x18C], *(u32*)&tmd[0x190], header[0x1E]))
+    snprintf(fname, sizeof(fname), "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
+    if (!CreateTicket(fname, tmd.GetCategoryNoByteswap(), tmd.GetIDNoByteswap(), header.ROMVersion))
         return false;
 
     if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
 
     // folder
 
-    sprintf(fname, "0:/title/%08x", titleid0);
+    snprintf(fname, sizeof(fname), "0:/title/%08x", titleid0);
     f_mkdir(fname);
-    sprintf(fname, "0:/title/%08x/%08x", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x", titleid0, titleid1);
     f_mkdir(fname);
-    sprintf(fname, "0:/title/%08x/%08x/content", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/content", titleid0, titleid1);
     f_mkdir(fname);
-    sprintf(fname, "0:/title/%08x/%08x/data", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data", titleid0, titleid1);
     f_mkdir(fname);
 
     // data
 
-    sprintf(fname, "0:/title/%08x/%08x/data/public.sav", titleid0, titleid1);
-    if (!CreateSaveFile(fname, *(u32*)&header[0x238]))
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/public.sav", titleid0, titleid1);
+    if (!CreateSaveFile(fname, header.DSiPublicSavSize))
         return false;
 
-    sprintf(fname, "0:/title/%08x/%08x/data/private.sav", titleid0, titleid1);
-    if (!CreateSaveFile(fname, *(u32*)&header[0x23C]))
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/private.sav", titleid0, titleid1);
+    if (!CreateSaveFile(fname, header.DSiPrivateSavSize))
         return false;
 
-    if (header[0x1BF] & 0x04)
+    if (header.AppFlags & 0x04)
     {
         // custom banner file
-        sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", titleid0, titleid1);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/banner.sav", titleid0, titleid1);
         res = f_open(&file, fname, FA_CREATE_ALWAYS | FA_WRITE);
         if (res != FR_OK)
         {
@@ -1117,15 +1091,15 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
         }
 
         u8 bannersav[0x4000];
-        memset(bannersav, 0, 0x4000);
-        f_write(&file, bannersav, 0x4000, &nwrite);
+        memset(bannersav, 0, sizeof(bannersav));
+        f_write(&file, bannersav, sizeof(bannersav), &nwrite);
 
         f_close(&file);
     }
 
     // TMD
 
-    sprintf(fname, "0:/title/%08x/%08x/content/title.tmd", titleid0, titleid1);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/content/title.tmd", titleid0, titleid1);
     res = f_open(&file, fname, FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
@@ -1133,18 +1107,45 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
         return false;
     }
 
-    f_write(&file, tmd, 0x208, &nwrite);
+    f_write(&file, &tmd, sizeof(DSi_TMD::TitleMetadata), &nwrite);
 
     f_close(&file);
 
     if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
 
+    return true;
+}
+
+bool NANDMount::ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& tmd, bool readonly)
+{
+    NDSHeader header {};
+    {
+        Platform::FileHandle* f = OpenLocalFile(appfile, FileMode::Read);
+        if (!f) return false;
+        FileRead(&header, sizeof(header), 1, f);
+        CloseFile(f);
+    }
+
+    u32 version = tmd.Contents.GetVersion();
+    Log(LogLevel::Info, ".app version: %08x\n", version);
+
+    u32 titleid0 = tmd.GetCategory();
+    u32 titleid1 = tmd.GetID();
+    Log(LogLevel::Info, "Title ID: %08x/%08x\n", titleid0, titleid1);
+
+    if (!InitTitleFileStructure(header, tmd, readonly))
+    {
+        Log(LogLevel::Error, "ImportTitle: failed to initialize file structure for imported title\n");
+        return false;
+    }
+
     // executable
 
-    sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
+    char fname[128];
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
     if (!ImportFile(fname, appfile))
     {
-        Log(LogLevel::Error, "ImportTitle: failed to create executable (%d)\n", res);
+        Log(LogLevel::Error, "ImportTitle: failed to create executable\n");
         return false;
     }
 
@@ -1153,18 +1154,54 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
     return true;
 }
 
-void DeleteTitle(u32 category, u32 titleid)
+bool NANDMount::ImportTitle(const u8* app, size_t appLength, const DSi_TMD::TitleMetadata& tmd, bool readonly)
+{
+    if (!app || appLength < sizeof(NDSHeader))
+        return false;
+
+    NDSHeader header {};
+    memcpy(&header, app, sizeof(header));
+
+    u32 version = tmd.Contents.GetVersion();
+    Log(LogLevel::Info, ".app version: %08x\n", version);
+
+    u32 titleid0 = tmd.GetCategory();
+    u32 titleid1 = tmd.GetID();
+    Log(LogLevel::Info, "Title ID: %08x/%08x\n", titleid0, titleid1);
+
+    if (!InitTitleFileStructure(header, tmd, readonly))
+    {
+        Log(LogLevel::Error, "ImportTitle: failed to initialize file structure for imported title\n");
+        return false;
+    }
+
+    // executable
+
+    char fname[128];
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
+    if (!ImportFile(fname, app, appLength))
+    {
+        Log(LogLevel::Error, "ImportTitle: failed to create executable\n");
+        return false;
+    }
+
+    if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
+
+    return true;
+}
+
+void NANDMount::DeleteTitle(u32 category, u32 titleid)
 {
     char fname[128];
 
-    sprintf(fname, "0:/ticket/%08x/%08x.tik", category, titleid);
+    snprintf(fname, sizeof(fname), "0:/ticket/%08x/%08x.tik", category, titleid);
     RemoveFile(fname);
 
-    sprintf(fname, "0:/title/%08x/%08x", category, titleid);
+    snprintf(fname, sizeof(fname), "0:/title/%08x/%08x", category, titleid);
     RemoveDir(fname);
 }
 
-u32 GetTitleDataMask(u32 category, u32 titleid)
+u32 NANDMount::GetTitleDataMask(u32 category, u32 titleid)
 {
     u32 version;
     NDSHeader header;
@@ -1181,22 +1218,22 @@ u32 GetTitleDataMask(u32 category, u32 titleid)
     return ret;
 }
 
-bool ImportTitleData(u32 category, u32 titleid, int type, const char* file)
+bool NANDMount::ImportTitleData(u32 category, u32 titleid, int type, const char* file)
 {
     char fname[128];
 
     switch (type)
     {
     case TitleData_PublicSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/public.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/public.sav", category, titleid);
         break;
 
     case TitleData_PrivateSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/private.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/private.sav", category, titleid);
         break;
 
     case TitleData_BannerSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/banner.sav", category, titleid);
         break;
 
     default:
@@ -1207,22 +1244,22 @@ bool ImportTitleData(u32 category, u32 titleid, int type, const char* file)
     return ImportFile(fname, file);
 }
 
-bool ExportTitleData(u32 category, u32 titleid, int type, const char* file)
+bool NANDMount::ExportTitleData(u32 category, u32 titleid, int type, const char* file)
 {
     char fname[128];
 
     switch (type)
     {
     case TitleData_PublicSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/public.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/public.sav", category, titleid);
         break;
 
     case TitleData_PrivateSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/private.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/private.sav", category, titleid);
         break;
 
     case TitleData_BannerSav:
-        sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", category, titleid);
+        snprintf(fname, sizeof(fname), "0:/title/%08x/%08x/data/banner.sav", category, titleid);
         break;
 
     default:
@@ -1230,6 +1267,14 @@ bool ExportTitleData(u32 category, u32 titleid, int type, const char* file)
     }
 
     return ExportFile(fname, file);
+}
+
+void DSiFirmwareSystemSettings::UpdateHash()
+{
+    SHA1_CTX sha;
+    SHA1Init(&sha);
+    SHA1Update(&sha, &Bytes[0x88], 0x128);
+    SHA1Final(Hash.data(), &sha);
 }
 
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -20,7 +20,10 @@
 #define TYPES_H
 
 #include <stdint.h>
+#include <array>
 
+namespace melonDS
+{
 typedef uint8_t     u8;
 typedef uint16_t    u16;
 typedef uint32_t    u32;
@@ -30,4 +33,7 @@ typedef int16_t     s16;
 typedef int32_t     s32;
 typedef int64_t     s64;
 
+template<class T, std::size_t A, std::size_t B>
+using array2d = std::array<std::array<T, B>, A>;
+}
 #endif // TYPES_H

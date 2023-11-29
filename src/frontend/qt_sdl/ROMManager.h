@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,46 +22,71 @@
 #include "types.h"
 #include "SaveManager.h"
 #include "AREngine.h"
+#include "DSi_NAND.h"
 
+#include "MemConstants.h"
+#include <optional>
 #include <string>
+#include <memory>
 #include <vector>
 
+namespace melonDS
+{
+class NDS;
+class DSi;
+class FATStorage;
+}
+class EmuThread;
 namespace ROMManager
 {
 
+using namespace melonDS;
 extern SaveManager* NDSSave;
 extern SaveManager* GBASave;
+extern std::unique_ptr<SaveManager> FirmwareSave;
 
 QString VerifySetup();
-void Reset();
-bool LoadBIOS();
+void Reset(EmuThread* thread);
+bool LoadBIOS(EmuThread* thread);
 void ClearBackupState();
 
-bool LoadROM(QStringList filepath, bool reset);
-void EjectCart();
+std::optional<std::array<u8, ARM9BIOSSize>> LoadARM9BIOS() noexcept;
+std::optional<std::array<u8, ARM7BIOSSize>> LoadARM7BIOS() noexcept;
+std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM9BIOS() noexcept;
+std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM7BIOS() noexcept;
+std::optional<FATStorage> LoadDSiSDCard() noexcept;
+void CustomizeFirmware(Firmware& firmware) noexcept;
+Firmware GenerateFirmware(int type) noexcept;
+/// Loads and customizes a firmware image based on the values in Config
+std::optional<Firmware> LoadFirmware(int type) noexcept;
+/// Loads and customizes a NAND image based on the values in Config
+std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSSize>& arm7ibios) noexcept;
+bool InstallFirmware(NDS& nds);
+bool InstallNAND(DSi& dsi);
+bool LoadROM(EmuThread*, QStringList filepath, bool reset);
+void EjectCart(NDS& nds);
 bool CartInserted();
 QString CartLabel();
 
-bool LoadGBAROM(QStringList filepath);
-void LoadGBAAddon(int type);
-void EjectGBACart();
+bool LoadGBAROM(NDS& nds, QStringList filepath);
+void LoadGBAAddon(NDS& nds, int type);
+void EjectGBACart(NDS& nds);
 bool GBACartInserted();
 QString GBACartLabel();
 
 std::string GetSavestateName(int slot);
 bool SavestateExists(int slot);
-bool LoadState(const std::string& filename);
-bool SaveState(const std::string& filename);
-void UndoStateLoad();
+bool LoadState(NDS& nds, const std::string& filename);
+bool SaveState(NDS& nds, const std::string& filename);
+void UndoStateLoad(NDS& nds);
 
-void EnableCheats(bool enable);
+void EnableCheats(NDS& nds, bool enable);
 ARCodeFile* GetCheatFile();
 
-void ROMIcon(u8 (&data)[512], u16 (&palette)[16], u32* iconRef);
-void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16],
-                     u16 (&sequence)[64], u32 (&animatedTexRef)[32 * 32 * 64],
+void ROMIcon(const u8 (&data)[512], const u16 (&palette)[16], u32 (&iconRef)[32*32]);
+void AnimatedROMIcon(const u8 (&data)[8][512], const u16 (&palette)[8][16],
+                     const u16 (&sequence)[64], u32 (&animatedIconRef)[64][32*32],
                      std::vector<int> &animatedSequenceRef);
-
 }
 
 #endif // ROMMANAGER_H

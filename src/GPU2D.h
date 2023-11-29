@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,14 +22,20 @@
 #include "types.h"
 #include "Savestate.h"
 
+namespace melonDS
+{
+class GPU;
+
 namespace GPU2D
 {
 
 class Unit
 {
 public:
-    Unit(u32 num);
-
+    // take a reference to the GPU so we can access its state
+    // and ensure that it's not null
+    Unit(u32 num, melonDS::GPU& gpu);
+    virtual ~Unit() = default;
     Unit(const Unit&) = delete;
     Unit& operator=(const Unit&) = delete;
 
@@ -116,6 +122,8 @@ public:
     u32 CaptureCnt;
 
     u16 MasterBrightness;
+private:
+    melonDS::GPU& GPU;
 };
 
 class Renderer2D
@@ -141,4 +149,5 @@ protected:
 
 }
 
+}
 #endif

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -23,93 +23,25 @@
 #include "Wifi.h"
 #include "WifiAP.h"
 #include "Platform.h"
-#include "ARM.h"
-#include "GPU.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
-namespace Wifi
-{
 
 //#define WIFI_LOG printf
 #define WIFI_LOG(...) {}
 
 #define PRINT_MAC(pf, mac) Log(LogLevel::Debug, "%s: %02X:%02X:%02X:%02X:%02X:%02X\n", pf, (mac)[0], (mac)[1], (mac)[2], (mac)[3], (mac)[4], (mac)[5]);
 
-u8 RAM[0x2000];
-u16 IO[0x1000>>1];
-
 #define IOPORT(x) IO[(x)>>1]
 #define IOPORT8(x) ((u8*)IO)[x]
 
 // destination MACs for MP frames
-const u8 MPCmdMAC[6]   = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x00};
-const u8 MPReplyMAC[6] = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x10};
-const u8 MPAckMAC[6]   = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x03};
-
-const int kTimerInterval = 8;
-const u32 kTimeCheckMask = ~(kTimerInterval - 1);
-
-bool Enabled;
-bool PowerOn;
-
-s32 TimerError;
-
-u16 Random;
-
-// general, always-on microsecond counter
-u64 USTimestamp;
-
-u64 USCounter;
-u64 USCompare;
-bool BlockBeaconIRQ14;
-
-u32 CmdCounter;
-
-u8 BBRegs[0x100];
-u8 BBRegsRO[0x100];
-
-u8 RFVersion;
-u32 RFRegs[0x40];
-
-struct TXSlot
-{
-    bool Valid;
-    u16 Addr;
-    u16 Length;
-    u8 Rate;
-    u8 CurPhase;
-    int CurPhaseTime;
-    u32 HalfwordTimeMask;
-};
-
-TXSlot TXSlots[6];
-
-u8 RXBuffer[2048];
-u32 RXBufferPtr;
-int RXTime;
-u32 RXHalfwordTimeMask;
-
-u32 ComStatus; // 0=waiting for packets  1=receiving  2=sending
-u32 TXCurSlot;
-u32 RXCounter;
-
-int MPReplyTimer;
-u16 MPClientMask, MPClientFail;
-
-u8 MPClientReplies[15*1024];
-
-bool MPInited;
-bool LANInited;
-
-int USUntilPowerOn;
-bool ForcePowerOn;
-
-// MULTIPLAYER SYNC APPARATUS
-bool IsMPClient;
-u64 NextSync;           // for clients: timestamp for next sync point
-u64 RXTimestamp;
+const u8 Wifi::MPCmdMAC[6]   = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x00};
+const u8 Wifi::MPReplyMAC[6] = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x10};
+const u8 Wifi::MPAckMAC[6]   = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x03};
 
 // multiplayer host TX sequence:
 // 1. preamble
@@ -146,8 +78,21 @@ u64 RXTimestamp;
 // * TX errors (if applicable)
 
 
-bool Init()
+bool MACEqual(u8* a, const u8* b)
 {
+    return (*(u32*)&a[0] == *(u32*)&b[0]) && (*(u16*)&a[4] == *(u16*)&b[4]);
+}
+
+bool MACIsBroadcast(u8* a)
+{
+    return (*(u32*)&a[0] == 0xFFFFFFFF) && (*(u16*)&a[4] == 0xFFFF);
+}
+
+
+Wifi::Wifi(melonDS::NDS& nds) : NDS(nds)
+{
+    NDS.RegisterEventFunc(Event_Wifi, 0, MemberEventFunc(Wifi, USTimer));
+
     //MPInited = false;
     //LANInited = false;
 
@@ -157,22 +102,22 @@ bool Init()
     Platform::LAN_Init();
     LANInited = true;
 
-    WifiAP::Init();
-
-    return true;
+    WifiAP = new class WifiAP(this);
 }
 
-void DeInit()
+Wifi::~Wifi()
 {
     if (MPInited)
         Platform::MP_DeInit();
     if (LANInited)
         Platform::LAN_DeInit();
 
-    WifiAP::DeInit();
+    delete WifiAP; WifiAP = nullptr;
+
+    NDS.UnregisterEventFunc(Event_Wifi, 0);
 }
 
-void Reset()
+void Wifi::Reset()
 {
     memset(RAM, 0, 0x2000);
     memset(IO, 0, 0x1000);
@@ -213,15 +158,17 @@ void Reset()
     }
     #undef BBREG_FIXED
 
-    RFVersion = SPI_Firmware::GetRFVersion();
+    const Firmware* fw = NDS.SPI.GetFirmware();
+
+    RFVersion = fw->GetHeader().RFChipType;
     memset(RFRegs, 0, 4*0x40);
 
-    u8 console = SPI_Firmware::GetConsoleType();
-    if (console == 0xFF)
+    Firmware::FirmwareConsoleType console = fw->GetHeader().ConsoleType;
+    if (console == Firmware::FirmwareConsoleType::DS)
         IOPORT(0x000) = 0x1440;
-    else if (console == 0x20)
+    else if (console == Firmware::FirmwareConsoleType::DSLite)
         IOPORT(0x000) = 0xC340;
-    else if (NDS::ConsoleType == 1 && console == 0x57)
+    else if (NDS.ConsoleType == 1 && console == Firmware::FirmwareConsoleType::DSi)
         IOPORT(0x000) = 0xC340; // DSi has the modern DS-wifi variant
     else
     {
@@ -242,6 +189,7 @@ void Reset()
     BlockBeaconIRQ14 = false;
 
     memset(TXSlots, 0, sizeof(TXSlots));
+    memset(TXBuffer, 0, sizeof(TXBuffer));
     ComStatus = 0;
     TXCurSlot = -1;
     RXCounter = 0;
@@ -256,19 +204,22 @@ void Reset()
     MPClientFail = 0;
     memset(MPClientReplies, 0, sizeof(MPClientReplies));
 
+    MPLastSeqno = 0xFFFF;
+
     CmdCounter = 0;
 
     USUntilPowerOn = 0;
     ForcePowerOn = false;
 
+    IsMP = false;
     IsMPClient = false;
     NextSync = 0;
     RXTimestamp = 0;
 
-    WifiAP::Reset();
+    WifiAP->Reset();
 }
 
-void DoSavestate(Savestate* file)
+void Wifi::DoSavestate(Savestate* file)
 {
     file->Section("WIFI");
 
@@ -314,6 +265,8 @@ void DoSavestate(Savestate* file)
         file->Var32(&slot->HalfwordTimeMask);
     }
 
+    file->VarArray(TXBuffer, sizeof(TXBuffer));
+
     file->VarArray(RXBuffer, sizeof(RXBuffer));
     file->Var32(&RXBufferPtr);
     file->Var32((u32*)&RXTime);
@@ -329,16 +282,19 @@ void DoSavestate(Savestate* file)
 
     file->VarArray(MPClientReplies, sizeof(MPClientReplies));
 
+    file->Var16(&MPLastSeqno);
+
     file->Var32((u32*)&USUntilPowerOn);
     file->Bool32(&ForcePowerOn);
 
+    file->Bool32(&IsMP);
     file->Bool32(&IsMPClient);
     file->Var64(&NextSync);
     file->Var64(&RXTimestamp);
 }
 
 
-void ScheduleTimer(bool first)
+void Wifi::ScheduleTimer(bool first)
 {
     if (first) TimerError = 0;
 
@@ -347,14 +303,14 @@ void ScheduleTimer(bool first)
     s32 delay = (cycles + 999999) / 1000000;
     TimerError = (delay * 1000000) - cycles;
 
-    NDS::ScheduleEvent(NDS::Event_Wifi, !first, delay, USTimer, 0);
+    NDS.ScheduleEvent(Event_Wifi, !first, delay, 0, 0);
 }
 
-void UpdatePowerOn()
+void Wifi::UpdatePowerOn()
 {
     bool on = Enabled;
 
-    if (NDS::ConsoleType == 1)
+    if (NDS.ConsoleType == 1)
     {
         // TODO for DSi:
         // * W_POWER_US doesn't work (atleast on DWM-W024)
@@ -372,7 +328,7 @@ void UpdatePowerOn()
     PowerOn = on;
     if (on)
     {
-        Log(LogLevel::Info, "WIFI: ON\n");
+        Log(LogLevel::Debug, "WIFI: ON\n");
 
         ScheduleTimer(true);
 
@@ -380,25 +336,22 @@ void UpdatePowerOn()
     }
     else
     {
-        Log(LogLevel::Info, "WIFI: OFF\n");
+        Log(LogLevel::Debug, "WIFI: OFF\n");
 
-        NDS::CancelEvent(NDS::Event_Wifi);
+        NDS.CancelEvent(Event_Wifi);
 
         Platform::MP_End();
     }
 }
 
-void SetPowerCnt(u32 val)
+void Wifi::SetPowerCnt(u32 val)
 {
     Enabled = val & (1<<1);
     UpdatePowerOn();
 }
 
 
-void PowerDown();
-void StartTX_Beacon();
-
-void SetIRQ(u32 irq)
+void Wifi::SetIRQ(u32 irq)
 {
     u32 oldflags = IOPORT(W_IF) & IOPORT(W_IE);
 
@@ -406,10 +359,10 @@ void SetIRQ(u32 irq)
     u32 newflags = IOPORT(W_IF) & IOPORT(W_IE);
 
     if ((oldflags == 0) && (newflags != 0))
-        NDS::SetIRQ(1, NDS::IRQ_Wifi);
+        NDS.SetIRQ(1, IRQ_Wifi);
 }
 
-void SetIRQ13()
+void Wifi::SetIRQ13()
 {
     SetIRQ(13);
 
@@ -423,7 +376,7 @@ void SetIRQ13()
     }
 }
 
-void SetIRQ14(int source) // 0=USCOMPARE 1=BEACONCOUNT 2=forced
+void Wifi::SetIRQ14(int source) // 0=USCOMPARE 1=BEACONCOUNT 2=forced
 {
     if (source != 2)
         IOPORT(W_BeaconCount1) = IOPORT(W_BeaconInterval);
@@ -452,7 +405,7 @@ void SetIRQ14(int source) // 0=USCOMPARE 1=BEACONCOUNT 2=forced
     IOPORT(W_ListenCount)--;
 }
 
-void SetIRQ15()
+void Wifi::SetIRQ15()
 {
     SetIRQ(15);
 
@@ -464,7 +417,7 @@ void SetIRQ15()
 }
 
 
-void SetStatus(u32 status)
+void Wifi::SetStatus(u32 status)
 {
     // TODO, eventually: states 2/4/7
     u16 rfpins[10] = {0x04, 0x84, 0, 0x46, 0, 0x84, 0x87, 0, 0x46, 0x04};
@@ -473,7 +426,7 @@ void SetStatus(u32 status)
 }
 
 
-void PowerDown()
+void Wifi::PowerDown()
 {
     IOPORT(W_TXReqRead) &= ~0x000F;
     IOPORT(W_PowerState) |= 0x0200;
@@ -487,20 +440,14 @@ void PowerDown()
 }
 
 
-bool MACEqual(const u8* a, const u8* b)
-{
-    return (*(u32*)&a[0] == *(u32*)&b[0]) && (*(u16*)&a[4] == *(u16*)&b[4]);
-}
-
-
-int PreambleLen(int rate)
+int Wifi::PreambleLen(int rate)
 {
     if (rate == 1) return 192;
     if (IOPORT(W_Preamble) & 0x0004) return 96;
     return 192;
 }
 
-u32 NumClients(u16 bitmask)
+u32 Wifi::NumClients(u16 bitmask)
 {
     u32 ret = 0;
     for (int i = 1; i < 16; i++)
@@ -510,14 +457,14 @@ u32 NumClients(u16 bitmask)
     return ret;
 }
 
-void IncrementTXCount(TXSlot* slot)
+void Wifi::IncrementTXCount(TXSlot* slot)
 {
     u8 cnt = RAM[slot->Addr + 0x4];
     if (cnt < 0xFF) cnt++;
     *(u16*)&RAM[slot->Addr + 0x4] = cnt;
 }
 
-void ReportMPReplyErrors(u16 clientfail)
+void Wifi::ReportMPReplyErrors(u16 clientfail)
 {
     // TODO: do these trigger any IRQ?
 
@@ -530,12 +477,84 @@ void ReportMPReplyErrors(u16 clientfail)
     }
 }
 
-void StartTX_LocN(int nslot, int loc)
+void Wifi::TXSendFrame(TXSlot* slot, int num)
+{
+    u32 noseqno = 0;
+
+    if (RAM[slot->Addr + 0x4])
+    {
+        noseqno = 2;
+    }
+    else
+    {
+        if (num == 1) noseqno = (IOPORT(W_TXSlotCmd) & 0x4000) ? 1:0;
+    }
+
+    if (!noseqno)
+    {
+        if (!(IOPORT(W_TXHeaderCnt) & (1<<2)))
+            *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
+        IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+    }
+
+    u16 framectl = *(u16*)&RAM[slot->Addr + 0xC];
+    if (framectl & (1<<14))
+    {
+        // WEP frame
+        // TODO: what happens when sending a WEP frame while WEP processing is off?
+        // TODO: some form of actual WEP processing?
+        // for now we just set the WEP FCS to a nonzero value, because some games require it
+
+        if (IOPORT(W_WEPCnt) & (1<<15))
+        {
+            u32 wep_fcs = (slot->Addr + 0xC + slot->Length - 7) & ~0x1;
+            *(u32*)&RAM[wep_fcs] = 0x22334466;
+        }
+    }
+
+    int len = slot->Length;
+    if ((slot->Addr + len) > 0x1FF4)
+        len = 0x1FF4 - slot->Addr;
+
+    memcpy(TXBuffer, &RAM[slot->Addr], 12+len);
+
+    if (noseqno == 2)
+        *(u16*)&TXBuffer[0xC] |= (1<<11);
+
+    switch (num)
+    {
+    case 0:
+    case 2:
+    case 3:
+        Platform::MP_SendPacket(TXBuffer, 12+len, USTimestamp);
+        if (!IsMP) WifiAP->SendPacket(TXBuffer, 12+len);
+        break;
+
+    case 1:
+        *(u16*)&TXBuffer[12 + 24+2] = MPClientMask;
+        Platform::MP_SendCmd(TXBuffer, 12+len, USTimestamp);
+        break;
+
+    case 5:
+        IncrementTXCount(slot);
+        Platform::MP_SendReply(TXBuffer, 12+len, USTimestamp, IOPORT(W_AIDLow));
+        break;
+
+    case 4:
+        *(u64*)&TXBuffer[0xC + 24] = USCounter;
+        Platform::MP_SendPacket(TXBuffer, 12+len, USTimestamp);
+        break;
+    }
+}
+
+void Wifi::StartTX_LocN(int nslot, int loc)
 {
     TXSlot* slot = &TXSlots[nslot];
 
     if (IOPORT(W_TXSlotLoc1 + (loc*4)) & 0x7000)
         Log(LogLevel::Warn, "wifi: unusual loc%d bits set %04X\n", loc, IOPORT(W_TXSlotLoc1 + (loc*4)));
+
+    slot->Valid = true;
 
     slot->Addr = (IOPORT(W_TXSlotLoc1 + (loc*4)) & 0x0FFF) << 1;
     slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
@@ -548,14 +567,14 @@ void StartTX_LocN(int nslot, int loc)
     slot->CurPhaseTime = PreambleLen(slot->Rate);
 }
 
-void StartTX_Cmd()
+void Wifi::StartTX_Cmd()
 {
     TXSlot* slot = &TXSlots[1];
 
-    // TODO: cancel the transfer if there isn't enough time left (check CMDCOUNT)
-
     if (IOPORT(W_TXSlotCmd) & 0x3000)
         Log(LogLevel::Warn,"wifi: !! unusual TXSLOT_CMD bits set %04X\n", IOPORT(W_TXSlotCmd));
+
+    slot->Valid = true;
 
     slot->Addr = (IOPORT(W_TXSlotCmd) & 0x0FFF) << 1;
     slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
@@ -564,13 +583,30 @@ void StartTX_Cmd()
     if (rate == 0x14) slot->Rate = 2;
     else              slot->Rate = 1;
 
-    slot->CurPhase = 0;
-    slot->CurPhaseTime = PreambleLen(slot->Rate);
+    MPClientMask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2] & MPClientFail;
+    MPClientFail &= MPClientMask;
+
+    u32 duration = PreambleLen(slot->Rate) + (slot->Length * (slot->Rate==2 ? 4:8));
+    duration += 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(MPClientMask));
+    duration += (32 * (slot->Rate==2 ? 4:8));
+
+    if (CmdCounter > (duration + 100))
+    {
+        slot->CurPhase = 0;
+        slot->CurPhaseTime = PreambleLen(slot->Rate);
+    }
+    else
+    {
+        slot->CurPhase = 13;
+        slot->CurPhaseTime = CmdCounter - 100;
+    }
 }
 
-void StartTX_Beacon()
+void Wifi::StartTX_Beacon()
 {
     TXSlot* slot = &TXSlots[4];
+
+    slot->Valid = true;
 
     slot->Addr = (IOPORT(W_TXSlotBeacon) & 0x0FFF) << 1;
     slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
@@ -585,7 +621,7 @@ void StartTX_Beacon()
     IOPORT(W_TXBusy) |= 0x0010;
 }
 
-void FireTX()
+void Wifi::FireTX()
 {
     if (!(IOPORT(W_RXCnt) & 0x8000))
         return;
@@ -618,6 +654,7 @@ void FireTX()
 
     if (txstart & 0x0002)
     {
+        MPClientFail = 0xFFFE;
         StartTX_Cmd();
         return;
     }
@@ -629,9 +666,9 @@ void FireTX()
     }
 }
 
-void SendMPDefaultReply()
+void Wifi::SendMPDefaultReply()
 {
-    u8 reply[12 + 32];
+    u8 reply[12 + 28];
 
     *(u16*)&reply[0xA] = 28; // length
 
@@ -659,7 +696,7 @@ void SendMPDefaultReply()
     WIFI_LOG("wifi: sent %d/40 bytes of MP default reply\n", txlen);
 }
 
-void SendMPReply(u16 clienttime, u16 clientmask)
+void Wifi::SendMPReply(u16 clienttime, u16 clientmask)
 {
     TXSlot* slot = &TXSlots[5];
 
@@ -693,19 +730,13 @@ void SendMPReply(u16 clienttime, u16 clientmask)
             slot->Valid = false;
     }
 
-    //if (RAM[slot->Addr+4] > 0)
-    //    printf("REPLY RETRY COUNTER %d (%04X)\n", RAM[slot->Addr+4], IOPORT(W_TXSlotReply2));
-
     // this seems to be set upon IRQ0
     // TODO: how does it behave if the packet addr is changed before it gets sent? (maybe just not possible)
     if (slot->Valid)
     {
-        //*(u16*)&RAM[slot->Addr + 0x4] = 0x0001;
-        IncrementTXCount(slot);
-
         slot->CurPhase = 0;
-        int txlen = Platform::MP_SendReply(&RAM[slot->Addr], 12 + slot->Length, USTimestamp, IOPORT(W_AIDLow));
-        WIFI_LOG("wifi: sent %d/%d bytes of MP reply\n", txlen, 12 + slot->Length);
+
+        TXSendFrame(slot, 5);
     }
     else
     {
@@ -726,7 +757,7 @@ void SendMPReply(u16 clienttime, u16 clientmask)
     IOPORT(W_TXBusy) |= 0x0080;
 }
 
-void SendMPAck(u16 clientfail)
+void Wifi::SendMPAck(u16 cmdcount, u16 clientfail)
 {
     u8 ack[12 + 32];
 
@@ -748,18 +779,31 @@ void SendMPAck(u16 clientfail)
     *(u16*)&ack[0xC + 0x12] = IOPORT(W_MACAddr1);
     *(u16*)&ack[0xC + 0x14] = IOPORT(W_MACAddr2);
     *(u16*)&ack[0xC + 0x16] = IOPORT(W_TXSeqNo) << 4;
-    *(u16*)&ack[0xC + 0x18] = 0x0033; // ???
+    *(u16*)&ack[0xC + 0x18] = cmdcount;
     *(u16*)&ack[0xC + 0x1A] = clientfail;
     *(u32*)&ack[0xC + 0x1C] = 0;
+
+    if (!clientfail)
+    {
+        u32 nextbeacon;
+        if (IOPORT(W_TXBusy) & 0x0010)
+            nextbeacon = 0;
+        else
+            nextbeacon = ((IOPORT(W_BeaconCount1) - 1) << 10) + (0x400 - (USCounter & 0x3FF));
+        int runahead = std::min(CmdCounter, nextbeacon);
+        if (CmdCounter < 1000) runahead -= 210;
+        *(u32*)&ack[0] = std::max(runahead - (32*(TXSlots[1].Rate==2?4:8)), 0);
+    }
+    else
+    {
+        *(u32*)&ack[0] = PreambleLen(TXSlots[1].Rate);
+    }
 
     int txlen = Platform::MP_SendAck(ack, 12+32, USTimestamp);
     WIFI_LOG("wifi: sent %d/44 bytes of MP ack, %d %d\n", txlen, ComStatus, RXTime);
 }
 
-bool CheckRX(int type);
-void MPClientReplyRX(int client);
-
-bool ProcessTX(TXSlot* slot, int num)
+bool Wifi::ProcessTX(TXSlot* slot, int num)
 {
     slot->CurPhaseTime -= kTimerInterval;
     if (slot->CurPhaseTime > 0)
@@ -779,15 +823,6 @@ bool ProcessTX(TXSlot* slot, int num)
 
                 u32 curclient = 1 << nclient;
 
-                /*if (CheckRX(1))
-                {
-                    // we received a reply, mark it as such
-                    // TODO: is any received packet considered a good reply?
-                    // hardware probably requires a specific frame-control and/or destination MAC
-
-                    MPClientFail &= ~curclient;
-                }
-                else printf("REPLY %04X NOT RECEIVED\n");*/
                 if (!(MPClientFail & curclient))
                     MPClientReplyRX(nclient);
 
@@ -806,23 +841,7 @@ bool ProcessTX(TXSlot* slot, int num)
             SetIRQ(7);
 
             if (num == 5)
-            {
-                // MP reply slot
-                // setup needs to be done now as port 098 can get changed in the meantime
-
                 SetStatus(8);
-
-                //slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
-                //slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
-
-                /*u8 rate = RAM[slot->Addr + 0x8];
-                if (rate == 0x14) slot->Rate = 2;
-                else              slot->Rate = 1;*/
-
-                // TODO: duration should be set by hardware
-                // doesn't seem to be important
-                //RAM[slot->Addr + 0xC + 2] = 0x00F0;
-            }
             else
                 SetStatus(3);
 
@@ -841,73 +860,19 @@ bool ProcessTX(TXSlot* slot, int num)
             slot->CurPhase = 1;
             slot->CurPhaseTime = len;
 
-            u16 framectl = *(u16*)&RAM[slot->Addr + 0xC];
-            if (framectl & (1<<14))
-            {
-                // WEP frame
-                // TODO: what happens when sending a WEP frame while WEP processing is off?
-                // TODO: some form of actual WEP processing?
-                // for now we just set the WEP FCS to a nonzero value, because some games require it
-
-                if (IOPORT(W_WEPCnt) & (1<<15))
-                {
-                    u32 wep_fcs = (slot->Addr + 0xC + slot->Length - 7) & ~0x1;
-                    *(u32*)&RAM[wep_fcs] = 0x22334466;
-                }
-            }
-
-            u64 oldts;
-            if (num == 4)
-            {
-                // beacon timestamp
-                oldts = *(u64*)&RAM[slot->Addr + 0xC + 24];
-                *(u64*)&RAM[slot->Addr + 0xC + 24] = USCounter;
-            }
-
-            u32 noseqno = 0;
-            if (num == 1) noseqno = (IOPORT(W_TXSlotCmd) & 0x4000);
-
-            if (!noseqno)
-            {
-                *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
-                IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
-            }
-
-            if ((num != 5) && (RAM[slot->Addr+4] > 0))
-                Log(LogLevel::Debug, "SLOT %d RETRY COUNTER %d\n", num, RAM[slot->Addr+4]);
-
             // set TX addr
             IOPORT(W_RXTXAddr) = slot->Addr >> 1;
 
-            if (num == 1)
+            if (num != 5)
             {
-                // send
-                int txlen = Platform::MP_SendCmd(&RAM[slot->Addr], 12 + slot->Length, USTimestamp);
-                WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
-                         txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
-                         *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
-            }
-            else if (num == 5)
-            {
-                // send
-                /*int txlen = Platform::MP_SendReply(&RAM[slot->Addr], 12 + slot->Length, USTimestamp, IOPORT(W_AIDLow));
-                WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
-                         txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
-                         *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);*/
-            }
-            else //if (num != 5)
-            {
-                // send
-                int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length, USTimestamp);
-                WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
-                         txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
-                         *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
+                TXSendFrame(slot, num);
             }
 
             // if the packet is being sent via LOC1..3, send it to the AP
             // any packet sent via CMD/REPLY/BEACON isn't going to have much use outside of local MP
             if (num == 0 || num == 2 || num == 3)
             {
+                u16 framectl = *(u16*)&RAM[slot->Addr + 0xC];
                 if ((framectl & 0x00FF) == 0x0010)
                 {
                     u16 aid = *(u16*)&RAM[slot->Addr + 0xC + 24 + 4];
@@ -918,16 +883,10 @@ bool ProcessTX(TXSlot* slot, int num)
                     if (IsMPClient)
                     {
                         Log(LogLevel::Info, "[CLIENT] deauth\n");
+                        IsMP = false;
                         IsMPClient = false;
                     }
                 }
-
-                WifiAP::SendPacket(&RAM[slot->Addr], 12 + slot->Length);
-            }
-
-            if (num == 4)
-            {
-                *(u64*)&RAM[slot->Addr + 0xC + 24] = oldts;
             }
         }
         break;
@@ -937,11 +896,7 @@ bool ProcessTX(TXSlot* slot, int num)
             SetIRQ(7);
             SetStatus(8);
 
-            //SendMPDefaultReply();
-
-            //slot->Addr = 0;
-            //slot->Length = 28;
-            slot->CurPhase = 4;
+            slot->CurPhase = 11;
             slot->CurPhaseTime = 28*4;
             slot->HalfwordTimeMask = 0xFFFFFFFF;
         }
@@ -963,21 +918,17 @@ bool ProcessTX(TXSlot* slot, int num)
                 }
                 SetStatus(5);
 
-                u16 clientmask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2] & 0xFFFE;
-                //MPNumReplies = NumClients(clientmask);
                 MPReplyTimer = 16 + PreambleLen(slot->Rate);
-                MPClientMask = clientmask;
-                MPClientFail = clientmask;
 
                 u16 res = 0;
-                if (clientmask)
-                    res = Platform::MP_RecvReplies(MPClientReplies, USTimestamp, clientmask);
+                if (MPClientMask)
+                    res = Platform::MP_RecvReplies(MPClientReplies, USTimestamp, MPClientMask);
                 MPClientFail &= ~res;
 
                 // TODO: 112 likely includes the ack preamble, which needs adjusted
                 // for long-preamble settings
                 slot->CurPhase = 2;
-                slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(clientmask));
+                slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(MPClientMask));
 
                 break;
             }
@@ -1022,6 +973,16 @@ bool ProcessTX(TXSlot* slot, int num)
         }
         return true;
 
+    case 11: // MP default reply transfer finished
+        {
+            IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+
+            IOPORT(W_TXBusy) &= ~0x80;
+            SetStatus(1);
+            FireTX();
+        }
+        return true;
+
     case 2: // MP host transfer done
         {
             SetIRQ(7);
@@ -1035,7 +996,8 @@ bool ProcessTX(TXSlot* slot, int num)
             ReportMPReplyErrors(MPClientFail);
 
             // send
-            SendMPAck(MPClientFail);
+            u16 cmdcount = (CmdCounter + 9) / 10;
+            SendMPAck(cmdcount, MPClientFail);
 
             slot->CurPhase = 3;
         }
@@ -1043,10 +1005,6 @@ bool ProcessTX(TXSlot* slot, int num)
 
     case 3: // MP host ack transfer (reply wait done)
         {
-            // checkme
-            IOPORT(W_TXBusy) &= ~(1<<1);
-            IOPORT(W_TXSlotCmd) &= 0x7FFF; // confirmed
-
             if (!MPClientFail)
                 *(u16*)&RAM[slot->Addr] = 0x0001;
             else
@@ -1054,7 +1012,8 @@ bool ProcessTX(TXSlot* slot, int num)
 
             // this is set to indicate which clients failed to reply
             *(u16*)&RAM[slot->Addr + 0x2] = MPClientFail;
-            IncrementTXCount(slot);
+            if (!MPClientFail)
+                IncrementTXCount(slot);
 
             IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
 
@@ -1063,23 +1022,39 @@ bool ProcessTX(TXSlot* slot, int num)
                 IOPORT(W_TXStat) = 0x0B01;
                 SetIRQ(1);
             }
-            SetStatus(1);
 
-            // TODO: retry the whole cycle if some clients failed to respond
-            // AND if there is enough time left in CMDCOUNT
-            // (games seem to always configure CMDCOUNT such that there is no time for retries)
-            SetIRQ(12);
+            if (MPClientFail && false)
+            {
+                // if some clients failed to respond: try again
+                // TODO: fix this (causes instability)
+                StartTX_Cmd();
+                break;
+            }
+            else
+            {
+                IOPORT(W_TXBusy) &= ~(1<<1);
+                IOPORT(W_TXSlotCmd) &= 0x7FFF;
 
-            FireTX();
+                SetStatus(1);
+                SetIRQ(12);
+
+                FireTX();
+            }
         }
         return true;
 
-    case 4: // MP default reply transfer finished
+    case 13: // MP transfer failed (timeout)
         {
+            IOPORT(W_TXBusy) &= ~(1<<1);
+            IOPORT(W_TXSlotCmd) &= 0x7FFF;
+
+            *(u16*)&RAM[slot->Addr] = 0x0005;
+
             IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
 
-            IOPORT(W_TXBusy) &= ~0x80;
             SetStatus(1);
+            SetIRQ(12);
+
             FireTX();
         }
         return true;
@@ -1089,7 +1064,7 @@ bool ProcessTX(TXSlot* slot, int num)
 }
 
 
-inline void IncrementRXAddr(u16& addr, u16 inc = 2)
+inline void Wifi::IncrementRXAddr(u16& addr, u16 inc)
 {
     for (u32 i = 0; i < inc; i += 2)
     {
@@ -1100,7 +1075,7 @@ inline void IncrementRXAddr(u16& addr, u16 inc = 2)
     }
 }
 
-void StartRX()
+void Wifi::StartRX()
 {
     u16 framelen = *(u16*)&RXBuffer[8];
     RXTime = framelen;
@@ -1128,7 +1103,7 @@ void StartRX()
     ComStatus |= 1;
 }
 
-void FinishRX()
+void Wifi::FinishRX()
 {
     ComStatus &= ~0x1;
     RXCounter = 0;
@@ -1144,6 +1119,7 @@ void FinishRX()
     // TODO: RX stats
 
     u16 framectl = *(u16*)&RXBuffer[12];
+    u16 seqno = *(u16*)&RXBuffer[12 + 22];
 
     // check the frame's destination address
     // note: the hardware always checks the first address field, regardless of the frame type/etc
@@ -1172,6 +1148,7 @@ void FinishRX()
     // * MP CMD frames with a duplicate sequence number are ignored
 
     u16 rxflags = 0x0010;
+    bool cmd_dupe = false;
 
     switch ((framectl >> 2) & 0x3)
     {
@@ -1273,6 +1250,9 @@ void FinishRX()
             }
             else if (MACEqual(&RXBuffer[12 + 4], MPCmdMAC))
             {
+                if (seqno == MPLastSeqno) cmd_dupe = true;
+                MPLastSeqno = seqno;
+
                 rxflags |= 0x000C;
             }
             else if (MACEqual(&RXBuffer[12 + 4], MPAckMAC))
@@ -1338,26 +1318,29 @@ void FinishRX()
         break;
     }
 
-    // build the RX header
+    if (!cmd_dupe)
+    {
+        // build the RX header
 
-    u16 headeraddr = IOPORT(W_RXBufWriteCursor) << 1;
-    *(u16*)&RAM[headeraddr] = rxflags;
-    IncrementRXAddr(headeraddr);
-    *(u16*)&RAM[headeraddr] = 0x0040; // ???
-    IncrementRXAddr(headeraddr, 4);
-    *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[6]; // TX rate
-    IncrementRXAddr(headeraddr);
-    *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[8]; // frame length
-    IncrementRXAddr(headeraddr);
-    *(u16*)&RAM[headeraddr] = 0x4080; // RSSI
+        u16 headeraddr = IOPORT(W_RXBufWriteCursor) << 1;
+        *(u16*)&RAM[headeraddr] = rxflags;
+        IncrementRXAddr(headeraddr);
+        *(u16*)&RAM[headeraddr] = 0x0040; // ???
+        IncrementRXAddr(headeraddr, 4);
+        *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[6]; // TX rate
+        IncrementRXAddr(headeraddr);
+        *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[8]; // frame length
+        IncrementRXAddr(headeraddr);
+        *(u16*)&RAM[headeraddr] = 0x4080; // RSSI
 
-    // signal successful reception
+        // signal successful reception
 
-    u16 addr = IOPORT(W_RXTXAddr) << 1;
-    if (addr & 0x2) IncrementRXAddr(addr);
-    IOPORT(W_RXBufWriteCursor) = (addr & ~0x3) >> 1;
+        u16 addr = IOPORT(W_RXTXAddr) << 1;
+        if (addr & 0x2) IncrementRXAddr(addr);
+        IOPORT(W_RXBufWriteCursor) = (addr & ~0x3) >> 1;
 
-    SetIRQ(0);
+        SetIRQ(0);
+    }
 
     if ((rxflags & 0x800F) == 0x800C)
     {
@@ -1395,7 +1378,7 @@ void FinishRX()
     }
 }
 
-void MPClientReplyRX(int client)
+void Wifi::MPClientReplyRX(int client)
 {
     if (IOPORT(W_PowerState) & 0x0300)
         return;
@@ -1436,7 +1419,7 @@ void MPClientReplyRX(int client)
     StartRX();
 }
 
-bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
+bool Wifi::CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 {
     if (IOPORT(W_PowerState) & 0x0300)
         return false;
@@ -1460,8 +1443,8 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
         if (type == 0)
         {
             rxlen = Platform::MP_RecvPacket(RXBuffer, &timestamp);
-            if (rxlen <= 0)
-                rxlen = WifiAP::RecvPacket(RXBuffer);
+            if ((rxlen <= 0) && (!IsMP))
+                rxlen = WifiAP->RecvPacket(RXBuffer);
         }
         else
         {
@@ -1470,6 +1453,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
             {
                 // host is gone
                 // TODO: make this more resilient
+                IsMP = false;
                 IsMPClient = false;
             }
         }
@@ -1519,6 +1503,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
         {
             Log(LogLevel::Debug, "[CLIENT %01X] host sync=%016llX\n", aid&0xF, timestamp);
 
+            IsMP = true;
             IsMPClient = true;
             USTimestamp = timestamp;
             NextSync = RXTimestamp + (framelen * (txrate==0x14 ? 4:8));
@@ -1529,6 +1514,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
     }
     else if (((framectl & 0x00FF) == 0x00C0) && timestamp && macgood && IsMPClient)
     {
+        IsMP = false;
         IsMPClient = false;
         NextSync = 0;
 
@@ -1542,6 +1528,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
         // we also need to determine how far we can run after having received this frame
 
         RXTimestamp = timestamp;
+        //if (RXTimestamp < USTimestamp) printf("CRAP!! %04X %016llX %016llX\n", framectl, RXTimestamp, USTimestamp);
         if (RXTimestamp < USTimestamp) RXTimestamp = USTimestamp;
         NextSync = RXTimestamp + (framelen * (txrate==0x14 ? 4:8));
 
@@ -1552,6 +1539,12 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 
             // include the MP reply time window
             NextSync += 112 + ((clienttime + 10) * NumClients(clientmask));
+        }
+        else if (MACEqual(&RXBuffer[12 + 4], MPAckMAC))
+        {
+            u32 runahead = *(u32*)&RXBuffer[0];
+
+            NextSync += runahead;
         }
     }
     else
@@ -1566,7 +1559,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 }
 
 
-void MSTimer()
+void Wifi::MSTimer()
 {
     if (IOPORT(W_USCompareCnt))
     {
@@ -1590,7 +1583,7 @@ void MSTimer()
     }
 }
 
-void USTimer(u32 param)
+void Wifi::USTimer(u32 param)
 {
     USTimestamp += kTimerInterval;
 
@@ -1610,7 +1603,7 @@ void USTimer(u32 param)
     }
 
     if (!(USTimestamp & 0x3FF & kTimeCheckMask))
-        WifiAP::MSTimer();
+        WifiAP->MSTimer();
 
     bool switchOffPowerSaving = false;
     if (USUntilPowerOn < 0)
@@ -1773,7 +1766,7 @@ void USTimer(u32 param)
 }
 
 
-void RFTransfer_Type2()
+void Wifi::RFTransfer_Type2()
 {
     u32 id = (IOPORT(W_RFData2) >> 2) & 0x1F;
 
@@ -1790,7 +1783,7 @@ void RFTransfer_Type2()
     }
 }
 
-void RFTransfer_Type3()
+void Wifi::RFTransfer_Type3()
 {
     u32 id = (IOPORT(W_RFData1) >> 8) & 0x3F;
 
@@ -1807,7 +1800,7 @@ void RFTransfer_Type3()
 }
 
 
-u16 Read(u32 addr)
+u16 Wifi::Read(u32 addr)
 {
     if (addr >= 0x04810000)
         return 0;
@@ -1910,7 +1903,7 @@ u16 Read(u32 addr)
     return IOPORT(addr&0xFFF);
 }
 
-void Write(u32 addr, u16 val)
+void Wifi::Write(u32 addr, u16 val)
 {
     if (addr >= 0x04810000)
         return;
@@ -2214,13 +2207,19 @@ void Write(u32 addr, u16 val)
         val &= 0x0FFF;
         break;
 
+    case W_TXSlotBeacon:
+        IsMP = (val & 0x8000) != 0;
+        break;
+
+    case W_TXSlotCmd:
+        if (CmdCounter == 0)
+            val = (val & 0x7FFF) | (IOPORT(W_TXSlotCmd) & 0x8000);
+        // fall-through
     case W_TXSlotLoc1:
     case W_TXSlotLoc2:
     case W_TXSlotLoc3:
-    case W_TXSlotCmd:
         // checkme: is it possible to cancel a queued transfer that hasn't started yet
         // by clearing bit15 here?
-        // TODO: "W_TXBUF_CMD.Bit15 can be set ONLY while W_CMD_COUNT is non-zero."
         IOPORT(addr&0xFFF) = val;
         FireTX();
         return;
@@ -2234,6 +2233,7 @@ void Write(u32 addr, u16 val)
     case 0x000:
     case 0x044:
     case 0x054:
+    case 0x098:
     case 0x0B0:
     case 0x0B6:
     case 0x0B8:
@@ -2258,12 +2258,12 @@ void Write(u32 addr, u16 val)
 }
 
 
-u8* GetMAC()
+u8* Wifi::GetMAC()
 {
     return (u8*)&IOPORT(W_MACAddr0);
 }
 
-u8* GetBSSID()
+u8* Wifi::GetBSSID()
 {
     return (u8*)&IOPORT(W_BSSID0);
 }

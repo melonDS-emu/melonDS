@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,6 +22,8 @@
 #include "types.h"
 #include "ARM.h"
 
+namespace melonDS
+{
 namespace ARMInterpreter
 {
 
@@ -41,4 +43,5 @@ void A_BLX_IMM(ARM* cpu); // I'm a special one look at me
 
 }
 
+}
 #endif // ARMINTERPRETER_H

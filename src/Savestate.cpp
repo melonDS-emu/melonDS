@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,6 +22,8 @@
 #include "Savestate.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -378,4 +380,6 @@ u32 Savestate::FindSection(const char* magic) const
     // We've reached the end of the file without finding the requested section...
     Log(LogLevel::Error, "savestate: section %s not found. blarg\n", magic);
     return NO_SECTION;
+}
+
 }

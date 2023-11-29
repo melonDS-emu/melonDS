@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,11 +19,10 @@
 #include "ARM.h"
 #include "Platform.h"
 
+namespace melonDS::ARMInterpreter
+{
 using Platform::Log;
 using Platform::LogLevel;
-
-namespace ARMInterpreter
-{
 
 
 void A_B(ARM* cpu)

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -24,6 +24,8 @@
 #include "FirmwareSettingsDialog.h"
 #include "ui_FirmwareSettingsDialog.h"
 
+using namespace melonDS::Platform;
+namespace Platform = melonDS::Platform;
 
 FirmwareSettingsDialog* FirmwareSettingsDialog::currentDlg = nullptr;
 

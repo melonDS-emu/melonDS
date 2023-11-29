@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -24,16 +24,22 @@
 #include "ARMInterpreter_LoadStore.h"
 #include "Platform.h"
 
-using Platform::Log;
-using Platform::LogLevel;
+#ifdef GDBSTUB_ENABLED
+#include "debug/GdbStub.h"
+#endif
 
-namespace ARMInterpreter
+namespace melonDS::ARMInterpreter
 {
+    using Platform::Log;
+    using Platform::LogLevel;
 
 
 void A_UNK(ARM* cpu)
 {
     Log(LogLevel::Warn, "undefined ARM%d instruction %08X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-8);
+#ifdef GDBSTUB_ENABLED
+    cpu->GdbStub.Enter(true, Gdb::TgtStatus::FaultInsn, cpu->R[15]-8);
+#endif
     //for (int i = 0; i < 16; i++) printf("R%d: %08X\n", i, cpu->R[i]);
     //NDS::Halt();
     u32 oldcpsr = cpu->CPSR;
@@ -49,6 +55,9 @@ void A_UNK(ARM* cpu)
 void T_UNK(ARM* cpu)
 {
     Log(LogLevel::Warn, "undefined THUMB%d instruction %04X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-4);
+#ifdef GDBSTUB_ENABLED
+    cpu->GdbStub.Enter(true, Gdb::TgtStatus::FaultInsn, cpu->R[15]-4);
+#endif
     //NDS::Halt();
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;

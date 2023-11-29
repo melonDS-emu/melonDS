@@ -7,6 +7,7 @@ set(SOURCES_QT_SDL
     main_shaders.h
     CheatsDialog.cpp
     Config.cpp
+    DateTimeDialog.cpp
     EmuSettingsDialog.cpp
     PowerManagement/PowerManagementDialog.cpp
     PowerManagement/resources/battery.qrc
@@ -139,6 +140,7 @@ else()
     )
     target_link_libraries(melonDS PRIVATE "${X11_LIBRARIES}" "${EGL_LIBRARIES}")
     target_include_directories(melonDS PRIVATE "${X11_INCLUDE_DIR}")
+    add_compile_definitions(QAPPLICATION_CLASS=QApplication)
 endif()
 
 
@@ -222,4 +224,10 @@ if (UNIX AND NOT APPLE)
 
     install(FILES ${CMAKE_SOURCE_DIR}/res/net.kuribo64.melonDS.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)
     install(TARGETS melonDS BUNDLE DESTINATION ${CMAKE_BINARY_DIR} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+
+    if (NOT USE_QT6)
+        set_target_properties(melonDS PROPERTIES
+            INTERPROCEDURAL_OPTIMIZATION OFF
+            INTERPROCEDURAL_OPTIMIZATION_RELEASE OFF)
+    endif()
 endif()

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -18,6 +18,9 @@
 
 #include "OpenGLSupport.h"
 
+namespace melonDS
+{
+
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -28,6 +31,12 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
 {
     int len;
     int res;
+
+    if (!glCreateShader)
+    {
+        Log(LogLevel::Error, "OpenGL: Cannot build shader program, OpenGL hasn't been loaded\n");
+        return false;
+    }
 
     ids[0] = glCreateShader(GL_VERTEX_SHADER);
     len = strlen(vs);
@@ -66,9 +75,9 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
         //printf("shader source:\n--\n%s\n--\n", fs);
         delete[] log;
 
-        FILE* logf = fopen("shaderfail.log", "w");
-        fwrite(fs, len+1, 1, logf);
-        fclose(logf);
+        Platform::FileHandle* logf = Platform::OpenFile("shaderfail.log", Platform::FileMode::WriteText);
+        Platform::FileWrite(fs, len+1, 1, logf);
+        Platform::CloseFile(logf);
 
         glDeleteShader(ids[0]);
         glDeleteShader(ids[1]);
@@ -86,6 +95,12 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
 bool LinkShaderProgram(GLuint* ids)
 {
     int res;
+
+    if (!glLinkProgram)
+    {
+        Log(LogLevel::Error, "OpenGL: Cannot link shader program, OpenGL hasn't been loaded\n");
+        return false;
+    }
 
     glLinkProgram(ids[2]);
 
@@ -115,12 +130,20 @@ bool LinkShaderProgram(GLuint* ids)
 
 void DeleteShaderProgram(GLuint* ids)
 {
-    glDeleteProgram(ids[2]);
+    if (glDeleteProgram)
+    { // If OpenGL isn't loaded, then there's no shader program to delete
+        glDeleteProgram(ids[2]);
+    }
 }
 
 void UseShaderProgram(GLuint* ids)
 {
-    glUseProgram(ids[2]);
+    if (glUseProgram)
+    { // If OpenGL isn't loaded, then there's no shader program to use
+        glUseProgram(ids[2]);
+    }
+}
+
 }
 
 }

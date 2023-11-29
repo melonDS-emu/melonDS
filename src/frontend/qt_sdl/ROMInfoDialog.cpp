@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -21,10 +21,14 @@
 
 #include <QFileDialog>
 
+#include "gif-h/gif.h"
+
 #include "NDS.h"
 #include "NDSCart.h"
 #include "Platform.h"
 #include "Config.h"
+
+using namespace melonDS;
 
 QString IntToHex(u64 num)
 {
@@ -38,29 +42,30 @@ QString QStringBytes(u64 num)
 
 ROMInfoDialog* ROMInfoDialog::currentDlg = nullptr;
 
-ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMInfoDialog)
+ROMInfoDialog::ROMInfoDialog(QWidget* parent, const melonDS::NDSCart::CartCommon& rom) : QDialog(parent), ui(new Ui::ROMInfoDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-
+    const NDSBanner* banner = rom.Banner();
+    const NDSHeader& header = rom.GetHeader();
     u32 iconData[32 * 32];
-    ROMManager::ROMIcon(NDSCart::Banner.Icon, NDSCart::Banner.Palette, iconData);
-    iconImage = QImage(reinterpret_cast<unsigned char*>(iconData), 32, 32, QImage::Format_ARGB32).copy();
+    ROMManager::ROMIcon(banner->Icon, banner->Palette, iconData);
+    iconImage = QImage(reinterpret_cast<u8*>(iconData), 32, 32, QImage::Format_RGBA8888).copy();
     ui->iconImage->setPixmap(QPixmap::fromImage(iconImage));
 
-    if (NDSCart::Banner.Version == 0x103)
+    if (banner->Version == 0x103)
     {
-        u32 animatedIconData[32 * 32 * 64] = {0};
-        ROMManager::AnimatedROMIcon(NDSCart::Banner.DSiIcon, NDSCart::Banner.DSiPalette, NDSCart::Banner.DSiSequence, animatedIconData, animatedSequence);
+        ui->saveAnimatedIconButton->setEnabled(true);
 
-        for (int i = 0; i < 64; i++)
+        ROMManager::AnimatedROMIcon(banner->DSiIcon, banner->DSiPalette, banner->DSiSequence, animatedIconData, animatedSequence);
+
+        for (u32* image: animatedIconData)
         {
-            if (animatedIconData[32 * 32 * i] == 0)
+            if (!image)
                 break;
-            animatedIconImages.push_back(QPixmap::fromImage(QImage(reinterpret_cast<unsigned char*>(&animatedIconData[32 * 32 * i]), 32, 32, QImage::Format_ARGB32).copy()));
+            animatedIconImages.push_back(QPixmap::fromImage(QImage(reinterpret_cast<u8*>(image), 32, 32, QImage::Format_RGBA8888).copy()));
         }
-
         iconTimeline = new QTimeLine(animatedSequence.size() / 60 * 1000, this);
         iconTimeline->setFrameRange(0, animatedSequence.size() - 1);
         iconTimeline->setLoopCount(0);
@@ -73,44 +78,44 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
         ui->dsiIconImage->setPixmap(QPixmap::fromImage(iconImage));
     }
 
-    ui->iconTitle->setText(QString::fromUtf16(NDSCart::Banner.EnglishTitle));
+    ui->iconTitle->setText(QString::fromUtf16(banner->EnglishTitle));
 
-    ui->japaneseTitle->setText(QString::fromUtf16(NDSCart::Banner.JapaneseTitle));
-    ui->englishTitle->setText(QString::fromUtf16(NDSCart::Banner.EnglishTitle));
-    ui->frenchTitle->setText(QString::fromUtf16(NDSCart::Banner.FrenchTitle));
-    ui->germanTitle->setText(QString::fromUtf16(NDSCart::Banner.GermanTitle));
-    ui->italianTitle->setText(QString::fromUtf16(NDSCart::Banner.ItalianTitle));
-    ui->spanishTitle->setText(QString::fromUtf16(NDSCart::Banner.SpanishTitle));
+    ui->japaneseTitle->setText(QString::fromUtf16(banner->JapaneseTitle));
+    ui->englishTitle->setText(QString::fromUtf16(banner->EnglishTitle));
+    ui->frenchTitle->setText(QString::fromUtf16(banner->FrenchTitle));
+    ui->germanTitle->setText(QString::fromUtf16(banner->GermanTitle));
+    ui->italianTitle->setText(QString::fromUtf16(banner->ItalianTitle));
+    ui->spanishTitle->setText(QString::fromUtf16(banner->SpanishTitle));
 
-    if (NDSCart::Banner.Version > 1)
-        ui->chineseTitle->setText(QString::fromUtf16(NDSCart::Banner.ChineseTitle));
+    if (banner->Version > 1)
+        ui->chineseTitle->setText(QString::fromUtf16(banner->ChineseTitle));
     else
         ui->chineseTitle->setText("None");
 
-    if (NDSCart::Banner.Version > 2)
-        ui->koreanTitle->setText(QString::fromUtf16(NDSCart::Banner.KoreanTitle));
+    if (banner->Version > 2)
+        ui->koreanTitle->setText(QString::fromUtf16(banner->KoreanTitle));
     else
         ui->koreanTitle->setText("None");
 
-    ui->gameTitle->setText(QString::fromLatin1(NDSCart::Header.GameTitle, 12));
-    ui->gameCode->setText(QString::fromLatin1(NDSCart::Header.GameCode, 4));
-    ui->makerCode->setText(QString::fromLatin1(NDSCart::Header.MakerCode, 2));
-    ui->cardSize->setText(QString::number(128 << NDSCart::Header.CardSize) + " KB");
+    ui->gameTitle->setText(QString::fromLatin1(header.GameTitle, 12));
+    ui->gameCode->setText(QString::fromLatin1(header.GameCode, 4));
+    ui->makerCode->setText(QString::fromLatin1(header.MakerCode, 2));
+    ui->cardSize->setText(QString::number(128 << header.CardSize) + " KB");
 
-    ui->arm9RomOffset->setText(IntToHex(NDSCart::Header.ARM9ROMOffset));
-    ui->arm9EntryAddress->setText(IntToHex(NDSCart::Header.ARM9EntryAddress));
-    ui->arm9RamAddress->setText(IntToHex(NDSCart::Header.ARM9RAMAddress));
-    ui->arm9Size->setText(QStringBytes(NDSCart::Header.ARM9Size));
+    ui->arm9RomOffset->setText(IntToHex(header.ARM9ROMOffset));
+    ui->arm9EntryAddress->setText(IntToHex(header.ARM9EntryAddress));
+    ui->arm9RamAddress->setText(IntToHex(header.ARM9RAMAddress));
+    ui->arm9Size->setText(QStringBytes(header.ARM9Size));
 
-    ui->arm7RomOffset->setText(IntToHex(NDSCart::Header.ARM7ROMOffset));
-    ui->arm7EntryAddress->setText(IntToHex(NDSCart::Header.ARM7EntryAddress));
-    ui->arm7RamAddress->setText(IntToHex(NDSCart::Header.ARM7RAMAddress));
-    ui->arm7Size->setText(QStringBytes(NDSCart::Header.ARM7Size));
+    ui->arm7RomOffset->setText(IntToHex(header.ARM7ROMOffset));
+    ui->arm7EntryAddress->setText(IntToHex(header.ARM7EntryAddress));
+    ui->arm7RamAddress->setText(IntToHex(header.ARM7RAMAddress));
+    ui->arm7Size->setText(QStringBytes(header.ARM7Size));
 
-    ui->fntOffset->setText(IntToHex(NDSCart::Header.FNTOffset));
-    ui->fntSize->setText(QStringBytes(NDSCart::Header.FNTSize));
-    ui->fatOffset->setText(IntToHex(NDSCart::Header.FATOffset));
-    ui->fatSize->setText(QStringBytes(NDSCart::Header.FATSize));
+    ui->fntOffset->setText(IntToHex(header.FNTOffset));
+    ui->fntSize->setText(QStringBytes(header.FNTSize));
+    ui->fatOffset->setText(IntToHex(header.FATOffset));
+    ui->fatSize->setText(QStringBytes(header.FATSize));
 
 }
 
@@ -136,6 +141,30 @@ void ROMInfoDialog::on_saveIconButton_clicked()
         return;
 
     iconImage.save(filename, "PNG");
+}
+
+void ROMInfoDialog::on_saveAnimatedIconButton_clicked()
+{
+    QString filename = QFileDialog::getSaveFileName(this,
+                                                    "Save Animated Icon",
+                                                    QString::fromStdString(Config::LastROMFolder),
+                                                    "GIF Images (*.gif)");
+    if (filename.isEmpty())
+        return;
+
+
+    GifWriter writer;
+
+    // The GIF format only supports delays of 0.01 seconds, so 0.0166... (60fps)
+    // is rounded up to 0.02 (50fps)
+    GifBegin(&writer, filename.toStdString().c_str(), 32, 32, 2);
+    for (int i: animatedSequence)
+    {
+        if (animatedIconData[i] == 0)
+            break;
+        GifWriteFrame(&writer, reinterpret_cast<u8*>(animatedIconData[i]), 32, 32, 2);
+    }
+    GifEnd(&writer);
 }
 
 void ROMInfoDialog::iconSetFrame(int frame)

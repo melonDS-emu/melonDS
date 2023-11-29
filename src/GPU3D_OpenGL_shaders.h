@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -21,7 +21,8 @@
 
 #define kShaderHeader "#version 140"
 
-
+namespace melonDS
+{
 const char* kClearVS = kShaderHeader R"(
 
 in vec2 vPosition;
@@ -802,5 +803,5 @@ void main()
     gl_FragDepth = fZ;
 }
 )";
-
+}
 #endif // GPU3D_OPENGL_SHADERS_H

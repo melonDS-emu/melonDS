@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,9 +19,12 @@
 #ifndef OSD_H
 #define OSD_H
 
+#include "types.h"
+
 namespace OSD
 {
 
+using namespace melonDS;
 bool Init(bool openGL);
 void DeInit();
 

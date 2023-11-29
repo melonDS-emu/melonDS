@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,12 +19,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include "Platform.h"
 #include "Config.h"
 
 
 namespace Config
 {
+using namespace melonDS;
 
 int KeyMapping[12];
 int JoyMapping[12];
@@ -106,6 +108,7 @@ int FirmwareBirthdayDay;
 int FirmwareFavouriteColour;
 std::string FirmwareMessage;
 std::string FirmwareMAC;
+std::string WifiSettingsPath = "wfcsettings.bin"; // Should this be configurable?
 
 int MPAudioMode;
 int MPRecvTimeout;
@@ -116,10 +119,11 @@ bool DirectLAN;
 bool SavestateRelocSRAM;
 
 int AudioInterp;
-int AudioBitrate;
+int AudioBitDepth;
 int AudioVolume;
 bool DSiVolumeSync;
 int MicInputType;
+std::string MicDevice;
 std::string MicWavPath;
 
 std::string LastROMFolder;
@@ -138,9 +142,21 @@ int MouseHideSeconds;
 
 bool PauseLostFocus;
 
+int64_t RTCOffset;
+
 bool DSBatteryLevelOkay;
 int DSiBatteryLevel;
 bool DSiBatteryCharging;
+
+bool DSiFullBIOSBoot;
+
+#ifdef GDBSTUB_ENABLED
+bool GdbEnabled;
+int GdbPortARM7;
+int GdbPortARM9;
+bool GdbARM7BreakOnStartup;
+bool GdbARM9BreakOnStartup;
+#endif
 
 CameraConfig Camera[2];
 
@@ -296,10 +312,11 @@ ConfigEntry ConfigFile[] =
     {"SavStaRelocSRAM", 1, &SavestateRelocSRAM, false, false},
 
     {"AudioInterp", 0, &AudioInterp, 0, false},
-    {"AudioBitrate", 0, &AudioBitrate, 0, false},
+    {"AudioBitDepth", 0, &AudioBitDepth, 0, false},
     {"AudioVolume", 0, &AudioVolume, 256, true},
-    {"DSiVolumeSync", 0, &DSiVolumeSync, 0, true},
+    {"DSiVolumeSync", 1, &DSiVolumeSync, false, true},
     {"MicInputType", 0, &MicInputType, 1, false},
+    {"MicDevice", 2, &MicDevice, (std::string)"", false},
     {"MicWavPath", 2, &MicWavPath, (std::string)"", false},
 
     {"LastROMFolder", 2, &LastROMFolder, (std::string)"", true},
@@ -326,9 +343,21 @@ ConfigEntry ConfigFile[] =
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, false},
     {"PauseLostFocus",   1, &PauseLostFocus,   false, false},
 
+    {"RTCOffset",       3, &RTCOffset,       (int64_t)0, true},
+
     {"DSBatteryLevelOkay",   1, &DSBatteryLevelOkay, true, true},
     {"DSiBatteryLevel",    0, &DSiBatteryLevel, 0xF, true},
     {"DSiBatteryCharging", 1, &DSiBatteryCharging, true, true},
+
+    {"DSiFullBIOSBoot", 1, &DSiFullBIOSBoot, false, true},
+
+#ifdef GDBSTUB_ENABLED
+    {"GdbEnabled", 1, &GdbEnabled, false, false},
+    {"GdbPortARM7", 0, &GdbPortARM7, 3334, true},
+    {"GdbPortARM9", 0, &GdbPortARM9, 3333, true},
+    {"GdbARM7BreakOnStartup", 1, &GdbARM7BreakOnStartup, false, true},
+    {"GdbARM9BreakOnStartup", 1, &GdbARM9BreakOnStartup, false, true},
+#endif
 
     // TODO!!
     // we need a more elegant way to deal with this
@@ -347,24 +376,24 @@ ConfigEntry ConfigFile[] =
 
 void LoadFile(int inst)
 {
-    FILE* f;
+    Platform::FileHandle* f;
     if (inst > 0)
     {
         char name[100] = {0};
         snprintf(name, 99, kUniqueConfigFile, inst+1);
-        f = Platform::OpenLocalFile(name, "r");
+        f = Platform::OpenLocalFile(name, Platform::FileMode::ReadText);
     }
     else
-        f = Platform::OpenLocalFile(kConfigFile, "r");
+        f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::ReadText);
 
     if (!f) return;
 
     char linebuf[1024];
     char entryname[32];
     char entryval[1024];
-    while (!feof(f))
+    while (!Platform::IsEndOfFile(f))
     {
-        if (fgets(linebuf, 1024, f) == nullptr)
+        if (!Platform::FileReadLine(linebuf, 1024, f))
             break;
 
         int ret = sscanf(linebuf, "%31[A-Za-z_0-9]=%[^\t\r\n]", entryname, entryval);
@@ -383,6 +412,7 @@ void LoadFile(int inst)
                 case 0: *(int*)entry->Value = strtol(entryval, NULL, 10); break;
                 case 1: *(bool*)entry->Value = strtol(entryval, NULL, 10) ? true:false; break;
                 case 2: *(std::string*)entry->Value = entryval; break;
+                case 3: *(int64_t*)entry->Value = strtoll(entryval, NULL, 10); break;
                 }
 
                 break;
@@ -390,7 +420,7 @@ void LoadFile(int inst)
         }
     }
 
-    fclose(f);
+    CloseFile(f);
 }
 
 void Load()
@@ -403,6 +433,7 @@ void Load()
         case 0: *(int*)entry->Value = std::get<int>(entry->Default); break;
         case 1: *(bool*)entry->Value = std::get<bool>(entry->Default); break;
         case 2: *(std::string*)entry->Value = std::get<std::string>(entry->Default); break;
+        case 3: *(int64_t*)entry->Value = std::get<int64_t>(entry->Default); break;
         }
     }
 
@@ -417,15 +448,15 @@ void Save()
 {
     int inst = Platform::InstanceID();
 
-    FILE* f;
+    Platform::FileHandle* f;
     if (inst > 0)
     {
         char name[100] = {0};
         snprintf(name, 99, kUniqueConfigFile, inst+1);
-        f = Platform::OpenLocalFile(name, "w");
+        f = Platform::OpenLocalFile(name, Platform::FileMode::WriteText);
     }
     else
-        f = Platform::OpenLocalFile(kConfigFile, "w");
+        f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::WriteText);
 
     if (!f) return;
 
@@ -436,13 +467,14 @@ void Save()
 
         switch (entry->Type)
         {
-        case 0: fprintf(f, "%s=%d\r\n", entry->Name, *(int*)entry->Value); break;
-        case 1: fprintf(f, "%s=%d\r\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
-        case 2: fprintf(f, "%s=%s\r\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
+        case 0: Platform::FileWriteFormatted(f, "%s=%d\n", entry->Name, *(int*)entry->Value); break;
+        case 1: Platform::FileWriteFormatted(f, "%s=%d\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
+        case 2: Platform::FileWriteFormatted(f, "%s=%s\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
+        case 3: Platform::FileWriteFormatted(f, "%s=%" PRId64 "\n", entry->Name, *(int64_t*)entry->Value); break;
         }
     }
 
-    fclose(f);
+    CloseFile(f);
 }
 
 }

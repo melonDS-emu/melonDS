@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -23,6 +23,9 @@
 #include "SPI.h"
 #include "WifiAP.h"
 #include "Platform.h"
+
+namespace melonDS
+{
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -116,33 +119,32 @@ const u8 CIS1[256] =
 };
 
 
-DSi_NWifi* Ctx = nullptr;
-
-
-DSi_NWifi::DSi_NWifi(DSi_SDHost* host)
-    : DSi_SDDevice(host),
-        Mailbox
-        {
-            // HACK
-            // the mailboxes are supposed to be 0x80 bytes
-            // however, as we do things instantly, emulating this is meaningless
-            // and only adds complication
-            DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600),
-            DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600),
-            // mailbox 8: extra mailbox acting as a bigger RX buffer
-            DynamicFIFO<u8>(0x8000)
-        }
+DSi_NWifi::DSi_NWifi(melonDS::DSi& dsi, DSi_SDHost* host) :
+    DSi_SDDevice(host),
+    Mailbox
+    {
+        // HACK
+        // the mailboxes are supposed to be 0x80 bytes
+        // however, as we do things instantly, emulating this is meaningless
+        // and only adds complication
+        DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600),
+        DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600),
+        // mailbox 8: extra mailbox acting as a bigger RX buffer
+        DynamicFIFO<u8>(0x8000)
+    },
+    DSi(dsi)
 {
+    DSi.RegisterEventFunc(Event_DSi_NWifi, 0, MemberEventFunc(DSi_NWifi, MSTimer));
+
     // this seems to control whether the firmware upload is done
     EEPROMReady = 0;
-
-    Ctx = this;
 }
 
 DSi_NWifi::~DSi_NWifi()
 {
-    NDS::CancelEvent(NDS::Event_DSi_NWifi);
-    Ctx = nullptr;
+    DSi.CancelEvent(Event_DSi_NWifi);
+
+    DSi.UnregisterEventFunc(Event_DSi_NWifi, 0);
 }
 
 void DSi_NWifi::Reset()
@@ -163,26 +165,28 @@ void DSi_NWifi::Reset()
     for (int i = 0; i < 9; i++)
         Mailbox[i].Clear();
 
-    u8* mac = SPI_Firmware::GetWifiMAC();
+    const Firmware* fw = DSi.SPI.GetFirmware();
+
+    MacAddress mac = fw->GetHeader().MacAddr;
     Log(LogLevel::Info, "NWifi MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-    u8 type = SPI_Firmware::GetNWifiVersion();
+    Firmware::WifiBoard type = fw->GetHeader().WifiBoard;
     switch (type)
     {
-    case 1: // AR6002
+    case Firmware::WifiBoard::W015: // AR6002
         ROMID = 0x20000188;
         ChipID = 0x02000001;
         HostIntAddr = 0x00500400;
         break;
 
-    case 2: // AR6013
+    case Firmware::WifiBoard::W024: // AR6013
         ROMID = 0x23000024;
         ChipID = 0x0D000000;
         HostIntAddr = 0x00520000;
         break;
 
-    case 3: // AR6014 (3DS)
+    case Firmware::WifiBoard::W028: // AR6014 (3DS)
         ROMID = 0x2300006F;
         ChipID = 0x0D000001;
         HostIntAddr = 0x00520000;
@@ -190,7 +194,7 @@ void DSi_NWifi::Reset()
         break;
 
     default:
-        Log(LogLevel::Warn, "NWifi: unknown hardware type, assuming AR6002\n");
+        Log(LogLevel::Warn, "NWifi: unknown hardware type 0x%x, assuming AR6002\n", static_cast<u8>(type));
         ROMID = 0x20000188;
         ChipID = 0x02000001;
         HostIntAddr = 0x00500400;
@@ -201,7 +205,7 @@ void DSi_NWifi::Reset()
 
     *(u32*)&EEPROM[0x000] = 0x300;
     *(u16*)&EEPROM[0x008] = 0x8348; // TODO: determine properly (country code)
-    memcpy(&EEPROM[0x00A], mac, 6);
+    memcpy(&EEPROM[0x00A], mac.data(), mac.size());
     *(u32*)&EEPROM[0x010] = 0x60000000;
 
     memset(&EEPROM[0x03C], 0xFF, 0x70);
@@ -223,7 +227,7 @@ void DSi_NWifi::Reset()
     BeaconTimer = 0x10A2220ULL;
     ConnectionStatus = 0;
 
-    NDS::CancelEvent(NDS::Event_DSi_NWifi);
+    DSi.CancelEvent(Event_DSi_NWifi);
 }
 
 void DSi_NWifi::DoSavestate(Savestate* file)
@@ -356,7 +360,7 @@ u8 DSi_NWifi::F0_Read(u32 addr)
         return CIS1[addr & 0xFF];
     }
 
-    Log(LogLevel::Warn, "NWIFI: unknown func0 read %05X\n", addr);
+    Log(LogLevel::Debug, "NWIFI: unknown func0 read %05X\n", addr);
     return 0;
 }
 
@@ -370,7 +374,7 @@ void DSi_NWifi::F0_Write(u32 addr, u8 val)
         return;
     }
 
-    Log(LogLevel::Warn, "NWIFI: unknown func0 write %05X %02X\n", addr, val);
+    Log(LogLevel::Debug, "NWIFI: unknown func0 write %05X %02X\n", addr, val);
 }
 
 
@@ -582,7 +586,7 @@ void DSi_NWifi::F1_Write(u32 addr, u8 val)
         return;
     }
 
-    Log(LogLevel::Warn, "NWIFI: unknown func1 write %05X %02X\n", addr, val);
+    Log(LogLevel::Debug, "NWIFI: unknown func1 write %05X %02X\n", addr, val);
 }
 
 
@@ -594,7 +598,7 @@ u8 DSi_NWifi::SDIO_Read(u32 func, u32 addr)
     case 1: return F1_Read(addr);
     }
 
-    Log(LogLevel::Warn, "NWIFI: unknown SDIO read %d %05X\n", func, addr);
+    Log(LogLevel::Debug, "NWIFI: unknown SDIO read %d %05X\n", func, addr);
     return 0;
 }
 
@@ -606,7 +610,7 @@ void DSi_NWifi::SDIO_Write(u32 func, u32 addr, u8 val)
     case 1: return F1_Write(addr, val);
     }
 
-    Log(LogLevel::Warn, "NWIFI: unknown SDIO write %d %05X %02X\n", func, addr, val);
+    Log(LogLevel::Debug, "NWIFI: unknown SDIO write %d %05X %02X\n", func, addr, val);
 }
 
 
@@ -874,7 +878,7 @@ void DSi_NWifi::HTC_Command()
         {
             u16 svc_id = MB_Read16(0);
             u16 conn_flags = MB_Read16(0);
-            Log(LogLevel::Info, "service connect %04X %04X %04X\n", svc_id, conn_flags, MB_Read16(0));
+            Log(LogLevel::Debug, "service connect %04X %04X %04X\n", svc_id, conn_flags, MB_Read16(0));
 
             u8 svc_resp[8];
             // responses from hardware:
@@ -895,7 +899,7 @@ void DSi_NWifi::HTC_Command()
     case 0x0004: // setup complete
         {
             u8 ready_evt[12];
-            memcpy(&ready_evt[0], SPI_Firmware::GetWifiMAC(), 6);
+            memcpy(&ready_evt[0], &EEPROM[0xA], 6); // MAC address
             ready_evt[6] = 0x02;
             ready_evt[7] = 0;
             *(u32*)&ready_evt[8] = 0x2300006C;
@@ -906,7 +910,7 @@ void DSi_NWifi::HTC_Command()
             SendWMIEvent(1, 0x1006, regdomain_evt, 4);
 
             BootPhase = 2;
-            NDS::ScheduleEvent(NDS::Event_DSi_NWifi, true, 33611, MSTimer, 0);
+            DSi.ScheduleEvent(Event_DSi_NWifi, false, 33611, 0, 0);
         }
         break;
 
@@ -952,7 +956,7 @@ void DSi_NWifi::WMI_Command()
                 if (ConnectionStatus != 1)
                     Log(LogLevel::Warn, "WMI: ?? trying to disconnect while not connected\n");
 
-                Log(LogLevel::Info, "WMI: disconnect\n");
+                Log(LogLevel::Debug, "WMI: disconnect\n");
                 ConnectionStatus = 0;
 
                 u8 reply[11];
@@ -1218,7 +1222,7 @@ void DSi_NWifi::WMI_ConnectToNetwork()
         return;
     }
 
-    Log(LogLevel::Info, "WMI: connecting to network %s\n", ssid);
+    Log(LogLevel::Debug, "WMI: connecting to network %s\n", ssid);
 
     u8 reply[20];
 
@@ -1547,7 +1551,26 @@ void DSi_NWifi::WindowWrite(u32 addr, u32 val)
 }
 
 
-void DSi_NWifi::_MSTimer()
+void DSi_NWifi::DrainRXBuffer()
+{
+    while (Mailbox[8].Level() >= 6)
+    {
+        u16 len = Mailbox[8].Peek(2) | (Mailbox[8].Peek(3) << 8);
+        u32 totallen = len + 6;
+        u32 required = (totallen + 0x7F) & ~0x7F;
+
+        if (!Mailbox[4].CanFit(required))
+            break;
+
+        u32 i = 0;
+        for (; i < totallen; i++) Mailbox[4].Write(Mailbox[8].Read());
+        for (; i < required; i++) Mailbox[4].Write(0);
+    }
+
+    UpdateIRQ_F1();
+}
+
+void DSi_NWifi::MSTimer(u32 param)
 {
     BeaconTimer++;
 
@@ -1585,29 +1608,8 @@ void DSi_NWifi::_MSTimer()
         //if (Mailbox[4].IsEmpty())
             CheckRX();
     }
+
+    DSi.ScheduleEvent(Event_DSi_NWifi, true, 33611, 0, 0);
 }
 
-void DSi_NWifi::DrainRXBuffer()
-{
-    while (Mailbox[8].Level() >= 6)
-    {
-        u16 len = Mailbox[8].Peek(2) | (Mailbox[8].Peek(3) << 8);
-        u32 totallen = len + 6;
-        u32 required = (totallen + 0x7F) & ~0x7F;
-
-        if (!Mailbox[4].CanFit(required))
-            break;
-
-        u32 i = 0;
-        for (; i < totallen; i++) Mailbox[4].Write(Mailbox[8].Read());
-        for (; i < required; i++) Mailbox[4].Write(0);
-    }
-
-    UpdateIRQ_F1();
-}
-
-void DSi_NWifi::MSTimer(u32 param)
-{
-    Ctx->_MSTimer();
-    NDS::ScheduleEvent(NDS::Event_DSi_NWifi, true, 33611, MSTimer, 0);
 }

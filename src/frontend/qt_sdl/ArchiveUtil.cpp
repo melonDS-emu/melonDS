@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,6 +19,7 @@
 #include "ArchiveUtil.h"
 #include "Platform.h"
 
+using namespace melonDS;
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -119,7 +120,7 @@ QVector<QString> ExtractFileFromArchive(QString path, QString wantedFile, QByteA
 
 }
 
-u32 ExtractFileFromArchive(QString path, QString wantedFile, u8** filedata, u32* filesize)
+s32 ExtractFileFromArchive(QString path, QString wantedFile, u8** filedata, u32* filesize)
 {
     struct archive *a = archive_read_new();
     struct archive_entry *entry;

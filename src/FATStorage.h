@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -24,10 +24,12 @@
 #include <map>
 #include <filesystem>
 
+#include "Platform.h"
 #include "types.h"
 #include "fatfs/ff.h"
 
-
+namespace melonDS
+{
 class FATStorage
 {
 public:
@@ -48,16 +50,16 @@ private:
     std::string SourceDir;
     bool ReadOnly;
 
-    FILE* File;
+    Platform::FileHandle* File;
     u64 FileSize;
 
-    static FILE* FF_File;
+    static Platform::FileHandle* FF_File;
     static u64 FF_FileSize;
     static UINT FF_ReadStorage(BYTE* buf, LBA_t sector, UINT num);
-    static UINT FF_WriteStorage(BYTE* buf, LBA_t sector, UINT num);
+    static UINT FF_WriteStorage(const BYTE* buf, LBA_t sector, UINT num);
 
-    static u32 ReadSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num, u8* data);
-    static u32 WriteSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num, u8* data);
+    static u32 ReadSectorsInternal(Platform::FileHandle* file, u64 filelen, u32 start, u32 num, u8* data);
+    static u32 WriteSectorsInternal(Platform::FileHandle* file, u64 filelen, u32 start, u32 num, const u8* data);
 
     void LoadIndex();
     void SaveIndex();
@@ -98,4 +100,5 @@ private:
     std::map<std::string, FileIndexEntry> FileIndex;
 };
 
+}
 #endif // FATSTORAGE_H

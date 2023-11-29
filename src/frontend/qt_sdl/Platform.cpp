@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -23,12 +23,14 @@
 #include <string>
 #include <QStandardPaths>
 #include <QString>
+#include <QDateTime>
 #include <QDir>
 #include <QThread>
 #include <QSemaphore>
 #include <QMutex>
 #include <QOpenGLContext>
 #include <QSharedMemory>
+#include <SDL_loadso.h>
 
 #include "Platform.h"
 #include "Config.h"
@@ -37,7 +39,13 @@
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 #include "LocalMP.h"
+#include "OSD.h"
+#include "SPI_Firmware.h"
 
+#ifdef __WIN32__
+#define fseek _fseeki64
+#define ftell _ftelli64
+#endif // __WIN32__
 
 std::string EmuDirectory;
 
@@ -46,7 +54,7 @@ extern CameraManager* camManager[2];
 void emuStop();
 
 
-namespace Platform
+namespace melonDS::Platform
 {
 
 QSharedMemory* IPCBuffer = nullptr;
@@ -149,10 +157,24 @@ void DeInit()
     IPCDeInit();
 }
 
-
-void StopEmu()
+void SignalStop(StopReason reason)
 {
     emuStop();
+    switch (reason)
+    {
+        case StopReason::GBAModeNotSupported:
+            Log(LogLevel::Error, "!! GBA MODE NOT SUPPORTED\n");
+            OSD::AddMessage(0xFFA0A0, "GBA mode not supported.");
+            break;
+        case StopReason::BadExceptionRegion:
+            OSD::AddMessage(0xFFA0A0, "Internal error.");
+            break;
+        case StopReason::PowerOff:
+        case StopReason::External:
+            OSD::AddMessage(0xFFC040, "Shutdown");
+        default:
+            break;
+    }
 }
 
 
@@ -186,12 +208,12 @@ int GetConfigInt(ConfigEntry entry)
 
     case DSiSD_ImageSize: return imgsizes[Config::DSiSDSize];
 
-    case Firm_Language: return Config::FirmwareLanguage;
-    case Firm_BirthdayMonth: return Config::FirmwareBirthdayMonth;
-    case Firm_BirthdayDay: return Config::FirmwareBirthdayDay;
-    case Firm_Color: return Config::FirmwareFavouriteColour;
+    case AudioBitDepth: return Config::AudioBitDepth;
 
-    case AudioBitrate: return Config::AudioBitrate;
+#ifdef GDBSTUB_ENABLED
+    case GdbPortARM7: return Config::GdbPortARM7;
+    case GdbPortARM9: return Config::GdbPortARM9;
+#endif
     }
 
     return 0;
@@ -218,7 +240,13 @@ bool GetConfigBool(ConfigEntry entry)
     case DSiSD_ReadOnly: return Config::DSiSDReadOnly != 0;
     case DSiSD_FolderSync: return Config::DSiSDFolderSync != 0;
 
-    case Firm_OverrideSettings: return Config::FirmwareOverrideSettings != 0;
+    case DSi_FullBIOSBoot: return Config::DSiFullBIOSBoot != 0;
+
+#ifdef GDBSTUB_ENABLED
+    case GdbEnabled: return Config::GdbEnabled;
+    case GdbARM7BreakOnStartup: return Config::GdbARM7BreakOnStartup;
+    case GdbARM9BreakOnStartup: return Config::GdbARM9BreakOnStartup;
+#endif
     }
 
     return false;
@@ -228,23 +256,13 @@ std::string GetConfigString(ConfigEntry entry)
 {
     switch (entry)
     {
-    case BIOS9Path: return Config::BIOS9Path;
-    case BIOS7Path: return Config::BIOS7Path;
-    case FirmwarePath: return Config::FirmwarePath;
-
-    case DSi_BIOS9Path: return Config::DSiBIOS9Path;
-    case DSi_BIOS7Path: return Config::DSiBIOS7Path;
-    case DSi_FirmwarePath: return Config::DSiFirmwarePath;
-    case DSi_NANDPath: return Config::DSiNANDPath;
-
     case DLDI_ImagePath: return Config::DLDISDPath;
     case DLDI_FolderPath: return Config::DLDIFolderPath;
 
     case DSiSD_ImagePath: return Config::DSiSDPath;
     case DSiSD_FolderPath: return Config::DSiSDFolderPath;
 
-    case Firm_Username: return Config::FirmwareUsername;
-    case Firm_Message: return Config::FirmwareMessage;
+    case WifiSettingsPath: return Config::WifiSettingsPath;
     }
 
     return "";
@@ -287,45 +305,72 @@ bool GetConfigArray(ConfigEntry entry, void* data)
     return false;
 }
 
-
-FILE* OpenFile(const std::string& path, const std::string& mode, bool mustexist)
+constexpr char AccessMode(FileMode mode, bool file_exists)
 {
-    QFile f(QString::fromStdString(path));
+    if (!(mode & FileMode::Write))
+        // If we're only opening the file for reading...
+        return 'r';
 
-    if (mustexist && !f.exists())
-    {
+    if (mode & (FileMode::NoCreate))
+        // If we're not allowed to create a new file...
+        return 'r'; // Open in "r+" mode (IsExtended will add the "+")
+
+    if ((mode & FileMode::Preserve) && file_exists)
+        // If we're not allowed to overwrite a file that already exists...
+        return 'r'; // Open in "r+" mode (IsExtended will add the "+")
+
+    return 'w';
+}
+
+constexpr bool IsExtended(FileMode mode)
+{
+    // fopen's "+" flag always opens the file for read/write
+    return (mode & FileMode::ReadWrite) == FileMode::ReadWrite;
+}
+
+static std::string GetModeString(FileMode mode, bool file_exists)
+{
+    std::string modeString;
+
+    modeString += AccessMode(mode, file_exists);
+
+    if (IsExtended(mode))
+        modeString += '+';
+
+    if (!(mode & FileMode::Text))
+        modeString += 'b';
+
+    return modeString;
+}
+
+FileHandle* OpenFile(const std::string& path, FileMode mode)
+{
+    if ((mode & FileMode::ReadWrite) == FileMode::None)
+    { // If we aren't reading or writing, then we can't open the file
+        Log(LogLevel::Error, "Attempted to open \"%s\" in neither read nor write mode (FileMode 0x%x)\n", path.c_str(), mode);
         return nullptr;
     }
 
-    QIODevice::OpenMode qmode;
-    if (mode.length() > 1 && mode[0] == 'r' && mode[1] == '+')
+    bool file_exists = QFile::exists(QString::fromStdString(path));
+    std::string modeString = GetModeString(mode, file_exists);
+
+    FILE* file = fopen(path.c_str(), modeString.c_str());
+    if (file)
     {
-		qmode = QIODevice::OpenModeFlag::ReadWrite;
-	}
-	else if (mode.length() > 1 && mode[0] == 'w' && mode[1] == '+')
-    {
-    	qmode = QIODevice::OpenModeFlag::Truncate | QIODevice::OpenModeFlag::ReadWrite;
-	}
-	else if (mode[0] == 'w')
-    {
-        qmode = QIODevice::OpenModeFlag::Truncate | QIODevice::OpenModeFlag::WriteOnly;
+        Log(LogLevel::Debug, "Opened \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", path.c_str(), mode, modeString.c_str());
+        return reinterpret_cast<FileHandle *>(file);
     }
     else
     {
-        qmode = QIODevice::OpenModeFlag::ReadOnly;
+        Log(LogLevel::Warn, "Failed to open \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", path.c_str(), mode, modeString.c_str());
+        return nullptr;
     }
-
-    f.open(qmode);
-    FILE* file = fdopen(dup(f.handle()), mode.c_str());
-    f.close();
-
-    return file;
 }
 
-FILE* OpenLocalFile(const std::string& path, const std::string& mode)
+FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
 {
     QString qpath = QString::fromStdString(path);
-	QDir dir(qpath);
+    QDir dir(qpath);
     QString fullpath;
 
     if (dir.isAbsolute())
@@ -346,7 +391,93 @@ FILE* OpenLocalFile(const std::string& path, const std::string& mode)
 #endif
     }
 
-    return OpenFile(fullpath.toStdString(), mode, mode[0] != 'w');
+    return OpenFile(fullpath.toStdString(), mode);
+}
+
+bool CloseFile(FileHandle* file)
+{
+    return fclose(reinterpret_cast<FILE *>(file)) == 0;
+}
+
+bool IsEndOfFile(FileHandle* file)
+{
+    return feof(reinterpret_cast<FILE *>(file)) != 0;
+}
+
+bool FileReadLine(char* str, int count, FileHandle* file)
+{
+    return fgets(str, count, reinterpret_cast<FILE *>(file)) != nullptr;
+}
+
+bool FileExists(const std::string& name)
+{
+    FileHandle* f = OpenFile(name, FileMode::Read);
+    if (!f) return false;
+    CloseFile(f);
+    return true;
+}
+
+bool LocalFileExists(const std::string& name)
+{
+    FileHandle* f = OpenLocalFile(name, FileMode::Read);
+    if (!f) return false;
+    CloseFile(f);
+    return true;
+}
+
+bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin)
+{
+    int stdorigin;
+    switch (origin)
+    {
+        case FileSeekOrigin::Start: stdorigin = SEEK_SET; break;
+        case FileSeekOrigin::Current: stdorigin = SEEK_CUR; break;
+        case FileSeekOrigin::End: stdorigin = SEEK_END; break;
+    }
+
+    return fseek(reinterpret_cast<FILE *>(file), offset, stdorigin) == 0;
+}
+
+void FileRewind(FileHandle* file)
+{
+    rewind(reinterpret_cast<FILE *>(file));
+}
+
+u64 FileRead(void* data, u64 size, u64 count, FileHandle* file)
+{
+    return fread(data, size, count, reinterpret_cast<FILE *>(file));
+}
+
+bool FileFlush(FileHandle* file)
+{
+    return fflush(reinterpret_cast<FILE *>(file)) == 0;
+}
+
+u64 FileWrite(const void* data, u64 size, u64 count, FileHandle* file)
+{
+    return fwrite(data, size, count, reinterpret_cast<FILE *>(file));
+}
+
+u64 FileWriteFormatted(FileHandle* file, const char* fmt, ...)
+{
+    if (fmt == nullptr)
+        return 0;
+
+    va_list args;
+    va_start(args, fmt);
+    u64 ret = vfprintf(reinterpret_cast<FILE *>(file), fmt, args);
+    va_end(args);
+    return ret;
+}
+
+u64 FileLength(FileHandle* file)
+{
+    FILE* stdfile = reinterpret_cast<FILE *>(file);
+    long pos = ftell(stdfile);
+    fseek(stdfile, 0, SEEK_END);
+    long len = ftell(stdfile);
+    fseek(stdfile, pos, SEEK_SET);
+    return len;
 }
 
 void Log(LogLevel level, const char* fmt, ...)
@@ -449,7 +580,45 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
         ROMManager::GBASave->RequestFlush(savedata, savelen, writeoffset, writelen);
 }
 
+void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen)
+{
+    if (!ROMManager::FirmwareSave)
+        return;
 
+    if (firmware.GetHeader().Identifier != GENERATED_FIRMWARE_IDENTIFIER)
+    { // If this is not the default built-in firmware...
+        // ...then write the whole thing back.
+        ROMManager::FirmwareSave->RequestFlush(firmware.Buffer(), firmware.Length(), writeoffset, writelen);
+    }
+    else
+    {
+        u32 eapstart = firmware.GetExtendedAccessPointOffset();
+        u32 eapend = eapstart + sizeof(firmware.GetExtendedAccessPoints());
+
+        u32 apstart = firmware.GetWifiAccessPointOffset();
+        u32 apend = apstart + sizeof(firmware.GetAccessPoints());
+
+        // assert that the extended access points come just before the regular ones
+        assert(eapend == apstart);
+
+        if (eapstart <= writeoffset && writeoffset < apend)
+        { // If we're writing to the access points...
+            const u8* buffer = firmware.GetExtendedAccessPointPosition();
+            u32 length = sizeof(firmware.GetExtendedAccessPoints()) + sizeof(firmware.GetAccessPoints());
+            ROMManager::FirmwareSave->RequestFlush(buffer, length, writeoffset - eapstart, writelen);
+        }
+    }
+
+}
+
+void WriteDateTime(int year, int month, int day, int hour, int minute, int second)
+{
+    QDateTime hosttime = QDateTime::currentDateTime();
+    QDateTime time = QDateTime(QDate(year, month, day), QTime(hour, minute, second));
+
+    Config::RTCOffset = hosttime.secsTo(time);
+    Config::Save();
+}
 
 bool MP_Init()
 {
@@ -563,6 +732,21 @@ void Camera_Stop(int num)
 void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv)
 {
     return camManager[num]->captureFrame(frame, width, height, yuv);
+}
+
+DynamicLibrary* DynamicLibrary_Load(const char* lib)
+{
+    return (DynamicLibrary*) SDL_LoadObject(lib);
+}
+
+void DynamicLibrary_Unload(DynamicLibrary* lib)
+{
+    SDL_UnloadObject(lib);
+}
+
+void* DynamicLibrary_LoadFunction(DynamicLibrary* lib, const char* name)
+{
+    return SDL_LoadFunction(lib, name);
 }
 
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -27,8 +27,8 @@
 
 #include "ARCodeFile.h"
 
-Q_DECLARE_METATYPE(ARCodeList::iterator)
-Q_DECLARE_METATYPE(ARCodeCatList::iterator)
+Q_DECLARE_METATYPE(melonDS::ARCodeList::iterator)
+Q_DECLARE_METATYPE(melonDS::ARCodeCatList::iterator)
 
 namespace Ui { class CheatsDialog; }
 class CheatsDialog;
@@ -87,7 +87,7 @@ private slots:
 private:
     Ui::CheatsDialog* ui;
 
-    ARCodeFile* codeFile;
+    melonDS::ARCodeFile* codeFile;
     ARCodeChecker* codeChecker;
 };
 

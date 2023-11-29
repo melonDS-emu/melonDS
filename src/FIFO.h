@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,6 +22,8 @@
 #include "types.h"
 #include "Savestate.h"
 
+namespace melonDS
+{
 template<typename T, u32 NumEntries>
 class FIFO
 {
@@ -189,4 +191,5 @@ private:
     u32 ReadPos, WritePos;
 };
 
+}
 #endif

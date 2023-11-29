@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -37,6 +37,9 @@
 #include "Config.h"
 #include "LocalMP.h"
 #include "Platform.h"
+
+using namespace melonDS;
+using namespace melonDS::Platform;
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -297,17 +300,22 @@ bool Init()
 
 void DeInit()
 {
-    MPQueue->lock();
-    MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
-    header->ConnectedBitmask &= ~(1 << InstanceID);
-    header->InstanceBitmask &= ~(1 << InstanceID);
-    header->NumInstances--;
-    MPQueue->unlock();
+    if (MPQueue)
+    {
+        MPQueue->lock();
+        MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
+        header->ConnectedBitmask &= ~(1 << InstanceID);
+        header->InstanceBitmask &= ~(1 << InstanceID);
+        header->NumInstances--;
+        MPQueue->unlock();
 
-    SemPoolDeinit();
+        SemPoolDeinit();
 
-    MPQueue->detach();
+        MPQueue->detach();
+    }
+
     delete MPQueue;
+    MPQueue = nullptr;
 }
 
 void SetRecvTimeout(int timeout)

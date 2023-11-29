@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -21,6 +21,8 @@
 
 #include "types.h"
 
+namespace melonDS
+{
 const u8 melonDLDI[] =
 {
 	0xED, 0xA5, 0x8D, 0xBF, 0x20, 0x43, 0x68, 0x69, 0x73, 0x68, 0x6D, 0x00, 0x01, 0x09, 0x00, 0x00,
@@ -54,4 +56,5 @@ const u8 melonDLDI[] =
 	0x1E, 0xFF, 0x2F, 0xE1
 };
 
+}
 #endif // MELONDLDI_H

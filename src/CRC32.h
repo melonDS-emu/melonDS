@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,8 +19,13 @@
 #ifndef CRC32_H
 #define CRC32_H
 
+#include <array>
+
 #include "types.h"
 
-u32 CRC32(u8* data, int len, u32 start=0);
+namespace melonDS
+{
+u32 CRC32(const u8* data, int len, u32 start=0);
+}
 
 #endif // CRC32_H

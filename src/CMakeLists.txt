@@ -15,6 +15,7 @@ add_library(core STATIC
     CRC32.cpp
     DMA.cpp
     DMA_Timings.h
+    DMA_Timings.cpp
     DSi.cpp
     DSi_AES.cpp
     DSi_Camera.cpp
@@ -25,6 +26,7 @@ add_library(core STATIC
     DSi_NWifi.cpp
     DSi_SD.cpp
     DSi_SPI_TSC.cpp
+    FATIO.cpp
     FATStorage.cpp
     FIFO.h
     GBACart.cpp
@@ -38,17 +40,19 @@ add_library(core STATIC
     NDSCart.cpp
     Platform.h
     ROMList.h
+    ROMList.cpp
     FreeBIOS.h
+    FreeBIOS.cpp
     RTC.cpp
     Savestate.cpp
     SPI.cpp
+    SPI_Firmware.cpp
     SPU.cpp
     types.h
     version.h
     Wifi.cpp
     WifiAP.cpp
 
-    fatfs/diskio.c
     fatfs/ff.c
     fatfs/ffsystem.c
     fatfs/ffunicode.c
@@ -57,6 +61,15 @@ add_library(core STATIC
     sha1/sha1.c
     tiny-AES-c/aes.c
     xxhash/xxhash.c)
+
+if (ENABLE_GDBSTUB)
+    message(NOTICE "Enabling GDB stub")
+    target_sources(core PRIVATE
+        debug/GdbStub.cpp
+        debug/GdbProto.cpp
+        debug/GdbCmds.cpp
+    )
+endif()
 
 if (ENABLE_OGLRENDERER)
     target_sources(core PRIVATE
@@ -128,12 +141,26 @@ if (ENABLE_JIT)
 endif()
 
 if (WIN32)
-    target_link_libraries(core PRIVATE ole32 comctl32 ws2_32)
+    target_link_libraries(core PRIVATE ole32 comctl32 wsock32 ws2_32)
 elseif(NOT APPLE)
-    target_link_libraries(core PRIVATE rt)
+    check_library_exists(rt shm_open "" NEED_LIBRT)
+    if (NEED_LIBRT)
+        target_link_libraries(core PRIVATE rt)
+    endif()
 endif()
 
 if (ENABLE_JIT_PROFILING)
     target_include_directories(core PRIVATE "${VTUNE_INCLUDE_DIR}")
     target_link_libraries(core PRIVATE "${VTUNE_LIBRARY}")
 endif()
+
+#if(CMAKE_BUILD_TYPE MATCHES "Debug")
+#  set(
+#    CMAKE_C_FLAGS
+#    "${CMAKE_C_FLAGS} -fsanitize=undefined -fsanitize=address"
+#  )
+#  target_link_options(core
+#    BEFORE PUBLIC -fsanitize=undefined PUBLIC -fsanitize=address
+#  )
+#endif()
+

@@ -20,7 +20,6 @@
 #define ARMJIT_A64_COMPILER_H
 
 #include "../ARM.h"
-#include "../ARMJIT.h"
 
 #include "../dolphin/Arm64Emitter.h"
 
@@ -29,9 +28,9 @@
 
 #include <unordered_map>
 
-namespace ARMJIT
+namespace melonDS
 {
-
+class ARMJIT;
 const Arm64Gen::ARM64Reg RMemBase = Arm64Gen::X26;
 const Arm64Gen::ARM64Reg RCPSR = Arm64Gen::W27;
 const Arm64Gen::ARM64Reg RCycles = Arm64Gen::W28;
@@ -97,7 +96,11 @@ class Compiler : public Arm64Gen::ARM64XEmitter
 public:
     typedef void (Compiler::*CompileFunc)();
 
-    Compiler();
+#ifdef JIT_ENABLED
+    explicit Compiler(melonDS::NDS& nds);
+#else
+    explicit Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds) {}
+#endif
     ~Compiler();
 
     void PushRegs(bool saveHiRegs, bool saveRegsToBeChanged, bool allowUnload = true);
@@ -243,6 +246,7 @@ public:
         OtherCodeRegion = offset;
     }
 
+    melonDS::NDS& NDS;
     ptrdiff_t OtherCodeRegion;
 
     bool Exit;

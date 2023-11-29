@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -23,18 +23,23 @@
 
 #include <QMainWindow>
 
+class EmuThread;
+namespace melonDS
+{
+class NDS;
+}
 namespace AudioInOut
 {
 
-void Init();
+void Init(EmuThread* thread);
 void DeInit();
 
-void MicProcess();
+void MicProcess(melonDS::NDS& nds);
 void AudioMute(QMainWindow* mainWindow);
 
-void AudioSync();
+void AudioSync(melonDS::NDS& nds);
 
-void UpdateSettings();
+void UpdateSettings(melonDS::NDS& nds);
 
 void Enable();
 void Disable();

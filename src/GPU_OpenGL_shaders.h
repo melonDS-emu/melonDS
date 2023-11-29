@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,6 +19,8 @@
 #ifndef GPU_OPENGL_SHADERS_H
 #define GPU_OPENGL_SHADERS_H
 
+namespace melonDS
+{
 const char* kCompositorVS = R"(#version 140
 
 in vec2 vPosition;
@@ -866,5 +868,6 @@ void main()
 
 
 
+}
 
 #endif // GPU_OPENGL_SHADERS_H

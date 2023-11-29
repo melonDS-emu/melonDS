@@ -1,5 +1,5 @@
 /*
-    Copyright 2021-2022 melonDS team
+    Copyright 2021-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -27,8 +27,8 @@
 #include "CLI.h"
 #include "Platform.h"
 
-using Platform::Log;
-using Platform::LogLevel;
+using melonDS::Platform::Log;
+using melonDS::Platform::LogLevel;
 
 namespace CLI
 {

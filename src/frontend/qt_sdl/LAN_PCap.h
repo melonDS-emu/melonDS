@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,11 +19,12 @@
 #ifndef LAN_PCAP_H
 #define LAN_PCAP_H
 
-#include "../types.h"
+#include "types.h"
 
 namespace LAN_PCap
 {
 
+using namespace melonDS;
 struct AdapterData
 {
     char DeviceName[128];

@@ -19,7 +19,25 @@
 #ifndef NDS_HEADER_H
 #define NDS_HEADER_H
 
+#include <string.h>
 #include "types.h"
+
+namespace melonDS
+{
+/// Set to indicate the console regions that a ROM (including DSiWare)
+/// can be played on.
+enum RegionMask : u32
+{
+    NoRegion = 0,
+    Japan = 1 << 0,
+    USA = 1 << 1,
+    Europe = 1 << 2,
+    Australia = 1 << 3,
+    China = 1 << 4,
+    Korea = 1 << 5,
+    Reserved = ~(Japan | USA | Europe | Australia | China | Korea),
+    RegionFree = 0xFFFFFFFF,
+};
 
 // Consult GBATEK for info on what these are
 struct NDSHeader
@@ -104,7 +122,7 @@ struct NDSHeader
     u8 DSiMBKWriteProtect[3]; // global MBK9 setting
     u8 DSiWRAMCntSetting; // global WRAMCNT setting
 
-    u32 DSiRegionMask;
+    RegionMask DSiRegionMask;
     u32 DSiPermissions[2];
     u8 Reserved6[3];
     u8 AppFlags; // flags at 1BF
@@ -179,6 +197,23 @@ struct NDSHeader
     u8 Reserved10[384];
 
     u8 HeaderSignature[128]; // RSA-SHA1 across 0x000..0xDFF
+
+    /// @return \c true if this header represents a DSi title
+    /// (either a physical cartridge or a DSiWare title).
+    [[nodiscard]] bool IsDSi() const { return (UnitCode & 0x02) != 0; }
+    [[nodiscard]] u32 GameCodeAsU32() const {
+        return (u32)GameCode[3] << 24 |
+               (u32)GameCode[2] << 16 |
+               (u32)GameCode[1] << 8 |
+               (u32)GameCode[0];
+    }
+    [[nodiscard]] bool IsHomebrew() const
+    {
+        return (ARM9ROMOffset < 0x4000) || (strncmp(GameCode, "####", 4) == 0);
+    }
+
+    /// @return \c true if this header represents a DSiWare title.
+    [[nodiscard]] bool IsDSiWare() const { return IsDSi() && DSiRegionStart == 0; }
 };
 
 static_assert(sizeof(NDSHeader) == 4096, "NDSHeader is not 4096 bytes!");
@@ -209,5 +244,6 @@ struct NDSBanner
 
 static_assert(sizeof(NDSBanner) == 9152, "NDSBanner is not 9152 bytes!");
 
+}
 
 #endif //NDS_HEADER_H

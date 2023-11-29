@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -21,15 +21,16 @@
 
 #include <string>
 #include <list>
-
+#include <vector>
 #include "types.h"
 
+namespace melonDS
+{
 struct ARCode
 {
     std::string Name;
     bool Enabled;
-    u32 CodeLen;
-    u32 Code[2*64];
+    std::vector<u32> Code;
 };
 
 typedef std::list<ARCode> ARCodeList;
@@ -60,4 +61,5 @@ private:
     std::string Filename;
 };
 
+}
 #endif // ARCODEFILE_H

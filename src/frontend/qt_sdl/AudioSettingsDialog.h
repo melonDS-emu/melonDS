@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -24,17 +24,18 @@
 
 namespace Ui { class AudioSettingsDialog; }
 class AudioSettingsDialog;
+class EmuThread;
 
 class AudioSettingsDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit AudioSettingsDialog(QWidget* parent, bool emuActive);
+    explicit AudioSettingsDialog(QWidget* parent, bool emuActive, EmuThread* emuThread);
     ~AudioSettingsDialog();
 
     static AudioSettingsDialog* currentDlg;
-    static AudioSettingsDialog* openDlg(QWidget* parent, bool emuActive)
+    static AudioSettingsDialog* openDlg(QWidget* parent, bool emuActive, EmuThread* emuThread)
     {
         if (currentDlg)
         {
@@ -42,7 +43,7 @@ public:
             return currentDlg;
         }
 
-        currentDlg = new AudioSettingsDialog(parent, emuActive);
+        currentDlg = new AudioSettingsDialog(parent, emuActive, emuThread);
         currentDlg->show();
         return currentDlg;
     }
@@ -62,17 +63,18 @@ private slots:
     void on_AudioSettingsDialog_rejected();
 
     void on_cbInterpolation_currentIndexChanged(int idx);
-    void on_cbBitrate_currentIndexChanged(int idx);
+    void on_cbBitDepth_currentIndexChanged(int idx);
     void on_slVolume_valueChanged(int val);
     void on_chkSyncDSiVolume_clicked(bool checked);
     void onChangeMicMode(int mode);
     void on_btnMicWavBrowse_clicked();
 
 private:
+    EmuThread* emuThread;
     Ui::AudioSettingsDialog* ui;
 
     int oldInterp;
-    int oldBitrate;
+    int oldBitDepth;
     int oldVolume;
     bool oldDSiSync;
     QButtonGroup* grpMicMode;

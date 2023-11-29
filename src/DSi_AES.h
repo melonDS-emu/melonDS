@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -21,37 +21,96 @@
 
 #include "types.h"
 #include "Savestate.h"
+#include "FIFO.h"
+#include "tiny-AES-c/aes.hpp"
 
-namespace DSi_AES
+namespace melonDS
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wattributes"
+#if defined(__GNUC__) && (__GNUC__ >= 11) // gcc 11.*
+// NOTE: Yes, the compiler does *not* recognize this code pattern, so it is indeed an optimization.
+__attribute((always_inline)) static void Bswap128(void* Dst, const void* Src)
+{
+    *(__int128*)Dst = __builtin_bswap128(*(__int128*)Src);
+}
+#else
+__attribute((always_inline)) static void Bswap128(void* Dst, const void* Src)
+{
+    for (int i = 0; i < 16; ++i)
+    {
+        ((u8*)Dst)[i] = ((u8*)Src)[15 - i];
+    }
+}
+#endif
+#pragma GCC diagnostic pop
 
-extern u32 Cnt;
+class DSi;
+class DSi_AES
+{
+public:
+    DSi_AES(melonDS::DSi& dsi);
+    ~DSi_AES();
+    void Reset();
+    void DoSavestate(Savestate* file);
 
-bool Init();
-void DeInit();
-void Reset();
+    u32 ReadCnt();
+    void WriteCnt(u32 val);
+    void WriteBlkCnt(u32 val);
 
-void DoSavestate(Savestate* file);
+    u32 ReadOutputFIFO();
+    void WriteInputFIFO(u32 val);
+    void CheckInputDMA();
+    void CheckOutputDMA();
+    void Update();
 
-u32 ReadCnt();
-void WriteCnt(u32 val);
-void WriteBlkCnt(u32 val);
+    void WriteIV(u32 offset, u32 val, u32 mask);
+    void WriteMAC(u32 offset, u32 val, u32 mask);
+    void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask);
+    void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask);
+    void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask);
 
-u32 ReadOutputFIFO();
-void WriteInputFIFO(u32 val);
-void CheckInputDMA();
-void CheckOutputDMA();
-void Update();
+    static void ROL16(u8* val, u32 n);
+    static void DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey);
 
-void WriteIV(u32 offset, u32 val, u32 mask);
-void WriteMAC(u32 offset, u32 val, u32 mask);
-void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask);
-void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask);
-void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask);
+private:
+    melonDS::DSi& DSi;
+    u32 Cnt;
 
-void Swap16(u8* dst, u8* src);
-void DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey);
+    u32 BlkCnt;
+    u32 RemExtra;
+    u32 RemBlocks;
+
+    bool OutputFlush;
+
+    u32 InputDMASize, OutputDMASize;
+    u32 AESMode;
+
+    FIFO<u32, 16> InputFIFO;
+    FIFO<u32, 16> OutputFIFO;
+
+    u8 IV[16];
+
+    u8 MAC[16];
+
+    u8 KeyNormal[4][16];
+    u8 KeyX[4][16];
+    u8 KeyY[4][16];
+
+    u8 CurKey[16];
+    u8 CurMAC[16];
+
+    // output MAC for CCM encrypt
+    u8 OutputMAC[16];
+    bool OutputMACDue;
+
+    AES_ctx Ctx;
+
+    void ProcessBlock_CCM_Extra();
+    void ProcessBlock_CCM_Decrypt();
+    void ProcessBlock_CCM_Encrypt();
+    void ProcessBlock_CTR();
+};
 
 }
-
 #endif // DSI_AES_H

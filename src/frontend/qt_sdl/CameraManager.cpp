@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -16,9 +16,12 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <QEventLoop>
+
 #include "CameraManager.h"
 #include "Config.h"
 
+using namespace melonDS;
 
 #if QT_VERSION >= 0x060000
 
@@ -144,6 +147,7 @@ CameraManager::~CameraManager()
     // save settings here?
 
     delete[] frameBuffer;
+    delete[] tempFrameBuffer;
 }
 
 void CameraManager::init()
@@ -256,6 +260,12 @@ void CameraManager::init()
         if (camDevice)
         {
             camDevice->load();
+            if (camDevice->status() == QCamera::LoadingStatus)
+            {
+                QEventLoop loop;
+                connect(camDevice, &QCamera::statusChanged, &loop, &QEventLoop::quit);
+                loop.exec();
+            }
 
             const QList<QCameraViewfinderSettings> supported = camDevice->supportedViewfinderSettings();
             bool good = false;

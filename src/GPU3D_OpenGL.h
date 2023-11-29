@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -18,31 +18,43 @@
 
 #pragma once
 
+#ifdef OGLRENDERER_ENABLED
 #include "GPU3D.h"
-
+#include "GPU_OpenGL.h"
 #include "OpenGLSupport.h"
 
-
-namespace GPU3D
+namespace melonDS
 {
+class GPU;
+
 class GLRenderer : public Renderer3D
 {
 public:
-    GLRenderer();
-    virtual ~GLRenderer() override {};
-    virtual bool Init() override;
-    virtual void DeInit() override;
-    virtual void Reset() override;
+    ~GLRenderer() override;
+    void Reset() override;
 
-    virtual void SetRenderSettings(GPU::RenderSettings& settings) override;
+    void SetRenderSettings(bool betterpolygons, int scale) noexcept;
+    void SetBetterPolygons(bool betterpolygons) noexcept;
+    void SetScaleFactor(int scale) noexcept;
+    [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
+    [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
 
-    virtual void VCount144() override {};
-    virtual void RenderFrame() override;
-    virtual u32* GetLine(int line) override;
+    void VCount144() override {};
+    void RenderFrame() override;
+    void Stop() override;
+    u32* GetLine(int line) override;
 
     void SetupAccelFrame();
-    void PrepareCaptureFrame();
+    void PrepareCaptureFrame() override;
+    void Blit() override;
+
+    [[nodiscard]] const GLCompositor& GetCompositor() const noexcept { return CurGLCompositor; }
+    GLCompositor& GetCompositor() noexcept { return CurGLCompositor; }
+
+    static std::unique_ptr<GLRenderer> New(melonDS::GPU& gpu) noexcept;
 private:
+    // Used by New()
+    GLRenderer(GLCompositor&& compositor, GPU& gpu) noexcept;
 
     // GL version requirements
     // * texelFetch: 3.0 (GLSL 1.30)     (3.2/1.50 for MS)
@@ -62,7 +74,9 @@ private:
         u32 RenderKey;
     };
 
-    RendererPolygon PolygonList[2048];
+    melonDS::GPU& GPU;
+    GLCompositor CurGLCompositor;
+    RendererPolygon PolygonList[2048] {};
 
     bool BuildRenderShader(u32 flags, const char* vs, const char* fs);
     void UseRenderShader(u32 flags);
@@ -83,13 +97,13 @@ private:
     };
 
 
-    GLuint ClearShaderPlain[3];
+    GLuint ClearShaderPlain[3] {};
 
-    GLuint RenderShader[16][3];
+    GLuint RenderShader[16][3] {};
     GLuint CurShaderID = -1;
 
-    GLuint FinalPassEdgeShader[3];
-    GLuint FinalPassFogShader[3];
+    GLuint FinalPassEdgeShader[3] {};
+    GLuint FinalPassFogShader[3] {};
 
     // std140 compliant structure
     struct
@@ -104,13 +118,13 @@ private:
         u32 uFogOffset;             // int        304 / 1
         u32 uFogShift;              // int        305 / 1
         u32 _pad1[2];               // int        306 / 2
-    } ShaderConfig;
+    } ShaderConfig {};
 
-    GLuint ShaderConfigUBO;
-    int NumFinalPolys, NumOpaqueFinalPolys;
+    GLuint ShaderConfigUBO {};
+    int NumFinalPolys {}, NumOpaqueFinalPolys {};
 
-    GLuint ClearVertexBufferID, ClearVertexArrayID;
-    GLint ClearUniformLoc[4];
+    GLuint ClearVertexBufferID = 0, ClearVertexArrayID {};
+    GLint ClearUniformLoc[4] {};
 
     // vertex buffer
     // * XYZW: 4x16bit
@@ -124,29 +138,30 @@ private:
     // * bit8: front-facing (?)
     // * bit9: W-buffering (?)
 
-    GLuint VertexBufferID;
-    u32 VertexBuffer[10240 * 7];
-    u32 NumVertices;
+    GLuint VertexBufferID {};
+    u32 VertexBuffer[10240 * 7] {};
+    u32 NumVertices {};
 
-    GLuint VertexArrayID;
-    GLuint IndexBufferID;
-    u16 IndexBuffer[2048 * 40];
-    u32 NumIndices, NumEdgeIndices;
+    GLuint VertexArrayID {};
+    GLuint IndexBufferID {};
+    u16 IndexBuffer[2048 * 40] {};
+    u32 NumIndices {}, NumEdgeIndices {};
 
     const u32 EdgeIndicesOffset = 2048 * 30;
 
-    GLuint TexMemID;
-    GLuint TexPalMemID;
+    GLuint TexMemID {};
+    GLuint TexPalMemID {};
 
-    int ScaleFactor;
-    bool BetterPolygons;
-    int ScreenW, ScreenH;
+    int ScaleFactor {};
+    bool BetterPolygons {};
+    int ScreenW {}, ScreenH {};
 
-    GLuint FramebufferTex[8];
-    int FrontBuffer;
-    GLuint FramebufferID[4], PixelbufferID;
-    u32 Framebuffer[256*192];
+    GLuint FramebufferTex[8] {};
+    int FrontBuffer {};
+    GLuint FramebufferID[4] {}, PixelbufferID {};
+    u32 Framebuffer[256*192] {};
 
 
 };
 }
+#endif

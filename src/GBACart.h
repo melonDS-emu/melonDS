@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,11 +19,20 @@
 #ifndef GBACART_H
 #define GBACART_H
 
+#include <memory>
 #include "types.h"
 #include "Savestate.h"
 
-namespace GBACart
+namespace melonDS::GBACart
 {
+
+enum CartType
+{
+    Default = 0x001,
+    Game = 0x101,
+    GameSolarSensor = 0x102,
+    RAMExpansion = 0x201,
+};
 
 // CartCommon -- base code shared by all cart types
 class CartCommon
@@ -32,8 +41,8 @@ public:
     CartCommon();
     virtual ~CartCommon();
 
-    virtual u32 Type() { return 0x001; }
-    virtual u32 Checksum() { return 0; }
+    virtual u32 Type() const = 0;
+    virtual u32 Checksum() const { return 0; }
 
     virtual void Reset();
 
@@ -44,11 +53,14 @@ public:
 
     virtual int SetInput(int num, bool pressed);
 
-    virtual u16 ROMRead(u32 addr);
+    virtual u16 ROMRead(u32 addr) const;
     virtual void ROMWrite(u32 addr, u16 val);
 
     virtual u8 SRAMRead(u32 addr);
     virtual void SRAMWrite(u32 addr, u8 val);
+
+    [[nodiscard]] virtual const u8* GetROM() const { return nullptr; }
+    [[nodiscard]] virtual u32 GetROMLength() const { return 0; }
 
     virtual u8* GetSaveMemory() const;
     virtual u32 GetSaveMemoryLength() const;
@@ -61,8 +73,8 @@ public:
     CartGame(u8* rom, u32 len);
     virtual ~CartGame() override;
 
-    virtual u32 Type() override { return 0x101; }
-    virtual u32 Checksum() override;
+    virtual u32 Type() const override { return CartType::Game; }
+    virtual u32 Checksum() const override;
 
     virtual void Reset() override;
 
@@ -71,11 +83,14 @@ public:
     virtual void SetupSave(u32 type) override;
     virtual void LoadSave(const u8* savedata, u32 savelen) override;
 
-    virtual u16 ROMRead(u32 addr) override;
+    virtual u16 ROMRead(u32 addr) const override;
     virtual void ROMWrite(u32 addr, u16 val) override;
 
     virtual u8 SRAMRead(u32 addr) override;
     virtual void SRAMWrite(u32 addr, u8 val) override;
+
+    [[nodiscard]] const u8* GetROM() const override { return ROM; }
+    [[nodiscard]] u32 GetROMLength() const override { return ROMLength; }
 
     virtual u8* GetSaveMemory() const override;
     virtual u32 GetSaveMemoryLength() const override;
@@ -133,7 +148,7 @@ public:
     CartGameSolarSensor(u8* rom, u32 len);
     virtual ~CartGameSolarSensor() override;
 
-    virtual u32 Type() override { return 0x102; }
+    virtual u32 Type() const override { return CartType::GameSolarSensor; }
 
     virtual void Reset() override;
 
@@ -159,13 +174,13 @@ public:
     CartRAMExpansion();
     ~CartRAMExpansion() override;
 
-    virtual u32 Type() override { return 0x201; }
+    virtual u32 Type() const override { return CartType::RAMExpansion; }
 
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
 
-    u16 ROMRead(u32 addr) override;
+    u16 ROMRead(u32 addr) const override;
     void ROMWrite(u32 addr, u16 val) override;
 
 private:
@@ -180,50 +195,62 @@ enum
     Input_SolarSensorUp,
 };
 
-extern bool CartInserted;
-extern u8* CartROM;
-extern u32 CartROMSize;
+class GBACartSlot
+{
+public:
+    GBACartSlot() noexcept = default;
+    ~GBACartSlot() noexcept = default;
+    void Reset() noexcept;
+    void DoSavestate(Savestate* file) noexcept;
+    /// Applies the GBACartData to the emulator state and unloads an existing ROM if any.
+    /// Upon successful insertion, \c cart will be nullptr and the global GBACart state
+    /// (\c CartROM, CartInserted, etc.) will be updated.
+    bool InsertROM(std::unique_ptr<CartCommon>&& cart) noexcept;
+    bool LoadROM(const u8* romdata, u32 romlen) noexcept;
+    void LoadSave(const u8* savedata, u32 savelen) noexcept;
 
-bool Init();
-void DeInit();
-void Reset();
+    void LoadAddon(int type) noexcept;
 
-void DoSavestate(Savestate* file);
+    void EjectCart() noexcept;
 
-bool LoadROM(const u8* romdata, u32 romlen);
-void LoadSave(const u8* savedata, u32 savelen);
+    // TODO: make more flexible, support nonbinary inputs
+    int SetInput(int num, bool pressed) noexcept;
 
-void LoadAddon(int type);
+    void SetOpenBusDecay(u16 val) noexcept { OpenBusDecay = val; }
 
-void EjectCart();
+    u16 ROMRead(u32 addr) const noexcept;
+    void ROMWrite(u32 addr, u16 val) noexcept;
 
-//bool LoadROM(const char* path, const char* sram);
-//bool LoadROM(const u8* romdata, u32 filelength, const char *sram);
-//void RelocateSave(const char* path, bool write);
+    u8 SRAMRead(u32 addr) noexcept;
+    void SRAMWrite(u32 addr, u8 val) noexcept;
 
-// TODO: make more flexible, support nonbinary inputs
-int SetInput(int num, bool pressed);
+    /// This function is intended to allow frontends to save and load SRAM
+    /// without using melonDS APIs.
+    /// Modifying the emulated SRAM for any other reason is strongly discouraged.
+    /// The returned pointer may be invalidated if the emulator is reset,
+    /// or when a new game is loaded.
+    /// Consequently, don't store the returned pointer for any longer than necessary.
+    /// @returns Pointer to this cart's SRAM if a cart is loaded and supports SRAM, otherwise \c nullptr.
+    [[nodiscard]] u8* GetSaveMemory() noexcept { return Cart ? Cart->GetSaveMemory() : nullptr; }
+    [[nodiscard]] const u8* GetSaveMemory() const noexcept { return Cart ? Cart->GetSaveMemory() : nullptr; }
 
-void SetOpenBusDecay(u16 val);
+    /// @returns The length of the buffer returned by ::GetSaveMemory()
+    /// if a cart is loaded and supports SRAM, otherwise zero.
+    [[nodiscard]] u32 GetSaveMemoryLength() const noexcept { return Cart ? Cart->GetSaveMemoryLength() : 0; }
+private:
+    std::unique_ptr<CartCommon> Cart = nullptr;
+    u16 OpenBusDecay = 0;
+};
 
-u16 ROMRead(u32 addr);
-void ROMWrite(u32 addr, u16 val);
-
-u8 SRAMRead(u32 addr);
-void SRAMWrite(u32 addr, u8 val);
-
-/// This function is intended to allow frontends to save and load SRAM
-/// without using melonDS APIs.
-/// Modifying the emulated SRAM for any other reason is strongly discouraged.
-/// The returned pointer may be invalidated if the emulator is reset,
-/// or when a new game is loaded.
-/// Consequently, don't store the returned pointer for any longer than necessary.
-/// @returns Pointer to this cart's SRAM if a cart is loaded and supports SRAM, otherwise \c nullptr.
-u8* GetSaveMemory();
-
-/// @returns The length of the buffer returned by ::GetSaveMemory()
-/// if a cart is loaded and supports SRAM, otherwise zero.
-u32 GetSaveMemoryLength();
+/// Parses the given ROM data and constructs a \c GBACart::CartCommon subclass
+/// that can be inserted into the emulator or used to extract information about the cart beforehand.
+/// @param romdata The ROM data to parse.
+/// The returned cartridge will contain a copy of this data,
+/// so the caller may deallocate \c romdata after this function returns.
+/// @param romlen The length of the ROM data in bytes.
+/// @returns A \c GBACart::CartCommon object representing the parsed ROM,
+/// or \c nullptr if the ROM data couldn't be parsed.
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen);
 
 }
 
