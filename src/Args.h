@@ -43,7 +43,7 @@ struct NDSArgs
     melonDS::Firmware Firmware;
 };
 
-struct final DSiArgs : public NDSArgs
+struct DSiArgs final : public NDSArgs
 {
     std::array<u8, DSiBIOSSize> ARM9iBIOS;
     std::array<u8, DSiBIOSSize> ARM7iBIOS;
