@@ -22,13 +22,13 @@
 #include "Input.h"
 #include "Config.h"
 
-using namespace melonDS;
-
 namespace Input
 {
 
 int JoystickID;
 SDL_Joystick* Joystick = nullptr;
+SDL_GameController* Controller = nullptr;
+SDL_Haptic* Haptic = nullptr;
 
 u32 KeyInputMask, JoyInputMask;
 u32 KeyHotkeyMask, JoyHotkeyMask;
@@ -36,6 +36,8 @@ u32 HotkeyMask, LastHotkeyMask;
 u32 HotkeyPress, HotkeyRelease;
 
 u32 InputMask;
+bool IsRumbling;
+bool HasRumble;
 
 
 void Init()
@@ -43,6 +45,9 @@ void Init()
     KeyInputMask = 0xFFF;
     JoyInputMask = 0xFFF;
     InputMask = 0xFFF;
+
+    IsRumbling = false;
+    HasRumble = false;
 
     KeyHotkeyMask = 0;
     JoyHotkeyMask = 0;
@@ -53,6 +58,7 @@ void Init()
 
 void OpenJoystick()
 {
+    if (Controller) SDL_GameControllerClose(Controller);
     if (Joystick) SDL_JoystickClose(Joystick);
 
     int num = SDL_NumJoysticks();
@@ -66,14 +72,78 @@ void OpenJoystick()
         JoystickID = 0;
 
     Joystick = SDL_JoystickOpen(JoystickID);
+
+    if (SDL_IsGameController(JoystickID))
+    {
+        Controller = SDL_GameControllerOpen(JoystickID);
+
+        #if SDL_VERSION_ATLEAST(2, 0, 18)
+        if (SDL_GameControllerHasRumble(Controller))
+        {
+            HasRumble = true;
+        }
+        #else
+        // Fallback for SDL2 versions less than 2.0.18 (required to get Ubuntu buildbots functional)
+        if (SDL_JoystickIsHaptic(Joystick))
+        {
+            Haptic = SDL_HapticOpenFromJoystick(Joystick);
+
+            if (SDL_HapticRumbleSupported(Haptic))
+            {
+              SDL_HapticRumbleInit(Haptic);
+              HasRumble = true;
+            }
+        }
+        #endif
+    }
 }
 
 void CloseJoystick()
 {
+    #if !SDL_VERSION_ATLEAST(2, 0, 18)
+    if (Haptic)
+    {
+        SDL_HapticClose(Haptic);
+        Haptic = nullptr;
+    }
+    #endif
+
+    if (Controller)
+    {
+        SDL_GameControllerClose(Controller);
+        Controller = nullptr;
+    }
+
     if (Joystick)
     {
         SDL_JoystickClose(Joystick);
         Joystick = nullptr;
+    }
+}
+
+void RumbleStart(int len_ms)
+{
+    if (Controller && HasRumble && !IsRumbling)
+    {
+        #if SDL_VERSION_ATLEAST(2, 0, 18)
+        SDL_GameControllerRumble(Controller, 0xFFFF, 0xFFFF, len_ms);
+        #else
+        SDL_HapticRumblePlay(Haptic, 1.0, len_ms);
+        #endif
+        IsRumbling = true;
+    }
+}
+
+void RumbleStop()
+{
+    if (Controller && HasRumble && IsRumbling)
+    {
+        #if SDL_VERSION_ATLEAST(2, 0, 18)
+        SDL_GameControllerRumble(Controller, 0, 0, 0);
+        #else
+        SDL_HapticRumbleStop(Haptic);
+        #endif
+        IsRumbling = false;
     }
 }
 

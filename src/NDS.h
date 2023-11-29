@@ -204,6 +204,10 @@ enum
 enum
 {
     GBAAddon_RAMExpansion = 1,
+    GBAAddon_RumblePak = 2,
+    GBAAddon_GuitarGrip = 3,
+    GBAAddon_PianoKeyboard = 4,
+    GBAAddon_MaguSlider = 5
 };
 
 class SPU;
