@@ -33,6 +33,7 @@ class DSi_I2CHost;
 class DSi_CamModule;
 class DSi_AES;
 class DSi_DSP;
+class DSiArgs;
 
 namespace DSi_NAND
 {
@@ -50,7 +51,6 @@ public:
 
     u8 ARM9iBIOS[0x10000];
     u8 ARM7iBIOS[0x10000];
-    std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
     DSi_SDHost SDMMC;
     DSi_SDHost SDIO;
 
@@ -130,7 +130,7 @@ public:
     void ARM7IOWrite32(u32 addr, u32 val) override;
 
 public:
-    DSi() noexcept;
+    DSi(DSiArgs&& args) noexcept;
     ~DSi() noexcept override;
     DSi(const DSi&) = delete;
     DSi& operator=(const DSi&) = delete;
