@@ -2339,6 +2339,12 @@ void GPU3D::RestartFrame() noexcept
     CurrentRenderer->RestartFrame();
 }
 
+void GPU3D::Stop() noexcept
+{
+    if (CurrentRenderer)
+        CurrentRenderer->Stop();
+}
+
 
 bool YSort(Polygon* a, Polygon* b)
 {
@@ -2475,6 +2481,12 @@ u32* GPU3D::GetLine(int line) noexcept
     }
 
     return ScrolledLine;
+}
+
+void GPU3D::SetRenderSettings(const RenderSettings& settings) noexcept
+{
+    if (CurrentRenderer)
+        CurrentRenderer->SetRenderSettings(settings);
 }
 
 bool GPU3D::IsRendererAccelerated() const noexcept
@@ -2889,6 +2901,12 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
     }
 
     Log(LogLevel::Debug, "unknown GPU3D write32 %08X %08X\n", addr, val);
+}
+
+void GPU3D::Blit() noexcept
+{
+    if (CurrentRenderer)
+        CurrentRenderer->Blit();
 }
 
 Renderer3D::Renderer3D(bool Accelerated)
