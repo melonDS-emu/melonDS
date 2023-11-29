@@ -131,6 +131,9 @@ NANDImage& NANDImage::operator=(NANDImage&& other) noexcept
 {
     if (this != &other)
     {
+        if (CurFile)
+            CloseFile(CurFile);
+
         CurFile = other.CurFile;
         eMMC_CID = other.eMMC_CID;
         ConsoleID = other.ConsoleID;
