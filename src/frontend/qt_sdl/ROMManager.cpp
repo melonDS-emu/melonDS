@@ -704,7 +704,7 @@ std::optional<FATStorage> LoadDSiSDCard() noexcept
         Config::DSiSDPath,
         imgsizes[Config::DSiSDSize],
         Config::DSiSDReadOnly,
-        Config::DSiSDFolderSync ? Config::DSiSDFolderPath : ""
+        Config::DSiSDFolderSync ? std::make_optional(Config::DSiSDFolderPath) : std::nullopt
     );
 }
 
