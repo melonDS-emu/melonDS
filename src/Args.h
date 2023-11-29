@@ -27,6 +27,7 @@
 #include "MemConstants.h"
 #include "DSi_NAND.h"
 #include "FATStorage.h"
+#include "FreeBIOS.h"
 #include "SPI_Firmware.h"
 
 namespace melonDS
@@ -34,15 +35,36 @@ namespace melonDS
 namespace NDSCart { class CartCommon; }
 namespace GBACart { class CartCommon; }
 
+/// Arguments to pass into the NDS constructor.
+/// New fields here should have default values if possible.
 struct NDSArgs
 {
-    std::unique_ptr<NDSCart::CartCommon> NDSROM;
-    std::unique_ptr<GBACart::CartCommon> GBAROM;
-    std::array<u8, ARM9BIOSSize> ARM9BIOS;
-    std::array<u8, ARM7BIOSSize> ARM7BIOS;
-    melonDS::Firmware Firmware;
+    /// NDS ROM to install.
+    /// Defaults to nullptr.
+    std::unique_ptr<NDSCart::CartCommon> NDSROM = nullptr;
+
+    /// GBA ROM to install.
+    /// Defaults to nullptr.
+    /// Ignored in DSi mode.
+    std::unique_ptr<GBACart::CartCommon> GBAROM = nullptr;
+
+    /// NDS ARM9 BIOS to install.
+    /// Defaults to FreeBIOS, which is not compatible with DSi mode.
+    std::array<u8, ARM9BIOSSize> ARM9BIOS = bios_arm9_bin;
+
+    /// NDS ARM7 BIOS to install.
+    /// Defaults to FreeBIOS, which is not compatible with DSi mode.
+    std::array<u8, ARM7BIOSSize> ARM7BIOS = bios_arm7_bin;
+
+    /// Firmware image to install.
+    /// Defaults to generated NDS firmware.
+    /// Generated firmware is not compatible with DSi mode.
+    melonDS::Firmware Firmware {0};
 };
 
+/// Arguments to pass into the DSi constructor.
+/// New fields here should have default values if possible.
+/// Contains no virtual methods, so there's no vtable.
 struct DSiArgs final : public NDSArgs
 {
     std::array<u8, DSiBIOSSize> ARM9iBIOS;
