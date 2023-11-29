@@ -36,9 +36,6 @@ public:
     FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir);
     ~FATStorage();
 
-    bool Open();
-    void Close();
-
     bool InjectFile(const std::string& path, u8* data, u32 len);
 
     u32 ReadSectors(u32 start, u32 num, u8* data);

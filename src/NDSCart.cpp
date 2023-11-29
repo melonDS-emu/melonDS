@@ -1169,7 +1169,6 @@ CartHomebrew::~CartHomebrew()
 {
     if (SD)
     {
-        SD->Close();
         delete SD;
     }
 }
@@ -1182,7 +1181,6 @@ void CartHomebrew::Reset()
 
     if (SD)
     {
-        SD->Close();
         delete SD;
     }
 
@@ -1199,7 +1197,6 @@ void CartHomebrew::Reset()
                             (u64)Platform::GetConfigInt(Platform::DLDI_ImageSize) * 1024 * 1024,
                             ReadOnly,
                             folderpath);
-        SD->Open();
     }
     else
         SD = nullptr;
