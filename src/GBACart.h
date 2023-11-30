@@ -64,7 +64,6 @@ public:
     virtual void SetSaveMemory(const u8* savedata, u32 savelen);
 protected:
     friend class GBACartSlot;
-    virtual void SetupSave(u32 type);
 };
 
 // CartGame -- regular retail game cart (ROM, SRAM)
@@ -72,7 +71,9 @@ class CartGame : public CartCommon
 {
 public:
     CartGame(const u8* rom, u32 len);
+    CartGame(const u8* rom, u32 len, const u8* sram, u32 sramlen);
     CartGame(std::unique_ptr<u8[]>&& rom, u32 len);
+    CartGame(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen);
     virtual ~CartGame() override;
 
     virtual u32 Type() const override { return CartType::Game; }
@@ -95,7 +96,6 @@ public:
     virtual u32 GetSaveMemoryLength() const override;
     virtual void SetSaveMemory(const u8* savedata, u32 savelen) override;
 protected:
-    virtual void SetupSave(u32 type) override;
     virtual void ProcessGPIO();
 
     u8 SRAMRead_EEPROM(u32 addr);
@@ -140,6 +140,8 @@ protected:
     std::unique_ptr<u8[]> SRAM = nullptr;
     u32 SRAMLength = 0;
     SaveType SRAMType = S_NULL;
+private:
+    void SetupSave(u32 type);
 };
 
 // CartGameSolarSensor -- Boktai game cart
@@ -270,6 +272,7 @@ private:
 /// @returns A \c GBACart::CartCommon object representing the parsed ROM,
 /// or \c nullptr if the ROM data couldn't be parsed.
 std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen);
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sramdata, u32 sramlen);
 
 }
 
