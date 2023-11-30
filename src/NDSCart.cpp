@@ -247,9 +247,6 @@ void CartCommon::SetupSave(u32 type)
 {
 }
 
-void CartCommon::SetSaveMemory(const u8* savedata, u32 savelen)
-{
-}
 
 int CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
 {

@@ -66,7 +66,6 @@ public:
     virtual void DoSavestate(Savestate* file);
 
     virtual void SetupSave(u32 type);
-    virtual void SetSaveMemory(const u8* savedata, u32 savelen);
 
     virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len);
     virtual void ROMCommandFinish(u8* cmd, u8* data, u32 len);
@@ -76,6 +75,7 @@ public:
     virtual u8* GetSaveMemory() { return nullptr; }
     virtual const u8* GetSaveMemory() const { return nullptr; }
     virtual u32 GetSaveMemoryLength() const { return 0; }
+    virtual void SetSaveMemory(const u8* savedata, u32 savelen) {};
 
     [[nodiscard]] const NDSHeader& GetHeader() const { return Header; }
     [[nodiscard]] NDSHeader& GetHeader() { return Header; }
