@@ -315,6 +315,7 @@ public:
 
     const Firmware& GetFirmware() const { return SPI.GetFirmwareMem()->GetFirmware(); }
     Firmware& GetFirmware() { return SPI.GetFirmwareMem()->GetFirmware(); }
+    void SetFirmware(Firmware&& firmware) { SPI.GetFirmwareMem()->SetFirmware(std::move(firmware)); }
 
     virtual bool NeedsDirectBoot();
     void SetupDirectBoot(const std::string& romname);
