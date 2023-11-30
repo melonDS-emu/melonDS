@@ -20,7 +20,7 @@
 
 namespace melonDS
 {
-std::pair<std::unique_ptr<u8[]>, u32> ToPowerOf2(std::unique_ptr<u8[]>&& data, u32 len) noexcept
+std::pair<std::unique_ptr<u8[]>, u32> PadToPowerOf2(std::unique_ptr<u8[]>&& data, u32 len) noexcept
 {
     if (data == nullptr || len == 0)
         return {nullptr, 0};
@@ -38,7 +38,7 @@ std::pair<std::unique_ptr<u8[]>, u32> ToPowerOf2(std::unique_ptr<u8[]>&& data, u
     return {std::move(newdata), newlen};
 }
 
-std::pair<std::unique_ptr<u8[]>, u32> ToPowerOf2(const u8* data, u32 len) noexcept
+std::pair<std::unique_ptr<u8[]>, u32> PadToPowerOf2(const u8* data, u32 len) noexcept
 {
     if (len == 0)
         return {nullptr, 0};
@@ -52,7 +52,7 @@ std::pair<std::unique_ptr<u8[]>, u32> ToPowerOf2(const u8* data, u32 len) noexce
     return {std::move(newdata), newlen};
 }
 
-std::unique_ptr<u8[]> ToUnique(const u8* data, u32 len) noexcept
+std::unique_ptr<u8[]> CopyToUnique(const u8* data, u32 len) noexcept
 {
     if (data == nullptr || len == 0)
         return nullptr;

@@ -32,11 +32,11 @@ namespace melonDS
 /// If \c data is \c nullptr, returns <tt>{nullptr, 0}</tt>.
 /// Otherwise, return a copy of \c data with zero-padding to the next power of 2.
 /// @post \c data is \c nullptr, even if it doesn't need to be copied.
-std::pair<std::unique_ptr<u8[]>, u32> ToPowerOf2(std::unique_ptr<u8[]>&& data, u32 len) noexcept;
+std::pair<std::unique_ptr<u8[]>, u32> PadToPowerOf2(std::unique_ptr<u8[]>&& data, u32 len) noexcept;
 
-std::pair<std::unique_ptr<u8[]>, u32> ToPowerOf2(const u8* data, u32 len) noexcept;
+std::pair<std::unique_ptr<u8[]>, u32> PadToPowerOf2(const u8* data, u32 len) noexcept;
 
-std::unique_ptr<u8[]> ToUnique(const u8* data, u32 len) noexcept;
+std::unique_ptr<u8[]> CopyToUnique(const u8* data, u32 len) noexcept;
 
 }
 
