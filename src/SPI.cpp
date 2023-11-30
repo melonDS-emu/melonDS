@@ -462,6 +462,30 @@ void TSC::SetTouchCoords(u16 x, u16 y)
     NDS.KeyInput &= ~(1 << (16+6));
 }
 
+void TSC::MoveTouchCoords(u16 x, u16 y) // 0 -> negative, 1 -> neutral, 2 -> positive
+{
+    u16 sensitivityX = 4;
+    u16 sensitivityY = 8;
+
+    if (x == 0) {
+        TouchX -= sensitivityX << 4;
+    }
+    if (x == 2) {
+        TouchX += sensitivityX << 4;
+    }
+    if (y == 0) {
+        TouchY -= sensitivityY << 4;
+    }
+    if (y == 2) {
+        TouchY += sensitivityY << 4;
+    }
+
+    if (TouchY > (255 << 4) || TouchX > (191 << 4)) {
+        TouchX = 128 << 4; // aprox middle of 255
+        TouchY = 95  << 4; // aprox middle of 191
+    }
+}
+
 void TSC::MicInputFrame(s16* data, int samples)
 {
     if (!data)

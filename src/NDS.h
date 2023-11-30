@@ -328,9 +328,11 @@ public:
     bool IsRunning() const noexcept { return Running; }
 
     void TouchScreen(u16 x, u16 y);
+    void MoveOnTouchScreen(u16 x, u16 y);
     void ReleaseScreen();
 
     void SetKeyMask(u32 mask);
+    void SetTouchKeyMask(u32 mask);
 
     bool IsLidClosed();
     void SetLidClosed(bool closed);

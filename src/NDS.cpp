@@ -1120,6 +1120,12 @@ void NDS::TouchScreen(u16 x, u16 y)
     SPI.GetTSC()->SetTouchCoords(x, y);
 }
 
+void NDS::MoveOnTouchScreen(u16 x, u16 y)
+{
+    SPI.GetTSC()->MoveTouchCoords(x, y);
+    KeyInput &= ~(1 << (16+6));
+}
+
 void NDS::ReleaseScreen()
 {
     SPI.GetTSC()->SetTouchCoords(0x000, 0xFFF);
@@ -1167,6 +1173,21 @@ void NDS::SetKeyMask(u32 mask)
 
     CheckKeyIRQ(0, oldkey, KeyInput);
     CheckKeyIRQ(1, oldkey, KeyInput);
+}
+
+void NDS::SetTouchKeyMask(u32 mask)
+{
+    u32 right = (~mask) & 0x1;
+    u32 left  = (~(mask >> 1)) & 0x1;
+    u32 up    = (~(mask >> 2)) & 0x1;
+    u32 down  = (~(mask >> 3)) & 0x1;
+
+    if (right | left | up | down) {
+        MoveOnTouchScreen((right - left) + 1, (down - up) + 1);
+    }
+    else {
+        ReleaseScreen();
+    }
 }
 
 bool NDS::IsLidClosed()

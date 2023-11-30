@@ -34,6 +34,9 @@ int JoyMapping[12];
 int HKKeyMapping[HK_MAX];
 int HKJoyMapping[HK_MAX];
 
+int TouchKeyMapping[4];
+int TouchJoyMapping[4];
+
 int JoystickID;
 
 int WindowWidth;
@@ -223,6 +226,16 @@ ConfigEntry ConfigFile[] =
     {"HKJoy_PowerButton",         0, &HKJoyMapping[HK_PowerButton],         -1, true},
     {"HKJoy_VolumeUp",            0, &HKJoyMapping[HK_VolumeUp],            -1, true},
     {"HKJoy_VolumeDown",          0, &HKJoyMapping[HK_VolumeDown],          -1, true},
+
+    {"Key_TouchRight", 0, &TouchKeyMapping[0], -1, true},
+    {"Key_TouchLeft",  0, &TouchKeyMapping[1], -1, true},
+    {"Key_TouchUp",    0, &TouchKeyMapping[2], -1, true},
+    {"Key_TouchDown",  0, &TouchKeyMapping[3], -1, true},
+
+    {"Joy_TouchRight", 0, &TouchJoyMapping[0], -1, true},
+    {"Joy_TouchLeft",  0, &TouchJoyMapping[1], -1, true},
+    {"Joy_TouchUp",    0, &TouchJoyMapping[2], -1, true},
+    {"Joy_TouchDown",  0, &TouchJoyMapping[3], -1, true},
 
     {"JoystickID", 0, &JoystickID, 0, true},
 

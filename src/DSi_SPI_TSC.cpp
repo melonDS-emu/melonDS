@@ -121,6 +121,11 @@ void DSi_TSC::SetTouchCoords(u16 x, u16 y)
     }
 }
 
+void DSi_TSC::MoveTouchCoords(u16 x, u16 y)
+{
+
+}
+
 void DSi_TSC::MicInputFrame(s16* data, int samples)
 {
     if (TSCMode == 0x00) return TSC::MicInputFrame(data, samples);
