@@ -308,8 +308,8 @@ public:
     void SetConsoleType(int type);
 
     void LoadBIOS();
-    bool IsLoadedARM9BIOSBuiltIn();
-    bool IsLoadedARM7BIOSBuiltIn();
+    [[nodiscard]] bool IsLoadedARM9BIOSBuiltIn() const noexcept { return ARM9BIOS == bios_arm9_bin; }
+    [[nodiscard]] bool IsLoadedARM7BIOSBuiltIn() const noexcept { return ARM7BIOS == bios_arm7_bin; }
 
     virtual bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
     void LoadSave(const u8* savedata, u32 savelen);

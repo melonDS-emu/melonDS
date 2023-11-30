@@ -779,16 +779,6 @@ void NDS::LoadBIOS()
     Reset();
 }
 
-bool NDS::IsLoadedARM9BIOSBuiltIn()
-{
-    return ARM9BIOS == bios_arm9_bin;
-}
-
-bool NDS::IsLoadedARM7BIOSBuiltIn()
-{
-    return ARM7BIOS == bios_arm7_bin;
-}
-
 u64 NDS::NextTarget()
 {
     u64 minEvent = UINT64_MAX;
