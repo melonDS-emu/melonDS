@@ -726,42 +726,61 @@ bool NDS::DoSavestate(Savestate* file)
     return true;
 }
 
-bool NDS::LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
+void NDS::SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart)
 {
-    if (!NDSCartSlot.LoadROM(romdata, romlen))
-        return false;
+    NDSCartSlot.SetCart(std::move(cart));
+    // The existing cart will always be ejected;
+    // if cart is null, then that's equivalent to ejecting a cart
+    // without inserting a new one.
+}
 
+void NDS::SetNDSCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
+{
+    std::unique_ptr<NDSCart::CartCommon> cart = NDSCart::ParseROM(romdata, romlen);
+
+    if (cart)
+    { // If we're inserting a cartridge...
+        SetNDSCart(std::move(cart));
+
+        if (savedata && savelen)
+            NDSCartSlot.SetSaveMemory(savedata, savelen);
+    }
+    else
+    {
+        EjectCart();
+    }
+}
+
+void NDS::SetNDSSave(const u8* savedata, u32 savelen)
+{
     if (savedata && savelen)
-        NDSCartSlot.LoadSave(savedata, savelen);
-
-    return true;
+        NDSCartSlot.SetSaveMemory(savedata, savelen);
 }
 
-void NDS::LoadSave(const u8* savedata, u32 savelen)
+void NDS::SetGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
 {
-    if (savedata && savelen)
-        NDSCartSlot.LoadSave(savedata, savelen);
+    if (ConsoleType == 0 && romdata != nullptr && romlen > 0)
+    {
+        GBACartSlot.SetCart(romdata, romlen);
+
+        if (savedata && savelen)
+        {
+            GBACartSlot.SetSaveMemory(savedata, savelen);
+        }
+    }
+    else
+    {
+        GBACartSlot.SetCart(nullptr);
+    }
 }
 
-void NDS::EjectCart()
+void NDS::SetGBASave(const u8* savedata, u32 savelen)
 {
-    NDSCartSlot.EjectCart();
-}
+    if (ConsoleType == 0 && savedata && savelen)
+    {
+        GBACartSlot.SetSaveMemory(savedata, savelen);
+    }
 
-bool NDS::CartInserted()
-{
-    return NDSCartSlot.GetCart() != nullptr;
-}
-
-bool NDS::LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
-{
-    if (!GBACartSlot.LoadROM(romdata, romlen))
-        return false;
-
-    if (savedata && savelen)
-        GBACartSlot.LoadSave(savedata, savelen);
-
-    return true;
 }
 
 void NDS::LoadGBAAddon(int type)

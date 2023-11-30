@@ -162,15 +162,10 @@ void DSi::Stop(Platform::StopReason reason)
     CamModule.Stop();
 }
 
-bool DSi::LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
+void DSi::SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart)
 {
-    if (NDS::LoadCart(romdata, romlen, savedata, savelen))
-    {
-        SetCartInserted(true);
-        return true;
-    }
-
-    return false;
+    NDS::SetNDSCart(std::move(cart));
+    SetCartInserted(NDSCartSlot.GetCart() != nullptr);
 }
 
 

@@ -823,7 +823,10 @@ void GBACartSlot::SetCart(std::unique_ptr<CartCommon>&& cart) noexcept
 
 void GBACartSlot::SetCart(const u8* romdata, u32 romlen) noexcept
 {
-    SetCart(ParseROM(romdata, romlen));
+    if (romdata != nullptr && romlen > 0)
+        SetCart(ParseROM(romdata, romlen));
+    else
+        SetCart(nullptr);
 }
 
 void GBACartSlot::SetSaveMemory(const u8* savedata, u32 savelen) noexcept

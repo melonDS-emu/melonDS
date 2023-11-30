@@ -136,7 +136,7 @@ public:
     DSi& operator=(const DSi&) = delete;
     DSi(DSi&&) = delete;
     DSi& operator=(DSi&&) = delete;
-    bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen) override;
+    void SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart) override;
     void EjectCart() override;
     bool NeedsDirectBoot() override
     {

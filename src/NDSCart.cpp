@@ -235,7 +235,7 @@ void CartCommon::SetupSave(u32 type)
 {
 }
 
-void CartCommon::LoadSave(const u8* savedata, u32 savelen)
+void CartCommon::SetSaveMemory(const u8* savedata, u32 savelen)
 {
 }
 
@@ -361,16 +361,6 @@ u8 CartCommon::SPIWrite(u8 val, u32 pos, bool last)
     return 0xFF;
 }
 
-u8 *CartCommon::GetSaveMemory() const
-{
-    return nullptr;
-}
-
-u32 CartCommon::GetSaveMemoryLength() const
-{
-    return 0;
-}
-
 void CartCommon::ReadROM(u32 addr, u32 len, u8* data, u32 offset)
 {
     if (addr >= ROMLength) return;
@@ -483,7 +473,7 @@ void CartRetail::SetupSave(u32 type)
     }
 }
 
-void CartRetail::LoadSave(const u8* savedata, u32 savelen)
+void CartRetail::SetSaveMemory(const u8* savedata, u32 savelen)
 {
     if (!SRAM) return;
 
@@ -550,16 +540,6 @@ u8 CartRetail::SPIWrite(u8 val, u32 pos, bool last)
     case 3: return SRAMWrite_FLASH(val, pos, last);
     default: return 0xFF;
     }
-}
-
-u8 *CartRetail::GetSaveMemory() const
-{
-    return SRAM;
-}
-
-u32 CartRetail::GetSaveMemoryLength() const
-{
-    return SRAMLength;
 }
 
 void CartRetail::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
@@ -890,9 +870,9 @@ void CartRetailNAND::DoSavestate(Savestate* file)
         BuildSRAMID();
 }
 
-void CartRetailNAND::LoadSave(const u8* savedata, u32 savelen)
+void CartRetailNAND::SetSaveMemory(const u8* savedata, u32 savelen)
 {
-    CartRetail::LoadSave(savedata, savelen);
+    CartRetail::SetSaveMemory(savedata, savelen);
     BuildSRAMID();
 }
 
@@ -1434,7 +1414,7 @@ NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) n
     // All fields are default-constructed because they're listed as such in the class declaration
 
     if (rom)
-        InsertROM(std::move(rom));
+        SetCart(std::move(rom));
 }
 
 NDSCartSlot::~NDSCartSlot() noexcept
@@ -1702,19 +1682,18 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, std::optiona
     return cart;
 }
 
-bool NDSCartSlot::InsertROM(std::unique_ptr<CartCommon>&& cart) noexcept
+void NDSCartSlot::SetCart(std::unique_ptr<CartCommon>&& cart) noexcept
 {
-    if (!cart) {
-        Log(LogLevel::Error, "Failed to insert invalid cart; existing cart (if any) was not ejected.\n");
-        return false;
-    }
-
     if (Cart)
         EjectCart();
 
     // Why a move function? Because the Cart object is polymorphic,
     // and cloning polymorphic objects without knowing the underlying type is annoying.
     Cart = std::move(cart);
+
+    if (!Cart)
+        // If we're ejecting an existing cart without inserting a new one...
+        return;
 
     Cart->Reset();
 
@@ -1748,21 +1727,21 @@ bool NDSCartSlot::InsertROM(std::unique_ptr<CartCommon>&& cart) noexcept
     Log(LogLevel::Info, "Inserted cart with game code: %.4s\n", header.GameCode);
     Log(LogLevel::Info, "Inserted cart with ID: %08X\n", Cart->ID());
     Log(LogLevel::Info, "ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
-
-    return true;
 }
 
-bool NDSCartSlot::LoadROM(const u8* romdata, u32 romlen) noexcept
+void NDSCartSlot::SetCart(const u8* romdata, u32 romlen) noexcept
 {
-    std::unique_ptr<CartCommon> cart = ParseROM(romdata, romlen);
-
-    return InsertROM(std::move(cart));
+    if (romdata != nullptr && romlen > 0)
+        // If we're inserting a cart...
+        SetCart(ParseROM(romdata, romlen));
+    else
+        EjectCart();
 }
 
-void NDSCartSlot::LoadSave(const u8* savedata, u32 savelen) noexcept
+void NDSCartSlot::SetSaveMemory(const u8* savedata, u32 savelen) noexcept
 {
     if (Cart)
-        Cart->LoadSave(savedata, savelen);
+        Cart->SetSaveMemory(savedata, savelen);
 }
 
 void NDSCartSlot::SetupDirectBoot(const std::string& romname) noexcept

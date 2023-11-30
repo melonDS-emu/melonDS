@@ -65,15 +65,16 @@ public:
     virtual void DoSavestate(Savestate* file);
 
     virtual void SetupSave(u32 type);
-    virtual void LoadSave(const u8* savedata, u32 savelen);
+    virtual void SetSaveMemory(const u8* savedata, u32 savelen);
 
     virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len);
     virtual void ROMCommandFinish(u8* cmd, u8* data, u32 len);
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last);
 
-    virtual u8* GetSaveMemory() const;
-    virtual u32 GetSaveMemoryLength() const;
+    virtual u8* GetSaveMemory() { return nullptr; }
+    virtual const u8* GetSaveMemory() const { return nullptr; }
+    virtual u32 GetSaveMemoryLength() const { return 0; }
 
     [[nodiscard]] const NDSHeader& GetHeader() const { return Header; }
     [[nodiscard]] NDSHeader& GetHeader() { return Header; }
@@ -116,14 +117,15 @@ public:
     virtual void DoSavestate(Savestate* file) override;
 
     virtual void SetupSave(u32 type) override;
-    virtual void LoadSave(const u8* savedata, u32 savelen) override;
+    virtual void SetSaveMemory(const u8* savedata, u32 savelen) override;
 
     virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
-    virtual u8* GetSaveMemory() const override;
-    virtual u32 GetSaveMemoryLength() const override;
+    virtual u8* GetSaveMemory() override { return SRAM; }
+    virtual const u8* GetSaveMemory() const override { return SRAM; }
+    virtual u32 GetSaveMemoryLength() const override { return SRAMLength; }
 
 protected:
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
@@ -155,7 +157,7 @@ public:
 
     void DoSavestate(Savestate* file) override;
 
-    void LoadSave(const u8* savedata, u32 savelen) override;
+    void SetSaveMemory(const u8* savedata, u32 savelen) override;
 
     int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
@@ -261,25 +263,26 @@ public:
     /// If the provided cart is not valid,
     /// then the currently-loaded ROM will not be ejected.
     ///
-    /// @param cart Movable reference to the cart.
-    /// @returns \c true if the cart was successfully loaded,
-    /// \c false otherwise.
+    /// @param cart Movable reference to the cart,
+    /// or \c nullptr to eject the cart.
     /// @post If the cart was successfully loaded,
     /// then \c cart will be \c nullptr
     /// and \c Cart will contain the object that \c cart previously pointed to.
     /// Otherwise, \c cart and \c Cart will be both be unchanged.
-    bool InsertROM(std::unique_ptr<CartCommon>&& cart) noexcept;
+    void SetCart(std::unique_ptr<CartCommon>&& cart) noexcept;
 
     /// Parses a ROM image and loads it into the emulator.
-    /// This function is equivalent to calling ::ParseROM() and ::InsertROM() in sequence.
+    /// This function is equivalent to calling ::ParseROM() and ::SetCart() in sequence.
     /// @param romdata Pointer to the ROM image.
     /// The cart emulator maintains its own copy of this data,
     /// so the caller is free to discard this data after calling this function.
     /// @param romlen The length of the ROM image, in bytes.
     /// @returns \c true if the ROM image was successfully loaded,
     /// \c false if not.
-    bool LoadROM(const u8* romdata, u32 romlen) noexcept;
-    void LoadSave(const u8* savedata, u32 savelen) noexcept;
+    void SetCart(const u8* romdata, u32 romlen) noexcept;
+    [[nodiscard]] const std::unique_ptr<CartCommon>& GetCart() noexcept { return Cart; }
+    [[nodiscard]] const std::unique_ptr<CartCommon>& GetCart() const noexcept { return Cart; }
+
     void SetupDirectBoot(const std::string& romname) noexcept;
 
     /// This function is intended to allow frontends to save and load SRAM
@@ -291,10 +294,12 @@ public:
     /// @returns Pointer to this cart's SRAM if a cart is loaded and supports SRAM, otherwise \c nullptr.
     [[nodiscard]] const u8* GetSaveMemory() const noexcept { return Cart ? Cart->GetSaveMemory() : nullptr; }
     [[nodiscard]] u8* GetSaveMemory() noexcept { return Cart ? Cart->GetSaveMemory() : nullptr; }
+    void SetSaveMemory(const u8* savedata, u32 savelen) noexcept;
 
     /// @returns The length of the buffer returned by ::GetSaveMemory()
     /// if a cart is loaded and supports SRAM, otherwise zero.
     [[nodiscard]] u32 GetSaveMemoryLength() const noexcept { return Cart ? Cart->GetSaveMemoryLength() : 0; }
+
     void EjectCart() noexcept;
     u32 ReadROMData() noexcept;
     void WriteROMData(u32 val) noexcept;
@@ -302,9 +307,6 @@ public:
     void WriteROMCnt(u32 val) noexcept;
     [[nodiscard]] u8 ReadSPIData() const noexcept;
     void WriteSPIData(u8 val) noexcept;
-
-    [[nodiscard]] CartCommon* GetCart() noexcept { return Cart.get(); }
-    [[nodiscard]] const CartCommon* GetCart() const noexcept { return Cart.get(); }
 
     [[nodiscard]] u8 GetROMCommand(u8 index) const noexcept { return ROMCommand[index]; }
     void SetROMCommand(u8 index, u8 val) noexcept { ROMCommand[index] = val; }
