@@ -48,7 +48,6 @@ public:
 
     virtual void DoSavestate(Savestate* file);
 
-    virtual void SetupSave(u32 type);
     virtual void LoadSave(const u8* savedata, u32 savelen);
 
     virtual int SetInput(int num, bool pressed);
@@ -64,6 +63,8 @@ public:
 
     virtual u8* GetSaveMemory() const;
     virtual u32 GetSaveMemoryLength() const;
+protected:
+    virtual void SetupSave(u32 type);
 };
 
 // CartGame -- regular retail game cart (ROM, SRAM)
@@ -80,7 +81,6 @@ public:
 
     virtual void DoSavestate(Savestate* file) override;
 
-    virtual void SetupSave(u32 type) override;
     virtual void LoadSave(const u8* savedata, u32 savelen) override;
 
     virtual u16 ROMRead(u32 addr) const override;
@@ -95,6 +95,7 @@ public:
     virtual u8* GetSaveMemory() const override;
     virtual u32 GetSaveMemoryLength() const override;
 protected:
+    virtual void SetupSave(u32 type) override;
     virtual void ProcessGPIO();
 
     u8 SRAMRead_EEPROM(u32 addr);
