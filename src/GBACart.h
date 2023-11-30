@@ -48,8 +48,6 @@ public:
 
     virtual void DoSavestate(Savestate* file);
 
-    virtual void LoadSave(const u8* savedata, u32 savelen);
-
     virtual int SetInput(int num, bool pressed);
 
     virtual u16 ROMRead(u32 addr) const;
@@ -63,6 +61,7 @@ public:
 
     virtual u8* GetSaveMemory() const;
     virtual u32 GetSaveMemoryLength() const;
+    virtual void SetSaveMemory(const u8* savedata, u32 savelen);
 protected:
     virtual void SetupSave(u32 type);
 };
@@ -81,8 +80,6 @@ public:
 
     virtual void DoSavestate(Savestate* file) override;
 
-    virtual void LoadSave(const u8* savedata, u32 savelen) override;
-
     virtual u16 ROMRead(u32 addr) const override;
     virtual void ROMWrite(u32 addr, u16 val) override;
 
@@ -94,6 +91,7 @@ public:
 
     virtual u8* GetSaveMemory() const override;
     virtual u32 GetSaveMemoryLength() const override;
+    virtual void SetSaveMemory(const u8* savedata, u32 savelen) override;
 protected:
     virtual void SetupSave(u32 type) override;
     virtual void ProcessGPIO();
@@ -208,7 +206,6 @@ public:
     /// (\c CartROM, CartInserted, etc.) will be updated.
     bool InsertROM(std::unique_ptr<CartCommon>&& cart) noexcept;
     bool LoadROM(const u8* romdata, u32 romlen) noexcept;
-    void LoadSave(const u8* savedata, u32 savelen) noexcept;
 
     void LoadAddon(int type) noexcept;
 
@@ -234,6 +231,16 @@ public:
     /// @returns Pointer to this cart's SRAM if a cart is loaded and supports SRAM, otherwise \c nullptr.
     [[nodiscard]] u8* GetSaveMemory() noexcept { return Cart ? Cart->GetSaveMemory() : nullptr; }
     [[nodiscard]] const u8* GetSaveMemory() const noexcept { return Cart ? Cart->GetSaveMemory() : nullptr; }
+
+    /// Sets the loaded cart's SRAM.
+    /// Does nothing if no cart is inserted
+    /// or the inserted cart doesn't support SRAM.
+    ///
+    /// @param savedata Buffer containing the raw contents of the SRAM.
+    /// The contents of this buffer are copied into the cart slot,
+    /// so the caller may dispose of it after this method returns.
+    /// @param savelen The length of the buffer in \c savedata, in bytes.
+    void SetSaveMemory(const u8* savedata, u32 savelen) noexcept;
 
     /// @returns The length of the buffer returned by ::GetSaveMemory()
     /// if a cart is loaded and supports SRAM, otherwise zero.

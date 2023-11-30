@@ -65,7 +65,7 @@ void CartCommon::SetupSave(u32 type)
 {
 }
 
-void CartCommon::LoadSave(const u8* savedata, u32 savelen)
+void CartCommon::SetSaveMemory(const u8* savedata, u32 savelen)
 {
 }
 
@@ -231,7 +231,7 @@ void CartGame::SetupSave(u32 type)
     }
 }
 
-void CartGame::LoadSave(const u8* savedata, u32 savelen)
+void CartGame::SetSaveMemory(const u8* savedata, u32 savelen)
 {
     if (!SRAM) return;
 
@@ -835,14 +835,14 @@ bool GBACartSlot::LoadROM(const u8* romdata, u32 romlen) noexcept
     return InsertROM(std::move(data));
 }
 
-void GBACartSlot::LoadSave(const u8* savedata, u32 savelen) noexcept
+void GBACartSlot::SetSaveMemory(const u8* savedata, u32 savelen) noexcept
 {
     if (Cart)
     {
         // gross hack
         Cart->SetupSave(savelen);
 
-        Cart->LoadSave(savedata, savelen);
+        Cart->SetSaveMemory(savedata, savelen);
     }
 }
 
