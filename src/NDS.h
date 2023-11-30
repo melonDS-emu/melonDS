@@ -304,9 +304,6 @@ public:
     void SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
     void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
 
-    // 0=DS  1=DSi
-    void SetConsoleType(int type);
-
     void LoadBIOS();
     [[nodiscard]] bool IsLoadedARM9BIOSBuiltIn() const noexcept { return ARM9BIOS == bios_arm9_bin; }
     [[nodiscard]] bool IsLoadedARM7BIOSBuiltIn() const noexcept { return ARM7BIOS == bios_arm7_bin; }
