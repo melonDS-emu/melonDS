@@ -63,6 +63,7 @@ public:
     virtual u32 GetSaveMemoryLength() const;
     virtual void SetSaveMemory(const u8* savedata, u32 savelen);
 protected:
+    friend class GBACartSlot;
     virtual void SetupSave(u32 type);
 };
 
