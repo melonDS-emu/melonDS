@@ -23,6 +23,7 @@
 #include "GBACart.h"
 #include "CRC32.h"
 #include "Platform.h"
+#include "Utils.h"
 
 namespace melonDS
 {
@@ -99,15 +100,13 @@ CartGame::CartGame(const u8* rom, u32 len) : CartGame(rom, len, nullptr, 0)
 }
 
 CartGame::CartGame(const u8* rom, u32 len, const u8* sram, u32 sramlen) :
-    ROM(std::make_unique<u8[]>(len)),
+    ROM(CopyToUnique(rom, len)),
     ROMLength(len),
-    SRAM((sram && sramlen) ? std::make_unique<u8[]>(sramlen) : nullptr),
+    SRAM(CopyToUnique(sram, sramlen)),
     SRAMLength(sramlen)
 {
-    memcpy(ROM.get(), rom, len);
     if (SRAM)
     {
-        memcpy(SRAM.get(), sram, sramlen);
         SetupSave(sramlen);
     }
 }
@@ -187,18 +186,9 @@ void CartGame::DoSavestate(Savestate* file)
 
 void CartGame::SetupSave(u32 type)
 {
-    SRAM = nullptr;
-
     // TODO: have type be determined from some list, like in NDSCart
     // and not this gross hack!!
     SRAMLength = type;
-
-    if (SRAMLength)
-    {
-        SRAM = std::make_unique<u8[]>(SRAMLength);
-        memset(SRAM.get(), 0xFF, SRAMLength);
-    }
-
     switch (SRAMLength)
     {
     case 512:
@@ -728,12 +718,24 @@ void GBACartSlot::DoSavestate(Savestate* file) noexcept
     if (Cart) Cart->DoSavestate(file);
 }
 
+std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen)
+{
+    return ParseROM(std::move(romdata), romlen, nullptr, 0);
+}
+
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sramdata, u32 sramlen)
+{
+    auto [romcopy, romcopylen] = PadToPowerOf2(romdata, romlen);
+
+    return ParseROM(std::move(romcopy), romcopylen, CopyToUnique(sramdata, sramlen), sramlen);
+}
+
 std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
 {
     return ParseROM(romdata, romlen, nullptr, 0);
 }
 
-std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sramdata, u32 sramlen)
+std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, std::unique_ptr<u8[]>&& sramdata, u32 sramlen)
 {
     if (romdata == nullptr)
     {
@@ -747,15 +749,11 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sr
         return nullptr;
     }
 
-    u32 cartromsize = 0x200;
-    while (cartromsize < romlen)
-        cartromsize <<= 1;
+    auto [cartrom, cartromsize] = PadToPowerOf2(std::move(romdata), romlen);
 
-    std::unique_ptr<u8[]> cartrom;
     std::unique_ptr<u8[]> cartsram;
     try
     {
-        cartrom = std::make_unique<u8[]>(cartromsize);
         cartsram = sramdata ? std::make_unique<u8[]>(sramlen) : nullptr;
     }
     catch (const std::bad_alloc& e)
@@ -765,12 +763,10 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sr
         return nullptr;
     }
 
-    memset(cartrom.get(), 0, cartromsize);
-    memcpy(cartrom.get(), romdata, romlen);
     if (cartsram)
     {
         memset(cartsram.get(), 0, sramlen);
-        memcpy(cartsram.get(), sramdata, sramlen);
+        memcpy(cartsram.get(), sramdata.get(), sramlen);
     }
 
     char gamecode[5] = { '\0' };
@@ -795,8 +791,6 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sr
         cart = std::make_unique<CartGame>(std::move(cartrom), cartromsize, std::move(cartsram), sramlen);
 
     cart->Reset();
-
-    // TODO: setup cart save here! from a list or something
 
     // save
     //printf("GBA save file: %s\n", sram);

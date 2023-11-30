@@ -22,7 +22,7 @@
 #include <array>
 #include <string>
 #include <memory>
-#include <array>
+#include <variant>
 
 #include "types.h"
 #include "Savestate.h"
@@ -65,7 +65,6 @@ public:
 
     virtual void DoSavestate(Savestate* file);
 
-    virtual void SetupSave(u32 type);
 
     virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len);
     virtual void ROMCommandFinish(u8* cmd, u8* data, u32 len);
@@ -108,7 +107,8 @@ protected:
 class CartRetail : public CartCommon
 {
 public:
-    using CartCommon::CartCommon;
+    CartRetail(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
+    CartRetail(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
     virtual ~CartRetail() override;
 
     virtual u32 Type() const override { return CartType::Retail; }
@@ -117,7 +117,6 @@ public:
 
     virtual void DoSavestate(Savestate* file) override;
 
-    virtual void SetupSave(u32 type) override;
     virtual void SetSaveMemory(const u8* savedata, u32 savelen) override;
 
     virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
@@ -143,6 +142,8 @@ protected:
     u32 SRAMAddr = 0;
     u32 SRAMFirstAddr = 0;
     u8 SRAMStatus = 0;
+private:
+    void SetupSave(u32 type);
 };
 
 // CartRetailNAND -- retail cart with NAND SRAM (WarioWare DIY, Jam with the Band, ...)
@@ -358,6 +359,7 @@ private:
 /// @returns A \c NDSCart::CartCommon object representing the parsed ROM,
 /// or \c nullptr if the ROM data couldn't be parsed.
 std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const std::optional<FATStorageArgs>& sdcard = std::nullopt);
+std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, std::optional<FATStorageArgs>&& sdcard = std::nullopt);
 std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, std::optional<FATStorageArgs>&& sdcard = std::nullopt);
 }
 

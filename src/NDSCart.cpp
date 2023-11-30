@@ -26,6 +26,7 @@
 #include "ROMList.h"
 #include "melonDLDI.h"
 #include "FATStorage.h"
+#include "Utils.h"
 #include "xxhash/xxhash.h"
 
 namespace melonDS
@@ -174,28 +175,17 @@ void NDSCartSlot::Key2_Encrypt(u8* data, u32 len) noexcept
 }
 
 
-CartCommon::CartCommon(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams)
+CartCommon::CartCommon(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams) :
+    CartCommon(CopyToUnique(rom, len), len, chipid, badDSiDump, romparams)
 {
-    std::unique_ptr<u8[]> romcopy = std::make_unique<u8[]>(len);
-    memcpy(romcopy.get(), rom, len);
-
-    ROM = std::move(romcopy);
-    ROMLength = len;
-    ChipID = chipid;
-    ROMParams = romparams;
-
-    memcpy(&Header, ROM.get(), sizeof(Header));
-    IsDSi = Header.IsDSi() && !badDSiDump;
-    DSiBase = Header.DSiRegionStart << 19;
 }
 
-CartCommon::CartCommon(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams)
+CartCommon::CartCommon(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams) :
+    ROM(std::move(rom)),
+    ROMLength(len),
+    ChipID(chipid),
+    ROMParams(romparams)
 {
-    ROM = std::move(rom);
-    ROMLength = len;
-    ChipID = chipid;
-    ROMParams = romparams;
-
     memcpy(&Header, ROM.get(), sizeof(Header));
     IsDSi = Header.IsDSi() && !badDSiDump;
     DSiBase = Header.DSiRegionStart << 19;
@@ -242,11 +232,6 @@ void CartCommon::DoSavestate(Savestate* file)
     file->Var32(&DataEncMode);
     file->Bool32(&DSiMode);
 }
-
-void CartCommon::SetupSave(u32 type)
-{
-}
-
 
 int CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
 {
@@ -391,6 +376,17 @@ const NDSBanner* CartCommon::Banner() const
     return nullptr;
 }
 
+CartRetail::CartRetail(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams) :
+    CartRetail(CopyToUnique(rom, len), len, chipid, badDSiDump, romparams)
+{
+}
+
+CartRetail::CartRetail(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams) :
+    CartCommon(std::move(rom), len, chipid, badDSiDump, romparams)
+{
+    SetupSave(romparams.SaveMemType);
+}
+
 CartRetail::~CartRetail() = default;
 // std::unique_ptr cleans up the SRAM and ROM
 
@@ -440,7 +436,7 @@ void CartRetail::SetupSave(u32 type)
     SRAM = nullptr;
 
     if (type > 10) type = 0;
-    int sramlen[] =
+    constexpr int sramlen[] =
     {
         0,
         512,
@@ -1575,6 +1571,13 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const std::o
 
 std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, std::optional<FATStorageArgs>&& sdcard)
 {
+    auto [romcopy, romcopylen] = PadToPowerOf2(romdata, romlen);
+
+    return ParseROM(std::move(romcopy), romcopylen, std::move(sdcard));
+}
+
+std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, std::optional<FATStorageArgs>&& sdcard)
+{
     if (romdata == nullptr)
     {
         Log(LogLevel::Error, "NDSCart: romdata is null\n");
@@ -1587,25 +1590,7 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, std::optiona
         return nullptr;
     }
 
-    u32 cartromsize = 0x200;
-    while (cartromsize < romlen)
-        cartromsize <<= 1; // ROM size must be a power of 2
-
-    std::unique_ptr<u8[]> cartrom;
-    try
-    {
-        cartrom = std::make_unique<u8[]>(cartromsize);
-    }
-    catch (const std::bad_alloc& e)
-    {
-        Log(LogLevel::Error, "NDSCart: failed to allocate memory for ROM (%d bytes)\n", cartromsize);
-
-        return nullptr;
-    }
-
-    // copy romdata into cartrom then zero out the remaining space
-    memcpy(cartrom.get(), romdata, romlen);
-    memset(cartrom.get() + romlen, 0, cartromsize - romlen);
+    auto [cartrom, cartromsize] = PadToPowerOf2(std::move(romdata), romlen);
 
     NDSHeader header {};
     memcpy(&header, cartrom.get(), sizeof(header));
@@ -1684,9 +1669,6 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, std::optiona
         cart = std::make_unique<CartRetailBT>(std::move(cartrom), cartromsize, cartid, romparams);
     else
         cart = std::make_unique<CartRetail>(std::move(cartrom), cartromsize, cartid, badDSiDump, romparams);
-
-    if (romparams.SaveMemType > 0)
-        cart->SetupSave(romparams.SaveMemType);
 
     return cart;
 }
