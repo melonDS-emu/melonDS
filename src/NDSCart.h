@@ -53,7 +53,8 @@ class NDSCartSlot;
 class CartCommon
 {
 public:
-    CartCommon(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
+    CartCommon(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
+    CartCommon(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
     virtual ~CartCommon();
 
     virtual u32 Type() const = 0;
@@ -83,31 +84,31 @@ public:
     [[nodiscard]] const NDSBanner* Banner() const;
     [[nodiscard]] const ROMListEntry& GetROMParams() const { return ROMParams; };
     [[nodiscard]] u32 ID() const { return ChipID; }
-    [[nodiscard]] const u8* GetROM() const { return ROM; }
+    [[nodiscard]] const u8* GetROM() const { return ROM.get(); }
     [[nodiscard]] u32 GetROMLength() const { return ROMLength; }
 protected:
     void ReadROM(u32 addr, u32 len, u8* data, u32 offset);
 
-    u8* ROM;
-    u32 ROMLength;
-    u32 ChipID;
-    bool IsDSi;
-    bool DSiMode;
-    u32 DSiBase;
+    std::unique_ptr<u8[]> ROM = nullptr;
+    u32 ROMLength = 0;
+    u32 ChipID = 0;
+    bool IsDSi = false;
+    bool DSiMode = false;
+    u32 DSiBase = 0;
 
-    u32 CmdEncMode;
-    u32 DataEncMode;
+    u32 CmdEncMode = 0;
+    u32 DataEncMode = 0;
     // Kept separate from the ROM data so we can decrypt the modcrypt area
     // without touching the overall ROM data
-    NDSHeader Header;
-    ROMListEntry ROMParams;
+    NDSHeader Header {};
+    ROMListEntry ROMParams {};
 };
 
 // CartRetail -- regular retail cart (ROM, SPI SRAM)
 class CartRetail : public CartCommon
 {
 public:
-    CartRetail(u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
+    using CartCommon::CartCommon;
     virtual ~CartRetail() override;
 
     virtual u32 Type() const override { return CartType::Retail; }
@@ -123,8 +124,8 @@ public:
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
-    virtual u8* GetSaveMemory() override { return SRAM; }
-    virtual const u8* GetSaveMemory() const override { return SRAM; }
+    virtual u8* GetSaveMemory() override { return SRAM.get(); }
+    virtual const u8* GetSaveMemory() const override { return SRAM.get(); }
     virtual u32 GetSaveMemoryLength() const override { return SRAMLength; }
 
 protected:
@@ -134,21 +135,22 @@ protected:
     u8 SRAMWrite_EEPROM(u8 val, u32 pos, bool last);
     u8 SRAMWrite_FLASH(u8 val, u32 pos, bool last);
 
-    u8* SRAM;
-    u32 SRAMLength;
-    u32 SRAMType;
+    std::unique_ptr<u8[]> SRAM = nullptr;
+    u32 SRAMLength = 0;
+    u32 SRAMType = 0;
 
-    u8 SRAMCmd;
-    u32 SRAMAddr;
-    u32 SRAMFirstAddr;
-    u8 SRAMStatus;
+    u8 SRAMCmd = 0;
+    u32 SRAMAddr = 0;
+    u32 SRAMFirstAddr = 0;
+    u8 SRAMStatus = 0;
 };
 
 // CartRetailNAND -- retail cart with NAND SRAM (WarioWare DIY, Jam with the Band, ...)
 class CartRetailNAND : public CartRetail
 {
 public:
-    CartRetailNAND(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
+    CartRetailNAND(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
+    CartRetailNAND(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams);
     ~CartRetailNAND() override;
 
     virtual u32 Type() const override { return CartType::RetailNAND; }
@@ -167,18 +169,19 @@ public:
 private:
     void BuildSRAMID();
 
-    u32 SRAMBase;
-    u32 SRAMWindow;
+    u32 SRAMBase = 0;
+    u32 SRAMWindow = 0;
 
-    u8 SRAMWriteBuffer[0x800];
-    u32 SRAMWritePos;
+    u8 SRAMWriteBuffer[0x800] {};
+    u32 SRAMWritePos = 0;
 };
 
 // CartRetailIR -- SPI IR device and SRAM
 class CartRetailIR : public CartRetail
 {
 public:
-    CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams);
+    CartRetailIR(const u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams);
+    CartRetailIR(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams);
     ~CartRetailIR() override;
 
     virtual u32 Type() const override { return CartType::RetailIR; }
@@ -190,15 +193,16 @@ public:
     u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
 private:
-    u32 IRVersion;
-    u8 IRCmd;
+    u32 IRVersion = 0;
+    u8 IRCmd = 0;
 };
 
 // CartRetailBT - Pok�mon Typing Adventure (SPI BT controller)
 class CartRetailBT : public CartRetail
 {
 public:
-    CartRetailBT(u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
+    CartRetailBT(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
+    CartRetailBT(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams);
     ~CartRetailBT() override;
 
     virtual u32 Type() const override { return CartType::RetailBT; }
@@ -214,7 +218,8 @@ public:
 class CartHomebrew : public CartCommon
 {
 public:
-    CartHomebrew(u8* rom, u32 len, u32 chipid, ROMListEntry romparams, const std::optional<FATStorageArgs>& sdcard = std::nullopt);
+    CartHomebrew(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard = std::nullopt);
+    CartHomebrew(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard = std::nullopt);
     ~CartHomebrew() override;
 
     virtual u32 Type() const override { return CartType::Homebrew; }
@@ -270,18 +275,8 @@ public:
     /// and \c Cart will contain the object that \c cart previously pointed to.
     /// Otherwise, \c cart and \c Cart will be both be unchanged.
     void SetCart(std::unique_ptr<CartCommon>&& cart) noexcept;
-
-    /// Parses a ROM image and loads it into the emulator.
-    /// This function is equivalent to calling ::ParseROM() and ::SetCart() in sequence.
-    /// @param romdata Pointer to the ROM image.
-    /// The cart emulator maintains its own copy of this data,
-    /// so the caller is free to discard this data after calling this function.
-    /// @param romlen The length of the ROM image, in bytes.
-    /// @returns \c true if the ROM image was successfully loaded,
-    /// \c false if not.
-    void SetCart(const u8* romdata, u32 romlen) noexcept;
-    [[nodiscard]] const std::unique_ptr<CartCommon>& GetCart() noexcept { return Cart; }
-    [[nodiscard]] const std::unique_ptr<CartCommon>& GetCart() const noexcept { return Cart; }
+    [[nodiscard]] CartCommon* GetCart() noexcept { return Cart.get(); }
+    [[nodiscard]] const CartCommon* GetCart() const noexcept { return Cart.get(); }
 
     void SetupDirectBoot(const std::string& romname) noexcept;
 
@@ -362,7 +357,7 @@ private:
 /// If not given, the cart will not have an SD card.
 /// @returns A \c NDSCart::CartCommon object representing the parsed ROM,
 /// or \c nullptr if the ROM data couldn't be parsed.
-std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const std::optional<FATStorageArgs>& sdcard);
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const std::optional<FATStorageArgs>& sdcard = std::nullopt);
 std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, std::optional<FATStorageArgs>&& sdcard = std::nullopt);
 }
 

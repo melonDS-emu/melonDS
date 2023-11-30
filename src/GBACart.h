@@ -71,7 +71,8 @@ protected:
 class CartGame : public CartCommon
 {
 public:
-    CartGame(u8* rom, u32 len);
+    CartGame(const u8* rom, u32 len);
+    CartGame(std::unique_ptr<u8[]>&& rom, u32 len);
     virtual ~CartGame() override;
 
     virtual u32 Type() const override { return CartType::Game; }
@@ -87,7 +88,7 @@ public:
     virtual u8 SRAMRead(u32 addr) override;
     virtual void SRAMWrite(u32 addr, u8 val) override;
 
-    [[nodiscard]] const u8* GetROM() const override { return ROM; }
+    [[nodiscard]] const u8* GetROM() const override { return ROM.get(); }
     [[nodiscard]] u32 GetROMLength() const override { return ROMLength; }
 
     virtual u8* GetSaveMemory() const override;
@@ -104,7 +105,7 @@ protected:
     u8 SRAMRead_SRAM(u32 addr);
     void SRAMWrite_SRAM(u32 addr, u8 val);
 
-    u8* ROM;
+    std::unique_ptr<u8[]> ROM;
     u32 ROMLength;
 
     struct
@@ -113,7 +114,7 @@ protected:
         u16 direction;
         u16 control;
 
-    } GPIO;
+    } GPIO {};
 
     enum SaveType
     {
@@ -134,19 +135,18 @@ protected:
         u8 manufacturer;
         u8 bank;
 
-    } SRAMFlashState;
+    } SRAMFlashState {};
 
-    u8* SRAM;
-    u32 SRAMLength;
-    SaveType SRAMType;
+    std::unique_ptr<u8[]> SRAM = nullptr;
+    u32 SRAMLength = 0;
+    SaveType SRAMType = S_NULL;
 };
 
 // CartGameSolarSensor -- Boktai game cart
 class CartGameSolarSensor : public CartGame
 {
 public:
-    CartGameSolarSensor(u8* rom, u32 len);
-    virtual ~CartGameSolarSensor() override;
+    using CartGame::CartGame;
 
     virtual u32 Type() const override { return CartType::GameSolarSensor; }
 
@@ -215,18 +215,6 @@ public:
     /// @post \c cart is \c nullptr and the underlying object
     /// is moved into the cart slot.
     void SetCart(std::unique_ptr<CartCommon>&& cart) noexcept;
-
-    /// Ejects the cart in the GBA slot (if any),
-    /// parses the given ROM data,
-    /// and inserts the resulting cart into the GBA slot.
-    ///
-    /// @param romdata Pointer to the raw ROM image.
-    /// Copied into the new cart object,
-    /// so the caller may dispose of it after this method returns.
-    /// May be \c nullptr, in which case the cart slot remains empty.
-    /// @param romlen The length of the buffer in \c romdata, in bytes.
-    /// May be zero, in which case the cart slot remains empty.
-    void SetCart(const u8* romdata, u32 romlen) noexcept;
     [[nodiscard]] CartCommon* GetCart() noexcept { return Cart.get(); }
     [[nodiscard]] const CartCommon* GetCart() const noexcept { return Cart.get(); }
 

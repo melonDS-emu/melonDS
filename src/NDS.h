@@ -309,10 +309,9 @@ public:
     [[nodiscard]] bool IsLoadedARM9BIOSBuiltIn() const noexcept { return ARM9BIOS == bios_arm9_bin; }
     [[nodiscard]] bool IsLoadedARM7BIOSBuiltIn() const noexcept { return ARM7BIOS == bios_arm7_bin; }
 
-    [[nodiscard]] NDSCart::CartCommon* GetNDSCart() { return NDSCartSlot.GetCart().get(); }
-    [[nodiscard]] const NDSCart::CartCommon* GetNDSCart() const { return NDSCartSlot.GetCart().get(); }
+    [[nodiscard]] NDSCart::CartCommon* GetNDSCart() { return NDSCartSlot.GetCart(); }
+    [[nodiscard]] const NDSCart::CartCommon* GetNDSCart() const { return NDSCartSlot.GetCart(); }
     virtual void SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart);
-    void SetNDSCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
     [[nodiscard]] bool CartInserted() const noexcept { return NDSCartSlot.GetCart() != nullptr; }
     virtual void EjectCart() { SetNDSCart(nullptr); }
 
@@ -343,7 +342,6 @@ public:
     /// @post \c cart is \c nullptr and this NDS takes ownership
     /// of the cart object it held, if any.
     void SetGBACart(std::unique_ptr<GBACart::CartCommon>&& cart) { if (ConsoleType == 0) GBACartSlot.SetCart(std::move(cart)); }
-    void SetGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
 
     u8* GetGBASave() { return GBACartSlot.GetSaveMemory(); }
     const u8* GetGBASave() const { return GBACartSlot.GetSaveMemory(); }

@@ -734,44 +734,10 @@ void NDS::SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart)
     // without inserting a new one.
 }
 
-void NDS::SetNDSCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
-{
-    std::unique_ptr<NDSCart::CartCommon> cart = NDSCart::ParseROM(romdata, romlen);
-
-    if (cart)
-    { // If we're inserting a cartridge...
-        SetNDSCart(std::move(cart));
-
-        if (savedata && savelen)
-            NDSCartSlot.SetSaveMemory(savedata, savelen);
-    }
-    else
-    {
-        EjectCart();
-    }
-}
-
 void NDS::SetNDSSave(const u8* savedata, u32 savelen)
 {
     if (savedata && savelen)
         NDSCartSlot.SetSaveMemory(savedata, savelen);
-}
-
-void NDS::SetGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
-{
-    if (ConsoleType == 0 && romdata != nullptr && romlen > 0)
-    {
-        GBACartSlot.SetCart(romdata, romlen);
-
-        if (savedata && savelen)
-        {
-            GBACartSlot.SetSaveMemory(savedata, savelen);
-        }
-    }
-    else
-    {
-        GBACartSlot.SetCart(nullptr);
-    }
 }
 
 void NDS::SetGBASave(const u8* savedata, u32 savelen)
