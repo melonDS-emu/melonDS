@@ -202,11 +202,33 @@ public:
     ~GBACartSlot() noexcept = default;
     void Reset() noexcept;
     void DoSavestate(Savestate* file) noexcept;
-    /// Applies the GBACartData to the emulator state and unloads an existing ROM if any.
-    /// Upon successful insertion, \c cart will be nullptr and the global GBACart state
-    /// (\c CartROM, CartInserted, etc.) will be updated.
-    bool InsertROM(std::unique_ptr<CartCommon>&& cart) noexcept;
-    bool LoadROM(const u8* romdata, u32 romlen) noexcept;
+
+    /// Ejects the cart in the GBA slot (if any)
+    /// and inserts the given one.
+    ///
+    /// To insert a cart that does not require ROM data
+    /// (such as the RAM expansion pack),
+    /// create it manually with std::make_unique and pass it here.
+    ///
+    /// @param cart Movable \c unique_ptr to the GBA cart object.
+    /// May be \c nullptr, in which case the cart slot remains empty.
+    /// @post \c cart is \c nullptr and the underlying object
+    /// is moved into the cart slot.
+    void SetCart(std::unique_ptr<CartCommon>&& cart) noexcept;
+
+    /// Ejects the cart in the GBA slot (if any),
+    /// parses the given ROM data,
+    /// and inserts the resulting cart into the GBA slot.
+    ///
+    /// @param romdata Pointer to the raw ROM image.
+    /// Copied into the new cart object,
+    /// so the caller may dispose of it after this method returns.
+    /// May be \c nullptr, in which case the cart slot remains empty.
+    /// @param romlen The length of the buffer in \c romdata, in bytes.
+    /// May be zero, in which case the cart slot remains empty.
+    void SetCart(const u8* romdata, u32 romlen) noexcept;
+    [[nodiscard]] CartCommon* GetCart() noexcept { return Cart.get(); }
+    [[nodiscard]] const CartCommon* GetCart() const noexcept { return Cart.get(); }
 
     void LoadAddon(int type) noexcept;
 

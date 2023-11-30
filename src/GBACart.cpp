@@ -800,17 +800,12 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
     return cart;
 }
 
-bool GBACartSlot::InsertROM(std::unique_ptr<CartCommon>&& cart) noexcept
+void GBACartSlot::SetCart(std::unique_ptr<CartCommon>&& cart) noexcept
 {
-    if (!cart) {
-        Log(LogLevel::Error, "Failed to insert invalid GBA cart; existing cart (if any) was not ejected.\n");
-        return false;
-    }
-
-    if (Cart != nullptr)
-        EjectCart();
-
     Cart = std::move(cart);
+
+    if (!Cart)
+        return;
 
     const u8* cartrom = Cart->GetROM();
 
@@ -824,15 +819,11 @@ bool GBACartSlot::InsertROM(std::unique_ptr<CartCommon>&& cart) noexcept
     {
         Log(LogLevel::Info, "Inserted GBA cart with no game code (it's probably an accessory)\n");
     }
-
-    return true;
 }
 
-bool GBACartSlot::LoadROM(const u8* romdata, u32 romlen) noexcept
+void GBACartSlot::SetCart(const u8* romdata, u32 romlen) noexcept
 {
-    std::unique_ptr<CartCommon> data = ParseROM(romdata, romlen);
-
-    return InsertROM(std::move(data));
+    SetCart(ParseROM(romdata, romlen));
 }
 
 void GBACartSlot::SetSaveMemory(const u8* savedata, u32 savelen) noexcept
@@ -862,7 +853,7 @@ void GBACartSlot::LoadAddon(int type) noexcept
 
 void GBACartSlot::EjectCart() noexcept
 {
-    Cart = nullptr;
+    SetCart(nullptr);
 }
 
 
