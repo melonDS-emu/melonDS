@@ -73,16 +73,16 @@ public:
 
     void SetupDirectBoot();
 
-    Firmware& GetFirmware() noexcept { return Firmware; }
-    [[nodiscard]] const Firmware& GetFirmware() const noexcept { return Firmware; }
-    void SetFirmware(Firmware&& firmware) { Firmware = std::move(firmware); }
+    Firmware& GetFirmware() noexcept { return FirmwareData; }
+    [[nodiscard]] const Firmware& GetFirmware() const noexcept { return FirmwareData; }
+    void SetFirmware(Firmware&& firmware) { FirmwareData = std::move(firmware); }
     bool IsLoadedFirmwareBuiltIn();
 
     void Write(u8 val) override;
     void Release() override;
 
 private:
-    class Firmware Firmware;
+    Firmware FirmwareData;
 
     u8 CurCmd;
 
