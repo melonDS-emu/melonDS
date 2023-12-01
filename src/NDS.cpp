@@ -754,11 +754,6 @@ void NDS::LoadGBAAddon(int type)
     GBACartSlot.LoadAddon(type);
 }
 
-void NDS::EjectGBACart()
-{
-    GBACartSlot.EjectCart();
-}
-
 void NDS::LoadBIOS()
 {
     Reset();
