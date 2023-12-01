@@ -482,6 +482,11 @@ void LoadCheats(NDS& nds)
 
 std::optional<std::array<u8, ARM9BIOSSize>> LoadARM9BIOS() noexcept
 {
+    if (!Config::ExternalBIOSEnable)
+    {
+        return Config::ConsoleType == 0 ? std::make_optional(bios_arm9_bin) : std::nullopt;
+    }
+
     if (FileHandle* f = OpenLocalFile(Config::BIOS9Path, Read))
     {
         std::array<u8, ARM9BIOSSize> bios {};
@@ -498,6 +503,11 @@ std::optional<std::array<u8, ARM9BIOSSize>> LoadARM9BIOS() noexcept
 
 std::optional<std::array<u8, ARM7BIOSSize>> LoadARM7BIOS() noexcept
 {
+    if (!Config::ExternalBIOSEnable)
+    {
+        return Config::ConsoleType == 0 ? std::make_optional(bios_arm7_bin) : std::nullopt;
+    }
+
     if (FileHandle* f = OpenLocalFile(Config::BIOS7Path, Read))
     {
         std::array<u8, ARM7BIOSSize> bios {};
@@ -589,6 +599,16 @@ Firmware GenerateFirmware(int type) noexcept
 
 std::optional<Firmware> LoadFirmware(int type) noexcept
 {
+    if (!Config::ExternalBIOSEnable)
+    { // If we're using built-in firmware...
+        if (type == 1)
+        {
+            Log(Error, "DSi firmware: cannot use built-in firmware in DSi mode!\n");
+            return std::nullopt;
+        }
+
+        return GenerateFirmware(type);
+    }
     const string& firmwarepath = type == 1 ? Config::DSiFirmwarePath : Config::FirmwarePath;
 
     Log(Debug, "SPI firmware: loading from file %s\n", firmwarepath.c_str());
@@ -609,7 +629,10 @@ std::optional<Firmware> LoadFirmware(int type) noexcept
         return std::nullopt;
     }
 
-    CustomizeFirmware(firmware);
+    if (Config::FirmwareOverrideSettings)
+    {
+        CustomizeFirmware(firmware);
+    }
 
     return firmware;
 }
