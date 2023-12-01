@@ -1417,28 +1417,8 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     BaseROMName = romname;
     BaseAssetName = romname.substr(0, romname.rfind('.'));
 
-    if (emuthread->NeedToRecreateConsole())
-    {
-        emuthread->RecreateConsole();
-    }
-
-    if (!InstallFirmware(*emuthread->NDS))
-    {
-        return false;
-    }
-
-    if (reset)
-    {
-        emuthread->NDS->EjectCart();
-        LoadBIOSFiles(*emuthread->NDS);
-
-        emuthread->NDS->Reset();
-        SetBatteryLevels(*emuthread->NDS);
-        SetDateTime(*emuthread->NDS);
-    }
-
     u32 savelen = 0;
-    u8* savedata = nullptr;
+    std::unique_ptr<u8[]> savedata = nullptr;
 
     std::string savname = GetAssetPath(false, Config::SaveFilePath, ".sav");
     std::string origsav = savname;
@@ -1451,31 +1431,52 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
         savelen = (u32)Platform::FileLength(sav);
 
         FileRewind(sav);
-        savedata = new u8[savelen];
-        FileRead(savedata, savelen, 1, sav);
+        savedata = std::make_unique<u8[]>(savelen);
+        FileRead(savedata.get(), savelen, 1, sav);
         CloseFile(sav);
     }
 
-    bool res =  emuthread->NDS->LoadCart(filedata.get(), filelen, savedata, savelen);
-    if (res && reset)
+    NDSCart::NDSCartArgs cartargs {
+        // Don't load the SD card itself yet, because we don't know if
+        // the ROM is homebrew or not.
+        // So this is the card we *would* load if the ROM were homebrew.
+        .SDCard = GetDLDISDCardArgs(),
+
+        .SRAM = std::make_pair(std::move(savedata), savelen),
+    };
+
+    auto cart = NDSCart::ParseROM(std::move(filedata), filelen, std::move(cartargs));
+    if (!cart)
+        // If we couldn't parse the ROM...
+        return false;
+
+    if (reset)
     {
+        if (!emuthread->UpdateConsole(std::move(cart), Keep {}))
+            return false;
+
+        emuthread->NDS->Reset();
+
         if (Config::DirectBoot || emuthread->NDS->NeedsDirectBoot())
-        {
+        { // If direct boot is enabled or forced...
             emuthread->NDS->SetupDirectBoot(romname);
         }
-    }
 
-    if (res)
+        SetBatteryLevels(*emuthread->NDS);
+        SetDateTime(*emuthread->NDS);
+    }
+    else
     {
-        CartType = 0;
-        NDSSave = std::make_unique<SaveManager>(savname);
-
-        LoadCheats(*emuthread->NDS);
+        assert(emuthread->NDS != nullptr);
+        emuthread->NDS->SetNDSCart(std::move(cart));
     }
 
-    if (savedata) delete[] savedata;
-    delete[] filedata;
-    return res;
+    CartType = 0;
+    NDSSave = std::make_unique<SaveManager>(savname);
+    FirmwareSave = std::make_unique<SaveManager>(emuthread->NDS->ConsoleType == 1 ? Config::DSiFirmwarePath : Config::FirmwarePath);
+    LoadCheats(*emuthread->NDS);
+
+    return true;
 }
 
 void EjectCart(NDS& nds)
