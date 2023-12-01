@@ -265,7 +265,7 @@ private:
     void ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly);
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
 
-    std::optional<FATStorage> SD;
+    std::optional<FATStorage> SD {};
 };
 
 class NDSCartSlot
@@ -332,27 +332,27 @@ public:
 private:
     friend class CartCommon;
     melonDS::NDS& NDS;
-    u16 SPICnt {};
-    u32 ROMCnt {};
+    u16 SPICnt = 0;
+    u32 ROMCnt = 0;
     std::array<u8, 8> ROMCommand {};
-    u8 SPIData;
-    u32 SPIDataPos;
-    bool SPIHold;
+    u8 SPIData = 0;
+    u32 SPIDataPos = 0;
+    bool SPIHold = false;
 
-    u32 ROMData;
+    u32 ROMData = 0;
 
-    std::array<u8, 0x4000> TransferData;
-    u32 TransferPos;
-    u32 TransferLen;
-    u32 TransferDir;
-    std::array<u8, 8> TransferCmd;
+    std::array<u8, 0x4000> TransferData {};
+    u32 TransferPos = 0;
+    u32 TransferLen = 0;
+    u32 TransferDir = 0;
+    std::array<u8, 8> TransferCmd {};
 
-    std::unique_ptr<CartCommon> Cart;
+    std::unique_ptr<CartCommon> Cart = nullptr;
 
-    std::array<u32, 0x412> Key1_KeyBuf;
+    std::array<u32, 0x412> Key1_KeyBuf {};
 
-    u64 Key2_X;
-    u64 Key2_Y;
+    u64 Key2_X = 0;
+    u64 Key2_Y = 0;
 
     void Key1_Encrypt(u32* data) noexcept;
     void Key1_Decrypt(u32* data) noexcept;
