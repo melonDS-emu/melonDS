@@ -49,7 +49,7 @@ QString VerifySetup();
 void Reset(EmuThread* thread);
 
 /// Boots the emulated console into its system menu without starting a game.
-bool LoadBIOS(EmuThread* thread);
+bool BootToMenu(EmuThread* thread);
 void ClearBackupState();
 
 std::optional<std::array<u8, ARM9BIOSSize>> LoadARM9BIOS() noexcept;

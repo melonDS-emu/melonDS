@@ -902,7 +902,7 @@ void Reset(EmuThread* thread)
 }
 
 
-bool LoadBIOS(EmuThread* thread)
+bool BootToMenu(EmuThread* thread)
 {
     if (thread->NeedToRecreateConsole())
     {

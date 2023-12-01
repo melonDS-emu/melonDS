@@ -2537,7 +2537,7 @@ void MainWindow::onBootFirmware()
         return;
     }
 
-    if (!ROMManager::LoadBIOS(emuThread))
+    if (!ROMManager::BootToMenu(emuThread))
     {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "This firmware is not bootable.");
