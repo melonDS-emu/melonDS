@@ -39,6 +39,13 @@ enum
     SPIDevice_MAX
 };
 
+enum SPITouchScreenMovement
+{
+    SPITouchScreenMovement_Negative,
+    SPITouchScreenMovement_None,
+    SPITouchScreenMovement_Positive
+};
+
 u16 CRC16(const u8* data, u32 len, u32 start);
 
 class SPIHost;
@@ -122,7 +129,7 @@ public:
     virtual void DoSavestate(Savestate* file) override;
 
     virtual void SetTouchCoords(u16 x, u16 y);
-    virtual void MoveTouchCoords(u16 x, u16 y);
+    virtual void MoveTouchCoords(SPITouchScreenMovement x, SPITouchScreenMovement y);
     virtual void MicInputFrame(s16* data, int samples);
 
     virtual void Write(u8 val) override;

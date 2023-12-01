@@ -121,7 +121,7 @@ void DSi_TSC::SetTouchCoords(u16 x, u16 y)
     }
 }
 
-void DSi_TSC::MoveTouchCoords(u16 x, u16 y)
+void DSi_TSC::MoveTouchCoords(SPITouchScreenMovement x, SPITouchScreenMovement y)
 {
 
 }

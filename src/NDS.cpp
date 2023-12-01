@@ -1120,7 +1120,7 @@ void NDS::TouchScreen(u16 x, u16 y)
     SPI.GetTSC()->SetTouchCoords(x, y);
 }
 
-void NDS::MoveOnTouchScreen(u16 x, u16 y)
+void NDS::MoveOnTouchScreen(SPITouchScreenMovement x, SPITouchScreenMovement y)
 {
     SPI.GetTSC()->MoveTouchCoords(x, y);
     KeyInput &= ~(1 << (16+6));
@@ -1182,12 +1182,26 @@ void NDS::SetTouchKeyMask(u32 mask)
     u32 up    = (~(mask >> 2)) & 0x1;
     u32 down  = (~(mask >> 3)) & 0x1;
 
-    if (right | left | up | down) {
-        MoveOnTouchScreen((right - left) + 1, (down - up) + 1);
-    }
-    else {
+    if (!(right | left | up | down)) {
         ReleaseScreen();
+        return;
     }
+    
+    SPITouchScreenMovement x = SPITouchScreenMovement_None;
+    SPITouchScreenMovement y = SPITouchScreenMovement_None;
+    if (left) {
+        x = SPITouchScreenMovement_Negative;
+    }
+    if (right) {
+        x = SPITouchScreenMovement_Positive;
+    }
+    if (down) {
+        y = SPITouchScreenMovement_Negative;
+    }
+    if (up) {
+        y = SPITouchScreenMovement_Positive;
+    }
+    MoveOnTouchScreen(x, y);
 }
 
 bool NDS::IsLidClosed()

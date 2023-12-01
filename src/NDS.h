@@ -328,7 +328,7 @@ public:
     bool IsRunning() const noexcept { return Running; }
 
     void TouchScreen(u16 x, u16 y);
-    void MoveOnTouchScreen(u16 x, u16 y);
+    void MoveOnTouchScreen(SPITouchScreenMovement x, SPITouchScreenMovement y);
     void ReleaseScreen();
 
     void SetKeyMask(u32 mask);

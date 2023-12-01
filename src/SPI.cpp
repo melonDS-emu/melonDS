@@ -462,21 +462,21 @@ void TSC::SetTouchCoords(u16 x, u16 y)
     NDS.KeyInput &= ~(1 << (16+6));
 }
 
-void TSC::MoveTouchCoords(u16 x, u16 y) // 0 -> negative, 1 -> neutral, 2 -> positive
+void TSC::MoveTouchCoords(SPITouchScreenMovement x, SPITouchScreenMovement y)
 {
     u16 sensitivityX = 4;
     u16 sensitivityY = 8;
 
-    if (x == 0) {
+    if (x == SPITouchScreenMovement_Negative) {
         TouchX -= sensitivityX << 4;
     }
-    if (x == 2) {
+    if (x == SPITouchScreenMovement_Positive) {
         TouchX += sensitivityX << 4;
     }
-    if (y == 0) {
+    if (y == SPITouchScreenMovement_Negative) {
         TouchY -= sensitivityY << 4;
     }
-    if (y == 2) {
+    if (y == SPITouchScreenMovement_Positive) {
         TouchY += sensitivityY << 4;
     }
 
