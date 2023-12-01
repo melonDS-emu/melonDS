@@ -708,6 +708,19 @@ std::optional<FATStorage> LoadDSiSDCard() noexcept
     );
 }
 
+std::optional<FATStorage> LoadDLDISDCard() noexcept
+{
+    if (!Config::DLDIEnable)
+        return std::nullopt;
+
+    return FATStorage(
+        Config::DLDISDPath,
+        imgsizes[Config::DLDISize],
+        Config::DLDIReadOnly,
+        Config::DLDIFolderSync ? std::make_optional(Config::DLDIFolderPath) : std::nullopt
+    );
+}
+
 void LoadBIOSFiles(NDS& nds)
 {
     if (Config::ExternalBIOSEnable)

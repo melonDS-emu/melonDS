@@ -57,6 +57,7 @@ std::optional<std::array<u8, ARM7BIOSSize>> LoadARM7BIOS() noexcept;
 std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM9BIOS() noexcept;
 std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM7BIOS() noexcept;
 std::optional<FATStorage> LoadDSiSDCard() noexcept;
+std::optional<FATStorage> LoadDLDISDCard() noexcept;
 void CustomizeFirmware(Firmware& firmware) noexcept;
 Firmware GenerateFirmware(int type) noexcept;
 /// Loads and customizes a firmware image based on the values in Config
