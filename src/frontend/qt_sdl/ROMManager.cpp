@@ -1066,42 +1066,6 @@ void ClearBackupState()
     }
 }
 
-// We want both the firmware object and the path that was used to load it,
-// since we'll need to give it to the save manager later
-pair<unique_ptr<Firmware>, string> LoadFirmwareFromFile()
-{
-    string loadedpath;
-    unique_ptr<Firmware> firmware = nullptr;
-    string firmwarepath = Config::ConsoleType == 0 ? Config::FirmwarePath : Config::DSiFirmwarePath;
-
-    Log(LogLevel::Debug, "SPI firmware: loading from file %s\n", firmwarepath.c_str());
-
-    string firmwareinstancepath = firmwarepath + Platform::InstanceFileSuffix();
-
-    loadedpath = firmwareinstancepath;
-    FileHandle* f = Platform::OpenLocalFile(firmwareinstancepath, FileMode::Read);
-    if (!f)
-    {
-        loadedpath = firmwarepath;
-        f = Platform::OpenLocalFile(firmwarepath, FileMode::Read);
-    }
-
-    if (f)
-    {
-        firmware = make_unique<Firmware>(f);
-        if (!firmware->Buffer())
-        {
-            Log(LogLevel::Warn, "Couldn't read firmware file!\n");
-            firmware = nullptr;
-            loadedpath = "";
-        }
-
-        CloseFile(f);
-    }
-
-    return std::make_pair(std::move(firmware), loadedpath);
-}
-
 pair<unique_ptr<Firmware>, string> GenerateDefaultFirmware()
 {
     // Construct the default firmware...
@@ -1265,43 +1229,6 @@ static Platform::FileHandle* OpenNANDFile() noexcept
     }
 
     return nandfile;
-}
-
-bool InstallFirmware(NDS& nds)
-{
-    FirmwareSave.reset();
-    unique_ptr<Firmware> firmware;
-    string firmwarepath;
-    bool generated = false;
-
-    if (Config::ExternalBIOSEnable)
-    { // If we want to try loading a firmware dump...
-
-        tie(firmware, firmwarepath) = LoadFirmwareFromFile();
-        if (!firmware)
-        { // Try to load the configured firmware dump. If that fails...
-            Log(LogLevel::Warn, "Firmware not found! Generating default firmware.\n");
-        }
-    }
-
-    if (!firmware)
-    { // If we haven't yet loaded firmware (either because the load failed or we want to use the default...)
-        tie(firmware, firmwarepath) = GenerateDefaultFirmware();
-    }
-
-    if (!firmware)
-        return false;
-
-    if (Config::FirmwareOverrideSettings)
-    {
-        CustomizeFirmware(*firmware);
-    }
-
-    FirmwareSave = std::make_unique<SaveManager>(firmwarepath);
-
-    nds.SPI.GetFirmwareMem()->SetFirmware(std::move(*firmware));
-
-    return true;
 }
 
 // Loads ROM data without parsing it. Works for GBA and NDS ROMs.
