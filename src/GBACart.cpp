@@ -679,6 +679,10 @@ void CartRAMExpansion::ROMWrite(u32 addr, u16 val)
     }
 }
 
+GBACartSlot::GBACartSlot(std::unique_ptr<CartCommon>&& cart) noexcept : Cart(std::move(cart))
+{
+}
+
 void GBACartSlot::Reset() noexcept
 {
     if (Cart) Cart->Reset();
