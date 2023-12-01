@@ -541,6 +541,7 @@ const int CartGameSolarSensor::kLuxLevels[11] = {0, 5, 11, 18, 27, 42, 62, 84, 1
 
 void CartGameSolarSensor::Reset()
 {
+    CartGame::Reset();
     LightEdge = false;
     LightCounter = 0;
     LightSample = 0xFF;
