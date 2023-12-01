@@ -717,7 +717,20 @@ std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSSize>& a
     return nandImage;
 }
 
-constexpr int imgsizes[] = {0, 256, 512, 1024, 2048, 4096};
+constexpr u64 imgsizes[] = {0, 256, 512, 1024, 2048, 4096};
+std::optional<FATStorageArgs> GetDSiSDCardArgs() noexcept
+{
+    if (!Config::DSiSDEnable)
+        return std::nullopt;
+
+    return FATStorageArgs {
+        Config::DSiSDPath,
+        imgsizes[Config::DSiSDSize],
+        Config::DSiSDReadOnly,
+        Config::DSiSDFolderSync ? std::make_optional(Config::DSiSDFolderPath) : std::nullopt
+    };
+}
+
 std::optional<FATStorage> LoadDSiSDCard() noexcept
 {
     if (!Config::DSiSDEnable)
@@ -729,6 +742,19 @@ std::optional<FATStorage> LoadDSiSDCard() noexcept
         Config::DSiSDReadOnly,
         Config::DSiSDFolderSync ? std::make_optional(Config::DSiSDFolderPath) : std::nullopt
     );
+}
+
+std::optional<FATStorageArgs> GetDLDISDCardArgs() noexcept
+{
+    if (!Config::DLDIEnable)
+        return std::nullopt;
+
+    return FATStorageArgs{
+        Config::DLDISDPath,
+        imgsizes[Config::DLDISize],
+        Config::DLDIReadOnly,
+        Config::DLDIFolderSync ? std::make_optional(Config::DLDIFolderPath) : std::nullopt
+    };
 }
 
 std::optional<FATStorage> LoadDLDISDCard() noexcept
