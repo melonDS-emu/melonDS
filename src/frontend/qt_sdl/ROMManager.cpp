@@ -877,10 +877,6 @@ void Reset(EmuThread* thread)
     LoadBIOSFiles(*thread->NDS);
 
     InstallFirmware(*thread->NDS);
-    if (Config::ConsoleType == 1)
-    {
-        InstallNAND(static_cast<DSi&>(*thread->NDS));
-    }
     thread->NDS->Reset();
     SetBatteryLevels(*thread->NDS);
     SetDateTime(*thread->NDS);
@@ -945,9 +941,6 @@ bool BootToMenu(EmuThread* thread)
     LoadBIOSFiles(*thread->NDS);
 
     if (!InstallFirmware(*thread->NDS))
-        return false;
-
-    if (Config::ConsoleType == 1 && !InstallNAND(static_cast<DSi&>(*thread->NDS)))
         return false;
 
     if (thread->NDS->NeedsDirectBoot())
@@ -1489,8 +1482,6 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     {
         emuthread->NDS->EjectCart();
         LoadBIOSFiles(*emuthread->NDS);
-        if (Config::ConsoleType == 1)
-            InstallNAND(static_cast<DSi&>(*emuthread->NDS));
 
         emuthread->NDS->Reset();
         SetBatteryLevels(*emuthread->NDS);

@@ -68,7 +68,6 @@ std::optional<Firmware> LoadFirmware(int type) noexcept;
 /// Loads and customizes a NAND image based on the values in Config
 std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSSize>& arm7ibios) noexcept;
 bool InstallFirmware(NDS& nds);
-bool InstallNAND(DSi& dsi);
 /// Inserts a ROM into the emulated console.
 bool LoadROM(EmuThread*, QStringList filepath, bool reset);
 void EjectCart(NDS& nds);
