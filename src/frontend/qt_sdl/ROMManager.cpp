@@ -1426,6 +1426,7 @@ bool LoadROMData(const QStringList& filepath, std::unique_ptr<u8[]>& filedata, u
             basepath = filename.substr(0, pos);
 
         romname = filename.substr(pos+1);
+        return true;
     }
 #ifdef ARCHIVE_SUPPORT_ENABLED
     else if (num == 2)
@@ -1437,7 +1438,7 @@ bool LoadROMData(const QStringList& filepath, std::unique_ptr<u8[]>& filedata, u
         if (!filedata) return false;
         if (lenread != filelen)
         {
-            delete[] filedata;
+            filedata = nullptr;
             return false;
         }
 
@@ -1446,6 +1447,7 @@ bool LoadROMData(const QStringList& filepath, std::unique_ptr<u8[]>& filedata, u
 
         std::string std_romname = filepath.at(1).toStdString();
         romname = std_romname.substr(LastSep(std_romname)+1);
+        return true;
     }
 #endif
     else
