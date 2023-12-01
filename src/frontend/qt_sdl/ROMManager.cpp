@@ -900,9 +900,7 @@ void Reset(EmuThread* thread)
     thread->UpdateConsole(Keep {}, Keep {});
 
     if (Config::ConsoleType == 1) EjectGBACart(*thread->NDS);
-    LoadBIOSFiles(*thread->NDS);
 
-    InstallFirmware(*thread->NDS);
     thread->NDS->Reset();
     SetBatteryLevels(*thread->NDS);
     SetDateTime(*thread->NDS);
@@ -964,21 +962,9 @@ bool BootToMenu(EmuThread* thread)
         // Try to update the console, but keep the existing cart. If that fails...
         return false;
 
-    LoadBIOSFiles(*thread->NDS);
-
-    if (!InstallFirmware(*thread->NDS))
-        return false;
-
+    // BIOS and firmware files are loaded, patched, and installed in UpdateConsole
     if (thread->NDS->NeedsDirectBoot())
         return false;
-
-    /*if (NDSSave) delete NDSSave;
-    NDSSave = nullptr;
-
-    CartType = -1;
-    BaseROMDir = "";
-    BaseROMName = "";
-    BaseAssetName = "";*/
 
     thread->NDS->Reset();
     SetBatteryLevels(*thread->NDS);
