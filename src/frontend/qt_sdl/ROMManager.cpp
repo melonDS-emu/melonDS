@@ -68,8 +68,8 @@ std::string BaseGBAROMDir = "";
 std::string BaseGBAROMName = "";
 std::string BaseGBAAssetName = "";
 
-SaveManager* NDSSave = nullptr;
-SaveManager* GBASave = nullptr;
+std::unique_ptr<SaveManager> NDSSave = nullptr;
+std::unique_ptr<SaveManager> GBASave = nullptr;
 std::unique_ptr<SaveManager> FirmwareSave = nullptr;
 
 std::unique_ptr<Savestate> BackupState = nullptr;
@@ -1436,7 +1436,6 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     if (!LoadROMData(filepath, filedata, filelen, basepath, romname))
         return false;
 
-    if (NDSSave) delete NDSSave;
     NDSSave = nullptr;
 
     BaseROMDir = basepath;
@@ -1496,7 +1495,7 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     if (res)
     {
         CartType = 0;
-        NDSSave = new SaveManager(savname);
+        NDSSave = std::make_unique<SaveManager>(savname);
 
         LoadCheats(*emuthread->NDS);
     }
@@ -1508,7 +1507,6 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
 
 void EjectCart(NDS& nds)
 {
-    if (NDSSave) delete NDSSave;
     NDSSave = nullptr;
 
     UnloadCheats(nds);
@@ -1553,7 +1551,6 @@ bool LoadGBAROM(NDS& nds, QStringList filepath)
     if (!LoadROMData(filepath, filedata, filelen, basepath, romname))
         return false;
 
-    if (GBASave) delete GBASave;
     GBASave = nullptr;
 
     BaseGBAROMDir = basepath;
@@ -1584,7 +1581,7 @@ bool LoadGBAROM(NDS& nds, QStringList filepath)
     if (res)
     {
         GBACartType = 0;
-        GBASave = new SaveManager(savname);
+        GBASave = std::make_unique<SaveManager>(savname);
     }
 
     if (savedata) delete[] savedata;
@@ -1596,7 +1593,6 @@ void LoadGBAAddon(NDS& nds, int type)
 {
     if (Config::ConsoleType == 1) return;
 
-    if (GBASave) delete GBASave;
     GBASave = nullptr;
 
     nds.LoadGBAAddon(type);
@@ -1609,7 +1605,6 @@ void LoadGBAAddon(NDS& nds, int type)
 
 void EjectGBACart(NDS& nds)
 {
-    if (GBASave) delete GBASave;
     GBASave = nullptr;
 
     nds.EjectGBACart();
