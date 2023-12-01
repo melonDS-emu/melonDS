@@ -126,23 +126,23 @@ class CartRetail : public CartCommon
 public:
     CartRetail(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
     CartRetail(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
-    virtual ~CartRetail() override;
+    ~CartRetail() override;
 
-    virtual u32 Type() const override { return CartType::Retail; }
+    u32 Type() const override { return CartType::Retail; }
 
-    virtual void Reset() override;
+    void Reset() override;
 
-    virtual void DoSavestate(Savestate* file) override;
+    void DoSavestate(Savestate* file) override;
 
-    virtual void SetSaveMemory(const u8* savedata, u32 savelen) override;
+    void SetSaveMemory(const u8* savedata, u32 savelen) override;
 
-    virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
+    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
 
-    virtual u8 SPIWrite(u8 val, u32 pos, bool last) override;
+    u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
-    virtual u8* GetSaveMemory() override { return SRAM.get(); }
-    virtual const u8* GetSaveMemory() const override { return SRAM.get(); }
-    virtual u32 GetSaveMemoryLength() const override { return SRAMLength; }
+    u8* GetSaveMemory() override { return SRAM.get(); }
+    const u8* GetSaveMemory() const override { return SRAM.get(); }
+    u32 GetSaveMemoryLength() const override { return SRAMLength; }
 
 protected:
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
@@ -171,7 +171,7 @@ public:
     CartRetailNAND(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
     ~CartRetailNAND() override;
 
-    virtual u32 Type() const override { return CartType::RetailNAND; }
+    u32 Type() const override { return CartType::RetailNAND; }
 
     void Reset() override;
 
@@ -202,7 +202,7 @@ public:
     CartRetailIR(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
     ~CartRetailIR() override;
 
-    virtual u32 Type() const override { return CartType::RetailIR; }
+    u32 Type() const override { return CartType::RetailIR; }
 
     void Reset() override;
 
@@ -223,7 +223,7 @@ public:
     CartRetailBT(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
     ~CartRetailBT() override;
 
-    virtual u32 Type() const override { return CartType::RetailBT; }
+    u32 Type() const override { return CartType::RetailBT; }
 
     void Reset() override;
 
@@ -240,7 +240,7 @@ public:
     CartHomebrew(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard = std::nullopt);
     ~CartHomebrew() override;
 
-    virtual u32 Type() const override { return CartType::Homebrew; }
+    u32 Type() const override { return CartType::Homebrew; }
 
     void Reset() override;
     void SetupDirectBoot(const std::string& romname, NDS& nds) override;
