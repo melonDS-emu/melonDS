@@ -847,9 +847,10 @@ void GBACartSlot::LoadAddon(int type) noexcept
     }
 }
 
-void GBACartSlot::EjectCart() noexcept
+std::unique_ptr<CartCommon> GBACartSlot::EjectCart() noexcept
 {
-    SetCart(nullptr);
+    return std::move(Cart);
+    // Cart will be nullptr after this function returns, due to the move
 }
 
 

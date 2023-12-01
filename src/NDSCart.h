@@ -313,7 +313,9 @@ public:
     /// if a cart is loaded and supports SRAM, otherwise zero.
     [[nodiscard]] u32 GetSaveMemoryLength() const noexcept { return Cart ? Cart->GetSaveMemoryLength() : 0; }
 
-    void EjectCart() noexcept;
+    /// @return The cart that was in the slot before it was ejected,
+    /// or \c nullptr if the slot was already empty.
+    std::unique_ptr<CartCommon> EjectCart() noexcept;
     u32 ReadROMData() noexcept;
     void WriteROMData(u32 val) noexcept;
     void WriteSPICnt(u16 val) noexcept;

@@ -222,7 +222,9 @@ public:
 
     void LoadAddon(int type) noexcept;
 
-    void EjectCart() noexcept;
+    /// @return The cart that was in the cart slot if any,
+    /// or \c nullptr if the cart slot was empty.
+    std::unique_ptr<CartCommon> EjectCart() noexcept;
 
     // TODO: make more flexible, support nonbinary inputs
     int SetInput(int num, bool pressed) noexcept;

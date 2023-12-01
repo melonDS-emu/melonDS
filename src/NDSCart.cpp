@@ -1776,15 +1776,15 @@ void NDSCartSlot::SetupDirectBoot(const std::string& romname) noexcept
         Cart->SetupDirectBoot(romname, NDS);
 }
 
-void NDSCartSlot::EjectCart() noexcept
+std::unique_ptr<CartCommon> NDSCartSlot::EjectCart() noexcept
 {
-    if (!Cart) return;
+    if (!Cart) return nullptr;
 
     // ejecting the cart triggers the gamecard IRQ
     NDS.SetIRQ(0, IRQ_CartIREQMC);
     NDS.SetIRQ(1, IRQ_CartIREQMC);
 
-    Cart = nullptr;
+    return std::move(Cart);
 
     // CHECKME: does an eject imply anything for the ROM/SPI transfer registers?
 }
