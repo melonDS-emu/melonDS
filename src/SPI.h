@@ -82,7 +82,7 @@ public:
     void Release() override;
 
 private:
-    melonDS::Firmware Firmware;
+    class Firmware Firmware;
 
     u8 CurCmd;
 
