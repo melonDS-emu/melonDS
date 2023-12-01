@@ -49,6 +49,23 @@ enum CartType
 
 class NDSCartSlot;
 
+/// Arguments used to create and populate an NDS cart of unknown type.
+/// Different carts take different subsets of these arguments,
+/// but we won't know which ones to use
+/// until we parse the header at runtime.
+struct NDSCartArgs
+{
+    /// The arguments used to load a homebrew SD card image.
+    /// If \c nullopt, then the cart will not have an SD card.
+    /// Ignored for retail ROMs.
+    std::optional<FATStorageArgs> SDCard = std::nullopt;
+
+    /// Save RAM to load into the cartridge.
+    /// If \c nullopt, then the cart's SRAM buffer will be empty.
+    /// Ignored for homebrew ROMs.
+    std::optional<std::pair<std::unique_ptr<u8[]>, u32>> SRAM = std::nullopt;
+};
+
 // CartCommon -- base code shared by all cart types
 class CartCommon
 {
@@ -107,8 +124,8 @@ protected:
 class CartRetail : public CartCommon
 {
 public:
-    CartRetail(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
-    CartRetail(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
+    CartRetail(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
+    CartRetail(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
     virtual ~CartRetail() override;
 
     virtual u32 Type() const override { return CartType::Retail; }
@@ -150,8 +167,8 @@ private:
 class CartRetailNAND : public CartRetail
 {
 public:
-    CartRetailNAND(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
-    CartRetailNAND(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams);
+    CartRetailNAND(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
+    CartRetailNAND(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
     ~CartRetailNAND() override;
 
     virtual u32 Type() const override { return CartType::RetailNAND; }
@@ -181,8 +198,8 @@ private:
 class CartRetailIR : public CartRetail
 {
 public:
-    CartRetailIR(const u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams);
-    CartRetailIR(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams);
+    CartRetailIR(const u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
+    CartRetailIR(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
     ~CartRetailIR() override;
 
     virtual u32 Type() const override { return CartType::RetailIR; }
@@ -202,8 +219,8 @@ private:
 class CartRetailBT : public CartRetail
 {
 public:
-    CartRetailBT(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams);
-    CartRetailBT(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams);
+    CartRetailBT(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
+    CartRetailBT(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
     ~CartRetailBT() override;
 
     virtual u32 Type() const override { return CartType::RetailBT; }
@@ -358,9 +375,8 @@ private:
 /// If not given, the cart will not have an SD card.
 /// @returns A \c NDSCart::CartCommon object representing the parsed ROM,
 /// or \c nullptr if the ROM data couldn't be parsed.
-std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const std::optional<FATStorageArgs>& sdcard = std::nullopt);
-std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, std::optional<FATStorageArgs>&& sdcard = std::nullopt);
-std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, std::optional<FATStorageArgs>&& sdcard = std::nullopt);
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, std::optional<NDSCartArgs>&& args = std::nullopt);
+std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, std::optional<NDSCartArgs>&& args = std::nullopt);
 }
 
 #endif
