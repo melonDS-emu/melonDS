@@ -1501,7 +1501,7 @@ QString CartLabel()
 
 bool LoadGBAROM(NDS& nds, QStringList filepath)
 {
-    if (Config::ConsoleType == 1) return false; // DSi doesn't have a GBA slot
+    if (nds.ConsoleType == 1) return false; // DSi doesn't have a GBA slot
 
     unique_ptr<u8[]> filedata = nullptr;
     u32 filelen;
@@ -1518,7 +1518,7 @@ bool LoadGBAROM(NDS& nds, QStringList filepath)
     BaseGBAAssetName = romname.substr(0, romname.rfind('.'));
 
     u32 savelen = 0;
-    u8* savedata = nullptr;
+    std::unique_ptr<u8[]> savedata = nullptr;
 
     std::string savname = GetAssetPath(true, Config::SaveFilePath, ".sav");
     std::string origsav = savname;
@@ -1530,23 +1530,23 @@ bool LoadGBAROM(NDS& nds, QStringList filepath)
     {
         savelen = (u32)FileLength(sav);
 
-        FileRewind(sav);
-        savedata = new u8[savelen];
-        FileRead(savedata, savelen, 1, sav);
+        if (savelen > 0)
+        {
+            FileRewind(sav);
+            savedata = std::make_unique<u8[]>(savelen);
+            FileRead(savedata.get(), savelen, 1, sav);
+        }
         CloseFile(sav);
     }
 
-    bool res = nds.LoadGBACart(filedata.get(), filelen, savedata, savelen);
+    auto cart = GBACart::ParseROM(std::move(filedata), filelen, std::move(savedata), savelen);
+    if (!cart)
+        return false;
 
-    if (res)
-    {
-        GBACartType = 0;
-        GBASave = std::make_unique<SaveManager>(savname);
-    }
-
-    if (savedata) delete[] savedata;
-    delete[] filedata;
-    return res;
+    nds.SetGBACart(std::move(cart));
+    GBACartType = 0;
+    GBASave = std::make_unique<SaveManager>(savname);
+    return true;
 }
 
 void LoadGBAAddon(NDS& nds, int type)
