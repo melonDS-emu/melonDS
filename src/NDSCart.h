@@ -70,11 +70,11 @@ struct NDSCartArgs
 class CartCommon
 {
 public:
-    CartCommon(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
-    CartCommon(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams);
+    CartCommon(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, CartType type);
+    CartCommon(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, CartType type);
     virtual ~CartCommon();
 
-    virtual u32 Type() const = 0;
+    [[nodiscard]] u32 Type() const { return CartType; };
     [[nodiscard]] u32 Checksum() const;
 
     virtual void Reset();
@@ -118,17 +118,33 @@ protected:
     // without touching the overall ROM data
     NDSHeader Header {};
     ROMListEntry ROMParams {};
+    const melonDS::NDSCart::CartType CartType = Default;
 };
 
 // CartRetail -- regular retail cart (ROM, SPI SRAM)
 class CartRetail : public CartCommon
 {
 public:
-    CartRetail(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
-    CartRetail(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
+    CartRetail(
+        const u8* rom,
+        u32 len,
+        u32 chipid,
+        bool badDSiDump,
+        ROMListEntry romparams,
+        std::unique_ptr<u8[]>&& sram,
+        u32 sramlen,
+        melonDS::NDSCart::CartType type = CartType::Retail
+    );
+    CartRetail(
+        std::unique_ptr<u8[]>&& rom,
+        u32 len, u32 chipid,
+        bool badDSiDump,
+        ROMListEntry romparams,
+        std::unique_ptr<u8[]>&& sram,
+        u32 sramlen,
+        melonDS::NDSCart::CartType type = CartType::Retail
+    );
     ~CartRetail() override;
-
-    u32 Type() const override { return CartType::Retail; }
 
     void Reset() override;
 
@@ -171,8 +187,6 @@ public:
     CartRetailNAND(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
     ~CartRetailNAND() override;
 
-    u32 Type() const override { return CartType::RetailNAND; }
-
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
@@ -202,8 +216,6 @@ public:
     CartRetailIR(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
     ~CartRetailIR() override;
 
-    u32 Type() const override { return CartType::RetailIR; }
-
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
@@ -223,8 +235,6 @@ public:
     CartRetailBT(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
     ~CartRetailBT() override;
 
-    u32 Type() const override { return CartType::RetailBT; }
-
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
@@ -239,8 +249,6 @@ public:
     CartHomebrew(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard = std::nullopt);
     CartHomebrew(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard = std::nullopt);
     ~CartHomebrew() override;
-
-    u32 Type() const override { return CartType::Homebrew; }
 
     void Reset() override;
     void SetupDirectBoot(const std::string& romname, NDS& nds) override;
