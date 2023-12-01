@@ -169,12 +169,15 @@ void DSi::SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart)
 }
 
 
-void DSi::EjectCart()
+std::unique_ptr<NDSCart::CartCommon> DSi::EjectCart()
 {
-    NDS::EjectCart();
+    auto oldcart = NDS::EjectCart();
 
     SetCartInserted(false);
+
+    return oldcart;
 }
+
 void DSi::CamInputFrame(int cam, u32* data, int width, int height, bool rgb)
 {
     switch (cam)

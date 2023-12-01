@@ -313,7 +313,7 @@ public:
     [[nodiscard]] const NDSCart::CartCommon* GetNDSCart() const { return NDSCartSlot.GetCart(); }
     virtual void SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart);
     [[nodiscard]] bool CartInserted() const noexcept { return NDSCartSlot.GetCart() != nullptr; }
-    virtual void EjectCart() { SetNDSCart(nullptr); }
+    virtual std::unique_ptr<NDSCart::CartCommon> EjectCart() { return NDSCartSlot.EjectCart(); }
 
     [[nodiscard]] u8* GetNDSSave() { return NDSCartSlot.GetSaveMemory(); }
     [[nodiscard]] const u8* GetNDSSave() const { return NDSCartSlot.GetSaveMemory(); }

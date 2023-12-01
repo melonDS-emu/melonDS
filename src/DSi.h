@@ -137,7 +137,7 @@ public:
     DSi(DSi&&) = delete;
     DSi& operator=(DSi&&) = delete;
     void SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart) override;
-    void EjectCart() override;
+    std::unique_ptr<NDSCart::CartCommon> EjectCart() override;
     bool NeedsDirectBoot() override
     {
         // for now, DSi mode requires original BIOS/NAND
