@@ -74,26 +74,26 @@ class CartGame : public CartCommon
 public:
     CartGame(const u8* rom, u32 len, const u8* sram, u32 sramlen, GBACart::CartType type = GBACart::CartType::Game);
     CartGame(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen, GBACart::CartType type = GBACart::CartType::Game);
-    virtual ~CartGame() override;
+    ~CartGame() override;
 
-    virtual u32 Checksum() const override;
+    u32 Checksum() const override;
 
-    virtual void Reset() override;
+    void Reset() override;
 
-    virtual void DoSavestate(Savestate* file) override;
+    void DoSavestate(Savestate* file) override;
 
-    virtual u16 ROMRead(u32 addr) const override;
-    virtual void ROMWrite(u32 addr, u16 val) override;
+    u16 ROMRead(u32 addr) const override;
+    void ROMWrite(u32 addr, u16 val) override;
 
-    virtual u8 SRAMRead(u32 addr) override;
-    virtual void SRAMWrite(u32 addr, u8 val) override;
+    u8 SRAMRead(u32 addr) override;
+    void SRAMWrite(u32 addr, u8 val) override;
 
     [[nodiscard]] const u8* GetROM() const override { return ROM.get(); }
     [[nodiscard]] u32 GetROMLength() const override { return ROMLength; }
 
-    virtual u8* GetSaveMemory() const override;
-    virtual u32 GetSaveMemoryLength() const override;
-    virtual void SetSaveMemory(const u8* savedata, u32 savelen) override;
+    u8* GetSaveMemory() const override;
+    u32 GetSaveMemoryLength() const override;
+    void SetSaveMemory(const u8* savedata, u32 savelen) override;
 protected:
     virtual void ProcessGPIO();
 
@@ -150,15 +150,16 @@ public:
     CartGameSolarSensor(const u8* rom, u32 len, const u8* sram, u32 sramlen);
     CartGameSolarSensor(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen);
 
-    virtual void Reset() override;
+    void Reset() override;
 
-    virtual void DoSavestate(Savestate* file) override;
+    void DoSavestate(Savestate* file) override;
 
-    virtual int SetInput(int num, bool pressed) override;
+    int SetInput(int num, bool pressed) override;
+
+protected:
+    void ProcessGPIO() override;
 
 private:
-    virtual void ProcessGPIO() override;
-
     static const int kLuxLevels[11];
 
     bool LightEdge;
