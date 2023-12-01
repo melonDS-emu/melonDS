@@ -528,6 +528,16 @@ std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM9BIOS() noexcept
         std::array<u8, DSiBIOSSize> bios {};
         FileRead(bios.data(), sizeof(bios), 1, f);
         CloseFile(f);
+
+        if (!Config::DSiFullBIOSBoot)
+        {
+            // herp
+            *(u32*)&bios[0] = 0xEAFFFFFE; // overwrites the reset vector
+
+            // TODO!!!!
+            // hax the upper 32K out of the goddamn DSi
+            // done that :)  -pcy
+        }
         Log(Info, "ARM9i BIOS loaded from %s\n", Config::DSiBIOS9Path.c_str());
         return bios;
     }
@@ -543,6 +553,16 @@ std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM7BIOS() noexcept
         std::array<u8, DSiBIOSSize> bios {};
         FileRead(bios.data(), sizeof(bios), 1, f);
         CloseFile(f);
+
+        if (!Config::DSiFullBIOSBoot)
+        {
+            // herp
+            *(u32*)&bios[0] = 0xEAFFFFFE; // overwrites the reset vector
+
+            // TODO!!!!
+            // hax the upper 32K out of the goddamn DSi
+            // done that :)  -pcy
+        }
         Log(Info, "ARM7i BIOS loaded from %s\n", Config::DSiBIOS7Path.c_str());
         return bios;
     }
