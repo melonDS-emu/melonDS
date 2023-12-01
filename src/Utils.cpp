@@ -18,6 +18,8 @@
 
 #include "Utils.h"
 
+#include <string.h>
+
 namespace melonDS
 {
 std::pair<std::unique_ptr<u8[]>, u32> PadToPowerOf2(std::unique_ptr<u8[]>&& data, u32 len) noexcept
