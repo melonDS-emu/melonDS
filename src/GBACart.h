@@ -38,10 +38,9 @@ enum CartType
 class CartCommon
 {
 public:
-    CartCommon();
-    virtual ~CartCommon();
+    virtual ~CartCommon() = default;
 
-    virtual u32 Type() const = 0;
+    [[nodiscard]] u32 Type() const { return CartType; }
     virtual u32 Checksum() const { return 0; }
 
     virtual void Reset();
@@ -63,20 +62,20 @@ public:
     virtual u32 GetSaveMemoryLength() const;
     virtual void SetSaveMemory(const u8* savedata, u32 savelen);
 protected:
+    CartCommon(GBACart::CartType type);
     friend class GBACartSlot;
+private:
+    GBACart::CartType CartType;
 };
 
 // CartGame -- regular retail game cart (ROM, SRAM)
 class CartGame : public CartCommon
 {
 public:
-    CartGame(const u8* rom, u32 len);
-    CartGame(const u8* rom, u32 len, const u8* sram, u32 sramlen);
-    CartGame(std::unique_ptr<u8[]>&& rom, u32 len);
-    CartGame(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen);
+    CartGame(const u8* rom, u32 len, const u8* sram, u32 sramlen, GBACart::CartType type = GBACart::CartType::Game);
+    CartGame(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen, GBACart::CartType type = GBACart::CartType::Game);
     virtual ~CartGame() override;
 
-    virtual u32 Type() const override { return CartType::Game; }
     virtual u32 Checksum() const override;
 
     virtual void Reset() override;
@@ -148,9 +147,8 @@ private:
 class CartGameSolarSensor : public CartGame
 {
 public:
-    using CartGame::CartGame;
-
-    virtual u32 Type() const override { return CartType::GameSolarSensor; }
+    CartGameSolarSensor(const u8* rom, u32 len, const u8* sram, u32 sramlen);
+    CartGameSolarSensor(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen);
 
     virtual void Reset() override;
 
@@ -175,8 +173,6 @@ class CartRAMExpansion : public CartCommon
 public:
     CartRAMExpansion();
     ~CartRAMExpansion() override;
-
-    virtual u32 Type() const override { return CartType::RAMExpansion; }
 
     void Reset() override;
 

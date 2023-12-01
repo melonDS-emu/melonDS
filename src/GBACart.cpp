@@ -45,7 +45,7 @@ const char SOLAR_SENSOR_GAMECODES[10][5] =
     "A3IJ"  // Boktai - The Sun Is in Your Hand (USA) (Sample)
 };
 
-CartCommon::~CartCommon()
+CartCommon::CartCommon(GBACart::CartType type) : CartType(type)
 {
 }
 
@@ -95,33 +95,22 @@ u32 CartCommon::GetSaveMemoryLength() const
     return 0;
 }
 
-CartGame::CartGame(const u8* rom, u32 len) : CartGame(rom, len, nullptr, 0)
+CartGame::CartGame(const u8* rom, u32 len, const u8* sram, u32 sramlen, GBACart::CartType type) :
+    CartGame(CopyToUnique(rom, len), len, CopyToUnique(sram, sramlen), sramlen, type)
 {
 }
 
-CartGame::CartGame(const u8* rom, u32 len, const u8* sram, u32 sramlen) :
-    ROM(CopyToUnique(rom, len)),
-    ROMLength(len),
-    SRAM(CopyToUnique(sram, sramlen)),
-    SRAMLength(sramlen)
-{
-    if (SRAM)
-    {
-        SetupSave(sramlen);
-    }
-}
-
-CartGame::CartGame(std::unique_ptr<u8[]>&& rom, u32 len) : CartGame(std::move(rom), len, nullptr, 0)
-{
-}
-
-CartGame::CartGame(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen) :
-    CartCommon(),
+CartGame::CartGame(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen, GBACart::CartType type) :
+    CartCommon(type),
     ROM(std::move(rom)),
     ROMLength(len),
     SRAM(std::move(sram)),
     SRAMLength(sramlen)
 {
+    if (SRAM && SRAMLength)
+    {
+        SetupSave(sramlen);
+    }
 }
 
 CartGame::~CartGame() = default;
@@ -538,6 +527,16 @@ void CartGame::SRAMWrite_SRAM(u32 addr, u8 val)
 }
 
 
+CartGameSolarSensor::CartGameSolarSensor(const u8* rom, u32 len, const u8* sram, u32 sramlen) :
+    CartGameSolarSensor(CopyToUnique(rom, len), len, CopyToUnique(sram, sramlen), sramlen)
+{
+}
+
+CartGameSolarSensor::CartGameSolarSensor(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen) :
+    CartGame(std::move(rom), len, std::move(sram), sramlen, CartType::GameSolarSensor)
+{
+}
+
 const int CartGameSolarSensor::kLuxLevels[11] = {0, 5, 11, 18, 27, 42, 62, 84, 109, 139, 183};
 
 void CartGameSolarSensor::Reset()
@@ -602,7 +601,7 @@ void CartGameSolarSensor::ProcessGPIO()
 }
 
 
-CartRAMExpansion::CartRAMExpansion() : CartCommon()
+CartRAMExpansion::CartRAMExpansion() : CartCommon(RAMExpansion)
 {
 }
 
