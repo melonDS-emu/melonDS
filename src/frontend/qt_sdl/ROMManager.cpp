@@ -790,95 +790,6 @@ std::optional<FATStorage> LoadDLDISDCard() noexcept
     );
 }
 
-void LoadBIOSFiles(NDS& nds)
-{
-    if (Config::ExternalBIOSEnable)
-    {
-        if (FileHandle* f = Platform::OpenLocalFile(Config::BIOS9Path, FileMode::Read))
-        {
-            FileRewind(f);
-            FileRead(nds.ARM9BIOS.data(), sizeof(NDS::ARM9BIOS), 1, f);
-
-            Log(LogLevel::Info, "ARM9 BIOS loaded from %s\n", Config::BIOS9Path.c_str());
-            Platform::CloseFile(f);
-        }
-        else
-        {
-            Log(LogLevel::Warn, "ARM9 BIOS not found\n");
-
-            for (int i = 0; i < 16; i++)
-                ((u32*)nds.ARM9BIOS.data())[i] = 0xE7FFDEFF;
-        }
-
-        if (FileHandle* f = Platform::OpenLocalFile(Config::BIOS7Path, FileMode::Read))
-        {
-            FileRead(nds.ARM7BIOS.data(), sizeof(NDS::ARM7BIOS), 1, f);
-
-            Log(LogLevel::Info, "ARM7 BIOS loaded from\n", Config::BIOS7Path.c_str());
-            Platform::CloseFile(f);
-        }
-        else
-        {
-            Log(LogLevel::Warn, "ARM7 BIOS not found\n");
-
-            for (int i = 0; i < 16; i++)
-                ((u32*)nds.ARM7BIOS.data())[i] = 0xE7FFDEFF;
-        }
-    }
-    else
-    {
-        Log(LogLevel::Info, "Using built-in ARM7 and ARM9 BIOSes\n");
-        nds.ARM9BIOS = bios_arm9_bin;
-        nds.ARM7BIOS = bios_arm7_bin;
-    }
-
-    if (Config::ConsoleType == 1)
-    {
-        DSi& dsi = static_cast<DSi&>(nds);
-        if (FileHandle* f = Platform::OpenLocalFile(Config::DSiBIOS9Path, FileMode::Read))
-        {
-            FileRead(dsi.ARM9iBIOS.data(), sizeof(DSi::ARM9iBIOS), 1, f);
-
-            Log(LogLevel::Info, "ARM9i BIOS loaded from %s\n", Config::DSiBIOS9Path.c_str());
-            Platform::CloseFile(f);
-        }
-        else
-        {
-            Log(LogLevel::Warn, "ARM9i BIOS not found\n");
-
-            for (int i = 0; i < 16; i++)
-                ((u32*)dsi.ARM9iBIOS.data())[i] = 0xE7FFDEFF;
-        }
-
-        if (FileHandle* f = Platform::OpenLocalFile(Config::DSiBIOS7Path, FileMode::Read))
-        {
-        // TODO: check if the first 32 bytes are crapoed
-            FileRead(dsi.ARM7iBIOS.data(), sizeof(DSi::ARM7iBIOS), 1, f);
-
-            Log(LogLevel::Info, "ARM7i BIOS loaded from %s\n", Config::DSiBIOS7Path.c_str());
-            CloseFile(f);
-        }
-        else
-        {
-            Log(LogLevel::Warn, "ARM7i BIOS not found\n");
-
-            for (int i = 0; i < 16; i++)
-                ((u32*)dsi.ARM7iBIOS.data())[i] = 0xE7FFDEFF;
-        }
-
-        if (!Config::DSiFullBIOSBoot)
-        {
-            // herp
-            *(u32*)&dsi.ARM9iBIOS[0] = 0xEAFFFFFE;
-            *(u32*)&dsi.ARM7iBIOS[0] = 0xEAFFFFFE;
-
-            // TODO!!!!
-            // hax the upper 32K out of the goddamn DSi
-            // done that :)  -pcy
-        }
-    }
-}
-
 void EnableCheats(NDS& nds, bool enable)
 {
     CheatsOn = enable;
@@ -1226,29 +1137,6 @@ void CustomizeFirmware(Firmware& firmware) noexcept
     }
 
     firmware.UpdateChecksums();
-}
-
-static Platform::FileHandle* OpenNANDFile() noexcept
-{
-    std::string nandpath = Config::DSiNANDPath;
-    std::string instnand = nandpath + Platform::InstanceFileSuffix();
-
-    FileHandle* nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
-    if ((!nandfile) && (Platform::InstanceID() > 0))
-    {
-        FileHandle* orig = Platform::OpenLocalFile(nandpath, FileMode::Read);
-        if (!orig)
-        {
-            Log(LogLevel::Error, "Failed to open DSi NAND from %s\n", nandpath.c_str());
-            return nullptr;
-        }
-
-        QFile::copy(QString::fromStdString(nandpath), QString::fromStdString(instnand));
-
-        nandfile = Platform::OpenLocalFile(instnand, FileMode::ReadWriteExisting);
-    }
-
-    return nandfile;
 }
 
 // Loads ROM data without parsing it. Works for GBA and NDS ROMs.
