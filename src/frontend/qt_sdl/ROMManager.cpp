@@ -848,10 +848,7 @@ void SetDateTime(NDS& nds)
 
 void Reset(EmuThread* thread)
 {
-    if (thread->NeedToRecreateConsole())
-    {
-        thread->RecreateConsole();
-    }
+    thread->UpdateConsole(Keep {}, Keep {});
 
     if (Config::ConsoleType == 1) EjectGBACart(*thread->NDS);
     LoadBIOSFiles(*thread->NDS);
@@ -917,10 +914,10 @@ void Reset(EmuThread* thread)
 
 bool BootToMenu(EmuThread* thread)
 {
-    if (thread->NeedToRecreateConsole())
-    {
-        thread->RecreateConsole();
-    }
+    // Keep whatever cart is in the console, if any.
+    if (!thread->UpdateConsole(Keep {}, Keep {}))
+        // Try to update the console, but keep the existing cart. If that fails...
+        return false;
 
     LoadBIOSFiles(*thread->NDS);
 
