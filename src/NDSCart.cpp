@@ -44,7 +44,7 @@ enum
 
 // SRAM TODO: emulate write delays???
 
-u32 ByteSwap(u32 val)
+constexpr u32 ByteSwap(u32 val)
 {
     return (val >> 24) | ((val >> 8) & 0xFF00) | ((val << 8) & 0xFF0000) | (val << 24);
 }
