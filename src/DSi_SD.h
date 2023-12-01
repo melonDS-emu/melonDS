@@ -177,16 +177,16 @@ public:
         // better to be safe than sorry
     }
 
-    void Reset();
+    void Reset() override;
 
-    void DoSavestate(Savestate* file);
+    void DoSavestate(Savestate* file) override;
 
     void SetCID(const u8* cid) { memcpy(CID, cid, sizeof(CID)); }
 
-    void SendCMD(u8 cmd, u32 param);
+    void SendCMD(u8 cmd, u32 param) override;
     void SendACMD(u8 cmd, u32 param);
 
-    void ContinueTransfer();
+    void ContinueTransfer() override;
 
 private:
     static constexpr u8 DSiSDCardCID[16] = {0xBD, 0x12, 0x34, 0x56, 0x78, 0x03, 0x4D, 0x30, 0x30, 0x46, 0x50, 0x41, 0x00, 0x00, 0x15, 0x00};
