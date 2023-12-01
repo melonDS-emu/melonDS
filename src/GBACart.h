@@ -162,10 +162,10 @@ protected:
 private:
     static const int kLuxLevels[11];
 
-    bool LightEdge;
-    u8 LightCounter;
-    u8 LightSample;
-    u8 LightLevel;
+    bool LightEdge = false;
+    u8 LightCounter = 0;
+    u8 LightSample = 0;
+    u8 LightLevel = 0;
 };
 
 // CartRAMExpansion -- RAM expansion cart (DS browser, ...)
@@ -183,8 +183,8 @@ public:
     void ROMWrite(u32 addr, u16 val) override;
 
 private:
-    u8 RAM[0x800000];
-    u16 RAMEnable;
+    u8 RAM[0x800000] {};
+    u16 RAMEnable = 0;
 };
 
 // possible inputs for GBA carts that might accept user input
