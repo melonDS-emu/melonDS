@@ -468,43 +468,6 @@ void CartRetail::DoSavestate(Savestate* file)
         Platform::WriteNDSSave(SRAM.get(), SRAMLength, 0, SRAMLength);
 }
 
-void CartRetail::SetupSave(u32 type)
-{
-    SRAM = nullptr;
-
-    if (type > 10) type = 0;
-    constexpr int sramlen[] =
-    {
-        0,
-        512,
-        8192, 65536, 128*1024,
-        256*1024, 512*1024, 1024*1024,
-        8192*1024, 16384*1024, 65536*1024
-    };
-    SRAMLength = sramlen[type];
-
-    if (SRAMLength)
-    {
-        SRAM = std::make_unique<u8[]>(SRAMLength);
-        memset(SRAM.get(), 0xFF, SRAMLength);
-    }
-
-    switch (type)
-    {
-    case 1: SRAMType = 1; break; // EEPROM, small
-    case 2:
-    case 3:
-    case 4: SRAMType = 2; break; // EEPROM, regular
-    case 5:
-    case 6:
-    case 7: SRAMType = 3; break; // FLASH
-    case 8:
-    case 9:
-    case 10: SRAMType = 4; break; // NAND
-    default: SRAMType = 0; break; // ...whatever else
-    }
-}
-
 void CartRetail::SetSaveMemory(const u8* savedata, u32 savelen)
 {
     if (!SRAM) return;
@@ -1168,16 +1131,6 @@ CartRetailBT::CartRetailBT(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROM
 
 CartRetailBT::~CartRetailBT() = default;
 
-void CartRetailBT::Reset()
-{
-    CartRetail::Reset();
-}
-
-void CartRetailBT::DoSavestate(Savestate* file)
-{
-    CartRetail::DoSavestate(file);
-}
-
 u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 {
     //Log(LogLevel::Debug,"POKETYPE SPI: %02X %d %d - %08X\n", val, pos, last, NDS::GetPC(0));
@@ -1251,11 +1204,6 @@ void CartHomebrew::SetupDirectBoot(const std::string& romname, NDS& nds)
         nds.ARM9Write32(0x02FFFE78, argvlen+1);
         // The DSi version of ARM9Write32 will be called if nds is really a DSi
     }
-}
-
-void CartHomebrew::DoSavestate(Savestate* file)
-{
-    CartCommon::DoSavestate(file);
 }
 
 int CartHomebrew::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)

@@ -175,8 +175,6 @@ protected:
     u32 SRAMAddr = 0;
     u32 SRAMFirstAddr = 0;
     u8 SRAMStatus = 0;
-private:
-    void SetupSave(u32 type);
 };
 
 // CartRetailNAND -- retail cart with NAND SRAM (WarioWare DIY, Jam with the Band, ...)
@@ -235,10 +233,6 @@ public:
     CartRetailBT(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen);
     ~CartRetailBT() override;
 
-    void Reset() override;
-
-    void DoSavestate(Savestate* file) override;
-
     u8 SPIWrite(u8 val, u32 pos, bool last) override;
 };
 
@@ -252,8 +246,6 @@ public:
 
     void Reset() override;
     void SetupDirectBoot(const std::string& romname, NDS& nds) override;
-
-    void DoSavestate(Savestate* file) override;
 
     int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
