@@ -27,7 +27,6 @@
 #include "melonDLDI.h"
 #include "FATStorage.h"
 #include "Utils.h"
-#include "xxhash/xxhash.h"
 
 namespace melonDS
 {
@@ -1593,9 +1592,6 @@ void NDSCartSlot::DecryptSecureArea(u8* out) noexcept
     Key1_InitKeycode(false, gamecode, 3, 2, &NDS.ARM7BIOS[0], sizeof(NDS::ARM7BIOS));
     for (u32 i = 0; i < 0x800; i += 8)
         Key1_Decrypt((u32*)&out[i]);
-
-    XXH64_hash_t hash = XXH64(out, 0x800, 0);
-    Log(LogLevel::Debug, "Secure area post-decryption xxh64 hash: %zx\n", hash);
 
     if (!strncmp((const char*)out, "encryObj", 8))
     {
