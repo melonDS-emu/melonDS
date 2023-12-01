@@ -126,7 +126,6 @@ s32 ExtractFileFromArchive(QString path, QString wantedFile, std::unique_ptr<u8[
     struct archive_entry *entry;
     int r;
 
-    if (!filedata) return -1;
 
     archive_read_support_format_all(a);
     archive_read_support_filter_all(a);
