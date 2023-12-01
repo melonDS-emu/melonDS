@@ -40,11 +40,14 @@ namespace GBACart { class CartCommon; }
 struct NDSArgs
 {
     /// NDS ROM to install.
-    /// Defaults to nullptr.
+    /// Defaults to nullptr, which means no cart.
+    /// Should be populated with the desired save data beforehand,
+    /// including an SD card if applicable.
     std::unique_ptr<NDSCart::CartCommon> NDSROM = nullptr;
 
     /// GBA ROM to install.
-    /// Defaults to nullptr.
+    /// Defaults to nullptr, which means no cart.
+    /// Should be populated with the desired save data beforehand.
     /// Ignored in DSi mode.
     std::unique_ptr<GBACart::CartCommon> GBAROM = nullptr;
 
@@ -69,7 +72,12 @@ struct DSiArgs final : public NDSArgs
 {
     std::array<u8, DSiBIOSSize> ARM9iBIOS;
     std::array<u8, DSiBIOSSize> ARM7iBIOS;
+    /// NAND image to install.
+    /// Required, there is no default value.
     DSi_NAND::NANDImage NANDImage;
+
+    /// SD card to install.
+    /// Defaults to std::nullopt, which means no SD card.
     std::optional<FATStorage> DSiSDCard;
 };
 }
