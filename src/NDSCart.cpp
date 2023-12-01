@@ -20,7 +20,6 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "NDSCart.h"
-#include "ARM.h"
 #include "CRC32.h"
 #include "Platform.h"
 #include "ROMList.h"
