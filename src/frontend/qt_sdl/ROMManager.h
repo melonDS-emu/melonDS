@@ -52,6 +52,9 @@ void Reset(EmuThread* thread);
 bool BootToMenu(EmuThread* thread);
 void ClearBackupState();
 
+/// Returns the configured ARM9 BIOS loaded from disk,
+/// the FreeBIOS if external BIOS is disabled and we're in NDS mode,
+/// or nullopt if loading failed.
 std::optional<std::array<u8, ARM9BIOSSize>> LoadARM9BIOS() noexcept;
 std::optional<std::array<u8, ARM7BIOSSize>> LoadARM7BIOS() noexcept;
 std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM9BIOS() noexcept;
