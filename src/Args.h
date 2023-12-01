@@ -35,6 +35,21 @@ namespace melonDS
 namespace NDSCart { class CartCommon; }
 namespace GBACart { class CartCommon; }
 
+template<size_t N>
+constexpr std::array<u8, N> BrokenBIOS = []() constexpr {
+    std::array<u8, N> broken {};
+
+    for (int i = 0; i < 16; i++)
+    {
+        broken[i*4+0] = 0xE7;
+        broken[i*4+1] = 0xFF;
+        broken[i*4+2] = 0xDE;
+        broken[i*4+3] = 0xFF;
+    }
+
+    return broken;
+}();
+
 /// Arguments to pass into the NDS constructor.
 /// New fields here should have default values if possible.
 struct NDSArgs
@@ -70,8 +85,9 @@ struct NDSArgs
 /// Contains no virtual methods, so there's no vtable.
 struct DSiArgs final : public NDSArgs
 {
-    std::array<u8, DSiBIOSSize> ARM9iBIOS;
-    std::array<u8, DSiBIOSSize> ARM7iBIOS;
+    std::array<u8, DSiBIOSSize> ARM9iBIOS = BrokenBIOS<DSiBIOSSize>;
+    std::array<u8, DSiBIOSSize> ARM7iBIOS = BrokenBIOS<DSiBIOSSize>;
+
     /// NAND image to install.
     /// Required, there is no default value.
     DSi_NAND::NANDImage NANDImage;
