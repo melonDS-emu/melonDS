@@ -363,7 +363,7 @@ void EmuThread::run()
     {
         Input::Process();
 
-        if (Input::HotkeyPressed(HK_FastForwardToggle)) emit windowLimitFPSChange();
+        if (Input::HotkeyPressed(HK_FastForwardToggle)) Config::LimitFPS = !Config::LimitFPS;
 
         if (Input::HotkeyPressed(HK_Pause)) emit windowEmuPause();
         if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
