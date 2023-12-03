@@ -240,16 +240,6 @@ bool GetConfigBool(ConfigEntry entry)
     return false;
 }
 
-std::string GetConfigString(ConfigEntry entry)
-{
-    switch (entry)
-    {
-    case WifiSettingsPath: return Config::WifiSettingsPath;
-    }
-
-    return "";
-}
-
 bool GetConfigArray(ConfigEntry entry, void* data)
 {
     switch (entry)

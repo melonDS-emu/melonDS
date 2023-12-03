@@ -108,8 +108,6 @@ enum ConfigEntry
 
     Firm_MAC,
 
-    WifiSettingsPath,
-
     AudioBitDepth,
 
     DSi_FullBIOSBoot,
@@ -125,7 +123,6 @@ enum ConfigEntry
 
 int GetConfigInt(ConfigEntry entry);
 bool GetConfigBool(ConfigEntry entry);
-std::string GetConfigString(ConfigEntry entry);
 bool GetConfigArray(ConfigEntry entry, void* data);
 
 /**

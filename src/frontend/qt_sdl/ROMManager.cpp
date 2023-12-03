@@ -303,6 +303,28 @@ QString VerifySetup()
     return "";
 }
 
+std::string GetEffectiveFirmwareSavePath(EmuThread* thread)
+{
+    if (!Config::ExternalBIOSEnable)
+    {
+        return Config::WifiSettingsPath;
+    }
+    if (thread->NDS->ConsoleType == 1)
+    {
+        return Config::DSiFirmwarePath;
+    }
+    else
+    {
+        return Config::FirmwarePath;
+    }
+}
+
+// Initializes the firmware save manager with the selected firmware image's path
+// OR the path to the wi-fi settings.
+void InitFirmwareSaveManager(EmuThread* thread) noexcept
+{
+    FirmwareSave = std::make_unique<SaveManager>(GetEffectiveFirmwareSavePath(thread));
+}
 
 std::string GetSavestateName(int slot)
 {
@@ -854,6 +876,7 @@ void Reset(EmuThread* thread)
             GBASave->SetPath(newsave, false);
     }
 
+    InitFirmwareSaveManager(thread);
     if (FirmwareSave)
     {
         std::string oldsave = FirmwareSave->GetPath();
@@ -897,6 +920,7 @@ bool BootToMenu(EmuThread* thread)
     if (thread->NDS->NeedsDirectBoot())
         return false;
 
+    InitFirmwareSaveManager(thread);
     thread->NDS->Reset();
     SetBatteryLevels(*thread->NDS);
     SetDateTime(*thread->NDS);
@@ -1006,7 +1030,7 @@ pair<unique_ptr<Firmware>, string> GenerateDefaultFirmware()
 
     // Try to open the instanced Wi-fi settings, falling back to the regular Wi-fi settings if they don't exist.
     // We don't need to save the whole firmware, just the part that may actually change.
-    std::string wfcsettingspath = Platform::GetConfigString(ConfigEntry::WifiSettingsPath);
+    std::string wfcsettingspath = Config::WifiSettingsPath;
     settingspath = wfcsettingspath + Platform::InstanceFileSuffix();
     FileHandle* f = Platform::OpenLocalFile(settingspath, FileMode::Read);
     if (!f)
@@ -1276,6 +1300,7 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
         if (!emuthread->UpdateConsole(std::move(cart), Keep {}))
             return false;
 
+        InitFirmwareSaveManager(emuthread);
         emuthread->NDS->Reset();
 
         if (Config::DirectBoot || emuthread->NDS->NeedsDirectBoot())
@@ -1294,7 +1319,6 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
 
     CartType = 0;
     NDSSave = std::make_unique<SaveManager>(savname);
-    FirmwareSave = std::make_unique<SaveManager>(emuthread->NDS->ConsoleType == 1 ? Config::DSiFirmwarePath : Config::FirmwarePath);
     LoadCheats(*emuthread->NDS);
 
     return true;
