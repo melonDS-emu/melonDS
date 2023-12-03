@@ -145,6 +145,7 @@ public:
     }
 
     [[nodiscard]] const DSi_NAND::NANDImage& GetNAND() const noexcept { return *SDMMC.GetNAND(); }
+    [[nodiscard]] DSi_NAND::NANDImage& GetNAND() noexcept { return *SDMMC.GetNAND(); }
     void SetNAND(DSi_NAND::NANDImage&& nand) noexcept { SDMMC.SetNAND(std::move(nand)); }
     u64 GetConsoleID() const noexcept { return SDMMC.GetNAND()->GetConsoleID(); }
 
