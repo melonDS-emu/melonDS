@@ -242,20 +242,20 @@ public:
 private:
     static const u32 OutputBufferSize = 2*2048;
     melonDS::NDS& NDS;
-    s16 OutputBackbuffer[2 * OutputBufferSize];
-    u32 OutputBackbufferWritePosition;
+    s16 OutputBackbuffer[2 * OutputBufferSize] {};
+    u32 OutputBackbufferWritePosition = 0;
 
-    s16 OutputFrontBuffer[2 * OutputBufferSize];
-    u32 OutputFrontBufferWritePosition;
-    u32 OutputFrontBufferReadPosition;
+    s16 OutputFrontBuffer[2 * OutputBufferSize] {};
+    u32 OutputFrontBufferWritePosition = 0;
+    u32 OutputFrontBufferReadPosition = 0;
 
     Platform::Mutex* AudioLock;
 
-    u16 Cnt;
-    u8 MasterVolume;
-    u16 Bias;
-    bool ApplyBias;
-    bool Degrade10Bit;
+    u16 Cnt = 0;
+    u8 MasterVolume = 0;
+    u16 Bias = 0;
+    bool ApplyBias = true;
+    bool Degrade10Bit = false;
 
     std::array<SPUChannel, 16> Channels;
     std::array<SPUCaptureUnit, 2> Capture;
