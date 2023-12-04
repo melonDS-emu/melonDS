@@ -218,14 +218,7 @@ void SPU::SetDegrade10Bit(bool enable)
 }
 
 
-SPUChannel::SPUChannel(u32 num, melonDS::NDS& nds) : NDS(nds)
-{
-    Num = num;
-
-    InterpType = 0;
-}
-
-SPUChannel::~SPUChannel()
+SPUChannel::SPUChannel(u32 num, melonDS::NDS& nds) : NDS(nds), Num(num)
 {
 }
 
@@ -585,11 +578,6 @@ void SPUChannel::PanOutput(s32 in, s32& left, s32& right)
 
 
 SPUCaptureUnit::SPUCaptureUnit(u32 num, melonDS::NDS& nds) : NDS(nds), Num(num)
-{
-    Num = num;
-}
-
-SPUCaptureUnit::~SPUCaptureUnit()
 {
 }
 

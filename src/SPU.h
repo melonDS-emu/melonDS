@@ -31,7 +31,6 @@ class SPUChannel
 {
 public:
     SPUChannel(u32 num, melonDS::NDS& nds);
-    ~SPUChannel();
     void Reset();
     void DoSavestate(Savestate* file);
 
@@ -41,38 +40,38 @@ public:
 
     // audio interpolation is an improvement upon the original hardware
     // (which performs no interpolation)
-    int InterpType;
+    int InterpType = 0;
 
-    u32 Num;
+    const u32 Num;
 
-    u32 Cnt;
-    u32 SrcAddr;
-    u16 TimerReload;
-    u32 LoopPos;
-    u32 Length;
+    u32 Cnt = 0;
+    u32 SrcAddr = 0;
+    u16 TimerReload = 0;
+    u32 LoopPos = 0;
+    u32 Length = 0;
 
-    u8 Volume;
-    u8 VolumeShift;
-    u8 Pan;
+    u8 Volume = 0;
+    u8 VolumeShift = 0;
+    u8 Pan = 0;
 
-    bool KeyOn;
-    u32 Timer;
-    s32 Pos;
-    s16 PrevSample[3];
-    s16 CurSample;
-    u16 NoiseVal;
+    bool KeyOn = false;
+    u32 Timer = 0;
+    s32 Pos = 0;
+    s16 PrevSample[3] {};
+    s16 CurSample = 0;
+    u16 NoiseVal = 0;
 
-    s32 ADPCMVal;
-    s32 ADPCMIndex;
-    s32 ADPCMValLoop;
-    s32 ADPCMIndexLoop;
-    u8 ADPCMCurByte;
+    s32 ADPCMVal = 0;
+    s32 ADPCMIndex = 0;
+    s32 ADPCMValLoop = 0;
+    s32 ADPCMIndexLoop = 0;
+    u8 ADPCMCurByte = 0;
 
-    u32 FIFO[8];
-    u32 FIFOReadPos;
-    u32 FIFOWritePos;
-    u32 FIFOReadOffset;
-    u32 FIFOLevel;
+    u32 FIFO[8] {};
+    u32 FIFOReadPos = 0;
+    u32 FIFOWritePos = 0;
+    u32 FIFOReadOffset = 0;
+    u32 FIFOLevel = 0;
 
     void FIFO_BufferData();
     template<typename T> T FIFO_ReadData();
@@ -146,25 +145,24 @@ class SPUCaptureUnit
 {
 public:
     SPUCaptureUnit(u32 num, melonDS::NDS&);
-    ~SPUCaptureUnit();
     void Reset();
     void DoSavestate(Savestate* file);
 
-    u32 Num;
+    const u32 Num;
 
-    u8 Cnt;
-    u32 DstAddr;
-    u16 TimerReload;
-    u32 Length;
+    u8 Cnt = 0;
+    u32 DstAddr = 0;
+    u16 TimerReload = 0;
+    u32 Length = 0;
 
-    u32 Timer;
-    s32 Pos;
+    u32 Timer = 0;
+    s32 Pos = 0;
 
-    u32 FIFO[4];
-    u32 FIFOReadPos;
-    u32 FIFOWritePos;
-    u32 FIFOWriteOffset;
-    u32 FIFOLevel;
+    u32 FIFO[4] {};
+    u32 FIFOReadPos = 0;
+    u32 FIFOWritePos = 0;
+    u32 FIFOWriteOffset = 0;
+    u32 FIFOLevel = 0;
 
     void FIFO_FlushData();
     template<typename T> void FIFO_WriteData(T val);
