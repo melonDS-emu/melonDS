@@ -257,8 +257,8 @@ private:
     bool ApplyBias;
     bool Degrade10Bit;
 
-    SPUChannel* Channels[16];
-    SPUCaptureUnit* Capture[2];
+    std::array<SPUChannel, 16> Channels;
+    std::array<SPUCaptureUnit, 2> Capture;
 };
 
 }
