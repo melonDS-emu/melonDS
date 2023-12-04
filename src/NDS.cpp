@@ -517,17 +517,6 @@ void NDS::Reset()
     SPI.Reset();
     RTC.Reset();
     Wifi.Reset();
-
-    // TODO: move the SOUNDBIAS/degrade logic to SPU?
-
-    // The SOUNDBIAS register does nothing on DSi
-    SPU.SetApplyBias(ConsoleType == 0);
-
-    if (ConsoleType == 1)
-    {
-        //DSi::Reset();
-        KeyInput &= ~(1 << (16+6));
-    }
 }
 
 void NDS::Start()
