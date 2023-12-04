@@ -235,7 +235,9 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
         *arm9bios,
         *arm7bios,
         std::move(*firmware),
-        Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt
+        Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt,
+        static_cast<AudioBitDepth>(Config::AudioBitDepth),
+        static_cast<AudioInterpolation>(Config::AudioInterp),
     };
 
     if (Config::ConsoleType == 1)
@@ -373,6 +375,8 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
     NDS->SetFirmware(std::move(*firmware));
     NDS->SetNDSCart(std::move(nextndscart));
     NDS->SetJITArgs(Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt);
+    NDS->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
+    NDS->SPU.SetDegrade10Bit(static_cast<AudioBitDepth>(Config::AudioBitDepth));
 
     NDS::Current = NDS.get();
 
@@ -524,8 +528,6 @@ void EmuThread::run()
         glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
         NDS->GPU.SetRenderer3D(std::move(glrenderer));
     }
-
-    NDS->SPU.SetInterpolation(Config::AudioInterp);
 
     Input::Init();
 
@@ -3152,7 +3154,7 @@ void MainWindow::onPathSettingsFinished(int res)
 void MainWindow::onUpdateAudioSettings()
 {
     assert(emuThread->NDS != nullptr);
-    emuThread->NDS->SPU.SetInterpolation(Config::AudioInterp);
+    emuThread->NDS->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
 
     if (Config::AudioBitDepth == 0)
         emuThread->NDS->SPU.SetDegrade10Bit(emuThread->NDS->ConsoleType == 0);

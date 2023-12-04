@@ -98,8 +98,6 @@ enum ConfigEntry
 {
     Firm_MAC,
 
-    AudioBitDepth,
-
     DSi_FullBIOSBoot,
 
 #ifdef GDBSTUB_ENABLED

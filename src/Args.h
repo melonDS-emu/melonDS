@@ -29,6 +29,7 @@
 #include "FATStorage.h"
 #include "FreeBIOS.h"
 #include "SPI_Firmware.h"
+#include "SPU.h"
 
 namespace melonDS
 {
@@ -99,6 +100,9 @@ struct NDSArgs
     /// To disable the JIT, set this to std::nullopt.
     /// Ignored in builds that don't have the JIT included.
     std::optional<JITArgs> JIT = JITArgs();
+
+    AudioBitDepth BitDepth = AudioBitDepth::Auto;
+    AudioInterpolation Interpolation = AudioInterpolation::None;
 };
 
 /// Arguments to pass into the DSi constructor.

@@ -200,8 +200,6 @@ int GetConfigInt(ConfigEntry entry)
 
     switch (entry)
     {
-    case AudioBitDepth: return Config::AudioBitDepth;
-
 #ifdef GDBSTUB_ENABLED
     case GdbPortARM7: return Config::GdbPortARM7;
     case GdbPortARM9: return Config::GdbPortARM9;

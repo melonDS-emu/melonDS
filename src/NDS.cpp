@@ -93,7 +93,7 @@ NDS::NDS(NDSArgs&& args, int type) noexcept :
     ARM7BIOS(args.ARM7BIOS),
     ARM9BIOS(args.ARM9BIOS),
     JIT(*this, args.JIT),
-    SPU(*this),
+    SPU(*this, args.BitDepth, args.Interpolation),
     GPU(*this),
     SPI(*this, std::move(args.Firmware)),
     RTC(*this),
@@ -523,22 +523,11 @@ void NDS::Reset()
     // The SOUNDBIAS register does nothing on DSi
     SPU.SetApplyBias(ConsoleType == 0);
 
-    bool degradeAudio = true;
-
     if (ConsoleType == 1)
     {
         //DSi::Reset();
         KeyInput &= ~(1 << (16+6));
-        degradeAudio = false;
     }
-
-    int bitDepth = Platform::GetConfigInt(Platform::AudioBitDepth);
-    if (bitDepth == 1) // Always 10-bit
-        degradeAudio = true;
-    else if (bitDepth == 2) // Always 16-bit
-        degradeAudio = false;
-
-    SPU.SetDegrade10Bit(degradeAudio);
 }
 
 void NDS::Start()
