@@ -607,6 +607,7 @@ public:
 private:
     void ResetVRAMCache() noexcept;
     void AssignFramebuffers() noexcept;
+    void InitFramebuffers() noexcept;
     template<typename T>
     T ReadVRAM_ABGExtPal(u32 addr) const noexcept
     {
