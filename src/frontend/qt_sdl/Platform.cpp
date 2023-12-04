@@ -213,8 +213,6 @@ bool GetConfigBool(ConfigEntry entry)
 {
     switch (entry)
     {
-    case DSi_FullBIOSBoot: return Config::DSiFullBIOSBoot != 0;
-
 #ifdef GDBSTUB_ENABLED
     case GdbEnabled: return Config::GdbEnabled;
     case GdbARM7BreakOnStartup: return Config::GdbARM7BreakOnStartup;
