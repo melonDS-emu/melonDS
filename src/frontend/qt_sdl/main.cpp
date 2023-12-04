@@ -222,19 +222,23 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
     if (!firmware)
         return nullptr;
 
+#ifdef JIT_ENABLED
     JITArgs jitargs {
         static_cast<unsigned>(Config::JIT_MaxBlockSize),
         Config::JIT_LiteralOptimisations,
         Config::JIT_BranchOptimisations,
         Config::JIT_FastMemory,
     };
+#endif
 
+#ifdef GDBSTUB_ENABLED
     GDBArgs gdbargs {
         static_cast<u16>(Config::GdbPortARM7),
         static_cast<u16>(Config::GdbPortARM9),
         Config::GdbARM7BreakOnStartup,
         Config::GdbARM9BreakOnStartup,
     };
+#endif
 
     NDSArgs ndsargs {
         std::move(ndscart),
