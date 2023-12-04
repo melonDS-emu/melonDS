@@ -104,8 +104,6 @@ enum ConfigEntry
     JIT_FastMemory,
 #endif
 
-    ExternalBIOSEnable,
-
     Firm_MAC,
 
     AudioBitDepth,

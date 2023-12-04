@@ -226,8 +226,6 @@ bool GetConfigBool(ConfigEntry entry)
     case JIT_FastMemory: return Config::JIT_FastMemory != 0;
 #endif
 
-    case ExternalBIOSEnable: return Config::ExternalBIOSEnable != 0;
-
     case DSi_FullBIOSBoot: return Config::DSiFullBIOSBoot != 0;
 
 #ifdef GDBSTUB_ENABLED

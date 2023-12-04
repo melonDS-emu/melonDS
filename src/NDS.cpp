@@ -249,12 +249,12 @@ bool NDS::NeedsDirectBoot()
     }
     else
     {
-        // internal BIOS does not support direct boot
-        if (!Platform::GetConfigBool(Platform::ExternalBIOSEnable))
+        // DSi/3DS firmwares aren't bootable, neither is the generated firmware
+        if (!SPI.GetFirmware().IsBootable())
             return true;
 
-        // DSi/3DS firmwares aren't bootable
-        if (!SPI.GetFirmware().IsBootable())
+        // FreeBIOS requires direct boot (it can't boot firmware)
+        if (IsLoadedARM7BIOSBuiltIn() || IsLoadedARM9BIOSBuiltIn())
             return true;
 
         return false;
