@@ -57,7 +57,7 @@ class ARM
 #endif
 {
 public:
-    ARM(u32 num, NDS& nds);
+    ARM(u32 num, bool jit, NDS& nds);
     virtual ~ARM(); // destroy shit
 
     virtual void Reset();
@@ -225,7 +225,7 @@ protected:
 class ARMv5 : public ARM
 {
 public:
-    ARMv5(melonDS::NDS& nds);
+    ARMv5(melonDS::NDS& nds, bool jit);
     ~ARMv5();
 
     void Reset() override;
@@ -377,7 +377,7 @@ protected:
 class ARMv4 : public ARM
 {
 public:
-    ARMv4(melonDS::NDS& nds);
+    ARMv4(melonDS::NDS& nds, bool jit);
 
     void FillPipeline() override;
 

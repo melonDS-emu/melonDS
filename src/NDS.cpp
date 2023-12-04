@@ -101,8 +101,8 @@ NDS::NDS(NDSArgs&& args, int type) noexcept :
     NDSCartSlot(*this, std::move(args.NDSROM)),
     GBACartSlot(type == 1 ? nullptr : std::move(args.GBAROM)),
     AREngine(*this),
-    ARM9(*this),
-    ARM7(*this),
+    ARM9(*this, args.JIT.has_value()),
+    ARM7(*this, args.JIT.has_value()),
     DMAs {
         DMA(0, 0, *this),
         DMA(0, 1, *this),

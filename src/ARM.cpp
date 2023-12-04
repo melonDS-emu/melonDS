@@ -106,7 +106,7 @@ const u32 ARM::ConditionTable[16] =
     0x0000  // NE
 };
 
-ARM::ARM(u32 num, melonDS::NDS& nds) :
+ARM::ARM(u32 num, bool jit, melonDS::NDS& nds) :
 #ifdef GDBSTUB_ENABLED
     GdbStub(this, Platform::GetConfigInt(num ? Platform::GdbPortARM7 : Platform::GdbPortARM9)),
 #endif
@@ -116,7 +116,7 @@ ARM::ARM(u32 num, melonDS::NDS& nds) :
 #ifdef GDBSTUB_ENABLED
     if (Platform::GetConfigBool(Platform::GdbEnabled)
 #ifdef JIT_ENABLED
-            && !Platform::GetConfigBool(Platform::JIT_Enable)
+            && !jit // TODO: Should we support toggling the GdbStub without destroying the ARM?
 #endif
     )
         GdbStub.Init();
@@ -129,14 +129,14 @@ ARM::~ARM()
     // dorp
 }
 
-ARMv5::ARMv5(melonDS::NDS& nds) : ARM(0, nds)
+ARMv5::ARMv5(melonDS::NDS& nds, bool jit) : ARM(0, jit, nds)
 {
     DTCM = NDS.JIT.Memory.GetARM9DTCM();
 
     PU_Map = PU_PrivMap;
 }
 
-ARMv4::ARMv4(melonDS::NDS& nds) : ARM(1, nds)
+ARMv4::ARMv4(melonDS::NDS& nds, bool jit) : ARM(1, jit, nds)
 {
     //
 }
