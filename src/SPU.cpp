@@ -65,10 +65,40 @@ const s16 SPUChannel::PSGTable[8][8] =
     {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF}
 };
 
-s16 SPUChannel::InterpCos[0x100];
-s16 SPUChannel::InterpCubic[0x100][4];
-bool SPUChannel::InterpInited = false;
+// generate interpolation tables
+// values are 1:1:14 fixed-point
+constexpr std::array<s16, 0x100> InterpCos = []() constexpr {
+    std::array<s16, 0x100> interp {};
 
+    float m_pi = std::acos(-1.0f);
+    for (int i = 0; i < 0x100; i++)
+    {
+        float ratio = (i * m_pi) / 255.0f;
+        ratio = 1.0f - std::cos(ratio);
+
+        interp[i] = (s16)(ratio * 0x2000);
+    }
+
+    return interp;
+}();
+
+constexpr array2d<s16, 0x100, 4> InterpCubic = []() constexpr {
+    array2d<s16, 0x100, 4> interp {};
+
+    for (int i = 0; i < 0x100; i++)
+    {
+        s32 i1 = i << 6;
+        s32 i2 = (i * i) >> 2;
+        s32 i3 = (i * i * i) >> 10;
+
+        interp[i][0] = -i3 + 2*i2 - i1;
+        interp[i][1] = i3 - 2*i2 + 0x4000;
+        interp[i][2] = -i3 + i2 + i1;
+        interp[i][3] = i3 - i2;
+    }
+
+    return interp;
+}();
 
 SPU::SPU(melonDS::NDS& nds) :
     NDS(nds),
@@ -106,35 +136,6 @@ SPU::SPU(melonDS::NDS& nds) :
     OutputBackbufferWritePosition = 0;
     OutputFrontBufferReadPosition = 0;
     OutputFrontBufferWritePosition = 0;
-
-    if (!SPUChannel::InterpInited)
-    {
-        // generate interpolation tables
-        // values are 1:1:14 fixed-point
-
-        float m_pi = std::acos(-1.0f);
-        for (int i = 0; i < 0x100; i++)
-        {
-            float ratio = (i * m_pi) / 255.0f;
-            ratio = 1.0f - std::cos(ratio);
-
-            SPUChannel::InterpCos[i] = (s16)(ratio * 0x2000);
-        }
-
-        for (int i = 0; i < 0x100; i++)
-        {
-            s32 i1 = i << 6;
-            s32 i2 = (i * i) >> 2;
-            s32 i3 = (i * i * i) >> 10;
-
-            SPUChannel::InterpCubic[i][0] = -i3 + 2*i2 - i1;
-            SPUChannel::InterpCubic[i][1] = i3 - 2*i2 + 0x4000;
-            SPUChannel::InterpCubic[i][2] = -i3 + i2 + i1;
-            SPUChannel::InterpCubic[i][3] = i3 - i2;
-        }
-
-        SPUChannel::InterpInited = true;
-    }
 }
 
 SPU::~SPU()
