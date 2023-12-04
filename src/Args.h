@@ -50,6 +50,21 @@ constexpr std::array<u8, N> BrokenBIOS = []() constexpr {
     return broken;
 }();
 
+/// Arguments that configure the JIT.
+/// Ignored in builds that don't have the JIT included.
+struct JITArgs
+{
+    unsigned MaxBlockSize = 32;
+    bool LiteralOptimizations = true;
+    bool BranchOptimizations = true;
+
+    /// Ignored in builds that have fast memory excluded
+    /// (even if the JIT is otherwise available).
+    /// Enabled by default, but frontends should disable this when debugging
+    /// so the constants segfaults don't hinder debugging.
+    bool FastMemory = true;
+};
+
 /// Arguments to pass into the NDS constructor.
 /// New fields here should have default values if possible.
 struct NDSArgs
@@ -78,6 +93,12 @@ struct NDSArgs
     /// Defaults to generated NDS firmware.
     /// Generated firmware is not compatible with DSi mode.
     melonDS::Firmware Firmware {0};
+
+    /// How the JIT should be configured when initializing.
+    /// Defaults to enabled, with default settings.
+    /// To disable the JIT, set this to std::nullopt.
+    /// Ignored in builds that don't have the JIT included.
+    std::optional<JITArgs> JIT = JITArgs();
 };
 
 /// Arguments to pass into the DSi constructor.
