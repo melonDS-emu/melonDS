@@ -261,6 +261,7 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
             *arm7ibios,
             std::move(*nand),
             std::move(sdcard),
+            Config::DSiFullBIOSBoot,
         };
 
         args.GBAROM = nullptr;
@@ -349,6 +350,7 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
 
         auto dsisdcard = ROMManager::LoadDSiSDCard();
 
+        dsi.SetFullBIOSBoot(Config::DSiFullBIOSBoot);
         dsi.ARM7iBIOS = *arm7ibios;
         dsi.ARM9iBIOS = *arm9ibios;
         dsi.SetNAND(std::move(*nandimage));

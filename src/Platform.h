@@ -98,8 +98,6 @@ enum ConfigEntry
 {
     Firm_MAC,
 
-    DSi_FullBIOSBoot,
-
 #ifdef GDBSTUB_ENABLED
     GdbEnabled,
     GdbPortARM7,

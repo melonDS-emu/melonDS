@@ -23,6 +23,8 @@
 #include <optional>
 #include <memory>
 
+#include "NDSCart.h"
+#include "GBACart.h"
 #include "types.h"
 #include "MemConstants.h"
 #include "DSi_NAND.h"
@@ -120,6 +122,8 @@ struct DSiArgs final : public NDSArgs
     /// SD card to install.
     /// Defaults to std::nullopt, which means no SD card.
     std::optional<FATStorage> DSiSDCard;
+
+    bool FullBIOSBoot = false;
 };
 }
 #endif //MELONDS_ARGS_H
