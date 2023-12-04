@@ -96,8 +96,6 @@ std::string InstanceFileSuffix();
 
 enum ConfigEntry
 {
-    Firm_MAC,
-
 #ifdef GDBSTUB_ENABLED
     GdbEnabled,
     GdbPortARM7,
@@ -109,7 +107,6 @@ enum ConfigEntry
 
 int GetConfigInt(ConfigEntry entry);
 bool GetConfigBool(ConfigEntry entry);
-bool GetConfigArray(ConfigEntry entry, void* data);
 
 /**
  * Denotes how a file will be opened and accessed.

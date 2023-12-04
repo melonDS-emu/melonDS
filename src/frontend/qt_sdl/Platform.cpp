@@ -223,43 +223,6 @@ bool GetConfigBool(ConfigEntry entry)
     return false;
 }
 
-bool GetConfigArray(ConfigEntry entry, void* data)
-{
-    switch (entry)
-    {
-    case Firm_MAC:
-        {
-            std::string& mac_in = Config::FirmwareMAC;
-            u8* mac_out = (u8*)data;
-
-            int o = 0;
-            u8 tmp = 0;
-            for (int i = 0; i < 18; i++)
-            {
-                char c = mac_in[i];
-                if (c == '\0') break;
-
-                int n;
-                if      (c >= '0' && c <= '9') n = c - '0';
-                else if (c >= 'a' && c <= 'f') n = c - 'a' + 10;
-                else if (c >= 'A' && c <= 'F') n = c - 'A' + 10;
-                else continue;
-
-                if (!(o & 1))
-                    tmp = n;
-                else
-                    mac_out[o >> 1] = n | (tmp << 4);
-
-                o++;
-                if (o >= 12) return true;
-            }
-        }
-        return false;
-    }
-
-    return false;
-}
-
 constexpr char AccessMode(FileMode mode, bool file_exists)
 {
     if (!(mode & FileMode::Write))
