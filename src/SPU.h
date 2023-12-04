@@ -200,7 +200,7 @@ private:
 class SPU
 {
 public:
-    SPU(melonDS::NDS& nds);
+    explicit SPU(melonDS::NDS& nds);
     ~SPU();
     void Reset();
     void DoSavestate(Savestate* file);
