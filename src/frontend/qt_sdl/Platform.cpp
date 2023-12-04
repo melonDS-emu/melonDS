@@ -204,10 +204,6 @@ int GetConfigInt(ConfigEntry entry)
     case JIT_MaxBlockSize: return Config::JIT_MaxBlockSize;
 #endif
 
-    case DLDI_ImageSize: return imgsizes[Config::DLDISize];
-
-    case DSiSD_ImageSize: return imgsizes[Config::DSiSDSize];
-
     case AudioBitDepth: return Config::AudioBitDepth;
 
 #ifdef GDBSTUB_ENABLED
@@ -232,14 +228,6 @@ bool GetConfigBool(ConfigEntry entry)
 
     case ExternalBIOSEnable: return Config::ExternalBIOSEnable != 0;
 
-    case DLDI_Enable: return Config::DLDIEnable != 0;
-    case DLDI_ReadOnly: return Config::DLDIReadOnly != 0;
-    case DLDI_FolderSync: return Config::DLDIFolderSync != 0;
-
-    case DSiSD_Enable: return Config::DSiSDEnable != 0;
-    case DSiSD_ReadOnly: return Config::DSiSDReadOnly != 0;
-    case DSiSD_FolderSync: return Config::DSiSDFolderSync != 0;
-
     case DSi_FullBIOSBoot: return Config::DSiFullBIOSBoot != 0;
 
 #ifdef GDBSTUB_ENABLED
@@ -250,22 +238,6 @@ bool GetConfigBool(ConfigEntry entry)
     }
 
     return false;
-}
-
-std::string GetConfigString(ConfigEntry entry)
-{
-    switch (entry)
-    {
-    case DLDI_ImagePath: return Config::DLDISDPath;
-    case DLDI_FolderPath: return Config::DLDIFolderPath;
-
-    case DSiSD_ImagePath: return Config::DSiSDPath;
-    case DSiSD_FolderPath: return Config::DSiSDFolderPath;
-
-    case WifiSettingsPath: return Config::WifiSettingsPath;
-    }
-
-    return "";
 }
 
 bool GetConfigArray(ConfigEntry entry, void* data)

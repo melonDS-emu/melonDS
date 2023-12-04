@@ -106,23 +106,7 @@ enum ConfigEntry
 
     ExternalBIOSEnable,
 
-    DLDI_Enable,
-    DLDI_ImagePath,
-    DLDI_ImageSize,
-    DLDI_ReadOnly,
-    DLDI_FolderSync,
-    DLDI_FolderPath,
-
-    DSiSD_Enable,
-    DSiSD_ImagePath,
-    DSiSD_ImageSize,
-    DSiSD_ReadOnly,
-    DSiSD_FolderSync,
-    DSiSD_FolderPath,
-
     Firm_MAC,
-
-    WifiSettingsPath,
 
     AudioBitDepth,
 
@@ -139,7 +123,6 @@ enum ConfigEntry
 
 int GetConfigInt(ConfigEntry entry);
 bool GetConfigBool(ConfigEntry entry);
-std::string GetConfigString(ConfigEntry entry);
 bool GetConfigArray(ConfigEntry entry, void* data);
 
 /**

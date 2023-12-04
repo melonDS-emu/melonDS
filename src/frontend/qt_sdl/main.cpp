@@ -81,6 +81,7 @@
 #include "FrontendUtil.h"
 #include "OSD.h"
 
+#include "Args.h"
 #include "NDS.h"
 #include "NDSCart.h"
 #include "GBACart.h"
@@ -204,29 +205,164 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     static_cast<ScreenPanelGL*>(mainWindow->panel)->transferLayout(this);
 }
 
-std::unique_ptr<NDS> EmuThread::CreateConsole()
+std::unique_ptr<NDS> EmuThread::CreateConsole(
+    std::unique_ptr<melonDS::NDSCart::CartCommon>&& ndscart,
+    std::unique_ptr<melonDS::GBACart::CartCommon>&& gbacart
+) noexcept
 {
+    auto arm7bios = ROMManager::LoadARM7BIOS();
+    if (!arm7bios)
+        return nullptr;
+
+    auto arm9bios = ROMManager::LoadARM9BIOS();
+    if (!arm9bios)
+        return nullptr;
+
+    auto firmware = ROMManager::LoadFirmware(Config::ConsoleType);
+    if (!firmware)
+        return nullptr;
+
+    NDSArgs ndsargs {
+        std::move(ndscart),
+        std::move(gbacart),
+        *arm9bios,
+        *arm7bios,
+        std::move(*firmware),
+    };
+
     if (Config::ConsoleType == 1)
     {
-        return std::make_unique<melonDS::DSi>();
+        auto arm7ibios = ROMManager::LoadDSiARM7BIOS();
+        if (!arm7ibios)
+            return nullptr;
+
+        auto arm9ibios = ROMManager::LoadDSiARM9BIOS();
+        if (!arm9ibios)
+            return nullptr;
+
+        auto nand = ROMManager::LoadNAND(*arm7ibios);
+        if (!nand)
+            return nullptr;
+
+        auto sdcard = ROMManager::LoadDSiSDCard();
+        DSiArgs args {
+            std::move(ndsargs),
+            *arm9ibios,
+            *arm7ibios,
+            std::move(*nand),
+            std::move(sdcard),
+        };
+
+        args.GBAROM = nullptr;
+
+        return std::make_unique<melonDS::DSi>(std::move(args));
     }
 
-    return std::make_unique<melonDS::NDS>();
+    return std::make_unique<melonDS::NDS>(std::move(ndsargs));
 }
 
-void EmuThread::RecreateConsole()
+bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept
 {
-    if (!NDS || NDS->ConsoleType != Config::ConsoleType)
+    // Let's get the cart we want to use;
+    // if we wnat to keep the cart, we'll eject it from the existing console first.
+    std::unique_ptr<NDSCart::CartCommon> nextndscart;
+    if (std::holds_alternative<Keep>(ndsargs))
+    { // If we want to keep the existing cart (if any)...
+        nextndscart = NDS ? NDS->EjectCart() : nullptr;
+        ndsargs = {};
+    }
+    else if (const auto ptr = std::get_if<std::unique_ptr<NDSCart::CartCommon>>(&ndsargs))
     {
-        NDS = nullptr; // To ensure the destructor is called before a new one is created
+        nextndscart = std::move(*ptr);
+        ndsargs = {};
+    }
+
+    if (nextndscart && nextndscart->Type() == NDSCart::Homebrew)
+    {
+        // Load DLDISDCard will return nullopt if the SD card is disabled;
+        // SetSDCard will accept nullopt, which means no SD card
+        auto& homebrew = static_cast<NDSCart::CartHomebrew&>(*nextndscart);
+        homebrew.SetSDCard(ROMManager::LoadDLDISDCard());
+    }
+
+    std::unique_ptr<GBACart::CartCommon> nextgbacart;
+    if (std::holds_alternative<Keep>(gbaargs))
+    {
+        nextgbacart = NDS ? NDS->EjectGBACart() : nullptr;
+    }
+    else if (const auto ptr = std::get_if<std::unique_ptr<GBACart::CartCommon>>(&gbaargs))
+    {
+        nextgbacart = std::move(*ptr);
+        gbaargs = {};
+    }
+
+    if (!NDS || NDS->ConsoleType != Config::ConsoleType)
+    { // If we're switching between DS and DSi mode, or there's no console...
+        // To ensure the destructor is called before a new one is created,
+        // as the presence of global signal handlers still complicates things a bit
+        NDS = nullptr;
         NDS::Current = nullptr;
 
-        NDS = CreateConsole();
-        // TODO: Insert ROMs
+        NDS = CreateConsole(std::move(nextndscart), std::move(nextgbacart));
         NDS::Current = NDS.get();
-    }
-}
 
+        return NDS != nullptr;
+    }
+
+    auto arm9bios = ROMManager::LoadARM9BIOS();
+    if (!arm9bios)
+        return false;
+
+    auto arm7bios = ROMManager::LoadARM7BIOS();
+    if (!arm7bios)
+        return false;
+
+    auto firmware = ROMManager::LoadFirmware(NDS->ConsoleType);
+    if (!firmware)
+        return false;
+
+    if (NDS->ConsoleType == 1)
+    { // If the console we're updating is a DSi...
+        DSi& dsi = static_cast<DSi&>(*NDS);
+
+        auto arm9ibios = ROMManager::LoadDSiARM9BIOS();
+        if (!arm9ibios)
+            return false;
+
+        auto arm7ibios = ROMManager::LoadDSiARM7BIOS();
+        if (!arm7ibios)
+            return false;
+
+        auto nandimage = ROMManager::LoadNAND(*arm7ibios);
+        if (!nandimage)
+            return false;
+
+        auto dsisdcard = ROMManager::LoadDSiSDCard();
+
+        dsi.ARM7iBIOS = *arm7ibios;
+        dsi.ARM9iBIOS = *arm9ibios;
+        dsi.SetNAND(std::move(*nandimage));
+        dsi.SetSDCard(std::move(dsisdcard));
+        // We're moving the optional, not the card
+        // (inserting std::nullopt here is okay, it means no card)
+
+        dsi.EjectGBACart();
+    }
+
+    if (NDS->ConsoleType == 0)
+    {
+        NDS->SetGBACart(std::move(nextgbacart));
+    }
+
+    NDS->ARM7BIOS = *arm7bios;
+    NDS->ARM9BIOS = *arm9bios;
+    NDS->SetFirmware(std::move(*firmware));
+    NDS->SetNDSCart(std::move(nextndscart));
+
+    NDS::Current = NDS.get();
+
+    return true;
+}
 
 void EmuThread::updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix)
 {
@@ -343,7 +479,8 @@ void EmuThread::run()
     u32 mainScreenPos[3];
     Platform::FileHandle* file;
 
-    RecreateConsole();
+    UpdateConsole(nullptr, nullptr);
+    // No carts are inserted when melonDS first boots
 
     mainScreenPos[0] = 0;
     mainScreenPos[1] = 0;
@@ -2507,7 +2644,7 @@ void MainWindow::onBootFirmware()
         return;
     }
 
-    if (!ROMManager::LoadBIOS(emuThread))
+    if (!ROMManager::BootToMenu(emuThread))
     {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "This firmware is not bootable.");
@@ -2750,13 +2887,12 @@ void MainWindow::onImportSavefile()
 
     u32 len = FileLength(f);
 
-    u8* data = new u8[len];
+    std::unique_ptr<u8[]> data = std::make_unique<u8[]>(len);
     Platform::FileRewind(f);
-    Platform::FileRead(data, len, 1, f);
+    Platform::FileRead(data.get(), len, 1, f);
 
     assert(emuThread->NDS != nullptr);
-    emuThread->NDS->LoadSave(data, len);
-    delete[] data;
+    emuThread->NDS->SetNDSSave(data.get(), len);
 
     CloseFile(f);
     emuThread->emuUnpause();

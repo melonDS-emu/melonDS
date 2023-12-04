@@ -66,24 +66,23 @@ protected:
 class FirmwareMem : public SPIDevice
 {
 public:
-    FirmwareMem(melonDS::NDS& nds);
+    FirmwareMem(melonDS::NDS& nds, melonDS::Firmware&& firmware);
     ~FirmwareMem() override;
     void Reset() override;
     void DoSavestate(Savestate* file) override;
 
     void SetupDirectBoot();
 
-    const class Firmware* GetFirmware();
+    Firmware& GetFirmware() noexcept { return FirmwareData; }
+    [[nodiscard]] const Firmware& GetFirmware() const noexcept { return FirmwareData; }
+    void SetFirmware(Firmware&& firmware) { FirmwareData = std::move(firmware); }
     bool IsLoadedFirmwareBuiltIn();
-    bool InstallFirmware(class Firmware&& firmware);
-    bool InstallFirmware(std::unique_ptr<class Firmware>&& firmware);
-    void RemoveFirmware();
 
     void Write(u8 val) override;
     void Release() override;
 
 private:
-    std::unique_ptr<class Firmware> Firmware;
+    Firmware FirmwareData;
 
     u8 CurCmd;
 
@@ -141,16 +140,19 @@ protected:
 class SPIHost
 {
 public:
-    SPIHost(melonDS::NDS& nds);
+    SPIHost(melonDS::NDS& nds, Firmware&& firmware);
     ~SPIHost();
     void Reset();
     void DoSavestate(Savestate* file);
 
     FirmwareMem* GetFirmwareMem() { return (FirmwareMem*)Devices[SPIDevice_FirmwareMem]; }
+    const FirmwareMem* GetFirmwareMem() const { return (FirmwareMem*)Devices[SPIDevice_FirmwareMem]; }
     PowerMan* GetPowerMan() { return (PowerMan*)Devices[SPIDevice_PowerMan]; }
     TSC* GetTSC() { return (TSC*)Devices[SPIDevice_TSC]; }
 
-    const Firmware* GetFirmware() { return GetFirmwareMem()->GetFirmware(); }
+    const Firmware& GetFirmware() const { return GetFirmwareMem()->GetFirmware(); }
+    Firmware& GetFirmware() { return GetFirmwareMem()->GetFirmware(); }
+    void SetFirmware(Firmware&& firmware) { GetFirmwareMem()->SetFirmware(std::move(firmware)); }
 
     u16 ReadCnt() { return Cnt; }
     void WriteCnt(u16 val);

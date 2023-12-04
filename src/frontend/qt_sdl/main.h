@@ -34,12 +34,18 @@
 #include <QCloseEvent>
 
 #include <atomic>
-
+#include <variant>
 #include <optional>
 
 #include "FrontendUtil.h"
 #include "duckstation/gl/context.h"
 
+#include "NDSCart.h"
+#include "GBACart.h"
+
+using Keep = std::monostate;
+using UpdateConsoleNDSArgs = std::variant<Keep, std::unique_ptr<melonDS::NDSCart::CartCommon>>;
+using UpdateConsoleGBAArgs = std::variant<Keep, std::unique_ptr<melonDS::GBACart::CartCommon>>;
 namespace melonDS
 {
 class NDS;
@@ -72,7 +78,13 @@ public:
     QMutex FrontBufferLock;
 
     void updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix);
-    void RecreateConsole();
+
+    /// Applies the config in args.
+    /// Creates a new NDS console if needed,
+    /// modifies the existing one if possible.
+    /// @return \c true if the console was updated.
+    /// If this returns \c false, then the existing NDS console is not modified.
+    bool UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept;
     std::unique_ptr<melonDS::NDS> NDS; // TODO: Proper encapsulation and synchronization
 signals:
     void windowUpdate();
@@ -96,7 +108,10 @@ signals:
     void syncVolumeLevel();
 
 private:
-    std::unique_ptr<melonDS::NDS> CreateConsole();
+    std::unique_ptr<melonDS::NDS> CreateConsole(
+        std::unique_ptr<melonDS::NDSCart::CartCommon>&& ndscart,
+        std::unique_ptr<melonDS::GBACart::CartCommon>&& gbacart
+    ) noexcept;
     void drawScreenGL();
     void initOpenGL();
     void deinitOpenGL();

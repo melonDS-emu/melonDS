@@ -158,12 +158,12 @@ void Wifi::Reset()
     }
     #undef BBREG_FIXED
 
-    const Firmware* fw = NDS.SPI.GetFirmware();
+    const Firmware& fw = NDS.SPI.GetFirmware();
 
-    RFVersion = fw->GetHeader().RFChipType;
+    RFVersion = fw.GetHeader().RFChipType;
     memset(RFRegs, 0, 4*0x40);
 
-    Firmware::FirmwareConsoleType console = fw->GetHeader().ConsoleType;
+    Firmware::FirmwareConsoleType console = fw.GetHeader().ConsoleType;
     if (console == Firmware::FirmwareConsoleType::DS)
         IOPORT(0x000) = 0x1440;
     else if (console == Firmware::FirmwareConsoleType::DSLite)

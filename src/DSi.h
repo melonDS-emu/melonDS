@@ -33,6 +33,7 @@ class DSi_I2CHost;
 class DSi_CamModule;
 class DSi_AES;
 class DSi_DSP;
+class DSiArgs;
 
 namespace DSi_NAND
 {
@@ -48,9 +49,8 @@ public:
     u16 SCFG_Clock9;
     u32 SCFG_EXT[2];
 
-    u8 ARM9iBIOS[0x10000];
-    u8 ARM7iBIOS[0x10000];
-    std::unique_ptr<DSi_NAND::NANDImage> NANDImage;
+    std::array<u8, DSiBIOSSize> ARM9iBIOS;
+    std::array<u8, DSiBIOSSize> ARM7iBIOS;
     DSi_SDHost SDMMC;
     DSi_SDHost SDIO;
 
@@ -130,19 +130,29 @@ public:
     void ARM7IOWrite32(u32 addr, u32 val) override;
 
 public:
-    DSi() noexcept;
+    DSi(DSiArgs&& args) noexcept;
     ~DSi() noexcept override;
     DSi(const DSi&) = delete;
     DSi& operator=(const DSi&) = delete;
     DSi(DSi&&) = delete;
     DSi& operator=(DSi&&) = delete;
-    bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen) override;
-    void EjectCart() override;
+    void SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart) override;
+    std::unique_ptr<NDSCart::CartCommon> EjectCart() override;
     bool NeedsDirectBoot() override
     {
         // for now, DSi mode requires original BIOS/NAND
         return false;
     }
+
+    [[nodiscard]] const DSi_NAND::NANDImage& GetNAND() const noexcept { return *SDMMC.GetNAND(); }
+    [[nodiscard]] DSi_NAND::NANDImage& GetNAND() noexcept { return *SDMMC.GetNAND(); }
+    void SetNAND(DSi_NAND::NANDImage&& nand) noexcept { SDMMC.SetNAND(std::move(nand)); }
+    u64 GetConsoleID() const noexcept { return SDMMC.GetNAND()->GetConsoleID(); }
+
+    [[nodiscard]] const FATStorage* GetSDCard() const noexcept { return SDMMC.GetSDCard(); }
+    void SetSDCard(FATStorage&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
+    void SetSDCard(std::optional<FATStorage>&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
+
     void CamInputFrame(int cam, u32* data, int width, int height, bool rgb) override;
     bool DMAsInMode(u32 cpu, u32 mode) override;
     bool DMAsRunning(u32 cpu) override;

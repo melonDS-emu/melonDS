@@ -38,18 +38,14 @@ enum CartType
 class CartCommon
 {
 public:
-    CartCommon();
-    virtual ~CartCommon();
+    virtual ~CartCommon() = default;
 
-    virtual u32 Type() const = 0;
+    [[nodiscard]] u32 Type() const { return CartType; }
     virtual u32 Checksum() const { return 0; }
 
     virtual void Reset();
 
     virtual void DoSavestate(Savestate* file);
-
-    virtual void SetupSave(u32 type);
-    virtual void LoadSave(const u8* savedata, u32 savelen);
 
     virtual int SetInput(int num, bool pressed);
 
@@ -64,36 +60,40 @@ public:
 
     virtual u8* GetSaveMemory() const;
     virtual u32 GetSaveMemoryLength() const;
+    virtual void SetSaveMemory(const u8* savedata, u32 savelen);
+protected:
+    CartCommon(GBACart::CartType type);
+    friend class GBACartSlot;
+private:
+    GBACart::CartType CartType;
 };
 
 // CartGame -- regular retail game cart (ROM, SRAM)
 class CartGame : public CartCommon
 {
 public:
-    CartGame(u8* rom, u32 len);
-    virtual ~CartGame() override;
+    CartGame(const u8* rom, u32 len, const u8* sram, u32 sramlen, GBACart::CartType type = GBACart::CartType::Game);
+    CartGame(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen, GBACart::CartType type = GBACart::CartType::Game);
+    ~CartGame() override;
 
-    virtual u32 Type() const override { return CartType::Game; }
-    virtual u32 Checksum() const override;
+    u32 Checksum() const override;
 
-    virtual void Reset() override;
+    void Reset() override;
 
-    virtual void DoSavestate(Savestate* file) override;
+    void DoSavestate(Savestate* file) override;
 
-    virtual void SetupSave(u32 type) override;
-    virtual void LoadSave(const u8* savedata, u32 savelen) override;
+    u16 ROMRead(u32 addr) const override;
+    void ROMWrite(u32 addr, u16 val) override;
 
-    virtual u16 ROMRead(u32 addr) const override;
-    virtual void ROMWrite(u32 addr, u16 val) override;
+    u8 SRAMRead(u32 addr) override;
+    void SRAMWrite(u32 addr, u8 val) override;
 
-    virtual u8 SRAMRead(u32 addr) override;
-    virtual void SRAMWrite(u32 addr, u8 val) override;
-
-    [[nodiscard]] const u8* GetROM() const override { return ROM; }
+    [[nodiscard]] const u8* GetROM() const override { return ROM.get(); }
     [[nodiscard]] u32 GetROMLength() const override { return ROMLength; }
 
-    virtual u8* GetSaveMemory() const override;
-    virtual u32 GetSaveMemoryLength() const override;
+    u8* GetSaveMemory() const override;
+    u32 GetSaveMemoryLength() const override;
+    void SetSaveMemory(const u8* savedata, u32 savelen) override;
 protected:
     virtual void ProcessGPIO();
 
@@ -104,7 +104,7 @@ protected:
     u8 SRAMRead_SRAM(u32 addr);
     void SRAMWrite_SRAM(u32 addr, u8 val);
 
-    u8* ROM;
+    std::unique_ptr<u8[]> ROM;
     u32 ROMLength;
 
     struct
@@ -113,7 +113,7 @@ protected:
         u16 direction;
         u16 control;
 
-    } GPIO;
+    } GPIO {};
 
     enum SaveType
     {
@@ -134,37 +134,38 @@ protected:
         u8 manufacturer;
         u8 bank;
 
-    } SRAMFlashState;
+    } SRAMFlashState {};
 
-    u8* SRAM;
-    u32 SRAMLength;
-    SaveType SRAMType;
+    std::unique_ptr<u8[]> SRAM = nullptr;
+    u32 SRAMLength = 0;
+    SaveType SRAMType = S_NULL;
+private:
+    void SetupSave(u32 type);
 };
 
 // CartGameSolarSensor -- Boktai game cart
 class CartGameSolarSensor : public CartGame
 {
 public:
-    CartGameSolarSensor(u8* rom, u32 len);
-    virtual ~CartGameSolarSensor() override;
+    CartGameSolarSensor(const u8* rom, u32 len, const u8* sram, u32 sramlen);
+    CartGameSolarSensor(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen);
 
-    virtual u32 Type() const override { return CartType::GameSolarSensor; }
+    void Reset() override;
 
-    virtual void Reset() override;
+    void DoSavestate(Savestate* file) override;
 
-    virtual void DoSavestate(Savestate* file) override;
+    int SetInput(int num, bool pressed) override;
 
-    virtual int SetInput(int num, bool pressed) override;
+protected:
+    void ProcessGPIO() override;
 
 private:
-    virtual void ProcessGPIO() override;
-
     static const int kLuxLevels[11];
 
-    bool LightEdge;
-    u8 LightCounter;
-    u8 LightSample;
-    u8 LightLevel;
+    bool LightEdge = false;
+    u8 LightCounter = 0;
+    u8 LightSample = 0;
+    u8 LightLevel = 0;
 };
 
 // CartRAMExpansion -- RAM expansion cart (DS browser, ...)
@@ -174,8 +175,6 @@ public:
     CartRAMExpansion();
     ~CartRAMExpansion() override;
 
-    virtual u32 Type() const override { return CartType::RAMExpansion; }
-
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
@@ -184,8 +183,8 @@ public:
     void ROMWrite(u32 addr, u16 val) override;
 
 private:
-    u8 RAM[0x800000];
-    u16 RAMEnable;
+    u8 RAM[0x800000] {};
+    u16 RAMEnable = 0;
 };
 
 // possible inputs for GBA carts that might accept user input
@@ -198,20 +197,31 @@ enum
 class GBACartSlot
 {
 public:
-    GBACartSlot() noexcept = default;
+    GBACartSlot(std::unique_ptr<CartCommon>&& cart = nullptr) noexcept;
     ~GBACartSlot() noexcept = default;
     void Reset() noexcept;
     void DoSavestate(Savestate* file) noexcept;
-    /// Applies the GBACartData to the emulator state and unloads an existing ROM if any.
-    /// Upon successful insertion, \c cart will be nullptr and the global GBACart state
-    /// (\c CartROM, CartInserted, etc.) will be updated.
-    bool InsertROM(std::unique_ptr<CartCommon>&& cart) noexcept;
-    bool LoadROM(const u8* romdata, u32 romlen) noexcept;
-    void LoadSave(const u8* savedata, u32 savelen) noexcept;
+
+    /// Ejects the cart in the GBA slot (if any)
+    /// and inserts the given one.
+    ///
+    /// To insert a cart that does not require ROM data
+    /// (such as the RAM expansion pack),
+    /// create it manually with std::make_unique and pass it here.
+    ///
+    /// @param cart Movable \c unique_ptr to the GBA cart object.
+    /// May be \c nullptr, in which case the cart slot remains empty.
+    /// @post \c cart is \c nullptr and the underlying object
+    /// is moved into the cart slot.
+    void SetCart(std::unique_ptr<CartCommon>&& cart) noexcept;
+    [[nodiscard]] CartCommon* GetCart() noexcept { return Cart.get(); }
+    [[nodiscard]] const CartCommon* GetCart() const noexcept { return Cart.get(); }
 
     void LoadAddon(int type) noexcept;
 
-    void EjectCart() noexcept;
+    /// @return The cart that was in the cart slot if any,
+    /// or \c nullptr if the cart slot was empty.
+    std::unique_ptr<CartCommon> EjectCart() noexcept;
 
     // TODO: make more flexible, support nonbinary inputs
     int SetInput(int num, bool pressed) noexcept;
@@ -234,6 +244,16 @@ public:
     [[nodiscard]] u8* GetSaveMemory() noexcept { return Cart ? Cart->GetSaveMemory() : nullptr; }
     [[nodiscard]] const u8* GetSaveMemory() const noexcept { return Cart ? Cart->GetSaveMemory() : nullptr; }
 
+    /// Sets the loaded cart's SRAM.
+    /// Does nothing if no cart is inserted
+    /// or the inserted cart doesn't support SRAM.
+    ///
+    /// @param savedata Buffer containing the raw contents of the SRAM.
+    /// The contents of this buffer are copied into the cart slot,
+    /// so the caller may dispose of it after this method returns.
+    /// @param savelen The length of the buffer in \c savedata, in bytes.
+    void SetSaveMemory(const u8* savedata, u32 savelen) noexcept;
+
     /// @returns The length of the buffer returned by ::GetSaveMemory()
     /// if a cart is loaded and supports SRAM, otherwise zero.
     [[nodiscard]] u32 GetSaveMemoryLength() const noexcept { return Cart ? Cart->GetSaveMemoryLength() : 0; }
@@ -251,6 +271,18 @@ private:
 /// @returns A \c GBACart::CartCommon object representing the parsed ROM,
 /// or \c nullptr if the ROM data couldn't be parsed.
 std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen);
+std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen);
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sramdata, u32 sramlen);
+
+/// @param romdata The ROM data to parse. Will be moved-from.
+/// @param romlen Length of romdata in bytes.
+/// @param sramdata The save data to add to the cart.
+/// May be \c nullptr, in which case the cart will have no save data.
+/// @param sramlen Length of sramdata in bytes.
+/// May be zero, in which case the cart will have no save data.
+/// @return Unique pointer to the parsed GBA cart,
+/// or \c nullptr if there was an error.
+std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, std::unique_ptr<u8[]>&& sramdata, u32 sramlen);
 
 }
 

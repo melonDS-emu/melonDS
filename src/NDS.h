@@ -21,7 +21,7 @@
 
 #include <memory>
 #include <string>
-#include <memory>
+#include <optional>
 #include <functional>
 
 #include "Platform.h"
@@ -37,6 +37,7 @@
 #include "GPU.h"
 #include "ARMJIT.h"
 #include "DMA.h"
+#include "FreeBIOS.h"
 
 // when touching the main loop/timing code, pls test a lot of shit
 // with this enabled, to make sure it doesn't desync
@@ -44,7 +45,8 @@
 
 namespace melonDS
 {
-
+struct NDSArgs;
+class Firmware;
 enum
 {
     Event_LCD = 0,
@@ -255,8 +257,8 @@ public:
     u8 ROMSeed0[2*8];
     u8 ROMSeed1[2*8];
 
-    u8 ARM9BIOS[0x1000];
-    u8 ARM7BIOS[0x4000];
+    std::array<u8, ARM9BIOSSize> ARM9BIOS;
+    std::array<u8, ARM7BIOSSize> ARM7BIOS;
     u16 ARM7BIOSProt;
 
     u8* MainRAM;
@@ -303,25 +305,51 @@ public:
     void SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
     void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
 
-    // 0=DS  1=DSi
-    void SetConsoleType(int type);
-
     void LoadBIOS();
-    bool IsLoadedARM9BIOSBuiltIn();
-    bool IsLoadedARM7BIOSBuiltIn();
+    [[nodiscard]] bool IsLoadedARM9BIOSBuiltIn() const noexcept { return ARM9BIOS == bios_arm9_bin; }
+    [[nodiscard]] bool IsLoadedARM7BIOSBuiltIn() const noexcept { return ARM7BIOS == bios_arm7_bin; }
 
-    virtual bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
-    void LoadSave(const u8* savedata, u32 savelen);
-    virtual void EjectCart();
-    bool CartInserted();
+    [[nodiscard]] NDSCart::CartCommon* GetNDSCart() { return NDSCartSlot.GetCart(); }
+    [[nodiscard]] const NDSCart::CartCommon* GetNDSCart() const { return NDSCartSlot.GetCart(); }
+    virtual void SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart);
+    [[nodiscard]] bool CartInserted() const noexcept { return NDSCartSlot.GetCart() != nullptr; }
+    virtual std::unique_ptr<NDSCart::CartCommon> EjectCart() { return NDSCartSlot.EjectCart(); }
+
+    [[nodiscard]] u8* GetNDSSave() { return NDSCartSlot.GetSaveMemory(); }
+    [[nodiscard]] const u8* GetNDSSave() const { return NDSCartSlot.GetSaveMemory(); }
+    [[nodiscard]] u32 GetNDSSaveLength() const { return NDSCartSlot.GetSaveMemoryLength(); }
+    void SetNDSSave(const u8* savedata, u32 savelen);
+
+    const Firmware& GetFirmware() const { return SPI.GetFirmwareMem()->GetFirmware(); }
+    Firmware& GetFirmware() { return SPI.GetFirmwareMem()->GetFirmware(); }
+    void SetFirmware(Firmware&& firmware) { SPI.GetFirmwareMem()->SetFirmware(std::move(firmware)); }
 
     virtual bool NeedsDirectBoot();
     void SetupDirectBoot(const std::string& romname);
     virtual void SetupDirectBoot();
 
-    bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
+    [[nodiscard]] GBACart::CartCommon* GetGBACart() { return (ConsoleType == 1) ? nullptr : GBACartSlot.GetCart(); }
+    [[nodiscard]] const GBACart::CartCommon* GetGBACart() const {  return (ConsoleType == 1) ? nullptr : GBACartSlot.GetCart(); }
+
+    /// Inserts a GBA cart into the emulated console's Slot-2.
+    ///
+    /// @param cart The GBA cart, most likely (but not necessarily) returned from GBACart::ParseROM.
+    /// To insert an accessory that doesn't use a ROM image
+    /// (e.g. the Expansion Pak), create it manually and pass it here.
+    /// If \c nullptr, the existing cart is ejected.
+    /// If this is a DSi, this method does nothing.
+    ///
+    /// @post \c cart is \c nullptr and this NDS takes ownership
+    /// of the cart object it held, if any.
+    void SetGBACart(std::unique_ptr<GBACart::CartCommon>&& cart) { if (ConsoleType == 0) GBACartSlot.SetCart(std::move(cart)); }
+
+    u8* GetGBASave() { return GBACartSlot.GetSaveMemory(); }
+    const u8* GetGBASave() const { return GBACartSlot.GetSaveMemory(); }
+    u32 GetGBASaveLength() const { return GBACartSlot.GetSaveMemoryLength(); }
+    void SetGBASave(const u8* savedata, u32 savelen);
+
     void LoadGBAAddon(int type);
-    void EjectGBACart();
+    std::unique_ptr<GBACart::CartCommon> EjectGBACart() { return GBACartSlot.EjectCart(); }
 
     u32 RunFrame();
 
@@ -456,7 +484,8 @@ private:
     template <bool EnableJIT>
     u32 RunFrame();
 public:
-    NDS() noexcept : NDS(0) {}
+    NDS(NDSArgs&& args) noexcept : NDS(std::move(args), 0) {}
+    NDS() noexcept;
     virtual ~NDS() noexcept;
     NDS(const NDS&) = delete;
     NDS& operator=(const NDS&) = delete;
@@ -465,7 +494,7 @@ public:
     // The frontend should set and unset this manually after creating and destroying the NDS object.
     [[deprecated("Temporary workaround until JIT code generation is revised to accommodate multiple NDS objects.")]] static NDS* Current;
 protected:
-    explicit NDS(int type) noexcept;
+    explicit NDS(NDSArgs&& args, int type) noexcept;
     virtual void DoSavestateExtra(Savestate* file) {}
 };
 

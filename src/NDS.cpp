@@ -34,6 +34,7 @@
 #include "AREngine.h"
 #include "Platform.h"
 #include "FreeBIOS.h"
+#include "Args.h"
 
 #include "DSi.h"
 #include "DSi_SPI_TSC.h"
@@ -74,16 +75,31 @@ const s32 kIterationCycleMargin = 8;
 
 NDS* NDS::Current = nullptr;
 
-NDS::NDS(int type) noexcept :
+NDS::NDS() noexcept :
+    NDS(
+        NDSArgs {
+            nullptr,
+            nullptr,
+            bios_arm9_bin,
+            bios_arm7_bin,
+            Firmware(0),
+        }
+    )
+{
+}
+
+NDS::NDS(NDSArgs&& args, int type) noexcept :
     ConsoleType(type),
+    ARM7BIOS(args.ARM7BIOS),
+    ARM9BIOS(args.ARM9BIOS),
     JIT(*this),
     SPU(*this),
     GPU(*this),
-    SPI(*this),
+    SPI(*this, std::move(args.Firmware)),
     RTC(*this),
     Wifi(*this),
-    NDSCartSlot(*this),
-    GBACartSlot(),
+    NDSCartSlot(*this, std::move(args.NDSROM)),
+    GBACartSlot(type == 1 ? nullptr : std::move(args.GBAROM)),
     AREngine(*this),
     ARM9(*this),
     ARM7(*this),
@@ -238,7 +254,7 @@ bool NDS::NeedsDirectBoot()
             return true;
 
         // DSi/3DS firmwares aren't bootable
-        if (!SPI.GetFirmware()->IsBootable())
+        if (!SPI.GetFirmware().IsBootable())
             return true;
 
         return false;
@@ -710,42 +726,27 @@ bool NDS::DoSavestate(Savestate* file)
     return true;
 }
 
-bool NDS::LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
+void NDS::SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart)
 {
-    if (!NDSCartSlot.LoadROM(romdata, romlen))
-        return false;
-
-    if (savedata && savelen)
-        NDSCartSlot.LoadSave(savedata, savelen);
-
-    return true;
+    NDSCartSlot.SetCart(std::move(cart));
+    // The existing cart will always be ejected;
+    // if cart is null, then that's equivalent to ejecting a cart
+    // without inserting a new one.
 }
 
-void NDS::LoadSave(const u8* savedata, u32 savelen)
+void NDS::SetNDSSave(const u8* savedata, u32 savelen)
 {
     if (savedata && savelen)
-        NDSCartSlot.LoadSave(savedata, savelen);
+        NDSCartSlot.SetSaveMemory(savedata, savelen);
 }
 
-void NDS::EjectCart()
+void NDS::SetGBASave(const u8* savedata, u32 savelen)
 {
-    NDSCartSlot.EjectCart();
-}
+    if (ConsoleType == 0 && savedata && savelen)
+    {
+        GBACartSlot.SetSaveMemory(savedata, savelen);
+    }
 
-bool NDS::CartInserted()
-{
-    return NDSCartSlot.GetCart() != nullptr;
-}
-
-bool NDS::LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
-{
-    if (!GBACartSlot.LoadROM(romdata, romlen))
-        return false;
-
-    if (savedata && savelen)
-        GBACartSlot.LoadSave(savedata, savelen);
-
-    return true;
 }
 
 void NDS::LoadGBAAddon(int type)
@@ -753,24 +754,9 @@ void NDS::LoadGBAAddon(int type)
     GBACartSlot.LoadAddon(type);
 }
 
-void NDS::EjectGBACart()
-{
-    GBACartSlot.EjectCart();
-}
-
 void NDS::LoadBIOS()
 {
     Reset();
-}
-
-bool NDS::IsLoadedARM9BIOSBuiltIn()
-{
-    return memcmp(ARM9BIOS, bios_arm9_bin, sizeof(NDS::ARM9BIOS)) == 0;
-}
-
-bool NDS::IsLoadedARM7BIOSBuiltIn()
-{
-    return memcmp(ARM7BIOS, bios_arm7_bin, sizeof(NDS::ARM7BIOS)) == 0;
 }
 
 u64 NDS::NextTarget()
@@ -2252,7 +2238,7 @@ bool NDS::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
 
     if ((addr & 0xFFFFF000) == 0xFFFF0000 && !write)
     {
-        region->Mem = ARM9BIOS;
+        region->Mem = &ARM9BIOS[0];
         region->Mask = 0xFFF;
         return true;
     }
@@ -2700,7 +2686,7 @@ bool NDS::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
     {
         if (ARM7.R[15] < 0x4000 && (addr >= ARM7BIOSProt || ARM7.R[15] < ARM7BIOSProt))
         {
-            region->Mem = ARM7BIOS;
+            region->Mem = &ARM7BIOS[0];
             region->Mask = 0x3FFF;
             return true;
         }
