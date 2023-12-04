@@ -222,12 +222,20 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
     if (!firmware)
         return nullptr;
 
+    JITArgs jitargs {
+        static_cast<unsigned>(Config::JIT_MaxBlockSize),
+        Config::JIT_LiteralOptimisations,
+        Config::JIT_BranchOptimisations,
+        Config::JIT_FastMemory,
+    };
+
     NDSArgs ndsargs {
         std::move(ndscart),
         std::move(gbacart),
         *arm9bios,
         *arm7bios,
         std::move(*firmware),
+        Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt
     };
 
     if (Config::ConsoleType == 1)
@@ -354,10 +362,17 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
         NDS->SetGBACart(std::move(nextgbacart));
     }
 
+    JITArgs jitargs {
+        static_cast<unsigned>(Config::JIT_MaxBlockSize),
+        Config::JIT_LiteralOptimisations,
+        Config::JIT_BranchOptimisations,
+        Config::JIT_FastMemory,
+    };
     NDS->ARM7BIOS = *arm7bios;
     NDS->ARM9BIOS = *arm9bios;
     NDS->SetFirmware(std::move(*firmware));
     NDS->SetNDSCart(std::move(nextndscart));
+    NDS->SetJITArgs(Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt);
 
     NDS::Current = NDS.get();
 

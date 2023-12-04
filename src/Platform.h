@@ -96,14 +96,6 @@ std::string InstanceFileSuffix();
 
 enum ConfigEntry
 {
-#ifdef JIT_ENABLED
-    JIT_Enable,
-    JIT_MaxBlockSize,
-    JIT_LiteralOptimizations,
-    JIT_BranchOptimizations,
-    JIT_FastMemory,
-#endif
-
     Firm_MAC,
 
     AudioBitDepth,

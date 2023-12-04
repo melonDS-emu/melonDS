@@ -200,10 +200,6 @@ int GetConfigInt(ConfigEntry entry)
 
     switch (entry)
     {
-#ifdef JIT_ENABLED
-    case JIT_MaxBlockSize: return Config::JIT_MaxBlockSize;
-#endif
-
     case AudioBitDepth: return Config::AudioBitDepth;
 
 #ifdef GDBSTUB_ENABLED
@@ -219,13 +215,6 @@ bool GetConfigBool(ConfigEntry entry)
 {
     switch (entry)
     {
-#ifdef JIT_ENABLED
-    case JIT_Enable: return Config::JIT_Enable != 0;
-    case JIT_LiteralOptimizations: return Config::JIT_LiteralOptimisations != 0;
-    case JIT_BranchOptimizations: return Config::JIT_BranchOptimisations != 0;
-    case JIT_FastMemory: return Config::JIT_FastMemory != 0;
-#endif
-
     case DSi_FullBIOSBoot: return Config::DSiFullBIOSBoot != 0;
 
 #ifdef GDBSTUB_ENABLED

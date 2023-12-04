@@ -203,6 +203,22 @@ void NDS::SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswi
     }
 }
 
+#ifdef JIT_ENABLED
+void NDS::SetJITArgs(std::optional<JITArgs> args) noexcept
+{
+    if (args)
+    { // If we want to turn the JIT on...
+        JIT.SetJITArgs(*args);
+    }
+    else if (args.has_value() != EnableJIT)
+    { // Else if we want to turn the JIT off, and it wasn't already off...
+        JIT.ResetBlockCache();
+    }
+
+    EnableJIT = args.has_value();
+}
+#endif
+
 void NDS::InitTimings()
 {
     // TODO, eventually:
@@ -393,10 +409,6 @@ void NDS::Reset()
 {
     Platform::FileHandle* f;
     u32 i;
-
-#ifdef JIT_ENABLED
-    EnableJIT = Platform::GetConfigBool(Platform::JIT_Enable);
-#endif
 
     RunningGame = false;
     LastSysClockCycles = 0;

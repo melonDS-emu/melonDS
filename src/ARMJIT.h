@@ -19,6 +19,7 @@
 #ifndef ARMJIT_H
 #define ARMJIT_H
 
+#include <algorithm>
 #include <optional>
 #include <memory>
 #include "types.h"
@@ -78,16 +79,28 @@ public:
 #endif
 
     ARMJIT_Memory Memory;
+private:
     int MaxBlockSize {};
     bool LiteralOptimizations = false;
     bool BranchOptimizations = false;
     bool FastMemory = false;
-
+public:
     melonDS::NDS& NDS;
     TinyVector<u32> InvalidLiterals {};
     friend class ARMJIT_Memory;
     void blockSanityCheck(u32 num, u32 blockAddr, JitBlockEntry entry) noexcept;
     void RetireJitBlock(JitBlock* block) noexcept;
+
+    int GetMaxBlockSize() const noexcept { return MaxBlockSize; }
+    bool LiteralOptimizationsEnabled() const noexcept { return LiteralOptimizations; }
+    bool BranchOptimizationsEnabled() const noexcept { return BranchOptimizations; }
+    bool FastMemoryEnabled() const noexcept { return FastMemory; }
+
+    void SetJITArgs(JITArgs args) noexcept;
+    void SetMaxBlockSize(int size) noexcept;
+    void SetLiteralOptimizations(bool enabled) noexcept;
+    void SetBranchOptimizations(bool enabled) noexcept;
+    void SetFastMemory(bool enabled) noexcept;
 
     Compiler JITCompiler;
     std::unordered_map<u32, JitBlock*> JitBlocks9 {};

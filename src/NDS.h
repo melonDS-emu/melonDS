@@ -436,7 +436,7 @@ public:
 
 #ifdef JIT_ENABLED
     [[nodiscard]] bool IsJITEnabled() const noexcept { return EnableJIT; }
-    void SetJITEnabled(bool enable) noexcept { EnableJIT = enable; }
+    void SetJITArgs(std::optional<JITArgs> args) noexcept;
 #endif
 
 private:
