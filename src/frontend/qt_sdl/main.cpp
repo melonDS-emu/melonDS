@@ -229,15 +229,31 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
         Config::JIT_FastMemory,
     };
 
+    GDBArgs gdbargs {
+        static_cast<u16>(Config::GdbPortARM7),
+        static_cast<u16>(Config::GdbPortARM9),
+        Config::GdbARM7BreakOnStartup,
+        Config::GdbARM9BreakOnStartup,
+    };
+
     NDSArgs ndsargs {
         std::move(ndscart),
         std::move(gbacart),
         *arm9bios,
         *arm7bios,
         std::move(*firmware),
+#ifdef JIT_ENABLED
         Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt,
+#else
+        std::nullopt,
+#endif
         static_cast<AudioBitDepth>(Config::AudioBitDepth),
         static_cast<AudioInterpolation>(Config::AudioInterp),
+#ifdef GDBSTUB_ENABLED
+        Config::GdbEnabled ? std::make_optional(gdbargs) : std::nullopt,
+#else
+        std::nullopt,
+#endif
     };
 
     if (Config::ConsoleType == 1)

@@ -68,6 +68,14 @@ struct JITArgs
     bool FastMemory = true;
 };
 
+struct GDBArgs
+{
+    u16 PortARM7 = 0;
+    u16 PortARM9 = 0;
+    bool ARM7BreakOnStartup = false;
+    bool ARM9BreakOnStartup = false;
+};
+
 /// Arguments to pass into the NDS constructor.
 /// New fields here should have default values if possible.
 struct NDSArgs
@@ -105,6 +113,11 @@ struct NDSArgs
 
     AudioBitDepth BitDepth = AudioBitDepth::Auto;
     AudioInterpolation Interpolation = AudioInterpolation::None;
+
+    /// How the GDB stub should be handled.
+    /// Defaults to disabled.
+    /// Ignored in builds that don't have the GDB stub included.
+    std::optional<GDBArgs> GDB = std::nullopt;
 };
 
 /// Arguments to pass into the DSi constructor.

@@ -92,22 +92,6 @@ int InstanceID();
  */
 std::string InstanceFileSuffix();
 
-// configuration values
-
-enum ConfigEntry
-{
-#ifdef GDBSTUB_ENABLED
-    GdbEnabled,
-    GdbPortARM7,
-    GdbPortARM9,
-    GdbARM7BreakOnStartup,
-    GdbARM9BreakOnStartup,
-#endif
-};
-
-int GetConfigInt(ConfigEntry entry);
-bool GetConfigBool(ConfigEntry entry);
-
 /**
  * Denotes how a file will be opened and accessed.
  * Flags may or may not correspond to the operating system's file API.

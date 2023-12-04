@@ -106,15 +106,15 @@ const u32 ARM::ConditionTable[16] =
     0x0000  // NE
 };
 
-ARM::ARM(u32 num, bool jit, melonDS::NDS& nds) :
+ARM::ARM(u32 num, bool jit, std::optional<GDBArgs> gdb, melonDS::NDS& nds) :
 #ifdef GDBSTUB_ENABLED
-    GdbStub(this, Platform::GetConfigInt(num ? Platform::GdbPortARM7 : Platform::GdbPortARM9)),
+    GdbStub(this, gdb ? (num ? gdb->PortARM7 : gdb->PortARM9) : 0),
 #endif
     Num(num), // well uh
     NDS(nds)
 {
 #ifdef GDBSTUB_ENABLED
-    if (Platform::GetConfigBool(Platform::GdbEnabled)
+    if (gdb
 #ifdef JIT_ENABLED
             && !jit // TODO: Should we support toggling the GdbStub without destroying the ARM?
 #endif
@@ -129,14 +129,14 @@ ARM::~ARM()
     // dorp
 }
 
-ARMv5::ARMv5(melonDS::NDS& nds, bool jit) : ARM(0, jit, nds)
+ARMv5::ARMv5(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit) : ARM(0, jit, gdb, nds)
 {
     DTCM = NDS.JIT.Memory.GetARM9DTCM();
 
     PU_Map = PU_PrivMap;
 }
 
-ARMv4::ARMv4(melonDS::NDS& nds, bool jit) : ARM(1, jit, nds)
+ARMv4::ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit) : ARM(1, jit, gdb, nds)
 {
     //
 }
@@ -187,8 +187,6 @@ void ARM::Reset()
 #ifdef GDBSTUB_ENABLED
     IsSingleStep = false;
     BreakReq = false;
-    BreakOnStartup = Platform::GetConfigBool(
-        Num ? Platform::GdbARM7BreakOnStartup : Platform::GdbARM9BreakOnStartup);
 #endif
 
     // zorp

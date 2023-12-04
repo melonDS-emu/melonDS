@@ -193,36 +193,6 @@ std::string InstanceFileSuffix()
     return suffix;
 }
 
-
-int GetConfigInt(ConfigEntry entry)
-{
-    const int imgsizes[] = {0, 256, 512, 1024, 2048, 4096};
-
-    switch (entry)
-    {
-#ifdef GDBSTUB_ENABLED
-    case GdbPortARM7: return Config::GdbPortARM7;
-    case GdbPortARM9: return Config::GdbPortARM9;
-#endif
-    }
-
-    return 0;
-}
-
-bool GetConfigBool(ConfigEntry entry)
-{
-    switch (entry)
-    {
-#ifdef GDBSTUB_ENABLED
-    case GdbEnabled: return Config::GdbEnabled;
-    case GdbARM7BreakOnStartup: return Config::GdbARM7BreakOnStartup;
-    case GdbARM9BreakOnStartup: return Config::GdbARM9BreakOnStartup;
-#endif
-    }
-
-    return false;
-}
-
 constexpr char AccessMode(FileMode mode, bool file_exists)
 {
     if (!(mode & FileMode::Write))
