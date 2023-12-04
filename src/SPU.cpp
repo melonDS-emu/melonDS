@@ -65,22 +65,68 @@ const s16 SPUChannel::PSGTable[8][8] =
     {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF}
 };
 
-s16 SPUChannel::InterpCos[0x100];
-s16 SPUChannel::InterpCubic[0x100][4];
-bool SPUChannel::InterpInited = false;
+// generate interpolation tables
+// values are 1:1:14 fixed-point
+constexpr std::array<s16, 0x100> InterpCos = []() constexpr {
+    std::array<s16, 0x100> interp {};
 
+    float m_pi = std::acos(-1.0f);
+    for (int i = 0; i < 0x100; i++)
+    {
+        float ratio = (i * m_pi) / 255.0f;
+        ratio = 1.0f - std::cos(ratio);
 
-SPU::SPU(melonDS::NDS& nds) : NDS(nds)
+        interp[i] = (s16)(ratio * 0x2000);
+    }
+
+    return interp;
+}();
+
+constexpr array2d<s16, 0x100, 4> InterpCubic = []() constexpr {
+    array2d<s16, 0x100, 4> interp {};
+
+    for (int i = 0; i < 0x100; i++)
+    {
+        s32 i1 = i << 6;
+        s32 i2 = (i * i) >> 2;
+        s32 i3 = (i * i * i) >> 10;
+
+        interp[i][0] = -i3 + 2*i2 - i1;
+        interp[i][1] = i3 - 2*i2 + 0x4000;
+        interp[i][2] = -i3 + i2 + i1;
+        interp[i][3] = i3 - i2;
+    }
+
+    return interp;
+}();
+
+SPU::SPU(melonDS::NDS& nds) :
+    NDS(nds),
+    Channels {
+        SPUChannel(0, nds),
+        SPUChannel(1, nds),
+        SPUChannel(2, nds),
+        SPUChannel(3, nds),
+        SPUChannel(4, nds),
+        SPUChannel(5, nds),
+        SPUChannel(6, nds),
+        SPUChannel(7, nds),
+        SPUChannel(8, nds),
+        SPUChannel(9, nds),
+        SPUChannel(10, nds),
+        SPUChannel(11, nds),
+        SPUChannel(12, nds),
+        SPUChannel(13, nds),
+        SPUChannel(14, nds),
+        SPUChannel(15, nds),
+    },
+    Capture {
+        SPUCaptureUnit(0, nds),
+        SPUCaptureUnit(1, nds),
+    },
+    AudioLock(Platform::Mutex_Create())
 {
     NDS.RegisterEventFunc(Event_SPU, 0, MemberEventFunc(SPU, Mix));
-
-    for (int i = 0; i < 16; i++)
-        Channels[i] = new SPUChannel(i, NDS);
-
-    Capture[0] = new SPUCaptureUnit(0, NDS);
-    Capture[1] = new SPUCaptureUnit(1, NDS);
-
-    AudioLock = Platform::Mutex_Create();
 
     ApplyBias = true;
     Degrade10Bit = false;
@@ -90,50 +136,10 @@ SPU::SPU(melonDS::NDS& nds) : NDS(nds)
     OutputBackbufferWritePosition = 0;
     OutputFrontBufferReadPosition = 0;
     OutputFrontBufferWritePosition = 0;
-
-    if (!SPUChannel::InterpInited)
-    {
-        // generate interpolation tables
-        // values are 1:1:14 fixed-point
-
-        float m_pi = std::acos(-1.0f);
-        for (int i = 0; i < 0x100; i++)
-        {
-            float ratio = (i * m_pi) / 255.0f;
-            ratio = 1.0f - std::cos(ratio);
-
-            SPUChannel::InterpCos[i] = (s16)(ratio * 0x2000);
-        }
-
-        for (int i = 0; i < 0x100; i++)
-        {
-            s32 i1 = i << 6;
-            s32 i2 = (i * i) >> 2;
-            s32 i3 = (i * i * i) >> 10;
-
-            SPUChannel::InterpCubic[i][0] = -i3 + 2*i2 - i1;
-            SPUChannel::InterpCubic[i][1] = i3 - 2*i2 + 0x4000;
-            SPUChannel::InterpCubic[i][2] = -i3 + i2 + i1;
-            SPUChannel::InterpCubic[i][3] = i3 - i2;
-        }
-
-        SPUChannel::InterpInited = true;
-    }
 }
 
 SPU::~SPU()
 {
-    for (int i = 0; i < 16; i++)
-    {
-        delete Channels[i];
-        Channels[i] = nullptr;
-    }
-
-    delete Capture[0];
-    delete Capture[1];
-    Capture[0] = nullptr;
-    Capture[1] = nullptr;
-
     Platform::Mutex_Free(AudioLock);
     AudioLock = nullptr;
 
@@ -149,10 +155,10 @@ void SPU::Reset()
     Bias = 0;
 
     for (int i = 0; i < 16; i++)
-        Channels[i]->Reset();
+        Channels[i].Reset();
 
-    Capture[0]->Reset();
-    Capture[1]->Reset();
+    Capture[0].Reset();
+    Capture[1].Reset();
 
     NDS.ScheduleEvent(Event_SPU, false, 1024, 0, 0);
 }
@@ -176,11 +182,11 @@ void SPU::DoSavestate(Savestate* file)
     file->Var8(&MasterVolume);
     file->Var16(&Bias);
 
-    for (int i = 0; i < 16; i++)
-        Channels[i]->DoSavestate(file);
+    for (SPUChannel& channel : Channels)
+        channel.DoSavestate(file);
 
-    Capture[0]->DoSavestate(file);
-    Capture[1]->DoSavestate(file);
+    for (SPUCaptureUnit& capture : Capture)
+        capture.DoSavestate(file);
 }
 
 
@@ -192,8 +198,8 @@ void SPU::SetPowerCnt(u32 val)
 
 void SPU::SetInterpolation(int type)
 {
-    for (int i = 0; i < 16; i++)
-        Channels[i]->InterpType = type;
+    for (SPUChannel& channel : Channels)
+        channel.InterpType = type;
 }
 
 void SPU::SetBias(u16 bias)
@@ -212,14 +218,7 @@ void SPU::SetDegrade10Bit(bool enable)
 }
 
 
-SPUChannel::SPUChannel(u32 num, melonDS::NDS& nds) : NDS(nds)
-{
-    Num = num;
-
-    InterpType = 0;
-}
-
-SPUChannel::~SPUChannel()
+SPUChannel::SPUChannel(u32 num, melonDS::NDS& nds) : NDS(nds), Num(num)
 {
 }
 
@@ -580,11 +579,6 @@ void SPUChannel::PanOutput(s32 in, s32& left, s32& right)
 
 SPUCaptureUnit::SPUCaptureUnit(u32 num, melonDS::NDS& nds) : NDS(nds), Num(num)
 {
-    Num = num;
-}
-
-SPUCaptureUnit::~SPUCaptureUnit()
-{
 }
 
 void SPUCaptureUnit::Reset()
@@ -713,21 +707,21 @@ void SPU::Mix(u32 dummy)
 
     if ((Cnt & (1<<15)) && (!dummy))
     {
-        s32 ch0 = Channels[0]->DoRun();
-        s32 ch1 = Channels[1]->DoRun();
-        s32 ch2 = Channels[2]->DoRun();
-        s32 ch3 = Channels[3]->DoRun();
+        s32 ch0 = Channels[0].DoRun();
+        s32 ch1 = Channels[1].DoRun();
+        s32 ch2 = Channels[2].DoRun();
+        s32 ch3 = Channels[3].DoRun();
 
         // TODO: addition from capture registers
-        Channels[0]->PanOutput(ch0, left, right);
-        Channels[2]->PanOutput(ch2, left, right);
+        Channels[0].PanOutput(ch0, left, right);
+        Channels[2].PanOutput(ch2, left, right);
 
-        if (!(Cnt & (1<<12))) Channels[1]->PanOutput(ch1, left, right);
-        if (!(Cnt & (1<<13))) Channels[3]->PanOutput(ch3, left, right);
+        if (!(Cnt & (1<<12))) Channels[1].PanOutput(ch1, left, right);
+        if (!(Cnt & (1<<13))) Channels[3].PanOutput(ch3, left, right);
 
         for (int i = 4; i < 16; i++)
         {
-            SPUChannel* chan = Channels[i];
+            SPUChannel* chan = &Channels[i];
 
             s32 channel = chan->DoRun();
             chan->PanOutput(channel, left, right);
@@ -736,7 +730,7 @@ void SPU::Mix(u32 dummy)
         // sound capture
         // TODO: other sound capture sources, along with their bugs
 
-        if (Capture[0]->Cnt & (1<<7))
+        if (Capture[0].Cnt & (1<<7))
         {
             s32 val = left;
 
@@ -744,10 +738,10 @@ void SPU::Mix(u32 dummy)
             if      (val < -0x8000) val = -0x8000;
             else if (val > 0x7FFF)  val = 0x7FFF;
 
-            Capture[0]->Run(val);
+            Capture[0].Run(val);
         }
 
-        if (Capture[1]->Cnt & (1<<7))
+        if (Capture[1].Cnt & (1<<7))
         {
             s32 val = right;
 
@@ -755,7 +749,7 @@ void SPU::Mix(u32 dummy)
             if      (val < -0x8000) val = -0x8000;
             else if (val > 0x7FFF)  val = 0x7FFF;
 
-            Capture[1]->Run(val);
+            Capture[1].Run(val);
         }
 
         // final output
@@ -767,20 +761,20 @@ void SPU::Mix(u32 dummy)
             break;
         case 0x0100: // channel 1
             {
-                s32 pan = 128 - Channels[1]->Pan;
+                s32 pan = 128 - Channels[1].Pan;
                 leftoutput = ((s64)ch1 * pan) >> 10;
             }
             break;
         case 0x0200: // channel 3
             {
-                s32 pan = 128 - Channels[3]->Pan;
+                s32 pan = 128 - Channels[3].Pan;
                 leftoutput = ((s64)ch3 * pan) >> 10;
             }
             break;
         case 0x0300: // channel 1+3
             {
-                s32 pan1 = 128 - Channels[1]->Pan;
-                s32 pan3 = 128 - Channels[3]->Pan;
+                s32 pan1 = 128 - Channels[1].Pan;
+                s32 pan3 = 128 - Channels[3].Pan;
                 leftoutput = (((s64)ch1 * pan1) >> 10) + (((s64)ch3 * pan3) >> 10);
             }
             break;
@@ -793,20 +787,20 @@ void SPU::Mix(u32 dummy)
             break;
         case 0x0400: // channel 1
             {
-                s32 pan = Channels[1]->Pan;
+                s32 pan = Channels[1].Pan;
                 rightoutput = ((s64)ch1 * pan) >> 10;
             }
             break;
         case 0x0800: // channel 3
             {
-                s32 pan = Channels[3]->Pan;
+                s32 pan = Channels[3].Pan;
                 rightoutput = ((s64)ch3 * pan) >> 10;
             }
             break;
         case 0x0C00: // channel 1+3
             {
-                s32 pan1 = Channels[1]->Pan;
-                s32 pan3 = Channels[3]->Pan;
+                s32 pan1 = Channels[1].Pan;
+                s32 pan3 = Channels[3].Pan;
                 rightoutput = (((s64)ch1 * pan1) >> 10) + (((s64)ch3 * pan3) >> 10);
             }
             break;
@@ -982,7 +976,7 @@ u8 SPU::Read8(u32 addr)
 {
     if (addr < 0x04000500)
     {
-        SPUChannel* chan = Channels[(addr >> 4) & 0xF];
+        SPUChannel* chan = &Channels[(addr >> 4) & 0xF];
 
         switch (addr & 0xF)
         {
@@ -999,8 +993,8 @@ u8 SPU::Read8(u32 addr)
         case 0x04000500: return Cnt & 0x7F;
         case 0x04000501: return Cnt >> 8;
 
-        case 0x04000508: return Capture[0]->Cnt;
-        case 0x04000509: return Capture[1]->Cnt;
+        case 0x04000508: return Capture[0].Cnt;
+        case 0x04000509: return Capture[1].Cnt;
         }
     }
 
@@ -1012,7 +1006,7 @@ u16 SPU::Read16(u32 addr)
 {
     if (addr < 0x04000500)
     {
-        SPUChannel* chan = Channels[(addr >> 4) & 0xF];
+        SPUChannel* chan = &Channels[(addr >> 4) & 0xF];
 
         switch (addr & 0xF)
         {
@@ -1027,7 +1021,7 @@ u16 SPU::Read16(u32 addr)
         case 0x04000500: return Cnt;
         case 0x04000504: return Bias;
 
-        case 0x04000508: return Capture[0]->Cnt | (Capture[1]->Cnt << 8);
+        case 0x04000508: return Capture[0].Cnt | (Capture[1].Cnt << 8);
         }
     }
 
@@ -1039,7 +1033,7 @@ u32 SPU::Read32(u32 addr)
 {
     if (addr < 0x04000500)
     {
-        SPUChannel* chan = Channels[(addr >> 4) & 0xF];
+        SPUChannel* chan = &Channels[(addr >> 4) & 0xF];
 
         switch (addr & 0xF)
         {
@@ -1053,10 +1047,10 @@ u32 SPU::Read32(u32 addr)
         case 0x04000500: return Cnt;
         case 0x04000504: return Bias;
 
-        case 0x04000508: return Capture[0]->Cnt | (Capture[1]->Cnt << 8);
+        case 0x04000508: return Capture[0].Cnt | (Capture[1].Cnt << 8);
 
-        case 0x04000510: return Capture[0]->DstAddr;
-        case 0x04000518: return Capture[1]->DstAddr;
+        case 0x04000510: return Capture[0].DstAddr;
+        case 0x04000518: return Capture[1].DstAddr;
         }
     }
 
@@ -1068,7 +1062,7 @@ void SPU::Write8(u32 addr, u8 val)
 {
     if (addr < 0x04000500)
     {
-        SPUChannel* chan = Channels[(addr >> 4) & 0xF];
+        SPUChannel* chan = &Channels[(addr >> 4) & 0xF];
 
         switch (addr & 0xF)
         {
@@ -1092,11 +1086,11 @@ void SPU::Write8(u32 addr, u8 val)
             return;
 
         case 0x04000508:
-            Capture[0]->SetCnt(val);
+            Capture[0].SetCnt(val);
             if (val & 0x03) Log(LogLevel::Warn, "!! UNSUPPORTED SPU CAPTURE MODE %02X\n", val);
             return;
         case 0x04000509:
-            Capture[1]->SetCnt(val);
+            Capture[1].SetCnt(val);
             if (val & 0x03) Log(LogLevel::Warn, "!! UNSUPPORTED SPU CAPTURE MODE %02X\n", val);
             return;
         }
@@ -1109,7 +1103,7 @@ void SPU::Write16(u32 addr, u16 val)
 {
     if (addr < 0x04000500)
     {
-        SPUChannel* chan = Channels[(addr >> 4) & 0xF];
+        SPUChannel* chan = &Channels[(addr >> 4) & 0xF];
 
         switch (addr & 0xF)
         {
@@ -1117,8 +1111,8 @@ void SPU::Write16(u32 addr, u16 val)
         case 0x2: chan->SetCnt((chan->Cnt & 0x0000FFFF) | (val << 16)); return;
         case 0x8:
             chan->SetTimerReload(val);
-            if      ((addr & 0xF0) == 0x10) Capture[0]->SetTimerReload(val);
-            else if ((addr & 0xF0) == 0x30) Capture[1]->SetTimerReload(val);
+            if      ((addr & 0xF0) == 0x10) Capture[0].SetTimerReload(val);
+            else if ((addr & 0xF0) == 0x30) Capture[1].SetTimerReload(val);
             return;
         case 0xA: chan->SetLoopPos(val); return;
 
@@ -1141,13 +1135,13 @@ void SPU::Write16(u32 addr, u16 val)
             return;
 
         case 0x04000508:
-            Capture[0]->SetCnt(val & 0xFF);
-            Capture[1]->SetCnt(val >> 8);
+            Capture[0].SetCnt(val & 0xFF);
+            Capture[1].SetCnt(val >> 8);
             if (val & 0x0303) Log(LogLevel::Warn, "!! UNSUPPORTED SPU CAPTURE MODE %04X\n", val);
             return;
 
-        case 0x04000514: Capture[0]->SetLength(val); return;
-        case 0x0400051C: Capture[1]->SetLength(val); return;
+        case 0x04000514: Capture[0].SetLength(val); return;
+        case 0x0400051C: Capture[1].SetLength(val); return;
         }
     }
 
@@ -1158,7 +1152,7 @@ void SPU::Write32(u32 addr, u32 val)
 {
     if (addr < 0x04000500)
     {
-        SPUChannel* chan = Channels[(addr >> 4) & 0xF];
+        SPUChannel* chan = &Channels[(addr >> 4) & 0xF];
 
         switch (addr & 0xF)
         {
@@ -1168,8 +1162,8 @@ void SPU::Write32(u32 addr, u32 val)
             chan->SetLoopPos(val >> 16);
             val &= 0xFFFF;
             chan->SetTimerReload(val);
-            if      ((addr & 0xF0) == 0x10) Capture[0]->SetTimerReload(val);
-            else if ((addr & 0xF0) == 0x30) Capture[1]->SetTimerReload(val);
+            if      ((addr & 0xF0) == 0x10) Capture[0].SetTimerReload(val);
+            else if ((addr & 0xF0) == 0x30) Capture[1].SetTimerReload(val);
             return;
         case 0xC: chan->SetLength(val); return;
         }
@@ -1189,15 +1183,15 @@ void SPU::Write32(u32 addr, u32 val)
             return;
 
         case 0x04000508:
-            Capture[0]->SetCnt(val & 0xFF);
-            Capture[1]->SetCnt(val >> 8);
+            Capture[0].SetCnt(val & 0xFF);
+            Capture[1].SetCnt(val >> 8);
             if (val & 0x0303) Log(LogLevel::Warn, "!! UNSUPPORTED SPU CAPTURE MODE %04X\n", val);
             return;
 
-        case 0x04000510: Capture[0]->SetDstAddr(val); return;
-        case 0x04000514: Capture[0]->SetLength(val & 0xFFFF); return;
-        case 0x04000518: Capture[1]->SetDstAddr(val); return;
-        case 0x0400051C: Capture[1]->SetLength(val & 0xFFFF); return;
+        case 0x04000510: Capture[0].SetDstAddr(val); return;
+        case 0x04000514: Capture[0].SetLength(val & 0xFFFF); return;
+        case 0x04000518: Capture[1].SetDstAddr(val); return;
+        case 0x0400051C: Capture[1].SetLength(val & 0xFFFF); return;
         }
     }
 }
