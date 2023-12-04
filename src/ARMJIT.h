@@ -19,6 +19,7 @@
 #ifndef ARMJIT_H
 #define ARMJIT_H
 
+#include <optional>
 #include <memory>
 #include "types.h"
 
@@ -30,6 +31,7 @@
 #endif
 
 #include "ARMJIT_Compiler.h"
+#include "Args.h"
 #include "MemConstants.h"
 
 namespace melonDS
@@ -40,7 +42,15 @@ class JitBlock;
 class ARMJIT
 {
 public:
-    ARMJIT(melonDS::NDS& nds) noexcept : NDS(nds), Memory(nds), JITCompiler(nds) {};
+    ARMJIT(melonDS::NDS& nds, std::optional<JITArgs> jit) noexcept :
+        NDS(nds),
+        Memory(nds),
+        JITCompiler(nds),
+        MaxBlockSize(jit.has_value() ? std::clamp(jit->MaxBlockSize, 1u, 32u) : 32),
+        LiteralOptimizations(jit.has_value() ? jit->LiteralOptimizations : false),
+        BranchOptimizations(jit.has_value() ? jit->BranchOptimizations : false),
+        FastMemory(jit.has_value() ? jit->FastMemory : false)
+    {}
     ~ARMJIT() noexcept NOOP_IF_NO_JIT;
     void InvalidateByAddr(u32) noexcept NOOP_IF_NO_JIT;
     void CheckAndInvalidateWVRAM(int) noexcept NOOP_IF_NO_JIT;

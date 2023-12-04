@@ -92,7 +92,7 @@ NDS::NDS(NDSArgs&& args, int type) noexcept :
     ConsoleType(type),
     ARM7BIOS(args.ARM7BIOS),
     ARM9BIOS(args.ARM9BIOS),
-    JIT(*this),
+    JIT(*this, args.JIT),
     SPU(*this),
     GPU(*this),
     SPI(*this, std::move(args.Firmware)),
