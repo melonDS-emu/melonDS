@@ -140,31 +140,32 @@ constexpr array2d<s16, 0x100, 4> InterpCubic = []() constexpr {
     return interp;
 }();
 
-SPU::SPU(melonDS::NDS& nds) :
+SPU::SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpolation) :
     NDS(nds),
     Channels {
-        SPUChannel(0, nds),
-        SPUChannel(1, nds),
-        SPUChannel(2, nds),
-        SPUChannel(3, nds),
-        SPUChannel(4, nds),
-        SPUChannel(5, nds),
-        SPUChannel(6, nds),
-        SPUChannel(7, nds),
-        SPUChannel(8, nds),
-        SPUChannel(9, nds),
-        SPUChannel(10, nds),
-        SPUChannel(11, nds),
-        SPUChannel(12, nds),
-        SPUChannel(13, nds),
-        SPUChannel(14, nds),
-        SPUChannel(15, nds),
+        SPUChannel(0, nds, interpolation),
+        SPUChannel(1, nds, interpolation),
+        SPUChannel(2, nds, interpolation),
+        SPUChannel(3, nds, interpolation),
+        SPUChannel(4, nds, interpolation),
+        SPUChannel(5, nds, interpolation),
+        SPUChannel(6, nds, interpolation),
+        SPUChannel(7, nds, interpolation),
+        SPUChannel(8, nds, interpolation),
+        SPUChannel(9, nds, interpolation),
+        SPUChannel(10, nds, interpolation),
+        SPUChannel(11, nds, interpolation),
+        SPUChannel(12, nds, interpolation),
+        SPUChannel(13, nds, interpolation),
+        SPUChannel(14, nds, interpolation),
+        SPUChannel(15, nds, interpolation),
     },
     Capture {
         SPUCaptureUnit(0, nds),
         SPUCaptureUnit(1, nds),
     },
-    AudioLock(Platform::Mutex_Create())
+    AudioLock(Platform::Mutex_Create()),
+    Degrade10Bit(bitdepth == AudioBitDepth::_10Bit || (nds.ConsoleType == 1 && bitdepth == AudioBitDepth::Auto))
 {
     NDS.RegisterEventFunc(Event_SPU, 0, MemberEventFunc(SPU, Mix));
 
@@ -236,7 +237,7 @@ void SPU::SetPowerCnt(u32 val)
 }
 
 
-void SPU::SetInterpolation(int type)
+void SPU::SetInterpolation(AudioInterpolation type)
 {
     for (SPUChannel& channel : Channels)
         channel.InterpType = type;
@@ -257,8 +258,26 @@ void SPU::SetDegrade10Bit(bool enable)
     Degrade10Bit = enable;
 }
 
+void SPU::SetDegrade10Bit(AudioBitDepth depth)
+{
+    switch (depth)
+    {
+    case AudioBitDepth::Auto:
+        Degrade10Bit = (NDS.ConsoleType == 0);
+        break;
+    case AudioBitDepth::_10Bit:
+        Degrade10Bit = true;
+        break;
+    case AudioBitDepth::_16Bit:
+        Degrade10Bit = false;
+        break;
+    }
+}
 
-SPUChannel::SPUChannel(u32 num, melonDS::NDS& nds) : NDS(nds), Num(num)
+SPUChannel::SPUChannel(u32 num, melonDS::NDS& nds, AudioInterpolation interpolation) :
+    NDS(nds),
+    Num(num),
+    InterpType(interpolation)
 {
 }
 
@@ -559,7 +578,7 @@ s32 SPUChannel::Run()
         // for optional interpolation: save previous samples
         // the interpolated audio will be delayed by a couple samples,
         // but it's easier to deal with this way
-        if ((type < 3) && (InterpType != 0))
+        if ((type < 3) && (InterpType != AudioInterpolation::None))
         {
             PrevSample[2] = PrevSample[1];
             PrevSample[1] = PrevSample[0];
@@ -579,24 +598,24 @@ s32 SPUChannel::Run()
     s32 val = (s32)CurSample;
 
     // interpolation (emulation improvement, not a hardware feature)
-    if ((type < 3) && (InterpType != 0))
+    if ((type < 3) && (InterpType != AudioInterpolation::None))
     {
         s32 samplepos = ((Timer - TimerReload) * 0x100) / (0x10000 - TimerReload);
         if (samplepos > 0xFF) samplepos = 0xFF;
 
         switch (InterpType)
         {
-        case 1: // linear
+        case AudioInterpolation::Linear:
             val = ((val           * samplepos) +
                    (PrevSample[0] * (0xFF-samplepos))) >> 8;
             break;
 
-        case 2: // cosine
+        case AudioInterpolation::Cosine:
             val = ((val           * InterpCos[samplepos]) +
                    (PrevSample[0] * InterpCos[0xFF-samplepos])) >> 14;
             break;
 
-        case 3: // cubic
+        case AudioInterpolation::Cubic:
             val = ((PrevSample[2] * InterpCubic[samplepos][0]) +
                    (PrevSample[1] * InterpCubic[samplepos][1]) +
                    (PrevSample[0] * InterpCubic[samplepos][2]) +

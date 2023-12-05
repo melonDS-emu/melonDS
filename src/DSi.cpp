@@ -111,6 +111,8 @@ void DSi::Reset()
     //ARM9.CP15Write(0x100, ARM9.CP15Read(0x100) | 0x00050000);
     NDS::Reset();
 
+    // The SOUNDBIAS register does nothing on DSi
+    SPU.SetApplyBias(false);
     KeyInput &= ~(1 << (16+6));
     MapSharedWRAM(3);
 
@@ -128,7 +130,7 @@ void DSi::Reset()
 
     AES.Reset();
 
-    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    if (FullBIOSBoot)
     {
         SCFG_BIOS = 0x0000;
     }
@@ -679,7 +681,7 @@ void DSi::SoftReset()
 
     AES.Reset();
 
-    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    if (FullBIOSBoot)
     {
         SCFG_BIOS = 0x0000;
     }
@@ -741,7 +743,7 @@ bool DSi::LoadNAND()
     memset(NWRAMMask, 0, sizeof(NWRAMMask));
 
     u32 bootparams[8];
-    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    if (FullBIOSBoot)
     {
         // TODO: figure out default MBK mapping
         // MBK1..5: disable mappings
@@ -879,7 +881,7 @@ bool DSi::LoadNAND()
     Log(LogLevel::Debug, "eMMC CID: %08llX%08llX\n", *(const u64*)&emmccid[0], *(const u64*)&emmccid[8]);
     Log(LogLevel::Debug, "Console ID: %" PRIx64 "\n", image->GetConsoleID());
 
-    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    if (FullBIOSBoot)
     {
         // point CPUs to boot ROM reset vectors
         ARM9.JumpTo(0xFFFF0000);

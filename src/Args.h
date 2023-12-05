@@ -23,12 +23,15 @@
 #include <optional>
 #include <memory>
 
+#include "NDSCart.h"
+#include "GBACart.h"
 #include "types.h"
 #include "MemConstants.h"
 #include "DSi_NAND.h"
 #include "FATStorage.h"
 #include "FreeBIOS.h"
 #include "SPI_Firmware.h"
+#include "SPU.h"
 
 namespace melonDS
 {
@@ -49,6 +52,29 @@ constexpr std::array<u8, N> BrokenBIOS = []() constexpr {
 
     return broken;
 }();
+
+/// Arguments that configure the JIT.
+/// Ignored in builds that don't have the JIT included.
+struct JITArgs
+{
+    unsigned MaxBlockSize = 32;
+    bool LiteralOptimizations = true;
+    bool BranchOptimizations = true;
+
+    /// Ignored in builds that have fast memory excluded
+    /// (even if the JIT is otherwise available).
+    /// Enabled by default, but frontends should disable this when debugging
+    /// so the constants segfaults don't hinder debugging.
+    bool FastMemory = true;
+};
+
+struct GDBArgs
+{
+    u16 PortARM7 = 0;
+    u16 PortARM9 = 0;
+    bool ARM7BreakOnStartup = false;
+    bool ARM9BreakOnStartup = false;
+};
 
 /// Arguments to pass into the NDS constructor.
 /// New fields here should have default values if possible.
@@ -78,6 +104,20 @@ struct NDSArgs
     /// Defaults to generated NDS firmware.
     /// Generated firmware is not compatible with DSi mode.
     melonDS::Firmware Firmware {0};
+
+    /// How the JIT should be configured when initializing.
+    /// Defaults to enabled, with default settings.
+    /// To disable the JIT, set this to std::nullopt.
+    /// Ignored in builds that don't have the JIT included.
+    std::optional<JITArgs> JIT = JITArgs();
+
+    AudioBitDepth BitDepth = AudioBitDepth::Auto;
+    AudioInterpolation Interpolation = AudioInterpolation::None;
+
+    /// How the GDB stub should be handled.
+    /// Defaults to disabled.
+    /// Ignored in builds that don't have the GDB stub included.
+    std::optional<GDBArgs> GDB = std::nullopt;
 };
 
 /// Arguments to pass into the DSi constructor.
@@ -95,6 +135,8 @@ struct DSiArgs final : public NDSArgs
     /// SD card to install.
     /// Defaults to std::nullopt, which means no SD card.
     std::optional<FATStorage> DSiSDCard;
+
+    bool FullBIOSBoot = false;
 };
 }
 #endif //MELONDS_ARGS_H

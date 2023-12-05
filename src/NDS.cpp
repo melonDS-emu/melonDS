@@ -92,8 +92,8 @@ NDS::NDS(NDSArgs&& args, int type) noexcept :
     ConsoleType(type),
     ARM7BIOS(args.ARM7BIOS),
     ARM9BIOS(args.ARM9BIOS),
-    JIT(*this),
-    SPU(*this),
+    JIT(*this, args.JIT),
+    SPU(*this, args.BitDepth, args.Interpolation),
     GPU(*this),
     SPI(*this, std::move(args.Firmware)),
     RTC(*this),
@@ -101,8 +101,8 @@ NDS::NDS(NDSArgs&& args, int type) noexcept :
     NDSCartSlot(*this, std::move(args.NDSROM)),
     GBACartSlot(type == 1 ? nullptr : std::move(args.GBAROM)),
     AREngine(*this),
-    ARM9(*this),
-    ARM7(*this),
+    ARM9(*this, args.GDB, args.JIT.has_value()),
+    ARM7(*this, args.GDB, args.JIT.has_value()),
     DMAs {
         DMA(0, 0, *this),
         DMA(0, 1, *this),
@@ -203,6 +203,22 @@ void NDS::SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswi
     }
 }
 
+#ifdef JIT_ENABLED
+void NDS::SetJITArgs(std::optional<JITArgs> args) noexcept
+{
+    if (args)
+    { // If we want to turn the JIT on...
+        JIT.SetJITArgs(*args);
+    }
+    else if (args.has_value() != EnableJIT)
+    { // Else if we want to turn the JIT off, and it wasn't already off...
+        JIT.ResetBlockCache();
+    }
+
+    EnableJIT = args.has_value();
+}
+#endif
+
 void NDS::InitTimings()
 {
     // TODO, eventually:
@@ -249,12 +265,12 @@ bool NDS::NeedsDirectBoot()
     }
     else
     {
-        // internal BIOS does not support direct boot
-        if (!Platform::GetConfigBool(Platform::ExternalBIOSEnable))
+        // DSi/3DS firmwares aren't bootable, neither is the generated firmware
+        if (!SPI.GetFirmware().IsBootable())
             return true;
 
-        // DSi/3DS firmwares aren't bootable
-        if (!SPI.GetFirmware().IsBootable())
+        // FreeBIOS requires direct boot (it can't boot firmware)
+        if (IsLoadedARM7BIOSBuiltIn() || IsLoadedARM9BIOSBuiltIn())
             return true;
 
         return false;
@@ -394,10 +410,6 @@ void NDS::Reset()
     Platform::FileHandle* f;
     u32 i;
 
-#ifdef JIT_ENABLED
-    EnableJIT = Platform::GetConfigBool(Platform::JIT_Enable);
-#endif
-
     RunningGame = false;
     LastSysClockCycles = 0;
 
@@ -505,28 +517,6 @@ void NDS::Reset()
     SPI.Reset();
     RTC.Reset();
     Wifi.Reset();
-
-    // TODO: move the SOUNDBIAS/degrade logic to SPU?
-
-    // The SOUNDBIAS register does nothing on DSi
-    SPU.SetApplyBias(ConsoleType == 0);
-
-    bool degradeAudio = true;
-
-    if (ConsoleType == 1)
-    {
-        //DSi::Reset();
-        KeyInput &= ~(1 << (16+6));
-        degradeAudio = false;
-    }
-
-    int bitDepth = Platform::GetConfigInt(Platform::AudioBitDepth);
-    if (bitDepth == 1) // Always 10-bit
-        degradeAudio = true;
-    else if (bitDepth == 2) // Always 16-bit
-        degradeAudio = false;
-
-    SPU.SetDegrade10Bit(degradeAudio);
 }
 
 void NDS::Start()

@@ -222,12 +222,42 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
     if (!firmware)
         return nullptr;
 
+#ifdef JIT_ENABLED
+    JITArgs jitargs {
+        static_cast<unsigned>(Config::JIT_MaxBlockSize),
+        Config::JIT_LiteralOptimisations,
+        Config::JIT_BranchOptimisations,
+        Config::JIT_FastMemory,
+    };
+#endif
+
+#ifdef GDBSTUB_ENABLED
+    GDBArgs gdbargs {
+        static_cast<u16>(Config::GdbPortARM7),
+        static_cast<u16>(Config::GdbPortARM9),
+        Config::GdbARM7BreakOnStartup,
+        Config::GdbARM9BreakOnStartup,
+    };
+#endif
+
     NDSArgs ndsargs {
         std::move(ndscart),
         std::move(gbacart),
         *arm9bios,
         *arm7bios,
         std::move(*firmware),
+#ifdef JIT_ENABLED
+        Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt,
+#else
+        std::nullopt,
+#endif
+        static_cast<AudioBitDepth>(Config::AudioBitDepth),
+        static_cast<AudioInterpolation>(Config::AudioInterp),
+#ifdef GDBSTUB_ENABLED
+        Config::GdbEnabled ? std::make_optional(gdbargs) : std::nullopt,
+#else
+        std::nullopt,
+#endif
     };
 
     if (Config::ConsoleType == 1)
@@ -251,6 +281,7 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
             *arm7ibios,
             std::move(*nand),
             std::move(sdcard),
+            Config::DSiFullBIOSBoot,
         };
 
         args.GBAROM = nullptr;
@@ -339,6 +370,7 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
 
         auto dsisdcard = ROMManager::LoadDSiSDCard();
 
+        dsi.SetFullBIOSBoot(Config::DSiFullBIOSBoot);
         dsi.ARM7iBIOS = *arm7ibios;
         dsi.ARM9iBIOS = *arm9ibios;
         dsi.SetNAND(std::move(*nandimage));
@@ -354,10 +386,19 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
         NDS->SetGBACart(std::move(nextgbacart));
     }
 
+    JITArgs jitargs {
+        static_cast<unsigned>(Config::JIT_MaxBlockSize),
+        Config::JIT_LiteralOptimisations,
+        Config::JIT_BranchOptimisations,
+        Config::JIT_FastMemory,
+    };
     NDS->ARM7BIOS = *arm7bios;
     NDS->ARM9BIOS = *arm9bios;
     NDS->SetFirmware(std::move(*firmware));
     NDS->SetNDSCart(std::move(nextndscart));
+    NDS->SetJITArgs(Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt);
+    NDS->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
+    NDS->SPU.SetDegrade10Bit(static_cast<AudioBitDepth>(Config::AudioBitDepth));
 
     NDS::Current = NDS.get();
 
@@ -509,8 +550,6 @@ void EmuThread::run()
         glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
         NDS->GPU.SetRenderer3D(std::move(glrenderer));
     }
-
-    NDS->SPU.SetInterpolation(Config::AudioInterp);
 
     Input::Init();
 
@@ -3137,7 +3176,7 @@ void MainWindow::onPathSettingsFinished(int res)
 void MainWindow::onUpdateAudioSettings()
 {
     assert(emuThread->NDS != nullptr);
-    emuThread->NDS->SPU.SetInterpolation(Config::AudioInterp);
+    emuThread->NDS->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
 
     if (Config::AudioBitDepth == 0)
         emuThread->NDS->SPU.SetDegrade10Bit(emuThread->NDS->ConsoleType == 0);

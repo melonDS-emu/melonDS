@@ -20,6 +20,7 @@
 #define ARM_H
 
 #include <algorithm>
+#include <optional>
 
 #include "types.h"
 #include "MemRegion.h"
@@ -44,7 +45,7 @@ enum
 const u32 ITCMPhysicalSize = 0x8000;
 const u32 DTCMPhysicalSize = 0x4000;
 
-
+struct GDBArgs;
 class ARMJIT;
 class GPU;
 class ARMJIT_Memory;
@@ -57,7 +58,7 @@ class ARM
 #endif
 {
 public:
-    ARM(u32 num, NDS& nds);
+    ARM(u32 num, bool jit, std::optional<GDBArgs> gdb, NDS& nds);
     virtual ~ARM(); // destroy shit
 
     virtual void Reset();
@@ -202,6 +203,7 @@ protected:
     bool IsSingleStep;
     bool BreakReq;
     bool BreakOnStartup;
+    u16 Port;
 
 public:
     int GetCPU() const override { return Num ? 7 : 9; }
@@ -225,7 +227,7 @@ protected:
 class ARMv5 : public ARM
 {
 public:
-    ARMv5(melonDS::NDS& nds);
+    ARMv5(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit);
     ~ARMv5();
 
     void Reset() override;
@@ -377,7 +379,7 @@ protected:
 class ARMv4 : public ARM
 {
 public:
-    ARMv4(melonDS::NDS& nds);
+    ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit);
 
     void FillPipeline() override;
 

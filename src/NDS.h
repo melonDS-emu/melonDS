@@ -219,11 +219,12 @@ class ARMJIT;
 
 class NDS
 {
-public:
-
+private:
 #ifdef JIT_ENABLED
     bool EnableJIT;
 #endif
+
+public:
     int ConsoleType;
     int CurCPU;
 
@@ -432,6 +433,11 @@ public:
     virtual void ARM7IOWrite8(u32 addr, u8 val);
     virtual void ARM7IOWrite16(u32 addr, u16 val);
     virtual void ARM7IOWrite32(u32 addr, u32 val);
+
+#ifdef JIT_ENABLED
+    [[nodiscard]] bool IsJITEnabled() const noexcept { return EnableJIT; }
+    void SetJITArgs(std::optional<JITArgs> args) noexcept;
+#endif
 
 private:
     void InitTimings();

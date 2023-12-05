@@ -27,10 +27,25 @@ namespace melonDS
 class NDS;
 class SPU;
 
+enum class AudioBitDepth
+{
+    Auto,
+    _10Bit,
+    _16Bit,
+};
+
+enum class AudioInterpolation
+{
+    None,
+    Linear,
+    Cosine,
+    Cubic,
+};
+
 class SPUChannel
 {
 public:
-    SPUChannel(u32 num, melonDS::NDS& nds);
+    SPUChannel(u32 num, melonDS::NDS& nds, AudioInterpolation interpolation);
     void Reset();
     void DoSavestate(Savestate* file);
 
@@ -40,7 +55,7 @@ public:
 
     // audio interpolation is an improvement upon the original hardware
     // (which performs no interpolation)
-    int InterpType = 0;
+    AudioInterpolation InterpType = AudioInterpolation::None;
 
     const u32 Num;
 
@@ -200,7 +215,7 @@ private:
 class SPU
 {
 public:
-    explicit SPU(melonDS::NDS& nds);
+    explicit SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpolation);
     ~SPU();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -210,10 +225,11 @@ public:
     void SetPowerCnt(u32 val);
 
     // 0=none 1=linear 2=cosine 3=cubic
-    void SetInterpolation(int type);
+    void SetInterpolation(AudioInterpolation type);
 
     void SetBias(u16 bias);
     void SetDegrade10Bit(bool enable);
+    void SetDegrade10Bit(AudioBitDepth depth);
     void SetApplyBias(bool enable);
 
     void Mix(u32 dummy);

@@ -109,9 +109,9 @@ void NDSCartSlot::Key1_ApplyKeycode(u32* keycode, u32 mod) noexcept
     }
 }
 
-void NDSCartSlot::Key1_LoadKeyBuf(bool dsi, bool externalBios, u8 *bios, u32 biosLength) noexcept
+void NDSCartSlot::Key1_LoadKeyBuf(bool dsi, u8 *bios, u32 biosLength) noexcept
 {
-    if (externalBios)
+    if (!NDS.IsLoadedARM7BIOSBuiltIn())
     {
         u32 expected_bios_length = dsi ? 0x10000 : 0x4000;
         if (biosLength != expected_bios_length)
@@ -138,7 +138,7 @@ void NDSCartSlot::Key1_LoadKeyBuf(bool dsi, bool externalBios, u8 *bios, u32 bio
 
 void NDSCartSlot::Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod, u8 *bios, u32 biosLength) noexcept
 {
-    Key1_LoadKeyBuf(dsi, Platform::GetConfigBool(Platform::ExternalBIOSEnable), bios, biosLength);
+    Key1_LoadKeyBuf(dsi, bios, biosLength);
 
     u32 keycode[3] = {idcode, idcode>>1, idcode<<1};
     if (level >= 1) Key1_ApplyKeycode(keycode, mod);

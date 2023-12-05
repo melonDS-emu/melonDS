@@ -19,6 +19,8 @@
 #ifndef ARMJIT_H
 #define ARMJIT_H
 
+#include <algorithm>
+#include <optional>
 #include <memory>
 #include "types.h"
 
@@ -30,6 +32,7 @@
 #endif
 
 #include "ARMJIT_Compiler.h"
+#include "Args.h"
 #include "MemConstants.h"
 
 namespace melonDS
@@ -40,7 +43,15 @@ class JitBlock;
 class ARMJIT
 {
 public:
-    ARMJIT(melonDS::NDS& nds) noexcept : NDS(nds), Memory(nds), JITCompiler(nds) {};
+    ARMJIT(melonDS::NDS& nds, std::optional<JITArgs> jit) noexcept :
+        NDS(nds),
+        Memory(nds),
+        JITCompiler(nds),
+        MaxBlockSize(jit.has_value() ? std::clamp(jit->MaxBlockSize, 1u, 32u) : 32),
+        LiteralOptimizations(jit.has_value() ? jit->LiteralOptimizations : false),
+        BranchOptimizations(jit.has_value() ? jit->BranchOptimizations : false),
+        FastMemory(jit.has_value() ? jit->FastMemory : false)
+    {}
     ~ARMJIT() noexcept NOOP_IF_NO_JIT;
     void InvalidateByAddr(u32) noexcept NOOP_IF_NO_JIT;
     void CheckAndInvalidateWVRAM(int) noexcept NOOP_IF_NO_JIT;
@@ -68,16 +79,28 @@ public:
 #endif
 
     ARMJIT_Memory Memory;
+private:
     int MaxBlockSize {};
     bool LiteralOptimizations = false;
     bool BranchOptimizations = false;
     bool FastMemory = false;
-
+public:
     melonDS::NDS& NDS;
     TinyVector<u32> InvalidLiterals {};
     friend class ARMJIT_Memory;
     void blockSanityCheck(u32 num, u32 blockAddr, JitBlockEntry entry) noexcept;
     void RetireJitBlock(JitBlock* block) noexcept;
+
+    int GetMaxBlockSize() const noexcept { return MaxBlockSize; }
+    bool LiteralOptimizationsEnabled() const noexcept { return LiteralOptimizations; }
+    bool BranchOptimizationsEnabled() const noexcept { return BranchOptimizations; }
+    bool FastMemoryEnabled() const noexcept { return FastMemory; }
+
+    void SetJITArgs(JITArgs args) noexcept;
+    void SetMaxBlockSize(int size) noexcept;
+    void SetLiteralOptimizations(bool enabled) noexcept;
+    void SetBranchOptimizations(bool enabled) noexcept;
+    void SetFastMemory(bool enabled) noexcept;
 
     Compiler JITCompiler;
     std::unordered_map<u32, JitBlock*> JitBlocks9 {};

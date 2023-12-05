@@ -172,7 +172,10 @@ public:
     u8 GPIO_IE;
     u8 GPIO_WiFi;
 
+    bool GetFullBIOSBoot() const noexcept { return FullBIOSBoot; }
+    void SetFullBIOSBoot(bool full) noexcept { FullBIOSBoot = full; }
 private:
+    bool FullBIOSBoot;
     void Set_SCFG_Clock9(u16 val);
     void Set_SCFG_MC(u32 val);
     void DecryptModcryptArea(u32 offset, u32 size, u8* iv);
