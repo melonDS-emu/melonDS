@@ -165,13 +165,6 @@ enum
     CPUStop_GXStall = (1<<31),
 };
 
-enum TouchScreenMovement
-{
-    TouchScreenMovement_Negative,
-    TouchScreenMovement_None,
-    TouchScreenMovement_Positive
-};
-
 struct Timer
 {
     u16 Reload;
@@ -335,7 +328,6 @@ public:
     bool IsRunning() const noexcept { return Running; }
 
     void TouchScreen(u16 x, u16 y);
-    void MoveOnTouchScreen(TouchScreenMovement x, TouchScreenMovement y);
     void ReleaseScreen();
 
     void SetKeyMask(u32 mask);

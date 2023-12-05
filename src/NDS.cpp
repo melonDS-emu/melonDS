@@ -1120,68 +1120,6 @@ void NDS::TouchScreen(u16 x, u16 y)
     SPI.GetTSC()->SetTouchCoords(x, y);
 }
 
-void NDS::MoveOnTouchScreen(TouchScreenMovement x, TouchScreenMovement y)
-{
-    u16 TouchX = SPI.GetTSC()->GetTouchX();
-    u16 TouchY = SPI.GetTSC()->GetTouchY();
-    u16 sensitivityX = 4;
-    u16 sensitivityY = 8;
-    bool invalidNextPosition = false;
-
-    if (x == TouchScreenMovement_Negative)
-    {
-        if (TouchX < sensitivityX)
-        {
-            invalidNextPosition = true;
-        }
-        else
-        {
-            TouchX -= sensitivityX;
-        }
-    }
-    if (x == TouchScreenMovement_Positive)
-    {
-        if (TouchX + sensitivityX > 191)
-        {
-            invalidNextPosition = true;
-        }
-        else
-        {
-            TouchX += sensitivityX;
-        }
-    }
-    if (y == TouchScreenMovement_Negative)
-    {
-        if (TouchY < sensitivityY)
-        {
-            invalidNextPosition = true;
-        }
-        else
-        {
-            TouchY -= sensitivityY;
-        }
-    }
-    if (y == TouchScreenMovement_Positive)
-    {
-        if (TouchY + sensitivityY > 255)
-        {
-            invalidNextPosition = true;
-        }
-        else
-        {
-            TouchY += sensitivityY;
-        }
-    }
-
-    if (invalidNextPosition)
-    {
-        ReleaseScreen();
-    }
-    else {
-        SPI.GetTSC()->SetTouchCoords(TouchX, TouchY);
-    }
-}
-
 void NDS::ReleaseScreen()
 {
     SPI.GetTSC()->SetTouchCoords(0x000, 0xFFF);
@@ -1243,21 +1181,64 @@ void NDS::SetTouchKeyMask(u32 mask)
         return;
     }
     
-    TouchScreenMovement x = TouchScreenMovement_None;
-    TouchScreenMovement y = TouchScreenMovement_None;
-    if (left) {
-        x = TouchScreenMovement_Negative;
+    u16 TouchX = SPI.GetTSC()->GetTouchX();
+    u16 TouchY = SPI.GetTSC()->GetTouchY();
+    u16 sensitivityX = 4;
+    u16 sensitivityY = 8;
+    bool invalidNextPosition = false;
+
+    if (left)
+    {
+        if (TouchX < sensitivityX)
+        {
+            invalidNextPosition = true;
+        }
+        else
+        {
+            TouchX -= sensitivityX;
+        }
     }
-    if (right) {
-        x = TouchScreenMovement_Positive;
+    if (right)
+    {
+        if (TouchX + sensitivityX > 191)
+        {
+            invalidNextPosition = true;
+        }
+        else
+        {
+            TouchX += sensitivityX;
+        }
     }
-    if (down) {
-        y = TouchScreenMovement_Negative;
+    if (down)
+    {
+        if (TouchY < sensitivityY)
+        {
+            invalidNextPosition = true;
+        }
+        else
+        {
+            TouchY -= sensitivityY;
+        }
     }
-    if (up) {
-        y = TouchScreenMovement_Positive;
+    if (up)
+    {
+        if (TouchY + sensitivityY > 255)
+        {
+            invalidNextPosition = true;
+        }
+        else
+        {
+            TouchY += sensitivityY;
+        }
     }
-    MoveOnTouchScreen(x, y);
+
+    if (invalidNextPosition)
+    {
+        ReleaseScreen();
+    }
+    else {
+        TouchScreen(TouchX, TouchY);
+    }
 }
 
 bool NDS::IsLidClosed()
