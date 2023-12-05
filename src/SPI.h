@@ -39,13 +39,6 @@ enum
     SPIDevice_MAX
 };
 
-enum SPITouchScreenMovement
-{
-    SPITouchScreenMovement_Negative,
-    SPITouchScreenMovement_None,
-    SPITouchScreenMovement_Positive
-};
-
 u16 CRC16(const u8* data, u32 len, u32 start);
 
 class SPIHost;

@@ -1120,7 +1120,7 @@ void NDS::TouchScreen(u16 x, u16 y)
     SPI.GetTSC()->SetTouchCoords(x, y);
 }
 
-void NDS::MoveOnTouchScreen(SPITouchScreenMovement x, SPITouchScreenMovement y)
+void NDS::MoveOnTouchScreen(TouchScreenMovement x, TouchScreenMovement y)
 {
     u16 TouchX = SPI.GetTSC()->GetTouchX();
     u16 TouchY = SPI.GetTSC()->GetTouchY();
@@ -1128,7 +1128,7 @@ void NDS::MoveOnTouchScreen(SPITouchScreenMovement x, SPITouchScreenMovement y)
     u16 sensitivityY = 8;
     bool invalidNextPosition = false;
 
-    if (x == SPITouchScreenMovement_Negative)
+    if (x == TouchScreenMovement_Negative)
     {
         if (TouchX < sensitivityX)
         {
@@ -1139,7 +1139,7 @@ void NDS::MoveOnTouchScreen(SPITouchScreenMovement x, SPITouchScreenMovement y)
             TouchX -= sensitivityX;
         }
     }
-    if (x == SPITouchScreenMovement_Positive)
+    if (x == TouchScreenMovement_Positive)
     {
         if (TouchX + sensitivityX > 191)
         {
@@ -1150,7 +1150,7 @@ void NDS::MoveOnTouchScreen(SPITouchScreenMovement x, SPITouchScreenMovement y)
             TouchX += sensitivityX;
         }
     }
-    if (y == SPITouchScreenMovement_Negative)
+    if (y == TouchScreenMovement_Negative)
     {
         if (TouchY < sensitivityY)
         {
@@ -1161,7 +1161,7 @@ void NDS::MoveOnTouchScreen(SPITouchScreenMovement x, SPITouchScreenMovement y)
             TouchY -= sensitivityY;
         }
     }
-    if (y == SPITouchScreenMovement_Positive)
+    if (y == TouchScreenMovement_Positive)
     {
         if (TouchY + sensitivityY > 255)
         {
@@ -1243,19 +1243,19 @@ void NDS::SetTouchKeyMask(u32 mask)
         return;
     }
     
-    SPITouchScreenMovement x = SPITouchScreenMovement_None;
-    SPITouchScreenMovement y = SPITouchScreenMovement_None;
+    TouchScreenMovement x = TouchScreenMovement_None;
+    TouchScreenMovement y = TouchScreenMovement_None;
     if (left) {
-        x = SPITouchScreenMovement_Negative;
+        x = TouchScreenMovement_Negative;
     }
     if (right) {
-        x = SPITouchScreenMovement_Positive;
+        x = TouchScreenMovement_Positive;
     }
     if (down) {
-        y = SPITouchScreenMovement_Negative;
+        y = TouchScreenMovement_Negative;
     }
     if (up) {
-        y = SPITouchScreenMovement_Positive;
+        y = TouchScreenMovement_Positive;
     }
     MoveOnTouchScreen(x, y);
 }
