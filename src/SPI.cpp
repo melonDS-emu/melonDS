@@ -441,6 +441,24 @@ void TSC::DoSavestate(Savestate* file)
     file->Var16(&ConvResult);
 }
 
+u16 TSC::GetTouchX()
+{
+    if (NDS.KeyInput & (1 << (16+6)))
+    {
+        return 128;
+    }
+    return (TouchX & ~0x8000) >> 4;
+}
+
+u16 TSC::GetTouchY()
+{
+    if (NDS.KeyInput & (1 << (16+6)))
+    {
+        return 95;
+    }
+    return (TouchY & ~0x8000) >> 4;
+}
+
 void TSC::SetTouchCoords(u16 x, u16 y)
 {
     // scr.x = (adc.x-adc.x1) * (scr.x2-scr.x1) / (adc.x2-adc.x1) + (scr.x1-1)
@@ -460,30 +478,6 @@ void TSC::SetTouchCoords(u16 x, u16 y)
     TouchX <<= 4;
     TouchY <<= 4;
     NDS.KeyInput &= ~(1 << (16+6));
-}
-
-void TSC::MoveTouchCoords(SPITouchScreenMovement x, SPITouchScreenMovement y)
-{
-    u16 sensitivityX = 4;
-    u16 sensitivityY = 8;
-
-    if (x == SPITouchScreenMovement_Negative) {
-        TouchX -= sensitivityX << 4;
-    }
-    if (x == SPITouchScreenMovement_Positive) {
-        TouchX += sensitivityX << 4;
-    }
-    if (y == SPITouchScreenMovement_Negative) {
-        TouchY -= sensitivityY << 4;
-    }
-    if (y == SPITouchScreenMovement_Positive) {
-        TouchY += sensitivityY << 4;
-    }
-
-    if (TouchY > (255 << 4) || TouchX > (191 << 4)) {
-        TouchX = 128 << 4; // aprox middle of 255
-        TouchY = 95  << 4; // aprox middle of 191
-    }
 }
 
 void TSC::MicInputFrame(s16* data, int samples)

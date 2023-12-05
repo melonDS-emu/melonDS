@@ -128,8 +128,9 @@ public:
     virtual void Reset() override;
     virtual void DoSavestate(Savestate* file) override;
 
+    virtual u16 GetTouchX();
+    virtual u16 GetTouchY();
     virtual void SetTouchCoords(u16 x, u16 y);
-    virtual void MoveTouchCoords(SPITouchScreenMovement x, SPITouchScreenMovement y);
     virtual void MicInputFrame(s16* data, int samples);
 
     virtual void Write(u8 val) override;

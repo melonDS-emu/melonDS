@@ -1122,8 +1122,64 @@ void NDS::TouchScreen(u16 x, u16 y)
 
 void NDS::MoveOnTouchScreen(SPITouchScreenMovement x, SPITouchScreenMovement y)
 {
-    SPI.GetTSC()->MoveTouchCoords(x, y);
-    KeyInput &= ~(1 << (16+6));
+    u16 TouchX = SPI.GetTSC()->GetTouchX();
+    u16 TouchY = SPI.GetTSC()->GetTouchY();
+    u16 sensitivityX = 4;
+    u16 sensitivityY = 8;
+    bool invalidNextPosition = false;
+
+    if (x == SPITouchScreenMovement_Negative)
+    {
+        if (TouchX < sensitivityX)
+        {
+            invalidNextPosition = true;
+        }
+        else
+        {
+            TouchX -= sensitivityX;
+        }
+    }
+    if (x == SPITouchScreenMovement_Positive)
+    {
+        if (TouchX + sensitivityX > 191)
+        {
+            invalidNextPosition = true;
+        }
+        else
+        {
+            TouchX += sensitivityX;
+        }
+    }
+    if (y == SPITouchScreenMovement_Negative)
+    {
+        if (TouchY < sensitivityY)
+        {
+            invalidNextPosition = true;
+        }
+        else
+        {
+            TouchY -= sensitivityY;
+        }
+    }
+    if (y == SPITouchScreenMovement_Positive)
+    {
+        if (TouchY + sensitivityY > 255)
+        {
+            invalidNextPosition = true;
+        }
+        else
+        {
+            TouchY += sensitivityY;
+        }
+    }
+
+    if (invalidNextPosition)
+    {
+        ReleaseScreen();
+    }
+    else {
+        SPI.GetTSC()->SetTouchCoords(TouchX, TouchY);
+    }
 }
 
 void NDS::ReleaseScreen()
