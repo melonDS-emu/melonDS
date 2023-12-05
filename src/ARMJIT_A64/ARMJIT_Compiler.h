@@ -99,7 +99,7 @@ public:
 #ifdef JIT_ENABLED
     explicit Compiler(melonDS::NDS& nds);
 #else
-    explicit Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds) {}
+    explicit Compiler(melonDS::NDS& nds) : NDS(nds) {}
 #endif
     ~Compiler();
 
