@@ -65,16 +65,56 @@ const s16 SPUChannel::PSGTable[8][8] =
     {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF}
 };
 
+template <typename T>
+constexpr T ipow(T num, unsigned int pow)
+{
+    T product = 1;
+    for (int i = 0; i < pow; ++i)
+    {
+        product *= num;
+    }
+
+    return product;
+}
+
+template <typename T>
+constexpr T factorial(T num)
+{
+    T product = 1;
+    for (T i = 1; i <= num; ++i)
+    {
+        product *= i;
+    }
+
+    return product;
+}
+
+// We can't use std::cos in constexpr functions until C++26,
+// so we need to compute the cosine ourselves with the Taylor series.
+// Code adapted from https://prosepoetrycode.potterpcs.net/2015/07/a-simple-constexpr-power-function-c/
+template <int Iterations = 10>
+constexpr double cosine (double theta)
+{
+    return (ipow(-1, Iterations) * ipow(theta, 2 * Iterations)) /
+            static_cast<double>(factorial(2ull * Iterations))
+        + cosine<Iterations-1>(theta);
+}
+
+template <>
+constexpr double cosine<0> (double theta)
+{
+    return 1.0;
+}
+
 // generate interpolation tables
 // values are 1:1:14 fixed-point
 constexpr std::array<s16, 0x100> InterpCos = []() constexpr {
     std::array<s16, 0x100> interp {};
 
-    float m_pi = std::acos(-1.0f);
     for (int i = 0; i < 0x100; i++)
     {
-        float ratio = (i * m_pi) / 255.0f;
-        ratio = 1.0f - std::cos(ratio);
+        float ratio = (i * M_PI) / 255.0f;
+        ratio = 1.0f - cosine(ratio);
 
         interp[i] = (s16)(ratio * 0x2000);
     }
