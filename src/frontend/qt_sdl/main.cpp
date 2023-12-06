@@ -386,17 +386,19 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
         NDS->SetGBACart(std::move(nextgbacart));
     }
 
+#ifdef JIT_ENABLED
     JITArgs jitargs {
         static_cast<unsigned>(Config::JIT_MaxBlockSize),
         Config::JIT_LiteralOptimisations,
         Config::JIT_BranchOptimisations,
         Config::JIT_FastMemory,
     };
+    NDS->SetJITArgs(Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt);
+#endif
     NDS->ARM7BIOS = *arm7bios;
     NDS->ARM9BIOS = *arm9bios;
     NDS->SetFirmware(std::move(*firmware));
     NDS->SetNDSCart(std::move(nextndscart));
-    NDS->SetJITArgs(Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt);
     NDS->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
     NDS->SPU.SetDegrade10Bit(static_cast<AudioBitDepth>(Config::AudioBitDepth));
 
