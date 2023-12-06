@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include <assert.h>
 #include <algorithm>
 #include "NDS.h"
 #include "DSi.h"

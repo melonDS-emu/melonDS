@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include <assert.h>
 #include <string.h>
 #include <inttypes.h>
 #include "Args.h"
