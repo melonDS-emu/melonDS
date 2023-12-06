@@ -19,6 +19,8 @@
 #ifndef ARMJIT_A64_COMPILER_H
 #define ARMJIT_A64_COMPILER_H
 
+#if defined(JIT_ENABLED) && defined(__aarch64__)
+
 #include "../ARM.h"
 
 #include "../dolphin/Arm64Emitter.h"
@@ -96,11 +98,7 @@ class Compiler : public Arm64Gen::ARM64XEmitter
 public:
     typedef void (Compiler::*CompileFunc)();
 
-#ifdef JIT_ENABLED
     explicit Compiler(melonDS::NDS& nds);
-#else
-    explicit Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds) {}
-#endif
     ~Compiler() override;
 
     void PushRegs(bool saveHiRegs, bool saveRegsToBeChanged, bool allowUnload = true);
@@ -289,5 +287,7 @@ public:
 };
 
 }
+
+#endif
 
 #endif

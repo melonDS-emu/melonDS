@@ -36,6 +36,9 @@
 #include "AREngine.h"
 #include "GPU.h"
 #include "ARMJIT.h"
+#include "MemRegion.h"
+#include "ARMJIT_Memory.h"
+#include "ARM.h"
 #include "DMA.h"
 #include "FreeBIOS.h"
 
