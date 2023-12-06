@@ -93,7 +93,7 @@ DSi::DSi(DSiArgs&& args) noexcept :
     // Memory is owned by ARMJIT_Memory, don't free it
     NWRAM_A = JIT.Memory.GetNWRAM_A();
     NWRAM_B = JIT.Memory.GetNWRAM_B();
-    NWRAM_C = NDS::JIT.Memory.GetNWRAM_C();
+    NWRAM_C = JIT.Memory.GetNWRAM_C();
 }
 
 DSi::~DSi() noexcept
