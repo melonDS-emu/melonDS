@@ -101,7 +101,7 @@ public:
 #else
     explicit Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds) {}
 #endif
-    ~Compiler();
+    ~Compiler() override;
 
     void PushRegs(bool saveHiRegs, bool saveRegsToBeChanged, bool allowUnload = true);
     void PopRegs(bool saveHiRegs, bool saveRegsToBeChanged);
