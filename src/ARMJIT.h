@@ -25,9 +25,9 @@
 #include "types.h"
 #include "MemConstants.h"
 #include "Args.h"
+#include "ARMJIT_Memory.h"
 
 #ifdef JIT_ENABLED
-#include "ARMJIT_Memory.h"
 #include "JitBlock.h"
 
 #if defined(__APPLE__) && defined(__aarch64__)
