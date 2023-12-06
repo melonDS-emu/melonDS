@@ -473,8 +473,10 @@ void ARMJIT_Memory::RemapDTCM(u32 newBase, u32 newSize) noexcept
 
 void ARMJIT_Memory::RemapNWRAM(int num) noexcept
 {
-    auto* dsi = dynamic_cast<DSi*>(&NDS);
-    assert(dsi != nullptr);
+    if (NDS.ConsoleType == 0)
+        return;
+
+    auto* dsi = static_cast<DSi*>(&NDS);
     for (int i = 0; i < Mappings[memregion_SharedWRAM].Length;)
     {
         Mapping& mapping = Mappings[memregion_SharedWRAM][i];
