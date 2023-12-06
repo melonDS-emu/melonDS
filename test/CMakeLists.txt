@@ -15,7 +15,6 @@ function(add_melonds_test)
     set(multiValueArgs ARGS LABEL)
     cmake_parse_arguments(PARSE_ARGV 0 MELONDS_TEST "${options}" "${oneValueArgs}" "${multiValueArgs}")
 
-    cmake_print_variables(MELONDS_TEST_TARGET MELONDS_TEST_NAME MELONDS_TEST_ROM MELONDS_TEST_ARGS MELONDS_TEST_LABEL MELONDS_TEST_WILL_FAIL MELONDS_TEST_DISABLED)
     add_test(
         NAME "${MELONDS_TEST_NAME}"
         COMMAND "${MELONDS_TEST_TARGET}"
