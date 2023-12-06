@@ -24,6 +24,7 @@
 
 #include "types.h"
 #include "MemRegion.h"
+#include "MemConstants.h"
 
 #ifdef GDBSTUB_ENABLED
 #include "debug/GdbStub.h"
@@ -41,9 +42,6 @@ enum
     RWFlags_Nonseq = (1<<5),
     RWFlags_ForceUser = (1<<21),
 };
-
-const u32 ITCMPhysicalSize = 0x8000;
-const u32 DTCMPhysicalSize = 0x4000;
 
 struct GDBArgs;
 class ARMJIT;
