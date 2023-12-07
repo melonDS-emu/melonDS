@@ -145,12 +145,12 @@ bool FATStorage::InjectFile(const std::string& path, u8* data, u32 len)
 }
 
 
-u32 FATStorage::ReadSectors(u32 start, u32 num, u8* data)
+u32 FATStorage::ReadSectors(u32 start, u32 num, u8* data) const
 {
     return ReadSectorsInternal(File, FileSize, start, num, data);
 }
 
-u32 FATStorage::WriteSectors(u32 start, u32 num, u8* data)
+u32 FATStorage::WriteSectors(u32 start, u32 num, const u8* data)
 {
     if (ReadOnly) return 0;
     return WriteSectorsInternal(File, FileSize, start, num, data);
@@ -947,7 +947,7 @@ bool FATStorage::ImportDirectory(const std::string& sourcedir)
     return true;
 }
 
-u64 FATStorage::GetDirectorySize(fs::path sourcedir)
+u64 FATStorage::GetDirectorySize(fs::path sourcedir) const
 {
     u64 ret = 0;
     u32 csize = 0x1000; // this is an estimate

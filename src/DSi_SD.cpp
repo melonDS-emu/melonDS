@@ -336,7 +336,7 @@ void DSi_SDHost::FinishRX(u32 param)
         SetIRQ(24);
 }
 
-u32 DSi_SDHost::DataRX(u8* data, u32 len)
+u32 DSi_SDHost::DataRX(const u8* data, u32 len)
 {
     if (len != BlockLen16) { Log(LogLevel::Warn, "!! BAD BLOCKLEN\n"); len = BlockLen16; }
 
@@ -440,7 +440,7 @@ u32 DSi_SDHost::DataTX(u8* data, u32 len)
     return len;
 }
 
-u32 DSi_SDHost::GetTransferrableLen(u32 len)
+u32 DSi_SDHost::GetTransferrableLen(u32 len) const
 {
     if (len > BlockLen16) len = BlockLen16; // checkme
     return len;

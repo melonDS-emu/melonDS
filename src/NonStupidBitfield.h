@@ -42,7 +42,7 @@ struct NonStupidBitField
         NonStupidBitField<Size>& BitField;
         u32 Idx;
 
-        operator bool()
+        operator bool() const
         {
             return BitField.Data[Idx >> 6] & (1ULL << (Idx & 0x3F));
         }
@@ -62,13 +62,13 @@ struct NonStupidBitField
         u32 BitIdx;
         u64 RemainingBits;
 
-        u32 operator*() { return DataIdx * 64 + BitIdx; }
+        u32 operator*() const { return DataIdx * 64 + BitIdx; }
 
-        bool operator==(const Iterator& other)
+        bool operator==(const Iterator& other) const
         {
             return other.DataIdx == DataIdx;
         }
-        bool operator!=(const Iterator& other)
+        bool operator!=(const Iterator& other) const
         {
             return other.DataIdx != DataIdx;
         }

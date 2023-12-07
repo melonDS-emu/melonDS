@@ -668,7 +668,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         Log(LogLevel::Debug, "unknown CP15 write op %03X %08X\n", id, val);
 }
 
-u32 ARMv5::CP15Read(u32 id)
+u32 ARMv5::CP15Read(u32 id) const
 {
     //printf("CP15 read op %03X %08X\n", id, NDS::ARM9->R[15]);
 

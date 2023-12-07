@@ -117,7 +117,7 @@ private:
 
         return rb | g | 0xFF000000;
     }
-    u32 ColorComposite(int i, u32 val1, u32 val2);
+    u32 ColorComposite(int i, u32 val1, u32 val2) const;
 
     template<u32 bgmode> void DrawScanlineBGMode(u32 line);
     void DrawScanlineBGMode6(u32 line);

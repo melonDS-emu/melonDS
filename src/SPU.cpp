@@ -956,7 +956,7 @@ void SPU::InitOutput()
     Platform::Mutex_Unlock(AudioLock);
 }
 
-int SPU::GetOutputSize()
+int SPU::GetOutputSize() const
 {
     Platform::Mutex_Lock(AudioLock);
 

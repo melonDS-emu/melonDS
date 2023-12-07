@@ -94,7 +94,7 @@ public:
     void LoadReg(int reg, Gen::X64Reg nativeReg);
     void SaveReg(int reg, Gen::X64Reg nativeReg);
 
-    bool CanCompile(bool thumb, u16 kind);
+    bool CanCompile(bool thumb, u16 kind) const;
 
     typedef void (Compiler::*CompileFunc)();
 
@@ -236,7 +236,7 @@ public:
         SetCodePtr(FarCode);
     }
 
-    bool IsJITFault(u8* addr);
+    bool IsJITFault(const u8* addr);
 
     u8* RewriteMemAccess(u8* pc);
 
