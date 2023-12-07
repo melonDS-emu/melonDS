@@ -64,7 +64,7 @@ public:
     void IrqRep1();
     void IrqRep2();
     void IrqSem();
-    u16 DSPRead16(u32 addr) const;
+    u16 DSPRead16(u32 addr);
     void DSPWrite16(u32 addr, u16 val);
     void AudioCb(std::array<s16, 2> frame);
 

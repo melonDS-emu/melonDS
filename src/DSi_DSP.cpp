@@ -72,7 +72,7 @@ void DSi_DSP::IrqSem()
     DSi.SetIRQ(0, IRQ_DSi_DSP);
 }
 
-u16 DSi_DSP::DSPRead16(u32 addr) const
+u16 DSi_DSP::DSPRead16(u32 addr)
 {
     if (!(addr & 0x40000))
     {
