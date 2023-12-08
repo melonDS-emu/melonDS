@@ -284,6 +284,13 @@ void NDS::SetupDirectBoot()
     const u8* cartrom = NDSCartSlot.GetCart()->GetROM();
     MapSharedWRAM(3);
 
+    // Copy the Nintendo logo from the NDS ROM header to the ARM9 BIOS if using FreeBIOS
+    // Games need this for DS<->GBA comm to work
+    if (IsLoadedARM9BIOSBuiltIn())
+    {
+        memcpy(ARM9BIOS.data() + 0x20, header.NintendoLogo, 0x9C);
+    }
+
     // setup main RAM data
 
     for (u32 i = 0; i < 0x170; i+=4)
