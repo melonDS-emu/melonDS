@@ -303,10 +303,13 @@ void DeInit()
     if (MPQueue)
     {
         MPQueue->lock();
-        MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
-        header->ConnectedBitmask &= ~(1 << InstanceID);
-        header->InstanceBitmask &= ~(1 << InstanceID);
-        header->NumInstances--;
+        if (MPQueue->data() != nullptr)
+        {
+            MPQueueHeader *header = (MPQueueHeader *) MPQueue->data();
+            header->ConnectedBitmask &= ~(1 << InstanceID);
+            header->InstanceBitmask &= ~(1 << InstanceID);
+            header->NumInstances--;
+        }
         MPQueue->unlock();
 
         SemPoolDeinit();
