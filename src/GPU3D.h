@@ -254,6 +254,7 @@ public:
 
     u32 ClearAttr1 = 0;
     u32 ClearAttr2 = 0;
+
     u32 RenderDispCnt = 0;
     u8 RenderAlphaRef = 0;
 
