@@ -92,6 +92,8 @@ NDS::NDS(NDSArgs&& args, int type) noexcept :
     ConsoleType(type),
     ARM7BIOS(args.ARM7BIOS),
     ARM9BIOS(args.ARM9BIOS),
+    ARM7BIOSNative(CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32),
+    ARM9BIOSNative(CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32),
     JIT(*this, args.JIT),
     SPU(*this, args.BitDepth, args.Interpolation),
     GPU(*this),
@@ -754,6 +756,18 @@ void NDS::LoadGBAAddon(int type)
 void NDS::LoadBIOS()
 {
     Reset();
+}
+
+void NDS::SetARM7BIOS(const std::array<u8, ARM7BIOSSize>& bios) noexcept
+{
+    ARM7BIOS = bios;
+    ARM7BIOSNative = CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32;
+}
+
+void NDS::SetARM9BIOS(const std::array<u8, ARM9BIOSSize>& bios) noexcept
+{
+    ARM9BIOS = bios;
+    ARM9BIOSNative = CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32;
 }
 
 u64 NDS::NextTarget()

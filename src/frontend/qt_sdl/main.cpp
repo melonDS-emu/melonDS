@@ -395,8 +395,8 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
     };
     NDS->SetJITArgs(Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt);
 #endif
-    NDS->ARM7BIOS = *arm7bios;
-    NDS->ARM9BIOS = *arm9bios;
+    NDS->SetARM7BIOS(*arm7bios);
+    NDS->SetARM9BIOS(*arm9bios);
     NDS->SetFirmware(std::move(*firmware));
     NDS->SetNDSCart(std::move(nextndscart));
     NDS->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
