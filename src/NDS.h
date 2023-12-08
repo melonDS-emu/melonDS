@@ -39,6 +39,7 @@
 #include "MemRegion.h"
 #include "ARMJIT_Memory.h"
 #include "ARM.h"
+#include "CRC32.h"
 #include "DMA.h"
 #include "FreeBIOS.h"
 
@@ -310,8 +311,20 @@ public:
     void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
 
     void LoadBIOS();
-    [[nodiscard]] bool IsLoadedARM9BIOSBuiltIn() const noexcept { return ARM9BIOS == bios_arm9_bin; }
-    [[nodiscard]] bool IsLoadedARM7BIOSBuiltIn() const noexcept { return ARM7BIOS == bios_arm7_bin; }
+
+    /// @return \c true if the loaded ARM9 BIOS image is a known dump
+    /// of a native DS-compatible ARM9 BIOS.
+    [[nodiscard]] bool IsLoadedARM9BIOSKnownNative() const noexcept
+    {
+        return CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32;
+    }
+
+    /// @return \c true if the loaded ARM7 BIOS image is a known dump
+    /// of a native DS-compatible ARM9 BIOS.
+    [[nodiscard]] bool IsLoadedARM7BIOSKnownNative() const noexcept
+    {
+        return CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32;
+    }
 
     [[nodiscard]] NDSCart::CartCommon* GetNDSCart() { return NDSCartSlot.GetCart(); }
     [[nodiscard]] const NDSCart::CartCommon* GetNDSCart() const { return NDSCartSlot.GetCart(); }

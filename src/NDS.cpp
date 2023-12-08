@@ -270,7 +270,7 @@ bool NDS::NeedsDirectBoot()
             return true;
 
         // FreeBIOS requires direct boot (it can't boot firmware)
-        if (IsLoadedARM7BIOSBuiltIn() || IsLoadedARM9BIOSBuiltIn())
+        if (!IsLoadedARM9BIOSKnownNative() || !IsLoadedARM7BIOSKnownNative())
             return true;
 
         return false;
@@ -286,7 +286,7 @@ void NDS::SetupDirectBoot()
 
     // Copy the Nintendo logo from the NDS ROM header to the ARM9 BIOS if using FreeBIOS
     // Games need this for DS<->GBA comm to work
-    if (IsLoadedARM9BIOSBuiltIn())
+    if (!IsLoadedARM9BIOSKnownNative())
     {
         memcpy(ARM9BIOS.data() + 0x20, header.NintendoLogo, 0x9C);
     }

@@ -111,7 +111,7 @@ void NDSCartSlot::Key1_ApplyKeycode(u32* keycode, u32 mod) noexcept
 
 void NDSCartSlot::Key1_LoadKeyBuf(bool dsi, u8 *bios, u32 biosLength) noexcept
 {
-    if (!NDS.IsLoadedARM7BIOSBuiltIn())
+    if (NDS.IsLoadedARM7BIOSKnownNative())
     {
         u32 expected_bios_length = dsi ? 0x10000 : 0x4000;
         if (biosLength != expected_bios_length)
