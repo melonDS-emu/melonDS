@@ -32,12 +32,12 @@ class GPU;
 
 // numbers based on 339 poly 64-172 horiz. line poly
 static constexpr int RasterTimingCap = 51116;
-static constexpr int PerPolyTiming = 12;
-static constexpr int PerScanlineTiming = 1064;
-static constexpr int PerScanlineRecup = 2010;//1910; 
+static constexpr int PerPolyTiming = 12; // should be correct for *most* line polygons
+static constexpr int PerPixelTiming = 1; // does not apply to the first 4 pixels in a polygon (per scanline?)
+static constexpr int PerScanlineTiming = 1064;// approximate currently, used to calc RDLines
+static constexpr int PerScanlineRecup = 2112; // seems to check out?
 //static constexpr int EmptyPolyScanline;
 //static constexpr int FirstPixelTiming;
-static constexpr int PerPixelTiming = 1;
 
 struct Vertex
 {
