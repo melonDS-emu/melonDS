@@ -25,9 +25,19 @@
 #include "Savestate.h"
 #include "FIFO.h"
 
+
 namespace melonDS
 {
 class GPU;
+
+// numbers based on 339 poly 64-172 horiz. line poly
+static constexpr int RasterTimingCap = 51116;
+static constexpr int PerPolyTiming = 12;
+static constexpr int PerScanlineTiming = 1064;
+static constexpr int PerScanlineRecup = 2010;//1910; 
+//static constexpr int EmptyPolyScanline;
+//static constexpr int FirstPixelTiming;
+static constexpr int PerPixelTiming = 1;
 
 struct Vertex
 {
@@ -114,6 +124,9 @@ public:
 
     void WriteToGXFIFO(u32 val) noexcept;
 
+    bool DoTimings(s32 cycles, bool odd);
+    void EndScanline(bool odd);
+
     [[nodiscard]] bool IsRendererAccelerated() const noexcept;
     [[nodiscard]] Renderer3D& GetCurrentRenderer() noexcept { return *CurrentRenderer; }
     [[nodiscard]] const Renderer3D& GetCurrentRenderer() const noexcept { return *CurrentRenderer; }
@@ -126,6 +139,7 @@ public:
     void Write16(u32 addr, u16 val) noexcept;
     void Write32(u32 addr, u32 val) noexcept;
     void Blit() noexcept;
+
 private:
     melonDS::NDS& NDS;
     typedef union
@@ -242,6 +256,11 @@ public:
     bool RenderingEnabled = false;
 
     u32 DispCnt = 0;
+    u32 RDLines = 0;
+    u32 RDLinesMin = 0;
+    s32 RasterTimingCounterPrev = 0;
+    s32 RasterTimingCounterOdd = 0;
+    s32 RasterTimingCounterEven = 0;
     u8 AlphaRefVal = 0;
     u8 AlphaRef = 0;
 

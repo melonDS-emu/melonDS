@@ -461,7 +461,7 @@ private:
     void SetupPolygonRightEdge(RendererPolygon* rp, s32 y);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon);
     void RenderShadowMaskScanline(RendererPolygon* rp, s32 y);
-    void RenderPolygonScanline(RendererPolygon* rp, s32 y);
+    void RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd);
     void RenderScanline(s32 y, int npolys);
     u32 CalculateFogDensity(u32 pixeladdr);
     void ScanlineFinalPass(s32 y);
@@ -476,14 +476,17 @@ private:
     // TODO: check if the hardware can accidentally plot pixels
     // offscreen in that border
 
-    static constexpr int ScanlineWidth = 258;
-    static constexpr int NumScanlines = 194;
+    static constexpr int ScanlineWidth = 256;
+    static constexpr int NumScanlines = 192;
+    static constexpr int NumScanlinesRDLines = 192;
+    static constexpr int RDLinesBufferSize = ScanlineWidth * NumScanlinesRDLines;
     static constexpr int BufferSize = ScanlineWidth * NumScanlines;
     static constexpr int FirstPixelOffset = ScanlineWidth + 1;
 
-    u32 ColorBuffer[BufferSize * 2];
-    u32 DepthBuffer[BufferSize * 2];
-    u32 AttrBuffer[BufferSize * 2];
+    u32 ColorBuffer[RDLinesBufferSize * 2];
+    u32 DepthBuffer[RDLinesBufferSize * 2];
+    u32 AttrBuffer[RDLinesBufferSize * 2];
+    u32 FinalBuffer[BufferSize * 2];
 
     // attribute buffer:
     // bit0-3: edge flags (left/right/top/bottom)

@@ -221,6 +221,12 @@ void GPU3D::Reset() noexcept
     DispCnt = 0;
     AlphaRefVal = 0;
     AlphaRef = 0;
+    
+    RDLines = 46;
+    RDLinesMin = 46;
+    RasterTimingCounterPrev = 0;
+    RasterTimingCounterOdd = 0;
+    RasterTimingCounterEven = 0;
 
     memset(ToonTable, 0, sizeof(ToonTable));
     memset(EdgeTable, 0, sizeof(EdgeTable));
@@ -770,7 +776,40 @@ void GPU3D::StallPolygonPipeline(s32 delay, s32 nonstalldelay) noexcept
     }
 }
 
+bool GPU3D::DoTimings(s32 cycles, bool odd)
+{
+    if (odd)
+    {
+        RasterTimingCounterOdd += cycles;
+        if ((RasterTimingCounterOdd + RasterTimingCounterPrev) < RasterTimingCap) return 0;
+    }
+    else
+    {
+        RasterTimingCounterEven += cycles;
+        if ((RasterTimingCounterEven + RasterTimingCounterPrev) < RasterTimingCap) return 0;
+    }
 
+    DispCnt |= (1<<12);
+    return 1;
+}
+
+void GPU3D::EndScanline(bool odd)
+{
+    if (!odd)
+    {
+        RasterTimingCounterPrev += std::max(RasterTimingCounterOdd, RasterTimingCounterEven);
+        RasterTimingCounterPrev -= PerScanlineRecup; // wip
+        if (RasterTimingCounterPrev < 0) RasterTimingCounterPrev = 0;
+        // calc is wrong, seems to round up...?
+        RDLines = (RasterTimingCap - RasterTimingCounterPrev) / PerScanlineTiming;
+        // seems to display the lowest scanline buffer count reached during the current frame.
+        // we also caps it to 46 here, because this reg does that too for some reason.
+        if (RDLines > RDLinesMin) RDLines = RDLinesMin;
+        if (RDLines < RDLinesMin) RDLinesMin = RDLines;
+        RasterTimingCounterOdd = 0;
+        RasterTimingCounterEven = 0;
+    }
+}
 
 template<int comp, s32 plane, bool attribs>
 void ClipSegment(Vertex* outbuf, Vertex* vin, Vertex* vout)
@@ -2369,6 +2408,10 @@ void GPU3D::CheckFIFODMA() noexcept
 
 void GPU3D::VCount144() noexcept
 {
+    RDLinesMin = 46;
+    RasterTimingCounterPrev = 0;
+    RasterTimingCounterOdd = 0;
+    RasterTimingCounterEven = 0;
     CurrentRenderer->VCount144();
 }
 
@@ -2612,7 +2655,7 @@ u16 GPU3D::Read16(u32 addr) noexcept
         return DispCnt;
 
     case 0x04000320:
-        return 46; // TODO, eventually
+        return RDLines; // IT IS TIME
 
     case 0x04000600:
         {
@@ -2656,7 +2699,7 @@ u32 GPU3D::Read32(u32 addr) noexcept
         return DispCnt;
 
     case 0x04000320:
-        return 46; // TODO, eventually
+        return RDLines; // IT IS TIME
 
     case 0x04000600:
         {
