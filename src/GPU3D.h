@@ -30,14 +30,6 @@ namespace melonDS
 {
 class GPU;
 
-// numbers based on 339 poly 64-172 horiz. line poly
-static constexpr int RasterTimingCap = 51116;
-static constexpr int PerPolyTiming = 12; // should be correct for *most* line polygons
-static constexpr int PerPixelTiming = 1; // does not apply to the first 4 pixels in a polygon (per scanline?)
-static constexpr int PerScanlineTiming = 1064;// approximate currently, used to calc RDLines
-static constexpr int PerScanlineRecup = 2112; // seems to check out?
-//static constexpr int EmptyPolyScanline;
-//static constexpr int FirstPixelTiming;
 
 struct Vertex
 {
@@ -344,6 +336,17 @@ public:
     u32 FlushAttributes = 0;
     u32 ScrolledLine[256];
 };
+
+    // numbers based on 339 poly 64-172 horiz. line poly
+    static constexpr int Frac = 481; // add a fractional component if pixels is not enough precision
+    static constexpr int RasterTimingCap = 51116*Frac;
+    static constexpr int PerScanlineTiming = 1064*Frac; // approximate currently, used to calc RDLines. TEMPORARY UNTIL ACCURATE "FRAMEBUFFER" CAN BE IMPLEMENTED
+    static constexpr int PerScanlineRecup = 2112*Frac; // seems to check out?
+
+    static constexpr int PerPolyTiming = 12*Frac; // should be correct for *most* line polygons and polygons with vertical slopes
+    static constexpr int PerPixelTiming = 1*Frac; // does not apply to the first 4 pixels in a polygon (per scanline?)
+    static constexpr int EmptyPolyScanline = 4*Frac - 14; // seems to be slightly under 4?
+    //static constexpr int FirstPixelTiming;
 
 class Renderer3D
 {

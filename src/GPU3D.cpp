@@ -781,16 +781,16 @@ bool GPU3D::DoTimings(s32 cycles, bool odd)
     if (odd)
     {
         RasterTimingCounterOdd += cycles;
-        if ((RasterTimingCounterOdd + RasterTimingCounterPrev) < RasterTimingCap) return 0;
+        if ((RasterTimingCounterOdd + RasterTimingCounterPrev) < RasterTimingCap) return false;
     }
     else
     {
         RasterTimingCounterEven += cycles;
-        if ((RasterTimingCounterEven + RasterTimingCounterPrev) < RasterTimingCap) return 0;
+        if ((RasterTimingCounterEven + RasterTimingCounterPrev) < RasterTimingCap) return false;
     }
 
     DispCnt |= (1<<12);
-    return 1;
+    return true;
 }
 
 void GPU3D::EndScanline(bool odd)
@@ -805,7 +805,7 @@ void GPU3D::EndScanline(bool odd)
         // seems to display the lowest scanline buffer count reached during the current frame.
         // we also caps it to 46 here, because this reg does that too for some reason.
         if (RDLines > RDLinesMin) RDLines = RDLinesMin;
-        if (RDLines < RDLinesMin) RDLinesMin = RDLines;
+        else if (RDLines < RDLinesMin) RDLinesMin = RDLines;
         RasterTimingCounterOdd = 0;
         RasterTimingCounterEven = 0;
     }

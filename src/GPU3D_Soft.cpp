@@ -672,6 +672,31 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
     }
 }
 
+bool SoftRenderer::Step(RendererPolygon* rp, bool abortscanline)
+{
+    rp->XL = rp->SlopeL.Step();
+    rp->XR = rp->SlopeR.Step();
+    return abortscanline;
+}
+
+void SoftRenderer::CheckSlope(RendererPolygon* rp, s32 y)
+{
+    Polygon* polygon = rp->PolyData;
+
+    if (polygon->YTop != polygon->YBottom)
+    {
+        if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
+        {
+            SetupPolygonLeftEdge(rp, y);
+        }
+
+        if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
+        {
+            SetupPolygonRightEdge(rp, y);
+        }
+    }
+}
+
 void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
@@ -900,10 +925,8 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     rp->XR = rp->SlopeR.Step();
 }
 
-void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
+bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
 {
-    if (GPU.GPU3D.DoTimings(PerPolyTiming, odd)) return;
-    int pixelsrendered = 0;
     Polygon* polygon = rp->PolyData;
     u32 polyattr = (polygon->Attr & 0x3F008000);
     if (!polygon->FacingView) polyattr |= (1<<4);
@@ -921,18 +944,9 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
 
     PrevIsShadowMask = false;
 
-    if (polygon->YTop != polygon->YBottom)
-    {
-        if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
-        {
-            SetupPolygonLeftEdge(rp, y);
-        }
-
-        if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
-        {
-            SetupPolygonRightEdge(rp, y);
-        }
-    }
+    CheckSlope(rp, y);
+    
+    if (GPU.GPU3D.DoTimings(PerPolyTiming, odd)) return Step(rp, true);
 
     Vertex *vlcur, *vlnext, *vrcur, *vrnext;
     s32 xstart, xend;
@@ -941,6 +955,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
     s32 l_edgecov, r_edgecov;
     Interpolator<1>* interp_start;
     Interpolator<1>* interp_end;
+    u8 pixelsrendered = 0; // for tracking timings
 
     xstart = rp->XL;
     xend = rp->XR;
@@ -1076,11 +1091,12 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
         xcov = (l_edgecov >> 12) & 0x3FF;
         if (xcov == 0x3FF) xcov = 0;
     }
+    
 
     for (; x < xlimit; x++)
     {
-        if (pixelsrendered >= 4 && GPU.GPU3D.DoTimings(PerPixelTiming, odd)) return;
-        pixelsrendered++;
+        if (pixelsrendered >= 4 && GPU.GPU3D.DoTimings(PerPixelTiming, odd)) return Step(rp, true);
+        else pixelsrendered++;
         if (!l_filledge) continue;
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
@@ -1176,8 +1192,8 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
 
     for (; x < xlimit; x++)
     {
-        if (pixelsrendered >= 4 && GPU.GPU3D.DoTimings(PerPixelTiming, odd)) return;
-        pixelsrendered++;
+        if (pixelsrendered >= 4 && GPU.GPU3D.DoTimings(PerPixelTiming, odd)) return Step(rp, true);
+        else pixelsrendered++;
         if (wireframe && !edge) continue;
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
@@ -1270,8 +1286,8 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
 
     for (; x < xlimit; x++)
     {
-        if (pixelsrendered >= 4 && GPU.GPU3D.DoTimings(PerPixelTiming, odd)) return;
-        pixelsrendered++;
+        if (pixelsrendered >= 4 && GPU.GPU3D.DoTimings(PerPixelTiming, odd)) return Step(rp, true);
+        else pixelsrendered++;
         if (!r_filledge) continue;
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
@@ -1358,27 +1374,33 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
                 PlotTranslucentPixel(pixeladdr+BufferSize, color, z, polyattr, polygon->IsShadow);
         }
     }
-
-    rp->XL = rp->SlopeL.Step();
-    rp->XR = rp->SlopeR.Step();
+    return Step(rp, false);
 }
 
 void SoftRenderer::RenderScanline(s32 y, int npolys)
 {
     bool odd = !(y % 2);
+    bool abort = false;
     for (int i = 0; i < npolys; i++)
     {
-        if (GPU.GPU3D.DoTimings(0, odd)) break;
-
         RendererPolygon* rp = &PolygonList[i];
         Polygon* polygon = rp->PolyData;
 
-        if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
+        if (abort)
+        {
+            CheckSlope(rp, y);
+            Step(rp, NULL);
+        }
+        else if (y == polygon->YBottom && y != polygon->YTop)
+        {
+            if (GPU.GPU3D.DoTimings(EmptyPolyScanline, odd)) abort = true;
+        }
+        else if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
         {
             if (polygon->IsShadowMask)
                 RenderShadowMaskScanline(rp, y);
             else
-                RenderPolygonScanline(rp, y, odd);
+                if (RenderPolygonScanline(rp, y, odd)) abort = true;
         }
     }
     GPU.GPU3D.EndScanline(odd);

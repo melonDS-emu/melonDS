@@ -460,8 +460,10 @@ private:
     void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y);
     void SetupPolygonRightEdge(RendererPolygon* rp, s32 y);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon);
+    bool Step(RendererPolygon* rp, bool abortscanline);
+    void CheckSlope(RendererPolygon* rp, s32 y);
     void RenderShadowMaskScanline(RendererPolygon* rp, s32 y);
-    void RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd);
+    bool RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd);
     void RenderScanline(s32 y, int npolys);
     u32 CalculateFogDensity(u32 pixeladdr);
     void ScanlineFinalPass(s32 y);
