@@ -476,9 +476,9 @@ private:
     // TODO: check if the hardware can accidentally plot pixels
     // offscreen in that border
 
-    static constexpr int ScanlineWidth = 256;
-    static constexpr int NumScanlines = 192;
-    static constexpr int NumScanlinesRDLines = 192;
+    static constexpr int ScanlineWidth = 258;
+    static constexpr int NumScanlines = 194;
+    static constexpr int NumScanlinesRDLines = 194;
     static constexpr int RDLinesBufferSize = ScanlineWidth * NumScanlinesRDLines;
     static constexpr int BufferSize = ScanlineWidth * NumScanlines;
     static constexpr int FirstPixelOffset = ScanlineWidth + 1;
