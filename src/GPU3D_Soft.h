@@ -347,13 +347,12 @@ private:
             else if (ret > xmax) ret = xmax;
             return ret;
         }
-
-        template<bool swapped>
-        constexpr void EdgeParams_XMajor(s32* length, s32* coverage) const
+        
+        constexpr void EdgeParams_XMajor(s32* length, s32* coverage, bool swapped) const
         {
             // only do length calc for right side when swapped as it's
             // only needed for aa calcs, as actual line spans are broken
-            if constexpr (!swapped || side)
+            if (!swapped || side)
             {
                 if (side ^ Negative)
                     *length = (dx >> 18) - ((dx-Increment) >> 18);
@@ -379,11 +378,10 @@ private:
 
             *coverage = startcov;
 
-            if constexpr (swapped) *length = 1;
+            if (swapped) *length = 1;
         }
 
-        template<bool swapped>
-        constexpr void EdgeParams_YMajor(s32* length, s32* coverage) const
+        constexpr void EdgeParams_YMajor(s32* length, s32* coverage, bool swapped) const
         {
             *length = 1;
 
@@ -404,14 +402,13 @@ private:
                 *coverage = cov << 5;
             }
         }
-
-        template<bool swapped>
-        constexpr void EdgeParams(s32* length, s32* coverage) const
+        
+        constexpr void EdgeParams(s32* length, s32* coverage, bool swapped) const
         {
             if (XMajor)
-                return EdgeParams_XMajor<swapped>(length, coverage);
+                return EdgeParams_XMajor(length, coverage, swapped);
             else
-                return EdgeParams_YMajor<swapped>(length, coverage);
+                return EdgeParams_YMajor(length, coverage, swapped);
         }
 
         s32 Increment;

@@ -741,8 +741,8 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         interp_start = &rp->SlopeR.Interp;
         interp_end = &rp->SlopeL.Interp;
 
-        rp->SlopeR.EdgeParams<true>(&l_edgelen, &l_edgecov);
-        rp->SlopeL.EdgeParams<true>(&r_edgelen, &r_edgecov);
+        rp->SlopeR.EdgeParams(&l_edgelen, &l_edgecov, true);
+        rp->SlopeL.EdgeParams(&r_edgelen, &r_edgecov, true);
 
         std::swap(xstart, xend);
         std::swap(wl, wr);
@@ -773,9 +773,9 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         interp_start = &rp->SlopeL.Interp;
         interp_end = &rp->SlopeR.Interp;
 
-        rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
-        rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
-
+        rp->SlopeL.EdgeParams(&l_edgelen, &l_edgecov, false);
+        rp->SlopeR.EdgeParams(&r_edgelen, &r_edgecov, false);
+        
         // CHECKME: edge fill rules for unswapped opaque shadow mask polygons
         if ((GPU.GPU3D.RenderDispCnt & ((1<<4)|(1<<5))) || ((polyalpha < 31) && (GPU.GPU3D.RenderDispCnt & (1<<3))) || wireframe)
         {
@@ -970,8 +970,8 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         interp_start = &rp->SlopeR.Interp;
         interp_end = &rp->SlopeL.Interp;
 
-        rp->SlopeR.EdgeParams<true>(&l_edgelen, &l_edgecov);
-        rp->SlopeL.EdgeParams<true>(&r_edgelen, &r_edgecov);
+        rp->SlopeR.EdgeParams(&l_edgelen, &l_edgecov, true);
+        rp->SlopeL.EdgeParams(&r_edgelen, &r_edgecov, true);
 
         std::swap(xstart, xend);
         std::swap(wl, wr);
@@ -1008,8 +1008,8 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         interp_start = &rp->SlopeL.Interp;
         interp_end = &rp->SlopeR.Interp;
 
-        rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
-        rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
+        rp->SlopeL.EdgeParams(&l_edgelen, &l_edgecov, false);
+        rp->SlopeR.EdgeParams(&r_edgelen, &r_edgecov, false);
 
         // edge fill rules for unswapped opaque edges:
         // * right edge is filled if slope > 1
