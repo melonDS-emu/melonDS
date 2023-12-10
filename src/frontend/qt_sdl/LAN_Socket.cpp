@@ -37,9 +37,7 @@
 	#include <time.h>
 #endif
 
-using namespace melonDS;
-
-namespace LAN_Socket
+namespace melonDS
 {
 
 using Platform::Log;
@@ -51,12 +49,6 @@ const u32 kDNSIP    = kSubnet | 0x02;
 const u32 kClientIP = kSubnet | 0x10;
 
 const u8 kServerMAC[6] = {0x00, 0xAB, 0x33, 0x28, 0x99, 0x44};
-
-FIFO<u32, (0x8000 >> 2)> RXBuffer;
-
-u32 IPv4ID;
-
-Slirp* Ctx = nullptr;
 
 /*const int FDListMax = 64;
 struct pollfd FDList[FDListMax];
@@ -85,7 +77,7 @@ int clock_gettime(int, struct timespec *spec)
 #endif // __WIN32__
 
 
-void RXEnqueue(const void* buf, int len)
+void LAN_Socket::RXEnqueue(const void* buf, int len) noexcept
 {
     int alignedlen = (len + 3) & ~3;
     int totallen = alignedlen + 4;
@@ -102,7 +94,7 @@ void RXEnqueue(const void* buf, int len)
         RXBuffer.Write(((u32*)buf)[i>>2]);
 }
 
-ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
+ssize_t LAN_Socket::SlirpCbSendPacket(const void* buf, size_t len, void* opaque) noexcept
 {
     if (len > 2048)
     {
@@ -112,12 +104,14 @@ ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
 
     Log(LogLevel::Debug, "slirp: response packet of %zu bytes, type %04X\n", len, ntohs(((u16*)buf)[6]));
 
-    RXEnqueue(buf, len);
+    LAN_Socket& lan = *reinterpret_cast<LAN_Socket*>(opaque);
+
+    lan.RXEnqueue(buf, len);
 
     return len;
 }
 
-void SlirpCbGuestError(const char* msg, void* opaque)
+void SlirpCbGuestError(const char* msg, void* opaque) noexcept
 {
     Log(LogLevel::Error, "SLIRP: error: %s\n", msg);
 }
@@ -186,7 +180,7 @@ void SlirpCbNotify(void* opaque)
     Log(LogLevel::Debug, "Slirp: notify???\n");
 }
 
-SlirpCb cb =
+SlirpCb LAN_Socket::cb =
 {
     .send_packet = SlirpCbSendPacket,
     .guest_error = SlirpCbGuestError,
@@ -199,7 +193,7 @@ SlirpCb cb =
     .notify = SlirpCbNotify
 };
 
-bool Init()
+LAN_Socket::LAN_Socket() noexcept
 {
     IPv4ID = 0;
 
@@ -218,12 +212,10 @@ bool Init()
     *(u32*)&cfg.vdhcp_start = htonl(kClientIP);
     *(u32*)&cfg.vnameserver = htonl(kDNSIP);
 
-    Ctx = slirp_new(&cfg, &cb, nullptr);
-
-    return true;
+    Ctx = slirp_new(&cfg, &cb, this);
 }
 
-void DeInit()
+LAN_Socket::~LAN_Socket() noexcept
 {
     if (Ctx)
     {
@@ -272,7 +264,7 @@ void FinishUDPFrame(u8* data, int len)
     *(u16*)&udpheader[6] = htons(tmp);
 }
 
-void HandleDNSFrame(u8* data, int len)
+void LAN_Socket::HandleDNSFrame(u8* data, int len) noexcept
 {
     u8* ipheader = &data[0xE];
     u8* udpheader = &data[0x22];
@@ -428,7 +420,7 @@ void HandleDNSFrame(u8* data, int len)
     RXEnqueue(resp, framelen);
 }
 
-int SendPacket(u8* data, int len)
+int LAN_Socket::SendPacket(u8* data, int len)
 {
     if (!Ctx) return 0;
 
@@ -458,19 +450,16 @@ int SendPacket(u8* data, int len)
     return len;
 }
 
-const int PollListMax = 64;
-struct pollfd PollList[PollListMax];
-int PollListSize;
-
-int SlirpCbAddPoll(int fd, int events, void* opaque)
+int LAN_Socket::SlirpCbAddPoll(int fd, int events, void* opaque) noexcept
 {
-    if (PollListSize >= PollListMax)
+    LAN_Socket& lan = *reinterpret_cast<LAN_Socket*>(opaque);
+    if (lan.PollListSize >= PollListMax)
     {
         Log(LogLevel::Error, "slirp: POLL LIST FULL\n");
         return -1;
     }
 
-    int idx = PollListSize++;
+    int idx = lan.PollListSize++;
 
     //printf("Slirp: add poll: fd=%d, idx=%d, events=%08X\n", fd, idx, events);
 
@@ -486,20 +475,21 @@ int SlirpCbAddPoll(int fd, int events, void* opaque)
     if (events & SLIRP_POLL_HUP) evt |= POLLHUP;
 #endif // !__WIN32__
 
-    PollList[idx].fd = fd;
-    PollList[idx].events = evt;
+    lan.PollList[idx].fd = fd;
+    lan.PollList[idx].events = evt;
 
     return idx;
 }
 
-int SlirpCbGetREvents(int idx, void* opaque)
+int LAN_Socket::SlirpCbGetREvents(int idx, void* opaque) noexcept
 {
-    if (idx < 0 || idx >= PollListSize)
+    LAN_Socket& lan = *reinterpret_cast<LAN_Socket*>(opaque);
+    if (idx < 0 || idx >= lan.PollListSize)
         return 0;
 
     //printf("Slirp: get revents, idx=%d, res=%04X\n", idx, FDList[idx].revents);
 
-    u16 evt = PollList[idx].revents;
+    u16 evt = lan.PollList[idx].revents;
     int ret = 0;
 
     if (evt & POLLIN) ret |= SLIRP_POLL_IN;
@@ -511,7 +501,7 @@ int SlirpCbGetREvents(int idx, void* opaque)
     return ret;
 }
 
-int RecvPacket(u8* data)
+int LAN_Socket::RecvPacket(u8* data)
 {
     if (!Ctx) return 0;
 
