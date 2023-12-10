@@ -112,6 +112,43 @@ void SoftRenderer::SetThreaded(bool threaded) noexcept
     }
 }
 
+template <bool odd>
+bool SoftRenderer::DoTimings(s32 cycles)
+{
+    if constexpr (odd)
+    {
+        RasterTimingCounterOdd += cycles;
+        if ((RasterTimingCounterOdd + RasterTimingCounterPrev) < RasterTimingCap) return false;
+    }
+    else
+    {
+        RasterTimingCounterEven += cycles;
+        if ((RasterTimingCounterEven + RasterTimingCounterPrev) < RasterTimingCap) return false;
+    }
+
+    GPU.GPU3D.DispCnt |= (1<<12);
+    return true;
+}
+
+template <bool odd>
+void SoftRenderer::EndScanline()
+{
+    if constexpr (!odd)
+    {
+        RasterTimingCounterPrev += std::max(RasterTimingCounterOdd, RasterTimingCounterEven);
+        RasterTimingCounterPrev -= PerScanlineRecup; // wip
+        if (RasterTimingCounterPrev < 0) RasterTimingCounterPrev = 0;
+        // calc is wrong, seems to round up...?
+        GPU.GPU3D.RDLines = (RasterTimingCap - RasterTimingCounterPrev) / PerScanlineTiming;
+        // seems to display the lowest scanline buffer count reached during the current frame.
+        // we also caps it to 46 here, because this reg does that too for some reason.
+        if (GPU.GPU3D.RDLines > GPU.GPU3D.RDLinesMin) GPU.GPU3D.RDLines = GPU.GPU3D.RDLinesMin;
+        else if (GPU.GPU3D.RDLines < GPU.GPU3D.RDLinesMin) GPU.GPU3D.RDLinesMin = GPU.GPU3D.RDLines;
+        RasterTimingCounterOdd = 0;
+        RasterTimingCounterEven = 0;
+    }
+}
+
 void SoftRenderer::TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha)
 {
     u32 vramaddr = (texparam & 0xFFFF) << 3;
@@ -925,7 +962,8 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     rp->XR = rp->SlopeR.Step();
 }
 
-bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
+template <bool odd>
+bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
     u32 polyattr = (polygon->Attr & 0x3F008000);
@@ -946,7 +984,7 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
 
     CheckSlope(rp, y);
     
-    if (GPU.GPU3D.DoTimings(PerPolyTiming, odd)) return Step(rp, true);
+    if (DoTimings<odd>(PerPolyTiming)) return Step(rp, true);
 
     Vertex *vlcur, *vlnext, *vrcur, *vrnext;
     s32 xstart, xend;
@@ -955,7 +993,7 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
     s32 l_edgecov, r_edgecov;
     Interpolator<1>* interp_start;
     Interpolator<1>* interp_end;
-    u8 pixelsrendered = 0; // for tracking timings
+    u16 pixelsrendered = 0; // for tracking timings
 
     xstart = rp->XL;
     xend = rp->XR;
@@ -1095,10 +1133,12 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
 
     for (; x < xlimit; x++)
     {
-        if (pixelsrendered >= 4 && GPU.GPU3D.DoTimings(PerPixelTiming, odd)) return Step(rp, true);
-        else pixelsrendered++;
+        if (pixelsrendered >= 4 && DoTimings<odd>(PerPixelTiming)) return Step(rp, true);
+        pixelsrendered++;
+
         if (!l_filledge) continue;
-        u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
+
+        u32 pixeladdr = (BufferOffset * ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
 
         // check stencil buffer for shadows
@@ -1192,10 +1232,12 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
 
     for (; x < xlimit; x++)
     {
-        if (pixelsrendered >= 4 && GPU.GPU3D.DoTimings(PerPixelTiming, odd)) return Step(rp, true);
-        else pixelsrendered++;
+        if (pixelsrendered >= 4 && DoTimings<odd>(PerPixelTiming)) return Step(rp, true);
+        pixelsrendered++;
+
         if (wireframe && !edge) continue;
-        u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
+        
+        u32 pixeladdr = (BufferOffset * ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
 
         // check stencil buffer for shadows
@@ -1283,13 +1325,15 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
         xcov = (r_edgecov >> 12) & 0x3FF;
         if (xcov == 0x3FF) xcov = 0;
     }
-
+    //if (rp->SlopeR.Increment != 0 && DoTimings(PerRightSlope, odd)) return Step(rp, true); // should be fine to not immediately return? might be wrong
     for (; x < xlimit; x++)
     {
-        if (pixelsrendered >= 4 && GPU.GPU3D.DoTimings(PerPixelTiming, odd)) return Step(rp, true);
-        else pixelsrendered++;
+        if (pixelsrendered >= 4 && DoTimings<odd>(PerPixelTiming)) return Step(rp, true);
+        pixelsrendered++;
+
         if (!r_filledge) continue;
-        u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
+        
+        u32 pixeladdr = (BufferOffset * ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
 
         // check stencil buffer for shadows
@@ -1377,9 +1421,9 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
     return Step(rp, false);
 }
 
-void SoftRenderer::RenderScanline(s32 y, int npolys)
+template <bool odd>
+bool SoftRenderer::RenderScanline(s32 y, int npolys)
 {
-    bool odd = !(y % 2);
     bool abort = false;
     for (int i = 0; i < npolys; i++)
     {
@@ -1393,17 +1437,20 @@ void SoftRenderer::RenderScanline(s32 y, int npolys)
         }
         else if (y == polygon->YBottom && y != polygon->YTop)
         {
-            if (GPU.GPU3D.DoTimings(EmptyPolyScanline, odd)) abort = true;
+            if (DoTimings<odd>(EmptyPolyScanline)) abort = true;
         }
         else if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
         {
             if (polygon->IsShadowMask)
-                RenderShadowMaskScanline(rp, y);
+                ;//RenderShadowMaskScanline(rp, y);
             else
-                if (RenderPolygonScanline(rp, y, odd)) abort = true;
+                if (RenderPolygonScanline<odd>(rp, y)) abort = true;
         }
     }
-    GPU.GPU3D.EndScanline(odd);
+
+    BufferOffset = (BufferOffset + 1) & 0x7; // loop if == 8
+    EndScanline<odd>();
+    return abort;
 }
 
 u32 SoftRenderer::CalculateFogDensity(u32 pixeladdr)
@@ -1445,20 +1492,28 @@ u32 SoftRenderer::CalculateFogDensity(u32 pixeladdr)
     return density;
 }
 
-void SoftRenderer::ScanlineFinalPass(s32 y)
+template<bool odd, bool finish>
+void SoftRenderer::ScanlineFinalPass(s32 y, u8 rdbufferoffset, bool late)
 {
     // to consider:
     // clearing all polygon fog flags if the master flag isn't set?
     // merging all final pass loops into one?
+    u8 tempoffset;
+    if constexpr (finish)
+        tempoffset = (BufferOffset - 2 + (!odd));
+    else
+        tempoffset = (BufferOffset - 4 + (!odd)); 
 
-    if (GPU.GPU3D.RenderDispCnt & (1<<5))
+    if (tempoffset > 7) tempoffset -= 0xF8; // handle underflows
+
+    /*if (GPU.GPU3D.RenderDispCnt & (1<<5))
     {
         // edge marking
         // only applied to topmost pixels
 
         for (int x = 0; x < 256; x++)
         {
-            u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
+            u32 pixeladdr = (tempoffset * ScanlineWidth) + x;
 
             u32 attr = AttrBuffer[pixeladdr];
             if (!(attr & 0xF)) continue;
@@ -1482,7 +1537,7 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
                 AttrBuffer[pixeladdr] = (AttrBuffer[pixeladdr] & 0xFFFFE0FF) | 0x00001000;
             }
         }
-    }
+    }*/
 
     if (GPU.GPU3D.RenderDispCnt & (1<<7))
     {
@@ -1506,7 +1561,7 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
 
         for (int x = 0; x < 256; x++)
         {
-            u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
+            u32 pixeladdr = (tempoffset * ScanlineWidth) + x;
             u32 density, srccolor, srcR, srcG, srcB, srcA;
 
             u32 attr = AttrBuffer[pixeladdr];
@@ -1571,7 +1626,7 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
 
         for (int x = 0; x < 256; x++)
         {
-            u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
+            u32 pixeladdr = (tempoffset * ScanlineWidth) + x;
 
             u32 attr = AttrBuffer[pixeladdr];
             if (!(attr & 0xF)) continue;
@@ -1613,47 +1668,32 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
             ColorBuffer[pixeladdr] = topR | (topG << 8) | (topB << 16) | (topA << 24);
         }
     }
+
+    if (late)
+    {
+        memcpy(&FinalBuffer[y*ScanlineWidth], &RDBuffer[rdbufferoffset*ScanlineWidth], 4 * ScanlineWidth);
+        memcpy(&RDBuffer[rdbufferoffset*ScanlineWidth], &ColorBuffer[tempoffset*ScanlineWidth], 4 * ScanlineWidth);
+    }
+    else
+    {
+        memcpy(&RDBuffer[rdbufferoffset*ScanlineWidth], &ColorBuffer[tempoffset*ScanlineWidth], 4 * ScanlineWidth);
+        memcpy(&FinalBuffer[y*ScanlineWidth], &RDBuffer[rdbufferoffset*ScanlineWidth], 4 * ScanlineWidth);
+    }
 }
 
-void SoftRenderer::ClearBuffers()
+void SoftRenderer::ClearBuffers(s32 y)
 {
     u32 clearz = ((GPU.GPU3D.RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
     u32 polyid = GPU.GPU3D.RenderClearAttr1 & 0x3F000000; // this sets the opaque polygonID
-
-    // fill screen borders for edge marking
-
-    for (int x = 0; x < ScanlineWidth; x++)
-    {
-        ColorBuffer[x] = 0;
-        DepthBuffer[x] = clearz;
-        AttrBuffer[x] = polyid;
-    }
-
-    for (int x = ScanlineWidth; x < ScanlineWidth*193; x+=ScanlineWidth)
-    {
-        ColorBuffer[x] = 0;
-        DepthBuffer[x] = clearz;
-        AttrBuffer[x] = polyid;
-        ColorBuffer[x+257] = 0;
-        DepthBuffer[x+257] = clearz;
-        AttrBuffer[x+257] = polyid;
-    }
-
-    for (int x = ScanlineWidth*193; x < ScanlineWidth*194; x++)
-    {
-        ColorBuffer[x] = 0;
-        DepthBuffer[x] = clearz;
-        AttrBuffer[x] = polyid;
-    }
 
     // clear the screen
 
     if (GPU.GPU3D.RenderDispCnt & (1<<14))
     {
         u8 xoff = (GPU.GPU3D.RenderClearAttr2 >> 16) & 0xFF;
-        u8 yoff = (GPU.GPU3D.RenderClearAttr2 >> 24) & 0xFF;
+        u8 yoff = ((GPU.GPU3D.RenderClearAttr2 >> 24) & 0xFF) + y;
 
-        for (int y = 0; y < ScanlineWidth*192; y+=ScanlineWidth)
+        for (int i = 0; i < 2; i++)
         {
             for (int x = 0; x < 256; x++)
             {
@@ -1669,7 +1709,7 @@ void SoftRenderer::ClearBuffers()
 
                 u32 z = ((val3 & 0x7FFF) * 0x200) + 0x1FF;
 
-                u32 pixeladdr = FirstPixelOffset + y + x;
+                u32 pixeladdr = ((BufferOffset+i) * ScanlineWidth) + x;
                 ColorBuffer[pixeladdr] = color;
                 DepthBuffer[pixeladdr] = z;
                 AttrBuffer[pixeladdr] = polyid | (val3 & 0x8000);
@@ -1690,12 +1730,12 @@ void SoftRenderer::ClearBuffers()
         u32 color = r | (g << 8) | (b << 16) | (a << 24);
 
         polyid |= (GPU.GPU3D.RenderClearAttr1 & 0x8000);
-
-        for (int y = 0; y < ScanlineWidth*192; y+=ScanlineWidth)
+        
+        for (int i = 0; i < 2; i++)
         {
             for (int x = 0; x < 256; x++)
             {
-                u32 pixeladdr = FirstPixelOffset + y + x;
+                u32 pixeladdr = ((BufferOffset+i) * ScanlineWidth) + x;
                 ColorBuffer[pixeladdr] = color;
                 DepthBuffer[pixeladdr] = clearz;
                 AttrBuffer[pixeladdr] = polyid;
@@ -1712,19 +1752,38 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
         if (polygons[i]->Degenerate) continue;
         SetupPolygon(&PolygonList[j++], polygons[i]);
     }
+    
+    s32 y = 0;
+    s8 prevbufferline = -2;
+    bool latebuffer[192] = {};
 
-    RenderScanline(0, j);
+    for (u8 quarter = 0; quarter < 4; quarter++)
+        for (u8 bufferline = 0; bufferline < 48; bufferline += 2)
+        {
+            ClearBuffers(y);
+            latebuffer[y] = RenderScanline<true>(y, j);
+            latebuffer[y+1] = RenderScanline<false>(y+1, j);
+            
 
-    for (s32 y = 1; y < 192; y++)
-    {
-        RenderScanline(y, j);
-        ScanlineFinalPass(y-1);
+            if (prevbufferline >= 0)
+            {
+                if (!latebuffer[y-2]) latebuffer[y] = false;
+                
+                if (!latebuffer[y-1]) latebuffer[y+1] = false;
 
-        if (threaded)
-            Platform::Semaphore_Post(Sema_ScanlineCount);
-    }
+                ScanlineFinalPass<true, false>(y-2, prevbufferline, latebuffer[y-2]);
+                ScanlineFinalPass<false, false>(y-1, prevbufferline+1, latebuffer[y-1]);
+            }
 
-    ScanlineFinalPass(191);
+            y += 2;
+            prevbufferline = bufferline;
+
+            if (threaded)
+                Platform::Semaphore_Post(Sema_ScanlineCount);
+        }
+        
+    ScanlineFinalPass<true, true>(190, prevbufferline, latebuffer[190]);
+    ScanlineFinalPass<false, true>(191, prevbufferline+1, latebuffer[191]);
 
     if (threaded)
         Platform::Semaphore_Post(Sema_ScanlineCount);
@@ -1734,6 +1793,10 @@ void SoftRenderer::VCount144()
 {
     if (RenderThreadRunning.load(std::memory_order_relaxed) && !GPU.GPU3D.AbortFrame)
         Platform::Semaphore_Wait(Sema_RenderDone);
+        
+    RasterTimingCounterPrev = 0;
+    RasterTimingCounterOdd = 0;
+    RasterTimingCounterEven = 0;
 }
 
 void SoftRenderer::RenderFrame()
@@ -1750,11 +1813,7 @@ void SoftRenderer::RenderFrame()
     {
         Platform::Semaphore_Post(Sema_RenderStart);
     }
-    else if (!FrameIdentical)
-    {
-        ClearBuffers();
-        RenderPolygons(false, &GPU.GPU3D.RenderPolygonRAM[0], GPU.GPU3D.RenderNumPolygons);
-    }
+    else if (!FrameIdentical) RenderPolygons(false, &GPU.GPU3D.RenderPolygonRAM[0], GPU.GPU3D.RenderNumPolygons);
 }
 
 void SoftRenderer::RestartFrame()
@@ -1774,11 +1833,7 @@ void SoftRenderer::RenderThreadFunc()
         {
             Platform::Semaphore_Post(Sema_ScanlineCount, 192);
         }
-        else
-        {
-            ClearBuffers();
-            RenderPolygons(true, &GPU.GPU3D.RenderPolygonRAM[0], GPU.GPU3D.RenderNumPolygons);
-        }
+        else RenderPolygons(true, &GPU.GPU3D.RenderPolygonRAM[0], GPU.GPU3D.RenderNumPolygons);
 
         Platform::Semaphore_Post(Sema_RenderDone);
         RenderThreadRendering = false;
@@ -1793,7 +1848,7 @@ u32* SoftRenderer::GetLine(int line)
             Platform::Semaphore_Wait(Sema_ScanlineCount);
     }
 
-    return &ColorBuffer[(line * ScanlineWidth) + FirstPixelOffset];
+    return &FinalBuffer[(line * ScanlineWidth) + FirstPixelOffset];
 }
 
 }

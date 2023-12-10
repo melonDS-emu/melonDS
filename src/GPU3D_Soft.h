@@ -454,6 +454,8 @@ private:
 
     melonDS::GPU& GPU;
     RendererPolygon PolygonList[2048];
+    template <bool odd> bool DoTimings(s32 cycles);
+    template <bool odd> void EndScanline();
     void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha);
     u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t);
     void PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
@@ -463,14 +465,19 @@ private:
     bool Step(RendererPolygon* rp, bool abortscanline);
     void CheckSlope(RendererPolygon* rp, s32 y);
     void RenderShadowMaskScanline(RendererPolygon* rp, s32 y);
-    bool RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd);
-    void RenderScanline(s32 y, int npolys);
+    template <bool odd> bool RenderPolygonScanline(RendererPolygon* rp, s32 y);
+    template <bool odd> bool RenderScanline(s32 y, int npolys);
     u32 CalculateFogDensity(u32 pixeladdr);
-    void ScanlineFinalPass(s32 y);
-    void ClearBuffers();
+    template<bool odd, bool finish> void ScanlineFinalPass(s32 y, u8 rdbufferoffset, bool late);
+    void ClearBuffers(s32 y);
     void RenderPolygons(bool threaded, Polygon** polygons, int npolys);
 
     void RenderThreadFunc();
+    
+    // counters for scanline rasterization timings
+    s32 RasterTimingCounterPrev = 0;
+    s32 RasterTimingCounterOdd = 0;
+    s32 RasterTimingCounterEven = 0;
 
     // buffer dimensions are 258x194 to add a offscreen 1px border
     // which simplifies edge marking tests
@@ -478,17 +485,21 @@ private:
     // TODO: check if the hardware can accidentally plot pixels
     // offscreen in that border
 
-    static constexpr int ScanlineWidth = 258;
-    static constexpr int NumScanlines = 194;
-    static constexpr int NumScanlinesRDLines = 194;
-    static constexpr int RDLinesBufferSize = ScanlineWidth * NumScanlinesRDLines;
+    static constexpr int ScanlineWidth = 256;
+    static constexpr int NumScanlines = 192;
+    static constexpr int NumScanlinesRD = 48;
+    static constexpr int NumScanlinesInternal = 8;
+    static constexpr int InternalBufferSize = ScanlineWidth * NumScanlinesInternal;
+    static constexpr int RDBufferSize = ScanlineWidth * NumScanlinesRD;
     static constexpr int BufferSize = ScanlineWidth * NumScanlines;
-    static constexpr int FirstPixelOffset = ScanlineWidth + 1;
+    static constexpr int FirstPixelOffset = 0;
 
-    u32 ColorBuffer[RDLinesBufferSize * 2];
-    u32 DepthBuffer[RDLinesBufferSize * 2];
-    u32 AttrBuffer[RDLinesBufferSize * 2];
-    u32 FinalBuffer[BufferSize * 2];
+    u32 ColorBuffer[InternalBufferSize * 2];
+    u32 DepthBuffer[InternalBufferSize * 2];
+    u32 AttrBuffer[InternalBufferSize * 2];
+    u8 BufferOffset;
+    u32 RDBuffer[RDBufferSize];
+    u32 FinalBuffer[BufferSize];
 
     // attribute buffer:
     // bit0-3: edge flags (left/right/top/bottom)

@@ -116,9 +116,6 @@ public:
 
     void WriteToGXFIFO(u32 val) noexcept;
 
-    bool DoTimings(s32 cycles, bool odd);
-    void EndScanline(bool odd);
-
     [[nodiscard]] bool IsRendererAccelerated() const noexcept;
     [[nodiscard]] Renderer3D& GetCurrentRenderer() noexcept { return *CurrentRenderer; }
     [[nodiscard]] const Renderer3D& GetCurrentRenderer() const noexcept { return *CurrentRenderer; }
@@ -250,9 +247,6 @@ public:
     u32 DispCnt = 0;
     u32 RDLines = 0;
     u32 RDLinesMin = 0;
-    s32 RasterTimingCounterPrev = 0;
-    s32 RasterTimingCounterOdd = 0;
-    s32 RasterTimingCounterEven = 0;
     u8 AlphaRefVal = 0;
     u8 AlphaRef = 0;
 
@@ -342,7 +336,7 @@ public:
     static constexpr int RasterTimingCap = 51116*Frac;
     static constexpr int PerScanlineTiming = 1064*Frac; // approximate currently, used to calc RDLines. TEMPORARY UNTIL ACCURATE "FRAMEBUFFER" CAN BE IMPLEMENTED
     static constexpr int PerScanlineRecup = 2112*Frac; // seems to check out?
-
+    static constexpr int PerRightSlope = 1*Frac;
     static constexpr int PerPolyTiming = 12*Frac; // should be correct for *most* line polygons and polygons with vertical slopes
     static constexpr int PerPixelTiming = 1*Frac; // does not apply to the first 4 pixels in a polygon (per scanline?)
     static constexpr int EmptyPolyScanline = 4*Frac - 14; // seems to be slightly under 4?
