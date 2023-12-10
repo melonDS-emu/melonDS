@@ -455,6 +455,7 @@ private:
     melonDS::GPU& GPU;
     RendererPolygon PolygonList[2048];
     bool DoTimings(s32 cycles, bool odd);
+    s32 DoTimingsPixels(u32 pixels, bool odd);
     void EndScanline(bool odd);
     void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha);
     u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t);
@@ -462,7 +463,7 @@ private:
     void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y);
     void SetupPolygonRightEdge(RendererPolygon* rp, s32 y);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon);
-    bool Step(RendererPolygon* rp, bool abortscanline);
+    void Step(RendererPolygon* rp);
     void CheckSlope(RendererPolygon* rp, s32 y);
     void RenderShadowMaskScanline(RendererPolygon* rp, s32 y);
     bool RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd);

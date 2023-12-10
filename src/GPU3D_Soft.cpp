@@ -129,6 +129,29 @@ bool SoftRenderer::DoTimings(s32 cycles, bool odd)
     return true;
 }
 
+s32 SoftRenderer::DoTimingsPixels(u32 pixels, bool odd)
+{
+    // return the difference between the old span and the new span
+    if (pixels <= 4) return 0;
+
+    u32 pixeltiming = (pixels - 4) * RasterFrac;
+
+    if (odd)
+    {
+        u32 rasterend = RasterTimingCap - (RasterTimingCounterOdd + RasterTimingCounterPrev);
+        pixeltiming = rasterend - pixeltiming;
+    }
+    else
+    {
+        u32 rasterend = RasterTimingCap - (RasterTimingCounterEven + RasterTimingCounterPrev);
+        pixeltiming = rasterend - pixeltiming;
+    }
+    if (pixeltiming > 0) return 0;
+
+    GPU.GPU3D.DispCnt |= (1<<12);
+    return pixels - (((pixeltiming + (RasterFrac-1)) / RasterFrac) + 4);
+}
+
 void SoftRenderer::EndScanline(bool odd)
 {
     if (!odd)
@@ -707,11 +730,10 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
     }
 }
 
-bool SoftRenderer::Step(RendererPolygon* rp, bool abortscanline)
+void SoftRenderer::Step(RendererPolygon* rp)
 {
     rp->XL = rp->SlopeL.Step();
     rp->XR = rp->SlopeR.Step();
-    return abortscanline;
 }
 
 void SoftRenderer::CheckSlope(RendererPolygon* rp, s32 y)
@@ -981,7 +1003,11 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
 
     CheckSlope(rp, y);
     
-    if (DoTimings(PerPolyTiming, odd)) return Step(rp, true);
+    if (DoTimings(PerPolyTiming, odd))
+    {
+        Step(rp);
+        return true;
+    }
 
     Vertex *vlcur, *vlnext, *vrcur, *vrnext;
     s32 xstart, xend;
@@ -990,7 +1016,7 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
     s32 l_edgecov, r_edgecov;
     Interpolator<1>* interp_start;
     Interpolator<1>* interp_end;
-    u16 pixelsrendered = 0; // for tracking timings
+    bool abortscanline = false; // to abort the rest of the scanline after finishing this polygon
 
     xstart = rp->XL;
     xend = rp->XR;
@@ -1109,31 +1135,38 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
     int edge;
 
     s32 x = xstart;
-    Interpolator<0> interpX(xstart, xend+1, wl, wr);
+    xend += 1;
+    Interpolator<0> interpX(xstart, xend, wl, wr);
 
     if (x < 0) x = 0;
     s32 xlimit;
 
     s32 xcov = 0;
+    if (xend > 256) xend = 256;
+
+    // determine if the span can be rendered within the time allotted to the scanline
+    s32 diff = DoTimingsPixels(xend-x, odd);
+    if (diff != 0)
+    {
+        xend -= diff;
+        r_edgelen -= diff;
+        abortscanline = true;
+    }
 
     // part 1: left edge
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
-    if (xlimit > xend+1) xlimit = xend+1;
-    if (xlimit > 256) xlimit = 256;
+    if (xlimit > xend) xlimit = xend;
     if (l_edgecov & (1<<31))
     {
         xcov = (l_edgecov >> 12) & 0x3FF;
         if (xcov == 0x3FF) xcov = 0;
     }
     
-
-    for (; x < xlimit; x++)
+    
+    if (!l_filledge) x = xlimit;
+    else for (; x < xlimit; x++)
     {
-        if (pixelsrendered >= 4 && DoTimings(PerPixelTiming, odd)) return Step(rp, true);
-        pixelsrendered++;
-
-        if (!l_filledge) continue;
 
         u32 pixeladdr = (BufferOffset * ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
@@ -1223,16 +1256,12 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
 
     // part 2: polygon inside
     edge = yedge;
-    xlimit = xend-r_edgelen+1;
-    if (xlimit > xend+1) xlimit = xend+1;
-    if (xlimit > 256) xlimit = 256;
-
-    for (; x < xlimit; x++)
+    xlimit = xend-r_edgelen;
+    if (xlimit > xend) xlimit = xend;
+    
+    if (wireframe && !edge) x = std::max(x, xlimit);
+    else for (; x < xlimit; x++)
     {
-        if (pixelsrendered >= 4 && DoTimings(PerPixelTiming, odd)) return Step(rp, true);
-        pixelsrendered++;
-
-        if (wireframe && !edge) continue;
         
         u32 pixeladdr = (BufferOffset * ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
@@ -1315,20 +1344,16 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
 
     // part 3: right edge
     edge = yedge | 0x2;
-    xlimit = xend+1;
-    if (xlimit > 256) xlimit = 256;
+    xlimit = xend;
     if (r_edgecov & (1<<31))
     {
         xcov = (r_edgecov >> 12) & 0x3FF;
         if (xcov == 0x3FF) xcov = 0;
     }
-    //if (rp->SlopeR.Increment != 0 && DoTimings(PerRightSlope, odd)) return Step(rp, true); // should be fine to not immediately return? might be wrong
+    
+    if (r_filledge)
     for (; x < xlimit; x++)
     {
-        if (pixelsrendered >= 4 && DoTimings(PerPixelTiming, odd)) return Step(rp, true);
-        pixelsrendered++;
-
-        if (!r_filledge) continue;
         
         u32 pixeladdr = (BufferOffset * ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
@@ -1415,7 +1440,8 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
                 PlotTranslucentPixel(pixeladdr+BufferSize, color, z, polyattr, polygon->IsShadow);
         }
     }
-    return Step(rp, false);
+    Step(rp);
+    return abortscanline;
 }
 
 bool SoftRenderer::RenderScanline(s32 y, int npolys, bool odd)
@@ -1429,7 +1455,7 @@ bool SoftRenderer::RenderScanline(s32 y, int npolys, bool odd)
         if (abort)
         {
             CheckSlope(rp, y);
-            Step(rp, NULL);
+            Step(rp);
         }
         else if (y == polygon->YBottom && y != polygon->YTop)
         {

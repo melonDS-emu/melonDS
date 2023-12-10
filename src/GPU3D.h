@@ -332,14 +332,14 @@ public:
 };
 
     // numbers based on 339 poly 64-172 horiz. line poly
-    static constexpr int Frac = 481; // add a fractional component if pixels is not enough precision
-    static constexpr int RasterTimingCap = 51116*Frac;
-    static constexpr int PerScanlineTiming = 1064*Frac; // approximate currently, used to calc RDLines. TEMPORARY UNTIL ACCURATE "FRAMEBUFFER" CAN BE IMPLEMENTED
-    static constexpr int PerScanlineRecup = 2112*Frac; // seems to check out?
-    static constexpr int PerRightSlope = 1*Frac;
-    static constexpr int PerPolyTiming = 12*Frac; // should be correct for *most* line polygons and polygons with vertical slopes
-    static constexpr int PerPixelTiming = 1*Frac; // does not apply to the first 4 pixels in a polygon (per scanline?)
-    static constexpr int EmptyPolyScanline = 4*Frac - 14; // seems to be slightly under 4?
+    static constexpr int RasterFrac = 481; // add a fractional component if pixels is not enough precision
+    static constexpr int RasterTimingCap = 51116*RasterFrac;
+    static constexpr int PerScanlineTiming = 1064*RasterFrac; // approximate currently, used to calc RDLines. TEMPORARY UNTIL ACCURATE "FRAMEBUFFER" CAN BE IMPLEMENTED
+    static constexpr int PerScanlineRecup = 2112*RasterFrac; // seems to check out?
+    static constexpr int PerRightSlope = 1*RasterFrac;
+    static constexpr int PerPolyTiming = 12*RasterFrac; // should be correct for *most* line polygons and polygons with vertical slopes
+    static constexpr int PerPixelTiming = 1*RasterFrac; // does not apply to the first 4 pixels in a polygon (per scanline?)
+    static constexpr int EmptyPolyScanline = 4*RasterFrac - 14; // seems to be slightly under 4?
     //static constexpr int FirstPixelTiming;
 
 class Renderer3D
