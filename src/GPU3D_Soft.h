@@ -352,13 +352,10 @@ private:
         {
             // only do length calc for right side when swapped as it's
             // only needed for aa calcs, as actual line spans are broken
-            if (!swapped || side)
-            {
-                if (side ^ Negative)
-                    *length = (dx >> 18) - ((dx-Increment) >> 18);
-                else
-                    *length = ((dx+Increment) >> 18) - (dx >> 18);
-            }
+            if (side ^ Negative)
+                *length = (dx >> 18) - ((dx-Increment) >> 18);
+            else
+                *length = ((dx+Increment) >> 18) - (dx >> 18);
 
             // for X-major edges, we return the coverage
             // for the first pixel, and the increment for
