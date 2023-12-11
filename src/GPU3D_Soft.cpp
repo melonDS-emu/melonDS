@@ -129,27 +129,36 @@ bool SoftRenderer::DoTimings(s32 cycles, bool odd)
     return true;
 }
 
-s32 SoftRenderer::DoTimingsPixels(u32 pixels, bool odd)
+u32 SoftRenderer::DoTimingsPixels(u32 pixels, bool odd)
 {
     // return the difference between the old span and the new span
     if (pixels <= 4) return 0;
 
-    u32 pixeltiming = (pixels - 4) * RasterFrac;
+    u32 pixelsremain = pixels-4;
+    u32 timinglimit = RasterTimingCap - RasterTimingCounterPrev;
 
+    //todo: do this without a for loop somehow.
     if (odd)
     {
-        u32 rasterend = RasterTimingCap - (RasterTimingCounterOdd + RasterTimingCounterPrev);
-        pixeltiming = rasterend - pixeltiming;
+        for (; pixelsremain > 0; pixelsremain--)
+        {
+            RasterTimingCounterOdd += RasterFrac;
+            if (RasterTimingCounterOdd >= timinglimit) break;
+        }
     }
     else
     {
-        u32 rasterend = RasterTimingCap - (RasterTimingCounterEven + RasterTimingCounterPrev);
-        pixeltiming = rasterend - pixeltiming;
+        for (; pixelsremain > 0; pixelsremain--)
+        {
+            RasterTimingCounterEven += RasterFrac;
+            if (RasterTimingCounterEven >= timinglimit) break;
+        }
     }
-    if (pixeltiming > 0) return 0;
+    
+    if (pixelsremain <= 0) return 0;
 
     GPU.GPU3D.DispCnt |= (1<<12);
-    return pixels - (((pixeltiming + (RasterFrac-1)) / RasterFrac) + 4);
+    return pixelsremain;
 }
 
 void SoftRenderer::EndScanline(bool odd)
