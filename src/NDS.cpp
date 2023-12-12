@@ -256,7 +256,7 @@ void NDS::InitTimings()
     // handled later: GBA slot, wifi
 }
 
-bool NDS::NeedsDirectBoot()
+bool NDS::NeedsDirectBoot() const
 {
     if (ConsoleType == 1)
     {
@@ -1152,7 +1152,7 @@ void NDS::SetKeyMask(u32 mask)
     CheckKeyIRQ(1, oldkey, KeyInput);
 }
 
-bool NDS::IsLidClosed()
+bool NDS::IsLidClosed() const
 {
     if (KeyInput & (1<<23)) return true;
     return false;
@@ -1345,7 +1345,7 @@ void NDS::ClearIRQ2(u32 irq)
     UpdateIRQ(1);
 }
 
-bool NDS::HaltInterrupted(u32 cpu)
+bool NDS::HaltInterrupted(u32 cpu) const
 {
     if (cpu == 0)
     {
@@ -1416,7 +1416,7 @@ void NDS::EnterSleepMode()
     ARM7.Halt(2);
 }
 
-u32 NDS::GetPC(u32 cpu)
+u32 NDS::GetPC(u32 cpu) const
 {
     return cpu ? ARM7.R[15] : ARM9.R[15];
 }
@@ -1644,7 +1644,7 @@ void NDS::TimerStart(u32 id, u16 cnt)
 
 
 
-bool NDS::DMAsInMode(u32 cpu, u32 mode)
+bool NDS::DMAsInMode(u32 cpu, u32 mode) const
 {
     cpu <<= 2;
     if (DMAs[cpu+0].IsInMode(mode)) return true;
@@ -1655,7 +1655,7 @@ bool NDS::DMAsInMode(u32 cpu, u32 mode)
     return false;
 }
 
-bool NDS::DMAsRunning(u32 cpu)
+bool NDS::DMAsRunning(u32 cpu) const
 {
     cpu <<= 2;
     if (DMAs[cpu+0].IsRunning()) return true;

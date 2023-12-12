@@ -97,7 +97,7 @@ struct __attribute__((packed)) TinyVector
             Data[i] = Data[i + 1];*/
     }
 
-    int Find(T needle)
+    int Find(T needle) const
     {
         for (int i = 0; i < Length; i++)
         {
@@ -121,6 +121,12 @@ struct __attribute__((packed)) TinyVector
     }
 
     T& operator[](int index)
+    {
+        assert(index >= 0 && index < Length);
+        return Data[index];
+    }
+
+    const T& operator[](int index) const
     {
         assert(index >= 0 && index < Length);
         return Data[index];

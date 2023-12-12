@@ -1493,7 +1493,7 @@ void GPU3D::CalculateLighting() noexcept
 }
 
 
-void GPU3D::BoxTest(u32* params) noexcept
+void GPU3D::BoxTest(const u32* params) noexcept
 {
     Vertex cube[8];
     Vertex face[10];
@@ -1626,7 +1626,7 @@ void GPU3D::VecTest(u32 param) noexcept
 
 
 
-void GPU3D::CmdFIFOWrite(CmdFIFOEntry& entry) noexcept
+void GPU3D::CmdFIFOWrite(const CmdFIFOEntry& entry) noexcept
 {
     if (CmdFIFO.IsEmpty() && !CmdPIPE.IsFull())
     {

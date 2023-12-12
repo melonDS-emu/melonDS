@@ -87,8 +87,8 @@ public:
 
     void RunNDMAs(u32 cpu);
     void StallNDMAs();
-    bool NDMAsInMode(u32 cpu, u32 mode);
-    bool NDMAsRunning(u32 cpu);
+    bool NDMAsInMode(u32 cpu, u32 mode) const;
+    bool NDMAsRunning(u32 cpu) const;
     void CheckNDMAs(u32 cpu, u32 mode);
     void StopNDMAs(u32 cpu, u32 mode);
 
@@ -138,7 +138,7 @@ public:
     DSi& operator=(DSi&&) = delete;
     void SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart) override;
     std::unique_ptr<NDSCart::CartCommon> EjectCart() override;
-    bool NeedsDirectBoot() override
+    bool NeedsDirectBoot() const override
     {
         // for now, DSi mode requires original BIOS/NAND
         return false;
@@ -153,9 +153,9 @@ public:
     void SetSDCard(FATStorage&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
     void SetSDCard(std::optional<FATStorage>&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
 
-    void CamInputFrame(int cam, u32* data, int width, int height, bool rgb) override;
-    bool DMAsInMode(u32 cpu, u32 mode) override;
-    bool DMAsRunning(u32 cpu) override;
+    void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) override;
+    bool DMAsInMode(u32 cpu, u32 mode) const override;
+    bool DMAsRunning(u32 cpu) const override;
     void StopDMAs(u32 cpu, u32 mode) override;
     void CheckDMAs(u32 cpu, u32 mode) override;
     u16 SCFG_Clock7;
@@ -178,7 +178,7 @@ private:
     bool FullBIOSBoot;
     void Set_SCFG_Clock9(u16 val);
     void Set_SCFG_MC(u32 val);
-    void DecryptModcryptArea(u32 offset, u32 size, u8* iv);
+    void DecryptModcryptArea(u32 offset, u32 size, const u8* iv);
     void ApplyNewRAMSize(u32 size);
 };
 

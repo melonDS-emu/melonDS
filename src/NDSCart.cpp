@@ -48,7 +48,7 @@ constexpr u32 ByteSwap(u32 val)
     return (val >> 24) | ((val >> 8) & 0xFF00) | ((val << 8) & 0xFF0000) | (val << 24);
 }
 
-void NDSCartSlot::Key1_Encrypt(u32* data) noexcept
+void NDSCartSlot::Key1_Encrypt(u32* data) const noexcept
 {
     u32 y = data[0];
     u32 x = data[1];
@@ -69,7 +69,7 @@ void NDSCartSlot::Key1_Encrypt(u32* data) noexcept
     data[1] = y ^ Key1_KeyBuf[0x11];
 }
 
-void NDSCartSlot::Key1_Decrypt(u32* data) noexcept
+void NDSCartSlot::Key1_Decrypt(u32* data) const noexcept
 {
     u32 y = data[0];
     u32 x = data[1];
@@ -109,7 +109,7 @@ void NDSCartSlot::Key1_ApplyKeycode(u32* keycode, u32 mod) noexcept
     }
 }
 
-void NDSCartSlot::Key1_LoadKeyBuf(bool dsi, u8 *bios, u32 biosLength) noexcept
+void NDSCartSlot::Key1_LoadKeyBuf(bool dsi, const u8 *bios, u32 biosLength) noexcept
 {
     if (!NDS.IsLoadedARM7BIOSBuiltIn())
     {
@@ -136,7 +136,7 @@ void NDSCartSlot::Key1_LoadKeyBuf(bool dsi, u8 *bios, u32 biosLength) noexcept
     }
 }
 
-void NDSCartSlot::Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod, u8 *bios, u32 biosLength) noexcept
+void NDSCartSlot::Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod, const u8 *bios, u32 biosLength) noexcept
 {
     Key1_LoadKeyBuf(dsi, bios, biosLength);
 
@@ -152,7 +152,7 @@ void NDSCartSlot::Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod, u8 
 }
 
 
-void NDSCartSlot::Key2_Encrypt(u8* data, u32 len) noexcept
+void NDSCartSlot::Key2_Encrypt(const u8* data, u32 len) noexcept
 {
     for (u32 i = 0; i < len; i++)
     {
@@ -232,7 +232,7 @@ void CartCommon::DoSavestate(Savestate* file)
     file->Bool32(&DSiMode);
 }
 
-int CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
+int CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode == 0)
     {
@@ -345,7 +345,7 @@ int CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, u8* cmd, u8* da
     return 0;
 }
 
-void CartCommon::ROMCommandFinish(u8* cmd, u8* data, u32 len)
+void CartCommon::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
 {
 }
 
@@ -354,7 +354,7 @@ u8 CartCommon::SPIWrite(u8 val, u32 pos, bool last)
     return 0xFF;
 }
 
-void CartCommon::ReadROM(u32 addr, u32 len, u8* data, u32 offset)
+void CartCommon::ReadROM(u32 addr, u32 len, u8* data, u32 offset) const
 {
     if (addr >= ROMLength) return;
     if ((addr+len) > ROMLength)
@@ -477,7 +477,7 @@ void CartRetail::SetSaveMemory(const u8* savedata, u32 savelen)
     Platform::WriteNDSSave(savedata, len, 0, len);
 }
 
-int CartRetail::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
+int CartRetail::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
 
@@ -537,7 +537,7 @@ u8 CartRetail::SPIWrite(u8 val, u32 pos, bool last)
     }
 }
 
-void CartRetail::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
+void CartRetail::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset) const
 {
     addr &= (ROMLength-1);
 
@@ -875,7 +875,7 @@ void CartRetailNAND::SetSaveMemory(const u8* savedata, u32 savelen)
     BuildSRAMID();
 }
 
-int CartRetailNAND::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
+int CartRetailNAND::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
 
@@ -1011,7 +1011,7 @@ int CartRetailNAND::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8
     }
 }
 
-void CartRetailNAND::ROMCommandFinish(u8* cmd, u8* data, u32 len)
+void CartRetailNAND::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
 
@@ -1206,7 +1206,7 @@ void CartHomebrew::SetupDirectBoot(const std::string& romname, NDS& nds)
     }
 }
 
-int CartHomebrew::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
+int CartHomebrew::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
 
@@ -1243,7 +1243,7 @@ int CartHomebrew::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* 
     }
 }
 
-void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
+void CartHomebrew::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
 
@@ -1263,7 +1263,7 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
     }
 }
 
-void CartHomebrew::ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly)
+void CartHomebrew::ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly) const
 {
     if (patch[0x0D] > binary[dldioffset+0x0F])
     {
@@ -1394,7 +1394,7 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
     }
 }
 
-void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
+void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset) const
 {
     // TODO: how strict should this be for homebrew?
 

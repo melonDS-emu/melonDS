@@ -235,7 +235,7 @@ void DSi_AES::ProcessBlock_CTR()
 }
 
 
-u32 DSi_AES::ReadCnt()
+u32 DSi_AES::ReadCnt() const
 {
     u32 ret = Cnt;
 

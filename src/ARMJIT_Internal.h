@@ -85,7 +85,7 @@ typedef void (*InterpreterFunc)(ARM* cpu);
 extern InterpreterFunc InterpretARM[];
 extern InterpreterFunc InterpretTHUMB[];
 
-inline bool PageContainsCode(AddressRange* range)
+inline bool PageContainsCode(const AddressRange* range)
 {
     for (int i = 0; i < 8; i++)
     {

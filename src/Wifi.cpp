@@ -78,12 +78,12 @@ const u8 Wifi::MPAckMAC[6]   = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x03};
 // * TX errors (if applicable)
 
 
-bool MACEqual(u8* a, const u8* b)
+bool MACEqual(const u8* a, const u8* b)
 {
     return (*(u32*)&a[0] == *(u32*)&b[0]) && (*(u16*)&a[4] == *(u16*)&b[4]);
 }
 
-bool MACIsBroadcast(u8* a)
+bool MACIsBroadcast(const u8* a)
 {
     return (*(u32*)&a[0] == 0xFFFFFFFF) && (*(u16*)&a[4] == 0xFFFF);
 }
@@ -440,14 +440,14 @@ void Wifi::PowerDown()
 }
 
 
-int Wifi::PreambleLen(int rate)
+int Wifi::PreambleLen(int rate) const
 {
     if (rate == 1) return 192;
     if (IOPORT(W_Preamble) & 0x0004) return 96;
     return 192;
 }
 
-u32 Wifi::NumClients(u16 bitmask)
+u32 Wifi::NumClients(u16 bitmask) const
 {
     u32 ret = 0;
     for (int i = 1; i < 16; i++)
@@ -457,7 +457,7 @@ u32 Wifi::NumClients(u16 bitmask)
     return ret;
 }
 
-void Wifi::IncrementTXCount(TXSlot* slot)
+void Wifi::IncrementTXCount(const TXSlot* slot)
 {
     u8 cnt = RAM[slot->Addr + 0x4];
     if (cnt < 0xFF) cnt++;
@@ -477,7 +477,7 @@ void Wifi::ReportMPReplyErrors(u16 clientfail)
     }
 }
 
-void Wifi::TXSendFrame(TXSlot* slot, int num)
+void Wifi::TXSendFrame(const TXSlot* slot, int num)
 {
     u32 noseqno = 0;
 
@@ -2258,12 +2258,12 @@ void Wifi::Write(u32 addr, u16 val)
 }
 
 
-u8* Wifi::GetMAC()
+const u8* Wifi::GetMAC() const
 {
     return (u8*)&IOPORT(W_MACAddr0);
 }
 
-u8* Wifi::GetBSSID()
+const u8* Wifi::GetBSSID() const
 {
     return (u8*)&IOPORT(W_BSSID0);
 }

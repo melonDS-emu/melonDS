@@ -57,7 +57,7 @@ u16 CRC16(const u8* data, u32 len, u32 start)
 
 
 
-bool FirmwareMem::VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
+bool FirmwareMem::VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset) const
 {
     u16 crc_stored =  *(u16*)&FirmwareData.Buffer()[crcoffset];
     u16 crc_calced = CRC16(&FirmwareData.Buffer()[offset], len, start);
@@ -154,7 +154,7 @@ void FirmwareMem::SetupDirectBoot()
     }
 }
 
-bool FirmwareMem::IsLoadedFirmwareBuiltIn()
+bool FirmwareMem::IsLoadedFirmwareBuiltIn() const
 {
     return FirmwareData.GetHeader().Identifier == GENERATED_FIRMWARE_IDENTIFIER;
 }
@@ -308,7 +308,7 @@ void PowerMan::DoSavestate(Savestate* file)
     file->VarArray(RegMasks, 8); // is that needed??
 }
 
-bool PowerMan::GetBatteryLevelOkay() { return !Registers[1]; }
+bool PowerMan::GetBatteryLevelOkay() const { return !Registers[1]; }
 void PowerMan::SetBatteryLevelOkay(bool okay) { Registers[1] = okay ? 0x00 : 0x01; }
 
 void PowerMan::Write(u8 val)
@@ -404,7 +404,7 @@ void TSC::SetTouchCoords(u16 x, u16 y)
     NDS.KeyInput &= ~(1 << (16+6));
 }
 
-void TSC::MicInputFrame(s16* data, int samples)
+void TSC::MicInputFrame(const s16* data, int samples)
 {
     if (!data)
     {
@@ -549,7 +549,7 @@ void SPIHost::TransferDone(u32 param)
         NDS.SetIRQ(1, IRQ_SPI);
 }
 
-u8 SPIHost::ReadData()
+u8 SPIHost::ReadData() const
 {
     if (!(Cnt & (1<<15))) return 0;
     if (Cnt & (1<<7)) return 0; // checkme

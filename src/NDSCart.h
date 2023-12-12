@@ -83,8 +83,8 @@ public:
     virtual void DoSavestate(Savestate* file);
 
 
-    virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len);
-    virtual void ROMCommandFinish(u8* cmd, u8* data, u32 len);
+    virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len);
+    virtual void ROMCommandFinish(const u8* cmd, u8* data, u32 len);
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last);
 
@@ -103,7 +103,7 @@ public:
     [[nodiscard]] const u8* GetROM() const { return ROM.get(); }
     [[nodiscard]] u32 GetROMLength() const { return ROMLength; }
 protected:
-    void ReadROM(u32 addr, u32 len, u8* data, u32 offset);
+    void ReadROM(u32 addr, u32 len, u8* data, u32 offset) const;
 
     std::unique_ptr<u8[]> ROM = nullptr;
     u32 ROMLength = 0;
@@ -152,7 +152,7 @@ public:
 
     void SetSaveMemory(const u8* savedata, u32 savelen) override;
 
-    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
+    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
 
     u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
@@ -161,7 +161,7 @@ public:
     u32 GetSaveMemoryLength() const override { return SRAMLength; }
 
 protected:
-    void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
+    void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset) const;
 
     u8 SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last);
     u8 SRAMWrite_EEPROM(u8 val, u32 pos, bool last);
@@ -191,8 +191,8 @@ public:
 
     void SetSaveMemory(const u8* savedata, u32 savelen) override;
 
-    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
-    void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
+    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
+    void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
 
     u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
@@ -247,8 +247,8 @@ public:
     void Reset() override;
     void SetupDirectBoot(const std::string& romname, NDS& nds) override;
 
-    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len) override;
-    void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
+    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
+    void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
 
     [[nodiscard]] const std::optional<FATStorage>& GetSDCard() const noexcept { return SD; }
     void SetSDCard(FATStorage&& sdcard) noexcept { SD = std::move(sdcard); }
@@ -261,9 +261,9 @@ public:
     }
 
 private:
-    void ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly);
+    void ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly) const;
     void ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly);
-    void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
+    void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset) const;
 
     std::optional<FATStorage> SD {};
 };
@@ -354,12 +354,12 @@ private:
     u64 Key2_X = 0;
     u64 Key2_Y = 0;
 
-    void Key1_Encrypt(u32* data) noexcept;
-    void Key1_Decrypt(u32* data) noexcept;
+    void Key1_Encrypt(u32* data) const noexcept;
+    void Key1_Decrypt(u32* data) const noexcept;
     void Key1_ApplyKeycode(u32* keycode, u32 mod) noexcept;
-    void Key1_LoadKeyBuf(bool dsi, u8 *bios, u32 biosLength) noexcept;
-    void Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod, u8 *bios, u32 biosLength) noexcept;
-    void Key2_Encrypt(u8* data, u32 len) noexcept;
+    void Key1_LoadKeyBuf(bool dsi, const u8 *bios, u32 biosLength) noexcept;
+    void Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod, const u8 *bios, u32 biosLength) noexcept;
+    void Key2_Encrypt(const u8* data, u32 len) noexcept;
     void ROMEndTransfer(u32 param) noexcept;
     void ROMPrepareData(u32 param) noexcept;
     void AdvanceROMTransfer() noexcept;
