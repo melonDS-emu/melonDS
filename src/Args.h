@@ -123,7 +123,7 @@ struct NDSArgs
     /// The 3D renderer to initialize the DS with.
     /// Defaults to the software renderer.
     /// Can be changed later at any time.
-    std::unique_ptr<Renderer3D> Renderer3D = std::make_unique<SoftRenderer>();
+    std::unique_ptr<melonDS::Renderer3D> Renderer3D = std::make_unique<SoftRenderer>();
 };
 
 /// Arguments to pass into the DSi constructor.
