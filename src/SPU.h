@@ -237,7 +237,7 @@ public:
     void TrimOutput();
     void DrainOutput();
     void InitOutput();
-    int GetOutputSize();
+    int GetOutputSize() const;
     void Sync(bool wait);
     int ReadOutput(s16* data, int samples);
     void TransferOutput();

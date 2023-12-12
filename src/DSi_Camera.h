@@ -38,10 +38,10 @@ public:
 
     void Reset() override;
     void Stop();
-    bool IsActivated();
+    bool IsActivated() const;
 
     void StartTransfer();
-    bool TransferDone();
+    bool TransferDone() const;
 
     // lengths in words
     int TransferScanline(u32* buffer, int maxlen);
@@ -50,7 +50,7 @@ public:
     u8 Read(bool last) override;
     void Write(u8 val, bool last) override;
 
-    void InputFrame(u32* data, int width, int height, bool rgb);
+    void InputFrame(const u32* data, int width, int height, bool rgb);
 
     u32 Num;
 
@@ -59,7 +59,7 @@ private:
     u32 RegAddr;
     u16 RegData;
 
-    u16 I2C_ReadReg(u16 addr);
+    u16 I2C_ReadReg(u16 addr) const;
     void I2C_WriteReg(u16 addr, u16 val);
 
     u16 PLLDiv;
@@ -72,7 +72,7 @@ private:
     u16 MCUAddr;
     u8 MCURegs[0x8000];
 
-    u8 MCU_Read(u16 addr);
+    u8 MCU_Read(u16 addr) const;
     void MCU_Write(u16 addr, u8 val);
 
     u16 FrameWidth, FrameHeight;
@@ -91,7 +91,9 @@ public:
     void Stop();
     void DoSavestate(Savestate* file);
 
+    const DSi_Camera* GetOuterCamera() const { return Camera0; }
     DSi_Camera* GetOuterCamera() { return Camera0; }
+    const DSi_Camera* GetInnerCamera() const { return Camera1; }
     DSi_Camera* GetInnerCamera() { return Camera1; }
 
     void IRQ(u32 param);

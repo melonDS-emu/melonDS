@@ -147,10 +147,10 @@ private:
     void SubmitPolygon() noexcept;
     void SubmitVertex() noexcept;
     void CalculateLighting() noexcept;
-    void BoxTest(u32* params) noexcept;
+    void BoxTest(const u32* params) noexcept;
     void PosTest() noexcept;
     void VecTest(u32 param) noexcept;
-    void CmdFIFOWrite(CmdFIFOEntry& entry) noexcept;
+    void CmdFIFOWrite(const CmdFIFOEntry& entry) noexcept;
     CmdFIFOEntry CmdFIFORead() noexcept;
     void FinishWork(s32 cycles) noexcept;
     void VertexPipelineSubmitCmd() noexcept
@@ -254,6 +254,7 @@ public:
 
     u32 ClearAttr1 = 0;
     u32 ClearAttr2 = 0;
+
     u32 RenderDispCnt = 0;
     u8 RenderAlphaRef = 0;
 

@@ -406,7 +406,7 @@ void GLRenderer::SetRenderSettings(bool betterpolygons, int scale) noexcept
 }
 
 
-void GLRenderer::SetupPolygon(GLRenderer::RendererPolygon* rp, Polygon* polygon)
+void GLRenderer::SetupPolygon(GLRenderer::RendererPolygon* rp, Polygon* polygon) const
 {
     rp->PolyData = polygon;
 
@@ -452,7 +452,7 @@ void GLRenderer::SetupPolygon(GLRenderer::RendererPolygon* rp, Polygon* polygon)
     }
 }
 
-u32* GLRenderer::SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u32* vptr)
+u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32* vptr) const
 {
     u32 z = poly->FinalZ[vid];
     u32 w = poly->FinalW[vid];
@@ -735,18 +735,18 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
     NumEdgeIndices = eidx - EdgeIndicesOffset;
 }
 
-int GLRenderer::RenderSinglePolygon(int i)
+int GLRenderer::RenderSinglePolygon(int i) const
 {
-    RendererPolygon* rp = &PolygonList[i];
+    const RendererPolygon* rp = &PolygonList[i];
 
     glDrawElements(rp->PrimType, rp->NumIndices, GL_UNSIGNED_SHORT, (void*)(uintptr_t)(rp->IndicesOffset * 2));
 
     return 1;
 }
 
-int GLRenderer::RenderPolygonBatch(int i)
+int GLRenderer::RenderPolygonBatch(int i) const
 {
-    RendererPolygon* rp = &PolygonList[i];
+    const RendererPolygon* rp = &PolygonList[i];
     GLuint primtype = rp->PrimType;
     u32 key = rp->RenderKey;
     int numpolys = 0;
@@ -754,7 +754,7 @@ int GLRenderer::RenderPolygonBatch(int i)
 
     for (int iend = i; iend < NumFinalPolys; iend++)
     {
-        RendererPolygon* cur_rp = &PolygonList[iend];
+        const RendererPolygon* cur_rp = &PolygonList[iend];
         if (cur_rp->PrimType != primtype) break;
         if (cur_rp->RenderKey != key) break;
 
@@ -766,16 +766,16 @@ int GLRenderer::RenderPolygonBatch(int i)
     return numpolys;
 }
 
-int GLRenderer::RenderPolygonEdgeBatch(int i)
+int GLRenderer::RenderPolygonEdgeBatch(int i) const
 {
-    RendererPolygon* rp = &PolygonList[i];
+    const RendererPolygon* rp = &PolygonList[i];
     u32 key = rp->RenderKey;
     int numpolys = 0;
     u32 numindices = 0;
 
     for (int iend = i; iend < NumFinalPolys; iend++)
     {
-        RendererPolygon* cur_rp = &PolygonList[iend];
+        const RendererPolygon* cur_rp = &PolygonList[iend];
         if (cur_rp->RenderKey != key) break;
 
         numpolys++;

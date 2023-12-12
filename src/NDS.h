@@ -346,7 +346,7 @@ public: // TODO: Encapsulate the rest of these members
     Firmware& GetFirmware() { return SPI.GetFirmwareMem()->GetFirmware(); }
     void SetFirmware(Firmware&& firmware) { SPI.GetFirmwareMem()->SetFirmware(std::move(firmware)); }
 
-    virtual bool NeedsDirectBoot();
+    virtual bool NeedsDirectBoot() const;
     void SetupDirectBoot(const std::string& romname);
     virtual void SetupDirectBoot();
 
@@ -382,10 +382,10 @@ public: // TODO: Encapsulate the rest of these members
 
     void SetKeyMask(u32 mask);
 
-    bool IsLidClosed();
+    bool IsLidClosed() const;
     void SetLidClosed(bool closed);
 
-    virtual void CamInputFrame(int cam, u32* data, int width, int height, bool rgb) {}
+    virtual void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) {}
     void MicInputFrame(s16* data, int samples);
 
     void RegisterEventFunc(u32 id, u32 funcid, EventFunc func);
@@ -404,20 +404,20 @@ public: // TODO: Encapsulate the rest of these members
     void ClearIRQ(u32 cpu, u32 irq);
     void SetIRQ2(u32 irq);
     void ClearIRQ2(u32 irq);
-    bool HaltInterrupted(u32 cpu);
+    bool HaltInterrupted(u32 cpu) const;
     void StopCPU(u32 cpu, u32 mask);
     void ResumeCPU(u32 cpu, u32 mask);
     void GXFIFOStall();
     void GXFIFOUnstall();
 
-    u32 GetPC(u32 cpu);
+    u32 GetPC(u32 cpu) const;
     u64 GetSysClockCycles(int num);
     void NocashPrint(u32 cpu, u32 addr);
 
     void MonitorARM9Jump(u32 addr);
 
-    virtual bool DMAsInMode(u32 cpu, u32 mode);
-    virtual bool DMAsRunning(u32 cpu);
+    virtual bool DMAsInMode(u32 cpu, u32 mode) const;
+    virtual bool DMAsRunning(u32 cpu) const;
     virtual void CheckDMAs(u32 cpu, u32 mode);
     virtual void StopDMAs(u32 cpu, u32 mode);
 

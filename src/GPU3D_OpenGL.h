@@ -80,12 +80,12 @@ private:
 
     bool BuildRenderShader(u32 flags, const char* vs, const char* fs);
     void UseRenderShader(u32 flags);
-    void SetupPolygon(RendererPolygon* rp, Polygon* polygon);
-    u32* SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u32* vptr);
+    void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
+    u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32* vptr) const;
     void BuildPolygons(RendererPolygon* polygons, int npolys);
-    int RenderSinglePolygon(int i);
-    int RenderPolygonBatch(int i);
-    int RenderPolygonEdgeBatch(int i);
+    int RenderSinglePolygon(int i) const;
+    int RenderPolygonBatch(int i) const;
+    int RenderPolygonEdgeBatch(int i) const;
     void RenderSceneChunk(int y, int h);
 
     enum

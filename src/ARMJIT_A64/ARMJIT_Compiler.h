@@ -114,7 +114,7 @@ public:
 
     bool CanCompile(bool thumb, u16 kind);
 
-    bool FlagsNZNeeded()
+    bool FlagsNZNeeded() const
     {
         return CurInstr.SetFlags & 0xC;
     }
@@ -234,7 +234,7 @@ public:
         return (u8*)entry - GetRXBase();
     }
 
-    bool IsJITFault(u8* pc);
+    bool IsJITFault(const u8* pc);
     u8* RewriteMemAccess(u8* pc);
 
     void SwapCodeRegion()

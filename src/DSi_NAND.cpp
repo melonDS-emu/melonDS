@@ -365,7 +365,7 @@ bool NANDImage::ESEncrypt(u8* data, u32 len) const
     return true;
 }
 
-bool NANDImage::ESDecrypt(u8* data, u32 len)
+bool NANDImage::ESDecrypt(u8* data, u32 len) const
 {
     AES_ctx ctx;
     u8 iv[16];
