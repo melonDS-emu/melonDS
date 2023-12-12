@@ -544,11 +544,11 @@ void EmuThread::run()
 
     if (videoRenderer == 0)
     { // If we're using the software renderer...
-        NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(NDS->GPU, Config::Threaded3D != 0));
+        NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
     }
     else
     {
-        auto glrenderer =  melonDS::GLRenderer::New(NDS->GPU);
+        auto glrenderer =  melonDS::GLRenderer::New();
         glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
         NDS->GPU.SetRenderer3D(std::move(glrenderer));
     }
@@ -677,11 +677,11 @@ void EmuThread::run()
 
                 if (videoRenderer == 0)
                 { // If we're using the software renderer...
-                    NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(NDS->GPU, Config::Threaded3D != 0));
+                    NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
                 }
                 else
                 {
-                    auto glrenderer =  melonDS::GLRenderer::New(NDS->GPU);
+                    auto glrenderer =  melonDS::GLRenderer::New();
                     glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
                     NDS->GPU.SetRenderer3D(std::move(glrenderer));
                 }

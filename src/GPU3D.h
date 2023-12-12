@@ -101,12 +101,12 @@ public:
     void CheckFIFOIRQ() noexcept;
     void CheckFIFODMA() noexcept;
 
-    void VCount144() noexcept;
+    void VCount144(GPU& gpu) noexcept;
     void VBlank() noexcept;
-    void VCount215() noexcept;
+    void VCount215(GPU& gpu) noexcept;
 
-    void RestartFrame() noexcept;
-    void Stop() noexcept;
+    void RestartFrame(GPU& gpu) noexcept;
+    void Stop(const GPU& gpu) noexcept;
 
     void SetRenderXPos(u16 xpos) noexcept;
     [[nodiscard]] u16 GetRenderXPos() const noexcept { return RenderXPos; }
@@ -125,7 +125,7 @@ public:
     void Write8(u32 addr, u8 val) noexcept;
     void Write16(u32 addr, u16 val) noexcept;
     void Write32(u32 addr, u32 val) noexcept;
-    void Blit() noexcept;
+    void Blit(const GPU& gpu) noexcept;
 private:
     melonDS::NDS& NDS;
     typedef union
@@ -334,19 +334,19 @@ public:
     Renderer3D(const Renderer3D&) = delete;
     Renderer3D& operator=(const Renderer3D&) = delete;
 
-    virtual void Reset() = 0;
+    virtual void Reset(GPU& gpu) = 0;
 
     // This "Accelerated" flag currently communicates if the framebuffer should
     // be allocated differently and other little misc handlers. Ideally there
     // are more detailed "traits" that we can ask of the Renderer3D type
     const bool Accelerated;
 
-    virtual void VCount144() {};
-    virtual void Stop() {}
-    virtual void RenderFrame() = 0;
-    virtual void RestartFrame() {};
+    virtual void VCount144(GPU& gpu) {};
+    virtual void Stop(const GPU& gpu) {}
+    virtual void RenderFrame(GPU& gpu) = 0;
+    virtual void RestartFrame(GPU& gpu) {};
     virtual u32* GetLine(int line) = 0;
-    virtual void Blit() {};
+    virtual void Blit(const GPU& gpu) {};
     virtual void PrepareCaptureFrame() {}
 protected:
     Renderer3D(bool Accelerated);

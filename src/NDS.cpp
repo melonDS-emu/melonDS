@@ -1322,7 +1322,7 @@ void NDS::SetIRQ(u32 cpu, u32 irq)
         {
             CPUStop &= ~CPUStop_Sleep;
             CPUStop |= CPUStop_Wakeup;
-            GPU.GPU3D.RestartFrame();
+            GPU.GPU3D.RestartFrame(GPU);
         }
     }
 }

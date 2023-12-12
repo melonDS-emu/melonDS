@@ -328,6 +328,14 @@ public:
     Firmware& GetFirmware() { return SPI.GetFirmwareMem()->GetFirmware(); }
     void SetFirmware(Firmware&& firmware) { SPI.GetFirmwareMem()->SetFirmware(std::move(firmware)); }
 
+    const Renderer3D& GetRenderer3D() const noexcept { return GPU.GetRenderer3D(); }
+    Renderer3D& GetRenderer3D() noexcept { return GPU.GetRenderer3D(); }
+    void SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
+    {
+        if (renderer != nullptr)
+            GPU.SetRenderer3D(std::move(renderer));
+    }
+
     virtual bool NeedsDirectBoot() const;
     void SetupDirectBoot(const std::string& romname);
     virtual void SetupDirectBoot();
