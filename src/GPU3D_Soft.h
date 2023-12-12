@@ -469,16 +469,17 @@ private:
     bool RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd);
     bool RenderScanline(s32 y, int npolys, bool odd);
     u32 CalculateFogDensity(u32 pixeladdr);
-    void ScanlineFinalPass(s32 y, u8 rdbufferoffset, bool late, bool odd, bool finish);
-    void ClearBuffers(s32 y);
+    void ScanlineFinalPass(s32 y, u8 rdbufferoffset, bool odd);
+    void ClearBuffers();
     void RenderPolygons(bool threaded, Polygon** polygons, int npolys);
 
     void RenderThreadFunc();
     
     // counters for scanline rasterization timings
-    s32 RasterTimingCounterPrev = 0;
-    s32 RasterTimingCounterOdd = 0;
-    s32 RasterTimingCounterEven = 0;
+    s32 RasterTiming = 0;
+    //s32 RasterTimingCounterPrev = 0;
+    s32 RasterTimingOdd = 0;
+    s32 RasterTimingEven = 0;
 
     // buffer dimensions are 258x194 to add a offscreen 1px border
     // which simplifies edge marking tests
@@ -489,7 +490,7 @@ private:
     static constexpr int ScanlineWidth = 256;
     static constexpr int NumScanlines = 192;
     static constexpr int NumScanlinesRD = 48;
-    static constexpr int NumScanlinesInternal = 8;
+    static constexpr int NumScanlinesInternal = 192;
     static constexpr int InternalBufferSize = ScanlineWidth * NumScanlinesInternal;
     static constexpr int RDBufferSize = ScanlineWidth * NumScanlinesRD;
     static constexpr int BufferSize = ScanlineWidth * NumScanlines;
@@ -498,7 +499,6 @@ private:
     u32 ColorBuffer[InternalBufferSize * 2];
     u32 DepthBuffer[InternalBufferSize * 2];
     u32 AttrBuffer[InternalBufferSize * 2];
-    u8 BufferOffset;
     u32 RDBuffer[RDBufferSize];
     u32 FinalBuffer[BufferSize];
 
