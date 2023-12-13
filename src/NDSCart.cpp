@@ -1642,7 +1642,8 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
     }
 
     std::unique_ptr<CartCommon> cart;
-    auto [sram, sramlen] = args ? std::move(*args->SRAM) : std::make_pair(nullptr, 0);
+    std::unique_ptr<u8[]> sram = args ? std::move(args->SRAM) : nullptr;
+    u32 sramlen = args ? args->SRAMLength : 0;
     if (homebrew)
         cart = std::make_unique<CartHomebrew>(std::move(cartrom), cartromsize, cartid, romparams, args ? std::move(args->SDCard) : std::nullopt);
     else if (cartid & 0x08000000)
