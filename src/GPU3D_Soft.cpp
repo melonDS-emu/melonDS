@@ -71,14 +71,13 @@ void SoftRenderer::SetupRenderThread()
 }
 
 
-SoftRenderer::SoftRenderer(melonDS::GPU& gpu) noexcept
-    : Renderer3D(false), GPU(gpu)
+SoftRenderer::SoftRenderer(melonDS::GPU& gpu, bool threaded) noexcept
+    : Renderer3D(false), GPU(gpu), Threaded(threaded)
 {
     Sema_RenderStart = Platform::Semaphore_Create();
     Sema_RenderDone = Platform::Semaphore_Create();
     Sema_ScanlineCount = Platform::Semaphore_Create();
 
-    Threaded = false;
     RenderThreadRunning = false;
     RenderThreadRendering = false;
     RenderThread = nullptr;
@@ -104,13 +103,16 @@ void SoftRenderer::Reset()
     SetupRenderThread();
 }
 
-void SoftRenderer::SetRenderSettings(const RenderSettings& settings) noexcept
+void SoftRenderer::SetThreaded(bool threaded) noexcept
 {
-    Threaded = settings.Soft_Threaded;
-    SetupRenderThread();
+    if (Threaded != threaded)
+    {
+        Threaded = threaded;
+        SetupRenderThread();
+    }
 }
 
-void SoftRenderer::TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha)
+void SoftRenderer::TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const
 {
     u32 vramaddr = (texparam & 0xFFFF) << 3;
 
@@ -386,7 +388,7 @@ bool DepthTest_LessThan_FrontFacing(s32 dstz, s32 z, u32 dstattr)
     return false;
 }
 
-u32 SoftRenderer::AlphaBlend(u32 srccolor, u32 dstcolor, u32 alpha) noexcept
+u32 SoftRenderer::AlphaBlend(u32 srccolor, u32 dstcolor, u32 alpha) const noexcept
 {
     u32 dstalpha = dstcolor >> 24;
 
@@ -416,7 +418,7 @@ u32 SoftRenderer::AlphaBlend(u32 srccolor, u32 dstcolor, u32 alpha) noexcept
     return srcR | (srcG << 8) | (srcB << 16) | (dstalpha << 24);
 }
 
-u32 SoftRenderer::RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
+u32 SoftRenderer::RenderPixel(const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const
 {
     u8 r, g, b, a;
 
@@ -563,7 +565,7 @@ void SoftRenderer::PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 pol
     AttrBuffer[pixeladdr] = attr;
 }
 
-void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y)
+void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y) const
 {
     Polygon* polygon = rp->PolyData;
 
@@ -590,7 +592,7 @@ void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y
                               polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y);
 }
 
-void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 y)
+void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 y) const
 {
     Polygon* polygon = rp->PolyData;
 
@@ -617,7 +619,7 @@ void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 
                               polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
 }
 
-void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* polygon)
+void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* polygon) const
 {
     u32 nverts = polygon->NumVertices;
 
@@ -1373,7 +1375,7 @@ void SoftRenderer::RenderScanline(s32 y, int npolys)
     }
 }
 
-u32 SoftRenderer::CalculateFogDensity(u32 pixeladdr)
+u32 SoftRenderer::CalculateFogDensity(u32 pixeladdr) const
 {
     u32 z = DepthBuffer[pixeladdr];
     u32 densityid, densityfrac;

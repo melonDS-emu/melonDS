@@ -45,15 +45,16 @@ __attribute((always_inline)) static void Bswap128(void* Dst, const void* Src)
 #endif
 #pragma GCC diagnostic pop
 
+class DSi;
 class DSi_AES
 {
 public:
-    DSi_AES();
+    DSi_AES(melonDS::DSi& dsi);
     ~DSi_AES();
     void Reset();
     void DoSavestate(Savestate* file);
 
-    u32 ReadCnt();
+    u32 ReadCnt() const;
     void WriteCnt(u32 val);
     void WriteBlkCnt(u32 val);
 
@@ -73,6 +74,7 @@ public:
     static void DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey);
 
 private:
+    melonDS::DSi& DSi;
     u32 Cnt;
 
     u32 BlkCnt;

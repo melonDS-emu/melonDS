@@ -16,34 +16,18 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef AUDIO_INOUT_H
-#define AUDIO_INOUT_H
+#ifndef MELONDS_MEMREGION_H
+#define MELONDS_MEMREGION_H
 
 #include "types.h"
 
-#include <QMainWindow>
-
-class EmuThread;
+// this file exists to break #include cycle loops
 namespace melonDS
 {
-class NDS;
-}
-namespace AudioInOut
+struct MemRegion
 {
-
-void Init(EmuThread* thread);
-void DeInit();
-
-void MicProcess(melonDS::NDS& nds);
-void AudioMute(QMainWindow* mainWindow);
-
-void AudioSync(melonDS::NDS& nds);
-
-void UpdateSettings(melonDS::NDS& nds);
-
-void Enable();
-void Disable();
-
+    u8* Mem;
+    u32 Mask;
+};
 }
-
-#endif
+#endif //MELONDS_MEMREGION_H

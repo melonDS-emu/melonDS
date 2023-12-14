@@ -24,7 +24,6 @@
 
 #include "GPU2D_Soft.h"
 #include "GPU3D_Soft.h"
-#include "GPU3D_OpenGL.h"
 
 namespace melonDS
 {
@@ -64,38 +63,29 @@ enum
                 VRAMDirty need to be reset for the respective VRAM bank.
 */
 
-GPU::GPU(ARMJIT& jit) noexcept : GPU2D_A(0, *this), GPU2D_B(1, *this), JIT(jit)
+GPU::GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d, std::unique_ptr<GPU2D::Renderer2D>&& renderer2d) noexcept :
+    NDS(nds),
+    GPU2D_A(0, *this),
+    GPU2D_B(1, *this),
+    GPU3D(nds, renderer3d ? std::move(renderer3d) : std::make_unique<SoftRenderer>(*this)),
+    GPU2D_Renderer(renderer2d ? std::move(renderer2d) : std::make_unique<GPU2D::SoftRenderer>(*this))
 {
-    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartHBlank, MemberEventFunc(GPU, StartHBlank));
-    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_StartScanline, MemberEventFunc(GPU, StartScanline));
-    NDS::RegisterEventFunc(NDS::Event_LCD, LCD_FinishFrame, MemberEventFunc(GPU, FinishFrame));
-    NDS::RegisterEventFunc(NDS::Event_DisplayFIFO, 0, MemberEventFunc(GPU, DisplayFIFO));
+    NDS.RegisterEventFunc(Event_LCD, LCD_StartHBlank, MemberEventFunc(GPU, StartHBlank));
+    NDS.RegisterEventFunc(Event_LCD, LCD_StartScanline, MemberEventFunc(GPU, StartScanline));
+    NDS.RegisterEventFunc(Event_LCD, LCD_FinishFrame, MemberEventFunc(GPU, FinishFrame));
+    NDS.RegisterEventFunc(Event_DisplayFIFO, 0, MemberEventFunc(GPU, DisplayFIFO));
 
-    GPU2D_Renderer = std::make_unique<GPU2D::SoftRenderer>(*this);
-
-    FrontBuffer = 0;
-    Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
-    Framebuffer[1][0] = NULL; Framebuffer[1][1] = NULL;
-    Renderer = 0;
+    InitFramebuffers();
 }
 
 GPU::~GPU() noexcept
 {
     // All unique_ptr fields are automatically cleaned up
-    if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
-    if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
-    if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
-    if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
 
-    Framebuffer[0][0] = nullptr;
-    Framebuffer[0][1] = nullptr;
-    Framebuffer[1][0] = nullptr;
-    Framebuffer[1][1] = nullptr;
-
-    NDS::UnregisterEventFunc(NDS::Event_LCD, LCD_StartHBlank);
-    NDS::UnregisterEventFunc(NDS::Event_LCD, LCD_StartScanline);
-    NDS::UnregisterEventFunc(NDS::Event_LCD, LCD_FinishFrame);
-    NDS::UnregisterEventFunc(NDS::Event_DisplayFIFO, 0);
+    NDS.UnregisterEventFunc(Event_LCD, LCD_StartHBlank);
+    NDS.UnregisterEventFunc(Event_LCD, LCD_StartScanline);
+    NDS.UnregisterEventFunc(Event_LCD, LCD_FinishFrame);
+    NDS.UnregisterEventFunc(Event_DisplayFIFO, 0);
 }
 
 void GPU::ResetVRAMCache() noexcept
@@ -198,9 +188,7 @@ void GPU::Reset() noexcept
     GPU3D.Reset();
 
     int backbuf = FrontBuffer ? 0 : 1;
-    GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1], Framebuffer[backbuf][0]);
-
-    ResetRenderer();
+    GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1].get(), Framebuffer[backbuf][0].get());
 
     ResetVRAMCache();
 
@@ -216,17 +204,12 @@ void GPU::Stop() noexcept
     else
         fbsize = 256 * 192;
 
-    memset(Framebuffer[0][0], 0, fbsize*4);
-    memset(Framebuffer[0][1], 0, fbsize*4);
-    memset(Framebuffer[1][0], 0, fbsize*4);
-    memset(Framebuffer[1][1], 0, fbsize*4);
+    memset(Framebuffer[0][0].get(), 0, fbsize*4);
+    memset(Framebuffer[0][1].get(), 0, fbsize*4);
+    memset(Framebuffer[1][0].get(), 0, fbsize*4);
+    memset(Framebuffer[1][1].get(), 0, fbsize*4);
 
-#ifdef OGLRENDERER_ENABLED
-    // This needs a better way to know that we're
-    // using the OpenGL renderer specifically
-    if (GPU3D.IsRendererAccelerated())
-        CurGLCompositor->Stop();
-#endif
+    GPU3D.Stop();
 }
 
 void GPU::DoSavestate(Savestate* file) noexcept
@@ -298,115 +281,45 @@ void GPU::DoSavestate(Savestate* file) noexcept
 void GPU::AssignFramebuffers() noexcept
 {
     int backbuf = FrontBuffer ? 0 : 1;
-    if (NDS::PowerControl9 & (1<<15))
+    if (NDS.PowerControl9 & (1<<15))
     {
-        GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][0], Framebuffer[backbuf][1]);
+        GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][0].get(), Framebuffer[backbuf][1].get());
     }
     else
     {
-        GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1], Framebuffer[backbuf][0]);
+        GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1].get(), Framebuffer[backbuf][0].get());
     }
 }
 
-void GPU::InitRenderer(int renderer) noexcept
+void GPU::SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
 {
-#ifdef OGLRENDERER_ENABLED
-    if (renderer == 1)
-    {
-        CurGLCompositor = GLCompositor::New(*this);
-        // Create opengl renderer
-        if (!CurGLCompositor)
-        {
-            // Fallback on software renderer
-            renderer = 0;
-            GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>(*this));
-        }
-        GPU3D.SetCurrentRenderer(GLRenderer::New(*this));
-        if (!GPU3D.GetCurrentRenderer())
-        {
-            // Fallback on software renderer
-            CurGLCompositor.reset();
-            renderer = 0;
-            GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>(*this));
-        }
-    }
-    else
-#endif
-    {
+    if (renderer == nullptr)
         GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>(*this));
-    }
-
-    Renderer = renderer;
-}
-
-void GPU::DeInitRenderer() noexcept
-{
-    // Delete the 3D renderer, if it exists
-    GPU3D.SetCurrentRenderer(nullptr);
-
-#ifdef OGLRENDERER_ENABLED
-    // Delete the compositor, if one exists
-    CurGLCompositor.reset();
-#endif
-}
-
-void GPU::ResetRenderer() noexcept
-{
-    if (Renderer == 0)
-    {
-        GPU3D.GetCurrentRenderer()->Reset();
-    }
-#ifdef OGLRENDERER_ENABLED
     else
-    {
-        CurGLCompositor->Reset();
-        GPU3D.GetCurrentRenderer()->Reset();
-    }
-#endif
+        GPU3D.SetCurrentRenderer(std::move(renderer));
+
+    InitFramebuffers();
 }
 
-void GPU::SetRenderSettings(int renderer, RenderSettings& settings) noexcept
+void GPU::InitFramebuffers() noexcept
 {
-    if (renderer != Renderer)
-    {
-        DeInitRenderer();
-        InitRenderer(renderer);
-    }
-
     int fbsize;
     if (GPU3D.IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
     else
         fbsize = 256 * 192;
 
-    if (Framebuffer[0][0]) { delete[] Framebuffer[0][0]; Framebuffer[0][0] = nullptr; }
-    if (Framebuffer[1][0]) { delete[] Framebuffer[1][0]; Framebuffer[1][0] = nullptr; }
-    if (Framebuffer[0][1]) { delete[] Framebuffer[0][1]; Framebuffer[0][1] = nullptr; }
-    if (Framebuffer[1][1]) { delete[] Framebuffer[1][1]; Framebuffer[1][1] = nullptr; }
+    Framebuffer[0][0] = std::make_unique<u32[]>(fbsize);
+    Framebuffer[1][0] = std::make_unique<u32[]>(fbsize);
+    Framebuffer[0][1] = std::make_unique<u32[]>(fbsize);
+    Framebuffer[1][1] = std::make_unique<u32[]>(fbsize);
 
-    Framebuffer[0][0] = new u32[fbsize];
-    Framebuffer[1][0] = new u32[fbsize];
-    Framebuffer[0][1] = new u32[fbsize];
-    Framebuffer[1][1] = new u32[fbsize];
-
-    memset(Framebuffer[0][0], 0, fbsize*4);
-    memset(Framebuffer[1][0], 0, fbsize*4);
-    memset(Framebuffer[0][1], 0, fbsize*4);
-    memset(Framebuffer[1][1], 0, fbsize*4);
+    memset(Framebuffer[0][0].get(), 0, fbsize*4);
+    memset(Framebuffer[1][0].get(), 0, fbsize*4);
+    memset(Framebuffer[0][1].get(), 0, fbsize*4);
+    memset(Framebuffer[1][1].get(), 0, fbsize*4);
 
     AssignFramebuffers();
-
-    if (Renderer == 0)
-    {
-        GPU3D.GetCurrentRenderer()->SetRenderSettings(settings);
-    }
-#ifdef OGLRENDERER_ENABLED
-    else
-    {
-        CurGLCompositor->SetRenderSettings(settings);
-        GPU3D.GetCurrentRenderer()->SetRenderSettings(settings);
-    }
-#endif
 }
 
 
@@ -588,7 +501,7 @@ void GPU::MapVRAM_CD(u32 bank, u8 cnt) noexcept
             VRAMMap_ARM7[ofs] |= bankmask;
             memset(VRAMDirty[bank].Data, 0xFF, sizeof(VRAMDirty[bank].Data));
             VRAMSTAT |= (1 << (bank-2));
-            JIT.CheckAndInvalidateWVRAM(ofs);
+            NDS.JIT.CheckAndInvalidateWVRAM(ofs);
             break;
 
         case 3: // texture
@@ -942,8 +855,8 @@ void GPU::DisplayFIFO(u32 x) noexcept
     if (x < 256)
     {
         // transfer the next 8 pixels
-        NDS::CheckDMAs(0, 0x04);
-        NDS::ScheduleEvent(NDS::Event_DisplayFIFO, true, 6*8, 0, x+8);
+        NDS.CheckDMAs(0, 0x04);
+        NDS.ScheduleEvent(Event_DisplayFIFO, true, 6*8, 0, x+8);
     }
     else
         GPU2D_A.SampleFIFO(253, 3); // sample the remaining pixels
@@ -954,7 +867,7 @@ void GPU::StartFrame() noexcept
     // only run the display FIFO if needed:
     // * if it is used for display or capture
     // * if we have display FIFO DMA
-    RunFIFO = GPU2D_A.UsesFIFO() || NDS::DMAsInMode(0, 0x04);
+    RunFIFO = GPU2D_A.UsesFIFO() || NDS.DMAsInMode(0, 0x04);
 
     TotalScanlines = 0;
     StartScanline(0);
@@ -982,7 +895,7 @@ void GPU::StartHBlank(u32 line) noexcept
             GPU2D_Renderer->DrawSprites(line+1, &GPU2D_B);
         }
 
-        NDS::CheckDMAs(0, 0x02);
+        NDS.CheckDMAs(0, 0x02);
     }
     else if (VCount == 215)
     {
@@ -994,13 +907,13 @@ void GPU::StartHBlank(u32 line) noexcept
         GPU2D_Renderer->DrawSprites(0, &GPU2D_B);
     }
 
-    if (DispStat[0] & (1<<4)) NDS::SetIRQ(0, NDS::IRQ_HBlank);
-    if (DispStat[1] & (1<<4)) NDS::SetIRQ(1, NDS::IRQ_HBlank);
+    if (DispStat[0] & (1<<4)) NDS.SetIRQ(0, IRQ_HBlank);
+    if (DispStat[1] & (1<<4)) NDS.SetIRQ(1, IRQ_HBlank);
 
     if (VCount < 262)
-        NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), LCD_StartScanline, line+1);
+        NDS.ScheduleEvent(Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), LCD_StartScanline, line+1);
     else
-        NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), LCD_FinishFrame, line+1);
+        NDS.ScheduleEvent(Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), LCD_FinishFrame, line+1);
 }
 
 void GPU::FinishFrame(u32 lines) noexcept
@@ -1026,8 +939,8 @@ void GPU::BlankFrame() noexcept
     else
         fbsize = 256 * 192;
 
-    memset(Framebuffer[backbuf][0], 0, fbsize*4);
-    memset(Framebuffer[backbuf][1], 0, fbsize*4);
+    memset(Framebuffer[backbuf][0].get(), 0, fbsize*4);
+    memset(Framebuffer[backbuf][1].get(), 0, fbsize*4);
 
     FrontBuffer = backbuf;
     AssignFramebuffers();
@@ -1053,7 +966,7 @@ void GPU::StartScanline(u32 line) noexcept
     {
         DispStat[0] |= (1<<2);
 
-        if (DispStat[0] & (1<<5)) NDS::SetIRQ(0, NDS::IRQ_VCount);
+        if (DispStat[0] & (1<<5)) NDS.SetIRQ(0, IRQ_VCount);
     }
     else
         DispStat[0] &= ~(1<<2);
@@ -1062,7 +975,7 @@ void GPU::StartScanline(u32 line) noexcept
     {
         DispStat[1] |= (1<<2);
 
-        if (DispStat[1] & (1<<5)) NDS::SetIRQ(1, NDS::IRQ_VCount);
+        if (DispStat[1] & (1<<5)) NDS.SetIRQ(1, IRQ_VCount);
     }
     else
         DispStat[1] &= ~(1<<2);
@@ -1071,9 +984,9 @@ void GPU::StartScanline(u32 line) noexcept
     GPU2D_B.CheckWindows(VCount);
 
     if (VCount >= 2 && VCount < 194)
-        NDS::CheckDMAs(0, 0x03);
+        NDS.CheckDMAs(0, 0x03);
     else if (VCount == 194)
-        NDS::StopDMAs(0, 0x03);
+        NDS.StopDMAs(0, 0x03);
 
     if (line < 192)
     {
@@ -1085,7 +998,7 @@ void GPU::StartScanline(u32 line) noexcept
         }
 
         if (RunFIFO)
-            NDS::ScheduleEvent(NDS::Event_DisplayFIFO, false, 32, 0, 0);
+            NDS.ScheduleEvent(Event_DisplayFIFO, false, 32, 0, 0);
     }
 
     if (VCount == 262)
@@ -1111,27 +1024,25 @@ void GPU::StartScanline(u32 line) noexcept
             DispStat[0] |= (1<<0);
             DispStat[1] |= (1<<0);
 
-            NDS::StopDMAs(0, 0x04);
+            NDS.StopDMAs(0, 0x04);
 
-            NDS::CheckDMAs(0, 0x01);
-            NDS::CheckDMAs(1, 0x11);
+            NDS.CheckDMAs(0, 0x01);
+            NDS.CheckDMAs(1, 0x11);
 
-            if (DispStat[0] & (1<<3)) NDS::SetIRQ(0, NDS::IRQ_VBlank);
-            if (DispStat[1] & (1<<3)) NDS::SetIRQ(1, NDS::IRQ_VBlank);
+            if (DispStat[0] & (1<<3)) NDS.SetIRQ(0, IRQ_VBlank);
+            if (DispStat[1] & (1<<3)) NDS.SetIRQ(1, IRQ_VBlank);
 
             GPU2D_A.VBlank();
             GPU2D_B.VBlank();
             GPU3D.VBlank();
 
-#ifdef OGLRENDERER_ENABLED
             // Need a better way to identify the openGL renderer in particular
             if (GPU3D.IsRendererAccelerated())
-                CurGLCompositor->RenderFrame();
-#endif
+                GPU3D.Blit();
         }
     }
 
-    NDS::ScheduleEvent(NDS::Event_LCD, true, HBLANK_CYCLES, LCD_StartHBlank, line);
+    NDS.ScheduleEvent(Event_LCD, true, HBLANK_CYCLES, LCD_StartHBlank, line);
 }
 
 

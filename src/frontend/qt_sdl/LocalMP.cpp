@@ -130,7 +130,7 @@ bool SemInit(int num)
     char semname[64];
     sprintf(semname, "Local\\melonNIFI_Sem%02d", num);
 
-    HANDLE sem = CreateSemaphore(nullptr, 0, 64, semname);
+    HANDLE sem = CreateSemaphoreA(nullptr, 0, 64, semname);
     SemPool[num] = sem;
     SemInited[num] = true;
     return sem != INVALID_HANDLE_VALUE;
@@ -303,10 +303,13 @@ void DeInit()
     if (MPQueue)
     {
         MPQueue->lock();
-        MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
-        header->ConnectedBitmask &= ~(1 << InstanceID);
-        header->InstanceBitmask &= ~(1 << InstanceID);
-        header->NumInstances--;
+        if (MPQueue->data() != nullptr)
+        {
+            MPQueueHeader *header = (MPQueueHeader *) MPQueue->data();
+            header->ConnectedBitmask &= ~(1 << InstanceID);
+            header->InstanceBitmask &= ~(1 << InstanceID);
+            header->NumInstances--;
+        }
         MPQueue->unlock();
 
         SemPoolDeinit();

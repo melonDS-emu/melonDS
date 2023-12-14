@@ -78,20 +78,20 @@ const u8 Wifi::MPAckMAC[6]   = {0x03, 0x09, 0xBF, 0x00, 0x00, 0x03};
 // * TX errors (if applicable)
 
 
-bool MACEqual(u8* a, const u8* b)
+bool MACEqual(const u8* a, const u8* b)
 {
     return (*(u32*)&a[0] == *(u32*)&b[0]) && (*(u16*)&a[4] == *(u16*)&b[4]);
 }
 
-bool MACIsBroadcast(u8* a)
+bool MACIsBroadcast(const u8* a)
 {
     return (*(u32*)&a[0] == 0xFFFFFFFF) && (*(u16*)&a[4] == 0xFFFF);
 }
 
 
-Wifi::Wifi()
+Wifi::Wifi(melonDS::NDS& nds) : NDS(nds)
 {
-    NDS::RegisterEventFunc(NDS::Event_Wifi, 0, MemberEventFunc(Wifi, USTimer));
+    NDS.RegisterEventFunc(Event_Wifi, 0, MemberEventFunc(Wifi, USTimer));
 
     //MPInited = false;
     //LANInited = false;
@@ -114,7 +114,7 @@ Wifi::~Wifi()
 
     delete WifiAP; WifiAP = nullptr;
 
-    NDS::UnregisterEventFunc(NDS::Event_Wifi, 0);
+    NDS.UnregisterEventFunc(Event_Wifi, 0);
 }
 
 void Wifi::Reset()
@@ -158,17 +158,17 @@ void Wifi::Reset()
     }
     #undef BBREG_FIXED
 
-    const Firmware* fw = NDS::SPI->GetFirmware();
+    const Firmware& fw = NDS.SPI.GetFirmware();
 
-    RFVersion = fw->GetHeader().RFChipType;
+    RFVersion = fw.GetHeader().RFChipType;
     memset(RFRegs, 0, 4*0x40);
 
-    Firmware::FirmwareConsoleType console = fw->GetHeader().ConsoleType;
+    Firmware::FirmwareConsoleType console = fw.GetHeader().ConsoleType;
     if (console == Firmware::FirmwareConsoleType::DS)
         IOPORT(0x000) = 0x1440;
     else if (console == Firmware::FirmwareConsoleType::DSLite)
         IOPORT(0x000) = 0xC340;
-    else if (NDS::ConsoleType == 1 && console == Firmware::FirmwareConsoleType::DSi)
+    else if (NDS.ConsoleType == 1 && console == Firmware::FirmwareConsoleType::DSi)
         IOPORT(0x000) = 0xC340; // DSi has the modern DS-wifi variant
     else
     {
@@ -303,14 +303,14 @@ void Wifi::ScheduleTimer(bool first)
     s32 delay = (cycles + 999999) / 1000000;
     TimerError = (delay * 1000000) - cycles;
 
-    NDS::ScheduleEvent(NDS::Event_Wifi, !first, delay, 0, 0);
+    NDS.ScheduleEvent(Event_Wifi, !first, delay, 0, 0);
 }
 
 void Wifi::UpdatePowerOn()
 {
     bool on = Enabled;
 
-    if (NDS::ConsoleType == 1)
+    if (NDS.ConsoleType == 1)
     {
         // TODO for DSi:
         // * W_POWER_US doesn't work (atleast on DWM-W024)
@@ -338,7 +338,7 @@ void Wifi::UpdatePowerOn()
     {
         Log(LogLevel::Debug, "WIFI: OFF\n");
 
-        NDS::CancelEvent(NDS::Event_Wifi);
+        NDS.CancelEvent(Event_Wifi);
 
         Platform::MP_End();
     }
@@ -359,7 +359,7 @@ void Wifi::SetIRQ(u32 irq)
     u32 newflags = IOPORT(W_IF) & IOPORT(W_IE);
 
     if ((oldflags == 0) && (newflags != 0))
-        NDS::SetIRQ(1, NDS::IRQ_Wifi);
+        NDS.SetIRQ(1, IRQ_Wifi);
 }
 
 void Wifi::SetIRQ13()
@@ -440,14 +440,14 @@ void Wifi::PowerDown()
 }
 
 
-int Wifi::PreambleLen(int rate)
+int Wifi::PreambleLen(int rate) const
 {
     if (rate == 1) return 192;
     if (IOPORT(W_Preamble) & 0x0004) return 96;
     return 192;
 }
 
-u32 Wifi::NumClients(u16 bitmask)
+u32 Wifi::NumClients(u16 bitmask) const
 {
     u32 ret = 0;
     for (int i = 1; i < 16; i++)
@@ -457,7 +457,7 @@ u32 Wifi::NumClients(u16 bitmask)
     return ret;
 }
 
-void Wifi::IncrementTXCount(TXSlot* slot)
+void Wifi::IncrementTXCount(const TXSlot* slot)
 {
     u8 cnt = RAM[slot->Addr + 0x4];
     if (cnt < 0xFF) cnt++;
@@ -477,7 +477,7 @@ void Wifi::ReportMPReplyErrors(u16 clientfail)
     }
 }
 
-void Wifi::TXSendFrame(TXSlot* slot, int num)
+void Wifi::TXSendFrame(const TXSlot* slot, int num)
 {
     u32 noseqno = 0;
 
@@ -2258,12 +2258,12 @@ void Wifi::Write(u32 addr, u16 val)
 }
 
 
-u8* Wifi::GetMAC()
+const u8* Wifi::GetMAC() const
 {
     return (u8*)&IOPORT(W_MACAddr0);
 }
 
-u8* Wifi::GetBSSID()
+const u8* Wifi::GetBSSID() const
 {
     return (u8*)&IOPORT(W_BSSID0);
 }

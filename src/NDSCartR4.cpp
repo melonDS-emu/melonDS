@@ -67,11 +67,12 @@ static void DecryptR4Sector(u8* dest, u8* src, u16 key1)
     }
 }
 
-CartR4::CartR4(u8* rom, u32 len, u32 chipid, ROMListEntry romparams, CartR4Type ctype, CartR4Language clanguage)
-    : CartSD(rom, len, chipid, romparams)
+CartR4::CartR4(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, CartR4Type ctype, CartR4Language clanguage,
+            std::optional<FATStorage>&& sdcard)
+    : CartSD(std::move(rom), len, chipid, romparams, std::move(sdcard))
 {
     InitStatus = 0;
-    CartType = ctype;
+    R4CartType = ctype;
     CartLanguage = clanguage;
 }
 
@@ -110,16 +111,16 @@ void CartR4::DoSavestate(Savestate* file)
 }
 
 // FIXME: Ace3DS/clone behavior is only partially verified.
-int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u32 len)
+int CartR4::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2)
-        return CartCommon::ROMCommandStart(cartslot, cmd, data, len);
+        return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
 
     switch (cmd[0])
     {
     case 0xB0: /* Get card information */
         {
-            u32 info = 0x75A00000 | (((CartType >= 1 ? 4 : 0) | CartLanguage) << 3) | InitStatus;
+            u32 info = 0x75A00000 | (((R4CartType >= 1 ? 4 : 0) | CartLanguage) << 3) | InitStatus;
             for (u32 pos = 0; pos < len; pos += 4)
                 *(u32*)&data[pos] = info;
             return 0;
@@ -170,7 +171,7 @@ int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u
     case 0xBC: /* SD write status */
     case 0xBE: /* Save write status */
         {
-            if (CartType == CartR4TypeAce3DS && cmd[0] == 0xBC)
+            if (R4CartType == CartR4TypeAce3DS && cmd[0] == 0xBC)
             {
                 uint8_t checksum = 0;
                 for (int i = 0; i < 7; i++)
@@ -189,7 +190,7 @@ int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u
             if (!BufferInitialized)
             {
                 u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-                memcpy(data, ROM+(addr & (ROMLength-1)), len);
+                memcpy(data, &ROM[addr & (ROMLength-1)], len);
                 return 0;
             }
             /* Otherwise, fall through. */
@@ -218,7 +219,7 @@ int CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, u8* cmd, u8* data, u
     }
 }
 
-void CartR4::ROMCommandFinish(u8* cmd, u8* data, u32 len)
+void CartR4::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
 
@@ -232,7 +233,7 @@ void CartR4::ROMCommandFinish(u8* cmd, u8* data, u32 len)
             // (sector 0, byte 1) on boot. TODO: Is this correct?
             if (GetAdjustedSector(sector) != sector && (sector & 0x1FF)) break;
 
-            if (SD && (!ReadOnly))
+            if (SD && !SD->IsReadOnly())
                 SD->WriteSectors(GetAdjustedSector(sector), 1, data);
             break;
         }
@@ -242,7 +243,7 @@ void CartR4::ROMCommandFinish(u8* cmd, u8* data, u32 len)
 
             if (sector & 0x1FF) break;
 
-            if (SD && (!ReadOnly))
+            if (SD && !SD->IsReadOnly())
                 SD->WriteSectors(
                     SDFATEntrySectorGet(FATEntryOffset[1], sector) >> 9,
                     1, data

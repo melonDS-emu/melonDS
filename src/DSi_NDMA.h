@@ -24,12 +24,12 @@
 
 namespace melonDS
 {
-class GPU;
+class DSi;
 
 class DSi_NDMA
 {
 public:
-    DSi_NDMA(u32 cpu, u32 num, GPU& gpu);
+    DSi_NDMA(u32 cpu, u32 num, melonDS::DSi& dsi);
     ~DSi_NDMA();
 
     void Reset();
@@ -44,12 +44,12 @@ public:
     void Run9();
     void Run7();
 
-    bool IsInMode(u32 mode)
+    bool IsInMode(u32 mode) const
     {
         return ((mode == StartMode) && (Cnt & 0x80000000));
     }
 
-    bool IsRunning() { return Running!=0; }
+    bool IsRunning() const { return Running!=0; }
 
     void StartIfNeeded(u32 mode)
     {
@@ -77,7 +77,7 @@ public:
     u32 Cnt;
 
 private:
-    melonDS::GPU& GPU;
+    melonDS::DSi& DSi;
     u32 CPU, Num;
 
     u32 StartMode;

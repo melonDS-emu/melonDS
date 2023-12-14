@@ -97,7 +97,10 @@ void SetupDefaultTexParams(GLuint tex)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
-GLRenderer::GLRenderer(melonDS::GPU& gpu) noexcept : Renderer3D(true), GPU(gpu)
+GLRenderer::GLRenderer(GLCompositor&& compositor, melonDS::GPU& gpu) noexcept :
+    Renderer3D(true),
+    GPU(gpu),
+    CurGLCompositor(std::move(compositor))
 {
     // GLRenderer::New() will be used to actually initialize the renderer;
     // The various glDelete* functions silently ignore invalid IDs,
@@ -108,9 +111,14 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
 {
     assert(glEnable != nullptr);
 
+    std::optional<GLCompositor> compositor =  GLCompositor::New();
+    if (!compositor)
+        return nullptr;
+
     // Will be returned if the initialization succeeds,
     // or cleaned up via RAII if it fails.
-    std::unique_ptr<GLRenderer> result = std::unique_ptr<GLRenderer>(new GLRenderer(gpu));
+    std::unique_ptr<GLRenderer> result = std::unique_ptr<GLRenderer>(new GLRenderer(std::move(*compositor), gpu));
+    compositor = std::nullopt;
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
@@ -327,14 +335,29 @@ GLRenderer::~GLRenderer()
 
 void GLRenderer::Reset()
 {
+    // This is where the compositor's Reset() method would be called,
+    // except there's no such method right now.
 }
 
-void GLRenderer::SetRenderSettings(const RenderSettings& settings) noexcept
+void GLRenderer::SetBetterPolygons(bool betterpolygons) noexcept
 {
-    int scale = settings.GL_ScaleFactor;
+    SetRenderSettings(betterpolygons, ScaleFactor);
+}
 
+void GLRenderer::SetScaleFactor(int scale) noexcept
+{
+    SetRenderSettings(BetterPolygons, scale);
+}
+
+
+void GLRenderer::SetRenderSettings(bool betterpolygons, int scale) noexcept
+{
+    if (betterpolygons == BetterPolygons && scale == ScaleFactor)
+        return;
+
+    CurGLCompositor.SetScaleFactor(scale);
     ScaleFactor = scale;
-    BetterPolygons = settings.GL_BetterPolygons;
+    BetterPolygons = betterpolygons;
 
     ScreenW = 256 * scale;
     ScreenH = 192 * scale;
@@ -383,7 +406,7 @@ void GLRenderer::SetRenderSettings(const RenderSettings& settings) noexcept
 }
 
 
-void GLRenderer::SetupPolygon(GLRenderer::RendererPolygon* rp, Polygon* polygon)
+void GLRenderer::SetupPolygon(GLRenderer::RendererPolygon* rp, Polygon* polygon) const
 {
     rp->PolyData = polygon;
 
@@ -429,7 +452,7 @@ void GLRenderer::SetupPolygon(GLRenderer::RendererPolygon* rp, Polygon* polygon)
     }
 }
 
-u32* GLRenderer::SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u32* vptr)
+u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32* vptr) const
 {
     u32 z = poly->FinalZ[vid];
     u32 w = poly->FinalW[vid];
@@ -712,18 +735,18 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
     NumEdgeIndices = eidx - EdgeIndicesOffset;
 }
 
-int GLRenderer::RenderSinglePolygon(int i)
+int GLRenderer::RenderSinglePolygon(int i) const
 {
-    RendererPolygon* rp = &PolygonList[i];
+    const RendererPolygon* rp = &PolygonList[i];
 
     glDrawElements(rp->PrimType, rp->NumIndices, GL_UNSIGNED_SHORT, (void*)(uintptr_t)(rp->IndicesOffset * 2));
 
     return 1;
 }
 
-int GLRenderer::RenderPolygonBatch(int i)
+int GLRenderer::RenderPolygonBatch(int i) const
 {
-    RendererPolygon* rp = &PolygonList[i];
+    const RendererPolygon* rp = &PolygonList[i];
     GLuint primtype = rp->PrimType;
     u32 key = rp->RenderKey;
     int numpolys = 0;
@@ -731,7 +754,7 @@ int GLRenderer::RenderPolygonBatch(int i)
 
     for (int iend = i; iend < NumFinalPolys; iend++)
     {
-        RendererPolygon* cur_rp = &PolygonList[iend];
+        const RendererPolygon* cur_rp = &PolygonList[iend];
         if (cur_rp->PrimType != primtype) break;
         if (cur_rp->RenderKey != key) break;
 
@@ -743,16 +766,16 @@ int GLRenderer::RenderPolygonBatch(int i)
     return numpolys;
 }
 
-int GLRenderer::RenderPolygonEdgeBatch(int i)
+int GLRenderer::RenderPolygonEdgeBatch(int i) const
 {
-    RendererPolygon* rp = &PolygonList[i];
+    const RendererPolygon* rp = &PolygonList[i];
     u32 key = rp->RenderKey;
     int numpolys = 0;
     u32 numindices = 0;
 
     for (int iend = i; iend < NumFinalPolys; iend++)
     {
-        RendererPolygon* cur_rp = &PolygonList[iend];
+        const RendererPolygon* cur_rp = &PolygonList[iend];
         if (cur_rp->RenderKey != key) break;
 
         numpolys++;
@@ -1302,6 +1325,11 @@ void GLRenderer::RenderFrame()
     FrontBuffer = FrontBuffer ? 0 : 1;
 }
 
+void GLRenderer::Stop()
+{
+    CurGLCompositor.Stop(GPU);
+}
+
 void GLRenderer::PrepareCaptureFrame()
 {
     // TODO: make sure this picks the right buffer when doing antialiasing
@@ -1315,6 +1343,11 @@ void GLRenderer::PrepareCaptureFrame()
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[3]);
     glReadPixels(0, 0, 256, 192, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+}
+
+void GLRenderer::Blit()
+{
+    CurGLCompositor.RenderFrame(GPU, *this);
 }
 
 u32* GLRenderer::GetLine(int line)

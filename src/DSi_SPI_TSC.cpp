@@ -28,7 +28,7 @@ using Platform::Log;
 using Platform::LogLevel;
 
 
-DSi_TSC::DSi_TSC(SPIHost* host) : TSC(host)
+DSi_TSC::DSi_TSC(melonDS::DSi& dsi) : TSC(dsi)
 {
 }
 
@@ -121,7 +121,7 @@ void DSi_TSC::SetTouchCoords(u16 x, u16 y)
     }
 }
 
-void DSi_TSC::MicInputFrame(s16* data, int samples)
+void DSi_TSC::MicInputFrame(const s16* data, int samples)
 {
     if (TSCMode == 0x00) return TSC::MicInputFrame(data, samples);
 
@@ -198,7 +198,7 @@ void DSi_TSC::Write(u8 val)
                     {
                         Log(LogLevel::Debug, "DSi_SPI_TSC: DS-compatibility mode\n");
                         DataPos = 0;
-                        NDS::KeyInput |= (1 << (16+6));
+                        NDS.KeyInput |= (1 << (16+6));
                         return;
                     }
                 }

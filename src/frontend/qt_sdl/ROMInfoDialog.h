@@ -29,17 +29,17 @@
 
 namespace Ui { class ROMInfoDialog; }
 class ROMInfoDialog;
-
+namespace melonDS::NDSCart { class CartCommon; }
 class ROMInfoDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit ROMInfoDialog(QWidget* parent);
+    explicit ROMInfoDialog(QWidget* parent, const melonDS::NDSCart::CartCommon& rom);
     ~ROMInfoDialog();
 
     static ROMInfoDialog* currentDlg;
-    static ROMInfoDialog* openDlg(QWidget* parent)
+    static ROMInfoDialog* openDlg(QWidget* parent, const melonDS::NDSCart::CartCommon& rom)
     {
         if (currentDlg)
         {
@@ -47,7 +47,7 @@ public:
             return currentDlg;
         }
 
-        currentDlg = new ROMInfoDialog(parent);
+        currentDlg = new ROMInfoDialog(parent, rom);
         currentDlg->open();
         return currentDlg;
     }

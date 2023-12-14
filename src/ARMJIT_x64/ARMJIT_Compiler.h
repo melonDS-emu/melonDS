@@ -19,6 +19,8 @@
 #ifndef ARMJIT_X64_COMPILER_H
 #define ARMJIT_X64_COMPILER_H
 
+#if defined(JIT_ENABLED) && defined(__x86_64__)
+
 #include "../dolphin/x64Emitter.h"
 
 #include "../ARMJIT_Internal.h"
@@ -35,6 +37,7 @@ namespace melonDS
 {
 class ARMJIT;
 class ARMJIT_Memory;
+class NDS;
 const Gen::X64Reg RCPU = Gen::RBP;
 const Gen::X64Reg RCPSR = Gen::R15;
 
@@ -80,11 +83,7 @@ struct Op2
 class Compiler : public Gen::XEmitter
 {
 public:
-#ifdef JIT_ENABLED
-    explicit Compiler(ARMJIT& jit);
-#else
-    explicit Compiler(ARMJIT& jit) : XEmitter(), JIT(jit) {}
-#endif
+    explicit Compiler(melonDS::NDS& nds);
 
     void Reset();
 
@@ -93,7 +92,7 @@ public:
     void LoadReg(int reg, Gen::X64Reg nativeReg);
     void SaveReg(int reg, Gen::X64Reg nativeReg);
 
-    bool CanCompile(bool thumb, u16 kind);
+    bool CanCompile(bool thumb, u16 kind) const;
 
     typedef void (Compiler::*CompileFunc)();
 
@@ -235,7 +234,7 @@ public:
         SetCodePtr(FarCode);
     }
 
-    bool IsJITFault(u8* addr);
+    bool IsJITFault(const u8* addr);
 
     u8* RewriteMemAccess(u8* pc);
 
@@ -243,7 +242,7 @@ public:
     void CreateMethod(const char* namefmt, void* start, ...);
 #endif
 
-    ARMJIT& JIT;
+    melonDS::NDS& NDS;
     u8* FarCode {};
     u8* NearCode {};
     u32 FarSize {};
@@ -283,5 +282,6 @@ public:
 };
 
 }
+#endif
 
 #endif

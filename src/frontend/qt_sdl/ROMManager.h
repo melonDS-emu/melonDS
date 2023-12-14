@@ -24,43 +24,72 @@
 #include "AREngine.h"
 #include "DSi_NAND.h"
 
+#include "MemConstants.h"
+#include <optional>
 #include <string>
 #include <memory>
 #include <vector>
 
+namespace melonDS
+{
+class NDS;
+class DSi;
+class FATStorage;
+class FATStorageArgs;
+}
+class EmuThread;
 namespace ROMManager
 {
 
 using namespace melonDS;
-extern SaveManager* NDSSave;
-extern SaveManager* GBASave;
+extern std::unique_ptr<SaveManager> NDSSave;
+extern std::unique_ptr<SaveManager> GBASave;
 extern std::unique_ptr<SaveManager> FirmwareSave;
 
 QString VerifySetup();
-void Reset();
-bool LoadBIOS();
+void Reset(EmuThread* thread);
+
+/// Boots the emulated console into its system menu without starting a game.
+bool BootToMenu(EmuThread* thread);
 void ClearBackupState();
 
-bool InstallFirmware();
-bool InstallNAND(const u8* es_keyY);
-bool LoadROM(QStringList filepath, bool reset);
-void EjectCart();
+/// Returns the configured ARM9 BIOS loaded from disk,
+/// the FreeBIOS if external BIOS is disabled and we're in NDS mode,
+/// or nullopt if loading failed.
+std::optional<std::array<u8, ARM9BIOSSize>> LoadARM9BIOS() noexcept;
+std::optional<std::array<u8, ARM7BIOSSize>> LoadARM7BIOS() noexcept;
+std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM9BIOS() noexcept;
+std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM7BIOS() noexcept;
+std::optional<FATStorageArgs> GetDSiSDCardArgs() noexcept;
+std::optional<FATStorage> LoadDSiSDCard() noexcept;
+std::optional<FATStorageArgs> GetDLDISDCardArgs() noexcept;
+std::optional<FATStorage> LoadDLDISDCard() noexcept;
+void CustomizeFirmware(Firmware& firmware) noexcept;
+Firmware GenerateFirmware(int type) noexcept;
+/// Loads and customizes a firmware image based on the values in Config
+std::optional<Firmware> LoadFirmware(int type) noexcept;
+/// Loads and customizes a NAND image based on the values in Config
+std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSSize>& arm7ibios) noexcept;
+
+/// Inserts a ROM into the emulated console.
+bool LoadROM(EmuThread*, QStringList filepath, bool reset);
+void EjectCart(NDS& nds);
 bool CartInserted();
 QString CartLabel();
 
-bool LoadGBAROM(QStringList filepath);
-void LoadGBAAddon(int type);
-void EjectGBACart();
+bool LoadGBAROM(NDS& nds, QStringList filepath);
+void LoadGBAAddon(NDS& nds, int type);
+void EjectGBACart(NDS& nds);
 bool GBACartInserted();
 QString GBACartLabel();
 
 std::string GetSavestateName(int slot);
 bool SavestateExists(int slot);
-bool LoadState(const std::string& filename);
-bool SaveState(const std::string& filename);
-void UndoStateLoad();
+bool LoadState(NDS& nds, const std::string& filename);
+bool SaveState(NDS& nds, const std::string& filename);
+void UndoStateLoad(NDS& nds);
 
-void EnableCheats(bool enable);
+void EnableCheats(NDS& nds, bool enable);
 ARCodeFile* GetCheatFile();
 
 void ROMIcon(const u8 (&data)[512], const u16 (&palette)[16], u32 (&iconRef)[32*32]);
