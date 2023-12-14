@@ -455,8 +455,7 @@ private:
     melonDS::GPU& GPU;
     RendererPolygon PolygonList[2048];
     bool DoTimings(s32 cycles, bool odd);
-    u32 DoTimingsPixels(u32 pixels, bool odd);
-    void EndScanline(bool odd);
+    u32 DoTimingsPixels(s32 pixels, bool odd);
     void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha);
     u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t);
     void PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);

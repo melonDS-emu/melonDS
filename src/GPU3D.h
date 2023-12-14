@@ -245,8 +245,7 @@ public:
     bool RenderingEnabled = false;
 
     u32 DispCnt = 0;
-    u32 RDLines = 0;
-    u32 RDLinesMin = 0;
+    u32 RDLinesDisplay = 0;
     u8 AlphaRefVal = 0;
     u8 AlphaRef = 0;
 
@@ -334,13 +333,21 @@ public:
     // rasteriztion timing constants
     static constexpr int TimingFrac = 1; // add a fractional component if pixels is not enough precision
 
+    // GPU 2D read timings, for emulating race conditions
     static constexpr int GPU2DSpeedWithinPair = 296 * TimingFrac;
-    static constexpr int GPU2DSpeedOutsidePair = 948 * TimingFrac;
-    static constexpr int ScanlinePairLength = 2130 * TimingFrac;
-    static constexpr int ScanlineTimeout = 2126 * TimingFrac;
+    static constexpr int GPU2DSpeedOutsidePair = 810 * TimingFrac;
+    static constexpr int GPU2DSpeedReadScanline = 256 * TimingFrac;
     static constexpr int InitGPU2DTimeout = 51618 * TimingFrac;
-    static constexpr int ScanlineBreak = 4 * TimingFrac;
 
+    // GPU 3D rasterization timings, for emulating the timeout
+    static constexpr int ScanlinePairLength = 2130 * TimingFrac;
+    static constexpr int ScanlineTimeout = 1686 * TimingFrac; // 2126? 1686?
+    static constexpr int ScanlineBreak = 4 * TimingFrac;
+    static constexpr int ScanlineBreak2 = 40 * TimingFrac;
+    static constexpr int IncrementStrange = 1618 * TimingFrac; // 1882? 1442? 1618??
+    static constexpr int FreeTiming = 440 * TimingFrac;
+
+    // GPU 3D rasterization timings II, for counting each element with timing characteristics
     static constexpr int PerPolyTiming = 12 * TimingFrac; // should be correct for *most* line polygons and polygons with vertical slopes
     static constexpr int PerPixelTiming = 1 * TimingFrac; // does not apply to the first 4 pixels in a polygon (per scanline?)
 
@@ -348,7 +355,7 @@ public:
     static constexpr int PerScanlineTiming = 1064 * TimingFrac; // approximate currently, used to calc RDLines. TEMPORARY UNTIL ACCURATE "FRAMEBUFFER" CAN BE IMPLEMENTED
     static constexpr int PerScanlineRecup = 2112 * TimingFrac; // seems to check out? // should be the "free" time the gpu has to do the calculation
     static constexpr int PerRightSlope = 1 * TimingFrac;
-    static constexpr int EmptyPolyScanline = 4 * TimingFrac - 14; // seems to be slightly under 4?
+    static constexpr int EmptyPolyScanline = 4 * TimingFrac;// - 14; // seems to be slightly under 4?
     //static constexpr int FirstPixelTiming;
 
 class Renderer3D

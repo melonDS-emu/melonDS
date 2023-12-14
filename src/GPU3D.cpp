@@ -222,8 +222,7 @@ void GPU3D::Reset() noexcept
     AlphaRefVal = 0;
     AlphaRef = 0;
     
-    RDLines = 46;
-    RDLinesMin = 46;
+    RDLinesDisplay = 46;
 
     memset(ToonTable, 0, sizeof(ToonTable));
     memset(EdgeTable, 0, sizeof(EdgeTable));
@@ -2370,7 +2369,7 @@ void GPU3D::CheckFIFODMA() noexcept
 
 void GPU3D::VCount144() noexcept
 {
-    RDLinesMin = 46;
+    RDLinesDisplay = 46;
     CurrentRenderer->VCount144();
 }
 
@@ -2614,7 +2613,7 @@ u16 GPU3D::Read16(u32 addr) noexcept
         return DispCnt;
 
     case 0x04000320:
-        return RDLines; // IT IS TIME
+        return RDLinesDisplay; // IT IS TIME
 
     case 0x04000600:
         {
@@ -2658,7 +2657,7 @@ u32 GPU3D::Read32(u32 addr) noexcept
         return DispCnt;
 
     case 0x04000320:
-        return RDLines; // IT IS TIME
+        return RDLinesDisplay; // IT IS TIME
 
     case 0x04000600:
         {

@@ -121,44 +121,43 @@ bool SoftRenderer::DoTimings(s32 cycles, bool odd)
     else counter = &RasterTimingEven;
 
     *counter += cycles;
-    if (RasterTiming - *counter) return false;
+    if (RasterTiming - *counter > 0) return false;
 
     GPU.GPU3D.DispCnt |= (1<<12);
     return true;
 }
 
-u32 SoftRenderer::DoTimingsPixels(u32 pixels, bool odd)
+u32 SoftRenderer::DoTimingsPixels(s32 pixels, bool odd)
 {
     // calculate and return the difference between the old span and the new span, while adding timings to the timings counter
 
     // pixels dont count towards timings if they're the first 4 pixels in a scanline (for some reason?)
     if (pixels <= 4) return 0;
     
-    u32 pixelsremain = pixels-4;
+    pixels -= 4;
 
     s32* counter;
     if (odd) counter = &RasterTimingOdd;
     else counter = &RasterTimingEven;
     
-    //todo: do this without a for loop somehow.
-    for (; pixelsremain > 0; pixelsremain--)
+    //todo: figure out a faster way to support TimingFrac > 1 without using a for loop somehow.
+    if constexpr (TimingFrac > 1)
+        for (; pixels > 0; pixels--)
+        {
+            *counter += TimingFrac;
+            if ((RasterTiming - *counter) <= 0) break;
+        }
+    else
     {
-        *counter += TimingFrac;
-        if (!(RasterTiming - *counter)) break;
+        *counter += pixels;
+        pixels = -(RasterTiming - *counter);
+        if (pixels > 0) *counter -= pixels;
     }
     
-    if (pixelsremain <= 0) return 0;
+    if (pixels <= 0) return 0;
 
     GPU.GPU3D.DispCnt |= (1<<12);
-    return pixelsremain;
-}
-
-void SoftRenderer::EndScanline(bool odd)
-{
-    if (!odd)
-    {
-        RasterTiming += std::max(RasterTimingOdd, RasterTimingEven);
-    }
+    return pixels;
 }
 
 void SoftRenderer::TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha)
@@ -1458,7 +1457,6 @@ bool SoftRenderer::RenderScanline(s32 y, int npolys, bool odd)
         }
     }
 
-    EndScanline(odd);
     return abort;
 }
 
@@ -1758,30 +1756,59 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
     s32 y = 0;
     s8 prevbufferline = -2;
     
-    u8 buffersize = 0;
-    RasterTiming = (ScanlinePairLength * 24);
-    RasterTimingOdd = 0;
-    RasterTimingEven = 0;
-
+    s8 buffersize = 0;
+    RasterTiming = InitialTiming;
+    s32 timingadvance = InitialTiming;
+    bool abort = false;
+    //u32* RDLinesReg = &GPU.GPU3D.RDLines;
     ClearBuffers();
     for (u8 quarter = 0; quarter < 4; quarter++)
         for (u8 bufferline = 0; bufferline < 48; bufferline += 2)
         {
-            RasterTiming += (ScanlineTimeout);
+            RasterTimingOdd = 0;
+            RasterTimingEven = 0;
+            
+            if (buffersize > 48)
+            {
+                RasterTiming = ScanlinePairLength * 23;
+                timingadvance = 0;
+                buffersize = 48;
+            }
+            if (!abort) RasterTiming += IncrementStrange;
+            else       RasterTiming += ScanlineTimeout;
 
-            if (buffersize >= 50) RasterTiming = (ScanlinePairLength * 23) + ScanlineTimeout;
+            abort = RenderScanline(y, j, true);
+            abort = RenderScanline(y+1, j, false);
 
-            RenderScanline(y, j, true);
-            RenderScanline(y+1, j, false);
-            RasterTiming += ScanlineBreak;
+            buffersize += 2;
+            //RasterTiming += ScanlineBreak;
+            s32 timespent = std::max(RasterTimingOdd, RasterTimingEven);
 
-            u32* RDLinesReg = &GPU.GPU3D.RDLines;
-            *RDLinesReg = 0;
-            for (int i = RasterTiming; i > ScanlinePairLength / 2; i -= ScanlinePairLength / 2) *RDLinesReg += 1;
+            /*if (timespent > FreeTiming)
+            {
+                abort = true;
+                timespent -= FreeTiming;
+            }
+            else if (!abort)
+            {
+                abort = false;
+                timespent -= FreeTiming;
+            }*/
+            //if (!abort) 
+            timespent -= FreeTiming;
+
+            if (timespent > 0)
+            {
+                RasterTiming -= timespent;
+                timingadvance -= timespent;
+            }
+
+            if (timingadvance < 0) for (s32 i = (ScanlinePairLength / 2) * buffersize; i > RasterTiming + (ScanlinePairLength / 2); i -= ScanlinePairLength / 2) buffersize -= 1;
+            if (buffersize < 0) buffersize = 0;
+                        
             // seems to display the lowest scanline buffer count reached during the current frame.
             // we also caps it to 46 here, because this reg does that too for some reason.
-            if (*RDLinesReg > GPU.GPU3D.RDLinesMin) *RDLinesReg = GPU.GPU3D.RDLinesMin;
-            else if (*RDLinesReg < GPU.GPU3D.RDLinesMin) GPU.GPU3D.RDLinesMin = *RDLinesReg;
+            if (quarter >= 1 && buffersize < GPU.GPU3D.RDLinesDisplay) GPU.GPU3D.RDLinesDisplay = buffersize;
 
             if (prevbufferline >= 0)
             {
