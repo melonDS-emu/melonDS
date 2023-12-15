@@ -993,7 +993,7 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
 
     CheckSlope(rp, y);
     
-    if (DoTimings(PerPolyTiming, odd))
+    if (DoTimings(PerPolyScanline, odd))
     {
         Step(rp);
         return true;
@@ -1439,18 +1439,19 @@ bool SoftRenderer::RenderScanline(s32 y, int npolys, bool odd)
         RendererPolygon* rp = &PolygonList[i];
         Polygon* polygon = rp->PolyData;
 
-        if (abort)
-        {
-            CheckSlope(rp, y);
-            Step(rp);
-        }
-        else if (y == polygon->YBottom && y != polygon->YTop)
+        if (y == polygon->YBottom && y != polygon->YTop)
         {
             if (DoTimings(EmptyPolyScanline, odd)) abort = true;
         }
         else if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
         {
-            if (polygon->IsShadowMask)
+            if (y == polygon->YTop) if(DoTimings(FirstPolyScanline, odd)) abort = true;
+            if (abort)
+            {
+                CheckSlope(rp, y);
+                Step(rp);
+            }
+            else if (polygon->IsShadowMask)
                 ;//RenderShadowMaskScanline(rp, y);
             else
                 if (RenderPolygonScanline(rp, y, odd)) abort = true;
@@ -1768,17 +1769,18 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
             RasterTimingOdd = 0;
             RasterTimingEven = 0;
             
-            if (buffersize > 48)
+            RasterTiming += ScanlineIncrement;
+            if (abort) RasterTiming += AbortIncrement; // if previous scanline was aborted, allow an extra 12 pixels worth of timing
+            
+            if (y >= 50)
             {
-                RasterTiming = ScanlinePairLength * 23;
+                if (RasterTiming > Post50Max) RasterTiming = Post50Max;
                 timingadvance = 0;
                 buffersize = 48;
             }
-            if (!abort) RasterTiming += IncrementStrange;
-            else       RasterTiming += ScanlineTimeout;
 
             abort = RenderScanline(y, j, true);
-            abort = RenderScanline(y+1, j, false);
+            abort |= RenderScanline(y+1, j, false);
 
             buffersize += 2;
             //RasterTiming += ScanlineBreak;
@@ -1795,6 +1797,8 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
                 timespent -= FreeTiming;
             }*/
             //if (!abort) 
+            //if (buffersize > 48) timespent -= PerScanlineRecup;
+            /*else*/
             timespent -= FreeTiming;
 
             if (timespent > 0)

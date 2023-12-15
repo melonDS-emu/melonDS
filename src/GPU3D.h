@@ -341,15 +341,20 @@ public:
 
     // GPU 3D rasterization timings, for emulating the timeout
     static constexpr int ScanlinePairLength = 2130 * TimingFrac;
-    static constexpr int ScanlineTimeout = 1686 * TimingFrac; // 2126? 1686?
-    static constexpr int ScanlineBreak = 4 * TimingFrac;
-    static constexpr int ScanlineBreak2 = 40 * TimingFrac;
-    static constexpr int IncrementStrange = 1618 * TimingFrac; // 1882? 1442? 1618??
-    static constexpr int FreeTiming = 440 * TimingFrac;
+    //static constexpr int ScanlineTimeout = 1686 * TimingFrac; // 2126? 1686?
+    //static constexpr int ScanlineBreak = 4 * TimingFrac;
+    //static constexpr int ScanlineBreak2 = 40 * TimingFrac;
+    static constexpr int ScanlineIncrement = 1618 * TimingFrac; // how much to increment per scanline pair
+    static constexpr int AbortIncrement = 12 * TimingFrac; // how much extra to increment after an aborted scanline (total 1630)
+    static constexpr int FreeTiming = 496 * TimingFrac; // every scanline has a free 496 pixels worth of timing for some reason.
+    static constexpr int InitialTiming = 48688 * TimingFrac; // add 1618*2 to get the timeout of the second scanline pair
+    static constexpr int Post50Max = 51116 * TimingFrac; // for some reason it doesn't care about how full it actually is, it just cares about if its the first 50 scanlines to speedrun rendering?
 
     // GPU 3D rasterization timings II, for counting each element with timing characteristics
-    static constexpr int PerPolyTiming = 12 * TimingFrac; // should be correct for *most* line polygons and polygons with vertical slopes
-    static constexpr int PerPixelTiming = 1 * TimingFrac; // does not apply to the first 4 pixels in a polygon (per scanline?)
+    static constexpr int FirstPolyScanline = 0 * TimingFrac; 
+    static constexpr int PerPolyScanline = 12 * TimingFrac; // should be correct for *most* line polygons and polygons with vertical slopes
+    static constexpr int PerPixelTiming = 1 * TimingFrac; // 1 pixel = 1 pixel
+    static constexpr int NumFreePixels = 4; // First 4 pixels in a polygon scanline are free (for some reason)
 
    // static constexpr int RasterTimingCap = 51116 * TimingFrac;
     static constexpr int PerScanlineTiming = 1064 * TimingFrac; // approximate currently, used to calc RDLines. TEMPORARY UNTIL ACCURATE "FRAMEBUFFER" CAN BE IMPLEMENTED
