@@ -98,6 +98,7 @@ public:
     LAN_PCap& operator=(LAN_PCap&&) noexcept;
     int SendPacket(u8* data, int len);
     int RecvPacket(u8* data);
+    [[nodiscard]] const AdapterData& GetAdapterData() const noexcept { return PCapAdapterData; }
 private:
     friend class PCap;
     LAN_PCap(const PCap& pcap, const AdapterData& data, pcap_t* adapter) noexcept;

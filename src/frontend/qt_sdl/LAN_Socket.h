@@ -49,7 +49,7 @@ public:
     int RecvPacket(u8* data);
 private:
     static constexpr int PollListMax = 64;
-    static SlirpCb cb;
+    const static SlirpCb cb;
     static ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque) noexcept;
     static void SlirpCbGuestError(const char* msg, void* opaque) noexcept;
     static int SlirpCbAddPoll(int fd, int events, void* opaque) noexcept;

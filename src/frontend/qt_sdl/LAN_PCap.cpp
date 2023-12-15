@@ -343,6 +343,16 @@ PCap::~PCap() noexcept
     }
 }
 
+std::optional<LAN_PCap> PCap::OpenAdapter(std::string_view landevice) noexcept
+{
+    for (const AdapterData& adata : Adapters)
+    {
+        if (strncmp(landevice.data(), adata.DeviceName, 128) == 0)
+            return OpenAdapter(adata);
+    }
+
+    return std::nullopt;
+}
 
 std::optional<LAN_PCap> PCap::OpenAdapter(const AdapterData& landevice) noexcept
 {

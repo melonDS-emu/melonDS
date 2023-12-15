@@ -111,7 +111,7 @@ ssize_t LAN_Socket::SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
     return len;
 }
 
-void SlirpCbGuestError(const char* msg, void* opaque) noexcept
+void LAN_Socket::SlirpCbGuestError(const char* msg, void* opaque) noexcept
 {
     Log(LogLevel::Error, "SLIRP: error: %s\n", msg);
 }
@@ -180,7 +180,7 @@ void SlirpCbNotify(void* opaque)
     Log(LogLevel::Debug, "Slirp: notify???\n");
 }
 
-SlirpCb LAN_Socket::cb =
+const SlirpCb LAN_Socket::cb =
 {
     .send_packet = SlirpCbSendPacket,
     .guest_error = SlirpCbGuestError,
