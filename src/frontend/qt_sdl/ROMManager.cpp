@@ -1316,8 +1316,8 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
         // the ROM is homebrew or not.
         // So this is the card we *would* load if the ROM were homebrew.
         .SDCard = GetDLDISDCardArgs(),
-
-        .SRAM = std::make_pair(std::move(savedata), savelen),
+        .SRAM = std::move(savedata),
+        .SRAMLength = savelen,
     };
 
     auto cart = NDSCart::ParseROM(std::move(filedata), filelen, std::move(cartargs));
