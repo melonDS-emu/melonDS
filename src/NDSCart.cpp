@@ -111,7 +111,7 @@ void NDSCartSlot::Key1_ApplyKeycode(u32* keycode, u32 mod) noexcept
 
 void NDSCartSlot::Key1_LoadKeyBuf(bool dsi, const u8 *bios, u32 biosLength) noexcept
 {
-    if (!NDS.IsLoadedARM7BIOSBuiltIn())
+    if (NDS.IsLoadedARM7BIOSKnownNative())
     {
         u32 expected_bios_length = dsi ? 0x10000 : 0x4000;
         if (biosLength != expected_bios_length)
@@ -261,7 +261,7 @@ int CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, const u8* cmd, 
 
         case 0x3C:
             CmdEncMode = 1;
-            cartslot.Key1_InitKeycode(false, *(u32*)&ROM[0xC], 2, 2, &nds.ARM7BIOS[0], sizeof(NDS::ARM7BIOS));
+            cartslot.Key1_InitKeycode(false, *(u32*)&ROM[0xC], 2, 2, nds.GetARM7BIOS().data(), ARM7BIOSSize);
             DSiMode = false;
             return 0;
 
@@ -1540,10 +1540,10 @@ void NDSCartSlot::DecryptSecureArea(u8* out) noexcept
 
     memcpy(out, &cartrom[arm9base], 0x800);
 
-    Key1_InitKeycode(false, gamecode, 2, 2, &NDS.ARM7BIOS[0], sizeof(NDS::ARM7BIOS));
+    Key1_InitKeycode(false, gamecode, 2, 2, NDS.GetARM7BIOS().data(), ARM7BIOSSize);
     Key1_Decrypt((u32*)&out[0]);
 
-    Key1_InitKeycode(false, gamecode, 3, 2, &NDS.ARM7BIOS[0], sizeof(NDS::ARM7BIOS));
+    Key1_InitKeycode(false, gamecode, 3, 2, NDS.GetARM7BIOS().data(), ARM7BIOSSize);
     for (u32 i = 0; i < 0x800; i += 8)
         Key1_Decrypt((u32*)&out[i]);
 
@@ -1695,11 +1695,11 @@ void NDSCartSlot::SetCart(std::unique_ptr<CartCommon>&& cart) noexcept
 
             strncpy((char*)&cartrom[header.ARM9ROMOffset], "encryObj", 8);
 
-            Key1_InitKeycode(false, romparams.GameCode, 3, 2, &NDS.ARM7BIOS[0], sizeof(NDS::ARM7BIOS));
+            Key1_InitKeycode(false, romparams.GameCode, 3, 2, NDS.GetARM7BIOS().data(), ARM7BIOSSize);
             for (u32 i = 0; i < 0x800; i += 8)
                 Key1_Encrypt((u32*)&cartrom[header.ARM9ROMOffset + i]);
 
-            Key1_InitKeycode(false, romparams.GameCode, 2, 2, &NDS.ARM7BIOS[0], sizeof(NDS::ARM7BIOS));
+            Key1_InitKeycode(false, romparams.GameCode, 2, 2, NDS.GetARM7BIOS().data(), ARM7BIOSSize);
             Key1_Encrypt((u32*)&cartrom[header.ARM9ROMOffset]);
 
             Log(LogLevel::Debug, "Re-encrypted cart secure area\n");

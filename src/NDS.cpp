@@ -92,6 +92,8 @@ NDS::NDS(NDSArgs&& args, int type) noexcept :
     ConsoleType(type),
     ARM7BIOS(args.ARM7BIOS),
     ARM9BIOS(args.ARM9BIOS),
+    ARM7BIOSNative(CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32),
+    ARM9BIOSNative(CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32),
     JIT(*this, args.JIT),
     SPU(*this, args.BitDepth, args.Interpolation),
     GPU(*this, std::move(args.Renderer3D)),
@@ -270,7 +272,7 @@ bool NDS::NeedsDirectBoot() const
             return true;
 
         // FreeBIOS requires direct boot (it can't boot firmware)
-        if (IsLoadedARM7BIOSBuiltIn() || IsLoadedARM9BIOSBuiltIn())
+        if (!IsLoadedARM9BIOSKnownNative() || !IsLoadedARM7BIOSKnownNative())
             return true;
 
         return false;
@@ -286,7 +288,7 @@ void NDS::SetupDirectBoot()
 
     // Copy the Nintendo logo from the NDS ROM header to the ARM9 BIOS if using FreeBIOS
     // Games need this for DS<->GBA comm to work
-    if (IsLoadedARM9BIOSBuiltIn())
+    if (!IsLoadedARM9BIOSKnownNative())
     {
         memcpy(ARM9BIOS.data() + 0x20, header.NintendoLogo, 0x9C);
     }
@@ -754,6 +756,18 @@ void NDS::LoadGBAAddon(int type)
 void NDS::LoadBIOS()
 {
     Reset();
+}
+
+void NDS::SetARM7BIOS(const std::array<u8, ARM7BIOSSize>& bios) noexcept
+{
+    ARM7BIOS = bios;
+    ARM7BIOSNative = CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32;
+}
+
+void NDS::SetARM9BIOS(const std::array<u8, ARM9BIOSSize>& bios) noexcept
+{
+    ARM9BIOS = bios;
+    ARM9BIOSNative = CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32;
 }
 
 u64 NDS::NextTarget()
