@@ -94,7 +94,7 @@ NDS::NDS(NDSArgs&& args, int type) noexcept :
     ARM9BIOS(args.ARM9BIOS),
     JIT(*this, args.JIT),
     SPU(*this, args.BitDepth, args.Interpolation),
-    GPU(*this),
+    GPU(*this, std::move(args.Renderer3D)),
     SPI(*this, std::move(args.Firmware)),
     RTC(*this),
     Wifi(*this),
@@ -1322,7 +1322,7 @@ void NDS::SetIRQ(u32 cpu, u32 irq)
         {
             CPUStop &= ~CPUStop_Sleep;
             CPUStop |= CPUStop_Wakeup;
-            GPU.GPU3D.RestartFrame();
+            GPU.GPU3D.RestartFrame(GPU);
         }
     }
 }

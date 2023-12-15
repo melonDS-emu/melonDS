@@ -142,7 +142,7 @@ void MatrixLoadIdentity(s32* m);
 
 GPU3D::GPU3D(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer) noexcept :
     NDS(nds),
-    CurrentRenderer(renderer ? std::move(renderer) : std::make_unique<SoftRenderer>(nds.GPU))
+    CurrentRenderer(renderer ? std::move(renderer) : std::make_unique<SoftRenderer>())
 {
 }
 
@@ -2367,20 +2367,20 @@ void GPU3D::CheckFIFODMA() noexcept
         NDS.CheckDMAs(0, 0x07);
 }
 
-void GPU3D::VCount144() noexcept
+void GPU3D::VCount144(GPU& gpu) noexcept
 {
-    CurrentRenderer->VCount144();
+    CurrentRenderer->VCount144(gpu);
 }
 
-void GPU3D::RestartFrame() noexcept
+void GPU3D::RestartFrame(GPU& gpu) noexcept
 {
-    CurrentRenderer->RestartFrame();
+    CurrentRenderer->RestartFrame(gpu);
 }
 
-void GPU3D::Stop() noexcept
+void GPU3D::Stop(const GPU& gpu) noexcept
 {
     if (CurrentRenderer)
-        CurrentRenderer->Stop();
+        CurrentRenderer->Stop(gpu);
 }
 
 
@@ -2473,9 +2473,9 @@ void GPU3D::VBlank() noexcept
     }
 }
 
-void GPU3D::VCount215() noexcept
+void GPU3D::VCount215(GPU& gpu) noexcept
 {
-    CurrentRenderer->RenderFrame();
+    CurrentRenderer->RenderFrame(gpu);
 }
 
 void GPU3D::SetRenderXPos(u16 xpos) noexcept
@@ -2935,10 +2935,10 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
     Log(LogLevel::Debug, "unknown GPU3D write32 %08X %08X\n", addr, val);
 }
 
-void GPU3D::Blit() noexcept
+void GPU3D::Blit(const GPU& gpu) noexcept
 {
     if (CurrentRenderer)
-        CurrentRenderer->Blit();
+        CurrentRenderer->Blit(gpu);
 }
 
 Renderer3D::Renderer3D(bool Accelerated)
