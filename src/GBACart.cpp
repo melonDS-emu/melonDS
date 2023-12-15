@@ -758,7 +758,7 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
     std::unique_ptr<u8[]> cartsram;
     try
     {
-        cartsram = sramdata ? std::make_unique<u8[]>(sramlen) : nullptr;
+        cartsram = std::move(sramdata) ? std::make_unique<u8[]>(sramlen) : nullptr;
     }
     catch (const std::bad_alloc& e)
     {
