@@ -45,34 +45,38 @@ bool WifiSettingsDialog::needsReset = false;
 extern bool RunningSomething;
 
 
-WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::WifiSettingsDialog)
+WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) :
+    QDialog(parent),
+    ui(new Ui::WifiSettingsDialog),
+    pcap(melonDS::PCap::New())
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
-
-    haspcap = LAN_PCap::Init(false);
 
     ui->rbDirectMode->setText("Direct mode (requires " PCAP_NAME " and ethernet connection)");
 
     ui->lblAdapterMAC->setText("(none)");
     ui->lblAdapterIP->setText("(none)");
 
-    int sel = 0;
-    for (int i = 0; i < LAN_PCap::NumAdapters; i++)
+    if (pcap)
     {
-        LAN_PCap::AdapterData* adapter = &LAN_PCap::Adapters[i];
+        int sel = 0;
+        for (int i = 0; i < pcap->GetAdapters().size(); i++)
+        {
+            const melonDS::AdapterData& adapter = pcap->GetAdapters()[i];
 
-        ui->cbxDirectAdapter->addItem(QString(adapter->FriendlyName));
+            ui->cbxDirectAdapter->addItem(QString(adapter.FriendlyName));
 
-        if (!strncmp(adapter->DeviceName, Config::LANDevice.c_str(), 128))
-            sel = i;
+            if (!strncmp(adapter.DeviceName, Config::LANDevice.c_str(), 128))
+                sel = i;
+        }
+        ui->cbxDirectAdapter->setCurrentIndex(sel);
     }
-    ui->cbxDirectAdapter->setCurrentIndex(sel);
 
     // errrr???
     ui->rbDirectMode->setChecked(Config::DirectLAN);
     ui->rbIndirectMode->setChecked(!Config::DirectLAN);
-    if (!haspcap) ui->rbDirectMode->setEnabled(false);
+    if (!pcap) ui->rbDirectMode->setEnabled(false);
 
     updateAdapterControls();
 }
@@ -91,14 +95,14 @@ void WifiSettingsDialog::done(int r)
         Config::DirectLAN = ui->rbDirectMode->isChecked();
 
         int sel = ui->cbxDirectAdapter->currentIndex();
-        if (sel < 0 || sel >= LAN_PCap::NumAdapters) sel = 0;
-        if (LAN_PCap::NumAdapters < 1)
+        if (!pcap || sel < 0 || sel >= pcap->GetAdapters().size()) sel = 0;
+        if (!pcap || pcap->GetAdapters().empty())
         {
             Config::LANDevice = "";
         }
         else
         {
-            Config::LANDevice = LAN_PCap::Adapters[sel].DeviceName;
+            Config::LANDevice = pcap->GetAdapters()[sel].DeviceName;
         }
 
         Config::Save();
@@ -121,12 +125,12 @@ void WifiSettingsDialog::on_rbIndirectMode_clicked()
 
 void WifiSettingsDialog::on_cbxDirectAdapter_currentIndexChanged(int sel)
 {
-    if (!haspcap) return;
+    if (!pcap) return;
 
-    if (sel < 0 || sel >= LAN_PCap::NumAdapters) return;
-    if (LAN_PCap::NumAdapters < 1) return;
+    if (sel < 0 || sel >= pcap->GetAdapters().size()) return;
+    if (pcap->GetAdapters().empty()) return;
 
-    LAN_PCap::AdapterData* adapter = &LAN_PCap::Adapters[sel];
+    const melonDS::AdapterData* adapter = &pcap->GetAdapters()[sel];
     char tmp[64];
 
     snprintf(tmp, sizeof(tmp), "%02X:%02X:%02X:%02X:%02X:%02X",
@@ -142,7 +146,7 @@ void WifiSettingsDialog::on_cbxDirectAdapter_currentIndexChanged(int sel)
 
 void WifiSettingsDialog::updateAdapterControls()
 {
-    bool enable = haspcap && ui->rbDirectMode->isChecked();
+    bool enable = pcap && ui->rbDirectMode->isChecked();
 
     ui->cbxDirectAdapter->setEnabled(enable);
     ui->lblAdapterMAC->setEnabled(enable);

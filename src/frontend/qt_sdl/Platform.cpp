@@ -30,6 +30,7 @@
 #include <QMutex>
 #include <QOpenGLContext>
 #include <QSharedMemory>
+#include <variant>
 #include <SDL_loadso.h>
 
 #include "Platform.h"
@@ -57,6 +58,8 @@ void emuStop();
 namespace melonDS::Platform
 {
 
+static std::optional<PCap> PCap;
+static std::variant<std::monostate, LAN_Socket, LAN_PCap> Lan;
 QSharedMemory* IPCBuffer = nullptr;
 int IPCInstanceID;
 
@@ -563,17 +566,24 @@ u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask)
     return LocalMP::RecvReplies(data, timestamp, aidmask);
 }
 
+
 bool LAN_Init()
 {
     if (Config::DirectLAN)
     {
-        if (!LAN_PCap::Init(true))
+        std::optional<melonDS::PCap> pcap = PCap::New();
+        if (!pcap)
             return false;
+
+        std::optional<LAN_PCap> lan = pcap->OpenAdapter(Config::LANDevice);
+        if (!lan)
+            return false;
+
+        Lan = std::move(*lan);
     }
     else
     {
-        if (!LAN_Socket::Init())
-            return false;
+        Lan.emplace<LAN_Socket>();
     }
 
     return true;
@@ -581,29 +591,31 @@ bool LAN_Init()
 
 void LAN_DeInit()
 {
-    // checkme. blarg
-    //if (Config::DirectLAN)
-    //    LAN_PCap::DeInit();
-    //else
-    //    LAN_Socket::DeInit();
-    LAN_PCap::DeInit();
-    LAN_Socket::DeInit();
+    Lan = std::monostate();
+    PCap = std::nullopt;
+    // Clears whichever LAN implementation is in use
 }
 
 int LAN_SendPacket(u8* data, int len)
 {
-    if (Config::DirectLAN)
-        return LAN_PCap::SendPacket(data, len);
-    else
-        return LAN_Socket::SendPacket(data, len);
+    if (auto* pcap = std::get_if<LAN_PCap>(&Lan))
+        return pcap->SendPacket(data, len);
+
+    if (auto* socket = std::get_if<LAN_Socket>(&Lan))
+        return socket->SendPacket(data, len);
+
+    return 0;
 }
 
 int LAN_RecvPacket(u8* data)
 {
-    if (Config::DirectLAN)
-        return LAN_PCap::RecvPacket(data);
-    else
-        return LAN_Socket::RecvPacket(data);
+    if (auto* pcap = std::get_if<LAN_PCap>(&Lan))
+        return pcap->RecvPacket(data);
+
+    if (auto* socket = std::get_if<LAN_Socket>(&Lan))
+        return socket->RecvPacket(data);
+
+    return 0;
 }
 
 
