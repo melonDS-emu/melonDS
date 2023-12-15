@@ -157,7 +157,7 @@ std::optional<PCap> PCap::New() noexcept
     if (uret != ERROR_SUCCESS)
     {
         Log(LogLevel::Error, "GetAdaptersAddresses() shat itself: %08X\n", uret);
-        return std::nullopt;
+        return std::nullopt; // PCap's destructor will handle cleanup
     }
 
     for (AdapterData& adata : pcap.Adapters)
@@ -209,17 +209,15 @@ std::optional<PCap> PCap::New() noexcept
     if (getifaddrs(&addrs) != 0)
     {
         Log(LogLevel::Error, "getifaddrs() shat itself :(\n");
-        pcap.pcap_freealldevs(alldevs);
-        return false;
+        return std::nullopt; // PCap's destructor will handle cleanup
     }
 
-    for (int i = 0; i < NumAdapters; i++)
+    for (AdapterData& adata : pcap.Adapters)
     {
-        adata = &Adapters[i];
         struct ifaddrs* curaddr = addrs;
         while (curaddr)
         {
-            if (strcmp(curaddr->ifa_name, adata->DeviceName))
+            if (strcmp(curaddr->ifa_name, adata.DeviceName) != 0)
             {
                 curaddr = curaddr->ifa_next;
                 continue;
@@ -236,7 +234,7 @@ std::optional<PCap> PCap::New() noexcept
             if (af == AF_INET)
             {
                 struct sockaddr_in* sa = (sockaddr_in*)curaddr->ifa_addr;
-                memcpy(adata->IP_v4, &sa->sin_addr, 4);
+                memcpy(adata.IP_v4, &sa->sin_addr, 4);
             }
 #ifdef __linux__
             else if (af == AF_PACKET)
@@ -245,7 +243,7 @@ std::optional<PCap> PCap::New() noexcept
                 if (sa->sll_halen != 6)
                     Log(LogLevel::Warn, "weird MAC length %d for %s\n", sa->sll_halen, curaddr->ifa_name);
                 else
-                    memcpy(adata->MAC, sa->sll_addr, 6);
+                    memcpy(adata.MAC, sa->sll_addr, 6);
             }
 #else
             else if (af == AF_LINK)
@@ -254,7 +252,7 @@ std::optional<PCap> PCap::New() noexcept
                 if (sa->sdl_alen != 6)
                     Log(LogLevel::Warn, "weird MAC length %d for %s\n", sa->sdl_alen, curaddr->ifa_name);
                 else
-                    memcpy(adata->MAC, LLADDR(sa), 6);
+                    memcpy(adata.MAC, LLADDR(sa), 6);
             }
 #endif
             curaddr = curaddr->ifa_next;

@@ -24,6 +24,7 @@
 #else
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/poll.h>
 #endif
 
 #include "FIFO.h"
