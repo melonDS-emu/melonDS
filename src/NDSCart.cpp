@@ -404,7 +404,11 @@ CartRetail::CartRetail(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool ba
         { // Copy in what we can, truncate the rest.
             SRAM = std::make_unique<u8[]>(SRAMLength);
             memset(SRAM.get(), 0xFF, SRAMLength);
-            memcpy(SRAM.get(), sram.get(), std::min(sramlen, SRAMLength));
+
+            if (sram)
+            { // If we have anything to copy, that is.
+                memcpy(SRAM.get(), sram.get(), std::min(sramlen, SRAMLength));
+            }
         }
     }
 
