@@ -45,6 +45,7 @@ enum CartType
     RetailIR = 0x103,
     RetailBT = 0x104,
     Homebrew = 0x201,
+    UnlicensedR4 = 0x301
 };
 
 class NDSCartSlot;
@@ -236,19 +237,13 @@ public:
     u8 SPIWrite(u8 val, u32 pos, bool last) override;
 };
 
-// CartHomebrew -- homebrew 'cart' (no SRAM, DLDI)
-class CartHomebrew : public CartCommon
+// CartSD -- any 'cart' with an SD card slot
+class CartSD : public CartCommon
 {
 public:
-    CartHomebrew(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard = std::nullopt);
-    CartHomebrew(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard = std::nullopt);
-    ~CartHomebrew() override;
-
-    void Reset() override;
-    void SetupDirectBoot(const std::string& romname, NDS& nds) override;
-
-    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
-    void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
+    CartSD(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard = std::nullopt);
+    CartSD(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard = std::nullopt);
+    ~CartSD() override;
 
     [[nodiscard]] const std::optional<FATStorage>& GetSDCard() const noexcept { return SD; }
     void SetSDCard(FATStorage&& sdcard) noexcept { SD = std::move(sdcard); }
@@ -260,12 +255,80 @@ public:
         // it just leaves behind an optional with a moved-from value
     }
 
-private:
+protected:
     void ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly) const;
     void ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly);
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset) const;
 
     std::optional<FATStorage> SD {};
+};
+
+// CartHomebrew -- homebrew 'cart' (no SRAM, DLDI)
+class CartHomebrew : public CartSD
+{
+public:
+    CartHomebrew(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard = std::nullopt);
+    CartHomebrew(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard = std::nullopt);
+    ~CartHomebrew() override;
+
+    void Reset() override;
+    void SetupDirectBoot(const std::string& romname, NDS& nds) override;
+
+    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
+    void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
+};
+
+// CartR4 -- unlicensed R4 'cart' (NDSCartR4.cpp)
+enum CartR4Type
+{
+    /* non-SDHC carts */
+    CartR4TypeM3Simply = 0,
+    CartR4TypeR4 = 1,
+    /* SDHC carts */
+    CartR4TypeAce3DS = 2
+};
+
+enum CartR4Language
+{
+    CartR4LanguageJapanese = (7 << 3) | 1,
+    CartR4LanguageEnglish = (7 << 3) | 2,
+    CartR4LanguageFrench = (2 << 3) | 2,
+    CartR4LanguageKorean = (4 << 3) | 2,
+    CartR4LanguageSimplifiedChinese = (6 << 3) | 3,
+    CartR4LanguageTraditionalChinese = (7 << 3) | 3
+};
+
+class CartR4 : public CartSD
+{
+public:
+    CartR4(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, CartR4Type ctype, CartR4Language clanguage,
+        std::optional<FATStorage>&& sdcard = std::nullopt);
+    ~CartR4() override;
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
+    void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
+
+private:
+    inline u32 GetAdjustedSector(u32 sector) const
+    {
+        return R4CartType >= CartR4TypeAce3DS ? sector : sector >> 9;
+    }
+
+    u16 GetEncryptionKey(u16 sector);
+    void ReadSDToBuffer(u32 sector, bool rom);
+    u64 SDFATEntrySectorGet(u32 entry, u32 addr);
+
+    s32 EncryptionKey;
+    u32 FATEntryOffset[2];
+    u8 Buffer[512];
+    u8 InitStatus;
+    CartR4Type R4CartType;
+    CartR4Language CartLanguage;
+    bool BufferInitialized;
 };
 
 class NDSCartSlot

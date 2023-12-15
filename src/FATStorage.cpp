@@ -144,6 +144,48 @@ bool FATStorage::InjectFile(const std::string& path, u8* data, u32 len)
     return nwrite==len;
 }
 
+u32 FATStorage::ReadFile(const std::string& path, u32 start, u32 len, u8* data)
+{
+    if (!File) return false;
+    if (FF_File) return false;
+
+    FF_File = File;
+    FF_FileSize = FileSize;
+    ff_disk_open(FF_ReadStorage, FF_WriteStorage, (LBA_t)(FileSize>>9));
+
+    FRESULT res;
+    FATFS fs;
+
+    res = f_mount(&fs, "0:", 1);
+    if (res != FR_OK)
+    {
+        ff_disk_close();
+        FF_File = nullptr;
+        return false;
+    }
+
+    std::string prefixedPath("0:/");
+    prefixedPath += path;
+    FF_FIL file;
+    res = f_open(&file, prefixedPath.c_str(), FA_READ);
+    if (res != FR_OK)
+    {
+        f_unmount("0:");
+        ff_disk_close();
+        FF_File = nullptr;
+        return false;
+    }
+
+    u32 nread;
+    f_lseek(&file, start);
+    f_read(&file, data, len, &nread);
+    f_close(&file);
+
+    f_unmount("0:");
+    ff_disk_close();
+    FF_File = nullptr;
+    return nread;
+}
 
 u32 FATStorage::ReadSectors(u32 start, u32 num, u8* data) const
 {
@@ -154,6 +196,11 @@ u32 FATStorage::WriteSectors(u32 start, u32 num, const u8* data)
 {
     if (ReadOnly) return 0;
     return WriteSectorsInternal(File, FileSize, start, num, data);
+}
+
+u64 FATStorage::GetSectorCount() const
+{
+    return FileSize / 0x200;
 }
 
 
