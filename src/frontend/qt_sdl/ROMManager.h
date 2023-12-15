@@ -35,34 +35,43 @@ namespace melonDS
 class NDS;
 class DSi;
 class FATStorage;
+class FATStorageArgs;
 }
 class EmuThread;
 namespace ROMManager
 {
 
 using namespace melonDS;
-extern SaveManager* NDSSave;
-extern SaveManager* GBASave;
+extern std::unique_ptr<SaveManager> NDSSave;
+extern std::unique_ptr<SaveManager> GBASave;
 extern std::unique_ptr<SaveManager> FirmwareSave;
 
 QString VerifySetup();
 void Reset(EmuThread* thread);
-bool LoadBIOS(EmuThread* thread);
+
+/// Boots the emulated console into its system menu without starting a game.
+bool BootToMenu(EmuThread* thread);
 void ClearBackupState();
 
+/// Returns the configured ARM9 BIOS loaded from disk,
+/// the FreeBIOS if external BIOS is disabled and we're in NDS mode,
+/// or nullopt if loading failed.
 std::optional<std::array<u8, ARM9BIOSSize>> LoadARM9BIOS() noexcept;
 std::optional<std::array<u8, ARM7BIOSSize>> LoadARM7BIOS() noexcept;
 std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM9BIOS() noexcept;
 std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM7BIOS() noexcept;
+std::optional<FATStorageArgs> GetDSiSDCardArgs() noexcept;
 std::optional<FATStorage> LoadDSiSDCard() noexcept;
+std::optional<FATStorageArgs> GetDLDISDCardArgs() noexcept;
+std::optional<FATStorage> LoadDLDISDCard() noexcept;
 void CustomizeFirmware(Firmware& firmware) noexcept;
 Firmware GenerateFirmware(int type) noexcept;
 /// Loads and customizes a firmware image based on the values in Config
 std::optional<Firmware> LoadFirmware(int type) noexcept;
 /// Loads and customizes a NAND image based on the values in Config
 std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSSize>& arm7ibios) noexcept;
-bool InstallFirmware(NDS& nds);
-bool InstallNAND(DSi& dsi);
+
+/// Inserts a ROM into the emulated console.
 bool LoadROM(EmuThread*, QStringList filepath, bool reset);
 void EjectCart(NDS& nds);
 bool CartInserted();

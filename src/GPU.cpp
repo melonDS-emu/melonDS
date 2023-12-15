@@ -75,7 +75,7 @@ GPU::GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d, std::uniqu
     NDS.RegisterEventFunc(Event_LCD, LCD_FinishFrame, MemberEventFunc(GPU, FinishFrame));
     NDS.RegisterEventFunc(Event_DisplayFIFO, 0, MemberEventFunc(GPU, DisplayFIFO));
 
-    FrontBuffer = 0;
+    InitFramebuffers();
 }
 
 GPU::~GPU() noexcept
@@ -298,6 +298,11 @@ void GPU::SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
     else
         GPU3D.SetCurrentRenderer(std::move(renderer));
 
+    InitFramebuffers();
+}
+
+void GPU::InitFramebuffers() noexcept
+{
     int fbsize;
     if (GPU3D.IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;

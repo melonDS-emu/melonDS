@@ -473,8 +473,10 @@ void ARMJIT_Memory::RemapDTCM(u32 newBase, u32 newSize) noexcept
 
 void ARMJIT_Memory::RemapNWRAM(int num) noexcept
 {
-    auto* dsi = dynamic_cast<DSi*>(&NDS);
-    assert(dsi != nullptr);
+    if (NDS.ConsoleType == 0)
+        return;
+
+    auto* dsi = static_cast<DSi*>(&NDS);
     for (int i = 0; i < Mappings[memregion_SharedWRAM].Length;)
     {
         Mapping& mapping = Mappings[memregion_SharedWRAM][i];
@@ -1071,15 +1073,19 @@ int ARMJIT_Memory::ClassifyAddress9(u32 addr) const noexcept
     }
     else
     {
-        auto& dsi = static_cast<DSi&>(NDS); // ONLY use this if ConsoleType == 1!
-        if (NDS.ConsoleType == 1 && addr >= 0xFFFF0000 && !(dsi.SCFG_BIOS & (1<<1)))
+        if (NDS.ConsoleType == 1)
         {
-            if ((addr >= 0xFFFF8000) && (dsi.SCFG_BIOS & (1<<0)))
-                return memregion_Other;
+            auto& dsi = static_cast<DSi&>(NDS);
+            if (addr >= 0xFFFF0000 && !(dsi.SCFG_BIOS & (1<<1)))
+            {
+                if ((addr >= 0xFFFF8000) && (dsi.SCFG_BIOS & (1<<0)))
+                    return memregion_Other;
 
-            return memregion_BIOS9DSi;
+                return memregion_BIOS9DSi;
+            }
         }
-        else if ((addr & 0xFFFFF000) == 0xFFFF0000)
+
+        if ((addr & 0xFFFFF000) == 0xFFFF0000)
         {
             return memregion_BIOS9;
         }
@@ -1091,6 +1097,7 @@ int ARMJIT_Memory::ClassifyAddress9(u32 addr) const noexcept
         case 0x03000000:
             if (NDS.ConsoleType == 1)
             {
+                auto& dsi = static_cast<DSi&>(NDS);
                 if (addr >= dsi.NWRAMStart[0][0] && addr < dsi.NWRAMEnd[0][0])
                     return memregion_NewSharedWRAM_A;
                 if (addr >= dsi.NWRAMStart[0][1] && addr < dsi.NWRAMEnd[0][1])
@@ -1116,15 +1123,19 @@ int ARMJIT_Memory::ClassifyAddress9(u32 addr) const noexcept
 
 int ARMJIT_Memory::ClassifyAddress7(u32 addr) const noexcept
 {
-    auto& dsi = static_cast<DSi&>(NDS);
-    if (NDS.ConsoleType == 1 && addr < 0x00010000 && !(dsi.SCFG_BIOS & (1<<9)))
+    if (NDS.ConsoleType == 1)
     {
-        if (addr >= 0x00008000 && dsi.SCFG_BIOS & (1<<8))
-            return memregion_Other;
+        auto& dsi = static_cast<DSi&>(NDS);
+        if (addr < 0x00010000 && !(dsi.SCFG_BIOS & (1<<9)))
+        {
+            if (addr >= 0x00008000 && dsi.SCFG_BIOS & (1<<8))
+                return memregion_Other;
 
-        return memregion_BIOS7DSi;
+            return memregion_BIOS7DSi;
+        }
     }
-    else if (addr < 0x00004000)
+
+    if (addr < 0x00004000)
     {
         return memregion_BIOS7;
     }
@@ -1138,6 +1149,7 @@ int ARMJIT_Memory::ClassifyAddress7(u32 addr) const noexcept
         case 0x03000000:
             if (NDS.ConsoleType == 1)
             {
+                auto& dsi = static_cast<DSi&>(NDS);
                 if (addr >= dsi.NWRAMStart[1][0] && addr < dsi.NWRAMEnd[1][0])
                     return memregion_NewSharedWRAM_A;
                 if (addr >= dsi.NWRAMStart[1][1] && addr < dsi.NWRAMEnd[1][1])

@@ -42,7 +42,7 @@ public:
     virtual u16 GetTouchX() override;
     virtual u16 GetTouchY() override;
     void SetTouchCoords(u16 x, u16 y) override;
-    void MicInputFrame(s16* data, int samples) override;
+    void MicInputFrame(const s16* data, int samples) override;
 
     void Write(u8 val) override;
     void Release() override;

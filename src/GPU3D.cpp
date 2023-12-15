@@ -172,17 +172,6 @@ void GPU3D::Reset() noexcept
 
     CmdStallQueue.Clear();
 
-    NumCommands = 0;
-    CurCommand = 0;
-    ParamCount = 0;
-    TotalParams = 0;
-
-    NumPushPopCommands = 0;
-    NumTestCommands = 0;
-
-    DispCnt = 0;
-    AlphaRef = 0;
-
     ZeroDotWLimit = 0; // CHECKME
 
     GXStat = 0;
@@ -190,7 +179,6 @@ void GPU3D::Reset() noexcept
     memset(ExecParams, 0, 32*4);
     ExecParamCount = 0;
 
-    Timestamp = 0;
     CycleCount = 0;
     VertexPipeline = 0;
     NormalPipeline = 0;
@@ -198,6 +186,8 @@ void GPU3D::Reset() noexcept
     VertexSlotCounter = 0;
     VertexSlotsFree = 1;
 
+    NumPushPopCommands = 0;
+    NumTestCommands = 0;
 
     MatrixMode = 0;
 
@@ -215,35 +205,83 @@ void GPU3D::Reset() noexcept
     memset(PosMatrixStack, 0, 31 * 16*4);
     memset(VecMatrixStack, 0, 31 * 16*4);
     memset(TexMatrixStack, 0, 16*4);
+
     ProjMatrixStackPointer = 0;
     PosMatrixStackPointer = 0;
     TexMatrixStackPointer = 0;
 
+    NumCommands = 0;
+    CurCommand = 0;
+    ParamCount = 0;
+    TotalParams = 0;
+
+    GeometryEnabled = false;
+    RenderingEnabled = false;
+
+    DispCnt = 0;
+    AlphaRefVal = 0;
+    AlphaRef = 0;
+
+    memset(ToonTable, 0, sizeof(ToonTable));
+    memset(EdgeTable, 0, sizeof(EdgeTable));
+
+    // TODO: confirm initial polyid/color/fog values
+    FogOffset = 0;
+    FogColor = 0;
+    memset(FogDensityTable, 0, sizeof(FogDensityTable));
+
+    ClearAttr1 = 0x3F000000;
+    ClearAttr2 = 0x00007FFF;
+
+    ResetRenderingState();
+
+    AbortFrame = false;
+
+    Timestamp = 0;
+
+    PolygonMode = 0;
+    memset(CurVertex, 0, sizeof(CurVertex));
+    memset(VertexColor, 0, sizeof(VertexColor));
+    memset(TexCoords, 0, sizeof(TexCoords));
+    memset(RawTexCoords, 0, sizeof(RawTexCoords));
+    memset(Normal, 0, sizeof(Normal));
+
+    memset(LightDirection, 0, sizeof(LightDirection));
+    memset(LightColor, 0, sizeof(LightColor));
+    memset(MatDiffuse, 0, sizeof(MatDiffuse));
+    memset(MatAmbient, 0, sizeof(MatAmbient));
+    memset(MatSpecular, 0, sizeof(MatSpecular));
+    memset(MatEmission, 0, sizeof(MatSpecular));
+
+    UseShininessTable = false;
+    memset(ShininessTable, 0, sizeof(ShininessTable));
+
+    PolygonAttr = 0;
+    CurPolygonAttr = 0;
+
+    TexParam = 0;
+    TexPalette = 0;
+
     memset(PosTestResult, 0, 4*4);
     memset(VecTestResult, 0, 2*3);
 
+    memset(TempVertexBuffer, 0, sizeof(TempVertexBuffer));
     VertexNum = 0;
     VertexNumInPoly = 0;
+    NumConsecutivePolygons = 0;
+    LastStripPolygon = nullptr;
+    NumOpaquePolygons = 0;
 
-    CurRAMBank = 0;
     CurVertexRAM = &VertexRAM[0];
     CurPolygonRAM = &PolygonRAM[0];
     NumVertices = 0;
     NumPolygons = 0;
-    NumOpaquePolygons = 0;
-
-    // TODO: confirm initial polyid/color/fog values
-    ClearAttr1 = 0x3F000000;
-    ClearAttr2 = 0x00007FFF;
+    CurRAMBank = 0;
 
     FlushRequest = 0;
     FlushAttributes = 0;
 
-    ResetRenderingState();
-
     RenderXPos = 0;
-
-    AbortFrame = false;
 }
 
 void GPU3D::DoSavestate(Savestate* file) noexcept
@@ -1455,7 +1493,7 @@ void GPU3D::CalculateLighting() noexcept
 }
 
 
-void GPU3D::BoxTest(u32* params) noexcept
+void GPU3D::BoxTest(const u32* params) noexcept
 {
     Vertex cube[8];
     Vertex face[10];
@@ -1588,7 +1626,7 @@ void GPU3D::VecTest(u32 param) noexcept
 
 
 
-void GPU3D::CmdFIFOWrite(CmdFIFOEntry& entry) noexcept
+void GPU3D::CmdFIFOWrite(const CmdFIFOEntry& entry) noexcept
 {
     if (CmdFIFO.IsEmpty() && !CmdPIPE.IsFull())
     {

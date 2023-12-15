@@ -19,6 +19,8 @@
 #ifndef ARMJIT_X64_COMPILER_H
 #define ARMJIT_X64_COMPILER_H
 
+#if defined(JIT_ENABLED) && defined(__x86_64__)
+
 #include "../dolphin/x64Emitter.h"
 
 #include "../ARMJIT_Internal.h"
@@ -81,11 +83,7 @@ struct Op2
 class Compiler : public Gen::XEmitter
 {
 public:
-#ifdef JIT_ENABLED
     explicit Compiler(melonDS::NDS& nds);
-#else
-    explicit Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds) {}
-#endif
 
     void Reset();
 
@@ -94,7 +92,7 @@ public:
     void LoadReg(int reg, Gen::X64Reg nativeReg);
     void SaveReg(int reg, Gen::X64Reg nativeReg);
 
-    bool CanCompile(bool thumb, u16 kind);
+    bool CanCompile(bool thumb, u16 kind) const;
 
     typedef void (Compiler::*CompileFunc)();
 
@@ -236,7 +234,7 @@ public:
         SetCodePtr(FarCode);
     }
 
-    bool IsJITFault(u8* addr);
+    bool IsJITFault(const u8* addr);
 
     u8* RewriteMemAccess(u8* pc);
 
@@ -284,5 +282,6 @@ public:
 };
 
 }
+#endif
 
 #endif

@@ -66,8 +66,8 @@ const u8 WifiAP::APMac[6] = {0x00, 0xF0, 0x77, 0x77, 0x77, 0x77};
 #define PALIGN_4(p, base)  while (PLEN(p,base) & 0x3) *p++ = 0xFF;
 
 
-bool MACEqual(u8* a, const u8* b);
-bool MACIsBroadcast(u8* a);
+bool MACEqual(const u8* a, const u8* b);
+bool MACIsBroadcast(const u8* a);
 
 
 WifiAP::WifiAP(Wifi* client) : Client(client)
@@ -107,7 +107,7 @@ void WifiAP::MSTimer()
 }
 
 
-int WifiAP::HandleManagementFrame(u8* data, int len)
+int WifiAP::HandleManagementFrame(const u8* data, int len)
 {
     // TODO: perfect this
     // noting that frames sent pre-auth/assoc don't have a proper BSSID
@@ -258,7 +258,7 @@ int WifiAP::HandleManagementFrame(u8* data, int len)
 }
 
 
-int WifiAP::SendPacket(u8* data, int len)
+int WifiAP::SendPacket(const u8* data, int len)
 {
     data += 12;
 

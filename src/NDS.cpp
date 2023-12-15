@@ -34,6 +34,7 @@
 #include "AREngine.h"
 #include "Platform.h"
 #include "FreeBIOS.h"
+#include "Args.h"
 
 #include "DSi.h"
 #include "DSi_SPI_TSC.h"
@@ -74,19 +75,34 @@ const s32 kIterationCycleMargin = 8;
 
 NDS* NDS::Current = nullptr;
 
-NDS::NDS(int type) noexcept :
+NDS::NDS() noexcept :
+    NDS(
+        NDSArgs {
+            nullptr,
+            nullptr,
+            bios_arm9_bin,
+            bios_arm7_bin,
+            Firmware(0),
+        }
+    )
+{
+}
+
+NDS::NDS(NDSArgs&& args, int type) noexcept :
     ConsoleType(type),
-    JIT(*this),
-    SPU(*this),
+    ARM7BIOS(args.ARM7BIOS),
+    ARM9BIOS(args.ARM9BIOS),
+    JIT(*this, args.JIT),
+    SPU(*this, args.BitDepth, args.Interpolation),
     GPU(*this),
-    SPI(*this),
+    SPI(*this, std::move(args.Firmware)),
     RTC(*this),
     Wifi(*this),
-    NDSCartSlot(*this),
-    GBACartSlot(),
+    NDSCartSlot(*this, std::move(args.NDSROM)),
+    GBACartSlot(type == 1 ? nullptr : std::move(args.GBAROM)),
     AREngine(*this),
-    ARM9(*this),
-    ARM7(*this),
+    ARM9(*this, args.GDB, args.JIT.has_value()),
+    ARM7(*this, args.GDB, args.JIT.has_value()),
     DMAs {
         DMA(0, 0, *this),
         DMA(0, 1, *this),
@@ -187,6 +203,22 @@ void NDS::SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswi
     }
 }
 
+#ifdef JIT_ENABLED
+void NDS::SetJITArgs(std::optional<JITArgs> args) noexcept
+{
+    if (args)
+    { // If we want to turn the JIT on...
+        JIT.SetJITArgs(*args);
+    }
+    else if (args.has_value() != EnableJIT)
+    { // Else if we want to turn the JIT off, and it wasn't already off...
+        JIT.ResetBlockCache();
+    }
+
+    EnableJIT = args.has_value();
+}
+#endif
+
 void NDS::InitTimings()
 {
     // TODO, eventually:
@@ -224,7 +256,7 @@ void NDS::InitTimings()
     // handled later: GBA slot, wifi
 }
 
-bool NDS::NeedsDirectBoot()
+bool NDS::NeedsDirectBoot() const
 {
     if (ConsoleType == 1)
     {
@@ -233,12 +265,12 @@ bool NDS::NeedsDirectBoot()
     }
     else
     {
-        // internal BIOS does not support direct boot
-        if (!Platform::GetConfigBool(Platform::ExternalBIOSEnable))
+        // DSi/3DS firmwares aren't bootable, neither is the generated firmware
+        if (!SPI.GetFirmware().IsBootable())
             return true;
 
-        // DSi/3DS firmwares aren't bootable
-        if (!SPI.GetFirmware()->IsBootable())
+        // FreeBIOS requires direct boot (it can't boot firmware)
+        if (IsLoadedARM7BIOSBuiltIn() || IsLoadedARM9BIOSBuiltIn())
             return true;
 
         return false;
@@ -251,6 +283,13 @@ void NDS::SetupDirectBoot()
     u32 cartid = NDSCartSlot.GetCart()->ID();
     const u8* cartrom = NDSCartSlot.GetCart()->GetROM();
     MapSharedWRAM(3);
+
+    // Copy the Nintendo logo from the NDS ROM header to the ARM9 BIOS if using FreeBIOS
+    // Games need this for DS<->GBA comm to work
+    if (IsLoadedARM9BIOSBuiltIn())
+    {
+        memcpy(ARM9BIOS.data() + 0x20, header.NintendoLogo, 0x9C);
+    }
 
     // setup main RAM data
 
@@ -378,10 +417,6 @@ void NDS::Reset()
     Platform::FileHandle* f;
     u32 i;
 
-#ifdef JIT_ENABLED
-    EnableJIT = Platform::GetConfigBool(Platform::JIT_Enable);
-#endif
-
     RunningGame = false;
     LastSysClockCycles = 0;
 
@@ -489,28 +524,6 @@ void NDS::Reset()
     SPI.Reset();
     RTC.Reset();
     Wifi.Reset();
-
-    // TODO: move the SOUNDBIAS/degrade logic to SPU?
-
-    // The SOUNDBIAS register does nothing on DSi
-    SPU.SetApplyBias(ConsoleType == 0);
-
-    bool degradeAudio = true;
-
-    if (ConsoleType == 1)
-    {
-        //DSi::Reset();
-        KeyInput &= ~(1 << (16+6));
-        degradeAudio = false;
-    }
-
-    int bitDepth = Platform::GetConfigInt(Platform::AudioBitDepth);
-    if (bitDepth == 1) // Always 10-bit
-        degradeAudio = true;
-    else if (bitDepth == 2) // Always 16-bit
-        degradeAudio = false;
-
-    SPU.SetDegrade10Bit(degradeAudio);
 }
 
 void NDS::Start()
@@ -710,42 +723,27 @@ bool NDS::DoSavestate(Savestate* file)
     return true;
 }
 
-bool NDS::LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
+void NDS::SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart)
 {
-    if (!NDSCartSlot.LoadROM(romdata, romlen))
-        return false;
-
-    if (savedata && savelen)
-        NDSCartSlot.LoadSave(savedata, savelen);
-
-    return true;
+    NDSCartSlot.SetCart(std::move(cart));
+    // The existing cart will always be ejected;
+    // if cart is null, then that's equivalent to ejecting a cart
+    // without inserting a new one.
 }
 
-void NDS::LoadSave(const u8* savedata, u32 savelen)
+void NDS::SetNDSSave(const u8* savedata, u32 savelen)
 {
     if (savedata && savelen)
-        NDSCartSlot.LoadSave(savedata, savelen);
+        NDSCartSlot.SetSaveMemory(savedata, savelen);
 }
 
-void NDS::EjectCart()
+void NDS::SetGBASave(const u8* savedata, u32 savelen)
 {
-    NDSCartSlot.EjectCart();
-}
+    if (ConsoleType == 0 && savedata && savelen)
+    {
+        GBACartSlot.SetSaveMemory(savedata, savelen);
+    }
 
-bool NDS::CartInserted()
-{
-    return NDSCartSlot.GetCart() != nullptr;
-}
-
-bool NDS::LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
-{
-    if (!GBACartSlot.LoadROM(romdata, romlen))
-        return false;
-
-    if (savedata && savelen)
-        GBACartSlot.LoadSave(savedata, savelen);
-
-    return true;
 }
 
 void NDS::LoadGBAAddon(int type)
@@ -753,24 +751,9 @@ void NDS::LoadGBAAddon(int type)
     GBACartSlot.LoadAddon(type);
 }
 
-void NDS::EjectGBACart()
-{
-    GBACartSlot.EjectCart();
-}
-
 void NDS::LoadBIOS()
 {
     Reset();
-}
-
-bool NDS::IsLoadedARM9BIOSBuiltIn()
-{
-    return memcmp(ARM9BIOS, bios_arm9_bin, sizeof(NDS::ARM9BIOS)) == 0;
-}
-
-bool NDS::IsLoadedARM7BIOSBuiltIn()
-{
-    return memcmp(ARM7BIOS, bios_arm7_bin, sizeof(NDS::ARM7BIOS)) == 0;
 }
 
 u64 NDS::NextTarget()
@@ -1241,7 +1224,7 @@ void NDS::SetTouchKeyMask(u32 mask)
     }
 }
 
-bool NDS::IsLidClosed()
+bool NDS::IsLidClosed() const
 {
     if (KeyInput & (1<<23)) return true;
     return false;
@@ -1434,7 +1417,7 @@ void NDS::ClearIRQ2(u32 irq)
     UpdateIRQ(1);
 }
 
-bool NDS::HaltInterrupted(u32 cpu)
+bool NDS::HaltInterrupted(u32 cpu) const
 {
     if (cpu == 0)
     {
@@ -1505,7 +1488,7 @@ void NDS::EnterSleepMode()
     ARM7.Halt(2);
 }
 
-u32 NDS::GetPC(u32 cpu)
+u32 NDS::GetPC(u32 cpu) const
 {
     return cpu ? ARM7.R[15] : ARM9.R[15];
 }
@@ -1733,7 +1716,7 @@ void NDS::TimerStart(u32 id, u16 cnt)
 
 
 
-bool NDS::DMAsInMode(u32 cpu, u32 mode)
+bool NDS::DMAsInMode(u32 cpu, u32 mode) const
 {
     cpu <<= 2;
     if (DMAs[cpu+0].IsInMode(mode)) return true;
@@ -1744,7 +1727,7 @@ bool NDS::DMAsInMode(u32 cpu, u32 mode)
     return false;
 }
 
-bool NDS::DMAsRunning(u32 cpu)
+bool NDS::DMAsRunning(u32 cpu) const
 {
     cpu <<= 2;
     if (DMAs[cpu+0].IsRunning()) return true;
@@ -2324,7 +2307,7 @@ bool NDS::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
 
     if ((addr & 0xFFFFF000) == 0xFFFF0000 && !write)
     {
-        region->Mem = ARM9BIOS;
+        region->Mem = &ARM9BIOS[0];
         region->Mask = 0xFFF;
         return true;
     }
@@ -2772,7 +2755,7 @@ bool NDS::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
     {
         if (ARM7.R[15] < 0x4000 && (addr >= ARM7BIOSProt || ARM7.R[15] < ARM7BIOSProt))
         {
-            region->Mem = ARM7BIOS;
+            region->Mem = &ARM7BIOS[0];
             region->Mask = 0x3FFF;
             return true;
         }
