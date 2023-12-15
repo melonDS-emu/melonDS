@@ -387,7 +387,7 @@ LAN_PCap::LAN_PCap(const PCap& pcap, const AdapterData& data, pcap_t* adapter) n
 
 LAN_PCap::~LAN_PCap() noexcept
 {
-    if (PCapAdapter)
+    if (PCapAdapter && pcap_close)
     {
         pcap_close(PCapAdapter);
         PCapAdapter = nullptr;

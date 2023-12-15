@@ -511,9 +511,9 @@ int LAN_Socket::RecvPacket(u8* data)
     {
         u32 timeout = 0;
         PollListSize = 0;
-        slirp_pollfds_fill(Ctx, &timeout, SlirpCbAddPoll, nullptr);
+        slirp_pollfds_fill(Ctx, &timeout, SlirpCbAddPoll, this);
         int res = poll(PollList, PollListSize, timeout);
-        slirp_pollfds_poll(Ctx, res<0, SlirpCbGetREvents, nullptr);
+        slirp_pollfds_poll(Ctx, res<0, SlirpCbGetREvents, this);
     }
 
     if (!RXBuffer.IsEmpty())
