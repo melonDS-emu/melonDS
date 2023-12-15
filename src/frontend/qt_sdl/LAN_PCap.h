@@ -72,7 +72,7 @@ public:
     std::optional<LAN_PCap> OpenAdapter(std::string_view landevice) noexcept;
     std::optional<LAN_PCap> OpenAdapter(const AdapterData& landevice) noexcept;
 private:
-    PCap() noexcept;
+    PCap() noexcept = default;
     bool TryLoadPCap(Platform::DynamicLibrary *lib) noexcept;
     friend class LAN_PCap;
     std::vector<AdapterData> Adapters {};

@@ -384,6 +384,50 @@ LAN_PCap::~LAN_PCap() noexcept
     }
 }
 
+LAN_PCap::LAN_PCap(LAN_PCap&& other) noexcept :
+    pcap_close(other.pcap_close),
+    pcap_sendpacket(other.pcap_sendpacket),
+    pcap_dispatch(other.pcap_dispatch),
+    PacketLen(other.PacketLen),
+    RXNum(other.RXNum),
+    PCapAdapter(other.PCapAdapter),
+    PCapAdapterData(other.PCapAdapterData)
+{
+    other.PCapAdapter = nullptr;
+    other.pcap_close = nullptr;
+    other.pcap_dispatch = nullptr;
+    other.pcap_sendpacket = nullptr;
+    other.PCapAdapterData = {};
+}
+
+LAN_PCap& LAN_PCap::operator=(LAN_PCap&& other) noexcept
+{
+    if (this != &other)
+    {
+        if (PCapAdapter)
+        {
+            pcap_close(PCapAdapter);
+            PCapAdapter = nullptr;
+        }
+
+        pcap_close = other.pcap_close;
+        pcap_sendpacket = other.pcap_sendpacket;
+        pcap_dispatch = other.pcap_dispatch;
+        PacketLen = other.PacketLen;
+        RXNum = other.RXNum;
+        PCapAdapter = other.PCapAdapter;
+        PCapAdapterData = other.PCapAdapterData;
+
+        other.pcap_close = nullptr;
+        other.pcap_dispatch = nullptr;
+        other.pcap_sendpacket = nullptr;
+        other.PCapAdapter = nullptr;
+        other.PCapAdapterData = {};
+    }
+
+    return *this;
+}
+
 void LAN_PCap::RXCallback(u_char* userdata, const struct pcap_pkthdr* header, const u_char* data) noexcept
 {
     LAN_PCap* lan = (LAN_PCap*)userdata;
