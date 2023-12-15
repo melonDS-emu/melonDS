@@ -44,12 +44,12 @@ public:
     void Run9();
     void Run7();
 
-    bool IsInMode(u32 mode)
+    bool IsInMode(u32 mode) const
     {
         return ((mode == StartMode) && (Cnt & 0x80000000));
     }
 
-    bool IsRunning() { return Running!=0; }
+    bool IsRunning() const { return Running!=0; }
 
     void StartIfNeeded(u32 mode)
     {

@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string>
 #include <map>
+#include <optional>
 #include <filesystem>
 
 #include "Platform.h"
@@ -30,24 +31,41 @@
 
 namespace melonDS
 {
+/// Contains information necessary to load an SD card image.
+/// The intended use case is for loading homebrew NDS ROMs;
+/// you won't know that a ROM is homebrew until you parse it,
+/// so if you load the SD card before the ROM
+/// then you might end up discarding it.
+struct FATStorageArgs
+{
+    std::string Filename;
+    u64 Size;
+    bool ReadOnly;
+    std::optional<std::string> SourceDir;
+};
+
 class FATStorage
 {
 public:
-    FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir);
+    FATStorage(const std::string& filename, u64 size, bool readonly, const std::optional<std::string>& sourcedir = std::nullopt);
+    FATStorage(const FATStorageArgs& args) noexcept;
+    FATStorage(FATStorageArgs&& args) noexcept;
+    FATStorage(FATStorage&& other) noexcept;
+    FATStorage(const FATStorage& other) = delete;
+    FATStorage& operator=(const FATStorage& other) = delete;
+    FATStorage& operator=(FATStorage&& other) noexcept;
     ~FATStorage();
-
-    bool Open();
-    void Close();
 
     bool InjectFile(const std::string& path, u8* data, u32 len);
 
-    u32 ReadSectors(u32 start, u32 num, u8* data);
-    u32 WriteSectors(u32 start, u32 num, u8* data);
+    u32 ReadSectors(u32 start, u32 num, u8* data) const;
+    u32 WriteSectors(u32 start, u32 num, const u8* data);
+    [[nodiscard]] bool IsReadOnly() const noexcept { return ReadOnly; }
 
 private:
     std::string FilePath;
     std::string IndexPath;
-    std::string SourceDir;
+    std::optional<std::string> SourceDir;
     bool ReadOnly;
 
     Platform::FileHandle* File;
@@ -74,9 +92,9 @@ private:
     void CleanupDirectory(const std::string& sourcedir, const std::string& path, int level);
     bool ImportFile(const std::string& path, std::filesystem::path in);
     bool ImportDirectory(const std::string& sourcedir);
-    u64 GetDirectorySize(std::filesystem::path sourcedir);
+    u64 GetDirectorySize(std::filesystem::path sourcedir) const;
 
-    bool Load(const std::string& filename, u64 size, const std::string& sourcedir);
+    bool Load(const std::string& filename, u64 size, const std::optional<std::string>& sourcedir);
     bool Save();
 
     typedef struct

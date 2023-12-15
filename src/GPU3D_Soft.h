@@ -429,16 +429,16 @@ private:
     };
 
     template <typename T>
-    inline T ReadVRAM_Texture(u32 addr)
+    inline T ReadVRAM_Texture(u32 addr) const
     {
         return *(T*)&GPU.VRAMFlat_Texture[addr & 0x7FFFF];
     }
     template <typename T>
-    inline T ReadVRAM_TexPal(u32 addr)
+    inline T ReadVRAM_TexPal(u32 addr) const
     {
         return *(T*)&GPU.VRAMFlat_TexPal[addr & 0x1FFFF];
     }
-    u32 AlphaBlend(u32 srccolor, u32 dstcolor, u32 alpha) noexcept;
+    u32 AlphaBlend(u32 srccolor, u32 dstcolor, u32 alpha) const noexcept;
 
     struct RendererPolygon
     {
@@ -454,16 +454,16 @@ private:
 
     melonDS::GPU& GPU;
     RendererPolygon PolygonList[2048];
-    void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha);
-    u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t);
+    void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const;
+    u32 RenderPixel(const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const;
     void PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
-    void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y);
-    void SetupPolygonRightEdge(RendererPolygon* rp, s32 y);
-    void SetupPolygon(RendererPolygon* rp, Polygon* polygon);
+    void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y) const;
+    void SetupPolygonRightEdge(RendererPolygon* rp, s32 y) const;
+    void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     void RenderShadowMaskScanline(RendererPolygon* rp, s32 y);
     void RenderPolygonScanline(RendererPolygon* rp, s32 y);
     void RenderScanline(s32 y, int npolys);
-    u32 CalculateFogDensity(u32 pixeladdr);
+    u32 CalculateFogDensity(u32 pixeladdr) const;
     void ScanlineFinalPass(s32 y);
     void ClearBuffers();
     void RenderPolygons(bool threaded, Polygon** polygons, int npolys);

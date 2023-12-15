@@ -92,56 +92,6 @@ int InstanceID();
  */
 std::string InstanceFileSuffix();
 
-// configuration values
-
-enum ConfigEntry
-{
-#ifdef JIT_ENABLED
-    JIT_Enable,
-    JIT_MaxBlockSize,
-    JIT_LiteralOptimizations,
-    JIT_BranchOptimizations,
-    JIT_FastMemory,
-#endif
-
-    ExternalBIOSEnable,
-
-    DLDI_Enable,
-    DLDI_ImagePath,
-    DLDI_ImageSize,
-    DLDI_ReadOnly,
-    DLDI_FolderSync,
-    DLDI_FolderPath,
-
-    DSiSD_Enable,
-    DSiSD_ImagePath,
-    DSiSD_ImageSize,
-    DSiSD_ReadOnly,
-    DSiSD_FolderSync,
-    DSiSD_FolderPath,
-
-    Firm_MAC,
-
-    WifiSettingsPath,
-
-    AudioBitDepth,
-
-    DSi_FullBIOSBoot,
-
-#ifdef GDBSTUB_ENABLED
-    GdbEnabled,
-    GdbPortARM7,
-    GdbPortARM9,
-    GdbARM7BreakOnStartup,
-    GdbARM9BreakOnStartup,
-#endif
-};
-
-int GetConfigInt(ConfigEntry entry);
-bool GetConfigBool(ConfigEntry entry);
-std::string GetConfigString(ConfigEntry entry);
-bool GetConfigArray(ConfigEntry entry, void* data);
-
 /**
  * Denotes how a file will be opened and accessed.
  * Flags may or may not correspond to the operating system's file API.
