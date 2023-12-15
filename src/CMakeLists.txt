@@ -38,6 +38,7 @@ add_library(core STATIC
     melonDLDI.h
     NDS.cpp
     NDSCart.cpp
+    NDSCartR4.cpp
     Platform.h
     ROMList.h
     ROMList.cpp
