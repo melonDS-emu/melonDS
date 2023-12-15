@@ -571,11 +571,11 @@ bool LAN_Init()
 {
     if (Config::DirectLAN)
     {
-        std::optional<melonDS::PCap> pcap = PCap::New();
-        if (!pcap)
+        PCap = PCap::New();
+        if (!PCap)
             return false;
 
-        std::optional<LAN_PCap> lan = pcap->OpenAdapter(Config::LANDevice);
+        std::optional<LAN_PCap> lan = PCap->OpenAdapter(Config::LANDevice);
         if (!lan)
             return false;
 
@@ -583,6 +583,7 @@ bool LAN_Init()
     }
     else
     {
+        PCap = std::nullopt;
         Lan.emplace<LAN_Socket>();
     }
 
