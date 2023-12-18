@@ -1246,7 +1246,7 @@ void GPU3D::SubmitPolygon() noexcept
     {
         Vertex* vtx = poly->Vertices[i];
 
-        if (vtx->FinalPosition[1] < ytop || (vtx->FinalPosition[1] == ytop && vtx->FinalPosition[0] < xtop))
+        if (vtx->FinalPosition[1] < ytop)
         {
             xtop = vtx->FinalPosition[0];
             ytop = vtx->FinalPosition[1];
