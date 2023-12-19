@@ -105,7 +105,9 @@ NDS::NDS(NDSArgs&& args, int type) noexcept :
     AREngine(*this),
     ARM9(*this, args.GDB, args.JIT.has_value()),
     ARM7(*this, args.GDB, args.JIT.has_value()),
+#ifdef JIT_ENABLED
     EnableJIT(args.JIT.has_value()),
+#endif
     DMAs {
         DMA(0, 0, *this),
         DMA(0, 1, *this),
