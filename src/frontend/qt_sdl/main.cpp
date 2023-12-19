@@ -3477,6 +3477,10 @@ MelonApplication::MelonApplication(int& argc, char** argv)
 #ifndef __APPLE__
     setWindowIcon(QIcon(":/melon-icon"));
 #endif
+
+#ifdef !defined(__APPLE__) && !defined(__WIN32__)
+    setDesktopFileName(QString("net.kuribo64.melonDS"));
+#endif
 }
 
 bool MelonApplication::event(QEvent *event)
