@@ -127,20 +127,32 @@ bool SoftRenderer::DoTimings(s32 cycles, bool odd)
     return true;
 }
 
+bool SoftRenderer::CheckTimings(s32 cycles, bool odd)
+{
+    // check if there are 'cycles' amount of cycles remaining.
+
+    s32* counter;
+    if (odd) counter = &RasterTimingOdd;
+    else counter = &RasterTimingEven;
+
+    if (RasterTiming - *counter >= cycles) return true;
+    else return false;
+}
+
 u32 SoftRenderer::DoTimingsPixels(s32 pixels, bool odd)
 {
     // calculate and return the difference between the old span and the new span, while adding timings to the timings counter
 
     // pixels dont count towards timings if they're the first 4 pixels in a scanline (for some reason?)
-    if (pixels <= 4) return 0;
+    if (pixels <= NumFreePixels) return 0;
     
-    pixels -= 4;
+    pixels -= NumFreePixels;
 
     s32* counter;
     if (odd) counter = &RasterTimingOdd;
     else counter = &RasterTimingEven;
     
-    //todo: figure out a faster way to support TimingFrac > 1 without using a for loop somehow.
+    //todo: figure out a faster way to support TimingFrac > 1 without using a for loop somehow. (fingers crossed we dont have to!)
     if constexpr (TimingFrac > 1)
         for (; pixels > 0; pixels--)
         {
@@ -158,6 +170,26 @@ u32 SoftRenderer::DoTimingsPixels(s32 pixels, bool odd)
 
     GPU.GPU3D.DispCnt |= (1<<12);
     return pixels;
+}
+
+bool SoftRenderer::DoTimingsSlopes(RendererPolygon* rp, s32 y, bool odd)
+{
+    // determine the timing impact of the first polygon's slopes.
+    
+    Polygon* polygon = rp->PolyData;
+    
+    if (polygon->YTop == polygon->YBottom) return false;
+    if (y == polygon->YTop) return false;
+
+    s32* counter;
+    if (odd) counter = &RasterTimingOdd;
+    else counter = &RasterTimingEven;
+
+    if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom) *counter += 1;
+
+    if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom) *counter += 1;
+
+    return DoTimings(2, odd); // CHECKME: does this need to be done time its incremented here?
 }
 
 void SoftRenderer::TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha)
@@ -744,7 +776,7 @@ void SoftRenderer::CheckSlope(RendererPolygon* rp, s32 y)
     }
 }
 
-void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
+bool SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y, bool odd)
 {
     Polygon* polygon = rp->PolyData;
 
@@ -766,19 +798,8 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
 
     PrevIsShadowMask = true;
-
-    if (polygon->YTop != polygon->YBottom)
-    {
-        if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
-        {
-            SetupPolygonLeftEdge(rp, y);
-        }
-
-        if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
-        {
-            SetupPolygonRightEdge(rp, y);
-        }
-    }
+    
+    CheckSlope(rp, y);
 
     Vertex *vlcur, *vlnext, *vrcur, *vrnext;
     s32 xstart, xend;
@@ -787,6 +808,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     s32 l_edgecov, r_edgecov;
     Interpolator<1>* interp_start;
     Interpolator<1>* interp_end;
+    bool abortscanline; // to abort the rest of the scanline after finishing this polygon
 
     xstart = rp->XL;
     xend = rp->XR;
@@ -870,7 +892,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     // similarly, we can perform alpha test early (checkme)
 
     if (wireframe) polyalpha = 31;
-    if (polyalpha <= GPU.GPU3D.RenderAlphaRef) return;
+    if (polyalpha <= GPU.GPU3D.RenderAlphaRef) return false; // TODO: check how this impacts timings?
 
     // in wireframe mode, there are special rules for equal Z (TODO)
 
@@ -880,10 +902,23 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     int edge;
 
     s32 x = xstart;
-    Interpolator<0> interpX(xstart, xend+1, wl, wr);
+    xend += 1;
+    Interpolator<0> interpX(xstart, xend, wl, wr);
 
     if (x < 0) x = 0;
     s32 xlimit;
+    if (xend > 256) xend = 256;
+    
+    // determine if the span can be rendered within the time allotted to the scanline
+    // TODO: verify the timing characteristics of shadow masks are the same as regular polygons.
+    s32 diff = DoTimingsPixels(xend-x, odd);
+    if (diff != 0)
+    {
+        xend -= diff;
+        r_edgelen -= diff;
+        abortscanline = true;
+    }
+    else abortscanline = false;
 
     // for shadow masks: set stencil bits where the depth test fails.
     // draw nothing.
@@ -891,8 +926,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     // part 1: left edge
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
-    if (xlimit > xend+1) xlimit = xend+1;
-    if (xlimit > 256) xlimit = 256;
+    if (xlimit > xend) xlimit = xend;
 
     if (!l_filledge) x = xlimit;
     else
@@ -918,9 +952,8 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
     // part 2: polygon inside
     edge = yedge;
-    xlimit = xend-r_edgelen+1;
-    if (xlimit > xend+1) xlimit = xend+1;
-    if (xlimit > 256) xlimit = 256;
+    xlimit = xend-r_edgelen;
+    if (xlimit > xend) xlimit = xend;
     if (wireframe && !edge) x = std::max(x, xlimit);
     else for (; x < xlimit; x++)
     {
@@ -944,8 +977,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
     // part 3: right edge
     edge = yedge | 0x2;
-    xlimit = xend+1;
-    if (xlimit > 256) xlimit = 256;
+    xlimit = xend;
 
     if (r_filledge)
     for (; x < xlimit; x++)
@@ -967,9 +999,9 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
                 StencilBuffer[256*(y&0x1) + x] |= 0x2;
         }
     }
-
-    rp->XL = rp->SlopeL.Step();
-    rp->XR = rp->SlopeR.Step();
+    
+    Step(rp);
+    return abortscanline;
 }
 
 bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
@@ -993,12 +1025,6 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
 
     CheckSlope(rp, y);
     
-    if (DoTimings(PerPolyScanline, odd))
-    {
-        Step(rp);
-        return true;
-    }
-
     Vertex *vlcur, *vlnext, *vrcur, *vrnext;
     s32 xstart, xend;
     bool l_filledge, r_filledge;
@@ -1006,7 +1032,7 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
     s32 l_edgecov, r_edgecov;
     Interpolator<1>* interp_start;
     Interpolator<1>* interp_end;
-    bool abortscanline = false; // to abort the rest of the scanline after finishing this polygon
+    bool abortscanline; // to abort the rest of the scanline after finishing this polygon
 
     xstart = rp->XL;
     xend = rp->XR;
@@ -1142,6 +1168,7 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
         r_edgelen -= diff;
         abortscanline = true;
     }
+    else abortscanline = false;
 
     // part 1: left edge
     edge = yedge | 0x1;
@@ -1434,6 +1461,7 @@ bool SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd)
 bool SoftRenderer::RenderScanline(s32 y, int npolys, bool odd)
 {
     bool abort = false;
+    bool first = true;
     for (int i = 0; i < npolys; i++)
     {
         RendererPolygon* rp = &PolygonList[i];
@@ -1441,20 +1469,29 @@ bool SoftRenderer::RenderScanline(s32 y, int npolys, bool odd)
 
         if (y == polygon->YBottom && y != polygon->YTop)
         {
-            if (DoTimings(EmptyPolyScanline, odd)) abort = true;
+            if (!abort) abort = (first && DoTimings(FirstNull, odd)) || DoTimings(EmptyPolyScanline, odd);
+
+            first = false;
         }
         else if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
         {
-            if (y == polygon->YTop) if(DoTimings(FirstPolyScanline, odd)) abort = true;
+            //if (y == polygon->YTop) if(DoTimings(FirstPolyScanline, odd)) abort = true;
+            
+            if (!abort) abort = (first && DoTimingsSlopes(rp, y, odd)) // incorrect. needs research; behavior is strange...
+                        || DoTimings(PerPolyScanline, odd)
+                        || (!CheckTimings(MinToStartPoly, odd));
+
             if (abort)
             {
                 CheckSlope(rp, y);
                 Step(rp);
             }
             else if (polygon->IsShadowMask)
-                ;//RenderShadowMaskScanline(rp, y);
+                abort = RenderShadowMaskScanline(rp, y, odd);
             else
-                if (RenderPolygonScanline(rp, y, odd)) abort = true;
+                abort = RenderPolygonScanline(rp, y, odd);
+
+            first = false;
         }
     }
 
@@ -1500,7 +1537,7 @@ u32 SoftRenderer::CalculateFogDensity(u32 pixeladdr)
     return density;
 }
 
-void SoftRenderer::ScanlineFinalPass(s32 y, u8 rdbufferoffset, bool odd)
+void SoftRenderer::ScanlineFinalPass(s32 y, u8 rdbufferoffset, bool odd, s32 uhohzone)
 {
     // to consider:
     // clearing all polygon fog flags if the master flag isn't set?
@@ -1759,10 +1796,13 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
     
     s8 buffersize = 0;
     RasterTiming = InitialTiming;
-    s32 timingadvance = InitialTiming;
     bool abort = false;
-    //u32* RDLinesReg = &GPU.GPU3D.RDLines;
     ClearBuffers();
+    s32 gpu2dtracking = InitGPU2DTimeout;
+    s32 gpu2dfreetime = InitGPU2DTimeout;
+    s32 prev2dtime;
+    bool readodd = true;
+
     for (u8 quarter = 0; quarter < 4; quarter++)
         for (u8 bufferline = 0; bufferline < 48; bufferline += 2)
         {
@@ -1770,13 +1810,19 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
             RasterTimingEven = 0;
             
             RasterTiming += ScanlineIncrement;
+            gpu2dtracking += GPU2DReadSLPair;
             if (abort) RasterTiming += AbortIncrement; // if previous scanline was aborted, allow an extra 12 pixels worth of timing
             
             if (y >= 50)
             {
-                if (RasterTiming > Post50Max) RasterTiming = Post50Max;
-                timingadvance = 0;
-                buffersize = 48;
+                gpu2dfreetime = 0;
+                if (RasterTiming > Post50Max)
+                {
+                    s32 temp = RasterTiming - Post50Max;
+                    RasterTiming = Post50Max;
+                    gpu2dtracking -= temp;
+                }
+                if (buffersize > 48) buffersize = 48;
             }
 
             abort = RenderScanline(y, j, true);
@@ -1785,50 +1831,59 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
             buffersize += 2;
             //RasterTiming += ScanlineBreak;
             s32 timespent = std::max(RasterTimingOdd, RasterTimingEven);
-
-            /*if (timespent > FreeTiming)
-            {
-                abort = true;
-                timespent -= FreeTiming;
-            }
-            else if (!abort)
-            {
-                abort = false;
-                timespent -= FreeTiming;
-            }*/
-            //if (!abort) 
-            //if (buffersize > 48) timespent -= PerScanlineRecup;
-            /*else*/
+            
             timespent -= FreeTiming;
 
-            if (timespent > 0)
-            {
-                RasterTiming -= timespent;
-                timingadvance -= timespent;
-            }
+            // measure scanlines being read here.
+            gpu2dtracking -= timespent;
+            gpu2dfreetime -= timespent;
 
-            if (timingadvance < 0) for (s32 i = (ScanlinePairLength / 2) * buffersize; i > RasterTiming + (ScanlinePairLength / 2); i -= ScanlinePairLength / 2) buffersize -= 1;
-            if (buffersize < 0) buffersize = 0;
+            if (timespent > 0) RasterTiming -= timespent;
+
+            //if (RasterTiming < 0) RasterTiming = 0;
+            if (gpu2dfreetime <= 0)
+            {
+                buffersize = 0;
+                if (gpu2dtracking > 0)
+                {
+                    s32 i = gpu2dtracking;
+                    while (true) 
+                    {
+                        s32 comp = GPU2DReadSLPair/2;
+                        //if (readodd) comp = GPU2DSpeedOutsidePair + GPU2DReadScanline;
+                        //else comp = GPU2DSpeedWithinPair + GPU2DReadScanline;
                         
-            // seems to display the lowest scanline buffer count reached during the current frame.
-            // we also caps it to 46 here, because this reg does that too for some reason.
-            if (quarter >= 1 && buffersize < GPU.GPU3D.RDLinesDisplay) GPU.GPU3D.RDLinesDisplay = buffersize;
+                        if (i < comp) break;
+                        
+                        i -= comp;
+                        buffersize++;
+                        //readodd = !readodd;
+                    }
+
+                    if (i > 0) buffersize++;
+                }
+
+                // seems to display the lowest scanline buffer count reached during the current frame.
+                // we also caps it to 46 here, because this reg does that too for some reason.
+                if (GPU.GPU3D.RDLines > buffersize) GPU.GPU3D.RDLines = buffersize;
+            }
 
             if (prevbufferline >= 0)
             {
-                ScanlineFinalPass(y-2, prevbufferline, true);
-                ScanlineFinalPass(y-1, prevbufferline+1, false);
+                ScanlineFinalPass(y-2, prevbufferline, true, prev2dtime);
+                ScanlineFinalPass(y-1, prevbufferline+1, false, prev2dtime);
             }
 
             y += 2;
             prevbufferline = bufferline;
+            prev2dtime = gpu2dtracking;
 
             if (threaded)
                 Platform::Semaphore_Post(Sema_ScanlineCount);
         }
         
-    ScanlineFinalPass(190, prevbufferline, true);
-    ScanlineFinalPass(191, prevbufferline+1, false);
+    ScanlineFinalPass(190, prevbufferline, true, prev2dtime);
+    ScanlineFinalPass(191, prevbufferline+1, false, prev2dtime);
 
     if (threaded)
         Platform::Semaphore_Post(Sema_ScanlineCount);
