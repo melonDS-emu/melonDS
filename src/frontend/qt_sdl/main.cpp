@@ -3474,12 +3474,11 @@ void emuStop()
 MelonApplication::MelonApplication(int& argc, char** argv)
     : QApplication(argc, argv)
 {
-#ifndef __APPLE__
+#if !defined(Q_OS_APPLE)
     setWindowIcon(QIcon(":/melon-icon"));
-#endif
-
-#ifdef !defined(__APPLE__) && !defined(__WIN32__)
-    setDesktopFileName(QString("net.kuribo64.melonDS"));
+    #if defined(Q_OS_UNIX)
+        setDesktopFileName(QString("net.kuribo64.melonDS"));
+    #endif
 #endif
 }
 
