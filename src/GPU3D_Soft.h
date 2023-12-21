@@ -490,15 +490,13 @@ private:
     static constexpr int ScanlineWidth = 256;
     static constexpr int NumScanlines = 192;
     static constexpr int NumScanlinesRD = 48;
-    static constexpr int NumScanlinesInternal = 192;
-    static constexpr int InternalBufferSize = ScanlineWidth * NumScanlinesInternal;
     static constexpr int RDBufferSize = ScanlineWidth * NumScanlinesRD;
     static constexpr int BufferSize = ScanlineWidth * NumScanlines;
     static constexpr int FirstPixelOffset = 0;
 
-    u32 ColorBuffer[InternalBufferSize * 2];
-    u32 DepthBuffer[InternalBufferSize * 2];
-    u32 AttrBuffer[InternalBufferSize * 2];
+    u32 ColorBuffer[BufferSize * 2];
+    u32 DepthBuffer[BufferSize * 2];
+    u32 AttrBuffer[BufferSize * 2];
     u32 RDBuffer[RDBufferSize];
     u32 FinalBuffer[BufferSize];
 

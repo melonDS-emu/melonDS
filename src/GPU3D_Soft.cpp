@@ -1870,7 +1870,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, bool threaded, Polygon** polygons, i
                 if (gpu.GPU3D.RDLines > buffersize) gpu.GPU3D.RDLines = buffersize;
             }
 
-    for (s32 y = 1; y < 192; y++)
+            if (prevbufferline >= 0)
             {
                 ScanlineFinalPass(gpu.GPU3D, y-2, prevbufferline, true, prev2dtime);
                 ScanlineFinalPass(gpu.GPU3D, y-1, prevbufferline+1, false, prev2dtime);
@@ -1880,7 +1880,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, bool threaded, Polygon** polygons, i
             prevbufferline = bufferline;
             prev2dtime = gpu2dtracking;
 
-        if (threaded)
+            if (threaded)
                 Platform::Semaphore_Post(Sema_ScanlineCount);
         }
         
