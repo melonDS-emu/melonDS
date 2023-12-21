@@ -146,6 +146,12 @@ GPU3D::GPU3D(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer) noexcept
 {
 }
 
+void GPU3D::SetCurrentRenderer(std::unique_ptr<Renderer3D>&& renderer) noexcept
+{
+    CurrentRenderer = std::move(renderer);
+    CurrentRenderer->Reset(NDS.GPU);
+}
+
 void GPU3D::ResetRenderingState() noexcept
 {
     RenderNumPolygons = 0;
@@ -282,6 +288,9 @@ void GPU3D::Reset() noexcept
     FlushAttributes = 0;
 
     RenderXPos = 0;
+
+    if (CurrentRenderer)
+        CurrentRenderer->Reset(NDS.GPU);
 }
 
 void GPU3D::DoSavestate(Savestate* file) noexcept

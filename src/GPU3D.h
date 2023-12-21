@@ -117,7 +117,7 @@ public:
     [[nodiscard]] bool IsRendererAccelerated() const noexcept;
     [[nodiscard]] Renderer3D& GetCurrentRenderer() noexcept { return *CurrentRenderer; }
     [[nodiscard]] const Renderer3D& GetCurrentRenderer() const noexcept { return *CurrentRenderer; }
-    void SetCurrentRenderer(std::unique_ptr<Renderer3D>&& renderer) noexcept { CurrentRenderer = std::move(renderer); }
+    void SetCurrentRenderer(std::unique_ptr<Renderer3D>&& renderer) noexcept;
 
     u8 Read8(u32 addr) noexcept;
     u16 Read16(u32 addr) noexcept;
