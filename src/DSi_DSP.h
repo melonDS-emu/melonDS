@@ -41,7 +41,7 @@ public:
     void DSPCatchUpU32(u32 _);
 
     // SCFG_RST bit0
-    bool IsRstReleased();
+    bool IsRstReleased() const;
     void SetRstLine(bool release);
 
     // DSP_* regs (0x040043xx) (NOTE: checks SCFG_EXT)
@@ -54,7 +54,7 @@ public:
     u32 Read32(u32 addr);
     void Write32(u32 addr, u32 val);
 
-    u16 ReadSNDExCnt() { return SNDExCnt; }
+    u16 ReadSNDExCnt() const { return SNDExCnt; }
     void WriteSNDExCnt(u16 val, u16 mask);
 
     // NOTE: checks SCFG_CLK9
@@ -93,10 +93,10 @@ private:
 
     static const u32 DataMemoryOffset;
 
-    u16 GetPSTS();
+    u16 GetPSTS() const;
 
-    inline bool IsDSPCoreEnabled();
-    inline bool IsDSPIOEnabled();
+    inline bool IsDSPCoreEnabled() const;
+    inline bool IsDSPIOEnabled() const;
 
     bool DSPCatchUp();
 

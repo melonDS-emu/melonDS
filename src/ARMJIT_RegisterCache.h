@@ -99,7 +99,7 @@ public:
         LiteralsLoaded &= ~(1 << reg);
     }
 
-    bool IsLiteral(int reg)
+    bool IsLiteral(int reg) const
     {
         return LiteralsLoaded & (1 << reg);
     }

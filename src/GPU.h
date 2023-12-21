@@ -49,7 +49,7 @@ struct VRAMTrackingSet
             Mapping[i] = 0x8000;
         }
     }
-    NonStupidBitField<Size/VRAMDirtyGranularity> DeriveState(u32* currentMappings, GPU& gpu);
+    NonStupidBitField<Size/VRAMDirtyGranularity> DeriveState(const u32* currentMappings, GPU& gpu);
 };
 
 class GPU

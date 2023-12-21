@@ -395,8 +395,8 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
     };
     NDS->SetJITArgs(Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt);
 #endif
-    NDS->ARM7BIOS = *arm7bios;
-    NDS->ARM9BIOS = *arm9bios;
+    NDS->SetARM7BIOS(*arm7bios);
+    NDS->SetARM9BIOS(*arm9bios);
     NDS->SetFirmware(std::move(*firmware));
     NDS->SetNDSCart(std::move(nextndscart));
     NDS->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
@@ -544,11 +544,11 @@ void EmuThread::run()
 
     if (videoRenderer == 0)
     { // If we're using the software renderer...
-        NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(NDS->GPU, Config::Threaded3D != 0));
+        NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
     }
     else
     {
-        auto glrenderer =  melonDS::GLRenderer::New(NDS->GPU);
+        auto glrenderer =  melonDS::GLRenderer::New();
         glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
         NDS->GPU.SetRenderer3D(std::move(glrenderer));
     }
@@ -677,11 +677,11 @@ void EmuThread::run()
 
                 if (videoRenderer == 0)
                 { // If we're using the software renderer...
-                    NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(NDS->GPU, Config::Threaded3D != 0));
+                    NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
                 }
                 else
                 {
-                    auto glrenderer =  melonDS::GLRenderer::New(NDS->GPU);
+                    auto glrenderer =  melonDS::GLRenderer::New();
                     glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
                     NDS->GPU.SetRenderer3D(std::move(glrenderer));
                 }
@@ -3474,8 +3474,11 @@ void emuStop()
 MelonApplication::MelonApplication(int& argc, char** argv)
     : QApplication(argc, argv)
 {
-#ifndef __APPLE__
+#if !defined(Q_OS_APPLE)
     setWindowIcon(QIcon(":/melon-icon"));
+    #if defined(Q_OS_UNIX)
+        setDesktopFileName(QString("net.kuribo64.melonDS"));
+    #endif
 #endif
 }
 

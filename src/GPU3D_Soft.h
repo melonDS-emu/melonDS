@@ -29,19 +29,19 @@ namespace melonDS
 class SoftRenderer : public Renderer3D
 {
 public:
-    SoftRenderer(melonDS::GPU& gpu, bool threaded = false) noexcept;
+    SoftRenderer(bool threaded = false) noexcept;
     ~SoftRenderer() override;
-    void Reset() override;
+    void Reset(GPU& gpu) override;
 
-    void SetThreaded(bool threaded) noexcept;
+    void SetThreaded(bool threaded, GPU& gpu) noexcept;
     [[nodiscard]] bool IsThreaded() const noexcept { return Threaded; }
 
-    void VCount144() override;
-    void RenderFrame() override;
-    void RestartFrame() override;
+    void VCount144(GPU& gpu) override;
+    void RenderFrame(GPU& gpu) override;
+    void RestartFrame(GPU& gpu) override;
     u32* GetLine(int line) override;
 
-    void SetupRenderThread();
+    void SetupRenderThread(GPU& gpu);
     void StopRenderThread();
 private:
     // Notes on the interpolator:
@@ -429,16 +429,16 @@ private:
     };
 
     template <typename T>
-    inline T ReadVRAM_Texture(u32 addr)
+    inline T ReadVRAM_Texture(u32 addr, const GPU& gpu) const
     {
-        return *(T*)&GPU.VRAMFlat_Texture[addr & 0x7FFFF];
+        return *(T*)&gpu.VRAMFlat_Texture[addr & 0x7FFFF];
     }
     template <typename T>
-    inline T ReadVRAM_TexPal(u32 addr)
+    inline T ReadVRAM_TexPal(u32 addr, const GPU& gpu) const
     {
-        return *(T*)&GPU.VRAMFlat_TexPal[addr & 0x1FFFF];
+        return *(T*)&gpu.VRAMFlat_TexPal[addr & 0x1FFFF];
     }
-    u32 AlphaBlend(u32 srccolor, u32 dstcolor, u32 alpha) noexcept;
+    u32 AlphaBlend(const GPU3D& gpu3d, u32 srccolor, u32 dstcolor, u32 alpha) const noexcept;
 
     struct RendererPolygon
     {
@@ -452,29 +452,28 @@ private:
 
     };
 
-    melonDS::GPU& GPU;
     RendererPolygon PolygonList[2048];
     bool DoTimings(s32 cycles, bool odd);
     bool CheckTimings(s32 cycles, bool odd);
     u32 DoTimingsPixels(s32 pixels, bool odd);
     bool DoTimingsSlopes(RendererPolygon* rp, s32 y, bool odd);
-    void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha);
-    u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t);
-    void PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
-    void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y);
-    void SetupPolygonRightEdge(RendererPolygon* rp, s32 y);
-    void SetupPolygon(RendererPolygon* rp, Polygon* polygon);
+    void TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const;
+    u32 RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const;
+    void PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
+    void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y) const;
+    void SetupPolygonRightEdge(RendererPolygon* rp, s32 y) const;
+    void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     void Step(RendererPolygon* rp);
     void CheckSlope(RendererPolygon* rp, s32 y);
-    bool RenderShadowMaskScanline(RendererPolygon* rp, s32 y, bool odd);
-    bool RenderPolygonScanline(RendererPolygon* rp, s32 y, bool odd);
-    bool RenderScanline(s32 y, int npolys, bool odd);
-    u32 CalculateFogDensity(u32 pixeladdr);
-    void ScanlineFinalPass(s32 y, u8 rdbufferoffset, bool odd, s32 uhohzone);
-    void ClearBuffers();
-    void RenderPolygons(bool threaded, Polygon** polygons, int npolys);
+    bool RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y, bool odd);
+    bool RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y, bool odd);
+    bool RenderScanline(const GPU& gpu, s32 y, int npolys, bool odd);
+    u32 CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const;
+    void ScanlineFinalPass(const GPU3D& gpu3d, s32 y, u8 rdbufferoffset, bool odd, s32 uhohzone);
+    void ClearBuffers((const GPU& gpu);
+    void RenderPolygons(const GPU& gpu, bool threaded, Polygon** polygons, int npolys);
 
-    void RenderThreadFunc();
+    void RenderThreadFunc(GPU& gpu);
     
     // counters for scanline rasterization timings
     s32 RasterTiming = 0;

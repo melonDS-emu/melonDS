@@ -34,7 +34,7 @@ const u32 DSi_DSP::DataMemoryOffset = 0x20000; // from Teakra memory_interface.h
 // NOTE: ^ IS IN DSP WORDS, NOT IN BYTES!
 
 
-u16 DSi_DSP::GetPSTS()
+u16 DSi_DSP::GetPSTS() const
 {
     u16 r = DSP_PSTS & (1<<9); // this is the only sticky bit
     //r &= ~((1<<2)|(1<<7)); // we support instant resets and wrfifo xfers
@@ -182,7 +182,7 @@ void DSi_DSP::Reset()
     SNDExCnt = 0;
 }
 
-bool DSi_DSP::IsRstReleased()
+bool DSi_DSP::IsRstReleased() const
 {
     return SCFG_RST;
 }
@@ -193,12 +193,12 @@ void DSi_DSP::SetRstLine(bool release)
     DSPTimestamp = DSi.ARM9Timestamp; // only start now!
 }
 
-inline bool DSi_DSP::IsDSPCoreEnabled()
+inline bool DSi_DSP::IsDSPCoreEnabled() const
 {
     return (DSi.SCFG_Clock9 & (1<<1)) && SCFG_RST && (!(DSP_PCFG & (1<<0)));
 }
 
-inline bool DSi_DSP::IsDSPIOEnabled()
+inline bool DSi_DSP::IsDSPIOEnabled() const
 {
     return (DSi.SCFG_Clock9 & (1<<1)) && SCFG_RST;
 }

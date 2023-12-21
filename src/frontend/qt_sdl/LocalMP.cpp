@@ -130,7 +130,7 @@ bool SemInit(int num)
     char semname[64];
     sprintf(semname, "Local\\melonNIFI_Sem%02d", num);
 
-    HANDLE sem = CreateSemaphore(nullptr, 0, 64, semname);
+    HANDLE sem = CreateSemaphoreA(nullptr, 0, 64, semname);
     SemPool[num] = sem;
     SemInited[num] = true;
     return sem != INVALID_HANDLE_VALUE;

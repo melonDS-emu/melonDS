@@ -28,7 +28,7 @@ using namespace Arm64Gen;
 namespace melonDS
 {
 
-bool Compiler::IsJITFault(u8* pc)
+bool Compiler::IsJITFault(const u8* pc)
 {
     return (u64)pc >= (u64)GetRXBase() && (u64)pc - (u64)GetRXBase() < (JitMemMainSize + JitMemSecondarySize);
 }

@@ -57,10 +57,13 @@ public:
     ~FATStorage();
 
     bool InjectFile(const std::string& path, u8* data, u32 len);
+    u32 ReadFile(const std::string& path, u32 start, u32 len, u8* data);
 
-    u32 ReadSectors(u32 start, u32 num, u8* data);
-    u32 WriteSectors(u32 start, u32 num, u8* data);
+    u32 ReadSectors(u32 start, u32 num, u8* data) const;
+    u32 WriteSectors(u32 start, u32 num, const u8* data);
+
     [[nodiscard]] bool IsReadOnly() const noexcept { return ReadOnly; }
+    u64 GetSectorCount() const;
 
 private:
     std::string FilePath;
@@ -92,7 +95,7 @@ private:
     void CleanupDirectory(const std::string& sourcedir, const std::string& path, int level);
     bool ImportFile(const std::string& path, std::filesystem::path in);
     bool ImportDirectory(const std::string& sourcedir);
-    u64 GetDirectorySize(std::filesystem::path sourcedir);
+    u64 GetDirectorySize(std::filesystem::path sourcedir) const;
 
     bool Load(const std::string& filename, u64 size, const std::optional<std::string>& sourcedir);
     bool Save();

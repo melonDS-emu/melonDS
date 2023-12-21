@@ -40,16 +40,16 @@ AREngine::AREngine(melonDS::NDS& nds) : NDS(nds)
     case ((x)+0x08): case ((x)+0x09): case ((x)+0x0A): case ((x)+0x0B): \
     case ((x)+0x0C): case ((x)+0x0D): case ((x)+0x0E): case ((x)+0x0F)
 
-void AREngine::RunCheat(ARCode& arcode)
+void AREngine::RunCheat(const ARCode& arcode)
 {
-    u32* code = &arcode.Code[0];
+    const u32* code = &arcode.Code[0];
 
     u32 offset = 0;
     u32 datareg = 0;
     u32 cond = 1;
     u32 condstack = 0;
 
-    u32* loopstart = code;
+    const u32* loopstart = code;
     u32 loopcount = 0;
     u32 loopcond = 1;
     u32 loopcondstack = 0;

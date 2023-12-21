@@ -51,9 +51,9 @@ public:
     void FinishRX(u32 param);
     void FinishTX(u32 param);
     void SendResponse(u32 val, bool last);
-    u32 DataRX(u8* data, u32 len);
+    u32 DataRX(const u8* data, u32 len);
     u32 DataTX(u8* data, u32 len);
-    u32 GetTransferrableLen(u32 len);
+    u32 GetTransferrableLen(u32 len) const;
 
     void CheckRX();
     void CheckTX();

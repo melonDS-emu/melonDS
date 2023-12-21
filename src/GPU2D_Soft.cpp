@@ -30,7 +30,7 @@ SoftRenderer::SoftRenderer(melonDS::GPU& gpu)
     // mosaic table is initialized at compile-time
 }
 
-u32 SoftRenderer::ColorComposite(int i, u32 val1, u32 val2)
+u32 SoftRenderer::ColorComposite(int i, u32 val1, u32 val2) const
 {
     u32 coloreffect = 0;
     u32 eva, evb;
