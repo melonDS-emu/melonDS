@@ -335,6 +335,7 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
         NDS::Current = nullptr;
 
         NDS = CreateConsole(std::move(nextndscart), std::move(nextgbacart));
+        NDS->Reset();
         NDS::Current = NDS.get();
 
         return NDS != nullptr;
