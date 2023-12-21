@@ -114,7 +114,7 @@ void SoftRenderer::SetThreaded(bool threaded, GPU& gpu) noexcept
     }
 }
 
-bool SoftRenderer::DoTimings(s32 cycles, bool odd)
+bool SoftRenderer::DoTimings(GPU3D& gpu3d, s32 cycles, bool odd)
 {
     // add timings to a counter and check if underflowed.
 
@@ -125,7 +125,7 @@ bool SoftRenderer::DoTimings(s32 cycles, bool odd)
     *counter += cycles;
     if (RasterTiming - *counter > 0) return false;
 
-    GPU.GPU3D.DispCnt |= (1<<12);
+    gpu3d.DispCnt |= (1<<12);
     return true;
 }
 
@@ -141,7 +141,7 @@ bool SoftRenderer::CheckTimings(s32 cycles, bool odd)
     else return false;
 }
 
-u32 SoftRenderer::DoTimingsPixels(s32 pixels, bool odd)
+u32 SoftRenderer::DoTimingsPixels(GPU3D& gpu3d, s32 pixels, bool odd)
 {
     // calculate and return the difference between the old span and the new span, while adding timings to the timings counter
 
@@ -170,31 +170,31 @@ u32 SoftRenderer::DoTimingsPixels(s32 pixels, bool odd)
     
     if (pixels <= 0) return 0;
 
-    GPU.GPU3D.DispCnt |= (1<<12);
+    gpu3d.DispCnt |= (1<<12);
     return pixels;
 }
 
-bool SoftRenderer::DoTimingsSlopes(RendererPolygon* rp, s32 y, bool odd)
+bool SoftRenderer::DoTimingsSlopes(GPU3D& gpu3d, RendererPolygon* rp, s32 y, bool odd)
 {
     // determine the timing impact of the first polygon's slopes.
     
     Polygon* polygon = rp->PolyData;
     
-    if (polygon->YTop == polygon->YBottom) return false;
+    if (polygon->YTop == polygon->YBottom) return false; // 0 px tall line polygons do not have slopes, and thus no timing penalty
     if (y == polygon->YTop) return false;
 
     s32* counter;
     if (odd) counter = &RasterTimingOdd;
     else counter = &RasterTimingEven;
 
-    if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom) *counter += 1;
+    if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom) *counter += FirstPerSlope;
 
-    if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom) *counter += 1;
+    if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom) *counter += FirstPerSlope;
 
-    return DoTimings(2, odd); // CHECKME: does this need to be done time its incremented here?
+    return DoTimings(gpu3d, FirstPerSlope*2, odd); // CHECKME: does this need to be done every time its incremented here? does this even need to be done *at all?*
 }
 
-void SoftRenderer::TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha)
+void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const
 {
     u32 vramaddr = (texparam & 0xFFFF) << 3;
 
@@ -778,7 +778,7 @@ void SoftRenderer::CheckSlope(RendererPolygon* rp, s32 y)
     }
 }
 
-bool SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y, bool odd)
+bool SoftRenderer::RenderShadowMaskScanline(GPU3D& gpu3d, RendererPolygon* rp, s32 y, bool odd)
 {
     Polygon* polygon = rp->PolyData;
 
@@ -913,7 +913,7 @@ bool SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     
     // determine if the span can be rendered within the time allotted to the scanline
     // TODO: verify the timing characteristics of shadow masks are the same as regular polygons.
-    s32 diff = DoTimingsPixels(xend-x, odd);
+    s32 diff = DoTimingsPixels(gpu3d, xend-x, odd);
     if (diff != 0)
     {
         xend -= diff;
@@ -1006,7 +1006,7 @@ bool SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     return abortscanline;
 }
 
-bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y, bool odd)
+bool SoftRenderer::RenderPolygonScanline(GPU& gpu, RendererPolygon* rp, s32 y, bool odd)
 {
     Polygon* polygon = rp->PolyData;
     u32 polyattr = (polygon->Attr & 0x3F008000);
@@ -1163,7 +1163,7 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     if (xend > 256) xend = 256;
 
     // determine if the span can be rendered within the time allotted to the scanline
-    s32 diff = DoTimingsPixels(xend-x, odd);
+    s32 diff = DoTimingsPixels(gpu.GPU3D, xend-x, odd);
     if (diff != 0)
     {
         xend -= diff;
@@ -1460,7 +1460,7 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     return abortscanline;
 }
 
-bool SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int npolys, bool odd)
+bool SoftRenderer::RenderScanline(GPU& gpu, s32 y, int npolys, bool odd)
 {
     bool abort = false;
     bool first = true;
@@ -1471,16 +1471,16 @@ bool SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int npolys, bool odd)
 
         if (y == polygon->YBottom && y != polygon->YTop)
         {
-            if (!abort) abort = (first && DoTimings(FirstNull, odd)) || DoTimings(EmptyPolyScanline, odd);
+            if (!abort) abort = (first && DoTimings(gpu.GPU3D, FirstNull, odd)) || DoTimings(gpu.GPU3D, EmptyPolyScanline, odd);
 
             first = false;
         }
         else if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
         {
-            //if (y == polygon->YTop) if(DoTimings(FirstPolyScanline, odd)) abort = true;
+            //if (y == polygon->YTop) if(DoTimings(gpu.GPU3D, FirstPolyScanline, odd)) abort = true;
             
-            if (!abort) abort = (first && DoTimingsSlopes(rp, y, odd)) // incorrect. needs research; behavior is strange...
-                        || DoTimings(PerPolyScanline, odd)
+            if (!abort) abort = (first && DoTimingsSlopes(gpu.GPU3D, rp, y, odd)) // incorrect. needs research; behavior is strange...
+                        || DoTimings(gpu.GPU3D, PerPolyScanline, odd)
                         || (!CheckTimings(MinToStartPoly, odd));
 
             if (abort)
@@ -1784,7 +1784,7 @@ void SoftRenderer::ClearBuffers(const GPU& gpu)
     }
 }
 
-void SoftRenderer::RenderPolygons(const GPU& gpu, bool threaded, Polygon** polygons, int npolys)
+void SoftRenderer::RenderPolygons(GPU& gpu, bool threaded, Polygon** polygons, int npolys)
 {
     int j = 0;
     for (int i = 0; i < npolys; i++)
@@ -1799,7 +1799,7 @@ void SoftRenderer::RenderPolygons(const GPU& gpu, bool threaded, Polygon** polyg
     s8 buffersize = 0;
     RasterTiming = InitialTiming;
     bool abort = false;
-    ClearBuffers();
+    ClearBuffers(gpu);
     s32 gpu2dtracking = InitGPU2DTimeout;
     s32 gpu2dfreetime = InitGPU2DTimeout;
     s32 prev2dtime;
@@ -1867,7 +1867,7 @@ void SoftRenderer::RenderPolygons(const GPU& gpu, bool threaded, Polygon** polyg
 
                 // seems to display the lowest scanline buffer count reached during the current frame.
                 // we also caps it to 46 here, because this reg does that too for some reason.
-                if (GPU.GPU3D.RDLines > buffersize) GPU.GPU3D.RDLines = buffersize;
+                if (gpu.GPU3D.RDLines > buffersize) gpu.GPU3D.RDLines = buffersize;
             }
 
     for (s32 y = 1; y < 192; y++)

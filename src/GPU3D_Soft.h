@@ -453,10 +453,10 @@ private:
     };
 
     RendererPolygon PolygonList[2048];
-    bool DoTimings(s32 cycles, bool odd);
+    bool DoTimings(GPU3D& gpu3d, s32 cycles, bool odd);
     bool CheckTimings(s32 cycles, bool odd);
-    u32 DoTimingsPixels(s32 pixels, bool odd);
-    bool DoTimingsSlopes(RendererPolygon* rp, s32 y, bool odd);
+    u32 DoTimingsPixels(GPU3D& gpu3d, s32 pixels, bool odd);
+    bool DoTimingsSlopes(GPU3D& gpu3d, RendererPolygon* rp, s32 y, bool odd);
     void TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const;
     u32 RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const;
     void PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
@@ -465,13 +465,13 @@ private:
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     void Step(RendererPolygon* rp);
     void CheckSlope(RendererPolygon* rp, s32 y);
-    bool RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y, bool odd);
-    bool RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y, bool odd);
-    bool RenderScanline(const GPU& gpu, s32 y, int npolys, bool odd);
+    bool RenderShadowMaskScanline(GPU3D& gpu3d, RendererPolygon* rp, s32 y, bool odd);
+    bool RenderPolygonScanline(GPU& gpu, RendererPolygon* rp, s32 y, bool odd);
+    bool RenderScanline(GPU& gpu, s32 y, int npolys, bool odd);
     u32 CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const;
     void ScanlineFinalPass(const GPU3D& gpu3d, s32 y, u8 rdbufferoffset, bool odd, s32 uhohzone);
-    void ClearBuffers((const GPU& gpu);
-    void RenderPolygons(const GPU& gpu, bool threaded, Polygon** polygons, int npolys);
+    void ClearBuffers(const GPU& gpu);
+    void RenderPolygons(GPU& gpu, bool threaded, Polygon** polygons, int npolys);
 
     void RenderThreadFunc(GPU& gpu);
     

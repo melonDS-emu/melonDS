@@ -366,7 +366,7 @@ public:
     // GPU 3D rasterization timing III, for first polygon exclusive timing characteristics
     // should be done first, as these are "async" pre-calcs of polygon attributes
 
-    static constexpr int FirstVSlope = 0 * TimingFrac; // 1 | the first polygon in a scanline having two vertical slopes adds 1 to timings...?
+    static constexpr int FirstPerSlope = 1 * TimingFrac; // 1 | for each "slope" the first polygon has in this scanline increment it by 1. (see DoTimingsSlopes in GPU3D_Soft.cpp for more info)
     static constexpr int FirstNull = 1 * TimingFrac; // 1 | if the first polygon is "null" (probably wrong?)
 
    // static constexpr int RasterTimingCap = 51116 * TimingFrac;
