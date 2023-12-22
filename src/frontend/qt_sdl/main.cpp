@@ -592,68 +592,68 @@ void EmuThread::run()
         if (Input::HotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
         if (Input::HotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
 
-        if (Input::HotkeyPressed(HK_SolarSensorDecrease))
-        {
-            int level = NDS->GBACartSlot.SetInput(GBACart::Input_SolarSensorDown, true);
-            if (level != -1)
-            {
-                char msg[64];
-                sprintf(msg, "Solar sensor level: %d", level);
-                OSD::AddMessage(0, msg);
-            }
-        }
-        if (Input::HotkeyPressed(HK_SolarSensorIncrease))
-        {
-            int level = NDS->GBACartSlot.SetInput(GBACart::Input_SolarSensorUp, true);
-            if (level != -1)
-            {
-                char msg[64];
-                sprintf(msg, "Solar sensor level: %d", level);
-                OSD::AddMessage(0, msg);
-            }
-        }
-
-        if (NDS->ConsoleType == 1)
-        {
-            DSi& dsi = static_cast<DSi&>(*NDS);
-            double currentTime = SDL_GetPerformanceCounter() * perfCountsSec;
-
-            // Handle power button
-            if (Input::HotkeyDown(HK_PowerButton))
-            {
-                dsi.I2C.GetBPTWL()->SetPowerButtonHeld(currentTime);
-            }
-            else if (Input::HotkeyReleased(HK_PowerButton))
-            {
-                dsi.I2C.GetBPTWL()->SetPowerButtonReleased(currentTime);
-            }
-
-            // Handle volume buttons
-            if (Input::HotkeyDown(HK_VolumeUp))
-            {
-                dsi.I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Up);
-            }
-            else if (Input::HotkeyReleased(HK_VolumeUp))
-            {
-                dsi.I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Up);
-            }
-
-            if (Input::HotkeyDown(HK_VolumeDown))
-            {
-                dsi.I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Down);
-            }
-            else if (Input::HotkeyReleased(HK_VolumeDown))
-            {
-                dsi.I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Down);
-            }
-
-            dsi.I2C.GetBPTWL()->ProcessVolumeSwitchInput(currentTime);
-        }
-
         if (EmuRunning == emuStatus_Running || EmuRunning == emuStatus_FrameStep)
         {
             EmuStatus = emuStatus_Running;
             if (EmuRunning == emuStatus_FrameStep) EmuRunning = emuStatus_Paused;
+
+            if (Input::HotkeyPressed(HK_SolarSensorDecrease))
+            {
+                int level = NDS->GBACartSlot.SetInput(GBACart::Input_SolarSensorDown, true);
+                if (level != -1)
+                {
+                    char msg[64];
+                    sprintf(msg, "Solar sensor level: %d", level);
+                    OSD::AddMessage(0, msg);
+                }
+            }
+            if (Input::HotkeyPressed(HK_SolarSensorIncrease))
+            {
+                int level = NDS->GBACartSlot.SetInput(GBACart::Input_SolarSensorUp, true);
+                if (level != -1)
+                {
+                    char msg[64];
+                    sprintf(msg, "Solar sensor level: %d", level);
+                    OSD::AddMessage(0, msg);
+                }
+            }
+
+            if (NDS->ConsoleType == 1)
+            {
+                DSi& dsi = static_cast<DSi&>(*NDS);
+                double currentTime = SDL_GetPerformanceCounter() * perfCountsSec;
+
+                // Handle power button
+                if (Input::HotkeyDown(HK_PowerButton))
+                {
+                    dsi.I2C.GetBPTWL()->SetPowerButtonHeld(currentTime);
+                }
+                else if (Input::HotkeyReleased(HK_PowerButton))
+                {
+                    dsi.I2C.GetBPTWL()->SetPowerButtonReleased(currentTime);
+                }
+
+                // Handle volume buttons
+                if (Input::HotkeyDown(HK_VolumeUp))
+                {
+                    dsi.I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Up);
+                }
+                else if (Input::HotkeyReleased(HK_VolumeUp))
+                {
+                    dsi.I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Up);
+                }
+
+                if (Input::HotkeyDown(HK_VolumeDown))
+                {
+                    dsi.I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Down);
+                }
+                else if (Input::HotkeyReleased(HK_VolumeDown))
+                {
+                    dsi.I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Down);
+                }
+
+                dsi.I2C.GetBPTWL()->ProcessVolumeSwitchInput(currentTime);
+            }
 
             // update render settings if needed
             // HACK:
