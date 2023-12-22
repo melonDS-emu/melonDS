@@ -1036,6 +1036,14 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         }
     }
 
+    // quick hack to fix a minor bug.
+    // for some reason 0 pixel tall polygons have broken aa.
+    if (polygon->YBottom == polygon->YTop)
+    {
+        l_edgecov = 0;
+        r_edgecov = 0;
+    }
+
     // interpolate attributes along Y
 
     s32 rl = interp_start->Interpolate(vlcur->FinalColor[0], vlnext->FinalColor[0]);
