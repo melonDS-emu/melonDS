@@ -202,7 +202,8 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
     connect(this, SIGNAL(screenEmphasisToggle()), mainWindow, SLOT(onScreenEmphasisToggled()));
 
-    static_cast<ScreenPanelGL*>(mainWindow->panel)->transferLayout(this);
+    auto glPanel = dynamic_cast<ScreenPanelGL*>(mainWindow->panel);
+    if (glPanel) glPanel->transferLayout(this);
 }
 
 std::unique_ptr<NDS> EmuThread::CreateConsole(
