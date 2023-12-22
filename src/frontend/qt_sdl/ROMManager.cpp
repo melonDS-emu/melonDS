@@ -759,7 +759,12 @@ std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSSize>& a
     return nandImage;
 }
 
-constexpr u64 imgsizes[] = {0, 256, 512, 1024, 2048, 4096};
+constexpr u64 MB(u64 i)
+{
+    return i * 1024 * 1024;
+}
+
+constexpr u64 imgsizes[] = {0, MB(256), MB(512), MB(1024), MB(2048), MB(4096)};
 std::optional<FATStorageArgs> GetDSiSDCardArgs() noexcept
 {
     if (!Config::DSiSDEnable)

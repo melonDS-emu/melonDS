@@ -39,6 +39,8 @@ namespace melonDS
 struct FATStorageArgs
 {
     std::string Filename;
+
+    /// Size of the desired SD card in bytes, or 0 for auto-detect.
     u64 Size;
     bool ReadOnly;
     std::optional<std::string> SourceDir;
