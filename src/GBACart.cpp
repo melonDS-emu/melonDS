@@ -193,6 +193,7 @@ void CartGame::SetupSave(u32 type)
         SRAMType = S_FLASH512K;
         break;
     case 128*1024:
+    case (128*1024 + 0x10): // mGBA .sav file with appended real time clock data
         SRAMType = S_FLASH1M;
         break;
     case 0:
