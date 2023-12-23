@@ -329,18 +329,25 @@ public:
     u32 ScrolledLine[256];
 };
 
-    // rasteriztion timing constants
+    // Rasterization Timing Constants
+
     static constexpr int TimingFrac = 1; // add a fractional component if pixels is not enough precision
 
-    // GPU 2D read timings, for emulating race conditions
+    // GPU 2D Read Timings: For Emulating Buffer Read/Write Race Conditions
+    static constexpr int DelayBetweenReads = 809 * TimingFrac;
+    static constexpr int ScanlineReadSpeed = 256 * TimingFrac;
+    static constexpr int ScanlineReadInc = DelayBetweenReads + ReadScanline;
 
-    static constexpr int GPU2DSpeedWithinPair = 296 * TimingFrac; // the delay between finishing reading the first scanline and beginning reading the second scanline of a scanline pair.
-    static constexpr int GPU2DSpeedOutsidePair = 810 * TimingFrac; // the delay between finishing reading a pair and beginning reading a new pair.
-    static constexpr int GPU2DReadScanline = 256 * TimingFrac; // the time it takes to read a scanline.
-    static constexpr int GPU2DReadSLPair = 1618 * TimingFrac; // notably the same as the scanline increment.
-    static constexpr int InitGPU2DTimeout = 50000 * TimingFrac; // 51618? | when it starts reading the first scanline.
-    static constexpr int GPU2D48Scanlines = GPU2DReadSLPair * 48 * TimingFrac; // time to read 48 scanlines.
-    // GPU 3D rasterization timings, for emulating the timeout
+
+    static constexpr int GPU2DSpeedFirstInPair = 810 * TimingFrac; // 810 | the delay between finishing reading a pair and beginning reading a new pair.
+    static constexpr int GPU2DSpeedSecondInPair = 296 * TimingFrac; // 296 | 295??? | the delay between finishing reading the first scanline
+                                                                    // and beginning reading the second scanline of a scanline pair.
+    static constexpr int GPU2DReadScanline = 256 * TimingFrac; // 256 | the time it takes to read a scanline.
+    static constexpr int GPU2DReadSLPair = 1618 * TimingFrac; // 1618 | notably the same as the scanline increment.
+    static constexpr int InitGPU2DTimeout = 51874 * TimingFrac; // 51618? | when it starts reading the first scanline.
+    static constexpr int GPU2D48Scanlines = GPU2DReadSLPair * 24; // time to read 48 scanlines.
+
+    // GPU 3D Rasterization Timings: For Emulating Scanline Timeout
 
     //static constexpr int ScanlinePairLength = 2130 * TimingFrac;
     //static constexpr int ScanlineTimeout = 1686 * TimingFrac; // 2126? 1686?
@@ -349,24 +356,36 @@ public:
     //static constexpr int FakeTiming = 2 * TimingFrac;
     //static constexpr int FraudulentTiming = 1120 * TimingFrac; // bad theory. todo: find a better one.
     static constexpr int InitialTiming = 48688 * TimingFrac; // 48688 | add 1618*2 to get the timeout of the second scanline pair
-    static constexpr int Post50Max = 51116 * TimingFrac; // 51116 | for some reason it doesn't care about how full it actually is, it just cares about if its the first 50 scanlines to speedrun rendering?
-    static constexpr int FreeTiming = 496 * TimingFrac; // 496 | every scanline has a free 496 pixels worth of timing for some reason.
-    static constexpr int ScanlineIncrement = 1618 * TimingFrac; // 1618 | how much to regain per scanline pair
-    static constexpr int AbortIncrement = 12 * TimingFrac; // 12 | how much extra to regain after an aborted scanline (total 1630)
+    static constexpr int Post50Max = 51116 * TimingFrac; // 51116 | for some reason it doesn't care about how full it actually is,
+                                                         // it just cares about if its the first 50 scanlines to speedrun rendering?
+    static constexpr int FinalPassLen = 500 * TimingFrac; // 496 (might technically be 500?) | the next scanline cannot begin while a scanline's final pass is in progress
+                                                        // (can be interpreted as the minimum amount of cycles for the next scanline
+                                                        // pair to start after the previous pair began) (related to final pass?)
+    static constexpr int ScanlineIncrementold = 1618 * TimingFrac; // 1618 | how much to regain per scanline pair
+    static constexpr int ScanlineIncrement = 2114 * TimingFrac; // 2114 | how much time a scanline pair "gains"
+    static constexpr int AbortIncrement = 12 * TimingFrac; // 12 | how much extra to regain after an aborted scanline (total 2126)
+                                                           // (why does the next pair get more time if the previous scanline is aborted?)
+    static constexpr int UnderflowFlag = 14 * TimingFrac; // 14 | How many cycles need to be left for the 3ddispcnt rdlines underflow flag to be set
+    static constexpr int RastDelay = 4 * TimingFrac; // 4 | Min amount of cycles to begin a scanline? (minimum time it takes to init the first polygon?)
+                                                    // (Amount of time before the end of the cycle a scanline must abort?)
+    static constexpr int FinishScanline = 512 * TimingFrac;
 
-    // GPU 3D rasterization timings II, for counting each element with timing characteristics
+    // GPU 3D Rasterization Timings II: For Tracking Timing Behaviors
 
     //static constexpr int FirstPolyScanline = 0 * TimingFrac; 
-    static constexpr int PerPolyScanline = 12 * TimingFrac; // 12 | should be 12, but 14 is "correct" // should be correct for *most* line polygons and polygons with vertical slopes
+    static constexpr int PerPolyScanline = 12 * TimingFrac; // 12 | The basic timing cost for polygons. Applies per polygon per scanline.
     static constexpr int PerPixelTiming = 1 * TimingFrac; // 1 | 1 pixel = 1 pixel
     static constexpr int NumFreePixels = 4; // 4 | First 4 pixels in a polygon scanline are free (for some reason)
-    static constexpr int MinToStartPoly = 2 * TimingFrac; // 1 | if there is not 1 cycle remaining, do not bother rendering polygon (CHECKME: I dont think this should decrement timings by anything?)
-    static constexpr int EmptyPolyScanline = 4 * TimingFrac; // - 14; // 4 | seems to be slightly under 4 px?
+    static constexpr int MinToStartPoly = 2 * TimingFrac; // 1 | if there aren't 2 (why two?) cycles remaining after the polygon timing penalty,
+                                                          // do not bother rendering the polygon (CHECKME: I dont think this should decrement timings by anything?)
+    static constexpr int EmptyPolyScanline = 4 * TimingFrac; // 4 | the ignored "empty" bottom-most scanline of a polygon
+                                                             // which shouldn't be rendered for some reason has timing characteristics.
 
-    // GPU 3D rasterization timing III, for first polygon exclusive timing characteristics
-    // should be done first, as these are "async" pre-calcs of polygon attributes
+    // GPU 3D Rasterization Timings III, For First Polygon "Pre-Calc" Timings
+    // should be added before other timings, as these are "async" pre-calcs of polygon attributes
 
-    static constexpr int FirstPerSlope = 1 * TimingFrac; // 1 | for each "slope" the first polygon has in this scanline increment it by 1. (see DoTimingsSlopes in GPU3D_Soft.cpp for more info)
+    static constexpr int FirstPerSlope = 1 * TimingFrac; // 1 | for each "slope" the first polygon has in this scanline increment it by 1.
+                                                         // (see DoTimingsSlopes() in GPU3D_Soft.cpp for more info)
     static constexpr int FirstNull = 1 * TimingFrac; // 1 | if the first polygon is "null" (probably wrong?)
 
    // static constexpr int RasterTimingCap = 51116 * TimingFrac;
