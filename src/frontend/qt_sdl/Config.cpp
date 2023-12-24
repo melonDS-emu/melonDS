@@ -39,6 +39,7 @@ int JoystickID;
 int WindowWidth;
 int WindowHeight;
 bool WindowMaximized;
+bool ShowMenuBar = true;
 
 int ScreenRotation;
 int ScreenGap;
@@ -198,6 +199,7 @@ ConfigEntry ConfigFile[] =
     {"HKKey_Reset",               0, &HKKeyMapping[HK_Reset],               -1, true},
     {"HKKey_FastForward",         0, &HKKeyMapping[HK_FastForward],         -1, true},
     {"HKKey_FastForwardToggle",   0, &HKKeyMapping[HK_FastForwardToggle],   -1, true},
+    {"HKKey_MenuBarToggle",       0, &HKKeyMapping[HK_MenuBarToggle],       -1, true},
     {"HKKey_FullscreenToggle",    0, &HKKeyMapping[HK_FullscreenToggle],    -1, true},
     {"HKKey_SwapScreens",         0, &HKKeyMapping[HK_SwapScreens],         -1, true},
     {"HKKey_SwapScreenEmphasis",  0, &HKKeyMapping[HK_SwapScreenEmphasis],  -1, true},
@@ -214,6 +216,7 @@ ConfigEntry ConfigFile[] =
     {"HKJoy_Reset",               0, &HKJoyMapping[HK_Reset],               -1, true},
     {"HKJoy_FastForward",         0, &HKJoyMapping[HK_FastForward],         -1, true},
     {"HKJoy_FastForwardToggle",   0, &HKJoyMapping[HK_FastForwardToggle],   -1, true},
+    {"HKJoy_MenuBarToggle",       0, &HKJoyMapping[HK_MenuBarToggle],       -1, true},
     {"HKJoy_FullscreenToggle",    0, &HKJoyMapping[HK_FullscreenToggle],    -1, true},
     {"HKJoy_SwapScreens",         0, &HKJoyMapping[HK_SwapScreens],         -1, true},
     {"HKJoy_SwapScreenEmphasis",  0, &HKJoyMapping[HK_SwapScreenEmphasis],  -1, true},
