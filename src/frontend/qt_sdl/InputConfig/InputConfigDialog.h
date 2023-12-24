@@ -26,6 +26,7 @@
 #include "Config.h"
 
 static constexpr int keypad_num = 12;
+static constexpr int touchscreen_num = 4;
 
 static constexpr std::initializer_list<int> hk_addons =
 {
@@ -77,6 +78,13 @@ static constexpr std::initializer_list<const char*> hk_general_labels =
 
 static_assert(hk_general.size() == hk_general_labels.size());
 
+static constexpr std::initializer_list<const char*> ds_touch_key_labels =
+{
+    "Left",
+    "Right",
+    "Up",
+    "Down"
+};
 
 namespace Ui { class InputConfigDialog; }
 class InputConfigDialog;
@@ -120,12 +128,14 @@ private:
         const std::initializer_list<const char*>& labels,
         int* keymap, int* joymap);
     void setupKeypadPage();
+    void setupTouchScreenPage();
 
     Ui::InputConfigDialog* ui;
 
     int keypadKeyMap[12], keypadJoyMap[12];
     int addonsKeyMap[hk_addons.size()], addonsJoyMap[hk_addons.size()];
     int hkGeneralKeyMap[hk_general.size()], hkGeneralJoyMap[hk_general.size()];
+    int touchScreenKeyMap[4], touchScreenJoyMap[4];
 };
 
 

@@ -31,18 +31,22 @@ int JoystickID;
 SDL_Joystick* Joystick = nullptr;
 
 u32 KeyInputMask, JoyInputMask;
+u32 KeyTouchInputMask, JoyTouchInputMask;
 u32 KeyHotkeyMask, JoyHotkeyMask;
 u32 HotkeyMask, LastHotkeyMask;
 u32 HotkeyPress, HotkeyRelease;
 
-u32 InputMask;
+u32 InputMask, TouchInputMask;
 
 
 void Init()
 {
     KeyInputMask = 0xFFF;
     JoyInputMask = 0xFFF;
+    KeyTouchInputMask = 0xFFF;
+    JoyTouchInputMask = 0xFFF;
     InputMask = 0xFFF;
+    TouchInputMask = 0xFFF;
 
     KeyHotkeyMask = 0;
     JoyHotkeyMask = 0;
@@ -107,6 +111,10 @@ void KeyPress(QKeyEvent* event)
         if (keyKP == Config::KeyMapping[i])
             KeyInputMask &= ~(1<<i);
 
+    for (int i = 0; i < 4; i++)
+        if (keyKP == Config::TouchKeyMapping[i])
+            KeyTouchInputMask &= ~(1<<i);
+
     for (int i = 0; i < HK_MAX; i++)
         if (keyHK == Config::HKKeyMapping[i])
             KeyHotkeyMask |= (1<<i);
@@ -122,6 +130,10 @@ void KeyRelease(QKeyEvent* event)
     for (int i = 0; i < 12; i++)
         if (keyKP == Config::KeyMapping[i])
             KeyInputMask |= (1<<i);
+
+    for (int i = 0; i < 4; i++)
+        if (keyKP == Config::TouchKeyMapping[i])
+            KeyTouchInputMask |= (1<<i);
 
     for (int i = 0; i < HK_MAX; i++)
         if (keyHK == Config::HKKeyMapping[i])
@@ -204,11 +216,16 @@ void Process()
     }
 
     JoyInputMask = 0xFFF;
+    JoyTouchInputMask = 0xFFF;
     for (int i = 0; i < 12; i++)
         if (JoystickButtonDown(Config::JoyMapping[i]))
             JoyInputMask &= ~(1<<i);
+    for (int i = 0; i < 4; i++)
+        if (JoystickButtonDown(Config::TouchJoyMapping[i]))
+            JoyTouchInputMask &= ~(1<<i);
 
     InputMask = KeyInputMask & JoyInputMask;
+    TouchInputMask = KeyTouchInputMask & JoyTouchInputMask;
 
     JoyHotkeyMask = 0;
     for (int i = 0; i < HK_MAX; i++)

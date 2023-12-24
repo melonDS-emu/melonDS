@@ -39,6 +39,8 @@ public:
     // 00=DS-mode 01=normal
     void SetMode(u8 mode);
 
+    virtual u16 GetTouchX() override;
+    virtual u16 GetTouchY() override;
     void SetTouchCoords(u16 x, u16 y) override;
     void MicInputFrame(const s16* data, int samples) override;
 
