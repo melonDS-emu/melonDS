@@ -5,6 +5,8 @@ include(FixInterfaceIncludes)
 set(SOURCES_QT_SDL
     main.cpp
     main_shaders.h
+    Screen.cpp
+    Window.cpp
     CheatsDialog.cpp
     Config.cpp
     DateTimeDialog.cpp
@@ -38,7 +40,7 @@ set(SOURCES_QT_SDL
     SaveManager.cpp
     CameraManager.cpp
     AudioInOut.cpp
-    
+
     ArchiveUtil.h
     ArchiveUtil.cpp
 
