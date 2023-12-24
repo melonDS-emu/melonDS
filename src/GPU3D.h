@@ -336,7 +336,7 @@ public:
     // GPU 2D Read Timings: For Emulating Buffer Read/Write Race Conditions
     static constexpr int DelayBetweenReads = 809 * TimingFrac;
     static constexpr int ScanlineReadSpeed = 256 * TimingFrac;
-    static constexpr int ScanlineReadInc = DelayBetweenReads + ReadScanline;
+    static constexpr int ScanlineReadInc = DelayBetweenReads + ScanlineReadSpeed;
 
 
     static constexpr int GPU2DSpeedFirstInPair = 810 * TimingFrac; // 810 | the delay between finishing reading a pair and beginning reading a new pair.
@@ -344,8 +344,9 @@ public:
                                                                     // and beginning reading the second scanline of a scanline pair.
     static constexpr int GPU2DReadScanline = 256 * TimingFrac; // 256 | the time it takes to read a scanline.
     static constexpr int GPU2DReadSLPair = 1618 * TimingFrac; // 1618 | notably the same as the scanline increment.
-    static constexpr int InitGPU2DTimeout = 51874 * TimingFrac; // 51618? | when it starts reading the first scanline.
+    static constexpr int InitGPU2DTimeout = 51874 * TimingFrac; // 51618? | when it finishes reading the first scanline.
     static constexpr int GPU2D48Scanlines = GPU2DReadSLPair * 24; // time to read 48 scanlines.
+    static constexpr int FrameLength = ScanlineReadInc * 263; // how long the entire frame is. TODO: Verify if we actually need this?
 
     // GPU 3D Rasterization Timings: For Emulating Scanline Timeout
 

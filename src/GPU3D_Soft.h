@@ -453,10 +453,10 @@ private:
     };
 
     RendererPolygon PolygonList[2048];
-    bool DoTimings(s32 cycles, bool odd);
-    bool CheckTimings(s32 cycles, bool odd);
-    u32 DoTimingsPixels(s32 pixels, bool odd);
-    bool DoTimingsSlopes(RendererPolygon* rp, s32 y, bool odd);
+    bool DoTimings(s32 cycles, s32* timingcounter);
+    bool CheckTimings(s32 cycles, s32* timingcounter);
+    u32 DoTimingsPixels(s32 pixels, s32* timingcounter);
+    bool DoTimingsSlopes(RendererPolygon* rp, s32 y, s32* timingcounter);
     void TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const;
     u32 RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const;
     void PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
@@ -465,28 +465,29 @@ private:
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     void Step(RendererPolygon* rp);
     void CheckSlope(RendererPolygon* rp, s32 y);
-    bool RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y, bool odd);
-    bool RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y, bool odd);
-    bool RenderScanline(const GPU& gpu, s32 y, int npolys, bool odd);
+    bool RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y, s32* timingcounter);
+    bool RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y, s32* timingcounter);
+    void RenderScanline(const GPU& gpu, s32 y, int npolys, s32* timingcounter);
     u32 CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const;
-    void ScanlineFinalPass(const GPU3D& gpu3d, s32 y, u8 rdbufferoffset, bool odd, s32 uhohzone);
+    void ScanlineFinalPass(const GPU3D& gpu3d, s32 y);
     void ClearBuffers(const GPU& gpu);
+    u16 BeginPushScanline(s32 y, s32 pixelstodraw);
+    void ReadScanline(s32 y);
+    void FinishPushScanline(s32 y, s32 pixelsremain);
     template <bool threaded> void RenderPolygons(GPU& gpu, Polygon** polygons, int npolys);
-    voi PushScanline(s32 y, s32 pixelstodraw);
 
     void RenderThreadFunc(GPU& gpu);
     
     // counters for scanline rasterization timings
     s32 ScanlineTimeout;
     s32 RasterTiming;
-    s32 RasterTimingOdd;
-    s32 RasterTimingEven;
 
     enum
     {
         RenderStart = 0,
         ScanlineRead,
-        RenderFinalP2,
+        PushScanline,
+        PushScanlineP2,
         RenderFinal,
         RasterEvents_MAX,
     };
