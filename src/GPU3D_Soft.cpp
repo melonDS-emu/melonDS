@@ -1747,18 +1747,14 @@ u16 SoftRenderer::BeginPushScanline(s32 y, s32 pixelstodraw)
 {
     // push the finished scanline to the appropriate frame buffers.
     // if a scanline is late enough to intersect with the 2d engine read time it will be partially drawn
-    /*
+    
     u16 start;
-    if (pixelstodraw >= 256)
+    if (pixelstodraw >= 256) // if scheduled after or 256 cycles before a scanline read render full scanline
     {
         start = 0;
         pixelstodraw = 256;
     }
-    else if (pixelstodraw <= 0)
-    {
-        return 256;
-    }
-    else
+    else // render partial scanline
     {
         start = ScanlineWidth - pixelstodraw;
 
@@ -1771,10 +1767,6 @@ u16 SoftRenderer::BeginPushScanline(s32 y, s32 pixelstodraw)
     u8 bufferpos = y % 48;
     memcpy(&RDBuffer[bufferpos*ScanlineWidth+start], &ColorBuffer[y*ScanlineWidth+start], 4 * pixelstodraw);
     return start;
-    */
-    u8 bufferpos = y % 48;
-    memcpy(&RDBuffer[bufferpos*ScanlineWidth], &ColorBuffer[y*ScanlineWidth], 4*ScanlineWidth);
-    return 0;
 }
 
 void SoftRenderer::ReadScanline(s32 y)
@@ -1801,11 +1793,12 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
         SetupPolygon(&PolygonList[j++], polygons[i]);
     }
     
+    //init internal buffer
     ClearBuffers(gpu);
 
+    // init all this junk i need to keep track of
     s32 rasterevents[RasterEvents_MAX];
     s32 y = 0;
-    s32 yold;
     rasterevents[RenderStart] = 0;
     rasterevents[RenderFinal] = INT_MAX/2;
     rasterevents[PushScanline] = INT_MAX/2;
@@ -1817,14 +1810,16 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     s32 rastertimingodd = 0;
     u8 scanlinesread = 0;
     u8 scanlinespushed = 0;
+    u8 scanlinespushed2 = 0;
     s16 scanlinesrendered = 0;
-    s8 scanlineswaiting = 0;
+    s16 scanlineswaiting = 0;
     u8 nextevent;
-    bool doa, dob, fina;
-    u16 leftoversa, leftoversb;
+    u16 leftovers;
 
-    while ((scanlinesread < 192 || scanlinespushed < 192) && (RasterTiming < FrameLength))
+    // until all scanlines have been pushed and read continue looping... CHECKME: unless its time for the next 3d frame should begin
+    while ((scanlinesread < 192 || scanlinespushed2 < 192) && (RasterTiming < FrameLength))
     {
+        // check all events to find the earliest scheduled one
         nextevent = 0;
         for (s32 i = 1; i < RasterEvents_MAX; i++)
         {
@@ -1832,117 +1827,115 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
                 nextevent = i;
         }
 
+        // if all events are scheduled for after the next frame begins, ABORT
+        if (rasterevents[nextevent] >= FrameLength) break;
+
         switch (nextevent)
         {
-        case RenderStart:
 
+        // initial rendering pass (polygons, texturing, etc.) (variable cycle length)
+        case RenderStart:
+            // set current raster time to the start of the event
             RasterTiming = rasterevents[RenderStart];
 
             {
             s32 rastertimingeven = 0;
             s32 rastertimingodd = 0;
+            // scanlines are rendered in pairs of two
             RenderScanline(gpu, y, j, &rastertimingeven);
             RenderScanline(gpu, y+1, j, &rastertimingodd);
             
+            // a new scanline pair cannot begin until both scanlines are finished.
             s32 timespent = std::max(rastertimingeven, rastertimingodd);
 
+            // a new scanline pair cannot begin until the finishing pass + push is done.
             if ((RasterTiming + timespent) < (RasterTiming+FinalPassLen))
                 RasterTiming += FinalPassLen;
             else
                 RasterTiming += timespent;
-                        
+
+            // 12 cycles at the end of the scanline are always used, unless the scanline got within 12 cycles of timing out. Don't ask why, it just does.
             s32 timeoutdist = ScanlineTimeout - RasterTiming;
             RasterTiming += std::clamp(timeoutdist, 0, 12);
             }
-
+            if (ScanlineTimeout == INT_MAX/2) ScanlineTimeout = rasterevents[ScanlineRead] - FinalPassLen;
+            else ScanlineTimeout += TimeoutIncrement;
+            // schedule next scanline pair + the final pass of the latest pair
             rasterevents[RenderFinal] = RasterTiming;
-            rasterevents[RenderStart] = RasterTiming+RastDelay;
-            //if (y < 190) rasterevents[RenderStart] = RasterTiming+RastDelay;
-            //else rasterevents[RenderStart] = INT_MAX/2;
+            if (y < 190) rasterevents[RenderStart] = RasterTiming+RastDelay; // scheduled 4 cycles late (presumably due to initial polygon timing shenanigans?)
+            else rasterevents[RenderStart] = INT_MAX/2;
             break;
 
-        case RenderFinal:
-        
-            rasterevents[PushScanline] = rasterevents[RenderFinal] + 4;
 
+        // final rendering pass (edge marking, anti-aliasing, fog) (fixed length of 496 (maybe 500?) cycles)
+        case RenderFinal:
+            
+            // schedule a scanline push event
+            rasterevents[PushScanline] = rasterevents[RenderFinal] + ScanlinePushDelay;
+
+            // if the first scanline pair was just finished only render one scanline
             if (y >= 2)
             {
                 ScanlineFinalPass(gpu.GPU3D, y-1);
                 scanlinesrendered++;
-                doa = true;
-            }
-            else
-            {
-                doa = false;
             }
 
+            // if the last scanline pair was just finished only render one scanline
             if (y <= 192)
             {
                 ScanlineFinalPass(gpu.GPU3D, y);
                 scanlinesrendered++;
+                // unschedule final pass event
                 rasterevents[RenderFinal] = INT_MAX/2;
             }
-            else
+            else // schedule next final pass event to immediately after the current one
                 rasterevents[RenderFinal] += FinalPassLen;
-
+            
+            // increment y for main rendering passes
             y += 2;
             break;
 
+
+        // push scanlines to the intermediary "frame buffer" for the 2d engine to read them. (fixed length of ??? cycles)
         case PushScanline:
+
+            // reschedule events if buffer is full
             if (scanlineswaiting >= 48)
             {
-                //reschedule events if buffer is full
                 rasterevents[PushScanline] = rasterevents[ScanlineRead];
-                rasterevents[RenderStart] = /*((y >= 190) ? INT_MAX/2 :*/ rasterevents[ScanlineRead] + RastDelay;
-                rasterevents[RenderFinal] = /*((y >= 192) ? INT_MAX/2 :*/ rasterevents[ScanlineRead];
+                // dont reschedule these events if they're done.
+                rasterevents[RenderStart] = ((y > 190) ? INT_MAX/2 : rasterevents[ScanlineRead] + RastDelay);
+                rasterevents[RenderFinal] = ((y > 194) ? INT_MAX/2 : rasterevents[ScanlineRead]);
                 break;
             }
 
-            if (doa)
-            {
-                leftoversa = BeginPushScanline(scanlinespushed, 256);//(rasterevents[ScanlineRead] - ScanlineReadSpeed) - (rasterevents[PushScanline] + FinalPassLen));
-                scanlinesrendered--;
-
-                if (leftoversa != 0)
-                {
-                    rasterevents[PushScanlineP2] = rasterevents[ScanlineRead] - ScanlineReadSpeed; // todo: fix this
-                    fina = true;
-                }
-                else
-                {
-                    scanlineswaiting++;
-                    scanlinespushed++;
-                }
-            }
+            leftovers = BeginPushScanline(scanlinespushed, (rasterevents[ScanlineRead] + (ScanlineReadInc*scanlineswaiting)) - rasterevents[PushScanline]);
+            scanlinesrendered--;
+            scanlinespushed++;
+                
+            // schedule the finish push event if needed
+            if (leftovers != 0) rasterevents[PushScanlineP2] = rasterevents[ScanlineRead];
             else
             {
-                leftoversb = BeginPushScanline(scanlinespushed, 256);//(rasterevents[ScanlineRead] + DelayBetweenReads) - (rasterevents[PushScanline] + FinalPassLen));
-                scanlinesrendered--;
-
-                if (leftoversb != 0)
-                {
-                    rasterevents[PushScanlineP2] = rasterevents[ScanlineRead] + DelayBetweenReads; // todo: fix this
-                    fina = false;
-                }
-                else
-                {
-                    scanlineswaiting++;
-                    scanlinespushed++;
-                }
+                scanlineswaiting++;
+                scanlinespushed2++;
             }
 
             if (scanlinesrendered <= 0)
-                rasterevents[PushScanline] = INT_MAX/2;
-            else
-                doa = !doa;
+                rasterevents[PushScanline] = INT_MAX/2; // unsched event if no scanlines are waiting to be finished
 
             break;
 
-        case ScanlineRead:
 
+        // 2d engine reading scanlines from the intermediary "framebuffer"
+        case ScanlineRead:
+            
+            // read scanline from buffer
             ReadScanline(scanlinesread);
+            // reschedule event for one scanline later
             rasterevents[ScanlineRead] += ScanlineReadInc;
 
+            // avoid breaking seperate thread.
             if constexpr (threaded)
                 Platform::Semaphore_Post(Sema_ScanlineCount);
 
@@ -1950,22 +1943,16 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             scanlineswaiting--;
             break;
 
+
+        // finish pushing a scanline to the buffer if it got interrupted by the read process.
         case PushScanlineP2:
 
-            if (fina)
-            {
-                FinishPushScanline(yold-1, leftoversa);
-                scanlineswaiting++;
-                scanlinespushed++;
-            }
-            else
-            {
-                FinishPushScanline(yold, leftoversb);
-                scanlineswaiting++;
-                scanlinespushed++;
-            }
-                
-            rasterevents[PushScanlineP2] = INT_MAX/2;
+            FinishPushScanline(scanlinespushed2, leftovers);
+            scanlineswaiting++;
+            scanlinespushed2++;
+
+            // unschedule event if all partially pushed scanlines have been pushed
+            if (scanlinespushed2 >= scanlinespushed) rasterevents[PushScanlineP2] = INT_MAX/2;
             break;
         }
     }

@@ -344,7 +344,7 @@ public:
                                                                     // and beginning reading the second scanline of a scanline pair.
     static constexpr int GPU2DReadScanline = 256 * TimingFrac; // 256 | the time it takes to read a scanline.
     static constexpr int GPU2DReadSLPair = 1618 * TimingFrac; // 1618 | notably the same as the scanline increment.
-    static constexpr int InitGPU2DTimeout = 51874 * TimingFrac; // 51618? | when it finishes reading the first scanline.
+    static constexpr int InitGPU2DTimeout = 52128 * TimingFrac; // 51618? 51874? | when it finishes reading the first scanline.
     static constexpr int GPU2D48Scanlines = GPU2DReadSLPair * 24; // time to read 48 scanlines.
     static constexpr int FrameLength = ScanlineReadInc * 263; // how long the entire frame is. TODO: Verify if we actually need this?
 
@@ -362,6 +362,8 @@ public:
     static constexpr int FinalPassLen = 500 * TimingFrac; // 496 (might technically be 500?) | the next scanline cannot begin while a scanline's final pass is in progress
                                                         // (can be interpreted as the minimum amount of cycles for the next scanline
                                                         // pair to start after the previous pair began) (related to final pass?)
+    static constexpr int ScanlinePushDelay = 242 * TimingFrac;
+    static constexpr int TimeoutIncrement = 2130 * TimingFrac;
     static constexpr int ScanlineIncrementold = 1618 * TimingFrac; // 1618 | how much to regain per scanline pair
     static constexpr int ScanlineIncrement = 2114 * TimingFrac; // 2114 | how much time a scanline pair "gains"
     static constexpr int AbortIncrement = 12 * TimingFrac; // 12 | how much extra to regain after an aborted scanline (total 2126)
