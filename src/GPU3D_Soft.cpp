@@ -1817,7 +1817,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     s32 rastertimingodd = 0;
     u8 scanlinesread = 0;
     u8 scanlinespushed = 0;
-    s8 scanlinesrendered = 0;
+    s16 scanlinesrendered = 0;
     s8 scanlineswaiting = 0;
     u8 nextevent;
     bool doa, dob, fina;
@@ -1846,23 +1846,24 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             
             s32 timespent = std::max(rastertimingeven, rastertimingodd);
 
-            if ((RasterTiming + timespent) < (rasterevents[RenderFinal]+FinalPassLen))
+            if ((RasterTiming + timespent) < (RasterTiming+FinalPassLen))
                 RasterTiming += FinalPassLen;
             else
                 RasterTiming += timespent;
-            
-            
+                        
             s32 timeoutdist = ScanlineTimeout - RasterTiming;
             RasterTiming += std::clamp(timeoutdist, 0, 12);
             }
+
             rasterevents[RenderFinal] = RasterTiming;
-            if (y < 190) rasterevents[RenderStart] = RasterTiming+RastDelay;
-            else rasterevents[RenderStart] = INT_MAX/2;
+            rasterevents[RenderStart] = RasterTiming+RastDelay;
+            //if (y < 190) rasterevents[RenderStart] = RasterTiming+RastDelay;
+            //else rasterevents[RenderStart] = INT_MAX/2;
             break;
 
         case RenderFinal:
         
-            rasterevents[PushScanline] = rasterevents[RenderFinal] + RastDelay;
+            rasterevents[PushScanline] = rasterevents[RenderFinal] + 4;
 
             if (y >= 2)
             {
@@ -1875,7 +1876,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
                 doa = false;
             }
 
-            if (y < 192)
+            if (y <= 192)
             {
                 ScanlineFinalPass(gpu.GPU3D, y);
                 scanlinesrendered++;
@@ -1892,8 +1893,8 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             {
                 //reschedule events if buffer is full
                 rasterevents[PushScanline] = rasterevents[ScanlineRead];
-                rasterevents[RenderStart] = ((y >= 190) ? INT_MAX/2 : rasterevents[ScanlineRead] + RastDelay);
-                rasterevents[RenderFinal] = ((y >= 192) ? INT_MAX/2 : rasterevents[ScanlineRead]);
+                rasterevents[RenderStart] = /*((y >= 190) ? INT_MAX/2 :*/ rasterevents[ScanlineRead] + RastDelay;
+                rasterevents[RenderFinal] = /*((y >= 192) ? INT_MAX/2 :*/ rasterevents[ScanlineRead];
                 break;
             }
 
@@ -1940,7 +1941,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
         case ScanlineRead:
 
             ReadScanline(scanlinesread);
-            rasterevents[ScanlineRead] += ScanlineIncrement;
+            rasterevents[ScanlineRead] += ScanlineReadInc;
 
             if constexpr (threaded)
                 Platform::Semaphore_Post(Sema_ScanlineCount);
