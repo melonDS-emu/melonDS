@@ -1747,9 +1747,9 @@ u16 SoftRenderer::BeginPushScanline(s32 y, s32 pixelstodraw)
 {
     // push the finished scanline to the appropriate frame buffers.
     // if a scanline is late enough to intersect with the 2d engine read time it will be partially drawn
-    
+
     u16 start;
-    if (pixelstodraw >= 256) // if scheduled after or 256 cycles before a scanline read render full scanline
+    if (pixelstodraw >= 256 || pixelstodraw <= 0) // if scheduled after or 256 cycles before a scanline read render full scanline
     {
         start = 0;
         pixelstodraw = 256;
@@ -1919,7 +1919,10 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
                 break;
             }
 
-            leftovers = BeginPushScanline(scanlinespushed, (rasterevents[ScanlineRead] + (ScanlineReadInc*scanlineswaitingforread)) - rasterevents[PushScanline]);
+            {
+            s32 pixelstopush = (scanlinespushed > scanlinesread ? 256 : (rasterevents[ScanlineRead] + (ScanlineReadInc*scanlineswaitingforread)) - rasterevents[PushScanline]);
+            leftovers = BeginPushScanline(scanlinespushed, pixelstopush);
+            }
             scanlineswaitingforpush--;
             scanlinespushed++;
 
