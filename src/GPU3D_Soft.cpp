@@ -1817,7 +1817,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     u16 leftovers;
 
     // until all scanlines have been pushed and read continue looping... CHECKME: unless its time for the next 3d frame should begin
-    while ((scanlinesread < 192 || scanlinespushed2 < 192) && (RasterTiming < FrameLength))
+    while ((scanlinesread < 192 || scanlinespushed2 < 192) && (RasterTiming < (FrameLength-RastDelay)))
     {
         // check all events to find the earliest scheduled one
         nextevent = 0;
@@ -1932,8 +1932,6 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             
             // read scanline from buffer
             ReadScanline(scanlinesread);
-            // reschedule event for one scanline later
-            rasterevents[ScanlineRead] += ScanlineReadInc;
 
             // avoid breaking seperate thread.
             if constexpr (threaded)
@@ -1941,6 +1939,10 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
 
             scanlinesread++;
             scanlineswaiting--;
+
+            // reschedule event for one scanline later unless all scanlines have been read
+            if (scanlinesread < 192) rasterevents[ScanlineRead] += ScanlineReadInc;
+            else rasterevents[ScanlineRead] = INT_MAX/2;
             break;
 
 
