@@ -108,6 +108,15 @@ If everything went well, melonDS should now be in the `build` folder.
    ```
 If everything went well, melonDS and the libraries it needs should now be in the `dist` folder.
 
+#### Static builds (without DLLs, standalone executable)
+5. Install dependencies: `pacman -S mingw-w64-clang-aarch64-{cmake,SDL2,toolchain,qt5-static,qt5-tools,libslirp,libarchive}`
+6. Compile:
+   ```bash
+   cmake -B build -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=/clangarm64/qt5-static
+   cmake --build build
+   ```
+If everything went well, melonDS should now be in the `build` folder.
+
 ### macOS
 1. Install the [Homebrew Package Manager](https://brew.sh)
 2. Install dependencies: `brew install git pkg-config cmake sdl2 qt@6 libslirp libarchive`
