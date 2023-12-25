@@ -685,6 +685,20 @@ MainWindow::~MainWindow()
     delete[] actScreenAspectBot;
 }
 
+void MainWindow::osdAddMessage(unsigned int color, const char* fmt, ...)
+{
+    if (fmt == nullptr)
+        return;
+
+    char msg[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(msg, 1024, fmt, args);
+    va_end(args);
+
+    OSD::AddMessage(color, msg);
+}
+
 void MainWindow::closeEvent(QCloseEvent* event)
 {
     if (hasOGL)
@@ -1394,16 +1408,14 @@ void MainWindow::onSaveState()
 
     if (ROMManager::SaveState(*emuThread->NDS, filename))
     {
-        char msg[64];
-        if (slot > 0) sprintf(msg, "State saved to slot %d", slot);
-        else          sprintf(msg, "State saved to file");
-        OSD::AddMessage(0, msg);
+        if (slot > 0) osdAddMessage(0, "State saved to slot %d", slot);
+        else          osdAddMessage(0, "State saved to file");
 
         actLoadState[slot]->setEnabled(true);
     }
     else
     {
-        OSD::AddMessage(0xFFA0A0, "State save failed");
+        osdAddMessage(0xFFA0A0, "State save failed");
     }
 
     emuThread->emuUnpause();
@@ -1438,10 +1450,8 @@ void MainWindow::onLoadState()
 
     if (!Platform::FileExists(filename))
     {
-        char msg[64];
-        if (slot > 0) sprintf(msg, "State slot %d is empty", slot);
-        else          sprintf(msg, "State file does not exist");
-        OSD::AddMessage(0xFFA0A0, msg);
+        if (slot > 0) osdAddMessage(0xFFA0A0, "State slot %d is empty", slot);
+        else          osdAddMessage(0xFFA0A0, "State file does not exist");
 
         emuThread->emuUnpause();
         return;
@@ -1449,16 +1459,14 @@ void MainWindow::onLoadState()
 
     if (ROMManager::LoadState(*emuThread->NDS, filename))
     {
-        char msg[64];
-        if (slot > 0) sprintf(msg, "State loaded from slot %d", slot);
-        else          sprintf(msg, "State loaded from file");
-        OSD::AddMessage(0, msg);
+        if (slot > 0) osdAddMessage(0, "State loaded from slot %d", slot);
+        else          osdAddMessage(0, "State loaded from file");
 
         actUndoStateLoad->setEnabled(true);
     }
     else
     {
-        OSD::AddMessage(0xFFA0A0, "State load failed");
+        osdAddMessage(0xFFA0A0, "State load failed");
     }
 
     emuThread->emuUnpause();
@@ -1470,7 +1478,7 @@ void MainWindow::onUndoStateLoad()
     ROMManager::UndoStateLoad(*emuThread->NDS);
     emuThread->emuUnpause();
 
-    OSD::AddMessage(0, "State load undone");
+    osdAddMessage(0, "State load undone");
 }
 
 void MainWindow::onImportSavefile()
@@ -1538,13 +1546,13 @@ void MainWindow::onPause(bool checked)
     if (checked)
     {
         emuThread->emuPause();
-        OSD::AddMessage(0, "Paused");
+        osdAddMessage(0, "Paused");
         pausedManually = true;
     }
     else
     {
         emuThread->emuUnpause();
-        OSD::AddMessage(0, "Resumed");
+        osdAddMessage(0, "Resumed");
         pausedManually = false;
     }
 }
@@ -1559,7 +1567,7 @@ void MainWindow::onReset()
 
     ROMManager::Reset(emuThread);
 
-    OSD::AddMessage(0, "Reset");
+    osdAddMessage(0, "Reset");
     emuThread->emuRun();
 }
 

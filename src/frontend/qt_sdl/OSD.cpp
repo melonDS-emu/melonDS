@@ -69,7 +69,7 @@ QMutex Rendering;
 
 
 bool Init(bool openGL)
-{
+{printf("%d\n", sizeof(Item));
     if (openGL)
     {
         OpenGL::BuildShaderProgram(kScreenVS_OSD, kScreenFS_OSD, Shader, "OSDShader");

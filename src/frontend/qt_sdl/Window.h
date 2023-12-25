@@ -38,6 +38,63 @@
 
 class EmuThread;
 
+/*
+class WindowBase : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    explicit WindowBase(QWidget* parent = nullptr);
+    ~WindowBase();
+
+    bool hasOGL;
+    GL::Context* getOGLContext();
+
+    //void onAppStateChanged(Qt::ApplicationState state);
+
+protected:
+    void resizeEvent(QResizeEvent* event) override;
+    void changeEvent(QEvent* event) override;
+
+    void keyPressEvent(QKeyEvent* event) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
+
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
+
+    void focusInEvent(QFocusEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
+
+signals:
+    void screenLayoutChange();
+
+private slots:
+    //void onQuit();
+
+    //void onTitleUpdate(QString title);
+
+    //void onEmuStart();
+    //void onEmuStop();
+
+    //void onUpdateVideoSettings(bool glchange);
+
+    void onFullscreenToggled();
+    void onScreenEmphasisToggled();
+
+private:
+    virtual void closeEvent(QCloseEvent* event) override;
+
+    void createScreenPanel();
+
+    //bool pausedManually = false;
+
+    int oldW, oldH;
+    bool oldMax;
+
+public:
+    ScreenHandler* panel;
+    QWidget* panelWidget;
+};*/
 
 class MainWindow : public QMainWindow
 {
@@ -54,6 +111,8 @@ public:
     QStringList splitArchivePath(const QString& filename, bool useMemberSyntax);
 
     void onAppStateChanged(Qt::ApplicationState state);
+
+    void osdAddMessage(unsigned int color, const char* fmt, ...);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
