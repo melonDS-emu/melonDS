@@ -418,7 +418,7 @@ void DrawNative(QPainter& painter)
     Rendering.unlock();
 }
 
-void DrawGL(float w, float h)
+void DrawGL(float w, float h, float factor)
 {
     if (!Config::ShowOSD) return;
     if (!mainWindow || !mainWindow->panel) return;
@@ -430,7 +430,7 @@ void DrawGL(float w, float h)
     glUseProgram(Shader[2]);
 
     glUniform2f(uScreenSize, w, h);
-    glUniform1f(uScaleFactor, mainWindow->devicePixelRatioF());
+    glUniform1f(uScaleFactor, factor);
 
     glBindBuffer(GL_ARRAY_BUFFER, OSDVertexBuffer);
     glBindVertexArray(OSDVertexArray);

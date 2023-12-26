@@ -591,7 +591,7 @@ void ScreenPanelGL::drawScreenGL()
     screenSettingsLock.unlock();
 
     OSD::Update();
-    OSD::DrawGL(w, h);
+    OSD::DrawGL(w, h, factor);
 
     glContext->SwapBuffers();
 }

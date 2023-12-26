@@ -32,7 +32,7 @@ void AddMessage(u32 color, const char* text);
 
 void Update();
 void DrawNative(QPainter& painter);
-void DrawGL(float w, float h);
+void DrawGL(float w, float h, float factor);
 
 }
 
