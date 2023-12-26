@@ -329,10 +329,14 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
         NDS::Current = nullptr;
 
         NDS = CreateConsole(std::move(nextndscart), std::move(nextgbacart));
+
+        if (NDS == nullptr)
+            return false;
+
         NDS->Reset();
         NDS::Current = NDS.get();
 
-        return NDS != nullptr;
+        return true;
     }
 
     auto arm9bios = ROMManager::LoadARM9BIOS();
