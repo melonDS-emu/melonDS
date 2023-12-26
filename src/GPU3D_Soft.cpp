@@ -567,7 +567,7 @@ void SoftRenderer::PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 c
     AttrBuffer[pixeladdr] = attr;
 }
 
-void SoftRenderer::CheckForLine(RendererPolygon* rp)
+void SoftRenderer::CheckForLine(RendererPolygon* rp) const
 {
     Polygon* polygon = rp->PolyData;
 
