@@ -201,7 +201,7 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
     {
         // LoadDLDISDCard will return nullopt if the SD card is disabled;
         // SetSDCard will accept nullopt, which means no SD card
-        cartsd->SetSDCard(ROMManager::LoadDLDISDCard());
+        cartsd->SetSDCard(ROMManager::GetDLDISDCardArgs());
     }
 
     std::unique_ptr<GBACart::CartCommon> nextgbacart;
