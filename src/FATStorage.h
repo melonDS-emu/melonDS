@@ -48,8 +48,8 @@ class FATStorage
 {
 public:
     FATStorage(const std::string& filename, u64 size, bool readonly, const std::optional<std::string>& sourcedir = std::nullopt);
-    FATStorage(const FATStorageArgs& args) noexcept;
-    FATStorage(FATStorageArgs&& args) noexcept;
+    explicit FATStorage(const FATStorageArgs& args) noexcept;
+    explicit FATStorage(FATStorageArgs&& args) noexcept;
     FATStorage(FATStorage&& other) noexcept;
     FATStorage(const FATStorage& other) = delete;
     FATStorage& operator=(const FATStorage& other) = delete;
