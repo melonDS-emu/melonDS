@@ -78,7 +78,7 @@ public:
     int FrontBuffer = 0;
     QMutex FrontBufferLock;
 
-    void updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix);
+    //void updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix);
 
     /// Applies the config in args.
     /// Creates a new NDS console if needed,
@@ -113,9 +113,9 @@ private:
         std::unique_ptr<melonDS::NDSCart::CartCommon>&& ndscart,
         std::unique_ptr<melonDS::GBACart::CartCommon>&& gbacart
     ) noexcept;
-    void drawScreenGL();
-    void initOpenGL();
-    void deinitOpenGL();
+    //void drawScreenGL();
+    //void initOpenGL();
+    //void deinitOpenGL();
 
     enum EmuStatusKind
     {
@@ -141,7 +141,7 @@ private:
     };
     std::atomic<ContextRequestKind> ContextRequest = contextRequest_None;
 
-    GL::Context* oglContext = nullptr;
+    /*GL::Context* oglContext = nullptr;
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;
     GLuint screenShaderProgram[3];
@@ -154,7 +154,8 @@ private:
     int numScreens;
     bool filter;
 
-    int lastScreenWidth = -1, lastScreenHeight = -1;
+    int lastScreenWidth = -1, lastScreenHeight = -1;*/
+    ScreenPanelGL* screenGL;
 };
 
 class MelonApplication : public QApplication

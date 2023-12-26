@@ -34,28 +34,24 @@
 #endif
 #endif
 
+#include "OpenGLSupport.h"
+#include "duckstation/gl/context.h"
+
 #include "main.h"
 
 #include "NDS.h"
+#include "GPU.h"
+#include "GPU3D_Soft.h"
+#include "GPU3D_OpenGL.h"
 #include "Platform.h"
 #include "Config.h"
 
-//#include "main_shaders.h"
+#include "main_shaders.h"
 
 #include "OSD.h"
 
 using namespace melonDS;
 
-
-/*const struct { int id; float ratio; const char* label; } aspectRatios[] =
-{
-    { 0, 1,                       "4:3 (native)" },
-    { 4, (5.f  / 3) / (4.f / 3), "5:3 (3DS)"},
-    { 1, (16.f / 9) / (4.f / 3),  "16:9" },
-    { 2, (21.f / 9) / (4.f / 3),  "21:9" },
-    { 3, 0,                       "window" }
-};
-int AspectRatiosNum = sizeof(aspectRatios) / sizeof(aspectRatios[0]);*/
 
 // TEMP
 extern MainWindow* mainWindow;
@@ -432,6 +428,172 @@ bool ScreenPanelGL::createContext()
     return glContext != nullptr;
 }
 
+void ScreenPanelGL::setSwapInterval(int intv)
+{
+    if (!glContext) return;
+
+    glContext->SetSwapInterval(intv);
+}
+
+void ScreenPanelGL::initOpenGL()
+{
+    if (!glContext) return;
+
+    glContext->MakeCurrent();
+
+    OpenGL::BuildShaderProgram(kScreenVS, kScreenFS, screenShaderProgram, "ScreenShader");
+    GLuint pid = screenShaderProgram[2];
+    glBindAttribLocation(pid, 0, "vPosition");
+    glBindAttribLocation(pid, 1, "vTexcoord");
+    glBindFragDataLocation(pid, 0, "oColor");
+
+    OpenGL::LinkShaderProgram(screenShaderProgram);
+
+    glUseProgram(pid);
+    glUniform1i(glGetUniformLocation(pid, "ScreenTex"), 0);
+
+    screenShaderScreenSizeULoc = glGetUniformLocation(pid, "uScreenSize");
+    screenShaderTransformULoc = glGetUniformLocation(pid, "uTransform");
+
+    // to prevent bleeding between both parts of the screen
+    // with bilinear filtering enabled
+    const int paddedHeight = 192*2+2;
+    const float padPixels = 1.f / paddedHeight;
+
+    const float vertices[] =
+    {
+        0.f,   0.f,    0.f, 0.f,
+        0.f,   192.f,  0.f, 0.5f - padPixels,
+        256.f, 192.f,  1.f, 0.5f - padPixels,
+        0.f,   0.f,    0.f, 0.f,
+        256.f, 192.f,  1.f, 0.5f - padPixels,
+        256.f, 0.f,    1.f, 0.f,
+
+        0.f,   0.f,    0.f, 0.5f + padPixels,
+        0.f,   192.f,  0.f, 1.f,
+        256.f, 192.f,  1.f, 1.f,
+        0.f,   0.f,    0.f, 0.5f + padPixels,
+        256.f, 192.f,  1.f, 1.f,
+        256.f, 0.f,    1.f, 0.5f + padPixels
+    };
+
+    glGenBuffers(1, &screenVertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &screenVertexArray);
+    glBindVertexArray(screenVertexArray);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(0));
+    glEnableVertexAttribArray(1); // texcoord
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(2*4));
+
+    glGenTextures(1, &screenTexture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, screenTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, paddedHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    // fill the padding
+    u8 zeroData[256*4*4];
+    memset(zeroData, 0, sizeof(zeroData));
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 2, GL_RGBA, GL_UNSIGNED_BYTE, zeroData);
+
+    OSD::Init(true);
+
+    glContext->SetSwapInterval(Config::ScreenVSync ? Config::ScreenVSyncInterval : 0);
+    transferLayout();
+}
+
+void ScreenPanelGL::deinitOpenGL()
+{
+    if (!glContext) return;
+
+    glDeleteTextures(1, &screenTexture);
+
+    glDeleteVertexArrays(1, &screenVertexArray);
+    glDeleteBuffers(1, &screenVertexBuffer);
+
+    OpenGL::DeleteShaderProgram(screenShaderProgram);
+
+    OSD::DeInit();
+
+    glContext->DoneCurrent();
+
+    lastScreenWidth = lastScreenHeight = -1;
+}
+
+void ScreenPanelGL::drawScreenGL()
+{
+    if (!glContext) return;
+    if (!emuThread->NDS) return;
+
+    int w = windowInfo.surface_width;
+    int h = windowInfo.surface_height;
+    float factor = windowInfo.surface_scale;
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(false);
+    glDisable(GL_BLEND);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_STENCIL_TEST);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glViewport(0, 0, w, h);
+
+    glUseProgram(screenShaderProgram[2]);
+    glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
+
+    int frontbuf = emuThread->FrontBuffer;
+    glActiveTexture(GL_TEXTURE0);
+
+#ifdef OGLRENDERER_ENABLED
+    if (emuThread->NDS->GPU.GetRenderer3D().Accelerated)
+    {
+        // hardware-accelerated render
+        static_cast<GLRenderer&>(emuThread->NDS->GPU.GetRenderer3D()).GetCompositor().BindOutputTexture(frontbuf);
+    }
+    else
+#endif
+    {
+        // regular render
+        glBindTexture(GL_TEXTURE_2D, screenTexture);
+
+        if (emuThread->NDS->GPU.Framebuffer[frontbuf][0] && emuThread->NDS->GPU.Framebuffer[frontbuf][1])
+        {
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
+                            GL_UNSIGNED_BYTE, emuThread->NDS->GPU.Framebuffer[frontbuf][0].get());
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
+                            GL_UNSIGNED_BYTE, emuThread->NDS->GPU.Framebuffer[frontbuf][1].get());
+        }
+    }
+
+    screenSettingsLock.lock();
+
+    GLint filter = this->filter ? GL_LINEAR : GL_NEAREST;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+
+    glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
+    glBindVertexArray(screenVertexArray);
+
+    for (int i = 0; i < numScreens; i++)
+    {
+        glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
+        glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2*3, 2*3);
+    }
+
+    screenSettingsLock.unlock();
+
+    OSD::Update();
+    OSD::DrawGL(w, h);
+
+    glContext->SwapBuffers();
+}
+
 qreal ScreenPanelGL::devicePixelRatioFromScreen() const
 {
     const QScreen* screen_for_ratio = window()->windowHandle()->screen();
@@ -507,8 +669,7 @@ void ScreenPanelGL::setupScreenLayout()
     int h = height();
 
     screenSetupLayout(w, h);
-    if (emuThread)
-        transferLayout(emuThread);
+    transferLayout();
 }
 
 void ScreenPanelGL::resizeEvent(QResizeEvent* event)
@@ -550,11 +711,26 @@ bool ScreenPanelGL::event(QEvent* event)
     return QWidget::event(event);
 }
 
-void ScreenPanelGL::transferLayout(EmuThread* thread)
+void ScreenPanelGL::transferLayout()
 {
     std::optional<WindowInfo> windowInfo = getWindowInfo();
     if (windowInfo.has_value())
-        thread->updateScreenSettings(Config::ScreenFilter, *windowInfo, numScreens, screenKind, &screenMatrix[0][0]);
+    {
+        screenSettingsLock.lock();
+
+        if (lastScreenWidth != windowInfo->surface_width || lastScreenHeight != windowInfo->surface_height)
+        {
+            if (glContext)
+                glContext->ResizeSurface(windowInfo->surface_width, windowInfo->surface_height);
+            lastScreenWidth = windowInfo->surface_width;
+            lastScreenHeight = windowInfo->surface_height;
+        }
+
+        this->filter = Config::ScreenFilter;
+        this->windowInfo = *windowInfo;
+
+        screenSettingsLock.unlock();
+    }
 }
 
 void ScreenPanelGL::onScreenLayoutChanged()

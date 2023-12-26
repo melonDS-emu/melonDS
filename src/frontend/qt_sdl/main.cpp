@@ -99,7 +99,7 @@
 
 #include "Savestate.h"
 
-#include "main_shaders.h"
+//#include "main_shaders.h"
 
 #include "ROMManager.h"
 #include "ArchiveUtil.h"
@@ -194,9 +194,6 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
     connect(this, SIGNAL(screenEmphasisToggle()), mainWindow, SLOT(onScreenEmphasisToggled()));
-
-    auto glPanel = dynamic_cast<ScreenPanelGL*>(mainWindow->panel);
-    if (glPanel) glPanel->transferLayout(this);
 }
 
 std::unique_ptr<NDS> EmuThread::CreateConsole(
@@ -402,116 +399,6 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
     return true;
 }
 
-void EmuThread::updateScreenSettings(bool filter, const WindowInfo& windowInfo, int numScreens, int* screenKind, float* screenMatrix)
-{
-    screenSettingsLock.lock();
-
-    if (lastScreenWidth != windowInfo.surface_width || lastScreenHeight != windowInfo.surface_height)
-    {
-        if (oglContext)
-            oglContext->ResizeSurface(windowInfo.surface_width, windowInfo.surface_height);
-        lastScreenWidth = windowInfo.surface_width;
-        lastScreenHeight = windowInfo.surface_height;
-    }
-
-    this->filter = filter;
-    this->windowInfo = windowInfo;
-    this->numScreens = numScreens;
-    memcpy(this->screenKind, screenKind, sizeof(int)*numScreens);
-    memcpy(this->screenMatrix, screenMatrix, sizeof(float)*numScreens*6);
-
-    screenSettingsLock.unlock();
-}
-
-void EmuThread::initOpenGL()
-{
-    GL::Context* windowctx = mainWindow->getOGLContext();
-
-    oglContext = windowctx;
-    oglContext->MakeCurrent();
-
-    OpenGL::BuildShaderProgram(kScreenVS, kScreenFS, screenShaderProgram, "ScreenShader");
-    GLuint pid = screenShaderProgram[2];
-    glBindAttribLocation(pid, 0, "vPosition");
-    glBindAttribLocation(pid, 1, "vTexcoord");
-    glBindFragDataLocation(pid, 0, "oColor");
-
-    OpenGL::LinkShaderProgram(screenShaderProgram);
-
-    glUseProgram(pid);
-    glUniform1i(glGetUniformLocation(pid, "ScreenTex"), 0);
-
-    screenShaderScreenSizeULoc = glGetUniformLocation(pid, "uScreenSize");
-    screenShaderTransformULoc = glGetUniformLocation(pid, "uTransform");
-
-    // to prevent bleeding between both parts of the screen
-    // with bilinear filtering enabled
-    const int paddedHeight = 192*2+2;
-    const float padPixels = 1.f / paddedHeight;
-
-    const float vertices[] =
-    {
-        0.f,   0.f,    0.f, 0.f,
-        0.f,   192.f,  0.f, 0.5f - padPixels,
-        256.f, 192.f,  1.f, 0.5f - padPixels,
-        0.f,   0.f,    0.f, 0.f,
-        256.f, 192.f,  1.f, 0.5f - padPixels,
-        256.f, 0.f,    1.f, 0.f,
-
-        0.f,   0.f,    0.f, 0.5f + padPixels,
-        0.f,   192.f,  0.f, 1.f,
-        256.f, 192.f,  1.f, 1.f,
-        0.f,   0.f,    0.f, 0.5f + padPixels,
-        256.f, 192.f,  1.f, 1.f,
-        256.f, 0.f,    1.f, 0.5f + padPixels
-    };
-
-    glGenBuffers(1, &screenVertexBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glGenVertexArrays(1, &screenVertexArray);
-    glBindVertexArray(screenVertexArray);
-    glEnableVertexAttribArray(0); // position
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(0));
-    glEnableVertexAttribArray(1); // texcoord
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(2*4));
-
-    glGenTextures(1, &screenTexture);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, screenTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, paddedHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    // fill the padding
-    u8 zeroData[256*4*4];
-    memset(zeroData, 0, sizeof(zeroData));
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 2, GL_RGBA, GL_UNSIGNED_BYTE, zeroData);
-
-    OSD::Init(true);
-
-    oglContext->SetSwapInterval(Config::ScreenVSync ? Config::ScreenVSyncInterval : 0);
-}
-
-void EmuThread::deinitOpenGL()
-{
-    glDeleteTextures(1, &screenTexture);
-
-    glDeleteVertexArrays(1, &screenVertexArray);
-    glDeleteBuffers(1, &screenVertexBuffer);
-
-    OpenGL::DeleteShaderProgram(screenShaderProgram);
-
-    OSD::DeInit();
-
-    oglContext->DoneCurrent();
-    oglContext = nullptr;
-
-    lastScreenWidth = lastScreenHeight = -1;
-}
-
 void EmuThread::run()
 {
     u32 mainScreenPos[3];
@@ -529,11 +416,13 @@ void EmuThread::run()
 
     if (mainWindow->hasOGL)
     {
-        initOpenGL();
+        screenGL = static_cast<ScreenPanelGL*>(mainWindow->panel);
+        screenGL->initOpenGL();
         videoRenderer = Config::_3DRenderer;
     }
     else
     {
+        screenGL = nullptr;
         videoRenderer = 0;
     }
 
@@ -654,9 +543,9 @@ void EmuThread::run()
             // to the old setting again
             if (videoSettingsDirty || Input::HotkeyReleased(HK_FastForward))
             {
-                if (oglContext)
+                if (screenGL)
                 {
-                    oglContext->SetSwapInterval(Config::ScreenVSync ? Config::ScreenVSyncInterval : 0);
+                    screenGL->setSwapInterval(Config::ScreenVSync ? Config::ScreenVSyncInterval : 0);
                     videoRenderer = Config::_3DRenderer;
                 }
 #ifdef OGLRENDERER_ENABLED
@@ -666,7 +555,7 @@ void EmuThread::run()
                     videoRenderer = 0;
                 }
 
-                videoRenderer = oglContext ? Config::_3DRenderer : 0;
+                videoRenderer = screenGL ? Config::_3DRenderer : 0;
 
                 videoSettingsDirty = false;
 
@@ -738,7 +627,7 @@ void EmuThread::run()
             if (ROMManager::FirmwareSave)
                 ROMManager::FirmwareSave->CheckFlush();
 
-            if (!oglContext)
+            if (!screenGL)
             {
                 FrontBufferLock.lock();
                 FrontBuffer = NDS->GPU.FrontBuffer;
@@ -747,7 +636,7 @@ void EmuThread::run()
             else
             {
                 FrontBuffer = NDS->GPU.FrontBuffer;
-                drawScreenGL();
+                screenGL->drawScreenGL();
             }
 
 #ifdef MELONCAP
@@ -757,7 +646,7 @@ void EmuThread::run()
             if (EmuRunning == emuStatus_Exit) break;
 
             winUpdateCount++;
-            if (winUpdateCount >= winUpdateFreq && !oglContext)
+            if (winUpdateCount >= winUpdateFreq && !screenGL)
             {
                 emit windowUpdate();
                 winUpdateCount = 0;
@@ -765,9 +654,9 @@ void EmuThread::run()
 
             bool fastforward = Input::HotkeyDown(HK_FastForward);
 
-            if (fastforward && oglContext && Config::ScreenVSync)
+            if (fastforward && screenGL && Config::ScreenVSync)
             {
-                oglContext->SetSwapInterval(0);
+                screenGL->setSwapInterval(0);
             }
 
             if (Config::DSiVolumeSync && NDS->ConsoleType == 1)
@@ -856,18 +745,20 @@ void EmuThread::run()
 
             SDL_Delay(75);
 
-            if (oglContext)
-                drawScreenGL();
+            if (screenGL)
+                screenGL->drawScreenGL();
 
             ContextRequestKind contextRequest = ContextRequest;
             if (contextRequest == contextRequest_InitGL)
             {
-                initOpenGL();
+                screenGL = static_cast<ScreenPanelGL*>(mainWindow->panel);
+                screenGL->initOpenGL();
                 ContextRequest = contextRequest_None;
             }
             else if (contextRequest == contextRequest_DeInitGL)
             {
-                deinitOpenGL();
+                screenGL->deinitOpenGL();
+                screenGL = nullptr;
                 ContextRequest = contextRequest_None;
             }
         }
@@ -964,7 +855,7 @@ bool EmuThread::emuIsActive()
     return (RunningSomething == 1);
 }
 
-void EmuThread::drawScreenGL()
+/*void EmuThread::drawScreenGL()
 {
     if (!NDS) return;
     int w = windowInfo.surface_width;
@@ -1029,7 +920,7 @@ void EmuThread::drawScreenGL()
     OSD::DrawGL(w, h);
 
     oglContext->SwapBuffers();
-}
+}*/
 
 
 

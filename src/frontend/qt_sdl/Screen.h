@@ -122,9 +122,15 @@ public:
 
     bool createContext();
 
+    void setSwapInterval(int intv);
+
+    void initOpenGL();
+    void deinitOpenGL();
+    void drawScreenGL();
+
     GL::Context* getContext() { return glContext.get(); }
 
-    void transferLayout(EmuThread* thread);
+    void transferLayout();
 protected:
 
     qreal devicePixelRatioFromScreen() const;
@@ -149,6 +155,17 @@ private:
     void setupScreenLayout();
 
     std::unique_ptr<GL::Context> glContext;
+
+    GLuint screenVertexBuffer, screenVertexArray;
+    GLuint screenTexture;
+    GLuint screenShaderProgram[3];
+    GLuint screenShaderTransformULoc, screenShaderScreenSizeULoc;
+
+    QMutex screenSettingsLock;
+    WindowInfo windowInfo;
+    bool filter;
+
+    int lastScreenWidth = -1, lastScreenHeight = -1;
 };
 
 #endif // SCREEN_H

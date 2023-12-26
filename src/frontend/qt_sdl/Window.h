@@ -106,6 +106,9 @@ public:
 
     bool hasOGL;
     GL::Context* getOGLContext();
+    /*void initOpenGL();
+    void deinitOpenGL();
+    void drawScreenGL();*/
 
     bool preloadROMs(QStringList file, QStringList gbafile, bool boot);
     QStringList splitArchivePath(const QString& filename, bool useMemberSyntax);

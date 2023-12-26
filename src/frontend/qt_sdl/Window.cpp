@@ -749,6 +749,30 @@ GL::Context* MainWindow::getOGLContext()
     return glpanel->getContext();
 }
 
+/*void MainWindow::initOpenGL()
+{
+    if (!hasOGL) return;
+
+    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    return glpanel->initOpenGL();
+}
+
+void MainWindow::deinitOpenGL()
+{
+    if (!hasOGL) return;
+
+    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    return glpanel->deinitOpenGL();
+}
+
+void MainWindow::drawScreenGL()
+{
+    if (!hasOGL) return;
+
+    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    return glpanel->drawScreenGL();
+}*/
+
 void MainWindow::resizeEvent(QResizeEvent* event)
 {
     int w = event->size().width();
