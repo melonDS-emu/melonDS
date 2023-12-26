@@ -259,8 +259,8 @@ public: // TODO: Encapsulate the rest of these members
     u16 PowerControl9;
 
     u16 ExMemCnt[2];
-    u8 ROMSeed0[2*8];
-    u8 ROMSeed1[2*8];
+    alignas(u32) u8 ROMSeed0[2*8];
+    alignas(u32) u8 ROMSeed1[2*8];
 
 protected:
     // These BIOS arrays should be declared *before* the component objects (JIT, SPI, etc.)
@@ -489,12 +489,12 @@ private:
     FIFO<u32, 16> IPCFIFO9; // FIFO in which the ARM9 writes
     FIFO<u32, 16> IPCFIFO7;
     u16 DivCnt;
-    u32 DivNumerator[2];
-    u32 DivDenominator[2];
-    u32 DivQuotient[2];
-    u32 DivRemainder[2];
+    alignas(u64) u32 DivNumerator[2];
+    alignas(u64) u32 DivDenominator[2];
+    alignas(u64) u32 DivQuotient[2];
+    alignas(u64) u32 DivRemainder[2];
     u16 SqrtCnt;
-    u32 SqrtVal[2];
+    alignas(u64) u32 SqrtVal[2];
     u32 SqrtRes;
     u16 KeyCnt[2];
     bool Running;
