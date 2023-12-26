@@ -122,7 +122,8 @@ NANDImage::NANDImage(NANDImage&& other) noexcept :
     ConsoleID(other.ConsoleID),
     FATIV(other.FATIV),
     FATKey(other.FATKey),
-    ESKey(other.ESKey)
+    ESKey(other.ESKey),
+    Length(other.Length)
 {
     other.CurFile = nullptr;
 }
@@ -140,6 +141,7 @@ NANDImage& NANDImage::operator=(NANDImage&& other) noexcept
         FATIV = other.FATIV;
         FATKey = other.FATKey;
         ESKey = other.ESKey;
+        Length = other.Length;
 
         other.CurFile = nullptr;
     }

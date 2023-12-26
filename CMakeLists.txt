@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.16)
 
 cmake_policy(VERSION 3.15)
 if (POLICY CMP0076)
@@ -8,6 +8,11 @@ endif()
 set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+
+option(USE_VCPKG "Use vcpkg for dependency packages" OFF)
+if (USE_VCPKG)
+	include(ConfigureVcpkg)
+endif()
 
 project(melonDS
     VERSION 0.9.5
