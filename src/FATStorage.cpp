@@ -71,7 +71,10 @@ FATStorage& FATStorage::operator=(FATStorage&& other) noexcept
     if (this != &other)
     {
         if (File)
+        { // Sync this file's contents to the host (if applicable) before closing it
+            Save();
             CloseFile(File);
+        }
 
         FilePath = std::move(other.FilePath);
         IndexPath = std::move(other.IndexPath);
@@ -83,6 +86,7 @@ FATStorage& FATStorage::operator=(FATStorage&& other) noexcept
         FileIndex = std::move(other.FileIndex);
 
         other.File = nullptr;
+        other.SourceDir = std::nullopt;
     }
 
     return *this;
