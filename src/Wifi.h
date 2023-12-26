@@ -169,8 +169,8 @@ public:
     u16 Read(u32 addr);
     void Write(u32 addr, u16 val);
 
-    u8* GetMAC();
-    u8* GetBSSID();
+    const u8* GetMAC() const;
+    const u8* GetBSSID() const;
 
 private:
     melonDS::NDS& NDS;
@@ -261,12 +261,12 @@ private:
     void SetStatus(u32 status);
     void PowerDown();
 
-    int PreambleLen(int rate);
-    u32 NumClients(u16 bitmask);
-    void IncrementTXCount(TXSlot* slot);
+    int PreambleLen(int rate) const;
+    u32 NumClients(u16 bitmask) const;
+    void IncrementTXCount(const TXSlot* slot);
     void ReportMPReplyErrors(u16 clientfail);
 
-    void TXSendFrame(TXSlot* slot, int num);
+    void TXSendFrame(const TXSlot* slot, int num);
     void StartTX_LocN(int nslot, int loc);
     void StartTX_Cmd();
     void StartTX_Beacon();

@@ -63,12 +63,12 @@ const u32 CodeRegionSizes[ARMJIT_Memory::memregions_Count] =
     0,
     ITCMPhysicalSize,
     0,
-    sizeof(NDS::ARM9BIOS),
+    ARM9BIOSSize,
     MainRAMMaxSize,
     SharedWRAMSize,
     0,
     0x100000,
-    sizeof(NDS::ARM7BIOS),
+    ARM7BIOSSize,
     ARM7WRAMSize,
     0,
     0,
@@ -237,16 +237,6 @@ ARMJIT::~ARMJIT() noexcept
 
 void ARMJIT::Reset() noexcept
 {
-    MaxBlockSize = Platform::GetConfigInt(Platform::JIT_MaxBlockSize);
-    LiteralOptimizations = Platform::GetConfigBool(Platform::JIT_LiteralOptimizations);
-    BranchOptimizations = Platform::GetConfigBool(Platform::JIT_BranchOptimizations);
-    FastMemory = Platform::GetConfigBool(Platform::JIT_FastMemory);
-
-    if (MaxBlockSize < 1)
-        MaxBlockSize = 1;
-    if (MaxBlockSize > 32)
-        MaxBlockSize = 32;
-
     JitEnableWrite();
     ResetBlockCache();
 
@@ -489,6 +479,56 @@ void ARMJIT::RetireJitBlock(JitBlock* block) noexcept
     {
         RestoreCandidates[block->InstrHash] = block;
     }
+}
+
+void ARMJIT::SetJITArgs(JITArgs args) noexcept
+{
+    args.MaxBlockSize = std::clamp(args.MaxBlockSize, 1u, 32u);
+
+    if (MaxBlockSize != args.MaxBlockSize
+        || LiteralOptimizations != args.LiteralOptimizations
+        || BranchOptimizations != args.BranchOptimizations
+        || FastMemory != args.FastMemory)
+        ResetBlockCache();
+
+    MaxBlockSize = args.MaxBlockSize;
+    LiteralOptimizations = args.LiteralOptimizations;
+    BranchOptimizations = args.BranchOptimizations;
+    FastMemory = args.FastMemory;
+}
+
+void ARMJIT::SetMaxBlockSize(int size) noexcept
+{
+    size = std::clamp(size, 1, 32);
+
+    if (size != MaxBlockSize)
+        ResetBlockCache();
+
+    MaxBlockSize = size;
+}
+
+void ARMJIT::SetLiteralOptimizations(bool enabled) noexcept
+{
+    if (LiteralOptimizations != enabled)
+        ResetBlockCache();
+
+    LiteralOptimizations = enabled;
+}
+
+void ARMJIT::SetBranchOptimizations(bool enabled) noexcept
+{
+    if (BranchOptimizations != enabled)
+        ResetBlockCache();
+
+    BranchOptimizations = enabled;
+}
+
+void ARMJIT::SetFastMemory(bool enabled) noexcept
+{
+    if (FastMemory != enabled)
+        ResetBlockCache();
+
+    FastMemory = enabled;
 }
 
 void ARMJIT::CompileBlock(ARM* cpu) noexcept

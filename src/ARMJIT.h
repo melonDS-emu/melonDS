@@ -19,10 +19,15 @@
 #ifndef ARMJIT_H
 #define ARMJIT_H
 
+#include <algorithm>
+#include <optional>
 #include <memory>
 #include "types.h"
-
+#include "MemConstants.h"
+#include "Args.h"
 #include "ARMJIT_Memory.h"
+
+#ifdef JIT_ENABLED
 #include "JitBlock.h"
 
 #if defined(__APPLE__) && defined(__aarch64__)
@@ -30,7 +35,6 @@
 #endif
 
 #include "ARMJIT_Compiler.h"
-#include "MemConstants.h"
 
 namespace melonDS
 {
@@ -40,18 +44,25 @@ class JitBlock;
 class ARMJIT
 {
 public:
-    ARMJIT(melonDS::NDS& nds) noexcept : NDS(nds), Memory(nds), JITCompiler(nds) {};
-    ~ARMJIT() noexcept NOOP_IF_NO_JIT;
-    void InvalidateByAddr(u32) noexcept NOOP_IF_NO_JIT;
-    void CheckAndInvalidateWVRAM(int) noexcept NOOP_IF_NO_JIT;
-    void CheckAndInvalidateITCM() noexcept NOOP_IF_NO_JIT;
-    void Reset() noexcept NOOP_IF_NO_JIT;
-    void JitEnableWrite() noexcept NOOP_IF_NO_JIT;
-    void JitEnableExecute() noexcept NOOP_IF_NO_JIT;
-    void CompileBlock(ARM* cpu) noexcept NOOP_IF_NO_JIT;
-    void ResetBlockCache() noexcept NOOP_IF_NO_JIT;
+    ARMJIT(melonDS::NDS& nds, std::optional<JITArgs> jit) noexcept :
+        NDS(nds),
+        Memory(nds),
+        JITCompiler(nds),
+        MaxBlockSize(jit.has_value() ? std::clamp(jit->MaxBlockSize, 1u, 32u) : 32),
+        LiteralOptimizations(jit.has_value() ? jit->LiteralOptimizations : false),
+        BranchOptimizations(jit.has_value() ? jit->BranchOptimizations : false),
+        FastMemory(jit.has_value() ? jit->FastMemory : false)
+    {}
+    ~ARMJIT() noexcept;
+    void InvalidateByAddr(u32) noexcept;
+    void CheckAndInvalidateWVRAM(int) noexcept;
+    void CheckAndInvalidateITCM() noexcept;
+    void Reset() noexcept;
+    void JitEnableWrite() noexcept;
+    void JitEnableExecute() noexcept;
+    void CompileBlock(ARM* cpu) noexcept;
+    void ResetBlockCache() noexcept;
 
-#ifdef JIT_ENABLED
     template <u32 num, int region>
     void CheckAndInvalidate(u32 addr) noexcept
     {
@@ -62,22 +73,30 @@ public:
     JitBlockEntry LookUpBlock(u32 num, u64* entries, u32 offset, u32 addr) noexcept;
     bool SetupExecutableRegion(u32 num, u32 blockAddr, u64*& entry, u32& start, u32& size) noexcept;
     u32 LocaliseCodeAddress(u32 num, u32 addr) const noexcept;
-#else
-    template <u32, int>
-    void CheckAndInvalidate(u32) noexcept {}
-#endif
 
     ARMJIT_Memory Memory;
+private:
     int MaxBlockSize {};
     bool LiteralOptimizations = false;
     bool BranchOptimizations = false;
     bool FastMemory = false;
-
+public:
     melonDS::NDS& NDS;
     TinyVector<u32> InvalidLiterals {};
     friend class ARMJIT_Memory;
     void blockSanityCheck(u32 num, u32 blockAddr, JitBlockEntry entry) noexcept;
     void RetireJitBlock(JitBlock* block) noexcept;
+
+    int GetMaxBlockSize() const noexcept { return MaxBlockSize; }
+    bool LiteralOptimizationsEnabled() const noexcept { return LiteralOptimizations; }
+    bool BranchOptimizationsEnabled() const noexcept { return BranchOptimizations; }
+    bool FastMemoryEnabled() const noexcept { return FastMemory; }
+
+    void SetJITArgs(JITArgs args) noexcept;
+    void SetMaxBlockSize(int size) noexcept;
+    void SetLiteralOptimizations(bool enabled) noexcept;
+    void SetBranchOptimizations(bool enabled) noexcept;
+    void SetFastMemory(bool enabled) noexcept;
 
     Compiler JITCompiler;
     std::unordered_map<u32, JitBlock*> JitBlocks9 {};
@@ -162,5 +181,33 @@ public:
 
 // Defined in assembly
 extern "C" void ARM_Dispatch(melonDS::ARM* cpu, melonDS::JitBlockEntry entry);
+#else
+namespace melonDS
+{
+class ARM;
 
-#endif
+// This version is a stub; the methods all do nothing,
+// but there's still a Memory member.
+class ARMJIT
+{
+public:
+    ARMJIT(melonDS::NDS& nds, std::optional<JITArgs>) noexcept : Memory(nds) {}
+    ~ARMJIT() noexcept {}
+    void InvalidateByAddr(u32) noexcept {}
+    void CheckAndInvalidateWVRAM(int) noexcept {}
+    void CheckAndInvalidateITCM() noexcept {}
+    void Reset() noexcept {}
+    void JitEnableWrite() noexcept {}
+    void JitEnableExecute() noexcept {}
+    void CompileBlock(ARM*) noexcept {}
+    void ResetBlockCache() noexcept {}
+    template <u32, int>
+    void CheckAndInvalidate(u32 addr) noexcept {}
+
+    ARMJIT_Memory Memory;
+};
+}
+#endif // JIT_ENABLED
+
+#endif // ARMJIT_H
+

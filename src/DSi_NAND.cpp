@@ -122,7 +122,8 @@ NANDImage::NANDImage(NANDImage&& other) noexcept :
     ConsoleID(other.ConsoleID),
     FATIV(other.FATIV),
     FATKey(other.FATKey),
-    ESKey(other.ESKey)
+    ESKey(other.ESKey),
+    Length(other.Length)
 {
     other.CurFile = nullptr;
 }
@@ -131,12 +132,16 @@ NANDImage& NANDImage::operator=(NANDImage&& other) noexcept
 {
     if (this != &other)
     {
+        if (CurFile)
+            CloseFile(CurFile);
+
         CurFile = other.CurFile;
         eMMC_CID = other.eMMC_CID;
         ConsoleID = other.ConsoleID;
         FATIV = other.FATIV;
         FATKey = other.FATKey;
         ESKey = other.ESKey;
+        Length = other.Length;
 
         other.CurFile = nullptr;
     }
@@ -362,7 +367,7 @@ bool NANDImage::ESEncrypt(u8* data, u32 len) const
     return true;
 }
 
-bool NANDImage::ESDecrypt(u8* data, u32 len)
+bool NANDImage::ESDecrypt(u8* data, u32 len) const
 {
     AES_ctx ctx;
     u8 iv[16];
