@@ -25,9 +25,11 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <cmath>
 
 #include <QPaintEvent>
 #include <QPainter>
+#include <QDebug>
 #ifndef _WIN32
 #ifndef APPLE
 #include <qpa/qplatformnativeinterface.h>
