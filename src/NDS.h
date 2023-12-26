@@ -489,12 +489,12 @@ private:
     FIFO<u32, 16> IPCFIFO9; // FIFO in which the ARM9 writes
     FIFO<u32, 16> IPCFIFO7;
     u16 DivCnt;
-    u32 DivNumerator[2];
-    u32 DivDenominator[2];
-    u32 DivQuotient[2];
-    u32 DivRemainder[2];
+    alignas(u64) u32 DivNumerator[2];
+    alignas(u64) u32 DivDenominator[2];
+    alignas(u64) u32 DivQuotient[2];
+    alignas(u64) u32 DivRemainder[2];
     u16 SqrtCnt;
-    u32 SqrtVal[2];
+    alignas(u64) u32 SqrtVal[2];
     u32 SqrtRes;
     u16 KeyCnt[2];
     bool Running;
