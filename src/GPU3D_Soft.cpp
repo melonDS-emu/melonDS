@@ -1760,7 +1760,6 @@ u16 SoftRenderer::BeginPushScanline(s32 y, s32 pixelstodraw)
 
         // it seems to read in pairs of two every two cycles? looks jittery
         bool jitter = pixelstodraw % 2;
-        // chcckme: + & - might be backwards
         pixelstodraw += jitter;
         start -= jitter;
     }
@@ -1822,7 +1821,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     {
         // check all events to find the earliest scheduled one
         nextevent = 0;
-        for (s32 i = 1; i < RasterEvents_MAX; i++)
+        for (u8 i = 1; i < RasterEvents_MAX; i++)
         {
             if (rasterevents[i] < rasterevents[nextevent])
                 nextevent = i;
@@ -1920,6 +1919,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             }
 
             {
+            // if a scanline push might intersect a read determine the point at which it intersects
             s32 pixelstopush = (scanlinespushed > scanlinesread ? 256 : (rasterevents[ScanlineRead] + (ScanlineReadInc*scanlineswaitingforread)) - rasterevents[PushScanline]);
             leftovers = BeginPushScanline(scanlinespushed, pixelstopush);
             }
