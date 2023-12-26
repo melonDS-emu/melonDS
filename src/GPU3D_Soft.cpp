@@ -1798,11 +1798,11 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     // init all this junk i need to keep track of
     s32 rasterevents[RasterEvents_MAX];
     rasterevents[RenderStart] = 0;
-    rasterevents[RenderFinal] = INT_MAX/2;
-    rasterevents[PushScanline] = INT_MAX/2;
-    rasterevents[PushScanlineP2] = INT_MAX/2;
+    rasterevents[RenderFinal] = FrameLength;
+    rasterevents[PushScanline] = FrameLength;
+    rasterevents[PushScanlineP2] = FrameLength;
     rasterevents[ScanlineRead] = InitGPU2DTimeout;
-    ScanlineTimeout = INT_MAX/2;
+    ScanlineTimeout = FrameLength;
     RasterTiming = 0;
     s32 rastertimingeven = 0;
     s32 rastertimingodd = 0;
@@ -1862,13 +1862,13 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             }
 
             //set next scanline timeout
-            if (ScanlineTimeout == INT_MAX/2) ScanlineTimeout = rasterevents[ScanlineRead] - FinalPassLen;
+            if (ScanlineTimeout == FrameLength) ScanlineTimeout = rasterevents[ScanlineRead] - FinalPassLen;
             else ScanlineTimeout += TimeoutIncrement;
 
             // schedule next scanline pair + the final pass of the latest pair
             rasterevents[RenderFinal] = RasterTiming;
             if (scanlinesinit < 192) rasterevents[RenderStart] = RasterTiming+RastDelay; // scheduled 4 cycles late (presumably due to initial polygon timing shenanigans?)
-            else rasterevents[RenderStart] = INT_MAX/2;
+            else rasterevents[RenderStart] = FrameLength;
             break;
 
 
@@ -1895,7 +1895,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             }
             // unschedule final pass event
             if (scanlinesfin != 191)
-                rasterevents[RenderFinal] = INT_MAX/2;
+                rasterevents[RenderFinal] = FrameLength;
             else // schedule next final pass event to immediately after the current one
                 rasterevents[RenderFinal] += FinalPassLen;
             break;
@@ -1935,7 +1935,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             }
 
             if (scanlineswaitingforpush <= 0)
-                rasterevents[PushScanline] = INT_MAX/2; // unsched event if no scanlines are waiting to be finished
+                rasterevents[PushScanline] = FrameLength; // unsched event if no scanlines are waiting to be finished
 
             break;
 
@@ -1955,7 +1955,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
 
             // reschedule event for one scanline later unless all scanlines have been read
             if (scanlinesread < 192) rasterevents[ScanlineRead] += ScanlineReadInc;
-            else rasterevents[ScanlineRead] = INT_MAX/2;
+            else rasterevents[ScanlineRead] = FrameLength;
             break;
 
 
@@ -1967,7 +1967,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             scanlinespushed2++;
 
             // unschedule event if all partially pushed scanlines have been pushed
-            if (scanlinespushed2 >= scanlinespushed) rasterevents[PushScanlineP2] = INT_MAX/2;
+            if (scanlinespushed2 >= scanlinespushed) rasterevents[PushScanlineP2] = FrameLength;
             break;
         }
     }
