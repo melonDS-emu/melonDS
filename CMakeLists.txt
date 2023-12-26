@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.16)
 
 cmake_policy(VERSION 3.15)
 if (POLICY CMP0076)
