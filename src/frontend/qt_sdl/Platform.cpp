@@ -66,12 +66,25 @@ void IPCInit()
 
     IPCBuffer = new QSharedMemory("melonIPC");
 
+#if !defined(Q_OS_WINDOWS)
+    // QSharedMemory instances can be left over from crashed processes on UNIX platforms.
+    // To prevent melonDS thinking there's another instance, we attach and then immediately detach from the
+    // shared memory. If no other process was actually using it, it'll be destroyed and we'll have a clean
+    // shared memory buffer after creating it again below.
+    if (IPCBuffer->attach())
+    {
+        IPCBuffer->detach();
+        delete IPCBuffer;
+        IPCBuffer = new QSharedMemory("melonIPC");
+    }
+#endif
+
     if (!IPCBuffer->attach())
     {
         Log(LogLevel::Info, "IPC sharedmem doesn't exist. creating\n");
         if (!IPCBuffer->create(1024))
         {
-            Log(LogLevel::Error, "IPC sharedmem create failed :(\n");
+            Log(LogLevel::Error, "IPC sharedmem create failed: %s\n", IPCBuffer->errorString().toStdString().c_str());
             delete IPCBuffer;
             IPCBuffer = nullptr;
             return;
