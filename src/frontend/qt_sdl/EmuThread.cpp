@@ -197,12 +197,11 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
         ndsargs = {};
     }
 
-    if (nextndscart && nextndscart->Type() == NDSCart::Homebrew)
+    if (auto* cartsd = dynamic_cast<NDSCart::CartSD*>(nextndscart.get()))
     {
-        // Load DLDISDCard will return nullopt if the SD card is disabled;
+        // LoadDLDISDCard will return nullopt if the SD card is disabled;
         // SetSDCard will accept nullopt, which means no SD card
-        auto& homebrew = static_cast<NDSCart::CartHomebrew&>(*nextndscart);
-        homebrew.SetSDCard(ROMManager::LoadDLDISDCard());
+        cartsd->SetSDCard(ROMManager::LoadDLDISDCard());
     }
 
     std::unique_ptr<GBACart::CartCommon> nextgbacart;
