@@ -6,7 +6,7 @@ set(VCPKG_ROOT "${_DEFAULT_VCPKG_ROOT}" CACHE STRING "The path to the vcpkg repo
 if (VCPKG_ROOT STREQUAL "${_DEFAULT_VCPKG_ROOT}")
     FetchContent_Declare(vcpkg
         GIT_REPOSITORY "https://github.com/Microsoft/vcpkg.git"
-        GIT_TAG 2023.10.19
+        GIT_TAG 2023.12.12
         SOURCE_DIR "${CMAKE_SOURCE_DIR}/vcpkg")
     FetchContent_MakeAvailable(vcpkg)
 endif()
