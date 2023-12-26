@@ -72,7 +72,7 @@ FATStorage& FATStorage::operator=(FATStorage&& other) noexcept
     {
         if (File)
         { // Sync this file's contents to the host (if applicable) before closing it
-            Save();
+            if (!ReadOnly) Save();
             CloseFile(File);
         }
 
