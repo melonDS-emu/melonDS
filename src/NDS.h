@@ -259,8 +259,8 @@ public: // TODO: Encapsulate the rest of these members
     u16 PowerControl9;
 
     u16 ExMemCnt[2];
-    u8 ROMSeed0[2*8];
-    u8 ROMSeed1[2*8];
+    alignas(u32) u8 ROMSeed0[2*8];
+    alignas(u32) u8 ROMSeed1[2*8];
 
 protected:
     // These BIOS arrays should be declared *before* the component objects (JIT, SPI, etc.)
