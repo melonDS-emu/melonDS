@@ -32,10 +32,7 @@ using namespace Platform;
 using std::string;
 
 FATStorage::FATStorage(const std::string& filename, u64 size, bool readonly, const std::optional<string>& sourcedir) :
-    FilePath(filename),
-    FileSize(size),
-    ReadOnly(readonly),
-    SourceDir(sourcedir)
+    FATStorage(FATStorageArgs { filename, size, readonly, sourcedir })
 {
     Load(filename, size, sourcedir);
 
@@ -55,7 +52,7 @@ FATStorage::FATStorage(FATStorageArgs&& args) noexcept :
 {
     Load(FilePath, FileSize, SourceDir);
 
-    File = nullptr;
+    File = Platform::OpenLocalFile(FilePath, FileMode::ReadWriteExisting);
 }
 
 FATStorage::FATStorage(FATStorage&& other) noexcept

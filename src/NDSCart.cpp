@@ -1657,9 +1657,15 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
     std::unique_ptr<u8[]> sram = args ? std::move(args->SRAM) : nullptr;
     u32 sramlen = args ? args->SRAMLength : 0;
     if (homebrew)
-        cart = std::make_unique<CartHomebrew>(std::move(cartrom), cartromsize, cartid, romparams, args ? std::move(args->SDCard) : std::nullopt);
+    {
+        std::optional<FATStorage> sdcard = args && args->SDCard ? std::make_optional<FATStorage>(std::move(*args->SDCard)) : std::nullopt;
+        cart = std::make_unique<CartHomebrew>(std::move(cartrom), cartromsize, cartid, romparams, std::move(sdcard));
+    }
     else if (gametitle[0] == 0 && !strncmp("SD/TF-NDS", gametitle + 1, 9) && gamecode == 0x414D5341)
-        cart = std::make_unique<CartR4>(std::move(cartrom), cartromsize, cartid, romparams, CartR4TypeR4, CartR4LanguageEnglish, args ? std::move(args->SDCard) : std::nullopt);
+    {
+        std::optional<FATStorage> sdcard = args && args->SDCard ? std::make_optional<FATStorage>(std::move(*args->SDCard)) : std::nullopt;
+        cart = std::make_unique<CartR4>(std::move(cartrom), cartromsize, cartid, romparams, CartR4TypeR4, CartR4LanguageEnglish, std::move(sdcard));
+    }
     else if (cartid & 0x08000000)
         cart = std::make_unique<CartRetailNAND>(std::move(cartrom), cartromsize, cartid, romparams, std::move(sram), sramlen);
     else if (irversion != 0)
