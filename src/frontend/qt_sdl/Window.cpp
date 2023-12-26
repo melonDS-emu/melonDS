@@ -89,7 +89,6 @@ using namespace melonDS;
 extern MainWindow* mainWindow;
 extern EmuThread* emuThread;
 extern bool RunningSomething;
-extern int autoScreenSizing;
 extern QString NdsRomMimeType;
 extern QStringList NdsRomExtensions;
 extern QString GbaRomMimeType;

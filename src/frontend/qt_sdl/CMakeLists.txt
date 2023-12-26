@@ -7,6 +7,7 @@ set(SOURCES_QT_SDL
     main_shaders.h
     Screen.cpp
     Window.cpp
+    EmuThread.cpp
     CheatsDialog.cpp
     Config.cpp
     DateTimeDialog.cpp
