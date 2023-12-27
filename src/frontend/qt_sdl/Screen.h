@@ -19,6 +19,8 @@
 #ifndef SCREEN_H
 #define SCREEN_H
 
+#include <optional>
+
 #include "glad/glad.h"
 #include "FrontendUtil.h"
 #include "duckstation/gl/context.h"
