@@ -39,7 +39,6 @@
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 #include "LocalMP.h"
-#include "OSD.h"
 #include "SPI_Firmware.h"
 
 #ifdef __WIN32__
@@ -52,6 +51,10 @@ std::string EmuDirectory;
 extern CameraManager* camManager[2];
 
 void emuStop();
+
+// TEMP
+//#include "main.h"
+//extern MainWindow* mainWindow;
 
 
 namespace melonDS::Platform
@@ -177,14 +180,14 @@ void SignalStop(StopReason reason)
     {
         case StopReason::GBAModeNotSupported:
             Log(LogLevel::Error, "!! GBA MODE NOT SUPPORTED\n");
-            OSD::AddMessage(0xFFA0A0, "GBA mode not supported.");
+            //mainWindow->osdAddMessage(0xFFA0A0, "GBA mode not supported.");
             break;
         case StopReason::BadExceptionRegion:
-            OSD::AddMessage(0xFFA0A0, "Internal error.");
+            //mainWindow->osdAddMessage(0xFFA0A0, "Internal error.");
             break;
         case StopReason::PowerOff:
         case StopReason::External:
-            OSD::AddMessage(0xFFC040, "Shutdown");
+            //mainWindow->osdAddMessage(0xFFC040, "Shutdown");
         default:
             break;
     }
