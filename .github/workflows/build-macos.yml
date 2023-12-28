@@ -27,7 +27,7 @@ jobs:
           configurePreset: release-mac-${{ matrix.arch }}
           buildPreset: release-mac-${{ matrix.arch }}
       - name: Upload artifact
-        uses: upload-artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: macOS-${{ matrix.arch }}
           path: build/release-mac-${{ matrix.arch }}/melonDS.app
@@ -38,11 +38,11 @@ jobs:
     runs-on: macos-13
     steps:
       - name: Download x86_64
-        uses: download-artifact@v4
+        uses: actions/download-artifact@v4
         with:
           name: macOS-x86_64
       - name: Download arm64
-        uses: download-artifact@v4
+        uses: actions/download-artifact@v4
         with:
           name: macOS-arm64
       - run: find . -type d
