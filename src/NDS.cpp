@@ -1497,40 +1497,40 @@ void NDS::NocashPrint(u32 ncpu, u32 addr)
 
             if (cmd[0] == 'r')
             {
-                if      (!strcmp(cmd, "r0")) sprintf(subs, "%08X", cpu->R[0]);
-                else if (!strcmp(cmd, "r1")) sprintf(subs, "%08X", cpu->R[1]);
-                else if (!strcmp(cmd, "r2")) sprintf(subs, "%08X", cpu->R[2]);
-                else if (!strcmp(cmd, "r3")) sprintf(subs, "%08X", cpu->R[3]);
-                else if (!strcmp(cmd, "r4")) sprintf(subs, "%08X", cpu->R[4]);
-                else if (!strcmp(cmd, "r5")) sprintf(subs, "%08X", cpu->R[5]);
-                else if (!strcmp(cmd, "r6")) sprintf(subs, "%08X", cpu->R[6]);
-                else if (!strcmp(cmd, "r7")) sprintf(subs, "%08X", cpu->R[7]);
-                else if (!strcmp(cmd, "r8")) sprintf(subs, "%08X", cpu->R[8]);
-                else if (!strcmp(cmd, "r9")) sprintf(subs, "%08X", cpu->R[9]);
-                else if (!strcmp(cmd, "r10")) sprintf(subs, "%08X", cpu->R[10]);
-                else if (!strcmp(cmd, "r11")) sprintf(subs, "%08X", cpu->R[11]);
-                else if (!strcmp(cmd, "r12")) sprintf(subs, "%08X", cpu->R[12]);
-                else if (!strcmp(cmd, "r13")) sprintf(subs, "%08X", cpu->R[13]);
-                else if (!strcmp(cmd, "r14")) sprintf(subs, "%08X", cpu->R[14]);
-                else if (!strcmp(cmd, "r15")) sprintf(subs, "%08X", cpu->R[15]);
+                if      (!strcmp(cmd, "r0")) snprintf(subs, sizeof(subs), "%08X", cpu->R[0]);
+                else if (!strcmp(cmd, "r1")) snprintf(subs, sizeof(subs), "%08X", cpu->R[1]);
+                else if (!strcmp(cmd, "r2")) snprintf(subs, sizeof(subs), "%08X", cpu->R[2]);
+                else if (!strcmp(cmd, "r3")) snprintf(subs, sizeof(subs), "%08X", cpu->R[3]);
+                else if (!strcmp(cmd, "r4")) snprintf(subs, sizeof(subs), "%08X", cpu->R[4]);
+                else if (!strcmp(cmd, "r5")) snprintf(subs, sizeof(subs), "%08X", cpu->R[5]);
+                else if (!strcmp(cmd, "r6")) snprintf(subs, sizeof(subs), "%08X", cpu->R[6]);
+                else if (!strcmp(cmd, "r7")) snprintf(subs, sizeof(subs), "%08X", cpu->R[7]);
+                else if (!strcmp(cmd, "r8")) snprintf(subs, sizeof(subs), "%08X", cpu->R[8]);
+                else if (!strcmp(cmd, "r9")) snprintf(subs, sizeof(subs), "%08X", cpu->R[9]);
+                else if (!strcmp(cmd, "r10")) snprintf(subs, sizeof(subs), "%08X", cpu->R[10]);
+                else if (!strcmp(cmd, "r11")) snprintf(subs, sizeof(subs), "%08X", cpu->R[11]);
+                else if (!strcmp(cmd, "r12")) snprintf(subs, sizeof(subs), "%08X", cpu->R[12]);
+                else if (!strcmp(cmd, "r13")) snprintf(subs, sizeof(subs), "%08X", cpu->R[13]);
+                else if (!strcmp(cmd, "r14")) snprintf(subs, sizeof(subs), "%08X", cpu->R[14]);
+                else if (!strcmp(cmd, "r15")) snprintf(subs, sizeof(subs), "%08X", cpu->R[15]);
             }
             else
             {
-                if      (!strcmp(cmd, "sp")) sprintf(subs, "%08X", cpu->R[13]);
-                else if (!strcmp(cmd, "lr")) sprintf(subs, "%08X", cpu->R[14]);
-                else if (!strcmp(cmd, "pc")) sprintf(subs, "%08X", cpu->R[15]);
-                else if (!strcmp(cmd, "frame")) sprintf(subs, "%u", NumFrames);
-                else if (!strcmp(cmd, "scanline")) sprintf(subs, "%u", GPU.VCount);
-                else if (!strcmp(cmd, "totalclks")) sprintf(subs, "%" PRIu64, GetSysClockCycles(0));
-                else if (!strcmp(cmd, "lastclks")) sprintf(subs, "%" PRIu64, GetSysClockCycles(1));
+                if      (!strcmp(cmd, "sp")) snprintf(subs, sizeof(subs), "%08X", cpu->R[13]);
+                else if (!strcmp(cmd, "lr")) snprintf(subs, sizeof(subs), "%08X", cpu->R[14]);
+                else if (!strcmp(cmd, "pc")) snprintf(subs, sizeof(subs), "%08X", cpu->R[15]);
+                else if (!strcmp(cmd, "frame")) snprintf(subs, sizeof(subs), "%u", NumFrames);
+                else if (!strcmp(cmd, "scanline")) snprintf(subs, sizeof(subs), "%u", GPU.VCount);
+                else if (!strcmp(cmd, "totalclks")) snprintf(subs, sizeof(subs), "%" PRIu64, GetSysClockCycles(0));
+                else if (!strcmp(cmd, "lastclks")) snprintf(subs, sizeof(subs), "%" PRIu64, GetSysClockCycles(1));
                 else if (!strcmp(cmd, "zeroclks"))
                 {
-                    sprintf(subs, "%s", "");
+                    snprintf(subs, sizeof(subs), "%s", "");
                     GetSysClockCycles(1);
                 }
             }
 
-            int slen = strlen(subs);
+            int slen = strnlen(subs, sizeof(subs));
             if ((ptr+slen) > 1023) slen = 1023-ptr;
             strncpy(&output[ptr], subs, slen);
             ptr += slen;

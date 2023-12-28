@@ -128,6 +128,15 @@ add_subdirectory(teakra EXCLUDE_FROM_ALL)
 target_compile_options(teakra PRIVATE "$<$<CONFIG:DEBUG>:-Og>")
 target_link_libraries(core PRIVATE teakra)
 
+if (NOT MSVC)
+    # MSVC has its own compiler flag syntax; if we ever support it,
+    # be sure to silence any equivalent warnings there.
+
+    target_compile_options(core PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:-Wno-invalid-offsetof>")
+    # These warnings are excessive, and are only triggered in the ARMJIT code
+    # (which is fundamentally non-portable, so this is fine)
+endif()
+
 find_library(m MATH_LIBRARY)
 
 if (MATH_LIBRARY)

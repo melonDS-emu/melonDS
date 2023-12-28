@@ -31,7 +31,7 @@ namespace melonDS
 bool GLRenderer::BuildRenderShader(u32 flags, const char* vs, const char* fs)
 {
     char shadername[32];
-    sprintf(shadername, "RenderShader%02X", flags);
+    snprintf(shadername, sizeof(shadername), "RenderShader%02X", flags);
 
     int headerlen = strlen(kShaderHeader);
 
