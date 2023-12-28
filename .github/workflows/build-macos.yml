@@ -1,4 +1,4 @@
-name: build-macos
+name: macOS
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
       matrix:
         arch: [x86_64, arm64]
 
-    name: macOS ${{ matrix.arch }}
+    name: ${{ matrix.arch }}
     runs-on: macos-13
     steps:
       - name: Check out sources
@@ -45,7 +45,7 @@ jobs:
           path: macOS-${{ matrix.arch }}.zip
 
   universal-binary:
-    name: macOS universal binary
+    name: Universal binary
     needs: [build-macos]
     runs-on: macos-13
     steps:
