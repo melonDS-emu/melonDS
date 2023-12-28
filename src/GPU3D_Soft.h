@@ -44,7 +44,6 @@ public:
     void SetupRenderThread(GPU& gpu);
     void EnableRenderThread();
     void StopRenderThread();
-    bool IsThreaded() const noexcept { return Threaded; }
 private:
     friend void GPU3D::DoSavestate(Savestate* file);
     // Notes on the interpolator:
