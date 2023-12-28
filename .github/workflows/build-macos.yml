@@ -2,22 +2,22 @@ name: build-macos
 on: [push, workflow_dispatch]
 
 jobs:
-  build-macos-x86_64:
-    name: macOS x86_64
+  build-macos:
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
+
+    name: macOS ${{ matrix.arch }}
     runs-on: macos-13
     steps:
       - uses: actions/checkout@v3
       - run: |
-          brew install autoconf automake autoconf-archive glib libtool && pip3 install setuptools
+          brew install autoconf automake autoconf-archive libtool && pip3 install setuptools
       - uses: lukka/get-cmake@latest
       - uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: c8696863d371ab7f46e213d8f5ca923c4aef2a00
       - uses: lukka/run-cmake@v10
         with:
-          configurePreset: release-mac-x86_64
-          buildPreset: release-mac-x86_64
-      - if: always()
-        run: |
-          cat /Users/runner/work/melonDS/melonDS/vcpkg/buildtrees/glib/config-x64-osx-1015-release-rel-meson-log.txt.log
-          cat /Users/runner/work/melonDS/melonDS/vcpkg/buildtrees/glib/config-x64-osx-1015-release-rel-out.log
+          configurePreset: release-mac-${{ matrix.arch }}
+          buildPreset: release-mac-${{ matrix.arch }}
