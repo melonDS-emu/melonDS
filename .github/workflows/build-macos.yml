@@ -17,3 +17,7 @@ jobs:
         with:
           configurePreset: release-mac-x86_64
           buildPreset: release-mac-x86_64
+      - if: always()
+        run: |
+          cat /Users/runner/work/melonDS/melonDS/vcpkg/buildtrees/glib/config-x64-osx-1015-release-rel-meson-log.txt.log
+          cat /Users/runner/work/melonDS/melonDS/vcpkg/buildtrees/glib/config-x64-osx-1015-release-rel-out.log
