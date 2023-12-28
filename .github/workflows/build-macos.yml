@@ -9,6 +9,8 @@ jobs:
       - uses: actions/checkout@v3
       - uses: lukka/get-cmake@latest
       - uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 2023.12.12
       - uses: lukka/run-cmake@v10
         with:
           configurePreset: release-mac-x86_64
