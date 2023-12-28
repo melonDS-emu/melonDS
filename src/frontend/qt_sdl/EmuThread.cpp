@@ -36,7 +36,6 @@
 #include "version.h"
 
 #include "FrontendUtil.h"
-#include "OSD.h"
 
 #include "Args.h"
 #include "NDS.h"
@@ -80,7 +79,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     EmuPauseStack = EmuPauseStackRunning;
     RunningSomething = false;
 
-    connect(this, SIGNAL(windowUpdate()), mainWindow->panelWidget, SLOT(repaint()));
+    connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(repaint()));
     connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), mainWindow, SLOT(onEmuStart()));
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
@@ -88,7 +87,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuFrameStep()), mainWindow->actFrameStep, SLOT(trigger()));
     connect(this, SIGNAL(windowLimitFPSChange()), mainWindow->actLimitFramerate, SLOT(trigger()));
-    connect(this, SIGNAL(screenLayoutChange()), mainWindow->panelWidget, SLOT(onScreenLayoutChanged()));
+    connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
     connect(this, SIGNAL(screenEmphasisToggle()), mainWindow, SLOT(onScreenEmphasisToggled()));
@@ -385,9 +384,7 @@ void EmuThread::run()
                 int level = NDS->GBACartSlot.SetInput(GBACart::Input_SolarSensorDown, true);
                 if (level != -1)
                 {
-                    char msg[64];
-                    sprintf(msg, "Solar sensor level: %d", level);
-                    OSD::AddMessage(0, msg);
+                    mainWindow->osdAddMessage(0, "Solar sensor level: %d", level);
                 }
             }
             if (Input::HotkeyPressed(HK_SolarSensorIncrease))
@@ -395,9 +392,7 @@ void EmuThread::run()
                 int level = NDS->GBACartSlot.SetInput(GBACart::Input_SolarSensorUp, true);
                 if (level != -1)
                 {
-                    char msg[64];
-                    sprintf(msg, "Solar sensor level: %d", level);
-                    OSD::AddMessage(0, msg);
+                    mainWindow->osdAddMessage(0, "Solar sensor level: %d", level);
                 }
             }
 
@@ -479,7 +474,7 @@ void EmuThread::run()
             {
                 bool lid = !NDS->IsLidClosed();
                 NDS->SetLidClosed(lid);
-                OSD::AddMessage(0, lid ? "Lid closed" : "Lid opened");
+                mainWindow->osdAddMessage(0, lid ? "Lid closed" : "Lid opened");
             }
 
             // microphone input

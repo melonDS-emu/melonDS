@@ -81,8 +81,6 @@
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
 
-#include "OSD.h"
-
 using namespace melonDS;
 
 // TEMP
@@ -689,13 +687,13 @@ void MainWindow::osdAddMessage(unsigned int color, const char* fmt, ...)
     if (fmt == nullptr)
         return;
 
-    char msg[1024];
+    char msg[256];
     va_list args;
     va_start(args, fmt);
-    vsnprintf(msg, 1024, fmt, args);
+    vsnprintf(msg, 256, fmt, args);
     va_end(args);
 
-    OSD::AddMessage(color, msg);
+    panel->osdAddMessage(color, msg);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
@@ -720,7 +718,6 @@ void MainWindow::createScreenPanel()
         panelGL->show();
 
         panel = panelGL;
-        panelWidget = panelGL;
 
         panelGL->createContext();
     }
@@ -729,14 +726,14 @@ void MainWindow::createScreenPanel()
     {
         ScreenPanelNative* panelNative = new ScreenPanelNative(this);
         panel = panelNative;
-        panelWidget = panelNative;
-        panelWidget->show();
+        panel->show();
     }
-    setCentralWidget(panelWidget);
+    setCentralWidget(panel);
 
     actScreenFiltering->setEnabled(hasOGL);
+    panel->osdSetEnabled(Config::ShowOSD);
 
-    connect(this, SIGNAL(screenLayoutChange()), panelWidget, SLOT(onScreenLayoutChanged()));
+    connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));
     emit screenLayoutChange();
 }
 
@@ -1866,7 +1863,7 @@ void MainWindow::onChangeSavestateSRAMReloc(bool checked)
 void MainWindow::onChangeScreenSize()
 {
     int factor = ((QAction*)sender())->data().toInt();
-    QSize diff = size() - panelWidget->size();
+    QSize diff = size() - panel->size();
     resize(panel->screenGetMinSize(factor) + diff);
 }
 
@@ -1959,7 +1956,9 @@ void MainWindow::onChangeScreenFiltering(bool checked)
 void MainWindow::onChangeShowOSD(bool checked)
 {
     Config::ShowOSD = checked?1:0;
+    panel->osdSetEnabled(Config::ShowOSD);
 }
+
 void MainWindow::onChangeLimitFramerate(bool checked)
 {
     Config::LimitFPS = checked?1:0;
@@ -2065,7 +2064,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
 
         delete panel;
         createScreenPanel();
-        connect(emuThread, SIGNAL(windowUpdate()), panelWidget, SLOT(repaint()));
+        connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
     }
 
     videoSettingsDirty = true;

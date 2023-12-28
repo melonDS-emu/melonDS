@@ -32,7 +32,6 @@ set(SOURCES_QT_SDL
     LAN_PCap.cpp
     LAN_Socket.cpp
     LocalMP.cpp
-    OSD.cpp
     OSD_shaders.h
     font.h
     Platform.cpp
