@@ -8,8 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: |
-          brew install autoconf automake autoconf-archive glib libtool
-          pip3 install distutils
+          brew install autoconf automake autoconf-archive glib libtool && pip3 install distutils
       - uses: lukka/get-cmake@latest
       - uses: lukka/run-vcpkg@v11
         with:
