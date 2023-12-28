@@ -26,11 +26,13 @@ jobs:
         with:
           configurePreset: release-mac-${{ matrix.arch }}
           buildPreset: release-mac-${{ matrix.arch }}
+      - name: Compress app bundle
+        run: zip -r -y macOS-${{ matrix.arch }}.zip build/release-mac-${{ matrix.arch }}/melonDS.app
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macOS-${{ matrix.arch }}
-          path: build/release-mac-${{ matrix.arch }}/melonDS.app
+          path: macOS-${{ matrix.arch }}.zip
 
   universal-binary:
     name: macOS universal binary
@@ -41,8 +43,23 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: macOS-x86_64
+          path: x86_64
       - name: Download arm64
         uses: actions/download-artifact@v4
         with:
           name: macOS-arm64
+          path: arm64
       - run: find . -type d
+      - name: Combine app bundles
+        shell: zsh
+        run: |
+          lipo {x86_64,arm64}/melonDS.app/Contents/MacOS/melonDS -create -output melonDS
+          cp -a arm64/melonDS.app melonDS.app
+          cp melonDS melonDS.app/Contents/MacOS/melonDS
+          codesign -s - --deep melonDS.app
+          zip -r -y macOS-universal.zip melonDS.app
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macOS-universal
+          path: macOS-universal.zip
