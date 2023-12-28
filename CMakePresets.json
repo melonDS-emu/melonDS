@@ -1,0 +1,88 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "release",
+      "displayName": "Release",
+      "description": "Default release build configuration.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/release"
+    },
+    {
+      "inherits": "release",
+      "name": "release-vcpkg",
+      "displayName": "Release (vcpkg)",
+      "description": "Release build with packages from vcpkg.",
+      "cacheVariables": {
+        "USE_VCPKG": {
+          "type": "BOOL",
+          "value": "ON"
+        }
+      }
+    },
+    {
+      "name": "release-mac-x86_64",
+      "inherits": "release-vcpkg",
+      "displayName": "macOS release (x86_64)",
+      "binaryDir": "${sourceDir}/build/release-mac-x86_64",
+      "cacheVariables": { "CMAKE_OSX_ARCHITECTURES": "x86_64" }
+    },
+    {
+      "name": "release-mac-arm64",
+      "inherits": "release-vcpkg",
+      "displayName": "macOS release (arm64)",
+      "binaryDir": "${sourceDir}/build/release-mac-arm64",
+      "cacheVariables": { "CMAKE_OSX_ARCHITECTURES": "arm64" }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "release-vcpkg",
+      "configurePreset": "release-vcpkg"
+    },
+    {
+      "name": "release-mac-x86_64",
+      "configurePreset": "release-mac-x86_64"
+    },
+    {
+      "name": "release-mac-arm64",
+      "configurePreset": "release-mac-arm64"
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "release",
+      "displayName": "Release",
+      "steps": [
+        { "type": "configure", "name": "release" },
+        { "type": "build", "name": "release" }
+      ]
+    },
+    {
+      "name": "release-vcpkg",
+      "displayName": "Release (vcpkg)",
+      "steps": [
+        { "type": "configure", "name": "release-vcpkg" },
+        { "type": "build", "name": "release-vcpkg" }
+      ]
+    },
+    {
+      "name": "release-mac-x86_64",
+      "steps": [
+        { "type": "configure", "name": "release-mac-x86_64" },
+        { "type": "build", "name": "release-mac-x86_64" }
+      ]
+    },
+    {
+      "name": "release-mac-arm64",
+      "steps": [
+        { "type": "configure", "name": "release-mac-arm64" },
+        { "type": "build", "name": "release-mac-arm64" }
+      ]
+    }
+  ]
+}
