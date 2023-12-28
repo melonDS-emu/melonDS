@@ -230,6 +230,8 @@ void DSi_NWifi::Reset()
     BeaconTimer = 0x10A2220ULL;
     ConnectionStatus = 0;
 
+    SendBSSInfo = true;
+
     DSi.CancelEvent(Event_DSi_NWifi);
 }
 
@@ -1004,7 +1006,7 @@ void DSi_NWifi::WMI_Command()
                 }
 
                 // checkme
-                ScanTimer = scantime*5;
+                ScanTimer = scantime*8;
             }
             break;
 
@@ -1039,6 +1041,7 @@ void DSi_NWifi::WMI_Command()
 
                 // TODO: store it somewhere
                 Log(LogLevel::Debug, "WMI: set probed SSID: id=%d, flags=%02X, len=%d, SSID=%s\n", id, flags, len, ssid);
+                SendBSSInfo = flags == 0 || strcmp(ssid, WifiAP::APName) == 0;
             }
             break;
 
@@ -1408,6 +1411,11 @@ void DSi_NWifi::SendWMIAck(u8 ep)
 
 void DSi_NWifi::SendWMIBSSInfo(u8 type, u8* data, u32 len)
 {
+    if (!SendBSSInfo) {
+        Log(LogLevel::Info, "NWifi: melonAP filtered, not sending WMI BSSINFO event\n");
+        return;
+    }
+
     if (!Mailbox[8].CanFit(6+len+2+16))
     {
         Log(LogLevel::Error, "NWifi: !! not enough space in RX buffer for WMI BSSINFO event\n");
