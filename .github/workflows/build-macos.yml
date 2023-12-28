@@ -1,0 +1,15 @@
+name: build-macos
+on: [push, workflow_dispatch]
+
+jobs:
+  build-macos-x86_64:
+    name: macOS x86_64
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v3
+      - uses: lukka/get-cmake@latest
+      - uses: lukka/run-vcpkg@v11
+      - uses: lukka/run-cmake@v10
+        with:
+          configurePreset: release-mac-x86_64
+          buildPreset: release-mac-x86_64
