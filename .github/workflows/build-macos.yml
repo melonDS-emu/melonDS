@@ -10,14 +10,39 @@ jobs:
     name: macOS ${{ matrix.arch }}
     runs-on: macos-13
     steps:
-      - uses: actions/checkout@v3
-      - run: |
+      - name: Check out sources
+        uses: actions/checkout@v3
+      - name: Install dependencies for package building
+        run: |
           brew install autoconf automake autoconf-archive libtool && pip3 install setuptools
-      - uses: lukka/get-cmake@latest
-      - uses: lukka/run-vcpkg@v11
+      - name: Set up CMake
+        uses: lukka/get-cmake@latest
+      - name: Set up vcpkg
+        uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: c8696863d371ab7f46e213d8f5ca923c4aef2a00
-      - uses: lukka/run-cmake@v10
+      - name: Build
+        uses: lukka/run-cmake@v10
         with:
           configurePreset: release-mac-${{ matrix.arch }}
           buildPreset: release-mac-${{ matrix.arch }}
+      - name: Upload artifact
+        uses: upload-artifact@v4
+        with:
+          name: macOS-${{ matrix.arch }}
+          path: build/release-mac-${{ matrix.arch }}/melonDS.app
+
+  universal-binary:
+    name: macOS universal binary
+    needs: [build-macos]
+    runs-on: macos-13
+    steps:
+      - name: Download x86_64
+        uses: download-artifact@v4
+        with:
+          name: macOS-x86_64
+      - name: Download arm64
+        uses: download-artifact@v4
+        with:
+          name: macOS-arm64
+      - run: find . -type d
