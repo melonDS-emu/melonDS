@@ -10,7 +10,7 @@ jobs:
       - uses: lukka/get-cmake@latest
       - uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: 2023.12.12
+          vcpkgGitCommitId: c8696863d371ab7f46e213d8f5ca923c4aef2a00
       - uses: lukka/run-cmake@v10
         with:
           configurePreset: release-mac-x86_64
