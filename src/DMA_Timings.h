@@ -22,7 +22,7 @@
 #include <array>
 #include "types.h"
 
-namespace DMATiming
+namespace melonDS::DMATiming
 {
 
 // DMA timing tables

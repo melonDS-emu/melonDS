@@ -38,6 +38,7 @@ add_library(core STATIC
     melonDLDI.h
     NDS.cpp
     NDSCart.cpp
+    NDSCartR4.cpp
     Platform.h
     ROMList.h
     ROMList.cpp
@@ -49,6 +50,8 @@ add_library(core STATIC
     SPI_Firmware.cpp
     SPU.cpp
     types.h
+    Utils.cpp
+    Utils.h
     version.h
     Wifi.cpp
     WifiAP.cpp

@@ -21,30 +21,23 @@
 
 #include "ARCodeFile.h"
 
+namespace melonDS
+{
+class NDS;
 class AREngine
 {
 public:
-    AREngine();
-    ~AREngine();
-    void Reset();
+    AREngine(melonDS::NDS& nds);
 
     ARCodeFile* GetCodeFile() { return CodeFile; }
     void SetCodeFile(ARCodeFile* file) { CodeFile = file; }
 
     void RunCheats();
-
+    void RunCheat(const ARCode& arcode);
 private:
+    melonDS::NDS& NDS;
     ARCodeFile* CodeFile; // AR code file - frontend is responsible for managing this
-
-    // TEMPORARY
-    u8 (*BusRead8)(u32 addr);
-    u16 (*BusRead16)(u32 addr);
-    u32 (*BusRead32)(u32 addr);
-    void (*BusWrite8)(u32 addr, u8 val);
-    void (*BusWrite16)(u32 addr, u16 val);
-    void (*BusWrite32)(u32 addr, u32 val);
-
-    void RunCheat(ARCode& arcode);
 };
 
+}
 #endif // ARENGINE_H

@@ -21,7 +21,8 @@
 
 #define kShaderHeader "#version 140"
 
-
+namespace melonDS
+{
 const char* kClearVS = kShaderHeader R"(
 
 in vec2 vPosition;
@@ -802,5 +803,5 @@ void main()
     gl_FragDepth = fZ;
 }
 )";
-
+}
 #endif // GPU3D_OPENGL_SHADERS_H

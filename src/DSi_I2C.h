@@ -22,13 +22,15 @@
 #include "types.h"
 #include "Savestate.h"
 
+namespace melonDS
+{
 class DSi_I2CHost;
 class DSi_Camera;
-
+class DSi;
 class DSi_I2CDevice
 {
 public:
-    DSi_I2CDevice(DSi_I2CHost* host) : Host(host) {}
+    DSi_I2CDevice(melonDS::DSi& dsi, DSi_I2CHost* host) : DSi(dsi), Host(host) {}
     virtual ~DSi_I2CDevice() {}
     virtual void Reset() = 0;
     virtual void DoSavestate(Savestate* file) = 0;
@@ -38,6 +40,7 @@ public:
     virtual void Write(u8 val, bool last) = 0;
 
 protected:
+    melonDS::DSi& DSi;
     DSi_I2CHost* Host;
 };
 
@@ -78,25 +81,25 @@ public:
         IRQ_ValidMask           = 0x7B,
     };
 
-    DSi_BPTWL(DSi_I2CHost* host);
+    DSi_BPTWL(melonDS::DSi& dsi, DSi_I2CHost* host);
     ~DSi_BPTWL() override;
     void Reset() override;
     void DoSavestate(Savestate* file) override;
 
-    u8 GetBootFlag();
+    u8 GetBootFlag() const;
 
-    bool GetBatteryCharging();
+    bool GetBatteryCharging() const;
     void SetBatteryCharging(bool charging);
 
-    u8 GetBatteryLevel();
+    u8 GetBatteryLevel() const;
     void SetBatteryLevel(u8 batteryLevel);
 
     // 0-31
-    u8 GetVolumeLevel();
+    u8 GetVolumeLevel() const;
     void SetVolumeLevel(u8 volume);
 
     // 0-4
-    u8 GetBacklightLevel();
+    u8 GetBacklightLevel() const;
     void SetBacklightLevel(u8 backlight);
 
     void DoHardwareReset(bool direct);
@@ -141,17 +144,17 @@ private:
     u8 Registers[0x100];
     u32 CurPos;
 
-    bool GetIRQMode();
+    bool GetIRQMode() const;
 
     void ResetButtonState();
-    bool CheckVolumeSwitchKeysValid();
+    bool CheckVolumeSwitchKeysValid() const;
 };
 
 
 class DSi_I2CHost
 {
 public:
-    DSi_I2CHost();
+    DSi_I2CHost(melonDS::DSi& dsi);
     ~DSi_I2CHost();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -167,6 +170,7 @@ public:
     void WriteData(u8 val);
 
 private:
+    melonDS::DSi& DSi;
     u8 Cnt;
     u8 Data;
 
@@ -180,4 +184,5 @@ private:
     void GetCurDevice();
 };
 
+}
 #endif // DSI_I2C_H

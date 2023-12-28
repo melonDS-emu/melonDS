@@ -37,6 +37,7 @@
 	#include <time.h>
 #endif
 
+using namespace melonDS;
 
 namespace LAN_Socket
 {

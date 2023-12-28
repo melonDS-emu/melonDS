@@ -21,6 +21,8 @@
 #include "ARCodeFile.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using namespace Platform;
 
 // TODO: import codes from other sources (usrcheat.dat, ...)
@@ -181,4 +183,6 @@ bool ARCodeFile::Save()
 
     CloseFile(f);
     return true;
+}
+
 }

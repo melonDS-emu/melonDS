@@ -23,6 +23,8 @@
 #include "DSi_AES.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -34,7 +36,7 @@ using Platform::LogLevel;
 #define _printhex2R(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[((size)-1)-z]); }
 
 
-DSi_AES::DSi_AES()
+DSi_AES::DSi_AES(melonDS::DSi& dsi) : DSi(dsi)
 {
     const u8 zero[16] = {0};
     AES_init_ctx_iv(&Ctx, zero, zero);
@@ -76,7 +78,7 @@ void DSi_AES::Reset()
     OutputMACDue = false;
 
     // initialize keys
-    u64 consoleid = DSi::NANDImage->GetConsoleID();
+    u64 consoleid = DSi.SDMMC.GetNAND()->GetConsoleID();
 
     // slot 0: modcrypt
     *(u32*)&KeyX[0][0] = 0x746E694E;
@@ -233,7 +235,7 @@ void DSi_AES::ProcessBlock_CTR()
 }
 
 
-u32 DSi_AES::ReadCnt()
+u32 DSi_AES::ReadCnt() const
 {
     u32 ret = Cnt;
 
@@ -311,7 +313,7 @@ void DSi_AES::WriteCnt(u32 val)
                 AES_init_ctx_iv(&Ctx, key, iv);
             }
 
-            DSi::CheckNDMAs(1, 0x2A);
+            DSi.CheckNDMAs(1, 0x2A);
         }
         else
         {
@@ -345,9 +347,9 @@ u32 DSi_AES::ReadOutputFIFO()
     else
     {
         if (OutputFIFO.Level() > 0)
-            DSi::CheckNDMAs(1, 0x2B);
+            DSi.CheckNDMAs(1, 0x2B);
         else
-            DSi::StopNDMAs(1, 0x2B);
+            DSi.StopNDMAs(1, 0x2B);
 
         if (OutputMACDue && OutputFIFO.Level() <= 12)
         {
@@ -382,7 +384,7 @@ void DSi_AES::CheckInputDMA()
     if (InputFIFO.Level() <= InputDMASize)
     {
         // trigger input DMA
-        DSi::CheckNDMAs(1, 0x2A);
+        DSi.CheckNDMAs(1, 0x2A);
     }
 
     Update();
@@ -393,7 +395,7 @@ void DSi_AES::CheckOutputDMA()
     if (OutputFIFO.Level() >= OutputDMASize)
     {
         // trigger output DMA
-        DSi::CheckNDMAs(1, 0x2B);
+        DSi.CheckNDMAs(1, 0x2B);
     }
 }
 
@@ -473,13 +475,13 @@ void DSi_AES::Update()
         }
 
         Cnt &= ~(1<<31);
-        if (Cnt & (1<<30)) NDS::SetIRQ2(NDS::IRQ2_DSi_AES);
-        DSi::StopNDMAs(1, 0x2A);
+        if (Cnt & (1<<30)) DSi.SetIRQ2(IRQ2_DSi_AES);
+        DSi.StopNDMAs(1, 0x2A);
 
         if (!OutputFIFO.IsEmpty())
-            DSi::CheckNDMAs(1, 0x2B);
+            DSi.CheckNDMAs(1, 0x2B);
         else
-            DSi::StopNDMAs(1, 0x2B);
+            DSi.StopNDMAs(1, 0x2B);
         OutputFlush = false;
     }
 }
@@ -571,4 +573,6 @@ void DSi_AES::WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask)
     {
         DeriveNormalKey(KeyX[slot], KeyY[slot], KeyNormal[slot]);
     }
+}
+
 }

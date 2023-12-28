@@ -19,7 +19,6 @@
 #ifndef ARMJIT_REGCACHE_H
 #define ARMJIT_REGCACHE_H
 
-#include "ARMJIT.h"
 #include "ARMJIT_Internal.h"
 #include "Platform.h"
 
@@ -28,10 +27,11 @@
 
 #include <assert.h>
 
-namespace ARMJIT
+namespace melonDS
 {
     using Platform::Log;
     using Platform::LogLevel;
+    using namespace Common;
     // Imported inside the namespace so that other headers aren't polluted
 
 template <typename T, typename Reg>
@@ -99,7 +99,7 @@ public:
         LiteralsLoaded &= ~(1 << reg);
     }
 
-    bool IsLiteral(int reg)
+    bool IsLiteral(int reg) const
     {
         return LiteralsLoaded & (1 << reg);
     }

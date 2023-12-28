@@ -21,13 +21,14 @@
 #include "../ARMJIT.h"
 
 #include "../ARMJIT_Memory.h"
+#include "../NDS.h"
 
 using namespace Arm64Gen;
 
-namespace ARMJIT
+namespace melonDS
 {
 
-bool Compiler::IsJITFault(u8* pc)
+bool Compiler::IsJITFault(const u8* pc)
 {
     return (u64)pc >= (u64)GetRXBase() && (u64)pc - (u64)GetRXBase() < (JitMemMainSize + JitMemSecondarySize);
 }
@@ -62,9 +63,9 @@ u8* Compiler::RewriteMemAccess(u8* pc)
 
 bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
 {
-    u32 localAddr = LocaliseCodeAddress(Num, addr);
+    u32 localAddr = NDS.JIT.LocaliseCodeAddress(Num, addr);
 
-    int invalidLiteralIdx = InvalidLiterals.Find(localAddr);
+    int invalidLiteralIdx = NDS.JIT.InvalidLiterals.Find(localAddr);
     if (invalidLiteralIdx != -1)
     {
         return false;
@@ -79,7 +80,7 @@ bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
     if (size == 32)
     {
         CurCPU->DataRead32(addr & ~0x3, &val);
-        val = ::ROR(val, (addr & 0x3) << 3);
+        val = melonDS::ROR(val, (addr & 0x3) << 3);
     }
     else if (size == 16)
     {
@@ -111,7 +112,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
     if (size == 16)
         addressMask = ~1;
 
-    if (ARMJIT::LiteralOptimizations && rn == 15 && rd != 15 && offset.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
+    if (NDS.JIT.LiteralOptimizationsEnabled() && rn == 15 && rd != 15 && offset.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
     {
         u32 addr = R15 + offset.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
         
@@ -146,7 +147,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         MOV(W0, rnMapped);
     }
 
-    bool addrIsStatic = ARMJIT::LiteralOptimizations
+    bool addrIsStatic = NDS.JIT.LiteralOptimizationsEnabled()
         && RegCache.IsLiteral(rn) && offset.IsImm && !(flags & (memop_Writeback|memop_Post));
     u32 staticAddress;
     if (addrIsStatic)
@@ -185,18 +186,18 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         MOV(rnMapped, W0);
 
     u32 expectedTarget = Num == 0
-        ? ARMJIT_Memory::ClassifyAddress9(addrIsStatic ? staticAddress : CurInstr.DataRegion)
-        : ARMJIT_Memory::ClassifyAddress7(addrIsStatic ? staticAddress : CurInstr.DataRegion);
+        ? NDS.JIT.Memory.ClassifyAddress9(addrIsStatic ? staticAddress : CurInstr.DataRegion)
+        : NDS.JIT.Memory.ClassifyAddress7(addrIsStatic ? staticAddress : CurInstr.DataRegion);
 
-    if (ARMJIT::FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || ARMJIT_Memory::IsFastmemCompatible(expectedTarget)))
+    if (NDS.JIT.FastMemoryEnabled() && ((!Thumb && CurInstr.Cond() != 0xE) || NDS.JIT.Memory.IsFastmemCompatible(expectedTarget)))
     {
         ptrdiff_t memopStart = GetCodeOffset();
         LoadStorePatch patch;
 
         assert((rdMapped >= W8 && rdMapped <= W15) || (rdMapped >= W19 && rdMapped <= W25) || rdMapped == W4);
         patch.PatchFunc = flags & memop_Store
-            ? PatchedStoreFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][rdMapped]
-            : PatchedLoadFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped];
+            ? PatchedStoreFuncs[NDS.ConsoleType][Num][__builtin_ctz(size) - 3][rdMapped]
+            : PatchedLoadFuncs[NDS.ConsoleType][Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped];
 
         // take a chance at fastmem
         if (size > 8)
@@ -225,7 +226,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
     {
         void* func = NULL;
         if (addrIsStatic)
-            func = ARMJIT_Memory::GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
+            func = NDS.JIT.Memory.GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
 
         PushRegs(false, false);
 
@@ -263,7 +264,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                 if (flags & memop_Store)
                 {
                     MOV(W2, rdMapped);
-                    switch (size | NDS::ConsoleType)
+                    switch (size | NDS.ConsoleType)
                     {
                     case 32: QuickCallFunction(X3, SlowWrite9<u32, 0>); break;
                     case 33: QuickCallFunction(X3, SlowWrite9<u32, 1>); break;
@@ -275,7 +276,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                 }
                 else
                 {
-                    switch (size | NDS::ConsoleType)
+                    switch (size | NDS.ConsoleType)
                     {
                     case 32: QuickCallFunction(X3, SlowRead9<u32, 0>); break;
                     case 33: QuickCallFunction(X3, SlowRead9<u32, 1>); break;
@@ -291,7 +292,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                 if (flags & memop_Store)
                 {
                     MOV(W1, rdMapped);
-                    switch (size | NDS::ConsoleType)
+                    switch (size | NDS.ConsoleType)
                     {
                     case 32: QuickCallFunction(X3, SlowWrite7<u32, 0>); break;
                     case 33: QuickCallFunction(X3, SlowWrite7<u32, 1>); break;
@@ -303,7 +304,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                 }
                 else
                 {
-                    switch (size | NDS::ConsoleType)
+                    switch (size | NDS.ConsoleType)
                     {
                     case 32: QuickCallFunction(X3, SlowRead7<u32, 0>); break;
                     case 33: QuickCallFunction(X3, SlowRead7<u32, 1>); break;
@@ -452,7 +453,7 @@ void Compiler::T_Comp_LoadPCRel()
     u32 offset = ((CurInstr.Instr & 0xFF) << 2);
     u32 addr = (R15 & ~0x2) + offset;
 
-    if (!ARMJIT::LiteralOptimizations || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
+    if (!NDS.JIT.LiteralOptimizationsEnabled() || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
         Comp_MemAccess(CurInstr.T_Reg(8), 15, Op2(offset), 32, 0);
 }
 
@@ -494,11 +495,11 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         Comp_AddCycles_CDI();
 
     int expectedTarget = Num == 0
-        ? ARMJIT_Memory::ClassifyAddress9(CurInstr.DataRegion)
-        : ARMJIT_Memory::ClassifyAddress7(CurInstr.DataRegion);
+        ? NDS.JIT.Memory.ClassifyAddress9(CurInstr.DataRegion)
+        : NDS.JIT.Memory.ClassifyAddress7(CurInstr.DataRegion);
 
-    bool compileFastPath = ARMJIT::FastMemory
-        && store && !usermode && (CurInstr.Cond() < 0xE || ARMJIT_Memory::IsFastmemCompatible(expectedTarget));
+    bool compileFastPath = NDS.JIT.FastMemoryEnabled()
+        && store && !usermode && (CurInstr.Cond() < 0xE || NDS.JIT.Memory.IsFastmemCompatible(expectedTarget));
 
     {
         s32 offset = decrement
@@ -680,7 +681,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     if (Num == 0)
     {
         MOV(X3, RCPU);
-        switch ((u32)store * 2 | NDS::ConsoleType)
+        switch ((u32)store * 2 | NDS.ConsoleType)
         {
         case 0: QuickCallFunction(X4, SlowBlockTransfer9<false, 0>); break;
         case 1: QuickCallFunction(X4, SlowBlockTransfer9<false, 1>); break;
@@ -690,7 +691,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     }
     else
     {
-        switch ((u32)store * 2 | NDS::ConsoleType)
+        switch ((u32)store * 2 | NDS.ConsoleType)
         {
         case 0: QuickCallFunction(X4, SlowBlockTransfer7<false, 0>); break;
         case 1: QuickCallFunction(X4, SlowBlockTransfer7<false, 1>); break;

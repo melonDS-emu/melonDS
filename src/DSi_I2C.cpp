@@ -26,6 +26,8 @@
 #include "SPI.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -55,7 +57,7 @@ const u8 DSi_BPTWL::VolumeUpTable[32] =
 };
 
 
-DSi_BPTWL::DSi_BPTWL(DSi_I2CHost* host) : DSi_I2CDevice(host)
+DSi_BPTWL::DSi_BPTWL(melonDS::DSi& dsi, DSi_I2CHost* host) : DSi_I2CDevice(dsi, host)
 {
 }
 
@@ -115,20 +117,20 @@ void DSi_BPTWL::DoSavestate(Savestate* file)
 }
 
 // TODO: Needs more investigation on the other bits
-inline bool DSi_BPTWL::GetIRQMode()
+inline bool DSi_BPTWL::GetIRQMode() const
 {
     return Registers[0x12] & 0x01;
 }
 
-u8 DSi_BPTWL::GetBootFlag() { return Registers[0x70]; }
+u8 DSi_BPTWL::GetBootFlag() const { return Registers[0x70]; }
 
-bool DSi_BPTWL::GetBatteryCharging() { return Registers[0x20] >> 7; }
+bool DSi_BPTWL::GetBatteryCharging() const { return Registers[0x20] >> 7; }
 void DSi_BPTWL::SetBatteryCharging(bool charging)
 {
     Registers[0x20] = (((charging ? 0x8 : 0x0) << 4) | (Registers[0x20] & 0x0F));
 }
 
-u8 DSi_BPTWL::GetBatteryLevel() { return Registers[0x20] & 0xF; }
+u8 DSi_BPTWL::GetBatteryLevel() const { return Registers[0x20] & 0xF; }
 void DSi_BPTWL::SetBatteryLevel(u8 batteryLevel)
 {
     Registers[0x20] = ((Registers[0x20] & 0xF0) | (batteryLevel & 0x0F));
@@ -141,13 +143,13 @@ void DSi_BPTWL::SetBatteryLevel(u8 batteryLevel)
 
 }
 
-u8 DSi_BPTWL::GetVolumeLevel() { return Registers[0x40]; }
+u8 DSi_BPTWL::GetVolumeLevel() const { return Registers[0x40]; }
 void DSi_BPTWL::SetVolumeLevel(u8 volume)
 {
     Registers[0x40] = volume & 0x1F;
 }
 
-u8 DSi_BPTWL::GetBacklightLevel() { return Registers[0x41]; }
+u8 DSi_BPTWL::GetBacklightLevel() const { return Registers[0x41]; }
 void DSi_BPTWL::SetBacklightLevel(u8 backlight)
 {
     Registers[0x41] = backlight > 4 ? 4 : backlight;
@@ -175,19 +177,19 @@ void DSi_BPTWL::DoHardwareReset(bool direct)
     if (direct)
     {
         // TODO: This doesn't seem to stop the SPU
-        DSi::SoftReset();
+        DSi.SoftReset();
         return;
     }
 
     // TODO: soft-reset might need to be scheduled later!
     // TODO: this has been moved for the JIT to work, nothing is confirmed here
-    NDS::ARM7->Halt(4);
+    DSi.ARM7.Halt(4);
 }
 
 void DSi_BPTWL::DoShutdown()
 {
     ResetButtonState();
-    NDS::Stop(Platform::StopReason::PowerOff);
+    DSi.Stop(Platform::StopReason::PowerOff);
 }
 
 
@@ -244,7 +246,7 @@ void DSi_BPTWL::SetVolumeSwitchReleased(u32 key)
     VolumeSwitchRepeatTime = 0.0;
 }
 
-inline bool DSi_BPTWL::CheckVolumeSwitchKeysValid()
+inline bool DSi_BPTWL::CheckVolumeSwitchKeysValid() const
 {
     bool up = VolumeSwitchKeysDown & (1 << volumeKey_Up);
     bool down = VolumeSwitchKeysDown & (1 << volumeKey_Down);
@@ -367,7 +369,7 @@ void DSi_BPTWL::SetIRQ(u8 irqFlag)
 
     if (GetIRQMode())
     {
-        NDS::SetIRQ2(NDS::IRQ2_DSi_BPTWL);
+        DSi.SetIRQ2(IRQ2_DSi_BPTWL);
     }
 }
 
@@ -449,11 +451,11 @@ void DSi_BPTWL::Write(u8 val, bool last)
 }
 
 
-DSi_I2CHost::DSi_I2CHost()
+DSi_I2CHost::DSi_I2CHost(melonDS::DSi& dsi) : DSi(dsi)
 {
-    BPTWL = new DSi_BPTWL(this);
-    Camera0 = new DSi_Camera(this, 0);
-    Camera1 = new DSi_Camera(this, 1);
+    BPTWL = new DSi_BPTWL(dsi, this);
+    Camera0 = new DSi_Camera(dsi, this, 0);
+    Camera1 = new DSi_Camera(dsi, this, 1);
 }
 
 DSi_I2CHost::~DSi_I2CHost()
@@ -591,4 +593,6 @@ u8 DSi_I2CHost::ReadData()
 void DSi_I2CHost::WriteData(u8 val)
 {
     Data = val;
+}
+
 }

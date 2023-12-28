@@ -27,10 +27,13 @@
 
 namespace Teakra { class Teakra; }
 
+namespace melonDS
+{
+class DSi;
 class DSi_DSP
 {
 public:
-    DSi_DSP();
+    DSi_DSP(melonDS::DSi& dsi);
     ~DSi_DSP();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -38,7 +41,7 @@ public:
     void DSPCatchUpU32(u32 _);
 
     // SCFG_RST bit0
-    bool IsRstReleased();
+    bool IsRstReleased() const;
     void SetRstLine(bool release);
 
     // DSP_* regs (0x040043xx) (NOTE: checks SCFG_EXT)
@@ -51,7 +54,7 @@ public:
     u32 Read32(u32 addr);
     void Write32(u32 addr, u32 val);
 
-    u16 ReadSNDExCnt() { return SNDExCnt; }
+    u16 ReadSNDExCnt() const { return SNDExCnt; }
     void WriteSNDExCnt(u16 val, u16 mask);
 
     // NOTE: checks SCFG_CLK9
@@ -66,6 +69,7 @@ public:
     void AudioCb(std::array<s16, 2> frame);
 
 private:
+    melonDS::DSi& DSi;
     // not sure whether to not rather put it somewhere else
     u16 SNDExCnt;
 
@@ -89,10 +93,10 @@ private:
 
     static const u32 DataMemoryOffset;
 
-    u16 GetPSTS();
+    u16 GetPSTS() const;
 
-    inline bool IsDSPCoreEnabled();
-    inline bool IsDSPIOEnabled();
+    inline bool IsDSPCoreEnabled() const;
+    inline bool IsDSPIOEnabled() const;
 
     bool DSPCatchUp();
 
@@ -104,5 +108,6 @@ private:
     u16 PDataDMAReadMMIO();
 };
 
+}
 #endif // DSI_DSP_H
 

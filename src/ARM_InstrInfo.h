@@ -21,7 +21,7 @@
 
 #include "types.h"
 
-namespace ARMInstrInfo
+namespace melonDS::ARMInstrInfo
 {
 
 // Instruction kinds, for faster dispatch
@@ -274,7 +274,7 @@ struct Info
     }
 };
 
-Info Decode(bool thumb, u32 num, u32 instr);
+Info Decode(bool thumb, u32 num, u32 instr, bool literaloptimizations);
 
 }
 

@@ -26,6 +26,7 @@
 
 namespace Config
 {
+using namespace melonDS;
 
 int KeyMapping[12];
 int JoyMapping[12];

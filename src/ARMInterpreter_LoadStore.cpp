@@ -20,7 +20,7 @@
 #include "ARM.h"
 
 
-namespace ARMInterpreter
+namespace melonDS::ARMInterpreter
 {
 
 

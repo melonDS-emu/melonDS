@@ -22,6 +22,7 @@
 #include "Input.h"
 #include "Config.h"
 
+using namespace melonDS;
 
 namespace Input
 {

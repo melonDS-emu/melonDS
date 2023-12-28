@@ -19,9 +19,12 @@
 #ifndef OSD_H
 #define OSD_H
 
+#include "types.h"
+
 namespace OSD
 {
 
+using namespace melonDS;
 bool Init(bool openGL);
 void DeInit();
 
@@ -29,7 +32,7 @@ void AddMessage(u32 color, const char* text);
 
 void Update();
 void DrawNative(QPainter& painter);
-void DrawGL(float w, float h);
+void DrawGL(float w, float h, float factor);
 
 }
 

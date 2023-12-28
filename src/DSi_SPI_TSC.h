@@ -23,10 +23,13 @@
 #include "Savestate.h"
 #include "SPI.h"
 
+namespace melonDS
+{
+class DSi;
 class DSi_TSC : public TSC
 {
 public:
-    DSi_TSC(SPIHost* host);
+    DSi_TSC(melonDS::DSi& dsi);
     ~DSi_TSC() override;
 
     void Reset() override;
@@ -37,7 +40,7 @@ public:
     void SetMode(u8 mode);
 
     void SetTouchCoords(u16 x, u16 y) override;
-    void MicInputFrame(s16* data, int samples) override;
+    void MicInputFrame(const s16* data, int samples) override;
 
     void Write(u8 val) override;
     void Release() override;
@@ -50,4 +53,5 @@ private:
     u8 TSCMode;
 };
 
+}
 #endif // DSI_SPI_TSC

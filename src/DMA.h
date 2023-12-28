@@ -21,13 +21,16 @@
 
 #include <array>
 #include "types.h"
-#include "Savestate.h"
-#include "DMA_Timings.h"
+
+namespace melonDS
+{
+class NDS;
+class Savestate;
 
 class DMA
 {
 public:
-    DMA(u32 cpu, u32 num);
+    DMA(u32 cpu, u32 num, NDS& nds);
     ~DMA() = default;
 
     void Reset();
@@ -42,12 +45,8 @@ public:
     u32 UnitTimings7_16(bool burststart);
     u32 UnitTimings7_32(bool burststart);
 
-    template <int ConsoleType>
     void Run();
-
-    template <int ConsoleType>
     void Run9();
-    template <int ConsoleType>
     void Run7();
 
     bool IsInMode(u32 mode) const noexcept
@@ -79,6 +78,7 @@ public:
     u32 Cnt {};
 
 private:
+    melonDS::NDS& NDS;
     u32 CPU {};
     u32 Num {};
 
@@ -103,4 +103,5 @@ private:
     std::array<u8, 256> MRAMBurstTable;
 };
 
+}
 #endif

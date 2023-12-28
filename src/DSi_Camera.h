@@ -23,31 +23,34 @@
 #include "Savestate.h"
 #include "DSi_I2C.h"
 
+namespace melonDS
+{
+class DSi;
 class DSi_CamModule;
 
 class DSi_Camera : public DSi_I2CDevice
 {
 public:
-    DSi_Camera(DSi_I2CHost* host, u32 num);
+    DSi_Camera(melonDS::DSi& dsi, DSi_I2CHost* host, u32 num);
     ~DSi_Camera();
 
-    void DoSavestate(Savestate* file);
+    void DoSavestate(Savestate* file) override;
 
-    void Reset();
+    void Reset() override;
     void Stop();
-    bool IsActivated();
+    bool IsActivated() const;
 
     void StartTransfer();
-    bool TransferDone();
+    bool TransferDone() const;
 
     // lengths in words
     int TransferScanline(u32* buffer, int maxlen);
 
-    void Acquire();
-    u8 Read(bool last);
-    void Write(u8 val, bool last);
+    void Acquire() override;
+    u8 Read(bool last) override;
+    void Write(u8 val, bool last) override;
 
-    void InputFrame(u32* data, int width, int height, bool rgb);
+    void InputFrame(const u32* data, int width, int height, bool rgb);
 
     u32 Num;
 
@@ -56,7 +59,7 @@ private:
     u32 RegAddr;
     u16 RegData;
 
-    u16 I2C_ReadReg(u16 addr);
+    u16 I2C_ReadReg(u16 addr) const;
     void I2C_WriteReg(u16 addr, u16 val);
 
     u16 PLLDiv;
@@ -69,7 +72,7 @@ private:
     u16 MCUAddr;
     u8 MCURegs[0x8000];
 
-    u8 MCU_Read(u16 addr);
+    u8 MCU_Read(u16 addr) const;
     void MCU_Write(u16 addr, u8 val);
 
     u16 FrameWidth, FrameHeight;
@@ -82,13 +85,15 @@ private:
 class DSi_CamModule
 {
 public:
-    DSi_CamModule();
+    DSi_CamModule(melonDS::DSi& dsi);
     ~DSi_CamModule();
     void Reset();
     void Stop();
     void DoSavestate(Savestate* file);
 
+    const DSi_Camera* GetOuterCamera() const { return Camera0; }
     DSi_Camera* GetOuterCamera() { return Camera0; }
+    const DSi_Camera* GetInnerCamera() const { return Camera1; }
     DSi_Camera* GetInnerCamera() { return Camera1; }
 
     void IRQ(u32 param);
@@ -103,6 +108,7 @@ public:
     void Write32(u32 addr, u32 val);
 
 private:
+    melonDS::DSi& DSi;
     DSi_Camera* Camera0; // 78 / facing outside
     DSi_Camera* Camera1; // 7A / selfie cam
 
@@ -121,4 +127,5 @@ private:
     static const u32 kTransferStart;
 };
 
+}
 #endif // DSI_CAMERA_H
