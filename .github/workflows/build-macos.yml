@@ -1,5 +1,12 @@
 name: build-macos
-on: [push, workflow_dispatch]
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
   build-macos:
@@ -52,7 +59,6 @@ jobs:
         with:
           name: macOS-arm64
           path: arm64
-      - run: find .
       - name: Combine app bundles
         shell: bash
         run: |
@@ -68,3 +74,11 @@ jobs:
         with:
           name: macOS-universal
           path: macOS-universal.zip
+      - name: Clean up architecture-specific artifacts
+        uses: geekyeggo/delete-artifact@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          failOnError: false
+          name: |
+            macOS-x86_64
+            macOS-arm64
