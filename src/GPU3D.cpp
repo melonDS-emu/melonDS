@@ -302,6 +302,8 @@ void GPU3D::Reset() noexcept
 
     RenderXPos = 0;
 
+    memset(&FD, 0, sizeof(FD));
+
     if (CurrentRenderer)
         CurrentRenderer->Reset(NDS.GPU);
 }
@@ -569,7 +571,159 @@ void GPU3D::SetEnabled(bool geometry, bool rendering) noexcept
     if (!rendering) ResetRenderingState();
 }
 
+void GPU3D::WriteToFD(const void* var, Platform::FileHandle* file, u16 size)
+{
+    constexpr u8 FF = 0xFF;
+    
+    // fill mask bytes with FF because we're ignoring it for now.
+    for (int i = 0; i < size*4; i++)
+        Platform::FileWrite(&FF, 1, 1, file);
 
+    Platform::FileWrite(var, sizeof(u32), size, file);
+}
+
+void GPU3D::NewWriteFD(u16 addr, u32 val)
+{
+    if (!NDS.GPU.FDInProg) return;
+    FD.WriteList[FD.NumWrites].Address = addr;
+    FD.WriteList[FD.NumWrites].Write = val;
+    FD.NumWrites++;
+}
+
+void GPU3D::StartFrameDump()
+{
+    NDS.GPU.QueueFrameDump = false;
+    
+    // save these values here because its way easier this way.
+    memcpy(FD.ProjStack, ProjMatrixStack, sizeof(FD.ProjStack));
+    memcpy(FD.PosStack, PosMatrixStack, sizeof(FD.PosStack));
+    memcpy(FD.VecStack, VecMatrixStack, sizeof(FD.VecStack));
+    memcpy(FD.TexStack, TexMatrixStack, sizeof(FD.TexStack));
+    memcpy(FD.ProjMtx, ProjMatrix, sizeof(FD.ProjStack));
+    memcpy(FD.PosMtx, PosMatrix, sizeof(FD.PosStack));
+    memcpy(FD.VecMtx, VecMatrix, sizeof(FD.VecStack));
+    memcpy(FD.TexMtx, TexMatrix, sizeof(FD.TexStack));
+    FD.VtxX = CurVertex[0];
+    FD.VtxY = CurVertex[1];
+    FD.VtxZ = CurVertex[2];
+    //FD.VtxColor = ((VertexColor[2] << 10) | (VertexColor[1] << 5) | VertexColor[0]);
+    
+    // set writes to zero to "clear" the write list
+    FD.NumWrites = 0;
+    NDS.GPU.FDInProg = true;
+}
+
+void GPU3D::FinFrameDump()
+{
+    // save final latched values
+    FD.Disp3DCnt = RenderDispCnt;
+    for (int i = 0; i < 8; i++)
+    {
+        FD.EdgeColor[i] = RenderEdgeTable[i];
+    }
+    //memcpy(FD.EdgeColor, RenderEdgeTable, sizeof(FD.EdgeColor));
+    FD.AlphaTest = RenderAlphaRef;
+    FD.ClearColor = RenderClearAttr1;
+    FD.ClearDepOff = RenderClearAttr2;
+    FD.FogColor = RenderFogColor;
+    FD.FogOffset = RenderFogOffset;
+    for (int i = 0; i < 32; i++)
+    {
+        FD.FogTable[i] = RenderFogDensityTable[i+1];
+        FD.ToonTable[i] = RenderToonTable[i];
+    }
+    //memcpy(FD.FogTable, &RenderFogDensityTable[1], 32);
+    //memcpy(FD.ToonTable, RenderToonTable, sizeof(FD.ToonTable));
+
+    Platform::MakeLocalDirectory("framedumps");
+    // todo: do this elsewhere
+    std::string base = "framedumps/dump";
+    u32 num = 0;
+    std::string full = base + std::to_string(num) + ".fd";
+    while (Platform::LocalFileExists(full))
+    {
+        num++;
+        full = base + std::to_string(num) + ".fd";
+    }
+    Platform::FileHandle* file = Platform::OpenLocalFile(full, Platform::FileMode::Write);
+
+    WriteToFD(&FD.Disp3DCnt, file, 1);
+    WriteToFD(FD.EdgeColor, file, 8);
+    WriteToFD(&FD.AlphaTest, file, 1);
+    WriteToFD(&FD.ClearColor, file,1 );
+    WriteToFD(&FD.ClearDepOff, file, 1);
+    WriteToFD(&FD.FogColor, file, 1);
+    WriteToFD(&FD.FogOffset, file, 1);
+    WriteToFD(FD.FogTable, file, 32);
+    WriteToFD(FD.ToonTable, file, 32);
+
+    WriteToFD(&FD.ZDotDisp, file, 1);
+    WriteToFD(&FD.PolyAttr, file, 1);
+    WriteToFD(&FD.PolyAttrUnset, file, 1);
+    WriteToFD(&FD.VtxColor, file, 1);
+    Platform::FileWrite(&FD.VtxColorType, 1, sizeof(FD.VtxColorType), file);
+    WriteToFD(&FD.Viewport, file, 1);
+    WriteToFD(FD.ProjStack, file, 16);
+    WriteToFD(FD.PosStack, file, 16*32);
+    WriteToFD(FD.VecStack, file, 16*32);
+    WriteToFD(FD.TexStack, file, 16);
+    WriteToFD(FD.ProjMtx, file, 16);
+    WriteToFD(FD.PosMtx, file, 16);
+    WriteToFD(FD.VecMtx, file, 16);
+    WriteToFD(FD.TexMtx, file, 16);
+    WriteToFD(&FD.MatrixMode, file, 1);
+    WriteToFD(&FD.Normal, file, 1);
+    WriteToFD(&FD.NormTexMtx, file, 16);
+    WriteToFD(&FD.NormVecMtx, file, 16);
+    WriteToFD(&FD.NormDiffAmbi, file, 1);
+    WriteToFD(&FD.NormSpecEmis, file, 1);
+    WriteToFD(&FD.NormTexParam, file, 1);
+    WriteToFD(&FD.NormShininess, file, 32);
+    Platform::FileWrite(&FD.NormLightColor_Track, 1, 1, file);
+    Platform::FileWrite(FD.NormLightColor, 4, 4, file);
+    Platform::FileWrite(&FD.NormLightVec_Track, 1, 1, file);
+    Platform::FileWrite(FD.NormLightVec, 4, 4, file);
+    WriteToFD(FD.NormLiVecVecMtx, file, 4*16);
+    WriteToFD(&FD.Polygon, file, 1);
+    WriteToFD(&FD.VtxX, file, 1);
+    WriteToFD(&FD.VtxY, file, 1);
+    WriteToFD(&FD.VtxZ, file, 1);
+    WriteToFD(&FD.TexCoord, file, 1);
+    WriteToFD(&FD.TexParam, file, 1);
+    WriteToFD(&FD.TexPalette, file, 1);
+    WriteToFD(&FD.DiffAmbi, file, 1);
+    WriteToFD(&FD.SpecEmis, file, 1);
+    WriteToFD(FD.Shininess, file, 32);
+    Platform::FileWrite(&FD.LightVec_Track, 1, 1, file);
+    Platform::FileWrite(FD.LightVec, 4, 4, file);
+    WriteToFD(FD.LiVecVecMtx, file, 4*16);
+    Platform::FileWrite(&FD.LightColor_Track, 1, 1, file);
+    Platform::FileWrite(FD.LightColor, 4, 4, file);
+    WriteToFD(&FD.SwapBuffer, file, 1);
+    
+    for (int i = 0; i < 9; i++)
+        Platform::FileWrite(&NDS.GPU.VRAMCNT[i], 1, sizeof(NDS.GPU.VRAMCNT[0]), file);
+
+    Platform::FileWrite(NDS.GPU.VRAM_A, 1, sizeof(NDS.GPU.VRAM_A), file);
+    Platform::FileWrite(NDS.GPU.VRAM_B, 1, sizeof(NDS.GPU.VRAM_B), file);
+    Platform::FileWrite(NDS.GPU.VRAM_C, 1, sizeof(NDS.GPU.VRAM_C), file);
+    Platform::FileWrite(NDS.GPU.VRAM_D, 1, sizeof(NDS.GPU.VRAM_D), file);
+    Platform::FileWrite(NDS.GPU.VRAM_E, 1, sizeof(NDS.GPU.VRAM_E), file);
+    Platform::FileWrite(NDS.GPU.VRAM_F, 1, sizeof(NDS.GPU.VRAM_F), file);
+    Platform::FileWrite(NDS.GPU.VRAM_G, 1, sizeof(NDS.GPU.VRAM_G), file);
+    Platform::FileWrite(NDS.GPU.VRAM_H, 1, sizeof(NDS.GPU.VRAM_H), file);
+    Platform::FileWrite(NDS.GPU.VRAM_I, 1, sizeof(NDS.GPU.VRAM_I), file);
+    
+    Platform::FileWrite(&FD.NumWrites, 1, sizeof(FD.NumWrites), file);
+
+    for (int i = 0; i < FD.NumWrites; i++)
+    {
+        Platform::FileWrite(&FD.WriteList[i].Address, 1, sizeof(FD.WriteList[i].Address), file);
+        Platform::FileWrite(&FD.WriteList[i].Write, 1, sizeof(FD.WriteList[i].Write), file);
+    }
+    Platform::CloseFile(file);
+    NDS.GPU.FDInProg = false;
+}
 
 void MatrixLoadIdentity(s32* m)
 {
@@ -1748,6 +1902,7 @@ void GPU3D::ExecuteCommand() noexcept
         {
         case 0x10: // matrix mode
             VertexPipelineCmdDelayed4();
+            if (!NDS.GPU.FDInProg) FD.MatrixMode = entry.Param;
             MatrixMode = entry.Param & 0x3;
             break;
 
@@ -1888,6 +2043,11 @@ void GPU3D::ExecuteCommand() noexcept
         case 0x20: // vertex color
             VertexPipelineCmdDelayed6();
             {
+                if (!NDS.GPU.FDInProg) 
+                {
+                    FD.VtxColor = entry.Param;
+                    FD.VtxColorType = 0;
+                }
                 u32 c = entry.Param;
                 u32 r = c & 0x1F;
                 u32 g = (c >> 5) & 0x1F;
@@ -1900,6 +2060,22 @@ void GPU3D::ExecuteCommand() noexcept
 
         case 0x21: // normal
             VertexPipelineCmdDelayed4();
+            if (!NDS.GPU.FDInProg)
+            {
+                FD.Normal = entry.Param;
+                FD.VtxColorType = 2;
+                memcpy(FD.NormTexMtx, TexMatrix, sizeof(TexMatrix));
+                memcpy(FD.NormVecMtx, VecMatrix, sizeof(VecMatrix));
+                FD.NormDiffAmbi = FD.DiffAmbi;
+                FD.NormSpecEmis = FD.SpecEmis;
+                FD.NormTexParam = FD.TexParam;
+                memcpy(FD.NormShininess, FD.Shininess, sizeof(FD.Shininess));
+                FD.NormLightColor_Track = FD.LightColor_Track;
+                memcpy(FD.NormLightColor, FD.LightColor, sizeof(FD.LightColor));
+                FD.NormLightVec_Track = FD.LightVec_Track;
+                memcpy(FD.NormLightVec, FD.LightVec, sizeof(FD.LightVec));
+                memcpy(FD.NormLiVecVecMtx, FD.LiVecVecMtx, sizeof(FD.LiVecVecMtx));
+            }
             Normal[0] = (s16)((entry.Param & 0x000003FF) << 6) >> 6;
             Normal[1] = (s16)((entry.Param & 0x000FFC00) >> 4) >> 6;
             Normal[2] = (s16)((entry.Param & 0x3FF00000) >> 14) >> 6;
@@ -1908,6 +2084,7 @@ void GPU3D::ExecuteCommand() noexcept
 
         case 0x22: // texcoord
             VertexPipelineCmdDelayed4();
+            if (!NDS.GPU.FDInProg) FD.TexCoord = entry.Param;
             RawTexCoords[0] = entry.Param & 0xFFFF;
             RawTexCoords[1] = entry.Param >> 16;
             if ((TexParam >> 30) == 1)
@@ -1961,21 +2138,25 @@ void GPU3D::ExecuteCommand() noexcept
 
         case 0x29: // polygon attributes
             VertexPipelineCmdDelayed8();
+            if (!NDS.GPU.FDInProg) FD.PolyAttrUnset = entry.Param;
             PolygonAttr = entry.Param;
             break;
 
         case 0x2A: // texture param
             VertexPipelineCmdDelayed8();
+            if (!NDS.GPU.FDInProg) FD.TexParam = entry.Param;
             TexParam = entry.Param;
             break;
 
         case 0x2B: // texture palette
             VertexPipelineCmdDelayed8();
+            if (!NDS.GPU.FDInProg) FD.TexPalette = entry.Param;
             TexPalette = entry.Param & 0x1FFF;
             break;
 
         case 0x30: // diffuse/ambient material
             VertexPipelineCmdDelayed6();
+            if (!NDS.GPU.FDInProg) FD.DiffAmbi = entry.Param;
             MatDiffuse[0] = entry.Param & 0x1F;
             MatDiffuse[1] = (entry.Param >> 5) & 0x1F;
             MatDiffuse[2] = (entry.Param >> 10) & 0x1F;
@@ -1984,6 +2165,11 @@ void GPU3D::ExecuteCommand() noexcept
             MatAmbient[2] = (entry.Param >> 26) & 0x1F;
             if (entry.Param & 0x8000)
             {
+                if (!NDS.GPU.FDInProg) 
+                {
+                    FD.VtxColor = entry.Param;
+                    FD.VtxColorType = 1;
+                }
                 VertexColor[0] = MatDiffuse[0];
                 VertexColor[1] = MatDiffuse[1];
                 VertexColor[2] = MatDiffuse[2];
@@ -1993,6 +2179,7 @@ void GPU3D::ExecuteCommand() noexcept
 
         case 0x31: // specular/emission material
             VertexPipelineCmdDelayed6();
+            if (!NDS.GPU.FDInProg) FD.SpecEmis = entry.Param;
             MatSpecular[0] = entry.Param & 0x1F;
             MatSpecular[1] = (entry.Param >> 5) & 0x1F;
             MatSpecular[2] = (entry.Param >> 10) & 0x1F;
@@ -2007,6 +2194,12 @@ void GPU3D::ExecuteCommand() noexcept
             StallPolygonPipeline(8 + 1,  2); // 0x32 can run 6 cycles after a vertex
             {
                 u32 l = entry.Param >> 30;
+                if (!NDS.GPU.FDInProg) 
+                {
+                    FD.LightVec_Track |= (1 << l);
+                    FD.LightVec[l] = entry.Param;
+                    memcpy(&FD.LiVecVecMtx[l*16], VecMatrix, sizeof(VecMatrix));
+                }
                 s16 dir[3];
                 dir[0] = (s16)((entry.Param & 0x000003FF) << 6) >> 6;
                 dir[1] = (s16)((entry.Param & 0x000FFC00) >> 4) >> 6;
@@ -2022,6 +2215,11 @@ void GPU3D::ExecuteCommand() noexcept
             VertexPipelineCmdDelayed8();
             {
                 u32 l = entry.Param >> 30;
+                if (!NDS.GPU.FDInProg) 
+                {
+                    FD.LightColor_Track |= (1 << l);
+                    FD.LightColor[l] = entry.Param;
+                }
                 LightColor[l][0] = entry.Param & 0x1F;
                 LightColor[l][1] = (entry.Param >> 5) & 0x1F;
                 LightColor[l][2] = (entry.Param >> 10) & 0x1F;
@@ -2033,6 +2231,11 @@ void GPU3D::ExecuteCommand() noexcept
             StallPolygonPipeline(1, 0);
             // TODO: check if there was a polygon being defined but incomplete
             // such cases seem to freeze the GPU
+            if (!NDS.GPU.FDInProg)
+            {
+                FD.Polygon = entry.Param;
+                FD.PolyAttr = PolygonAttr;
+            }
             PolygonMode = entry.Param & 0x3;
             VertexNum = 0;
             VertexNumInPoly = 0;
@@ -2052,6 +2255,7 @@ void GPU3D::ExecuteCommand() noexcept
         case 0x50: // flush
             VertexPipelineCmdDelayed4();
             FlushRequest = 1;
+            if (!NDS.GPU.FDInProg) FD.SwapBuffer = entry.Param;
             FlushAttributes = entry.Param & 0x3;
             CycleCount = 325;
             // probably safe to just reset all pipelines
@@ -2066,6 +2270,7 @@ void GPU3D::ExecuteCommand() noexcept
         case 0x60: // viewport x1,y1,x2,y2
             VertexPipelineCmdDelayed8();
             // note: viewport Y coordinates are upside-down
+            if (!NDS.GPU.FDInProg) FD.Viewport = entry.Param;
             Viewport[0] = entry.Param & 0xFF;                             // x0
             Viewport[1] = (191 - ((entry.Param >> 8) & 0xFF)) & 0xFF;     // y0
             Viewport[2] = (entry.Param >> 16) & 0xFF;                     // x1
@@ -2295,6 +2500,7 @@ void GPU3D::ExecuteCommand() noexcept
                     {
                         for (int i = 0; i < 128; i += 4)
                         {
+                            if (!NDS.GPU.FDInProg) FD.Shininess[i>>2] = ExecParams[i>>2];
                             u32 val = ExecParams[i >> 2];
                             ShininessTable[i + 0] = val & 0xFF;
                             ShininessTable[i + 1] = (val >> 8) & 0xFF;
@@ -2501,6 +2707,10 @@ void GPU3D::VBlank() noexcept
             NumOpaquePolygons = 0;
 
             FlushRequest = 0;
+            
+            // begin/finish framedump here?
+            if (NDS.GPU.FDInProg) FinFrameDump();
+            else if (NDS.GPU.QueueFrameDump) StartFrameDump();
         }
     }
 }
@@ -2842,6 +3052,8 @@ void GPU3D::Write16(u32 addr, u16 val) noexcept
         return;
 
     case 0x04000610:
+        if (!NDS.GPU.FDInProg) FD.ZDotDisp = val;
+        NewWriteFD(addr, val);
         val &= 0x7FFF;
         ZeroDotWLimit = (val * 0x200) + 0x1FF;
         return;
@@ -2918,6 +3130,8 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
         return;
 
     case 0x04000610:
+        if (!NDS.GPU.FDInProg) FD.ZDotDisp = val;
+        NewWriteFD(addr, val);
         val &= 0x7FFF;
         ZeroDotWLimit = (val * 0x200) + 0x1FF;
         return;
@@ -2926,6 +3140,7 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
     if (addr >= 0x04000400 && addr < 0x04000440)
     {
         WriteToGXFIFO(val);
+        NewWriteFD(addr, val);
         return;
     }
 
@@ -2935,6 +3150,7 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
         entry.Command = (addr & 0x1FC) >> 2;
         entry.Param = val;
         CmdFIFOWrite(entry);
+        NewWriteFD(addr, val);
         return;
     }
 

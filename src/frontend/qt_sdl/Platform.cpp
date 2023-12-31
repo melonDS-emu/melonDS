@@ -270,6 +270,23 @@ FileHandle* OpenFile(const std::string& path, FileMode mode)
         return nullptr;
     }
 }
+void MakeLocalDirectory(const std::string& dir)
+{
+    QString qdir = QString::fromStdString(dir);
+    QString path;
+
+#ifdef PORTABLE
+    path = QString::fromStdString(EmuDirectory);
+#else
+    // Check user configuration directory
+    QDir config(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
+    config.mkdir("melonDS");
+    path = config.absolutePath() + "/melonDS/";
+#endif
+
+    QDir qpath(path);
+    qpath.mkdir(qdir);
+}
 
 FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
 {

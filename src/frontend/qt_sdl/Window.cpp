@@ -375,6 +375,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             actRAMInfo = menu->addAction("RAM search");
             connect(actRAMInfo, &QAction::triggered, this, &MainWindow::onRAMInfo);
 
+            actFrameDump = menu->addAction("Dump next frame");
+            connect(actFrameDump, &QAction::triggered, this, &MainWindow::onFrameDump);
+
             actTitleManager = menu->addAction("Manage DSi titles");
             connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
         }
@@ -1645,6 +1648,11 @@ void MainWindow::onROMInfo()
 void MainWindow::onRAMInfo()
 {
     RAMInfoDialog* dlg = RAMInfoDialog::openDlg(this, emuThread);
+}
+
+void MainWindow::onFrameDump()
+{
+    emuThread->NDS->GPU.QueueFrameDump = true;
 }
 
 void MainWindow::onOpenTitleManager()
