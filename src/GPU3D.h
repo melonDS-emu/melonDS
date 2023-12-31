@@ -126,7 +126,7 @@ struct FrameDump
     u32 NormDiffAmbi = 0;
     u32 NormSpecEmis = 0;
     u32 NormTexParam = 0;
-    u32 NormShininess[32] = {};
+    u32 NormShininess[32] {};
     u8 NormLightColor_Track = 0;
     u32 NormLightColor[4] {};
     u8 NormLightVec_Track = 0;

@@ -302,7 +302,7 @@ void GPU3D::Reset() noexcept
 
     RenderXPos = 0;
 
-    memset(&FD, 0, sizeof(FD));
+    FD = {};
 
     if (CurrentRenderer)
         CurrentRenderer->Reset(NDS.GPU);
@@ -599,10 +599,10 @@ void GPU3D::StartFrameDump()
     memcpy(FD.PosStack, PosMatrixStack, sizeof(FD.PosStack));
     memcpy(FD.VecStack, VecMatrixStack, sizeof(FD.VecStack));
     memcpy(FD.TexStack, TexMatrixStack, sizeof(FD.TexStack));
-    memcpy(FD.ProjMtx, ProjMatrix, sizeof(FD.ProjStack));
-    memcpy(FD.PosMtx, PosMatrix, sizeof(FD.PosStack));
-    memcpy(FD.VecMtx, VecMatrix, sizeof(FD.VecStack));
-    memcpy(FD.TexMtx, TexMatrix, sizeof(FD.TexStack));
+    memcpy(FD.ProjMtx, ProjMatrix, sizeof(ProjMatrix));
+    memcpy(FD.PosMtx, PosMatrix, sizeof(PosMatrix));
+    memcpy(FD.VecMtx, VecMatrix, sizeof(VecMatrix));
+    memcpy(FD.TexMtx, TexMatrix, sizeof(TexMatrix));
     FD.VtxX = CurVertex[0];
     FD.VtxY = CurVertex[1];
     FD.VtxZ = CurVertex[2];
@@ -2218,7 +2218,9 @@ void GPU3D::ExecuteCommand() noexcept
                 if (!NDS.GPU.FDInProg) 
                 {
                     FD.LightColor_Track |= (1 << l);
+                    printf("lighttrack = %i\n", FD.LightColor_Track);
                     FD.LightColor[l] = entry.Param;
+                    printf("light color = %i\n", FD.LightColor[l]);
                 }
                 LightColor[l][0] = entry.Param & 0x1F;
                 LightColor[l][1] = (entry.Param >> 5) & 0x1F;
