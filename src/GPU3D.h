@@ -90,26 +90,110 @@ struct Writes
 
 };
 
-struct FrameDump
+struct FrameDumpInitState
 {
-    // save when registers are latched
-    u32 Disp3DCnt = 0;
-    u32 EdgeColor[8] {};
-    u32 AlphaTest = 0;
-    u32 ClearColor = 0;
-    u32 ClearDepOff = 0;
-    u32 FogColor = 0;
-    u32 FogOffset = 0;
-    u32 FogTable[32] {};
-    u32 ToonTable[32] {};
+    // enable bits and misc stuff;
+    bool ZDotDisp_Track = false;
+    bool PolyAttr_Track = false;
+    bool PolyAttrUnset_Track = false;
+    u8 VtxColorType = 0; // 0 = Last was a normal vtx color cmd // 1 = determined by a diffuse cmd // 2 = determined by a normal cmd 
+    bool VtxColor_Track = false;
+    bool Viewport_Track = false;
+    bool MatrixMode_Track = false;
+    bool Normal_Track = false;
+    bool NormPolyAttr_Track = false;
+    bool NormDiffAmbi_Track = false;
+    bool NormSpecEmis_Track = false;
+    bool NormTexParam_Track = false;
+    bool Polygon_Track = false;
+    bool TexCoord_Track = false;
+    bool TexParam_Track = false;
+    bool TexPalette_Track = false;
+    bool DiffAmbi_Track = false;
+    bool SpecEmis_Track = false;
     
     // save before first command is sent
-    u32 ZDotDisp = 0;
+    u16 ZDotDisp = 0;
     u32 PolyAttr = 0;
     u32 PolyAttrUnset = 0;
     u32 VtxColor = 0;
-    u8 VtxColorType = 0; // 0 = Last was a normal vtx color cmd // 1 = determined by a diffuse cmd // 2 = determined by a normal cmd 
     u32 Viewport = 0;
+    u32 MatrixMode = 0;
+    u32 Normal = 0;
+    u32 NormPolyAttr = 0;
+    u32 NormDiffAmbi = 0;
+    u32 NormSpecEmis = 0;
+    u32 NormTexParam = 0;
+    u32 Polygon = 0;
+    u32 TexCoord = 0;
+    u32 TexParam = 0;
+    u32 TexPalette = 0;
+    u32 DiffAmbi = 0;
+    u32 SpecEmis = 0;
+    u32 SwapBuffer = 0;
+    
+    // arrays (i have to manually copy each individual one :) )
+    bool NormLightVec_Track[4] {};
+    bool NormLightColor_Track[4] {};
+    bool LightVec_Track[4] {};
+    bool LightColor_Track[4] {};
+    bool ProjStack_Track[16] {};
+    bool PosStack_Track[32*16] {};
+    bool VecStack_Track[32*16] {};
+    bool TexStack_Track[16] {};
+    bool ProjMtx_Track[16] {};
+    bool PosMtx_Track[16] {};
+    bool VecMtx_Track[16] {};
+    bool TexMtx_Track[16] {};
+    bool NormTexMtx_Track[16] {};
+    bool NormVecMtx_Track[16] {};
+    bool NormShininess_Track[32] {};
+    bool NormLightVecVecMtx_Track[4*16] {}; // now that's a mouthful
+    bool Shininess_Track[32] {};
+    bool LightVecVecMtx_Track[4*16] {};
+
+    u32 NormTexMtx[16] {};
+    u32 NormVecMtx[16] {};
+    u32 NormShininess[32] {};
+    u32 NormLightColor[4] {};
+    u32 NormLightVec[4] {};
+    u32 NormLiVecVecMtx[16*4] {};
+    u32 Shininess[32] {};
+    u32 LightVec[4] {};
+    u32 LiVecVecMtx[16*4] {};
+    u32 LightColor[4] {};
+
+};
+
+
+struct FrameDumpMisc
+{
+    // enable bits.
+    bool Disp3DCnt_Track = false;
+    bool AlphaTest_Track = false;
+    bool ClearColor_Track[2] {};
+    bool ClearDepth_Track = false;
+    bool ClearOffset_Track = false;
+    bool FogColor_Track[2] {};
+    bool FogOffset_Track = false;
+    bool EdgeColor_Track[16] {};
+    bool FogTable_Track[4*8] {};
+    bool ToonTable_Track[8*8] {};
+
+    bool Vtx_Track = false;
+    
+    // save when registers are latched
+    u16 Disp3DCnt = 0;
+    u16 EdgeColor[8] {};
+    u8 AlphaTest = 0;
+    u32 ClearColor = 0;
+    u32 ClearDepOff = 0;
+    u32 FogColor = 0;
+    u16 FogOffset = 0;
+    u8 FogTable[32] {};
+    u16 ToonTable[32] {};
+    
+    // save before first command is sent
     u32 ProjStack[16] {};
     u32 PosStack[32*16] {};
     u32 VecStack[32*16] {};
@@ -118,43 +202,14 @@ struct FrameDump
     u32 PosMtx[16] {};
     u32 VecMtx[16] {};
     u32 TexMtx[16] {};
-    u32 MatrixMode = 0;
-    
-    u32 Normal = 0;
-    u32 NormTexMtx[16] {};
-    u32 NormVecMtx[16] {};
-    u32 NormDiffAmbi = 0;
-    u32 NormSpecEmis = 0;
-    u32 NormTexParam = 0;
-    u32 NormShininess[32] {};
-    u8 NormLightColor_Track = 0;
-    u32 NormLightColor[4] {};
-    u8 NormLightVec_Track = 0;
-    u32 NormLightVec[4] {};
-    u32 NormLiVecVecMtx[16*4] {};
+    u16 VtxX = 0;
+    u16 VtxY = 0;
+    u16 VtxZ = 0;
 
-    u32 Polygon = 0;
-    u32 VtxX = 0;
-    u32 VtxY = 0;
-    u32 VtxZ = 0;
-    u32 TexCoord = 0;
-    u32 TexParam = 0;
-    u32 TexPalette = 0;
-    u32 DiffAmbi = 0;
-    u32 SpecEmis = 0;
-    u32 Shininess[32] {};
-
-    u8 LightVec_Track = 0;
-    u32 LightVec[4] {};
-    u32 LiVecVecMtx[16*4] {};
-
-    u8 LightColor_Track = 0;
-    u32 LightColor[4] {};
-    u32 SwapBuffer = 0;
 
     // track commands sent
     u32 NumWrites = 0;
-    Writes WriteList[30000] {}; // todo: find a way to not allocate *all* this memory immediately?
+    Writes WriteList[30000]; // todo: find a way to not allocate *all* this memory immediately?
 };
 
 class Renderer3D;
@@ -216,7 +271,6 @@ private:
 
     } CmdFIFOEntry;
     
-    void WriteToFD(const void* var, Platform::FileHandle* file, u16 size);
     void NewWriteFD(u16 addr, u32 val);
     void StartFrameDump();
     void FinFrameDump();
@@ -406,7 +460,9 @@ public:
     u32 FlushAttributes = 0;
     u32 ScrolledLine[256]; // not part of the hardware state, don't serialize
 
-    FrameDump FD {};
+    FrameDumpInitState FDIS {}; // saves the initial state vars when the framedump begins
+    FrameDumpInitState FDT {}; // Tracks initial state variables at all times
+    FrameDumpMisc FDM {}; // stores non-initial state var stuff for the framedump
 };
 
 class Renderer3D
