@@ -713,15 +713,11 @@ bool NDS::DoSavestate(Savestate* file)
 
         SPU.SetPowerCnt(PowerControl7 & 0x0001);
         Wifi.SetPowerCnt(PowerControl7 & 0x0002);
-    }
 
 #ifdef JIT_ENABLED
-    if (!file->Saving)
-    {
-        JIT.ResetBlockCache();
-        JIT.Memory.Reset();
-    }
+        JIT.Reset();
 #endif
+    }
 
     file->Finish();
 
