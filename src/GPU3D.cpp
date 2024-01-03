@@ -659,6 +659,8 @@ void GPU3D::FinFrameDump()
             FDIS.PosStack_Track[(i*16)+j] = true;
             FDIS.VecStack_Track[(i*16)+j] = true;
         }
+    FDM.Vtx_Track = true;
+
 
     // save final latched values
     FDM.Disp3DCnt = RenderDispCnt;
@@ -870,25 +872,27 @@ void GPU3D::FinFrameDump()
     Platform::FileWrite(&FDIS.LightColor, 1, sizeof(FDIS.LightColor), file);
     Platform::FileWrite(&FDIS.SwapBuffer, 1, sizeof(FDIS.SwapBuffer), file);
     
+    // skip banks H and I, we only care about dumping 3d engine state currently, and banks H and I cannot be used by the 3d engine
     // save vram control regs to file
-    Platform::FileWrite(NDS.GPU.VRAMCNT, 1, sizeof(NDS.GPU.VRAMCNT), file);
+    Platform::FileWrite(NDS.GPU.VRAMCNT, 1, sizeof(NDS.GPU.VRAMCNT[0])*7, file);
 
-    // only save vram if the bank is enabled.
-    if (NDS.GPU.VRAMCNT[0] & (1<<7)) Platform::FileWrite(NDS.GPU.VRAM_A, 1, sizeof(NDS.GPU.VRAM_A), file);
-    if (NDS.GPU.VRAMCNT[1] & (1<<7)) Platform::FileWrite(NDS.GPU.VRAM_B, 1, sizeof(NDS.GPU.VRAM_B), file);
-    if (NDS.GPU.VRAMCNT[2] & (1<<7)) Platform::FileWrite(NDS.GPU.VRAM_C, 1, sizeof(NDS.GPU.VRAM_C), file);
-    if (NDS.GPU.VRAMCNT[3] & (1<<7)) Platform::FileWrite(NDS.GPU.VRAM_D, 1, sizeof(NDS.GPU.VRAM_D), file);
-    if (NDS.GPU.VRAMCNT[4] & (1<<7)) Platform::FileWrite(NDS.GPU.VRAM_E, 1, sizeof(NDS.GPU.VRAM_E), file);
-    if (NDS.GPU.VRAMCNT[5] & (1<<7)) Platform::FileWrite(NDS.GPU.VRAM_F, 1, sizeof(NDS.GPU.VRAM_F), file);
-    if (NDS.GPU.VRAMCNT[6] & (1<<7)) Platform::FileWrite(NDS.GPU.VRAM_G, 1, sizeof(NDS.GPU.VRAM_G), file);
-    if (NDS.GPU.VRAMCNT[7] & (1<<7)) Platform::FileWrite(NDS.GPU.VRAM_H, 1, sizeof(NDS.GPU.VRAM_H), file);
-    if (NDS.GPU.VRAMCNT[8] & (1<<7)) Platform::FileWrite(NDS.GPU.VRAM_I, 1, sizeof(NDS.GPU.VRAM_I), file);
+    // only save vram if the bank is enabled and allocated to be used as texture image/texture palette.
+    if ((NDS.GPU.VRAMCNT[0] & 0x83) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_A, 1, sizeof(NDS.GPU.VRAM_A), file);
+    if ((NDS.GPU.VRAMCNT[1] & 0x83) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_B, 1, sizeof(NDS.GPU.VRAM_B), file);
+    if ((NDS.GPU.VRAMCNT[2] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_C, 1, sizeof(NDS.GPU.VRAM_C), file);
+    if ((NDS.GPU.VRAMCNT[3] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_D, 1, sizeof(NDS.GPU.VRAM_D), file);
+    if ((NDS.GPU.VRAMCNT[4] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_E, 1, sizeof(NDS.GPU.VRAM_E), file);
+    if ((NDS.GPU.VRAMCNT[5] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_F, 1, sizeof(NDS.GPU.VRAM_F), file);
+    if ((NDS.GPU.VRAMCNT[6] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_G, 1, sizeof(NDS.GPU.VRAM_G), file);
+    //if (NDS.GPU.VRAMCNT[7] & (1<<7)) Platform::FileWrite(NDS.GPU.VRAM_H, 1, sizeof(NDS.GPU.VRAM_H), file);
+    //if (NDS.GPU.VRAMCNT[8] & (1<<7)) Platform::FileWrite(NDS.GPU.VRAM_I, 1, sizeof(NDS.GPU.VRAM_I), file);
     
     Platform::FileWrite(&FDM.NumWrites, 1, sizeof(FDM.NumWrites), file);
 
     for (int i = 0; i < FDM.NumWrites; i++)
     {
-        Platform::FileWrite(&FDM.WriteList[i].Address, 1, sizeof(FDM.WriteList[i].Address), file);
+        u8 cmd = (FDM.WriteList[i].Address - 0x400) >> 2; // compress the address fragment to 8 bits.
+        Platform::FileWrite(&cmd, 1, sizeof(cmd), file);
         Platform::FileWrite(&FDM.WriteList[i].Write, 1, sizeof(FDM.WriteList[i].Write), file);
     }
     Platform::CloseFile(file);
