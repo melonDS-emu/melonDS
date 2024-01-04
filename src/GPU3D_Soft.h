@@ -180,7 +180,7 @@ private:
             {
                 // Z-buffering: linear interpolation
                 // still doesn't quite match hardware...
-                s32 base, disp, factor;
+                s32 base = 0, disp = 0, factor = 0;
 
                 if (z0 < z1)
                 {
@@ -339,7 +339,7 @@ private:
 
         constexpr s32 XVal() const
         {
-            s32 ret;
+            s32 ret = 0;
             if (Negative) ret = x0 - (dx >> 18);
             else          ret = x0 + (dx >> 18);
 

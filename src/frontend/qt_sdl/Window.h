@@ -92,8 +92,7 @@ private:
     bool oldMax;
 
 public:
-    ScreenHandler* panel;
-    QWidget* panelWidget;
+    ScreenPanel* panel;
 };*/
 
 class MainWindow : public QMainWindow
@@ -230,8 +229,7 @@ private:
     bool oldMax;
 
 public:
-    ScreenHandler* panel;
-    QWidget* panelWidget;
+    ScreenPanel* panel;
 
     QAction* actOpenROM;
     QAction* actBootFirmware;
