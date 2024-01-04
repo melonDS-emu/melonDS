@@ -45,7 +45,7 @@ public:
     void EnableRenderThread();
     void StopRenderThread();
 private:
-    friend void GPU3D::DoSavestate(Savestate* file);
+    friend void GPU3D::DoSavestate(Savestate* file) noexcept;
     // Notes on the interpolator:
     //
     // This is a theory on how the DS hardware interpolates values. It matches hardware output
