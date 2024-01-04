@@ -302,9 +302,7 @@ void GPU3D::Reset() noexcept
 
     RenderXPos = 0;
 
-    FDIS = {};
-    FDT = {};
-    FDM = {};
+    FD = {};
 
     if (CurrentRenderer)
         CurrentRenderer->Reset(NDS.GPU);
@@ -573,12 +571,15 @@ void GPU3D::SetEnabled(bool geometry, bool rendering) noexcept
     if (!rendering) ResetRenderingState();
 }
 
-void GPU3D::NewWriteFD(u16 addr, u32 val)
+void GPU3D::NewWriteFD(u8 cmd, u32* param)
 {
-    if (!NDS.GPU.FDInProg) return;
-    FDM.WriteList[FDM.NumWrites].Address = addr;
-    FDM.WriteList[FDM.NumWrites].Write = val;
-    FDM.NumWrites++;
+    // note: 0dotdisp is assigned an id of 0x72, to avoid having to do any special handling for it, since vec and box tests aren't saved.
+    if (!NDS.GPU.FDInProg || (FD.NumParams >= sizeof(FD.Params) / sizeof(FD.Params[0])) || (FD.NumCmds >= sizeof(FD.Cmd) / sizeof(FD.Cmd[0]))) return;
+
+    FD.Cmd[FD.NumCmds++] = cmd;
+
+    for (int i = 0; i < CmdNumParams[cmd]; i++)
+        FD.Params[FD.NumParams++] = param[i];
 }
 
 void GPU3D::StartFrameDump()
@@ -586,97 +587,67 @@ void GPU3D::StartFrameDump()
     NDS.GPU.QueueFrameDump = false;
     
     // save these values here because its way easier this way.
-
-    // i hate this
-    u32 tocopy = ((u64)&FDT.SwapBuffer + sizeof(FDT.SwapBuffer)) - (u64)&FDT.ZDotDisp_Track;
-    printf("%li", tocopy);
-    memcpy(&FDIS, &FDT, tocopy);
-    
-    // i hate this even more
-    memcpy(FDIS.NormLightVec_Track, FDT.NormLightVec_Track, sizeof(FDT.NormLightVec_Track));
-    memcpy(FDIS.NormLightColor_Track, FDT.NormLightColor_Track, sizeof(FDT.NormLightColor_Track));
-    memcpy(FDIS.LightVec_Track, FDT.LightVec_Track, sizeof(FDT.LightVec_Track));
-    memcpy(FDIS.LightColor_Track, FDT.LightColor_Track, sizeof(FDT.LightColor_Track));
-    memcpy(FDIS.ProjStack_Track, FDT.ProjStack_Track, sizeof(FDT.ProjStack_Track));
-    memcpy(FDIS.PosStack_Track, FDT.PosStack_Track, sizeof(FDT.PosStack_Track));
-    memcpy(FDIS.VecStack_Track, FDT.VecStack_Track, sizeof(FDT.VecStack_Track));
-    memcpy(FDIS.TexStack_Track, FDT.TexStack_Track, sizeof(FDT.TexStack_Track));
-    memcpy(FDIS.ProjMtx_Track, FDT.ProjMtx_Track, sizeof(FDT.ProjMtx_Track));
-    memcpy(FDIS.PosMtx_Track, FDT.PosMtx_Track, sizeof(FDT.PosMtx_Track));
-    memcpy(FDIS.VecMtx_Track, FDT.VecMtx_Track, sizeof(FDT.VecMtx_Track));
-    memcpy(FDIS.TexMtx_Track, FDT.TexMtx_Track, sizeof(FDT.TexMtx_Track));
-    memcpy(FDIS.NormTexMtx_Track, FDT.NormTexMtx_Track, sizeof(FDT.NormTexMtx_Track));
-    memcpy(FDIS.NormVecMtx_Track, FDT.NormVecMtx_Track, sizeof(FDT.NormVecMtx_Track));
-    memcpy(FDIS.NormShininess_Track, FDT.NormShininess_Track, sizeof(FDT.NormShininess_Track));
-    memcpy(FDIS.NormLightVecVecMtx_Track, FDT.NormLightVecVecMtx_Track, sizeof(FDT.NormLightVecVecMtx_Track));
-    memcpy(FDIS.Shininess_Track, FDT.Shininess_Track, sizeof(FDT.Shininess_Track));
-    memcpy(FDIS.LightVecVecMtx_Track, FDT.LightVecVecMtx_Track, sizeof(FDT.LightVecVecMtx_Track));
-    memcpy(FDIS.NormTexMtx, FDT.NormTexMtx, sizeof(FDT.NormTexMtx));
-    memcpy(FDIS.NormVecMtx, FDT.NormVecMtx, sizeof(FDT.NormVecMtx));
-    memcpy(FDIS.NormShininess, FDT.NormShininess, sizeof(FDT.NormShininess));
-    memcpy(FDIS.NormLightColor, FDT.NormLightColor, sizeof(FDT.NormLightColor));
-    memcpy(FDIS.NormLightVec, FDT.NormLightVec, sizeof(FDT.NormLightVec));
-    memcpy(FDIS.NormLiVecVecMtx, FDT.NormLiVecVecMtx, sizeof(FDT.NormLiVecVecMtx));
-    memcpy(FDIS.Shininess, FDT.Shininess, sizeof(FDT.Shininess));
-    memcpy(FDIS.LightVec, FDT.LightVec, sizeof(FDT.LightVec));
-    memcpy(FDIS.LiVecVecMtx, FDT.LiVecVecMtx, sizeof(FDT.LiVecVecMtx));
-    memcpy(FDIS.LightColor, FDT.LightColor, sizeof(FDT.LightColor));
-
-    // store these values cause im not tracking the theoretically infinite layers of stacking they can undergo 
-    memcpy(FDM.ProjStack, ProjMatrixStack, sizeof(ProjMatrixStack));
-    memcpy(FDM.PosStack, PosMatrixStack, sizeof(PosMatrixStack));
-    memcpy(FDM.VecStack, VecMatrixStack, sizeof(VecMatrixStack));
-    memcpy(FDM.TexStack, TexMatrixStack, sizeof(TexMatrixStack));
-    memcpy(FDM.ProjMtx, ProjMatrix, sizeof(ProjMatrix));
-    memcpy(FDM.PosMtx, PosMatrix, sizeof(PosMatrix));
-    memcpy(FDM.VecMtx, VecMatrix, sizeof(VecMatrix));
-    memcpy(FDM.TexMtx, TexMatrix, sizeof(TexMatrix));
-    FDM.VtxX = CurVertex[0];
-    FDM.VtxY = CurVertex[1];
-    FDM.VtxZ = CurVertex[2];
-    
+    FD.ZDotDisp_Track = (ZeroDotWLimit != 0);
+    FD.ZDotDisp = ((ZeroDotWLimit == 0) ? 0 : ((ZeroDotWLimit - 0x1FF) / 0x200));
+    FD.PolyAttr = CurPolygonAttr;
+    FD.PolyAttrUnset = PolygonAttr;
+    FD.VtxColor = VertexColor[2] << 10 | VertexColor[1] << 5 | VertexColor[0];
+    FD.Viewport = ((191 - Viewport[3]) & 0xFF) << 24 | Viewport[2] << 16 | ((191 - Viewport[1]) & 0xFF) << 8 | Viewport[0];
+    memcpy(FD.ProjStack, ProjMatrixStack, sizeof(ProjMatrixStack));
+    memcpy(FD.PosStack, PosMatrixStack, sizeof(PosMatrixStack));
+    memcpy(FD.VecStack, VecMatrixStack, sizeof(VecMatrixStack));
+    memcpy(FD.TexStack, TexMatrixStack, sizeof(TexMatrixStack));
+    memcpy(FD.ProjMtx, ProjMatrix, sizeof(ProjMatrix));
+    memcpy(FD.PosMtx, PosMatrix, sizeof(PosMatrix));
+    memcpy(FD.VecMtx, VecMatrix, sizeof(VecMatrix));
+    memcpy(FD.TexMtx, TexMatrix, sizeof(TexMatrix));
+    FD.MatrixMode = MatrixMode;
+    FD.Polygon = PolygonMode;
+    FD.VtxXY = CurVertex[1] << 16 | CurVertex[0];
+    FD.VtxZ = CurVertex[2];
+    FD.TexCoord = TexCoords[1] << 16 | TexCoords[0]; // use final texcoords so i dont have to worry about setting up the matrix & params properly.
+    FD.TexParam = TexParam;
+    FD.TexPalette = TexPalette;
+    FD.DiffAmbi = MatAmbient[2] << 26 | MatAmbient[1] << 21 | MatAmbient[0] << 16 | MatDiffuse[2] << 10 | MatDiffuse[1] << 5 | MatDiffuse[0];
+    FD.SpecEmis = MatEmission[2] << 26 | MatEmission[1] << 21 | MatEmission[0] << 16 | MatSpecular[2] << 10 | MatSpecular[1] << 5 | MatSpecular[0];
+    for (int i = 0; i < 32; i++)
+    {
+        u8 tbl = i << 2;
+        FD.Shininess[i] = ShininessTable[tbl];
+        FD.Shininess[i] |= ShininessTable[tbl + 1] << 8;
+        FD.Shininess[i] |= ShininessTable[tbl + 2] << 16;
+        FD.Shininess[i] |= ShininessTable[tbl + 3] << 24;
+    }
+    for (u32 i = 0; i < 4; i++)
+    {
+        FD.LightVec[i] = i << 30 | ((u32)LightDirection[i][2] & 0x3FF) << 20 | ((u32)LightDirection[i][1] & 0x3FF) << 10 | ((u32)LightDirection[i][0] & 0x3FF);
+        FD.LightColor[i] = i << 30 | LightColor[i][2] << 10 | LightColor[i][1] << 5 | LightColor[i][0];
+    }
+    FD.SwapBuffer = FlushAttributes;
     // set writes to zero to "clear" the write list
-    FDM.NumWrites = 0;
+    FD.NumCmds = 0;
+    FD.NumParams = 0;
     NDS.GPU.FDInProg = true;
 }
 
 void GPU3D::FinFrameDump()
 {
-    // hack to "disable" some currently unimplemented trackers
-    for (int i = 0; i < 16; i++)
-    {
-        FDIS.ProjStack_Track[i] = true;
-        FDIS.TexStack_Track[i] = true;
-        FDIS.ProjMtx_Track[i] = true;
-        FDIS.PosMtx_Track[i] = true;
-        FDIS.VecMtx_Track[i] = true;
-        FDIS.TexMtx_Track[i] = true;
-    }
-
-    for (int i = 0; i < 32; i++)
-        for (int j = 0; j < 16; j++)
-        {
-            FDIS.PosStack_Track[(i*16)+j] = true;
-            FDIS.VecStack_Track[(i*16)+j] = true;
-        }
-    FDM.Vtx_Track = true;
-
-
     // save final latched values
-    FDM.Disp3DCnt = RenderDispCnt;
+    // this step is technically completely unnecessary, does it just get optimized out?
+    FD.Disp3DCnt = RenderDispCnt;
     for (int i = 0; i < 8; i++)
     {
-        FDM.EdgeColor[i] = RenderEdgeTable[i];
+        FD.EdgeColor[i] = RenderEdgeTable[i];
     }
-    FDM.AlphaTest = RenderAlphaRef;
-    FDM.ClearColor = RenderClearAttr1;
-    FDM.ClearDepOff = RenderClearAttr2;
-    FDM.FogColor = RenderFogColor;
-    FDM.FogOffset = RenderFogOffset;
+    FD.AlphaTest = RenderAlphaRef;
+    FD.ClearColor = RenderClearAttr1;
+    FD.ClearDepOff = RenderClearAttr2;
+    FD.FogColor = RenderFogColor;
+    FD.FogOffset = RenderFogOffset;
     for (int i = 0; i < 32; i++)
     {
-        FDM.FogTable[i] = RenderFogDensityTable[i+1];
-        FDM.ToonTable[i] = RenderToonTable[i];
+        FD.FogTable[i] = RenderFogDensityTable[i+1];
+        FD.ToonTable[i] = RenderToonTable[i];
     }
 
     Platform::MakeLocalDirectory("framedumps");
@@ -690,187 +661,47 @@ void GPU3D::FinFrameDump()
         full = base + std::to_string(num) + ".fd";
     }
     Platform::FileHandle* file = Platform::OpenLocalFile(full, Platform::FileMode::Write);
-
-    // save write trackers to file
-    u8 bits = (FDM.FogColor_Track[1] << 7) | (FDM.FogColor_Track[0] << 6) | (FDM.ClearOffset_Track << 5) | (FDM.ClearDepth_Track << 4)
-            | (FDM.ClearColor_Track[1] << 3) | (FDM.ClearColor_Track[0] << 2) | (FDM.AlphaTest_Track << 1) | FDM.Disp3DCnt_Track;
-    Platform::FileWrite(&bits, 1, sizeof(bits), file);
-
-    bits = (FDIS.Viewport_Track << 7) | (FDIS.VtxColor_Track << 6) | (FDIS.VtxColorType << 4)
-         | (FDIS.PolyAttrUnset_Track << 3)| (FDIS.PolyAttr_Track << 2) | (FDIS.ZDotDisp_Track << 1) | FDM.FogOffset_Track;
-    Platform::FileWrite(&bits, 1, sizeof(bits), file);
-
-    bits = (FDIS.TexCoord_Track << 7) | (FDM.Vtx_Track << 6) | (FDIS.Polygon_Track << 5) | (FDIS.NormTexParam_Track << 4)
-         | (FDIS.NormSpecEmis_Track << 3) | (FDIS.NormDiffAmbi_Track << 2) | (FDIS.Normal_Track << 1) | FDIS.MatrixMode_Track;
-    Platform::FileWrite(&bits, 1, sizeof(bits), file);
-
-    bits = 0;
-    for (int i = 0; i < 4; i++)
-        bits |= (FDIS.NormLightVec_Track[i] << i) | (FDIS.NormLightColor_Track[i] << (i+4));
-    Platform::FileWrite(&bits, 1, sizeof(bits), file);
-
-    bits = (FDIS.NormPolyAttr << 4) | (FDIS.SpecEmis << 3) | (FDIS.DiffAmbi << 2) | (FDIS.TexPalette << 1) | FDIS.TexParam;
-    Platform::FileWrite(&bits, 1, sizeof(bits), file);
-
-    bits = 0;
-    for (int i = 0; i < 4; i++)
-        bits |= (FDIS.LightVec_Track[i] << i) | (FDIS.LightColor_Track[i] << (i+4));
-    Platform::FileWrite(&bits, 1, sizeof(bits), file);
-
-    u16 bits2 = 0;
-    for (int i = 0; i < 16; i++)
-        bits2 |= (FDM.EdgeColor_Track[i] << i);
-    Platform::FileWrite(&bits2, 1, sizeof(bits2), file);
-
-    for (int i = 0; i < 4; i++)
-    {
-        bits = 0;
-        for (int j = 0; j < 8; j++)
-            bits |= FDM.FogTable_Track[(i*8)+j] << j;
-        Platform::FileWrite(&bits, 1, sizeof(bits), file);
-    }
     
-    for (int i = 0; i < 8; i++)
-    {
-        bits = 0;
-        for (int j = 0; j < 8; j++)
-            bits |= FDM.ToonTable_Track[(i*8)+j] << j;
-        Platform::FileWrite(&bits, 1, sizeof(bits), file);
-    }
-    
-    bits2 = 0;
-    for (int i = 0; i < 16; i++)
-        bits2 |= FDIS.ProjStack_Track[i] << i;
-    Platform::FileWrite(&bits2, 1, sizeof(bits2), file);
-
-    for (int i = 0; i < 32; i++)
-    {
-        bits2 = 0;
-        for (int j = 0; j < 16; j++)
-            bits2 |= FDIS.PosStack_Track[(i*16)+j] << j;
-        Platform::FileWrite(&bits2, 1, sizeof(bits2), file);
-    }
-
-    for (int i = 0; i < 32; i++)
-    {
-        bits2 = 0;
-        for (int j = 0; j < 16; j++)
-            bits2 |= FDIS.VecStack_Track[(i*16)+j] << j;
-        Platform::FileWrite(&bits2, 1, sizeof(bits2), file);
-    }
-    
-    bits2 = 0;
-    for (int i = 0; i < 16; i++)
-        bits2 |= FDIS.TexStack_Track[i] << i;
-    Platform::FileWrite(&bits2, 1, sizeof(bits2), file);
-    
-    bits2 = 0;
-    for (int i = 0; i < 16; i++)
-        bits2 |= FDIS.ProjMtx_Track[i] << i;
-    Platform::FileWrite(&bits2, 1, sizeof(bits2), file);
-    
-    bits2 = 0;
-    for (int i = 0; i < 16; i++)
-        bits2 |= FDIS.PosMtx_Track[i] << i;
-    Platform::FileWrite(&bits2, 1, sizeof(bits2), file);
-    
-    bits2 = 0;
-    for (int i = 0; i < 16; i++)
-        bits2 |= FDIS.VecMtx_Track[i] << i;
-    Platform::FileWrite(&bits2, 1, sizeof(bits2), file);
-    
-    bits2 = 0;
-    for (int i = 0; i < 16; i++)
-        bits2 |= FDIS.TexMtx_Track[i] << i;
-    Platform::FileWrite(&bits2, 1, sizeof(bits2), file);
-    
-    bits2 = 0;
-    for (int i = 0; i < 16; i++)
-        bits2 |= FDIS.NormTexMtx_Track[i] << i;
-    Platform::FileWrite(&bits2, 1, sizeof(bits2), file);
-    
-    bits2 = 0;
-    for (int i = 0; i < 16; i++)
-        bits2 |= FDIS.NormVecMtx_Track[i] << i;
-    Platform::FileWrite(&bits2, 1, sizeof(bits2), file);
-
-    u32 bits3 = 0;
-    for (int i = 0; i < 32; i++)
-        bits3 |= FDIS.NormShininess_Track[i] << i;
-    Platform::FileWrite(&bits3, 1, sizeof(bits3), file);
-
-    for (int i = 0; i < 4; i++)
-    {
-        bits2 = 0;
-        for (int j = 0; j < 16; j++)
-            bits2 |= FDIS.NormLightVecVecMtx_Track[(i*16)+j] << j;
-        Platform::FileWrite(&bits2, 1, sizeof(bits2), file);
-    }
-
-    bits3 = 0;
-    for (int i = 0; i < 32; i++)
-        bits3 |= FDIS.Shininess_Track[i] << i;
-    Platform::FileWrite(&bits3, 1, sizeof(bits3), file);
-    
-    for (int i = 0; i < 4; i++)
-    {
-        bits2 = 0;
-        for (int j = 0; j < 16; j++)
-            bits2 |= FDIS.LightVecVecMtx_Track[(i*16)+j] << j;
-        Platform::FileWrite(&bits2, 1, sizeof(bits2), file);
-    }
     
     // save final state vars to file
-    Platform::FileWrite(&FDM.Disp3DCnt, 1, sizeof(FDM.Disp3DCnt), file);
-    Platform::FileWrite(FDM.EdgeColor, 1, sizeof(FDM.EdgeColor), file);
-    Platform::FileWrite(&FDM.AlphaTest, 1, sizeof(FDM.AlphaTest), file);
-    Platform::FileWrite(&FDM.ClearColor, 1, sizeof(FDM.ClearColor), file);
-    Platform::FileWrite(&FDM.ClearDepOff, 1, sizeof(FDM.ClearDepOff), file);
-    Platform::FileWrite(&FDM.FogColor, 1, sizeof(FDM.FogColor), file);
-    Platform::FileWrite(&FDM.FogOffset, 1, sizeof(FDM.FogOffset), file);
-    Platform::FileWrite(FDM.FogTable, 1, sizeof(FDM.FogTable), file);
-    Platform::FileWrite(FDM.ToonTable, 1, sizeof(FDM.ToonTable), file);
+    Platform::FileWrite(&FD.Disp3DCnt, 1, sizeof(FD.Disp3DCnt), file);
+    Platform::FileWrite(FD.EdgeColor, 1, sizeof(FD.EdgeColor), file);
+    Platform::FileWrite(&FD.AlphaTest, 1, sizeof(FD.AlphaTest), file);
+    Platform::FileWrite(&FD.ClearColor, 1, sizeof(FD.ClearColor), file);
+    Platform::FileWrite(&FD.ClearDepOff, 1, sizeof(FD.ClearDepOff), file);
+    Platform::FileWrite(&FD.FogColor, 1, sizeof(FD.FogColor), file);
+    Platform::FileWrite(&FD.FogOffset, 1, sizeof(FD.FogOffset), file);
+    Platform::FileWrite(FD.FogTable, 1, sizeof(FD.FogTable), file);
+    Platform::FileWrite(FD.ToonTable, 1, sizeof(FD.ToonTable), file);
 
     // save initial state vars to file.
-    Platform::FileWrite(&FDIS.ZDotDisp, 1, sizeof(FDIS.ZDotDisp), file);
-    Platform::FileWrite(&FDIS.PolyAttr, 1, sizeof(FDIS.PolyAttr), file);
-    Platform::FileWrite(&FDIS.PolyAttrUnset, 1, sizeof(FDIS.PolyAttrUnset), file);
-    Platform::FileWrite(&FDIS.VtxColor, 1, sizeof(FDIS.VtxColor), file);
-    Platform::FileWrite(&FDIS.Viewport, 1, sizeof(FDIS.Viewport), file);
-    Platform::FileWrite(FDM.ProjStack, 1, sizeof(FDM.ProjStack), file);
-    Platform::FileWrite(FDM.PosStack, 1, sizeof(FDM.PosStack), file);
-    Platform::FileWrite(FDM.VecStack, 1, sizeof(FDM.VecStack), file);
-    Platform::FileWrite(FDM.TexStack, 1, sizeof(FDM.TexStack), file);
-    Platform::FileWrite(FDM.ProjMtx, 1, sizeof(FDM.ProjMtx), file);
-    Platform::FileWrite(FDM.PosMtx, 1, sizeof(FDM.PosMtx), file);
-    Platform::FileWrite(FDM.VecMtx, 1, sizeof(FDM.VecMtx), file);
-    Platform::FileWrite(FDM.TexMtx, 1, sizeof(FDM.TexMtx), file);
-    Platform::FileWrite(&FDIS.MatrixMode, 1, sizeof(FDIS.MatrixMode), file);
-    Platform::FileWrite(&FDIS.Normal, 1, sizeof(FDIS.Normal), file);
-    Platform::FileWrite(&FDIS.NormPolyAttr, 1, sizeof(FDIS.NormPolyAttr), file);
-    Platform::FileWrite(FDIS.NormTexMtx, 1, sizeof(FDIS.NormTexMtx), file);
-    Platform::FileWrite(FDIS.NormVecMtx, 1, sizeof(FDIS.NormVecMtx), file);
-    Platform::FileWrite(&FDIS.NormDiffAmbi, 1, sizeof(FDIS.NormDiffAmbi), file);
-    Platform::FileWrite(&FDIS.NormSpecEmis, 1, sizeof(FDIS.NormSpecEmis), file);
-    Platform::FileWrite(&FDIS.NormTexParam, 1, sizeof(FDIS.NormTexParam), file);
-    Platform::FileWrite(FDIS.NormShininess, 1, sizeof(FDIS.NormShininess), file);
-    Platform::FileWrite(FDIS.NormLightVec, 1, sizeof(FDIS.NormLightVec), file);
-    Platform::FileWrite(FDIS.NormLiVecVecMtx, 1, sizeof(FDIS.NormLiVecVecMtx), file);
-    Platform::FileWrite(FDIS.NormLightColor, 1, sizeof(FDIS.NormLightColor), file);
-    Platform::FileWrite(&FDIS.Polygon, 1, sizeof(FDIS.Polygon), file);
-    Platform::FileWrite(&FDM.VtxX, 1, sizeof(FDM.VtxX), file);
-    Platform::FileWrite(&FDM.VtxY, 1, sizeof(FDM.VtxY), file);
-    Platform::FileWrite(&FDM.VtxZ, 1, sizeof(FDM.VtxZ), file);
-    Platform::FileWrite(&FDIS.TexCoord, 1, sizeof(FDIS.TexCoord), file);
-    Platform::FileWrite(&FDIS.TexParam, 1, sizeof(FDIS.TexParam), file);
-    Platform::FileWrite(&FDIS.TexPalette, 1, sizeof(FDIS.TexPalette), file);
-    Platform::FileWrite(&FDIS.DiffAmbi, 1, sizeof(FDIS.DiffAmbi), file);
-    Platform::FileWrite(&FDIS.SpecEmis, 1, sizeof(FDIS.SpecEmis), file);
-    Platform::FileWrite(FDIS.Shininess, 1, sizeof(FDIS.Shininess), file);
-    Platform::FileWrite(FDIS.LightVec, 1, sizeof(FDIS.LightVec), file);
-    Platform::FileWrite(FDIS.LiVecVecMtx, 1, sizeof(FDIS.LiVecVecMtx), file);
-    Platform::FileWrite(&FDIS.LightColor, 1, sizeof(FDIS.LightColor), file);
-    Platform::FileWrite(&FDIS.SwapBuffer, 1, sizeof(FDIS.SwapBuffer), file);
+    Platform::FileWrite(&FD.ZDotDisp_Track, 1, 1, file);
+    Platform::FileWrite(&FD.ZDotDisp, 1, sizeof(FD.ZDotDisp), file);
+    Platform::FileWrite(&FD.PolyAttr, 1, sizeof(FD.PolyAttr), file);
+    Platform::FileWrite(&FD.PolyAttrUnset, 1, sizeof(FD.PolyAttrUnset), file);
+    Platform::FileWrite(&FD.VtxColor, 1, sizeof(FD.VtxColor), file);
+    Platform::FileWrite(&FD.Viewport, 1, sizeof(FD.Viewport), file);
+    Platform::FileWrite(FD.ProjStack, 1, sizeof(FD.ProjStack), file);
+    Platform::FileWrite(FD.PosStack, 1, sizeof(FD.PosStack), file);
+    Platform::FileWrite(FD.VecStack, 1, sizeof(FD.VecStack), file);
+    Platform::FileWrite(FD.TexStack, 1, sizeof(FD.TexStack), file);
+    Platform::FileWrite(FD.ProjMtx, 1, sizeof(FD.ProjMtx), file);
+    Platform::FileWrite(FD.PosMtx, 1, sizeof(FD.PosMtx), file);
+    Platform::FileWrite(FD.VecMtx, 1, sizeof(FD.VecMtx), file);
+    Platform::FileWrite(FD.TexMtx, 1, sizeof(FD.TexMtx), file);
+    Platform::FileWrite(&FD.MatrixMode, 1, sizeof(FD.MatrixMode), file);
+    Platform::FileWrite(&FD.Polygon, 1, sizeof(FD.Polygon), file);
+    Platform::FileWrite(&FD.VtxXY, 1, sizeof(FD.VtxXY), file);
+    Platform::FileWrite(&FD.VtxZ, 1, sizeof(FD.VtxZ), file);
+    Platform::FileWrite(&FD.TexCoord, 1, sizeof(FD.TexCoord), file);
+    Platform::FileWrite(&FD.TexParam, 1, sizeof(FD.TexParam), file);
+    Platform::FileWrite(&FD.TexPalette, 1, sizeof(FD.TexPalette), file);
+    Platform::FileWrite(&FD.DiffAmbi, 1, sizeof(FD.DiffAmbi), file);
+    Platform::FileWrite(&FD.SpecEmis, 1, sizeof(FD.SpecEmis), file);
+    Platform::FileWrite(FD.Shininess, 1, sizeof(FD.Shininess), file);
+    Platform::FileWrite(FD.LightVec, 1, sizeof(FD.LightVec), file);
+    Platform::FileWrite(FD.LightColor, 1, sizeof(FD.LightColor), file);
+    Platform::FileWrite(&FD.SwapBuffer, 1, sizeof(FD.SwapBuffer), file);
     
     // skip banks H and I, we only care about dumping 3d engine state currently, and banks H and I cannot be used by the 3d engine
     // save vram control regs to file
@@ -884,16 +715,17 @@ void GPU3D::FinFrameDump()
     if ((NDS.GPU.VRAMCNT[4] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_E, 1, sizeof(NDS.GPU.VRAM_E), file);
     if ((NDS.GPU.VRAMCNT[5] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_F, 1, sizeof(NDS.GPU.VRAM_F), file);
     if ((NDS.GPU.VRAMCNT[6] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_G, 1, sizeof(NDS.GPU.VRAM_G), file);
-    //if (NDS.GPU.VRAMCNT[7] & (1<<7)) Platform::FileWrite(NDS.GPU.VRAM_H, 1, sizeof(NDS.GPU.VRAM_H), file);
-    //if (NDS.GPU.VRAMCNT[8] & (1<<7)) Platform::FileWrite(NDS.GPU.VRAM_I, 1, sizeof(NDS.GPU.VRAM_I), file);
     
-    Platform::FileWrite(&FDM.NumWrites, 1, sizeof(FDM.NumWrites), file);
+    Platform::FileWrite(&FD.NumCmds, 1, sizeof(FD.NumCmds), file);
 
-    for (int i = 0; i < FDM.NumWrites; i++)
+    for (int i = 0, j = 0; i < FD.NumCmds; i++)
     {
-        u8 cmd = (FDM.WriteList[i].Address - 0x400) >> 2; // compress the address fragment to 8 bits.
-        Platform::FileWrite(&cmd, 1, sizeof(cmd), file);
-        Platform::FileWrite(&FDM.WriteList[i].Write, 1, sizeof(FDM.WriteList[i].Write), file);
+        Platform::FileWrite(&FD.Cmd[i], 1, sizeof(FD.Cmd[i]), file);
+        if (CmdNumParams[FD.Cmd[i]] != 0)
+        {
+            Platform::FileWrite(&FD.Params[j], sizeof(FD.Params[j]), CmdNumParams[FD.Cmd[i]], file);
+            j += CmdNumParams[FD.Cmd[i]];
+        }
     }
     Platform::CloseFile(file);
     NDS.GPU.FDInProg = false;
@@ -2072,16 +1904,18 @@ void GPU3D::ExecuteCommand() noexcept
 
         /*printf("[GXS:%08X] 0x%02X,  0x%08X", GXStat, entry.Command, entry.Param);*/
 
+
+
         switch (entry.Command)
         {
         case 0x10: // matrix mode
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
-            FDT.MatrixMode = entry.Param;
-            FDT.MatrixMode_Track = true;
             MatrixMode = entry.Param & 0x3;
             break;
 
         case 0x11: // push matrix
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             NumPushPopCommands--;
             if (MatrixMode == 0)
@@ -2113,6 +1947,7 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x12: // pop matrix
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             NumPushPopCommands--;
             if (MatrixMode == 0)
@@ -2150,6 +1985,7 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x13: // store matrix
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             if (MatrixMode == 0)
             {
@@ -2171,6 +2007,7 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x14: // restore matrix
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             if (MatrixMode == 0)
             {
@@ -2196,6 +2033,7 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x15: // identity
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             if (MatrixMode == 0)
             {
@@ -2216,11 +2054,9 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x20: // vertex color
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed6();
             {
-                FDT.VtxColor = entry.Param;
-                FDT.VtxColor_Track = true;
-                FDT.VtxColorType = 0;
                 u32 c = entry.Param;
                 u32 r = c & 0x1F;
                 u32 g = (c >> 5) & 0x1F;
@@ -2232,32 +2068,8 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x21: // normal
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
-
-            FDT.Normal = entry.Param;
-            FDT.Normal_Track = true;
-            FDT.NormPolyAttr = FDT.PolyAttr;
-            FDT.NormPolyAttr_Track = FDT.PolyAttr_Track;
-            FDT.VtxColorType = 2;
-            memcpy(FDT.NormTexMtx, TexMatrix, sizeof(TexMatrix));
-            //memcpy(FDT.NormTexMtx, FDT.TexMtx_Track, sizeof(TexMatrix)); TODO: Implement?
-            memcpy(FDT.NormVecMtx, VecMatrix, sizeof(VecMatrix));
-            //memcpy(FDT.NormVecMtx, VecMtx_Track, sizeof(VecMatrix));
-            FDT.NormDiffAmbi = FDT.DiffAmbi;
-            FDT.NormDiffAmbi_Track = FDT.DiffAmbi_Track;
-            FDT.NormSpecEmis = FDT.SpecEmis;
-            FDT.NormSpecEmis_Track = FDT.SpecEmis_Track;
-            FDT.NormTexParam = FDT.TexParam;
-            FDT.NormTexParam_Track = FDT.TexParam_Track;
-            memcpy(FDT.NormShininess, FDT.Shininess, sizeof(FDT.Shininess));
-            memcpy(FDT.NormShininess_Track, FDT.Shininess_Track, sizeof(FDT.Shininess_Track));
-            memcpy(FDT.NormLightColor, FDT.LightColor, sizeof(FDT.LightColor));
-            memcpy(FDT.NormLightColor_Track, FDT.LightColor_Track, sizeof(FDT.LightColor_Track));
-            memcpy(FDT.NormLightVec, FDT.LightVec, sizeof(FDT.LightVec));
-            memcpy(FDT.NormLightVec_Track, FDT.LightVec_Track, sizeof(FDT.LightVec_Track));
-            memcpy(FDT.NormLiVecVecMtx, FDT.LiVecVecMtx, sizeof(FDT.LiVecVecMtx));
-            //memcpy(FDT.NormLiVecVecMtx_Track, FDT.LiVecVecMtx_Track sizeof(FDT.LiVecVecMtx_Track));
-
             Normal[0] = (s16)((entry.Param & 0x000003FF) << 6) >> 6;
             Normal[1] = (s16)((entry.Param & 0x000FFC00) >> 4) >> 6;
             Normal[2] = (s16)((entry.Param & 0x3FF00000) >> 14) >> 6;
@@ -2265,9 +2077,8 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x22: // texcoord
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
-            FDT.TexCoord = entry.Param;
-            FDT.TexCoord_Track = true;
             RawTexCoords[0] = entry.Param & 0xFFFF;
             RawTexCoords[1] = entry.Param >> 16;
             if ((TexParam >> 30) == 1)
@@ -2283,6 +2094,7 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x24: // 10-bit vertex
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineSubmitCmd();
             CurVertex[0] = (entry.Param & 0x000003FF) << 6;
             CurVertex[1] = (entry.Param & 0x000FFC00) >> 4;
@@ -2291,6 +2103,7 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x25: // vertex XY
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineSubmitCmd();
             CurVertex[0] = entry.Param & 0xFFFF;
             CurVertex[1] = entry.Param >> 16;
@@ -2298,6 +2111,7 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x26: // vertex XZ
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineSubmitCmd();
             CurVertex[0] = entry.Param & 0xFFFF;
             CurVertex[2] = entry.Param >> 16;
@@ -2305,6 +2119,7 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x27: // vertex YZ
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineSubmitCmd();
             CurVertex[1] = entry.Param & 0xFFFF;
             CurVertex[2] = entry.Param >> 16;
@@ -2312,6 +2127,7 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x28: // 10-bit delta vertex
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineSubmitCmd();
             CurVertex[0] += (s16)((entry.Param & 0x000003FF) << 6) >> 6;
             CurVertex[1] += (s16)((entry.Param & 0x000FFC00) >> 4) >> 6;
@@ -2320,30 +2136,26 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x29: // polygon attributes
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed8();
-            FDT.PolyAttrUnset = entry.Param;
-            FDT.PolyAttrUnset_Track = true;
             PolygonAttr = entry.Param;
             break;
 
         case 0x2A: // texture param
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed8();
-            FDT.TexParam = entry.Param;
-            FDT.TexParam_Track = true;
             TexParam = entry.Param;
             break;
 
         case 0x2B: // texture palette
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed8();
-            FDT.TexPalette = entry.Param;
-            FDT.TexPalette_Track = true;
             TexPalette = entry.Param & 0x1FFF;
             break;
 
         case 0x30: // diffuse/ambient material
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed6();
-            FDT.DiffAmbi = entry.Param;
-            FDT.DiffAmbi_Track = true;
             MatDiffuse[0] = entry.Param & 0x1F;
             MatDiffuse[1] = (entry.Param >> 5) & 0x1F;
             MatDiffuse[2] = (entry.Param >> 10) & 0x1F;
@@ -2352,9 +2164,6 @@ void GPU3D::ExecuteCommand() noexcept
             MatAmbient[2] = (entry.Param >> 26) & 0x1F;
             if (entry.Param & 0x8000)
             {
-                FDT.VtxColor = entry.Param;
-                FDT.VtxColor_Track = true;
-                FDT.VtxColorType = 1;
                 VertexColor[0] = MatDiffuse[0];
                 VertexColor[1] = MatDiffuse[1];
                 VertexColor[2] = MatDiffuse[2];
@@ -2363,9 +2172,8 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x31: // specular/emission material
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed6();
-            FDT.SpecEmis = entry.Param;
-            FDT.SpecEmis_Track = true;
             MatSpecular[0] = entry.Param & 0x1F;
             MatSpecular[1] = (entry.Param >> 5) & 0x1F;
             MatSpecular[2] = (entry.Param >> 10) & 0x1F;
@@ -2377,13 +2185,10 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x32: // light direction
+            NewWriteFD(entry.Command, &entry.Param);
             StallPolygonPipeline(8 + 1,  2); // 0x32 can run 6 cycles after a vertex
             {
                 u32 l = entry.Param >> 30;
-                FDT.LightVec[l] = entry.Param;
-                FDT.LightVec_Track[l] = true;
-                memcpy(&FDT.LiVecVecMtx[l*16], VecMatrix, sizeof(VecMatrix));
-                //memcpy(&FDT.LiVecVecMtx[l*16], FDT.VecMtx_Track, sizeof(FDT.VecMtx_Track)); TODO:
                 s16 dir[3];
                 dir[0] = (s16)((entry.Param & 0x000003FF) << 6) >> 6;
                 dir[1] = (s16)((entry.Param & 0x000FFC00) >> 4) >> 6;
@@ -2396,11 +2201,10 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x33: // light color
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed8();
             {
                 u32 l = entry.Param >> 30;
-                FDT.LightColor[l] = entry.Param;
-                FDT.LightColor_Track[l] = true;
                 LightColor[l][0] = entry.Param & 0x1F;
                 LightColor[l][1] = (entry.Param >> 5) & 0x1F;
                 LightColor[l][2] = (entry.Param >> 10) & 0x1F;
@@ -2409,14 +2213,10 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x40: // begin polygons
+            NewWriteFD(entry.Command, &entry.Param);
             StallPolygonPipeline(1, 0);
             // TODO: check if there was a polygon being defined but incomplete
             // such cases seem to freeze the GPU
-            FDT.Polygon = entry.Param;
-            FDT.Polygon_Track = true;
-            FDT.PolyAttr = PolygonAttr;
-            FDT.PolyAttr_Track = true;
-            FDT.PolyAttrUnset_Track = false;
             PolygonMode = entry.Param & 0x3;
             VertexNum = 0;
             VertexNumInPoly = 0;
@@ -2426,6 +2226,7 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x41: // end polygons
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed8();
             // TODO: research this?
             // it doesn't seem to have any effect whatsoever, but
@@ -2434,9 +2235,9 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x50: // flush
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             FlushRequest = 1;
-            FDT.SwapBuffer = entry.Param;
             FlushAttributes = entry.Param & 0x3;
             CycleCount = 325;
             // probably safe to just reset all pipelines
@@ -2449,10 +2250,9 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x60: // viewport x1,y1,x2,y2
+            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed8();
             // note: viewport Y coordinates are upside-down
-            FDT.Viewport = entry.Param;
-            FDT.Viewport_Track = true;
             Viewport[0] = entry.Param & 0xFF;                             // x0
             Viewport[1] = (191 - ((entry.Param >> 8) & 0xFF)) & 0xFF;     // y0
             Viewport[2] = (entry.Param >> 16) & 0xFF;                     // x1
@@ -2508,6 +2308,7 @@ void GPU3D::ExecuteCommand() noexcept
                 switch (entry.Command)
                 {
                 case 0x16: // load 4x4
+                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixLoad4x4(ProjMatrix, (s32*)ExecParams);
@@ -2530,6 +2331,7 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x17: // load 4x3
+                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixLoad4x3(ProjMatrix, (s32*)ExecParams);
@@ -2552,6 +2354,7 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x18: // mult 4x4
+                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixMult4x4(ProjMatrix, (s32*)ExecParams);
@@ -2577,6 +2380,7 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x19: // mult 4x3
+                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixMult4x3(ProjMatrix, (s32*)ExecParams);
@@ -2602,6 +2406,7 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x1A: // mult 3x3
+                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixMult3x3(ProjMatrix, (s32*)ExecParams);
@@ -2627,6 +2432,7 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x1B: // scale
+                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixScale(ProjMatrix, (s32*)ExecParams);
@@ -2647,6 +2453,7 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x1C: // translate
+                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixTranslate(ProjMatrix, (s32*)ExecParams);
@@ -2672,6 +2479,7 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x23: // full vertex
+                    NewWriteFD(entry.Command, ExecParams);
                     CurVertex[0] = ExecParams[0] & 0xFFFF;
                     CurVertex[1] = ExecParams[0] >> 16;
                     CurVertex[2] = ExecParams[1] & 0xFFFF;
@@ -2679,11 +2487,10 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x34: // shininess table
+                    NewWriteFD(entry.Command, ExecParams);
                     {
                         for (int i = 0; i < 128; i += 4)
                         {
-                            FDT.Shininess[i >> 2] = ExecParams[i >> 2];
-                            FDT.Shininess_Track[i >> 2] = true;
                             u32 val = ExecParams[i >> 2];
                             ShininessTable[i + 0] = val & 0xFF;
                             ShininessTable[i + 1] = (val >> 8) & 0xFF;
@@ -2694,6 +2501,7 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x71: // pos test
+                    NewWriteFD(entry.Command, ExecParams);
                     NumTestCommands -= 2;
                     CurVertex[0] = ExecParams[0] & 0xFFFF;
                     CurVertex[1] = ExecParams[0] >> 16;
@@ -3136,7 +2944,6 @@ void GPU3D::Write8(u32 addr, u8 val) noexcept
     case 0x04000340:
         AlphaRefVal = val & 0x1F;
         AlphaRef = (DispCnt & (1<<2)) ? AlphaRefVal : 0;
-        FDM.AlphaTest_Track = true;
         return;
 
     case 0x04000601:
@@ -3159,21 +2966,18 @@ void GPU3D::Write8(u32 addr, u8 val) noexcept
     if (addr >= 0x04000330 && addr < 0x04000340)
     {
         ((u8*)EdgeTable)[addr - 0x04000330] = val;
-        FDM.EdgeColor_Track[addr - 0x4000330] = true;
         return;
     }
 
     if (addr >= 0x04000360 && addr < 0x04000380)
     {
         FogDensityTable[addr - 0x04000360] = val & 0x7F;
-        FDM.FogTable_Track[addr - 0x04000360] = true;
         return;
     }
 
     if (addr >= 0x04000380 && addr < 0x040003C0)
     {
         ((u8*)ToonTable)[addr - 0x04000380] = val;
-        FDM.ToonTable_Track[addr - 0x04000380] = true;
         return;
     }
 
@@ -3192,43 +2996,34 @@ void GPU3D::Write16(u32 addr, u16 val) noexcept
         if (val & (1<<12)) DispCnt &= ~(1<<12);
         if (val & (1<<13)) DispCnt &= ~(1<<13);
         AlphaRef = (DispCnt & (1<<2)) ? AlphaRefVal : 0;
-        FDM.Disp3DCnt_Track = true;
         return;
 
     case 0x04000340:
         AlphaRefVal = val & 0x1F;
         AlphaRef = (DispCnt & (1<<2)) ? AlphaRefVal : 0;
-        FDM.AlphaTest_Track = true;
         return;
 
     case 0x04000350:
         ClearAttr1 = (ClearAttr1 & 0xFFFF0000) | val;
-        FDM.ClearColor_Track[0] = true;
         return;
     case 0x04000352:
         ClearAttr1 = (ClearAttr1 & 0xFFFF) | (val << 16);
-        FDM.ClearColor_Track[1] = true;
         return;
     case 0x04000354:
         ClearAttr2 = (ClearAttr2 & 0xFFFF0000) | val;
-        FDM.ClearDepth_Track = true;
         return;
     case 0x04000356:
         ClearAttr2 = (ClearAttr2 & 0xFFFF) | (val << 16);
-        FDM.ClearOffset_Track = true;
         return;
 
     case 0x04000358:
         FogColor = (FogColor & 0xFFFF0000) | val;
-        FDM.FogColor_Track[0] = true;
         return;
     case 0x0400035A:
         FogColor = (FogColor & 0xFFFF) | (val << 16);
-        FDM.FogColor_Track[1] = true;
         return;
     case 0x0400035C:
         FogOffset = val & 0x7FFF;
-        FDM.FogOffset_Track = true;
         return;
 
     case 0x04000600:
@@ -3248,9 +3043,8 @@ void GPU3D::Write16(u32 addr, u16 val) noexcept
         return;
 
     case 0x04000610:
-        FDT.ZDotDisp = val;
-        FDT.ZDotDisp_Track = true;
-        NewWriteFD(addr, val);
+        u32 val2 = val; // cheating
+        NewWriteFD(0x72, &val2);
         val &= 0x7FFF;
         ZeroDotWLimit = (val * 0x200) + 0x1FF;
         return;
@@ -3258,10 +3052,7 @@ void GPU3D::Write16(u32 addr, u16 val) noexcept
 
     if (addr >= 0x04000330 && addr < 0x04000340)
     {
-        addr -= 0x04000330;
-        EdgeTable[addr>>1] = val;
-        FDM.EdgeColor_Track[addr] = true;
-        FDM.EdgeColor_Track[addr+1] = true;
+        EdgeTable[(addr - 0x04000330) >> 1] = val;
         return;
     }
 
@@ -3270,17 +3061,12 @@ void GPU3D::Write16(u32 addr, u16 val) noexcept
         addr -= 0x04000360;
         FogDensityTable[addr] = val & 0x7F;
         FogDensityTable[addr+1] = (val >> 8) & 0x7F;
-        FDM.FogTable_Track[addr] = true;
-        FDM.FogTable_Track[addr+1] = true;
         return;
     }
 
     if (addr >= 0x04000380 && addr < 0x040003C0)
     {
-        addr -= 0x04000380;
-        ToonTable[addr>>1] = val;
-        FDM.ToonTable_Track[addr] = true;
-        FDM.ToonTable_Track[addr+1] = true;
+        ToonTable[(addr - 0x04000380) >> 1] = val;
         return;
     }
 
@@ -3299,34 +3085,25 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
         if (val & (1<<12)) DispCnt &= ~(1<<12);
         if (val & (1<<13)) DispCnt &= ~(1<<13);
         AlphaRef = (DispCnt & (1<<2)) ? AlphaRefVal : 0;
-        FDM.Disp3DCnt_Track = true;
         return;
 
     case 0x04000340:
         AlphaRefVal = val & 0x1F;
         AlphaRef = (DispCnt & (1<<2)) ? AlphaRefVal : 0;
-        FDM.AlphaTest_Track = true;
         return;
 
     case 0x04000350:
         ClearAttr1 = val;
-        FDM.ClearColor_Track[0] = true;
-        FDM.ClearColor_Track[1] = true;
         return;
     case 0x04000354:
         ClearAttr2 = val;
-        FDM.ClearDepth_Track = true;
-        FDM.ClearOffset_Track = true;
         return;
 
     case 0x04000358:
         FogColor = val;
-        FDM.FogColor_Track[0] = true;
-        FDM.FogColor_Track[1] = true;
         return;
     case 0x0400035C:
         FogOffset = val & 0x7FFF;
-        FDM.FogOffset_Track = true;
         return;
 
     case 0x04000600:
@@ -3344,9 +3121,7 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
         return;
 
     case 0x04000610:
-        FDT.ZDotDisp = val;
-        FDT.ZDotDisp_Track = true;
-        NewWriteFD(addr, val);
+        NewWriteFD(0x72, &val);
         val &= 0x7FFF;
         ZeroDotWLimit = (val * 0x200) + 0x1FF;
         return;
@@ -3355,7 +3130,6 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
     if (addr >= 0x04000400 && addr < 0x04000440)
     {
         WriteToGXFIFO(val);
-        NewWriteFD(addr, val);
         return;
     }
 
@@ -3365,19 +3139,14 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
         entry.Command = (addr & 0x1FC) >> 2;
         entry.Param = val;
         CmdFIFOWrite(entry);
-        NewWriteFD(addr, val);
         return;
     }
 
     if (addr >= 0x04000330 && addr < 0x04000340)
     {
-        addr -= 0x04000330;
-        EdgeTable[addr>>1] = val & 0xFFFF;
-        EdgeTable[(addr>>1)+1] = val >> 16;
-        FDM.EdgeColor_Track[addr] = true;
-        FDM.EdgeColor_Track[addr+1] = true;
-        FDM.EdgeColor_Track[addr+2] = true;
-        FDM.EdgeColor_Track[addr+3] = true;
+        addr = (addr - 0x04000330) >> 1;
+        EdgeTable[addr] = val & 0xFFFF;
+        EdgeTable[addr+1] = val >> 16;
         return;
     }
 
@@ -3388,22 +3157,14 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
         FogDensityTable[addr+1] = (val >> 8) & 0x7F;
         FogDensityTable[addr+2] = (val >> 16) & 0x7F;
         FogDensityTable[addr+3] = (val >> 24) & 0x7F;
-        FDM.FogTable_Track[addr] = true;
-        FDM.FogTable_Track[addr+1] = true;
-        FDM.FogTable_Track[addr+2] = true;
-        FDM.FogTable_Track[addr+3] = true;
         return;
     }
 
     if (addr >= 0x04000380 && addr < 0x040003C0)
     {
-        addr -= 0x04000380;
-        ToonTable[addr>>1] = val & 0xFFFF;
-        ToonTable[(addr>>1)+1] = val >> 16;
-        FDM.ToonTable_Track[addr] = true;
-        FDM.ToonTable_Track[addr+1] = true;
-        FDM.ToonTable_Track[addr+2] = true;
-        FDM.ToonTable_Track[addr+3] = true;
+        addr = (addr - 0x04000380) >> 1;
+        ToonTable[addr] = val & 0xFFFF;
+        ToonTable[addr+1] = val >> 16;
         return;
     }
 
