@@ -131,8 +131,8 @@ struct FrameDump
 
     // todo: find a way to *only* allocate this memory while dumping a frame?
     // preferably with a size that can scale dynamically to accomodate bigger gx lists too?
-    u8 Cmd[30000] {};
-    u32 Params[380000] {};
+    u8 Cmd[30000];
+    u32 Params[160000];
 };
 
 class Renderer3D;
@@ -382,8 +382,8 @@ public:
     u32 FlushRequest = 0;
     u32 FlushAttributes = 0;
     u32 ScrolledLine[256]; // not part of the hardware state, don't serialize
-
-    FrameDump FD {}; // Store variables to be dumped for a framedump
+    
+    FrameDump* FD = nullptr; // Store variables to be dumped for a framedump
 };
 
 class Renderer3D

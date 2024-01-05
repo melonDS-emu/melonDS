@@ -574,59 +574,64 @@ void GPU3D::SetEnabled(bool geometry, bool rendering) noexcept
 void GPU3D::NewWriteFD(u8 cmd, u32* param)
 {
     // note: 0dotdisp is assigned an id of 0x72, to avoid having to do any special handling for it, since vec and box tests aren't saved.
-    if (!NDS.GPU.FDInProg || (FD.NumParams >= sizeof(FD.Params) / sizeof(FD.Params[0])) || (FD.NumCmds >= sizeof(FD.Cmd) / sizeof(FD.Cmd[0]))) return;
+    if (!NDS.GPU.FDInProg || (FD->NumParams >= sizeof(FD->Params) / sizeof(FD->Params[0])) || (FD->NumCmds >= sizeof(FD->Cmd) / sizeof(FD->Cmd[0]))) return;
 
-    FD.Cmd[FD.NumCmds++] = cmd;
+    FD->Cmd[FD->NumCmds++] = cmd;
 
     for (int i = 0; i < CmdNumParams[cmd]; i++)
-        FD.Params[FD.NumParams++] = param[i];
+        FD->Params[FD->NumParams++] = param[i];
 }
 
 void GPU3D::StartFrameDump()
 {
     NDS.GPU.QueueFrameDump = false;
-    
+    FD = (FrameDump*)malloc(sizeof(FrameDump));
+    if (FD == nullptr)
+    {
+        // osd error message?
+        return;
+    }
     // save these values here because its way easier this way.
-    FD.ZDotDisp_Track = (ZeroDotWLimit != 0);
-    FD.ZDotDisp = ((ZeroDotWLimit == 0) ? 0 : ((ZeroDotWLimit - 0x1FF) / 0x200));
-    FD.PolyAttr = CurPolygonAttr;
-    FD.PolyAttrUnset = PolygonAttr;
-    FD.VtxColor = VertexColor[2] << 10 | VertexColor[1] << 5 | VertexColor[0];
-    FD.Viewport = ((191 - Viewport[3]) & 0xFF) << 24 | Viewport[2] << 16 | ((191 - Viewport[1]) & 0xFF) << 8 | Viewport[0];
-    memcpy(FD.ProjStack, ProjMatrixStack, sizeof(ProjMatrixStack));
-    memcpy(FD.PosStack, PosMatrixStack, sizeof(PosMatrixStack));
-    memcpy(FD.VecStack, VecMatrixStack, sizeof(VecMatrixStack));
-    memcpy(FD.TexStack, TexMatrixStack, sizeof(TexMatrixStack));
-    memcpy(FD.ProjMtx, ProjMatrix, sizeof(ProjMatrix));
-    memcpy(FD.PosMtx, PosMatrix, sizeof(PosMatrix));
-    memcpy(FD.VecMtx, VecMatrix, sizeof(VecMatrix));
-    memcpy(FD.TexMtx, TexMatrix, sizeof(TexMatrix));
-    FD.MatrixMode = MatrixMode;
-    FD.Polygon = PolygonMode;
-    FD.VtxXY = CurVertex[1] << 16 | CurVertex[0];
-    FD.VtxZ = CurVertex[2];
-    FD.TexCoord = TexCoords[1] << 16 | TexCoords[0]; // use final texcoords so i dont have to worry about setting up the matrix & params properly.
-    FD.TexParam = TexParam;
-    FD.TexPalette = TexPalette;
-    FD.DiffAmbi = MatAmbient[2] << 26 | MatAmbient[1] << 21 | MatAmbient[0] << 16 | MatDiffuse[2] << 10 | MatDiffuse[1] << 5 | MatDiffuse[0];
-    FD.SpecEmis = MatEmission[2] << 26 | MatEmission[1] << 21 | MatEmission[0] << 16 | MatSpecular[2] << 10 | MatSpecular[1] << 5 | MatSpecular[0];
+    FD->ZDotDisp_Track = (ZeroDotWLimit != 0);
+    FD->ZDotDisp = ((ZeroDotWLimit == 0) ? 0 : ((ZeroDotWLimit - 0x1FF) / 0x200));
+    FD->PolyAttr = CurPolygonAttr;
+    FD->PolyAttrUnset = PolygonAttr;
+    FD->VtxColor = VertexColor[2] << 10 | VertexColor[1] << 5 | VertexColor[0];
+    FD->Viewport = ((191 - Viewport[3]) & 0xFF) << 24 | Viewport[2] << 16 | ((191 - Viewport[1]) & 0xFF) << 8 | Viewport[0];
+    memcpy(FD->ProjStack, ProjMatrixStack, sizeof(ProjMatrixStack));
+    memcpy(FD->PosStack, PosMatrixStack, sizeof(PosMatrixStack));
+    memcpy(FD->VecStack, VecMatrixStack, sizeof(VecMatrixStack));
+    memcpy(FD->TexStack, TexMatrixStack, sizeof(TexMatrixStack));
+    memcpy(FD->ProjMtx, ProjMatrix, sizeof(ProjMatrix));
+    memcpy(FD->PosMtx, PosMatrix, sizeof(PosMatrix));
+    memcpy(FD->VecMtx, VecMatrix, sizeof(VecMatrix));
+    memcpy(FD->TexMtx, TexMatrix, sizeof(TexMatrix));
+    FD->MatrixMode = MatrixMode;
+    FD->Polygon = PolygonMode;
+    FD->VtxXY = CurVertex[1] << 16 | CurVertex[0];
+    FD->VtxZ = CurVertex[2];
+    FD->TexCoord = TexCoords[1] << 16 | TexCoords[0]; // use final texcoords so i dont have to worry about setting up the matrix & params properly.
+    FD->TexParam = TexParam;
+    FD->TexPalette = TexPalette;
+    FD->DiffAmbi = MatAmbient[2] << 26 | MatAmbient[1] << 21 | MatAmbient[0] << 16 | MatDiffuse[2] << 10 | MatDiffuse[1] << 5 | MatDiffuse[0];
+    FD->SpecEmis = MatEmission[2] << 26 | MatEmission[1] << 21 | MatEmission[0] << 16 | MatSpecular[2] << 10 | MatSpecular[1] << 5 | MatSpecular[0];
     for (int i = 0; i < 32; i++)
     {
         u8 tbl = i << 2;
-        FD.Shininess[i] = ShininessTable[tbl];
-        FD.Shininess[i] |= ShininessTable[tbl + 1] << 8;
-        FD.Shininess[i] |= ShininessTable[tbl + 2] << 16;
-        FD.Shininess[i] |= ShininessTable[tbl + 3] << 24;
+        FD->Shininess[i] = ShininessTable[tbl];
+        FD->Shininess[i] |= ShininessTable[tbl + 1] << 8;
+        FD->Shininess[i] |= ShininessTable[tbl + 2] << 16;
+        FD->Shininess[i] |= ShininessTable[tbl + 3] << 24;
     }
     for (u32 i = 0; i < 4; i++)
     {
-        FD.LightVec[i] = i << 30 | ((u32)LightDirection[i][2] & 0x3FF) << 20 | ((u32)LightDirection[i][1] & 0x3FF) << 10 | ((u32)LightDirection[i][0] & 0x3FF);
-        FD.LightColor[i] = i << 30 | LightColor[i][2] << 10 | LightColor[i][1] << 5 | LightColor[i][0];
+        FD->LightVec[i] = i << 30 | ((u32)LightDirection[i][2] & 0x3FF) << 20 | ((u32)LightDirection[i][1] & 0x3FF) << 10 | ((u32)LightDirection[i][0] & 0x3FF);
+        FD->LightColor[i] = i << 30 | LightColor[i][2] << 10 | LightColor[i][1] << 5 | LightColor[i][0];
     }
-    FD.SwapBuffer = FlushAttributes;
+    FD->SwapBuffer = FlushAttributes;
     // set writes to zero to "clear" the write list
-    FD.NumCmds = 0;
-    FD.NumParams = 0;
+    FD->NumCmds = 0;
+    FD->NumParams = 0;
     NDS.GPU.FDInProg = true;
 }
 
@@ -634,20 +639,20 @@ void GPU3D::FinFrameDump()
 {
     // save final latched values
     // this step is technically completely unnecessary, does it just get optimized out?
-    FD.Disp3DCnt = RenderDispCnt;
+    FD->Disp3DCnt = RenderDispCnt;
     for (int i = 0; i < 8; i++)
     {
-        FD.EdgeColor[i] = RenderEdgeTable[i];
+        FD->EdgeColor[i] = RenderEdgeTable[i];
     }
-    FD.AlphaTest = RenderAlphaRef;
-    FD.ClearColor = RenderClearAttr1;
-    FD.ClearDepOff = RenderClearAttr2;
-    FD.FogColor = RenderFogColor;
-    FD.FogOffset = RenderFogOffset;
+    FD->AlphaTest = RenderAlphaRef;
+    FD->ClearColor = RenderClearAttr1;
+    FD->ClearDepOff = RenderClearAttr2;
+    FD->FogColor = RenderFogColor;
+    FD->FogOffset = RenderFogOffset;
     for (int i = 0; i < 32; i++)
     {
-        FD.FogTable[i] = RenderFogDensityTable[i+1];
-        FD.ToonTable[i] = RenderToonTable[i];
+        FD->FogTable[i] = RenderFogDensityTable[i+1];
+        FD->ToonTable[i] = RenderToonTable[i];
     }
 
     Platform::MakeLocalDirectory("framedumps");
@@ -664,44 +669,44 @@ void GPU3D::FinFrameDump()
     
     
     // save final state vars to file
-    Platform::FileWrite(&FD.Disp3DCnt, 1, sizeof(FD.Disp3DCnt), file);
-    Platform::FileWrite(FD.EdgeColor, 1, sizeof(FD.EdgeColor), file);
-    Platform::FileWrite(&FD.AlphaTest, 1, sizeof(FD.AlphaTest), file);
-    Platform::FileWrite(&FD.ClearColor, 1, sizeof(FD.ClearColor), file);
-    Platform::FileWrite(&FD.ClearDepOff, 1, sizeof(FD.ClearDepOff), file);
-    Platform::FileWrite(&FD.FogColor, 1, sizeof(FD.FogColor), file);
-    Platform::FileWrite(&FD.FogOffset, 1, sizeof(FD.FogOffset), file);
-    Platform::FileWrite(FD.FogTable, 1, sizeof(FD.FogTable), file);
-    Platform::FileWrite(FD.ToonTable, 1, sizeof(FD.ToonTable), file);
+    Platform::FileWrite(&FD->Disp3DCnt, 1, sizeof(FD->Disp3DCnt), file);
+    Platform::FileWrite(FD->EdgeColor, 1, sizeof(FD->EdgeColor), file);
+    Platform::FileWrite(&FD->AlphaTest, 1, sizeof(FD->AlphaTest), file);
+    Platform::FileWrite(&FD->ClearColor, 1, sizeof(FD->ClearColor), file);
+    Platform::FileWrite(&FD->ClearDepOff, 1, sizeof(FD->ClearDepOff), file);
+    Platform::FileWrite(&FD->FogColor, 1, sizeof(FD->FogColor), file);
+    Platform::FileWrite(&FD->FogOffset, 1, sizeof(FD->FogOffset), file);
+    Platform::FileWrite(FD->FogTable, 1, sizeof(FD->FogTable), file);
+    Platform::FileWrite(FD->ToonTable, 1, sizeof(FD->ToonTable), file);
 
     // save initial state vars to file.
-    Platform::FileWrite(&FD.ZDotDisp_Track, 1, 1, file);
-    Platform::FileWrite(&FD.ZDotDisp, 1, sizeof(FD.ZDotDisp), file);
-    Platform::FileWrite(&FD.PolyAttr, 1, sizeof(FD.PolyAttr), file);
-    Platform::FileWrite(&FD.PolyAttrUnset, 1, sizeof(FD.PolyAttrUnset), file);
-    Platform::FileWrite(&FD.VtxColor, 1, sizeof(FD.VtxColor), file);
-    Platform::FileWrite(&FD.Viewport, 1, sizeof(FD.Viewport), file);
-    Platform::FileWrite(FD.ProjStack, 1, sizeof(FD.ProjStack), file);
-    Platform::FileWrite(FD.PosStack, 1, sizeof(FD.PosStack), file);
-    Platform::FileWrite(FD.VecStack, 1, sizeof(FD.VecStack), file);
-    Platform::FileWrite(FD.TexStack, 1, sizeof(FD.TexStack), file);
-    Platform::FileWrite(FD.ProjMtx, 1, sizeof(FD.ProjMtx), file);
-    Platform::FileWrite(FD.PosMtx, 1, sizeof(FD.PosMtx), file);
-    Platform::FileWrite(FD.VecMtx, 1, sizeof(FD.VecMtx), file);
-    Platform::FileWrite(FD.TexMtx, 1, sizeof(FD.TexMtx), file);
-    Platform::FileWrite(&FD.MatrixMode, 1, sizeof(FD.MatrixMode), file);
-    Platform::FileWrite(&FD.Polygon, 1, sizeof(FD.Polygon), file);
-    Platform::FileWrite(&FD.VtxXY, 1, sizeof(FD.VtxXY), file);
-    Platform::FileWrite(&FD.VtxZ, 1, sizeof(FD.VtxZ), file);
-    Platform::FileWrite(&FD.TexCoord, 1, sizeof(FD.TexCoord), file);
-    Platform::FileWrite(&FD.TexParam, 1, sizeof(FD.TexParam), file);
-    Platform::FileWrite(&FD.TexPalette, 1, sizeof(FD.TexPalette), file);
-    Platform::FileWrite(&FD.DiffAmbi, 1, sizeof(FD.DiffAmbi), file);
-    Platform::FileWrite(&FD.SpecEmis, 1, sizeof(FD.SpecEmis), file);
-    Platform::FileWrite(FD.Shininess, 1, sizeof(FD.Shininess), file);
-    Platform::FileWrite(FD.LightVec, 1, sizeof(FD.LightVec), file);
-    Platform::FileWrite(FD.LightColor, 1, sizeof(FD.LightColor), file);
-    Platform::FileWrite(&FD.SwapBuffer, 1, sizeof(FD.SwapBuffer), file);
+    Platform::FileWrite(&FD->ZDotDisp_Track, 1, 1, file);
+    Platform::FileWrite(&FD->ZDotDisp, 1, sizeof(FD->ZDotDisp), file);
+    Platform::FileWrite(&FD->PolyAttr, 1, sizeof(FD->PolyAttr), file);
+    Platform::FileWrite(&FD->PolyAttrUnset, 1, sizeof(FD->PolyAttrUnset), file);
+    Platform::FileWrite(&FD->VtxColor, 1, sizeof(FD->VtxColor), file);
+    Platform::FileWrite(&FD->Viewport, 1, sizeof(FD->Viewport), file);
+    Platform::FileWrite(FD->ProjStack, 1, sizeof(FD->ProjStack), file);
+    Platform::FileWrite(FD->PosStack, 1, sizeof(FD->PosStack), file);
+    Platform::FileWrite(FD->VecStack, 1, sizeof(FD->VecStack), file);
+    Platform::FileWrite(FD->TexStack, 1, sizeof(FD->TexStack), file);
+    Platform::FileWrite(FD->ProjMtx, 1, sizeof(FD->ProjMtx), file);
+    Platform::FileWrite(FD->PosMtx, 1, sizeof(FD->PosMtx), file);
+    Platform::FileWrite(FD->VecMtx, 1, sizeof(FD->VecMtx), file);
+    Platform::FileWrite(FD->TexMtx, 1, sizeof(FD->TexMtx), file);
+    Platform::FileWrite(&FD->MatrixMode, 1, sizeof(FD->MatrixMode), file);
+    Platform::FileWrite(&FD->Polygon, 1, sizeof(FD->Polygon), file);
+    Platform::FileWrite(&FD->VtxXY, 1, sizeof(FD->VtxXY), file);
+    Platform::FileWrite(&FD->VtxZ, 1, sizeof(FD->VtxZ), file);
+    Platform::FileWrite(&FD->TexCoord, 1, sizeof(FD->TexCoord), file);
+    Platform::FileWrite(&FD->TexParam, 1, sizeof(FD->TexParam), file);
+    Platform::FileWrite(&FD->TexPalette, 1, sizeof(FD->TexPalette), file);
+    Platform::FileWrite(&FD->DiffAmbi, 1, sizeof(FD->DiffAmbi), file);
+    Platform::FileWrite(&FD->SpecEmis, 1, sizeof(FD->SpecEmis), file);
+    Platform::FileWrite(FD->Shininess, 1, sizeof(FD->Shininess), file);
+    Platform::FileWrite(FD->LightVec, 1, sizeof(FD->LightVec), file);
+    Platform::FileWrite(FD->LightColor, 1, sizeof(FD->LightColor), file);
+    Platform::FileWrite(&FD->SwapBuffer, 1, sizeof(FD->SwapBuffer), file);
     
     // skip banks H and I, we only care about dumping 3d engine state currently, and banks H and I cannot be used by the 3d engine
     // save vram control regs to file
@@ -716,17 +721,18 @@ void GPU3D::FinFrameDump()
     if ((NDS.GPU.VRAMCNT[5] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_F, 1, sizeof(NDS.GPU.VRAM_F), file);
     if ((NDS.GPU.VRAMCNT[6] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_G, 1, sizeof(NDS.GPU.VRAM_G), file);
     
-    Platform::FileWrite(&FD.NumCmds, 1, sizeof(FD.NumCmds), file);
+    Platform::FileWrite(&FD->NumCmds, 1, sizeof(FD->NumCmds), file);
 
-    for (int i = 0, j = 0; i < FD.NumCmds; i++)
+    for (int i = 0, j = 0; i < FD->NumCmds; i++)
     {
-        Platform::FileWrite(&FD.Cmd[i], 1, sizeof(FD.Cmd[i]), file);
-        if (CmdNumParams[FD.Cmd[i]] != 0)
+        Platform::FileWrite(&FD->Cmd[i], 1, sizeof(FD->Cmd[i]), file);
+        if (CmdNumParams[FD->Cmd[i]] != 0)
         {
-            Platform::FileWrite(&FD.Params[j], sizeof(FD.Params[j]), CmdNumParams[FD.Cmd[i]], file);
-            j += CmdNumParams[FD.Cmd[i]];
+            Platform::FileWrite(&FD->Params[j], sizeof(FD->Params[j]), CmdNumParams[FD->Cmd[i]], file);
+            j += CmdNumParams[FD->Cmd[i]];
         }
     }
+    free(FD);
     Platform::CloseFile(file);
     NDS.GPU.FDInProg = false;
 }
