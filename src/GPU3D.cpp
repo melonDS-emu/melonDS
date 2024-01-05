@@ -159,10 +159,6 @@ void Vertex::DoSavestate(Savestate* file) noexcept
     file->VarArray(HiresPosition, sizeof(HiresPosition));
 }
 
-bool Init()
-{
-}
-
 void GPU3D::SetCurrentRenderer(std::unique_ptr<Renderer3D>&& renderer) noexcept
 {
     CurrentRenderer = std::move(renderer);
