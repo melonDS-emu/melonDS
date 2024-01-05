@@ -383,7 +383,7 @@ public:
     u32 FlushAttributes = 0;
     u32 ScrolledLine[256]; // not part of the hardware state, don't serialize
     
-    FrameDump* FD = nullptr; // Store variables to be dumped for a framedump
+    std::unique_ptr<FrameDump> FD = nullptr; // Store variables to be dumped for a framedump
 };
 
 class Renderer3D

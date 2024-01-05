@@ -302,7 +302,9 @@ void GPU3D::Reset() noexcept
 
     RenderXPos = 0;
 
-    FD = {};
+    FD = nullptr;
+    NDS.GPU.QueueFrameDump = false;
+    NDS.GPU.FDInProg = false;
 
     if (CurrentRenderer)
         CurrentRenderer->Reset(NDS.GPU);
@@ -585,7 +587,7 @@ void GPU3D::NewWriteFD(u8 cmd, u32* param)
 void GPU3D::StartFrameDump()
 {
     NDS.GPU.QueueFrameDump = false;
-    FD = (FrameDump*)malloc(sizeof(FrameDump));
+    FD = std::make_unique<FrameDump>();
     if (FD == nullptr)
     {
         // osd error message?
@@ -732,7 +734,7 @@ void GPU3D::FinFrameDump()
             j += CmdNumParams[FD->Cmd[i]];
         }
     }
-    free(FD);
+    FD = nullptr;
     Platform::CloseFile(file);
     NDS.GPU.FDInProg = false;
 }
