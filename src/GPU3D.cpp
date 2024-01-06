@@ -496,7 +496,6 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
         }
     }
 
-    // probably not worth storing the vblank-latched Renderxxxxxx variables
     CmdStallQueue.DoSavestate(file);
 
     file->Var32((u32*)&VertexPipeline);
