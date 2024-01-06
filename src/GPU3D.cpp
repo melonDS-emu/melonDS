@@ -544,6 +544,7 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     file->Var32(&CurPolygonAttr);
     file->Var32(&TexParam);
     file->Var32(&TexPalette);
+    RenderFrameIdentical = false;
     if (softRenderer && softRenderer->IsThreaded())
     {
         Platform::Mutex_Unlock(softRenderer->StateBusy);
