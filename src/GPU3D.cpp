@@ -536,8 +536,6 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     file->Bool32(&AbortFrame);
     file->Bool32(&GeometryEnabled);
     file->Bool32(&RenderingEnabled);
-    file->VarArray(ClipMatrix, sizeof(ClipMatrix));
-    file->Bool32(&ClipMatrixDirty);
     file->Var32(&PolygonMode);
     file->Var32(&PolygonAttr);
     file->Var32(&CurPolygonAttr);
