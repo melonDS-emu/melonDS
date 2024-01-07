@@ -511,10 +511,27 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 
         CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
         CurPolygonRAM = &PolygonRAM[CurRAMBank ? 2048 : 0];
+    }
 
-        // better safe than sorry, I guess
-        // might cause a blank frame but atleast it won't shit itself
-        RenderNumPolygons = 0;
+    file->Var32(&RenderNumPolygons);
+    if (file->Saving)
+    {
+        for (const Polygon* p : RenderPolygonRAM)
+        {
+            u32 index = p ? (p - &PolygonRAM[0]) : UINT32_MAX;
+
+            file->Var32(&index);
+        }
+    }
+    else
+    {
+        for (int i = 0; i < RenderPolygonRAM.size(); ++i)
+        {
+            u32 index = UINT32_MAX;
+            file->Var32(&index);
+
+            RenderPolygonRAM[i] = index == UINT32_MAX ? nullptr : &PolygonRAM[index];
+        }
     }
 
     file->VarArray(CurVertex, sizeof(s16)*3);
