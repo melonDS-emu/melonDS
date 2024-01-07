@@ -1777,7 +1777,7 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
         // if they do so while the render thread is busy here,
         // the ensuing race conditions may cause a crash
         // (since some of the GPU state includes pointers).
-        //Platform::Mutex_Lock(StateBusy);
+        Platform::Mutex_Lock(StateBusy);
         RenderThreadRendering = true;
         if (FrameIdentical)
         { // If no rendering is needed, just say we're done.
@@ -1794,7 +1794,7 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
         Platform::Semaphore_Post(Sema_RenderDone);
 
         RenderThreadRendering = false;
-        //Platform::Mutex_Unlock(StateBusy);
+        Platform::Mutex_Unlock(StateBusy);
     }
 }
 
