@@ -313,7 +313,8 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     SoftRenderer* softRenderer = dynamic_cast<SoftRenderer*>(CurrentRenderer.get());
     if (softRenderer && softRenderer->IsThreaded())
     {
-        Platform::Mutex_Lock(softRenderer->StateBusy);
+        //Platform::Mutex_Lock(softRenderer->StateBusy);
+        softRenderer->SetupRenderThread(NDS.GPU);
     }
 
     CmdFIFO.DoSavestate(file);
@@ -561,7 +562,8 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     RenderFrameIdentical = false;
     if (softRenderer && softRenderer->IsThreaded())
     {
-        Platform::Mutex_Unlock(softRenderer->StateBusy);
+        //Platform::Mutex_Unlock(softRenderer->StateBusy);
+        softRenderer->EnableRenderThread();
     }
 }
 
