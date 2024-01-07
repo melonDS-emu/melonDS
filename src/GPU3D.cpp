@@ -399,17 +399,14 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 
     if (file->Saving)
     {
-        u32 id;
-        if (LastStripPolygon) id = (u32)((LastStripPolygon - (&PolygonRAM[0])) / sizeof(Polygon));
-        else                  id = -1;
-        file->Var32(&id);
+        u32 index = LastStripPolygon ? (u32)(LastStripPolygon - &PolygonRAM[0]) : UINT32_MAX;
+        file->Var32(&index);
     }
     else
     {
-        u32 id;
-        file->Var32(&id);
-        if (id == 0xFFFFFFFF) LastStripPolygon = NULL;
-        else          LastStripPolygon = &PolygonRAM[id];
+        u32 index = UINT32_MAX;
+        file->Var32(&index);
+        LastStripPolygon = (index == UINT32_MAX) ? nullptr : &PolygonRAM[index];
     }
 
     file->Var32(&CurRAMBank);
@@ -436,20 +433,17 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
             for (int j = 0; j < 10; j++)
             {
                 Vertex* ptr = poly->Vertices[j];
-                u32 id;
-                if (ptr) id = (u32)((ptr - (&VertexRAM[0])) / sizeof(Vertex));
-                else     id = -1;
-                file->Var32(&id);
+                u32 index = ptr ? (u32)(ptr - &VertexRAM[0]) : UINT32_MAX;
+                file->Var32(&index);
             }
         }
         else
         {
             for (int j = 0; j < 10; j++)
             {
-                u32 id = -1;
-                file->Var32(&id);
-                if (id == 0xFFFFFFFF) poly->Vertices[j] = NULL;
-                else          poly->Vertices[j] = &VertexRAM[id];
+                u32 index = UINT32_MAX;
+                file->Var32(&index);
+                poly->Vertices[j] = index == UINT32_MAX ? nullptr : &VertexRAM[index];
             }
         }
 
