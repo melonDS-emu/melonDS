@@ -101,7 +101,6 @@ SoftRenderer::SoftRenderer(bool threaded) noexcept
     Sema_RenderStart = Platform::Semaphore_Create();
     Sema_RenderDone = Platform::Semaphore_Create();
     Sema_ScanlineCount = Platform::Semaphore_Create();
-    StateBusy = Platform::Mutex_Create();
 
     RenderThreadRunning = false;
     RenderThreadRendering = false;
@@ -115,7 +114,6 @@ SoftRenderer::~SoftRenderer()
     Platform::Semaphore_Free(Sema_RenderStart);
     Platform::Semaphore_Free(Sema_RenderDone);
     Platform::Semaphore_Free(Sema_ScanlineCount);
-    Platform::Mutex_Free(StateBusy);
 }
 
 void SoftRenderer::Reset(GPU& gpu)
@@ -1777,7 +1775,6 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
         // if they do so while the render thread is busy here,
         // the ensuing race conditions may cause a crash
         // (since some of the GPU state includes pointers).
-        Platform::Mutex_Lock(StateBusy);
         RenderThreadRendering = true;
         if (FrameIdentical)
         { // If no rendering is needed, just say we're done.
@@ -1794,7 +1791,6 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
         Platform::Semaphore_Post(Sema_RenderDone);
 
         RenderThreadRendering = false;
-        Platform::Mutex_Unlock(StateBusy);
     }
 }
 
