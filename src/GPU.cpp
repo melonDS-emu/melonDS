@@ -275,7 +275,8 @@ void GPU::DoSavestate(Savestate* file) noexcept
     GPU2D_B.DoSavestate(file);
     GPU3D.DoSavestate(file);
 
-    ResetVRAMCache();
+    if (!file->Saving)
+        ResetVRAMCache();
 }
 
 void GPU::AssignFramebuffers() noexcept
