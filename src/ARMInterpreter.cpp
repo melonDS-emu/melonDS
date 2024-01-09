@@ -287,7 +287,7 @@ void T_SVC(ARM* cpu)
             u32 c;
             cpu->DataRead8(addr++, &c);
             if (!c) break;
-            printf("%c", c);
+            Platform::Log(LogLevel::Info, "%c", c);
         }
         return;
     }
