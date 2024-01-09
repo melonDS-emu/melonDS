@@ -278,6 +278,20 @@ void A_SVC(ARM* cpu)
 
 void T_SVC(ARM* cpu)
 {
+    // Print from game. Execute `svc 0xFC` with the null-terminated string address in `r0`.
+    if ((cpu->CurInstr & 0xFF) == 0xFC)
+    {
+        u32 addr = cpu->R[0];
+        for (;;)
+        {
+            u32 c;
+            cpu->DataRead8(addr++, &c);
+            if (!c) break;
+            printf("%c", c);
+        }
+        return;
+    }
+
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
     cpu->CPSR |= 0x93;
