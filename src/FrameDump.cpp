@@ -32,7 +32,7 @@ FrameDump::FrameDump(melonDS::GPU& gpu) :
 bool FrameDump::FDWrite(u16 cmd, u32* param)
 {
     // note: 0dotdisp is assigned an id of 0x256
-    if (Cmds.size() + (Params.size()*4) >= MaxDataSize) return true;
+    if (Cmds.size() + (Params.size()*4) >= MaxDataSize) return false;
 
     Cmds.push_back(cmd);
 
@@ -42,7 +42,7 @@ bool FrameDump::FDWrite(u16 cmd, u32* param)
         for (int i = 0; i < CmdNumParams[cmd]; i++)
             Params.push_back(param[i]);
 
-    return false;
+    return true;
 }
 
 void FrameDump::StartFrameDump()
@@ -100,7 +100,7 @@ bool FrameDump::FinFrameDump()
     std::string filename = ROMManager::GetFrameDumpName();
     Platform::FileHandle* file = Platform::OpenLocalFile(filename, Platform::FileMode::Write);
     
-    if (file == nullptr) return true;
+    if (file == nullptr) return false;
 
     // save final state vars to file
     Platform::FileWrite(&GPU.GPU3D.RenderDispCnt, 1, 2, file); // only write two bytes, (only 16 bits are used, and thus only those are stored for frame dumps)
@@ -202,7 +202,7 @@ bool FrameDump::FinFrameDump()
     free(tempparams);
     Platform::CloseFile(file);
 
-    return false;
+    return true;
 }
 
 

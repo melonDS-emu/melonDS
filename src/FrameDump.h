@@ -25,6 +25,7 @@
 namespace melonDS
 {
 
+// frame dumps can be replayed on hardware via: https://github.com/Jaklyy/ndsframereplay
 class FrameDump
 {
 public:

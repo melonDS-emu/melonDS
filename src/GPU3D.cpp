@@ -537,7 +537,7 @@ inline void GPU3D::BeginWriteFD(u16 cmd, u32* param)
 {
     if (NDS.GPU.FD != nullptr)
     {
-        if (NDS.GPU.FD->FDWrite(cmd, param))
+        if (!NDS.GPU.FD->FDWrite(cmd, param))
         {
             NDS.GPU.FD = nullptr;
             // add an osd notif here?
@@ -2482,7 +2482,7 @@ void GPU3D::VBlank() noexcept
             // begin/finish framedump here
             if (NDS.GPU.FD != nullptr)
             {
-                if (NDS.GPU.FD->FinFrameDump());
+                if (!NDS.GPU.FD->FinFrameDump());
                     // add osd error message here
                 else;
                     // add osd success message here
