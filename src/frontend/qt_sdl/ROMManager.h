@@ -83,6 +83,7 @@ void EjectGBACart(NDS& nds);
 bool GBACartInserted();
 QString GBACartLabel();
 
+std::string GetFrameDumpName();
 std::string GetSavestateName(int slot);
 bool SavestateExists(int slot);
 bool LoadState(NDS& nds, const std::string& filename);

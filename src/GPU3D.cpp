@@ -24,6 +24,7 @@
 #include "FIFO.h"
 #include "GPU3D_Soft.h"
 #include "Platform.h"
+#include "FrameDump.h"
 
 namespace melonDS
 {
@@ -100,43 +101,6 @@ using Platform::LogLevel;
 //   except: only one time slot is taken if the polygon is rejected by culling/clipping
 // * additionally, some commands (BEGIN, LIGHT_VECTOR, BOXTEST) stall the polygon pipeline
 
-
-const u8 CmdNumParams[256] =
-{
-    // 0x00
-    0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    // 0x10
-    1, 0, 1, 1, 1, 0, 16, 12, 16, 12, 9, 3, 3,
-    0, 0, 0,
-    // 0x20
-    1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1,
-    0, 0, 0, 0,
-    // 0x30
-    1, 1, 1, 1, 32,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    // 0x40
-    1, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    // 0x50
-    1,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    // 0x60
-    1,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    // 0x70
-    3, 2, 1,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    // 0x80+
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
 
 void MatrixLoadIdentity(s32* m);
 
@@ -302,9 +266,8 @@ void GPU3D::Reset() noexcept
 
     RenderXPos = 0;
 
-    FD = nullptr;
+    NDS.GPU.FD = nullptr;
     NDS.GPU.QueueFrameDump = false;
-    NDS.GPU.FDInProg = false;
 
     if (CurrentRenderer)
         CurrentRenderer->Reset(NDS.GPU);
@@ -573,170 +536,9 @@ void GPU3D::SetEnabled(bool geometry, bool rendering) noexcept
     if (!rendering) ResetRenderingState();
 }
 
-void GPU3D::NewWriteFD(u8 cmd, u32* param)
+inline void GPU3D::NewWriteFD(u16 cmd, u32* param)
 {
-    // note: 0dotdisp is assigned an id of 0x72, to avoid having to do any special handling for it, since vec and box tests aren't saved.
-    if (!NDS.GPU.FDInProg || (FD->NumParams >= sizeof(FD->Params) / sizeof(FD->Params[0])) || (FD->NumCmds >= sizeof(FD->Cmd) / sizeof(FD->Cmd[0]))) return;
-
-    FD->Cmd[FD->NumCmds++] = cmd;
-
-    for (int i = 0; i < CmdNumParams[cmd]; i++)
-        FD->Params[FD->NumParams++] = param[i];
-}
-
-void GPU3D::StartFrameDump()
-{
-    NDS.GPU.QueueFrameDump = false;
-    FD = std::make_unique<FrameDump>();
-    if (FD == nullptr)
-    {
-        // osd error message?
-        return;
-    }
-    // save these values here because its way easier this way.
-    FD->ZDotDisp_Track = (ZeroDotWLimit != 0);
-    FD->ZDotDisp = ((ZeroDotWLimit == 0) ? 0 : ((ZeroDotWLimit - 0x1FF) / 0x200));
-    FD->PolyAttr = CurPolygonAttr;
-    FD->PolyAttrUnset = PolygonAttr;
-    FD->VtxColor = VertexColor[2] << 10 | VertexColor[1] << 5 | VertexColor[0];
-    FD->Viewport = ((191 - Viewport[3]) & 0xFF) << 24 | Viewport[2] << 16 | ((191 - Viewport[1]) & 0xFF) << 8 | Viewport[0];
-    memcpy(FD->ProjStack, ProjMatrixStack, sizeof(ProjMatrixStack));
-    memcpy(FD->PosStack, PosMatrixStack, sizeof(PosMatrixStack));
-    memcpy(FD->VecStack, VecMatrixStack, sizeof(VecMatrixStack));
-    memcpy(FD->TexStack, TexMatrixStack, sizeof(TexMatrixStack));
-    memcpy(FD->ProjMtx, ProjMatrix, sizeof(ProjMatrix));
-    memcpy(FD->PosMtx, PosMatrix, sizeof(PosMatrix));
-    memcpy(FD->VecMtx, VecMatrix, sizeof(VecMatrix));
-    memcpy(FD->TexMtx, TexMatrix, sizeof(TexMatrix));
-    FD->MatrixMode = MatrixMode;
-    FD->Polygon = PolygonMode;
-    FD->VtxXY = CurVertex[1] << 16 | CurVertex[0];
-    FD->VtxZ = CurVertex[2];
-    FD->TexCoord = TexCoords[1] << 16 | TexCoords[0]; // use final texcoords so i dont have to worry about setting up the matrix & params properly.
-    FD->TexParam = TexParam;
-    FD->TexPalette = TexPalette;
-    FD->DiffAmbi = MatAmbient[2] << 26 | MatAmbient[1] << 21 | MatAmbient[0] << 16 | MatDiffuse[2] << 10 | MatDiffuse[1] << 5 | MatDiffuse[0];
-    FD->SpecEmis = MatEmission[2] << 26 | MatEmission[1] << 21 | MatEmission[0] << 16 | MatSpecular[2] << 10 | MatSpecular[1] << 5 | MatSpecular[0];
-    for (int i = 0; i < 32; i++)
-    {
-        u8 tbl = i << 2;
-        FD->Shininess[i] = ShininessTable[tbl];
-        FD->Shininess[i] |= ShininessTable[tbl + 1] << 8;
-        FD->Shininess[i] |= ShininessTable[tbl + 2] << 16;
-        FD->Shininess[i] |= ShininessTable[tbl + 3] << 24;
-    }
-    for (u32 i = 0; i < 4; i++)
-    {
-        FD->LightVec[i] = i << 30 | ((u32)LightDirection[i][2] & 0x3FF) << 20 | ((u32)LightDirection[i][1] & 0x3FF) << 10 | ((u32)LightDirection[i][0] & 0x3FF);
-        FD->LightColor[i] = i << 30 | LightColor[i][2] << 10 | LightColor[i][1] << 5 | LightColor[i][0];
-    }
-    FD->SwapBuffer = FlushAttributes;
-    // set writes to zero to "clear" the write list
-    FD->NumCmds = 0;
-    FD->NumParams = 0;
-    NDS.GPU.FDInProg = true;
-}
-
-void GPU3D::FinFrameDump()
-{
-    // save final latched values
-    // this step is technically completely unnecessary, does it just get optimized out?
-    FD->Disp3DCnt = RenderDispCnt;
-    for (int i = 0; i < 8; i++)
-    {
-        FD->EdgeColor[i] = RenderEdgeTable[i];
-    }
-    FD->AlphaTest = RenderAlphaRef;
-    FD->ClearColor = RenderClearAttr1;
-    FD->ClearDepOff = RenderClearAttr2;
-    FD->FogColor = RenderFogColor;
-    FD->FogOffset = RenderFogOffset;
-    for (int i = 0; i < 32; i++)
-    {
-        FD->FogTable[i] = RenderFogDensityTable[i+1];
-        FD->ToonTable[i] = RenderToonTable[i];
-    }
-
-    Platform::MakeLocalDirectory("framedumps");
-    // todo: do this elsewhere
-    std::string base = "framedumps/dump";
-    u32 num = 0;
-    std::string full = base + std::to_string(num) + ".fd";
-    while (Platform::LocalFileExists(full))
-    {
-        num++;
-        full = base + std::to_string(num) + ".fd";
-    }
-    Platform::FileHandle* file = Platform::OpenLocalFile(full, Platform::FileMode::Write);
-    
-    
-    // save final state vars to file
-    Platform::FileWrite(&FD->Disp3DCnt, 1, sizeof(FD->Disp3DCnt), file);
-    Platform::FileWrite(FD->EdgeColor, 1, sizeof(FD->EdgeColor), file);
-    Platform::FileWrite(&FD->AlphaTest, 1, sizeof(FD->AlphaTest), file);
-    Platform::FileWrite(&FD->ClearColor, 1, sizeof(FD->ClearColor), file);
-    Platform::FileWrite(&FD->ClearDepOff, 1, sizeof(FD->ClearDepOff), file);
-    Platform::FileWrite(&FD->FogColor, 1, sizeof(FD->FogColor), file);
-    Platform::FileWrite(&FD->FogOffset, 1, sizeof(FD->FogOffset), file);
-    Platform::FileWrite(FD->FogTable, 1, sizeof(FD->FogTable), file);
-    Platform::FileWrite(FD->ToonTable, 1, sizeof(FD->ToonTable), file);
-
-    // save initial state vars to file.
-    Platform::FileWrite(&FD->ZDotDisp_Track, 1, 1, file);
-    Platform::FileWrite(&FD->ZDotDisp, 1, sizeof(FD->ZDotDisp), file);
-    Platform::FileWrite(&FD->PolyAttr, 1, sizeof(FD->PolyAttr), file);
-    Platform::FileWrite(&FD->PolyAttrUnset, 1, sizeof(FD->PolyAttrUnset), file);
-    Platform::FileWrite(&FD->VtxColor, 1, sizeof(FD->VtxColor), file);
-    Platform::FileWrite(&FD->Viewport, 1, sizeof(FD->Viewport), file);
-    Platform::FileWrite(FD->ProjStack, 1, sizeof(FD->ProjStack), file);
-    Platform::FileWrite(FD->PosStack, 1, sizeof(FD->PosStack), file);
-    Platform::FileWrite(FD->VecStack, 1, sizeof(FD->VecStack), file);
-    Platform::FileWrite(FD->TexStack, 1, sizeof(FD->TexStack), file);
-    Platform::FileWrite(FD->ProjMtx, 1, sizeof(FD->ProjMtx), file);
-    Platform::FileWrite(FD->PosMtx, 1, sizeof(FD->PosMtx), file);
-    Platform::FileWrite(FD->VecMtx, 1, sizeof(FD->VecMtx), file);
-    Platform::FileWrite(FD->TexMtx, 1, sizeof(FD->TexMtx), file);
-    Platform::FileWrite(&FD->MatrixMode, 1, sizeof(FD->MatrixMode), file);
-    Platform::FileWrite(&FD->Polygon, 1, sizeof(FD->Polygon), file);
-    Platform::FileWrite(&FD->VtxXY, 1, sizeof(FD->VtxXY), file);
-    Platform::FileWrite(&FD->VtxZ, 1, sizeof(FD->VtxZ), file);
-    Platform::FileWrite(&FD->TexCoord, 1, sizeof(FD->TexCoord), file);
-    Platform::FileWrite(&FD->TexParam, 1, sizeof(FD->TexParam), file);
-    Platform::FileWrite(&FD->TexPalette, 1, sizeof(FD->TexPalette), file);
-    Platform::FileWrite(&FD->DiffAmbi, 1, sizeof(FD->DiffAmbi), file);
-    Platform::FileWrite(&FD->SpecEmis, 1, sizeof(FD->SpecEmis), file);
-    Platform::FileWrite(FD->Shininess, 1, sizeof(FD->Shininess), file);
-    Platform::FileWrite(FD->LightVec, 1, sizeof(FD->LightVec), file);
-    Platform::FileWrite(FD->LightColor, 1, sizeof(FD->LightColor), file);
-    Platform::FileWrite(&FD->SwapBuffer, 1, sizeof(FD->SwapBuffer), file);
-    
-    // skip banks H and I, we only care about dumping 3d engine state currently, and banks H and I cannot be used by the 3d engine
-    // save vram control regs to file
-    Platform::FileWrite(NDS.GPU.VRAMCNT, 1, sizeof(NDS.GPU.VRAMCNT[0])*7, file);
-
-    // only save vram if the bank is enabled and allocated to be used as texture image/texture palette.
-    if ((NDS.GPU.VRAMCNT[0] & 0x83) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_A, 1, sizeof(NDS.GPU.VRAM_A), file);
-    if ((NDS.GPU.VRAMCNT[1] & 0x83) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_B, 1, sizeof(NDS.GPU.VRAM_B), file);
-    if ((NDS.GPU.VRAMCNT[2] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_C, 1, sizeof(NDS.GPU.VRAM_C), file);
-    if ((NDS.GPU.VRAMCNT[3] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_D, 1, sizeof(NDS.GPU.VRAM_D), file);
-    if ((NDS.GPU.VRAMCNT[4] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_E, 1, sizeof(NDS.GPU.VRAM_E), file);
-    if ((NDS.GPU.VRAMCNT[5] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_F, 1, sizeof(NDS.GPU.VRAM_F), file);
-    if ((NDS.GPU.VRAMCNT[6] & 0x87) == 0x83) Platform::FileWrite(NDS.GPU.VRAM_G, 1, sizeof(NDS.GPU.VRAM_G), file);
-    
-    Platform::FileWrite(&FD->NumCmds, 1, sizeof(FD->NumCmds), file);
-
-    for (int i = 0, j = 0; i < FD->NumCmds; i++)
-    {
-        Platform::FileWrite(&FD->Cmd[i], 1, sizeof(FD->Cmd[i]), file);
-        if (CmdNumParams[FD->Cmd[i]] != 0)
-        {
-            Platform::FileWrite(&FD->Params[j], sizeof(FD->Params[j]), CmdNumParams[FD->Cmd[i]], file);
-            j += CmdNumParams[FD->Cmd[i]];
-        }
-    }
-    FD = nullptr;
-    Platform::CloseFile(file);
-    NDS.GPU.FDInProg = false;
+    if (NDS.GPU.FD != nullptr) NDS.GPU.FD->FDWrite(cmd, param);
 }
 
 void MatrixLoadIdentity(s32* m)
@@ -1912,18 +1714,16 @@ void GPU3D::ExecuteCommand() noexcept
 
         /*printf("[GXS:%08X] 0x%02X,  0x%08X", GXStat, entry.Command, entry.Param);*/
 
-
-
+        
+        NewWriteFD(entry.Command, &entry.Param);
         switch (entry.Command)
         {
         case 0x10: // matrix mode
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             MatrixMode = entry.Param & 0x3;
             break;
 
         case 0x11: // push matrix
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             NumPushPopCommands--;
             if (MatrixMode == 0)
@@ -1955,7 +1755,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x12: // pop matrix
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             NumPushPopCommands--;
             if (MatrixMode == 0)
@@ -1993,7 +1792,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x13: // store matrix
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             if (MatrixMode == 0)
             {
@@ -2015,7 +1813,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x14: // restore matrix
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             if (MatrixMode == 0)
             {
@@ -2041,7 +1838,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x15: // identity
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             if (MatrixMode == 0)
             {
@@ -2062,7 +1858,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x20: // vertex color
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed6();
             {
                 u32 c = entry.Param;
@@ -2076,7 +1871,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x21: // normal
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             Normal[0] = (s16)((entry.Param & 0x000003FF) << 6) >> 6;
             Normal[1] = (s16)((entry.Param & 0x000FFC00) >> 4) >> 6;
@@ -2085,7 +1879,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x22: // texcoord
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             RawTexCoords[0] = entry.Param & 0xFFFF;
             RawTexCoords[1] = entry.Param >> 16;
@@ -2102,7 +1895,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x24: // 10-bit vertex
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineSubmitCmd();
             CurVertex[0] = (entry.Param & 0x000003FF) << 6;
             CurVertex[1] = (entry.Param & 0x000FFC00) >> 4;
@@ -2111,7 +1903,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x25: // vertex XY
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineSubmitCmd();
             CurVertex[0] = entry.Param & 0xFFFF;
             CurVertex[1] = entry.Param >> 16;
@@ -2119,7 +1910,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x26: // vertex XZ
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineSubmitCmd();
             CurVertex[0] = entry.Param & 0xFFFF;
             CurVertex[2] = entry.Param >> 16;
@@ -2127,7 +1917,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x27: // vertex YZ
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineSubmitCmd();
             CurVertex[1] = entry.Param & 0xFFFF;
             CurVertex[2] = entry.Param >> 16;
@@ -2135,7 +1924,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x28: // 10-bit delta vertex
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineSubmitCmd();
             CurVertex[0] += (s16)((entry.Param & 0x000003FF) << 6) >> 6;
             CurVertex[1] += (s16)((entry.Param & 0x000FFC00) >> 4) >> 6;
@@ -2144,25 +1932,21 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x29: // polygon attributes
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed8();
             PolygonAttr = entry.Param;
             break;
 
         case 0x2A: // texture param
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed8();
             TexParam = entry.Param;
             break;
 
         case 0x2B: // texture palette
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed8();
             TexPalette = entry.Param & 0x1FFF;
             break;
 
         case 0x30: // diffuse/ambient material
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed6();
             MatDiffuse[0] = entry.Param & 0x1F;
             MatDiffuse[1] = (entry.Param >> 5) & 0x1F;
@@ -2180,7 +1964,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x31: // specular/emission material
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed6();
             MatSpecular[0] = entry.Param & 0x1F;
             MatSpecular[1] = (entry.Param >> 5) & 0x1F;
@@ -2193,7 +1976,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x32: // light direction
-            NewWriteFD(entry.Command, &entry.Param);
             StallPolygonPipeline(8 + 1,  2); // 0x32 can run 6 cycles after a vertex
             {
                 u32 l = entry.Param >> 30;
@@ -2209,7 +1991,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x33: // light color
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed8();
             {
                 u32 l = entry.Param >> 30;
@@ -2221,7 +2002,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x40: // begin polygons
-            NewWriteFD(entry.Command, &entry.Param);
             StallPolygonPipeline(1, 0);
             // TODO: check if there was a polygon being defined but incomplete
             // such cases seem to freeze the GPU
@@ -2234,7 +2014,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x41: // end polygons
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed8();
             // TODO: research this?
             // it doesn't seem to have any effect whatsoever, but
@@ -2243,7 +2022,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x50: // flush
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed4();
             FlushRequest = 1;
             FlushAttributes = entry.Param & 0x3;
@@ -2258,7 +2036,6 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x60: // viewport x1,y1,x2,y2
-            NewWriteFD(entry.Command, &entry.Param);
             VertexPipelineCmdDelayed8();
             // note: viewport Y coordinates are upside-down
             Viewport[0] = entry.Param & 0xFF;                             // x0
@@ -2313,10 +2090,10 @@ void GPU3D::ExecuteCommand() noexcept
 
                 ExecParamCount = 0;
 
+                NewWriteFD(entry.Command, ExecParams);
                 switch (entry.Command)
                 {
                 case 0x16: // load 4x4
-                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixLoad4x4(ProjMatrix, (s32*)ExecParams);
@@ -2339,7 +2116,6 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x17: // load 4x3
-                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixLoad4x3(ProjMatrix, (s32*)ExecParams);
@@ -2362,7 +2138,6 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x18: // mult 4x4
-                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixMult4x4(ProjMatrix, (s32*)ExecParams);
@@ -2388,7 +2163,6 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x19: // mult 4x3
-                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixMult4x3(ProjMatrix, (s32*)ExecParams);
@@ -2414,7 +2188,6 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x1A: // mult 3x3
-                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixMult3x3(ProjMatrix, (s32*)ExecParams);
@@ -2440,7 +2213,6 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x1B: // scale
-                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixScale(ProjMatrix, (s32*)ExecParams);
@@ -2461,7 +2233,6 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x1C: // translate
-                    NewWriteFD(entry.Command, ExecParams);
                     if (MatrixMode == 0)
                     {
                         MatrixTranslate(ProjMatrix, (s32*)ExecParams);
@@ -2487,7 +2258,6 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x23: // full vertex
-                    NewWriteFD(entry.Command, ExecParams);
                     CurVertex[0] = ExecParams[0] & 0xFFFF;
                     CurVertex[1] = ExecParams[0] >> 16;
                     CurVertex[2] = ExecParams[1] & 0xFFFF;
@@ -2495,7 +2265,6 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x34: // shininess table
-                    NewWriteFD(entry.Command, ExecParams);
                     {
                         for (int i = 0; i < 128; i += 4)
                         {
@@ -2509,7 +2278,6 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x71: // pos test
-                    NewWriteFD(entry.Command, ExecParams);
                     NumTestCommands -= 2;
                     CurVertex[0] = ExecParams[0] & 0xFFFF;
                     CurVertex[1] = ExecParams[0] >> 16;
@@ -2708,8 +2476,16 @@ void GPU3D::VBlank() noexcept
             FlushRequest = 0;
             
             // begin/finish framedump here?
-            if (NDS.GPU.FDInProg) FinFrameDump();
-            else if (NDS.GPU.QueueFrameDump) StartFrameDump();
+            if (NDS.GPU.FD != nullptr)
+            {
+                NDS.GPU.FD->FinFrameDump();
+                NDS.GPU.FD = nullptr;
+            }
+            else if (NDS.GPU.QueueFrameDump)
+            {
+                NDS.GPU.FD = std::make_unique<melonDS::FrameDump>(NDS.GPU);
+                NDS.GPU.FD->StartFrameDump();
+            }
         }
     }
 }
@@ -3052,7 +2828,7 @@ void GPU3D::Write16(u32 addr, u16 val) noexcept
 
     case 0x04000610:
         u32 val2 = val; // cheating
-        NewWriteFD(0x72, &val2);
+        NewWriteFD(256, &val2);
         val &= 0x7FFF;
         ZeroDotWLimit = (val * 0x200) + 0x1FF;
         return;
@@ -3129,7 +2905,7 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
         return;
 
     case 0x04000610:
-        NewWriteFD(0x72, &val);
+        NewWriteFD(256, &val);
         val &= 0x7FFF;
         ZeroDotWLimit = (val * 0x200) + 0x1FF;
         return;

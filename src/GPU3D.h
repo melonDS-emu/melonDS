@@ -30,6 +30,43 @@ namespace melonDS
 {
 class GPU;
 
+const u8 CmdNumParams[256] =
+{
+    // 0x00
+    0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // 0x10
+    1, 0, 1, 1, 1, 0, 16, 12, 16, 12, 9, 3, 3,
+    0, 0, 0,
+    // 0x20
+    1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1,
+    0, 0, 0, 0,
+    // 0x30
+    1, 1, 1, 1, 32,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // 0x40
+    1, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // 0x50
+    1,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // 0x60
+    1,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // 0x70
+    3, 2, 1,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // 0x80+
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
 struct Vertex
 {
     s32 Position[4];
@@ -81,58 +118,6 @@ struct Polygon
     u32 SortKey;
 
     void DoSavestate(Savestate* file) noexcept;
-};
-
-struct FrameDump
-{    
-    // save when registers are latched
-    u16 Disp3DCnt = 0;
-    u16 EdgeColor[8] {};
-    u8 AlphaTest = 0;
-    u32 ClearColor = 0;
-    u32 ClearDepOff = 0;
-    u32 FogColor = 0;
-    u16 FogOffset = 0;
-    u8 FogTable[32] {};
-    u16 ToonTable[32] {};
-    
-    // save before first command is sent
-    bool ZDotDisp_Track = false;
-    u16 ZDotDisp = 0;
-    u32 PolyAttr = 0;
-    u32 PolyAttrUnset = 0;
-    u32 VtxColor = 0;
-    u32 Viewport = 0;
-    u32 ProjStack[16] {};
-    u32 PosStack[32*16] {};
-    u32 VecStack[32*16] {};
-    u32 TexStack[16] {};
-    u32 ProjMtx[16] {};
-    u32 PosMtx[16] {};
-    u32 VecMtx[16] {};
-    u32 TexMtx[16] {};
-    u32 MatrixMode = 0;
-    u32 Polygon = 0;
-    u32 VtxXY = 0;
-    u16 VtxZ = 0;
-    u32 TexCoord = 0;
-    u32 TexParam = 0;
-    u32 TexPalette = 0;
-    u32 DiffAmbi = 0;
-    u32 SpecEmis = 0;
-    u32 Shininess[32] {};
-    u32 LightVec[4] {};
-    u32 LightColor[4] {};
-    u32 SwapBuffer = 0;
-
-    // track commands sent
-    u32 NumCmds = 0;
-    u32 NumParams = 0;
-
-    // todo: find a way to *only* allocate this memory while dumping a frame?
-    // preferably with a size that can scale dynamically to accomodate bigger gx lists too?
-    u8 Cmd[30000];
-    u32 Params[160000];
 };
 
 class Renderer3D;
@@ -194,9 +179,7 @@ private:
 
     } CmdFIFOEntry;
     
-    void NewWriteFD(u8 cmd, u32* param);
-    void StartFrameDump();
-    void FinFrameDump();
+    inline void NewWriteFD(u16 cmd, u32* param);
     void UpdateClipMatrix() noexcept;
     void ResetRenderingState() noexcept;
     void AddCycles(s32 num) noexcept;
@@ -382,8 +365,6 @@ public:
     u32 FlushRequest = 0;
     u32 FlushAttributes = 0;
     u32 ScrolledLine[256]; // not part of the hardware state, don't serialize
-    
-    std::unique_ptr<FrameDump> FD = nullptr; // Store variables to be dumped for a framedump
 };
 
 class Renderer3D

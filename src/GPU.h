@@ -23,6 +23,7 @@
 
 #include "GPU2D.h"
 #include "GPU3D.h"
+#include "FrameDump.h"
 #include "NonStupidBitfield.h"
 
 namespace melonDS
@@ -32,6 +33,7 @@ class ARMJIT;
 
 static constexpr u32 VRAMDirtyGranularity = 512;
 class GPU;
+class FrameDump;
 
 template <u32 Size, u32 MappingGranularity>
 struct VRAMTrackingSet
@@ -606,7 +608,8 @@ public:
     alignas(u64) u8 VRAMFlat_TexPal[128*1024] {};
 
     bool QueueFrameDump = false;
-    bool FDInProg = false;
+    std::unique_ptr<FrameDump> FD = nullptr;
+
 private:
     void ResetVRAMCache() noexcept;
     void AssignFramebuffers() noexcept;

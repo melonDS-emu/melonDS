@@ -326,6 +326,22 @@ void InitFirmwareSaveManager(EmuThread* thread) noexcept
     FirmwareSave = std::make_unique<SaveManager>(GetEffectiveFirmwareSavePath(thread));
 }
 
+std::string GetFrameDumpName()
+{
+    std::string ext = ".fd";
+    std::string dir = "framedumps";
+    Platform::MakeLocalDirectory(dir);
+    std::string base = GetAssetPath(false, dir + '/', "");
+    u32 num = 0;
+    std::string full = base + std::to_string(num) + ext;
+    while (Platform::LocalFileExists(full) && num < 256)
+    {
+        num++;
+        full = base + std::to_string(num) + ext;
+    }
+    return full;
+}
+
 std::string GetSavestateName(int slot)
 {
     std::string ext = ".ml";

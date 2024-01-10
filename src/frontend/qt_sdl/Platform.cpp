@@ -270,9 +270,9 @@ FileHandle* OpenFile(const std::string& path, FileMode mode)
         return nullptr;
     }
 }
+
 void MakeLocalDirectory(const std::string& dir)
 {
-    QString qdir = QString::fromStdString(dir);
     QString path;
 
 #ifdef PORTABLE
@@ -285,7 +285,7 @@ void MakeLocalDirectory(const std::string& dir)
 #endif
 
     QDir qpath(path);
-    qpath.mkdir(qdir);
+    qpath.mkdir(QString::fromStdString(dir));
 }
 
 FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
