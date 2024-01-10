@@ -37,19 +37,7 @@ public:
 private:
     melonDS::GPU& GPU;
 
-public:
-    
-    // save when registers are latched
-    u16 Disp3DCnt = 0;
-    u16 EdgeColor[8] {};
-    u8 AlphaTest = 0;
-    u32 ClearColor = 0;
-    u32 ClearDepOff = 0;
-    u32 FogColor = 0;
-    u16 FogOffset = 0;
-    u8 FogTable[32] {};
-    u16 ToonTable[32] {};
-    
+public:    
     // save before first command is sent
     bool ZDotDisp_Track = false;
     u16 ZDotDisp = 0;
@@ -79,10 +67,7 @@ public:
     u32 LightColor[4] {};
     u32 SwapBuffer = 0;
 
-    // track commands sent
-    u32 NumCmds = 0;
-    u32 NumParams = 0;
-
+    // store relevant gpu writes
     std::vector<u16> Cmds;
     std::vector<u32> Params;
 };
