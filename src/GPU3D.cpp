@@ -266,9 +266,6 @@ void GPU3D::Reset() noexcept
 
     RenderXPos = 0;
 
-    NDS.GPU.FD = nullptr;
-    NDS.GPU.QueueFrameDump = false;
-
     if (CurrentRenderer)
         CurrentRenderer->Reset(NDS.GPU);
 }
@@ -536,9 +533,16 @@ void GPU3D::SetEnabled(bool geometry, bool rendering) noexcept
     if (!rendering) ResetRenderingState();
 }
 
-inline void GPU3D::NewWriteFD(u16 cmd, u32* param)
+inline void GPU3D::BeginWriteFD(u16 cmd, u32* param)
 {
-    if (NDS.GPU.FD != nullptr) NDS.GPU.FD->FDWrite(cmd, param);
+    if (NDS.GPU.FD != nullptr)
+    {
+        if (NDS.GPU.FD->FDWrite(cmd, param))
+        {
+            NDS.GPU.FD = nullptr;
+            // add an osd notif here?
+        }
+    }
 }
 
 void MatrixLoadIdentity(s32* m)
@@ -1714,8 +1718,8 @@ void GPU3D::ExecuteCommand() noexcept
 
         /*printf("[GXS:%08X] 0x%02X,  0x%08X", GXStat, entry.Command, entry.Param);*/
 
-        
-        NewWriteFD(entry.Command, &entry.Param);
+
+        BeginWriteFD(entry.Command, &entry.Param);
         switch (entry.Command)
         {
         case 0x10: // matrix mode
@@ -2090,7 +2094,7 @@ void GPU3D::ExecuteCommand() noexcept
 
                 ExecParamCount = 0;
 
-                NewWriteFD(entry.Command, ExecParams);
+                BeginWriteFD(entry.Command, ExecParams);
                 switch (entry.Command)
                 {
                 case 0x16: // load 4x4
@@ -2475,10 +2479,13 @@ void GPU3D::VBlank() noexcept
 
             FlushRequest = 0;
             
-            // begin/finish framedump here?
+            // begin/finish framedump here
             if (NDS.GPU.FD != nullptr)
             {
-                NDS.GPU.FD->FinFrameDump();
+                if (NDS.GPU.FD->FinFrameDump());
+                    // add osd error message here
+                else;
+                    // add osd success message here
                 NDS.GPU.FD = nullptr;
             }
             else if (NDS.GPU.QueueFrameDump)
@@ -2828,7 +2835,7 @@ void GPU3D::Write16(u32 addr, u16 val) noexcept
 
     case 0x04000610:
         u32 val2 = val; // cheating
-        NewWriteFD(256, &val2);
+        BeginWriteFD(256, &val2);
         val &= 0x7FFF;
         ZeroDotWLimit = (val * 0x200) + 0x1FF;
         return;
@@ -2905,7 +2912,7 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
         return;
 
     case 0x04000610:
-        NewWriteFD(256, &val);
+        BeginWriteFD(256, &val);
         val &= 0x7FFF;
         ZeroDotWLimit = (val * 0x200) + 0x1FF;
         return;

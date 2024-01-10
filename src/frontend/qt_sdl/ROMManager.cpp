@@ -328,10 +328,11 @@ void InitFirmwareSaveManager(EmuThread* thread) noexcept
 
 std::string GetFrameDumpName()
 {
-    std::string ext = ".fd";
-    std::string dir = "framedumps";
+    std::string ext = ".ndsfd"; // file extension
+    std::string dir = "framedumps"; // folder to write to
+    std::string sep = "."; // separates the number from the rom name
     Platform::MakeLocalDirectory(dir);
-    std::string base = GetAssetPath(false, dir + '/', "");
+    std::string base = GetAssetPath(false, dir + '/', "") + sep;
     u32 num = 0;
     std::string full = base + std::to_string(num) + ext;
     while (Platform::LocalFileExists(full) && num < 256)

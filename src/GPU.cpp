@@ -194,6 +194,9 @@ void GPU::Reset() noexcept
 
     OAMDirty = 0x3;
     PaletteDirty = 0xF;
+
+    FD = nullptr;
+    QueueFrameDump = false;
 }
 
 void GPU::Stop() noexcept

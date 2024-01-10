@@ -179,7 +179,7 @@ private:
 
     } CmdFIFOEntry;
     
-    inline void NewWriteFD(u16 cmd, u32* param);
+    inline void BeginWriteFD(u16 cmd, u32* param);
     void UpdateClipMatrix() noexcept;
     void ResetRenderingState() noexcept;
     void AddCycles(s32 num) noexcept;
