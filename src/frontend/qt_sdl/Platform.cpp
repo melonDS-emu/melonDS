@@ -271,7 +271,7 @@ FileHandle* OpenFile(const std::string& path, FileMode mode)
     }
 }
 
-void MakeLocalDirectory(const std::string& path)
+std::string MakeLocalDirectory(const std::string& path)
 {
     QString qpath = QString::fromStdString(path);
     QDir dir(qpath);
@@ -296,6 +296,7 @@ void MakeLocalDirectory(const std::string& path)
     }
 
     dir.mkpath(fullpath);
+    return fullpath.toStdString();
 }
 
 FileHandle* OpenLocalFile(const std::string& path, FileMode mode)

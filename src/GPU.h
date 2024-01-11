@@ -608,6 +608,9 @@ public:
     alignas(u64) u8 VRAMFlat_TexPal[128*1024] {};
 
     bool QueueFrameDump = false;
+    bool FDSavePNG = false;
+    std::string FDFileBase;
+    Platform::FileHandle* FDFile = nullptr;
     std::unique_ptr<FrameDump> FD = nullptr;
 
 private:

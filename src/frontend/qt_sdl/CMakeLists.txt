@@ -40,7 +40,6 @@ set(SOURCES_QT_SDL
     SaveManager.cpp
     CameraManager.cpp
     AudioInOut.cpp
-    ../../FrameDump.cpp
 
     ArchiveUtil.h
     ArchiveUtil.cpp

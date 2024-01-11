@@ -1652,6 +1652,8 @@ void MainWindow::onRAMInfo()
 
 void MainWindow::onFrameDump()
 {
+    emuThread->NDS->GPU.FDFileBase = Platform::MakeLocalDirectory("framedump") + '/' + ROMManager::GetROMName();
+    emuThread->NDS->GPU.FDSavePNG = false;//Config::FDSavePNG; TODO
     emuThread->NDS->GPU.QueueFrameDump = true;
 }
 

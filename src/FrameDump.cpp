@@ -17,7 +17,6 @@
 */
 
 #include "Platform.h"
-#include "frontend/qt_sdl/ROMManager.h"
 #include "FrameDump.h"
 #include "GPU3D.h"
 
@@ -27,6 +26,20 @@ namespace melonDS
 FrameDump::FrameDump(melonDS::GPU& gpu) :
     GPU(gpu)
 {
+}
+
+std::string FrameDump::FinishFileName()
+{
+    std::string ext = GPU.FDSavePNG ? ".ndsfd.png" : ".ndsfd";
+    std::string base = GPU.FDFileBase + '.';
+    int num = 0;
+    std::string full = base + std::to_string(num) + ext;
+    while (Platform::LocalFileExists(full) && num < 1000)
+    {
+        num++;
+        full = base + std::to_string(num) + ext;
+    }
+    return full;
 }
 
 bool FrameDump::FDWrite(u16 cmd, u32* param)
@@ -96,11 +109,8 @@ void FrameDump::StartFrameDump()
 }
 
 bool FrameDump::FinFrameDump()
-{
-    std::string filename = ROMManager::GetFrameDumpName();
-    Platform::FileHandle* file = Platform::OpenLocalFile(filename, Platform::FileMode::Write);
-    
-    if (file == nullptr) return false;
+{    
+    Platform::FileHandle* file = Platform::OpenFile(FinishFileName(), Platform::FileMode::Write);
 
     // save final state vars to file
     Platform::FileWrite(&GPU.GPU3D.RenderDispCnt, 1, 2, file); // only write two bytes, (only 16 bits are used, and thus only those are stored for frame dumps)
@@ -110,7 +120,8 @@ bool FrameDump::FinFrameDump()
     Platform::FileWrite(&GPU.GPU3D.RenderClearAttr2, 1, sizeof(GPU.GPU3D.RenderClearAttr2), file);
     Platform::FileWrite(&GPU.GPU3D.RenderFogColor, 1, sizeof(GPU.GPU3D.RenderFogColor), file);
     Platform::FileWrite(&GPU.GPU3D.RenderFogOffset, 1, 2, file); // only write two bytes
-    Platform::FileWrite(&GPU.GPU3D.RenderFogDensityTable[1], 1, sizeof(GPU.GPU3D.RenderFogDensityTable[0])*32, file); // only write the 32 "real" entries of the density table
+    // only write the 32 "real" entries of the density table (entries 0 and 33 are dupes and not part of the actual register)
+    Platform::FileWrite(&GPU.GPU3D.RenderFogDensityTable[1], 1, sizeof(GPU.GPU3D.RenderFogDensityTable[0])*32, file);
     Platform::FileWrite(GPU.GPU3D.RenderToonTable, 1, sizeof(GPU.GPU3D.RenderToonTable), file);
 
     // save initial state vars to file.
@@ -204,6 +215,5 @@ bool FrameDump::FinFrameDump()
 
     return true;
 }
-
 
 }

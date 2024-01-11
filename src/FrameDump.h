@@ -30,7 +30,7 @@ class FrameDump
 {
 public:
     FrameDump(melonDS::GPU& gpu);
-    
+
     bool FDWrite(u16 cmd, u32* param); 
     void StartFrameDump();
     bool FinFrameDump();
@@ -38,6 +38,8 @@ public:
 private:
     melonDS::GPU& GPU;
     static constexpr int MaxDataSize = 500*1000; // define a limit of how many commands/params can be added
+    
+    std::string FinishFileName();
 
 public:
 

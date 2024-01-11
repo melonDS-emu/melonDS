@@ -187,8 +187,9 @@ struct FileHandle;
 // Can be optionally restricted to only opening a file that already exists.
 FileHandle* OpenFile(const std::string& path, FileMode mode);
 
-// make a directory under the same rules as OpenLocalFile below todo: change to a different dir?
-void MakeLocalDirectory(const std::string& dir);
+// make a directory under the same rules as OpenLocalFile
+// returns the directory made
+std::string MakeLocalDirectory(const std::string& dir);
 
 // opens files local to the emulator (melonDS.ini, BIOS, firmware, ...)
 // For Windows builds, or portable UNIX builds it checks, by order of priority:
