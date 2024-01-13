@@ -158,6 +158,8 @@ bool GdbARM7BreakOnStartup;
 bool GdbARM9BreakOnStartup;
 #endif
 
+bool FrameDumpSaveAsPNG;
+
 CameraConfig Camera[2];
 
 
@@ -358,6 +360,8 @@ ConfigEntry ConfigFile[] =
     {"GdbARM7BreakOnStartup", 1, &GdbARM7BreakOnStartup, false, true},
     {"GdbARM9BreakOnStartup", 1, &GdbARM9BreakOnStartup, false, true},
 #endif
+
+    {"FrameDumpSaveAsPNG", 1, &FrameDumpSaveAsPNG, true, false},
 
     // TODO!!
     // we need a more elegant way to deal with this

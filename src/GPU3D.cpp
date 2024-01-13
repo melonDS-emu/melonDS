@@ -536,13 +536,8 @@ void GPU3D::SetEnabled(bool geometry, bool rendering) noexcept
 inline void GPU3D::BeginWriteFD(u16 cmd, u32* param)
 {
     if (NDS.GPU.FD != nullptr)
-    {
         if (!NDS.GPU.FD->FDWrite(cmd, param))
-        {
             NDS.GPU.FD = nullptr;
-            // add an osd notif here?
-        }
-    }
 }
 
 void MatrixLoadIdentity(s32* m)
@@ -2482,11 +2477,15 @@ void GPU3D::VBlank() noexcept
             // begin/finish framedump here
             if (NDS.GPU.FD != nullptr)
             {
-                if (!NDS.GPU.FD->FinFrameDump());
-                    // add osd error message here
-                else;
-                    // add osd success message here
-                NDS.GPU.FD = nullptr;
+                if (NDS.GPU.FDSavePNG)
+                {
+                    NDS.GPU.FDBeginPNG = true;
+                }
+                else
+                {
+                    NDS.GPU.FD->FinFrameDump();
+                    NDS.GPU.FD = nullptr;
+                }
             }
             else if (NDS.GPU.QueueFrameDump)
             {
@@ -2516,6 +2515,16 @@ u32* GPU3D::GetLine(int line) noexcept
     {
         u32* rawline = CurrentRenderer->GetLine(line);
 
+        if (NDS.GPU.FD != nullptr && NDS.GPU.FDBeginPNG)
+        {
+            memcpy(&NDS.GPU.FD->TempFrameBuffer[line*256], rawline, 256*4);
+            if (line == 191)
+            {
+                NDS.GPU.FD->FinFrameDump();
+                NDS.GPU.FDBeginPNG = false;
+                NDS.GPU.FD = nullptr;
+            }
+        }
         if (RenderXPos == 0) return rawline;
 
         // apply X scroll

@@ -374,6 +374,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             actRAMInfo = menu->addAction("RAM search");
             connect(actRAMInfo, &QAction::triggered, this, &MainWindow::onRAMInfo);
+            
+            actPNGFrameDumps = menu->addAction("PNG Frame Dumps");
+            actPNGFrameDumps->setCheckable(true);
+            actPNGFrameDumps->setChecked(Config::FrameDumpSaveAsPNG);
+            connect(actPNGFrameDumps, &QAction::triggered, this, &MainWindow::onPNGFrameDumps);
 
             actFrameDump = menu->addAction("Dump next frame");
             connect(actFrameDump, &QAction::triggered, this, &MainWindow::onFrameDump);
@@ -1650,11 +1655,15 @@ void MainWindow::onRAMInfo()
     RAMInfoDialog* dlg = RAMInfoDialog::openDlg(this, emuThread);
 }
 
+void MainWindow::onPNGFrameDumps(bool checked)
+{
+    Config::FrameDumpSaveAsPNG = checked;
+}
+
 void MainWindow::onFrameDump()
 {
-    emuThread->NDS->GPU.FDFileBase = Platform::MakeLocalDirectory("framedump") + '/' + ROMManager::GetROMName();
-    emuThread->NDS->GPU.FDSavePNG = false;//Config::FDSavePNG; TODO
-    emuThread->NDS->GPU.QueueFrameDump = true;
+    std::string filebase = Platform::MakeLocalDirectory("framedump") + '/' + ROMManager::GetROMName();
+    emuThread->NDS->GPU.SetupFrameDump(filebase, Config::FrameDumpSaveAsPNG);
 }
 
 void MainWindow::onOpenTitleManager()

@@ -531,6 +531,8 @@ public:
 
     void SyncDirtyFlags() noexcept;
 
+    void SetupFrameDump(std::string filebase, bool savepng);
+
     melonDS::NDS& NDS;
     u16 VCount = 0;
     u16 TotalScanlines = 0;
@@ -609,8 +611,8 @@ public:
 
     bool QueueFrameDump = false;
     bool FDSavePNG = false;
+    bool FDBeginPNG = false;
     std::string FDFileBase;
-    Platform::FileHandle* FDFile = nullptr;
     std::unique_ptr<FrameDump> FD = nullptr;
 
 private:

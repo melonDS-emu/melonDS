@@ -33,13 +33,15 @@ public:
 
     bool FDWrite(u16 cmd, u32* param); 
     void StartFrameDump();
-    bool FinFrameDump();
+    void FinFrameDump();
+    void DumpAsPNG();
 
 private:
     melonDS::GPU& GPU;
     static constexpr int MaxDataSize = 500*1000; // define a limit of how many commands/params can be added
     
     std::string FinishFileName();
+    void FDBufferWrite(void* input, int bytes, std::vector<u8>& buffer);
 
 public:
 
@@ -75,6 +77,8 @@ public:
     // store relevant gpu writes
     std::vector<u16> Cmds;
     std::vector<u32> Params;
+
+    u32 TempFrameBuffer[256*192] {};
 };
 }
 #endif

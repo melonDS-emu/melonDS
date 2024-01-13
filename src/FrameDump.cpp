@@ -45,8 +45,11 @@ std::string FrameDump::FinishFileName()
 bool FrameDump::FDWrite(u16 cmd, u32* param)
 {
     // note: 0dotdisp is assigned an id of 0x256
-    if (Cmds.size() + (Params.size()*4) >= MaxDataSize) return false;
-
+    if (Cmds.size() + (Params.size()*4) >= MaxDataSize)
+    {
+        // add osd error message here
+        return false;
+    }
     Cmds.push_back(cmd);
 
     if (cmd == 256)
@@ -56,6 +59,14 @@ bool FrameDump::FDWrite(u16 cmd, u32* param)
             Params.push_back(param[i]);
 
     return true;
+}
+
+void FrameDump::FDBufferWrite(void* input, int bytes, std::vector<u8>& buffer)
+{
+    // store data to a buffer instead of directly to a file to allow for compression to be applied
+    // todo: better way of doing this?
+    for (int i = 0; i < bytes; i++)
+        buffer.push_back(((u8*)input)[i]);
 }
 
 void FrameDump::StartFrameDump()
@@ -108,63 +119,81 @@ void FrameDump::StartFrameDump()
     Params.clear();
 }
 
-bool FrameDump::FinFrameDump()
+void FrameDump::FinFrameDump()
 {    
     Platform::FileHandle* file = Platform::OpenFile(FinishFileName(), Platform::FileMode::Write);
 
+    // save png if needed
+    std::vector<u8> png;
+    if (GPU.FDSavePNG)
+    {
+        // offload the effort of making the png to the frontend (probably should be done by the core instead?)
+        png = Platform::WritePNG(TempFrameBuffer, 256, 192, true);
+        // write the bare minimum to make the png a png
+        Platform::FileWrite(&png[0], 1, 33, file);
+        
+        // make our own png chunk to hold framedump data :D
+        u8 temp[] = {
+            0, 0, 0, 0, // placeholder for length field (will be overwritten later)
+            'n', 'd', 'S', 'F', // Chunk name
+        };
+        Platform::FileWrite(temp, 1, sizeof(temp), file);
+    }
+    std::vector<u8> buffer;
+
     // save final state vars to file
-    Platform::FileWrite(&GPU.GPU3D.RenderDispCnt, 1, 2, file); // only write two bytes, (only 16 bits are used, and thus only those are stored for frame dumps)
-    Platform::FileWrite(GPU.GPU3D.RenderEdgeTable, 1, sizeof(GPU.GPU3D.RenderEdgeTable), file);
-    Platform::FileWrite(&GPU.GPU3D.RenderAlphaRef, 1, sizeof(GPU.GPU3D.RenderAlphaRef), file);
-    Platform::FileWrite(&GPU.GPU3D.RenderClearAttr1, 1, sizeof(GPU.GPU3D.RenderClearAttr1), file);
-    Platform::FileWrite(&GPU.GPU3D.RenderClearAttr2, 1, sizeof(GPU.GPU3D.RenderClearAttr2), file);
-    Platform::FileWrite(&GPU.GPU3D.RenderFogColor, 1, sizeof(GPU.GPU3D.RenderFogColor), file);
-    Platform::FileWrite(&GPU.GPU3D.RenderFogOffset, 1, 2, file); // only write two bytes
+    FDBufferWrite(&GPU.GPU3D.RenderDispCnt, 2, buffer); // only write two bytes, (only 16 bits are used, and thus only those are stored for frame dumps)
+    FDBufferWrite(GPU.GPU3D.RenderEdgeTable, sizeof(GPU.GPU3D.RenderEdgeTable), buffer);
+    FDBufferWrite(&GPU.GPU3D.RenderAlphaRef, sizeof(GPU.GPU3D.RenderAlphaRef), buffer);
+    FDBufferWrite(&GPU.GPU3D.RenderClearAttr1, sizeof(GPU.GPU3D.RenderClearAttr1), buffer);
+    FDBufferWrite(&GPU.GPU3D.RenderClearAttr2, sizeof(GPU.GPU3D.RenderClearAttr2), buffer);
+    FDBufferWrite(&GPU.GPU3D.RenderFogColor, sizeof(GPU.GPU3D.RenderFogColor), buffer);
+    FDBufferWrite(&GPU.GPU3D.RenderFogOffset, 2, buffer); // only write two bytes
     // only write the 32 "real" entries of the density table (entries 0 and 33 are dupes and not part of the actual register)
-    Platform::FileWrite(&GPU.GPU3D.RenderFogDensityTable[1], 1, sizeof(GPU.GPU3D.RenderFogDensityTable[0])*32, file);
-    Platform::FileWrite(GPU.GPU3D.RenderToonTable, 1, sizeof(GPU.GPU3D.RenderToonTable), file);
+    FDBufferWrite(&GPU.GPU3D.RenderFogDensityTable[1], sizeof(GPU.GPU3D.RenderFogDensityTable[0])*32, buffer);
+    FDBufferWrite(GPU.GPU3D.RenderToonTable, sizeof(GPU.GPU3D.RenderToonTable), buffer);
 
     // save initial state vars to file.
-    Platform::FileWrite(&ZDotDisp_Track, 1, 1, file);
-    Platform::FileWrite(&ZDotDisp, 1, sizeof(ZDotDisp), file);
-    Platform::FileWrite(&PolyAttr, 1, sizeof(PolyAttr), file);
-    Platform::FileWrite(&PolyAttrUnset, 1, sizeof(PolyAttrUnset), file);
-    Platform::FileWrite(&VtxColor, 1, sizeof(VtxColor), file);
-    Platform::FileWrite(&Viewport, 1, sizeof(Viewport), file);
-    Platform::FileWrite(ProjStack, 1, sizeof(ProjStack), file);
-    Platform::FileWrite(PosStack, 1, sizeof(PosStack), file);
-    Platform::FileWrite(VecStack, 1, sizeof(VecStack), file);
-    Platform::FileWrite(TexStack, 1, sizeof(TexStack), file);
-    Platform::FileWrite(ProjMtx, 1, sizeof(ProjMtx), file);
-    Platform::FileWrite(PosMtx, 1, sizeof(PosMtx), file);
-    Platform::FileWrite(VecMtx, 1, sizeof(VecMtx), file);
-    Platform::FileWrite(TexMtx, 1, sizeof(TexMtx), file);
-    Platform::FileWrite(&MatrixMode, 1, sizeof(MatrixMode), file);
-    Platform::FileWrite(&Polygon, 1, sizeof(Polygon), file);
-    Platform::FileWrite(&VtxXY, 1, sizeof(VtxXY), file);
-    Platform::FileWrite(&VtxZ, 1, sizeof(VtxZ), file);
-    Platform::FileWrite(&TexCoord, 1, sizeof(TexCoord), file);
-    Platform::FileWrite(&TexParam, 1, sizeof(TexParam), file);
-    Platform::FileWrite(&TexPalette, 1, sizeof(TexPalette), file);
-    Platform::FileWrite(&DiffAmbi, 1, sizeof(DiffAmbi), file);
-    Platform::FileWrite(&SpecEmis, 1, sizeof(SpecEmis), file);
-    Platform::FileWrite(Shininess, 1, sizeof(Shininess), file);
-    Platform::FileWrite(LightVec, 1, sizeof(LightVec), file);
-    Platform::FileWrite(LightColor, 1, sizeof(LightColor), file);
-    Platform::FileWrite(&SwapBuffer, 1, sizeof(SwapBuffer), file);
+    FDBufferWrite(&ZDotDisp_Track, 1, buffer);
+    FDBufferWrite(&ZDotDisp, sizeof(ZDotDisp), buffer);
+    FDBufferWrite(&PolyAttr, sizeof(PolyAttr), buffer);
+    FDBufferWrite(&PolyAttrUnset, sizeof(PolyAttrUnset), buffer);
+    FDBufferWrite(&VtxColor, sizeof(VtxColor), buffer);
+    FDBufferWrite(&Viewport, sizeof(Viewport), buffer);
+    FDBufferWrite(ProjStack, sizeof(ProjStack), buffer);
+    FDBufferWrite(PosStack, sizeof(PosStack), buffer);
+    FDBufferWrite(VecStack, sizeof(VecStack), buffer);
+    FDBufferWrite(TexStack, sizeof(TexStack), buffer);
+    FDBufferWrite(ProjMtx, sizeof(ProjMtx), buffer);
+    FDBufferWrite(PosMtx, sizeof(PosMtx), buffer);
+    FDBufferWrite(VecMtx, sizeof(VecMtx), buffer);
+    FDBufferWrite(TexMtx, sizeof(TexMtx), buffer);
+    FDBufferWrite(&MatrixMode, sizeof(MatrixMode), buffer);
+    FDBufferWrite(&Polygon, sizeof(Polygon), buffer);
+    FDBufferWrite(&VtxXY, sizeof(VtxXY), buffer);
+    FDBufferWrite(&VtxZ, sizeof(VtxZ), buffer);
+    FDBufferWrite(&TexCoord, sizeof(TexCoord), buffer);
+    FDBufferWrite(&TexParam, sizeof(TexParam), buffer);
+    FDBufferWrite(&TexPalette, sizeof(TexPalette), buffer);
+    FDBufferWrite(&DiffAmbi, sizeof(DiffAmbi), buffer);
+    FDBufferWrite(&SpecEmis, sizeof(SpecEmis), buffer);
+    FDBufferWrite(Shininess, sizeof(Shininess), buffer);
+    FDBufferWrite(LightVec, sizeof(LightVec), buffer);
+    FDBufferWrite(LightColor, sizeof(LightColor), buffer);
+    FDBufferWrite(&SwapBuffer, sizeof(SwapBuffer), buffer);
     
     // skip banks H and I, we only care about dumping 3d engine state currently, and banks H and I cannot be used by the 3d engine
     // save vram control regs to file
-    Platform::FileWrite(GPU.VRAMCNT, 1, sizeof(GPU.VRAMCNT[0])*7, file);
+    FDBufferWrite(GPU.VRAMCNT, sizeof(GPU.VRAMCNT[0])*7, buffer);
 
     // only save vram if the bank is enabled and allocated to be used as texture image/texture palette.
-    if ((GPU.VRAMCNT[0] & 0x83) == 0x83) Platform::FileWrite(GPU.VRAM_A, 1, sizeof(GPU.VRAM_A), file);
-    if ((GPU.VRAMCNT[1] & 0x83) == 0x83) Platform::FileWrite(GPU.VRAM_B, 1, sizeof(GPU.VRAM_B), file);
-    if ((GPU.VRAMCNT[2] & 0x87) == 0x83) Platform::FileWrite(GPU.VRAM_C, 1, sizeof(GPU.VRAM_C), file);
-    if ((GPU.VRAMCNT[3] & 0x87) == 0x83) Platform::FileWrite(GPU.VRAM_D, 1, sizeof(GPU.VRAM_D), file);
-    if ((GPU.VRAMCNT[4] & 0x87) == 0x83) Platform::FileWrite(GPU.VRAM_E, 1, sizeof(GPU.VRAM_E), file);
-    if ((GPU.VRAMCNT[5] & 0x87) == 0x83) Platform::FileWrite(GPU.VRAM_F, 1, sizeof(GPU.VRAM_F), file);
-    if ((GPU.VRAMCNT[6] & 0x87) == 0x83) Platform::FileWrite(GPU.VRAM_G, 1, sizeof(GPU.VRAM_G), file);
+    if ((GPU.VRAMCNT[0] & 0x83) == 0x83) FDBufferWrite(GPU.VRAM_A, sizeof(GPU.VRAM_A), buffer);
+    if ((GPU.VRAMCNT[1] & 0x83) == 0x83) FDBufferWrite(GPU.VRAM_B, sizeof(GPU.VRAM_B), buffer);
+    if ((GPU.VRAMCNT[2] & 0x87) == 0x83) FDBufferWrite(GPU.VRAM_C, sizeof(GPU.VRAM_C), buffer);
+    if ((GPU.VRAMCNT[3] & 0x87) == 0x83) FDBufferWrite(GPU.VRAM_D, sizeof(GPU.VRAM_D), buffer);
+    if ((GPU.VRAMCNT[4] & 0x87) == 0x83) FDBufferWrite(GPU.VRAM_E, sizeof(GPU.VRAM_E), buffer);
+    if ((GPU.VRAMCNT[5] & 0x87) == 0x83) FDBufferWrite(GPU.VRAM_F, sizeof(GPU.VRAM_F), buffer);
+    if ((GPU.VRAMCNT[6] & 0x87) == 0x83) FDBufferWrite(GPU.VRAM_G, sizeof(GPU.VRAM_G), buffer);
     
     u8* tempcmds = (u8*)malloc(Cmds.size() * sizeof(u8));
     u32* tempparams = (u32*)malloc(Params.size() * sizeof(Params[0]));
@@ -205,15 +234,50 @@ bool FrameDump::FinFrameDump()
             }
         }
     }
-    Platform::FileWrite(&numcmd, 1, sizeof(numcmd), file);
-    Platform::FileWrite(&numparam, 1, sizeof(numparam), file);
-    Platform::FileWrite(tempcmds, 1, numcmd, file);
-    Platform::FileWrite(tempparams, sizeof(Params[0]), numparam, file);
+    FDBufferWrite(&numcmd, sizeof(numcmd), buffer);
+    FDBufferWrite(&numparam, sizeof(numparam), buffer);
+    FDBufferWrite(tempcmds, numcmd, buffer);
+    FDBufferWrite(tempparams, (sizeof(Params[0]) * numparam), buffer);
     free(tempcmds);
     free(tempparams);
+    
+    // todo: implement compression algorithm?
+
+    // store value for type of compression used
+    u8 comprtype = 0;
+    Platform::FileWrite(&comprtype, 1, 1, file);
+    // write the actual file
+    Platform::FileWrite(&buffer[0], 1, buffer.size(), file);
+
+    if (GPU.FDSavePNG)
+    {
+        u32 seekptr1 = 33; // how much of the png was initially written (offset of the framedump chunk's length field)
+        u32 seekptr2 = 41; // the offset where the frame dump chunk began
+        u32 seekptr3 = Platform::FileTell(file); // offset of the end of the framedump chunk
+
+        // we dont *actually* need to calculate a checksum (citation needed?)
+        // and i dont feel like implementing the calc for one. so we just fill the field with 0s. :)
+        u8 temp[] = {0, 0, 0, 0};
+        Platform::FileWrite(temp, 1, sizeof(temp), file);
+
+        // calculate the length of the framedump chunk
+        u32 byteswritten = seekptr3 - seekptr2;
+
+        // write the rest of the png
+        Platform::FileWrite(&png[seekptr1], 1, png.size() - (33 * sizeof(png[0])), file);
+
+        // seek back to the framedump's length field was
+        Platform::FileSeek(file, seekptr1, Platform::FileSeekOrigin::Start);
+        // write length field (needs to be written in reverse endian order (big endian))
+        Platform::FileWrite(&((u8*)&byteswritten)[3], 1, 1, file);
+        Platform::FileWrite(&((u8*)&byteswritten)[2], 1, 1, file);
+        Platform::FileWrite(&((u8*)&byteswritten)[1], 1, 1, file);
+        Platform::FileWrite(&((u8*)&byteswritten)[0], 1, 1, file);
+    }
+
     Platform::CloseFile(file);
 
-    return true;
+    // add osd success message here
 }
 
 }

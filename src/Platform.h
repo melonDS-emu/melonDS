@@ -222,6 +222,9 @@ bool IsEndOfFile(FileHandle* file);
 /// @see fgets
 bool FileReadLine(char* str, int count, FileHandle* file);
 
+/// @ see ftell
+int FileTell(FileHandle* file);
+
 /// @see fseek
 bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin);
 
@@ -293,6 +296,8 @@ void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen);
 // called when the RTC date/time is changed and the frontend might need to take it into account
 void WriteDateTime(int year, int month, int day, int hour, int minute, int second);
 
+// create and save a png to a file.
+std::vector<u8> WritePNG(u32* image, int sizeX, int sizeY, bool returndata);
 
 // local multiplayer comm interface
 // packet type: DS-style TX header (12 bytes) + original 802.11 frame
