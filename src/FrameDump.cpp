@@ -128,7 +128,7 @@ void FrameDump::FinFrameDump()
     if (GPU.FDSavePNG)
     {
         // offload the effort of making the png to the frontend (probably should be done by the core instead?)
-        png = Platform::WritePNG(TempFrameBuffer, 256, 192, true);
+        png = Platform::MakePNGFrameDump(TempFrameBuffer, 256, 192);
         // write the bare minimum to make the png a png
         Platform::FileWrite(&png[0], 1, 33, file);
         

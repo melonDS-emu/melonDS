@@ -562,7 +562,7 @@ void WriteDateTime(int year, int month, int day, int hour, int minute, int secon
     Config::Save();
 }
 
-std::vector<u8> WritePNG(u32* image, int sizeX, int sizeY, bool returndata)
+std::vector<u8> MakePNGFrameDump(u32* image, int sizeX, int sizeY)
 {
     QImage png = QImage(sizeX, sizeY, QImage::Format_ARGB32);
 
@@ -583,19 +583,16 @@ std::vector<u8> WritePNG(u32* image, int sizeX, int sizeY, bool returndata)
 
     // so we copy from an array, to an image, to a byte array, to a vector...
     // yeah there has to be a better way to do this-
-    if (returndata)
-    {
-        QByteArray store;
-        QBuffer buff(&store);
-        buff.open(QIODevice::WriteOnly);
-        png.save(&buff, "PNG", 0);
+    QByteArray store;
+    QBuffer buff(&store);
+    buff.open(QIODevice::WriteOnly);
+    png.save(&buff, "PNG", 0);
 
-        std::vector<u8> retbuff;
-        for (int i = 0; i < store.size(); i++)
-            retbuff.push_back(store[i]);
+    std::vector<u8> retbuff;
+    for (int i = 0; i < store.size(); i++)
+        retbuff.push_back(store[i]);
 
-        return retbuff;
-    }
+    return retbuff;
 }
 
 bool MP_Init()
