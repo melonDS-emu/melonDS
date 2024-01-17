@@ -46,7 +46,6 @@ private:
 public:
 
     // save before first command is sent
-    bool ZDotDisp_Track = false;
     u16 ZDotDisp = 0;
     u32 PolyAttr = 0;
     u32 PolyAttrUnset = 0;

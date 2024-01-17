@@ -74,7 +74,6 @@ void FrameDump::StartFrameDump()
     GPU.QueueFrameDump = false;
 
     // save these values here because its way easier this way.
-    ZDotDisp_Track = (GPU.GPU3D.ZeroDotWLimit != 0);
     ZDotDisp = ((GPU.GPU3D.ZeroDotWLimit == 0) ? 0 : ((GPU.GPU3D.ZeroDotWLimit - 0x1FF) / 0x200));
     PolyAttr = GPU.GPU3D.CurPolygonAttr;
     PolyAttrUnset = GPU.GPU3D.PolygonAttr;
@@ -135,7 +134,7 @@ void FrameDump::FinFrameDump()
         // make our own png chunk to hold framedump data :D
         u8 temp[] = {
             0, 0, 0, 0, // placeholder for length field (will be overwritten later)
-            'n', 'd', 'S', 'F', // Chunk name
+            'n', 'd', 'S', 'f', // Chunk name
         };
         Platform::FileWrite(temp, 1, sizeof(temp), file);
     }
@@ -154,7 +153,6 @@ void FrameDump::FinFrameDump()
     FDBufferWrite(GPU.GPU3D.RenderToonTable, sizeof(GPU.GPU3D.RenderToonTable), buffer);
 
     // save initial state vars to file.
-    FDBufferWrite(&ZDotDisp_Track, 1, buffer);
     FDBufferWrite(&ZDotDisp, sizeof(ZDotDisp), buffer);
     FDBufferWrite(&PolyAttr, sizeof(PolyAttr), buffer);
     FDBufferWrite(&PolyAttrUnset, sizeof(PolyAttrUnset), buffer);
@@ -243,9 +241,13 @@ void FrameDump::FinFrameDump()
     
     // todo: implement compression algorithm?
 
-    // store value for type of compression used
+    // write header
+    constexpr u8 headertitle[5] = {'N', 'T', 'R', 'F', 'D'};
+    Platform::FileWrite(&headertitle, 1, sizeof(headertitle), file);
+    constexpr u16 fdversion = 0;
+    Platform::FileWrite(&fdversion, 1, sizeof(fdversion), file);
     u8 comprtype = 0;
-    Platform::FileWrite(&comprtype, 1, 1, file);
+    Platform::FileWrite(&comprtype, 1, sizeof(comprtype), file);
     // write the actual file
     Platform::FileWrite(&buffer[0], 1, buffer.size(), file);
 
