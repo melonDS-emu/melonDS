@@ -20,6 +20,7 @@
 #define WIFISETTINGSDIALOG_H
 
 #include <QDialog>
+#include "LAN_PCap.h"
 
 namespace Ui { class WifiSettingsDialog; }
 class WifiSettingsDialog;
@@ -61,8 +62,7 @@ private slots:
 
 private:
     Ui::WifiSettingsDialog* ui;
-
-    bool haspcap;
+    std::optional<melonDS::PCap> pcap;
 
     void updateAdapterControls();
 };
