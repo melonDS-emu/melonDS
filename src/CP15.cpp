@@ -87,6 +87,9 @@ void ARMv5::CP15DoSavestate(Savestate* file)
     file->VarArray(ITCM, ITCMPhysicalSize);
     file->VarArray(DTCM, DTCMPhysicalSize);
 
+    file->Var32(&DCacheLockDown);
+    file->Var32(&ICacheLockDown);
+
     file->Var32(&PU_CodeCacheable);
     file->Var32(&PU_DataCacheable);
     file->Var32(&PU_DataCacheWrite);
