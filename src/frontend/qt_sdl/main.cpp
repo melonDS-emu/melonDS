@@ -299,9 +299,9 @@ int main(int argc, char** argv)
     if (argc != 0 && (!strcasecmp(argv[0], "derpDS") || !strcasecmp(argv[0], "./derpDS")))
         printf("did you just call me a derp???\n");
 
-    Platform::Init(argc, argv);
-
     MelonApplication melon(argc, argv);
+
+    Platform::Init(argc, argv);
 
     CLI::CommandLineOptions* options = CLI::ManageArgs(melon);
 

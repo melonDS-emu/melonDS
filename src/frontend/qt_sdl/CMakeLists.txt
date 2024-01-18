@@ -166,11 +166,7 @@ target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
 target_include_directories(melonDS PRIVATE "${Slirp_INCLUDE_DIRS}")
 target_link_libraries(melonDS PRIVATE "${Slirp_LINK_LIBRARIES}")
 
-if (UNIX)
-    option(PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
-elseif (WIN32)
-    option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
-
+if (WIN32)
     configure_file("${CMAKE_SOURCE_DIR}/res/melon.rc.in" "${CMAKE_BINARY_DIR}/res/melon.rc")
     target_sources(melonDS PUBLIC "${CMAKE_BINARY_DIR}/res/melon.rc")
     target_include_directories(melonDS PRIVATE "${CMAKE_BINARY_DIR}/res")
@@ -187,10 +183,6 @@ elseif (WIN32)
 
     target_link_libraries(melonDS PRIVATE ws2_32 iphlpapi)
     set_target_properties(melonDS PROPERTIES LINK_FLAGS_DEBUG "-mconsole")
-endif()
-
-if (PORTABLE)
-    target_compile_definitions(melonDS PRIVATE PORTABLE)
 endif()
 
 if (APPLE)
