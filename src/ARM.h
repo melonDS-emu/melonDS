@@ -322,6 +322,7 @@ public:
     u32 RNGSeed;
 
     u32 DTCMSetting, ITCMSetting;
+    u32 DCacheLockDown, ICacheLockDown;
 
     // for aarch64 JIT they need to go up here
     // to be addressable by a 12-bit immediate

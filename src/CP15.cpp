@@ -55,6 +55,9 @@ void ARMv5::CP15Reset()
     DTCMBase = 0xFFFFFFFF;
     DTCMMask = 0;
 
+    ICacheLockDown = 0;
+    DCacheLockDown = 0;
+
     memset(ICache, 0, 0x2000);
     ICacheInvalidateAll();
     memset(ICacheCount, 0, 64);
@@ -628,6 +631,22 @@ void ARMv5::CP15Write(u32 id, u32 val)
         //printf("flush data cache SI\n");
         return;
 
+    case 0x900:
+        // Cache Lockdown - Format B
+        //    Bit 31: Lock bit
+        //    Bit 0..Way-1: locked ways
+        //      The Cache is 4 way associative
+        // But all bits are r/w
+        DCacheLockDown = val ;
+        return;
+    case 0x901:
+        // Cache Lockdown - Format B
+        //    Bit 31: Lock bit
+        //    Bit 0..Way-1: locked ways
+        //      The Cache is 4 way associative
+        // But all bits are r/w
+        ICacheLockDown = val;
+        return;
 
     case 0x910:
         DTCMSetting = val & 0xFFFFF03E;
@@ -751,6 +770,10 @@ u32 ARMv5::CP15Read(u32 id) const
     case 0x671:
         return PU_Region[(id >> 4) & 0xF];
 
+    case 0x900:
+        return DCacheLockDown;
+    case 0x901:
+        return ICacheLockDown;
 
     case 0x910:
         return DTCMSetting;
