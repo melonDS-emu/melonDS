@@ -312,6 +312,8 @@ public:
 
     void ICacheLookup(u32 addr);
     void ICacheInvalidateByAddr(u32 addr);
+    void ICacheInvalidateBySetAndWay(u8 cacheSet, u8 cacheLine);
+
     void ICacheInvalidateAll();
     bool IsAddressICachable(u32 addr);
 

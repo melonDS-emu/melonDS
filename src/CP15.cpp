@@ -408,6 +408,21 @@ void ARMv5::ICacheInvalidateByAddr(u32 addr)
     }
 }
 
+void ARMv5::ICacheInvalidateBySetAndWay(u8 cacheSet, u8 cacheLine)
+{
+    if (cacheSet >= ICACHE_SETS)
+        return;
+    if (cacheLine >= ICACHE_LINESPERSET)
+        return;
+
+    u32 idx = (cacheLine << ICACHE_SETS_LOG2) + cacheSet;
+    // TODO: is this a valid magic number?
+    //       it should indicate that no address is loaded here, instead
+    //       a tag of 1 indicates that addr 0x00000800.. 0x0000FBF (depending on id) ist stored at this set.            
+    ICacheTags[idx] = 1;
+}
+
+
 void ARMv5::ICacheInvalidateAll()
 {
     // TODO: is this a valid magic number?
@@ -598,7 +613,12 @@ void ARMv5::CP15Write(u32 id, u32 val)
         //Halt(255);
         return;
     case 0x752:
-        Log(LogLevel::Warn, "CP15: ICACHE INVALIDATE WEIRD. %08X\n", val);
+        {
+            // Cache invalidat by line number and set number
+            u8 cacheSet = val >> (32 - ICACHE_SETS_LOG2) & (ICACHE_SETS -1);
+            u8 cacheLine = (val >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET -1);
+            ICacheInvalidateBySetAndWay(cacheSet, cacheLine);
+        }
         //Halt(255);
         return;
 
