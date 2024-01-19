@@ -313,6 +313,7 @@ public:
     void ICacheLookup(u32 addr);
     void ICacheInvalidateByAddr(u32 addr);
     void ICacheInvalidateAll();
+    bool IsAddressICachable(u32 addr);
 
     void CP15Write(u32 id, u32 val);
     u32 CP15Read(u32 id) const;

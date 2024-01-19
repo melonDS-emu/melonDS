@@ -417,6 +417,11 @@ void ARMv5::ICacheInvalidateAll()
         ICacheTags[i] = 1;
 }
 
+bool ARMv5::IsAddressICachable(u32 addr)
+{
+    return PU_Map[addr >> 12] & 0x40 ;
+}
+
 
 void ARMv5::CP15Write(u32 id, u32 val)
 {
@@ -430,7 +435,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
             val &= 0x000FF085;
             CP15Control &= ~0x000FF085;
             CP15Control |= val;
-            //printf("CP15Control = %08X (%08X->%08X)\n", CP15Control, old, val);
+            //Log(LogLevel::Debug, "CP15Control = %08X (%08X->%08X)\n", CP15Control, old, val);
             UpdateDTCMSetting();
             UpdateITCMSetting();
             if ((old & 0x1005) != (val & 0x1005))
@@ -800,6 +805,7 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
     }
 
     CodeCycles = RegionCodeCycles;
+#if 0
     if (CodeCycles == 0xFF) // cached memory. hax
     {
         if (branch || !(addr & 0x1F))
@@ -809,6 +815,16 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
 
         //return *(u32*)&CurICacheLine[addr & 0x1C];
     }
+#else
+    if (CP15Control & CP15_CACHE_CR_ICACHEENABLE) 
+    {
+        if (IsAddressICachable(addr))
+        {
+            ICacheLookup(addr);
+            return *(u32*)&CurICacheLine[addr & (ICACHE_LINELENGTH - 4)];
+        }
+    }
+#endif
 
     if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];
 
