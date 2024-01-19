@@ -608,11 +608,13 @@ public:
 
     alignas(u64) u8 VRAMFlat_Texture[512*1024] {};
     alignas(u64) u8 VRAMFlat_TexPal[128*1024] {};
-
-    bool QueueFrameDump = false;
-    bool FDSavePNG = false;
-    bool FDBeginPNG = false;
+    
+    // store framedump settings
     std::string FDFileBase;
+    bool FDSavePNG = false;
+    // store framedump state
+    bool QueueFrameDump = false;
+    bool FDBeginPNG = false;
     std::unique_ptr<FrameDump> FD = nullptr;
 
 private:

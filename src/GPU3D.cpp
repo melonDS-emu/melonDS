@@ -535,9 +535,11 @@ void GPU3D::SetEnabled(bool geometry, bool rendering) noexcept
 
 inline void GPU3D::BeginWriteFD(u16 cmd, u32* param)
 {
-    if (NDS.GPU.FD != nullptr)
-        if (!NDS.GPU.FD->FDWrite(cmd, param))
+    if (NDS.GPU.FD != nullptr) [[unlikely]]
+        if (!NDS.GPU.FD->FDWrite(cmd, param)) [[unlikely]]
+        {
             NDS.GPU.FD = nullptr;
+        }
 }
 
 void MatrixLoadIdentity(s32* m)
@@ -2475,22 +2477,25 @@ void GPU3D::VBlank() noexcept
             FlushRequest = 0;
             
             // begin/finish framedump here
-            if (NDS.GPU.FD != nullptr)
+            if (NDS.GPU.QueueFrameDump) [[unlikely]]
             {
-                if (NDS.GPU.FDSavePNG)
+                if (NDS.GPU.FD != nullptr)
                 {
-                    NDS.GPU.FDBeginPNG = true;
+                    if (NDS.GPU.FDSavePNG)
+                    {
+                        NDS.GPU.FDBeginPNG = true;
+                    }
+                    else
+                    {
+                        NDS.GPU.FD->FinFrameDump();
+                        NDS.GPU.FD = nullptr;
+                    }
                 }
                 else
                 {
-                    NDS.GPU.FD->FinFrameDump();
-                    NDS.GPU.FD = nullptr;
+                    NDS.GPU.FD = std::make_unique<melonDS::FrameDump>(NDS.GPU);
+                    NDS.GPU.FD->StartFrameDump();
                 }
-            }
-            else if (NDS.GPU.QueueFrameDump)
-            {
-                NDS.GPU.FD = std::make_unique<melonDS::FrameDump>(NDS.GPU);
-                NDS.GPU.FD->StartFrameDump();
             }
         }
     }
@@ -2515,16 +2520,16 @@ u32* GPU3D::GetLine(int line) noexcept
     {
         u32* rawline = CurrentRenderer->GetLine(line);
 
-        if (NDS.GPU.FD != nullptr && NDS.GPU.FDBeginPNG)
+        if (NDS.GPU.FDBeginPNG) [[unlikely]]
         {
             memcpy(&NDS.GPU.FD->TempFrameBuffer[line*256], rawline, 256*4);
             if (line == 191)
             {
                 NDS.GPU.FD->FinFrameDump();
-                NDS.GPU.FDBeginPNG = false;
                 NDS.GPU.FD = nullptr;
             }
         }
+
         if (RenderXPos == 0) return rawline;
 
         // apply X scroll

@@ -196,6 +196,7 @@ void GPU::Reset() noexcept
     PaletteDirty = 0xF;
 
     FD = nullptr;
+    FDBeginPNG = false;
     QueueFrameDump = false;
 }
 

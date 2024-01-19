@@ -44,14 +44,20 @@ std::string FrameDump::FinishFileName()
 
 bool FrameDump::FDWrite(u16 cmd, u32* param)
 {
-    // note: 0dotdisp is assigned an id of 0x256
-    if (Cmds.size() + (Params.size()*4) >= MaxDataSize)
+    // don't write more cmds to buffer if the frame is already done.
+    if (GPU.FDBeginPNG) return true;
+
+    // abort frame dump if it writes too many commands & params to the buffer
+    if (Cmds.size() + (Params.size()*4) >= MaxDataSize) [[unlikely]]
     {
         // add osd error message here
+        GPU.QueueFrameDump = false;
         return false;
     }
-    Cmds.push_back(cmd);
 
+    Cmds.push_back(cmd);
+    
+    // note: 0dotdisp is assigned an id of 0x256
     if (cmd == 256)
         Params.push_back(*param);
     else
@@ -71,8 +77,6 @@ void FrameDump::FDBufferWrite(void* input, int bytes, std::vector<u8>& buffer)
 
 void FrameDump::StartFrameDump()
 {
-    GPU.QueueFrameDump = false;
-
     // save these values here because its way easier this way.
     ZDotDisp = ((GPU.GPU3D.ZeroDotWLimit == 0) ? 0 : ((GPU.GPU3D.ZeroDotWLimit - 0x1FF) / 0x200));
     PolyAttr = GPU.GPU3D.CurPolygonAttr;
@@ -278,6 +282,8 @@ void FrameDump::FinFrameDump()
     }
 
     Platform::CloseFile(file);
+    GPU.QueueFrameDump = false;
+    GPU.FDBeginPNG = false;
 
     // add osd success message here
 }
