@@ -114,7 +114,7 @@ void ARMv5::UpdateDTCMSetting()
     u32 newDTCMMask;
     u32 newDTCMSize;
 
-    if (CP15Control & (1<<16))
+    if (CP15Control & CP15_TCM_CR_DTCM_ENABLE)
     {
         newDTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
         if (newDTCMSize < 0x1000) newDTCMSize = 0x1000;
@@ -138,7 +138,7 @@ void ARMv5::UpdateDTCMSetting()
 
 void ARMv5::UpdateITCMSetting()
 {
-    if (CP15Control & (1<<18))
+    if (CP15Control & CP15_TCM_CR_ITCM_ENABLE)
     {
         ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
 #ifdef JIT_ENABLED
@@ -156,7 +156,7 @@ void ARMv5::UpdateITCMSetting()
 // (not to the region range/enabled status)
 void ARMv5::UpdatePURegion(u32 n)
 {
-    if (!(CP15Control & (1<<0)))
+    if (!(CP15Control & CP15_CR_MPUENABLE))
         return;
 
     u32 coderw = (PU_CodeRW >> (4*n)) & 0xF;
@@ -170,12 +170,12 @@ void ARMv5::UpdatePURegion(u32 n)
     // 1/0: goes to memory and cache
     // 1/1: goes to cache
 
-    if (CP15Control & (1<<12))
+    if (CP15Control & CP15_CACHE_CR_ICACHEENABLE)
         codecache = (PU_CodeCacheable >> n) & 0x1;
     else
         codecache = 0;
 
-    if (CP15Control & (1<<2))
+    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
     {
         datacache = (PU_DataCacheable >> n) & 0x1;
         datawrite = (PU_DataCacheWrite >> n) & 0x1;
@@ -263,13 +263,13 @@ void ARMv5::UpdatePURegion(u32 n)
 
 void ARMv5::UpdatePURegions(bool update_all)
 {
-    if (!(CP15Control & (1<<0)))
+    if (!(CP15Control & CP15_CR_MPUENABLE))
     {
         // PU disabled
 
         u8 mask = 0x07;
-        if (CP15Control & (1<<2))  mask |= 0x30;
-        if (CP15Control & (1<<12)) mask |= 0x40;
+        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) mask |= 0x30;
+        if (CP15Control & CP15_CACHE_CR_ICACHEENABLE) mask |= 0x40;
 
         memset(PU_UserMap, mask, 0x100000);
         memset(PU_PrivMap, mask, 0x100000);
@@ -442,9 +442,9 @@ void ARMv5::CP15Write(u32 id, u32 val)
             {
                 UpdatePURegions((old & 0x1) != (val & 0x1));
             }
-            if (val & (1<<7)) Log(LogLevel::Warn, "!!!! ARM9 BIG ENDIAN MODE. VERY BAD. SHIT GONNA ASPLODE NOW\n");
-            if (val & (1<<13)) ExceptionBase = 0xFFFF0000;
-            else               ExceptionBase = 0x00000000;
+            if (val & CP15_CR_BIGENDIAN) Log(LogLevel::Warn, "!!!! ARM9 BIG ENDIAN MODE. VERY BAD. SHIT GONNA ASPLODE NOW\n");
+            if (val & CP15_CR_HIGHEXCEPTIONBASE) ExceptionBase = 0xFFFF0000;
+            else                                 ExceptionBase = 0x00000000;
         }
         return;
 
