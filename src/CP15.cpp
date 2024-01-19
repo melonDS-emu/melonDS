@@ -58,9 +58,9 @@ void ARMv5::CP15Reset()
     ICacheLockDown = 0;
     DCacheLockDown = 0;
 
-    memset(ICache, 0, 0x2000);
+    memset(ICache, 0, ICACHE_SIZE);
     ICacheInvalidateAll();
-    memset(ICacheCount, 0, 64);
+    memset(ICacheCount, 0, ICACHE_LINESPERSET);
 
     PU_CodeCacheable = 0;
     PU_DataCacheable = 0;
@@ -340,42 +340,26 @@ u32 ARMv5::RandomLineIndex()
 
 void ARMv5::ICacheLookup(u32 addr)
 {
-    u32 tag = addr & 0xFFFFF800;
-    u32 id = (addr >> 5) & 0x3F;
+    u32 tag = addr & ~(ICACHE_LINESPERSET * ICACHE_LINELENGTH - 1);
+    u32 id = (addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1);
 
-    id <<= 2;
-    if (ICacheTags[id+0] == tag)
+    id <<= ICACHE_SETS_LOG2;
+    for (int set=0;set<ICACHE_SETS;set++)
     {
-        CodeCycles = 1;
-        CurICacheLine = &ICache[(id+0) << 5];
-        return;
-    }
-    if (ICacheTags[id+1] == tag)
-    {
-        CodeCycles = 1;
-        CurICacheLine = &ICache[(id+1) << 5];
-        return;
-    }
-    if (ICacheTags[id+2] == tag)
-    {
-        CodeCycles = 1;
-        CurICacheLine = &ICache[(id+2) << 5];
-        return;
-    }
-    if (ICacheTags[id+3] == tag)
-    {
-        CodeCycles = 1;
-        CurICacheLine = &ICache[(id+3) << 5];
-        return;
+        if (ICacheTags[id+set] == tag)
+        {
+            CodeCycles = 1;
+            CurICacheLine = &ICache[(id+set) << ICACHE_LINELENGTH_LOG2];
+            return;
+        }
     }
 
     // cache miss
-
     u32 line;
-    if (CP15Control & (1<<14))
+    if (CP15Control & CP15_CACHE_CR_ROUNDROBIN)
     {
-        line = ICacheCount[id>>2];
-        ICacheCount[id>>2] = (line+1) & 0x3;
+        line = ICacheCount[id>>ICACHE_SETS_LOG2];
+        ICacheCount[id>>ICACHE_SETS_LOG2] = (line+1) & (ICACHE_SETS-1);
     }
     else
     {
@@ -384,16 +368,16 @@ void ARMv5::ICacheLookup(u32 addr)
 
     line += id;
 
-    addr &= ~0x1F;
-    u8* ptr = &ICache[line << 5];
+    addr &= ~(ICACHE_LINELENGTH-1);
+    u8* ptr = &ICache[line << ICACHE_LINELENGTH_LOG2];
 
     if (CodeMem.Mem)
     {
-        memcpy(ptr, &CodeMem.Mem[addr & CodeMem.Mask], 32);
+        memcpy(ptr, &CodeMem.Mem[addr & CodeMem.Mask], ICACHE_LINELENGTH);
     }
     else
     {
-        for (int i = 0; i < 32; i+=4)
+        for (int i = 0; i < ICACHE_LINELENGTH; i+=sizeof(u32))
             *(u32*)&ptr[i] = NDS.ARM9Read32(addr+i);
     }
 
@@ -407,35 +391,29 @@ void ARMv5::ICacheLookup(u32 addr)
 
 void ARMv5::ICacheInvalidateByAddr(u32 addr)
 {
-    u32 tag = addr & 0xFFFFF800;
-    u32 id = (addr >> 5) & 0x3F;
+    u32 tag = addr & ~(ICACHE_LINESPERSET * ICACHE_LINELENGTH - 1);
+    u32 id = (addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1);
 
-    id <<= 2;
-    if (ICacheTags[id+0] == tag)
+    id <<= ICACHE_SETS_LOG2;
+    for (int set=0;set<ICACHE_SETS;set++)
     {
-        ICacheTags[id+0] = 1;
-        return;
-    }
-    if (ICacheTags[id+1] == tag)
-    {
-        ICacheTags[id+1] = 1;
-        return;
-    }
-    if (ICacheTags[id+2] == tag)
-    {
-        ICacheTags[id+2] = 1;
-        return;
-    }
-    if (ICacheTags[id+3] == tag)
-    {
-        ICacheTags[id+3] = 1;
-        return;
+        if (ICacheTags[id+set] == tag)
+        {
+            // TODO: is this a valid magic number?
+            //       it should indicate that no address is loaded here, instead
+            //       a tag of 1 indicates that addr 0x00000800.. 0x0000FBF (depending on id) ist stored at this set.            
+            ICacheTags[id+set] = 1;     
+            return;
+        }
     }
 }
 
 void ARMv5::ICacheInvalidateAll()
 {
-    for (int i = 0; i < 64*4; i++)
+    // TODO: is this a valid magic number?
+    //       it should indicate that no address is loaded here, instead
+    //       a tag of 1 indicates that addr 0x00000800.. 0x0000FBF (depending on id) ist stored at this set.            
+    for (int i = 0; i < ICACHE_SIZE / ICACHE_LINELENGTH; i++)
         ICacheTags[i] = 1;
 }
 
@@ -633,6 +611,10 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x7A2:
         //printf("flush data cache SI\n");
         return;
+    case 0x7A3:
+        // Test and clean (optional)
+        // Is not present on the NDS/DSi
+        return;        
 
     case 0x900:
         // Cache Lockdown - Format B
@@ -772,6 +754,11 @@ u32 ARMv5::CP15Read(u32 id) const
     case 0x670:
     case 0x671:
         return PU_Region[(id >> 4) & 0xF];
+
+    case 0x7A6:
+        // read Cache Dirty Bit (optional)
+        // it is not present on the NDS/DSi
+        return 0;
 
     case 0x900:
         return DCacheLockDown;
