@@ -454,7 +454,6 @@ void ARMv5::DCacheLookup(u32 addr)
     {
         if ((DCacheTags[id+set] & ~0x0F) == tag)
         {
-            DataCycles = 1;
             CurDCacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             DataCycles = 1;
 
@@ -504,6 +503,66 @@ void ARMv5::DCacheLookup(u32 addr)
     //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
     DataCycles = (NDS.ARM9MemTimings[addr >> 14][2] + (NDS.ARM9MemTimings[addr >> 14][3] * 7)) << NDS.ARM9ClockShift;
     CurDCacheLine = ptr;
+}
+
+void ARMv5::DCacheWrite32(u32 addr, u32 val)
+{
+    u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    u32 id = (addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+
+    id <<= DCACHE_SETS_LOG2;
+    for (int set=0;set<DCACHE_SETS;set++)
+    {
+        if ((DCacheTags[id+set] & ~0x0F) == tag)
+        {
+            CurDCacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            *(u32 *)&CurDCacheLine[addr & (ICACHE_LINELENGTH-1)] = val;
+            DataCycles = 1;
+
+            //Log(LogLevel::Debug,"DCache hit @ %08x -> %08lx\n", addr, ((u32 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
+            return;
+        }
+    }    
+}
+
+void ARMv5::DCacheWrite16(u32 addr, u16 val)
+{
+    u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    u32 id = (addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+
+    id <<= DCACHE_SETS_LOG2;
+    for (int set=0;set<DCACHE_SETS;set++)
+    {
+        if ((DCacheTags[id+set] & ~0x0F) == tag)
+        {
+            CurDCacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            *(u16 *)&CurDCacheLine[addr & (ICACHE_LINELENGTH-1)] = val;
+            DataCycles = 1;
+
+            //Log(LogLevel::Debug,"DCache hit @ %08x -> %08lx\n", addr, ((u32 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
+            return;
+        }
+    }    
+}
+
+void ARMv5::DCacheWrite8(u32 addr, u8 val)
+{
+    u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    u32 id = (addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+
+    id <<= DCACHE_SETS_LOG2;
+    for (int set=0;set<DCACHE_SETS;set++)
+    {
+        if ((DCacheTags[id+set] & ~0x0F) == tag)
+        {
+            CurDCacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            *(u8 *)&CurDCacheLine[addr & (ICACHE_LINELENGTH-1)] = val;
+            DataCycles = 1;
+
+            //Log(LogLevel::Debug,"DCache hit @ %08x -> %08lx\n", addr, ((u32 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
+            return;
+        }
+    }    
 }
 
 void ARMv5::DCacheInvalidateByAddr(u32 addr)
@@ -1098,6 +1157,8 @@ void ARMv5::DataRead8(u32 addr, u32* val)
         return;
     }
 
+    DataRegion = addr;
+
 #if 1
     if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
     {
@@ -1109,8 +1170,6 @@ void ARMv5::DataRead8(u32 addr, u32* val)
         }
     }
 #endif
-
-    DataRegion = addr;
 
     if (addr < ITCMSize)
     {
@@ -1137,6 +1196,8 @@ void ARMv5::DataRead16(u32 addr, u32* val)
         return;
     }
 
+    DataRegion = addr;
+
 #if 1
     if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
     {
@@ -1148,8 +1209,6 @@ void ARMv5::DataRead16(u32 addr, u32* val)
         }
     }
 #endif   
-
-    DataRegion = addr;
 
     addr &= ~1;
 
@@ -1178,6 +1237,8 @@ void ARMv5::DataRead32(u32 addr, u32* val)
         return;
     }
 
+    DataRegion = addr;
+
 #if 1
     if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
     {
@@ -1189,8 +1250,6 @@ void ARMv5::DataRead32(u32 addr, u32* val)
         }
     }
 #endif
-
-    DataRegion = addr;
 
     addr &= ~3;
 
@@ -1256,7 +1315,8 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
     {
         if (PU_Map[addr >> 12] & 0x10)
         {
-            DCacheInvalidateByAddr(addr);
+            DCacheWrite8(addr, val);
+            //DCacheInvalidateByAddr(addr);
         }
     }
 
@@ -1292,7 +1352,8 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
     {
         if (PU_Map[addr >> 12] & 0x10)
         {
-            DCacheInvalidateByAddr(addr);
+            DCacheWrite16(addr, val);
+//            DCacheInvalidateByAddr(addr);
         }
     }
 
@@ -1330,7 +1391,8 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
     {
         if (PU_Map[addr >> 12] & 0x10)
         {
-            DCacheInvalidateByAddr(addr);
+            DCacheWrite32(addr, val);
+//            DCacheInvalidateByAddr(addr);
         }
     }
 
@@ -1364,7 +1426,8 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
     {
         if (PU_Map[addr >> 12] & 0x10)
         {
-            DCacheInvalidateByAddr(addr);
+            DCacheWrite32(addr, val);
+//            DCacheInvalidateByAddr(addr);
         }
     }
 

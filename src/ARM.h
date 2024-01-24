@@ -319,6 +319,9 @@ public:
 
 
     void DCacheLookup(u32 addr);
+    void DCacheWrite32(u32 addr, u32 val);
+    void DCacheWrite16(u32 addr, u16 val);
+    void DCacheWrite8(u32 addr, u8 val);
     bool IsAddressDCachable(u32 addr);
 
     void DCacheInvalidateAll();
