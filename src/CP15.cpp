@@ -456,6 +456,8 @@ void ARMv5::DCacheLookup(u32 addr)
         {
             DataCycles = 1;
             CurDCacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            DataCycles = 1;
+
             //Log(LogLevel::Debug,"DCache hit @ %08x -> %08lx\n", addr, ((u32 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
             return;
         }
@@ -492,7 +494,6 @@ void ARMv5::DCacheLookup(u32 addr)
         } else
         {
             *((u32*)&ptr[i]) = BusRead32(addr+i);
-
         }
         //Log(LogLevel::Debug,"DCache store @ %08x: %08x\n", addr+i, *(u32*)&ptr[i]);
     }
@@ -1103,7 +1104,6 @@ void ARMv5::DataRead8(u32 addr, u32* val)
         if (PU_Map[addr >> 12] & 0x10)
         {
             DCacheLookup(addr & ~3);
-            DataCycles = 1;
             *val = CurDCacheLine[addr & (DCACHE_LINELENGTH - 1)];
             return;
         }
@@ -1143,7 +1143,6 @@ void ARMv5::DataRead16(u32 addr, u32* val)
         if (PU_Map[addr >> 12] & 0x10)
         {
             DCacheLookup(addr & ~3);
-            DataCycles = 1;
             *val = *(u16 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 2)];
             return;
         }
@@ -1185,7 +1184,6 @@ void ARMv5::DataRead32(u32 addr, u32* val)
         if (PU_Map[addr >> 12] & 0x10)
         {
             DCacheLookup(addr & ~3);
-            DataCycles = 1;
             *val = *(u32 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 4)];
             return;
         }
@@ -1223,7 +1221,6 @@ void ARMv5::DataRead32S(u32 addr, u32* val)
         if (PU_Map[addr >> 12] & 0x10)
         {
             DCacheLookup(addr & ~3);
-            DataCycles = 1;
             *val = *(u32 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 4)];
             return;
         }
