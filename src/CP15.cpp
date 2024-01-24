@@ -507,6 +507,8 @@ void ARMv5::DCacheLookup(u32 addr)
 
 void ARMv5::DCacheWrite32(u32 addr, u32 val)
 {
+    addr &= ~3;
+
     u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
     u32 id = (addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
 
@@ -519,7 +521,7 @@ void ARMv5::DCacheWrite32(u32 addr, u32 val)
             *(u32 *)&CurDCacheLine[addr & (ICACHE_LINELENGTH-1)] = val;
             DataCycles = 1;
 
-            //Log(LogLevel::Debug,"DCache hit @ %08x -> %08lx\n", addr, ((u32 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
+            //Log(LogLevel::Debug,"DCache write32 hit @ %08x -> %08lx\n", addr, ((u32 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
             return;
         }
     }    
@@ -527,6 +529,8 @@ void ARMv5::DCacheWrite32(u32 addr, u32 val)
 
 void ARMv5::DCacheWrite16(u32 addr, u16 val)
 {
+    addr &= ~1;
+
     u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
     u32 id = (addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
 
@@ -539,7 +543,7 @@ void ARMv5::DCacheWrite16(u32 addr, u16 val)
             *(u16 *)&CurDCacheLine[addr & (ICACHE_LINELENGTH-1)] = val;
             DataCycles = 1;
 
-            //Log(LogLevel::Debug,"DCache hit @ %08x -> %08lx\n", addr, ((u32 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
+            //Log(LogLevel::Debug,"DCache write16 hit @ %08x -> %04x\n", addr, ((u16 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
             return;
         }
     }    
@@ -559,7 +563,7 @@ void ARMv5::DCacheWrite8(u32 addr, u8 val)
             *(u8 *)&CurDCacheLine[addr & (ICACHE_LINELENGTH-1)] = val;
             DataCycles = 1;
 
-            //Log(LogLevel::Debug,"DCache hit @ %08x -> %08lx\n", addr, ((u32 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
+            //Log(LogLevel::Debug,"DCache write hit8 @ %08x -> %02x\n", addr, ((u8 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
             return;
         }
     }    
@@ -1153,6 +1157,7 @@ void ARMv5::DataRead8(u32 addr, u32* val)
 {
     if (!(PU_Map[addr>>12] & 0x01))
     {
+        Log(LogLevel::Debug, "data8 abort @ %08lx\n", addr);
         DataAbort();
         return;
     }
@@ -1192,6 +1197,7 @@ void ARMv5::DataRead16(u32 addr, u32* val)
 {
     if (!(PU_Map[addr>>12] & 0x01))
     {
+        Log(LogLevel::Debug, "data16 abort @ %08lx\n", addr);
         DataAbort();
         return;
     }
@@ -1233,6 +1239,7 @@ void ARMv5::DataRead32(u32 addr, u32* val)
 {
     if (!(PU_Map[addr>>12] & 0x01))
     {
+        Log(LogLevel::Debug, "data32 abort @ %08lx\n", addr);
         DataAbort();
         return;
     }
