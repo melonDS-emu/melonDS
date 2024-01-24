@@ -311,11 +311,25 @@ public:
     u32 RandomLineIndex();
 
     void ICacheLookup(u32 addr);
+    bool IsAddressICachable(u32 addr);
+
+    void ICacheInvalidateAll();
     void ICacheInvalidateByAddr(u32 addr);
     void ICacheInvalidateBySetAndWay(u8 cacheSet, u8 cacheLine);
 
-    void ICacheInvalidateAll();
-    bool IsAddressICachable(u32 addr);
+
+    void DCacheLookup(u32 addr);
+    bool IsAddressDCachable(u32 addr);
+
+    void DCacheInvalidateAll();
+    void DCacheInvalidateByAddr(u32 addr);
+    void DCacheInvalidateBySetAndWay(u8 cacheSet, u8 cacheLine);
+    
+    void DCacheClearAll();
+    void DCacheClearByAddr(u32 addr);
+    void DCacheClearByASetAndWay(u8 cacheSet, u8 cacheLine);
+
+
 
     void CP15Write(u32 id, u32 val);
     u32 CP15Read(u32 id) const;
@@ -326,6 +340,7 @@ public:
 
     u32 DTCMSetting, ITCMSetting;
     u32 DCacheLockDown, ICacheLockDown;
+    u32 CacheDebugRegisterIndex;
 
     // for aarch64 JIT they need to go up here
     // to be addressable by a 12-bit immediate
@@ -336,9 +351,13 @@ public:
     u8 ITCM[ITCMPhysicalSize];
     u8* DTCM;
 
-    u8 ICache[0x2000];
-    u32 ICacheTags[64*4];
-    u8 ICacheCount[64];
+    u8 ICache[ICACHE_SIZE];
+    u32 ICacheTags[ICACHE_LINESPERSET*ICACHE_SETS];
+    u8 ICacheCount;
+
+    u8 DCache[DCACHE_SIZE];
+    u32 DCacheTags[DCACHE_LINESPERSET*DCACHE_SETS];
+    u8 DCacheCount;
 
     u32 PU_CodeCacheable;
     u32 PU_DataCacheable;
@@ -361,6 +380,7 @@ public:
     u8 MemTimings[0x100000][4];
 
     u8* CurICacheLine;
+    u8* CurDCacheLine;
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
 

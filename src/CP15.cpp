@@ -57,10 +57,15 @@ void ARMv5::CP15Reset()
 
     ICacheLockDown = 0;
     DCacheLockDown = 0;
+    CacheDebugRegisterIndex = 0;
 
     memset(ICache, 0, ICACHE_SIZE);
     ICacheInvalidateAll();
-    memset(ICacheCount, 0, ICACHE_LINESPERSET);
+    ICacheCount = 0;
+
+    memset(DCache, 0, DCACHE_SIZE);
+    DCacheInvalidateAll();
+    DCacheCount = 0;
 
     PU_CodeCacheable = 0;
     PU_DataCacheable = 0;
@@ -87,8 +92,17 @@ void ARMv5::CP15DoSavestate(Savestate* file)
     file->VarArray(ITCM, ITCMPhysicalSize);
     file->VarArray(DTCM, DTCMPhysicalSize);
 
+    file->VarArray(ICache, sizeof(ICache));
+    file->VarArray(ICacheTags, sizeof(ICacheTags));
+    file->Var8(&ICacheCount);
+
+    file->VarArray(DCache, sizeof(DCache));
+    file->VarArray(DCacheTags, sizeof(DCacheTags));
+    file->Var8(&DCacheCount);
+
     file->Var32(&DCacheLockDown);
     file->Var32(&ICacheLockDown);
+    file->Var32(&CacheDebugRegisterIndex);
 
     file->Var32(&PU_CodeCacheable);
     file->Var32(&PU_DataCacheable);
@@ -340,13 +354,13 @@ u32 ARMv5::RandomLineIndex()
 
 void ARMv5::ICacheLookup(u32 addr)
 {
-    u32 tag = addr & ~(ICACHE_LINESPERSET * ICACHE_LINELENGTH - 1);
+    u32 tag = (addr & ~(ICACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
     u32 id = (addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1);
 
     id <<= ICACHE_SETS_LOG2;
     for (int set=0;set<ICACHE_SETS;set++)
     {
-        if (ICacheTags[id+set] == tag)
+        if ((ICacheTags[id+set] & ~0x0F) == (tag &~0x0F))
         {
             CodeCycles = 1;
             CurICacheLine = &ICache[(id+set) << ICACHE_LINELENGTH_LOG2];
@@ -358,8 +372,8 @@ void ARMv5::ICacheLookup(u32 addr)
     u32 line;
     if (CP15Control & CP15_CACHE_CR_ROUNDROBIN)
     {
-        line = ICacheCount[id>>ICACHE_SETS_LOG2];
-        ICacheCount[id>>ICACHE_SETS_LOG2] = (line+1) & (ICACHE_SETS-1);
+        line = ICacheCount;
+        ICacheCount = (line+1) & (ICACHE_SETS-1);
     }
     else
     {
@@ -381,7 +395,7 @@ void ARMv5::ICacheLookup(u32 addr)
             *(u32*)&ptr[i] = NDS.ARM9Read32(addr+i);
     }
 
-    ICacheTags[line] = tag;
+    ICacheTags[line] = addr | (line & (ICACHE_SETS-1)) | CACHE_FLAG_VALID;
 
     // ouch :/
     //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
@@ -391,18 +405,15 @@ void ARMv5::ICacheLookup(u32 addr)
 
 void ARMv5::ICacheInvalidateByAddr(u32 addr)
 {
-    u32 tag = addr & ~(ICACHE_LINESPERSET * ICACHE_LINELENGTH - 1);
+    u32 tag = (addr & ~(ICACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
     u32 id = (addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1);
 
     id <<= ICACHE_SETS_LOG2;
     for (int set=0;set<ICACHE_SETS;set++)
     {
-        if (ICacheTags[id+set] == tag)
+        if ((ICacheTags[id+set] & ~0x0F) == tag)
         {
-            // TODO: is this a valid magic number?
-            //       it should indicate that no address is loaded here, instead
-            //       a tag of 1 indicates that addr 0x00000800.. 0x0000FBF (depending on id) ist stored at this set.            
-            ICacheTags[id+set] = 1;     
+            ICacheTags[id+set] &= ~CACHE_FLAG_VALID;  ;
             return;
         }
     }
@@ -416,20 +427,14 @@ void ARMv5::ICacheInvalidateBySetAndWay(u8 cacheSet, u8 cacheLine)
         return;
 
     u32 idx = (cacheLine << ICACHE_SETS_LOG2) + cacheSet;
-    // TODO: is this a valid magic number?
-    //       it should indicate that no address is loaded here, instead
-    //       a tag of 1 indicates that addr 0x00000800.. 0x0000FBF (depending on id) ist stored at this set.            
-    ICacheTags[idx] = 1;
+    ICacheTags[idx] &= ~CACHE_FLAG_VALID;  ;
 }
 
 
 void ARMv5::ICacheInvalidateAll()
 {
-    // TODO: is this a valid magic number?
-    //       it should indicate that no address is loaded here, instead
-    //       a tag of 1 indicates that addr 0x00000800.. 0x0000FBF (depending on id) ist stored at this set.            
     for (int i = 0; i < ICACHE_SIZE / ICACHE_LINELENGTH; i++)
-        ICacheTags[i] = 1;
+        ICacheTags[i] &= ~CACHE_FLAG_VALID;  ;
 }
 
 bool ARMv5::IsAddressICachable(u32 addr)
@@ -437,6 +442,126 @@ bool ARMv5::IsAddressICachable(u32 addr)
     return PU_Map[addr >> 12] & 0x40 ;
 }
 
+void ARMv5::DCacheLookup(u32 addr)
+{
+    //Log(LogLevel::Debug,"DCache load @ %08x\n", addr);
+    addr &= ~3;
+    u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    u32 id = (addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+
+    id <<= DCACHE_SETS_LOG2;
+    for (int set=0;set<DCACHE_SETS;set++)
+    {
+        if ((DCacheTags[id+set] & ~0x0F) == tag)
+        {
+            DataCycles = 1;
+            CurDCacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            //Log(LogLevel::Debug,"DCache hit @ %08x -> %08lx\n", addr, ((u32 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
+            return;
+        }
+    }
+
+    // cache miss
+    u32 line;
+    if (CP15Control & CP15_CACHE_CR_ROUNDROBIN)
+    {
+        line = DCacheCount;
+        DCacheCount = (line+1) & (DCACHE_SETS-1);
+    }
+    else
+    {
+        line = RandomLineIndex();
+    }
+
+    line += id;
+
+    addr &= ~(DCACHE_LINELENGTH-1);
+    u8* ptr = &DCache[line << DCACHE_LINELENGTH_LOG2];
+
+    //Log(LogLevel::Debug,"DCache miss, load @ %08x\n", addr);
+    for (int i = 0; i < DCACHE_LINELENGTH; i+=sizeof(u32))
+    {
+        //DataRead32S(addr+i, (u32*)&ptr[i]);
+        if (addr+i < ITCMSize)
+        {
+            *((u32*)&ptr[i]) = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        } else
+        if (((addr+i) & DTCMMask) == DTCMBase)
+        {
+            *((u32*)&ptr[i]) = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
+        } else
+        {
+            *((u32*)&ptr[i]) = BusRead32(addr+i);
+
+        }
+        //Log(LogLevel::Debug,"DCache store @ %08x: %08x\n", addr+i, *(u32*)&ptr[i]);
+    }
+
+    DCacheTags[line] = addr | (line & (DCACHE_SETS-1)) | CACHE_FLAG_VALID;
+
+    // ouch :/
+    //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
+    DataCycles = (NDS.ARM9MemTimings[addr >> 14][2] + (NDS.ARM9MemTimings[addr >> 14][3] * 7)) << NDS.ARM9ClockShift;
+    CurDCacheLine = ptr;
+}
+
+void ARMv5::DCacheInvalidateByAddr(u32 addr)
+{
+    u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    u32 id = (addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+
+    id <<= DCACHE_SETS_LOG2;
+    for (int set=0;set<DCACHE_SETS;set++)
+    {
+        if ((DCacheTags[id+set] & ~0x0Ful) == tag)
+        {
+            //Log(LogLevel::Debug,"DCache invalidated %08lx\n", addr & ~(ICACHE_LINELENGTH-1));
+            DCacheTags[id+set] &= ~CACHE_FLAG_VALID;  ;     
+            return;
+        }
+    }
+}
+
+void ARMv5::DCacheInvalidateBySetAndWay(u8 cacheSet, u8 cacheLine)
+{
+    if (cacheSet >= DCACHE_SETS)
+        return;
+    if (cacheLine >= DCACHE_LINESPERSET)
+        return;
+
+    u32 idx = (cacheLine << DCACHE_SETS_LOG2) + cacheSet;
+    DCacheTags[idx] &= ~CACHE_FLAG_VALID;  ;
+}
+
+
+void ARMv5::DCacheInvalidateAll()
+{
+    for (int i = 0; i < DCACHE_SIZE / DCACHE_LINELENGTH; i++)
+        DCacheTags[i] &= ~CACHE_FLAG_VALID;  ;
+}
+
+void ARMv5::DCacheClearAll()
+{
+    // TODO: right now any write to cached data goes straight to the 
+    // underlying memory and invalidates the cache line.
+}
+
+void ARMv5::DCacheClearByAddr(u32 addr)
+{
+    // TODO: right now any write to cached data goes straight to the 
+    // underlying memory and invalidates the cache line.
+}
+
+void ARMv5::DCacheClearByASetAndWay(u8 cacheSet, u8 cacheLine)
+{
+    // TODO: right now any write to cached data goes straight to the 
+    // underlying memory and invalidates the cache line.
+}
+
+bool ARMv5::IsAddressDCachable(u32 addr)
+{
+    return PU_Map[addr >> 12] & 0x10 ;
+}
 
 void ARMv5::CP15Write(u32 id, u32 val)
 {
@@ -623,23 +748,75 @@ void ARMv5::CP15Write(u32 id, u32 val)
         return;
 
 
-    case 0x761:
+    case 0x760:
+        DCacheInvalidateAll();
         //printf("inval data cache %08X\n", val);
         return;
-    case 0x762:
+    case 0x761:
+        DCacheInvalidateByAddr(val);
         //printf("inval data cache SI\n");
         return;
+    case 0x762:
+        {
+            // Cache invalidat by line number and set number
+            u8 cacheSet = val >> (32 - DCACHE_SETS_LOG2) & (DCACHE_SETS -1);
+            u8 cacheLine = (val >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET -1);
+            DCacheInvalidateBySetAndWay(cacheSet, cacheLine);
+        }
+        return;
 
+    case 0x770:
+        // invalidate both caches
+        ICacheInvalidateAll();
+        DCacheInvalidateAll();
+        break;
+
+    case 0x7A0:
+        //Log(LogLevel::Debug,"clean data cache\n");
+        DCacheClearAll();
+        return;
     case 0x7A1:
-        //printf("flush data cache %08X\n", val);
+        //Log(LogLevel::Debug,"clean data cache MVA\n");
+        DCacheClearByAddr(val);
         return;
     case 0x7A2:
-        //printf("flush data cache SI\n");
+        //Log(LogLevel::Debug,"clean data cache SET/WAY\n");
+        {
+            // Cache invalidat by line number and set number
+            u8 cacheSet = val >> (32 - DCACHE_SETS_LOG2) & (DCACHE_SETS -1);
+            u8 cacheLine = (val >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET -1);
+            DCacheClearByASetAndWay(cacheSet, cacheLine);
+        }
         return;
     case 0x7A3:
         // Test and clean (optional)
         // Is not present on the NDS/DSi
-        return;        
+        return;   
+
+    case 0x7D1:
+        Log(LogLevel::Debug,"Prefetch instruction cache MVA\n");
+        break;
+
+    case 0x7E0:
+        //Log(LogLevel::Debug,"clean & invalidate data cache\n");
+        DCacheClearAll();
+        DCacheInvalidateAll();
+        return;
+    case 0x7E1:
+        //Log(LogLevel::Debug,"clean & invalidate data cache MVA\n");
+        DCacheClearByAddr(val);
+        DCacheInvalidateByAddr(val);
+        return;
+    case 0x7E2:
+        //Log(LogLevel::Debug,"clean & invalidate data cache SET/WAY\n");
+        {
+            // Cache invalidat by line number and set number
+            u8 cacheSet = val >> (32 - DCACHE_SETS_LOG2) & (DCACHE_SETS -1);
+            u8 cacheLine = (val >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET -1);
+            DCacheClearByASetAndWay(cacheSet, cacheLine);
+            DCacheInvalidateBySetAndWay(cacheSet, cacheLine);
+        }
+        return;
 
     case 0x900:
         // Cache Lockdown - Format B
@@ -648,6 +825,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         //      The Cache is 4 way associative
         // But all bits are r/w
         DCacheLockDown = val ;
+        Log(LogLevel::Debug,"ICacheLockDown\n");
         return;
     case 0x901:
         // Cache Lockdown - Format B
@@ -656,6 +834,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         //      The Cache is 4 way associative
         // But all bits are r/w
         ICacheLockDown = val;
+        Log(LogLevel::Debug,"ICacheLockDown\n");
         return;
 
     case 0x910:
@@ -669,16 +848,27 @@ void ARMv5::CP15Write(u32 id, u32 val)
         return;
 
     case 0xF00:
-        //printf("cache debug index register %08X\n", val);
+        CacheDebugRegisterIndex = val;
         return;
 
     case 0xF10:
-        //printf("cache debug instruction tag %08X\n", val);
-        return;
+        // instruction cache Tag register
+        {
+            uint8_t segment = (CacheDebugRegisterIndex >> (32-ICACHE_SETS_LOG2)) & (ICACHE_SETS-1);
+            uint8_t wordAddress = (CacheDebugRegisterIndex & (ICACHE_LINELENGTH-1)) >> 2;
+            uint8_t index = (CacheDebugRegisterIndex >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1);
+            ICacheTags[(index << ICACHE_SETS_LOG2) + segment] = val;
+        }
 
     case 0xF20:
-        //printf("cache debug data tag %08X\n", val);
-        return;
+        // data cache Tag register
+        {
+            uint8_t segment = (CacheDebugRegisterIndex >> (32-DCACHE_SETS_LOG2)) & (DCACHE_SETS-1);
+            uint8_t wordAddress = (CacheDebugRegisterIndex & (DCACHE_LINELENGTH-1)) >> 2;
+            uint8_t index = (CacheDebugRegisterIndex >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+            DCacheTags[(index << DCACHE_SETS_LOG2) + segment] = val;
+        }
+
 
     case 0xF30:
         //printf("cache debug instruction cache %08X\n", val);
@@ -794,6 +984,27 @@ u32 ARMv5::CP15Read(u32 id) const
         return DTCMSetting;
     case 0x911:
         return ITCMSetting;
+
+    case 0xF00:
+        return CacheDebugRegisterIndex;
+    case 0xF10:
+        // instruction cache Tag register
+        {
+            uint8_t segment = (CacheDebugRegisterIndex >> (32-ICACHE_SETS_LOG2)) & (ICACHE_SETS-1);
+            uint8_t wordAddress = (CacheDebugRegisterIndex & (ICACHE_LINELENGTH-1)) >> 2;
+            uint8_t index = (CacheDebugRegisterIndex >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1);
+            Log(LogLevel::Debug, "Read ICache Tag %08lx -> %08lx\n", CacheDebugRegisterIndex, ICacheTags[(index << ICACHE_SETS_LOG2) + segment]);
+            return ICacheTags[(index << ICACHE_SETS_LOG2) + segment];
+        }
+    case 0xF20:
+        // data cache Tag register
+        {
+            uint8_t segment = (CacheDebugRegisterIndex >> (32-DCACHE_SETS_LOG2)) & (DCACHE_SETS-1);
+            uint8_t wordAddress = (CacheDebugRegisterIndex & (DCACHE_LINELENGTH-1)) >> 2;
+            uint8_t index = (CacheDebugRegisterIndex >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+            Log(LogLevel::Debug, "Read DCache Tag %08lx (%u, %02x, %u) -> %08lx\n", CacheDebugRegisterIndex, segment, index, wordAddress, DCacheTags[(index << DCACHE_SETS_LOG2) + segment]);
+            return DCacheTags[(index << DCACHE_SETS_LOG2) + segment];
+        }
     }
 
     if ((id & 0xF00) == 0xF00) // test/debug shit?
@@ -860,6 +1071,19 @@ void ARMv5::DataRead8(u32 addr, u32* val)
         return;
     }
 
+#if 1
+    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+    {
+        if (PU_Map[addr >> 12] & 0x10)
+        {
+            DCacheLookup(addr & ~3);
+            DataCycles = 1;
+            *val = CurDCacheLine[addr & (DCACHE_LINELENGTH - 1)];
+            return;
+        }
+    }
+#endif
+
     DataRegion = addr;
 
     if (addr < ITCMSize)
@@ -886,6 +1110,19 @@ void ARMv5::DataRead16(u32 addr, u32* val)
         DataAbort();
         return;
     }
+
+#if 1
+    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+    {
+        if (PU_Map[addr >> 12] & 0x10)
+        {
+            DCacheLookup(addr & ~3);
+            DataCycles = 1;
+            *val = *(u16 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 2)];
+            return;
+        }
+    }
+#endif   
 
     DataRegion = addr;
 
@@ -916,6 +1153,19 @@ void ARMv5::DataRead32(u32 addr, u32* val)
         return;
     }
 
+#if 1
+    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+    {
+        if (PU_Map[addr >> 12] & 0x10)
+        {
+            DCacheLookup(addr & ~3);
+            DataCycles = 1;
+            *val = *(u32 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 4)];
+            return;
+        }
+    }
+#endif
+
     DataRegion = addr;
 
     addr &= ~3;
@@ -941,6 +1191,19 @@ void ARMv5::DataRead32S(u32 addr, u32* val)
 {
     addr &= ~3;
 
+#if 1
+    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+    {
+        if (PU_Map[addr >> 12] & 0x10)
+        {
+            DCacheLookup(addr & ~3);
+            DataCycles = 1;
+            *val = *(u32 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 4)];
+            return;
+        }
+    }
+#endif
+
     if (addr < ITCMSize)
     {
         DataCycles += 1;
@@ -964,6 +1227,14 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
     {
         DataAbort();
         return;
+    }
+
+    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+    {
+        if (PU_Map[addr >> 12] & 0x10)
+        {
+            DCacheInvalidateByAddr(addr);
+        }
     }
 
     DataRegion = addr;
@@ -992,6 +1263,14 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
     {
         DataAbort();
         return;
+    }
+
+    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+    {
+        if (PU_Map[addr >> 12] & 0x10)
+        {
+            DCacheInvalidateByAddr(addr);
+        }
     }
 
     DataRegion = addr;
@@ -1024,6 +1303,14 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
         return;
     }
 
+    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+    {
+        if (PU_Map[addr >> 12] & 0x10)
+        {
+            DCacheInvalidateByAddr(addr);
+        }
+    }
+
     DataRegion = addr;
 
     addr &= ~3;
@@ -1049,6 +1336,14 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
 void ARMv5::DataWrite32S(u32 addr, u32 val)
 {
     addr &= ~3;
+
+    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+    {
+        if (PU_Map[addr >> 12] & 0x10)
+        {
+            DCacheInvalidateByAddr(addr);
+        }
+    }
 
     if (addr < ITCMSize)
     {
