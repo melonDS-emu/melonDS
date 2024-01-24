@@ -85,7 +85,7 @@ void PathInit(int argc, char** argv)
     else
     {
         // If no overrides are specified, use the default path.
-#if defined(__WIN32__)
+#if defined(__WIN32__) && defined(WIN32_PORTABLE)
         EmuDirectory = appdirpath.toStdString();
 #else
         QString confdir;

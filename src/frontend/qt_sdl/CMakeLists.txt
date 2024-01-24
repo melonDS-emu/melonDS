@@ -167,6 +167,12 @@ target_include_directories(melonDS PRIVATE "${Slirp_INCLUDE_DIRS}")
 target_link_libraries(melonDS PRIVATE "${Slirp_LINK_LIBRARIES}")
 
 if (WIN32)
+    option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
+
+    if (PORTABLE)
+        target_compile_definitions(melonDS PRIVATE WIN32_PORTABLE)
+    endif()
+
     configure_file("${CMAKE_SOURCE_DIR}/res/melon.rc.in" "${CMAKE_BINARY_DIR}/res/melon.rc")
     target_sources(melonDS PUBLIC "${CMAKE_BINARY_DIR}/res/melon.rc")
     target_include_directories(melonDS PRIVATE "${CMAKE_BINARY_DIR}/res")
