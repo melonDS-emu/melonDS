@@ -1080,11 +1080,25 @@ void ARMv5::CP15Write(u32 id, u32 val)
         return;
 
     case 0xF00:
-        CacheDebugRegisterIndex = val;
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        } else
+            CacheDebugRegisterIndex = val;
         return;
 
     case 0xF10:
         // instruction cache Tag register
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        } else
         {
             uint8_t segment = (CacheDebugRegisterIndex >> (32-ICACHE_SETS_LOG2)) & (ICACHE_SETS-1);
             uint8_t wordAddress = (CacheDebugRegisterIndex & (ICACHE_LINELENGTH-1)) >> 2;
@@ -1094,6 +1108,13 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
     case 0xF20:
         // data cache Tag register
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        } else
         {
             uint8_t segment = (CacheDebugRegisterIndex >> (32-DCACHE_SETS_LOG2)) & (DCACHE_SETS-1);
             uint8_t wordAddress = (CacheDebugRegisterIndex & (DCACHE_LINELENGTH-1)) >> 2;
@@ -1104,6 +1125,13 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
     case 0xF30:
         //printf("cache debug instruction cache %08X\n", val);
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        } else
         {
             uint8_t segment = (CacheDebugRegisterIndex >> (32-ICACHE_SETS_LOG2)) & (ICACHE_SETS-1);
             uint8_t wordAddress = (CacheDebugRegisterIndex & (ICACHE_LINELENGTH-1)) >> 2;
@@ -1114,6 +1142,13 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
     case 0xF40:
         //printf("cache debug data cache %08X\n", val);
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        } else
         {
             uint8_t segment = (CacheDebugRegisterIndex >> (32-DCACHE_SETS_LOG2)) & (DCACHE_SETS-1);
             uint8_t wordAddress = (CacheDebugRegisterIndex & (DCACHE_LINELENGTH-1)) >> 2;
@@ -1220,9 +1255,17 @@ u32 ARMv5::CP15Read(u32 id) const
         return 0;
 
     case 0x900:
-        return DCacheLockDown;
+        if (PU_Map != PU_PrivMap)
+        {            
+            return 0;
+        } else
+            return DCacheLockDown;
     case 0x901:
-        return ICacheLockDown;
+        if (PU_Map != PU_PrivMap)
+        {            
+            return 0;
+        } else
+            return ICacheLockDown;
 
     case 0x910:
         return DTCMSetting;
@@ -1230,9 +1273,17 @@ u32 ARMv5::CP15Read(u32 id) const
         return ITCMSetting;
 
     case 0xF00:
-        return CacheDebugRegisterIndex;
+        if (PU_Map != PU_PrivMap)
+        {            
+            return 0;
+        } else
+            return CacheDebugRegisterIndex;
     case 0xF10:
         // instruction cache Tag register
+        if (PU_Map != PU_PrivMap)
+        {            
+            return 0;
+        } else
         {
             uint8_t segment = (CacheDebugRegisterIndex >> (32-ICACHE_SETS_LOG2)) & (ICACHE_SETS-1);
             uint8_t wordAddress = (CacheDebugRegisterIndex & (ICACHE_LINELENGTH-1)) >> 2;
@@ -1242,6 +1293,10 @@ u32 ARMv5::CP15Read(u32 id) const
         }
     case 0xF20:
         // data cache Tag register
+        if (PU_Map != PU_PrivMap)
+        {            
+            return 0;
+        } else
         {
             uint8_t segment = (CacheDebugRegisterIndex >> (32-DCACHE_SETS_LOG2)) & (DCACHE_SETS-1);
             uint8_t wordAddress = (CacheDebugRegisterIndex & (DCACHE_LINELENGTH-1)) >> 2;
@@ -1250,6 +1305,10 @@ u32 ARMv5::CP15Read(u32 id) const
             return DCacheTags[(index << DCACHE_SETS_LOG2) + segment];
         }
     case 0xF30:
+        if (PU_Map != PU_PrivMap)
+        {            
+            return 0;
+        } else
         {
             uint8_t segment = (CacheDebugRegisterIndex >> (32-ICACHE_SETS_LOG2)) & (ICACHE_SETS-1);
             uint8_t wordAddress = (CacheDebugRegisterIndex & (ICACHE_LINELENGTH-1)) >> 2;
