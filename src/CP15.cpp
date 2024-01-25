@@ -417,7 +417,8 @@ void ARMv5::ICacheLookup(u32 addr)
 
     // ouch :/
     //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
-    CodeCycles = (NDS.ARM9MemTimings[addr >> 14][2] + (NDS.ARM9MemTimings[addr >> 14][3] * 7)) << NDS.ARM9ClockShift;
+    //                      first N32                                  remaining S32
+    CodeCycles = (NDS.ARM9MemTimings[addr >> 14][2] + (NDS.ARM9MemTimings[addr >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1))) << NDS.ARM9ClockShift;
     CurICacheLine = ptr;
 }
 
@@ -537,7 +538,8 @@ void ARMv5::DCacheLookup(u32 addr)
 
     // ouch :/
     //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
-    DataCycles = (NDS.ARM9MemTimings[addr >> 14][2] + (NDS.ARM9MemTimings[addr >> 14][3] * 7)) << NDS.ARM9ClockShift;
+    //                      first N32                                  remaining S32
+    DataCycles = (NDS.ARM9MemTimings[addr >> 14][2] + (NDS.ARM9MemTimings[addr >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1))) << NDS.ARM9ClockShift;
     CurDCacheLine = ptr;
 }
 
