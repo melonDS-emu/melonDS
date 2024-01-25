@@ -899,6 +899,9 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
     case 0x7D1:
         Log(LogLevel::Debug,"Prefetch instruction cache MVA\n");
+        // we force a fill by looking up the value from cache
+        // if it wasn't cached yet, it will be loaded into cache
+        ICacheLookup(val & ~0x03);
         break;
 
     case 0x7E0:
