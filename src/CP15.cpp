@@ -380,6 +380,24 @@ void ARMv5::ICacheLookup(u32 addr)
         line = RandomLineIndex();
     }
 
+    if (ICacheLockDown)
+    {
+        if (ICacheLockDown & CACHE_LOCKUP_L)
+        {
+            // load into locked up cache
+            // into the selected set
+            line = ICacheLockDown & (ICACHE_SETS-1);
+        } else
+        {
+            u8 minSet = ICacheLockDown & (ICACHE_SETS-1);
+            if (minSet)
+            {
+                // part of the cache is locked up and only the cachelines 
+                line = (line % (ICACHE_SETS - minSet)) + minSet;
+            }
+        }
+    }
+
     line += id;
 
     addr &= ~(ICACHE_LINELENGTH-1);
@@ -472,6 +490,24 @@ void ARMv5::DCacheLookup(u32 addr)
     else
     {
         line = RandomLineIndex();
+    }
+
+    if (DCacheLockDown)
+    {
+        if (DCacheLockDown & CACHE_LOCKUP_L)
+        {
+            // load into locked up cache
+            // into the selected set
+            line = DCacheLockDown & (DCACHE_SETS-1);
+        } else
+        {
+            u8 minSet = DCacheLockDown & (DCACHE_SETS-1);
+            if (minSet)
+            {
+                // part of the cache is locked up and only the cachelines 
+                line = (line % (DCACHE_SETS - minSet)) + minSet;
+            }
+        }
     }
 
     line += id;
@@ -856,6 +892,10 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // Test and clean (optional)
         // Is not present on the NDS/DSi
         return;   
+    case 0x7A4:
+        // Drain Write Buffer: Stall until all write back completed
+        // TODO when write back was implemented instead of write through
+        return;
 
     case 0x7D1:
         Log(LogLevel::Debug,"Prefetch instruction cache MVA\n");

@@ -57,6 +57,8 @@ constexpr u32 CACHE_FLAG_VALID = (1 << 4);
 constexpr u32 CACHE_FLAG_DIRTY_LOWERHALF = (1 << 2);
 constexpr u32 CACHE_FLAG_DIRTY_UPPERHALF = (1 << 3);
 
+constexpr u32 CACHE_LOCKUP_L = (1 << 31);
+
 constexpr u32 CP15_CR_MPUENABLE = (1 << 0);
 constexpr u32 CP15_CR_BIGENDIAN = (1 << 7);
 constexpr u32 CP15_CR_HIGHEXCEPTIONBASE = (1 << 13);
