@@ -1106,7 +1106,7 @@ u32 ARMv5::CP15Read(u32 id) const
 
 
 // TCM are handled here.
-// TODO: later on, handle PU, and maybe caches
+// TODO: later on, handle PU
 
 u32 ARMv5::CodeRead32(u32 addr, bool branch)
 {
@@ -1126,27 +1126,30 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
     }
 
     CodeCycles = RegionCodeCycles;
-#if 0
-    if (CodeCycles == 0xFF) // cached memory. hax
+#ifdef JIT_ENABLED
+    if (!NDS.IsJITEnabled())
+#endif    
     {
-        if (branch || !(addr & 0x1F))
-            CodeCycles = kCodeCacheTiming;//ICacheLookup(addr);
-        else
-            CodeCycles = 1;
-
-        //return *(u32*)&CurICacheLine[addr & 0x1C];
-    }
-#else
-    if (CP15Control & CP15_CACHE_CR_ICACHEENABLE) 
-    {
-        if (IsAddressICachable(addr))
+        if (CP15Control & CP15_CACHE_CR_ICACHEENABLE) 
         {
-            ICacheLookup(addr);
-            return *(u32*)&CurICacheLine[addr & (ICACHE_LINELENGTH - 4)];
+            if (IsAddressICachable(addr))
+            {
+                ICacheLookup(addr);
+                return *(u32*)&CurICacheLine[addr & (ICACHE_LINELENGTH - 4)];
+            }
+        }
+    } else
+    {
+        if (CodeCycles == 0xFF) // cached memory. hax
+        {
+            if (branch || !(addr & 0x1F))
+                CodeCycles = kCodeCacheTiming;//ICacheLookup(addr);
+            else
+                CodeCycles = 1;
+
+            //return *(u32*)&CurICacheLine[addr & 0x1C];
         }
     }
-#endif
-
     if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];
 
     return BusRead32(addr);
@@ -1164,17 +1167,20 @@ void ARMv5::DataRead8(u32 addr, u32* val)
 
     DataRegion = addr;
 
-#if 1
-    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+#ifdef JIT_ENABLED
+    if (!NDS.IsJITEnabled())
+#endif  
     {
-        if (PU_Map[addr >> 12] & 0x10)
+        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            DCacheLookup(addr & ~3);
-            *val = CurDCacheLine[addr & (DCACHE_LINELENGTH - 1)];
-            return;
+            if (PU_Map[addr >> 12] & 0x10)
+            {
+                DCacheLookup(addr & ~3);
+                *val = CurDCacheLine[addr & (DCACHE_LINELENGTH - 1)];
+                return;
+            }
         }
     }
-#endif
 
     if (addr < ITCMSize)
     {
@@ -1204,17 +1210,20 @@ void ARMv5::DataRead16(u32 addr, u32* val)
 
     DataRegion = addr;
 
-#if 1
-    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+#ifdef JIT_ENABLED
+    if (!NDS.IsJITEnabled())
+#endif  
     {
-        if (PU_Map[addr >> 12] & 0x10)
+        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            DCacheLookup(addr & ~3);
-            *val = *(u16 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 2)];
-            return;
+            if (PU_Map[addr >> 12] & 0x10)
+            {
+                DCacheLookup(addr & ~3);
+                *val = *(u16 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 2)];
+                return;
+            }
         }
     }
-#endif   
 
     addr &= ~1;
 
@@ -1246,17 +1255,20 @@ void ARMv5::DataRead32(u32 addr, u32* val)
 
     DataRegion = addr;
 
-#if 1
-    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+#ifdef JIT_ENABLED
+    if (!NDS.IsJITEnabled())
+#endif  
     {
-        if (PU_Map[addr >> 12] & 0x10)
+        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            DCacheLookup(addr & ~3);
-            *val = *(u32 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 4)];
-            return;
+            if (PU_Map[addr >> 12] & 0x10)
+            {
+                DCacheLookup(addr & ~3);
+                *val = *(u32 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 4)];
+                return;
+            }
         }
     }
-#endif
 
     addr &= ~3;
 
@@ -1281,17 +1293,20 @@ void ARMv5::DataRead32S(u32 addr, u32* val)
 {
     addr &= ~3;
 
-#if 1
-    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+#ifdef JIT_ENABLED
+    if (!NDS.IsJITEnabled())
+#endif  
     {
-        if (PU_Map[addr >> 12] & 0x10)
+        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            DCacheLookup(addr & ~3);
-            *val = *(u32 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 4)];
-            return;
+            if (PU_Map[addr >> 12] & 0x10)
+            {
+                DCacheLookup(addr & ~3);
+                *val = *(u32 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 4)];
+                return;
+            }
         }
     }
-#endif
 
     if (addr < ITCMSize)
     {
@@ -1318,12 +1333,17 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
         return;
     }
 
-    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+#ifdef JIT_ENABLED
+    if (!NDS.IsJITEnabled())
+#endif  
     {
-        if (PU_Map[addr >> 12] & 0x10)
+        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            DCacheWrite8(addr, val);
-            //DCacheInvalidateByAddr(addr);
+            if (PU_Map[addr >> 12] & 0x10)
+            {
+                DCacheWrite8(addr, val);
+                //DCacheInvalidateByAddr(addr);
+            }
         }
     }
 
@@ -1355,12 +1375,17 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
         return;
     }
 
-    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+#ifdef JIT_ENABLED
+    if (!NDS.IsJITEnabled())
+#endif  
     {
-        if (PU_Map[addr >> 12] & 0x10)
+        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            DCacheWrite16(addr, val);
-//            DCacheInvalidateByAddr(addr);
+            if (PU_Map[addr >> 12] & 0x10)
+            {
+                DCacheWrite16(addr, val);
+    //            DCacheInvalidateByAddr(addr);
+            }
         }
     }
 
@@ -1394,12 +1419,17 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
         return;
     }
 
-    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+#ifdef JIT_ENABLED
+    if (!NDS.IsJITEnabled())
+#endif  
     {
-        if (PU_Map[addr >> 12] & 0x10)
+        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            DCacheWrite32(addr, val);
-//            DCacheInvalidateByAddr(addr);
+            if (PU_Map[addr >> 12] & 0x10)
+            {
+                DCacheWrite32(addr, val);
+    //            DCacheInvalidateByAddr(addr);
+            }
         }
     }
 
@@ -1429,12 +1459,17 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
 {
     addr &= ~3;
 
-    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+#ifdef JIT_ENABLED
+    if (!NDS.IsJITEnabled())
+#endif  
     {
-        if (PU_Map[addr >> 12] & 0x10)
+        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            DCacheWrite32(addr, val);
-//            DCacheInvalidateByAddr(addr);
+            if (PU_Map[addr >> 12] & 0x10)
+            {
+                DCacheWrite32(addr, val);
+    //            DCacheInvalidateByAddr(addr);
+            }
         }
     }
 

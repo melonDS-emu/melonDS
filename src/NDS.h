@@ -302,6 +302,10 @@ public: // TODO: Encapsulate the rest of these members
     melonDS::GPU GPU;
     melonDS::AREngine AREngine;
 
+#ifdef JIT_ENABLED
+    bool IsJITEnabled(){return EnableJIT;};
+#endif    
+
     const u32 ARM7WRAMSize = 0x10000;
     u8* ARM7WRAM;
 
