@@ -1181,7 +1181,7 @@ u32 ARMv5::CP15Read(u32 id) const
         return 0x41059461;
 
     case 0x001: // cache type
-        return CACHE_TR_LOCKUP_TYPE_B | CACHE_TR_NONUNIFIED
+        return CACHE_TR_LOCKDOWN_TYPE_B | CACHE_TR_NONUNIFIED
                | (DCACHE_LINELENGTH_ENCODED << 12) | (DCACHE_SETS_LOG2 << 15) | ((DCACHE_SIZE_LOG2 - 9) << 18)
                | (ICACHE_LINELENGTH_ENCODED << 0) | (ICACHE_SETS_LOG2 << 3) | ((ICACHE_SIZE_LOG2 - 9) << 6);
 

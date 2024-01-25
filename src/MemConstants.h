@@ -57,6 +57,9 @@ constexpr u32 CACHE_FLAG_VALID = (1 << 4);
 constexpr u32 CACHE_FLAG_DIRTY_LOWERHALF = (1 << 2);
 constexpr u32 CACHE_FLAG_DIRTY_UPPERHALF = (1 << 3);
 
+constexpr u32 CACHE_TR_LOCKDOWN_TYPE_B = (7 << 25);
+constexpr u32 CACHE_TR_NONUNIFIED = (1 << 24);
+
 constexpr u32 CACHE_LOCKUP_L = (1 << 31);
 
 constexpr u32 CP15_CR_MPUENABLE = (1 << 0);
