@@ -832,14 +832,31 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
 
     case 0x750:
+        // Can be executed in user and priv mode
         ICacheInvalidateAll();
         //Halt(255);
         return;
     case 0x751:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        }
         ICacheInvalidateByAddr(val);
         //Halt(255);
         return;
     case 0x752:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        } else
         {
             // Cache invalidat by line number and set number
             u8 cacheSet = val >> (32 - ICACHE_SETS_LOG2) & (ICACHE_SETS -1);
@@ -851,14 +868,38 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
 
     case 0x760:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        }
         DCacheInvalidateAll();
         //printf("inval data cache %08X\n", val);
         return;
     case 0x761:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        }
         DCacheInvalidateByAddr(val);
         //printf("inval data cache SI\n");
         return;
     case 0x762:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        } else
         {
             // Cache invalidat by line number and set number
             u8 cacheSet = val >> (32 - DCACHE_SETS_LOG2) & (DCACHE_SETS -1);
@@ -869,20 +910,45 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
     case 0x770:
         // invalidate both caches
+        // can be called from user and privileged
         ICacheInvalidateAll();
         DCacheInvalidateAll();
         break;
 
     case 0x7A0:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        }
         //Log(LogLevel::Debug,"clean data cache\n");
         DCacheClearAll();
         return;
     case 0x7A1:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        }
         //Log(LogLevel::Debug,"clean data cache MVA\n");
         DCacheClearByAddr(val);
         return;
     case 0x7A2:
         //Log(LogLevel::Debug,"clean data cache SET/WAY\n");
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        } else
         {
             // Cache invalidat by line number and set number
             u8 cacheSet = val >> (32 - DCACHE_SETS_LOG2) & (DCACHE_SETS -1);
@@ -891,16 +957,33 @@ void ARMv5::CP15Write(u32 id, u32 val)
         }
         return;
     case 0x7A3:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        }
         // Test and clean (optional)
         // Is not present on the NDS/DSi
         return;   
     case 0x7A4:
+        // Can be used in user and privileged mode
         // Drain Write Buffer: Stall until all write back completed
         // TODO when write back was implemented instead of write through
         return;
 
     case 0x7D1:
         Log(LogLevel::Debug,"Prefetch instruction cache MVA\n");
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        }
         // we force a fill by looking up the value from cache
         // if it wasn't cached yet, it will be loaded into cache
         ICacheLookup(val & ~0x03);
@@ -908,16 +991,40 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
     case 0x7E0:
         //Log(LogLevel::Debug,"clean & invalidate data cache\n");
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        }
         DCacheClearAll();
         DCacheInvalidateAll();
         return;
     case 0x7E1:
         //Log(LogLevel::Debug,"clean & invalidate data cache MVA\n");
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        }
         DCacheClearByAddr(val);
         DCacheInvalidateByAddr(val);
         return;
     case 0x7E2:
         //Log(LogLevel::Debug,"clean & invalidate data cache SET/WAY\n");
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        } else
         {
             // Cache invalidat by line number and set number
             u8 cacheSet = val >> (32 - DCACHE_SETS_LOG2) & (DCACHE_SETS -1);
@@ -928,6 +1035,14 @@ void ARMv5::CP15Write(u32 id, u32 val)
         return;
 
     case 0x900:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        }
         // Cache Lockdown - Format B
         //    Bit 31: Lock bit
         //    Bit 0..Way-1: locked ways
@@ -937,6 +1052,14 @@ void ARMv5::CP15Write(u32 id, u32 val)
         Log(LogLevel::Debug,"ICacheLockDown\n");
         return;
     case 0x901:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            if (CPSR & 0x20) // THUMB
+                return ARMInterpreter::T_UNK(this);
+            else
+                return ARMInterpreter::A_UNK(this);
+        }
         // Cache Lockdown - Format B
         //    Bit 31: Lock bit
         //    Bit 0..Way-1: locked ways
