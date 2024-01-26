@@ -576,7 +576,7 @@ void EmuThread::run()
             {
                 bool limitfps = Config::LimitFPS && !fastforward;
 
-                double practicalFramelimit = limitfps ? frametimeStep : 1.0 / 1000.0;
+                double practicalFramelimit = limitfps ? frametimeStep : 1.0 / Config::MaxFPS;
 
                 double curtime = SDL_GetPerformanceCounter() * perfCountsSec;
 
