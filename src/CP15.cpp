@@ -406,11 +406,7 @@ void ARMv5::ICacheLookup(u32 addr)
         } else
         {
             u8 minSet = ICacheLockDown & (ICACHE_SETS-1);
-            if (minSet)
-            {
-                // part of the cache is locked up and only the cachelines 
-                line = (line % (ICACHE_SETS - minSet)) + minSet;
-            }
+            line = line | minSet;
         }
     }
 
@@ -518,12 +514,8 @@ void ARMv5::DCacheLookup(u32 addr)
             line = DCacheLockDown & (DCACHE_SETS-1);
         } else
         {
-            u8 minSet = DCacheLockDown & (DCACHE_SETS-1);
-            if (minSet)
-            {
-                // part of the cache is locked up and only the cachelines 
-                line = (line % (DCACHE_SETS - minSet)) + minSet;
-            }
+            u8 minSet = ICacheLockDown & (DCACHE_SETS-1);
+            line = line | minSet;
         }
     }
 
