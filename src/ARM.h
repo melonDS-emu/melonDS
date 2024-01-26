@@ -318,6 +318,7 @@ public:
     void ICacheInvalidateBySetAndWay(u8 cacheSet, u8 cacheLine);
 
 
+    u8 DCacheRandom();
     void DCacheLookup(u32 addr);
     void DCacheWrite32(u32 addr, u32 val);
     void DCacheWrite16(u32 addr, u16 val);
@@ -361,6 +362,7 @@ public:
     u8 DCache[DCACHE_SIZE];
     u32 DCacheTags[DCACHE_LINESPERSET*DCACHE_SETS];
     u8 DCacheCount;
+    u32 DCacheLFSRStates;
 
     u32 PU_CodeCacheable;
     u32 PU_DataCacheable;

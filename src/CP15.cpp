@@ -67,6 +67,10 @@ void ARMv5::CP15Reset()
     DCacheInvalidateAll();
     DCacheCount = 0;
 
+    // make sure that both half words are not the same otherwise the random of the DCache set selection only produces
+    // '00' and '11'
+    DCacheLFSRStates = 0xDEADBEEF;  
+
     PU_CodeCacheable = 0;
     PU_DataCacheable = 0;
     PU_DataCacheWrite = 0;
@@ -99,6 +103,7 @@ void ARMv5::CP15DoSavestate(Savestate* file)
     file->VarArray(DCache, sizeof(DCache));
     file->VarArray(DCacheTags, sizeof(DCacheTags));
     file->Var8(&DCacheCount);
+    file->Var32(&DCacheLFSRStates);
 
     file->Var32(&DCacheLockDown);
     file->Var32(&ICacheLockDown);
@@ -352,6 +357,17 @@ u32 ARMv5::RandomLineIndex()
     return (RNGSeed >> 17) & 0x3;
 }
 
+u8 ARMv5::DCacheRandom()
+{   
+    // The random value, which line to select is derived from two LFSR of the
+    // same polynomial with different initial states, so that they reproduce
+    // the same 2047 bit sequence but with a random different starting point
+    u32 lowLFSRBits = DCacheLFSRStates & 0x00010001;
+    DCacheLFSRStates = (DCacheLFSRStates & ~0x00010001) >> 1;
+    DCacheLFSRStates ^= lowLFSRBits * 0x5E5 ;
+    return (lowLFSRBits | (lowLFSRBits >> 15)) & 3;
+}
+
 void ARMv5::ICacheLookup(u32 addr)
 {
     u32 tag = (addr & ~(ICACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
@@ -490,7 +506,7 @@ void ARMv5::DCacheLookup(u32 addr)
     }
     else
     {
-        line = RandomLineIndex();
+        line = DCacheRandom();
     }
 
     if (DCacheLockDown)
