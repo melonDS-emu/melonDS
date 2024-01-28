@@ -1463,11 +1463,13 @@ void GPU3D::CalculateLighting() noexcept
     normaltrans[1] = (Normal[0]*VecMatrix[1] + Normal[1]*VecMatrix[5] + Normal[2]*VecMatrix[9]) >> 12;
     normaltrans[2] = (Normal[0]*VecMatrix[2] + Normal[1]*VecMatrix[6] + Normal[2]*VecMatrix[10]) >> 12;
 
-    VertexColor[0] = MatEmission[0];
-    VertexColor[1] = MatEmission[1];
-    VertexColor[2] = MatEmission[2];
-
     s32 c = 0;
+    u32 vtxbuff[3] =
+    {
+        (u32)MatEmission[0] << 13,
+        (u32)MatEmission[1] << 13,
+        (u32)MatEmission[2] << 13
+    };
     for (int i = 0; i < 4; i++)
     {
         if (!(CurPolygonAttr & (1<<i)))
@@ -1500,24 +1502,28 @@ void GPU3D::CalculateLighting() noexcept
             shinelevel = ShininessTable[shinelevel];
         }
 
-        VertexColor[0] += ((MatSpecular[0] * LightColor[i][0] * shinelevel) >> 13);
-        VertexColor[0] += ((MatDiffuse[0] * LightColor[i][0] * difflevel) >> 13);
-        VertexColor[0] += ((MatAmbient[0] * LightColor[i][0]) >> 5);
+        vtxbuff[0] += ((MatSpecular[0] * LightColor[i][0] * shinelevel));
+        vtxbuff[0] += ((MatDiffuse[0] * LightColor[i][0] * difflevel));
+        vtxbuff[0] += ((MatAmbient[0] * LightColor[i][0]) << 8);
 
-        VertexColor[1] += ((MatSpecular[1] * LightColor[i][1] * shinelevel) >> 13);
-        VertexColor[1] += ((MatDiffuse[1] * LightColor[i][1] * difflevel) >> 13);
-        VertexColor[1] += ((MatAmbient[1] * LightColor[i][1]) >> 5);
+        vtxbuff[1] += ((MatSpecular[1] * LightColor[i][1] * shinelevel));
+        vtxbuff[1] += ((MatDiffuse[1] * LightColor[i][1] * difflevel));
+        vtxbuff[1] += ((MatAmbient[1] * LightColor[i][1]) << 8);
 
-        VertexColor[2] += ((MatSpecular[2] * LightColor[i][2] * shinelevel) >> 13);
-        VertexColor[2] += ((MatDiffuse[2] * LightColor[i][2] * difflevel) >> 13);
-        VertexColor[2] += ((MatAmbient[2] * LightColor[i][2]) >> 5);
+        vtxbuff[2] += ((MatSpecular[2] * LightColor[i][2] * shinelevel));
+        vtxbuff[2] += ((MatDiffuse[2] * LightColor[i][2] * difflevel));
+        vtxbuff[2] += ((MatAmbient[2] * LightColor[i][2]) << 8);
 
-        if (VertexColor[0] > 31) VertexColor[0] = 31;
-        if (VertexColor[1] > 31) VertexColor[1] = 31;
-        if (VertexColor[2] > 31) VertexColor[2] = 31;
+        if (vtxbuff[0] > 31 << 13) vtxbuff[0] = 31 << 13;
+        if (vtxbuff[1] > 31 << 13) vtxbuff[1] = 31 << 13;
+        if (vtxbuff[2] > 31 << 13) vtxbuff[2] = 31 << 13;
 
         c++;
     }
+    
+    VertexColor[0] = vtxbuff[0] >> 13;
+    VertexColor[1] = vtxbuff[1] >> 13;
+    VertexColor[2] = vtxbuff[2] >> 13;
 
     if (c < 1) c = 1;
     NormalPipeline = 7;
