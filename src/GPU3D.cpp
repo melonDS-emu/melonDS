@@ -1502,17 +1502,20 @@ void GPU3D::CalculateLighting() noexcept
             shinelevel = ShininessTable[shinelevel];
         }
 
-        vtxbuff[0] += ((MatSpecular[0] * LightColor[i][0] * shinelevel));
-        vtxbuff[0] += ((MatDiffuse[0] * LightColor[i][0] * difflevel));
-        vtxbuff[0] += ((MatAmbient[0] * LightColor[i][0]) << 8);
+        vtxbuff[0] += (MatSpecular[0] * shinelevel +
+                      MatDiffuse[0] * difflevel +
+                      (MatAmbient[0] << 8)) *
+                      LightColor[i][0];
 
-        vtxbuff[1] += ((MatSpecular[1] * LightColor[i][1] * shinelevel));
-        vtxbuff[1] += ((MatDiffuse[1] * LightColor[i][1] * difflevel));
-        vtxbuff[1] += ((MatAmbient[1] * LightColor[i][1]) << 8);
+        vtxbuff[1] += (MatSpecular[1] * shinelevel +
+                      MatDiffuse[1] * difflevel +
+                      (MatAmbient[1] << 8)) *
+                      LightColor[i][1];
 
-        vtxbuff[2] += ((MatSpecular[2] * LightColor[i][2] * shinelevel));
-        vtxbuff[2] += ((MatDiffuse[2] * LightColor[i][2] * difflevel));
-        vtxbuff[2] += ((MatAmbient[2] * LightColor[i][2]) << 8);
+        vtxbuff[2] += (MatSpecular[2] * shinelevel +
+                      MatDiffuse[2] * difflevel +
+                      (MatAmbient[2] << 8)) *
+                      LightColor[i][2];
 
         if (vtxbuff[0] > 31 << 13) vtxbuff[0] = 31 << 13;
         if (vtxbuff[1] > 31 << 13) vtxbuff[1] = 31 << 13;
