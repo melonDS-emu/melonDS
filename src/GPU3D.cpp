@@ -1504,7 +1504,7 @@ void GPU3D::CalculateLighting() noexcept
 
         vtxbuff[0] += (MatSpecular[0] * shinelevel +
                       MatDiffuse[0] * difflevel +
-                      (MatAmbient[0] << 8)) *
+                      (MatAmbient[0] << 8)) * // ambient seems to be shifted left 8 rather than multiplied by 255(?)
                       LightColor[i][0];
 
         vtxbuff[1] += (MatSpecular[1] * shinelevel +
