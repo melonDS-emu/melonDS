@@ -1480,7 +1480,8 @@ void GPU3D::CalculateLighting() noexcept
         // * diffuse level is saturated to 255
         // * shininess level mirrors back to 0 and is ANDed with 0xFF, that before being squared
         // TODO: check how it behaves when the computed shininess is >=0x200
-
+        // TODO: seems to be some minor precision issue with how difflevel is calculated?
+        
         s32 difflevel = (-(LightDirection[i][0]*normaltrans[0] +
                          LightDirection[i][1]*normaltrans[1] +
                          LightDirection[i][2]*normaltrans[2])) >> 10;
@@ -1504,7 +1505,7 @@ void GPU3D::CalculateLighting() noexcept
 
         vtxbuff[0] += (MatSpecular[0] * shinelevel +
                       MatDiffuse[0] * difflevel +
-                      (MatAmbient[0] << 8)) * // ambient seems to be shifted left 8 rather than multiplied by 255(?)
+                      (MatAmbient[0] << 8)) * // ambient seems to be a plain bitshift
                       LightColor[i][0];
 
         vtxbuff[1] += (MatSpecular[1] * shinelevel +
@@ -1517,16 +1518,11 @@ void GPU3D::CalculateLighting() noexcept
                       (MatAmbient[2] << 8)) *
                       LightColor[i][2];
 
-        if (vtxbuff[0] > 31 << 13) vtxbuff[0] = 31 << 13;
-        if (vtxbuff[1] > 31 << 13) vtxbuff[1] = 31 << 13;
-        if (vtxbuff[2] > 31 << 13) vtxbuff[2] = 31 << 13;
-
         c++;
     }
-    
-    VertexColor[0] = vtxbuff[0] >> 13;
-    VertexColor[1] = vtxbuff[1] >> 13;
-    VertexColor[2] = vtxbuff[2] >> 13;
+    VertexColor[0] = (vtxbuff[0] >> 13 > 31) ? 31 : vtxbuff[0] >> 13;
+    VertexColor[1] = (vtxbuff[1] >> 13 > 31) ? 31 : vtxbuff[1] >> 13;
+    VertexColor[2] = (vtxbuff[2] >> 13 > 31) ? 31 : vtxbuff[2] >> 13;
 
     if (c < 1) c = 1;
     NormalPipeline = 7;
