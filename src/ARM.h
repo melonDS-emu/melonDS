@@ -310,28 +310,27 @@ public:
 
     u32 RandomLineIndex();
 
-    void ICacheLookup(u32 addr);
-    bool IsAddressICachable(u32 addr);
+    u32 ICacheLookup(const u32 addr);
+    inline bool IsAddressICachable(const u32 addr) const;
 
     void ICacheInvalidateAll();
-    void ICacheInvalidateByAddr(u32 addr);
-    void ICacheInvalidateBySetAndWay(u8 cacheSet, u8 cacheLine);
+    void ICacheInvalidateByAddr(const u32 addr);
+    void ICacheInvalidateBySetAndWay(const u8 cacheSet, const u8 cacheLine);
 
 
-    u8 DCacheRandom();
-    void DCacheLookup(u32 addr);
-    void DCacheWrite32(u32 addr, u32 val);
-    void DCacheWrite16(u32 addr, u16 val);
-    void DCacheWrite8(u32 addr, u8 val);
-    bool IsAddressDCachable(u32 addr);
+    u32 DCacheLookup(const u32 addr);
+    void DCacheWrite32(const u32 addr, const u32 val);
+    void DCacheWrite16(const u32 addr, const u16 val);
+    void DCacheWrite8(const u32 addr, const u8 val);
+    inline bool IsAddressDCachable(const u32 addr) const;
 
     void DCacheInvalidateAll();
-    void DCacheInvalidateByAddr(u32 addr);
-    void DCacheInvalidateBySetAndWay(u8 cacheSet, u8 cacheLine);
+    void DCacheInvalidateByAddr(const u32 addr);
+    void DCacheInvalidateBySetAndWay(const u8 cacheSet, const u8 cacheLine);
     
     void DCacheClearAll();
-    void DCacheClearByAddr(u32 addr);
-    void DCacheClearByASetAndWay(u8 cacheSet, u8 cacheLine);
+    void DCacheClearByAddr(const u32 addr);
+    void DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine);
 
 
 

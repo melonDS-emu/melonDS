@@ -357,35 +357,33 @@ u32 ARMv5::RandomLineIndex()
     return (RNGSeed >> 17) & 0x3;
 }
 
-u8 ARMv5::DCacheRandom()
-{   
-    // The random value, which line to select is derived from two LFSR of the
-    // same polynomial with different initial states, so that they reproduce
-    // the same 2047 bit sequence but with a random different starting point
-    u32 lowLFSRBits = DCacheLFSRStates & 0x00010001;
-    DCacheLFSRStates = (DCacheLFSRStates & ~0x00010001) >> 1;
-    DCacheLFSRStates ^= lowLFSRBits * 0x5E5 ;
-    return (lowLFSRBits | (lowLFSRBits >> 15)) & 3;
-}
-
-void ARMv5::ICacheLookup(u32 addr)
+u32 ARMv5::ICacheLookup(const u32 addr)
 {
-    u32 tag = (addr & ~(ICACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
-    u32 id = (addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1);
+    const u32 tag = (addr & ~(ICACHE_LINELENGTH - 1));
+    const u32 id = ((addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1)) << ICACHE_SETS_LOG2;
 
-    id <<= ICACHE_SETS_LOG2;
     for (int set=0;set<ICACHE_SETS;set++)
     {
-        if ((ICacheTags[id+set] & ~0x0F) == (tag &~0x0F))
+        if ((ICacheTags[id+set] & ~0x0F) == (tag | CACHE_FLAG_VALID))
         {
             CodeCycles = 1;
-            CurICacheLine = &ICache[(id+set) << ICACHE_LINELENGTH_LOG2];
-            return;
+            u32 *cacheLine = (u32 *)&ICache[(id+set) << ICACHE_LINELENGTH_LOG2];
+            return cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2];
         }
     }
 
     // cache miss
     u32 line;
+#if 0
+    // caclulate in which cacheline the data is to be filled
+    // The code below is doing the same as the if-less below
+    // It increases performance by reducing banches. 
+    // The code is kept here for readability.
+    // 
+    // NOTE: If you need to update either part, you need
+    //       to update the other too to keep them in sync!
+    //       
+
     if (CP15Control & CP15_CACHE_CR_ROUNDROBIN)
     {
         line = ICacheCount;
@@ -410,36 +408,44 @@ void ARMv5::ICacheLookup(u32 addr)
         }
     }
 
-    line += id;
+#else
+    // Do the same as above but instead of using if-else 
+    // utilize the && and || operators to skip parts of the operations
+    // With the order of comparison we can put the most likely path
+    // checked first
 
-    addr &= ~(ICACHE_LINELENGTH-1);
-    u8* ptr = &ICache[line << ICACHE_LINELENGTH_LOG2];
+    bool doLockDown = (ICacheLockDown & CACHE_LOCKUP_L);
+    bool roundRobin = CP15Control & CP15_CACHE_CR_ROUNDROBIN;
+    (!roundRobin && (line = RandomLineIndex())) || (roundRobin && (ICacheCount = line = ((ICacheCount+1) & (ICACHE_SETS-1)))) ;
+    (!doLockDown && (line = (line | ICacheLockDown & (ICACHE_SETS-1))+id)) || (doLockDown && (line = (ICacheLockDown & (ICACHE_SETS-1))+id));
+#endif
+
+    u32* ptr = (u32 *)&ICache[line << ICACHE_LINELENGTH_LOG2];
 
     if (CodeMem.Mem)
     {
-        memcpy(ptr, &CodeMem.Mem[addr & CodeMem.Mask], ICACHE_LINELENGTH);
+        memcpy(ptr, &CodeMem.Mem[tag & CodeMem.Mask], ICACHE_LINELENGTH);
     }
     else
     {
         for (int i = 0; i < ICACHE_LINELENGTH; i+=sizeof(u32))
-            *(u32*)&ptr[i] = NDS.ARM9Read32(addr+i);
+            ptr[i >> 2] = NDS.ARM9Read32(tag+i);
     }
 
-    ICacheTags[line] = addr | (line & (ICACHE_SETS-1)) | CACHE_FLAG_VALID;
+    ICacheTags[line] = tag | (line & (ICACHE_SETS-1)) | CACHE_FLAG_VALID;
 
     // ouch :/
     //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
     //                      first N32                                  remaining S32
-    CodeCycles = (NDS.ARM9MemTimings[addr >> 14][2] + (NDS.ARM9MemTimings[addr >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1))) << NDS.ARM9ClockShift;
-    CurICacheLine = ptr;
+    CodeCycles = (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1))) << NDS.ARM9ClockShift;
+    return ptr[(addr & (ICACHE_LINELENGTH-1)) >> 2];
 }
 
-void ARMv5::ICacheInvalidateByAddr(u32 addr)
+void ARMv5::ICacheInvalidateByAddr(const u32 addr)
 {
-    u32 tag = (addr & ~(ICACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
-    u32 id = (addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1);
+    const u32 tag = (addr & ~(ICACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    const u32 id = ((addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1)) << ICACHE_SETS_LOG2;
 
-    id <<= ICACHE_SETS_LOG2;
     for (int set=0;set<ICACHE_SETS;set++)
     {
         if ((ICacheTags[id+set] & ~0x0F) == tag)
@@ -450,7 +456,7 @@ void ARMv5::ICacheInvalidateByAddr(u32 addr)
     }
 }
 
-void ARMv5::ICacheInvalidateBySetAndWay(u8 cacheSet, u8 cacheLine)
+void ARMv5::ICacheInvalidateBySetAndWay(const u8 cacheSet, const u8 cacheLine)
 {
     if (cacheSet >= ICACHE_SETS)
         return;
@@ -468,33 +474,39 @@ void ARMv5::ICacheInvalidateAll()
         ICacheTags[i] &= ~CACHE_FLAG_VALID;  ;
 }
 
-bool ARMv5::IsAddressICachable(u32 addr)
+bool ARMv5::IsAddressICachable(const u32 addr) const
 {
     return PU_Map[addr >> 12] & 0x40 ;
 }
 
-void ARMv5::DCacheLookup(u32 addr)
+u32 ARMv5::DCacheLookup(const u32 addr)
 {
     //Log(LogLevel::Debug,"DCache load @ %08x\n", addr);
-    addr &= ~3;
-    u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
-    u32 id = (addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+    const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) ;
+    const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
 
-    id <<= DCACHE_SETS_LOG2;
     for (int set=0;set<DCACHE_SETS;set++)
     {
-        if ((DCacheTags[id+set] & ~0x0F) == tag)
+        if ((DCacheTags[id+set] & ~0x0F) == (tag | CACHE_FLAG_VALID))
         {
-            CurDCacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             DataCycles = 1;
-
-            //Log(LogLevel::Debug,"DCache hit @ %08x -> %08lx\n", addr, ((u32 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
-            return;
+            u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            return cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2];
         }
     }
 
     // cache miss
     u32 line;
+#if 0
+    // caclulate in which cacheline the data is to be filled
+    // The code below is doing the same as the if-less below
+    // It increases performance by reducing banches. 
+    // The code is kept here for readability.
+    // 
+    // NOTE: If you need to update either part, you need
+    //       to update the other too to keep them in sync!
+    //  
+
     if (CP15Control & CP15_CACHE_CR_ROUNDROBIN)
     {
         line = DCacheCount;
@@ -505,66 +517,71 @@ void ARMv5::DCacheLookup(u32 addr)
         line = DCacheRandom();
     }
 
+    // Update the selected set depending on the DCache LockDown register
     if (DCacheLockDown)
     {
         if (DCacheLockDown & CACHE_LOCKUP_L)
         {
             // load into locked up cache
             // into the selected set
-            line = DCacheLockDown & (DCACHE_SETS-1);
+            line = (DCacheLockDown & (DCACHE_SETS-1)) + id;
         } else
         {
             u8 minSet = ICacheLockDown & (DCACHE_SETS-1);
-            line = line | minSet;
+            line = (line | minSet) + id;
         }
     }
+#else
+    // Do the same as above but instead of using if-else 
+    // utilize the && and || operators to skip parts of the operations
+    // With the order of comparison we can put the most likely path
+    // checked first
 
-    line += id;
+    bool doLockDown = (DCacheLockDown & CACHE_LOCKUP_L);
+    bool roundRobin = CP15Control & CP15_CACHE_CR_ROUNDROBIN;
+    (!roundRobin && (line = RandomLineIndex())) || (roundRobin && (DCacheCount = line = ((DCacheCount+1) & (DCACHE_SETS-1))));
+    (!doLockDown && (line = (line | DCacheLockDown & (DCACHE_SETS-1))+id)) || (doLockDown && (line = (DCacheLockDown & (DCACHE_SETS-1))+id));
+#endif
 
-    addr &= ~(DCACHE_LINELENGTH-1);
-    u8* ptr = &DCache[line << DCACHE_LINELENGTH_LOG2];
+    u32* ptr = (u32 *)&DCache[line << DCACHE_LINELENGTH_LOG2];
 
-    //Log(LogLevel::Debug,"DCache miss, load @ %08x\n", addr);
+    //Log(LogLevel::Debug,"DCache miss, load @ %08x\n", tag);
     for (int i = 0; i < DCACHE_LINELENGTH; i+=sizeof(u32))
     {
-        //DataRead32S(addr+i, (u32*)&ptr[i]);
-        if (addr+i < ITCMSize)
+        if (tag+i < ITCMSize)
         {
-            *((u32*)&ptr[i]) = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+            ptr[i >> 2] = *(u32*)&ITCM[(tag+i) & (ITCMPhysicalSize - 1)];
         } else
-        if (((addr+i) & DTCMMask) == DTCMBase)
+        if (((tag+i) & DTCMMask) == DTCMBase)
         {
-            *((u32*)&ptr[i]) = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
+            ptr[i >> 2] = *(u32*)&DTCM[(tag+i) & (DTCMPhysicalSize - 1)];
         } else
         {
-            *((u32*)&ptr[i]) = BusRead32(addr+i);
+            ptr[i >> 2] = BusRead32(tag+i);
         }
-        //Log(LogLevel::Debug,"DCache store @ %08x: %08x\n", addr+i, *(u32*)&ptr[i]);
+        //Log(LogLevel::Debug,"DCache store @ %08x: %08x\n", tag+i, *(u32*)&ptr[i]);
     }
 
-    DCacheTags[line] = addr | (line & (DCACHE_SETS-1)) | CACHE_FLAG_VALID;
+    DCacheTags[line] = tag | (line & (DCACHE_SETS-1)) | CACHE_FLAG_VALID;
 
     // ouch :/
     //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
     //                      first N32                                  remaining S32
-    DataCycles = (NDS.ARM9MemTimings[addr >> 14][2] + (NDS.ARM9MemTimings[addr >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1))) << NDS.ARM9ClockShift;
-    CurDCacheLine = ptr;
+    DataCycles = (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1))) << NDS.ARM9ClockShift;
+    return ptr[(addr & (DCACHE_LINELENGTH-1)) >> 2];
 }
 
-void ARMv5::DCacheWrite32(u32 addr, u32 val)
+void ARMv5::DCacheWrite32(const u32 addr, const u32 val)
 {
-    addr &= ~3;
+    const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
 
-    u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
-    u32 id = (addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
-
-    id <<= DCACHE_SETS_LOG2;
     for (int set=0;set<DCACHE_SETS;set++)
     {
         if ((DCacheTags[id+set] & ~0x0F) == tag)
         {
-            CurDCacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
-            *(u32 *)&CurDCacheLine[addr & (ICACHE_LINELENGTH-1)] = val;
+            u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            cacheLine[(addr & (ICACHE_LINELENGTH-1)) >> 2] = val;
             DataCycles = 1;
 
             //Log(LogLevel::Debug,"DCache write32 hit @ %08x -> %08lx\n", addr, ((u32 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
@@ -573,20 +590,17 @@ void ARMv5::DCacheWrite32(u32 addr, u32 val)
     }    
 }
 
-void ARMv5::DCacheWrite16(u32 addr, u16 val)
+void ARMv5::DCacheWrite16(const u32 addr, const u16 val)
 {
-    addr &= ~1;
+    const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
 
-    u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
-    u32 id = (addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
-
-    id <<= DCACHE_SETS_LOG2;
     for (int set=0;set<DCACHE_SETS;set++)
     {
         if ((DCacheTags[id+set] & ~0x0F) == tag)
         {
-            CurDCacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
-            *(u16 *)&CurDCacheLine[addr & (ICACHE_LINELENGTH-1)] = val;
+            u16 *cacheLine = (u16 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            cacheLine[(addr & (ICACHE_LINELENGTH-1)) >> 1] = val;
             DataCycles = 1;
 
             //Log(LogLevel::Debug,"DCache write16 hit @ %08x -> %04x\n", addr, ((u16 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
@@ -595,18 +609,17 @@ void ARMv5::DCacheWrite16(u32 addr, u16 val)
     }    
 }
 
-void ARMv5::DCacheWrite8(u32 addr, u8 val)
+void ARMv5::DCacheWrite8(const u32 addr, const u8 val)
 {
-    u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
-    u32 id = (addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+    const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;;
 
-    id <<= DCACHE_SETS_LOG2;
     for (int set=0;set<DCACHE_SETS;set++)
     {
         if ((DCacheTags[id+set] & ~0x0F) == tag)
         {
-            CurDCacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
-            *(u8 *)&CurDCacheLine[addr & (ICACHE_LINELENGTH-1)] = val;
+            u8 *cacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            cacheLine[addr & (ICACHE_LINELENGTH-1)] = val;
             DataCycles = 1;
 
             //Log(LogLevel::Debug,"DCache write hit8 @ %08x -> %02x\n", addr, ((u8 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
@@ -615,12 +628,11 @@ void ARMv5::DCacheWrite8(u32 addr, u8 val)
     }    
 }
 
-void ARMv5::DCacheInvalidateByAddr(u32 addr)
+void ARMv5::DCacheInvalidateByAddr(const u32 addr)
 {
-    u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
-    u32 id = (addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+    const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
 
-    id <<= DCACHE_SETS_LOG2;
     for (int set=0;set<DCACHE_SETS;set++)
     {
         if ((DCacheTags[id+set] & ~0x0Ful) == tag)
@@ -632,7 +644,7 @@ void ARMv5::DCacheInvalidateByAddr(u32 addr)
     }
 }
 
-void ARMv5::DCacheInvalidateBySetAndWay(u8 cacheSet, u8 cacheLine)
+void ARMv5::DCacheInvalidateBySetAndWay(const u8 cacheSet, const u8 cacheLine)
 {
     if (cacheSet >= DCACHE_SETS)
         return;
@@ -656,19 +668,19 @@ void ARMv5::DCacheClearAll()
     // underlying memory and invalidates the cache line.
 }
 
-void ARMv5::DCacheClearByAddr(u32 addr)
+void ARMv5::DCacheClearByAddr(const u32 addr)
 {
     // TODO: right now any write to cached data goes straight to the 
     // underlying memory and invalidates the cache line.
 }
 
-void ARMv5::DCacheClearByASetAndWay(u8 cacheSet, u8 cacheLine)
+void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
 {
     // TODO: right now any write to cached data goes straight to the 
     // underlying memory and invalidates the cache line.
 }
 
-bool ARMv5::IsAddressDCachable(u32 addr)
+bool ARMv5::IsAddressDCachable(const u32 addr) const
 {
     return PU_Map[addr >> 12] & 0x10 ;
 }
@@ -1371,8 +1383,7 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
         {
             if (IsAddressICachable(addr))
             {
-                ICacheLookup(addr);
-                return *(u32*)&CurICacheLine[addr & (ICACHE_LINELENGTH - 4)];
+                return ICacheLookup(addr);
             }
         }
     } else
@@ -1412,8 +1423,7 @@ void ARMv5::DataRead8(u32 addr, u32* val)
         {
             if (PU_Map[addr >> 12] & 0x10)
             {
-                DCacheLookup(addr & ~3);
-                *val = CurDCacheLine[addr & (DCACHE_LINELENGTH - 1)];
+                *val = (DCacheLookup(addr) >> (8* (addr & 3))) & 0xff;
                 return;
             }
         }
@@ -1455,8 +1465,7 @@ void ARMv5::DataRead16(u32 addr, u32* val)
         {
             if (PU_Map[addr >> 12] & 0x10)
             {
-                DCacheLookup(addr & ~3);
-                *val = *(u16 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 2)];
+                *val = (DCacheLookup(addr) >> (8* (addr & 2))) & 0xffff;
                 return;
             }
         }
@@ -1500,8 +1509,7 @@ void ARMv5::DataRead32(u32 addr, u32* val)
         {
             if (PU_Map[addr >> 12] & 0x10)
             {
-                DCacheLookup(addr & ~3);
-                *val = *(u32 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 4)];
+                *val = DCacheLookup(addr);
                 return;
             }
         }
@@ -1538,8 +1546,7 @@ void ARMv5::DataRead32S(u32 addr, u32* val)
         {
             if (PU_Map[addr >> 12] & 0x10)
             {
-                DCacheLookup(addr & ~3);
-                *val = *(u32 *)&CurDCacheLine[addr & (DCACHE_LINELENGTH - 4)];
+                *val = DCacheLookup(addr);
                 return;
             }
         }
