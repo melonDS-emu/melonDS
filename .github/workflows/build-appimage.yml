@@ -19,7 +19,7 @@ jobs:
       run: |
         sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list
         sudo apt update
-        sudo apt install cmake extra-cmake-modules libpcap0.8-dev libsdl2-dev qt6-{base,base-private,multimedia,tools}-dev qt6-qpa-plugins libslirp0 libslirp-dev libarchive-dev libzstd-dev --allow-downgrades libfuse2
+        sudo apt install cmake extra-cmake-modules libpcap0.8-dev libsdl2-dev qt6-default qt6-{base,base-private,multimedia,tools}-dev qt6-qpa-plugins libslirp0 libslirp-dev libarchive-dev libzstd-dev --allow-downgrades libfuse2
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure

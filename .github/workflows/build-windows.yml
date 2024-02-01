@@ -27,11 +27,11 @@ jobs:
           update: true
 
     - name: Install dependencies
-      run: pacman -Sq --noconfirm git pkgconf mingw-w64-ucrt-x86_64-{cmake,SDL2,qt6-static,libslirp,libarchive,toolchain}
+      run: pacman -Sq --noconfirm git pkgconf mingw-w64-ucrt-x86_64-{cmake,SDL2,qt6-static,libslirp,libarchive,libpng,toolchain}
 
     - name: Configure
       working-directory: ${{runner.workspace}}
-      run: cmake -B build $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=C:/tools/msys64/mingw64/qt6-static -DUSE_QT6=ON
+      run: cmake -B build $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=ON -DUSE_QT6=ON
 
     - name: Make
       working-directory: ${{runner.workspace}}/build

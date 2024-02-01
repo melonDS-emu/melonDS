@@ -39,7 +39,7 @@ jobs:
       shell: bash
       run: |
         cmake -B build \
-          -DPKG_CONFIG_EXECUTABLE=aarch64-linux-gnu-pkg-config \
+          -DPKG_CONFIG_EXECUTABLE=/usr/bin/aarch64-linux-gnu-pkg-config \
           -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc-12 \
           -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++-12 \
           -DUSE_QT6=ON
