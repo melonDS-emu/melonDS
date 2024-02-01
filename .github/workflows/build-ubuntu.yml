@@ -23,12 +23,11 @@ jobs:
         sudo apt install --allow-downgrades cmake ninja-build extra-cmake-modules libpcap0.8-dev libsdl2-dev \
           qt6-{base,base-private,multimedia}-dev libslirp0 libslirp-dev libarchive-dev libzstd-dev --allow-downgrades
     - name: Configure
-      run: cmake -B build -G Ninja -DUSE_QT6=ON -DCMAKE_INSTALL_PREFIX=/
+      run: cmake -B build -G Ninja -DUSE_QT6=ON -DCMAKE_INSTALL_PREFIX=./dist
     - name: Build
       run: |
         cmake --build build
-        mkdir dist
-        DESTDIR="$PWD/dist" cmake --install build
+        cmake --install build
     - uses: actions/upload-artifact@v4
       with:
         name: melonDS-ubuntu-x86_64
