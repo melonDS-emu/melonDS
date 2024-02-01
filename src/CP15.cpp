@@ -381,6 +381,20 @@ u32 ARMv5::ICacheLookup(const u32 addr)
         {
             CodeCycles = 1;
             u32 *cacheLine = (u32 *)&ICache[(id+set) << ICACHE_LINELENGTH_LOG2];
+            if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_STREAMING)
+            {
+                // Disabled ICACHE Streaming:
+                // retreive the data from memory, even if the data was cached
+                // See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
+                CodeCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
+                if (CodeMem.Mem)
+                {
+                    return *(u32*)&CodeMem.Mem[(addr & CodeMem.Mask) & ~3];
+                } else
+                {
+                    return NDS.ARM9Read32(addr & ~3);
+                }     
+            }
             return cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2];
         }
     }
@@ -519,6 +533,24 @@ u32 ARMv5::DCacheLookup(const u32 addr)
         {
             DataCycles = 1;
             u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_STREAMING)
+            {
+                // Disabled DCACHE Streaming:
+                // retreive the data from memory, even if the data was cached
+                // See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
+                DataCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
+                if (addr < ITCMSize)
+                {
+                    return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 3)];
+                } else
+                if ((addr & DTCMMask) == DTCMBase)
+                {
+                    return *(u32*)&DTCM[addr & (DTCMPhysicalSize - 3)];
+                } else
+                {
+                    return BusRead32(addr & ~3);
+                }     
+            }
             return cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2];
         }
     }
