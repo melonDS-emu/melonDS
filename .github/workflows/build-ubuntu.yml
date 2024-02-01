@@ -14,24 +14,56 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
+      name: Check out sources
     - name: Install dependencies
       run: |
         sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list
         sudo apt update
-        sudo apt install cmake extra-cmake-modules libpcap0.8-dev libsdl2-dev qt6-{base,base-private,multimedia}-dev libslirp0 libslirp-dev libarchive-dev libzstd-dev --allow-downgrades
-    - name: Create build environment
-      run: mkdir ${{runner.workspace}}/build
+        sudo apt install --allow-downgrades cmake ninja-build extra-cmake-modules libpcap0.8-dev libsdl2-dev \
+          qt6-{base,base-private,multimedia}-dev libslirp0 libslirp-dev libarchive-dev libzstd-dev --allow-downgrades
     - name: Configure
-      working-directory: ${{runner.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE -DUSE_QT6=ON
-    - name: Make
-      working-directory: ${{runner.workspace}}/build
+      run: cmake -B build -G Ninja -DUSE_QT6=ON -DCMAKE_INSTALL_PREFIX=/
+    - name: Build
       run: |
-        make -j$(nproc --all)
+        cmake --build build
         mkdir dist
-        cp melonDS dist
-    - uses: actions/upload-artifact@v1
+        DESTDIR="$PWD/dist" cmake --install build
+    - uses: actions/upload-artifact@v4
       with:
         name: melonDS-ubuntu-x86_64
         path: ${{runner.workspace}}/build/dist
+
+  appimage:
+    name: AppImage
+    runs-on: ubuntu-22.04
+    needs: [ build ]
+    continue-on-error: true
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install --allow-downgrades \
+            libpcap0.8-dev libsdl2-dev qt6-{base,base-private,multimedia,tools}-dev qt6-qpa-plugins \
+            libslirp0 libarchive libzstd libfuse2
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: melonDS-ubuntu-x86_64
+          path: AppDir
+      - name: Prepare necessary Tools for building the AppImage
+        run: |
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod a+x linuxdeploy-x86_64.AppImage
+          chmod a+x linuxdeploy-plugin-qt-x86_64.AppImage
+      - name: Build the AppImage
+        env:
+          QMAKE: /usr/lib/qt6/bin/qmake
+        run: |
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt --output appimage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: melonDS-appimage-x86_64
+          path: melonDS*.AppImage
