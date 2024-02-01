@@ -50,7 +50,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: melonDS-ubuntu-x86_64
-          path: AppDir
+          path: melonDS
+      - name: Prepare AppDir
+        run: |
+          mkdir AppDir
+          mv melonDS AppDir/usr
       - name: Prepare necessary Tools for building the AppImage
         run: |
           ls -R
