@@ -44,8 +44,8 @@ jobs:
         run: |
           sudo apt update
           sudo apt install --allow-downgrades \
-            libpcap0.8-dev libsdl2-dev qt6-{base,base-private,multimedia,tools}-dev qt6-qpa-plugins \
-            libslirp0 libarchive libzstd libfuse2
+            qt6-{base,base-private,multimedia,tools}-dev qt6-qpa-plugins \
+            libpcap0.8 libsdl2-2.0-0 libslirp0 libarchive zstd libfuse2
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
