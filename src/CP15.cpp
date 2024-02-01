@@ -40,6 +40,16 @@ const int kDataCacheTiming = 3;//2;
 const int kCodeCacheTiming = 3;//5;
 
 
+/* CP15 Reset sets the default values within each registers and 
+   memories of the CP15. 
+   This includes the Settings for 
+        DTCM
+        ITCM
+        Caches
+        Regions
+        Process Trace
+*/
+
 void ARMv5::CP15Reset()
 {
     CP15Control = 0x2078; // dunno
@@ -67,6 +77,8 @@ void ARMv5::CP15Reset()
     memset(DCache, 0, DCACHE_SIZE);
     DCacheInvalidateAll();
     DCacheCount = 0;
+
+    CP15TraceProcessId = 0;
 
     PU_CodeCacheable = 0;
     PU_DataCacheable = 0;
@@ -103,6 +115,7 @@ void ARMv5::CP15DoSavestate(Savestate* file)
     file->Var32(&DCacheLockDown);
     file->Var32(&ICacheLockDown);
     file->Var32(&CacheDebugRegisterIndex);
+    file->Var32(&CP15TraceProcessId);
 
     file->Var32(&PU_CodeCacheable);
     file->Var32(&PU_DataCacheable);
@@ -1086,6 +1099,11 @@ void ARMv5::CP15Write(u32 id, u32 val)
         UpdateITCMSetting();
         return;
 
+    case 0xD01:
+    case 0xD11:
+        CP15TraceProcessId = val;
+        return;
+
     case 0xF00:
         if (PU_Map != PU_PrivMap)
         {            
@@ -1276,6 +1294,10 @@ u32 ARMv5::CP15Read(u32 id) const
         return DTCMSetting;
     case 0x911:
         return ITCMSetting;
+
+    case 0xD01: // See arm946E-S Rev 1 technical Reference Manual, Chapter 2.3.13 */ 
+    case 0xD11: // backwards compatible read/write of the same register
+        return CP15TraceProcessId;
 
     case 0xF00:
         if (PU_Map != PU_PrivMap)

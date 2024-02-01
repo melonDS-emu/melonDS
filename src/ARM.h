@@ -332,8 +332,6 @@ public:
     void DCacheClearByAddr(const u32 addr);
     void DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine);
 
-
-
     void CP15Write(u32 id, u32 val);
     u32 CP15Read(u32 id) const;
 
@@ -344,6 +342,7 @@ public:
     u32 DTCMSetting, ITCMSetting;
     u32 DCacheLockDown, ICacheLockDown;
     u32 CacheDebugRegisterIndex;
+    u32 CP15TraceProcessId;
 
     // for aarch64 JIT they need to go up here
     // to be addressable by a 12-bit immediate
