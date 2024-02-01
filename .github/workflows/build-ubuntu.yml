@@ -9,7 +9,7 @@ on:
       - master
 
 jobs:
-  build:
+  build-x86_64:
     name: x86_64
     runs-on: ubuntu-22.04
 
@@ -46,3 +46,38 @@ jobs:
       with:
         name: melonDS-appimage-x86_64
         path: melonDS*.AppImage
+
+  build-aarch64:
+    name: aarch64
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+
+    steps:
+      - name: Prepare system
+        run: |
+          dpkg --add-architecture arm64
+          sh -c "sed \"s|^deb \([a-z\.:/]*\) \([a-z\-]*\) \(.*\)$|deb [arch=amd64] \1 \2 \3\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports \2 \3|\" /etc/apt/sources.list > /etc/apt/sources.list.new"
+          rm /etc/apt/sources.list
+          mv /etc/apt/sources.list{.new,}
+          apt update
+          apt -y full-upgrade
+          apt -y install git {gcc-12,g++-12}-aarch64-linux-gnu pkg-config cmake ninja-build extra-cmake-modules \
+            {libsdl2,qt6-{base,base-private,multimedia},libslirp,libarchive,libzstd}-dev:arm64
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -B build -G Ninja \
+            -DPKG_CONFIG_EXECUTABLE=/usr/bin/aarch64-linux-gnu-pkg-config \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc-12 \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++-12 \
+            -DUSE_QT6=ON
+      - name: Build
+        shell: bash
+        run: |
+          cmake --build build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: melonDS-ubuntu-aarch64
+          path: build/melonDS
