@@ -91,6 +91,10 @@ constexpr u32 CP15_CACHE_CR_ICACHEENABLE = (1 << 12);
 constexpr u32 CP15_CACHE_CR_DCACHEENABLE = (1 << 2);
 constexpr u32 CP15_CACHE_CR_WRITEBUFFERENABLE = (1 << 3);
 
+/* CP15 BIST Test State register */
+constexpr u32 CP15_BIST_TR_DISABLE_ICACHE_LINEFILL = (1 << 9);
+constexpr u32 CP15_BIST_TR_DISABLE_DCACHE_LINEFILL = (1 << 10);
+
 /* CP15 TCM Control Register */
 constexpr u32 CP15_TCM_CR_DTCM_ENABLE = (1 << 16);
 constexpr u32 CP15_TCM_CR_ITCM_ENABLE = (1 << 18);

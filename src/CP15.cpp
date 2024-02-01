@@ -69,6 +69,7 @@ void ARMv5::CP15Reset()
     ICacheLockDown = 0;
     DCacheLockDown = 0;
     CacheDebugRegisterIndex = 0;
+    CP15BISTTestStateRegister = 0;
 
     memset(ICache, 0, ICACHE_SIZE);
     ICacheInvalidateAll();
@@ -116,6 +117,7 @@ void ARMv5::CP15DoSavestate(Savestate* file)
     file->Var32(&ICacheLockDown);
     file->Var32(&CacheDebugRegisterIndex);
     file->Var32(&CP15TraceProcessId);
+    file->Var32(&CP15BISTTestStateRegister);
 
     file->Var32(&PU_CodeCacheable);
     file->Var32(&PU_DataCacheable);
@@ -384,6 +386,21 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     }
 
     // cache miss
+
+    // We do not fill the cacheline if it is disabled in the 
+    // BIST test State register (See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
+    if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_LINEFILL)
+    {
+        CodeCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
+        if (CodeMem.Mem)
+        {
+            return *(u32*)&CodeMem.Mem[(addr & CodeMem.Mask) & ~3];
+        } else
+        {
+            return NDS.ARM9Read32(addr & ~3);
+        }        
+    }
+
     u32 line;
 #if 0
     // caclulate in which cacheline the data is to be filled
@@ -507,6 +524,25 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     }
 
     // cache miss
+
+    // We do not fill the cacheline if it is disabled in the 
+    // BIST test State register (See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
+    if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_LINEFILL)
+    {
+        DataCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
+        if (addr < ITCMSize)
+        {
+            return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 3)];
+        } else
+        if ((addr & DTCMMask) == DTCMBase)
+        {
+            return *(u32*)&DTCM[addr & (DTCMPhysicalSize - 3)];
+        } else
+        {
+            return BusRead32(addr & ~3);
+        }        
+    }
+
     u32 line;
 #if 0
     // caclulate in which cacheline the data is to be filled
@@ -694,7 +730,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
 {
     //if(id!=0x704)printf("CP15 write op %03X %08X %08X\n", id, val, R[15]);
 
-    switch (id)
+    switch (id & 0xFFF)
     {
     case 0x100:
         {
@@ -1112,7 +1148,20 @@ void ARMv5::CP15Write(u32 id, u32 val)
             else
                 return ARMInterpreter::A_UNK(this);
         } else
-            CacheDebugRegisterIndex = val;
+        {
+            if (((id >> 12) & 0x0f) == 0x03)
+                CacheDebugRegisterIndex = val;
+            else if (((id >> 12) & 0x0f) == 0x00)
+                CP15BISTTestStateRegister = val;
+            else
+            {
+                if (CPSR & 0x20) // THUMB
+                    return ARMInterpreter::T_UNK(this);
+                else
+                    return ARMInterpreter::A_UNK(this);                
+            }
+
+        }
         return;
 
     case 0xF10:
@@ -1184,14 +1233,14 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
     }
 
-    Log(LogLevel::Debug, "unknown CP15 write op %03X %08X\n", id, val);
+    Log(LogLevel::Debug, "unknown CP15 write op %04X %08X\n", id, val);
 }
 
 u32 ARMv5::CP15Read(u32 id) const
 {
     //printf("CP15 read op %03X %08X\n", id, NDS::ARM9->R[15]);
 
-    switch (id)
+    switch (id & 0xFFF)
     {
     case 0x000: // CPU ID
     case 0x003:
@@ -1304,7 +1353,12 @@ u32 ARMv5::CP15Read(u32 id) const
         {            
             return 0;
         } else
-            return CacheDebugRegisterIndex;
+        {
+            if (((id >> 12) & 0x0f) == 0x03)
+                return CacheDebugRegisterIndex;
+            if (((id >> 12) & 0x0f) == 0x00)
+                return CP15BISTTestStateRegister;
+        }
     case 0xF10:
         // instruction cache Tag register
         if (PU_Map != PU_PrivMap)
@@ -1351,7 +1405,7 @@ u32 ARMv5::CP15Read(u32 id) const
         }
     }
 
-    Log(LogLevel::Debug, "unknown CP15 read op %03X\n", id);
+    Log(LogLevel::Debug, "unknown CP15 read op %04X\n", id);
     return 0;
 }
 

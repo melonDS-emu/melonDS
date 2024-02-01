@@ -343,6 +343,7 @@ public:
     u32 DCacheLockDown, ICacheLockDown;
     u32 CacheDebugRegisterIndex;
     u32 CP15TraceProcessId;
+    u32 CP15BISTTestStateRegister;
 
     // for aarch64 JIT they need to go up here
     // to be addressable by a 12-bit immediate
