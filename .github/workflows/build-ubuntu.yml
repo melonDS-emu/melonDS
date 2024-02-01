@@ -54,6 +54,7 @@ jobs:
 
     steps:
       - name: Prepare system
+        shell: bash
         run: |
           dpkg --add-architecture arm64
           sh -c "sed \"s|^deb \([a-z\.:/]*\) \([a-z\-]*\) \(.*\)$|deb [arch=amd64] \1 \2 \3\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports \2 \3|\" /etc/apt/sources.list > /etc/apt/sources.list.new"
