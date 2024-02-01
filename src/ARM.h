@@ -25,6 +25,7 @@
 #include "types.h"
 #include "MemRegion.h"
 #include "MemConstants.h"
+#include "CP15_Constants.h"
 
 #ifdef GDBSTUB_ENABLED
 #include "debug/GdbStub.h"
@@ -128,14 +129,14 @@ public:
     void SetupCodeMem(u32 addr);
 
 
-    virtual void DataRead8(u32 addr, u32* val) = 0;
-    virtual void DataRead16(u32 addr, u32* val) = 0;
-    virtual void DataRead32(u32 addr, u32* val) = 0;
-    virtual void DataRead32S(u32 addr, u32* val) = 0;
-    virtual void DataWrite8(u32 addr, u8 val) = 0;
-    virtual void DataWrite16(u32 addr, u16 val) = 0;
-    virtual void DataWrite32(u32 addr, u32 val) = 0;
-    virtual void DataWrite32S(u32 addr, u32 val) = 0;
+    virtual void DataRead8(const u32 addr, u32* val) = 0;
+    virtual void DataRead16(const u32 addr, u32* val) = 0;
+    virtual void DataRead32(const u32 addr, u32* val) = 0;
+    virtual void DataRead32S(const u32 addr, u32* val) = 0;
+    virtual void DataWrite8(const u32 addr, const u8 val) = 0;
+    virtual void DataWrite16(const u32 addr, const u16 val) = 0;
+    virtual void DataWrite32(const u32 addr, const u32 val) = 0;
+    virtual void DataWrite32S(const u32 addr, const u32 val) = 0;
 
     virtual void AddCycles_C() = 0;
     virtual void AddCycles_CI(s32 numI) = 0;
@@ -247,16 +248,16 @@ public:
 #endif
 
     // all code accesses are forced nonseq 32bit
-    u32 CodeRead32(u32 addr, bool branch);
+    u32 CodeRead32(const u32 addr, const bool branch);
 
-    void DataRead8(u32 addr, u32* val) override;
-    void DataRead16(u32 addr, u32* val) override;
-    void DataRead32(u32 addr, u32* val) override;
-    void DataRead32S(u32 addr, u32* val) override;
-    void DataWrite8(u32 addr, u8 val) override;
-    void DataWrite16(u32 addr, u16 val) override;
-    void DataWrite32(u32 addr, u32 val) override;
-    void DataWrite32S(u32 addr, u32 val) override;
+    void DataRead8(const u32 addr, u32* val) override;
+    void DataRead16(const u32 addr, u32* val) override;
+    void DataRead32(const u32 addr, u32* val) override;
+    void DataRead32S(const u32 addr, u32* val) override;
+    void DataWrite8(const u32 addr, const u8 val) override;
+    void DataWrite16(const u32 addr, const u16 val) override;
+    void DataWrite32(const u32 addr, const u32 val) override;
+    void DataWrite32S(const u32 addr, const u32 val) override;
 
     void AddCycles_C() override
     {
@@ -317,7 +318,6 @@ public:
     void ICacheInvalidateByAddr(const u32 addr);
     void ICacheInvalidateBySetAndWay(const u8 cacheSet, const u8 cacheLine);
 
-
     u32 DCacheLookup(const u32 addr);
     void DCacheWrite32(const u32 addr, const u32 val);
     void DCacheWrite16(const u32 addr, const u16 val);
@@ -361,7 +361,6 @@ public:
     u8 DCache[DCACHE_SIZE];
     u32 DCacheTags[DCACHE_LINESPERSET*DCACHE_SETS];
     u8 DCacheCount;
-    u32 DCacheLFSRStates;
 
     u32 PU_CodeCacheable;
     u32 PU_DataCacheable;
@@ -382,9 +381,6 @@ public:
 
     // code/16N/32N/32S
     u8 MemTimings[0x100000][4];
-
-    u8* CurICacheLine;
-    u8* CurDCacheLine;
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
 
@@ -416,24 +412,24 @@ public:
     void ExecuteJIT() override;
 #endif
 
-    u16 CodeRead16(u32 addr)
+    u16 CodeRead16(const u32 addr)
     {
         return BusRead16(addr);
     }
 
-    u32 CodeRead32(u32 addr)
+    u32 CodeRead32(const u32 addr)
     {
         return BusRead32(addr);
     }
 
-    void DataRead8(u32 addr, u32* val) override;
-    void DataRead16(u32 addr, u32* val) override;
-    void DataRead32(u32 addr, u32* val) override;
-    void DataRead32S(u32 addr, u32* val) override;
-    void DataWrite8(u32 addr, u8 val) override;
-    void DataWrite16(u32 addr, u16 val) override;
-    void DataWrite32(u32 addr, u32 val) override;
-    void DataWrite32S(u32 addr, u32 val) override;
+    void DataRead8(const u32 addr, u32* val) override;
+    void DataRead16(const u32 addr, u32* val) override;
+    void DataRead32(const u32 addr, u32* val) override;
+    void DataRead32S(const u32 addr, u32* val) override;
+    void DataWrite8(const u32 addr, const u8 val) override;
+    void DataWrite16(const u32 addr, const u16 val) override;
+    void DataWrite32(const u32 addr, const u32 val) override;
+    void DataWrite32S(const u32 addr, const u32 val) override;
     void AddCycles_C() override;
     void AddCycles_CI(s32 num) override;
     void AddCycles_CDI() override;

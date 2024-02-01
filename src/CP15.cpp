@@ -24,6 +24,7 @@
 #include "Platform.h"
 #include "ARMJIT_Memory.h"
 #include "ARMJIT.h"
+#include "CP15_Constants.h"
 
 namespace melonDS
 {
@@ -67,10 +68,6 @@ void ARMv5::CP15Reset()
     DCacheInvalidateAll();
     DCacheCount = 0;
 
-    // make sure that both half words are not the same otherwise the random of the DCache set selection only produces
-    // '00' and '11'
-    DCacheLFSRStates = 0xDEADBEEF;  
-
     PU_CodeCacheable = 0;
     PU_DataCacheable = 0;
     PU_DataCacheWrite = 0;
@@ -78,10 +75,9 @@ void ARMv5::CP15Reset()
     PU_CodeRW = 0;
     PU_DataRW = 0;
 
-    memset(PU_Region, 0, 8*sizeof(u32));
+    memset(PU_Region, 0, CP15_REGION_COUNT*sizeof(u32));
     UpdatePURegions(true);
 
-    CurICacheLine = NULL;
 }
 
 void ARMv5::CP15DoSavestate(Savestate* file)
@@ -103,7 +99,6 @@ void ARMv5::CP15DoSavestate(Savestate* file)
     file->VarArray(DCache, sizeof(DCache));
     file->VarArray(DCacheTags, sizeof(DCacheTags));
     file->Var8(&DCacheCount);
-    file->Var32(&DCacheLFSRStates);
 
     file->Var32(&DCacheLockDown);
     file->Var32(&ICacheLockDown);
@@ -116,7 +111,7 @@ void ARMv5::CP15DoSavestate(Savestate* file)
     file->Var32(&PU_CodeRW);
     file->Var32(&PU_DataRW);
 
-    file->VarArray(PU_Region, 8*sizeof(u32));
+    file->VarArray(PU_Region, CP15_REGION_COUNT*sizeof(u32));
 
     if (!file->Saving)
     {
@@ -178,8 +173,11 @@ void ARMv5::UpdatePURegion(u32 n)
     if (!(CP15Control & CP15_CR_MPUENABLE))
         return;
 
-    u32 coderw = (PU_CodeRW >> (4*n)) & 0xF;
-    u32 datarw = (PU_DataRW >> (4*n)) & 0xF;
+    if (n >= CP15_REGION_COUNT)
+        return;
+
+    u32 coderw = (PU_CodeRW >> (CP15_REGIONACCESS_BITS_PER_REGION * n)) & CP15_REGIONACCESS_REGIONMASK;
+    u32 datarw = (PU_DataRW >> (CP15_REGIONACCESS_BITS_PER_REGION * n)) & CP15_REGIONACCESS_REGIONMASK;
 
     u32 codecache, datacache, datawrite;
 
@@ -211,60 +209,60 @@ void ARMv5::UpdatePURegion(u32 n)
         return;
     }
 
-    u32 start = rgn >> 12;
-    u32 sz = 2 << ((rgn >> 1) & 0x1F);
-    u32 end = start + (sz >> 12);
+    u32 start = (rgn & CP15_REGION_BASE_MASK) >> CP15_MAP_ENTRYSIZE_LOG2;
+    u32 sz = 2 << ((rgn & CP15_REGION_SIZE_MASK) >> 1);
+    u32 end = start + (sz >> CP15_MAP_ENTRYSIZE_LOG2);
     // TODO: check alignment of start
 
-    u8 usermask = 0;
-    u8 privmask = 0;
+    u8 usermask = CP15_MAP_NOACCESS;
+    u8 privmask = CP15_MAP_NOACCESS;
 
     switch (datarw)
     {
     case 0: break;
-    case 1: privmask |= 0x03; break;
-    case 2: privmask |= 0x03; usermask |= 0x01; break;
-    case 3: privmask |= 0x03; usermask |= 0x03; break;
-    case 5: privmask |= 0x01; break;
-    case 6: privmask |= 0x01; usermask |= 0x01; break;
+    case 1: privmask |= CP15_MAP_READABLE | CP15_MAP_WRITEABLE; break;
+    case 2: privmask |= CP15_MAP_READABLE | CP15_MAP_WRITEABLE; usermask |= CP15_MAP_READABLE; break;
+    case 3: privmask |= CP15_MAP_READABLE | CP15_MAP_WRITEABLE; usermask |= CP15_MAP_READABLE | CP15_MAP_WRITEABLE; break;
+    case 5: privmask |= CP15_MAP_READABLE; break;
+    case 6: privmask |= CP15_MAP_READABLE; usermask |= CP15_MAP_READABLE; break;
     default: Log(LogLevel::Warn, "!! BAD DATARW VALUE %d\n", datarw&0xF);
     }
 
     switch (coderw)
     {
     case 0: break;
-    case 1: privmask |= 0x04; break;
-    case 2: privmask |= 0x04; usermask |= 0x04; break;
-    case 3: privmask |= 0x04; usermask |= 0x04; break;
-    case 5: privmask |= 0x04; break;
-    case 6: privmask |= 0x04; usermask |= 0x04; break;
+    case 1: privmask |= CP15_MAP_EXECUTABLE; break;
+    case 2: privmask |= CP15_MAP_EXECUTABLE; usermask |= CP15_MAP_EXECUTABLE; break;
+    case 3: privmask |= CP15_MAP_EXECUTABLE; usermask |= CP15_MAP_EXECUTABLE; break;
+    case 5: privmask |= CP15_MAP_EXECUTABLE; break;
+    case 6: privmask |= CP15_MAP_EXECUTABLE; usermask |= CP15_MAP_EXECUTABLE; break;
     default: Log(LogLevel::Warn, "!! BAD CODERW VALUE %d\n", datarw&0xF);
     }
 
     if (datacache & 0x1)
     {
-        privmask |= 0x10;
-        usermask |= 0x10;
+        privmask |= CP15_MAP_DCACHEABLE;
+        usermask |= CP15_MAP_DCACHEABLE;
 
         if (datawrite & 0x1)
         {
-            privmask |= 0x20;
-            usermask |= 0x20;
+            privmask |= CP15_MAP_DCACHEWRITEBACK;
+            usermask |= CP15_MAP_DCACHEWRITEBACK;
         }
     }
 
     if (codecache & 0x1)
     {
-        privmask |= 0x40;
-        usermask |= 0x40;
+        privmask |= CP15_MAP_ICACHEABLE;
+        usermask |= CP15_MAP_ICACHEABLE;
     }
 
     Log(
         LogLevel::Debug,
         "PU region %d: %08X-%08X, user=%02X priv=%02X, %08X/%08X\n",
         n,
-        start << 12,
-        end << 12,
+        start << CP15_MAP_ENTRYSIZE_LOG2,
+        end << CP15_MAP_ENTRYSIZE_LOG2,
         usermask,
         privmask,
         PU_DataRW,
@@ -286,9 +284,9 @@ void ARMv5::UpdatePURegions(bool update_all)
     {
         // PU disabled
 
-        u8 mask = 0x07;
-        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) mask |= 0x30;
-        if (CP15Control & CP15_CACHE_CR_ICACHEENABLE) mask |= 0x40;
+        u8 mask = CP15_MAP_READABLE | CP15_MAP_WRITEABLE | CP15_MAP_EXECUTABLE;
+        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) mask |= CP15_MAP_DCACHEABLE | CP15_MAP_DCACHEWRITEBACK ;
+        if (CP15Control & CP15_CACHE_CR_ICACHEENABLE) mask |= CP15_MAP_ICACHEABLE;
 
         memset(PU_UserMap, mask, 0x100000);
         memset(PU_PrivMap, mask, 0x100000);
@@ -299,11 +297,11 @@ void ARMv5::UpdatePURegions(bool update_all)
 
     if (update_all)
     {
-        memset(PU_UserMap, 0, 0x100000);
-        memset(PU_PrivMap, 0, 0x100000);
+        memset(PU_UserMap, CP15_MAP_NOACCESS, 0x100000);
+        memset(PU_PrivMap, CP15_MAP_NOACCESS, 0x100000);
     }
 
-    for (int n = 0; n < 8; n++)
+    for (int n = 0; n < CP15_REGION_COUNT; n++)
     {
         UpdatePURegion(n);
     }
@@ -322,7 +320,7 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
         u8 pu = PU_Map[i];
         u8* bustimings = NDS.ARM9MemTimings[i >> 2];
 
-        if (pu & 0x40)
+        if (pu & CP15_MAP_ICACHEABLE)
         {
             MemTimings[i][0] = 0xFF;//kCodeCacheTiming;
         }
@@ -331,7 +329,7 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
             MemTimings[i][0] = bustimings[2] << NDS.ARM9ClockShift;
         }
 
-        if (pu & 0x10)
+        if (pu & CP15_MAP_DCACHEABLE)
         {
             MemTimings[i][1] = kDataCacheTiming;
             MemTimings[i][2] = kDataCacheTiming;
@@ -364,7 +362,7 @@ u32 ARMv5::ICacheLookup(const u32 addr)
 
     for (int set=0;set<ICACHE_SETS;set++)
     {
-        if ((ICacheTags[id+set] & ~0x0F) == (tag | CACHE_FLAG_VALID))
+        if ((ICacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == (tag | CACHE_FLAG_VALID))
         {
             CodeCycles = 1;
             u32 *cacheLine = (u32 *)&ICache[(id+set) << ICACHE_LINELENGTH_LOG2];
@@ -448,7 +446,7 @@ void ARMv5::ICacheInvalidateByAddr(const u32 addr)
 
     for (int set=0;set<ICACHE_SETS;set++)
     {
-        if ((ICacheTags[id+set] & ~0x0F) == tag)
+        if ((ICacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
         {
             ICacheTags[id+set] &= ~CACHE_FLAG_VALID;  ;
             return;
@@ -476,7 +474,7 @@ void ARMv5::ICacheInvalidateAll()
 
 bool ARMv5::IsAddressICachable(const u32 addr) const
 {
-    return PU_Map[addr >> 12] & 0x40 ;
+    return PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_ICACHEABLE ;
 }
 
 u32 ARMv5::DCacheLookup(const u32 addr)
@@ -487,7 +485,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
 
     for (int set=0;set<DCACHE_SETS;set++)
     {
-        if ((DCacheTags[id+set] & ~0x0F) == (tag | CACHE_FLAG_VALID))
+        if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == (tag | CACHE_FLAG_VALID))
         {
             DataCycles = 1;
             u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
@@ -578,13 +576,11 @@ void ARMv5::DCacheWrite32(const u32 addr, const u32 val)
 
     for (int set=0;set<DCACHE_SETS;set++)
     {
-        if ((DCacheTags[id+set] & ~0x0F) == tag)
+        if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
         {
             u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             cacheLine[(addr & (ICACHE_LINELENGTH-1)) >> 2] = val;
             DataCycles = 1;
-
-            //Log(LogLevel::Debug,"DCache write32 hit @ %08x -> %08lx\n", addr, ((u32 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
             return;
         }
     }    
@@ -597,13 +593,11 @@ void ARMv5::DCacheWrite16(const u32 addr, const u16 val)
 
     for (int set=0;set<DCACHE_SETS;set++)
     {
-        if ((DCacheTags[id+set] & ~0x0F) == tag)
+        if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
         {
             u16 *cacheLine = (u16 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             cacheLine[(addr & (ICACHE_LINELENGTH-1)) >> 1] = val;
             DataCycles = 1;
-
-            //Log(LogLevel::Debug,"DCache write16 hit @ %08x -> %04x\n", addr, ((u16 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
             return;
         }
     }    
@@ -616,13 +610,11 @@ void ARMv5::DCacheWrite8(const u32 addr, const u8 val)
 
     for (int set=0;set<DCACHE_SETS;set++)
     {
-        if ((DCacheTags[id+set] & ~0x0F) == tag)
+        if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
         {
             u8 *cacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             cacheLine[addr & (ICACHE_LINELENGTH-1)] = val;
             DataCycles = 1;
-
-            //Log(LogLevel::Debug,"DCache write hit8 @ %08x -> %02x\n", addr, ((u8 *)CurDCacheLine)[(addr & (DCACHE_LINELENGTH-1)) >> 2]);
             return;
         }
     }    
@@ -635,7 +627,7 @@ void ARMv5::DCacheInvalidateByAddr(const u32 addr)
 
     for (int set=0;set<DCACHE_SETS;set++)
     {
-        if ((DCacheTags[id+set] & ~0x0Ful) == tag)
+        if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
         {
             //Log(LogLevel::Debug,"DCache invalidated %08lx\n", addr & ~(ICACHE_LINELENGTH-1));
             DCacheTags[id+set] &= ~CACHE_FLAG_VALID;  ;     
@@ -682,7 +674,7 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
 
 bool ARMv5::IsAddressDCachable(const u32 addr) const
 {
-    return PU_Map[addr >> 12] & 0x10 ;
+    return PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_DCACHEABLE ;
 }
 
 void ARMv5::CP15Write(u32 id, u32 val)
@@ -700,13 +692,14 @@ void ARMv5::CP15Write(u32 id, u32 val)
             //Log(LogLevel::Debug, "CP15Control = %08X (%08X->%08X)\n", CP15Control, old, val);
             UpdateDTCMSetting();
             UpdateITCMSetting();
-            if ((old & 0x1005) != (val & 0x1005))
+            u32 changedBits = old^val;
+            if (changedBits & (CP15_CR_MPUENABLE | CP15_CACHE_CR_ICACHEENABLE| CP15_CACHE_CR_DCACHEENABLE))
             {
-                UpdatePURegions((old & 0x1) != (val & 0x1));
+                UpdatePURegions(changedBits & CP15_CR_MPUENABLE);
             }
             if (val & CP15_CR_BIGENDIAN) Log(LogLevel::Warn, "!!!! ARM9 BIG ENDIAN MODE. VERY BAD. SHIT GONNA ASPLODE NOW\n");
-            if (val & CP15_CR_HIGHEXCEPTIONBASE) ExceptionBase = 0xFFFF0000;
-            else                                 ExceptionBase = 0x00000000;
+            if (val & CP15_CR_HIGHEXCEPTIONBASE) ExceptionBase = CP15_EXCEPTIONBASE_HIGH;
+            else                                 ExceptionBase = CP15_EXCEPTIONBASE_LOW;
         }
         return;
 
@@ -715,7 +708,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_DataCacheable ^ val;
             PU_DataCacheable = val;
-            for (u32 i = 0; i < 8; i++)
+            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
             {
                 if (diff & (1<<i)) UpdatePURegion(i);
             }
@@ -726,7 +719,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_CodeCacheable ^ val;
             PU_CodeCacheable = val;
-            for (u32 i = 0; i < 8; i++)
+            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
             {
                 if (diff & (1<<i)) UpdatePURegion(i);
             }
@@ -738,7 +731,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_DataCacheWrite ^ val;
             PU_DataCacheWrite = val;
-            for (u32 i = 0; i < 8; i++)
+            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
             {
                 if (diff & (1<<i)) UpdatePURegion(i);
             }
@@ -759,9 +752,9 @@ void ARMv5::CP15Write(u32 id, u32 val)
             PU_DataRW |= ((val & 0x3000) << 12);
             PU_DataRW |= ((val & 0xC000) << 14);
             u32 diff = old ^ PU_DataRW;
-            for (u32 i = 0; i < 8; i++)
+            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
             {
-                if (diff & (0xF<<(i*4))) UpdatePURegion(i);
+                if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
             }
         }
         return;
@@ -779,9 +772,9 @@ void ARMv5::CP15Write(u32 id, u32 val)
             PU_CodeRW |= ((val & 0x3000) << 12);
             PU_CodeRW |= ((val & 0xC000) << 14);
             u32 diff = old ^ PU_CodeRW;
-            for (u32 i = 0; i < 8; i++)
+            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
             {
-                if (diff & (0xF<<(i*4))) UpdatePURegion(i);
+                if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
             }
         }
         return;
@@ -790,9 +783,9 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_DataRW ^ val;
             PU_DataRW = val;
-            for (u32 i = 0; i < 8; i++)
+            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
             {
-                if (diff & (0xF<<(i*4))) UpdatePURegion(i);
+                if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
             }
         }
         return;
@@ -801,9 +794,9 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_CodeRW ^ val;
             PU_CodeRW = val;
-            for (u32 i = 0; i < 8; i++)
+            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
             {
-                if (diff & (0xF<<(i*4))) UpdatePURegion(i);
+                if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
             }
         }
         return;
@@ -825,21 +818,16 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x661:
     case 0x670:
     case 0x671:
-        char log_output[1024];
-        PU_Region[(id >> 4) & 0xF] = val;
+        PU_Region[(id >> CP15_REGIONACCESS_BITS_PER_REGION) & CP15_REGIONACCESS_REGIONMASK] = val;
 
-        std::snprintf(log_output,
-                 sizeof(log_output),
+        Log(LogLevel::Debug,
                  "PU: region %d = %08X : %s, %08X-%08X\n",
-                 (id >> 4) & 0xF,
+                 (id >> CP15_REGIONACCESS_BITS_PER_REGION) & CP15_REGIONACCESS_REGIONMASK,
                  val,
                  val & 1 ? "enabled" : "disabled",
-                 val & 0xFFFFF000,
-                 (val & 0xFFFFF000) + (2 << ((val & 0x3E) >> 1))
+                 val & CP15_REGION_BASE_MASK,
+                 (val & CP15_REGION_BASE_MASK) + (2 << ((val & CP15_REGION_SIZE_MASK) >> 1))
         );
-        Log(LogLevel::Debug, "%s", log_output);
-        // Some implementations of Log imply a newline, so we build up the line before printing it
-
         // TODO: smarter region update for this?
         UpdatePURegions(true);
         return;
@@ -854,7 +842,6 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x750:
         // Can be executed in user and priv mode
         ICacheInvalidateAll();
-        //Halt(255);
         return;
     case 0x751:
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
@@ -1179,11 +1166,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
     }
 
-    if ((id & 0xF00) == 0xF00) // test/debug shit?
-        return;
-
-    if ((id & 0xF00) != 0x700)
-        Log(LogLevel::Debug, "unknown CP15 write op %03X %08X\n", id, val);
+    Log(LogLevel::Debug, "unknown CP15 write op %03X %08X\n", id, val);
 }
 
 u32 ARMv5::CP15Read(u32 id) const
@@ -1198,7 +1181,7 @@ u32 ARMv5::CP15Read(u32 id) const
     case 0x005:
     case 0x006:
     case 0x007:
-        return 0x41059461;
+        return CP15_MAINID_IMPLEMENTOR_ARM | CP15_MAINID_VARIANT_0 | CP15_MAINID_ARCH_v5TE | CP15_MAINID_IMPLEMENTATION_946 | CP15_MAINID_REVISION_1;
 
     case 0x001: // cache type
         return CACHE_TR_LOCKDOWN_TYPE_B | CACHE_TR_NONUNIFIED
@@ -1269,7 +1252,7 @@ u32 ARMv5::CP15Read(u32 id) const
     case 0x661:
     case 0x670:
     case 0x671:
-        return PU_Region[(id >> 4) & 0xF];
+        return PU_Region[(id >> CP15_REGIONACCESS_BITS_PER_REGION) & 0xF];
 
     case 0x7A6:
         // read Cache Dirty Bit (optional)
@@ -1346,9 +1329,6 @@ u32 ARMv5::CP15Read(u32 id) const
         }
     }
 
-    if ((id & 0xF00) == 0xF00) // test/debug shit?
-        return 0;
-
     Log(LogLevel::Debug, "unknown CP15 read op %03X\n", id);
     return 0;
 }
@@ -1357,24 +1337,9 @@ u32 ARMv5::CP15Read(u32 id) const
 // TCM are handled here.
 // TODO: later on, handle PU
 
-u32 ARMv5::CodeRead32(u32 addr, bool branch)
+u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
 {
-    /*if (branch || (!(addr & 0xFFF)))
-    {
-        if (!(PU_Map[addr>>12] & 0x04))
-        {
-            PrefetchAbort();
-            return 0;
-        }
-    }*/
 
-    if (addr < ITCMSize)
-    {
-        CodeCycles = 1;
-        return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
-    }
-
-    CodeCycles = RegionCodeCycles;
 #ifdef JIT_ENABLED
     if (!NDS.IsJITEnabled())
 #endif    
@@ -1386,27 +1351,33 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
                 return ICacheLookup(addr);
             }
         }
-    } else
-    {
-        if (CodeCycles == 0xFF) // cached memory. hax
-        {
-            if (branch || !(addr & 0x1F))
-                CodeCycles = kCodeCacheTiming;//ICacheLookup(addr);
-            else
-                CodeCycles = 1;
+    } 
 
-            //return *(u32*)&CurICacheLine[addr & 0x1C];
-        }
+    if (addr < ITCMSize)
+    {
+        CodeCycles = 1;
+        return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
     }
+
+    CodeCycles = RegionCodeCycles;
+
+    if (CodeCycles == 0xFF) // cached memory. hax
+    {
+        if (branch || !(addr & (ICACHE_LINELENGTH-1)))
+            CodeCycles = kCodeCacheTiming;//ICacheLookup(addr);
+        else
+            CodeCycles = 1;
+    }
+
     if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];
 
     return BusRead32(addr);
 }
 
 
-void ARMv5::DataRead8(u32 addr, u32* val)
+void ARMv5::DataRead8(const u32 addr, u32* val)
 {
-    if (!(PU_Map[addr>>12] & 0x01))
+    if (!(PU_Map[addr>>CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_READABLE))
     {
         Log(LogLevel::Debug, "data8 abort @ %08lx\n", addr);
         DataAbort();
@@ -1421,9 +1392,9 @@ void ARMv5::DataRead8(u32 addr, u32* val)
     {
         if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            if (PU_Map[addr >> 12] & 0x10)
+            if (IsAddressDCachable(addr))
             {
-                *val = (DCacheLookup(addr) >> (8* (addr & 3))) & 0xff;
+                *val = (DCacheLookup(addr) >> (8 * (addr & 3))) & 0xff;
                 return;
             }
         }
@@ -1443,12 +1414,12 @@ void ARMv5::DataRead8(u32 addr, u32* val)
     }
 
     *val = BusRead8(addr);
-    DataCycles = MemTimings[addr >> 12][1];
+    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
 }
 
-void ARMv5::DataRead16(u32 addr, u32* val)
+void ARMv5::DataRead16(const u32 addr, u32* val)
 {
-    if (!(PU_Map[addr>>12] & 0x01))
+    if (!(PU_Map[addr>>CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_READABLE))
     {
         Log(LogLevel::Debug, "data16 abort @ %08lx\n", addr);
         DataAbort();
@@ -1463,7 +1434,7 @@ void ARMv5::DataRead16(u32 addr, u32* val)
     {
         if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            if (PU_Map[addr >> 12] & 0x10)
+            if (IsAddressDCachable(addr))
             {
                 *val = (DCacheLookup(addr) >> (8* (addr & 2))) & 0xffff;
                 return;
@@ -1471,28 +1442,26 @@ void ARMv5::DataRead16(u32 addr, u32* val)
         }
     }
 
-    addr &= ~1;
-
     if (addr < ITCMSize)
     {
         DataCycles = 1;
-        *val = *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        *val = *(u16*)&ITCM[addr & (ITCMPhysicalSize - 2)];
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *val = *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)];
+        *val = *(u16*)&DTCM[addr & (DTCMPhysicalSize - 2)];
         return;
     }
 
-    *val = BusRead16(addr);
-    DataCycles = MemTimings[addr >> 12][1];
+    *val = BusRead16(addr & ~1);
+    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
 }
 
-void ARMv5::DataRead32(u32 addr, u32* val)
+void ARMv5::DataRead32(const u32 addr, u32* val)
 {
-    if (!(PU_Map[addr>>12] & 0x01))
+    if (!(PU_Map[addr>>CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_READABLE))
     {
         Log(LogLevel::Debug, "data32 abort @ %08lx\n", addr);
         DataAbort();
@@ -1507,7 +1476,7 @@ void ARMv5::DataRead32(u32 addr, u32* val)
     {
         if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            if (PU_Map[addr >> 12] & 0x10)
+            if (IsAddressDCachable(addr))
             {
                 *val = DCacheLookup(addr);
                 return;
@@ -1515,36 +1484,32 @@ void ARMv5::DataRead32(u32 addr, u32* val)
         }
     }
 
-    addr &= ~3;
-
     if (addr < ITCMSize)
     {
         DataCycles = 1;
-        *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 3)];
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
+        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 3)];
         return;
     }
 
-    *val = BusRead32(addr);
-    DataCycles = MemTimings[addr >> 12][2];
+    *val = BusRead32(addr & ~0x03);
+    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_N32];
 }
 
-void ARMv5::DataRead32S(u32 addr, u32* val)
+void ARMv5::DataRead32S(const u32 addr, u32* val)
 {
-    addr &= ~3;
-
 #ifdef JIT_ENABLED
     if (!NDS.IsJITEnabled())
 #endif  
     {
         if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            if (PU_Map[addr >> 12] & 0x10)
+            if (IsAddressDCachable(addr))
             {
                 *val = DCacheLookup(addr);
                 return;
@@ -1555,23 +1520,23 @@ void ARMv5::DataRead32S(u32 addr, u32* val)
     if (addr < ITCMSize)
     {
         DataCycles += 1;
-        *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 3)];
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles += 1;
-        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
+        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 3)];
         return;
     }
 
-    *val = BusRead32(addr);
-    DataCycles += MemTimings[addr >> 12][3];
+    *val = BusRead32(addr & ~0x03);
+    DataCycles += MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S32];
 }
 
-void ARMv5::DataWrite8(u32 addr, u8 val)
+void ARMv5::DataWrite8(const u32 addr, const u8 val)
 {
-    if (!(PU_Map[addr>>12] & 0x02))
+    if (!(PU_Map[addr>>CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_WRITEABLE))
     {
         DataAbort();
         return;
@@ -1583,10 +1548,9 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
     {
         if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            if (PU_Map[addr >> 12] & 0x10)
+            if (IsAddressDCachable(addr))
             {
                 DCacheWrite8(addr, val);
-                //DCacheInvalidateByAddr(addr);
             }
         }
     }
@@ -1608,12 +1572,12 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
     }
 
     BusWrite8(addr, val);
-    DataCycles = MemTimings[addr >> 12][1];
+    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
 }
 
-void ARMv5::DataWrite16(u32 addr, u16 val)
+void ARMv5::DataWrite16(const u32 addr, const u16 val)
 {
-    if (!(PU_Map[addr>>12] & 0x02))
+    if (!(PU_Map[addr>>CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_WRITEABLE))
     {
         DataAbort();
         return;
@@ -1625,39 +1589,36 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
     {
         if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            if (PU_Map[addr >> 12] & 0x10)
+            if (IsAddressDCachable(addr))
             {
                 DCacheWrite16(addr, val);
-    //            DCacheInvalidateByAddr(addr);
             }
         }
     }
 
     DataRegion = addr;
 
-    addr &= ~1;
-
     if (addr < ITCMSize)
     {
         DataCycles = 1;
-        *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
+        *(u16*)&ITCM[addr & (ITCMPhysicalSize - 2)] = val;
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
+        *(u16*)&DTCM[addr & (DTCMPhysicalSize - 2)] = val;
         return;
     }
 
-    BusWrite16(addr, val);
-    DataCycles = MemTimings[addr >> 12][1];
+    BusWrite16(addr & ~1, val);
+    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
 }
 
-void ARMv5::DataWrite32(u32 addr, u32 val)
+void ARMv5::DataWrite32(const u32 addr, const u32 val)
 {
-    if (!(PU_Map[addr>>12] & 0x02))
+    if (!(PU_Map[addr>>CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_WRITEABLE))
     {
         DataAbort();
         return;
@@ -1669,50 +1630,44 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
     {
         if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            if (PU_Map[addr >> 12] & 0x10)
+            if (IsAddressDCachable(addr))
             {
                 DCacheWrite32(addr, val);
-    //            DCacheInvalidateByAddr(addr);
             }
         }
     }
 
     DataRegion = addr;
 
-    addr &= ~3;
-
     if (addr < ITCMSize)
     {
         DataCycles = 1;
-        *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
+        *(u32*)&ITCM[addr & (ITCMPhysicalSize - 3)] = val;
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
+        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 3)] = val;
         return;
     }
 
-    BusWrite32(addr, val);
-    DataCycles = MemTimings[addr >> 12][2];
+    BusWrite32(addr & ~3, val);
+    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_N32];
 }
 
-void ARMv5::DataWrite32S(u32 addr, u32 val)
+void ARMv5::DataWrite32S(const u32 addr, const u32 val)
 {
-    addr &= ~3;
-
 #ifdef JIT_ENABLED
     if (!NDS.IsJITEnabled())
 #endif  
     {
         if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
         {
-            if (PU_Map[addr >> 12] & 0x10)
+            if (IsAddressDCachable(addr))
             {
                 DCacheWrite32(addr, val);
-    //            DCacheInvalidateByAddr(addr);
             }
         }
     }
@@ -1720,7 +1675,7 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
     if (addr < ITCMSize)
     {
         DataCycles += 1;
-        *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
+        *(u32*)&ITCM[addr & (ITCMPhysicalSize - 3)] = val;
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
 #endif
@@ -1729,23 +1684,16 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles += 1;
-        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
+        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 3)] = val;
         return;
     }
 
-    BusWrite32(addr, val);
-    DataCycles += MemTimings[addr >> 12][3];
+    BusWrite32(addr & ~3, val);
+    DataCycles += MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S32];
 }
 
 void ARMv5::GetCodeMemRegion(u32 addr, MemRegion* region)
 {
-    /*if (addr < ITCMSize)
-    {
-        region->Mem = ITCM;
-        region->Mask = 0x7FFF;
-        return;
-    }*/
-
     NDS.ARM9GetMemRegion(addr, false, &CodeMem);
 }
 
