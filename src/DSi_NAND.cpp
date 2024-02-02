@@ -189,20 +189,18 @@ void NANDImage::SetupFATCrypto(AES_ctx* ctx, u32 ctr)
     u8 iv[16];
     memcpy(iv, FATIV.data(), sizeof(iv));
 
-    u32 res;
-    res = iv[15] + (ctr & 0xFF);
-    iv[15] = (res & 0xFF);
-    res = iv[14] + ((ctr >> 8) & 0xFF) + (res >> 8);
-    iv[14] = (res & 0xFF);
-    res = iv[13] + ((ctr >> 16) & 0xFF) + (res >> 8);
-    iv[13] = (res & 0xFF);
-    res = iv[12] + (ctr >> 24) + (res >> 8);
-    iv[12] = (res & 0xFF);
-    iv[11] += (res >> 8);
-    for (int i = 10; i >= 0; i--)
-    {
-        if (iv[i+1] == 0) iv[i]++;
-        else break;
+    u8 ctr_value[16] = {0};
+    ctr_value[15] = ctr & 0xFF;
+    ctr_value[14] = (ctr >> 8) & 0xFF;
+    ctr_value[13] = (ctr >> 16) & 0xFF;
+    ctr_value[12] = (ctr >> 24) & 0xFF;
+
+    unsigned carry = 0;
+    for (unsigned i = 0; i < 16; i ++) {
+        unsigned j = 15-i;
+        unsigned x = iv[j] + ctr_value[j] + carry;
+        carry = x >= 0x100;
+        iv[j] = x;
     }
 
     AES_init_ctx_iv(ctx, FATKey.data(), iv);
