@@ -311,39 +311,232 @@ public:
 
     u32 RandomLineIndex();
 
+    /**
+     * @brief Perform an instruction cache lookup handle
+     * @details
+     * A cache lookup is performed, if not disabled in 
+     * @ref CP15BISTTestStateRegister, a hit will returned the 
+     * cached data, otherwise it returns the result of an memory 
+     * access instead.
+     * If the cache lookup results in a cachemiss and linefill is
+     * not disabled in @ref CP15BISTTestStateRegister, will fill
+     * fetch all data to fill the entire cacheline directly
+     * from the ITCM or bus
+     * @param [in] addr Address of the memory to be retreived from
+     * cache. The address is internally aligned to an word boundary
+     * @return Value of the word at addr
+     */
     u32 ICacheLookup(const u32 addr);
+
+    /**
+     * @brief Check if an address is within a instruction cachable 
+     * region
+     * @details
+     * Checks the address by looking up the PU_map flags for 
+     * the address and returns the status of the instruction
+     * cache enable flag
+     * 
+     * @param [in] addr Address. May be unaligned.
+     * @retval true If the address points to a region, that is
+     * enabled for instruction fetches to be cached.
+     */
     inline bool IsAddressICachable(const u32 addr) const;
 
+    /**
+     * @brief Invalidates all instruction cache lines
+     * @details
+     * Clears the @ref CACHE_FLAG_VALID of each cache line in the 
+     * instruction cache. All other flags and values are kept.
+     * @par Returns
+     *      Nothing
+     */
     void ICacheInvalidateAll();
+
+    /** 
+     * @brief Invalidates the instruction cacheline containing 
+     * the data of an address.
+     * @details 
+     * Searches the cacheline containing the data of an address, and
+     * if found clears the @ref CACHE_FLAG_VALID of this cache line.
+     * Nothing is done if the address is not present in the cache.
+     * @param [in] addr Memory address of the data in the cache line
+     * @par Returns
+     *      Nothing
+     */
     void ICacheInvalidateByAddr(const u32 addr);
+
+    /**
+     * @brief Invalidates an instruction cache line
+     * @details
+     * Clears the @ref CACHE_FLAG_VALID of the cacheline given by 
+     * set and index within the set. Nothing is done if the cache
+     * line does not exist.
+     * @param [in] cacheSet index of the internal cache set from
+     * 0 to @ref ICACHE_SETS - 1
+     * @param [in] cacheLine index of the line within the cache set
+     * from 0 to @ref ICACHE_LINESPERSET - 1
+     * @par Returns
+     *      Nothing
+     */
     void ICacheInvalidateBySetAndWay(const u8 cacheSet, const u8 cacheLine);
 
+    /**
+     * @brief Perform an data cache lookup handle
+     * @details
+     * A cache lookup is performed, if not disabled in 
+     * @ref CP15BISTTestStateRegister, a hit will returned the 
+     * cached data, otherwise it returns the result of an memory 
+     * access instead.
+     * If the cache lookup results in a cachemiss and linefill is
+     * not disabled in @ref CP15BISTTestStateRegister, will fill
+     * fetch all data to fill the entire cacheline directly
+     * from the ITCM, DTCM or bus
+     * @param [in] addr Address of the memory to be retreived from
+     * cache. The address is internally aligned to an word boundary
+     * @return Value of the word at addr
+     */
     u32 DCacheLookup(const u32 addr);
+
+    /**
+     * @brief Updates a word in the data cache if present
+     * @param [in] addr Memory address which is written
+     * @param [in] val Word value to be written
+     * @par Returns
+     *      Nothing
+     */
     void DCacheWrite32(const u32 addr, const u32 val);
+
+    /**
+     * @brief Updates a word in the data cache if present
+     * @param [in] addr Memory address which is written
+     * @param [in] val Half-Word value to be written
+     * @par Returns
+     *      Nothing
+     */
     void DCacheWrite16(const u32 addr, const u16 val);
+
+    /**
+     * @brief Updates a word in the data cache if present
+     * @param [in] addr Memory address which is written
+     * @param [in] val Byte value to be written
+     * @par Returns
+     *      Nothing
+     */
     void DCacheWrite8(const u32 addr, const u8 val);
+
+    /**
+     * @brief Check if an address is within a data cachable region
+     * @details
+     * Checks the address by looking up the PU_map flags for 
+     * the address and returns the status of the data cache enable 
+     * flag
+     * 
+     * @param [in] addr Address. May be unaligned.
+     * @retval true If the address points to a region, that is
+     * enabled for instruction fetches to be cached.
+     */
     inline bool IsAddressDCachable(const u32 addr) const;
 
+    /** 
+     * @brief Invalidates the data cacheline containing the data of 
+     * an address.
+     * @details 
+     * Searches the cacheline containing the data of an address, and
+     * if found clears the @ref CACHE_FLAG_VALID of this cache line.
+     * Nothing is done if the address is not present in the cache.
+     * @par Returns
+     *      Nothing
+     */
     void DCacheInvalidateAll();
+    
+     /** 
+     * @brief Invalidates the data cacheline containing the data of 
+     * an address.
+     * @details 
+     * Searches the cacheline containing the data of an address, and
+     * if found clears the @ref CACHE_FLAG_VALID of this cache line.
+     * Nothing is done if the address is not present in the cache.
+     * @par Returns
+     *      Nothing
+     */     
     void DCacheInvalidateByAddr(const u32 addr);
+    
+    /**
+     * @brief Invalidates an data cache line
+     * @details
+     * Clears the @ref CACHE_FLAG_VALID of the cacheline given by 
+     * set and index within the set. Nothing is done if the cache
+     * line does not exist.
+     * @param [in] cacheSet index of the internal cache set from
+     * 0 to @ref DCACHE_SETS - 1
+     * @param [in] cacheLine index of the line within the cache set
+     * from 0 to @ref DCACHE_LINESPERSET - 1
+     * @par Returns
+     *      Nothing
+     */
     void DCacheInvalidateBySetAndWay(const u8 cacheSet, const u8 cacheLine);
     
+    /**
+     * @brief Cleans the entire data cache
+     * @details
+     * In melonDS, the data cache is instantly cleaned on writes, the 
+     * @ref CACHE_FLAG_DIRTY_LOWERHALF and @ref CACHE_FLAG_DIRTY_UPPERHALF are
+     * not set. 
+     * If they are implemented at a later time, the cache content has to be 
+     * written to memory, the dirty bit cleared. The call should require
+     * as much cycles as needed for this write operation. 
+     * @par Returns
+     *      Nothing
+     */
     void DCacheClearAll();
+
+    /**
+     * @brief Cleans a data cache line
+     * @details
+     * In melonDS, the data cache is instantly cleaned on writes, the 
+     * @ref CACHE_FLAG_DIRTY_LOWERHALF and @ref CACHE_FLAG_DIRTY_UPPERHALF are
+     * not set. 
+     * If they are implemented at a later time, the cache content has to be 
+     * written to memory, the dirty bit cleared. The call should require
+     * as much cycles as needed for this write operation. 
+     * @param [in] addr Memory address of the data in the cache line
+     * @par Returns
+     *      Nothing
+     */
     void DCacheClearByAddr(const u32 addr);
+
+    /**
+     * @brief Cleans a data cache line
+     * @details
+     * In melonDS, the data cache is instantly cleaned on writes, the 
+     * @ref CACHE_FLAG_DIRTY_LOWERHALF and @ref CACHE_FLAG_DIRTY_UPPERHALF are
+     * not set. 
+     * If they are implemented at a later time, the cache content has to be 
+     * written to memory, the dirty bit cleared. The call should require
+     * as much cycles as needed for this write operation. 
+     * @param [in] cacheSet index of the internal cache set from
+     * 0 to @ref DCACHE_SETS - 1
+     * @param [in] cacheLine index of the line within the cache set
+     * from 0 to @ref DCACHE_LINESPERSET - 1
+     * @par Returns
+     *      Nothing
+     */
     void DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine);
 
     void CP15Write(u32 id, u32 val);
     u32 CP15Read(u32 id) const;
 
-    u32 CP15Control;
+    u32 CP15Control;                                //! CP15 Register 1: Control Register
 
-    u32 RNGSeed;
+    u32 RNGSeed;                                    //! Global cache line fill seed. Used for pseudo random replacement strategy with the instruction and data cache
 
-    u32 DTCMSetting, ITCMSetting;
-    u32 DCacheLockDown, ICacheLockDown;
-    u32 CacheDebugRegisterIndex;
-    u32 CP15TraceProcessId;
-    u32 CP15BISTTestStateRegister;
+    u32 DTCMSetting;
+    u32 ITCMSetting;
+    u32 DCacheLockDown;                             //! CP15: Data Cache Lockdown Register
+    u32 ICacheLockDown;                             //! CP15: Instruction Cache Lockdown Register
+    u32 CacheDebugRegisterIndex;                    //! CP15: Cache Debug Index Register
+    u32 CP15TraceProcessId;                         //! CP15: Trace Process Id Register
+    u32 CP15BISTTestStateRegister;                  //! CP15: BIST Test State Register
 
     // for aarch64 JIT they need to go up here
     // to be addressable by a 12-bit immediate
@@ -354,13 +547,13 @@ public:
     u8 ITCM[ITCMPhysicalSize];
     u8* DTCM;
 
-    u8 ICache[ICACHE_SIZE];
-    u32 ICacheTags[ICACHE_LINESPERSET*ICACHE_SETS];
-    u8 ICacheCount;
+    u8 ICache[ICACHE_SIZE];                         //! Instruction Cache Content organized in @ref ICACHE_LINESPERSET times @ref ICACHE_SETS times @ref ICACHE_LINELENGTH bytes
+    u32 ICacheTags[ICACHE_LINESPERSET*ICACHE_SETS]; //! Instruction Cache Tags organized in @ref ICACHE_LINESPERSET times @ref ICACHE_SETS Tags
+    u8 ICacheCount;                                 //! Global instruction line fill counter. Used for round-robin replacement strategy with the instruction cache
 
-    u8 DCache[DCACHE_SIZE];
-    u32 DCacheTags[DCACHE_LINESPERSET*DCACHE_SETS];
-    u8 DCacheCount;
+    u8 DCache[DCACHE_SIZE];                         //! Data Cache Content organized in @ref DCACHE_LINESPERSET times @ref DCACHE_SETS times @ref DCACHE_LINELENGTH bytes
+    u32 DCacheTags[DCACHE_LINESPERSET*DCACHE_SETS]; //! Data Cache Tags organized in @ref DCACHE_LINESPERSET times @ref DCACHE_SETS Tags
+    u8 DCacheCount;                                 //! Global data line fill counter. Used for round-robin replacement strategy with the instruction cache
 
     u32 PU_CodeCacheable;
     u32 PU_DataCacheable;
