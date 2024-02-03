@@ -928,10 +928,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         }
         ICacheInvalidateByAddr(val);
         //Halt(255);
@@ -940,10 +937,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         } else
         {
             // Cache invalidat by line number and set number
@@ -959,10 +953,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         }
         DCacheInvalidateAll();
         //printf("inval data cache %08X\n", val);
@@ -971,10 +962,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         }
         DCacheInvalidateByAddr(val);
         //printf("inval data cache SI\n");
@@ -983,10 +971,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         } else
         {
             // Cache invalidat by line number and set number
@@ -1007,10 +992,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         }
         //Log(LogLevel::Debug,"clean data cache\n");
         DCacheClearAll();
@@ -1019,10 +1001,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         }
         //Log(LogLevel::Debug,"clean data cache MVA\n");
         DCacheClearByAddr(val);
@@ -1032,10 +1011,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         } else
         {
             // Cache invalidat by line number and set number
@@ -1048,10 +1024,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         }
         // Test and clean (optional)
         // Is not present on the NDS/DSi
@@ -1067,10 +1040,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         }
         // we force a fill by looking up the value from cache
         // if it wasn't cached yet, it will be loaded into cache
@@ -1082,10 +1052,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         }
         DCacheClearAll();
         DCacheInvalidateAll();
@@ -1095,10 +1062,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         }
         DCacheClearByAddr(val);
         DCacheInvalidateByAddr(val);
@@ -1108,10 +1072,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         } else
         {
             // Cache invalidat by line number and set number
@@ -1126,10 +1087,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         }
         // Cache Lockdown - Format B
         //    Bit 31: Lock bit
@@ -1143,10 +1101,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // requires priv mode or causes UNKNOWN INSTRUCTION exception
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         }
         // Cache Lockdown - Format B
         //    Bit 31: Lock bit
@@ -1175,10 +1130,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0xF00:
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         } else
         {
             if (((id >> 12) & 0x0f) == 0x03)
@@ -1187,10 +1139,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
                 CP15BISTTestStateRegister = val;
             else
             {
-                if (CPSR & 0x20) // THUMB
-                    return ARMInterpreter::T_UNK(this);
-                else
-                    return ARMInterpreter::A_UNK(this);                
+                return ARMInterpreter::A_UNK(this);                
             }
 
         }
@@ -1200,10 +1149,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // instruction cache Tag register
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         } else
         {
             uint8_t segment = (CacheDebugRegisterIndex >> (32-ICACHE_SETS_LOG2)) & (ICACHE_SETS-1);
@@ -1216,10 +1162,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // data cache Tag register
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         } else
         {
             uint8_t segment = (CacheDebugRegisterIndex >> (32-DCACHE_SETS_LOG2)) & (DCACHE_SETS-1);
@@ -1233,10 +1176,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         //printf("cache debug instruction cache %08X\n", val);
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         } else
         {
             uint8_t segment = (CacheDebugRegisterIndex >> (32-ICACHE_SETS_LOG2)) & (ICACHE_SETS-1);
@@ -1250,10 +1190,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         //printf("cache debug data cache %08X\n", val);
         if (PU_Map != PU_PrivMap)
         {            
-            if (CPSR & 0x20) // THUMB
-                return ARMInterpreter::T_UNK(this);
-            else
-                return ARMInterpreter::A_UNK(this);
+            return ARMInterpreter::A_UNK(this);
         } else
         {
             uint8_t segment = (CacheDebugRegisterIndex >> (32-DCACHE_SETS_LOG2)) & (DCACHE_SETS-1);
