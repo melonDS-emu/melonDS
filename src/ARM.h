@@ -523,8 +523,36 @@ public:
      */
     void DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine);
 
-    void CP15Write(u32 id, u32 val);
-    u32 CP15Read(u32 id) const;
+    /**
+     * @brief Handles MCR operations writing to cp15 registers
+     * @details
+     * This function updates the internal state of the emulator when
+     * a cp15 register is written, or triggers the corresponding action
+     * like flushing caches.
+     * 
+     * @param [in] id the operation id to be performed, consisting of 
+     * (from lower to higher nibble) opcode2, intermediate register, 
+     * register and opcode1. Most write operations just take the first 3
+     * into account.
+     * param [in] val value to be written to the cp15 register
+     * @par Returns
+     *      Nothing
+     */
+    void CP15Write(const u32 id, const u32 val);
+
+    /**
+     * @brief handles MRC operations reading from cp15 registers
+     * @details
+     * This function accumulates the regsiter states from the internal
+     * emulator state. It does not modify the internal state of the
+     * emulator or cp15.
+     * @param  [in] id the operation id to be performed, consisting of 
+     * (from lower to higher nibble) opcode2, intermediate register, 
+     * register and opcode1. Most read operations just take the first 3
+     * into account.
+     * @return Value of the cp15 register
+     */
+    u32 CP15Read(const u32 id) const;
 
     u32 CP15Control;                                //! CP15 Register 1: Control Register
 

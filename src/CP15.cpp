@@ -760,7 +760,7 @@ bool ARMv5::IsAddressDCachable(const u32 addr) const
     return PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_DCACHEABLE ;
 }
 
-void ARMv5::CP15Write(u32 id, u32 val)
+void ARMv5::CP15Write(const u32 id, const u32 val)
 {
     //if(id!=0x704)printf("CP15 write op %03X %08X %08X\n", id, val, R[15]);
 
@@ -1299,7 +1299,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
     Log(LogLevel::Debug, "unknown CP15 write op %04X %08X\n", id, val);
 }
 
-u32 ARMv5::CP15Read(u32 id) const
+u32 ARMv5::CP15Read(const u32 id) const
 {
     //printf("CP15 read op %03X %08X\n", id, NDS::ARM9->R[15]);
 
