@@ -512,6 +512,7 @@ void ARMv5::ICacheInvalidateBySetAndWay(const u8 cacheSet, const u8 cacheLine)
 
 void ARMv5::ICacheInvalidateAll()
 {
+    #pragma GCC ivdep
     for (int i = 0; i < ICACHE_SIZE / ICACHE_LINELENGTH; i++)
         ICacheTags[i] &= ~CACHE_FLAG_VALID;  ;
 }
@@ -731,6 +732,7 @@ void ARMv5::DCacheInvalidateBySetAndWay(const u8 cacheSet, const u8 cacheLine)
 
 void ARMv5::DCacheInvalidateAll()
 {
+    #pragma GCC ivdep
     for (int i = 0; i < DCACHE_SIZE / DCACHE_LINELENGTH; i++)
         DCacheTags[i] &= ~CACHE_FLAG_VALID;  ;
 }
@@ -767,13 +769,11 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x100:
         {
             u32 old = CP15Control;
-            val &= 0x000FF085;
-            CP15Control &= ~0x000FF085;
-            CP15Control |= val;
+            CP15Control = (CP15Control & ~CP15_CR_CHANGEABLE_MASK) | (val & CP15_CR_CHANGEABLE_MASK);
             //Log(LogLevel::Debug, "CP15Control = %08X (%08X->%08X)\n", CP15Control, old, val);
             UpdateDTCMSetting();
             UpdateITCMSetting();
-            u32 changedBits = old^val;
+            u32 changedBits = old ^ CP15Control;
             if (changedBits & (CP15_CR_MPUENABLE | CP15_CACHE_CR_ICACHEENABLE| CP15_CACHE_CR_DCACHEENABLE))
             {
                 UpdatePURegions(changedBits & CP15_CR_MPUENABLE);
@@ -789,10 +789,25 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_DataCacheable ^ val;
             PU_DataCacheable = val;
-            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
-            {
-                if (diff & (1<<i)) UpdatePURegion(i);
-            }
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region cachable bit
+                // would change, this results in wrong map entries. On HW the changed 
+                // cachable bit would not be applied because of a higher priority
+                // region overwriting them.
+                // 
+                // Writing to the cachable bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (1<<i)) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -800,10 +815,25 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_CodeCacheable ^ val;
             PU_CodeCacheable = val;
-            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
-            {
-                if (diff & (1<<i)) UpdatePURegion(i);
-            }
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region cachable bit
+                // would change, this results in wrong map entries. On HW the changed 
+                // cachable bit would not be applied because of a higher priority
+                // region overwriting them.
+                // 
+                // Writing to the cachable bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (1<<i)) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -812,10 +842,25 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_DataCacheWrite ^ val;
             PU_DataCacheWrite = val;
-            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
-            {
-                if (diff & (1<<i)) UpdatePURegion(i);
-            }
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region write buffer 
+                // would change, this results in wrong map entries. On HW the changed 
+                // write buffer would not be applied because of a higher priority
+                // region overwriting them.
+                // 
+                // Writing to the write buffer bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (1<<i)) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -824,19 +869,31 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 old = PU_DataRW;
             PU_DataRW = 0;
-            PU_DataRW |= (val & 0x0003);
-            PU_DataRW |= ((val & 0x000C) << 2);
-            PU_DataRW |= ((val & 0x0030) << 4);
-            PU_DataRW |= ((val & 0x00C0) << 6);
-            PU_DataRW |= ((val & 0x0300) << 8);
-            PU_DataRW |= ((val & 0x0C00) << 10);
-            PU_DataRW |= ((val & 0x3000) << 12);
-            PU_DataRW |= ((val & 0xC000) << 14);
-            u32 diff = old ^ PU_DataRW;
-            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
-            {
-                if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
-            }
+            #pragma GCC ivdep
+            #pragma GCC unroll 8
+            for (int i=0;i<CP15_REGION_COUNT;i++)
+                PU_DataRW |= (val  >> (i * 2) & 3) << (i * CP15_REGIONACCESS_BITS_PER_REGION);
+            
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region access permission
+                // would change, this results in wrong map entries. On HW the changed 
+                // access permissions would not be applied because of a higher priority
+                // region overwriting them.
+                // 
+                // Writing to the data permission bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+
+                u32 diff = old ^ PU_DataRW;            
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -844,19 +901,30 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 old = PU_CodeRW;
             PU_CodeRW = 0;
-            PU_CodeRW |= (val & 0x0003);
-            PU_CodeRW |= ((val & 0x000C) << 2);
-            PU_CodeRW |= ((val & 0x0030) << 4);
-            PU_CodeRW |= ((val & 0x00C0) << 6);
-            PU_CodeRW |= ((val & 0x0300) << 8);
-            PU_CodeRW |= ((val & 0x0C00) << 10);
-            PU_CodeRW |= ((val & 0x3000) << 12);
-            PU_CodeRW |= ((val & 0xC000) << 14);
-            u32 diff = old ^ PU_CodeRW;
-            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
-            {
-                if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
-            }
+            #pragma GCC ivdep
+            #pragma GCC unroll 8
+            for (int i=0;i<CP15_REGION_COUNT;i++)
+                PU_CodeRW |= (val  >> (i * 2) & 3) << (i * CP15_REGIONACCESS_BITS_PER_REGION);
+
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region access permission
+                // would change, this results in wrong map entries, because it
+                // would on HW be overridden by the higher priority region
+                // 
+                // Writing to the data permission bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+
+                u32 diff = old ^ PU_CodeRW;
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -864,10 +932,23 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_DataRW ^ val;
             PU_DataRW = val;
-            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
-            {
-                if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
-            }
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region access permission
+                // would change, this results in wrong map entries, because it
+                // would on HW be overridden by the higher priority region
+                // 
+                // Writing to the data permission bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -875,10 +956,23 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_CodeRW ^ val;
             PU_CodeRW = val;
-            for (u32 i = 0; i < CP15_REGION_COUNT; i++)
-            {
-                if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
-            }
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region access permission
+                // would change, this results in wrong map entries, because it
+                // would on HW be overridden by the higher priority region
+                // 
+                // Writing to the data permission bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -1242,28 +1336,25 @@ u32 ARMv5::CP15Read(u32 id) const
 
     case 0x500:
         {
+            // this format  has 2 bits per region, but we store 4 per region
+            // so we reduce and consoldate the bits
+            // 0x502 returns all 4 bits per region
             u32 ret = 0;
-            ret |=  (PU_DataRW & 0x00000003);
-            ret |= ((PU_DataRW & 0x00000030) >> 2);
-            ret |= ((PU_DataRW & 0x00000300) >> 4);
-            ret |= ((PU_DataRW & 0x00003000) >> 6);
-            ret |= ((PU_DataRW & 0x00030000) >> 8);
-            ret |= ((PU_DataRW & 0x00300000) >> 10);
-            ret |= ((PU_DataRW & 0x03000000) >> 12);
-            ret |= ((PU_DataRW & 0x30000000) >> 14);
+            #pragma GCC ivdep
+            #pragma GCC unroll 8
+            for (int i=0;i<CP15_REGION_COUNT;i++)
+                ret |= (PU_DataRW  >> (i * CP15_REGIONACCESS_BITS_PER_REGION) & CP15_REGIONACCESS_REGIONMASK) << (i*2);
             return ret;
         }
     case 0x501:
         {
+            // this format  has 2 bits per region, but we store 4 per region
+            // so we reduce and consoldate the bits
+            // 0x503 returns all 4 bits per region
             u32 ret = 0;
-            ret |=  (PU_CodeRW & 0x00000003);
-            ret |= ((PU_CodeRW & 0x00000030) >> 2);
-            ret |= ((PU_CodeRW & 0x00000300) >> 4);
-            ret |= ((PU_CodeRW & 0x00003000) >> 6);
-            ret |= ((PU_CodeRW & 0x00030000) >> 8);
-            ret |= ((PU_CodeRW & 0x00300000) >> 10);
-            ret |= ((PU_CodeRW & 0x03000000) >> 12);
-            ret |= ((PU_CodeRW & 0x30000000) >> 14);
+            #pragma GCC unroll 8
+            for (int i=0;i<CP15_REGION_COUNT;i++)
+                ret |= (PU_CodeRW  >> (i * CP15_REGIONACCESS_BITS_PER_REGION) & CP15_REGIONACCESS_REGIONMASK) << (i*2);
             return ret;
         }
     case 0x502:

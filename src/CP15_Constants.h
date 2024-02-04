@@ -76,30 +76,38 @@ constexpr u32 CP15_MAINID_IMPLEMENTATION_946 = (0x946 << 4);
 constexpr u32 CP15_MAINID_REVISION_0 = (0 << 0);
 constexpr u32 CP15_MAINID_REVISION_1 = (1 << 0);
 
-/* CP15 Control Register */
-constexpr u32 CP15_CR_MPUENABLE = (1 << 0);
-constexpr u32 CP15_CR_BIGENDIAN = (1 << 7);
-constexpr u32 CP15_CR_HIGHEXCEPTIONBASE = (1 << 13);
-
-/* CP15 Internal Exception base value */
-constexpr u32 CP15_EXCEPTIONBASE_HIGH = 0xFFFF0000;
-constexpr u32 CP15_EXCEPTIONBASE_LOW = 0x00000000;
-
 /* CP15 Cache and Write Buffer Conrol Register */
 constexpr u32 CP15_CACHE_CR_ROUNDROBIN = (1 << 14);
 constexpr u32 CP15_CACHE_CR_ICACHEENABLE = (1 << 12);
 constexpr u32 CP15_CACHE_CR_DCACHEENABLE = (1 << 2);
 constexpr u32 CP15_CACHE_CR_WRITEBUFFERENABLE = (1 << 3);
 
+/* CP15 TCM Control Register */
+constexpr u32 CP15_TCM_CR_DTCM_ENABLE = (1 << 16);
+constexpr u32 CP15_TCM_CR_ITCM_ENABLE = (1 << 18);
+constexpr u32 CP15_TCM_CR_DTCM_LOADMODE = (1 << 17);
+constexpr u32 CP15_TCM_CR_ITCM_LOADMODE = (1 << 19);
+
+/* CP15 Control Register */
+constexpr u32 CP15_CR_MPUENABLE = (1 << 0);
+constexpr u32 CP15_CR_BIGENDIAN = (1 << 7);
+constexpr u32 CP15_CR_HIGHEXCEPTIONBASE = (1 << 13);
+constexpr u32 CP15_CR_DISABLE_THUMBBIT = (1 << 15);
+constexpr u32 CP15_CR_CHANGEABLE_MASK = CP15_CR_MPUENABLE | CP15_CR_BIGENDIAN | CP15_CACHE_CR_DCACHEENABLE
+                                      | CP15_CACHE_CR_ICACHEENABLE | CP15_CR_HIGHEXCEPTIONBASE 
+                                      | CP15_TCM_CR_DTCM_ENABLE | CP15_TCM_CR_ITCM_ENABLE
+                                      | CP15_TCM_CR_DTCM_LOADMODE | CP15_TCM_CR_ITCM_LOADMODE
+                                      | CP15_CACHE_CR_ROUNDROBIN | CP15_CR_DISABLE_THUMBBIT;
+
+/* CP15 Internal Exception base value */
+constexpr u32 CP15_EXCEPTIONBASE_HIGH = 0xFFFF0000;
+constexpr u32 CP15_EXCEPTIONBASE_LOW = 0x00000000;
+
 /* CP15 BIST Test State register */
 constexpr u32 CP15_BIST_TR_DISABLE_ICACHE_STREAMING = (1 << 11);
 constexpr u32 CP15_BIST_TR_DISABLE_DCACHE_STREAMING = (1 << 12);
 constexpr u32 CP15_BIST_TR_DISABLE_ICACHE_LINEFILL = (1 << 9);
 constexpr u32 CP15_BIST_TR_DISABLE_DCACHE_LINEFILL = (1 << 10);
-
-/* CP15 TCM Control Register */
-constexpr u32 CP15_TCM_CR_DTCM_ENABLE = (1 << 16);
-constexpr u32 CP15_TCM_CR_ITCM_ENABLE = (1 << 18);
 
 /* CP15 Region Base and Size Register */
 constexpr u32 CP15_REGION_COUNT = 8;

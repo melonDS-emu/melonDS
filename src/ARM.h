@@ -555,14 +555,14 @@ public:
     u32 DCacheTags[DCACHE_LINESPERSET*DCACHE_SETS]; //! Data Cache Tags organized in @ref DCACHE_LINESPERSET times @ref DCACHE_SETS Tags
     u8 DCacheCount;                                 //! Global data line fill counter. Used for round-robin replacement strategy with the instruction cache
 
-    u32 PU_CodeCacheable;
-    u32 PU_DataCacheable;
-    u32 PU_DataCacheWrite;
+    u32 PU_CodeCacheable;                           //! CP15 Register 2 Opcode 1: Code Cachable Bits
+    u32 PU_DataCacheable;                           //! CP15 Register 2 Opcode 0: Data Cachable Bits
+    u32 PU_DataCacheWrite;                          //! CP15 Register 3 Opcode 0: WriteBuffer Control Register
 
-    u32 PU_CodeRW;
-    u32 PU_DataRW;
+    u32 PU_CodeRW;                                  //! CP15 Register 5 Opcode 3: Code Access Permission register
+    u32 PU_DataRW;                                  //! CP15 Register 5 Opcode 2: Data Access Permission register
 
-    u32 PU_Region[8];
+    u32 PU_Region[8];                               //! CP15 Register 6 Opcode 0..7: Protection Region Base and Size Register
 
     // 0=dataR 1=dataW 2=codeR 4=datacache 5=datawrite 6=codecache
     u8 PU_PrivMap[0x100000];
