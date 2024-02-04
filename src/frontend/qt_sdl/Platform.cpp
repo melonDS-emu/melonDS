@@ -295,15 +295,7 @@ std::string MakeLocalDirectory(const std::string& path)
     }
     else
     {
-#ifdef PORTABLE
         fullpath = QString::fromStdString(EmuDirectory) + QDir::separator() + qpath;
-#else
-        // Check user configuration directory
-        QDir config(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
-        config.mkdir("melonDS");
-        fullpath = config.absolutePath() + "/melonDS/";
-        fullpath.append(qpath);
-#endif
     }
 
     dir.mkpath(fullpath);
