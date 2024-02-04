@@ -77,7 +77,6 @@ jobs:
       - name: Clean up architecture-specific artifacts
         uses: geekyeggo/delete-artifact@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           failOnError: false
           name: |
             macOS-x86_64

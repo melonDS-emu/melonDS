@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <string>
+#include <QCoreApplication>
 #include <QStandardPaths>
 #include <QString>
 #include <QDateTime>
@@ -64,6 +65,42 @@ void emuStop();
 
 namespace melonDS::Platform
 {
+
+void PathInit(int argc, char** argv)
+{
+    // First, check for the portable directory next to the executable.
+    QString appdirpath = QCoreApplication::applicationDirPath();
+    QString portablepath = appdirpath + QDir::separator() + "portable";
+
+#if defined(__APPLE__)
+    // On Apple platforms we may need to navigate outside an app bundle.
+    // The executable directory would be "melonDS.app/Contents/MacOS", so we need to go a total of three steps up.
+    QDir bundledir(appdirpath);
+    if (bundledir.cd("..") && bundledir.cd("..") && bundledir.dirName().endsWith(".app") && bundledir.cd(".."))
+    {
+        portablepath = bundledir.absolutePath() + QDir::separator() + "portable";
+    }
+#endif
+
+    QDir portabledir(portablepath);
+    if (portabledir.exists())
+    {
+        EmuDirectory = portabledir.absolutePath().toStdString();
+    }
+    else
+    {
+        // If no overrides are specified, use the default path.
+#if defined(__WIN32__) && defined(WIN32_PORTABLE)
+        EmuDirectory = appdirpath.toStdString();
+#else
+        QString confdir;
+        QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
+        config.mkdir("melonDS");
+        confdir = config.absolutePath() + QDir::separator() + "melonDS";
+        EmuDirectory = confdir.toStdString();
+#endif
+    }
+}
 
 QSharedMemory* IPCBuffer = nullptr;
 int IPCInstanceID;
@@ -138,38 +175,7 @@ void IPCDeInit()
 
 void Init(int argc, char** argv)
 {
-#if defined(__WIN32__) || defined(PORTABLE)
-    if (argc > 0 && strlen(argv[0]) > 0)
-    {
-        int len = strlen(argv[0]);
-        while (len > 0)
-        {
-            if (argv[0][len] == '/') break;
-            if (argv[0][len] == '\\') break;
-            len--;
-        }
-        if (len > 0)
-        {
-            std::string emudir = argv[0];
-            EmuDirectory = emudir.substr(0, len);
-        }
-        else
-        {
-            EmuDirectory = ".";
-        }
-    }
-    else
-    {
-        EmuDirectory = ".";
-    }
-#else
-    QString confdir;
-    QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
-    config.mkdir("melonDS");
-    confdir = config.absolutePath() + "/melonDS/";
-    EmuDirectory = confdir.toStdString();
-#endif
-
+    PathInit(argc, argv);
     IPCInit();
 }
 
@@ -317,15 +323,7 @@ FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
     }
     else
     {
-#ifdef PORTABLE
         fullpath = QString::fromStdString(EmuDirectory) + QDir::separator() + qpath;
-#else
-        // Check user configuration directory
-        QDir config(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
-        config.mkdir("melonDS");
-        fullpath = config.absolutePath() + "/melonDS/";
-        fullpath.append(qpath);
-#endif
     }
 
     return OpenFile(fullpath.toStdString(), mode);
