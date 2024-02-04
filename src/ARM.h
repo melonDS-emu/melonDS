@@ -303,7 +303,18 @@ public:
     void CP15Reset();
     void CP15DoSavestate(Savestate* file);
 
+    /**
+     * @brief Caclulates the internal state from @ref DTCMSettings
+     * @par Returns
+     *      Nothing
+     */
     void UpdateDTCMSetting();
+
+    /**
+     * @brief Caclulates the internal state from @ref ITCMSettings
+     * @par Returns
+     *      Nothing
+     */
     void UpdateITCMSetting();
 
     void UpdatePURegion(u32 n);
@@ -558,22 +569,23 @@ public:
 
     u32 RNGSeed;                                    //! Global cache line fill seed. Used for pseudo random replacement strategy with the instruction and data cache
 
-    u32 DTCMSetting;
-    u32 ITCMSetting;
-    u32 DCacheLockDown;                             //! CP15: Data Cache Lockdown Register
-    u32 ICacheLockDown;                             //! CP15: Instruction Cache Lockdown Register
+    u32 DTCMSetting;                                //! CP15 Register 9 Intermediate 1 Opcode2 0: Data Tightly-Coupled Memory register
+    u32 ITCMSetting;                                //! CP15 Register 9 Intermediate 1 Opcode2 1: Instruction Tightly-Coupled Memory register
+    u32 DCacheLockDown;                             //! CP15 Register 9 Intermediate 0 Opcode2 0: Data Cache Lockdown Register
+    u32 ICacheLockDown;                             //! CP15 Register 9 Intermediate 0 Opcode2 1: Instruction Cache Lockdown Register
     u32 CacheDebugRegisterIndex;                    //! CP15: Cache Debug Index Register
     u32 CP15TraceProcessId;                         //! CP15: Trace Process Id Register
     u32 CP15BISTTestStateRegister;                  //! CP15: BIST Test State Register
 
     // for aarch64 JIT they need to go up here
     // to be addressable by a 12-bit immediate
-    u32 ITCMSize;
-    u32 DTCMBase, DTCMMask;
-    s32 RegionCodeCycles;
+    u32 ITCMSize;                                   //! Internal: Size of the memory ITCM is mapped to. @ref ITCM data repeats every @ref ITCMPhysicalSize withhin
+    u32 DTCMBase;                                   //! Internal: DTCMBase Address. The DTCM can be accessed if the address & ~ @ref DTCMMask is equal to thhis base address
+    u32 DTCMMask;                                   //! Internal: DTCM Address Mask used in conjunction with @ref DTCMBase to check for DTCM access
+    s32 RegionCodeCycles;                           //! Internal: Cached amount of cycles to fetch instruction from the current code region.
 
-    u8 ITCM[ITCMPhysicalSize];
-    u8* DTCM;
+    u8 ITCM[ITCMPhysicalSize];                      //! Content of the ITCM
+    u8* DTCM;                                       //! Content of the DTCM
 
     u8 ICache[ICACHE_SIZE];                         //! Instruction Cache Content organized in @ref ICACHE_LINESPERSET times @ref ICACHE_SETS times @ref ICACHE_LINELENGTH bytes
     u32 ICacheTags[ICACHE_LINESPERSET*ICACHE_SETS]; //! Instruction Cache Tags organized in @ref ICACHE_LINESPERSET times @ref ICACHE_SETS Tags
@@ -583,22 +595,28 @@ public:
     u32 DCacheTags[DCACHE_LINESPERSET*DCACHE_SETS]; //! Data Cache Tags organized in @ref DCACHE_LINESPERSET times @ref DCACHE_SETS Tags
     u8 DCacheCount;                                 //! Global data line fill counter. Used for round-robin replacement strategy with the instruction cache
 
-    u32 PU_CodeCacheable;                           //! CP15 Register 2 Opcode 1: Code Cachable Bits
-    u32 PU_DataCacheable;                           //! CP15 Register 2 Opcode 0: Data Cachable Bits
-    u32 PU_DataCacheWrite;                          //! CP15 Register 3 Opcode 0: WriteBuffer Control Register
+    u32 PU_CodeCacheable;                           //! CP15 Register 2 Opcode2 1: Code Cachable Bits
+    u32 PU_DataCacheable;                           //! CP15 Register 2 Opcode2 0: Data Cachable Bits
+    u32 PU_DataCacheWrite;                          //! CP15 Register 3 Opcode2 0: WriteBuffer Control Register
 
-    u32 PU_CodeRW;                                  //! CP15 Register 5 Opcode 3: Code Access Permission register
-    u32 PU_DataRW;                                  //! CP15 Register 5 Opcode 2: Data Access Permission register
+    u32 PU_CodeRW;                                  //! CP15 Register 5 Opcode2 3: Code Access Permission register
+    u32 PU_DataRW;                                  //! CP15 Register 5 Opcode2 2: Data Access Permission register
 
-    u32 PU_Region[8];                               //! CP15 Register 6 Opcode 0..7: Protection Region Base and Size Register
+    u32 PU_Region[8];                               //! CP15 Register 6 Opcode2 0..7: Protection Region Base and Size Register
 
     // 0=dataR 1=dataW 2=codeR 4=datacache 5=datawrite 6=codecache
-    u8 PU_PrivMap[0x100000];
-    u8 PU_UserMap[0x100000];
-
-    // games operate under system mode, generally
-    //#define PU_Map PU_PrivMap
-    u8* PU_Map;
+    u8 PU_PrivMap[0x100000];                        /** 
+                                                     * Memory mapping flags for Privileged Modes
+                                                     * Bits:
+                                                     *      0 - CP15_MAP_READABLE
+                                                     *      1 - CP15_MAP_WRITEABLE
+                                                     *      2 - CP15_MAP_EXECUTABLE
+                                                     *      4 - CP15_MAP_DCACHEABLE
+                                                     *      5 - CP15_MAP_DCACHEWRITEBACK
+                                                     *      6 - CP15_MAP_ICACHEABLE
+                                                     */
+    u8 PU_UserMap[0x100000];                        //! Memory mapping flags for User Mode
+    u8* PU_Map;                                     //! Current valid Region Mapping (is either @ref PU_PrivMap or PU_UserMap)
 
     // code/16N/32N/32S
     u8 MemTimings[0x100000][4];
