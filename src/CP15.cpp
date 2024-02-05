@@ -40,36 +40,32 @@ const int kDataCacheTiming = 3;//2;
 const int kCodeCacheTiming = 3;//5;
 
 
-/* CP15 Reset sets the default values within each registers and 
-   memories of the CP15. 
-   This includes the Settings for 
-        DTCM
-        ITCM
-        Caches
-        Regions
-        Process Trace
-*/
-
 void ARMv5::CP15Reset()
 {
     CP15Control = 0x2078; // dunno
 
     RNGSeed = 44203;
 
+    // Memory Regions Protection
+    PU_CodeRW = 0;
+    PU_DataRW = 0;
+
+    memset(PU_Region, 0, CP15_REGION_COUNT*sizeof(*PU_Region));
+
+    // TCM-Settings
     DTCMSetting = 0;
     ITCMSetting = 0;
 
     memset(ITCM, 0, ITCMPhysicalSize);
     memset(DTCM, 0, DTCMPhysicalSize);
 
-    ITCMSize = 0;
-    DTCMBase = 0xFFFFFFFF;
-    DTCMMask = 0;
+    // Cache Settings
+    PU_CodeCacheable = 0;
+    PU_DataCacheable = 0;
+    PU_DataCacheWrite = 0;
 
     ICacheLockDown = 0;
     DCacheLockDown = 0;
-    CacheDebugRegisterIndex = 0;
-    CP15BISTTestStateRegister = 0;
 
     memset(ICache, 0, ICACHE_SIZE);
     ICacheInvalidateAll();
@@ -79,18 +75,15 @@ void ARMv5::CP15Reset()
     DCacheInvalidateAll();
     DCacheCount = 0;
 
+    // Debug / Misc Registers
+    CacheDebugRegisterIndex = 0;
+    CP15BISTTestStateRegister = 0;
     CP15TraceProcessId = 0;
 
-    PU_CodeCacheable = 0;
-    PU_DataCacheable = 0;
-    PU_DataCacheWrite = 0;
-
-    PU_CodeRW = 0;
-    PU_DataRW = 0;
-
-    memset(PU_Region, 0, CP15_REGION_COUNT*sizeof(u32));
+    // And now Update the internal state
+    UpdateDTCMSetting();
+    UpdateITCMSetting();
     UpdatePURegions(true);
-
 }
 
 void ARMv5::CP15DoSavestate(Savestate* file)
@@ -145,13 +138,16 @@ void ARMv5::UpdateDTCMSetting()
 
     if (CP15Control & CP15_TCM_CR_DTCM_ENABLE)
     {
-        newDTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
-        if (newDTCMSize < 0x1000) newDTCMSize = 0x1000;
-        newDTCMMask = 0xFFFFF000 & ~(newDTCMSize-1);
+        newDTCMSize = CP15_DTCM_SIZE_BASE << ((DTCMSetting  & CP15_DTCM_SIZE_MASK) >> CP15_DTCM_SIZE_POS);
+        if (newDTCMSize < (CP15_DTCM_SIZE_BASE << CP15_DTCM_SIZE_MIN))
+            newDTCMSize = CP15_DTCM_SIZE_BASE << CP15_DTCM_SIZE_MIN;
+
+        newDTCMMask = CP15_DTCM_BASE_MASK & ~(newDTCMSize-1);
         newDTCMBase = DTCMSetting & newDTCMMask;
     }
     else
     {
+        // DTCM Disabled
         newDTCMSize = 0;
         newDTCMBase = 0xFFFFFFFF;
         newDTCMMask = 0;
@@ -169,7 +165,7 @@ void ARMv5::UpdateITCMSetting()
 {
     if (CP15Control & CP15_TCM_CR_ITCM_ENABLE)
     {
-        ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
+        ITCMSize = CP15_ITCM_SIZE_BASE << ((ITCMSetting  & CP15_ITCM_SIZE_MASK) >> CP15_ITCM_SIZE_POS);
 #ifdef JIT_ENABLED
         FastBlockLookupSize = 0;
 #endif
@@ -183,7 +179,7 @@ void ARMv5::UpdateITCMSetting()
 
 // covers updates to a specific PU region's cache/etc settings
 // (not to the region range/enabled status)
-void ARMv5::UpdatePURegion(u32 n)
+void ARMv5::UpdatePURegion(const u32 n)
 {
     if (!(CP15Control & CP15_CR_MPUENABLE))
         return;
@@ -194,7 +190,7 @@ void ARMv5::UpdatePURegion(u32 n)
     u32 coderw = (PU_CodeRW >> (CP15_REGIONACCESS_BITS_PER_REGION * n)) & CP15_REGIONACCESS_REGIONMASK;
     u32 datarw = (PU_DataRW >> (CP15_REGIONACCESS_BITS_PER_REGION * n)) & CP15_REGIONACCESS_REGIONMASK;
 
-    u32 codecache, datacache, datawrite;
+    bool codecache, datacache, datawrite;
 
     // datacache/datawrite
     // 0/0: goes to memory
@@ -205,7 +201,7 @@ void ARMv5::UpdatePURegion(u32 n)
     if (CP15Control & CP15_CACHE_CR_ICACHEENABLE)
         codecache = (PU_CodeCacheable >> n) & 0x1;
     else
-        codecache = 0;
+        codecache = false;
 
     if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
     {
@@ -214,12 +210,12 @@ void ARMv5::UpdatePURegion(u32 n)
     }
     else
     {
-        datacache = 0;
-        datawrite = 0;
+        datacache = false;
+        datawrite = false;
     }
 
     u32 rgn = PU_Region[n];
-    if (!(rgn & (1<<0)))
+    if (!(rgn & CP15_REGION_ENABLE))
     {
         return;
     }
@@ -240,7 +236,7 @@ void ARMv5::UpdatePURegion(u32 n)
     case 3: privmask |= CP15_MAP_READABLE | CP15_MAP_WRITEABLE; usermask |= CP15_MAP_READABLE | CP15_MAP_WRITEABLE; break;
     case 5: privmask |= CP15_MAP_READABLE; break;
     case 6: privmask |= CP15_MAP_READABLE; usermask |= CP15_MAP_READABLE; break;
-    default: Log(LogLevel::Warn, "!! BAD DATARW VALUE %d\n", datarw&0xF);
+    default: Log(LogLevel::Warn, "!! BAD DATARW VALUE %d\n", datarw & ((1 << CP15_REGIONACCESS_BITS_PER_REGION)-1));
     }
 
     switch (coderw)
@@ -251,22 +247,22 @@ void ARMv5::UpdatePURegion(u32 n)
     case 3: privmask |= CP15_MAP_EXECUTABLE; usermask |= CP15_MAP_EXECUTABLE; break;
     case 5: privmask |= CP15_MAP_EXECUTABLE; break;
     case 6: privmask |= CP15_MAP_EXECUTABLE; usermask |= CP15_MAP_EXECUTABLE; break;
-    default: Log(LogLevel::Warn, "!! BAD CODERW VALUE %d\n", datarw&0xF);
+    default: Log(LogLevel::Warn, "!! BAD CODERW VALUE %d\n", datarw & ((1 << CP15_REGIONACCESS_BITS_PER_REGION)-1));
     }
 
-    if (datacache & 0x1)
+    if (datacache)
     {
         privmask |= CP15_MAP_DCACHEABLE;
         usermask |= CP15_MAP_DCACHEABLE;
 
-        if (datawrite & 0x1)
+        if (datawrite)
         {
             privmask |= CP15_MAP_DCACHEWRITEBACK;
             usermask |= CP15_MAP_DCACHEWRITEBACK;
         }
     }
 
-    if (codecache & 0x1)
+    if (codecache)
     {
         privmask |= CP15_MAP_ICACHEABLE;
         usermask |= CP15_MAP_ICACHEABLE;
@@ -293,7 +289,7 @@ void ARMv5::UpdatePURegion(u32 n)
     UpdateRegionTimings(start, end);
 }
 
-void ARMv5::UpdatePURegions(bool update_all)
+void ARMv5::UpdatePURegions(const bool update_all)
 {
     if (!(CP15Control & CP15_CR_MPUENABLE))
     {
@@ -303,17 +299,17 @@ void ARMv5::UpdatePURegions(bool update_all)
         if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) mask |= CP15_MAP_DCACHEABLE | CP15_MAP_DCACHEWRITEBACK ;
         if (CP15Control & CP15_CACHE_CR_ICACHEENABLE) mask |= CP15_MAP_ICACHEABLE;
 
-        memset(PU_UserMap, mask, 0x100000);
-        memset(PU_PrivMap, mask, 0x100000);
+        memset(PU_UserMap, mask, CP15_MAP_ENTRYCOUNT);
+        memset(PU_PrivMap, mask, CP15_MAP_ENTRYCOUNT);
 
-        UpdateRegionTimings(0x00000, 0x100000);
+        UpdateRegionTimings(0x00000, CP15_MAP_ENTRYCOUNT);
         return;
     }
 
     if (update_all)
     {
-        memset(PU_UserMap, CP15_MAP_NOACCESS, 0x100000);
-        memset(PU_PrivMap, CP15_MAP_NOACCESS, 0x100000);
+        memset(PU_UserMap, CP15_MAP_NOACCESS, CP15_MAP_ENTRYCOUNT);
+        memset(PU_PrivMap, CP15_MAP_NOACCESS, CP15_MAP_ENTRYCOUNT);
     }
 
     for (int n = 0; n < CP15_REGION_COUNT; n++)
@@ -323,7 +319,7 @@ void ARMv5::UpdatePURegions(bool update_all)
 
     // TODO: this is way unoptimized
     // should be okay unless the game keeps changing shit, tho
-    if (update_all) UpdateRegionTimings(0x00000, 0x100000);
+    if (update_all) UpdateRegionTimings(0x00000, CP15_MAP_ENTRYCOUNT);
 
     // TODO: throw exception if the region we're running in has become non-executable, I guess
 }
@@ -1207,12 +1203,12 @@ void ARMv5::CP15Write(const u32 id, const u32 val)
         return;
 
     case 0x910:
-        DTCMSetting = val & 0xFFFFF03E;
+        DTCMSetting = val & (CP15_DTCM_BASE_MASK | CP15_DTCM_SIZE_MASK);
         UpdateDTCMSetting();
         return;
 
     case 0x911:
-        ITCMSetting = val & 0x0000003E;
+        ITCMSetting = val & (CP15_ITCM_BASE_MASK | CP15_ITCM_SIZE_MASK);
         UpdateITCMSetting();
         return;
 
@@ -1319,7 +1315,7 @@ u32 ARMv5::CP15Read(const u32 id) const
                | (ICACHE_LINELENGTH_ENCODED << 0) | (ICACHE_SETS_LOG2 << 3) | ((ICACHE_SIZE_LOG2 - 9) << 6);
 
     case 0x002: // TCM size
-        return (6 << 6) | (5 << 18);
+        return CP15_TCMSIZE_ITCM_32KB | CP15_TCMSIZE_DTCM_16KB;
 
 
     case 0x100: // control reg
@@ -1828,7 +1824,7 @@ void ARMv5::DataWrite32S(const u32 addr, const u32 val)
     DataCycles += MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S32];
 }
 
-void ARMv5::GetCodeMemRegion(u32 addr, MemRegion* region)
+void ARMv5::GetCodeMemRegion(const u32 addr, MemRegion* region)
 {
     NDS.ARM9GetMemRegion(addr, false, &CodeMem);
 }

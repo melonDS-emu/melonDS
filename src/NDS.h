@@ -442,7 +442,7 @@ public: // TODO: Encapsulate the rest of these members
     virtual void ARM9Write16(u32 addr, u16 val);
     virtual void ARM9Write32(u32 addr, u32 val);
 
-    virtual bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region);
+    virtual bool ARM9GetMemRegion(const u32 addr, const bool write, MemRegion* region);
 
     virtual u8 ARM7Read8(u32 addr);
     virtual u16 ARM7Read16(u32 addr);

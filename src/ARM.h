@@ -298,27 +298,64 @@ public:
         //    Cycles += numC + numD;
     }
 
-    void GetCodeMemRegion(u32 addr, MemRegion* region);
+    void GetCodeMemRegion(const u32 addr, MemRegion* region);
 
+    /**
+     * @brief Resets the state of all CP15 registers and variables
+     * to power up state.
+     * @par Returns
+     *      Nothing
+     */
     void CP15Reset();
+
+    /**
+     * @brief handles read and write operations to a save-state
+     * file.
+     * @param [in] file Savestate file
+     * @par Returns
+     *      Nothing
+     */
     void CP15DoSavestate(Savestate* file);
 
     /**
-     * @brief Caclulates the internal state from @ref DTCMSettings
+     * @brief Calculates the internal state from @ref DTCMSettings
      * @par Returns
      *      Nothing
      */
     void UpdateDTCMSetting();
 
     /**
-     * @brief Caclulates the internal state from @ref ITCMSettings
+     * @brief Calculates the internal state from @ref ITCMSettings
      * @par Returns
      *      Nothing
      */
     void UpdateITCMSetting();
 
-    void UpdatePURegion(u32 n);
-    void UpdatePURegions(bool update_all);
+    /**
+     * @brief Calculates the internal state from the
+     * region protection bits of a specific region number
+     * @details
+     * This function updates the PU_####Map array in all
+     * parts that are occupied by this region. Updating a single
+     * region does not take into account the priority of the 
+     * regions.
+     * @param [in] n index of the region from 0 to @ref CP15_REGION_COUNT - 1
+     * @par Returns
+     *      Nothing
+     */
+    void UpdatePURegion(const u32 n);
+
+    /** 
+     * @brief Calculates the internal state from all region
+     * protection bits.
+     * @details
+     * This function updates the internal state in order from the
+     * least to the most priotized regions, so that the 
+     * priority of the regions match the internal state
+     * @par Returns
+     *      Nothing
+     */
+    void UpdatePURegions(const bool update_all);
 
     u32 RandomLineIndex();
 
@@ -602,10 +639,10 @@ public:
     u32 PU_CodeRW;                                  //! CP15 Register 5 Opcode2 3: Code Access Permission register
     u32 PU_DataRW;                                  //! CP15 Register 5 Opcode2 2: Data Access Permission register
 
-    u32 PU_Region[8];                               //! CP15 Register 6 Opcode2 0..7: Protection Region Base and Size Register
+    u32 PU_Region[CP15_REGION_COUNT];               //! CP15 Register 6 Opcode2 0..7: Protection Region Base and Size Register
 
     // 0=dataR 1=dataW 2=codeR 4=datacache 5=datawrite 6=codecache
-    u8 PU_PrivMap[0x100000];                        /** 
+    u8 PU_PrivMap[CP15_MAP_ENTRYCOUNT];                        /** 
                                                      * Memory mapping flags for Privileged Modes
                                                      * Bits:
                                                      *      0 - CP15_MAP_READABLE
@@ -615,11 +652,11 @@ public:
                                                      *      5 - CP15_MAP_DCACHEWRITEBACK
                                                      *      6 - CP15_MAP_ICACHEABLE
                                                      */
-    u8 PU_UserMap[0x100000];                        //! Memory mapping flags for User Mode
+    u8 PU_UserMap[CP15_MAP_ENTRYCOUNT];             //! Memory mapping flags for User Mode
     u8* PU_Map;                                     //! Current valid Region Mapping (is either @ref PU_PrivMap or PU_UserMap)
 
     // code/16N/32N/32S
-    u8 MemTimings[0x100000][4];
+    u8 MemTimings[CP15_MAP_ENTRYCOUNT][4];
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
 

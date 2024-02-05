@@ -76,6 +76,10 @@ constexpr u32 CP15_MAINID_IMPLEMENTATION_946 = (0x946 << 4);
 constexpr u32 CP15_MAINID_REVISION_0 = (0 << 0);
 constexpr u32 CP15_MAINID_REVISION_1 = (1 << 0);
 
+/* CP15 TCM Size Register */
+constexpr u32 CP15_TCMSIZE_DTCM_16KB = (5 << 18);
+constexpr u32 CP15_TCMSIZE_ITCM_32KB = (6 << 6);
+
 /* CP15 Cache and Write Buffer Conrol Register */
 constexpr u32 CP15_CACHE_CR_ROUNDROBIN = (1 << 14);
 constexpr u32 CP15_CACHE_CR_ICACHEENABLE = (1 << 12);
@@ -85,8 +89,24 @@ constexpr u32 CP15_CACHE_CR_WRITEBUFFERENABLE = (1 << 3);
 /* CP15 TCM Control Register */
 constexpr u32 CP15_TCM_CR_DTCM_ENABLE = (1 << 16);
 constexpr u32 CP15_TCM_CR_ITCM_ENABLE = (1 << 18);
-constexpr u32 CP15_TCM_CR_DTCM_LOADMODE = (1 << 17);
-constexpr u32 CP15_TCM_CR_ITCM_LOADMODE = (1 << 19);
+constexpr u32 CP15_TCM_CR_DTCM_LOADMODE = (1 << 17);        // TODO
+constexpr u32 CP15_TCM_CR_ITCM_LOADMODE = (1 << 19);        // TODO
+
+/* CP15 DTCM Settings Register */
+constexpr u32 CP15_DTCM_SIZE_BASE = 0x200;
+constexpr u32 CP15_DTCM_SIZE_MASK = 0x3E;
+constexpr u32 CP15_DTCM_SIZE_POS = 1;
+constexpr u32 CP15_DTCM_SIZE_MIN = 0b00011;
+constexpr u32 CP15_DTCM_SIZE_MAX = 0b10111;
+constexpr u32 CP15_DTCM_BASE_MASK = 0xFFFFF000;
+
+/* CP15 ITCM Settings Register */
+constexpr u32 CP15_ITCM_SIZE_BASE = 0x200;
+constexpr u32 CP15_ITCM_SIZE_MASK = 0x3E;
+constexpr u32 CP15_ITCM_SIZE_POS = 1;
+constexpr u32 CP15_ITCM_SIZE_MIN = 0b00011;
+constexpr u32 CP15_ITCM_SIZE_MAX = 0b10111;
+constexpr u32 CP15_ITCM_BASE_MASK = 0x00000000;
 
 /* CP15 Control Register */
 constexpr u32 CP15_CR_MPUENABLE = (1 << 0);
@@ -132,6 +152,7 @@ constexpr u32 CP15_MAP_ICACHEABLE = 0x40;
 
 constexpr u32 CP15_MAP_ENTRYSIZE_LOG2 = CP15_REGION_BASE_GRANULARITY_LOG2;
 constexpr u32 CP15_MAP_ENTRYSIZE = (1 << CP15_MAP_ENTRYSIZE_LOG2); 
+constexpr u32 CP15_MAP_ENTRYCOUNT = 1 << (32 - CP15_MAP_ENTRYSIZE_LOG2);
 
 /* Internal Timing Constants */
 constexpr u32 BUSCYCLES_N16 = 0;
