@@ -1421,7 +1421,14 @@ bool LoadGBAROM(NDS& nds, QStringList filepath)
     savname += Platform::InstanceFileSuffix();
 
     FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
-    if (!sav) sav = Platform::OpenFile(origsav, FileMode::Read);
+    if (!sav)
+    {
+        if (!Platform::CheckFileWritable(origsav)) return 2; // sav write error
+
+        sav = Platform::OpenFile(origsav, FileMode::Read);
+    }
+    else if (!Platform::CheckFileWritable(savname)) return 2; // sav write error
+
     if (sav)
     {
         savelen = (u32)FileLength(sav);
