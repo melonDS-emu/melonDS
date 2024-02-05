@@ -206,6 +206,10 @@ FileHandle* OpenLocalFile(const std::string& path, FileMode mode);
 bool FileExists(const std::string& name);
 bool LocalFileExists(const std::string& name);
 
+// Returns true if we have permission to write to the file.
+// Warning: Also creates the file if not present!
+bool CheckFileWritable(const std::string& filepath);
+
 /** Close a file opened with \c OpenFile.
  * @returns \c true if the file was closed successfully, false otherwise.
  * @post \c file is no longer valid and should not be used.

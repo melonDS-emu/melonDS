@@ -1299,12 +1299,15 @@ u8 LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     std::string origsav = savname;
     savname += Platform::InstanceFileSuffix();
 
-    FileHandle* sav = Platform::OpenFile(savname, FileMode::Append);
-    if (sav) CloseFile(sav);
-    else return 2; // sav write perm error
+    FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
+    if (!sav)
+    {
+        if (!Platform::CheckFileWritable(origsav)) return 2; // sav write error
 
-    sav = Platform::OpenFile(savname, FileMode::Read);
-    if (!sav) sav = Platform::OpenFile(origsav, FileMode::Read);
+        sav = Platform::OpenFile(origsav, FileMode::Read);
+    }
+    else if (!Platform::CheckFileWritable(savname)) return 2; // sav write error
+
     if (sav)
     {
         savelen = (u32)Platform::FileLength(sav);
