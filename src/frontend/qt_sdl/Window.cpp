@@ -865,12 +865,8 @@ void MainWindow::dropEvent(QDropEvent* event)
 
     if (isNdsRom)
     {
-        u8 error = ROMManager::LoadROM(emuThread, file, true);
-        if (error)
+        if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
         {
-            // TODO: better error reporting?
-            if (error == 1) QMessageBox::critical(this, "melonDS", "Failed to load the DS ROM.");
-            else if (error == 2) QMessageBox:: critical (this, "melonDS", "Unable to write DS save.\nCheck write perms.");
             emuThread->emuUnpause();
             return;
         }
@@ -888,10 +884,8 @@ void MainWindow::dropEvent(QDropEvent* event)
     }
     else if (isGbaRom)
     {
-        if (!ROMManager::LoadGBAROM(*emuThread->NDS, file))
+        if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, file))
         {
-            // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the GBA ROM.");
             emuThread->emuUnpause();
             return;
         }
@@ -954,12 +948,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool gbaloaded = false;
     if (!gbafile.isEmpty())
     {
-        if (!ROMManager::LoadGBAROM(*emuThread->NDS, gbafile))
-        {
-            // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the GBA ROM.");
-            return false;
-        }
+        if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, gbafile)) return false;
 
         gbaloaded = true;
     }
@@ -967,14 +956,8 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool ndsloaded = false;
     if (!file.isEmpty())
     {
-        u8 error = ROMManager::LoadROM(emuThread, file, true);
-        if (error)
-        {
-            // TODO: better error reporting?
-            if (error == 1) QMessageBox::critical(this, "melonDS", "Failed to load the DS ROM.");
-            else if (error == 2) QMessageBox:: critical (this, "melonDS", "Unable to write DS save.\nCheck write perms.");
-            return false;
-        }
+        if (!ROMManager::LoadROM(mainWindow, emuThread, file, true)) return false;
+        
         recentFileList.removeAll(file.join("|"));
         recentFileList.prepend(file.join("|"));
         updateRecentFilesMenu();
@@ -1178,12 +1161,8 @@ void MainWindow::onOpenFile()
         return;
     }
     
-    u8 error = ROMManager::LoadROM(emuThread, file, true);
-    if (error)
+    if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
     {
-        // TODO: better error reporting?
-            if (error == 1) QMessageBox::critical(this, "melonDS", "Failed to load the DS ROM.");
-            else if (error == 2) QMessageBox:: critical (this, "melonDS", "Unable to write DS save.\nCheck write perms.");
         emuThread->emuUnpause();
         return;
     }
@@ -1279,12 +1258,8 @@ void MainWindow::onClickRecentFile()
         return;
     }
     
-    u8 error = ROMManager::LoadROM(emuThread, file, true);
-    if (error)
+    if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
     {
-        // TODO: better error reporting?
-            if (error == 1) QMessageBox::critical(this, "melonDS", "Failed to load the DS ROM.");
-            else if (error == 2) QMessageBox:: critical (this, "melonDS", "Unable to write DS save.\nCheck write perms.");
         emuThread->emuUnpause();
         return;
     }
@@ -1334,12 +1309,8 @@ void MainWindow::onInsertCart()
         return;
     }
 
-    u8 error = ROMManager::LoadROM(emuThread, file, false);
-    if (error)
+    if (!ROMManager::LoadROM(mainWindow, emuThread, file, false))
     {
-        // TODO: better error reporting?
-        if (error == 1) QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
-        else if (error = 2) QMessageBox::critical(this, "melonDS", "Unable to write DS save.\nCheck write perms.");
         emuThread->emuUnpause();
         return;
     }
@@ -1371,10 +1342,8 @@ void MainWindow::onInsertGBACart()
         return;
     }
 
-    if (!ROMManager::LoadGBAROM(*emuThread->NDS, file))
+    if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, file))
     {
-        // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
         emuThread->emuUnpause();
         return;
     }

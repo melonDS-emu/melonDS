@@ -23,6 +23,7 @@
 #include "SaveManager.h"
 #include "AREngine.h"
 #include "DSi_NAND.h"
+#include <QMainWindow>
 
 #include "MemConstants.h"
 #include <optional>
@@ -72,12 +73,12 @@ std::optional<Firmware> LoadFirmware(int type) noexcept;
 std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSSize>& arm7ibios) noexcept;
 
 /// Inserts a ROM into the emulated console.
-u8 LoadROM(EmuThread*, QStringList filepath, bool reset);
+bool LoadROM(QMainWindow* mainWindow, EmuThread*, QStringList filepath, bool reset);
 void EjectCart(NDS& nds);
 bool CartInserted();
 QString CartLabel();
 
-bool LoadGBAROM(NDS& nds, QStringList filepath);
+bool LoadGBAROM(QMainWindow* mainWindow, NDS& nds, QStringList filepath);
 void LoadGBAAddon(NDS& nds, int type);
 void EjectGBACart(NDS& nds);
 bool GBACartInserted();

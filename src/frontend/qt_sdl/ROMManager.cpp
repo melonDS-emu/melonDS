@@ -29,6 +29,7 @@
 #include <fstream>
 
 #include <QDateTime>
+#include <QMessageBox>
 
 #include <zstd.h>
 #ifdef ARCHIVE_SUPPORT_ENABLED
@@ -1276,7 +1277,7 @@ bool LoadROMData(const QStringList& filepath, std::unique_ptr<u8[]>& filedata, u
         return false;
 }
 
-u8 LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
+bool LoadROM(QMainWindow* mainWindow, EmuThread* emuthread, QStringList filepath, bool reset)
 {
     unique_ptr<u8[]> filedata = nullptr;
     u32 filelen;
@@ -1284,7 +1285,10 @@ u8 LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     std::string romname;
 
     if (!LoadROMData(filepath, filedata, filelen, basepath, romname))
-        return 1;
+    {
+        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
+        return false;
+    }
 
     NDSSave = nullptr;
 
@@ -1302,11 +1306,19 @@ u8 LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
     if (!sav)
     {
-        if (!Platform::CheckFileWritable(origsav)) return 2; // sav write error
+        if (!Platform::CheckFileWritable(origsav))
+        {
+            QMessageBox::critical(mainWindow, "melonDS", "Unable to write to DS save.\nCheck file/folder's write perms.");
+            return false;
+        }
 
         sav = Platform::OpenFile(origsav, FileMode::Read);
     }
-    else if (!Platform::CheckFileWritable(savname)) return 2; // sav write error
+    else if (!Platform::CheckFileWritable(savname))
+    {
+        QMessageBox::critical(mainWindow, "melonDS", "Unable to write to DS save.\nCheck file/folder's write perms.");
+        return false;
+    }
 
     if (sav)
     {
@@ -1329,13 +1341,19 @@ u8 LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
 
     auto cart = NDSCart::ParseROM(std::move(filedata), filelen, std::move(cartargs));
     if (!cart)
+    {
         // If we couldn't parse the ROM...
-        return 1;
+        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
+        return false;
+    }
 
     if (reset)
     {
         if (!emuthread->UpdateConsole(std::move(cart), Keep {}))
-            return 1;
+        {
+            QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
+            return false;
+        }
 
         InitFirmwareSaveManager(emuthread);
         emuthread->NDS->Reset();
@@ -1358,7 +1376,7 @@ u8 LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     NDSSave = std::make_unique<SaveManager>(savname);
     LoadCheats(*emuthread->NDS);
 
-    return 0; // success
+    return true; // success
 }
 
 void EjectCart(NDS& nds)
@@ -1395,9 +1413,13 @@ QString CartLabel()
 }
 
 
-bool LoadGBAROM(NDS& nds, QStringList filepath)
+bool LoadGBAROM(QMainWindow* mainWindow, NDS& nds, QStringList filepath)
 {
-    if (nds.ConsoleType == 1) return false; // DSi doesn't have a GBA slot
+    if (nds.ConsoleType == 1)
+    {
+        QMessageBox::critical(mainWindow, "melonDS", "The DSi doesn't have a GBA slot.");
+        return false;
+    }
 
     unique_ptr<u8[]> filedata = nullptr;
     u32 filelen;
@@ -1405,7 +1427,10 @@ bool LoadGBAROM(NDS& nds, QStringList filepath)
     std::string romname;
 
     if (!LoadROMData(filepath, filedata, filelen, basepath, romname))
+    {
+        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the GBA ROM.");
         return false;
+    }
 
     GBASave = nullptr;
 
@@ -1423,11 +1448,19 @@ bool LoadGBAROM(NDS& nds, QStringList filepath)
     FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
     if (!sav)
     {
-        if (!Platform::CheckFileWritable(origsav)) return 2; // sav write error
+        if (!Platform::CheckFileWritable(origsav))
+        {
+            QMessageBox::critical(mainWindow, "melonDS", "Unable to write to GBA save.\nEnsure save file/directory can be written to.");
+            return false;
+        }
 
         sav = Platform::OpenFile(origsav, FileMode::Read);
     }
-    else if (!Platform::CheckFileWritable(savname)) return 2; // sav write error
+    else if (!Platform::CheckFileWritable(savname))
+    {
+        QMessageBox::critical(mainWindow, "melonDS", "Unable to write to GBA save.\nEnsure save file/directory can be written to.");
+        return false;
+    }
 
     if (sav)
     {
@@ -1444,7 +1477,10 @@ bool LoadGBAROM(NDS& nds, QStringList filepath)
 
     auto cart = GBACart::ParseROM(std::move(filedata), filelen, std::move(savedata), savelen);
     if (!cart)
+    {
+        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the GBA ROM.");
         return false;
+    }
 
     nds.SetGBACart(std::move(cart));
     GBACartType = 0;
