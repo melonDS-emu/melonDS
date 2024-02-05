@@ -67,7 +67,6 @@ using namespace melonDS;
 // TEMP
 extern bool RunningSomething;
 extern MainWindow* mainWindow;
-extern int autoScreenSizing;
 extern int videoRenderer;
 extern bool videoSettingsDirty;
 
