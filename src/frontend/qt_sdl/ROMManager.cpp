@@ -1276,7 +1276,7 @@ bool LoadROMData(const QStringList& filepath, std::unique_ptr<u8[]>& filedata, u
         return false;
 }
 
-bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
+u8 LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
 {
     unique_ptr<u8[]> filedata = nullptr;
     u32 filelen;
@@ -1284,7 +1284,7 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     std::string romname;
 
     if (!LoadROMData(filepath, filedata, filelen, basepath, romname))
-        return false;
+        return 1;
 
     NDSSave = nullptr;
 
@@ -1299,7 +1299,11 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     std::string origsav = savname;
     savname += Platform::InstanceFileSuffix();
 
-    FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
+    FileHandle* sav = Platform::OpenFile(savname, FileMode::Append);
+    if (sav) CloseFile(sav);
+    else return 2; // sav write perm error
+
+    sav = Platform::OpenFile(savname, FileMode::Read);
     if (!sav) sav = Platform::OpenFile(origsav, FileMode::Read);
     if (sav)
     {
@@ -1323,12 +1327,12 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     auto cart = NDSCart::ParseROM(std::move(filedata), filelen, std::move(cartargs));
     if (!cart)
         // If we couldn't parse the ROM...
-        return false;
+        return 1;
 
     if (reset)
     {
         if (!emuthread->UpdateConsole(std::move(cart), Keep {}))
-            return false;
+            return 1;
 
         InitFirmwareSaveManager(emuthread);
         emuthread->NDS->Reset();
@@ -1351,7 +1355,7 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     NDSSave = std::make_unique<SaveManager>(savname);
     LoadCheats(*emuthread->NDS);
 
-    return true;
+    return 0; // success
 }
 
 void EjectCart(NDS& nds)

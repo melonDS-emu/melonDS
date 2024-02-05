@@ -137,6 +137,11 @@ enum FileMode : unsigned {
     Text = 0b01'00'00,
 
     /**
+     * Opens a file in append mode.
+     */
+    Append = 0b10'00'00,
+
+    /**
      * Opens a file for reading and writing.
      * Equivalent to <tt>Read | Write</tt>.
      */

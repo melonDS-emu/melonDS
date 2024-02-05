@@ -72,7 +72,7 @@ std::optional<Firmware> LoadFirmware(int type) noexcept;
 std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSSize>& arm7ibios) noexcept;
 
 /// Inserts a ROM into the emulated console.
-bool LoadROM(EmuThread*, QStringList filepath, bool reset);
+u8 LoadROM(EmuThread*, QStringList filepath, bool reset);
 void EjectCart(NDS& nds);
 bool CartInserted();
 QString CartLabel();

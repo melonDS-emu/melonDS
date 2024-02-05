@@ -865,10 +865,12 @@ void MainWindow::dropEvent(QDropEvent* event)
 
     if (isNdsRom)
     {
-        if (!ROMManager::LoadROM(emuThread, file, true))
+        u8 error = ROMManager::LoadROM(emuThread, file, true);
+        if (error)
         {
             // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the DS ROM.");
+            if (error == 1) QMessageBox::critical(this, "melonDS", "Failed to load the DS ROM.");
+            else if (error == 2) QMessageBox:: critical (this, "melonDS", "Unable to write DS save.\nCheck write perms.");
             emuThread->emuUnpause();
             return;
         }
@@ -965,10 +967,12 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool ndsloaded = false;
     if (!file.isEmpty())
     {
-        if (!ROMManager::LoadROM(emuThread, file, true))
+        u8 error = ROMManager::LoadROM(emuThread, file, true);
+        if (error)
         {
             // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+            if (error == 1) QMessageBox::critical(this, "melonDS", "Failed to load the DS ROM.");
+            else if (error == 2) QMessageBox:: critical (this, "melonDS", "Unable to write DS save.\nCheck write perms.");
             return false;
         }
         recentFileList.removeAll(file.join("|"));
@@ -1173,11 +1177,13 @@ void MainWindow::onOpenFile()
         emuThread->emuUnpause();
         return;
     }
-
-    if (!ROMManager::LoadROM(emuThread, file, true))
+    
+    u8 error = ROMManager::LoadROM(emuThread, file, true);
+    if (error)
     {
         // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+            if (error == 1) QMessageBox::critical(this, "melonDS", "Failed to load the DS ROM.");
+            else if (error == 2) QMessageBox:: critical (this, "melonDS", "Unable to write DS save.\nCheck write perms.");
         emuThread->emuUnpause();
         return;
     }
@@ -1272,11 +1278,13 @@ void MainWindow::onClickRecentFile()
         emuThread->emuUnpause();
         return;
     }
-
-    if (!ROMManager::LoadROM(emuThread, file, true))
+    
+    u8 error = ROMManager::LoadROM(emuThread, file, true);
+    if (error)
     {
         // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+            if (error == 1) QMessageBox::critical(this, "melonDS", "Failed to load the DS ROM.");
+            else if (error == 2) QMessageBox:: critical (this, "melonDS", "Unable to write DS save.\nCheck write perms.");
         emuThread->emuUnpause();
         return;
     }
@@ -1326,10 +1334,12 @@ void MainWindow::onInsertCart()
         return;
     }
 
-    if (!ROMManager::LoadROM(emuThread, file, false))
+    u8 error = ROMManager::LoadROM(emuThread, file, false);
+    if (error)
     {
         // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+        if (error == 1) QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+        else if (error = 2) QMessageBox::critical(this, "melonDS", "Unable to write DS save.\nCheck write perms.");
         emuThread->emuUnpause();
         return;
     }
