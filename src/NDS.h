@@ -39,6 +39,7 @@
 #include "MemRegion.h"
 #include "ARMJIT_Memory.h"
 #include "ARM.h"
+#include "CRC32.h"
 #include "DMA.h"
 #include "FreeBIOS.h"
 
@@ -227,7 +228,7 @@ private:
     bool EnableJIT;
 #endif
 
-public:
+public: // TODO: Encapsulate the rest of these members
     int ConsoleType;
     int CurCPU;
 
@@ -258,11 +259,17 @@ public:
     u16 PowerControl9;
 
     u16 ExMemCnt[2];
-    u8 ROMSeed0[2*8];
-    u8 ROMSeed1[2*8];
+    alignas(u32) u8 ROMSeed0[2*8];
+    alignas(u32) u8 ROMSeed1[2*8];
 
+protected:
+    // These BIOS arrays should be declared *before* the component objects (JIT, SPI, etc.)
+    // so that they're initialized before the component objects' constructors run.
     std::array<u8, ARM9BIOSSize> ARM9BIOS;
     std::array<u8, ARM7BIOSSize> ARM7BIOS;
+    bool ARM9BIOSNative;
+    bool ARM7BIOSNative;
+public: // TODO: Encapsulate the rest of these members
     u16 ARM7BIOSProt;
 
     u8* MainRAM;
@@ -310,8 +317,19 @@ public:
     void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
 
     void LoadBIOS();
-    [[nodiscard]] bool IsLoadedARM9BIOSBuiltIn() const noexcept { return ARM9BIOS == bios_arm9_bin; }
-    [[nodiscard]] bool IsLoadedARM7BIOSBuiltIn() const noexcept { return ARM7BIOS == bios_arm7_bin; }
+
+    /// @return \c true if the loaded ARM9 BIOS image is a known dump
+    /// of a native DS-compatible ARM9 BIOS.
+    [[nodiscard]] bool IsLoadedARM9BIOSKnownNative() const noexcept { return ARM9BIOSNative; }
+    [[nodiscard]] const std::array<u8, ARM9BIOSSize>& GetARM9BIOS() const noexcept { return ARM9BIOS; }
+    void SetARM9BIOS(const std::array<u8, ARM9BIOSSize>& bios) noexcept;
+
+    [[nodiscard]] const std::array<u8, ARM7BIOSSize>& GetARM7BIOS() const noexcept { return ARM7BIOS; }
+    void SetARM7BIOS(const std::array<u8, ARM7BIOSSize>& bios) noexcept;
+
+    /// @return \c true if the loaded ARM7 BIOS image is a known dump
+    /// of a native DS-compatible ARM9 BIOS.
+    [[nodiscard]] bool IsLoadedARM7BIOSKnownNative() const noexcept { return ARM7BIOSNative; }
 
     [[nodiscard]] NDSCart::CartCommon* GetNDSCart() { return NDSCartSlot.GetCart(); }
     [[nodiscard]] const NDSCart::CartCommon* GetNDSCart() const { return NDSCartSlot.GetCart(); }
@@ -327,6 +345,14 @@ public:
     const Firmware& GetFirmware() const { return SPI.GetFirmwareMem()->GetFirmware(); }
     Firmware& GetFirmware() { return SPI.GetFirmwareMem()->GetFirmware(); }
     void SetFirmware(Firmware&& firmware) { SPI.GetFirmwareMem()->SetFirmware(std::move(firmware)); }
+
+    const Renderer3D& GetRenderer3D() const noexcept { return GPU.GetRenderer3D(); }
+    Renderer3D& GetRenderer3D() noexcept { return GPU.GetRenderer3D(); }
+    void SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
+    {
+        if (renderer != nullptr)
+            GPU.SetRenderer3D(std::move(renderer));
+    }
 
     virtual bool NeedsDirectBoot() const;
     void SetupDirectBoot(const std::string& romname);
@@ -463,12 +489,12 @@ private:
     FIFO<u32, 16> IPCFIFO9; // FIFO in which the ARM9 writes
     FIFO<u32, 16> IPCFIFO7;
     u16 DivCnt;
-    u32 DivNumerator[2];
-    u32 DivDenominator[2];
-    u32 DivQuotient[2];
-    u32 DivRemainder[2];
+    alignas(u64) u32 DivNumerator[2];
+    alignas(u64) u32 DivDenominator[2];
+    alignas(u64) u32 DivQuotient[2];
+    alignas(u64) u32 DivRemainder[2];
     u16 SqrtCnt;
-    u32 SqrtVal[2];
+    alignas(u64) u32 SqrtVal[2];
     u32 SqrtRes;
     u16 KeyCnt[2];
     bool Running;

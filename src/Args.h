@@ -30,6 +30,7 @@
 #include "DSi_NAND.h"
 #include "FATStorage.h"
 #include "FreeBIOS.h"
+#include "GPU3D_Soft.h"
 #include "SPI_Firmware.h"
 #include "SPU.h"
 
@@ -118,6 +119,11 @@ struct NDSArgs
     /// Defaults to disabled.
     /// Ignored in builds that don't have the GDB stub included.
     std::optional<GDBArgs> GDB = std::nullopt;
+
+    /// The 3D renderer to initialize the DS with.
+    /// Defaults to the software renderer.
+    /// Can be changed later at any time.
+    std::unique_ptr<melonDS::Renderer3D> Renderer3D = std::make_unique<SoftRenderer>();
 };
 
 /// Arguments to pass into the DSi constructor.

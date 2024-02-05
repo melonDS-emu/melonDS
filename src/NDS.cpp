@@ -92,9 +92,11 @@ NDS::NDS(NDSArgs&& args, int type) noexcept :
     ConsoleType(type),
     ARM7BIOS(args.ARM7BIOS),
     ARM9BIOS(args.ARM9BIOS),
+    ARM7BIOSNative(CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32),
+    ARM9BIOSNative(CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32),
     JIT(*this, args.JIT),
     SPU(*this, args.BitDepth, args.Interpolation),
-    GPU(*this),
+    GPU(*this, std::move(args.Renderer3D)),
     SPI(*this, std::move(args.Firmware)),
     RTC(*this),
     Wifi(*this),
@@ -103,6 +105,9 @@ NDS::NDS(NDSArgs&& args, int type) noexcept :
     AREngine(*this),
     ARM9(*this, args.GDB, args.JIT.has_value()),
     ARM7(*this, args.GDB, args.JIT.has_value()),
+#ifdef JIT_ENABLED
+    EnableJIT(args.JIT.has_value()),
+#endif
     DMAs {
         DMA(0, 0, *this),
         DMA(0, 1, *this),
@@ -270,7 +275,7 @@ bool NDS::NeedsDirectBoot() const
             return true;
 
         // FreeBIOS requires direct boot (it can't boot firmware)
-        if (IsLoadedARM7BIOSBuiltIn() || IsLoadedARM9BIOSBuiltIn())
+        if (!IsLoadedARM9BIOSKnownNative() || !IsLoadedARM7BIOSKnownNative())
             return true;
 
         return false;
@@ -286,7 +291,7 @@ void NDS::SetupDirectBoot()
 
     // Copy the Nintendo logo from the NDS ROM header to the ARM9 BIOS if using FreeBIOS
     // Games need this for DS<->GBA comm to work
-    if (IsLoadedARM9BIOSBuiltIn())
+    if (!IsLoadedARM9BIOSKnownNative())
     {
         memcpy(ARM9BIOS.data() + 0x20, header.NintendoLogo, 0x9C);
     }
@@ -708,15 +713,11 @@ bool NDS::DoSavestate(Savestate* file)
 
         SPU.SetPowerCnt(PowerControl7 & 0x0001);
         Wifi.SetPowerCnt(PowerControl7 & 0x0002);
-    }
 
 #ifdef JIT_ENABLED
-    if (!file->Saving)
-    {
-        JIT.ResetBlockCache();
-        JIT.Memory.Reset();
-    }
+        JIT.Reset();
 #endif
+    }
 
     file->Finish();
 
@@ -754,6 +755,18 @@ void NDS::LoadGBAAddon(int type)
 void NDS::LoadBIOS()
 {
     Reset();
+}
+
+void NDS::SetARM7BIOS(const std::array<u8, ARM7BIOSSize>& bios) noexcept
+{
+    ARM7BIOS = bios;
+    ARM7BIOSNative = CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32;
+}
+
+void NDS::SetARM9BIOS(const std::array<u8, ARM9BIOSSize>& bios) noexcept
+{
+    ARM9BIOS = bios;
+    ARM9BIOSNative = CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32;
 }
 
 u64 NDS::NextTarget()
@@ -1322,7 +1335,7 @@ void NDS::SetIRQ(u32 cpu, u32 irq)
         {
             CPUStop &= ~CPUStop_Sleep;
             CPUStop |= CPUStop_Wakeup;
-            GPU.GPU3D.RestartFrame();
+            GPU.GPU3D.RestartFrame(GPU);
         }
     }
 }
@@ -1480,40 +1493,40 @@ void NDS::NocashPrint(u32 ncpu, u32 addr)
 
             if (cmd[0] == 'r')
             {
-                if      (!strcmp(cmd, "r0")) sprintf(subs, "%08X", cpu->R[0]);
-                else if (!strcmp(cmd, "r1")) sprintf(subs, "%08X", cpu->R[1]);
-                else if (!strcmp(cmd, "r2")) sprintf(subs, "%08X", cpu->R[2]);
-                else if (!strcmp(cmd, "r3")) sprintf(subs, "%08X", cpu->R[3]);
-                else if (!strcmp(cmd, "r4")) sprintf(subs, "%08X", cpu->R[4]);
-                else if (!strcmp(cmd, "r5")) sprintf(subs, "%08X", cpu->R[5]);
-                else if (!strcmp(cmd, "r6")) sprintf(subs, "%08X", cpu->R[6]);
-                else if (!strcmp(cmd, "r7")) sprintf(subs, "%08X", cpu->R[7]);
-                else if (!strcmp(cmd, "r8")) sprintf(subs, "%08X", cpu->R[8]);
-                else if (!strcmp(cmd, "r9")) sprintf(subs, "%08X", cpu->R[9]);
-                else if (!strcmp(cmd, "r10")) sprintf(subs, "%08X", cpu->R[10]);
-                else if (!strcmp(cmd, "r11")) sprintf(subs, "%08X", cpu->R[11]);
-                else if (!strcmp(cmd, "r12")) sprintf(subs, "%08X", cpu->R[12]);
-                else if (!strcmp(cmd, "r13")) sprintf(subs, "%08X", cpu->R[13]);
-                else if (!strcmp(cmd, "r14")) sprintf(subs, "%08X", cpu->R[14]);
-                else if (!strcmp(cmd, "r15")) sprintf(subs, "%08X", cpu->R[15]);
+                if      (!strcmp(cmd, "r0")) snprintf(subs, sizeof(subs), "%08X", cpu->R[0]);
+                else if (!strcmp(cmd, "r1")) snprintf(subs, sizeof(subs), "%08X", cpu->R[1]);
+                else if (!strcmp(cmd, "r2")) snprintf(subs, sizeof(subs), "%08X", cpu->R[2]);
+                else if (!strcmp(cmd, "r3")) snprintf(subs, sizeof(subs), "%08X", cpu->R[3]);
+                else if (!strcmp(cmd, "r4")) snprintf(subs, sizeof(subs), "%08X", cpu->R[4]);
+                else if (!strcmp(cmd, "r5")) snprintf(subs, sizeof(subs), "%08X", cpu->R[5]);
+                else if (!strcmp(cmd, "r6")) snprintf(subs, sizeof(subs), "%08X", cpu->R[6]);
+                else if (!strcmp(cmd, "r7")) snprintf(subs, sizeof(subs), "%08X", cpu->R[7]);
+                else if (!strcmp(cmd, "r8")) snprintf(subs, sizeof(subs), "%08X", cpu->R[8]);
+                else if (!strcmp(cmd, "r9")) snprintf(subs, sizeof(subs), "%08X", cpu->R[9]);
+                else if (!strcmp(cmd, "r10")) snprintf(subs, sizeof(subs), "%08X", cpu->R[10]);
+                else if (!strcmp(cmd, "r11")) snprintf(subs, sizeof(subs), "%08X", cpu->R[11]);
+                else if (!strcmp(cmd, "r12")) snprintf(subs, sizeof(subs), "%08X", cpu->R[12]);
+                else if (!strcmp(cmd, "r13")) snprintf(subs, sizeof(subs), "%08X", cpu->R[13]);
+                else if (!strcmp(cmd, "r14")) snprintf(subs, sizeof(subs), "%08X", cpu->R[14]);
+                else if (!strcmp(cmd, "r15")) snprintf(subs, sizeof(subs), "%08X", cpu->R[15]);
             }
             else
             {
-                if      (!strcmp(cmd, "sp")) sprintf(subs, "%08X", cpu->R[13]);
-                else if (!strcmp(cmd, "lr")) sprintf(subs, "%08X", cpu->R[14]);
-                else if (!strcmp(cmd, "pc")) sprintf(subs, "%08X", cpu->R[15]);
-                else if (!strcmp(cmd, "frame")) sprintf(subs, "%u", NumFrames);
-                else if (!strcmp(cmd, "scanline")) sprintf(subs, "%u", GPU.VCount);
-                else if (!strcmp(cmd, "totalclks")) sprintf(subs, "%" PRIu64, GetSysClockCycles(0));
-                else if (!strcmp(cmd, "lastclks")) sprintf(subs, "%" PRIu64, GetSysClockCycles(1));
+                if      (!strcmp(cmd, "sp")) snprintf(subs, sizeof(subs), "%08X", cpu->R[13]);
+                else if (!strcmp(cmd, "lr")) snprintf(subs, sizeof(subs), "%08X", cpu->R[14]);
+                else if (!strcmp(cmd, "pc")) snprintf(subs, sizeof(subs), "%08X", cpu->R[15]);
+                else if (!strcmp(cmd, "frame")) snprintf(subs, sizeof(subs), "%u", NumFrames);
+                else if (!strcmp(cmd, "scanline")) snprintf(subs, sizeof(subs), "%u", GPU.VCount);
+                else if (!strcmp(cmd, "totalclks")) snprintf(subs, sizeof(subs), "%" PRIu64, GetSysClockCycles(0));
+                else if (!strcmp(cmd, "lastclks")) snprintf(subs, sizeof(subs), "%" PRIu64, GetSysClockCycles(1));
                 else if (!strcmp(cmd, "zeroclks"))
                 {
-                    sprintf(subs, "%s", "");
+                    snprintf(subs, sizeof(subs), "%s", "");
                     GetSysClockCycles(1);
                 }
             }
 
-            int slen = strlen(subs);
+            int slen = strnlen(subs, sizeof(subs));
             if ((ptr+slen) > 1023) slen = 1023-ptr;
             strncpy(&output[ptr], subs, slen);
             ptr += slen;
@@ -2715,9 +2728,35 @@ u8 NDS::ARM9IORead8(u32 addr)
     case 0x04000132: return KeyCnt[0] & 0xFF;
     case 0x04000133: return KeyCnt[0] >> 8;
 
+    case 0x040001A0:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCartSlot.GetSPICnt() & 0xFF;
+        return 0;
+    case 0x040001A1:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCartSlot.GetSPICnt() >> 8;
+        return 0;
+
     case 0x040001A2:
         if (!(ExMemCnt[0] & (1<<11)))
             return NDSCartSlot.ReadSPIData();
+        return 0;
+
+    case 0x040001A4:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCartSlot.GetROMCnt() & 0xFF;
+        return 0;
+    case 0x040001A5:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return (NDSCartSlot.GetROMCnt() >> 8) & 0xFF;
+        return 0;
+    case 0x040001A6:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return (NDSCartSlot.GetROMCnt() >> 16) & 0xFF;
+        return 0;
+    case 0x040001A7:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCartSlot.GetROMCnt() >> 24;
         return 0;
 
     case 0x040001A8:
@@ -2869,6 +2908,15 @@ u16 NDS::ARM9IORead16(u32 addr)
     case 0x040001A2:
         if (!(ExMemCnt[0] & (1<<11)))
             return NDSCartSlot.ReadSPIData();
+        return 0;
+
+    case 0x040001A4:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCartSlot.GetROMCnt() & 0xFFFF;
+        return 0;
+    case 0x040001A6:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCartSlot.GetROMCnt() >> 16;
         return 0;
 
     case 0x040001A8:
@@ -3134,6 +3182,23 @@ void NDS::ARM9IOWrite8(u32 addr, u8 val)
             NDSCartSlot.WriteSPIData(val);
         return;
 
+    case 0x040001A4:
+        if (!(ExMemCnt[0] & (1<<11)))
+            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFFFFFF00) | val);
+        return;
+    case 0x040001A5:
+        if (!(ExMemCnt[0] & (1<<11)))
+            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFFFF00FF) | (val << 8));
+        return;
+    case 0x040001A6:
+        if (!(ExMemCnt[0] & (1<<11)))
+            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFF00FFFF) | (val << 16));
+        return;
+    case 0x040001A7:
+        if (!(ExMemCnt[0] & (1<<11)))
+            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0x00FFFFFF) | (val << 24));
+        return;
+
     case 0x040001A8: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot.SetROMCommand(0, val); return;
     case 0x040001A9: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot.SetROMCommand(1, val); return;
     case 0x040001AA: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot.SetROMCommand(2, val); return;
@@ -3261,6 +3326,15 @@ void NDS::ARM9IOWrite16(u32 addr, u16 val)
     case 0x040001A2:
         if (!(ExMemCnt[0] & (1<<11)))
             NDSCartSlot.WriteSPIData(val & 0xFF);
+        return;
+
+    case 0x040001A4:
+        if (!(ExMemCnt[0] & (1<<11)))
+            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFFFF0000) | val);
+        return;
+    case 0x040001A6:
+        if (!(ExMemCnt[0] & (1<<11)))
+            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0x0000FFFF) | (val << 16));
         return;
 
     case 0x040001A8:
@@ -3579,9 +3653,35 @@ u8 NDS::ARM7IORead8(u32 addr)
 
     case 0x04000138: return RTC.Read() & 0xFF;
 
+    case 0x040001A0:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCartSlot.GetSPICnt() & 0xFF;
+        return 0;
+    case 0x040001A1:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCartSlot.GetSPICnt() >> 8;
+        return 0;
+
     case 0x040001A2:
         if (ExMemCnt[0] & (1<<11))
             return NDSCartSlot.ReadSPIData();
+        return 0;
+
+    case 0x040001A4:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCartSlot.GetROMCnt() & 0xFF;
+        return 0;
+    case 0x040001A5:
+        if (ExMemCnt[0] & (1<<11))
+            return (NDSCartSlot.GetROMCnt() >> 8) & 0xFF;
+        return 0;
+    case 0x040001A6:
+        if (ExMemCnt[0] & (1<<11))
+            return (NDSCartSlot.GetROMCnt() >> 16) & 0xFF;
+        return 0;
+    case 0x040001A7:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCartSlot.GetROMCnt() >> 24;
         return 0;
 
     case 0x040001A8:
@@ -3683,6 +3783,15 @@ u16 NDS::ARM7IORead16(u32 addr)
 
     case 0x040001A0: if (ExMemCnt[0] & (1<<11)) return NDSCartSlot.GetSPICnt();   return 0;
     case 0x040001A2: if (ExMemCnt[0] & (1<<11)) return NDSCartSlot.ReadSPIData(); return 0;
+
+    case 0x040001A4:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCartSlot.GetROMCnt() & 0xFFFF;
+        return 0;
+    case 0x040001A6:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCartSlot.GetROMCnt() >> 16;
+        return 0;
 
     case 0x040001A8:
         if (ExMemCnt[0] & (1<<11))
@@ -3871,6 +3980,23 @@ void NDS::ARM7IOWrite8(u32 addr, u8 val)
             NDSCartSlot.WriteSPIData(val);
         return;
 
+    case 0x040001A4:
+        if (ExMemCnt[0] & (1<<11))
+            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFFFFFF00) | val);
+        return;
+    case 0x040001A5:
+        if (ExMemCnt[0] & (1<<11))
+            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFFFF00FF) | (val << 8));
+        return;
+    case 0x040001A6:
+        if (ExMemCnt[0] & (1<<11))
+            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFF00FFFF) | (val << 16));
+        return;
+    case 0x040001A7:
+        if (ExMemCnt[0] & (1<<11))
+            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0x00FFFFFF) | (val << 24));
+        return;
+
     case 0x040001A8: if (ExMemCnt[0] & (1<<11)) NDSCartSlot.SetROMCommand(0, val); return;
     case 0x040001A9: if (ExMemCnt[0] & (1<<11)) NDSCartSlot.SetROMCommand(1, val); return;
     case 0x040001AA: if (ExMemCnt[0] & (1<<11)) NDSCartSlot.SetROMCommand(2, val); return;
@@ -3974,6 +4100,15 @@ void NDS::ARM7IOWrite16(u32 addr, u16 val)
     case 0x040001A2:
         if (ExMemCnt[0] & (1<<11))
             NDSCartSlot.WriteSPIData(val & 0xFF);
+        return;
+
+    case 0x040001A4:
+        if (ExMemCnt[0] & (1<<11))
+            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFFFFFF00) | val);
+        return;
+    case 0x040001A6:
+        if (ExMemCnt[0] & (1<<11))
+            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFF00FFFF) | (val << 16));
         return;
 
     case 0x040001A8:

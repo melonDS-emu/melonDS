@@ -193,6 +193,7 @@ void CartGame::SetupSave(u32 type)
         SRAMType = S_FLASH512K;
         break;
     case 128*1024:
+    case (128*1024 + 0x10): // .sav file with appended real time clock data (ex: emulator mGBA)
         SRAMType = S_FLASH1M;
         break;
     case 0:
@@ -755,24 +756,6 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
 
     auto [cartrom, cartromsize] = PadToPowerOf2(std::move(romdata), romlen);
 
-    std::unique_ptr<u8[]> cartsram;
-    try
-    {
-        cartsram = sramdata ? std::make_unique<u8[]>(sramlen) : nullptr;
-    }
-    catch (const std::bad_alloc& e)
-    {
-        Log(LogLevel::Error, "GBACart: failed to allocate memory for ROM (%d bytes)\n", cartromsize);
-
-        return nullptr;
-    }
-
-    if (cartsram)
-    {
-        memset(cartsram.get(), 0, sramlen);
-        memcpy(cartsram.get(), sramdata.get(), sramlen);
-    }
-
     char gamecode[5] = { '\0' };
     memcpy(&gamecode, cartrom.get() + 0xAC, 4);
 
@@ -790,9 +773,9 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
 
     std::unique_ptr<CartCommon> cart;
     if (solarsensor)
-        cart = std::make_unique<CartGameSolarSensor>(std::move(cartrom), cartromsize, std::move(cartsram), sramlen);
+        cart = std::make_unique<CartGameSolarSensor>(std::move(cartrom), cartromsize, std::move(sramdata), sramlen);
     else
-        cart = std::make_unique<CartGame>(std::move(cartrom), cartromsize, std::move(cartsram), sramlen);
+        cart = std::make_unique<CartGame>(std::move(cartrom), cartromsize, std::move(sramdata), sramlen);
 
     cart->Reset();
 

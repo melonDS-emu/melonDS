@@ -759,7 +759,12 @@ std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSSize>& a
     return nandImage;
 }
 
-constexpr u64 imgsizes[] = {0, 256, 512, 1024, 2048, 4096};
+constexpr u64 MB(u64 i)
+{
+    return i * 1024 * 1024;
+}
+
+constexpr u64 imgsizes[] = {0, MB(256), MB(512), MB(1024), MB(2048), MB(4096)};
 std::optional<FATStorageArgs> GetDSiSDCardArgs() noexcept
 {
     if (!Config::DSiSDEnable)
@@ -804,12 +809,7 @@ std::optional<FATStorage> LoadDLDISDCard() noexcept
     if (!Config::DLDIEnable)
         return std::nullopt;
 
-    return FATStorage(
-        Config::DLDISDPath,
-        imgsizes[Config::DLDISize],
-        Config::DLDIReadOnly,
-        Config::DLDIFolderSync ? std::make_optional(Config::DLDIFolderPath) : std::nullopt
-    );
+    return FATStorage(*GetDLDISDCardArgs());
 }
 
 void EnableCheats(NDS& nds, bool enable)
@@ -1316,8 +1316,8 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
         // the ROM is homebrew or not.
         // So this is the card we *would* load if the ROM were homebrew.
         .SDCard = GetDLDISDCardArgs(),
-
-        .SRAM = std::make_pair(std::move(savedata), savelen),
+        .SRAM = std::move(savedata),
+        .SRAMLength = savelen,
     };
 
     auto cart = NDSCart::ParseROM(std::move(filedata), filelen, std::move(cartargs));

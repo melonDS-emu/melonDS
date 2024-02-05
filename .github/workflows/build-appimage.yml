@@ -1,4 +1,4 @@
-name: CMake Build (AppImage x86-64)
+name: AppImage
 
 on:
   push:

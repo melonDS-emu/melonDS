@@ -49,7 +49,7 @@ struct VRAMTrackingSet
             Mapping[i] = 0x8000;
         }
     }
-    NonStupidBitField<Size/VRAMDirtyGranularity> DeriveState(u32* currentMappings, GPU& gpu);
+    NonStupidBitField<Size/VRAMDirtyGranularity> DeriveState(const u32* currentMappings, GPU& gpu);
 };
 
 class GPU
@@ -536,18 +536,18 @@ public:
     u8 VRAMCNT[9] {};
     u8 VRAMSTAT = 0;
 
-    u8 Palette[2*1024] {};
-    u8 OAM[2*1024] {};
+    alignas(u64) u8 Palette[2*1024] {};
+    alignas(u64) u8 OAM[2*1024] {};
 
-    u8 VRAM_A[128*1024] {};
-    u8 VRAM_B[128*1024] {};
-    u8 VRAM_C[128*1024] {};
-    u8 VRAM_D[128*1024] {};
-    u8 VRAM_E[ 64*1024] {};
-    u8 VRAM_F[ 16*1024] {};
-    u8 VRAM_G[ 16*1024] {};
-    u8 VRAM_H[ 32*1024] {};
-    u8 VRAM_I[ 16*1024] {};
+    alignas(u64) u8 VRAM_A[128*1024] {};
+    alignas(u64) u8 VRAM_B[128*1024] {};
+    alignas(u64) u8 VRAM_C[128*1024] {};
+    alignas(u64) u8 VRAM_D[128*1024] {};
+    alignas(u64) u8 VRAM_E[ 64*1024] {};
+    alignas(u64) u8 VRAM_F[ 16*1024] {};
+    alignas(u64) u8 VRAM_G[ 16*1024] {};
+    alignas(u64) u8 VRAM_H[ 32*1024] {};
+    alignas(u64) u8 VRAM_I[ 16*1024] {};
 
     u8* const VRAM[9]     = {VRAM_A,  VRAM_B,  VRAM_C,  VRAM_D,  VRAM_E, VRAM_F, VRAM_G, VRAM_H, VRAM_I};
     u32 const VRAMMask[9] = {0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0xFFFF, 0x3FFF, 0x3FFF, 0x7FFF, 0x3FFF};
@@ -596,14 +596,14 @@ public:
     u8 VRAMFlat_AOBJ[256*1024] {};
     u8 VRAMFlat_BOBJ[128*1024] {};
 
-    u8 VRAMFlat_ABGExtPal[32*1024] {};
-    u8 VRAMFlat_BBGExtPal[32*1024] {};
+    alignas(u16) u8 VRAMFlat_ABGExtPal[32*1024] {};
+    alignas(u16) u8 VRAMFlat_BBGExtPal[32*1024] {};
 
-    u8 VRAMFlat_AOBJExtPal[8*1024] {};
-    u8 VRAMFlat_BOBJExtPal[8*1024] {};
+    alignas(u16) u8 VRAMFlat_AOBJExtPal[8*1024] {};
+    alignas(u16) u8 VRAMFlat_BOBJExtPal[8*1024] {};
 
-    u8 VRAMFlat_Texture[512*1024] {};
-    u8 VRAMFlat_TexPal[128*1024] {};
+    alignas(u64) u8 VRAMFlat_Texture[512*1024] {};
+    alignas(u64) u8 VRAMFlat_TexPal[128*1024] {};
 private:
     void ResetVRAMCache() noexcept;
     void AssignFramebuffers() noexcept;

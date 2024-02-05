@@ -142,8 +142,27 @@ void MatrixLoadIdentity(s32* m);
 
 GPU3D::GPU3D(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer) noexcept :
     NDS(nds),
-    CurrentRenderer(renderer ? std::move(renderer) : std::make_unique<SoftRenderer>(nds.GPU))
+    CurrentRenderer(renderer ? std::move(renderer) : std::make_unique<SoftRenderer>())
 {
+}
+
+void Vertex::DoSavestate(Savestate* file) noexcept
+{
+    file->VarArray(Position, sizeof(Position));
+    file->VarArray(Color, sizeof(Color));
+    file->VarArray(TexCoords, sizeof(TexCoords));
+
+    file->Bool32(&Clipped);
+
+    file->VarArray(FinalPosition, sizeof(FinalPosition));
+    file->VarArray(FinalColor, sizeof(FinalColor));
+    file->VarArray(HiresPosition, sizeof(HiresPosition));
+}
+
+void GPU3D::SetCurrentRenderer(std::unique_ptr<Renderer3D>&& renderer) noexcept
+{
+    CurrentRenderer = std::move(renderer);
+    CurrentRenderer->Reset(NDS.GPU);
 }
 
 void GPU3D::ResetRenderingState() noexcept
@@ -282,11 +301,20 @@ void GPU3D::Reset() noexcept
     FlushAttributes = 0;
 
     RenderXPos = 0;
+
+    if (CurrentRenderer)
+        CurrentRenderer->Reset(NDS.GPU);
 }
 
 void GPU3D::DoSavestate(Savestate* file) noexcept
 {
     file->Section("GP3D");
+
+    SoftRenderer* softRenderer = dynamic_cast<SoftRenderer*>(CurrentRenderer.get());
+    if (softRenderer && softRenderer->IsThreaded())
+    {
+        softRenderer->SetupRenderThread(NDS.GPU);
+    }
 
     CmdFIFO.DoSavestate(file);
     CmdPIPE.DoSavestate(file);
@@ -363,33 +391,21 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     file->Var32(&VertexNumInPoly);
     file->Var32(&NumConsecutivePolygons);
 
-    for (int i = 0; i < 4; i++)
+    for (Vertex& vtx : TempVertexBuffer)
     {
-        Vertex* vtx = &TempVertexBuffer[i];
-
-        file->VarArray(vtx->Position, sizeof(s32)*4);
-        file->VarArray(vtx->Color, sizeof(s32)*3);
-        file->VarArray(vtx->TexCoords, sizeof(s16)*2);
-
-        file->Bool32(&vtx->Clipped);
-
-        file->VarArray(vtx->FinalPosition, sizeof(s32)*2);
-        file->VarArray(vtx->FinalColor, sizeof(s32)*3);
+        vtx.DoSavestate(file);
     }
 
     if (file->Saving)
     {
-        u32 id;
-        if (LastStripPolygon) id = (u32)((LastStripPolygon - (&PolygonRAM[0])) / sizeof(Polygon));
-        else                  id = -1;
-        file->Var32(&id);
+        u32 index = LastStripPolygon ? (u32)(LastStripPolygon - &PolygonRAM[0]) : UINT32_MAX;
+        file->Var32(&index);
     }
     else
     {
-        u32 id;
-        file->Var32(&id);
-        if (id == 0xFFFFFFFF) LastStripPolygon = NULL;
-        else          LastStripPolygon = &PolygonRAM[id];
+        u32 index = UINT32_MAX;
+        file->Var32(&index);
+        LastStripPolygon = (index == UINT32_MAX) ? nullptr : &PolygonRAM[index];
     }
 
     file->Var32(&CurRAMBank);
@@ -400,18 +416,9 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     file->Var32(&FlushRequest);
     file->Var32(&FlushAttributes);
 
-    for (int i = 0; i < 6144*2; i++)
+    for (Vertex& vtx : VertexRAM)
     {
-        Vertex* vtx = &VertexRAM[i];
-
-        file->VarArray(vtx->Position, sizeof(s32)*4);
-        file->VarArray(vtx->Color, sizeof(s32)*3);
-        file->VarArray(vtx->TexCoords, sizeof(s16)*2);
-
-        file->Bool32(&vtx->Clipped);
-
-        file->VarArray(vtx->FinalPosition, sizeof(s32)*2);
-        file->VarArray(vtx->FinalColor, sizeof(s32)*3);
+        vtx.DoSavestate(file);
     }
 
     for(int i = 0; i < 2048*2; i++)
@@ -425,20 +432,17 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
             for (int j = 0; j < 10; j++)
             {
                 Vertex* ptr = poly->Vertices[j];
-                u32 id;
-                if (ptr) id = (u32)((ptr - (&VertexRAM[0])) / sizeof(Vertex));
-                else     id = -1;
-                file->Var32(&id);
+                u32 index = ptr ? (u32)(ptr - &VertexRAM[0]) : UINT32_MAX;
+                file->Var32(&index);
             }
         }
         else
         {
             for (int j = 0; j < 10; j++)
             {
-                u32 id = -1;
-                file->Var32(&id);
-                if (id == 0xFFFFFFFF) poly->Vertices[j] = NULL;
-                else          poly->Vertices[j] = &VertexRAM[id];
+                u32 index = UINT32_MAX;
+                file->Var32(&index);
+                poly->Vertices[j] = index == UINT32_MAX ? nullptr : &VertexRAM[index];
             }
         }
 
@@ -486,7 +490,6 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
         }
     }
 
-    // probably not worth storing the vblank-latched Renderxxxxxx variables
     CmdStallQueue.DoSavestate(file);
 
     file->Var32((u32*)&VertexPipeline);
@@ -502,10 +505,27 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 
         CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
         CurPolygonRAM = &PolygonRAM[CurRAMBank ? 2048 : 0];
+    }
 
-        // better safe than sorry, I guess
-        // might cause a blank frame but atleast it won't shit itself
-        RenderNumPolygons = 0;
+    file->Var32(&RenderNumPolygons);
+    if (file->Saving)
+    {
+        for (const Polygon* p : RenderPolygonRAM)
+        {
+            u32 index = p ? (p - &PolygonRAM[0]) : UINT32_MAX;
+
+            file->Var32(&index);
+        }
+    }
+    else
+    {
+        for (int i = 0; i < RenderPolygonRAM.size(); ++i)
+        {
+            u32 index = UINT32_MAX;
+            file->Var32(&index);
+
+            RenderPolygonRAM[i] = index == UINT32_MAX ? nullptr : &PolygonRAM[index];
+        }
     }
 
     file->VarArray(CurVertex, sizeof(s16)*3);
@@ -525,6 +545,18 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     file->VarArray(ShininessTable, 128*sizeof(u8));
 
     file->Bool32(&AbortFrame);
+    file->Bool32(&GeometryEnabled);
+    file->Bool32(&RenderingEnabled);
+    file->Var32(&PolygonMode);
+    file->Var32(&PolygonAttr);
+    file->Var32(&CurPolygonAttr);
+    file->Var32(&TexParam);
+    file->Var32(&TexPalette);
+    RenderFrameIdentical = false;
+    if (softRenderer && softRenderer->IsThreaded())
+    {
+        softRenderer->EnableRenderThread();
+    }
 }
 
 
@@ -2367,20 +2399,20 @@ void GPU3D::CheckFIFODMA() noexcept
         NDS.CheckDMAs(0, 0x07);
 }
 
-void GPU3D::VCount144() noexcept
+void GPU3D::VCount144(GPU& gpu) noexcept
 {
-    CurrentRenderer->VCount144();
+    CurrentRenderer->VCount144(gpu);
 }
 
-void GPU3D::RestartFrame() noexcept
+void GPU3D::RestartFrame(GPU& gpu) noexcept
 {
-    CurrentRenderer->RestartFrame();
+    CurrentRenderer->RestartFrame(gpu);
 }
 
-void GPU3D::Stop() noexcept
+void GPU3D::Stop(const GPU& gpu) noexcept
 {
     if (CurrentRenderer)
-        CurrentRenderer->Stop();
+        CurrentRenderer->Stop(gpu);
 }
 
 
@@ -2473,9 +2505,9 @@ void GPU3D::VBlank() noexcept
     }
 }
 
-void GPU3D::VCount215() noexcept
+void GPU3D::VCount215(GPU& gpu) noexcept
 {
-    CurrentRenderer->RenderFrame();
+    CurrentRenderer->RenderFrame(gpu);
 }
 
 void GPU3D::SetRenderXPos(u16 xpos) noexcept
@@ -2935,10 +2967,10 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
     Log(LogLevel::Debug, "unknown GPU3D write32 %08X %08X\n", addr, val);
 }
 
-void GPU3D::Blit() noexcept
+void GPU3D::Blit(const GPU& gpu) noexcept
 {
     if (CurrentRenderer)
-        CurrentRenderer->Blit();
+        CurrentRenderer->Blit(gpu);
 }
 
 Renderer3D::Renderer3D(bool Accelerated)

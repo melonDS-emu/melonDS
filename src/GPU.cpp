@@ -67,7 +67,7 @@ GPU::GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d, std::uniqu
     NDS(nds),
     GPU2D_A(0, *this),
     GPU2D_B(1, *this),
-    GPU3D(nds, renderer3d ? std::move(renderer3d) : std::make_unique<SoftRenderer>(*this)),
+    GPU3D(nds, renderer3d ? std::move(renderer3d) : std::make_unique<SoftRenderer>()),
     GPU2D_Renderer(renderer2d ? std::move(renderer2d) : std::make_unique<GPU2D::SoftRenderer>(*this))
 {
     NDS.RegisterEventFunc(Event_LCD, LCD_StartHBlank, MemberEventFunc(GPU, StartHBlank));
@@ -209,7 +209,7 @@ void GPU::Stop() noexcept
     memset(Framebuffer[1][0].get(), 0, fbsize*4);
     memset(Framebuffer[1][1].get(), 0, fbsize*4);
 
-    GPU3D.Stop();
+    GPU3D.Stop(*this);
 }
 
 void GPU::DoSavestate(Savestate* file) noexcept
@@ -275,7 +275,8 @@ void GPU::DoSavestate(Savestate* file) noexcept
     GPU2D_B.DoSavestate(file);
     GPU3D.DoSavestate(file);
 
-    ResetVRAMCache();
+    if (!file->Saving)
+        ResetVRAMCache();
 }
 
 void GPU::AssignFramebuffers() noexcept
@@ -294,7 +295,7 @@ void GPU::AssignFramebuffers() noexcept
 void GPU::SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
 {
     if (renderer == nullptr)
-        GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>(*this));
+        GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>());
     else
         GPU3D.SetCurrentRenderer(std::move(renderer));
 
@@ -899,7 +900,7 @@ void GPU::StartHBlank(u32 line) noexcept
     }
     else if (VCount == 215)
     {
-        GPU3D.VCount215();
+        GPU3D.VCount215(*this);
     }
     else if (VCount == 262)
     {
@@ -925,7 +926,7 @@ void GPU::FinishFrame(u32 lines) noexcept
 
     if (GPU3D.AbortFrame)
     {
-        GPU3D.RestartFrame();
+        GPU3D.RestartFrame(*this);
         GPU3D.AbortFrame = false;
     }
 }
@@ -1018,7 +1019,7 @@ void GPU::StartScanline(u32 line) noexcept
             // texture memory anyway and only update it before the start
             //of the next frame.
             // So we can give the rasteriser a bit more headroom
-            GPU3D.VCount144();
+            GPU3D.VCount144(*this);
 
             // VBlank
             DispStat[0] |= (1<<0);
@@ -1038,7 +1039,7 @@ void GPU::StartScanline(u32 line) noexcept
 
             // Need a better way to identify the openGL renderer in particular
             if (GPU3D.IsRendererAccelerated())
-                GPU3D.Blit();
+                GPU3D.Blit(*this);
         }
     }
 
@@ -1068,7 +1069,7 @@ void GPU::SetVCount(u16 val) noexcept
 }
 
 template <u32 Size, u32 MappingGranularity>
-NonStupidBitField<Size/VRAMDirtyGranularity> VRAMTrackingSet<Size, MappingGranularity>::DeriveState(u32* currentMappings, GPU& gpu)
+NonStupidBitField<Size/VRAMDirtyGranularity> VRAMTrackingSet<Size, MappingGranularity>::DeriveState(const u32* currentMappings, GPU& gpu)
 {
     NonStupidBitField<Size/VRAMDirtyGranularity> result;
     u16 banksToBeZeroed = 0;
@@ -1131,12 +1132,12 @@ NonStupidBitField<Size/VRAMDirtyGranularity> VRAMTrackingSet<Size, MappingGranul
     return result;
 }
 
-template NonStupidBitField<32*1024/VRAMDirtyGranularity> VRAMTrackingSet<32*1024, 8*1024>::DeriveState(u32*, GPU& gpu);
-template NonStupidBitField<8*1024/VRAMDirtyGranularity> VRAMTrackingSet<8*1024, 8*1024>::DeriveState(u32*, GPU& gpu);
-template NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMTrackingSet<512*1024, 128*1024>::DeriveState(u32*, GPU& gpu);
-template NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMTrackingSet<128*1024, 16*1024>::DeriveState(u32*, GPU& gpu);
-template NonStupidBitField<256*1024/VRAMDirtyGranularity> VRAMTrackingSet<256*1024, 16*1024>::DeriveState(u32*, GPU& gpu);
-template NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMTrackingSet<512*1024, 16*1024>::DeriveState(u32*, GPU& gpu);
+template NonStupidBitField<32*1024/VRAMDirtyGranularity> VRAMTrackingSet<32*1024, 8*1024>::DeriveState(const u32*, GPU& gpu);
+template NonStupidBitField<8*1024/VRAMDirtyGranularity> VRAMTrackingSet<8*1024, 8*1024>::DeriveState(const u32*, GPU& gpu);
+template NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMTrackingSet<512*1024, 128*1024>::DeriveState(const u32*, GPU& gpu);
+template NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMTrackingSet<128*1024, 16*1024>::DeriveState(const u32*, GPU& gpu);
+template NonStupidBitField<256*1024/VRAMDirtyGranularity> VRAMTrackingSet<256*1024, 16*1024>::DeriveState(const u32*, GPU& gpu);
+template NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMTrackingSet<512*1024, 16*1024>::DeriveState(const u32*, GPU& gpu);
 
 
 

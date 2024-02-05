@@ -28,6 +28,7 @@
 #include "Platform.h"
 #include "types.h"
 #include "fatfs/ff.h"
+#include "FATIO.h"
 
 namespace melonDS
 {
@@ -39,6 +40,8 @@ namespace melonDS
 struct FATStorageArgs
 {
     std::string Filename;
+
+    /// Size of the desired SD card in bytes, or 0 for auto-detect.
     u64 Size;
     bool ReadOnly;
     std::optional<std::string> SourceDir;
@@ -48,8 +51,8 @@ class FATStorage
 {
 public:
     FATStorage(const std::string& filename, u64 size, bool readonly, const std::optional<std::string>& sourcedir = std::nullopt);
-    FATStorage(const FATStorageArgs& args) noexcept;
-    FATStorage(FATStorageArgs&& args) noexcept;
+    explicit FATStorage(const FATStorageArgs& args) noexcept;
+    explicit FATStorage(FATStorageArgs&& args) noexcept;
     FATStorage(FATStorage&& other) noexcept;
     FATStorage(const FATStorage& other) = delete;
     FATStorage& operator=(const FATStorage& other) = delete;
@@ -57,10 +60,13 @@ public:
     ~FATStorage();
 
     bool InjectFile(const std::string& path, u8* data, u32 len);
+    u32 ReadFile(const std::string& path, u32 start, u32 len, u8* data);
 
     u32 ReadSectors(u32 start, u32 num, u8* data) const;
     u32 WriteSectors(u32 start, u32 num, const u8* data);
+
     [[nodiscard]] bool IsReadOnly() const noexcept { return ReadOnly; }
+    u64 GetSectorCount() const;
 
 private:
     std::string FilePath;
@@ -71,10 +77,8 @@ private:
     Platform::FileHandle* File;
     u64 FileSize;
 
-    static Platform::FileHandle* FF_File;
-    static u64 FF_FileSize;
-    static UINT FF_ReadStorage(BYTE* buf, LBA_t sector, UINT num);
-    static UINT FF_WriteStorage(const BYTE* buf, LBA_t sector, UINT num);
+    [[nodiscard]] ff_disk_read_cb FF_ReadStorage() const noexcept;
+    [[nodiscard]] ff_disk_write_cb FF_WriteStorage() const noexcept;
 
     static u32 ReadSectorsInternal(Platform::FileHandle* file, u64 filelen, u32 start, u32 num, u8* data);
     static u32 WriteSectorsInternal(Platform::FileHandle* file, u64 filelen, u32 start, u32 num, const u8* data);

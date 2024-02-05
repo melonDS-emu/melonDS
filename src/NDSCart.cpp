@@ -111,7 +111,7 @@ void NDSCartSlot::Key1_ApplyKeycode(u32* keycode, u32 mod) noexcept
 
 void NDSCartSlot::Key1_LoadKeyBuf(bool dsi, const u8 *bios, u32 biosLength) noexcept
 {
-    if (!NDS.IsLoadedARM7BIOSBuiltIn())
+    if (NDS.IsLoadedARM7BIOSKnownNative())
     {
         u32 expected_bios_length = dsi ? 0x10000 : 0x4000;
         if (biosLength != expected_bios_length)
@@ -261,7 +261,7 @@ int CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, const u8* cmd, 
 
         case 0x3C:
             CmdEncMode = 1;
-            cartslot.Key1_InitKeycode(false, *(u32*)&ROM[0xC], 2, 2, &nds.ARM7BIOS[0], sizeof(NDS::ARM7BIOS));
+            cartslot.Key1_InitKeycode(false, *(u32*)&ROM[0xC], 2, 2, nds.GetARM7BIOS().data(), ARM7BIOSSize);
             DSiMode = false;
             return 0;
 
@@ -404,7 +404,11 @@ CartRetail::CartRetail(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool ba
         { // Copy in what we can, truncate the rest.
             SRAM = std::make_unique<u8[]>(SRAMLength);
             memset(SRAM.get(), 0xFF, SRAMLength);
-            memcpy(SRAM.get(), sram.get(), std::min(sramlen, SRAMLength));
+
+            if (sram)
+            { // If we have anything to copy, that is.
+                memcpy(SRAM.get(), sram.get(), std::min(sramlen, SRAMLength));
+            }
         }
     }
 
@@ -1145,12 +1149,12 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
     return 0;
 }
 
-CartHomebrew::CartHomebrew(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard) :
-    CartHomebrew(CopyToUnique(rom, len), len, chipid, romparams, std::move(sdcard))
-{
-}
 
-CartHomebrew::CartHomebrew(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard) :
+CartSD::CartSD(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard) :
+    CartSD(CopyToUnique(rom, len), len, chipid, romparams, std::move(sdcard))
+{}
+
+CartSD::CartSD(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard) :
     CartCommon(std::move(rom), len, chipid, false, romparams, CartType::Homebrew),
     SD(std::move(sdcard))
 {
@@ -1158,112 +1162,11 @@ CartHomebrew::CartHomebrew(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROM
     // std::move on optionals usually results in an optional with a moved-from object
 }
 
-CartHomebrew::~CartHomebrew() = default;
+CartSD::~CartSD() = default;
 // The SD card is destroyed by the optional's destructor
 
-void CartHomebrew::Reset()
-{
-    CartCommon::Reset();
 
-    if (SD)
-    {
-        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), SD->IsReadOnly());
-    }
-}
-
-void CartHomebrew::SetupDirectBoot(const std::string& romname, NDS& nds)
-{
-    CartCommon::SetupDirectBoot(romname, nds);
-
-    if (SD)
-    {
-        // add the ROM to the SD volume
-
-        if (!SD->InjectFile(romname, ROM.get(), ROMLength))
-            return;
-
-        // setup argv command line
-
-        char argv[512] = {0};
-        int argvlen;
-
-        strncpy(argv, "fat:/", 511);
-        strncat(argv, romname.c_str(), 511);
-        argvlen = strlen(argv);
-
-        const NDSHeader& header = GetHeader();
-
-        u32 argvbase = header.ARM9RAMAddress + header.ARM9Size;
-        argvbase = (argvbase + 0xF) & ~0xF;
-
-        for (u32 i = 0; i <= argvlen; i+=4)
-            nds.ARM9Write32(argvbase+i, *(u32*)&argv[i]);
-
-        nds.ARM9Write32(0x02FFFE70, 0x5F617267);
-        nds.ARM9Write32(0x02FFFE74, argvbase);
-        nds.ARM9Write32(0x02FFFE78, argvlen+1);
-        // The DSi version of ARM9Write32 will be called if nds is really a DSi
-    }
-}
-
-int CartHomebrew::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
-{
-    if (CmdEncMode != 2) return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
-
-    switch (cmd[0])
-    {
-    case 0xB7:
-        {
-            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            memset(data, 0, len);
-
-            if (((addr + len - 1) >> 12) != (addr >> 12))
-            {
-                u32 len1 = 0x1000 - (addr & 0xFFF);
-                ReadROM_B7(addr, len1, data, 0);
-                ReadROM_B7(addr+len1, len-len1, data, len1);
-            }
-            else
-                ReadROM_B7(addr, len, data, 0);
-        }
-        return 0;
-
-    case 0xC0: // SD read
-        {
-            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            if (SD) SD->ReadSectors(sector, len>>9, data);
-        }
-        return 0;
-
-    case 0xC1: // SD write
-        return 1;
-
-    default:
-        return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
-    }
-}
-
-void CartHomebrew::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
-{
-    if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
-
-    // TODO: delayed SD writing? like we have for SRAM
-
-    switch (cmd[0])
-    {
-    case 0xC1:
-        {
-            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            if (SD && !SD->IsReadOnly()) SD->WriteSectors(sector, len>>9, data);
-        }
-        break;
-
-    default:
-        return CartCommon::ROMCommandFinish(cmd, data, len);
-    }
-}
-
-void CartHomebrew::ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly) const
+void CartSD::ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly) const
 {
     if (patch[0x0D] > binary[dldioffset+0x0F])
     {
@@ -1364,7 +1267,7 @@ void CartHomebrew::ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch,
     Log(LogLevel::Debug, "applied DLDI patch at %08X\n", dldioffset);
 }
 
-void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
+void CartSD::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
 {
     if (*(u32*)&patch[0] != 0xBF8DA5ED ||
         *(u32*)&patch[4] != 0x69684320 ||
@@ -1394,7 +1297,7 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
     }
 }
 
-void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset) const
+void CartSD::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset) const
 {
     // TODO: how strict should this be for homebrew?
 
@@ -1403,7 +1306,115 @@ void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset) const
     memcpy(data+offset, ROM.get()+addr, len);
 }
 
+CartHomebrew::CartHomebrew(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard) :
+    CartSD(rom, len, chipid, romparams, std::move(sdcard))
+{}
 
+CartHomebrew::CartHomebrew(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::optional<FATStorage>&& sdcard) :
+    CartSD(std::move(rom), len, chipid, romparams, std::move(sdcard))
+{}
+
+CartHomebrew::~CartHomebrew() = default;
+
+void CartHomebrew::Reset()
+{
+    CartSD::Reset();
+
+    if (SD)
+        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), SD->IsReadOnly());
+}
+
+void CartHomebrew::SetupDirectBoot(const std::string& romname, NDS& nds)
+{
+    CartCommon::SetupDirectBoot(romname, nds);
+
+    if (SD)
+    {
+        // add the ROM to the SD volume
+
+        if (!SD->InjectFile(romname, ROM.get(), ROMLength))
+            return;
+
+        // setup argv command line
+
+        char argv[512] = {0};
+        int argvlen;
+
+        strncpy(argv, "fat:/", 511);
+        strncat(argv, romname.c_str(), 511);
+        argvlen = strlen(argv);
+
+        const NDSHeader& header = GetHeader();
+
+        u32 argvbase = header.ARM9RAMAddress + header.ARM9Size;
+        argvbase = (argvbase + 0xF) & ~0xF;
+
+        for (u32 i = 0; i <= argvlen; i+=4)
+            nds.ARM9Write32(argvbase+i, *(u32*)&argv[i]);
+
+        nds.ARM9Write32(0x02FFFE70, 0x5F617267);
+        nds.ARM9Write32(0x02FFFE74, argvbase);
+        nds.ARM9Write32(0x02FFFE78, argvlen+1);
+        // The DSi version of ARM9Write32 will be called if nds is really a DSi
+    }
+}
+
+int CartHomebrew::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
+{
+    if (CmdEncMode != 2) return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
+
+    switch (cmd[0])
+    {
+    case 0xB7:
+        {
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            memset(data, 0, len);
+
+            if (((addr + len - 1) >> 12) != (addr >> 12))
+            {
+                u32 len1 = 0x1000 - (addr & 0xFFF);
+                ReadROM_B7(addr, len1, data, 0);
+                ReadROM_B7(addr+len1, len-len1, data, len1);
+            }
+            else
+                ReadROM_B7(addr, len, data, 0);
+        }
+        return 0;
+
+    case 0xC0: // SD read
+        {
+            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            if (SD) SD->ReadSectors(sector, len>>9, data);
+        }
+        return 0;
+
+    case 0xC1: // SD write
+        return 1;
+
+    default:
+        return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
+    }
+}
+
+void CartHomebrew::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
+{
+    if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
+
+    // TODO: delayed SD writing? like we have for SRAM
+
+    switch (cmd[0])
+    {
+    case 0xC1:
+        {
+            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            if (SD && !SD->IsReadOnly()) SD->WriteSectors(sector, len>>9, data);
+        }
+        break;
+
+    default:
+        return CartCommon::ROMCommandFinish(cmd, data, len);
+    }
+}
 
 NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) noexcept : NDS(nds)
 {
@@ -1533,10 +1544,10 @@ void NDSCartSlot::DecryptSecureArea(u8* out) noexcept
 
     memcpy(out, &cartrom[arm9base], 0x800);
 
-    Key1_InitKeycode(false, gamecode, 2, 2, &NDS.ARM7BIOS[0], sizeof(NDS::ARM7BIOS));
+    Key1_InitKeycode(false, gamecode, 2, 2, NDS.GetARM7BIOS().data(), ARM7BIOSSize);
     Key1_Decrypt((u32*)&out[0]);
 
-    Key1_InitKeycode(false, gamecode, 3, 2, &NDS.ARM7BIOS[0], sizeof(NDS::ARM7BIOS));
+    Key1_InitKeycode(false, gamecode, 3, 2, NDS.GetARM7BIOS().data(), ARM7BIOSSize);
     for (u32 i = 0; i < 0x800; i += 8)
         Key1_Decrypt((u32*)&out[i]);
 
@@ -1588,6 +1599,7 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
         dsi = false;
     }
 
+    const char *gametitle = header.GameTitle;
     u32 gamecode = header.GameCodeAsU32();
 
     u32 arm9base = header.ARM9ROMOffset;
@@ -1642,9 +1654,18 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
     }
 
     std::unique_ptr<CartCommon> cart;
-    auto [sram, sramlen] = args ? std::move(*args->SRAM) : std::make_pair(nullptr, 0);
+    std::unique_ptr<u8[]> sram = args ? std::move(args->SRAM) : nullptr;
+    u32 sramlen = args ? args->SRAMLength : 0;
     if (homebrew)
-        cart = std::make_unique<CartHomebrew>(std::move(cartrom), cartromsize, cartid, romparams, args ? std::move(args->SDCard) : std::nullopt);
+    {
+        std::optional<FATStorage> sdcard = args && args->SDCard ? std::make_optional<FATStorage>(std::move(*args->SDCard)) : std::nullopt;
+        cart = std::make_unique<CartHomebrew>(std::move(cartrom), cartromsize, cartid, romparams, std::move(sdcard));
+    }
+    else if (gametitle[0] == 0 && !strncmp("SD/TF-NDS", gametitle + 1, 9) && gamecode == 0x414D5341)
+    {
+        std::optional<FATStorage> sdcard = args && args->SDCard ? std::make_optional<FATStorage>(std::move(*args->SDCard)) : std::nullopt;
+        cart = std::make_unique<CartR4>(std::move(cartrom), cartromsize, cartid, romparams, CartR4TypeR4, CartR4LanguageEnglish, std::move(sdcard));
+    }
     else if (cartid & 0x08000000)
         cart = std::make_unique<CartRetailNAND>(std::move(cartrom), cartromsize, cartid, romparams, std::move(sram), sramlen);
     else if (irversion != 0)
@@ -1685,11 +1706,11 @@ void NDSCartSlot::SetCart(std::unique_ptr<CartCommon>&& cart) noexcept
 
             strncpy((char*)&cartrom[header.ARM9ROMOffset], "encryObj", 8);
 
-            Key1_InitKeycode(false, romparams.GameCode, 3, 2, &NDS.ARM7BIOS[0], sizeof(NDS::ARM7BIOS));
+            Key1_InitKeycode(false, romparams.GameCode, 3, 2, NDS.GetARM7BIOS().data(), ARM7BIOSSize);
             for (u32 i = 0; i < 0x800; i += 8)
                 Key1_Encrypt((u32*)&cartrom[header.ARM9ROMOffset + i]);
 
-            Key1_InitKeycode(false, romparams.GameCode, 2, 2, &NDS.ARM7BIOS[0], sizeof(NDS::ARM7BIOS));
+            Key1_InitKeycode(false, romparams.GameCode, 2, 2, NDS.GetARM7BIOS().data(), ARM7BIOSSize);
             Key1_Encrypt((u32*)&cartrom[header.ARM9ROMOffset]);
 
             Log(LogLevel::Debug, "Re-encrypted cart secure area\n");
