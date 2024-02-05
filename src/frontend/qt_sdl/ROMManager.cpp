@@ -1277,6 +1277,17 @@ bool LoadROMData(const QStringList& filepath, std::unique_ptr<u8[]>& filedata, u
         return false;
 }
 
+char* GetSavErrorString(std::string& filepath, bool gba)
+{
+    std::string console = gba ? "GBA" : "DS";
+    std::string err1 = "Unable to write to ";
+    std::string err2 = " save.\nEnsure the save file/directory can be written to.\n\nAttempted to Access:\n";
+
+    err1 += console + err2 + filepath;
+
+    return (char*)err1.c_str();
+}
+
 bool LoadROM(QMainWindow* mainWindow, EmuThread* emuthread, QStringList filepath, bool reset)
 {
     unique_ptr<u8[]> filedata = nullptr;
@@ -1308,7 +1319,7 @@ bool LoadROM(QMainWindow* mainWindow, EmuThread* emuthread, QStringList filepath
     {
         if (!Platform::CheckFileWritable(origsav))
         {
-            QMessageBox::critical(mainWindow, "melonDS", "Unable to write to DS save.\nCheck file/folder's write perms.");
+            QMessageBox::critical(mainWindow, "melonDS", GetSavErrorString(origsav, false));
             return false;
         }
 
@@ -1316,7 +1327,7 @@ bool LoadROM(QMainWindow* mainWindow, EmuThread* emuthread, QStringList filepath
     }
     else if (!Platform::CheckFileWritable(savname))
     {
-        QMessageBox::critical(mainWindow, "melonDS", "Unable to write to DS save.\nCheck file/folder's write perms.");
+        QMessageBox::critical(mainWindow, "melonDS", GetSavErrorString(savname, false));
         return false;
     }
 
@@ -1450,7 +1461,7 @@ bool LoadGBAROM(QMainWindow* mainWindow, NDS& nds, QStringList filepath)
     {
         if (!Platform::CheckFileWritable(origsav))
         {
-            QMessageBox::critical(mainWindow, "melonDS", "Unable to write to GBA save.\nEnsure save file/directory can be written to.");
+            QMessageBox::critical(mainWindow, "melonDS", GetSavErrorString(origsav, true));
             return false;
         }
 
@@ -1458,7 +1469,7 @@ bool LoadGBAROM(QMainWindow* mainWindow, NDS& nds, QStringList filepath)
     }
     else if (!Platform::CheckFileWritable(savname))
     {
-        QMessageBox::critical(mainWindow, "melonDS", "Unable to write to GBA save.\nEnsure save file/directory can be written to.");
+        QMessageBox::critical(mainWindow, "melonDS", GetSavErrorString(savname, true));
         return false;
     }
 
