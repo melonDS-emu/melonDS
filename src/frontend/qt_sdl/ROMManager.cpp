@@ -1281,7 +1281,7 @@ char* GetSavErrorString(std::string& filepath, bool gba)
 {
     std::string console = gba ? "GBA" : "DS";
     std::string err1 = "Unable to write to ";
-    std::string err2 = " save.\nEnsure the save file/directory can be written to.\n\nAttempted to Access:\n";
+    std::string err2 = " save.\nPlease check file/folder write permissions.\n\nAttempted to Access:\n";
 
     err1 += console + err2 + filepath;
 
