@@ -911,7 +911,7 @@ void ARMv5::CP15Write(const u32 id, const u32 val)
         {
             u32 diff = PU_DataCacheable ^ val;
             PU_DataCacheable = val;
-            #if 1
+            #if 0
                 // This code just updates the PU_Map entries of the given region
                 // this works fine, if the regions do not overlap 
                 // If overlapping and the least priority region cachable bit
@@ -937,7 +937,7 @@ void ARMv5::CP15Write(const u32 id, const u32 val)
         {
             u32 diff = PU_CodeCacheable ^ val;
             PU_CodeCacheable = val;
-            #if 1
+            #if 0
                 // This code just updates the PU_Map entries of the given region
                 // this works fine, if the regions do not overlap 
                 // If overlapping and the least priority region cachable bit
@@ -964,7 +964,7 @@ void ARMv5::CP15Write(const u32 id, const u32 val)
         {
             u32 diff = PU_DataCacheWrite ^ val;
             PU_DataCacheWrite = val;
-            #if 1
+            #if 0
                 // This code just updates the PU_Map entries of the given region
                 // this works fine, if the regions do not overlap 
                 // If overlapping and the least priority region write buffer 
@@ -996,7 +996,7 @@ void ARMv5::CP15Write(const u32 id, const u32 val)
             for (int i=0;i<CP15_REGION_COUNT;i++)
                 PU_DataRW |= (val  >> (i * 2) & 3) << (i * CP15_REGIONACCESS_BITS_PER_REGION);
             
-            #if 1
+            #if 0
                 // This code just updates the PU_Map entries of the given region
                 // this works fine, if the regions do not overlap 
                 // If overlapping and the least priority region access permission
@@ -1028,7 +1028,7 @@ void ARMv5::CP15Write(const u32 id, const u32 val)
             for (int i=0;i<CP15_REGION_COUNT;i++)
                 PU_CodeRW |= (val  >> (i * 2) & 3) << (i * CP15_REGIONACCESS_BITS_PER_REGION);
 
-            #if 1
+            #if 0
                 // This code just updates the PU_Map entries of the given region
                 // this works fine, if the regions do not overlap 
                 // If overlapping and the least priority region access permission
@@ -1054,7 +1054,7 @@ void ARMv5::CP15Write(const u32 id, const u32 val)
         {
             u32 diff = PU_DataRW ^ val;
             PU_DataRW = val;
-            #if 1
+            #if 0
                 // This code just updates the PU_Map entries of the given region
                 // this works fine, if the regions do not overlap 
                 // If overlapping and the least priority region access permission
@@ -1078,7 +1078,7 @@ void ARMv5::CP15Write(const u32 id, const u32 val)
         {
             u32 diff = PU_CodeRW ^ val;
             PU_CodeRW = val;
-            #if 1
+            #if 0
                 // This code just updates the PU_Map entries of the given region
                 // this works fine, if the regions do not overlap 
                 // If overlapping and the least priority region access permission
