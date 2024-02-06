@@ -641,13 +641,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
         {
             ptr[i >> 2] = BusRead32(tag+i);
         }
-        //Log(LogLevel::Debug,"DCache store @ %08x: %08x in set %i, line %i\n", tag+i, *(u32*)&ptr[i >> 2], line & 3, line >> 2);
-        if ((addr == 0x02007ea0) && ((*(u32*)&ptr[i]) == 0x1239 ))
-        {
-        //    Halt(1);
-        //    exit(1);
-        }
-        
+        //Log(LogLevel::Debug,"DCache store @ %08x: %08x in set %i, line %i\n", tag+i, *(u32*)&ptr[i >> 2], line & 3, line >> 2);        
     }
 
     DCacheTags[line] = tag | (line & (DCACHE_SETS-1)) | CACHE_FLAG_VALID;
@@ -829,7 +823,6 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
     if (DCacheTags[index] & CACHE_FLAG_DIRTY_LOWERHALF)
     {
         //Log(LogLevel::Debug, "Writing back %i / %i, lower half -> %08lx\n", cacheSet, cacheLine, tag);
-#if 1
         for (int i = 0; i < DCACHE_LINELENGTH / 2; i+=sizeof(u32))
         {
             //Log(LogLevel::Debug, "  WB Value %08x\n", ptr[i >> 2]);
@@ -846,13 +839,11 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
                 BusWrite32(tag+i, ptr[i >> 2]);
             }
         }
-#endif
         DataCycles += (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 8) - 1))) << NDS.ARM9ClockShift;
     }
     if (DCacheTags[index] & CACHE_FLAG_DIRTY_UPPERHALF)
     {
         //Log(LogLevel::Debug, "Writing back %i / %i, upper half-> %08lx\n", cacheSet, cacheLine, tag);
-#if 1
         for (int i = DCACHE_LINELENGTH / 2; i < DCACHE_LINELENGTH; i+=sizeof(u32))
         {
             //Log(LogLevel::Debug, "  WB Value %08x\n", ptr[i >> 2]);
@@ -869,7 +860,6 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
                 BusWrite32(tag+i, ptr[i >> 2]);
             }
         }
-#endif
         DataCycles += (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 8) - 1))) << NDS.ARM9ClockShift;
     }
     DCacheTags[index] &= ~(CACHE_FLAG_DIRTY_LOWERHALF | CACHE_FLAG_DIRTY_UPPERHALF);
@@ -1809,11 +1799,6 @@ void ARMv5::DataWrite8(const u32 addr, const u8 val)
             {
                 if (DCacheWrite8(addr, val))
                     return;
-//                DCacheInvalidateByAddr(addr);
-//                DCacheLookup(addr);
-//                DCacheWrite8(addr, val);
-//                DCacheClearByAddr(addr);
-//                return;
             }
         }
     }
@@ -1856,11 +1841,6 @@ void ARMv5::DataWrite16(const u32 addr, const u16 val)
             {
                 if (DCacheWrite16(addr, val))
                     return;
-//                DCacheInvalidateByAddr(addr);
-//                DCacheLookup(addr);
-//                DCacheWrite16(addr, val);
-//                DCacheClearByAddr(addr);
-//                return;
             }
         }
     }
@@ -1903,11 +1883,6 @@ void ARMv5::DataWrite32(const u32 addr, const u32 val)
             {
                 if (DCacheWrite32(addr, val))
                     return;
-//                DCacheInvalidateByAddr(addr);
-//                DCacheLookup(addr);
-//                DCacheWrite32(addr, val);
-//                DCacheClearByAddr(addr);
-//                return;
             }
         }
     }
@@ -1942,11 +1917,6 @@ void ARMv5::DataWrite32S(const u32 addr, const u32 val)
             {
                 if (DCacheWrite32(addr, val))
                     return;
-//                DCacheInvalidateByAddr(addr);
-//                DCacheLookup(addr);
-//                DCacheWrite32(addr, val);
-//                DCacheClearByAddr(addr);
-//                return;
             }
         }
     }

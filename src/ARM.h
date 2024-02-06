@@ -533,12 +533,12 @@ public:
     /**
      * @brief Cleans the entire data cache
      * @details
-     * In melonDS, the data cache is instantly cleaned on writes, the 
-     * @ref CACHE_FLAG_DIRTY_LOWERHALF and @ref CACHE_FLAG_DIRTY_UPPERHALF are
-     * not set. 
-     * If they are implemented at a later time, the cache content has to be 
-     * written to memory, the dirty bit cleared. The call should require
-     * as much cycles as needed for this write operation. 
+     * If write-back is enabled in conjunction with the data cache
+     * the dirty flags in tags are set if the corresponding cache
+     * line is written to.
+     * A clean will write the parts of the cache line back
+     * that is marked dirty and adds the required cycles to the
+     * @ref DataCyces member.
      * @par Returns
      *      Nothing
      */
@@ -547,12 +547,12 @@ public:
     /**
      * @brief Cleans a data cache line
      * @details
-     * In melonDS, the data cache is instantly cleaned on writes, the 
-     * @ref CACHE_FLAG_DIRTY_LOWERHALF and @ref CACHE_FLAG_DIRTY_UPPERHALF are
-     * not set. 
-     * If they are implemented at a later time, the cache content has to be 
-     * written to memory, the dirty bit cleared. The call should require
-     * as much cycles as needed for this write operation. 
+     * If write-back is enabled in conjunction with the data cache
+     * the dirty flags in tags are set if the corresponding cache
+     * line is written to.
+     * A clean will write the parts of the cache line back
+     * that is marked dirty and adds the required cycles to the
+     * @ref DataCyces member.
      * @param [in] addr Memory address of the data in the cache line
      * @par Returns
      *      Nothing
@@ -562,12 +562,12 @@ public:
     /**
      * @brief Cleans a data cache line
      * @details
-     * In melonDS, the data cache is instantly cleaned on writes, the 
-     * @ref CACHE_FLAG_DIRTY_LOWERHALF and @ref CACHE_FLAG_DIRTY_UPPERHALF are
-     * not set. 
-     * If they are implemented at a later time, the cache content has to be 
-     * written to memory, the dirty bit cleared. The call should require
-     * as much cycles as needed for this write operation. 
+     * If write-back is enabled in conjunction with the data cache
+     * the dirty flags in tags are set if the corresponding cache
+     * line is written to.
+     * A clean will write the parts of the cache line back
+     * that is marked dirty and adds the required cycles to the
+     * @ref DataCyces member.
      * @param [in] cacheSet index of the internal cache set from
      * 0 to @ref DCACHE_SETS - 1
      * @param [in] cacheLine index of the line within the cache set
