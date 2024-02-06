@@ -449,28 +449,34 @@ public:
      * @brief Updates a word in the data cache if present
      * @param [in] addr Memory address which is written
      * @param [in] val Word value to be written
-     * @par Returns
-     *      Nothing
+     * @retval true, if the data was written into the cache and
+     *               does not need to be updated until cache is
+     *               cleaned
+     *         false, to write through
      */
-    void DCacheWrite32(const u32 addr, const u32 val);
+    bool DCacheWrite32(const u32 addr, const u32 val);
 
     /**
      * @brief Updates a word in the data cache if present
      * @param [in] addr Memory address which is written
      * @param [in] val Half-Word value to be written
-     * @par Returns
-     *      Nothing
+     * @retval true, if the data was written into the cache and
+     *               does not need to be updated until cache is
+     *               cleaned
+     *         false, to write through
      */
-    void DCacheWrite16(const u32 addr, const u16 val);
+    bool DCacheWrite16(const u32 addr, const u16 val);
 
     /**
      * @brief Updates a word in the data cache if present
      * @param [in] addr Memory address which is written
      * @param [in] val Byte value to be written
-     * @par Returns
-     *      Nothing
+     * @retval true, if the data was written into the cache and
+     *               does not need to be updated until cache is
+     *               cleaned
+     *         false, to write through
      */
-    void DCacheWrite8(const u32 addr, const u8 val);
+    bool DCacheWrite8(const u32 addr, const u8 val);
 
     /**
      * @brief Check if an address is within a data cachable region

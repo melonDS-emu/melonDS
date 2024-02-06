@@ -50,6 +50,7 @@ constexpr u32 CACHE_FLAG_DIRTY_LOWERHALF = (1 << 2);
 constexpr u32 CACHE_FLAG_DIRTY_UPPERHALF = (1 << 3);
 constexpr u32 CACHE_FLAG_DIRTY_MASK = (3 << 2);
 constexpr u32 CACHE_FLAG_SET_MASK = (3 << 0);
+constexpr u32 CACHE_FLAG_MASK = 0x1F;
 
 /* CP15 Cache Type Register */
 constexpr u32 CACHE_TR_LOCKDOWN_TYPE_B = (7 << 25);
@@ -118,6 +119,9 @@ constexpr u32 CP15_CR_CHANGEABLE_MASK = CP15_CR_MPUENABLE | CP15_CR_BIGENDIAN | 
                                       | CP15_TCM_CR_DTCM_ENABLE | CP15_TCM_CR_ITCM_ENABLE
                                       | CP15_TCM_CR_DTCM_LOADMODE | CP15_TCM_CR_ITCM_LOADMODE
                                       | CP15_CACHE_CR_ROUNDROBIN | CP15_CR_DISABLE_THUMBBIT;
+                                      /* Note: ARM946E-S Technical reference manual, Chapter 6.5.2 "You cannot directly enable or disable the write buffer"
+                                               CP15_CACHE_CR_WRITEBUFFERENABLE is always set on the cp15
+                                       */
 
 /* CP15 Internal Exception base value */
 constexpr u32 CP15_EXCEPTIONBASE_HIGH = 0xFFFF0000;
