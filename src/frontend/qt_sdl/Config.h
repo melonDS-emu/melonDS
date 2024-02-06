@@ -203,7 +203,7 @@ extern bool GdbARM7BreakOnStartup;
 extern bool GdbARM9BreakOnStartup;
 
 
-void Load();
+bool Load();
 void Save();
 
 }

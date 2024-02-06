@@ -331,7 +331,7 @@ int main(int argc, char** argv)
     SDL_InitSubSystem(SDL_INIT_VIDEO);
     SDL_EnableScreenSaver(); SDL_DisableScreenSaver();
 
-    Config::Load();
+    if (!Config::Load()) QMessageBox::critical(NULL, "melonDS", "Unable to write to config.\nPlease check the write permissions of the folder you placed melonDS in.");
 
 #define SANITIZE(var, min, max)  { var = std::clamp(var, min, max); }
     SANITIZE(Config::ConsoleType, 0, 1);

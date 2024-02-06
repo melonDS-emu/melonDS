@@ -210,6 +210,9 @@ bool LocalFileExists(const std::string& name);
 // Warning: Also creates the file if not present!
 bool CheckFileWritable(const std::string& filepath);
 
+// Same as above (CheckFileWritable()) but for local files.
+bool CheckLocalFileWritable(const std::string& filepath);
+
 /** Close a file opened with \c OpenFile.
  * @returns \c true if the file was closed successfully, false otherwise.
  * @post \c file is no longer valid and should not be used.

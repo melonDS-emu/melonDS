@@ -342,6 +342,17 @@ bool CheckFileWritable(const std::string& filepath)
     else return false;
 }
 
+bool CheckLocalFileWritable(const std::string& name)
+{
+    FileHandle* file = Platform::OpenLocalFile(name.c_str(), FileMode::Append);
+    if (file)
+    {
+        Platform::CloseFile(file);
+        return true;
+    }
+    else return false;
+}
+
 bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin)
 {
     int stdorigin;
