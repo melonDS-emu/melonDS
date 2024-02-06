@@ -211,6 +211,9 @@ QString VerifyDSFirmware()
     f = Platform::OpenLocalFile(Config::FirmwarePath, FileMode::Read);
     if (!f) return "DS firmware was not found or could not be accessed. Check your emu settings.";
 
+    if (!Platform::CheckFileWritable(Config::FirmwarePath))
+        return "DS firmware is unable to be written to.\nPlease check file/folder write permissions.";
+
     len = FileLength(f);
     if (len == 0x20000)
     {
@@ -238,6 +241,9 @@ QString VerifyDSiFirmware()
     f = Platform::OpenLocalFile(Config::DSiFirmwarePath, FileMode::Read);
     if (!f) return "DSi firmware was not found or could not be accessed. Check your emu settings.";
 
+    if (!Platform::CheckFileWritable(Config::FirmwarePath))
+        return "DSi firmware is unable to be written to.\nPlease check file/folder write permissions.";
+
     len = FileLength(f);
     if (len != 0x20000)
     {
@@ -259,6 +265,9 @@ QString VerifyDSiNAND()
 
     f = Platform::OpenLocalFile(Config::DSiNANDPath, FileMode::ReadWriteExisting);
     if (!f) return "DSi NAND was not found or could not be accessed. Check your emu settings.";
+
+    if (!Platform::CheckFileWritable(Config::FirmwarePath))
+        return "DSi NAND is unable to be written to.\nPlease check file/folder write permissions.";
 
     // TODO: some basic checks
     // check that it has the nocash footer, and all
