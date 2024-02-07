@@ -142,6 +142,7 @@ bool MouseHide;
 int MouseHideSeconds;
 
 bool PauseLostFocus;
+std::string UITheme;
 
 int64_t RTCOffset;
 
@@ -344,6 +345,7 @@ ConfigEntry ConfigFile[] =
     {"MouseHide",        1, &MouseHide,        false, false},
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, false},
     {"PauseLostFocus",   1, &PauseLostFocus,   false, false},
+    {"UITheme",          2, &UITheme, (std::string)"", false},
 
     {"RTCOffset",       3, &RTCOffset,       (int64_t)0, true},
 

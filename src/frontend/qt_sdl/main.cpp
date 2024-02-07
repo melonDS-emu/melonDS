@@ -114,6 +114,7 @@ QStringList NdsRomExtensions { ".nds", ".srl", ".dsi", ".ids" };
 QString GbaRomMimeType = "application/x-gba-rom";
 QStringList GbaRomExtensions { ".gba", ".agb" };
 
+QString* systemThemeName;
 
 // This list of supported archive formats is based on libarchive(3) version 3.6.2 (2022-12-09).
 QStringList ArchiveMimeTypes
@@ -292,6 +293,11 @@ int main(int argc, char** argv)
 
     qputenv("QT_SCALE_FACTOR", "1");
 
+#if QT_VERSION_MAJOR == 6 && defined(__WIN32__)
+    // Allow using the system dark theme palette on Windows
+    qputenv("QT_QPA_PLATFORM", "windows:darkmode=2");
+#endif
+
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
@@ -360,6 +366,12 @@ int main(int argc, char** argv)
     camManager[0]->setXFlip(Config::Camera[0].XFlip);
     camManager[1]->setXFlip(Config::Camera[1].XFlip);
 
+    systemThemeName = new QString(QApplication::style()->objectName());
+
+    if (!Config::UITheme.empty())
+    {
+        QApplication::setStyle(QString::fromStdString(Config::UITheme));
+    }
 
     Input::JoystickID = Config::JoystickID;
     Input::OpenJoystick();
