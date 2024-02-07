@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -21,6 +21,8 @@
 #include "ARCodeFile.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using namespace Platform;
 
 // TODO: import codes from other sources (usrcheat.dat, ...)
@@ -162,23 +164,25 @@ bool ARCodeFile::Save()
     {
         ARCodeCat& cat = *it;
 
-        if (it != Categories.begin()) FileWriteFormatted(f, "\r\n");
-        FileWriteFormatted(f, "CAT %s\r\n\r\n", cat.Name.c_str());
+        if (it != Categories.begin()) FileWriteFormatted(f, "\n");
+        FileWriteFormatted(f, "CAT %s\n\n", cat.Name.c_str());
 
         for (ARCodeList::iterator jt = cat.Codes.begin(); jt != cat.Codes.end(); jt++)
         {
             ARCode& code = *jt;
-            FileWriteFormatted(f, "CODE %d %s\r\n", code.Enabled, code.Name.c_str());
+            FileWriteFormatted(f, "CODE %d %s\n", code.Enabled, code.Name.c_str());
 
             for (size_t i = 0; i < code.Code.size(); i+=2)
             {
-                FileWriteFormatted(f, "%08X %08X\r\n", code.Code[i], code.Code[i + 1]);
+                FileWriteFormatted(f, "%08X %08X\n", code.Code[i], code.Code[i + 1]);
             }
 
-            FileWriteFormatted(f, "\r\n");
+            FileWriteFormatted(f, "\n");
         }
     }
 
     CloseFile(f);
     return true;
+}
+
 }

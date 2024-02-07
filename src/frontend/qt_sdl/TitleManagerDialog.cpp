@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -30,7 +30,8 @@
 #include "ui_TitleManagerDialog.h"
 #include "ui_TitleImportDialog.h"
 
-using namespace Platform;
+using namespace melonDS;
+using namespace melonDS::Platform;
 
 std::unique_ptr<DSi_NAND::NANDImage> TitleManagerDialog::nand = nullptr;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
@@ -113,7 +114,7 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
 
     u32 icondata[32*32];
     ROMManager::ROMIcon(banner.Icon, banner.Palette, icondata);
-    QImage iconimg((const uchar*)icondata, 32, 32, QImage::Format_ARGB32);
+    QImage iconimg((const uchar*)icondata, 32, 32, QImage::Format_RGBA8888);
     QIcon icon(QPixmap::fromImage(iconimg.copy()));
 
     // TODO: make it possible to select other languages?

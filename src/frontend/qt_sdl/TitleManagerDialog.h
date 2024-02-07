@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -46,10 +46,10 @@ class TitleManagerDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit TitleManagerDialog(QWidget* parent, DSi_NAND::NANDImage& image);
+    explicit TitleManagerDialog(QWidget* parent, melonDS::DSi_NAND::NANDImage& image);
     ~TitleManagerDialog();
 
-    static std::unique_ptr<DSi_NAND::NANDImage> nand;
+    static std::unique_ptr<melonDS::DSi_NAND::NANDImage> nand;
     static bool openNAND();
     static void closeNAND();
 
@@ -94,17 +94,17 @@ private slots:
     void onExportTitleData();
 
 private:
-    DSi_NAND::NANDMount nandmount;
+    melonDS::DSi_NAND::NANDMount nandmount;
     Ui::TitleManagerDialog* ui;
 
     QString importAppPath;
-    DSi_TMD::TitleMetadata importTmdData;
+    melonDS::DSi_TMD::TitleMetadata importTmdData;
     bool importReadOnly;
 
     QAction* actImportTitleData[3];
     QAction* actExportTitleData[3];
 
-    void createTitleItem(u32 category, u32 titleid);
+    void createTitleItem(melonDS::u32 category, melonDS::u32 titleid);
 };
 
 class TitleImportDialog : public QDialog
@@ -112,7 +112,7 @@ class TitleImportDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit TitleImportDialog(QWidget* parent, QString& apppath, const DSi_TMD::TitleMetadata* tmd, bool& readonly, DSi_NAND::NANDMount& nand);
+    explicit TitleImportDialog(QWidget* parent, QString& apppath, const melonDS::DSi_TMD::TitleMetadata* tmd, bool& readonly, melonDS::DSi_NAND::NANDMount& nand);
     ~TitleImportDialog();
 
 private slots:
@@ -125,7 +125,7 @@ private slots:
 
 private:
     Ui::TitleImportDialog* ui;
-    DSi_NAND::NANDMount& nandmount;
+    melonDS::DSi_NAND::NANDMount& nandmount;
 
     QButtonGroup* grpTmdSource;
 
@@ -133,10 +133,10 @@ private:
     QNetworkReply* netreply;
 
     QString& appPath;
-    const DSi_TMD::TitleMetadata* tmdData;
+    const melonDS::DSi_TMD::TitleMetadata* tmdData;
     bool& readOnly;
 
-    u32 titleid[2];
+    melonDS::u32 titleid[2];
 };
 
 #endif // TITLEMANAGERDIALOG_H

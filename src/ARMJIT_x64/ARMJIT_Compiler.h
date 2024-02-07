@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,9 +19,10 @@
 #ifndef ARMJIT_X64_COMPILER_H
 #define ARMJIT_X64_COMPILER_H
 
+#if defined(JIT_ENABLED) && defined(__x86_64__)
+
 #include "../dolphin/x64Emitter.h"
 
-#include "../ARMJIT.h"
 #include "../ARMJIT_Internal.h"
 #include "../ARMJIT_RegisterCache.h"
 
@@ -31,9 +32,12 @@
 
 #include <unordered_map>
 
-namespace ARMJIT
-{
 
+namespace melonDS
+{
+class ARMJIT;
+class ARMJIT_Memory;
+class NDS;
 const Gen::X64Reg RCPU = Gen::RBP;
 const Gen::X64Reg RCPSR = Gen::R15;
 
@@ -79,7 +83,7 @@ struct Op2
 class Compiler : public Gen::XEmitter
 {
 public:
-    Compiler();
+    explicit Compiler(melonDS::NDS& nds);
 
     void Reset();
 
@@ -88,7 +92,7 @@ public:
     void LoadReg(int reg, Gen::X64Reg nativeReg);
     void SaveReg(int reg, Gen::X64Reg nativeReg);
 
-    bool CanCompile(bool thumb, u16 kind);
+    bool CanCompile(bool thumb, u16 kind) const;
 
     typedef void (Compiler::*CompileFunc)();
 
@@ -167,7 +171,7 @@ public:
         memop_SubtractOffset = 1 << 4
     };
     void Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flags);
-    s32 Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode, bool skipLoadingRn);
+    s32 Comp_MemAccessBlock(int rn, Common::BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode, bool skipLoadingRn);
     bool Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr);
 
     void Comp_ArithTriOp(void (Compiler::*op)(int, const Gen::OpArg&, const Gen::OpArg&),
@@ -230,7 +234,7 @@ public:
         SetCodePtr(FarCode);
     }
 
-    bool IsJITFault(u8* addr);
+    bool IsJITFault(const u8* addr);
 
     u8* RewriteMemAccess(u8* pc);
 
@@ -238,44 +242,46 @@ public:
     void CreateMethod(const char* namefmt, void* start, ...);
 #endif
 
-    u8* FarCode;
-    u8* NearCode;
-    u32 FarSize;
-    u32 NearSize;
+    melonDS::NDS& NDS;
+    u8* FarCode {};
+    u8* NearCode {};
+    u32 FarSize {};
+    u32 NearSize {};
 
-    u8* NearStart;
-    u8* FarStart;
+    u8* NearStart {};
+    u8* FarStart {};
 
-    void* PatchedStoreFuncs[2][2][3][16];
-    void* PatchedLoadFuncs[2][2][3][2][16];
+    void* PatchedStoreFuncs[2][2][3][16] {};
+    void* PatchedLoadFuncs[2][2][3][2][16] {};
 
-    std::unordered_map<u8*, LoadStorePatch> LoadStorePatches;
+    std::unordered_map<u8*, LoadStorePatch> LoadStorePatches {};
 
-    u8* ResetStart;
-    u32 CodeMemSize;
+    u8* ResetStart {};
+    u32 CodeMemSize {};
 
-    bool Exit;
-    bool IrregularCycles;
+    bool Exit {};
+    bool IrregularCycles {};
 
-    void* ReadBanked;
-    void* WriteBanked;
+    void* ReadBanked {};
+    void* WriteBanked {};
 
     bool CPSRDirty = false;
 
-    FetchedInstr CurInstr;
+    FetchedInstr CurInstr {};
 
-    RegisterCache<Compiler, Gen::X64Reg> RegCache;
+    RegisterCache<Compiler, Gen::X64Reg> RegCache {};
 
-    bool Thumb;
-    u32 Num;
-    u32 R15;
-    u32 CodeRegion;
+    bool Thumb {};
+    u32 Num {};
+    u32 R15 {};
+    u32 CodeRegion {};
 
-    u32 ConstantCycles;
+    u32 ConstantCycles {};
 
-    ARM* CurCPU;
+    ARM* CurCPU {};
 };
 
 }
+#endif
 
 #endif

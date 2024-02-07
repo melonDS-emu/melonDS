@@ -6,8 +6,9 @@
 #include "x64ABI.h"
 #include "x64Emitter.h"
 
-using namespace Gen;
-
+namespace Gen
+{
+using namespace Common;
 // Shared code between Win64 and Unix64
 
 void XEmitter::ABI_CalculateFrameSize(BitSet32 mask, size_t rsp_alignment, size_t needed_frame_size,
@@ -116,4 +117,5 @@ void XEmitter::MOVTwo(int bits, Gen::X64Reg dst1, Gen::X64Reg src1, s32 offset1,
     else if (offset1)
       ADD(bits, R(dst1), Imm32(offset1));
   }
+}
 }

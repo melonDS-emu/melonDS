@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,14 +22,20 @@
 #include "types.h"
 #include "Savestate.h"
 
+namespace melonDS
+{
+class GPU;
+
 namespace GPU2D
 {
 
 class Unit
 {
 public:
-    Unit(u32 num);
-
+    // take a reference to the GPU so we can access its state
+    // and ensure that it's not null
+    Unit(u32 num, melonDS::GPU& gpu);
+    virtual ~Unit() = default;
     Unit(const Unit&) = delete;
     Unit& operator=(const Unit&) = delete;
 
@@ -46,7 +52,7 @@ public:
     void Write16(u32 addr, u16 val);
     void Write32(u32 addr, u32 val);
 
-    bool UsesFIFO()
+    bool UsesFIFO() const
     {
         if (((DispCnt >> 16) & 0x3) == 3)
             return true;
@@ -66,11 +72,11 @@ public:
     u16* GetBGExtPal(u32 slot, u32 pal);
     u16* GetOBJExtPal();
 
-    void GetBGVRAM(u8*& data, u32& mask);
-    void GetOBJVRAM(u8*& data, u32& mask);
+    void GetBGVRAM(u8*& data, u32& mask) const;
+    void GetOBJVRAM(u8*& data, u32& mask) const;
 
     void UpdateMosaicCounters(u32 line);
-    void CalculateWindowMask(u32 line, u8* windowMask, u8* objWindow);
+    void CalculateWindowMask(u32 line, u8* windowMask, const u8* objWindow);
 
     u32 Num;
     bool Enabled;
@@ -116,6 +122,8 @@ public:
     u32 CaptureCnt;
 
     u16 MasterBrightness;
+private:
+    melonDS::GPU& GPU;
 };
 
 class Renderer2D
@@ -141,4 +149,5 @@ protected:
 
 }
 
+}
 #endif

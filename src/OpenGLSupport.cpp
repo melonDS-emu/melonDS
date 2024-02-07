@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -17,6 +17,9 @@
 */
 
 #include "OpenGLSupport.h"
+
+namespace melonDS
+{
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -72,9 +75,9 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
         //printf("shader source:\n--\n%s\n--\n", fs);
         delete[] log;
 
-        FILE* logf = fopen("shaderfail.log", "w");
-        fwrite(fs, len+1, 1, logf);
-        fclose(logf);
+        Platform::FileHandle* logf = Platform::OpenFile("shaderfail.log", Platform::FileMode::WriteText);
+        Platform::FileWrite(fs, len+1, 1, logf);
+        Platform::CloseFile(logf);
 
         glDeleteShader(ids[0]);
         glDeleteShader(ids[1]);
@@ -139,6 +142,8 @@ void UseShaderProgram(GLuint* ids)
     { // If OpenGL isn't loaded, then there's no shader program to use
         glUseProgram(ids[2]);
     }
+}
+
 }
 
 }

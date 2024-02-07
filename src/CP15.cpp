@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,12 +22,11 @@
 #include "DSi.h"
 #include "ARM.h"
 #include "Platform.h"
-
-#ifdef JIT_ENABLED
-#include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
-#endif
+#include "ARMJIT.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -125,9 +124,7 @@ void ARMv5::UpdateDTCMSetting()
 
     if (newDTCMBase != DTCMBase || newDTCMMask != DTCMMask)
     {
-#ifdef JIT_ENABLED
-        ARMJIT_Memory::RemapDTCM(newDTCMBase, newDTCMSize);
-#endif
+        NDS.JIT.Memory.RemapDTCM(newDTCMBase, newDTCMSize);
         DTCMBase = newDTCMBase;
         DTCMMask = newDTCMMask;
     }
@@ -298,7 +295,7 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
     for (u32 i = addrstart; i < addrend; i++)
     {
         u8 pu = PU_Map[i];
-        u8* bustimings = NDS::ARM9MemTimings[i >> 2];
+        u8* bustimings = NDS.ARM9MemTimings[i >> 2];
 
         if (pu & 0x40)
         {
@@ -306,7 +303,7 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
         }
         else
         {
-            MemTimings[i][0] = bustimings[2] << NDS::ARM9ClockShift;
+            MemTimings[i][0] = bustimings[2] << NDS.ARM9ClockShift;
         }
 
         if (pu & 0x10)
@@ -317,9 +314,9 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
         }
         else
         {
-            MemTimings[i][1] = bustimings[0] << NDS::ARM9ClockShift;
-            MemTimings[i][2] = bustimings[2] << NDS::ARM9ClockShift;
-            MemTimings[i][3] = bustimings[3] << NDS::ARM9ClockShift;
+            MemTimings[i][1] = bustimings[0] << NDS.ARM9ClockShift;
+            MemTimings[i][2] = bustimings[2] << NDS.ARM9ClockShift;
+            MemTimings[i][3] = bustimings[3] << NDS.ARM9ClockShift;
         }
     }
 }
@@ -391,14 +388,14 @@ void ARMv5::ICacheLookup(u32 addr)
     else
     {
         for (int i = 0; i < 32; i+=4)
-            *(u32*)&ptr[i] = NDS::ARM9Read32(addr+i);
+            *(u32*)&ptr[i] = NDS.ARM9Read32(addr+i);
     }
 
     ICacheTags[line] = tag;
 
     // ouch :/
     //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
-    CodeCycles = (NDS::ARM9MemTimings[addr >> 14][2] + (NDS::ARM9MemTimings[addr >> 14][3] * 7)) << NDS::ARM9ClockShift;
+    CodeCycles = (NDS.ARM9MemTimings[addr >> 14][2] + (NDS.ARM9MemTimings[addr >> 14][3] * 7)) << NDS.ARM9ClockShift;
     CurICacheLine = ptr;
 }
 
@@ -671,7 +668,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         Log(LogLevel::Debug, "unknown CP15 write op %03X %08X\n", id, val);
 }
 
-u32 ARMv5::CP15Read(u32 id)
+u32 ARMv5::CP15Read(u32 id) const
 {
     //printf("CP15 read op %03X %08X\n", id, NDS::ARM9->R[15]);
 
@@ -926,9 +923,7 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
     {
         DataCycles = 1;
         *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
-#ifdef JIT_ENABLED
-        ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
-#endif
+        NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
@@ -958,9 +953,7 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
     {
         DataCycles = 1;
         *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
-#ifdef JIT_ENABLED
-        ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
-#endif
+        NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
@@ -990,9 +983,7 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
     {
         DataCycles = 1;
         *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
-#ifdef JIT_ENABLED
-        ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
-#endif
+        NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
@@ -1015,7 +1006,7 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
         DataCycles += 1;
         *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
 #ifdef JIT_ENABLED
-        ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
+        NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
 #endif
         return;
     }
@@ -1030,7 +1021,7 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
     DataCycles += MemTimings[addr >> 12][3];
 }
 
-void ARMv5::GetCodeMemRegion(u32 addr, NDS::MemRegion* region)
+void ARMv5::GetCodeMemRegion(u32 addr, MemRegion* region)
 {
     /*if (addr < ITCMSize)
     {
@@ -1039,6 +1030,7 @@ void ARMv5::GetCodeMemRegion(u32 addr, NDS::MemRegion* region)
         return;
     }*/
 
-    GetMemRegion(addr, false, &CodeMem);
+    NDS.ARM9GetMemRegion(addr, false, &CodeMem);
 }
 
+}

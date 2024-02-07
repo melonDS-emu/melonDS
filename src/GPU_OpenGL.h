@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -21,51 +21,51 @@
 #include "OpenGLSupport.h"
 
 #include <array>
-#include <memory>
+#include <optional>
 
-namespace GPU
+namespace melonDS
 {
-
+class GPU;
 struct RenderSettings;
-
+class GLRenderer;
 class GLCompositor
 {
 public:
-    static std::unique_ptr<GLCompositor> New() noexcept;
+    static std::optional<GLCompositor> New() noexcept;
     GLCompositor(const GLCompositor&) = delete;
     GLCompositor& operator=(const GLCompositor&) = delete;
+    GLCompositor(GLCompositor&&) noexcept;
+    GLCompositor& operator=(GLCompositor&&) noexcept;
     ~GLCompositor();
 
-    void Reset();
+    void SetScaleFactor(int scale) noexcept;
+    [[nodiscard]] int GetScaleFactor() const noexcept { return Scale; }
 
-    void SetRenderSettings(RenderSettings& settings);
-
-    void Stop();
-    void RenderFrame();
+    void Stop(const GPU& gpu) noexcept;
+    void RenderFrame(const GPU& gpu, GLRenderer& renderer) noexcept;
     void BindOutputTexture(int buf);
 private:
     GLCompositor(std::array<GLuint, 3> CompShader) noexcept;
+    int Scale = 0;
+    int ScreenH = 0, ScreenW = 0;
 
-    int Scale;
-    int ScreenH, ScreenW;
+    std::array<GLuint, 3> CompShader {};
+    GLuint CompScaleLoc = 0;
+    GLuint Comp3DXPosLoc = 0;
 
-    std::array<GLuint, 3> CompShader;
-    GLuint CompScaleLoc;
-    GLuint Comp3DXPosLoc;
-
-    GLuint CompVertexBufferID;
-    GLuint CompVertexArrayID;
+    GLuint CompVertexBufferID = 0;
+    GLuint CompVertexArrayID = 0;
 
     struct CompVertex
     {
-        float Position[2];
-        float Texcoord[2];
+        std::array<float, 2> Position {};
+        std::array<float, 2> Texcoord {};
     };
-    CompVertex CompVertices[2 * 3*2];
+    std::array<CompVertex, 2*3*2> CompVertices {};
 
-    GLuint CompScreenInputTex;
-    GLuint CompScreenOutputTex[2];
-    GLuint CompScreenOutputFB[2];
+    GLuint CompScreenInputTex = 0;
+    std::array<GLuint, 2> CompScreenOutputTex {};
+    std::array<GLuint, 2> CompScreenOutputFB {};
 };
 
 }

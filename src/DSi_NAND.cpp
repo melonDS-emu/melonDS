@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -30,9 +30,9 @@
 
 #include "fatfs/ff.h"
 
-using namespace Platform;
+using namespace melonDS::Platform;
 
-namespace DSi_NAND
+namespace melonDS::DSi_NAND
 {
 
 NANDImage::NANDImage(Platform::FileHandle* nandfile, const DSiKey& es_keyY) noexcept : NANDImage(nandfile, es_keyY.data())
@@ -122,7 +122,8 @@ NANDImage::NANDImage(NANDImage&& other) noexcept :
     ConsoleID(other.ConsoleID),
     FATIV(other.FATIV),
     FATKey(other.FATKey),
-    ESKey(other.ESKey)
+    ESKey(other.ESKey),
+    Length(other.Length)
 {
     other.CurFile = nullptr;
 }
@@ -131,12 +132,16 @@ NANDImage& NANDImage::operator=(NANDImage&& other) noexcept
 {
     if (this != &other)
     {
+        if (CurFile)
+            CloseFile(CurFile);
+
         CurFile = other.CurFile;
         eMMC_CID = other.eMMC_CID;
         ConsoleID = other.ConsoleID;
         FATIV = other.FATIV;
         FATKey = other.FATKey;
         ESKey = other.ESKey;
+        Length = other.Length;
 
         other.CurFile = nullptr;
     }
@@ -172,7 +177,7 @@ NANDMount::NANDMount(NANDImage& nand) noexcept : Image(&nand)
 }
 
 
-NANDMount::~NANDMount()
+NANDMount::~NANDMount() noexcept
 {
     f_unmount("0:");
     ff_disk_close();
@@ -362,7 +367,7 @@ bool NANDImage::ESEncrypt(u8* data, u32 len) const
     return true;
 }
 
-bool NANDImage::ESDecrypt(u8* data, u32 len)
+bool NANDImage::ESDecrypt(u8* data, u32 len) const
 {
     AES_ctx ctx;
     u8 iv[16];
@@ -467,30 +472,43 @@ bool NANDImage::ESDecrypt(u8* data, u32 len)
     return true;
 }
 
-
-void NANDMount::ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN)
+bool NANDMount::ReadSerialData(DSiSerialData& dataS)
 {
     FF_FIL file;
-    FRESULT res;
-    u32 nread;
+    FRESULT res = f_open(&file, "0:/sys/HWINFO_S.dat", FA_OPEN_EXISTING | FA_READ);
 
-    res = f_open(&file, "0:/sys/HWINFO_S.dat", FA_OPEN_EXISTING | FA_READ);
     if (res == FR_OK)
     {
+        u32 nread;
         f_read(&file, &dataS, sizeof(DSiSerialData), &nread);
         f_close(&file);
     }
 
-    res = f_open(&file, "0:/sys/HWINFO_N.dat", FA_OPEN_EXISTING | FA_READ);
+    return res == FR_OK;
+}
+
+bool NANDMount::ReadHardwareInfoN(DSiHardwareInfoN& dataN)
+{
+    FF_FIL file;
+    FRESULT res = f_open(&file, "0:/sys/HWINFO_N.dat", FA_OPEN_EXISTING | FA_READ);
+
     if (res == FR_OK)
     {
+        u32 nread;
         f_read(&file, dataN.data(), sizeof(dataN), &nread);
         f_close(&file);
     }
+
+    return res == FR_OK;
 }
 
+void NANDMount::ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN)
+{
+    ReadSerialData(dataS);
+    ReadHardwareInfoN(dataN);
+}
 
-void NANDMount::ReadUserData(DSiFirmwareSystemSettings& data)
+bool NANDMount::ReadUserData(DSiFirmwareSystemSettings& data)
 {
     FF_FIL file;
     FRESULT res;
@@ -521,7 +539,7 @@ void NANDMount::ReadUserData(DSiFirmwareSystemSettings& data)
         v2 = tmp;
     }
 
-    if (v1 < 0 && v2 < 0) return;
+    if (v1 < 0 && v2 < 0) return false;
 
     if (v2 > v1)
     {
@@ -537,73 +555,40 @@ void NANDMount::ReadUserData(DSiFirmwareSystemSettings& data)
     f_lseek(&file, 0);
     f_read(&file, &data, sizeof(DSiFirmwareSystemSettings), &nread);
     f_close(&file);
+
+    return true;
 }
 
-void NANDMount::PatchUserData()
+static bool SaveUserData(const char* filename, const DSiFirmwareSystemSettings& data)
 {
-    FRESULT res;
-
-    for (int i = 0; i < 2; i++)
+    FF_FIL file;
+    if (FRESULT res = f_open(&file, filename, FA_OPEN_EXISTING | FA_READ | FA_WRITE); res != FR_OK)
     {
-        char filename[64];
-        snprintf(filename, sizeof(filename), "0:/shared1/TWLCFG%d.dat", i);
-
-        FF_FIL file;
-        res = f_open(&file, filename, FA_OPEN_EXISTING | FA_READ | FA_WRITE);
-        if (res != FR_OK)
-        {
-            Log(LogLevel::Error, "NAND: editing file %s failed: %d\n", filename, res);
-            continue;
-        }
-
-        DSiFirmwareSystemSettings contents;
-        u32 nres;
-        f_lseek(&file, 0);
-        f_read(&file, &contents, sizeof(DSiFirmwareSystemSettings), &nres);
-
-        // override user settings, if needed
-        if (Platform::GetConfigBool(Platform::Firm_OverrideSettings))
-        {
-            // setting up username
-            std::string orig_username = Platform::GetConfigString(Platform::Firm_Username);
-            std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
-            size_t usernameLength = std::min(username.length(), (size_t) 10);
-            memset(&contents.Nickname, 0, sizeof(contents.Nickname));
-            memcpy(&contents.Nickname, username.data(), usernameLength * sizeof(char16_t));
-
-            // setting language
-            contents.Language = static_cast<SPI_Firmware::Language>(Platform::GetConfigInt(Platform::Firm_Language));
-
-            // setting up color
-            contents.FavoriteColor = Platform::GetConfigInt(Platform::Firm_Color);
-
-            // setting up birthday
-            contents.BirthdayMonth = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
-            contents.BirthdayDay = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
-
-            // setup message
-            std::string orig_message = Platform::GetConfigString(Platform::Firm_Message);
-            std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
-            size_t messageLength = std::min(message.length(), (size_t) 26);
-            memset(&contents.Message, 0, sizeof(contents.Message));
-            memcpy(&contents.Message, message.data(), messageLength * sizeof(char16_t));
-
-            // TODO: make other items configurable?
-        }
-
-        // fix touchscreen coords
-        contents.TouchCalibrationADC1 = {0, 0};
-        contents.TouchCalibrationPixel1 = {0, 0};
-        contents.TouchCalibrationADC2 = {255 << 4, 191 << 4};
-        contents.TouchCalibrationPixel2 = {255, 191};
-
-        contents.UpdateHash();
-
-        f_lseek(&file, 0);
-        f_write(&file, &contents, sizeof(DSiFirmwareSystemSettings), &nres);
-
-        f_close(&file);
+        Log(LogLevel::Error, "NAND: editing file %s failed: %d\n", filename, res);
+        return false;
     }
+    // TODO: If the file couldn't be opened, try creating a new one in its place
+    // (after all, we have the data for that)
+
+    u32 bytes_written = 0;
+    FRESULT res = f_write(&file, &data, sizeof(DSiFirmwareSystemSettings), &bytes_written);
+    f_close(&file);
+
+    if (res != FR_OK || bytes_written != sizeof(DSiFirmwareSystemSettings))
+    {
+        Log(LogLevel::Error, "NAND: editing file %s failed: %d\n", filename, res);
+        return false;
+    }
+
+    return true;
+}
+
+bool NANDMount::ApplyUserData(const DSiFirmwareSystemSettings& data)
+{
+    bool ok0 = SaveUserData("0:/shared1/TWLCFG0.dat", data);
+    bool ok1 = SaveUserData("0:/shared1/TWLCFG1.dat", data);
+
+    return ok0 && ok1;
 }
 
 
@@ -672,21 +657,18 @@ bool NANDMount::ImportFile(const char* path, const u8* data, size_t len)
 bool NANDMount::ImportFile(const char* path, const char* in)
 {
     FF_FIL file;
-    FILE* fin;
     FRESULT res;
 
-    fin = fopen(in, "rb");
+    Platform::FileHandle* fin = OpenLocalFile(in, FileMode::Read);
     if (!fin)
         return false;
 
-    fseek(fin, 0, SEEK_END);
-    u32 len = (u32)ftell(fin);
-    fseek(fin, 0, SEEK_SET);
+    u32 len = FileLength(fin);
 
     res = f_open(&file, path, FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
-        fclose(fin);
+        CloseFile(fin);
         return false;
     }
 
@@ -700,11 +682,11 @@ bool NANDMount::ImportFile(const char* path, const char* in)
             blocklen = sizeof(buf);
 
         u32 nwrite;
-        fread(buf, blocklen, 1, fin);
+        FileRead(buf, blocklen, 1, fin);
         f_write(&file, buf, blocklen, &nwrite);
     }
 
-    fclose(fin);
+    CloseFile(fin);
     f_close(&file);
 
     Log(LogLevel::Debug, "Imported file from %s to %s\n", in, path);
@@ -715,7 +697,6 @@ bool NANDMount::ImportFile(const char* path, const char* in)
 bool NANDMount::ExportFile(const char* path, const char* out)
 {
     FF_FIL file;
-    FILE* fout;
     FRESULT res;
 
     res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
@@ -724,7 +705,7 @@ bool NANDMount::ExportFile(const char* path, const char* out)
 
     u32 len = f_size(&file);
 
-    fout = fopen(out, "wb");
+    Platform::FileHandle* fout = OpenLocalFile(out, FileMode::Write);
     if (!fout)
     {
         f_close(&file);
@@ -742,10 +723,10 @@ bool NANDMount::ExportFile(const char* path, const char* out)
 
         u32 nread;
         f_read(&file, buf, blocklen, &nread);
-        fwrite(buf, blocklen, 1, fout);
+        FileWrite(buf, blocklen, 1, fout);
     }
 
-    fclose(fout);
+    CloseFile(fout);
     f_close(&file);
 
     Log(LogLevel::Debug, "Exported file from %s to %s\n", path, out);
@@ -1144,10 +1125,10 @@ bool NANDMount::ImportTitle(const char* appfile, const DSi_TMD::TitleMetadata& t
 {
     NDSHeader header {};
     {
-        FILE* f = fopen(appfile, "rb");
+        Platform::FileHandle* f = OpenLocalFile(appfile, FileMode::Read);
         if (!f) return false;
-        fread(&header, sizeof(header), 1, f);
-        fclose(f);
+        FileRead(&header, sizeof(header), 1, f);
+        CloseFile(f);
     }
 
     u32 version = tmd.Contents.GetVersion();

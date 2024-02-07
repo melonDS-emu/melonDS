@@ -1,4 +1,4 @@
-name: CMake Build (Ubuntu x86-64)
+name: Ubuntu
 
 on:
   push:
@@ -9,29 +9,77 @@ on:
       - master
 
 jobs:
-  build:
-
-    runs-on: ubuntu-20.04
+  build-x86_64:
+    name: x86_64
+    runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
+      name: Check out sources
     - name: Install dependencies
       run: |
         sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list
         sudo apt update
-        sudo apt install cmake extra-cmake-modules libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default qtbase5-private-dev qtmultimedia5-dev libslirp0 libslirp-dev libarchive-dev zstd libzstd-dev --allow-downgrades
-    - name: Create build environment
-      run: mkdir ${{runner.workspace}}/build
+        sudo apt install --allow-downgrades cmake ninja-build extra-cmake-modules libpcap0.8-dev libsdl2-dev \
+          qt6-{base,base-private,multimedia}-dev libslirp0 libslirp-dev libarchive-dev libzstd-dev libfuse2
     - name: Configure
-      working-directory: ${{runner.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE
-    - name: Make
-      working-directory: ${{runner.workspace}}/build
+      run: cmake -B build -G Ninja -DUSE_QT6=ON -DCMAKE_INSTALL_PREFIX=/usr
+    - name: Build
       run: |
-        make -j$(nproc --all)
-        mkdir dist
-        cp melonDS dist
-    - uses: actions/upload-artifact@v1
+        cmake --build build
+        DESTDIR=AppDir cmake --install build
+    - uses: actions/upload-artifact@v4
       with:
         name: melonDS-ubuntu-x86_64
-        path: ${{runner.workspace}}/build/dist
+        path: AppDir/usr/bin/melonDS
+    - name: Fetch AppImage tools
+      run: |
+        wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+        wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+        chmod a+x linuxdeploy-*.AppImage
+    - name: Build the AppImage
+      env:
+        QMAKE: /usr/lib/qt6/bin/qmake
+      run: |
+        ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt --output appimage
+    - uses: actions/upload-artifact@v4
+      with:
+        name: melonDS-appimage-x86_64
+        path: melonDS*.AppImage
+
+  build-aarch64:
+    name: aarch64
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+
+    steps:
+      - name: Prepare system
+        shell: bash
+        run: |
+          dpkg --add-architecture arm64
+          sh -c "sed \"s|^deb \([a-z\.:/]*\) \([a-z\-]*\) \(.*\)$|deb [arch=amd64] \1 \2 \3\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports \2 \3|\" /etc/apt/sources.list > /etc/apt/sources.list.new"
+          rm /etc/apt/sources.list
+          mv /etc/apt/sources.list{.new,}
+          apt update
+          apt -y full-upgrade
+          apt -y install git {gcc-12,g++-12}-aarch64-linux-gnu cmake ninja-build extra-cmake-modules \
+            {libsdl2,qt6-{base,base-private,multimedia},libslirp,libarchive,libzstd}-dev:arm64 \
+            pkg-config dpkg-dev
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -B build -G Ninja \
+            -DPKG_CONFIG_EXECUTABLE=/usr/bin/aarch64-linux-gnu-pkg-config \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc-12 \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++-12 \
+            -DUSE_QT6=ON
+      - name: Build
+        shell: bash
+        run: |
+          cmake --build build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: melonDS-ubuntu-aarch64
+          path: build/melonDS

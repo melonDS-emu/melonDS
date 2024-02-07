@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -18,12 +18,19 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "Args.h"
 #include "DSi.h"
 #include "DSi_SD.h"
 #include "DSi_NAND.h"
 #include "DSi_NWifi.h"
 #include "Platform.h"
 
+namespace melonDS
+{
+using std::holds_alternative;
+using std::unique_ptr;
+using std::get_if;
+using std::get;
 using namespace Platform;
 
 // observed IRQ behavior during transfers
@@ -48,27 +55,45 @@ using namespace Platform;
 
 #define SD_DESC  Num?"SDIO":"SD/MMC"
 
-
-DSi_SDHost::DSi_SDHost(u32 num)
+enum
 {
-    Num = num;
+    Transfer_TX = 0,
+    Transfer_RX,
+};
 
-    Ports[0] = nullptr;
+
+DSi_SDHost::DSi_SDHost(melonDS::DSi& dsi, DSi_NAND::NANDImage&& nand, std::optional<FATStorage>&& sdcard) noexcept : DSi(dsi), Num(0)
+{
+    DSi.RegisterEventFunc( Event_DSi_SDMMCTransfer,
+                           Transfer_TX, MemberEventFunc(DSi_SDHost, FinishTX));
+    DSi.RegisterEventFunc( Event_DSi_SDMMCTransfer,
+                           Transfer_RX, MemberEventFunc(DSi_SDHost, FinishRX));
+
+    Ports[0] = sdcard ? std::make_unique<DSi_MMCStorage>(DSi, this, std::move(*sdcard)) : nullptr;
+    sdcard = std::nullopt; // to ensure that sdcard isn't left with a moved-from object
+    Ports[1] = std::make_unique<DSi_MMCStorage>(DSi, this, std::move(nand));
+}
+
+// Creates an SDIO host
+DSi_SDHost::DSi_SDHost(melonDS::DSi& dsi) noexcept : DSi(dsi), Num(1)
+{
+    DSi.RegisterEventFunc(Event_DSi_SDIOTransfer ,
+                           Transfer_TX, MemberEventFunc(DSi_SDHost, FinishTX));
+    DSi.RegisterEventFunc(Event_DSi_SDIOTransfer,
+                           Transfer_RX, MemberEventFunc(DSi_SDHost, FinishRX));
+
+    Ports[0] = std::make_unique<DSi_NWifi>(DSi, this);
     Ports[1] = nullptr;
 }
 
 DSi_SDHost::~DSi_SDHost()
 {
-    if (Ports[0]) delete Ports[0];
-    if (Ports[1]) delete Ports[1];
-}
+    DSi.UnregisterEventFunc(Num ? Event_DSi_SDIOTransfer : Event_DSi_SDMMCTransfer,
+                           Transfer_TX);
+    DSi.UnregisterEventFunc(Num ? Event_DSi_SDIOTransfer : Event_DSi_SDMMCTransfer,
+                           Transfer_RX);
 
-void DSi_SDHost::CloseHandles()
-{
-    if (Ports[0]) delete Ports[0];
-    if (Ports[1]) delete Ports[1];
-    Ports[0] = nullptr;
-    Ports[1] = nullptr;
+    // unique_ptr's destructor will clean up the ports
 }
 
 void DSi_SDHost::Reset()
@@ -111,48 +136,70 @@ void DSi_SDHost::Reset()
 
     TXReq = false;
 
-    CloseHandles();
+    if (Ports[0]) Ports[0]->Reset();
+    if (Ports[1]) Ports[1]->Reset();
+}
 
-    if (Num == 0)
+FATStorage* DSi_SDHost::GetSDCard() noexcept
+{
+    if (Num != 0) return nullptr;
+    return static_cast<DSi_MMCStorage*>(Ports[0].get())->GetSDCard();
+}
+
+const FATStorage* DSi_SDHost::GetSDCard() const noexcept
+{
+    if (Num != 0) return nullptr;
+    return static_cast<const DSi_MMCStorage*>(Ports[0].get())->GetSDCard();
+}
+
+DSi_NAND::NANDImage* DSi_SDHost::GetNAND() noexcept
+{
+    if (Num != 0) return nullptr;
+    return static_cast<DSi_MMCStorage*>(Ports[1].get())->GetNAND();
+}
+
+const DSi_NAND::NANDImage* DSi_SDHost::GetNAND() const noexcept
+{
+    if (Num != 0) return nullptr;
+    return static_cast<const DSi_MMCStorage*>(Ports[1].get())->GetNAND();
+}
+
+void DSi_SDHost::SetSDCard(FATStorage&& sdcard) noexcept
+{
+    if (Num != 0) return;
+
+    static_cast<DSi_MMCStorage*>(Ports[0].get())->SetSDCard(std::move(sdcard));
+}
+
+void DSi_SDHost::SetSDCard(std::optional<FATStorage>&& sdcard) noexcept
+{
+    if (Num != 0) return;
+
+    if (sdcard)
     {
-        DSi_MMCStorage* sd;
-        DSi_MMCStorage* mmc;
-
-        if (Platform::GetConfigBool(Platform::DSiSD_Enable))
+        if (!Ports[0])
         {
-            std::string folderpath;
-            if (Platform::GetConfigBool(Platform::DSiSD_FolderSync))
-                folderpath = Platform::GetConfigString(Platform::DSiSD_FolderPath);
-            else
-                folderpath = "";
-
-            sd = new DSi_MMCStorage(this,
-                                    false,
-                                    Platform::GetConfigString(Platform::DSiSD_ImagePath),
-                                    (u64)Platform::GetConfigInt(Platform::DSiSD_ImageSize) * 1024 * 1024,
-                                    Platform::GetConfigBool(Platform::DSiSD_ReadOnly),
-                                    folderpath);
-            u8 sd_cid[16] = {0xBD, 0x12, 0x34, 0x56, 0x78, 0x03, 0x4D, 0x30, 0x30, 0x46, 0x50, 0x41, 0x00, 0x00, 0x15, 0x00};
-            sd->SetCID(sd_cid);
+            Ports[0] = std::make_unique<DSi_MMCStorage>(DSi, this, std::move(*sdcard));
         }
         else
-            sd = nullptr;
-
-        mmc = new DSi_MMCStorage(this, *DSi::NANDImage);
-        mmc->SetCID(DSi::NANDImage->GetEMMCID().data());
-
-        Ports[0] = sd;
-        Ports[1] = mmc;
+        {
+            static_cast<DSi_MMCStorage*>(Ports[0].get())->SetSDCard(std::move(*sdcard));
+        }
     }
     else
     {
-        DSi_NWifi* nwifi = new DSi_NWifi(this);
-
-        Ports[0] = nwifi;
+        Ports[0] = nullptr;
     }
 
-    if (Ports[0]) Ports[0]->Reset();
-    if (Ports[1]) Ports[1]->Reset();
+    sdcard = std::nullopt;
+    // a moved-from optional isn't empty, it contains a moved-from object
+}
+
+void DSi_SDHost::SetNAND(DSi_NAND::NANDImage&& nand) noexcept
+{
+    if (Num != 0) return;
+
+    static_cast<DSi_MMCStorage*>(Ports[1].get())->SetNAND(std::move(nand));
 }
 
 void DSi_SDHost::DoSavestate(Savestate* file)
@@ -210,7 +257,7 @@ void DSi_SDHost::UpdateData32IRQ()
     newflags &= (Data32IRQ >> 11);
 
     if ((oldflags == 0) && (newflags != 0))
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
+        DSi.SetIRQ2(Num ? IRQ2_DSi_SDIO : IRQ2_DSi_SDMMC);
 }
 
 void DSi_SDHost::ClearIRQ(u32 irq)
@@ -226,7 +273,7 @@ void DSi_SDHost::SetIRQ(u32 irq)
     u32 newflags = IRQStatus & ~IRQMask;
 
     if ((oldflags == 0) && (newflags != 0))
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
+        DSi.SetIRQ2(Num ? IRQ2_DSi_SDIO : IRQ2_DSi_SDMMC);
 }
 
 void DSi_SDHost::UpdateIRQ(u32 oldmask)
@@ -235,7 +282,7 @@ void DSi_SDHost::UpdateIRQ(u32 oldmask)
     u32 newflags = IRQStatus & ~IRQMask;
 
     if ((oldflags == 0) && (newflags != 0))
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
+        DSi.SetIRQ2(Num ? IRQ2_DSi_SDIO : IRQ2_DSi_SDMMC);
 }
 
 void DSi_SDHost::SetCardIRQ()
@@ -243,7 +290,7 @@ void DSi_SDHost::SetCardIRQ()
     if (!(CardIRQCtl & (1<<0))) return;
 
     u16 oldflags = CardIRQStatus & ~CardIRQMask;
-    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1].get();
 
     if (dev->IRQ) CardIRQStatus |=  (1<<0);
     else          CardIRQStatus &= ~(1<<0);
@@ -252,8 +299,8 @@ void DSi_SDHost::SetCardIRQ()
 
     if ((oldflags == 0) && (newflags != 0)) // checkme
     {
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO_Data1 : NDS::IRQ2_DSi_SD_Data1);
+        DSi.SetIRQ2(Num ? IRQ2_DSi_SDIO : IRQ2_DSi_SDMMC);
+        DSi.SetIRQ2(Num ? IRQ2_DSi_SDIO_Data1 : IRQ2_DSi_SD_Data1);
     }
 }
 
@@ -264,8 +311,8 @@ void DSi_SDHost::UpdateCardIRQ(u16 oldmask)
 
     if ((oldflags == 0) && (newflags != 0)) // checkme
     {
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
-        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO_Data1 : NDS::IRQ2_DSi_SD_Data1);
+        DSi.SetIRQ2(Num ? IRQ2_DSi_SDIO : IRQ2_DSi_SDMMC);
+        DSi.SetIRQ2(Num ? IRQ2_DSi_SDIO_Data1 : IRQ2_DSi_SD_Data1);
     }
 }
 
@@ -281,17 +328,15 @@ void DSi_SDHost::SendResponse(u32 val, bool last)
 
 void DSi_SDHost::FinishRX(u32 param)
 {
-    DSi_SDHost* host = (param & 0x1) ? DSi::SDIO : DSi::SDMMC;
+    CheckSwapFIFO();
 
-    host->CheckSwapFIFO();
-
-    if (host->DataMode == 1)
-        host->UpdateFIFO32();
+    if (DataMode == 1)
+        UpdateFIFO32();
     else
-        host->SetIRQ(24);
+        SetIRQ(24);
 }
 
-u32 DSi_SDHost::DataRX(u8* data, u32 len)
+u32 DSi_SDHost::DataRX(const u8* data, u32 len)
 {
     if (len != BlockLen16) { Log(LogLevel::Warn, "!! BAD BLOCKLEN\n"); len = BlockLen16; }
 
@@ -308,21 +353,19 @@ u32 DSi_SDHost::DataRX(u8* data, u32 len)
     // we need a delay because DSi boot2 will send a command and then wait for IRQ0
     // but if IRQ24 is thrown instantly, the handler clears IRQ0 before the
     // send-command function starts polling IRQ status
-    u32 param = Num | (last << 1);
-    NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
-                       false, 512, FinishRX, param);
+    DSi.ScheduleEvent(Num ? Event_DSi_SDIOTransfer : Event_DSi_SDMMCTransfer,
+                       false, 512, Transfer_RX, 0);
 
     return len;
 }
 
 void DSi_SDHost::FinishTX(u32 param)
 {
-    DSi_SDHost* host = (param & 0x1) ? DSi::SDIO : DSi::SDMMC;
-    DSi_SDDevice* dev = host->Ports[host->PortSelect & 0x1];
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1].get();
 
-    if (host->BlockCountInternal == 0)
+    if (BlockCountInternal == 0)
     {
-        if (host->StopAction & (1<<8))
+        if (StopAction & (1<<8))
         {
             if (dev) dev->SendCMD(12, 0);
         }
@@ -330,8 +373,8 @@ void DSi_SDHost::FinishTX(u32 param)
         // CHECKME: presumably IRQ2 should not trigger here, but rather
         // when the data transfer is done
         //SetIRQ(0);
-        host->SetIRQ(2);
-        host->TXReq = false;
+        SetIRQ(2);
+        TXReq = false;
     }
     else
     {
@@ -352,7 +395,7 @@ u32 DSi_SDHost::DataTX(u8* data, u32 len)
             if (DataFIFO32.IsEmpty())
             {
                 SetIRQ(25);
-                DSi::CheckNDMAs(1, Num ? 0x29 : 0x28);
+                DSi.CheckNDMAs(1, Num ? 0x29 : 0x28);
             }
             return 0;
         }
@@ -391,13 +434,13 @@ u32 DSi_SDHost::DataTX(u8* data, u32 len)
     CurFIFO ^= 1;
     BlockCountInternal--;
 
-    NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
-                       false, 512, FinishTX, Num);
+    DSi.ScheduleEvent(Num ? Event_DSi_SDIOTransfer : Event_DSi_SDMMCTransfer,
+                       false, 512, Transfer_TX, 0);
 
     return len;
 }
 
-u32 DSi_SDHost::GetTransferrableLen(u32 len)
+u32 DSi_SDHost::GetTransferrableLen(u32 len) const
 {
     if (len > BlockLen16) len = BlockLen16; // checkme
     return len;
@@ -405,7 +448,7 @@ u32 DSi_SDHost::GetTransferrableLen(u32 len)
 
 void DSi_SDHost::CheckRX()
 {
-    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1].get();
 
     CheckSwapFIFO();
 
@@ -445,7 +488,7 @@ void DSi_SDHost::CheckTX()
             return;
     }
 
-    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1].get();
     if (dev) dev->ContinueTransfer();
 }
 
@@ -522,7 +565,7 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x10A: return 0;
     }
 
-    Log(LogLevel::Warn, "unknown %s read %08X @ %08X\n", SD_DESC, addr, NDS::GetPC(1));
+    Log(LogLevel::Warn, "unknown %s read %08X @ %08X\n", SD_DESC, addr, DSi.GetPC(1));
     return 0;
 }
 
@@ -536,7 +579,6 @@ u16 DSi_SDHost::ReadFIFO16()
         return 0;
     }
 
-    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
     u16 ret = DataFIFO[f].Read();
 
     if (DataFIFO[f].IsEmpty())
@@ -557,7 +599,6 @@ u32 DSi_SDHost::ReadFIFO32()
         return 0;
     }
 
-    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
     u32 ret = DataFIFO32.Read();
 
     if (DataFIFO32.IsEmpty())
@@ -579,7 +620,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
             Command = val;
             u8 cmd = Command & 0x3F;
 
-            DSi_SDDevice* dev = Ports[PortSelect & 0x1];
+            DSi_SDDevice* dev = Ports[PortSelect & 0x1].get();
             if (dev)
             {
                 // CHECKME
@@ -693,7 +734,6 @@ void DSi_SDHost::Write(u32 addr, u16 val)
 
 void DSi_SDHost::WriteFIFO16(u16 val)
 {
-    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
     u32 f = CurFIFO;
     if (DataFIFO[f].IsFull())
     {
@@ -747,7 +787,7 @@ void DSi_SDHost::UpdateFIFO32()
 
     if ((DataFIFO32.Level() << 2) >= BlockLen32)
     {
-        DSi::CheckNDMAs(1, Num ? 0x29 : 0x28);
+        DSi.CheckNDMAs(1, Num ? 0x29 : 0x28);
     }
 }
 
@@ -766,34 +806,23 @@ void DSi_SDHost::CheckSwapFIFO()
 
 #define MMC_DESC  (Internal?"NAND":"SDcard")
 
-DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, DSi_NAND::NANDImage& nand)
-    : DSi_SDDevice(host), Internal(true), NAND(&nand), SD(nullptr)
+DSi_MMCStorage::DSi_MMCStorage(melonDS::DSi& dsi, DSi_SDHost* host, DSi_NAND::NANDImage&& nand) noexcept
+    : DSi_SDDevice(host), DSi(dsi), Storage(std::move(nand))
 {
     ReadOnly = false;
+    SetCID(get<DSi_NAND::NANDImage>(Storage).GetEMMCID().data());
 }
 
-DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const std::string& filename, u64 size, bool readonly, const std::string& sourcedir)
-    : DSi_SDDevice(host)
+DSi_MMCStorage::DSi_MMCStorage(melonDS::DSi& dsi, DSi_SDHost* host, FATStorage&& sdcard) noexcept
+    : DSi_SDDevice(host), DSi(dsi), Storage(std::move(sdcard))
 {
-    Internal = internal;
-    NAND = nullptr;
-
-    SD = new FATStorage(filename, size, readonly, sourcedir);
-    SD->Open();
-
-    ReadOnly = readonly;
+    ReadOnly = get<FATStorage>(Storage).IsReadOnly();
+    SetCID(DSiSDCardCID);
 }
 
-DSi_MMCStorage::~DSi_MMCStorage()
-{
-    if (SD)
-    {
-        SD->Close();
-        delete SD;
-    }
-
-    // Do not close the NANDImage, it's not owned by this object
-}
+// The FATStorage or NANDImage is owned by this object;
+// std::variant's destructor will clean it up.
+DSi_MMCStorage::~DSi_MMCStorage() = default;
 
 void DSi_MMCStorage::Reset()
 {
@@ -822,7 +851,7 @@ void DSi_MMCStorage::Reset()
 
 void DSi_MMCStorage::DoSavestate(Savestate* file)
 {
-    file->Section(Internal ? "NAND" : "SDCR");
+    file->Section(holds_alternative<DSi_NAND::NANDImage>(Storage) ? "NAND" : "SDCR");
 
     file->VarArray(CID, 16);
     file->VarArray(CSD, 16);
@@ -857,7 +886,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
     case 1: // SEND_OP_COND
         // CHECKME!!
         // also TODO: it's different for the SD card
-        if (Internal)
+        if (std::holds_alternative<DSi_NAND::NANDImage>(Storage))
         {
             param &= ~(1<<30);
             OCR &= 0xBF000000;
@@ -881,7 +910,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         return;
 
     case 3: // get/set RCA
-        if (Internal)
+        if (holds_alternative<DSi_NAND::NANDImage>(Storage))
         {
             RCA = param >> 16;
             Host->SendResponse(CSR|0x10000, true); // huh??
@@ -916,7 +945,8 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
 
     case 12: // stop operation
         SetState(0x04);
-        if (NAND) FileFlush(NAND->GetFile());
+        if (auto* nand = get_if<DSi_NAND::NANDImage>(&Storage))
+            FileFlush(nand->GetFile());
         RWCommand = 0;
         Host->SendResponse(CSR, true);
         return;
@@ -937,6 +967,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         Host->SendResponse(CSR, true);
         return;
 
+    case 17: // read single block
     case 18: // read multiple blocks
         //printf("READ_MULTIPLE_BLOCKS addr=%08X size=%08X\n", param, BlockSize);
         RWAddress = param;
@@ -945,12 +976,14 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
             RWAddress <<= 9;
             BlockSize = 512;
         }
-        RWCommand = 18;
+        if (cmd == 18)
+            RWCommand = 18;
         Host->SendResponse(CSR, true);
         RWAddress += ReadBlock(RWAddress);
         SetState(0x05);
         return;
 
+    case 24: // write single block
     case 25: // write multiple blocks
         //printf("WRITE_MULTIPLE_BLOCKS addr=%08X size=%08X\n", param, BlockSize);
         RWAddress = param;
@@ -959,7 +992,8 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
             RWAddress <<= 9;
             BlockSize = 512;
         }
-        RWCommand = 25;
+        if (cmd == 25)
+            RWCommand = 25;
         Host->SendResponse(CSR, true);
         RWAddress += WriteBlock(RWAddress);
         SetState(0x04);
@@ -993,7 +1027,7 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
         // DSi boot2 sets this to 0x40100000 (hardcoded)
         // then has two codepaths depending on whether bit30 did get set
         // is it settable at all on the MMC? probably not.
-        if (Internal) param &= ~(1<<30);
+        if (holds_alternative<DSi_NAND::NANDImage>(Storage)) param &= ~(1<<30);
         OCR &= 0xBF000000;
         OCR |= (param & 0x40FFFFFF);
         Host->SendResponse(OCR, true);
@@ -1039,14 +1073,14 @@ u32 DSi_MMCStorage::ReadBlock(u64 addr)
     len = Host->GetTransferrableLen(len);
 
     u8 data[0x200];
-    if (SD)
+    if (auto* sd = std::get_if<FATStorage>(&Storage))
     {
-        SD->ReadSectors((u32)(addr >> 9), 1, data);
+        sd->ReadSectors((u32)(addr >> 9), 1, data);
     }
-    else if (NAND)
+    else if (auto* nand = std::get_if<DSi_NAND::NANDImage>(&Storage))
     {
-        FileSeek(NAND->GetFile(), addr, FileSeekOrigin::Start);
-        FileRead(&data[addr & 0x1FF], 1, len, NAND->GetFile());
+        FileSeek(nand->GetFile(), addr, FileSeekOrigin::Start);
+        FileRead(&data[addr & 0x1FF], 1, len, nand->GetFile());
     }
 
     return Host->DataRX(&data[addr & 0x1FF], len);
@@ -1060,26 +1094,28 @@ u32 DSi_MMCStorage::WriteBlock(u64 addr)
     u8 data[0x200];
     if (len < 0x200)
     {
-        if (SD)
+        if (auto* sd = get_if<FATStorage>(&Storage))
         {
-            SD->ReadSectors((u32)(addr >> 9), 1, data);
+            sd->ReadSectors((u32)(addr >> 9), 1, data);
         }
     }
     if ((len = Host->DataTX(&data[addr & 0x1FF], len)))
     {
         if (!ReadOnly)
         {
-            if (SD)
+            if (auto* sd = get_if<FATStorage>(&Storage))
             {
-                SD->WriteSectors((u32)(addr >> 9), 1, data);
+                sd->WriteSectors((u32)(addr >> 9), 1, data);
             }
-            else if (NAND)
+            else if (auto* nand = get_if<DSi_NAND::NANDImage>(&Storage))
             {
-                FileSeek(NAND->GetFile(), addr, FileSeekOrigin::Start);
-                FileWrite(&data[addr & 0x1FF], 1, len, NAND->GetFile());
+                FileSeek(nand->GetFile(), addr, FileSeekOrigin::Start);
+                FileWrite(&data[addr & 0x1FF], 1, len, nand->GetFile());
             }
         }
     }
 
     return len;
+}
+
 }

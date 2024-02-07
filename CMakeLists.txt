@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.16)
 
 cmake_policy(VERSION 3.15)
 if (POLICY CMP0076)
@@ -8,6 +8,11 @@ endif()
 set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+
+option(USE_VCPKG "Use vcpkg for dependency packages" OFF)
+if (USE_VCPKG)
+	include(ConfigureVcpkg)
+endif()
 
 project(melonDS
     VERSION 0.9.5
@@ -73,8 +78,11 @@ if (ENABLE_LTO)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Og")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og")
+if (CMAKE_CXX_COMPILER_ID STREQUAL GNU)
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Og")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og")
+endif()
+
 string(REPLACE "-O2" "-O3" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
 string(REPLACE "-O2" "-O3" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 
@@ -97,6 +105,11 @@ if (CCACHE)
     message(STATUS "Using CCache to speed up compilation")
     set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
     set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
+endif()
+
+option(ENABLE_GDBSTUB "Enable GDB stub" ON)
+if (ENABLE_GDBSTUB)
+    add_definitions(-DGDBSTUB_ENABLED)
 endif()
 
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)

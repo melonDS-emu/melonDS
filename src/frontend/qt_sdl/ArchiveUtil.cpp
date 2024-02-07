@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,6 +19,7 @@
 #include "ArchiveUtil.h"
 #include "Platform.h"
 
+using namespace melonDS;
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -119,13 +120,12 @@ QVector<QString> ExtractFileFromArchive(QString path, QString wantedFile, QByteA
 
 }
 
-u32 ExtractFileFromArchive(QString path, QString wantedFile, u8** filedata, u32* filesize)
+s32 ExtractFileFromArchive(QString path, QString wantedFile, std::unique_ptr<u8[]>& filedata, u32* filesize)
 {
     struct archive *a = archive_read_new();
     struct archive_entry *entry;
     int r;
 
-    if (!filedata) return -1;
 
     archive_read_support_format_all(a);
     archive_read_support_filter_all(a);
@@ -147,8 +147,8 @@ u32 ExtractFileFromArchive(QString path, QString wantedFile, u8** filedata, u32*
 
     size_t bytesToRead = archive_entry_size(entry);
     if (filesize) *filesize = bytesToRead;
-    *filedata = new u8[bytesToRead];
-    ssize_t bytesRead = archive_read_data(a, *filedata, bytesToRead);
+    filedata = std::make_unique<u8[]>(bytesToRead);
+    ssize_t bytesRead = archive_read_data(a, filedata.get(), bytesToRead);
 
     archive_read_close(a);
     archive_read_free(a);

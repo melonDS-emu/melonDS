@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -21,63 +21,13 @@
 #include "DSi.h"
 #include "DSi_NAND.h"
 #include "DSi_AES.h"
-#include "FIFO.h"
-#include "tiny-AES-c/aes.hpp"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
-namespace DSi_AES
-{
-
-u32 Cnt;
-
-u32 BlkCnt;
-u32 RemExtra;
-u32 RemBlocks;
-
-bool OutputFlush;
-
-u32 InputDMASize, OutputDMASize;
-u32 AESMode;
-
-FIFO<u32, 16> InputFIFO;
-FIFO<u32, 16> OutputFIFO;
-
-u8 IV[16];
-
-u8 MAC[16];
-
-u8 KeyNormal[4][16];
-u8 KeyX[4][16];
-u8 KeyY[4][16];
-
-u8 CurKey[16];
-u8 CurMAC[16];
-
-// output MAC for CCM encrypt
-u8 OutputMAC[16];
-bool OutputMACDue;
-
-AES_ctx Ctx;
-
-void ROL16(u8* val, u32 n)
-{
-    u32 n_coarse = n >> 3;
-    u32 n_fine = n & 7;
-    u8 tmp[16];
-
-    for (u32 i = 0; i < 16; i++)
-    {
-        tmp[i] = val[(i - n_coarse) & 0xF];
-    }
-
-    for (u32 i = 0; i < 16; i++)
-    {
-        val[i] = (tmp[i] << n_fine) | (tmp[(i - 1) & 0xF] >> (8-n_fine));
-    }
-}
 
 #define _printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
 #define _printhex2(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); }
@@ -86,19 +36,17 @@ void ROL16(u8* val, u32 n)
 #define _printhex2R(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[((size)-1)-z]); }
 
 
-bool Init()
+DSi_AES::DSi_AES(melonDS::DSi& dsi) : DSi(dsi)
 {
     const u8 zero[16] = {0};
     AES_init_ctx_iv(&Ctx, zero, zero);
-
-    return true;
 }
 
-void DeInit()
+DSi_AES::~DSi_AES()
 {
 }
 
-void Reset()
+void DSi_AES::Reset()
 {
     Cnt = 0;
 
@@ -130,7 +78,7 @@ void Reset()
     OutputMACDue = false;
 
     // initialize keys
-    u64 consoleid = DSi::NANDImage->GetConsoleID();
+    u64 consoleid = DSi.SDMMC.GetNAND()->GetConsoleID();
 
     // slot 0: modcrypt
     *(u32*)&KeyX[0][0] = 0x746E694E;
@@ -152,7 +100,7 @@ void Reset()
     *(u32*)&KeyY[3][8] = 0x202DDD1D;
 }
 
-void DoSavestate(Savestate* file)
+void DSi_AES::DoSavestate(Savestate* file)
 {
     file->Section("AESi");
 
@@ -190,7 +138,7 @@ void DoSavestate(Savestate* file)
 }
 
 
-void ProcessBlock_CCM_Extra()
+void DSi_AES::ProcessBlock_CCM_Extra()
 {
     u8 data[16];
     u8 data_rev[16];
@@ -206,7 +154,7 @@ void ProcessBlock_CCM_Extra()
     AES_ECB_encrypt(&Ctx, CurMAC);
 }
 
-void ProcessBlock_CCM_Decrypt()
+void DSi_AES::ProcessBlock_CCM_Decrypt()
 {
     u8 data[16];
     u8 data_rev[16];
@@ -234,7 +182,7 @@ void ProcessBlock_CCM_Decrypt()
     OutputFIFO.Write(*(u32*)&data[12]);
 }
 
-void ProcessBlock_CCM_Encrypt()
+void DSi_AES::ProcessBlock_CCM_Encrypt()
 {
     u8 data[16];
     u8 data_rev[16];
@@ -262,7 +210,7 @@ void ProcessBlock_CCM_Encrypt()
     OutputFIFO.Write(*(u32*)&data[12]);
 }
 
-void ProcessBlock_CTR()
+void DSi_AES::ProcessBlock_CTR()
 {
     u8 data[16];
     u8 data_rev[16];
@@ -287,7 +235,7 @@ void ProcessBlock_CTR()
 }
 
 
-u32 ReadCnt()
+u32 DSi_AES::ReadCnt() const
 {
     u32 ret = Cnt;
 
@@ -297,7 +245,7 @@ u32 ReadCnt()
     return ret;
 }
 
-void WriteCnt(u32 val)
+void DSi_AES::WriteCnt(u32 val)
 {
     u32 oldcnt = Cnt;
     Cnt = val & 0xFC1FF000;
@@ -365,7 +313,7 @@ void WriteCnt(u32 val)
                 AES_init_ctx_iv(&Ctx, key, iv);
             }
 
-            DSi::CheckNDMAs(1, 0x2A);
+            DSi.CheckNDMAs(1, 0x2A);
         }
         else
         {
@@ -380,12 +328,12 @@ void WriteCnt(u32 val)
     //       val, AESMode, (val >> 26) & 0x3, InputDMASize, OutputDMASize, RemBlocks, BlkCnt);
 }
 
-void WriteBlkCnt(u32 val)
+void DSi_AES::WriteBlkCnt(u32 val)
 {
     BlkCnt = val;
 }
 
-u32 ReadOutputFIFO()
+u32 DSi_AES::ReadOutputFIFO()
 {
     if (OutputFIFO.IsEmpty()) Log(LogLevel::Warn, "!!! AES OUTPUT FIFO EMPTY\n");
 
@@ -399,9 +347,9 @@ u32 ReadOutputFIFO()
     else
     {
         if (OutputFIFO.Level() > 0)
-            DSi::CheckNDMAs(1, 0x2B);
+            DSi.CheckNDMAs(1, 0x2B);
         else
-            DSi::StopNDMAs(1, 0x2B);
+            DSi.StopNDMAs(1, 0x2B);
 
         if (OutputMACDue && OutputFIFO.Level() <= 12)
         {
@@ -416,7 +364,7 @@ u32 ReadOutputFIFO()
     return ret;
 }
 
-void WriteInputFIFO(u32 val)
+void DSi_AES::WriteInputFIFO(u32 val)
 {
     // TODO: add some delay to processing
 
@@ -429,29 +377,29 @@ void WriteInputFIFO(u32 val)
     Update();
 }
 
-void CheckInputDMA()
+void DSi_AES::CheckInputDMA()
 {
     if (RemBlocks == 0 && RemExtra == 0) return;
 
     if (InputFIFO.Level() <= InputDMASize)
     {
         // trigger input DMA
-        DSi::CheckNDMAs(1, 0x2A);
+        DSi.CheckNDMAs(1, 0x2A);
     }
 
     Update();
 }
 
-void CheckOutputDMA()
+void DSi_AES::CheckOutputDMA()
 {
     if (OutputFIFO.Level() >= OutputDMASize)
     {
         // trigger output DMA
-        DSi::CheckNDMAs(1, 0x2B);
+        DSi.CheckNDMAs(1, 0x2B);
     }
 }
 
-void Update()
+void DSi_AES::Update()
 {
     if (RemExtra > 0)
     {
@@ -527,19 +475,19 @@ void Update()
         }
 
         Cnt &= ~(1<<31);
-        if (Cnt & (1<<30)) NDS::SetIRQ2(NDS::IRQ2_DSi_AES);
-        DSi::StopNDMAs(1, 0x2A);
+        if (Cnt & (1<<30)) DSi.SetIRQ2(IRQ2_DSi_AES);
+        DSi.StopNDMAs(1, 0x2A);
 
         if (!OutputFIFO.IsEmpty())
-            DSi::CheckNDMAs(1, 0x2B);
+            DSi.CheckNDMAs(1, 0x2B);
         else
-            DSi::StopNDMAs(1, 0x2B);
+            DSi.StopNDMAs(1, 0x2B);
         OutputFlush = false;
     }
 }
 
 
-void WriteIV(u32 offset, u32 val, u32 mask)
+void DSi_AES::WriteIV(u32 offset, u32 val, u32 mask)
 {
     u32 old = *(u32*)&IV[offset];
 
@@ -548,7 +496,7 @@ void WriteIV(u32 offset, u32 val, u32 mask)
     //printf("AES: IV: "); _printhex(IV, 16);
 }
 
-void WriteMAC(u32 offset, u32 val, u32 mask)
+void DSi_AES::WriteMAC(u32 offset, u32 val, u32 mask)
 {
     u32 old = *(u32*)&MAC[offset];
 
@@ -557,7 +505,24 @@ void WriteMAC(u32 offset, u32 val, u32 mask)
     //printf("AES: MAC: "); _printhex(MAC, 16);
 }
 
-void DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey)
+void DSi_AES::ROL16(u8* val, u32 n)
+{
+    u32 n_coarse = n >> 3;
+    u32 n_fine = n & 7;
+    u8 tmp[16];
+
+    for (u32 i = 0; i < 16; i++)
+    {
+        tmp[i] = val[(i - n_coarse) & 0xF];
+    }
+
+    for (u32 i = 0; i < 16; i++)
+    {
+        val[i] = (tmp[i] << n_fine) | (tmp[(i - 1) & 0xF] >> (8-n_fine));
+    }
+}
+
+void DSi_AES::DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey)
 {
     const u8 key_const[16] = {0xFF, 0xFE, 0xFB, 0x4E, 0x29, 0x59, 0x02, 0x58, 0x2A, 0x68, 0x0F, 0x5F, 0x1A, 0x4F, 0x3E, 0x79};
     u8 tmp[16];
@@ -578,7 +543,7 @@ void DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey)
     memcpy(normalkey, tmp, 16);
 }
 
-void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask)
+void DSi_AES::WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask)
 {
     u32 old = *(u32*)&KeyNormal[slot][offset];
 
@@ -587,7 +552,7 @@ void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask)
     //printf("KeyNormal(%d): ", slot); _printhex(KeyNormal[slot], 16);
 }
 
-void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask)
+void DSi_AES::WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask)
 {
     u32 old = *(u32*)&KeyX[slot][offset];
 
@@ -596,7 +561,7 @@ void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask)
     //printf("KeyX(%d): ", slot); _printhex(KeyX[slot], 16);
 }
 
-void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask)
+void DSi_AES::WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask)
 {
     u32 old = *(u32*)&KeyY[slot][offset];
 

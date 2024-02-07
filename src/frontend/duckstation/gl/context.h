@@ -6,6 +6,7 @@
 #include <vector>
 
 namespace GL {
+using namespace melonDS;
 class Context
 {
 public:

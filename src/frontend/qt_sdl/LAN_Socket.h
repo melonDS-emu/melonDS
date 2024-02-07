@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -23,6 +23,7 @@
 
 namespace LAN_Socket
 {
+using namespace melonDS;
 
 //
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -21,18 +21,23 @@
 
 #include "ARCodeFile.h"
 
-namespace AREngine
+namespace melonDS
 {
+class NDS;
+class AREngine
+{
+public:
+    AREngine(melonDS::NDS& nds);
 
-bool Init();
-void DeInit();
-void Reset();
+    ARCodeFile* GetCodeFile() { return CodeFile; }
+    void SetCodeFile(ARCodeFile* file) { CodeFile = file; }
 
-ARCodeFile* GetCodeFile();
-void SetCodeFile(ARCodeFile* file);
-
-void RunCheats();
+    void RunCheats();
+    void RunCheat(const ARCode& arcode);
+private:
+    melonDS::NDS& NDS;
+    ARCodeFile* CodeFile; // AR code file - frontend is responsible for managing this
+};
 
 }
-
 #endif // ARENGINE_H

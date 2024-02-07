@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -18,32 +18,43 @@
 
 #pragma once
 
+#ifdef OGLRENDERER_ENABLED
 #include "GPU3D.h"
-
+#include "GPU_OpenGL.h"
 #include "OpenGLSupport.h"
 
-
-namespace GPU3D
+namespace melonDS
 {
+class GPU;
+
 class GLRenderer : public Renderer3D
 {
 public:
-    virtual ~GLRenderer() override;
-    virtual void Reset() override;
+    ~GLRenderer() override;
+    void Reset(GPU& gpu) override;
 
-    virtual void SetRenderSettings(GPU::RenderSettings& settings) override;
+    void SetRenderSettings(bool betterpolygons, int scale) noexcept;
+    void SetBetterPolygons(bool betterpolygons) noexcept;
+    void SetScaleFactor(int scale) noexcept;
+    [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
+    [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
 
-    virtual void VCount144() override {};
-    virtual void RenderFrame() override;
-    virtual u32* GetLine(int line) override;
+    void VCount144(GPU& gpu) override {};
+    void RenderFrame(GPU& gpu) override;
+    void Stop(const GPU& gpu) override;
+    u32* GetLine(int line) override;
 
     void SetupAccelFrame();
-    void PrepareCaptureFrame();
+    void PrepareCaptureFrame() override;
+    void Blit(const GPU& gpu) override;
+
+    [[nodiscard]] const GLCompositor& GetCompositor() const noexcept { return CurGLCompositor; }
+    GLCompositor& GetCompositor() noexcept { return CurGLCompositor; }
 
     static std::unique_ptr<GLRenderer> New() noexcept;
 private:
     // Used by New()
-    GLRenderer() noexcept;
+    GLRenderer(GLCompositor&& compositor) noexcept;
 
     // GL version requirements
     // * texelFetch: 3.0 (GLSL 1.30)     (3.2/1.50 for MS)
@@ -63,17 +74,18 @@ private:
         u32 RenderKey;
     };
 
+    GLCompositor CurGLCompositor;
     RendererPolygon PolygonList[2048] {};
 
     bool BuildRenderShader(u32 flags, const char* vs, const char* fs);
     void UseRenderShader(u32 flags);
-    void SetupPolygon(RendererPolygon* rp, Polygon* polygon);
-    u32* SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u32* vptr);
+    void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
+    u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32* vptr) const;
     void BuildPolygons(RendererPolygon* polygons, int npolys);
-    int RenderSinglePolygon(int i);
-    int RenderPolygonBatch(int i);
-    int RenderPolygonEdgeBatch(int i);
-    void RenderSceneChunk(int y, int h);
+    int RenderSinglePolygon(int i) const;
+    int RenderPolygonBatch(int i) const;
+    int RenderPolygonEdgeBatch(int i) const;
+    void RenderSceneChunk(const GPU3D& gpu3d, int y, int h);
 
     enum
     {
@@ -151,3 +163,4 @@ private:
 
 };
 }
+#endif

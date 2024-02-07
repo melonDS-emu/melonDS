@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -16,21 +16,18 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef OSD_H
-#define OSD_H
+#ifndef MELONDS_MEMREGION_H
+#define MELONDS_MEMREGION_H
 
-namespace OSD
+#include "types.h"
+
+// this file exists to break #include cycle loops
+namespace melonDS
 {
-
-bool Init(bool openGL);
-void DeInit();
-
-void AddMessage(u32 color, const char* text);
-
-void Update();
-void DrawNative(QPainter& painter);
-void DrawGL(float w, float h);
-
+struct MemRegion
+{
+    u8* Mem;
+    u32 Mask;
+};
 }
-
-#endif // OSD_H
+#endif //MELONDS_MEMREGION_H

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -25,12 +25,13 @@
 #include "DSi_TMD.h"
 #include "SPI_Firmware.h"
 #include <array>
+#include <memory>
 #include <vector>
 #include <string>
 
 struct AES_ctx;
 
-namespace DSi_NAND
+namespace melonDS::DSi_NAND
 {
 
 enum
@@ -70,7 +71,7 @@ private:
     u32 ReadFATBlock(u64 addr, u32 len, u8* buf);
     u32 WriteFATBlock(u64 addr, u32 len, const u8* buf);
     bool ESEncrypt(u8* data, u32 len) const;
-    bool ESDecrypt(u8* data, u32 len);
+    bool ESDecrypt(u8* data, u32 len) const;
     Platform::FileHandle* CurFile = nullptr;
     DSiKey eMMC_CID;
     u64 ConsoleID;
@@ -84,7 +85,7 @@ class NANDMount
 {
 public:
     explicit NANDMount(NANDImage& nand) noexcept;
-    ~NANDMount();
+    ~NANDMount() noexcept;
     NANDMount(const NANDMount&) = delete;
     NANDMount& operator=(const NANDMount&) = delete;
 
@@ -92,10 +93,15 @@ public:
     NANDMount(NANDMount&&) = delete;
     NANDMount& operator=(NANDMount&&) = delete;
 
+    bool ReadSerialData(DSiSerialData& dataS);
+    bool ReadHardwareInfoN(DSiHardwareInfoN& dataN);
     void ReadHardwareInfo(DSiSerialData& dataS, DSiHardwareInfoN& dataN);
 
-    void ReadUserData(DSiFirmwareSystemSettings& data);
-    void PatchUserData();
+    bool ReadUserData(DSiFirmwareSystemSettings& data);
+
+    /// Saves the given system settings to the DSi NAND,
+    /// to both TWLCFG0.dat and TWLCFG1.dat.
+    bool ApplyUserData(const DSiFirmwareSystemSettings& data);
 
     void ListTitles(u32 category, std::vector<u32>& titlelist);
     bool TitleExists(u32 category, u32 titleid);
@@ -155,7 +161,7 @@ union DSiFirmwareSystemSettings
         u32 ConfigFlags;
         u8 Zero02;
         u8 CountryCode;
-        SPI_Firmware::Language Language;
+        Firmware::Language Language;
         u8 RTCYear;
         u32 RTCOffset;
         u8 Zero3[4];
@@ -211,6 +217,29 @@ enum class ConsoleRegion : u8
     Korea,
 };
 
+/// Languages that the given NAND image supports.
+/// @see https://problemkaputt.de/gbatek.htm#dsiregions
+enum DSiSupportedLanguageMask : u32 {
+    NoLanguagesSet = 0,
+    JapaneseSupported = 1 << 0,
+    EnglishSupported = 1 << 1,
+    FrenchSupported = 1 << 2,
+    GermanSupported = 1 << 3,
+    ItalianSupported = 1 << 4,
+    SpanishSupported = 1 << 5,
+    ChineseSupported = 1 << 6,
+    KoreanSupported = 1 << 7,
+
+    JapanLanguages = JapaneseSupported,
+    AmericaLanguages = EnglishSupported | FrenchSupported | SpanishSupported,
+    EuropeLanguages = EnglishSupported | FrenchSupported | GermanSupported | ItalianSupported | SpanishSupported,
+    AustraliaLanguages = EnglishSupported,
+
+    // "Unknown (supposedly Chinese/Mandarin?, and maybe English or so)"
+    ChinaLanguages = ChineseSupported | EnglishSupported,
+    KoreaLanguages = KoreanSupported,
+};
+
 /// Data file saved to 0:/sys/HWINFO_S.dat.
 /// @note The file is normally 16KiB, but only the first 164 bytes are used;
 /// the rest is FF-padded.
@@ -223,7 +252,7 @@ union DSiSerialData
         u8 RsaSha1HMAC[0x80];
         u32 Version;
         u32 EntrySize;
-        u32 SupportedLanguages;
+        DSiSupportedLanguageMask SupportedLanguages;
         u8 Unknown0[4];
         ConsoleRegion Region;
         char Serial[12];

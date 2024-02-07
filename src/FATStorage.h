@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,40 +22,63 @@
 #include <stdio.h>
 #include <string>
 #include <map>
+#include <optional>
 #include <filesystem>
 
 #include "Platform.h"
 #include "types.h"
 #include "fatfs/ff.h"
+#include "FATIO.h"
 
+namespace melonDS
+{
+/// Contains information necessary to load an SD card image.
+/// The intended use case is for loading homebrew NDS ROMs;
+/// you won't know that a ROM is homebrew until you parse it,
+/// so if you load the SD card before the ROM
+/// then you might end up discarding it.
+struct FATStorageArgs
+{
+    std::string Filename;
+
+    /// Size of the desired SD card in bytes, or 0 for auto-detect.
+    u64 Size;
+    bool ReadOnly;
+    std::optional<std::string> SourceDir;
+};
 
 class FATStorage
 {
 public:
-    FATStorage(const std::string& filename, u64 size, bool readonly, const std::string& sourcedir);
+    FATStorage(const std::string& filename, u64 size, bool readonly, const std::optional<std::string>& sourcedir = std::nullopt);
+    explicit FATStorage(const FATStorageArgs& args) noexcept;
+    explicit FATStorage(FATStorageArgs&& args) noexcept;
+    FATStorage(FATStorage&& other) noexcept;
+    FATStorage(const FATStorage& other) = delete;
+    FATStorage& operator=(const FATStorage& other) = delete;
+    FATStorage& operator=(FATStorage&& other) noexcept;
     ~FATStorage();
 
-    bool Open();
-    void Close();
-
     bool InjectFile(const std::string& path, u8* data, u32 len);
+    u32 ReadFile(const std::string& path, u32 start, u32 len, u8* data);
 
-    u32 ReadSectors(u32 start, u32 num, u8* data);
-    u32 WriteSectors(u32 start, u32 num, u8* data);
+    u32 ReadSectors(u32 start, u32 num, u8* data) const;
+    u32 WriteSectors(u32 start, u32 num, const u8* data);
+
+    [[nodiscard]] bool IsReadOnly() const noexcept { return ReadOnly; }
+    u64 GetSectorCount() const;
 
 private:
     std::string FilePath;
     std::string IndexPath;
-    std::string SourceDir;
+    std::optional<std::string> SourceDir;
     bool ReadOnly;
 
     Platform::FileHandle* File;
     u64 FileSize;
 
-    static Platform::FileHandle* FF_File;
-    static u64 FF_FileSize;
-    static UINT FF_ReadStorage(BYTE* buf, LBA_t sector, UINT num);
-    static UINT FF_WriteStorage(const BYTE* buf, LBA_t sector, UINT num);
+    [[nodiscard]] ff_disk_read_cb FF_ReadStorage() const noexcept;
+    [[nodiscard]] ff_disk_write_cb FF_WriteStorage() const noexcept;
 
     static u32 ReadSectorsInternal(Platform::FileHandle* file, u64 filelen, u32 start, u32 num, u8* data);
     static u32 WriteSectorsInternal(Platform::FileHandle* file, u64 filelen, u32 start, u32 num, const u8* data);
@@ -73,9 +96,9 @@ private:
     void CleanupDirectory(const std::string& sourcedir, const std::string& path, int level);
     bool ImportFile(const std::string& path, std::filesystem::path in);
     bool ImportDirectory(const std::string& sourcedir);
-    u64 GetDirectorySize(std::filesystem::path sourcedir);
+    u64 GetDirectorySize(std::filesystem::path sourcedir) const;
 
-    bool Load(const std::string& filename, u64 size, const std::string& sourcedir);
+    bool Load(const std::string& filename, u64 size, const std::optional<std::string>& sourcedir);
     bool Save();
 
     typedef struct
@@ -99,4 +122,5 @@ private:
     std::map<std::string, FileIndexEntry> FileIndex;
 };
 
+}
 #endif // FATSTORAGE_H

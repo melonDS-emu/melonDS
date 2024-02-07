@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -27,6 +27,7 @@
 
 #include "mic_blow.h"
 
+using namespace melonDS;
 
 namespace Frontend
 {
@@ -81,13 +82,13 @@ void AudioOut_Resample(s16* inbuf, int inlen, s16* outbuf, int outlen, int volum
 }
 
 
-void Mic_FeedSilence()
+void Mic_FeedSilence(NDS& nds)
 {
     MicBufferReadPos = 0;
-    NDS::MicInputFrame(NULL, 0);
+    nds.MicInputFrame(NULL, 0);
 }
 
-void Mic_FeedNoise()
+void Mic_FeedNoise(NDS& nds)
 {
     int sample_len = sizeof(mic_blow) / sizeof(u16);
     static int sample_pos = 0;
@@ -101,12 +102,12 @@ void Mic_FeedNoise()
         if (sample_pos >= sample_len) sample_pos = 0;
     }
 
-    NDS::MicInputFrame(tmp, 735);
+    nds.MicInputFrame(tmp, 735);
 }
 
-void Mic_FeedExternalBuffer()
+void Mic_FeedExternalBuffer(NDS& nds)
 {
-    if (!MicBuffer) return Mic_FeedSilence();
+    if (!MicBuffer) return Mic_FeedSilence(nds);
 
     if ((MicBufferReadPos + 735) > MicBufferLength)
     {
@@ -115,12 +116,12 @@ void Mic_FeedExternalBuffer()
         memcpy(&tmp[0], &MicBuffer[MicBufferReadPos], len1*sizeof(s16));
         memcpy(&tmp[len1], &MicBuffer[0], (735 - len1)*sizeof(s16));
 
-        NDS::MicInputFrame(tmp, 735);
+        nds.MicInputFrame(tmp, 735);
         MicBufferReadPos = 735 - len1;
     }
     else
     {
-        NDS::MicInputFrame(&MicBuffer[MicBufferReadPos], 735);
+        nds.MicInputFrame(&MicBuffer[MicBufferReadPos], 735);
         MicBufferReadPos += 735;
     }
 }

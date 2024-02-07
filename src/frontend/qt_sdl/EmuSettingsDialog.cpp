@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -29,7 +29,8 @@
 #include "EmuSettingsDialog.h"
 #include "ui_EmuSettingsDialog.h"
 
-using namespace Platform;
+using namespace melonDS::Platform;
+using namespace melonDS;
 
 EmuSettingsDialog* EmuSettingsDialog::currentDlg = nullptr;
 
@@ -89,7 +90,22 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->spnJITMaximumBlockSize->setDisabled(true);
 #endif
 
+#ifdef GDBSTUB_ENABLED
+    ui->cbGdbEnabled->setChecked(Config::GdbEnabled);
+    ui->intGdbPortA7->setValue(Config::GdbPortARM7);
+    ui->intGdbPortA9->setValue(Config::GdbPortARM9);
+    ui->cbGdbBOSA7->setChecked(Config::GdbARM7BreakOnStartup);
+    ui->cbGdbBOSA9->setChecked(Config::GdbARM9BreakOnStartup);
+#else
+    ui->cbGdbEnabled->setDisabled(true);
+    ui->intGdbPortA7->setDisabled(true);
+    ui->intGdbPortA9->setDisabled(true);
+    ui->cbGdbBOSA7->setDisabled(true);
+    ui->cbGdbBOSA9->setDisabled(true);
+#endif
+
     on_chkEnableJIT_toggled();
+    on_cbGdbEnabled_toggled();
     on_chkExternalBIOS_toggled();
 
     const int imgsizes[] = {256, 512, 1024, 2048, 4096, 0};
@@ -223,6 +239,12 @@ void EmuSettingsDialog::done(int r)
         bool dsiSDFolderSync = ui->cbDSiSDFolder->isChecked();
         std::string dsiSDFolderPath = ui->txtDSiSDFolder->text().toStdString();
 
+        bool gdbEnabled = ui->cbGdbEnabled->isChecked();
+        int gdbPortA7 = ui->intGdbPortA7->value();
+        int gdbPortA9 = ui->intGdbPortA9->value();
+        bool gdbBOSA7 = ui->cbGdbBOSA7->isChecked();
+        bool gdbBOSA9 = ui->cbGdbBOSA9->isChecked();
+
         if (consoleType != Config::ConsoleType
             || directBoot != Config::DirectBoot
 #ifdef JIT_ENABLED
@@ -231,6 +253,13 @@ void EmuSettingsDialog::done(int r)
             || jitBranchOptimisations != Config::JIT_BranchOptimisations
             || jitLiteralOptimisations != Config::JIT_LiteralOptimisations
             || jitFastMemory != Config::JIT_FastMemory
+#endif
+#ifdef GDBSTUB_ENABLED
+            || gdbEnabled != Config::GdbEnabled
+            || gdbPortA7 != Config::GdbPortARM7
+            || gdbPortA9 != Config::GdbPortARM9
+            || gdbBOSA7 != Config::GdbARM7BreakOnStartup
+            || gdbBOSA9 != Config::GdbARM9BreakOnStartup
 #endif
             || externalBiosEnable != Config::ExternalBIOSEnable
             || bios9Path != Config::BIOS9Path
@@ -285,13 +314,20 @@ void EmuSettingsDialog::done(int r)
             Config::DSiSDFolderSync = dsiSDFolderSync;
             Config::DSiSDFolderPath = dsiSDFolderPath;
 
-    #ifdef JIT_ENABLED
+#ifdef JIT_ENABLED
             Config::JIT_Enable = jitEnable;
             Config::JIT_MaxBlockSize = jitMaxBlockSize;
             Config::JIT_BranchOptimisations = jitBranchOptimisations;
             Config::JIT_LiteralOptimisations = jitLiteralOptimisations;
             Config::JIT_FastMemory = jitFastMemory;
-    #endif
+#endif
+#ifdef GDBSTUB_ENABLED
+            Config::GdbEnabled = gdbEnabled;
+            Config::GdbPortARM7 = gdbPortA7;
+            Config::GdbPortARM9 = gdbPortA9;
+            Config::GdbARM7BreakOnStartup = gdbBOSA7;
+            Config::GdbARM9BreakOnStartup = gdbBOSA9;
+#endif
 
             Config::ConsoleType = consoleType;
             Config::DirectBoot = directBoot;
@@ -343,6 +379,12 @@ void EmuSettingsDialog::on_btnFirmwareBrowse_clicked()
                                                 "Firmware files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
+
+    if (!Platform::CheckFileWritable(file.toStdString()))
+    {
+        QMessageBox::critical(this, "melonDS", "Unable to write to firmware file.\nPlease check file/folder write permissions.");
+        return;
+    }
 
     updateLastBIOSFolder(file);
 
@@ -400,6 +442,12 @@ void EmuSettingsDialog::on_btnDLDISDBrowse_clicked()
 
     if (file.isEmpty()) return;
 
+    if (!Platform::CheckFileWritable(file.toStdString()))
+    {
+        QMessageBox::critical(this, "melonDS", "Unable to write to DLDI SD image.\nPlease check file/folder write permissions.");
+        return;
+    }
+
     updateLastBIOSFolder(file);
 
     ui->txtDLDISDPath->setText(file);
@@ -432,6 +480,13 @@ void EmuSettingsDialog::on_btnDSiFirmwareBrowse_clicked()
 
     if (file.isEmpty()) return;
 
+    if (!Platform::CheckFileWritable(file.toStdString()))
+    {
+        QMessageBox::critical(this, "melonDS", "Unable to write to DSi firmware file.\nPlease check file/folder write permissions.");
+        return;
+    }
+
+
     updateLastBIOSFolder(file);
 
     ui->txtDSiFirmwarePath->setText(file);
@@ -445,6 +500,13 @@ void EmuSettingsDialog::on_btnDSiNANDBrowse_clicked()
                                                 "NAND files (*.bin *.mmc *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
+
+    if (!Platform::CheckFileWritable(file.toStdString()))
+    {
+        QMessageBox::critical(this, "melonDS", "Unable to write to DSi NAND image.\nPlease check file/folder write permissions.");
+        return;
+    }
+
 
     updateLastBIOSFolder(file);
 
@@ -473,6 +535,12 @@ void EmuSettingsDialog::on_btnDSiSDBrowse_clicked()
                                                 "Image files (*.bin *.rom *.img *.sd *.dmg);;Any file (*.*)");
 
     if (file.isEmpty()) return;
+
+    if (!Platform::CheckFileWritable(file.toStdString()))
+    {
+        QMessageBox::critical(this, "melonDS", "Unable to write to DSi SD image.\nPlease check file/folder write permissions.");
+        return;
+    }
 
     updateLastBIOSFolder(file);
 
@@ -506,6 +574,31 @@ void EmuSettingsDialog::on_chkEnableJIT_toggled()
         ui->chkJITFastMemory->setDisabled(disabled);
     #endif
     ui->spnJITMaximumBlockSize->setDisabled(disabled);
+
+    on_cbGdbEnabled_toggled();
+}
+
+void EmuSettingsDialog::on_cbGdbEnabled_toggled()
+{
+#ifdef GDBSTUB_ENABLED
+    bool disabled = !ui->cbGdbEnabled->isChecked();
+    bool jitenable = ui->chkEnableJIT->isChecked();
+
+    if (jitenable && !disabled) {
+        ui->cbGdbEnabled->setChecked(false);
+        disabled = true;
+    }
+#else
+    bool disabled = true;
+    bool jitenable = true;
+    ui->cbGdbEnabled->setChecked(false);
+#endif
+
+    ui->cbGdbEnabled->setDisabled(jitenable);
+    ui->intGdbPortA7->setDisabled(disabled);
+    ui->intGdbPortA9->setDisabled(disabled);
+    ui->cbGdbBOSA7->setDisabled(disabled);
+    ui->cbGdbBOSA9->setDisabled(disabled);
 }
 
 void EmuSettingsDialog::on_chkExternalBIOS_toggled()

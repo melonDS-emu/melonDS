@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -21,8 +21,10 @@
 #include <string.h>
 
 #include <string>
+#include <QCoreApplication>
 #include <QStandardPaths>
 #include <QString>
+#include <QDateTime>
 #include <QDir>
 #include <QThread>
 #include <QSemaphore>
@@ -38,7 +40,6 @@
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 #include "LocalMP.h"
-#include "OSD.h"
 #include "SPI_Firmware.h"
 
 #ifdef __WIN32__
@@ -52,9 +53,49 @@ extern CameraManager* camManager[2];
 
 void emuStop();
 
+// TEMP
+//#include "main.h"
+//extern MainWindow* mainWindow;
 
-namespace Platform
+
+namespace melonDS::Platform
 {
+
+void PathInit(int argc, char** argv)
+{
+    // First, check for the portable directory next to the executable.
+    QString appdirpath = QCoreApplication::applicationDirPath();
+    QString portablepath = appdirpath + QDir::separator() + "portable";
+
+#if defined(__APPLE__)
+    // On Apple platforms we may need to navigate outside an app bundle.
+    // The executable directory would be "melonDS.app/Contents/MacOS", so we need to go a total of three steps up.
+    QDir bundledir(appdirpath);
+    if (bundledir.cd("..") && bundledir.cd("..") && bundledir.dirName().endsWith(".app") && bundledir.cd(".."))
+    {
+        portablepath = bundledir.absolutePath() + QDir::separator() + "portable";
+    }
+#endif
+
+    QDir portabledir(portablepath);
+    if (portabledir.exists())
+    {
+        EmuDirectory = portabledir.absolutePath().toStdString();
+    }
+    else
+    {
+        // If no overrides are specified, use the default path.
+#if defined(__WIN32__) && defined(WIN32_PORTABLE)
+        EmuDirectory = appdirpath.toStdString();
+#else
+        QString confdir;
+        QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
+        config.mkdir("melonDS");
+        confdir = config.absolutePath() + QDir::separator() + "melonDS";
+        EmuDirectory = confdir.toStdString();
+#endif
+    }
+}
 
 QSharedMemory* IPCBuffer = nullptr;
 int IPCInstanceID;
@@ -65,12 +106,25 @@ void IPCInit()
 
     IPCBuffer = new QSharedMemory("melonIPC");
 
+#if !defined(Q_OS_WINDOWS)
+    // QSharedMemory instances can be left over from crashed processes on UNIX platforms.
+    // To prevent melonDS thinking there's another instance, we attach and then immediately detach from the
+    // shared memory. If no other process was actually using it, it'll be destroyed and we'll have a clean
+    // shared memory buffer after creating it again below.
+    if (IPCBuffer->attach())
+    {
+        IPCBuffer->detach();
+        delete IPCBuffer;
+        IPCBuffer = new QSharedMemory("melonIPC");
+    }
+#endif
+
     if (!IPCBuffer->attach())
     {
         Log(LogLevel::Info, "IPC sharedmem doesn't exist. creating\n");
         if (!IPCBuffer->create(1024))
         {
-            Log(LogLevel::Error, "IPC sharedmem create failed :(\n");
+            Log(LogLevel::Error, "IPC sharedmem create failed: %s\n", IPCBuffer->errorString().toStdString().c_str());
             delete IPCBuffer;
             IPCBuffer = nullptr;
             return;
@@ -116,38 +170,7 @@ void IPCDeInit()
 
 void Init(int argc, char** argv)
 {
-#if defined(__WIN32__) || defined(PORTABLE)
-    if (argc > 0 && strlen(argv[0]) > 0)
-    {
-        int len = strlen(argv[0]);
-        while (len > 0)
-        {
-            if (argv[0][len] == '/') break;
-            if (argv[0][len] == '\\') break;
-            len--;
-        }
-        if (len > 0)
-        {
-            std::string emudir = argv[0];
-            EmuDirectory = emudir.substr(0, len);
-        }
-        else
-        {
-            EmuDirectory = ".";
-        }
-    }
-    else
-    {
-        EmuDirectory = ".";
-    }
-#else
-    QString confdir;
-    QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
-    config.mkdir("melonDS");
-    confdir = config.absolutePath() + "/melonDS/";
-    EmuDirectory = confdir.toStdString();
-#endif
-
+    PathInit(argc, argv);
     IPCInit();
 }
 
@@ -163,14 +186,14 @@ void SignalStop(StopReason reason)
     {
         case StopReason::GBAModeNotSupported:
             Log(LogLevel::Error, "!! GBA MODE NOT SUPPORTED\n");
-            OSD::AddMessage(0xFFA0A0, "GBA mode not supported.");
+            //mainWindow->osdAddMessage(0xFFA0A0, "GBA mode not supported.");
             break;
         case StopReason::BadExceptionRegion:
-            OSD::AddMessage(0xFFA0A0, "Internal error.");
+            //mainWindow->osdAddMessage(0xFFA0A0, "Internal error.");
             break;
         case StopReason::PowerOff:
         case StopReason::External:
-            OSD::AddMessage(0xFFC040, "Shutdown");
+            //mainWindow->osdAddMessage(0xFFC040, "Shutdown");
         default:
             break;
     }
@@ -192,117 +215,12 @@ std::string InstanceFileSuffix()
     return suffix;
 }
 
-
-int GetConfigInt(ConfigEntry entry)
-{
-    const int imgsizes[] = {0, 256, 512, 1024, 2048, 4096};
-
-    switch (entry)
-    {
-#ifdef JIT_ENABLED
-    case JIT_MaxBlockSize: return Config::JIT_MaxBlockSize;
-#endif
-
-    case DLDI_ImageSize: return imgsizes[Config::DLDISize];
-
-    case DSiSD_ImageSize: return imgsizes[Config::DSiSDSize];
-
-    case Firm_Language: return Config::FirmwareLanguage;
-    case Firm_BirthdayMonth: return Config::FirmwareBirthdayMonth;
-    case Firm_BirthdayDay: return Config::FirmwareBirthdayDay;
-    case Firm_Color: return Config::FirmwareFavouriteColour;
-
-    case AudioBitDepth: return Config::AudioBitDepth;
-    }
-
-    return 0;
-}
-
-bool GetConfigBool(ConfigEntry entry)
-{
-    switch (entry)
-    {
-#ifdef JIT_ENABLED
-    case JIT_Enable: return Config::JIT_Enable != 0;
-    case JIT_LiteralOptimizations: return Config::JIT_LiteralOptimisations != 0;
-    case JIT_BranchOptimizations: return Config::JIT_BranchOptimisations != 0;
-    case JIT_FastMemory: return Config::JIT_FastMemory != 0;
-#endif
-
-    case ExternalBIOSEnable: return Config::ExternalBIOSEnable != 0;
-
-    case DLDI_Enable: return Config::DLDIEnable != 0;
-    case DLDI_ReadOnly: return Config::DLDIReadOnly != 0;
-    case DLDI_FolderSync: return Config::DLDIFolderSync != 0;
-
-    case DSiSD_Enable: return Config::DSiSDEnable != 0;
-    case DSiSD_ReadOnly: return Config::DSiSDReadOnly != 0;
-    case DSiSD_FolderSync: return Config::DSiSDFolderSync != 0;
-
-    case Firm_OverrideSettings: return Config::FirmwareOverrideSettings != 0;
-    case DSi_FullBIOSBoot: return Config::DSiFullBIOSBoot != 0;
-    }
-
-    return false;
-}
-
-std::string GetConfigString(ConfigEntry entry)
-{
-    switch (entry)
-    {
-    case DLDI_ImagePath: return Config::DLDISDPath;
-    case DLDI_FolderPath: return Config::DLDIFolderPath;
-
-    case DSiSD_ImagePath: return Config::DSiSDPath;
-    case DSiSD_FolderPath: return Config::DSiSDFolderPath;
-
-    case Firm_Username: return Config::FirmwareUsername;
-    case Firm_Message: return Config::FirmwareMessage;
-    case WifiSettingsPath: return Config::WifiSettingsPath;
-    }
-
-    return "";
-}
-
-bool GetConfigArray(ConfigEntry entry, void* data)
-{
-    switch (entry)
-    {
-    case Firm_MAC:
-        {
-            std::string& mac_in = Config::FirmwareMAC;
-            u8* mac_out = (u8*)data;
-
-            int o = 0;
-            u8 tmp = 0;
-            for (int i = 0; i < 18; i++)
-            {
-                char c = mac_in[i];
-                if (c == '\0') break;
-
-                int n;
-                if      (c >= '0' && c <= '9') n = c - '0';
-                else if (c >= 'a' && c <= 'f') n = c - 'a' + 10;
-                else if (c >= 'A' && c <= 'F') n = c - 'A' + 10;
-                else continue;
-
-                if (!(o & 1))
-                    tmp = n;
-                else
-                    mac_out[o >> 1] = n | (tmp << 4);
-
-                o++;
-                if (o >= 12) return true;
-            }
-        }
-        return false;
-    }
-
-    return false;
-}
-
 constexpr char AccessMode(FileMode mode, bool file_exists)
 {
+
+    if (mode & FileMode::Append)
+        return  'a';
+
     if (!(mode & FileMode::Write))
         // If we're only opening the file for reading...
         return 'r';
@@ -341,7 +259,7 @@ static std::string GetModeString(FileMode mode, bool file_exists)
 
 FileHandle* OpenFile(const std::string& path, FileMode mode)
 {
-    if ((mode & FileMode::ReadWrite) == FileMode::None)
+    if ((mode & (FileMode::ReadWrite | FileMode::Append)) == FileMode::None)
     { // If we aren't reading or writing, then we can't open the file
         Log(LogLevel::Error, "Attempted to open \"%s\" in neither read nor write mode (FileMode 0x%x)\n", path.c_str(), mode);
         return nullptr;
@@ -376,15 +294,7 @@ FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
     }
     else
     {
-#ifdef PORTABLE
         fullpath = QString::fromStdString(EmuDirectory) + QDir::separator() + qpath;
-#else
-        // Check user configuration directory
-        QDir config(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
-        config.mkdir("melonDS");
-        fullpath = config.absolutePath() + "/melonDS/";
-        fullpath.append(qpath);
-#endif
     }
 
     return OpenFile(fullpath.toStdString(), mode);
@@ -419,6 +329,28 @@ bool LocalFileExists(const std::string& name)
     if (!f) return false;
     CloseFile(f);
     return true;
+}
+
+bool CheckFileWritable(const std::string& filepath)
+{
+    FileHandle* file = Platform::OpenFile(filepath.c_str(), FileMode::Append);
+    if (file)
+    {
+        Platform::CloseFile(file);
+        return true;
+    }
+    else return false;
+}
+
+bool CheckLocalFileWritable(const std::string& name)
+{
+    FileHandle* file = Platform::OpenLocalFile(name.c_str(), FileMode::Append);
+    if (file)
+    {
+        Platform::CloseFile(file);
+        return true;
+    }
+    else return false;
 }
 
 bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin)
@@ -576,35 +508,44 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
         ROMManager::GBASave->RequestFlush(savedata, savelen, writeoffset, writelen);
 }
 
-void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset, u32 writelen)
+void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen)
 {
     if (!ROMManager::FirmwareSave)
         return;
 
-    if (firmware.Header().Identifier != SPI_Firmware::GENERATED_FIRMWARE_IDENTIFIER)
+    if (firmware.GetHeader().Identifier != GENERATED_FIRMWARE_IDENTIFIER)
     { // If this is not the default built-in firmware...
         // ...then write the whole thing back.
         ROMManager::FirmwareSave->RequestFlush(firmware.Buffer(), firmware.Length(), writeoffset, writelen);
     }
     else
     {
-        u32 eapstart = firmware.ExtendedAccessPointOffset();
-        u32 eapend = eapstart + sizeof(firmware.ExtendedAccessPoints());
+        u32 eapstart = firmware.GetExtendedAccessPointOffset();
+        u32 eapend = eapstart + sizeof(firmware.GetExtendedAccessPoints());
 
-        u32 apstart = firmware.WifiAccessPointOffset();
-        u32 apend = apstart + sizeof(firmware.AccessPoints());
+        u32 apstart = firmware.GetWifiAccessPointOffset();
+        u32 apend = apstart + sizeof(firmware.GetAccessPoints());
 
         // assert that the extended access points come just before the regular ones
         assert(eapend == apstart);
 
         if (eapstart <= writeoffset && writeoffset < apend)
         { // If we're writing to the access points...
-            const u8* buffer = firmware.ExtendedAccessPointPosition();
-            u32 length = sizeof(firmware.ExtendedAccessPoints()) + sizeof(firmware.AccessPoints());
+            const u8* buffer = firmware.GetExtendedAccessPointPosition();
+            u32 length = sizeof(firmware.GetExtendedAccessPoints()) + sizeof(firmware.GetAccessPoints());
             ROMManager::FirmwareSave->RequestFlush(buffer, length, writeoffset - eapstart, writelen);
         }
     }
 
+}
+
+void WriteDateTime(int year, int month, int day, int hour, int minute, int second)
+{
+    QDateTime hosttime = QDateTime::currentDateTime();
+    QDateTime time = QDateTime(QDate(year, month, day), QTime(hour, minute, second));
+
+    Config::RTCOffset = hosttime.secsTo(time);
+    Config::Save();
 }
 
 bool MP_Init()

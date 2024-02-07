@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -20,19 +20,24 @@
 
 #include "GPU2D.h"
 
+namespace melonDS
+{
+class GPU;
+
 namespace GPU2D
 {
 
 class SoftRenderer : public Renderer2D
 {
 public:
-    SoftRenderer();
+    SoftRenderer(melonDS::GPU& gpu);
     ~SoftRenderer() override {}
 
     void DrawScanline(u32 line, Unit* unit) override;
     void DrawSprites(u32 line, Unit* unit) override;
     void VBlankEnd(Unit* unitA, Unit* unitB) override;
 private:
+    melonDS::GPU& GPU;
     alignas(8) u32 BGOBJLine[256*3];
     u32* _3DLine;
 
@@ -44,13 +49,75 @@ private:
     u32 NumSprites[2];
 
     u8* CurBGXMosaicTable;
-    u8 MosaicTable[16][256];
+    array2d<u8, 16, 256> MosaicTable = []() constexpr
+    {
+        array2d<u8, 16, 256> table {};
+        // initialize mosaic table
+        for (int m = 0; m < 16; m++)
+        {
+            for (int x = 0; x < 256; x++)
+            {
+                int offset = x % (m+1);
+                table[m][x] = offset;
+            }
+        }
 
-    u32 ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb);
-    u32 ColorBlend5(u32 val1, u32 val2);
-    u32 ColorBrightnessUp(u32 val, u32 factor, u32 bias);
-    u32 ColorBrightnessDown(u32 val, u32 factor, u32 bias);
-    u32 ColorComposite(int i, u32 val1, u32 val2);
+        return table;
+    }();
+
+    static constexpr u32 ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb) noexcept
+    {
+        u32 r =  (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb) + 0x000008) >> 4;
+        u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb) + 0x000800) >> 4) & 0x007F00;
+        u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb) + 0x080000) >> 4) & 0x7F0000;
+
+        if (r > 0x00003F) r = 0x00003F;
+        if (g > 0x003F00) g = 0x003F00;
+        if (b > 0x3F0000) b = 0x3F0000;
+
+        return r | g | b | 0xFF000000;
+    }
+
+    static constexpr u32 ColorBlend5(u32 val1, u32 val2) noexcept
+    {
+        u32 eva = ((val1 >> 24) & 0x1F) + 1;
+        u32 evb = 32 - eva;
+
+        if (eva == 32) return val1;
+
+        u32 r =  (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb) + 0x000010) >> 5;
+        u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb) + 0x001000) >> 5) & 0x007F00;
+        u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb) + 0x100000) >> 5) & 0x7F0000;
+
+        if (r > 0x00003F) r = 0x00003F;
+        if (g > 0x003F00) g = 0x003F00;
+        if (b > 0x3F0000) b = 0x3F0000;
+
+        return r | g | b | 0xFF000000;
+    }
+
+    static constexpr u32 ColorBrightnessUp(u32 val, u32 factor, u32 bias) noexcept
+    {
+        u32 rb = val & 0x3F003F;
+        u32 g = val & 0x003F00;
+
+        rb += (((((0x3F003F - rb) * factor) + (bias*0x010001)) >> 4) & 0x3F003F);
+        g +=  (((((0x003F00 - g ) * factor) + (bias*0x000100)) >> 4) & 0x003F00);
+
+        return rb | g | 0xFF000000;
+    }
+
+    static constexpr u32 ColorBrightnessDown(u32 val, u32 factor, u32 bias) noexcept
+    {
+        u32 rb = val & 0x3F003F;
+        u32 g = val & 0x003F00;
+
+        rb -= ((((rb * factor) + (bias*0x010001)) >> 4) & 0x3F003F);
+        g -=  ((((g  * factor) + (bias*0x000100)) >> 4) & 0x003F00);
+
+        return rb | g | 0xFF000000;
+    }
+    u32 ColorComposite(int i, u32 val1, u32 val2) const;
 
     template<u32 bgmode> void DrawScanlineBGMode(u32 line);
     void DrawScanlineBGMode6(u32 line);
@@ -76,5 +143,7 @@ private:
 
     void DoCapture(u32 line, u32 width);
 };
+
+}
 
 }

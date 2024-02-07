@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -18,30 +18,34 @@
 
 #pragma once
 
+#include "GPU.h"
 #include "GPU3D.h"
 #include "Platform.h"
 #include <thread>
 #include <atomic>
 
-namespace GPU3D
+namespace melonDS
 {
 class SoftRenderer : public Renderer3D
 {
 public:
-    SoftRenderer() noexcept;
-    virtual ~SoftRenderer() override;
-    virtual void Reset() override;
+    SoftRenderer(bool threaded = false) noexcept;
+    ~SoftRenderer() override;
+    void Reset(GPU& gpu) override;
 
-    virtual void SetRenderSettings(GPU::RenderSettings& settings) override;
+    void SetThreaded(bool threaded, GPU& gpu) noexcept;
+    [[nodiscard]] bool IsThreaded() const noexcept { return Threaded; }
 
-    virtual void VCount144() override;
-    virtual void RenderFrame() override;
-    virtual void RestartFrame() override;
-    virtual u32* GetLine(int line) override;
+    void VCount144(GPU& gpu) override;
+    void RenderFrame(GPU& gpu) override;
+    void RestartFrame(GPU& gpu) override;
+    u32* GetLine(int line) override;
 
-    void SetupRenderThread();
+    void SetupRenderThread(GPU& gpu);
+    void EnableRenderThread();
     void StopRenderThread();
 private:
+    friend void GPU3D::DoSavestate(Savestate* file) noexcept;
     // Notes on the interpolator:
     //
     // This is a theory on how the DS hardware interpolates values. It matches hardware output
@@ -64,13 +68,13 @@ private:
     class Interpolator
     {
     public:
-        Interpolator() {}
-        Interpolator(s32 x0, s32 x1, s32 w0, s32 w1)
+        constexpr Interpolator() {}
+        constexpr Interpolator(s32 x0, s32 x1, s32 w0, s32 w1)
         {
             Setup(x0, x1, w0, w1);
         }
 
-        void Setup(s32 x0, s32 x1, s32 w0, s32 w1)
+        constexpr void Setup(s32 x0, s32 x1, s32 w0, s32 w1)
         {
             this->x0 = x0;
             this->x1 = x1;
@@ -122,7 +126,7 @@ private:
             }
         }
 
-        void SetX(s32 x)
+        constexpr void SetX(s32 x)
         {
             x -= x0;
             this->x = x;
@@ -138,7 +142,7 @@ private:
             }
         }
 
-        s32 Interpolate(s32 y0, s32 y1)
+        constexpr s32 Interpolate(s32 y0, s32 y1) const
         {
             if (xdiff == 0 || y0 == y1) return y0;
 
@@ -160,7 +164,7 @@ private:
             }
         }
 
-        s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer)
+        constexpr s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer) const
         {
             if (xdiff == 0 || z0 == z1) return z0;
 
@@ -176,7 +180,7 @@ private:
             {
                 // Z-buffering: linear interpolation
                 // still doesn't quite match hardware...
-                s32 base, disp, factor;
+                s32 base = 0, disp = 0, factor = 0;
 
                 if (z0 < z1)
                 {
@@ -227,12 +231,12 @@ private:
     class Slope
     {
     public:
-        Slope() {}
+        constexpr Slope() {}
 
-        s32 SetupDummy(s32 x0)
+        constexpr s32 SetupDummy(s32 x0)
         {
             dx = 0;
-            
+
             this->x0 = x0;
             this->xmin = x0;
             this->xmax = x0;
@@ -248,7 +252,7 @@ private:
             return x0;
         }
 
-        s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y)
+        constexpr s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y)
         {
             this->x0 = x0;
             this->y = y;
@@ -292,7 +296,7 @@ private:
 
             XMajor = (Increment > 0x40000);
 
-            if (side)
+            if constexpr (side)
             {
                 // right
 
@@ -323,7 +327,7 @@ private:
             return x;
         }
 
-        s32 Step()
+        constexpr s32 Step()
         {
             dx += Increment;
             y++;
@@ -333,9 +337,9 @@ private:
             return x;
         }
 
-        s32 XVal()
+        constexpr s32 XVal() const
         {
-            s32 ret;
+            s32 ret = 0;
             if (Negative) ret = x0 - (dx >> 18);
             else          ret = x0 + (dx >> 18);
 
@@ -343,9 +347,9 @@ private:
             else if (ret > xmax) ret = xmax;
             return ret;
         }
-        
+
         template<bool swapped>
-        void EdgeParams_XMajor(s32* length, s32* coverage)
+        constexpr void EdgeParams_XMajor(s32* length, s32* coverage) const
         {
             // only do length calc for right side when swapped as it's
             // only needed for aa calcs, as actual line spans are broken
@@ -371,7 +375,7 @@ private:
         }
 
         template<bool swapped>
-        void EdgeParams_YMajor(s32* length, s32* coverage)
+        constexpr void EdgeParams_YMajor(s32* length, s32* coverage) const
         {
             *length = 1;
 
@@ -401,9 +405,9 @@ private:
                 *coverage = cov;
             }
         }
-        
+
         template<bool swapped>
-        void EdgeParams(s32* length, s32* coverage)
+        constexpr void EdgeParams(s32* length, s32* coverage) const
         {
             if (XMajor)
                 return EdgeParams_XMajor<swapped>(length, coverage);
@@ -427,15 +431,16 @@ private:
     };
 
     template <typename T>
-    inline T ReadVRAM_Texture(u32 addr)
+    inline T ReadVRAM_Texture(u32 addr, const GPU& gpu) const
     {
-        return *(T*)&GPU::VRAMFlat_Texture[addr & 0x7FFFF];
+        return *(T*)&gpu.VRAMFlat_Texture[addr & 0x7FFFF];
     }
     template <typename T>
-    inline T ReadVRAM_TexPal(u32 addr)
+    inline T ReadVRAM_TexPal(u32 addr, const GPU& gpu) const
     {
-        return *(T*)&GPU::VRAMFlat_TexPal[addr & 0x1FFFF];
+        return *(T*)&gpu.VRAMFlat_TexPal[addr & 0x1FFFF];
     }
+    u32 AlphaBlend(const GPU3D& gpu3d, u32 srccolor, u32 dstcolor, u32 alpha) const noexcept;
 
     struct RendererPolygon
     {
@@ -450,21 +455,21 @@ private:
     };
 
     RendererPolygon PolygonList[2048];
-    void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha);
-    u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t);
-    void PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
-    void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y);
-    void SetupPolygonRightEdge(RendererPolygon* rp, s32 y);
-    void SetupPolygon(RendererPolygon* rp, Polygon* polygon);
-    void RenderShadowMaskScanline(RendererPolygon* rp, s32 y);
-    void RenderPolygonScanline(RendererPolygon* rp, s32 y);
-    void RenderScanline(s32 y, int npolys);
-    u32 CalculateFogDensity(u32 pixeladdr);
-    void ScanlineFinalPass(s32 y);
-    void ClearBuffers();
-    void RenderPolygons(bool threaded, Polygon** polygons, int npolys);
+    void TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const;
+    u32 RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const;
+    void PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
+    void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y) const;
+    void SetupPolygonRightEdge(RendererPolygon* rp, s32 y) const;
+    void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
+    void RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y);
+    void RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y);
+    void RenderScanline(const GPU& gpu, s32 y, int npolys);
+    u32 CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const;
+    void ScanlineFinalPass(const GPU3D& gpu3d, s32 y);
+    void ClearBuffers(const GPU& gpu);
+    void RenderPolygons(const GPU& gpu, bool threaded, Polygon** polygons, int npolys);
 
-    void RenderThreadFunc();
+    void RenderThreadFunc(GPU& gpu);
 
     // buffer dimensions are 258x194 to add a offscreen 1px border
     // which simplifies edge marking tests
@@ -503,8 +508,15 @@ private:
     Platform::Thread* RenderThread;
     std::atomic_bool RenderThreadRunning;
     std::atomic_bool RenderThreadRendering;
+
+    // Used by the main thread to tell the render thread to start rendering a frame
     Platform::Semaphore* Sema_RenderStart;
+
+    // Used by the render thread to tell the main thread that it's done rendering a frame
     Platform::Semaphore* Sema_RenderDone;
+
+    // Used to allow the main thread to read some scanlines
+    // before (the 3D portion of) the entire frame is rasterized.
     Platform::Semaphore* Sema_ScanlineCount;
 };
 }

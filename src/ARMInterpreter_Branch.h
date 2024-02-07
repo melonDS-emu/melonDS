@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,6 +19,8 @@
 #ifndef ARMINTERPRETER_BRANCH_H
 #define ARMINTERPRETER_BRANCH_H
 
+namespace melonDS
+{
 namespace ARMInterpreter
 {
 
@@ -36,4 +38,5 @@ void T_BL_LONG_2(ARM* cpu);
 
 }
 
+}
 #endif
