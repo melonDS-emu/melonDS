@@ -1286,7 +1286,7 @@ bool LoadROMData(const QStringList& filepath, std::unique_ptr<u8[]>& filedata, u
         return false;
 }
 
-char* GetSavErrorString(std::string& filepath, bool gba)
+QString GetSavErrorString(std::string& filepath, bool gba)
 {
     std::string console = gba ? "GBA" : "DS";
     std::string err1 = "Unable to write to ";
@@ -1294,7 +1294,7 @@ char* GetSavErrorString(std::string& filepath, bool gba)
 
     err1 += console + err2 + filepath;
 
-    return (char*)err1.c_str();
+    return QString::fromStdString(err1);
 }
 
 bool LoadROM(QMainWindow* mainWindow, EmuThread* emuthread, QStringList filepath, bool reset)
