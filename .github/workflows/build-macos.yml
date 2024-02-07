@@ -15,7 +15,7 @@ jobs:
         arch: [x86_64, arm64]
 
     name: ${{ matrix.arch }}
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - name: Check out sources
         uses: actions/checkout@v3
