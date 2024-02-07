@@ -378,7 +378,7 @@ ConfigEntry ConfigFile[] =
 };
 
 
-void LoadFile(int inst)
+bool LoadFile(int inst, int actualinst)
 {
     Platform::FileHandle* f;
     if (inst > 0)
@@ -386,11 +386,17 @@ void LoadFile(int inst)
         char name[100] = {0};
         snprintf(name, 99, kUniqueConfigFile, inst+1);
         f = Platform::OpenLocalFile(name, Platform::FileMode::ReadText);
+
+        if (!Platform::CheckLocalFileWritable(name)) return false;
     }
     else
+    {
         f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::ReadText);
 
-    if (!f) return;
+        if (actualinst == 0 && !Platform::CheckLocalFileWritable(kConfigFile)) return false;
+    }
+
+    if (!f) return true;
 
     char linebuf[1024];
     char entryname[32];
@@ -425,9 +431,10 @@ void LoadFile(int inst)
     }
 
     CloseFile(f);
+    return true;
 }
 
-void Load()
+bool Load()
 {
 
     for (ConfigEntry* entry = &ConfigFile[0]; entry->Value; entry++)
@@ -440,12 +447,14 @@ void Load()
         case 3: *(int64_t*)entry->Value = std::get<int64_t>(entry->Default); break;
         }
     }
-
-    LoadFile(0);
-
+    
     int inst = Platform::InstanceID();
+
+    bool ret = LoadFile(0, inst);
     if (inst > 0)
-        LoadFile(inst);
+        ret = LoadFile(inst, inst);
+
+    return ret;
 }
 
 void Save()

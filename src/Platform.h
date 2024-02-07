@@ -137,6 +137,11 @@ enum FileMode : unsigned {
     Text = 0b01'00'00,
 
     /**
+     * Opens a file in append mode.
+     */
+    Append = 0b10'00'00,
+
+    /**
      * Opens a file for reading and writing.
      * Equivalent to <tt>Read | Write</tt>.
      */
@@ -200,6 +205,13 @@ FileHandle* OpenLocalFile(const std::string& path, FileMode mode);
 /// Returns true if the given file exists.
 bool FileExists(const std::string& name);
 bool LocalFileExists(const std::string& name);
+
+// Returns true if we have permission to write to the file.
+// Warning: Also creates the file if not present!
+bool CheckFileWritable(const std::string& filepath);
+
+// Same as above (CheckFileWritable()) but for local files.
+bool CheckLocalFileWritable(const std::string& filepath);
 
 /** Close a file opened with \c OpenFile.
  * @returns \c true if the file was closed successfully, false otherwise.
