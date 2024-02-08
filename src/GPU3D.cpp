@@ -1466,9 +1466,9 @@ void GPU3D::CalculateLighting() noexcept
     s32 c = 0;
     u32 vtxbuff[3] =
     {
-        (u32)MatEmission[0] << 13,
-        (u32)MatEmission[1] << 13,
-        (u32)MatEmission[2] << 13
+        (u32)MatEmission[0] << 14,
+        (u32)MatEmission[1] << 14,
+        (u32)MatEmission[2] << 14
     };
     for (int i = 0; i < 4; i++)
     {
@@ -1480,11 +1480,10 @@ void GPU3D::CalculateLighting() noexcept
         // * diffuse level seems to keep going (TODO: does it cap? can it cause vtx colors to overflow?)
         // * shininess level mirrors back to 0 and is ANDed with 0xFF, that before being squared
         // TODO: check how it behaves when the computed shininess is >=0x200
-        // TODO: seems to be some minor precision issue with how difflevel is calculated?
         
         s32 difflevel = (-(LightDirection[i][0]*normaltrans[0] +
                          LightDirection[i][1]*normaltrans[1] +
-                         LightDirection[i][2]*normaltrans[2])) >> 10;
+                         LightDirection[i][2]*normaltrans[2])) >> 9;
         if (difflevel < 0) difflevel = 0;
 
         s32 shinelevel = -(((LightDirection[i][0]>>1)*normaltrans[0] +
@@ -1501,27 +1500,28 @@ void GPU3D::CalculateLighting() noexcept
             shinelevel >>= 1;
             shinelevel = ShininessTable[shinelevel];
         }
+        shinelevel <<= 1;
 
         vtxbuff[0] += (MatSpecular[0] * shinelevel +
                       MatDiffuse[0] * difflevel +
-                      (MatAmbient[0] << 8)) * // ambient seems to be a plain bitshift
+                      (MatAmbient[0] << 9)) * // ambient seems to be a plain bitshift
                       LightColor[i][0];
 
         vtxbuff[1] += (MatSpecular[1] * shinelevel +
                       MatDiffuse[1] * difflevel +
-                      (MatAmbient[1] << 8)) *
+                      (MatAmbient[1] << 9)) *
                       LightColor[i][1];
 
         vtxbuff[2] += (MatSpecular[2] * shinelevel +
                       MatDiffuse[2] * difflevel +
-                      (MatAmbient[2] << 8)) *
+                      (MatAmbient[2] << 9)) *
                       LightColor[i][2];
 
         c++;
     }
-    VertexColor[0] = (vtxbuff[0] >> 13 > 31) ? 31 : vtxbuff[0] >> 13;
-    VertexColor[1] = (vtxbuff[1] >> 13 > 31) ? 31 : vtxbuff[1] >> 13;
-    VertexColor[2] = (vtxbuff[2] >> 13 > 31) ? 31 : vtxbuff[2] >> 13;
+    VertexColor[0] = (vtxbuff[0] >> 14 > 31) ? 31 : vtxbuff[0] >> 14;
+    VertexColor[1] = (vtxbuff[1] >> 14 > 31) ? 31 : vtxbuff[1] >> 14;
+    VertexColor[2] = (vtxbuff[2] >> 14 > 31) ? 31 : vtxbuff[2] >> 14;
 
     if (c < 1) c = 1;
     NormalPipeline = 7;
