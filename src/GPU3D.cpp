@@ -1477,7 +1477,7 @@ void GPU3D::CalculateLighting() noexcept
 
         // overflow handling (for example, if the normal length is >1)
         // according to some hardware tests
-        // * diffuse level is saturated to 255
+        // * diffuse level seems to keep going (TODO: does it cap? can it cause vtx colors to overflow?)
         // * shininess level mirrors back to 0 and is ANDed with 0xFF, that before being squared
         // TODO: check how it behaves when the computed shininess is >=0x200
         // TODO: seems to be some minor precision issue with how difflevel is calculated?
@@ -1486,7 +1486,6 @@ void GPU3D::CalculateLighting() noexcept
                          LightDirection[i][1]*normaltrans[1] +
                          LightDirection[i][2]*normaltrans[2])) >> 10;
         if (difflevel < 0) difflevel = 0;
-        else if (difflevel > 255) difflevel = 255;
 
         s32 shinelevel = -(((LightDirection[i][0]>>1)*normaltrans[0] +
                           (LightDirection[i][1]>>1)*normaltrans[1] +
