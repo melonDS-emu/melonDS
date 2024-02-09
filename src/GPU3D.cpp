@@ -1488,19 +1488,19 @@ void GPU3D::CalculateLighting() noexcept
 
         s32 shinelevel = -(((LightDirection[i][0]>>1)*normaltrans[0] +
                           (LightDirection[i][1]>>1)*normaltrans[1] +
-                          ((LightDirection[i][2]-0x200)>>1)*normaltrans[2]) >> 10);
+                          ((LightDirection[i][2]-0x200)>>1)*normaltrans[2]) >> 9);
         if (shinelevel < 0) shinelevel = 0;
-        else if (shinelevel > 255) shinelevel = (0x100 - shinelevel) & 0xFF;
-        shinelevel = ((shinelevel * shinelevel) >> 7) - 0x100; // really (2*shinelevel*shinelevel)-1
+        else if (shinelevel > 511) shinelevel = (0x200 - shinelevel) & 0x1FF;
+        shinelevel = ((shinelevel * shinelevel) >> 8) - 0x200; // really (2*shinelevel*shinelevel)-1
         if (shinelevel < 0) shinelevel = 0;
 
         if (UseShininessTable)
         {
             // checkme
-            shinelevel >>= 1;
+            shinelevel >>= 2;
             shinelevel = ShininessTable[shinelevel];
+            shinelevel <<= 1;
         }
-        shinelevel <<= 1;
 
         vtxbuff[0] += (MatSpecular[0] * shinelevel +
                       MatDiffuse[0] * difflevel +
