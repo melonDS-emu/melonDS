@@ -1477,20 +1477,45 @@ void GPU3D::CalculateLighting() noexcept
 
         // overflow handling (for example, if the normal length is >1)
         // according to some hardware tests
-        // * diffuse level seems to keep going (TODO: until roughly == 1024, where it starts to wraparound? invert?)
+        // * diffuse level seems to keep going until 1024, at which point it overflows
+        // resulting in diff level resetting to 0, and (light color * diffuse color) mirroring around 512 (strange behavior)
         // * shininess level mirrors back to 0 and is ANDed with 0xFF, that before being squared
         // TODO: check how it behaves when the computed shininess is >=0x200
         
+        // -- diffuse lighting --
         // negating first matters for some reason
-        // bottom 9 bits are discarded after multiplying and before adding (todo: does this apply to any other dot product calculations?)
+        // bottom 9 bits are discarded after multiplying and before adding (TODO: does this apply to any other dot product calculations?)
         s32 difflevel = (-LightDirection[i][0]*normaltrans[0] >> 9) +
                         (-LightDirection[i][1]*normaltrans[1] >> 9) +
                         (-LightDirection[i][2]*normaltrans[2] >> 9);
-        if (difflevel < 0) difflevel = 0;
 
+        if (difflevel <= 0); // if less than or equal to 0 add nothing
+        else if (difflevel >= 1024) // integer overflow (1 bit whole + 9 bits fractional)
+        {
+            vtxbuff[0] += (MatDiffuse[0] == 0 || LightColor[i][0] == 0) ? 0 :         // if diffuse color or light color are 0, outcome is 0
+                          ((512 - (MatDiffuse[0] * LightColor[i][0] - 512)) * 1024) + // product of diffuse * lightcolor is mirrored around 512
+                          (MatDiffuse[0] * LightColor[i][0] * (difflevel - 1024));    // diff level has 1024 subtracted to emulate overflow
+
+            vtxbuff[1] += (MatDiffuse[1] == 0 || LightColor[i][1] == 0) ? 0 :
+                          ((512 - (MatDiffuse[1] * LightColor[i][1] - 512)) * 1024) +
+                          (MatDiffuse[1] * LightColor[i][1] * (difflevel - 1024));
+
+            vtxbuff[2] += (MatDiffuse[2] == 0 || LightColor[i][2] == 0) ? 0 :
+                          ((512 - (MatDiffuse[2] * LightColor[i][2] - 512)) * 1024) +
+                          (MatDiffuse[2] * LightColor[i][2] * (difflevel - 1024));
+        }
+        else // normal handling
+        {
+            vtxbuff[0] += MatDiffuse[0] * LightColor[i][0] * difflevel;
+            vtxbuff[1] += MatDiffuse[1] * LightColor[i][1] * difflevel;
+            vtxbuff[2] += MatDiffuse[2] * LightColor[i][2] * difflevel;
+        }
+
+        // -- specular lighting --
         s32 shinelevel = -(((LightDirection[i][0]>>1)*normaltrans[0] +
                           (LightDirection[i][1]>>1)*normaltrans[1] +
                           ((LightDirection[i][2]-0x200)>>1)*normaltrans[2]) >> 9);
+
         if (shinelevel < 0) shinelevel = 0;
         else if (shinelevel > 511) shinelevel = (0x200 - shinelevel) & 0x1FF;
         shinelevel = ((shinelevel * shinelevel) >> 8) - 0x200; // really (2*shinelevel*shinelevel)-1
@@ -1505,17 +1530,14 @@ void GPU3D::CalculateLighting() noexcept
         }
 
         vtxbuff[0] += (MatSpecular[0] * shinelevel +
-                      MatDiffuse[0] * difflevel +
                       (MatAmbient[0] << 9)) * // ambient seems to be a plain bitshift
                       LightColor[i][0];
 
         vtxbuff[1] += (MatSpecular[1] * shinelevel +
-                      MatDiffuse[1] * difflevel +
                       (MatAmbient[1] << 9)) *
                       LightColor[i][1];
 
         vtxbuff[2] += (MatSpecular[2] * shinelevel +
-                      MatDiffuse[2] * difflevel +
                       (MatAmbient[2] << 9)) *
                       LightColor[i][2];
 
