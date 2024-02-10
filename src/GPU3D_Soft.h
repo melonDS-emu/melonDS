@@ -194,22 +194,23 @@ private:
                     disp = z0 - z1,
                     factor = xdiff - x;
                 }
-
+                /*
                 if (dir)
                 {
-                    int shift = 0;
-                    while (disp > 0x3FF)
+                    return base + disp * factor / xdiff;
+                }
+                else*/
+                {
+                    u32 recip, recip2;
+                    u32 shift = 0;
+                    recip2 = recip = (factor << 16) / xdiff;
+                    while (recip2 > 0x100)
                     {
-                        disp >>= 1;
+                        recip2 >>= 1;
                         shift++;
                     }
-
-                    return base + ((((s64)disp * factor * xrecip_z) >> 22) << shift);
-                }
-                else
-                {
-                    disp >>= 9;
-                    return base + (((s64)disp * factor * xrecip_z) >> 13);
+                    disp >>= shift;
+                    return base + ((disp * recip) >> (16 - shift));
                 }
             }
         }
