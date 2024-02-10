@@ -1481,11 +1481,11 @@ void GPU3D::CalculateLighting() noexcept
         // * shininess level mirrors back to 0 and is ANDed with 0xFF, that before being squared
         // TODO: check how it behaves when the computed shininess is >=0x200
         
-        // negating first apparently matters for some reason
-        // precision is discarded after each addition
-        s32 difflevel = (-LightDirection[i][0]*normaltrans[0] & ~0x1FF) +
-                        (-LightDirection[i][1]*normaltrans[1] & ~0x1FF) +
-                        (-LightDirection[i][2]*normaltrans[2]) >> 9;
+        // negating first matters for some reason
+        // bottom 9 bits are discarded after multiplying and before adding (todo: does this apply to any other dot product calculations?)
+        s32 difflevel = (-LightDirection[i][0]*normaltrans[0] >> 9) +
+                        (-LightDirection[i][1]*normaltrans[1] >> 9) +
+                        (-LightDirection[i][2]*normaltrans[2] >> 9);
         if (difflevel < 0) difflevel = 0;
 
         s32 shinelevel = -(((LightDirection[i][0]>>1)*normaltrans[0] +
@@ -1521,6 +1521,7 @@ void GPU3D::CalculateLighting() noexcept
 
         c++;
     }
+
     VertexColor[0] = (vtxbuff[0] >> 14 > 31) ? 31 : vtxbuff[0] >> 14;
     VertexColor[1] = (vtxbuff[1] >> 14 > 31) ? 31 : vtxbuff[1] >> 14;
     VertexColor[2] = (vtxbuff[2] >> 14 > 31) ? 31 : vtxbuff[2] >> 14;
