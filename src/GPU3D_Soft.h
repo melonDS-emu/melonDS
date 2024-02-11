@@ -180,37 +180,40 @@ private:
             {
                 // Z-buffering: linear interpolation
                 // still doesn't quite match hardware...
-                s32 base = 0, disp = 0, factor = 0;
+                s32 disp = 0;
 
                 if (z0 < z1)
                 {
-                    base = z0;
                     disp = z1 - z0;
-                    factor = x;
                 }
                 else
                 {
-                    base = z1;
-                    disp = z0 - z1,
-                    factor = xdiff - x;
+                    disp = z0 - z1;
                 }
-                /*
-                if (dir)
+                
+                /*if (dir)
                 {
-                    return base + disp * factor / xdiff;
+                    if (z0 < z1) return z0 + ((z1 - z0) * x / xdiff);
+                    else         return z1 + ((z0 - z1) - ((z0 - z1) * x / xdiff));
+                }*/
+
+                u32 recip, recip2;
+                u32 shift = 0;
+                recip2 = recip = (x << 16) / xdiff;
+                while (recip2 > 0x100)
+                {
+                    recip2 >>= 1;
+                    shift++;
                 }
-                else*/
+                disp >>= shift;
+                
+                if (z0 < z1)
                 {
-                    u32 recip, recip2;
-                    u32 shift = 0;
-                    recip2 = recip = (factor << 16) / xdiff;
-                    while (recip2 > 0x100)
-                    {
-                        recip2 >>= 1;
-                        shift++;
-                    }
-                    disp >>= shift;
-                    return base + ((disp * recip) >> (16 - shift));
+                    return z0 + ((disp * recip) >> (16 - shift));
+                }
+                else
+                {
+                    return z1 + ((z0-z1) - ((disp * recip) >> (16 - shift)));
                 }
             }
         }
