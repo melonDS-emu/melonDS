@@ -23,6 +23,7 @@
 
 #include "GPU2D.h"
 #include "GPU3D.h"
+#include "FrameDump.h"
 #include "NonStupidBitfield.h"
 
 namespace melonDS
@@ -32,6 +33,7 @@ class ARMJIT;
 
 static constexpr u32 VRAMDirtyGranularity = 512;
 class GPU;
+class FrameDump;
 
 template <u32 Size, u32 MappingGranularity>
 struct VRAMTrackingSet
@@ -529,6 +531,8 @@ public:
 
     void SyncDirtyFlags() noexcept;
 
+    void SetupFrameDump(std::string filebase, bool savepng);
+
     melonDS::NDS& NDS;
     u16 VCount = 0;
     u16 TotalScanlines = 0;
@@ -604,6 +608,15 @@ public:
 
     alignas(u64) u8 VRAMFlat_Texture[512*1024] {};
     alignas(u64) u8 VRAMFlat_TexPal[128*1024] {};
+    
+    // store framedump settings
+    std::string FDFileBase;
+    bool FDSavePNG = false;
+    // store framedump state
+    bool QueueFrameDump = false;
+    bool FDBeginPNG = false;
+    std::unique_ptr<FrameDump> FD = nullptr;
+
 private:
     void ResetVRAMCache() noexcept;
     void AssignFramebuffers() noexcept;

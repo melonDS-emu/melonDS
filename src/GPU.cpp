@@ -194,6 +194,10 @@ void GPU::Reset() noexcept
 
     OAMDirty = 0x3;
     PaletteDirty = 0xF;
+
+    FD = nullptr;
+    FDBeginPNG = false;
+    QueueFrameDump = false;
 }
 
 void GPU::Stop() noexcept
@@ -1066,6 +1070,15 @@ void GPU::SetVCount(u16 val) noexcept
 
     GPU3D.AbortFrame |= NextVCount != val;
     NextVCount = val;
+}
+
+void GPU::SetupFrameDump(std::string filebase, bool savepng)
+{
+    if (FD != nullptr || QueueFrameDump == true) return; // ensure a frame dump is not already queued or running
+
+    QueueFrameDump = true;
+    FDSavePNG = savepng;
+    FDFileBase = filebase;
 }
 
 template <u32 Size, u32 MappingGranularity>

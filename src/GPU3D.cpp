@@ -24,6 +24,7 @@
 #include "FIFO.h"
 #include "GPU3D_Soft.h"
 #include "Platform.h"
+#include "FrameDump.h"
 
 namespace melonDS
 {
@@ -100,43 +101,6 @@ using Platform::LogLevel;
 //   except: only one time slot is taken if the polygon is rejected by culling/clipping
 // * additionally, some commands (BEGIN, LIGHT_VECTOR, BOXTEST) stall the polygon pipeline
 
-
-const u8 CmdNumParams[256] =
-{
-    // 0x00
-    0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    // 0x10
-    1, 0, 1, 1, 1, 0, 16, 12, 16, 12, 9, 3, 3,
-    0, 0, 0,
-    // 0x20
-    1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1,
-    0, 0, 0, 0,
-    // 0x30
-    1, 1, 1, 1, 32,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    // 0x40
-    1, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    // 0x50
-    1,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    // 0x60
-    1,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    // 0x70
-    3, 2, 1,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    // 0x80+
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
 
 void MatrixLoadIdentity(s32* m);
 
@@ -569,7 +533,14 @@ void GPU3D::SetEnabled(bool geometry, bool rendering) noexcept
     if (!rendering) ResetRenderingState();
 }
 
-
+inline void GPU3D::BeginWriteFD(u16 cmd, u32* param)
+{
+    if (NDS.GPU.FD != nullptr) [[unlikely]]
+        if (!NDS.GPU.FD->FDWrite(cmd, param)) [[unlikely]]
+        {
+            NDS.GPU.FD = nullptr;
+        }
+}
 
 void MatrixLoadIdentity(s32* m)
 {
@@ -1744,6 +1715,8 @@ void GPU3D::ExecuteCommand() noexcept
 
         /*printf("[GXS:%08X] 0x%02X,  0x%08X", GXStat, entry.Command, entry.Param);*/
 
+
+        BeginWriteFD(entry.Command, &entry.Param);
         switch (entry.Command)
         {
         case 0x10: // matrix mode
@@ -2118,6 +2091,7 @@ void GPU3D::ExecuteCommand() noexcept
 
                 ExecParamCount = 0;
 
+                BeginWriteFD(entry.Command, ExecParams);
                 switch (entry.Command)
                 {
                 case 0x16: // load 4x4
@@ -2501,6 +2475,28 @@ void GPU3D::VBlank() noexcept
             NumOpaquePolygons = 0;
 
             FlushRequest = 0;
+            
+            // begin/finish framedump here
+            if (NDS.GPU.QueueFrameDump) [[unlikely]]
+            {
+                if (NDS.GPU.FD != nullptr)
+                {
+                    if (NDS.GPU.FDSavePNG)
+                    {
+                        NDS.GPU.FDBeginPNG = true;
+                    }
+                    else
+                    {
+                        NDS.GPU.FD->FinFrameDump();
+                        NDS.GPU.FD = nullptr;
+                    }
+                }
+                else
+                {
+                    NDS.GPU.FD = std::make_unique<melonDS::FrameDump>(NDS.GPU);
+                    NDS.GPU.FD->StartFrameDump();
+                }
+            }
         }
     }
 }
@@ -2523,6 +2519,16 @@ u32* GPU3D::GetLine(int line) noexcept
     if (!AbortFrame)
     {
         u32* rawline = CurrentRenderer->GetLine(line);
+
+        if (NDS.GPU.FDBeginPNG) [[unlikely]]
+        {
+            memcpy(&NDS.GPU.FD->TempFrameBuffer[line*256], rawline, 256*4);
+            if (line == 191)
+            {
+                NDS.GPU.FD->FinFrameDump();
+                NDS.GPU.FD = nullptr;
+            }
+        }
 
         if (RenderXPos == 0) return rawline;
 
@@ -2842,6 +2848,8 @@ void GPU3D::Write16(u32 addr, u16 val) noexcept
         return;
 
     case 0x04000610:
+        u32 val2 = val; // cheating
+        BeginWriteFD(256, &val2);
         val &= 0x7FFF;
         ZeroDotWLimit = (val * 0x200) + 0x1FF;
         return;
@@ -2918,6 +2926,7 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
         return;
 
     case 0x04000610:
+        BeginWriteFD(256, &val);
         val &= 0x7FFF;
         ZeroDotWLimit = (val * 0x200) + 0x1FF;
         return;

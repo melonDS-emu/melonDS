@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <algorithm>
 #include <string>
 #include <QCoreApplication>
 #include <QStandardPaths>
@@ -31,6 +32,10 @@
 #include <QMutex>
 #include <QOpenGLContext>
 #include <QSharedMemory>
+#include <QImage>
+#include <QByteArray>
+#include <QBuffer>
+#include <QIODevice>
 #include <SDL_loadso.h>
 
 #include "Platform.h"
@@ -281,6 +286,26 @@ FileHandle* OpenFile(const std::string& path, FileMode mode)
     }
 }
 
+std::string MakeLocalDirectory(const std::string& path)
+{
+    QString qpath = QString::fromStdString(path);
+    QDir dir(qpath);
+    QString fullpath;
+
+    if (dir.isAbsolute())
+    {
+        // If it's an absolute path, just make that.
+        fullpath = qpath;
+    }
+    else
+    {
+        fullpath = QString::fromStdString(EmuDirectory) + QDir::separator() + qpath;
+    }
+
+    dir.mkpath(fullpath);
+    return fullpath.toStdString();
+}
+
 FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
 {
     QString qpath = QString::fromStdString(path);
@@ -364,6 +389,11 @@ bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin)
     }
 
     return fseek(reinterpret_cast<FILE *>(file), offset, stdorigin) == 0;
+}
+
+int FileTell(FileHandle* file)
+{
+    return ftell(reinterpret_cast<FILE *>(file));
 }
 
 void FileRewind(FileHandle* file)
@@ -546,6 +576,39 @@ void WriteDateTime(int year, int month, int day, int hour, int minute, int secon
 
     Config::RTCOffset = hosttime.secsTo(time);
     Config::Save();
+}
+
+std::vector<u8> MakePNGFrameDump(u32* image, int sizeX, int sizeY)
+{
+    QImage png = QImage(sizeX, sizeY, QImage::Format_ARGB32);
+
+    for (int j = 0; j < 192; j++)
+        for (int i = 0; i < 256; i+=2)
+        {
+            u64 c = *(u64*)&image[i+(j*256)];
+            u64 a = (c << 3) & 0xF8000000F8000000;
+            u64 r = (c << 18) & 0xFC000000FC0000;
+            u64 g = (c << 2) & 0xFC000000FC00;
+            u64 b = (c >> 14) & 0xFC000000FC;
+            c = a | r | g | b;
+
+            *(u64*)&image[i+(j*256)] = c | ((c & 0x00C0C0C000C0C0C0) >> 6) | ((c & 0xE0000000E0000000) >> 5);
+        }
+
+    memcpy(png.scanLine(0), image, sizeX*sizeY*sizeof(image[0]));
+
+    // so we copy from an array, to an image, to a byte array, to a vector...
+    // yeah there has to be a better way to do this-
+    QByteArray store;
+    QBuffer buff(&store);
+    buff.open(QIODevice::WriteOnly);
+    png.save(&buff, "PNG", 0);
+
+    std::vector<u8> retbuff;
+    for (int i = 0; i < store.size(); i++)
+        retbuff.push_back(store[i]);
+
+    return retbuff;
 }
 
 bool MP_Init()

@@ -336,6 +336,11 @@ void InitFirmwareSaveManager(EmuThread* thread) noexcept
     FirmwareSave = std::make_unique<SaveManager>(GetEffectiveFirmwareSavePath(thread));
 }
 
+std::string GetROMName()
+{
+    return BaseAssetName;
+}
+
 std::string GetSavestateName(int slot)
 {
     std::string ext = ".ml";

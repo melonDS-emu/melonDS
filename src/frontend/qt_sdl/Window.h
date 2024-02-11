@@ -159,6 +159,8 @@ private slots:
     void onCheatsDialogFinished(int res);
     void onROMInfo();
     void onRAMInfo();
+    void onPNGFrameDumps(bool checked);
+    void onFrameDump();
     void onOpenTitleManager();
     void onMPNewInstance();
 
@@ -256,6 +258,8 @@ public:
     QAction* actSetupCheats;
     QAction* actROMInfo;
     QAction* actRAMInfo;
+    QAction* actPNGFrameDumps;
+    QAction* actFrameDump;
     QAction* actTitleManager;
     QAction* actMPNewInstance;
 

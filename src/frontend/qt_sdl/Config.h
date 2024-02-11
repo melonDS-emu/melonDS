@@ -203,6 +203,7 @@ extern int GdbPortARM9;
 extern bool GdbARM7BreakOnStartup;
 extern bool GdbARM9BreakOnStartup;
 
+extern bool FrameDumpSaveAsPNG;
 
 bool Load();
 void Save();

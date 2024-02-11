@@ -192,6 +192,10 @@ struct FileHandle;
 // Can be optionally restricted to only opening a file that already exists.
 FileHandle* OpenFile(const std::string& path, FileMode mode);
 
+// make a directory under the same rules as OpenLocalFile
+// returns the directory made
+std::string MakeLocalDirectory(const std::string& dir);
+
 // opens files local to the emulator (melonDS.ini, BIOS, firmware, ...)
 // For Windows builds, or portable UNIX builds it checks, by order of priority:
 //   * current working directory
@@ -229,6 +233,9 @@ bool IsEndOfFile(FileHandle* file);
 
 /// @see fgets
 bool FileReadLine(char* str, int count, FileHandle* file);
+
+/// @ see ftell
+int FileTell(FileHandle* file);
 
 /// @see fseek
 bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin);
@@ -301,6 +308,8 @@ void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen);
 // called when the RTC date/time is changed and the frontend might need to take it into account
 void WriteDateTime(int year, int month, int day, int hour, int minute, int second);
 
+// create and return a png's file data for use in creation of a png frame dump
+std::vector<u8> MakePNGFrameDump(u32* image, int sizeX, int sizeY);
 
 // local multiplayer comm interface
 // packet type: DS-style TX header (12 bytes) + original 802.11 frame
