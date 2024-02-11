@@ -1504,7 +1504,7 @@ void GPU3D::CalculateLighting() noexcept
                           ((512 - (MatDiffuse[2] * LightColor[i][2] - 512)) * 1024) +
                           (MatDiffuse[2] * LightColor[i][2] * (difflevel - 1024));
         }
-        else // normal handling
+        else // handle lighting normally
         {
             vtxbuff[0] += MatDiffuse[0] * LightColor[i][0] * difflevel;
             vtxbuff[1] += MatDiffuse[1] * LightColor[i][1] * difflevel;
