@@ -151,7 +151,8 @@ void FrameDump::FinFrameDump()
     FDBufferWrite(&GPU.GPU3D.RenderClearAttr1, sizeof(GPU.GPU3D.RenderClearAttr1), buffer);
     FDBufferWrite(&GPU.GPU3D.RenderClearAttr2, sizeof(GPU.GPU3D.RenderClearAttr2), buffer);
     FDBufferWrite(&GPU.GPU3D.RenderFogColor, sizeof(GPU.GPU3D.RenderFogColor), buffer);
-    FDBufferWrite(&GPU.GPU3D.RenderFogOffset, 2, buffer); // only write two bytes
+    u16 fogoffset = GPU.GPU3D.RenderFogOffset >> 9; // correct fog offset value, only write 2 bytes.
+    FDBufferWrite(&fogoffset, sizeof(fogoffset), buffer);
     // only write the 32 "real" entries of the density table (entries 0 and 33 are dupes and not part of the actual register)
     FDBufferWrite(&GPU.GPU3D.RenderFogDensityTable[1], sizeof(GPU.GPU3D.RenderFogDensityTable[0])*32, buffer);
     FDBufferWrite(GPU.GPU3D.RenderToonTable, sizeof(GPU.GPU3D.RenderToonTable), buffer);
