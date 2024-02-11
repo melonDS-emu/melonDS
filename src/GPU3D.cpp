@@ -1512,15 +1512,15 @@ void GPU3D::CalculateLighting() noexcept
         }
 
         // -- specular lighting --
-        s32 shinelevel = -(((LightDirection[i][0]>>1)*normaltrans[0] +
-                          (LightDirection[i][1]>>1)*normaltrans[1] +
-                          ((LightDirection[i][2]-0x200)>>1)*normaltrans[2]) >> 9);
+        s32 shinelevel = -(((LightDirection[i][0]>>1)*normaltrans[0] >> 9) +
+                          ((LightDirection[i][1]>>1)*normaltrans[1] >> 9) +
+                          (((LightDirection[i][2]-0x200)>>1)*normaltrans[2] >> 9));
 
         if (shinelevel < 0) shinelevel = 0;
         else if (shinelevel > 511) shinelevel = (0x200 - shinelevel) & 0x1FF;
-        shinelevel = ((shinelevel * shinelevel) >> 8) - 0x200; // really (2*shinelevel*shinelevel)-1
+        shinelevel = ((shinelevel * shinelevel) >> 7) - 0x200; // really (2*shinelevel*shinelevel)-1
         if (shinelevel < 0) shinelevel = 0;
-
+        if (shinelevel > 511) shinelevel = 511; // sort of a guess, but the exact value it caps at shouldn't matter as long as it results in light color 29.
         if (UseShininessTable)
         {
             // checkme
