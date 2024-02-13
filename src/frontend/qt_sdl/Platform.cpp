@@ -31,6 +31,7 @@
 #include <QMutex>
 #include <QOpenGLContext>
 #include <QSharedMemory>
+#include <QTemporaryFile>
 #include <SDL_loadso.h>
 
 #include "Platform.h"
@@ -333,13 +334,29 @@ bool LocalFileExists(const std::string& name)
 
 bool CheckFileWritable(const std::string& filepath)
 {
-    FileHandle* file = Platform::OpenFile(filepath.c_str(), FileMode::Append);
+    FileHandle* file = Platform::OpenFile(filepath.c_str(), FileMode::Read);
+
     if (file)
     {
+        // if the file exists, check if it can be opened for writing.
         Platform::CloseFile(file);
-        return true;
+        file = Platform::OpenFile(filepath.c_str(), FileMode::Append);
+        if (file)
+        {
+            Platform::CloseFile(file);
+            return true;
+        }
+        else return false;
     }
-    else return false;
+    else
+    {
+        // if the file does not exist, create a temporary file to check, to avoid creating an empty file.
+        if (QTemporaryFile(filepath.c_str()).open())
+        {
+            return true;
+        }
+        else return false;
+    }
 }
 
 bool CheckLocalFileWritable(const std::string& name)
