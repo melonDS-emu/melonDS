@@ -44,4 +44,6 @@ public:
     bool event(QEvent* event) override;
 };
 
+extern QString* systemThemeName;
+
 #endif // MAIN_H

@@ -217,6 +217,10 @@ std::string InstanceFileSuffix()
 
 constexpr char AccessMode(FileMode mode, bool file_exists)
 {
+
+    if (mode & FileMode::Append)
+        return  'a';
+
     if (!(mode & FileMode::Write))
         // If we're only opening the file for reading...
         return 'r';
@@ -255,7 +259,7 @@ static std::string GetModeString(FileMode mode, bool file_exists)
 
 FileHandle* OpenFile(const std::string& path, FileMode mode)
 {
-    if ((mode & FileMode::ReadWrite) == FileMode::None)
+    if ((mode & (FileMode::ReadWrite | FileMode::Append)) == FileMode::None)
     { // If we aren't reading or writing, then we can't open the file
         Log(LogLevel::Error, "Attempted to open \"%s\" in neither read nor write mode (FileMode 0x%x)\n", path.c_str(), mode);
         return nullptr;
@@ -325,6 +329,28 @@ bool LocalFileExists(const std::string& name)
     if (!f) return false;
     CloseFile(f);
     return true;
+}
+
+bool CheckFileWritable(const std::string& filepath)
+{
+    FileHandle* file = Platform::OpenFile(filepath.c_str(), FileMode::Append);
+    if (file)
+    {
+        Platform::CloseFile(file);
+        return true;
+    }
+    else return false;
+}
+
+bool CheckLocalFileWritable(const std::string& name)
+{
+    FileHandle* file = Platform::OpenLocalFile(name.c_str(), FileMode::Append);
+    if (file)
+    {
+        Platform::CloseFile(file);
+        return true;
+    }
+    else return false;
 }
 
 bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin)
