@@ -43,6 +43,7 @@ jobs:
         with:
           name: macOS-${{ matrix.arch }}
           path: macOS-${{ matrix.arch }}.zip
+          retention-days: 1
 
   universal-binary:
     name: Universal binary
@@ -75,10 +76,10 @@ jobs:
         with:
           name: macOS-universal
           path: macOS-universal.zip
-      - name: Clean up architecture-specific artifacts
-        uses: geekyeggo/delete-artifact@v4
-        with:
-          failOnError: false
-          name: |
-            macOS-x86_64
-            macOS-arm64
+#     - name: Clean up architecture-specific artifacts
+#       uses: geekyeggo/delete-artifact@v4
+#       with:
+#         failOnError: false
+#         name: |
+#           macOS-x86_64
+#           macOS-arm64
