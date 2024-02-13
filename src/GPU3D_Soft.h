@@ -42,8 +42,10 @@ public:
     u32* GetLine(int line) override;
 
     void SetupRenderThread(GPU& gpu);
+    void EnableRenderThread();
     void StopRenderThread();
 private:
+    friend void GPU3D::DoSavestate(Savestate* file) noexcept;
     // Notes on the interpolator:
     //
     // This is a theory on how the DS hardware interpolates values. It matches hardware output
@@ -178,7 +180,7 @@ private:
             {
                 // Z-buffering: linear interpolation
                 // still doesn't quite match hardware...
-                s32 base, disp, factor;
+                s32 base = 0, disp = 0, factor = 0;
 
                 if (z0 < z1)
                 {
@@ -337,7 +339,7 @@ private:
 
         constexpr s32 XVal() const
         {
-            s32 ret;
+            s32 ret = 0;
             if (Negative) ret = x0 - (dx >> 18);
             else          ret = x0 + (dx >> 18);
 
@@ -534,8 +536,15 @@ private:
     Platform::Thread* RenderThread;
     std::atomic_bool RenderThreadRunning;
     std::atomic_bool RenderThreadRendering;
+
+    // Used by the main thread to tell the render thread to start rendering a frame
     Platform::Semaphore* Sema_RenderStart;
+
+    // Used by the render thread to tell the main thread that it's done rendering a frame
     Platform::Semaphore* Sema_RenderDone;
+
+    // Used to allow the main thread to read some scanlines
+    // before (the 3D portion of) the entire frame is rasterized.
     Platform::Semaphore* Sema_ScanlineCount;
 };
 }

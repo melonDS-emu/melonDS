@@ -81,15 +81,12 @@
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
 
-#include "OSD.h"
-
 using namespace melonDS;
 
 // TEMP
 extern MainWindow* mainWindow;
 extern EmuThread* emuThread;
 extern bool RunningSomething;
-extern int autoScreenSizing;
 extern QString NdsRomMimeType;
 extern QStringList NdsRomExtensions;
 extern QString GbaRomMimeType;
@@ -690,13 +687,13 @@ void MainWindow::osdAddMessage(unsigned int color, const char* fmt, ...)
     if (fmt == nullptr)
         return;
 
-    char msg[1024];
+    char msg[256];
     va_list args;
     va_start(args, fmt);
-    vsnprintf(msg, 1024, fmt, args);
+    vsnprintf(msg, 256, fmt, args);
     va_end(args);
 
-    OSD::AddMessage(color, msg);
+    panel->osdAddMessage(color, msg);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
@@ -721,7 +718,6 @@ void MainWindow::createScreenPanel()
         panelGL->show();
 
         panel = panelGL;
-        panelWidget = panelGL;
 
         panelGL->createContext();
     }
@@ -730,14 +726,14 @@ void MainWindow::createScreenPanel()
     {
         ScreenPanelNative* panelNative = new ScreenPanelNative(this);
         panel = panelNative;
-        panelWidget = panelNative;
-        panelWidget->show();
+        panel->show();
     }
-    setCentralWidget(panelWidget);
+    setCentralWidget(panel);
 
     actScreenFiltering->setEnabled(hasOGL);
+    panel->osdSetEnabled(Config::ShowOSD);
 
-    connect(this, SIGNAL(screenLayoutChange()), panelWidget, SLOT(onScreenLayoutChanged()));
+    connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));
     emit screenLayoutChange();
 }
 
@@ -748,6 +744,30 @@ GL::Context* MainWindow::getOGLContext()
     ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
     return glpanel->getContext();
 }
+
+/*void MainWindow::initOpenGL()
+{
+    if (!hasOGL) return;
+
+    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    return glpanel->initOpenGL();
+}
+
+void MainWindow::deinitOpenGL()
+{
+    if (!hasOGL) return;
+
+    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    return glpanel->deinitOpenGL();
+}
+
+void MainWindow::drawScreenGL()
+{
+    if (!hasOGL) return;
+
+    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    return glpanel->drawScreenGL();
+}*/
 
 void MainWindow::resizeEvent(QResizeEvent* event)
 {
@@ -845,10 +865,8 @@ void MainWindow::dropEvent(QDropEvent* event)
 
     if (isNdsRom)
     {
-        if (!ROMManager::LoadROM(emuThread, file, true))
+        if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
         {
-            // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the DS ROM.");
             emuThread->emuUnpause();
             return;
         }
@@ -866,10 +884,8 @@ void MainWindow::dropEvent(QDropEvent* event)
     }
     else if (isGbaRom)
     {
-        if (!ROMManager::LoadGBAROM(*emuThread->NDS, file))
+        if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, file))
         {
-            // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the GBA ROM.");
             emuThread->emuUnpause();
             return;
         }
@@ -932,12 +948,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool gbaloaded = false;
     if (!gbafile.isEmpty())
     {
-        if (!ROMManager::LoadGBAROM(*emuThread->NDS, gbafile))
-        {
-            // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the GBA ROM.");
-            return false;
-        }
+        if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, gbafile)) return false;
 
         gbaloaded = true;
     }
@@ -945,12 +956,8 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool ndsloaded = false;
     if (!file.isEmpty())
     {
-        if (!ROMManager::LoadROM(emuThread, file, true))
-        {
-            // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
-            return false;
-        }
+        if (!ROMManager::LoadROM(mainWindow, emuThread, file, true)) return false;
+        
         recentFileList.removeAll(file.join("|"));
         recentFileList.prepend(file.join("|"));
         updateRecentFilesMenu();
@@ -1153,11 +1160,9 @@ void MainWindow::onOpenFile()
         emuThread->emuUnpause();
         return;
     }
-
-    if (!ROMManager::LoadROM(emuThread, file, true))
+    
+    if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
     {
-        // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
         emuThread->emuUnpause();
         return;
     }
@@ -1252,11 +1257,9 @@ void MainWindow::onClickRecentFile()
         emuThread->emuUnpause();
         return;
     }
-
-    if (!ROMManager::LoadROM(emuThread, file, true))
+    
+    if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
     {
-        // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
         emuThread->emuUnpause();
         return;
     }
@@ -1306,10 +1309,8 @@ void MainWindow::onInsertCart()
         return;
     }
 
-    if (!ROMManager::LoadROM(emuThread, file, false))
+    if (!ROMManager::LoadROM(mainWindow, emuThread, file, false))
     {
-        // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
         emuThread->emuUnpause();
         return;
     }
@@ -1341,10 +1342,8 @@ void MainWindow::onInsertGBACart()
         return;
     }
 
-    if (!ROMManager::LoadGBAROM(*emuThread->NDS, file))
+    if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, file))
     {
-        // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
         emuThread->emuUnpause();
         return;
     }
@@ -1843,7 +1842,7 @@ void MainWindow::onChangeSavestateSRAMReloc(bool checked)
 void MainWindow::onChangeScreenSize()
 {
     int factor = ((QAction*)sender())->data().toInt();
-    QSize diff = size() - panelWidget->size();
+    QSize diff = size() - panel->size();
     resize(panel->screenGetMinSize(factor) + diff);
 }
 
@@ -1936,7 +1935,9 @@ void MainWindow::onChangeScreenFiltering(bool checked)
 void MainWindow::onChangeShowOSD(bool checked)
 {
     Config::ShowOSD = checked?1:0;
+    panel->osdSetEnabled(Config::ShowOSD);
 }
+
 void MainWindow::onChangeLimitFramerate(bool checked)
 {
     Config::LimitFPS = checked?1:0;
@@ -2042,7 +2043,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
 
         delete panel;
         createScreenPanel();
-        connect(emuThread, SIGNAL(windowUpdate()), panelWidget, SLOT(repaint()));
+        connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
     }
 
     videoSettingsDirty = true;

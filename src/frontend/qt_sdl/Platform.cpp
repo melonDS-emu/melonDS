@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include <string>
+#include <QCoreApplication>
 #include <QStandardPaths>
 #include <QString>
 #include <QDateTime>
@@ -39,7 +40,6 @@
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 #include "LocalMP.h"
-#include "OSD.h"
 #include "SPI_Firmware.h"
 
 #ifdef __WIN32__
@@ -53,9 +53,49 @@ extern CameraManager* camManager[2];
 
 void emuStop();
 
+// TEMP
+//#include "main.h"
+//extern MainWindow* mainWindow;
+
 
 namespace melonDS::Platform
 {
+
+void PathInit(int argc, char** argv)
+{
+    // First, check for the portable directory next to the executable.
+    QString appdirpath = QCoreApplication::applicationDirPath();
+    QString portablepath = appdirpath + QDir::separator() + "portable";
+
+#if defined(__APPLE__)
+    // On Apple platforms we may need to navigate outside an app bundle.
+    // The executable directory would be "melonDS.app/Contents/MacOS", so we need to go a total of three steps up.
+    QDir bundledir(appdirpath);
+    if (bundledir.cd("..") && bundledir.cd("..") && bundledir.dirName().endsWith(".app") && bundledir.cd(".."))
+    {
+        portablepath = bundledir.absolutePath() + QDir::separator() + "portable";
+    }
+#endif
+
+    QDir portabledir(portablepath);
+    if (portabledir.exists())
+    {
+        EmuDirectory = portabledir.absolutePath().toStdString();
+    }
+    else
+    {
+        // If no overrides are specified, use the default path.
+#if defined(__WIN32__) && defined(WIN32_PORTABLE)
+        EmuDirectory = appdirpath.toStdString();
+#else
+        QString confdir;
+        QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
+        config.mkdir("melonDS");
+        confdir = config.absolutePath() + QDir::separator() + "melonDS";
+        EmuDirectory = confdir.toStdString();
+#endif
+    }
+}
 
 QSharedMemory* IPCBuffer = nullptr;
 int IPCInstanceID;
@@ -130,38 +170,7 @@ void IPCDeInit()
 
 void Init(int argc, char** argv)
 {
-#if defined(__WIN32__) || defined(PORTABLE)
-    if (argc > 0 && strlen(argv[0]) > 0)
-    {
-        int len = strlen(argv[0]);
-        while (len > 0)
-        {
-            if (argv[0][len] == '/') break;
-            if (argv[0][len] == '\\') break;
-            len--;
-        }
-        if (len > 0)
-        {
-            std::string emudir = argv[0];
-            EmuDirectory = emudir.substr(0, len);
-        }
-        else
-        {
-            EmuDirectory = ".";
-        }
-    }
-    else
-    {
-        EmuDirectory = ".";
-    }
-#else
-    QString confdir;
-    QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
-    config.mkdir("melonDS");
-    confdir = config.absolutePath() + "/melonDS/";
-    EmuDirectory = confdir.toStdString();
-#endif
-
+    PathInit(argc, argv);
     IPCInit();
 }
 
@@ -177,14 +186,14 @@ void SignalStop(StopReason reason)
     {
         case StopReason::GBAModeNotSupported:
             Log(LogLevel::Error, "!! GBA MODE NOT SUPPORTED\n");
-            OSD::AddMessage(0xFFA0A0, "GBA mode not supported.");
+            //mainWindow->osdAddMessage(0xFFA0A0, "GBA mode not supported.");
             break;
         case StopReason::BadExceptionRegion:
-            OSD::AddMessage(0xFFA0A0, "Internal error.");
+            //mainWindow->osdAddMessage(0xFFA0A0, "Internal error.");
             break;
         case StopReason::PowerOff:
         case StopReason::External:
-            OSD::AddMessage(0xFFC040, "Shutdown");
+            //mainWindow->osdAddMessage(0xFFC040, "Shutdown");
         default:
             break;
     }
@@ -208,6 +217,10 @@ std::string InstanceFileSuffix()
 
 constexpr char AccessMode(FileMode mode, bool file_exists)
 {
+
+    if (mode & FileMode::Append)
+        return  'a';
+
     if (!(mode & FileMode::Write))
         // If we're only opening the file for reading...
         return 'r';
@@ -246,7 +259,7 @@ static std::string GetModeString(FileMode mode, bool file_exists)
 
 FileHandle* OpenFile(const std::string& path, FileMode mode)
 {
-    if ((mode & FileMode::ReadWrite) == FileMode::None)
+    if ((mode & (FileMode::ReadWrite | FileMode::Append)) == FileMode::None)
     { // If we aren't reading or writing, then we can't open the file
         Log(LogLevel::Error, "Attempted to open \"%s\" in neither read nor write mode (FileMode 0x%x)\n", path.c_str(), mode);
         return nullptr;
@@ -281,15 +294,7 @@ FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
     }
     else
     {
-#ifdef PORTABLE
         fullpath = QString::fromStdString(EmuDirectory) + QDir::separator() + qpath;
-#else
-        // Check user configuration directory
-        QDir config(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
-        config.mkdir("melonDS");
-        fullpath = config.absolutePath() + "/melonDS/";
-        fullpath.append(qpath);
-#endif
     }
 
     return OpenFile(fullpath.toStdString(), mode);
@@ -324,6 +329,28 @@ bool LocalFileExists(const std::string& name)
     if (!f) return false;
     CloseFile(f);
     return true;
+}
+
+bool CheckFileWritable(const std::string& filepath)
+{
+    FileHandle* file = Platform::OpenFile(filepath.c_str(), FileMode::Append);
+    if (file)
+    {
+        Platform::CloseFile(file);
+        return true;
+    }
+    else return false;
+}
+
+bool CheckLocalFileWritable(const std::string& name)
+{
+    FileHandle* file = Platform::OpenLocalFile(name.c_str(), FileMode::Append);
+    if (file)
+    {
+        Platform::CloseFile(file);
+        return true;
+    }
+    else return false;
 }
 
 bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin)

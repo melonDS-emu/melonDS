@@ -34,8 +34,11 @@ void SoftRenderer::StopRenderThread()
 {
     if (RenderThreadRunning.load(std::memory_order_relaxed))
     {
+        // Tell the render thread to stop drawing new frames, and finish up the current one.
         RenderThreadRunning = false;
+
         Platform::Semaphore_Post(Sema_RenderStart);
+
         Platform::Thread_Wait(RenderThread);
         Platform::Thread_Free(RenderThread);
         RenderThread = nullptr;
@@ -47,24 +50,36 @@ void SoftRenderer::SetupRenderThread(GPU& gpu)
     if (Threaded)
     {
         if (!RenderThreadRunning.load(std::memory_order_relaxed))
-        {
-            RenderThreadRunning = true;
+        { // If the render thread isn't already running...
+            RenderThreadRunning = true; // "Time for work, render thread!"
             RenderThread = Platform::Thread_Create([this, &gpu]() {
                 RenderThreadFunc(gpu);
             });
         }
 
-        // otherwise more than one frame can be queued up at once
+        // "Be on standby, but don't start rendering until I tell you to!"
         Platform::Semaphore_Reset(Sema_RenderStart);
 
+        // "Oh, sorry, were you already in the middle of a frame from the last iteration?"
         if (RenderThreadRendering)
+            // "Tell me when you're done, I'll wait here."
             Platform::Semaphore_Wait(Sema_RenderDone);
 
-        Platform::Semaphore_Reset(Sema_RenderDone);
-        Platform::Semaphore_Reset(Sema_RenderStart);
-        Platform::Semaphore_Reset(Sema_ScanlineCount);
+        // "All good? Okay, let me give you your training."
+        // "(Maybe you're still the same thread, but I have to tell you this stuff anyway.)"
 
-        Platform::Semaphore_Post(Sema_RenderStart);
+        // "This is the signal you'll send when you're done with a frame."
+        // "I'll listen for it when I need to show something to the frontend."
+        Platform::Semaphore_Reset(Sema_RenderDone);
+
+        // "This is the signal I'll send when I want you to start rendering."
+        // "Don't do anything until you get the message."
+        Platform::Semaphore_Reset(Sema_RenderStart);
+
+        // "This is the signal you'll send every time you finish drawing a line."
+        // "I might need some of your scanlines before you finish the whole buffer,"
+        // "so let me know as soon as you're done with each one."
+        Platform::Semaphore_Reset(Sema_ScanlineCount);
     }
     else
     {
@@ -72,6 +87,13 @@ void SoftRenderer::SetupRenderThread(GPU& gpu)
     }
 }
 
+void SoftRenderer::EnableRenderThread()
+{
+    if (Threaded && Sema_RenderStart)
+    {
+        Platform::Semaphore_Post(Sema_RenderStart);
+    }
+}
 
 SoftRenderer::SoftRenderer(bool threaded) noexcept
     : Renderer3D(false), Threaded(threaded)
@@ -103,6 +125,7 @@ void SoftRenderer::Reset(GPU& gpu)
     PrevIsShadowMask = false;
 
     SetupRenderThread(gpu);
+    EnableRenderThread();
 }
 
 void SoftRenderer::SetThreaded(bool threaded, GPU& gpu) noexcept
@@ -111,6 +134,7 @@ void SoftRenderer::SetThreaded(bool threaded, GPU& gpu) noexcept
     {
         Threaded = threaded;
         SetupRenderThread(gpu);
+        EnableRenderThread();
     }
 }
 
@@ -1991,6 +2015,7 @@ void SoftRenderer::RenderFrame(GPU& gpu)
 
     if (RenderThreadRunning.load(std::memory_order_relaxed))
     {
+        // "Render thread, you're up! Get moving."
         Platform::Semaphore_Post(Sema_RenderStart);
     }
     else if (!FrameIdentical) RenderPolygons<false>(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
@@ -1999,23 +2024,34 @@ void SoftRenderer::RenderFrame(GPU& gpu)
 void SoftRenderer::RestartFrame(GPU& gpu)
 {
     SetupRenderThread(gpu);
+    EnableRenderThread();
 }
 
 void SoftRenderer::RenderThreadFunc(GPU& gpu)
 {
     for (;;)
     {
+        // Wait for a notice from the main thread to start rendering (or to stop entirely).
         Platform::Semaphore_Wait(Sema_RenderStart);
         if (!RenderThreadRunning) return;
 
+        // Protect the GPU state from the main thread.
+        // Some melonDS frontends (though not ours)
+        // will repeatedly save or load states;
+        // if they do so while the render thread is busy here,
+        // the ensuing race conditions may cause a crash
+        // (since some of the GPU state includes pointers).
         RenderThreadRendering = true;
         if (FrameIdentical)
-        {
+        { // If no rendering is needed, just say we're done.
             Platform::Semaphore_Post(Sema_ScanlineCount, 192);
         }
         else RenderPolygons<true>(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
 
+        // Tell the main thread that we're done rendering
+        // and that it's safe to access the GPU state again.
         Platform::Semaphore_Post(Sema_RenderDone);
+
         RenderThreadRendering = false;
     }
 }
@@ -2025,6 +2061,9 @@ u32* SoftRenderer::GetLine(int line)
     if (RenderThreadRunning.load(std::memory_order_relaxed))
     {
         if (line < 192)
+            // We need a scanline, so let's wait for the render thread to finish it.
+            // (both threads process scanlines from top-to-bottom,
+            // so we don't need to wait for a specific row)
             Platform::Semaphore_Wait(Sema_ScanlineCount);
     }
 

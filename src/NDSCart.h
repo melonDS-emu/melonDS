@@ -260,6 +260,22 @@ public:
         // it just leaves behind an optional with a moved-from value
     }
 
+    void SetSDCard(std::optional<FATStorageArgs>&& args) noexcept
+    {
+        // Close the open SD card (if any) so that its contents are flushed to disk.
+        // Also, if args refers to the same image file that SD is currently using,
+        // this will ensure that we don't have two open read-write handles
+        // to the same file.
+        SD = std::nullopt;
+
+        if (args)
+            SD = FATStorage(std::move(*args));
+
+        args = std::nullopt;
+        // moving from an optional doesn't set it to nullopt,
+        // it just leaves behind an optional with a moved-from value
+    }
+
 protected:
     void ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly) const;
     void ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly);

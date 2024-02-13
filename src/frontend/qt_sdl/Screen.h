@@ -19,19 +19,20 @@
 #ifndef SCREEN_H
 #define SCREEN_H
 
-#include "glad/glad.h"
-#include "FrontendUtil.h"
-#include "duckstation/gl/context.h"
+#include <optional>
+#include <deque>
+#include <map>
 
 #include <QWidget>
-#include <QWindow>
-#include <QMainWindow>
 #include <QImage>
-#include <QActionGroup>
-#include <QTimer>
 #include <QMutex>
 #include <QScreen>
 #include <QCloseEvent>
+#include <QTimer>
+
+#include "glad/glad.h"
+#include "FrontendUtil.h"
+#include "duckstation/gl/context.h"
 
 
 class EmuThread;
@@ -48,27 +49,54 @@ const struct { int id; float ratio; const char* label; } aspectRatios[] =
 constexpr int AspectRatiosNum = sizeof(aspectRatios) / sizeof(aspectRatios[0]);
 
 
-class ScreenHandler
+class ScreenPanel : public QWidget
 {
-    Q_GADGET
+    Q_OBJECT
 
 public:
-    ScreenHandler(QWidget* widget);
-    virtual ~ScreenHandler();
+    explicit ScreenPanel(QWidget* parent);
+    virtual ~ScreenPanel();
+
     QTimer* setupMouseTimer();
     void updateMouseTimer();
     QTimer* mouseTimer;
     QSize screenGetMinSize(int factor);
 
+    void osdSetEnabled(bool enabled);
+    void osdAddMessage(unsigned int color, const char* msg);
+
+private slots:
+    void onScreenLayoutChanged();
+
 protected:
-    void screenSetupLayout(int w, int h);
+    struct OSDItem
+    {
+        unsigned int id;
+        qint64 timestamp;
 
-    void screenOnMousePress(QMouseEvent* event);
-    void screenOnMouseRelease(QMouseEvent* event);
-    void screenOnMouseMove(QMouseEvent* event);
+        char text[256];
+        unsigned int color;
 
-    void screenHandleTablet(QTabletEvent* event);
-    void screenHandleTouch(QTouchEvent* event);
+        bool rendered;
+        QImage bitmap;
+    };
+
+    QMutex osdMutex;
+    bool osdEnabled;
+    unsigned int osdID;
+    std::deque<OSDItem> osdItems;
+
+    virtual void setupScreenLayout();
+
+    void resizeEvent(QResizeEvent* event) override;
+
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+
+    void tabletEvent(QTabletEvent* event) override;
+    void touchEvent(QTouchEvent* event);
+    bool event(QEvent* event) override;
 
     float screenMatrix[Frontend::MaxScreenTransforms][6];
     int screenKind[Frontend::MaxScreenTransforms];
@@ -77,10 +105,19 @@ protected:
     bool touching = false;
 
     void showCursor();
+
+    int osdFindBreakPoint(const char* text, int i);
+    void osdLayoutText(const char* text, int* width, int* height, int* breaks);
+    unsigned int osdRainbowColor(int inc);
+
+    virtual void osdRenderItem(OSDItem* item);
+    virtual void osdDeleteItem(OSDItem* item);
+
+    void osdUpdate();
 };
 
 
-class ScreenPanelNative : public QWidget, public ScreenHandler
+class ScreenPanelNative : public ScreenPanel
 {
     Q_OBJECT
 
@@ -91,26 +128,15 @@ public:
 protected:
     void paintEvent(QPaintEvent* event) override;
 
-    void resizeEvent(QResizeEvent* event) override;
-
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseReleaseEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
-
-    void tabletEvent(QTabletEvent* event) override;
-    bool event(QEvent* event) override;
-private slots:
-    void onScreenLayoutChanged();
-
 private:
-    void setupScreenLayout();
+    void setupScreenLayout() override;
 
     QImage screen[2];
     QTransform screenTrans[Frontend::MaxScreenTransforms];
 };
 
 
-class ScreenPanelGL : public QWidget, public ScreenHandler
+class ScreenPanelGL : public ScreenPanel
 {
     Q_OBJECT
 
@@ -122,9 +148,15 @@ public:
 
     bool createContext();
 
+    void setSwapInterval(int intv);
+
+    void initOpenGL();
+    void deinitOpenGL();
+    void drawScreenGL();
+
     GL::Context* getContext() { return glContext.get(); }
 
-    void transferLayout(EmuThread* thread);
+    void transferLayout();
 protected:
 
     qreal devicePixelRatioFromScreen() const;
@@ -133,22 +165,31 @@ protected:
 
     QPaintEngine* paintEngine() const override;
 
-    void resizeEvent(QResizeEvent* event) override;
-
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseReleaseEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
-
-    void tabletEvent(QTabletEvent* event) override;
-    bool event(QEvent* event) override;
-
-private slots:
-    void onScreenLayoutChanged();
-
 private:
-    void setupScreenLayout();
+    void setupScreenLayout() override;
 
     std::unique_ptr<GL::Context> glContext;
+
+    GLuint screenVertexBuffer, screenVertexArray;
+    GLuint screenTexture;
+    GLuint screenShaderProgram[3];
+    GLuint screenShaderTransformULoc, screenShaderScreenSizeULoc;
+
+    QMutex screenSettingsLock;
+    WindowInfo windowInfo;
+    bool filter;
+
+    int lastScreenWidth = -1, lastScreenHeight = -1;
+
+    GLuint osdShader[3];
+    GLint osdScreenSizeULoc, osdPosULoc, osdSizeULoc;
+    GLfloat osdScaleFactorULoc;
+    GLuint osdVertexArray;
+    GLuint osdVertexBuffer;
+    std::map<unsigned int, GLuint> osdTextures;
+
+    void osdRenderItem(OSDItem* item) override;
+    void osdDeleteItem(OSDItem* item) override;
 };
 
 #endif // SCREEN_H

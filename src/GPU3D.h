@@ -49,6 +49,7 @@ struct Vertex
     // TODO maybe: hi-res color? (that survives clipping)
     s32 HiresPosition[2];
 
+    void DoSavestate(Savestate* file) noexcept;
 };
 
 struct Polygon
@@ -80,6 +81,7 @@ struct Polygon
 
     u32 SortKey;
 
+    void DoSavestate(Savestate* file) noexcept;
 };
 
 class Renderer3D;
@@ -272,7 +274,7 @@ public:
     u32 RenderClearAttr1 = 0;
     u32 RenderClearAttr2 = 0;
 
-    bool RenderFrameIdentical = false;
+    bool RenderFrameIdentical = false; // not part of the hardware state, don't serialize
 
     bool AbortFrame = false;
 
@@ -326,7 +328,7 @@ public:
 
     u32 FlushRequest = 0;
     u32 FlushAttributes = 0;
-    u32 ScrolledLine[256];
+    u32 ScrolledLine[256]; // not part of the hardware state, don't serialize
 };
 
     // Rasterization Timing Constants

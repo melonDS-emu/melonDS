@@ -9,7 +9,7 @@
 <a href="https://github.com/melonDS-emu/melonDS/actions?query=workflow%3A%22CMake+Build+%28Windows+x86-64%29%22+event%3Apush"><img src="https://img.shields.io/github/actions/workflow/status/melonDS-emu/melonDS/build-windows.yml?label=Windows%20x86-64&logo=GitHub&branch=master"></img></a>
 <a href="https://github.com/melonDS-emu/melonDS/actions?query=workflow%3A%22CMake+Build+%28Ubuntu+x86-64%29%22+event%3Apush"><img src="https://img.shields.io/github/actions/workflow/status/melonDS-emu/melonDS/build-ubuntu.yml?label=Linux%20x86-64&logo=GitHub"></img></a>
 <a href="https://github.com/melonDS-emu/melonDS/actions?query=workflow%3A%22CMake+Build+%28Ubuntu+aarch64%29%22+event%3Apush"><img src="https://img.shields.io/github/actions/workflow/status/melonDS-emu/melonDS/build-ubuntu-aarch64.yml?label=Linux%20ARM64&logo=GitHub"></img></a>
-<a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-macos-universal.yml?query=event%3Apush"><img src="https://img.shields.io/github/actions/workflow/status/melonDS-emu/melonDS/build-macos-universal.yml?label=macOS%20Universal&logo=GitHub"></img></a>
+<a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-macos-universal.yml?query=event%3Apush"><img src="https://img.shields.io/github/actions/workflow/status/melonDS-emu/melonDS/build-macos.yml?label=macOS%20Universal&logo=GitHub"></img></a>
 </p>
 DS emulator, sorta
 

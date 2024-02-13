@@ -621,6 +621,8 @@ s32 SPUChannel::Run()
                    (PrevSample[0] * InterpCubic[samplepos][2]) +
                    (val           * InterpCubic[samplepos][3])) >> 14;
             break;
+        default:
+            break;
         }
     }
 

@@ -7,6 +7,7 @@ set(SOURCES_QT_SDL
     main_shaders.h
     Screen.cpp
     Window.cpp
+    EmuThread.cpp
     CheatsDialog.cpp
     Config.cpp
     DateTimeDialog.cpp
@@ -31,7 +32,6 @@ set(SOURCES_QT_SDL
     LAN_PCap.cpp
     LAN_Socket.cpp
     LocalMP.cpp
-    OSD.cpp
     OSD_shaders.h
     font.h
     Platform.cpp
@@ -84,11 +84,11 @@ if (BUILD_STATIC)
 endif()
 
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
-pkg_check_modules(Slirp REQUIRED IMPORTED_TARGET slirp)
+pkg_check_modules(Slirp REQUIRED slirp)
 pkg_check_modules(LibArchive REQUIRED IMPORTED_TARGET libarchive)
 pkg_check_modules(Zstd REQUIRED IMPORTED_TARGET libzstd)
 
-fix_interface_includes(PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
+fix_interface_includes(PkgConfig::SDL2 PkgConfig::LibArchive)
 
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
@@ -160,13 +160,18 @@ else()
     target_include_directories(melonDS PUBLIC ${Qt5Gui_PRIVATE_INCLUDE_DIRS})
 endif()
 target_link_libraries(melonDS PRIVATE core)
-target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive PkgConfig::Zstd)
+target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd)
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
 
-if (UNIX)
-    option(PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
-elseif (WIN32)
+target_include_directories(melonDS PRIVATE "${Slirp_INCLUDE_DIRS}")
+target_link_libraries(melonDS PRIVATE "${Slirp_LINK_LIBRARIES}")
+
+if (WIN32)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
+
+    if (PORTABLE)
+        target_compile_definitions(melonDS PRIVATE WIN32_PORTABLE)
+    endif()
 
     configure_file("${CMAKE_SOURCE_DIR}/res/melon.rc.in" "${CMAKE_BINARY_DIR}/res/melon.rc")
     target_sources(melonDS PUBLIC "${CMAKE_BINARY_DIR}/res/melon.rc")
@@ -184,10 +189,6 @@ elseif (WIN32)
 
     target_link_libraries(melonDS PRIVATE ws2_32 iphlpapi)
     set_target_properties(melonDS PROPERTIES LINK_FLAGS_DEBUG "-mconsole")
-endif()
-
-if (PORTABLE)
-    target_compile_definitions(melonDS PRIVATE PORTABLE)
 endif()
 
 if (APPLE)

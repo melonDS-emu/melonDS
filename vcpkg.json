@@ -10,6 +10,11 @@
 			"features": ["gui", "png", "thread", "widgets", "opengl", "zstd"]
 		},
 		{
+			"name": "qtbase",
+			"host": true,
+			"default-features": false
+		},
+		{
 			"name": "qtmultimedia",
 			"default-features": false
 		},

@@ -4,9 +4,10 @@ set(_DEFAULT_VCPKG_ROOT "${CMAKE_SOURCE_DIR}/vcpkg")
 set(VCPKG_ROOT "${_DEFAULT_VCPKG_ROOT}" CACHE STRING "The path to the vcpkg repository")
 
 if (VCPKG_ROOT STREQUAL "${_DEFAULT_VCPKG_ROOT}")
+    file(LOCK "${_DEFAULT_VCPKG_ROOT}" DIRECTORY GUARD FILE)
     FetchContent_Declare(vcpkg
         GIT_REPOSITORY "https://github.com/Microsoft/vcpkg.git"
-        GIT_TAG 2023.10.19
+        GIT_TAG 2024.01.12
         SOURCE_DIR "${CMAKE_SOURCE_DIR}/vcpkg")
     FetchContent_MakeAvailable(vcpkg)
 endif()

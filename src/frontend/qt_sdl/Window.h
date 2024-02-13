@@ -92,8 +92,7 @@ private:
     bool oldMax;
 
 public:
-    ScreenHandler* panel;
-    QWidget* panelWidget;
+    ScreenPanel* panel;
 };*/
 
 class MainWindow : public QMainWindow
@@ -106,6 +105,9 @@ public:
 
     bool hasOGL;
     GL::Context* getOGLContext();
+    /*void initOpenGL();
+    void deinitOpenGL();
+    void drawScreenGL();*/
 
     bool preloadROMs(QStringList file, QStringList gbafile, bool boot);
     QStringList splitArchivePath(const QString& filename, bool useMemberSyntax);
@@ -227,8 +229,7 @@ private:
     bool oldMax;
 
 public:
-    ScreenHandler* panel;
-    QWidget* panelWidget;
+    ScreenPanel* panel;
 
     QAction* actOpenROM;
     QAction* actBootFirmware;

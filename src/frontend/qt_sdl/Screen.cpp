@@ -35,29 +35,26 @@
 #include <qpa/qplatformnativeinterface.h>
 #endif
 #endif
+#include <QDateTime>
+
+#include "OpenGLSupport.h"
+#include "duckstation/gl/context.h"
 
 #include "main.h"
 
 #include "NDS.h"
+#include "GPU.h"
+#include "GPU3D_Soft.h"
+#include "GPU3D_OpenGL.h"
 #include "Platform.h"
 #include "Config.h"
 
-//#include "main_shaders.h"
-
-#include "OSD.h"
+#include "main_shaders.h"
+#include "OSD_shaders.h"
+#include "font.h"
 
 using namespace melonDS;
 
-
-/*const struct { int id; float ratio; const char* label; } aspectRatios[] =
-{
-    { 0, 1,                       "4:3 (native)" },
-    { 4, (5.f  / 3) / (4.f / 3), "5:3 (3DS)"},
-    { 1, (16.f / 9) / (4.f / 3),  "16:9" },
-    { 2, (21.f / 9) / (4.f / 3),  "21:9" },
-    { 3, 0,                       "window" }
-};
-int AspectRatiosNum = sizeof(aspectRatios) / sizeof(aspectRatios[0]);*/
 
 // TEMP
 extern MainWindow* mainWindow;
@@ -68,23 +65,31 @@ extern int autoScreenSizing;
 extern int videoRenderer;
 extern bool videoSettingsDirty;
 
+const u32 kOSDMargin = 6;
 
-ScreenHandler::ScreenHandler(QWidget* widget)
+
+ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
 {
-    widget->setMouseTracking(true);
-    widget->setAttribute(Qt::WA_AcceptTouchEvents);
+    setMouseTracking(true);
+    setAttribute(Qt::WA_AcceptTouchEvents);
     QTimer* mouseTimer = setupMouseTimer();
-    widget->connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) widget->setCursor(Qt::BlankCursor);});
+    connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) setCursor(Qt::BlankCursor);});
+
+    osdEnabled = false;
+    osdID = 1;
 }
 
-ScreenHandler::~ScreenHandler()
+ScreenPanel::~ScreenPanel()
 {
     mouseTimer->stop();
     delete mouseTimer;
 }
 
-void ScreenHandler::screenSetupLayout(int w, int h)
+void ScreenPanel::setupScreenLayout()
 {
+    int w = width();
+    int h = height();
+
     int sizing = Config::ScreenSizing;
     if (sizing == 3) sizing = autoScreenSizing;
 
@@ -117,7 +122,7 @@ void ScreenHandler::screenSetupLayout(int w, int h)
     numScreens = Frontend::GetScreenTransforms(screenMatrix[0], screenKind);
 }
 
-QSize ScreenHandler::screenGetMinSize(int factor = 1)
+QSize ScreenPanel::screenGetMinSize(int factor = 1)
 {
     bool isHori = (Config::ScreenRotation == Frontend::screenRot_90Deg
         || Config::ScreenRotation == Frontend::screenRot_270Deg);
@@ -162,7 +167,19 @@ QSize ScreenHandler::screenGetMinSize(int factor = 1)
     }
 }
 
-void ScreenHandler::screenOnMousePress(QMouseEvent* event)
+void ScreenPanel::onScreenLayoutChanged()
+{
+    setMinimumSize(screenGetMinSize());
+    setupScreenLayout();
+}
+
+void ScreenPanel::resizeEvent(QResizeEvent* event)
+{
+    setupScreenLayout();
+    QWidget::resizeEvent(event);
+}
+
+void ScreenPanel::mousePressEvent(QMouseEvent* event)
 {
     event->accept();
     if (event->button() != Qt::LeftButton) return;
@@ -178,7 +195,7 @@ void ScreenHandler::screenOnMousePress(QMouseEvent* event)
     }
 }
 
-void ScreenHandler::screenOnMouseRelease(QMouseEvent* event)
+void ScreenPanel::mouseReleaseEvent(QMouseEvent* event)
 {
     event->accept();
     if (event->button() != Qt::LeftButton) return;
@@ -191,7 +208,7 @@ void ScreenHandler::screenOnMouseRelease(QMouseEvent* event)
     }
 }
 
-void ScreenHandler::screenOnMouseMove(QMouseEvent* event)
+void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
 {
     event->accept();
 
@@ -210,7 +227,7 @@ void ScreenHandler::screenOnMouseMove(QMouseEvent* event)
     }
 }
 
-void ScreenHandler::screenHandleTablet(QTabletEvent* event)
+void ScreenPanel::tabletEvent(QTabletEvent* event)
 {
     event->accept();
 
@@ -243,7 +260,7 @@ void ScreenHandler::screenHandleTablet(QTabletEvent* event)
     }
 }
 
-void ScreenHandler::screenHandleTouch(QTouchEvent* event)
+void ScreenPanel::touchEvent(QTouchEvent* event)
 {
     event->accept();
 
@@ -278,13 +295,26 @@ void ScreenHandler::screenHandleTouch(QTouchEvent* event)
     }
 }
 
-void ScreenHandler::showCursor()
+bool ScreenPanel::event(QEvent* event)
 {
-    mainWindow->panelWidget->setCursor(Qt::ArrowCursor);
+    if (event->type() == QEvent::TouchBegin
+        || event->type() == QEvent::TouchEnd
+        || event->type() == QEvent::TouchUpdate)
+    {
+        touchEvent((QTouchEvent*)event);
+        return true;
+    }
+
+    return QWidget::event(event);
+}
+
+void ScreenPanel::showCursor()
+{
+    mainWindow->panel->setCursor(Qt::ArrowCursor);
     mouseTimer->start();
 }
 
-QTimer* ScreenHandler::setupMouseTimer()
+QTimer* ScreenPanel::setupMouseTimer()
 {
     mouseTimer = new QTimer();
     mouseTimer->setSingleShot(true);
@@ -294,35 +324,290 @@ QTimer* ScreenHandler::setupMouseTimer()
     return mouseTimer;
 }
 
-ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent), ScreenHandler(this)
+int ScreenPanel::osdFindBreakPoint(const char* text, int i)
+{
+    // i = character that went out of bounds
+
+    for (int j = i; j >= 0; j--)
+    {
+        if (text[j] == ' ')
+            return j;
+    }
+
+    return i;
+}
+
+void ScreenPanel::osdLayoutText(const char* text, int* width, int* height, int* breaks)
+{
+    int w = 0;
+    int h = 14;
+    int totalw = 0;
+    int maxw = ((QWidget*)this)->width() - (kOSDMargin*2);
+    int lastbreak = -1;
+    int numbrk = 0;
+    u16* ptr;
+
+    memset(breaks, 0, sizeof(int)*64);
+
+    for (int i = 0; text[i] != '\0'; )
+	{
+	    int glyphsize;
+		if (text[i] == ' ')
+		{
+			glyphsize = 6;
+		}
+		else
+        {
+            u32 ch = text[i];
+            if (ch < 0x10 || ch > 0x7E) ch = 0x7F;
+
+            ptr = &::font[(ch-0x10) << 4];
+            glyphsize = ptr[0];
+            if (!glyphsize) glyphsize = 6;
+            else            glyphsize += 2; // space around the character
+        }
+
+		w += glyphsize;
+		if (w > maxw)
+        {
+            // wrap shit as needed
+            if (text[i] == ' ')
+            {
+                if (numbrk >= 64) break;
+                breaks[numbrk++] = i;
+                i++;
+            }
+            else
+            {
+                int brk = osdFindBreakPoint(text, i);
+                if (brk != lastbreak) i = brk;
+
+                if (numbrk >= 64) break;
+                breaks[numbrk++] = i;
+
+                lastbreak = brk;
+            }
+
+            w = 0;
+            h += 14;
+        }
+        else
+            i++;
+
+        if (w > totalw) totalw = w;
+    }
+
+    *width = totalw;
+    *height = h;
+}
+
+unsigned int ScreenPanel::osdRainbowColor(int inc)
+{
+    // inspired from Acmlmboard
+
+    if      (inc < 100) return 0xFFFF9B9B + (inc << 8);
+    else if (inc < 200) return 0xFFFFFF9B - ((inc-100) << 16);
+    else if (inc < 300) return 0xFF9BFF9B + (inc-200);
+    else if (inc < 400) return 0xFF9BFFFF - ((inc-300) << 8);
+    else if (inc < 500) return 0xFF9B9BFF + ((inc-400) << 16);
+    else                return 0xFFFF9BFF - (inc-500);
+}
+
+void ScreenPanel::osdRenderItem(OSDItem* item)
+{
+    int w, h;
+    int breaks[64];
+
+    char* text = item->text;
+    u32 color = item->color;
+
+    bool rainbow = (color == 0);
+    u32 ticks = (u32)QDateTime::currentMSecsSinceEpoch();
+    u32 rainbowinc = ((text[0] * 17) + (ticks * 13)) % 600;
+
+    color |= 0xFF000000;
+    const u32 shadow = 0xE0000000;
+
+    osdLayoutText(text, &w, &h, breaks);
+
+    item->bitmap = QImage(w, h, QImage::Format_ARGB32_Premultiplied);
+    u32* bitmap = (u32*)item->bitmap.bits();
+    memset(bitmap, 0, w*h*sizeof(u32));
+
+    int x = 0, y = 1;
+    u32 maxw = ((QWidget*)this)->width() - (kOSDMargin*2);
+    int curline = 0;
+    u16* ptr;
+
+    for (int i = 0; text[i] != '\0'; )
+	{
+	    int glyphsize;
+		if (text[i] == ' ')
+		{
+			x += 6;
+		}
+		else
+        {
+            u32 ch = text[i];
+            if (ch < 0x10 || ch > 0x7E) ch = 0x7F;
+
+            ptr = &::font[(ch-0x10) << 4];
+            int glyphsize = ptr[0];
+            if (!glyphsize) x += 6;
+            else
+            {
+                x++;
+
+                if (rainbow)
+                {
+                    color = osdRainbowColor(rainbowinc);
+                    rainbowinc = (rainbowinc + 30) % 600;
+                }
+
+                // draw character
+                for (int cy = 0; cy < 12; cy++)
+                {
+                    u16 val = ptr[4+cy];
+
+                    for (int cx = 0; cx < glyphsize; cx++)
+                    {
+                        if (val & (1<<cx))
+                            bitmap[((y+cy) * w) + x+cx] = color;
+                    }
+                }
+
+                x += glyphsize;
+                x++;
+            }
+        }
+
+		i++;
+		if (breaks[curline] && i >= breaks[curline])
+        {
+            i = breaks[curline++];
+            if (text[i] == ' ') i++;
+
+            x = 0;
+            y += 14;
+        }
+    }
+
+    // shadow
+    for (y = 0; y < h; y++)
+    {
+        for (x = 0; x < w; x++)
+        {
+            u32 val;
+
+            val = bitmap[(y * w) + x];
+            if ((val >> 24) == 0xFF) continue;
+
+            if (x > 0)   val  = bitmap[(y * w) + x-1];
+            if (x < w-1) val |= bitmap[(y * w) + x+1];
+            if (y > 0)
+            {
+                if (x > 0)   val |= bitmap[((y-1) * w) + x-1];
+                val |= bitmap[((y-1) * w) + x];
+                if (x < w-1) val |= bitmap[((y-1) * w) + x+1];
+            }
+            if (y < h-1)
+            {
+                if (x > 0)   val |= bitmap[((y+1) * w) + x-1];
+                val |= bitmap[((y+1) * w) + x];
+                if (x < w-1) val |= bitmap[((y+1) * w) + x+1];
+            }
+
+            if ((val >> 24) == 0xFF)
+                bitmap[(y * w) + x] = shadow;
+        }
+    }
+}
+
+void ScreenPanel::osdDeleteItem(OSDItem* item)
+{
+}
+
+void ScreenPanel::osdSetEnabled(bool enabled)
+{
+    osdMutex.lock();
+    osdEnabled = enabled;
+    osdMutex.unlock();
+}
+
+void ScreenPanel::osdAddMessage(unsigned int color, const char* text)
+{
+    if (!osdEnabled) return;
+
+    osdMutex.lock();
+
+    OSDItem item;
+
+    item.id = osdID++;
+    item.timestamp = QDateTime::currentMSecsSinceEpoch();
+    strncpy(item.text, text, 255); item.text[255] = '\0';
+    item.color = color;
+    item.rendered = false;
+
+    osdItems.push_back(item);
+
+    osdMutex.unlock();
+}
+
+void ScreenPanel::osdUpdate()
+{
+    osdMutex.lock();
+
+    qint64 tick_now = QDateTime::currentMSecsSinceEpoch();
+    qint64 tick_min = tick_now - 2500;
+
+    for (auto it = osdItems.begin(); it != osdItems.end(); )
+    {
+        OSDItem& item = *it;
+
+        if ((!osdEnabled) || (item.timestamp < tick_min))
+        {
+            osdDeleteItem(&item);
+            it = osdItems.erase(it);
+            continue;
+        }
+
+        if (!item.rendered)
+        {
+            osdRenderItem(&item);
+            item.rendered = true;
+        }
+
+        it++;
+    }
+
+    osdMutex.unlock();
+}
+
+
+
+ScreenPanelNative::ScreenPanelNative(QWidget* parent) : ScreenPanel(parent)
 {
     screen[0] = QImage(256, 192, QImage::Format_RGB32);
     screen[1] = QImage(256, 192, QImage::Format_RGB32);
 
     screenTrans[0].reset();
     screenTrans[1].reset();
-
-    OSD::Init(false);
 }
 
 ScreenPanelNative::~ScreenPanelNative()
 {
-    OSD::DeInit();
 }
 
 void ScreenPanelNative::setupScreenLayout()
 {
-    int w = width();
-    int h = height();
-
-    screenSetupLayout(w, h);
+    ScreenPanel::setupScreenLayout();
 
     for (int i = 0; i < numScreens; i++)
     {
         float* mtx = screenMatrix[i];
         screenTrans[i].setMatrix(mtx[0], mtx[1], 0.f,
-                                mtx[2], mtx[3], 0.f,
-                                mtx[4], mtx[5], 1.f);
+                                 mtx[2], mtx[3], 0.f,
+                                 mtx[4], mtx[5], 1.f);
     }
 }
 
@@ -357,55 +642,32 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
         }
     }
 
-    OSD::Update();
-    OSD::DrawNative(painter);
-}
-
-void ScreenPanelNative::resizeEvent(QResizeEvent* event)
-{
-    setupScreenLayout();
-}
-
-void ScreenPanelNative::mousePressEvent(QMouseEvent* event)
-{
-    screenOnMousePress(event);
-}
-
-void ScreenPanelNative::mouseReleaseEvent(QMouseEvent* event)
-{
-    screenOnMouseRelease(event);
-}
-
-void ScreenPanelNative::mouseMoveEvent(QMouseEvent* event)
-{
-    screenOnMouseMove(event);
-}
-
-void ScreenPanelNative::tabletEvent(QTabletEvent* event)
-{
-    screenHandleTablet(event);
-}
-
-bool ScreenPanelNative::event(QEvent* event)
-{
-    if (event->type() == QEvent::TouchBegin
-        || event->type() == QEvent::TouchEnd
-        || event->type() == QEvent::TouchUpdate)
+    osdUpdate();
+    if (osdEnabled)
     {
-        screenHandleTouch((QTouchEvent*)event);
-        return true;
+        osdMutex.lock();
+
+        u32 y = kOSDMargin;
+
+        painter.resetTransform();
+
+        for (auto it = osdItems.begin(); it != osdItems.end(); )
+        {
+            OSDItem& item = *it;
+
+            painter.drawImage(kOSDMargin, y, item.bitmap);
+
+            y += item.bitmap.height();
+            it++;
+        }
+
+        osdMutex.unlock();
     }
-    return QWidget::event(event);
-}
-
-void ScreenPanelNative::onScreenLayoutChanged()
-{
-    setMinimumSize(screenGetMinSize());
-    setupScreenLayout();
 }
 
 
-ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QWidget(parent), ScreenHandler(this)
+
+ScreenPanelGL::ScreenPanelGL(QWidget* parent) : ScreenPanel(parent)
 {
     setAutoFillBackground(false);
     setAttribute(Qt::WA_NativeWindow, true);
@@ -432,6 +694,284 @@ bool ScreenPanelGL::createContext()
     }
 
     return glContext != nullptr;
+}
+
+void ScreenPanelGL::setSwapInterval(int intv)
+{
+    if (!glContext) return;
+
+    glContext->SetSwapInterval(intv);
+}
+
+void ScreenPanelGL::initOpenGL()
+{
+    if (!glContext) return;
+
+    glContext->MakeCurrent();
+
+    OpenGL::BuildShaderProgram(kScreenVS, kScreenFS, screenShaderProgram, "ScreenShader");
+    GLuint pid = screenShaderProgram[2];
+    glBindAttribLocation(pid, 0, "vPosition");
+    glBindAttribLocation(pid, 1, "vTexcoord");
+    glBindFragDataLocation(pid, 0, "oColor");
+
+    OpenGL::LinkShaderProgram(screenShaderProgram);
+
+    glUseProgram(pid);
+    glUniform1i(glGetUniformLocation(pid, "ScreenTex"), 0);
+
+    screenShaderScreenSizeULoc = glGetUniformLocation(pid, "uScreenSize");
+    screenShaderTransformULoc = glGetUniformLocation(pid, "uTransform");
+
+    // to prevent bleeding between both parts of the screen
+    // with bilinear filtering enabled
+    const int paddedHeight = 192*2+2;
+    const float padPixels = 1.f / paddedHeight;
+
+    const float vertices[] =
+    {
+        0.f,   0.f,    0.f, 0.f,
+        0.f,   192.f,  0.f, 0.5f - padPixels,
+        256.f, 192.f,  1.f, 0.5f - padPixels,
+        0.f,   0.f,    0.f, 0.f,
+        256.f, 192.f,  1.f, 0.5f - padPixels,
+        256.f, 0.f,    1.f, 0.f,
+
+        0.f,   0.f,    0.f, 0.5f + padPixels,
+        0.f,   192.f,  0.f, 1.f,
+        256.f, 192.f,  1.f, 1.f,
+        0.f,   0.f,    0.f, 0.5f + padPixels,
+        256.f, 192.f,  1.f, 1.f,
+        256.f, 0.f,    1.f, 0.5f + padPixels
+    };
+
+    glGenBuffers(1, &screenVertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &screenVertexArray);
+    glBindVertexArray(screenVertexArray);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(0));
+    glEnableVertexAttribArray(1); // texcoord
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(2*4));
+
+    glGenTextures(1, &screenTexture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, screenTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, paddedHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    // fill the padding
+    u8 zeroData[256*4*4];
+    memset(zeroData, 0, sizeof(zeroData));
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 2, GL_RGBA, GL_UNSIGNED_BYTE, zeroData);
+
+
+    OpenGL::BuildShaderProgram(kScreenVS_OSD, kScreenFS_OSD, osdShader, "OSDShader");
+
+    pid = osdShader[2];
+    glBindAttribLocation(pid, 0, "vPosition");
+    glBindFragDataLocation(pid, 0, "oColor");
+
+    OpenGL::LinkShaderProgram(osdShader);
+    glUseProgram(pid);
+    glUniform1i(glGetUniformLocation(pid, "OSDTex"), 0);
+
+    osdScreenSizeULoc = glGetUniformLocation(pid, "uScreenSize");
+    osdPosULoc = glGetUniformLocation(pid, "uOSDPos");
+    osdSizeULoc = glGetUniformLocation(pid, "uOSDSize");
+    osdScaleFactorULoc = glGetUniformLocation(pid, "uScaleFactor");
+
+    const float osdvertices[6*2] =
+    {
+        0, 0,
+        1, 1,
+        1, 0,
+        0, 0,
+        0, 1,
+        1, 1
+    };
+
+    glGenBuffers(1, &osdVertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, osdVertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(osdvertices), osdvertices, GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &osdVertexArray);
+    glBindVertexArray(osdVertexArray);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)(0));
+
+
+    glContext->SetSwapInterval(Config::ScreenVSync ? Config::ScreenVSyncInterval : 0);
+    transferLayout();
+}
+
+void ScreenPanelGL::deinitOpenGL()
+{
+    if (!glContext) return;
+
+    glDeleteTextures(1, &screenTexture);
+
+    glDeleteVertexArrays(1, &screenVertexArray);
+    glDeleteBuffers(1, &screenVertexBuffer);
+
+    OpenGL::DeleteShaderProgram(screenShaderProgram);
+
+
+    for (const auto& [key, tex] : osdTextures)
+    {
+        glDeleteTextures(1, &tex);
+    }
+    osdTextures.clear();
+
+    glDeleteVertexArrays(1, &osdVertexArray);
+    glDeleteBuffers(1, &osdVertexBuffer);
+
+    OpenGL::DeleteShaderProgram(osdShader);
+
+
+    glContext->DoneCurrent();
+
+    lastScreenWidth = lastScreenHeight = -1;
+}
+
+void ScreenPanelGL::osdRenderItem(OSDItem* item)
+{
+    ScreenPanel::osdRenderItem(item);
+
+    GLuint tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, item->bitmap.width(), item->bitmap.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, item->bitmap.bits());
+
+    osdTextures[item->id] = tex;
+}
+
+void ScreenPanelGL::osdDeleteItem(OSDItem* item)
+{
+    if (osdTextures.count(item->id))
+    {
+        GLuint tex = osdTextures[item->id];
+        glDeleteTextures(1, &tex);
+        osdTextures.erase(item->id);
+    }
+
+    ScreenPanel::osdDeleteItem(item);
+}
+
+void ScreenPanelGL::drawScreenGL()
+{
+    if (!glContext) return;
+    if (!emuThread->NDS) return;
+
+    int w = windowInfo.surface_width;
+    int h = windowInfo.surface_height;
+    float factor = windowInfo.surface_scale;
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(false);
+    glDisable(GL_BLEND);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_STENCIL_TEST);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glViewport(0, 0, w, h);
+
+    glUseProgram(screenShaderProgram[2]);
+    glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
+
+    int frontbuf = emuThread->FrontBuffer;
+    glActiveTexture(GL_TEXTURE0);
+
+#ifdef OGLRENDERER_ENABLED
+    if (emuThread->NDS->GPU.GetRenderer3D().Accelerated)
+    {
+        // hardware-accelerated render
+        static_cast<GLRenderer&>(emuThread->NDS->GPU.GetRenderer3D()).GetCompositor().BindOutputTexture(frontbuf);
+    }
+    else
+#endif
+    {
+        // regular render
+        glBindTexture(GL_TEXTURE_2D, screenTexture);
+
+        if (emuThread->NDS->GPU.Framebuffer[frontbuf][0] && emuThread->NDS->GPU.Framebuffer[frontbuf][1])
+        {
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
+                            GL_UNSIGNED_BYTE, emuThread->NDS->GPU.Framebuffer[frontbuf][0].get());
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
+                            GL_UNSIGNED_BYTE, emuThread->NDS->GPU.Framebuffer[frontbuf][1].get());
+        }
+    }
+
+    screenSettingsLock.lock();
+
+    GLint filter = this->filter ? GL_LINEAR : GL_NEAREST;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+
+    glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
+    glBindVertexArray(screenVertexArray);
+
+    for (int i = 0; i < numScreens; i++)
+    {
+        glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
+        glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2*3, 2*3);
+    }
+
+    screenSettingsLock.unlock();
+
+    osdUpdate();
+    if (osdEnabled)
+    {
+        osdMutex.lock();
+
+        u32 y = kOSDMargin;
+
+        glUseProgram(osdShader[2]);
+
+        glUniform2f(osdScreenSizeULoc, w, h);
+        glUniform1f(osdScaleFactorULoc, factor);
+
+        glBindBuffer(GL_ARRAY_BUFFER, osdVertexBuffer);
+        glBindVertexArray(osdVertexArray);
+
+        glActiveTexture(GL_TEXTURE0);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+        for (auto it = osdItems.begin(); it != osdItems.end(); )
+        {
+            OSDItem& item = *it;
+
+            if (!osdTextures.count(item.id))
+                continue;
+
+            glBindTexture(GL_TEXTURE_2D, osdTextures[item.id]);
+            glUniform2i(osdPosULoc, kOSDMargin, y);
+            glUniform2i(osdSizeULoc, item.bitmap.width(), item.bitmap.height());
+            glDrawArrays(GL_TRIANGLES, 0, 2*3);
+
+            y += item.bitmap.height();
+            it++;
+        }
+
+        glDisable(GL_BLEND);
+        glUseProgram(0);
+
+        osdMutex.unlock();
+    }
+
+    glContext->SwapBuffers();
 }
 
 qreal ScreenPanelGL::devicePixelRatioFromScreen() const
@@ -505,62 +1045,28 @@ QPaintEngine* ScreenPanelGL::paintEngine() const
 
 void ScreenPanelGL::setupScreenLayout()
 {
-    int w = width();
-    int h = height();
-
-    screenSetupLayout(w, h);
-    if (emuThread)
-        transferLayout(emuThread);
+    ScreenPanel::setupScreenLayout();
+    transferLayout();
 }
 
-void ScreenPanelGL::resizeEvent(QResizeEvent* event)
-{
-    setupScreenLayout();
-
-    QWidget::resizeEvent(event);
-}
-
-void ScreenPanelGL::mousePressEvent(QMouseEvent* event)
-{
-    screenOnMousePress(event);
-}
-
-void ScreenPanelGL::mouseReleaseEvent(QMouseEvent* event)
-{
-    screenOnMouseRelease(event);
-}
-
-void ScreenPanelGL::mouseMoveEvent(QMouseEvent* event)
-{
-    screenOnMouseMove(event);
-}
-
-void ScreenPanelGL::tabletEvent(QTabletEvent* event)
-{
-    screenHandleTablet(event);
-}
-
-bool ScreenPanelGL::event(QEvent* event)
-{
-    if (event->type() == QEvent::TouchBegin
-        || event->type() == QEvent::TouchEnd
-        || event->type() == QEvent::TouchUpdate)
-    {
-        screenHandleTouch((QTouchEvent*)event);
-        return true;
-    }
-    return QWidget::event(event);
-}
-
-void ScreenPanelGL::transferLayout(EmuThread* thread)
+void ScreenPanelGL::transferLayout()
 {
     std::optional<WindowInfo> windowInfo = getWindowInfo();
     if (windowInfo.has_value())
-        thread->updateScreenSettings(Config::ScreenFilter, *windowInfo, numScreens, screenKind, &screenMatrix[0][0]);
-}
+    {
+        screenSettingsLock.lock();
 
-void ScreenPanelGL::onScreenLayoutChanged()
-{
-    setMinimumSize(screenGetMinSize());
-    setupScreenLayout();
+        if (lastScreenWidth != windowInfo->surface_width || lastScreenHeight != windowInfo->surface_height)
+        {
+            if (glContext)
+                glContext->ResizeSurface(windowInfo->surface_width, windowInfo->surface_height);
+            lastScreenWidth = windowInfo->surface_width;
+            lastScreenHeight = windowInfo->surface_height;
+        }
+
+        this->filter = Config::ScreenFilter;
+        this->windowInfo = *windowInfo;
+
+        screenSettingsLock.unlock();
+    }
 }

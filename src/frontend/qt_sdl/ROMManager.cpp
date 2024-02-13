@@ -29,6 +29,7 @@
 #include <fstream>
 
 #include <QDateTime>
+#include <QMessageBox>
 
 #include <zstd.h>
 #ifdef ARCHIVE_SUPPORT_ENABLED
@@ -210,6 +211,9 @@ QString VerifyDSFirmware()
     f = Platform::OpenLocalFile(Config::FirmwarePath, FileMode::Read);
     if (!f) return "DS firmware was not found or could not be accessed. Check your emu settings.";
 
+    if (!Platform::CheckFileWritable(Config::FirmwarePath))
+        return "DS firmware is unable to be written to.\nPlease check file/folder write permissions.";
+
     len = FileLength(f);
     if (len == 0x20000)
     {
@@ -237,6 +241,9 @@ QString VerifyDSiFirmware()
     f = Platform::OpenLocalFile(Config::DSiFirmwarePath, FileMode::Read);
     if (!f) return "DSi firmware was not found or could not be accessed. Check your emu settings.";
 
+    if (!Platform::CheckFileWritable(Config::FirmwarePath))
+        return "DSi firmware is unable to be written to.\nPlease check file/folder write permissions.";
+
     len = FileLength(f);
     if (len != 0x20000)
     {
@@ -258,6 +265,9 @@ QString VerifyDSiNAND()
 
     f = Platform::OpenLocalFile(Config::DSiNANDPath, FileMode::ReadWriteExisting);
     if (!f) return "DSi NAND was not found or could not be accessed. Check your emu settings.";
+
+    if (!Platform::CheckFileWritable(Config::FirmwarePath))
+        return "DSi NAND is unable to be written to.\nPlease check file/folder write permissions.";
 
     // TODO: some basic checks
     // check that it has the nocash footer, and all
@@ -759,7 +769,12 @@ std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSSize>& a
     return nandImage;
 }
 
-constexpr u64 imgsizes[] = {0, 256, 512, 1024, 2048, 4096};
+constexpr u64 MB(u64 i)
+{
+    return i * 1024 * 1024;
+}
+
+constexpr u64 imgsizes[] = {0, MB(256), MB(512), MB(1024), MB(2048), MB(4096)};
 std::optional<FATStorageArgs> GetDSiSDCardArgs() noexcept
 {
     if (!Config::DSiSDEnable)
@@ -804,12 +819,7 @@ std::optional<FATStorage> LoadDLDISDCard() noexcept
     if (!Config::DLDIEnable)
         return std::nullopt;
 
-    return FATStorage(
-        Config::DLDISDPath,
-        imgsizes[Config::DLDISize],
-        Config::DLDIReadOnly,
-        Config::DLDIFolderSync ? std::make_optional(Config::DLDIFolderPath) : std::nullopt
-    );
+    return FATStorage(*GetDLDISDCardArgs());
 }
 
 void EnableCheats(NDS& nds, bool enable)
@@ -1276,7 +1286,18 @@ bool LoadROMData(const QStringList& filepath, std::unique_ptr<u8[]>& filedata, u
         return false;
 }
 
-bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
+QString GetSavErrorString(std::string& filepath, bool gba)
+{
+    std::string console = gba ? "GBA" : "DS";
+    std::string err1 = "Unable to write to ";
+    std::string err2 = " save.\nPlease check file/folder write permissions.\n\nAttempted to Access:\n";
+
+    err1 += console + err2 + filepath;
+
+    return QString::fromStdString(err1);
+}
+
+bool LoadROM(QMainWindow* mainWindow, EmuThread* emuthread, QStringList filepath, bool reset)
 {
     unique_ptr<u8[]> filedata = nullptr;
     u32 filelen;
@@ -1284,7 +1305,10 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     std::string romname;
 
     if (!LoadROMData(filepath, filedata, filelen, basepath, romname))
+    {
+        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
         return false;
+    }
 
     NDSSave = nullptr;
 
@@ -1300,7 +1324,22 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     savname += Platform::InstanceFileSuffix();
 
     FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
-    if (!sav) sav = Platform::OpenFile(origsav, FileMode::Read);
+    if (!sav)
+    {
+        if (!Platform::CheckFileWritable(origsav))
+        {
+            QMessageBox::critical(mainWindow, "melonDS", GetSavErrorString(origsav, false));
+            return false;
+        }
+
+        sav = Platform::OpenFile(origsav, FileMode::Read);
+    }
+    else if (!Platform::CheckFileWritable(savname))
+    {
+        QMessageBox::critical(mainWindow, "melonDS", GetSavErrorString(savname, false));
+        return false;
+    }
+
     if (sav)
     {
         savelen = (u32)Platform::FileLength(sav);
@@ -1322,13 +1361,19 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
 
     auto cart = NDSCart::ParseROM(std::move(filedata), filelen, std::move(cartargs));
     if (!cart)
+    {
         // If we couldn't parse the ROM...
+        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
         return false;
+    }
 
     if (reset)
     {
         if (!emuthread->UpdateConsole(std::move(cart), Keep {}))
+        {
+            QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
             return false;
+        }
 
         InitFirmwareSaveManager(emuthread);
         emuthread->NDS->Reset();
@@ -1351,7 +1396,7 @@ bool LoadROM(EmuThread* emuthread, QStringList filepath, bool reset)
     NDSSave = std::make_unique<SaveManager>(savname);
     LoadCheats(*emuthread->NDS);
 
-    return true;
+    return true; // success
 }
 
 void EjectCart(NDS& nds)
@@ -1388,9 +1433,13 @@ QString CartLabel()
 }
 
 
-bool LoadGBAROM(NDS& nds, QStringList filepath)
+bool LoadGBAROM(QMainWindow* mainWindow, NDS& nds, QStringList filepath)
 {
-    if (nds.ConsoleType == 1) return false; // DSi doesn't have a GBA slot
+    if (nds.ConsoleType == 1)
+    {
+        QMessageBox::critical(mainWindow, "melonDS", "The DSi doesn't have a GBA slot.");
+        return false;
+    }
 
     unique_ptr<u8[]> filedata = nullptr;
     u32 filelen;
@@ -1398,7 +1447,10 @@ bool LoadGBAROM(NDS& nds, QStringList filepath)
     std::string romname;
 
     if (!LoadROMData(filepath, filedata, filelen, basepath, romname))
+    {
+        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the GBA ROM.");
         return false;
+    }
 
     GBASave = nullptr;
 
@@ -1414,7 +1466,22 @@ bool LoadGBAROM(NDS& nds, QStringList filepath)
     savname += Platform::InstanceFileSuffix();
 
     FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
-    if (!sav) sav = Platform::OpenFile(origsav, FileMode::Read);
+    if (!sav)
+    {
+        if (!Platform::CheckFileWritable(origsav))
+        {
+            QMessageBox::critical(mainWindow, "melonDS", GetSavErrorString(origsav, true));
+            return false;
+        }
+
+        sav = Platform::OpenFile(origsav, FileMode::Read);
+    }
+    else if (!Platform::CheckFileWritable(savname))
+    {
+        QMessageBox::critical(mainWindow, "melonDS", GetSavErrorString(savname, true));
+        return false;
+    }
+
     if (sav)
     {
         savelen = (u32)FileLength(sav);
@@ -1430,7 +1497,10 @@ bool LoadGBAROM(NDS& nds, QStringList filepath)
 
     auto cart = GBACart::ParseROM(std::move(filedata), filelen, std::move(savedata), savelen);
     if (!cart)
+    {
+        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the GBA ROM.");
         return false;
+    }
 
     nds.SetGBACart(std::move(cart));
     GBACartType = 0;
