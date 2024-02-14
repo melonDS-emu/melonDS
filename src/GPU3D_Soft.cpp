@@ -1859,11 +1859,10 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
 
         // initial rendering pass (polygons, texturing, etc.) (variable cycle length)
         case RenderStart:
-
+        {
             // set current raster time to the start of the event
             RasterTiming = rasterevents[RenderStart];
 
-            {
             s32 rastertimingeven = 0;
             s32 rastertimingodd = 0;
             // scanlines are rendered in pairs of two
@@ -1883,10 +1882,9 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             // 12 cycles at the end of the scanline are always used, unless the scanline got within 12 cycles of timing out. Don't ask why, it just does.
             s32 timeoutdist = ScanlineTimeout - RasterTiming;
             RasterTiming += std::clamp(timeoutdist, 0, 12);
-            }
 
             //set next scanline timeout
-            if (ScanlineTimeout == FrameLength) ScanlineTimeout = rasterevents[ScanlineRead] - FinalPassLen;
+            if (ScanlineTimeout == FrameLength) ScanlineTimeout = rasterevents[ScanlineRead] - (ScanlineReadSpeed+RastDelay);
             else ScanlineTimeout += TimeoutIncrement;
 
             // schedule next scanline pair + the final pass of the latest pair
@@ -1894,11 +1892,11 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             if (scanlinesinit < 192) rasterevents[RenderStart] = RasterTiming+RastDelay; // scheduled 4 cycles late (presumably due to initial polygon timing shenanigans?)
             else rasterevents[RenderStart] = FrameLength;
             break;
-
+        }
 
         // final rendering pass (edge marking, anti-aliasing, fog) (fixed length of 496 (maybe 500?) cycles)
         case RenderFinal:
-            
+        {
             // schedule a scanline push event
             rasterevents[PushScanline] = rasterevents[RenderFinal] + ScanlinePushDelay;
 
@@ -1923,11 +1921,11 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             else // schedule next final pass event to immediately after the current one
                 rasterevents[RenderFinal] += FinalPassLen;
             break;
-
+        }
 
         // push scanlines to the intermediary "frame buffer" for the 2d engine to read them. (fixed length of ??? cycles)
         case PushScanline:
-
+        {
             // reschedule events if buffer is full
             if (scanlineswaitingforread >= 48)
             {
@@ -1942,11 +1940,10 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
                 break;
             }
 
-            {
             // if a scanline push might intersect a read determine the point at which it intersects
             s32 pixelstopush = (scanlinespushed > scanlinesread ? 256 : (rasterevents[ScanlineRead] + (ScanlineReadInc*scanlineswaitingforread)) - rasterevents[PushScanline]);
             leftovers = BeginPushScanline(scanlinespushed, pixelstopush);
-            }
+
             scanlineswaitingforpush--;
             scanlinespushed++;
 
@@ -1962,11 +1959,11 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
                 rasterevents[PushScanline] = FrameLength; // unsched event if no scanlines are waiting to be finished
 
             break;
-
+        }
 
         // 2d engine reading scanlines from the intermediary "framebuffer"
         case ScanlineRead:
-            
+        {
             // read scanline from buffer
             ReadScanline(scanlinesread);
 
@@ -1981,11 +1978,11 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             if (scanlinesread < 192) rasterevents[ScanlineRead] += ScanlineReadInc;
             else rasterevents[ScanlineRead] = FrameLength;
             break;
-
+        }
 
         // finish pushing a scanline to the buffer if it got interrupted by the read process.
         case PushScanlineP2:
-
+        {
             FinishPushScanline(scanlinespushed2, leftovers);
             scanlineswaitingforread++;
             scanlinespushed2++;
@@ -1993,6 +1990,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             // unschedule event if all partially pushed scanlines have been pushed
             if (scanlinespushed2 >= scanlinespushed) rasterevents[PushScanlineP2] = FrameLength;
             break;
+        }
         }
     }
 }
