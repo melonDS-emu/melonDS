@@ -512,59 +512,59 @@ void LoadCheats(NDS& nds)
     nds.AREngine.SetCodeFile(CheatsOn ? CheatFile : nullptr);
 }
 
-std::optional<std::array<u8, ARM9BIOSSize>> LoadARM9BIOS() noexcept
+std::unique_ptr<ARM9BIOSImage> LoadARM9BIOS() noexcept
 {
     if (!Config::ExternalBIOSEnable)
     {
-        return Config::ConsoleType == 0 ? std::make_optional(bios_arm9_bin) : std::nullopt;
+        return Config::ConsoleType == 0 ? std::make_unique<ARM9BIOSImage>(bios_arm9_bin) : nullptr;
     }
 
     if (FileHandle* f = OpenLocalFile(Config::BIOS9Path, Read))
     {
-        std::array<u8, ARM9BIOSSize> bios {};
+        std::unique_ptr<ARM9BIOSImage> bios = std::make_unique<ARM9BIOSImage>();
         FileRewind(f);
-        FileRead(bios.data(), sizeof(bios), 1, f);
+        FileRead(bios->data(), bios->size(), 1, f);
         CloseFile(f);
         Log(Info, "ARM9 BIOS loaded from %s\n", Config::BIOS9Path.c_str());
         return bios;
     }
 
     Log(Warn, "ARM9 BIOS not found\n");
-    return std::nullopt;
+    return nullptr;
 }
 
-std::optional<std::array<u8, ARM7BIOSSize>> LoadARM7BIOS() noexcept
+std::unique_ptr<ARM7BIOSImage> LoadARM7BIOS() noexcept
 {
     if (!Config::ExternalBIOSEnable)
     {
-        return Config::ConsoleType == 0 ? std::make_optional(bios_arm7_bin) : std::nullopt;
+        return Config::ConsoleType == 0 ? std::make_unique<ARM7BIOSImage>(bios_arm7_bin) : nullptr;
     }
 
     if (FileHandle* f = OpenLocalFile(Config::BIOS7Path, Read))
     {
-        std::array<u8, ARM7BIOSSize> bios {};
-        FileRead(bios.data(), sizeof(bios), 1, f);
+        std::unique_ptr<ARM7BIOSImage> bios = std::make_unique<ARM7BIOSImage>();
+        FileRead(bios->data(), bios->size(), 1, f);
         CloseFile(f);
         Log(Info, "ARM7 BIOS loaded from %s\n", Config::BIOS7Path.c_str());
         return bios;
     }
 
     Log(Warn, "ARM7 BIOS not found\n");
-    return std::nullopt;
+    return nullptr;
 }
 
-std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM9BIOS() noexcept
+std::unique_ptr<DSiBIOSImage> LoadDSiARM9BIOS() noexcept
 {
     if (FileHandle* f = OpenLocalFile(Config::DSiBIOS9Path, Read))
     {
-        std::array<u8, DSiBIOSSize> bios {};
-        FileRead(bios.data(), sizeof(bios), 1, f);
+        std::unique_ptr<DSiBIOSImage> bios = std::make_unique<DSiBIOSImage>();
+        FileRead(bios->data(), bios->size(), 1, f);
         CloseFile(f);
 
         if (!Config::DSiFullBIOSBoot)
         {
             // herp
-            *(u32*)&bios[0] = 0xEAFFFFFE; // overwrites the reset vector
+            *(u32*)bios->data() = 0xEAFFFFFE; // overwrites the reset vector
 
             // TODO!!!!
             // hax the upper 32K out of the goddamn DSi
@@ -575,21 +575,21 @@ std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM9BIOS() noexcept
     }
 
     Log(Warn, "ARM9i BIOS not found\n");
-    return std::nullopt;
+    return nullptr;
 }
 
-std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM7BIOS() noexcept
+std::unique_ptr<DSiBIOSImage> LoadDSiARM7BIOS() noexcept
 {
     if (FileHandle* f = OpenLocalFile(Config::DSiBIOS7Path, Read))
     {
-        std::array<u8, DSiBIOSSize> bios {};
-        FileRead(bios.data(), sizeof(bios), 1, f);
+        std::unique_ptr<DSiBIOSImage> bios = std::make_unique<DSiBIOSImage>();
+        FileRead(bios->data(), bios->size(), 1, f);
         CloseFile(f);
 
         if (!Config::DSiFullBIOSBoot)
         {
             // herp
-            *(u32*)&bios[0] = 0xEAFFFFFE; // overwrites the reset vector
+            *(u32*)bios->data() = 0xEAFFFFFE; // overwrites the reset vector
 
             // TODO!!!!
             // hax the upper 32K out of the goddamn DSi
@@ -600,7 +600,7 @@ std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM7BIOS() noexcept
     }
 
     Log(Warn, "ARM7i BIOS not found\n");
-    return std::nullopt;
+    return nullptr;
 }
 
 Firmware GenerateFirmware(int type) noexcept
