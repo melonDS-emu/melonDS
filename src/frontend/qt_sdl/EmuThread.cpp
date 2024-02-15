@@ -78,7 +78,6 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     EmuRunning = emuStatus_Paused;
     EmuPauseStack = EmuPauseStackRunning;
     RunningSomething = false;
-    setStackSize(STACK_SIZE);
 
     connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(repaint()));
     connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
