@@ -94,6 +94,7 @@ signals:
     void syncVolumeLevel();
 
 private:
+    constexpr unsigned STACK_SIZE = 32 * 1024 * 1024;
     std::unique_ptr<melonDS::NDS> CreateConsole(
         std::unique_ptr<melonDS::NDSCart::CartCommon>&& ndscart,
         std::unique_ptr<melonDS::GBACart::CartCommon>&& gbacart
