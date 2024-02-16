@@ -1512,6 +1512,7 @@ void GPU3D::CalculateLighting() noexcept
         }
 
         // -- specular lighting --
+        // TODO: Z light dir is not handled properly currently: current theory is it's used for some sort of borked normalization?
         s32 shinelevel = (-(LightDirection[i][0]>>1)*normaltrans[0]) +
                          (-(LightDirection[i][1]>>1)*normaltrans[1]) +
                          (-((LightDirection[i][2]-0x200)>>1)*normaltrans[2]);
@@ -1520,7 +1521,8 @@ void GPU3D::CalculateLighting() noexcept
         else if (shinelevel > 0x3FFFF) shinelevel = (0x40000 - shinelevel) & 0x3FFFF;
         shinelevel = (((s64)shinelevel * shinelevel) >> 26) - 0x100; // really (4*shinelevel*shinelevel)-1
         if (shinelevel < 0) shinelevel = 0;
-        if (shinelevel > 255) shinelevel = 255; // sort of a guess, but the exact value it caps at shouldn't matter as long as it results in light color 29.
+        if (shinelevel > 255) shinelevel = 255; // todo: seems to break when > 511?
+
         if (UseShininessTable)
         {
             // checkme
