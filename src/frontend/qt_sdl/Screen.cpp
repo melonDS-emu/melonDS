@@ -681,31 +681,31 @@ ScreenPanelGL::ScreenPanelGL(QWidget* parent) : ScreenPanel(parent)
 ScreenPanelGL::~ScreenPanelGL()
 {}
 
-GL::Context* hax = nullptr;
-
 bool ScreenPanelGL::createContext()
 {
     std::optional<WindowInfo> windowInfo = getWindowInfo();
 
-    if (hax)
+    // if our parent window is parented to another window, we will
+    // share our OpenGL context with that window
+    MainWindow* parentwin = (MainWindow*)parentWidget()->parentWidget();
+    if (parentwin)
     {
         if (windowInfo.has_value())
         {
-            glContext = hax->CreateSharedContext(*getWindowInfo());
+            glContext = parentwin->getOGLContext()->CreateSharedContext(*getWindowInfo());
             glContext->DoneCurrent();
         }
-
-        return glContext != nullptr;
     }
-
-    std::array<GL::Context::Version, 2> versionsToTry = {
-        GL::Context::Version{GL::Context::Profile::Core, 4, 3},
-        GL::Context::Version{GL::Context::Profile::Core, 3, 2}};
-    if (windowInfo.has_value())
+    else
     {
-        glContext = GL::Context::Create(*getWindowInfo(), versionsToTry);
-        glContext->DoneCurrent();
-        hax = glContext.get();
+        std::array<GL::Context::Version, 2> versionsToTry = {
+                GL::Context::Version{GL::Context::Profile::Core, 4, 3},
+                GL::Context::Version{GL::Context::Profile::Core, 3, 2}};
+        if (windowInfo.has_value())
+        {
+            glContext = GL::Context::Create(*getWindowInfo(), versionsToTry);
+            glContext->DoneCurrent();
+        }
     }
 
     return glContext != nullptr;
