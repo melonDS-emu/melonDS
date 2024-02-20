@@ -681,9 +681,23 @@ ScreenPanelGL::ScreenPanelGL(QWidget* parent) : ScreenPanel(parent)
 ScreenPanelGL::~ScreenPanelGL()
 {}
 
+GL::Context* hax = nullptr;
+
 bool ScreenPanelGL::createContext()
 {
     std::optional<WindowInfo> windowInfo = getWindowInfo();
+
+    if (hax)
+    {
+        if (windowInfo.has_value())
+        {
+            glContext = hax->CreateSharedContext(*getWindowInfo());
+            glContext->DoneCurrent();
+        }
+
+        return glContext != nullptr;
+    }
+
     std::array<GL::Context::Version, 2> versionsToTry = {
         GL::Context::Version{GL::Context::Profile::Core, 4, 3},
         GL::Context::Version{GL::Context::Profile::Core, 3, 2}};
@@ -691,6 +705,7 @@ bool ScreenPanelGL::createContext()
     {
         glContext = GL::Context::Create(*getWindowInfo(), versionsToTry);
         glContext->DoneCurrent();
+        hax = glContext.get();
     }
 
     return glContext != nullptr;
@@ -838,6 +853,13 @@ void ScreenPanelGL::deinitOpenGL()
     lastScreenWidth = lastScreenHeight = -1;
 }
 
+void ScreenPanelGL::makeCurrentGL()
+{
+    if (!glContext) return;
+
+    glContext->MakeCurrent();
+}
+
 void ScreenPanelGL::osdRenderItem(OSDItem* item)
 {
     ScreenPanel::osdRenderItem(item);
@@ -870,6 +892,8 @@ void ScreenPanelGL::drawScreenGL()
 {
     if (!glContext) return;
     if (!emuThread->NDS) return;
+
+    glContext->MakeCurrent();
 
     int w = windowInfo.surface_width;
     int h = windowInfo.surface_height;

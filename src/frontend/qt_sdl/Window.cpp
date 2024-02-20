@@ -196,8 +196,11 @@ static void signalHandler(int)
 }
 #endif
 
+int test = 0;
+
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
+    test_num = test++;
 #ifndef _WIN32
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, signalFd))
     {
@@ -719,7 +722,8 @@ void MainWindow::createScreenPanel()
 
         panel = panelGL;
 
-        panelGL->createContext();
+        bool res = panelGL->createContext();
+        printf("WIN %d CONTEXT: %d\n", test_num, res);
     }
 
     if (!hasOGL)
@@ -745,8 +749,8 @@ GL::Context* MainWindow::getOGLContext()
     return glpanel->getContext();
 }
 
-/*void MainWindow::initOpenGL()
-{
+void MainWindow::initOpenGL()
+{printf("WINDOW %d INIT OPENGL %d\n", test_num, hasOGL);
     if (!hasOGL) return;
 
     ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
@@ -761,13 +765,29 @@ void MainWindow::deinitOpenGL()
     return glpanel->deinitOpenGL();
 }
 
+void MainWindow::setGLSwapInterval(int intv)
+{
+    if (!hasOGL) return;
+
+    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    return glpanel->setSwapInterval(intv);
+}
+
+void MainWindow::makeCurrentGL()
+{
+    if (!hasOGL) return;
+
+    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    return glpanel->makeCurrentGL();
+}
+
 void MainWindow::drawScreenGL()
 {
     if (!hasOGL) return;
 
     ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
     return glpanel->drawScreenGL();
-}*/
+}
 
 void MainWindow::resizeEvent(QResizeEvent* event)
 {
@@ -1951,7 +1971,7 @@ void MainWindow::onChangeAudioSync(bool checked)
 
 void MainWindow::onTitleUpdate(QString title)
 {
-    setWindowTitle(title);
+    setWindowTitle(test_num ? "SECOND WINDOW" : title);
 }
 
 void ToggleFullscreen(MainWindow* mainWindow)

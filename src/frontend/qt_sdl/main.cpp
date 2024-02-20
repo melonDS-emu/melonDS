@@ -380,7 +380,11 @@ int main(int argc, char** argv)
     if (options->fullscreen)
         ToggleFullscreen(mainWindow);
 
+    MainWindow* poop = new MainWindow();
+
     emuThread = new EmuThread();
+    emuThread->attachWindow(mainWindow);
+    emuThread->attachWindow(poop);
     emuThread->start();
     emuThread->emuPause();
 

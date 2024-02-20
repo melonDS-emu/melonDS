@@ -66,7 +66,7 @@ using namespace melonDS;
 
 // TEMP
 extern bool RunningSomething;
-extern MainWindow* mainWindow;
+//extern MainWindow* mainWindow;
 extern int autoScreenSizing;
 extern int videoRenderer;
 extern bool videoSettingsDirty;
@@ -79,7 +79,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     EmuPauseStack = EmuPauseStackRunning;
     RunningSomething = false;
 
-    connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(repaint()));
+    /*connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(repaint()));
     connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), mainWindow, SLOT(onEmuStart()));
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
@@ -90,7 +90,45 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
-    connect(this, SIGNAL(screenEmphasisToggle()), mainWindow, SLOT(onScreenEmphasisToggled()));
+    connect(this, SIGNAL(screenEmphasisToggle()), mainWindow, SLOT(onScreenEmphasisToggled()));*/
+}
+
+void EmuThread::attachWindow(MainWindow* window)
+{
+    windowList.push_back(window);
+    mainWindow = windowList.front();
+
+    connect(this, SIGNAL(windowUpdate()), window->panel, SLOT(repaint()));
+    connect(this, SIGNAL(windowTitleChange(QString)), window, SLOT(onTitleUpdate(QString)));
+    connect(this, SIGNAL(windowEmuStart()), window, SLOT(onEmuStart()));
+    connect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));
+    connect(this, SIGNAL(windowEmuPause()), window->actPause, SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuReset()), window->actReset, SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuFrameStep()), window->actFrameStep, SLOT(trigger()));
+    connect(this, SIGNAL(windowLimitFPSChange()), window->actLimitFramerate, SLOT(trigger()));
+    connect(this, SIGNAL(screenLayoutChange()), window->panel, SLOT(onScreenLayoutChanged()));
+    connect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
+    connect(this, SIGNAL(swapScreensToggle()), window->actScreenSwap, SLOT(trigger()));
+    connect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
+}
+
+void EmuThread::detachWindow(MainWindow* window)
+{
+    disconnect(this, SIGNAL(windowUpdate()), window->panel, SLOT(repaint()));
+    disconnect(this, SIGNAL(windowTitleChange(QString)), window, SLOT(onTitleUpdate(QString)));
+    disconnect(this, SIGNAL(windowEmuStart()), window, SLOT(onEmuStart()));
+    disconnect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));
+    disconnect(this, SIGNAL(windowEmuPause()), window->actPause, SLOT(trigger()));
+    disconnect(this, SIGNAL(windowEmuReset()), window->actReset, SLOT(trigger()));
+    disconnect(this, SIGNAL(windowEmuFrameStep()), window->actFrameStep, SLOT(trigger()));
+    disconnect(this, SIGNAL(windowLimitFPSChange()), window->actLimitFramerate, SLOT(trigger()));
+    disconnect(this, SIGNAL(screenLayoutChange()), window->panel, SLOT(onScreenLayoutChanged()));
+    disconnect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
+    disconnect(this, SIGNAL(swapScreensToggle()), window->actScreenSwap, SLOT(trigger()));
+    disconnect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
+
+    windowList.remove(window);
+    mainWindow = windowList.front();
 }
 
 std::unique_ptr<NDS> EmuThread::CreateConsole(
@@ -314,17 +352,25 @@ void EmuThread::run()
 
     videoSettingsDirty = false;
 
-    if (mainWindow->hasOGL)
+    if (mainWindow->hasOpenGL())
     {
-        screenGL = static_cast<ScreenPanelGL*>(mainWindow->panel);
-        screenGL->initOpenGL();
+        //screenGL = static_cast<ScreenPanelGL*>(mainWindow->panel);
+        //screenGL->initOpenGL();
+        //mainWindow->initOpenGL();
+        for (auto window : windowList)
+            window->initOpenGL();
+
+        useOpenGL = true;
         videoRenderer = Config::_3DRenderer;
     }
     else
     {
-        screenGL = nullptr;
+        //screenGL = nullptr;
+        useOpenGL = false;
         videoRenderer = 0;
     }
+    //screenGL = nullptr;
+    //videoRenderer = 0;
 
     if (videoRenderer == 0)
     { // If we're using the software renderer...
@@ -332,6 +378,8 @@ void EmuThread::run()
     }
     else
     {
+        mainWindow->makeCurrentGL();
+
         auto glrenderer =  melonDS::GLRenderer::New();
         glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
         NDS->GPU.SetRenderer3D(std::move(glrenderer));
@@ -384,7 +432,7 @@ void EmuThread::run()
                 int level = NDS->GBACartSlot.SetInput(GBACart::Input_SolarSensorDown, true);
                 if (level != -1)
                 {
-                    mainWindow->osdAddMessage(0, "Solar sensor level: %d", level);
+                    //mainWindow->osdAddMessage(0, "Solar sensor level: %d", level);
                 }
             }
             if (Input::HotkeyPressed(HK_SolarSensorIncrease))
@@ -392,7 +440,7 @@ void EmuThread::run()
                 int level = NDS->GBACartSlot.SetInput(GBACart::Input_SolarSensorUp, true);
                 if (level != -1)
                 {
-                    mainWindow->osdAddMessage(0, "Solar sensor level: %d", level);
+                    //mainWindow->osdAddMessage(0, "Solar sensor level: %d", level);
                 }
             }
 
@@ -433,15 +481,20 @@ void EmuThread::run()
                 dsi.I2C.GetBPTWL()->ProcessVolumeSwitchInput(currentTime);
             }
 
+            if (useOpenGL)
+                mainWindow->makeCurrentGL();
+
             // update render settings if needed
             // HACK:
             // once the fast forward hotkey is released, we need to update vsync
             // to the old setting again
             if (videoSettingsDirty || Input::HotkeyReleased(HK_FastForward))
             {
-                if (screenGL)
+                if (useOpenGL)
                 {
-                    screenGL->setSwapInterval(Config::ScreenVSync ? Config::ScreenVSyncInterval : 0);
+                    for (auto window : windowList)
+                        window->setGLSwapInterval(Config::ScreenVSync ? Config::ScreenVSyncInterval : 0);
+
                     videoRenderer = Config::_3DRenderer;
                 }
 #ifdef OGLRENDERER_ENABLED
@@ -451,7 +504,7 @@ void EmuThread::run()
                     videoRenderer = 0;
                 }
 
-                videoRenderer = screenGL ? Config::_3DRenderer : 0;
+                videoRenderer = useOpenGL ? Config::_3DRenderer : 0;
 
                 videoSettingsDirty = false;
 
@@ -474,7 +527,7 @@ void EmuThread::run()
             {
                 bool lid = !NDS->IsLidClosed();
                 NDS->SetLidClosed(lid);
-                mainWindow->osdAddMessage(0, lid ? "Lid closed" : "Lid opened");
+                //mainWindow->osdAddMessage(0, lid ? "Lid closed" : "Lid opened");
             }
 
             // microphone input
@@ -523,7 +576,7 @@ void EmuThread::run()
             if (ROMManager::FirmwareSave)
                 ROMManager::FirmwareSave->CheckFlush();
 
-            if (!screenGL)
+            if (!useOpenGL)
             {
                 FrontBufferLock.lock();
                 FrontBuffer = NDS->GPU.FrontBuffer;
@@ -532,7 +585,9 @@ void EmuThread::run()
             else
             {
                 FrontBuffer = NDS->GPU.FrontBuffer;
-                screenGL->drawScreenGL();
+                //screenGL->drawScreenGL();
+                for (auto window : windowList)
+                    window->drawScreenGL();
             }
 
 #ifdef MELONCAP
@@ -542,7 +597,7 @@ void EmuThread::run()
             if (EmuRunning == emuStatus_Exit) break;
 
             winUpdateCount++;
-            if (winUpdateCount >= winUpdateFreq && !screenGL)
+            if (winUpdateCount >= winUpdateFreq && !useOpenGL)
             {
                 emit windowUpdate();
                 winUpdateCount = 0;
@@ -550,9 +605,11 @@ void EmuThread::run()
 
             bool fastforward = Input::HotkeyDown(HK_FastForward);
 
-            if (fastforward && screenGL && Config::ScreenVSync)
+            if (fastforward && useOpenGL && Config::ScreenVSync)
             {
-                screenGL->setSwapInterval(0);
+                //screenGL->setSwapInterval(0);
+                for (auto window : windowList)
+                    window->setGLSwapInterval(0);
             }
 
             if (Config::DSiVolumeSync && NDS->ConsoleType == 1)
@@ -641,20 +698,31 @@ void EmuThread::run()
 
             SDL_Delay(75);
 
-            if (screenGL)
-                screenGL->drawScreenGL();
+            if (useOpenGL)
+            {
+                for (auto window : windowList)
+                    window->drawScreenGL();
+            }
 
             ContextRequestKind contextRequest = ContextRequest;
             if (contextRequest == contextRequest_InitGL)
             {
-                screenGL = static_cast<ScreenPanelGL*>(mainWindow->panel);
-                screenGL->initOpenGL();
+                //screenGL = static_cast<ScreenPanelGL*>(mainWindow->panel);
+                //screenGL->initOpenGL();
+                for (auto window : windowList)
+                    window->initOpenGL();
+
+                useOpenGL = true;
                 ContextRequest = contextRequest_None;
             }
             else if (contextRequest == contextRequest_DeInitGL)
             {
-                screenGL->deinitOpenGL();
-                screenGL = nullptr;
+                //screenGL->deinitOpenGL();
+                //screenGL = nullptr;
+                for (auto window : windowList)
+                    window->deinitOpenGL();
+
+                useOpenGL = false;
                 ContextRequest = contextRequest_None;
             }
         }

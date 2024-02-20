@@ -25,6 +25,7 @@
 #include <atomic>
 #include <variant>
 #include <optional>
+#include <list>
 
 #include "NDSCart.h"
 #include "GBACart.h"
@@ -37,6 +38,7 @@ namespace melonDS
 class NDS;
 }
 
+class MainWindow;
 class ScreenPanelGL;
 
 class EmuThread : public QThread
@@ -46,6 +48,9 @@ class EmuThread : public QThread
 
 public:
     explicit EmuThread(QObject* parent = nullptr);
+
+    void attachWindow(MainWindow* window);
+    void detachWindow(MainWindow* window);
 
     void changeWindowTitle(char* title);
 
@@ -123,10 +128,13 @@ private:
     };
     std::atomic<ContextRequestKind> ContextRequest = contextRequest_None;
 
-    ScreenPanelGL* screenGL;
+    //ScreenPanelGL* screenGL;
+    MainWindow* mainWindow;
+    std::list<MainWindow*> windowList;
 
     int autoScreenSizing;
 
+    bool useOpenGL;
     int videoRenderer;
     bool videoSettingsDirty;
 };

@@ -103,11 +103,13 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
 
-    bool hasOGL;
+    bool hasOpenGL() { return hasOGL; }
     GL::Context* getOGLContext();
-    /*void initOpenGL();
+    void initOpenGL();
     void deinitOpenGL();
-    void drawScreenGL();*/
+    void setGLSwapInterval(int intv);
+    void makeCurrentGL();
+    void drawScreenGL();
 
     bool preloadROMs(QStringList file, QStringList gbafile, bool boot);
     QStringList splitArchivePath(const QString& filename, bool useMemberSyntax);
@@ -223,10 +225,14 @@ private:
 
     void createScreenPanel();
 
+    bool hasOGL;
+
     bool pausedManually = false;
 
     int oldW, oldH;
     bool oldMax;
+
+    int test_num;
 
 public:
     ScreenPanel* panel;
