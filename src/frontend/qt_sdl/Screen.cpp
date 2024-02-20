@@ -683,16 +683,16 @@ ScreenPanelGL::~ScreenPanelGL()
 
 bool ScreenPanelGL::createContext()
 {
-    std::optional<WindowInfo> windowInfo = getWindowInfo();
+    std::optional<WindowInfo> windowinfo = getWindowInfo();
 
     // if our parent window is parented to another window, we will
     // share our OpenGL context with that window
     MainWindow* parentwin = (MainWindow*)parentWidget()->parentWidget();
     if (parentwin)
     {
-        if (windowInfo.has_value())
+        if (windowinfo.has_value())
         {
-            glContext = parentwin->getOGLContext()->CreateSharedContext(*getWindowInfo());
+            glContext = parentwin->getOGLContext()->CreateSharedContext(*windowinfo);
             glContext->DoneCurrent();
         }
     }
@@ -701,9 +701,9 @@ bool ScreenPanelGL::createContext()
         std::array<GL::Context::Version, 2> versionsToTry = {
                 GL::Context::Version{GL::Context::Profile::Core, 4, 3},
                 GL::Context::Version{GL::Context::Profile::Core, 3, 2}};
-        if (windowInfo.has_value())
+        if (windowinfo.has_value())
         {
-            glContext = GL::Context::Create(*getWindowInfo(), versionsToTry);
+            glContext = GL::Context::Create(*windowinfo, versionsToTry);
             glContext->DoneCurrent();
         }
     }
