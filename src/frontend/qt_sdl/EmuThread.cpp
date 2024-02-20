@@ -96,6 +96,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
 void EmuThread::attachWindow(MainWindow* window)
 {
     windowList.push_back(window);
+    window->attachEmuThread(this);
     mainWindow = windowList.front();
 
     connect(this, SIGNAL(windowUpdate()), window->panel, SLOT(repaint()));
@@ -128,6 +129,7 @@ void EmuThread::detachWindow(MainWindow* window)
     disconnect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
 
     windowList.remove(window);
+    window->attachEmuThread(nullptr);
     mainWindow = windowList.front();
 }
 

@@ -103,6 +103,8 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
 
+    void attachEmuThread(EmuThread* thread);
+
     bool hasOpenGL() { return hasOGL; }
     GL::Context* getOGLContext();
     void initOpenGL();
@@ -233,6 +235,8 @@ private:
     bool oldMax;
 
     int test_num;
+
+    EmuThread* emuThread;
 
 public:
     ScreenPanel* panel;

@@ -85,7 +85,7 @@ using namespace melonDS;
 
 // TEMP
 extern MainWindow* mainWindow;
-extern EmuThread* emuThread;
+//extern EmuThread* emuThread;
 extern bool RunningSomething;
 extern QString NdsRomMimeType;
 extern QStringList NdsRomExtensions;
@@ -683,6 +683,11 @@ MainWindow::~MainWindow()
 {
     delete[] actScreenAspectTop;
     delete[] actScreenAspectBot;
+}
+
+void MainWindow::attachEmuThread(EmuThread* thread)
+{
+    emuThread = thread;
 }
 
 void MainWindow::osdAddMessage(unsigned int color, const char* fmt, ...)
