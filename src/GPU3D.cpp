@@ -1519,7 +1519,7 @@ void GPU3D::CalculateLighting() noexcept
 
         if (shinelevel < 0) shinelevel = 0;
         else if (shinelevel > 0x3FFFF) shinelevel = (0x40000 - shinelevel) & 0x3FFFF;
-        shinelevel = (((s64)shinelevel * shinelevel) >> 26) - 0x100; // really (4*shinelevel*shinelevel)-1
+        shinelevel = (((s64)shinelevel * shinelevel) >> 26) + (LightDirection[i][2]-0x200>>1); // really (4*shinelevel*shinelevel)+HalfVector[z]
         if (shinelevel < 0) shinelevel = 0;
         if (shinelevel > 255) shinelevel = 255; // todo: seems to break when > 511?
 
