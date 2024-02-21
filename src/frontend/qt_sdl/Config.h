@@ -185,6 +185,7 @@ extern bool EnableCheats;
 extern bool MouseHide;
 extern int MouseHideSeconds;
 extern bool PauseLostFocus;
+extern std::string UITheme;
 
 extern int64_t RTCOffset;
 
@@ -203,7 +204,7 @@ extern bool GdbARM7BreakOnStartup;
 extern bool GdbARM9BreakOnStartup;
 
 
-void Load();
+bool Load();
 void Save();
 
 }

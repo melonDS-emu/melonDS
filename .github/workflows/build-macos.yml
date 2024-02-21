@@ -15,7 +15,7 @@ jobs:
         arch: [x86_64, arm64]
 
     name: ${{ matrix.arch }}
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - name: Check out sources
         uses: actions/checkout@v3
@@ -27,7 +27,7 @@ jobs:
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: c8696863d371ab7f46e213d8f5ca923c4aef2a00
+          vcpkgGitCommitId: 53bef8994c541b6561884a8395ea35715ece75db
       - name: Build
         uses: lukka/run-cmake@v10
         with:
@@ -43,11 +43,13 @@ jobs:
         with:
           name: macOS-${{ matrix.arch }}
           path: macOS-${{ matrix.arch }}.zip
+          retention-days: 1
 
   universal-binary:
     name: Universal binary
     needs: [build-macos]
     runs-on: macos-13
+    continue-on-error: true
     steps:
       - name: Download x86_64
         uses: actions/download-artifact@v4
@@ -74,10 +76,10 @@ jobs:
         with:
           name: macOS-universal
           path: macOS-universal.zip
-      - name: Clean up architecture-specific artifacts
-        uses: geekyeggo/delete-artifact@v4
-        with:
-          failOnError: false
-          name: |
-            macOS-x86_64
-            macOS-arm64
+#     - name: Clean up architecture-specific artifacts
+#       uses: geekyeggo/delete-artifact@v4
+#       with:
+#         failOnError: false
+#         name: |
+#           macOS-x86_64
+#           macOS-arm64
