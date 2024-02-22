@@ -152,29 +152,41 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
     {
         auto arm7ibios = ROMManager::LoadDSiARM7BIOS();
         if (!arm7ibios)
-            return nullptr;
+        {
+            // Fallback to NDS mode , if bios for arm7 was not loaded
+            Config::ConsoleType = 0;
+        } else
+        {
+            auto arm9ibios = ROMManager::LoadDSiARM9BIOS();
+            if (!arm9ibios)
+            {
+                // Fallback to NDS mode, if bios from arm9 was not loaded
+                Config::ConsoleType = 0;
+            } else
+            {
+                auto nand = ROMManager::LoadNAND(*arm7ibios);
+                if (!nand)
+                {
+                    // Fallback to NDS mode, if NAND was not loaded
+                    Config::ConsoleType = 0;
+                } else
+                {
+                    auto sdcard = ROMManager::LoadDSiSDCard();
+                    DSiArgs args {
+                        std::move(ndsargs),
+                        *arm9ibios,
+                        *arm7ibios,
+                        std::move(*nand),
+                        std::move(sdcard),
+                        Config::DSiFullBIOSBoot,
+                    };
 
-        auto arm9ibios = ROMManager::LoadDSiARM9BIOS();
-        if (!arm9ibios)
-            return nullptr;
+                    args.GBAROM = nullptr;
 
-        auto nand = ROMManager::LoadNAND(*arm7ibios);
-        if (!nand)
-            return nullptr;
-
-        auto sdcard = ROMManager::LoadDSiSDCard();
-        DSiArgs args {
-            std::move(ndsargs),
-            *arm9ibios,
-            *arm7ibios,
-            std::move(*nand),
-            std::move(sdcard),
-            Config::DSiFullBIOSBoot,
-        };
-
-        args.GBAROM = nullptr;
-
-        return std::make_unique<melonDS::DSi>(std::move(args));
+                    return std::make_unique<melonDS::DSi>(std::move(args));
+                }
+            }
+        }
     }
 
     return std::make_unique<melonDS::NDS>(std::move(ndsargs));
