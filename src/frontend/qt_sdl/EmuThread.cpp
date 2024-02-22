@@ -155,6 +155,7 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
         {
             // Fallback to NDS mode , if bios for arm7 was not loaded
             Config::ConsoleType = 0;
+            Log(LogLevel::Warn, "Failed to load ARM7 bios file, falling back to NDS mode\n");
         } else
         {
             auto arm9ibios = ROMManager::LoadDSiARM9BIOS();
@@ -162,6 +163,7 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
             {
                 // Fallback to NDS mode, if bios from arm9 was not loaded
                 Config::ConsoleType = 0;
+                Log(LogLevel::Warn, "Failed to load ARM9 bios file, falling back to NDS mode\n");
             } else
             {
                 auto nand = ROMManager::LoadNAND(*arm7ibios);
@@ -169,6 +171,7 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
                 {
                     // Fallback to NDS mode, if NAND was not loaded
                     Config::ConsoleType = 0;
+                    Log(LogLevel::Warn, "Failed to load NAND file, falling back to NDS mode\n");
                 } else
                 {
                     auto sdcard = ROMManager::LoadDSiSDCard();
