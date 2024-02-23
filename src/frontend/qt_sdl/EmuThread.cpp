@@ -151,44 +151,30 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
     if (Config::ConsoleType == 1)
     {
         auto arm7ibios = ROMManager::LoadDSiARM7BIOS();
-        if (!arm7ibios)
+        auto arm9ibios = ROMManager::LoadDSiARM9BIOS();
+        std::optional<melonDS::DSi_NAND::NANDImage> nand ;
+        if (arm7ibios)
+            nand = ROMManager::LoadNAND(*arm7ibios);
+
+        if (!arm7ibios || !arm9ibios || !nand)
         {
-            // Fallback to NDS mode , if bios for arm7 was not loaded
             Config::ConsoleType = 0;
-            Log(LogLevel::Warn, "Failed to load ARM7 bios file, falling back to NDS mode\n");
+            Log(LogLevel::Warn, "Failed to load emulation files (bios/nand image), falling back to NDS mode\n");
         } else
         {
-            auto arm9ibios = ROMManager::LoadDSiARM9BIOS();
-            if (!arm9ibios)
-            {
-                // Fallback to NDS mode, if bios from arm9 was not loaded
-                Config::ConsoleType = 0;
-                Log(LogLevel::Warn, "Failed to load ARM9 bios file, falling back to NDS mode\n");
-            } else
-            {
-                auto nand = ROMManager::LoadNAND(*arm7ibios);
-                if (!nand)
-                {
-                    // Fallback to NDS mode, if NAND was not loaded
-                    Config::ConsoleType = 0;
-                    Log(LogLevel::Warn, "Failed to load NAND file, falling back to NDS mode\n");
-                } else
-                {
-                    auto sdcard = ROMManager::LoadDSiSDCard();
-                    DSiArgs args {
-                        std::move(ndsargs),
-                        *arm9ibios,
-                        *arm7ibios,
-                        std::move(*nand),
-                        std::move(sdcard),
-                        Config::DSiFullBIOSBoot,
-                    };
+            auto sdcard = ROMManager::LoadDSiSDCard();
+            DSiArgs args {
+                std::move(ndsargs),
+                *arm9ibios,
+                *arm7ibios,
+                std::move(*nand),
+                std::move(sdcard),
+                Config::DSiFullBIOSBoot,
+            };
 
-                    args.GBAROM = nullptr;
+            args.GBAROM = nullptr;
 
-                    return std::make_unique<melonDS::DSi>(std::move(args));
-                }
-            }
+            return std::make_unique<melonDS::DSi>(std::move(args));            
         }
     }
 
