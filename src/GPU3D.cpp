@@ -1522,19 +1522,16 @@ void GPU3D::CalculateLighting() noexcept
 
             // mirror around 1024, but in such a manner as to make it bug out at the mirror point
             if (dot >= 1024) dot = (1024 - (dot - 1024)) & 0x3FF;
-            if (dot < 0) shinelevel = 0; // skip if negative
-            else
-            {
-                s32 recip = (1 << 18) / (-LightDirection[i][2] + (1<<9));
-                // square value, mult by reciprocal, subtract '1'
-                shinelevel = ((dot * dot >> 10) * recip >> 8) - (1<<9);
 
-                // sign extend as if it was a 14 bit integer
-                shinelevel = (shinelevel & 0x3FFF) << 18 >> 18;
+            s32 recip = (1 << 18) / (-LightDirection[i][2] + (1<<9));
+            // square value, mult by reciprocal, subtract '1'
+            shinelevel = ((dot * dot >> 10) * recip >> 8) - (1<<9);
 
-                if (shinelevel < 0) shinelevel = 0;
-                else if (shinelevel > 511) shinelevel = 511;
-            }
+            // sign extend to convert to signed 14 bit integer
+            shinelevel = shinelevel << 18 >> 18;
+
+            if (shinelevel < 0) shinelevel = 0;
+            else if (shinelevel > 511) shinelevel = 511;
         }
 
         // convert shinelevel to use for lookup in shininess table.
