@@ -1534,31 +1534,57 @@ u32 SoftRenderer::CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const
     return density;
 }
 
-void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y)
+bool SoftRenderer::CheckEdgeMarkingPixel(u32 polyid, u32 z, u32 pixeladdr)
+{
+    if ((polyid != AttrBuffer[pixeladdr] >> 24) && (z < DepthBuffer[pixeladdr])) return true;
+    else return false;
+}
+
+bool CheckEdgeMarkingClearPlane(const GPU3D& gpu3d, u32 polyid, u32 z, u32 pixeladdr)
+{
+    if (gpu3d.RenderDispCnt & (1<<14))
+    {
+        return true;
+    }
+    else
+    {
+        u32 clearz = ((gpu3d.RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
+
+        if ((polyid != gpu3d.RenderClearAttr1>>24) && (z < clearz)) return true;
+        else return false;
+    }
+}
+
+void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y, bool checkprev, bool checknext)
 {
     // to consider:
     // clearing all polygon fog flags if the master flag isn't set?
     // merging all final pass loops into one?
 
-    /*if (gpu3d.RenderDispCnt & (1<<5))
+    if (gpu3d.RenderDispCnt & (1<<5))
     {
         // edge marking
         // only applied to topmost pixels
 
         for (int x = 0; x < 256; x++)
         {
-            u32 pixeladdr = (tempoffset * ScanlineWidth) + x;
+            u32 pixeladdr = (y * ScanlineWidth) + x;
 
             u32 attr = AttrBuffer[pixeladdr];
             if (!(attr & 0xF)) continue;
 
             u32 polyid = attr >> 24; // opaque polygon IDs are used for edgemarking
             u32 z = DepthBuffer[pixeladdr];
+            bool doit = false;
 
-            if (((polyid != (AttrBuffer[pixeladdr-1] >> 24)) && (z < DepthBuffer[pixeladdr-1])) ||
-                ((polyid != (AttrBuffer[pixeladdr+1] >> 24)) && (z < DepthBuffer[pixeladdr+1])) ||
-                ((polyid != (AttrBuffer[pixeladdr-ScanlineWidth] >> 24)) && (z < DepthBuffer[pixeladdr-ScanlineWidth])) ||
-                ((polyid != (AttrBuffer[pixeladdr+ScanlineWidth] >> 24)) && (z < DepthBuffer[pixeladdr+ScanlineWidth])))
+            if ((checkprev && (x == 0)   && CheckEdgeMarkingClearPlane(gpu3d, polyid, z, pixeladdr+1)) ||
+                (checknext && (x == 255) && CheckEdgeMarkingClearPlane(gpu3d, polyid, z, pixeladdr+1)) ||
+                ((y == 0)   && CheckEdgeMarkingClearPlane(gpu3d, polyid, z, pixeladdr-ScanlineWidth)) ||
+                ((y == 191) && CheckEdgeMarkingClearPlane(gpu3d, polyid, z, pixeladdr+ScanlineWidth)) ||
+                ((x != 0)   && CheckEdgeMarkingPixel(polyid, z, pixeladdr-1)) ||
+                ((x != 255) && CheckEdgeMarkingPixel(polyid, z, pixeladdr+1)) ||
+                ((y != 0)   && CheckEdgeMarkingPixel(polyid, z, pixeladdr-ScanlineWidth)) ||
+                ((y != 191) && CheckEdgeMarkingPixel(polyid, z, pixeladdr+ScanlineWidth)))
             {
                 u16 edgecolor = gpu3d.RenderEdgeTable[polyid >> 3];
                 u32 edgeR = (edgecolor << 1) & 0x3E; if (edgeR) edgeR++;
@@ -1571,7 +1597,7 @@ void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y)
                 AttrBuffer[pixeladdr] = (AttrBuffer[pixeladdr] & 0xFFFFE0FF) | 0x00001000;
             }
         }
-    }*/
+    }
 
     if (gpu3d.RenderDispCnt & (1<<7))
     {
@@ -1706,7 +1732,6 @@ void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y)
 
 void SoftRenderer::ClearBuffers(const GPU& gpu)
 {
-    u32 clearz = ((gpu.GPU3D.RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
     u32 polyid = gpu.GPU3D.RenderClearAttr1 & 0x3F000000; // this sets the opaque polygonID
 
     // clear the screen
@@ -1745,6 +1770,8 @@ void SoftRenderer::ClearBuffers(const GPU& gpu)
     }
     else
     {
+        u32 clearz = ((gpu.GPU3D.RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
+
         // TODO: confirm color conversion
         u32 r = (gpu.GPU3D.RenderClearAttr1 << 1) & 0x3E; if (r) r++;
         u32 g = (gpu.GPU3D.RenderClearAttr1 >> 4) & 0x3E; if (g) g++;
@@ -1839,8 +1866,13 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     s16 scanlineswaitingforread = 0;
     u8 nextevent;
     u16 leftovers;
+    bool evenread = false;
+    s32 timespent = 0;
+    s32 prevtimespent = 0;
+    bool edgebug = false;
+    bool prevedgebug = false;
 
-    // until all scanlines have been pushed and read continue looping... CHECKME: unless its time for the next 3d frame should begin
+    // until all scanlines have been pushed and read continue looping... CHECKME: unless its time for the next 3d frame to begin
     while ((scanlinesread < 192 || scanlinespushed2 < 192) && (RasterTiming < (FrameLength-RastDelay)))
     {
         // check all events to find the earliest scheduled one
@@ -1871,7 +1903,8 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             scanlinesinit += 2;
 
             // a new scanline pair cannot begin until both scanlines are finished.
-            s32 timespent = std::max(rastertimingeven, rastertimingodd);
+            prevtimespent = timespent;
+            timespent = std::max(rastertimingeven, rastertimingodd);
 
             // a new scanline pair cannot begin until the finishing pass + push is done.
             if ((RasterTiming + timespent) < (RasterTiming+FinalPassLen))
@@ -1881,10 +1914,13 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
 
             // 12 cycles at the end of the scanline are always used, unless the scanline got within 12 cycles of timing out. Don't ask why, it just does.
             s32 timeoutdist = ScanlineTimeout - RasterTiming;
+            prevedgebug = edgebug;
+            if (timeoutdist < 49385) edgebug = true;
+            else edgebug = false;
             RasterTiming += std::clamp(timeoutdist, 0, 12);
 
             //set next scanline timeout
-            if (ScanlineTimeout == FrameLength) ScanlineTimeout = rasterevents[ScanlineRead] - (ScanlineReadSpeed+RastDelay);
+            if (ScanlineTimeout == FrameLength) ScanlineTimeout = rasterevents[ScanlineRead] - FinalPassLen + (ScanlineReadInc*evenread);//(ScanlineReadSpeed+RastDelay);
             else ScanlineTimeout += TimeoutIncrement;
 
             // schedule next scanline pair + the final pass of the latest pair
@@ -1903,7 +1939,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             // if the first scanline pair was just finished only render one scanline
             if (scanlinesfin > 0)
             {
-                ScanlineFinalPass(gpu.GPU3D, scanlinesfin);
+                ScanlineFinalPass(gpu.GPU3D, scanlinesfin, timespent+4 < 501 || edgebug, prevtimespent+4 < 501 || prevedgebug);
                 scanlineswaitingforpush++;
                 scanlinesfin++;
             }
@@ -1911,7 +1947,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             // if the last scanline pair was just finished only render one scanline
             if (scanlinesfin < 191)
             {
-                ScanlineFinalPass(gpu.GPU3D, scanlinesfin);
+                ScanlineFinalPass(gpu.GPU3D, scanlinesfin, timespent+4 < 501 || edgebug, prevtimespent+4 < 501 || prevedgebug);
                 scanlineswaitingforpush++;
                 scanlinesfin++;
             }
@@ -1923,7 +1959,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             break;
         }
 
-        // push scanlines to the intermediary "frame buffer" for the 2d engine to read them. (fixed length of ??? cycles)
+        // push scanlines to the intermediary "frame buffer" for the 2d engine to read them. (fixed length of ??? cycles) 256?
         case PushScanline:
         {
             // reschedule events if buffer is full
@@ -1973,6 +2009,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
 
             scanlinesread++;
             scanlineswaitingforread--;
+            evenread = !evenread;
 
             // reschedule event for one scanline later unless all scanlines have been read
             if (scanlinesread < 192) rasterevents[ScanlineRead] += ScanlineReadInc;
