@@ -19,6 +19,7 @@
 #include "GPU3D_Soft.h"
 
 #include <algorithm>
+#include <initializer_list>
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
@@ -175,6 +176,8 @@ u32 SoftRenderer::DoTimingsPixels(s32 pixels, s32* timingcounter)
 
 bool SoftRenderer::DoTimingsSlopes(RendererPolygon* rp, s32 y, s32* timingcounter)
 {
+    DoTimings(RastDelay, timingcounter);
+
     // determine the timing impact of the first polygon's slopes.
     
     Polygon* polygon = rp->PolyData;
@@ -1457,6 +1460,7 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
 void SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int npolys, s32* timingcounter)
 {
+    *timingcounter = 0;
     bool abort = false;
     bool first = true;
     for (int i = 0; i < npolys; i++)
@@ -1466,7 +1470,7 @@ void SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int npolys, s32* timing
 
         if (y == polygon->YBottom && y != polygon->YTop)
         {
-            if (!abort) abort = (first && DoTimings(FirstNull, timingcounter)) || DoTimings(EmptyPolyScanline, timingcounter);
+            if (!abort) abort = (first && DoTimings(FirstNull+RastDelay, timingcounter)) || DoTimings(EmptyPolyScanline, timingcounter);
 
             first = false;
         }
@@ -1555,6 +1559,7 @@ bool CheckEdgeMarkingClearPlane(const GPU3D& gpu3d, u32 polyid, u32 z, u32 pixel
     }
 }
 
+template <bool push>
 void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y, bool checkprev, bool checknext)
 {
     // to consider:
@@ -1728,6 +1733,11 @@ void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y, bool checkprev, 
             ColorBuffer[pixeladdr] = topR | (topG << 8) | (topB << 16) | (topA << 24);
         }
     }
+    if constexpr (push)
+    {
+        memcpy(&FinalBuffer[y*ScanlineWidth], &ColorBuffer[y*ScanlineWidth], ScanlineWidth*4);
+        Platform::Semaphore_Post(Sema_ScanlineCount);
+    }
 }
 
 void SoftRenderer::ClearBuffers(const GPU& gpu)
@@ -1846,190 +1856,87 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     //init internal buffer
     ClearBuffers(gpu);
 
-    // init all this junk i need to keep track of
-    s32 rasterevents[RasterEvents_MAX];
-    rasterevents[RenderStart] = 0;
-    rasterevents[RenderFinal] = FrameLength;
-    rasterevents[PushScanline] = FrameLength;
-    rasterevents[PushScanlineP2] = FrameLength;
-    rasterevents[ScanlineRead] = InitGPU2DTimeout;
-    ScanlineTimeout = FrameLength;
-    RasterTiming = 0;
-    s32 rastertimingeven = 0;
-    s32 rastertimingodd = 0;
-    u8 scanlinesread = 0;
-    u8 scanlinesinit = 0;
-    u8 scanlinesfin = 0;
-    u8 scanlinespushed = 0;
-    u8 scanlinespushed2 = 0;
-    s16 scanlineswaitingforpush = 0;
-    s16 scanlineswaitingforread = 0;
-    u8 nextevent;
-    u16 leftovers;
-    bool evenread = false;
-    s32 timespent = 0;
-    s32 prevtimespent = 0;
-    bool edgebug = false;
-    bool prevedgebug = false;
-
-    // until all scanlines have been pushed and read continue looping... CHECKME: unless its time for the next 3d frame to begin
-    while ((scanlinesread < 192 || scanlinespushed2 < 192) && (RasterTiming < (FrameLength-RastDelay)))
+    u32 slread[192]; // scanline read times
+    for (int i = 0, time = InitGPU2DTimeout; i < 192; i++, time += ScanlineReadInc) // CHECKME: is this computed at compile time?
     {
-        // check all events to find the earliest scheduled one
-        nextevent = 0;
-        for (u8 i = 1; i < RasterEvents_MAX; i++)
-        {
-            if (rasterevents[i] < rasterevents[nextevent])
-                nextevent = i;
-        }
-
-        // if all events are scheduled for after the next frame begins, ABORT
-        if (rasterevents[nextevent] >= FrameLength) break;
-
-        switch (nextevent)
-        {
-
-        // initial rendering pass (polygons, texturing, etc.) (variable cycle length)
-        case RenderStart:
-        {
-            // set current raster time to the start of the event
-            RasterTiming = rasterevents[RenderStart];
-
-            s32 rastertimingeven = 0;
-            s32 rastertimingodd = 0;
-            // scanlines are rendered in pairs of two
-            RenderScanline(gpu, scanlinesinit, j, &rastertimingeven);
-            RenderScanline(gpu, scanlinesinit+1, j, &rastertimingodd);
-            scanlinesinit += 2;
-
-            // a new scanline pair cannot begin until both scanlines are finished.
-            prevtimespent = timespent;
-            timespent = std::max(rastertimingeven, rastertimingodd);
-
-            // a new scanline pair cannot begin until the finishing pass + push is done.
-            if ((RasterTiming + timespent) < (RasterTiming+FinalPassLen))
-                RasterTiming += FinalPassLen;
-            else
-                RasterTiming += timespent;
-
-            // 12 cycles at the end of the scanline are always used, unless the scanline got within 12 cycles of timing out. Don't ask why, it just does.
-            s32 timeoutdist = ScanlineTimeout - RasterTiming;
-            prevedgebug = edgebug;
-            if (timeoutdist < 49385) edgebug = true;
-            else edgebug = false;
-            RasterTiming += std::clamp(timeoutdist, 0, 12);
-
-            //set next scanline timeout
-            if (ScanlineTimeout == FrameLength) ScanlineTimeout = rasterevents[ScanlineRead] - FinalPassLen + (ScanlineReadInc*evenread);//(ScanlineReadSpeed+RastDelay);
-            else ScanlineTimeout += TimeoutIncrement;
-
-            // schedule next scanline pair + the final pass of the latest pair
-            rasterevents[RenderFinal] = RasterTiming;
-            if (scanlinesinit < 192) rasterevents[RenderStart] = RasterTiming+RastDelay; // scheduled 4 cycles late (presumably due to initial polygon timing shenanigans?)
-            else rasterevents[RenderStart] = FrameLength;
-            break;
-        }
-
-        // final rendering pass (edge marking, anti-aliasing, fog) (fixed length of 496 (maybe 500?) cycles)
-        case RenderFinal:
-        {
-            // schedule a scanline push event
-            rasterevents[PushScanline] = rasterevents[RenderFinal] + ScanlinePushDelay;
-
-            // if the first scanline pair was just finished only render one scanline
-            if (scanlinesfin > 0)
-            {
-                ScanlineFinalPass(gpu.GPU3D, scanlinesfin, timespent+4 < 501 || edgebug, prevtimespent+4 < 501 || prevedgebug);
-                scanlineswaitingforpush++;
-                scanlinesfin++;
-            }
-
-            // if the last scanline pair was just finished only render one scanline
-            if (scanlinesfin < 191)
-            {
-                ScanlineFinalPass(gpu.GPU3D, scanlinesfin, timespent+4 < 501 || edgebug, prevtimespent+4 < 501 || prevedgebug);
-                scanlineswaitingforpush++;
-                scanlinesfin++;
-            }
-            // unschedule final pass event
-            if (scanlinesfin != 191)
-                rasterevents[RenderFinal] = FrameLength;
-            else // schedule next final pass event to immediately after the current one
-                rasterevents[RenderFinal] += FinalPassLen;
-            break;
-        }
-
-        // push scanlines to the intermediary "frame buffer" for the 2d engine to read them. (fixed length of ??? cycles) 256?
-        case PushScanline:
-        {
-            // reschedule events if buffer is full
-            if (scanlineswaitingforread >= 48)
-            {
-                rasterevents[PushScanline] = rasterevents[ScanlineRead];
-                
-                // dont reschedule these events if they're done.
-                if (scanlinesinit < 192)
-                    rasterevents[RenderStart] =  rasterevents[ScanlineRead] + RastDelay;
-                if (scanlinesfin < 192)
-                    rasterevents[RenderFinal] = rasterevents[ScanlineRead];
-
-                break;
-            }
-
-            // if a scanline push might intersect a read determine the point at which it intersects
-            s32 pixelstopush = (scanlinespushed > scanlinesread ? 256 : (rasterevents[ScanlineRead] + (ScanlineReadInc*scanlineswaitingforread)) - rasterevents[PushScanline]);
-            leftovers = BeginPushScanline(scanlinespushed, pixelstopush);
-
-            scanlineswaitingforpush--;
-            scanlinespushed++;
-
-            // schedule the finish push event if needed
-            if (leftovers != 0) rasterevents[PushScanlineP2] = rasterevents[ScanlineRead];
-            else
-            {
-                scanlineswaitingforread++;
-                scanlinespushed2++;
-            }
-
-            if (scanlineswaitingforpush <= 0)
-                rasterevents[PushScanline] = FrameLength; // unsched event if no scanlines are waiting to be finished
-
-            break;
-        }
-
-        // 2d engine reading scanlines from the intermediary "framebuffer"
-        case ScanlineRead:
-        {
-            // read scanline from buffer
-            ReadScanline(scanlinesread);
-
-            // avoid breaking seperate thread.
-            if constexpr (threaded)
-                Platform::Semaphore_Post(Sema_ScanlineCount);
-
-            scanlinesread++;
-            scanlineswaitingforread--;
-            evenread = !evenread;
-
-            // reschedule event for one scanline later unless all scanlines have been read
-            if (scanlinesread < 192) rasterevents[ScanlineRead] += ScanlineReadInc;
-            else rasterevents[ScanlineRead] = FrameLength;
-            break;
-        }
-
-        // finish pushing a scanline to the buffer if it got interrupted by the read process.
-        case PushScanlineP2:
-        {
-            FinishPushScanline(scanlinespushed2, leftovers);
-            scanlineswaitingforread++;
-            scanlinespushed2++;
-
-            // unschedule event if all partially pushed scanlines have been pushed
-            if (scanlinespushed2 >= scanlinespushed) rasterevents[PushScanlineP2] = FrameLength;
-            break;
-        }
-        }
+        slread[i] = time;
     }
+
+    ScanlineTimeout = FrameLength; // CHECKME
+    
+    s32 rastertimingeven; // always init to 0 at the start of a scanline render
+    s32 rastertimingodd;
+
+    s32 scanlineswaiting = 0;
+    s32 nextread = 0;
+
+    u32 timespent;
+    u32 prevtimespent;
+    // scanlines are rendered in pairs of two
+    RenderScanline(gpu, 0, j, &rastertimingeven);
+    RenderScanline(gpu, 1, j, &rastertimingodd);
+
+    RasterTiming = timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});
+    RasterTiming += std::clamp(ScanlineTimeout - RasterTiming, 0, 12);
+
+    // if first pair was not delayed past the first read, then later scanlines cannot either
+    // this allows us to implement a fast path
+    //if (slread[0] - timespent + ScanlinePushDelay >= 256)
+    {
+        ScanlineTimeout = slread[1] - FinalPassLen;
+
+        RenderScanline(gpu, 2, j, &rastertimingeven);
+        RenderScanline(gpu, 3, j, &rastertimingodd);
+
+        prevtimespent = timespent;
+        RasterTiming += timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});
+        RasterTiming += std::clamp(ScanlineTimeout - RasterTiming, 0, 12);
+
+        ScanlineFinalPass<true>(gpu.GPU3D, 0, true, true);
+        scanlineswaiting++;
+        for (int y = 4; y < 192; y+=2)
+        {
+            ScanlineTimeout = slread[y-1] - FinalPassLen;
+
+            RenderScanline(gpu, y, j, &rastertimingeven);
+            RenderScanline(gpu, y+1, j, &rastertimingodd);
+            
+            prevtimespent = timespent;
+            RasterTiming += timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});
+            RasterTiming += std::clamp(ScanlineTimeout - RasterTiming, 0, 12);
+            
+            scanlineswaiting+=2;
+
+            while (scanlineswaiting >= 47)
+            {
+                if (RasterTiming < slread[nextread]) RasterTiming += timespent = (slread[nextread] + 565) - RasterTiming; // why + 565?
+                scanlineswaiting--;
+                nextread++;
+            }
+
+            ScanlineFinalPass<true>(gpu.GPU3D, y-3, prevtimespent >= 502 || y-3 == 1, timespent >= 502);
+            ScanlineFinalPass<true>(gpu.GPU3D, y-2, prevtimespent >= 502, timespent >= 502);
+        }
+
+        ScanlineFinalPass<true>(gpu.GPU3D, 189, timespent >= 502, timespent >= 502);
+        ScanlineFinalPass<true>(gpu.GPU3D, 190, timespent >= 502, true);
+
+        ScanlineFinalPass<true>(gpu.GPU3D, 191, true, true);
+    }
+    /*else
+    {
+        ScanlineFinalPass(gpu, 0, false, false);
+    
+        s32 pixelstopush = slread[0] - (timespent + ScanlinePushDelay);
+        if (pixelstopush > 256) pixelstopush = 256;
+        //timespent + ScanlinePushDelay + ScanlineReadSpeed > slread[0]
+
+        rastertimingeven = 0;
+        rastertimingodd = 0;
+
+        RenderScanline(gpu, 2, j, &rastertimingeven);
+        RenderScanline(gpu, 3, j, &rastertimingodd);
+    }*/
 }
 
 void SoftRenderer::VCount144(GPU& gpu)

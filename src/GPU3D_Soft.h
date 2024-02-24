@@ -472,6 +472,7 @@ private:
     void RenderScanline(const GPU& gpu, s32 y, int npolys, s32* timingcounter);
     u32 CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const;
     bool CheckEdgeMarkingPixel(u32 polyid, u32 z, u32 pixeladdr);
+    template <bool push>
     void ScanlineFinalPass(const GPU3D& gpu3d, s32 y, bool checkprev, bool checknext);
     void ClearBuffers(const GPU& gpu);
     u16 BeginPushScanline(s32 y, s32 pixelstodraw);
