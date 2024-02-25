@@ -1876,13 +1876,17 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     RenderScanline(gpu, 0, j, &rastertimingeven);
     RenderScanline(gpu, 1, j, &rastertimingodd);
 
+    // it can't proceed to the next scanline unless all others steps are done (both scanlines in the pair, and final pass)
     RasterTiming = timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});
+    // 12 cycles at the end of a "timeout" are always used for w/e reason
     RasterTiming += std::clamp(ScanlineTimeout - RasterTiming, 0, 12);
 
+    gpu.GPU3D.RDLinesTemp = 46;
     // if first pair was not delayed past the first read, then later scanlines cannot either
     // this allows us to implement a fast path
     //if (slread[0] - timespent + ScanlinePushDelay >= 256)
     {
+        // begin scanline timeout
         ScanlineTimeout = slread[1] - FinalPassLen;
 
         RenderScanline(gpu, 2, j, &rastertimingeven);
@@ -1891,9 +1895,21 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
         prevtimespent = timespent;
         RasterTiming += timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});
         RasterTiming += std::clamp(ScanlineTimeout - RasterTiming, 0, 12);
-
-        ScanlineFinalPass<true>(gpu.GPU3D, 0, true, true);
+        
         scanlineswaiting++;
+
+        while (RasterTiming >= slread[nextread] + 565)
+        {
+            if (RasterTiming < slread[nextread] + 565)
+            {
+                RasterTiming += timespent = (slread[nextread] + 565) - RasterTiming; // why + 565?
+                timespent += 571; // fixes edge marking bug emulation. not sure why this is needed?
+            }
+            scanlineswaiting--;
+            nextread++;
+        }
+
+        ScanlineFinalPass<true>(gpu.GPU3D, 0, true, timespent >= 502);
         for (int y = 4; y < 192; y+=2)
         {
             ScanlineTimeout = slread[y-1] - FinalPassLen;
@@ -1907,9 +1923,13 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             
             scanlineswaiting+=2;
 
-            while (scanlineswaiting >= 47)
+            while (scanlineswaiting >= 47 || RasterTiming >= slread[nextread] + 565)
             {
-                if (RasterTiming < slread[nextread]) RasterTiming += timespent = (slread[nextread] + 565) - RasterTiming; // why + 565?
+                if (RasterTiming < slread[nextread] + 565)
+                {
+                    RasterTiming += timespent = (slread[nextread] + 565) - RasterTiming; // why + 565?
+                    timespent += 571; // fixes edge marking bug emulation. not sure why this is needed?
+                }
                 scanlineswaiting--;
                 nextread++;
             }
@@ -1917,11 +1937,27 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             ScanlineFinalPass<true>(gpu.GPU3D, y-3, prevtimespent >= 502 || y-3 == 1, timespent >= 502);
             ScanlineFinalPass<true>(gpu.GPU3D, y-2, prevtimespent >= 502, timespent >= 502);
         }
+            scanlineswaiting+= 2;
+            prevtimespent = timespent;
 
-        ScanlineFinalPass<true>(gpu.GPU3D, 189, timespent >= 502, timespent >= 502);
-        ScanlineFinalPass<true>(gpu.GPU3D, 190, timespent >= 502, true);
+            // do this one last time to allow for edge marking bug emulation.
+            while (scanlineswaiting >= 47 || RasterTiming >= slread[nextread] + 565)
+            {
+                if (RasterTiming < slread[nextread] + 565)
+                {
+                    RasterTiming += timespent = (slread[nextread] + 565) - RasterTiming; // why + 565?
+                    timespent += 571; // fixes edge marking bug emulation. not sure why this is needed?
+                }
+                scanlineswaiting--;
+                nextread++;
+            }
 
-        ScanlineFinalPass<true>(gpu.GPU3D, 191, true, true);
+        ScanlineFinalPass<true>(gpu.GPU3D, 189, prevtimespent >= 502, timespent >= 502);
+        ScanlineFinalPass<true>(gpu.GPU3D, 190, prevtimespent >= 502, true);
+
+        // skip timing emulation here since it's irrelevant, also use timespent instead of prev because we're skipping timing emulation
+        ScanlineFinalPass<true>(gpu.GPU3D, 191, timespent >= 502, true);
+
     }
     /*else
     {

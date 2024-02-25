@@ -241,7 +241,8 @@ void GPU3D::Reset() noexcept
     AlphaRefVal = 0;
     AlphaRef = 0;
     
-    RDLines = 46;
+    RDLines = 63; // defaults to 63 for one frame? (CHECKME: when does it reset?)
+    RDLinesTemp = 46;
 
     memset(ToonTable, 0, sizeof(ToonTable));
     memset(EdgeTable, 0, sizeof(EdgeTable));
@@ -2401,7 +2402,6 @@ void GPU3D::CheckFIFODMA() noexcept
 
 void GPU3D::VCount144(GPU& gpu) noexcept
 {
-    RDLines = 46;
     CurrentRenderer->VCount144(gpu);
 }
 
@@ -2431,6 +2431,7 @@ bool YSort(Polygon* a, Polygon* b)
 
 void GPU3D::VBlank() noexcept
 {
+    RDLines = RDLinesTemp;
     if (GeometryEnabled)
     {
         if (RenderingEnabled)
@@ -2508,6 +2509,7 @@ void GPU3D::VBlank() noexcept
 
 void GPU3D::VCount215(GPU& gpu) noexcept
 {
+    //RDLinesTemp = 46;
     CurrentRenderer->RenderFrame(gpu);
 }
 
@@ -2645,7 +2647,7 @@ u16 GPU3D::Read16(u32 addr) noexcept
         return DispCnt;
 
     case 0x04000320:
-        return RDLines; // IT IS TIME
+        return RDLines; // CHECKME: Can this always be read? Even when the gpu is powered off?
 
     case 0x04000600:
         {
@@ -2689,7 +2691,7 @@ u32 GPU3D::Read32(u32 addr) noexcept
         return DispCnt;
 
     case 0x04000320:
-        return RDLines; // IT IS TIME
+        return RDLines;
 
     case 0x04000600:
         {

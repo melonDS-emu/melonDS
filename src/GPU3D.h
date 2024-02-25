@@ -246,7 +246,8 @@ public:
     bool RenderingEnabled = false;
 
     u32 DispCnt = 0;
-    u32 RDLines = 0;
+    u8 RDLines = 63;
+    u8 RDLinesTemp = 46;
     u8 AlphaRefVal = 0;
     u8 AlphaRef = 0;
 
