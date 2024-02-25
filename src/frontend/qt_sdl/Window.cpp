@@ -916,6 +916,7 @@ void MainWindow::onAppStateChanged(Qt::ApplicationState state)
 {
     if (state == Qt::ApplicationInactive)
     {
+        Input::KeyReleaseAll();
         if (Config::PauseLostFocus && emuThread->emuIsRunning())
             emuThread->emuPause();
     }
