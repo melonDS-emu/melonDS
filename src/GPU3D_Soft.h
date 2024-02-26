@@ -478,7 +478,7 @@ private:
     u16 BeginPushScanline(s32 y, s32 pixelstodraw);
     void ReadScanline(s32 y);
     void FinishPushScanline(s32 y, s32 pixelsremain);
-    template <bool threaded> void RenderPolygons(GPU& gpu, Polygon** polygons, int npolys);
+    void RenderPolygons(GPU& gpu, Polygon** polygons, int npolys);
 
     void RenderThreadFunc(GPU& gpu);
     

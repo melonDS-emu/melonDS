@@ -1043,7 +1043,7 @@ void GPU::StartScanline(u32 line) noexcept
         }
         else if (VCount == 183)
         {
-            GPU3D.DispCnt |= GPU3D.RDLinesUnderflow << 12;
+            GPU3D.DispCnt |= GPU3D.RDLinesUnderflow << 12; // CHECKME: does this get set *exactly* at vcount 183? earlier? later?
         }
     }
 

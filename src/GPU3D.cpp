@@ -242,7 +242,7 @@ void GPU3D::Reset() noexcept
     AlphaRef = 0;
     
     RDLines = 63; // defaults to 63 for one frame? (CHECKME: when does it reset?)
-    RDLinesTemp = 46;
+    RDLinesTemp = 63;
 
     memset(ToonTable, 0, sizeof(ToonTable));
     memset(EdgeTable, 0, sizeof(EdgeTable));
