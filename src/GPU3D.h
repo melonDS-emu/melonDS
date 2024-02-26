@@ -246,6 +246,7 @@ public:
     bool RenderingEnabled = false;
 
     u32 DispCnt = 0;
+    bool RDLinesUnderflow = false;
     u8 RDLines = 63;
     u8 RDLinesTemp = 46;
     u8 AlphaRefVal = 0;
@@ -371,7 +372,7 @@ public:
     //static constexpr int ScanlineIncrement = 2114 * TimingFrac; // 2114 | how much time a scanline pair "gains"
     //static constexpr int AbortIncrement = 12 * TimingFrac; // 12 | how much extra to regain after an aborted scanline (total 2126)
                                                            // (why does the next pair get more time if the previous scanline is aborted?)
-    static constexpr int UnderflowFlag = 14 * TimingFrac; // 14 | How many cycles need to be left for the 3ddispcnt rdlines underflow flag to be set
+    //static constexpr int UnderflowFlag = 2 * TimingFrac; // 14 | How many cycles need to be left for the 3ddispcnt rdlines underflow flag to be set
     //static constexpr int FinishScanline = 512 * TimingFrac;
 
     // GPU 3D Rasterization Timings II: For Tracking Timing Behaviors

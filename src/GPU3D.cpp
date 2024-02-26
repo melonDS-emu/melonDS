@@ -2509,7 +2509,6 @@ void GPU3D::VBlank() noexcept
 
 void GPU3D::VCount215(GPU& gpu) noexcept
 {
-    //RDLinesTemp = 46;
     CurrentRenderer->RenderFrame(gpu);
 }
 
@@ -2647,7 +2646,7 @@ u16 GPU3D::Read16(u32 addr) noexcept
         return DispCnt;
 
     case 0x04000320:
-        return RDLines; // CHECKME: Can this always be read? Even when the gpu is powered off?
+        return RDLines; // CHECKME: Can this always be read? Even when the gpu is powered off? also check 8 bit reads
 
     case 0x04000600:
         {

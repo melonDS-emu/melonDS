@@ -1041,6 +1041,10 @@ void GPU::StartScanline(u32 line) noexcept
             if (GPU3D.IsRendererAccelerated())
                 GPU3D.Blit(*this);
         }
+        else if (VCount == 183)
+        {
+            GPU3D.DispCnt |= GPU3D.RDLinesUnderflow << 12;
+        }
     }
 
     NDS.ScheduleEvent(Event_LCD, true, HBLANK_CYCLES, LCD_StartHBlank, line);
