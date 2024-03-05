@@ -1544,19 +1544,17 @@ bool SoftRenderer::CheckEdgeMarkingPixel(u32 polyid, u32 z, u32 pixeladdr)
     else return false;
 }
 
-bool CheckEdgeMarkingClearPlane(const GPU3D& gpu3d, u32 polyid, u32 z, u32 pixeladdr)
+bool SoftRenderer::CheckEdgeMarkingClearPlane(const GPU3D& gpu3d, u32 polyid, u32 z)
 {
-    if (gpu3d.RenderDispCnt & (1<<14))
-    {
-        return true;
-    }
-    else
+    // for some reason it never checks against the bitmap clear plane?
+    if (polyid != gpu3d.RenderClearAttr1>>24)
     {
         u32 clearz = ((gpu3d.RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
 
-        if ((polyid != gpu3d.RenderClearAttr1>>24) && (z < clearz)) return true;
+        if (z < clearz) return true;
         else return false;
     }
+    else return false;
 }
 
 template <bool push>
@@ -1582,14 +1580,14 @@ void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y, bool checkprev, 
             u32 z = DepthBuffer[pixeladdr];
             bool doit = false;
 
-            if ((checkprev && (x == 0)   && CheckEdgeMarkingClearPlane(gpu3d, polyid, z, pixeladdr+1)) ||
-                (checknext && (x == 255) && CheckEdgeMarkingClearPlane(gpu3d, polyid, z, pixeladdr+1)) ||
-                ((y == 0)   && CheckEdgeMarkingClearPlane(gpu3d, polyid, z, pixeladdr-ScanlineWidth)) ||
-                ((y == 191) && CheckEdgeMarkingClearPlane(gpu3d, polyid, z, pixeladdr+ScanlineWidth)) ||
-                ((x != 0)   && CheckEdgeMarkingPixel(polyid, z, pixeladdr-1)) ||
-                ((x != 255) && CheckEdgeMarkingPixel(polyid, z, pixeladdr+1)) ||
-                ((y != 0)   && CheckEdgeMarkingPixel(polyid, z, pixeladdr-ScanlineWidth)) ||
-                ((y != 191) && CheckEdgeMarkingPixel(polyid, z, pixeladdr+ScanlineWidth)))
+            if ((checkprev && (x == 0)   && CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) || // left
+                (checknext && (x == 255) && CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) || // right
+                ((y == 0)   && CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) || // top
+                ((y == 191) && CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) || // bottom
+                ((x != 0)   && CheckEdgeMarkingPixel(polyid, z, pixeladdr-1)) || // left
+                ((x != 255) && CheckEdgeMarkingPixel(polyid, z, pixeladdr+1)) || // right
+                ((y != 0)   && CheckEdgeMarkingPixel(polyid, z, pixeladdr-ScanlineWidth)) || // top
+                ((y != 191) && CheckEdgeMarkingPixel(polyid, z, pixeladdr+ScanlineWidth))) // bottom
             {
                 u16 edgecolor = gpu3d.RenderEdgeTable[polyid >> 3];
                 u32 edgeR = (edgecolor << 1) & 0x3E; if (edgeR) edgeR++;
