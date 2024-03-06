@@ -1578,17 +1578,50 @@ void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y, bool checkprev, 
 
             u32 polyid = attr >> 24; // opaque polygon IDs are used for edgemarking
             u32 z = DepthBuffer[pixeladdr];
-            bool doit = false;
 
-            if ((checkprev && (x == 0)   && CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) || // left
-                (checknext && (x == 255) && CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) || // right
-                ((y == 0)   && CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) || // top
-                ((y == 191) && CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) || // bottom
-                ((x != 0)   && CheckEdgeMarkingPixel(polyid, z, pixeladdr-1)) || // left
-                ((x != 255) && CheckEdgeMarkingPixel(polyid, z, pixeladdr+1)) || // right
-                ((y != 0)   && CheckEdgeMarkingPixel(polyid, z, pixeladdr-ScanlineWidth)) || // top
-                ((y != 191) && CheckEdgeMarkingPixel(polyid, z, pixeladdr+ScanlineWidth))) // bottom
+            // check the pixel to the left
+            if (x == 0)
             {
+                // edge marking bug emulation
+                if (checkprev)
+                {
+                    if (CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) goto pass; // check against the clear plane
+                }
+                else if (CheckEdgeMarkingPixel(polyid, z, pixeladdr-(ScanlineWidth+1))) goto pass; // checks the right edge of the scanline 2 scanlines ago
+            }
+            else if (CheckEdgeMarkingPixel(polyid, z, pixeladdr-1)) goto pass; // normal check
+            
+            // check the pixel to the right
+            if (x == 255)
+            {
+                // edge marking bug emulation
+                if (checknext)
+                {
+                    if (CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) goto pass; // check against the clear plane
+                }
+                else if (CheckEdgeMarkingPixel(polyid, z, pixeladdr+(ScanlineWidth+1))) goto pass; // checks the left edge of the scanline 2 scanlines ahead
+            }
+            else if (CheckEdgeMarkingPixel(polyid, z, pixeladdr+1)) goto pass; // normal check
+
+            // check the pixel above
+            if (y == 0)
+            {
+                // edge marking bug emulation
+                if (CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) goto pass; // check against the clear plane
+            }
+            else if (CheckEdgeMarkingPixel(polyid, z, pixeladdr-ScanlineWidth)) goto pass; // normal check
+            
+            // check the pixel below
+            if (y == 191)
+            {
+                // edge marking bug emulation
+                if (CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) goto pass; // check against the clear plane
+            }
+            else if (CheckEdgeMarkingPixel(polyid, z, pixeladdr+ScanlineWidth)) goto pass; // normal check
+
+            if (false)
+            {
+                pass:
                 u16 edgecolor = gpu3d.RenderEdgeTable[polyid >> 3];
                 u32 edgeR = (edgecolor << 1) & 0x3E; if (edgeR) edgeR++;
                 u32 edgeG = (edgecolor >> 4) & 0x3E; if (edgeG) edgeG++;
