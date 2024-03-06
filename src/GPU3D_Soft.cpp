@@ -141,10 +141,10 @@ void SoftRenderer::SetThreaded(bool threaded, GPU& gpu) noexcept
 
 bool SoftRenderer::DoTimings(s32 cycles, s32* timingcounter)
 {
-    // add timings to a counter and check if underflowed.
+    // add timings to a counter and return false if underflowed.
     *timingcounter += cycles;
-    if (RasterTiming + *timingcounter <= ScanlineTimeout) return false;
-    else return true;
+    if (RasterTiming + *timingcounter <= ScanlineTimeout) return true;
+    else return false;
 }
 
 bool SoftRenderer::CheckTimings(s32 cycles, s32* timingcounter)
@@ -158,7 +158,7 @@ u32 SoftRenderer::DoTimingsPixels(s32 pixels, s32* timingcounter)
 {
     // calculate and return the difference between the old span and the new span, while adding timings to the timings counter
 
-    // pixels dont count towards timings if they're the first 4 pixels in a scanline (for some reason?)
+    // pixels dont count towards timings if they're the first 4 pixels in a polygon scanline (for some reason?)
     if (pixels <= NumFreePixels) return 0;
     
     pixels -= NumFreePixels;
@@ -174,16 +174,19 @@ u32 SoftRenderer::DoTimingsPixels(s32 pixels, s32* timingcounter)
     else return 0;
 }
 
-bool SoftRenderer::DoTimingsSlopes(RendererPolygon* rp, s32 y, s32* timingcounter)
+bool SoftRenderer::DoTimingsFirstPoly(RendererPolygon* rp, s32 y, s32* timingcounter)
 {
-    DoTimings(RastDelay, timingcounter);
+    // The first polygon in each scanline has an additional timing penalty (presumably due to pipelining?)
+
+    // First polygon has a cost of 4 cycles
+    if (!DoTimings(FirstPolyDelay, timingcounter)) return false;
 
     // determine the timing impact of the first polygon's slopes.
     
     Polygon* polygon = rp->PolyData;
     
-    if (polygon->YTop == polygon->YBottom) return false; // 0 px tall line polygons do not have slopes, and thus no timing penalty
-    if (y == polygon->YTop) return false;
+    if (polygon->YTop == polygon->YBottom) return true; // 0 px tall line polygons do not have slopes, and thus no timing penalty
+    if (y == polygon->YTop) return true;
 
     if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom) *timingcounter += FirstPerSlope;
 
@@ -1470,16 +1473,16 @@ void SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int npolys, s32* timing
 
         if (y == polygon->YBottom && y != polygon->YTop)
         {
-            if (!abort) abort = (first && DoTimings(FirstNull+RastDelay, timingcounter)) || DoTimings(EmptyPolyScanline, timingcounter);
+            if (!abort) abort = (first && !DoTimings(FirstNull+EmptyPolyScanline, timingcounter)) || !DoTimings(EmptyPolyScanline, timingcounter);
 
             first = false;
         }
         else if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
         {
-            //if (y == polygon->YTop) if(DoTimings(FirstPolyScanline, timingcounter)) abort = true;
+            //if (y == polygon->YTop) if(!DoTimings(FirstPolyScanline, timingcounter)) abort = true;
             
-            if (!abort) abort = (first && DoTimingsSlopes(rp, y, timingcounter)) // incorrect. needs research; behavior is strange...
-                        || DoTimings(PerPolyScanline, timingcounter)
+            if (!abort) abort = (first && !DoTimingsFirstPoly(rp, y, timingcounter)) // incorrect. needs research; behavior is strange...
+                        || !DoTimings(PerPolyScanline, timingcounter)
                         || (!CheckTimings(MinToStartPoly, timingcounter));
 
             if (abort)

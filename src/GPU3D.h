@@ -403,7 +403,7 @@ public:
     static constexpr int FirstPerSlope = 1 * TimingFrac; // 1 | for each "slope" the first polygon has in this scanline increment it by 1.
                                                          // (see DoTimingsSlopes() in GPU3D_Soft.cpp for more info)
     static constexpr int FirstNull = 1 * TimingFrac; // 1 | if the first polygon is "null" (probably wrong?)
-    static constexpr int RastDelay = 4 * TimingFrac; // 4 | Min amount of cycles to begin a scanline? (minimum time it takes to init the first polygon?)
+    static constexpr int FirstPolyDelay = 4 * TimingFrac; // 4 | Min amount of cycles to begin a scanline? (minimum time it takes to init the first polygon?)
                                                     // (Amount of time before the end of the cycle a scanline must abort?)
 
    // static constexpr int RasterTimingCap = 51116 * TimingFrac;
