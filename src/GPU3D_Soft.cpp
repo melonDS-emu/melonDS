@@ -931,7 +931,6 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     Polygon* polygon = rp->PolyData;
 
     u32 polyattr = (polygon->Attr & 0x3F008000);
-    if (!polygon->FacingView) polyattr |= (1<<4);
 
     u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
     bool wireframe = (polyalpha == 0);
@@ -1003,6 +1002,8 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         std::swap(wl, wr);
         std::swap(zl, zr);
 
+        if (polygon->FacingView) polyattr |= (1<<4);
+
         // edge fill rules for swapped opaque edges:
         // * right edge is filled if slope > 1, or if the left edge = 0, but is never filled if it is < -1
         // * left edge is filled if slope <= 1
@@ -1036,6 +1037,8 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
         rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
         rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
+        
+        if (!polygon->FacingView) polyattr |= (1<<4);
 
         // edge fill rules for unswapped opaque edges:
         // * right edge is filled if slope > 1
