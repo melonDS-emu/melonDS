@@ -1900,6 +1900,8 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
 
     s32 scanlineswaiting = 0;
     s32 nextread = 0;
+    s32 slwaitingrd = 0;
+    s32 nextreadrd = 0;
 
     u32 timespent;
     u32 prevtimespent;
@@ -1932,23 +1934,33 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
         if (ScanlineTimeout <= RasterTiming) gpu.GPU3D.RDLinesUnderflow = true;
 
         scanlineswaiting++;
+        slwaitingrd++;
         
         // simulate the process of scanlines being read from the 48 scanline buffer
-        while (RasterTiming >= SLRead[nextread] + 565)
+        while (RasterTiming >= SLRead[nextread] + Arbitrary)
         {
-            if (RasterTiming < SLRead[nextread] + 565)
+            if (RasterTiming < SLRead[nextread] + Arbitrary)
             {
-                RasterTiming += timespent = (SLRead[nextread] + 565) - RasterTiming; // why + 565?
-                timespent += 571; // fixes edge marking bug emulation. not sure why this is needed?
+                RasterTiming += timespent = (SLRead[nextread] + Arbitrary) - RasterTiming; // why + 565?
+                timespent += EMFixNum; // fixes edge marking bug emulation. not sure why this is needed?
             }
             scanlineswaiting--;
             nextread++;
             // update rdlines_count register
-            if (gpu.GPU3D.RDLinesTemp > scanlineswaiting) gpu.GPU3D.RDLinesTemp = scanlineswaiting; // TODO: not accurate, rdlines appears to update early in some manner?
+            //if (gpu.GPU3D.RDLinesTemp > scanlineswaiting) gpu.GPU3D.RDLinesTemp = scanlineswaiting; // TODO: not accurate, rdlines appears to update early in some manner?
+        }
+
+        // feels wrong, needs improvement.
+        while (RasterTiming >= RDDecrement[nextreadrd])
+        {
+            slwaitingrd--;
+            nextreadrd++;
+            // update rdlines_count register
+            if (gpu.GPU3D.RDLinesTemp > slwaitingrd) gpu.GPU3D.RDLinesTemp = slwaitingrd;
         }
 
         // final pass pairs are the previous scanline pair offset -1 scanline, thus we start with only building one
-        ScanlineFinalPass<true>(gpu.GPU3D, 0, true, timespent >= 502);
+        ScanlineFinalPass<true>(gpu.GPU3D, 0, true, timespent >= EMGlitchThreshhold);
         for (int y = 4; y < 192; y+=2)
         {
             //update sl timeout
@@ -1964,46 +1976,57 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             // set the underflow flag if one of the scanlines came within 14 cycles of visible underflow
             if (ScanlineTimeout <= RasterTiming) gpu.GPU3D.RDLinesUnderflow = true;
 
-            scanlineswaiting+=2;
+            scanlineswaiting += 2;
+            slwaitingrd += 2;
 
             // simulate the process of scanlines being read from the 48 scanline buffer
-            while (scanlineswaiting >= 47 || RasterTiming >= SLRead[nextread] + 565)
+            while (scanlineswaiting >= 47 || RasterTiming >= SLRead[nextread] + Arbitrary)
             {
-                if (RasterTiming < SLRead[nextread] + 565)
+                if (RasterTiming < SLRead[nextread] + Arbitrary)
                 {
-                    RasterTiming += timespent = (SLRead[nextread] + 565) - RasterTiming; // why + 565?
-                    timespent += 571; // fixes edge marking bug emulation. not sure why this is needed?
+                    RasterTiming += timespent = (SLRead[nextread] + Arbitrary) - RasterTiming; // why + 565?
+                    timespent += EMFixNum; // fixes edge marking bug emulation. not sure why this is needed?
                 }
                 scanlineswaiting--;
                 nextread++;
                 // update rdlines_count register
-                if (gpu.GPU3D.RDLinesTemp > scanlineswaiting) gpu.GPU3D.RDLinesTemp = scanlineswaiting; // TODO: not accurate, rdlines appears to update early in some manner?
+                //if (gpu.GPU3D.RDLinesTemp > scanlineswaiting) gpu.GPU3D.RDLinesTemp = scanlineswaiting; // TODO: not accurate, rdlines appears to update early in some manner?
             }
 
-            ScanlineFinalPass<true>(gpu.GPU3D, y-3, prevtimespent >= 502 || y-3 == 1, timespent >= 502);
-            ScanlineFinalPass<true>(gpu.GPU3D, y-2, prevtimespent >= 502, timespent >= 502);
+            // feels wrong, needs improvement.
+            while (RasterTiming >= RDDecrement[nextreadrd])
+            {
+                slwaitingrd--;
+                nextreadrd++;
+                // update rdlines_count register
+                if (gpu.GPU3D.RDLinesTemp > slwaitingrd) gpu.GPU3D.RDLinesTemp = slwaitingrd;
+            }
+
+            ScanlineFinalPass<true>(gpu.GPU3D, y-3, prevtimespent >= EMGlitchThreshhold || y-3 == 1, timespent >= EMGlitchThreshhold);
+            ScanlineFinalPass<true>(gpu.GPU3D, y-2, prevtimespent >= EMGlitchThreshhold, timespent >= EMGlitchThreshhold);
         }
-            scanlineswaiting+= 2;
+            scanlineswaiting += 2;
+            slwaitingrd += 2;
             prevtimespent = timespent;
 
         // emulate read timings one last time, since it shouldn't matter after this
         // additionally dont bother tracking rdlines anymore since it shouldn't be able to decrement anymore (CHECKME)
-        while (scanlineswaiting >= 47 || RasterTiming >= SLRead[nextread] + 565)
+        while (scanlineswaiting >= 47 || RasterTiming >= SLRead[nextread] + Arbitrary)
         {
-            if (RasterTiming < SLRead[nextread] + 565)
+            if (RasterTiming < SLRead[nextread] + Arbitrary)
             {
-                RasterTiming += timespent = (SLRead[nextread] + 565) - RasterTiming; // why + 565?
-                timespent += 571; // fixes edge marking bug emulation. not sure why this is needed?
+                RasterTiming += timespent = (SLRead[nextread] + Arbitrary) - RasterTiming; // why + 565?
+                timespent += EMFixNum; // fixes edge marking bug emulation. not sure why this is needed?
             }
             scanlineswaiting--;
             nextread++;
         }
 
         // finish the last 3 scanlines
-        ScanlineFinalPass<true>(gpu.GPU3D, 189, prevtimespent >= 502, timespent >= 502);
-        ScanlineFinalPass<true>(gpu.GPU3D, 190, prevtimespent >= 502, true);
+        ScanlineFinalPass<true>(gpu.GPU3D, 189, prevtimespent >= EMGlitchThreshhold, timespent >= EMGlitchThreshhold);
+        ScanlineFinalPass<true>(gpu.GPU3D, 190, prevtimespent >= EMGlitchThreshhold, true);
 
-        ScanlineFinalPass<true>(gpu.GPU3D, 191, timespent >= 502, true);
+        ScanlineFinalPass<true>(gpu.GPU3D, 191, timespent >= EMGlitchThreshhold, true);
     }
     /*else
     {

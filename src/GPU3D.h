@@ -341,19 +341,19 @@ public:
     static constexpr int DelayBetweenReads = 809 * TimingFrac;
     static constexpr int ScanlineReadSpeed = 256 * TimingFrac;
     static constexpr int ScanlineReadInc = DelayBetweenReads + ScanlineReadSpeed;
+    static constexpr int InitGPU2DTimeout = 51875 * TimingFrac; // 51618? 51874? 52128? | when it finishes reading the first scanline.
+    static constexpr int FrameLength = ScanlineReadInc * 263; // how long the entire frame is. TODO: Verify if we actually need this?
 
     //static constexpr int GPU2DSpeedFirstInPair = 810 * TimingFrac; // 810 | the delay between finishing reading a pair and beginning reading a new pair.
     //static constexpr int GPU2DSpeedSecondInPair = 296 * TimingFrac; // 296 | 295??? | the delay between finishing reading the first scanline
                                                                     // and beginning reading the second scanline of a scanline pair.
     //static constexpr int GPU2DReadScanline = 256 * TimingFrac; // 256 | the time it takes to read a scanline.
     //static constexpr int GPU2DReadSLPair = 1618 * TimingFrac; // 1618 | notably the same as the scanline increment.
-    static constexpr int InitGPU2DTimeout = 51875 * TimingFrac; // 51618? 51874? 52128? | when it finishes reading the first scanline.
     //static constexpr int GPU2D48Scanlines = GPU2DReadSLPair * 24; // time to read 48 scanlines.
-    static constexpr int FrameLength = ScanlineReadInc * 263; // how long the entire frame is. TODO: Verify if we actually need this?
     
     // compile-time list of scanline read times
     // these *should* always occur at the same point in each frame, so it shouldn't matter if we make them fixed
-    constexpr std::array<u32, 192> SLRead = []() constexpr {
+    static constexpr std::array<u32, 192> SLRead = []() constexpr {
     std::array<u32, 192> readtime {};
 
     for (int i = 0, time = InitGPU2DTimeout; i < 192; i++, time += ScanlineReadInc)
@@ -361,6 +361,20 @@ public:
         readtime[i] = time;
     }
     return readtime;
+    }();
+
+    static constexpr int Arbitrary = 565; // extra value after the scanline is read at which the cutoff of a scanline should be...?
+                                          // idk why this is needed. im probably doing something wrong.
+
+    // the point at which rdlines decrements not sure why it's different...?
+    static constexpr std::array<u32, 192> RDDecrement = []() constexpr {
+    std::array<u32, 192> dec {};
+
+    for (int i = 0; i < 192; i++)
+    {
+        dec[i] = SLRead[i] + Arbitrary - 39 - (!(i % 2));
+    }
+    return dec;
     }();
 
     // GPU 3D Rasterization Timings: For Emulating Scanline Timeout
@@ -373,16 +387,18 @@ public:
     //static constexpr int FraudulentTiming = 1120 * TimingFrac; // bad theory. todo: find a better one.
     //static constexpr int InitialTiming = 48688 * TimingFrac; // 48688 | add 1618*2 to get the timeout of the second scanline pair
     //static constexpr int Post50Max = 51116 * TimingFrac; // 51116 | for some reason it doesn't care about how full it actually is,
-                                                         // it just cares about if its the first 50 scanlines to speedrun rendering?
+                                                           // it just cares about if its the first 50 scanlines to speedrun rendering?
     static constexpr int FinalPassLen = 500 * TimingFrac; // 496 (might technically be 500?) | the next scanline cannot begin while a scanline's final pass is in progress
-                                                        // (can be interpreted as the minimum amount of cycles for the next scanline
-                                                        // pair to start after the previous pair began) (related to final pass?)
+                                                          // (can be interpreted as the minimum amount of cycles for the next scanline
+                                                          // pair to start after the previous pair began) (related to final pass?)
     static constexpr int ScanlinePushDelay = 242 * TimingFrac;
+    static constexpr int EMGlitchThreshhold = 502 * TimingFrac; // The threshold for the edge marking glitch behavior to change.
+    static constexpr int EMFixNum = 571 * TimingFrac; // Arbitrary value added to fix edge marking glitch, not sure why it's needed?
     //static constexpr int TimeoutIncrement = 2130 * TimingFrac;
     //static constexpr int ScanlineIncrementold = 1618 * TimingFrac; // 1618 | how much to regain per scanline pair
     //static constexpr int ScanlineIncrement = 2114 * TimingFrac; // 2114 | how much time a scanline pair "gains"
     //static constexpr int AbortIncrement = 12 * TimingFrac; // 12 | how much extra to regain after an aborted scanline (total 2126)
-                                                           // (why does the next pair get more time if the previous scanline is aborted?)
+                                                             // (why does the next pair get more time if the previous scanline is aborted?)
     //static constexpr int UnderflowFlag = 2 * TimingFrac; // 14 | How many cycles need to be left for the 3ddispcnt rdlines underflow flag to be set
     //static constexpr int FinishScanline = 512 * TimingFrac;
 
@@ -404,7 +420,7 @@ public:
                                                          // (see DoTimingsSlopes() in GPU3D_Soft.cpp for more info)
     static constexpr int FirstNull = 1 * TimingFrac; // 1 | if the first polygon is "null" (probably wrong?)
     static constexpr int FirstPolyDelay = 4 * TimingFrac; // 4 | Min amount of cycles to begin a scanline? (minimum time it takes to init the first polygon?)
-                                                    // (Amount of time before the end of the cycle a scanline must abort?)
+                                                          // (Amount of time before the end of the cycle a scanline must abort?)
 
    // static constexpr int RasterTimingCap = 51116 * TimingFrac;
    // static constexpr int PerScanlineTiming = 1064 * TimingFrac; // approximate currently, used to calc RDLines. TEMPORARY UNTIL ACCURATE "FRAMEBUFFER" CAN BE IMPLEMENTED
