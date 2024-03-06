@@ -342,7 +342,6 @@ public:
     static constexpr int ScanlineReadSpeed = 256 * TimingFrac;
     static constexpr int ScanlineReadInc = DelayBetweenReads + ScanlineReadSpeed;
 
-
     //static constexpr int GPU2DSpeedFirstInPair = 810 * TimingFrac; // 810 | the delay between finishing reading a pair and beginning reading a new pair.
     //static constexpr int GPU2DSpeedSecondInPair = 296 * TimingFrac; // 296 | 295??? | the delay between finishing reading the first scanline
                                                                     // and beginning reading the second scanline of a scanline pair.
@@ -351,6 +350,18 @@ public:
     static constexpr int InitGPU2DTimeout = 51875 * TimingFrac; // 51618? 51874? 52128? | when it finishes reading the first scanline.
     //static constexpr int GPU2D48Scanlines = GPU2DReadSLPair * 24; // time to read 48 scanlines.
     static constexpr int FrameLength = ScanlineReadInc * 263; // how long the entire frame is. TODO: Verify if we actually need this?
+    
+    // compile-time list of scanline read times
+    // these *should* always occur at the same point in each frame, so it shouldn't matter if we make them fixed
+    constexpr std::array<u32, 192> SLRead = []() constexpr {
+    std::array<u32, 192> readtime {};
+
+    for (int i = 0, time = InitGPU2DTimeout; i < 192; i++, time += ScanlineReadInc)
+    {
+        readtime[i] = time;
+    }
+    return readtime;
+    }();
 
     // GPU 3D Rasterization Timings: For Emulating Scanline Timeout
 

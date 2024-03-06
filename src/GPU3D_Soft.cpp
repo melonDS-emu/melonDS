@@ -1890,12 +1890,6 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     gpu.GPU3D.RDLinesUnderflow = false;
     gpu.GPU3D.RDLinesTemp = 63;
 
-    u32 slread[192]; // scanline read times
-    for (int i = 0, time = InitGPU2DTimeout; i < 192; i++, time += ScanlineReadInc) // CHECKME: is this computed at compile time?
-    {
-        slread[i] = time;
-    }
-
     ScanlineTimeout = FrameLength; // CHECKME
     
     s32 rastertimingeven; // always init to 0 at the start of a scanline render
@@ -1918,10 +1912,10 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     
     // if first pair was not delayed past the first read, then later scanlines cannot either
     // this allows us to implement a fast path
-    //if (slread[0] - timespent + ScanlinePushDelay >= 256)
+    //if (SLRead[0] - timespent + ScanlinePushDelay >= 256)
     {
         // begin scanline timeout
-        ScanlineTimeout = slread[1] - FinalPassLen;
+        ScanlineTimeout = SLRead[1] - FinalPassLen;
 
         RenderScanline(gpu, 2, j, &rastertimingeven);
         RenderScanline(gpu, 3, j, &rastertimingodd);
@@ -1937,11 +1931,11 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
         scanlineswaiting++;
         
         // simulate the process of scanlines being read from the 48 scanline buffer
-        while (RasterTiming >= slread[nextread] + 565)
+        while (RasterTiming >= SLRead[nextread] + 565)
         {
-            if (RasterTiming < slread[nextread] + 565)
+            if (RasterTiming < SLRead[nextread] + 565)
             {
-                RasterTiming += timespent = (slread[nextread] + 565) - RasterTiming; // why + 565?
+                RasterTiming += timespent = (SLRead[nextread] + 565) - RasterTiming; // why + 565?
                 timespent += 571; // fixes edge marking bug emulation. not sure why this is needed?
             }
             scanlineswaiting--;
@@ -1955,7 +1949,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
         for (int y = 4; y < 192; y+=2)
         {
             //update sl timeout
-            ScanlineTimeout = slread[y-1] - FinalPassLen;
+            ScanlineTimeout = SLRead[y-1] - FinalPassLen;
 
             RenderScanline(gpu, y, j, &rastertimingeven);
             RenderScanline(gpu, y+1, j, &rastertimingodd);
@@ -1970,11 +1964,11 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
             scanlineswaiting+=2;
 
             // simulate the process of scanlines being read from the 48 scanline buffer
-            while (scanlineswaiting >= 47 || RasterTiming >= slread[nextread] + 565)
+            while (scanlineswaiting >= 47 || RasterTiming >= SLRead[nextread] + 565)
             {
-                if (RasterTiming < slread[nextread] + 565)
+                if (RasterTiming < SLRead[nextread] + 565)
                 {
-                    RasterTiming += timespent = (slread[nextread] + 565) - RasterTiming; // why + 565?
+                    RasterTiming += timespent = (SLRead[nextread] + 565) - RasterTiming; // why + 565?
                     timespent += 571; // fixes edge marking bug emulation. not sure why this is needed?
                 }
                 scanlineswaiting--;
@@ -1991,11 +1985,11 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
 
         // emulate read timings one last time, since it shouldn't matter after this
         // additionally dont bother tracking rdlines anymore since it shouldn't be able to decrement anymore (CHECKME)
-        while (scanlineswaiting >= 47 || RasterTiming >= slread[nextread] + 565)
+        while (scanlineswaiting >= 47 || RasterTiming >= SLRead[nextread] + 565)
         {
-            if (RasterTiming < slread[nextread] + 565)
+            if (RasterTiming < SLRead[nextread] + 565)
             {
-                RasterTiming += timespent = (slread[nextread] + 565) - RasterTiming; // why + 565?
+                RasterTiming += timespent = (SLRead[nextread] + 565) - RasterTiming; // why + 565?
                 timespent += 571; // fixes edge marking bug emulation. not sure why this is needed?
             }
             scanlineswaiting--;
@@ -2012,9 +2006,9 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     {
         ScanlineFinalPass(gpu, 0, false, false);
     
-        s32 pixelstopush = slread[0] - (timespent + ScanlinePushDelay);
+        s32 pixelstopush = SLRead[0] - (timespent + ScanlinePushDelay);
         if (pixelstopush > 256) pixelstopush = 256;
-        //timespent + ScanlinePushDelay + ScanlineReadSpeed > slread[0]
+        //timespent + ScanlinePushDelay + ScanlineReadSpeed > SLRead[0]
 
         rastertimingeven = 0;
         rastertimingodd = 0;
