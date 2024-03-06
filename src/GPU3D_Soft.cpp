@@ -703,18 +703,11 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     Polygon* polygon = rp->PolyData;
 
     u32 polyattr = (polygon->Attr & 0x3F008000);
-    if (!polygon->FacingView) polyattr |= (1<<4);
 
     u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
     bool wireframe = (polyalpha == 0);
 
     bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr);
-    if (polygon->Attr & (1<<14))
-        fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
-    else if (polygon->FacingView)
-        fnDepthTest = DepthTest_LessThan_FrontFacing;
-    else
-        fnDepthTest = DepthTest_LessThan;
 
     if (!PrevIsShadowMask)
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
@@ -773,6 +766,14 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         std::swap(xstart, xend);
         std::swap(wl, wr);
         std::swap(zl, zr);
+        
+        if (polygon->FacingView) polyattr |= (1<<4);
+        if (polygon->Attr & (1<<14))
+            fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
+        else if (!polygon->FacingView)
+            fnDepthTest = DepthTest_LessThan_FrontFacing;
+        else
+            fnDepthTest = DepthTest_LessThan;
 
         // CHECKME: edge fill rules for swapped opaque shadow mask polygons
         if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || ((polyalpha < 31) && (gpu3d.RenderDispCnt & (1<<3))) || wireframe)
@@ -801,6 +802,14 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
         rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
         rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
+        
+        if (!polygon->FacingView) polyattr |= (1<<4);
+        if (polygon->Attr & (1<<14))
+            fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
+        else if (polygon->FacingView)
+            fnDepthTest = DepthTest_LessThan_FrontFacing;
+        else
+            fnDepthTest = DepthTest_LessThan;
 
         // CHECKME: edge fill rules for unswapped opaque shadow mask polygons
         if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || ((polyalpha < 31) && (gpu3d.RenderDispCnt & (1<<3))) || wireframe)
@@ -936,12 +945,6 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     bool wireframe = (polyalpha == 0);
 
     bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr);
-    if (polygon->Attr & (1<<14))
-        fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
-    else if (polygon->FacingView)
-        fnDepthTest = DepthTest_LessThan_FrontFacing;
-    else
-        fnDepthTest = DepthTest_LessThan;
 
     PrevIsShadowMask = false;
 
@@ -1003,6 +1006,13 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         std::swap(zl, zr);
 
         if (polygon->FacingView) polyattr |= (1<<4);
+        
+        if (polygon->Attr & (1<<14))
+            fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
+        else if (!polygon->FacingView)
+            fnDepthTest = DepthTest_LessThan_FrontFacing;
+        else
+            fnDepthTest = DepthTest_LessThan;
 
         // edge fill rules for swapped opaque edges:
         // * right edge is filled if slope > 1, or if the left edge = 0, but is never filled if it is < -1
@@ -1039,6 +1049,13 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
         
         if (!polygon->FacingView) polyattr |= (1<<4);
+
+        if (polygon->Attr & (1<<14))
+            fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
+        else if (polygon->FacingView)
+            fnDepthTest = DepthTest_LessThan_FrontFacing;
+        else
+            fnDepthTest = DepthTest_LessThan;
 
         // edge fill rules for unswapped opaque edges:
         // * right edge is filled if slope > 1
