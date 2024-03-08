@@ -659,13 +659,13 @@ s32 SPUChannel::Run()
 
         case AudioInterpolation::SNESGaussian: {
                 // Avoid clipping (from fullsnes)
-    #define CLAMP(s) (std::clamp((s) >> 1, -0x3FFA, 0x3FF8))
+#define CLAMP(s) (std::clamp((s) >> 1, -0x3FFA, 0x3FF8))
                 s32 out =    (InterpSNESGauss[0x0FF - samplepos] * CLAMP(PrevSample[2]) >> 10);
                 out = out + ((InterpSNESGauss[0x1FF - samplepos] * CLAMP(PrevSample[1])) >> 10);
                 out = out + ((InterpSNESGauss[0x100 + samplepos] * CLAMP(PrevSample[0])) >> 10);
                 out = out + ((InterpSNESGauss[0x000 + samplepos] * CLAMP(val)) >> 10);
-                val = std::clamp(out, -0x7FFF, 0x7FFF);
-    #undef CLAMP
+                val = std::clamp(out, -0x8000, 0x7FFF);
+#undef CLAMP
                 break;
             }
 
