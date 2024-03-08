@@ -372,7 +372,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
 // Z-buffering: +-0x200
 // W-buffering: +-0xFF
 
-bool DepthTest_Equal_Z(s32 dstz, s32 z, u32 dstattr)
+bool DepthTest_Equal_Z(s32 dstz, s32 z, u32 dstattr, u16 flags)
 {
     s32 diff = dstz - z;
     if ((u32)(diff + 0x200) <= 0x400)
@@ -381,7 +381,7 @@ bool DepthTest_Equal_Z(s32 dstz, s32 z, u32 dstattr)
     return false;
 }
 
-bool DepthTest_Equal_W(s32 dstz, s32 z, u32 dstattr)
+bool DepthTest_Equal_W(s32 dstz, s32 z, u32 dstattr, u16 flags)
 {
     s32 diff = dstz - z;
     if ((u32)(diff + 0xFF) <= 0x1FE)
@@ -390,7 +390,7 @@ bool DepthTest_Equal_W(s32 dstz, s32 z, u32 dstattr)
     return false;
 }
 
-bool DepthTest_LessThan(s32 dstz, s32 z, u32 dstattr)
+bool DepthTest_LessThan(s32 dstz, s32 z, u32 dstattr, u16 flags)
 {
     if (z < dstz)
         return true;
@@ -398,9 +398,23 @@ bool DepthTest_LessThan(s32 dstz, s32 z, u32 dstattr)
     return false;
 }
 
-bool DepthTest_LessThan_FrontFacing(s32 dstz, s32 z, u32 dstattr)
+bool DepthTest_LessThan_FrontFacing(s32 dstz, s32 z, u32 dstattr, u16 flags)
 {
-    if ((dstattr & 0x00400010) == 0x00000010) // opaque, back facing
+    bool invert;
+    if ((flags == SoftRenderer::SlopeFlags::TopXMajor) && (dstattr & SoftRenderer::SlopeFlags::BotXMajor))
+    {
+        invert = true;
+    }
+    else if ((flags == SoftRenderer::SlopeFlags::LYMajor) && (dstattr & SoftRenderer::SlopeFlags::RYMajor))
+    {
+        invert = true;
+    }
+    else
+    {
+        invert = false;
+    }
+
+    if (((dstattr & 0x00400010) == 0x00000010) ^ invert) // opaque, back facing
     {
         if (z <= dstz)
             return true;
@@ -708,7 +722,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
     bool wireframe = (polyalpha == 0);
 
-    bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr);
+    bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr, u16 flags);
     if (polygon->Attr & (1<<14))
         fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
     else if (polygon->FacingView)
@@ -744,6 +758,10 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
     xstart = rp->XL;
     xend = rp->XR;
+
+    u16 lslopeflag;
+    u16 cslopeflag;
+    u16 rslopeflag;
 
     s32 wl = rp->SlopeL.Interp.Interpolate(polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
     s32 wr = rp->SlopeR.Interp.Interpolate(polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
@@ -859,13 +877,13 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
 
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, lslopeflag))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
         if (dstattr & 0xF)
         {
             pixeladdr += BufferSize;
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], lslopeflag))
                 StencilBuffer[256*(y&0x1) + x] |= 0x2;
         }
     }
@@ -885,13 +903,13 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
 
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, cslopeflag))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
         if (dstattr & 0xF)
         {
             pixeladdr += BufferSize;
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], cslopeflag))
                 StencilBuffer[256*(y&0x1) + x] |= 0x2;
         }
     }
@@ -911,13 +929,13 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
 
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, rslopeflag))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
         if (dstattr & 0xF)
         {
             pixeladdr += BufferSize;
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], rslopeflag))
                 StencilBuffer[256*(y&0x1) + x] |= 0x2;
         }
     }
@@ -936,7 +954,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
     bool wireframe = (polyalpha == 0);
 
-    bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr);
+    bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr, u16 flags);
     if (polygon->Attr & (1<<14))
         fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
     else if (polygon->FacingView)
@@ -969,6 +987,10 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
     xstart = rp->XL;
     xend = rp->XR;
+
+    u16 lslopeflag;
+    u16 cslopeflag;
+    u16 rslopeflag;
 
     s32 wl = rp->SlopeL.Interp.Interpolate(polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
     s32 wr = rp->SlopeR.Interp.Interpolate(polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
@@ -1023,6 +1045,30 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                 || (!(rp->SlopeL.Negative && rp->SlopeL.XMajor) && rp->SlopeR.Increment==0)
                 || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
         }
+
+        if (rp->SlopeR.XMajor)
+        {
+            if (rp->SlopeR.Negative)
+                lslopeflag = TopXMajor;
+            else
+                lslopeflag = BotXMajor;
+        }
+        else
+        {
+            lslopeflag = LYMajor;
+        }
+
+        if (rp->SlopeL.XMajor)
+        {
+            if (!rp->SlopeL.Negative)
+                rslopeflag = TopXMajor;
+            else
+                rslopeflag = BotXMajor;
+        }
+        else
+        {
+            rslopeflag = RYMajor;
+        }
     }
     else
     {
@@ -1058,6 +1104,30 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
             r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0)
                 || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
         }
+
+        if (rp->SlopeL.XMajor)
+        {
+            if (rp->SlopeL.Negative)
+                lslopeflag = TopXMajor;
+            else
+                lslopeflag = BotXMajor;
+        }
+        else
+        {
+            lslopeflag = LYMajor;
+        }
+
+        if (rp->SlopeR.XMajor)
+        {
+            if (!rp->SlopeR.Negative)
+                rslopeflag = TopXMajor;
+            else
+                rslopeflag = BotXMajor;
+        }
+        else
+        {
+            rslopeflag = RYMajor;
+        }
     }
 
     // interpolate attributes along Y
@@ -1079,8 +1149,16 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     // in wireframe mode, there are special rules for equal Z (TODO)
 
     int yedge = 0;
-    if (y == polygon->YTop)           yedge = 0x4;
-    else if (y == polygon->YBottom-1) yedge = 0x8;
+    if (y == polygon->YTop)
+    {
+        yedge = 0x4;
+        cslopeflag = TopXMajor;
+    }
+    else if (y == polygon->YBottom-1)
+    {
+        yedge = 0x8;
+        cslopeflag = BotXMajor;
+    }
     int edge;
 
     s32 x = xstart;
@@ -1127,13 +1205,13 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, lslopeflag))
         {
             if (!(dstattr & 0xF) || pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, lslopeflag))
                 continue;
         }
 
@@ -1176,7 +1254,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                     AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
                 }
             }
-
+            attr |= lslopeflag;
             DepthBuffer[pixeladdr] = z;
             ColorBuffer[pixeladdr] = color;
             AttrBuffer[pixeladdr] = attr;
@@ -1223,13 +1301,13 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, cslopeflag))
         {
             if (!(dstattr & 0xF) || pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, cslopeflag))
                 continue;
         }
 
@@ -1265,7 +1343,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                     AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
                 }
             }
-
+            attr |= cslopeflag;
             DepthBuffer[pixeladdr] = z;
             ColorBuffer[pixeladdr] = color;
             AttrBuffer[pixeladdr] = attr;
@@ -1315,13 +1393,13 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, rslopeflag))
         {
             if (!(dstattr & 0xF) || pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, rslopeflag))
                 continue;
         }
 
@@ -1364,7 +1442,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                     AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
                 }
             }
-
+            attr |= rslopeflag;
             DepthBuffer[pixeladdr] = z;
             ColorBuffer[pixeladdr] = color;
             AttrBuffer[pixeladdr] = attr;

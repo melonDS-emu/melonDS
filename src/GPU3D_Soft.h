@@ -44,6 +44,14 @@ public:
     void SetupRenderThread(GPU& gpu);
     void EnableRenderThread();
     void StopRenderThread();
+
+    enum SlopeFlags
+    {
+        TopXMajor = (1<<5),
+        BotXMajor = (1<<6),
+        LYMajor   = (1<<7),
+        RYMajor   = (1<<13),
+    };
 private:
     friend void GPU3D::DoSavestate(Savestate* file) noexcept;
     // Notes on the interpolator:
@@ -489,7 +497,9 @@ private:
     // attribute buffer:
     // bit0-3: edge flags (left/right/top/bottom)
     // bit4: backfacing flag
+    // bit5-7 slope flags (topxmajor/botxmajor/lymajor)
     // bit8-12: antialiasing alpha
+    // bit13: slope flags (cont.) (rymajor flag)
     // bit15: fog enable
     // bit16-21: polygon ID for translucent pixels
     // bit22: translucent flag
