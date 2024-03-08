@@ -26,6 +26,16 @@
 
 namespace melonDS
 {
+
+enum SlopeFlags
+{
+    SF_None = 0,
+    SF_TopXMajor = (1<<5),
+    SF_BotXMajor = (1<<6),
+    SF_LYMajor   = (1<<7),
+    SF_RYMajor   = (1<<13),
+};
+
 class SoftRenderer : public Renderer3D
 {
 public:
@@ -44,14 +54,6 @@ public:
     void SetupRenderThread(GPU& gpu);
     void EnableRenderThread();
     void StopRenderThread();
-
-    enum SlopeFlags
-    {
-        TopXMajor = (1<<5),
-        BotXMajor = (1<<6),
-        LYMajor   = (1<<7),
-        RYMajor   = (1<<13),
-    };
 private:
     friend void GPU3D::DoSavestate(Savestate* file) noexcept;
     // Notes on the interpolator:
@@ -493,7 +495,7 @@ private:
     u32 ColorBuffer[BufferSize * 2];
     u32 DepthBuffer[BufferSize * 2];
     u32 AttrBuffer[BufferSize * 2];
-
+    
     // attribute buffer:
     // bit0-3: edge flags (left/right/top/bottom)
     // bit4: backfacing flag

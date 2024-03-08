@@ -401,18 +401,11 @@ bool DepthTest_LessThan(s32 dstz, s32 z, u32 dstattr, u16 flags)
 bool DepthTest_LessThan_FrontFacing(s32 dstz, s32 z, u32 dstattr, u16 flags)
 {
     bool invert;
-    if ((flags == SoftRenderer::SlopeFlags::TopXMajor) && (dstattr & SoftRenderer::SlopeFlags::BotXMajor))
-    {
+    if (((flags == SF_TopXMajor) && (dstattr & SF_BotXMajor)) ||
+        ((flags == SF_LYMajor) && (dstattr & SF_RYMajor)))
         invert = true;
-    }
-    else if ((flags == SoftRenderer::SlopeFlags::LYMajor) && (dstattr & SoftRenderer::SlopeFlags::RYMajor))
-    {
-        invert = true;
-    }
     else
-    {
         invert = false;
-    }
 
     if (((dstattr & 0x00400010) == 0x00000010) ^ invert) // opaque, back facing
     {
@@ -1049,25 +1042,25 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         if (rp->SlopeR.XMajor)
         {
             if (rp->SlopeR.Negative)
-                lslopeflag = TopXMajor;
+                lslopeflag = SF_TopXMajor;
             else
-                lslopeflag = BotXMajor;
+                lslopeflag = SF_BotXMajor;
         }
         else
         {
-            lslopeflag = LYMajor;
+            lslopeflag = SF_LYMajor;
         }
 
         if (rp->SlopeL.XMajor)
         {
             if (!rp->SlopeL.Negative)
-                rslopeflag = TopXMajor;
+                rslopeflag = SF_TopXMajor;
             else
-                rslopeflag = BotXMajor;
+                rslopeflag = SF_BotXMajor;
         }
         else
         {
-            rslopeflag = RYMajor;
+            rslopeflag = SF_RYMajor;
         }
     }
     else
@@ -1108,25 +1101,25 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         if (rp->SlopeL.XMajor)
         {
             if (rp->SlopeL.Negative)
-                lslopeflag = TopXMajor;
+                lslopeflag = SF_TopXMajor;
             else
-                lslopeflag = BotXMajor;
+                lslopeflag = SF_BotXMajor;
         }
         else
         {
-            lslopeflag = LYMajor;
+            lslopeflag = SF_LYMajor;
         }
 
         if (rp->SlopeR.XMajor)
         {
             if (!rp->SlopeR.Negative)
-                rslopeflag = TopXMajor;
+                rslopeflag = SF_TopXMajor;
             else
-                rslopeflag = BotXMajor;
+                rslopeflag = SF_BotXMajor;
         }
         else
         {
-            rslopeflag = RYMajor;
+            rslopeflag = SF_RYMajor;
         }
     }
 
@@ -1152,13 +1145,14 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     if (y == polygon->YTop)
     {
         yedge = 0x4;
-        cslopeflag = TopXMajor;
+        cslopeflag = SF_TopXMajor;
     }
     else if (y == polygon->YBottom-1)
     {
         yedge = 0x8;
-        cslopeflag = BotXMajor;
+        cslopeflag = SF_BotXMajor;
     }
+    else cslopeflag = SF_None;
     int edge;
 
     s32 x = xstart;
