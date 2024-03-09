@@ -27,13 +27,15 @@
 namespace melonDS
 {
 
-enum SlopeFlags
+enum EdgeFlags
 {
-    SF_None = 0,
-    SF_TopXMajor = (1<<5),
-    SF_BotXMajor = (1<<6),
-    SF_LYMajor   = (1<<7),
-    SF_RYMajor   = (1<<13),
+    EF_None      = (0),
+    EF_AnyEdge   = (0xF),
+
+    EF_TopXMajor = (1<<0),
+    EF_BotXMajor = (1<<1),
+    EF_LYMajor   = (1<<2),
+    EF_RYMajor   = (1<<3),
 };
 
 class SoftRenderer : public Renderer3D
@@ -495,13 +497,11 @@ private:
     u32 ColorBuffer[BufferSize * 2];
     u32 DepthBuffer[BufferSize * 2];
     u32 AttrBuffer[BufferSize * 2];
-    
+
     // attribute buffer:
-    // bit0-3: edge flags (left/right/top/bottom)
+    // bit0-3: edge flags (top xmajor/bottom xmajor/left ymajor/right ymajor)
     // bit4: backfacing flag
-    // bit5-7 slope flags (topxmajor/botxmajor/lymajor)
     // bit8-12: antialiasing alpha
-    // bit13: slope flags (cont.) (rymajor flag)
     // bit15: fog enable
     // bit16-21: polygon ID for translucent pixels
     // bit22: translucent flag
