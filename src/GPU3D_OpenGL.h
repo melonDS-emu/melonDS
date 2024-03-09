@@ -155,12 +155,12 @@ private:
     bool BetterPolygons {};
     int ScreenW {}, ScreenH {};
 
-    GLuint FramebufferTex[8] {};
-    int FrontBuffer {};
-    GLuint FramebufferID[4] {}, PixelbufferID {};
+    GLuint ColorBufferTex {}, DepthBufferTex {}, AttrBufferTex {};
+    GLuint DownScaleBufferTex {};
+    GLuint PixelbufferID {};
+
+    GLuint MainFramebuffer {}, DownscaleFramebuffer {};
     u32 Framebuffer[256*192] {};
-
-
 };
 }
 #endif
