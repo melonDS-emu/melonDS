@@ -705,9 +705,6 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     u32 polyattr = (polygon->Attr & 0x3F008000);
     if (!polygon->FacingView) polyattr |= (1<<4);
 
-    u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
-    bool wireframe = (polyalpha == 0);
-
     bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr);
     if (polygon->Attr & (1<<14))
         fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
@@ -775,7 +772,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         std::swap(zl, zr);
 
         // CHECKME: edge fill rules for swapped opaque shadow mask polygons
-        if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || ((polyalpha < 31) && (gpu3d.RenderDispCnt & (1<<3))) || wireframe)
+        if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || wireframe)
         {
             l_filledge = true;
             r_filledge = true;
@@ -803,7 +800,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
 
         // CHECKME: edge fill rules for unswapped opaque shadow mask polygons
-        if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || ((polyalpha < 31) && (gpu3d.RenderDispCnt & (1<<3))) || wireframe)
+        if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || wireframe)
         {
             l_filledge = true;
             r_filledge = true;
@@ -818,21 +815,6 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         }
     }
 
-    // color/texcoord attributes aren't needed for shadow masks
-    // all the pixels are guaranteed to have the same alpha
-    // even if a texture is used (decal blending is used for shadows)
-    // similarly, we can perform alpha test early (checkme)
-
-    if (wireframe) polyalpha = 31;
-    if (polyalpha <= gpu3d.RenderAlphaRef) return;
-
-    // in wireframe mode, there are special rules for equal Z (TODO)
-
-    int yedge = 0;
-    if (y == polygon->YTop)           yedge = 0x4;
-    else if (y == polygon->YBottom-1) yedge = 0x8;
-    int edge;
-
     s32 x = xstart;
     Interpolator<0> interpX(xstart, xend+1, wl, wr);
 
@@ -843,7 +825,6 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     // draw nothing.
 
     // part 1: left edge
-    edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
     if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
@@ -871,11 +852,9 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     }
 
     // part 2: polygon inside
-    edge = yedge;
     xlimit = xend-r_edgelen+1;
     if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
-    if (wireframe && !edge) x = std::max(x, xlimit);
     else for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
@@ -897,7 +876,6 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     }
 
     // part 3: right edge
-    edge = yedge | 0x2;
     xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
 
