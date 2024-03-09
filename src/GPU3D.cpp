@@ -2470,7 +2470,8 @@ void GPU3D::VBlank() noexcept
                     && RenderFogOffset == FogOffset * 0x200
                     && memcmp(RenderEdgeTable, EdgeTable, 8*2) == 0
                     && memcmp(RenderFogDensityTable + 1, FogDensityTable, 32) == 0
-                    && memcmp(RenderToonTable, ToonTable, 32*2) == 0;
+                    && memcmp(RenderToonTable, ToonTable, 32*2) == 0
+                    && RenderRasterRev == NDS.GetSCFGRasterBit();
             }
 
             RenderDispCnt = DispCnt;
@@ -2488,6 +2489,8 @@ void GPU3D::VBlank() noexcept
 
             RenderClearAttr1 = ClearAttr1;
             RenderClearAttr2 = ClearAttr2;
+            // CHECKME: is this actually latched?
+            RenderRasterRev = NDS.GetSCFGRasterBit();
         }
 
         if (FlushRequest)

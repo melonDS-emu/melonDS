@@ -3173,4 +3173,9 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
     return NDS::ARM7IOWrite32(addr, val);
 }
 
+bool DSi::GetSCFGRasterBit()
+{
+    return SCFG_EXT[0] & (1<<2);
+}
+
 }

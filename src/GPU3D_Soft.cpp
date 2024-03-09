@@ -121,6 +121,7 @@ void SoftRenderer::Reset(GPU& gpu)
     memset(ColorBuffer, 0, BufferSize * 2 * 4);
     memset(DepthBuffer, 0, BufferSize * 2 * 4);
     memset(AttrBuffer, 0, BufferSize * 2 * 4);
+    memset(StencilBuffer, 0, 256*2); // CHECKME?
 
     PrevIsShadowMask = false;
 
@@ -713,7 +714,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     else
         fnDepthTest = DepthTest_LessThan;
 
-    if (!PrevIsShadowMask)
+    if (!PrevIsShadowMask && !gpu3d.RenderRasterRev) // the "Revised" Rasterizer Circuit bugs out stencil buffer clearing
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
 
     PrevIsShadowMask = true;
@@ -771,8 +772,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         std::swap(wl, wr);
         std::swap(zl, zr);
 
-        // CHECKME: edge fill rules for swapped opaque shadow mask polygons
-        if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || wireframe)
+        if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || !(polygon->Attr & (0x1F << 16)))
         {
             l_filledge = true;
             r_filledge = true;
@@ -799,8 +799,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
         rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
 
-        // CHECKME: edge fill rules for unswapped opaque shadow mask polygons
-        if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || wireframe)
+        if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || !(polygon->Attr & (0x1F << 16)))
         {
             l_filledge = true;
             r_filledge = true;
