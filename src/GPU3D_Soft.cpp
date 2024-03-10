@@ -796,25 +796,6 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
                 || (!(rp->SlopeL.Negative && rp->SlopeL.XMajor) && rp->SlopeR.Increment==0)
                 || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
         }
-        
-        // CHECKME: do these rules apply to shadow masks?
-        if (rp->SlopeR.XMajor)
-        {
-            if (rp->SlopeR.Negative)
-                l_edgeflag = EF_TopXMajor;
-            else
-                l_edgeflag = EF_BotXMajor;
-        }
-        else l_edgeflag = EF_LYMajor;
-
-        if (rp->SlopeL.XMajor)
-        {
-            if (!rp->SlopeL.Negative)
-                r_edgeflag = EF_TopXMajor;
-            else
-                r_edgeflag = EF_BotXMajor;
-        }
-        else r_edgeflag = EF_RYMajor;
     }
     else
     {
@@ -843,25 +824,6 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
             r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0)
                 || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
         }
-        
-        // CHECKME: do these rules apply to shadow masks?
-        if (rp->SlopeL.XMajor)
-        {
-            if (rp->SlopeL.Negative)
-                l_edgeflag = EF_TopXMajor;
-            else
-                l_edgeflag = EF_BotXMajor;
-        }
-        else l_edgeflag = EF_LYMajor;
-
-        if (rp->SlopeR.XMajor)
-        {
-            if (!rp->SlopeR.Negative)
-                r_edgeflag = EF_TopXMajor;
-            else
-                r_edgeflag = EF_BotXMajor;
-        }
-        else r_edgeflag = EF_RYMajor;
     }
 
     // color/texcoord attributes aren't needed for shadow masks
@@ -872,12 +834,13 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     if (wireframe) polyalpha = 31;
     if (polyalpha <= gpu3d.RenderAlphaRef) return;
 
-    if (y == polygon->YTop)
-        c_edgeflag = EF_TopXMajor;
-    else if (y == polygon->YBottom-1)
-        c_edgeflag = EF_BotXMajor;
-    else
-        c_edgeflag = EF_None;
+    // in wireframe mode, there are special rules for equal Z (TODO)
+
+    int yedge = 0;
+    // TODO: update shadow masks to the new edge flag system?
+    if (y == polygon->YTop)           yedge = 0x4;
+    else if (y == polygon->YBottom-1) yedge = 0x8;
+    int edge;
 
     s32 x = xstart;
     Interpolator<0> interpX(xstart, xend+1, wl, wr);
@@ -889,6 +852,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     // draw nothing.
 
     // part 1: left edge
+    edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
     if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
@@ -916,10 +880,11 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     }
 
     // part 2: polygon inside
+    edge = yedge;
     xlimit = xend-r_edgelen+1;
     if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
-    if (wireframe && !c_edgeflag) x = std::max(x, xlimit);
+    if (wireframe && !edge) x = std::max(x, xlimit);
     else for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
@@ -941,6 +906,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     }
 
     // part 3: right edge
+    edge = yedge | 0x2;
     xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
 
