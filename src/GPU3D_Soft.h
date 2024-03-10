@@ -496,7 +496,7 @@ private:
     // bit24-29: polygon ID for opaque pixels
 
     u8 StencilBuffer[256*2];
-    bool PrevIsShadowMask;
+    bool ShadowRendered;
 
     bool Enabled;
 

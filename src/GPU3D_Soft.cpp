@@ -121,9 +121,9 @@ void SoftRenderer::Reset(GPU& gpu)
     memset(ColorBuffer, 0, BufferSize * 2 * 4);
     memset(DepthBuffer, 0, BufferSize * 2 * 4);
     memset(AttrBuffer, 0, BufferSize * 2 * 4);
-    memset(StencilBuffer, 0, 256*2); // CHECKME?
+    memset(StencilBuffer, 0, 256*2);
 
-    PrevIsShadowMask = false;
+    ShadowRendered = false;
 
     SetupRenderThread(gpu);
     EnableRenderThread();
@@ -589,7 +589,10 @@ void SoftRenderer::PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 c
         DepthBuffer[pixeladdr] = z;
 
     ColorBuffer[pixeladdr] = color;
-    AttrBuffer[pixeladdr] = attr;
+
+    // shadows dont update the attribute buffer (CHECKME: does this apply to all flags?)
+    if (!shadow)
+        AttrBuffer[pixeladdr] = attr;
 }
 
 void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y) const
@@ -714,10 +717,12 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     else
         fnDepthTest = DepthTest_LessThan;
 
-    if (!PrevIsShadowMask && !gpu3d.RenderRasterRev) // the "Revised" Rasterizer Circuit bugs out stencil buffer clearing
+    // stencil buffer is only cleared when beginning a shadow mask after a shadow polygon is rendered
+    // the "Revised" Rasterizer Circuit bugs out stencil buffer clearing
+    if (ShadowRendered && !gpu3d.RenderRasterRev)
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
 
-    PrevIsShadowMask = true;
+    ShadowRendered = false;
 
     if (polygon->YTop != polygon->YBottom)
     {
@@ -913,6 +918,9 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
     bool wireframe = (polyalpha == 0);
 
+    ShadowRendered |= polygon->IsShadow;
+    if (wireframe && polygon->IsShadow) return; // TODO: this probably still counts towards timings.
+
     bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr);
     if (polygon->Attr & (1<<14))
         fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
@@ -920,8 +928,6 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         fnDepthTest = DepthTest_LessThan_FrontFacing;
     else
         fnDepthTest = DepthTest_LessThan;
-
-    PrevIsShadowMask = false;
 
     if (polygon->YTop != polygon->YBottom)
     {
@@ -1153,10 +1159,13 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                     AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
                 }
             }
-
-            DepthBuffer[pixeladdr] = z;
+            
             ColorBuffer[pixeladdr] = color;
-            AttrBuffer[pixeladdr] = attr;
+            if (!polygon->IsShadow)
+            {
+                DepthBuffer[pixeladdr] = z;
+                AttrBuffer[pixeladdr] = attr;
+            }
         }
         else
         {
@@ -1227,7 +1236,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         {
             u32 attr = polyattr | edge;
 
-            if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (attr & 0xF))
+            if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && ((attr & 0xF) || polygon->IsShadow))
             {
                 // anti-aliasing: all edges are rendered
 
@@ -1242,10 +1251,13 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                     AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
                 }
             }
-
-            DepthBuffer[pixeladdr] = z;
+            
             ColorBuffer[pixeladdr] = color;
-            AttrBuffer[pixeladdr] = attr;
+            if (!polygon->IsShadow)
+            {
+                DepthBuffer[pixeladdr] = z;
+                AttrBuffer[pixeladdr] = attr;
+            }
         }
         else
         {
@@ -1341,10 +1353,13 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                     AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
                 }
             }
-
-            DepthBuffer[pixeladdr] = z;
+            
             ColorBuffer[pixeladdr] = color;
-            AttrBuffer[pixeladdr] = attr;
+            if (!polygon->IsShadow)
+            {
+                DepthBuffer[pixeladdr] = z;
+                AttrBuffer[pixeladdr] = attr;
+            }
         }
         else
         {
