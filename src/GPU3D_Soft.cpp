@@ -718,8 +718,6 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr, u8 flags);
     if (polygon->Attr & (1<<14))
         fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
-    else if (polygon->FacingView)
-        fnDepthTest = DepthTest_LessThan_FrontFacing;
     else
         fnDepthTest = DepthTest_LessThan;
 
@@ -948,7 +946,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr, u8 flags);
     if (polygon->Attr & (1<<14))
         fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
-    else if (polygon->FacingView)
+    else if (polygon->FacingView && !polygon->IsShadow)
         fnDepthTest = DepthTest_LessThan_FrontFacing;
     else
         fnDepthTest = DepthTest_LessThan;
@@ -1039,23 +1037,36 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // both quirks as based on certain "edge flags" derrived from the slope's characteristics.
         // bottom xmajor/horizontal edges are overridden by top xmajor/horizontal edges
         // and right ymajor/vertical/diagonal edges are overridden by left ymajor/vertical/diagonal edges
-        if (rp->SlopeR.XMajor)
+        // transparent, shadow, and shadow mask polygons don't seem to have edge flags
+        if (polyalpha == 31 && polygon->IsShadow)
         {
-            if (rp->SlopeR.Negative)
-                l_edgeflag = EF_TopXMajor;
-            else
-                l_edgeflag = EF_BotXMajor;
-        }
-        else l_edgeflag = EF_LYMajor;
+            if (rp->SlopeR.XMajor)
+            {
+                if (rp->SlopeR.Negative)
+                    l_edgeflag = EF_TopXMajor;
+                else
+                    l_edgeflag = EF_BotXMajor;
+            }
+            else l_edgeflag = EF_LYMajor;
 
-        if (rp->SlopeL.XMajor)
-        {
-            if (!rp->SlopeL.Negative)
-                r_edgeflag = EF_TopXMajor;
+            if (rp->SlopeL.XMajor)
+            {
+                if (!rp->SlopeL.Negative)
+                    r_edgeflag = EF_TopXMajor;
+                else
+                    r_edgeflag = EF_BotXMajor;
+            }
+            else r_edgeflag = EF_RYMajor;
+
+            // non-slope edge flags
+            //CHECKME: What happens when both flags should be applied?
+            if (y == polygon->YTop)
+                c_edgeflag = EF_TopXMajor;
+            else if (y == polygon->YBottom-1)
+                c_edgeflag = EF_BotXMajor;
             else
-                r_edgeflag = EF_BotXMajor;
+                c_edgeflag = EF_None;
         }
-        else r_edgeflag = EF_RYMajor;
     }
     else
     {
@@ -1097,33 +1108,38 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // both quirks as based on certain "edge flags" derrived from the slope's characteristics.
         // bottom xmajor/horizontal edges are overridden by top xmajor/horizontal edges
         // and right ymajor/vertical/diagonal edges are overridden by left ymajor/vertical/diagonal edges
-        if (rp->SlopeL.XMajor)
+        // transparent, shadow, and shadow mask polygons don't have edge flags
+        if (polyalpha == 31 && polygon->IsShadow)
         {
-            if (rp->SlopeL.Negative)
-                l_edgeflag = EF_TopXMajor;
-            else
-                l_edgeflag = EF_BotXMajor;
-        }
-        else l_edgeflag = EF_LYMajor;
+            if (rp->SlopeL.XMajor)
+            {
+                if (rp->SlopeL.Negative)
+                    l_edgeflag = EF_TopXMajor;
+                else
+                    l_edgeflag = EF_BotXMajor;
+            }
+            else l_edgeflag = EF_LYMajor;
 
-        if (rp->SlopeR.XMajor)
-        {
-            if (!rp->SlopeR.Negative)
-                r_edgeflag = EF_TopXMajor;
+            if (rp->SlopeR.XMajor)
+            {
+                if (!rp->SlopeR.Negative)
+                    r_edgeflag = EF_TopXMajor;
+                else
+                    r_edgeflag = EF_BotXMajor;
+            }
+            else r_edgeflag = EF_RYMajor;
+
+            // non-slope edge flags
+            //CHECKME: What happens when both flags should be applied?
+            if (y == polygon->YTop)
+                c_edgeflag = EF_TopXMajor;
+            else if (y == polygon->YBottom-1)
+                c_edgeflag = EF_BotXMajor;
             else
-                r_edgeflag = EF_BotXMajor;
+                c_edgeflag = EF_None;
         }
-        else r_edgeflag = EF_RYMajor;
     }
     
-    // non-slope edge flags
-    //CHECKME: What happens when both flags should be applied?
-    if (y == polygon->YTop)
-        c_edgeflag = EF_TopXMajor;
-    else if (y == polygon->YBottom-1)
-        c_edgeflag = EF_BotXMajor;
-    else
-        c_edgeflag = EF_None;
 
     // interpolate attributes along Y
 
