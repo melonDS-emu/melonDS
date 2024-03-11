@@ -366,8 +366,10 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
 }
 
 // depth test is 'less or equal' instead of 'less than' under the following conditions:
-// * when drawing a front-facing pixel over an opaque back-facing pixel
-// * when drawing wireframe edges, under certain conditions (TODO)
+// * when drawing a front-facing (non-shadow/shadow mask) pixel over a back-facing pixel
+//   back-facing flag is only set by opaque polygons
+// * when drawing a top xmajor edge over a bottom xmajor edge or a left ymajor edge over a right ymajor edge
+//   translucent/shadow/shadow mask polygons dont have edge flags
 //
 // range is different based on depth-buffering mode
 // Z-buffering: +-0x200
@@ -452,13 +454,13 @@ u32 SoftRenderer::AlphaBlend(const GPU3D& gpu3d, u32 srccolor, u32 dstcolor, u32
     return srcR | (srcG << 8) | (srcB << 16) | (dstalpha << 24);
 }
 
-u32 SoftRenderer::RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const
+u32 SoftRenderer::RenderPixel(const GPU& gpu, const Polygon* polygon, u8 polyalpha, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const
 {
     u8 r, g, b, a;
 
     u32 blendmode = (polygon->Attr >> 4) & 0x3;
-    u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
-    bool wireframe = (polyalpha == 0);
+    //u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
+    //bool wireframe = (polyalpha == 0);
 
     if (blendmode == 2)
     {
@@ -555,7 +557,7 @@ u32 SoftRenderer::RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 
     }
 
     // checkme: can wireframe polygons use texture alpha?
-    if (wireframe) a = 31;
+    //if (wireframe) a = 31;
 
     return r | (g << 8) | (b << 16) | (a << 24);
 }
@@ -929,9 +931,13 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     bool wireframe = (polyalpha == 0);
 
     ShadowRendered |= polygon->IsShadow;
-    if (wireframe && polygon->IsShadow) return; // TODO: this probably still counts towards timings.
+    if (wireframe)
+    {
+        if (polygon->IsShadow) return; // TODO: this probably still counts towards timings.
+        polyalpha = 31;
+    }
 
-    bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr);
+    bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr, u8 flags);
     if (polygon->Attr & (1<<14))
         fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
     else if (polygon->FacingView && !polygon->IsShadow)
@@ -1162,8 +1168,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     }
 
     if (!l_filledge) x = xlimit;
-    else
-    for (; x < xlimit; x++)
+    else for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
@@ -1203,7 +1208,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         s16 s = interpX.Interpolate(sl, sr);
         s16 t = interpX.Interpolate(tl, tr);
 
-        u32 color = RenderPixel(gpu, polygon, vr>>3, vg>>3, vb>>3, s, t);
+        u32 color = RenderPixel(gpu, polygon, polyalpha, vr>>3, vg>>3, vb>>3, s, t);
         u8 alpha = color >> 24;
 
         // alpha test
@@ -1260,8 +1265,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     if (xlimit > 256) xlimit = 256;
 
     if (wireframe && !c_edgeflag) x = std::max(x, xlimit);
-    else
-    for (; x < xlimit; x++)
+    else for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
@@ -1299,7 +1303,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         s16 s = interpX.Interpolate(sl, sr);
         s16 t = interpX.Interpolate(tl, tr);
 
-        u32 color = RenderPixel(gpu, polygon, vr>>3, vg>>3, vb>>3, s, t);
+        u32 color = RenderPixel(gpu, polygon, polyalpha, vr>>3, vg>>3, vb>>3, s, t);
         u8 alpha = color >> 24;
 
         // alpha test
@@ -1393,7 +1397,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         s16 s = interpX.Interpolate(sl, sr);
         s16 t = interpX.Interpolate(tl, tr);
 
-        u32 color = RenderPixel(gpu, polygon, vr>>3, vg>>3, vb>>3, s, t);
+        u32 color = RenderPixel(gpu, polygon, polyalpha, vr>>3, vg>>3, vb>>3, s, t);
         u8 alpha = color >> 24;
 
         // alpha test
