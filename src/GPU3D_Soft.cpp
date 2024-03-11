@@ -834,8 +834,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     if (xlimit > 256) xlimit = 256;
 
     if (!l_filledge) x = xlimit;
-    else
-    for (; x < xlimit; x++)
+    else for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
 
@@ -859,7 +858,8 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     xlimit = xend-r_edgelen+1;
     if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
-    else for (; x < xlimit; x++)
+
+    for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
 
