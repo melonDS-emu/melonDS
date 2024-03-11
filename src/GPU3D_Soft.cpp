@@ -1038,7 +1038,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // bottom xmajor/horizontal edges are overridden by top xmajor/horizontal edges
         // and right ymajor/vertical/diagonal edges are overridden by left ymajor/vertical/diagonal edges
         // transparent, shadow, and shadow mask polygons don't seem to have edge flags
-        if (polyalpha == 31 && polygon->IsShadow)
+        if (polyalpha == 31 && !polygon->IsShadow)
         {
             if (rp->SlopeR.XMajor)
             {
@@ -1109,7 +1109,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // bottom xmajor/horizontal edges are overridden by top xmajor/horizontal edges
         // and right ymajor/vertical/diagonal edges are overridden by left ymajor/vertical/diagonal edges
         // transparent, shadow, and shadow mask polygons don't have edge flags
-        if (polyalpha == 31 && polygon->IsShadow)
+        if (polyalpha == 31 && !polygon->IsShadow)
         {
             if (rp->SlopeL.XMajor)
             {
