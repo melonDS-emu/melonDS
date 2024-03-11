@@ -1278,6 +1278,8 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                 continue;
             if (!(stencil & 0x1))
                 pixeladdr += BufferSize;
+            if (!(stencil & 0x2))
+                dstattr &= ~0xF; // quick way to prevent drawing the shadow under antialiased edges
         }
 
         interpX.SetX(x);
