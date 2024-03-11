@@ -718,8 +718,9 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         fnDepthTest = DepthTest_LessThan;
 
     // stencil buffer is only cleared when beginning a shadow mask after a shadow polygon is rendered
-    // the "Revised" Rasterizer Circuit bugs out stencil buffer clearing
-    if (ShadowRendered && !gpu3d.RenderRasterRev)
+    // the "Revised" Rasterizer Circuit bugs out stencil buffer clearing for opaque shadow masks
+    // TODO: toggling the scfg bit also glitches shadow polygons for a frame even when translucent
+    if (ShadowRendered && !gpu3d.RenderRasterRev && ((polyattr >> 24) == 31))
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
 
     ShadowRendered = false;
