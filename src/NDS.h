@@ -471,6 +471,8 @@ public: // TODO: Encapsulate the rest of these members
     void SetJITArgs(std::optional<JITArgs> args) noexcept {}
 #endif
 
+    virtual bool GetSCFGRasterBit();
+   
 private:
     void InitTimings();
     u32 SchedListMask;

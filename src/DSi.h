@@ -129,6 +129,8 @@ public:
     void ARM7IOWrite16(u32 addr, u16 val) override;
     void ARM7IOWrite32(u32 addr, u32 val) override;
 
+    bool GetSCFGRasterBit() override;
+
 public:
     DSi(DSiArgs&& args) noexcept;
     ~DSi() noexcept override;
