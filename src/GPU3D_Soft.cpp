@@ -407,7 +407,7 @@ bool DepthTest_LessThan_FrontFacing(s32 dstz, s32 z, u32 dstattr, u8 flags)
     else
         invert = false;
 
-    if (((dstattr & 0x00400010) == 0x00000010) ^ invert) // opaque, back facing
+    if ((dstattr & (1<<4)) ^ invert) // back facing
     {
         if (z <= dstz)
             return true;
@@ -562,7 +562,7 @@ u32 SoftRenderer::RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 
 void SoftRenderer::PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow)
 {
     u32 dstattr = AttrBuffer[pixeladdr];
-    u32 attr = (polyattr & 0xE0F0) | ((polyattr >> 8) & 0xFF0000) | (1<<22) | (dstattr & 0xFF001F0F);
+    u32 attr = (polyattr & (1<<15)) | ((polyattr >> 8) & 0xFF0000) | (1<<22) | (dstattr & 0xFF001F1F);
 
     if (shadow)
     {
