@@ -715,12 +715,6 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 {
     Polygon* polygon = rp->PolyData;
 
-    u32 polyattr = (polygon->Attr & 0x3F008000);
-    if (!polygon->FacingView) polyattr |= (1<<4);
-
-    u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
-    bool wireframe = (polyalpha == 0);
-
     bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr, u8 flags);
     if (polygon->Attr & (1<<14))
         fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
@@ -730,7 +724,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     // stencil buffer is only cleared when beginning a shadow mask after a shadow polygon is rendered
     // the "Revised" Rasterizer Circuit bugs out stencil buffer clearing for opaque shadow masks
     // TODO: toggling the scfg bit also glitches shadow polygons for a frame even when translucent
-    if (ShadowRendered && !(gpu3d.RenderRasterRev && ((polyattr >> 24) == 31)))
+    if (ShadowRendered && !(gpu3d.RenderRasterRev && (((polygon->Attr >> 16) & 0x1F) == 31)))
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
 
     ShadowRendered = false;
@@ -751,11 +745,8 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     Vertex *vlcur, *vlnext, *vrcur, *vrnext;
     s32 xstart, xend;
     bool l_filledge, r_filledge;
-    u8 l_edgeflag, c_edgeflag, r_edgeflag;
     s32 l_edgelen, r_edgelen;
     s32 l_edgecov, r_edgecov;
-    Interpolator<1>* interp_start;
-    Interpolator<1>* interp_end;
 
     xstart = rp->XL;
     xend = rp->XR;
@@ -778,9 +769,6 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         vlnext = polygon->Vertices[rp->NextVR];
         vrcur = polygon->Vertices[rp->CurVL];
         vrnext = polygon->Vertices[rp->NextVL];
-
-        interp_start = &rp->SlopeR.Interp;
-        interp_end = &rp->SlopeL.Interp;
 
         rp->SlopeR.EdgeParams<true>(&l_edgelen, &l_edgecov);
         rp->SlopeL.EdgeParams<true>(&r_edgelen, &r_edgecov);
@@ -809,9 +797,6 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         vlnext = polygon->Vertices[rp->NextVL];
         vrcur = polygon->Vertices[rp->CurVR];
         vrnext = polygon->Vertices[rp->NextVR];
-
-        interp_start = &rp->SlopeL.Interp;
-        interp_end = &rp->SlopeR.Interp;
 
         rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
         rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
@@ -855,13 +840,13 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
 
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, l_edgeflag))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, 0))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
         if (dstattr & EF_AnyEdge)
         {
             pixeladdr += BufferSize;
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], l_edgeflag))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], 0))
                 StencilBuffer[256*(y&0x1) + x] |= 0x2;
         }
     }
@@ -880,13 +865,13 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
 
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, c_edgeflag))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, 0))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
         if (dstattr & EF_AnyEdge)
         {
             pixeladdr += BufferSize;
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], c_edgeflag))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], 0))
                 StencilBuffer[256*(y&0x1) + x] |= 0x2;
         }
     }
@@ -905,13 +890,13 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
 
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, r_edgeflag))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, 0))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
         if (dstattr & EF_AnyEdge)
         {
             pixeladdr += BufferSize;
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], r_edgeflag))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], 0))
                 StencilBuffer[256*(y&0x1) + x] |= 0x2;
         }
     }
