@@ -740,7 +740,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         }
     }
 
-    Vertex *vlcur, *vlnext, *vrcur, *vrnext;
+    Vertex *vlnext, *vrnext;
     s32 xstart, xend;
     bool l_filledge, r_filledge;
     s32 l_edgelen, r_edgelen;
@@ -763,9 +763,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     // if the left and right edges are swapped, render backwards.
     if (xstart > xend)
     {
-        vlcur = polygon->Vertices[rp->CurVR];
         vlnext = polygon->Vertices[rp->NextVR];
-        vrcur = polygon->Vertices[rp->CurVL];
         vrnext = polygon->Vertices[rp->NextVL];
 
         rp->SlopeR.EdgeParams<true>(&l_edgelen, &l_edgecov);
@@ -791,9 +789,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     }
     else
     {
-        vlcur = polygon->Vertices[rp->CurVL];
         vlnext = polygon->Vertices[rp->NextVL];
-        vrcur = polygon->Vertices[rp->CurVR];
         vrnext = polygon->Vertices[rp->NextVR];
 
         rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
@@ -838,11 +834,13 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
+        {
             StencilBuffer[256*(y&0x1) + x] = 1;
 
-        pixeladdr += BufferSize;
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
-            StencilBuffer[256*(y&0x1) + x] |= 0x2;
+            pixeladdr += BufferSize;
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
+                StencilBuffer[256*(y&0x1) + x] |= 0x2;
+        }
     }
 
     // part 2: polygon inside
@@ -859,11 +857,13 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
+        {
             StencilBuffer[256*(y&0x1) + x] = 1;
 
-        pixeladdr += BufferSize;
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
-            StencilBuffer[256*(y&0x1) + x] |= 0x2;
+            pixeladdr += BufferSize;
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
+                StencilBuffer[256*(y&0x1) + x] |= 0x2;
+        }
     }
 
     // part 3: right edge
@@ -880,11 +880,13 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
+        {
             StencilBuffer[256*(y&0x1) + x] = 1;
 
-        pixeladdr += BufferSize;
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
-            StencilBuffer[256*(y&0x1) + x] |= 0x2;
+            pixeladdr += BufferSize;
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
+                StencilBuffer[256*(y&0x1) + x] |= 0x2;
+        }
     }
 
     rp->XL = rp->SlopeL.Step();
@@ -1143,16 +1145,16 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
-
+        
         // check stencil buffer for shadows
         if (polygon->IsShadow)
         {
             u8 stencil = StencilBuffer[256*(y&0x1) + x];
-            if (!stencil)
+            if (!stencil) // if the top bit isnt set then the bottom cant be either
                 continue;
-            if (!(stencil & 0x1))
-                pixeladdr += BufferSize;
-            if (!(stencil & 0x2))
+            //if (!stencil & 0x1)
+            //    Platform::Log(Platform::LogLevel::Error, "Jakly's a dumb dumb!");
+            if (!(stencil & 0x2)) // check bottom pixel bit
                 dstattr &= ~EF_AnyEdge; // quick way to prevent drawing the shadow under antialiased edges
         }
 
@@ -1164,7 +1166,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, l_edgeflag))
         {
-            if (pixeladdr >= BufferSize) continue;
+            if (polygon->IsShadow && !(StencilBuffer[256*(y&0x1) + x] & 0x2)) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1246,17 +1248,17 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
-
+        
         // check stencil buffer for shadows
         if (polygon->IsShadow)
         {
             u8 stencil = StencilBuffer[256*(y&0x1) + x];
-            if (!stencil)
+            if (!stencil) // if the top bit isnt set then the bottom cant be either
                 continue;
-            if (!(stencil & 0x1))
-                pixeladdr += BufferSize;
-            if (!(stencil & 0x2))
-                dstattr &= ~0xF; // quick way to prevent drawing the shadow under antialiased edges
+            //if (!stencil & 0x1)
+            //    Platform::Log(Platform::LogLevel::Error, "Jakly's a dumb dumb!");
+            if (!(stencil & 0x2)) // check bottom pixel bit
+                dstattr &= ~EF_AnyEdge; // quick way to prevent drawing the shadow under antialiased edges
         }
 
         interpX.SetX(x);
@@ -1267,7 +1269,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, c_edgeflag))
         {
-            if (pixeladdr >= BufferSize) continue;
+            if (polygon->IsShadow && !(StencilBuffer[256*(y&0x1) + x] & 0x2)) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1351,11 +1353,11 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         if (polygon->IsShadow)
         {
             u8 stencil = StencilBuffer[256*(y&0x1) + x];
-            if (!stencil)
+            if (!stencil) // if the top bit isnt set then the bottom cant be either
                 continue;
-            if (!(stencil & 0x1))
-                pixeladdr += BufferSize;
-            if (!(stencil & 0x2))
+            //if (!stencil & 0x1)
+            //    Platform::Log(Platform::LogLevel::Error, "Jakly's a dumb dumb!");
+            if (!(stencil & 0x2)) // check bottom pixel bit
                 dstattr &= ~EF_AnyEdge; // quick way to prevent drawing the shadow under antialiased edges
         }
 
@@ -1367,7 +1369,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, r_edgeflag))
         {
-            if (pixeladdr >= BufferSize) continue;
+            if (polygon->IsShadow && !(StencilBuffer[256*(y&0x1) + x] & 0x2)) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
