@@ -916,6 +916,8 @@ void Reset(EmuThread* thread)
             thread->NDS->SetupDirectBoot(BaseROMName);
         }
     }
+
+    thread->NDS->Start();
 }
 
 
