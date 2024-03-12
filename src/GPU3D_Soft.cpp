@@ -996,13 +996,13 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                 || (!(rp->SlopeL.Negative && rp->SlopeL.XMajor) && rp->SlopeR.Increment==0)
                 || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
         }
-        
+
         // there is a quirk with the less than equals depth test where the back facing flag's role is inverted
         // TODO: edge marking also has a similar quirk where the top pixel is overridden by the bottom pixel when aa is disabled
-        // both quirks as based on certain "edge flags" derrived from the slope's characteristics.
-        // bottom xmajor/horizontal edges are overridden by top xmajor/horizontal edges
-        // and right ymajor/vertical/diagonal edges are overridden by left ymajor/vertical/diagonal edges
-        // transparent, shadow, and shadow mask polygons don't seem to have edge flags
+        // both quirks are based on certain "edge flags" derrived from the slope's characteristics.
+        // * bottom xmajor/horizontal edges are overridden by top xmajor/horizontal edges
+        // * right ymajor/vertical/diagonal edges are overridden by left ymajor/vertical/diagonal edges
+        // * transparent, shadow, and shadow mask polygons don't have edge flags
         if (polyalpha == 31 && !polygon->IsShadow)
         {
             if (rp->SlopeR.XMajor)
@@ -1067,13 +1067,13 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
             r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0)
                 || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
         }
-        
+
         // there is a quirk with the less than equals depth test where the back facing flag's role is inverted
         // TODO: edge marking also has a similar quirk where the top pixel is overridden by the bottom pixel when aa is disabled
-        // both quirks as based on certain "edge flags" derrived from the slope's characteristics.
-        // bottom xmajor/horizontal edges are overridden by top xmajor/horizontal edges
-        // and right ymajor/vertical/diagonal edges are overridden by left ymajor/vertical/diagonal edges
-        // transparent, shadow, and shadow mask polygons don't have edge flags
+        // both quirks are based on certain "edge flags" derrived from the slope's characteristics.
+        // * bottom xmajor/horizontal edges are overridden by top xmajor/horizontal edges
+        // * right ymajor/vertical/diagonal edges are overridden by left ymajor/vertical/diagonal edges
+        // * transparent, shadow, and shadow mask polygons don't have edge flags
         if (polyalpha == 31 && !polygon->IsShadow)
         {
             if (rp->SlopeL.XMajor)
@@ -1147,15 +1147,14 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         u32 dstattr = AttrBuffer[pixeladdr];
         
         // check stencil buffer for shadows
+        bool blendbot = true;
         if (polygon->IsShadow)
         {
             u8 stencil = StencilBuffer[256*(y&0x1) + x];
             if (!stencil) // if the top bit isnt set then the bottom cant be either
                 continue;
-            //if (!stencil & 0x1)
-            //    Platform::Log(Platform::LogLevel::Error, "Jakly's a dumb dumb!");
             if (!(stencil & 0x2)) // check bottom pixel bit
-                dstattr &= ~EF_AnyEdge; // quick way to prevent drawing the shadow under antialiased edges
+                blendbot = false;
         }
 
         interpX.SetX(x);
@@ -1166,7 +1165,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, l_edgeflag))
         {
-            if (polygon->IsShadow && !(StencilBuffer[256*(y&0x1) + x] & 0x2)) continue;
+            if (!blendbot) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1233,7 +1232,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
             PlotTranslucentPixel(gpu.GPU3D, pixeladdr, color, z, polyattr, polygon->IsShadow);
 
             // blend with bottom pixel too, if needed
-            if ((dstattr & EF_AnyEdge) && (pixeladdr < BufferSize))
+            if (blendbot && (pixeladdr < BufferSize))
                 PlotTranslucentPixel(gpu.GPU3D, pixeladdr+BufferSize, color, z, polyattr, polygon->IsShadow);
         }
     }
@@ -1250,15 +1249,14 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         u32 dstattr = AttrBuffer[pixeladdr];
         
         // check stencil buffer for shadows
+        bool blendbot = true;
         if (polygon->IsShadow)
         {
             u8 stencil = StencilBuffer[256*(y&0x1) + x];
             if (!stencil) // if the top bit isnt set then the bottom cant be either
                 continue;
-            //if (!stencil & 0x1)
-            //    Platform::Log(Platform::LogLevel::Error, "Jakly's a dumb dumb!");
             if (!(stencil & 0x2)) // check bottom pixel bit
-                dstattr &= ~EF_AnyEdge; // quick way to prevent drawing the shadow under antialiased edges
+                blendbot = false;
         }
 
         interpX.SetX(x);
@@ -1269,7 +1267,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, c_edgeflag))
         {
-            if (polygon->IsShadow && !(StencilBuffer[256*(y&0x1) + x] & 0x2)) continue;
+            if (!blendbot) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1329,7 +1327,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
             PlotTranslucentPixel(gpu.GPU3D, pixeladdr, color, z, polyattr, polygon->IsShadow);
 
             // blend with bottom pixel too, if needed
-            if ((dstattr & EF_AnyEdge) && (pixeladdr < BufferSize))
+            if (blendbot && (pixeladdr < BufferSize))
                 PlotTranslucentPixel(gpu.GPU3D, pixeladdr+BufferSize, color, z, polyattr, polygon->IsShadow);
         }
     }
@@ -1348,17 +1346,16 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
-
+        
         // check stencil buffer for shadows
+        bool blendbot = true;
         if (polygon->IsShadow)
         {
             u8 stencil = StencilBuffer[256*(y&0x1) + x];
             if (!stencil) // if the top bit isnt set then the bottom cant be either
                 continue;
-            //if (!stencil & 0x1)
-            //    Platform::Log(Platform::LogLevel::Error, "Jakly's a dumb dumb!");
             if (!(stencil & 0x2)) // check bottom pixel bit
-                dstattr &= ~EF_AnyEdge; // quick way to prevent drawing the shadow under antialiased edges
+                blendbot = false;
         }
 
         interpX.SetX(x);
@@ -1369,7 +1366,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, r_edgeflag))
         {
-            if (polygon->IsShadow && !(StencilBuffer[256*(y&0x1) + x] & 0x2)) continue;
+            if (!blendbot) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1436,7 +1433,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
             PlotTranslucentPixel(gpu.GPU3D, pixeladdr, color, z, polyattr, polygon->IsShadow);
 
             // blend with bottom pixel too, if needed
-            if ((dstattr & EF_AnyEdge) && (pixeladdr < BufferSize))
+            if (blendbot && (pixeladdr < BufferSize))
                 PlotTranslucentPixel(gpu.GPU3D, pixeladdr+BufferSize, color, z, polyattr, polygon->IsShadow);
         }
     }
