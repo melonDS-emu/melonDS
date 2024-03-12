@@ -588,6 +588,7 @@ void SoftRenderer::PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 c
             return;
     }
 
+    // checkme (does this get updated by shadow polygons?)
     // fog flag
     if (!(dstattr & (1<<15)))
         attr &= ~(1<<15);
@@ -598,10 +599,7 @@ void SoftRenderer::PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 c
         DepthBuffer[pixeladdr] = z;
 
     ColorBuffer[pixeladdr] = color;
-
-    // shadows dont update the attribute buffer (CHECKME: does this apply to all flags?)
-    if (!shadow)
-        AttrBuffer[pixeladdr] = attr;
+    AttrBuffer[pixeladdr] = attr;
 }
 
 void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y) const
@@ -838,13 +836,12 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         interpX.SetX(x);
 
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
-        u32 dstattr = AttrBuffer[pixeladdr];
 
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, 0))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
         pixeladdr += BufferSize;
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], 0))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
             StencilBuffer[256*(y&0x1) + x] |= 0x2;
     }
 
@@ -860,13 +857,12 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         interpX.SetX(x);
 
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
-        u32 dstattr = AttrBuffer[pixeladdr];
 
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, 0))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
         pixeladdr += BufferSize;
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], 0))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
             StencilBuffer[256*(y&0x1) + x] |= 0x2;
     }
 
@@ -882,13 +878,12 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         interpX.SetX(x);
 
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
-        u32 dstattr = AttrBuffer[pixeladdr];
 
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, 0))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
         pixeladdr += BufferSize;
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], 0))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, 0, 0))
             StencilBuffer[256*(y&0x1) + x] |= 0x2;
     }
 
