@@ -151,30 +151,31 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
     if (Config::ConsoleType == 1)
     {
         auto arm7ibios = ROMManager::LoadDSiARM7BIOS();
-        if (!arm7ibios)
-            return nullptr;
-
         auto arm9ibios = ROMManager::LoadDSiARM9BIOS();
-        if (!arm9ibios)
-            return nullptr;
+        std::optional<melonDS::DSi_NAND::NANDImage> nand ;
+        if (arm7ibios)
+            nand = ROMManager::LoadNAND(*arm7ibios);
 
-        auto nand = ROMManager::LoadNAND(*arm7ibios);
-        if (!nand)
-            return nullptr;
+        if (!arm7ibios || !arm9ibios || !nand)
+        {
+            Config::ConsoleType = 0;
+            Log(LogLevel::Warn, "Failed to load emulation files (bios/nand image), falling back to NDS mode\n");
+        } else
+        {
+            auto sdcard = ROMManager::LoadDSiSDCard();
+            DSiArgs args {
+                std::move(ndsargs),
+                *arm9ibios,
+                *arm7ibios,
+                std::move(*nand),
+                std::move(sdcard),
+                Config::DSiFullBIOSBoot,
+            };
 
-        auto sdcard = ROMManager::LoadDSiSDCard();
-        DSiArgs args {
-            std::move(ndsargs),
-            *arm9ibios,
-            *arm7ibios,
-            std::move(*nand),
-            std::move(sdcard),
-            Config::DSiFullBIOSBoot,
-        };
+            args.GBAROM = nullptr;
 
-        args.GBAROM = nullptr;
-
-        return std::make_unique<melonDS::DSi>(std::move(args));
+            return std::make_unique<melonDS::DSi>(std::move(args));            
+        }
     }
 
     return std::make_unique<melonDS::NDS>(std::move(ndsargs));
