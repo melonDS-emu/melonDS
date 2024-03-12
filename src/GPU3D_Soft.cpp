@@ -721,7 +721,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
     // stencil buffer is only cleared when beginning a shadow mask after a shadow polygon is rendered
     // the "Revised" Rasterizer Circuit bugs out stencil buffer clearing for opaque shadow masks
-    // TODO: toggling the scfg bit also glitches shadow polygons for a frame even when translucent
+    // TODO: toggling the scfg bit appears to glitch the stencil buffer for a frame with translucent masks?
     if (ShadowRendered && !(gpu3d.RenderRasterRev && (((polygon->Attr >> 16) & 0x1F) == 31)))
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
 
@@ -773,7 +773,9 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         std::swap(wl, wr);
         std::swap(zl, zr);
 
-        if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || !(polygon->Attr & (0x1F << 16)))
+        // shadow masks follow the same fill rules as regular polygons, with the exception of not being filled when translucent w/ blending enabled
+        // although though they are filled when wireframe, despite not actually rendering as a wireframe
+        if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || ((polygon->Attr & (0x1F << 16)) == 0))
         {
             l_filledge = true;
             r_filledge = true;
@@ -794,8 +796,10 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
         rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
         rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
-
-        if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || !(polygon->Attr & (0x1F << 16)))
+        
+        // shadow masks follow the same fill rules as regular polygons, with the exception of not being filled when translucent w/ blending enabled
+        // although though they are filled when wireframe, despite not actually rendering as a wireframe
+        if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || ((polygon->Attr & (0x1F << 16)) == 0))
         {
             l_filledge = true;
             r_filledge = true;
