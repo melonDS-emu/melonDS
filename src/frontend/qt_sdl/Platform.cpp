@@ -218,7 +218,7 @@ std::string InstanceFileSuffix()
 
 static QIODevice::OpenMode GetQMode(FileMode mode)
 {
-    QIODevice::OpenMode qmode = 0;
+    QIODevice::OpenMode qmode = QIODevice::OpenModeFlag::NotOpen;
     if (mode & FileMode::Read)
         qmode |= QIODevice::OpenModeFlag::ReadOnly;
     if (mode & FileMode::Write)
