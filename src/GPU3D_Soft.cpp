@@ -843,12 +843,9 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, 0))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
-        if (dstattr & EF_AnyEdge)
-        {
-            pixeladdr += BufferSize;
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], 0))
-                StencilBuffer[256*(y&0x1) + x] |= 0x2;
-        }
+        pixeladdr += BufferSize;
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], 0))
+            StencilBuffer[256*(y&0x1) + x] |= 0x2;
     }
 
     // part 2: polygon inside
@@ -868,12 +865,9 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, 0))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
-        if (dstattr & EF_AnyEdge)
-        {
-            pixeladdr += BufferSize;
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], 0))
-                StencilBuffer[256*(y&0x1) + x] |= 0x2;
-        }
+        pixeladdr += BufferSize;
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], 0))
+            StencilBuffer[256*(y&0x1) + x] |= 0x2;
     }
 
     // part 3: right edge
@@ -893,12 +887,9 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, 0))
             StencilBuffer[256*(y&0x1) + x] = 1;
 
-        if (dstattr & EF_AnyEdge)
-        {
-            pixeladdr += BufferSize;
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], 0))
-                StencilBuffer[256*(y&0x1) + x] |= 0x2;
-        }
+        pixeladdr += BufferSize;
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr], 0))
+            StencilBuffer[256*(y&0x1) + x] |= 0x2;
     }
 
     rp->XL = rp->SlopeL.Step();
@@ -1178,7 +1169,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, l_edgeflag))
         {
-            if (!(dstattr & EF_AnyEdge) || pixeladdr >= BufferSize) continue;
+            if (pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1224,6 +1215,12 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                     DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
                     AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
                 }
+            }
+            else
+            {
+                // update depth buffer solely to fix an ultra niche bug with shadow masks
+                if (pixeladdr < BufferSize)
+                    DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
             }
             
             ColorBuffer[pixeladdr] = color;
@@ -1275,7 +1272,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, c_edgeflag))
         {
-            if (!(dstattr & EF_AnyEdge) || pixeladdr >= BufferSize) continue;
+            if (pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1314,6 +1311,12 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                     DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
                     AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
                 }
+            }
+            else
+            {
+                // update depth buffer solely to fix an ultra niche bug with shadow masks
+                if (pixeladdr < BufferSize)
+                    DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
             }
             
             ColorBuffer[pixeladdr] = color;
@@ -1369,7 +1372,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr, r_edgeflag))
         {
-            if (!(dstattr & EF_AnyEdge) || pixeladdr >= BufferSize) continue;
+            if (pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1415,6 +1418,12 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                     DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
                     AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
                 }
+            }
+            else
+            {
+                // update depth buffer solely to fix an ultra niche bug with shadow masks
+                if (pixeladdr < BufferSize)
+                    DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
             }
             
             ColorBuffer[pixeladdr] = color;
