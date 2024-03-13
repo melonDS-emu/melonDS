@@ -29,6 +29,8 @@
 #include "NDSCart.h"
 #include "GBACart.h"
 
+extern int autoScreenSizing;
+
 using Keep = std::monostate;
 using UpdateConsoleNDSArgs = std::variant<Keep, std::unique_ptr<melonDS::NDSCart::CartCommon>>;
 using UpdateConsoleGBAArgs = std::variant<Keep, std::unique_ptr<melonDS::GBACart::CartCommon>>;
@@ -124,8 +126,6 @@ private:
     std::atomic<ContextRequestKind> ContextRequest = contextRequest_None;
 
     ScreenPanelGL* screenGL;
-
-    int autoScreenSizing;
 
     int videoRenderer;
     bool videoSettingsDirty;
