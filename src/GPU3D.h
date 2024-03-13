@@ -271,6 +271,8 @@ public:
     u32 RenderClearAttr1 = 0;
     u32 RenderClearAttr2 = 0;
 
+    bool RenderRasterRev = false;
+
     bool RenderFrameIdentical = false; // not part of the hardware state, don't serialize
 
     bool AbortFrame = false;

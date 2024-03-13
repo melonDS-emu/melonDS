@@ -26,6 +26,18 @@
 
 namespace melonDS
 {
+
+enum EdgeFlags
+{
+    EF_None      = (0),
+    EF_AnyEdge   = (0xF),
+
+    EF_TopXMajor = (1<<0),
+    EF_BotXMajor = (1<<1),
+    EF_LYMajor   = (1<<2),
+    EF_RYMajor   = (1<<3),
+};
+
 class SoftRenderer : public Renderer3D
 {
 public:
@@ -487,7 +499,7 @@ private:
     u32 AttrBuffer[BufferSize * 2];
 
     // attribute buffer:
-    // bit0-3: edge flags (left/right/top/bottom)
+    // bit0-3: edge flags (top xmajor/bottom xmajor/left ymajor/right ymajor)
     // bit4: backfacing flag
     // bit8-12: antialiasing alpha
     // bit15: fog enable
@@ -496,7 +508,7 @@ private:
     // bit24-29: polygon ID for opaque pixels
 
     u8 StencilBuffer[256*2];
-    bool PrevIsShadowMask;
+    bool ShadowRendered;
 
     bool Enabled;
 
