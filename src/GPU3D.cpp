@@ -240,6 +240,9 @@ void GPU3D::Reset() noexcept
     DispCnt = 0;
     AlphaRefVal = 0;
     AlphaRef = 0;
+    
+    RDLines = 63; // defaults to 63 for one frame? (CHECKME: when does it reset?)
+    RDLinesTemp = 63;
 
     memset(ToonTable, 0, sizeof(ToonTable));
     memset(EdgeTable, 0, sizeof(EdgeTable));
@@ -801,8 +804,6 @@ void GPU3D::StallPolygonPipeline(s32 delay, s32 nonstalldelay) noexcept
             AddCycles(NormalPipeline + 1);
     }
 }
-
-
 
 template<int comp, s32 plane, bool attribs>
 void ClipSegment(Vertex* outbuf, Vertex* vin, Vertex* vout)
@@ -2430,6 +2431,7 @@ bool YSort(Polygon* a, Polygon* b)
 
 void GPU3D::VBlank() noexcept
 {
+    RDLines = RDLinesTemp;
     if (GeometryEnabled)
     {
         if (RenderingEnabled)
@@ -2644,7 +2646,7 @@ u16 GPU3D::Read16(u32 addr) noexcept
         return DispCnt;
 
     case 0x04000320:
-        return 46; // TODO, eventually
+        return RDLines; // CHECKME: Can this always be read? Even when the gpu is powered off? also check 8 bit reads
 
     case 0x04000600:
         {
@@ -2688,7 +2690,7 @@ u32 GPU3D::Read32(u32 addr) noexcept
         return DispCnt;
 
     case 0x04000320:
-        return 46; // TODO, eventually
+        return RDLines;
 
     case 0x04000600:
         {
