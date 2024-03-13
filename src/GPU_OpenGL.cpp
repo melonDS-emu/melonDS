@@ -246,9 +246,9 @@ void GLCompositor::Stop(const GPU& gpu) noexcept
 
 void GLCompositor::RenderFrame(const GPU& gpu, GLRenderer& renderer) noexcept
 {
-    int frontbuf = gpu.FrontBuffer;
+    int backbuf = gpu.FrontBuffer ^ 1;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[frontbuf]);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[backbuf]);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
@@ -269,12 +269,12 @@ void GLCompositor::RenderFrame(const GPU& gpu, GLRenderer& renderer) noexcept
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, CompScreenInputTex);
 
-    if (gpu.Framebuffer[frontbuf][0] && gpu.Framebuffer[frontbuf][1])
+    if (gpu.Framebuffer[backbuf][0] && gpu.Framebuffer[backbuf][1])
     {
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
-                        GL_UNSIGNED_BYTE, gpu.Framebuffer[frontbuf][0].get());
+                        GL_UNSIGNED_BYTE, gpu.Framebuffer[backbuf][0].get());
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256*3 + 1, 192, GL_RGBA_INTEGER,
-                        GL_UNSIGNED_BYTE, gpu.Framebuffer[frontbuf][1].get());
+                        GL_UNSIGNED_BYTE, gpu.Framebuffer[backbuf][1].get());
     }
 
     glActiveTexture(GL_TEXTURE1);
