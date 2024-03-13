@@ -454,13 +454,13 @@ u32 SoftRenderer::AlphaBlend(const GPU3D& gpu3d, u32 srccolor, u32 dstcolor, u32
     return srcR | (srcG << 8) | (srcB << 16) | (dstalpha << 24);
 }
 
-u32 SoftRenderer::RenderPixel(const GPU& gpu, const Polygon* polygon, u8 polyalpha, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const
+u32 SoftRenderer::RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const
 {
     u8 r, g, b, a;
 
     u32 blendmode = (polygon->Attr >> 4) & 0x3;
-    //u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
-    //bool wireframe = (polyalpha == 0);
+    u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
+    bool wireframe = (polyalpha == 0);
 
     if (blendmode == 2)
     {
@@ -557,7 +557,7 @@ u32 SoftRenderer::RenderPixel(const GPU& gpu, const Polygon* polygon, u8 polyalp
     }
 
     // checkme: can wireframe polygons use texture alpha?
-    //if (wireframe) a = 31;
+    if (wireframe) a = 31;
 
     return r | (g << 8) | (b << 16) | (a << 24);
 }
@@ -909,10 +909,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
     ShadowRendered |= polygon->IsShadow;
     if (wireframe)
-    {
         if (polygon->IsShadow) return; // TODO: this probably still counts towards timings.
-        polyalpha = 31;
-    }
 
     bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr, u8 flags);
     if (polygon->Attr & (1<<14))
@@ -1007,7 +1004,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // * bottom xmajor/horizontal edges are overridden by top xmajor/horizontal edges
         // * right ymajor/vertical/diagonal edges are overridden by left ymajor/vertical/diagonal edges
         // * transparent, shadow, and shadow mask polygons don't have edge flags
-        if (polyalpha == 31 && !polygon->IsShadow)
+        if (polyalpha == 31 || wireframe)
         {
             if (rp->SlopeR.XMajor)
             {
@@ -1078,7 +1075,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // * bottom xmajor/horizontal edges are overridden by top xmajor/horizontal edges
         // * right ymajor/vertical/diagonal edges are overridden by left ymajor/vertical/diagonal edges
         // * transparent, shadow, and shadow mask polygons don't have edge flags
-        if (polyalpha == 31 && !polygon->IsShadow)
+        if (polyalpha == 31 || wireframe)
         {
             if (rp->SlopeL.XMajor)
             {
@@ -1184,7 +1181,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         s16 s = interpX.Interpolate(sl, sr);
         s16 t = interpX.Interpolate(tl, tr);
 
-        u32 color = RenderPixel(gpu, polygon, polyalpha, vr>>3, vg>>3, vb>>3, s, t);
+        u32 color = RenderPixel(gpu, polygon, vr>>3, vg>>3, vb>>3, s, t);
         u8 alpha = color >> 24;
 
         // alpha test
@@ -1286,7 +1283,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         s16 s = interpX.Interpolate(sl, sr);
         s16 t = interpX.Interpolate(tl, tr);
 
-        u32 color = RenderPixel(gpu, polygon, polyalpha, vr>>3, vg>>3, vb>>3, s, t);
+        u32 color = RenderPixel(gpu, polygon, vr>>3, vg>>3, vb>>3, s, t);
         u8 alpha = color >> 24;
 
         // alpha test
@@ -1385,7 +1382,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         s16 s = interpX.Interpolate(sl, sr);
         s16 t = interpX.Interpolate(tl, tr);
 
-        u32 color = RenderPixel(gpu, polygon, polyalpha, vr>>3, vg>>3, vb>>3, s, t);
+        u32 color = RenderPixel(gpu, polygon, vr>>3, vg>>3, vb>>3, s, t);
         u8 alpha = color >> 24;
 
         // alpha test
