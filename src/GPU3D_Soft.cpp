@@ -1206,43 +1206,48 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
         if (alpha == 31)
         {
-            u32 attr = polyattr | l_edgeflag;
-
-            if (gpu.GPU3D.RenderDispCnt & (1<<4))
-            {
-                // anti-aliasing: all edges are rendered
-
-                // calculate coverage
-                s32 cov = l_edgecov;
-                if (cov & (1<<31))
-                {
-                    cov = xcov >> 5;
-                    if (cov > 31) cov = 31;
-                    xcov += (l_edgecov & 0x3FF);
-                }
-                attr |= (cov << 8);
-
-                // push old pixel down if needed
-                if (pixeladdr < BufferSize)
-                {
-                    ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
-                    DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
-                    AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
-                }
-            }
-            else
-            {
-                // update depth buffer solely to fix an ultra niche bug with shadow masks
-                if (pixeladdr < BufferSize)
-                    DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
-            }
-            
-            ColorBuffer[pixeladdr] = color;
             if (!polygon->IsShadow)
             {
+                u32 attr = polyattr | l_edgeflag;
+
+                if (gpu.GPU3D.RenderDispCnt & (1<<4))
+                {
+                    // anti-aliasing: all edges are rendered
+
+                    // calculate coverage
+                    s32 cov = l_edgecov;
+                    if (cov & (1<<31))
+                    {
+                        cov = xcov >> 5;
+                        if (cov > 31) cov = 31;
+                        xcov += (l_edgecov & 0x3FF);
+                    }
+                    attr |= (cov << 8);
+
+                    // push old pixel down if needed
+                    if (pixeladdr < BufferSize)
+                    {
+                        ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
+                        DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
+                        AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
+                    }
+                }
+                else
+                {
+                    // technically the bottom pixel is always updated on hardware
+                    // but it doesn't matter for our purposes, aside from the depth buffer
+                    // and only for a *very* niche quirk of shadow masks
+                    if (pixeladdr < BufferSize)
+                        DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
+                }
+
                 DepthBuffer[pixeladdr] = z;
                 AttrBuffer[pixeladdr] = attr;
             }
+            else if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer (CHECKME: verify fog flag isnt updated)
+                ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
+            
+            ColorBuffer[pixeladdr] = color;
         }
         else
         {
@@ -1308,36 +1313,41 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
         if (alpha == 31)
         {
-            u32 attr = polyattr | c_edgeflag;
-
-            if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && ((attr & EF_AnyEdge) || polygon->IsShadow))
-            {
-                // anti-aliasing: all edges are rendered
-
-                // set coverage to avoid black lines from anti-aliasing
-                attr |= (0x1F << 8);
-
-                // push old pixel down if needed
-                if (pixeladdr < BufferSize)
-                {
-                    ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
-                    DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
-                    AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
-                }
-            }
-            else
-            {
-                // update depth buffer solely to fix an ultra niche bug with shadow masks
-                if (pixeladdr < BufferSize)
-                    DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
-            }
-            
-            ColorBuffer[pixeladdr] = color;
             if (!polygon->IsShadow)
             {
+                u32 attr = polyattr | c_edgeflag;
+
+                if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && c_edgeflag)
+                {
+                    // anti-aliasing: all edges are rendered
+
+                    // set coverage to avoid black lines from anti-aliasing
+                    attr |= (0x1F << 8);
+
+                    // push old pixel down if needed
+                    if (pixeladdr < BufferSize)
+                    {
+                        ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
+                        DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
+                        AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
+                    }
+                }
+                else
+                {
+                    // technically the bottom pixel is always updated on hardware
+                    // but it doesn't matter for our purposes, aside from the depth buffer
+                    // and only for a *very* niche quirk of shadow masks
+                    if (pixeladdr < BufferSize)
+                        DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
+                }
+            
                 DepthBuffer[pixeladdr] = z;
                 AttrBuffer[pixeladdr] = attr;
             }
+            else if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer (CHECKME: verify fog flag isnt updated)
+                ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
+
+            ColorBuffer[pixeladdr] = color;
         }
         else
         {
@@ -1407,43 +1417,48 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
         if (alpha == 31)
         {
-            u32 attr = polyattr | r_edgeflag;
-
-            if (gpu.GPU3D.RenderDispCnt & (1<<4))
-            {
-                // anti-aliasing: all edges are rendered
-
-                // calculate coverage
-                s32 cov = r_edgecov;
-                if (cov & (1<<31))
-                {
-                    cov = 0x1F - (xcov >> 5);
-                    if (cov < 0) cov = 0;
-                    xcov += (r_edgecov & 0x3FF);
-                }
-                attr |= (cov << 8);
-
-                // push old pixel down if needed
-                if (pixeladdr < BufferSize)
-                {
-                    ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
-                    DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
-                    AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
-                }
-            }
-            else
-            {
-                // update depth buffer solely to fix an ultra niche bug with shadow masks
-                if (pixeladdr < BufferSize)
-                    DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
-            }
-            
-            ColorBuffer[pixeladdr] = color;
             if (!polygon->IsShadow)
             {
+                u32 attr = polyattr | r_edgeflag;
+
+                if (gpu.GPU3D.RenderDispCnt & (1<<4))
+                {
+                    // anti-aliasing: all edges are rendered
+
+                    // calculate coverage
+                    s32 cov = r_edgecov;
+                    if (cov & (1<<31))
+                    {
+                        cov = 0x1F - (xcov >> 5);
+                        if (cov < 0) cov = 0;
+                        xcov += (r_edgecov & 0x3FF);
+                    }
+                    attr |= (cov << 8);
+
+                    // push old pixel down if needed
+                    if (pixeladdr < BufferSize)
+                    {
+                        ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
+                        DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
+                        AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
+                    }
+                }
+                else
+                {
+                    // technically the bottom pixel is always updated on hardware
+                    // but it doesn't matter for our purposes, aside from the depth buffer
+                    // and only for a *very* niche quirk of shadow masks
+                    if (pixeladdr < BufferSize)
+                        DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
+                }
+            
                 DepthBuffer[pixeladdr] = z;
                 AttrBuffer[pixeladdr] = attr;
             }
+            else if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer (CHECKME: verify fog flag isnt updated)
+                ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
+
+            ColorBuffer[pixeladdr] = color;
         }
         else
         {
