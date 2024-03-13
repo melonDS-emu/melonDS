@@ -1152,69 +1152,57 @@ u32 ARMv5::ReadMem(u32 addr, int size)
 }
 #endif
 
-void ARMv4::DataRead8(u32 addr, u32* val)
+void ARMv4::DataRead8(const u32 addr, u32* val)
 {
     *val = BusRead8(addr);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
 
-void ARMv4::DataRead16(u32 addr, u32* val)
+void ARMv4::DataRead16(const u32 addr, u32* val)
 {
-    addr &= ~1;
-
-    *val = BusRead16(addr);
+    *val = BusRead16(addr & ~1);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
 
-void ARMv4::DataRead32(u32 addr, u32* val)
+void ARMv4::DataRead32(const u32 addr, u32* val)
 {
-    addr &= ~3;
-
-    *val = BusRead32(addr);
+    *val = BusRead32(addr & ~3);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][2];
 }
 
-void ARMv4::DataRead32S(u32 addr, u32* val)
+void ARMv4::DataRead32S(const u32 addr, u32* val)
 {
-    addr &= ~3;
-
-    *val = BusRead32(addr);
+    *val = BusRead32(addr & ~3);
     DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
 }
 
-void ARMv4::DataWrite8(u32 addr, u8 val)
+void ARMv4::DataWrite8(const u32 addr, const u8 val)
 {
     BusWrite8(addr, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
 
-void ARMv4::DataWrite16(u32 addr, u16 val)
+void ARMv4::DataWrite16(const u32 addr, const u16 val)
 {
-    addr &= ~1;
-
-    BusWrite16(addr, val);
+    BusWrite16(addr & ~1, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
 
-void ARMv4::DataWrite32(u32 addr, u32 val)
+void ARMv4::DataWrite32(const u32 addr, const u32 val)
 {
-    addr &= ~3;
-
-    BusWrite32(addr, val);
+    BusWrite32(addr & ~3, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][2];
 }
 
-void ARMv4::DataWrite32S(u32 addr, u32 val)
+void ARMv4::DataWrite32S(const u32 addr, const u32 val)
 {
-    addr &= ~3;
-
-    BusWrite32(addr, val);
+    BusWrite32(addr & ~3, val);
     DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
 }
 
