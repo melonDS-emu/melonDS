@@ -1071,7 +1071,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // * edges are filled if both sides are identical and fully overlapping
         // edges are always filled if antialiasing/edgemarking are enabled,
         // if the pixels are translucent and alpha blending is enabled, or if the polygon is wireframe
-        if ((gpu.GPU3D.RenderDispCnt & ((1<<4)|(1<<5))) || ((polyalpha < 31) && (gpu.GPU3D.RenderDispCnt & (1<<3))) || wireframe)
+        if ((gpu.GPU3D.RenderDispCnt & ((1<<4)|(1<<5))) || wireframe)
         {
             l_filledge = true;
             r_filledge = true;
@@ -1112,7 +1112,6 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
             else r_edgeflag = EF_RYMajor;
 
             // non-slope edge flags
-            //CHECKME: What happens when both flags should be applied?
             if (y == polygon->YTop)
                 c_edgeflag = EF_TopXMajor;
             else if (y == polygon->YBottom-1)
@@ -1157,7 +1156,8 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         if (xcov == 0x3FF) xcov = 0;
     }
 
-    if (!l_filledge) x = xlimit;
+    // allow potentially translucent pixels to be checked for translucency if blending is enabled, even if the edge isn't filled
+    if (!l_filledge && !(polygon->Translucent && (gpu.GPU3D.RenderDispCnt & (1<<3)))) x = xlimit;
     else for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
@@ -1205,6 +1205,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
         if (alpha == 31)
         {
+            if (!l_filledge) continue; // dont render opaque pixels unless the edge was filled
             if (!polygon->IsShadow)
             {
                 u32 attr = polyattr | l_edgeflag;
@@ -1380,7 +1381,8 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         if (xcov == 0x3FF) xcov = 0;
     }
 
-    if (r_filledge)
+    // allow potentially translucent pixels to be checked for translucency if blending is enabled, even if the edge isn't filled
+    if (r_filledge || (polygon->Translucent && (gpu.GPU3D.RenderDispCnt & (1<<3))))
     for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
@@ -1428,6 +1430,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
         if (alpha == 31)
         {
+            if (!r_filledge) continue; // dont render opaque pixels unless the edge was filled
             if (!polygon->IsShadow)
             {
                 u32 attr = polyattr | r_edgeflag;
