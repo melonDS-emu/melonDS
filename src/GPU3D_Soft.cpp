@@ -743,7 +743,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
     xstart = rp->XL;
     xend = rp->XR;
-           
+
     s32 wl = rp->SlopeL.Interp.Interpolate(polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
     s32 wr = rp->SlopeR.Interp.Interpolate(polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
 
@@ -1162,7 +1162,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
-        
+
         // check stencil buffer for shadows
         bool blendbot = true;
         if (polygon->IsShadow)
@@ -1247,7 +1247,8 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
             // opaque shadows need a different opaque poly id to render (CHECKME: does translucent id matter?)
             else if ((dstattr & (0x3F << 24)) != (polyattr & (0x3F << 24)))
             {
-                if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer
+                // opaque shadows only update the color buffer
+                if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize))
                     ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
 
                 ColorBuffer[pixeladdr] = color;
@@ -1274,7 +1275,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
-        
+
         // check stencil buffer for shadows
         bool blendbot = true;
         if (polygon->IsShadow)
@@ -1352,7 +1353,8 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
             // opaque shadows need a different opaque poly id to render (CHECKME: does translucent id matter?)
             else if ((dstattr & (0x3F << 24)) != (polyattr & (0x3F << 24)))
             {
-                if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer
+                // opaque shadows only update the color buffer
+                if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize))
                     ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
 
                 ColorBuffer[pixeladdr] = color;
@@ -1383,7 +1385,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
-        
+
         // check stencil buffer for shadows
         bool blendbot = true;
         if (polygon->IsShadow)
@@ -1468,7 +1470,8 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
             // opaque shadows need a different opaque poly id to render (CHECKME: does translucent id matter?)
             else if ((dstattr & (0x3F << 24)) != (polyattr & (0x3F << 24)))
             {
-                if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer
+                // opaque shadows only update the color buffer
+                if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize))
                     ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
 
                 ColorBuffer[pixeladdr] = color;
