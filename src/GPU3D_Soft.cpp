@@ -588,7 +588,6 @@ void SoftRenderer::PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 c
             return;
     }
 
-    // checkme (does this get updated by shadow polygons?)
     // fog flag
     if (!(dstattr & (1<<15)))
         attr &= ~(1<<15);
@@ -1244,7 +1243,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                 DepthBuffer[pixeladdr] = z;
                 AttrBuffer[pixeladdr] = attr;
             }
-            else if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer (CHECKME: verify fog flag isnt updated)
+            else if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer
                 ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
             
             ColorBuffer[pixeladdr] = color;
@@ -1344,7 +1343,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                 DepthBuffer[pixeladdr] = z;
                 AttrBuffer[pixeladdr] = attr;
             }
-            else if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer (CHECKME: verify fog flag isnt updated)
+            else if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer
                 ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
 
             ColorBuffer[pixeladdr] = color;
@@ -1455,7 +1454,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                 DepthBuffer[pixeladdr] = z;
                 AttrBuffer[pixeladdr] = attr;
             }
-            else if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer (CHECKME: verify fog flag isnt updated)
+            else if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer
                 ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
 
             ColorBuffer[pixeladdr] = color;
