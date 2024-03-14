@@ -1240,13 +1240,18 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                         DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
                 }
 
+                ColorBuffer[pixeladdr] = color;
                 DepthBuffer[pixeladdr] = z;
                 AttrBuffer[pixeladdr] = attr;
             }
-            else if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer
-                ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
-            
-            ColorBuffer[pixeladdr] = color;
+            // opaque shadows need a different opaque poly id to render (CHECKME: does translucent id matter?)
+            else if ((dstattr & (0x3F << 24)) != (polyattr & (0x3F << 24)))
+            {
+                if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer
+                    ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
+
+                ColorBuffer[pixeladdr] = color;
+            }
         }
         else
         {
@@ -1339,14 +1344,19 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                     if (pixeladdr < BufferSize)
                         DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
                 }
-            
+
+                ColorBuffer[pixeladdr] = color;
                 DepthBuffer[pixeladdr] = z;
                 AttrBuffer[pixeladdr] = attr;
             }
-            else if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer
-                ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
+            // opaque shadows need a different opaque poly id to render (CHECKME: does translucent id matter?)
+            else if ((dstattr & (0x3F << 24)) != (polyattr & (0x3F << 24)))
+            {
+                if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer
+                    ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
 
-            ColorBuffer[pixeladdr] = color;
+                ColorBuffer[pixeladdr] = color;
+            }
         }
         else
         {
@@ -1450,14 +1460,19 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                     if (pixeladdr < BufferSize)
                         DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
                 }
-            
+
+                ColorBuffer[pixeladdr] = color;
                 DepthBuffer[pixeladdr] = z;
                 AttrBuffer[pixeladdr] = attr;
             }
-            else if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer
-                ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
+            // opaque shadows need a different opaque poly id to render (CHECKME: does translucent id matter?)
+            else if ((dstattr & (0x3F << 24)) != (polyattr & (0x3F << 24)))
+            {
+                if ((gpu.GPU3D.RenderDispCnt & (1<<4)) && (pixeladdr < BufferSize)) // opaque shadows only update the color buffer
+                    ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
 
-            ColorBuffer[pixeladdr] = color;
+                ColorBuffer[pixeladdr] = color;
+            }
         }
         else
         {
