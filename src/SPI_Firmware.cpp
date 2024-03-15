@@ -368,7 +368,7 @@ Firmware::UserData& Firmware::GetEffectiveUserData() {
 
     if (userdata0ChecksumOk && userdata1ChecksumOk)
     {
-        return userdata[0].UpdateCounter > userdata[1].UpdateCounter ? userdata[0] : userdata[1];
+        return userdata[0].UpdateCounter < userdata[1].UpdateCounter ? userdata[1] : userdata[0];
     }
     else if (userdata0ChecksumOk)
     {
