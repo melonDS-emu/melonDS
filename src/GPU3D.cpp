@@ -182,6 +182,8 @@ void GPU3D::ResetRenderingState() noexcept
 
     RenderClearAttr1 = 0x3F000000;
     RenderClearAttr2 = 0x00007FFF;
+
+    RenderRasterRev = false; // CHECKME: when should this be reset?
 }
 
 void GPU3D::Reset() noexcept
@@ -354,6 +356,8 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 
     file->Var32(&RenderClearAttr1);
     file->Var32(&RenderClearAttr2);
+    
+    file->Bool32(&RenderRasterRev);
 
     file->Var16(&RenderXPos);
 
