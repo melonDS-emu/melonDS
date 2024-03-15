@@ -179,7 +179,12 @@ private:
             else
             {
                 // Z-buffering: linear interpolation
-                // still doesn't quite match hardware...
+                // TODO: not emulated properly as of now
+                // actual hw has some strange means of determining how much precision to use for each pixel
+                // seems to be based on how far to the right it is in the current polygon
+                // unsure if it's based on % through the poly or if each pixel reduces precision by a fixed(?) amount?
+                // tl;dr it's weird, and i dont understand it
+                // but i understand it enough to say that i believe pretending it uses full precision is "good enough" until we can fix it properly
                 s32 base = 0, disp = 0, factor = 0;
 
                 if (z0 < z1)
@@ -195,22 +200,7 @@ private:
                     factor = xdiff - x;
                 }
 
-                if (dir)
-                {
-                    int shift = 0;
-                    while (disp > 0x3FF)
-                    {
-                        disp >>= 1;
-                        shift++;
-                    }
-
-                    return base + ((((s64)disp * factor * xrecip_z) >> 22) << shift);
-                }
-                else
-                {
-                    disp >>= 9;
-                    return base + (((s64)disp * factor * xrecip_z) >> 13);
-                }
+                return base + (s64)disp * factor / xdiff;
             }
         }
 
