@@ -846,6 +846,8 @@ int ClipAgainstPlane(const GPU3D& gpu, Vertex* vertices, int nverts, int clipsta
         temp[1] = vertices[1];
     }
 
+    Vertex holdit;
+    bool heldit = false;
     for (int i = clipstart; i < nverts; i++)
     {
         prev = i-1; if (prev < 0) prev = nverts-1;
@@ -859,8 +861,16 @@ int ClipAgainstPlane(const GPU3D& gpu, Vertex* vertices, int nverts, int clipsta
             Vertex* vprev = &vertices[prev];
             if (vprev->Position[comp] <= vprev->Position[3])
             {
-                ClipSegment<comp, 1, attribs>(&temp[c], &vtx, vprev);
-                c++;
+                if (i == 0)
+                {
+                    ClipSegment<comp, 1, attribs>(&holdit, &vtx, vprev);
+                    heldit = true;
+                }
+                else
+                {
+                    ClipSegment<comp, 1, attribs>(&temp[c], &vtx, vprev);
+                    c++;
+                }
             }
 
             Vertex* vnext = &vertices[next];
@@ -874,6 +884,12 @@ int ClipAgainstPlane(const GPU3D& gpu, Vertex* vertices, int nverts, int clipsta
             temp[c++] = vtx;
     }
 
+    if (heldit)
+    {
+        temp[c++] = holdit;
+    }
+    heldit = false;
+
     nverts = c; c = clipstart;
     for (int i = clipstart; i < nverts; i++)
     {
@@ -886,8 +902,17 @@ int ClipAgainstPlane(const GPU3D& gpu, Vertex* vertices, int nverts, int clipsta
             Vertex* vprev = &temp[prev];
             if (vprev->Position[comp] >= -vprev->Position[3])
             {
-                ClipSegment<comp, -1, attribs>(&vertices[c], &vtx, vprev);
-                c++;
+                
+                if (i == 0)
+                {
+                    ClipSegment<comp, -1, attribs>(&holdit, &vtx, vprev);
+                    heldit = true;
+                }
+                else
+                {
+                    ClipSegment<comp, -1, attribs>(&vertices[c], &vtx, vprev);
+                    c++;
+                }
             }
 
             Vertex* vnext = &temp[next];
@@ -899,6 +924,11 @@ int ClipAgainstPlane(const GPU3D& gpu, Vertex* vertices, int nverts, int clipsta
         }
         else
             vertices[c++] = vtx;
+    }
+    
+    if (heldit)
+    {
+        vertices[c++] = holdit;
     }
 
     // checkme
