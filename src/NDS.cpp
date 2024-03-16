@@ -4334,7 +4334,7 @@ void NDS::ARM7IOWrite32(u32 addr, u32 val)
     Log(LogLevel::Debug, "unknown ARM7 IO write32 %08X %08X %08X\n", addr, val, ARM7.R[15]);
 }
 
-bool NDS::GetSCFGRasterBit()
+bool NDS::GetSCFGRasterBit() const
 {
     return false;
 }
