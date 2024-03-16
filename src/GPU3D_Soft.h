@@ -181,10 +181,22 @@ private:
                 // Z-buffering: linear interpolation
                 // still doesn't quite match hardware...
 
-                if (z0 < z1)
-                    return z0 + (((z1 - z0) / (xdiff << 1)) * (x<<1));
+                if (dir)
+                {
+                    // seems like y dir does different interpolation?
+                    // this probably isn't right...
+                    if (z0 < z1)
+                        return z0 + (z1-z0) * x / xdiff;
+                    else
+                        return z1 + (z0-z1) * (xdiff-x) / xdiff;
+                }
                 else
-                    return z1 + (((z0 - z1) / (xdiff << 1)) * (xdiff-x<<1));
+                {
+                    if (z0 < z1)
+                        return z0 + (((z1-z0) / xdiff & ~0x1) * x);
+                    else
+                        return z1 + (((z0-z1) / xdiff & ~0x1) * (xdiff-x) + ((z0-z1) & 0xFF));
+                }
             }
         }
 
