@@ -179,23 +179,24 @@ private:
             else
             {
                 // Z-buffering: linear interpolation
-                // still doesn't quite match hardware...
+                // not perfect, but close
 
                 if (dir)
                 {
-                    // seems like y dir does different interpolation than x?
-                    // this probably isn't right...
+                    // interpolating along y uses a different algorithm than x
+                    // this algo probably isn't quite right though...
                     if (z0 < z1)
-                        return z0 + (z1-z0) * x / xdiff;
+                        return z0 + (s64)(z1-z0) * x / xdiff;
                     else
-                        return z1 + (z0-z1) * (xdiff-x) / xdiff;
+                        return z1 + (s64)(z0-z1) * (xdiff-x) / xdiff;
                 }
                 else
                 {
+                    // these algorithms are weiiird but i can't argue with the results
                     if (z0 < z1)
-                        return z0 + (((z1-z0) / xdiff & ~0x1) * x);
+                        return z0 + ((z1-z0 >> 1) / xdiff * x << 1);
                     else
-                        return z1 + (((z0-z1) / xdiff & ~0x1) * (xdiff-x)) + ((z0-z1) % (xdiff << 1));
+                        return z1 + (((z0-z1 >> 1) / xdiff * (xdiff-x)) + ((z0-z1 >> 1) % xdiff) << 1);
                 }
             }
         }
