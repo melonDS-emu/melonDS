@@ -183,7 +183,7 @@ private:
 
                 if (dir)
                 {
-                    // seems like y dir does different interpolation?
+                    // seems like y dir does different interpolation than x?
                     // this probably isn't right...
                     if (z0 < z1)
                         return z0 + (z1-z0) * x / xdiff;
@@ -195,7 +195,7 @@ private:
                     if (z0 < z1)
                         return z0 + (((z1-z0) / xdiff & ~0x1) * x);
                     else
-                        return z1 + (((z0-z1) / xdiff & ~0x1) * (xdiff-x) + ((z0-z1) & 0xFF));
+                        return z1 + (((z0-z1) / xdiff & ~0x1) * (xdiff-x)) + ((z0-z1) % (xdiff << 1));
                 }
             }
         }
