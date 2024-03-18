@@ -182,6 +182,8 @@ void GPU3D::ResetRenderingState() noexcept
 
     RenderClearAttr1 = 0x3F000000;
     RenderClearAttr2 = 0x00007FFF;
+
+    RenderRasterRev = false; // CHECKME: when should this be reset?
 }
 
 void GPU3D::Reset() noexcept
@@ -354,6 +356,8 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 
     file->Var32(&RenderClearAttr1);
     file->Var32(&RenderClearAttr2);
+    
+    file->Bool32(&RenderRasterRev);
 
     file->Var16(&RenderXPos);
 
@@ -1216,7 +1220,7 @@ void GPU3D::SubmitPolygon() noexcept
 
     u32 texfmt = (TexParam >> 26) & 0x7;
     u32 polyalpha = (CurPolygonAttr >> 16) & 0x1F;
-    poly->Translucent = ((texfmt == 1 || texfmt == 6) && !(CurPolygonAttr & 0x10)) || (polyalpha > 0 && polyalpha < 31);
+    poly->Translucent = (texfmt == 1 || texfmt == 6) || (polyalpha > 0 && polyalpha < 31);
 
     poly->IsShadowMask = ((CurPolygonAttr & 0x3F000030) == 0x00000030);
     poly->IsShadow = ((CurPolygonAttr & 0x30) == 0x30) && !poly->IsShadowMask;
@@ -2470,7 +2474,8 @@ void GPU3D::VBlank() noexcept
                     && RenderFogOffset == FogOffset * 0x200
                     && memcmp(RenderEdgeTable, EdgeTable, 8*2) == 0
                     && memcmp(RenderFogDensityTable + 1, FogDensityTable, 32) == 0
-                    && memcmp(RenderToonTable, ToonTable, 32*2) == 0;
+                    && memcmp(RenderToonTable, ToonTable, 32*2) == 0
+                    && RenderRasterRev == NDS.GetSCFGRasterBit();
             }
 
             RenderDispCnt = DispCnt;
@@ -2488,6 +2493,8 @@ void GPU3D::VBlank() noexcept
 
             RenderClearAttr1 = ClearAttr1;
             RenderClearAttr2 = ClearAttr2;
+            // CHECKME: is this actually latched?
+            RenderRasterRev = NDS.GetSCFGRasterBit();
         }
 
         if (FlushRequest)
