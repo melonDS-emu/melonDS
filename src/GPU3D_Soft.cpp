@@ -1006,7 +1006,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         }
 
         // there is a quirk with the less than equals depth test where the back facing flag's role is inverted
-        // TODO: edge marking also has a similar quirk where the top pixel is overridden by the bottom pixel when aa is disabled
+        // edge marking also has a similar quirk where the top pixel is overridden by the bottom pixel when aa is disabled
         // both quirks are based on certain "edge flags" derrived from the slope's characteristics.
         // * bottom xmajor/horizontal edges are overridden by top xmajor/horizontal edges
         // * right ymajor/vertical/diagonal edges are overridden by left ymajor/vertical/diagonal edges
@@ -1086,7 +1086,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         }
 
         // there is a quirk with the less than equals depth test where the back facing flag's role is inverted
-        // TODO: edge marking also has a similar quirk where the top pixel is overridden by the bottom pixel when aa is disabled
+        // edge marking also has a similar quirk where the top pixel is overridden by the bottom pixel when aa is disabled
         // both quirks are based on certain "edge flags" derrived from the slope's characteristics.
         // * bottom xmajor/horizontal edges are overridden by top xmajor/horizontal edges
         // * right ymajor/vertical/diagonal edges are overridden by left ymajor/vertical/diagonal edges
@@ -1587,6 +1587,20 @@ void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y)
                 // break antialiasing coverage (checkme)
                 AttrBuffer[pixeladdr] = (AttrBuffer[pixeladdr] & 0xFFFFE0FF) | 0x00001000;
             }
+            else if (!(gpu3d.RenderDispCnt & (1<<4)))
+            {
+                // if aa is disabled and the pixel failed the edge marking pass
+                // do a check for top (bot flag) / left (right flag) edge flags on the bottom pixel
+                // and for the absence of a top flag on the pixel down one (bot flag) / left flag one to the right (right flag)
+                // if these checks pass set the colorbuffer to the bottom one
+                u32 dstattr = AttrBuffer[pixeladdr+BufferSize];
+                if (((attr & EF_BotXMajor) && (dstattr & EF_TopXMajor) && !(AttrBuffer[pixeladdr+ScanlineWidth] & EF_TopXMajor)) ||
+                    ((attr & EF_RYMajor) && (dstattr & EF_LYMajor) && !(AttrBuffer[pixeladdr+1] & EF_LYMajor)))
+                {
+                    // depth and attr buffers do not get updated
+                    ColorBuffer[pixeladdr] = ColorBuffer[pixeladdr+BufferSize];
+                }
+            }
         }
     }
 
@@ -1726,6 +1740,9 @@ void SoftRenderer::ClearBuffers(const GPU& gpu)
     u32 clearz = ((gpu.GPU3D.RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
     u32 polyid = gpu.GPU3D.RenderClearAttr1 & 0x3F000000; // this sets the opaque polygonID
 
+    // clear attr buffer for the bottom pixel
+    memset(&AttrBuffer[BufferSize], 0, 4*BufferSize);
+    
     // fill screen borders for edge marking
 
     for (int x = 0; x < ScanlineWidth; x++)
