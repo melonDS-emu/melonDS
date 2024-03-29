@@ -95,8 +95,7 @@ private:
                     // should optimize down to one divide instruction
                     this->zquo = ((z0 - z1) >> 1) / xdiff << 1;
                     s32 rem = ((z0 - z1) >> 1) % xdiff << 1;
-                    s32 idk = zquo * xdiff;
-                    this->zcounter = z1 + idk + rem; 
+                    this->zcounter = z1 + (zquo * xdiff) + rem; 
                 }
             }
 
