@@ -87,13 +87,16 @@ private:
                 if (z0 < z1)
                 {
                     // remainder is unused for this path
-                    this->zquo = ((z1 - z0) >> 1) / xdiff;
+                    this->zquo = ((z1 - z0) >> 1) / xdiff << 1;
+                    this->zcounter = z0;
                 }
                 else
                 {
                     // should optimize down to one divide instruction
-                    this->zquo = ((z0 - z1) >> 1) / xdiff;
-                    this->zrem = ((z0 - z1) >> 1) % xdiff;
+                    this->zquo = ((z0 - z1) >> 1) / xdiff << 1;
+                    s32 rem = ((z0 - z1) >> 1) % xdiff << 1;
+                    s32 idk = zquo * xdiff;
+                    this->zcounter = z1 + idk + rem; 
                 }
             }
 
@@ -154,7 +157,7 @@ private:
 
         constexpr s32 Interpolate(s32 y0, s32 y1) const
         {
-            if (xdiff == 0 || y0 == y1) return y0;
+            if (x == 0 || y0 == y1) return y0;
 
             if (!linear)
             {
@@ -174,9 +177,9 @@ private:
             }
         }
 
-        constexpr s32 InterpolateZ(s32 z0, s32 z1) const
+        constexpr s32 InterpolateZ(s32 z0, s32 z1)
         {
-            if (xdiff == 0 || z0 == z1) return z0;
+            if (x == 0 || z0 == z1) return z0;
 
             if (wbuffer)
             {
@@ -204,9 +207,15 @@ private:
                 {
                     // these algorithms are weiiird but i can't argue with the results
                     if (z0 < z1)
-                        return z0 + ((zquo * x) << 1);
+                    {
+                        zcounter += zquo;
+                        return zcounter;
+                    }
                     else
-                        return z1 + ((zquo * (xdiff-x) + zrem) << 1);
+                    {
+                        zcounter -= zquo;
+                        return zcounter;
+                    }
                 }
             }
         }
@@ -218,7 +227,8 @@ private:
         bool linear;
         bool wbuffer;
 
-        s32 zquo, zrem;
+        s32 zquo;
+        s32 zcounter;
         s32 w0n, w0d, w1d;
 
         u32 yfactor;
