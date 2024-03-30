@@ -81,11 +81,10 @@ private:
             this->xdiff = x1 - x0;
             this->wbuffer = wbuffer;
 
-            // calculate quotient and remainder for Z interpolation
+            // calculate increment and init counter for Z interpolation
             if (!dir && !wbuffer && xdiff != 0)
             {
-                // remainder is unused for this path
-                this->zquo = ((z1 - z0) >> 1) / xdiff << 1;
+                this->zincr = ((z1 - z0) >> 1) / xdiff << 1;
                 this->zcounter = z0;
             }
 
@@ -194,7 +193,7 @@ private:
                 }
                 else
                 {
-                    return zcounter += zquo;
+                    return zcounter += zincr;
                 }
             }
         }
@@ -206,7 +205,7 @@ private:
         bool linear;
         bool wbuffer;
 
-        s32 zquo;
+        s32 zincr;
         s32 zcounter;
         s32 w0n, w0d, w1d;
 
