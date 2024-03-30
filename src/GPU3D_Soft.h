@@ -84,19 +84,9 @@ private:
             // calculate quotient and remainder for Z interpolation
             if (!dir && !wbuffer && xdiff != 0)
             {
-                if (z0 < z1)
-                {
-                    // remainder is unused for this path
-                    this->zquo = ((z1 - z0) >> 1) / xdiff << 1;
-                    this->zcounter = z0;
-                }
-                else
-                {
-                    // should optimize down to one divide instruction
-                    this->zquo = ((z0 - z1) >> 1) / xdiff << 1;
-                    s32 rem = ((z0 - z1) >> 1) % xdiff << 1;
-                    this->zcounter = z1 + (zquo * xdiff) + rem; 
-                }
+                // remainder is unused for this path
+                this->zquo = ((z1 - z0) >> 1) / xdiff << 1;
+                this->zcounter = z0;
             }
 
             // linear mode is used if both W values are equal and have
@@ -204,17 +194,7 @@ private:
                 }
                 else
                 {
-                    // these algorithms are weiiird but i can't argue with the results
-                    if (z0 < z1)
-                    {
-                        zcounter += zquo;
-                        return zcounter;
-                    }
-                    else
-                    {
-                        zcounter -= zquo;
-                        return zcounter;
-                    }
+                    return zcounter += zquo;
                 }
             }
         }
