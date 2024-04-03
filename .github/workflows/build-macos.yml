@@ -21,7 +21,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Install dependencies for package building
         run: |
-          brew install autoconf automake autoconf-archive libtool && pip3 install setuptools
+          brew install autoconf automake autoconf-archive libtool
+          brew unlink python@3.12
       - name: Set up CMake
         uses: lukka/get-cmake@latest
       - name: Set up vcpkg
