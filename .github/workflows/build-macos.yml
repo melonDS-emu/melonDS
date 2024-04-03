@@ -23,6 +23,7 @@ jobs:
         run: |
           brew install autoconf automake autoconf-archive libtool
           brew unlink python@3.12
+          sudo rm /usr/local/bin/python
       - name: Set up CMake
         uses: lukka/get-cmake@latest
       - name: Set up vcpkg
