@@ -1877,6 +1877,43 @@ void SoftRenderer::FinishPushScanline(s32 y, s32 pixelsremain)
     memcpy(&RDBuffer[bufferpos*ScanlineWidth], &ColorBuffer[y*ScanlineWidth], 4 * pixelsremain);
 }
 
+#define RDLINES_COUNT_INCREMENT\
+    /* feels wrong, needs improvement */\
+    while (RasterTiming >= RDDecrement[nextreadrd])\
+    {\
+        slwaitingrd--;\
+        nextreadrd++;\
+        /* update rdlines_count register */\
+        if (gpu.GPU3D.RDLinesTemp > slwaitingrd) gpu.GPU3D.RDLinesTemp = slwaitingrd;\
+    }
+
+#define SCANLINE_BUFFER_SIM\
+    /* simulate the process of scanlines being read from the 48 scanline buffer */\
+    while (scanlineswaiting >= 47 || RasterTiming >= SLRead[nextread] + Arbitrary)\
+    {\
+        if (RasterTiming < SLRead[nextread] + Arbitrary)\
+        {\
+            RasterTiming += timespent = (SLRead[nextread] + Arbitrary) - RasterTiming; /* why + 565? */\
+            timespent += EMFixNum; /* fixes edge marking bug emulation. not sure why this is needed? */\
+        }\
+        scanlineswaiting--;\
+        nextread++;\
+    }
+
+#define RENDER_SCANLINES(y)\
+    /* update sl timeout */\
+    ScanlineTimeout = SLRead[y-1] - FinalPassLen;\
+    \
+    RenderScanline(gpu, y, j, &rastertimingeven);\
+    RenderScanline(gpu, y+1, j, &rastertimingodd);\
+    \
+    prevtimespent = timespent;\
+    RasterTiming += timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});\
+    RasterTiming += std::clamp(ScanlineTimeout - RasterTiming, 0, 12);\
+    \
+    /* set the underflow flag if one of the scanlines came within 14 cycles of visible underflow */\
+    if (ScanlineTimeout <= RasterTiming) gpu.GPU3D.RDLinesUnderflow = true;
+
 void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
 {
     int j = 0;
@@ -1885,26 +1922,19 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
         if (polygons[i]->Degenerate) continue;
         SetupPolygon(&PolygonList[j++], polygons[i]);
     }
-    
+
     //init internal buffer
     ClearBuffers(gpu);
-    
+
     // reset scanline trackers
     gpu.GPU3D.RDLinesUnderflow = false;
     gpu.GPU3D.RDLinesTemp = 63;
-
     ScanlineTimeout = FrameLength; // CHECKME
-    
-    s32 rastertimingeven; // always init to 0 at the start of a scanline render
-    s32 rastertimingodd;
+    s32 rastertimingeven, rastertimingodd; // always init to 0 at the start of a scanline render
+    s32 scanlineswaiting = 0, slwaitingrd = 0;
+    s32 nextread = 0, nextreadrd = 0;
+    u32 timespent, prevtimespent;
 
-    s32 scanlineswaiting = 0;
-    s32 nextread = 0;
-    s32 slwaitingrd = 0;
-    s32 nextreadrd = 0;
-
-    u32 timespent;
-    u32 prevtimespent;
 
     // scanlines are rendered in pairs of two
     RenderScanline(gpu, 0, j, &rastertimingeven);
@@ -1914,113 +1944,46 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     RasterTiming = timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});
     // 12 cycles at the end of a "timeout" are always used for w/e reason
     RasterTiming += std::clamp(ScanlineTimeout - RasterTiming, 0, 12);
-    
+
     // if first pair was not delayed past the first read, then later scanlines cannot either
     // this allows us to implement a fast path
     //if (SLRead[0] - timespent + ScanlinePushDelay >= 256)
     {
-        // begin scanline timeout
-        ScanlineTimeout = SLRead[1] - FinalPassLen;
-
-        RenderScanline(gpu, 2, j, &rastertimingeven);
-        RenderScanline(gpu, 3, j, &rastertimingodd);
-
-        // the time spent on the previous scanline pair is important for emulating the edge marking bug properly
-        prevtimespent = timespent;
-        RasterTiming += timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});
-        RasterTiming += std::clamp(ScanlineTimeout - RasterTiming, 0, 12);
-        
-        // set the underflow flag if one of the scanlines came within 14 cycles of visible underflow
-        if (ScanlineTimeout <= RasterTiming) gpu.GPU3D.RDLinesUnderflow = true;
+        RENDER_SCANLINES(2)
 
         scanlineswaiting++;
         slwaitingrd++;
-        
-        // simulate the process of scanlines being read from the 48 scanline buffer
-        while (RasterTiming >= SLRead[nextread] + Arbitrary)
-        {
-            if (RasterTiming < SLRead[nextread] + Arbitrary)
-            {
-                RasterTiming += timespent = (SLRead[nextread] + Arbitrary) - RasterTiming; // why + 565?
-                timespent += EMFixNum; // fixes edge marking bug emulation. not sure why this is needed?
-            }
-            scanlineswaiting--;
-            nextread++;
-            // update rdlines_count register
-            //if (gpu.GPU3D.RDLinesTemp > scanlineswaiting) gpu.GPU3D.RDLinesTemp = scanlineswaiting; // TODO: not accurate, rdlines appears to update early in some manner?
-        }
 
-        // feels wrong, needs improvement.
-        while (RasterTiming >= RDDecrement[nextreadrd])
-        {
-            slwaitingrd--;
-            nextreadrd++;
-            // update rdlines_count register
-            if (gpu.GPU3D.RDLinesTemp > slwaitingrd) gpu.GPU3D.RDLinesTemp = slwaitingrd;
-        }
+        SCANLINE_BUFFER_SIM
+
+        RDLINES_COUNT_INCREMENT
 
         // final pass pairs are the previous scanline pair offset -1 scanline, thus we start with only building one
         ScanlineFinalPass<true>(gpu.GPU3D, 0, true, timespent >= EMGlitchThreshhold);
+
+        // main loop
         for (int y = 4; y < 192; y+=2)
         {
-            //update sl timeout
-            ScanlineTimeout = SLRead[y-1] - FinalPassLen;
-
-            RenderScanline(gpu, y, j, &rastertimingeven);
-            RenderScanline(gpu, y+1, j, &rastertimingodd);
-            
-            prevtimespent = timespent;
-            RasterTiming += timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});
-            RasterTiming += std::clamp(ScanlineTimeout - RasterTiming, 0, 12);
-            
-            // set the underflow flag if one of the scanlines came within 14 cycles of visible underflow
-            if (ScanlineTimeout <= RasterTiming) gpu.GPU3D.RDLinesUnderflow = true;
+            RENDER_SCANLINES(y)
 
             scanlineswaiting += 2;
             slwaitingrd += 2;
 
-            // simulate the process of scanlines being read from the 48 scanline buffer
-            while (scanlineswaiting >= 47 || RasterTiming >= SLRead[nextread] + Arbitrary)
-            {
-                if (RasterTiming < SLRead[nextread] + Arbitrary)
-                {
-                    RasterTiming += timespent = (SLRead[nextread] + Arbitrary) - RasterTiming; // why + 565?
-                    timespent += EMFixNum; // fixes edge marking bug emulation. not sure why this is needed?
-                }
-                scanlineswaiting--;
-                nextread++;
-                // update rdlines_count register
-                //if (gpu.GPU3D.RDLinesTemp > scanlineswaiting) gpu.GPU3D.RDLinesTemp = scanlineswaiting; // TODO: not accurate, rdlines appears to update early in some manner?
-            }
+            SCANLINE_BUFFER_SIM
 
-            // feels wrong, needs improvement.
-            while (RasterTiming >= RDDecrement[nextreadrd])
-            {
-                slwaitingrd--;
-                nextreadrd++;
-                // update rdlines_count register
-                if (gpu.GPU3D.RDLinesTemp > slwaitingrd) gpu.GPU3D.RDLinesTemp = slwaitingrd;
-            }
+            RDLINES_COUNT_INCREMENT
 
             ScanlineFinalPass<true>(gpu.GPU3D, y-3, prevtimespent >= EMGlitchThreshhold || y-3 == 1, timespent >= EMGlitchThreshhold);
             ScanlineFinalPass<true>(gpu.GPU3D, y-2, prevtimespent >= EMGlitchThreshhold, timespent >= EMGlitchThreshhold);
         }
-            scanlineswaiting += 2;
-            slwaitingrd += 2;
-            prevtimespent = timespent;
+
+        scanlineswaiting += 2;
+        slwaitingrd += 2;
+        prevtimespent = timespent;
 
         // emulate read timings one last time, since it shouldn't matter after this
         // additionally dont bother tracking rdlines anymore since it shouldn't be able to decrement anymore (CHECKME)
-        while (scanlineswaiting >= 47 || RasterTiming >= SLRead[nextread] + Arbitrary)
-        {
-            if (RasterTiming < SLRead[nextread] + Arbitrary)
-            {
-                RasterTiming += timespent = (SLRead[nextread] + Arbitrary) - RasterTiming; // why + 565?
-                timespent += EMFixNum; // fixes edge marking bug emulation. not sure why this is needed?
-            }
-            scanlineswaiting--;
-            nextread++;
-        }
+        SCANLINE_BUFFER_SIM
 
         // finish the last 3 scanlines
         ScanlineFinalPass<true>(gpu.GPU3D, 189, prevtimespent >= EMGlitchThreshhold, timespent >= EMGlitchThreshhold);
@@ -2030,19 +1993,13 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     }
     /*else
     {
-        ScanlineFinalPass(gpu, 0, false, false);
-    
-        s32 pixelstopush = SLRead[0] - (timespent + ScanlinePushDelay);
-        if (pixelstopush > 256) pixelstopush = 256;
-        //timespent + ScanlinePushDelay + ScanlineReadSpeed > SLRead[0]
-
-        rastertimingeven = 0;
-        rastertimingodd = 0;
-
-        RenderScanline(gpu, 2, j, &rastertimingeven);
-        RenderScanline(gpu, 3, j, &rastertimingodd);
+        Coming soon^tm to a melonDS near you
     }*/
 }
+
+#undef RENDER_SCANLINES
+#undef SCANLINE_BUFFER_SIM
+#undef RDLINES_COUNT_INCREMENT
 
 void SoftRenderer::VCount144(GPU& gpu)
 {
