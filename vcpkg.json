@@ -4,7 +4,7 @@
 		{
 			"name": "libarchive",
 			"default-features": false,
-			"features": ["bzip2", "crypto", "libxml2", "lz4", "zstd"]
+			"features": ["bzip2", "crypto", "lz4", "zstd"]
 		},
 		"libslirp",
 		"zstd",
