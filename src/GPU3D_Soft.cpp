@@ -1923,9 +1923,6 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
         SetupPolygon(&PolygonList[j++], polygons[i]);
     }
 
-    //init internal buffer
-    ClearBuffers(gpu);
-
     // reset scanline trackers
     gpu.GPU3D.RDLinesUnderflow = false;
     gpu.GPU3D.RDLinesTemp = 63;
@@ -2022,7 +2019,16 @@ void SoftRenderer::RenderFrame(GPU& gpu)
         // "Render thread, you're up! Get moving."
         Platform::Semaphore_Post(Sema_RenderStart);
     }
-    else if (!FrameIdentical) RenderPolygons(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+    else if (!FrameIdentical)
+    {
+        //init internal buffer
+        ClearBuffers(gpu);
+
+        if (gpu.GPU3D.RenderNumPolygons > 0)
+            RenderPolygons(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+        else
+            memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
+    }
 }
 
 void SoftRenderer::RestartFrame(GPU& gpu)
@@ -2050,7 +2056,16 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
         { // If no rendering is needed, just say we're done.
             Platform::Semaphore_Post(Sema_ScanlineCount, 192);
         }
-        else RenderPolygons(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+        else
+        {
+            //init internal buffer
+            ClearBuffers(gpu);
+
+            if (gpu.GPU3D.RenderNumPolygons > 0)
+                RenderPolygons(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+            else
+                memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
+        }
 
         // Tell the main thread that we're done rendering
         // and that it's safe to access the GPU state again.

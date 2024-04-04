@@ -240,9 +240,6 @@ void GPU3D::Reset() noexcept
     DispCnt = 0;
     AlphaRefVal = 0;
     AlphaRef = 0;
-    
-    RDLines = 63; // defaults to 63 for one frame? (CHECKME: when does it reset?)
-    RDLinesTemp = 63;
 
     memset(ToonTable, 0, sizeof(ToonTable));
     memset(EdgeTable, 0, sizeof(EdgeTable));
@@ -256,6 +253,8 @@ void GPU3D::Reset() noexcept
     ClearAttr2 = 0x00007FFF;
 
     ResetRenderingState();
+
+    RDLines = 63;
 
     AbortFrame = false;
 
@@ -570,6 +569,7 @@ void GPU3D::SetEnabled(bool geometry, bool rendering) noexcept
     RenderingEnabled = rendering;
 
     if (!rendering) ResetRenderingState();
+    else RDLinesTemp = 63; // resets to 63 when the rasterizer is toggled on
 }
 
 
@@ -2431,11 +2431,14 @@ bool YSort(Polygon* a, Polygon* b)
 
 void GPU3D::VBlank() noexcept
 {
-    RDLines = RDLinesTemp;
+    if (RenderingEnabled)
+        RDLines = RDLinesTemp;
+
     if (GeometryEnabled)
     {
         if (RenderingEnabled)
         {
+            RDLines = RDLinesTemp;
             if (FlushRequest)
             {
                 if (NumPolygons)
