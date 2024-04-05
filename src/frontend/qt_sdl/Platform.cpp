@@ -282,9 +282,9 @@ FileHandle* OpenFile(const std::string& path, FileMode mode)
     }
 }
 
-FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
+std::string GetLocalFilePath(const std::string& filename)
 {
-    QString qpath = QString::fromStdString(path);
+    QString qpath = QString::fromStdString(filename);
     QDir dir(qpath);
     QString fullpath;
 
@@ -298,7 +298,12 @@ FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
         fullpath = QString::fromStdString(EmuDirectory) + QDir::separator() + qpath;
     }
 
-    return OpenFile(fullpath.toStdString(), mode);
+    return fullpath.toStdString();
+}
+
+FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
+{
+    return OpenFile(GetLocalFilePath(path), mode);
 }
 
 bool CloseFile(FileHandle* file)

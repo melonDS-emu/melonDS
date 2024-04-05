@@ -188,6 +188,9 @@ enum class FileSeekOrigin
  */
 struct FileHandle;
 
+// retrieves the path to a local file, without opening the file
+std::string GetLocalFilePath(const std::string& filename);
+
 // Simple fopen() wrapper that supports UTF8.
 // Can be optionally restricted to only opening a file that already exists.
 FileHandle* OpenFile(const std::string& path, FileMode mode);

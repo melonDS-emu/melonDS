@@ -20,6 +20,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <string_view>
+#include "toml/toml.hpp"
 #include "Platform.h"
 #include "Config.h"
 
@@ -163,8 +165,10 @@ bool GdbARM9BreakOnStartup;
 CameraConfig Camera[2];
 
 
-const char* kConfigFile = "melonDS.ini";
-const char* kUniqueConfigFile = "melonDS.%d.ini";
+const char* kConfigFile = "melonDS.toml";
+
+const char* kLegacyConfigFile = "melonDS.ini";
+const char* kLegacyUniqueConfigFile = "melonDS.%d.ini";
 
 ConfigEntry ConfigFile[] =
 {
@@ -384,16 +388,16 @@ bool LoadFile(int inst, int actualinst)
     if (inst > 0)
     {
         char name[100] = {0};
-        snprintf(name, 99, kUniqueConfigFile, inst+1);
+        snprintf(name, 99, kLegacyUniqueConfigFile, inst+1);
         f = Platform::OpenLocalFile(name, Platform::FileMode::ReadText);
 
         if (!Platform::CheckLocalFileWritable(name)) return false;
     }
     else
     {
-        f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::ReadText);
+        f = Platform::OpenLocalFile(kLegacyConfigFile, Platform::FileMode::ReadText);
 
-        if (actualinst == 0 && !Platform::CheckLocalFileWritable(kConfigFile)) return false;
+        if (actualinst == 0 && !Platform::CheckLocalFileWritable(kLegacyConfigFile)) return false;
     }
 
     if (!f) return true;
@@ -434,9 +438,8 @@ bool LoadFile(int inst, int actualinst)
     return true;
 }
 
-bool Load()
+bool LoadLegacy()
 {
-
     for (ConfigEntry* entry = &ConfigFile[0]; entry->Value; entry++)
     {
         switch (entry->Type)
@@ -457,37 +460,33 @@ bool Load()
     return ret;
 }
 
+bool Load()
+{
+    auto cfgpath = Platform::GetLocalFilePath(kConfigFile);
+
+    if (!Platform::CheckFileWritable(cfgpath))
+        return false;
+
+    if (!Platform::FileExists(cfgpath))
+        return LoadLegacy();
+
+    toml::table tbl;
+    try
+    {
+        tbl = toml::parse_file(cfgpath);
+        printf("toml worked\n");
+    }
+    catch (toml::parse_error& err)
+    {
+        printf("toml shat itself :(\n");
+    }
+
+    return true;
+}
+
 void Save()
 {
-    int inst = Platform::InstanceID();
-
-    Platform::FileHandle* f;
-    if (inst > 0)
-    {
-        char name[100] = {0};
-        snprintf(name, 99, kUniqueConfigFile, inst+1);
-        f = Platform::OpenLocalFile(name, Platform::FileMode::WriteText);
-    }
-    else
-        f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::WriteText);
-
-    if (!f) return;
-
-    for (ConfigEntry* entry = &ConfigFile[0]; entry->Value; entry++)
-    {
-        if ((inst > 0) && (!entry->InstanceUnique))
-            continue;
-
-        switch (entry->Type)
-        {
-        case 0: Platform::FileWriteFormatted(f, "%s=%d\n", entry->Name, *(int*)entry->Value); break;
-        case 1: Platform::FileWriteFormatted(f, "%s=%d\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
-        case 2: Platform::FileWriteFormatted(f, "%s=%s\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
-        case 3: Platform::FileWriteFormatted(f, "%s=%" PRId64 "\n", entry->Name, *(int64_t*)entry->Value); break;
-        }
-    }
-
-    CloseFile(f);
+    //
 }
 
 }
