@@ -182,6 +182,8 @@ void GPU3D::ResetRenderingState() noexcept
 
     RenderClearAttr1 = 0x3F000000;
     RenderClearAttr2 = 0x00007FFF;
+
+    RenderFrameIdentical = false;
 }
 
 void GPU3D::Reset() noexcept

@@ -2064,7 +2064,10 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
             if (gpu.GPU3D.RenderNumPolygons > 0)
                 RenderPolygons(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
             else
+            {
                 memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
+                Platform::Semaphore_Post(Sema_ScanlineCount, 192);
+            }
         }
 
         // Tell the main thread that we're done rendering
