@@ -193,6 +193,8 @@ private:
                 }
                 else
                 {
+                    // unoptimized algorithm is: z0 + ((z1-z0 >> 1) / xdiff * x << 1);
+                    // or alternatively there's: z0 + (z1-z0) / (xdiff<<1) * (x<<1);
                     return zcounter += zincr;
                 }
             }
