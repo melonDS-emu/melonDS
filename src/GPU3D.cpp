@@ -1013,6 +1013,18 @@ void GPU3D::SubmitPolygon() noexcept
             return;
         }
     }
+    // dot == 0
+    // kinda gross hack to get the "correct" result 
+    // polygons should be treated as facing *neither* direction if the first/second vertex is equal to the third vertex's position,
+    // and as facing *both* directions under any other circumstances (with a dot of 0, ofc)
+    // needs more testing to make sure this actually covers every edge case
+    else if (!((v0->Position[0] == v2->Position[0] && v0->Position[1] == v2->Position[1]) ||
+             (v1->Position[0] == v2->Position[0] && v1->Position[1] == v2->Position[1])) &&
+             !(CurPolygonAttr & (3<<6)))
+    {
+        LastStripPolygon = NULL;
+        return;
+    }
 
     // for strips, check whether we can attach to the previous polygon
     // this requires two original vertices shared with the previous polygon, and that
