@@ -147,6 +147,7 @@ u64 LastHostRXCheck;
 // wifi TODO:
 // * RXSTAT
 // * TX errors (if applicable)
+// * a
 
 
 bool Init()
