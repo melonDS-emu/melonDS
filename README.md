@@ -49,7 +49,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
    cmake -B build
    cmake --build build -j$(nproc --all)
    ```
-
+ 
 ### Windows
 1. Install [MSYS2](https://www.msys2.org/)
 2. Open the **MSYS2 MinGW 64-bit** terminal
