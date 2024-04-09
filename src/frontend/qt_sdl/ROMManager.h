@@ -67,7 +67,7 @@ std::optional<FATStorageArgs> GetDSiSDCardArgs() noexcept;
 std::optional<FATStorage> LoadDSiSDCard() noexcept;
 std::optional<FATStorageArgs> GetDLDISDCardArgs() noexcept;
 std::optional<FATStorage> LoadDLDISDCard() noexcept;
-void CustomizeFirmware(Firmware& firmware) noexcept;
+void CustomizeFirmware(Firmware& firmware, bool overridesettings) noexcept;
 Firmware GenerateFirmware(int type) noexcept;
 /// Loads and customizes a firmware image based on the values in Config
 std::optional<Firmware> LoadFirmware(int type) noexcept;

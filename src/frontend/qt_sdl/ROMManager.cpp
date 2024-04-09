@@ -642,7 +642,7 @@ Firmware GenerateFirmware(int type) noexcept
         }
     }
 
-    CustomizeFirmware(firmware);
+    CustomizeFirmware(firmware, true);
 
     // If we don't have Wi-fi settings to load,
     // then the defaults will have already been populated by the constructor.
@@ -681,10 +681,7 @@ std::optional<Firmware> LoadFirmware(int type) noexcept
         return std::nullopt;
     }
 
-    if (Config::FirmwareOverrideSettings)
-    {
-        CustomizeFirmware(firmware);
-    }
+    CustomizeFirmware(firmware, Config::FirmwareOverrideSettings);
 
     return firmware;
 }
@@ -1120,54 +1117,59 @@ bool ParseMacAddress(void* data)
     return false;
 }
 
-void CustomizeFirmware(Firmware& firmware) noexcept
+void CustomizeFirmware(Firmware& firmware, bool overridesettings) noexcept
 {
-    auto& currentData = firmware.GetEffectiveUserData();
-
-    // setting up username
-    std::string orig_username = Config::FirmwareUsername;
-    if (!orig_username.empty())
-    { // If the frontend defines a username, take it. If not, leave the existing one.
-        std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
-        size_t usernameLength = std::min(username.length(), (size_t) 10);
-        currentData.NameLength = usernameLength;
-        memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
-    }
-
-    auto language = static_cast<Firmware::Language>(Config::FirmwareLanguage);
-    if (language != Firmware::Language::Reserved)
-    { // If the frontend specifies a language (rather than using the existing value)...
-        currentData.Settings &= ~Firmware::Language::Reserved; // ..clear the existing language...
-        currentData.Settings |= language; // ...and set the new one.
-    }
-
-    // setting up color
-    u8 favoritecolor = Config::FirmwareFavouriteColour;
-    if (favoritecolor != 0xFF)
+    if (overridesettings)
     {
-        currentData.FavoriteColor = favoritecolor;
-    }
+        auto &currentData = firmware.GetEffectiveUserData();
 
-    u8 birthmonth = Config::FirmwareBirthdayMonth;
-    if (birthmonth != 0)
-    { // If the frontend specifies a birth month (rather than using the existing value)...
-        currentData.BirthdayMonth = birthmonth;
-    }
+        // setting up username
+        std::string orig_username = Config::FirmwareUsername;
+        if (!orig_username.empty())
+        { // If the frontend defines a username, take it. If not, leave the existing one.
+            std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(
+                    orig_username);
+            size_t usernameLength = std::min(username.length(), (size_t) 10);
+            currentData.NameLength = usernameLength;
+            memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
+        }
 
-    u8 birthday = Config::FirmwareBirthdayDay;
-    if (birthday != 0)
-    { // If the frontend specifies a birthday (rather than using the existing value)...
-        currentData.BirthdayDay = birthday;
-    }
+        auto language = static_cast<Firmware::Language>(Config::FirmwareLanguage);
+        if (language != Firmware::Language::Reserved)
+        { // If the frontend specifies a language (rather than using the existing value)...
+            currentData.Settings &= ~Firmware::Language::Reserved; // ..clear the existing language...
+            currentData.Settings |= language; // ...and set the new one.
+        }
 
-    // setup message
-    std::string orig_message = Config::FirmwareMessage;
-    if (!orig_message.empty())
-    {
-        std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
-        size_t messageLength = std::min(message.length(), (size_t) 26);
-        currentData.MessageLength = messageLength;
-        memcpy(currentData.Message, message.data(), messageLength * sizeof(char16_t));
+        // setting up color
+        u8 favoritecolor = Config::FirmwareFavouriteColour;
+        if (favoritecolor != 0xFF)
+        {
+            currentData.FavoriteColor = favoritecolor;
+        }
+
+        u8 birthmonth = Config::FirmwareBirthdayMonth;
+        if (birthmonth != 0)
+        { // If the frontend specifies a birth month (rather than using the existing value)...
+            currentData.BirthdayMonth = birthmonth;
+        }
+
+        u8 birthday = Config::FirmwareBirthdayDay;
+        if (birthday != 0)
+        { // If the frontend specifies a birthday (rather than using the existing value)...
+            currentData.BirthdayDay = birthday;
+        }
+
+        // setup message
+        std::string orig_message = Config::FirmwareMessage;
+        if (!orig_message.empty())
+        {
+            std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(
+                    orig_message);
+            size_t messageLength = std::min(message.length(), (size_t) 26);
+            currentData.MessageLength = messageLength;
+            memcpy(currentData.Message, message.data(), messageLength * sizeof(char16_t));
+        }
     }
 
     MacAddress mac;
@@ -1176,14 +1178,16 @@ void CustomizeFirmware(Firmware& firmware) noexcept
 
     memcpy(&mac, header.MacAddr.data(), sizeof(MacAddress));
 
-
-    MacAddress configuredMac;
-    rep = ParseMacAddress(&configuredMac);
-    rep &= (configuredMac != MacAddress());
-
-    if (rep)
+    if (overridesettings)
     {
-        mac = configuredMac;
+        MacAddress configuredMac;
+        rep = ParseMacAddress(&configuredMac);
+        rep &= (configuredMac != MacAddress());
+
+        if (rep)
+        {
+            mac = configuredMac;
+        }
     }
 
     int inst = Platform::InstanceID();
