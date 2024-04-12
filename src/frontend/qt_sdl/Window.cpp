@@ -805,7 +805,7 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
     if (event->isAutoRepeat()) return;
 
     // TODO!! REMOVE ME IN RELEASE BUILDS!!
-    //if (event->key() == Qt::Key_F11) NDS::debug(0);
+    //if (event->key() == Qt::Key_F11) emuThread->NDS->debug(0);
 
     Input::KeyPress(event);
 }
