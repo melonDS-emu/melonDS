@@ -237,7 +237,7 @@ void GPU3D::Reset() noexcept
     TotalParams = 0;
 
     GeometryEnabled = false;
-    RenderingEnabled = false;
+    RenderingEnabled = 0;
 
     DispCnt = 0;
     AlphaRefVal = 0;
@@ -550,12 +550,16 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 
     file->Bool32(&AbortFrame);
     file->Bool32(&GeometryEnabled);
-    file->Bool32(&RenderingEnabled);
+    file->Var8(&RenderingEnabled);
     file->Var32(&PolygonMode);
     file->Var32(&PolygonAttr);
     file->Var32(&CurPolygonAttr);
     file->Var32(&TexParam);
     file->Var32(&TexPalette);
+    
+    file->Var8(&RDLines);
+    file->Var8(&RDLinesTemp);
+
     RenderFrameIdentical = false;
     if (softRenderer && softRenderer->IsThreaded())
     {
@@ -568,10 +572,19 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 void GPU3D::SetEnabled(bool geometry, bool rendering) noexcept
 {
     GeometryEnabled = geometry;
-    RenderingEnabled = rendering;
-
-    if (!rendering) ResetRenderingState();
-    else RDLinesTemp = 63; // resets to 63 when the rasterizer is toggled on
+    if (rendering)
+    {
+        if (RenderingEnabled == 0)
+        {
+            RenderingEnabled = 1;
+            RDLinesTemp = 63; // CHECKME
+        }
+    }
+    else
+    {
+        ResetRenderingState();
+        RenderingEnabled = 0;
+    }
 }
 
 
@@ -2438,11 +2451,11 @@ void GPU3D::VBlank() noexcept
 
     if (GeometryEnabled)
     {
-        if (RenderingEnabled)
+        if (RenderingEnabled >= 3)
         {
-            RDLines = RDLinesTemp;
             if (FlushRequest)
             {
+                swap:
                 if (NumPolygons)
                 {
                     // separate translucent polygons from opaque ones
@@ -2495,6 +2508,15 @@ void GPU3D::VBlank() noexcept
 
             RenderClearAttr1 = ClearAttr1;
             RenderClearAttr2 = ClearAttr2;
+        }
+        else if (RenderingEnabled != 0)
+        {
+            if (FlushRequest)
+            {
+                RenderingEnabled++;
+                if (RenderingEnabled >= 3)
+                    goto swap;
+            }
         }
 
         if (FlushRequest)

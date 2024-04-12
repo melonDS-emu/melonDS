@@ -2024,7 +2024,7 @@ void SoftRenderer::RenderFrame(GPU& gpu)
         //init internal buffer
         ClearBuffers(gpu);
 
-        if (gpu.GPU3D.RenderNumPolygons > 0)
+        if (gpu.GPU3D.RenderingEnabled >= 3)
             RenderPolygons(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
         else
             memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
@@ -2061,7 +2061,7 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
             //init internal buffer
             ClearBuffers(gpu);
 
-            if (gpu.GPU3D.RenderNumPolygons > 0)
+            if (gpu.GPU3D.RenderingEnabled >= 3)
                 RenderPolygons(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
             else
             {

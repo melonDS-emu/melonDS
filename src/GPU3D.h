@@ -243,7 +243,11 @@ public:
     u32 TotalParams = 0;
 
     bool GeometryEnabled = false;
-    bool RenderingEnabled = false;
+    // 0 = powered off
+    // 1 = powered on, inactive
+    // 2 = one swap buffers, inactive
+    // 3 = two swap buffers, active;
+    u8 RenderingEnabled = 0;
 
     u32 DispCnt = 0;
 
