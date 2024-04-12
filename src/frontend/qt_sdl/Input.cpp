@@ -209,16 +209,22 @@ void Process()
     }
 
     JoyInputMask = 0xFFF;
-    for (int i = 0; i < 12; i++)
-        if (JoystickButtonDown(Config::JoyMapping[i]))
-            JoyInputMask &= ~(1<<i);
+    if (Joystick)
+    {
+        for (int i = 0; i < 12; i++)
+            if (JoystickButtonDown(Config::JoyMapping[i]))
+                JoyInputMask &= ~(1 << i);
+    }
 
     InputMask = KeyInputMask & JoyInputMask;
 
     JoyHotkeyMask = 0;
-    for (int i = 0; i < HK_MAX; i++)
-        if (JoystickButtonDown(Config::HKJoyMapping[i]))
-            JoyHotkeyMask |= (1<<i);
+    if (Joystick)
+    {
+        for (int i = 0; i < HK_MAX; i++)
+            if (JoystickButtonDown(Config::HKJoyMapping[i]))
+                JoyHotkeyMask |= (1 << i);
+    }
 
     HotkeyMask = KeyHotkeyMask | JoyHotkeyMask;
     HotkeyPress = HotkeyMask & ~LastHotkeyMask;
