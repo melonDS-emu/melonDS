@@ -52,7 +52,6 @@ public:
     void RenderFrame(GPU& gpu) override;
     void RestartFrame(GPU& gpu) override;
     u32* GetLine(int line) override;
-    bool CheckStencil() override;
 
     void SetupRenderThread(GPU& gpu);
     void EnableRenderThread();
@@ -508,7 +507,6 @@ private:
     // bit22: translucent flag
     // bit24-29: polygon ID for opaque pixels
 
-    u8 StencilBufferBak[256*2];
     u8 StencilBuffer[256*2];
     bool ShadowRendered;
 

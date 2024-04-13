@@ -352,7 +352,6 @@ public:
     virtual u32* GetLine(int line) = 0;
     virtual void Blit(const GPU& gpu) {};
     virtual void PrepareCaptureFrame() {}
-    virtual bool CheckStencil() {return true;};
 protected:
     Renderer3D(bool Accelerated);
 };

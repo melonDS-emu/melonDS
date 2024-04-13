@@ -1882,8 +1882,6 @@ void SoftRenderer::ClearBuffers(const GPU& gpu)
 
 void SoftRenderer::RenderPolygons(const GPU& gpu, bool threaded, Polygon** polygons, int npolys)
 {
-    memcpy(StencilBufferBak, StencilBuffer, sizeof(StencilBuffer));
-
     int j = 0;
     for (int i = 0; i < npolys; i++)
     {
@@ -1975,11 +1973,6 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
 
         RenderThreadRendering = false;
     }
-}
-
-bool SoftRenderer::CheckStencil()
-{
-    return (memcmp(StencilBuffer, StencilBufferBak, sizeof(StencilBuffer)) == 0);
 }
 
 u32* SoftRenderer::GetLine(int line)
