@@ -2475,7 +2475,8 @@ void GPU3D::VBlank() noexcept
                     && memcmp(RenderEdgeTable, EdgeTable, 8*2) == 0
                     && memcmp(RenderFogDensityTable + 1, FogDensityTable, 32) == 0
                     && memcmp(RenderToonTable, ToonTable, 32*2) == 0
-                    && RenderRasterRev == NDS.GetSCFGRasterBit();
+                    && RenderRasterRev == NDS.GetSCFGRasterBit()
+                    && CurrentRenderer->CheckStencil();
             }
 
             RenderDispCnt = DispCnt;
