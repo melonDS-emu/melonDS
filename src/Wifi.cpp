@@ -1625,6 +1625,17 @@ bool Wifi::CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
             continue;
         }
 
+        // hack: ignore MP frames if not engaged in a MP comm
+        if (type == 0 && (!IsMP))
+        {
+            if (MACEqual(&RXBuffer[12 + 16], MPReplyMAC) ||
+                MACEqual(&RXBuffer[12 + 4], MPCmdMAC) ||
+                MACEqual(&RXBuffer[12 + 4], MPReplyMAC))
+            {
+                continue;
+            }
+        }
+
         framectl = *(u16*)&RXBuffer[12+0];
         txrate = RXBuffer[8];
 
