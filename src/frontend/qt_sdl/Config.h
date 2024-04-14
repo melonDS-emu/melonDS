@@ -22,6 +22,9 @@
 #include <variant>
 #include <string>
 
+//#define TOML_HEADER_ONLY 0
+//#include "toml/toml.hpp"
+
 enum
 {
     HK_Lid = 0,
@@ -53,6 +56,14 @@ enum
 
 namespace Config
 {
+
+struct LegacyEntry
+{
+    char Name[32];
+    int Type;           // 0=int 1=bool 2=string 3=64bit int
+    char TOMLPath[64];
+    bool InstanceUnique; // whether the setting can exist individually for each instance in multiplayer
+};
 
 struct ConfigEntry
 {
@@ -206,6 +217,9 @@ extern bool GdbARM9BreakOnStartup;
 
 bool Load();
 void Save();
+
+//toml::node_view<toml::node> GetLocalTable(int instance);
+//inline toml::node_view<toml::node> GetGlobalTable() { return GetLocalTable(-1); }
 
 }
 
