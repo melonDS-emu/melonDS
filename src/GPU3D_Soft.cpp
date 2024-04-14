@@ -123,8 +123,8 @@ void SoftRenderer::Reset(GPU& gpu)
     memset(AttrBuffer, 0, BufferSize * 2 * 4);
     memset(StencilBuffer, 0, 256*2);
 
-    ShadowRendered = false;
-
+    ShadowRendered[0] = false;
+    ShadowRendered[1] = false;
     SetupRenderThread(gpu);
     EnableRenderThread();
 }
@@ -734,13 +734,13 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     // stencil buffer is only cleared when beginning a shadow mask after a shadow polygon is rendered
     // the "Revised" Rasterizer Circuit bugs out stencil buffer clearing for opaque shadow masks
     // TODO: toggling the scfg bit appears to glitch the stencil buffer for a frame with translucent masks?
-    if (ShadowRendered && !(gpu3d.RenderRasterRev && (((polygon->Attr >> 16) & 0x1F) == 31)))
+    if (ShadowRendered[y&0x1] && !(gpu3d.RenderRasterRev && (((polygon->Attr >> 16) & 0x1F) == 31)))
     {
         StencilCleared = true;
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
     }
 
-    ShadowRendered = false;
+    ShadowRendered[y&0x1] = false;
 
     if (polygon->YTop != polygon->YBottom)
     {
@@ -933,7 +933,7 @@ void SoftRenderer::RenderPolygonScanline(GPU& gpu, RendererPolygon* rp, s32 y)
 
     if (polygon->IsShadow)
     {
-        ShadowRendered = true;
+        ShadowRendered[y&0x1] = true;
         if (wireframe) return; // TODO: this probably still counts towards timings.
         if (!StencilCleared)
         {
