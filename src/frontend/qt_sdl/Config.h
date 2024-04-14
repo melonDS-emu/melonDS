@@ -23,7 +23,7 @@
 #include <string>
 
 //#define TOML_HEADER_ONLY 0
-//#include "toml/toml.hpp"
+#include "toml/toml.hpp"
 
 enum
 {
@@ -218,8 +218,8 @@ extern bool GdbARM9BreakOnStartup;
 bool Load();
 void Save();
 
-//toml::node_view<toml::node> GetLocalTable(int instance);
-//inline toml::node_view<toml::node> GetGlobalTable() { return GetLocalTable(-1); }
+toml::value& GetLocalTable(int instance);
+inline toml::value& GetGlobalTable() { return GetLocalTable(-1); }
 
 }
 

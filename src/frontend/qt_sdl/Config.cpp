@@ -25,7 +25,7 @@
 
 #include <iostream>
 #include <fstream>
-#include "toml/toml.hpp"
+//#include "toml/toml.hpp"
 
 
 namespace Config
@@ -333,16 +333,16 @@ LegacyEntry LegacyFile[] =
     {"LastROMFolder", 2, "LastROMFolder", false},
     {"LastBIOSFolder", 2, "LastBIOSFolder", false},
 
-    {"RecentROM_0", 2, "RecentROM[0]", false},
-    {"RecentROM_1", 2, "RecentROM[1]", false},
-    {"RecentROM_2", 2, "RecentROM[2]", false},
-    {"RecentROM_3", 2, "RecentROM[3]", false},
-    {"RecentROM_4", 2, "RecentROM[4]", false},
-    {"RecentROM_5", 2, "RecentROM[5]", false},
-    {"RecentROM_6", 2, "RecentROM[6]", false},
-    {"RecentROM_7", 2, "RecentROM[7]", false},
-    {"RecentROM_8", 2, "RecentROM[8]", false},
-    {"RecentROM_9", 2, "RecentROM[9]", false},
+    {"RecentROM_0", 4, "RecentROM[0]", false},
+    {"RecentROM_1", 4, "RecentROM[1]", false},
+    {"RecentROM_2", 4, "RecentROM[2]", false},
+    {"RecentROM_3", 4, "RecentROM[3]", false},
+    {"RecentROM_4", 4, "RecentROM[4]", false},
+    {"RecentROM_5", 4, "RecentROM[5]", false},
+    {"RecentROM_6", 4, "RecentROM[6]", false},
+    {"RecentROM_7", 4, "RecentROM[7]", false},
+    {"RecentROM_8", 4, "RecentROM[8]", false},
+    {"RecentROM_9", 4, "RecentROM[9]", false},
 
     {"SaveFilePath", 2, "SaveFilePath", true},
     {"SavestatePath", 2, "SavestatePath", true},
@@ -653,7 +653,7 @@ bool LoadFile(int inst, int actualinst)
 
 bool LoadLegacyFile(int inst)
 {
-    /*Platform::FileHandle* f;
+    Platform::FileHandle* f;
     if (inst > 0)
     {
         char name[100] = {0};
@@ -666,8 +666,8 @@ bool LoadLegacyFile(int inst)
     }
 
     if (!f) return true;
-
-    auto table = GetLocalTable(inst);
+printf("PARSING LEGACY INI %d\n", inst);
+    toml::value& root = GetLocalTable(inst);
 
     char linebuf[1024];
     char entryname[32];
@@ -685,28 +685,53 @@ bool LoadLegacyFile(int inst)
         {
             if (!strncmp(entry->Name, entryname, 32))
             {
-                if (entry->InstanceUnique ^ (inst == -1))
+                if (!(entry->InstanceUnique ^ (inst == -1)))
                     break;
+printf("entry: %s -> %s, %d\n", entry->Name, entry->TOMLPath, entry->InstanceUnique);
+                std::string path = entry->TOMLPath;
+                toml::value* table = &root;
+                size_t sep;
+                while ((sep = path.find('.')) != std::string::npos)
+                {printf("%s->", path.substr(0,sep).c_str());
+                    table = &(*table)[path.substr(0, sep)];
+                    path = path.substr(sep+1);
+                }
+                printf("%s\n", path.c_str());
 
-                const char* path = entry->TOMLPath;
-                auto node = table.at_path(path);
+                int arrayid = -1;
+                if (path[path.size()-1] == ']')
+                {
+                    size_t tmp = path.rfind('[');
+                    arrayid = std::stoi(path.substr(tmp+1, path.size()-tmp-2));
+                    path = path.substr(0, tmp);
+                }
+printf("path %s id %d\n", path.c_str(), arrayid);
+                toml::value& val = (*table)[path];
 
                 switch (entry->Type)
                 {
                     case 0:
-                        node.value<int>() = strtol(entryval, NULL, 10);
+                        val = strtol(entryval, nullptr, 10);
                         break;
 
                     case 1:
-                        node.value<bool>() = !!strtol(entryval, NULL, 10);
+                        val = !!strtol(entryval, nullptr, 10);
                         break;
 
                     case 2:
-                        node.value<std::string>() = entryval;
+                        val = entryval;
                         break;
 
                     case 3:
-                        node.value<int64_t>() = strtoll(entryval, NULL, 10);
+                        val = strtoll(entryval, nullptr, 10);
+                        break;
+
+                    case 4:
+                        if (!val.is_array()) val = toml::array();
+                        while (val.size() < arrayid+1)
+                            val.push_back("");
+                        val[arrayid] = entryval;
+                        //val.push_back(entryval);
                         break;
                 }
 
@@ -715,7 +740,7 @@ bool LoadLegacyFile(int inst)
         }
     }
 
-    CloseFile(f);*/
+    CloseFile(f);
     return true;
 }
 
@@ -734,19 +759,19 @@ bool Load()
     if (!Platform::CheckFileWritable(cfgpath))
         return false;
 
-    /*RootTable = toml::table();
+    RootTable = toml::value();
 
     if (!Platform::FileExists(cfgpath))
         return LoadLegacy();
 
     try
     {
-        RootTable = toml::parse_file(cfgpath);
+        RootTable = toml::parse(cfgpath);
     }
-    catch (toml::parse_error& err)
+    catch (toml::syntax_error& err)
     {
         //RootTable = toml::table();
-    }*/
+    }
 
     return true;
 }
@@ -758,7 +783,9 @@ printf("save\n");
     if (!Platform::CheckFileWritable(cfgpath))
         return;
     printf("zirz\n");
-    RootTable["test"] = 4444;
+    /*RootTable["test"] = 4444;
+    RootTable["teste.derp"] = 5555;
+    RootTable["testa"]["fazil"] = 6666;*/
     //std::string derp = "sfsdf";
     //toml::serializer<std::string> vorp(RootTable);
     //toml::serializer<toml::string> zarp;
@@ -772,12 +799,12 @@ printf("save\n");
 }
 
 
-/*toml::node_view<toml::node> GetLocalTable(int instance)
+toml::value& GetLocalTable(int instance)
 {
     if (instance == -1)
-        return toml::node_view(RootTable);
+        return RootTable;
     else
         return RootTable["Instance" + std::to_string(instance)];
-}*/
+}
 
 }
