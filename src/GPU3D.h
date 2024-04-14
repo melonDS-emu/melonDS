@@ -325,6 +325,10 @@ public:
     std::array<Polygon*,2048> RenderPolygonRAM {};
     u32 RenderNumPolygons = 0;
 
+    // used to fix stencil buffer's frame-to-frame persistence not working properly under extreme misuse of shadow masks/shadows
+    bool ForceRerender = false;
+    bool DontRerenderLoop = false;
+
     u32 FlushRequest = 0;
     u32 FlushAttributes = 0;
     u32 ScrolledLine[256]; // not part of the hardware state, don't serialize

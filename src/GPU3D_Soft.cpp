@@ -735,7 +735,10 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     // the "Revised" Rasterizer Circuit bugs out stencil buffer clearing for opaque shadow masks
     // TODO: toggling the scfg bit appears to glitch the stencil buffer for a frame with translucent masks?
     if (ShadowRendered && !(gpu3d.RenderRasterRev && (((polygon->Attr >> 16) & 0x1F) == 31)))
+    {
+        StencilCleared = true;
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
+    }
 
     ShadowRendered = false;
 
@@ -919,7 +922,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     rp->XR = rp->SlopeR.Step();
 }
 
-void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y)
+void SoftRenderer::RenderPolygonScanline(GPU& gpu, RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
 
@@ -928,9 +931,17 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
     bool wireframe = (polyalpha == 0);
 
-    ShadowRendered |= polygon->IsShadow;
-    if (wireframe)
-        if (polygon->IsShadow) return; // TODO: this probably still counts towards timings.
+    if (polygon->IsShadow)
+    {
+        ShadowRendered = true;
+        if (wireframe) return; // TODO: this probably still counts towards timings.
+        if (!StencilCleared)
+        {
+            gpu.GPU3D.ForceRerender = true;
+            // set stencil cleared flag to make it marginally faster...?
+            StencilCleared = true;
+        }
+    }
 
     if (polygon->YTop != polygon->YBottom)
     {
@@ -1548,7 +1559,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     rp->XR = rp->SlopeR.Step();
 }
 
-void SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int npolys)
+void SoftRenderer::RenderScanline(GPU& gpu, s32 y, int npolys)
 {
     for (int i = 0; i < npolys; i++)
     {
@@ -1880,8 +1891,13 @@ void SoftRenderer::ClearBuffers(const GPU& gpu)
     }
 }
 
-void SoftRenderer::RenderPolygons(const GPU& gpu, bool threaded, Polygon** polygons, int npolys)
+void SoftRenderer::RenderPolygons(GPU& gpu, bool threaded, Polygon** polygons, int npolys)
 {
+    if (gpu.GPU3D.DontRerenderLoop)
+        gpu.GPU3D.DontRerenderLoop = false;
+    else
+        StencilCleared = false;
+
     int j = 0;
     for (int i = 0; i < npolys; i++)
     {

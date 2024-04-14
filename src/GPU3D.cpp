@@ -557,6 +557,7 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     file->Var32(&TexParam);
     file->Var32(&TexPalette);
     RenderFrameIdentical = false;
+    ForceRerender = false;
     if (softRenderer && softRenderer->IsThreaded())
     {
         softRenderer->EnableRenderThread();
@@ -2463,19 +2464,30 @@ void GPU3D::VBlank() noexcept
 
                 RenderNumPolygons = NumPolygons;
                 RenderFrameIdentical = false;
+                ForceRerender = 0;
             }
             else
             {
-                RenderFrameIdentical = RenderDispCnt == DispCnt
-                    && RenderAlphaRef == AlphaRef
-                    && RenderClearAttr1 == ClearAttr1
-                    && RenderClearAttr2 == ClearAttr2
-                    && RenderFogColor == FogColor
-                    && RenderFogOffset == FogOffset * 0x200
-                    && memcmp(RenderEdgeTable, EdgeTable, 8*2) == 0
-                    && memcmp(RenderFogDensityTable + 1, FogDensityTable, 32) == 0
-                    && memcmp(RenderToonTable, ToonTable, 32*2) == 0
-                    && RenderRasterRev == NDS.GetSCFGRasterBit();
+                
+                if (ForceRerender == true)
+                {
+                    RenderFrameIdentical = false;
+                    ForceRerender = false;
+                    DontRerenderLoop = true;
+                }
+                else
+                {
+                    RenderFrameIdentical = RenderDispCnt == DispCnt
+                        && RenderAlphaRef == AlphaRef
+                        && RenderClearAttr1 == ClearAttr1
+                        && RenderClearAttr2 == ClearAttr2
+                        && RenderFogColor == FogColor
+                        && RenderFogOffset == FogOffset * 0x200
+                        && memcmp(RenderEdgeTable, EdgeTable, 8*2) == 0
+                        && memcmp(RenderFogDensityTable + 1, FogDensityTable, 32) == 0
+                        && memcmp(RenderToonTable, ToonTable, 32*2) == 0
+                        && RenderRasterRev == NDS.GetSCFGRasterBit();
+                }
             }
 
             RenderDispCnt = DispCnt;

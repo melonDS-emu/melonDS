@@ -474,12 +474,12 @@ private:
     void SetupPolygonRightEdge(RendererPolygon* rp, s32 y) const;
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     void RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y);
-    void RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y);
-    void RenderScanline(const GPU& gpu, s32 y, int npolys);
+    void RenderPolygonScanline(GPU& gpu, RendererPolygon* rp, s32 y);
+    void RenderScanline(GPU& gpu, s32 y, int npolys);
     u32 CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const;
     void ScanlineFinalPass(const GPU3D& gpu3d, s32 y);
     void ClearBuffers(const GPU& gpu);
-    void RenderPolygons(const GPU& gpu, bool threaded, Polygon** polygons, int npolys);
+    void RenderPolygons(GPU& gpu, bool threaded, Polygon** polygons, int npolys);
 
     void RenderThreadFunc(GPU& gpu);
 
@@ -509,6 +509,7 @@ private:
 
     u8 StencilBuffer[256*2];
     bool ShadowRendered;
+    bool StencilCleared;
 
     bool Enabled;
 
