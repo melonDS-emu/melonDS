@@ -143,6 +143,8 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
     u32 vramaddr = (texparam & 0xFFFF) << 3;
 
     s32 width = 8 << ((texparam >> 20) & 0x7);
+    // since width is always a multple of 8 (thus a multiple of 2) we can replace all multiplications by width with a bitshift
+    s32 widthshift = 3 + ((texparam >> 20) & 0x7);
     s32 height = 8 << ((texparam >> 23) & 0x7);
 
     s >>= 4;
@@ -192,7 +194,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
     {
     case 1: // A3I5
         {
-            vramaddr += ((t * width) + s);
+            vramaddr += ((t << widthshift) + s);
             u8 pixel = ReadVRAM_Texture<u8>(vramaddr, gpu);
 
             texpal <<= 4;
@@ -203,7 +205,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
 
     case 2: // 4-color
         {
-            vramaddr += (((t * width) + s) >> 2);
+            vramaddr += (((t << widthshift) + s) >> 2);
             u8 pixel = ReadVRAM_Texture<u8>(vramaddr, gpu);
             pixel >>= ((s & 0x3) << 1);
             pixel &= 0x3;
@@ -216,7 +218,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
 
     case 3: // 16-color
         {
-            vramaddr += (((t * width) + s) >> 1);
+            vramaddr += (((t << widthshift) + s) >> 1);
             u8 pixel = ReadVRAM_Texture<u8>(vramaddr, gpu);
             if (s & 0x1) pixel >>= 4;
             else         pixel &= 0xF;
@@ -229,7 +231,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
 
     case 4: // 256-color
         {
-            vramaddr += ((t * width) + s);
+            vramaddr += ((t << widthshift) + s);
             u8 pixel = ReadVRAM_Texture<u8>(vramaddr, gpu);
 
             texpal <<= 4;
@@ -240,7 +242,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
 
     case 5: // compressed
         {
-            vramaddr += ((t & 0x3FC) * (width>>2)) + (s & 0x3FC);
+            vramaddr += ((t & 0x3FC) << (widthshift-2)) + (s & 0x3FC);
             vramaddr += (t & 0x3);
 
             u32 slot1addr = 0x20000 + ((vramaddr & 0x1FFFC) >> 1);
@@ -345,7 +347,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
 
     case 6: // A5I3
         {
-            vramaddr += ((t * width) + s);
+            vramaddr += ((t << widthshift) + s);
             u8 pixel = ReadVRAM_Texture<u8>(vramaddr, gpu);
 
             texpal <<= 4;
@@ -356,7 +358,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
 
     case 7: // direct color
         {
-            vramaddr += (((t * width) + s) << 1);
+            vramaddr += (((t << widthshift) + s) << 1);
             *color = ReadVRAM_Texture<u16>(vramaddr, gpu);
             *alpha = (*color & 0x8000) ? 31 : 0;
         }
