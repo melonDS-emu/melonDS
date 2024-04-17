@@ -20,15 +20,15 @@
 #include <string.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <iostream>
+#include <fstream>
+#include <regex>
+#include "toml/toml.hpp"
+
 #include "Platform.h"
 #include "Config.h"
 #include "FrontendUtil.h"
 #include "Screen.h"
-
-#include <iostream>
-#include <fstream>
-#include <regex>
-//#include "toml/toml.hpp"
 
 using namespace std::string_literals;
 
@@ -339,7 +339,7 @@ LegacyEntry LegacyFile[] =
     {"LimitFPS", 1, "LimitFPS", false},
     {"MaxFPS", 0, "MaxFPS", false},
     {"AudioSync", 1, "AudioSync", false},
-    {"ShowOSD", 1, "Window0.ShowOSD", false},
+    {"ShowOSD", 1, "Window0.ShowOSD", true},
 
     {"ConsoleType", 0, "Emu.ConsoleType", false},
     {"DirectBoot", 1, "Emu.DirectBoot", false},
@@ -667,39 +667,135 @@ ConfigEntry ConfigFile[] =
 };
 
 
+Array::Array(toml::value& data) : Data(data)
+{
+}
+
+size_t Array::Size()
+{
+    return Data.size();
+}
+
+Array Array::GetArray(const int id)
+{
+    while (Data.size() < id+1)
+        Data.push_back(toml::array());
+
+    toml::value& arr = Data[id];
+    if (!arr.is_array())
+        arr = toml::array();
+
+    return Array(arr);
+}
+
+int Array::GetInt(const int id)
+{
+    while (Data.size() < id+1)
+        Data.push_back(0);
+
+    toml::value& tval = Data[id];
+    if (!tval.is_integer())
+        tval = 0;
+
+    return (int)tval.as_integer();
+}
+
+int64_t Array::GetInt64(const int id)
+{
+    while (Data.size() < id+1)
+        Data.push_back(0);
+
+    toml::value& tval = Data[id];
+    if (!tval.is_integer())
+        tval = 0;
+
+    return tval.as_integer();
+}
+
+bool Array::GetBool(const int id)
+{
+    while (Data.size() < id+1)
+        Data.push_back(false);
+
+    toml::value& tval = Data[id];
+    if (!tval.is_boolean())
+        tval = false;
+
+    return tval.as_boolean();
+}
+
+std::string Array::GetString(const int id)
+{
+    while (Data.size() < id+1)
+        Data.push_back("");
+
+    toml::value& tval = Data[id];
+    if (!tval.is_string())
+        tval = "";
+
+    return tval.as_string();
+}
+
+void Array::SetInt(const int id, int val)
+{
+    while (Data.size() < id+1)
+        Data.push_back(0);
+
+    toml::value& tval = Data[id];
+    tval = val;
+}
+
+void Array::SetInt64(const int id, int64_t val)
+{
+    while (Data.size() < id+1)
+        Data.push_back(0);
+
+    toml::value& tval = Data[id];
+    tval = val;
+}
+
+void Array::SetBool(const int id, bool val)
+{
+    while (Data.size() < id+1)
+        Data.push_back(false);
+
+    toml::value& tval = Data[id];
+    tval = val;
+}
+
+void Array::SetString(const int id, const std::string& val)
+{
+    while (Data.size() < id+1)
+        Data.push_back("");
+
+    toml::value& tval = Data[id];
+    tval = val;
+}
+
+
 Table::Table(toml::value& data, std::string path) : Data(data)
 {
     if (path.empty())
         PathPrefix = "";
     else
         PathPrefix = path + ".";
+}
 
-    std::regex def_re("\\d+");
-    std::string defkey = std::regex_replace(path, def_re, "*");
+Array Table::GetArray(const std::string& path)
+{
+    toml::value& arr = ResolvePath(path);
+    if (!arr.is_array())
+        arr = toml::array();
 
-    if (defkey.empty())
-        DefaultPrefix = "";
-    else
-        DefaultPrefix = defkey + ".";
-
-    /*DefaultInt = 0;
-    DefaultBool = false;
-    DefaultString = "";
-
-    if (DefaultInts.count(defkey) != DefaultInts.end())
-        DefaultInt = DefaultInts[defkey];
-    if (DefaultBools.find(defkey) != DefaultBools.end())
-        DefaultBool = DefaultBools[defkey];
-    if (DefaultStrings.find(defkey) != DefaultStrings.end())
-        DefaultString = DefaultStrings[defkey];*/
-
-    //printf("Table: %s | %s | %s | %s\n", path.c_str(), PathPrefix.c_str(), defkey.c_str(), DefaultPrefix.c_str());
-    //printf("default: %d / %d / %s\n", DefaultInt, DefaultBool, DefaultString.c_str());
+    return Array(arr);
 }
 
 Table Table::GetTable(const std::string& path)
 {
     toml::value& tbl = ResolvePath(path);
+    if (!tbl.is_table())
+        tbl = toml::table();
+
     return Table(tbl, PathPrefix + path);
 }
 
@@ -888,7 +984,11 @@ bool LoadLegacyFile(int inst)
 
     if (!f) return true;
 printf("PARSING LEGACY INI %d\n", inst);
-    toml::value& root = GetLocalTable(inst);
+    toml::value* root;// = GetLocalTable(inst);
+    if (inst == -1)
+        root = &RootTable;
+    else
+        root = &RootTable["Instance" + std::to_string(inst)];
 
     char linebuf[1024];
     char entryname[32];
@@ -910,7 +1010,7 @@ printf("PARSING LEGACY INI %d\n", inst);
                     break;
 printf("entry: %s -> %s, %d\n", entry->Name, entry->TOMLPath, entry->InstanceUnique);
                 std::string path = entry->TOMLPath;
-                toml::value* table = &root;
+                toml::value* table = root;
                 size_t sep;
                 while ((sep = path.find('.')) != std::string::npos)
                 {printf("%s->", path.substr(0,sep).c_str());
@@ -994,35 +1094,7 @@ bool Load()
         //RootTable = toml::table();
     }
 
-    /*Table derp(&RootTable, "");
-    printf("aa\n");
-    Table darp(&RootTable, "Instance0.Keyboard");*/
-
-    Table test(RootTable, "");
-    printf("-- test1 --\n");
-    printf("%d\n", test.GetInt("MaxFPS"));
-    printf("%d\n", test.GetInt("Instance0.Keyboard.A"));
-    printf("%d\n", test.GetInt("Instance0.Joystick.A"));
-    printf("%d\n", test.GetInt("Instance0.Joystick.JoystickID"));
-    printf("%d\n", test.GetInt("Instance0.Window0.Width"));
-    printf("%d\n", test.GetInt("Instance0.Window0.ScreenRotation"));
-    //printf("%d\n", test.GetInt("Kaka"));
-    Table test2 = test.GetTable("Instance0");
-    printf("-- test2 --\n");
-    printf("%d\n", test2.GetInt("Keyboard.A"));
-    printf("%d\n", test2.GetInt("Joystick.A"));
-    printf("%d\n", test2.GetInt("Joystick.JoystickID"));
-    printf("%d\n", test2.GetInt("Window0.Width"));
-    printf("%d\n", test2.GetInt("Window0.ScreenRotation"));
-    Table test3 = test2.GetTable("Joystick");
-    printf("-- test3 --\n");
-    printf("%d\n", test3.GetInt("A"));
-    printf("%d\n", test3.GetInt("JoystickID"));
-    //Table test4 = test.GetTable("Instance0.Joystick");
-    Table test4(RootTable["Instance0"]["Joystick"], "Instance0.Joystick");
-    printf("-- test4 --\n");
-    printf("%d\n", test4.GetInt("A"));
-    printf("%d\n", test4.GetInt("JoystickID"));
+    //
 
     return true;
 }
@@ -1050,12 +1122,17 @@ printf("save\n");
 }
 
 
-toml::value& GetLocalTable(int instance)
+Table GetLocalTable(int instance)
 {
     if (instance == -1)
-        return RootTable;
-    else
-        return RootTable["Instance" + std::to_string(instance)];
+        return Table(RootTable, "");
+
+    std::string key = "Instance" + std::to_string(instance);
+    toml::value& tbl = RootTable[key];
+    if (tbl.is_uninitialized())
+        RootTable[key] = RootTable["Instance0"];
+
+    return Table(tbl, key);
 }
 
 }
