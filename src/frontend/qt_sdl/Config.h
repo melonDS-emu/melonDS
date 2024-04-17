@@ -21,6 +21,9 @@
 
 #include <variant>
 #include <string>
+#include <QString>
+#include <unordered_map>
+#include <tuple>
 
 //#define TOML_HEADER_ONLY 0
 #include "toml/toml.hpp"
@@ -80,6 +83,54 @@ struct CameraConfig
     std::string ImagePath;
     std::string CamDeviceName;
     bool XFlip;
+};
+
+template<typename T>
+using DefaultList = std::unordered_map<std::string, T>;
+
+using RangeList = std::unordered_map<std::string, std::tuple<int, int>>;
+
+class Table
+{
+public:
+    Table(toml::value& data, std::string path);
+    ~Table() {}
+
+    Table GetTable(const std::string& path);
+
+    int GetInt(const std::string& path);
+    int64_t GetInt64(const std::string& path);
+    bool GetBool(const std::string& path);
+    std::string GetString(const std::string& path);
+
+    void SetInt(const std::string& path, int val);
+    void SetInt64(const std::string& path, int64_t val);
+    void SetBool(const std::string& path, bool val);
+    void SetString(const std::string& path, const std::string& val);
+
+    // convenience
+
+    QString GetQString(const std::string& path)
+    {
+        return QString::fromStdString(GetString(path));
+    }
+
+    void SetQString(const std::string& path, const QString& val)
+    {
+        return SetString(path, val.toStdString());
+    }
+
+private:
+    toml::value& Data;
+    std::string PathPrefix;
+    std::string DefaultPrefix;
+
+    int DefaultInt;
+    bool DefaultBool;
+    std::string DefaultString;
+
+    toml::value& ResolvePath(const std::string& path);
+    template<typename T> T FindDefault(const std::string& path, T def, DefaultList<T> list);
 };
 
 

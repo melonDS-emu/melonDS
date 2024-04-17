@@ -22,10 +22,15 @@
 #include <inttypes.h>
 #include "Platform.h"
 #include "Config.h"
+#include "FrontendUtil.h"
+#include "Screen.h"
 
 #include <iostream>
 #include <fstream>
+#include <regex>
 //#include "toml/toml.hpp"
+
+using namespace std::string_literals;
 
 
 namespace Config
@@ -174,6 +179,77 @@ const char* kLegacyUniqueConfigFile = "melonDS.%d.ini";
 
 toml::value RootTable;
 
+DefaultList<int> DefaultInts =
+{
+    {"Instance*.Keyboard", -1},
+    {"Instance*.Joystick", -1},
+    {"Instance*.Window*.Width", 256},
+    {"Instance*.Window*.Height", 384},
+    {"Screen.VSyncInterval", 1},
+    {"3D.GL.ScaleFactor", 1},
+    {"MaxFPS", 1000},
+#ifdef JIT_ENABLED
+    {"JIT.MaxBlockSize", 32},
+#endif
+    {"Instance*.Firmware.Language", 1},
+    {"Instance*.Firmware.BirthdayMonth", 1},
+    {"Instance*.Firmware.BirthdayDay", 1},
+    {"MP.AudioMode", 1},
+    {"MP.RecvTimeout", 25},
+    {"Audio.Volume", 256},
+    {"Mic.InputType", 1},
+    {"Mouse.HideSeconds", 5},
+    {"Instance*.DSi.Battery.Level", 0xF},
+#ifdef GDBSTUB_ENABLED
+    {"Instance*.Gdb.ARM7.Port", 3334},
+    {"Instance*.Gdb.ARM9.Port", 3333},
+#endif
+};
+
+RangeList IntRanges =
+{
+    {"Emu.ConsoleType", {0, 1}},
+#ifdef OGLRENDERER_ENABLED
+    {"3D.Renderer", {0, 1}},
+#else
+    {"3D.Renderer", {0, 0}},
+#endif
+    {"Screen.VSyncInterval", {1, 20}},
+    {"3D.GL.ScaleFactor", {1, 16}},
+    {"Audio.Interpolation", {0, 3}},
+    {"Instance*.Audio.Volume", {0, 256}},
+    {"Mic.InputType", {0, micInputType_MAX-1}},
+    {"Instance*.Window*.ScreenRotation", {0, Frontend::screenRot_MAX-1}},
+    {"Instance*.Window*.ScreenGap", {0, 500}},
+    {"Instance*.Window*.ScreenLayout", {0, Frontend::screenLayout_MAX-1}},
+    {"Instance*.Window*.ScreenSizing", {0, Frontend::screenSizing_MAX-1}},
+    {"Instance*.Window*.ScreenAspectTop", {0, AspectRatiosNum-1}},
+    {"Instance*.Window*.ScreenAspectBot", {0, AspectRatiosNum-1}},
+};
+
+DefaultList<bool> DefaultBools =
+{
+    {"Screen.Filter", true},
+    {"3D.Soft.Threaded3D", true},
+    {"LimitFPS", true},
+    {"Window*.ShowOSD", true},
+    {"Emu.DirectBoot", true},
+#ifdef JIT_ENABLED
+    {"JIT.BranchOptimisations", true},
+    {"JIT.LiteralOptimisations", true},
+#ifndef __APPLE__
+    {"JIT.FastMemory", true},
+#endif
+#endif
+};
+
+DefaultList<std::string> DefaultStrings =
+{
+    {"DLDI.ImagePath",                  "dldi.bin"},
+    {"DSi.SD.ImagePath",                "dsisd.bin"},
+    {"Instance*.Firmware.Username",     "melonDS"}
+};
+
 LegacyEntry LegacyFile[] =
 {
     {"Key_A",      0, "Keyboard.A", true},
@@ -234,7 +310,7 @@ LegacyEntry LegacyFile[] =
     {"HKJoy_VolumeUp",            0, "Joystick.HK_VolumeUp", true},
     {"HKJoy_VolumeDown",          0, "Joystick.HK_VolumeDown", true},
 
-    {"JoystickID", 0, "Joystick.JoystickID", true},
+    {"JoystickID", 0, "JoystickID", true},
 
     {"WindowWidth",  0, "Window0.Width", true},
     {"WindowHeight", 0, "Window0.Height", true},
@@ -248,8 +324,8 @@ LegacyEntry LegacyFile[] =
     {"IntegerScaling", 1, "Window0.IntegerScaling", true},
     {"ScreenAspectTop",0, "Window0.ScreenAspectTop", true},
     {"ScreenAspectBot",0, "Window0.ScreenAspectBot", true},
-    {"ScreenFilter",   1, "Screen.Filter", true},
 
+    {"ScreenFilter",        1, "Screen.Filter", false},
     {"ScreenUseGL",         1, "Screen.UseGL", false},
     {"ScreenVSync",         1, "Screen.VSync", false},
     {"ScreenVSyncInterval", 0, "Screen.VSyncInterval", false},
@@ -273,11 +349,7 @@ LegacyEntry LegacyFile[] =
     {"JIT_MaxBlockSize", 0, "JIT.MaxBlockSize", false},
     {"JIT_BranchOptimisations", 1, "JIT.BranchOptimisations", false},
     {"JIT_LiteralOptimisations", 1, "JIT.LiteralOptimisations", false},
-#ifdef __APPLE__
     {"JIT_FastMemory", 1, "JIT.FastMemory", false},
-#else
-    {"JIT_FastMemory", 1, "JIT.FastMemory", false},
-#endif
 #endif
 
     {"ExternalBIOSEnable", 1, "Emu.ExternalBIOSEnable", false},
@@ -595,6 +667,155 @@ ConfigEntry ConfigFile[] =
 };
 
 
+Table::Table(toml::value& data, std::string path) : Data(data)
+{
+    if (path.empty())
+        PathPrefix = "";
+    else
+        PathPrefix = path + ".";
+
+    std::regex def_re("\\d+");
+    std::string defkey = std::regex_replace(path, def_re, "*");
+
+    if (defkey.empty())
+        DefaultPrefix = "";
+    else
+        DefaultPrefix = defkey + ".";
+
+    /*DefaultInt = 0;
+    DefaultBool = false;
+    DefaultString = "";
+
+    if (DefaultInts.count(defkey) != DefaultInts.end())
+        DefaultInt = DefaultInts[defkey];
+    if (DefaultBools.find(defkey) != DefaultBools.end())
+        DefaultBool = DefaultBools[defkey];
+    if (DefaultStrings.find(defkey) != DefaultStrings.end())
+        DefaultString = DefaultStrings[defkey];*/
+
+    //printf("Table: %s | %s | %s | %s\n", path.c_str(), PathPrefix.c_str(), defkey.c_str(), DefaultPrefix.c_str());
+    //printf("default: %d / %d / %s\n", DefaultInt, DefaultBool, DefaultString.c_str());
+}
+
+Table Table::GetTable(const std::string& path)
+{
+    toml::value& tbl = ResolvePath(path);
+    return Table(tbl, PathPrefix + path);
+}
+
+int Table::GetInt(const std::string& path)
+{
+    toml::value& tval = ResolvePath(path);
+    if (!tval.is_integer())
+        tval = FindDefault(path, 0, DefaultInts);
+
+    int ret = (int)tval.as_integer();
+
+    std::regex rng_re("\\d+");
+    std::string rngkey = std::regex_replace(PathPrefix+path, rng_re, "*");
+    if (IntRanges.count(rngkey) != 0)
+    {
+        auto& range = IntRanges[rngkey];
+        ret = std::clamp(ret, std::get<0>(range), std::get<1>(range));
+    }
+
+    return ret;
+}
+
+int64_t Table::GetInt64(const std::string& path)
+{
+    toml::value& tval = ResolvePath(path);
+    if (!tval.is_integer())
+        tval = 0;
+
+    return tval.as_integer();
+}
+
+bool Table::GetBool(const std::string& path)
+{
+    toml::value& tval = ResolvePath(path);
+    if (!tval.is_boolean())
+        tval = FindDefault(path, false, DefaultBools);
+
+    return tval.as_boolean();
+}
+
+std::string Table::GetString(const std::string& path)
+{
+    toml::value& tval = ResolvePath(path);
+    if (!tval.is_string())
+        tval = FindDefault(path, ""s, DefaultStrings);
+
+    return tval.as_string();
+}
+
+void Table::SetInt(const std::string& path, int val)
+{
+    std::regex rng_re("\\d+");
+    std::string rngkey = std::regex_replace(PathPrefix+path, rng_re, "*");
+    if (IntRanges.count(rngkey) != 0)
+    {
+        auto& range = IntRanges[rngkey];
+        val = std::clamp(val, std::get<0>(range), std::get<1>(range));
+    }
+
+    toml::value& tval = ResolvePath(path);
+    tval = val;
+}
+
+void Table::SetInt64(const std::string& path, int64_t val)
+{
+    toml::value& tval = ResolvePath(path);
+    tval = val;
+}
+
+void Table::SetBool(const std::string& path, bool val)
+{
+    toml::value& tval = ResolvePath(path);
+    tval = val;
+}
+
+void Table::SetString(const std::string& path, const std::string& val)
+{
+    toml::value& tval = ResolvePath(path);
+    tval = val;
+}
+
+toml::value& Table::ResolvePath(const std::string& path)
+{
+    toml::value* ret = &Data;
+    std::string tmp = path;
+
+    size_t sep;
+    while ((sep = tmp.find('.')) != std::string::npos)
+    {
+        ret = &(*ret)[tmp.substr(0, sep)];
+        tmp = tmp.substr(sep+1);
+    }
+
+    return (*ret)[tmp];
+}
+
+template<typename T> T Table::FindDefault(const std::string& path, T def, DefaultList<T> list)
+{
+    std::regex def_re("\\d+");
+    std::string defkey = std::regex_replace(PathPrefix+path, def_re, "*");
+
+    T ret = def;
+    while (list.count(defkey) == 0)
+    {
+        if (defkey.empty()) break;
+        size_t sep = defkey.rfind('.');
+        if (sep == std::string::npos) break;
+        defkey = defkey.substr(0, sep);
+    }
+    if (list.count(defkey) != 0)
+        ret = list[defkey];
+
+    return ret;
+}
+
+
 bool LoadFile(int inst, int actualinst)
 {
     Platform::FileHandle* f;
@@ -772,6 +993,36 @@ bool Load()
     {
         //RootTable = toml::table();
     }
+
+    /*Table derp(&RootTable, "");
+    printf("aa\n");
+    Table darp(&RootTable, "Instance0.Keyboard");*/
+
+    Table test(RootTable, "");
+    printf("-- test1 --\n");
+    printf("%d\n", test.GetInt("MaxFPS"));
+    printf("%d\n", test.GetInt("Instance0.Keyboard.A"));
+    printf("%d\n", test.GetInt("Instance0.Joystick.A"));
+    printf("%d\n", test.GetInt("Instance0.Joystick.JoystickID"));
+    printf("%d\n", test.GetInt("Instance0.Window0.Width"));
+    printf("%d\n", test.GetInt("Instance0.Window0.ScreenRotation"));
+    //printf("%d\n", test.GetInt("Kaka"));
+    Table test2 = test.GetTable("Instance0");
+    printf("-- test2 --\n");
+    printf("%d\n", test2.GetInt("Keyboard.A"));
+    printf("%d\n", test2.GetInt("Joystick.A"));
+    printf("%d\n", test2.GetInt("Joystick.JoystickID"));
+    printf("%d\n", test2.GetInt("Window0.Width"));
+    printf("%d\n", test2.GetInt("Window0.ScreenRotation"));
+    Table test3 = test2.GetTable("Joystick");
+    printf("-- test3 --\n");
+    printf("%d\n", test3.GetInt("A"));
+    printf("%d\n", test3.GetInt("JoystickID"));
+    //Table test4 = test.GetTable("Instance0.Joystick");
+    Table test4(RootTable["Instance0"]["Joystick"], "Instance0.Joystick");
+    printf("-- test4 --\n");
+    printf("%d\n", test4.GetInt("A"));
+    printf("%d\n", test4.GetInt("JoystickID"));
 
     return true;
 }
