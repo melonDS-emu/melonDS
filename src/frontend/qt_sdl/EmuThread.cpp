@@ -131,8 +131,8 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
     NDSArgs ndsargs {
         std::move(ndscart),
         std::move(gbacart),
-        *arm9bios,
-        *arm7bios,
+        std::move(arm9bios),
+        std::move(arm7bios),
         std::move(*firmware),
 #ifdef JIT_ENABLED
         Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt,
@@ -165,8 +165,8 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
         auto sdcard = ROMManager::LoadDSiSDCard();
         DSiArgs args {
             std::move(ndsargs),
-            *arm9ibios,
-            *arm7ibios,
+            std::move(arm9ibios),
+            std::move(arm7ibios),
             std::move(*nand),
             std::move(sdcard),
             Config::DSiFullBIOSBoot,

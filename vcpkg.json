@@ -1,7 +1,11 @@
 {
 	"dependencies": [
 		"sdl2",
-		"libarchive",
+		{
+			"name": "libarchive",
+			"default-features": false,
+			"features": ["bzip2", "crypto", "lz4", "zstd"]
+		},
 		"libslirp",
 		"zstd",
 		{
