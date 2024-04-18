@@ -1246,7 +1246,7 @@ void SoftRenderer::RenderPolygonScanline(GPU& gpu, RendererPolygon* rp, s32 y)
         // against the pixel underneath
         if (!fnDepthTestL(DepthBuffer[pixeladdr], z, polyattr, dstattr, l_edgeflag))
         {
-            if (!blendbot) continue;
+            if (!(dstattr & EF_AnyEdge) || !blendbot) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1360,7 +1360,7 @@ void SoftRenderer::RenderPolygonScanline(GPU& gpu, RendererPolygon* rp, s32 y)
         // against the pixel underneath
         if (!fnDepthTestC(DepthBuffer[pixeladdr], z, polyattr, dstattr, c_edgeflag))
         {
-            if (!blendbot) continue;
+            if (!(dstattr & EF_AnyEdge) || !blendbot) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1471,7 +1471,7 @@ void SoftRenderer::RenderPolygonScanline(GPU& gpu, RendererPolygon* rp, s32 y)
         // against the pixel underneath
         if (!fnDepthTestR(DepthBuffer[pixeladdr], z, polyattr, dstattr, r_edgeflag))
         {
-            if (!blendbot) continue;
+            if (!(dstattr & EF_AnyEdge) || !blendbot) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
