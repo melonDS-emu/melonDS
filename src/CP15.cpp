@@ -24,6 +24,7 @@
 #include "Platform.h"
 #include "ARMJIT_Memory.h"
 #include "ARMJIT.h"
+#include "CP15_Constants.h"
 
 namespace melonDS
 {
@@ -45,31 +46,44 @@ void ARMv5::CP15Reset()
 
     RNGSeed = 44203;
 
+    // Memory Regions Protection
+    PU_CodeRW = 0;
+    PU_DataRW = 0;
+
+    memset(PU_Region, 0, CP15_REGION_COUNT*sizeof(*PU_Region));
+
+    // TCM-Settings
     DTCMSetting = 0;
     ITCMSetting = 0;
 
     memset(ITCM, 0, ITCMPhysicalSize);
     memset(DTCM, 0, DTCMPhysicalSize);
 
-    ITCMSize = 0;
-    DTCMBase = 0xFFFFFFFF;
-    DTCMMask = 0;
-
-    memset(ICache, 0, 0x2000);
-    ICacheInvalidateAll();
-    memset(ICacheCount, 0, 64);
-
+    // Cache Settings
     PU_CodeCacheable = 0;
     PU_DataCacheable = 0;
     PU_DataCacheWrite = 0;
 
-    PU_CodeRW = 0;
-    PU_DataRW = 0;
+    ICacheLockDown = 0;
+    DCacheLockDown = 0;
 
-    memset(PU_Region, 0, 8*sizeof(u32));
+    memset(ICache, 0, ICACHE_SIZE);
+    ICacheInvalidateAll();
+    ICacheCount = 0;
+
+    memset(DCache, 0, DCACHE_SIZE);
+    DCacheInvalidateAll();
+    DCacheCount = 0;
+
+    // Debug / Misc Registers
+    CacheDebugRegisterIndex = 0;
+    CP15BISTTestStateRegister = 0;
+    CP15TraceProcessId = 0;
+
+    // And now Update the internal state
+    UpdateDTCMSetting();
+    UpdateITCMSetting();
     UpdatePURegions(true);
-
-    CurICacheLine = NULL;
 }
 
 void ARMv5::CP15DoSavestate(Savestate* file)
@@ -84,6 +98,20 @@ void ARMv5::CP15DoSavestate(Savestate* file)
     file->VarArray(ITCM, ITCMPhysicalSize);
     file->VarArray(DTCM, DTCMPhysicalSize);
 
+    file->VarArray(ICache, sizeof(ICache));
+    file->VarArray(ICacheTags, sizeof(ICacheTags));
+    file->Var8(&ICacheCount);
+
+    file->VarArray(DCache, sizeof(DCache));
+    file->VarArray(DCacheTags, sizeof(DCacheTags));
+    file->Var8(&DCacheCount);
+
+    file->Var32(&DCacheLockDown);
+    file->Var32(&ICacheLockDown);
+    file->Var32(&CacheDebugRegisterIndex);
+    file->Var32(&CP15TraceProcessId);
+    file->Var32(&CP15BISTTestStateRegister);
+
     file->Var32(&PU_CodeCacheable);
     file->Var32(&PU_DataCacheable);
     file->Var32(&PU_DataCacheWrite);
@@ -91,7 +119,7 @@ void ARMv5::CP15DoSavestate(Savestate* file)
     file->Var32(&PU_CodeRW);
     file->Var32(&PU_DataRW);
 
-    file->VarArray(PU_Region, 8*sizeof(u32));
+    file->VarArray(PU_Region, CP15_REGION_COUNT*sizeof(u32));
 
     if (!file->Saving)
     {
@@ -108,15 +136,18 @@ void ARMv5::UpdateDTCMSetting()
     u32 newDTCMMask;
     u32 newDTCMSize;
 
-    if (CP15Control & (1<<16))
+    if (CP15Control & CP15_TCM_CR_DTCM_ENABLE)
     {
-        newDTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
-        if (newDTCMSize < 0x1000) newDTCMSize = 0x1000;
-        newDTCMMask = 0xFFFFF000 & ~(newDTCMSize-1);
+        newDTCMSize = CP15_DTCM_SIZE_BASE << ((DTCMSetting  & CP15_DTCM_SIZE_MASK) >> CP15_DTCM_SIZE_POS);
+        if (newDTCMSize < (CP15_DTCM_SIZE_BASE << CP15_DTCM_SIZE_MIN))
+            newDTCMSize = CP15_DTCM_SIZE_BASE << CP15_DTCM_SIZE_MIN;
+
+        newDTCMMask = CP15_DTCM_BASE_MASK & ~(newDTCMSize-1);
         newDTCMBase = DTCMSetting & newDTCMMask;
     }
     else
     {
+        // DTCM Disabled
         newDTCMSize = 0;
         newDTCMBase = 0xFFFFFFFF;
         newDTCMMask = 0;
@@ -132,9 +163,9 @@ void ARMv5::UpdateDTCMSetting()
 
 void ARMv5::UpdateITCMSetting()
 {
-    if (CP15Control & (1<<18))
+    if (CP15Control & CP15_TCM_CR_ITCM_ENABLE)
     {
-        ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
+        ITCMSize = CP15_ITCM_SIZE_BASE << ((ITCMSetting  & CP15_ITCM_SIZE_MASK) >> CP15_ITCM_SIZE_POS);
 #ifdef JIT_ENABLED
         FastBlockLookupSize = 0;
 #endif
@@ -148,15 +179,18 @@ void ARMv5::UpdateITCMSetting()
 
 // covers updates to a specific PU region's cache/etc settings
 // (not to the region range/enabled status)
-void ARMv5::UpdatePURegion(u32 n)
+void ARMv5::UpdatePURegion(const u32 n)
 {
-    if (!(CP15Control & (1<<0)))
+    if (!(CP15Control & CP15_CR_MPUENABLE))
         return;
 
-    u32 coderw = (PU_CodeRW >> (4*n)) & 0xF;
-    u32 datarw = (PU_DataRW >> (4*n)) & 0xF;
+    if (n >= CP15_REGION_COUNT)
+        return;
 
-    u32 codecache, datacache, datawrite;
+    u32 coderw = (PU_CodeRW >> (CP15_REGIONACCESS_BITS_PER_REGION * n)) & CP15_REGIONACCESS_REGIONMASK;
+    u32 datarw = (PU_DataRW >> (CP15_REGIONACCESS_BITS_PER_REGION * n)) & CP15_REGIONACCESS_REGIONMASK;
+
+    bool codecache, datacache, datawrite;
 
     // datacache/datawrite
     // 0/0: goes to memory
@@ -164,82 +198,82 @@ void ARMv5::UpdatePURegion(u32 n)
     // 1/0: goes to memory and cache
     // 1/1: goes to cache
 
-    if (CP15Control & (1<<12))
+    if (CP15Control & CP15_CACHE_CR_ICACHEENABLE)
         codecache = (PU_CodeCacheable >> n) & 0x1;
     else
-        codecache = 0;
+        codecache = false;
 
-    if (CP15Control & (1<<2))
+    if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
     {
         datacache = (PU_DataCacheable >> n) & 0x1;
         datawrite = (PU_DataCacheWrite >> n) & 0x1;
     }
     else
     {
-        datacache = 0;
-        datawrite = 0;
+        datacache = false;
+        datawrite = false;
     }
 
     u32 rgn = PU_Region[n];
-    if (!(rgn & (1<<0)))
+    if (!(rgn & CP15_REGION_ENABLE))
     {
         return;
     }
 
-    u32 start = rgn >> 12;
-    u32 sz = 2 << ((rgn >> 1) & 0x1F);
-    u32 end = start + (sz >> 12);
+    u32 start = (rgn & CP15_REGION_BASE_MASK) >> CP15_MAP_ENTRYSIZE_LOG2;
+    u32 sz = 2 << ((rgn & CP15_REGION_SIZE_MASK) >> 1);
+    u32 end = start + (sz >> CP15_MAP_ENTRYSIZE_LOG2);
     // TODO: check alignment of start
 
-    u8 usermask = 0;
-    u8 privmask = 0;
+    u8 usermask = CP15_MAP_NOACCESS;
+    u8 privmask = CP15_MAP_NOACCESS;
 
     switch (datarw)
     {
     case 0: break;
-    case 1: privmask |= 0x03; break;
-    case 2: privmask |= 0x03; usermask |= 0x01; break;
-    case 3: privmask |= 0x03; usermask |= 0x03; break;
-    case 5: privmask |= 0x01; break;
-    case 6: privmask |= 0x01; usermask |= 0x01; break;
-    default: Log(LogLevel::Warn, "!! BAD DATARW VALUE %d\n", datarw&0xF);
+    case 1: privmask |= CP15_MAP_READABLE | CP15_MAP_WRITEABLE; break;
+    case 2: privmask |= CP15_MAP_READABLE | CP15_MAP_WRITEABLE; usermask |= CP15_MAP_READABLE; break;
+    case 3: privmask |= CP15_MAP_READABLE | CP15_MAP_WRITEABLE; usermask |= CP15_MAP_READABLE | CP15_MAP_WRITEABLE; break;
+    case 5: privmask |= CP15_MAP_READABLE; break;
+    case 6: privmask |= CP15_MAP_READABLE; usermask |= CP15_MAP_READABLE; break;
+    default: Log(LogLevel::Warn, "!! BAD DATARW VALUE %d\n", datarw & ((1 << CP15_REGIONACCESS_BITS_PER_REGION)-1));
     }
 
     switch (coderw)
     {
     case 0: break;
-    case 1: privmask |= 0x04; break;
-    case 2: privmask |= 0x04; usermask |= 0x04; break;
-    case 3: privmask |= 0x04; usermask |= 0x04; break;
-    case 5: privmask |= 0x04; break;
-    case 6: privmask |= 0x04; usermask |= 0x04; break;
-    default: Log(LogLevel::Warn, "!! BAD CODERW VALUE %d\n", datarw&0xF);
+    case 1: privmask |= CP15_MAP_EXECUTABLE; break;
+    case 2: privmask |= CP15_MAP_EXECUTABLE; usermask |= CP15_MAP_EXECUTABLE; break;
+    case 3: privmask |= CP15_MAP_EXECUTABLE; usermask |= CP15_MAP_EXECUTABLE; break;
+    case 5: privmask |= CP15_MAP_EXECUTABLE; break;
+    case 6: privmask |= CP15_MAP_EXECUTABLE; usermask |= CP15_MAP_EXECUTABLE; break;
+    default: Log(LogLevel::Warn, "!! BAD CODERW VALUE %d\n", datarw & ((1 << CP15_REGIONACCESS_BITS_PER_REGION)-1));
     }
 
-    if (datacache & 0x1)
+    if (datacache)
     {
-        privmask |= 0x10;
-        usermask |= 0x10;
+        privmask |= CP15_MAP_DCACHEABLE;
+        usermask |= CP15_MAP_DCACHEABLE;
 
-        if (datawrite & 0x1)
+        if (datawrite)
         {
-            privmask |= 0x20;
-            usermask |= 0x20;
+            privmask |= CP15_MAP_DCACHEWRITEBACK;
+            usermask |= CP15_MAP_DCACHEWRITEBACK;
         }
     }
 
-    if (codecache & 0x1)
+    if (codecache)
     {
-        privmask |= 0x40;
-        usermask |= 0x40;
+        privmask |= CP15_MAP_ICACHEABLE;
+        usermask |= CP15_MAP_ICACHEABLE;
     }
 
     Log(
         LogLevel::Debug,
         "PU region %d: %08X-%08X, user=%02X priv=%02X, %08X/%08X\n",
         n,
-        start << 12,
-        end << 12,
+        start << CP15_MAP_ENTRYSIZE_LOG2,
+        end << CP15_MAP_ENTRYSIZE_LOG2,
         usermask,
         privmask,
         PU_DataRW,
@@ -255,37 +289,37 @@ void ARMv5::UpdatePURegion(u32 n)
     UpdateRegionTimings(start, end);
 }
 
-void ARMv5::UpdatePURegions(bool update_all)
+void ARMv5::UpdatePURegions(const bool update_all)
 {
-    if (!(CP15Control & (1<<0)))
+    if (!(CP15Control & CP15_CR_MPUENABLE))
     {
         // PU disabled
 
-        u8 mask = 0x07;
-        if (CP15Control & (1<<2))  mask |= 0x30;
-        if (CP15Control & (1<<12)) mask |= 0x40;
+        u8 mask = CP15_MAP_READABLE | CP15_MAP_WRITEABLE | CP15_MAP_EXECUTABLE;
+        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) mask |= CP15_MAP_DCACHEABLE | CP15_MAP_DCACHEWRITEBACK;
+        if (CP15Control & CP15_CACHE_CR_ICACHEENABLE) mask |= CP15_MAP_ICACHEABLE;
 
-        memset(PU_UserMap, mask, 0x100000);
-        memset(PU_PrivMap, mask, 0x100000);
+        memset(PU_UserMap, mask, CP15_MAP_ENTRYCOUNT);
+        memset(PU_PrivMap, mask, CP15_MAP_ENTRYCOUNT);
 
-        UpdateRegionTimings(0x00000, 0x100000);
+        UpdateRegionTimings(0x00000, CP15_MAP_ENTRYCOUNT);
         return;
     }
 
     if (update_all)
     {
-        memset(PU_UserMap, 0, 0x100000);
-        memset(PU_PrivMap, 0, 0x100000);
+        memset(PU_UserMap, CP15_MAP_NOACCESS, CP15_MAP_ENTRYCOUNT);
+        memset(PU_PrivMap, CP15_MAP_NOACCESS, CP15_MAP_ENTRYCOUNT);
     }
 
-    for (int n = 0; n < 8; n++)
+    for (int n = 0; n < CP15_REGION_COUNT; n++)
     {
         UpdatePURegion(n);
     }
 
     // TODO: this is way unoptimized
     // should be okay unless the game keeps changing shit, tho
-    if (update_all) UpdateRegionTimings(0x00000, 0x100000);
+    if (update_all) UpdateRegionTimings(0x00000, CP15_MAP_ENTRYCOUNT);
 
     // TODO: throw exception if the region we're running in has become non-executable, I guess
 }
@@ -297,7 +331,7 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
         u8 pu = PU_Map[i];
         u8* bustimings = NDS.ARM9MemTimings[i >> 2];
 
-        if (pu & 0x40)
+        if (pu & CP15_MAP_ICACHEABLE)
         {
             MemTimings[i][0] = 0xFF;//kCodeCacheTiming;
         }
@@ -306,7 +340,7 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
             MemTimings[i][0] = bustimings[2] << NDS.ARM9ClockShift;
         }
 
-        if (pu & 0x10)
+        if (pu & CP15_MAP_DCACHEABLE)
         {
             MemTimings[i][1] = kDataCacheTiming;
             MemTimings[i][2] = kDataCacheTiming;
@@ -332,142 +366,531 @@ u32 ARMv5::RandomLineIndex()
     return (RNGSeed >> 17) & 0x3;
 }
 
-void ARMv5::ICacheLookup(u32 addr)
+u32 ARMv5::ICacheLookup(const u32 addr)
 {
-    u32 tag = addr & 0xFFFFF800;
-    u32 id = (addr >> 5) & 0x3F;
+    const u32 tag = (addr & ~(ICACHE_LINELENGTH - 1));
+    const u32 id = ((addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1)) << ICACHE_SETS_LOG2;
 
-    id <<= 2;
-    if (ICacheTags[id+0] == tag)
+    for (int set = 0; set < ICACHE_SETS; set++)
     {
-        CodeCycles = 1;
-        CurICacheLine = &ICache[(id+0) << 5];
-        return;
-    }
-    if (ICacheTags[id+1] == tag)
-    {
-        CodeCycles = 1;
-        CurICacheLine = &ICache[(id+1) << 5];
-        return;
-    }
-    if (ICacheTags[id+2] == tag)
-    {
-        CodeCycles = 1;
-        CurICacheLine = &ICache[(id+2) << 5];
-        return;
-    }
-    if (ICacheTags[id+3] == tag)
-    {
-        CodeCycles = 1;
-        CurICacheLine = &ICache[(id+3) << 5];
-        return;
+        if ((ICacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == (tag | CACHE_FLAG_VALID))
+        {
+            CodeCycles = 1;
+            u32 *cacheLine = (u32 *)&ICache[(id+set) << ICACHE_LINELENGTH_LOG2];
+            if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_STREAMING) [[unlikely]]
+            {
+                // Disabled ICACHE Streaming:
+                // retreive the data from memory, even if the data was cached
+                // See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
+                CodeCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
+                if (CodeMem.Mem)
+                {
+                    return *(u32*)&CodeMem.Mem[(addr & CodeMem.Mask) & ~3];
+                } else
+                {
+                    return NDS.ARM9Read32(addr & ~3);
+                }     
+            }
+            return cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2];
+        }
     }
 
     // cache miss
 
-    u32 line;
-    if (CP15Control & (1<<14))
+    // We do not fill the cacheline if it is disabled in the 
+    // BIST test State register (See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
+    if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_LINEFILL) [[unlikely]]
     {
-        line = ICacheCount[id>>2];
-        ICacheCount[id>>2] = (line+1) & 0x3;
+        CodeCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
+        if (CodeMem.Mem)
+        {
+            return *(u32*)&CodeMem.Mem[(addr & CodeMem.Mask) & ~3];
+        } else
+        {
+            return NDS.ARM9Read32(addr & ~3);
+        }        
+    }
+
+    u32 line;
+
+    if (CP15Control & CP15_CACHE_CR_ROUNDROBIN) [[likely]]
+    {
+        line = ICacheCount;
+        ICacheCount = (line+1) & (ICACHE_SETS-1);
     }
     else
     {
         line = RandomLineIndex();
     }
 
+    if (ICacheLockDown)
+    {
+        if (ICacheLockDown & CACHE_LOCKUP_L) [[unlikely]]
+        {
+            // load into locked up cache
+            // into the selected set
+            line = ICacheLockDown & (ICACHE_SETS-1);
+        } else
+        {
+            u8 minSet = ICacheLockDown & (ICACHE_SETS-1);
+            line = line | minSet;
+        }
+    }
+
     line += id;
 
-    addr &= ~0x1F;
-    u8* ptr = &ICache[line << 5];
+    u32* ptr = (u32 *)&ICache[line << ICACHE_LINELENGTH_LOG2];
 
     if (CodeMem.Mem)
     {
-        memcpy(ptr, &CodeMem.Mem[addr & CodeMem.Mask], 32);
+        memcpy(ptr, &CodeMem.Mem[tag & CodeMem.Mask], ICACHE_LINELENGTH);
     }
     else
     {
-        for (int i = 0; i < 32; i+=4)
-            *(u32*)&ptr[i] = NDS.ARM9Read32(addr+i);
+        for (int i = 0; i < ICACHE_LINELENGTH; i+=sizeof(u32))
+            ptr[i >> 2] = NDS.ARM9Read32(tag+i);
     }
 
-    ICacheTags[line] = tag;
+    ICacheTags[line] = tag | (line & (ICACHE_SETS-1)) | CACHE_FLAG_VALID;
 
     // ouch :/
     //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
-    CodeCycles = (NDS.ARM9MemTimings[addr >> 14][2] + (NDS.ARM9MemTimings[addr >> 14][3] * 7)) << NDS.ARM9ClockShift;
-    CurICacheLine = ptr;
+    //                      first N32                                  remaining S32
+    CodeCycles = (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1))) << NDS.ARM9ClockShift;
+    return ptr[(addr & (ICACHE_LINELENGTH-1)) >> 2];
 }
 
-void ARMv5::ICacheInvalidateByAddr(u32 addr)
+void ARMv5::ICacheInvalidateByAddr(const u32 addr)
 {
-    u32 tag = addr & 0xFFFFF800;
-    u32 id = (addr >> 5) & 0x3F;
+    const u32 tag = (addr & ~(ICACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    const u32 id = ((addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1)) << ICACHE_SETS_LOG2;
 
-    id <<= 2;
-    if (ICacheTags[id+0] == tag)
+    for (int set = 0; set < ICACHE_SETS; set++)
     {
-        ICacheTags[id+0] = 1;
-        return;
-    }
-    if (ICacheTags[id+1] == tag)
-    {
-        ICacheTags[id+1] = 1;
-        return;
-    }
-    if (ICacheTags[id+2] == tag)
-    {
-        ICacheTags[id+2] = 1;
-        return;
-    }
-    if (ICacheTags[id+3] == tag)
-    {
-        ICacheTags[id+3] = 1;
-        return;
+        if ((ICacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
+        {
+            ICacheTags[id+set] &= ~CACHE_FLAG_VALID;
+            return;
+        }
     }
 }
+
+void ARMv5::ICacheInvalidateBySetAndWay(const u8 cacheSet, const u8 cacheLine)
+{
+    if (cacheSet >= ICACHE_SETS)
+        return;
+    if (cacheLine >= ICACHE_LINESPERSET)
+        return;
+
+    u32 idx = (cacheLine << ICACHE_SETS_LOG2) + cacheSet;
+    ICacheTags[idx] &= ~CACHE_FLAG_VALID;
+}
+
 
 void ARMv5::ICacheInvalidateAll()
 {
-    for (int i = 0; i < 64*4; i++)
-        ICacheTags[i] = 1;
+    #pragma GCC ivdep
+    for (int i = 0; i < ICACHE_SIZE / ICACHE_LINELENGTH; i++)
+        ICacheTags[i] &= ~CACHE_FLAG_VALID;
+}
+
+bool ARMv5::IsAddressICachable(const u32 addr) const
+{
+    return PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_ICACHEABLE;
+}
+
+u32 ARMv5::DCacheLookup(const u32 addr)
+{
+    //Log(LogLevel::Debug,"DCache load @ %08x\n", addr);
+    const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1));
+    const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
+
+    for (int set = 0; set < DCACHE_SETS; set++)
+    {
+        if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == (tag | CACHE_FLAG_VALID))
+        {
+            DataCycles = 1;
+            u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_STREAMING) [[unlikely]]
+            {
+                // Disabled DCACHE Streaming:
+                // retreive the data from memory, even if the data was cached
+                // See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
+                DataCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
+                if (addr < ITCMSize)
+                {
+                    return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 3)];
+                } else
+                if ((addr & DTCMMask) == DTCMBase)
+                {
+                    return *(u32*)&DTCM[addr & (DTCMPhysicalSize - 3)];
+                } else
+                {
+                    return BusRead32(addr & ~3);
+                }     
+            }
+            //Log(LogLevel::Debug, "DCache hit at %08lx returned %08x from set %i, line %i\n", addr, cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2], set, id>>2);
+            return cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2];
+        }
+    }
+
+    // cache miss
+
+    // We do not fill the cacheline if it is disabled in the 
+    // BIST test State register (See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
+    if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_LINEFILL) [[unlikely]]
+    {
+        DataCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
+        if (addr < ITCMSize)
+        {
+            return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 3)];
+        } else
+        if ((addr & DTCMMask) == DTCMBase)
+        {
+            return *(u32*)&DTCM[addr & (DTCMPhysicalSize - 3)];
+        } else
+        {
+            return BusRead32(addr & ~3);
+        }        
+    }
+
+    u32 line;
+
+    if (CP15Control & CP15_CACHE_CR_ROUNDROBIN) [[likely]]
+    {
+        line = DCacheCount;
+        DCacheCount = (line+1) & (DCACHE_SETS-1);
+    }
+    else
+    {
+        line = RandomLineIndex();
+    }
+
+    if (DCacheLockDown)
+    {
+        if (DCacheLockDown & CACHE_LOCKUP_L) [[unlikely]]
+        {
+            // load into locked up cache
+            // into the selected set
+            line = DCacheLockDown & (DCACHE_SETS-1);
+        } else
+        {
+            u8 minSet = DCacheLockDown & (DCACHE_SETS-1);
+            line = line | minSet;
+        }
+    } 
+    line += id;
+
+    u32* ptr = (u32 *)&DCache[line << DCACHE_LINELENGTH_LOG2];
+
+    DataCycles = 0;
+    #if !DISABLE_CACHEWRITEBACK
+        // Before we fill the cacheline, we need to write back dirty content
+        // Datacycles will be incremented by the required cycles to do so
+        DCacheClearByASetAndWay(line & (DCACHE_SETS-1), line >> DCACHE_SETS_LOG2);
+    #endif
+    //Log(LogLevel::Debug,"DCache miss, load @ %08x\n", tag);
+    for (int i = 0; i < DCACHE_LINELENGTH; i+=sizeof(u32))
+    {
+        if (tag+i < ITCMSize)
+        {
+            ptr[i >> 2] = *(u32*)&ITCM[(tag+i) & (ITCMPhysicalSize - 1)];
+        } else
+        if (((tag+i) & DTCMMask) == DTCMBase)
+        {
+            ptr[i >> 2] = *(u32*)&DTCM[(tag+i) & (DTCMPhysicalSize - 1)];
+        } else
+        {
+            ptr[i >> 2] = BusRead32(tag+i);
+        }
+        //Log(LogLevel::Debug,"DCache store @ %08x: %08x in set %i, line %i\n", tag+i, *(u32*)&ptr[i >> 2], line & 3, line >> 2);        
+    }
+
+    DCacheTags[line] = tag | (line & (DCACHE_SETS-1)) | CACHE_FLAG_VALID;
+
+    // ouch :/
+    //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
+    //                      first N32                                  remaining S32
+    DataCycles += (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1))) << NDS.ARM9ClockShift;
+    return ptr[(addr & (DCACHE_LINELENGTH-1)) >> 2];
+}
+
+bool ARMv5::DCacheWrite32(const u32 addr, const u32 val)
+{
+    const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
+
+    //Log(LogLevel::Debug, "Cache write 32: %08lx <= %08lx\n", addr, val);
+
+    for (int set = 0; set < DCACHE_SETS; set++)
+    {
+        if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
+        {
+            u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            cacheLine[(addr & (DCACHE_LINELENGTH-1)) >> 2] = val;
+            DataCycles = 1;
+            #if !DISABLE_CACHEWRITEBACK
+                if (PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_DCACHEWRITEBACK)
+                {
+                    if (addr & (DCACHE_LINELENGTH / 2))
+                    {
+                        DCacheTags[id+set] |= CACHE_FLAG_DIRTY_UPPERHALF;
+                    }
+                    else
+                    {
+                        DCacheTags[id+set] |= CACHE_FLAG_DIRTY_LOWERHALF;
+                    } 
+                    // just mark dirty and abort the data write through the bus
+                    return true;
+                }
+            #endif
+            return false;
+        }
+    }    
+    return false;
+}
+
+bool ARMv5::DCacheWrite16(const u32 addr, const u16 val)
+{
+    const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
+    //Log(LogLevel::Debug, "Cache write 16: %08lx <= %04x\n", addr, val);
+
+    for (int set = 0; set < DCACHE_SETS; set++)
+    {
+        if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
+        {
+            u16 *cacheLine = (u16 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            cacheLine[(addr & (DCACHE_LINELENGTH-1)) >> 1] = val;
+            DataCycles = 1;
+            #if !DISABLE_CACHEWRITEBACK
+                if (PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_DCACHEWRITEBACK)
+                {
+                    if (addr & (DCACHE_LINELENGTH / 2))
+                    {
+                        DCacheTags[id+set] |= CACHE_FLAG_DIRTY_UPPERHALF;
+                    }
+                    else
+                    {
+                        DCacheTags[id+set] |= CACHE_FLAG_DIRTY_LOWERHALF;
+                    } 
+                    // just mark dirtyand abort the data write through the bus
+                    return true;
+                }
+            #endif
+            return false;
+        }
+    }    
+    return false;
+}
+
+bool ARMv5::DCacheWrite8(const u32 addr, const u8 val)
+{
+    const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
+
+    //Log(LogLevel::Debug, "Cache write 8: %08lx <= %02x\n", addr, val);
+
+    for (int set = 0; set < DCACHE_SETS; set++)
+    {
+        if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
+        {
+            u8 *cacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
+            cacheLine[addr & (DCACHE_LINELENGTH-1)] = val;
+            DataCycles = 1;
+            #if !DISABLE_CACHEWRITEBACK
+                if (PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_DCACHEWRITEBACK)
+                {
+                    if (addr & (DCACHE_LINELENGTH / 2))
+                    {
+                        DCacheTags[id+set] |= CACHE_FLAG_DIRTY_UPPERHALF;
+                    }
+                    else
+                    {
+                        DCacheTags[id+set] |= CACHE_FLAG_DIRTY_LOWERHALF;
+                    } 
+                    
+                    // just mark dirty and abort the data write through the bus                
+                    return true;
+                }
+            #endif
+            return false;
+        }
+    }  
+    return false;
+}
+
+void ARMv5::DCacheInvalidateByAddr(const u32 addr)
+{
+    const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+    const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
+
+    for (int set = 0; set < DCACHE_SETS; set++)
+    {
+        if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
+        {
+            //Log(LogLevel::Debug,"DCache invalidated %08lx\n", addr & ~(ICACHE_LINELENGTH-1));
+            DCacheTags[id+set] &= ~CACHE_FLAG_VALID;
+            return;
+        }
+    }
+}
+
+void ARMv5::DCacheInvalidateBySetAndWay(const u8 cacheSet, const u8 cacheLine)
+{
+    if (cacheSet >= DCACHE_SETS)
+        return;
+    if (cacheLine >= DCACHE_LINESPERSET)
+        return;
+
+    u32 idx = (cacheLine << DCACHE_SETS_LOG2) + cacheSet;
+    DCacheTags[idx] &= ~CACHE_FLAG_VALID;
 }
 
 
-void ARMv5::CP15Write(u32 id, u32 val)
+void ARMv5::DCacheInvalidateAll()
+{
+    #pragma GCC ivdep
+    for (int i = 0; i < DCACHE_SIZE / DCACHE_LINELENGTH; i++)
+        DCacheTags[i] &= ~CACHE_FLAG_VALID;
+}
+
+void ARMv5::DCacheClearAll()
+{
+    #if !DISABLE_CACHEWRITEBACK
+        for (int set = 0; set < DCACHE_SETS; set++)
+            for (int line = 0; line <= DCACHE_LINESPERSET; line++)
+                DCacheClearByASetAndWay(set, line);
+    #endif
+}
+
+void ARMv5::DCacheClearByAddr(const u32 addr)
+{
+    #if !DISABLE_CACHEWRITEBACK
+        const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
+        const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
+
+        for (int set = 0; set < DCACHE_SETS; set++)
+        {
+            if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
+            {
+                DCacheClearByASetAndWay(set, id >> DCACHE_SETS_LOG2);
+                return;
+            }
+        }
+    #endif
+}
+
+void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
+{
+    #if !DISABLE_CACHEWRITEBACK
+        const u32 index = cacheSet | (cacheLine << DCACHE_SETS_LOG2);
+
+        // Only write back if valid
+        if (!(DCacheTags[index] & CACHE_FLAG_VALID))
+            return;
+
+        const u32 tag = DCacheTags[index] & ~CACHE_FLAG_MASK;
+        u32* ptr = (u32 *)&DCache[index << DCACHE_LINELENGTH_LOG2];
+
+        if (DCacheTags[index] & CACHE_FLAG_DIRTY_LOWERHALF)
+        {
+            //Log(LogLevel::Debug, "Writing back %i / %i, lower half -> %08lx\n", cacheSet, cacheLine, tag);
+            for (int i = 0; i < DCACHE_LINELENGTH / 2; i+=sizeof(u32))
+            {
+                //Log(LogLevel::Debug, "  WB Value %08x\n", ptr[i >> 2]);
+                if (tag+i < ITCMSize)
+                {
+                    *(u32*)&ITCM[(tag+i) & (ITCMPhysicalSize - 1)] = ptr[i >> 2];
+                    NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(tag+i);
+                } else
+                if (((tag+i) & DTCMMask) == DTCMBase)
+                {
+                    *(u32*)&DTCM[(tag+i) & (DTCMPhysicalSize - 1)] = ptr[i >> 2];
+                } else
+                {
+                    BusWrite32(tag+i, ptr[i >> 2]);
+                }
+            }
+            DataCycles += (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 8) - 1))) << NDS.ARM9ClockShift;
+        }
+        if (DCacheTags[index] & CACHE_FLAG_DIRTY_UPPERHALF)
+        {
+            //Log(LogLevel::Debug, "Writing back %i / %i, upper half-> %08lx\n", cacheSet, cacheLine, tag);
+            for (int i = DCACHE_LINELENGTH / 2; i < DCACHE_LINELENGTH; i+=sizeof(u32))
+            {
+                //Log(LogLevel::Debug, "  WB Value %08x\n", ptr[i >> 2]);
+                if (tag+i < ITCMSize)
+                {
+                    *(u32*)&ITCM[(tag+i) & (ITCMPhysicalSize - 1)] = ptr[i >> 2];
+                    NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(tag+i);
+                } else
+                if (((tag+i) & DTCMMask) == DTCMBase)
+                {
+                    *(u32*)&DTCM[(tag+i) & (DTCMPhysicalSize - 1)] = ptr[i >> 2];
+                } else
+                {
+                    BusWrite32(tag+i, ptr[i >> 2]);
+                }
+            }
+            DataCycles += (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 8) - 1))) << NDS.ARM9ClockShift;
+        }
+        DCacheTags[index] &= ~(CACHE_FLAG_DIRTY_LOWERHALF | CACHE_FLAG_DIRTY_UPPERHALF);
+    #endif
+}
+
+bool ARMv5::IsAddressDCachable(const u32 addr) const
+{
+    return PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_DCACHEABLE;
+}
+
+void ARMv5::CP15Write(const u32 id, const u32 val)
 {
     //if(id!=0x704)printf("CP15 write op %03X %08X %08X\n", id, val, R[15]);
 
-    switch (id)
+    switch (id & 0xFFF)
     {
     case 0x100:
         {
             u32 old = CP15Control;
-            val &= 0x000FF085;
-            CP15Control &= ~0x000FF085;
-            CP15Control |= val;
-            //printf("CP15Control = %08X (%08X->%08X)\n", CP15Control, old, val);
+            CP15Control = (CP15Control & ~CP15_CR_CHANGEABLE_MASK) | (val & CP15_CR_CHANGEABLE_MASK);
+            //Log(LogLevel::Debug, "CP15Control = %08X (%08X->%08X)\n", CP15Control, old, val);
             UpdateDTCMSetting();
             UpdateITCMSetting();
-            if ((old & 0x1005) != (val & 0x1005))
+            u32 changedBits = old ^ CP15Control;
+            if (changedBits & (CP15_CR_MPUENABLE | CP15_CACHE_CR_ICACHEENABLE| CP15_CACHE_CR_DCACHEENABLE))
             {
-                UpdatePURegions((old & 0x1) != (val & 0x1));
+                UpdatePURegions(changedBits & CP15_CR_MPUENABLE);
             }
-            if (val & (1<<7)) Log(LogLevel::Warn, "!!!! ARM9 BIG ENDIAN MODE. VERY BAD. SHIT GONNA ASPLODE NOW\n");
-            if (val & (1<<13)) ExceptionBase = 0xFFFF0000;
-            else               ExceptionBase = 0x00000000;
+            if (val & CP15_CR_BIGENDIAN) Log(LogLevel::Warn, "!!!! ARM9 BIG ENDIAN MODE. VERY BAD. SHIT GONNA ASPLODE NOW\n");
+            if (val & CP15_CR_HIGHEXCEPTIONBASE) ExceptionBase = CP15_EXCEPTIONBASE_HIGH;
+            else                                 ExceptionBase = CP15_EXCEPTIONBASE_LOW;
         }
         return;
-
 
     case 0x200: // data cacheable
         {
             u32 diff = PU_DataCacheable ^ val;
             PU_DataCacheable = val;
-            for (u32 i = 0; i < 8; i++)
-            {
-                if (diff & (1<<i)) UpdatePURegion(i);
-            }
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region cachable bit
+                // would change, this results in wrong map entries. On HW the changed 
+                // cachable bit would not be applied because of a higher priority
+                // region overwriting them.
+                // 
+                // Writing to the cachable bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (1<<i)) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -475,10 +898,25 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_CodeCacheable ^ val;
             PU_CodeCacheable = val;
-            for (u32 i = 0; i < 8; i++)
-            {
-                if (diff & (1<<i)) UpdatePURegion(i);
-            }
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region cachable bit
+                // would change, this results in wrong map entries. On HW the changed 
+                // cachable bit would not be applied because of a higher priority
+                // region overwriting them.
+                // 
+                // Writing to the cachable bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (1<<i)) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -487,10 +925,25 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_DataCacheWrite ^ val;
             PU_DataCacheWrite = val;
-            for (u32 i = 0; i < 8; i++)
-            {
-                if (diff & (1<<i)) UpdatePURegion(i);
-            }
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region write buffer 
+                // would change, this results in wrong map entries. On HW the changed 
+                // write buffer would not be applied because of a higher priority
+                // region overwriting them.
+                // 
+                // Writing to the write buffer bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (1<<i)) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -499,19 +952,31 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 old = PU_DataRW;
             PU_DataRW = 0;
-            PU_DataRW |= (val & 0x0003);
-            PU_DataRW |= ((val & 0x000C) << 2);
-            PU_DataRW |= ((val & 0x0030) << 4);
-            PU_DataRW |= ((val & 0x00C0) << 6);
-            PU_DataRW |= ((val & 0x0300) << 8);
-            PU_DataRW |= ((val & 0x0C00) << 10);
-            PU_DataRW |= ((val & 0x3000) << 12);
-            PU_DataRW |= ((val & 0xC000) << 14);
-            u32 diff = old ^ PU_DataRW;
-            for (u32 i = 0; i < 8; i++)
-            {
-                if (diff & (0xF<<(i*4))) UpdatePURegion(i);
-            }
+            #pragma GCC ivdep
+            #pragma GCC unroll 8
+            for (int i = 0; i < CP15_REGION_COUNT; i++)
+                PU_DataRW |= (val  >> (i * 2) & 3) << (i * CP15_REGIONACCESS_BITS_PER_REGION);
+            
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region access permission
+                // would change, this results in wrong map entries. On HW the changed 
+                // access permissions would not be applied because of a higher priority
+                // region overwriting them.
+                // 
+                // Writing to the data permission bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+
+                u32 diff = old ^ PU_DataRW;            
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -519,19 +984,30 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 old = PU_CodeRW;
             PU_CodeRW = 0;
-            PU_CodeRW |= (val & 0x0003);
-            PU_CodeRW |= ((val & 0x000C) << 2);
-            PU_CodeRW |= ((val & 0x0030) << 4);
-            PU_CodeRW |= ((val & 0x00C0) << 6);
-            PU_CodeRW |= ((val & 0x0300) << 8);
-            PU_CodeRW |= ((val & 0x0C00) << 10);
-            PU_CodeRW |= ((val & 0x3000) << 12);
-            PU_CodeRW |= ((val & 0xC000) << 14);
-            u32 diff = old ^ PU_CodeRW;
-            for (u32 i = 0; i < 8; i++)
-            {
-                if (diff & (0xF<<(i*4))) UpdatePURegion(i);
-            }
+            #pragma GCC ivdep
+            #pragma GCC unroll 8
+            for (int i = 0; i < CP15_REGION_COUNT; i++)
+                PU_CodeRW |= (val  >> (i * 2) & 3) << (i * CP15_REGIONACCESS_BITS_PER_REGION);
+
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region access permission
+                // would change, this results in wrong map entries, because it
+                // would on HW be overridden by the higher priority region
+                // 
+                // Writing to the data permission bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+
+                u32 diff = old ^ PU_CodeRW;
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -539,10 +1015,23 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_DataRW ^ val;
             PU_DataRW = val;
-            for (u32 i = 0; i < 8; i++)
-            {
-                if (diff & (0xF<<(i*4))) UpdatePURegion(i);
-            }
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region access permission
+                // would change, this results in wrong map entries, because it
+                // would on HW be overridden by the higher priority region
+                // 
+                // Writing to the data permission bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -550,10 +1039,23 @@ void ARMv5::CP15Write(u32 id, u32 val)
         {
             u32 diff = PU_CodeRW ^ val;
             PU_CodeRW = val;
-            for (u32 i = 0; i < 8; i++)
-            {
-                if (diff & (0xF<<(i*4))) UpdatePURegion(i);
-            }
+            #if 0
+                // This code just updates the PU_Map entries of the given region
+                // this works fine, if the regions do not overlap 
+                // If overlapping and the least priority region access permission
+                // would change, this results in wrong map entries, because it
+                // would on HW be overridden by the higher priority region
+                // 
+                // Writing to the data permission bits is sparse, so we 
+                // should just take the long but correct update via all regions
+                // so the permission priority is correct
+                for (u32 i = 0; i < CP15_REGION_COUNT; i++)
+                {
+                    if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
+                }
+            #else
+                UpdatePURegions(true);
+            #endif
         }
         return;
 
@@ -574,21 +1076,16 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x661:
     case 0x670:
     case 0x671:
-        char log_output[1024];
-        PU_Region[(id >> 4) & 0xF] = val;
+        PU_Region[(id >> CP15_REGIONACCESS_BITS_PER_REGION) & CP15_REGIONACCESS_REGIONMASK] = val;
 
-        std::snprintf(log_output,
-                 sizeof(log_output),
+        Log(LogLevel::Debug,
                  "PU: region %d = %08X : %s, %08X-%08X\n",
-                 (id >> 4) & 0xF,
+                 (id >> CP15_REGIONACCESS_BITS_PER_REGION) & CP15_REGIONACCESS_REGIONMASK,
                  val,
                  val & 1 ? "enabled" : "disabled",
-                 val & 0xFFFFF000,
-                 (val & 0xFFFFF000) + (2 << ((val & 0x3E) >> 1))
+                 val & CP15_REGION_BASE_MASK,
+                 (val & CP15_REGION_BASE_MASK) + (2 << ((val & CP15_REGION_SIZE_MASK) >> 1))
         );
-        Log(LogLevel::Debug, "%s", log_output);
-        // Some implementations of Log imply a newline, so we build up the line before printing it
-
         // TODO: smarter region update for this?
         UpdatePURegions(true);
         return;
@@ -601,78 +1098,295 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
 
     case 0x750:
+        // Can be executed in user and priv mode
         ICacheInvalidateAll();
-        //Halt(255);
         return;
     case 0x751:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        }
         ICacheInvalidateByAddr(val);
         //Halt(255);
         return;
     case 0x752:
-        Log(LogLevel::Warn, "CP15: ICACHE INVALIDATE WEIRD. %08X\n", val);
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        } else
+        {
+            // Cache invalidat by line number and set number
+            u8 cacheSet = val >> (32 - ICACHE_SETS_LOG2) & (ICACHE_SETS -1);
+            u8 cacheLine = (val >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET -1);
+            ICacheInvalidateBySetAndWay(cacheSet, cacheLine);
+        }
         //Halt(255);
         return;
 
 
-    case 0x761:
+    case 0x760:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        }
+        DCacheInvalidateAll();
         //printf("inval data cache %08X\n", val);
         return;
-    case 0x762:
+    case 0x761:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        }
+        DCacheInvalidateByAddr(val);
         //printf("inval data cache SI\n");
         return;
+    case 0x762:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        } else
+        {
+            // Cache invalidat by line number and set number
+            u8 cacheSet = val >> (32 - DCACHE_SETS_LOG2) & (DCACHE_SETS -1);
+            u8 cacheLine = (val >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET -1);
+            DCacheInvalidateBySetAndWay(cacheSet, cacheLine);
+        }
+        return;
 
+    case 0x770:
+        // invalidate both caches
+        // can be called from user and privileged
+        ICacheInvalidateAll();
+        DCacheInvalidateAll();
+        break;
+
+    case 0x7A0:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        }
+        //Log(LogLevel::Debug,"clean data cache\n");
+        DCacheClearAll();
+        return;
     case 0x7A1:
-        //printf("flush data cache %08X\n", val);
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        }
+        //Log(LogLevel::Debug,"clean data cache MVA\n");
+        DCacheClearByAddr(val);
         return;
     case 0x7A2:
-        //printf("flush data cache SI\n");
+        //Log(LogLevel::Debug,"clean data cache SET/WAY\n");
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        } else
+        {
+            // Cache invalidat by line number and set number
+            u8 cacheSet = val >> (32 - DCACHE_SETS_LOG2) & (DCACHE_SETS -1);
+            u8 cacheLine = (val >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET -1);
+            DCacheClearByASetAndWay(cacheSet, cacheLine);
+        }
+        return;
+    case 0x7A3:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        }
+        // Test and clean (optional)
+        // Is not present on the NDS/DSi
+        return;   
+    case 0x7A4:
+        // Can be used in user and privileged mode
+        // Drain Write Buffer: Stall until all write back completed
+        // TODO when write back was implemented instead of write through
         return;
 
+    case 0x7D1:
+        Log(LogLevel::Debug,"Prefetch instruction cache MVA\n");
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        }
+        // we force a fill by looking up the value from cache
+        // if it wasn't cached yet, it will be loaded into cache
+        ICacheLookup(val & ~0x03);
+        break;
+
+    case 0x7E0:
+        //Log(LogLevel::Debug,"clean & invalidate data cache\n");
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        }
+        DCacheClearAll();
+        DCacheInvalidateAll();
+        return;
+    case 0x7E1:
+        //Log(LogLevel::Debug,"clean & invalidate data cache MVA\n");
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        }
+        DCacheClearByAddr(val);
+        DCacheInvalidateByAddr(val);
+        return;
+    case 0x7E2:
+        //Log(LogLevel::Debug,"clean & invalidate data cache SET/WAY\n");
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        } else
+        {
+            // Cache invalidat by line number and set number
+            u8 cacheSet = val >> (32 - DCACHE_SETS_LOG2) & (DCACHE_SETS -1);
+            u8 cacheLine = (val >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET -1);
+            DCacheClearByASetAndWay(cacheSet, cacheLine);
+            DCacheInvalidateBySetAndWay(cacheSet, cacheLine);
+        }
+        return;
+
+    case 0x900:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        }
+        // Cache Lockdown - Format B
+        //    Bit 31: Lock bit
+        //    Bit 0..Way-1: locked ways
+        //      The Cache is 4 way associative
+        // But all bits are r/w
+        DCacheLockDown = val;
+        Log(LogLevel::Debug,"ICacheLockDown\n");
+        return;
+    case 0x901:
+        // requires priv mode or causes UNKNOWN INSTRUCTION exception
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        }
+        // Cache Lockdown - Format B
+        //    Bit 31: Lock bit
+        //    Bit 0..Way-1: locked ways
+        //      The Cache is 4 way associative
+        // But all bits are r/w
+        ICacheLockDown = val;
+        Log(LogLevel::Debug,"ICacheLockDown\n");
+        return;
 
     case 0x910:
-        DTCMSetting = val & 0xFFFFF03E;
+        DTCMSetting = val & (CP15_DTCM_BASE_MASK | CP15_DTCM_SIZE_MASK);
         UpdateDTCMSetting();
         return;
 
     case 0x911:
-        ITCMSetting = val & 0x0000003E;
+        ITCMSetting = val & (CP15_ITCM_BASE_MASK | CP15_ITCM_SIZE_MASK);
         UpdateITCMSetting();
         return;
 
+    case 0xD01:
+    case 0xD11:
+        CP15TraceProcessId = val;
+        return;
+
     case 0xF00:
-        //printf("cache debug index register %08X\n", val);
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        } else
+        {
+            if (((id >> 12) & 0x0f) == 0x03)
+                CacheDebugRegisterIndex = val;
+            else if (((id >> 12) & 0x0f) == 0x00)
+                CP15BISTTestStateRegister = val;
+            else
+            {
+                return ARMInterpreter::A_UNK(this);                
+            }
+
+        }
         return;
 
     case 0xF10:
-        //printf("cache debug instruction tag %08X\n", val);
-        return;
+        // instruction cache Tag register
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        } else
+        {
+            uint8_t segment = (CacheDebugRegisterIndex >> (32-ICACHE_SETS_LOG2)) & (ICACHE_SETS-1);
+            uint8_t wordAddress = (CacheDebugRegisterIndex & (ICACHE_LINELENGTH-1)) >> 2;
+            uint8_t index = (CacheDebugRegisterIndex >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1);
+            ICacheTags[(index << ICACHE_SETS_LOG2) + segment] = val;
+        }
 
     case 0xF20:
-        //printf("cache debug data tag %08X\n", val);
-        return;
+        // data cache Tag register
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        } else
+        {
+            uint8_t segment = (CacheDebugRegisterIndex >> (32-DCACHE_SETS_LOG2)) & (DCACHE_SETS-1);
+            uint8_t wordAddress = (CacheDebugRegisterIndex & (DCACHE_LINELENGTH-1)) >> 2;
+            uint8_t index = (CacheDebugRegisterIndex >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+            DCacheTags[(index << DCACHE_SETS_LOG2) + segment] = val;
+        }
+
 
     case 0xF30:
         //printf("cache debug instruction cache %08X\n", val);
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        } else
+        {
+            uint8_t segment = (CacheDebugRegisterIndex >> (32-ICACHE_SETS_LOG2)) & (ICACHE_SETS-1);
+            uint8_t wordAddress = (CacheDebugRegisterIndex & (ICACHE_LINELENGTH-1)) >> 2;
+            uint8_t index = (CacheDebugRegisterIndex >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1);
+            *(u32 *)&ICache[(((index << ICACHE_SETS_LOG2) + segment) << ICACHE_LINELENGTH_LOG2) + wordAddress*4] = val;            
+        }
         return;
 
     case 0xF40:
         //printf("cache debug data cache %08X\n", val);
+        if (PU_Map != PU_PrivMap)
+        {            
+            return ARMInterpreter::A_UNK(this);
+        } else
+        {
+            uint8_t segment = (CacheDebugRegisterIndex >> (32-DCACHE_SETS_LOG2)) & (DCACHE_SETS-1);
+            uint8_t wordAddress = (CacheDebugRegisterIndex & (DCACHE_LINELENGTH-1)) >> 2;
+            uint8_t index = (CacheDebugRegisterIndex >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+            *(u32 *)&DCache[(((index << DCACHE_SETS_LOG2) + segment) << DCACHE_LINELENGTH_LOG2) + wordAddress*4] = val;            
+        }
         return;
 
     }
 
-    if ((id & 0xF00) == 0xF00) // test/debug shit?
-        return;
-
-    if ((id & 0xF00) != 0x700)
-        Log(LogLevel::Debug, "unknown CP15 write op %03X %08X\n", id, val);
+    Log(LogLevel::Debug, "unknown CP15 write op %04X %08X\n", id, val);
 }
 
-u32 ARMv5::CP15Read(u32 id) const
+u32 ARMv5::CP15Read(const u32 id) const
 {
     //printf("CP15 read op %03X %08X\n", id, NDS::ARM9->R[15]);
 
-    switch (id)
+    switch (id & 0xFFF)
     {
     case 0x000: // CPU ID
     case 0x003:
@@ -680,13 +1394,15 @@ u32 ARMv5::CP15Read(u32 id) const
     case 0x005:
     case 0x006:
     case 0x007:
-        return 0x41059461;
+        return CP15_MAINID_IMPLEMENTOR_ARM | CP15_MAINID_VARIANT_0 | CP15_MAINID_ARCH_v5TE | CP15_MAINID_IMPLEMENTATION_946 | CP15_MAINID_REVISION_1;
 
     case 0x001: // cache type
-        return 0x0F0D2112;
+        return CACHE_TR_LOCKDOWN_TYPE_B | CACHE_TR_NONUNIFIED
+               | (DCACHE_LINELENGTH_ENCODED << 12) | (DCACHE_SETS_LOG2 << 15) | ((DCACHE_SIZE_LOG2 - 9) << 18)
+               | (ICACHE_LINELENGTH_ENCODED << 0) | (ICACHE_SETS_LOG2 << 3) | ((ICACHE_SIZE_LOG2 - 9) << 6);
 
     case 0x002: // TCM size
-        return (6 << 6) | (5 << 18);
+        return CP15_TCMSIZE_ITCM_32KB | CP15_TCMSIZE_DTCM_16KB;
 
 
     case 0x100: // control reg
@@ -703,28 +1419,25 @@ u32 ARMv5::CP15Read(u32 id) const
 
     case 0x500:
         {
+            // this format  has 2 bits per region, but we store 4 per region
+            // so we reduce and consoldate the bits
+            // 0x502 returns all 4 bits per region
             u32 ret = 0;
-            ret |=  (PU_DataRW & 0x00000003);
-            ret |= ((PU_DataRW & 0x00000030) >> 2);
-            ret |= ((PU_DataRW & 0x00000300) >> 4);
-            ret |= ((PU_DataRW & 0x00003000) >> 6);
-            ret |= ((PU_DataRW & 0x00030000) >> 8);
-            ret |= ((PU_DataRW & 0x00300000) >> 10);
-            ret |= ((PU_DataRW & 0x03000000) >> 12);
-            ret |= ((PU_DataRW & 0x30000000) >> 14);
+            #pragma GCC ivdep
+            #pragma GCC unroll 8
+            for (int i = 0; i < CP15_REGION_COUNT; i++)
+                ret |= (PU_DataRW  >> (i * CP15_REGIONACCESS_BITS_PER_REGION) & CP15_REGIONACCESS_REGIONMASK) << (i*2);
             return ret;
         }
     case 0x501:
         {
+            // this format  has 2 bits per region, but we store 4 per region
+            // so we reduce and consoldate the bits
+            // 0x503 returns all 4 bits per region
             u32 ret = 0;
-            ret |=  (PU_CodeRW & 0x00000003);
-            ret |= ((PU_CodeRW & 0x00000030) >> 2);
-            ret |= ((PU_CodeRW & 0x00000300) >> 4);
-            ret |= ((PU_CodeRW & 0x00003000) >> 6);
-            ret |= ((PU_CodeRW & 0x00030000) >> 8);
-            ret |= ((PU_CodeRW & 0x00300000) >> 10);
-            ret |= ((PU_CodeRW & 0x03000000) >> 12);
-            ret |= ((PU_CodeRW & 0x30000000) >> 14);
+            #pragma GCC unroll 8
+            for (int i = 0; i < CP15_REGION_COUNT; i++)
+                ret |= (PU_CodeRW  >> (i * CP15_REGIONACCESS_BITS_PER_REGION) & CP15_REGIONACCESS_REGIONMASK) << (i*2);
             return ret;
         }
     case 0x502:
@@ -751,34 +1464,115 @@ u32 ARMv5::CP15Read(u32 id) const
     case 0x671:
         return PU_Region[(id >> 4) & 0xF];
 
+    case 0x7A6:
+        // read Cache Dirty Bit (optional)
+        // it is not present on the NDS/DSi
+        return 0;
+
+    case 0x900:
+        if (PU_Map != PU_PrivMap)
+        {            
+            return 0;
+        } else
+            return DCacheLockDown;
+    case 0x901:
+        if (PU_Map != PU_PrivMap)
+        {            
+            return 0;
+        } else
+            return ICacheLockDown;
 
     case 0x910:
         return DTCMSetting;
     case 0x911:
         return ITCMSetting;
+
+    case 0xD01: // See arm946E-S Rev 1 technical Reference Manual, Chapter 2.3.13 */ 
+    case 0xD11: // backwards compatible read/write of the same register
+        return CP15TraceProcessId;
+
+    case 0xF00:
+        if (PU_Map != PU_PrivMap)
+        {            
+            return 0;
+        } else
+        {
+            if (((id >> 12) & 0x0f) == 0x03)
+                return CacheDebugRegisterIndex;
+            if (((id >> 12) & 0x0f) == 0x00)
+                return CP15BISTTestStateRegister;
+        }
+    case 0xF10:
+        // instruction cache Tag register
+        if (PU_Map != PU_PrivMap)
+        {            
+            return 0;
+        } else
+        {
+            uint8_t segment = (CacheDebugRegisterIndex >> (32-ICACHE_SETS_LOG2)) & (ICACHE_SETS-1);
+            uint8_t wordAddress = (CacheDebugRegisterIndex & (ICACHE_LINELENGTH-1)) >> 2;
+            uint8_t index = (CacheDebugRegisterIndex >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1);
+            Log(LogLevel::Debug, "Read ICache Tag %08lx -> %08lx\n", CacheDebugRegisterIndex, ICacheTags[(index << ICACHE_SETS_LOG2) + segment]);
+            return ICacheTags[(index << ICACHE_SETS_LOG2) + segment];
+        }
+    case 0xF20:
+        // data cache Tag register
+        if (PU_Map != PU_PrivMap)
+        {            
+            return 0;
+        } else
+        {
+            uint8_t segment = (CacheDebugRegisterIndex >> (32-DCACHE_SETS_LOG2)) & (DCACHE_SETS-1);
+            uint8_t wordAddress = (CacheDebugRegisterIndex & (DCACHE_LINELENGTH-1)) >> 2;
+            uint8_t index = (CacheDebugRegisterIndex >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+            Log(LogLevel::Debug, "Read DCache Tag %08lx (%u, %02x, %u) -> %08lx\n", CacheDebugRegisterIndex, segment, index, wordAddress, DCacheTags[(index << DCACHE_SETS_LOG2) + segment]);
+            return DCacheTags[(index << DCACHE_SETS_LOG2) + segment];
+        }
+    case 0xF30:
+        if (PU_Map != PU_PrivMap)
+        {            
+            return 0;
+        } else
+        {
+            uint8_t segment = (CacheDebugRegisterIndex >> (32-ICACHE_SETS_LOG2)) & (ICACHE_SETS-1);
+            uint8_t wordAddress = (CacheDebugRegisterIndex & (ICACHE_LINELENGTH-1)) >> 2;
+            uint8_t index = (CacheDebugRegisterIndex >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1);
+            return *(u32 *)&ICache[(((index << ICACHE_SETS_LOG2) + segment) << ICACHE_LINELENGTH_LOG2) + wordAddress*4];
+        }
+    case 0xF40:
+        {
+            uint8_t segment = (CacheDebugRegisterIndex >> (32-DCACHE_SETS_LOG2)) & (DCACHE_SETS-1);
+            uint8_t wordAddress = (CacheDebugRegisterIndex & (DCACHE_LINELENGTH-1)) >> 2;
+            uint8_t index = (CacheDebugRegisterIndex >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1);
+            return *(u32 *)&DCache[(((index << DCACHE_SETS_LOG2) + segment) << DCACHE_LINELENGTH_LOG2) + wordAddress*4];
+        }
     }
 
-    if ((id & 0xF00) == 0xF00) // test/debug shit?
-        return 0;
-
-    Log(LogLevel::Debug, "unknown CP15 read op %03X\n", id);
+    Log(LogLevel::Debug, "unknown CP15 read op %04X\n", id);
     return 0;
 }
 
 
 // TCM are handled here.
-// TODO: later on, handle PU, and maybe caches
+// TODO: later on, handle PU
 
-u32 ARMv5::CodeRead32(u32 addr, bool branch)
+u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
 {
-    /*if (branch || (!(addr & 0xFFF)))
-    {
-        if (!(PU_Map[addr>>12] & 0x04))
+
+    #if !DISABLE_ICACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif    
         {
-            PrefetchAbort();
-            return 0;
+            if (CP15Control & CP15_CACHE_CR_ICACHEENABLE) 
+            {
+                if (IsAddressICachable(addr))
+                {
+                    return ICacheLookup(addr);
+                }
+            }
         }
-    }*/
+    #endif 
 
     if (addr < ITCMSize)
     {
@@ -787,14 +1581,13 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
     }
 
     CodeCycles = RegionCodeCycles;
+
     if (CodeCycles == 0xFF) // cached memory. hax
     {
-        if (branch || !(addr & 0x1F))
+        if (branch || !(addr & (ICACHE_LINELENGTH-1)))
             CodeCycles = kCodeCacheTiming;//ICacheLookup(addr);
         else
             CodeCycles = 1;
-
-        //return *(u32*)&CurICacheLine[addr & 0x1C];
     }
 
     if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];
@@ -803,15 +1596,32 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
 }
 
 
-void ARMv5::DataRead8(u32 addr, u32* val)
+void ARMv5::DataRead8(const u32 addr, u32* val)
 {
-    if (!(PU_Map[addr>>12] & 0x01))
+    if (!(PU_Map[addr>>CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_READABLE))
     {
+        Log(LogLevel::Debug, "data8 abort @ %08lx\n", addr);
         DataAbort();
         return;
     }
 
     DataRegion = addr;
+
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    *val = (DCacheLookup(addr) >> (8 * (addr & 3))) & 0xff;
+                    return;
+                }
+            }
+        }
+    #endif
 
     if (addr < ITCMSize)
     {
@@ -827,97 +1637,157 @@ void ARMv5::DataRead8(u32 addr, u32* val)
     }
 
     *val = BusRead8(addr);
-    DataCycles = MemTimings[addr >> 12][1];
+    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
 }
 
-void ARMv5::DataRead16(u32 addr, u32* val)
+void ARMv5::DataRead16(const u32 addr, u32* val)
 {
-    if (!(PU_Map[addr>>12] & 0x01))
+    if (!(PU_Map[addr>>CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_READABLE))
     {
+        Log(LogLevel::Debug, "data16 abort @ %08lx\n", addr);
         DataAbort();
         return;
     }
 
     DataRegion = addr;
 
-    addr &= ~1;
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    *val = (DCacheLookup(addr) >> (8* (addr & 2))) & 0xffff;
+                    return;
+                }
+            }
+        }
+    #endif
 
     if (addr < ITCMSize)
     {
         DataCycles = 1;
-        *val = *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        *val = *(u16*)&ITCM[addr & (ITCMPhysicalSize - 2)];
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *val = *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)];
+        *val = *(u16*)&DTCM[addr & (DTCMPhysicalSize - 2)];
         return;
     }
 
-    *val = BusRead16(addr);
-    DataCycles = MemTimings[addr >> 12][1];
+    *val = BusRead16(addr & ~1);
+    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
 }
 
-void ARMv5::DataRead32(u32 addr, u32* val)
+void ARMv5::DataRead32(const u32 addr, u32* val)
 {
-    if (!(PU_Map[addr>>12] & 0x01))
+    if (!(PU_Map[addr>>CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_READABLE))
     {
+        Log(LogLevel::Debug, "data32 abort @ %08lx\n", addr);
         DataAbort();
         return;
     }
 
     DataRegion = addr;
 
-    addr &= ~3;
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    *val = DCacheLookup(addr);
+                    return;
+                }
+            }
+        }
+    #endif
 
     if (addr < ITCMSize)
     {
         DataCycles = 1;
-        *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 4)];
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
+        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 4)];
         return;
     }
 
-    *val = BusRead32(addr);
-    DataCycles = MemTimings[addr >> 12][2];
+    *val = BusRead32(addr & ~0x03);
+    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_N32];
 }
 
-void ARMv5::DataRead32S(u32 addr, u32* val)
+void ARMv5::DataRead32S(const u32 addr, u32* val)
 {
-    addr &= ~3;
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    *val = DCacheLookup(addr);
+                    return;
+                }
+            }
+        }
+    #endif
 
     if (addr < ITCMSize)
     {
         DataCycles += 1;
-        *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 4)];
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles += 1;
-        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
+        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 4)];
         return;
     }
 
-    *val = BusRead32(addr);
-    DataCycles += MemTimings[addr >> 12][3];
+    *val = BusRead32(addr & ~0x03);
+    DataCycles += MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S32];
 }
 
-void ARMv5::DataWrite8(u32 addr, u8 val)
+void ARMv5::DataWrite8(const u32 addr, const u8 val)
 {
-    if (!(PU_Map[addr>>12] & 0x02))
+    if (!(PU_Map[addr>>CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_WRITEABLE))
     {
         DataAbort();
         return;
     }
 
     DataRegion = addr;
+
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    if (DCacheWrite8(addr, val))
+                        return;
+                }
+            }
+        }
+    #endif
 
     if (addr < ITCMSize)
     {
@@ -934,12 +1804,12 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
     }
 
     BusWrite8(addr, val);
-    DataCycles = MemTimings[addr >> 12][1];
+    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
 }
 
-void ARMv5::DataWrite16(u32 addr, u16 val)
+void ARMv5::DataWrite16(const u32 addr, const u16 val)
 {
-    if (!(PU_Map[addr>>12] & 0x02))
+    if (!(PU_Map[addr>>CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_WRITEABLE))
     {
         DataAbort();
         return;
@@ -947,29 +1817,43 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
 
     DataRegion = addr;
 
-    addr &= ~1;
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    if (DCacheWrite16(addr, val))
+                        return;
+                }
+            }
+        }
+    #endif
 
     if (addr < ITCMSize)
     {
         DataCycles = 1;
-        *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
+        *(u16*)&ITCM[addr & (ITCMPhysicalSize - 2)] = val;
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
+        *(u16*)&DTCM[addr & (DTCMPhysicalSize - 2)] = val;
         return;
     }
 
-    BusWrite16(addr, val);
-    DataCycles = MemTimings[addr >> 12][1];
+    BusWrite16(addr & ~1, val);
+    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
 }
 
-void ARMv5::DataWrite32(u32 addr, u32 val)
+void ARMv5::DataWrite32(const u32 addr, const u32 val)
 {
-    if (!(PU_Map[addr>>12] & 0x02))
+    if (!(PU_Map[addr>>CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_WRITEABLE))
     {
         DataAbort();
         return;
@@ -977,34 +1861,62 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
 
     DataRegion = addr;
 
-    addr &= ~3;
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    if (DCacheWrite32(addr, val))
+                        return;
+                }
+            }
+        }
+    #endif
 
     if (addr < ITCMSize)
     {
         DataCycles = 1;
-        *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
+        *(u32*)&ITCM[addr & (ITCMPhysicalSize - 4)] = val;
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
+        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 4)] = val;
         return;
     }
 
-    BusWrite32(addr, val);
-    DataCycles = MemTimings[addr >> 12][2];
+    BusWrite32(addr & ~3, val);
+    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_N32];
 }
 
-void ARMv5::DataWrite32S(u32 addr, u32 val)
+void ARMv5::DataWrite32S(const u32 addr, const u32 val)
 {
-    addr &= ~3;
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    if (DCacheWrite32(addr, val))
+                        return;
+                }
+            }
+        }
+    #endif
 
     if (addr < ITCMSize)
     {
         DataCycles += 1;
-        *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
+        *(u32*)&ITCM[addr & (ITCMPhysicalSize - 4)] = val;
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
 #endif
@@ -1013,23 +1925,16 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles += 1;
-        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
+        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 4)] = val;
         return;
     }
 
-    BusWrite32(addr, val);
-    DataCycles += MemTimings[addr >> 12][3];
+    BusWrite32(addr & ~3, val);
+    DataCycles += MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S32];
 }
 
-void ARMv5::GetCodeMemRegion(u32 addr, MemRegion* region)
+void ARMv5::GetCodeMemRegion(const u32 addr, MemRegion* region)
 {
-    /*if (addr < ITCMSize)
-    {
-        region->Mem = ITCM;
-        region->Mask = 0x7FFF;
-        return;
-    }*/
-
     NDS.ARM9GetMemRegion(addr, false, &CodeMem);
 }
 

@@ -1705,7 +1705,7 @@ void DSi::ARM9Write32(u32 addr, u32 val)
     return NDS::ARM9Write32(addr, val);
 }
 
-bool DSi::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
+bool DSi::ARM9GetMemRegion(const u32 addr, const bool write, MemRegion* region)
 {
     assert(ConsoleType == 1);
     switch (addr & 0xFF000000)

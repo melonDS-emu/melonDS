@@ -212,14 +212,14 @@ void A_MCR(ARM* cpu)
         return A_UNK(cpu);
 
     u32 cp = (cpu->CurInstr >> 8) & 0xF;
-    //u32 op = (cpu->CurInstr >> 21) & 0x7;
+    u32 op = (cpu->CurInstr >> 21) & 0x7;
     u32 cn = (cpu->CurInstr >> 16) & 0xF;
     u32 cm = cpu->CurInstr & 0xF;
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
 
     if (cpu->Num==0 && cp==15)
     {
-        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo, cpu->R[(cpu->CurInstr>>12)&0xF]);
+        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo|(op<<12), cpu->R[(cpu->CurInstr>>12)&0xF]);
     }
     else if (cpu->Num==1 && cp==14)
     {
@@ -227,7 +227,7 @@ void A_MCR(ARM* cpu)
     }
     else
     {
-        Log(LogLevel::Warn, "bad MCR opcode p%d,%d,%d,%d on ARM%d\n", cp, cn, cm, cpinfo, cpu->Num?7:9);
+        Log(LogLevel::Warn, "bad MCR opcode p%d, %d, reg, c%d, c%d, %d on ARM%d\n", cp, op, cn, cm, cpinfo, cpu->Num?7:9);
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 
@@ -240,14 +240,14 @@ void A_MRC(ARM* cpu)
         return A_UNK(cpu);
 
     u32 cp = (cpu->CurInstr >> 8) & 0xF;
-    //u32 op = (cpu->CurInstr >> 21) & 0x7;
+    u32 op = (cpu->CurInstr >> 21) & 0x7;
     u32 cn = (cpu->CurInstr >> 16) & 0xF;
     u32 cm = cpu->CurInstr & 0xF;
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
 
     if (cpu->Num==0 && cp==15)
     {
-        cpu->R[(cpu->CurInstr>>12)&0xF] = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo);
+        cpu->R[(cpu->CurInstr>>12)&0xF] = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo|(op<<12));
     }
     else if (cpu->Num==1 && cp==14)
     {
@@ -255,7 +255,7 @@ void A_MRC(ARM* cpu)
     }
     else
     {
-        Log(LogLevel::Warn, "bad MRC opcode p%d,%d,%d,%d on ARM%d\n", cp, cn, cm, cpinfo, cpu->Num?7:9);
+        Log(LogLevel::Warn, "bad MRC opcode p%d, %d, reg, c%d, c%d, %d on ARM%d\n", cp, op, cn, cm, cpinfo, cpu->Num?7:9);
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 
