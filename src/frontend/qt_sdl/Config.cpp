@@ -1113,7 +1113,7 @@ printf("save\n");
     //toml::serializer<std::string> vorp(RootTable);
     //toml::serializer<toml::string> zarp;
 
-    std::cout << RootTable;
+    //std::cout << RootTable;
     printf("blarg\n");
     std::ofstream file;
     file.open(cfgpath, std::ofstream::out | std::ofstream::trunc);
