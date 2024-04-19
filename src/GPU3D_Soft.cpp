@@ -174,25 +174,71 @@ u32 SoftRenderer::DoTimingsPixels(s32 pixels, s32* timingcounter)
     else return 0;
 }
 
-bool SoftRenderer::DoTimingsFirstPoly(RendererPolygon* rp, s32 y, s32* timingcounter)
+void SoftRenderer::FindFirstPolyDoTimings(int npolys, s32 y, s32* timingcountereven, s32*timingcounterodd)
 {
-    // The first polygon in each scanline has an additional timing penalty (presumably due to pipelining?)
+    // TODO: actually figure this out
 
-    // First polygon has a cost of 4 cycles
-    if (!DoTimings(FirstPolyDelay, timingcounter)) return false;
+    // The First Polygon in each scanline pair has some additional timing penalties (presumably due to pipelining of the rasterizer)
 
-    // determine the timing impact of the first polygon's slopes.
+    bool fixeddelay = false;
+    bool perslope = false;
+    bool etc = false;
+
+    for (int i = 0; i < npolys; i++)
+    {
+        RendererPolygon* rp = &PolygonList[i];
+        Polygon* polygon = rp->PolyData;
+
+        if (y >= polygon->YTop && y <= polygon->YBottom)
+        {
+            fixeddelay = true;
+            break;
+            if (y == polygon->YBottom) break;
+            if (y == polygon->YTop) {perslope = true; break;}
+            /*else if ((y == polygon->Vertices[rp->NextVL]->FinalPosition[1] || y == polygon->Vertices[rp->CurVL]->FinalPosition[1]) ||
+                    (y == polygon->Vertices[rp->NextVR]->FinalPosition[1] || y == polygon->Vertices[rp->CurVR]->FinalPosition[1]))
+            {
+                perslope = true;
+            }
+            else */etc = true;
+            break;
+        }
+    }
+
+    y++;
+    for (int i = 0; i < npolys; i++)
+    {
+        RendererPolygon* rp = &PolygonList[i];
+        Polygon* polygon = rp->PolyData;
+
+        if (y >= polygon->YTop && y <= polygon->YBottom)
+        {
+            fixeddelay = true;
+            break;
+            if (y == polygon->YBottom) break;
+            if (y == polygon->YTop) {perslope = true; break;}
+            /*else if ((y == polygon->Vertices[rp->NextVL]->FinalPosition[1] || y == polygon->Vertices[rp->CurVL]->FinalPosition[1]) ||
+                    (y == polygon->Vertices[rp->NextVR]->FinalPosition[1] || y == polygon->Vertices[rp->CurVR]->FinalPosition[1]))
+            {
+                perslope = true;
+            }
+            else */etc = true;
+            break;
+        }
+    }
     
-    Polygon* polygon = rp->PolyData;
-    
-    if (polygon->YTop == polygon->YBottom) return true; // 0 px tall line polygons do not have slopes, and thus no timing penalty
-    if (y == polygon->YTop) return true;
-
-    if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom) *timingcounter += FirstPerSlope;
-
-    if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom) *timingcounter += FirstPerSlope;
-
-    return DoTimings(FirstPerSlope*2, timingcounter); // CHECKME: does this need to be done every time its incremented here? does this even need to be done *at all?*
+    *timingcountereven = fixeddelay*FirstPolyDelay;// + perslope*FirstPerSlope + etc*2;
+    *timingcounterodd = fixeddelay*FirstPolyDelay;/// + perslope*FirstPerSlope + etc*2;
+    if (!perslope)
+    {
+        *timingcountereven += etc*2;// + perslope*FirstPerSlope + etc*2;
+        *timingcounterodd += etc*2;/// + perslope*FirstPerSlope + etc*2;
+    }
+    else
+    {
+        *timingcountereven += perslope*FirstPerSlope;// + perslope*FirstPerSlope + etc*2;
+        *timingcounterodd += perslope*FirstPerSlope;/// + perslope*FirstPerSlope + etc*2;
+    }
 }
 
 void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const
@@ -779,6 +825,7 @@ void SoftRenderer::CheckSlope(RendererPolygon* rp, s32 y)
     }
 }
 
+template <bool accuracy>
 bool SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y, s32* timingcounter)
 {
     Polygon* polygon = rp->PolyData;
@@ -912,16 +959,20 @@ bool SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     s32 xlimit;
     if (xend > 256) xend = 256;
     
-    // determine if the span can be rendered within the time allotted to the scanline
-    // TODO: verify the timing characteristics of shadow masks are the same as regular polygons.
-    s32 diff = DoTimingsPixels(xend-x, timingcounter);
-    if (diff != 0)
+    if (accuracy)
     {
-        xend -= diff;
-        r_edgelen -= diff;
-        abortscanline = true;
+        // determine if the span can be rendered within the time allotted to the scanline
+        // TODO: verify the timing characteristics of shadow masks are the same as regular polygons.
+        s32 diff = DoTimingsPixels(xend-x, timingcounter);
+        if (diff != 0)
+        {
+            xend -= diff;
+            r_edgelen -= diff;
+            abortscanline = true;
+        }
+        else abortscanline = false;
     }
-    else abortscanline = false;
+    else abortscanline = true;
 
     // for shadow masks: set stencil bits where the depth test fails.
     // draw nothing.
@@ -1007,6 +1058,7 @@ bool SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     return abortscanline;
 }
 
+template <bool accuracy>
 bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y, s32* timingcounter)
 {
     Polygon* polygon = rp->PolyData;
@@ -1163,13 +1215,17 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     s32 xcov = 0;
     if (xend > 256) xend = 256;
 
-    // determine if the span can be rendered within the time allotted to the scanline
-    s32 diff = DoTimingsPixels(xend-x, timingcounter);
-    if (diff != 0)
+    if (accuracy)
     {
-        xend -= diff;
-        r_edgelen -= diff;
-        abortscanline = true;
+        // determine if the span can be rendered within the time allotted to the scanline
+        s32 diff = DoTimingsPixels(xend-x, timingcounter);
+        if (diff != 0)
+        {
+            xend -= diff;
+            r_edgelen -= diff;
+            abortscanline = true;
+        }
+        else abortscanline = false;
     }
     else abortscanline = false;
 
@@ -1461,45 +1517,35 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     return abortscanline;
 }
 
+template <bool accuracy>
 void SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int npolys, s32* timingcounter)
 {
-    *timingcounter = 0;
     bool abort = false;
-    bool first = true;
     for (int i = 0; i < npolys; i++)
     {
         RendererPolygon* rp = &PolygonList[i];
         Polygon* polygon = rp->PolyData;
 
-        if (y == polygon->YBottom && y != polygon->YTop)
+        if (accuracy && y == polygon->YBottom && y != polygon->YTop)
         {
-            if (!abort) abort = (first && !DoTimings(FirstNull+EmptyPolyScanline, timingcounter)) || !DoTimings(EmptyPolyScanline, timingcounter);
-
-            first = false;
+            if (!abort) abort = !DoTimings(EmptyPolyScanline, timingcounter);
         }
         else if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
-        {
-            //if (y == polygon->YTop) if(!DoTimings(FirstPolyScanline, timingcounter)) abort = true;
-            
-            if (!abort) abort = (first && !DoTimingsFirstPoly(rp, y, timingcounter)) // incorrect. needs research; behavior is strange...
-                        || !DoTimings(PerPolyScanline, timingcounter)
-                        || (!CheckTimings(MinToStartPoly, timingcounter));
+        {            
+            if (accuracy && !abort) abort = (!DoTimings(PerPolyScanline, timingcounter)
+                        || !CheckTimings(MinToStartPoly, timingcounter));
 
-            if (abort)
+            if (accuracy && abort)
             {
                 CheckSlope(rp, y);
                 Step(rp);
             }
             else if (polygon->IsShadowMask)
-                abort = RenderShadowMaskScanline(gpu.GPU3D, rp, y, timingcounter);
+                abort = RenderShadowMaskScanline<accuracy>(gpu.GPU3D, rp, y, timingcounter);
             else
-                abort = RenderPolygonScanline(gpu, rp, y, timingcounter);
-
-            first = false;
+                abort = RenderPolygonScanline<accuracy>(gpu, rp, y, timingcounter);
         }
     }
-
-    return;
 }
 
 u32 SoftRenderer::CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const
@@ -1904,8 +1950,9 @@ void SoftRenderer::FinishPushScanline(s32 y, s32 pixelsremain)
     /* update sl timeout */\
     ScanlineTimeout = SLRead[y-1] - FinalPassLen;\
     \
-    RenderScanline(gpu, y, j, &rastertimingeven);\
-    RenderScanline(gpu, y+1, j, &rastertimingodd);\
+    FindFirstPolyDoTimings(j, y, &rastertimingeven, &rastertimingodd);\
+    RenderScanline<true>(gpu, y, j, &rastertimingeven);\
+    RenderScanline<true>(gpu, y+1, j, &rastertimingodd);\
     \
     prevtimespent = timespent;\
     RasterTiming += timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});\
@@ -1914,7 +1961,27 @@ void SoftRenderer::FinishPushScanline(s32 y, s32 pixelsremain)
     /* set the underflow flag if one of the scanlines came within 14 cycles of visible underflow */\
     if (ScanlineTimeout <= RasterTiming) gpu.GPU3D.RDLinesUnderflow = true;
 
-void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
+void SoftRenderer::RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys)
+{
+    int j = 0;
+    for (int i = 0; i < npolys; i++)
+    {
+        if (polygons[i]->Degenerate) continue;
+        SetupPolygon(&PolygonList[j++], polygons[i]);
+    }
+    int dummy;
+    RenderScanline<false>(gpu, 0, j, &dummy);
+
+    for (s32 y = 1; y < 192; y++)
+    {
+        RenderScanline<false>(gpu, y, j, &dummy);
+        ScanlineFinalPass<true>(gpu.GPU3D, y-1, true, true);
+    }
+
+    ScanlineFinalPass<true>(gpu.GPU3D, 191, true, true);
+}
+
+void SoftRenderer::RenderPolygonsTiming(GPU& gpu, Polygon** polygons, int npolys)
 {
     int j = 0;
     for (int i = 0; i < npolys; i++)
@@ -1932,10 +1999,10 @@ void SoftRenderer::RenderPolygons(GPU& gpu, Polygon** polygons, int npolys)
     s32 nextread = 0, nextreadrd = 0;
     u32 timespent, prevtimespent;
 
-
+    FindFirstPolyDoTimings(j, 0, &rastertimingeven, &rastertimingodd);
     // scanlines are rendered in pairs of two
-    RenderScanline(gpu, 0, j, &rastertimingeven);
-    RenderScanline(gpu, 1, j, &rastertimingodd);
+    RenderScanline<true>(gpu, 0, j, &rastertimingeven);
+    RenderScanline<true>(gpu, 1, j, &rastertimingodd);
 
     // it can't proceed to the next scanline unless all others steps are done (both scanlines in the pair, and final pass)
     RasterTiming = timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});
@@ -2025,7 +2092,12 @@ void SoftRenderer::RenderFrame(GPU& gpu)
         ClearBuffers(gpu);
 
         if (gpu.GPU3D.RenderingEnabled >= 3)
-            RenderPolygons(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+        {
+            if (Accuracy)
+                RenderPolygonsTiming(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+            else
+                RenderPolygonsFast(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+        }
         else
             memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
     }
@@ -2062,7 +2134,12 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
             ClearBuffers(gpu);
 
             if (gpu.GPU3D.RenderingEnabled >= 3)
-                RenderPolygons(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+            {
+                if (Accuracy)
+                    RenderPolygonsTiming(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+                else
+                    RenderPolygonsFast(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+            }
             else
             {
                 memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
