@@ -228,16 +228,16 @@ void SoftRenderer::FindFirstPolyDoTimings(int npolys, s32 y, int* firstpolyeven,
     }
     
     *timingcountereven = fixeddelay*FirstPolyDelay;// + perslope*FirstPerSlope + etc*2;
-    *timingcounterodd = fixeddelay*FirstPolyDelay;/// + perslope*FirstPerSlope + etc*2;
+    *timingcounterodd = fixeddelay*FirstPolyDelay;// + perslope*FirstPerSlope + etc*2;
     if (!perslope)
     {
         *timingcountereven += etc*2;// + perslope*FirstPerSlope + etc*2;
-        *timingcounterodd += etc*2;/// + perslope*FirstPerSlope + etc*2;
+        *timingcounterodd += etc*2;// + perslope*FirstPerSlope + etc*2;
     }
     else
     {
         *timingcountereven += perslope*FirstPerSlope;// + perslope*FirstPerSlope + etc*2;
-        *timingcounterodd += perslope*FirstPerSlope;/// + perslope*FirstPerSlope + etc*2;
+        *timingcounterodd += perslope*FirstPerSlope;// + perslope*FirstPerSlope + etc*2;
     }
 }
 
@@ -1959,7 +1959,7 @@ void SoftRenderer::FinishPushScanline(s32 y, s32 pixelsremain)
     RasterTiming += std::clamp(ScanlineTimeout - RasterTiming, 0, 12);\
     \
     /* set the underflow flag if one of the scanlines came within 14 cycles of visible underflow */\
-    if (ScanlineTimeout <= RasterTiming) gpu.GPU3D.RDLinesUnderflow = true;
+    if ((ScanlineTimeout <= RasterTiming) && (gpu.GPU3D.UnderflowFlagVCount == (u16)-1)) gpu.GPU3D.UnderflowFlagVCount = y-1;
 
 void SoftRenderer::RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys)
 {
@@ -1992,7 +1992,7 @@ void SoftRenderer::RenderPolygonsTiming(GPU& gpu, Polygon** polygons, int npolys
     }
 
     // reset scanline trackers
-    gpu.GPU3D.RDLinesUnderflow = false;
+    gpu.GPU3D.UnderflowFlagVCount = -1;
     gpu.GPU3D.RDLinesTemp = 63;
     ScanlineTimeout = FrameLength; // CHECKME
     s32 rastertimingeven, rastertimingodd; // always init to 0 at the start of a scanline render

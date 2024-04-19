@@ -255,7 +255,8 @@ void GPU3D::Reset() noexcept
     ClearAttr2 = 0x00007FFF;
 
     ResetRenderingState();
-
+    
+    UnderflowFlagVCount = -1;
     RDLines = 63;
 
     AbortFrame = false;

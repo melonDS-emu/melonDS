@@ -251,7 +251,7 @@ public:
 
     u32 DispCnt = 0;
 
-    bool RDLinesUnderflow = false;
+    u16 UnderflowFlagVCount = 0;
     u8 RDLines = 0;
     u8 RDLinesTemp = 0;
 

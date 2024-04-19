@@ -1002,6 +1002,13 @@ void GPU::StartScanline(u32 line) noexcept
             NDS.ScheduleEvent(Event_DisplayFIFO, false, 32, 0, 0);
     }
 
+    if (VCount == GPU3D.UnderflowFlagVCount)
+    {
+        // appears to get set the vcount before the underflow occured?
+        // probably gets updated the instant the underflow happened, which might be annoying to work out with precision.
+        GPU3D.DispCnt |= (1<<12);
+    }
+
     if (VCount == 262)
     {
         // frame end
@@ -1017,7 +1024,7 @@ void GPU::StartScanline(u32 line) noexcept
             // and games might already start to modify texture memory.
             // That doesn't matter for us because we cache the entire
             // texture memory anyway and only update it before the start
-            //of the next frame.
+            // of the next frame.
             // So we can give the rasteriser a bit more headroom
             GPU3D.VCount144(*this);
 
@@ -1040,10 +1047,6 @@ void GPU::StartScanline(u32 line) noexcept
             // Need a better way to identify the openGL renderer in particular
             if (GPU3D.IsRendererAccelerated())
                 GPU3D.Blit(*this);
-        }
-        else if (VCount == 183)
-        {
-            GPU3D.DispCnt |= GPU3D.RDLinesUnderflow << 12; // CHECKME: does this get set *exactly* at vcount 183? earlier? later?
         }
     }
 
