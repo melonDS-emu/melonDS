@@ -174,7 +174,7 @@ u32 SoftRenderer::DoTimingsPixels(s32 pixels, s32* timingcounter)
     else return 0;
 }
 
-void SoftRenderer::FindFirstPolyDoTimings(int npolys, s32 y, s32* timingcountereven, s32*timingcounterodd)
+void SoftRenderer::FindFirstPolyDoTimings(int npolys, s32 y, int* firstpolyeven, int* firstpolyodd, s32* timingcountereven, s32*timingcounterodd)
 {
     // TODO: actually figure this out
 
@@ -184,9 +184,9 @@ void SoftRenderer::FindFirstPolyDoTimings(int npolys, s32 y, s32* timingcountere
     bool perslope = false;
     bool etc = false;
 
-    for (int i = 0; i < npolys; i++)
+    for (*firstpolyeven = 0; *firstpolyeven < npolys; (*firstpolyeven)++)
     {
-        RendererPolygon* rp = &PolygonList[i];
+        RendererPolygon* rp = &PolygonList[*firstpolyeven];
         Polygon* polygon = rp->PolyData;
 
         if (y >= polygon->YTop && y <= polygon->YBottom)
@@ -206,9 +206,9 @@ void SoftRenderer::FindFirstPolyDoTimings(int npolys, s32 y, s32* timingcountere
     }
 
     y++;
-    for (int i = 0; i < npolys; i++)
+    for (*firstpolyodd = 0; *firstpolyodd < npolys; (*firstpolyodd)++)
     {
-        RendererPolygon* rp = &PolygonList[i];
+        RendererPolygon* rp = &PolygonList[*firstpolyodd];
         Polygon* polygon = rp->PolyData;
 
         if (y >= polygon->YTop && y <= polygon->YBottom)
@@ -1518,12 +1518,12 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 }
 
 template <bool accuracy>
-void SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int npolys, s32* timingcounter)
+void SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int firstpoly, int npolys, s32* timingcounter)
 {
     bool abort = false;
-    for (int i = 0; i < npolys; i++)
+    for (; firstpoly < npolys; firstpoly++)
     {
-        RendererPolygon* rp = &PolygonList[i];
+        RendererPolygon* rp = &PolygonList[firstpoly];
         Polygon* polygon = rp->PolyData;
 
         if (accuracy && y == polygon->YBottom && y != polygon->YTop)
@@ -1950,9 +1950,9 @@ void SoftRenderer::FinishPushScanline(s32 y, s32 pixelsremain)
     /* update sl timeout */\
     ScanlineTimeout = SLRead[y-1] - FinalPassLen;\
     \
-    FindFirstPolyDoTimings(j, y, &rastertimingeven, &rastertimingodd);\
-    RenderScanline<true>(gpu, y, j, &rastertimingeven);\
-    RenderScanline<true>(gpu, y+1, j, &rastertimingodd);\
+    FindFirstPolyDoTimings(j, y, &firstpolyeven, &firstpolyodd, &rastertimingeven, &rastertimingodd);\
+    RenderScanline<true>(gpu, y, firstpolyeven, j, &rastertimingeven);\
+    RenderScanline<true>(gpu, y+1, firstpolyodd, j, &rastertimingodd);\
     \
     prevtimespent = timespent;\
     RasterTiming += timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});\
@@ -1969,12 +1969,13 @@ void SoftRenderer::RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys)
         if (polygons[i]->Degenerate) continue;
         SetupPolygon(&PolygonList[j++], polygons[i]);
     }
+
     int dummy;
-    RenderScanline<false>(gpu, 0, j, &dummy);
+    RenderScanline<false>(gpu, 0, 0, j, &dummy);
 
     for (s32 y = 1; y < 192; y++)
     {
-        RenderScanline<false>(gpu, y, j, &dummy);
+        RenderScanline<false>(gpu, y, 0, j, &dummy);
         ScanlineFinalPass<true>(gpu.GPU3D, y-1, true, true);
     }
 
@@ -1998,11 +1999,12 @@ void SoftRenderer::RenderPolygonsTiming(GPU& gpu, Polygon** polygons, int npolys
     s32 scanlineswaiting = 0, slwaitingrd = 0;
     s32 nextread = 0, nextreadrd = 0;
     u32 timespent, prevtimespent;
+    int firstpolyeven, firstpolyodd;
 
-    FindFirstPolyDoTimings(j, 0, &rastertimingeven, &rastertimingodd);
+    FindFirstPolyDoTimings(j, 0, &firstpolyeven, &firstpolyodd, &rastertimingeven, &rastertimingodd);
     // scanlines are rendered in pairs of two
-    RenderScanline<true>(gpu, 0, j, &rastertimingeven);
-    RenderScanline<true>(gpu, 1, j, &rastertimingodd);
+    RenderScanline<true>(gpu, 0, firstpolyeven, j, &rastertimingeven);
+    RenderScanline<true>(gpu, 1, firstpolyodd, j, &rastertimingodd);
 
     // it can't proceed to the next scanline unless all others steps are done (both scanlines in the pair, and final pass)
     RasterTiming = timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});

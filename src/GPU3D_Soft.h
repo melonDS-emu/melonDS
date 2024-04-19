@@ -458,7 +458,7 @@ private:
     bool DoTimings(s32 cycles, s32* timingcounter);
     bool CheckTimings(s32 cycles, s32* timingcounter);
     u32 DoTimingsPixels(s32 pixels, s32* timingcounter);
-    void FindFirstPolyDoTimings(int npolys, s32 y, s32* timingcountereven, s32*timingcounterodd);
+    void FindFirstPolyDoTimings(int npolys, s32 y, int* firstpolyeven, int* firstpolyodd, s32* timingcountereven, s32*timingcounterodd);
     void TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const;
     u32 RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const;
     void PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
@@ -469,7 +469,7 @@ private:
     void CheckSlope(RendererPolygon* rp, s32 y);
     template <bool accuracy> bool RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y, s32* timingcounter);
     template <bool accuracy> bool RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y, s32* timingcounter);
-    template <bool accuracy> void RenderScanline(const GPU& gpu, s32 y, int npolys, s32* timingcounter);
+    template <bool accuracy> void RenderScanline(const GPU& gpu, s32 y, int firstpoly, int npolys, s32* timingcounter);
     u32 CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const;
     bool CheckEdgeMarkingPixel(u32 polyid, u32 z, u32 pixeladdr);
     bool CheckEdgeMarkingClearPlane(const GPU3D& gpu3d, u32 polyid, u32 z);
