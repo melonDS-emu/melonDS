@@ -97,7 +97,7 @@ void SoftRenderer::EnableRenderThread()
 }
 
 SoftRenderer::SoftRenderer(bool threaded) noexcept
-    : Renderer3D(false), Accuracy(threaded)
+    : Renderer3D(false), Threaded(threaded)
 {
     Sema_RenderStart = Platform::Semaphore_Create();
     Sema_RenderDone = Platform::Semaphore_Create();
@@ -106,7 +106,6 @@ SoftRenderer::SoftRenderer(bool threaded) noexcept
     RenderThreadRunning = false;
     RenderThreadRendering = false;
     RenderThread = nullptr;
-    Threaded = true;
 }
 
 SoftRenderer::~SoftRenderer()
