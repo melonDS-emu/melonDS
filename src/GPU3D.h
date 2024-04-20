@@ -114,6 +114,7 @@ public:
 
     void SetRenderXPos(u16 xpos) noexcept;
     [[nodiscard]] u16 GetRenderXPos() const noexcept { return RenderXPos; }
+    void ScanlineSync(int line) noexcept;
     u32* GetLine(int line) noexcept;
 
     void WriteToGXFIFO(u32 val) noexcept;
@@ -454,6 +455,7 @@ public:
     virtual void RenderFrame(GPU& gpu) = 0;
     virtual void RestartFrame(GPU& gpu) {};
     virtual u32* GetLine(int line) = 0;
+    virtual void ScanlineSync(int line) {};
     virtual void Blit(const GPU& gpu) {};
     virtual void PrepareCaptureFrame() {}
 protected:

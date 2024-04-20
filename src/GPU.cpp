@@ -30,15 +30,17 @@ namespace melonDS
 using Platform::Log;
 using Platform::LogLevel;
 
-#define LINE_CYCLES  (355*6)
+#define LINE_CYCLES   (355*6)
 #define HBLANK_CYCLES (48+(256*6))
 #define FRAME_CYCLES  (LINE_CYCLES * 263)
+#define READ_CYCLES   (520) // CHECKME: Probably off by a little bit
 
 enum
 {
     LCD_StartHBlank = 0,
     LCD_StartScanline,
     LCD_FinishFrame,
+    LCD_ReadScanline,
 };
 
 
@@ -73,6 +75,8 @@ GPU::GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d, std::uniqu
     NDS.RegisterEventFunc(Event_LCD, LCD_StartHBlank, MemberEventFunc(GPU, StartHBlank));
     NDS.RegisterEventFunc(Event_LCD, LCD_StartScanline, MemberEventFunc(GPU, StartScanline));
     NDS.RegisterEventFunc(Event_LCD, LCD_FinishFrame, MemberEventFunc(GPU, FinishFrame));
+    NDS.RegisterEventFunc(Event_LCD, LCD_ReadScanline, MemberEventFunc(GPU, ReadScanline));
+    NDS.RegisterEventFunc(Event_DisplayFIFO, 0, MemberEventFunc(GPU, DisplayFIFO));
     NDS.RegisterEventFunc(Event_DisplayFIFO, 0, MemberEventFunc(GPU, DisplayFIFO));
 
     InitFramebuffers();
@@ -85,6 +89,7 @@ GPU::~GPU() noexcept
     NDS.UnregisterEventFunc(Event_LCD, LCD_StartHBlank);
     NDS.UnregisterEventFunc(Event_LCD, LCD_StartScanline);
     NDS.UnregisterEventFunc(Event_LCD, LCD_FinishFrame);
+    NDS.UnregisterEventFunc(Event_LCD, LCD_ReadScanline);
     NDS.UnregisterEventFunc(Event_DisplayFIFO, 0);
 }
 
@@ -910,11 +915,10 @@ void GPU::StartHBlank(u32 line) noexcept
 
     if (DispStat[0] & (1<<4)) NDS.SetIRQ(0, IRQ_HBlank);
     if (DispStat[1] & (1<<4)) NDS.SetIRQ(1, IRQ_HBlank);
-
-    if (VCount < 262)
-        NDS.ScheduleEvent(Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), LCD_StartScanline, line+1);
+    if (VCount == 262 || VCount < 191) // this is probably wrong, but i haven't dug deep enough to prove it yet
+        NDS.ScheduleEvent(Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES - READ_CYCLES), LCD_ReadScanline, line);
     else
-        NDS.ScheduleEvent(Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), LCD_FinishFrame, line+1);
+        NDS.ScheduleEvent(Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), LCD_StartScanline, line+1);
 }
 
 void GPU::FinishFrame(u32 lines) noexcept
@@ -947,6 +951,19 @@ void GPU::BlankFrame() noexcept
     AssignFramebuffers();
 
     TotalScanlines = 263;
+}
+
+void GPU::ReadScanline(u32 line) noexcept
+{
+    int scanline;
+    scanline = (VCount == 262 ? 0 : (line+1));
+    GPU3D.ScanlineSync(scanline);
+    if (GPU3D.UnderflowFlagVCount == scanline) GPU3D.DispCnt |= (1<<12);
+    
+    if (VCount != 262)
+        NDS.ScheduleEvent(Event_LCD, true, READ_CYCLES, LCD_StartScanline, line+1);
+    else
+        NDS.ScheduleEvent(Event_LCD, true, READ_CYCLES, LCD_FinishFrame, line+1);
 }
 
 void GPU::StartScanline(u32 line) noexcept
@@ -1002,13 +1019,6 @@ void GPU::StartScanline(u32 line) noexcept
             NDS.ScheduleEvent(Event_DisplayFIFO, false, 32, 0, 0);
     }
 
-    if (VCount == GPU3D.UnderflowFlagVCount)
-    {
-        // appears to get set the vcount before the underflow occured?
-        // probably gets updated the instant the underflow happened, which might be annoying to work out with precision.
-        GPU3D.DispCnt |= (1<<12);
-    }
-
     if (VCount == 262)
     {
         // frame end
@@ -1020,7 +1030,7 @@ void GPU::StartScanline(u32 line) noexcept
     {
         if (VCount == 192)
         {
-            // in reality rendering already finishes at line 144
+            // in reality rendering already finishes at line 144 (can take up to ~191 depending on load)
             // and games might already start to modify texture memory.
             // That doesn't matter for us because we cache the entire
             // texture memory anyway and only update it before the start

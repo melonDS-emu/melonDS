@@ -1959,7 +1959,7 @@ void SoftRenderer::FinishPushScanline(s32 y, s32 pixelsremain)
     RasterTiming += std::clamp(ScanlineTimeout - RasterTiming, 0, 12);\
     \
     /* set the underflow flag if one of the scanlines came within 14 cycles of visible underflow */\
-    if ((ScanlineTimeout <= RasterTiming) && (gpu.GPU3D.UnderflowFlagVCount == (u16)-1)) gpu.GPU3D.UnderflowFlagVCount = y-1;
+    if ((ScanlineTimeout <= RasterTiming) && (gpu.GPU3D.UnderflowFlagVCount == (u16)-1)) gpu.GPU3D.UnderflowFlagVCount = y - (y&1 ? 0 : 1);
 
 void SoftRenderer::RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys)
 {
@@ -2156,8 +2156,7 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
         RenderThreadRendering = false;
     }
 }
-
-u32* SoftRenderer::GetLine(int line)
+void SoftRenderer::ScanlineSync(int line)
 {
     if (RenderThreadRunning.load(std::memory_order_relaxed))
     {
@@ -2167,7 +2166,10 @@ u32* SoftRenderer::GetLine(int line)
             // so we don't need to wait for a specific row)
             Platform::Semaphore_Wait(Sema_ScanlineCount);
     }
+}
 
+u32* SoftRenderer::GetLine(int line)
+{
     return &FinalBuffer[line * ScanlineWidth];
 }
 

@@ -506,6 +506,7 @@ public:
     void BlankFrame() noexcept;
     void StartScanline(u32 line) noexcept;
     void StartHBlank(u32 line) noexcept;
+    void ReadScanline(u32 line) noexcept;
 
     void DisplayFIFO(u32 x) noexcept;
 

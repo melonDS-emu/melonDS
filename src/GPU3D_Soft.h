@@ -40,6 +40,7 @@ public:
     void RenderFrame(GPU& gpu) override;
     void RestartFrame(GPU& gpu) override;
     u32* GetLine(int line) override;
+    void ScanlineSync(int line) override;
 
     void SetupRenderThread(GPU& gpu);
     void EnableRenderThread();

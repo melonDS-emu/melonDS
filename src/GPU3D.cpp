@@ -2547,6 +2547,10 @@ void GPU3D::SetRenderXPos(u16 xpos) noexcept
     RenderXPos = xpos & 0x01FF;
 }
 
+void GPU3D::ScanlineSync(int line) noexcept
+{
+    CurrentRenderer->ScanlineSync(line);
+}
 
 u32* GPU3D::GetLine(int line) noexcept
 {
