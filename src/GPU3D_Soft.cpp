@@ -2158,18 +2158,21 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
 }
 void SoftRenderer::ScanlineSync(int line)
 {
+    // only used in accurate mode (timings must be emulated)
     if (Accuracy && RenderThreadRunning.load(std::memory_order_relaxed))
     {
         if (line < 192)
-            // We need a scanline, so let's wait for the render thread to finish it.
-            // (both threads process scanlines from top-to-bottom,
-            // so we don't need to wait for a specific row)
+        {
+            // wait for two scanlines here, since scanlines render in pairs.
             Platform::Semaphore_Wait(Sema_ScanlineCount);
+            Platform::Semaphore_Wait(Sema_ScanlineCount);
+        }
     }
 }
 
 u32* SoftRenderer::GetLine(int line)
 {
+    // only wait in in-accurate mode (we've already waited for scanlines in accurate mode)
     if (!Accuracy && RenderThreadRunning.load(std::memory_order_relaxed))
     {
         if (line < 192)

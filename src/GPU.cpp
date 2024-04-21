@@ -880,9 +880,9 @@ void GPU::StartHBlank(u32 line) noexcept
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
     
-    // not the correct timing, but... close enough i guess?
+    // TODO: not quite the correct update time, but... close enough i guess?
     int scanline = (VCount == 262 ? 0 : (line+1));
-    GPU3D.ScanlineSync(scanline);
+    if (!(scanline & 1)) GPU3D.ScanlineSync(scanline);
     if (GPU3D.UnderflowFlagVCount == scanline) GPU3D.DispCnt |= (1<<12);
 
     if (VCount < 192)
