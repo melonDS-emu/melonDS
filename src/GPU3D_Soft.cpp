@@ -2158,7 +2158,7 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
 }
 void SoftRenderer::ScanlineSync(int line)
 {
-    if (RenderThreadRunning.load(std::memory_order_relaxed))
+    if (Accuracy && RenderThreadRunning.load(std::memory_order_relaxed))
     {
         if (line < 192)
             // We need a scanline, so let's wait for the render thread to finish it.
@@ -2170,6 +2170,14 @@ void SoftRenderer::ScanlineSync(int line)
 
 u32* SoftRenderer::GetLine(int line)
 {
+    if (!Accuracy && RenderThreadRunning.load(std::memory_order_relaxed))
+    {
+        if (line < 192)
+            // We need a scanline, so let's wait for the render thread to finish it.
+            // (both threads process scanlines from top-to-bottom,
+            // so we don't need to wait for a specific row)
+            Platform::Semaphore_Wait(Sema_ScanlineCount);
+    }
     return &FinalBuffer[line * ScanlineWidth];
 }
 
