@@ -476,9 +476,6 @@ private:
     bool CheckEdgeMarkingClearPlane(const GPU3D& gpu3d, u32 polyid, u32 z);
     template <bool push> void ScanlineFinalPass(const GPU3D& gpu3d, s32 y, bool checkprev, bool checknext);
     void ClearBuffers(const GPU& gpu);
-    u16 BeginPushScanline(s32 y, s32 pixelstodraw);
-    void ReadScanline(s32 y);
-    void FinishPushScanline(s32 y, s32 pixelsremain);
     void RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys);
     void RenderPolygonsTiming(GPU& gpu, Polygon** polygons, int npolys);
 

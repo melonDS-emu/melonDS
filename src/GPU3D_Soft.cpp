@@ -1953,6 +1953,7 @@ void SoftRenderer::RenderPolygonsTiming(GPU& gpu, Polygon** polygons, int npolys
     // reset scanline trackers
     gpu.GPU3D.UnderflowFlagVCount = -1;
     gpu.GPU3D.RDLinesTemp = 63;
+    RasterTiming = 0;
     ScanlineTimeout = SLRead[2] - (PreReadCutoff+FinalPassLen+4); // TEMP: should be infinity, but i dont want it to break due to not being set up to handle this properly. //0x7FFFFFFF; // CHECKME: first scanline pair timeout.
     s32 rastertimingeven, rastertimingodd; // always init to 0 at the start of a scanline render
     s32 scanlineswaiting = 0, slwaitingrd = 0;
