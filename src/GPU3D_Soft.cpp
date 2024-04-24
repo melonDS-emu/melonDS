@@ -193,15 +193,15 @@ void SoftRenderer::FindFirstPolyDoTimings(int npolys, s32 y, int* firstpolyeven,
         {
             fixeddelay = true;
             break;
-            if (y == polygon->YBottom) break;
+            /*if (y == polygon->YBottom) break;
             if (y == polygon->YTop) {perslope = true; break;}
-            /*else if ((y == polygon->Vertices[rp->NextVL]->FinalPosition[1] || y == polygon->Vertices[rp->CurVL]->FinalPosition[1]) ||
+            else if ((y == polygon->Vertices[rp->NextVL]->FinalPosition[1] || y == polygon->Vertices[rp->CurVL]->FinalPosition[1]) ||
                     (y == polygon->Vertices[rp->NextVR]->FinalPosition[1] || y == polygon->Vertices[rp->CurVR]->FinalPosition[1]))
             {
                 perslope = true;
             }
-            else */etc = true;
-            break;
+            else etc = true;
+            break;*/
         }
     }
 
@@ -215,21 +215,21 @@ void SoftRenderer::FindFirstPolyDoTimings(int npolys, s32 y, int* firstpolyeven,
         {
             fixeddelay = true;
             break;
-            if (y == polygon->YBottom) break;
+            /*if (y == polygon->YBottom) break;
             if (y == polygon->YTop) {perslope = true; break;}
-            /*else if ((y == polygon->Vertices[rp->NextVL]->FinalPosition[1] || y == polygon->Vertices[rp->CurVL]->FinalPosition[1]) ||
+            else if ((y == polygon->Vertices[rp->NextVL]->FinalPosition[1] || y == polygon->Vertices[rp->CurVL]->FinalPosition[1]) ||
                     (y == polygon->Vertices[rp->NextVR]->FinalPosition[1] || y == polygon->Vertices[rp->CurVR]->FinalPosition[1]))
             {
                 perslope = true;
             }
-            else */etc = true;
-            break;
+            else etc = true;
+            break;*/
         }
     }
     
-    *timingcountereven = fixeddelay*FirstPolyDelay;// + perslope*FirstPerSlope + etc*2;
-    *timingcounterodd = fixeddelay*FirstPolyDelay;// + perslope*FirstPerSlope + etc*2;
-    if (!perslope)
+    *timingcountereven = fixeddelay ? FirstPolyDelay : 0;// + perslope*FirstPerSlope + etc*2;
+    *timingcounterodd = fixeddelay ? FirstPolyDelay : 0;// + perslope*FirstPerSlope + etc*2;
+    /*if (!perslope)
     {
         *timingcountereven += etc*2;// + perslope*FirstPerSlope + etc*2;
         *timingcounterodd += etc*2;// + perslope*FirstPerSlope + etc*2;
@@ -238,7 +238,7 @@ void SoftRenderer::FindFirstPolyDoTimings(int npolys, s32 y, int* firstpolyeven,
     {
         *timingcountereven += perslope*FirstPerSlope;// + perslope*FirstPerSlope + etc*2;
         *timingcounterodd += perslope*FirstPerSlope;// + perslope*FirstPerSlope + etc*2;
-    }
+    }*/
 }
 
 void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const
@@ -1912,13 +1912,13 @@ void SoftRenderer::RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys)
 
 #define SCANLINE_BUFFER_SIM\
     /* simulate the process of scanlines being read from the 48 scanline buffer */\
-    while (scanlineswaiting >= 47 || RasterTiming >= SLRead[nextread] + Arbitrary)\
+    while (scanlineswaiting >= 47 || RasterTiming >= SLRead[nextread])\
     {\
-        if (RasterTiming < SLRead[nextread] + Arbitrary) /* why + 565? */\
+        if (RasterTiming < SLRead[nextread])\
         {\
-            timespent = (SLRead[nextread] + Arbitrary) - RasterTiming;\
+            timespent = SLRead[nextread] - RasterTiming;\
             timespent += EMFixNum; /* fixes edge marking bug emulation. not sure why this is needed? */\
-            RasterTiming = (SLRead[nextread] + Arbitrary);\
+            RasterTiming = SLRead[nextread];\
         }\
         scanlineswaiting--;\
         nextread++;\
@@ -1926,7 +1926,7 @@ void SoftRenderer::RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys)
 
 #define RENDER_SCANLINES(y)\
     /* update sl timeout */\
-    ScanlineTimeout = SLRead[y-1] - FinalPassLen;\
+    ScanlineTimeout = SLRead[y-1] - (PreReadCutoff+FinalPassLen);\
     \
     FindFirstPolyDoTimings(j, y, &firstpolyeven, &firstpolyodd, &rastertimingeven, &rastertimingodd);\
     RenderScanline<true>(gpu, y, firstpolyeven, j, &rastertimingeven);\
@@ -1951,7 +1951,7 @@ void SoftRenderer::RenderPolygonsTiming(GPU& gpu, Polygon** polygons, int npolys
     // reset scanline trackers
     gpu.GPU3D.UnderflowFlagVCount = -1;
     gpu.GPU3D.RDLinesTemp = 63;
-    ScanlineTimeout = 0x7FFFFFFF; // CHECKME: first scanline pair timeout.
+    ScanlineTimeout = SLRead[2] - (PreReadCutoff+FinalPassLen+4); // TEMP: should be infinity, but i dont want it to break due to not being set up to handle this properly. //0x7FFFFFFF; // CHECKME: first scanline pair timeout.
     s32 rastertimingeven, rastertimingodd; // always init to 0 at the start of a scanline render
     s32 scanlineswaiting = 0, slwaitingrd = 0;
     s32 nextread = 0, nextreadrd = 0;
@@ -1966,7 +1966,7 @@ void SoftRenderer::RenderPolygonsTiming(GPU& gpu, Polygon** polygons, int npolys
     // it can't proceed to the next scanline unless all others steps are done (both scanlines in the pair, and final pass)
     RasterTiming = timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});
     // 12 cycles at the end of a "timeout" are always used for w/e reason
-    RasterTiming += std::clamp(ScanlineTimeout - RasterTiming, 0, 12);
+    RasterTiming += std::clamp(ScanlineTimeout - RasterTiming, 0, 12); // should probably just be += 12 tbh but i'll leave it for now
 
     // if first pair was not delayed past the first read, then later scanlines cannot either
     // this allows us to implement a fast path

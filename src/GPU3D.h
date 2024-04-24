@@ -348,7 +348,7 @@ public:
     static constexpr int DelayBetweenReads = 809 * TimingFrac;
     static constexpr int ScanlineReadSpeed = 256 * TimingFrac;
     static constexpr int ScanlineReadInc = DelayBetweenReads + ScanlineReadSpeed;
-    static constexpr int InitGPU2DTimeout = 51875 * TimingFrac; // 51618? 51874? 52128? | when it finishes reading the first scanline.
+    static constexpr int InitGPU2DTimeout = (51875+565) * TimingFrac; // 51618? 51874? 52128? | when it finishes reading the first scanline.
     static constexpr int FrameLength = ScanlineReadInc * 263; // how long the entire frame is. TODO: Verify if we actually need this?
         
     // compile-time list of scanline read times
@@ -363,8 +363,7 @@ public:
     return readtime;
     }();
 
-    static constexpr int Arbitrary = 565; // extra value after the scanline is read at which the cutoff of a scanline should be...?
-                                          // idk why this is needed. im probably doing something wrong.
+    static constexpr int PreReadCutoff = 565; // time before a read that a scanline is cutoff.
 
     // the point at which rdlines decrements. not sure why it's different...?
     static constexpr std::array<u32, 192> RDDecrement = []() constexpr {
@@ -372,7 +371,7 @@ public:
 
     for (int i = 0; i < 192; i++)
     {
-        dec[i] = SLRead[i] + Arbitrary - 39 - (!(i % 2));
+        dec[i] = SLRead[i] - 39 - (!(i % 2));
     }
     return dec;
     }();
@@ -400,9 +399,6 @@ public:
     // GPU 3D Rasterization Timings III, For First Polygon "Pre-Calc" Timings
     // should be added before other timings, as these are "async" pre-calcs of polygon attributes
 
-    static constexpr int FirstPerSlope = 1 * TimingFrac; // 1 | for each "slope" the first polygon has in this scanline increment it by 1.
-                                                         // (see DoTimingsSlopes() in GPU3D_Soft.cpp for more info)
-    static constexpr int FirstNull = 1 * TimingFrac; // 1 | if the first polygon is "null" (probably wrong?)
     static constexpr int FirstPolyDelay = 4 * TimingFrac; // 4 | Min amount of cycles to begin a scanline? (minimum time it takes to init the first polygon?)
                                                           // (Amount of time before the end of the cycle a scanline must abort?)
 
