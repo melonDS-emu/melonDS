@@ -1894,10 +1894,12 @@ void SoftRenderer::RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys)
     for (s32 y = 1; y < 192; y++)
     {
         RenderScanline<false>(gpu, y, 0, j, nullptr);
-        ScanlineFinalPass<true>(gpu.GPU3D, y-1, true, true);
+        ScanlineFinalPass<false>(gpu.GPU3D, y-1, true, true);
+        Platform::Semaphore_Post(Sema_ScanlineCount);
     }
 
-    ScanlineFinalPass<true>(gpu.GPU3D, 191, true, true);
+    ScanlineFinalPass<false>(gpu.GPU3D, 191, true, true);
+    Platform::Semaphore_Post(Sema_ScanlineCount);
 }
 
 #define RDLINES_COUNT_INCREMENT\
@@ -2058,7 +2060,7 @@ void SoftRenderer::RenderFrame(GPU& gpu)
                 RenderPolygonsFast(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
         }
         else
-            memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
+            if (Accuracy) memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
     }
 }
 
@@ -2101,7 +2103,7 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
             }
             else
             {
-                memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
+                if (Accuracy) memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
                 Platform::Semaphore_Post(Sema_ScanlineCount, 192);
             }
         }
@@ -2130,15 +2132,19 @@ void SoftRenderer::ScanlineSync(int line)
 u32* SoftRenderer::GetLine(int line)
 {
     // only wait in in-accurate mode (we've already waited for scanlines in accurate mode)
-    if (!Accuracy && RenderThreadRunning.load(std::memory_order_relaxed))
+    if (!Accuracy)
     {
-        if (line < 192)
-            // We need a scanline, so let's wait for the render thread to finish it.
-            // (both threads process scanlines from top-to-bottom,
-            // so we don't need to wait for a specific row)
-            Platform::Semaphore_Wait(Sema_ScanlineCount);
+        if (RenderThreadRunning.load(std::memory_order_relaxed))
+        {
+            if (line < 192)
+                // We need a scanline, so let's wait for the render thread to finish it.
+                // (both threads process scanlines from top-to-bottom,
+                // so we don't need to wait for a specific row)
+                Platform::Semaphore_Wait(Sema_ScanlineCount);
+        }
+        return &ColorBuffer[line*ScanlineWidth];
     }
-    return &FinalBuffer[line*ScanlineWidth];
+    else return &FinalBuffer[line*ScanlineWidth];
 }
 
 }
