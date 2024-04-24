@@ -488,16 +488,6 @@ private:
     s32 ScanlineTimeout;
     s32 RasterTiming;
 
-    enum
-    {
-        RenderStart = 0,
-        ScanlineRead,
-        PushScanline,
-        PushScanlineP2,
-        RenderFinal,
-        RasterEvents_MAX,
-    };
-
     // buffer dimensions are 258x194 to add a offscreen 1px border
     // which simplifies edge marking tests
     // buffer is duplicated to keep track of the two topmost pixels
@@ -506,16 +496,16 @@ private:
 
     static constexpr int ScanlineWidth = 256;
     static constexpr int NumScanlinesIntBuf = 192;
-    static constexpr int NumScanlinesRD = 48;
+    //static constexpr int NumScanlinesRD = 48;
     static constexpr int NumScanlinesFinal = 192;
     static constexpr int BufferSize = ScanlineWidth * NumScanlinesIntBuf;
-    static constexpr int RDBufferSize = ScanlineWidth * NumScanlinesRD;
+    //static constexpr int RDBufferSize = ScanlineWidth * NumScanlinesRD;
     static constexpr int FinalBufferSize = ScanlineWidth * NumScanlinesFinal;
 
     u32 ColorBuffer[BufferSize * 2];
     u32 DepthBuffer[BufferSize * 2];
     u32 AttrBuffer[BufferSize * 2];
-    u32 RDBuffer[RDBufferSize]; // is this buffer ever initialized by hw before writing to it? what is its initial value? can you transfer 3d framebuffer data between games?
+    //u32 RDBuffer[RDBufferSize]; // is this buffer ever initialized by hw before writing to it? what is its initial value? can you transfer 3d framebuffer data between games?
     u32 FinalBuffer[FinalBufferSize];
 
     // attribute buffer:

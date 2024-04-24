@@ -821,6 +821,8 @@ void GPU3D::StallPolygonPipeline(s32 delay, s32 nonstalldelay) noexcept
     }
 }
 
+
+
 template<int comp, s32 plane, bool attribs>
 void ClipSegment(Vertex* outbuf, Vertex* vin, Vertex* vout)
 {
@@ -2678,7 +2680,7 @@ u16 GPU3D::Read16(u32 addr) noexcept
         return DispCnt;
 
     case 0x04000320:
-        return RDLines; // CHECKME: Can this always be read? Even when the gpu is powered off? also check 8 bit reads
+        return RDLines;
 
     case 0x04000600:
         {

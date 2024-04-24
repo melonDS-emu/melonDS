@@ -972,7 +972,7 @@ bool SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         }
         else abortscanline = false;
     }
-    else abortscanline = true;
+    // note: if accuracy mode isn't enabled the abort flag never gets set, this is fine, because it also never gets used by fast mode.
 
     // for shadow masks: set stencil bits where the depth test fails.
     // draw nothing.
@@ -1053,7 +1053,7 @@ bool SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
                 StencilBuffer[256*(y&0x1) + x] |= 0x2;
         }
     }
-    
+
     Step(rp);
     return abortscanline;
 }
@@ -1227,7 +1227,7 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         }
         else abortscanline = false;
     }
-    else abortscanline = false;
+    // note: if accuracy mode isn't enabled the abort flag never gets set, this is fine, because it also never gets used by fast mode.
 
     // part 1: left edge
     edge = yedge | 0x1;
@@ -1238,12 +1238,11 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         xcov = (l_edgecov >> 12) & 0x3FF;
         if (xcov == 0x3FF) xcov = 0;
     }
-    
-    
+
     if (!l_filledge) x = xlimit;
     else for (; x < xlimit; x++)
     {
-        u32 pixeladdr = (y * ScanlineWidth) + x;
+        u32 pixeladdr = (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
 
         // check stencil buffer for shadows
@@ -1337,7 +1336,7 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     if (wireframe && !edge) x = std::max(x, xlimit);
     else for (; x < xlimit; x++)
     {
-        u32 pixeladdr = (y * ScanlineWidth) + x;
+        u32 pixeladdr = (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
 
         // check stencil buffer for shadows
@@ -1424,11 +1423,11 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         xcov = (r_edgecov >> 12) & 0x3FF;
         if (xcov == 0x3FF) xcov = 0;
     }
-    
+
     if (r_filledge)
     for (; x < xlimit; x++)
     {
-        u32 pixeladdr = (y * ScanlineWidth) + x;
+        u32 pixeladdr = (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
 
         // check stencil buffer for shadows
@@ -1620,7 +1619,7 @@ void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y, bool checkprev, 
 
         for (int x = 0; x < 256; x++)
         {
-            u32 pixeladdr = (y * ScanlineWidth) + x;
+            u32 pixeladdr = (y*ScanlineWidth) + x;
 
             u32 attr = AttrBuffer[pixeladdr];
             if (!(attr & 0xF)) continue;
@@ -1702,7 +1701,7 @@ void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y, bool checkprev, 
 
         for (int x = 0; x < 256; x++)
         {
-            u32 pixeladdr = (y * ScanlineWidth) + x;
+            u32 pixeladdr = (y*ScanlineWidth) + x;
             u32 density, srccolor, srcR, srcG, srcB, srcA;
 
             u32 attr = AttrBuffer[pixeladdr];
@@ -1767,7 +1766,7 @@ void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y, bool checkprev, 
 
         for (int x = 0; x < 256; x++)
         {
-            u32 pixeladdr = (y * ScanlineWidth) + x;
+            u32 pixeladdr = (y*ScanlineWidth) + x;
 
             u32 attr = AttrBuffer[pixeladdr];
             if (!(attr & 0xF)) continue;
@@ -1843,7 +1842,7 @@ void SoftRenderer::ClearBuffers(const GPU& gpu)
 
                 u32 z = ((val3 & 0x7FFF) * 0x200) + 0x1FF;
 
-                u32 pixeladdr = (y * ScanlineWidth) + x;
+                u32 pixeladdr = (y*ScanlineWidth) + x;
                 ColorBuffer[pixeladdr] = color;
                 DepthBuffer[pixeladdr] = z;
                 AttrBuffer[pixeladdr] = polyid | (val3 & 0x8000);
@@ -1866,12 +1865,12 @@ void SoftRenderer::ClearBuffers(const GPU& gpu)
         u32 color = r | (g << 8) | (b << 16) | (a << 24);
 
         polyid |= (gpu.GPU3D.RenderClearAttr1 & 0x8000);
-        
+
         for (int y = 0; y < 192; y++)
         {
             for (int x = 0; x < 256; x++)
             {
-                u32 pixeladdr = (y * ScanlineWidth) + x;
+                u32 pixeladdr = (y*ScanlineWidth) + x;
                 ColorBuffer[pixeladdr] = color;
                 DepthBuffer[pixeladdr] = clearz;
                 AttrBuffer[pixeladdr] = polyid;
@@ -1882,6 +1881,7 @@ void SoftRenderer::ClearBuffers(const GPU& gpu)
 
 void SoftRenderer::RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys)
 {
+    gpu.GPU3D.RDLinesTemp = 46; // dumb way of making sure it gets updated to a "normal" value when the gpu starts rasterizing.
     int j = 0;
     for (int i = 0; i < npolys; i++)
     {
@@ -2138,7 +2138,7 @@ u32* SoftRenderer::GetLine(int line)
             // so we don't need to wait for a specific row)
             Platform::Semaphore_Wait(Sema_ScanlineCount);
     }
-    return &FinalBuffer[line * ScanlineWidth];
+    return &FinalBuffer[line*ScanlineWidth];
 }
 
 }

@@ -74,7 +74,6 @@ GPU::GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d, std::uniqu
     NDS.RegisterEventFunc(Event_LCD, LCD_StartScanline, MemberEventFunc(GPU, StartScanline));
     NDS.RegisterEventFunc(Event_LCD, LCD_FinishFrame, MemberEventFunc(GPU, FinishFrame));
     NDS.RegisterEventFunc(Event_DisplayFIFO, 0, MemberEventFunc(GPU, DisplayFIFO));
-    NDS.RegisterEventFunc(Event_DisplayFIFO, 0, MemberEventFunc(GPU, DisplayFIFO));
 
     InitFramebuffers();
 }
@@ -916,6 +915,7 @@ void GPU::StartHBlank(u32 line) noexcept
 
     if (DispStat[0] & (1<<4)) NDS.SetIRQ(0, IRQ_HBlank);
     if (DispStat[1] & (1<<4)) NDS.SetIRQ(1, IRQ_HBlank);
+
     if (VCount < 262)
         NDS.ScheduleEvent(Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), LCD_StartScanline, line+1);
     else
