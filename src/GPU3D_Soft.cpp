@@ -1632,11 +1632,9 @@ void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y, bool checkprev, 
             if (x == 0)
             {
                 // edge marking bug emulation
-                if (checkprev)
-                {
-                    if (CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) goto pass; // check against the clear plane
-                }
-                else if (CheckEdgeMarkingPixel(polyid, z, pixeladdr-(ScanlineWidth+1))) goto pass; // checks the right edge of the scanline 2 scanlines ago
+                if (checkprev ? CheckEdgeMarkingClearPlane(gpu3d, polyid, z) : // check against the clear plane
+                    CheckEdgeMarkingPixel(polyid, z, pixeladdr-1 - ScanlineWidth)) // checks the right edge of the scanline 2 scanlines ago
+                    goto pass;
             }
             else if (CheckEdgeMarkingPixel(polyid, z, pixeladdr-1)) goto pass; // normal check
             
@@ -1644,11 +1642,9 @@ void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y, bool checkprev, 
             if (x == 255)
             {
                 // edge marking bug emulation
-                if (checknext)
-                {
-                    if (CheckEdgeMarkingClearPlane(gpu3d, polyid, z)) goto pass; // check against the clear plane
-                }
-                else if (CheckEdgeMarkingPixel(polyid, z, pixeladdr+(ScanlineWidth+1))) goto pass; // checks the left edge of the scanline 2 scanlines ahead
+                if (checknext ? CheckEdgeMarkingClearPlane(gpu3d, polyid, z) : // check against the clear plane
+                    CheckEdgeMarkingPixel(polyid, z, pixeladdr+1 + ScanlineWidth)) // checks the left edge of the scanline 2 scanlines ahead
+                    goto pass;
             }
             else if (CheckEdgeMarkingPixel(polyid, z, pixeladdr+1)) goto pass; // normal check
 
@@ -1884,43 +1880,24 @@ void SoftRenderer::ClearBuffers(const GPU& gpu)
     }
 }
 
-u16 SoftRenderer::BeginPushScanline(s32 y, s32 pixelstodraw)
+void SoftRenderer::RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys)
 {
-    // push the finished scanline to the appropriate frame buffers.
-    // if a scanline is late enough to intersect with the 2d engine read time it will be partially drawn
-
-    u16 start;
-    if (pixelstodraw >= 256 || pixelstodraw <= 0) // if scheduled after or 256 cycles before a scanline read render full scanline
+    int j = 0;
+    for (int i = 0; i < npolys; i++)
     {
-        start = 0;
-        pixelstodraw = 256;
+        if (polygons[i]->Degenerate) continue;
+        SetupPolygon(&PolygonList[j++], polygons[i]);
     }
-    else // render partial scanline
+
+    RenderScanline<false>(gpu, 0, 0, j, nullptr);
+
+    for (s32 y = 1; y < 192; y++)
     {
-        start = ScanlineWidth - pixelstodraw;
-
-        // it seems to read in pairs of two every two cycles? looks jittery
-        bool jitter = pixelstodraw % 2;
-        pixelstodraw += jitter;
-        start -= jitter;
+        RenderScanline<false>(gpu, y, 0, j, nullptr);
+        ScanlineFinalPass<true>(gpu.GPU3D, y-1, true, true);
     }
-    u8 bufferpos = y % 48;
-    memcpy(&RDBuffer[bufferpos*ScanlineWidth+start], &ColorBuffer[y*ScanlineWidth+start], 4 * pixelstodraw);
-    return start;
-}
 
-void SoftRenderer::ReadScanline(s32 y)
-{
-    u8 bufferpos = y % 48;
-    memcpy(&FinalBuffer[y*ScanlineWidth], &RDBuffer[bufferpos*ScanlineWidth], 4 * ScanlineWidth);
-}
-
-void SoftRenderer::FinishPushScanline(s32 y, s32 pixelsremain)
-{
-    if (pixelsremain = 0) return;
-    
-    u8 bufferpos = y % 48;
-    memcpy(&RDBuffer[bufferpos*ScanlineWidth], &ColorBuffer[y*ScanlineWidth], 4 * pixelsremain);
+    ScanlineFinalPass<true>(gpu.GPU3D, 191, true, true);
 }
 
 #define RDLINES_COUNT_INCREMENT\
@@ -1937,10 +1914,11 @@ void SoftRenderer::FinishPushScanline(s32 y, s32 pixelsremain)
     /* simulate the process of scanlines being read from the 48 scanline buffer */\
     while (scanlineswaiting >= 47 || RasterTiming >= SLRead[nextread] + Arbitrary)\
     {\
-        if (RasterTiming < SLRead[nextread] + Arbitrary)\
+        if (RasterTiming < SLRead[nextread] + Arbitrary) /* why + 565? */\
         {\
-            RasterTiming += timespent = (SLRead[nextread] + Arbitrary) - RasterTiming; /* why + 565? */\
+            timespent = (SLRead[nextread] + Arbitrary) - RasterTiming;\
             timespent += EMFixNum; /* fixes edge marking bug emulation. not sure why this is needed? */\
+            RasterTiming = (SLRead[nextread] + Arbitrary);\
         }\
         scanlineswaiting--;\
         nextread++;\
@@ -1961,27 +1939,6 @@ void SoftRenderer::FinishPushScanline(s32 y, s32 pixelsremain)
     /* set the underflow flag if one of the scanlines came within 14 cycles of visible underflow */\
     if ((ScanlineTimeout <= RasterTiming) && (gpu.GPU3D.UnderflowFlagVCount == (u16)-1)) gpu.GPU3D.UnderflowFlagVCount = y - (y&1 ? 0 : 1);
 
-void SoftRenderer::RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys)
-{
-    int j = 0;
-    for (int i = 0; i < npolys; i++)
-    {
-        if (polygons[i]->Degenerate) continue;
-        SetupPolygon(&PolygonList[j++], polygons[i]);
-    }
-
-    int dummy;
-    RenderScanline<false>(gpu, 0, 0, j, &dummy);
-
-    for (s32 y = 1; y < 192; y++)
-    {
-        RenderScanline<false>(gpu, y, 0, j, &dummy);
-        ScanlineFinalPass<true>(gpu.GPU3D, y-1, true, true);
-    }
-
-    ScanlineFinalPass<true>(gpu.GPU3D, 191, true, true);
-}
-
 void SoftRenderer::RenderPolygonsTiming(GPU& gpu, Polygon** polygons, int npolys)
 {
     int j = 0;
@@ -1994,7 +1951,7 @@ void SoftRenderer::RenderPolygonsTiming(GPU& gpu, Polygon** polygons, int npolys
     // reset scanline trackers
     gpu.GPU3D.UnderflowFlagVCount = -1;
     gpu.GPU3D.RDLinesTemp = 63;
-    ScanlineTimeout = FrameLength; // CHECKME
+    ScanlineTimeout = 0x7FFFFFFF; // CHECKME: first scanline pair timeout.
     s32 rastertimingeven, rastertimingodd; // always init to 0 at the start of a scanline render
     s32 scanlineswaiting = 0, slwaitingrd = 0;
     s32 nextread = 0, nextreadrd = 0;
