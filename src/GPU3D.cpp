@@ -2505,7 +2505,8 @@ void GPU3D::VBlank() noexcept
 
             RenderClearAttr1 = ClearAttr1;
             RenderClearAttr2 = ClearAttr2;
-            // CHECKME: is this actually latched?
+            // NOTE: this is not latched. it updates the *moment* you set it. it does not cancel the current scanline. it just causes pain and suffering.
+            // in less dramatic terms: annoying to emulate properly, so we're just gonna pretend it's latched for now, ok?
             RenderRasterRev = NDS.GetSCFGRasterBit();
         }
 
