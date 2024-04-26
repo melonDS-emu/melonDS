@@ -138,7 +138,7 @@ void SoftRenderer::SetThreaded(bool threaded, GPU& gpu) noexcept
     }
 }
 
-void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const
+bool SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const
 {
     u32 vramaddr = (texparam & 0xFFFF) << 3;
 
@@ -199,7 +199,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             *color = ReadVRAM_TexPal<u16>(texpal + ((pixel&0x1F)<<1), gpu);
             *alpha = ((pixel >> 3) & 0x1C) + (pixel >> 6);
         }
-        break;
+        return true;
 
     case 2: // 4-color
         {
@@ -212,7 +212,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             *color = ReadVRAM_TexPal<u16>(texpal + (pixel<<1), gpu);
             *alpha = (pixel==0) ? alpha0 : 31;
         }
-        break;
+        return true;
 
     case 3: // 16-color
         {
@@ -225,7 +225,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             *color = ReadVRAM_TexPal<u16>(texpal + (pixel<<1), gpu);
             *alpha = (pixel==0) ? alpha0 : 31;
         }
-        break;
+        return true;
 
     case 4: // 256-color
         {
@@ -236,10 +236,13 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             *color = ReadVRAM_TexPal<u16>(texpal + (pixel<<1), gpu);
             *alpha = (pixel==0) ? alpha0 : 31;
         }
-        break;
+        return true;
 
     case 5: // compressed
         {
+            // NOTE: compressed textures have a bug where the wont add +1 their texture color when increasing bit depth
+            // This only happens in the modes 1 and 3, but this *is* fixed by the revised rasterizer circuit
+            // ...except they forgot to fix it for the interpolated colors so uh... partial credit
             vramaddr += ((t & 0x3FC) * (width>>2)) + (s & 0x3FC);
             vramaddr += (t & 0x3);
             vramaddr &= 0x7FFFF; // address used for all calcs wraps around after slot 3
@@ -266,12 +269,12 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             case 0:
                 *color = ReadVRAM_TexPal<u16>(texpal + paloffset, gpu);
                 *alpha = 31;
-                break;
+                return ((palinfo >> 14) & 0x1) ? gpu.GPU3D.RenderRasterRev : true;
 
             case 1:
                 *color = ReadVRAM_TexPal<u16>(texpal + paloffset + 2, gpu);
                 *alpha = 31;
-                break;
+                return ((palinfo >> 14) & 0x1) ? gpu.GPU3D.RenderRasterRev : true;
 
             case 2:
                 if ((palinfo >> 14) == 1)
@@ -320,6 +323,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
                 {
                     *color = ReadVRAM_TexPal<u16>(texpal + paloffset + 6, gpu);
                     *alpha = 31;
+                    break;
                 }
                 else if ((palinfo >> 14) == 3)
                 {
@@ -339,16 +343,22 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
 
                     *color = r | g | b;
                     *alpha = 31;
+                    break;
                 }
                 else
                 {
                     *color = 0;
                     *alpha = 0;
+                    break;
                 }
                 break;
+
+            default:
+                __builtin_unreachable();
             }
+            // only colors 2 and 3 should make it to here.
+            return !((palinfo >> 14) & 1);
         }
-        break;
 
     case 6: // A5I3
         {
@@ -359,7 +369,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             *color = ReadVRAM_TexPal<u16>(texpal + ((pixel&0x7)<<1), gpu);
             *alpha = (pixel >> 3);
         }
-        break;
+        return true;
 
     case 7: // direct color
         {
@@ -367,7 +377,10 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             *color = ReadVRAM_Texture<u16>(vramaddr, gpu);
             *alpha = (*color & 0x8000) ? 31 : 0;
         }
-        break;
+        return true;
+
+    default:
+        __builtin_unreachable();
     }
 }
 
@@ -488,11 +501,11 @@ u32 SoftRenderer::RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 
         u8 tr, tg, tb;
 
         u16 tcolor; u8 talpha;
-        TextureLookup(gpu, polygon->TexParam, polygon->TexPalette, s, t, &tcolor, &talpha);
+        bool plusone = TextureLookup(gpu, polygon->TexParam, polygon->TexPalette, s, t, &tcolor, &talpha);
 
-        tr = (tcolor << 1) & 0x3E; if (tr) tr++;
-        tg = (tcolor >> 4) & 0x3E; if (tg) tg++;
-        tb = (tcolor >> 9) & 0x3E; if (tb) tb++;
+        tr = (tcolor << 1) & 0x3E; if (plusone && tr) tr++;
+        tg = (tcolor >> 4) & 0x3E; if (plusone && tg) tg++;
+        tb = (tcolor >> 9) & 0x3E; if (plusone && tb) tb++;
 
         if (blendmode & 0x1)
         {
