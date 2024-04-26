@@ -69,6 +69,10 @@ struct JITArgs
     bool FastMemory = true;
 };
 
+using ARM9BIOSImage = std::array<u8, ARM9BIOSSize>;
+using ARM7BIOSImage = std::array<u8, ARM7BIOSSize>;
+using DSiBIOSImage = std::array<u8, DSiBIOSSize>;
+
 struct GDBArgs
 {
     u16 PortARM7 = 0;
@@ -95,11 +99,11 @@ struct NDSArgs
 
     /// NDS ARM9 BIOS to install.
     /// Defaults to FreeBIOS, which is not compatible with DSi mode.
-    std::array<u8, ARM9BIOSSize> ARM9BIOS = bios_arm9_bin;
+    std::unique_ptr<ARM9BIOSImage> ARM9BIOS = std::make_unique<ARM9BIOSImage>(bios_arm9_bin);
 
     /// NDS ARM7 BIOS to install.
     /// Defaults to FreeBIOS, which is not compatible with DSi mode.
-    std::array<u8, ARM7BIOSSize> ARM7BIOS = bios_arm7_bin;
+    std::unique_ptr<ARM7BIOSImage> ARM7BIOS = std::make_unique<ARM7BIOSImage>(bios_arm7_bin);
 
     /// Firmware image to install.
     /// Defaults to generated NDS firmware.
@@ -131,8 +135,8 @@ struct NDSArgs
 /// Contains no virtual methods, so there's no vtable.
 struct DSiArgs final : public NDSArgs
 {
-    std::array<u8, DSiBIOSSize> ARM9iBIOS = BrokenBIOS<DSiBIOSSize>;
-    std::array<u8, DSiBIOSSize> ARM7iBIOS = BrokenBIOS<DSiBIOSSize>;
+    std::unique_ptr<DSiBIOSImage> ARM9iBIOS = std::make_unique<DSiBIOSImage>(BrokenBIOS<DSiBIOSSize>);
+    std::unique_ptr<DSiBIOSImage> ARM7iBIOS = std::make_unique<DSiBIOSImage>(BrokenBIOS<DSiBIOSSize>);
 
     /// NAND image to install.
     /// Required, there is no default value.

@@ -80,8 +80,8 @@ NDS::NDS() noexcept :
         NDSArgs {
             nullptr,
             nullptr,
-            bios_arm9_bin,
-            bios_arm7_bin,
+            std::make_unique<ARM9BIOSImage>(bios_arm9_bin),
+            std::make_unique<ARM7BIOSImage>(bios_arm7_bin),
             Firmware(0),
         }
     )
@@ -90,8 +90,8 @@ NDS::NDS() noexcept :
 
 NDS::NDS(NDSArgs&& args, int type) noexcept :
     ConsoleType(type),
-    ARM7BIOS(args.ARM7BIOS),
-    ARM9BIOS(args.ARM9BIOS),
+    ARM7BIOS(*args.ARM7BIOS),
+    ARM9BIOS(*args.ARM9BIOS),
     ARM7BIOSNative(CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32),
     ARM9BIOSNative(CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32),
     JIT(*this, args.JIT),
@@ -1845,7 +1845,7 @@ void NDS::debug(u32 param)
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU->VRAMCNT[i]);
 
-    Platform::FileHandle* shit = Platform::OpenFile("debug/DSfirmware.bin", FileMode::Write);
+    Platform::FileHandle* shit = Platform::OpenFile("debug/pokeplat.bin", FileMode::Write);
     Platform::FileWrite(ARM9.ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {

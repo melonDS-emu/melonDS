@@ -214,7 +214,7 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
 
     showCursor();
 
-    if (!(event->buttons() & Qt::LeftButton)) return;
+    //if (!(event->buttons() & Qt::LeftButton)) return;
     if (!touching) return;
 
     int x = event->pos().x();

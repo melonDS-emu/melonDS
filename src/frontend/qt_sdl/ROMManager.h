@@ -26,6 +26,8 @@
 #include <QMainWindow>
 
 #include "MemConstants.h"
+
+#include <Args.h>
 #include <optional>
 #include <string>
 #include <memory>
@@ -56,16 +58,16 @@ void ClearBackupState();
 
 /// Returns the configured ARM9 BIOS loaded from disk,
 /// the FreeBIOS if external BIOS is disabled and we're in NDS mode,
-/// or nullopt if loading failed.
-std::optional<std::array<u8, ARM9BIOSSize>> LoadARM9BIOS() noexcept;
-std::optional<std::array<u8, ARM7BIOSSize>> LoadARM7BIOS() noexcept;
-std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM9BIOS() noexcept;
-std::optional<std::array<u8, DSiBIOSSize>> LoadDSiARM7BIOS() noexcept;
+/// or nullptr if loading failed.
+std::unique_ptr<ARM9BIOSImage> LoadARM9BIOS() noexcept;
+std::unique_ptr<ARM7BIOSImage> LoadARM7BIOS() noexcept;
+std::unique_ptr<DSiBIOSImage> LoadDSiARM9BIOS() noexcept;
+std::unique_ptr<DSiBIOSImage> LoadDSiARM7BIOS() noexcept;
 std::optional<FATStorageArgs> GetDSiSDCardArgs() noexcept;
 std::optional<FATStorage> LoadDSiSDCard() noexcept;
 std::optional<FATStorageArgs> GetDLDISDCardArgs() noexcept;
 std::optional<FATStorage> LoadDLDISDCard() noexcept;
-void CustomizeFirmware(Firmware& firmware) noexcept;
+void CustomizeFirmware(Firmware& firmware, bool overridesettings) noexcept;
 Firmware GenerateFirmware(int type) noexcept;
 /// Loads and customizes a firmware image based on the values in Config
 std::optional<Firmware> LoadFirmware(int type) noexcept;

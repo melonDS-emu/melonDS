@@ -34,6 +34,7 @@ public:
 
     static const char* APName;
     static const u8 APMac[6];
+    static const u8 APChannel;
 
     void MSTimer();
 
