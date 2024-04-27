@@ -957,7 +957,6 @@ bool SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
     if (x < 0) x = 0;
     s32 xlimit;
-    if (xend > 256) xend = 256;
     
     if (accuracy)
     {
@@ -973,6 +972,13 @@ bool SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         else abortscanline = false;
     }
     // note: if accuracy mode isn't enabled the abort flag never gets set, this is fine, because it also never gets used by fast mode.
+    
+    // we cap it to 256 *after* counting the cycles, because yes, it tries to render oob pixels.
+    if (xend > 256)
+    {
+        r_edgelen += 256 - xend;
+        xend = 256;
+    }
 
     // for shadow masks: set stencil bits where the depth test fails.
     // draw nothing.
@@ -1213,7 +1219,6 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     s32 xlimit;
 
     s32 xcov = 0;
-    if (xend > 256) xend = 256;
 
     if (accuracy)
     {
@@ -1228,6 +1233,13 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         else abortscanline = false;
     }
     // note: if accuracy mode isn't enabled the abort flag never gets set, this is fine, because it also never gets used by fast mode.
+    
+    // we cap it to 256 *after* counting the cycles, because yes, it tries to render oob pixels.
+    if (xend > 256)
+    {
+        r_edgelen += 256 - xend;
+        xend = 256;
+    }
 
     // part 1: left edge
     edge = yedge | 0x1;
