@@ -141,9 +141,9 @@ void SoftRenderer::SetThreaded(bool threaded, GPU& gpu) noexcept
 template <bool colorcorrect>
 inline void SoftRenderer::ColorConv(const u16 color, u8* r, u8* g, u8* b) const
 {
-    *r = (color << 1) & 0x3E; if (colorcorrect && *r) *r++;
-    *g = (color >> 4) & 0x3E; if (colorcorrect && *g) *g++;
-    *b = (color >> 9) & 0x3E; if (colorcorrect && *b) *b++;
+    *r = (color << 1) & 0x3E; if (colorcorrect && *r) ++*r;
+    *g = (color >> 4) & 0x3E; if (colorcorrect && *g) ++*g;
+    *b = (color >> 9) & 0x3E; if (colorcorrect && *b) ++*b;
 }
 
 void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u8* tr, u8* tg, u8* tb, u8* alpha) const
