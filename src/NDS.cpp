@@ -943,8 +943,7 @@ u32 NDS::RunFrame()
                 if (CPUStop & CPUStop_GXStall)
                 {
                     // GXFIFO stall
-                    s32 cycles = GPU.GPU3D.CyclesToRunFor();
-
+                    s64 cycles = GPU.GPU3D.CyclesToRunFor();
                     ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
                 }
                 else if (CPUStop & CPUStop_DMA9)

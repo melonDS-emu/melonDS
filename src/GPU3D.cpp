@@ -285,7 +285,7 @@ void GPU3D::Reset() noexcept
     memset(VecTestResult, 0, 2*3);
 
     memset(TempVertexBuffer, 0, sizeof(TempVertexBuffer));
-    VertexNum = 0;
+    IncompletePoly = false;
     VertexNumInPoly = 0;
     NumConsecutivePolygons = 0;
     LastStripPolygon = nullptr;
@@ -363,7 +363,7 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 
     file->VarArray(ExecParams, 32*4);
     file->Var32(&ExecParamCount);
-    file->Var32((u32*)&CycleCount);
+    file->Var64((u64*)&CycleCount);
     file->Var64(&Timestamp);
 
     file->Var32(&MatrixMode);
@@ -387,7 +387,7 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     file->VarArray(PosTestResult, 4*4);
     file->VarArray(VecTestResult, 2*3);
 
-    file->Var32(&VertexNum);
+    file->Bool32(&IncompletePoly);
     file->Var32(&VertexNumInPoly);
     file->Var32(&NumConsecutivePolygons);
 
@@ -705,7 +705,7 @@ void GPU3D::UpdateClipMatrix() noexcept
 
 
 
-void GPU3D::AddCycles(s32 num) noexcept
+void GPU3D::AddCycles(s64 num) noexcept
 {
     CycleCount += num;
 
@@ -800,6 +800,15 @@ void GPU3D::StallPolygonPipeline(s32 delay, s32 nonstalldelay) noexcept
         else
             AddCycles(NormalPipeline + 1);
     }
+}
+
+void GPU3D::HangGX(const char* cause) noexcept
+{
+    GXHang = true;
+    Platform::Log(LogLevel::Warn, "GX CRASHED: %s\n", cause);
+    // this should hang the gx for roughly... 2181 years?
+    // I think that's close enough to forever for our usecase.
+    AddCycles(0x1FFFFFFFFFFFFFFF);
 }
 
 
@@ -963,6 +972,7 @@ void GPU3D::SubmitPolygon() noexcept
     PolygonPipeline = 8;
     VertexSlotCounter = 1;
     VertexSlotsFree = 0b11110;
+    IncompletePoly = false;
 
     // culling
     // TODO: work out how it works on the real thing
@@ -1382,7 +1392,6 @@ void GPU3D::SubmitVertex() noexcept
 
     vertextrans->Clipped = false;
 
-    VertexNum++;
     VertexNumInPoly++;
 
     switch (PolygonMode)
@@ -1392,8 +1401,8 @@ void GPU3D::SubmitVertex() noexcept
         {
             VertexNumInPoly = 0;
             SubmitPolygon();
-            NumConsecutivePolygons++;
         }
+        else IncompletePoly = true;
         break;
 
     case 1: // quad
@@ -1401,8 +1410,8 @@ void GPU3D::SubmitVertex() noexcept
         {
             VertexNumInPoly = 0;
             SubmitPolygon();
-            NumConsecutivePolygons++;
         }
+        else IncompletePoly = true;
         break;
 
     case 2: // triangle strip
@@ -1422,11 +1431,11 @@ void GPU3D::SubmitVertex() noexcept
         {
             VertexNumInPoly = 2;
             SubmitPolygon();
-            NumConsecutivePolygons++;
 
             TempVertexBuffer[0] = TempVertexBuffer[1];
             TempVertexBuffer[1] = TempVertexBuffer[2];
         }
+        else IncompletePoly = true;
         break;
 
     case 3: // quad strip
@@ -1438,11 +1447,11 @@ void GPU3D::SubmitVertex() noexcept
 
             VertexNumInPoly = 2;
             SubmitPolygon();
-            NumConsecutivePolygons++;
 
             TempVertexBuffer[0] = TempVertexBuffer[3];
             TempVertexBuffer[1] = TempVertexBuffer[2];
         }
+        else IncompletePoly = true;
         break;
     }
 
@@ -2030,11 +2039,13 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x40: // begin polygons
+            if (IncompletePoly)
+            {
+                HangGX("Begin cmd sent with partial poly defined");
+                break;
+            }
             StallPolygonPipeline(1, 0);
-            // TODO: check if there was a polygon being defined but incomplete
-            // such cases seem to freeze the GPU
             PolygonMode = entry.Param & 0x3;
-            VertexNum = 0;
             VertexNumInPoly = 0;
             NumConsecutivePolygons = 0;
             LastStripPolygon = NULL;
@@ -2050,6 +2061,11 @@ void GPU3D::ExecuteCommand() noexcept
             break;
 
         case 0x50: // flush
+            if (IncompletePoly)
+            {
+                HangGX("Flush cmd sent with partial poly defined");
+                break;
+            }
             VertexPipelineCmdDelayed4();
             FlushRequest = 1;
             FlushAttributes = entry.Param & 0x3;
@@ -2313,6 +2329,11 @@ void GPU3D::ExecuteCommand() noexcept
                     break;
 
                 case 0x70: // box test
+                    if (IncompletePoly)
+                    {
+                        HangGX("BoxTest cmd sent with partial poly defined");
+                        break;
+                    }
                     NumTestCommands -= 3;
                     BoxTest(ExecParams);
                     break;
@@ -2325,7 +2346,7 @@ void GPU3D::ExecuteCommand() noexcept
     }
 }
 
-s32 GPU3D::CyclesToRunFor() const noexcept
+s64 GPU3D::CyclesToRunFor() const noexcept
 {
     if (CycleCount < 0) return 0;
     return CycleCount;
