@@ -241,7 +241,7 @@ void ARMv5::UpdatePURegion(u32 n)
         "PU region %d: %08X-%08X, user=%02X priv=%02X, %08X/%08X\n",
         n,
         start << 12,
-        end << 12,
+        (end > 0xFFFFF ? 0xFFFFFFFF : end << 12),
         usermask,
         privmask,
         PU_DataRW,
@@ -578,16 +578,22 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x671:
         char log_output[1024];
         PU_Region[(id >> 4) & 0xF] = val;
-
+        {
+        u32 start = (val & 0xFFFFF000);
+        u64 sz = (2 << ((val & 0x3E) >> 1));
+        if (sz < 0x1000) sz = 0x1000;
+        u64 end = start + sz;
+        if (end > 0x100000000) end = 0xFFFFFFFF;
         std::snprintf(log_output,
                  sizeof(log_output),
                  "PU: region %d = %08X : %s, %08X-%08X\n",
                  (id >> 4) & 0xF,
                  val,
                  val & 1 ? "enabled" : "disabled",
-                 val & 0xFFFFF000,
-                 (val & 0xFFFFF000) + (2 << ((val & 0x3E) >> 1))
+                 start,
+                 end
         );
+        }
         Log(LogLevel::Debug, "%s", log_output);
         // Some implementations of Log imply a newline, so we build up the line before printing it
 
