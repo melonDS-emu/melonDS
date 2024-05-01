@@ -187,9 +187,10 @@ void ARMv5::UpdatePURegion(u32 n)
     }
 
     u32 start = rgn >> 12;
-    u64 sz = (u64)2 << ((rgn >> 1) & 0x1F);
-    u64 end = start + (sz >> 12);
-    if (end > 0xFFFFF) end = 0xFFFFF;
+    s32 shift = ((rgn >> 1) & 0x1F) - 11;
+    if (shift < 0) shift = 0;
+    u64 end = start + (1 << shift);
+    if (end > 0x100000) end = 0x100000;
     // TODO: check alignment of start
 
     u8 usermask = 0;
