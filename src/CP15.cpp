@@ -186,23 +186,12 @@ void ARMv5::UpdatePURegion(u32 n)
         return;
     }
 
-    u32 start;
-    u64 end;
-    s32 shift = ((rgn >> 1) & 0x1F);
-    if (shift == 0x1F)
-    {
-        start = 0;
-        end = 0x100000;
-    }
-    else
-    {
-        start = rgn >> 12;
-        shift -= 11;
-        if (shift < 0) shift = 0;
-        end = start + (1 << shift);
-        if (end > 0x100000) end = 0x100000;
-        // TODO: check alignment of start
-    }
+    u32 size = ((rgn >> 1) & 0x1F) + 1; // size is increased by 1
+    if (size < 12) size = 12; // min size is 12
+    u32 start = rgn >> size; // force align start to size
+    u32 end = start + 1 << (size-12); // then end is always one away from start
+    start <<= (size-12); // dont forget to fix the start value too :)
+    // dont need to bounds check the end point because the force alignment inherently prevents it from breaking
 
     u8 usermask = 0;
     u8 privmask = 0;
