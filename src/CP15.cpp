@@ -187,10 +187,10 @@ void ARMv5::UpdatePURegion(u32 n)
     }
 
     u32 size = ((rgn >> 1) & 0x1F) + 1; // size is increased by 1
-    if (size < 12) size = 12; // min size is 12
-    u32 start = rgn >> size; // force align start to size
-    u32 end = start + 1 << (size-12); // then end is always one away from start
-    start <<= (size-12); // dont forget to fix the start value too :)
+    if (size < 12) size = 12; // min size is 12 (4KiB)
+    u32 start = rgn >> size; // force align start point to a multiple of size by discarding bits
+    u32 end = (start + 1) << (size-12); // then we can determine the end point by simply adding one to the start
+    start <<= (size-12);
     // dont need to bounds check the end point because the force alignment inherently prevents it from breaking
 
     u8 usermask = 0;
