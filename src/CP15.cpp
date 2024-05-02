@@ -186,11 +186,12 @@ void ARMv5::UpdatePURegion(u32 n)
         return;
     }
 
-    u32 size = ((rgn >> 1) & 0x1F) + 1; // size is increased by 1
-    if (size < 12) size = 12; // min size is 12 (4KiB)
-    u32 start = rgn >> size; // force align start point to a multiple of size by discarding bits
-    u32 end = (start + 1) << (size-12); // then we can determine the end point by simply adding one to the start
-    start <<= (size-12);
+    // notes:
+    // * min size of a pu region is 4KiB
+    // * pu regions are aligned based on their size
+    u32 size = std::min(((rgn>>1) & 0x1F) - 11, 0); // obtain the size, subtract 11 and clamp to a min of 0
+    u32 start = ((rgn >> 12) >> size) << size; // determine the start offset, and use shifts to force alignment with a multiple of the size.
+    u32 end = start + size; // add size to start to determine
     // dont need to bounds check the end point because the force alignment inherently prevents it from breaking
 
     u8 usermask = 0;
