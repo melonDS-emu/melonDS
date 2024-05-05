@@ -438,7 +438,7 @@ void A_LDM(ARM* cpu)
         else       cpu->DataRead32S(base, &pc);
         if (!preinc) base += 4;
 
-        if (cpu->Num == 1)
+        if (cpu->ThumbInterworkv4Mode)
             pc &= ~0x1;
 
         cpu->JumpTo(pc, cpu->CurInstr & (1<<22));
