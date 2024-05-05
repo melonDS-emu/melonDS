@@ -100,7 +100,7 @@ namespace melonDS::ARMInterpreter
     cpu->AddCycles_CDI(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        if (cpu->Num==1) val &= ~0x1; \
+        if (cpu->ThumbInterworkv4Mode) val &= ~0x1; \
         cpu->JumpTo(val); \
     } \
     else \
@@ -117,7 +117,7 @@ namespace melonDS::ARMInterpreter
     cpu->AddCycles_CDI(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        if (cpu->Num==1) val &= ~0x1; \
+        if (cpu->ThumbInterworkv4Mode) val &= ~0x1; \
         cpu->JumpTo(val); \
     } \
     else \
@@ -757,7 +757,7 @@ void T_POP(ARM* cpu)
         u32 pc;
         if (first) cpu->DataRead32 (base, &pc);
         else       cpu->DataRead32S(base, &pc);
-        if (cpu->Num==1) pc |= 0x1;
+        if (cpu->ThumbInterworkv4Mode) pc |= 0x1;
         cpu->JumpTo(pc);
         base += 4;
     }

@@ -458,6 +458,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
                 UpdatePURegions((old & 0x1) != (val & 0x1));
             }
             if (val & (1<<7)) Log(LogLevel::Warn, "!!!! ARM9 BIG ENDIAN MODE. VERY BAD. SHIT GONNA ASPLODE NOW\n");
+            ThumbInterworkv4Mode = (val & (1<<15));
             if (val & (1<<13)) ExceptionBase = 0xFFFF0000;
             else               ExceptionBase = 0x00000000;
         }

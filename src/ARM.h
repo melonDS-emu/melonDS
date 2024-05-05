@@ -176,6 +176,10 @@ public:
 
     u32 ExceptionBase;
 
+    // disables ldm, ldr and pop instructions being able to switch thumb state for the arm9
+    // this value should always be true for the arm7, as it's v4
+    bool ThumbInterworkv4Mode;
+
     MemRegion CodeMem;
 
 #ifdef JIT_ENABLED

@@ -176,6 +176,7 @@ void ARM::Reset()
     R_UND[2] = 0x00000010;
 
     ExceptionBase = Num ? 0x00000000 : 0xFFFF0000;
+    ThumbInterworkv4Mode = true;
 
     CodeMem.Mem = NULL;
 
@@ -199,6 +200,7 @@ void ARMv5::Reset()
     PU_Map = PU_PrivMap;
 
     ARM::Reset();
+    ThumbInterworkv4Mode = false;
 }
 
 
