@@ -726,6 +726,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
     ConstantCycles = 0;
     Thumb = thumb;
     Num = cpu->Num;
+    Thumbv4Mode = cpu->ThumbInterworkv4Mode;
     CodeRegion = instrs[0].Addr >> 24;
     CurCPU = cpu;
     // CPSR might have been modified in a previous block

@@ -718,6 +718,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 
     Thumb = thumb;
     Num = cpu->Num;
+    Thumbv4Mode = cpu->ThumbInterworkv4Mode;
     CurCPU = cpu;
     ConstantCycles = 0;
     RegCache = RegisterCache<Compiler, ARM64Reg>(this, instrs, instrsCount, true);

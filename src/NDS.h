@@ -223,7 +223,7 @@ class ARMJIT;
 
 class NDS
 {
-private:
+public:
 #ifdef JIT_ENABLED
     bool EnableJIT;
 #endif

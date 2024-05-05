@@ -677,7 +677,12 @@ void ARMv5::ExecuteJIT()
 {
     if (Halted)
     {
-        if (Halted == 2)
+        if (Halted == 5)
+        {
+            Halted = 0;
+            NDS.JIT.ResetBlockCache();
+        }
+        else if (Halted == 2)
         {
             Halted = 0;
         }

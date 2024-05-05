@@ -334,7 +334,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
     {
         if (size < 32)
             Log(LogLevel::Debug, "LDR size < 32 branching?\n");
-        Comp_JumpTo(rdMapped, Num == 0, false);
+        Comp_JumpTo(rdMapped, !Thumbv4Mode, false);
     }
 }
 
@@ -781,7 +781,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     if (!store && regs[15])
     {
         ARM64Reg mapped = MapReg(15);
-        Comp_JumpTo(mapped, Num == 0, usermode);
+        Comp_JumpTo(mapped, !Thumbv4Mode, usermode);
     }
 
     return regsCount * 4 * (decrement ? -1 : 1);
