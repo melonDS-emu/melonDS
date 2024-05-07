@@ -68,6 +68,7 @@ struct Polygon
     bool FacingView;
     bool Translucent;
 
+    bool ClearStencil; // used by the dsi's revised rasterizer mode
     bool IsShadowMask;
     bool IsShadow;
 
@@ -328,6 +329,8 @@ public:
     // used to fix stencil buffer's frame-to-frame persistence not working properly under extreme misuse of shadow masks/shadows
     bool ForceRerender = false;
     bool DontRerenderLoop = false;
+    
+    bool ShadowSent = false; // used to track whether the clear stencil flag should be set when the raster scfg bit is active
 
     u32 FlushRequest = 0;
     u32 FlushAttributes = 0;

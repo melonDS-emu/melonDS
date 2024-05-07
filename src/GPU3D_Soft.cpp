@@ -762,9 +762,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     bool (*fnDepthTest)(s32 dstz, s32 z, u32 attr, u32 dstattr, u8 flags);
 
     // stencil buffer is only cleared when beginning a shadow mask after a shadow polygon is rendered
-    // the "Revised" Rasterizer Circuit bugs out stencil buffer clearing
-    // TODO: under some circumstances that i am struggling to reproduce it is possible for this bit to actually *fix* bugs with misused shadow masks
-    // while this is in effect, toggling the scfg bit appears to glitch the stencil buffer for a frame?
+    // the Revised Rasterizer Circuit handles clearing the stencil buffer elsewhere
     if (ShadowRendered[y&0x1] && !gpu3d.RenderRasterRev)
     {
         StencilCleared = true;
@@ -1593,6 +1591,13 @@ void SoftRenderer::RenderScanline(GPU& gpu, s32 y, int npolys)
     {
         RendererPolygon* rp = &PolygonList[i];
         Polygon* polygon = rp->PolyData;
+        
+        //we actually handle clearing the stencil buffer here when the revision bit is set, this allows for a polygon to clear it on every scanline, even ones it isn't part of.
+        if (gpu.GPU3D.RenderRasterRev && polygon->ClearStencil)
+        {
+            StencilCleared = true;
+            memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
+        }
 
         if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
         {

@@ -299,6 +299,7 @@ void GPU3D::Reset() noexcept
     NumPolygons = 0;
     CurRAMBank = 0;
 
+    ShadowSent = true;
     FlushRequest = 0;
     FlushAttributes = 0;
 
@@ -358,6 +359,7 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     file->Var32(&RenderClearAttr2);
     
     file->Bool32(&RenderRasterRev);
+    file->Bool32(&ShadowSent);
 
     file->Var16(&RenderXPos);
 
@@ -463,6 +465,7 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
         file->Bool32(&poly->FacingView);
         file->Bool32(&poly->Translucent);
 
+        file->Bool3d(&poly->ClearStencil);
         file->Bool32(&poly->IsShadowMask);
         file->Bool32(&poly->IsShadow);
 
@@ -1225,6 +1228,18 @@ void GPU3D::SubmitPolygon() noexcept
 
     poly->IsShadowMask = ((CurPolygonAttr & 0x3F000030) == 0x00000030);
     poly->IsShadow = ((CurPolygonAttr & 0x30) == 0x30) && !poly->IsShadowMask;
+            
+    // yes we need specifically the rasterizer bit, not the gx bit
+    poly->ClearStencil = false;
+    if (NDS.GetSCFGRasterBit() && (FlushAttributes & 1) && poly->Translucent)
+    {
+        if (poly->IsShadow) ShadowSent = true;
+        else if (poly->IsShadowMask && ShadowSent)
+        {
+            ShadowSent = false;
+            poly->ClearStencil = true;
+        }
+    }
 
     if (!poly->Translucent) NumOpaquePolygons++;
 
@@ -2056,6 +2071,7 @@ void GPU3D::ExecuteCommand() noexcept
 
         case 0x50: // flush
             VertexPipelineCmdDelayed4();
+            ShadowSent = true;
             FlushRequest = 1;
             FlushAttributes = entry.Param & 0x3;
             CycleCount = 325;
