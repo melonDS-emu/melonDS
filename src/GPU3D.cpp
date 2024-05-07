@@ -465,7 +465,7 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
         file->Bool32(&poly->FacingView);
         file->Bool32(&poly->Translucent);
 
-        file->Bool3d(&poly->ClearStencil);
+        file->Bool32(&poly->ClearStencil);
         file->Bool32(&poly->IsShadowMask);
         file->Bool32(&poly->IsShadow);
 
@@ -1233,13 +1233,13 @@ void GPU3D::SubmitPolygon() noexcept
     poly->ClearStencil = false;
     if (NDS.GetSCFGRasterBit() && (FlushAttributes & 1) && poly->Translucent)
     {
-        if (poly->IsShadow) ShadowSent = true;
-        else if (poly->IsShadowMask && ShadowSent)
+        if (poly->IsShadowMask && ShadowSent)
         {
             ShadowSent = false;
             poly->ClearStencil = true;
         }
     }
+    if (poly->IsShadow) ShadowSent = true;
 
     if (!poly->Translucent) NumOpaquePolygons++;
 

@@ -125,6 +125,8 @@ void SoftRenderer::Reset(GPU& gpu)
 
     ShadowRendered[0] = false;
     ShadowRendered[1] = false;
+    ShadowRenderedi[0] = false;
+    ShadowRenderedi[1] = false;
     SetupRenderThread(gpu);
     EnableRenderThread();
 }
@@ -762,8 +764,9 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     bool (*fnDepthTest)(s32 dstz, s32 z, u32 attr, u32 dstattr, u8 flags);
 
     // stencil buffer is only cleared when beginning a shadow mask after a shadow polygon is rendered
+    // the state of whether a polygon was or wasn't rendered can persist between frames
     // the Revised Rasterizer Circuit handles clearing the stencil buffer elsewhere
-    if (ShadowRendered[y&0x1] && !gpu3d.RenderRasterRev)
+    if (ShadowRendered[y&0x1] && (!gpu3d.RenderRasterRev || polygon->ClearStencil))
     {
         StencilCleared = true;
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
@@ -959,7 +962,7 @@ void SoftRenderer::RenderPolygonScanline(GPU& gpu, RendererPolygon* rp, s32 y)
 
     if (polygon->IsShadow)
     {
-        ShadowRendered[y&0x1] = true;
+        if (!gpu.GPU3D.RenderRasterRev || !polygon->Translucent) ShadowRendered[y&0x1] = true;
         if (wireframe) return; // TODO: this probably still counts towards timings.
         if (!StencilCleared)
         {
@@ -1593,10 +1596,19 @@ void SoftRenderer::RenderScanline(GPU& gpu, s32 y, int npolys)
         Polygon* polygon = rp->PolyData;
         
         //we actually handle clearing the stencil buffer here when the revision bit is set, this allows for a polygon to clear it on every scanline, even ones it isn't part of.
-        if (gpu.GPU3D.RenderRasterRev && polygon->ClearStencil)
+        if (gpu.GPU3D.RenderRasterRev)
         {
-            StencilCleared = true;
-            memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
+            if (polygon->ClearStencil && polygon->Translucent && ShadowRenderedi[(y&0x1)])
+            {
+                StencilCleared = true;
+                memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
+                ShadowRenderedi[(y&0x1)] = false;
+
+            }
+            else if (polygon->IsShadow && polygon->Translucent)
+            {
+                ShadowRenderedi[(y&0x1)] = true;
+            }
         }
 
         if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
