@@ -1598,12 +1598,11 @@ void SoftRenderer::RenderScanline(GPU& gpu, s32 y, int npolys)
         //we actually handle clearing the stencil buffer here when the revision bit is set, this allows for a polygon to clear it on every scanline, even ones it isn't part of.
         if (gpu.GPU3D.RenderRasterRev)
         {
-            if (polygon->ClearStencil && polygon->Translucent && ShadowRenderedi[(y&0x1)])
+            if (polygon->ClearStencil && ShadowRenderedi[(y&0x1)])
             {
                 StencilCleared = true;
                 memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
                 ShadowRenderedi[(y&0x1)] = false;
-
             }
             else if (polygon->IsShadow && polygon->Translucent)
             {

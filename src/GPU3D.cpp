@@ -1229,17 +1229,14 @@ void GPU3D::SubmitPolygon() noexcept
     poly->IsShadowMask = ((CurPolygonAttr & 0x3F000030) == 0x00000030);
     poly->IsShadow = ((CurPolygonAttr & 0x30) == 0x30) && !poly->IsShadowMask;
             
-    // yes we need specifically the rasterizer bit, not the gx bit
+    // yes, we need specifically the rasterizer bit, not the gx bit
     poly->ClearStencil = false;
-    if (NDS.GetSCFGRasterBit() && (FlushAttributes & 1) && poly->Translucent)
+    if (NDS.GetSCFGRasterBit() && (FlushAttributes & 1) && ShadowSent && poly->IsShadowMask && poly->Translucent)
     {
-        if (poly->IsShadowMask && ShadowSent)
-        {
-            ShadowSent = false;
-            poly->ClearStencil = true;
-        }
+        ShadowSent = false;
+        poly->ClearStencil = true;
     }
-    if (poly->IsShadow) ShadowSent = true;
+    if (poly->IsShadow) ShadowSent = true; // checkme: does this always get set?
 
     if (!poly->Translucent) NumOpaquePolygons++;
 
@@ -2071,7 +2068,7 @@ void GPU3D::ExecuteCommand() noexcept
 
         case 0x50: // flush
             VertexPipelineCmdDelayed4();
-            ShadowSent = true;
+            ShadowSent = true; // checkme: does this always get set?
             FlushRequest = 1;
             FlushAttributes = entry.Param & 0x3;
             CycleCount = 325;
