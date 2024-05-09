@@ -825,7 +825,6 @@ void SoftRenderer::CheckSlope(RendererPolygon* rp, s32 y)
     }
 }
 
-template <bool accuracy>
 bool SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y, s32* timingcounter)
 {
     Polygon* polygon = rp->PolyData;
@@ -958,20 +957,15 @@ bool SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     if (x < 0) x = 0;
     s32 xlimit;
     
-    if (accuracy)
+    // determine if the span can be rendered within the time allotted to the scanline
+    s32 diff = DoTimingsPixels(xend-x, timingcounter);
+    if (diff != 0)
     {
-        // determine if the span can be rendered within the time allotted to the scanline
-        // TODO: verify the timing characteristics of shadow masks are the same as regular polygons.
-        s32 diff = DoTimingsPixels(xend-x, timingcounter);
-        if (diff != 0)
-        {
-            xend -= diff;
-            r_edgelen -= diff;
-            abortscanline = true;
-        }
-        else abortscanline = false;
+        xend -= diff;
+        r_edgelen -= diff;
+        abortscanline = true;
     }
-    // note: if accuracy mode isn't enabled the abort flag never gets set, this is fine, because it also never gets used by fast mode.
+    else abortscanline = false;
     
     // we cap it to 256 *after* counting the cycles, because yes, it tries to render oob pixels.
     if (xend > 256)
@@ -1064,7 +1058,6 @@ bool SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     return abortscanline;
 }
 
-template <bool accuracy>
 bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y, s32* timingcounter)
 {
     Polygon* polygon = rp->PolyData;
@@ -1220,19 +1213,15 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
     s32 xcov = 0;
 
-    if (accuracy)
+    // determine if the span can be rendered within the time allotted to the scanline
+    s32 diff = DoTimingsPixels(xend-x, timingcounter);
+    if (diff != 0)
     {
-        // determine if the span can be rendered within the time allotted to the scanline
-        s32 diff = DoTimingsPixels(xend-x, timingcounter);
-        if (diff != 0)
-        {
-            xend -= diff;
-            r_edgelen -= diff;
-            abortscanline = true;
-        }
-        else abortscanline = false;
+        xend -= diff;
+        r_edgelen -= diff;
+        abortscanline = true;
     }
-    // note: if accuracy mode isn't enabled the abort flag never gets set, this is fine, because it also never gets used by fast mode.
+    else abortscanline = false;
     
     // we cap it to 256 *after* counting the cycles, because yes, it tries to render oob pixels.
     if (xend > 256)
@@ -1528,7 +1517,6 @@ bool SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     return abortscanline;
 }
 
-template <bool accuracy>
 void SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int firstpoly, int npolys, s32* timingcounter)
 {
     bool abort = false;
@@ -1537,24 +1525,24 @@ void SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int firstpoly, int npol
         RendererPolygon* rp = &PolygonList[firstpoly];
         Polygon* polygon = rp->PolyData;
 
-        if (accuracy && y == polygon->YBottom && y != polygon->YTop)
+        if (y == polygon->YBottom && y != polygon->YTop)
         {
             if (!abort) abort = !DoTimings(EmptyPolyScanline, timingcounter);
         }
         else if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
         {            
-            if (accuracy && !abort) abort = (!DoTimings(PerPolyScanline, timingcounter)
+            if (!abort) abort = (!DoTimings(PerPolyScanline, timingcounter)
                         || !CheckTimings(MinToStartPoly, timingcounter));
 
-            if (accuracy && abort)
+            if (abort)
             {
                 CheckSlope(rp, y);
                 Step(rp);
             }
             else if (polygon->IsShadowMask)
-                abort = RenderShadowMaskScanline<accuracy>(gpu.GPU3D, rp, y, timingcounter);
+                abort = RenderShadowMaskScanline(gpu.GPU3D, rp, y, timingcounter);
             else
-                abort = RenderPolygonScanline<accuracy>(gpu, rp, y, timingcounter);
+                abort = RenderPolygonScanline(gpu, rp, y, timingcounter);
         }
     }
 }
@@ -1891,29 +1879,6 @@ void SoftRenderer::ClearBuffers(const GPU& gpu)
     }
 }
 
-void SoftRenderer::RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys)
-{
-    gpu.GPU3D.RDLinesTemp = 46; // dumb way of making sure it gets updated to a "normal" value when the gpu starts rasterizing.
-    int j = 0;
-    for (int i = 0; i < npolys; i++)
-    {
-        if (polygons[i]->Degenerate) continue;
-        SetupPolygon(&PolygonList[j++], polygons[i]);
-    }
-
-    RenderScanline<false>(gpu, 0, 0, j, nullptr);
-
-    for (s32 y = 1; y < 192; y++)
-    {
-        RenderScanline<false>(gpu, y, 0, j, nullptr);
-        ScanlineFinalPass<false>(gpu.GPU3D, y-1, true, true);
-        Platform::Semaphore_Post(Sema_ScanlineCount);
-    }
-
-    ScanlineFinalPass<false>(gpu.GPU3D, 191, true, true);
-    Platform::Semaphore_Post(Sema_ScanlineCount);
-}
-
 #define RDLINES_COUNT_INCREMENT\
     /* feels wrong, needs improvement */\
     while (RasterTiming >= RDDecrement[nextreadrd])\
@@ -1943,8 +1908,8 @@ void SoftRenderer::RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys)
     ScanlineTimeout = SLRead[y-1] - (PreReadCutoff+FinalPassLen);\
     \
     FindFirstPolyDoTimings(j, y, &firstpolyeven, &firstpolyodd, &rastertimingeven, &rastertimingodd);\
-    RenderScanline<true>(gpu, y, firstpolyeven, j, &rastertimingeven);\
-    RenderScanline<true>(gpu, y+1, firstpolyodd, j, &rastertimingodd);\
+    RenderScanline(gpu, y, firstpolyeven, j, &rastertimingeven);\
+    RenderScanline(gpu, y+1, firstpolyodd, j, &rastertimingodd);\
     \
     prevtimespent = timespent;\
     RasterTiming += timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});\
@@ -1975,8 +1940,8 @@ void SoftRenderer::RenderPolygonsTiming(GPU& gpu, Polygon** polygons, int npolys
 
     FindFirstPolyDoTimings(j, 0, &firstpolyeven, &firstpolyodd, &rastertimingeven, &rastertimingodd);
     // scanlines are rendered in pairs of two
-    RenderScanline<true>(gpu, 0, firstpolyeven, j, &rastertimingeven);
-    RenderScanline<true>(gpu, 1, firstpolyodd, j, &rastertimingodd);
+    RenderScanline(gpu, 0, firstpolyeven, j, &rastertimingeven);
+    RenderScanline(gpu, 1, firstpolyodd, j, &rastertimingodd);
 
     // it can't proceed to the next scanline unless all others steps are done (both scanlines in the pair, and final pass)
     RasterTiming = timespent = std::max(std::initializer_list<s32> {rastertimingeven, rastertimingodd, FinalPassLen});
@@ -2067,13 +2032,9 @@ void SoftRenderer::RenderFrame(GPU& gpu)
 
         if (gpu.GPU3D.RenderingEnabled >= 3)
         {
-            if (Accuracy)
-                RenderPolygonsTiming(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
-            else
-                RenderPolygonsFast(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+            RenderPolygonsTiming(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
         }
-        else
-            if (Accuracy) memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
+        else memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
     }
 }
 
@@ -2109,14 +2070,11 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
 
             if (gpu.GPU3D.RenderingEnabled >= 3)
             {
-                if (Accuracy)
-                    RenderPolygonsTiming(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
-                else
-                    RenderPolygonsFast(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+                RenderPolygonsTiming(gpu, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
             }
             else
             {
-                if (Accuracy) memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
+                memcpy(FinalBuffer, ColorBuffer, sizeof(FinalBuffer));
                 Platform::Semaphore_Post(Sema_ScanlineCount, 192);
             }
         }
@@ -2131,7 +2089,7 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
 void SoftRenderer::ScanlineSync(int line)
 {
     // only used in accurate mode (timings must be emulated)
-    if (Accuracy && RenderThreadRunning.load(std::memory_order_relaxed))
+    if (RenderThreadRunning.load(std::memory_order_relaxed))
     {
         if (line < 192)
         {
@@ -2144,20 +2102,7 @@ void SoftRenderer::ScanlineSync(int line)
 
 u32* SoftRenderer::GetLine(int line)
 {
-    // only wait in in-accurate mode (we've already waited for scanlines in accurate mode)
-    if (!Accuracy)
-    {
-        if (RenderThreadRunning.load(std::memory_order_relaxed))
-        {
-            if (line < 192)
-                // We need a scanline, so let's wait for the render thread to finish it.
-                // (both threads process scanlines from top-to-bottom,
-                // so we don't need to wait for a specific row)
-                Platform::Semaphore_Wait(Sema_ScanlineCount);
-        }
-        return &ColorBuffer[line*ScanlineWidth];
-    }
-    else return &FinalBuffer[line*ScanlineWidth];
+    return &FinalBuffer[line*ScanlineWidth];
 }
 
 }

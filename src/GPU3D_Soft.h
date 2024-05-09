@@ -468,9 +468,9 @@ private:
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     void Step(RendererPolygon* rp);
     void CheckSlope(RendererPolygon* rp, s32 y);
-    template <bool accuracy> bool RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y, s32* timingcounter);
-    template <bool accuracy> bool RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y, s32* timingcounter);
-    template <bool accuracy> void RenderScanline(const GPU& gpu, s32 y, int firstpoly, int npolys, s32* timingcounter);
+    bool RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y, s32* timingcounter);
+    bool RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y, s32* timingcounter);
+    void RenderScanline(const GPU& gpu, s32 y, int firstpoly, int npolys, s32* timingcounter);
     u32 CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const;
     bool CheckEdgeMarkingPixel(u32 polyid, u32 z, u32 pixeladdr);
     bool CheckEdgeMarkingClearPlane(const GPU3D& gpu3d, u32 polyid, u32 z);
@@ -520,8 +520,6 @@ private:
     bool Enabled;
 
     bool FrameIdentical;
-
-    bool Accuracy = true; // TODO
 
     // threading
 
