@@ -56,6 +56,8 @@ set(SOURCES_QT_SDL
 
     CLI.h
     CLI.cpp
+        EmuInstance.cpp
+        EmuInstance.h
 )
 
 if (APPLE)

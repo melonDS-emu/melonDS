@@ -140,7 +140,9 @@ bool TitleManagerDialog::openNAND()
 {
     nand = nullptr;
 
-    FileHandle* bios7i = Platform::OpenLocalFile(Config::DSiBIOS7Path, FileMode::Read);
+    Config::Table cfg = Config::GetGlobalTable();
+
+    FileHandle* bios7i = Platform::OpenLocalFile(cfg.GetString("DSi.BIOS7Path"), FileMode::Read);
     if (!bios7i)
         return false;
 
@@ -149,7 +151,7 @@ bool TitleManagerDialog::openNAND()
     FileRead(es_keyY, 16, 1, bios7i);
     CloseFile(bios7i);
 
-    FileHandle* nandfile = Platform::OpenLocalFile(Config::DSiNANDPath, FileMode::ReadWriteExisting);
+    FileHandle* nandfile = Platform::OpenLocalFile(cfg.GetString("DSi.NANDPath"), FileMode::ReadWriteExisting);
     if (!nandfile)
         return false;
 

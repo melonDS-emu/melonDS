@@ -81,8 +81,10 @@ private slots:
 
 private:
     void verifyFirmware();
+    void updateLastBIOSFolder(QString& filename);
 
     Ui::EmuSettingsDialog* ui;
+    QString lastBIOSFolder;
 };
 
 #endif // EMUSETTINGSDIALOG_H

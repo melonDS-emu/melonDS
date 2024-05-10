@@ -80,7 +80,7 @@ std::string PreviousSaveFile = "";
 ARCodeFile* CheatFile = nullptr;
 bool CheatsOn = false;
 
-
+#if 0
 int LastSep(const std::string& path)
 {
     int i = path.length() - 1;
@@ -142,7 +142,9 @@ QString VerifyDSBIOS()
     FileHandle* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::BIOS9Path, FileMode::Read);
+    Config::Table cfg = Config::GetGlobalTable();
+
+    f = Platform::OpenLocalFile(cfg.GetString("DS.BIOS9Path"), FileMode::Read);
     if (!f) return "DS ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
 
     len = FileLength(f);
@@ -154,7 +156,7 @@ QString VerifyDSBIOS()
 
     CloseFile(f);
 
-    f = Platform::OpenLocalFile(Config::BIOS7Path, FileMode::Read);
+    f = Platform::OpenLocalFile(cfg.GetString("DS.BIOS7Path"), FileMode::Read);
     if (!f) return "DS ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
 
     len = FileLength(f);
@@ -174,9 +176,11 @@ QString VerifyDSiBIOS()
     FileHandle* f;
     long len;
 
+    Config::Table cfg = Config::GetGlobalTable();
+
     // TODO: check the first 32 bytes
 
-    f = Platform::OpenLocalFile(Config::DSiBIOS9Path, FileMode::Read);
+    f = Platform::OpenLocalFile(cfg.GetString("DSi.BIOS9Path"), FileMode::Read);
     if (!f) return "DSi ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
 
     len = FileLength(f);
@@ -188,7 +192,7 @@ QString VerifyDSiBIOS()
 
     CloseFile(f);
 
-    f = Platform::OpenLocalFile(Config::DSiBIOS7Path, FileMode::Read);
+    f = Platform::OpenLocalFile(cfg.GetString("DSi.BIOS7Path"), FileMode::Read);
     if (!f) return "DSi ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
 
     len = FileLength(f);
@@ -208,10 +212,13 @@ QString VerifyDSFirmware()
     FileHandle* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::FirmwarePath, FileMode::Read);
+    Config::Table cfg = Config::GetGlobalTable();
+    std::string fwpath = cfg.GetString("DS.FirmwarePath");
+
+    f = Platform::OpenLocalFile(fwpath, FileMode::Read);
     if (!f) return "DS firmware was not found or could not be accessed. Check your emu settings.";
 
-    if (!Platform::CheckFileWritable(Config::FirmwarePath))
+    if (!Platform::CheckFileWritable(fwpath))
         return "DS firmware is unable to be written to.\nPlease check file/folder write permissions.";
 
     len = FileLength(f);
@@ -238,10 +245,13 @@ QString VerifyDSiFirmware()
     FileHandle* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::DSiFirmwarePath, FileMode::Read);
+    Config::Table cfg = Config::GetGlobalTable();
+    std::string fwpath = cfg.GetString("DSi.FirmwarePath");
+
+    f = Platform::OpenLocalFile(fwpath, FileMode::Read);
     if (!f) return "DSi firmware was not found or could not be accessed. Check your emu settings.";
 
-    if (!Platform::CheckFileWritable(Config::FirmwarePath))
+    if (!Platform::CheckFileWritable(fwpath))
         return "DSi firmware is unable to be written to.\nPlease check file/folder write permissions.";
 
     len = FileLength(f);
@@ -263,10 +273,13 @@ QString VerifyDSiNAND()
     FileHandle* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::DSiNANDPath, FileMode::ReadWriteExisting);
+    Config::Table cfg = Config::GetGlobalTable();
+    std::string nandpath = cfg.GetString("DSi.NANDPath");
+
+    f = Platform::OpenLocalFile(nandpath, FileMode::ReadWriteExisting);
     if (!f) return "DSi NAND was not found or could not be accessed. Check your emu settings.";
 
-    if (!Platform::CheckFileWritable(Config::FirmwarePath))
+    if (!Platform::CheckFileWritable(nandpath))
         return "DSi NAND is unable to be written to.\nPlease check file/folder write permissions.";
 
     // TODO: some basic checks
@@ -312,7 +325,7 @@ QString VerifySetup()
 
     return "";
 }
-
+#endif
 std::string GetEffectiveFirmwareSavePath(EmuThread* thread)
 {
     if (!Config::ExternalBIOSEnable)

@@ -74,42 +74,6 @@ int MaxFPS;
 bool AudioSync;
 bool ShowOSD;
 
-int ConsoleType;
-bool DirectBoot;
-
-#ifdef JIT_ENABLED
-bool JIT_Enable = false;
-int JIT_MaxBlockSize = 32;
-bool JIT_BranchOptimisations = true;
-bool JIT_LiteralOptimisations = true;
-bool JIT_FastMemory = true;
-#endif
-
-bool ExternalBIOSEnable;
-
-std::string BIOS9Path;
-std::string BIOS7Path;
-std::string FirmwarePath;
-
-std::string DSiBIOS9Path;
-std::string DSiBIOS7Path;
-std::string DSiFirmwarePath;
-std::string DSiNANDPath;
-
-bool DLDIEnable;
-std::string DLDISDPath;
-int DLDISize;
-bool DLDIReadOnly;
-bool DLDIFolderSync;
-std::string DLDIFolderPath;
-
-bool DSiSDEnable;
-std::string DSiSDPath;
-int DSiSDSize;
-bool DSiSDReadOnly;
-bool DSiSDFolderSync;
-std::string DSiSDFolderPath;
-
 bool FirmwareOverrideSettings;
 std::string FirmwareUsername;
 int FirmwareLanguage;
@@ -137,7 +101,6 @@ std::string MicDevice;
 std::string MicWavPath;
 
 std::string LastROMFolder;
-std::string LastBIOSFolder;
 
 std::string RecentROMList[10];
 
@@ -158,16 +121,6 @@ int64_t RTCOffset;
 bool DSBatteryLevelOkay;
 int DSiBatteryLevel;
 bool DSiBatteryCharging;
-
-bool DSiFullBIOSBoot;
-
-#ifdef GDBSTUB_ENABLED
-bool GdbEnabled;
-int GdbPortARM7;
-int GdbPortARM9;
-bool GdbARM7BreakOnStartup;
-bool GdbARM9BreakOnStartup;
-#endif
 
 CameraConfig Camera[2];
 
@@ -773,12 +726,23 @@ void Array::SetString(const int id, const std::string& val)
 }
 
 
+Table::Table() : Data()
+{
+    PathPrefix = "";
+}
+
 Table::Table(toml::value& data, std::string path) : Data(data)
 {
     if (path.empty())
         PathPrefix = "";
     else
         PathPrefix = path + ".";
+}
+
+Table Table::operator=(Table b)
+{
+    Data = b.Data;
+    PathPrefix = b.PathPrefix;
 }
 
 Array Table::GetArray(const std::string& path)

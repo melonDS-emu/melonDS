@@ -202,21 +202,24 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
     test_num = test++;
 #ifndef _WIN32
-    if (socketpair(AF_UNIX, SOCK_STREAM, 0, signalFd))
+    if (!parent)
     {
-       qFatal("Couldn't create socketpair");
+        if (socketpair(AF_UNIX, SOCK_STREAM, 0, signalFd))
+        {
+            qFatal("Couldn't create socketpair");
+        }
+
+        signalSn = new QSocketNotifier(signalFd[1], QSocketNotifier::Read, this);
+        connect(signalSn, SIGNAL(activated(int)), this, SLOT(onQuit()));
+
+        struct sigaction sa;
+
+        sa.sa_handler = signalHandler;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0;
+        sa.sa_flags |= SA_RESTART;
+        sigaction(SIGINT, &sa, 0);
     }
-
-    signalSn = new QSocketNotifier(signalFd[1], QSocketNotifier::Read, this);
-    connect(signalSn, SIGNAL(activated(int)), this, SLOT(onQuit()));
-
-    struct sigaction sa;
-
-    sa.sa_handler = signalHandler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sa.sa_flags |= SA_RESTART;
-    sigaction(SIGINT, &sa, 0);
 #endif
 
     oldW = Config::WindowWidth;

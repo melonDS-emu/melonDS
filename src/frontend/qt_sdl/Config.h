@@ -138,8 +138,11 @@ private:
 class Table
 {
 public:
+    Table();
     Table(toml::value& data, std::string path);
     ~Table() {}
+
+    Table operator=(Table b);
 
     Array GetArray(const std::string& path);
     Table GetTable(const std::string& path);
@@ -212,42 +215,6 @@ extern int MaxFPS;
 extern bool AudioSync;
 extern bool ShowOSD;
 
-extern int ConsoleType;
-extern bool DirectBoot;
-
-#ifdef JIT_ENABLED
-extern bool JIT_Enable;
-extern int JIT_MaxBlockSize;
-extern bool JIT_BranchOptimisations;
-extern bool JIT_LiteralOptimisations;
-extern bool JIT_FastMemory;
-#endif
-
-extern bool ExternalBIOSEnable;
-
-extern std::string BIOS9Path;
-extern std::string BIOS7Path;
-extern std::string FirmwarePath;
-
-extern std::string DSiBIOS9Path;
-extern std::string DSiBIOS7Path;
-extern std::string DSiFirmwarePath;
-extern std::string DSiNANDPath;
-
-extern bool DLDIEnable;
-extern std::string DLDISDPath;
-extern int DLDISize;
-extern bool DLDIReadOnly;
-extern bool DLDIFolderSync;
-extern std::string DLDIFolderPath;
-
-extern bool DSiSDEnable;
-extern std::string DSiSDPath;
-extern int DSiSDSize;
-extern bool DSiSDReadOnly;
-extern bool DSiSDFolderSync;
-extern std::string DSiSDFolderPath;
-
 extern bool FirmwareOverrideSettings;
 extern std::string FirmwareUsername;
 extern int FirmwareLanguage;
@@ -275,7 +242,6 @@ extern std::string MicDevice;
 extern std::string MicWavPath;
 
 extern std::string LastROMFolder;
-extern std::string LastBIOSFolder;
 
 extern std::string RecentROMList[10];
 
@@ -296,15 +262,7 @@ extern bool DSBatteryLevelOkay;
 extern int DSiBatteryLevel;
 extern bool DSiBatteryCharging;
 
-extern bool DSiFullBIOSBoot;
-
 extern CameraConfig Camera[2];
-
-extern bool GdbEnabled;
-extern int GdbPortARM7;
-extern int GdbPortARM9;
-extern bool GdbARM7BreakOnStartup;
-extern bool GdbARM9BreakOnStartup;
 
 
 bool Load();

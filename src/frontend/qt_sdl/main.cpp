@@ -340,7 +340,6 @@ int main(int argc, char** argv)
     if (!Config::Load()) QMessageBox::critical(NULL, "melonDS", "Unable to write to config.\nPlease check the write permissions of the folder you placed melonDS in.");
 
 #define SANITIZE(var, min, max)  { var = std::clamp(var, min, max); }
-    SANITIZE(Config::ConsoleType, 0, 1);
 #ifdef OGLRENDERER_ENABLED
     SANITIZE(Config::_3DRenderer, 0, 1); // 0 is the software renderer, 1 is the OpenGL renderer
 #else
