@@ -19,7 +19,11 @@
 #ifndef VERSION_H
 #define VERSION_H
 
-#define MELONDS_URL        "https://melonds.kuribo64.net/"
+#define MELONDS_URL            "${melonDS_HOMEPAGE_URL}"
+
+#define MELONDS_VERSION_BASE   "${melonDS_VERSION}"
+#define MELONDS_VERSION_SUFFIX "${MELONDS_VERSION_SUFFIX}"
+#define MELONDS_VERSION        MELONDS_VERSION_BASE MELONDS_VERSION_SUFFIX
 
 #endif // VERSION_H
 

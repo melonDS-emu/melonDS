@@ -52,7 +52,6 @@ add_library(core STATIC
     types.h
     Utils.cpp
     Utils.h
-    version.h
     Wifi.cpp
     WifiAP.cpp
 
@@ -122,6 +121,12 @@ if (ENABLE_JIT)
             ARMJIT_A64/ARMJIT_Linkage.S)
     endif()
 endif()
+
+set(MELONDS_VERSION_SUFFIX "$ENV{MELONDS_VERSION_SUFFIX}" CACHE STRING "Suffix to add to displayed melonDS version")
+
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
+target_sources(core PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/version.h")
+target_include_directories(core PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
 
 add_subdirectory(teakra EXCLUDE_FROM_ALL)
 # Workaround for building teakra with -O0 on Windows either failing or hanging forever

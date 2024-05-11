@@ -72,6 +72,7 @@
 
 #include "Platform.h"
 #include "Config.h"
+#include "version.h"
 #include "Savestate.h"
 #include "LocalMP.h"
 

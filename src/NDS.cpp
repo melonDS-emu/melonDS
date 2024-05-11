@@ -35,6 +35,7 @@
 #include "Platform.h"
 #include "FreeBIOS.h"
 #include "Args.h"
+#include "version.h"
 
 #include "DSi.h"
 #include "DSi_SPI_TSC.h"
@@ -2839,7 +2840,7 @@ u8 NDS::ARM9IORead8(u32 addr)
     if(addr >= 0x04FFFA00 && addr < 0x04FFFA10)
     {
         // FIX: GBATek says this should be padded with spaces
-        static char const emuID[16] = "melonDS " MELONDS_VERSION;
+        static char const emuID[16] = "melonDS " MELONDS_VERSION_BASE;
         auto idx = addr - 0x04FFFA00;
         return (u8)(emuID[idx]);
     }
