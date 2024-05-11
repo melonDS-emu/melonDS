@@ -1156,16 +1156,16 @@ void EmuInstance::reset()
     {
         std::string oldsave = firmwareSave->GetPath();
         string newsave;
-        if (Config::ExternalBIOSEnable)
+        if (globalCfg.GetBool("Emu.ExternalBIOSEnable"))
         {
-            if (Config::ConsoleType == 1)
-                newsave = Config::DSiFirmwarePath + Platform::InstanceFileSuffix();
+            if (nds->ConsoleType == 1)
+                newsave = globalCfg.GetString("DSi.FirmwarePath") + Platform::InstanceFileSuffix();
             else
-                newsave = Config::FirmwarePath + Platform::InstanceFileSuffix();
+                newsave = globalCfg.GetString("DS.FirmwarePath") + Platform::InstanceFileSuffix();
         }
         else
         {
-            newsave = Config::WifiSettingsPath + Platform::InstanceFileSuffix();
+            newsave = kWifiSettingsPath + Platform::InstanceFileSuffix();
         }
 
         if (oldsave != newsave)
@@ -1176,7 +1176,7 @@ void EmuInstance::reset()
 
     if (!baseROMName.empty())
     {
-        if (Config::DirectBoot || nds->NeedsDirectBoot())
+        if (globalCfg.GetBool("Emu.DirectBoot") || nds->NeedsDirectBoot())
         {
             nds->SetupDirectBoot(baseROMName);
         }
@@ -1187,7 +1187,7 @@ void EmuInstance::reset()
 bool EmuInstance::bootToMenu()
 {
     // Keep whatever cart is in the console, if any.
-    if (!thread->UpdateConsole(Keep {}, Keep {}))
+    if (!updateConsole(Keep {}, Keep {}))
         // Try to update the console, but keep the existing cart. If that fails...
         return false;
 
@@ -1300,12 +1300,12 @@ pair<unique_ptr<Firmware>, string> EmuInstance::generateDefaultFirmware()
 {
     // Construct the default firmware...
     string settingspath;
-    std::unique_ptr<Firmware> firmware = std::make_unique<Firmware>(Config::ConsoleType);
+    std::unique_ptr<Firmware> firmware = std::make_unique<Firmware>(nds->ConsoleType);
     assert(firmware->Buffer() != nullptr);
 
     // Try to open the instanced Wi-fi settings, falling back to the regular Wi-fi settings if they don't exist.
     // We don't need to save the whole firmware, just the part that may actually change.
-    std::string wfcsettingspath = Config::WifiSettingsPath;
+    std::string wfcsettingspath = kWifiSettingsPath;
     settingspath = wfcsettingspath + Platform::InstanceFileSuffix();
     FileHandle* f = Platform::OpenLocalFile(settingspath, FileMode::Read);
     if (!f)
@@ -1331,7 +1331,7 @@ pair<unique_ptr<Firmware>, string> EmuInstance::generateDefaultFirmware()
             Platform::Log(Platform::LogLevel::Warn, "Failed to read Wi-fi settings from \"%s\"; using defaults instead\n", wfcsettingspath.c_str());
 
             firmware->GetAccessPoints() = {
-                    Firmware::WifiAccessPoint(Config::ConsoleType),
+                    Firmware::WifiAccessPoint(nds->ConsoleType),
                     Firmware::WifiAccessPoint(),
                     Firmware::WifiAccessPoint(),
             };
@@ -1634,7 +1634,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
 
     if (reset)
     {
-        if (!emuthread->UpdateConsole(std::move(cart), Keep {}))
+        if (!updateConsole(std::move(cart), Keep {}))
         {
             QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
             return false;
@@ -1643,7 +1643,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
         initFirmwareSaveManager();
         nds->Reset();
 
-        if (Config::DirectBoot || nds->NeedsDirectBoot())
+        if (globalCfg.GetBool("Emu.DirectBoot") || nds->NeedsDirectBoot())
         { // If direct boot is enabled or forced...
             nds->SetupDirectBoot(romname);
         }
@@ -1775,7 +1775,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
 
 void EmuInstance::loadGBAAddon(int type)
 {
-    if (Config::ConsoleType == 1) return;
+    if (nds->ConsoleType == 1) return;
 
     gbaSave = nullptr;
 
@@ -1806,7 +1806,7 @@ bool EmuInstance::gbaCartInserted()
 
 QString EmuInstance::gbaCartLabel()
 {
-    if (Config::ConsoleType == 1) return "none (DSi)";
+    if (nds->ConsoleType == 1) return "none (DSi)";
 
     switch (gbaCartType)
     {
