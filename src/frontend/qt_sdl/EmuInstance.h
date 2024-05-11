@@ -19,9 +19,11 @@
 #ifndef EMUINSTANCE_H
 #define EMUINSTANCE_H
 
+#include "NDS.h"
 #include "EmuThread.h"
 #include "Window.h"
 #include "Config.h"
+#include "SaveManager.h"
 
 const int kMaxWindows = 16;
 
@@ -46,6 +48,27 @@ private:
     QString verifyDSiFirmware();
     QString verifyDSiNAND();
 
+    std::string getEffectiveFirmwareSavePath();
+    void initFirmwareSaveManager() noexcept;
+    std::string getSavestateName(int slot);
+    bool savestateExists(int slot);
+    bool loadState(const std::string& filename);
+    bool saveState(const std::string& filename);
+    void undoStateLoad();
+    void unloadCheats();
+    void loadCheats();
+    std::optional<std::array<melonDS::u8, melonDS::ARM9BIOSSize>> loadARM9BIOS() noexcept;
+    std::optional<std::array<melonDS::u8, melonDS::ARM7BIOSSize>> loadARM7BIOS() noexcept;
+    std::optional<std::array<melonDS::u8, melonDS::DSiBIOSSize>> loadDSiARM9BIOS() noexcept;
+    std::optional<std::array<melonDS::u8, melonDS::DSiBIOSSize>> loadDSiARM7BIOS() noexcept;
+    melonDS::Firmware generateFirmware(int type) noexcept;
+    std::optional<melonDS::Firmware> loadFirmware(int type) noexcept;
+    std::optional<melonDS::DSi_NAND::NANDImage> loadNAND(const std::array<melonDS::u8, melonDS::DSiBIOSSize>& arm7ibios) noexcept;
+    std::optional<melonDS::FATStorageArgs> getSDCardArgs(const std::string& key) noexcept;
+    std::optional<melonDS::FATStorage> loadSDCard(const std::string& key) noexcept;
+    void enableCheats(bool enable);
+    melonDS::ARCodeFile* getCheatFile();
+
     int instanceID;
 
     EmuThread* emuThread;
@@ -57,6 +80,8 @@ private:
     Config::Table globalCfg;
     Config::Table localCfg;
 
+    melonDS::NDS* nds;
+
     int cartType;
     std::string baseROMDir;
     std::string baseROMName;
@@ -66,6 +91,17 @@ private:
     std::string baseGBAROMDir;
     std::string baseGBAROMName;
     std::string baseGBAAssetName;
+
+    std::unique_ptr<SaveManager> ndsSave;
+    std::unique_ptr<SaveManager> gbaSave;
+    std::unique_ptr<SaveManager> firmwareSave;
+
+    std::unique_ptr<melonDS::Savestate> backupState;
+    bool savestateLoaded;
+    std::string previousSaveFile;
+
+    melonDS::ARCodeFile* cheatFile;
+    bool cheatsOn;
 };
 
 #endif //EMUINSTANCE_H

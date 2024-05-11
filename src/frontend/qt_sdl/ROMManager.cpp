@@ -325,7 +325,7 @@ QString VerifySetup()
 
     return "";
 }
-#endif
+
 std::string GetEffectiveFirmwareSavePath(EmuThread* thread)
 {
     if (!Config::ExternalBIOSEnable)
@@ -846,7 +846,7 @@ ARCodeFile* GetCheatFile()
 {
     return CheatFile;
 }
-
+#endif
 
 void SetBatteryLevels(NDS& nds)
 {

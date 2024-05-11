@@ -726,12 +726,13 @@ void Array::SetString(const int id, const std::string& val)
 }
 
 
-Table::Table() : Data()
+/*Table::Table()// : Data(toml::value())
 {
+    Data = toml::value();
     PathPrefix = "";
-}
+}*/
 
-Table::Table(toml::value& data, std::string path) : Data(data)
+Table::Table(toml::value& data, const std::string& path) : Data(data)
 {
     if (path.empty())
         PathPrefix = "";
@@ -739,10 +740,12 @@ Table::Table(toml::value& data, std::string path) : Data(data)
         PathPrefix = path + ".";
 }
 
-Table Table::operator=(Table b)
+Table& Table::operator=(const Table& b)
 {
     Data = b.Data;
     PathPrefix = b.PathPrefix;
+
+    return *this;
 }
 
 Array Table::GetArray(const std::string& path)

@@ -138,11 +138,11 @@ private:
 class Table
 {
 public:
-    Table();
-    Table(toml::value& data, std::string path);
+    //Table();
+    Table(toml::value& data, const std::string& path);
     ~Table() {}
 
-    Table operator=(Table b);
+    Table& operator=(const Table& b);
 
     Array GetArray(const std::string& path);
     Table GetTable(const std::string& path);
@@ -223,7 +223,7 @@ extern int FirmwareBirthdayDay;
 extern int FirmwareFavouriteColour;
 extern std::string FirmwareMessage;
 extern std::string FirmwareMAC;
-extern std::string WifiSettingsPath;
+//extern std::string WifiSettingsPath;
 
 extern int MPAudioMode;
 extern int MPRecvTimeout;
