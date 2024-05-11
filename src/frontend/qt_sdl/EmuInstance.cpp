@@ -1214,8 +1214,8 @@ u32 EmuInstance::decompressROM(const u8* inContent, const u32 inSize, unique_ptr
 
     if (realSize != ZSTD_CONTENTSIZE_UNKNOWN)
     {
-        outContent = make_unique<u8[]>(realSize);
-        u64 decompressed = ZSTD_decompress(outContent.get(), realSize, inContent, inSize);
+        auto newOutContent = make_unique<u8[]>(realSize);
+        u64 decompressed = ZSTD_decompress(newOutContent.get(), realSize, inContent, inSize);
 
         if (ZSTD_isError(decompressed))
         {
@@ -1223,6 +1223,7 @@ u32 EmuInstance::decompressROM(const u8* inContent, const u32 inSize, unique_ptr
             return 0;
         }
 
+        outContent = std::move(newOutContent);
         return realSize;
     }
     else
@@ -1277,7 +1278,6 @@ u32 EmuInstance::decompressROM(const u8* inContent, const u32 inSize, unique_ptr
             }
         } while (inBuf.pos < inBuf.size);
 
-        ZSTD_freeDStream(dStream);
         outContent = make_unique<u8[]>(outBuf.pos);
         memcpy(outContent.get(), outBuf.dst, outBuf.pos);
 
