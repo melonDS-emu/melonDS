@@ -68,6 +68,29 @@ private:
     std::optional<melonDS::FATStorage> loadSDCard(const std::string& key) noexcept;
     void enableCheats(bool enable);
     melonDS::ARCodeFile* getCheatFile();
+    void setBatteryLevels();
+    void setDateTime();
+    bool updateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept;
+    void reset();
+    bool bootToMenu();
+    melonDS::u32 decompressROM(const melonDS::u8* inContent, const melonDS::u32 inSize, std::unique_ptr<melonDS::u8[]>& outContent);
+    void clearBackupState();
+    std::pair<std::unique_ptr<melonDS::Firmware>, std::string> generateDefaultFirmware();
+    bool parseMacAddress(void* data);
+    void customizeFirmware(melonDS::Firmware& firmware) noexcept;
+    bool loadROMData(const QStringList& filepath, std::unique_ptr<melonDS::u8[]>& filedata, melonDS::u32& filelen, std::string& basepath, std::string& romname) noexcept;
+    QString getSavErrorString(std::string& filepath, bool gba);
+    bool loadROM(QStringList filepath, bool reset);
+    void ejectCart();
+    bool cartInserted();
+    QString cartLabel();
+    bool loadGBAROM(QStringList filepath);
+    void loadGBAAddon(int type);
+    void ejectGBACart();
+    bool gbaCartInserted();
+    QString gbaCartLabel();
+    void romIcon(const melonDS::u8 (&data)[512], const melonDS::u16 (&palette)[16], melonDS::u32 (&iconRef)[32*32]);
+    void animatedROMIcon(const melonDS::u8 (&data)[8][512], const melonDS::u16 (&palette)[8][16], const melonDS::u16 (&sequence)[64], melonDS::u32 (&animatedIconRef)[64][32*32], std::vector<int> &animatedSequenceRef);
 
     int instanceID;
 
