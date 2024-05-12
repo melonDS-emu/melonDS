@@ -31,19 +31,19 @@
 
 inline bool UsesGL()
 {
-    return (Config::ScreenUseGL != 0) || (Config::_3DRenderer != GPU::renderer3D_Software);
+    return (Config::ScreenUseGL != 0) || (Config::_3DRenderer != renderer3D_Software);
 }
 
 VideoSettingsDialog* VideoSettingsDialog::currentDlg = nullptr;
 
 void VideoSettingsDialog::setEnabled()
 {
-    bool softwareRenderer = Config::_3DRenderer == GPU::renderer3D_Software;
+    bool softwareRenderer = Config::_3DRenderer == renderer3D_Software;
     ui->cbGLDisplay->setEnabled(softwareRenderer);
     ui->cbSoftwareThreaded->setEnabled(softwareRenderer);
     ui->cbxGLResolution->setEnabled(!softwareRenderer);
-    ui->cbBetterPolygons->setEnabled(Config::_3DRenderer == GPU::renderer3D_OpenGL);
-    ui->cbxComputeHiResCoords->setEnabled(Config::_3DRenderer == GPU::renderer3D_OpenGLCompute);
+    ui->cbBetterPolygons->setEnabled(Config::_3DRenderer == renderer3D_OpenGL);
+    ui->cbxComputeHiResCoords->setEnabled(Config::_3DRenderer == renderer3D_OpenGLCompute);
 }
 
 VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::VideoSettingsDialog)
@@ -61,9 +61,9 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     oldHiresCoordinates = Config::GL_HiresCoordinates;
 
     grp3DRenderer = new QButtonGroup(this);
-    grp3DRenderer->addButton(ui->rb3DSoftware, GPU::renderer3D_Software);
-    grp3DRenderer->addButton(ui->rb3DOpenGL,   GPU::renderer3D_OpenGL);
-    grp3DRenderer->addButton(ui->rb3DCompute,  GPU::renderer3D_OpenGLCompute);
+    grp3DRenderer->addButton(ui->rb3DSoftware, renderer3D_Software);
+    grp3DRenderer->addButton(ui->rb3DOpenGL,   renderer3D_OpenGL);
+    grp3DRenderer->addButton(ui->rb3DCompute,  renderer3D_OpenGLCompute);
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
     connect(grp3DRenderer, SIGNAL(buttonClicked(int)), this, SLOT(onChange3DRenderer(int)));
 #else

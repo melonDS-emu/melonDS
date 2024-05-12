@@ -248,7 +248,7 @@ ConfigEntry ConfigFile[] =
     {"ScreenVSync",         1, &ScreenVSync,         false, false},
     {"ScreenVSyncInterval", 0, &ScreenVSyncInterval, 1, false},
 
-    {"3DRenderer", 0, &_3DRenderer, GPU::renderer3D_Software, false},
+    {"3DRenderer", 0, &_3DRenderer, renderer3D_Software, false},
     {"Threaded3D", 1, &Threaded3D, true, false},
 
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, false},

@@ -212,12 +212,7 @@ bool CompilerShader(GLuint& id, const std::string& source, const std::string& na
         Log(LogLevel::Debug, "shader source:\n--\n%s\n--\n", source.c_str());
         delete[] log;
 
-        Platform::FileHandle* logf = Platform::OpenFile("shaderfail.log", Platform::FileMode::WriteText);
-        Platform::FileWrite(fs, len+1, 1, logf);
-        Platform::CloseFile(logf);
-
-        glDeleteShader(ids[0]);
-        glDeleteShader(ids[1]);
+        glDeleteShader(id);
 
         return false;
     }

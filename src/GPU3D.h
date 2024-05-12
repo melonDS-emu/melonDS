@@ -352,6 +352,7 @@ public:
 
     virtual void SetupAccelFrame() {}
     virtual void PrepareCaptureFrame() {}
+    virtual void BindOutputTexture(int buffer) {}
 
 protected:
     Renderer3D(bool Accelerated);
@@ -361,12 +362,5 @@ extern int Renderer;
 extern std::unique_ptr<Renderer3D> CurrentRenderer;
 
 }
-
-#include "GPU3D_Soft.h"
-
-#ifdef OGLRENDERER_ENABLED
-#include "GPU3D_OpenGL.h"
-#include "GPU3D_Compute.h"
-#endif
 
 #endif

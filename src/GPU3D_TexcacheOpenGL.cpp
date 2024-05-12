@@ -1,6 +1,6 @@
 #include "GPU3D_TexcacheOpenGL.h"
 
-namespace GPU3D
+namespace melonDS
 {
 
 GLuint TexcacheOpenGLLoader::GenerateTexture(u32 width, u32 height, u32 layers)

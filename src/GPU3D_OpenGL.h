@@ -45,11 +45,10 @@ public:
     u32* GetLine(int line) override;
 
     void SetupAccelFrame() override;
-    void PrepareCaptureFrame() override override;
+    void PrepareCaptureFrame() override;
     void Blit(const GPU& gpu) override;
 
-    [[nodiscard]] const GLCompositor& GetCompositor() const noexcept { return CurGLCompositor; }
-    GLCompositor& GetCompositor() noexcept { return CurGLCompositor; }
+    void BindOutputTexture(int buffer) override;
 
     static std::unique_ptr<GLRenderer> New() noexcept;
 private:

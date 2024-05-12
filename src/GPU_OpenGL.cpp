@@ -169,7 +169,7 @@ GLCompositor& GLCompositor::operator=(GLCompositor&& other) noexcept
         CompVertices = other.CompVertices;
 
         // Clean up these resources before overwriting them
-        OpenGL::DeleteShaderProgram(CompShader.data());
+        glDeleteProgram(CompShader);
         CompShader = other.CompShader;
 
         glDeleteBuffers(1, &CompVertexBufferID);
@@ -239,7 +239,7 @@ void GLCompositor::Stop(const GPU& gpu) noexcept
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void GLCompositor::RenderFrame(const GPU& gpu, GLRenderer& renderer) noexcept
+void GLCompositor::RenderFrame(const GPU& gpu, Renderer3D& renderer) noexcept
 {
     int backbuf = gpu.FrontBuffer ^ 1;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);

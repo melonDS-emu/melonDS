@@ -52,10 +52,12 @@
 #include "DSi_I2C.h"
 #include "GPU3D_Soft.h"
 #include "GPU3D_OpenGL.h"
+#include "GPU3D_Compute.h"
 
 #include "Savestate.h"
 
 #include "ROMManager.h"
+#include "EmuThread.h"
 //#include "ArchiveUtil.h"
 //#include "CameraManager.h"
 
@@ -94,9 +96,8 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
 }
 
 std::unique_ptr<NDS> EmuThread::CreateConsole(
-    std::unique_ptr<melonDS::NDSCart::CartCommon>&& ndscart,
-    std::unique_ptr<melonDS::GBACart::CartCommon>&& gbacart
-) noexcept
+    std::unique_ptr<melonDS::NDSCart::CartCommon> &&ndscart,
+    std::unique_ptr<melonDS::GBACart::CartCommon> &&gbacart) noexcept
 {
     auto arm7bios = ROMManager::LoadARM7BIOS();
     if (!arm7bios)
@@ -326,16 +327,7 @@ void EmuThread::run()
         videoRenderer = 0;
     }
 
-    if (videoRenderer == 0)
-    { // If we're using the software renderer...
-        NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
-    }
-    else
-    {
-        auto glrenderer =  melonDS::GLRenderer::New();
-        glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
-        NDS->GPU.SetRenderer3D(std::move(glrenderer));
-    }
+    updateRenderer();
 
     Input::Init();
 
@@ -451,20 +443,10 @@ void EmuThread::run()
                     videoRenderer = 0;
                 }
 
-                videoRenderer = screenGL ? Config::_3DRenderer : 0;
+                printf("miau\n");
+                updateRenderer();
 
                 videoSettingsDirty = false;
-
-                if (videoRenderer == 0)
-                { // If we're using the software renderer...
-                    NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
-                }
-                else
-                {
-                    auto glrenderer =  melonDS::GLRenderer::New();
-                    glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
-                    NDS->GPU.SetRenderer3D(std::move(glrenderer));
-                }
             }
 
             // process input and hotkeys
@@ -749,4 +731,40 @@ bool EmuThread::emuIsRunning()
 bool EmuThread::emuIsActive()
 {
     return (RunningSomething == 1);
+}
+
+void EmuThread::updateRenderer()
+{
+    if (videoRenderer != lastVideoRenderer)
+    {
+        printf("creating renderer %d\n", videoRenderer);
+        switch (videoRenderer)
+        {
+        case renderer3D_Software:
+            NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>());
+            break;
+        case renderer3D_OpenGL:
+                NDS->GPU.SetRenderer3D(GLRenderer::New());
+            break;
+        case renderer3D_OpenGLCompute:
+            NDS->GPU.SetRenderer3D(ComputeRenderer::New());
+            break;
+        default: __builtin_unreachable();
+        }
+    }
+    lastVideoRenderer = videoRenderer;
+
+    switch (videoRenderer)
+    {
+    case renderer3D_Software:
+        static_cast<SoftRenderer&>(NDS->GPU.GetRenderer3D()).SetThreaded(Config::Threaded3D, NDS->GPU);
+        break;
+    case renderer3D_OpenGL:
+        static_cast<GLRenderer&>(NDS->GPU.GetRenderer3D()).SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
+        break;
+    case renderer3D_OpenGLCompute:
+        static_cast<ComputeRenderer&>(NDS->GPU.GetRenderer3D()).SetRenderSettings(Config::GL_ScaleFactor, Config::GL_HiresCoordinates);
+        break;
+    default: __builtin_unreachable();
+    }
 }

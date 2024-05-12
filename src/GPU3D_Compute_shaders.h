@@ -21,7 +21,7 @@
 
 #include <string>
 
-namespace GPU3D
+namespace melonDS
 {
 
 namespace ComputeRendererShaders

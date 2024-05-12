@@ -26,6 +26,9 @@
 #include <initializer_list>
 #include <algorithm>
 
+namespace melonDS
+{
+
 inline u64 GetRangedBitMask(u32 idx, u32 startBit, u32 bitsCount)
 {
     u32 startEntry = startBit >> 6;
@@ -55,8 +58,6 @@ inline u64 GetRangedBitMask(u32 idx, u32 startBit, u32 bitsCount)
 // like std::bitset but less stupid and optimised for 
 // our use case (keeping track of memory invalidations)
 
-namespace melonDS
-{
 template <u32 Size>
 struct NonStupidBitField
 {

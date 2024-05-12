@@ -24,11 +24,11 @@
 
 #include "GPU3D_Compute_shaders.h"
 
-namespace GPU3D
+namespace melonDS
 {
 
-ComputeRenderer::ComputeRenderer()
-    : Renderer3D(true), Texcache(TexcacheOpenGLLoader())
+ComputeRenderer::ComputeRenderer(GLCompositor&& compositor)
+    : Renderer3D(true), Texcache(TexcacheOpenGLLoader()), CurGLCompositor(std::move(compositor))
 {}
 
 bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, const std::initializer_list<const char*>& defines)
@@ -64,7 +64,11 @@ void blah(GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,con
 
 std::unique_ptr<ComputeRenderer> ComputeRenderer::New()
 {
-    std::unique_ptr<ComputeRenderer> result = std::unique_ptr<ComputeRenderer>(new ComputeRenderer());
+    std::optional<GLCompositor> compositor =  GLCompositor::New();
+    if (!compositor)
+        return nullptr;
+
+    std::unique_ptr<ComputeRenderer> result = std::unique_ptr<ComputeRenderer>(new ComputeRenderer(std::move(*compositor)));
 
     //glDebugMessageCallback(blah, NULL);
     //glEnable(GL_DEBUG_OUTPUT);
@@ -174,26 +178,28 @@ void ComputeRenderer::DeleteShaders()
         glDeleteProgram(program);
 }
 
-void ComputeRenderer::Reset()
+void ComputeRenderer::Reset(GPU& gpu)
 {
     Texcache.Reset();
 }
 
-void ComputeRenderer::SetRenderSettings(GPU::RenderSettings& settings)
+void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinates)
 {
+    CurGLCompositor.SetScaleFactor(scale);
+
     if (ScaleFactor != -1)
     {
         DeleteShaders();
     }
 
-    ScaleFactor = settings.GL_ScaleFactor;
+    ScaleFactor = scale;
     ScreenWidth = 256 * ScaleFactor;
     ScreenHeight = 192 * ScaleFactor;
 
     TilesPerLine = ScreenWidth/TileSize;
     TileLines = ScreenHeight/TileSize;
 
-    HiresCoordinates = settings.GL_HiresCoordinates;
+    HiresCoordinates = highResolutionCoordinates;
 
     MaxWorkTiles = TilesPerLine*TileLines*8;
 
@@ -271,7 +277,7 @@ void ComputeRenderer::SetRenderSettings(GPU::RenderSettings& settings)
     CompileShader(ShaderFinalPass[7], ComputeRendererShaders::FinalPass, {"FinalPass", "AntiAliasing", "EdgeMarking", "Fog"});
 }
 
-void ComputeRenderer::VCount144()
+void ComputeRenderer::VCount144(GPU& gpu)
 {
 
 }
@@ -503,11 +509,9 @@ struct Variant
     => 20 Shader + 1x Shadow Mask
 */
 
-void ComputeRenderer::RenderFrame()
+void ComputeRenderer::RenderFrame(GPU& gpu)
 {
-    //printf("render frame\n");
-
-    if (!Texcache.Update() && RenderFrameIdentical)
+    if (!Texcache.Update(gpu) && gpu.GPU3D.RenderFrameIdentical)
     {
         return;
     }
@@ -530,11 +534,11 @@ void ComputeRenderer::RenderFrame()
     u32 numVariants = 0, prevVariant, prevTexLayer;
     Variant variants[MaxVariants];
 
-    bool enableTextureMaps = RenderDispCnt & (1<<0);
+    bool enableTextureMaps = gpu.GPU3D.RenderDispCnt & (1<<0);
 
-    for (int i = 0; i < RenderNumPolygons; i++)
+    for (int i = 0; i < gpu.GPU3D.RenderNumPolygons; i++)
     {
-        Polygon* polygon = RenderPolygonRAM[i];
+        Polygon* polygon = gpu.GPU3D.RenderPolygonRAM[i];
 
         u32 nverts = polygon->NumVertices;
         u32 vtop = polygon->VTop, vbot = polygon->VBottom;
@@ -550,7 +554,7 @@ void ComputeRenderer::RenderFrame()
         {
             // if the whole texture attribute matches
             // the texture layer will also match
-            Polygon* prevPolygon = RenderPolygonRAM[i - 1];
+            Polygon* prevPolygon = gpu.GPU3D.RenderPolygonRAM[i - 1];
             foundVariant = prevPolygon->TexParam == polygon->TexParam
                 && prevPolygon->TexPalette == polygon->TexPalette
                 && (prevPolygon->Attr & 0x30) == (polygon->Attr & 0x30)
@@ -567,7 +571,7 @@ void ComputeRenderer::RenderFrame()
             // we always need to look up the texture to get the layer of the array texture
             if (enableTextureMaps && (polygon->TexParam >> 26) & 0x7)
             {
-                Texcache.GetTexture(polygon->TexParam, polygon->TexPalette, variant.Texture, prevTexLayer, textureLastVariant);
+                Texcache.GetTexture(gpu, polygon->TexParam, polygon->TexPalette, variant.Texture, prevTexLayer, textureLastVariant);
                 bool wrapS = (polygon->TexParam >> 16) & 1;
                 bool wrapT = (polygon->TexParam >> 17) & 1;
                 bool mirrorS = (polygon->TexParam >> 18) & 1;
@@ -760,7 +764,7 @@ void ComputeRenderer::RenderFrame()
         glBufferSubData(GL_TEXTURE_BUFFER, 0, numSetupIndices*4*2, YSpanIndices.data());
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, RenderPolygonMemory);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, RenderNumPolygons*sizeof(RenderPolygon), RenderPolygons);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, gpu.GPU3D.RenderNumPolygons*sizeof(RenderPolygon), RenderPolygons);
         // we haven't accessed image data yet, so we don't need to invalidate anything
     }
 
@@ -777,22 +781,22 @@ void ComputeRenderer::RenderFrame()
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, WorkDescMemory);
 
     MetaUniform meta;
-    meta.DispCnt = RenderDispCnt;
-    meta.NumPolygons = RenderNumPolygons;
+    meta.DispCnt = gpu.GPU3D.RenderDispCnt;
+    meta.NumPolygons = gpu.GPU3D.RenderNumPolygons;
     meta.NumVariants = numVariants;
-    meta.AlphaRef = RenderAlphaRef;
+    meta.AlphaRef = gpu.GPU3D.RenderAlphaRef;
     {
-        u32 r = (RenderClearAttr1 << 1) & 0x3E; if (r) r++;
-        u32 g = (RenderClearAttr1 >> 4) & 0x3E; if (g) g++;
-        u32 b = (RenderClearAttr1 >> 9) & 0x3E; if (b) b++;
-        u32 a = (RenderClearAttr1 >> 16) & 0x1F;
+        u32 r = (gpu.GPU3D.RenderClearAttr1 << 1) & 0x3E; if (r) r++;
+        u32 g = (gpu.GPU3D.RenderClearAttr1 >> 4) & 0x3E; if (g) g++;
+        u32 b = (gpu.GPU3D.RenderClearAttr1 >> 9) & 0x3E; if (b) b++;
+        u32 a = (gpu.GPU3D.RenderClearAttr1 >> 16) & 0x1F;
         meta.ClearColor = r | (g << 8) | (b << 16) | (a << 24);
-        meta.ClearDepth = ((RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
-        meta.ClearAttr = RenderClearAttr1 & 0x3F008000;
+        meta.ClearDepth = ((gpu.GPU3D.RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
+        meta.ClearAttr = gpu.GPU3D.RenderClearAttr1 & 0x3F008000;
     }
     for (u32 i = 0; i < 32; i++)
     {
-        u32 color = RenderToonTable[i];
+        u32 color = gpu.GPU3D.RenderToonTable[i];
         u32 r = (color << 1) & 0x3E;
         u32 g = (color >> 4) & 0x3E;
         u32 b = (color >> 9) & 0x3E;
@@ -804,11 +808,11 @@ void ComputeRenderer::RenderFrame()
     }
     for (u32 i = 0; i < 34; i++)
     {
-        meta.ToonTable[i*4+1] = RenderFogDensityTable[i];
+        meta.ToonTable[i*4+1] = gpu.GPU3D.RenderFogDensityTable[i];
     }
     for (u32 i = 0; i < 8; i++)
     {
-        u32 color = RenderEdgeTable[i];
+        u32 color = gpu.GPU3D.RenderEdgeTable[i];
         u32 r = (color << 1) & 0x3E;
         u32 g = (color >> 4) & 0x3E;
         u32 b = (color >> 9) & 0x3E;
@@ -818,13 +822,13 @@ void ComputeRenderer::RenderFrame()
 
         meta.ToonTable[i*4+2] = r | (g << 8) | (b << 16);
     }
-    meta.FogOffset = RenderFogOffset;
-    meta.FogShift = RenderFogShift;
+    meta.FogOffset = gpu.GPU3D.RenderFogOffset;
+    meta.FogShift = gpu.GPU3D.RenderFogShift;
     {
-        u32 fogR = (RenderFogColor << 1) & 0x3E; if (fogR) fogR++;
-        u32 fogG = (RenderFogColor >> 4) & 0x3E; if (fogG) fogG++;
-        u32 fogB = (RenderFogColor >> 9) & 0x3E; if (fogB) fogB++;
-        u32 fogA = (RenderFogColor >> 16) & 0x1F;
+        u32 fogR = (gpu.GPU3D.RenderFogColor << 1) & 0x3E; if (fogR) fogR++;
+        u32 fogG = (gpu.GPU3D.RenderFogColor >> 4) & 0x3E; if (fogG) fogG++;
+        u32 fogB = (gpu.GPU3D.RenderFogColor >> 9) & 0x3E; if (fogB) fogB++;
+        u32 fogA = (gpu.GPU3D.RenderFogColor >> 16) & 0x1F;
         meta.FogColor = fogR | (fogG << 8) | (fogB << 16) | (fogA << 24);
     }
 
@@ -838,7 +842,7 @@ void ComputeRenderer::RenderFrame()
     bool wbuffer = false;
     if (numYSpans > 0)
     {
-        wbuffer = RenderPolygonRAM[0]->WBuffer;
+        wbuffer = gpu.GPU3D.RenderPolygonRAM[0]->WBuffer;
 
         glUseProgram(ShaderClearIndirectWorkCount);
         glDispatchCompute((numVariants+31)/32, 1, 1);
@@ -851,7 +855,7 @@ void ComputeRenderer::RenderFrame()
 
         // bin polygons
         glUseProgram(ShaderBinCombined);
-        glDispatchCompute(((RenderNumPolygons + 31) / 32), ScreenWidth/CoarseTileW, ScreenHeight/CoarseTileH);
+        glDispatchCompute(((gpu.GPU3D.RenderNumPolygons + 31) / 32), ScreenWidth/CoarseTileW, ScreenHeight/CoarseTileH);
         glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
 
         // calculate list offsets
@@ -872,7 +876,7 @@ void ComputeRenderer::RenderFrame()
 
         // rasterise
         {
-            bool highLightMode = RenderDispCnt & (1<<1);
+            bool highLightMode = gpu.GPU3D.RenderDispCnt & (1<<1);
 
             GLuint shadersNoTexture[] =
             {
@@ -942,11 +946,11 @@ void ComputeRenderer::RenderFrame()
     glBindImageTexture(0, Framebuffer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
     glBindImageTexture(1, LowResFramebuffer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8UI);
     u32 finalPassShader = 0;
-    if (RenderDispCnt & (1<<4))
+    if (gpu.GPU3D.RenderDispCnt & (1<<4))
         finalPassShader |= 0x4;
-    if (RenderDispCnt & (1<<7))
+    if (gpu.GPU3D.RenderDispCnt & (1<<7))
         finalPassShader |= 0x2;
-    if (RenderDispCnt & (1<<5))
+    if (gpu.GPU3D.RenderDispCnt & (1<<5))
         finalPassShader |= 0x1;
     
     glUseProgram(ShaderFinalPass[finalPassShader]);
@@ -1002,7 +1006,7 @@ void ComputeRenderer::RenderFrame()
     }*/
 }
 
-void ComputeRenderer::RestartFrame()
+void ComputeRenderer::RestartFrame(GPU& gpu)
 {
 
 }
@@ -1032,6 +1036,21 @@ void ComputeRenderer::PrepareCaptureFrame()
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelBuffer);
     glBindTexture(GL_TEXTURE_2D, LowResFramebuffer);
     glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, nullptr);
+}
+
+void ComputeRenderer::BindOutputTexture(int buffer)
+{
+    CurGLCompositor.BindOutputTexture(buffer);
+}
+
+void ComputeRenderer::Blit(const GPU &gpu)
+{
+    CurGLCompositor.RenderFrame(gpu, *this);
+}
+
+void ComputeRenderer::Stop(const GPU &gpu)
+{
+    CurGLCompositor.Stop(gpu);
 }
 
 }

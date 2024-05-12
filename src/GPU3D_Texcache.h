@@ -6,11 +6,12 @@
 
 #include <assert.h>
 #include <unordered_map>
+#include <vector>
 
 #define XXH_STATIC_LINKING_ONLY
 #include "xxhash/xxhash.h"
 
-namespace GPU3D
+namespace melonDS
 {
 
 inline u32 TextureWidth(u32 texparam)
@@ -47,13 +48,13 @@ public:
         : TexLoader(texloader) // probably better if this would be a move constructor???
     {}
 
-    bool Update()
+    bool Update(GPU& gpu)
     {
-        auto textureDirty = GPU::VRAMDirty_Texture.DeriveState(GPU::VRAMMap_Texture);
-        auto texPalDirty = GPU::VRAMDirty_TexPal.DeriveState(GPU::VRAMMap_TexPal);
+        auto textureDirty = gpu.VRAMDirty_Texture.DeriveState(gpu.VRAMMap_Texture, gpu);
+        auto texPalDirty = gpu.VRAMDirty_TexPal.DeriveState(gpu.VRAMMap_TexPal, gpu);
 
-        bool textureChanged = GPU::MakeVRAMFlat_TextureCoherent(textureDirty);
-        bool texPalChanged = GPU::MakeVRAMFlat_TexPalCoherent(texPalDirty);
+        bool textureChanged = gpu.MakeVRAMFlat_TextureCoherent(textureDirty);
+        bool texPalChanged = gpu.MakeVRAMFlat_TexPalCoherent(texPalDirty);
 
         if (textureChanged || texPalChanged)
         {
@@ -65,8 +66,8 @@ public:
                 {
                     for (u32 i = 0; i < 2; i++)
                     {
-                        u32 startBit = entry.TextureRAMStart[i] / GPU::VRAMDirtyGranularity;
-                        u32 bitsCount = ((entry.TextureRAMStart[i] + entry.TextureRAMSize[i] + GPU::VRAMDirtyGranularity - 1) / GPU::VRAMDirtyGranularity) - startBit;
+                        u32 startBit = entry.TextureRAMStart[i] / VRAMDirtyGranularity;
+                        u32 bitsCount = ((entry.TextureRAMStart[i] + entry.TextureRAMSize[i] + VRAMDirtyGranularity - 1) / VRAMDirtyGranularity) - startBit;
 
                         u32 startEntry = startBit >> 6;
                         u64 entriesCount = ((startBit + bitsCount + 0x3F) >> 6) - startEntry;
@@ -74,7 +75,7 @@ public:
                         {
                             if (GetRangedBitMask(j, startBit, bitsCount) & textureDirty.Data[j])
                             {
-                                u64 newTexHash = XXH3_64bits(&GPU::VRAMFlat_Texture[entry.TextureRAMStart[i]], entry.TextureRAMSize[i]);
+                                u64 newTexHash = XXH3_64bits(&gpu.VRAMFlat_Texture[entry.TextureRAMStart[i]], entry.TextureRAMSize[i]);
 
                                 if (newTexHash != entry.TextureHash[i])
                                     goto invalidate;
@@ -85,8 +86,8 @@ public:
 
                 if (texPalChanged && entry.TexPalSize > 0)
                 {
-                    u32 startBit = entry.TexPalStart / GPU::VRAMDirtyGranularity;
-                    u32 bitsCount = ((entry.TexPalStart + entry.TexPalSize + GPU::VRAMDirtyGranularity - 1) / GPU::VRAMDirtyGranularity) - startBit;
+                    u32 startBit = entry.TexPalStart / VRAMDirtyGranularity;
+                    u32 bitsCount = ((entry.TexPalStart + entry.TexPalSize + VRAMDirtyGranularity - 1) / VRAMDirtyGranularity) - startBit;
 
                     u32 startEntry = startBit >> 6;
                     u64 entriesCount = ((startBit + bitsCount + 0x3F) >> 6) - startEntry;
@@ -94,7 +95,7 @@ public:
                     {
                         if (GetRangedBitMask(j, startBit, bitsCount) & texPalDirty.Data[j])
                         {
-                            u64 newPalHash = XXH3_64bits(&GPU::VRAMFlat_TexPal[entry.TexPalStart], entry.TexPalSize);
+                            u64 newPalHash = XXH3_64bits(&gpu.VRAMFlat_TexPal[entry.TexPalStart], entry.TexPalSize);
                             if (newPalHash != entry.TexPalHash)
                                 goto invalidate;
                         }
@@ -117,7 +118,7 @@ public:
         return false;
     }
 
-    void GetTexture(u32 texParam, u32 palBase, TexHandleT& textureHandle, u32& layer, u32*& helper)
+    void GetTexture(GPU& gpu, u32 texParam, u32 palBase, TexHandleT& textureHandle, u32& layer, u32*& helper)
     {
         // remove sampling and texcoord gen params
         texParam &= ~0xC00F0000;
@@ -162,17 +163,17 @@ public:
         {
             entry.TextureRAMSize[0] = width*height*2;
 
-            ConvertBitmapTexture<outputFmt_RGB6A5>(width, height, DecodingBuffer, &GPU::VRAMFlat_Texture[addr]);
+            ConvertBitmapTexture<outputFmt_RGB6A5>(width, height, DecodingBuffer, &gpu.VRAMFlat_Texture[addr]);
         }
         else if (fmt == 5)
         {
-            u8* texData = &GPU::VRAMFlat_Texture[addr];
+            u8* texData = &gpu.VRAMFlat_Texture[addr];
             u32 slot1addr = 0x20000 + ((addr & 0x1FFFC) >> 1);
             if (addr >= 0x40000)
                 slot1addr += 0x10000;
-            u8* texAuxData = &GPU::VRAMFlat_Texture[slot1addr];
+            u8* texAuxData = &gpu.VRAMFlat_Texture[slot1addr];
 
-            u16* palData = (u16*)(GPU::VRAMFlat_TexPal + palBase*16);
+            u16* palData = (u16*)(gpu.VRAMFlat_TexPal + palBase*16);
 
             entry.TextureRAMSize[0] = width*height/16*4;
             entry.TextureRAMStart[1] = slot1addr;
@@ -203,8 +204,8 @@ public:
             entry.TexPalStart = palAddr;
             entry.TexPalSize = numPalEntries*2;
 
-            u8* texData = &GPU::VRAMFlat_Texture[addr];
-            u16* palData = (u16*)(GPU::VRAMFlat_TexPal + palAddr);
+            u8* texData = &gpu.VRAMFlat_Texture[addr];
+            u16* palData = (u16*)(gpu.VRAMFlat_TexPal + palAddr);
 
             //assert(entry.TexPalStart+entry.TexPalSize <= 128*1024*1024);
 
@@ -223,10 +224,10 @@ public:
         for (int i = 0; i < 2; i++)
         {
             if (entry.TextureRAMSize[i])
-                entry.TextureHash[i] = XXH3_64bits(&GPU::VRAMFlat_Texture[entry.TextureRAMStart[i]], entry.TextureRAMSize[i]);
+                entry.TextureHash[i] = XXH3_64bits(&gpu.VRAMFlat_Texture[entry.TextureRAMStart[i]], entry.TextureRAMSize[i]);
         }
         if (entry.TexPalSize)
-            entry.TexPalHash = XXH3_64bits(&GPU::VRAMFlat_TexPal[entry.TexPalStart], entry.TexPalSize);
+            entry.TexPalHash = XXH3_64bits(&gpu.VRAMFlat_TexPal[entry.TexPalStart], entry.TexPalSize);
 
         auto& texArrays = TexArrays[widthLog2][heightLog2];
         auto& freeTextures = FreeTextures[widthLog2][heightLog2];
@@ -234,7 +235,7 @@ public:
         if (freeTextures.size() == 0)
         {
             texArrays.resize(texArrays.size()+1);
-            GLuint& array = texArrays[texArrays.size()-1];
+            TexHandleT& array = texArrays[texArrays.size()-1];
 
             u32 layers = std::min<u32>((8*1024*1024) / (width*height*4), 64);
 

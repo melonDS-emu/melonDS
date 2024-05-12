@@ -1308,6 +1308,11 @@ void GLRenderer::Blit(const GPU& gpu)
     CurGLCompositor.RenderFrame(gpu, *this);
 }
 
+void GLRenderer::BindOutputTexture(int buffer)
+{
+    CurGLCompositor.BindOutputTexture(buffer);
+}
+
 u32* GLRenderer::GetLine(int line)
 {
     int stride = 256;
