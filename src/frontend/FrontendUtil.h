@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -24,8 +24,13 @@
 #include <string>
 #include <vector>
 
+namespace melonDS
+{
+class NDS;
+}
 namespace Frontend
 {
+using namespace melonDS;
 
 enum ScreenLayout
 {
@@ -104,14 +109,14 @@ int AudioOut_GetNumSamples(int outlen);
 void AudioOut_Resample(s16* inbuf, int inlen, s16* outbuf, int outlen, int volume);
 
 // feed silence to the microphone input
-void Mic_FeedSilence();
+void Mic_FeedSilence(NDS& nds);
 
 // feed random noise to the microphone input
-void Mic_FeedNoise();
+void Mic_FeedNoise(NDS& nds);
 
 // feed an external buffer to the microphone input
 // buffer should be mono
-void Mic_FeedExternalBuffer();
+void Mic_FeedExternalBuffer(NDS& nds);
 void Mic_SetExternalBuffer(s16* buffer, u32 len);
 
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include "Platform.h"
 #include "Config.h"
 #include "GPU.h"
@@ -26,6 +27,7 @@
 
 namespace Config
 {
+using namespace melonDS;
 
 int KeyMapping[12];
 int JoyMapping[12];
@@ -61,6 +63,7 @@ bool GL_BetterPolygons;
 bool GL_HiresCoordinates;
 
 bool LimitFPS;
+int MaxFPS;
 bool AudioSync;
 bool ShowOSD;
 
@@ -141,12 +144,23 @@ bool MouseHide;
 int MouseHideSeconds;
 
 bool PauseLostFocus;
+std::string UITheme;
+
+int64_t RTCOffset;
 
 bool DSBatteryLevelOkay;
 int DSiBatteryLevel;
 bool DSiBatteryCharging;
 
 bool DSiFullBIOSBoot;
+
+#ifdef GDBSTUB_ENABLED
+bool GdbEnabled;
+int GdbPortARM7;
+int GdbPortARM9;
+bool GdbARM7BreakOnStartup;
+bool GdbARM9BreakOnStartup;
+#endif
 
 CameraConfig Camera[2];
 
@@ -242,6 +256,7 @@ ConfigEntry ConfigFile[] =
     {"GL_HiresCoordinates", 1, &GL_HiresCoordinates, true, false},
 
     {"LimitFPS", 1, &LimitFPS, true, false},
+    {"MaxFPS", 0, &MaxFPS, 1000, false},
     {"AudioSync", 1, &AudioSync, false},
     {"ShowOSD", 1, &ShowOSD, true, false},
 
@@ -333,12 +348,23 @@ ConfigEntry ConfigFile[] =
     {"MouseHide",        1, &MouseHide,        false, false},
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, false},
     {"PauseLostFocus",   1, &PauseLostFocus,   false, false},
+    {"UITheme",          2, &UITheme, (std::string)"", false},
+
+    {"RTCOffset",       3, &RTCOffset,       (int64_t)0, true},
 
     {"DSBatteryLevelOkay",   1, &DSBatteryLevelOkay, true, true},
     {"DSiBatteryLevel",    0, &DSiBatteryLevel, 0xF, true},
     {"DSiBatteryCharging", 1, &DSiBatteryCharging, true, true},
 
     {"DSiFullBIOSBoot", 1, &DSiFullBIOSBoot, false, true},
+
+#ifdef GDBSTUB_ENABLED
+    {"GdbEnabled", 1, &GdbEnabled, false, false},
+    {"GdbPortARM7", 0, &GdbPortARM7, 3334, true},
+    {"GdbPortARM9", 0, &GdbPortARM9, 3333, true},
+    {"GdbARM7BreakOnStartup", 1, &GdbARM7BreakOnStartup, false, true},
+    {"GdbARM9BreakOnStartup", 1, &GdbARM9BreakOnStartup, false, true},
+#endif
 
     // TODO!!
     // we need a more elegant way to deal with this
@@ -355,7 +381,7 @@ ConfigEntry ConfigFile[] =
 };
 
 
-void LoadFile(int inst)
+bool LoadFile(int inst, int actualinst)
 {
     Platform::FileHandle* f;
     if (inst > 0)
@@ -363,11 +389,17 @@ void LoadFile(int inst)
         char name[100] = {0};
         snprintf(name, 99, kUniqueConfigFile, inst+1);
         f = Platform::OpenLocalFile(name, Platform::FileMode::ReadText);
+
+        if (!Platform::CheckLocalFileWritable(name)) return false;
     }
     else
+    {
         f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::ReadText);
 
-    if (!f) return;
+        if (actualinst == 0 && !Platform::CheckLocalFileWritable(kConfigFile)) return false;
+    }
+
+    if (!f) return true;
 
     char linebuf[1024];
     char entryname[32];
@@ -393,6 +425,7 @@ void LoadFile(int inst)
                 case 0: *(int*)entry->Value = strtol(entryval, NULL, 10); break;
                 case 1: *(bool*)entry->Value = strtol(entryval, NULL, 10) ? true:false; break;
                 case 2: *(std::string*)entry->Value = entryval; break;
+                case 3: *(int64_t*)entry->Value = strtoll(entryval, NULL, 10); break;
                 }
 
                 break;
@@ -401,9 +434,10 @@ void LoadFile(int inst)
     }
 
     CloseFile(f);
+    return true;
 }
 
-void Load()
+bool Load()
 {
 
     for (ConfigEntry* entry = &ConfigFile[0]; entry->Value; entry++)
@@ -413,14 +447,17 @@ void Load()
         case 0: *(int*)entry->Value = std::get<int>(entry->Default); break;
         case 1: *(bool*)entry->Value = std::get<bool>(entry->Default); break;
         case 2: *(std::string*)entry->Value = std::get<std::string>(entry->Default); break;
+        case 3: *(int64_t*)entry->Value = std::get<int64_t>(entry->Default); break;
         }
     }
-
-    LoadFile(0);
-
+    
     int inst = Platform::InstanceID();
+
+    bool ret = LoadFile(0, inst);
     if (inst > 0)
-        LoadFile(inst);
+        ret = LoadFile(inst, inst);
+
+    return ret;
 }
 
 void Save()
@@ -446,9 +483,10 @@ void Save()
 
         switch (entry->Type)
         {
-        case 0: Platform::FileWriteFormatted(f, "%s=%d\r\n", entry->Name, *(int*)entry->Value); break;
-        case 1: Platform::FileWriteFormatted(f, "%s=%d\r\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
-        case 2: Platform::FileWriteFormatted(f, "%s=%s\r\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
+        case 0: Platform::FileWriteFormatted(f, "%s=%d\n", entry->Name, *(int*)entry->Value); break;
+        case 1: Platform::FileWriteFormatted(f, "%s=%d\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
+        case 2: Platform::FileWriteFormatted(f, "%s=%s\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
+        case 3: Platform::FileWriteFormatted(f, "%s=%" PRId64 "\n", entry->Name, *(int64_t*)entry->Value); break;
         }
     }
 

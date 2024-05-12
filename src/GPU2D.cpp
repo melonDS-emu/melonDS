@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,6 +22,8 @@
 #include "GPU.h"
 #include "GPU3D.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -85,10 +87,8 @@ using Platform::LogLevel;
 
 namespace GPU2D
 {
-
-Unit::Unit(u32 num)
+Unit::Unit(u32 num, melonDS::GPU& gpu) : Num(num), GPU(gpu)
 {
-    Num = num;
 }
 
 void Unit::Reset()
@@ -288,10 +288,10 @@ void Unit::Write8(u32 addr, u8 val)
         return;
 
     case 0x10:
-        if (!Num) GPU3D::SetRenderXPos((GPU3D::RenderXPos & 0xFF00) | val);
+        if (!Num) GPU.GPU3D.SetRenderXPos((GPU.GPU3D.GetRenderXPos() & 0xFF00) | val);
         break;
     case 0x11:
-        if (!Num) GPU3D::SetRenderXPos((GPU3D::RenderXPos & 0x00FF) | (val << 8));
+        if (!Num) GPU.GPU3D.SetRenderXPos((GPU.GPU3D.GetRenderXPos() & 0x00FF) | (val << 8));
         break;
     }
 
@@ -384,7 +384,7 @@ void Unit::Write16(u32 addr, u16 val)
         return;
 
     case 0x010:
-        if (!Num) GPU3D::SetRenderXPos(val);
+        if (!Num) GPU.GPU3D.SetRenderXPos(val);
         break;
 
     case 0x068:
@@ -423,21 +423,21 @@ void Unit::Write16(u32 addr, u16 val)
     case 0x026: BGRotD[0] = val; return;
     case 0x028:
         BGXRef[0] = (BGXRef[0] & 0xFFFF0000) | val;
-        if (GPU::VCount < 192) BGXRefInternal[0] = BGXRef[0];
+        if (GPU.VCount < 192) BGXRefInternal[0] = BGXRef[0];
         return;
     case 0x02A:
         if (val & 0x0800) val |= 0xF000;
         BGXRef[0] = (BGXRef[0] & 0xFFFF) | (val << 16);
-        if (GPU::VCount < 192) BGXRefInternal[0] = BGXRef[0];
+        if (GPU.VCount < 192) BGXRefInternal[0] = BGXRef[0];
         return;
     case 0x02C:
         BGYRef[0] = (BGYRef[0] & 0xFFFF0000) | val;
-        if (GPU::VCount < 192) BGYRefInternal[0] = BGYRef[0];
+        if (GPU.VCount < 192) BGYRefInternal[0] = BGYRef[0];
         return;
     case 0x02E:
         if (val & 0x0800) val |= 0xF000;
         BGYRef[0] = (BGYRef[0] & 0xFFFF) | (val << 16);
-        if (GPU::VCount < 192) BGYRefInternal[0] = BGYRef[0];
+        if (GPU.VCount < 192) BGYRefInternal[0] = BGYRef[0];
         return;
 
     case 0x030: BGRotA[1] = val; return;
@@ -446,21 +446,21 @@ void Unit::Write16(u32 addr, u16 val)
     case 0x036: BGRotD[1] = val; return;
     case 0x038:
         BGXRef[1] = (BGXRef[1] & 0xFFFF0000) | val;
-        if (GPU::VCount < 192) BGXRefInternal[1] = BGXRef[1];
+        if (GPU.VCount < 192) BGXRefInternal[1] = BGXRef[1];
         return;
     case 0x03A:
         if (val & 0x0800) val |= 0xF000;
         BGXRef[1] = (BGXRef[1] & 0xFFFF) | (val << 16);
-        if (GPU::VCount < 192) BGXRefInternal[1] = BGXRef[1];
+        if (GPU.VCount < 192) BGXRefInternal[1] = BGXRef[1];
         return;
     case 0x03C:
         BGYRef[1] = (BGYRef[1] & 0xFFFF0000) | val;
-        if (GPU::VCount < 192) BGYRefInternal[1] = BGYRef[1];
+        if (GPU.VCount < 192) BGYRefInternal[1] = BGYRef[1];
         return;
     case 0x03E:
         if (val & 0x0800) val |= 0xF000;
         BGYRef[1] = (BGYRef[1] & 0xFFFF) | (val << 16);
-        if (GPU::VCount < 192) BGYRefInternal[1] = BGYRef[1];
+        if (GPU.VCount < 192) BGYRefInternal[1] = BGYRef[1];
         return;
 
     case 0x040:
@@ -542,23 +542,23 @@ void Unit::Write32(u32 addr, u32 val)
         case 0x028:
             if (val & 0x08000000) val |= 0xF0000000;
             BGXRef[0] = val;
-            if (GPU::VCount < 192) BGXRefInternal[0] = BGXRef[0];
+            if (GPU.VCount < 192) BGXRefInternal[0] = BGXRef[0];
             return;
         case 0x02C:
             if (val & 0x08000000) val |= 0xF0000000;
             BGYRef[0] = val;
-            if (GPU::VCount < 192) BGYRefInternal[0] = BGYRef[0];
+            if (GPU.VCount < 192) BGYRefInternal[0] = BGYRef[0];
             return;
 
         case 0x038:
             if (val & 0x08000000) val |= 0xF0000000;
             BGXRef[1] = val;
-            if (GPU::VCount < 192) BGXRefInternal[1] = BGXRef[1];
+            if (GPU.VCount < 192) BGXRefInternal[1] = BGXRef[1];
             return;
         case 0x03C:
             if (val & 0x08000000) val |= 0xF0000000;
             BGYRef[1] = val;
-            if (GPU::VCount < 192) BGYRefInternal[1] = BGYRef[1];
+            if (GPU.VCount < 192) BGYRefInternal[1] = BGYRef[1];
             return;
         }
     }
@@ -629,15 +629,15 @@ u16* Unit::GetBGExtPal(u32 slot, u32 pal)
     const u32 PaletteSize = 256 * 2;
     const u32 SlotSize = PaletteSize * 16;
     return (u16*)&(Num == 0
-         ? GPU::VRAMFlat_ABGExtPal
-         : GPU::VRAMFlat_BBGExtPal)[slot * SlotSize + pal * PaletteSize];
+         ? GPU.VRAMFlat_ABGExtPal
+         : GPU.VRAMFlat_BBGExtPal)[slot * SlotSize + pal * PaletteSize];
 }
 
 u16* Unit::GetOBJExtPal()
 {
     return Num == 0
-         ? (u16*)GPU::VRAMFlat_AOBJExtPal
-         : (u16*)GPU::VRAMFlat_BOBJExtPal;
+         ? (u16*)GPU.VRAMFlat_AOBJExtPal
+         : (u16*)GPU.VRAMFlat_BOBJExtPal;
 }
 
 void Unit::CheckWindows(u32 line)
@@ -649,7 +649,7 @@ void Unit::CheckWindows(u32 line)
     else if (line == Win1Coords[2]) Win1Active |=  0x1;
 }
 
-void Unit::CalculateWindowMask(u32 line, u8* windowMask, u8* objWindow)
+void Unit::CalculateWindowMask(u32 line, u8* windowMask, const u8* objWindow)
 {
     for (u32 i = 0; i < 256; i++)
         windowMask[i] = WinCnt[2]; // window outside
@@ -695,32 +695,33 @@ void Unit::CalculateWindowMask(u32 line, u8* windowMask, u8* objWindow)
     }
 }
 
-void Unit::GetBGVRAM(u8*& data, u32& mask)
+void Unit::GetBGVRAM(u8*& data, u32& mask) const
 {
     if (Num == 0)
     {
-        data = GPU::VRAMFlat_ABG;
+        data = GPU.VRAMFlat_ABG;
         mask = 0x7FFFF;
     }
     else
     {
-        data = GPU::VRAMFlat_BBG;
+        data = GPU.VRAMFlat_BBG;
         mask = 0x1FFFF;
     }
 }
 
-void Unit::GetOBJVRAM(u8*& data, u32& mask)
+void Unit::GetOBJVRAM(u8*& data, u32& mask) const
 {
     if (Num == 0)
     {
-        data = GPU::VRAMFlat_AOBJ;
+        data = GPU.VRAMFlat_AOBJ;
         mask = 0x3FFFF;
     }
     else
     {
-        data = GPU::VRAMFlat_BOBJ;
+        data = GPU.VRAMFlat_BOBJ;
         mask = 0x1FFFF;
     }
 }
 
+}
 }

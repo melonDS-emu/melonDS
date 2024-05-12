@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -24,18 +24,20 @@
 #include "Platform.h"
 #include "Config.h"
 #include "NDS.h"
+#include "DSi.h"
 #include "DSi_I2C.h"
 
 #include "AudioSettingsDialog.h"
 #include "ui_AudioSettingsDialog.h"
+#include "main.h"
 
-
+using namespace melonDS;
 AudioSettingsDialog* AudioSettingsDialog::currentDlg = nullptr;
 
 extern std::string EmuDirectory;
 
 
-AudioSettingsDialog::AudioSettingsDialog(QWidget* parent, bool emuActive) : QDialog(parent), ui(new Ui::AudioSettingsDialog)
+AudioSettingsDialog::AudioSettingsDialog(QWidget* parent, bool emuActive, EmuThread* emuThread) : QDialog(parent), ui(new Ui::AudioSettingsDialog), emuThread(emuThread)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
@@ -49,6 +51,7 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent, bool emuActive) : QDia
     ui->cbInterpolation->addItem("Linear");
     ui->cbInterpolation->addItem("Cosine");
     ui->cbInterpolation->addItem("Cubic");
+    ui->cbInterpolation->addItem("Gaussian (SNES)");
     ui->cbInterpolation->setCurrentIndex(Config::AudioInterp);
 
     ui->cbBitDepth->addItem("Automatic");
@@ -63,7 +66,7 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent, bool emuActive) : QDia
     ui->chkSyncDSiVolume->setChecked(Config::DSiVolumeSync);
 
     // Setup volume slider accordingly
-    if (emuActive && NDS::ConsoleType == 1)
+    if (emuActive && emuThread->NDS->ConsoleType == 1)
     {
         on_chkSyncDSiVolume_clicked(Config::DSiVolumeSync);
     }
@@ -77,15 +80,15 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent, bool emuActive) : QDia
     const int count = SDL_GetNumAudioDevices(true);
     for (int i = 0; i < count; i++)
     {
-        ui->cbMic->addItem(SDL_GetAudioDeviceName(i, true));   
+        ui->cbMic->addItem(SDL_GetAudioDeviceName(i, true));
     }
     if (Config::MicDevice == "" && count > 0)
-    {   
+    {
         Config::MicDevice = SDL_GetAudioDeviceName(0, true);
     }
 
-    ui->cbMic->setCurrentText(QString::fromStdString(Config::MicDevice));  
-    
+    ui->cbMic->setCurrentText(QString::fromStdString(Config::MicDevice));
+
     grpMicMode = new QButtonGroup(this);
     grpMicMode->addButton(ui->rbMicNone,     micInputType_Silence);
     grpMicMode->addButton(ui->rbMicExternal, micInputType_External);
@@ -123,10 +126,11 @@ AudioSettingsDialog::~AudioSettingsDialog()
 
 void AudioSettingsDialog::onSyncVolumeLevel()
 {
-    if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
+    if (Config::DSiVolumeSync && emuThread->NDS->ConsoleType == 1)
     {
+        auto& dsi = static_cast<DSi&>(*emuThread->NDS);
         bool state = ui->slVolume->blockSignals(true);
-        ui->slVolume->setValue(DSi_BPTWL::GetVolumeLevel());
+        ui->slVolume->setValue(dsi.I2C.GetBPTWL()->GetVolumeLevel());
         ui->slVolume->blockSignals(state);
     }
 }
@@ -134,7 +138,7 @@ void AudioSettingsDialog::onSyncVolumeLevel()
 void AudioSettingsDialog::onConsoleReset()
 {
     on_chkSyncDSiVolume_clicked(Config::DSiVolumeSync);
-    ui->chkSyncDSiVolume->setEnabled(NDS::ConsoleType == 1);
+    ui->chkSyncDSiVolume->setEnabled(emuThread->NDS->ConsoleType == 1);
 }
 
 void AudioSettingsDialog::on_AudioSettingsDialog_accepted()
@@ -170,7 +174,7 @@ void AudioSettingsDialog::on_cbBitDepth_currentIndexChanged(int idx)
 void AudioSettingsDialog::on_cbInterpolation_currentIndexChanged(int idx)
 {
     // prevent a spurious change
-    if (ui->cbInterpolation->count() < 4) return;
+    if (ui->cbInterpolation->count() < 5) return;
 
     Config::AudioInterp = ui->cbInterpolation->currentIndex();
 
@@ -179,9 +183,10 @@ void AudioSettingsDialog::on_cbInterpolation_currentIndexChanged(int idx)
 
 void AudioSettingsDialog::on_slVolume_valueChanged(int val)
 {
-    if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
+    if (Config::DSiVolumeSync && emuThread->NDS->ConsoleType == 1)
     {
-        DSi_BPTWL::SetVolumeLevel(val);
+        auto& dsi = static_cast<DSi&>(*emuThread->NDS);
+        dsi.I2C.GetBPTWL()->SetVolumeLevel(val);
         return;
     }
 
@@ -193,10 +198,11 @@ void AudioSettingsDialog::on_chkSyncDSiVolume_clicked(bool checked)
     Config::DSiVolumeSync = checked;
 
     bool state = ui->slVolume->blockSignals(true);
-    if (Config::DSiVolumeSync && NDS::ConsoleType == 1)
+    if (Config::DSiVolumeSync && emuThread->NDS->ConsoleType == 1)
     {
+        auto& dsi = static_cast<DSi&>(*emuThread->NDS);
         ui->slVolume->setMaximum(31);
-        ui->slVolume->setValue(DSi_BPTWL::GetVolumeLevel());
+        ui->slVolume->setValue(dsi.I2C.GetBPTWL()->GetVolumeLevel());
         ui->slVolume->setPageStep(4);
         ui->slVolume->setTickPosition(QSlider::TicksBelow);
     }

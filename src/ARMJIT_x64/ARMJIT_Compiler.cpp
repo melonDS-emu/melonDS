@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -18,7 +18,9 @@
 
 #include "ARMJIT_Compiler.h"
 
+#include "../ARMJIT.h"
 #include "../ARMInterpreter.h"
+#include "../NDS.h"
 
 #include <assert.h>
 #include <stdarg.h>
@@ -33,10 +35,11 @@
 #endif
 
 using namespace Gen;
+using namespace Common;
 
 extern "C" void ARM_Ret();
 
-namespace ARMJIT
+namespace melonDS
 {
 template <>
 const X64Reg RegisterCache<Compiler, X64Reg>::NativeRegAllocOrder[] =
@@ -140,7 +143,7 @@ void Compiler::A_Comp_MSR()
     Comp_AddCycles_C();
 
     OpArg val = CurInstr.Instr & (1 << 25)
-        ? Imm32(::ROR((CurInstr.Instr & 0xFF), ((CurInstr.Instr >> 7) & 0x1E)))
+        ? Imm32(melonDS::ROR((CurInstr.Instr & 0xFF), ((CurInstr.Instr >> 7) & 0x1E)))
         : MapReg(CurInstr.A_Reg(0));
 
     u32 mask = 0;
@@ -232,7 +235,7 @@ void Compiler::A_Comp_MSR()
  */
 u8 CodeMemory[1024 * 1024 * 32];
 
-Compiler::Compiler()
+Compiler::Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds)
 {
     {
     #ifdef _WIN32
@@ -648,7 +651,7 @@ const Compiler::CompileFunc T_Comp[ARMInstrInfo::tk_Count] = {
 };
 #undef F
 
-bool Compiler::CanCompile(bool thumb, u16 kind)
+bool Compiler::CanCompile(bool thumb, u16 kind) const
 {
     return (thumb ? T_Comp[kind] : A_Comp[kind]) != NULL;
 }
@@ -664,7 +667,7 @@ void Compiler::Reset()
     LoadStorePatches.clear();
 }
 
-bool Compiler::IsJITFault(u8* addr)
+bool Compiler::IsJITFault(const u8* addr)
 {
     return (u64)addr >= (u64)ResetStart && (u64)addr < (u64)ResetStart + CodeMemSize;
 }
@@ -712,12 +715,12 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
     if (NearSize - (GetCodePtr() - NearStart) < 1024 * 32) // guess...
     {
         Log(LogLevel::Debug, "near reset\n");
-        ResetBlockCache();
+        NDS.JIT.ResetBlockCache();
     }
     if (FarSize - (FarCode - FarStart) < 1024 * 32) // guess...
     {
         Log(LogLevel::Debug, "far reset\n");
-        ResetBlockCache();
+        NDS.JIT.ResetBlockCache();
     }
 
     ConstantCycles = 0;
@@ -861,7 +864,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 void Compiler::Comp_AddCycles_C(bool forceNonConstant)
 {
     s32 cycles = Num ?
-        NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 1 : 3]
+        NDS.ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 1 : 3]
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles);
 
     if ((!Thumb && CurInstr.Cond() < 0xE) || forceNonConstant)
@@ -873,7 +876,7 @@ void Compiler::Comp_AddCycles_C(bool forceNonConstant)
 void Compiler::Comp_AddCycles_CI(u32 i)
 {
     s32 cycles = (Num ?
-        NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
+        NDS.ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles)) + i;
 
     if (!Thumb && CurInstr.Cond() < 0xE)
@@ -885,7 +888,7 @@ void Compiler::Comp_AddCycles_CI(u32 i)
 void Compiler::Comp_AddCycles_CI(Gen::X64Reg i, int add)
 {
     s32 cycles = Num ?
-        NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
+        NDS.ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles);
 
     if (!Thumb && CurInstr.Cond() < 0xE)
@@ -910,7 +913,7 @@ void Compiler::Comp_AddCycles_CDI()
 
         s32 cycles;
 
-        s32 numC = NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
+        s32 numC = NDS.ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
         s32 numD = CurInstr.DataCycles;
 
         if ((CurInstr.DataRegion >> 24) == 0x02) // mainRAM
@@ -955,7 +958,7 @@ void Compiler::Comp_AddCycles_CD()
     }
     else
     {
-        s32 numC = NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
+        s32 numC = NDS.ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
         s32 numD = CurInstr.DataCycles;
 
         if ((CurInstr.DataRegion >> 4) == 0x02)

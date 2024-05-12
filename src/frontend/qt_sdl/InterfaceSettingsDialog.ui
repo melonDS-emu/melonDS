@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>262</width>
-    <height>113</height>
+    <width>337</width>
+    <height>275</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -19,32 +19,113 @@
   <property name="windowTitle">
    <string>Interface settings - melonDS</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
-   <item row="1" column="0" alignment="Qt::AlignLeft">
-    <widget class="QLabel" name="label">
-     <property name="text">
-      <string>Hide after</string>
+  <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,0">
+   <item>
+    <widget class="QGroupBox" name="groupBox">
+     <property name="title">
+      <string>User interface</string>
      </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QLabel" name="label_4">
+          <property name="text">
+           <string>Theme</string>
+          </property>
+          <property name="buddy">
+           <cstring>cbxUITheme</cstring>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="cbxUITheme"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="cbMouseHide">
+        <property name="text">
+         <string>Hide mouse after inactivity</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,1">
+        <property name="leftMargin">
+         <number>18</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string>After</string>
+          </property>
+          <property name="buddy">
+           <cstring>spinMouseHideSeconds</cstring>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="spinMouseHideSeconds"/>
+        </item>
+        <item>
+         <widget class="QLabel" name="label_2">
+          <property name="text">
+           <string>seconds</string>
+          </property>
+          <property name="buddy">
+           <cstring>spinMouseHideSeconds</cstring>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="cbPauseLostFocus">
+        <property name="text">
+         <string>Pause emulation when window is not in focus</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
-   <item row="2" column="0" colspan="4">
-    <widget class="QCheckBox" name="cbPauseLostFocus">
-     <property name="text">
-      <string>Pause emulation when window is not in focus</string>
+   <item>
+    <widget class="QGroupBox" name="groupBox_2">
+     <property name="title">
+      <string>Framerate </string>
      </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,0">
+      <item>
+       <widget class="QLabel" name="label_3">
+        <property name="text">
+         <string>Fast-forward limit</string>
+        </property>
+        <property name="buddy">
+         <cstring>spinMaxFPS</cstring>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="spinMaxFPS">
+        <property name="suffix">
+         <string> FPS</string>
+        </property>
+        <property name="minimum">
+         <number>60</number>
+        </property>
+        <property name="maximum">
+         <number>1000</number>
+        </property>
+        <property name="value">
+         <number>1000</number>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
-   <item row="0" column="0" colspan="5">
-    <widget class="QCheckBox" name="cbMouseHide">
-     <property name="text">
-      <string>Hide mouse after inactivity</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="1" alignment="Qt::AlignLeft">
-    <widget class="QSpinBox" name="spinMouseHideSeconds"/>
-   </item>
-   <item row="3" column="0" colspan="5">
+   <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -54,20 +135,8 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="2">
-    <widget class="QLabel" name="label_2">
-     <property name="text">
-      <string>seconds of inactivity</string>
-     </property>
-    </widget>
-   </item>
   </layout>
  </widget>
- <tabstops>
-  <tabstop>cbMouseHide</tabstop>
-  <tabstop>spinMouseHideSeconds</tabstop>
-  <tabstop>cbPauseLostFocus</tabstop>
- </tabstops>
  <resources/>
  <connections>
   <connection>

@@ -1,0 +1,27 @@
+{
+	"dependencies": [
+		"sdl2",
+		{
+			"name": "libarchive",
+			"default-features": false,
+			"features": ["bzip2", "crypto", "lz4", "zstd"]
+		},
+		"libslirp",
+		"zstd",
+		{
+			"name": "qtbase",
+			"default-features": false,
+			"features": ["gui", "png", "thread", "widgets", "opengl", "zstd"]
+		},
+		{
+			"name": "qtbase",
+			"host": true,
+			"default-features": false
+		},
+		{
+			"name": "qtmultimedia",
+			"default-features": false
+		},
+		"qtsvg"
+	]
+}

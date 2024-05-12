@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,11 +19,14 @@
 #ifndef INPUT_H
 #define INPUT_H
 
+#include <SDL2/SDL.h>
+
 #include "types.h"
 
 namespace Input
 {
 
+using namespace melonDS;
 extern int JoystickID;
 extern SDL_Joystick* Joystick;
 
@@ -37,6 +40,7 @@ void CloseJoystick();
 
 void KeyPress(QKeyEvent* event);
 void KeyRelease(QKeyEvent* event);
+void KeyReleaseAll();
 
 void Process();
 

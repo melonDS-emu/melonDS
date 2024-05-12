@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -16,53 +16,39 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-// Required by MinGW to enable localtime_r in time.h
-#define _POSIX_THREAD_SAFE_FUNCTIONS
-
 #include <string.h>
-#include <time.h>
+#include "NDS.h"
 #include "RTC.h"
 #include "Platform.h"
 
+namespace melonDS
+{
 using Platform::Log;
 using Platform::LogLevel;
 
-namespace RTC
+
+
+
+void WriteDateTime(int num, u8 val);
+
+
+RTC::RTC(melonDS::NDS& nds) : NDS(nds)
 {
+    NDS.RegisterEventFunc(Event_RTC, 0, MemberEventFunc(RTC, ClockTimer));
 
-/// This value represents the Nintendo DS IO register,
-/// \em not the value of the system's clock.
-/// The actual system time is taken directly from the host.
-u16 IO;
+    ResetState();
 
-u8 Input;
-u32 InputBit;
-u32 InputPos;
-
-u8 Output[8];
-u32 OutputBit;
-u32 OutputPos;
-
-u8 CurCmd;
-
-u8 StatusReg1;
-u8 StatusReg2;
-u8 Alarm1[3];
-u8 Alarm2[3];
-u8 ClockAdjust;
-u8 FreeReg;
-
-
-bool Init()
-{
-    return true;
+    // indicate the power was off
+    // this will be changed if a previously saved RTC state is loaded
+    State.StatusReg1 = 0x80;
 }
 
-void DeInit()
+RTC::~RTC()
 {
+    NDS.UnregisterEventFunc(Event_RTC, 0);
 }
 
-void Reset()
+void RTC::Reset()
 {
     Input = 0;
     InputBit = 0;
@@ -73,15 +59,11 @@ void Reset()
 
     CurCmd = 0;
 
-    StatusReg1 = 0;
-    StatusReg2 = 0;
-    memset(Alarm1, 0, sizeof(Alarm1));
-    memset(Alarm2, 0, sizeof(Alarm2));
-    ClockAdjust = 0;
-    FreeReg = 0;
+    ClockCount = 0;
+    ScheduleTimer(true);
 }
 
-void DoSavestate(Savestate* file)
+void RTC::DoSavestate(Savestate* file)
 {
     file->Section("RTC.");
 
@@ -97,22 +79,768 @@ void DoSavestate(Savestate* file)
 
     file->Var8(&CurCmd);
 
-    file->Var8(&StatusReg1);
-    file->Var8(&StatusReg2);
-    file->VarArray(Alarm1, sizeof(Alarm1));
-    file->VarArray(Alarm2, sizeof(Alarm2));
-    file->Var8(&ClockAdjust);
-    file->Var8(&FreeReg);
+    file->VarArray(&State, sizeof(State));
+
+    file->Var32((u32*)&TimerError);
+    file->Var32(&ClockCount);
 }
 
 
-u8 BCD(u8 val)
+u8 RTC::BCD(u8 val) const
 {
     return (val % 10) | ((val / 10) << 4);
 }
 
+u8 RTC::FromBCD(u8 val) const
+{
+    return (val & 0xF) + ((val >> 4) * 10);
+}
 
-void ByteIn(u8 val)
+u8 RTC::BCDIncrement(u8 val) const
+{
+    val++;
+    if ((val & 0x0F) >= 0x0A)
+        val += 0x06;
+    if ((val & 0xF0) >= 0xA0)
+        val += 0x60;
+    return val;
+}
+
+u8 RTC::BCDSanitize(u8 val, u8 vmin, u8 vmax) const
+{
+    if (val < vmin || val > vmax)
+        val = vmin;
+    else if ((val & 0x0F) >= 0x0A)
+        val = vmin;
+    else if ((val & 0xF0) >= 0xA0)
+        val = vmin;
+
+    return val;
+}
+
+
+void RTC::GetState(StateData& state) const
+{
+    memcpy(&state, &State, sizeof(State));
+}
+
+void RTC::SetState(const StateData& state)
+{
+    memcpy(&State, &state, sizeof(State));
+
+    // sanitize the input state
+
+    for (int i = 0; i < 7; i++)
+        WriteDateTime(i+1, State.DateTime[i]);
+}
+
+void RTC::GetDateTime(int& year, int& month, int& day, int& hour, int& minute, int& second) const
+{
+    year = FromBCD(State.DateTime[0]);
+    year += 2000;
+    month = FromBCD(State.DateTime[1] & 0x3F);
+    day = FromBCD(State.DateTime[2] & 0x3F);
+
+    hour = FromBCD(State.DateTime[4] & 0x3F);
+
+    if (!(State.StatusReg1 & (1<<1)))
+    {
+        // 12-hour mode
+
+        if (State.DateTime[4] & 0x40)
+            hour += 12;
+    }
+
+    minute = FromBCD(State.DateTime[5] & 0x7F);
+    second = FromBCD(State.DateTime[6] & 0x7F);
+}
+
+void RTC::SetDateTime(int year, int month, int day, int hour, int minute, int second)
+{
+    int monthdays[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+    // the year range of the DS RTC is limited to 2000-2099
+    year %= 100;
+    if (year < 0) year = 0;
+
+    if (!(year & 3)) monthdays[2] = 29;
+
+    if (month < 1 || month > 12) month = 1;
+    if (day < 1 || day > monthdays[month]) day = 1;
+    if (hour < 0 || hour > 23) hour = 0;
+    if (minute < 0 || minute > 59) minute = 0;
+    if (second < 0 || second > 59) second = 0;
+
+    // note on day-of-week value
+    // that RTC register is a simple incrementing counter and the assignation is defined by software
+    // DS/DSi firmware counts from 0=Sunday
+
+    int numdays = (year * 365) + ((year+3) / 4); // account for leap years
+
+    for (int m = 1; m < month; m++)
+    {
+        numdays += monthdays[m];
+    }
+    numdays += (day-1);
+
+    // 01/01/2000 is a Saturday, so the starting value is 6
+    int dayofweek = (6 + numdays) % 7;
+
+    int pm = (hour >= 12) ? 0x40 : 0;
+    if (!(State.StatusReg1 & (1<<1)))
+    {
+        // 12-hour mode
+
+        if (pm) hour -= 12;
+    }
+
+    State.DateTime[0] = BCD(year);
+    State.DateTime[1] = BCD(month);
+    State.DateTime[2] = BCD(day);
+    State.DateTime[3] = dayofweek;
+    State.DateTime[4] = BCD(hour) | pm;
+    State.DateTime[5] = BCD(minute);
+    State.DateTime[6] = BCD(second);
+
+    State.StatusReg1 &= ~0x80;
+}
+
+void RTC::ResetState()
+{
+    memset(&State, 0, sizeof(State));
+    State.DateTime[1] = 1;
+    State.DateTime[2] = 1;
+}
+
+
+void RTC::SetIRQ(u8 irq)
+{
+    u8 oldstat = State.IRQFlag;
+    State.IRQFlag |= irq;
+    State.StatusReg1 |= irq;
+
+    if ((!(oldstat & 0x30)) && (State.IRQFlag & 0x30))
+    {
+        if ((NDS.RCnt & 0xC100) == 0x8100)
+        {
+            // CHECKME: is the IRQ status readable in RCNT?
+            NDS.SetIRQ(1, IRQ_RTC);
+        }
+    }
+}
+
+void RTC::ClearIRQ(u8 irq)
+{
+    State.IRQFlag &= ~irq;
+}
+
+void RTC::ProcessIRQ(int type) // 0=minute carry 1=periodic 2=status reg write
+{
+    // INT1
+
+    switch (State.StatusReg2 & 0x0F)
+    {
+    case 0b0000: // none
+        if (type == 2)
+        {
+            ClearIRQ(0x10);
+        }
+        break;
+
+    case 0b0001:
+    case 0b0101: // selected frequency steady interrupt
+        if ((type == 1 && (!(ClockCount & 0x3FF))) || (type == 2))
+        {
+            u32 mask = 0;
+            if (State.Alarm1[2] & (1<<0)) mask |= 0x4000;
+            if (State.Alarm1[2] & (1<<1)) mask |= 0x2000;
+            if (State.Alarm1[2] & (1<<2)) mask |= 0x1000;
+            if (State.Alarm1[2] & (1<<3)) mask |= 0x0800;
+            if (State.Alarm1[2] & (1<<4)) mask |= 0x0400;
+
+            if (mask && ((ClockCount & mask) != mask))
+                SetIRQ(0x10);
+            else
+                ClearIRQ(0x10);
+        }
+        break;
+
+    case 0b0010:
+    case 0b0110: // per-minute edge interrupt
+        if ((type == 0) || (type == 2 && (State.IRQFlag & 0x01)))
+        {
+            SetIRQ(0x10);
+        }
+        break;
+
+    case 0b0011: // per-minute steady interrupt 1 (duty 30s)
+        if ((type == 0) || (type == 2 && (State.IRQFlag & 0x01)))
+        {
+            SetIRQ(0x10);
+        }
+        else if ((type == 1) && (State.DateTime[6] == 0x30) && ((ClockCount & 0x7FFF) == 0))
+        {
+            ClearIRQ(0x10);
+        }
+        break;
+
+    case 0b0111: // per-minute steady interrupt 2 (duty 256 cycles)
+        if ((type == 0) || (type == 2 && (State.IRQFlag & 0x01)))
+        {
+            SetIRQ(0x10);
+        }
+        else if ((type == 1) && (State.DateTime[6] == 0x00) && ((ClockCount & 0x7FFF) == 256))
+        {
+            ClearIRQ(0x10);
+        }
+        break;
+
+    case 0b0100: // alarm interrupt
+        if (type == 0)
+        {
+            bool cond = true;
+            if (State.Alarm1[0] & (1<<7))
+                cond = cond && ((State.Alarm1[0] & 0x07) == State.DateTime[3]);
+            if (State.Alarm1[1] & (1<<7))
+                cond = cond && ((State.Alarm1[1] & 0x7F) == State.DateTime[4]);
+            if (State.Alarm1[2] & (1<<7))
+                cond = cond && ((State.Alarm1[2] & 0x7F) == State.DateTime[5]);
+
+            if (NDS.ConsoleType == 1)
+            {
+                if (State.AlarmDate1[1] & (1<<6))
+                    cond = cond && (State.AlarmDate1[0] == State.DateTime[0]);
+                if (State.AlarmDate1[1] & (1<<7))
+                    cond = cond && ((State.AlarmDate1[1] & 0x1F) == State.DateTime[1]);
+                if (State.AlarmDate1[2] & (1<<7))
+                    cond = cond && ((State.AlarmDate1[2] & 0x3F) == State.DateTime[2]);
+            }
+
+            if (cond)
+                SetIRQ(0x10);
+            else
+                ClearIRQ(0x10);
+        }
+        break;
+
+    default: // 32KHz output
+        if (type == 1)
+        {
+            SetIRQ(0x10);
+            ClearIRQ(0x10);
+        }
+        break;
+    }
+
+    // INT2
+
+    if (State.StatusReg2 & (1<<6))
+    {
+        // alarm interrupt
+
+        if (type == 0)
+        {
+            bool cond = true;
+            if (State.Alarm2[0] & (1<<7))
+                cond = cond && ((State.Alarm2[0] & 0x07) == State.DateTime[3]);
+            if (State.Alarm2[1] & (1<<7))
+                cond = cond && ((State.Alarm2[1] & 0x7F) == State.DateTime[4]);
+            if (State.Alarm2[2] & (1<<7))
+                cond = cond && ((State.Alarm2[2] & 0x7F) == State.DateTime[5]);
+
+            if (NDS.ConsoleType == 1)
+            {
+                if (State.AlarmDate2[1] & (1<<6))
+                    cond = cond && (State.AlarmDate2[0] == State.DateTime[0]);
+                if (State.AlarmDate2[1] & (1<<7))
+                    cond = cond && ((State.AlarmDate2[1] & 0x1F) == State.DateTime[1]);
+                if (State.AlarmDate2[2] & (1<<7))
+                    cond = cond && ((State.AlarmDate2[2] & 0x3F) == State.DateTime[2]);
+            }
+
+            if (cond)
+                SetIRQ(0x20);
+            else
+                ClearIRQ(0x20);
+        }
+    }
+    else
+    {
+        if (type == 2)
+        {
+            ClearIRQ(0x20);
+        }
+    }
+}
+
+
+u8 RTC::DaysInMonth() const
+{
+    u8 numdays;
+
+    switch (State.DateTime[1])
+    {
+    case 0x01: // Jan
+    case 0x03: // Mar
+    case 0x05: // May
+    case 0x07: // Jul
+    case 0x08: // Aug
+    case 0x10: // Oct
+    case 0x12: // Dec
+        numdays = 0x31;
+        break;
+
+    case 0x04: // Apr
+    case 0x06: // Jun
+    case 0x09: // Sep
+    case 0x11: // Nov
+        numdays = 0x30;
+        break;
+
+    case 0x02: // Feb
+        {
+            numdays = 0x28;
+
+            // leap year: if year divisible by 4 and not divisible by 100 unless divisible by 400
+            // the limited year range (2000-2099) simplifies this
+            int year = State.DateTime[0];
+            year = (year & 0xF) + ((year >> 4) * 10);
+            if (!(year & 3))
+                numdays = 0x29;
+        }
+        break;
+
+    default: // ???
+        return 0;
+    }
+
+    return numdays;
+}
+
+void RTC::CountYear()
+{
+    State.DateTime[0] = BCDIncrement(State.DateTime[0]);
+}
+
+void RTC::CountMonth()
+{
+    State.DateTime[1] = BCDIncrement(State.DateTime[1]);
+    if (State.DateTime[1] > 0x12)
+    {
+        State.DateTime[1] = 1;
+        CountYear();
+    }
+}
+
+void RTC::CheckEndOfMonth()
+{
+    if (State.DateTime[2] > DaysInMonth())
+    {
+        State.DateTime[2] = 1;
+        CountMonth();
+    }
+}
+
+void RTC::CountDay()
+{
+    // day-of-week counter
+    State.DateTime[3]++;
+    if (State.DateTime[3] >= 7)
+        State.DateTime[3] = 0;
+
+    // day counter
+    State.DateTime[2] = BCDIncrement(State.DateTime[2]);
+    CheckEndOfMonth();
+}
+
+void RTC::CountHour()
+{
+    u8 hour = BCDIncrement(State.DateTime[4] & 0x3F);
+    u8 pm = State.DateTime[4] & 0x40;
+
+    if (State.StatusReg1 & (1<<1))
+    {
+        // 24-hour mode
+
+        if (hour >= 0x24)
+        {
+            hour = 0;
+            CountDay();
+        }
+
+        pm = (hour >= 0x12) ? 0x40 : 0;
+    }
+    else
+    {
+        // 12-hour mode
+
+        if (hour >= 0x12)
+        {
+            hour = 0;
+            if (pm) CountDay();
+            pm ^= 0x40;
+        }
+    }
+
+    State.DateTime[4] = hour | pm;
+}
+
+void RTC::CountMinute()
+{
+    State.MinuteCount++;
+    State.DateTime[5] = BCDIncrement(State.DateTime[5]);
+    if (State.DateTime[5] >= 0x60)
+    {
+        State.DateTime[5] = 0;
+        CountHour();
+    }
+
+    State.IRQFlag |= 0x01;  // store minute carry flag
+    ProcessIRQ(0);
+}
+
+void RTC::CountSecond()
+{
+    State.DateTime[6] = BCDIncrement(State.DateTime[6]);
+    if (State.DateTime[6] >= 0x60)
+    {
+        State.DateTime[6] = 0;
+        CountMinute();
+    }
+}
+
+
+void RTC::ScheduleTimer(bool first)
+{
+    if (first) TimerError = 0;
+
+    // the RTC clock runs at 32768Hz
+    // cycles = 33513982 / 32768
+    s32 sysclock = 33513982 + TimerError;
+    s32 delay = sysclock >> 15;
+    TimerError = sysclock & 0x7FFF;
+
+    NDS.ScheduleEvent(Event_RTC, !first, delay, 0, 0);
+}
+
+void RTC::ClockTimer(u32 param)
+{
+    ClockCount++;
+
+    if (!(ClockCount & 0x7FFF))
+    {
+        // count up one second
+        CountSecond();
+    }
+    else if ((ClockCount & 0x7FFF) == 4)
+    {
+        // minute-carry flag lasts 4 cycles
+        State.IRQFlag &= ~0x01;
+    }
+
+    ProcessIRQ(1);
+
+    ScheduleTimer(false);
+}
+
+
+void RTC::WriteDateTime(int num, u8 val)
+{
+    switch (num)
+    {
+    case 1: // year
+        State.DateTime[0] = BCDSanitize(val, 0x00, 0x99);
+        break;
+
+    case 2: // month
+        State.DateTime[1] = BCDSanitize(val & 0x1F, 0x01, 0x12);
+        break;
+
+    case 3: // day
+        State.DateTime[2] = BCDSanitize(val & 0x3F, 0x01, 0x31);
+        CheckEndOfMonth();
+        break;
+
+    case 4: // day of week
+        State.DateTime[3] = BCDSanitize(val & 0x07, 0x00, 0x06);
+        break;
+
+    case 5: // hour
+        {
+            u8 hour = val & 0x3F;
+            u8 pm = val & 0x40;
+
+            if (State.StatusReg1 & (1<<1))
+            {
+                // 24-hour mode
+
+                hour = BCDSanitize(hour, 0x00, 0x23);
+                pm = (hour >= 0x12) ? 0x40 : 0;
+            }
+            else
+            {
+                // 12-hour mode
+
+                hour = BCDSanitize(hour, 0x00, 0x11);
+            }
+
+            State.DateTime[4] = hour | pm;
+        }
+        break;
+
+    case 6: // minute
+        State.DateTime[5] = BCDSanitize(val & 0x7F, 0x00, 0x59);
+        break;
+
+    case 7: // second
+        State.DateTime[6] = BCDSanitize(val & 0x7F, 0x00, 0x59);
+        break;
+    }
+}
+
+void RTC::SaveDateTime()
+{
+    int y, m, d, h, i, s;
+    GetDateTime(y, m, d, h, i, s);
+    Platform::WriteDateTime(y, m, d, h, i, s);
+}
+
+void RTC::CmdRead()
+{
+    if ((CurCmd & 0x0F) == 0x06)
+    {
+        switch (CurCmd & 0x70)
+        {
+        case 0x00:
+            Output[0] = State.StatusReg1;
+            State.StatusReg1 &= 0x0F; // clear auto-clearing bit4-7
+            break;
+
+        case 0x40:
+            Output[0] = State.StatusReg2;
+            break;
+
+        case 0x20:
+            memcpy(Output, &State.DateTime[0], 7);
+            break;
+
+        case 0x60:
+            memcpy(Output, &State.DateTime[4], 3);
+            break;
+
+        case 0x10:
+            if (State.StatusReg2 & 0x04)
+                memcpy(Output, &State.Alarm1[0], 3);
+            else
+                Output[0] = State.Alarm1[2];
+            break;
+
+        case 0x50:
+            memcpy(Output, &State.Alarm2[0], 3);
+            break;
+
+        case 0x30: Output[0] = State.ClockAdjust; break;
+        case 0x70: Output[0] = State.FreeReg; break;
+        }
+
+        return;
+    }
+    else if ((CurCmd & 0x0F) == 0x0E)
+    {
+        if (NDS.ConsoleType != 1)
+        {
+            Log(LogLevel::Debug, "RTC: unknown read command %02X\n", CurCmd);
+            return;
+        }
+
+        switch (CurCmd & 0x70)
+        {
+        case 0x00:
+            Output[0] = (State.MinuteCount >> 16) & 0xFF;
+            Output[1] = (State.MinuteCount >> 8) & 0xFF;
+            Output[2] = State.MinuteCount & 0xFF;
+            break;
+
+        case 0x40: Output[0] = State.FOUT1; break;
+        case 0x20: Output[0] = State.FOUT2; break;
+
+        case 0x10:
+            memcpy(Output, &State.AlarmDate1[0], 3);
+            break;
+
+        case 0x50:
+            memcpy(Output, &State.AlarmDate2[0], 3);
+            break;
+
+        default:
+            Log(LogLevel::Debug, "RTC: unknown read command %02X\n", CurCmd);
+            break;
+        }
+
+        return;
+    }
+
+    Log(LogLevel::Debug, "RTC: unknown read command %02X\n", CurCmd);
+}
+
+void RTC::CmdWrite(u8 val)
+{
+    if ((CurCmd & 0x0F) == 0x06)
+    {
+        switch (CurCmd & 0x70)
+        {
+        case 0x00:
+            if (InputPos == 1)
+            {
+                u8 oldval = State.StatusReg1;
+
+                if (val & (1<<0)) // reset
+                    ResetState();
+
+                State.StatusReg1 = (State.StatusReg1 & 0xF0) | (val & 0x0E);
+
+                if ((State.StatusReg1 ^ oldval) & (1<<1))
+                {
+                    // AM/PM changed
+
+                    u8 hour = State.DateTime[4] & 0x3F;
+                    u8 pm = State.DateTime[4] & 0x40;
+
+                    if (State.StatusReg1 & (1<<1))
+                    {
+                        // 24-hour mode
+
+                        if (pm)
+                        {
+                            hour += 0x12;
+                            if ((hour & 0x0F) >= 0x0A)
+                                hour += 0x06;
+                        }
+
+                        hour = BCDSanitize(hour, 0x00, 0x23);
+                    }
+                    else
+                    {
+                        // 12-hour mode
+
+                        if (hour >= 0x12)
+                        {
+                            pm = 0x40;
+
+                            hour -= 0x12;
+                            if ((hour & 0x0F) >= 0x0A)
+                                hour -= 0x06;
+                        }
+                        else
+                            pm = 0;
+
+                        hour = BCDSanitize(hour, 0x00, 0x11);
+                    }
+
+                    State.DateTime[4] = hour | pm;
+                }
+            }
+            break;
+
+        case 0x40:
+            if (InputPos == 1)
+            {
+                State.StatusReg2 = val;
+                ProcessIRQ(2);
+            }
+            break;
+
+        case 0x20:
+            if (InputPos <= 7)
+                WriteDateTime(InputPos, val);
+            if (InputPos == 7)
+                SaveDateTime();
+            break;
+
+        case 0x60:
+            if (InputPos <= 3)
+                WriteDateTime(InputPos+4, val);
+            if (InputPos == 3)
+                SaveDateTime();
+            break;
+
+        case 0x10:
+            if (State.StatusReg2 & 0x04)
+            {
+                if (InputPos <= 3)
+                    State.Alarm1[InputPos-1] = val;
+            }
+            else
+            {
+                if (InputPos == 1)
+                    State.Alarm1[2] = val;
+            }
+            break;
+
+        case 0x50:
+            if (InputPos <= 3)
+                State.Alarm2[InputPos-1] = val;
+            break;
+
+        case 0x30:
+            if (InputPos == 1)
+                State.ClockAdjust = val;
+            break;
+
+        case 0x70:
+            if (InputPos == 1)
+                State.FreeReg = val;
+            break;
+        }
+
+        return;
+    }
+    else if ((CurCmd & 0x0F) == 0x0E)
+    {
+        if (NDS.ConsoleType != 1)
+        {
+            Log(LogLevel::Debug, "RTC: unknown write command %02X\n", CurCmd);
+            return;
+        }
+
+        switch (CurCmd & 0x70)
+        {
+        case 0x00:
+            Log(LogLevel::Debug, "RTC: trying to write read-only minute counter\n");
+            break;
+
+        case 0x40:
+            if (InputPos == 1)
+                State.FOUT1 = val;
+            break;
+
+        case 0x20:
+            if (InputPos == 1)
+                State.FOUT2 = val;
+            break;
+
+        case 0x10:
+            if (InputPos <= 3)
+                State.AlarmDate1[InputPos-1] = val;
+            break;
+
+        case 0x50:
+            if (InputPos <= 3)
+                State.AlarmDate2[InputPos-1] = val;
+            break;
+
+        default:
+            Log(LogLevel::Debug, "RTC: unknown write command %02X\n", CurCmd);
+            break;
+        }
+
+        return;
+    }
+
+    Log(LogLevel::Debug, "RTC: unknown write command %02X\n", CurCmd);
+}
+
+void RTC::ByteIn(u8 val)
 {
     if (InputPos == 0)
     {
@@ -124,117 +852,35 @@ void ByteIn(u8 val)
         else
             CurCmd = val;
 
+        if (NDS.ConsoleType == 1)
+        {
+            // for DSi: handle extra commands
+
+            if (((CurCmd & 0xF0) == 0x70) && ((CurCmd & 0xFE) != 0x76))
+            {
+                u8 rev[16] = {0x0E, 0x8E, 0x4E, 0xCE, 0x2E, 0xAE, 0x6E, 0xEE, 0x1E, 0x9E, 0x5E, 0xDE, 0x3E, 0xBE, 0x7E, 0xFE};
+                CurCmd = rev[CurCmd & 0xF];
+            }
+        }
+
         if (CurCmd & 0x80)
         {
-            switch (CurCmd & 0x70)
-            {
-            case 0x00: Output[0] = StatusReg1; break;
-            case 0x40: Output[0] = StatusReg2; break;
-
-            case 0x20:
-                {
-                    time_t timestamp = time(NULL);
-                    struct tm timedata;
-                    localtime_r(&timestamp, &timedata);
-
-                    Output[0] = BCD(timedata.tm_year - 100);
-                    Output[1] = BCD(timedata.tm_mon + 1);
-                    Output[2] = BCD(timedata.tm_mday);
-                    Output[3] = BCD(timedata.tm_wday);
-                    Output[4] = BCD(timedata.tm_hour);
-                    Output[5] = BCD(timedata.tm_min);
-                    Output[6] = BCD(timedata.tm_sec);
-                }
-                break;
-
-            case 0x60:
-                {
-                    time_t timestamp = time(NULL);
-                    struct tm timedata;
-                    localtime_r(&timestamp, &timedata);
-
-                    Output[0] = BCD(timedata.tm_hour);
-                    Output[1] = BCD(timedata.tm_min);
-                    Output[2] = BCD(timedata.tm_sec);
-                }
-                break;
-
-            case 0x10:
-                if (StatusReg2 & 0x04)
-                {
-                    Output[0] = Alarm1[0];
-                    Output[1] = Alarm1[1];
-                    Output[2] = Alarm1[2];
-                }
-                else
-                    Output[0] = Alarm1[2];
-                break;
-
-            case 0x50:
-                Output[0] = Alarm2[0];
-                Output[1] = Alarm2[1];
-                Output[2] = Alarm2[2];
-                break;
-
-            case 0x30: Output[0] = ClockAdjust; break;
-            case 0x70: Output[0] = FreeReg; break;
-            }
+            CmdRead();
         }
         return;
     }
 
-    switch (CurCmd & 0x70)
-    {
-    case 0x00:
-        if (InputPos == 1) StatusReg1 = val & 0x0E;
-        break;
-
-    case 0x40:
-        if (InputPos == 1) StatusReg2 = val;
-        if (StatusReg2 & 0x4F) Log(LogLevel::Debug, "RTC INTERRUPT ON: %02X\n", StatusReg2);
-        break;
-
-    case 0x20:
-        // TODO: set time somehow??
-        break;
-
-    case 0x60:
-        // same shit
-        break;
-
-    case 0x10:
-        if (StatusReg2 & 0x04)
-        {
-            if (InputPos <= 3) Alarm1[InputPos-1] = val;
-        }
-        else
-        {
-            if (InputPos == 1) Alarm1[2] = val;
-        }
-        break;
-
-    case 0x50:
-        if (InputPos <= 3) Alarm2[InputPos-1] = val;
-        break;
-
-    case 0x30:
-        if (InputPos == 1) ClockAdjust = val;
-        break;
-
-    case 0x70:
-        if (InputPos == 1) FreeReg = val;
-        break;
-    }
+    CmdWrite(val);
 }
 
 
-u16 Read()
+u16 RTC::Read()
 {
     //printf("RTC READ %04X\n", IO);
     return IO;
 }
 
-void Write(u16 val, bool byte)
+void RTC::Write(u16 val, bool byte)
 {
     if (byte) val |= (IO & 0xFF00);
 

@@ -25,50 +25,89 @@
 // TODO: for actual sound output
 // * audio callbacks
 
-namespace DSi_DSP
+namespace Teakra { class Teakra; }
+
+namespace melonDS
 {
+class DSi;
+class DSi_DSP
+{
+public:
+    DSi_DSP(melonDS::DSi& dsi);
+    ~DSi_DSP();
+    void Reset();
+    void DoSavestate(Savestate* file);
 
-extern u16 SNDExCnt;
+    void DSPCatchUpU32(u32 _);
 
-extern u16 DSP_PDATA;
-extern u16 DSP_PADR;
-extern u16 DSP_PCFG;
-extern u16 DSP_PSTS;
-extern u16 DSP_PSEM;
-extern u16 DSP_PMASK;
-extern u16 DSP_PCLEAR;
-extern u16 DSP_SEM;
-extern u16 DSP_CMD[3];
-extern u16 DSP_REP[3];
+    // SCFG_RST bit0
+    bool IsRstReleased() const;
+    void SetRstLine(bool release);
 
-bool Init();
-void DeInit();
-void Reset();
+    // DSP_* regs (0x040043xx) (NOTE: checks SCFG_EXT)
+    u8 Read8(u32 addr);
+    void Write8(u32 addr, u8 val);
 
-void DoSavestate(Savestate* file);
+    u16 Read16(u32 addr);
+    void Write16(u32 addr, u16 val);
 
-void DSPCatchUpU32(u32 _);
+    u32 Read32(u32 addr);
+    void Write32(u32 addr, u32 val);
 
-// SCFG_RST bit0
-bool IsRstReleased();
-void SetRstLine(bool release);
+    u16 ReadSNDExCnt() const { return SNDExCnt; }
+    void WriteSNDExCnt(u16 val, u16 mask);
 
-// DSP_* regs (0x040043xx) (NOTE: checks SCFG_EXT)
-u8 Read8(u32 addr);
-void Write8(u32 addr, u8 val);
+    // NOTE: checks SCFG_CLK9
+    void Run(u32 cycles);
 
-u16 Read16(u32 addr);
-void Write16(u32 addr, u16 val);
+    void IrqRep0();
+    void IrqRep1();
+    void IrqRep2();
+    void IrqSem();
+    u16 DSPRead16(u32 addr);
+    void DSPWrite16(u32 addr, u16 val);
+    void AudioCb(std::array<s16, 2> frame);
 
-u32 Read32(u32 addr);
-void Write32(u32 addr, u32 val);
+private:
+    melonDS::DSi& DSi;
+    // not sure whether to not rather put it somewhere else
+    u16 SNDExCnt;
 
-void WriteSNDExCnt(u16 val);
+    Teakra::Teakra* TeakraCore;
 
-// NOTE: checks SCFG_CLK9
-void Run(u32 cycles);
+    bool SCFG_RST;
+
+    u16 DSP_PADR;
+    u16 DSP_PCFG;
+    u16 DSP_PSTS;
+    u16 DSP_PSEM;
+    u16 DSP_PMASK;
+    u16 DSP_PCLEAR;
+    u16 DSP_CMD[3];
+    u16 DSP_REP[3];
+
+    u64 DSPTimestamp;
+
+    FIFO<u16, 16> PDATAReadFifo/*, *PDATAWriteFifo*/;
+    int PDataDMALen;
+
+    static const u32 DataMemoryOffset;
+
+    u16 GetPSTS() const;
+
+    inline bool IsDSPCoreEnabled() const;
+    inline bool IsDSPIOEnabled() const;
+
+    bool DSPCatchUp();
+
+    void PDataDMAWrite(u16 wrval);
+    u16 PDataDMARead();
+    void PDataDMAFetch();
+    void PDataDMAStart();
+    void PDataDMACancel();
+    u16 PDataDMAReadMMIO();
+};
 
 }
-
 #endif // DSI_DSP_H
 

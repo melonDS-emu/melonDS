@@ -17,13 +17,14 @@
 */
 
 #include "ARMJIT_Compiler.h"
+#include "../NDS.h"
 
 using namespace Arm64Gen;
 
 // hack
 const int kCodeCacheTiming = 3;
 
-namespace ARMJIT
+namespace melonDS
 {
 
 template <typename T>
@@ -132,7 +133,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             u32 compileTimePC = CurCPU->R[15];
             CurCPU->R[15] = newPC;
 
-            cycles += NDS::ARM7MemTimings[codeCycles][0] + NDS::ARM7MemTimings[codeCycles][1];
+            cycles += NDS.ARM7MemTimings[codeCycles][0] + NDS.ARM7MemTimings[codeCycles][1];
 
             CurCPU->R[15] = compileTimePC;
         }
@@ -144,7 +145,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             u32 compileTimePC = CurCPU->R[15];
             CurCPU->R[15] = newPC;
 
-            cycles += NDS::ARM7MemTimings[codeCycles][2] + NDS::ARM7MemTimings[codeCycles][3];
+            cycles += NDS.ARM7MemTimings[codeCycles][2] + NDS.ARM7MemTimings[codeCycles][3];
 
             CurCPU->R[15] = compileTimePC;
         }
@@ -235,7 +236,7 @@ void* Compiler::Gen_JumpTo7(int kind)
     LSR(W1, W0, 15);
     STR(INDEX_UNSIGNED, W1, RCPU, offsetof(ARM, CodeCycles));
 
-    MOVP2R(X2, NDS::ARM7MemTimings);
+    MOVP2R(X2, NDS.ARM7MemTimings);
     LDR(W3, X2, ArithOption(W1, true));
 
     FixupBranch switchToThumb;

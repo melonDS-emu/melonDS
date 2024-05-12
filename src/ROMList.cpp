@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -18,6 +18,8 @@
 
 #include "ROMList.h"
 
+namespace melonDS
+{
 const ROMListEntry ROMList[] =
 {
 	{0x41464141, 0x00800000, 0x00000004},
@@ -6801,3 +6803,5 @@ const ROMListEntry ROMList[] =
 };
 
 const size_t ROMListEntryCount = sizeof(ROMList) / sizeof(ROMListEntry);
+
+}

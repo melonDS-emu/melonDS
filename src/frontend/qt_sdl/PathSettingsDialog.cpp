@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QTemporaryFile>
 
 #include "types.h"
 #include "Config.h"
@@ -27,6 +28,8 @@
 #include "PathSettingsDialog.h"
 #include "ui_PathSettingsDialog.h"
 
+using namespace melonDS::Platform;
+namespace Platform = melonDS::Platform;
 
 PathSettingsDialog* PathSettingsDialog::currentDlg = nullptr;
 
@@ -35,6 +38,7 @@ extern bool RunningSomething;
 
 bool PathSettingsDialog::needsReset = false;
 
+constexpr char errordialog[] = "melonDS cannot write to that directory.";
 
 PathSettingsDialog::PathSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::PathSettingsDialog)
 {
@@ -99,6 +103,12 @@ void PathSettingsDialog::on_btnSaveFileBrowse_clicked()
                                                      QString::fromStdString(EmuDirectory));
 
     if (dir.isEmpty()) return;
+    
+    if (!QTemporaryFile(dir).open())
+    {
+        QMessageBox::critical(this, "melonDS", errordialog);
+        return;
+    }
 
     ui->txtSaveFilePath->setText(dir);
 }
@@ -110,6 +120,12 @@ void PathSettingsDialog::on_btnSavestateBrowse_clicked()
                                                      QString::fromStdString(EmuDirectory));
 
     if (dir.isEmpty()) return;
+    
+    if (!QTemporaryFile(dir).open())
+    {
+        QMessageBox::critical(this, "melonDS", errordialog);
+        return;
+    }
 
     ui->txtSavestatePath->setText(dir);
 }
@@ -121,6 +137,12 @@ void PathSettingsDialog::on_btnCheatFileBrowse_clicked()
                                                      QString::fromStdString(EmuDirectory));
 
     if (dir.isEmpty()) return;
+    
+    if (!QTemporaryFile(dir).open())
+    {
+        QMessageBox::critical(this, "melonDS", errordialog);
+        return;
+    }
 
     ui->txtCheatFilePath->setText(dir);
 }

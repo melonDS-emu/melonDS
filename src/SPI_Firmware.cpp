@@ -18,6 +18,12 @@
 
 #include "SPI_Firmware.h"
 #include "SPI.h"
+#include "Platform.h"
+
+namespace melonDS
+{
+using Platform::Log;
+using Platform::LogLevel;
 
 #include <string.h>
 
@@ -49,7 +55,7 @@ constexpr u8 CHANDATA[0x3C]
 
 constexpr u8 DEFAULT_UNUSED3[6] { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00 };
 
-SPI_Firmware::WifiAccessPoint::WifiAccessPoint()
+Firmware::WifiAccessPoint::WifiAccessPoint()
 {
     memset(Bytes, 0, sizeof(Bytes));
     Status = AccessPointStatus::NotConfigured;
@@ -57,7 +63,7 @@ SPI_Firmware::WifiAccessPoint::WifiAccessPoint()
     UpdateChecksum();
 }
 
-SPI_Firmware::WifiAccessPoint::WifiAccessPoint(int consoletype)
+Firmware::WifiAccessPoint::WifiAccessPoint(int consoletype)
 {
     memset(Bytes, 0, sizeof(Bytes));
     strncpy(SSID, DEFAULT_SSID, sizeof(SSID));
@@ -67,25 +73,25 @@ SPI_Firmware::WifiAccessPoint::WifiAccessPoint(int consoletype)
     UpdateChecksum();
 }
 
-void SPI_Firmware::WifiAccessPoint::UpdateChecksum()
+void Firmware::WifiAccessPoint::UpdateChecksum()
 {
     Checksum = CRC16(Bytes, 0xFE, 0x0000);
 }
 
-SPI_Firmware::ExtendedWifiAccessPoint::ExtendedWifiAccessPoint()
+Firmware::ExtendedWifiAccessPoint::ExtendedWifiAccessPoint()
 {
     Data.Base = WifiAccessPoint();
 
     UpdateChecksum();
 }
 
-void SPI_Firmware::ExtendedWifiAccessPoint::UpdateChecksum()
+void Firmware::ExtendedWifiAccessPoint::UpdateChecksum()
 {
     Data.Base.UpdateChecksum();
     Data.ExtendedChecksum = CRC16(&Bytes[0x100], 0xFE, 0x0000);
 }
 
-SPI_Firmware::FirmwareHeader::FirmwareHeader(int consoletype)
+Firmware::FirmwareHeader::FirmwareHeader(int consoletype)
 {
     if (consoletype == 1)
     {
@@ -109,7 +115,7 @@ SPI_Firmware::FirmwareHeader::FirmwareHeader(int consoletype)
     WifiConfigLength = 0x138;
     Unused1 = 0;
     memcpy(&Unused3, DEFAULT_UNUSED3, sizeof(DEFAULT_UNUSED3));
-    MacAddress = DEFAULT_MAC;
+    MacAddr = DEFAULT_MAC;
     EnabledChannels = 0x3FFE;
     memset(&Unknown2, 0xFF, sizeof(Unknown2));
     RFChipType = RFChipType::Type3;
@@ -143,12 +149,12 @@ SPI_Firmware::FirmwareHeader::FirmwareHeader(int consoletype)
 }
 
 
-void SPI_Firmware::FirmwareHeader::UpdateChecksum()
+void Firmware::FirmwareHeader::UpdateChecksum()
 {
-    WifiConfigChecksum = SPI_Firmware::CRC16(&Bytes[0x2C], WifiConfigLength, 0x0000);
+    WifiConfigChecksum = CRC16(&Bytes[0x2C], WifiConfigLength, 0x0000);
 }
 
-SPI_Firmware::UserData::UserData()
+Firmware::UserData::UserData()
 {
     memset(Bytes, 0, 0x74);
     Version = 5;
@@ -160,7 +166,7 @@ SPI_Firmware::UserData::UserData()
     Checksum = CRC16(Bytes, 0x70, 0xFFFF);
 }
 
-void SPI_Firmware::UserData::UpdateChecksum()
+void Firmware::UserData::UpdateChecksum()
 {
     Checksum = CRC16(Bytes, 0x70, 0xFFFF);
     if (ExtendedSettings.Unknown0 == 0x01)
@@ -169,7 +175,30 @@ void SPI_Firmware::UserData::UpdateChecksum()
     }
 }
 
-SPI_Firmware::Firmware::Firmware(int consoletype)
+u32 Firmware::FixFirmwareLength(u32 originalLength)
+{
+    if (originalLength != 0x20000 && originalLength != 0x40000 && originalLength != 0x80000)
+    {
+        Log(LogLevel::Warn, "Bad firmware size %d, ", originalLength);
+
+        // pick the nearest power-of-two length
+        originalLength |= (originalLength >> 1);
+        originalLength |= (originalLength >> 2);
+        originalLength |= (originalLength >> 4);
+        originalLength |= (originalLength >> 8);
+        originalLength |= (originalLength >> 16);
+        originalLength++;
+
+        // ensure it's a sane length
+        if (originalLength > 0x80000) originalLength = 0x80000;
+        else if (originalLength < 0x20000) originalLength = 0x20000;
+
+        Log(LogLevel::Debug, "assuming %d\n", originalLength);
+    }
+    return originalLength;
+}
+
+Firmware::Firmware(int consoletype)
 {
     FirmwareBufferLength = DEFAULT_FIRMWARE_LENGTH;
     FirmwareBuffer = new u8[FirmwareBufferLength];
@@ -184,16 +213,16 @@ SPI_Firmware::Firmware::Firmware(int consoletype)
     // user data
     header.UserSettingsOffset = (0x7FE00 & FirmwareMask) >> 3;
 
-    std::array<union UserData, 2>& settings = *reinterpret_cast<std::array<union UserData, 2>*>(UserDataPosition());
+    std::array<UserData, 2>& settings = *reinterpret_cast<std::array<UserData, 2>*>(GetUserDataPosition());
     settings = {
-        SPI_Firmware::UserData(),
-        SPI_Firmware::UserData(),
+        UserData(),
+        UserData(),
     };
 
     // wifi access points
     // TODO: WFC ID??
 
-    std::array<WifiAccessPoint, 3>& accesspoints = *reinterpret_cast<std::array<WifiAccessPoint, 3>*>(WifiAccessPointPosition());
+    std::array<WifiAccessPoint, 3>& accesspoints = *reinterpret_cast<std::array<WifiAccessPoint, 3>*>(GetWifiAccessPointPosition());
 
     accesspoints = {
         WifiAccessPoint(consoletype),
@@ -203,7 +232,7 @@ SPI_Firmware::Firmware::Firmware(int consoletype)
 
     if (consoletype == 1)
     {
-        std::array<ExtendedWifiAccessPoint, 3>& extendedaccesspoints = *reinterpret_cast<std::array<ExtendedWifiAccessPoint, 3>*>(ExtendedAccessPointPosition());
+        std::array<ExtendedWifiAccessPoint, 3>& extendedaccesspoints = *reinterpret_cast<std::array<ExtendedWifiAccessPoint, 3>*>(GetExtendedAccessPointPosition());
 
         extendedaccesspoints = {
             ExtendedWifiAccessPoint(),
@@ -213,7 +242,7 @@ SPI_Firmware::Firmware::Firmware(int consoletype)
     }
 }
 
-SPI_Firmware::Firmware::Firmware(Platform::FileHandle* file) : FirmwareBuffer(nullptr), FirmwareBufferLength(0), FirmwareMask(0)
+Firmware::Firmware(Platform::FileHandle* file) : FirmwareBuffer(nullptr), FirmwareBufferLength(0), FirmwareMask(0)
 {
     if (file)
     {
@@ -239,7 +268,7 @@ SPI_Firmware::Firmware::Firmware(Platform::FileHandle* file) : FirmwareBuffer(nu
     }
 }
 
-SPI_Firmware::Firmware::Firmware(const u8* data, u32 length) : FirmwareBuffer(nullptr), FirmwareBufferLength(FixFirmwareLength(length))
+Firmware::Firmware(const u8* data, u32 length) : FirmwareBuffer(nullptr), FirmwareBufferLength(FixFirmwareLength(length))
 {
     if (data)
     {
@@ -249,14 +278,14 @@ SPI_Firmware::Firmware::Firmware(const u8* data, u32 length) : FirmwareBuffer(nu
     }
 }
 
-SPI_Firmware::Firmware::Firmware(const Firmware& other) : FirmwareBuffer(nullptr), FirmwareBufferLength(other.FirmwareBufferLength)
+Firmware::Firmware(const Firmware& other) : FirmwareBuffer(nullptr), FirmwareBufferLength(other.FirmwareBufferLength)
 {
     FirmwareBuffer = new u8[FirmwareBufferLength];
     memcpy(FirmwareBuffer, other.FirmwareBuffer, FirmwareBufferLength);
     FirmwareMask = other.FirmwareMask;
 }
 
-SPI_Firmware::Firmware::Firmware(Firmware&& other) noexcept
+Firmware::Firmware(Firmware&& other) noexcept
 {
     FirmwareBuffer = other.FirmwareBuffer;
     FirmwareBufferLength = other.FirmwareBufferLength;
@@ -266,7 +295,7 @@ SPI_Firmware::Firmware::Firmware(Firmware&& other) noexcept
     other.FirmwareMask = 0;
 }
 
-SPI_Firmware::Firmware& SPI_Firmware::Firmware::operator=(const Firmware& other)
+Firmware& Firmware::operator=(const Firmware& other)
 {
     if (this != &other)
     {
@@ -280,7 +309,7 @@ SPI_Firmware::Firmware& SPI_Firmware::Firmware::operator=(const Firmware& other)
     return *this;
 }
 
-SPI_Firmware::Firmware& SPI_Firmware::Firmware::operator=(Firmware&& other) noexcept
+Firmware& Firmware::operator=(Firmware&& other) noexcept
 {
     if (this != &other)
     {
@@ -296,21 +325,21 @@ SPI_Firmware::Firmware& SPI_Firmware::Firmware::operator=(Firmware&& other) noex
     return *this;
 }
 
-SPI_Firmware::Firmware::~Firmware()
+Firmware::~Firmware()
 {
     delete[] FirmwareBuffer;
 }
 
-bool SPI_Firmware::Firmware::IsBootable() const
+bool Firmware::IsBootable() const
 {
     return
         FirmwareBufferLength != DEFAULT_FIRMWARE_LENGTH &&
-        Header().Identifier != GENERATED_FIRMWARE_IDENTIFIER
+        GetHeader().Identifier != GENERATED_FIRMWARE_IDENTIFIER
     ;
 }
 
-const SPI_Firmware::UserData& SPI_Firmware::Firmware::EffectiveUserData() const {
-    const std::array<union UserData, 2>& userdata = UserData();
+const Firmware::UserData& Firmware::GetEffectiveUserData() const {
+    const std::array<union UserData, 2>& userdata = GetUserData();
     bool userdata0ChecksumOk = userdata[0].ChecksumValid();
     bool userdata1ChecksumOk = userdata[1].ChecksumValid();
 
@@ -332,8 +361,8 @@ const SPI_Firmware::UserData& SPI_Firmware::Firmware::EffectiveUserData() const 
     }
 }
 
-SPI_Firmware::UserData& SPI_Firmware::Firmware::EffectiveUserData() {
-    std::array<union UserData, 2>& userdata = UserData();
+Firmware::UserData& Firmware::GetEffectiveUserData() {
+    std::array<union UserData, 2>& userdata = GetUserData();
     bool userdata0ChecksumOk = userdata[0].ChecksumValid();
     bool userdata1ChecksumOk = userdata[1].ChecksumValid();
 
@@ -355,25 +384,27 @@ SPI_Firmware::UserData& SPI_Firmware::Firmware::EffectiveUserData() {
     }
 }
 
-void SPI_Firmware::Firmware::UpdateChecksums()
+void Firmware::UpdateChecksums()
 {
-    Header().UpdateChecksum();
+    GetHeader().UpdateChecksum();
 
-    for (SPI_Firmware::WifiAccessPoint& ap : AccessPoints())
+    for (auto& ap : GetAccessPoints())
     {
         ap.UpdateChecksum();
     }
 
-    if (Header().ConsoleType == FirmwareConsoleType::DSi)
+    if (GetHeader().ConsoleType == FirmwareConsoleType::DSi)
     {
-        for (SPI_Firmware::ExtendedWifiAccessPoint& eap : ExtendedAccessPoints())
+        for (auto& eap : GetExtendedAccessPoints())
         {
             eap.UpdateChecksum();
         }
     }
 
-    for (SPI_Firmware::UserData& u : UserData())
+    for (auto& u : GetUserData())
     {
         u.UpdateChecksum();
     }
+}
+
 }

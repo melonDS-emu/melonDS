@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -25,6 +25,9 @@
 
 #define XXH_STATIC_LINKING_ONLY
 #include "xxhash/xxhash.h"
+
+namespace melonDS
+{
 
 using Platform::Log;
 using Platform::LogLevel;
@@ -209,6 +212,13 @@ bool CompilerShader(GLuint& id, const std::string& source, const std::string& na
         Log(LogLevel::Debug, "shader source:\n--\n%s\n--\n", source.c_str());
         delete[] log;
 
+        Platform::FileHandle* logf = Platform::OpenFile("shaderfail.log", Platform::FileMode::WriteText);
+        Platform::FileWrite(fs, len+1, 1, logf);
+        Platform::CloseFile(logf);
+
+        glDeleteShader(ids[0]);
+        glDeleteShader(ids[1]);
+
         return false;
     }
 
@@ -351,6 +361,8 @@ error:
         glDeleteProgram(result);
 
     return linkingSucess;
+}
+
 }
 
 }

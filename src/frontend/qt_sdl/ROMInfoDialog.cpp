@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -21,10 +21,14 @@
 
 #include <QFileDialog>
 
+#include "gif-h/gif.h"
+
 #include "NDS.h"
 #include "NDSCart.h"
 #include "Platform.h"
 #include "Config.h"
+
+using namespace melonDS;
 
 QString IntToHex(u64 num)
 {
@@ -38,30 +42,30 @@ QString QStringBytes(u64 num)
 
 ROMInfoDialog* ROMInfoDialog::currentDlg = nullptr;
 
-ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMInfoDialog)
+ROMInfoDialog::ROMInfoDialog(QWidget* parent, const melonDS::NDSCart::CartCommon& rom) : QDialog(parent), ui(new Ui::ROMInfoDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    const NDSBanner* banner = NDSCart::Cart->Banner();
-    const NDSHeader& header = NDSCart::Cart->GetHeader();
+    const NDSBanner* banner = rom.Banner();
+    const NDSHeader& header = rom.GetHeader();
     u32 iconData[32 * 32];
     ROMManager::ROMIcon(banner->Icon, banner->Palette, iconData);
-    iconImage = QImage(reinterpret_cast<unsigned char*>(iconData), 32, 32, QImage::Format_ARGB32).copy();
+    iconImage = QImage(reinterpret_cast<u8*>(iconData), 32, 32, QImage::Format_RGBA8888).copy();
     ui->iconImage->setPixmap(QPixmap::fromImage(iconImage));
 
     if (banner->Version == 0x103)
     {
-        u32 animatedIconData[32 * 32 * 64] = {0};
+        ui->saveAnimatedIconButton->setEnabled(true);
+
         ROMManager::AnimatedROMIcon(banner->DSiIcon, banner->DSiPalette, banner->DSiSequence, animatedIconData, animatedSequence);
 
-        for (int i = 0; i < 64; i++)
+        for (u32* image: animatedIconData)
         {
-            if (animatedIconData[32 * 32 * i] == 0)
+            if (!image)
                 break;
-            animatedIconImages.push_back(QPixmap::fromImage(QImage(reinterpret_cast<unsigned char*>(&animatedIconData[32 * 32 * i]), 32, 32, QImage::Format_ARGB32).copy()));
+            animatedIconImages.push_back(QPixmap::fromImage(QImage(reinterpret_cast<u8*>(image), 32, 32, QImage::Format_RGBA8888).copy()));
         }
-
         iconTimeline = new QTimeLine(animatedSequence.size() / 60 * 1000, this);
         iconTimeline->setFrameRange(0, animatedSequence.size() - 1);
         iconTimeline->setLoopCount(0);
@@ -137,6 +141,30 @@ void ROMInfoDialog::on_saveIconButton_clicked()
         return;
 
     iconImage.save(filename, "PNG");
+}
+
+void ROMInfoDialog::on_saveAnimatedIconButton_clicked()
+{
+    QString filename = QFileDialog::getSaveFileName(this,
+                                                    "Save Animated Icon",
+                                                    QString::fromStdString(Config::LastROMFolder),
+                                                    "GIF Images (*.gif)");
+    if (filename.isEmpty())
+        return;
+
+
+    GifWriter writer;
+
+    // The GIF format only supports delays of 0.01 seconds, so 0.0166... (60fps)
+    // is rounded up to 0.02 (50fps)
+    GifBegin(&writer, filename.toStdString().c_str(), 32, 32, 2);
+    for (int i: animatedSequence)
+    {
+        if (animatedIconData[i] == 0)
+            break;
+        GifWriteFrame(&writer, reinterpret_cast<u8*>(animatedIconData[i]), 32, 32, 2);
+    }
+    GifEnd(&writer);
 }
 
 void ROMInfoDialog::iconSetFrame(int frame)

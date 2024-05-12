@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -104,3 +104,8 @@ ARM_Ret:
 #endif
 
     ret
+
+#if !defined(__APPLE__) && !defined(WIN64)
+.section .note.GNU-stack,"",@progbits
+#endif
+

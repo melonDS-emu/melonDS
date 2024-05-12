@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -17,10 +17,12 @@
 */
 
 #include "ARMJIT_Compiler.h"
+#include "../ARMJIT.h"
+#include "../NDS.h"
 
 using namespace Gen;
 
-namespace ARMJIT
+namespace melonDS
 {
 
 template <typename T>
@@ -67,9 +69,9 @@ u8* Compiler::RewriteMemAccess(u8* pc)
 
 bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
 {
-    u32 localAddr = LocaliseCodeAddress(Num, addr);
+    u32 localAddr = NDS.JIT.LocaliseCodeAddress(Num, addr);
 
-    int invalidLiteralIdx = InvalidLiterals.Find(localAddr);
+    int invalidLiteralIdx = NDS.JIT.InvalidLiterals.Find(localAddr);
     if (invalidLiteralIdx != -1)
     {
         return false;
@@ -84,7 +86,7 @@ bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
     if (size == 32)
     {
         CurCPU->DataRead32(addr & ~0x3, &val);
-        val = ::ROR(val, (addr & 0x3) << 3);
+        val = melonDS::ROR(val, (addr & 0x3) << 3);
     }
     else if (size == 16)
     {
@@ -117,7 +119,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
     if (size == 16)
         addressMask = ~1;
 
-    if (LiteralOptimizations && rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
+    if (NDS.JIT.LiteralOptimizationsEnabled() && rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
     {
         u32 addr = R15 + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
 
@@ -134,7 +136,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
         Comp_AddCycles_CDI();
     }
 
-    bool addrIsStatic = LiteralOptimizations
+    bool addrIsStatic = NDS.JIT.LiteralOptimizationsEnabled()
         && RegCache.IsLiteral(rn) && op2.IsImm && !(flags & (memop_Writeback|memop_Post));
     u32 staticAddress;
     if (addrIsStatic)
@@ -195,10 +197,10 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
         MOV(32, rnMapped, R(finalAddr));
 
     u32 expectedTarget = Num == 0
-        ? ARMJIT_Memory::ClassifyAddress9(CurInstr.DataRegion)
-        : ARMJIT_Memory::ClassifyAddress7(CurInstr.DataRegion);
+        ? NDS.JIT.Memory.ClassifyAddress9(CurInstr.DataRegion)
+        : NDS.JIT.Memory.ClassifyAddress7(CurInstr.DataRegion);
 
-    if (ARMJIT::FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || ARMJIT_Memory::IsFastmemCompatible(expectedTarget)))
+    if (NDS.JIT.FastMemoryEnabled() && ((!Thumb && CurInstr.Cond() != 0xE) || NDS.JIT.Memory.IsFastmemCompatible(expectedTarget)))
     {
         if (rdMapped.IsImm())
         {
@@ -211,12 +213,12 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
 
         assert(rdMapped.GetSimpleReg() >= 0 && rdMapped.GetSimpleReg() < 16);
         patch.PatchFunc = flags & memop_Store
-            ? PatchedStoreFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][rdMapped.GetSimpleReg()]
-            : PatchedLoadFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped.GetSimpleReg()];
+            ? PatchedStoreFuncs[NDS.ConsoleType][Num][__builtin_ctz(size) - 3][rdMapped.GetSimpleReg()]
+            : PatchedLoadFuncs[NDS.ConsoleType][Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped.GetSimpleReg()];
 
         assert(patch.PatchFunc != NULL);
 
-        MOV(64, R(RSCRATCH), ImmPtr(Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start));
+        MOV(64, R(RSCRATCH), ImmPtr(Num == 0 ? NDS.JIT.Memory.FastMem9Start : NDS.JIT.Memory.FastMem7Start));
 
         X64Reg maskedAddr = RSCRATCH3;
         if (size > 8)
@@ -267,7 +269,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
 
         void* func = NULL;
         if (addrIsStatic)
-            func = ARMJIT_Memory::GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
+            func = NDS.JIT.Memory.GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
 
         if (func)
         {
@@ -312,7 +314,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
                     MOV(32, R(ABI_PARAM1), R(RSCRATCH3));
                 if (flags & memop_Store)
                 {
-                    switch (size | NDS::ConsoleType)
+                    switch (size | NDS.ConsoleType)
                     {
                     case 32: CALL((void*)&SlowWrite9<u32, 0>); break;
                     case 16: CALL((void*)&SlowWrite9<u16, 0>); break;
@@ -324,7 +326,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
                 }
                 else
                 {
-                    switch (size | NDS::ConsoleType)
+                    switch (size | NDS.ConsoleType)
                     {
                     case 32: CALL((void*)&SlowRead9<u32, 0>); break;
                     case 16: CALL((void*)&SlowRead9<u16, 0>); break;
@@ -343,7 +345,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
                 {
                     MOV(32, R(ABI_PARAM2), rdMapped);
 
-                    switch (size | NDS::ConsoleType)
+                    switch (size | NDS.ConsoleType)
                     {
                     case 32: CALL((void*)&SlowWrite7<u32, 0>); break;
                     case 16: CALL((void*)&SlowWrite7<u16, 0>); break;
@@ -355,7 +357,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
                 }
                 else
                 {
-                    switch (size | NDS::ConsoleType)
+                    switch (size | NDS.ConsoleType)
                     {
                     case 32: CALL((void*)&SlowRead7<u32, 0>); break;
                     case 16: CALL((void*)&SlowRead7<u16, 0>); break;
@@ -421,16 +423,16 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     s32 offset = (regsCount * 4) * (decrement ? -1 : 1);
 
     int expectedTarget = Num == 0
-        ? ARMJIT_Memory::ClassifyAddress9(CurInstr.DataRegion)
-        : ARMJIT_Memory::ClassifyAddress7(CurInstr.DataRegion);
+        ? NDS.JIT.Memory.ClassifyAddress9(CurInstr.DataRegion)
+        : NDS.JIT.Memory.ClassifyAddress7(CurInstr.DataRegion);
 
     if (!store)
         Comp_AddCycles_CDI();
     else
         Comp_AddCycles_CD();
 
-    bool compileFastPath = FastMemory
-        && !usermode && (CurInstr.Cond() < 0xE || ARMJIT_Memory::IsFastmemCompatible(expectedTarget));
+    bool compileFastPath = NDS.JIT.FastMemoryEnabled()
+        && !usermode && (CurInstr.Cond() < 0xE || NDS.JIT.Memory.IsFastmemCompatible(expectedTarget));
 
     // we need to make sure that the stack stays aligned to 16 bytes
 #ifdef _WIN32
@@ -453,7 +455,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         u8* fastPathStart = GetWritableCodePtr();
         u8* loadStoreAddr[16];
 
-        MOV(64, R(RSCRATCH2), ImmPtr(Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start));
+        MOV(64, R(RSCRATCH2), ImmPtr(Num == 0 ? NDS.JIT.Memory.FastMem9Start : NDS.JIT.Memory.FastMem7Start));
         ADD(64, R(RSCRATCH2), R(RSCRATCH4));
 
         u32 offset = 0;
@@ -522,7 +524,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         if (Num == 0)
             MOV(64, R(ABI_PARAM4), R(RCPU));
 
-        switch (Num * 2 | NDS::ConsoleType)
+        switch (Num * 2 | NDS.ConsoleType)
         {
         case 0: CALL((void*)&SlowBlockTransfer9<false, 0>); break;
         case 1: CALL((void*)&SlowBlockTransfer9<false, 1>); break;
@@ -626,7 +628,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         if (Num == 0)
             MOV(64, R(ABI_PARAM4), R(RCPU));
 
-        switch (Num * 2 | NDS::ConsoleType)
+        switch (Num * 2 | NDS.ConsoleType)
         {
         case 0: CALL((void*)&SlowBlockTransfer9<true, 0>); break;
         case 1: CALL((void*)&SlowBlockTransfer9<true, 1>); break;
@@ -807,7 +809,7 @@ void Compiler::T_Comp_LoadPCRel()
 {
     u32 offset = (CurInstr.Instr & 0xFF) << 2;
     u32 addr = (R15 & ~0x2) + offset;
-    if (!LiteralOptimizations || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
+    if (!NDS.JIT.LiteralOptimizationsEnabled() || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
         Comp_MemAccess(CurInstr.T_Reg(8), 15, Op2(offset), 32, 0);
 }
 

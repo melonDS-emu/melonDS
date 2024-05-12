@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,11 +22,13 @@
 
 #include "FrontendUtil.h"
 #include "Config.h"
+#include "NDS.h"
 #include "SPU.h"
 #include "Platform.h"
 #include "Input.h"
 #include "main.h"
 
+using namespace melonDS;
 namespace AudioInOut
 {
 
@@ -53,8 +55,9 @@ void AudioCallback(void* data, Uint8* stream, int len)
     s16 buf_in[1024*2];
     int num_in;
 
+    EmuThread* emuThread = (EmuThread*)data;
     SDL_LockMutex(audioSyncLock);
-    num_in = SPU::ReadOutput(buf_in, len_in);
+    num_in = emuThread->NDS->SPU.ReadOutput(buf_in, len_in);
     SDL_CondSignal(audioSync);
     SDL_UnlockMutex(audioSyncLock);
 
@@ -242,7 +245,7 @@ void MicLoadWav(const std::string& name)
     SDL_FreeWAV(buf);
 }
 
-void MicProcess()
+void MicProcess(melonDS::NDS& nds)
 {
     int type = Config::MicInputType;
     bool cmd = Input::HotkeyDown(HK_Mic);
@@ -255,16 +258,16 @@ void MicProcess()
     switch (type)
     {
     case micInputType_Silence: // no mic
-        Frontend::Mic_FeedSilence();
+        Frontend::Mic_FeedSilence(nds);
         break;
 
     case micInputType_External: // host mic
     case micInputType_Wav: // WAV
-        Frontend::Mic_FeedExternalBuffer();
+        Frontend::Mic_FeedExternalBuffer(nds);
         break;
 
     case micInputType_Noise: // blowing noise
-        Frontend::Mic_FeedNoise();
+        Frontend::Mic_FeedNoise(nds);
         break;
     }
 }
@@ -294,7 +297,7 @@ void SetupMicInputData()
     }
 }
 
-void Init()
+void Init(EmuThread* thread)
 {
     audioMuted = false;
     audioSync = SDL_CreateCond();
@@ -308,6 +311,7 @@ void Init()
     whatIwant.channels = 2;
     whatIwant.samples = 1024;
     whatIwant.callback = AudioCallback;
+    whatIwant.userdata = thread;
     audioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
     if (!audioDevice)
     {
@@ -347,12 +351,12 @@ void DeInit()
     micWavBuffer = nullptr;
 }
 
-void AudioSync()
+void AudioSync(NDS& nds)
 {
     if (audioDevice)
     {
         SDL_LockMutex(audioSyncLock);
-        while (SPU::GetOutputSize() > 1024)
+        while (nds.SPU.GetOutputSize() > 1024)
         {
             int ret = SDL_CondWaitTimeout(audioSync, audioSyncLock, 500);
             if (ret == SDL_MUTEX_TIMEDOUT) break;
@@ -361,11 +365,11 @@ void AudioSync()
     }
 }
 
-void UpdateSettings()
+void UpdateSettings(NDS& nds)
 {
     MicClose();
 
-    SPU::SetInterpolation(Config::AudioInterp);
+    nds.SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
     SetupMicInputData();
 
     MicOpen();

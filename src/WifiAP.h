@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -21,24 +21,48 @@
 
 #include "types.h"
 
-namespace WifiAP
+namespace melonDS
 {
+class Wifi;
 
-#define AP_MAC  0x00, 0xF0, 0x77, 0x77, 0x77, 0x77
-#define AP_NAME "melonAP"
+class WifiAP
+{
+public:
+    WifiAP(Wifi* client);
+    ~WifiAP();
+    void Reset();
 
-extern const u8 APMac[6];
+    static const char* APName;
+    static const u8 APMac[6];
+    static const u8 APChannel;
 
-bool Init();
-void DeInit();
-void Reset();
+    void MSTimer();
 
-void MSTimer();
+    // packet format: 12-byte TX header + original 802.11 frame
+    int SendPacket(const u8* data, int len);
+    int RecvPacket(u8* data);
 
-// packet format: 12-byte TX header + original 802.11 frame
-int SendPacket(u8* data, int len);
-int RecvPacket(u8* data);
+private:
+    Wifi* Client;
+
+    u64 USCounter;
+
+    u16 SeqNo;
+
+    bool BeaconDue;
+
+    u8 PacketBuffer[2048];
+    int PacketLen;
+    int RXNum;
+
+    u8 LANBuffer[2048];
+
+    // this is a lazy AP, we only keep track of one client
+    // 0=disconnected 1=authenticated 2=associated
+    int ClientStatus;
+
+    int HandleManagementFrame(const u8* data, int len);
+};
 
 }
-
 #endif

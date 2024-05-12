@@ -10,6 +10,7 @@
 
 namespace Common
 {
+using namespace melonDS;
 #if defined(__GNUC__) || defined(__clang__)
 __attribute((always_inline)) static constexpr int CountSetBits(u8 val)
 {
@@ -218,9 +219,10 @@ public:
   constexpr Iterator end() const { return Iterator(m_val, -1); }
   IntTy m_val;
 };
+
+using BitSet8 = BitSet<u8>;
+using BitSet16 = BitSet<u16>;
+using BitSet32 = BitSet<u32>;
+using BitSet64 = BitSet<u64>;
 }  // namespace Common
 
-using BitSet8 = Common::BitSet<u8>;
-using BitSet16 = Common::BitSet<u16>;
-using BitSet32 = Common::BitSet<u32>;
-using BitSet64 = Common::BitSet<u64>;

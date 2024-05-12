@@ -94,3 +94,8 @@ ARM_RestoreContext:
     mov sp, x17
 
     br x18
+
+#if !defined(__APPLE__) && !defined(__WIN32__)
+.section .note.GNU-stack,"",@progbits
+#endif
+

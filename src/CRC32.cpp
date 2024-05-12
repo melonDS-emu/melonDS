@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -20,6 +20,8 @@
 
 // http://www.codeproject.com/KB/recipes/crc32_large.aspx
 
+namespace melonDS
+{
 constexpr u32 _reflect(u32 refl, char ch)
 {
     u32 value = 0;
@@ -61,4 +63,6 @@ u32 CRC32(const u8 *data, int len, u32 start)
         crc = (crc >> 8) ^ Crc32Table[(crc & 0xFF) ^ *data++];
 
 	return (crc ^ 0xFFFFFFFF);
+}
+
 }

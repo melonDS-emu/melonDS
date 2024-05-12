@@ -1,0 +1,85 @@
+name: macOS
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-macos:
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
+
+    name: ${{ matrix.arch }}
+    runs-on: macos-14
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v3
+      - name: Install dependencies for package building
+        run: |
+          brew install autoconf automake autoconf-archive libtool python-setuptools
+      - name: Set up CMake
+        uses: lukka/get-cmake@latest
+      - name: Set up vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 53bef8994c541b6561884a8395ea35715ece75db
+      - name: Build
+        uses: lukka/run-cmake@v10
+        with:
+          configurePreset: release-mac-${{ matrix.arch }}
+          buildPreset: release-mac-${{ matrix.arch }}
+      - name: Compress app bundle
+        shell: bash
+        run: |
+          cd build/release-mac-${{ matrix.arch }}
+          zip -r -y ../../macOS-${{ matrix.arch }}.zip melonDS.app
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macOS-${{ matrix.arch }}
+          path: macOS-${{ matrix.arch }}.zip
+          retention-days: 1
+
+  universal-binary:
+    name: Universal binary
+    needs: [build-macos]
+    runs-on: macos-13
+    continue-on-error: true
+    steps:
+      - name: Download x86_64
+        uses: actions/download-artifact@v4
+        with:
+          name: macOS-x86_64
+          path: x86_64
+      - name: Download arm64
+        uses: actions/download-artifact@v4
+        with:
+          name: macOS-arm64
+          path: arm64
+      - name: Combine app bundles
+        shell: bash
+        run: |
+          unzip x86_64/*.zip -d x86_64
+          unzip arm64/*.zip -d arm64
+          lipo {x86_64,arm64}/melonDS.app/Contents/MacOS/melonDS -create -output melonDS
+          cp -a arm64/melonDS.app melonDS.app
+          cp melonDS melonDS.app/Contents/MacOS/melonDS
+          codesign -s - --deep melonDS.app
+          zip -r -y macOS-universal.zip melonDS.app
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macOS-universal
+          path: macOS-universal.zip
+#     - name: Clean up architecture-specific artifacts
+#       uses: geekyeggo/delete-artifact@v4
+#       with:
+#         failOnError: false
+#         name: |
+#           macOS-x86_64
+#           macOS-arm64

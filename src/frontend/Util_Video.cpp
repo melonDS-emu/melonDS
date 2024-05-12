@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -471,7 +471,7 @@ int GetScreenTransforms(float* out, int* kind)
 
 bool GetTouchCoords(int& x, int& y, bool clamp)
 {
-    if (HybEnable && HybScreen == 1) 
+    if (HybEnable && HybScreen == 1)
     {
         float vx = x;
         float vy = y;
@@ -487,7 +487,7 @@ bool GetTouchCoords(int& x, int& y, bool clamp)
             {
                 x = std::clamp((int)vx, 0, 255);
                 y = std::clamp((int)vy, 0, 191);
-                
+
                 return true;
             }
             if (HybPrevTouchScreen == 2)

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -22,6 +22,7 @@
 #include "Input.h"
 #include "Config.h"
 
+using namespace melonDS;
 
 namespace Input
 {
@@ -127,6 +128,11 @@ void KeyRelease(QKeyEvent* event)
             KeyHotkeyMask &= ~(1<<i);
 }
 
+void KeyReleaseAll()
+{
+    KeyInputMask = 0xFFF;
+    KeyHotkeyMask = 0;
+}
 
 bool JoystickButtonDown(int val)
 {
@@ -203,16 +209,22 @@ void Process()
     }
 
     JoyInputMask = 0xFFF;
-    for (int i = 0; i < 12; i++)
-        if (JoystickButtonDown(Config::JoyMapping[i]))
-            JoyInputMask &= ~(1<<i);
+    if (Joystick)
+    {
+        for (int i = 0; i < 12; i++)
+            if (JoystickButtonDown(Config::JoyMapping[i]))
+                JoyInputMask &= ~(1 << i);
+    }
 
     InputMask = KeyInputMask & JoyInputMask;
 
     JoyHotkeyMask = 0;
-    for (int i = 0; i < HK_MAX; i++)
-        if (JoystickButtonDown(Config::HKJoyMapping[i]))
-            JoyHotkeyMask |= (1<<i);
+    if (Joystick)
+    {
+        for (int i = 0; i < HK_MAX; i++)
+            if (JoystickButtonDown(Config::HKJoyMapping[i]))
+                JoyHotkeyMask |= (1 << i);
+    }
 
     HotkeyMask = KeyHotkeyMask | JoyHotkeyMask;
     HotkeyPress = HotkeyMask & ~LastHotkeyMask;

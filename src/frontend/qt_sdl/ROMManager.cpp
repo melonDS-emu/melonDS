@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -28,6 +28,9 @@
 #include <utility>
 #include <fstream>
 
+#include <QDateTime>
+#include <QMessageBox>
+
 #include <zstd.h>
 #ifdef ARCHIVE_SUPPORT_ENABLED
 #include "ArchiveUtil.h"
@@ -39,15 +42,19 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "SPI.h"
+#include "RTC.h"
 #include "DSi_I2C.h"
 #include "FreeBIOS.h"
+#include "main.h"
 
 using std::make_unique;
 using std::pair;
 using std::string;
 using std::tie;
 using std::unique_ptr;
-using namespace Platform;
+using std::wstring_convert;
+using namespace melonDS;
+using namespace melonDS::Platform;
 
 namespace ROMManager
 {
@@ -62,8 +69,8 @@ std::string BaseGBAROMDir = "";
 std::string BaseGBAROMName = "";
 std::string BaseGBAAssetName = "";
 
-SaveManager* NDSSave = nullptr;
-SaveManager* GBASave = nullptr;
+std::unique_ptr<SaveManager> NDSSave = nullptr;
+std::unique_ptr<SaveManager> GBASave = nullptr;
 std::unique_ptr<SaveManager> FirmwareSave = nullptr;
 
 std::unique_ptr<Savestate> BackupState = nullptr;
@@ -204,6 +211,9 @@ QString VerifyDSFirmware()
     f = Platform::OpenLocalFile(Config::FirmwarePath, FileMode::Read);
     if (!f) return "DS firmware was not found or could not be accessed. Check your emu settings.";
 
+    if (!Platform::CheckFileWritable(Config::FirmwarePath))
+        return "DS firmware is unable to be written to.\nPlease check file/folder write permissions.";
+
     len = FileLength(f);
     if (len == 0x20000)
     {
@@ -231,6 +241,9 @@ QString VerifyDSiFirmware()
     f = Platform::OpenLocalFile(Config::DSiFirmwarePath, FileMode::Read);
     if (!f) return "DSi firmware was not found or could not be accessed. Check your emu settings.";
 
+    if (!Platform::CheckFileWritable(Config::FirmwarePath))
+        return "DSi firmware is unable to be written to.\nPlease check file/folder write permissions.";
+
     len = FileLength(f);
     if (len != 0x20000)
     {
@@ -252,6 +265,9 @@ QString VerifyDSiNAND()
 
     f = Platform::OpenLocalFile(Config::DSiNANDPath, FileMode::ReadWriteExisting);
     if (!f) return "DSi NAND was not found or could not be accessed. Check your emu settings.";
+
+    if (!Platform::CheckFileWritable(Config::FirmwarePath))
+        return "DSi NAND is unable to be written to.\nPlease check file/folder write permissions.";
 
     // TODO: some basic checks
     // check that it has the nocash footer, and all
@@ -297,6 +313,28 @@ QString VerifySetup()
     return "";
 }
 
+std::string GetEffectiveFirmwareSavePath(EmuThread* thread)
+{
+    if (!Config::ExternalBIOSEnable)
+    {
+        return Config::WifiSettingsPath;
+    }
+    if (thread->NDS->ConsoleType == 1)
+    {
+        return Config::DSiFirmwarePath;
+    }
+    else
+    {
+        return Config::FirmwarePath;
+    }
+}
+
+// Initializes the firmware save manager with the selected firmware image's path
+// OR the path to the wi-fi settings.
+void InitFirmwareSaveManager(EmuThread* thread) noexcept
+{
+    FirmwareSave = std::make_unique<SaveManager>(GetEffectiveFirmwareSavePath(thread));
+}
 
 std::string GetSavestateName(int slot)
 {
@@ -311,7 +349,7 @@ bool SavestateExists(int slot)
     return Platform::FileExists(ssfile);
 }
 
-bool LoadState(const std::string& filename)
+bool LoadState(NDS& nds, const std::string& filename)
 {
     FILE* file = fopen(filename.c_str(), "rb");
     if (file == nullptr)
@@ -328,7 +366,7 @@ bool LoadState(const std::string& filename)
         return false;
     }
 
-    if (!NDS::DoSavestate(backup.get()) || backup->Error)
+    if (!nds.DoSavestate(backup.get()) || backup->Error)
     { // Back up the emulator's state. If that failed...
         Platform::Log(Platform::LogLevel::Error, "Failed to back up state, aborting load (from \"%s\")\n", filename.c_str());
         fclose(file);
@@ -360,7 +398,7 @@ bool LoadState(const std::string& filename)
     // Get ready to load the state from the buffer into the emulator
     std::unique_ptr<Savestate> state = std::make_unique<Savestate>(buffer.data(), size, false);
 
-    if (!NDS::DoSavestate(state.get()) || state->Error)
+    if (!nds.DoSavestate(state.get()) || state->Error)
     { // If we couldn't load the savestate from the buffer...
         Platform::Log(Platform::LogLevel::Error, "Failed to load state file \"%s\" into emulator\n", filename.c_str());
         return false;
@@ -385,7 +423,7 @@ bool LoadState(const std::string& filename)
     return true;
 }
 
-bool SaveState(const std::string& filename)
+bool SaveState(NDS& nds, const std::string& filename)
 {
     FILE* file = fopen(filename.c_str(), "wb");
 
@@ -402,7 +440,7 @@ bool SaveState(const std::string& filename)
     }
 
     // Write the savestate to the in-memory buffer
-    NDS::DoSavestate(&state);
+    nds.DoSavestate(&state);
 
     if (state.Error)
     {
@@ -434,7 +472,7 @@ bool SaveState(const std::string& filename)
     return true;
 }
 
-void UndoStateLoad()
+void UndoStateLoad(NDS& nds)
 {
     if (!SavestateLoaded || !BackupState) return;
 
@@ -443,7 +481,7 @@ void UndoStateLoad()
     // pray that this works
     // what do we do if it doesn't???
     // but it should work.
-    NDS::DoSavestate(BackupState.get());
+    nds.DoSavestate(BackupState.get());
 
     if (NDSSave && (!PreviousSaveFile.empty()))
     {
@@ -452,121 +490,340 @@ void UndoStateLoad()
 }
 
 
-void UnloadCheats()
+void UnloadCheats(NDS& nds)
 {
     if (CheatFile)
     {
         delete CheatFile;
         CheatFile = nullptr;
-        AREngine::SetCodeFile(nullptr);
+        nds.AREngine.SetCodeFile(nullptr);
     }
 }
 
-void LoadCheats()
+void LoadCheats(NDS& nds)
 {
-    UnloadCheats();
+    UnloadCheats(nds);
 
     std::string filename = GetAssetPath(false, Config::CheatFilePath, ".mch");
 
     // TODO: check for error (malformed cheat file, ...)
     CheatFile = new ARCodeFile(filename);
 
-    AREngine::SetCodeFile(CheatsOn ? CheatFile : nullptr);
+    nds.AREngine.SetCodeFile(CheatsOn ? CheatFile : nullptr);
 }
 
-void LoadBIOSFiles()
+std::unique_ptr<ARM9BIOSImage> LoadARM9BIOS() noexcept
 {
-    if (Config::ExternalBIOSEnable)
+    if (!Config::ExternalBIOSEnable)
     {
-        if (FileHandle* f = Platform::OpenLocalFile(Config::BIOS9Path, FileMode::Read))
-        {
-            FileRewind(f);
-            FileRead(NDS::ARM9BIOS, sizeof(NDS::ARM9BIOS), 1, f);
-
-            Log(LogLevel::Info, "ARM9 BIOS loaded from %s\n", Config::BIOS9Path.c_str());
-            Platform::CloseFile(f);
-        }
-        else
-        {
-            Log(LogLevel::Warn, "ARM9 BIOS not found\n");
-
-            for (int i = 0; i < 16; i++)
-                ((u32*)NDS::ARM9BIOS)[i] = 0xE7FFDEFF;
-        }
-
-        if (FileHandle* f = Platform::OpenLocalFile(Config::BIOS7Path, FileMode::Read))
-        {
-            FileRead(NDS::ARM7BIOS, sizeof(NDS::ARM7BIOS), 1, f);
-
-            Log(LogLevel::Info, "ARM7 BIOS loaded from\n", Config::BIOS7Path.c_str());
-            Platform::CloseFile(f);
-        }
-        else
-        {
-            Log(LogLevel::Warn, "ARM7 BIOS not found\n");
-
-            for (int i = 0; i < 16; i++)
-                ((u32*)NDS::ARM7BIOS)[i] = 0xE7FFDEFF;
-        }
-    }
-    else
-    {
-        Log(LogLevel::Info, "Using built-in ARM7 and ARM9 BIOSes\n");
-        memcpy(NDS::ARM9BIOS, bios_arm9_bin, sizeof(bios_arm9_bin));
-        memcpy(NDS::ARM7BIOS, bios_arm7_bin, sizeof(bios_arm7_bin));
+        return Config::ConsoleType == 0 ? std::make_unique<ARM9BIOSImage>(bios_arm9_bin) : nullptr;
     }
 
-    if (Config::ConsoleType == 1)
+    if (FileHandle* f = OpenLocalFile(Config::BIOS9Path, Read))
     {
-        if (FileHandle* f = Platform::OpenLocalFile(Config::DSiBIOS9Path, FileMode::Read))
-        {
-            FileRead(DSi::ARM9iBIOS, sizeof(DSi::ARM9iBIOS), 1, f);
+        std::unique_ptr<ARM9BIOSImage> bios = std::make_unique<ARM9BIOSImage>();
+        FileRewind(f);
+        FileRead(bios->data(), bios->size(), 1, f);
+        CloseFile(f);
+        Log(Info, "ARM9 BIOS loaded from %s\n", Config::BIOS9Path.c_str());
+        return bios;
+    }
 
-            Log(LogLevel::Info, "ARM9i BIOS loaded from %s\n", Config::DSiBIOS9Path.c_str());
-            Platform::CloseFile(f);
-        }
-        else
-        {
-            Log(LogLevel::Warn, "ARM9i BIOS not found\n");
+    Log(Warn, "ARM9 BIOS not found\n");
+    return nullptr;
+}
 
-            for (int i = 0; i < 16; i++)
-                ((u32*)DSi::ARM9iBIOS)[i] = 0xE7FFDEFF;
-        }
+std::unique_ptr<ARM7BIOSImage> LoadARM7BIOS() noexcept
+{
+    if (!Config::ExternalBIOSEnable)
+    {
+        return Config::ConsoleType == 0 ? std::make_unique<ARM7BIOSImage>(bios_arm7_bin) : nullptr;
+    }
 
-        if (FileHandle* f = Platform::OpenLocalFile(Config::DSiBIOS7Path, FileMode::Read))
-        {
-        // TODO: check if the first 32 bytes are crapoed
-            FileRead(DSi::ARM7iBIOS, sizeof(DSi::ARM7iBIOS), 1, f);
+    if (FileHandle* f = OpenLocalFile(Config::BIOS7Path, Read))
+    {
+        std::unique_ptr<ARM7BIOSImage> bios = std::make_unique<ARM7BIOSImage>();
+        FileRead(bios->data(), bios->size(), 1, f);
+        CloseFile(f);
+        Log(Info, "ARM7 BIOS loaded from %s\n", Config::BIOS7Path.c_str());
+        return bios;
+    }
 
-            Log(LogLevel::Info, "ARM7i BIOS loaded from %s\n", Config::DSiBIOS7Path.c_str());
-            CloseFile(f);
-        }
-        else
-        {
-            Log(LogLevel::Warn, "ARM7i BIOS not found\n");
+    Log(Warn, "ARM7 BIOS not found\n");
+    return nullptr;
+}
 
-            for (int i = 0; i < 16; i++)
-                ((u32*)DSi::ARM7iBIOS)[i] = 0xE7FFDEFF;
-        }
+std::unique_ptr<DSiBIOSImage> LoadDSiARM9BIOS() noexcept
+{
+    if (FileHandle* f = OpenLocalFile(Config::DSiBIOS9Path, Read))
+    {
+        std::unique_ptr<DSiBIOSImage> bios = std::make_unique<DSiBIOSImage>();
+        FileRead(bios->data(), bios->size(), 1, f);
+        CloseFile(f);
 
         if (!Config::DSiFullBIOSBoot)
         {
             // herp
-            *(u32*)&DSi::ARM9iBIOS[0] = 0xEAFFFFFE;
-            *(u32*)&DSi::ARM7iBIOS[0] = 0xEAFFFFFE;
+            *(u32*)bios->data() = 0xEAFFFFFE; // overwrites the reset vector
 
             // TODO!!!!
             // hax the upper 32K out of the goddamn DSi
             // done that :)  -pcy
         }
+        Log(Info, "ARM9i BIOS loaded from %s\n", Config::DSiBIOS9Path.c_str());
+        return bios;
     }
+
+    Log(Warn, "ARM9i BIOS not found\n");
+    return nullptr;
 }
 
-void EnableCheats(bool enable)
+std::unique_ptr<DSiBIOSImage> LoadDSiARM7BIOS() noexcept
+{
+    if (FileHandle* f = OpenLocalFile(Config::DSiBIOS7Path, Read))
+    {
+        std::unique_ptr<DSiBIOSImage> bios = std::make_unique<DSiBIOSImage>();
+        FileRead(bios->data(), bios->size(), 1, f);
+        CloseFile(f);
+
+        if (!Config::DSiFullBIOSBoot)
+        {
+            // herp
+            *(u32*)bios->data() = 0xEAFFFFFE; // overwrites the reset vector
+
+            // TODO!!!!
+            // hax the upper 32K out of the goddamn DSi
+            // done that :)  -pcy
+        }
+        Log(Info, "ARM7i BIOS loaded from %s\n", Config::DSiBIOS7Path.c_str());
+        return bios;
+    }
+
+    Log(Warn, "ARM7i BIOS not found\n");
+    return nullptr;
+}
+
+Firmware GenerateFirmware(int type) noexcept
+{
+    // Construct the default firmware...
+    string settingspath;
+    Firmware firmware = Firmware(type);
+    assert(firmware.Buffer() != nullptr);
+
+    // If using generated firmware, we keep the wi-fi settings on the host disk separately.
+    // Wi-fi access point data includes Nintendo WFC settings,
+    // and if we didn't keep them then the player would have to reset them in each session.
+    // We don't need to save the whole firmware, just the part that may actually change.
+    if (FileHandle* f = OpenLocalFile(Config::WifiSettingsPath, Read))
+    {// If we have Wi-fi settings to load...
+        constexpr unsigned TOTAL_WFC_SETTINGS_SIZE = 3 * (sizeof(Firmware::WifiAccessPoint) + sizeof(Firmware::ExtendedWifiAccessPoint));
+
+        if (!FileRead(firmware.GetExtendedAccessPointPosition(), TOTAL_WFC_SETTINGS_SIZE, 1, f))
+        { // If we couldn't read the Wi-fi settings from this file...
+            Log(Warn, "Failed to read Wi-fi settings from \"%s\"; using defaults instead\n", Config::WifiSettingsPath.c_str());
+
+            // The access point and extended access point segments might
+            // be in different locations depending on the firmware revision,
+            // but our generated firmware always keeps them next to each other.
+            // (Extended access points first, then regular ones.)
+            firmware.GetAccessPoints() = {
+                Firmware::WifiAccessPoint(type),
+                Firmware::WifiAccessPoint(),
+                Firmware::WifiAccessPoint(),
+            };
+
+            firmware.GetExtendedAccessPoints() = {
+                Firmware::ExtendedWifiAccessPoint(),
+                Firmware::ExtendedWifiAccessPoint(),
+                Firmware::ExtendedWifiAccessPoint(),
+            };
+            firmware.UpdateChecksums();
+            CloseFile(f);
+        }
+    }
+
+    CustomizeFirmware(firmware, true);
+
+    // If we don't have Wi-fi settings to load,
+    // then the defaults will have already been populated by the constructor.
+    return firmware;
+}
+
+std::optional<Firmware> LoadFirmware(int type) noexcept
+{
+    if (!Config::ExternalBIOSEnable)
+    { // If we're using built-in firmware...
+        if (type == 1)
+        {
+            Log(Error, "DSi firmware: cannot use built-in firmware in DSi mode!\n");
+            return std::nullopt;
+        }
+
+        return GenerateFirmware(type);
+    }
+    const string& firmwarepath = type == 1 ? Config::DSiFirmwarePath : Config::FirmwarePath;
+
+    Log(Debug, "SPI firmware: loading from file %s\n", firmwarepath.c_str());
+
+    FileHandle* file = OpenLocalFile(firmwarepath, Read);
+
+    if (!file)
+    {
+        Log(Error, "SPI firmware: couldn't open firmware file!\n");
+        return std::nullopt;
+    }
+    Firmware firmware(file);
+    CloseFile(file);
+
+    if (!firmware.Buffer())
+    {
+        Log(Error, "SPI firmware: couldn't read firmware file!\n");
+        return std::nullopt;
+    }
+
+    CustomizeFirmware(firmware, Config::FirmwareOverrideSettings);
+
+    return firmware;
+}
+
+
+std::optional<DSi_NAND::NANDImage> LoadNAND(const std::array<u8, DSiBIOSSize>& arm7ibios) noexcept
+{
+    FileHandle* nandfile = OpenLocalFile(Config::DSiNANDPath, ReadWriteExisting);
+    if (!nandfile)
+        return std::nullopt;
+
+    DSi_NAND::NANDImage nandImage(nandfile, &arm7ibios[0x8308]);
+    if (!nandImage)
+    {
+        Log(Error, "Failed to parse DSi NAND\n");
+        return std::nullopt;
+        // the NANDImage takes ownership of the FileHandle, no need to clean it up here
+    }
+
+    // scoped so that mount isn't alive when we move the NAND image to DSi::NANDImage
+    {
+        auto mount = DSi_NAND::NANDMount(nandImage);
+        if (!mount)
+        {
+            Log(Error, "Failed to mount DSi NAND\n");
+            return std::nullopt;
+        }
+
+        DSi_NAND::DSiFirmwareSystemSettings settings {};
+        if (!mount.ReadUserData(settings))
+        {
+            Log(Error, "Failed to read DSi NAND user data\n");
+            return std::nullopt;
+        }
+
+        // override user settings, if needed
+        if (Config::FirmwareOverrideSettings)
+        {
+            // we store relevant strings as UTF-8, so we need to convert them to UTF-16
+            auto converter = wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{};
+
+            // setting up username
+            std::u16string username = converter.from_bytes(Config::FirmwareUsername);
+            size_t usernameLength = std::min(username.length(), (size_t) 10);
+            memset(&settings.Nickname, 0, sizeof(settings.Nickname));
+            memcpy(&settings.Nickname, username.data(), usernameLength * sizeof(char16_t));
+
+            // setting language
+            settings.Language = static_cast<Firmware::Language>(Config::FirmwareLanguage);
+
+            // setting up color
+            settings.FavoriteColor = Config::FirmwareFavouriteColour;
+
+            // setting up birthday
+            settings.BirthdayMonth = Config::FirmwareBirthdayMonth;
+            settings.BirthdayDay = Config::FirmwareBirthdayDay;
+
+            // setup message
+            std::u16string message = converter.from_bytes(Config::FirmwareMessage);
+            size_t messageLength = std::min(message.length(), (size_t) 26);
+            memset(&settings.Message, 0, sizeof(settings.Message));
+            memcpy(&settings.Message, message.data(), messageLength * sizeof(char16_t));
+
+            // TODO: make other items configurable?
+        }
+
+        // fix touchscreen coords
+        settings.TouchCalibrationADC1 = {0, 0};
+        settings.TouchCalibrationPixel1 = {0, 0};
+        settings.TouchCalibrationADC2 = {255 << 4, 191 << 4};
+        settings.TouchCalibrationPixel2 = {255, 191};
+
+        settings.UpdateHash();
+
+        if (!mount.ApplyUserData(settings))
+        {
+            Log(LogLevel::Error, "Failed to write patched DSi NAND user data\n");
+            return std::nullopt;
+        }
+    }
+
+    return nandImage;
+}
+
+constexpr u64 MB(u64 i)
+{
+    return i * 1024 * 1024;
+}
+
+constexpr u64 imgsizes[] = {0, MB(256), MB(512), MB(1024), MB(2048), MB(4096)};
+std::optional<FATStorageArgs> GetDSiSDCardArgs() noexcept
+{
+    if (!Config::DSiSDEnable)
+        return std::nullopt;
+
+    return FATStorageArgs {
+        Config::DSiSDPath,
+        imgsizes[Config::DSiSDSize],
+        Config::DSiSDReadOnly,
+        Config::DSiSDFolderSync ? std::make_optional(Config::DSiSDFolderPath) : std::nullopt
+    };
+}
+
+std::optional<FATStorage> LoadDSiSDCard() noexcept
+{
+    if (!Config::DSiSDEnable)
+        return std::nullopt;
+
+    return FATStorage(
+        Config::DSiSDPath,
+        imgsizes[Config::DSiSDSize],
+        Config::DSiSDReadOnly,
+        Config::DSiSDFolderSync ? std::make_optional(Config::DSiSDFolderPath) : std::nullopt
+    );
+}
+
+std::optional<FATStorageArgs> GetDLDISDCardArgs() noexcept
+{
+    if (!Config::DLDIEnable)
+        return std::nullopt;
+
+    return FATStorageArgs{
+        Config::DLDISDPath,
+        imgsizes[Config::DLDISize],
+        Config::DLDIReadOnly,
+        Config::DLDIFolderSync ? std::make_optional(Config::DLDIFolderPath) : std::nullopt
+    };
+}
+
+std::optional<FATStorage> LoadDLDISDCard() noexcept
+{
+    if (!Config::DLDIEnable)
+        return std::nullopt;
+
+    return FATStorage(*GetDLDISDCardArgs());
+}
+
+void EnableCheats(NDS& nds, bool enable)
 {
     CheatsOn = enable;
     if (CheatFile)
-        AREngine::SetCodeFile(CheatsOn ? CheatFile : nullptr);
+        nds.AREngine.SetCodeFile(CheatsOn ? CheatFile : nullptr);
 }
 
 ARCodeFile* GetCheatFile()
@@ -575,28 +832,38 @@ ARCodeFile* GetCheatFile()
 }
 
 
-void SetBatteryLevels()
+void SetBatteryLevels(NDS& nds)
 {
-    if (NDS::ConsoleType == 1)
+    if (nds.ConsoleType == 1)
     {
-        DSi_BPTWL::SetBatteryLevel(Config::DSiBatteryLevel);
-        DSi_BPTWL::SetBatteryCharging(Config::DSiBatteryCharging);
+        auto& dsi = static_cast<DSi&>(nds);
+        dsi.I2C.GetBPTWL()->SetBatteryLevel(Config::DSiBatteryLevel);
+        dsi.I2C.GetBPTWL()->SetBatteryCharging(Config::DSiBatteryCharging);
     }
     else
     {
-        SPI_Powerman::SetBatteryLevelOkay(Config::DSBatteryLevelOkay);
+        nds.SPI.GetPowerMan()->SetBatteryLevelOkay(Config::DSBatteryLevelOkay);
     }
 }
 
-void Reset()
+void SetDateTime(NDS& nds)
 {
-    NDS::SetConsoleType(Config::ConsoleType);
-    if (Config::ConsoleType == 1) EjectGBACart();
-    LoadBIOSFiles();
+    QDateTime hosttime = QDateTime::currentDateTime();
+    QDateTime time = hosttime.addSecs(Config::RTCOffset);
 
-    InstallFirmware();
-    NDS::Reset();
-    SetBatteryLevels();
+    nds.RTC.SetDateTime(time.date().year(), time.date().month(), time.date().day(),
+                          time.time().hour(), time.time().minute(), time.time().second());
+}
+
+void Reset(EmuThread* thread)
+{
+    thread->UpdateConsole(Keep {}, Keep {});
+
+    if (Config::ConsoleType == 1) EjectGBACart(*thread->NDS);
+
+    thread->NDS->Reset();
+    SetBatteryLevels(*thread->NDS);
+    SetDateTime(*thread->NDS);
 
     if ((CartType != -1) && NDSSave)
     {
@@ -616,6 +883,7 @@ void Reset()
             GBASave->SetPath(newsave, false);
     }
 
+    InitFirmwareSaveManager(thread);
     if (FirmwareSave)
     {
         std::string oldsave = FirmwareSave->GetPath();
@@ -640,40 +908,35 @@ void Reset()
 
     if (!BaseROMName.empty())
     {
-        if (Config::DirectBoot || NDS::NeedsDirectBoot())
+        if (Config::DirectBoot || thread->NDS->NeedsDirectBoot())
         {
-            NDS::SetupDirectBoot(BaseROMName);
+            thread->NDS->SetupDirectBoot(BaseROMName);
         }
     }
+
+    thread->NDS->Start();
 }
 
 
-bool LoadBIOS()
+bool BootToMenu(EmuThread* thread)
 {
-    NDS::SetConsoleType(Config::ConsoleType);
-
-    LoadBIOSFiles();
-
-    if (!InstallFirmware())
+    // Keep whatever cart is in the console, if any.
+    if (!thread->UpdateConsole(Keep {}, Keep {}))
+        // Try to update the console, but keep the existing cart. If that fails...
         return false;
 
-    if (NDS::NeedsDirectBoot())
+    // BIOS and firmware files are loaded, patched, and installed in UpdateConsole
+    if (thread->NDS->NeedsDirectBoot())
         return false;
 
-    /*if (NDSSave) delete NDSSave;
-    NDSSave = nullptr;
-
-    CartType = -1;
-    BaseROMDir = "";
-    BaseROMName = "";
-    BaseAssetName = "";*/
-
-    NDS::Reset();
-    SetBatteryLevels();
+    InitFirmwareSaveManager(thread);
+    thread->NDS->Reset();
+    SetBatteryLevels(*thread->NDS);
+    SetDateTime(*thread->NDS);
     return true;
 }
 
-u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
+u32 DecompressROM(const u8* inContent, const u32 inSize, unique_ptr<u8[]>& outContent)
 {
     u64 realSize = ZSTD_getFrameContentSize(inContent, inSize);
     const u32 maxSize = 0x40000000;
@@ -685,16 +948,16 @@ u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
 
     if (realSize != ZSTD_CONTENTSIZE_UNKNOWN)
     {
-        u8* realContent = new u8[realSize];
-        u64 decompressed = ZSTD_decompress(realContent, realSize, inContent, inSize);
+        auto newOutContent = make_unique<u8[]>(realSize);
+        u64 decompressed = ZSTD_decompress(newOutContent.get(), realSize, inContent, inSize);
 
         if (ZSTD_isError(decompressed))
         {
-            delete[] realContent;
+            outContent = nullptr;
             return 0;
         }
 
-        *outContent = realContent;
+        outContent = std::move(newOutContent);
         return realSize;
     }
     else
@@ -749,9 +1012,8 @@ u32 DecompressROM(const u8* inContent, const u32 inSize, u8** outContent)
             }
         } while (inBuf.pos < inBuf.size);
 
-        ZSTD_freeDStream(dStream);
-        *outContent = new u8[outBuf.pos];
-        memcpy(*outContent, outBuf.dst, outBuf.pos);
+        outContent = make_unique<u8[]>(outBuf.pos);
+        memcpy(outContent.get(), outBuf.dst, outBuf.pos);
 
         ZSTD_freeDStream(dStream);
         free(outBuf.dst);
@@ -768,45 +1030,8 @@ void ClearBackupState()
     }
 }
 
-// We want both the firmware object and the path that was used to load it,
-// since we'll need to give it to the save manager later
-pair<unique_ptr<SPI_Firmware::Firmware>, string> LoadFirmwareFromFile()
+pair<unique_ptr<Firmware>, string> GenerateDefaultFirmware()
 {
-    string loadedpath;
-    unique_ptr<SPI_Firmware::Firmware> firmware = nullptr;
-    string firmwarepath = Config::ConsoleType == 0 ? Config::FirmwarePath : Config::DSiFirmwarePath;
-
-    Log(LogLevel::Debug, "SPI firmware: loading from file %s\n", firmwarepath.c_str());
-
-    string firmwareinstancepath = firmwarepath + Platform::InstanceFileSuffix();
-
-    loadedpath = firmwareinstancepath;
-    FileHandle* f = Platform::OpenLocalFile(firmwareinstancepath, FileMode::Read);
-    if (!f)
-    {
-        loadedpath = firmwarepath;
-        f = Platform::OpenLocalFile(firmwarepath, FileMode::Read);
-    }
-
-    if (f)
-    {
-        firmware = make_unique<SPI_Firmware::Firmware>(f);
-        if (!firmware->Buffer())
-        {
-            Log(LogLevel::Warn, "Couldn't read firmware file!\n");
-            firmware = nullptr;
-            loadedpath = "";
-        }
-
-        CloseFile(f);
-    }
-
-    return std::make_pair(std::move(firmware), loadedpath);
-}
-
-pair<unique_ptr<SPI_Firmware::Firmware>, string> GenerateDefaultFirmware()
-{
-    using namespace SPI_Firmware;
     // Construct the default firmware...
     string settingspath;
     std::unique_ptr<Firmware> firmware = std::make_unique<Firmware>(Config::ConsoleType);
@@ -814,7 +1039,7 @@ pair<unique_ptr<SPI_Firmware::Firmware>, string> GenerateDefaultFirmware()
 
     // Try to open the instanced Wi-fi settings, falling back to the regular Wi-fi settings if they don't exist.
     // We don't need to save the whole firmware, just the part that may actually change.
-    std::string wfcsettingspath = Platform::GetConfigString(ConfigEntry::WifiSettingsPath);
+    std::string wfcsettingspath = Config::WifiSettingsPath;
     settingspath = wfcsettingspath + Platform::InstanceFileSuffix();
     FileHandle* f = Platform::OpenLocalFile(settingspath, FileMode::Read);
     if (!f)
@@ -828,27 +1053,27 @@ pair<unique_ptr<SPI_Firmware::Firmware>, string> GenerateDefaultFirmware()
     // and if we didn't keep them then the player would have to reset them in each session.
     if (f)
     { // If we have Wi-fi settings to load...
-        constexpr unsigned TOTAL_WFC_SETTINGS_SIZE = 3 * (sizeof(WifiAccessPoint) + sizeof(ExtendedWifiAccessPoint));
+        constexpr unsigned TOTAL_WFC_SETTINGS_SIZE = 3 * (sizeof(Firmware::WifiAccessPoint) + sizeof(Firmware::ExtendedWifiAccessPoint));
 
         // The access point and extended access point segments might
         // be in different locations depending on the firmware revision,
         // but our generated firmware always keeps them next to each other.
         // (Extended access points first, then regular ones.)
 
-        if (!FileRead(firmware->ExtendedAccessPointPosition(), TOTAL_WFC_SETTINGS_SIZE, 1, f))
+        if (!FileRead(firmware->GetExtendedAccessPointPosition(), TOTAL_WFC_SETTINGS_SIZE, 1, f))
         { // If we couldn't read the Wi-fi settings from this file...
             Platform::Log(Platform::LogLevel::Warn, "Failed to read Wi-fi settings from \"%s\"; using defaults instead\n", wfcsettingspath.c_str());
 
-            firmware->AccessPoints() = {
-                WifiAccessPoint(Config::ConsoleType),
-                WifiAccessPoint(),
-                WifiAccessPoint(),
+            firmware->GetAccessPoints() = {
+                Firmware::WifiAccessPoint(Config::ConsoleType),
+                Firmware::WifiAccessPoint(),
+                Firmware::WifiAccessPoint(),
             };
 
-            firmware->ExtendedAccessPoints() = {
-                ExtendedWifiAccessPoint(),
-                ExtendedWifiAccessPoint(),
-                ExtendedWifiAccessPoint(),
+            firmware->GetExtendedAccessPoints() = {
+                Firmware::ExtendedWifiAccessPoint(),
+                Firmware::ExtendedWifiAccessPoint(),
+                Firmware::ExtendedWifiAccessPoint(),
             };
         }
 
@@ -862,71 +1087,107 @@ pair<unique_ptr<SPI_Firmware::Firmware>, string> GenerateDefaultFirmware()
     return std::make_pair(std::move(firmware), std::move(wfcsettingspath));
 }
 
-void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
+bool ParseMacAddress(void* data)
 {
-    using namespace SPI_Firmware;
-    UserData& currentData = firmware.EffectiveUserData();
+    const std::string& mac_in = Config::FirmwareMAC;
+    u8* mac_out = (u8*)data;
 
-    // setting up username
-    std::string orig_username = Platform::GetConfigString(Platform::Firm_Username);
-    if (!orig_username.empty())
-    { // If the frontend defines a username, take it. If not, leave the existing one.
-        std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
-        size_t usernameLength = std::min(username.length(), (size_t) 10);
-        currentData.NameLength = usernameLength;
-        memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
-    }
-
-    auto language = static_cast<Language>(Platform::GetConfigInt(Platform::Firm_Language));
-    if (language != Language::Reserved)
-    { // If the frontend specifies a language (rather than using the existing value)...
-        currentData.Settings &= ~Language::Reserved; // ..clear the existing language...
-        currentData.Settings |= language; // ...and set the new one.
-    }
-
-    // setting up color
-    u8 favoritecolor = Platform::GetConfigInt(Platform::Firm_Color);
-    if (favoritecolor != 0xFF)
+    int o = 0;
+    u8 tmp = 0;
+    for (int i = 0; i < 18; i++)
     {
-        currentData.FavoriteColor = favoritecolor;
+        char c = mac_in[i];
+        if (c == '\0') break;
+
+        int n;
+        if      (c >= '0' && c <= '9') n = c - '0';
+        else if (c >= 'a' && c <= 'f') n = c - 'a' + 10;
+        else if (c >= 'A' && c <= 'F') n = c - 'A' + 10;
+        else continue;
+
+        if (!(o & 1))
+            tmp = n;
+        else
+            mac_out[o >> 1] = n | (tmp << 4);
+
+        o++;
+        if (o >= 12) return true;
     }
 
-    u8 birthmonth = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
-    if (birthmonth != 0)
-    { // If the frontend specifies a birth month (rather than using the existing value)...
-        currentData.BirthdayMonth = birthmonth;
-    }
+    return false;
+}
 
-    u8 birthday = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
-    if (birthday != 0)
-    { // If the frontend specifies a birthday (rather than using the existing value)...
-        currentData.BirthdayDay = birthday;
-    }
-
-    // setup message
-    std::string orig_message = Platform::GetConfigString(Platform::Firm_Message);
-    if (!orig_message.empty())
+void CustomizeFirmware(Firmware& firmware, bool overridesettings) noexcept
+{
+    if (overridesettings)
     {
-        std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
-        size_t messageLength = std::min(message.length(), (size_t) 26);
-        currentData.MessageLength = messageLength;
-        memcpy(currentData.Message, message.data(), messageLength * sizeof(char16_t));
+        auto &currentData = firmware.GetEffectiveUserData();
+
+        // setting up username
+        std::string orig_username = Config::FirmwareUsername;
+        if (!orig_username.empty())
+        { // If the frontend defines a username, take it. If not, leave the existing one.
+            std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(
+                    orig_username);
+            size_t usernameLength = std::min(username.length(), (size_t) 10);
+            currentData.NameLength = usernameLength;
+            memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
+        }
+
+        auto language = static_cast<Firmware::Language>(Config::FirmwareLanguage);
+        if (language != Firmware::Language::Reserved)
+        { // If the frontend specifies a language (rather than using the existing value)...
+            currentData.Settings &= ~Firmware::Language::Reserved; // ..clear the existing language...
+            currentData.Settings |= language; // ...and set the new one.
+        }
+
+        // setting up color
+        u8 favoritecolor = Config::FirmwareFavouriteColour;
+        if (favoritecolor != 0xFF)
+        {
+            currentData.FavoriteColor = favoritecolor;
+        }
+
+        u8 birthmonth = Config::FirmwareBirthdayMonth;
+        if (birthmonth != 0)
+        { // If the frontend specifies a birth month (rather than using the existing value)...
+            currentData.BirthdayMonth = birthmonth;
+        }
+
+        u8 birthday = Config::FirmwareBirthdayDay;
+        if (birthday != 0)
+        { // If the frontend specifies a birthday (rather than using the existing value)...
+            currentData.BirthdayDay = birthday;
+        }
+
+        // setup message
+        std::string orig_message = Config::FirmwareMessage;
+        if (!orig_message.empty())
+        {
+            std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(
+                    orig_message);
+            size_t messageLength = std::min(message.length(), (size_t) 26);
+            currentData.MessageLength = messageLength;
+            memcpy(currentData.Message, message.data(), messageLength * sizeof(char16_t));
+        }
     }
 
     MacAddress mac;
     bool rep = false;
-    auto& header = firmware.Header();
+    auto& header = firmware.GetHeader();
 
-    memcpy(&mac, header.MacAddress.data(), sizeof(MacAddress));
+    memcpy(&mac, header.MacAddr.data(), sizeof(MacAddress));
 
-
-    MacAddress configuredMac;
-    rep = Platform::GetConfigArray(Platform::Firm_MAC, &configuredMac);
-    rep &= (configuredMac != MacAddress());
-
-    if (rep)
+    if (overridesettings)
     {
-        mac = configuredMac;
+        MacAddress configuredMac;
+        rep = ParseMacAddress(&configuredMac);
+        rep &= (configuredMac != MacAddress());
+
+        if (rep)
+        {
+            mac = configuredMac;
+        }
     }
 
     int inst = Platform::InstanceID();
@@ -941,61 +1202,19 @@ void LoadUserSettingsFromConfig(SPI_Firmware::Firmware& firmware)
     if (rep)
     {
         mac[0] &= 0xFC; // ensure the MAC isn't a broadcast MAC
-        header.MacAddress = mac;
+        header.MacAddr = mac;
         header.UpdateChecksum();
     }
 
     firmware.UpdateChecksums();
 }
 
-bool InstallFirmware()
-{
-    using namespace SPI_Firmware;
-    FirmwareSave.reset();
-    unique_ptr<Firmware> firmware;
-    string firmwarepath;
-    bool generated = false;
-
-    if (Config::ExternalBIOSEnable)
-    { // If we want to try loading a firmware dump...
-
-        tie(firmware, firmwarepath) = LoadFirmwareFromFile();
-        if (!firmware)
-        { // Try to load the configured firmware dump. If that fails...
-            Log(LogLevel::Warn, "Firmware not found! Generating default firmware.\n");
-        }
-    }
-
-    if (!firmware)
-    { // If we haven't yet loaded firmware (either because the load failed or we want to use the default...)
-        tie(firmware, firmwarepath) = GenerateDefaultFirmware();
-    }
-
-    if (!firmware)
-        return false;
-
-    if (Config::FirmwareOverrideSettings)
-    {
-        LoadUserSettingsFromConfig(*firmware);
-    }
-
-    FirmwareSave = std::make_unique<SaveManager>(firmwarepath);
-
-    return InstallFirmware(std::move(firmware));
-}
-
-bool LoadROM(QStringList filepath, bool reset)
+// Loads ROM data without parsing it. Works for GBA and NDS ROMs.
+bool LoadROMData(const QStringList& filepath, std::unique_ptr<u8[]>& filedata, u32& filelen, string& basepath, string& romname) noexcept
 {
     if (filepath.empty()) return false;
 
-    u8* filedata;
-    u32 filelen;
-
-    std::string basepath;
-    std::string romname;
-
-    int num = filepath.count();
-    if (num == 1)
+    if (int num = filepath.count(); num == 1)
     {
         // regular file
 
@@ -1007,38 +1226,35 @@ bool LoadROM(QStringList filepath, bool reset)
         if (len > 0x40000000)
         {
             Platform::CloseFile(f);
-            delete[] filedata;
             return false;
         }
 
         Platform::FileRewind(f);
-        filedata = new u8[len];
-        size_t nread = Platform::FileRead(filedata, (size_t)len, 1, f);
+        filedata = make_unique<u8[]>(len);
+        size_t nread = Platform::FileRead(filedata.get(), (size_t)len, 1, f);
+        Platform::CloseFile(f);
         if (nread != 1)
         {
-            Platform::CloseFile(f);
-            delete[] filedata;
+            filedata = nullptr;
             return false;
         }
 
-        Platform::CloseFile(f);
         filelen = (u32)len;
 
         if (filename.length() > 4 && filename.substr(filename.length() - 4) == ".zst")
         {
-            u8* outContent = nullptr;
-            u32 decompressed = DecompressROM(filedata, len, &outContent);
+            filelen = DecompressROM(filedata.get(), len, filedata);
 
-            if (decompressed > 0)
+            if (filelen > 0)
             {
-                delete[] filedata;
-                filedata = outContent;
-                filelen = decompressed;
                 filename = filename.substr(0, filename.length() - 4);
             }
             else
             {
-                delete[] filedata;
+                filedata = nullptr;
+                filelen = 0;
+                basepath = "";
+                romname = "";
                 return false;
             }
         }
@@ -1046,19 +1262,21 @@ bool LoadROM(QStringList filepath, bool reset)
         int pos = LastSep(filename);
         if(pos != -1)
             basepath = filename.substr(0, pos);
+
         romname = filename.substr(pos+1);
+        return true;
     }
 #ifdef ARCHIVE_SUPPORT_ENABLED
     else if (num == 2)
     {
         // file inside archive
 
-        s32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
+        s32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), filedata, &filelen);
         if (lenread < 0) return false;
         if (!filedata) return false;
         if (lenread != filelen)
         {
-            delete[] filedata;
+            filedata = nullptr;
             return false;
         }
 
@@ -1067,81 +1285,133 @@ bool LoadROM(QStringList filepath, bool reset)
 
         std::string std_romname = filepath.at(1).toStdString();
         romname = std_romname.substr(LastSep(std_romname)+1);
+        return true;
     }
 #endif
     else
         return false;
+}
 
-    if (NDSSave) delete NDSSave;
+QString GetSavErrorString(std::string& filepath, bool gba)
+{
+    std::string console = gba ? "GBA" : "DS";
+    std::string err1 = "Unable to write to ";
+    std::string err2 = " save.\nPlease check file/folder write permissions.\n\nAttempted to Access:\n";
+
+    err1 += console + err2 + filepath;
+
+    return QString::fromStdString(err1);
+}
+
+bool LoadROM(QMainWindow* mainWindow, EmuThread* emuthread, QStringList filepath, bool reset)
+{
+    unique_ptr<u8[]> filedata = nullptr;
+    u32 filelen;
+    std::string basepath;
+    std::string romname;
+
+    if (!LoadROMData(filepath, filedata, filelen, basepath, romname))
+    {
+        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
+        return false;
+    }
+
     NDSSave = nullptr;
 
     BaseROMDir = basepath;
     BaseROMName = romname;
     BaseAssetName = romname.substr(0, romname.rfind('.'));
 
-    if (!InstallFirmware())
-    {
-        return false;
-    }
-
-    if (reset)
-    {
-        NDS::SetConsoleType(Config::ConsoleType);
-        NDS::EjectCart();
-        LoadBIOSFiles();
-        NDS::Reset();
-        SetBatteryLevels();
-    }
-
     u32 savelen = 0;
-    u8* savedata = nullptr;
+    std::unique_ptr<u8[]> savedata = nullptr;
 
     std::string savname = GetAssetPath(false, Config::SaveFilePath, ".sav");
     std::string origsav = savname;
     savname += Platform::InstanceFileSuffix();
 
     FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
-    if (!sav) sav = Platform::OpenFile(origsav, FileMode::Read);
+    if (!sav)
+    {
+        if (!Platform::CheckFileWritable(origsav))
+        {
+            QMessageBox::critical(mainWindow, "melonDS", GetSavErrorString(origsav, false));
+            return false;
+        }
+
+        sav = Platform::OpenFile(origsav, FileMode::Read);
+    }
+    else if (!Platform::CheckFileWritable(savname))
+    {
+        QMessageBox::critical(mainWindow, "melonDS", GetSavErrorString(savname, false));
+        return false;
+    }
+
     if (sav)
     {
         savelen = (u32)Platform::FileLength(sav);
 
         FileRewind(sav);
-        savedata = new u8[savelen];
-        FileRead(savedata, savelen, 1, sav);
+        savedata = std::make_unique<u8[]>(savelen);
+        FileRead(savedata.get(), savelen, 1, sav);
         CloseFile(sav);
     }
 
-    bool res = NDS::LoadCart(filedata, filelen, savedata, savelen);
-    if (res && reset)
+    NDSCart::NDSCartArgs cartargs {
+        // Don't load the SD card itself yet, because we don't know if
+        // the ROM is homebrew or not.
+        // So this is the card we *would* load if the ROM were homebrew.
+        .SDCard = GetDLDISDCardArgs(),
+        .SRAM = std::move(savedata),
+        .SRAMLength = savelen,
+    };
+
+    auto cart = NDSCart::ParseROM(std::move(filedata), filelen, std::move(cartargs));
+    if (!cart)
     {
-        if (Config::DirectBoot || NDS::NeedsDirectBoot())
+        // If we couldn't parse the ROM...
+        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
+        return false;
+    }
+
+    if (reset)
+    {
+        if (!emuthread->UpdateConsole(std::move(cart), Keep {}))
         {
-            NDS::SetupDirectBoot(romname);
+            QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
+            return false;
         }
-    }
 
-    if (res)
+        InitFirmwareSaveManager(emuthread);
+        emuthread->NDS->Reset();
+
+        if (Config::DirectBoot || emuthread->NDS->NeedsDirectBoot())
+        { // If direct boot is enabled or forced...
+            emuthread->NDS->SetupDirectBoot(romname);
+        }
+
+        SetBatteryLevels(*emuthread->NDS);
+        SetDateTime(*emuthread->NDS);
+    }
+    else
     {
-        CartType = 0;
-        NDSSave = new SaveManager(savname);
-
-        LoadCheats();
+        assert(emuthread->NDS != nullptr);
+        emuthread->NDS->SetNDSCart(std::move(cart));
     }
 
-    if (savedata) delete[] savedata;
-    delete[] filedata;
-    return res;
+    CartType = 0;
+    NDSSave = std::make_unique<SaveManager>(savname);
+    LoadCheats(*emuthread->NDS);
+
+    return true; // success
 }
 
-void EjectCart()
+void EjectCart(NDS& nds)
 {
-    if (NDSSave) delete NDSSave;
     NDSSave = nullptr;
 
-    UnloadCheats();
+    UnloadCheats(nds);
 
-    NDS::EjectCart();
+    nds.EjectCart();
 
     CartType = -1;
     BaseROMDir = "";
@@ -1169,94 +1439,25 @@ QString CartLabel()
 }
 
 
-bool LoadGBAROM(QStringList filepath)
+bool LoadGBAROM(QMainWindow* mainWindow, NDS& nds, QStringList filepath)
 {
-    if (Config::ConsoleType == 1) return false;
-    if (filepath.empty()) return false;
+    if (nds.ConsoleType == 1)
+    {
+        QMessageBox::critical(mainWindow, "melonDS", "The DSi doesn't have a GBA slot.");
+        return false;
+    }
 
-    u8* filedata;
+    unique_ptr<u8[]> filedata = nullptr;
     u32 filelen;
-
     std::string basepath;
     std::string romname;
 
-    int num = filepath.count();
-    if (num == 1)
+    if (!LoadROMData(filepath, filedata, filelen, basepath, romname))
     {
-        // regular file
-
-        std::string filename = filepath.at(0).toStdString();
-        FileHandle* f = Platform::OpenFile(filename, FileMode::Read);
-        if (!f) return false;
-
-        long len = FileLength(f);
-        if (len > 0x40000000)
-        {
-            CloseFile(f);
-            return false;
-        }
-
-        FileRewind(f);
-        filedata = new u8[len];
-        size_t nread = FileRead(filedata, (size_t)len, 1, f);
-        if (nread != 1)
-        {
-            CloseFile(f);
-            delete[] filedata;
-            return false;
-        }
-
-        CloseFile(f);
-        filelen = (u32)len;
-
-        if (filename.length() > 4 && filename.substr(filename.length() - 4) == ".zst")
-        {
-            u8* outContent = nullptr;
-            u32 decompressed = DecompressROM(filedata, len, &outContent);
-
-            if (decompressed > 0)
-            {
-                delete[] filedata;
-                filedata = outContent;
-                filelen = decompressed;
-                filename = filename.substr(0, filename.length() - 4);
-            }
-            else
-            {
-                delete[] filedata;
-                return false;
-            }
-        }
-
-        int pos = LastSep(filename);
-        basepath = filename.substr(0, pos);
-        romname = filename.substr(pos+1);
-    }
-#ifdef ARCHIVE_SUPPORT_ENABLED
-    else if (num == 2)
-    {
-        // file inside archive
-
-        u32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
-        if (lenread < 0) return false;
-        if (!filedata) return false;
-        if (lenread != filelen)
-        {
-            delete[] filedata;
-            return false;
-        }
-
-        std::string std_archivepath = filepath.at(0).toStdString();
-        basepath = std_archivepath.substr(0, LastSep(std_archivepath));
-
-        std::string std_romname = filepath.at(1).toStdString();
-        romname = std_romname.substr(LastSep(std_romname)+1);
-    }
-#endif
-    else
+        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the GBA ROM.");
         return false;
+    }
 
-    if (GBASave) delete GBASave;
     GBASave = nullptr;
 
     BaseGBAROMDir = basepath;
@@ -1264,45 +1465,62 @@ bool LoadGBAROM(QStringList filepath)
     BaseGBAAssetName = romname.substr(0, romname.rfind('.'));
 
     u32 savelen = 0;
-    u8* savedata = nullptr;
+    std::unique_ptr<u8[]> savedata = nullptr;
 
     std::string savname = GetAssetPath(true, Config::SaveFilePath, ".sav");
     std::string origsav = savname;
     savname += Platform::InstanceFileSuffix();
 
     FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
-    if (!sav) sav = Platform::OpenFile(origsav, FileMode::Read);
+    if (!sav)
+    {
+        if (!Platform::CheckFileWritable(origsav))
+        {
+            QMessageBox::critical(mainWindow, "melonDS", GetSavErrorString(origsav, true));
+            return false;
+        }
+
+        sav = Platform::OpenFile(origsav, FileMode::Read);
+    }
+    else if (!Platform::CheckFileWritable(savname))
+    {
+        QMessageBox::critical(mainWindow, "melonDS", GetSavErrorString(savname, true));
+        return false;
+    }
+
     if (sav)
     {
         savelen = (u32)FileLength(sav);
 
-        FileRewind(sav);
-        savedata = new u8[savelen];
-        FileRead(savedata, savelen, 1, sav);
+        if (savelen > 0)
+        {
+            FileRewind(sav);
+            savedata = std::make_unique<u8[]>(savelen);
+            FileRead(savedata.get(), savelen, 1, sav);
+        }
         CloseFile(sav);
     }
 
-    bool res = NDS::LoadGBACart(filedata, filelen, savedata, savelen);
-
-    if (res)
+    auto cart = GBACart::ParseROM(std::move(filedata), filelen, std::move(savedata), savelen);
+    if (!cart)
     {
-        GBACartType = 0;
-        GBASave = new SaveManager(savname);
+        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the GBA ROM.");
+        return false;
     }
 
-    if (savedata) delete[] savedata;
-    delete[] filedata;
-    return res;
+    nds.SetGBACart(std::move(cart));
+    GBACartType = 0;
+    GBASave = std::make_unique<SaveManager>(savname);
+    return true;
 }
 
-void LoadGBAAddon(int type)
+void LoadGBAAddon(NDS& nds, int type)
 {
     if (Config::ConsoleType == 1) return;
 
-    if (GBASave) delete GBASave;
     GBASave = nullptr;
 
-    NDS::LoadGBAAddon(type);
+    nds.LoadGBAAddon(type);
 
     GBACartType = type;
     BaseGBAROMDir = "";
@@ -1310,12 +1528,11 @@ void LoadGBAAddon(int type)
     BaseGBAAssetName = "";
 }
 
-void EjectGBACart()
+void EjectGBACart(NDS& nds)
 {
-    if (GBASave) delete GBASave;
     GBASave = nullptr;
 
-    NDS::EjectGBACart();
+    nds.EjectGBACart();
 
     GBACartType = -1;
     BaseGBAROMDir = "";
@@ -1345,7 +1562,7 @@ QString GBACartLabel()
             return ret;
         }
 
-    case NDS::GBAAddon_RAMExpansion:
+    case GBAAddon_RAMExpansion:
         return "Memory expansion";
     }
 
@@ -1353,25 +1570,30 @@ QString GBACartLabel()
 }
 
 
-void ROMIcon(const u8 (&data)[512], const u16 (&palette)[16], u32* iconRef)
+void ROMIcon(const u8 (&data)[512], const u16 (&palette)[16], u32 (&iconRef)[32*32])
 {
-    int index = 0;
-    for (int i = 0; i < 4; i++)
+    u32 paletteRGBA[16];
+    for (int i = 0; i < 16; i++)
     {
-        for (int j = 0; j < 4; j++)
+        u8 r = ((palette[i] >> 0)  & 0x1F) * 255 / 31;
+        u8 g = ((palette[i] >> 5)  & 0x1F) * 255 / 31;
+        u8 b = ((palette[i] >> 10) & 0x1F) * 255 / 31;
+        u8 a = i ? 255 : 0;
+        paletteRGBA[i] = r | (g << 8) | (b << 16) | (a << 24);
+    }
+
+    int count = 0;
+    for (int ytile = 0; ytile < 4; ytile++)
+    {
+        for (int xtile = 0; xtile < 4; xtile++)
         {
-            for (int k = 0; k < 8; k++)
+            for (int ypixel = 0; ypixel < 8; ypixel++)
             {
-                for (int l = 0; l < 8; l++)
+                for (int xpixel = 0; xpixel < 8; xpixel++)
                 {
-                    u8 pal_index = index % 2 ?  data[index/2] >> 4 : data[index/2] & 0x0F;
-                    u8 r = ((palette[pal_index] >> 0)  & 0x1F) * 255 / 31;
-                    u8 g = ((palette[pal_index] >> 5)  & 0x1F) * 255 / 31;
-                    u8 b = ((palette[pal_index] >> 10) & 0x1F) * 255 / 31;
-                    u8 a = pal_index ? 255: 0;
-                    u32* row = &iconRef[256 * i + 32 * k + 8 * j];
-                    row[l] = (a << 24) | (r << 16) | (g << 8) | b;
-                    index++;
+                    u8 pal_index = count % 2 ? data[count/2] >> 4 : data[count/2] & 0x0F;
+                    iconRef[ytile*256 + ypixel*32 + xtile*8 + xpixel] = paletteRGBA[pal_index];
+                    count++;
                 }
             }
         }
@@ -1384,14 +1606,15 @@ void ROMIcon(const u8 (&data)[512], const u16 (&palette)[16], u32* iconRef)
 #define SEQ_BMP(i) ((i & 0b0000011100000000) >> 8)
 #define SEQ_DUR(i) ((i & 0b0000000011111111) >> 0)
 
-void AnimatedROMIcon(const u8 (&data)[8][512], const u16 (&palette)[8][16], const u16 (&sequence)[64], u32 (&animatedTexRef)[32 * 32 * 64], std::vector<int> &animatedSequenceRef)
+void AnimatedROMIcon(const u8 (&data)[8][512], const u16 (&palette)[8][16], const u16 (&sequence)[64], u32 (&animatedIconRef)[64][32*32], std::vector<int> &animatedSequenceRef)
 {
     for (int i = 0; i < 64; i++)
     {
         if (!sequence[i])
             break;
-        u32* frame = &animatedTexRef[32 * 32 * i];
-        ROMIcon(data[SEQ_BMP(sequence[i])], palette[SEQ_PAL(sequence[i])], frame);
+
+        ROMIcon(data[SEQ_BMP(sequence[i])], palette[SEQ_PAL(sequence[i])], animatedIconRef[i]);
+        u32* frame = animatedIconRef[i];
 
         if (SEQ_FLIPH(sequence[i]))
         {

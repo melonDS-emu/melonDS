@@ -38,7 +38,7 @@ constexpr bool IsPow2(T imm)
   return imm > 0 && (imm & (imm - 1)) == 0;
 }
 
-constexpr u32 NextPowerOf2(u32 value)
+constexpr melonDS::u32 NextPowerOf2(melonDS::u32 value)
 {
   --value;
   value |= value >> 1;
@@ -99,7 +99,7 @@ struct Rectangle
 float MathFloatVectorSum(const std::vector<float>&);
 
 // Rounds down. 0 -> undefined
-inline int IntLog2(u64 val)
+inline int IntLog2(melonDS::u64 val)
 {
 #if defined(__GNUC__)
   return 63 - __builtin_clzll(val);

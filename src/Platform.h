@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -24,10 +24,9 @@
 #include <functional>
 #include <string>
 
-namespace SPI_Firmware
+namespace melonDS
 {
-    class Firmware;
-}
+class Firmware;
 
 namespace Platform
 {
@@ -93,57 +92,6 @@ int InstanceID();
  */
 std::string InstanceFileSuffix();
 
-// configuration values
-
-enum ConfigEntry
-{
-#ifdef JIT_ENABLED
-    JIT_Enable,
-    JIT_MaxBlockSize,
-    JIT_LiteralOptimizations,
-    JIT_BranchOptimizations,
-    JIT_FastMemory,
-#endif
-
-    ExternalBIOSEnable,
-
-    DSi_NANDPath,
-
-    DLDI_Enable,
-    DLDI_ImagePath,
-    DLDI_ImageSize,
-    DLDI_ReadOnly,
-    DLDI_FolderSync,
-    DLDI_FolderPath,
-
-    DSiSD_Enable,
-    DSiSD_ImagePath,
-    DSiSD_ImageSize,
-    DSiSD_ReadOnly,
-    DSiSD_FolderSync,
-    DSiSD_FolderPath,
-
-    Firm_OverrideSettings [[deprecated("Individual fields can now be overridden")]],
-    Firm_Username,
-    Firm_Language,
-    Firm_BirthdayMonth,
-    Firm_BirthdayDay,
-    Firm_Color,
-    Firm_Message,
-    Firm_MAC,
-
-    WifiSettingsPath,
-
-    AudioBitDepth,
-
-    DSi_FullBIOSBoot
-};
-
-int GetConfigInt(ConfigEntry entry);
-bool GetConfigBool(ConfigEntry entry);
-std::string GetConfigString(ConfigEntry entry);
-bool GetConfigArray(ConfigEntry entry, void* data);
-
 /**
  * Denotes how a file will be opened and accessed.
  * Flags may or may not correspond to the operating system's file API.
@@ -187,6 +135,11 @@ enum FileMode : unsigned {
      * and may also be line-buffered.
      */
     Text = 0b01'00'00,
+
+    /**
+     * Opens a file in append mode.
+     */
+    Append = 0b10'00'00,
 
     /**
      * Opens a file for reading and writing.
@@ -252,6 +205,13 @@ FileHandle* OpenLocalFile(const std::string& path, FileMode mode);
 /// Returns true if the given file exists.
 bool FileExists(const std::string& name);
 bool LocalFileExists(const std::string& name);
+
+// Returns true if we have permission to write to the file.
+// Warning: Also creates the file if not present!
+bool CheckFileWritable(const std::string& filepath);
+
+// Same as above (CheckFileWritable()) but for local files.
+bool CheckLocalFileWritable(const std::string& filepath);
 
 /** Close a file opened with \c OpenFile.
  * @returns \c true if the file was closed successfully, false otherwise.
@@ -336,7 +296,10 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 /// @param firmware The firmware that was just written.
 /// @param writeoffset The offset of the first byte that was written to firmware.
 /// @param writelen The number of bytes that were written to firmware.
-void WriteFirmware(const SPI_Firmware::Firmware& firmware, u32 writeoffset, u32 writelen);
+void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen);
+
+// called when the RTC date/time is changed and the frontend might need to take it into account
+void WriteDateTime(int year, int month, int day, int hour, int minute, int second);
 
 
 // local multiplayer comm interface
@@ -395,4 +358,5 @@ void DynamicLibrary_Unload(DynamicLibrary* lib);
 void* DynamicLibrary_LoadFunction(DynamicLibrary* lib, const char* name);
 }
 
+}
 #endif // PLATFORM_H

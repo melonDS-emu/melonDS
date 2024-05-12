@@ -6,10 +6,9 @@
 <a href="https://www.gnu.org/licenses/gpl-3.0" alt="License: GPLv3"><img src="https://img.shields.io/badge/License-GPL%20v3-%23ff554d.svg"></a>
 <a href="https://kiwiirc.com/client/irc.badnik.net/?nick=IRC-Source_?#melonds" alt="IRC channel: #melonds"><img src="https://img.shields.io/badge/IRC%20chat-%23melonds-%23dd2e44.svg"></a>
 <br>
-<a href="https://github.com/melonDS-emu/melonDS/actions?query=workflow%3A%22CMake+Build+%28Windows+x86-64%29%22+event%3Apush"><img src="https://img.shields.io/github/actions/workflow/status/melonDS-emu/melonDS/build-windows.yml?label=Windows%20x86-64&logo=GitHub&branch=master"></img></a>
-<a href="https://github.com/melonDS-emu/melonDS/actions?query=workflow%3A%22CMake+Build+%28Ubuntu+x86-64%29%22+event%3Apush"><img src="https://img.shields.io/github/actions/workflow/status/melonDS-emu/melonDS/build-ubuntu.yml?label=Linux%20x86-64&logo=GitHub"></img></a>
-<a href="https://github.com/melonDS-emu/melonDS/actions?query=workflow%3A%22CMake+Build+%28Ubuntu+aarch64%29%22+event%3Apush"><img src="https://img.shields.io/github/actions/workflow/status/melonDS-emu/melonDS/build-ubuntu-aarch64.yml?label=Linux%20ARM64&logo=GitHub"></img></a>
-<a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-macos-universal.yml?query=event%3Apush"><img src="https://img.shields.io/github/actions/workflow/status/melonDS-emu/melonDS/build-macos-universal.yml?label=macOS%20Universal&logo=GitHub"></img></a>
+<a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-windows.yml?query=event%3Apush"><img src="https://github.com/melonDS-emu/melonDS/actions/workflows/build-windows.yml/badge.svg" /></a>
+<a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-ubuntu.yml?query=event%3Apush"><img src="https://github.com/melonDS-emu/melonDS/actions/workflows/build-ubuntu.yml/badge.svg" /></a>
+<a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-macos.yml?query=event%3Apush"><img src="https://github.com/melonDS-emu/melonDS/actions/workflows/build-macos.yml/badge.svg" /></a>
 </p>
 DS emulator, sorta
 
