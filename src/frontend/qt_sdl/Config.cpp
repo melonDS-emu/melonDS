@@ -22,6 +22,7 @@
 #include <inttypes.h>
 #include "Platform.h"
 #include "Config.h"
+#include "GPU.h"
 
 
 namespace Config
@@ -59,6 +60,7 @@ bool Threaded3D;
 
 int GL_ScaleFactor;
 bool GL_BetterPolygons;
+bool GL_HiresCoordinates;
 
 bool LimitFPS;
 int MaxFPS;
@@ -246,11 +248,12 @@ ConfigEntry ConfigFile[] =
     {"ScreenVSync",         1, &ScreenVSync,         false, false},
     {"ScreenVSyncInterval", 0, &ScreenVSyncInterval, 1, false},
 
-    {"3DRenderer", 0, &_3DRenderer, 0, false},
+    {"3DRenderer", 0, &_3DRenderer, renderer3D_Software, false},
     {"Threaded3D", 1, &Threaded3D, true, false},
 
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, false},
     {"GL_BetterPolygons", 1, &GL_BetterPolygons, false, false},
+    {"GL_HiresCoordinates", 1, &GL_HiresCoordinates, true, false},
 
     {"LimitFPS", 1, &LimitFPS, true, false},
     {"MaxFPS", 0, &MaxFPS, 1000, false},

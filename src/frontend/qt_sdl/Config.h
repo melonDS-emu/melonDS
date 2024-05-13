@@ -51,6 +51,16 @@ enum
     micInputType_MAX,
 };
 
+enum
+{
+    renderer3D_Software = 0,
+#ifdef OGLRENDERER_ENABLED
+    renderer3D_OpenGL,
+    renderer3D_OpenGLCompute,
+#endif
+    renderer3D_Max,
+};
+
 namespace Config
 {
 
@@ -103,6 +113,7 @@ extern bool Threaded3D;
 
 extern int GL_ScaleFactor;
 extern bool GL_BetterPolygons;
+extern bool GL_HiresCoordinates;
 
 extern bool LimitFPS;
 extern int MaxFPS;

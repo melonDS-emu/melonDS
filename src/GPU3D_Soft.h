@@ -29,7 +29,7 @@ namespace melonDS
 class SoftRenderer : public Renderer3D
 {
 public:
-    SoftRenderer(bool threaded = false) noexcept;
+    SoftRenderer() noexcept;
     ~SoftRenderer() override;
     void Reset(GPU& gpu) override;
 
@@ -504,7 +504,7 @@ private:
 
     // threading
 
-    bool Threaded;
+    bool Threaded = false;
     Platform::Thread* RenderThread;
     std::atomic_bool RenderThreadRunning;
     std::atomic_bool RenderThreadRendering;

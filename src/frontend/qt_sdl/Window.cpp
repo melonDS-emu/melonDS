@@ -2048,6 +2048,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
         connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
     }
 
+    printf("update video settings\n");
     videoSettingsDirty = true;
 
     if (glchange)
