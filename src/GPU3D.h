@@ -354,6 +354,9 @@ public:
     virtual void PrepareCaptureFrame() {}
     virtual void BindOutputTexture(int buffer) {}
 
+    virtual bool NeedsShaderCompile() { return false; }
+    virtual void ShaderCompileStep(int& current, int& count) {}
+
 protected:
     Renderer3D(bool Accelerated);
 };

@@ -332,7 +332,7 @@ void EmuThread::run()
     Input::Init();
 
     u32 nframes = 0;
-    double perfCountsSec = 1.0 / SDL_GetPerformanceFrequency();
+    perfCountsSec = 1.0 / SDL_GetPerformanceFrequency();
     double lastTime = SDL_GetPerformanceCounter() * perfCountsSec;
     double frameLimitError = 0.0;
     double lastMeasureTime = lastTime;
@@ -443,7 +443,6 @@ void EmuThread::run()
                     videoRenderer = 0;
                 }
 
-                printf("miau\n");
                 updateRenderer();
 
                 videoSettingsDirty = false;
@@ -494,7 +493,16 @@ void EmuThread::run()
 
 
             // emulate
-            u32 nlines = NDS->RunFrame();
+            u32 nlines;
+            if (NDS->GPU.GetRenderer3D().NeedsShaderCompile())
+            {
+                compileShaders();
+                nlines = 0;
+            }
+            else
+            {
+                nlines = NDS->RunFrame();
+            }
 
             if (ROMManager::NDSSave)
                 ROMManager::NDSSave->CheckFlush();
@@ -767,4 +775,18 @@ void EmuThread::updateRenderer()
         break;
     default: __builtin_unreachable();
     }
+}
+
+void EmuThread::compileShaders()
+{
+    int currentShader, shadersCount;
+    u64 startTime = SDL_GetPerformanceCounter();
+    // kind of hacky to look at the wallclock, though it is easier than
+    // than disabling vsync
+    do
+    {
+        NDS->GPU.GetRenderer3D().ShaderCompileStep(currentShader, shadersCount);
+    } while (NDS->GPU.GetRenderer3D().NeedsShaderCompile() &&
+        (SDL_GetPerformanceCounter() - startTime) * perfCountsSec < 1.0 / 6.0);
+    mainWindow->osdAddMessage(0, "Compiling shader %d/%d", currentShader+1, shadersCount);
 }

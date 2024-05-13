@@ -95,6 +95,7 @@ signals:
 
 private:
     void updateRenderer();
+    void compileShaders();
 
     std::unique_ptr<melonDS::NDS> CreateConsole(
         std::unique_ptr<melonDS::NDSCart::CartCommon>&& ndscart,
@@ -130,6 +131,8 @@ private:
     int autoScreenSizing;
 
     int lastVideoRenderer = -1;
+
+    double perfCountsSec;
 };
 
 #endif // EMUTHREAD_H
