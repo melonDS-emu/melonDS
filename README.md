@@ -36,6 +36,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
 1. Install dependencies:
    * Ubuntu 22.04: `sudo apt install cmake extra-cmake-modules libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qtbase5-dev qtbase5-private-dev qtmultimedia5-dev libslirp-dev libarchive-dev libzstd-dev`
    * Older Ubuntu: `sudo apt install cmake extra-cmake-modules libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default qtbase5-private-dev qtmultimedia5-dev libslirp-dev libarchive-dev libzstd-dev`
+   * Fedora: `sudo dnf install cmake extra-cmake-modules libcurl-devel libpcap-devel SDL2-devel qt5-qtbase-devel qt5-qtbase-private-devel qt5-qtmultimedia-devel libslirp-devel libarchive-devel libzstd-devel`
    * Arch Linux: `sudo pacman -S base-devel cmake extra-cmake-modules git libpcap sdl2 qt5-base qt5-multimedia libslirp libarchive zstd`
 3. Download the melonDS repository and prepare:
    ```bash
