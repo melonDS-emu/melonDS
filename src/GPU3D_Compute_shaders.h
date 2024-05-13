@@ -1000,7 +1000,7 @@ void main()
             int variantIdx = Polygons[polygonIdx].Variant;
 
             int inVariantOffset = int(atomicAdd(VariantWorkCount[variantIdx].z, 1));
-            WorkDescs[WorkDescsUnsortedStart + workOffset + idx] = uvec2(tilePositionCombined, bitfieldInsert(polygonIdx, inVariantOffset, 12, 20));
+            WorkDescs[WorkDescsUnsortedStart + workOffset + idx] = uvec2(tilePositionCombined, bitfieldInsert(polygonIdx, inVariantOffset, 11, 21));
 
             idx++;
         }
@@ -1042,12 +1042,12 @@ void main()
     if (gl_GlobalInvocationID.x < VariantWorkCount[0].w)
     {
         uvec2 workDesc = WorkDescs[WorkDescsUnsortedStart + gl_GlobalInvocationID.x];
-        int inVariantOffset = int(bitfieldExtract(workDesc.y, 12, 20));
-        int polygonIdx = int(bitfieldExtract(workDesc.y, 0, 12));
+        int inVariantOffset = int(bitfieldExtract(workDesc.y, 11, 21));
+        int polygonIdx = int(bitfieldExtract(workDesc.y, 0, 11));
         int variantIdx = Polygons[polygonIdx].Variant;
 
         int sortedIndex = int(SortedWorkOffset[variantIdx]) + inVariantOffset;
-        WorkDescs[WorkDescsSortedStart + sortedIndex] = uvec2(workDesc.x, bitfieldInsert(workDesc.y, gl_GlobalInvocationID.x, 12, 20));
+        WorkDescs[WorkDescsSortedStart + sortedIndex] = uvec2(workDesc.x, bitfieldInsert(workDesc.y, gl_GlobalInvocationID.x, 11, 21));
     }
 }
 
@@ -1070,9 +1070,9 @@ layout (location = 1) uniform vec2 InvTextureSize;
 void main()
 {
     uvec2 workDesc = WorkDescs[WorkDescsSortedStart + SortedWorkOffset[CurVariant] + gl_WorkGroupID.z];
-    Polygon polygon = Polygons[bitfieldExtract(workDesc.y, 0, 12)];
+    Polygon polygon = Polygons[bitfieldExtract(workDesc.y, 0, 11)];
     ivec2 position = ivec2(bitfieldExtract(workDesc.x, 0, 16), bitfieldExtract(workDesc.x, 16, 16)) + ivec2(gl_LocalInvocationID.xy);
-    int tileOffset = int(bitfieldExtract(workDesc.y, 12, 20)) * TileSize * TileSize + TileSize * int(gl_LocalInvocationID.y) + int(gl_LocalInvocationID.x);
+    int tileOffset = int(bitfieldExtract(workDesc.y, 11, 21)) * TileSize * TileSize + TileSize * int(gl_LocalInvocationID.y) + int(gl_LocalInvocationID.x);
 
     uint color = 0U;
     if (position.y >= polygon.YTop && position.y < polygon.YBot)

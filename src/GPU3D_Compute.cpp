@@ -315,7 +315,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
 
     HiresCoordinates = highResolutionCoordinates;
 
-    MaxWorkTiles = TilesPerLine*TileLines*8;
+    MaxWorkTiles = TilesPerLine*TileLines*16;
 
     for (int i = 0; i < tilememoryLayer_Num; i++)
     {
