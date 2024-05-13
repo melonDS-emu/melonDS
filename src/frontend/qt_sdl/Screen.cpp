@@ -60,13 +60,13 @@ using namespace melonDS;
 extern MainWindow* mainWindow;
 extern EmuThread* emuThread;
 extern bool RunningSomething;
-extern int autoScreenSizing;
 
 extern int videoRenderer;
 extern bool videoSettingsDirty;
 
 const u32 kOSDMargin = 6;
 
+int autoScreenSizing;
 
 ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
 {
