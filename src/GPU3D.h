@@ -361,9 +361,6 @@ protected:
     Renderer3D(bool Accelerated);
 };
 
-extern int Renderer;
-extern std::unique_ptr<Renderer3D> CurrentRenderer;
-
 }
 
 #endif
