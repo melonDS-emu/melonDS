@@ -497,7 +497,7 @@ void EmuThread::run()
             if (NDS->GPU.GetRenderer3D().NeedsShaderCompile())
             {
                 compileShaders();
-                nlines = 0;
+                nlines = 1;
             }
             else
             {
