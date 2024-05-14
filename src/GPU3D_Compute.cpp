@@ -591,6 +591,7 @@ struct Variant
 
 void ComputeRenderer::RenderFrame(GPU& gpu)
 {
+    assert(!NeedsShaderCompile());
     if (!Texcache.Update(gpu) && gpu.GPU3D.RenderFrameIdentical)
     {
         return;
