@@ -329,6 +329,8 @@ public:
     QAction* actShowOSD;
     QAction* actLimitFramerate;
     QAction* actAudioSync;
+
+    QAction* actAbout;
 };
 
 void ToggleFullscreen(MainWindow* mainWindow);

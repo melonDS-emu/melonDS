@@ -81,6 +81,7 @@
 #include "EmuInstance.h"
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
+#include "AboutDialog.h"
 
 using namespace melonDS;
 
@@ -647,6 +648,15 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actAudioSync->setCheckable(true);
         connect(actAudioSync, &QAction::triggered, this, &MainWindow::onChangeAudioSync);
     }
+    {
+        QMenu* menu = menubar->addMenu("Help");
+        actAbout = menu->addAction("About...");
+        connect(actAbout, &QAction::triggered, this, [&]{
+            auto dialog = AboutDialog(this);
+            dialog.exec();
+        });
+    }
+
     setMenuBar(menubar);
 
     if (localCfg.GetString("Firmware.Username") == "Arisotura")
