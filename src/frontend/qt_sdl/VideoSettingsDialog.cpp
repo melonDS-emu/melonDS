@@ -75,6 +75,10 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->rb3DOpenGL->setEnabled(false);
 #endif
 
+#ifdef __APPLE__
+    ui->rb3DCompute->setEnabled(false);
+#endif
+
     ui->cbGLDisplay->setChecked(Config::ScreenUseGL != 0);
 
     ui->cbVSync->setChecked(Config::ScreenVSync != 0);
