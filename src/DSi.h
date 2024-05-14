@@ -131,6 +131,7 @@ public:
 
 public:
     DSi(DSiArgs&& args) noexcept;
+    //DSi() noexcept;
     ~DSi() noexcept override;
     DSi(const DSi&) = delete;
     DSi& operator=(const DSi&) = delete;

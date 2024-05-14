@@ -70,6 +70,26 @@ const u32 NDMAModes[] =
     0xFF, // wifi / GBA cart slot (TODO)
 };
 
+/*DSi::DSi() noexcept :
+    DSi(
+        DSiArgs {
+            NDSArgs {
+                nullptr,
+                nullptr,
+                bios_arm9_bin,
+                bios_arm7_bin,
+                Firmware(0),
+            },
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            false
+        }
+    )
+{
+}*/
+
 DSi::DSi(DSiArgs&& args) noexcept :
     NDS(std::move(args), 1),
     NDMAs {

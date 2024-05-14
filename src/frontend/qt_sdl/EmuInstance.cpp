@@ -899,107 +899,20 @@ void EmuInstance::setDateTime()
                          time.time().hour(), time.time().minute(), time.time().second());
 }
 
-/*std::unique_ptr<NDS> EmuInstance::createConsole(
-        std::unique_ptr<melonDS::NDSCart::CartCommon>&& ndscart,
-        std::unique_ptr<melonDS::GBACart::CartCommon>&& gbacart
-) noexcept
-{
-    auto arm7bios = ROMManager::LoadARM7BIOS();
-    if (!arm7bios)
-        return nullptr;
-
-    auto arm9bios = ROMManager::LoadARM9BIOS();
-    if (!arm9bios)
-        return nullptr;
-
-    auto firmware = ROMManager::LoadFirmware(Config::ConsoleType);
-    if (!firmware)
-        return nullptr;
-
-#ifdef JIT_ENABLED
-    JITArgs jitargs {
-            static_cast<unsigned>(Config::JIT_MaxBlockSize),
-            Config::JIT_LiteralOptimisations,
-            Config::JIT_BranchOptimisations,
-            Config::JIT_FastMemory,
-    };
-#endif
-
-#ifdef GDBSTUB_ENABLED
-    GDBArgs gdbargs {
-            static_cast<u16>(Config::GdbPortARM7),
-            static_cast<u16>(Config::GdbPortARM9),
-            Config::GdbARM7BreakOnStartup,
-            Config::GdbARM9BreakOnStartup,
-    };
-#endif
-
-    NDSArgs ndsargs {
-            std::move(ndscart),
-            std::move(gbacart),
-            *arm9bios,
-            *arm7bios,
-            std::move(*firmware),
-#ifdef JIT_ENABLED
-            Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt,
-#else
-            std::nullopt,
-#endif
-            static_cast<AudioBitDepth>(Config::AudioBitDepth),
-            static_cast<AudioInterpolation>(Config::AudioInterp),
-#ifdef GDBSTUB_ENABLED
-            Config::GdbEnabled ? std::make_optional(gdbargs) : std::nullopt,
-#else
-            std::nullopt,
-#endif
-    };
-
-    if (Config::ConsoleType == 1)
-    {
-        auto arm7ibios = ROMManager::LoadDSiARM7BIOS();
-        if (!arm7ibios)
-            return nullptr;
-
-        auto arm9ibios = ROMManager::LoadDSiARM9BIOS();
-        if (!arm9ibios)
-            return nullptr;
-
-        auto nand = ROMManager::LoadNAND(*arm7ibios);
-        if (!nand)
-            return nullptr;
-
-        auto sdcard = ROMManager::LoadDSiSDCard();
-        DSiArgs args {
-                std::move(ndsargs),
-                *arm9ibios,
-                *arm7ibios,
-                std::move(*nand),
-                std::move(sdcard),
-                Config::DSiFullBIOSBoot,
-        };
-
-        args.GBAROM = nullptr;
-
-        return std::make_unique<melonDS::DSi>(std::move(args));
-    }
-
-    return std::make_unique<melonDS::NDS>(std::move(ndsargs));
-}*/
-
-bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept
+bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGBAArgs&& _gbaargs) noexcept
 {
     // Let's get the cart we want to use;
     // if we wnat to keep the cart, we'll eject it from the existing console first.
     std::unique_ptr<NDSCart::CartCommon> nextndscart;
-    if (std::holds_alternative<Keep>(ndsargs))
+    if (std::holds_alternative<Keep>(_ndsargs))
     { // If we want to keep the existing cart (if any)...
         nextndscart = nds ? nds->EjectCart() : nullptr;
-        ndsargs = {};
+        _ndsargs = {};
     }
-    else if (const auto ptr = std::get_if<std::unique_ptr<NDSCart::CartCommon>>(&ndsargs))
+    else if (const auto ptr = std::get_if<std::unique_ptr<NDSCart::CartCommon>>(&_ndsargs))
     {
         nextndscart = std::move(*ptr);
-        ndsargs = {};
+        _ndsargs = {};
     }
 
     if (auto* cartsd = dynamic_cast<NDSCart::CartSD*>(nextndscart.get()))
@@ -1010,48 +923,18 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBA
     }
 
     std::unique_ptr<GBACart::CartCommon> nextgbacart;
-    if (std::holds_alternative<Keep>(gbaargs))
+    if (std::holds_alternative<Keep>(_gbaargs))
     {
         nextgbacart = nds ? nds->EjectGBACart() : nullptr;
     }
-    else if (const auto ptr = std::get_if<std::unique_ptr<GBACart::CartCommon>>(&gbaargs))
+    else if (const auto ptr = std::get_if<std::unique_ptr<GBACart::CartCommon>>(&_gbaargs))
     {
         nextgbacart = std::move(*ptr);
-        gbaargs = {};
+        _gbaargs = {};
     }
+
 
     int consoletype = globalCfg.GetInt("Emu.ConsoleType");
-
-    if (!nds || nds->ConsoleType != consoletype)
-    { // If we're switching between DS and DSi mode, or there's no console...
-        // To ensure the destructor is called before a new one is created,
-        // as the presence of global signal handlers still complicates things a bit
-        /*NDS = nullptr;
-        NDS::Current = nullptr;
-
-        NDS = CreateConsole(std::move(nextndscart), std::move(nextgbacart));
-
-        if (NDS == nullptr)
-            return false;
-
-        NDS->Reset();
-        NDS::Current = NDS.get();
-
-        return true;*/
-
-        delete nds;
-
-        if (consoletype == 1)
-        {
-            nds = new DSi();
-        }
-        else if (consoletype == 0)
-        {
-            nds = new NDS();
-        }
-
-        nds->Reset();
-    }
 
     auto arm9bios = loadARM9BIOS();
     if (!arm9bios)
@@ -1065,60 +948,116 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBA
     if (!firmware)
         return false;
 
-    if (consoletype == 1)
-    { // If the console we're updating is a DSi...
-        DSi* dsi = static_cast<DSi*>(nds);
-
-        auto arm9ibios = loadDSiARM9BIOS();
-        if (!arm9ibios)
-            return false;
-
-        auto arm7ibios = loadDSiARM7BIOS();
-        if (!arm7ibios)
-            return false;
-
-        auto nandimage = loadNAND(*arm7ibios);
-        if (!nandimage)
-            return false;
-
-        auto dsisdcard = loadSDCard("DSi.SD");
-
-        dsi->SetFullBIOSBoot(globalCfg.GetBool("DSi.FullBIOSBoot"));
-        dsi->ARM7iBIOS = *arm7ibios;
-        dsi->ARM9iBIOS = *arm9ibios;
-        dsi->SetNAND(std::move(*nandimage));
-        dsi->SetSDCard(std::move(dsisdcard));
-        // We're moving the optional, not the card
-        // (inserting std::nullopt here is okay, it means no card)
-
-        dsi->EjectGBACart();
-    }
-    else if (consoletype == 0)
-    {
-        nds->SetGBACart(std::move(nextgbacart));
-    }
-
 #ifdef JIT_ENABLED
     Config::Table jitopt = globalCfg.GetTable("JIT");
-    JITArgs jitargs {
+    JITArgs _jitargs {
             static_cast<unsigned>(jitopt.GetInt("MaxBlockSize")),
             jitopt.GetBool("LiteralOptimisations"),
             jitopt.GetBool("BranchOptimisations"),
             jitopt.GetBool("FastMemory"),
     };
-    nds->SetJITArgs(jitopt.GetBool("Enable") ? std::make_optional(jitargs) : std::nullopt);
+    auto jitargs = jitopt.GetBool("Enable") ? std::make_optional(_jitargs) : std::nullopt;
+#else
+    optional<JITArsg> jitargs = std::nullopt;
 #endif
 
-    // TODO GDB stub shit
+#ifdef GDBSTUB_ENABLED
+    Config::Table gdbopt = globalCfg.GetTable("Gdb");
+    GDBArgs _gdbargs {
+            static_cast<u16>(gdbopt.GetInt("ARM7.Port")),
+            static_cast<u16>(gdbopt.GetInt("ARM9.Port")),
+            gdbopt.GetBool("ARM7.BreakOnStartup"),
+            gdbopt.GetBool("ARM9.BreakOnStartup"),
+    };
+    auto gdbargs = gdbopt.GetBool("Enable") ? std::make_optional(_gdbargs) : std::nullopt;
+#else
+    optional<GDBArgs> gdbargs = std::nullopt;
+#endif
 
-    nds->SetARM7BIOS(*arm7bios);
-    nds->SetARM9BIOS(*arm9bios);
-    nds->SetFirmware(std::move(*firmware));
-    nds->SetNDSCart(std::move(nextndscart));
-    nds->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
-    nds->SPU.SetDegrade10Bit(static_cast<AudioBitDepth>(Config::AudioBitDepth));
+    NDSArgs ndsargs {
+            std::move(nextndscart),
+            std::move(nextgbacart),
+            *arm9bios,
+            *arm7bios,
+            std::move(*firmware),
+            jitargs,
+            static_cast<AudioBitDepth>(Config::AudioBitDepth),
+            static_cast<AudioInterpolation>(Config::AudioInterp),
+            gdbargs,
+    };
 
-    NDS::Current = nds; // REMOVEME
+    std::optional<DSiArgs> dsiargs = std::nullopt;
+    if (consoletype == 1)
+    {
+        ndsargs.GBAROM = nullptr;
+
+        auto arm7ibios = loadDSiARM7BIOS();
+        if (!arm7ibios)
+            return false;
+
+        auto arm9ibios = loadDSiARM9BIOS();
+        if (!arm9ibios)
+            return false;
+
+        auto nand = loadNAND(*arm7ibios);
+        if (!nand)
+            return false;
+
+        auto sdcard = loadSDCard("DSi.SD");
+
+        DSiArgs args {
+                std::move(ndsargs),
+                *arm9ibios,
+                *arm7ibios,
+                std::move(*nand),
+                std::move(sdcard),
+                globalCfg.GetBool("DSi.FullBIOSBoot"),
+        };
+
+        dsiargs = std::move(args);
+    }
+
+
+    if (consoletype != nds->ConsoleType)
+    {
+        NDS::Current = nullptr;
+        delete nds;
+
+        if (consoletype == 1)
+            nds = new DSi(std::move(dsiargs.value()));
+        else
+            nds = new NDS(std::move(ndsargs));
+
+        NDS::Current = nds;
+        nds->Reset();
+    }
+    else
+    {
+        nds->SetARM7BIOS(ndsargs.ARM7BIOS);
+        nds->SetARM9BIOS(ndsargs.ARM9BIOS);
+        nds->SetFirmware(std::move(ndsargs.Firmware));
+        nds->SetNDSCart(std::move(ndsargs.NDSROM));
+        nds->SetJITArgs(ndsargs.JIT);
+        // TODO GDB stub shit
+        nds->SPU.SetInterpolation(ndsargs.Interpolation);
+        nds->SPU.SetDegrade10Bit(ndsargs.BitDepth);
+
+        if (consoletype == 1)
+        {
+            DSi* dsi = (DSi*)nds;
+            DSiArgs& args = dsiargs.value();
+
+            dsi->SetFullBIOSBoot(args.FullBIOSBoot);
+            dsi->ARM7iBIOS = args.ARM7iBIOS;
+            dsi->ARM9iBIOS = args.ARM9iBIOS;
+            dsi->SetNAND(std::move(args.NANDImage));
+            dsi->SetSDCard(std::move(args.DSiSDCard));
+            // We're moving the optional, not the card
+            // (inserting std::nullopt here is okay, it means no card)
+
+            dsi->EjectGBACart();
+        }
+    }
 
     return true;
 }
