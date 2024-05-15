@@ -9,6 +9,12 @@
 #include <string.h>
 #include <stddef.h>
 
+#ifdef _WIN32
+#define G_OS_WIN32 1
+#else
+#define G_OS_UNIX 1
+#endif
+
 #define G_LITTLE_ENDIAN 0
 #define G_BIG_ENDIAN 1
 #define G_BYTE_ORDER G_LITTLE_ENDIAN

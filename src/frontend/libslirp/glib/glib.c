@@ -119,6 +119,7 @@ gboolean g_shell_parse_argv(const gchar* command_line, gint* argcp, gchar*** arg
     GError* err = malloc(sizeof(GError));
     err->message = message;
     *error = err;
+    return false;
 }
 
 gboolean g_spawn_async_with_fds(const gchar *working_directory, gchar **argv,
