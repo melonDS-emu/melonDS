@@ -26,6 +26,8 @@ include(CheckLibraryExists)
 include(CMakeDependentOption)
 include(CheckIPOSupported)
 
+include(SetupCCache)
+
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 
 set(CMAKE_C_STANDARD 11)
@@ -90,13 +92,6 @@ if (BUILD_STATIC AND WIN32)
 endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-find_program(CCACHE "ccache")
-if (CCACHE)
-    message(STATUS "Using CCache to speed up compilation")
-    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
-    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
-endif()
 
 option(ENABLE_GDBSTUB "Enable GDB stub" ON)
 if (ENABLE_GDBSTUB)
