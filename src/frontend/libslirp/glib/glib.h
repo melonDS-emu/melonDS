@@ -9,10 +9,8 @@
 #include <string.h>
 #include <stddef.h>
 
-#ifdef _WIN32
+#if defined(WIN32) || defined(_WIN32) || defined(_MSC_VER)
 #define G_OS_WIN32 1
-#else
-#define G_OS_UNIX 1
 #endif
 
 #define G_LITTLE_ENDIAN 0
@@ -117,7 +115,6 @@ gchar* g_string_free(GString* string, gboolean free_segment);
 void g_string_append_printf(GString* gstr, const gchar* format, ...);
 gchar* g_strstr_len(const gchar* haystack, int len, const gchar* needle);
 gchar* g_strdup(const gchar* str);
-#define g_strlcpy(dst, src, size) strlcpy(dst, src, size)
 #ifdef _MSC_VER
 #define g_ascii_strcasecmp(a, b) stricmp(a, b)
 #else
