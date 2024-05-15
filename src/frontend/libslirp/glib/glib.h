@@ -94,8 +94,8 @@ typedef void* gpointer;
 #define g_error printf
 #define g_critical printf
 
-#define g_new(type, count) (type*) malloc(sizeof(type) * count)
-#define g_new0(type, count) (type*) calloc(count, sizeof(type))
+#define g_new(type, count) (type*) (count > 0 ? malloc(sizeof(type) * count) : NULL)
+#define g_new0(type, count) (type*) (count > 0 ? calloc(count, sizeof(type)) : NULL)
 
 #define g_malloc malloc
 #define g_malloc0(size) calloc(1, size)
@@ -117,6 +117,7 @@ gchar* g_string_free(GString* string, gboolean free_segment);
 void g_string_append_printf(GString* gstr, const gchar* format, ...);
 gchar* g_strstr_len(const gchar* haystack, int len, const gchar* needle);
 gchar* g_strdup(const gchar* str);
+#define g_strlcpy(dst, src, size) strlcpy(dst, src, size)
 #ifdef _MSC_VER
 #define g_ascii_strcasecmp(a, b) stricmp(a, b)
 #else
@@ -130,7 +131,7 @@ gchar* g_strdup(const gchar* str);
 gint g_strv_length(GStrv strings);
 void g_strfreev(GStrv strings);
 
-typedef struct GRand {} GRand;
+typedef uint32_t GRand;
 gint g_rand_int_range(GRand* grand, gint min, gint max);
 GRand* g_rand_new();
 void g_rand_free(GRand* rand);
