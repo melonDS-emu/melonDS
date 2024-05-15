@@ -46,7 +46,12 @@ set(SOURCES
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/libslirp-version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/libslirp-version.h")
 
-add_library(slirp STATIC ${SOURCES})
+if (BUILD_STATIC)
+	add_library(slirp STATIC ${SOURCES})
+else()
+	add_library(slirp ${SOURCES})
+endif()
+
 target_include_directories(slirp PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/glib")
 target_include_directories(slirp PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_include_directories(slirp PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")

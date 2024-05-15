@@ -112,6 +112,10 @@ if (WIN32)
 
         ../glad/glad_wgl.c
     )
+
+    if (MINGW AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+        set_property(TARGET melonDS PROPERTY AUTORCC_OPTIONS "--no-zstd")
+    endif()
 elseif (APPLE)
     if (NOT USE_QT6)
         find_library(COCOA_LIB Cocoa)
