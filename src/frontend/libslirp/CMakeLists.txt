@@ -49,11 +49,9 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/libslirp-version.h.in" "${CMAKE_
 add_library(slirp STATIC ${SOURCES})
 target_include_directories(slirp PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/glib")
 target_include_directories(slirp PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_include_directories(slirp PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+target_include_directories(slirp PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
 
 target_compile_definitions(slirp PRIVATE BUILDING_LIBSLIRP)
-set_target_properties(slirp PROPERTIES INTERPROCEDURAL_OPTIMIZATION OFF)
-set_target_properties(slirp PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE OFF)
 
 if (WIN32)
 	target_link_libraries(slirp PRIVATE ws2_32 iphlpapi)
