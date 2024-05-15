@@ -30,21 +30,52 @@
 #define GLIB_CHECK_VERSION(x, y, z) 1
 #define G_STATIC_ASSERT(...)
 #define g_assert assert
-#define G_UNLIKELY
-#define G_LIKELY
+#define G_UNLIKELY(x) __builtin_expect(x, 0)
 
-#define g_assert_not_reached() {}
-#define g_warn_if_reached() {}
-#define g_warn_if_fail(cond) {}
-#define g_return_val_if_fail(cond, val) if (!(cond)) return (val)
-#define g_return_if_fail(cond) if (!(cond)) return;
+#define g_return_if_fail(expr) \
+    do {                       \
+        if (!(expr))           \
+            return;            \
+    } while (false)
+
+#define g_return_val_if_fail(expr, val) \
+    do { \
+        if (!(expr)) \
+            return (val); \
+    } while (false)
+
+#define g_warn_if_reached() \
+    do { \
+        g_warning("g_warn_if_reached: Reached " __FILE__ ":%d", __LINE__); \
+    } while (false)
+
+
+#define g_warn_if_fail(expr) \
+    do { \
+        if (!(expr)) \
+            g_warning("g_warn_if_fail: Expression '" #expr "' failed at " __FILE__ ":%d", __LINE__); \
+    } while (false)
+
+#define g_assert_not_reached() \
+    do { \
+        assert(false && "g_assert_not_reached"); \
+        __builtin_unreachable(); \
+    } while (false)
 
 #define GLIB_SIZEOF_VOID_P 8
+#ifndef MAX
 #define MAX(a, b) (a > b ? a : b)
+#endif
+#ifndef MIN
 #define MIN(a, b) (a < b ? a : b)
+#endif
 
+#ifndef TRUE
 #define TRUE true
+#endif
+#ifndef FALSE
 #define FALSE false
+#endif
 
 typedef bool gboolean;
 typedef char gchar;

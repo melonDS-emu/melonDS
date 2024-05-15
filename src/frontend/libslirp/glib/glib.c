@@ -83,9 +83,8 @@ gchar* g_strdup(const gchar* str) {
 
 int g_strv_length(GStrv strings) {
     gint count = 0;
-    while (count++) {
-        if (strings[count] == NULL) break;
-    }
+    while (strings[count])
+        count++;
     return count;
 }
 
