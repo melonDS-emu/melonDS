@@ -89,13 +89,20 @@ pkg_check_modules(Zstd REQUIRED IMPORTED_TARGET libzstd)
 
 fix_interface_includes(PkgConfig::SDL2 PkgConfig::LibArchive)
 
-add_subdirectory("../libslirp"
-	"${CMAKE_BINARY_DIR}/libslirp"
-	EXCLUDE_FROM_ALL)
-
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
 add_executable(melonDS ${SOURCES_QT_SDL})
+
+option(USE_SYSTEM_LIBSLIRP "Use system libslirp instead of the bundled version" OFF)
+if (USE_SYSTEM_LIBSLIRP)
+    pkg_check_modules(Slirp REQUIRED IMPORTED_TARGET slirp)
+    target_link_libraries(melonDS PRIVATE PkgConfig::Slirp)
+else()
+    add_subdirectory("../libslirp"
+            "${CMAKE_BINARY_DIR}/libslirp"
+            EXCLUDE_FROM_ALL)
+    target_link_libraries(melonDS PRIVATE slirp)
+endif()
 
 if (WIN32)
     target_link_libraries(melonDS PUBLIC opengl32)
@@ -165,7 +172,6 @@ endif()
 target_link_libraries(melonDS PRIVATE core)
 target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd)
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
-target_link_libraries(melonDS PRIVATE slirp)
 
 if (WIN32)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
