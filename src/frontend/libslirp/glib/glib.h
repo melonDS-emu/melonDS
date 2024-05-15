@@ -120,7 +120,7 @@ gboolean g_spawn_async_with_fds(const gchar *working_directory, gchar **argv,
                                 gpointer user_data, GPid *child_pid, gint stdin_fd,
                                 gint stdout_fd, gint stderr_fd, GError **error);
 
-typedef struct { gchar* key; int value } GDebugKey;
+typedef struct { gchar* key; int value; } GDebugKey;
 #define g_parse_debug_string(str, keys, nkeys) 0
 
 
