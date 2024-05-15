@@ -52,6 +52,7 @@ target_include_directories(slirp PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_include_directories(slirp PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
 
 target_compile_definitions(slirp PRIVATE BUILDING_LIBSLIRP)
+target_compile_definitions(slirp PRIVATE "G_LOG_DOMAIN=\"Slirp\"")
 
 if (WIN32)
 	target_link_libraries(slirp PRIVATE ws2_32 iphlpapi)

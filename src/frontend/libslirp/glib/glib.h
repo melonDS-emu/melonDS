@@ -87,10 +87,10 @@ typedef int gint;
 typedef size_t gsize;
 typedef void* gpointer;
 
-#define g_debug printf
-#define g_warning printf
-#define g_error printf
-#define g_critical printf
+#define g_debug(format, ...) printf("[" G_LOG_DOMAIN ": debug] " format, ##__VA_ARGS__)
+#define g_warning(format, ...) printf("[" G_LOG_DOMAIN ": warning] " format, ##__VA_ARGS__)
+#define g_error(format, ...) printf("[" G_LOG_DOMAIN ": error] " format, ##__VA_ARGS__)
+#define g_critical(format, ...) printf("[" G_LOG_DOMAIN ": critical] " format, ##__VA_ARGS__)
 
 #define g_new(type, count) (type*) (count > 0 ? malloc(sizeof(type) * count) : NULL)
 #define g_new0(type, count) (type*) (count > 0 ? calloc(count, sizeof(type)) : NULL)
