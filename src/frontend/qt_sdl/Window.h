@@ -36,6 +36,7 @@
 #include "Screen.h"
 
 
+class EmuInstance;
 class EmuThread;
 
 /*
@@ -100,7 +101,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget* parent = nullptr);
+    explicit MainWindow(EmuInstance* inst, QWidget* parent = nullptr);
     ~MainWindow();
 
     void attachEmuThread(EmuThread* thread);
@@ -235,6 +236,8 @@ private:
     bool oldMax;
 
     int test_num;
+
+    EmuInstance* emuInstance;
 
     EmuThread* emuThread;
 

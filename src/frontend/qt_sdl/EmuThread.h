@@ -38,6 +38,7 @@ namespace melonDS
 class NDS;
 }
 
+class EmuInstance;
 class MainWindow;
 class ScreenPanelGL;
 
@@ -47,7 +48,7 @@ class EmuThread : public QThread
     void run() override;
 
 public:
-    explicit EmuThread(QObject* parent = nullptr);
+    explicit EmuThread(EmuInstance* inst, QObject* parent = nullptr);
 
     void attachWindow(MainWindow* window);
     void detachWindow(MainWindow* window);
@@ -70,13 +71,6 @@ public:
     int FrontBuffer = 0;
     QMutex FrontBufferLock;
 
-    /// Applies the config in args.
-    /// Creates a new NDS console if needed,
-    /// modifies the existing one if possible.
-    /// @return \c true if the console was updated.
-    /// If this returns \c false, then the existing NDS console is not modified.
-    bool UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept;
-    std::unique_ptr<melonDS::NDS> NDS; // TODO: Proper encapsulation and synchronization
 signals:
     void windowUpdate();
     void windowTitleChange(QString title);
@@ -99,11 +93,6 @@ signals:
     void syncVolumeLevel();
 
 private:
-    std::unique_ptr<melonDS::NDS> CreateConsole(
-        std::unique_ptr<melonDS::NDSCart::CartCommon>&& ndscart,
-        std::unique_ptr<melonDS::GBACart::CartCommon>&& gbacart
-    ) noexcept;
-
     enum EmuStatusKind
     {
         emuStatus_Exit,
@@ -127,6 +116,8 @@ private:
         contextRequest_DeInitGL
     };
     std::atomic<ContextRequestKind> ContextRequest = contextRequest_None;
+
+    EmuInstance* emuInstance;
 
     //ScreenPanelGL* screenGL;
     MainWindow* mainWindow;

@@ -24,7 +24,7 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "ROMManager.h"
+#include "EmuInstance.h"
 
 #include "CheatsDialog.h"
 #include "ui_CheatsDialog.h"
@@ -42,6 +42,9 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
+
+    MainWindow* win = (MainWindow*)parent;
+    //
 
     codeFile = ROMManager::GetCheatFile();
 

@@ -77,7 +77,7 @@
 
 //#include "main_shaders.h"
 
-#include "ROMManager.h"
+#include "EmuInstance.h"
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
 
@@ -198,8 +198,10 @@ static void signalHandler(int)
 
 int test = 0;
 
-MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
+MainWindow::MainWindow(EmuInstance* inst, QWidget* parent) : QMainWindow(parent)
 {
+    emuInstance = inst;
+
     test_num = test++;
 #ifndef _WIN32
     if (!parent)
@@ -231,7 +233,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     setAcceptDrops(true);
     setFocusPolicy(Qt::ClickFocus);
 
-    int inst = Platform::InstanceID();
+    //int inst = Platform::InstanceID();
 
     QMenuBar* menubar = new QMenuBar();
     {
@@ -260,7 +262,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         menu->addSeparator();
 
-        actCurrentCart = menu->addAction("DS slot: " + ROMManager::CartLabel());
+        actCurrentCart = menu->addAction("DS slot: " + emuInstance->cartLabel());
         actCurrentCart->setEnabled(false);
 
         actInsertCart = menu->addAction("Insert cart...");
@@ -271,7 +273,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         menu->addSeparator();
 
-        actCurrentGBACart = menu->addAction("GBA slot: " + ROMManager::GBACartLabel());
+        actCurrentGBACart = menu->addAction("GBA slot: " + emuInstance->gbaCartLabel());
         actCurrentGBACart->setEnabled(false);
 
         actInsertGBACart = menu->addAction("Insert ROM cart...");
@@ -675,7 +677,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actLimitFramerate->setChecked(Config::LimitFPS);
     actAudioSync->setChecked(Config::AudioSync);
 
-    if (inst > 0)
+    if (emuInstance->instanceID > 0)
     {
         actEmuSettings->setEnabled(false);
         actVideoSettings->setEnabled(false);
@@ -900,7 +902,7 @@ void MainWindow::dropEvent(QDropEvent* event)
 
     if (isNdsRom)
     {
-        if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
+        if (!emuInstance->loadROM(file, true))
         {
             emuThread->emuUnpause();
             return;
@@ -911,15 +913,15 @@ void MainWindow::dropEvent(QDropEvent* event)
         recentFileList.prepend(barredFilename);
         updateRecentFilesMenu();
 
-        assert(emuThread->NDS != nullptr);
-        emuThread->NDS->Start();
+        assert(emuInstance->nds != nullptr);
+        emuInstance->nds->Start();
         emuThread->emuRun();
 
         updateCartInserted(false);
     }
     else if (isGbaRom)
     {
-        if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, file))
+        if (!emuInstance->loadGBAROM(file))
         {
             emuThread->emuUnpause();
             return;
@@ -963,7 +965,7 @@ void MainWindow::onAppStateChanged(Qt::ApplicationState state)
 
 bool MainWindow::verifySetup()
 {
-    QString res = ROMManager::VerifySetup();
+    QString res = emuInstance->verifySetup();
     if (!res.isEmpty())
     {
          QMessageBox::critical(this, "melonDS", res);
@@ -983,7 +985,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool gbaloaded = false;
     if (!gbafile.isEmpty())
     {
-        if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, gbafile)) return false;
+        if (!emuInstance->loadGBAROM(gbafile)) return false;
 
         gbaloaded = true;
     }
@@ -991,7 +993,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool ndsloaded = false;
     if (!file.isEmpty())
     {
-        if (!ROMManager::LoadROM(mainWindow, emuThread, file, true)) return false;
+        if (!emuInstance->loadROM(file, true)) return false;
         
         recentFileList.removeAll(file.join("|"));
         recentFileList.prepend(file.join("|"));
@@ -1003,7 +1005,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     {
         if (ndsloaded)
         {
-            emuThread->NDS->Start();
+            emuInstance->nds->Start();
             emuThread->emuRun();
         }
         else
@@ -1163,14 +1165,14 @@ void MainWindow::updateCartInserted(bool gba)
     bool inserted;
     if (gba)
     {
-        inserted = ROMManager::GBACartInserted() && (Config::ConsoleType == 0);
-        actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
+        inserted = emuInstance->gbaCartInserted() && (Config::ConsoleType == 0);
+        actCurrentGBACart->setText("GBA slot: " + emuInstance->gbaCartLabel());
         actEjectGBACart->setEnabled(inserted);
     }
     else
     {
-        inserted = ROMManager::CartInserted();
-        actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
+        inserted = emuInstance->cartInserted();
+        actCurrentCart->setText("DS slot: " + emuInstance->cartLabel());
         actEjectCart->setEnabled(inserted);
         actImportSavefile->setEnabled(inserted);
         actSetupCheats->setEnabled(inserted);
@@ -1196,7 +1198,7 @@ void MainWindow::onOpenFile()
         return;
     }
     
-    if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
+    if (!emuInstance->loadROM(file, true))
     {
         emuThread->emuUnpause();
         return;
@@ -1207,8 +1209,8 @@ void MainWindow::onOpenFile()
     recentFileList.prepend(filename);
     updateRecentFilesMenu();
 
-    assert(emuThread->NDS != nullptr);
-    emuThread->NDS->Start();
+    assert(emuInstance->nds != nullptr);
+    emuInstance->nds->Start();
     emuThread->emuRun();
 
     updateCartInserted(false);
@@ -1293,7 +1295,7 @@ void MainWindow::onClickRecentFile()
         return;
     }
     
-    if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
+    if (!emuInstance->loadROM(file, true))
     {
         emuThread->emuUnpause();
         return;
@@ -1303,8 +1305,8 @@ void MainWindow::onClickRecentFile()
     recentFileList.prepend(filename);
     updateRecentFilesMenu();
 
-    assert(emuThread->NDS != nullptr);
-    emuThread->NDS->Start();
+    assert(emuInstance->nds != nullptr);
+    emuInstance->nds->Start();
     emuThread->emuRun();
 
     updateCartInserted(false);
@@ -1320,7 +1322,7 @@ void MainWindow::onBootFirmware()
         return;
     }
 
-    if (!ROMManager::BootToMenu(emuThread))
+    if (!emuInstance->bootToMenu())
     {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "This firmware is not bootable.");
@@ -1328,8 +1330,8 @@ void MainWindow::onBootFirmware()
         return;
     }
 
-    assert(emuThread->NDS != nullptr);
-    emuThread->NDS->Start();
+    assert(emuInstance->nds != nullptr);
+    emuInstance->nds->Start();
     emuThread->emuRun();
 }
 
@@ -1344,7 +1346,7 @@ void MainWindow::onInsertCart()
         return;
     }
 
-    if (!ROMManager::LoadROM(mainWindow, emuThread, file, false))
+    if (!emuInstance->loadROM(file, false))
     {
         emuThread->emuUnpause();
         return;
@@ -1359,7 +1361,7 @@ void MainWindow::onEjectCart()
 {
     emuThread->emuPause();
 
-    ROMManager::EjectCart(*emuThread->NDS);
+    emuInstance->ejectCart();
 
     emuThread->emuUnpause();
 
@@ -1377,7 +1379,7 @@ void MainWindow::onInsertGBACart()
         return;
     }
 
-    if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, file))
+    if (!emuInstance->loadGBAROM(file))
     {
         emuThread->emuUnpause();
         return;
@@ -1395,7 +1397,7 @@ void MainWindow::onInsertGBAAddon()
 
     emuThread->emuPause();
 
-    ROMManager::LoadGBAAddon(*emuThread->NDS, type);
+    emuInstance->loadGBAAddon(type);
 
     emuThread->emuUnpause();
 
@@ -1406,7 +1408,7 @@ void MainWindow::onEjectGBACart()
 {
     emuThread->emuPause();
 
-    ROMManager::EjectGBACart(*emuThread->NDS);
+    emuInstance->ejectGBACart();
 
     emuThread->emuUnpause();
 
@@ -1422,7 +1424,7 @@ void MainWindow::onSaveState()
     std::string filename;
     if (slot > 0)
     {
-        filename = ROMManager::GetSavestateName(slot);
+        filename = emuInstance->getSavestateName(slot);
     }
     else
     {
@@ -1440,7 +1442,7 @@ void MainWindow::onSaveState()
         filename = qfilename.toStdString();
     }
 
-    if (ROMManager::SaveState(*emuThread->NDS, filename))
+    if (emuInstance->saveState(filename))
     {
         if (slot > 0) osdAddMessage(0, "State saved to slot %d", slot);
         else          osdAddMessage(0, "State saved to file");
@@ -1464,7 +1466,7 @@ void MainWindow::onLoadState()
     std::string filename;
     if (slot > 0)
     {
-        filename = ROMManager::GetSavestateName(slot);
+        filename = emuInstance->getSavestateName(slot);
     }
     else
     {
@@ -1491,7 +1493,7 @@ void MainWindow::onLoadState()
         return;
     }
 
-    if (ROMManager::LoadState(*emuThread->NDS, filename))
+    if (emuInstance->loadState(filename))
     {
         if (slot > 0) osdAddMessage(0, "State loaded from slot %d", slot);
         else          osdAddMessage(0, "State loaded from file");
@@ -1509,7 +1511,7 @@ void MainWindow::onLoadState()
 void MainWindow::onUndoStateLoad()
 {
     emuThread->emuPause();
-    ROMManager::UndoStateLoad(*emuThread->NDS);
+    emuInstance->undoStateLoad();
     emuThread->emuUnpause();
 
     osdAddMessage(0, "State load undone");
@@ -1548,7 +1550,7 @@ void MainWindow::onImportSavefile()
             return;
         }
 
-        ROMManager::Reset(emuThread);
+        emuInstance->reset();
     }
 
     u32 len = FileLength(f);
@@ -1557,8 +1559,8 @@ void MainWindow::onImportSavefile()
     Platform::FileRewind(f);
     Platform::FileRead(data.get(), len, 1, f);
 
-    assert(emuThread->NDS != nullptr);
-    emuThread->NDS->SetNDSSave(data.get(), len);
+    assert(emuInstance->nds != nullptr);
+    emuInstance->nds->SetNDSSave(data.get(), len);
 
     CloseFile(f);
     emuThread->emuUnpause();
@@ -1599,7 +1601,7 @@ void MainWindow::onReset()
 
     actUndoStateLoad->setEnabled(false);
 
-    ROMManager::Reset(emuThread);
+    emuInstance->reset();
 
     osdAddMessage(0, "Reset");
     emuThread->emuRun();
@@ -1610,7 +1612,7 @@ void MainWindow::onStop()
     if (!RunningSomething) return;
 
     emuThread->emuPause();
-    emuThread->NDS->Stop();
+    emuInstance->nds->Stop();
 }
 
 void MainWindow::onFrameStep()
@@ -1633,7 +1635,7 @@ void MainWindow::onOpenPowerManagement()
 void MainWindow::onEnableCheats(bool checked)
 {
     Config::EnableCheats = checked?1:0;
-    ROMManager::EnableCheats(*emuThread->NDS, Config::EnableCheats != 0);
+    emuInstance->enableCheats(Config::EnableCheats != 0);
 }
 
 void MainWindow::onSetupCheats()
@@ -1651,7 +1653,7 @@ void MainWindow::onCheatsDialogFinished(int res)
 
 void MainWindow::onROMInfo()
 {
-    auto cart = emuThread->NDS->NDSCartSlot.GetCart();
+    auto cart = emuInstance->nds->NDSCartSlot.GetCart();
     if (cart)
         ROMInfoDialog* dlg = ROMInfoDialog::openDlg(this, *cart);
 }
@@ -1707,13 +1709,13 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
         actInsertGBACart->setEnabled(true);
         for (int i = 0; i < 1; i++)
             actInsertGBAAddon[i]->setEnabled(true);
-        actEjectGBACart->setEnabled(ROMManager::GBACartInserted());
+        actEjectGBACart->setEnabled(emuInstance->gbaCartInserted());
     }
 
     if (EmuSettingsDialog::needsReset)
         onReset();
 
-    actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
+    actCurrentGBACart->setText("GBA slot: " + emuInstance->gbaCartLabel());
 
     if (!RunningSomething)
         actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
@@ -1802,18 +1804,18 @@ void MainWindow::onPathSettingsFinished(int res)
 
 void MainWindow::onUpdateAudioSettings()
 {
-    assert(emuThread->NDS != nullptr);
-    emuThread->NDS->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
+    assert(emuInstance->nds != nullptr);
+    emuInstance->nds->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
 
     if (Config::AudioBitDepth == 0)
-        emuThread->NDS->SPU.SetDegrade10Bit(emuThread->NDS->ConsoleType == 0);
+        emuInstance->nds->SPU.SetDegrade10Bit(emuInstance->nds->ConsoleType == 0);
     else
-        emuThread->NDS->SPU.SetDegrade10Bit(Config::AudioBitDepth == 1);
+        emuInstance->nds->SPU.SetDegrade10Bit(Config::AudioBitDepth == 1);
 }
 
 void MainWindow::onAudioSettingsFinished(int res)
 {
-    AudioInOut::UpdateSettings(*emuThread->NDS);
+    //AudioInOut::UpdateSettings(*emuThread->NDS);
 }
 
 void MainWindow::onOpenMPSettings()
@@ -2029,7 +2031,7 @@ void MainWindow::onEmuStart()
     for (int i = 1; i < 9; i++)
     {
         actSaveState[i]->setEnabled(true);
-        actLoadState[i]->setEnabled(ROMManager::SavestateExists(i));
+        actLoadState[i]->setEnabled(emuInstance->savestateExists(i));
     }
     actSaveState[0]->setEnabled(true);
     actLoadState[0]->setEnabled(true);

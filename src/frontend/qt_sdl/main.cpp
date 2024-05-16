@@ -100,7 +100,7 @@
 
 //#include "main_shaders.h"
 
-#include "ROMManager.h"
+#include "EmuInstance.h"
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
 
@@ -161,8 +161,9 @@ QStringList ArchiveExtensions
 
 bool RunningSomething;
 
-MainWindow* mainWindow;
-EmuThread* emuThread;
+//MainWindow* mainWindow;
+//EmuThread* emuThread;
+EmuInstance* testinst;
 
 int autoScreenSizing = 0;
 
@@ -258,7 +259,7 @@ void emuStop()
 {
     RunningSomething = false;
 
-    emit emuThread->windowEmuStop();
+    //emit emuThread->windowEmuStop();
 }
 
 MelonApplication::MelonApplication(int& argc, char** argv)
@@ -278,10 +279,10 @@ bool MelonApplication::event(QEvent *event)
     {
         QFileOpenEvent *openEvent = static_cast<QFileOpenEvent*>(event);
 
-        emuThread->emuPause();
+        /*emuThread->emuPause();
         const QStringList file = mainWindow->splitArchivePath(openEvent->file(), true);
         if (!mainWindow->preloadROMs(file, {}, true))
-            emuThread->emuUnpause();
+            emuThread->emuUnpause();*/
     }
 
     return QApplication::event(event);
@@ -375,7 +376,7 @@ int main(int argc, char** argv)
     Input::JoystickID = Config::JoystickID;
     Input::OpenJoystick();
 
-    mainWindow = new MainWindow();
+   /* mainWindow = new MainWindow();
     if (options->fullscreen)
         ToggleFullscreen(mainWindow);
 
@@ -385,9 +386,11 @@ int main(int argc, char** argv)
     emuThread->attachWindow(mainWindow);
     emuThread->attachWindow(poop);
     emuThread->start();
-    emuThread->emuPause();
+    emuThread->emuPause();*/
 
-    AudioInOut::Init(emuThread);
+    testinst = new EmuInstance(0);
+
+    /*AudioInOut::Init(emuThread);
     ROMManager::EnableCheats(*emuThread->NDS, Config::EnableCheats != 0);
     AudioInOut::AudioMute(mainWindow);
 
@@ -412,15 +415,16 @@ int main(int argc, char** argv)
 
     if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
 
-    mainWindow->preloadROMs(dsfile, gbafile, options->boot);
+    mainWindow->preloadROMs(dsfile, gbafile, options->boot);*/
 
     int ret = melon.exec();
 
     delete options;
 
-    emuThread->emuStop();
+    /*emuThread->emuStop();
     emuThread->wait();
-    delete emuThread;
+    delete emuThread;*/
+    delete testinst;
 
     Input::CloseJoystick();
 

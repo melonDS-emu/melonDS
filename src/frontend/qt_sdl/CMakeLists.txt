@@ -7,6 +7,7 @@ set(SOURCES_QT_SDL
     main_shaders.h
     Screen.cpp
     Window.cpp
+    EmuInstance.cpp
     EmuThread.cpp
     CheatsDialog.cpp
     Config.cpp
@@ -36,7 +37,6 @@ set(SOURCES_QT_SDL
     font.h
     Platform.cpp
     QPathInput.h
-    ROMManager.cpp
     SaveManager.cpp
     CameraManager.cpp
     AudioInOut.cpp

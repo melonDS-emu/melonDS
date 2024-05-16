@@ -55,7 +55,7 @@
 
 #include "Savestate.h"
 
-#include "ROMManager.h"
+#include "EmuInstance.h"
 //#include "ArchiveUtil.h"
 //#include "CameraManager.h"
 
@@ -72,8 +72,10 @@ extern int videoRenderer;
 extern bool videoSettingsDirty;
 
 
-EmuThread::EmuThread(QObject* parent) : QThread(parent)
+EmuThread::EmuThread(EmuInstance* inst, QObject* parent) : QThread(parent)
 {
+    emuInstance = inst;
+
     EmuStatus = emuStatus_Exit;
     EmuRunning = emuStatus_Paused;
     EmuPauseStack = EmuPauseStackRunning;
@@ -133,218 +135,12 @@ void EmuThread::detachWindow(MainWindow* window)
     mainWindow = windowList.front();
 }
 
-std::unique_ptr<NDS> EmuThread::CreateConsole(
-    std::unique_ptr<melonDS::NDSCart::CartCommon>&& ndscart,
-    std::unique_ptr<melonDS::GBACart::CartCommon>&& gbacart
-) noexcept
-{
-    auto arm7bios = ROMManager::LoadARM7BIOS();
-    if (!arm7bios)
-        return nullptr;
-
-    auto arm9bios = ROMManager::LoadARM9BIOS();
-    if (!arm9bios)
-        return nullptr;
-
-    auto firmware = ROMManager::LoadFirmware(Config::ConsoleType);
-    if (!firmware)
-        return nullptr;
-
-#ifdef JIT_ENABLED
-    JITArgs jitargs {
-        static_cast<unsigned>(Config::JIT_MaxBlockSize),
-        Config::JIT_LiteralOptimisations,
-        Config::JIT_BranchOptimisations,
-        Config::JIT_FastMemory,
-    };
-#endif
-
-#ifdef GDBSTUB_ENABLED
-    GDBArgs gdbargs {
-        static_cast<u16>(Config::GdbPortARM7),
-        static_cast<u16>(Config::GdbPortARM9),
-        Config::GdbARM7BreakOnStartup,
-        Config::GdbARM9BreakOnStartup,
-    };
-#endif
-
-    NDSArgs ndsargs {
-        std::move(ndscart),
-        std::move(gbacart),
-        *arm9bios,
-        *arm7bios,
-        std::move(*firmware),
-#ifdef JIT_ENABLED
-        Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt,
-#else
-        std::nullopt,
-#endif
-        static_cast<AudioBitDepth>(Config::AudioBitDepth),
-        static_cast<AudioInterpolation>(Config::AudioInterp),
-#ifdef GDBSTUB_ENABLED
-        Config::GdbEnabled ? std::make_optional(gdbargs) : std::nullopt,
-#else
-        std::nullopt,
-#endif
-    };
-
-    if (Config::ConsoleType == 1)
-    {
-        auto arm7ibios = ROMManager::LoadDSiARM7BIOS();
-        if (!arm7ibios)
-            return nullptr;
-
-        auto arm9ibios = ROMManager::LoadDSiARM9BIOS();
-        if (!arm9ibios)
-            return nullptr;
-
-        auto nand = ROMManager::LoadNAND(*arm7ibios);
-        if (!nand)
-            return nullptr;
-
-        auto sdcard = ROMManager::LoadDSiSDCard();
-        DSiArgs args {
-            std::move(ndsargs),
-            *arm9ibios,
-            *arm7ibios,
-            std::move(*nand),
-            std::move(sdcard),
-            Config::DSiFullBIOSBoot,
-        };
-
-        args.GBAROM = nullptr;
-
-        return std::make_unique<melonDS::DSi>(std::move(args));
-    }
-
-    return std::make_unique<melonDS::NDS>(std::move(ndsargs));
-}
-
-bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept
-{
-    // Let's get the cart we want to use;
-    // if we wnat to keep the cart, we'll eject it from the existing console first.
-    std::unique_ptr<NDSCart::CartCommon> nextndscart;
-    if (std::holds_alternative<Keep>(ndsargs))
-    { // If we want to keep the existing cart (if any)...
-        nextndscart = NDS ? NDS->EjectCart() : nullptr;
-        ndsargs = {};
-    }
-    else if (const auto ptr = std::get_if<std::unique_ptr<NDSCart::CartCommon>>(&ndsargs))
-    {
-        nextndscart = std::move(*ptr);
-        ndsargs = {};
-    }
-
-    if (auto* cartsd = dynamic_cast<NDSCart::CartSD*>(nextndscart.get()))
-    {
-        // LoadDLDISDCard will return nullopt if the SD card is disabled;
-        // SetSDCard will accept nullopt, which means no SD card
-        cartsd->SetSDCard(ROMManager::GetDLDISDCardArgs());
-    }
-
-    std::unique_ptr<GBACart::CartCommon> nextgbacart;
-    if (std::holds_alternative<Keep>(gbaargs))
-    {
-        nextgbacart = NDS ? NDS->EjectGBACart() : nullptr;
-    }
-    else if (const auto ptr = std::get_if<std::unique_ptr<GBACart::CartCommon>>(&gbaargs))
-    {
-        nextgbacart = std::move(*ptr);
-        gbaargs = {};
-    }
-
-    if (!NDS || NDS->ConsoleType != Config::ConsoleType)
-    { // If we're switching between DS and DSi mode, or there's no console...
-        // To ensure the destructor is called before a new one is created,
-        // as the presence of global signal handlers still complicates things a bit
-        NDS = nullptr;
-        NDS::Current = nullptr;
-
-        NDS = CreateConsole(std::move(nextndscart), std::move(nextgbacart));
-
-        if (NDS == nullptr)
-            return false;
-
-        NDS->Reset();
-        NDS::Current = NDS.get();
-
-        return true;
-    }
-
-    auto arm9bios = ROMManager::LoadARM9BIOS();
-    if (!arm9bios)
-        return false;
-
-    auto arm7bios = ROMManager::LoadARM7BIOS();
-    if (!arm7bios)
-        return false;
-
-    auto firmware = ROMManager::LoadFirmware(NDS->ConsoleType);
-    if (!firmware)
-        return false;
-
-    if (NDS->ConsoleType == 1)
-    { // If the console we're updating is a DSi...
-        DSi& dsi = static_cast<DSi&>(*NDS);
-
-        auto arm9ibios = ROMManager::LoadDSiARM9BIOS();
-        if (!arm9ibios)
-            return false;
-
-        auto arm7ibios = ROMManager::LoadDSiARM7BIOS();
-        if (!arm7ibios)
-            return false;
-
-        auto nandimage = ROMManager::LoadNAND(*arm7ibios);
-        if (!nandimage)
-            return false;
-
-        auto dsisdcard = ROMManager::LoadDSiSDCard();
-
-        dsi.SetFullBIOSBoot(Config::DSiFullBIOSBoot);
-        dsi.ARM7iBIOS = *arm7ibios;
-        dsi.ARM9iBIOS = *arm9ibios;
-        dsi.SetNAND(std::move(*nandimage));
-        dsi.SetSDCard(std::move(dsisdcard));
-        // We're moving the optional, not the card
-        // (inserting std::nullopt here is okay, it means no card)
-
-        dsi.EjectGBACart();
-    }
-
-    if (NDS->ConsoleType == 0)
-    {
-        NDS->SetGBACart(std::move(nextgbacart));
-    }
-
-#ifdef JIT_ENABLED
-    JITArgs jitargs {
-        static_cast<unsigned>(Config::JIT_MaxBlockSize),
-        Config::JIT_LiteralOptimisations,
-        Config::JIT_BranchOptimisations,
-        Config::JIT_FastMemory,
-    };
-    NDS->SetJITArgs(Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt);
-#endif
-    NDS->SetARM7BIOS(*arm7bios);
-    NDS->SetARM9BIOS(*arm9bios);
-    NDS->SetFirmware(std::move(*firmware));
-    NDS->SetNDSCart(std::move(nextndscart));
-    NDS->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
-    NDS->SPU.SetDegrade10Bit(static_cast<AudioBitDepth>(Config::AudioBitDepth));
-
-    NDS::Current = NDS.get();
-
-    return true;
-}
-
 void EmuThread::run()
 {
     u32 mainScreenPos[3];
     Platform::FileHandle* file;
 
-    UpdateConsole(nullptr, nullptr);
+    emuInstance->updateConsole(nullptr, nullptr);
     // No carts are inserted when melonDS first boots
 
     mainScreenPos[0] = 0;
@@ -376,7 +172,7 @@ void EmuThread::run()
 
     if (videoRenderer == 0)
     { // If we're using the software renderer...
-        NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
+        emuInstance->nds->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
     }
     else
     {
@@ -384,7 +180,7 @@ void EmuThread::run()
 
         auto glrenderer =  melonDS::GLRenderer::New();
         glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
-        NDS->GPU.SetRenderer3D(std::move(glrenderer));
+        emuInstance->nds->GPU.SetRenderer3D(std::move(glrenderer));
     }
 
     Input::Init();
@@ -404,7 +200,7 @@ void EmuThread::run()
         RTC::StateData state;
         Platform::FileRead(&state, sizeof(state), 1, file);
         Platform::CloseFile(file);
-        NDS->RTC.SetState(state);
+        emuInstance->nds->RTC.SetState(state);
     }
 
     char melontitle[100];
@@ -431,7 +227,7 @@ void EmuThread::run()
 
             if (Input::HotkeyPressed(HK_SolarSensorDecrease))
             {
-                int level = NDS->GBACartSlot.SetInput(GBACart::Input_SolarSensorDown, true);
+                int level = emuInstance->nds->GBACartSlot.SetInput(GBACart::Input_SolarSensorDown, true);
                 if (level != -1)
                 {
                     //mainWindow->osdAddMessage(0, "Solar sensor level: %d", level);
@@ -439,48 +235,48 @@ void EmuThread::run()
             }
             if (Input::HotkeyPressed(HK_SolarSensorIncrease))
             {
-                int level = NDS->GBACartSlot.SetInput(GBACart::Input_SolarSensorUp, true);
+                int level = emuInstance->nds->GBACartSlot.SetInput(GBACart::Input_SolarSensorUp, true);
                 if (level != -1)
                 {
                     //mainWindow->osdAddMessage(0, "Solar sensor level: %d", level);
                 }
             }
 
-            if (NDS->ConsoleType == 1)
+            if (emuInstance->nds->ConsoleType == 1)
             {
-                DSi& dsi = static_cast<DSi&>(*NDS);
+                DSi* dsi = static_cast<DSi*>(emuInstance->nds);
                 double currentTime = SDL_GetPerformanceCounter() * perfCountsSec;
 
                 // Handle power button
                 if (Input::HotkeyDown(HK_PowerButton))
                 {
-                    dsi.I2C.GetBPTWL()->SetPowerButtonHeld(currentTime);
+                    dsi->I2C.GetBPTWL()->SetPowerButtonHeld(currentTime);
                 }
                 else if (Input::HotkeyReleased(HK_PowerButton))
                 {
-                    dsi.I2C.GetBPTWL()->SetPowerButtonReleased(currentTime);
+                    dsi->I2C.GetBPTWL()->SetPowerButtonReleased(currentTime);
                 }
 
                 // Handle volume buttons
                 if (Input::HotkeyDown(HK_VolumeUp))
                 {
-                    dsi.I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Up);
+                    dsi->I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Up);
                 }
                 else if (Input::HotkeyReleased(HK_VolumeUp))
                 {
-                    dsi.I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Up);
+                    dsi->I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Up);
                 }
 
                 if (Input::HotkeyDown(HK_VolumeDown))
                 {
-                    dsi.I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Down);
+                    dsi->I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Down);
                 }
                 else if (Input::HotkeyReleased(HK_VolumeDown))
                 {
-                    dsi.I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Down);
+                    dsi->I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Down);
                 }
 
-                dsi.I2C.GetBPTWL()->ProcessVolumeSwitchInput(currentTime);
+                dsi->I2C.GetBPTWL()->ProcessVolumeSwitchInput(currentTime);
             }
 
             if (useOpenGL)
@@ -512,35 +308,35 @@ void EmuThread::run()
 
                 if (videoRenderer == 0)
                 { // If we're using the software renderer...
-                    NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
+                    emuInstance->nds->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
                 }
                 else
                 {
                     auto glrenderer =  melonDS::GLRenderer::New();
                     glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
-                    NDS->GPU.SetRenderer3D(std::move(glrenderer));
+                    emuInstance->nds->GPU.SetRenderer3D(std::move(glrenderer));
                 }
             }
 
             // process input and hotkeys
-            NDS->SetKeyMask(Input::InputMask);
+            emuInstance->nds->SetKeyMask(Input::InputMask);
 
             if (Input::HotkeyPressed(HK_Lid))
             {
-                bool lid = !NDS->IsLidClosed();
-                NDS->SetLidClosed(lid);
+                bool lid = !emuInstance->nds->IsLidClosed();
+                emuInstance->nds->SetLidClosed(lid);
                 //mainWindow->osdAddMessage(0, lid ? "Lid closed" : "Lid opened");
             }
 
             // microphone input
-            AudioInOut::MicProcess(*NDS);
+            //AudioInOut::MicProcess(emuInstance->nds);
 
             // auto screen layout
             if (Config::ScreenSizing == Frontend::screenSizing_Auto)
             {
                 mainScreenPos[2] = mainScreenPos[1];
                 mainScreenPos[1] = mainScreenPos[0];
-                mainScreenPos[0] = NDS->PowerControl9 >> 15;
+                mainScreenPos[0] = emuInstance->nds->PowerControl9 >> 15;
 
                 int guess;
                 if (mainScreenPos[0] == mainScreenPos[2] &&
@@ -567,26 +363,26 @@ void EmuThread::run()
 
 
             // emulate
-            u32 nlines = NDS->RunFrame();
+            u32 nlines = emuInstance->nds->RunFrame();
 
-            if (ROMManager::NDSSave)
-                ROMManager::NDSSave->CheckFlush();
+            if (emuInstance->ndsSave)
+                emuInstance->ndsSave->CheckFlush();
 
-            if (ROMManager::GBASave)
-                ROMManager::GBASave->CheckFlush();
+            if (emuInstance->gbaSave)
+                emuInstance->gbaSave->CheckFlush();
 
-            if (ROMManager::FirmwareSave)
-                ROMManager::FirmwareSave->CheckFlush();
+            if (emuInstance->firmwareSave)
+                emuInstance->firmwareSave->CheckFlush();
 
             if (!useOpenGL)
             {
                 FrontBufferLock.lock();
-                FrontBuffer = NDS->GPU.FrontBuffer;
+                FrontBuffer = emuInstance->nds->GPU.FrontBuffer;
                 FrontBufferLock.unlock();
             }
             else
             {
-                FrontBuffer = NDS->GPU.FrontBuffer;
+                FrontBuffer = emuInstance->nds->GPU.FrontBuffer;
                 //screenGL->drawScreenGL();
                 for (auto window : windowList)
                     window->drawScreenGL();
@@ -614,10 +410,10 @@ void EmuThread::run()
                     window->setGLSwapInterval(0);
             }
 
-            if (Config::DSiVolumeSync && NDS->ConsoleType == 1)
+            if (Config::DSiVolumeSync && emuInstance->nds->ConsoleType == 1)
             {
-                DSi& dsi = static_cast<DSi&>(*NDS);
-                u8 volumeLevel = dsi.I2C.GetBPTWL()->GetVolumeLevel();
+                DSi* dsi = static_cast<DSi*>(emuInstance->nds);
+                u8 volumeLevel = dsi->I2C.GetBPTWL()->GetVolumeLevel();
                 if (volumeLevel != dsiVolumeLevel)
                 {
                     dsiVolumeLevel = volumeLevel;
@@ -627,8 +423,8 @@ void EmuThread::run()
                 Config::AudioVolume = volumeLevel * (256.0 / 31.0);
             }
 
-            if (Config::AudioSync && !fastforward)
-                AudioInOut::AudioSync(*this->NDS);
+            //if (Config::AudioSync && !fastforward)
+            //    AudioInOut::AudioSync(emuInstance->nds);
 
             double frametimeStep = nlines / (60.0 * 263.0);
 
@@ -734,7 +530,7 @@ void EmuThread::run()
     if (file)
     {
         RTC::StateData state;
-        NDS->RTC.GetState(state);
+        emuInstance->nds->RTC.GetState(state);
         Platform::FileWrite(&state, sizeof(state), 1, file);
         Platform::CloseFile(file);
     }

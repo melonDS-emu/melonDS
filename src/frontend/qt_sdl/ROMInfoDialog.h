@@ -25,7 +25,6 @@
 #include <QImage>
 
 #include "types.h"
-#include "ROMManager.h"
 
 namespace Ui { class ROMInfoDialog; }
 class ROMInfoDialog;

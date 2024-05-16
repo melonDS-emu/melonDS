@@ -38,6 +38,8 @@ public:
     // return: empty string = setup OK, non-empty = error message
     QString verifySetup();
 
+    bool updateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept;
+
 private:
     static int lastSep(const std::string& path);
     std::string getAssetPath(bool gba, const std::string& configpath, const std::string& ext, const std::string& file);
@@ -70,7 +72,6 @@ private:
     melonDS::ARCodeFile* getCheatFile();
     void setBatteryLevels();
     void setDateTime();
-    bool updateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept;
     void reset();
     bool bootToMenu();
     melonDS::u32 decompressROM(const melonDS::u8* inContent, const melonDS::u32 inSize, std::unique_ptr<melonDS::u8[]>& outContent);
@@ -125,6 +126,9 @@ private:
 
     melonDS::ARCodeFile* cheatFile;
     bool cheatsOn;
+
+    friend class EmuThread;
+    friend class MainWindow;
 };
 
 #endif //EMUINSTANCE_H
