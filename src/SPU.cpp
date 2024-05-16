@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include "Platform.h"
 #include "NDS.h"

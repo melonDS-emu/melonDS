@@ -11,6 +11,11 @@
 
 #if defined(WIN32) || defined(_WIN32) || defined(_MSC_VER)
 #define G_OS_WIN32 1
+
+#include <io.h>
+#define open _open
+#define close _close
+typedef ptrdiff_t ssize_t;
 #endif
 
 #define G_LITTLE_ENDIAN 0

@@ -61,7 +61,8 @@ if (USE_RECOMMENDED_TRIPLETS)
     elseif(WIN32)
         # TODO Windows arm64 if possible
         set(_CAN_TARGET_AS_HOST ON)
-        set(_WANTED_TRIPLET x64-mingw-static-release)
+        #set(_WANTED_TRIPLET x64-mingw-static-release)
+        set(_WANTED_TRIPLET x64-windows-static)
     elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL Linux)
         # Can't really detect cross compiling here.
         set(_CAN_TARGET_AS_HOST ON)
