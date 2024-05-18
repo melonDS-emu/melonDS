@@ -43,10 +43,9 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    MainWindow* win = (MainWindow*)parent;
-    //
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
 
-    codeFile = ROMManager::GetCheatFile();
+    codeFile = emuInstance->getCheatFile();
 
     QStandardItemModel* model = new QStandardItemModel();
     ui->tvCodeList->setModel(model);

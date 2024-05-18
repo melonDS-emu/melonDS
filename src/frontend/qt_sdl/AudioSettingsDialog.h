@@ -24,18 +24,19 @@
 
 namespace Ui { class AudioSettingsDialog; }
 class AudioSettingsDialog;
-class EmuThread;
+
+class EmuInstance;
 
 class AudioSettingsDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit AudioSettingsDialog(QWidget* parent, bool emuActive, EmuThread* emuThread);
+    explicit AudioSettingsDialog(QWidget* parent);
     ~AudioSettingsDialog();
 
     static AudioSettingsDialog* currentDlg;
-    static AudioSettingsDialog* openDlg(QWidget* parent, bool emuActive, EmuThread* emuThread)
+    static AudioSettingsDialog* openDlg(QWidget* parent)
     {
         if (currentDlg)
         {
@@ -43,7 +44,7 @@ public:
             return currentDlg;
         }
 
-        currentDlg = new AudioSettingsDialog(parent, emuActive, emuThread);
+        currentDlg = new AudioSettingsDialog(parent);
         currentDlg->show();
         return currentDlg;
     }
@@ -70,8 +71,9 @@ private slots:
     void on_btnMicWavBrowse_clicked();
 
 private:
-    EmuThread* emuThread;
     Ui::AudioSettingsDialog* ui;
+
+    EmuInstance* emuInstance;
 
     int oldInterp;
     int oldBitDepth;

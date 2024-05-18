@@ -23,7 +23,7 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "ROMManager.h"
+#include "EmuInstance.h"
 #include "DSi_NAND.h"
 
 #include "TitleManagerDialog.h"
@@ -43,6 +43,8 @@ TitleManagerDialog::TitleManagerDialog(QWidget* parent, DSi_NAND::NANDImage& ima
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
+
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
 
     ui->lstTitleList->setIconSize(QSize(32, 32));
 
@@ -113,7 +115,7 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
     nandmount.GetTitleInfo(category, titleid, version, &header, &banner);
 
     u32 icondata[32*32];
-    ROMManager::ROMIcon(banner.Icon, banner.Palette, icondata);
+    emuInstance->romIcon(banner.Icon, banner.Palette, icondata);
     QImage iconimg((const uchar*)icondata, 32, 32, QImage::Format_RGBA8888);
     QIcon icon(QPixmap::fromImage(iconimg.copy()));
 

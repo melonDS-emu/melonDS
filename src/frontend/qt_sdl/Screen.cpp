@@ -41,6 +41,7 @@
 #include "duckstation/gl/context.h"
 
 #include "main.h"
+#include "EmuInstance.h"
 
 #include "NDS.h"
 #include "GPU.h"
@@ -57,8 +58,6 @@ using namespace melonDS;
 
 
 // TEMP
-extern MainWindow* mainWindow;
-extern EmuThread* emuThread;
 extern bool RunningSomething;
 extern int autoScreenSizing;
 
@@ -72,6 +71,18 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
 {
     setMouseTracking(true);
     setAttribute(Qt::WA_AcceptTouchEvents);
+
+    QWidget* w = parent;
+    for (;;)
+    {
+        mainWindow = qobject_cast<MainWindow*>(w);
+        if (mainWindow) break;
+        w = w->parentWidget();
+        if (!w) break;
+    }
+
+    emuInstance = mainWindow->getEmuInstance();
+    
     QTimer* mouseTimer = setupMouseTimer();
     connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) setCursor(Qt::BlankCursor);});
 
@@ -190,8 +201,8 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
     if (Frontend::GetTouchCoords(x, y, false))
     {
         touching = true;
-        assert(emuThread->NDS != nullptr);
-        emuThread->NDS->TouchScreen(x, y);
+        assert(emuInstance->getNDS() != nullptr);
+        emuInstance->getNDS()->TouchScreen(x, y);
     }
 }
 
@@ -203,8 +214,8 @@ void ScreenPanel::mouseReleaseEvent(QMouseEvent* event)
     if (touching)
     {
         touching = false;
-        assert(emuThread->NDS != nullptr);
-        emuThread->NDS->ReleaseScreen();
+        assert(emuInstance->getNDS() != nullptr);
+        emuInstance->getNDS()->ReleaseScreen();
     }
 }
 
@@ -222,8 +233,8 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
 
     if (Frontend::GetTouchCoords(x, y, true))
     {
-        assert(emuThread->NDS != nullptr);
-        emuThread->NDS->TouchScreen(x, y);
+        assert(emuInstance->getNDS() != nullptr);
+        emuInstance->getNDS()->TouchScreen(x, y);
     }
 }
 
@@ -242,16 +253,16 @@ void ScreenPanel::tabletEvent(QTabletEvent* event)
             if (Frontend::GetTouchCoords(x, y, event->type()==QEvent::TabletMove))
             {
                 touching = true;
-                assert(emuThread->NDS != nullptr);
-                emuThread->NDS->TouchScreen(x, y);
+                assert(emuInstance->getNDS() != nullptr);
+                emuInstance->getNDS()->TouchScreen(x, y);
             }
         }
         break;
     case QEvent::TabletRelease:
         if (touching)
         {
-            assert(emuThread->NDS != nullptr);
-            emuThread->NDS->ReleaseScreen();
+            assert(emuInstance->getNDS() != nullptr);
+            emuInstance->getNDS()->ReleaseScreen();
             touching = false;
         }
         break;
@@ -277,16 +288,16 @@ void ScreenPanel::touchEvent(QTouchEvent* event)
             if (Frontend::GetTouchCoords(x, y, event->type()==QEvent::TouchUpdate))
             {
                 touching = true;
-                assert(emuThread->NDS != nullptr);
-                emuThread->NDS->TouchScreen(x, y);
+                assert(emuInstance->getNDS() != nullptr);
+                emuInstance->getNDS()->TouchScreen(x, y);
             }
         }
         break;
     case QEvent::TouchEnd:
         if (touching)
         {
-            assert(emuThread->NDS != nullptr);
-            emuThread->NDS->ReleaseScreen();
+            assert(emuInstance->getNDS() != nullptr);
+            emuInstance->getNDS()->ReleaseScreen();
             touching = false;
         }
         break;
@@ -618,19 +629,23 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
     // fill background
     painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
 
+    auto emuThread = emuInstance->getEmuThread();
+
     if (emuThread->emuIsActive())
     {
-        assert(emuThread->NDS != nullptr);
+        auto nds = emuInstance->getNDS();
+
+        assert(nds != nullptr);
         emuThread->FrontBufferLock.lock();
         int frontbuf = emuThread->FrontBuffer;
-        if (!emuThread->NDS->GPU.Framebuffer[frontbuf][0] || !emuThread->NDS->GPU.Framebuffer[frontbuf][1])
+        if (!nds->GPU.Framebuffer[frontbuf][0] || !nds->GPU.Framebuffer[frontbuf][1])
         {
             emuThread->FrontBufferLock.unlock();
             return;
         }
 
-        memcpy(screen[0].scanLine(0), emuThread->NDS->GPU.Framebuffer[frontbuf][0].get(), 256 * 192 * 4);
-        memcpy(screen[1].scanLine(0), emuThread->NDS->GPU.Framebuffer[frontbuf][1].get(), 256 * 192 * 4);
+        memcpy(screen[0].scanLine(0), nds->GPU.Framebuffer[frontbuf][0].get(), 256 * 192 * 4);
+        memcpy(screen[1].scanLine(0), nds->GPU.Framebuffer[frontbuf][1].get(), 256 * 192 * 4);
         emuThread->FrontBufferLock.unlock();
 
         QRect screenrc(0, 0, 256, 192);
@@ -891,7 +906,11 @@ void ScreenPanelGL::osdDeleteItem(OSDItem* item)
 void ScreenPanelGL::drawScreenGL()
 {
     if (!glContext) return;
-    if (!emuThread->NDS) return;
+
+    auto nds = emuInstance->getNDS();
+    if (!nds) return;
+
+    auto emuThread = emuInstance->getEmuThread();
 
     glContext->MakeCurrent();
 
@@ -916,10 +935,10 @@ void ScreenPanelGL::drawScreenGL()
     glActiveTexture(GL_TEXTURE0);
 
 #ifdef OGLRENDERER_ENABLED
-    if (emuThread->NDS->GPU.GetRenderer3D().Accelerated)
+    if (nds->GPU.GetRenderer3D().Accelerated)
     {
         // hardware-accelerated render
-        static_cast<GLRenderer&>(emuThread->NDS->GPU.GetRenderer3D()).GetCompositor().BindOutputTexture(frontbuf);
+        static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).GetCompositor().BindOutputTexture(frontbuf);
     }
     else
 #endif
@@ -927,12 +946,12 @@ void ScreenPanelGL::drawScreenGL()
         // regular render
         glBindTexture(GL_TEXTURE_2D, screenTexture);
 
-        if (emuThread->NDS->GPU.Framebuffer[frontbuf][0] && emuThread->NDS->GPU.Framebuffer[frontbuf][1])
+        if (nds->GPU.Framebuffer[frontbuf][0] && nds->GPU.Framebuffer[frontbuf][1])
         {
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
-                            GL_UNSIGNED_BYTE, emuThread->NDS->GPU.Framebuffer[frontbuf][0].get());
+                            GL_UNSIGNED_BYTE, nds->GPU.Framebuffer[frontbuf][0].get());
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
-                            GL_UNSIGNED_BYTE, emuThread->NDS->GPU.Framebuffer[frontbuf][1].get());
+                            GL_UNSIGNED_BYTE, nds->GPU.Framebuffer[frontbuf][1].get());
         }
     }
 

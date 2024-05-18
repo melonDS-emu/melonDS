@@ -41,6 +41,8 @@ namespace Ui
 class TitleManagerDialog;
 class TitleImportDialog;
 
+class EmuInstance;
+
 class TitleManagerDialog : public QDialog
 {
     Q_OBJECT
@@ -94,6 +96,8 @@ private slots:
     void onExportTitleData();
 
 private:
+    EmuInstance* emuInstance;
+
     melonDS::DSi_NAND::NANDMount nandmount;
     Ui::TitleManagerDialog* ui;
 

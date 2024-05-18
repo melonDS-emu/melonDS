@@ -35,7 +35,8 @@
 #include "duckstation/gl/context.h"
 
 
-class EmuThread;
+class MainWindow;
+class EmuInstance;
 
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
@@ -69,6 +70,9 @@ private slots:
     void onScreenLayoutChanged();
 
 protected:
+    MainWindow* mainWindow;
+    EmuInstance* emuInstance;
+
     struct OSDItem
     {
         unsigned int id;

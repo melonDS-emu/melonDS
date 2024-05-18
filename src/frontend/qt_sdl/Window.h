@@ -104,6 +104,8 @@ public:
     explicit MainWindow(EmuInstance* inst, QWidget* parent = nullptr);
     ~MainWindow();
 
+    EmuInstance* getEmuInstance() { return emuInstance; }
+
     void attachEmuThread(EmuThread* thread);
 
     bool hasOpenGL() { return hasOGL; }

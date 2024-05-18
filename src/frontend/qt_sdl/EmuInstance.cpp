@@ -66,7 +66,7 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
     globalCfg(Config::GetGlobalTable()),
     localCfg(Config::GetLocalTable(inst))
 {
-    emuThread = new EmuThread();
+    emuThread = new EmuThread(this);
 
     numWindows = 0;
     mainWindow = nullptr;
@@ -109,7 +109,7 @@ void EmuInstance::createWindow()
     if (id == -1)
         return;
 
-    MainWindow* win = new MainWindow(topWindow);
+    MainWindow* win = new MainWindow(this, topWindow);
     if (!topWindow) topWindow = win;
     if (!mainWindow) mainWindow = win;
     windowList[id] = win;

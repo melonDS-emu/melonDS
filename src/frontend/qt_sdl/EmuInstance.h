@@ -33,12 +33,28 @@ public:
     EmuInstance(int inst);
     ~EmuInstance();
 
+    int getInstanceID() { return instanceID; }
+    EmuThread* getEmuThread() { return emuThread; }
+    melonDS::NDS* getNDS() { return nds; }
+
     void createWindow();
 
     // return: empty string = setup OK, non-empty = error message
     QString verifySetup();
 
     bool updateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept;
+
+    void enableCheats(bool enable);
+    melonDS::ARCodeFile* getCheatFile();
+
+    void romIcon(const melonDS::u8 (&data)[512],
+                 const melonDS::u16 (&palette)[16],
+                 melonDS::u32 (&iconRef)[32*32]);
+    void animatedROMIcon(const melonDS::u8 (&data)[8][512],
+                         const melonDS::u16 (&palette)[8][16],
+                         const melonDS::u16 (&sequence)[64],
+                         melonDS::u32 (&animatedIconRef)[64][32*32],
+                         std::vector<int> &animatedSequenceRef);
 
 private:
     static int lastSep(const std::string& path);
@@ -68,8 +84,6 @@ private:
     std::optional<melonDS::DSi_NAND::NANDImage> loadNAND(const std::array<melonDS::u8, melonDS::DSiBIOSSize>& arm7ibios) noexcept;
     std::optional<melonDS::FATStorageArgs> getSDCardArgs(const std::string& key) noexcept;
     std::optional<melonDS::FATStorage> loadSDCard(const std::string& key) noexcept;
-    void enableCheats(bool enable);
-    melonDS::ARCodeFile* getCheatFile();
     void setBatteryLevels();
     void setDateTime();
     void reset();
@@ -90,8 +104,6 @@ private:
     void ejectGBACart();
     bool gbaCartInserted();
     QString gbaCartLabel();
-    void romIcon(const melonDS::u8 (&data)[512], const melonDS::u16 (&palette)[16], melonDS::u32 (&iconRef)[32*32]);
-    void animatedROMIcon(const melonDS::u8 (&data)[8][512], const melonDS::u16 (&palette)[8][16], const melonDS::u16 (&sequence)[64], melonDS::u32 (&animatedIconRef)[64][32*32], std::vector<int> &animatedSequenceRef);
 
     int instanceID;
 
