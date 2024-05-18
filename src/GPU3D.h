@@ -39,8 +39,13 @@ struct Vertex
 
     // final vertex attributes.
     // allows them to be reused in polygon strips.
-
+    
+    // with sw renderer FinalPosition is primarily used for calculating the slope of a polygon (not where it begins/ends)
+    // (it does get used to determine where slopes should start and end with the gl renderers)
+    // the initial set of coordinates gets updated by the next polygon in a strip
+    // which can cause rendering issues if they wind up different than their initial value (due to a viewport change)
     s32 FinalPosition[2];
+
     s32 FinalColor[3];
 
     // hi-res position (4-bit fractional part)
@@ -54,6 +59,13 @@ struct Polygon
 {
     Vertex* Vertices[10];
     u32 NumVertices;
+
+    // essentially a per-polygon copy of its vertices' coordinates
+    // (not 100% sure why they do it like this? but a glitch requires this for proper behavior, so we gotta do it too)
+    // unlike each vertices' final position variable, it is *not* updated by the next polygon in a polygon strip
+    // it is used by the software renderer to determine where to begin/end each slope
+    // TODO: track hires versions of this for the hardware renderers to use?
+    s32 SlopePosition[10][2];
 
     s32 FinalZ[10];
     s32 FinalW[10];
@@ -272,6 +284,7 @@ public:
     u32 RenderClearAttr2 = 0;
 
     bool RenderFrameIdentical = false; // not part of the hardware state, don't serialize
+    bool UpdateLastPoly = false; // used to track whether the next polygon should update the previous one's vtx coordinates (as a small optimization)
 
     bool AbortFrame = false;
 

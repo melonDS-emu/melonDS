@@ -129,6 +129,7 @@ private:
         constexpr void SetX(s32 x)
         {
             x -= x0;
+            if (x > xdiff) x = xdiff; // may or may not be correct
             this->x = x;
             if (xdiff != 0 && !linear)
             {
@@ -284,7 +285,7 @@ private:
             // instead, 1/y is calculated and then multiplied by x
             // TODO: this is still not perfect (see for example x=169 y=33)
             if (ylen == 0)
-                Increment = 0;
+                Increment = xlen<<18; // this case should only be triggered by glitched polygons
             else if (ylen == xlen && xlen != 1)
                 Increment = 0x40000;
             else
@@ -315,8 +316,6 @@ private:
 
             dx += (y - y0) * Increment;
 
-            s32 x = XVal();
-
             int interpoffset = (Increment >= 0x40000) && (side ^ Negative);
             Interp.Setup(y0-interpoffset, y1-interpoffset, w0, w1);
             Interp.SetX(y);
@@ -324,17 +323,16 @@ private:
             // used for calculating AA coverage
             if (XMajor) xcov_incr = (ylen << 10) / xlen;
 
-            return x;
+            return XVal();
         }
 
         constexpr s32 Step()
         {
-            dx += Increment;
+            dx = dx + Increment & 0xFFFFFFF; // seems to be a 28 bit integer
             y++;
 
-            s32 x = XVal();
             Interp.SetX(y);
-            return x;
+            return XVal();
         }
 
         constexpr s32 XVal() const
@@ -343,8 +341,6 @@ private:
             if (Negative) ret = x0 - (dx >> 18);
             else          ret = x0 + (dx >> 18);
 
-            if (ret < xmin) ret = xmin;
-            else if (ret > xmax) ret = xmax;
             return ret;
         }
 

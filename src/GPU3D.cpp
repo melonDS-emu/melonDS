@@ -449,6 +449,8 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 
         file->Var32(&poly->NumVertices);
 
+        file->VarArray(poly->SlopePosition, sizeof(s32)*10*2);
+
         file->VarArray(poly->FinalZ, sizeof(s32)*10);
         file->VarArray(poly->FinalW, sizeof(s32)*10);
         file->Bool32(&poly->WBuffer);
@@ -487,7 +489,7 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
                     poly->Degenerate = true;
             }
 
-            if (poly->YBottom > 192) poly->Degenerate = true;
+            if (poly->YBottom > 192 && !poly->Translucent) poly->Degenerate = true;
         }
     }
 
@@ -1098,8 +1100,10 @@ void GPU3D::SubmitPolygon() noexcept
     }
 
     // compute screen coordinates
-
-    for (int i = clipstart; i < nverts; i++)
+    // hardware does this pass for shared vertices in polygon strips, even though it was already done for them last polygon
+    // however it doesn't recalculate all of the previous polygon's internal info (used for determining how to rasterize it)
+    // despite potentially changing their coordinates if a viewport change occured mid-strip...
+    for (int i = (UpdateLastPoly ? 0 : clipstart); i < nverts; i++)
     {
         Vertex* vtx = &clippedvertices[i];
 
@@ -1245,6 +1249,31 @@ void GPU3D::SubmitPolygon() noexcept
             NumVertices += 2;
         }
 
+        // if a viewport command was submitted mid-polygon strip the "true" coords and sort order of a vertex in the last polygon can be changed retroactively
+        if (UpdateLastPoly)
+        {
+            // update final coords and sortkey to match new vertex coordinates
+            // yes, *only* those values... this causes the polygon to be rasterized in an extremely glitchy manner
+            poly->Vertices[0]->FinalPosition[0] = clippedvertices[0].FinalPosition[0];
+            poly->Vertices[0]->FinalPosition[1] = clippedvertices[0].FinalPosition[1];
+            poly->Vertices[1]->FinalPosition[0] = clippedvertices[1].FinalPosition[0];
+            poly->Vertices[1]->FinalPosition[1] = clippedvertices[1].FinalPosition[1];
+            
+            s32 ytop = 192, ybot = 0;
+            Vertex** lastpolyvtx = LastStripPolygon->Vertices;
+            for (int i = 0; i < LastStripPolygon->NumVertices; i++)
+            {                
+                if (lastpolyvtx[i]->FinalPosition[1] < ytop)
+                    ytop = lastpolyvtx[i]->FinalPosition[1];
+                if (lastpolyvtx[i]->FinalPosition[1] > ybot)
+                    ybot = lastpolyvtx[i]->FinalPosition[1];
+            }
+            LastStripPolygon->SortKey = (ybot << 8) | ytop;
+            if (LastStripPolygon->Translucent) LastStripPolygon->SortKey |= 0x10000;
+
+            // clear update flag
+            UpdateLastPoly = false;
+        }
         poly->NumVertices += 2;
     }
 
@@ -1266,6 +1295,7 @@ void GPU3D::SubmitPolygon() noexcept
     }
 
     // determine bounds of the polygon
+    // including where slopes begin and end
     // also determine the W shift and normalize W
     // normalization works both ways
     // (ie two W's that span 12 bits or less will be brought to 16 bits)
@@ -1292,6 +1322,10 @@ void GPU3D::SubmitPolygon() noexcept
             vbot = i;
         }
 
+        // these values are used to determine where to begin/end slopes
+        poly->SlopePosition[i][0] = vtx->FinalPosition[0];
+        poly->SlopePosition[i][1] = vtx->FinalPosition[1];
+
         u32 w = (u32)vtx->Position[3];
         if (w == 0) poly->Degenerate = true;
 
@@ -1303,7 +1337,7 @@ void GPU3D::SubmitPolygon() noexcept
     poly->YTop = ytop; poly->YBottom = ybot;
     poly->XTop = xtop; poly->XBottom = xbot;
 
-    if (ybot > 192) poly->Degenerate = true;
+    if (ybot > 192 && !poly->Translucent) poly->Degenerate = true;
 
     poly->SortKey = (ybot << 8) | ytop;
     if (poly->Translucent) poly->SortKey |= 0x10000;
@@ -2039,6 +2073,7 @@ void GPU3D::ExecuteCommand() noexcept
             VertexNumInPoly = 0;
             NumConsecutivePolygons = 0;
             LastStripPolygon = NULL;
+            UpdateLastPoly = false;
             CurPolygonAttr = PolygonAttr;
             break;
 
@@ -2073,6 +2108,9 @@ void GPU3D::ExecuteCommand() noexcept
             Viewport[3] = (191 - (entry.Param >> 24)) & 0xFF;             // y1
             Viewport[4] = (Viewport[2] - Viewport[0] + 1) & 0x1FF;          // width
             Viewport[5] = (Viewport[1] - Viewport[3] + 1) & 0xFF;           // height
+
+            // set a flag that tells the next polygon to emulate a bug with polygon strips
+            if (LastStripPolygon) UpdateLastPoly = true;
             break;
 
         case 0x72: // vec test
