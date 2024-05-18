@@ -322,6 +322,7 @@ public:
     u32 VertexNumInPoly = 0;
     u32 NumConsecutivePolygons = 0;
     Polygon* LastStripPolygon = nullptr;
+    u32 NullVertices = 0;
     u32 NumOpaquePolygons = 0;
 
     Vertex VertexRAM[6144 * 2] {};

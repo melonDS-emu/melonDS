@@ -1236,6 +1236,19 @@ void GPU3D::SubmitPolygon() noexcept
         {
             poly->Vertices[0] = reusedvertices[0];
             poly->Vertices[1] = reusedvertices[1];
+
+            // null vertices poly invalidation:
+            // 1. Start a polygon strip
+            // 2. Submit at least one polygon
+            // 3. Swap buffers
+            // 4. Don't send a begin command
+            // 4. submit a new polygon (1 vertex for tri, 2 for quad)
+            // 5. if the new polygon reuses vertices, it will be "degenerate" due to them being null pointers (theory)
+            if (NullVertices)
+            {
+                poly->Degenerate = true;
+                NullVertices -= (PolygonMode - 1); // subt. 1 if tri strip, subt. 2 if quad strip.
+            }
         }
         else
         {
@@ -2075,6 +2088,7 @@ void GPU3D::ExecuteCommand() noexcept
             LastStripPolygon = NULL;
             UpdateLastPoly = false;
             CurPolygonAttr = PolygonAttr;
+            NullVertices = 0;
             break;
 
         case 0x41: // end polygons
@@ -2097,6 +2111,8 @@ void GPU3D::ExecuteCommand() noexcept
             PolygonPipeline = 0;
             VertexSlotCounter = 0;
             VertexSlotsFree = 1;
+            // previous polygon's vertices will be counted as "null" if a buffer swap occurs
+            if (PolygonMode >= 2) NullVertices = 2;
             break;
 
         case 0x60: // viewport x1,y1,x2,y2
