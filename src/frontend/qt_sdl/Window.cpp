@@ -1629,7 +1629,7 @@ void MainWindow::onOpenDateTime()
 
 void MainWindow::onOpenPowerManagement()
 {
-    PowerManagementDialog* dlg = PowerManagementDialog::openDlg(this, emuThread);
+    PowerManagementDialog* dlg = PowerManagementDialog::openDlg(this);
 }
 
 void MainWindow::onEnableCheats(bool checked)
@@ -1655,12 +1655,12 @@ void MainWindow::onROMInfo()
 {
     auto cart = emuInstance->nds->NDSCartSlot.GetCart();
     if (cart)
-        ROMInfoDialog* dlg = ROMInfoDialog::openDlg(this, *cart);
+        ROMInfoDialog* dlg = ROMInfoDialog::openDlg(this);
 }
 
 void MainWindow::onRAMInfo()
 {
-    RAMInfoDialog* dlg = RAMInfoDialog::openDlg(this, emuThread);
+    RAMInfoDialog* dlg = RAMInfoDialog::openDlg(this);
 }
 
 void MainWindow::onOpenTitleManager()
@@ -1763,7 +1763,7 @@ void MainWindow::onCameraSettingsFinished(int res)
 
 void MainWindow::onOpenAudioSettings()
 {
-    AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this, emuThread->emuIsActive(), emuThread);
+    AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this);
     connect(emuThread, &EmuThread::syncVolumeLevel, dlg, &AudioSettingsDialog::onSyncVolumeLevel);
     connect(emuThread, &EmuThread::windowEmuStart, dlg, &AudioSettingsDialog::onConsoleReset);
     connect(dlg, &AudioSettingsDialog::updateAudioSettings, this, &MainWindow::onUpdateAudioSettings);

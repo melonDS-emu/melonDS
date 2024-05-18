@@ -31,6 +31,7 @@
 #include <QScreen>
 #include <QCloseEvent>
 
+#include "EmuInstance.h"
 #include "Window.h"
 #include "EmuThread.h"
 #include "FrontendUtil.h"

@@ -27,6 +27,7 @@
 #include "NDSCart.h"
 #include "Platform.h"
 #include "Config.h"
+#include "main.h"
 
 using namespace melonDS;
 
@@ -42,15 +43,18 @@ QString QStringBytes(u64 num)
 
 ROMInfoDialog* ROMInfoDialog::currentDlg = nullptr;
 
-ROMInfoDialog::ROMInfoDialog(QWidget* parent, const melonDS::NDSCart::CartCommon& rom) : QDialog(parent), ui(new Ui::ROMInfoDialog)
+ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMInfoDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    const NDSBanner* banner = rom.Banner();
-    const NDSHeader& header = rom.GetHeader();
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
+
+    auto rom = emuInstance->getNDS()->NDSCartSlot.GetCart();
+    const NDSBanner* banner = rom->Banner();
+    const NDSHeader& header = rom->GetHeader();
     u32 iconData[32 * 32];
-    ROMManager::ROMIcon(banner->Icon, banner->Palette, iconData);
+    emuInstance->romIcon(banner->Icon, banner->Palette, iconData);
     iconImage = QImage(reinterpret_cast<u8*>(iconData), 32, 32, QImage::Format_RGBA8888).copy();
     ui->iconImage->setPixmap(QPixmap::fromImage(iconImage));
 
@@ -58,7 +62,7 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent, const melonDS::NDSCart::CartCommon
     {
         ui->saveAnimatedIconButton->setEnabled(true);
 
-        ROMManager::AnimatedROMIcon(banner->DSiIcon, banner->DSiPalette, banner->DSiSequence, animatedIconData, animatedSequence);
+        emuInstance->animatedROMIcon(banner->DSiIcon, banner->DSiPalette, banner->DSiSequence, animatedIconData, animatedSequence);
 
         for (u32* image: animatedIconData)
         {
