@@ -68,6 +68,7 @@ bool Threaded3D;
 
 int GL_ScaleFactor;
 bool GL_BetterPolygons;
+bool GL_HiresCoordinates;
 
 bool LimitFPS;
 int MaxFPS;

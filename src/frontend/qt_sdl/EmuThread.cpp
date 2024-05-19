@@ -51,6 +51,7 @@
 #include "DSi_I2C.h"
 #include "GPU3D_Soft.h"
 #include "GPU3D_OpenGL.h"
+#include "GPU3D_Compute.h"
 
 #include "Savestate.h"
 
@@ -169,18 +170,7 @@ void EmuThread::run()
     //screenGL = nullptr;
     //videoRenderer = 0;
 
-    if (videoRenderer == 0)
-    { // If we're using the software renderer...
-        emuInstance->nds->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
-    }
-    else
-    {
-        mainWindow->makeCurrentGL();
-
-        auto glrenderer =  melonDS::GLRenderer::New();
-        glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
-        emuInstance->nds->GPU.SetRenderer3D(std::move(glrenderer));
-    }
+    updateRenderer();
 
     Input::Init();
 
@@ -301,20 +291,9 @@ void EmuThread::run()
                     videoRenderer = 0;
                 }
 
-                videoRenderer = useOpenGL ? Config::_3DRenderer : 0;
+                updateRenderer();
 
                 videoSettingsDirty = false;
-
-                if (videoRenderer == 0)
-                { // If we're using the software renderer...
-                    emuInstance->nds->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
-                }
-                else
-                {
-                    auto glrenderer =  melonDS::GLRenderer::New();
-                    glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
-                    emuInstance->nds->GPU.SetRenderer3D(std::move(glrenderer));
-                }
             }
 
             // process input and hotkeys
@@ -362,7 +341,16 @@ void EmuThread::run()
 
 
             // emulate
-            u32 nlines = emuInstance->nds->RunFrame();
+            u32 nlines;
+            if (emuInstance->nds->GPU.GetRenderer3D().NeedsShaderCompile())
+            {
+                compileShaders();
+                nlines = 1;
+            }
+            else
+            {
+                nlines = emuInstance->nds->RunFrame();
+            }
 
             if (emuInstance->ndsSave)
                 emuInstance->ndsSave->CheckFlush();
@@ -614,4 +602,54 @@ bool EmuThread::emuIsRunning()
 bool EmuThread::emuIsActive()
 {
     return (RunningSomething == 1);
+}
+
+void EmuThread::updateRenderer()
+{
+    if (videoRenderer != lastVideoRenderer)
+    {
+        printf("creating renderer %d\n", videoRenderer);
+        switch (videoRenderer)
+        {
+            case renderer3D_Software:
+                emuInstance->nds->GPU.SetRenderer3D(std::make_unique<SoftRenderer>());
+                break;
+            case renderer3D_OpenGL:
+                emuInstance->nds->GPU.SetRenderer3D(GLRenderer::New());
+                break;
+            case renderer3D_OpenGLCompute:
+                emuInstance->nds->GPU.SetRenderer3D(ComputeRenderer::New());
+                break;
+            default: __builtin_unreachable();
+        }
+    }
+    lastVideoRenderer = videoRenderer;
+
+    switch (videoRenderer)
+    {
+        case renderer3D_Software:
+            static_cast<SoftRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetThreaded(Config::Threaded3D, emuInstance->nds->GPU);
+            break;
+        case renderer3D_OpenGL:
+            static_cast<GLRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
+            break;
+        case renderer3D_OpenGLCompute:
+            static_cast<ComputeRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(Config::GL_ScaleFactor, Config::GL_HiresCoordinates);
+            break;
+        default: __builtin_unreachable();
+    }
+}
+
+void EmuThread::compileShaders()
+{
+    int currentShader, shadersCount;
+    u64 startTime = SDL_GetPerformanceCounter();
+    // kind of hacky to look at the wallclock, though it is easier than
+    // than disabling vsync
+    do
+    {
+        emuInstance->nds->GPU.GetRenderer3D().ShaderCompileStep(currentShader, shadersCount);
+    } while (emuInstance->nds->GPU.GetRenderer3D().NeedsShaderCompile() &&
+             (SDL_GetPerformanceCounter() - startTime) * perfCountsSec < 1.0 / 6.0);
+    mainWindow->osdAddMessage(0, "Compiling shader %d/%d", currentShader+1, shadersCount);
 }

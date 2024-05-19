@@ -93,6 +93,9 @@ signals:
     void syncVolumeLevel();
 
 private:
+    void updateRenderer();
+    void compileShaders();
+
     enum EmuStatusKind
     {
         emuStatus_Exit,
@@ -124,6 +127,10 @@ private:
     std::list<MainWindow*> windowList;
 
     int autoScreenSizing;
+
+    int lastVideoRenderer = -1;
+
+    double perfCountsSec;
 
     bool useOpenGL;
     int videoRenderer;
