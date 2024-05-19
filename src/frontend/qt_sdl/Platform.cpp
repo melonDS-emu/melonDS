@@ -29,14 +29,14 @@
 #include <QThread>
 #include <QSemaphore>
 #include <QMutex>
-#include <QOpenGLContext>
+//#include <QOpenGLContext>
 #include <QSharedMemory>
 #include <QTemporaryFile>
 #include <SDL_loadso.h>
 
 #include "Platform.h"
 #include "Config.h"
-#include "ROMManager.h"
+#include "main.h"
 #include "CameraManager.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
@@ -51,6 +51,9 @@
 std::string EmuDirectory;
 
 extern CameraManager* camManager[2];
+
+// REMOVE ME
+extern EmuInstance* testinst;
 
 void emuStop();
 
@@ -520,25 +523,28 @@ void Sleep(u64 usecs)
 
 void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
 {
-    if (ROMManager::NDSSave)
-        ROMManager::NDSSave->RequestFlush(savedata, savelen, writeoffset, writelen);
+    EmuInstance* inst = testinst;
+    if (inst->ndsSave)
+        inst->ndsSave->RequestFlush(savedata, savelen, writeoffset, writelen);
 }
 
 void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
 {
-    if (ROMManager::GBASave)
-        ROMManager::GBASave->RequestFlush(savedata, savelen, writeoffset, writelen);
+    EmuInstance* inst = testinst;
+    if (inst->gbaSave)
+        inst->gbaSave->RequestFlush(savedata, savelen, writeoffset, writelen);
 }
 
 void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen)
 {
-    if (!ROMManager::FirmwareSave)
+    EmuInstance* inst = testinst;
+    if (!inst->firmwareSave)
         return;
 
     if (firmware.GetHeader().Identifier != GENERATED_FIRMWARE_IDENTIFIER)
     { // If this is not the default built-in firmware...
         // ...then write the whole thing back.
-        ROMManager::FirmwareSave->RequestFlush(firmware.Buffer(), firmware.Length(), writeoffset, writelen);
+        inst->firmwareSave->RequestFlush(firmware.Buffer(), firmware.Length(), writeoffset, writelen);
     }
     else
     {
@@ -555,7 +561,7 @@ void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen)
         { // If we're writing to the access points...
             const u8* buffer = firmware.GetExtendedAccessPointPosition();
             u32 length = sizeof(firmware.GetExtendedAccessPoints()) + sizeof(firmware.GetAccessPoints());
-            ROMManager::FirmwareSave->RequestFlush(buffer, length, writeoffset - eapstart, writelen);
+            inst->firmwareSave->RequestFlush(buffer, length, writeoffset - eapstart, writelen);
         }
     }
 
