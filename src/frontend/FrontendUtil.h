@@ -95,30 +95,6 @@ int GetScreenTransforms(float* out, int* kind);
 // on the bottom screen
 bool GetTouchCoords(int& x, int& y, bool clamp);
 
-
-// initialize the audio utility
-void Init_Audio(int outputfreq);
-
-// get how many samples to read from the core audio output
-// based on how many are needed by the frontend (outlen in samples)
-int AudioOut_GetNumSamples(int outlen);
-
-// resample audio from the core audio output to match the frontend's
-// output frequency, and apply specified volume
-// note: this assumes the output buffer is interleaved stereo
-void AudioOut_Resample(s16* inbuf, int inlen, s16* outbuf, int outlen, int volume);
-
-// feed silence to the microphone input
-void Mic_FeedSilence(NDS& nds);
-
-// feed random noise to the microphone input
-void Mic_FeedNoise(NDS& nds);
-
-// feed an external buffer to the microphone input
-// buffer should be mono
-void Mic_FeedExternalBuffer(NDS& nds);
-void Mic_SetExternalBuffer(s16* buffer, u32 len);
-
 }
 
 #endif // FRONTENDUTIL_H

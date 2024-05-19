@@ -8,6 +8,7 @@ set(SOURCES_QT_SDL
     Screen.cpp
     Window.cpp
     EmuInstance.cpp
+    EmuInstanceAudio.cpp
     EmuThread.cpp
     CheatsDialog.cpp
     Config.cpp
@@ -39,13 +40,11 @@ set(SOURCES_QT_SDL
     QPathInput.h
     SaveManager.cpp
     CameraManager.cpp
-    AudioInOut.cpp
 
     ArchiveUtil.h
     ArchiveUtil.cpp
 
     ../Util_Video.cpp
-    ../Util_Audio.cpp
     ../FrontendUtil.h
     ../mic_blow.h
 
@@ -56,8 +55,6 @@ set(SOURCES_QT_SDL
 
     CLI.h
     CLI.cpp
-        EmuInstance.cpp
-        EmuInstance.h
 )
 
 if (APPLE)

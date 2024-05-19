@@ -66,6 +66,8 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
     globalCfg(Config::GetGlobalTable()),
     localCfg(Config::GetLocalTable(inst))
 {
+    audioInit();
+
     emuThread = new EmuThread(this);
 
     numWindows = 0;
@@ -87,6 +89,8 @@ EmuInstance::~EmuInstance()
     emuThread->emuStop();
     emuThread->wait();
     delete emuThread;
+
+    audioDeInit();
 }
 
 

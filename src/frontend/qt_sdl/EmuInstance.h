@@ -19,6 +19,8 @@
 #ifndef EMUINSTANCE_H
 #define EMUINSTANCE_H
 
+#include <SDL2/SDL.h>
+
 #include "NDS.h"
 #include "EmuThread.h"
 #include "Window.h"
@@ -105,6 +107,26 @@ private:
     bool gbaCartInserted();
     QString gbaCartLabel();
 
+    void audioInit();
+    void audioDeInit();
+    void audioEnable();
+    void audioDisable();
+    void audioMute();
+    void audioSync();
+    void audioUpdateSettings();
+
+    void micOpen();
+    void micClose();
+    void micLoadWav(const std::string& name);
+    void micProcess();
+    void setupMicInputData();
+
+    int audioGetNumSamplesOut(int outlen);
+    void audioResample(melonDS::s16* inbuf, int inlen, melonDS::s16* outbuf, int outlen, int volume);
+
+    static void audioCallback(void* data, Uint8* stream, int len);
+    static void micCallback(void* data, Uint8* stream, int len);
+
     int instanceID;
 
     EmuThread* emuThread;
@@ -141,6 +163,24 @@ private:
 
     melonDS::ARCodeFile* cheatFile;
     bool cheatsOn;
+
+    SDL_AudioDeviceID audioDevice;
+    int audioFreq;
+    float audioSampleFrac;
+    bool audioMuted;
+    SDL_cond* audioSyncCond;
+    SDL_mutex* audioSyncLock;
+
+    SDL_AudioDeviceID micDevice;
+    melonDS::s16 micExtBuffer[2048];
+    melonDS::u32 micExtBufferWritePos;
+
+    melonDS::u32 micWavLength;
+    melonDS::s16* micWavBuffer;
+
+    melonDS::s16* micBuffer;
+    melonDS::u32 micBufferLength;
+    melonDS::u32 micBufferReadPos;
 
     friend class EmuThread;
     friend class MainWindow;

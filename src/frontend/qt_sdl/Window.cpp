@@ -68,7 +68,6 @@
 #include "RAMInfoDialog.h"
 #include "TitleManagerDialog.h"
 #include "PowerManagement/PowerManagementDialog.h"
-#include "AudioInOut.h"
 
 #include "Platform.h"
 #include "Config.h"
@@ -941,12 +940,12 @@ void MainWindow::dropEvent(QDropEvent* event)
 
 void MainWindow::focusInEvent(QFocusEvent* event)
 {
-    AudioInOut::AudioMute(mainWindow);
+    emuInstance->audioMute();
 }
 
 void MainWindow::focusOutEvent(QFocusEvent* event)
 {
-    AudioInOut::AudioMute(mainWindow);
+    emuInstance->audioMute();
 }
 
 void MainWindow::onAppStateChanged(Qt::ApplicationState state)
@@ -1828,7 +1827,7 @@ void MainWindow::onOpenMPSettings()
 
 void MainWindow::onMPSettingsFinished(int res)
 {
-    AudioInOut::AudioMute(mainWindow);
+    emuInstance->audioMute();
     LocalMP::SetRecvTimeout(Config::MPRecvTimeout);
 
     emuThread->emuUnpause();

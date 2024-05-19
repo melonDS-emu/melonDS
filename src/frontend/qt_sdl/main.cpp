@@ -73,7 +73,6 @@
 #include "RAMInfoDialog.h"
 #include "TitleManagerDialog.h"
 #include "PowerManagement/PowerManagementDialog.h"
-#include "AudioInOut.h"
 
 #include "types.h"
 #include "version.h"
@@ -428,7 +427,7 @@ int main(int argc, char** argv)
 
     Input::CloseJoystick();
 
-    AudioInOut::DeInit();
+    //AudioInOut::DeInit();
     delete camManager[0];
     delete camManager[1];
 

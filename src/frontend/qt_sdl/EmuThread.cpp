@@ -30,7 +30,6 @@
 
 #include "main.h"
 #include "Input.h"
-#include "AudioInOut.h"
 
 #include "types.h"
 #include "version.h"
@@ -329,7 +328,7 @@ void EmuThread::run()
             }
 
             // microphone input
-            //AudioInOut::MicProcess(emuInstance->nds);
+            emuInstance->micProcess();
 
             // auto screen layout
             if (Config::ScreenSizing == Frontend::screenSizing_Auto)
@@ -423,8 +422,8 @@ void EmuThread::run()
                 Config::AudioVolume = volumeLevel * (256.0 / 31.0);
             }
 
-            //if (Config::AudioSync && !fastforward)
-            //    AudioInOut::AudioSync(emuInstance->nds);
+            if (Config::AudioSync && !fastforward)
+                emuInstance->audioSync();
 
             double frametimeStep = nlines / (60.0 * 263.0);
 
@@ -554,7 +553,7 @@ void EmuThread::emuRun()
 
     // checkme
     emit windowEmuStart();
-    AudioInOut::Enable();
+    emuInstance->audioEnable();
 }
 
 void EmuThread::initContext()
@@ -578,7 +577,7 @@ void EmuThread::emuPause()
     EmuRunning = emuStatus_Paused;
     while (EmuStatus != emuStatus_Paused);
 
-    AudioInOut::Disable();
+    emuInstance->audioDisable();
 }
 
 void EmuThread::emuUnpause()
@@ -590,7 +589,7 @@ void EmuThread::emuUnpause()
 
     EmuRunning = PrevEmuStatus;
 
-    AudioInOut::Enable();
+    emuInstance->audioEnable();
 }
 
 void EmuThread::emuStop()
@@ -598,7 +597,7 @@ void EmuThread::emuStop()
     EmuRunning = emuStatus_Exit;
     EmuPauseStack = EmuPauseStackRunning;
 
-    AudioInOut::Disable();
+    emuInstance->audioDisable();
 }
 
 void EmuThread::emuFrameStep()
