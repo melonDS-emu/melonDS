@@ -66,6 +66,11 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
     globalCfg(Config::GetGlobalTable()),
     localCfg(Config::GetLocalTable(inst))
 {
+    cheatFile = nullptr;
+
+    nds = nullptr;
+    updateConsole(nullptr, nullptr);
+
     audioInit();
 
     emuThread = new EmuThread(this);
@@ -1022,10 +1027,10 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     }
 
 
-    if (consoletype != nds->ConsoleType)
+    if ((!nds) || (consoletype != nds->ConsoleType))
     {
         NDS::Current = nullptr;
-        delete nds;
+        if (nds) delete nds;
 
         if (consoletype == 1)
             nds = new DSi(std::move(dsiargs.value()));
