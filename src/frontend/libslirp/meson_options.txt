@@ -1,0 +1,14 @@
+option('version_suffix', type: 'string', value: '',
+       description: 'Suffix to append to SLIRP_VERSION_STRING')
+
+option('oss-fuzz', type : 'boolean', value : 'false',
+       description : 'build against oss-fuzz')
+
+option('llvm-fuzz', type : 'boolean', value : 'false',
+       description : 'build against LLVM libFuzzer')
+
+option('fuzz-reproduce', type : 'boolean', value : 'false',
+       description : 'build a standalone executable to reproduce fuzz cases')
+
+option('static', type : 'boolean', value : 'false',
+       description : 'build static binary, only for debugging, otherwise rather use --default-library static')

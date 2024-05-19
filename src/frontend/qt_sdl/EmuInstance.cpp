@@ -1785,23 +1785,28 @@ QString EmuInstance::gbaCartLabel()
 
 void EmuInstance::romIcon(const u8 (&data)[512], const u16 (&palette)[16], u32 (&iconRef)[32*32])
 {
-    int index = 0;
-    for (int i = 0; i < 4; i++)
+    u32 paletteRGBA[16];
+    for (int i = 0; i < 16; i++)
     {
-        for (int j = 0; j < 4; j++)
+        u8 r = ((palette[i] >> 0)  & 0x1F) * 255 / 31;
+        u8 g = ((palette[i] >> 5)  & 0x1F) * 255 / 31;
+        u8 b = ((palette[i] >> 10) & 0x1F) * 255 / 31;
+        u8 a = i ? 255 : 0;
+        paletteRGBA[i] = r | (g << 8) | (b << 16) | (a << 24);
+    }
+
+    int count = 0;
+    for (int ytile = 0; ytile < 4; ytile++)
+    {
+        for (int xtile = 0; xtile < 4; xtile++)
         {
-            for (int k = 0; k < 8; k++)
+            for (int ypixel = 0; ypixel < 8; ypixel++)
             {
-                for (int l = 0; l < 8; l++)
+                for (int xpixel = 0; xpixel < 8; xpixel++)
                 {
-                    u8 pal_index = index % 2 ?  data[index/2] >> 4 : data[index/2] & 0x0F;
-                    u8 r = ((palette[pal_index] >> 0)  & 0x1F) * 255 / 31;
-                    u8 g = ((palette[pal_index] >> 5)  & 0x1F) * 255 / 31;
-                    u8 b = ((palette[pal_index] >> 10) & 0x1F) * 255 / 31;
-                    u8 a = pal_index ? 255: 0;
-                    u32* row = &iconRef[256 * i + 32 * k + 8 * j];
-                    row[l] = r | (g << 8) | (b << 16) | (a << 24);
-                    index++;
+                    u8 pal_index = count % 2 ? data[count/2] >> 4 : data[count/2] & 0x0F;
+                    iconRef[ytile*256 + ypixel*32 + xtile*8 + xpixel] = paletteRGBA[pal_index];
+                    count++;
                 }
             }
         }

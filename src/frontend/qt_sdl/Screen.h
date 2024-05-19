@@ -177,7 +177,7 @@ private:
 
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;
-    GLuint screenShaderProgram[3];
+    GLuint screenShaderProgram;
     GLuint screenShaderTransformULoc, screenShaderScreenSizeULoc;
 
     QMutex screenSettingsLock;
@@ -186,7 +186,7 @@ private:
 
     int lastScreenWidth = -1, lastScreenHeight = -1;
 
-    GLuint osdShader[3];
+    GLuint osdShader;
     GLint osdScreenSizeULoc, osdPosULoc, osdSizeULoc;
     GLfloat osdScaleFactorULoc;
     GLuint osdVertexArray;

@@ -71,6 +71,7 @@
 
 #include "Platform.h"
 #include "Config.h"
+#include "version.h"
 #include "Savestate.h"
 #include "LocalMP.h"
 
@@ -2083,6 +2084,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
         connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
     }
 
+    printf("update video settings\n");
     videoSettingsDirty = true;
 
     if (glchange)

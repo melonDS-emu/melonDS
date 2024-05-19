@@ -6,7 +6,6 @@
 			"default-features": false,
 			"features": ["bzip2", "crypto", "lz4", "zstd"]
 		},
-		"libslirp",
 		"zstd",
 		{
 			"name": "qtbase",

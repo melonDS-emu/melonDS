@@ -22,6 +22,7 @@
 #include "DSi_NDMA.h"
 #include "GPU.h"
 #include "DSi_AES.h"
+#include "GPU3D.h"
 
 namespace melonDS
 {
