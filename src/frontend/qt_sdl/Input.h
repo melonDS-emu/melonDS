@@ -41,6 +41,7 @@ void CloseJoystick();
 
 void KeyPress(QKeyEvent* event);
 void KeyRelease(QKeyEvent* event);
+void KeyReleaseAll();
 
 void Process();
 

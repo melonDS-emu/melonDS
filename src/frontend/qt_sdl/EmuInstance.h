@@ -77,10 +77,10 @@ private:
     void undoStateLoad();
     void unloadCheats();
     void loadCheats();
-    std::optional<std::array<melonDS::u8, melonDS::ARM9BIOSSize>> loadARM9BIOS() noexcept;
-    std::optional<std::array<melonDS::u8, melonDS::ARM7BIOSSize>> loadARM7BIOS() noexcept;
-    std::optional<std::array<melonDS::u8, melonDS::DSiBIOSSize>> loadDSiARM9BIOS() noexcept;
-    std::optional<std::array<melonDS::u8, melonDS::DSiBIOSSize>> loadDSiARM7BIOS() noexcept;
+    std::unique_ptr<melonDS::ARM9BIOSImage> loadARM9BIOS() noexcept;
+    std::unique_ptr<melonDS::ARM7BIOSImage> loadARM7BIOS() noexcept;
+    std::unique_ptr<melonDS::DSiBIOSImage> loadDSiARM9BIOS() noexcept;
+    std::unique_ptr<melonDS::DSiBIOSImage> loadDSiARM7BIOS() noexcept;
     melonDS::Firmware generateFirmware(int type) noexcept;
     std::optional<melonDS::Firmware> loadFirmware(int type) noexcept;
     std::optional<melonDS::DSi_NAND::NANDImage> loadNAND(const std::array<melonDS::u8, melonDS::DSiBIOSSize>& arm7ibios) noexcept;
@@ -94,7 +94,7 @@ private:
     void clearBackupState();
     std::pair<std::unique_ptr<melonDS::Firmware>, std::string> generateDefaultFirmware();
     bool parseMacAddress(void* data);
-    void customizeFirmware(melonDS::Firmware& firmware) noexcept;
+    void customizeFirmware(melonDS::Firmware& firmware, bool overridesettings) noexcept;
     bool loadROMData(const QStringList& filepath, std::unique_ptr<melonDS::u8[]>& filedata, melonDS::u32& filelen, std::string& basepath, std::string& romname) noexcept;
     QString getSavErrorString(std::string& filepath, bool gba);
     bool loadROM(QStringList filepath, bool reset);

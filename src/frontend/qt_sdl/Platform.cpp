@@ -219,9 +219,30 @@ std::string InstanceFileSuffix()
     return suffix;
 }
 
+static QIODevice::OpenMode GetQMode(FileMode mode)
+{
+    QIODevice::OpenMode qmode = QIODevice::OpenModeFlag::NotOpen;
+    if (mode & FileMode::Read)
+        qmode |= QIODevice::OpenModeFlag::ReadOnly;
+    if (mode & FileMode::Write)
+        qmode |= QIODevice::OpenModeFlag::WriteOnly;
+    if (mode & FileMode::Append)
+        qmode |= QIODevice::OpenModeFlag::Append;
+
+    if ((mode & FileMode::Write) && !(mode & FileMode::Preserve))
+        qmode |= QIODevice::OpenModeFlag::Truncate;
+
+    if (mode & FileMode::NoCreate)
+        qmode |= QIODevice::OpenModeFlag::ExistingOnly;
+
+    if (mode & FileMode::Text)
+        qmode |= QIODevice::OpenModeFlag::Text;
+
+    return qmode;
+}
+
 constexpr char AccessMode(FileMode mode, bool file_exists)
 {
-
     if (mode & FileMode::Append)
         return  'a';
 
@@ -269,10 +290,15 @@ FileHandle* OpenFile(const std::string& path, FileMode mode)
         return nullptr;
     }
 
-    bool file_exists = QFile::exists(QString::fromStdString(path));
-    std::string modeString = GetModeString(mode, file_exists);
+    QString qpath{QString::fromStdString(path)};
 
-    FILE* file = fopen(path.c_str(), modeString.c_str());
+    std::string modeString = GetModeString(mode, QFile::exists(qpath));
+    QIODevice::OpenMode qmode = GetQMode(mode);
+    QFile qfile{qpath};
+    qfile.open(qmode);
+    FILE* file = fdopen(dup(qfile.handle()), modeString.c_str());
+    qfile.close();
+
     if (file)
     {
         Log(LogLevel::Debug, "Opened \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", path.c_str(), mode, modeString.c_str());

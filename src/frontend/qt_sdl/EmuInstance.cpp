@@ -569,65 +569,65 @@ void EmuInstance::loadCheats()
     nds->AREngine.SetCodeFile(cheatsOn ? cheatFile : nullptr);
 }
 
-std::optional<std::array<u8, ARM9BIOSSize>> EmuInstance::loadARM9BIOS() noexcept
+std::unique_ptr<ARM9BIOSImage> EmuInstance::loadARM9BIOS() noexcept
 {
     if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
     {
-        return globalCfg.GetInt("Emu.ConsoleType") == 0 ? std::make_optional(bios_arm9_bin) : std::nullopt;
+        return globalCfg.GetInt("Emu.ConsoleType") == 0 ? std::make_unique<ARM9BIOSImage>(bios_arm9_bin) : nullptr;
     }
 
     string path = globalCfg.GetString("DS.BIOS9Path");
 
     if (FileHandle* f = OpenLocalFile(path, Read))
     {
-        std::array<u8, ARM9BIOSSize> bios {};
+        std::unique_ptr<ARM9BIOSImage> bios = std::make_unique<ARM9BIOSImage>();
         FileRewind(f);
-        FileRead(bios.data(), sizeof(bios), 1, f);
+        FileRead(bios->data(), bios->size(), 1, f);
         CloseFile(f);
         Log(Info, "ARM9 BIOS loaded from %s\n", path.c_str());
         return bios;
     }
 
     Log(Warn, "ARM9 BIOS not found\n");
-    return std::nullopt;
+    return nullptr;
 }
 
-std::optional<std::array<u8, ARM7BIOSSize>> EmuInstance::loadARM7BIOS() noexcept
+std::unique_ptr<ARM7BIOSImage> EmuInstance::loadARM7BIOS() noexcept
 {
     if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
     {
-        return globalCfg.GetInt("Emu.ConsoleType") == 0 ? std::make_optional(bios_arm7_bin) : std::nullopt;
+        return globalCfg.GetInt("Emu.ConsoleType") == 0 ? std::make_unique<ARM7BIOSImage>(bios_arm7_bin) : nullptr;
     }
 
     string path = globalCfg.GetString("DS.BIOS7Path");
 
     if (FileHandle* f = OpenLocalFile(path, Read))
     {
-        std::array<u8, ARM7BIOSSize> bios {};
-        FileRead(bios.data(), sizeof(bios), 1, f);
+        std::unique_ptr<ARM7BIOSImage> bios = std::make_unique<ARM7BIOSImage>();
+        FileRead(bios->data(), bios->size(), 1, f);
         CloseFile(f);
         Log(Info, "ARM7 BIOS loaded from %s\n", path.c_str());
         return bios;
     }
 
     Log(Warn, "ARM7 BIOS not found\n");
-    return std::nullopt;
+    return nullptr;
 }
 
-std::optional<std::array<u8, DSiBIOSSize>> EmuInstance::loadDSiARM9BIOS() noexcept
+std::unique_ptr<DSiBIOSImage> EmuInstance::loadDSiARM9BIOS() noexcept
 {
     string path = globalCfg.GetString("DSi.BIOS9Path");
 
     if (FileHandle* f = OpenLocalFile(path, Read))
     {
-        std::array<u8, DSiBIOSSize> bios {};
-        FileRead(bios.data(), sizeof(bios), 1, f);
+        std::unique_ptr<DSiBIOSImage> bios = std::make_unique<DSiBIOSImage>();
+        FileRead(bios->data(), bios->size(), 1, f);
         CloseFile(f);
 
         if (!globalCfg.GetBool("DSi.FullBIOSBoot"))
         {
             // herp
-            *(u32*)&bios[0] = 0xEAFFFFFE; // overwrites the reset vector
+            *(u32*)bios->data() = 0xEAFFFFFE; // overwrites the reset vector
 
             // TODO!!!!
             // hax the upper 32K out of the goddamn DSi
@@ -638,23 +638,23 @@ std::optional<std::array<u8, DSiBIOSSize>> EmuInstance::loadDSiARM9BIOS() noexce
     }
 
     Log(Warn, "ARM9i BIOS not found\n");
-    return std::nullopt;
+    return nullptr;
 }
 
-std::optional<std::array<u8, DSiBIOSSize>> EmuInstance::loadDSiARM7BIOS() noexcept
+std::unique_ptr<DSiBIOSImage> EmuInstance::loadDSiARM7BIOS() noexcept
 {
     string path = globalCfg.GetString("DSi.BIOS7Path");
 
     if (FileHandle* f = OpenLocalFile(path, Read))
     {
-        std::array<u8, DSiBIOSSize> bios {};
-        FileRead(bios.data(), sizeof(bios), 1, f);
+        std::unique_ptr<DSiBIOSImage> bios = std::make_unique<DSiBIOSImage>();
+        FileRead(bios->data(), bios->size(), 1, f);
         CloseFile(f);
 
         if (!globalCfg.GetBool("DSi.FullBIOSBoot"))
         {
             // herp
-            *(u32*)&bios[0] = 0xEAFFFFFE; // overwrites the reset vector
+            *(u32*)bios->data() = 0xEAFFFFFE; // overwrites the reset vector
 
             // TODO!!!!
             // hax the upper 32K out of the goddamn DSi
@@ -665,7 +665,7 @@ std::optional<std::array<u8, DSiBIOSSize>> EmuInstance::loadDSiARM7BIOS() noexce
     }
 
     Log(Warn, "ARM7i BIOS not found\n");
-    return std::nullopt;
+    return nullptr;
 }
 
 Firmware EmuInstance::generateFirmware(int type) noexcept
@@ -707,7 +707,7 @@ Firmware EmuInstance::generateFirmware(int type) noexcept
         }
     }
 
-    customizeFirmware(firmware);
+    customizeFirmware(firmware, true);
 
     // If we don't have Wi-fi settings to load,
     // then the defaults will have already been populated by the constructor.
@@ -751,10 +751,7 @@ std::optional<Firmware> EmuInstance::loadFirmware(int type) noexcept
         return std::nullopt;
     }
 
-    if (Config::FirmwareOverrideSettings)
-    {
-        customizeFirmware(firmware);
-    }
+    customizeFirmware(firmware, Config::FirmwareOverrideSettings);
 
     return firmware;
 }
@@ -986,8 +983,8 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     NDSArgs ndsargs {
             std::move(nextndscart),
             std::move(nextgbacart),
-            *arm9bios,
-            *arm7bios,
+            std::move(arm9bios),
+            std::move(arm7bios),
             std::move(*firmware),
             jitargs,
             static_cast<AudioBitDepth>(Config::AudioBitDepth),
@@ -1016,8 +1013,8 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
 
         DSiArgs args {
                 std::move(ndsargs),
-                *arm9ibios,
-                *arm7ibios,
+                std::move(arm9ibios),
+                std::move(arm7ibios),
                 std::move(*nand),
                 std::move(sdcard),
                 globalCfg.GetBool("DSi.FullBIOSBoot"),
@@ -1042,8 +1039,8 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     }
     else
     {
-        nds->SetARM7BIOS(ndsargs.ARM7BIOS);
-        nds->SetARM9BIOS(ndsargs.ARM9BIOS);
+        nds->SetARM7BIOS(*ndsargs.ARM7BIOS);
+        nds->SetARM9BIOS(*ndsargs.ARM9BIOS);
         nds->SetFirmware(std::move(ndsargs.Firmware));
         nds->SetNDSCart(std::move(ndsargs.NDSROM));
         nds->SetJITArgs(ndsargs.JIT);
@@ -1057,8 +1054,8 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
             DSiArgs& args = dsiargs.value();
 
             dsi->SetFullBIOSBoot(args.FullBIOSBoot);
-            dsi->ARM7iBIOS = args.ARM7iBIOS;
-            dsi->ARM9iBIOS = args.ARM9iBIOS;
+            dsi->ARM7iBIOS = *args.ARM7iBIOS;
+            dsi->ARM9iBIOS = *args.ARM9iBIOS;
             dsi->SetNAND(std::move(args.NANDImage));
             dsi->SetSDCard(std::move(args.DSiSDCard));
             // We're moving the optional, not the card
@@ -1129,6 +1126,8 @@ void EmuInstance::reset()
             nds->SetupDirectBoot(baseROMName);
         }
     }
+
+    nds->Start();
 }
 
 
@@ -1331,54 +1330,59 @@ bool EmuInstance::parseMacAddress(void* data)
     return false;
 }
 
-void EmuInstance::customizeFirmware(Firmware& firmware) noexcept
+void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) noexcept
 {
-    auto& currentData = firmware.GetEffectiveUserData();
-
-    // setting up username
-    std::string orig_username = Config::FirmwareUsername;
-    if (!orig_username.empty())
-    { // If the frontend defines a username, take it. If not, leave the existing one.
-        std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
-        size_t usernameLength = std::min(username.length(), (size_t) 10);
-        currentData.NameLength = usernameLength;
-        memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
-    }
-
-    auto language = static_cast<Firmware::Language>(Config::FirmwareLanguage);
-    if (language != Firmware::Language::Reserved)
-    { // If the frontend specifies a language (rather than using the existing value)...
-        currentData.Settings &= ~Firmware::Language::Reserved; // ..clear the existing language...
-        currentData.Settings |= language; // ...and set the new one.
-    }
-
-    // setting up color
-    u8 favoritecolor = Config::FirmwareFavouriteColour;
-    if (favoritecolor != 0xFF)
+    if (overridesettings)
     {
-        currentData.FavoriteColor = favoritecolor;
-    }
+        auto &currentData = firmware.GetEffectiveUserData();
 
-    u8 birthmonth = Config::FirmwareBirthdayMonth;
-    if (birthmonth != 0)
-    { // If the frontend specifies a birth month (rather than using the existing value)...
-        currentData.BirthdayMonth = birthmonth;
-    }
+        // setting up username
+        std::string orig_username = Config::FirmwareUsername;
+        if (!orig_username.empty())
+        { // If the frontend defines a username, take it. If not, leave the existing one.
+            std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(
+                    orig_username);
+            size_t usernameLength = std::min(username.length(), (size_t) 10);
+            currentData.NameLength = usernameLength;
+            memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
+        }
 
-    u8 birthday = Config::FirmwareBirthdayDay;
-    if (birthday != 0)
-    { // If the frontend specifies a birthday (rather than using the existing value)...
-        currentData.BirthdayDay = birthday;
-    }
+        auto language = static_cast<Firmware::Language>(Config::FirmwareLanguage);
+        if (language != Firmware::Language::Reserved)
+        { // If the frontend specifies a language (rather than using the existing value)...
+            currentData.Settings &= ~Firmware::Language::Reserved; // ..clear the existing language...
+            currentData.Settings |= language; // ...and set the new one.
+        }
 
-    // setup message
-    std::string orig_message = Config::FirmwareMessage;
-    if (!orig_message.empty())
-    {
-        std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
-        size_t messageLength = std::min(message.length(), (size_t) 26);
-        currentData.MessageLength = messageLength;
-        memcpy(currentData.Message, message.data(), messageLength * sizeof(char16_t));
+        // setting up color
+        u8 favoritecolor = Config::FirmwareFavouriteColour;
+        if (favoritecolor != 0xFF)
+        {
+            currentData.FavoriteColor = favoritecolor;
+        }
+
+        u8 birthmonth = Config::FirmwareBirthdayMonth;
+        if (birthmonth != 0)
+        { // If the frontend specifies a birth month (rather than using the existing value)...
+            currentData.BirthdayMonth = birthmonth;
+        }
+
+        u8 birthday = Config::FirmwareBirthdayDay;
+        if (birthday != 0)
+        { // If the frontend specifies a birthday (rather than using the existing value)...
+            currentData.BirthdayDay = birthday;
+        }
+
+        // setup message
+        std::string orig_message = Config::FirmwareMessage;
+        if (!orig_message.empty())
+        {
+            std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(
+                    orig_message);
+            size_t messageLength = std::min(message.length(), (size_t) 26);
+            currentData.MessageLength = messageLength;
+            memcpy(currentData.Message, message.data(), messageLength * sizeof(char16_t));
+        }
     }
 
     MacAddress mac;
@@ -1387,14 +1391,16 @@ void EmuInstance::customizeFirmware(Firmware& firmware) noexcept
 
     memcpy(&mac, header.MacAddr.data(), sizeof(MacAddress));
 
-
-    MacAddress configuredMac;
-    rep = parseMacAddress(&configuredMac);
-    rep &= (configuredMac != MacAddress());
-
-    if (rep)
+    if (overridesettings)
     {
-        mac = configuredMac;
+        MacAddress configuredMac;
+        rep = parseMacAddress(&configuredMac);
+        rep &= (configuredMac != MacAddress());
+
+        if (rep)
+        {
+            mac = configuredMac;
+        }
     }
 
     int inst = Platform::InstanceID();

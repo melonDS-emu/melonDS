@@ -55,6 +55,7 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->cbInterpolation->addItem("Linear");
     ui->cbInterpolation->addItem("Cosine");
     ui->cbInterpolation->addItem("Cubic");
+    ui->cbInterpolation->addItem("Gaussian (SNES)");
     ui->cbInterpolation->setCurrentIndex(Config::AudioInterp);
 
     ui->cbBitDepth->addItem("Automatic");
@@ -177,7 +178,7 @@ void AudioSettingsDialog::on_cbBitDepth_currentIndexChanged(int idx)
 void AudioSettingsDialog::on_cbInterpolation_currentIndexChanged(int idx)
 {
     // prevent a spurious change
-    if (ui->cbInterpolation->count() < 4) return;
+    if (ui->cbInterpolation->count() < 5) return;
 
     Config::AudioInterp = ui->cbInterpolation->currentIndex();
 
