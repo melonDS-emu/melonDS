@@ -612,7 +612,7 @@ MainWindow::MainWindow(EmuInstance* inst, QWidget* parent) : QMainWindow(parent)
     actEjectCart->setEnabled(false);
     actEjectGBACart->setEnabled(false);
 
-    if (Config::ConsoleType == 1)
+    if (emuInstance->globalCfg.GetInt("Emu.ConsoleType") == 1)
     {
         actInsertGBACart->setEnabled(false);
         for (int i = 0; i < 1; i++)
@@ -636,7 +636,7 @@ MainWindow::MainWindow(EmuInstance* inst, QWidget* parent) : QMainWindow(parent)
     actPowerManagement->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
-    actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
+    actTitleManager->setEnabled(!emuInstance->globalCfg.GetString("DSi.NANDPath").empty());
 
     actEnableCheats->setChecked(Config::EnableCheats);
 
@@ -1164,7 +1164,7 @@ void MainWindow::updateCartInserted(bool gba)
     bool inserted;
     if (gba)
     {
-        inserted = emuInstance->gbaCartInserted() && (Config::ConsoleType == 0);
+        inserted = emuInstance->gbaCartInserted() && (emuInstance->globalCfg.GetInt("Emu.ConsoleType") == 0);
         actCurrentGBACart->setText("GBA slot: " + emuInstance->gbaCartLabel());
         actEjectGBACart->setEnabled(inserted);
     }
@@ -1696,7 +1696,7 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
 {
     emuThread->emuUnpause();
 
-    if (Config::ConsoleType == 1)
+    if (emuInstance->globalCfg.GetInt("Emu.ConsoleType") == 1)
     {
         actInsertGBACart->setEnabled(false);
         for (int i = 0; i < 1; i++)
@@ -1717,7 +1717,7 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
     actCurrentGBACart->setText("GBA slot: " + emuInstance->gbaCartLabel());
 
     if (!RunningSomething)
-        actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
+        actTitleManager->setEnabled(!emuInstance->globalCfg.GetString("DSi.NANDPath").empty());
 }
 
 void MainWindow::onOpenInputConfig()
@@ -2067,7 +2067,7 @@ void MainWindow::onEmuStop()
     actDateTime->setEnabled(true);
     actPowerManagement->setEnabled(false);
 
-    actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
+    actTitleManager->setEnabled(!emuInstance->globalCfg.GetString("DSi.NANDPath").empty());
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
