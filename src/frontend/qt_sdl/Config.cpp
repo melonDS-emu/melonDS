@@ -22,6 +22,7 @@
 #include <inttypes.h>
 #include "Platform.h"
 #include "Config.h"
+#include "GPU.h"
 
 
 namespace Config
@@ -59,6 +60,7 @@ bool Threaded3D;
 
 int GL_ScaleFactor;
 bool GL_BetterPolygons;
+bool GL_HiresCoordinates;
 
 bool LimitFPS;
 int MaxFPS;
@@ -142,6 +144,7 @@ bool MouseHide;
 int MouseHideSeconds;
 
 bool PauseLostFocus;
+std::string UITheme;
 
 int64_t RTCOffset;
 
@@ -245,11 +248,12 @@ ConfigEntry ConfigFile[] =
     {"ScreenVSync",         1, &ScreenVSync,         false, false},
     {"ScreenVSyncInterval", 0, &ScreenVSyncInterval, 1, false},
 
-    {"3DRenderer", 0, &_3DRenderer, 0, false},
+    {"3DRenderer", 0, &_3DRenderer, renderer3D_Software, false},
     {"Threaded3D", 1, &Threaded3D, true, false},
 
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, false},
     {"GL_BetterPolygons", 1, &GL_BetterPolygons, false, false},
+    {"GL_HiresCoordinates", 1, &GL_HiresCoordinates, true, false},
 
     {"LimitFPS", 1, &LimitFPS, true, false},
     {"MaxFPS", 0, &MaxFPS, 1000, false},
@@ -344,6 +348,7 @@ ConfigEntry ConfigFile[] =
     {"MouseHide",        1, &MouseHide,        false, false},
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, false},
     {"PauseLostFocus",   1, &PauseLostFocus,   false, false},
+    {"UITheme",          2, &UITheme, (std::string)"", false},
 
     {"RTCOffset",       3, &RTCOffset,       (int64_t)0, true},
 
@@ -376,7 +381,7 @@ ConfigEntry ConfigFile[] =
 };
 
 
-void LoadFile(int inst)
+bool LoadFile(int inst, int actualinst)
 {
     Platform::FileHandle* f;
     if (inst > 0)
@@ -384,11 +389,17 @@ void LoadFile(int inst)
         char name[100] = {0};
         snprintf(name, 99, kUniqueConfigFile, inst+1);
         f = Platform::OpenLocalFile(name, Platform::FileMode::ReadText);
+
+        if (!Platform::CheckLocalFileWritable(name)) return false;
     }
     else
+    {
         f = Platform::OpenLocalFile(kConfigFile, Platform::FileMode::ReadText);
 
-    if (!f) return;
+        if (actualinst == 0 && !Platform::CheckLocalFileWritable(kConfigFile)) return false;
+    }
+
+    if (!f) return true;
 
     char linebuf[1024];
     char entryname[32];
@@ -423,9 +434,10 @@ void LoadFile(int inst)
     }
 
     CloseFile(f);
+    return true;
 }
 
-void Load()
+bool Load()
 {
 
     for (ConfigEntry* entry = &ConfigFile[0]; entry->Value; entry++)
@@ -438,12 +450,14 @@ void Load()
         case 3: *(int64_t*)entry->Value = std::get<int64_t>(entry->Default); break;
         }
     }
-
-    LoadFile(0);
-
+    
     int inst = Platform::InstanceID();
+
+    bool ret = LoadFile(0, inst);
     if (inst > 0)
-        LoadFile(inst);
+        ret = LoadFile(inst, inst);
+
+    return ret;
 }
 
 void Save()

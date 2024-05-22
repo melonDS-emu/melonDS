@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>337</width>
-    <height>233</height>
+    <height>275</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -20,12 +20,29 @@
    <string>Interface settings - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,0">
-   <item alignment="Qt::AlignTop">
+   <item>
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
-      <string>Main window</string>
+      <string>User interface</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QLabel" name="label_4">
+          <property name="text">
+           <string>Theme</string>
+          </property>
+          <property name="buddy">
+           <cstring>cbxUITheme</cstring>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="cbxUITheme"/>
+        </item>
+       </layout>
+      </item>
       <item>
        <widget class="QCheckBox" name="cbMouseHide">
         <property name="text">

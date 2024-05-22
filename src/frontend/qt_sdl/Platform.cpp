@@ -31,6 +31,7 @@
 #include <QMutex>
 #include <QOpenGLContext>
 #include <QSharedMemory>
+#include <QTemporaryFile>
 #include <SDL_loadso.h>
 
 #include "Platform.h"
@@ -215,8 +216,33 @@ std::string InstanceFileSuffix()
     return suffix;
 }
 
+static QIODevice::OpenMode GetQMode(FileMode mode)
+{
+    QIODevice::OpenMode qmode = QIODevice::OpenModeFlag::NotOpen;
+    if (mode & FileMode::Read)
+        qmode |= QIODevice::OpenModeFlag::ReadOnly;
+    if (mode & FileMode::Write)
+        qmode |= QIODevice::OpenModeFlag::WriteOnly;
+    if (mode & FileMode::Append)
+        qmode |= QIODevice::OpenModeFlag::Append;
+
+    if ((mode & FileMode::Write) && !(mode & FileMode::Preserve))
+        qmode |= QIODevice::OpenModeFlag::Truncate;
+
+    if (mode & FileMode::NoCreate)
+        qmode |= QIODevice::OpenModeFlag::ExistingOnly;
+
+    if (mode & FileMode::Text)
+        qmode |= QIODevice::OpenModeFlag::Text;
+
+    return qmode;
+}
+
 constexpr char AccessMode(FileMode mode, bool file_exists)
 {
+    if (mode & FileMode::Append)
+        return  'a';
+
     if (!(mode & FileMode::Write))
         // If we're only opening the file for reading...
         return 'r';
@@ -255,16 +281,21 @@ static std::string GetModeString(FileMode mode, bool file_exists)
 
 FileHandle* OpenFile(const std::string& path, FileMode mode)
 {
-    if ((mode & FileMode::ReadWrite) == FileMode::None)
+    if ((mode & (FileMode::ReadWrite | FileMode::Append)) == FileMode::None)
     { // If we aren't reading or writing, then we can't open the file
         Log(LogLevel::Error, "Attempted to open \"%s\" in neither read nor write mode (FileMode 0x%x)\n", path.c_str(), mode);
         return nullptr;
     }
 
-    bool file_exists = QFile::exists(QString::fromStdString(path));
-    std::string modeString = GetModeString(mode, file_exists);
+    QString qpath{QString::fromStdString(path)};
 
-    FILE* file = fopen(path.c_str(), modeString.c_str());
+    std::string modeString = GetModeString(mode, QFile::exists(qpath));
+    QIODevice::OpenMode qmode = GetQMode(mode);
+    QFile qfile{qpath};
+    qfile.open(qmode);
+    FILE* file = fdopen(dup(qfile.handle()), modeString.c_str());
+    qfile.close();
+
     if (file)
     {
         Log(LogLevel::Debug, "Opened \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", path.c_str(), mode, modeString.c_str());
@@ -325,6 +356,44 @@ bool LocalFileExists(const std::string& name)
     if (!f) return false;
     CloseFile(f);
     return true;
+}
+
+bool CheckFileWritable(const std::string& filepath)
+{
+    FileHandle* file = Platform::OpenFile(filepath.c_str(), FileMode::Read);
+
+    if (file)
+    {
+        // if the file exists, check if it can be opened for writing.
+        Platform::CloseFile(file);
+        file = Platform::OpenFile(filepath.c_str(), FileMode::Append);
+        if (file)
+        {
+            Platform::CloseFile(file);
+            return true;
+        }
+        else return false;
+    }
+    else
+    {
+        // if the file does not exist, create a temporary file to check, to avoid creating an empty file.
+        if (QTemporaryFile(filepath.c_str()).open())
+        {
+            return true;
+        }
+        else return false;
+    }
+}
+
+bool CheckLocalFileWritable(const std::string& name)
+{
+    FileHandle* file = Platform::OpenLocalFile(name.c_str(), FileMode::Append);
+    if (file)
+    {
+        Platform::CloseFile(file);
+        return true;
+    }
+    else return false;
 }
 
 bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin)

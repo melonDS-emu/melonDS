@@ -84,7 +84,6 @@ if (BUILD_STATIC)
 endif()
 
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
-pkg_check_modules(Slirp REQUIRED slirp)
 pkg_check_modules(LibArchive REQUIRED IMPORTED_TARGET libarchive)
 pkg_check_modules(Zstd REQUIRED IMPORTED_TARGET libzstd)
 
@@ -94,6 +93,17 @@ add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
 add_executable(melonDS ${SOURCES_QT_SDL})
 
+option(USE_SYSTEM_LIBSLIRP "Use system libslirp instead of the bundled version" OFF)
+if (USE_SYSTEM_LIBSLIRP)
+    pkg_check_modules(Slirp REQUIRED IMPORTED_TARGET slirp)
+    target_link_libraries(melonDS PRIVATE PkgConfig::Slirp)
+else()
+    add_subdirectory("../libslirp"
+            "${CMAKE_BINARY_DIR}/libslirp"
+            EXCLUDE_FROM_ALL)
+    target_link_libraries(melonDS PRIVATE slirp)
+endif()
+
 if (WIN32)
     target_link_libraries(melonDS PUBLIC opengl32)
 
@@ -102,6 +112,10 @@ if (WIN32)
 
         ../glad/glad_wgl.c
     )
+
+    if (MINGW AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+        set_property(TARGET melonDS PROPERTY AUTORCC_OPTIONS "--no-zstd")
+    endif()
 elseif (APPLE)
     if (NOT USE_QT6)
         find_library(COCOA_LIB Cocoa)
@@ -162,9 +176,6 @@ endif()
 target_link_libraries(melonDS PRIVATE core)
 target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd)
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
-
-target_include_directories(melonDS PRIVATE "${Slirp_INCLUDE_DIRS}")
-target_link_libraries(melonDS PRIVATE "${Slirp_LINK_LIBRARIES}")
 
 if (WIN32)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)

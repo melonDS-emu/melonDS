@@ -72,6 +72,7 @@
 
 #include "Platform.h"
 #include "Config.h"
+#include "version.h"
 #include "Savestate.h"
 #include "LocalMP.h"
 
@@ -805,7 +806,7 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
     if (event->isAutoRepeat()) return;
 
     // TODO!! REMOVE ME IN RELEASE BUILDS!!
-    //if (event->key() == Qt::Key_F11) NDS::debug(0);
+    //if (event->key() == Qt::Key_F11) emuThread->NDS->debug(0);
 
     Input::KeyPress(event);
 }
@@ -865,10 +866,8 @@ void MainWindow::dropEvent(QDropEvent* event)
 
     if (isNdsRom)
     {
-        if (!ROMManager::LoadROM(emuThread, file, true))
+        if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
         {
-            // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the DS ROM.");
             emuThread->emuUnpause();
             return;
         }
@@ -886,10 +885,8 @@ void MainWindow::dropEvent(QDropEvent* event)
     }
     else if (isGbaRom)
     {
-        if (!ROMManager::LoadGBAROM(*emuThread->NDS, file))
+        if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, file))
         {
-            // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the GBA ROM.");
             emuThread->emuUnpause();
             return;
         }
@@ -920,6 +917,7 @@ void MainWindow::onAppStateChanged(Qt::ApplicationState state)
 {
     if (state == Qt::ApplicationInactive)
     {
+        Input::KeyReleaseAll();
         if (Config::PauseLostFocus && emuThread->emuIsRunning())
             emuThread->emuPause();
     }
@@ -952,12 +950,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool gbaloaded = false;
     if (!gbafile.isEmpty())
     {
-        if (!ROMManager::LoadGBAROM(*emuThread->NDS, gbafile))
-        {
-            // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the GBA ROM.");
-            return false;
-        }
+        if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, gbafile)) return false;
 
         gbaloaded = true;
     }
@@ -965,12 +958,8 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool ndsloaded = false;
     if (!file.isEmpty())
     {
-        if (!ROMManager::LoadROM(emuThread, file, true))
-        {
-            // TODO: better error reporting?
-            QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
-            return false;
-        }
+        if (!ROMManager::LoadROM(mainWindow, emuThread, file, true)) return false;
+        
         recentFileList.removeAll(file.join("|"));
         recentFileList.prepend(file.join("|"));
         updateRecentFilesMenu();
@@ -1173,11 +1162,9 @@ void MainWindow::onOpenFile()
         emuThread->emuUnpause();
         return;
     }
-
-    if (!ROMManager::LoadROM(emuThread, file, true))
+    
+    if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
     {
-        // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
         emuThread->emuUnpause();
         return;
     }
@@ -1272,11 +1259,9 @@ void MainWindow::onClickRecentFile()
         emuThread->emuUnpause();
         return;
     }
-
-    if (!ROMManager::LoadROM(emuThread, file, true))
+    
+    if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
     {
-        // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
         emuThread->emuUnpause();
         return;
     }
@@ -1326,10 +1311,8 @@ void MainWindow::onInsertCart()
         return;
     }
 
-    if (!ROMManager::LoadROM(emuThread, file, false))
+    if (!ROMManager::LoadROM(mainWindow, emuThread, file, false))
     {
-        // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
         emuThread->emuUnpause();
         return;
     }
@@ -1361,10 +1344,8 @@ void MainWindow::onInsertGBACart()
         return;
     }
 
-    if (!ROMManager::LoadGBAROM(*emuThread->NDS, file))
+    if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, file))
     {
-        // TODO: better error reporting?
-        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
         emuThread->emuUnpause();
         return;
     }
@@ -2067,6 +2048,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
         connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
     }
 
+    printf("update video settings\n");
     videoSettingsDirty = true;
 
     if (glchange)

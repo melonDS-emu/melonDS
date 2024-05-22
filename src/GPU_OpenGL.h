@@ -28,6 +28,7 @@ namespace melonDS
 class GPU;
 struct RenderSettings;
 class GLRenderer;
+class Renderer3D;
 class GLCompositor
 {
 public:
@@ -42,14 +43,14 @@ public:
     [[nodiscard]] int GetScaleFactor() const noexcept { return Scale; }
 
     void Stop(const GPU& gpu) noexcept;
-    void RenderFrame(const GPU& gpu, GLRenderer& renderer) noexcept;
+    void RenderFrame(const GPU& gpu, Renderer3D& renderer) noexcept;
     void BindOutputTexture(int buf);
 private:
-    GLCompositor(std::array<GLuint, 3> CompShader) noexcept;
+    GLCompositor(GLuint CompShader) noexcept;
     int Scale = 0;
     int ScreenH = 0, ScreenW = 0;
 
-    std::array<GLuint, 3> CompShader {};
+    GLuint CompShader {};
     GLuint CompScaleLoc = 0;
     GLuint Comp3DXPosLoc = 0;
 

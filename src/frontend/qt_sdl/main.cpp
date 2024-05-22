@@ -114,6 +114,7 @@ QStringList NdsRomExtensions { ".nds", ".srl", ".dsi", ".ids" };
 QString GbaRomMimeType = "application/x-gba-rom";
 QStringList GbaRomExtensions { ".gba", ".agb" };
 
+QString* systemThemeName;
 
 // This list of supported archive formats is based on libarchive(3) version 3.6.2 (2022-12-09).
 QStringList ArchiveMimeTypes
@@ -172,10 +173,6 @@ CameraManager* camManager[2];
 bool camStarted[2];
 
 //extern int AspectRatiosNum;
-
-
-
-
 
 
 static bool FileExtensionInList(const QString& filename, const QStringList& extensions, Qt::CaseSensitivity cs = Qt::CaseInsensitive)
@@ -292,6 +289,11 @@ int main(int argc, char** argv)
 
     qputenv("QT_SCALE_FACTOR", "1");
 
+#if QT_VERSION_MAJOR == 6 && defined(__WIN32__)
+    // Allow using the system dark theme palette on Windows
+    qputenv("QT_QPA_PLATFORM", "windows:darkmode=2");
+#endif
+
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
@@ -331,18 +333,18 @@ int main(int argc, char** argv)
     SDL_InitSubSystem(SDL_INIT_VIDEO);
     SDL_EnableScreenSaver(); SDL_DisableScreenSaver();
 
-    Config::Load();
+    if (!Config::Load()) QMessageBox::critical(NULL, "melonDS", "Unable to write to config.\nPlease check the write permissions of the folder you placed melonDS in.");
 
-#define SANITIZE(var, min, max)  { var = std::clamp(var, min, max); }
+#define SANITIZE(var, min, max)  { var = std::clamp<int>(var, min, max); }
     SANITIZE(Config::ConsoleType, 0, 1);
 #ifdef OGLRENDERER_ENABLED
-    SANITIZE(Config::_3DRenderer, 0, 1); // 0 is the software renderer, 1 is the OpenGL renderer
+    SANITIZE(Config::_3DRenderer, 0, renderer3D_Max);
 #else
     SANITIZE(Config::_3DRenderer, 0, 0);
 #endif
     SANITIZE(Config::ScreenVSyncInterval, 1, 20);
     SANITIZE(Config::GL_ScaleFactor, 1, 16);
-    SANITIZE(Config::AudioInterp, 0, 3);
+    SANITIZE(Config::AudioInterp, 0, 4);
     SANITIZE(Config::AudioVolume, 0, 256);
     SANITIZE(Config::MicInputType, 0, (int)micInputType_MAX);
     SANITIZE(Config::ScreenRotation, 0, (int)Frontend::screenRot_MAX);
@@ -360,6 +362,12 @@ int main(int argc, char** argv)
     camManager[0]->setXFlip(Config::Camera[0].XFlip);
     camManager[1]->setXFlip(Config::Camera[1].XFlip);
 
+    systemThemeName = new QString(QApplication::style()->objectName());
+
+    if (!Config::UITheme.empty())
+    {
+        QApplication::setStyle(QString::fromStdString(Config::UITheme));
+    }
 
     Input::JoystickID = Config::JoystickID;
     Input::OpenJoystick();

@@ -35,6 +35,8 @@ add_library(core STATIC
     GPU2D_Soft.cpp
     GPU3D.cpp
     GPU3D_Soft.cpp
+    GPU3D_Texcache.cpp
+    GPU3D_Texcache.h
     melonDLDI.h
     NDS.cpp
     NDSCart.cpp
@@ -52,7 +54,6 @@ add_library(core STATIC
     types.h
     Utils.cpp
     Utils.h
-    version.h
     Wifi.cpp
     WifiAP.cpp
 
@@ -79,6 +80,9 @@ if (ENABLE_OGLRENDERER)
         GPU_OpenGL.cpp
         GPU_OpenGL_shaders.h
         GPU3D_OpenGL.cpp
+        GPU3D_Compute.cpp
+        GPU3D_TexcacheOpenGL.cpp
+        GPU3D_TexcacheOpenGL.h
         GPU3D_OpenGL_shaders.h
         OpenGLSupport.cpp)
 
@@ -123,6 +127,12 @@ if (ENABLE_JIT)
     endif()
 endif()
 
+set(MELONDS_VERSION_SUFFIX "$ENV{MELONDS_VERSION_SUFFIX}" CACHE STRING "Suffix to add to displayed melonDS version")
+
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
+target_sources(core PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/version.h")
+target_include_directories(core PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
+
 add_subdirectory(teakra EXCLUDE_FROM_ALL)
 # Workaround for building teakra with -O0 on Windows either failing or hanging forever
 target_compile_options(teakra PRIVATE "$<$<CONFIG:DEBUG>:-Og>")
@@ -154,11 +164,13 @@ endif()
 
 if (WIN32)
     target_link_libraries(core PRIVATE ole32 comctl32 wsock32 ws2_32)
-elseif(NOT APPLE)
+elseif(NOT APPLE AND NOT HAIKU)
     check_library_exists(rt shm_open "" NEED_LIBRT)
     if (NEED_LIBRT)
         target_link_libraries(core PRIVATE rt)
     endif()
+elseif(HAIKU)
+	target_link_libraries(core PRIVATE network)
 endif()
 
 if (ENABLE_JIT_PROFILING)
