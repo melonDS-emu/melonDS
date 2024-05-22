@@ -691,27 +691,27 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
         rp->NextVR = rp->CurVR + 1;
         if (rp->NextVR >= nverts) rp->NextVR = 0;
     }
-
+    /*
     if (ybot == ytop)
     {
         vtop = 0; vbot = 0;
         int i;
 
         i = 1;
-        if (polygon->SlopePosition[i][0] < polygon->SlopePosition[vtop][0]) vtop = i;
-        if (polygon->SlopePosition[i][0] > polygon->SlopePosition[vbot][0]) vbot = i;
+        if (polygon->Vertices[i]->FinalPosition[0] < polygon->Vertices[vtop]->FinalPosition[0]) vtop = i;
+        if (polygon->Vertices[i]->FinalPosition[0] > polygon->Vertices[vbot]->FinalPosition[0]) vbot = i;
 
         i = nverts - 1;
-        if (polygon->SlopePosition[i][0] < polygon->SlopePosition[vtop][0]) vtop = i;
-        if (polygon->SlopePosition[i][0] > polygon->SlopePosition[vbot][0]) vbot = i;
+        if (polygon->Vertices[i]->FinalPosition[0] < polygon->Vertices[vtop]->FinalPosition[0]) vtop = i;
+        if (polygon->Vertices[i]->FinalPosition[0] > polygon->Vertices[vbot]->FinalPosition[0]) vbot = i;
 
         rp->CurVL = vtop; rp->NextVL = vtop;
         rp->CurVR = vbot; rp->NextVR = vbot;
 
-        rp->XL = rp->SlopeL.SetupDummy(polygon->SlopePosition[rp->CurVL][0]);
-        rp->XR = rp->SlopeR.SetupDummy(polygon->SlopePosition[rp->CurVR][0]);
+        rp->XL = rp->SlopeL.SetupDummy(polygon->Vertices[rp->CurVL]->FinalPosition[0]);
+        rp->XR = rp->SlopeR.SetupDummy(polygon->Vertices[rp->CurVR]->FinalPosition[0]);
     }
-    else
+    else*/
     {
         SetupPolygonLeftEdge(rp, ytop);
         SetupPolygonRightEdge(rp, ytop);
