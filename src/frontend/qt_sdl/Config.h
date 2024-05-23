@@ -116,7 +116,7 @@ public:
     Table& operator=(const Table& b);
 
     Array GetArray(const std::string& path);
-    Table GetTable(const std::string& path);
+    Table GetTable(const std::string& path, const std::string& defpath = "");
 
     int GetInt(const std::string& path);
     int64_t GetInt64(const std::string& path);

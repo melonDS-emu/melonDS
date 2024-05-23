@@ -197,11 +197,13 @@ static void signalHandler(int)
 
 int test = 0;
 
-MainWindow::MainWindow(EmuInstance* inst, QWidget* parent) :
+MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     QMainWindow(parent),
+    windowID(id),
     emuInstance(inst),
     globalCfg(inst->globalCfg),
-    localCfg(inst->localCfg)
+    localCfg(inst->localCfg),
+    windowCfg(localCfg.GetTable("Window"+std::to_string(id), "Window0"))
 {
     test_num = test++;
 #ifndef _WIN32

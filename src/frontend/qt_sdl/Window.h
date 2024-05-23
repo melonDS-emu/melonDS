@@ -102,7 +102,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(EmuInstance* inst, QWidget* parent = nullptr);
+    explicit MainWindow(int id, EmuInstance* inst, QWidget* parent = nullptr);
     ~MainWindow();
 
     EmuInstance* getEmuInstance() { return emuInstance; }
@@ -241,11 +241,14 @@ private:
 
     int test_num;
 
+    int windowID;
+
     EmuInstance* emuInstance;
     EmuThread* emuThread;
 
     Config::Table& globalCfg;
     Config::Table& localCfg;
+    Config::Table windowCfg;
 
 public:
     ScreenPanel* panel;

@@ -539,11 +539,17 @@ Array Table::GetArray(const std::string& path)
     return Array(arr);
 }
 
-Table Table::GetTable(const std::string& path)
+Table Table::GetTable(const std::string& path, const std::string& defpath)
 {
     toml::value& tbl = ResolvePath(path);
     if (!tbl.is_table())
-        tbl = toml::table();
+    {
+        toml::value defval = toml::table();
+        if (!defpath.empty())
+            defval = ResolvePath(defpath);
+
+        tbl = defval;
+    }
 
     return Table(tbl, PathPrefix + path);
 }
