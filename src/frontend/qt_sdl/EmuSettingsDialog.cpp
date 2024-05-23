@@ -16,11 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <stdio.h>
 #include <QFileDialog>
 #include <QMessageBox>
-#include <QList>
-#include <QDateEdit>
 
 #include "types.h"
 #include "Platform.h"
@@ -28,6 +25,7 @@
 
 #include "EmuSettingsDialog.h"
 #include "ui_EmuSettingsDialog.h"
+#include "main.h"
 
 using namespace melonDS::Platform;
 using namespace melonDS;
@@ -59,8 +57,9 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    Config::Table cfg = Config::GetGlobalTable();
-    Config::Table instcfg = Config::GetLocalTable(Platform::InstanceID());
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
+    auto& cfg = emuInstance->getGlobalConfig();
+    auto& instcfg = emuInstance->getLocalConfig();
 
     lastBIOSFolder = cfg.GetQString("LastBIOSFolder");
 
@@ -253,8 +252,8 @@ void EmuSettingsDialog::done(int r)
                     QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
                 return;
 
-            Config::Table cfg = Config::GetGlobalTable();
-            Config::Table instcfg = Config::GetLocalTable(Platform::InstanceID());
+            auto& cfg = emuInstance->getGlobalConfig();
+            auto& instcfg = emuInstance->getLocalConfig();
 
             cfg.SetBool("Emu.ExternalBIOSEnable", ui->chkExternalBIOS->isChecked());
             cfg.SetQString("DS.BIOS9Path", ui->txtBIOS9Path->text());

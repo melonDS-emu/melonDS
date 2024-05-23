@@ -39,6 +39,9 @@ public:
     EmuThread* getEmuThread() { return emuThread; }
     melonDS::NDS* getNDS() { return nds; }
 
+    Config::Table& getGlobalConfig() { return globalCfg; }
+    Config::Table& getLocalConfig() { return localCfg; }
+
     void createWindow();
 
     // return: empty string = setup OK, non-empty = error message
@@ -181,6 +184,13 @@ private:
     melonDS::s16* micBuffer;
     melonDS::u32 micBufferLength;
     melonDS::u32 micBufferReadPos;
+
+    //int audioInterp;
+    int audioVolume;
+    bool audioDSiVolumeSync;
+    int micInputType;
+    std::string micDeviceName;
+    std::string micWavPath;
 
     friend class EmuThread;
     friend class MainWindow;

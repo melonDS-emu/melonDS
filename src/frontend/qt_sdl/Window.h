@@ -34,6 +34,7 @@
 #include <QCloseEvent>
 
 #include "Screen.h"
+#include "Config.h"
 
 
 class EmuInstance;
@@ -177,6 +178,7 @@ private slots:
     void onOpenCameraSettings();
     void onCameraSettingsFinished(int res);
     void onOpenAudioSettings();
+    void onUpdateAudioVolume(int vol, int dsisync);
     void onUpdateAudioSettings();
     void onAudioSettingsFinished(int res);
     void onOpenMPSettings();
@@ -240,8 +242,10 @@ private:
     int test_num;
 
     EmuInstance* emuInstance;
-
     EmuThread* emuThread;
+
+    Config::Table& globalCfg;
+    Config::Table& localCfg;
 
 public:
     ScreenPanel* panel;

@@ -397,7 +397,7 @@ void EmuThread::run()
                     window->setGLSwapInterval(0);
             }
 
-            if (Config::DSiVolumeSync && emuInstance->nds->ConsoleType == 1)
+            if (emuInstance->audioDSiVolumeSync && emuInstance->nds->ConsoleType == 1)
             {
                 DSi* dsi = static_cast<DSi*>(emuInstance->nds);
                 u8 volumeLevel = dsi->I2C.GetBPTWL()->GetVolumeLevel();
@@ -407,7 +407,7 @@ void EmuThread::run()
                     emit syncVolumeLevel();
                 }
 
-                Config::AudioVolume = volumeLevel * (256.0 / 31.0);
+                emuInstance->audioVolume = volumeLevel * (256.0 / 31.0);
             }
 
             if (Config::AudioSync && !fastforward)

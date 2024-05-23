@@ -347,9 +347,6 @@ int main(int argc, char** argv)
 #endif
     SANITIZE(Config::ScreenVSyncInterval, 1, 20);
     SANITIZE(Config::GL_ScaleFactor, 1, 16);
-    SANITIZE(Config::AudioInterp, 0, 4);
-    SANITIZE(Config::AudioVolume, 0, 256);
-    SANITIZE(Config::MicInputType, 0, (int)micInputType_MAX);
     SANITIZE(Config::ScreenRotation, 0, (int)Frontend::screenRot_MAX);
     SANITIZE(Config::ScreenGap, 0, 500);
     SANITIZE(Config::ScreenLayout, 0, (int)Frontend::screenLayout_MAX);

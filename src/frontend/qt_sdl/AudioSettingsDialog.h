@@ -57,6 +57,7 @@ public:
     void onConsoleReset();
 
 signals:
+    void updateAudioVolume(int vol, bool dsisync);
     void updateAudioSettings();
 
 private slots:
@@ -80,6 +81,9 @@ private:
     int oldVolume;
     bool oldDSiSync;
     QButtonGroup* grpMicMode;
+
+    int volume;
+    bool dsiSync;
 };
 
 #endif // AUDIOSETTINGSDIALOG_H

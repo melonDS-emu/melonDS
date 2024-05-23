@@ -987,8 +987,8 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
             std::move(arm7bios),
             std::move(*firmware),
             jitargs,
-            static_cast<AudioBitDepth>(Config::AudioBitDepth),
-            static_cast<AudioInterpolation>(Config::AudioInterp),
+            static_cast<AudioBitDepth>(globalCfg.GetInt("Audio.BitDepth")),
+            static_cast<AudioInterpolation>(globalCfg.GetInt("Audio.Interpolation")),
             gdbargs,
     };
 

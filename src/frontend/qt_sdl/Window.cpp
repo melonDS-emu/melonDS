@@ -198,10 +198,12 @@ static void signalHandler(int)
 
 int test = 0;
 
-MainWindow::MainWindow(EmuInstance* inst, QWidget* parent) : QMainWindow(parent)
+MainWindow::MainWindow(EmuInstance* inst, QWidget* parent) :
+    QMainWindow(parent),
+    emuInstance(inst),
+    globalCfg(inst->globalCfg),
+    localCfg(inst->localCfg)
 {
-    emuInstance = inst;
-
     test_num = test++;
 #ifndef _WIN32
     if (!parent)
@@ -1767,6 +1769,7 @@ void MainWindow::onOpenAudioSettings()
     AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this);
     connect(emuThread, &EmuThread::syncVolumeLevel, dlg, &AudioSettingsDialog::onSyncVolumeLevel);
     connect(emuThread, &EmuThread::windowEmuStart, dlg, &AudioSettingsDialog::onConsoleReset);
+    connect(dlg, &AudioSettingsDialog::updateAudioVolume, this, &MainWindow::onUpdateAudioVolume);
     connect(dlg, &AudioSettingsDialog::updateAudioSettings, this, &MainWindow::onUpdateAudioSettings);
     connect(dlg, &AudioSettingsDialog::finished, this, &MainWindow::onAudioSettingsFinished);
 }
@@ -1803,15 +1806,24 @@ void MainWindow::onPathSettingsFinished(int res)
     emuThread->emuUnpause();
 }
 
+void MainWindow::onUpdateAudioVolume(int vol, int dsisync)
+{
+    emuInstance->audioVolume = vol;
+    emuInstance->audioDSiVolumeSync = dsisync;
+}
+
 void MainWindow::onUpdateAudioSettings()
 {
     assert(emuInstance->nds != nullptr);
-    emuInstance->nds->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
 
-    if (Config::AudioBitDepth == 0)
+    int interp = globalCfg.GetInt("Audio.Interpolation");
+    emuInstance->nds->SPU.SetInterpolation(static_cast<AudioInterpolation>(interp));
+
+    int bitdepth = globalCfg.GetInt("Audio.BitDepth");
+    if (bitdepth == 0)
         emuInstance->nds->SPU.SetDegrade10Bit(emuInstance->nds->ConsoleType == 0);
     else
-        emuInstance->nds->SPU.SetDegrade10Bit(Config::AudioBitDepth == 1);
+        emuInstance->nds->SPU.SetDegrade10Bit(bitdepth == 1);
 }
 
 void MainWindow::onAudioSettingsFinished(int res)

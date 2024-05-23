@@ -24,6 +24,8 @@
 namespace Ui { class EmuSettingsDialog; }
 class EmuSettingsDialog;
 
+class EmuInstance;
+
 class EmuSettingsDialog : public QDialog
 {
     Q_OBJECT
@@ -84,6 +86,7 @@ private:
     void updateLastBIOSFolder(QString& filename);
 
     Ui::EmuSettingsDialog* ui;
+    EmuInstance* emuInstance;
     QString lastBIOSFolder;
 };
 

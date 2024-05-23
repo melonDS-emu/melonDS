@@ -91,7 +91,7 @@ void EmuInstance::audioCallback(void* data, Uint8* stream, int len)
         num_in = len_in-margin;
     }
 
-    inst->audioResample(buf_in, num_in, (s16*)stream, len, Config::AudioVolume);
+    inst->audioResample(buf_in, num_in, (s16*)stream, len, inst->audioVolume);
 }
 
 void EmuInstance::micCallback(void* data, Uint8* stream, int len)
@@ -139,7 +139,7 @@ void EmuInstance::audioMute()
 
 void EmuInstance::micOpen()
 {
-    if (Config::MicInputType != micInputType_External)
+    if (micInputType != micInputType_External)
     {
         micDevice = 0;
         return;
@@ -158,9 +158,9 @@ void EmuInstance::micOpen()
     whatIwant.callback = micCallback;
     whatIwant.userdata = this;
     const char* mic = NULL;
-    if (Config::MicDevice != "")
+    if (micDeviceName != "")
     {
-        mic = Config::MicDevice.c_str();
+        mic = micDeviceName.c_str();
     }
     micDevice = SDL_OpenAudioDevice(mic, 1, &whatIwant, &whatIget, 0);
     if (!micDevice)
@@ -264,7 +264,7 @@ void EmuInstance::micLoadWav(const std::string& name)
 
 void EmuInstance::micProcess()
 {
-    int type = Config::MicInputType;
+    int type = micInputType;
     bool cmd = Input::HotkeyDown(HK_Mic);
 
     if (type != micInputType_External && !cmd)
@@ -335,7 +335,11 @@ void EmuInstance::setupMicInputData()
         micWavLength = 0;
     }
 
-    switch (Config::MicInputType)
+    micInputType = globalCfg.GetInt("Mic.InputType");
+    micDeviceName = globalCfg.GetString("Mic.Device");
+    micWavPath = globalCfg.GetString("Mic.WavPath");
+
+    switch (micInputType)
     {
         case micInputType_Silence:
         case micInputType_Noise:
@@ -347,7 +351,7 @@ void EmuInstance::setupMicInputData()
             micBufferLength = sizeof(micExtBuffer)/sizeof(s16);
             break;
         case micInputType_Wav:
-            micLoadWav(Config::MicWavPath);
+            micLoadWav(micWavPath);
             micBuffer = micWavBuffer;
             micBufferLength = micWavLength;
             break;
@@ -358,6 +362,9 @@ void EmuInstance::setupMicInputData()
 
 void EmuInstance::audioInit()
 {
+    audioVolume = localCfg.GetInt("Audio.Volume");
+    audioDSiVolumeSync = localCfg.GetBool("Audio.DSiVolumeSync");
+
     audioMuted = false;
     audioSyncCond = SDL_CreateCond();
     audioSyncLock = SDL_CreateMutex();
@@ -432,7 +439,8 @@ void EmuInstance::audioUpdateSettings()
 {
     micClose();
 
-    nds->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
+    int audiointerp = globalCfg.GetInt("Audio.Interpolation");
+    nds->SPU.SetInterpolation(static_cast<AudioInterpolation>(audiointerp));
     setupMicInputData();
 
     micOpen();
