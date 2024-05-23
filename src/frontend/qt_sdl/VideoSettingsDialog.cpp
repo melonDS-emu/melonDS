@@ -24,6 +24,7 @@
 #include "Platform.h"
 #include "Config.h"
 #include "GPU.h"
+#include "main.h"
 
 #include "VideoSettingsDialog.h"
 #include "ui_VideoSettingsDialog.h"

@@ -35,45 +35,6 @@ class value;
 }
 #endif
 
-enum
-{
-    HK_Lid = 0,
-    HK_Mic,
-    HK_Pause,
-    HK_Reset,
-    HK_FastForward,
-    HK_FastForwardToggle,
-    HK_FullscreenToggle,
-    HK_SwapScreens,
-    HK_SwapScreenEmphasis,
-    HK_SolarSensorDecrease,
-    HK_SolarSensorIncrease,
-    HK_FrameStep,
-    HK_PowerButton,
-    HK_VolumeUp,
-    HK_VolumeDown,
-    HK_MAX
-};
-
-enum
-{
-    micInputType_Silence,
-    micInputType_External,
-    micInputType_Noise,
-    micInputType_Wav,
-    micInputType_MAX,
-};
-
-enum
-{
-    renderer3D_Software = 0,
-#ifdef OGLRENDERER_ENABLED
-    renderer3D_OpenGL,
-    renderer3D_OpenGLCompute,
-#endif
-    renderer3D_Max,
-};
-
 namespace Config
 {
 
@@ -187,14 +148,6 @@ private:
     template<typename T> T FindDefault(const std::string& path, T def, DefaultList<T> list);
 };
 
-
-extern int KeyMapping[12];
-extern int JoyMapping[12];
-
-extern int HKKeyMapping[HK_MAX];
-extern int HKJoyMapping[HK_MAX];
-
-extern int JoystickID;
 
 extern int WindowWidth;
 extern int WindowHeight;

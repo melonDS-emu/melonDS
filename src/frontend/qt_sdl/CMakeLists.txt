@@ -9,6 +9,7 @@ set(SOURCES_QT_SDL
     Window.cpp
     EmuInstance.cpp
     EmuInstanceAudio.cpp
+    EmuInstanceInput.cpp
     EmuThread.cpp
     CheatsDialog.cpp
     Config.cpp
@@ -30,7 +31,6 @@ set(SOURCES_QT_SDL
     ROMInfoDialog.cpp
     RAMInfoDialog.cpp
     TitleManagerDialog.cpp
-    Input.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp
     LocalMP.cpp

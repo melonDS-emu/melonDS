@@ -20,7 +20,6 @@
 #include "NDS.h"
 #include "SPU.h"
 #include "Platform.h"
-#include "Input.h"
 #include "main.h"
 
 #include "mic_blow.h"
@@ -265,7 +264,7 @@ void EmuInstance::micLoadWav(const std::string& name)
 void EmuInstance::micProcess()
 {
     int type = micInputType;
-    bool cmd = Input::HotkeyDown(HK_Mic);
+    bool cmd = hotkeyDown(HK_Mic);
 
     if (type != micInputType_External && !cmd)
     {

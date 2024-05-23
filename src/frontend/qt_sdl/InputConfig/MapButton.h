@@ -23,8 +23,10 @@
 
 #include <SDL2/SDL.h>
 
-#include "Input.h"
 #include "Platform.h"
+#include "EmuInstance.h"
+
+class InputConfigDialog;
 
 class KeyMapButton : public QPushButton
 {
@@ -76,7 +78,7 @@ protected:
 
         if (!ismod)
             key |= mod;
-        else if (Input::IsRightModKey(event))
+        else if (isRightModKey(event))
             key |= (1<<31);
 
         *mapping = key;
@@ -162,6 +164,9 @@ public:
         this->mapping = mapping;
         this->isHotkey = hotkey;
 
+        // the parent will be set later when this button is added to a layout
+        parentDialog = nullptr;
+
         setCheckable(true);
         setText(mappingText());
         setFocusPolicy(Qt::StrongFocus); //Fixes binding keys in macOS
@@ -176,6 +181,20 @@ public:
     }
 
 protected:
+    void showEvent(QShowEvent* event) override
+    {
+        if (event->spontaneous()) return;
+
+        QWidget* w = parentWidget();
+        for (;;)
+        {
+            parentDialog = qobject_cast<InputConfigDialog*>(w);
+            if (parentDialog) break;
+            w = w->parentWidget();
+            if (!w) break;
+        }
+    }
+
     void keyPressEvent(QKeyEvent* event) override
     {
         if (!isChecked()) return QPushButton::keyPressEvent(event);
@@ -203,7 +222,7 @@ protected:
 
     void timerEvent(QTimerEvent* event) override
     {
-        SDL_Joystick* joy = Input::Joystick;
+        SDL_Joystick* joy = parentDialog->getJoystick();
         if (!joy) { click(); return; }
         if (!SDL_JoystickGetAttached(joy)) { click(); return; }
 
@@ -279,13 +298,15 @@ private slots:
             timerID = startTimer(50);
 
             memset(axesRest, 0, sizeof(axesRest));
-            if (Input::Joystick && SDL_JoystickGetAttached(Input::Joystick))
+
+            SDL_Joystick* joy = parentDialog->getJoystick();
+            if (joy && SDL_JoystickGetAttached(joy))
             {
-                int naxes = SDL_JoystickNumAxes(Input::Joystick);
+                int naxes = SDL_JoystickNumAxes(joy);
                 if (naxes > 16) naxes = 16;
                 for (int a = 0; a < naxes; a++)
                 {
-                    axesRest[a] = SDL_JoystickGetAxis(Input::Joystick, a);
+                    axesRest[a] = SDL_JoystickGetAxis(joy, a);
                 }
             }
         }
@@ -348,6 +369,8 @@ private:
 
         return str;
     }
+
+    InputConfigDialog* parentDialog;
 
     int* mapping;
     bool isHotkey;

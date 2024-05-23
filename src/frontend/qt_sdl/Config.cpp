@@ -28,7 +28,7 @@
 #include "Platform.h"
 #include "Config.h"
 #include "FrontendUtil.h"
-#include "Screen.h"
+#include "main.h"
 
 using namespace std::string_literals;
 
@@ -36,14 +36,6 @@ using namespace std::string_literals;
 namespace Config
 {
 using namespace melonDS;
-
-int KeyMapping[12];
-int JoyMapping[12];
-
-int HKKeyMapping[HK_MAX];
-int HKJoyMapping[HK_MAX];
-
-int JoystickID;
 
 int WindowWidth;
 int WindowHeight;

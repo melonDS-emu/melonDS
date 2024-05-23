@@ -51,7 +51,6 @@
 #endif
 
 #include "main.h"
-#include "Input.h"
 #include "CheatsDialog.h"
 #include "DateTimeDialog.h"
 #include "EmuSettingsDialog.h"
@@ -846,14 +845,14 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
     // TODO!! REMOVE ME IN RELEASE BUILDS!!
     //if (event->key() == Qt::Key_F11) emuThread->NDS->debug(0);
 
-    Input::KeyPress(event);
+    emuInstance->onKeyPress(event);
 }
 
 void MainWindow::keyReleaseEvent(QKeyEvent* event)
 {
     if (event->isAutoRepeat()) return;
 
-    Input::KeyRelease(event);
+    emuInstance->onKeyRelease(event);
 }
 
 
@@ -955,7 +954,7 @@ void MainWindow::onAppStateChanged(Qt::ApplicationState state)
 {
     if (state == Qt::ApplicationInactive)
     {
-        Input::KeyReleaseAll();
+        emuInstance->keyReleaseAll();
         if (Config::PauseLostFocus && emuThread->emuIsRunning())
             emuThread->emuPause();
     }

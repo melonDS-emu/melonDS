@@ -29,6 +29,48 @@
 
 const int kMaxWindows = 16;
 
+enum
+{
+    HK_Lid = 0,
+    HK_Mic,
+    HK_Pause,
+    HK_Reset,
+    HK_FastForward,
+    HK_FastForwardToggle,
+    HK_FullscreenToggle,
+    HK_SwapScreens,
+    HK_SwapScreenEmphasis,
+    HK_SolarSensorDecrease,
+    HK_SolarSensorIncrease,
+    HK_FrameStep,
+    HK_PowerButton,
+    HK_VolumeUp,
+    HK_VolumeDown,
+    HK_MAX
+};
+
+enum
+{
+    micInputType_Silence,
+    micInputType_External,
+    micInputType_Noise,
+    micInputType_Wav,
+    micInputType_MAX,
+};
+
+enum
+{
+    renderer3D_Software = 0,
+#ifdef OGLRENDERER_ENABLED
+    renderer3D_OpenGL,
+    renderer3D_OpenGLCompute,
+#endif
+    renderer3D_Max,
+};
+
+bool isRightModKey(QKeyEvent* event);
+int getEventKeyVal(QKeyEvent* event);
+
 class EmuInstance
 {
 public:
@@ -60,6 +102,17 @@ public:
                          const melonDS::u16 (&sequence)[64],
                          melonDS::u32 (&animatedIconRef)[64][32*32],
                          std::vector<int> &animatedSequenceRef);
+
+    static const char* buttonNames[12];
+    static const char* hotkeyNames[HK_MAX];
+
+    void inputInit();
+    void inputDeInit();
+    void inputLoadConfig();
+
+    void setJoystick(int id);
+    int getJoystickID() { return joystickID; }
+    SDL_Joystick* getJoystick() { return joystick; }
 
 private:
     static int lastSep(const std::string& path);
@@ -130,6 +183,20 @@ private:
     static void audioCallback(void* data, Uint8* stream, int len);
     static void micCallback(void* data, Uint8* stream, int len);
 
+    void onKeyPress(QKeyEvent* event);
+    void onKeyRelease(QKeyEvent* event);
+    void keyReleaseAll();
+
+    void openJoystick();
+    void closeJoystick();
+    bool joystickButtonDown(int val);
+
+    void inputProcess();
+
+    bool hotkeyDown(int id)     { return hotkeyMask    & (1<<id); }
+    bool hotkeyPressed(int id)  { return hotkeyPress   & (1<<id); }
+    bool hotkeyReleased(int id) { return hotkeyRelease & (1<<id); }
+
     int instanceID;
 
     EmuThread* emuThread;
@@ -191,6 +258,21 @@ private:
     int micInputType;
     std::string micDeviceName;
     std::string micWavPath;
+
+    int keyMapping[12];
+    int joyMapping[12];
+    int hkKeyMapping[HK_MAX];
+    int hkJoyMapping[HK_MAX];
+
+    int joystickID;
+    SDL_Joystick* joystick;
+
+    melonDS::u32 keyInputMask, joyInputMask;
+    melonDS::u32 keyHotkeyMask, joyHotkeyMask;
+    melonDS::u32 hotkeyMask, lastHotkeyMask;
+    melonDS::u32 hotkeyPress, hotkeyRelease;
+
+    melonDS::u32 inputMask;
 
     friend class EmuThread;
     friend class MainWindow;

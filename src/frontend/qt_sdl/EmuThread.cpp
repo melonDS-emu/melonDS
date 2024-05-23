@@ -29,7 +29,6 @@
 #include <SDL2/SDL.h>
 
 #include "main.h"
-#include "Input.h"
 
 #include "types.h"
 #include "version.h"
@@ -172,8 +171,6 @@ void EmuThread::run()
 
     updateRenderer();
 
-    Input::Init();
-
     u32 nframes = 0;
     double perfCountsSec = 1.0 / SDL_GetPerformanceFrequency();
     double lastTime = SDL_GetPerformanceCounter() * perfCountsSec;
@@ -196,25 +193,25 @@ void EmuThread::run()
 
     while (EmuRunning != emuStatus_Exit)
     {
-        Input::Process();
+        emuInstance->inputProcess();
 
-        if (Input::HotkeyPressed(HK_FastForwardToggle)) emit windowLimitFPSChange();
+        if (emuInstance->hotkeyPressed(HK_FastForwardToggle)) emit windowLimitFPSChange();
 
-        if (Input::HotkeyPressed(HK_Pause)) emit windowEmuPause();
-        if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
-        if (Input::HotkeyPressed(HK_FrameStep)) emit windowEmuFrameStep();
+        if (emuInstance->hotkeyPressed(HK_Pause)) emit windowEmuPause();
+        if (emuInstance->hotkeyPressed(HK_Reset)) emit windowEmuReset();
+        if (emuInstance->hotkeyPressed(HK_FrameStep)) emit windowEmuFrameStep();
 
-        if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
+        if (emuInstance->hotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
-        if (Input::HotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
-        if (Input::HotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
+        if (emuInstance->hotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
+        if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
 
         if (EmuRunning == emuStatus_Running || EmuRunning == emuStatus_FrameStep)
         {
             EmuStatus = emuStatus_Running;
             if (EmuRunning == emuStatus_FrameStep) EmuRunning = emuStatus_Paused;
 
-            if (Input::HotkeyPressed(HK_SolarSensorDecrease))
+            if (emuInstance->hotkeyPressed(HK_SolarSensorDecrease))
             {
                 int level = emuInstance->nds->GBACartSlot.SetInput(GBACart::Input_SolarSensorDown, true);
                 if (level != -1)
@@ -222,7 +219,7 @@ void EmuThread::run()
                     //mainWindow->osdAddMessage(0, "Solar sensor level: %d", level);
                 }
             }
-            if (Input::HotkeyPressed(HK_SolarSensorIncrease))
+            if (emuInstance->hotkeyPressed(HK_SolarSensorIncrease))
             {
                 int level = emuInstance->nds->GBACartSlot.SetInput(GBACart::Input_SolarSensorUp, true);
                 if (level != -1)
@@ -237,30 +234,30 @@ void EmuThread::run()
                 double currentTime = SDL_GetPerformanceCounter() * perfCountsSec;
 
                 // Handle power button
-                if (Input::HotkeyDown(HK_PowerButton))
+                if (emuInstance->hotkeyDown(HK_PowerButton))
                 {
                     dsi->I2C.GetBPTWL()->SetPowerButtonHeld(currentTime);
                 }
-                else if (Input::HotkeyReleased(HK_PowerButton))
+                else if (emuInstance->hotkeyReleased(HK_PowerButton))
                 {
                     dsi->I2C.GetBPTWL()->SetPowerButtonReleased(currentTime);
                 }
 
                 // Handle volume buttons
-                if (Input::HotkeyDown(HK_VolumeUp))
+                if (emuInstance->hotkeyDown(HK_VolumeUp))
                 {
                     dsi->I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Up);
                 }
-                else if (Input::HotkeyReleased(HK_VolumeUp))
+                else if (emuInstance->hotkeyReleased(HK_VolumeUp))
                 {
                     dsi->I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Up);
                 }
 
-                if (Input::HotkeyDown(HK_VolumeDown))
+                if (emuInstance->hotkeyDown(HK_VolumeDown))
                 {
                     dsi->I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Down);
                 }
-                else if (Input::HotkeyReleased(HK_VolumeDown))
+                else if (emuInstance->hotkeyReleased(HK_VolumeDown))
                 {
                     dsi->I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Down);
                 }
@@ -275,7 +272,7 @@ void EmuThread::run()
             // HACK:
             // once the fast forward hotkey is released, we need to update vsync
             // to the old setting again
-            if (videoSettingsDirty || Input::HotkeyReleased(HK_FastForward))
+            if (videoSettingsDirty || emuInstance->hotkeyReleased(HK_FastForward))
             {
                 if (useOpenGL)
                 {
@@ -297,9 +294,9 @@ void EmuThread::run()
             }
 
             // process input and hotkeys
-            emuInstance->nds->SetKeyMask(Input::InputMask);
+            emuInstance->nds->SetKeyMask(emuInstance->inputMask);
 
-            if (Input::HotkeyPressed(HK_Lid))
+            if (emuInstance->hotkeyPressed(HK_Lid))
             {
                 bool lid = !emuInstance->nds->IsLidClosed();
                 emuInstance->nds->SetLidClosed(lid);
@@ -388,7 +385,7 @@ void EmuThread::run()
                 winUpdateCount = 0;
             }
 
-            bool fastforward = Input::HotkeyDown(HK_FastForward);
+            bool fastforward = emuInstance->hotkeyDown(HK_FastForward);
 
             if (fastforward && useOpenGL && Config::ScreenVSync)
             {

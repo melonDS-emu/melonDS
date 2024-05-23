@@ -72,6 +72,7 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
     updateConsole(nullptr, nullptr);
 
     audioInit();
+    inputInit();
 
     emuThread = new EmuThread(this);
 
@@ -96,6 +97,7 @@ EmuInstance::~EmuInstance()
     delete emuThread;
 
     audioDeInit();
+    inputDeInit();
 }
 
 

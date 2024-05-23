@@ -56,48 +56,19 @@
 #include "duckstation/gl/context.h"
 
 #include "main.h"
-#include "Input.h"
 #include "CheatsDialog.h"
 #include "DateTimeDialog.h"
 #include "EmuSettingsDialog.h"
 #include "InputConfig/InputConfigDialog.h"
 #include "VideoSettingsDialog.h"
-#include "CameraSettingsDialog.h"
-#include "AudioSettingsDialog.h"
-#include "FirmwareSettingsDialog.h"
-#include "PathSettingsDialog.h"
-#include "MPSettingsDialog.h"
-#include "WifiSettingsDialog.h"
-#include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
 #include "RAMInfoDialog.h"
-#include "TitleManagerDialog.h"
 #include "PowerManagement/PowerManagementDialog.h"
 
-#include "types.h"
 #include "version.h"
 
-#include "FrontendUtil.h"
-
-#include "Args.h"
-#include "NDS.h"
-#include "NDSCart.h"
-#include "GBACart.h"
-#include "GPU.h"
-#include "SPU.h"
-#include "Wifi.h"
-#include "Platform.h"
-#include "LocalMP.h"
 #include "Config.h"
-#include "RTC.h"
 #include "DSi.h"
-#include "DSi_I2C.h"
-#include "GPU3D_Soft.h"
-#include "GPU3D_OpenGL.h"
-
-#include "Savestate.h"
-
-//#include "main_shaders.h"
 
 #include "EmuInstance.h"
 #include "ArchiveUtil.h"
@@ -369,9 +340,6 @@ int main(int argc, char** argv)
         QApplication::setStyle(QString::fromStdString(Config::UITheme));
     }
 
-    Input::JoystickID = Config::JoystickID;
-    Input::OpenJoystick();
-
    /* mainWindow = new MainWindow();
     if (options->fullscreen)
         ToggleFullscreen(mainWindow);
@@ -421,8 +389,6 @@ int main(int argc, char** argv)
     emuThread->wait();
     delete emuThread;*/
     delete testinst;
-
-    Input::CloseJoystick();
 
     //AudioInOut::DeInit();
     delete camManager[0];
