@@ -341,7 +341,7 @@ private:
             if (Negative) ret = x0 - (dx >> 18);
             else          ret = x0 + (dx >> 18);
 
-            return ret;
+            return ret << 21 >> 21; // treated as a signed 11 bit integer (for some reason)
         }
 
         template<bool swapped>

@@ -691,8 +691,10 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
         rp->NextVR = rp->CurVR + 1;
         if (rp->NextVR >= nverts) rp->NextVR = 0;
     }
-    /*
-    if (ybot == ytop)
+    
+    // 0px tall line polygons are checked for at rasterization, this matters for when viewports are updated mid-polygon-strip
+    // therefore we need to check if the last two vertices are actually still at the same y axis as the others
+    if ((ybot == ytop) && (ybot == polygon->Vertices[nverts-1]->FinalPosition[1]) && (ybot == polygon->Vertices[nverts-2]->FinalPosition[1]) && (ybot == polygon->Vertices[nverts-3]->FinalPosition[1]))
     {
         vtop = 0; vbot = 0;
         int i;
@@ -711,10 +713,31 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
         rp->XL = rp->SlopeL.SetupDummy(polygon->Vertices[rp->CurVL]->FinalPosition[0]);
         rp->XR = rp->SlopeR.SetupDummy(polygon->Vertices[rp->CurVR]->FinalPosition[0]);
     }
-    else*/
+    else
     {
-        SetupPolygonLeftEdge(rp, ytop);
-        SetupPolygonRightEdge(rp, ytop);
+        s32 y = ytop;
+        if (y < polygon->Vertices[rp->CurVL]->FinalPosition[1])
+            y += 256;
+
+        s32 y1 = polygon->Vertices[rp->NextVL]->FinalPosition[1];
+        if (y1 < polygon->Vertices[rp->CurVL]->FinalPosition[1])
+            y1 += 256;
+
+        rp->XL = rp->SlopeL.Setup(polygon->Vertices[rp->CurVL]->FinalPosition[0], polygon->Vertices[rp->NextVL]->FinalPosition[0],
+                                  polygon->Vertices[rp->CurVL]->FinalPosition[1], y1,
+                                  polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y, polygon->WBuffer);
+        
+        y = ytop;
+        if (y < polygon->Vertices[rp->CurVR]->FinalPosition[1])
+            y += 256;
+
+        y1 = polygon->Vertices[rp->NextVR]->FinalPosition[1];
+        if (y1 < polygon->Vertices[rp->CurVR]->FinalPosition[1])
+            y1 += 256;
+
+        rp->XR = rp->SlopeR.Setup(polygon->Vertices[rp->CurVR]->FinalPosition[0], polygon->Vertices[rp->NextVR]->FinalPosition[0],
+                                  polygon->Vertices[rp->CurVR]->FinalPosition[1], y1,
+                                  polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y, polygon->WBuffer);
     }
 }
 
@@ -852,8 +875,22 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     if (y == polygon->YTop)           yedge = 0x4;
     else if (y == polygon->YBottom-1) yedge = 0x8;
     int edge;
-
-    if (xstart < 0) xstart = 0; // negative values are clamped to 0 before interpolation is determined
+    // CHECKME: should the unclamped values be used for timings?
+    // negative values are clamped to 0 before interpolation is done
+    if (xstart < 0) 
+    {
+        l_edgelen += xstart;
+        if (l_edgelen < 1) l_edgelen = 1;
+        xstart = 0;
+    }
+    s32 x = xstart;
+    //xend += 1; dont forget to fix that later-
+    // too big values are clamped to 511 before interpolation is done
+    if (xend > 511)
+    {
+        r_edgelen += 256 - xend;
+        xend = 511;
+    }
     s32 x = xstart;
     Interpolator<0> interpX(xstart, xend+1, wl, wr);
 
@@ -1102,8 +1139,22 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     if (y == polygon->YTop)           yedge = 0x4;
     else if (y == polygon->YBottom-1) yedge = 0x8;
     int edge;
-    
-    if (xstart < 0) xstart = 0; // negative values are clamped to 0 before interpolation is determined
+    // CHECKME: should the unclamped values be used for timings?
+    // negative values are clamped to 0 before interpolation is done
+    if (xstart < 0) 
+    {
+        l_edgelen += xstart;
+        if (l_edgelen < 1) l_edgelen = 1;
+        xstart = 0;
+    }
+    s32 x = xstart;
+    //xend += 1; dont forget to fix that
+    // too big values are clamped to 511 before interpolation is done
+    if (xend > 511)
+    {
+        r_edgelen += 256 - xend;
+        xend = 511;
+    }
     s32 x = xstart;
     Interpolator<0> interpX(xstart, xend+1, wl, wr);
 
