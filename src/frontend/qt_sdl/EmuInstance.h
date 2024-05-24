@@ -247,6 +247,8 @@ private:
     SDL_cond* audioSyncCond;
     SDL_mutex* audioSyncLock;
 
+    int mpAudioMode;
+
     SDL_AudioDeviceID micDevice;
     melonDS::s16 micExtBuffer[2048];
     melonDS::u32 micExtBufferWritePos;

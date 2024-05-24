@@ -73,6 +73,8 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
     maxFPS = globalCfg.GetInt("MaxFPS");
     doAudioSync = globalCfg.GetBool("AudioSync");
 
+    mpAudioMode = globalCfg.GetInt("MP.AudioMode");
+
     nds = nullptr;
     updateConsole(nullptr, nullptr);
 

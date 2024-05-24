@@ -176,9 +176,6 @@ extern int GL_ScaleFactor;
 extern bool GL_BetterPolygons;
 extern bool GL_HiresCoordinates;
 
-extern int MPAudioMode;
-extern int MPRecvTimeout;
-
 extern std::string LANDevice;
 extern bool DirectLAN;
 

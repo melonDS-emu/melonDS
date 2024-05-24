@@ -22,6 +22,7 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
+#include "main.h"
 
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
@@ -41,13 +42,16 @@ MPSettingsDialog::MPSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
+
+    auto& cfg = emuInstance->getGlobalConfig();
     grpAudioMode = new QButtonGroup(this);
     grpAudioMode->addButton(ui->rbAudioAll,        0);
     grpAudioMode->addButton(ui->rbAudioOneOnly,    1);
     grpAudioMode->addButton(ui->rbAudioActiveOnly, 2);
-    grpAudioMode->button(Config::MPAudioMode)->setChecked(true);
+    grpAudioMode->button(cfg.GetInt("MP.AudioMode"))->setChecked(true);
 
-    ui->sbReceiveTimeout->setValue(Config::MPRecvTimeout);
+    ui->sbReceiveTimeout->setValue(cfg.GetInt("MP.RecvTimeout"));
 }
 
 MPSettingsDialog::~MPSettingsDialog()
@@ -59,8 +63,9 @@ void MPSettingsDialog::done(int r)
 {
     if (r == QDialog::Accepted)
     {
-        Config::MPAudioMode = grpAudioMode->checkedId();
-        Config::MPRecvTimeout = ui->sbReceiveTimeout->value();
+        auto& cfg = emuInstance->getGlobalConfig();
+        cfg.SetInt("MP.AudioMode", grpAudioMode->checkedId());
+        cfg.SetInt("MP.RecvTimeout", ui->sbReceiveTimeout->value());
 
         Config::Save();
     }
@@ -69,5 +74,3 @@ void MPSettingsDialog::done(int r)
 
     closeDlg();
 }
-
-//

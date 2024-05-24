@@ -62,9 +62,6 @@ int GL_ScaleFactor;
 bool GL_BetterPolygons;
 bool GL_HiresCoordinates;
 
-int MPAudioMode;
-int MPRecvTimeout;
-
 std::string LANDevice;
 bool DirectLAN;
 
@@ -124,6 +121,7 @@ RangeList IntRanges =
     {"Instance*.Window*.ScreenSizing", {0, Frontend::screenSizing_MAX-1}},
     {"Instance*.Window*.ScreenAspectTop", {0, AspectRatiosNum-1}},
     {"Instance*.Window*.ScreenAspectBot", {0, AspectRatiosNum-1}},
+    {"MP.AudioMode", {0, 2}},
 };
 
 DefaultList<bool> DefaultBools =

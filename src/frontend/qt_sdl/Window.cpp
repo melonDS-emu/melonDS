@@ -1843,8 +1843,9 @@ void MainWindow::onOpenMPSettings()
 
 void MainWindow::onMPSettingsFinished(int res)
 {
+    emuInstance->mpAudioMode = globalCfg.GetInt("MP.AudioMode");
     emuInstance->audioMute();
-    LocalMP::SetRecvTimeout(Config::MPRecvTimeout);
+    LocalMP::SetRecvTimeout(globalCfg.GetInt("MP.RecvTimeout"));
 
     emuThread->emuUnpause();
 }

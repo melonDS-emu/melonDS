@@ -117,13 +117,12 @@ void EmuInstance::micCallback(void* data, Uint8* stream, int len)
 
 void EmuInstance::audioMute()
 {
-    int inst = Platform::InstanceID();
     audioMuted = false;
 
-    switch (Config::MPAudioMode)
+    switch (mpAudioMode)
     {
         case 1: // only instance 1
-            if (inst > 0) audioMuted = true;
+            if (instanceID > 0) audioMuted = true;
             break;
 
         case 2: // only currently focused instance
