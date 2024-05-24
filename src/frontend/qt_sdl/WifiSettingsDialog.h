@@ -24,6 +24,8 @@
 namespace Ui { class WifiSettingsDialog; }
 class WifiSettingsDialog;
 
+class EmuInstance;
+
 class WifiSettingsDialog : public QDialog
 {
     Q_OBJECT
@@ -61,6 +63,7 @@ private slots:
 
 private:
     Ui::WifiSettingsDialog* ui;
+    EmuInstance* emuInstance;
 
     bool haspcap;
 

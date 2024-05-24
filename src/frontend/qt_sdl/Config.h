@@ -176,9 +176,6 @@ extern int GL_ScaleFactor;
 extern bool GL_BetterPolygons;
 extern bool GL_HiresCoordinates;
 
-extern std::string LANDevice;
-extern bool DirectLAN;
-
 extern CameraConfig Camera[2];
 
 

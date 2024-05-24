@@ -62,9 +62,6 @@ int GL_ScaleFactor;
 bool GL_BetterPolygons;
 bool GL_HiresCoordinates;
 
-std::string LANDevice;
-bool DirectLAN;
-
 CameraConfig Camera[2];
 
 

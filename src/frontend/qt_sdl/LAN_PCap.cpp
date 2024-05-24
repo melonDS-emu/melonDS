@@ -26,6 +26,10 @@
 #include "LAN_PCap.h"
 #include "Config.h"
 #include "Platform.h"
+#include "main.h"
+
+// REMOVE ME
+extern EmuInstance* testinst;
 
 #ifdef __WIN32__
 	#include <iphlpapi.h>
@@ -318,10 +322,11 @@ bool Init(bool open_adapter)
     if (PCapAdapter) pcap_close(PCapAdapter);
 
     // open pcap device
+    std::string devicename = testinst->getGlobalConfig().GetString("LAN.Device");
     PCapAdapterData = &Adapters[0];
     for (int i = 0; i < NumAdapters; i++)
     {
-        if (!strncmp(Adapters[i].DeviceName, Config::LANDevice.c_str(), 128))
+        if (!strncmp(Adapters[i].DeviceName, devicename.c_str(), 128))
             PCapAdapterData = &Adapters[i];
     }
 
