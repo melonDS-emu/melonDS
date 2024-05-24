@@ -62,16 +62,6 @@ int GL_ScaleFactor;
 bool GL_BetterPolygons;
 bool GL_HiresCoordinates;
 
-bool FirmwareOverrideSettings;
-std::string FirmwareUsername;
-int FirmwareLanguage;
-int FirmwareBirthdayMonth;
-int FirmwareBirthdayDay;
-int FirmwareFavouriteColour;
-std::string FirmwareMessage;
-std::string FirmwareMAC;
-std::string WifiSettingsPath = "wfcsettings.bin"; // Should this be configurable?
-
 int MPAudioMode;
 int MPRecvTimeout;
 

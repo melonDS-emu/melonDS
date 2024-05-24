@@ -777,7 +777,7 @@ std::optional<Firmware> EmuInstance::loadFirmware(int type) noexcept
         return std::nullopt;
     }
 
-    customizeFirmware(firmware, Config::FirmwareOverrideSettings);
+    customizeFirmware(firmware, localCfg.GetBool("Firmware.OverrideSettings"));
 
     return firmware;
 }
@@ -816,29 +816,31 @@ std::optional<DSi_NAND::NANDImage> EmuInstance::loadNAND(const std::array<u8, DS
         }
 
         // override user settings, if needed
-        if (Config::FirmwareOverrideSettings)
+        if (localCfg.GetBool("Firmware.OverrideSettings"))
         {
+            auto firmcfg = localCfg.GetTable("Firmware");
+
             // we store relevant strings as UTF-8, so we need to convert them to UTF-16
             auto converter = wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{};
 
             // setting up username
-            std::u16string username = converter.from_bytes(Config::FirmwareUsername);
+            std::u16string username = converter.from_bytes(firmcfg.GetString("Username"));
             size_t usernameLength = std::min(username.length(), (size_t) 10);
             memset(&settings.Nickname, 0, sizeof(settings.Nickname));
             memcpy(&settings.Nickname, username.data(), usernameLength * sizeof(char16_t));
 
             // setting language
-            settings.Language = static_cast<Firmware::Language>(Config::FirmwareLanguage);
+            settings.Language = static_cast<Firmware::Language>(firmcfg.GetInt("Language"));
 
             // setting up color
-            settings.FavoriteColor = Config::FirmwareFavouriteColour;
+            settings.FavoriteColor = firmcfg.GetInt("FavouriteColour");
 
             // setting up birthday
-            settings.BirthdayMonth = Config::FirmwareBirthdayMonth;
-            settings.BirthdayDay = Config::FirmwareBirthdayDay;
+            settings.BirthdayMonth = firmcfg.GetInt("BirthdayMonth");
+            settings.BirthdayDay = firmcfg.GetInt("BirthdayDay");
 
             // setup message
-            std::u16string message = converter.from_bytes(Config::FirmwareMessage);
+            std::u16string message = converter.from_bytes(firmcfg.GetString("Message"));
             size_t messageLength = std::min(message.length(), (size_t) 26);
             memset(&settings.Message, 0, sizeof(settings.Message));
             memcpy(&settings.Message, message.data(), messageLength * sizeof(char16_t));
@@ -1328,7 +1330,7 @@ pair<unique_ptr<Firmware>, string> EmuInstance::generateDefaultFirmware()
 
 bool EmuInstance::parseMacAddress(void* data)
 {
-    const std::string& mac_in = Config::FirmwareMAC;
+    const std::string mac_in = localCfg.GetString("Firmware.MAC");
     u8* mac_out = (u8*)data;
 
     int o = 0;
@@ -1362,8 +1364,10 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
     {
         auto &currentData = firmware.GetEffectiveUserData();
 
+        auto firmcfg = localCfg.GetTable("Firmware");
+
         // setting up username
-        std::string orig_username = Config::FirmwareUsername;
+        std::string orig_username = firmcfg.GetString("Username");
         if (!orig_username.empty())
         { // If the frontend defines a username, take it. If not, leave the existing one.
             std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(
@@ -1373,7 +1377,7 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
             memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
         }
 
-        auto language = static_cast<Firmware::Language>(Config::FirmwareLanguage);
+        auto language = static_cast<Firmware::Language>(firmcfg.GetInt("Language"));
         if (language != Firmware::Language::Reserved)
         { // If the frontend specifies a language (rather than using the existing value)...
             currentData.Settings &= ~Firmware::Language::Reserved; // ..clear the existing language...
@@ -1381,26 +1385,26 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
         }
 
         // setting up color
-        u8 favoritecolor = Config::FirmwareFavouriteColour;
+        u8 favoritecolor = firmcfg.GetInt("FavouriteColour");
         if (favoritecolor != 0xFF)
         {
             currentData.FavoriteColor = favoritecolor;
         }
 
-        u8 birthmonth = Config::FirmwareBirthdayMonth;
+        u8 birthmonth = firmcfg.GetInt("BirthdayMonth");
         if (birthmonth != 0)
         { // If the frontend specifies a birth month (rather than using the existing value)...
             currentData.BirthdayMonth = birthmonth;
         }
 
-        u8 birthday = Config::FirmwareBirthdayDay;
+        u8 birthday = firmcfg.GetInt("BirthdayDay");
         if (birthday != 0)
         { // If the frontend specifies a birthday (rather than using the existing value)...
             currentData.BirthdayDay = birthday;
         }
 
         // setup message
-        std::string orig_message = Config::FirmwareMessage;
+        std::string orig_message = firmcfg.GetString("Message");
         if (!orig_message.empty())
         {
             std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(

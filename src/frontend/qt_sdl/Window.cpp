@@ -600,7 +600,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
     resize(Config::WindowWidth, Config::WindowHeight);
 
-    if (Config::FirmwareUsername == "Arisotura")
+    if (localCfg.GetString("Firmware.Username") == "Arisotura")
         actMPNewInstance->setText("Fart");
 
 #ifdef Q_OS_MAC
@@ -620,7 +620,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     actEjectCart->setEnabled(false);
     actEjectGBACart->setEnabled(false);
 
-    if (emuInstance->globalCfg.GetInt("Emu.ConsoleType") == 1)
+    if (globalCfg.GetInt("Emu.ConsoleType") == 1)
     {
         actInsertGBACart->setEnabled(false);
         for (int i = 0; i < 1; i++)
@@ -644,7 +644,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     actPowerManagement->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
-    actTitleManager->setEnabled(!emuInstance->globalCfg.GetString("DSi.NANDPath").empty());
+    actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
 
     actEnableCheats->setChecked(localCfg.GetBool("EnableCheats"));
 
@@ -1168,7 +1168,7 @@ void MainWindow::updateCartInserted(bool gba)
     bool inserted;
     if (gba)
     {
-        inserted = emuInstance->gbaCartInserted() && (emuInstance->globalCfg.GetInt("Emu.ConsoleType") == 0);
+        inserted = emuInstance->gbaCartInserted() && (globalCfg.GetInt("Emu.ConsoleType") == 0);
         actCurrentGBACart->setText("GBA slot: " + emuInstance->gbaCartLabel());
         actEjectGBACart->setEnabled(inserted);
     }
@@ -1702,7 +1702,7 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
 {
     emuThread->emuUnpause();
 
-    if (emuInstance->globalCfg.GetInt("Emu.ConsoleType") == 1)
+    if (globalCfg.GetInt("Emu.ConsoleType") == 1)
     {
         actInsertGBACart->setEnabled(false);
         for (int i = 0; i < 1; i++)
@@ -1723,7 +1723,7 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
     actCurrentGBACart->setText("GBA slot: " + emuInstance->gbaCartLabel());
 
     if (!RunningSomething)
-        actTitleManager->setEnabled(!emuInstance->globalCfg.GetString("DSi.NANDPath").empty());
+        actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
 }
 
 void MainWindow::onOpenInputConfig()
@@ -2090,7 +2090,7 @@ void MainWindow::onEmuStop()
     actDateTime->setEnabled(true);
     actPowerManagement->setEnabled(false);
 
-    actTitleManager->setEnabled(!emuInstance->globalCfg.GetString("DSi.NANDPath").empty());
+    actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)

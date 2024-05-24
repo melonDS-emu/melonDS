@@ -176,16 +176,6 @@ extern int GL_ScaleFactor;
 extern bool GL_BetterPolygons;
 extern bool GL_HiresCoordinates;
 
-extern bool FirmwareOverrideSettings;
-extern std::string FirmwareUsername;
-extern int FirmwareLanguage;
-extern int FirmwareBirthdayMonth;
-extern int FirmwareBirthdayDay;
-extern int FirmwareFavouriteColour;
-extern std::string FirmwareMessage;
-extern std::string FirmwareMAC;
-//extern std::string WifiSettingsPath;
-
 extern int MPAudioMode;
 extern int MPRecvTimeout;
 
