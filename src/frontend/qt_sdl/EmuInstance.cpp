@@ -67,6 +67,7 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
     localCfg(Config::GetLocalTable(inst))
 {
     cheatFile = nullptr;
+    cheatsOn = localCfg.GetBool("EnableCheats");
 
     doLimitFPS = globalCfg.GetBool("LimitFPS");
     maxFPS = globalCfg.GetInt("MaxFPS");
