@@ -124,7 +124,7 @@ public:
 
     void onAppStateChanged(Qt::ApplicationState state);
 
-    void osdAddMessage(unsigned int color, const char* fmt, ...);
+    void osdAddMessage(unsigned int color, const char* msg);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;

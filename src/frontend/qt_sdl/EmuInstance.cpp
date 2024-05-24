@@ -134,6 +134,25 @@ void EmuInstance::createWindow()
 }
 
 
+void EmuInstance::osdAddMessage(unsigned int color, const char* fmt, ...)
+{
+    if (fmt == nullptr)
+        return;
+
+    char msg[256];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(msg, 256, fmt, args);
+    va_end(args);
+
+    for (int i = 0; i < kMaxWindows; i++)
+    {
+        if (windowList[i])
+            windowList[i]->osdAddMessage(color, msg);
+    }
+}
+
+
 int EmuInstance::lastSep(const std::string& path)
 {
     int i = path.length() - 1;

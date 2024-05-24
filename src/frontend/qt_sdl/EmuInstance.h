@@ -86,6 +86,8 @@ public:
 
     void createWindow();
 
+    void osdAddMessage(unsigned int color, const char* fmt, ...);
+
     // return: empty string = setup OK, non-empty = error message
     QString verifySetup();
 

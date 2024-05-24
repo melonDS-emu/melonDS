@@ -216,7 +216,7 @@ void EmuThread::run()
                 int level = emuInstance->nds->GBACartSlot.SetInput(GBACart::Input_SolarSensorDown, true);
                 if (level != -1)
                 {
-                    //mainWindow->osdAddMessage(0, "Solar sensor level: %d", level);
+                    emuInstance->osdAddMessage(0, "Solar sensor level: %d", level);
                 }
             }
             if (emuInstance->hotkeyPressed(HK_SolarSensorIncrease))
@@ -224,7 +224,7 @@ void EmuThread::run()
                 int level = emuInstance->nds->GBACartSlot.SetInput(GBACart::Input_SolarSensorUp, true);
                 if (level != -1)
                 {
-                    //mainWindow->osdAddMessage(0, "Solar sensor level: %d", level);
+                    emuInstance->osdAddMessage(0, "Solar sensor level: %d", level);
                 }
             }
 
@@ -300,7 +300,7 @@ void EmuThread::run()
             {
                 bool lid = !emuInstance->nds->IsLidClosed();
                 emuInstance->nds->SetLidClosed(lid);
-                //mainWindow->osdAddMessage(0, lid ? "Lid closed" : "Lid opened");
+                emuInstance->osdAddMessage(0, lid ? "Lid closed" : "Lid opened");
             }
 
             // microphone input
@@ -648,5 +648,5 @@ void EmuThread::compileShaders()
         emuInstance->nds->GPU.GetRenderer3D().ShaderCompileStep(currentShader, shadersCount);
     } while (emuInstance->nds->GPU.GetRenderer3D().NeedsShaderCompile() &&
              (SDL_GetPerformanceCounter() - startTime) * perfCountsSec < 1.0 / 6.0);
-    mainWindow->osdAddMessage(0, "Compiling shader %d/%d", currentShader+1, shadersCount);
+    emuInstance->osdAddMessage(0, "Compiling shader %d/%d", currentShader+1, shadersCount);
 }

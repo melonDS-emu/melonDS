@@ -709,17 +709,9 @@ void MainWindow::attachEmuThread(EmuThread* thread)
     emuThread = thread;
 }
 
-void MainWindow::osdAddMessage(unsigned int color, const char* fmt, ...)
+void MainWindow::osdAddMessage(unsigned int color, const char* msg)
 {
-    if (fmt == nullptr)
-        return;
-
-    char msg[256];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(msg, 256, fmt, args);
-    va_end(args);
-
+    if (!showOSD) return;
     panel->osdAddMessage(color, msg);
 }
 
@@ -1454,14 +1446,14 @@ void MainWindow::onSaveState()
 
     if (emuInstance->saveState(filename))
     {
-        if (slot > 0) osdAddMessage(0, "State saved to slot %d", slot);
-        else          osdAddMessage(0, "State saved to file");
+        if (slot > 0) emuInstance->osdAddMessage(0, "State saved to slot %d", slot);
+        else          emuInstance->osdAddMessage(0, "State saved to file");
 
         actLoadState[slot]->setEnabled(true);
     }
     else
     {
-        osdAddMessage(0xFFA0A0, "State save failed");
+        emuInstance->osdAddMessage(0xFFA0A0, "State save failed");
     }
 
     emuThread->emuUnpause();
@@ -1496,8 +1488,8 @@ void MainWindow::onLoadState()
 
     if (!Platform::FileExists(filename))
     {
-        if (slot > 0) osdAddMessage(0xFFA0A0, "State slot %d is empty", slot);
-        else          osdAddMessage(0xFFA0A0, "State file does not exist");
+        if (slot > 0) emuInstance->osdAddMessage(0xFFA0A0, "State slot %d is empty", slot);
+        else          emuInstance->osdAddMessage(0xFFA0A0, "State file does not exist");
 
         emuThread->emuUnpause();
         return;
@@ -1505,14 +1497,14 @@ void MainWindow::onLoadState()
 
     if (emuInstance->loadState(filename))
     {
-        if (slot > 0) osdAddMessage(0, "State loaded from slot %d", slot);
-        else          osdAddMessage(0, "State loaded from file");
+        if (slot > 0) emuInstance->osdAddMessage(0, "State loaded from slot %d", slot);
+        else          emuInstance->osdAddMessage(0, "State loaded from file");
 
         actUndoStateLoad->setEnabled(true);
     }
     else
     {
-        osdAddMessage(0xFFA0A0, "State load failed");
+        emuInstance->osdAddMessage(0xFFA0A0, "State load failed");
     }
 
     emuThread->emuUnpause();
@@ -1524,7 +1516,7 @@ void MainWindow::onUndoStateLoad()
     emuInstance->undoStateLoad();
     emuThread->emuUnpause();
 
-    osdAddMessage(0, "State load undone");
+    emuInstance->osdAddMessage(0, "State load undone");
 }
 
 void MainWindow::onImportSavefile()
@@ -1592,13 +1584,13 @@ void MainWindow::onPause(bool checked)
     if (checked)
     {
         emuThread->emuPause();
-        osdAddMessage(0, "Paused");
+        emuInstance->osdAddMessage(0, "Paused");
         pausedManually = true;
     }
     else
     {
         emuThread->emuUnpause();
-        osdAddMessage(0, "Resumed");
+        emuInstance->osdAddMessage(0, "Resumed");
         pausedManually = false;
     }
 }
@@ -1613,7 +1605,7 @@ void MainWindow::onReset()
 
     emuInstance->reset();
 
-    osdAddMessage(0, "Reset");
+    emuInstance->osdAddMessage(0, "Reset");
     emuThread->emuRun();
 }
 
