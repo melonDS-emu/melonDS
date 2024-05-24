@@ -40,6 +40,8 @@
 class EmuInstance;
 class EmuThread;
 
+const int kMaxRecentROMs = 10;
+
 /*
 class WindowBase : public QMainWindow
 {

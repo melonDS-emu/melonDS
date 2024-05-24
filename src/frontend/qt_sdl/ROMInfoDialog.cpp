@@ -139,7 +139,7 @@ void ROMInfoDialog::on_saveIconButton_clicked()
 {
     QString filename = QFileDialog::getSaveFileName(this,
                                                     "Save Icon",
-                                                    QString::fromStdString(Config::LastROMFolder),
+                                                    emuInstance->getGlobalConfig().GetQString("LastROMFolder"),
                                                     "PNG Images (*.png)");
     if (filename.isEmpty())
         return;
@@ -151,7 +151,7 @@ void ROMInfoDialog::on_saveAnimatedIconButton_clicked()
 {
     QString filename = QFileDialog::getSaveFileName(this,
                                                     "Save Animated Icon",
-                                                    QString::fromStdString(Config::LastROMFolder),
+                                                    emuInstance->getGlobalConfig().GetQString("LastROMFolder"),
                                                     "GIF Images (*.gif)");
     if (filename.isEmpty())
         return;

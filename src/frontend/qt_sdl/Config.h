@@ -78,6 +78,8 @@ public:
 
     size_t Size();
 
+    void Clear();
+
     Array GetArray(const int id);
 
     int GetInt(const int id);
@@ -196,10 +198,6 @@ extern std::string LANDevice;
 extern bool DirectLAN;
 
 extern bool SavestateRelocSRAM;
-
-extern std::string LastROMFolder;
-
-extern std::string RecentROMList[10];
 
 extern std::string SaveFilePath;
 extern std::string SavestatePath;

@@ -85,18 +85,6 @@ bool DirectLAN;
 
 bool SavestateRelocSRAM;
 
-int AudioInterp;
-int AudioBitDepth;
-int AudioVolume;
-bool DSiVolumeSync;
-int MicInputType;
-std::string MicDevice;
-std::string MicWavPath;
-
-std::string LastROMFolder;
-
-std::string RecentROMList[10];
-
 std::string SaveFilePath;
 std::string SavestatePath;
 std::string CheatFilePath;
@@ -409,6 +397,12 @@ Array::Array(toml::value& data) : Data(data)
 size_t Array::Size()
 {
     return Data.size();
+}
+
+void Array::Clear()
+{
+    toml::array newarray;
+    Data = newarray;
 }
 
 Array Array::GetArray(const int id)

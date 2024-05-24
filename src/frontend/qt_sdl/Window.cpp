@@ -251,9 +251,11 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actOpenROMArchive->setShortcut(QKeySequence(Qt::Key_O | Qt::CTRL | Qt::SHIFT));*/
 
         recentMenu = menu->addMenu("Open recent");
-        for (int i = 0; i < 10; ++i)
+        Config::Array recentROMs = globalCfg.GetArray("RecentROM");
+        int numrecent = std::min(kMaxRecentROMs, (int)recentROMs.Size());
+        for (int i = 0; i < numrecent; ++i)
         {
-            std::string item = Config::RecentROMList[i];
+            std::string item = recentROMs.GetString(i);
             if (!item.empty())
                 recentFileList.push_back(QString::fromStdString(item));
         }
@@ -1154,13 +1156,13 @@ QStringList MainWindow::pickROM(bool gba)
 
     const QString filename = QFileDialog::getOpenFileName(
         this, "Open " + console + " ROM",
-        QString::fromStdString(Config::LastROMFolder),
+        globalCfg.GetQString("LastROMFolder"),
         "All supported files (*" + allROMs + ")" + extraFilters
     );
 
     if (filename.isEmpty()) return {};
 
-    Config::LastROMFolder = QFileInfo(filename).dir().path().toStdString();
+    globalCfg.SetQString("LastROMFolder", QFileInfo(filename).dir().path());
     return splitArchivePath(filename, false);
 }
 
@@ -1223,8 +1225,7 @@ void MainWindow::onOpenFile()
 void MainWindow::onClearRecentFiles()
 {
     recentFileList.clear();
-    for (int i = 0; i < 10; i++)
-        Config::RecentROMList[i] = "";
+    globalCfg.GetArray("RecentROM").Clear();
     updateRecentFilesMenu();
 }
 
@@ -1232,9 +1233,12 @@ void MainWindow::updateRecentFilesMenu()
 {
     recentMenu->clear();
 
+    Config::Array recentroms = globalCfg.GetArray("RecentROM");
+    recentroms.Clear();
+
     for (int i = 0; i < recentFileList.size(); ++i)
     {
-        if (i >= 10) break;
+        if (i >= kMaxRecentROMs) break;
 
         QString item_full = recentFileList.at(i);
         QString item_display = item_full;
@@ -1262,7 +1266,7 @@ void MainWindow::updateRecentFilesMenu()
         actRecentFile_i->setData(item_full);
         connect(actRecentFile_i, &QAction::triggered, this, &MainWindow::onClickRecentFile);
 
-        Config::RecentROMList[i] = recentFileList.at(i).toStdString();
+        recentroms.SetQString(i, recentFileList.at(i));
     }
 
     while (recentFileList.size() > 10)
@@ -1435,7 +1439,7 @@ void MainWindow::onSaveState()
         // TODO: specific 'last directory' for savestate files?
         QString qfilename = QFileDialog::getSaveFileName(this,
                                                          "Save state",
-                                                         QString::fromStdString(Config::LastROMFolder),
+                                                         globalCfg.GetQString("LastROMFolder"),
                                                          "melonDS savestates (*.mln);;Any file (*.*)");
         if (qfilename.isEmpty())
         {
@@ -1477,7 +1481,7 @@ void MainWindow::onLoadState()
         // TODO: specific 'last directory' for savestate files?
         QString qfilename = QFileDialog::getOpenFileName(this,
                                                          "Load state",
-                                                         QString::fromStdString(Config::LastROMFolder),
+                                                         globalCfg.GetQString("LastROMFolder"),
                                                          "melonDS savestates (*.ml*);;Any file (*.*)");
         if (qfilename.isEmpty())
         {
@@ -1526,7 +1530,7 @@ void MainWindow::onImportSavefile()
     emuThread->emuPause();
     QString path = QFileDialog::getOpenFileName(this,
                                             "Select savefile",
-                                            QString::fromStdString(Config::LastROMFolder),
+                                            globalCfg.GetQString("LastROMFolder"),
                                             "Savefiles (*.sav *.bin *.dsv);;Any file (*.*)");
 
     if (path.isEmpty())
