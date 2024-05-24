@@ -63,7 +63,7 @@ PowerManagementDialog::PowerManagementDialog(QWidget* parent) : QDialog(parent),
 
     updateDSBatteryLevelControls();
 
-    bool defaultDSiBatteryCharging = (nds->ConsoleType == 1) ? Config::DSiBatteryCharging : false;
+    //bool defaultDSiBatteryCharging = (nds->ConsoleType == 1) ? Config::DSiBatteryCharging : false;
 
     if (nds->ConsoleType == 1)
     {
@@ -82,8 +82,10 @@ PowerManagementDialog::PowerManagementDialog(QWidget* parent) : QDialog(parent),
     }
     else
     {
-        ui->cbDSiBatteryCharging->setChecked(Config::DSiBatteryCharging);
-        ui->sliderDSiBatteryLevel->setValue(Config::DSiBatteryLevel);
+        auto& cfg = emuInstance->getLocalConfig();
+
+        ui->cbDSiBatteryCharging->setChecked(cfg.GetBool("DSi.Battery.Charging"));
+        ui->sliderDSiBatteryLevel->setValue(cfg.GetInt("DSi.Battery.Level"));
     }
 
 
@@ -107,15 +109,17 @@ void PowerManagementDialog::done(int r)
 
     if (r == QDialog::Accepted)
     {
+        auto& cfg = emuInstance->getLocalConfig();
+
         if (nds->ConsoleType == 1)
         {
             auto dsi = static_cast<DSi*>(nds);
-            Config::DSiBatteryLevel = dsi->I2C.GetBPTWL()->GetBatteryLevel();
-            Config::DSiBatteryCharging = dsi->I2C.GetBPTWL()->GetBatteryCharging();
+            cfg.SetInt("DSi.Battery.Level", dsi->I2C.GetBPTWL()->GetBatteryLevel());
+            cfg.SetBool("DSi.Battery.Charging", dsi->I2C.GetBPTWL()->GetBatteryCharging());
         }
         else
         {
-            Config::DSBatteryLevelOkay = nds->SPI.GetPowerMan()->GetBatteryLevelOkay();
+            cfg.SetBool("DS.Battery.LevelOkay", nds->SPI.GetPowerMan()->GetBatteryLevelOkay());
         }
     }
     else

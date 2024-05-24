@@ -915,12 +915,12 @@ void EmuInstance::setBatteryLevels()
     if (nds->ConsoleType == 1)
     {
         auto dsi = static_cast<DSi*>(nds);
-        dsi->I2C.GetBPTWL()->SetBatteryLevel(Config::DSiBatteryLevel);
-        dsi->I2C.GetBPTWL()->SetBatteryCharging(Config::DSiBatteryCharging);
+        dsi->I2C.GetBPTWL()->SetBatteryLevel(localCfg.GetInt("DSi.Battery.Level"));
+        dsi->I2C.GetBPTWL()->SetBatteryCharging(localCfg.GetBool("DSi.Battery.Charging"));
     }
     else
     {
-        nds->SPI.GetPowerMan()->SetBatteryLevelOkay(Config::DSBatteryLevelOkay);
+        nds->SPI.GetPowerMan()->SetBatteryLevelOkay(localCfg.GetBool("DS.Battery.LevelOkay"));
     }
 }
 

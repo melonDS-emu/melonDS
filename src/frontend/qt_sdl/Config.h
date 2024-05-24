@@ -182,10 +182,6 @@ extern int MPRecvTimeout;
 extern std::string LANDevice;
 extern bool DirectLAN;
 
-extern bool DSBatteryLevelOkay;
-extern int DSiBatteryLevel;
-extern bool DSiBatteryCharging;
-
 extern CameraConfig Camera[2];
 
 

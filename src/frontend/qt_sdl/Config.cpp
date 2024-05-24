@@ -68,10 +68,6 @@ int MPRecvTimeout;
 std::string LANDevice;
 bool DirectLAN;
 
-bool DSBatteryLevelOkay;
-int DSiBatteryLevel;
-bool DSiBatteryCharging;
-
 CameraConfig Camera[2];
 
 
