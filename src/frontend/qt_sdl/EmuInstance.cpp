@@ -925,7 +925,7 @@ void EmuInstance::setBatteryLevels()
 void EmuInstance::setDateTime()
 {
     QDateTime hosttime = QDateTime::currentDateTime();
-    QDateTime time = hosttime.addSecs(Config::RTCOffset);
+    QDateTime time = hosttime.addSecs(localCfg.GetInt64("RTC.Offset"));
 
     nds->RTC.SetDateTime(time.date().year(), time.date().month(), time.date().day(),
                          time.time().hour(), time.time().minute(), time.time().second());

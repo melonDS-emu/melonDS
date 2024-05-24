@@ -597,8 +597,9 @@ void WriteDateTime(int year, int month, int day, int hour, int minute, int secon
 {
     QDateTime hosttime = QDateTime::currentDateTime();
     QDateTime time = QDateTime(QDate(year, month, day), QTime(hour, minute, second));
+    auto& cfg = testinst->getLocalConfig();
 
-    Config::RTCOffset = hosttime.secsTo(time);
+    cfg.SetInt64("RTC.Offset", hosttime.secsTo(time));
     Config::Save();
 }
 

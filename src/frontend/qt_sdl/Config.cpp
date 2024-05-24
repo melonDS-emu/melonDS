@@ -78,8 +78,6 @@ int MPRecvTimeout;
 std::string LANDevice;
 bool DirectLAN;
 
-int64_t RTCOffset;
-
 bool DSBatteryLevelOkay;
 int DSiBatteryLevel;
 bool DSiBatteryCharging;

@@ -192,8 +192,6 @@ extern int MPRecvTimeout;
 extern std::string LANDevice;
 extern bool DirectLAN;
 
-extern int64_t RTCOffset;
-
 extern bool DSBatteryLevelOkay;
 extern int DSiBatteryLevel;
 extern bool DSiBatteryCharging;
