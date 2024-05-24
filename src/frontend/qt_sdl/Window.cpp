@@ -231,6 +231,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     oldH = Config::WindowHeight;
     oldMax = Config::WindowMaximized;
 
+    showOSD = windowCfg.GetBool("ShowOSD");
+
     setWindowTitle("melonDS " MELONDS_VERSION);
     setAttribute(Qt::WA_DeleteOnClose);
     setAcceptDrops(true);
@@ -677,10 +679,10 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     }
 
     actScreenFiltering->setChecked(Config::ScreenFilter);
-    actShowOSD->setChecked(Config::ShowOSD);
+    actShowOSD->setChecked(showOSD);
 
-    actLimitFramerate->setChecked(Config::LimitFPS);
-    actAudioSync->setChecked(Config::AudioSync);
+    actLimitFramerate->setChecked(emuInstance->doLimitFPS);
+    actAudioSync->setChecked(emuInstance->doAudioSync);
 
     if (emuInstance->instanceID > 0)
     {
@@ -757,7 +759,7 @@ void MainWindow::createScreenPanel()
     setCentralWidget(panel);
 
     actScreenFiltering->setEnabled(hasOGL);
-    panel->osdSetEnabled(Config::ShowOSD);
+    panel->osdSetEnabled(showOSD);
 
     connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));
     emit screenLayoutChange();
@@ -1989,18 +1991,21 @@ void MainWindow::onChangeScreenFiltering(bool checked)
 
 void MainWindow::onChangeShowOSD(bool checked)
 {
-    Config::ShowOSD = checked?1:0;
-    panel->osdSetEnabled(Config::ShowOSD);
+    showOSD = checked;
+    panel->osdSetEnabled(showOSD);
+    windowCfg.SetBool("ShowOSD", showOSD);
 }
 
 void MainWindow::onChangeLimitFramerate(bool checked)
 {
-    Config::LimitFPS = checked?1:0;
+    emuInstance->doLimitFPS = checked;
+    globalCfg.SetBool("LimitFPS", emuInstance->doLimitFPS);
 }
 
 void MainWindow::onChangeAudioSync(bool checked)
 {
-    Config::AudioSync = checked?1:0;
+    emuInstance->doAudioSync = checked;
+    globalCfg.SetBool("AudioSync", emuInstance->doAudioSync);
 }
 
 

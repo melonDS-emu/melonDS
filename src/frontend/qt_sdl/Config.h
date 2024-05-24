@@ -176,11 +176,6 @@ extern int GL_ScaleFactor;
 extern bool GL_BetterPolygons;
 extern bool GL_HiresCoordinates;
 
-extern bool LimitFPS;
-extern int MaxFPS;
-extern bool AudioSync;
-extern bool ShowOSD;
-
 extern bool FirmwareOverrideSettings;
 extern std::string FirmwareUsername;
 extern int FirmwareLanguage;

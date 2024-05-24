@@ -31,11 +31,15 @@ InterfaceSettingsDialog::InterfaceSettingsDialog(QWidget* parent) : QDialog(pare
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
+
+    auto& cfg = emuInstance->getGlobalConfig();
+
     ui->cbMouseHide->setChecked(Config::MouseHide != 0);
     ui->spinMouseHideSeconds->setEnabled(Config::MouseHide != 0);
     ui->spinMouseHideSeconds->setValue(Config::MouseHideSeconds);
     ui->cbPauseLostFocus->setChecked(Config::PauseLostFocus != 0);
-    ui->spinMaxFPS->setValue(Config::MaxFPS);
+    ui->spinMaxFPS->setValue(cfg.GetInt("MaxFPS"));
 
     const QList<QString> themeKeys = QStyleFactory::keys();
     const QString currentTheme = qApp->style()->objectName();
@@ -74,10 +78,13 @@ void InterfaceSettingsDialog::done(int r)
         Config::MouseHide = ui->cbMouseHide->isChecked() ? 1:0;
         Config::MouseHideSeconds = ui->spinMouseHideSeconds->value();
         Config::PauseLostFocus = ui->cbPauseLostFocus->isChecked() ? 1:0;
-        Config::MaxFPS = ui->spinMaxFPS->value();
+        emuInstance->maxFPS = ui->spinMaxFPS->value();
 
         QString themeName = ui->cbxUITheme->currentData().toString();
         Config::UITheme = themeName.toStdString();
+
+        auto& cfg = emuInstance->getGlobalConfig();
+        cfg.SetInt("MaxFPS", emuInstance->maxFPS);
 
         Config::Save();
 

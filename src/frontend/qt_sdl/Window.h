@@ -234,6 +234,8 @@ private:
 
     void createScreenPanel();
 
+    bool showOSD;
+
     bool hasOGL;
 
     bool pausedManually = false;

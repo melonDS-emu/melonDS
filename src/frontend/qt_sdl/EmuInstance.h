@@ -225,6 +225,10 @@ public:
     std::unique_ptr<SaveManager> ndsSave;
     std::unique_ptr<SaveManager> gbaSave;
     std::unique_ptr<SaveManager> firmwareSave;
+
+    bool doLimitFPS;
+    int maxFPS;
+    bool doAudioSync;
 private:
 
     std::unique_ptr<melonDS::Savestate> backupState;

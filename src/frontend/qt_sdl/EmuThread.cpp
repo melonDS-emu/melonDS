@@ -407,15 +407,15 @@ void EmuThread::run()
                 emuInstance->audioVolume = volumeLevel * (256.0 / 31.0);
             }
 
-            if (Config::AudioSync && !fastforward)
+            if (emuInstance->doAudioSync && !fastforward)
                 emuInstance->audioSync();
 
             double frametimeStep = nlines / (60.0 * 263.0);
 
             {
-                bool limitfps = Config::LimitFPS && !fastforward;
+                bool limitfps = emuInstance->doLimitFPS && !fastforward;
 
-                double practicalFramelimit = limitfps ? frametimeStep : 1.0 / Config::MaxFPS;
+                double practicalFramelimit = limitfps ? frametimeStep : 1.0 / emuInstance->maxFPS;
 
                 double curtime = SDL_GetPerformanceCounter() * perfCountsSec;
 

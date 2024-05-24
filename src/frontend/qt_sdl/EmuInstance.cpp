@@ -68,6 +68,10 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
 {
     cheatFile = nullptr;
 
+    doLimitFPS = globalCfg.GetBool("LimitFPS");
+    maxFPS = globalCfg.GetInt("MaxFPS");
+    doAudioSync = globalCfg.GetBool("AudioSync");
+
     nds = nullptr;
     updateConsole(nullptr, nullptr);
 
