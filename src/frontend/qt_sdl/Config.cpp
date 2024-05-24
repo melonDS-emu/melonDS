@@ -78,13 +78,9 @@ int MPRecvTimeout;
 std::string LANDevice;
 bool DirectLAN;
 
-bool SavestateRelocSRAM;
-
 std::string SaveFilePath;
 std::string SavestatePath;
 std::string CheatFilePath;
-
-bool EnableCheats;
 
 bool MouseHide;
 int MouseHideSeconds;
@@ -321,7 +317,7 @@ LegacyEntry LegacyFile[] =
     {"LANDevice", 2, "LAN.Device", false},
     {"DirectLAN", 1, "LAN.DirectMode", false},
 
-    {"SavStaRelocSRAM", 1, "SaveState.RelocSRAM", false},
+    {"SavStaRelocSRAM", 1, "Savestate.RelocSRAM", false},
 
     {"AudioInterp", 0, "Audio.Interpolation", false},
     {"AudioBitDepth", 0, "Audio.BitDepth", false},

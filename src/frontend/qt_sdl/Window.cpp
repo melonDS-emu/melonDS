@@ -646,12 +646,12 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     actSetupCheats->setEnabled(false);
     actTitleManager->setEnabled(!emuInstance->globalCfg.GetString("DSi.NANDPath").empty());
 
-    actEnableCheats->setChecked(Config::EnableCheats);
+    actEnableCheats->setChecked(localCfg.GetBool("EnableCheats"));
 
     actROMInfo->setEnabled(false);
     actRAMInfo->setEnabled(false);
 
-    actSavestateSRAMReloc->setChecked(Config::SavestateRelocSRAM);
+    actSavestateSRAMReloc->setChecked(globalCfg.GetBool("Savestate.RelocSRAM"));
 
     actScreenRotation[Config::ScreenRotation]->setChecked(true);
 
@@ -1636,8 +1636,8 @@ void MainWindow::onOpenPowerManagement()
 
 void MainWindow::onEnableCheats(bool checked)
 {
-    Config::EnableCheats = checked?1:0;
-    emuInstance->enableCheats(Config::EnableCheats != 0);
+    localCfg.SetBool("EnableCheats", checked);
+    emuInstance->enableCheats(checked);
 }
 
 void MainWindow::onSetupCheats()
@@ -1885,7 +1885,7 @@ void MainWindow::onInterfaceSettingsFinished(int res)
 
 void MainWindow::onChangeSavestateSRAMReloc(bool checked)
 {
-    Config::SavestateRelocSRAM = checked?1:0;
+    globalCfg.SetBool("Savestate.RelocSRAM", checked);
 }
 
 void MainWindow::onChangeScreenSize()

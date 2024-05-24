@@ -490,7 +490,7 @@ bool EmuInstance::loadState(const std::string& filename)
     backupState = std::move(backup); // This will clean up any existing backup
     assert(backup == nullptr);
 
-    if (Config::SavestateRelocSRAM && ndsSave)
+    if (globalCfg.GetBool("Savestate.RelocSRAM") && ndsSave)
     {
         previousSaveFile = ndsSave->GetPath();
 
@@ -543,7 +543,7 @@ bool EmuInstance::saveState(const std::string& filename)
 
     fclose(file);
 
-    if (Config::SavestateRelocSRAM && ndsSave)
+    if (globalCfg.GetBool("Savestate.RelocSRAM") && ndsSave)
     {
         std::string savefile = filename.substr(lastSep(filename)+1);
         savefile = getAssetPath(false, Config::SaveFilePath, ".sav", savefile);

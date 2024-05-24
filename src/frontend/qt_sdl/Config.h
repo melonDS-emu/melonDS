@@ -192,13 +192,9 @@ extern int MPRecvTimeout;
 extern std::string LANDevice;
 extern bool DirectLAN;
 
-extern bool SavestateRelocSRAM;
-
 extern std::string SaveFilePath;
 extern std::string SavestatePath;
 extern std::string CheatFilePath;
-
-extern bool EnableCheats;
 
 extern bool MouseHide;
 extern int MouseHideSeconds;
