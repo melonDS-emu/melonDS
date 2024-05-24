@@ -423,7 +423,7 @@ std::string EmuInstance::getSavestateName(int slot)
 {
     std::string ext = ".ml";
     ext += (char)('0'+slot);
-    return getAssetPath(false, Config::SavestatePath, ext);
+    return getAssetPath(false, globalCfg.GetString("SavestatePath"), ext);
 }
 
 bool EmuInstance::savestateExists(int slot)
@@ -496,7 +496,7 @@ bool EmuInstance::loadState(const std::string& filename)
         previousSaveFile = ndsSave->GetPath();
 
         std::string savefile = filename.substr(lastSep(filename)+1);
-        savefile = getAssetPath(false, Config::SaveFilePath, ".sav", savefile);
+        savefile = getAssetPath(false, globalCfg.GetString("SaveFilePath"), ".sav", savefile);
         savefile += Platform::InstanceFileSuffix();
         ndsSave->SetPath(savefile, true);
     }
@@ -547,7 +547,7 @@ bool EmuInstance::saveState(const std::string& filename)
     if (globalCfg.GetBool("Savestate.RelocSRAM") && ndsSave)
     {
         std::string savefile = filename.substr(lastSep(filename)+1);
-        savefile = getAssetPath(false, Config::SaveFilePath, ".sav", savefile);
+        savefile = getAssetPath(false, globalCfg.GetString("SaveFilePath"), ".sav", savefile);
         savefile += Platform::InstanceFileSuffix();
         ndsSave->SetPath(savefile, false);
     }
@@ -587,7 +587,7 @@ void EmuInstance::loadCheats()
 {
     unloadCheats();
 
-    std::string filename = getAssetPath(false, Config::CheatFilePath, ".mch");
+    std::string filename = getAssetPath(false, globalCfg.GetString("CheatFilePath"), ".mch");
 
     // TODO: check for error (malformed cheat file, ...)
     cheatFile = new ARCodeFile(filename);
@@ -1107,7 +1107,7 @@ void EmuInstance::reset()
     if ((cartType != -1) && ndsSave)
     {
         std::string oldsave = ndsSave->GetPath();
-        std::string newsave = getAssetPath(false, Config::SaveFilePath, ".sav");
+        std::string newsave = getAssetPath(false, globalCfg.GetString("SaveFilePath"), ".sav");
         newsave += Platform::InstanceFileSuffix();
         if (oldsave != newsave)
             ndsSave->SetPath(newsave, false);
@@ -1116,7 +1116,7 @@ void EmuInstance::reset()
     if ((gbaCartType != -1) && gbaSave)
     {
         std::string oldsave = gbaSave->GetPath();
-        std::string newsave = getAssetPath(true, Config::SaveFilePath, ".sav");
+        std::string newsave = getAssetPath(true, globalCfg.GetString("SaveFilePath"), ".sav");
         newsave += Platform::InstanceFileSuffix();
         if (oldsave != newsave)
             gbaSave->SetPath(newsave, false);
@@ -1564,7 +1564,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
     u32 savelen = 0;
     std::unique_ptr<u8[]> savedata = nullptr;
 
-    std::string savname = getAssetPath(false, Config::SaveFilePath, ".sav");
+    std::string savname = getAssetPath(false, globalCfg.GetString("SaveFilePath"), ".sav");
     std::string origsav = savname;
     savname += Platform::InstanceFileSuffix();
 
@@ -1706,7 +1706,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
     u32 savelen = 0;
     std::unique_ptr<u8[]> savedata = nullptr;
 
-    std::string savname = getAssetPath(true, Config::SaveFilePath, ".sav");
+    std::string savname = getAssetPath(true, globalCfg.GetString("SaveFilePath"), ".sav");
     std::string origsav = savname;
     savname += Platform::InstanceFileSuffix();
 

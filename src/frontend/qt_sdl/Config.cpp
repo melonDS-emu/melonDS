@@ -78,10 +78,6 @@ int MPRecvTimeout;
 std::string LANDevice;
 bool DirectLAN;
 
-std::string SaveFilePath;
-std::string SavestatePath;
-std::string CheatFilePath;
-
 int64_t RTCOffset;
 
 bool DSBatteryLevelOkay;

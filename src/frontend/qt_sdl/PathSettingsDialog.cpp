@@ -24,6 +24,7 @@
 #include "types.h"
 #include "Config.h"
 #include "Platform.h"
+#include "main.h"
 
 #include "PathSettingsDialog.h"
 #include "ui_PathSettingsDialog.h"
@@ -45,15 +46,26 @@ PathSettingsDialog::PathSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    ui->txtSaveFilePath->setText(QString::fromStdString(Config::SaveFilePath));
-    ui->txtSavestatePath->setText(QString::fromStdString(Config::SavestatePath));
-    ui->txtCheatFilePath->setText(QString::fromStdString(Config::CheatFilePath));
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
+
+    auto& cfg = emuInstance->getGlobalConfig();
+    ui->txtSaveFilePath->setText(cfg.GetQString("SaveFilePath"));
+    ui->txtSavestatePath->setText(cfg.GetQString("SavestatePath"));
+    ui->txtCheatFilePath->setText(cfg.GetQString("CheatFilePath"));
 
     int inst = Platform::InstanceID();
     if (inst > 0)
         ui->lblInstanceNum->setText(QString("Configuring paths for instance %1").arg(inst+1));
     else
         ui->lblInstanceNum->hide();
+
+#define SET_ORIGVAL(type, val) \
+    for (type* w : findChildren<type*>(nullptr)) \
+        w->setProperty("user_originalValue", w->val());
+
+    SET_ORIGVAL(QLineEdit, text);
+
+#undef SET_ORIGVAL
 }
 
 PathSettingsDialog::~PathSettingsDialog()
@@ -67,13 +79,24 @@ void PathSettingsDialog::done(int r)
 
     if (r == QDialog::Accepted)
     {
-        std::string saveFilePath = ui->txtSaveFilePath->text().toStdString();
-        std::string savestatePath = ui->txtSavestatePath->text().toStdString();
-        std::string cheatFilePath = ui->txtCheatFilePath->text().toStdString();
+        bool modified = false;
 
-        if (   saveFilePath != Config::SaveFilePath
-            || savestatePath != Config::SavestatePath
-            || cheatFilePath != Config::CheatFilePath)
+#define CHECK_ORIGVAL(type, val) \
+        if (!modified) for (type* w : findChildren<type*>(nullptr)) \
+        {                        \
+            QVariant v = w->val();                   \
+            if (v != w->property("user_originalValue")) \
+            {                    \
+                modified = true; \
+                break;                   \
+            }\
+        }
+
+        CHECK_ORIGVAL(QLineEdit, text);
+
+#undef CHECK_ORIGVAL
+
+        if (modified)
         {
             if (RunningSomething
                 && QMessageBox::warning(this, "Reset necessary to apply changes",
@@ -81,9 +104,10 @@ void PathSettingsDialog::done(int r)
                     QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
                 return;
 
-            Config::SaveFilePath = saveFilePath;
-            Config::SavestatePath = savestatePath;
-            Config::CheatFilePath = cheatFilePath;
+            auto& cfg = emuInstance->getGlobalConfig();
+            cfg.SetQString("SaveFilePath", ui->txtSaveFilePath->text());
+            cfg.SetQString("SavestatePath", ui->txtSavestatePath->text());
+            cfg.SetQString("CheatFilePath", ui->txtCheatFilePath->text());
 
             Config::Save();
 
