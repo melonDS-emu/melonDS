@@ -193,7 +193,7 @@ private slots:
     void onPathSettingsFinished(int res);
     void onOpenInterfaceSettings();
     void onInterfaceSettingsFinished(int res);
-    void onUpdateMouseTimer();
+    void onUpdateInterfaceSettings();
     void onChangeSavestateSRAMReloc(bool checked);
     void onChangeScreenSize();
     void onChangeScreenRotation(QAction* act);
@@ -238,7 +238,8 @@ private:
 
     bool hasOGL;
 
-    bool pausedManually = false;
+    bool pauseOnLostFocus;
+    bool pausedManually;
 
     int oldW, oldH;
     bool oldMax;

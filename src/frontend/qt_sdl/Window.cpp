@@ -696,6 +696,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actPreferences->setEnabled(false);
 #endif // __APPLE__
     }
+
+    QObject::connect(qApp, &QApplication::applicationStateChanged, this, &MainWindow::onAppStateChanged);
+    onUpdateInterfaceSettings();
 }
 
 MainWindow::~MainWindow()
@@ -953,12 +956,12 @@ void MainWindow::onAppStateChanged(Qt::ApplicationState state)
     if (state == Qt::ApplicationInactive)
     {
         emuInstance->keyReleaseAll();
-        if (Config::PauseLostFocus && emuThread->emuIsRunning())
+        if (pauseOnLostFocus && emuThread->emuIsRunning())
             emuThread->emuPause();
     }
     else if (state == Qt::ApplicationActive)
     {
-        if (Config::PauseLostFocus && !pausedManually)
+        if (pauseOnLostFocus && !pausedManually)
             emuThread->emuUnpause();
     }
 }
@@ -1870,12 +1873,16 @@ void MainWindow::onOpenInterfaceSettings()
     emuThread->emuPause();
     InterfaceSettingsDialog* dlg = InterfaceSettingsDialog::openDlg(this);
     connect(dlg, &InterfaceSettingsDialog::finished, this, &MainWindow::onInterfaceSettingsFinished);
-    connect(dlg, &InterfaceSettingsDialog::updateMouseTimer, this, &MainWindow::onUpdateMouseTimer);
+    connect(dlg, &InterfaceSettingsDialog::updateInterfaceSettings, this, &MainWindow::onUpdateInterfaceSettings);
 }
 
-void MainWindow::onUpdateMouseTimer()
+void MainWindow::onUpdateInterfaceSettings()
 {
-    panel->mouseTimer->setInterval(Config::MouseHideSeconds*1000);
+    pauseOnLostFocus = globalCfg.GetBool("PauseLostFocus");
+    emuInstance->maxFPS = globalCfg.GetInt("MaxFPS");
+
+    panel->setMouseHide(globalCfg.GetBool("MouseHide"),
+                        globalCfg.GetInt("MouseHideSeconds")*1000);
 }
 
 void MainWindow::onInterfaceSettingsFinished(int res)

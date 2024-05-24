@@ -82,12 +82,6 @@ std::string SaveFilePath;
 std::string SavestatePath;
 std::string CheatFilePath;
 
-bool MouseHide;
-int MouseHideSeconds;
-
-bool PauseLostFocus;
-std::string UITheme;
-
 int64_t RTCOffset;
 
 bool DSBatteryLevelOkay;

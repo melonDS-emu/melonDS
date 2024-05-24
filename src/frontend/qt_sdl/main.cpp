@@ -335,9 +335,13 @@ int main(int argc, char** argv)
 
     systemThemeName = new QString(QApplication::style()->objectName());
 
-    if (!Config::UITheme.empty())
     {
-        QApplication::setStyle(QString::fromStdString(Config::UITheme));
+        Config::Table cfg = Config::GetGlobalTable();
+        QString uitheme = cfg.GetQString("UITheme");
+        if (!uitheme.isEmpty())
+        {
+            QApplication::setStyle(uitheme);
+        }
     }
 
    /* mainWindow = new MainWindow();

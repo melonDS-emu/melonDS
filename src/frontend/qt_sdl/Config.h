@@ -196,11 +196,6 @@ extern std::string SaveFilePath;
 extern std::string SavestatePath;
 extern std::string CheatFilePath;
 
-extern bool MouseHide;
-extern int MouseHideSeconds;
-extern bool PauseLostFocus;
-extern std::string UITheme;
-
 extern int64_t RTCOffset;
 
 extern bool DSBatteryLevelOkay;

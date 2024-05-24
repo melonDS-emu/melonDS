@@ -82,9 +82,12 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
     }
 
     emuInstance = mainWindow->getEmuInstance();
-    
+
+    mouseHide = false;
+    mouseHideDelay = 0;
+
     QTimer* mouseTimer = setupMouseTimer();
-    connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) setCursor(Qt::BlankCursor);});
+    connect(mouseTimer, &QTimer::timeout, [=] { if (mouseHide) setCursor(Qt::BlankCursor);});
 
     osdEnabled = false;
     osdID = 1;
@@ -94,6 +97,14 @@ ScreenPanel::~ScreenPanel()
 {
     mouseTimer->stop();
     delete mouseTimer;
+}
+
+void ScreenPanel::setMouseHide(bool enable, int delay)
+{
+    mouseHide = enable;
+    mouseHideDelay = delay;
+
+    mouseTimer->setInterval(mouseHideDelay);
 }
 
 void ScreenPanel::setupScreenLayout()
@@ -329,7 +340,7 @@ QTimer* ScreenPanel::setupMouseTimer()
 {
     mouseTimer = new QTimer();
     mouseTimer->setSingleShot(true);
-    mouseTimer->setInterval(Config::MouseHideSeconds*1000);
+    mouseTimer->setInterval(mouseHideDelay);
     mouseTimer->start();
 
     return mouseTimer;

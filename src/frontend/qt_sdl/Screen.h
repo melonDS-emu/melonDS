@@ -58,6 +58,8 @@ public:
     explicit ScreenPanel(QWidget* parent);
     virtual ~ScreenPanel();
 
+    void setMouseHide(bool enable, int delay);
+
     QTimer* setupMouseTimer();
     void updateMouseTimer();
     QTimer* mouseTimer;
@@ -72,6 +74,9 @@ private slots:
 protected:
     MainWindow* mainWindow;
     EmuInstance* emuInstance;
+
+    bool mouseHide;
+    int mouseHideDelay;
 
     struct OSDItem
     {

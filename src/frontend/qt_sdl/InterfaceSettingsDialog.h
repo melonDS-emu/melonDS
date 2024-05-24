@@ -53,7 +53,7 @@ public:
     }
 
 signals:
-    void updateMouseTimer();
+    void updateInterfaceSettings();
 
 private slots:
     void done(int r);
