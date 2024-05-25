@@ -761,6 +761,7 @@ void MainWindow::createScreenPanel()
     }
     setCentralWidget(panel);
 
+    actScreenFiltering->setEnabled(hasOGL);
     panel->osdSetEnabled(showOSD);
 
     connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));

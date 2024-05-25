@@ -668,8 +668,6 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
 {
     QPainter painter(this);
 
-    painter.setRenderHint(QPainter::SmoothPixmapTransform, filter);
-
     // fill background
     painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
 
