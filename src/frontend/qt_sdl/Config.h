@@ -151,10 +151,6 @@ private:
 };
 
 
-extern int WindowWidth;
-extern int WindowHeight;
-extern bool WindowMaximized;
-
 extern int ScreenRotation;
 extern int ScreenGap;
 extern int ScreenLayout;

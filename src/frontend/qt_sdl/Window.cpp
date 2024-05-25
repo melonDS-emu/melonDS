@@ -227,10 +227,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     }
 #endif
 
-    oldW = Config::WindowWidth;
-    oldH = Config::WindowHeight;
-    oldMax = Config::WindowMaximized;
-
     showOSD = windowCfg.GetBool("ShowOSD");
 
     setWindowTitle("melonDS " MELONDS_VERSION);
@@ -598,7 +594,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     }
     setMenuBar(menubar);
 
-    resize(Config::WindowWidth, Config::WindowHeight);
+    //resize(curW, curH);
 
     if (localCfg.GetString("Firmware.Username") == "Arisotura")
         actMPNewInstance->setText("Fart");
@@ -610,10 +606,19 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     move(frameGeo.topLeft());
 #endif
 
-    if (oldMax)
+    /*if (oldMax)
         showMaximized();
     else
-        show();
+        show();*/
+    std::string geom = windowCfg.GetString("Geometry");
+    if (!geom.empty())
+    {
+        QByteArray raw = QByteArray::fromStdString(geom);
+        QByteArray dec = QByteArray::fromBase64(raw, QByteArray::Base64Encoding | QByteArray::AbortOnBase64DecodingErrors);
+        if (!dec.isEmpty())
+            restoreGeometry(dec);
+    }
+    show();
 
     createScreenPanel();
 
@@ -720,6 +725,12 @@ void MainWindow::osdAddMessage(unsigned int color, const char* msg)
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
+    QByteArray geom = saveGeometry();
+    QByteArray enc = geom.toBase64(QByteArray::Base64Encoding);
+    windowCfg.SetString("Geometry", enc.toStdString());
+
+    Config::Save();
+
     if (hasOGL)
     {
         // we intentionally don't unpause here
@@ -806,37 +817,6 @@ void MainWindow::drawScreenGL()
 
     ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
     return glpanel->drawScreenGL();
-}
-
-void MainWindow::resizeEvent(QResizeEvent* event)
-{
-    int w = event->size().width();
-    int h = event->size().height();
-
-    if (!isFullScreen())
-    {
-        // this is ugly
-        // thing is, when maximizing the window, we first receive the resizeEvent
-        // with a new size matching the screen, then the changeEvent telling us that
-        // the maximized flag was updated
-        oldW = Config::WindowWidth;
-        oldH = Config::WindowHeight;
-        oldMax = isMaximized();
-
-        Config::WindowWidth = w;
-        Config::WindowHeight = h;
-    }
-}
-
-void MainWindow::changeEvent(QEvent* event)
-{
-    if (isMaximized() && !oldMax)
-    {
-        Config::WindowWidth = oldW;
-        Config::WindowHeight = oldH;
-    }
-
-    Config::WindowMaximized = isMaximized() ? 1:0;
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event)

@@ -37,10 +37,6 @@ namespace Config
 {
 using namespace melonDS;
 
-int WindowWidth;
-int WindowHeight;
-bool WindowMaximized;
-
 int ScreenRotation;
 int ScreenGap;
 int ScreenLayout;
@@ -205,10 +201,6 @@ LegacyEntry LegacyFile[] =
     {"HKJoy_VolumeDown",          0, "Joystick.HK_VolumeDown", true},
 
     {"JoystickID", 0, "JoystickID", true},
-
-    {"WindowWidth",  0, "Window0.Width", true},
-    {"WindowHeight", 0, "Window0.Height", true},
-    {"WindowMax",    1, "Window0.Maximized", true},
 
     {"ScreenRotation", 0, "Window0.ScreenRotation", true},
     {"ScreenGap",      0, "Window0.ScreenGap", true},

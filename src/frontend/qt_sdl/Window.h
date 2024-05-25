@@ -127,9 +127,6 @@ public:
     void osdAddMessage(unsigned int color, const char* msg);
 
 protected:
-    void resizeEvent(QResizeEvent* event) override;
-    void changeEvent(QEvent* event) override;
-
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
 
@@ -240,9 +237,6 @@ private:
 
     bool pauseOnLostFocus;
     bool pausedManually;
-
-    int oldW, oldH;
-    bool oldMax;
 
     int test_num;
 
