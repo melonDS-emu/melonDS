@@ -462,7 +462,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             QMenu* submenu = menu->addMenu("Screen rotation");
             grpScreenRotation = new QActionGroup(submenu);
 
-            for (int i = 0; i < Frontend::screenRot_MAX; i++)
+            for (int i = 0; i < screenRot_MAX; i++)
             {
                 int data = i*90;
                 actScreenRotation[i] = submenu->addAction(QString("%1°").arg(data));
@@ -496,7 +496,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
             const char* screenlayout[] = {"Natural", "Vertical", "Horizontal", "Hybrid"};
 
-            for (int i = 0; i < Frontend::screenLayout_MAX; i++)
+            for (int i = 0; i < screenLayout_MAX; i++)
             {
                 actScreenLayout[i] = submenu->addAction(QString(screenlayout[i]));
                 actScreenLayout[i]->setActionGroup(grpScreenLayout);
@@ -518,7 +518,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
             const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only", "Bottom only"};
 
-            for (int i = 0; i < Frontend::screenSizing_MAX; i++)
+            for (int i = 0; i < screenSizing_MAX; i++)
             {
                 actScreenSizing[i] = submenu->addAction(QString(screensizing[i]));
                 actScreenSizing[i]->setActionGroup(grpScreenSizing);
@@ -594,8 +594,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     }
     setMenuBar(menubar);
 
-    //resize(curW, curH);
-
     if (localCfg.GetString("Firmware.Username") == "Arisotura")
         actMPNewInstance->setText("Fart");
 
@@ -606,10 +604,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     move(frameGeo.topLeft());
 #endif
 
-    /*if (oldMax)
-        showMaximized();
-    else
-        show();*/
     std::string geom = windowCfg.GetString("Geometry");
     if (!geom.empty())
     {
@@ -658,32 +652,35 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
     actSavestateSRAMReloc->setChecked(globalCfg.GetBool("Savestate.RelocSRAM"));
 
-    actScreenRotation[Config::ScreenRotation]->setChecked(true);
+    actScreenRotation[windowCfg.GetInt("ScreenRotation")]->setChecked(true);
 
+    int screenGap = windowCfg.GetInt("ScreenGap");
     for (int i = 0; i < 6; i++)
     {
-        if (actScreenGap[i]->data().toInt() == Config::ScreenGap)
+        if (actScreenGap[i]->data().toInt() == screenGap)
         {
             actScreenGap[i]->setChecked(true);
             break;
         }
     }
 
-    actScreenLayout[Config::ScreenLayout]->setChecked(true);
-    actScreenSizing[Config::ScreenSizing]->setChecked(true);
-    actIntegerScaling->setChecked(Config::IntegerScaling);
+    actScreenLayout[windowCfg.GetInt("ScreenLayout")]->setChecked(true);
+    actScreenSizing[windowCfg.GetInt("ScreenSizing")]->setChecked(true);
+    actIntegerScaling->setChecked(windowCfg.GetBool("IntegerScaling"));
 
-    actScreenSwap->setChecked(Config::ScreenSwap);
+    actScreenSwap->setChecked(windowCfg.GetBool("ScreenSwap"));
 
+    int aspectTop = windowCfg.GetInt("ScreenAspectTop");
+    int aspectBot = windowCfg.GetInt("ScreenAspectBot");
     for (int i = 0; i < AspectRatiosNum; i++)
     {
-        if (Config::ScreenAspectTop == aspectRatios[i].id)
+        if (aspectTop == aspectRatios[i].id)
             actScreenAspectTop[i]->setChecked(true);
-        if (Config::ScreenAspectBot == aspectRatios[i].id)
+        if (aspectBot == aspectRatios[i].id)
             actScreenAspectBot[i]->setChecked(true);
     }
 
-    actScreenFiltering->setChecked(Config::ScreenFilter);
+    actScreenFiltering->setChecked(windowCfg.GetBool("ScreenFilter"));
     actShowOSD->setChecked(showOSD);
 
     actLimitFramerate->setChecked(emuInstance->doLimitFPS);
@@ -1886,7 +1883,7 @@ void MainWindow::onChangeScreenSize()
 void MainWindow::onChangeScreenRotation(QAction* act)
 {
     int rot = act->data().toInt();
-    Config::ScreenRotation = rot;
+    windowCfg.SetInt("ScreenRotation", rot);
 
     emit screenLayoutChange();
 }
@@ -1894,7 +1891,7 @@ void MainWindow::onChangeScreenRotation(QAction* act)
 void MainWindow::onChangeScreenGap(QAction* act)
 {
     int gap = act->data().toInt();
-    Config::ScreenGap = gap;
+    windowCfg.SetInt("ScreenGap", gap);
 
     emit screenLayoutChange();
 }
@@ -1902,30 +1899,32 @@ void MainWindow::onChangeScreenGap(QAction* act)
 void MainWindow::onChangeScreenLayout(QAction* act)
 {
     int layout = act->data().toInt();
-    Config::ScreenLayout = layout;
+    windowCfg.SetInt("ScreenLayout", layout);
 
     emit screenLayoutChange();
 }
 
 void MainWindow::onChangeScreenSwap(bool checked)
 {
-    Config::ScreenSwap = checked?1:0;
+    windowCfg.SetBool("ScreenSwap", checked);
 
     // Swap between top and bottom screen when displaying one screen.
-    if (Config::ScreenSizing == Frontend::screenSizing_TopOnly)
+    int sizing = windowCfg.GetInt("ScreenSizing");
+    if (sizing == screenSizing_TopOnly)
     {
         // Bottom Screen.
-        Config::ScreenSizing = Frontend::screenSizing_BotOnly;
-        actScreenSizing[Frontend::screenSizing_TopOnly]->setChecked(false);
-        actScreenSizing[Config::ScreenSizing]->setChecked(true);
+        sizing = screenSizing_BotOnly;
+        actScreenSizing[screenSizing_TopOnly]->setChecked(false);
+        actScreenSizing[sizing]->setChecked(true);
     }
-    else if (Config::ScreenSizing == Frontend::screenSizing_BotOnly)
+    else if (sizing == screenSizing_BotOnly)
     {
         // Top Screen.
-        Config::ScreenSizing = Frontend::screenSizing_TopOnly;
-        actScreenSizing[Frontend::screenSizing_BotOnly]->setChecked(false);
-        actScreenSizing[Config::ScreenSizing]->setChecked(true);
+        sizing = screenSizing_TopOnly;
+        actScreenSizing[screenSizing_BotOnly]->setChecked(false);
+        actScreenSizing[sizing]->setChecked(true);
     }
+    windowCfg.SetInt("ScreenSizing", sizing);
 
     emit screenLayoutChange();
 }
@@ -1933,7 +1932,7 @@ void MainWindow::onChangeScreenSwap(bool checked)
 void MainWindow::onChangeScreenSizing(QAction* act)
 {
     int sizing = act->data().toInt();
-    Config::ScreenSizing = sizing;
+    windowCfg.SetInt("ScreenSizing", sizing);
 
     emit screenLayoutChange();
 }
@@ -1945,11 +1944,11 @@ void MainWindow::onChangeScreenAspect(QAction* act)
 
     if (group == grpScreenAspectTop)
     {
-        Config::ScreenAspectTop = aspect;
+        windowCfg.SetInt("ScreenAspectTop", aspect);
     }
     else
     {
-        Config::ScreenAspectBot = aspect;
+        windowCfg.SetInt("ScreenAspectBot", aspect);
     }
 
     emit screenLayoutChange();
@@ -1957,16 +1956,17 @@ void MainWindow::onChangeScreenAspect(QAction* act)
 
 void MainWindow::onChangeIntegerScaling(bool checked)
 {
-    Config::IntegerScaling = checked?1:0;
+    windowCfg.SetBool("IntegerScaling", checked);
 
     emit screenLayoutChange();
 }
 
 void MainWindow::onChangeScreenFiltering(bool checked)
 {
-    Config::ScreenFilter = checked?1:0;
+    windowCfg.SetBool("ScreenFilter", checked);
 
-    emit screenLayoutChange();
+    //emit screenLayoutChange();
+    panel->setFilter(checked);
 }
 
 void MainWindow::onChangeShowOSD(bool checked)
@@ -2016,15 +2016,16 @@ void MainWindow::onFullscreenToggled()
 
 void MainWindow::onScreenEmphasisToggled()
 {
-    int currentSizing = Config::ScreenSizing;
-    if (currentSizing == Frontend::screenSizing_EmphTop)
+    int currentSizing = windowCfg.GetInt("ScreenSizing");
+    if (currentSizing == screenSizing_EmphTop)
     {
-        Config::ScreenSizing = Frontend::screenSizing_EmphBot;
+        currentSizing = screenSizing_EmphBot;
     }
-    else if (currentSizing == Frontend::screenSizing_EmphBot)
+    else if (currentSizing == screenSizing_EmphBot)
     {
-        Config::ScreenSizing = Frontend::screenSizing_EmphTop;
+        currentSizing = screenSizing_EmphTop;
     }
+    windowCfg.SetInt("ScreenSizing", currentSizing);
 
     emit screenLayoutChange();
 }

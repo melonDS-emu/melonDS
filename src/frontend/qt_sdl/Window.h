@@ -20,7 +20,7 @@
 #define WINDOW_H
 
 #include "glad/glad.h"
-#include "FrontendUtil.h"
+#include "ScreenLayout.h"
 #include "duckstation/gl/context.h"
 
 #include <QWidget>
@@ -108,6 +108,7 @@ public:
     ~MainWindow();
 
     EmuInstance* getEmuInstance() { return emuInstance; }
+    Config::Table& getWindowConfig() { return windowCfg; }
 
     void attachEmuThread(EmuThread* thread);
 
@@ -296,14 +297,14 @@ public:
     QAction* actSavestateSRAMReloc;
     QAction* actScreenSize[4];
     QActionGroup* grpScreenRotation;
-    QAction* actScreenRotation[Frontend::screenRot_MAX];
+    QAction* actScreenRotation[screenRot_MAX];
     QActionGroup* grpScreenGap;
     QAction* actScreenGap[6];
     QActionGroup* grpScreenLayout;
-    QAction* actScreenLayout[Frontend::screenLayout_MAX];
+    QAction* actScreenLayout[screenLayout_MAX];
     QAction* actScreenSwap;
     QActionGroup* grpScreenSizing;
-    QAction* actScreenSizing[Frontend::screenSizing_MAX];
+    QAction* actScreenSizing[screenSizing_MAX];
     QAction* actIntegerScaling;
     QActionGroup* grpScreenAspectTop;
     QAction** actScreenAspectTop;

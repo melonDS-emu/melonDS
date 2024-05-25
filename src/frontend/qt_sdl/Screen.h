@@ -31,7 +31,7 @@
 #include <QTimer>
 
 #include "glad/glad.h"
-#include "FrontendUtil.h"
+#include "ScreenLayout.h"
 #include "duckstation/gl/context.h"
 
 
@@ -58,6 +58,8 @@ public:
     explicit ScreenPanel(QWidget* parent);
     virtual ~ScreenPanel();
 
+    void setFilter(bool filter);
+
     void setMouseHide(bool enable, int delay);
 
     QTimer* setupMouseTimer();
@@ -70,10 +72,30 @@ public:
 
 private slots:
     void onScreenLayoutChanged();
+    void onAutoScreenSizingChanged(int sizing);
 
 protected:
     MainWindow* mainWindow;
     EmuInstance* emuInstance;
+
+    bool filter;
+
+    int screenRotation;
+    int screenGap;
+    int screenLayout;
+    bool screenSwap;
+    int screenSizing;
+    bool integerScaling;
+    int screenAspectTop, screenAspectBot;
+
+    int autoScreenSizing;
+
+    ScreenLayout layout;
+    float screenMatrix[kMaxScreenTransforms][6];
+    int screenKind[kMaxScreenTransforms];
+    int numScreens;
+
+    bool touching = false;
 
     bool mouseHide;
     int mouseHideDelay;
@@ -95,6 +117,8 @@ protected:
     unsigned int osdID;
     std::deque<OSDItem> osdItems;
 
+    void loadConfig();
+
     virtual void setupScreenLayout();
 
     void resizeEvent(QResizeEvent* event) override;
@@ -106,12 +130,6 @@ protected:
     void tabletEvent(QTabletEvent* event) override;
     void touchEvent(QTouchEvent* event);
     bool event(QEvent* event) override;
-
-    float screenMatrix[Frontend::MaxScreenTransforms][6];
-    int screenKind[Frontend::MaxScreenTransforms];
-    int numScreens;
-
-    bool touching = false;
 
     void showCursor();
 
@@ -141,7 +159,7 @@ private:
     void setupScreenLayout() override;
 
     QImage screen[2];
-    QTransform screenTrans[Frontend::MaxScreenTransforms];
+    QTransform screenTrans[kMaxScreenTransforms];
 };
 
 
@@ -187,7 +205,6 @@ private:
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;
-    bool filter;
 
     int lastScreenWidth = -1, lastScreenHeight = -1;
 

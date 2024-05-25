@@ -44,8 +44,7 @@ set(SOURCES_QT_SDL
     ArchiveUtil.h
     ArchiveUtil.cpp
 
-    ../Util_Video.cpp
-    ../FrontendUtil.h
+    ../ScreenLayout.cpp
     ../mic_blow.h
 
     ../glad/glad.c

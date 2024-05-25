@@ -83,7 +83,7 @@ signals:
 
     void windowLimitFPSChange();
 
-    void screenLayoutChange();
+    void autoScreenSizingChange(int sizing);
 
     void windowFullscreenToggle();
 

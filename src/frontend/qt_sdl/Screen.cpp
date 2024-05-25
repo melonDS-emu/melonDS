@@ -59,7 +59,6 @@ using namespace melonDS;
 
 // TEMP
 extern bool RunningSomething;
-extern int autoScreenSizing;
 
 extern int videoRenderer;
 extern bool videoSettingsDirty;
@@ -91,12 +90,34 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
 
     osdEnabled = false;
     osdID = 1;
+    
+    loadConfig();
+    setFilter(mainWindow->getWindowConfig().GetBool("ScreenFilter"));
 }
 
 ScreenPanel::~ScreenPanel()
 {
     mouseTimer->stop();
     delete mouseTimer;
+}
+
+void ScreenPanel::loadConfig()
+{
+    auto& cfg = mainWindow->getWindowConfig();
+    
+    screenRotation = cfg.GetInt("ScreenRotation");
+    screenGap = cfg.GetInt("ScreenGap");
+    screenLayout = cfg.GetInt("ScreenLayout");
+    screenSwap = cfg.GetBool("ScreenSwap");
+    screenSizing = cfg.GetInt("ScreenSizing");
+    integerScaling = cfg.GetBool("IntegerScaling");
+    screenAspectTop = cfg.GetInt("ScreenAspectTop");
+    screenAspectBot = cfg.GetInt("ScreenAspectBot");
+}
+
+void ScreenPanel::setFilter(bool filter)
+{
+    this->filter = filter;
 }
 
 void ScreenPanel::setMouseHide(bool enable, int delay)
@@ -112,16 +133,16 @@ void ScreenPanel::setupScreenLayout()
     int w = width();
     int h = height();
 
-    int sizing = Config::ScreenSizing;
-    if (sizing == 3) sizing = autoScreenSizing;
+    int sizing = screenSizing;
+    if (sizing == screenSizing_Auto) sizing = autoScreenSizing;
 
     float aspectTop, aspectBot;
 
     for (auto ratio : aspectRatios)
     {
-        if (ratio.id == Config::ScreenAspectTop)
+        if (ratio.id == screenAspectTop)
             aspectTop = ratio.ratio;
-        if (ratio.id == Config::ScreenAspectBot)
+        if (ratio.id == screenAspectBot)
             aspectBot = ratio.ratio;
     }
 
@@ -131,49 +152,49 @@ void ScreenPanel::setupScreenLayout()
     if (aspectBot == 0)
         aspectBot = ((float) w / h) / (4.f / 3.f);
 
-    Frontend::SetupScreenLayout(w, h,
-                                static_cast<Frontend::ScreenLayout>(Config::ScreenLayout),
-                                static_cast<Frontend::ScreenRotation>(Config::ScreenRotation),
-                                static_cast<Frontend::ScreenSizing>(sizing),
-                                Config::ScreenGap,
-                                Config::IntegerScaling != 0,
-                                Config::ScreenSwap != 0,
-                                aspectTop,
-                                aspectBot);
+    layout.Setup(w, h,
+                static_cast<ScreenLayoutType>(screenLayout),
+                static_cast<ScreenRotation>(screenRotation),
+                static_cast<ScreenSizing>(sizing),
+                screenGap,
+                integerScaling != 0,
+                screenSwap != 0,
+                aspectTop,
+                aspectBot);
 
-    numScreens = Frontend::GetScreenTransforms(screenMatrix[0], screenKind);
+    numScreens = layout.GetScreenTransforms(screenMatrix[0], screenKind);
 }
 
 QSize ScreenPanel::screenGetMinSize(int factor = 1)
 {
-    bool isHori = (Config::ScreenRotation == Frontend::screenRot_90Deg
-        || Config::ScreenRotation == Frontend::screenRot_270Deg);
-    int gap = Config::ScreenGap * factor;
+    bool isHori = (screenRotation == screenRot_90Deg
+        || screenRotation == screenRot_270Deg);
+    int gap = screenGap * factor;
 
     int w = 256 * factor;
     int h = 192 * factor;
 
-    if (Config::ScreenSizing == Frontend::screenSizing_TopOnly
-        || Config::ScreenSizing == Frontend::screenSizing_BotOnly)
+    if (screenSizing == screenSizing_TopOnly
+        || screenSizing == screenSizing_BotOnly)
     {
         return QSize(w, h);
     }
 
-    if (Config::ScreenLayout == Frontend::screenLayout_Natural)
+    if (screenLayout == screenLayout_Natural)
     {
         if (isHori)
             return QSize(h+gap+h, w);
         else
             return QSize(w, h+gap+h);
     }
-    else if (Config::ScreenLayout == Frontend::screenLayout_Vertical)
+    else if (screenLayout == screenLayout_Vertical)
     {
         if (isHori)
             return QSize(h, w+gap+w);
         else
             return QSize(w, h+gap+h);
     }
-    else if (Config::ScreenLayout == Frontend::screenLayout_Horizontal)
+    else if (screenLayout == screenLayout_Horizontal)
     {
         if (isHori)
             return QSize(h+gap+h, w);
@@ -191,7 +212,17 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
 
 void ScreenPanel::onScreenLayoutChanged()
 {
+    loadConfig();
+
     setMinimumSize(screenGetMinSize());
+    setupScreenLayout();
+}
+
+void ScreenPanel::onAutoScreenSizingChanged(int sizing)
+{
+    autoScreenSizing = sizing;
+    if (screenSizing != screenSizing_Auto) return;
+
     setupScreenLayout();
 }
 
@@ -209,7 +240,7 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
     int x = event->pos().x();
     int y = event->pos().y();
 
-    if (Frontend::GetTouchCoords(x, y, false))
+    if (layout.GetTouchCoords(x, y, false))
     {
         touching = true;
         assert(emuInstance->getNDS() != nullptr);
@@ -242,7 +273,7 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
     int x = event->pos().x();
     int y = event->pos().y();
 
-    if (Frontend::GetTouchCoords(x, y, true))
+    if (layout.GetTouchCoords(x, y, true))
     {
         assert(emuInstance->getNDS() != nullptr);
         emuInstance->getNDS()->TouchScreen(x, y);
@@ -261,7 +292,7 @@ void ScreenPanel::tabletEvent(QTabletEvent* event)
             int x = event->x();
             int y = event->y();
 
-            if (Frontend::GetTouchCoords(x, y, event->type()==QEvent::TabletMove))
+            if (layout.GetTouchCoords(x, y, event->type()==QEvent::TabletMove))
             {
                 touching = true;
                 assert(emuInstance->getNDS() != nullptr);
@@ -296,7 +327,7 @@ void ScreenPanel::touchEvent(QTouchEvent* event)
             int x = (int)lastPosition.x();
             int y = (int)lastPosition.y();
 
-            if (Frontend::GetTouchCoords(x, y, event->type()==QEvent::TouchUpdate))
+            if (layout.GetTouchCoords(x, y, event->type()==QEvent::TouchUpdate))
             {
                 touching = true;
                 assert(emuInstance->getNDS() != nullptr);
@@ -1115,7 +1146,6 @@ void ScreenPanelGL::transferLayout()
             lastScreenHeight = windowInfo->surface_height;
         }
 
-        this->filter = Config::ScreenFilter;
         this->windowInfo = *windowInfo;
 
         screenSettingsLock.unlock();

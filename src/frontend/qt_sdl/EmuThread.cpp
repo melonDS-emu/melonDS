@@ -33,7 +33,7 @@
 #include "types.h"
 #include "version.h"
 
-#include "FrontendUtil.h"
+#include "ScreenLayout.h"
 
 #include "Args.h"
 #include "NDS.h"
@@ -79,19 +79,6 @@ EmuThread::EmuThread(EmuInstance* inst, QObject* parent) : QThread(parent)
     EmuRunning = emuStatus_Paused;
     EmuPauseStack = EmuPauseStackRunning;
     RunningSomething = false;
-
-    /*connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(repaint()));
-    connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
-    connect(this, SIGNAL(windowEmuStart()), mainWindow, SLOT(onEmuStart()));
-    connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
-    connect(this, SIGNAL(windowEmuPause()), mainWindow->actPause, SLOT(trigger()));
-    connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
-    connect(this, SIGNAL(windowEmuFrameStep()), mainWindow->actFrameStep, SLOT(trigger()));
-    connect(this, SIGNAL(windowLimitFPSChange()), mainWindow->actLimitFramerate, SLOT(trigger()));
-    connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
-    connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
-    connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
-    connect(this, SIGNAL(screenEmphasisToggle()), mainWindow, SLOT(onScreenEmphasisToggled()));*/
 }
 
 void EmuThread::attachWindow(MainWindow* window)
@@ -108,7 +95,7 @@ void EmuThread::attachWindow(MainWindow* window)
     connect(this, SIGNAL(windowEmuReset()), window->actReset, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuFrameStep()), window->actFrameStep, SLOT(trigger()));
     connect(this, SIGNAL(windowLimitFPSChange()), window->actLimitFramerate, SLOT(trigger()));
-    connect(this, SIGNAL(screenLayoutChange()), window->panel, SLOT(onScreenLayoutChanged()));
+    connect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     connect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), window->actScreenSwap, SLOT(trigger()));
     connect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
@@ -124,7 +111,7 @@ void EmuThread::detachWindow(MainWindow* window)
     disconnect(this, SIGNAL(windowEmuReset()), window->actReset, SLOT(trigger()));
     disconnect(this, SIGNAL(windowEmuFrameStep()), window->actFrameStep, SLOT(trigger()));
     disconnect(this, SIGNAL(windowLimitFPSChange()), window->actLimitFramerate, SLOT(trigger()));
-    disconnect(this, SIGNAL(screenLayoutChange()), window->panel, SLOT(onScreenLayoutChanged()));
+    disconnect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     disconnect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
     disconnect(this, SIGNAL(swapScreensToggle()), window->actScreenSwap, SLOT(trigger()));
     disconnect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
@@ -307,7 +294,6 @@ void EmuThread::run()
             emuInstance->micProcess();
 
             // auto screen layout
-            if (Config::ScreenSizing == Frontend::screenSizing_Auto)
             {
                 mainScreenPos[2] = mainScreenPos[1];
                 mainScreenPos[1] = mainScreenPos[0];
@@ -319,20 +305,20 @@ void EmuThread::run()
                 {
                     // constant flickering, likely displaying 3D on both screens
                     // TODO: when both screens are used for 2D only...???
-                    guess = Frontend::screenSizing_Even;
+                    guess = screenSizing_Even;
                 }
                 else
                 {
                     if (mainScreenPos[0] == 1)
-                        guess = Frontend::screenSizing_EmphTop;
+                        guess = screenSizing_EmphTop;
                     else
-                        guess = Frontend::screenSizing_EmphBot;
+                        guess = screenSizing_EmphBot;
                 }
 
                 if (guess != autoScreenSizing)
                 {
                     autoScreenSizing = guess;
-                    emit screenLayoutChange();
+                    emit autoScreenSizingChange(autoScreenSizing);
                 }
             }
 

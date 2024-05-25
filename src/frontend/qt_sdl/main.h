@@ -34,7 +34,7 @@
 #include "EmuInstance.h"
 #include "Window.h"
 #include "EmuThread.h"
-#include "FrontendUtil.h"
+#include "ScreenLayout.h"
 
 class MelonApplication : public QApplication
 {

@@ -151,16 +151,6 @@ private:
 };
 
 
-extern int ScreenRotation;
-extern int ScreenGap;
-extern int ScreenLayout;
-extern bool ScreenSwap;
-extern int ScreenSizing;
-extern int ScreenAspectTop;
-extern int ScreenAspectBot;
-extern bool IntegerScaling;
-extern bool ScreenFilter;
-
 extern bool ScreenUseGL;
 extern bool ScreenVSync;
 extern int ScreenVSyncInterval;

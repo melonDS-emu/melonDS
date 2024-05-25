@@ -27,7 +27,7 @@
 
 #include "Platform.h"
 #include "Config.h"
-#include "FrontendUtil.h"
+#include "ScreenLayout.h"
 #include "main.h"
 
 using namespace std::string_literals;
@@ -36,16 +36,6 @@ using namespace std::string_literals;
 namespace Config
 {
 using namespace melonDS;
-
-int ScreenRotation;
-int ScreenGap;
-int ScreenLayout;
-bool ScreenSwap;
-int ScreenSizing;
-bool IntegerScaling;
-int ScreenAspectTop;
-int ScreenAspectBot;
-bool ScreenFilter;
 
 bool ScreenUseGL;
 bool ScreenVSync;
@@ -108,10 +98,10 @@ RangeList IntRanges =
     {"Audio.Interpolation", {0, 3}},
     {"Instance*.Audio.Volume", {0, 256}},
     {"Mic.InputType", {0, micInputType_MAX-1}},
-    {"Instance*.Window*.ScreenRotation", {0, Frontend::screenRot_MAX-1}},
+    {"Instance*.Window*.ScreenRotation", {0, screenRot_MAX-1}},
     {"Instance*.Window*.ScreenGap", {0, 500}},
-    {"Instance*.Window*.ScreenLayout", {0, Frontend::screenLayout_MAX-1}},
-    {"Instance*.Window*.ScreenSizing", {0, Frontend::screenSizing_MAX-1}},
+    {"Instance*.Window*.ScreenLayout", {0, screenLayout_MAX-1}},
+    {"Instance*.Window*.ScreenSizing", {0, screenSizing_MAX-1}},
     {"Instance*.Window*.ScreenAspectTop", {0, AspectRatiosNum-1}},
     {"Instance*.Window*.ScreenAspectBot", {0, AspectRatiosNum-1}},
     {"MP.AudioMode", {0, 2}},
