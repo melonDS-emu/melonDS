@@ -23,7 +23,7 @@
 #include "ARMJIT.h"
 
 #include "GPU2D_Soft.h"
-#include "GPU3D_Soft.h"
+#include "GPU3D.h"
 
 namespace melonDS
 {

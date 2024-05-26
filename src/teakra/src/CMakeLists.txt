@@ -32,10 +32,15 @@ add_library(teakra
     register.h
     shared_memory.h
     teakra.cpp
-    test.h
-    test_generator.cpp
-    test_generator.h
 )
+
+if (TEAKRA_BUILD_UNIT_TESTS)
+    target_sources(teakra PUBLIC
+        test.h
+        test_generator.cpp
+        test_generator.h
+    )
+endif()
 
 create_target_directory_groups(teakra)
 

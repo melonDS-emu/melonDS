@@ -349,7 +349,14 @@ public:
     virtual void RestartFrame(GPU& gpu) {};
     virtual u32* GetLine(int line) = 0;
     virtual void Blit(const GPU& gpu) {};
+
+    virtual void SetupAccelFrame() {}
     virtual void PrepareCaptureFrame() {}
+    virtual void BindOutputTexture(int buffer) {}
+
+    virtual bool NeedsShaderCompile() { return false; }
+    virtual void ShaderCompileStep(int& current, int& count) {}
+
 protected:
     Renderer3D(bool Accelerated);
 };

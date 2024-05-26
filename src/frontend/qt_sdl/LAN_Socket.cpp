@@ -26,7 +26,7 @@
 #include "FIFO.h"
 #include "Platform.h"
 
-#include <slirp/libslirp.h>
+#include <libslirp.h>
 
 #ifdef __WIN32__
 	#include <ws2tcpip.h>

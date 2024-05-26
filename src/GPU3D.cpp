@@ -24,6 +24,7 @@
 #include "FIFO.h"
 #include "GPU3D_Soft.h"
 #include "Platform.h"
+#include "GPU3D.h"
 
 namespace melonDS
 {

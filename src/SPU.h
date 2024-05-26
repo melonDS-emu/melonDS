@@ -40,6 +40,7 @@ enum class AudioInterpolation
     Linear,
     Cosine,
     Cubic,
+    SNESGaussian
 };
 
 class SPUChannel

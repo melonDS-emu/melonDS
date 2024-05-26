@@ -110,6 +110,7 @@ bool FATStorage::InjectFile(const std::string& path, u8* data, u32 len)
     res = f_mount(&fs, "0:", 1);
     if (res != FR_OK)
     {
+        f_unmount("0:");
         ff_disk_close();
         return false;
     }
@@ -146,6 +147,7 @@ u32 FATStorage::ReadFile(const std::string& path, u32 start, u32 len, u8* data)
     res = f_mount(&fs, "0:", 1);
     if (res != FR_OK)
     {
+        f_unmount("0:");
         ff_disk_close();
         return false;
     }
@@ -1144,6 +1146,7 @@ bool FATStorage::Save()
     res = f_mount(&fs, "0:", 1);
     if (res != FR_OK)
     {
+        f_unmount("0:");
         ff_disk_close();
         return false;
     }

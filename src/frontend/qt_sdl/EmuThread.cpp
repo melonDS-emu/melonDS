@@ -52,10 +52,12 @@
 #include "DSi_I2C.h"
 #include "GPU3D_Soft.h"
 #include "GPU3D_OpenGL.h"
+#include "GPU3D_Compute.h"
 
 #include "Savestate.h"
 
 #include "ROMManager.h"
+#include "EmuThread.h"
 //#include "ArchiveUtil.h"
 //#include "CameraManager.h"
 
@@ -94,9 +96,8 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
 }
 
 std::unique_ptr<NDS> EmuThread::CreateConsole(
-    std::unique_ptr<melonDS::NDSCart::CartCommon>&& ndscart,
-    std::unique_ptr<melonDS::GBACart::CartCommon>&& gbacart
-) noexcept
+    std::unique_ptr<melonDS::NDSCart::CartCommon> &&ndscart,
+    std::unique_ptr<melonDS::GBACart::CartCommon> &&gbacart) noexcept
 {
     auto arm7bios = ROMManager::LoadARM7BIOS();
     if (!arm7bios)
@@ -131,8 +132,8 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
     NDSArgs ndsargs {
         std::move(ndscart),
         std::move(gbacart),
-        *arm9bios,
-        *arm7bios,
+        std::move(arm9bios),
+        std::move(arm7bios),
         std::move(*firmware),
 #ifdef JIT_ENABLED
         Config::JIT_Enable ? std::make_optional(jitargs) : std::nullopt,
@@ -165,8 +166,8 @@ std::unique_ptr<NDS> EmuThread::CreateConsole(
         auto sdcard = ROMManager::LoadDSiSDCard();
         DSiArgs args {
             std::move(ndsargs),
-            *arm9ibios,
-            *arm7ibios,
+            std::move(arm9ibios),
+            std::move(arm7ibios),
             std::move(*nand),
             std::move(sdcard),
             Config::DSiFullBIOSBoot,
@@ -326,21 +327,12 @@ void EmuThread::run()
         videoRenderer = 0;
     }
 
-    if (videoRenderer == 0)
-    { // If we're using the software renderer...
-        NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
-    }
-    else
-    {
-        auto glrenderer =  melonDS::GLRenderer::New();
-        glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
-        NDS->GPU.SetRenderer3D(std::move(glrenderer));
-    }
+    updateRenderer();
 
     Input::Init();
 
     u32 nframes = 0;
-    double perfCountsSec = 1.0 / SDL_GetPerformanceFrequency();
+    perfCountsSec = 1.0 / SDL_GetPerformanceFrequency();
     double lastTime = SDL_GetPerformanceCounter() * perfCountsSec;
     double frameLimitError = 0.0;
     double lastMeasureTime = lastTime;
@@ -451,20 +443,9 @@ void EmuThread::run()
                     videoRenderer = 0;
                 }
 
-                videoRenderer = screenGL ? Config::_3DRenderer : 0;
+                updateRenderer();
 
                 videoSettingsDirty = false;
-
-                if (videoRenderer == 0)
-                { // If we're using the software renderer...
-                    NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>(Config::Threaded3D != 0));
-                }
-                else
-                {
-                    auto glrenderer =  melonDS::GLRenderer::New();
-                    glrenderer->SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
-                    NDS->GPU.SetRenderer3D(std::move(glrenderer));
-                }
             }
 
             // process input and hotkeys
@@ -512,7 +493,16 @@ void EmuThread::run()
 
 
             // emulate
-            u32 nlines = NDS->RunFrame();
+            u32 nlines;
+            if (NDS->GPU.GetRenderer3D().NeedsShaderCompile())
+            {
+                compileShaders();
+                nlines = 1;
+            }
+            else
+            {
+                nlines = NDS->RunFrame();
+            }
 
             if (ROMManager::NDSSave)
                 ROMManager::NDSSave->CheckFlush();
@@ -749,4 +739,54 @@ bool EmuThread::emuIsRunning()
 bool EmuThread::emuIsActive()
 {
     return (RunningSomething == 1);
+}
+
+void EmuThread::updateRenderer()
+{
+    if (videoRenderer != lastVideoRenderer)
+    {
+        printf("creating renderer %d\n", videoRenderer);
+        switch (videoRenderer)
+        {
+        case renderer3D_Software:
+            NDS->GPU.SetRenderer3D(std::make_unique<SoftRenderer>());
+            break;
+        case renderer3D_OpenGL:
+                NDS->GPU.SetRenderer3D(GLRenderer::New());
+            break;
+        case renderer3D_OpenGLCompute:
+            NDS->GPU.SetRenderer3D(ComputeRenderer::New());
+            break;
+        default: __builtin_unreachable();
+        }
+    }
+    lastVideoRenderer = videoRenderer;
+
+    switch (videoRenderer)
+    {
+    case renderer3D_Software:
+        static_cast<SoftRenderer&>(NDS->GPU.GetRenderer3D()).SetThreaded(Config::Threaded3D, NDS->GPU);
+        break;
+    case renderer3D_OpenGL:
+        static_cast<GLRenderer&>(NDS->GPU.GetRenderer3D()).SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
+        break;
+    case renderer3D_OpenGLCompute:
+        static_cast<ComputeRenderer&>(NDS->GPU.GetRenderer3D()).SetRenderSettings(Config::GL_ScaleFactor, Config::GL_HiresCoordinates);
+        break;
+    default: __builtin_unreachable();
+    }
+}
+
+void EmuThread::compileShaders()
+{
+    int currentShader, shadersCount;
+    u64 startTime = SDL_GetPerformanceCounter();
+    // kind of hacky to look at the wallclock, though it is easier than
+    // than disabling vsync
+    do
+    {
+        NDS->GPU.GetRenderer3D().ShaderCompileStep(currentShader, shadersCount);
+    } while (NDS->GPU.GetRenderer3D().NeedsShaderCompile() &&
+        (SDL_GetPerformanceCounter() - startTime) * perfCountsSec < 1.0 / 6.0);
+    mainWindow->osdAddMessage(0, "Compiling shader %d/%d", currentShader+1, shadersCount);
 }

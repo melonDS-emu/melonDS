@@ -175,10 +175,6 @@ bool camStarted[2];
 //extern int AspectRatiosNum;
 
 
-
-
-
-
 static bool FileExtensionInList(const QString& filename, const QStringList& extensions, Qt::CaseSensitivity cs = Qt::CaseInsensitive)
 {
     return std::any_of(extensions.cbegin(), extensions.cend(), [&](const auto& ext) {
@@ -339,16 +335,16 @@ int main(int argc, char** argv)
 
     if (!Config::Load()) QMessageBox::critical(NULL, "melonDS", "Unable to write to config.\nPlease check the write permissions of the folder you placed melonDS in.");
 
-#define SANITIZE(var, min, max)  { var = std::clamp(var, min, max); }
+#define SANITIZE(var, min, max)  { var = std::clamp<int>(var, min, max); }
     SANITIZE(Config::ConsoleType, 0, 1);
 #ifdef OGLRENDERER_ENABLED
-    SANITIZE(Config::_3DRenderer, 0, 1); // 0 is the software renderer, 1 is the OpenGL renderer
+    SANITIZE(Config::_3DRenderer, 0, renderer3D_Max);
 #else
     SANITIZE(Config::_3DRenderer, 0, 0);
 #endif
     SANITIZE(Config::ScreenVSyncInterval, 1, 20);
     SANITIZE(Config::GL_ScaleFactor, 1, 16);
-    SANITIZE(Config::AudioInterp, 0, 3);
+    SANITIZE(Config::AudioInterp, 0, 4);
     SANITIZE(Config::AudioVolume, 0, 256);
     SANITIZE(Config::MicInputType, 0, (int)micInputType_MAX);
     SANITIZE(Config::ScreenRotation, 0, (int)Frontend::screenRot_MAX);

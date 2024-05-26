@@ -18,7 +18,7 @@
 
 #include "GPU2D_Soft.h"
 #include "GPU.h"
-#include "GPU3D_OpenGL.h"
+#include "GPU3D.h"
 
 namespace melonDS
 {
