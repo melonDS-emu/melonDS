@@ -873,8 +873,6 @@ void ScreenPanelGL::initOpenGL()
     glEnableVertexAttribArray(0); // position
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)(0));
 
-
-    glContext->SetSwapInterval(Config::ScreenVSync ? Config::ScreenVSyncInterval : 0);
     transferLayout();
 }
 

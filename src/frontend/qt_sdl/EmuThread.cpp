@@ -66,9 +66,6 @@ using namespace melonDS;
 // TEMP
 extern bool RunningSomething;
 //extern MainWindow* mainWindow;
-extern int autoScreenSizing;
-extern int videoRenderer;
-extern bool videoSettingsDirty;
 
 
 EmuThread::EmuThread(EmuInstance* inst, QObject* parent) : QThread(parent)
@@ -83,10 +80,6 @@ EmuThread::EmuThread(EmuInstance* inst, QObject* parent) : QThread(parent)
 
 void EmuThread::attachWindow(MainWindow* window)
 {
-    windowList.push_back(window);
-    window->attachEmuThread(this);
-    mainWindow = windowList.front();
-
     connect(this, SIGNAL(windowUpdate()), window->panel, SLOT(repaint()));
     connect(this, SIGNAL(windowTitleChange(QString)), window, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), window, SLOT(onEmuStart()));
@@ -115,14 +108,11 @@ void EmuThread::detachWindow(MainWindow* window)
     disconnect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
     disconnect(this, SIGNAL(swapScreensToggle()), window->actScreenSwap, SLOT(trigger()));
     disconnect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
-
-    windowList.remove(window);
-    window->attachEmuThread(nullptr);
-    mainWindow = windowList.front();
 }
 
 void EmuThread::run()
 {
+    Config::Table& globalCfg = emuInstance->getGlobalConfig();
     u32 mainScreenPos[3];
     Platform::FileHandle* file;
 
@@ -136,25 +126,18 @@ void EmuThread::run()
 
     videoSettingsDirty = false;
 
-    if (mainWindow->hasOpenGL())
+    if (emuInstance->usesOpenGL())
     {
-        //screenGL = static_cast<ScreenPanelGL*>(mainWindow->panel);
-        //screenGL->initOpenGL();
-        //mainWindow->initOpenGL();
-        for (auto window : windowList)
-            window->initOpenGL();
+        emuInstance->initOpenGL();
 
         useOpenGL = true;
-        videoRenderer = Config::_3DRenderer;
+        videoRenderer = globalCfg.GetInt("3D.Renderer");
     }
     else
     {
-        //screenGL = nullptr;
         useOpenGL = false;
         videoRenderer = 0;
     }
-    //screenGL = nullptr;
-    //videoRenderer = 0;
 
     updateRenderer();
 
@@ -253,20 +236,15 @@ void EmuThread::run()
             }
 
             if (useOpenGL)
-                mainWindow->makeCurrentGL();
+                emuInstance->makeCurrentGL();
 
             // update render settings if needed
-            // HACK:
-            // once the fast forward hotkey is released, we need to update vsync
-            // to the old setting again
-            if (videoSettingsDirty || emuInstance->hotkeyReleased(HK_FastForward))
+            if (videoSettingsDirty)
             {
                 if (useOpenGL)
                 {
-                    for (auto window : windowList)
-                        window->setGLSwapInterval(Config::ScreenVSync ? Config::ScreenVSyncInterval : 0);
-
-                    videoRenderer = Config::_3DRenderer;
+                    emuInstance->setVSyncGL(true);
+                    videoRenderer = globalCfg.GetInt("3D.Renderer");
                 }
 #ifdef OGLRENDERER_ENABLED
                 else
@@ -353,9 +331,7 @@ void EmuThread::run()
             else
             {
                 FrontBuffer = emuInstance->nds->GPU.FrontBuffer;
-                //screenGL->drawScreenGL();
-                for (auto window : windowList)
-                    window->drawScreenGL();
+                emuInstance->drawScreenGL();
             }
 
 #ifdef MELONCAP
@@ -373,11 +349,17 @@ void EmuThread::run()
 
             bool fastforward = emuInstance->hotkeyDown(HK_FastForward);
 
-            if (fastforward && useOpenGL && Config::ScreenVSync)
+            if (useOpenGL)
             {
-                //screenGL->setSwapInterval(0);
-                for (auto window : windowList)
-                    window->setGLSwapInterval(0);
+                // when using OpenGL: when toggling fast-forward, change the vsync interval
+                if (emuInstance->hotkeyPressed(HK_FastForward))
+                {
+                    emuInstance->setVSyncGL(false);
+                }
+                else if (emuInstance->hotkeyReleased(HK_FastForward))
+                {
+                    emuInstance->setVSyncGL(true);
+                }
             }
 
             if (emuInstance->audioDSiVolumeSync && emuInstance->nds->ConsoleType == 1)
@@ -468,27 +450,20 @@ void EmuThread::run()
 
             if (useOpenGL)
             {
-                for (auto window : windowList)
-                    window->drawScreenGL();
+                emuInstance->drawScreenGL();
             }
 
             ContextRequestKind contextRequest = ContextRequest;
             if (contextRequest == contextRequest_InitGL)
             {
-                //screenGL = static_cast<ScreenPanelGL*>(mainWindow->panel);
-                //screenGL->initOpenGL();
-                for (auto window : windowList)
-                    window->initOpenGL();
+                emuInstance->initOpenGL();
 
                 useOpenGL = true;
                 ContextRequest = contextRequest_None;
             }
             else if (contextRequest == contextRequest_DeInitGL)
             {
-                //screenGL->deinitOpenGL();
-                //screenGL = nullptr;
-                for (auto window : windowList)
-                    window->deinitOpenGL();
+                emuInstance->deinitOpenGL();
 
                 useOpenGL = false;
                 ContextRequest = contextRequest_None;
@@ -608,16 +583,23 @@ void EmuThread::updateRenderer()
     }
     lastVideoRenderer = videoRenderer;
 
+    auto& cfg = emuInstance->getGlobalConfig();
     switch (videoRenderer)
     {
         case renderer3D_Software:
-            static_cast<SoftRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetThreaded(Config::Threaded3D, emuInstance->nds->GPU);
+            static_cast<SoftRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetThreaded(
+                    cfg.GetBool("3D.Soft.Threaded"),
+                    emuInstance->nds->GPU);
             break;
         case renderer3D_OpenGL:
-            static_cast<GLRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(Config::GL_BetterPolygons, Config::GL_ScaleFactor);
+            static_cast<GLRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(
+                    cfg.GetBool("3D.GL.BetterPolygons"),
+                    cfg.GetInt("3D.GL.ScaleFactor"));
             break;
         case renderer3D_OpenGLCompute:
-            static_cast<ComputeRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(Config::GL_ScaleFactor, Config::GL_HiresCoordinates);
+            static_cast<ComputeRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(
+                    cfg.GetInt("3D.GL.ScaleFactor"),
+                    cfg.GetBool("3D.GL.HiresCoordinates"));
             break;
         default: __builtin_unreachable();
     }

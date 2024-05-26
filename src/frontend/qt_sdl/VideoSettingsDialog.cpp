@@ -16,7 +16,6 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <stdio.h>
 #include <QFileDialog>
 #include <QtGlobal>
 
@@ -30,21 +29,25 @@
 #include "ui_VideoSettingsDialog.h"
 
 
-inline bool UsesGL()
+inline bool VideoSettingsDialog::UsesGL()
 {
-    return (Config::ScreenUseGL != 0) || (Config::_3DRenderer != renderer3D_Software);
+    auto& cfg = emuInstance->getGlobalConfig();
+    return cfg.GetBool("Screen.UseGL") || (cfg.GetInt("3D.Renderer") != renderer3D_Software);
 }
 
 VideoSettingsDialog* VideoSettingsDialog::currentDlg = nullptr;
 
 void VideoSettingsDialog::setEnabled()
 {
-    bool softwareRenderer = Config::_3DRenderer == renderer3D_Software;
+    auto& cfg = emuInstance->getGlobalConfig();
+    int renderer = cfg.GetInt("3D.Renderer");
+
+    bool softwareRenderer = renderer == renderer3D_Software;
     ui->cbGLDisplay->setEnabled(softwareRenderer);
     ui->cbSoftwareThreaded->setEnabled(softwareRenderer);
     ui->cbxGLResolution->setEnabled(!softwareRenderer);
-    ui->cbBetterPolygons->setEnabled(Config::_3DRenderer == renderer3D_OpenGL);
-    ui->cbxComputeHiResCoords->setEnabled(Config::_3DRenderer == renderer3D_OpenGLCompute);
+    ui->cbBetterPolygons->setEnabled(renderer == renderer3D_OpenGL);
+    ui->cbxComputeHiResCoords->setEnabled(renderer == renderer3D_OpenGLCompute);
 }
 
 VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::VideoSettingsDialog)
@@ -52,14 +55,17 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    oldRenderer = Config::_3DRenderer;
-    oldGLDisplay = Config::ScreenUseGL;
-    oldVSync = Config::ScreenVSync;
-    oldVSyncInterval = Config::ScreenVSyncInterval;
-    oldSoftThreaded = Config::Threaded3D;
-    oldGLScale = Config::GL_ScaleFactor;
-    oldGLBetterPolygons = Config::GL_BetterPolygons;
-    oldHiresCoordinates = Config::GL_HiresCoordinates;
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
+
+    auto& cfg = emuInstance->getGlobalConfig();
+    oldRenderer = cfg.GetInt("3D.Renderer");
+    oldGLDisplay = cfg.GetBool("Screen.UseGL");
+    oldVSync = cfg.GetBool("Screen.VSync");
+    oldVSyncInterval = cfg.GetInt("Screen.VSyncInterval");
+    oldSoftThreaded = cfg.GetBool("3D.Soft.Threaded");
+    oldGLScale = cfg.GetInt("3D.GL.ScaleFactor");
+    oldGLBetterPolygons = cfg.GetBool("3D.GL.BetterPolygons");
+    oldHiresCoordinates = cfg.GetBool("3D.GL.HiresCoordinates");
 
     grp3DRenderer = new QButtonGroup(this);
     grp3DRenderer->addButton(ui->rb3DSoftware, renderer3D_Software);
@@ -70,7 +76,7 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
 #else
     connect(grp3DRenderer, SIGNAL(idClicked(int)), this, SLOT(onChange3DRenderer(int)));
 #endif
-    grp3DRenderer->button(Config::_3DRenderer)->setChecked(true);
+    grp3DRenderer->button(oldRenderer)->setChecked(true);
 
 #ifndef OGLRENDERER_ENABLED
     ui->rb3DOpenGL->setEnabled(false);
@@ -80,21 +86,21 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->rb3DCompute->setEnabled(false);
 #endif
 
-    ui->cbGLDisplay->setChecked(Config::ScreenUseGL != 0);
+    ui->cbGLDisplay->setChecked(oldGLDisplay != 0);
 
-    ui->cbVSync->setChecked(Config::ScreenVSync != 0);
-    ui->sbVSyncInterval->setValue(Config::ScreenVSyncInterval);
+    ui->cbVSync->setChecked(oldVSync != 0);
+    ui->sbVSyncInterval->setValue(oldVSyncInterval);
 
-    ui->cbSoftwareThreaded->setChecked(Config::Threaded3D != 0);
+    ui->cbSoftwareThreaded->setChecked(oldSoftThreaded);
 
     for (int i = 1; i <= 16; i++)
         ui->cbxGLResolution->addItem(QString("%1x native (%2x%3)").arg(i).arg(256*i).arg(192*i));
-    ui->cbxGLResolution->setCurrentIndex(Config::GL_ScaleFactor-1);
+    ui->cbxGLResolution->setCurrentIndex(oldGLScale-1);
 
-    ui->cbBetterPolygons->setChecked(Config::GL_BetterPolygons != 0);
-    ui->cbxComputeHiResCoords->setChecked(Config::GL_HiresCoordinates != 0);
+    ui->cbBetterPolygons->setChecked(oldGLBetterPolygons != 0);
+    ui->cbxComputeHiResCoords->setChecked(oldHiresCoordinates != 0);
 
-    if (!Config::ScreenVSync)
+    if (!oldVSync)
         ui->sbVSyncInterval->setEnabled(false);
     setVsyncControlEnable(UsesGL());
 
@@ -117,14 +123,15 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
 {
     bool old_gl = UsesGL();
 
-    Config::_3DRenderer = oldRenderer;
-    Config::ScreenUseGL = oldGLDisplay;
-    Config::ScreenVSync = oldVSync;
-    Config::ScreenVSyncInterval = oldVSyncInterval;
-    Config::Threaded3D = oldSoftThreaded;
-    Config::GL_ScaleFactor = oldGLScale;
-    Config::GL_BetterPolygons = oldGLBetterPolygons;
-    Config::GL_HiresCoordinates = oldHiresCoordinates;
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetInt("3D.Renderer", oldRenderer);
+    cfg.SetBool("Screen.UseGL", oldGLDisplay);
+    cfg.SetBool("Screen.VSync", oldVSync);
+    cfg.SetInt("Screen.VSyncInterval", oldVSyncInterval);
+    cfg.SetBool("3D.Soft.Threaded", oldSoftThreaded);
+    cfg.SetInt("3D.GL.ScaleFactor", oldGLScale);
+    cfg.SetBool("3D.GL.BetterPolygons", oldGLBetterPolygons);
+    cfg.SetBool("3D.GL.HiresCoordinates", oldHiresCoordinates);
 
     emit updateVideoSettings(old_gl != UsesGL());
 
@@ -141,7 +148,8 @@ void VideoSettingsDialog::onChange3DRenderer(int renderer)
 {
     bool old_gl = UsesGL();
 
-    Config::_3DRenderer = renderer;
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetInt("3D.Renderer", renderer);
 
     setEnabled();
 
@@ -152,7 +160,8 @@ void VideoSettingsDialog::on_cbGLDisplay_stateChanged(int state)
 {
     bool old_gl = UsesGL();
 
-    Config::ScreenUseGL = (state != 0);
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("Screen.UseGL", (state != 0));
 
     setVsyncControlEnable(UsesGL());
 
@@ -163,19 +172,25 @@ void VideoSettingsDialog::on_cbVSync_stateChanged(int state)
 {
     bool vsync = (state != 0);
     ui->sbVSyncInterval->setEnabled(vsync);
-    Config::ScreenVSync = vsync;
+
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("Screen.VSync", vsync);
+
     emit updateVideoSettings(false);
 }
 
 void VideoSettingsDialog::on_sbVSyncInterval_valueChanged(int val)
 {
-    Config::ScreenVSyncInterval = val;
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetInt("Screen.VSyncInterval", val);
+
     emit updateVideoSettings(false);
 }
 
 void VideoSettingsDialog::on_cbSoftwareThreaded_stateChanged(int state)
 {
-    Config::Threaded3D = (state != 0);
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.Soft.Threaded", (state != 0));
 
     emit updateVideoSettings(false);
 }
@@ -185,7 +200,8 @@ void VideoSettingsDialog::on_cbxGLResolution_currentIndexChanged(int idx)
     // prevent a spurious change
     if (ui->cbxGLResolution->count() < 16) return;
 
-    Config::GL_ScaleFactor = idx+1;
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetInt("3D.GL.ScaleFactor", idx+1);
 
     setVsyncControlEnable(UsesGL());
 
@@ -194,14 +210,16 @@ void VideoSettingsDialog::on_cbxGLResolution_currentIndexChanged(int idx)
 
 void VideoSettingsDialog::on_cbBetterPolygons_stateChanged(int state)
 {
-    Config::GL_BetterPolygons = (state != 0);
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.GL.BetterPolygons", (state != 0));
 
     emit updateVideoSettings(false);
 }
 
 void VideoSettingsDialog::on_cbxComputeHiResCoords_stateChanged(int state)
 {
-    Config::GL_HiresCoordinates = (state != 0);
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.GL.HiresCoordinates", (state != 0));
 
     emit updateVideoSettings(false);
 }

@@ -107,9 +107,6 @@ static bool FileIsSupportedFiletype(const QString& filename, bool insideArchive)
 extern CameraManager* camManager[2];
 extern bool camStarted[2];
 
-extern int videoRenderer;
-extern bool videoSettingsDirty;
-
 
 // AAAAAAA
 static bool FileExtensionInList(const QString& filename, const QStringList& extensions, Qt::CaseSensitivity cs = Qt::CaseInsensitive)
@@ -203,7 +200,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     emuInstance(inst),
     globalCfg(inst->globalCfg),
     localCfg(inst->localCfg),
-    windowCfg(localCfg.GetTable("Window"+std::to_string(id), "Window0"))
+    windowCfg(localCfg.GetTable("Window"+std::to_string(id), "Window0")),
+    emuThread(inst->getEmuThread())
 {
     test_num = test++;
 #ifndef _WIN32
@@ -709,11 +707,6 @@ MainWindow::~MainWindow()
     delete[] actScreenAspectBot;
 }
 
-void MainWindow::attachEmuThread(EmuThread* thread)
-{
-    emuThread = thread;
-}
-
 void MainWindow::osdAddMessage(unsigned int color, const char* msg)
 {
     if (!showOSD) return;
@@ -731,16 +724,20 @@ void MainWindow::closeEvent(QCloseEvent* event)
     if (hasOGL)
     {
         // we intentionally don't unpause here
+        // TODO this ought to change if we do multi-window shiz
         emuThread->emuPause();
         emuThread->deinitContext();
     }
+
+    emuThread->detachWindow(this);
 
     QMainWindow::closeEvent(event);
 }
 
 void MainWindow::createScreenPanel()
 {
-    hasOGL = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+    hasOGL = globalCfg.GetBool("Screen.UseGL") ||
+            (globalCfg.GetInt("3D.Renderer") != renderer3D_Software);
 
     if (hasOGL)
     {
@@ -749,8 +746,7 @@ void MainWindow::createScreenPanel()
 
         panel = panelGL;
 
-        bool res = panelGL->createContext();
-        printf("WIN %d CONTEXT: %d\n", test_num, res);
+        panelGL->createContext();
     }
 
     if (!hasOGL)
@@ -777,7 +773,7 @@ GL::Context* MainWindow::getOGLContext()
 }
 
 void MainWindow::initOpenGL()
-{printf("WINDOW %d INIT OPENGL %d\n", test_num, hasOGL);
+{
     if (!hasOGL) return;
 
     ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
@@ -2087,8 +2083,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
         connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
     }
 
-    printf("update video settings\n");
-    videoSettingsDirty = true;
+    emuThread->updateVideoSettings();
 
     if (glchange)
     {

@@ -88,6 +88,13 @@ public:
 
     void osdAddMessage(unsigned int color, const char* fmt, ...);
 
+    bool usesOpenGL();
+    void initOpenGL();
+    void deinitOpenGL();
+    void setVSyncGL(bool vsync);
+    void makeCurrentGL();
+    void drawScreenGL();
+
     // return: empty string = setup OK, non-empty = error message
     QString verifySetup();
 

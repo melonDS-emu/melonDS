@@ -37,17 +37,6 @@ namespace Config
 {
 using namespace melonDS;
 
-bool ScreenUseGL;
-bool ScreenVSync;
-int ScreenVSyncInterval;
-
-int _3DRenderer;
-bool Threaded3D;
-
-int GL_ScaleFactor;
-bool GL_BetterPolygons;
-bool GL_HiresCoordinates;
-
 
 const char* kConfigFile = "melonDS.toml";
 
@@ -63,6 +52,7 @@ DefaultList<int> DefaultInts =
     {"Instance*.Window*.Width", 256},
     {"Instance*.Window*.Height", 384},
     {"Screen.VSyncInterval", 1},
+    {"3D.Renderer", renderer3D_Software},
     {"3D.GL.ScaleFactor", 1},
     {"MaxFPS", 1000},
 #ifdef JIT_ENABLED
@@ -86,11 +76,7 @@ DefaultList<int> DefaultInts =
 RangeList IntRanges =
 {
     {"Emu.ConsoleType", {0, 1}},
-#ifdef OGLRENDERER_ENABLED
-    {"3D.Renderer", {0, 1}},
-#else
-    {"3D.Renderer", {0, 0}},
-#endif
+    {"3D.Renderer", {0, renderer3D_Max-1}},
     {"Screen.VSyncInterval", {1, 20}},
     {"3D.GL.ScaleFactor", {1, 16}},
     {"Audio.Interpolation", {0, 3}},
@@ -108,7 +94,8 @@ RangeList IntRanges =
 DefaultList<bool> DefaultBools =
 {
     {"Screen.Filter", true},
-    {"3D.Soft.Threaded3D", true},
+    {"3D.Soft.Threaded", true},
+    {"3D.GL.HiresCoordinates", true},
     {"LimitFPS", true},
     {"Window*.ShowOSD", true},
     {"Emu.DirectBoot", true},
@@ -205,10 +192,11 @@ LegacyEntry LegacyFile[] =
     {"ScreenVSyncInterval", 0, "Screen.VSyncInterval", false},
 
     {"3DRenderer", 0, "3D.Renderer", false},
-    {"Threaded3D", 1, "3D.Soft.Threaded3D", false},
+    {"Threaded3D", 1, "3D.Soft.Threaded", false},
 
     {"GL_ScaleFactor", 0, "3D.GL.ScaleFactor", false},
     {"GL_BetterPolygons", 1, "3D.GL.BetterPolygons", false},
+    {"GL_HiresCoordinates", 1, "3D.GL.HiresCoordinates", false},
 
     {"LimitFPS", 1, "LimitFPS", false},
     {"MaxFPS", 0, "MaxFPS", false},

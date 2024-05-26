@@ -110,8 +110,6 @@ public:
     EmuInstance* getEmuInstance() { return emuInstance; }
     Config::Table& getWindowConfig() { return windowCfg; }
 
-    void attachEmuThread(EmuThread* thread);
-
     bool hasOpenGL() { return hasOGL; }
     GL::Context* getOGLContext();
     void initOpenGL();

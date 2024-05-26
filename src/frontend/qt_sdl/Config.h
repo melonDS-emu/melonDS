@@ -16,8 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef PLATFORMCONFIG_H
-#define PLATFORMCONFIG_H
+#ifndef CONFIG_H
+#define CONFIG_H
 
 #include <variant>
 #include <string>
@@ -131,18 +131,6 @@ private:
 };
 
 
-extern bool ScreenUseGL;
-extern bool ScreenVSync;
-extern int ScreenVSyncInterval;
-
-extern int _3DRenderer;
-extern bool Threaded3D;
-
-extern int GL_ScaleFactor;
-extern bool GL_BetterPolygons;
-extern bool GL_HiresCoordinates;
-
-
 bool Load();
 void Save();
 
@@ -151,4 +139,4 @@ inline Table GetGlobalTable() { return GetLocalTable(-1); }
 
 }
 
-#endif // PLATFORMCONFIG_H
+#endif // CONFIG_H

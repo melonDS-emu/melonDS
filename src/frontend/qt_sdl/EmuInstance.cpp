@@ -156,6 +156,64 @@ void EmuInstance::osdAddMessage(unsigned int color, const char* fmt, ...)
 }
 
 
+bool EmuInstance::usesOpenGL()
+{
+    return globalCfg.GetBool("Screen.UseGL") ||
+           (globalCfg.GetInt("3D.Renderer") != renderer3D_Software);
+}
+
+void EmuInstance::initOpenGL()
+{
+    for (int i = 0; i < kMaxWindows; i++)
+    {
+        if (windowList[i])
+            windowList[i]->initOpenGL();
+    }
+
+    setVSyncGL(true);
+}
+
+void EmuInstance::deinitOpenGL()
+{
+    for (int i = 0; i < kMaxWindows; i++)
+    {
+        if (windowList[i])
+            windowList[i]->deinitOpenGL();
+    }
+}
+
+void EmuInstance::setVSyncGL(bool vsync)
+{
+    int intv;
+
+    vsync = vsync && globalCfg.GetBool("Screen.VSync");
+    if (vsync)
+        intv = globalCfg.GetInt("Screen.VSyncInterval");
+    else
+        intv = 0;
+
+    for (int i = 0; i < kMaxWindows; i++)
+    {
+        if (windowList[i])
+            windowList[i]->setGLSwapInterval(intv);
+    }
+}
+
+void EmuInstance::makeCurrentGL()
+{
+    mainWindow->makeCurrentGL();
+}
+
+void EmuInstance::drawScreenGL()
+{
+    for (int i = 0; i < kMaxWindows; i++)
+    {
+        if (windowList[i])
+            windowList[i]->drawScreenGL();
+    }
+}
+
+
 int EmuInstance::lastSep(const std::string& path)
 {
     int i = path.length() - 1;

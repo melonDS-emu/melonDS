@@ -135,16 +135,8 @@ bool RunningSomething;
 //EmuThread* emuThread;
 EmuInstance* testinst;
 
-int autoScreenSizing = 0;
-
-int videoRenderer;
-bool videoSettingsDirty;
-
 CameraManager* camManager[2];
 bool camStarted[2];
-
-//extern int AspectRatiosNum;
-
 
 
 
@@ -299,7 +291,7 @@ int main(int argc, char** argv)
         QString errorStr = "Failed to initialize SDL. This could indicate an issue with your audio driver.\n\nThe error was: ";
         errorStr += err;
 
-        QMessageBox::critical(NULL, "melonDS", errorStr);
+        QMessageBox::critical(nullptr, "melonDS", errorStr);
         return 1;
     }
 
@@ -308,17 +300,10 @@ int main(int argc, char** argv)
     SDL_InitSubSystem(SDL_INIT_VIDEO);
     SDL_EnableScreenSaver(); SDL_DisableScreenSaver();
 
-    if (!Config::Load()) QMessageBox::critical(NULL, "melonDS", "Unable to write to config.\nPlease check the write permissions of the folder you placed melonDS in.");
-
-#define SANITIZE(var, min, max)  { var = std::clamp(var, min, max); }
-#ifdef OGLRENDERER_ENABLED
-    SANITIZE(Config::_3DRenderer, 0, 1); // 0 is the software renderer, 1 is the OpenGL renderer
-#else
-    SANITIZE(Config::_3DRenderer, 0, 0);
-#endif
-    SANITIZE(Config::ScreenVSyncInterval, 1, 20);
-    SANITIZE(Config::GL_ScaleFactor, 1, 16);
-#undef SANITIZE
+    if (!Config::Load())
+        QMessageBox::critical(nullptr,
+                              "melonDS",
+                              "Unable to write to config.\nPlease check the write permissions of the folder you placed melonDS in.");
 
     camStarted[0] = false;
     camStarted[1] = false;

@@ -67,6 +67,7 @@ public:
 
     void initContext();
     void deinitContext();
+    void updateVideoSettings() { videoSettingsDirty = true; }
 
     int FrontBuffer = 0;
     QMutex FrontBufferLock;
@@ -121,10 +122,6 @@ private:
     std::atomic<ContextRequestKind> ContextRequest = contextRequest_None;
 
     EmuInstance* emuInstance;
-
-    //ScreenPanelGL* screenGL;
-    MainWindow* mainWindow;
-    std::list<MainWindow*> windowList;
 
     int autoScreenSizing;
 
