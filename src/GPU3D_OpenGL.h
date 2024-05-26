@@ -31,7 +31,7 @@ class GLRenderer : public Renderer3D
 {
 public:
     ~GLRenderer() override;
-    void Reset() override;
+    void Reset(GPU& gpu) override;
 
     void SetRenderSettings(bool betterpolygons, int scale) noexcept;
     void SetBetterPolygons(bool betterpolygons) noexcept;
@@ -39,22 +39,21 @@ public:
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
 
-    void VCount144() override {};
-    void RenderFrame() override;
-    void Stop() override;
+    void VCount144(GPU& gpu) override {};
+    void RenderFrame(GPU& gpu) override;
+    void Stop(const GPU& gpu) override;
     u32* GetLine(int line) override;
 
-    void SetupAccelFrame();
+    void SetupAccelFrame() override;
     void PrepareCaptureFrame() override;
-    void Blit() override;
+    void Blit(const GPU& gpu) override;
 
-    [[nodiscard]] const GLCompositor& GetCompositor() const noexcept { return CurGLCompositor; }
-    GLCompositor& GetCompositor() noexcept { return CurGLCompositor; }
+    void BindOutputTexture(int buffer) override;
 
-    static std::unique_ptr<GLRenderer> New(melonDS::GPU& gpu) noexcept;
+    static std::unique_ptr<GLRenderer> New() noexcept;
 private:
     // Used by New()
-    GLRenderer(GLCompositor&& compositor, GPU& gpu) noexcept;
+    GLRenderer(GLCompositor&& compositor) noexcept;
 
     // GL version requirements
     // * texelFetch: 3.0 (GLSL 1.30)     (3.2/1.50 for MS)
@@ -74,19 +73,18 @@ private:
         u32 RenderKey;
     };
 
-    melonDS::GPU& GPU;
     GLCompositor CurGLCompositor;
     RendererPolygon PolygonList[2048] {};
 
-    bool BuildRenderShader(u32 flags, const char* vs, const char* fs);
+    bool BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs);
     void UseRenderShader(u32 flags);
-    void SetupPolygon(RendererPolygon* rp, Polygon* polygon);
-    u32* SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u32* vptr);
+    void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
+    u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32* vptr) const;
     void BuildPolygons(RendererPolygon* polygons, int npolys);
-    int RenderSinglePolygon(int i);
-    int RenderPolygonBatch(int i);
-    int RenderPolygonEdgeBatch(int i);
-    void RenderSceneChunk(int y, int h);
+    int RenderSinglePolygon(int i) const;
+    int RenderPolygonBatch(int i) const;
+    int RenderPolygonEdgeBatch(int i) const;
+    void RenderSceneChunk(const GPU3D& gpu3d, int y, int h);
 
     enum
     {
@@ -97,13 +95,13 @@ private:
     };
 
 
-    GLuint ClearShaderPlain[3] {};
+    GLuint ClearShaderPlain {};
 
-    GLuint RenderShader[16][3] {};
+    GLuint RenderShader[16] {};
     GLuint CurShaderID = -1;
 
-    GLuint FinalPassEdgeShader[3] {};
-    GLuint FinalPassFogShader[3] {};
+    GLuint FinalPassEdgeShader {};
+    GLuint FinalPassFogShader {};
 
     // std140 compliant structure
     struct
@@ -156,12 +154,12 @@ private:
     bool BetterPolygons {};
     int ScreenW {}, ScreenH {};
 
-    GLuint FramebufferTex[8] {};
-    int FrontBuffer {};
-    GLuint FramebufferID[4] {}, PixelbufferID {};
+    GLuint ColorBufferTex {}, DepthBufferTex {}, AttrBufferTex {};
+    GLuint DownScaleBufferTex {};
+    GLuint PixelbufferID {};
+
+    GLuint MainFramebuffer {}, DownscaleFramebuffer {};
     u32 Framebuffer[256*192] {};
-
-
 };
 }
 #endif

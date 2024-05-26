@@ -110,7 +110,11 @@ DWORD get_fattime(void)
 
     time_t timestamp = time(NULL);
     struct tm timedata;
+#if defined(_MSC_VER)
+    localtime_s(&timedata, &timestamp);
+#else
     localtime_r(&timestamp, &timedata);
+#endif
 
     DWORD ret;
     ret  = (timedata.tm_sec >> 1);

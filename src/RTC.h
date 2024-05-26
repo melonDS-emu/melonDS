@@ -55,9 +55,9 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    void GetState(StateData& state);
-    void SetState(StateData& state);
-    void GetDateTime(int& year, int& month, int& day, int& hour, int& minute, int& second);
+    void GetState(StateData& state) const;
+    void SetState(const StateData& state);
+    void GetDateTime(int& year, int& month, int& day, int& hour, int& minute, int& second) const;
     void SetDateTime(int year, int month, int day, int hour, int minute, int second);
 
     void ClockTimer(u32 param);
@@ -87,16 +87,16 @@ private:
     void ResetState();
     void ScheduleTimer(bool first);
 
-    u8 BCD(u8 val);
-    u8 FromBCD(u8 val);
-    u8 BCDIncrement(u8 val);
-    u8 BCDSanitize(u8 val, u8 vmin, u8 vmax);
+    u8 BCD(u8 val) const;
+    u8 FromBCD(u8 val) const;
+    u8 BCDIncrement(u8 val) const;
+    u8 BCDSanitize(u8 val, u8 vmin, u8 vmax) const;
 
     void SetIRQ(u8 irq);
     void ClearIRQ(u8 irq);
     void ProcessIRQ(int type);
 
-    u8 DaysInMonth();
+    u8 DaysInMonth() const;
     void CountYear();
     void CountMonth();
     void CheckEndOfMonth();

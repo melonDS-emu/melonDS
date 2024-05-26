@@ -33,7 +33,7 @@ public:
     void SetCodeFile(ARCodeFile* file) { CodeFile = file; }
 
     void RunCheats();
-    void RunCheat(ARCode& arcode);
+    void RunCheat(const ARCode& arcode);
 private:
     melonDS::NDS& NDS;
     ARCodeFile* CodeFile; // AR code file - frontend is responsible for managing this

@@ -1,4 +1,4 @@
-name: CMake Build (Windows x86-64)
+name: Windows
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
           update: true
 
     - name: Install dependencies
-      run: pacman -Sq --noconfirm git pkgconf mingw-w64-x86_64-{cmake,SDL2,qt5-static,libslirp,libarchive,toolchain}
+      run: pacman -Sq --noconfirm git pkgconf mingw-w64-x86_64-{cmake,SDL2,qt5-static,libarchive,toolchain}
 
     - name: Configure
       working-directory: ${{runner.workspace}}

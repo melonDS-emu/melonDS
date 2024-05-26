@@ -651,7 +651,7 @@ const Compiler::CompileFunc T_Comp[ARMInstrInfo::tk_Count] = {
 };
 #undef F
 
-bool Compiler::CanCompile(bool thumb, u16 kind)
+bool Compiler::CanCompile(bool thumb, u16 kind) const
 {
     return (thumb ? T_Comp[kind] : A_Comp[kind]) != NULL;
 }
@@ -667,7 +667,7 @@ void Compiler::Reset()
     LoadStorePatches.clear();
 }
 
-bool Compiler::IsJITFault(u8* addr)
+bool Compiler::IsJITFault(const u8* addr)
 {
     return (u64)addr >= (u64)ResetStart && (u64)addr < (u64)ResetStart + CodeMemSize;
 }

@@ -20,33 +20,33 @@
 #define ARMJIT_MEMORY
 
 #include "types.h"
-#include "TinyVector.h"
-
-#include "ARM.h"
 #include "MemConstants.h"
 
-#if defined(__SWITCH__)
-#include <switch.h>
-#elif defined(_WIN32)
+#ifdef JIT_ENABLED
+#  include "TinyVector.h"
+#  include "ARM.h"
+#  if defined(__SWITCH__)
+#    include <switch.h>
+#  elif defined(_WIN32)
 #include <windows.h>
+#  else
+#    include <sys/mman.h>
+#    include <sys/stat.h>
+#    include <fcntl.h>
+#    include <unistd.h>
+#    include <signal.h>
+#  endif
 #else
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <signal.h>
-#endif
-
-#ifndef JIT_ENABLED
-#include <array>
-#include "NDS.h"
+# include <array>
 #endif
 
 namespace melonDS
 {
+#ifdef JIT_ENABLED
 namespace Platform { struct DynamicLibrary; }
 class Compiler;
 class ARMJIT;
+#endif
 
 constexpr u32 RoundUp(u32 size) noexcept
 {

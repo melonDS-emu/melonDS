@@ -276,7 +276,7 @@ Compiler::Compiler(melonDS::NDS& nds) : Arm64Gen::ARM64XEmitter(), NDS(nds)
         VirtualProtect(pageAligned, alignedSize, PAGE_EXECUTE_READWRITE, &dummy);
     #elif defined(__APPLE__)
         pageAligned = (u8*)mmap(NULL, 1024*1024*16, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT,-1, 0);
-        JitEnableWrite();
+        nds.JIT.JitEnableWrite();
     #else
         mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
     #endif

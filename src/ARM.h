@@ -20,9 +20,11 @@
 #define ARM_H
 
 #include <algorithm>
+#include <optional>
 
 #include "types.h"
 #include "MemRegion.h"
+#include "MemConstants.h"
 
 #ifdef GDBSTUB_ENABLED
 #include "debug/GdbStub.h"
@@ -41,10 +43,7 @@ enum
     RWFlags_ForceUser = (1<<21),
 };
 
-const u32 ITCMPhysicalSize = 0x8000;
-const u32 DTCMPhysicalSize = 0x4000;
-
-
+struct GDBArgs;
 class ARMJIT;
 class GPU;
 class ARMJIT_Memory;
@@ -57,7 +56,7 @@ class ARM
 #endif
 {
 public:
-    ARM(u32 num, NDS& nds);
+    ARM(u32 num, bool jit, std::optional<GDBArgs> gdb, NDS& nds);
     virtual ~ARM(); // destroy shit
 
     virtual void Reset();
@@ -81,7 +80,7 @@ public:
     virtual void ExecuteJIT() = 0;
 #endif
 
-    bool CheckCondition(u32 code)
+    bool CheckCondition(u32 code) const
     {
         if (code == 0xE) return true;
         if (ConditionTable[code] & (1 << (CPSR>>28))) return true;
@@ -110,7 +109,7 @@ public:
         if (v) CPSR |= 0x10000000;
     }
 
-    inline bool ModeIs(u32 mode)
+    inline bool ModeIs(u32 mode) const
     {
         u32 cm = CPSR & 0x1f;
         mode &= 0x1f;
@@ -202,6 +201,7 @@ protected:
     bool IsSingleStep;
     bool BreakReq;
     bool BreakOnStartup;
+    u16 Port;
 
 public:
     int GetCPU() const override { return Num ? 7 : 9; }
@@ -225,7 +225,7 @@ protected:
 class ARMv5 : public ARM
 {
 public:
-    ARMv5(melonDS::NDS& nds);
+    ARMv5(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit);
     ~ARMv5();
 
     void Reset() override;
@@ -315,7 +315,7 @@ public:
     void ICacheInvalidateAll();
 
     void CP15Write(u32 id, u32 val);
-    u32 CP15Read(u32 id);
+    u32 CP15Read(u32 id) const;
 
     u32 CP15Control;
 
@@ -377,7 +377,7 @@ protected:
 class ARMv4 : public ARM
 {
 public:
-    ARMv4(melonDS::NDS& nds);
+    ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit);
 
     void FillPipeline() override;
 

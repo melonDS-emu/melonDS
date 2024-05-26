@@ -517,6 +517,9 @@ swi_get_crc16:
   mov const_0x1E, #0x1E
   adr crc_table_ptr, crc_table
 
+  bic crc_value, crc_value, #0xFF000000
+  bic crc_value, crc_value, #0x00FF0000
+
   movs crc_length, crc_length, lsr #1
   beq 1f
 

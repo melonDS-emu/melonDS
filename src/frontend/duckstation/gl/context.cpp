@@ -3,11 +3,7 @@
 #include "loader.h"
 #include <cstdlib>
 #include <cstring>
-#ifdef __APPLE__
 #include <stdlib.h>
-#else
-#include <malloc.h>
-#endif
 Log_SetChannel(GL::Context);
 
 #if defined(_WIN32)

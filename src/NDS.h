@@ -21,7 +21,7 @@
 
 #include <memory>
 #include <string>
-#include <memory>
+#include <optional>
 #include <functional>
 
 #include "Platform.h"
@@ -36,7 +36,12 @@
 #include "AREngine.h"
 #include "GPU.h"
 #include "ARMJIT.h"
+#include "MemRegion.h"
+#include "ARMJIT_Memory.h"
+#include "ARM.h"
+#include "CRC32.h"
 #include "DMA.h"
+#include "FreeBIOS.h"
 
 // when touching the main loop/timing code, pls test a lot of shit
 // with this enabled, to make sure it doesn't desync
@@ -44,7 +49,8 @@
 
 namespace melonDS
 {
-
+struct NDSArgs;
+class Firmware;
 enum
 {
     Event_LCD = 0,
@@ -217,11 +223,12 @@ class ARMJIT;
 
 class NDS
 {
-public:
-
+private:
 #ifdef JIT_ENABLED
     bool EnableJIT;
 #endif
+
+public: // TODO: Encapsulate the rest of these members
     int ConsoleType;
     int CurCPU;
 
@@ -252,11 +259,17 @@ public:
     u16 PowerControl9;
 
     u16 ExMemCnt[2];
-    u8 ROMSeed0[2*8];
-    u8 ROMSeed1[2*8];
+    alignas(u32) u8 ROMSeed0[2*8];
+    alignas(u32) u8 ROMSeed1[2*8];
 
-    u8 ARM9BIOS[0x1000];
-    u8 ARM7BIOS[0x4000];
+protected:
+    // These BIOS arrays should be declared *before* the component objects (JIT, SPI, etc.)
+    // so that they're initialized before the component objects' constructors run.
+    std::array<u8, ARM9BIOSSize> ARM9BIOS;
+    std::array<u8, ARM7BIOSSize> ARM7BIOS;
+    bool ARM9BIOSNative;
+    bool ARM7BIOSNative;
+public: // TODO: Encapsulate the rest of these members
     u16 ARM7BIOSProt;
 
     u8* MainRAM;
@@ -303,25 +316,70 @@ public:
     void SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
     void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
 
-    // 0=DS  1=DSi
-    void SetConsoleType(int type);
-
     void LoadBIOS();
-    bool IsLoadedARM9BIOSBuiltIn();
-    bool IsLoadedARM7BIOSBuiltIn();
 
-    virtual bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
-    void LoadSave(const u8* savedata, u32 savelen);
-    virtual void EjectCart();
-    bool CartInserted();
+    /// @return \c true if the loaded ARM9 BIOS image is a known dump
+    /// of a native DS-compatible ARM9 BIOS.
+    [[nodiscard]] bool IsLoadedARM9BIOSKnownNative() const noexcept { return ARM9BIOSNative; }
+    [[nodiscard]] const std::array<u8, ARM9BIOSSize>& GetARM9BIOS() const noexcept { return ARM9BIOS; }
+    void SetARM9BIOS(const std::array<u8, ARM9BIOSSize>& bios) noexcept;
 
-    virtual bool NeedsDirectBoot();
+    [[nodiscard]] const std::array<u8, ARM7BIOSSize>& GetARM7BIOS() const noexcept { return ARM7BIOS; }
+    void SetARM7BIOS(const std::array<u8, ARM7BIOSSize>& bios) noexcept;
+
+    /// @return \c true if the loaded ARM7 BIOS image is a known dump
+    /// of a native DS-compatible ARM9 BIOS.
+    [[nodiscard]] bool IsLoadedARM7BIOSKnownNative() const noexcept { return ARM7BIOSNative; }
+
+    [[nodiscard]] NDSCart::CartCommon* GetNDSCart() { return NDSCartSlot.GetCart(); }
+    [[nodiscard]] const NDSCart::CartCommon* GetNDSCart() const { return NDSCartSlot.GetCart(); }
+    virtual void SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart);
+    [[nodiscard]] bool CartInserted() const noexcept { return NDSCartSlot.GetCart() != nullptr; }
+    virtual std::unique_ptr<NDSCart::CartCommon> EjectCart() { return NDSCartSlot.EjectCart(); }
+
+    [[nodiscard]] u8* GetNDSSave() { return NDSCartSlot.GetSaveMemory(); }
+    [[nodiscard]] const u8* GetNDSSave() const { return NDSCartSlot.GetSaveMemory(); }
+    [[nodiscard]] u32 GetNDSSaveLength() const { return NDSCartSlot.GetSaveMemoryLength(); }
+    void SetNDSSave(const u8* savedata, u32 savelen);
+
+    const Firmware& GetFirmware() const { return SPI.GetFirmwareMem()->GetFirmware(); }
+    Firmware& GetFirmware() { return SPI.GetFirmwareMem()->GetFirmware(); }
+    void SetFirmware(Firmware&& firmware) { SPI.GetFirmwareMem()->SetFirmware(std::move(firmware)); }
+
+    const Renderer3D& GetRenderer3D() const noexcept { return GPU.GetRenderer3D(); }
+    Renderer3D& GetRenderer3D() noexcept { return GPU.GetRenderer3D(); }
+    void SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
+    {
+        if (renderer != nullptr)
+            GPU.SetRenderer3D(std::move(renderer));
+    }
+
+    virtual bool NeedsDirectBoot() const;
     void SetupDirectBoot(const std::string& romname);
     virtual void SetupDirectBoot();
 
-    bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
+    [[nodiscard]] GBACart::CartCommon* GetGBACart() { return (ConsoleType == 1) ? nullptr : GBACartSlot.GetCart(); }
+    [[nodiscard]] const GBACart::CartCommon* GetGBACart() const {  return (ConsoleType == 1) ? nullptr : GBACartSlot.GetCart(); }
+
+    /// Inserts a GBA cart into the emulated console's Slot-2.
+    ///
+    /// @param cart The GBA cart, most likely (but not necessarily) returned from GBACart::ParseROM.
+    /// To insert an accessory that doesn't use a ROM image
+    /// (e.g. the Expansion Pak), create it manually and pass it here.
+    /// If \c nullptr, the existing cart is ejected.
+    /// If this is a DSi, this method does nothing.
+    ///
+    /// @post \c cart is \c nullptr and this NDS takes ownership
+    /// of the cart object it held, if any.
+    void SetGBACart(std::unique_ptr<GBACart::CartCommon>&& cart) { if (ConsoleType == 0) GBACartSlot.SetCart(std::move(cart)); }
+
+    u8* GetGBASave() { return GBACartSlot.GetSaveMemory(); }
+    const u8* GetGBASave() const { return GBACartSlot.GetSaveMemory(); }
+    u32 GetGBASaveLength() const { return GBACartSlot.GetSaveMemoryLength(); }
+    void SetGBASave(const u8* savedata, u32 savelen);
+
     void LoadGBAAddon(int type);
-    void EjectGBACart();
+    std::unique_ptr<GBACart::CartCommon> EjectGBACart() { return GBACartSlot.EjectCart(); }
 
     u32 RunFrame();
 
@@ -332,10 +390,10 @@ public:
 
     void SetKeyMask(u32 mask);
 
-    bool IsLidClosed();
+    bool IsLidClosed() const;
     void SetLidClosed(bool closed);
 
-    virtual void CamInputFrame(int cam, u32* data, int width, int height, bool rgb) {}
+    virtual void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) {}
     void MicInputFrame(s16* data, int samples);
 
     void RegisterEventFunc(u32 id, u32 funcid, EventFunc func);
@@ -354,20 +412,20 @@ public:
     void ClearIRQ(u32 cpu, u32 irq);
     void SetIRQ2(u32 irq);
     void ClearIRQ2(u32 irq);
-    bool HaltInterrupted(u32 cpu);
+    bool HaltInterrupted(u32 cpu) const;
     void StopCPU(u32 cpu, u32 mask);
     void ResumeCPU(u32 cpu, u32 mask);
     void GXFIFOStall();
     void GXFIFOUnstall();
 
-    u32 GetPC(u32 cpu);
+    u32 GetPC(u32 cpu) const;
     u64 GetSysClockCycles(int num);
     void NocashPrint(u32 cpu, u32 addr);
 
     void MonitorARM9Jump(u32 addr);
 
-    virtual bool DMAsInMode(u32 cpu, u32 mode);
-    virtual bool DMAsRunning(u32 cpu);
+    virtual bool DMAsInMode(u32 cpu, u32 mode) const;
+    virtual bool DMAsRunning(u32 cpu) const;
     virtual void CheckDMAs(u32 cpu, u32 mode);
     virtual void StopDMAs(u32 cpu, u32 mode);
 
@@ -405,6 +463,14 @@ public:
     virtual void ARM7IOWrite16(u32 addr, u16 val);
     virtual void ARM7IOWrite32(u32 addr, u32 val);
 
+#ifdef JIT_ENABLED
+    [[nodiscard]] bool IsJITEnabled() const noexcept { return EnableJIT; }
+    void SetJITArgs(std::optional<JITArgs> args) noexcept;
+#else
+    [[nodiscard]] bool IsJITEnabled() const noexcept { return false; }
+    void SetJITArgs(std::optional<JITArgs> args) noexcept {}
+#endif
+
 private:
     void InitTimings();
     u32 SchedListMask;
@@ -423,12 +489,12 @@ private:
     FIFO<u32, 16> IPCFIFO9; // FIFO in which the ARM9 writes
     FIFO<u32, 16> IPCFIFO7;
     u16 DivCnt;
-    u32 DivNumerator[2];
-    u32 DivDenominator[2];
-    u32 DivQuotient[2];
-    u32 DivRemainder[2];
+    alignas(u64) u32 DivNumerator[2];
+    alignas(u64) u32 DivDenominator[2];
+    alignas(u64) u32 DivQuotient[2];
+    alignas(u64) u32 DivRemainder[2];
     u16 SqrtCnt;
-    u32 SqrtVal[2];
+    alignas(u64) u32 SqrtVal[2];
     u32 SqrtRes;
     u16 KeyCnt[2];
     bool Running;
@@ -456,7 +522,8 @@ private:
     template <bool EnableJIT>
     u32 RunFrame();
 public:
-    NDS() noexcept : NDS(0) {}
+    NDS(NDSArgs&& args) noexcept : NDS(std::move(args), 0) {}
+    NDS() noexcept;
     virtual ~NDS() noexcept;
     NDS(const NDS&) = delete;
     NDS& operator=(const NDS&) = delete;
@@ -465,7 +532,7 @@ public:
     // The frontend should set and unset this manually after creating and destroying the NDS object.
     [[deprecated("Temporary workaround until JIT code generation is revised to accommodate multiple NDS objects.")]] static NDS* Current;
 protected:
-    explicit NDS(int type) noexcept;
+    explicit NDS(NDSArgs&& args, int type) noexcept;
     virtual void DoSavestateExtra(Savestate* file) {}
 };
 

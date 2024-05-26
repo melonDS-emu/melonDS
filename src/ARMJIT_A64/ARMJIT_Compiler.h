@@ -19,6 +19,8 @@
 #ifndef ARMJIT_A64_COMPILER_H
 #define ARMJIT_A64_COMPILER_H
 
+#if defined(JIT_ENABLED) && defined(__aarch64__)
+
 #include "../ARM.h"
 
 #include "../dolphin/Arm64Emitter.h"
@@ -67,7 +69,7 @@ struct Op2
     bool IsSimpleReg()
     { return !IsImm && !Reg.ShiftAmount && Reg.ShiftType == Arm64Gen::ST_LSL; }
     bool ImmFits12Bit()
-    { return IsImm && (Imm & 0xFFF == Imm); }
+    { return IsImm && ((Imm & 0xFFF) == Imm); }
     bool IsZero()
     { return IsImm && !Imm; }
 
@@ -96,12 +98,8 @@ class Compiler : public Arm64Gen::ARM64XEmitter
 public:
     typedef void (Compiler::*CompileFunc)();
 
-#ifdef JIT_ENABLED
     explicit Compiler(melonDS::NDS& nds);
-#else
-    explicit Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds) {}
-#endif
-    ~Compiler();
+    ~Compiler() override;
 
     void PushRegs(bool saveHiRegs, bool saveRegsToBeChanged, bool allowUnload = true);
     void PopRegs(bool saveHiRegs, bool saveRegsToBeChanged);
@@ -116,7 +114,7 @@ public:
 
     bool CanCompile(bool thumb, u16 kind);
 
-    bool FlagsNZNeeded()
+    bool FlagsNZNeeded() const
     {
         return CurInstr.SetFlags & 0xC;
     }
@@ -236,7 +234,7 @@ public:
         return (u8*)entry - GetRXBase();
     }
 
-    bool IsJITFault(u8* pc);
+    bool IsJITFault(const u8* pc);
     u8* RewriteMemAccess(u8* pc);
 
     void SwapCodeRegion()
@@ -289,5 +287,7 @@ public:
 };
 
 }
+
+#endif
 
 #endif

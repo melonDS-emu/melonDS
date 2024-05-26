@@ -20,6 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
+#include "GPU3D.h"
 
 namespace melonDS
 {
@@ -648,7 +649,7 @@ void Unit::CheckWindows(u32 line)
     else if (line == Win1Coords[2]) Win1Active |=  0x1;
 }
 
-void Unit::CalculateWindowMask(u32 line, u8* windowMask, u8* objWindow)
+void Unit::CalculateWindowMask(u32 line, u8* windowMask, const u8* objWindow)
 {
     for (u32 i = 0; i < 256; i++)
         windowMask[i] = WinCnt[2]; // window outside
@@ -694,7 +695,7 @@ void Unit::CalculateWindowMask(u32 line, u8* windowMask, u8* objWindow)
     }
 }
 
-void Unit::GetBGVRAM(u8*& data, u32& mask)
+void Unit::GetBGVRAM(u8*& data, u32& mask) const
 {
     if (Num == 0)
     {
@@ -708,7 +709,7 @@ void Unit::GetBGVRAM(u8*& data, u32& mask)
     }
 }
 
-void Unit::GetOBJVRAM(u8*& data, u32& mask)
+void Unit::GetOBJVRAM(u8*& data, u32& mask) const
 {
     if (Num == 0)
     {

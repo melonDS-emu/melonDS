@@ -438,7 +438,7 @@ void DSi_Camera::Stop()
     Platform::Camera_Stop(Num);
 }
 
-bool DSi_Camera::IsActivated()
+bool DSi_Camera::IsActivated() const
 {
     if (StandbyCnt & (1<<14)) return false; // standby
     if (!(MiscCnt & (1<<9))) return false; // data transfer not enabled
@@ -477,7 +477,7 @@ void DSi_Camera::StartTransfer()
     Platform::Camera_CaptureFrame(Num, FrameBuffer, 640, 480, true);
 }
 
-bool DSi_Camera::TransferDone()
+bool DSi_Camera::TransferDone() const
 {
     return TransferY >= FrameHeight;
 }
@@ -590,7 +590,7 @@ void DSi_Camera::Write(u8 val, bool last)
     else      DataPos++;
 }
 
-u16 DSi_Camera::I2C_ReadReg(u16 addr)
+u16 DSi_Camera::I2C_ReadReg(u16 addr) const
 {
     switch (addr)
     {
@@ -695,7 +695,7 @@ void DSi_Camera::I2C_WriteReg(u16 addr, u16 val)
 // TODO: not sure at all what is the accessible range
 // or if there is any overlap in the address range
 
-u8 DSi_Camera::MCU_Read(u16 addr)
+u8 DSi_Camera::MCU_Read(u16 addr) const
 {
     addr &= 0x7FFF;
 
@@ -724,7 +724,7 @@ void DSi_Camera::MCU_Write(u16 addr, u8 val)
 }
 
 
-void DSi_Camera::InputFrame(u32* data, int width, int height, bool rgb)
+void DSi_Camera::InputFrame(const u32* data, int width, int height, bool rgb)
 {
     // TODO: double-buffering?
 

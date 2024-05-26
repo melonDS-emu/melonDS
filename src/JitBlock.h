@@ -46,12 +46,12 @@ public:
 
     JitBlockEntry EntryPoint;
 
-    u32* AddressRanges()
-    { return &Data[0]; }
-    u32* AddressMasks()
-    { return &Data[NumAddresses]; }
-    u32* Literals()
-    { return &Data[NumAddresses * 2]; }
+    const u32* AddressRanges() const { return &Data[0]; }
+    u32* AddressRanges() { return &Data[0]; }
+    const u32* AddressMasks() const { return &Data[NumAddresses]; }
+    u32* AddressMasks() { return &Data[NumAddresses]; }
+    const u32* Literals() const { return &Data[NumAddresses * 2]; }
+    u32* Literals() { return &Data[NumAddresses * 2]; }
 
 private:
     TinyVector<u32> Data;

@@ -35,6 +35,7 @@ using Platform::LogLevel;
 
 const char* WifiAP::APName = "melonAP";
 const u8 WifiAP::APMac[6] = {0x00, 0xF0, 0x77, 0x77, 0x77, 0x77};
+const u8 WifiAP::APChannel = 6;
 
 #define PWRITE_8(p, v)      *p++ = v;
 #define PWRITE_16(p, v)     *(u16*)p = v; p += 2;
@@ -55,7 +56,7 @@ const u8 WifiAP::APMac[6] = {0x00, 0xF0, 0x77, 0x77, 0x77, 0x77};
     PWRITE_16(p, 0); \
     PWRITE_16(p, 0); \
     PWRITE_8(p, rate); \
-    PWRITE_8(p, 0); \
+    PWRITE_8(p, APChannel); \
     PWRITE_16(p, len);
 
 //#define PALIGN_4(p, base)  p += ((4 - ((ptrdiff_t)(p-base) & 0x3)) & 0x3);
@@ -66,8 +67,8 @@ const u8 WifiAP::APMac[6] = {0x00, 0xF0, 0x77, 0x77, 0x77, 0x77};
 #define PALIGN_4(p, base)  while (PLEN(p,base) & 0x3) *p++ = 0xFF;
 
 
-bool MACEqual(u8* a, const u8* b);
-bool MACIsBroadcast(u8* a);
+bool MACEqual(const u8* a, const u8* b);
+bool MACIsBroadcast(const u8* a);
 
 
 WifiAP::WifiAP(Wifi* client) : Client(client)
@@ -107,7 +108,7 @@ void WifiAP::MSTimer()
 }
 
 
-int WifiAP::HandleManagementFrame(u8* data, int len)
+int WifiAP::HandleManagementFrame(const u8* data, int len)
 {
     // TODO: perfect this
     // noting that frames sent pre-auth/assoc don't have a proper BSSID
@@ -174,7 +175,7 @@ int WifiAP::HandleManagementFrame(u8* data, int len)
             PWRITE_16(p, 128); // beacon interval
             PWRITE_16(p, 0x0021); // capability
             PWRITE_8(p, 0x01); PWRITE_8(p, 0x02); PWRITE_8(p, 0x82); PWRITE_8(p, 0x84); // rates
-            PWRITE_8(p, 0x03); PWRITE_8(p, 0x01); PWRITE_8(p, 0x06); // current channel
+            PWRITE_8(p, 0x03); PWRITE_8(p, 0x01); PWRITE_8(p, APChannel); // current channel
             PWRITE_8(p, 0x00); PWRITE_8(p, strlen(APName));
             memcpy(p, APName, strlen(APName)); p += strlen(APName);
 
@@ -258,8 +259,11 @@ int WifiAP::HandleManagementFrame(u8* data, int len)
 }
 
 
-int WifiAP::SendPacket(u8* data, int len)
+int WifiAP::SendPacket(const u8* data, int len)
 {
+    if (data[9] != APChannel)
+        return 0;
+
     data += 12;
 
     u16 framectl = *(u16*)&data[0];
@@ -327,7 +331,7 @@ int WifiAP::RecvPacket(u8* data)
         PWRITE_16(p, 128); // beacon interval
         PWRITE_16(p, 0x0021); // capability
         PWRITE_8(p, 0x01); PWRITE_8(p, 0x02); PWRITE_8(p, 0x82); PWRITE_8(p, 0x84); // rates
-        PWRITE_8(p, 0x03); PWRITE_8(p, 0x01); PWRITE_8(p, 0x06); // current channel
+        PWRITE_8(p, 0x03); PWRITE_8(p, 0x01); PWRITE_8(p, APChannel); // current channel
         PWRITE_8(p, 0x05); PWRITE_8(p, 0x04); PWRITE_8(p, 0); PWRITE_8(p, 0); PWRITE_8(p, 0); PWRITE_8(p, 0); // TIM
         PWRITE_8(p, 0x00); PWRITE_8(p, strlen(APName));
         memcpy(p, APName, strlen(APName)); p += strlen(APName);

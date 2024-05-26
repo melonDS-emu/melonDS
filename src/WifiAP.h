@@ -34,11 +34,12 @@ public:
 
     static const char* APName;
     static const u8 APMac[6];
+    static const u8 APChannel;
 
     void MSTimer();
 
     // packet format: 12-byte TX header + original 802.11 frame
-    int SendPacket(u8* data, int len);
+    int SendPacket(const u8* data, int len);
     int RecvPacket(u8* data);
 
 private:
@@ -60,7 +61,7 @@ private:
     // 0=disconnected 1=authenticated 2=associated
     int ClientStatus;
 
-    int HandleManagementFrame(u8* data, int len);
+    int HandleManagementFrame(const u8* data, int len);
 };
 
 }

@@ -119,7 +119,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
     if (size == 16)
         addressMask = ~1;
 
-    if (NDS.JIT.LiteralOptimizations && rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
+    if (NDS.JIT.LiteralOptimizationsEnabled() && rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
     {
         u32 addr = R15 + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
 
@@ -136,7 +136,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
         Comp_AddCycles_CDI();
     }
 
-    bool addrIsStatic = NDS.JIT.LiteralOptimizations
+    bool addrIsStatic = NDS.JIT.LiteralOptimizationsEnabled()
         && RegCache.IsLiteral(rn) && op2.IsImm && !(flags & (memop_Writeback|memop_Post));
     u32 staticAddress;
     if (addrIsStatic)
@@ -200,7 +200,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
         ? NDS.JIT.Memory.ClassifyAddress9(CurInstr.DataRegion)
         : NDS.JIT.Memory.ClassifyAddress7(CurInstr.DataRegion);
 
-    if (NDS.JIT.FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || NDS.JIT.Memory.IsFastmemCompatible(expectedTarget)))
+    if (NDS.JIT.FastMemoryEnabled() && ((!Thumb && CurInstr.Cond() != 0xE) || NDS.JIT.Memory.IsFastmemCompatible(expectedTarget)))
     {
         if (rdMapped.IsImm())
         {
@@ -431,7 +431,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     else
         Comp_AddCycles_CD();
 
-    bool compileFastPath = NDS.JIT.FastMemory
+    bool compileFastPath = NDS.JIT.FastMemoryEnabled()
         && !usermode && (CurInstr.Cond() < 0xE || NDS.JIT.Memory.IsFastmemCompatible(expectedTarget));
 
     // we need to make sure that the stack stays aligned to 16 bytes
@@ -809,7 +809,7 @@ void Compiler::T_Comp_LoadPCRel()
 {
     u32 offset = (CurInstr.Instr & 0xFF) << 2;
     u32 addr = (R15 & ~0x2) + offset;
-    if (!NDS.JIT.LiteralOptimizations || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
+    if (!NDS.JIT.LiteralOptimizationsEnabled() || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
         Comp_MemAccess(CurInstr.T_Reg(8), 15, Op2(offset), 32, 0);
 }
 

@@ -86,20 +86,20 @@ public:
     void Reset() override;
     void DoSavestate(Savestate* file) override;
 
-    u8 GetBootFlag();
+    u8 GetBootFlag() const;
 
-    bool GetBatteryCharging();
+    bool GetBatteryCharging() const;
     void SetBatteryCharging(bool charging);
 
-    u8 GetBatteryLevel();
+    u8 GetBatteryLevel() const;
     void SetBatteryLevel(u8 batteryLevel);
 
     // 0-31
-    u8 GetVolumeLevel();
+    u8 GetVolumeLevel() const;
     void SetVolumeLevel(u8 volume);
 
     // 0-4
-    u8 GetBacklightLevel();
+    u8 GetBacklightLevel() const;
     void SetBacklightLevel(u8 backlight);
 
     void DoHardwareReset(bool direct);
@@ -144,10 +144,10 @@ private:
     u8 Registers[0x100];
     u32 CurPos;
 
-    bool GetIRQMode();
+    bool GetIRQMode() const;
 
     void ResetButtonState();
-    bool CheckVolumeSwitchKeysValid();
+    bool CheckVolumeSwitchKeysValid() const;
 };
 
 

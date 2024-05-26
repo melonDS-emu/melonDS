@@ -17,8 +17,10 @@
 */
 
 #include <stdio.h>
+#include <assert.h>
 #include <string.h>
 #include <inttypes.h>
+#include "Args.h"
 #include "NDS.h"
 #include "DSi.h"
 #include "ARM.h"
@@ -68,8 +70,8 @@ const u32 NDMAModes[] =
     0xFF, // wifi / GBA cart slot (TODO)
 };
 
-DSi::DSi() noexcept :
-    NDS(1),
+DSi::DSi(DSiArgs&& args) noexcept :
+    NDS(std::move(args), 1),
     NDMAs {
         DSi_NDMA(0, 0, *this),
         DSi_NDMA(0, 1, *this),
@@ -80,9 +82,11 @@ DSi::DSi() noexcept :
         DSi_NDMA(1, 2, *this),
         DSi_NDMA(1, 3, *this),
     },
+    ARM7iBIOS(*args.ARM7iBIOS),
+    ARM9iBIOS(*args.ARM9iBIOS),
     DSP(*this),
-    SDMMC(*this, 0),
-    SDIO(*this, 1),
+    SDMMC(*this, std::move(args.NANDImage), std::move(args.DSiSDCard)),
+    SDIO(*this),
     I2C(*this),
     CamModule(*this),
     AES(*this)
@@ -90,7 +94,7 @@ DSi::DSi() noexcept :
     // Memory is owned by ARMJIT_Memory, don't free it
     NWRAM_A = JIT.Memory.GetNWRAM_A();
     NWRAM_B = JIT.Memory.GetNWRAM_B();
-    NWRAM_C = NDS::JIT.Memory.GetNWRAM_C();
+    NWRAM_C = JIT.Memory.GetNWRAM_C();
 }
 
 DSi::~DSi() noexcept
@@ -108,6 +112,8 @@ void DSi::Reset()
     //ARM9.CP15Write(0x100, ARM9.CP15Read(0x100) | 0x00050000);
     NDS::Reset();
 
+    // The SOUNDBIAS register does nothing on DSi
+    SPU.SetApplyBias(false);
     KeyInput &= ~(1 << (16+6));
     MapSharedWRAM(3);
 
@@ -118,9 +124,6 @@ void DSi::Reset()
     CamModule.Reset();
     DSP.Reset();
 
-    SDMMC.CloseHandles();
-    SDIO.CloseHandles();
-
     LoadNAND();
 
     SDMMC.Reset();
@@ -128,7 +131,7 @@ void DSi::Reset()
 
     AES.Reset();
 
-    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    if (FullBIOSBoot)
     {
         SCFG_BIOS = 0x0000;
     }
@@ -162,25 +165,23 @@ void DSi::Stop(Platform::StopReason reason)
     CamModule.Stop();
 }
 
-bool DSi::LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
+void DSi::SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart)
 {
-    if (NDS::LoadCart(romdata, romlen, savedata, savelen))
-    {
-        SetCartInserted(true);
-        return true;
-    }
-
-    return false;
+    NDS::SetNDSCart(std::move(cart));
+    SetCartInserted(NDSCartSlot.GetCart() != nullptr);
 }
 
 
-void DSi::EjectCart()
+std::unique_ptr<NDSCart::CartCommon> DSi::EjectCart()
 {
-    NDS::EjectCart();
+    auto oldcart = NDS::EjectCart();
 
     SetCartInserted(false);
+
+    return oldcart;
 }
-void DSi::CamInputFrame(int cam, u32* data, int width, int height, bool rgb)
+
+void DSi::CamInputFrame(int cam, const u32* data, int width, int height, bool rgb)
 {
     switch (cam)
     {
@@ -276,7 +277,7 @@ void DSi::SetCartInserted(bool inserted)
         SCFG_MC |= 1;
 }
 
-void DSi::DecryptModcryptArea(u32 offset, u32 size, u8* iv)
+void DSi::DecryptModcryptArea(u32 offset, u32 size, const u8* iv)
 {
     AES_ctx ctx;
     u8 key[16];
@@ -509,9 +510,9 @@ void DSi::SetupDirectBoot()
             ARM9Write32(0x02FFE000+i, tmp);
         }
 
-        if (NANDImage && *NANDImage)
+        if (DSi_NAND::NANDImage* image = SDMMC.GetNAND(); image && *image)
         { // If a NAND image is installed, and it's valid...
-            if (DSi_NAND::NANDMount nand = DSi_NAND::NANDMount(*NANDImage))
+            if (DSi_NAND::NANDMount nand = DSi_NAND::NANDMount(*image))
             {
                 DSi_NAND::DSiFirmwareSystemSettings userdata {};
                 nand.ReadUserData(userdata);
@@ -531,7 +532,7 @@ void DSi::SetupDirectBoot()
             }
         }
 
-        Firmware::WifiBoard nwifiver = SPI.GetFirmware()->GetHeader().WifiBoard;
+        Firmware::WifiBoard nwifiver = SPI.GetFirmware().GetHeader().WifiBoard;
         ARM9Write8(0x020005E0, static_cast<u8>(nwifiver));
 
         // TODO: these should be taken from the wifi firmware in NAND
@@ -674,9 +675,6 @@ void DSi::SoftReset()
     // the DSP most likely gets reset
     DSP.Reset();
 
-    SDMMC.CloseHandles();
-    SDIO.CloseHandles();
-
     LoadNAND();
 
     SDMMC.Reset();
@@ -684,7 +682,7 @@ void DSi::SoftReset()
 
     AES.Reset();
 
-    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    if (FullBIOSBoot)
     {
         SCFG_BIOS = 0x0000;
     }
@@ -709,21 +707,22 @@ void DSi::SoftReset()
 
 bool DSi::LoadNAND()
 {
-    if (!NANDImage)
+    DSi_NAND::NANDImage* image = SDMMC.GetNAND();
+    if (!(image && *image))
     {
         Log(LogLevel::Error, "No NAND image loaded\n");
         return false;
     }
     Log(LogLevel::Info, "Loading DSi NAND\n");
 
-    DSi_NAND::NANDMount nandmount(*NANDImage);
+    DSi_NAND::NANDMount nandmount(*SDMMC.GetNAND());
     if (!nandmount)
     {
         Log(LogLevel::Error, "Failed to load DSi NAND\n");
         return false;
     }
 
-    FileHandle* nand = NANDImage->GetFile();
+    FileHandle* nand = image->GetFile();
 
     // Make sure NWRAM is accessible.
     // The Bits are set to the startup values in Reset() and we might
@@ -745,7 +744,7 @@ bool DSi::LoadNAND()
     memset(NWRAMMask, 0, sizeof(NWRAMMask));
 
     u32 bootparams[8];
-    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    if (FullBIOSBoot)
     {
         // TODO: figure out default MBK mapping
         // MBK1..5: disable mappings
@@ -879,11 +878,11 @@ bool DSi::LoadNAND()
         }
     }
 
-    const DSi_NAND::DSiKey& emmccid = NANDImage->GetEMMCID();
+    const DSi_NAND::DSiKey& emmccid = image->GetEMMCID();
     Log(LogLevel::Debug, "eMMC CID: %08llX%08llX\n", *(const u64*)&emmccid[0], *(const u64*)&emmccid[8]);
-    Log(LogLevel::Debug, "Console ID: %" PRIx64 "\n", NANDImage->GetConsoleID());
+    Log(LogLevel::Debug, "Console ID: %" PRIx64 "\n", image->GetConsoleID());
 
-    if (Platform::GetConfigBool(Platform::DSi_FullBIOSBoot))
+    if (FullBIOSBoot)
     {
         // point CPUs to boot ROM reset vectors
         ARM9.JumpTo(0xFFFF0000);
@@ -958,21 +957,21 @@ void DSi::StallNDMAs()
 }
 
 
-bool DSi::DMAsInMode(u32 cpu, u32 mode)
+bool DSi::DMAsInMode(u32 cpu, u32 mode) const
 {
     if (NDS::DMAsInMode(cpu, mode)) return true;
 
     return NDMAsInMode(cpu, NDMAModes[mode]);
 }
 
-bool DSi::DMAsRunning(u32 cpu)
+bool DSi::DMAsRunning(u32 cpu) const
 {
     if (NDS::DMAsRunning(cpu)) return true;
 
     return NDMAsRunning(cpu);
 }
 
-bool DSi::NDMAsInMode(u32 cpu, u32 mode)
+bool DSi::NDMAsInMode(u32 cpu, u32 mode) const
 {
     cpu <<= 2;
     if (NDMAs[cpu+0].IsInMode(mode)) return true;
@@ -982,7 +981,7 @@ bool DSi::NDMAsInMode(u32 cpu, u32 mode)
     return false;
 }
 
-bool DSi::NDMAsRunning(u32 cpu)
+bool DSi::NDMAsRunning(u32 cpu) const
 {
     cpu <<= 2;
     if (NDMAs[cpu+0].IsRunning()) return true;
@@ -1728,12 +1727,12 @@ bool DSi::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
                 return false;
             }
 
-            region->Mem = ARM9BIOS;
+            region->Mem = &ARM9BIOS[0];
             region->Mask = 0xFFF;
         }
         else
         {
-            region->Mem = ARM9iBIOS;
+            region->Mem = &ARM9iBIOS[0];
             region->Mask = 0xFFFF;
         }
         return true;
@@ -2678,14 +2677,14 @@ u8 DSi::ARM7IORead8(u32 addr)
     case 0x04004500: return I2C.ReadData();
     case 0x04004501: return I2C.ReadCnt();
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() & 0xFF;
-    case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 8) & 0xFF;
-    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 16) & 0xFF;
-    case 0x04004D03: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 24) & 0xFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 32) & 0xFF;
-    case 0x04004D05: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 40) & 0xFF;
-    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 48) & 0xFF;
-    case 0x04004D07: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() >> 56;
+    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() & 0xFF;
+    case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 8) & 0xFF;
+    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 16) & 0xFF;
+    case 0x04004D03: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 24) & 0xFF;
+    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 32) & 0xFF;
+    case 0x04004D05: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 40) & 0xFF;
+    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 48) & 0xFF;
+    case 0x04004D07: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() >> 56;
     case 0x04004D08: return 0;
 
     case 0x4004700: return DSP.ReadSNDExCnt() & 0xFF;
@@ -2726,10 +2725,10 @@ u16 DSi::ARM7IORead16(u32 addr)
     CASE_READ16_32BIT(0x0400405C, MBK[1][7])
     CASE_READ16_32BIT(0x04004060, MBK[1][8])
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() & 0xFFFF;
-    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 16) & 0xFFFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (NANDImage->GetConsoleID() >> 32) & 0xFFFF;
-    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() >> 48;
+    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() & 0xFFFF;
+    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 16) & 0xFFFF;
+    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 32) & 0xFFFF;
+    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() >> 48;
     case 0x04004D08: return 0;
 
     case 0x4004700: return DSP.ReadSNDExCnt();
@@ -2806,8 +2805,8 @@ u32 DSi::ARM7IORead32(u32 addr)
     case 0x04004400: return AES.ReadCnt();
     case 0x0400440C: return AES.ReadOutputFIFO();
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() & 0xFFFFFFFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return NANDImage->GetConsoleID() >> 32;
+    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() & 0xFFFFFFFF;
+    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() >> 32;
     case 0x04004D08: return 0;
 
     case 0x4004700:

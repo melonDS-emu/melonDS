@@ -52,11 +52,12 @@ public:
         W_RXCnt = 0x030,
         W_WEPCnt = 0x032,
 
+        W_TRXPower = 0x034,
         W_PowerUS = 0x036,
         W_PowerTX = 0x038,
         W_PowerState = 0x03C,
         W_PowerForce = 0x040,
-        W_PowerUnk = 0x48,
+        W_PowerDownCtrl = 0x48,
 
         W_Random = 0x044,
 
@@ -169,8 +170,8 @@ public:
     u16 Read(u32 addr);
     void Write(u32 addr, u16 val);
 
-    u8* GetMAC();
-    u8* GetBSSID();
+    const u8* GetMAC() const;
+    const u8* GetBSSID() const;
 
 private:
     melonDS::NDS& NDS;
@@ -206,6 +207,10 @@ private:
     u8 RFVersion;
     u32 RFRegs[0x40];
 
+    u32 RFChannelIndex[2];
+    u32 RFChannelData[14][2];
+    int CurChannel;
+
     struct TXSlot
     {
         bool Valid;
@@ -240,7 +245,6 @@ private:
     bool LANInited;
 
     int USUntilPowerOn;
-    bool ForcePowerOn;
 
     // MULTIPLAYER SYNC APPARATUS
     bool IsMP;
@@ -253,20 +257,22 @@ private:
     void ScheduleTimer(bool first);
     void UpdatePowerOn();
 
+    void CheckIRQ(u16 oldflags);
     void SetIRQ(u32 irq);
     void SetIRQ13();
     void SetIRQ14(int source);
     void SetIRQ15();
 
     void SetStatus(u32 status);
-    void PowerDown();
 
-    int PreambleLen(int rate);
-    u32 NumClients(u16 bitmask);
-    void IncrementTXCount(TXSlot* slot);
+    void UpdatePowerStatus(int power);
+
+    int PreambleLen(int rate) const;
+    u32 NumClients(u16 bitmask) const;
+    void IncrementTXCount(const TXSlot* slot);
     void ReportMPReplyErrors(u16 clientfail);
 
-    void TXSendFrame(TXSlot* slot, int num);
+    void TXSendFrame(const TXSlot* slot, int num);
     void StartTX_LocN(int nslot, int loc);
     void StartTX_Cmd();
     void StartTX_Beacon();
@@ -283,6 +289,8 @@ private:
     bool CheckRX(int type);
 
     void MSTimer();
+
+    void ChangeChannel();
 
     void RFTransfer_Type2();
     void RFTransfer_Type3();

@@ -86,17 +86,17 @@ void RTC::DoSavestate(Savestate* file)
 }
 
 
-u8 RTC::BCD(u8 val)
+u8 RTC::BCD(u8 val) const
 {
     return (val % 10) | ((val / 10) << 4);
 }
 
-u8 RTC::FromBCD(u8 val)
+u8 RTC::FromBCD(u8 val) const
 {
     return (val & 0xF) + ((val >> 4) * 10);
 }
 
-u8 RTC::BCDIncrement(u8 val)
+u8 RTC::BCDIncrement(u8 val) const
 {
     val++;
     if ((val & 0x0F) >= 0x0A)
@@ -106,7 +106,7 @@ u8 RTC::BCDIncrement(u8 val)
     return val;
 }
 
-u8 RTC::BCDSanitize(u8 val, u8 vmin, u8 vmax)
+u8 RTC::BCDSanitize(u8 val, u8 vmin, u8 vmax) const
 {
     if (val < vmin || val > vmax)
         val = vmin;
@@ -119,12 +119,12 @@ u8 RTC::BCDSanitize(u8 val, u8 vmin, u8 vmax)
 }
 
 
-void RTC::GetState(StateData& state)
+void RTC::GetState(StateData& state) const
 {
     memcpy(&state, &State, sizeof(State));
 }
 
-void RTC::SetState(StateData& state)
+void RTC::SetState(const StateData& state)
 {
     memcpy(&State, &state, sizeof(State));
 
@@ -134,7 +134,7 @@ void RTC::SetState(StateData& state)
         WriteDateTime(i+1, State.DateTime[i]);
 }
 
-void RTC::GetDateTime(int& year, int& month, int& day, int& hour, int& minute, int& second)
+void RTC::GetDateTime(int& year, int& month, int& day, int& hour, int& minute, int& second) const
 {
     year = FromBCD(State.DateTime[0]);
     year += 2000;
@@ -374,7 +374,7 @@ void RTC::ProcessIRQ(int type) // 0=minute carry 1=periodic 2=status reg write
 }
 
 
-u8 RTC::DaysInMonth()
+u8 RTC::DaysInMonth() const
 {
     u8 numdays;
 

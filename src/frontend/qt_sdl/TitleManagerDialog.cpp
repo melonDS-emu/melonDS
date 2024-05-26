@@ -114,7 +114,7 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
 
     u32 icondata[32*32];
     ROMManager::ROMIcon(banner.Icon, banner.Palette, icondata);
-    QImage iconimg((const uchar*)icondata, 32, 32, QImage::Format_ARGB32);
+    QImage iconimg((const uchar*)icondata, 32, 32, QImage::Format_RGBA8888);
     QIcon icon(QPixmap::fromImage(iconimg.copy()));
 
     // TODO: make it possible to select other languages?

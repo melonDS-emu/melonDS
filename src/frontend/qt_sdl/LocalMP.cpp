@@ -130,7 +130,7 @@ bool SemInit(int num)
     char semname[64];
     sprintf(semname, "Local\\melonNIFI_Sem%02d", num);
 
-    HANDLE sem = CreateSemaphore(nullptr, 0, 64, semname);
+    HANDLE sem = CreateSemaphoreA(nullptr, 0, 64, semname);
     SemPool[num] = sem;
     SemInited[num] = true;
     return sem != INVALID_HANDLE_VALUE;
@@ -248,7 +248,9 @@ bool Init()
         Log(LogLevel::Info, "MP sharedmem doesn't exist. creating\n");
         if (!MPQueue->create(kQueueSize))
         {
-            Log(LogLevel::Error, "MP sharedmem create failed :(\n");
+            Log(LogLevel::Error, "MP sharedmem create failed :( (%d)\n", MPQueue->error());
+            delete MPQueue;
+            MPQueue = nullptr;
             return false;
         }
 
@@ -303,10 +305,13 @@ void DeInit()
     if (MPQueue)
     {
         MPQueue->lock();
-        MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
-        header->ConnectedBitmask &= ~(1 << InstanceID);
-        header->InstanceBitmask &= ~(1 << InstanceID);
-        header->NumInstances--;
+        if (MPQueue->data() != nullptr)
+        {
+            MPQueueHeader *header = (MPQueueHeader *) MPQueue->data();
+            header->ConnectedBitmask &= ~(1 << InstanceID);
+            header->InstanceBitmask &= ~(1 << InstanceID);
+            header->NumInstances--;
+        }
         MPQueue->unlock();
 
         SemPoolDeinit();
@@ -325,6 +330,7 @@ void SetRecvTimeout(int timeout)
 
 void Begin()
 {
+    if (!MPQueue) return;
     MPQueue->lock();
     MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
     PacketReadOffset = header->PacketWriteOffset;
@@ -337,6 +343,7 @@ void Begin()
 
 void End()
 {
+    if (!MPQueue) return;
     MPQueue->lock();
     MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
     //SemReset(InstanceID);
@@ -418,6 +425,7 @@ void FIFOWrite(int fifo, void* buf, int len)
 
 int SendPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
 {
+    if (!MPQueue) return 0;
     MPQueue->lock();
     u8* data = (u8*)MPQueue->data();
     MPQueueHeader* header = (MPQueueHeader*)&data[0];
@@ -473,6 +481,7 @@ int SendPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
 
 int RecvPacketGeneric(u8* packet, bool block, u64* timestamp)
 {
+    if (!MPQueue) return 0;
     for (;;)
     {
         if (!SemWait(InstanceID, block ? RecvTimeout : 0))
@@ -549,6 +558,8 @@ int SendAck(u8* packet, int len, u64 timestamp)
 
 int RecvHostPacket(u8* packet, u64* timestamp)
 {
+    if (!MPQueue) return -1;
+
     if (LastHostID != -1)
     {
         // check if the host is still connected
@@ -568,6 +579,8 @@ int RecvHostPacket(u8* packet, u64* timestamp)
 
 u16 RecvReplies(u8* packets, u64 timestamp, u16 aidmask)
 {
+    if (!MPQueue) return 0;
+
     u16 ret = 0;
     u16 myinstmask = (1 << InstanceID);
     u16 curinstmask;

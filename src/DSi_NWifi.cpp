@@ -165,13 +165,13 @@ void DSi_NWifi::Reset()
     for (int i = 0; i < 9; i++)
         Mailbox[i].Clear();
 
-    const Firmware* fw = DSi.SPI.GetFirmware();
+    const Firmware& fw = DSi.SPI.GetFirmware();
 
-    MacAddress mac = fw->GetHeader().MacAddr;
+    MacAddress mac = fw.GetHeader().MacAddr;
     Log(LogLevel::Info, "NWifi MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-    Firmware::WifiBoard type = fw->GetHeader().WifiBoard;
+    Firmware::WifiBoard type = fw.GetHeader().WifiBoard;
     switch (type)
     {
     case Firmware::WifiBoard::W015: // AR6002

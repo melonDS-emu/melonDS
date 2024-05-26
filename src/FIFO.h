@@ -74,12 +74,12 @@ public:
         return ret;
     }
 
-    T Peek()
+    T Peek() const
     {
         return Entries[ReadPos];
     }
 
-    T Peek(u32 offset)
+    T Peek(u32 offset) const
     {
         u32 pos = ReadPos + offset;
         if (pos >= NumEntries)
@@ -88,11 +88,11 @@ public:
         return Entries[pos];
     }
 
-    u32 Level() { return NumOccupied; }
-    bool IsEmpty() { return NumOccupied == 0; }
-    bool IsFull() { return NumOccupied >= NumEntries; }
+    u32 Level() const { return NumOccupied; }
+    bool IsEmpty() const { return NumOccupied == 0; }
+    bool IsFull() const { return NumOccupied >= NumEntries; }
 
-    bool CanFit(u32 num) { return ((NumOccupied + num) <= NumEntries); }
+    bool CanFit(u32 num) const { return ((NumOccupied + num) <= NumEntries); }
 
 private:
     T Entries[NumEntries] = {0};
@@ -164,12 +164,12 @@ public:
         return ret;
     }
 
-    T Peek()
+    T Peek() const
     {
         return Entries[ReadPos];
     }
 
-    T Peek(u32 offset)
+    T Peek(u32 offset) const
     {
         u32 pos = ReadPos + offset;
         if (pos >= NumEntries)
@@ -178,11 +178,11 @@ public:
         return Entries[pos];
     }
 
-    u32 Level() { return NumOccupied; }
-    bool IsEmpty() { return NumOccupied == 0; }
-    bool IsFull() { return NumOccupied >= NumEntries; }
+    u32 Level() const { return NumOccupied; }
+    bool IsEmpty() const { return NumOccupied == 0; }
+    bool IsFull() const { return NumOccupied >= NumEntries; }
 
-    bool CanFit(u32 num) { return ((NumOccupied + num) <= NumEntries); }
+    bool CanFit(u32 num) const { return ((NumOccupied + num) <= NumEntries); }
 
 private:
     u32 NumEntries;

@@ -78,7 +78,7 @@ void DSi_AES::Reset()
     OutputMACDue = false;
 
     // initialize keys
-    u64 consoleid = DSi.NANDImage->GetConsoleID();
+    u64 consoleid = DSi.SDMMC.GetNAND()->GetConsoleID();
 
     // slot 0: modcrypt
     *(u32*)&KeyX[0][0] = 0x746E694E;
@@ -235,7 +235,7 @@ void DSi_AES::ProcessBlock_CTR()
 }
 
 
-u32 DSi_AES::ReadCnt()
+u32 DSi_AES::ReadCnt() const
 {
     u32 ret = Cnt;
 

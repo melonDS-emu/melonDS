@@ -54,7 +54,7 @@ public:
     void Reset();
     void DoSavestate(Savestate* file);
 
-    u32 ReadCnt();
+    u32 ReadCnt() const;
     void WriteCnt(u32 val);
     void WriteBlkCnt(u32 val);
 
