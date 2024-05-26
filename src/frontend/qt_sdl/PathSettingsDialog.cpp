@@ -34,7 +34,6 @@ namespace Platform = melonDS::Platform;
 
 PathSettingsDialog* PathSettingsDialog::currentDlg = nullptr;
 
-extern std::string EmuDirectory;
 extern bool RunningSomething;
 
 bool PathSettingsDialog::needsReset = false;
@@ -124,7 +123,7 @@ void PathSettingsDialog::on_btnSaveFileBrowse_clicked()
 {
     QString dir = QFileDialog::getExistingDirectory(this,
                                                      "Select save files path...",
-                                                     QString::fromStdString(EmuDirectory));
+                                                     emuDirectory);
 
     if (dir.isEmpty()) return;
     
@@ -141,7 +140,7 @@ void PathSettingsDialog::on_btnSavestateBrowse_clicked()
 {
     QString dir = QFileDialog::getExistingDirectory(this,
                                                      "Select savestates path...",
-                                                     QString::fromStdString(EmuDirectory));
+                                                     emuDirectory);
 
     if (dir.isEmpty()) return;
     
@@ -158,7 +157,7 @@ void PathSettingsDialog::on_btnCheatFileBrowse_clicked()
 {
     QString dir = QFileDialog::getExistingDirectory(this,
                                                      "Select cheat files path...",
-                                                     QString::fromStdString(EmuDirectory));
+                                                     emuDirectory);
 
     if (dir.isEmpty()) return;
     

@@ -31,14 +31,6 @@ class Firmware;
 namespace Platform
 {
 
-void Init(int argc, char** argv);
-
-/**
- * Frees all resources that were allocated in \c Init
- * or by any other \c Platform function.
- */
-void DeInit();
-
 enum StopReason {
     /**
      * The emulator stopped for some unspecified reason.

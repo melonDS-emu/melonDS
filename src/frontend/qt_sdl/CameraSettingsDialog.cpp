@@ -31,8 +31,6 @@ using namespace melonDS;
 
 CameraSettingsDialog* CameraSettingsDialog::currentDlg = nullptr;
 
-extern std::string EmuDirectory;
-
 extern CameraManager* camManager[2];
 
 
@@ -253,7 +251,7 @@ void CameraSettingsDialog::on_btnSrcImageBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select image file...",
-                                                QString::fromStdString(EmuDirectory),
+                                                emuDirectory,
                                                 "Image files (*.png *.jpg *.jpeg *.bmp);;Any file (*.*)");
 
     if (file.isEmpty()) return;

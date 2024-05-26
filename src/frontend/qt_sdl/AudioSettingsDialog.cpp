@@ -32,8 +32,6 @@
 using namespace melonDS;
 AudioSettingsDialog* AudioSettingsDialog::currentDlg = nullptr;
 
-extern std::string EmuDirectory;
-
 
 AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::AudioSettingsDialog)
 {
@@ -262,7 +260,7 @@ void AudioSettingsDialog::on_btnMicWavBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select WAV file...",
-                                                QString::fromStdString(EmuDirectory),
+                                                emuDirectory,
                                                 "WAV files (*.wav);;Any file (*.*)");
 
     if (file.isEmpty()) return;

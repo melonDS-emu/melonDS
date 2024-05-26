@@ -35,8 +35,6 @@ using Platform::LogLevel;
 
 CheatsDialog* CheatsDialog::currentDlg = nullptr;
 
-extern std::string EmuDirectory;
-
 
 CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::CheatsDialog)
 {

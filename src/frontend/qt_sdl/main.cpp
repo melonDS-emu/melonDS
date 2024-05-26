@@ -39,6 +39,7 @@
 #include <QMimeData>
 #include <QVector>
 #include <QCommandLineParser>
+#include <QStandardPaths>
 #ifndef _WIN32
 #include <QGuiApplication>
 #include <QSocketNotifier>
@@ -128,6 +129,7 @@ QStringList ArchiveExtensions
 #endif
 };
 
+QString emuDirectory;
 
 bool RunningSomething;
 
@@ -215,6 +217,41 @@ static bool FileIsSupportedFiletype(const QString& filename, bool insideArchive 
 
 
 
+void pathInit()
+{
+    // First, check for the portable directory next to the executable.
+    QString appdirpath = QCoreApplication::applicationDirPath();
+    QString portablepath = appdirpath + QDir::separator() + "portable";
+
+#if defined(__APPLE__)
+    // On Apple platforms we may need to navigate outside an app bundle.
+    // The executable directory would be "melonDS.app/Contents/MacOS", so we need to go a total of three steps up.
+    QDir bundledir(appdirpath);
+    if (bundledir.cd("..") && bundledir.cd("..") && bundledir.dirName().endsWith(".app") && bundledir.cd(".."))
+    {
+        portablepath = bundledir.absolutePath() + QDir::separator() + "portable";
+    }
+#endif
+
+    QDir portabledir(portablepath);
+    if (portabledir.exists())
+    {
+        emuDirectory = portabledir.absolutePath();
+    }
+    else
+    {
+        // If no overrides are specified, use the default path.
+#if defined(__WIN32__) && defined(WIN32_PORTABLE)
+        emuDirectory = appdirpath;
+#else
+        QString confdir;
+        QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
+        config.mkdir("melonDS");
+        confdir = config.absolutePath() + QDir::separator() + "melonDS";
+        emuDirectory = confdir;
+#endif
+    }
+}
 
 
 void emuStop()
@@ -269,8 +306,7 @@ int main(int argc, char** argv)
         printf("did you just call me a derp???\n");
 
     MelonApplication melon(argc, argv);
-
-    Platform::Init(argc, argv);
+    pathInit();
 
     CLI::CommandLineOptions* options = CLI::ManageArgs(melon);
 
@@ -378,7 +414,6 @@ int main(int argc, char** argv)
     Config::Save();
 
     SDL_Quit();
-    Platform::DeInit();
     return ret;
 }
 

@@ -23,7 +23,7 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "EmuInstance.h"
+#include "main.h"
 #include "DSi_NAND.h"
 
 #include "TitleManagerDialog.h"
@@ -35,8 +35,6 @@ using namespace melonDS::Platform;
 
 std::unique_ptr<DSi_NAND::NANDImage> TitleManagerDialog::nand = nullptr;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
-
-extern std::string EmuDirectory;
 
 
 TitleManagerDialog::TitleManagerDialog(QWidget* parent, DSi_NAND::NANDImage& image) : QDialog(parent), ui(new Ui::TitleManagerDialog), nandmount(image)
@@ -300,7 +298,7 @@ void TitleManagerDialog::onImportTitleData()
 
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select file to import...",
-                                                QString::fromStdString(EmuDirectory),
+                                                emuDirectory,
                                                 "Title data files (" + extensions + ");;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -374,7 +372,7 @@ void TitleManagerDialog::onExportTitleData()
 
     QString file = QFileDialog::getSaveFileName(this,
                                                 "Select path to export to...",
-                                                QString::fromStdString(EmuDirectory) + exportname,
+                                                emuDirectory + exportname,
                                                 "Title data files (" + extensions + ");;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -547,7 +545,7 @@ void TitleImportDialog::on_btnAppBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select title executable...",
-                                                QString::fromStdString(EmuDirectory),
+                                                emuDirectory,
                                                 "DSiWare executables (*.app *.nds *.dsi *.srl);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -559,7 +557,7 @@ void TitleImportDialog::on_btnTmdBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select title metadata...",
-                                                QString::fromStdString(EmuDirectory),
+                                                emuDirectory,
                                                 "DSiWare metadata (*.tmd);;Any file (*.*)");
 
     if (file.isEmpty()) return;

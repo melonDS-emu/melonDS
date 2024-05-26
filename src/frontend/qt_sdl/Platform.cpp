@@ -48,8 +48,6 @@
 #define ftell _ftelli64
 #endif // __WIN32__
 
-std::string EmuDirectory;
-
 extern CameraManager* camManager[2];
 
 // REMOVE ME
@@ -64,124 +62,6 @@ void emuStop();
 
 namespace melonDS::Platform
 {
-
-void PathInit(int argc, char** argv)
-{
-    // First, check for the portable directory next to the executable.
-    QString appdirpath = QCoreApplication::applicationDirPath();
-    QString portablepath = appdirpath + QDir::separator() + "portable";
-
-#if defined(__APPLE__)
-    // On Apple platforms we may need to navigate outside an app bundle.
-    // The executable directory would be "melonDS.app/Contents/MacOS", so we need to go a total of three steps up.
-    QDir bundledir(appdirpath);
-    if (bundledir.cd("..") && bundledir.cd("..") && bundledir.dirName().endsWith(".app") && bundledir.cd(".."))
-    {
-        portablepath = bundledir.absolutePath() + QDir::separator() + "portable";
-    }
-#endif
-
-    QDir portabledir(portablepath);
-    if (portabledir.exists())
-    {
-        EmuDirectory = portabledir.absolutePath().toStdString();
-    }
-    else
-    {
-        // If no overrides are specified, use the default path.
-#if defined(__WIN32__) && defined(WIN32_PORTABLE)
-        EmuDirectory = appdirpath.toStdString();
-#else
-        QString confdir;
-        QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
-        config.mkdir("melonDS");
-        confdir = config.absolutePath() + QDir::separator() + "melonDS";
-        EmuDirectory = confdir.toStdString();
-#endif
-    }
-}
-
-QSharedMemory* IPCBuffer = nullptr;
-int IPCInstanceID;
-
-void IPCInit()
-{
-    IPCInstanceID = 0;
-
-    IPCBuffer = new QSharedMemory("melonIPC");
-
-#if !defined(Q_OS_WINDOWS)
-    // QSharedMemory instances can be left over from crashed processes on UNIX platforms.
-    // To prevent melonDS thinking there's another instance, we attach and then immediately detach from the
-    // shared memory. If no other process was actually using it, it'll be destroyed and we'll have a clean
-    // shared memory buffer after creating it again below.
-    if (IPCBuffer->attach())
-    {
-        IPCBuffer->detach();
-        delete IPCBuffer;
-        IPCBuffer = new QSharedMemory("melonIPC");
-    }
-#endif
-
-    if (!IPCBuffer->attach())
-    {
-        Log(LogLevel::Info, "IPC sharedmem doesn't exist. creating\n");
-        if (!IPCBuffer->create(1024))
-        {
-            Log(LogLevel::Error, "IPC sharedmem create failed: %s\n", IPCBuffer->errorString().toStdString().c_str());
-            delete IPCBuffer;
-            IPCBuffer = nullptr;
-            return;
-        }
-
-        IPCBuffer->lock();
-        memset(IPCBuffer->data(), 0, IPCBuffer->size());
-        IPCBuffer->unlock();
-    }
-
-    IPCBuffer->lock();
-    u8* data = (u8*)IPCBuffer->data();
-    u16 mask = *(u16*)&data[0];
-    for (int i = 0; i < 16; i++)
-    {
-        if (!(mask & (1<<i)))
-        {
-            IPCInstanceID = i;
-            *(u16*)&data[0] |= (1<<i);
-            break;
-        }
-    }
-    IPCBuffer->unlock();
-
-    Log(LogLevel::Info, "IPC: instance ID %d\n", IPCInstanceID);
-}
-
-void IPCDeInit()
-{
-    if (IPCBuffer)
-    {
-        IPCBuffer->lock();
-        u8* data = (u8*)IPCBuffer->data();
-        *(u16*)&data[0] &= ~(1<<IPCInstanceID);
-        IPCBuffer->unlock();
-
-        IPCBuffer->detach();
-        delete IPCBuffer;
-    }
-    IPCBuffer = nullptr;
-}
-
-
-void Init(int argc, char** argv)
-{
-    PathInit(argc, argv);
-    IPCInit();
-}
-
-void DeInit()
-{
-    IPCDeInit();
-}
 
 void SignalStop(StopReason reason)
 {
@@ -309,7 +189,7 @@ std::string GetLocalFilePath(const std::string& filename)
     }
     else
     {
-        fullpath = QString::fromStdString(EmuDirectory) + QDir::separator() + qpath;
+        fullpath = emuDirectory + QDir::separator() + qpath;
     }
 
     return fullpath.toStdString();

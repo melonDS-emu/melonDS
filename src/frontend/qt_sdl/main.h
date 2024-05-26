@@ -46,5 +46,6 @@ public:
 };
 
 extern QString* systemThemeName;
+extern QString emuDirectory;
 
 #endif // MAIN_H
