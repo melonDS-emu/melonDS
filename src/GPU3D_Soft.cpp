@@ -725,7 +725,7 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
 
         rp->XL = rp->SlopeL.Setup(polygon->Vertices[rp->CurVL]->FinalPosition[0], polygon->Vertices[rp->NextVL]->FinalPosition[0],
                                   polygon->Vertices[rp->CurVL]->FinalPosition[1], y1,
-                                  polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y, polygon->WBuffer);
+                                  polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y);
         
         y = ytop;
         if (y < polygon->Vertices[rp->CurVR]->FinalPosition[1])
@@ -737,7 +737,7 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
 
         rp->XR = rp->SlopeR.Setup(polygon->Vertices[rp->CurVR]->FinalPosition[0], polygon->Vertices[rp->NextVR]->FinalPosition[0],
                                   polygon->Vertices[rp->CurVR]->FinalPosition[1], y1,
-                                  polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y, polygon->WBuffer);
+                                  polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
     }
 }
 
@@ -891,7 +891,6 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         r_edgelen += 256 - xend;
         xend = 511;
     }
-    s32 x = xstart;
     Interpolator<0> interpX(xstart, xend+1, wl, wr);
 
     s32 xlimit;
@@ -1155,7 +1154,6 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         r_edgelen += 256 - xend;
         xend = 511;
     }
-    s32 x = xstart;
     Interpolator<0> interpX(xstart, xend+1, wl, wr);
 
     s32 xlimit;
