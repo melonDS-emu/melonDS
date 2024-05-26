@@ -371,11 +371,11 @@ private:
         template<bool swapped>
         constexpr void EdgeParams_XMajor(s32* length, s32* coverage) const
         {
-            // credit to StrikerX3 for working out this weird rounding nonsense
             // only do length calc for right side when swapped as it's
             // only needed for aa calcs, as actual line spans are broken
             if constexpr (!swapped || side)
             {
+                // credit to StrikerX3 for working out this weird rounding nonsense
                 if (side ^ Negative) // tr, bl = / (left side end) & tl br = \ (right side start)
                 // dxold used here to avoid rounding the endpoint
                 *length = (dx >> 18) - (dxold - Increment >> 18);
