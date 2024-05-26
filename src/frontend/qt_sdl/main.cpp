@@ -324,8 +324,6 @@ int main(int argc, char** argv)
     camStarted[1] = false;
     camManager[0] = new CameraManager(0, 640, 480, true);
     camManager[1] = new CameraManager(1, 640, 480, true);
-    camManager[0]->setXFlip(Config::Camera[0].XFlip);
-    camManager[1]->setXFlip(Config::Camera[1].XFlip);
 
     systemThemeName = new QString(QApplication::style()->objectName());
 

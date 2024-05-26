@@ -25,9 +25,6 @@
 #include <unordered_map>
 #include <tuple>
 
-//#define TOML_HEADER_ONLY 0
-//#include "toml/toml.hpp"
-
 #ifndef TOML11_VALUE_HPP
 namespace toml
 {
@@ -44,23 +41,6 @@ struct LegacyEntry
     int Type;           // 0=int 1=bool 2=string 3=64bit int
     char TOMLPath[64];
     bool InstanceUnique; // whether the setting can exist individually for each instance in multiplayer
-};
-
-struct ConfigEntry
-{
-    char Name[32];
-    int Type;           // 0=int 1=bool 2=string 3=64bit int
-    void* Value;        // pointer to the value variable
-    std::variant<int, bool, std::string, int64_t> Default;
-    bool InstanceUnique; // whether the setting can exist individually for each instance in multiplayer
-};
-
-struct CameraConfig
-{
-    int InputType; // 0=blank 1=image 2=camera
-    std::string ImagePath;
-    std::string CamDeviceName;
-    bool XFlip;
 };
 
 template<typename T>
@@ -161,8 +141,6 @@ extern bool Threaded3D;
 extern int GL_ScaleFactor;
 extern bool GL_BetterPolygons;
 extern bool GL_HiresCoordinates;
-
-extern CameraConfig Camera[2];
 
 
 bool Load();

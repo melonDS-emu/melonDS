@@ -48,8 +48,6 @@ int GL_ScaleFactor;
 bool GL_BetterPolygons;
 bool GL_HiresCoordinates;
 
-CameraConfig Camera[2];
-
 
 const char* kConfigFile = "melonDS.toml";
 
