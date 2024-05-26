@@ -377,11 +377,11 @@ private:
             {
                 // credit to StrikerX3 for working out this weird rounding nonsense
                 if (side ^ Negative) // tr, bl = / (left side end) & tl br = \ (right side start)
-                // dxold used here to avoid rounding the endpoint
-                *length = (dx >> 18) - (dxold - Increment >> 18);
+                    // dxold used here to avoid rounding the endpoint
+                    *length = (dx >> 18) - (dxold - Increment >> 18);
                 else // tl, br = \ (left side end) & tr, bl = / (right side start)
-                // dx rounded down to create gaps in lines like on hw
-                *length = ((dx & ~0x1FF) + Increment >> 18) - (dx >> 18);
+                    // dx rounded down to create gaps in lines like on hw
+                    *length = ((dx & ~0x1FF) + Increment >> 18) - (dx >> 18);
             }
 
             // for X-major edges, we return the coverage
