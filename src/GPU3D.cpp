@@ -1475,6 +1475,7 @@ void GPU3D::CalculateLighting() noexcept
         if (!(CurPolygonAttr & (1<<i)))
             continue;
 
+        // (credit to azusa for working out most of the details of the diff. algorithm, and essentially the entire spec. algorithm)
         // overflow handling (for example, if the normal length is >1)
         // according to some hardware tests
         // * diffuse level seems to keep going until 1024, at which point it overflows
