@@ -53,7 +53,7 @@ PathSettingsDialog::PathSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->txtSavestatePath->setText(cfg.GetQString("SavestatePath"));
     ui->txtCheatFilePath->setText(cfg.GetQString("CheatFilePath"));
 
-    int inst = Platform::InstanceID();
+    int inst = emuInstance->getInstanceID();
     if (inst > 0)
         ui->lblInstanceNum->setText(QString("Configuring paths for instance %1").arg(inst+1));
     else

@@ -420,7 +420,7 @@ void EmuThread::run()
                 if (winUpdateFreq < 1)
                     winUpdateFreq = 1;
 
-                int inst = Platform::InstanceID();
+                int inst = emuInstance->instanceID;
                 if (inst == 0)
                     sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
                 else
@@ -439,7 +439,7 @@ void EmuThread::run()
 
             EmuStatus = EmuRunning;
 
-            int inst = Platform::InstanceID();
+            int inst = emuInstance->instanceID;
             if (inst == 0)
                 sprintf(melontitle, "melonDS " MELONDS_VERSION);
             else
@@ -483,7 +483,6 @@ void EmuThread::run()
     EmuStatus = emuStatus_Exit;
 
     NDS::Current = nullptr;
-    // nds is out of scope, so unique_ptr cleans it up for us
 }
 
 void EmuThread::changeWindowTitle(char* title)

@@ -232,8 +232,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     setAcceptDrops(true);
     setFocusPolicy(Qt::ClickFocus);
 
-    //int inst = Platform::InstanceID();
-
     QMenuBar* menubar = new QMenuBar();
     {
         QMenu* menu = menubar->addMenu("File");

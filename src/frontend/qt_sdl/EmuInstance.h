@@ -84,6 +84,8 @@ public:
     Config::Table& getGlobalConfig() { return globalCfg; }
     Config::Table& getLocalConfig() { return localCfg; }
 
+    std::string instanceFileSuffix();
+
     void createWindow();
 
     void osdAddMessage(unsigned int color, const char* fmt, ...);

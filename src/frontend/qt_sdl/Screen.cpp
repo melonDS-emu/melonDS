@@ -16,20 +16,13 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <stdlib.h>
-#include <time.h>
-#include <stdio.h>
 #include <string.h>
 
 #include <optional>
-#include <vector>
-#include <string>
-#include <algorithm>
 #include <cmath>
 
 #include <QPaintEvent>
 #include <QPainter>
-#include <QDebug>
 #ifndef _WIN32
 #ifndef APPLE
 #include <qpa/qplatformnativeinterface.h>
@@ -56,12 +49,6 @@
 
 using namespace melonDS;
 
-
-// TEMP
-extern bool RunningSomething;
-
-extern int videoRenderer;
-extern bool videoSettingsDirty;
 
 const u32 kOSDMargin = 6;
 

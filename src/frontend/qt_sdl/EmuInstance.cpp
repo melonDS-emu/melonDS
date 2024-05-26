@@ -108,6 +108,15 @@ EmuInstance::~EmuInstance()
 }
 
 
+std::string EmuInstance::instanceFileSuffix()
+{
+    if (instanceID == 0) return "";
+
+    char suffix[16] = {0};
+    snprintf(suffix, 15, ".%d", instanceID+1);
+    return suffix;
+}
+
 void EmuInstance::createWindow()
 {
     if (numWindows >= kMaxWindows)
@@ -557,7 +566,7 @@ bool EmuInstance::loadState(const std::string& filename)
 
         std::string savefile = filename.substr(lastSep(filename)+1);
         savefile = getAssetPath(false, globalCfg.GetString("SaveFilePath"), ".sav", savefile);
-        savefile += Platform::InstanceFileSuffix();
+        savefile += instanceFileSuffix();
         ndsSave->SetPath(savefile, true);
     }
 
@@ -608,7 +617,7 @@ bool EmuInstance::saveState(const std::string& filename)
     {
         std::string savefile = filename.substr(lastSep(filename)+1);
         savefile = getAssetPath(false, globalCfg.GetString("SaveFilePath"), ".sav", savefile);
-        savefile += Platform::InstanceFileSuffix();
+        savefile += instanceFileSuffix();
         ndsSave->SetPath(savefile, false);
     }
 
@@ -1170,7 +1179,7 @@ void EmuInstance::reset()
     {
         std::string oldsave = ndsSave->GetPath();
         std::string newsave = getAssetPath(false, globalCfg.GetString("SaveFilePath"), ".sav");
-        newsave += Platform::InstanceFileSuffix();
+        newsave += instanceFileSuffix();
         if (oldsave != newsave)
             ndsSave->SetPath(newsave, false);
     }
@@ -1179,7 +1188,7 @@ void EmuInstance::reset()
     {
         std::string oldsave = gbaSave->GetPath();
         std::string newsave = getAssetPath(true, globalCfg.GetString("SaveFilePath"), ".sav");
-        newsave += Platform::InstanceFileSuffix();
+        newsave += instanceFileSuffix();
         if (oldsave != newsave)
             gbaSave->SetPath(newsave, false);
     }
@@ -1192,13 +1201,13 @@ void EmuInstance::reset()
         if (globalCfg.GetBool("Emu.ExternalBIOSEnable"))
         {
             if (nds->ConsoleType == 1)
-                newsave = globalCfg.GetString("DSi.FirmwarePath") + Platform::InstanceFileSuffix();
+                newsave = globalCfg.GetString("DSi.FirmwarePath") + instanceFileSuffix();
             else
-                newsave = globalCfg.GetString("DS.FirmwarePath") + Platform::InstanceFileSuffix();
+                newsave = globalCfg.GetString("DS.FirmwarePath") + instanceFileSuffix();
         }
         else
         {
-            newsave = kWifiSettingsPath + Platform::InstanceFileSuffix();
+            newsave = kWifiSettingsPath + instanceFileSuffix();
         }
 
         if (oldsave != newsave)
@@ -1341,7 +1350,7 @@ pair<unique_ptr<Firmware>, string> EmuInstance::generateDefaultFirmware()
     // Try to open the instanced Wi-fi settings, falling back to the regular Wi-fi settings if they don't exist.
     // We don't need to save the whole firmware, just the part that may actually change.
     std::string wfcsettingspath = kWifiSettingsPath;
-    settingspath = wfcsettingspath + Platform::InstanceFileSuffix();
+    settingspath = wfcsettingspath + instanceFileSuffix();
     FileHandle* f = Platform::OpenLocalFile(settingspath, FileMode::Read);
     if (!f)
     {
@@ -1493,13 +1502,12 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
         }
     }
 
-    int inst = Platform::InstanceID();
-    if (inst > 0)
+    if (instanceID > 0)
     {
         rep = true;
-        mac[3] += inst;
-        mac[4] += inst*0x44;
-        mac[5] += inst*0x10;
+        mac[3] += instanceID;
+        mac[4] += instanceID*0x44;
+        mac[5] += instanceID*0x10;
     }
 
     if (rep)
@@ -1630,7 +1638,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
 
     std::string savname = getAssetPath(false, globalCfg.GetString("SaveFilePath"), ".sav");
     std::string origsav = savname;
-    savname += Platform::InstanceFileSuffix();
+    savname += instanceFileSuffix();
 
     FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
     if (!sav)
@@ -1772,7 +1780,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
 
     std::string savname = getAssetPath(true, globalCfg.GetString("SaveFilePath"), ".sav");
     std::string origsav = savname;
-    savname += Platform::InstanceFileSuffix();
+    savname += instanceFileSuffix();
 
     FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
     if (!sav)

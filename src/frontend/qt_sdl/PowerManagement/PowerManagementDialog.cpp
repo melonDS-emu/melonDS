@@ -89,7 +89,7 @@ PowerManagementDialog::PowerManagementDialog(QWidget* parent) : QDialog(parent),
     }
 
 
-    int inst = Platform::InstanceID();
+    int inst = emuInstance->getInstanceID();
     if (inst > 0)
         ui->lblInstanceNum->setText(QString("Setting battery levels for instance %1").arg(inst+1));
     else

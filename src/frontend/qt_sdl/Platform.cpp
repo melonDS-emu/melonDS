@@ -204,21 +204,6 @@ void SignalStop(StopReason reason)
 }
 
 
-int InstanceID()
-{
-    return IPCInstanceID;
-}
-
-std::string InstanceFileSuffix()
-{
-    int inst = IPCInstanceID;
-    if (inst == 0) return "";
-
-    char suffix[16] = {0};
-    snprintf(suffix, 15, ".%d", inst+1);
-    return suffix;
-}
-
 static QIODevice::OpenMode GetQMode(FileMode mode)
 {
     QIODevice::OpenMode qmode = QIODevice::OpenModeFlag::NotOpen;

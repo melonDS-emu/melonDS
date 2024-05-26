@@ -79,18 +79,6 @@ enum StopReason {
  */
 void SignalStop(StopReason reason);
 
-/**
- * @returns The ID of the running melonDS instance if running in local multiplayer mode,
- * or 0 if not.
- */
-int InstanceID();
-
-/**
- * @returns A suffix that should be appended to all instance-specific paths
- * if running in local multiplayer mode,
- * or the empty string if not.
- */
-std::string InstanceFileSuffix();
 
 /**
  * Denotes how a file will be opened and accessed.
