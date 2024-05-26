@@ -94,6 +94,9 @@ signals:
     void syncVolumeLevel();
 
 private:
+    void updateRenderer();
+    void compileShaders();
+
     std::unique_ptr<melonDS::NDS> CreateConsole(
         std::unique_ptr<melonDS::NDSCart::CartCommon>&& ndscart,
         std::unique_ptr<melonDS::GBACart::CartCommon>&& gbacart
@@ -127,8 +130,9 @@ private:
 
     int autoScreenSizing;
 
-    int videoRenderer;
-    bool videoSettingsDirty;
+    int lastVideoRenderer = -1;
+
+    double perfCountsSec;
 };
 
 #endif // EMUTHREAD_H

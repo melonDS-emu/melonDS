@@ -709,19 +709,17 @@ void ScreenPanelGL::initOpenGL()
 
     glContext->MakeCurrent();
 
-    OpenGL::BuildShaderProgram(kScreenVS, kScreenFS, screenShaderProgram, "ScreenShader");
-    GLuint pid = screenShaderProgram[2];
-    glBindAttribLocation(pid, 0, "vPosition");
-    glBindAttribLocation(pid, 1, "vTexcoord");
-    glBindFragDataLocation(pid, 0, "oColor");
+    OpenGL::CompileVertexFragmentProgram(screenShaderProgram,
+        kScreenVS, kScreenFS,
+        "ScreenShader",
+        {{"vPosition", 0}, {"vTexcoord", 1}},
+        {{"oColor", 0}});
 
-    OpenGL::LinkShaderProgram(screenShaderProgram);
+    glUseProgram(screenShaderProgram);
+    glUniform1i(glGetUniformLocation(screenShaderProgram, "ScreenTex"), 0);
 
-    glUseProgram(pid);
-    glUniform1i(glGetUniformLocation(pid, "ScreenTex"), 0);
-
-    screenShaderScreenSizeULoc = glGetUniformLocation(pid, "uScreenSize");
-    screenShaderTransformULoc = glGetUniformLocation(pid, "uTransform");
+    screenShaderScreenSizeULoc = glGetUniformLocation(screenShaderProgram, "uScreenSize");
+    screenShaderTransformULoc = glGetUniformLocation(screenShaderProgram, "uTransform");
 
     // to prevent bleeding between both parts of the screen
     // with bilinear filtering enabled
@@ -769,21 +767,19 @@ void ScreenPanelGL::initOpenGL()
     memset(zeroData, 0, sizeof(zeroData));
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 2, GL_RGBA, GL_UNSIGNED_BYTE, zeroData);
 
+    OpenGL::CompileVertexFragmentProgram(osdShader,
+        kScreenVS_OSD, kScreenFS_OSD,
+        "OSDShader",
+        {{"vPosition", 0}},
+        {{"oColor", 0}});
 
-    OpenGL::BuildShaderProgram(kScreenVS_OSD, kScreenFS_OSD, osdShader, "OSDShader");
+    glUseProgram(osdShader);
+    glUniform1i(glGetUniformLocation(osdShader, "OSDTex"), 0);
 
-    pid = osdShader[2];
-    glBindAttribLocation(pid, 0, "vPosition");
-    glBindFragDataLocation(pid, 0, "oColor");
-
-    OpenGL::LinkShaderProgram(osdShader);
-    glUseProgram(pid);
-    glUniform1i(glGetUniformLocation(pid, "OSDTex"), 0);
-
-    osdScreenSizeULoc = glGetUniformLocation(pid, "uScreenSize");
-    osdPosULoc = glGetUniformLocation(pid, "uOSDPos");
-    osdSizeULoc = glGetUniformLocation(pid, "uOSDSize");
-    osdScaleFactorULoc = glGetUniformLocation(pid, "uScaleFactor");
+    osdScreenSizeULoc = glGetUniformLocation(osdShader, "uScreenSize");
+    osdPosULoc = glGetUniformLocation(osdShader, "uOSDPos");
+    osdSizeULoc = glGetUniformLocation(osdShader, "uOSDSize");
+    osdScaleFactorULoc = glGetUniformLocation(osdShader, "uScaleFactor");
 
     const float osdvertices[6*2] =
     {
@@ -818,8 +814,7 @@ void ScreenPanelGL::deinitOpenGL()
     glDeleteVertexArrays(1, &screenVertexArray);
     glDeleteBuffers(1, &screenVertexBuffer);
 
-    OpenGL::DeleteShaderProgram(screenShaderProgram);
-
+    glDeleteProgram(screenShaderProgram);
 
     for (const auto& [key, tex] : osdTextures)
     {
@@ -830,8 +825,7 @@ void ScreenPanelGL::deinitOpenGL()
     glDeleteVertexArrays(1, &osdVertexArray);
     glDeleteBuffers(1, &osdVertexBuffer);
 
-    OpenGL::DeleteShaderProgram(osdShader);
-
+    glDeleteProgram(osdShader);
 
     glContext->DoneCurrent();
 
@@ -885,7 +879,7 @@ void ScreenPanelGL::drawScreenGL()
 
     glViewport(0, 0, w, h);
 
-    glUseProgram(screenShaderProgram[2]);
+    glUseProgram(screenShaderProgram);
     glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
 
     int frontbuf = emuThread->FrontBuffer;
@@ -895,7 +889,7 @@ void ScreenPanelGL::drawScreenGL()
     if (emuThread->NDS->GPU.GetRenderer3D().Accelerated)
     {
         // hardware-accelerated render
-        static_cast<GLRenderer&>(emuThread->NDS->GPU.GetRenderer3D()).GetCompositor().BindOutputTexture(frontbuf);
+        emuThread->NDS->GPU.GetRenderer3D().BindOutputTexture(frontbuf);
     }
     else
 #endif
@@ -936,7 +930,7 @@ void ScreenPanelGL::drawScreenGL()
 
         u32 y = kOSDMargin;
 
-        glUseProgram(osdShader[2]);
+        glUseProgram(osdShader);
 
         glUniform2f(osdScreenSizeULoc, w, h);
         glUniform1f(osdScaleFactorULoc, factor);
