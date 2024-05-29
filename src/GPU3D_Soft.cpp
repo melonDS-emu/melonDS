@@ -262,6 +262,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             // NOTE: compressed textures have a bug where the wont add +1 to their texture color when increasing bit depth
             // This only happens in modes 1 and 3, but this *is* fixed by the revised rasterizer circuit
             // ...except they forgot to fix it for the interpolated colors so uh... partial credit
+            // Interpolated colors are unique in being 6 bit colors; they dont discard their least significant bit.
             vramaddr += ((t & 0x3FC) * (width>>2)) + (s & 0x3FC);
             vramaddr += (t & 0x3);
 
@@ -313,9 +314,9 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
                     u32 g1 = color1 & 0x03E0;
                     u32 b1 = color1 & 0x7C00;
 
-                    *tr = (r0 + r1) + 1         & 0x3E;
-                    *tg = ((g0 + g1) >> 5) + 1  & 0x3E;
-                    *tb = ((b0 + b1) >> 10) + 1 & 0x3E;
+                    *tr = (r0 + r1);
+                    *tg = ((g0 + g1) >> 5);
+                    *tb = ((b0 + b1) >> 10);
                 }
                 else if ((palinfo >> 14) == 3)
                 {
@@ -329,9 +330,9 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
                     u32 g1 = color1 & 0x03E0;
                     u32 b1 = color1 & 0x7C00;
 
-                    *tr = ((r0*5 + r1*3) >> 2) + 1  & 0x3E;
-                    *tg = ((g0*5 + g1*3) >> 7) + 1  & 0x3E;
-                    *tb = ((b0*5 + b1*3) >> 12) + 1 & 0x3E;
+                    *tr = ((r0*5 + r1*3) >> 2);
+                    *tg = ((g0*5 + g1*3) >> 7);
+                    *tb = ((b0*5 + b1*3) >> 12);
                 }
                 else
                 {
@@ -360,9 +361,9 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
                     u32 g1 = color1 & 0x03E0;
                     u32 b1 = color1 & 0x7C00;
 
-                    *tr = ((r0*3 + r1*5) >> 2) + 1  & 0x3E;
-                    *tg = ((g0*3 + g1*5) >> 7) + 1  & 0x3E;
-                    *tb = ((b0*3 + b1*5) >> 12) + 1 & 0x3E;
+                    *tr = ((r0*3 + r1*5) >> 2);
+                    *tg = ((g0*3 + g1*5) >> 7);
+                    *tb = ((b0*3 + b1*5) >> 12);
 
                     *alpha = 31;
                 }
