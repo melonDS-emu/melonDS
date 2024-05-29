@@ -313,9 +313,9 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
                     u32 g1 = color1 & 0x03E0;
                     u32 b1 = color1 & 0x7C00;
 
-                    *tr = (r0 + r1)        & 0x3E;
-                    *tg = ((g0 + g1) >> 5) & 0x3E;
-                    *tb = ((b0 + b1) >> 10) & 0x3E;
+                    *tr = (r0 + r1) + 1         & 0x3E;
+                    *tg = ((g0 + g1) >> 5) + 1  & 0x3E;
+                    *tb = ((b0 + b1) >> 10) + 1 & 0x3E;
                 }
                 else if ((palinfo >> 14) == 3)
                 {
@@ -329,9 +329,9 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
                     u32 g1 = color1 & 0x03E0;
                     u32 b1 = color1 & 0x7C00;
 
-                    *tr = ((r0*5 + r1*3) >> 2)  & 0x3E;
-                    *tg = ((g0*5 + g1*3) >> 7)  & 0x3E;
-                    *tb = ((b0*5 + b1*3) >> 12) & 0x3E;
+                    *tr = ((r0*5 + r1*3) >> 2) + 1  & 0x3E;
+                    *tg = ((g0*5 + g1*3) >> 7) + 1  & 0x3E;
+                    *tb = ((b0*5 + b1*3) >> 12) + 1 & 0x3E;
                 }
                 else
                 {
@@ -360,9 +360,9 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
                     u32 g1 = color1 & 0x03E0;
                     u32 b1 = color1 & 0x7C00;
 
-                    *tr = ((r0*3 + r1*5) >> 2)  & 0x3E;
-                    *tg = ((g0*3 + g1*5) >> 7)  & 0x3E;
-                    *tb = ((b0*3 + b1*5) >> 12) & 0x3E;
+                    *tr = ((r0*3 + r1*5) >> 2) + 1  & 0x3E;
+                    *tg = ((g0*3 + g1*5) >> 7) + 1  & 0x3E;
+                    *tb = ((b0*3 + b1*5) >> 12) + 1 & 0x3E;
 
                     *alpha = 31;
                 }
