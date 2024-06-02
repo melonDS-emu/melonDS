@@ -427,8 +427,13 @@ void A_LDM(ARM* cpu)
         if (cpu->CurInstr & (1<<i))
         {
             if (preinc) base += 4;
-            if (first) {if (!cpu->DataRead32 (base, &cpu->R[i])) {dataabort = true; goto abortjump;}}
-            else        if (!cpu->DataRead32S(base, &cpu->R[i])) {dataabort = true; goto abortjump;}
+            if (!(first ? cpu->DataRead32 (base, &cpu->R[i])
+                        : cpu->DataRead32S(base, &cpu->R[i])))
+            {
+                dataabort = true;
+                goto abortjump;
+            }
+
             first = false;
             if (!preinc) base += 4;
         }
@@ -438,8 +443,12 @@ void A_LDM(ARM* cpu)
     if ((cpu->CurInstr & (1<<15)))
     {
         if (preinc) base += 4;
-        if (first) {if (!cpu->DataRead32 (base, &pc)) dataabort = true;}
-        else        if (!cpu->DataRead32S(base, &pc)) dataabort = true;
+        if (!(first ? cpu->DataRead32 (base, &pc)
+                    : cpu->DataRead32S(base, &pc)))
+        {
+            dataabort = true;
+        }
+
         if (!preinc) base += 4;
 
         if (cpu->Num == 1)
@@ -524,15 +533,21 @@ void A_STM(ARM* cpu)
         {
             if (preinc) base += 4;
 
+            u32 val;
             if (i == baseid && !isbanked)
             {
                 if ((cpu->Num == 0) || (!(cpu->CurInstr & ((1<<i)-1))))
-                    {if (!(first ? cpu->DataWrite32(base, oldbase) : cpu->DataWrite32S(base, oldbase))) {dataabort = true; break;}}
-                else
-                    if (!(first ? cpu->DataWrite32(base, base) : cpu->DataWrite32S(base, base))) {dataabort = true; break;} // checkme
+                    val = oldbase;
+                else val = base;
             }
-            else
-                if (!(first ? cpu->DataWrite32(base, cpu->R[i]) : cpu->DataWrite32S(base, cpu->R[i]))) {dataabort = true; break;}
+            else val = cpu->R[i];
+
+            if (!(first ? cpu->DataWrite32 (base, val)
+                        : cpu->DataWrite32S(base, val)))
+            {
+                dataabort = true;
+                break;
+            }
 
             first = false;
 
