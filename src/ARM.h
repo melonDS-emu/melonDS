@@ -134,8 +134,8 @@ public:
     virtual bool DataRead32S(u32 addr, u32* val) = 0;
     virtual void DataWrite8(u32 addr, u8 val) = 0;
     virtual void DataWrite16(u32 addr, u16 val) = 0;
-    virtual void DataWrite32(u32 addr, u32 val) = 0;
-    virtual void DataWrite32S(u32 addr, u32 val) = 0;
+    virtual bool DataWrite32(u32 addr, u32 val) = 0;
+    virtual bool DataWrite32S(u32 addr, u32 val) = 0;
 
     virtual void AddCycles_C() = 0;
     virtual void AddCycles_CI(s32 numI) = 0;
@@ -255,8 +255,8 @@ public:
     bool DataRead32S(u32 addr, u32* val) override;
     void DataWrite8(u32 addr, u8 val) override;
     void DataWrite16(u32 addr, u16 val) override;
-    void DataWrite32(u32 addr, u32 val) override;
-    void DataWrite32S(u32 addr, u32 val) override;
+    bool DataWrite32(u32 addr, u32 val) override;
+    bool DataWrite32S(u32 addr, u32 val) override;
 
     void AddCycles_C() override
     {
@@ -404,8 +404,8 @@ public:
     bool DataRead32S(u32 addr, u32* val) override;
     void DataWrite8(u32 addr, u8 val) override;
     void DataWrite16(u32 addr, u16 val) override;
-    void DataWrite32(u32 addr, u32 val) override;
-    void DataWrite32S(u32 addr, u32 val) override;
+    bool DataWrite32(u32 addr, u32 val) override;
+    bool DataWrite32S(u32 addr, u32 val) override;
     void AddCycles_C() override;
     void AddCycles_CI(s32 num) override;
     void AddCycles_CDI() override;

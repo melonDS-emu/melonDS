@@ -1203,21 +1203,23 @@ void ARMv4::DataWrite16(u32 addr, u16 val)
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
 
-void ARMv4::DataWrite32(u32 addr, u32 val)
+bool ARMv4::DataWrite32(u32 addr, u32 val)
 {
     addr &= ~3;
 
     BusWrite32(addr, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][2];
+    return true;
 }
 
-void ARMv4::DataWrite32S(u32 addr, u32 val)
+bool ARMv4::DataWrite32S(u32 addr, u32 val)
 {
     addr &= ~3;
 
     BusWrite32(addr, val);
     DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
+    return true;
 }
 
 

@@ -490,6 +490,7 @@ void A_STM(ARM* cpu)
     u32 oldbase = base;
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
+    bool dataabort = false;
 
     if (!(cpu->CurInstr & (1<<23)))
     {
@@ -526,12 +527,12 @@ void A_STM(ARM* cpu)
             if (i == baseid && !isbanked)
             {
                 if ((cpu->Num == 0) || (!(cpu->CurInstr & ((1<<i)-1))))
-                    first ? cpu->DataWrite32(base, oldbase) : cpu->DataWrite32S(base, oldbase);
+                    {if (!(first ? cpu->DataWrite32(base, oldbase) : cpu->DataWrite32S(base, oldbase))) {dataabort = true; break;}}
                 else
-                    first ? cpu->DataWrite32(base, base) : cpu->DataWrite32S(base, base); // checkme
+                    if (!(first ? cpu->DataWrite32(base, base) : cpu->DataWrite32S(base, base))) {dataabort = true; break;} // checkme
             }
             else
-                first ? cpu->DataWrite32(base, cpu->R[i]) : cpu->DataWrite32S(base, cpu->R[i]);
+                if (!(first ? cpu->DataWrite32(base, cpu->R[i]) : cpu->DataWrite32S(base, cpu->R[i]))) {dataabort = true; break;}
 
             first = false;
 
@@ -542,7 +543,7 @@ void A_STM(ARM* cpu)
     if (cpu->CurInstr & (1<<22))
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
 
-    if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
+    if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)) && !dataabort)
         cpu->R[baseid] = base;
 
     cpu->AddCycles_CD();
