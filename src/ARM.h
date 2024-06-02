@@ -130,8 +130,8 @@ public:
 
     virtual void DataRead8(u32 addr, u32* val) = 0;
     virtual void DataRead16(u32 addr, u32* val) = 0;
-    virtual void DataRead32(u32 addr, u32* val) = 0;
-    virtual void DataRead32S(u32 addr, u32* val) = 0;
+    virtual bool DataRead32(u32 addr, u32* val) = 0;
+    virtual bool DataRead32S(u32 addr, u32* val) = 0;
     virtual void DataWrite8(u32 addr, u8 val) = 0;
     virtual void DataWrite16(u32 addr, u16 val) = 0;
     virtual void DataWrite32(u32 addr, u32 val) = 0;
@@ -251,8 +251,8 @@ public:
 
     void DataRead8(u32 addr, u32* val) override;
     void DataRead16(u32 addr, u32* val) override;
-    void DataRead32(u32 addr, u32* val) override;
-    void DataRead32S(u32 addr, u32* val) override;
+    bool DataRead32(u32 addr, u32* val) override;
+    bool DataRead32S(u32 addr, u32* val) override;
     void DataWrite8(u32 addr, u8 val) override;
     void DataWrite16(u32 addr, u16 val) override;
     void DataWrite32(u32 addr, u32 val) override;
@@ -400,8 +400,8 @@ public:
 
     void DataRead8(u32 addr, u32* val) override;
     void DataRead16(u32 addr, u32* val) override;
-    void DataRead32(u32 addr, u32* val) override;
-    void DataRead32S(u32 addr, u32* val) override;
+    bool DataRead32(u32 addr, u32* val) override;
+    bool DataRead32S(u32 addr, u32* val) override;
     void DataWrite8(u32 addr, u8 val) override;
     void DataWrite16(u32 addr, u16 val) override;
     void DataWrite32(u32 addr, u32 val) override;

@@ -395,12 +395,14 @@ void A_LDM(ARM* cpu)
     u32 baseid = (cpu->CurInstr >> 16) & 0xF;
     u32 base = cpu->R[baseid];
     u32 wbbase;
+    u32 oldbase = base;
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
-    int abortreg = 16;
+    bool dataabort = false;
 
-    if (!(cpu->CurInstr & (1<<23)))
+    if (!(cpu->CurInstr & (1<<23))) // decrement
     {
+        // decrement is actually an increment starting from the end address
         for (int i = 0; i < 16; i++)
         {
             if (cpu->CurInstr & (1<<i))
@@ -416,61 +418,43 @@ void A_LDM(ARM* cpu)
         preinc = !preinc;
     }
 
-    // check for data aborts
-    if (cpu->Num == 0)
-    { 
-        u32 tmpbase = base;
-        for (int i = 0; i < 16; i++)
-        {
-            if (cpu->CurInstr & (1<<i))
-            {
-                if (preinc) tmpbase += 4;
-                if(((ARMv5*)cpu)->PU_Map[tmpbase>>12] & 0x01)
-                {
-                    if (!preinc) tmpbase += 4;
-                }
-                else
-                {
-                    abortreg = i;
-                    break;
-                }
-            }
-        }
-    }
-
+    // switch to user mode regs
     if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
         cpu->UpdateMode(cpu->CPSR, (cpu->CPSR&~0x1F)|0x10, true);
 
-    for (int i = 0; i < std::min(15, abortreg); i++)
+    for (int i = 0; i < 15; i++)
     {
         if (cpu->CurInstr & (1<<i))
         {
             if (preinc) base += 4;
-            if (first) cpu->DataRead32 (base, &cpu->R[i]);
-            else       cpu->DataRead32S(base, &cpu->R[i]);
+            if (first) {if (!cpu->DataRead32 (base, &cpu->R[i])) {dataabort = true; goto abortjump;}}
+            else        if (!cpu->DataRead32S(base, &cpu->R[i])) {dataabort = true; goto abortjump;}
             first = false;
             if (!preinc) base += 4;
         }
     }
 
     u32 pc;
-    if ((cpu->CurInstr & (1<<15)) && (abortreg == 16))
+    if ((cpu->CurInstr & (1<<15)))
     {
         if (preinc) base += 4;
-        if (first) cpu->DataRead32 (base, &pc);
-        else       cpu->DataRead32S(base, &pc);
+        if (first) {if (!cpu->DataRead32 (base, &pc)) dataabort = true;}
+        else        if (!cpu->DataRead32S(base, &pc)) dataabort = true;
         if (!preinc) base += 4;
 
         if (cpu->Num == 1)
             pc &= ~0x1;
     }
 
+    abortjump:
+
+    // switch back to previous regs
     if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
 
-    // if it's 16 then there was no data abort
-    if (abortreg == 16)
+    if (!dataabort)
     {
+        // writeback to base
         if (cpu->CurInstr & (1<<21))
         {
             // post writeback
@@ -489,14 +473,12 @@ void A_LDM(ARM* cpu)
             else
                 cpu->R[baseid] = wbbase;
         }
-
+        
+        // jump if pc got written
         if (cpu->CurInstr & (1<<15))
             cpu->JumpTo(pc, cpu->CurInstr & (1<<22));
     }
-    else
-    {
-        ((ARMv5*)cpu)->DataAbort();
-    }
+    else cpu->R[baseid] = oldbase; // restore original value of base in case the reg got written to
 
     cpu->AddCycles_CDI();
 }
