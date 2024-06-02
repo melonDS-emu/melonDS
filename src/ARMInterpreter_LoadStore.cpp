@@ -397,6 +397,7 @@ void A_LDM(ARM* cpu)
     u32 wbbase;
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
+    int abortreg = 16;
 
     if (!(cpu->CurInstr & (1<<23)))
     {
@@ -415,10 +416,32 @@ void A_LDM(ARM* cpu)
         preinc = !preinc;
     }
 
+    // check for data aborts
+    if (cpu->Num == 0)
+    { 
+        u32 tmpbase = base;
+        for (int i = 0; i < 16; i++)
+        {
+            if (cpu->CurInstr & (1<<i))
+            {
+                if (preinc) tmpbase += 4;
+                if(((ARMv5*)cpu)->PU_Map[tmpbase>>12] & 0x01)
+                {
+                    if (!preinc) tmpbase += 4;
+                }
+                else
+                {
+                    abortreg = i;
+                    break;
+                }
+            }
+        }
+    }
+
     if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
         cpu->UpdateMode(cpu->CPSR, (cpu->CPSR&~0x1F)|0x10, true);
 
-    for (int i = 0; i < 15; i++)
+    for (int i = 0; i < std::min(15, abortreg); i++)
     {
         if (cpu->CurInstr & (1<<i))
         {
@@ -429,9 +452,9 @@ void A_LDM(ARM* cpu)
             if (!preinc) base += 4;
         }
     }
-    
+
     u32 pc;
-    if (cpu->CurInstr & (1<<15))
+    if ((cpu->CurInstr & (1<<15)) && (abortreg == 16))
     {
         if (preinc) base += 4;
         if (first) cpu->DataRead32 (base, &pc);
@@ -445,27 +468,35 @@ void A_LDM(ARM* cpu)
     if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
 
-    if (cpu->CurInstr & (1<<21))
+    // if it's 16 then there was no data abort
+    if (abortreg == 16)
     {
-        // post writeback
-        if (cpu->CurInstr & (1<<23))
-            wbbase = base;
-
-        if (cpu->CurInstr & (1 << baseid))
+        if (cpu->CurInstr & (1<<21))
         {
-            if (cpu->Num == 0)
-            {
-                u32 rlist = cpu->CurInstr & 0xFFFF;
-                if ((!(rlist & ~(1 << baseid))) || (rlist & ~((2 << baseid) - 1)))
-                    cpu->R[baseid] = wbbase;
-            }
-        }
-        else
-            cpu->R[baseid] = wbbase;
-    }
+            // post writeback
+            if (cpu->CurInstr & (1<<23))
+                wbbase = base;
 
-    if (cpu->CurInstr & (1<<15))
-        cpu->JumpTo(pc, cpu->CurInstr & (1<<22));
+            if (cpu->CurInstr & (1 << baseid))
+            {
+                if (cpu->Num == 0)
+                {
+                    u32 rlist = cpu->CurInstr & 0xFFFF;
+                    if ((!(rlist & ~(1 << baseid))) || (rlist & ~((2 << baseid) - 1)))
+                        cpu->R[baseid] = wbbase;
+                }
+            }
+            else
+                cpu->R[baseid] = wbbase;
+        }
+
+        if (cpu->CurInstr & (1<<15))
+            cpu->JumpTo(pc, cpu->CurInstr & (1<<22));
+    }
+    else
+    {
+        ((ARMv5*)cpu)->DataAbort();
+    }
 
     cpu->AddCycles_CDI();
 }
