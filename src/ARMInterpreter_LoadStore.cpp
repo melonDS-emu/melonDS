@@ -558,8 +558,12 @@ void A_STM(ARM* cpu)
     if (cpu->CurInstr & (1<<22))
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
 
-    if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)) && !dataabort)
-        cpu->R[baseid] = base;
+    if (!dataabort)
+    {
+        if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
+            cpu->R[baseid] = base;
+    }
+    else cpu->R[baseid] = oldbase;
 
     cpu->AddCycles_CD();
 }
