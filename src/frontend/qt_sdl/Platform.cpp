@@ -50,9 +50,6 @@
 
 extern CameraManager* camManager[2];
 
-// REMOVE ME
-extern EmuInstance* testinst;
-
 void emuStop();
 
 // TEMP
@@ -63,8 +60,9 @@ void emuStop();
 namespace melonDS::Platform
 {
 
-void SignalStop(StopReason reason)
+void SignalStop(StopReason reason, void* userdata)
 {
+    EmuInstance* inst = (EmuInstance*)userdata;
     emuStop();
     switch (reason)
     {
@@ -412,23 +410,23 @@ void Sleep(u64 usecs)
 }
 
 
-void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
+void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen, void* userdata)
 {
-    EmuInstance* inst = testinst;
+    EmuInstance* inst = (EmuInstance*)userdata;
     if (inst->ndsSave)
         inst->ndsSave->RequestFlush(savedata, savelen, writeoffset, writelen);
 }
 
-void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
+void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen, void* userdata)
 {
-    EmuInstance* inst = testinst;
+    EmuInstance* inst = (EmuInstance*)userdata;
     if (inst->gbaSave)
         inst->gbaSave->RequestFlush(savedata, savelen, writeoffset, writelen);
 }
 
-void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen)
+void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen, void* userdata)
 {
-    EmuInstance* inst = testinst;
+    EmuInstance* inst = (EmuInstance*)userdata;
     if (!inst->firmwareSave)
         return;
 
@@ -458,72 +456,81 @@ void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen)
 
 }
 
-void WriteDateTime(int year, int month, int day, int hour, int minute, int second)
+void WriteDateTime(int year, int month, int day, int hour, int minute, int second, void* userdata)
 {
+    EmuInstance* inst = (EmuInstance*)userdata;
     QDateTime hosttime = QDateTime::currentDateTime();
     QDateTime time = QDateTime(QDate(year, month, day), QTime(hour, minute, second));
-    auto& cfg = testinst->getLocalConfig();
+    auto& cfg = inst->getLocalConfig();
 
     cfg.SetInt64("RTC.Offset", hosttime.secsTo(time));
     Config::Save();
 }
 
-bool MP_Init()
+bool MP_Init(void* userdata)
 {
-    return LocalMP::Init();
+    //return LocalMP::Init();
+    return true;
 }
 
-void MP_DeInit()
+void MP_DeInit(void* userdata)
 {
-    return LocalMP::DeInit();
+    //return LocalMP::DeInit();
 }
 
-void MP_Begin()
+void MP_Begin(void* userdata)
 {
-    return LocalMP::Begin();
+    //return LocalMP::Begin();
 }
 
-void MP_End()
+void MP_End(void* userdata)
 {
-    return LocalMP::End();
+    //return LocalMP::End();
 }
 
-int MP_SendPacket(u8* data, int len, u64 timestamp)
+int MP_SendPacket(u8* data, int len, u64 timestamp, void* userdata)
 {
-    return LocalMP::SendPacket(data, len, timestamp);
+    //return LocalMP::SendPacket(data, len, timestamp);
+    return 0;
 }
 
-int MP_RecvPacket(u8* data, u64* timestamp)
+int MP_RecvPacket(u8* data, u64* timestamp, void* userdata)
 {
-    return LocalMP::RecvPacket(data, timestamp);
+    //return LocalMP::RecvPacket(data, timestamp);
+    return 0;
 }
 
-int MP_SendCmd(u8* data, int len, u64 timestamp)
+int MP_SendCmd(u8* data, int len, u64 timestamp, void* userdata)
 {
-    return LocalMP::SendCmd(data, len, timestamp);
+    //return LocalMP::SendCmd(data, len, timestamp);
+    return 0;
 }
 
-int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid)
+int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid, void* userdata)
 {
-    return LocalMP::SendReply(data, len, timestamp, aid);
+    //return LocalMP::SendReply(data, len, timestamp, aid);
+    return 0;
 }
 
-int MP_SendAck(u8* data, int len, u64 timestamp)
+int MP_SendAck(u8* data, int len, u64 timestamp, void* userdata)
 {
-    return LocalMP::SendAck(data, len, timestamp);
+    //return LocalMP::SendAck(data, len, timestamp);
+    return 0;
 }
 
-int MP_RecvHostPacket(u8* data, u64* timestamp)
+int MP_RecvHostPacket(u8* data, u64* timestamp, void* userdata)
 {
-    return LocalMP::RecvHostPacket(data, timestamp);
+    //return LocalMP::RecvHostPacket(data, timestamp);
+    return 0;
 }
 
-u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask)
+u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, void* userdata)
 {
-    return LocalMP::RecvReplies(data, timestamp, aidmask);
+    //return LocalMP::RecvReplies(data, timestamp, aidmask);
+    return 0;
 }
 
-bool LAN_Init()
+bool LAN_Init(void* userdata)
 {
     /*if (testinst->getGlobalConfig().GetBool("LAN.DirectMode"))
     {
@@ -539,7 +546,7 @@ bool LAN_Init()
     return true;
 }
 
-void LAN_DeInit()
+void LAN_DeInit(void* userdata)
 {
     // checkme. blarg
     //if (Config::DirectLAN)
@@ -550,7 +557,7 @@ void LAN_DeInit()
     LAN_Socket::DeInit();*/
 }
 
-int LAN_SendPacket(u8* data, int len)
+int LAN_SendPacket(u8* data, int len, void* userdata)
 {
     /*if (testinst->getGlobalConfig().GetBool("LAN.DirectMode"))
         return LAN_PCap::SendPacket(data, len);
@@ -559,7 +566,7 @@ int LAN_SendPacket(u8* data, int len)
     return 0;
 }
 
-int LAN_RecvPacket(u8* data)
+int LAN_RecvPacket(u8* data, void* userdata)
 {
     /*if (testinst->getGlobalConfig().GetBool("LAN.DirectMode"))
         return LAN_PCap::RecvPacket(data);
@@ -569,17 +576,17 @@ int LAN_RecvPacket(u8* data)
 }
 
 
-void Camera_Start(int num)
+void Camera_Start(int num, void* userdata)
 {
     return camManager[num]->start();
 }
 
-void Camera_Stop(int num)
+void Camera_Stop(int num, void* userdata)
 {
     return camManager[num]->stop();
 }
 
-void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv)
+void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv, void* userdata)
 {
     return camManager[num]->captureFrame(frame, width, height, yuv);
 }

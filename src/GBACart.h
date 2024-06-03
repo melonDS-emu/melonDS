@@ -72,8 +72,8 @@ private:
 class CartGame : public CartCommon
 {
 public:
-    CartGame(const u8* rom, u32 len, const u8* sram, u32 sramlen, GBACart::CartType type = GBACart::CartType::Game);
-    CartGame(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen, GBACart::CartType type = GBACart::CartType::Game);
+    CartGame(const u8* rom, u32 len, const u8* sram, u32 sramlen, void* userdata, GBACart::CartType type = GBACart::CartType::Game);
+    CartGame(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata, GBACart::CartType type = GBACart::CartType::Game);
     ~CartGame() override;
 
     u32 Checksum() const override;
@@ -103,6 +103,8 @@ protected:
     void SRAMWrite_FLASH(u32 addr, u8 val);
     u8 SRAMRead_SRAM(u32 addr);
     void SRAMWrite_SRAM(u32 addr, u8 val);
+
+    void* UserData;
 
     std::unique_ptr<u8[]> ROM;
     u32 ROMLength;
@@ -147,8 +149,8 @@ private:
 class CartGameSolarSensor : public CartGame
 {
 public:
-    CartGameSolarSensor(const u8* rom, u32 len, const u8* sram, u32 sramlen);
-    CartGameSolarSensor(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen);
+    CartGameSolarSensor(const u8* rom, u32 len, const u8* sram, u32 sramlen, void* userdata);
+    CartGameSolarSensor(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata);
 
     void Reset() override;
 
@@ -197,7 +199,7 @@ enum
 class GBACartSlot
 {
 public:
-    GBACartSlot(std::unique_ptr<CartCommon>&& cart = nullptr) noexcept;
+    GBACartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& cart = nullptr) noexcept;
     ~GBACartSlot() noexcept = default;
     void Reset() noexcept;
     void DoSavestate(Savestate* file) noexcept;
@@ -258,6 +260,7 @@ public:
     /// if a cart is loaded and supports SRAM, otherwise zero.
     [[nodiscard]] u32 GetSaveMemoryLength() const noexcept { return Cart ? Cart->GetSaveMemoryLength() : 0; }
 private:
+    melonDS::NDS& NDS;
     std::unique_ptr<CartCommon> Cart = nullptr;
     u16 OpenBusDecay = 0;
 };
@@ -270,9 +273,9 @@ private:
 /// @param romlen The length of the ROM data in bytes.
 /// @returns A \c GBACart::CartCommon object representing the parsed ROM,
 /// or \c nullptr if the ROM data couldn't be parsed.
-std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen);
-std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen);
-std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sramdata, u32 sramlen);
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, void* userdata = nullptr);
+std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, void* userdata = nullptr);
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sramdata, u32 sramlen, void* userdata = nullptr);
 
 /// @param romdata The ROM data to parse. Will be moved-from.
 /// @param romlen Length of romdata in bytes.
@@ -282,7 +285,7 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sr
 /// May be zero, in which case the cart will have no save data.
 /// @return Unique pointer to the parsed GBA cart,
 /// or \c nullptr if there was an error.
-std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, std::unique_ptr<u8[]>&& sramdata, u32 sramlen);
+std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, std::unique_ptr<u8[]>&& sramdata, u32 sramlen, void* userdata = nullptr);
 
 }
 

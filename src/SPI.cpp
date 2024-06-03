@@ -260,7 +260,7 @@ void FirmwareMem::Release()
 
         // Request that the start of the Wi-fi/userdata settings region
         // through the end of the firmware blob be flushed to disk
-        Platform::WriteFirmware(FirmwareData, wifioffset, FirmwareData.Length() - wifioffset);
+        Platform::WriteFirmware(FirmwareData, wifioffset, FirmwareData.Length() - wifioffset, NDS.UserData);
     }
 
     SPIDevice::Release();

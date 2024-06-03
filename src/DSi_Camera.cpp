@@ -410,7 +410,7 @@ void DSi_Camera::DoSavestate(Savestate* file)
 
 void DSi_Camera::Reset()
 {
-    Platform::Camera_Stop(Num);
+    Platform::Camera_Stop(Num, DSi.UserData);
 
     DataPos = 0;
     RegAddr = 0;
@@ -435,7 +435,7 @@ void DSi_Camera::Reset()
 
 void DSi_Camera::Stop()
 {
-    Platform::Camera_Stop(Num);
+    Platform::Camera_Stop(Num, DSi.UserData);
 }
 
 bool DSi_Camera::IsActivated() const
@@ -474,7 +474,7 @@ void DSi_Camera::StartTransfer()
         FrameFormat = 0;
     }
 
-    Platform::Camera_CaptureFrame(Num, FrameBuffer, 640, 480, true);
+    Platform::Camera_CaptureFrame(Num, FrameBuffer, 640, 480, true, DSi.UserData);
 }
 
 bool DSi_Camera::TransferDone() const
@@ -655,8 +655,8 @@ void DSi_Camera::I2C_WriteReg(u16 addr, u16 val)
             StandbyCnt = val;
             //printf("CAM%d STBCNT=%04X (%04X)\n", Num, StandbyCnt, val);
             bool isactive = IsActivated();
-            if (isactive && !wasactive)      Platform::Camera_Start(Num);
-            else if (wasactive && !isactive) Platform::Camera_Stop(Num);
+            if (isactive && !wasactive)      Platform::Camera_Start(Num, DSi.UserData);
+            else if (wasactive && !isactive) Platform::Camera_Stop(Num, DSi.UserData);
         }
         return;
     case 0x001A:
@@ -665,8 +665,8 @@ void DSi_Camera::I2C_WriteReg(u16 addr, u16 val)
             MiscCnt = val & 0x0B7B;
             //printf("CAM%d MISCCNT=%04X (%04X)\n", Num, MiscCnt, val);
             bool isactive = IsActivated();
-            if (isactive && !wasactive)      Platform::Camera_Start(Num);
-            else if (wasactive && !isactive) Platform::Camera_Stop(Num);
+            if (isactive && !wasactive)      Platform::Camera_Start(Num, DSi.UserData);
+            else if (wasactive && !isactive) Platform::Camera_Stop(Num, DSi.UserData);
         }
         return;
 

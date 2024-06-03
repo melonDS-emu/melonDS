@@ -28,7 +28,7 @@ class Wifi;
 class WifiAP
 {
 public:
-    WifiAP(Wifi* client);
+    WifiAP(Wifi* client, void* userdata);
     ~WifiAP();
     void Reset();
 
@@ -44,6 +44,7 @@ public:
 
 private:
     Wifi* Client;
+    void* UserData;
 
     u64 USCounter;
 

@@ -1127,9 +1127,9 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
         if (nds) delete nds;
 
         if (consoletype == 1)
-            nds = new DSi(std::move(dsiargs.value()));
+            nds = new DSi(std::move(dsiargs.value()), this);
         else
-            nds = new NDS(std::move(ndsargs));
+            nds = new NDS(std::move(ndsargs), this);
 
         NDS::Current = nds;
         nds->Reset();
@@ -1676,7 +1676,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
             .SRAMLength = savelen,
     };
 
-    auto cart = NDSCart::ParseROM(std::move(filedata), filelen, std::move(cartargs));
+    auto cart = NDSCart::ParseROM(std::move(filedata), filelen, this, std::move(cartargs));
     if (!cart)
     {
         // If we couldn't parse the ROM...
@@ -1812,7 +1812,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
         CloseFile(sav);
     }
 
-    auto cart = GBACart::ParseROM(std::move(filedata), filelen, std::move(savedata), savelen);
+    auto cart = GBACart::ParseROM(std::move(filedata), filelen, std::move(savedata), savelen, this);
     if (!cart)
     {
         QMessageBox::critical(mainWindow, "melonDS", "Failed to load the GBA ROM.");

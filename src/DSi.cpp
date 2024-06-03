@@ -90,8 +90,8 @@ const u32 NDMAModes[] =
 {
 }*/
 
-DSi::DSi(DSiArgs&& args) noexcept :
-    NDS(std::move(args), 1),
+DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
+    NDS(std::move(args), 1, userdata),
     NDMAs {
         DSi_NDMA(0, 0, *this),
         DSi_NDMA(0, 1, *this),

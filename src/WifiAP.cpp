@@ -71,7 +71,7 @@ bool MACEqual(const u8* a, const u8* b);
 bool MACIsBroadcast(const u8* a);
 
 
-WifiAP::WifiAP(Wifi* client) : Client(client)
+WifiAP::WifiAP(Wifi* client, void* userdata) : Client(client), UserData(userdata)
 {
 }
 
@@ -301,7 +301,7 @@ int WifiAP::SendPacket(const u8* data, int len)
                 *(u16*)&LANBuffer[12] = *(u16*)&data[30]; // type
                 memcpy(&LANBuffer[14], &data[32], lan_len - 14);
 
-                Platform::LAN_SendPacket(LANBuffer, lan_len);
+                Platform::LAN_SendPacket(LANBuffer, lan_len, UserData);
             }
         }
         return len;
@@ -368,7 +368,7 @@ int WifiAP::RecvPacket(u8* data)
 
     if (ClientStatus < 2) return 0;
 
-    int rxlen = Platform::LAN_RecvPacket(LANBuffer);
+    int rxlen = Platform::LAN_RecvPacket(LANBuffer, UserData);
     if (rxlen > 0)
     {
         // check destination MAC
