@@ -1044,6 +1044,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
         return false;
 
     auto arm7bios = loadARM7BIOS();
+    printf("loaded ARM7 BIOS: %p %d\n", arm7bios->data(), arm7bios->size());
     if (!arm7bios)
         return false;
 
@@ -1108,6 +1109,9 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
 
         auto sdcard = loadSDCard("DSi.SD");
 
+        // FIXME!!! this operation fucking OBLITERATES THE DS BIOS
+        // yes, it somehow makes the std::array null.
+        // so in the end if you start in DSi mode... crash.
         DSiArgs args {
                 std::move(ndsargs),
                 std::move(arm9ibios),
