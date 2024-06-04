@@ -1044,7 +1044,6 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
         return false;
 
     auto arm7bios = loadARM7BIOS();
-    printf("loaded ARM7 BIOS: %p %d\n", arm7bios->data(), arm7bios->size());
     if (!arm7bios)
         return false;
 
