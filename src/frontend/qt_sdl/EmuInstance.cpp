@@ -38,6 +38,7 @@
 #include "EmuInstance.h"
 #include "Config.h"
 #include "Platform.h"
+#include "LocalMP.h"
 
 #include "NDS.h"
 #include "DSi.h"
@@ -98,6 +99,8 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
 EmuInstance::~EmuInstance()
 {
     // TODO window cleanup and shit?
+
+    LocalMP::End(instanceID);
 
     emuThread->emuExit();
     emuThread->wait();

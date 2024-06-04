@@ -50,12 +50,6 @@
 
 extern CameraManager* camManager[2];
 
-void emuStop();
-
-// TEMP
-//#include "main.h"
-//extern MainWindow* mainWindow;
-
 
 namespace melonDS::Platform
 {
@@ -454,65 +448,65 @@ void WriteDateTime(int year, int month, int day, int hour, int minute, int secon
 
 bool MP_Init(void* userdata)
 {
-    //return LocalMP::Init();
     return true;
 }
 
 void MP_DeInit(void* userdata)
 {
-    //return LocalMP::DeInit();
 }
 
 void MP_Begin(void* userdata)
 {
-    //return LocalMP::Begin();
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    LocalMP::Begin(inst);
 }
 
 void MP_End(void* userdata)
 {
-    //return LocalMP::End();
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    LocalMP::End(inst);
 }
 
 int MP_SendPacket(u8* data, int len, u64 timestamp, void* userdata)
 {
-    //return LocalMP::SendPacket(data, len, timestamp);
-    return 0;
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return LocalMP::SendPacket(inst, data, len, timestamp);
 }
 
 int MP_RecvPacket(u8* data, u64* timestamp, void* userdata)
 {
-    //return LocalMP::RecvPacket(data, timestamp);
-    return 0;
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return LocalMP::RecvPacket(inst, data, timestamp);
 }
 
 int MP_SendCmd(u8* data, int len, u64 timestamp, void* userdata)
 {
-    //return LocalMP::SendCmd(data, len, timestamp);
-    return 0;
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return LocalMP::SendCmd(inst, data, len, timestamp);
 }
 
 int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid, void* userdata)
 {
-    //return LocalMP::SendReply(data, len, timestamp, aid);
-    return 0;
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return LocalMP::SendReply(inst, data, len, timestamp, aid);
 }
 
 int MP_SendAck(u8* data, int len, u64 timestamp, void* userdata)
 {
-    //return LocalMP::SendAck(data, len, timestamp);
-    return 0;
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return LocalMP::SendAck(inst, data, len, timestamp);
 }
 
 int MP_RecvHostPacket(u8* data, u64* timestamp, void* userdata)
 {
-    //return LocalMP::RecvHostPacket(data, timestamp);
-    return 0;
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return LocalMP::RecvHostPacket(inst, data, timestamp);
 }
 
 u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, void* userdata)
 {
-    //return LocalMP::RecvReplies(data, timestamp, aidmask);
-    return 0;
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return LocalMP::RecvReplies(inst, data, timestamp, aidmask);
 }
 
 bool LAN_Init(void* userdata)

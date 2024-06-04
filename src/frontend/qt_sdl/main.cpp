@@ -74,6 +74,7 @@
 #include "EmuInstance.h"
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
+#include "LocalMP.h"
 
 #include "CLI.h"
 
@@ -266,6 +267,8 @@ int main(int argc, char** argv)
         }
     }
 
+    LocalMP::Init();
+
    /* mainWindow = new MainWindow();
     if (options->fullscreen)
         ToggleFullscreen(mainWindow);
@@ -317,6 +320,8 @@ int main(int argc, char** argv)
     // if we get here, all the existing emu instances should have been deleted already
     // but with this we make extra sure they are all deleted
     deleteAllEmuInstances();
+
+    LocalMP::DeInit();
 
     //AudioInOut::DeInit();
     delete camManager[0];
