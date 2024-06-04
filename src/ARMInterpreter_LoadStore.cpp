@@ -65,9 +65,10 @@ namespace melonDS::ARMInterpreter
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
     if (((cpu->CurInstr>>12) & 0xF) == 0xF) \
         storeval += 4; \
-    cpu->DataWrite32(offset, storeval); \
-    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    cpu->AddCycles_CD();
+    bool dataabort = !cpu->DataWrite32(offset, storeval); \
+    cpu->AddCycles_CD(); \
+    if (dataabort) return; \
+    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
 // TODO: user mode (bit21)
 #define A_STR_POST \
@@ -75,9 +76,10 @@ namespace melonDS::ARMInterpreter
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
     if (((cpu->CurInstr>>12) & 0xF) == 0xF) \
         storeval += 4; \
-    cpu->DataWrite32(addr, storeval); \
-    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    cpu->AddCycles_CD();
+    bool dataabort = !cpu->DataWrite32(addr, storeval); \
+    cpu->AddCycles_CD(); \
+    if (dataabort) return; \
+    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
 #define A_STRB \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
@@ -94,10 +96,11 @@ namespace melonDS::ARMInterpreter
 
 #define A_LDR \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val; cpu->DataRead32(offset, &val); \
+    u32 val; bool dataabort = !cpu->DataRead32(offset, &val); \
+    cpu->AddCycles_CDI(); \
+    if (dataabort) return; \
     val = ROR(val, ((offset&0x3)<<3)); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    cpu->AddCycles_CDI(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         if (cpu->Num==1) val &= ~0x1; \
@@ -111,10 +114,11 @@ namespace melonDS::ARMInterpreter
 // TODO: user mode
 #define A_LDR_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val; cpu->DataRead32(addr, &val); \
+    u32 val; bool dataabort = !cpu->DataRead32(addr, &val); \
+    cpu->AddCycles_CDI(); \
+    if (dataabort) return; \
     val = ROR(val, ((addr&0x3)<<3)); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    cpu->AddCycles_CDI(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         if (cpu->Num==1) val &= ~0x1; \
