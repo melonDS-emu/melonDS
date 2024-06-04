@@ -43,8 +43,6 @@ WifiSettingsDialog* WifiSettingsDialog::currentDlg = nullptr;
 
 bool WifiSettingsDialog::needsReset = false;
 
-extern bool RunningSomething;
-
 
 WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::WifiSettingsDialog)
 {

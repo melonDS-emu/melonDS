@@ -82,31 +82,61 @@
 
 using namespace melonDS;
 
-// TEMP
-extern MainWindow* mainWindow;
-//extern EmuThread* emuThread;
-extern bool RunningSomething;
-extern QString NdsRomMimeType;
-extern QStringList NdsRomExtensions;
-extern QString GbaRomMimeType;
-extern QStringList GbaRomExtensions;
-extern QStringList ArchiveMimeTypes;
-extern QStringList ArchiveExtensions;
-/*static bool FileExtensionInList(const QString& filename, const QStringList& extensions, Qt::CaseSensitivity cs);
-static bool MimeTypeInList(const QMimeType& mimetype, const QStringList& superTypeNames);
-static bool NdsRomByExtension(const QString& filename);
-static bool GbaRomByExtension(const QString& filename);
-static bool SupportedArchiveByExtension(const QString& filename);
-static bool NdsRomByMimetype(const QMimeType& mimetype);
-static bool GbaRomByMimetype(const QMimeType& mimetype);
-static bool SupportedArchiveByMimetype(const QMimeType& mimetype);
-static bool ZstdNdsRomByExtension(const QString& filename);
-static bool ZstdGbaRomByExtension(const QString& filename);
-static bool FileIsSupportedFiletype(const QString& filename, bool insideArchive);*/
+
+
 
 extern CameraManager* camManager[2];
 extern bool camStarted[2];
 
+
+QString NdsRomMimeType = "application/x-nintendo-ds-rom";
+QStringList NdsRomExtensions { ".nds", ".srl", ".dsi", ".ids" };
+
+QString GbaRomMimeType = "application/x-gba-rom";
+QStringList GbaRomExtensions { ".gba", ".agb" };
+
+
+// This list of supported archive formats is based on libarchive(3) version 3.6.2 (2022-12-09).
+QStringList ArchiveMimeTypes
+{
+#ifdef ARCHIVE_SUPPORT_ENABLED
+    "application/zip",
+    "application/x-7z-compressed",
+    "application/vnd.rar", // *.rar
+    "application/x-tar",
+
+    "application/x-compressed-tar", // *.tar.gz
+    "application/x-xz-compressed-tar",
+    "application/x-bzip-compressed-tar",
+    "application/x-lz4-compressed-tar",
+    "application/x-zstd-compressed-tar",
+
+    "application/x-tarz", // *.tar.Z
+    "application/x-lzip-compressed-tar",
+    "application/x-lzma-compressed-tar",
+    "application/x-lrzip-compressed-tar",
+    "application/x-tzo", // *.tar.lzo
+#endif
+};
+
+QStringList ArchiveExtensions
+{
+#ifdef ARCHIVE_SUPPORT_ENABLED
+    ".zip", ".7z", ".rar", ".tar",
+
+    ".tar.gz", ".tgz",
+    ".tar.xz", ".txz",
+    ".tar.bz2", ".tbz2",
+    ".tar.lz4", ".tlz4",
+    ".tar.zst", ".tzst",
+
+    ".tar.Z", ".taz",
+    ".tar.lz",
+    ".tar.lzma", ".tlz",
+    ".tar.lrz", ".tlrz",
+    ".tar.lzo", ".tzo"
+#endif
+};
 
 // AAAAAAA
 static bool FileExtensionInList(const QString& filename, const QStringList& extensions, Qt::CaseSensitivity cs = Qt::CaseInsensitive)
@@ -1515,7 +1545,7 @@ void MainWindow::onImportSavefile()
         return;
     }
 
-    if (RunningSomething)
+    if (emuThread->emuIsActive())
     {
         if (QMessageBox::warning(this,
                         "melonDS",
@@ -1553,7 +1583,7 @@ void MainWindow::onQuit()
 
 void MainWindow::onPause(bool checked)
 {
-    if (!RunningSomething) return;
+    if (!emuThread->emuIsActive()) return;
 
     if (checked)
     {
@@ -1571,7 +1601,7 @@ void MainWindow::onPause(bool checked)
 
 void MainWindow::onReset()
 {
-    if (!RunningSomething) return;
+    if (!emuThread->emuIsActive()) return;
 
     emuThread->emuPause();
 
@@ -1585,7 +1615,7 @@ void MainWindow::onReset()
 
 void MainWindow::onStop()
 {
-    if (!RunningSomething) return;
+    if (!emuThread->emuIsActive()) return;
 
     emuThread->emuPause();
     emuInstance->nds->Stop();
@@ -1593,7 +1623,7 @@ void MainWindow::onStop()
 
 void MainWindow::onFrameStep()
 {
-    if (!RunningSomething) return;
+    if (!emuThread->emuIsActive()) return;
 
     emuThread->emuFrameStep();
 }
@@ -1693,7 +1723,7 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
 
     actCurrentGBACart->setText("GBA slot: " + emuInstance->gbaCartLabel());
 
-    if (!RunningSomething)
+    if (!emuThread->emuIsActive())
         actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
 }
 
@@ -2049,7 +2079,7 @@ void MainWindow::onEmuStart()
 
 void MainWindow::onEmuStop()
 {
-    emuThread->emuPause();
+    emuThread->emuStop();
 
     for (int i = 0; i < 9; i++)
     {

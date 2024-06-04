@@ -60,6 +60,7 @@ public:
     void emuPause();
     void emuUnpause();
     void emuStop();
+    void emuExit();
     void emuFrameStep();
 
     bool emuIsRunning();
@@ -108,6 +109,7 @@ private:
 
     EmuStatusKind PrevEmuStatus;
     EmuStatusKind EmuRunning;
+    bool emuActive;
 
     constexpr static int EmuPauseStackRunning = 0;
     constexpr static int EmuPauseStackPauseThreshold = 1;

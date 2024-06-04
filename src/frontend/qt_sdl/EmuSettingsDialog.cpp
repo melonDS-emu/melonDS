@@ -32,8 +32,6 @@ using namespace melonDS;
 
 EmuSettingsDialog* EmuSettingsDialog::currentDlg = nullptr;
 
-extern bool RunningSomething;
-
 bool EmuSettingsDialog::needsReset = false;
 
 inline void EmuSettingsDialog::updateLastBIOSFolder(QString& filename)
@@ -246,7 +244,7 @@ void EmuSettingsDialog::done(int r)
 
         if (modified)
         {
-            if (RunningSomething
+            if (emuInstance->emuIsActive()
                 && QMessageBox::warning(this, "Reset necessary to apply changes",
                     "The emulation will be reset for the changes to take place.",
                     QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)

@@ -77,144 +77,60 @@
 
 #include "CLI.h"
 
-// TODO: uniform variable spelling
 using namespace melonDS;
-QString NdsRomMimeType = "application/x-nintendo-ds-rom";
-QStringList NdsRomExtensions { ".nds", ".srl", ".dsi", ".ids" };
-
-QString GbaRomMimeType = "application/x-gba-rom";
-QStringList GbaRomExtensions { ".gba", ".agb" };
 
 QString* systemThemeName;
 
-// This list of supported archive formats is based on libarchive(3) version 3.6.2 (2022-12-09).
-QStringList ArchiveMimeTypes
-{
-#ifdef ARCHIVE_SUPPORT_ENABLED
-    "application/zip",
-    "application/x-7z-compressed",
-    "application/vnd.rar", // *.rar
-    "application/x-tar",
 
-    "application/x-compressed-tar", // *.tar.gz
-    "application/x-xz-compressed-tar",
-    "application/x-bzip-compressed-tar",
-    "application/x-lz4-compressed-tar",
-    "application/x-zstd-compressed-tar",
-
-    "application/x-tarz", // *.tar.Z
-    "application/x-lzip-compressed-tar",
-    "application/x-lzma-compressed-tar",
-    "application/x-lrzip-compressed-tar",
-    "application/x-tzo", // *.tar.lzo
-#endif
-};
-
-QStringList ArchiveExtensions
-{
-#ifdef ARCHIVE_SUPPORT_ENABLED
-    ".zip", ".7z", ".rar", ".tar",
-
-    ".tar.gz", ".tgz",
-    ".tar.xz", ".txz",
-    ".tar.bz2", ".tbz2",
-    ".tar.lz4", ".tlz4",
-    ".tar.zst", ".tzst",
-
-    ".tar.Z", ".taz",
-    ".tar.lz",
-    ".tar.lzma", ".tlz",
-    ".tar.lrz", ".tlrz",
-    ".tar.lzo", ".tzo"
-#endif
-};
 
 QString emuDirectory;
-
-bool RunningSomething;
 
 //MainWindow* mainWindow;
 //EmuThread* emuThread;
 EmuInstance* testinst;
 
+const int kMaxEmuInstances = 16;
+EmuInstance* emuInstances[kMaxEmuInstances];
+
 CameraManager* camManager[2];
 bool camStarted[2];
 
 
-
-
-
-static bool FileExtensionInList(const QString& filename, const QStringList& extensions, Qt::CaseSensitivity cs = Qt::CaseInsensitive)
+bool createEmuInstance()
 {
-    return std::any_of(extensions.cbegin(), extensions.cend(), [&](const auto& ext) {
-        return filename.endsWith(ext, cs);
-    });
+    int id = -1;
+    for (int i = 0; i < kMaxEmuInstances; i++)
+    {
+        if (!emuInstances[i])
+        {
+            id = i;
+            break;
+        }
+    }
+
+    if (id == -1)
+        return false;
+
+    auto inst = new EmuInstance(id);
+    emuInstances[id] = inst;
+
+    return true;
 }
 
-static bool MimeTypeInList(const QMimeType& mimetype, const QStringList& superTypeNames)
+void deleteEmuInstance(int id)
 {
-    return std::any_of(superTypeNames.cbegin(), superTypeNames.cend(), [&](const auto& superTypeName) {
-        return mimetype.inherits(superTypeName);
-    });
+    auto inst = emuInstances[id];
+    if (!inst) return;
+
+    delete inst;
+    emuInstances[id] = nullptr;
 }
 
-
-static bool NdsRomByExtension(const QString& filename)
+void deleteAllEmuInstances()
 {
-    return FileExtensionInList(filename, NdsRomExtensions);
+    for (int i = 0; i < kMaxEmuInstances; i++)
+        deleteEmuInstance(i);
 }
-
-static bool GbaRomByExtension(const QString& filename)
-{
-    return FileExtensionInList(filename, GbaRomExtensions);
-}
-
-static bool SupportedArchiveByExtension(const QString& filename)
-{
-    return FileExtensionInList(filename, ArchiveExtensions);
-}
-
-
-static bool NdsRomByMimetype(const QMimeType& mimetype)
-{
-    return mimetype.inherits(NdsRomMimeType);
-}
-
-static bool GbaRomByMimetype(const QMimeType& mimetype)
-{
-    return mimetype.inherits(GbaRomMimeType);
-}
-
-static bool SupportedArchiveByMimetype(const QMimeType& mimetype)
-{
-    return MimeTypeInList(mimetype, ArchiveMimeTypes);
-}
-
-static bool ZstdNdsRomByExtension(const QString& filename)
-{
-    return filename.endsWith(".zst", Qt::CaseInsensitive) &&
-        NdsRomByExtension(filename.left(filename.size() - 4));
-}
-
-static bool ZstdGbaRomByExtension(const QString& filename)
-{
-    return filename.endsWith(".zst", Qt::CaseInsensitive) &&
-        GbaRomByExtension(filename.left(filename.size() - 4));
-}
-
-static bool FileIsSupportedFiletype(const QString& filename, bool insideArchive = false)
-{
-    if (ZstdNdsRomByExtension(filename) || ZstdGbaRomByExtension(filename))
-        return true;
-
-    if (NdsRomByExtension(filename) || GbaRomByExtension(filename) || SupportedArchiveByExtension(filename))
-        return true;
-
-    const auto matchmode = insideArchive ? QMimeDatabase::MatchExtension : QMimeDatabase::MatchDefault;
-    const QMimeType mimetype = QMimeDatabase().mimeTypeForFile(filename, matchmode);
-    return NdsRomByMimetype(mimetype) || GbaRomByMimetype(mimetype) || SupportedArchiveByMimetype(mimetype);
-}
-
 
 
 void pathInit()
@@ -254,12 +170,6 @@ void pathInit()
 }
 
 
-void emuStop()
-{
-    RunningSomething = false;
-
-    //emit emuThread->windowEmuStop();
-}
 
 MelonApplication::MelonApplication(int& argc, char** argv)
     : QApplication(argc, argv)
@@ -290,6 +200,9 @@ bool MelonApplication::event(QEvent *event)
 int main(int argc, char** argv)
 {
     srand(time(nullptr));
+
+    for (int i = 0; i < kMaxEmuInstances; i++)
+        emuInstances[i] = nullptr;
 
     qputenv("QT_SCALE_FACTOR", "1");
 

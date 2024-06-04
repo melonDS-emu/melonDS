@@ -63,22 +63,7 @@ namespace melonDS::Platform
 void SignalStop(StopReason reason, void* userdata)
 {
     EmuInstance* inst = (EmuInstance*)userdata;
-    emuStop();
-    switch (reason)
-    {
-        case StopReason::GBAModeNotSupported:
-            Log(LogLevel::Error, "!! GBA MODE NOT SUPPORTED\n");
-            //mainWindow->osdAddMessage(0xFFA0A0, "GBA mode not supported.");
-            break;
-        case StopReason::BadExceptionRegion:
-            //mainWindow->osdAddMessage(0xFFA0A0, "Internal error.");
-            break;
-        case StopReason::PowerOff:
-        case StopReason::External:
-            //mainWindow->osdAddMessage(0xFFC040, "Shutdown");
-        default:
-            break;
-    }
+    inst->emuStop(reason);
 }
 
 

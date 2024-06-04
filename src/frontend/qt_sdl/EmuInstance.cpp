@@ -99,7 +99,7 @@ EmuInstance::~EmuInstance()
 {
     // TODO window cleanup and shit?
 
-    emuThread->emuStop();
+    emuThread->emuExit();
     emuThread->wait();
     delete emuThread;
 
@@ -161,6 +161,33 @@ void EmuInstance::osdAddMessage(unsigned int color, const char* fmt, ...)
     {
         if (windowList[i])
             windowList[i]->osdAddMessage(color, msg);
+    }
+}
+
+
+bool EmuInstance::emuIsActive()
+{
+    return emuThread->emuIsActive();
+}
+
+void EmuInstance::emuStop(StopReason reason)
+{
+    emuThread->emuStop();
+
+    switch (reason)
+    {
+        case StopReason::GBAModeNotSupported:
+            Log(LogLevel::Error, "!! GBA MODE NOT SUPPORTED\n");
+            osdAddMessage(0xFFA0A0, "GBA mode not supported");
+            break;
+        case StopReason::BadExceptionRegion:
+            osdAddMessage(0xFFA0A0, "Internal error");
+            break;
+        case StopReason::PowerOff:
+        case StopReason::External:
+            osdAddMessage(0xFFC040, "Shutdown");
+        default:
+            break;
     }
 }
 

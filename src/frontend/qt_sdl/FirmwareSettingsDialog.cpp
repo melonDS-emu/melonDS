@@ -30,8 +30,6 @@ namespace Platform = melonDS::Platform;
 
 FirmwareSettingsDialog* FirmwareSettingsDialog::currentDlg = nullptr;
 
-extern bool RunningSomething;
-
 bool FirmwareSettingsDialog::needsReset = false;
 
 FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::FirmwareSettingsDialog)
@@ -169,7 +167,7 @@ void FirmwareSettingsDialog::done(int r)
 
         if (modified)
         {
-            if (RunningSomething
+            if (emuInstance->emuIsActive()
                 && QMessageBox::warning(this, "Reset necessary to apply changes",
                     "The emulation will be reset for the changes to take place.",
                     QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)

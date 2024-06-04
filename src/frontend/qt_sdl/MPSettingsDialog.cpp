@@ -34,8 +34,6 @@
 
 MPSettingsDialog* MPSettingsDialog::currentDlg = nullptr;
 
-extern bool RunningSomething;
-
 
 MPSettingsDialog::MPSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::MPSettingsDialog)
 {

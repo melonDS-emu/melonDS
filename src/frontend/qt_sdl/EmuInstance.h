@@ -90,6 +90,9 @@ public:
 
     void osdAddMessage(unsigned int color, const char* fmt, ...);
 
+    bool emuIsActive();
+    void emuStop(melonDS::Platform::StopReason reason);
+
     bool usesOpenGL();
     void initOpenGL();
     void deinitOpenGL();

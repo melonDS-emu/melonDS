@@ -55,17 +55,8 @@
 #include "Savestate.h"
 
 #include "EmuInstance.h"
-//#include "ArchiveUtil.h"
-//#include "CameraManager.h"
 
-//#include "CLI.h"
-
-// TODO: uniform variable spelling
 using namespace melonDS;
-
-// TEMP
-extern bool RunningSomething;
-//extern MainWindow* mainWindow;
 
 
 EmuThread::EmuThread(EmuInstance* inst, QObject* parent) : QThread(parent)
@@ -75,7 +66,7 @@ EmuThread::EmuThread(EmuInstance* inst, QObject* parent) : QThread(parent)
     EmuStatus = emuStatus_Exit;
     EmuRunning = emuStatus_Paused;
     EmuPauseStack = EmuPauseStackRunning;
-    RunningSomething = false;
+    emuActive = false;
 }
 
 void EmuThread::attachWindow(MainWindow* window)
@@ -494,7 +485,7 @@ void EmuThread::emuRun()
 {
     EmuRunning = emuStatus_Running;
     EmuPauseStack = EmuPauseStackRunning;
-    RunningSomething = true;
+    emuActive = true;
 
     // checkme
     emit windowEmuStart();
@@ -539,6 +530,12 @@ void EmuThread::emuUnpause()
 
 void EmuThread::emuStop()
 {
+    emuPause();
+    emuActive = false;
+}
+
+void EmuThread::emuExit()
+{
     EmuRunning = emuStatus_Exit;
     EmuPauseStack = EmuPauseStackRunning;
 
@@ -558,7 +555,7 @@ bool EmuThread::emuIsRunning()
 
 bool EmuThread::emuIsActive()
 {
-    return (RunningSomething == 1);
+    return emuActive;
 }
 
 void EmuThread::updateRenderer()
