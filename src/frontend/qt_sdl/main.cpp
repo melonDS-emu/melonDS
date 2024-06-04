@@ -85,10 +85,6 @@ QString* systemThemeName;
 
 QString emuDirectory;
 
-//MainWindow* mainWindow;
-//EmuThread* emuThread;
-EmuInstance* testinst;
-
 const int kMaxEmuInstances = 16;
 EmuInstance* emuInstances[kMaxEmuInstances];
 
@@ -282,7 +278,7 @@ int main(int argc, char** argv)
     emuThread->start();
     emuThread->emuPause();*/
 
-    testinst = new EmuInstance(0);
+    createEmuInstance();
 
     /*AudioInOut::Init(emuThread);
     ROMManager::EnableCheats(*emuThread->NDS, Config::EnableCheats != 0);
@@ -318,7 +314,9 @@ int main(int argc, char** argv)
     /*emuThread->emuStop();
     emuThread->wait();
     delete emuThread;*/
-    delete testinst;
+    // if we get here, all the existing emu instances should have been deleted already
+    // but with this we make extra sure they are all deleted
+    deleteAllEmuInstances();
 
     //AudioInOut::DeInit();
     delete camManager[0];

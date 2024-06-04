@@ -29,7 +29,7 @@
 #include "main.h"
 
 // REMOVE ME
-extern EmuInstance* testinst;
+//extern EmuInstance* testinst;
 
 #ifdef __WIN32__
 	#include <iphlpapi.h>
@@ -322,7 +322,8 @@ bool Init(bool open_adapter)
     if (PCapAdapter) pcap_close(PCapAdapter);
 
     // open pcap device
-    std::string devicename = testinst->getGlobalConfig().GetString("LAN.Device");
+    //std::string devicename = testinst->getGlobalConfig().GetString("LAN.Device");
+    std::string devicename = "FIXME";
     PCapAdapterData = &Adapters[0];
     for (int i = 0; i < NumAdapters; i++)
     {

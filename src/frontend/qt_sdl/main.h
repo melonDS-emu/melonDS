@@ -48,4 +48,8 @@ public:
 extern QString* systemThemeName;
 extern QString emuDirectory;
 
+bool createEmuInstance();
+void deleteEmuInstance(int id);
+void deleteAllEmuInstances();
+
 #endif // MAIN_H

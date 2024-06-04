@@ -222,7 +222,6 @@ static void signalHandler(int)
 }
 #endif
 
-int test = 0;
 
 MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     QMainWindow(parent),
@@ -233,7 +232,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     windowCfg(localCfg.GetTable("Window"+std::to_string(id), "Window0")),
     emuThread(inst->getEmuThread())
 {
-    test_num = test++;
 #ifndef _WIN32
     if (!parent)
     {
@@ -749,15 +747,20 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
     Config::Save();
 
-    if (hasOGL)
+    if (hasOGL && (windowID == 0))
     {
         // we intentionally don't unpause here
-        // TODO this ought to change if we do multi-window shiz
         emuThread->emuPause();
         emuThread->deinitContext();
     }
 
     emuThread->detachWindow(this);
+
+    if (windowID == 0)
+    {
+        int inst = emuInstance->instanceID;
+        deleteEmuInstance(inst);
+    }
 
     QMainWindow::closeEvent(event);
 }
@@ -1575,9 +1578,10 @@ void MainWindow::onImportSavefile()
 void MainWindow::onQuit()
 {
 #ifndef _WIN32
-    signalSn->setEnabled(false);
+    if (!parentWidget())
+        signalSn->setEnabled(false);
 #endif
-    QApplication::quit();
+    close();
 }
 
 
@@ -1676,19 +1680,7 @@ void MainWindow::onOpenTitleManager()
 
 void MainWindow::onMPNewInstance()
 {
-    //QProcess::startDetached(QApplication::applicationFilePath());
-    QProcess newinst;
-    newinst.setProgram(QApplication::applicationFilePath());
-    newinst.setArguments(QApplication::arguments().mid(1, QApplication::arguments().length()-1));
-
-#ifdef __WIN32__
-    newinst.setCreateProcessArgumentsModifier([] (QProcess::CreateProcessArguments *args)
-    {
-        args->flags |= CREATE_NEW_CONSOLE;
-    });
-#endif
-
-    newinst.startDetached();
+    createEmuInstance();
 }
 
 void MainWindow::onOpenEmuSettings()
@@ -2015,7 +2007,7 @@ void MainWindow::onChangeAudioSync(bool checked)
 
 void MainWindow::onTitleUpdate(QString title)
 {
-    setWindowTitle(test_num ? "SECOND WINDOW" : title);
+    setWindowTitle(title);
 }
 
 void ToggleFullscreen(MainWindow* mainWindow)

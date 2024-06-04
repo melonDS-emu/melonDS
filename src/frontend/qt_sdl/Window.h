@@ -237,8 +237,6 @@ private:
     bool pauseOnLostFocus;
     bool pausedManually;
 
-    int test_num;
-
     int windowID;
 
     EmuInstance* emuInstance;
