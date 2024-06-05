@@ -1014,11 +1014,11 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
     return true;
 }
 
-bool ARMv5::DataWrite32S(u32 addr, u32 val)
+bool ARMv5::DataWrite32S(u32 addr, u32 val, bool dataabort)
 {
     if (!(PU_Map[addr>>12] & 0x02))
     {
-        DataAbort();
+        if (!dataabort) DataAbort();
         return false;
     }
 
