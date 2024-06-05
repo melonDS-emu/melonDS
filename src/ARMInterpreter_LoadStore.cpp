@@ -382,13 +382,16 @@ void A_SWP(ARM* cpu)
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
 
     u32 val;
-    cpu->DataRead32(base, &val);
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = ROR(val, 8*(base&0x3));
-
-    u32 numD = cpu->DataCycles;
-    cpu->DataWrite32(base, rm);
-    cpu->DataCycles += numD;
-
+    if (cpu->DataRead32(base, &val))
+    {
+        u32 numD = cpu->DataCycles;
+        if (cpu->DataWrite32(base, rm))
+        {
+            // rd only gets updated if both read and write succeed
+            cpu->R[(cpu->CurInstr >> 12) & 0xF] = ROR(val, 8*(base&0x3));
+        }
+        cpu->DataCycles += numD;
+    }
     cpu->AddCycles_CDI();
 }
 
@@ -397,12 +400,17 @@ void A_SWPB(ARM* cpu)
     u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
     u32 rm = cpu->R[cpu->CurInstr & 0xF] & 0xFF;
 
-    cpu->DataRead8(base, &cpu->R[(cpu->CurInstr >> 12) & 0xF]);
-
-    u32 numD = cpu->DataCycles;
-    cpu->DataWrite8(base, rm);
-    cpu->DataCycles += numD;
-
+    u32 val;
+    if (cpu->DataRead8(base, &val))
+    {
+        u32 numD = cpu->DataCycles;
+        if (cpu->DataWrite8(base, rm))
+        {
+            // rd only gets updated if both read and write succeed
+            cpu->R[(cpu->CurInstr >> 12) & 0xF] = val;
+        }
+        cpu->DataCycles += numD;
+    }
     cpu->AddCycles_CDI();
 }
 
