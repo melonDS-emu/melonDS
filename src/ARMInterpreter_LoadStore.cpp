@@ -424,7 +424,6 @@ void A_LDM(ARM* cpu)
     u32 oldbase = base;
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
-    bool dataabort = false;
 
     if (!(cpu->CurInstr & (1<<23))) // decrement
     {
@@ -456,8 +455,7 @@ void A_LDM(ARM* cpu)
             if (!(first ? cpu->DataRead32 (base, &cpu->R[i])
                         : cpu->DataRead32S(base, &cpu->R[i])))
             {
-                dataabort = true;
-                goto abortjump;
+                goto dataabort;
             }
 
             first = false;
@@ -472,7 +470,7 @@ void A_LDM(ARM* cpu)
         if (!(first ? cpu->DataRead32 (base, &pc)
                     : cpu->DataRead32S(base, &pc)))
         {
-            dataabort = true;
+            goto dataabort;
         }
 
         if (!preinc) base += 4;
@@ -481,39 +479,46 @@ void A_LDM(ARM* cpu)
             pc &= ~0x1;
     }
 
-    abortjump:
-
     // switch back to previous regs
     if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
 
-    if (!dataabort)
+    // writeback to base
+    if (cpu->CurInstr & (1<<21))
     {
-        // writeback to base
-        if (cpu->CurInstr & (1<<21))
-        {
-            // post writeback
-            if (cpu->CurInstr & (1<<23))
-                wbbase = base;
+        // post writeback
+        if (cpu->CurInstr & (1<<23))
+            wbbase = base;
 
-            if (cpu->CurInstr & (1 << baseid))
+        if (cpu->CurInstr & (1 << baseid))
+        {
+            if (cpu->Num == 0)
             {
-                if (cpu->Num == 0)
-                {
-                    u32 rlist = cpu->CurInstr & 0xFFFF;
-                    if ((!(rlist & ~(1 << baseid))) || (rlist & ~((2 << baseid) - 1)))
-                        cpu->R[baseid] = wbbase;
-                }
+                u32 rlist = cpu->CurInstr & 0xFFFF;
+                if ((!(rlist & ~(1 << baseid))) || (rlist & ~((2 << baseid) - 1)))
+                    cpu->R[baseid] = wbbase;
             }
-            else
-                cpu->R[baseid] = wbbase;
         }
-        
-        // jump if pc got written
-        if (cpu->CurInstr & (1<<15))
-            cpu->JumpTo(pc, cpu->CurInstr & (1<<22));
+        else
+            cpu->R[baseid] = wbbase;
     }
-    else cpu->R[baseid] = oldbase; // restore original value of base in case the reg got written to
+        
+    // jump if pc got written
+    if (cpu->CurInstr & (1<<15))
+        cpu->JumpTo(pc, cpu->CurInstr & (1<<22));
+
+    // jump here if a data abort occurred; writeback is ignored, and any jumps were aborted
+    if (false)
+    {
+        dataabort:
+
+        // switch back to original set of regs
+        if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
+            cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
+
+        // restore original value of base in case the reg got written to
+        cpu->R[baseid] = oldbase;
+    }
 
     cpu->AddCycles_CDI();
 }
@@ -525,7 +530,6 @@ void A_STM(ARM* cpu)
     u32 oldbase = base;
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
-    bool dataabort = false;
 
     if (!(cpu->CurInstr & (1<<23)))
     {
@@ -571,8 +575,7 @@ void A_STM(ARM* cpu)
             if (!(first ? cpu->DataWrite32 (base, val)
                         : cpu->DataWrite32S(base, val)))
             {
-                dataabort = true;
-                break;
+                goto dataabort;
             }
 
             first = false;
@@ -584,12 +587,20 @@ void A_STM(ARM* cpu)
     if (cpu->CurInstr & (1<<22))
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
 
-    if (!dataabort)
+    if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
+        cpu->R[baseid] = base;
+
+    // jump here if a data abort occurred
+    if (false)
     {
-        if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
-            cpu->R[baseid] = base;
+        dataabort:
+
+        if (cpu->CurInstr & (1<<22))
+            cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
+
+        // restore original value of base
+        cpu->R[baseid] = oldbase;
     }
-    else cpu->R[baseid] = oldbase;
 
     cpu->AddCycles_CD();
 }
@@ -774,14 +785,17 @@ void T_PUSH(ARM* cpu)
 
     u32 base = cpu->R[13];
     base -= (nregs<<2);
-    cpu->R[13] = base;
+    u32 wbbase = base;
 
     for (int i = 0; i < 8; i++)
     {
         if (cpu->CurInstr & (1<<i))
         {
-            if (first) cpu->DataWrite32 (base, cpu->R[i]);
-            else       cpu->DataWrite32S(base, cpu->R[i]);
+            if (!(first ? cpu->DataWrite32 (base, cpu->R[i])
+                        : cpu->DataWrite32S(base, cpu->R[i])))
+            {
+                goto dataabort;
+            }
             first = false;
             base += 4;
         }
@@ -789,10 +803,16 @@ void T_PUSH(ARM* cpu)
 
     if (cpu->CurInstr & (1<<8))
     {
-        if (first) cpu->DataWrite32 (base, cpu->R[14]);
-        else       cpu->DataWrite32S(base, cpu->R[14]);
+        if (!(first ? cpu->DataWrite32 (base, cpu->R[14])
+                    : cpu->DataWrite32S(base, cpu->R[14])))
+        {
+            goto dataabort;
+        }
     }
 
+    cpu->R[13] = wbbase;
+
+    dataabort:
     cpu->AddCycles_CD();
 }
 
@@ -835,8 +855,11 @@ void T_STMIA(ARM* cpu)
     {
         if (cpu->CurInstr & (1<<i))
         {
-            if (first) cpu->DataWrite32 (base, cpu->R[i]);
-            else       cpu->DataWrite32S(base, cpu->R[i]);
+            if (!(first ? cpu->DataWrite32 (base, cpu->R[i])
+                        : cpu->DataWrite32S(base, cpu->R[i])))
+            {
+                goto dataabort;
+            }
             first = false;
             base += 4;
         }
@@ -844,6 +867,7 @@ void T_STMIA(ARM* cpu)
 
     // TODO: check "Rb included in Rlist" case
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
+    dataabort:
     cpu->AddCycles_CD();
 }
 
