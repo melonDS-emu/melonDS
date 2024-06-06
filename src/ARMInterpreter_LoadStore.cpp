@@ -825,8 +825,11 @@ void T_POP(ARM* cpu)
     {
         if (cpu->CurInstr & (1<<i))
         {
-            if (first) cpu->DataRead32 (base, &cpu->R[i]);
-            else       cpu->DataRead32S(base, &cpu->R[i]);
+            if (!(first ? cpu->DataRead32 (base, &cpu->R[i])
+                        : cpu->DataRead32S(base, &cpu->R[i])))
+            {
+                goto dataabort;
+            }
             first = false;
             base += 4;
         }
@@ -835,14 +838,19 @@ void T_POP(ARM* cpu)
     if (cpu->CurInstr & (1<<8))
     {
         u32 pc;
-        if (first) cpu->DataRead32 (base, &pc);
-        else       cpu->DataRead32S(base, &pc);
+        if (!(first ? cpu->DataRead32 (base, &pc)
+                    : cpu->DataRead32S(base, &pc)))
+        {
+            goto dataabort;
+        }
         if (cpu->Num==1) pc |= 0x1;
         cpu->JumpTo(pc);
         base += 4;
     }
 
     cpu->R[13] = base;
+
+    dataabort:
     cpu->AddCycles_CDI();
 }
 
@@ -880,8 +888,11 @@ void T_LDMIA(ARM* cpu)
     {
         if (cpu->CurInstr & (1<<i))
         {
-            if (first) cpu->DataRead32 (base, &cpu->R[i]);
-            else       cpu->DataRead32S(base, &cpu->R[i]);
+            if (!(first ? cpu->DataRead32 (base, &cpu->R[i])
+                        : cpu->DataRead32S(base, &cpu->R[i])))
+            {
+                goto dataabort;
+            }
             first = false;
             base += 4;
         }
@@ -890,6 +901,7 @@ void T_LDMIA(ARM* cpu)
     if (!(cpu->CurInstr & (1<<((cpu->CurInstr >> 8) & 0x7))))
         cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
 
+    dataabort:
     cpu->AddCycles_CDI();
 }
 
