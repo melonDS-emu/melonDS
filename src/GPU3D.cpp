@@ -804,7 +804,6 @@ void GPU3D::StallPolygonPipeline(s32 delay, s32 nonstalldelay) noexcept
 
 void GPU3D::HangGX(const char* cause) noexcept
 {
-    GXHang = true;
     Platform::Log(LogLevel::Warn, "GX CRASHED: %s\n", cause);
     // this should hang the gx for roughly... 2181 years?
     // I think that's close enough to forever for our usecase.
