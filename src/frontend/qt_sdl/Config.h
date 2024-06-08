@@ -193,6 +193,8 @@ extern bool DSiBatteryCharging;
 
 extern bool DSiFullBIOSBoot;
 
+extern bool DebugPrintEnabled;
+
 extern CameraConfig Camera[2];
 
 extern bool GdbEnabled;

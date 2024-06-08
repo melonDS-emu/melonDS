@@ -294,6 +294,8 @@ bool EmuThread::UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAAr
     NDS->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
     NDS->SPU.SetDegrade10Bit(static_cast<AudioBitDepth>(Config::AudioBitDepth));
 
+    NDS->SetDebugPrint(Config::DebugPrintEnabled);
+
     NDS::Current = NDS.get();
 
     return true;
