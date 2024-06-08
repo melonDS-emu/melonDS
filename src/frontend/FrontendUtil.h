@@ -35,8 +35,8 @@ using namespace melonDS;
 enum ScreenLayout
 {
     screenLayout_Natural, // top screen above bottom screen always
-    screenLayout_Horizontal,
     screenLayout_Vertical,
+    screenLayout_Horizontal,
     screenLayout_Hybrid,
     screenLayout_MAX,
 };
