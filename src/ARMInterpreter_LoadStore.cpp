@@ -141,8 +141,8 @@ namespace melonDS::ARMInterpreter
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRB PC %08X\n", cpu->R[15]); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo(val); \
+    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
 
 // TODO: user mode
 #define A_LDRB_POST \
@@ -151,8 +151,8 @@ namespace melonDS::ARMInterpreter
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRB PC %08X\n", cpu->R[15]); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo(val); \
+    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
 
 
 
@@ -261,7 +261,9 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } /* checkme */ \
     if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
-    if (!cpu->DataRead32S(offset+4, &cpu->R[r+1])) {cpu->AddCycles_CDI(); return;} \
+    u32 val; if (!cpu->DataRead32S(offset+4, &val)) {cpu->AddCycles_CDI(); return;} \
+    if (r == 14) A_UNK(cpu); /* hang??? */ \
+    else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI(); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
@@ -271,7 +273,9 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } /* checkme */ \
     if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
-    if (!cpu->DataRead32S(addr+4, &cpu->R[r+1])) {cpu->AddCycles_CDI(); return;} \
+    u32 val; if (!cpu->DataRead32S(addr+4, &val)) {cpu->AddCycles_CDI(); return;} \
+    if (r == 14) A_UNK(cpu); /*hang??? */ \
+    else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI(); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
@@ -301,54 +305,60 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 
 #define A_LDRH \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    bool dataabort = !cpu->DataRead16(offset, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
+    u32 val; bool dataabort = !cpu->DataRead16(offset, &val); \
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRH PC %08X\n", cpu->R[15]); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo(val); \
+    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
 #define A_LDRH_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    bool dataabort = !cpu->DataRead16(addr, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
+    u32 val; bool dataabort = !cpu->DataRead16(addr, &val); \
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRH PC %08X\n", cpu->R[15]); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo(val); \
+    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
 #define A_LDRSB \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    bool dataabort = !cpu->DataRead8(offset, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
+    u32 val; bool dataabort = !cpu->DataRead8(offset, &val); \
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s8)cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSB PC %08X\n", cpu->R[15]); \
+    val = (s32)(s8)val; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) A_UNK(cpu); /* hang??? */ \
+    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
 #define A_LDRSB_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    bool dataabort = !cpu->DataRead8(addr, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
+    u32 val; bool dataabort = !cpu->DataRead8(addr, &val); \
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s8)cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSB PC %08X\n", cpu->R[15]); \
+    val = (s32)(s8)val; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) A_UNK(cpu); /* hang??? */ \
+    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
 #define A_LDRSH \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    bool dataabort = !cpu->DataRead16(offset, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
+    u32 val; bool dataabort = !cpu->DataRead16(offset, &val); \
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSH PC %08X\n", cpu->R[15]); \
+    val = (s32)(s16)val; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) A_UNK(cpu); \
+    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
 #define A_LDRSH_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    bool dataabort = !cpu->DataRead16(addr, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
+    u32 val; bool dataabort = !cpu->DataRead16(addr, &val); \
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSH PC %08X\n", cpu->R[15]); \
+    val = (s32)(s16)val; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) A_UNK(cpu); \
+    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
 
@@ -398,8 +408,9 @@ void A_SWP(ARM* cpu)
         u32 numD = cpu->DataCycles;
         if (cpu->DataWrite32(base, rm))
         {
-            // rd only gets updated if both read and write succeed
-            cpu->R[(cpu->CurInstr >> 12) & 0xF] = ROR(val, 8*(base&0x3));
+            // rd only gets updated if both read and write succeed, and if rd isn't r15
+            u32 rd = (cpu->CurInstr >> 12) & 0xF;
+            if (rd != 15) cpu->R[rd] = ROR(val, 8*(base&0x3));
         }
         cpu->DataCycles += numD;
     }
@@ -418,8 +429,9 @@ void A_SWPB(ARM* cpu)
         u32 numD = cpu->DataCycles;
         if (cpu->DataWrite8(base, rm))
         {
-            // rd only gets updated if both read and write succeed
-            cpu->R[(cpu->CurInstr >> 12) & 0xF] = val;
+            // rd only gets updated if both read and write succeed, and if rd isn't r15
+            u32 rd = (cpu->CurInstr >> 12) & 0xF;
+            if (rd != 15) cpu->R[rd] = val;
         }
         cpu->DataCycles += numD;
     }
