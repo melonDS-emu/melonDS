@@ -40,9 +40,9 @@ u32 InputMask;
 
 void Init()
 {
-    KeyInputMask = 0xFFF;
-    JoyInputMask = 0xFFF;
-    InputMask = 0xFFF;
+    KeyInputMask = 0x1FFF;
+    JoyInputMask = 0x1FFF;
+    InputMask = 0x1FFF;
 
     KeyHotkeyMask = 0;
     JoyHotkeyMask = 0;
@@ -103,7 +103,7 @@ void KeyPress(QKeyEvent* event)
     if (event->modifiers() != Qt::KeypadModifier)
         keyKP &= ~event->modifiers();
 
-    for (int i = 0; i < 12; i++)
+    for (int i = 0; i < 13; i++)
         if (keyKP == Config::KeyMapping[i])
             KeyInputMask &= ~(1<<i);
 
@@ -119,7 +119,7 @@ void KeyRelease(QKeyEvent* event)
     if (event->modifiers() != Qt::KeypadModifier)
         keyKP &= ~event->modifiers();
 
-    for (int i = 0; i < 12; i++)
+    for (int i = 0; i < 13; i++)
         if (keyKP == Config::KeyMapping[i])
             KeyInputMask |= (1<<i);
 
@@ -208,10 +208,10 @@ void Process()
         OpenJoystick();
     }
 
-    JoyInputMask = 0xFFF;
+    JoyInputMask = 0x1FFF;
     if (Joystick)
     {
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < 13; i++)
             if (JoystickButtonDown(Config::JoyMapping[i]))
                 JoyInputMask &= ~(1 << i);
     }

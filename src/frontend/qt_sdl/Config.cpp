@@ -29,8 +29,8 @@ namespace Config
 {
 using namespace melonDS;
 
-int KeyMapping[12];
-int JoyMapping[12];
+int KeyMapping[13];
+int JoyMapping[13];
 
 int HKKeyMapping[HK_MAX];
 int HKJoyMapping[HK_MAX];
@@ -182,6 +182,7 @@ ConfigEntry ConfigFile[] =
     {"Key_L",      0, &KeyMapping[9],  -1, true},
     {"Key_X",      0, &KeyMapping[10], -1, true},
     {"Key_Y",      0, &KeyMapping[11], -1, true},
+    {"Key_Debug",  0, &KeyMapping[12], -1, true},
 
     {"Joy_A",      0, &JoyMapping[0],  -1, true},
     {"Joy_B",      0, &JoyMapping[1],  -1, true},
@@ -195,6 +196,7 @@ ConfigEntry ConfigFile[] =
     {"Joy_L",      0, &JoyMapping[9],  -1, true},
     {"Joy_X",      0, &JoyMapping[10], -1, true},
     {"Joy_Y",      0, &JoyMapping[11], -1, true},
+    {"Joy_Debug",  0, &JoyMapping[12], -1, true},
 
     {"HKKey_Lid",                 0, &HKKeyMapping[HK_Lid],                 -1, true},
     {"HKKey_Mic",                 0, &HKKeyMapping[HK_Mic],                 -1, true},
