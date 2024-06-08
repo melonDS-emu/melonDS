@@ -579,7 +579,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x670:
     case 0x671:
         char log_output[1024];
-        PU_Region[(id >> 4) & 0xF] = val;
+        PU_Region[(id >> 4) & 0xF] = val & ~(0x3F<<6);
 
         std::snprintf(log_output,
                  sizeof(log_output),
