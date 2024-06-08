@@ -216,10 +216,12 @@ void A_MCR(ARM* cpu)
     u32 cn = (cpu->CurInstr >> 16) & 0xF;
     u32 cm = cpu->CurInstr & 0xF;
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
+    u32 val = cpu->R[(cpu->CurInstr>>12)&0xF];
+    if (((cpu->CurInstr>>12) & 0xF) == 15) val += 4;
 
     if (cpu->Num==0 && cp==15)
     {
-        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo, cpu->R[(cpu->CurInstr>>12)&0xF]);
+        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo, val);
     }
     else if (cpu->Num==1 && cp==14)
     {
