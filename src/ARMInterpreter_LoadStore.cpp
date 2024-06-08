@@ -251,7 +251,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->Num != 0) return; \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { r--; printf("!! MISALIGNED LDRD %d\n", r+1); } \
+    if (r&1) { A_UNK(cpu); return; } \
     if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
     if (!cpu->DataRead32S(offset+4, &cpu->R[r+1])) {cpu->AddCycles_CDI(); return;} \
     cpu->AddCycles_CDI(); \
@@ -261,7 +261,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->Num != 0) return; \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { r--; printf("!! MISALIGNED LDRD_POST %d\n", r+1); } \
+    if (r&1) { A_UNK(cpu); return; } \
     if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
     if (!cpu->DataRead32S(addr+4, &cpu->R[r+1])) {cpu->AddCycles_CDI(); return;} \
     cpu->AddCycles_CDI(); \
@@ -271,7 +271,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->Num != 0) return; \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { r--; printf("!! MISALIGNED STRD %d\n", r+1); } \
+    if (r&1) { A_UNK(cpu); return; } \
     bool dataabort = !cpu->DataWrite32(offset, cpu->R[r  ]); /* yes, this data abort behavior is on purpose */ \
     dataabort |= !cpu->DataWrite32S (offset+4, cpu->R[r+1], dataabort); /* no, i dont understand it either */ \
     cpu->AddCycles_CD(); \
@@ -282,7 +282,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->Num != 0) return; \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { r--; printf("!! MISALIGNED STRD_POST %d\n", r+1); } \
+    if (r&1) { A_UNK(cpu); return; } \
     bool dataabort = !cpu->DataWrite32(addr, cpu->R[r  ]); \
     dataabort |= !cpu->DataWrite32S (addr+4, cpu->R[r+1], dataabort); \
     cpu->AddCycles_CD(); \
