@@ -83,7 +83,9 @@ namespace melonDS::ARMInterpreter
 
 #define A_STRB \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    bool dataabort = !cpu->DataWrite8(offset, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
+    u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) storeval+=4; \
+    bool dataabort = !cpu->DataWrite8(offset, storeval); \
     cpu->AddCycles_CD(); \
     if (dataabort) return; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
@@ -91,7 +93,9 @@ namespace melonDS::ARMInterpreter
 // TODO: user mode (bit21)
 #define A_STRB_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    bool dataabort = !cpu->DataWrite8(addr, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
+    u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) storeval+=4; \
+    bool dataabort = !cpu->DataWrite8(addr, storeval); \
     cpu->AddCycles_CD(); \
     if (dataabort) return; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
@@ -233,14 +237,18 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 
 #define A_STRH \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    bool dataabort = !cpu->DataWrite16(offset, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
+    u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) storeval+=4; \
+    bool dataabort = !cpu->DataWrite16(offset, storeval); \
     cpu->AddCycles_CD(); \
     if (dataabort) return; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
 #define A_STRH_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    bool dataabort = !cpu->DataWrite16(addr, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
+    u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) storeval+=4; \
+    bool dataabort = !cpu->DataWrite16(addr, storeval); \
     cpu->AddCycles_CD(); \
     if (dataabort) return; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
