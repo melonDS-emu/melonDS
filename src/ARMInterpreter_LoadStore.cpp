@@ -251,7 +251,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->Num != 0) return; \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { A_UNK(cpu); return; } \
+    if (r&1) { A_UNK(cpu); return; } /* checkme */ \
     if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
     if (!cpu->DataRead32S(offset+4, &cpu->R[r+1])) {cpu->AddCycles_CDI(); return;} \
     cpu->AddCycles_CDI(); \
@@ -261,7 +261,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->Num != 0) return; \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { A_UNK(cpu); return; } \
+    if (r&1) { A_UNK(cpu); return; } /* checkme */ \
     if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
     if (!cpu->DataRead32S(addr+4, &cpu->R[r+1])) {cpu->AddCycles_CDI(); return;} \
     cpu->AddCycles_CDI(); \
@@ -271,9 +271,10 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->Num != 0) return; \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { A_UNK(cpu); return; } \
-    bool dataabort = !cpu->DataWrite32(offset, cpu->R[r  ]); /* yes, this data abort behavior is on purpose */ \
-    dataabort |= !cpu->DataWrite32S (offset+4, cpu->R[r+1], dataabort); /* no, i dont understand it either */ \
+    if (r&1) { A_UNK(cpu); return; } /* checkme */ \
+    bool dataabort = !cpu->DataWrite32(offset, cpu->R[r]); /* yes, this data abort behavior is on purpose */ \
+    u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
+    dataabort |= !cpu->DataWrite32S (offset+4, storeval, dataabort); /* no, i dont understand it either */ \
     cpu->AddCycles_CD(); \
     if (dataabort) return; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
@@ -282,9 +283,10 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->Num != 0) return; \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { A_UNK(cpu); return; } \
-    bool dataabort = !cpu->DataWrite32(addr, cpu->R[r  ]); \
-    dataabort |= !cpu->DataWrite32S (addr+4, cpu->R[r+1], dataabort); \
+    if (r&1) { A_UNK(cpu); return; } /* checkme */ \
+    bool dataabort = !cpu->DataWrite32(addr, cpu->R[r]); \
+    u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
+    dataabort |= !cpu->DataWrite32S (addr+4, storeval, dataabort); \
     cpu->AddCycles_CD(); \
     if (dataabort) return; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
@@ -380,6 +382,7 @@ void A_SWP(ARM* cpu)
 {
     u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    if ((cpu->CurInstr & 0xF) == 15) rm += 4;
 
     u32 val;
     if (cpu->DataRead32(base, &val))
@@ -399,6 +402,7 @@ void A_SWPB(ARM* cpu)
 {
     u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
     u32 rm = cpu->R[cpu->CurInstr & 0xF] & 0xFF;
+    if ((cpu->CurInstr & 0xF) == 15) rm += 4;
 
     u32 val;
     if (cpu->DataRead8(base, &val))
@@ -571,6 +575,8 @@ void A_STM(ARM* cpu)
                 else val = base;
             }
             else val = cpu->R[i];
+
+            if (i == 15) val+=4;
 
             if (!(first ? cpu->DataWrite32 (base, val)
                         : cpu->DataWrite32S(base, val)))
