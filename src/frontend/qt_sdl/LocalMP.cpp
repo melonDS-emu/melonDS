@@ -16,27 +16,10 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#ifdef __WIN32__
-    #include <windows.h>
-#else
-    #include <fcntl.h>
-    #include <semaphore.h>
-    #include <time.h>
-    #ifdef __APPLE__
-        #include "sem_timedwait.h"
-    #endif
-#endif
-
 #include <string>
-#include <QSharedMemory>
 #include <QMutex>
 #include <QSemaphore>
 
-#include "Config.h"
 #include "LocalMP.h"
 #include "Platform.h"
 
@@ -69,16 +52,14 @@ struct MPPacketHeader
 
 QMutex MPQueueLock;
 MPStatusData MPStatus;
-u8* MPQueue = nullptr;
+u8* MPPacketQueue = nullptr;
+u8* MPReplyQueue = nullptr;
 u32 PacketReadOffset[16];
 u32 ReplyReadOffset[16];
 
-const u32 kQueueSize = 0x20000;
-const u32 kMaxFrameSize = 0x800;
-const u32 kPacketStart = 0;
-const u32 kReplyStart = kQueueSize / 2;
-const u32 kPacketEnd = kReplyStart;
-const u32 kReplyEnd = kQueueSize;
+const u32 kPacketQueueSize = 0x10000;
+const u32 kReplyQueueSize = 0x10000;
+const u32 kMaxFrameSize = 0x948;
 
 int RecvTimeout;
 
@@ -119,8 +100,10 @@ bool Init()
 {
     MPQueueLock.lock();
 
-    MPQueue = new u8[kQueueSize];
-    memset(MPQueue, 0, kQueueSize);
+    MPPacketQueue = new u8[kPacketQueueSize];
+    MPReplyQueue = new u8[kReplyQueueSize];
+    memset(MPPacketQueue, 0, kPacketQueueSize);
+    memset(MPReplyQueue, 0, kReplyQueueSize);
     memset(&MPStatus, 0, sizeof(MPStatus));
     memset(PacketReadOffset, 0, sizeof(PacketReadOffset));
     memset(ReplyReadOffset, 0, sizeof(ReplyReadOffset));
@@ -144,8 +127,10 @@ bool Init()
 
 void DeInit()
 {
-    delete MPQueue;
-    MPQueue = nullptr;
+    delete MPPacketQueue;
+    delete MPReplyQueue;
+    MPPacketQueue = nullptr;
+    MPReplyQueue = nullptr;
 }
 
 void SetRecvTimeout(int timeout)
@@ -155,8 +140,6 @@ void SetRecvTimeout(int timeout)
 
 void Begin(int inst)
 {
-    if (!MPQueue) return;
-
     MPQueueLock.lock();
     PacketReadOffset[inst] = MPStatus.PacketWriteOffset;
     ReplyReadOffset[inst] = MPStatus.ReplyWriteOffset;
@@ -168,8 +151,6 @@ void Begin(int inst)
 
 void End(int inst)
 {
-    if (!MPQueue) return;
-
     MPQueueLock.lock();
     MPStatus.ConnectedBitmask &= ~(1 << inst);
     MPQueueLock.unlock();
@@ -177,28 +158,28 @@ void End(int inst)
 
 void FIFORead(int inst, int fifo, void* buf, int len)
 {
-    u8* data = MPQueue;
+    u8* data;
 
-    u32 offset, start, end;
+    u32 offset, datalen;
     if (fifo == 0)
     {
         offset = PacketReadOffset[inst];
-        start = kPacketStart;
-        end = kPacketEnd;
+        data = MPPacketQueue;
+        datalen = kPacketQueueSize;
     }
     else
     {
         offset = ReplyReadOffset[inst];
-        start = kReplyStart;
-        end = kReplyEnd;
+        data = MPReplyQueue;
+        datalen = kReplyQueueSize;
     }
 
-    if ((offset + len) >= end)
+    if ((offset + len) >= datalen)
     {
-        u32 part1 = end - offset;
+        u32 part1 = datalen - offset;
         memcpy(buf, &data[offset], part1);
-        memcpy(&((u8*)buf)[part1], &data[start], len - part1);
-        offset = start + len - part1;
+        memcpy(&((u8*)buf)[part1], data, len - part1);
+        offset = len - part1;
     }
     else
     {
@@ -212,28 +193,28 @@ void FIFORead(int inst, int fifo, void* buf, int len)
 
 void FIFOWrite(int inst, int fifo, void* buf, int len)
 {
-    u8* data = MPQueue;
+    u8* data;
 
-    u32 offset, start, end;
+    u32 offset, datalen;
     if (fifo == 0)
     {
         offset = MPStatus.PacketWriteOffset;
-        start = kPacketStart;
-        end = kPacketEnd;
+        data = MPPacketQueue;
+        datalen = kPacketQueueSize;
     }
     else
     {
         offset = MPStatus.ReplyWriteOffset;
-        start = kReplyStart;
-        end = kReplyEnd;
+        data = MPReplyQueue;
+        datalen = kReplyQueueSize;
     }
 
-    if ((offset + len) >= end)
+    if ((offset + len) >= datalen)
     {
-        u32 part1 = end - offset;
+        u32 part1 = datalen - offset;
         memcpy(&data[offset], buf, part1);
-        memcpy(&data[start], &((u8*)buf)[part1], len - part1);
-        offset = start + len - part1;
+        memcpy(data, &((u8*)buf)[part1], len - part1);
+        offset = len - part1;
     }
     else
     {
@@ -247,7 +228,12 @@ void FIFOWrite(int inst, int fifo, void* buf, int len)
 
 int SendPacketGeneric(int inst, u32 type, u8* packet, int len, u64 timestamp)
 {
-    if (!MPQueue) return 0;
+    if (len > kMaxFrameSize)
+    {
+        Log(LogLevel::Warn, "wifi: attempting to send frame too big (len=%d max=%d)\n", len, kMaxFrameSize);
+        return 0;
+    }
+
     MPQueueLock.lock();
 
     u16 mask = MPStatus.ConnectedBitmask;
@@ -301,7 +287,6 @@ int SendPacketGeneric(int inst, u32 type, u8* packet, int len, u64 timestamp)
 
 int RecvPacketGeneric(int inst, u8* packet, bool block, u64* timestamp)
 {
-    if (!MPQueue) return 0;
     for (;;)
     {
         if (!SemWait(inst, block ? RecvTimeout : 0))
@@ -327,8 +312,8 @@ int RecvPacketGeneric(int inst, u8* packet, bool block, u64* timestamp)
         {
             // skip this packet
             PacketReadOffset[inst] += pktheader.Length;
-            if (PacketReadOffset[inst] >= kPacketEnd)
-                PacketReadOffset[inst] += kPacketStart - kPacketEnd;
+            if (PacketReadOffset[inst] >= kPacketQueueSize)
+                PacketReadOffset[inst] -= kPacketQueueSize;
 
             MPQueueLock.unlock();
             continue;
@@ -376,16 +361,11 @@ int SendAck(int inst, u8* packet, int len, u64 timestamp)
 
 int RecvHostPacket(int inst, u8* packet, u64* timestamp)
 {
-    if (!MPQueue) return -1;
-
     if (LastHostID != -1)
     {
         // check if the host is still connected
 
-        MPQueueLock.lock();
-        u8* data = MPQueue;
         u16 curinstmask = MPStatus.ConnectedBitmask;
-        MPQueueLock.unlock();
 
         if (!(curinstmask & (1 << LastHostID)))
             return -1;
@@ -396,17 +376,11 @@ int RecvHostPacket(int inst, u8* packet, u64* timestamp)
 
 u16 RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask)
 {
-    if (!MPQueue) return 0;
-
     u16 ret = 0;
     u16 myinstmask = (1 << inst);
     u16 curinstmask;
 
-    {
-        //MPQueueLock.lock();
-        curinstmask = MPStatus.ConnectedBitmask;
-        //MPQueueLock.unlock();
-    }
+    curinstmask = MPStatus.ConnectedBitmask;
 
     // if all clients have left: return early
     if ((myinstmask & curinstmask) == curinstmask)
@@ -439,8 +413,8 @@ u16 RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask)
         {
             // skip this packet
             ReplyReadOffset[inst] += pktheader.Length;
-            if (ReplyReadOffset[inst] >= kReplyEnd)
-                ReplyReadOffset[inst] += kReplyStart - kReplyEnd;
+            if (ReplyReadOffset[inst] >= kReplyQueueSize)
+                ReplyReadOffset[inst] -= kReplyQueueSize;
 
             MPQueueLock.unlock();
             continue;
