@@ -288,10 +288,18 @@ void ARM::SetupCodeMem(u32 addr)
 
 void ARMv5::BuggedJumpTo32(const u32 addr)
 {
+    // ldrd to pc
+    // behavior seems to be related to if a bugged 8/16 bit write has prefetch aborted (does any p.abort work?)
+    // switching to thumb mode only seems to work the first time after one of the above aborts?
+    // writing to pc seems to fail entirely if an abort hasn't occured and thumb interworking is in v4 mode
     if (BuggyJump == 1)
     {
         BuggyJump = 2;
         JumpTo(addr);
+    }
+    else if ((BuggyJump == 0) && (CP15Control & (1<<15)))
+    {
+        return; // checkme
     }
     else
     {
@@ -301,15 +309,27 @@ void ARMv5::BuggedJumpTo32(const u32 addr)
 
 void ARMv5::BuggedJumpTo(const u32 addr)
 {
-    if ((BuggyJump == 0) && (addr & 0x3))
+    // 16 and 8 bit loads (signed instructions included) to pc
+    // if they're misaligned they'll prefetch abort
+    // but they can only prefetch abort once, every time afterwards will succeed (more testing needed)
+    // if the lsb is set they will try to switch to thumb state, though it'll fail if they haven't prefetch aborted yet
+    // they work as expected if thumb interwork is set to v4 mode
+    if (BuggyJump == 0)
     {
-        BuggyJump = 1;
-        PrefetchAbort(); // checkme
+        if (CP15Control & (1<<15))
+        {
+            JumpTo(addr & ~1);
+            return;
+        }
+        else if (addr & 0x3)
+        {
+            if (addr & 0x1) CPSR |= 0x20;
+            BuggyJump = 1;
+            PrefetchAbort();
+            return;
+        }
     }
-    else
-    {
-        JumpTo(addr);
-    }
+    JumpTo(addr);
 }
 
 void ARMv5::JumpTo(u32 addr, bool restorecpsr)
@@ -382,12 +402,12 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 
 void ARMv4::BuggedJumpTo32(const u32 addr)
 {
-    JumpTo(addr); // todo
+    JumpTo(addr & ~1); // todo
 }
 
 void ARMv4::BuggedJumpTo(const u32 addr)
 {
-    JumpTo(addr); // todo
+    JumpTo(addr & ~1); // todo
 }
 
 void ARMv4::JumpTo(u32 addr, bool restorecpsr)
