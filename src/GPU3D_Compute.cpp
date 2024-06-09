@@ -313,7 +313,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ScreenWidth = 256 * ScaleFactor;
     ScreenHeight = 192 * ScaleFactor;
 
-    TileSize = std::min(8 * (1 << (ScaleFactor / 5)), 32);
+    TileSize = std::min(8 << (ScaleFactor / 5), 32);
     CoarseTileW = CoarseTileCountX * TileSize;
     CoarseTileH = CoarseTileCountY * TileSize;
 
