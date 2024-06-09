@@ -19,6 +19,7 @@
 #include "GPU3D_Compute.h"
 
 #include <assert.h>
+#include <algorithm>
 
 #include "OpenGLSupport.h"
 
@@ -50,6 +51,8 @@ bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, c
     shaderSource += std::to_string(ScreenHeight);
     shaderSource += "\n#define MaxWorkTiles ";
     shaderSource += std::to_string(MaxWorkTiles);
+    shaderSource += "\n#define TileSize ";
+    shaderSource += std::to_string(TileSize);
 
     shaderSource += ComputeRendererShaders::Common;
     shaderSource += source;
@@ -309,6 +312,10 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ScaleFactor = scale;
     ScreenWidth = 256 * ScaleFactor;
     ScreenHeight = 192 * ScaleFactor;
+
+    TileSize = std::min(8 * (1 << (ScaleFactor / 5)), 32);
+    CoarseTileW = CoarseTileCountX * TileSize;
+    CoarseTileH = CoarseTileCountY * TileSize;
 
     TilesPerLine = ScreenWidth/TileSize;
     TileLines = ScreenHeight/TileSize;
