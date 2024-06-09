@@ -38,8 +38,8 @@
 #include "Config.h"
 #include "main.h"
 #include "CameraManager.h"
-#include "LAN_Socket.h"
-#include "LAN_PCap.h"
+#include "Net_Slirp.h"
+#include "Net_PCap.h"
 #include "LocalMP.h"
 #include "SPI_Firmware.h"
 

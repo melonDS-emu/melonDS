@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "Wifi.h"
-#include "LAN_Socket.h"
+#include "Net_Slirp.h"
 #include "FIFO.h"
 #include "Platform.h"
 

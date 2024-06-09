@@ -23,7 +23,7 @@
 #include <string.h>
 #include <pcap/pcap.h>
 #include "Wifi.h"
-#include "LAN_PCap.h"
+#include "Net_PCap.h"
 #include "Config.h"
 #include "Platform.h"
 #include "main.h"

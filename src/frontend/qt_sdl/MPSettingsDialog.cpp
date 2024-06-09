@@ -24,8 +24,8 @@
 #include "Config.h"
 #include "main.h"
 
-#include "LAN_Socket.h"
-#include "LAN_PCap.h"
+#include "Net_Slirp.h"
+#include "Net_PCap.h"
 #include "Wifi.h"
 
 #include "MPSettingsDialog.h"
