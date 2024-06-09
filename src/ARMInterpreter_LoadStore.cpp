@@ -117,7 +117,7 @@ namespace melonDS::ARMInterpreter
         cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
     }
 
-// TODO: user mode (note: ldrt w/ rd = 15 may be an undef instr)
+// TODO: user mode
 #define A_LDR_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; bool dataabort = !cpu->DataRead32(addr, &val); \
@@ -144,7 +144,7 @@ namespace melonDS::ARMInterpreter
     if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->BuggedJumpTo(val); \
     else cpu->R[(cpu->CurInstr>>12) & 0xF] = val;
 
-// TODO: user mode (note: ldrbt w/ rd = 15 may be an undef instr)
+// TODO: user mode
 #define A_LDRB_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; bool dataabort = !cpu->DataRead8(addr, &val); \
