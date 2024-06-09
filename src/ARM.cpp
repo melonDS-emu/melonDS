@@ -177,6 +177,8 @@ void ARM::Reset()
 
     ExceptionBase = Num ? 0x00000000 : 0xFFFF0000;
 
+    BuggyJump = 0;
+
     CodeMem.Mem = NULL;
 
 #ifdef JIT_ENABLED
@@ -284,6 +286,32 @@ void ARM::SetupCodeMem(u32 addr)
     }
 }
 
+void ARMv5::BuggedJumpTo32(const u32 addr)
+{
+    if (BuggyJump == 1)
+    {
+        BuggyJump = 2;
+        JumpTo(addr);
+    }
+    else
+    {
+        JumpTo(addr & ~0x1);
+    }
+}
+
+void ARMv5::BuggedJumpTo(const u32 addr)
+{
+    if ((BuggyJump == 0) && (addr & 0x3))
+    {
+        BuggyJump = 1;
+        PrefetchAbort(); // checkme
+    }
+    else
+    {
+        JumpTo(addr);
+    }
+}
+
 void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 {
     if (restorecpsr)
@@ -350,6 +378,16 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     }
 
     NDS.MonitorARM9Jump(addr);
+}
+
+void ARMv4::BuggedJumpTo32(const u32 addr)
+{
+    JumpTo(addr); // todo
+}
+
+void ARMv4::BuggedJumpTo(const u32 addr)
+{
+    JumpTo(addr); // todo
 }
 
 void ARMv4::JumpTo(u32 addr, bool restorecpsr)
