@@ -104,6 +104,8 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->cbGdbBOSA9->setDisabled(true);
 #endif
 
+    ui->cbDebugPrintEnabled->setChecked(Config::DebugPrintEnabled);
+
     on_chkEnableJIT_toggled();
     on_cbGdbEnabled_toggled();
     on_chkExternalBIOS_toggled();
@@ -232,6 +234,8 @@ void EmuSettingsDialog::done(int r)
         std::string dsiNANDPath = ui->txtDSiNANDPath->text().toStdString();
         bool dsiFullBiosBoot = ui->cbDSiFullBIOSBoot->isChecked();
 
+        bool debugPrintEnabled = ui->cbDebugPrintEnabled->isChecked();
+
         bool dsiSDEnable = ui->cbDSiSDEnable->isChecked();
         std::string dsiSDPath = ui->txtDSiSDPath->text().toStdString();
         int dsiSDSize = ui->cbxDSiSDSize->currentIndex();
@@ -276,6 +280,7 @@ void EmuSettingsDialog::done(int r)
             || dsiFirmwarePath != Config::DSiFirmwarePath
             || dsiNANDPath != Config::DSiNANDPath
             || dsiFullBiosBoot != Config::DSiFullBIOSBoot
+            || debugPrintEnabled != Config::DebugPrintEnabled
             || dsiSDEnable != Config::DSiSDEnable
             || dsiSDPath != Config::DSiSDPath
             || dsiSDSize != Config::DSiSDSize
@@ -306,6 +311,8 @@ void EmuSettingsDialog::done(int r)
             Config::DSiFirmwarePath = dsiFirmwarePath;
             Config::DSiNANDPath = dsiNANDPath;
             Config::DSiFullBIOSBoot = dsiFullBiosBoot;
+
+            Config::DebugPrintEnabled = debugPrintEnabled;
 
             Config::DSiSDEnable = dsiSDEnable;
             Config::DSiSDPath = dsiSDPath;

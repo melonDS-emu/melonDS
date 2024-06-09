@@ -154,6 +154,8 @@ bool DSiBatteryCharging;
 
 bool DSiFullBIOSBoot;
 
+bool DebugPrintEnabled;
+
 #ifdef GDBSTUB_ENABLED
 bool GdbEnabled;
 int GdbPortARM7;

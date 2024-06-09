@@ -269,6 +269,7 @@ protected:
     std::array<u8, ARM7BIOSSize> ARM7BIOS;
     bool ARM9BIOSNative;
     bool ARM7BIOSNative;
+    bool DebugPrint;
 public: // TODO: Encapsulate the rest of these members
     u16 ARM7BIOSProt;
 
@@ -377,6 +378,9 @@ public: // TODO: Encapsulate the rest of these members
     const u8* GetGBASave() const { return GBACartSlot.GetSaveMemory(); }
     u32 GetGBASaveLength() const { return GBACartSlot.GetSaveMemoryLength(); }
     void SetGBASave(const u8* savedata, u32 savelen);
+
+    bool GetDebugPrint() const { return DebugPrint; }
+    void SetDebugPrint(bool enabled) noexcept;
 
     void LoadGBAAddon(int type);
     std::unique_ptr<GBACart::CartCommon> EjectGBACart() { return GBACartSlot.EjectCart(); }

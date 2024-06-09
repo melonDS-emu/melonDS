@@ -748,6 +748,11 @@ void NDS::SetGBASave(const u8* savedata, u32 savelen)
 
 }
 
+void NDS::SetDebugPrint(bool enabled) noexcept
+{
+    DebugPrint = enabled;
+}
+
 void NDS::LoadGBAAddon(int type)
 {
     GBACartSlot.LoadAddon(type);

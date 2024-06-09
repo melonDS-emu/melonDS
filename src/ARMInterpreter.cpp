@@ -266,6 +266,22 @@ void A_MRC(ARM* cpu)
 
 void A_SVC(ARM* cpu)
 {
+    // Print from game. Execute `svc 0xFC` with the null-terminated string address in `r0`.
+    if ((cpu->CurInstr & 0xFF) == 0xFC && cpu->NDS.GetDebugPrint())
+    {
+        u32 addr = cpu->R[0];
+        std::string output;
+        for (;;)
+        {
+            u32 c;
+            cpu->DataRead8(addr++, &c);
+            if (!c) break;
+            output += c;
+        }
+        Platform::Log(LogLevel::Info, "%s", output.c_str());
+        return;
+    }
+
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
     cpu->CPSR |= 0x93;
@@ -278,6 +294,22 @@ void A_SVC(ARM* cpu)
 
 void T_SVC(ARM* cpu)
 {
+    // Print from game. Execute `svc 0xFC` with the null-terminated string address in `r0`.
+    if ((cpu->CurInstr & 0xFF) == 0xFC && cpu->NDS.GetDebugPrint())
+    {
+        u32 addr = cpu->R[0];
+        std::string output;
+        for (;;)
+        {
+            u32 c;
+            cpu->DataRead8(addr++, &c);
+            if (!c) break;
+            output += c;
+        }
+        Platform::Log(LogLevel::Info, "%s", output.c_str());
+        return;
+    }
+
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
     cpu->CPSR |= 0x93;
