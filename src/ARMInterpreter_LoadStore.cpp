@@ -141,7 +141,7 @@ namespace melonDS::ARMInterpreter
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->BuggedJumpTo(val); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
     else cpu->R[(cpu->CurInstr>>12) & 0xF] = val;
 
 // TODO: user mode
@@ -151,7 +151,7 @@ namespace melonDS::ARMInterpreter
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->BuggedJumpTo(val); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
     else cpu->R[(cpu->CurInstr>>12) & 0xF] = val;
 
 
@@ -262,7 +262,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (r&1) { A_UNK(cpu); return; } /* checkme */ \
     if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
     u32 val; if (!cpu->DataRead32S(offset+4, &val)) {cpu->AddCycles_CDI(); return;} \
-    if (r == 14) cpu->BuggedJumpTo32(val); \
+    if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), true); /* restores cpsr for some reason? */ \
     else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI(); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
@@ -274,7 +274,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (r&1) { A_UNK(cpu); return; } /* checkme */ \
     if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
     u32 val; if (!cpu->DataRead32S(addr+4, &val)) {cpu->AddCycles_CDI(); return;} \
-    if (r == 14) cpu->BuggedJumpTo32(val); \
+    if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), true); /* restores cpsr for some reason? */ \
     else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI(); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
@@ -308,7 +308,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 val; bool dataabort = !cpu->DataRead16(offset, &val); \
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->BuggedJumpTo(val); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
     else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
@@ -317,7 +317,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 val; bool dataabort = !cpu->DataRead16(addr, &val); \
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->BuggedJumpTo(val); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
     else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
@@ -327,7 +327,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     val = (s32)(s8)val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->BuggedJumpTo(val); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
     else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
@@ -337,7 +337,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     val = (s32)(s8)val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->BuggedJumpTo(val); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
     else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
@@ -347,7 +347,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     val = (s32)(s16)val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->BuggedJumpTo(val); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
     else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
@@ -357,7 +357,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     val = (s32)(s16)val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->BuggedJumpTo(val); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
     else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 

@@ -286,47 +286,6 @@ void ARM::SetupCodeMem(u32 addr)
     }
 }
 
-void ARMv5::BuggedJumpTo32(const u32 addr)
-{
-    // ldrd to pc
-    // behavior seems to be related to if a bugged 8/16 bit write has prefetch aborted (does any p.abort work?)
-    // switching to thumb mode only seems to work the first time an ldrd pc is executed after one of the above aborts?
-    // also it can restore cpsr but only if the PU is disabled (?????????????????????????????????????)
-    if (BuggyJump == 1)
-    {
-        BuggyJump = 2;
-
-        if (CP15Control & (1<<15))
-            JumpTo(addr & ~0x1, !(CP15Control & 1));
-        else
-            JumpTo(addr, !(CP15Control & 1));
-    }
-    else
-    {
-        JumpTo(addr & ~0x1, !(CP15Control & 1));
-    }
-}
-
-void ARMv5::BuggedJumpTo(const u32 addr)
-{
-    // 16 and 8 bit loads (signed instructions included) to pc
-    // if they're misaligned they'll prefetch abort
-    // but they can only prefetch abort once, every time afterwards will succeed (more testing needed)
-    // if the lsb is set they will try to switch to thumb state, though it'll fail if they haven't prefetch aborted yet
-    if ((BuggyJump == 0) && (addr & 0x3))
-    {
-        if (addr & 0x1) CPSR |= 0x20;
-        BuggyJump = 1;
-        PrefetchAbort();
-        return;
-    }
-
-    if (CP15Control & (1<<15))
-        JumpTo(addr & ~0x1);
-    else
-        JumpTo(addr);
-}
-
 void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 {
     if (restorecpsr)
@@ -395,14 +354,25 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     NDS.MonitorARM9Jump(addr);
 }
 
-void ARMv4::BuggedJumpTo32(const u32 addr)
+void ARMv5::JumpTo8_16Bit(const u32 addr)
 {
-    JumpTo(addr & ~1); // todo
-}
-
-void ARMv4::BuggedJumpTo(const u32 addr)
-{
-    JumpTo(addr & ~1); // todo
+    // 8 and 16 loads (signed included) to pc
+    if (!(CP15Control & 0x1))
+    {
+        // if the pu is disabled it behaves like a normal jump
+        JumpTo((CP15Control & (1<<15)) ? (addr & ~0x1) : addr);
+    }
+    else
+    {
+        if (addr & 0x3)
+        {
+            // if the pu is enabled it will always prefetch abort if not word aligned
+            // although it will still attempt (and fail) to enter thumb mode if enabled
+            if ((addr & 0x1) && !(CP15Control & (1<<15))) CPSR |= 0x20;
+            PrefetchAbort();
+        }
+        else JumpTo(addr);
+    }
 }
 
 void ARMv4::JumpTo(u32 addr, bool restorecpsr)
@@ -447,6 +417,11 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 
         CPSR &= ~0x20;
     }
+}
+
+void ARMv4::JumpTo8_16Bit(const u32 addr)
+{
+    JumpTo(addr & ~1); // checkme?
 }
 
 void ARM::RestoreCPSR()

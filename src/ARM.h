@@ -65,9 +65,8 @@ public:
 
     virtual void FillPipeline() = 0;
     
-    virtual void BuggedJumpTo32(const u32 addr) = 0;
-    virtual void BuggedJumpTo(const u32 addr) = 0;
     virtual void JumpTo(u32 addr, bool restorecpsr = false) = 0;
+    virtual void JumpTo8_16Bit(u32 addr) = 0;
     void RestoreCPSR();
 
     void Halt(u32 halt)
@@ -239,9 +238,8 @@ public:
 
     void FillPipeline() override;
     
-    void BuggedJumpTo32(const u32 addr) override;
-    void BuggedJumpTo(const u32 addr) override;
     void JumpTo(u32 addr, bool restorecpsr = false) override;
+    void JumpTo8_16Bit(const u32 addr) override;
 
     void PrefetchAbort();
     void DataAbort();
@@ -386,9 +384,8 @@ public:
 
     void FillPipeline() override;
     
-    void BuggedJumpTo32(const u32 addr) override;
-    void BuggedJumpTo(const u32 addr) override;
     void JumpTo(u32 addr, bool restorecpsr = false) override;
+    void JumpTo8_16Bit(const u32 addr) override;
 
     void Execute() override;
 #ifdef JIT_ENABLED
