@@ -262,7 +262,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (r&1) { A_UNK(cpu); return; } \
     if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
     u32 val; if (!cpu->DataRead32S(offset+4, &val)) {cpu->AddCycles_CDI(); return;} \
-    if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr due to shared ldm dna */ \
+    if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
     else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI(); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
@@ -274,7 +274,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (r&1) { A_UNK(cpu); return; } \
     if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
     u32 val; if (!cpu->DataRead32S(addr+4, &val)) {cpu->AddCycles_CDI(); return;} \
-    if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr due to shared ldm dna */ \
+    if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
     else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI(); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
@@ -408,9 +408,10 @@ void A_SWP(ARM* cpu)
         u32 numD = cpu->DataCycles;
         if (cpu->DataWrite32(base, rm))
         {
-            // rd only gets updated if both read and write succeed, and if rd isn't r15
+            // rd only gets updated if both read and write succeed
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
             if (rd != 15) cpu->R[rd] = ROR(val, 8*(base&0x3));
+            else if (cpu->Num) cpu->JumpTo(ROR(val, 8*(base&0x3)) & ~1); // for some reason these jumps don't work on the arm 9?
         }
         cpu->DataCycles += numD;
     }
@@ -429,9 +430,10 @@ void A_SWPB(ARM* cpu)
         u32 numD = cpu->DataCycles;
         if (cpu->DataWrite8(base, rm))
         {
-            // rd only gets updated if both read and write succeed, and if rd isn't r15
+            // rd only gets updated if both read and write succeed
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
             if (rd != 15) cpu->R[rd] = val;
+            else if (cpu->Num) cpu->JumpTo(val & ~1); // for some reason these jumps don't work on the arm 9?
         }
         cpu->DataCycles += numD;
     }
