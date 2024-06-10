@@ -53,6 +53,8 @@ bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, c
     shaderSource += std::to_string(MaxWorkTiles);
     shaderSource += "\n#define TileSize ";
     shaderSource += std::to_string(TileSize);
+    shaderSource += "\nconst int CoarseTileCountY = ";
+    shaderSource += std::to_string(CoarseTileCountY) + ";";
 
     shaderSource += ComputeRendererShaders::Common;
     shaderSource += source;
@@ -314,6 +316,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ScreenHeight = 192 * ScaleFactor;
 
     TileSize = std::min(8 << (ScaleFactor / 5), 32);
+    CoarseTileCountY = TileSize < 32 ? 4 : 6;
     CoarseTileW = CoarseTileCountX * TileSize;
     CoarseTileH = CoarseTileCountY * TileSize;
 
