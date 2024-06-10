@@ -64,7 +64,7 @@ public:
     virtual void DoSavestate(Savestate* file);
 
     virtual void FillPipeline() = 0;
-    
+
     virtual void JumpTo(u32 addr, bool restorecpsr = false) = 0;
     virtual void JumpTo8_16Bit(u32 addr) = 0;
     void RestoreCPSR();
@@ -174,7 +174,6 @@ public:
     u32 R_UND[3];
     u32 CurInstr;
     u32 NextInstr[2];
-    u32 BuggyJump;
 
     u32 ExceptionBase;
 
@@ -237,7 +236,7 @@ public:
     void UpdateRegionTimings(u32 addrstart, u32 addrend);
 
     void FillPipeline() override;
-    
+
     void JumpTo(u32 addr, bool restorecpsr = false) override;
     void JumpTo8_16Bit(const u32 addr) override;
 
@@ -383,7 +382,7 @@ public:
     ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit);
 
     void FillPipeline() override;
-    
+
     void JumpTo(u32 addr, bool restorecpsr = false) override;
     void JumpTo8_16Bit(const u32 addr) override;
 

@@ -177,8 +177,6 @@ void ARM::Reset()
 
     ExceptionBase = Num ? 0x00000000 : 0xFFFF0000;
 
-    BuggyJump = 0;
-
     CodeMem.Mem = NULL;
 
 #ifdef JIT_ENABLED

@@ -259,7 +259,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->Num != 0) return; \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { A_UNK(cpu); return; } /* checkme */ \
+    if (r&1) { A_UNK(cpu); return; } \
     if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
     u32 val; if (!cpu->DataRead32S(offset+4, &val)) {cpu->AddCycles_CDI(); return;} \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr due to shared ldm dna */ \
@@ -271,7 +271,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->Num != 0) return; \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { A_UNK(cpu); return; } /* checkme */ \
+    if (r&1) { A_UNK(cpu); return; } \
     if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
     u32 val; if (!cpu->DataRead32S(addr+4, &val)) {cpu->AddCycles_CDI(); return;} \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr due to shared ldm dna */ \
@@ -283,7 +283,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->Num != 0) return; \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { A_UNK(cpu); return; } /* checkme */ \
+    if (r&1) { A_UNK(cpu); return; } \
     bool dataabort = !cpu->DataWrite32(offset, cpu->R[r]); /* yes, this data abort behavior is on purpose */ \
     u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
     dataabort |= !cpu->DataWrite32S (offset+4, storeval, dataabort); /* no, i dont understand it either */ \
@@ -295,7 +295,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->Num != 0) return; \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { A_UNK(cpu); return; } /* checkme */ \
+    if (r&1) { A_UNK(cpu); return; } \
     bool dataabort = !cpu->DataWrite32(addr, cpu->R[r]); \
     u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
     dataabort |= !cpu->DataWrite32S (addr+4, storeval, dataabort); \
