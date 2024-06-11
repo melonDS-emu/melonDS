@@ -411,7 +411,7 @@ void A_SWP(ARM* cpu)
             // rd only gets updated if both read and write succeed
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
             if (rd != 15) cpu->R[rd] = ROR(val, 8*(base&0x3));
-            else if (cpu->Num) cpu->JumpTo(ROR(val, 8*(base&0x3)) & ~1); // for some reason these jumps don't work on the arm 9?
+            else if (cpu->Num==1) cpu->JumpTo(ROR(val, 8*(base&0x3)) & ~1); // for some reason these jumps don't work on the arm 9?
         }
         cpu->DataCycles += numD;
     }
@@ -433,7 +433,7 @@ void A_SWPB(ARM* cpu)
             // rd only gets updated if both read and write succeed
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
             if (rd != 15) cpu->R[rd] = val;
-            else if (cpu->Num) cpu->JumpTo(val & ~1); // for some reason these jumps don't work on the arm 9?
+            else if (cpu->Num==1) cpu->JumpTo(val & ~1); // for some reason these jumps don't work on the arm 9?
         }
         cpu->DataCycles += numD;
     }

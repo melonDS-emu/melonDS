@@ -101,9 +101,9 @@ void A_MSR_IMM(ARM* cpu)
 
     u32 mask = 0;
     if (cpu->CurInstr & (1<<16)) mask |= 0x000000FF;
-    //if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00;
-    //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000;
-    if (cpu->CurInstr & (1<<19)) mask |= (cpu->Num ? 0xF0000000 /* checkme */ : 0xF8000000);
+    //if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00; // unused by arm 7 & 9
+    //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000; // unused by arm 7 & 9
+    if (cpu->CurInstr & (1<<19)) mask |= ((cpu->Num==1) ? 0xF0000000 : 0xF8000000);
 
     if (!(cpu->CurInstr & (1<<22)))
         mask &= 0xFFFFFFDF;
@@ -154,9 +154,9 @@ void A_MSR_REG(ARM* cpu)
 
     u32 mask = 0;
     if (cpu->CurInstr & (1<<16)) mask |= 0x000000FF;
-    //if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00;
-    //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000;
-    if (cpu->CurInstr & (1<<19)) mask |= (cpu->Num ? 0xF0000000 /* checkme */ : 0xF8000000);
+    //if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00; // unused by arm 7 & 9
+    //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000; // unused by arm 7 & 9
+    if (cpu->CurInstr & (1<<19)) mask |= ((cpu->Num==1) ? 0xF0000000 : 0xF8000000);
 
     if (!(cpu->CurInstr & (1<<22)))
         mask &= 0xFFFFFFDF;
