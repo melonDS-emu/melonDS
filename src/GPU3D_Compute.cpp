@@ -21,6 +21,8 @@
 #include <assert.h>
 #include <algorithm>
 
+#include "Utils.h"
+
 #include "OpenGLSupport.h"
 
 #include "GPU3D_Compute_shaders.h"
@@ -302,7 +304,7 @@ void ComputeRenderer::Reset(GPU& gpu)
 
 void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinates)
 {
-    unsigned char TileScale;
+    u8 TileScale;
 
     CurGLCompositor.SetScaleFactor(scale);
 
@@ -319,9 +321,12 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
 
     //Starting at 4.5x we want to double TileSize every time scale doubles
     TileScale = 2 * ScaleFactor / 9;
-    TileScale &= ~(TileScale >> 1);
+    TileScale = GetMSBit(TileScale);
     TileScale <<= 1;
     TileScale += TileScale == 0;
+
+    std::printf("Scale: %d\n", ScaleFactor);
+    std::printf("TileScale: %d\n", TileScale);
     
     TileSize = std::min(8 * TileScale, 32);
     CoarseTileCountY = TileSize < 32 ? 4 : 6;
