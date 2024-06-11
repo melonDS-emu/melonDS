@@ -302,6 +302,8 @@ void ComputeRenderer::Reset(GPU& gpu)
 
 void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinates)
 {
+    unsigned char TileScale;
+
     CurGLCompositor.SetScaleFactor(scale);
 
     if (ScaleFactor != -1)
@@ -315,7 +317,13 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ScreenWidth = 256 * ScaleFactor;
     ScreenHeight = 192 * ScaleFactor;
 
-    TileSize = std::min(8 << (ScaleFactor / 5), 32);
+    //Starting at 4.5x we want to double TileSize every time scale doubles
+    TileScale = 2 * ScaleFactor / 9;
+    TileScale &= ~(TileScale >> 1);
+    TileScale <<= 1;
+    TileScale += TileScale == 0;
+    
+    TileSize = std::min(8 * TileScale, 32);
     CoarseTileCountY = TileSize < 32 ? 4 : 6;
     CoarseTileW = CoarseTileCountX * TileSize;
     CoarseTileH = CoarseTileCountY * TileSize;
