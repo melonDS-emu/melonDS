@@ -962,7 +962,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
 
         // bin polygons
         glUseProgram(ShaderBinCombined);
-        glDispatchCompute(((gpu.GPU3D.RenderNumPolygons + CoarseTileArea - 1) / CoarseTileArea), ScreenWidth/CoarseTileW, ScreenHeight/CoarseTileH);
+        glDispatchCompute(((gpu.GPU3D.RenderNumPolygons + 31) / 32), ScreenWidth/CoarseTileW, ScreenHeight/CoarseTileH);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         // calculate list offsets
