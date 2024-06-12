@@ -34,6 +34,8 @@ public:
     void registerInstance(int inst);
     void unregisterInstance(int inst);
 
+    void clear();
+
     void sendPacket(const void* header, int headerlen, const void* data, int datalen, int sender, melonDS::u16 recv_mask);
     bool recvPacket(void* header, int* headerlen, void* data, int* datalen, int receiver);
 

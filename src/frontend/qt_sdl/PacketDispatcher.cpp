@@ -64,16 +64,31 @@ void PacketDispatcher::unregisterInstance(int inst)
 }
 
 
+void PacketDispatcher::clear()
+{
+    mutex.lock();
+    for (int i = 0; i < 16; i++)
+    {
+        if (!(instanceMask & (1 << i)))
+            continue;
+
+        PacketQueue* queue = packetQueues[i];
+        queue->Clear();
+    }
+    mutex.unlock();
+}
+
+
 void PacketDispatcher::sendPacket(const void* header, int headerlen, const void* data, int datalen, int sender, u16 recv_mask)
 {
     if (!header) headerlen = 0;
     if (!data) datalen = 0;
     if ((!headerlen) && (!datalen)) return;
     if ((sizeof(PacketHeader) + headerlen + datalen) >= 0x8000) return;
-    if (sender < 0 || sender > 15) return;
+    if (sender < 0 || sender > 16) return;
 
     recv_mask &= instanceMask;
-    recv_mask &= ~(1 << sender);
+    if (sender < 16) recv_mask &= ~(1 << sender);
     if (!recv_mask) return;
 
     PacketHeader phdr;
@@ -82,6 +97,8 @@ void PacketDispatcher::sendPacket(const void* header, int headerlen, const void*
     phdr.headerLength = headerlen;
     phdr.dataLength = datalen;
 
+    int totallen = sizeof(phdr) + headerlen + datalen;
+
     mutex.lock();
     for (int i = 0; i < 16; i++)
     {
@@ -89,6 +106,15 @@ void PacketDispatcher::sendPacket(const void* header, int headerlen, const void*
             continue;
 
         PacketQueue* queue = packetQueues[i];
+
+        // if we run out of space: discard old packets
+        while (!queue->CanFit(totallen))
+        {
+            PacketHeader tmp;
+            queue->Read(&tmp, sizeof(tmp));
+            queue->Skip(tmp.headerLength + tmp.dataLength);
+        }
+
         queue->Write(&phdr, sizeof(phdr));
         if (headerlen) queue->Write(header, headerlen);
         if (datalen) queue->Write(data, datalen);

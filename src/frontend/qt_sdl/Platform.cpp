@@ -29,7 +29,6 @@
 #include <QThread>
 #include <QSemaphore>
 #include <QMutex>
-//#include <QOpenGLContext>
 #include <QSharedMemory>
 #include <QTemporaryFile>
 #include <SDL_loadso.h>
@@ -38,8 +37,7 @@
 #include "Config.h"
 #include "main.h"
 #include "CameraManager.h"
-#include "Net_Slirp.h"
-#include "Net_PCap.h"
+#include "Net.h"
 #include "LocalMP.h"
 #include "SPI_Firmware.h"
 
@@ -542,6 +540,8 @@ int LAN_SendPacket(u8* data, int len, void* userdata)
         return LAN_PCap::SendPacket(data, len);
     else
         return LAN_Socket::SendPacket(data, len);*/
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    Net::SendPacket(data, len, inst);
     return 0;
 }
 
@@ -551,7 +551,8 @@ int LAN_RecvPacket(u8* data, void* userdata)
         return LAN_PCap::RecvPacket(data);
     else
         return LAN_Socket::RecvPacket(data);*/
-    return 0;
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return Net::RecvPacket(data, inst);
 }
 
 

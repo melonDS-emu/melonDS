@@ -38,6 +38,7 @@
 #include "EmuInstance.h"
 #include "Config.h"
 #include "Platform.h"
+#include "Net.h"
 #include "LocalMP.h"
 
 #include "NDS.h"
@@ -82,6 +83,8 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
     audioInit();
     inputInit();
 
+    Net::RegisterInstance(instanceID);
+
     emuThread = new EmuThread(this);
 
     numWindows = 0;
@@ -105,6 +108,8 @@ EmuInstance::~EmuInstance()
     emuThread->emuExit();
     emuThread->wait();
     delete emuThread;
+
+    Net::UnregisterInstance(instanceID);
 
     audioDeInit();
     inputDeInit();

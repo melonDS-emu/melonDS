@@ -1443,19 +1443,25 @@ void DSi_NWifi::CheckRX()
         return;
 
     int rxlen = Platform::LAN_RecvPacket(LANBuffer, DSi.UserData);
-    if (rxlen > 0)
+    while (rxlen > 0)
     {
         //printf("WMI packet recv %04X %04X %04X\n", *(u16*)&LANBuffer[0], *(u16*)&LANBuffer[2], *(u16*)&LANBuffer[4]);
         // check destination MAC
         if (*(u32*)&LANBuffer[0] != 0xFFFFFFFF || *(u16*)&LANBuffer[4] != 0xFFFF)
         {
             if (memcmp(&LANBuffer[0], &EEPROM[0x00A], 6))
-                return;
+            {
+                rxlen = Platform::LAN_RecvPacket(LANBuffer, DSi.UserData);
+                continue;
+            }
         }
 
         // check source MAC, in case we get a packet we just sent out
         if (!memcmp(&LANBuffer[6], &EEPROM[0x00A], 6))
-            return;
+        {
+            rxlen = Platform::LAN_RecvPacket(LANBuffer, DSi.UserData);
+            continue;
+        }
 
         // packet is good
 

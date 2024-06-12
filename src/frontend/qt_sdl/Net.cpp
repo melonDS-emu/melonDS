@@ -20,7 +20,7 @@
 #include <string.h>
 #include <QMutex>
 #include "Net.h"
-#include "FIFO.h"
+#include "PacketDispatcher.h"
 #include "Platform.h"
 #include "Config.h"
 
@@ -35,22 +35,21 @@ using Platform::LogLevel;
 bool Inited = false;
 bool DirectMode;
 
-QMutex RXMutex;
-RingBuffer<0x10000> RXBuffer;
+PacketDispatcher Dispatcher;
 
 
 bool Init()
 {
     if (Inited) DeInit();
 
-    RXBuffer.Clear();
+    Dispatcher.clear();
 
     Config::Table cfg = Config::GetGlobalTable();
     DirectMode = cfg.GetBool("LAN.DirectMode");
 
     bool ret = false;
     if (DirectMode)
-        ret = Net_PCap::Init();
+        ret = Net_PCap::Init(true);
     else
         ret = Net_Slirp::Init();
 
@@ -71,27 +70,24 @@ void DeInit()
 }
 
 
-void RXEnqueue(const void* buf, int len)
+void RegisterInstance(int inst)
 {
-    int totallen = len + 4;
+    Dispatcher.registerInstance(inst);
+}
 
-    RXMutex.lock();
-
-    if (!RXBuffer.CanFit(totallen))
-    {
-        RXMutex.unlock();
-        Log(LogLevel::Warn, "Net: !! NOT ENOUGH SPACE IN RX BUFFER\n");
-        return;
-    }
-
-    u32 header = (len & 0xFFFF) | (len << 16);
-    RXBuffer.Write(&header, sizeof(u32));
-    RXBuffer.Write(buf, len);
-    RXMutex.unlock();
+void UnregisterInstance(int inst)
+{
+    Dispatcher.unregisterInstance(inst);
 }
 
 
-int SendPacket(u8* data, int len)
+void RXEnqueue(const void* buf, int len)
+{
+    Dispatcher.sendPacket(nullptr, 0, buf, len, 16, 0xFFFF);
+}
+
+
+int SendPacket(u8* data, int len, int inst)
 {
     if (DirectMode)
         return Net_PCap::SendPacket(data, len);
@@ -99,15 +95,18 @@ int SendPacket(u8* data, int len)
         return Net_Slirp::SendPacket(data, len);
 }
 
-int RecvPacket(u8* data)
+int RecvPacket(u8* data, int inst)
 {
     if (DirectMode)
         Net_PCap::RecvCheck();
     else
         Net_Slirp::RecvCheck();
 
-    // TODO: check MAC
-    // FIFO header | destination MAC | source MAC | frame type
+    int ret = 0;
+    if (!Dispatcher.recvPacket(nullptr, nullptr, data, &ret, inst))
+        return 0;
+
+    return ret;
 }
 
 }

@@ -52,7 +52,7 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     emuInstance = ((MainWindow*)parent)->getEmuInstance();
     auto& cfg = emuInstance->getGlobalConfig();
 
-    haspcap = LAN_PCap::Init(false);
+    haspcap = Net_PCap::Init(false);
 
     ui->rbDirectMode->setText("Direct mode (requires " PCAP_NAME " and ethernet connection)");
 
@@ -60,9 +60,9 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->lblAdapterIP->setText("(none)");
 
     int sel = 0;
-    for (int i = 0; i < LAN_PCap::NumAdapters; i++)
+    for (int i = 0; i < Net_PCap::NumAdapters; i++)
     {
-        LAN_PCap::AdapterData* adapter = &LAN_PCap::Adapters[i];
+        Net_PCap::AdapterData* adapter = &Net_PCap::Adapters[i];
 
         ui->cbxDirectAdapter->addItem(QString(adapter->FriendlyName));
 
@@ -96,14 +96,14 @@ void WifiSettingsDialog::done(int r)
         cfg.SetBool("LAN.DirectMode", ui->rbDirectMode->isChecked());
 
         int sel = ui->cbxDirectAdapter->currentIndex();
-        if (sel < 0 || sel >= LAN_PCap::NumAdapters) sel = 0;
-        if (LAN_PCap::NumAdapters < 1)
+        if (sel < 0 || sel >= Net_PCap::NumAdapters) sel = 0;
+        if (Net_PCap::NumAdapters < 1)
         {
             cfg.SetString("LAN.Device", "");
         }
         else
         {
-            cfg.SetString("LAN.Device", LAN_PCap::Adapters[sel].DeviceName);
+            cfg.SetString("LAN.Device", Net_PCap::Adapters[sel].DeviceName);
         }
 
         Config::Save();
@@ -128,10 +128,10 @@ void WifiSettingsDialog::on_cbxDirectAdapter_currentIndexChanged(int sel)
 {
     if (!haspcap) return;
 
-    if (sel < 0 || sel >= LAN_PCap::NumAdapters) return;
-    if (LAN_PCap::NumAdapters < 1) return;
+    if (sel < 0 || sel >= Net_PCap::NumAdapters) return;
+    if (Net_PCap::NumAdapters < 1) return;
 
-    LAN_PCap::AdapterData* adapter = &LAN_PCap::Adapters[sel];
+    Net_PCap::AdapterData* adapter = &Net_PCap::Adapters[sel];
     char tmp[64];
 
     sprintf(tmp, "%02X:%02X:%02X:%02X:%02X:%02X",

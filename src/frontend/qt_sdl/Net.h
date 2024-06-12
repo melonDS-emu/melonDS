@@ -30,10 +30,13 @@ using namespace melonDS;
 bool Init();
 void DeInit();
 
+void RegisterInstance(int inst);
+void UnregisterInstance(int inst);
+
 void RXEnqueue(const void* buf, int len);
 
-int SendPacket(u8* data, int len);
-int RecvPacket(u8* data);
+int SendPacket(u8* data, int len, int inst);
+int RecvPacket(u8* data, int inst);
 
 }
 

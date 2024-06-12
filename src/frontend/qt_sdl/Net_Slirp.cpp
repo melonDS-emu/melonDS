@@ -162,7 +162,7 @@ bool Init()
     *(u32*)&cfg.vnameserver = htonl(kDNSIP);
 
     Ctx = slirp_new(&cfg, &cb, nullptr);
-
+printf("SLIRP INIT\n");
     return true;
 }
 
@@ -373,6 +373,7 @@ void HandleDNSFrame(u8* data, int len)
 
 int SendPacket(u8* data, int len)
 {
+    printf("SLIRP SEND PACKET %p %p %d\n", Ctx, data, len);
     if (!Ctx) return 0;
 
     if (len > 2048)

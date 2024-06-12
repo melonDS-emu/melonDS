@@ -75,6 +75,7 @@
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
 #include "LocalMP.h"
+#include "Net.h"
 
 #include "CLI.h"
 
@@ -268,6 +269,7 @@ int main(int argc, char** argv)
     }
 
     LocalMP::Init();
+    Net::Init();
 
    /* mainWindow = new MainWindow();
     if (options->fullscreen)
@@ -322,6 +324,7 @@ int main(int argc, char** argv)
     deleteAllEmuInstances();
 
     LocalMP::DeInit();
+    Net::DeInit();
 
     //AudioInOut::DeInit();
     delete camManager[0];

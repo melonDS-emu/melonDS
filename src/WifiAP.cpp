@@ -369,13 +369,22 @@ int WifiAP::RecvPacket(u8* data)
     if (ClientStatus < 2) return 0;
 
     int rxlen = Platform::LAN_RecvPacket(LANBuffer, UserData);
-    if (rxlen > 0)
+    while (rxlen > 0)
     {
         // check destination MAC
         if (!MACIsBroadcast(&LANBuffer[0]))
         {
             if (!MACEqual(&LANBuffer[0], Client->GetMAC()))
-                return 0;
+            {
+                rxlen = Platform::LAN_RecvPacket(LANBuffer, UserData);
+                continue;
+            }
+        }
+
+        if (MACEqual(&LANBuffer[6], Client->GetMAC()))
+        {
+            rxlen = Platform::LAN_RecvPacket(LANBuffer, UserData);
+            continue;
         }
 
         // packet is good
