@@ -16,12 +16,12 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef LAN_PCAP_H
-#define LAN_PCAP_H
+#ifndef NET_PCAP_H
+#define NET_PCAP_H
 
 #include "types.h"
 
-namespace LAN_PCap
+namespace Net_PCap
 {
 
 using namespace melonDS;
@@ -46,8 +46,8 @@ bool Init(bool open_adapter);
 void DeInit();
 
 int SendPacket(u8* data, int len);
-int RecvPacket(u8* data);
+void RecvCheck();
 
 }
 
-#endif // LAN_PCAP_H
+#endif // NET_PCAP_H

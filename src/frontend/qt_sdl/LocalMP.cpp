@@ -50,16 +50,16 @@ struct MPPacketHeader
     u64 Timestamp;
 };
 
-QMutex MPQueueLock;
-MPStatusData MPStatus;
-u8* MPPacketQueue = nullptr;
-u8* MPReplyQueue = nullptr;
-u32 PacketReadOffset[16];
-u32 ReplyReadOffset[16];
-
 const u32 kPacketQueueSize = 0x10000;
 const u32 kReplyQueueSize = 0x10000;
 const u32 kMaxFrameSize = 0x948;
+
+QMutex MPQueueLock;
+MPStatusData MPStatus;
+u8 MPPacketQueue[kPacketQueueSize];
+u8 MPReplyQueue[kReplyQueueSize];
+u32 PacketReadOffset[16];
+u32 ReplyReadOffset[16];
 
 int RecvTimeout;
 
@@ -100,8 +100,6 @@ bool Init()
 {
     MPQueueLock.lock();
 
-    MPPacketQueue = new u8[kPacketQueueSize];
-    MPReplyQueue = new u8[kReplyQueueSize];
     memset(MPPacketQueue, 0, kPacketQueueSize);
     memset(MPReplyQueue, 0, kReplyQueueSize);
     memset(&MPStatus, 0, sizeof(MPStatus));
@@ -127,10 +125,6 @@ bool Init()
 
 void DeInit()
 {
-    delete MPPacketQueue;
-    delete MPReplyQueue;
-    MPPacketQueue = nullptr;
-    MPReplyQueue = nullptr;
 }
 
 void SetRecvTimeout(int timeout)

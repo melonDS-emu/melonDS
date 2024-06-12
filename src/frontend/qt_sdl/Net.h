@@ -16,21 +16,25 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef NET_SLIRP_H
-#define NET_SLIRP_H
+#ifndef NET_H
+#define NET_H
 
 #include "types.h"
+#include "Net_PCap.h"
+#include "Net_Slirp.h"
 
-namespace Net_Slirp
+namespace Net
 {
 using namespace melonDS;
 
 bool Init();
 void DeInit();
 
+void RXEnqueue(const void* buf, int len);
+
 int SendPacket(u8* data, int len);
-void RecvCheck();
+int RecvPacket(u8* data);
 
 }
 
-#endif // NET_SLIRP_H
+#endif // NET_H

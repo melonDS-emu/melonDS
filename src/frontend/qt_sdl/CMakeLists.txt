@@ -31,6 +31,8 @@ set(SOURCES_QT_SDL
     ROMInfoDialog.cpp
     RAMInfoDialog.cpp
     TitleManagerDialog.cpp
+    PacketDispatcher.cpp
+    Net.cpp
     Net_PCap.cpp
     Net_Slirp.cpp
     LocalMP.cpp

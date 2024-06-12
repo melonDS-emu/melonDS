@@ -16,21 +16,31 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef NET_SLIRP_H
-#define NET_SLIRP_H
+#ifndef PACKETDISPATCHER_H
+#define PACKETDISPATCHER_H
 
+#include <QMutex>
 #include "types.h"
+#include "FIFO.h"
 
-namespace Net_Slirp
+using PacketQueue = melonDS::RingBuffer<0x8000>;
+
+class PacketDispatcher
 {
-using namespace melonDS;
+public:
+    PacketDispatcher();
+    ~PacketDispatcher();
 
-bool Init();
-void DeInit();
+    void registerInstance(int inst);
+    void unregisterInstance(int inst);
 
-int SendPacket(u8* data, int len);
-void RecvCheck();
+    void sendPacket(const void* header, int headerlen, const void* data, int datalen, int sender, melonDS::u16 recv_mask);
+    bool recvPacket(void* header, int* headerlen, void* data, int* datalen, int receiver);
 
-}
+private:
+    QMutex mutex;
+    melonDS::u16 instanceMask;
+    PacketQueue* packetQueues[16];
+};
 
-#endif // NET_SLIRP_H
+#endif // PACKETDISPATCHER_H

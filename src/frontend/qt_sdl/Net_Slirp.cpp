@@ -16,13 +16,9 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-// indirect LAN interface, powered by BSD sockets.
-
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include "Wifi.h"
-#include "Net_Slirp.h"
+#include "Net.h"
 #include "FIFO.h"
 #include "Platform.h"
 
@@ -39,7 +35,7 @@
 
 using namespace melonDS;
 
-namespace LAN_Socket
+namespace Net_Slirp
 {
 
 using Platform::Log;
@@ -57,10 +53,6 @@ FIFO<u32, (0x8000 >> 2)> RXBuffer;
 u32 IPv4ID;
 
 Slirp* Ctx = nullptr;
-
-/*const int FDListMax = 64;
-struct pollfd FDList[FDListMax];
-int FDListSize;*/
 
 
 #ifdef __WIN32__
@@ -85,23 +77,6 @@ int clock_gettime(int, struct timespec *spec)
 #endif // __WIN32__
 
 
-void RXEnqueue(const void* buf, int len)
-{
-    int alignedlen = (len + 3) & ~3;
-    int totallen = alignedlen + 4;
-
-    if (!RXBuffer.CanFit(totallen >> 2))
-    {
-        Log(LogLevel::Warn, "slirp: !! NOT ENOUGH SPACE IN RX BUFFER\n");
-        return;
-    }
-
-    u32 header = (alignedlen & 0xFFFF) | (len << 16);
-    RXBuffer.Write(header);
-    for (int i = 0; i < alignedlen; i += 4)
-        RXBuffer.Write(((u32*)buf)[i>>2]);
-}
-
 ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
 {
     if (len > 2048)
@@ -112,7 +87,7 @@ ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
 
     Log(LogLevel::Debug, "slirp: response packet of %zu bytes, type %04X\n", len, ntohs(((u16*)buf)[6]));
 
-    RXEnqueue(buf, len);
+    Net::RXEnqueue(buf, len);
 
     return len;
 }
@@ -145,40 +120,11 @@ void SlirpCbTimerMod(void* timer, int64_t expire_time, void* opaque)
 void SlirpCbRegisterPollFD(int fd, void* opaque)
 {
     Log(LogLevel::Debug, "Slirp: register poll FD %d\n", fd);
-
-    /*if (FDListSize >= FDListMax)
-    {
-        printf("!! SLIRP FD LIST FULL\n");
-        return;
-    }
-
-    for (int i = 0; i < FDListSize; i++)
-    {
-        if (FDList[i].fd == fd) return;
-    }
-
-    FDList[FDListSize].fd = fd;
-    FDListSize++;*/
 }
 
 void SlirpCbUnregisterPollFD(int fd, void* opaque)
 {
     Log(LogLevel::Debug, "Slirp: unregister poll FD %d\n", fd);
-
-    /*if (FDListSize < 1)
-    {
-        printf("!! SLIRP FD LIST EMPTY\n");
-        return;
-    }
-
-    for (int i = 0; i < FDListSize; i++)
-    {
-        if (FDList[i].fd == fd)
-        {
-            FDListSize--;
-            FDList[i] = FDList[FDListSize];
-        }
-    }*/
 }
 
 void SlirpCbNotify(void* opaque)
@@ -202,9 +148,6 @@ SlirpCb cb =
 bool Init()
 {
     IPv4ID = 0;
-
-    //FDListSize = 0;
-    //memset(FDList, 0, sizeof(FDList));
 
     SlirpConfig cfg;
     memset(&cfg, 0, sizeof(cfg));
@@ -425,7 +368,7 @@ void HandleDNSFrame(u8* data, int len)
     if (framelen & 1) { *out++ = 0; framelen++; }
     FinishUDPFrame(resp, framelen);
 
-    RXEnqueue(resp, framelen);
+    Net::RXEnqueue(resp, framelen);
 }
 
 int SendPacket(u8* data, int len)
@@ -472,8 +415,6 @@ int SlirpCbAddPoll(int fd, int events, void* opaque)
 
     int idx = PollListSize++;
 
-    //printf("Slirp: add poll: fd=%d, idx=%d, events=%08X\n", fd, idx, events);
-
     u16 evt = 0;
 
     if (events & SLIRP_POLL_IN) evt |= POLLIN;
@@ -497,8 +438,6 @@ int SlirpCbGetREvents(int idx, void* opaque)
     if (idx < 0 || idx >= PollListSize)
         return 0;
 
-    //printf("Slirp: get revents, idx=%d, res=%04X\n", idx, FDList[idx].revents);
-
     u16 evt = PollList[idx].revents;
     int ret = 0;
 
@@ -511,11 +450,9 @@ int SlirpCbGetREvents(int idx, void* opaque)
     return ret;
 }
 
-int RecvPacket(u8* data)
+void RecvCheck()
 {
-    if (!Ctx) return 0;
-
-    int ret = 0;
+    if (!Ctx) return;
 
     //if (PollListSize > 0)
     {
@@ -525,19 +462,6 @@ int RecvPacket(u8* data)
         int res = poll(PollList, PollListSize, timeout);
         slirp_pollfds_poll(Ctx, res<0, SlirpCbGetREvents, nullptr);
     }
-
-    if (!RXBuffer.IsEmpty())
-    {
-        u32 header = RXBuffer.Read();
-        u32 len = header & 0xFFFF;
-
-        for (int i = 0; i < len; i += 4)
-            ((u32*)data)[i>>2] = RXBuffer.Read();
-
-        ret = header >> 16;
-    }
-
-    return ret;
 }
 
 }
