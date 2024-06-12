@@ -166,6 +166,7 @@ private:
     int TileSize;
     static constexpr int CoarseTileCountX = 8;
     int CoarseTileCountY;
+    int CoarseTileArea;
     int CoarseTileW;
     int CoarseTileH;
 

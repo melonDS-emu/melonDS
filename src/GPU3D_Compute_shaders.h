@@ -862,7 +862,7 @@ const std::string BinCombined =
     XSpanSetupBuffer +
     WorkDescBuffer + R"(
 
-layout (local_size_x = 32) in;
+layout (local_size_x = CoarseTileArea) in;
 
 bool BinPolygon(Polygon polygon, ivec2 topLeft, ivec2 botRight)
 {

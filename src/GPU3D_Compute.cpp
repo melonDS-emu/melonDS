@@ -57,6 +57,8 @@ bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, c
     shaderSource += std::to_string(TileSize);
     shaderSource += "\nconst int CoarseTileCountY = ";
     shaderSource += std::to_string(CoarseTileCountY) + ";";
+    shaderSource += "\n#define CoarseTileArea ";
+    shaderSource += std::to_string(CoarseTileArea);
 
     shaderSource += ComputeRendererShaders::Common;
     shaderSource += source;
@@ -330,6 +332,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     
     TileSize = std::min(8 * TileScale, 32);
     CoarseTileCountY = TileSize < 32 ? 4 : 6;
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
     CoarseTileW = CoarseTileCountX * TileSize;
     CoarseTileH = CoarseTileCountY * TileSize;
 
@@ -959,7 +962,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
 
         // bin polygons
         glUseProgram(ShaderBinCombined);
-        glDispatchCompute(((gpu.GPU3D.RenderNumPolygons + 31) / 32), ScreenWidth/CoarseTileW, ScreenHeight/CoarseTileH);
+        glDispatchCompute(((gpu.GPU3D.RenderNumPolygons + CoarseTileArea - 1) / CoarseTileArea), ScreenWidth/CoarseTileW, ScreenHeight/CoarseTileH);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         // calculate list offsets
