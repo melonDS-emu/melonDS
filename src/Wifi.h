@@ -241,9 +241,6 @@ private:
 
     u16 MPLastSeqno;
 
-    bool MPInited;
-    bool LANInited;
-
     int USUntilPowerOn;
 
     // MULTIPLAYER SYNC APPARATUS

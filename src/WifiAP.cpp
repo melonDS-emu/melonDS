@@ -301,7 +301,7 @@ int WifiAP::SendPacket(const u8* data, int len)
                 *(u16*)&LANBuffer[12] = *(u16*)&data[30]; // type
                 memcpy(&LANBuffer[14], &data[32], lan_len - 14);
 
-                Platform::LAN_SendPacket(LANBuffer, lan_len, UserData);
+                Platform::Net_SendPacket(LANBuffer, lan_len, UserData);
             }
         }
         return len;
@@ -368,7 +368,7 @@ int WifiAP::RecvPacket(u8* data)
 
     if (ClientStatus < 2) return 0;
 
-    int rxlen = Platform::LAN_RecvPacket(LANBuffer, UserData);
+    int rxlen = Platform::Net_RecvPacket(LANBuffer, UserData);
     while (rxlen > 0)
     {
         // check destination MAC
@@ -376,14 +376,14 @@ int WifiAP::RecvPacket(u8* data)
         {
             if (!MACEqual(&LANBuffer[0], Client->GetMAC()))
             {
-                rxlen = Platform::LAN_RecvPacket(LANBuffer, UserData);
+                rxlen = Platform::Net_RecvPacket(LANBuffer, UserData);
                 continue;
             }
         }
 
         if (MACEqual(&LANBuffer[6], Client->GetMAC()))
         {
-            rxlen = Platform::LAN_RecvPacket(LANBuffer, UserData);
+            rxlen = Platform::Net_RecvPacket(LANBuffer, UserData);
             continue;
         }
 

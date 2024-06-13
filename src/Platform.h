@@ -287,8 +287,6 @@ void WriteDateTime(int year, int month, int day, int hour, int minute, int secon
 
 // local multiplayer comm interface
 // packet type: DS-style TX header (12 bytes) + original 802.11 frame
-bool MP_Init(void* userdata);
-void MP_DeInit(void* userdata);
 void MP_Begin(void* userdata);
 void MP_End(void* userdata);
 int MP_SendPacket(u8* data, int len, u64 timestamp, void* userdata);
@@ -300,12 +298,10 @@ int MP_RecvHostPacket(u8* data, u64* timestamp, void* userdata);
 u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, void* userdata);
 
 
-// LAN comm interface
+// network comm interface
 // packet type: Ethernet (802.3)
-bool LAN_Init(void* userdata);
-void LAN_DeInit(void* userdata);
-int LAN_SendPacket(u8* data, int len, void* userdata);
-int LAN_RecvPacket(u8* data, void* userdata);
+int Net_SendPacket(u8* data, int len, void* userdata);
+int Net_RecvPacket(u8* data, void* userdata);
 
 
 // interface for camera emulation

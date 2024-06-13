@@ -1334,7 +1334,7 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
     }
     printf("\n");*/
 
-    Platform::LAN_SendPacket(LANBuffer, lan_len, DSi.UserData);
+    Platform::Net_SendPacket(LANBuffer, lan_len, DSi.UserData);
 }
 
 void DSi_NWifi::SendWMIEvent(u8 ep, u16 id, u8* data, u32 len)
@@ -1442,7 +1442,7 @@ void DSi_NWifi::CheckRX()
     if (!Mailbox[8].CanFit(2048))
         return;
 
-    int rxlen = Platform::LAN_RecvPacket(LANBuffer, DSi.UserData);
+    int rxlen = Platform::Net_RecvPacket(LANBuffer, DSi.UserData);
     while (rxlen > 0)
     {
         //printf("WMI packet recv %04X %04X %04X\n", *(u16*)&LANBuffer[0], *(u16*)&LANBuffer[2], *(u16*)&LANBuffer[4]);
@@ -1451,7 +1451,7 @@ void DSi_NWifi::CheckRX()
         {
             if (memcmp(&LANBuffer[0], &EEPROM[0x00A], 6))
             {
-                rxlen = Platform::LAN_RecvPacket(LANBuffer, DSi.UserData);
+                rxlen = Platform::Net_RecvPacket(LANBuffer, DSi.UserData);
                 continue;
             }
         }
@@ -1459,7 +1459,7 @@ void DSi_NWifi::CheckRX()
         // check source MAC, in case we get a packet we just sent out
         if (!memcmp(&LANBuffer[6], &EEPROM[0x00A], 6))
         {
-            rxlen = Platform::LAN_RecvPacket(LANBuffer, DSi.UserData);
+            rxlen = Platform::Net_RecvPacket(LANBuffer, DSi.UserData);
             continue;
         }
 

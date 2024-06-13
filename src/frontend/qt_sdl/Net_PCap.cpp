@@ -362,7 +362,7 @@ int SendPacket(u8* data, int len)
 
     if (len > 2048)
     {
-        Log(LogLevel::Error, "LAN_SendPacket: error: packet too long (%d)\n", len);
+        Log(LogLevel::Error, "Net_SendPacket: error: packet too long (%d)\n", len);
         return 0;
     }
 

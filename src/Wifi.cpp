@@ -93,25 +93,11 @@ Wifi::Wifi(melonDS::NDS& nds) : NDS(nds)
 {
     NDS.RegisterEventFunc(Event_Wifi, 0, MemberEventFunc(Wifi, USTimer));
 
-    //MPInited = false;
-    //LANInited = false;
-
-    Platform::MP_Init(NDS.UserData);
-    MPInited = true;
-
-    Platform::LAN_Init(NDS.UserData);
-    LANInited = true;
-
     WifiAP = new class WifiAP(this, NDS.UserData);
 }
 
 Wifi::~Wifi()
 {
-    if (MPInited)
-        Platform::MP_DeInit(NDS.UserData);
-    if (LANInited)
-        Platform::LAN_DeInit(NDS.UserData);
-
     delete WifiAP; WifiAP = nullptr;
 
     NDS.UnregisterEventFunc(Event_Wifi, 0);

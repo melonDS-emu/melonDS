@@ -444,14 +444,6 @@ void WriteDateTime(int year, int month, int day, int hour, int minute, int secon
     Config::Save();
 }
 
-bool MP_Init(void* userdata)
-{
-    return true;
-}
-
-void MP_DeInit(void* userdata)
-{
-}
 
 void MP_Begin(void* userdata)
 {
@@ -507,50 +499,16 @@ u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, void* userdata)
     return LocalMP::RecvReplies(inst, data, timestamp, aidmask);
 }
 
-bool LAN_Init(void* userdata)
-{
-    /*if (testinst->getGlobalConfig().GetBool("LAN.DirectMode"))
-    {
-        if (!LAN_PCap::Init(true))
-            return false;
-    }
-    else
-    {
-        if (!LAN_Socket::Init())
-            return false;
-    }*/
 
-    return true;
-}
-
-void LAN_DeInit(void* userdata)
+int Net_SendPacket(u8* data, int len, void* userdata)
 {
-    // checkme. blarg
-    //if (Config::DirectLAN)
-    //    LAN_PCap::DeInit();
-    //else
-    //    LAN_Socket::DeInit();
-    /*LAN_PCap::DeInit();
-    LAN_Socket::DeInit();*/
-}
-
-int LAN_SendPacket(u8* data, int len, void* userdata)
-{
-    /*if (testinst->getGlobalConfig().GetBool("LAN.DirectMode"))
-        return LAN_PCap::SendPacket(data, len);
-    else
-        return LAN_Socket::SendPacket(data, len);*/
     int inst = ((EmuInstance*)userdata)->getInstanceID();
     Net::SendPacket(data, len, inst);
     return 0;
 }
 
-int LAN_RecvPacket(u8* data, void* userdata)
+int Net_RecvPacket(u8* data, void* userdata)
 {
-    /*if (testinst->getGlobalConfig().GetBool("LAN.DirectMode"))
-        return LAN_PCap::RecvPacket(data);
-    else
-        return LAN_Socket::RecvPacket(data);*/
     int inst = ((EmuInstance*)userdata)->getInstanceID();
     return Net::RecvPacket(data, inst);
 }
