@@ -846,7 +846,7 @@ void main()
 
 const std::string ClearCoarseBinMask =
     BinningBuffer + R"(
-layout (local_size_x = 32) in;
+layout (local_size_x = ClearCoarseBinMaskLocalSize) in;
 
 void main()
 {

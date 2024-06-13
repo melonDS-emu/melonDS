@@ -169,6 +169,7 @@ private:
     int CoarseTileArea;
     int CoarseTileW;
     int CoarseTileH;
+    int ClearCoarseBinMaskLocalSize;
 
     static constexpr int BinStride = 2048/32;
     static constexpr int CoarseBinStride = BinStride/32;

@@ -59,6 +59,8 @@ bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, c
     shaderSource += std::to_string(CoarseTileCountY) + ";";
     shaderSource += "\n#define CoarseTileArea ";
     shaderSource += std::to_string(CoarseTileArea);
+    shaderSource += "\n#define ClearCoarseBinMaskLocalSize ";
+    shaderSource += std::to_string(ClearCoarseBinMaskLocalSize);
 
     shaderSource += ComputeRendererShaders::Common;
     shaderSource += source;
@@ -332,6 +334,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     
     TileSize = std::min(8 * TileScale, 32);
     CoarseTileCountY = TileSize < 32 ? 4 : 6;
+    ClearCoarseBinMaskLocalSize = TileSize < 32 ? 64 : 48;
     CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
     CoarseTileW = CoarseTileCountX * TileSize;
     CoarseTileH = CoarseTileCountY * TileSize;
@@ -944,7 +947,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, MetaUniformMemory);
 
     glUseProgram(ShaderClearCoarseBinMask);
-    glDispatchCompute(TilesPerLine*TileLines/32, 1, 1);
+    glDispatchCompute(TilesPerLine*TileLines/ClearCoarseBinMaskLocalSize, 1, 1);
 
     bool wbuffer = false;
     if (numYSpans > 0)
