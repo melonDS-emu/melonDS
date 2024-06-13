@@ -49,7 +49,7 @@ bool Init()
 
     bool ret = false;
     if (DirectMode)
-        ret = Net_PCap::Init(true);
+        ret = Net_PCap::Init();
     else
         ret = Net_Slirp::Init();
 

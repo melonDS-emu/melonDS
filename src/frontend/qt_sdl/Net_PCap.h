@@ -33,8 +33,6 @@ struct AdapterData
 
     u8 MAC[6];
     u8 IP_v4[4];
-
-    void* Internal;
 };
 
 
@@ -42,7 +40,8 @@ extern AdapterData* Adapters;
 extern int NumAdapters;
 
 
-bool Init(bool open_adapter);
+bool InitAdapterList();
+bool Init();
 void DeInit();
 
 int SendPacket(u8* data, int len);

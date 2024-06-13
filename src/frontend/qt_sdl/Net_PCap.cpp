@@ -88,10 +88,6 @@ Platform::DynamicLibrary* PCapLib = nullptr;
 pcap_t* PCapAdapter = nullptr;
 AdapterData* PCapAdapterData;
 
-u8 PacketBuffer[2048];
-int PacketLen;
-volatile int RXNum;
-
 
 #define LOAD_PCAP_FUNC(sym) \
     ptr_##sym = (type_##sym)DynamicLibrary_LoadFunction(lib, #sym); \
@@ -111,18 +107,15 @@ bool TryLoadPCap(Platform::DynamicLibrary *lib)
     return true;
 }
 
-bool Init(bool open_adapter)
+bool InitAdapterList()
 {
-    PCapAdapter = nullptr;
-    PacketLen = 0;
-    RXNum = 0;
-
     NumAdapters = 0;
 
     // TODO: how to deal with cases where an adapter is unplugged or changes config??
     if (!PCapLib)
     {
         PCapLib = nullptr;
+        PCapAdapter = nullptr;
 
         for (int i = 0; PCapLibNames[i]; i++)
         {
@@ -168,18 +161,10 @@ bool Init(bool open_adapter)
     dev = alldevs;
     while (dev)
     {
-        adata->Internal = dev;
-
-#ifdef __WIN32__
-        // hax
-        int len = strlen(dev->name);
-        len -= 12; if (len > 127) len = 127;
-        strncpy(adata->DeviceName, &dev->name[12], len);
-        adata->DeviceName[len] = '\0';
-#else
         strncpy(adata->DeviceName, dev->name, 127);
         adata->DeviceName[127] = '\0';
 
+#ifndef __WIN32__
         strncpy(adata->FriendlyName, adata->DeviceName, 127);
         adata->FriendlyName[127] = '\0';
 #endif // __WIN32__
@@ -211,7 +196,7 @@ bool Init(bool open_adapter)
         IP_ADAPTER_ADDRESSES* addr = buf;
         while (addr)
         {
-            if (strcmp(addr->AdapterName, adata->DeviceName))
+            if (strcmp(addr->AdapterName, &adata->DeviceName[12]))
             {
                 addr = addr->Next;
                 continue;
@@ -283,7 +268,7 @@ bool Init(bool open_adapter)
                 struct sockaddr_in* sa = (sockaddr_in*)curaddr->ifa_addr;
                 memcpy(adata->IP_v4, &sa->sin_addr, 4);
             }
-            #ifdef __linux__
+#ifdef __linux__
             else if (af == AF_PACKET)
             {
                 struct sockaddr_ll* sa = (sockaddr_ll*)curaddr->ifa_addr;
@@ -292,7 +277,7 @@ bool Init(bool open_adapter)
                 else
                     memcpy(adata->MAC, sa->sll_addr, 6);
             }
-            #else
+#else
             else if (af == AF_LINK)
             {
                 struct sockaddr_dl* sa = (sockaddr_dl*)curaddr->ifa_addr;
@@ -301,7 +286,7 @@ bool Init(bool open_adapter)
                 else
                     memcpy(adata->MAC, LLADDR(sa), 6);
             }
-            #endif
+#endif
             curaddr = curaddr->ifa_next;
         }
     }
@@ -310,8 +295,16 @@ bool Init(bool open_adapter)
 
 #endif // __WIN32__
 
-    if (!open_adapter) return true;
+    pcap_freealldevs(alldevs);
+    return true;
+}
+
+bool Init()
+{
+    if (!PCapLib) PCapAdapter = nullptr;
     if (PCapAdapter) pcap_close(PCapAdapter);
+
+    InitAdapterList();
 
     // open pcap device
     Config::Table cfg = Config::GetGlobalTable();
@@ -323,15 +316,13 @@ bool Init(bool open_adapter)
             PCapAdapterData = &Adapters[i];
     }
 
-    dev = (pcap_if_t*)PCapAdapterData->Internal;
-    PCapAdapter = pcap_open_live(dev->name, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
+    char errbuf[PCAP_ERRBUF_SIZE];
+    PCapAdapter = pcap_open_live(PCapAdapterData->DeviceName, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
     if (!PCapAdapter)
     {
         Log(LogLevel::Error, "PCap: failed to open adapter %s\n", errbuf);
         return false;
     }
-
-    pcap_freealldevs(alldevs);
 
     if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
     {

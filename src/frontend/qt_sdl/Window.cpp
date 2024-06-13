@@ -1853,9 +1853,6 @@ void MainWindow::onOpenWifiSettings()
 
 void MainWindow::onWifiSettingsFinished(int res)
 {
-    //Platform::LAN_DeInit();
-    //Platform::LAN_Init();
-
     if (WifiSettingsDialog::needsReset)
         onReset();
 

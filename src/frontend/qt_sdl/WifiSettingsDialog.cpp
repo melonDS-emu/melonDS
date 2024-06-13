@@ -24,9 +24,7 @@
 #include "Config.h"
 #include "main.h"
 
-#include "Net_Slirp.h"
-#include "Net_PCap.h"
-#include "Wifi.h"
+#include "Net.h"
 
 #include "WifiSettingsDialog.h"
 #include "ui_WifiSettingsDialog.h"
@@ -52,7 +50,8 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     emuInstance = ((MainWindow*)parent)->getEmuInstance();
     auto& cfg = emuInstance->getGlobalConfig();
 
-    haspcap = Net_PCap::Init(false);
+    Net::DeInit();
+    haspcap = Net_PCap::InitAdapterList();
 
     ui->rbDirectMode->setText("Direct mode (requires " PCAP_NAME " and ethernet connection)");
 
@@ -108,6 +107,9 @@ void WifiSettingsDialog::done(int r)
 
         Config::Save();
     }
+
+    Net_PCap::DeInit();
+    Net::Init();
 
     QDialog::done(r);
 
