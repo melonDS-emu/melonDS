@@ -21,6 +21,8 @@
 
 #include <QThread>
 #include <QMutex>
+#include <QSemaphore>
+#include <QQueue>
 
 #include <atomic>
 #include <variant>
@@ -53,13 +55,36 @@ public:
     void attachWindow(MainWindow* window);
     void detachWindow(MainWindow* window);
 
+    enum MessageType
+    {
+        msg_EmuStop,
+    };
+
+    struct Message
+    {
+        MessageType type;
+        union
+        {
+            bool stopExternal;
+        };
+    };
+
+    void sendMessage(Message msg);
+    void waitMessage();
+    void waitAllMessages();
+
+    void sendMessage(MessageType type)
+    {
+        return sendMessage({.type = type});
+    }
+
     void changeWindowTitle(char* title);
 
     // to be called from the UI thread
     void emuRun();
     void emuPause();
     void emuUnpause();
-    void emuStop();
+    void emuStop(bool external);
     void emuExit();
     void emuFrameStep();
 
@@ -95,6 +120,8 @@ signals:
     void syncVolumeLevel();
 
 private:
+    void handleMessages();
+
     void updateRenderer();
     void compileShaders();
 
@@ -114,6 +141,10 @@ private:
     constexpr static int EmuPauseStackRunning = 0;
     constexpr static int EmuPauseStackPauseThreshold = 1;
     int EmuPauseStack;
+
+    QMutex msgMutex;
+    QSemaphore msgSemaphore;
+    QQueue<Message> msgQueue;
 
     enum ContextRequestKind
     {

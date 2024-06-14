@@ -180,12 +180,12 @@ bool EmuInstance::emuIsActive()
 
 void EmuInstance::emuStop(StopReason reason)
 {
-    emuThread->emuStop();
+    if (reason != StopReason::External)
+        emuThread->emuStop(false);
 
     switch (reason)
     {
         case StopReason::GBAModeNotSupported:
-            Log(LogLevel::Error, "!! GBA MODE NOT SUPPORTED\n");
             osdAddMessage(0xFFA0A0, "GBA mode not supported");
             break;
         case StopReason::BadExceptionRegion:

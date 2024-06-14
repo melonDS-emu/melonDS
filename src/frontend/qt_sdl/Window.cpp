@@ -1621,8 +1621,8 @@ void MainWindow::onStop()
 {
     if (!emuThread->emuIsActive()) return;
 
-    emuThread->emuPause();
-    emuInstance->nds->Stop();
+    emuThread->emuStop(true);
+    emuThread->waitMessage();
 }
 
 void MainWindow::onFrameStep()
@@ -2068,8 +2068,6 @@ void MainWindow::onEmuStart()
 
 void MainWindow::onEmuStop()
 {
-    emuThread->emuStop();
-
     for (int i = 0; i < 9; i++)
     {
         actSaveState[i]->setEnabled(false);

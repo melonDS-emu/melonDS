@@ -460,6 +460,8 @@ void EmuThread::run()
                 ContextRequest = contextRequest_None;
             }
         }
+
+        handleMessages();
     }
 
     file = Platform::OpenLocalFile("rtc.bin", Platform::FileMode::Write);
@@ -474,6 +476,45 @@ void EmuThread::run()
     EmuStatus = emuStatus_Exit;
 
     NDS::Current = nullptr;
+}
+
+void EmuThread::sendMessage(Message msg)
+{
+    msgMutex.lock();
+    msgQueue.enqueue(msg);
+    msgMutex.unlock();
+}
+
+void EmuThread::waitMessage()
+{
+    msgSemaphore.acquire();
+}
+
+void EmuThread::waitAllMessages()
+{
+    msgSemaphore.acquire(msgSemaphore.available());
+}
+
+void EmuThread::handleMessages()
+{
+    msgMutex.lock();
+    while (!msgQueue.empty())
+    {
+        Message msg = msgQueue.dequeue();
+        switch (msg.type)
+        {
+        case msg_EmuStop:
+            if (msg.stopExternal) emuInstance->nds->Stop();
+            EmuRunning = emuStatus_Paused;
+            emuActive = false;
+            emuInstance->audioDisable();
+            emit windowEmuStop();
+            break;
+        }
+
+        msgSemaphore.release();
+    }
+    msgMutex.unlock();
 }
 
 void EmuThread::changeWindowTitle(char* title)
@@ -528,10 +569,9 @@ void EmuThread::emuUnpause()
     emuInstance->audioEnable();
 }
 
-void EmuThread::emuStop()
+void EmuThread::emuStop(bool external)
 {
-    emuPause();
-    emuActive = false;
+    sendMessage({.type = msg_EmuStop, .stopExternal = external});
 }
 
 void EmuThread::emuExit()
