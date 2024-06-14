@@ -81,6 +81,9 @@ public:
     EmuThread* getEmuThread() { return emuThread; }
     melonDS::NDS* getNDS() { return nds; }
 
+    MainWindow* getMainWindow() { return mainWindow; }
+    MainWindow* getWindow(int id) { return windowList[id]; }
+
     Config::Table& getGlobalConfig() { return globalCfg; }
     Config::Table& getLocalConfig() { return localCfg; }
 

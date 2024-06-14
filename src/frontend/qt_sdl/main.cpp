@@ -180,16 +180,21 @@ MelonApplication::MelonApplication(int& argc, char** argv)
 #endif
 }
 
+// TODO: ROM loading should be moved to EmuInstance
+// especially so the preloading below and in main() can be done in a nicer fashion
+
 bool MelonApplication::event(QEvent *event)
 {
     if (event->type() == QEvent::FileOpen)
     {
+        EmuInstance* inst = emuInstances[0];
+        MainWindow* win = inst->getMainWindow();
         QFileOpenEvent *openEvent = static_cast<QFileOpenEvent*>(event);
 
-        /*emuThread->emuPause();
-        const QStringList file = mainWindow->splitArchivePath(openEvent->file(), true);
-        if (!mainWindow->preloadROMs(file, {}, true))
-            emuThread->emuUnpause();*/
+        inst->getEmuThread()->emuPause();
+        const QStringList file = win->splitArchivePath(openEvent->file(), true);
+        if (!win->preloadROMs(file, {}, true))
+            inst->getEmuThread()->emuUnpause();
     }
 
     return QApplication::event(event);
@@ -271,54 +276,37 @@ int main(int argc, char** argv)
     LocalMP::Init();
     Net::Init();
 
-   /* mainWindow = new MainWindow();
-    if (options->fullscreen)
-        ToggleFullscreen(mainWindow);
-
-    MainWindow* poop = new MainWindow(mainWindow);
-
-    emuThread = new EmuThread();
-    emuThread->attachWindow(mainWindow);
-    emuThread->attachWindow(poop);
-    emuThread->start();
-    emuThread->emuPause();*/
-
     createEmuInstance();
 
-    /*AudioInOut::Init(emuThread);
-    ROMManager::EnableCheats(*emuThread->NDS, Config::EnableCheats != 0);
-    AudioInOut::AudioMute(mainWindow);
-
-    QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
-
-    bool memberSyntaxUsed = false;
-    const auto prepareRomPath = [&](const std::optional<QString>& romPath, const std::optional<QString>& romArchivePath) -> QStringList
     {
-        if (!romPath.has_value())
-            return {};
+        MainWindow* win = emuInstances[0]->getMainWindow();
+        bool memberSyntaxUsed = false;
+        const auto prepareRomPath = [&](const std::optional<QString> &romPath,
+                                        const std::optional<QString> &romArchivePath) -> QStringList
+        {
+            if (!romPath.has_value())
+                return {};
 
-        if (romArchivePath.has_value())
-            return { *romPath, *romArchivePath };
+            if (romArchivePath.has_value())
+                return {*romPath, *romArchivePath};
 
-        const QStringList path = mainWindow->splitArchivePath(*romPath, true);
-        if (path.size() > 1) memberSyntaxUsed = true;
-        return path;
-    };
+            const QStringList path = win->splitArchivePath(*romPath, true);
+            if (path.size() > 1) memberSyntaxUsed = true;
+            return path;
+        };
 
-    const QStringList dsfile = prepareRomPath(options->dsRomPath, options->dsRomArchivePath);
-    const QStringList gbafile = prepareRomPath(options->gbaRomPath, options->gbaRomArchivePath);
+        const QStringList dsfile = prepareRomPath(options->dsRomPath, options->dsRomArchivePath);
+        const QStringList gbafile = prepareRomPath(options->gbaRomPath, options->gbaRomArchivePath);
 
-    if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
+        if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
 
-    mainWindow->preloadROMs(dsfile, gbafile, options->boot);*/
+        win->preloadROMs(dsfile, gbafile, options->boot);
+    }
 
     int ret = melon.exec();
 
     delete options;
 
-    /*emuThread->emuStop();
-    emuThread->wait();
-    delete emuThread;*/
     // if we get here, all the existing emu instances should have been deleted already
     // but with this we make extra sure they are all deleted
     deleteAllEmuInstances();
@@ -326,7 +314,6 @@ int main(int argc, char** argv)
     LocalMP::DeInit();
     Net::DeInit();
 
-    //AudioInOut::DeInit();
     delete camManager[0];
     delete camManager[1];
 
