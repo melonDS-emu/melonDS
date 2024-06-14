@@ -64,6 +64,7 @@ public:
         msg_EmuUnpause,
         msg_EmuStop,
         msg_EmuFrameStep,
+        msg_EmuReset,
 
         msg_InitGL,
         msg_DeInitGL,
@@ -97,6 +98,7 @@ public:
     void emuStop(bool external);
     void emuExit();
     void emuFrameStep();
+    void emuReset();
 
     bool emuIsRunning();
     bool emuIsActive();
@@ -116,7 +118,6 @@ signals:
     void windowEmuStop();
     void windowEmuPause(bool pause);
     void windowEmuReset();
-    void windowEmuFrameStep();
 
     void windowLimitFPSChange();
 

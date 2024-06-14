@@ -1605,14 +1605,7 @@ void MainWindow::onReset()
 {
     if (!emuThread->emuIsActive()) return;
 
-    emuThread->emuPause();
-
-    actUndoStateLoad->setEnabled(false);
-
-    emuInstance->reset();
-
-    emuInstance->osdAddMessage(0, "Reset");
-    emuThread->emuRun();
+    emuThread->emuReset();
 }
 
 void MainWindow::onStop()
@@ -2086,6 +2079,11 @@ void MainWindow::onEmuStop()
 void MainWindow::onEmuPause(bool pause)
 {
     actPause->setChecked(pause);
+}
+
+void MainWindow::onEmuReset()
+{
+    actUndoStateLoad->setEnabled(false);
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)

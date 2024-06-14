@@ -75,8 +75,7 @@ void EmuThread::attachWindow(MainWindow* window)
     connect(this, SIGNAL(windowEmuStart()), window, SLOT(onEmuStart()));
     connect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));
     connect(this, SIGNAL(windowEmuPause(bool)), window, SLOT(onEmuPause(bool)));
-    connect(this, SIGNAL(windowEmuReset()), window->actReset, SLOT(trigger()));
-    connect(this, SIGNAL(windowEmuFrameStep()), window->actFrameStep, SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuReset()), window, SLOT(onEmuReset()));
     connect(this, SIGNAL(windowLimitFPSChange()), window->actLimitFramerate, SLOT(trigger()));
     connect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     connect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
@@ -91,8 +90,7 @@ void EmuThread::detachWindow(MainWindow* window)
     disconnect(this, SIGNAL(windowEmuStart()), window, SLOT(onEmuStart()));
     disconnect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));
     disconnect(this, SIGNAL(windowEmuPause(bool)), window, SLOT(onEmuPause(bool)));
-    disconnect(this, SIGNAL(windowEmuReset()), window->actReset, SLOT(trigger()));
-    disconnect(this, SIGNAL(windowEmuFrameStep()), window->actFrameStep, SLOT(trigger()));
+    disconnect(this, SIGNAL(windowEmuReset()), window, SLOT(onEmuReset()));
     disconnect(this, SIGNAL(windowLimitFPSChange()), window->actLimitFramerate, SLOT(trigger()));
     disconnect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     disconnect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
@@ -158,8 +156,8 @@ void EmuThread::run()
         if (emuInstance->hotkeyPressed(HK_FastForwardToggle)) emit windowLimitFPSChange();
 
         if (emuInstance->hotkeyPressed(HK_Pause)) emuTogglePause();
-        if (emuInstance->hotkeyPressed(HK_Reset)) emit windowEmuReset();
-        if (emuInstance->hotkeyPressed(HK_FrameStep)) emit windowEmuFrameStep();
+        if (emuInstance->hotkeyPressed(HK_Reset)) emuReset();
+        if (emuInstance->hotkeyPressed(HK_FrameStep)) emuFrameStep();
 
         if (emuInstance->hotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
@@ -541,6 +539,18 @@ void EmuThread::handleMessages()
             emuStatus = emuStatus_FrameStep;
             break;
 
+        case msg_EmuReset:
+            emuInstance->reset();
+
+            emuStatus = emuStatus_Running;
+            emuPauseStack = emuPauseStackRunning;
+            emuActive = true;
+
+            emuInstance->audioEnable();
+            emit windowEmuReset();
+            emuInstance->osdAddMessage(0, "Reset");
+            break;
+
         case msg_InitGL:
             emuInstance->initOpenGL();
             useOpenGL = true;
@@ -618,6 +628,12 @@ void EmuThread::emuFrameStep()
         sendMessage(msg_EmuPause);
     sendMessage(msg_EmuFrameStep);
     waitAllMessages();
+}
+
+void EmuThread::emuReset()
+{
+    sendMessage(msg_EmuReset);
+    waitMessage();
 }
 
 bool EmuThread::emuIsRunning()
