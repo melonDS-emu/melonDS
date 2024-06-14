@@ -233,6 +233,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(IndexBuffer), nullptr, GL_DYNAMIC_DRAW);
 
     glGenFramebuffers(1, &result->MainFramebuffer);
+    glGenFramebuffers(1, &result->DownscaleFramebuffer);
 
     // color buffers
     glGenTextures(1, &result->ColorBufferTex);
