@@ -443,22 +443,6 @@ void EmuThread::run()
             {
                 emuInstance->drawScreenGL();
             }
-
-            ContextRequestKind contextRequest = ContextRequest;
-            if (contextRequest == contextRequest_InitGL)
-            {
-                emuInstance->initOpenGL();
-
-                useOpenGL = true;
-                ContextRequest = contextRequest_None;
-            }
-            else if (contextRequest == contextRequest_DeInitGL)
-            {
-                emuInstance->deinitOpenGL();
-
-                useOpenGL = false;
-                ContextRequest = contextRequest_None;
-            }
         }
 
         handleMessages();
@@ -510,6 +494,16 @@ void EmuThread::handleMessages()
             emuInstance->audioDisable();
             emit windowEmuStop();
             break;
+
+        case msg_InitGL:
+            emuInstance->initOpenGL();
+            useOpenGL = true;
+            break;
+
+        case msg_DeInitGL:
+            emuInstance->deinitOpenGL();
+            useOpenGL = false;
+            break;
         }
 
         msgSemaphore.release();
@@ -535,14 +529,14 @@ void EmuThread::emuRun()
 
 void EmuThread::initContext()
 {
-    ContextRequest = contextRequest_InitGL;
-    while (ContextRequest != contextRequest_None);
+    sendMessage(msg_InitGL);
+    waitMessage();
 }
 
 void EmuThread::deinitContext()
 {
-    ContextRequest = contextRequest_DeInitGL;
-    while (ContextRequest != contextRequest_None);
+    sendMessage(msg_DeInitGL);
+    waitMessage();
 }
 
 void EmuThread::emuPause()

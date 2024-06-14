@@ -58,6 +58,9 @@ public:
     enum MessageType
     {
         msg_EmuStop,
+
+        msg_InitGL,
+        msg_DeInitGL,
     };
 
     struct Message
@@ -145,14 +148,6 @@ private:
     QMutex msgMutex;
     QSemaphore msgSemaphore;
     QQueue<Message> msgQueue;
-
-    enum ContextRequestKind
-    {
-        contextRequest_None = 0,
-        contextRequest_InitGL,
-        contextRequest_DeInitGL
-    };
-    std::atomic<ContextRequestKind> ContextRequest = contextRequest_None;
 
     EmuInstance* emuInstance;
 
