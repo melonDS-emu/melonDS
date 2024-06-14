@@ -63,9 +63,8 @@ EmuThread::EmuThread(EmuInstance* inst, QObject* parent) : QThread(parent)
 {
     emuInstance = inst;
 
-    EmuStatus = emuStatus_Exit;
-    EmuRunning = emuStatus_Paused;
-    EmuPauseStack = EmuPauseStackRunning;
+    emuStatus = emuStatus_Paused;
+    emuPauseStack = emuPauseStackRunning;
     emuActive = false;
 }
 
@@ -152,7 +151,7 @@ void EmuThread::run()
 
     char melontitle[100];
 
-    while (EmuRunning != emuStatus_Exit)
+    while (emuStatus != emuStatus_Exit)
     {
         emuInstance->inputProcess();
 
@@ -167,10 +166,9 @@ void EmuThread::run()
         if (emuInstance->hotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
         if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
 
-        if (EmuRunning == emuStatus_Running || EmuRunning == emuStatus_FrameStep)
+        if (emuStatus == emuStatus_Running || emuStatus == emuStatus_FrameStep)
         {
-            EmuStatus = emuStatus_Running;
-            if (EmuRunning == emuStatus_FrameStep) EmuRunning = emuStatus_Paused;
+            if (emuStatus == emuStatus_FrameStep) emuStatus = emuStatus_Paused;
 
             if (emuInstance->hotkeyPressed(HK_SolarSensorDecrease))
             {
@@ -329,8 +327,6 @@ void EmuThread::run()
             MelonCap::Update();
 #endif // MELONCAP
 
-            if (EmuRunning == emuStatus_Exit) break;
-
             winUpdateCount++;
             if (winUpdateCount >= winUpdateFreq && !useOpenGL)
             {
@@ -428,8 +424,6 @@ void EmuThread::run()
 
             emit windowUpdate();
 
-            EmuStatus = EmuRunning;
-
             int inst = emuInstance->instanceID;
             if (inst == 0)
                 sprintf(melontitle, "melonDS " MELONDS_VERSION);
@@ -456,8 +450,6 @@ void EmuThread::run()
         Platform::FileWrite(&state, sizeof(state), 1, file);
         Platform::CloseFile(file);
     }
-
-    EmuStatus = emuStatus_Exit;
 
     NDS::Current = nullptr;
 }
@@ -489,9 +481,16 @@ void EmuThread::handleMessages()
         Message msg = msgQueue.dequeue();
         switch (msg.type)
         {
+        case msg_Exit:
+            emuStatus = emuStatus_Exit;
+            emuPauseStack = emuPauseStackRunning;
+
+            emuInstance->audioDisable();
+            break;
+
         case msg_EmuRun:
-            EmuRunning = emuStatus_Running;
-            EmuPauseStack = EmuPauseStackRunning;
+            emuStatus = emuStatus_Running;
+            emuPauseStack = emuPauseStackRunning;
             emuActive = true;
 
             emuInstance->audioEnable();
@@ -499,13 +498,13 @@ void EmuThread::handleMessages()
             break;
 
         case msg_EmuPause:
-            EmuPauseStack++;
-            if (EmuPauseStack > EmuPauseStackPauseThreshold) break;
+            emuPauseStack++;
+            if (emuPauseStack > emuPauseStackPauseThreshold) break;
 
-            PrevEmuStatus = EmuRunning;
-            EmuRunning = emuStatus_Paused;
+            prevEmuStatus = emuStatus;
+            emuStatus = emuStatus_Paused;
 
-            if (PrevEmuStatus != emuStatus_Paused)
+            if (prevEmuStatus != emuStatus_Paused)
             {
                 emuInstance->audioDisable();
                 emit windowEmuPause(true);
@@ -514,14 +513,14 @@ void EmuThread::handleMessages()
             break;
 
         case msg_EmuUnpause:
-            if (EmuPauseStack < EmuPauseStackPauseThreshold) break;
+            if (emuPauseStack < emuPauseStackPauseThreshold) break;
 
-            EmuPauseStack--;
-            if (EmuPauseStack >= EmuPauseStackPauseThreshold) break;
+            emuPauseStack--;
+            if (emuPauseStack >= emuPauseStackPauseThreshold) break;
 
-            EmuRunning = PrevEmuStatus;
+            emuStatus = prevEmuStatus;
 
-            if (EmuRunning != emuStatus_Paused)
+            if (emuStatus != emuStatus_Paused)
             {
                 emuInstance->audioEnable();
                 emit windowEmuPause(false);
@@ -531,7 +530,7 @@ void EmuThread::handleMessages()
 
         case msg_EmuStop:
             if (msg.stopExternal) emuInstance->nds->Stop();
-            EmuRunning = emuStatus_Paused;
+            emuStatus = emuStatus_Paused;
             emuActive = false;
 
             emuInstance->audioDisable();
@@ -591,7 +590,7 @@ void EmuThread::emuUnpause()
 
 void EmuThread::emuTogglePause()
 {
-    if (EmuRunning == emuStatus_Paused)
+    if (emuStatus == emuStatus_Paused)
         emuUnpause();
     else
         emuPause();
@@ -605,21 +604,19 @@ void EmuThread::emuStop(bool external)
 
 void EmuThread::emuExit()
 {
-    EmuRunning = emuStatus_Exit;
-    EmuPauseStack = EmuPauseStackRunning;
-
-    emuInstance->audioDisable();
+    sendMessage(msg_Exit);
+    waitAllMessages();
 }
 
 void EmuThread::emuFrameStep()
 {
-    //if (EmuPauseStack < EmuPauseStackPauseThreshold) emit windowEmuPause();
-    EmuRunning = emuStatus_FrameStep;
+    //if (emuPauseStack < emuPauseStackPauseThreshold) emit windowEmuPause();
+    emuStatus = emuStatus_FrameStep;
 }
 
 bool EmuThread::emuIsRunning()
 {
-    return EmuRunning == emuStatus_Running;
+    return emuStatus == emuStatus_Running;
 }
 
 bool EmuThread::emuIsActive()

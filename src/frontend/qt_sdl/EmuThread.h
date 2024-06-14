@@ -57,6 +57,8 @@ public:
 
     enum MessageType
     {
+        msg_Exit,
+
         msg_EmuRun,
         msg_EmuPause,
         msg_EmuUnpause,
@@ -139,15 +141,14 @@ private:
         emuStatus_Paused,
         emuStatus_FrameStep,
     };
-    std::atomic<EmuStatusKind> EmuStatus;
 
-    EmuStatusKind PrevEmuStatus;
-    EmuStatusKind EmuRunning;
+    EmuStatusKind prevEmuStatus;
+    EmuStatusKind emuStatus;
     bool emuActive;
 
-    constexpr static int EmuPauseStackRunning = 0;
-    constexpr static int EmuPauseStackPauseThreshold = 1;
-    int EmuPauseStack;
+    constexpr static int emuPauseStackRunning = 0;
+    constexpr static int emuPauseStackPauseThreshold = 1;
+    int emuPauseStack;
 
     QMutex msgMutex;
     QSemaphore msgSemaphore;
