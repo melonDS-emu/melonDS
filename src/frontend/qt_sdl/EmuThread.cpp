@@ -461,10 +461,10 @@ void EmuThread::sendMessage(Message msg)
     msgMutex.unlock();
 }
 
-void EmuThread::waitMessage()
+void EmuThread::waitMessage(int num)
 {
     if (QThread::currentThread() == this) return;
-    msgSemaphore.acquire();
+    msgSemaphore.acquire(num);
 }
 
 void EmuThread::waitAllMessages()
@@ -535,6 +535,10 @@ void EmuThread::handleMessages()
 
             emuInstance->audioDisable();
             emit windowEmuStop();
+            break;
+
+        case msg_EmuFrameStep:
+            emuStatus = emuStatus_FrameStep;
             break;
 
         case msg_InitGL:
@@ -610,8 +614,10 @@ void EmuThread::emuExit()
 
 void EmuThread::emuFrameStep()
 {
-    //if (emuPauseStack < emuPauseStackPauseThreshold) emit windowEmuPause();
-    emuStatus = emuStatus_FrameStep;
+    if (emuPauseStack < emuPauseStackPauseThreshold)
+        sendMessage(msg_EmuPause);
+    sendMessage(msg_EmuFrameStep);
+    waitAllMessages();
 }
 
 bool EmuThread::emuIsRunning()

@@ -63,6 +63,7 @@ public:
         msg_EmuPause,
         msg_EmuUnpause,
         msg_EmuStop,
+        msg_EmuFrameStep,
 
         msg_InitGL,
         msg_DeInitGL,
@@ -78,7 +79,7 @@ public:
     };
 
     void sendMessage(Message msg);
-    void waitMessage();
+    void waitMessage(int num = 1);
     void waitAllMessages();
 
     void sendMessage(MessageType type)
