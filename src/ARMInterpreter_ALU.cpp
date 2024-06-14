@@ -767,12 +767,6 @@ void A_MUL(ARM* cpu)
     u32 res = rm * rs;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ(res & 0x80000000,
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
 
     u32 cycles;
     if (cpu->Num == 0)
@@ -786,6 +780,13 @@ void A_MUL(ARM* cpu)
     }
 
     cpu->AddCycles_CI(cycles);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ(res & 0x80000000,
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+    else cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
 }
 
 void A_MLA(ARM* cpu)
@@ -797,12 +798,6 @@ void A_MLA(ARM* cpu)
     u32 res = (rm * rs) + rn;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ(res & 0x80000000,
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
 
     u32 cycles;
     if (cpu->Num == 0)
@@ -816,6 +811,13 @@ void A_MLA(ARM* cpu)
     }
 
     cpu->AddCycles_CI(cycles);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ(res & 0x80000000,
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+    else cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
 }
 
 void A_UMULL(ARM* cpu)
@@ -827,12 +829,6 @@ void A_UMULL(ARM* cpu)
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ((u32)(res >> 63ULL),
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
 
     u32 cycles;
     if (cpu->Num == 0)
@@ -846,6 +842,13 @@ void A_UMULL(ARM* cpu)
     }
 
     cpu->AddCycles_CI(cycles);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+    else cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
 }
 
 void A_UMLAL(ARM* cpu)
@@ -860,12 +863,6 @@ void A_UMLAL(ARM* cpu)
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ((u32)(res >> 63ULL),
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
 
     u32 cycles;
     if (cpu->Num == 0)
@@ -879,6 +876,13 @@ void A_UMLAL(ARM* cpu)
     }
 
     cpu->AddCycles_CI(cycles);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+    else cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
 }
 
 void A_SMULL(ARM* cpu)
@@ -890,12 +894,6 @@ void A_SMULL(ARM* cpu)
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ((u32)(res >> 63ULL),
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
 
     u32 cycles;
     if (cpu->Num == 0)
@@ -909,6 +907,13 @@ void A_SMULL(ARM* cpu)
     }
 
     cpu->AddCycles_CI(cycles);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+    else cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
 }
 
 void A_SMLAL(ARM* cpu)
@@ -923,12 +928,6 @@ void A_SMLAL(ARM* cpu)
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ((u32)(res >> 63ULL),
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
 
     u32 cycles;
     if (cpu->Num == 0)
@@ -940,8 +939,15 @@ void A_SMLAL(ARM* cpu)
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
         else cycles = 5;
     }
-
+    
     cpu->AddCycles_CI(cycles);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+    else cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
 }
 
 void A_SMLAxy(ARM* cpu)
@@ -964,7 +970,8 @@ void A_SMLAxy(ARM* cpu)
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_SMLAWy(ARM* cpu)
@@ -985,7 +992,8 @@ void A_SMLAWy(ARM* cpu)
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_SMULxy(ARM* cpu)
@@ -1003,7 +1011,8 @@ void A_SMULxy(ARM* cpu)
     u32 res = ((s16)rm * (s16)rs);
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_SMULWy(ARM* cpu)
@@ -1019,7 +1028,8 @@ void A_SMULWy(ARM* cpu)
     u32 res = ((s64)(s32)rm * (s16)rs) >> 16;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_SMLALxy(ARM* cpu)
@@ -1042,7 +1052,8 @@ void A_SMLALxy(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
 
-    cpu->AddCycles_CI(1); // TODO: interlock??
+    cpu->AddCycles_CI(1);
+    cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Norm);
 }
 
 
@@ -1086,7 +1097,8 @@ void A_QADD(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_QSUB(ARM* cpu)
@@ -1104,7 +1116,8 @@ void A_QSUB(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_QDADD(ARM* cpu)
@@ -1130,7 +1143,8 @@ void A_QDADD(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_QDSUB(ARM* cpu)
@@ -1156,7 +1170,8 @@ void A_QDSUB(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Norm);
 }
 
 
