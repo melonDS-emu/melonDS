@@ -115,6 +115,7 @@ namespace melonDS::ARMInterpreter
     else \
     { \
         cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+        cpu->SetCycles_L((cpu->CurInstr>>12) & 0xF, (offset & 3) ? 2 : 1, cpu->ILT_Norm); \
     }
 
 // TODO: user mode
@@ -133,6 +134,7 @@ namespace melonDS::ARMInterpreter
     else \
     { \
         cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+        cpu->SetCycles_L((cpu->CurInstr>>12) & 0xF, (addr & 3) ? 2 : 1, cpu->ILT_Norm); \
     }
 
 #define A_LDRB \
@@ -141,8 +143,13 @@ namespace melonDS::ARMInterpreter
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val;
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+        cpu->JumpTo8_16Bit(val); \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+        cpu->SetCycles_L((cpu->CurInstr>>12) & 0xF, 2, cpu->ILT_Norm); \
+    }
 
 // TODO: user mode
 #define A_LDRB_POST \
@@ -151,8 +158,13 @@ namespace melonDS::ARMInterpreter
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val;
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+        cpu->JumpTo8_16Bit(val); \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+        cpu->SetCycles_L((cpu->CurInstr>>12) & 0xF, 2, cpu->ILT_Norm); \
+    }
 
 
 
@@ -260,23 +272,35 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
-    if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
-    u32 val; if (!cpu->DataRead32S(offset+4, &val)) {cpu->AddCycles_CDI(); return;} \
-    if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
-    else cpu->R[r+1] = val; \
+    if (!cpu->DataRead32 (offset, &cpu->R[r])) {cpu->AddCycles_CDI(); return;} \
+    u32 val; bool dataabort = !cpu->DataRead32S(offset+4, &val); \
     cpu->AddCycles_CDI(); \
-    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
+    if (dataabort) return; \
+    if (r == 14) \
+        cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
+    else \
+    { \
+        cpu->R[r+1] = val; \
+        cpu->SetCycles_L(r+1, 1, cpu->ILT_Norm); \
+    } \
+    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
 
 #define A_LDRD_POST \
     if (cpu->Num != 0) return; \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
-    if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
-    u32 val; if (!cpu->DataRead32S(addr+4, &val)) {cpu->AddCycles_CDI(); return;} \
-    if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
-    else cpu->R[r+1] = val; \
+    if (!cpu->DataRead32 (addr, &cpu->R[r])) {cpu->AddCycles_CDI(); return;} \
+    u32 val; bool dataabort = !cpu->DataRead32S(addr+4, &val); \
     cpu->AddCycles_CDI(); \
+    if (dataabort) return; \
+    if (r == 14) \
+        cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
+    else \
+    { \
+        cpu->R[r+1] = val; \
+        cpu->SetCycles_L(r+1, 1, cpu->ILT_Norm); \
+    } \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
 #define A_STRD \
@@ -308,8 +332,13 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 val; bool dataabort = !cpu->DataRead16(offset, &val); \
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+        cpu->JumpTo8_16Bit(val); \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+        cpu->SetCycles_L((cpu->CurInstr>>12) & 0xF, 2, cpu->ILT_Norm); \
+    } \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
 #define A_LDRH_POST \
@@ -317,8 +346,13 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 val; bool dataabort = !cpu->DataRead16(addr, &val); \
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+        cpu->JumpTo8_16Bit(val); \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+        cpu->SetCycles_L((cpu->CurInstr>>12) & 0xF, 2, cpu->ILT_Norm); \
+    } \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
 #define A_LDRSB \
@@ -327,8 +361,13 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     val = (s32)(s8)val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+        cpu->JumpTo8_16Bit(val); \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+        cpu->SetCycles_L((cpu->CurInstr>>12) & 0xF, 2, cpu->ILT_Norm); \
+    } \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
 #define A_LDRSB_POST \
@@ -337,8 +376,13 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     val = (s32)(s8)val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+        cpu->JumpTo8_16Bit(val); \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+        cpu->SetCycles_L((cpu->CurInstr>>12) & 0xF, 2, cpu->ILT_Norm); \
+    } \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
 #define A_LDRSH \
@@ -347,8 +391,13 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     val = (s32)(s16)val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+        cpu->JumpTo8_16Bit(val); \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+        cpu->SetCycles_L((cpu->CurInstr>>12) & 0xF, 2, cpu->ILT_Norm); \
+    } \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
 #define A_LDRSH_POST \
@@ -357,8 +406,13 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->AddCycles_CDI(); \
     if (dataabort) return; \
     val = (s32)(s16)val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+        cpu->JumpTo8_16Bit(val); \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+        cpu->SetCycles_L((cpu->CurInstr>>12) & 0xF, 2, cpu->ILT_Norm); \
+    } \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
 
@@ -408,14 +462,21 @@ void A_SWP(ARM* cpu)
         u32 numD = cpu->DataCycles;
         if (cpu->DataWrite32(base, rm))
         {
+            cpu->AddCycles_CDI();
             // rd only gets updated if both read and write succeed
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
-            if (rd != 15) cpu->R[rd] = ROR(val, 8*(base&0x3));
-            else if (cpu->Num==1) cpu->JumpTo(ROR(val, 8*(base&0x3)) & ~1); // for some reason these jumps don't work on the arm 9?
+            if (rd != 15)
+            {
+                cpu->R[rd] = ROR(val, 8*(base&0x3));
+                cpu->SetCycles_L(rd, 1, cpu->ILT_Norm); // TODO: it adds an extra interlock cycle when doing a misaligned load from a non-itcm address
+            }
+            else if (cpu->Num==1) // for some reason these jumps don't work on the arm 9?
+                cpu->JumpTo(ROR(val, 8*(base&0x3)) & ~1, cpu->ILT_Norm);
         }
+        else cpu->AddCycles_CDI();
         cpu->DataCycles += numD;
     }
-    cpu->AddCycles_CDI();
+    else cpu->AddCycles_CDI();
 }
 
 void A_SWPB(ARM* cpu)
@@ -430,14 +491,21 @@ void A_SWPB(ARM* cpu)
         u32 numD = cpu->DataCycles;
         if (cpu->DataWrite8(base, rm))
         {
+            cpu->AddCycles_CDI();
             // rd only gets updated if both read and write succeed
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
-            if (rd != 15) cpu->R[rd] = val;
-            else if (cpu->Num==1) cpu->JumpTo(val & ~1); // for some reason these jumps don't work on the arm 9?
+            if (rd != 15)
+            {
+                cpu->R[rd] = val;
+                cpu->SetCycles_L(rd, 1, cpu->ILT_Norm); // TODO: it adds an extra interlock cycle when doing a load from a non-itcm address
+            }
+            else if (cpu->Num==1)// for some reason these jumps don't work on the arm 9?
+                cpu->JumpTo(val & ~1);
         }
+        else cpu->AddCycles_CDI();
         cpu->DataCycles += numD;
     }
-    cpu->AddCycles_CDI();
+    else cpu->AddCycles_CDI();
 }
 
 
@@ -450,6 +518,7 @@ void A_LDM(ARM* cpu)
     u32 oldbase = base;
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
+    u8 lastreg = 0; // TODO: this doesn't support 0 reg LDMs (do those even work?)
 
     if (!(cpu->CurInstr & (1<<23))) // decrement
     {
@@ -486,6 +555,7 @@ void A_LDM(ARM* cpu)
 
             first = false;
             if (!preinc) base += 4;
+            lastreg = i;
         }
     }
 
@@ -498,11 +568,17 @@ void A_LDM(ARM* cpu)
         {
             goto dataabort;
         }
+        cpu->AddCycles_CDI();
 
         if (!preinc) base += 4;
 
         if (cpu->Num == 1)
             pc &= ~0x1;
+    }
+    else
+    {
+        cpu->AddCycles_CDI();
+        cpu->SetCycles_L(lastreg, 1, cpu->ILT_Norm); // TODO: THIS DOESN'T APPLY WHEN LOADING FROM ITCM
     }
 
     // switch back to previous regs
@@ -537,6 +613,8 @@ void A_LDM(ARM* cpu)
     if (false)
     {
         dataabort:
+        cpu->AddCycles_CDI();
+        // CHECKME: interlock shouldn't apply when it data aborts, right?
 
         // switch back to original set of regs
         if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
@@ -545,8 +623,6 @@ void A_LDM(ARM* cpu)
         // restore original value of base in case the reg got written to
         cpu->R[baseid] = oldbase;
     }
-
-    cpu->AddCycles_CDI();
 }
 
 void A_STM(ARM* cpu)

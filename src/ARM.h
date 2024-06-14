@@ -143,6 +143,24 @@ public:
     virtual void AddCycles_CDI() = 0;
     virtual void AddCycles_CD() = 0;
 
+    inline void AddCycles_L(const u8 reg1)
+    {
+        Cycles += InterlockTimestamp[reg1];
+    }
+
+    inline void AddCycles_L(const u8 reg1, const u8 reg2)
+    {
+        Cycles += std::max(InterlockTimestamp[reg1], InterlockTimestamp[reg2]);
+    }
+
+    // Must be called after all of an instruction's cycles are calculated!!!
+    inline void SetCycles_L(const u8 reg, const u8 cycles, const u8 type)
+    {
+        InterlockTimestamp[reg] = cycles + Timestamp() + Cycles;
+    }
+
+    virtual u64 Timestamp() = 0;
+
     void CheckGdbIncoming();
 
     u32 Num;
@@ -178,6 +196,15 @@ public:
     u32 ExceptionBase;
 
     MemRegion CodeMem;
+
+    enum InterlockType
+    {
+        ILT_Norm = 0,
+        ILT_Mul = 1,
+    };
+
+    u8 InterlockType[16];
+    u64 InterlockTimestamp[16];
 
 #ifdef JIT_ENABLED
     u32 FastBlockLookupStart, FastBlockLookupSize;
@@ -299,6 +326,8 @@ public:
         //    Cycles += numC + numD;
     }
 
+    u64 Timestamp() override;
+
     void GetCodeMemRegion(u32 addr, MemRegion* region);
 
     void CP15Reset();
@@ -413,6 +442,8 @@ public:
     void AddCycles_CI(s32 num) override;
     void AddCycles_CDI() override;
     void AddCycles_CD() override;
+
+    u64 Timestamp() override;
 protected:
     u8 BusRead8(u32 addr) override;
     u16 BusRead16(u32 addr) override;
