@@ -1592,13 +1592,11 @@ void MainWindow::onPause(bool checked)
     if (checked)
     {
         emuThread->emuPause();
-        emuInstance->osdAddMessage(0, "Paused");
         pausedManually = true;
     }
     else
     {
         emuThread->emuUnpause();
-        emuInstance->osdAddMessage(0, "Resumed");
         pausedManually = false;
     }
 }
@@ -1622,7 +1620,6 @@ void MainWindow::onStop()
     if (!emuThread->emuIsActive()) return;
 
     emuThread->emuStop(true);
-    emuThread->waitMessage();
 }
 
 void MainWindow::onFrameStep()
@@ -2084,6 +2081,11 @@ void MainWindow::onEmuStop()
     actPowerManagement->setEnabled(false);
 
     actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
+}
+
+void MainWindow::onEmuPause(bool pause)
+{
+    actPause->setChecked(pause);
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)

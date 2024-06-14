@@ -75,7 +75,7 @@ void EmuThread::attachWindow(MainWindow* window)
     connect(this, SIGNAL(windowTitleChange(QString)), window, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), window, SLOT(onEmuStart()));
     connect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));
-    connect(this, SIGNAL(windowEmuPause()), window->actPause, SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuPause(bool)), window, SLOT(onEmuPause(bool)));
     connect(this, SIGNAL(windowEmuReset()), window->actReset, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuFrameStep()), window->actFrameStep, SLOT(trigger()));
     connect(this, SIGNAL(windowLimitFPSChange()), window->actLimitFramerate, SLOT(trigger()));
@@ -91,7 +91,7 @@ void EmuThread::detachWindow(MainWindow* window)
     disconnect(this, SIGNAL(windowTitleChange(QString)), window, SLOT(onTitleUpdate(QString)));
     disconnect(this, SIGNAL(windowEmuStart()), window, SLOT(onEmuStart()));
     disconnect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));
-    disconnect(this, SIGNAL(windowEmuPause()), window->actPause, SLOT(trigger()));
+    disconnect(this, SIGNAL(windowEmuPause(bool)), window, SLOT(onEmuPause(bool)));
     disconnect(this, SIGNAL(windowEmuReset()), window->actReset, SLOT(trigger()));
     disconnect(this, SIGNAL(windowEmuFrameStep()), window->actFrameStep, SLOT(trigger()));
     disconnect(this, SIGNAL(windowLimitFPSChange()), window->actLimitFramerate, SLOT(trigger()));
@@ -158,7 +158,7 @@ void EmuThread::run()
 
         if (emuInstance->hotkeyPressed(HK_FastForwardToggle)) emit windowLimitFPSChange();
 
-        if (emuInstance->hotkeyPressed(HK_Pause)) emit windowEmuPause();
+        if (emuInstance->hotkeyPressed(HK_Pause)) emuTogglePause();
         if (emuInstance->hotkeyPressed(HK_Reset)) emit windowEmuReset();
         if (emuInstance->hotkeyPressed(HK_FrameStep)) emit windowEmuFrameStep();
 
@@ -471,11 +471,13 @@ void EmuThread::sendMessage(Message msg)
 
 void EmuThread::waitMessage()
 {
+    if (QThread::currentThread() == this) return;
     msgSemaphore.acquire();
 }
 
 void EmuThread::waitAllMessages()
 {
+    if (QThread::currentThread() == this) return;
     msgSemaphore.acquire(msgSemaphore.available());
 }
 
@@ -487,10 +489,51 @@ void EmuThread::handleMessages()
         Message msg = msgQueue.dequeue();
         switch (msg.type)
         {
+        case msg_EmuRun:
+            EmuRunning = emuStatus_Running;
+            EmuPauseStack = EmuPauseStackRunning;
+            emuActive = true;
+
+            emuInstance->audioEnable();
+            emit windowEmuStart();
+            break;
+
+        case msg_EmuPause:
+            EmuPauseStack++;
+            if (EmuPauseStack > EmuPauseStackPauseThreshold) break;
+
+            PrevEmuStatus = EmuRunning;
+            EmuRunning = emuStatus_Paused;
+
+            if (PrevEmuStatus != emuStatus_Paused)
+            {
+                emuInstance->audioDisable();
+                emit windowEmuPause(true);
+                emuInstance->osdAddMessage(0, "Paused");
+            }
+            break;
+
+        case msg_EmuUnpause:
+            if (EmuPauseStack < EmuPauseStackPauseThreshold) break;
+
+            EmuPauseStack--;
+            if (EmuPauseStack >= EmuPauseStackPauseThreshold) break;
+
+            EmuRunning = PrevEmuStatus;
+
+            if (EmuRunning != emuStatus_Paused)
+            {
+                emuInstance->audioEnable();
+                emit windowEmuPause(false);
+                emuInstance->osdAddMessage(0, "Resumed");
+            }
+            break;
+
         case msg_EmuStop:
             if (msg.stopExternal) emuInstance->nds->Stop();
             EmuRunning = emuStatus_Paused;
             emuActive = false;
+
             emuInstance->audioDisable();
             emit windowEmuStop();
             break;
@@ -516,17 +559,6 @@ void EmuThread::changeWindowTitle(char* title)
     emit windowTitleChange(QString(title));
 }
 
-void EmuThread::emuRun()
-{
-    EmuRunning = emuStatus_Running;
-    EmuPauseStack = EmuPauseStackRunning;
-    emuActive = true;
-
-    // checkme
-    emit windowEmuStart();
-    emuInstance->audioEnable();
-}
-
 void EmuThread::initContext()
 {
     sendMessage(msg_InitGL);
@@ -539,33 +571,36 @@ void EmuThread::deinitContext()
     waitMessage();
 }
 
+void EmuThread::emuRun()
+{
+    sendMessage(msg_EmuRun);
+    waitMessage();
+}
+
 void EmuThread::emuPause()
 {
-    EmuPauseStack++;
-    if (EmuPauseStack > EmuPauseStackPauseThreshold) return;
-
-    PrevEmuStatus = EmuRunning;
-    EmuRunning = emuStatus_Paused;
-    while (EmuStatus != emuStatus_Paused);
-
-    emuInstance->audioDisable();
+    sendMessage(msg_EmuPause);
+    waitMessage();
 }
 
 void EmuThread::emuUnpause()
 {
-    if (EmuPauseStack < EmuPauseStackPauseThreshold) return;
+    sendMessage(msg_EmuUnpause);
+    waitMessage();
+}
 
-    EmuPauseStack--;
-    if (EmuPauseStack >= EmuPauseStackPauseThreshold) return;
-
-    EmuRunning = PrevEmuStatus;
-
-    emuInstance->audioEnable();
+void EmuThread::emuTogglePause()
+{
+    if (EmuRunning == emuStatus_Paused)
+        emuUnpause();
+    else
+        emuPause();
 }
 
 void EmuThread::emuStop(bool external)
 {
     sendMessage({.type = msg_EmuStop, .stopExternal = external});
+    waitMessage();
 }
 
 void EmuThread::emuExit()
@@ -578,7 +613,7 @@ void EmuThread::emuExit()
 
 void EmuThread::emuFrameStep()
 {
-    if (EmuPauseStack < EmuPauseStackPauseThreshold) emit windowEmuPause();
+    //if (EmuPauseStack < EmuPauseStackPauseThreshold) emit windowEmuPause();
     EmuRunning = emuStatus_FrameStep;
 }
 

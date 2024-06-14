@@ -57,6 +57,9 @@ public:
 
     enum MessageType
     {
+        msg_EmuRun,
+        msg_EmuPause,
+        msg_EmuUnpause,
         msg_EmuStop,
 
         msg_InitGL,
@@ -87,6 +90,7 @@ public:
     void emuRun();
     void emuPause();
     void emuUnpause();
+    void emuTogglePause();
     void emuStop(bool external);
     void emuExit();
     void emuFrameStep();
@@ -107,7 +111,7 @@ signals:
 
     void windowEmuStart();
     void windowEmuStop();
-    void windowEmuPause();
+    void windowEmuPause(bool pause);
     void windowEmuReset();
     void windowEmuFrameStep();
 
