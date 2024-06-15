@@ -1683,8 +1683,6 @@ void MainWindow::onOpenEmuSettings()
 
 void MainWindow::onEmuSettingsDialogFinished(int res)
 {
-    emuThread->emuUnpause();
-
     if (globalCfg.GetInt("Emu.ConsoleType") == 1)
     {
         actInsertGBACart->setEnabled(false);
@@ -1707,6 +1705,8 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
 
     if (!emuThread->emuIsActive())
         actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
+
+    emuThread->emuUnpause();
 }
 
 void MainWindow::onOpenInputConfig()

@@ -1123,6 +1123,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
             static_cast<AudioInterpolation>(globalCfg.GetInt("Audio.Interpolation")),
             gdbargs,
     };
+    NDSArgs* args = &ndsargs;
 
     std::optional<DSiArgs> dsiargs = std::nullopt;
     if (consoletype == 1)
@@ -1143,10 +1144,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
 
         auto sdcard = loadSDCard("DSi.SD");
 
-        // FIXME!!! this operation fucking OBLITERATES THE DS BIOS
-        // yes, it somehow makes the std::array null.
-        // so in the end if you start in DSi mode... crash.
-        DSiArgs args {
+        DSiArgs _dsiargs {
                 std::move(ndsargs),
                 std::move(arm9ibios),
                 std::move(arm7ibios),
@@ -1155,7 +1153,8 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
                 globalCfg.GetBool("DSi.FullBIOSBoot"),
         };
 
-        dsiargs = std::move(args);
+        dsiargs = std::move(_dsiargs);
+        args = &(*dsiargs);
     }
 
 
@@ -1174,25 +1173,25 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     }
     else
     {
-        nds->SetARM7BIOS(*ndsargs.ARM7BIOS);
-        nds->SetARM9BIOS(*ndsargs.ARM9BIOS);
-        nds->SetFirmware(std::move(ndsargs.Firmware));
-        nds->SetNDSCart(std::move(ndsargs.NDSROM));
-        nds->SetJITArgs(ndsargs.JIT);
+        nds->SetARM7BIOS(*args->ARM7BIOS);
+        nds->SetARM9BIOS(*args->ARM9BIOS);
+        nds->SetFirmware(std::move(args->Firmware));
+        nds->SetNDSCart(std::move(args->NDSROM));
+        nds->SetJITArgs(args->JIT);
         // TODO GDB stub shit
-        nds->SPU.SetInterpolation(ndsargs.Interpolation);
-        nds->SPU.SetDegrade10Bit(ndsargs.BitDepth);
+        nds->SPU.SetInterpolation(args->Interpolation);
+        nds->SPU.SetDegrade10Bit(args->BitDepth);
 
         if (consoletype == 1)
         {
             DSi* dsi = (DSi*)nds;
-            DSiArgs& args = dsiargs.value();
+            DSiArgs& _dsiargs = *dsiargs;
 
-            dsi->SetFullBIOSBoot(args.FullBIOSBoot);
-            dsi->ARM7iBIOS = *args.ARM7iBIOS;
-            dsi->ARM9iBIOS = *args.ARM9iBIOS;
-            dsi->SetNAND(std::move(args.NANDImage));
-            dsi->SetSDCard(std::move(args.DSiSDCard));
+            dsi->SetFullBIOSBoot(_dsiargs.FullBIOSBoot);
+            dsi->ARM7iBIOS = *_dsiargs.ARM7iBIOS;
+            dsi->ARM9iBIOS = *_dsiargs.ARM9iBIOS;
+            dsi->SetNAND(std::move(_dsiargs.NANDImage));
+            dsi->SetSDCard(std::move(_dsiargs.DSiSDCard));
             // We're moving the optional, not the card
             // (inserting std::nullopt here is okay, it means no card)
 
