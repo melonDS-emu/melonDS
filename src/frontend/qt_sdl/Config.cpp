@@ -320,8 +320,37 @@ LegacyEntry LegacyFile[] =
 
 static std::string GetDefaultKey(std::string path)
 {
-    std::regex re("(Instance|Window)(\\d+)\\.");
-    return std::regex_replace(path, re, "$1*.");
+    std::string tables[] = {"Instance", "Window", "Camera"};
+
+    std::string ret = "";
+    int plen = path.length();
+    for (int i = 0; i < plen;)
+    {
+        bool found = false;
+
+        for (auto& tbl : tables)
+        {
+            int tlen = tbl.length();
+            if ((plen-i) <= tlen) continue;
+            if (path.substr(i, tlen) != tbl) continue;
+            if (path[i+tlen] < '0' || path[i+tlen] > '9') continue;
+
+            ret += tbl + "*";
+            i = path.find('.', i+tlen);
+            if (i == std::string::npos) return ret;
+
+            found = true;
+            break;
+        }
+
+        if (!found)
+        {
+            ret += path[i];
+            i++;
+        }
+    }
+
+    return ret;
 }
 
 
