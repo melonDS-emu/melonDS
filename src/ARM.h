@@ -166,23 +166,10 @@ public:
     }
 
     // fetch the value of a register while handling any interlock cycles
-    inline u32 GetReg(const u32 reg, const u32 delay = 0)
-    {
-#ifdef INTERLOCK
-        if (InterlockTimestamp[reg] > (Timestamp() + delay))
-            Timestamp() = InterlockTimestamp[reg] - delay;
-#endif
-        return R[reg];
-    }
+    virtual inline u32 GetReg(const u32 reg, const u32 delay = 0) = 0;
 
     // Must be called after all of an instruction's cycles are calculated!!!
-    inline void SetCycles_L(const u32 reg, const u32 cycles, const u32 type)
-    {
-#ifdef INTERLOCK
-        InterlockTimestamp[reg] = cycles + Timestamp() + Cycles;
-        //InterlockType[reg] = type;
-#endif
-    }
+    virtual inline void SetCycles_L(const u32 reg, const u32 cycles, const u32 type) = 0;
 
     virtual u64& Timestamp() = 0;
 
@@ -351,6 +338,25 @@ public:
         //    Cycles += numC + numD;
     }
 
+    // fetch the value of a register while handling any interlock cycles
+    inline u32 GetReg(const u32 reg, const u32 delay = 0) override
+    {
+#ifdef INTERLOCK
+        if (InterlockTimestamp[reg] > (Timestamp() + delay))
+            Timestamp() = InterlockTimestamp[reg] - delay;
+#endif
+        return R[reg];
+    }
+
+    // Must be called after all of an instruction's cycles are calculated!!!
+    inline void SetCycles_L(const u32 reg, const u32 cycles, const u32 type) override
+    {
+#ifdef INTERLOCK
+        InterlockTimestamp[reg] = cycles + Timestamp() + Cycles;
+        //InterlockType[reg] = type;
+#endif
+    }
+
     u64& Timestamp() override;
 
     void GetCodeMemRegion(u32 addr, MemRegion* region);
@@ -467,6 +473,15 @@ public:
     void AddCycles_CI(s32 num) override;
     void AddCycles_CDI() override;
     void AddCycles_CD() override;
+
+    // fetch the value of a register while handling any interlock cycles
+    inline u32 GetReg(const u32 reg, const u32 delay = 0) override
+    {
+        return R[reg];
+    }
+
+    // Must be called after all of an instruction's cycles are calculated!!!
+    inline void SetCycles_L(const u32 reg, const u32 cycles, const u32 type) override{}
 
     u64& Timestamp() override;
 protected:
