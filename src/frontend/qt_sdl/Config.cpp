@@ -484,7 +484,7 @@ int Table::GetInt(const std::string& path)
 
     int ret = (int)tval.as_integer();
 
-    std::regex rng_re("\\d+");
+    std::regex rng_re("(\\d+)");
     std::string rngkey = std::regex_replace(PathPrefix+path, rng_re, "*");
     if (IntRanges.count(rngkey) != 0)
     {
@@ -524,7 +524,7 @@ std::string Table::GetString(const std::string& path)
 
 void Table::SetInt(const std::string& path, int val)
 {
-    std::regex rng_re("\\d+");
+    std::regex rng_re("(\\d+)");
     std::string rngkey = std::regex_replace(PathPrefix+path, rng_re, "*");
     if (IntRanges.count(rngkey) != 0)
     {
@@ -571,7 +571,7 @@ toml::value& Table::ResolvePath(const std::string& path)
 
 template<typename T> T Table::FindDefault(const std::string& path, T def, DefaultList<T> list)
 {
-    std::regex def_re("\\d+");
+    std::regex def_re("(\\d+)");
     std::string defkey = std::regex_replace(PathPrefix+path, def_re, "*");
 
     T ret = def;
