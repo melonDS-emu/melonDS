@@ -26,6 +26,8 @@
 namespace Ui {class DateTimeDialog; }
 class DateTimeDialog;
 
+class EmuInstance;
+
 class DateTimeDialog : public QDialog
 {
     Q_OBJECT
@@ -63,6 +65,7 @@ private slots:
 
 private:
     Ui::DateTimeDialog* ui;
+    EmuInstance* emuInstance;
 
     QDateTime customTime;
 };

@@ -16,40 +16,37 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef INPUT_H
-#define INPUT_H
-
-#include <SDL2/SDL.h>
+#ifndef NET_PCAP_H
+#define NET_PCAP_H
 
 #include "types.h"
 
-namespace Input
+namespace Net_PCap
 {
 
 using namespace melonDS;
-extern int JoystickID;
-extern SDL_Joystick* Joystick;
+struct AdapterData
+{
+    char DeviceName[128];
+    char FriendlyName[128];
+    char Description[128];
 
-extern u32 InputMask;
+    u8 MAC[6];
+    u8 IP_v4[4];
+};
 
-void Init();
 
-// set joystickID before calling openJoystick()
-void OpenJoystick();
-void CloseJoystick();
+extern AdapterData* Adapters;
+extern int NumAdapters;
 
-void KeyPress(QKeyEvent* event);
-void KeyRelease(QKeyEvent* event);
-void KeyReleaseAll();
 
-void Process();
+bool InitAdapterList();
+bool Init();
+void DeInit();
 
-bool HotkeyDown(int id);
-bool HotkeyPressed(int id);
-bool HotkeyReleased(int id);
-
-bool IsRightModKey(QKeyEvent* event);
+int SendPacket(u8* data, int len);
+void RecvCheck();
 
 }
 
-#endif // INPUT_H
+#endif // NET_PCAP_H

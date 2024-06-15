@@ -24,6 +24,8 @@
 namespace Ui { class InterfaceSettingsDialog; }
 class InterfaceSettingsDialog;
 
+class EmuInstance;
+
 class InterfaceSettingsDialog : public QDialog
 {
     Q_OBJECT
@@ -51,7 +53,7 @@ public:
     }
 
 signals:
-    void updateMouseTimer();
+    void updateInterfaceSettings();
 
 private slots:
     void done(int r);
@@ -60,6 +62,8 @@ private slots:
 
 private:
     Ui::InterfaceSettingsDialog* ui;
+
+    EmuInstance* emuInstance;
 };
 
 #endif // INTERFACESETTINGSDIALOG_H

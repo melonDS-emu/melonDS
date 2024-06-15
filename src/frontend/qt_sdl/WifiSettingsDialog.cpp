@@ -22,10 +22,9 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
+#include "main.h"
 
-#include "LAN_Socket.h"
-#include "LAN_PCap.h"
-#include "Wifi.h"
+#include "Net.h"
 
 #include "WifiSettingsDialog.h"
 #include "ui_WifiSettingsDialog.h"
@@ -42,15 +41,17 @@ WifiSettingsDialog* WifiSettingsDialog::currentDlg = nullptr;
 
 bool WifiSettingsDialog::needsReset = false;
 
-extern bool RunningSomething;
-
 
 WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::WifiSettingsDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    haspcap = LAN_PCap::Init(false);
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
+    auto& cfg = emuInstance->getGlobalConfig();
+
+    Net::DeInit();
+    haspcap = Net_PCap::InitAdapterList();
 
     ui->rbDirectMode->setText("Direct mode (requires " PCAP_NAME " and ethernet connection)");
 
@@ -58,20 +59,21 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->lblAdapterIP->setText("(none)");
 
     int sel = 0;
-    for (int i = 0; i < LAN_PCap::NumAdapters; i++)
+    for (int i = 0; i < Net_PCap::NumAdapters; i++)
     {
-        LAN_PCap::AdapterData* adapter = &LAN_PCap::Adapters[i];
+        Net_PCap::AdapterData* adapter = &Net_PCap::Adapters[i];
 
         ui->cbxDirectAdapter->addItem(QString(adapter->FriendlyName));
 
-        if (!strncmp(adapter->DeviceName, Config::LANDevice.c_str(), 128))
+        if (!strncmp(adapter->DeviceName, cfg.GetString("LAN.Device").c_str(), 128))
             sel = i;
     }
     ui->cbxDirectAdapter->setCurrentIndex(sel);
 
     // errrr???
-    ui->rbDirectMode->setChecked(Config::DirectLAN);
-    ui->rbIndirectMode->setChecked(!Config::DirectLAN);
+    bool direct = cfg.GetBool("LAN.DirectMode");
+    ui->rbDirectMode->setChecked(direct);
+    ui->rbIndirectMode->setChecked(!direct);
     if (!haspcap) ui->rbDirectMode->setEnabled(false);
 
     updateAdapterControls();
@@ -88,21 +90,26 @@ void WifiSettingsDialog::done(int r)
 
     if (r == QDialog::Accepted)
     {
-        Config::DirectLAN = ui->rbDirectMode->isChecked();
+        auto& cfg = emuInstance->getGlobalConfig();
+
+        cfg.SetBool("LAN.DirectMode", ui->rbDirectMode->isChecked());
 
         int sel = ui->cbxDirectAdapter->currentIndex();
-        if (sel < 0 || sel >= LAN_PCap::NumAdapters) sel = 0;
-        if (LAN_PCap::NumAdapters < 1)
+        if (sel < 0 || sel >= Net_PCap::NumAdapters) sel = 0;
+        if (Net_PCap::NumAdapters < 1)
         {
-            Config::LANDevice = "";
+            cfg.SetString("LAN.Device", "");
         }
         else
         {
-            Config::LANDevice = LAN_PCap::Adapters[sel].DeviceName;
+            cfg.SetString("LAN.Device", Net_PCap::Adapters[sel].DeviceName);
         }
 
         Config::Save();
     }
+
+    Net_PCap::DeInit();
+    Net::Init();
 
     QDialog::done(r);
 
@@ -123,10 +130,10 @@ void WifiSettingsDialog::on_cbxDirectAdapter_currentIndexChanged(int sel)
 {
     if (!haspcap) return;
 
-    if (sel < 0 || sel >= LAN_PCap::NumAdapters) return;
-    if (LAN_PCap::NumAdapters < 1) return;
+    if (sel < 0 || sel >= Net_PCap::NumAdapters) return;
+    if (Net_PCap::NumAdapters < 1) return;
 
-    LAN_PCap::AdapterData* adapter = &LAN_PCap::Adapters[sel];
+    Net_PCap::AdapterData* adapter = &Net_PCap::Adapters[sel];
     char tmp[64];
 
     sprintf(tmp, "%02X:%02X:%02X:%02X:%02X:%02X",

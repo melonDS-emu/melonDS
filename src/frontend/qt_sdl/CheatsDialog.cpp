@@ -24,7 +24,7 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "ROMManager.h"
+#include "EmuInstance.h"
 
 #include "CheatsDialog.h"
 #include "ui_CheatsDialog.h"
@@ -35,15 +35,15 @@ using Platform::LogLevel;
 
 CheatsDialog* CheatsDialog::currentDlg = nullptr;
 
-extern std::string EmuDirectory;
-
 
 CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::CheatsDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    codeFile = ROMManager::GetCheatFile();
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
+
+    codeFile = emuInstance->getCheatFile();
 
     QStandardItemModel* model = new QStandardItemModel();
     ui->tvCodeList->setModel(model);

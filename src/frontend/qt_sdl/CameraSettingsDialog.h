@@ -28,6 +28,8 @@
 namespace Ui { class CameraSettingsDialog; }
 class CameraSettingsDialog;
 
+class EmuInstance;
+
 class CameraPreviewPanel : public QWidget
 {
     Q_OBJECT
@@ -92,15 +94,22 @@ private slots:
 
 private:
     Ui::CameraSettingsDialog* ui;
+    EmuInstance* emuInstance;
 
     QButtonGroup* grpInputType;
     CameraPreviewPanel* previewPanel;
 
     int currentId;
-    Config::CameraConfig* currentCfg;
+    Config::Table* currentCfg;
     CameraManager* currentCam;
 
-    Config::CameraConfig oldCamSettings[2];
+    struct
+    {
+        int InputType; // 0=blank 1=image 2=camera
+        std::string ImagePath;
+        std::string CamDeviceName;
+        bool XFlip;
+    } oldCamSettings[2];
 
     void populateCamControls(int id);
 };

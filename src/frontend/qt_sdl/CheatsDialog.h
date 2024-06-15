@@ -33,6 +33,8 @@ Q_DECLARE_METATYPE(melonDS::ARCodeCatList::iterator)
 namespace Ui { class CheatsDialog; }
 class CheatsDialog;
 
+class EmuInstance;
+
 class ARCodeChecker : public QSyntaxHighlighter
 {
     Q_OBJECT
@@ -86,6 +88,8 @@ private slots:
 
 private:
     Ui::CheatsDialog* ui;
+
+    EmuInstance* emuInstance;
 
     melonDS::ARCodeFile* codeFile;
     ARCodeChecker* codeChecker;

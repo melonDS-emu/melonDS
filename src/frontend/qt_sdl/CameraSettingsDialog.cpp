@@ -22,6 +22,7 @@
 #include <QPainter>
 
 #include "types.h"
+#include "main.h"
 
 #include "CameraSettingsDialog.h"
 #include "ui_CameraSettingsDialog.h"
@@ -29,8 +30,6 @@
 using namespace melonDS;
 
 CameraSettingsDialog* CameraSettingsDialog::currentDlg = nullptr;
-
-extern std::string EmuDirectory;
 
 extern CameraManager* camManager[2];
 
@@ -71,9 +70,16 @@ CameraSettingsDialog::CameraSettingsDialog(QWidget* parent) : QDialog(parent), u
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
+
     for (int i = 0; i < 2; i++)
     {
-        oldCamSettings[i] = Config::Camera[i];
+        auto& cfg = camManager[i]->getConfig();
+
+        oldCamSettings[i].InputType = cfg.GetInt("InputType");
+        oldCamSettings[i].ImagePath = cfg.GetString("ImagePath");
+        oldCamSettings[i].CamDeviceName = cfg.GetString("DeviceName");
+        oldCamSettings[i].XFlip = cfg.GetBool("XFlip");
     }
 
     ui->cbCameraSel->addItem("DSi outer camera");
@@ -161,7 +167,13 @@ void CameraSettingsDialog::on_CameraSettingsDialog_rejected()
     {
         camManager[i]->stop();
         camManager[i]->deInit();
-        Config::Camera[i] = oldCamSettings[i];
+
+        auto& cfg = camManager[i]->getConfig();
+        cfg.SetInt("InputType", oldCamSettings[i].InputType);
+        cfg.SetString("ImagePath", oldCamSettings[i].ImagePath);
+        cfg.SetString("DeviceName", oldCamSettings[i].CamDeviceName);
+        cfg.SetBool("XFlip", oldCamSettings[i].XFlip);
+
         camManager[i]->init();
     }
 
@@ -178,7 +190,7 @@ void CameraSettingsDialog::on_cbCameraSel_currentIndexChanged(int id)
     }
 
     currentId = id;
-    currentCfg = &Config::Camera[id];
+    currentCfg = &camManager[id]->getConfig();
     //currentCam = camManager[id];
     currentCam = nullptr;
     populateCamControls(id);
@@ -198,16 +210,16 @@ void CameraSettingsDialog::onChangeInputType(int type)
         currentCam->deInit();
     }
 
-    currentCfg->InputType = type;
+    currentCfg->SetInt("InputType", type);
 
     ui->txtSrcImagePath->setEnabled(type == 1);
     ui->btnSrcImageBrowse->setEnabled(type == 1);
     ui->cbPhysicalCamera->setEnabled((type == 2) && (ui->cbPhysicalCamera->count()>0));
 
-    currentCfg->ImagePath = ui->txtSrcImagePath->text().toStdString();
+    currentCfg->SetQString("ImagePath", ui->txtSrcImagePath->text());
 
     if (ui->cbPhysicalCamera->count() > 0)
-        currentCfg->CamDeviceName = ui->cbPhysicalCamera->currentData().toString().toStdString();
+        currentCfg->SetQString("DeviceName", ui->cbPhysicalCamera->currentData().toString());
 
     if (currentCam)
     {
@@ -226,7 +238,7 @@ void CameraSettingsDialog::on_txtSrcImagePath_textChanged()
         currentCam->deInit();
     }
 
-    currentCfg->ImagePath = ui->txtSrcImagePath->text().toStdString();
+    currentCfg->SetQString("ImagePath", ui->txtSrcImagePath->text());
 
     if (currentCam)
     {
@@ -239,7 +251,7 @@ void CameraSettingsDialog::on_btnSrcImageBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select image file...",
-                                                QString::fromStdString(EmuDirectory),
+                                                emuDirectory,
                                                 "Image files (*.png *.jpg *.jpeg *.bmp);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -257,7 +269,7 @@ void CameraSettingsDialog::on_cbPhysicalCamera_currentIndexChanged(int id)
         currentCam->deInit();
     }
 
-    currentCfg->CamDeviceName = ui->cbPhysicalCamera->itemData(id).toString().toStdString();
+    currentCfg->SetQString("DeviceName", ui->cbPhysicalCamera->itemData(id).toString());
 
     if (currentCam)
     {
@@ -268,16 +280,16 @@ void CameraSettingsDialog::on_cbPhysicalCamera_currentIndexChanged(int id)
 
 void CameraSettingsDialog::populateCamControls(int id)
 {
-    Config::CameraConfig& cfg = Config::Camera[id];
+    Config::Table& cfg = camManager[id]->getConfig();
 
-    int type = cfg.InputType;
+    int type = cfg.GetInt("InputType");
     if (type < 0 || type >= grpInputType->buttons().count()) type = 0;
     grpInputType->button(type)->setChecked(true);
 
-    ui->txtSrcImagePath->setText(QString::fromStdString(cfg.ImagePath));
+    ui->txtSrcImagePath->setText(cfg.GetQString("ImagePath"));
 
     bool deviceset = false;
-    QString device = QString::fromStdString(cfg.CamDeviceName);
+    QString device = cfg.GetQString("DeviceName");
     for (int i = 0; i < ui->cbPhysicalCamera->count(); i++)
     {
         QString itemdev = ui->cbPhysicalCamera->itemData(i).toString();
@@ -293,13 +305,14 @@ void CameraSettingsDialog::populateCamControls(int id)
 
     onChangeInputType(type);
 
-    ui->chkFlipPicture->setChecked(cfg.XFlip);
+    ui->chkFlipPicture->setChecked(cfg.GetBool("XFlip"));
 }
 
 void CameraSettingsDialog::on_chkFlipPicture_clicked()
 {
     if (!currentCfg) return;
 
-    currentCfg->XFlip = ui->chkFlipPicture->isChecked();
-    if (currentCam) currentCam->setXFlip(currentCfg->XFlip);
+    bool xflip = ui->chkFlipPicture->isChecked();
+    currentCfg->SetBool("XFlip", xflip);
+    if (currentCam) currentCam->setXFlip(xflip);
 }

@@ -25,21 +25,22 @@
 #include <QImage>
 
 #include "types.h"
-#include "ROMManager.h"
 
 namespace Ui { class ROMInfoDialog; }
 class ROMInfoDialog;
+class EmuInstance;
 namespace melonDS::NDSCart { class CartCommon; }
+
 class ROMInfoDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit ROMInfoDialog(QWidget* parent, const melonDS::NDSCart::CartCommon& rom);
+    explicit ROMInfoDialog(QWidget* parent);
     ~ROMInfoDialog();
 
     static ROMInfoDialog* currentDlg;
-    static ROMInfoDialog* openDlg(QWidget* parent, const melonDS::NDSCart::CartCommon& rom)
+    static ROMInfoDialog* openDlg(QWidget* parent)
     {
         if (currentDlg)
         {
@@ -47,7 +48,7 @@ public:
             return currentDlg;
         }
 
-        currentDlg = new ROMInfoDialog(parent, rom);
+        currentDlg = new ROMInfoDialog(parent);
         currentDlg->open();
         return currentDlg;
     }
@@ -66,6 +67,7 @@ private slots:
 
 private:
     Ui::ROMInfoDialog* ui;
+    EmuInstance* emuInstance;
 
     QImage iconImage;
     QTimeLine* iconTimeline;

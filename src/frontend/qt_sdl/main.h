@@ -31,9 +31,10 @@
 #include <QScreen>
 #include <QCloseEvent>
 
+#include "EmuInstance.h"
 #include "Window.h"
 #include "EmuThread.h"
-#include "FrontendUtil.h"
+#include "ScreenLayout.h"
 
 class MelonApplication : public QApplication
 {
@@ -45,5 +46,10 @@ public:
 };
 
 extern QString* systemThemeName;
+extern QString emuDirectory;
+
+bool createEmuInstance();
+void deleteEmuInstance(int id);
+void deleteAllEmuInstances();
 
 #endif // MAIN_H

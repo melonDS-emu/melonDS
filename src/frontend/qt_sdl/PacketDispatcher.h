@@ -16,34 +16,33 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef AUDIO_INOUT_H
-#define AUDIO_INOUT_H
+#ifndef PACKETDISPATCHER_H
+#define PACKETDISPATCHER_H
 
+#include <QMutex>
 #include "types.h"
+#include "FIFO.h"
 
-#include <QMainWindow>
+using PacketQueue = melonDS::RingBuffer<0x8000>;
 
-class EmuThread;
-namespace melonDS
+class PacketDispatcher
 {
-class NDS;
-}
-namespace AudioInOut
-{
+public:
+    PacketDispatcher();
+    ~PacketDispatcher();
 
-void Init(EmuThread* thread);
-void DeInit();
+    void registerInstance(int inst);
+    void unregisterInstance(int inst);
 
-void MicProcess(melonDS::NDS& nds);
-void AudioMute(QMainWindow* mainWindow);
+    void clear();
 
-void AudioSync(melonDS::NDS& nds);
+    void sendPacket(const void* header, int headerlen, const void* data, int datalen, int sender, melonDS::u16 recv_mask);
+    bool recvPacket(void* header, int* headerlen, void* data, int* datalen, int receiver);
 
-void UpdateSettings(melonDS::NDS& nds);
+private:
+    QMutex mutex;
+    melonDS::u16 instanceMask;
+    PacketQueue* packetQueues[16];
+};
 
-void Enable();
-void Disable();
-
-}
-
-#endif
+#endif // PACKETDISPATCHER_H

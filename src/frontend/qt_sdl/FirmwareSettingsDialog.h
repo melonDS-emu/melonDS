@@ -25,6 +25,8 @@
 namespace Ui { class FirmwareSettingsDialog; }
 class FirmwareSettingsDialog;
 
+class EmuInstance;
+
 class FirmwareSettingsDialog : public QDialog
 {
     Q_OBJECT
@@ -129,6 +131,7 @@ private:
     bool verifyMAC();
 
     Ui::FirmwareSettingsDialog* ui;
+    EmuInstance* emuInstance;
 };
 
 #endif // FIRMWARESETTINGSDIALOG_H

@@ -16,24 +16,21 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef LAN_SOCKET_H
-#define LAN_SOCKET_H
+#ifndef NET_SLIRP_H
+#define NET_SLIRP_H
 
 #include "types.h"
 
-namespace LAN_Socket
+namespace Net_Slirp
 {
 using namespace melonDS;
-
-//
-
 
 bool Init();
 void DeInit();
 
 int SendPacket(u8* data, int len);
-int RecvPacket(u8* data);
+void RecvCheck();
 
 }
 
-#endif // LAN_SOCKET_H
+#endif // NET_SLIRP_H

@@ -25,6 +25,8 @@
 namespace Ui { class PathSettingsDialog; }
 class PathSettingsDialog;
 
+class EmuInstance;
+
 class PathSettingsDialog : public QDialog
 {
     Q_OBJECT
@@ -62,6 +64,7 @@ private slots:
 
 private:
     Ui::PathSettingsDialog* ui;
+    EmuInstance* emuInstance;
 };
 
 #endif // PATHSETTINGSDIALOG_H

@@ -22,7 +22,6 @@
 #include "main.h"
 
 using namespace melonDS;
-extern EmuThread* emuThread;
 
 s32 GetMainRAMValue(NDS& nds, const u32& addr, const ramInfo_ByteType& byteType)
 {
@@ -41,10 +40,12 @@ s32 GetMainRAMValue(NDS& nds, const u32& addr, const ramInfo_ByteType& byteType)
 
 RAMInfoDialog* RAMInfoDialog::currentDlg = nullptr;
 
-RAMInfoDialog::RAMInfoDialog(QWidget* parent, EmuThread* emuThread) : QDialog(parent), emuThread(emuThread), ui(new Ui::RAMInfoDialog)
+RAMInfoDialog::RAMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RAMInfoDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
+
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
 
     qRegisterMetaType<QVector<int>>("QVector<int>");
     qRegisterMetaType<u32>("u32");
@@ -91,7 +92,7 @@ void RAMInfoDialog::ShowRowsInTable()
     for (u32 row = scrollValue; row < std::min<u32>(scrollValue+25, RowDataVector->size()); row++)
     {
         ramInfo_RowData& rowData = RowDataVector->at(row);
-        rowData.Update(*emuThread->NDS, SearchThread->GetSearchByteType());
+        rowData.Update(*emuInstance->getNDS(), SearchThread->GetSearchByteType());
 
         if (ui->ramTable->item(row, ramInfo_Address) == nullptr)
         {
@@ -186,7 +187,7 @@ void RAMInfoDialog::on_ramTable_itemChanged(QTableWidgetItem *item)
     s32 itemValue = item->text().toInt();
 
     if (rowData.Value != itemValue)
-        rowData.SetValue(*emuThread->NDS, itemValue);
+        rowData.SetValue(*emuInstance->getNDS(), itemValue);
 }
 
 /**
@@ -235,7 +236,7 @@ void RAMSearchThread::run()
     u32 progress = 0;
 
     // Pause game running
-    emuThread->emuPause();
+    Dialog->emuInstance->getEmuThread()->emuPause();
 
     // For following search modes below, RowDataVector must be filled.
     if (SearchMode == ramInfoSTh_SearchAll || RowDataVector->size() == 0)
@@ -243,7 +244,7 @@ void RAMSearchThread::run()
         // First search mode
         for (u32 addr = 0x02000000; SearchRunning && addr < 0x02000000+MainRAMMaxSize; addr += SearchByteType)
         {
-            const s32& value = GetMainRAMValue(*emuThread->NDS, addr, SearchByteType);
+            const s32& value = GetMainRAMValue(*Dialog->emuInstance->getNDS(), addr, SearchByteType);
 
             RowDataVector->push_back({ addr, value, value });
 
@@ -264,7 +265,7 @@ void RAMSearchThread::run()
         for (u32 row = 0; SearchRunning && row < RowDataVector->size(); row++)
         {
             const u32& addr = RowDataVector->at(row).Address;
-            const s32& value = GetMainRAMValue(*emuThread->NDS, addr, SearchByteType);
+            const s32& value = GetMainRAMValue(*Dialog->emuInstance->getNDS(), addr, SearchByteType);
 
             if (SearchValue == value)
                 newRowDataVector->push_back({ addr, value, value });
@@ -282,7 +283,7 @@ void RAMSearchThread::run()
     }
 
     // Unpause game running
-    emuThread->emuUnpause();
+    Dialog->emuInstance->getEmuThread()->emuUnpause();
 
     SearchRunning = false;
 }
