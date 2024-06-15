@@ -145,6 +145,7 @@ public:
     virtual void AddCycles_CDI() = 0;
     virtual void AddCycles_CD() = 0;
 
+/*    
     inline void AddCycles_L(const u32 delay, const u32 reg1)
     {
         if (InterlockTimestamp[reg1] > Timestamp() + delay);
@@ -163,13 +164,24 @@ public:
         u64 cycles = std::max(InterlockTimestamp[reg1], std::max(InterlockTimestamp[reg2], InterlockTimestamp[reg3]));
         if (cycles > Timestamp() + delay)
             Timestamp() = cycles;
-    }
-
+    }*/
+    
+#ifdef INTERLOCK
     // fetch the value of a register while handling any interlock cycles
     virtual inline u32 GetReg(const u32 reg, const u32 delay = 0) = 0;
 
     // Must be called after all of an instruction's cycles are calculated!!!
     virtual inline void SetCycles_L(const u32 reg, const u32 cycles, const u32 type) = 0;
+#else
+    // fetch the value of a register while handling any interlock cycles
+    inline u32 GetReg(const u32 reg, const u32 delay = 0)
+    {
+        return R[reg];
+    }
+
+    // Must be called after all of an instruction's cycles are calculated!!!
+    inline void SetCycles_L(const u32 reg, const u32 cycles, const u32 type) {}
+#endif
 
     virtual u64& Timestamp() = 0;
 
@@ -337,25 +349,23 @@ public:
         //else
         //    Cycles += numC + numD;
     }
-
+    
+#ifdef INTERLOCK
     // fetch the value of a register while handling any interlock cycles
     inline u32 GetReg(const u32 reg, const u32 delay = 0) override
     {
-#ifdef INTERLOCK
         if (InterlockTimestamp[reg] > (Timestamp() + delay))
             Timestamp() = InterlockTimestamp[reg] - delay;
-#endif
         return R[reg];
     }
 
     // Must be called after all of an instruction's cycles are calculated!!!
     inline void SetCycles_L(const u32 reg, const u32 cycles, const u32 type) override
     {
-#ifdef INTERLOCK
         InterlockTimestamp[reg] = cycles + Timestamp() + Cycles;
         //InterlockType[reg] = type;
-#endif
     }
+#endif
 
     u64& Timestamp() override;
 
@@ -474,6 +484,7 @@ public:
     void AddCycles_CDI() override;
     void AddCycles_CD() override;
 
+#ifdef INTERLOCK
     // fetch the value of a register while handling any interlock cycles
     inline u32 GetReg(const u32 reg, const u32 delay = 0) override
     {
@@ -482,6 +493,7 @@ public:
 
     // Must be called after all of an instruction's cycles are calculated!!!
     inline void SetCycles_L(const u32 reg, const u32 cycles, const u32 type) override{}
+#endif
 
     u64& Timestamp() override;
 protected:
