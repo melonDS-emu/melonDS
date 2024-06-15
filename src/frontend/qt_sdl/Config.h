@@ -25,7 +25,7 @@
 #include <unordered_map>
 #include <tuple>
 
-#include "toml/value.hpp"
+#include "toml/toml/value.hpp"
 
 namespace Config
 {
