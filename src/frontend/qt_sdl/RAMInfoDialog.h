@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
