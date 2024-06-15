@@ -68,6 +68,20 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
     globalCfg(Config::GetGlobalTable()),
     localCfg(Config::GetLocalTable(inst))
 {
+    consoleType = globalCfg.GetInt("Emu.ConsoleType");
+
+    ndsSave = nullptr;
+    cartType = -1;
+    baseROMDir = "";
+    baseROMName = "";
+    baseAssetName = "";
+
+    gbaSave = nullptr;
+    gbaCartType = -1;
+    baseGBAROMDir = "";
+    baseGBAROMName = "";
+    baseGBAAssetName = "";
+
     cheatFile = nullptr;
     cheatsOn = localCfg.GetBool("EnableCheats");
 
@@ -506,7 +520,7 @@ std::string EmuInstance::getEffectiveFirmwareSavePath()
     {
         return kWifiSettingsPath;
     }
-    if (nds->ConsoleType == 1)
+    if (consoleType == 1)
     {
         return globalCfg.GetString("DSi.FirmwarePath");
     }
@@ -1016,7 +1030,7 @@ ARCodeFile* EmuInstance::getCheatFile()
 
 void EmuInstance::setBatteryLevels()
 {
-    if (nds->ConsoleType == 1)
+    if (consoleType == 1)
     {
         auto dsi = static_cast<DSi*>(nds);
         dsi->I2C.GetBPTWL()->SetBatteryLevel(localCfg.GetInt("DSi.Battery.Level"));
@@ -1158,7 +1172,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     }
 
 
-    if ((!nds) || (consoletype != nds->ConsoleType))
+    if ((!nds) || (consoletype != consoleType))
     {
         NDS::Current = nullptr;
         if (nds) delete nds;
@@ -1204,9 +1218,11 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
 
 void EmuInstance::reset()
 {
+    consoleType = globalCfg.GetInt("Emu.ConsoleType");
+    
     updateConsole(Keep {}, Keep {});
 
-    if (nds->ConsoleType == 1) ejectGBACart();
+    if (consoleType == 1) ejectGBACart();
 
     nds->Reset();
     setBatteryLevels();
@@ -1237,7 +1253,7 @@ void EmuInstance::reset()
         string newsave;
         if (globalCfg.GetBool("Emu.ExternalBIOSEnable"))
         {
-            if (nds->ConsoleType == 1)
+            if (consoleType == 1)
                 newsave = globalCfg.GetString("DSi.FirmwarePath") + instanceFileSuffix();
             else
                 newsave = globalCfg.GetString("DS.FirmwarePath") + instanceFileSuffix();
@@ -1381,7 +1397,7 @@ pair<unique_ptr<Firmware>, string> EmuInstance::generateDefaultFirmware()
 {
     // Construct the default firmware...
     string settingspath;
-    std::unique_ptr<Firmware> firmware = std::make_unique<Firmware>(nds->ConsoleType);
+    std::unique_ptr<Firmware> firmware = std::make_unique<Firmware>(consoleType);
     assert(firmware->Buffer() != nullptr);
 
     // Try to open the instanced Wi-fi settings, falling back to the regular Wi-fi settings if they don't exist.
@@ -1412,7 +1428,7 @@ pair<unique_ptr<Firmware>, string> EmuInstance::generateDefaultFirmware()
             Platform::Log(Platform::LogLevel::Warn, "Failed to read Wi-fi settings from \"%s\"; using defaults instead\n", wfcsettingspath.c_str());
 
             firmware->GetAccessPoints() = {
-                    Firmware::WifiAccessPoint(nds->ConsoleType),
+                    Firmware::WifiAccessPoint(consoleType),
                     Firmware::WifiAccessPoint(),
                     Firmware::WifiAccessPoint(),
             };
@@ -1789,7 +1805,7 @@ QString EmuInstance::cartLabel()
 
 bool EmuInstance::loadGBAROM(QStringList filepath)
 {
-    if (nds->ConsoleType == 1)
+    if (consoleType == 1)
     {
         QMessageBox::critical(mainWindow, "melonDS", "The DSi doesn't have a GBA slot.");
         return false;
@@ -1864,7 +1880,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
 
 void EmuInstance::loadGBAAddon(int type)
 {
-    if (nds->ConsoleType == 1) return;
+    if (consoleType == 1) return;
 
     gbaSave = nullptr;
 
@@ -1895,7 +1911,7 @@ bool EmuInstance::gbaCartInserted()
 
 QString EmuInstance::gbaCartLabel()
 {
-    if (nds->ConsoleType == 1) return "none (DSi)";
+    if (consoleType == 1) return "none (DSi)";
 
     switch (gbaCartType)
     {

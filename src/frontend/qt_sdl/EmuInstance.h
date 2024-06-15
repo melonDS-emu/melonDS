@@ -78,6 +78,7 @@ public:
     ~EmuInstance();
 
     int getInstanceID() { return instanceID; }
+    int getConsoleType() { return consoleType; }
     EmuThread* getEmuThread() { return emuThread; }
     melonDS::NDS* getNDS() { return nds; }
 
@@ -225,6 +226,7 @@ private:
     Config::Table globalCfg;
     Config::Table localCfg;
 
+    int consoleType;
     melonDS::NDS* nds;
 
     int cartType;

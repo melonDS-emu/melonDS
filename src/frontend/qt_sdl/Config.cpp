@@ -723,19 +723,9 @@ bool Load()
 void Save()
 {
     auto cfgpath = Platform::GetLocalFilePath(kConfigFile);
-printf("save\n");
     if (!Platform::CheckFileWritable(cfgpath))
         return;
-    printf("zirz\n");
-    /*RootTable["test"] = 4444;
-    RootTable["teste.derp"] = 5555;
-    RootTable["testa"]["fazil"] = 6666;*/
-    //std::string derp = "sfsdf";
-    //toml::serializer<std::string> vorp(RootTable);
-    //toml::serializer<toml::string> zarp;
 
-    //std::cout << RootTable;
-    printf("blarg\n");
     std::ofstream file;
     file.open(cfgpath, std::ofstream::out | std::ofstream::trunc);
     file << RootTable;
