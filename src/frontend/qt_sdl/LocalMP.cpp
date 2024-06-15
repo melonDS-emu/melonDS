@@ -16,7 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <string>
+#include <cstring>
 #include <QMutex>
 #include <QSemaphore>
 
