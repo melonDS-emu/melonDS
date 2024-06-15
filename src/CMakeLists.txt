@@ -133,6 +133,7 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINAR
 target_sources(core PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
 
+set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(teakra EXCLUDE_FROM_ALL)
 # Workaround for building teakra with -O0 on Windows either failing or hanging forever
 target_compile_options(teakra PRIVATE "$<$<CONFIG:DEBUG>:-Og>")
