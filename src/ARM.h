@@ -30,6 +30,8 @@
 #include "debug/GdbStub.h"
 #endif
 
+#define INTERLOCK
+
 namespace melonDS
 {
 inline u32 ROR(u32 x, u32 n)
@@ -143,23 +145,46 @@ public:
     virtual void AddCycles_CDI() = 0;
     virtual void AddCycles_CD() = 0;
 
-    inline void AddCycles_L(const u8 reg1)
+    inline void AddCycles_L(const u32 delay, const u32 reg1)
     {
-        Cycles += InterlockTimestamp[reg1];
+        if (InterlockTimestamp[reg1] > Timestamp() + delay);
+            Timestamp() = InterlockTimestamp[reg1];
+    }
+    
+    inline void AddCycles_L(const u32 delay, const u32 reg1, const u32 reg2)
+    {
+        u64 cycles = std::max(InterlockTimestamp[reg1], InterlockTimestamp[reg2]);
+        if (cycles > Timestamp() + delay)
+            Timestamp() = cycles;
+    }
+    
+    inline void AddCycles_L(const u32 delay, const u32 reg1, const u32 reg2, const u32 reg3)
+    {
+        u64 cycles = std::max(InterlockTimestamp[reg1], std::max(InterlockTimestamp[reg2], InterlockTimestamp[reg3]));
+        if (cycles > Timestamp() + delay)
+            Timestamp() = cycles;
     }
 
-    inline void AddCycles_L(const u8 reg1, const u8 reg2)
+    // fetch the value of a register while handling any interlock cycles
+    inline u32 GetReg(const u32 reg, const u32 delay = 0)
     {
-        Cycles += std::max(InterlockTimestamp[reg1], InterlockTimestamp[reg2]);
+#ifdef INTERLOCK
+        if (InterlockTimestamp[reg] > (Timestamp() + delay))
+            Timestamp() = InterlockTimestamp[reg] - delay;
+#endif
+        return R[reg];
     }
 
     // Must be called after all of an instruction's cycles are calculated!!!
-    inline void SetCycles_L(const u8 reg, const u8 cycles, const u8 type)
+    inline void SetCycles_L(const u32 reg, const u32 cycles, const u32 type)
     {
+#ifdef INTERLOCK
         InterlockTimestamp[reg] = cycles + Timestamp() + Cycles;
+        //InterlockType[reg] = type;
+#endif
     }
 
-    virtual u64 Timestamp() = 0;
+    virtual u64& Timestamp() = 0;
 
     void CheckGdbIncoming();
 
@@ -326,7 +351,7 @@ public:
         //    Cycles += numC + numD;
     }
 
-    u64 Timestamp() override;
+    u64& Timestamp() override;
 
     void GetCodeMemRegion(u32 addr, MemRegion* region);
 
@@ -443,7 +468,7 @@ public:
     void AddCycles_CDI() override;
     void AddCycles_CD() override;
 
-    u64 Timestamp() override;
+    u64& Timestamp() override;
 protected:
     u8 BusRead8(u32 addr) override;
     u16 BusRead16(u32 addr) override;

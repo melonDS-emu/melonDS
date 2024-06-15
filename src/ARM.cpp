@@ -190,6 +190,8 @@ void ARM::Reset()
     BreakReq = false;
 #endif
 
+    memset(InterlockTimestamp, 0, sizeof(InterlockTimestamp));
+
     // zorp
     JumpTo(ExceptionBase);
 }
@@ -1314,9 +1316,16 @@ void ARMv4::AddCycles_CD()
         Cycles += numC + numD;
     }
 }
-    u64 ARMv5::Timestamp() { return NDS.ARM9Timestamp; }
 
-    u64 ARMv4::Timestamp() { return NDS.ARM7Timestamp; }
+u64& ARMv5::Timestamp()
+{
+    return NDS.ARM9Timestamp;
+}
+
+u64& ARMv4::Timestamp()
+{
+    return NDS.ARM7Timestamp;
+}
 
 u8 ARMv5::BusRead8(u32 addr)
 {
