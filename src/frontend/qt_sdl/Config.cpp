@@ -63,7 +63,7 @@ DefaultList<int> DefaultInts =
     {"Instance*.Firmware.BirthdayDay", 1},
     {"MP.AudioMode", 1},
     {"MP.RecvTimeout", 25},
-    {"Audio.Volume", 256},
+    {"Instance*.Audio.Volume", 256},
     {"Mic.InputType", 1},
     {"Mouse.HideSeconds", 5},
     {"Instance*.DSi.Battery.Level", 0xF},
@@ -99,6 +99,8 @@ DefaultList<bool> DefaultBools =
     {"LimitFPS", true},
     {"Window*.ShowOSD", true},
     {"Emu.DirectBoot", true},
+    {"Instance*.DS.Battery.LevelOkay", true},
+    {"Instance*.DSi.Battery.Charging", true},
 #ifdef JIT_ENABLED
     {"JIT.BranchOptimisations", true},
     {"JIT.LiteralOptimisations", true},

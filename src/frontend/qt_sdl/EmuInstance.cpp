@@ -534,7 +534,7 @@ std::string EmuInstance::getEffectiveFirmwareSavePath()
 // OR the path to the wi-fi settings.
 void EmuInstance::initFirmwareSaveManager() noexcept
 {
-    firmwareSave = std::make_unique<SaveManager>(getEffectiveFirmwareSavePath());
+    firmwareSave = std::make_unique<SaveManager>(getEffectiveFirmwareSavePath() + instanceFileSuffix());
 }
 
 std::string EmuInstance::getSavestateName(int slot)

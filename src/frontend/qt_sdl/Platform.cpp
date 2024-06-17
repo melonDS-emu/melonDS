@@ -404,6 +404,7 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen, void* userdata)
 {
     EmuInstance* inst = (EmuInstance*)userdata;
+    printf("saving firmware for instance %d\n", inst->getInstanceID());
     if (!inst->firmwareSave)
         return;
 
