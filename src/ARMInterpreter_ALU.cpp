@@ -858,7 +858,7 @@ void A_UMLAL(ARM* cpu)
 
     u64 res = (u64)rm * (u64)rs;
 
-    u64 rd = (u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL); // CHECKME: INTERLOCK?
+    u64 rd = (u64)cpu->GetReg((cpu->CurInstr >> 12) & 0xF, 1) | ((u64)cpu->GetReg((cpu->CurInstr >> 16) & 0xF) << 32ULL);
     res += rd;
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
@@ -923,7 +923,7 @@ void A_SMLAL(ARM* cpu)
 
     s64 res = (s64)(s32)rm * (s64)(s32)rs;
 
-    s64 rd = (s64)((u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL)); // CHECKME: INTERLOCK?
+    s64 rd = (s64)((u64)cpu->GetReg((cpu->CurInstr >> 12) & 0xF, 1) | ((u64)cpu->GetReg((cpu->CurInstr >> 16) & 0xF) << 32ULL));
     res += rd;
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
