@@ -1180,7 +1180,7 @@ void A_QDSUB(ARM* cpu)
 
 
 
-void T_LSL_IMM(ARM* cpu) // verify interlock
+void T_LSL_IMM(ARM* cpu)
 {
     u32 op = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 s = (cpu->CurInstr >> 6) & 0x1F;
@@ -1191,7 +1191,7 @@ void T_LSL_IMM(ARM* cpu) // verify interlock
     cpu->AddCycles_C();
 }
 
-void T_LSR_IMM(ARM* cpu) // verify interlock
+void T_LSR_IMM(ARM* cpu)
 {
     u32 op = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 s = (cpu->CurInstr >> 6) & 0x1F;
@@ -1202,7 +1202,7 @@ void T_LSR_IMM(ARM* cpu) // verify interlock
     cpu->AddCycles_C();
 }
 
-void T_ASR_IMM(ARM* cpu) // verify interlock
+void T_ASR_IMM(ARM* cpu)
 {
     u32 op = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 s = (cpu->CurInstr >> 6) & 0x1F;
@@ -1239,7 +1239,7 @@ void T_SUB_REG_(ARM* cpu)
     cpu->AddCycles_C();
 }
 
-void T_ADD_IMM_(ARM* cpu) // verify interlock
+void T_ADD_IMM_(ARM* cpu)
 {
     u32 a = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 b = (cpu->CurInstr >> 6) & 0x7;
@@ -1252,7 +1252,7 @@ void T_ADD_IMM_(ARM* cpu) // verify interlock
     cpu->AddCycles_C();
 }
 
-void T_SUB_IMM_(ARM* cpu) // verify interlock
+void T_SUB_IMM_(ARM* cpu)
 {
     u32 a = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 b = (cpu->CurInstr >> 6) & 0x7;
@@ -1265,7 +1265,7 @@ void T_SUB_IMM_(ARM* cpu) // verify interlock
     cpu->AddCycles_C();
 }
 
-void T_MOV_IMM(ARM* cpu) // verify interlock
+void T_MOV_IMM(ARM* cpu)
 {
     u32 b = cpu->CurInstr & 0xFF;
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = b;
@@ -1274,9 +1274,9 @@ void T_MOV_IMM(ARM* cpu) // verify interlock
     cpu->AddCycles_C();
 }
 
-void T_CMP_IMM(ARM* cpu) // verify interlock
+void T_CMP_IMM(ARM* cpu) 
 {
-    u32 a = cpu->R[(cpu->CurInstr >> 8) & 0x7];
+    u32 a = cpu->GetReg((cpu->CurInstr >> 8) & 0x7);
     u32 b = cpu->CurInstr & 0xFF;
     u32 res = a - b;
     cpu->SetNZCV(res & 0x80000000,
@@ -1286,7 +1286,7 @@ void T_CMP_IMM(ARM* cpu) // verify interlock
     cpu->AddCycles_C();
 }
 
-void T_ADD_IMM(ARM* cpu) // verify interlock
+void T_ADD_IMM(ARM* cpu)
 {
     u32 a = cpu->GetReg((cpu->CurInstr >> 8) & 0x7);
     u32 b = cpu->CurInstr & 0xFF;
@@ -1299,7 +1299,7 @@ void T_ADD_IMM(ARM* cpu) // verify interlock
     cpu->AddCycles_C();
 }
 
-void T_SUB_IMM(ARM* cpu) // verify interlock
+void T_SUB_IMM(ARM* cpu)
 {
     u32 a = cpu->GetReg((cpu->CurInstr >> 8) & 0x7);
     u32 b = cpu->CurInstr & 0xFF;
@@ -1516,7 +1516,7 @@ void T_MVN_REG(ARM* cpu)
 // TODO: check those when MSBs and MSBd are cleared
 // GBAtek says it's not allowed, but it works atleast on the ARM9
 
-void T_ADD_HIREG(ARM* cpu) // verify interlock
+void T_ADD_HIREG(ARM* cpu)
 {
     u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
     u32 rs = (cpu->CurInstr >> 3) & 0xF;
@@ -1536,7 +1536,7 @@ void T_ADD_HIREG(ARM* cpu) // verify interlock
     }
 }
 
-void T_CMP_HIREG(ARM* cpu) // verify interlock
+void T_CMP_HIREG(ARM* cpu)
 {
     u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
     u32 rs = (cpu->CurInstr >> 3) & 0xF;
@@ -1552,7 +1552,7 @@ void T_CMP_HIREG(ARM* cpu) // verify interlock
     cpu->AddCycles_C();
 }
 
-void T_MOV_HIREG(ARM* cpu) // verify interlock
+void T_MOV_HIREG(ARM* cpu)
 {
     u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
     u32 rs = (cpu->CurInstr >> 3) & 0xF;
@@ -1582,25 +1582,25 @@ void T_MOV_HIREG(ARM* cpu) // verify interlock
 }
 
 
-void T_ADD_PCREL(ARM* cpu) // verify interlock
+void T_ADD_PCREL(ARM* cpu) // checkme: pc shouldn't be able to interlock?
 {
-    u32 val = cpu->GetReg(15) & ~2;
+    u32 val = cpu->R[15] & ~2;
     val += ((cpu->CurInstr & 0xFF) << 2);
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = val;
     cpu->AddCycles_C();
 }
 
-void T_ADD_SPREL(ARM* cpu) // verify interlock
+void T_ADD_SPREL(ARM* cpu) // checkme: sp shouldn't be able to interlock in thumb?
 {
-    u32 val = cpu->GetReg(13);
+    u32 val = cpu->R[13];
     val += ((cpu->CurInstr & 0xFF) << 2);
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = val;
     cpu->AddCycles_C();
 }
 
-void T_ADD_SP(ARM* cpu) // verify interlock
+void T_ADD_SP(ARM* cpu) // checkme: sp shouldn't be able to interlock in thumb?
 {
-    u32 val = cpu->GetReg(13);
+    u32 val = cpu->R[13];
     if (cpu->CurInstr & (1<<7))
         val -= ((cpu->CurInstr & 0x7F) << 2);
     else

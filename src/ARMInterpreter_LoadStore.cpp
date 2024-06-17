@@ -738,13 +738,13 @@ void A_STM(ARM* cpu)
 
 
 
-void T_LDR_PCREL(ARM* cpu) // verify interlock
+void T_LDR_PCREL(ARM* cpu) // checkme: can pc be interlocked?
 {
-    u32 addr = (cpu->GetReg(15) & ~0x2) + ((cpu->CurInstr & 0xFF) << 2);
+    u32 addr = (cpu->R[15] & ~0x2) + ((cpu->CurInstr & 0xFF) << 2);
     cpu->DataRead32(addr, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
 
     cpu->AddCycles_CDI();
-    cpu->SetCycles_L((cpu->CurInstr >> 8) & 0x7, 1, cpu->ILT_Norm); // checkme? ROR?
+    cpu->SetCycles_L((cpu->CurInstr >> 8) & 0x7, 1, cpu->ILT_Norm); // checkme: verify cycle count
 }
 
 
@@ -824,7 +824,7 @@ void T_LDRSH_REG(ARM* cpu)
 }
 
 
-void T_STR_IMM(ARM* cpu) // verify interlock
+void T_STR_IMM(ARM* cpu)
 {
     u32 offset = (cpu->CurInstr >> 4) & 0x7C;
     offset += cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
@@ -833,7 +833,7 @@ void T_STR_IMM(ARM* cpu) // verify interlock
     cpu->AddCycles_CD();
 }
 
-void T_LDR_IMM(ARM* cpu) // verify interlock
+void T_LDR_IMM(ARM* cpu)
 {
     u32 offset = (cpu->CurInstr >> 4) & 0x7C;
     offset += cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
@@ -845,7 +845,7 @@ void T_LDR_IMM(ARM* cpu) // verify interlock
     cpu->SetCycles_L(cpu->CurInstr & 0x7, (offset & 3) ? 2 : 1, cpu->ILT_Norm);
 }
 
-void T_STRB_IMM(ARM* cpu) // verify interlock
+void T_STRB_IMM(ARM* cpu)
 {
     u32 offset = (cpu->CurInstr >> 6) & 0x1F;
     offset += cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
@@ -854,7 +854,7 @@ void T_STRB_IMM(ARM* cpu) // verify interlock
     cpu->AddCycles_CD();
 }
 
-void T_LDRB_IMM(ARM* cpu) // verify interlock
+void T_LDRB_IMM(ARM* cpu)
 {
     u32 offset = (cpu->CurInstr >> 6) & 0x1F;
     offset += cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
@@ -865,7 +865,7 @@ void T_LDRB_IMM(ARM* cpu) // verify interlock
 }
 
 
-void T_STRH_IMM(ARM* cpu) // verify interlock
+void T_STRH_IMM(ARM* cpu)
 {
     u32 offset = (cpu->CurInstr >> 5) & 0x3E;
     offset += cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
@@ -874,7 +874,7 @@ void T_STRH_IMM(ARM* cpu) // verify interlock
     cpu->AddCycles_CD();
 }
 
-void T_LDRH_IMM(ARM* cpu) // verify interlock
+void T_LDRH_IMM(ARM* cpu)
 {
     u32 offset = (cpu->CurInstr >> 5) & 0x3E;
     offset += cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
@@ -885,23 +885,23 @@ void T_LDRH_IMM(ARM* cpu) // verify interlock
 }
 
 
-void T_STR_SPREL(ARM* cpu) // verify interlock
+void T_STR_SPREL(ARM* cpu) // checkme: can sp be interlocked in thumb mode?
 {
     u32 offset = (cpu->CurInstr << 2) & 0x3FC;
-    offset += cpu->GetReg(13);
+    offset += cpu->R[13];
 
     cpu->DataWrite32(offset, cpu->GetReg((cpu->CurInstr >> 8) & 0x7, 1));
     cpu->AddCycles_CD();
 }
 
-void T_LDR_SPREL(ARM* cpu) // verify interlock
+void T_LDR_SPREL(ARM* cpu) // checkme: can sp be interlocked in thumb mode?
 {
     u32 offset = (cpu->CurInstr << 2) & 0x3FC;
-    offset += cpu->GetReg(13);
+    offset += cpu->R[13];
 
     cpu->DataRead32(offset, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
     cpu->AddCycles_CDI();
-    cpu->SetCycles_L((cpu->CurInstr >> 8) & 0x7, 1, cpu->ILT_Norm); // checkme? ROR?
+    cpu->SetCycles_L((cpu->CurInstr >> 8) & 0x7, 1, cpu->ILT_Norm); // checkme: verify cycle count
 }
 
 
@@ -952,9 +952,9 @@ void T_PUSH(ARM* cpu)
     cpu->AddCycles_CD();
 }
 
-void T_POP(ARM* cpu) // verify interlock
+void T_POP(ARM* cpu) // checkme: can sp be interlocked in thumb mode?
 {
-    u32 base = cpu->GetReg(13);
+    u32 base = cpu->R[13];
     bool first = true;
     u32 lastreg = 0;
 
