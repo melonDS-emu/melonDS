@@ -469,15 +469,17 @@ void A_SWP(ARM* cpu)
             {
                 cpu->R[rd] = ROR(val, 8*(base&0x3));
 
-                u32 cycles;
-                if (base & 3) // add an extra interlock cycle when doing a misaligned load from a non-itcm address (checkme: does it matter whether you're executing from there?)
+                if (cpu->Num == 0)
                 {
-                    if (cpu->Num == 1) cycles = 2; // checkme
-                    else cycles = ((base < ((ARMv5*)cpu)->ITCMSize) && ((cpu->R[15]-8) < ((ARMv5*)cpu)->ITCMSize)) ? 1 : 2;
-                }
-                else cycles = 1;
+                    u32 cycles;
+                    if (base & 3) // add an extra interlock cycle when doing a misaligned load from a non-itcm address (checkme: does it matter whether you're executing from there?)
+                    {
+                        cycles = ((base < ((ARMv5*)cpu)->ITCMSize) && ((cpu->R[15]-8) < ((ARMv5*)cpu)->ITCMSize)) ? 1 : 2;
+                    }
+                    else cycles = 1;
                     
-                cpu->SetCycles_L(rd, cycles, cpu->ILT_Norm);
+                    cpu->SetCycles_L(rd, cycles, cpu->ILT_Norm);
+                }
             }
             else if (cpu->Num == 1) // for some reason these jumps don't work on the arm 9?
                 cpu->JumpTo(ROR(val, 8*(base&0x3)) & ~1, cpu->ILT_Norm);
@@ -508,11 +510,8 @@ void A_SWPB(ARM* cpu)
                 cpu->R[rd] = val;
 
                 // add an extra interlock cycle when doing a load from a non-itcm address (checkme: does it matter whether you're executing from there?)
-                u32 cycles;
-                if (cpu->Num == 1) cycles = 2; // checkme
-                else cycles = ((base < ((ARMv5*)cpu)->ITCMSize) && ((cpu->R[15]-8) < ((ARMv5*)cpu)->ITCMSize)) ? 1 : 2;
-
-                cpu->SetCycles_L(rd, cycles, cpu->ILT_Norm);
+                if (cpu->Num == 0)
+                    cpu->SetCycles_L(rd, ((base < ((ARMv5*)cpu)->ITCMSize) && ((cpu->R[15]-8) < ((ARMv5*)cpu)->ITCMSize)) ? 1 : 2, cpu->ILT_Norm);
             }
             else if (cpu->Num == 1)// for some reason these jumps don't work on the arm 9?
                 cpu->JumpTo(val & ~1);
@@ -594,11 +593,14 @@ void A_LDM(ARM* cpu)
     {
         cpu->AddCycles_CDI();
 
-        u32 lastbase = base;
-        if (!preinc) lastbase -= 4;
-        // no interlock occurs when loading from itcm (checkme: does it matter whether you're executing from there?)
-        if ((((ARMv5*)cpu)->ITCMSize < lastbase) && ((cpu->R[15]-8) > ((ARMv5*)cpu)->ITCMSize) && (cpu->CurInstr & (0x7FFF >> (15 - lastreg))))
-            cpu->SetCycles_L(lastreg, 1, cpu->ILT_Norm);
+        if (cpu->Num == 0)
+        {
+            u32 lastbase = base;
+            if (!preinc) lastbase -= 4;
+            // no interlock occurs when loading from itcm (checkme: does it matter whether you're executing from there?)
+            if ((((ARMv5*)cpu)->ITCMSize < lastbase) && ((cpu->R[15]-8) > ((ARMv5*)cpu)->ITCMSize) && (cpu->CurInstr & (0x7FFF >> (15 - lastreg))))
+                cpu->SetCycles_L(lastreg, 1, cpu->ILT_Norm);
+        }
     }
 
     // switch back to previous regs
@@ -736,160 +738,170 @@ void A_STM(ARM* cpu)
 
 
 
-void T_LDR_PCREL(ARM* cpu)
+void T_LDR_PCREL(ARM* cpu) // verify interlock
 {
-    u32 addr = (cpu->R[15] & ~0x2) + ((cpu->CurInstr & 0xFF) << 2);
+    u32 addr = (cpu->GetReg(15) & ~0x2) + ((cpu->CurInstr & 0xFF) << 2);
     cpu->DataRead32(addr, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
 
     cpu->AddCycles_CDI();
+    cpu->SetCycles_L(cpu->R[(cpu->CurInstr >> 8) & 0x7], 1, cpu->ILT_Norm); // checkme? ROR?
 }
 
 
-void T_STR_REG(ARM* cpu)
+void T_STR_REG(ARM* cpu) 
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
-    cpu->DataWrite32(addr, cpu->R[cpu->CurInstr & 0x7]);
+    u32 addr = cpu->GetReg((cpu->CurInstr >> 3) & 0x7) + cpu->GetReg((cpu->CurInstr >> 6) & 0x7);
+    cpu->DataWrite32(addr, cpu->GetReg(cpu->CurInstr & 0x7, 1));
 
     cpu->AddCycles_CD();
 }
 
 void T_STRB_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
-    cpu->DataWrite8(addr, cpu->R[cpu->CurInstr & 0x7]);
+    u32 addr = cpu->GetReg((cpu->CurInstr >> 3) & 0x7) + cpu->GetReg((cpu->CurInstr >> 6) & 0x7);
+    cpu->DataWrite8(addr, cpu->GetReg(cpu->CurInstr & 0x7, 1));
 
     cpu->AddCycles_CD();
 }
 
 void T_LDR_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    u32 addr = cpu->GetReg((cpu->CurInstr >> 3) & 0x7) + cpu->GetReg((cpu->CurInstr >> 6) & 0x7);
 
     u32 val;
     if (cpu->DataRead32(addr, &val))
         cpu->R[cpu->CurInstr & 0x7] = ROR(val, 8*(addr&0x3));
 
     cpu->AddCycles_CDI();
+    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], (addr & 3) ? 2 : 1, cpu->ILT_Norm);
 }
 
 void T_LDRB_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    u32 addr = cpu->GetReg((cpu->CurInstr >> 3) & 0x7) + cpu->GetReg((cpu->CurInstr >> 6) & 0x7);
     cpu->DataRead8(addr, &cpu->R[cpu->CurInstr & 0x7]);
 
     cpu->AddCycles_CDI();
+    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], 2, cpu->ILT_Norm);
 }
 
 
 void T_STRH_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
-    cpu->DataWrite16(addr, cpu->R[cpu->CurInstr & 0x7]);
+    u32 addr = cpu->GetReg((cpu->CurInstr >> 3) & 0x7) + cpu->GetReg((cpu->CurInstr >> 6) & 0x7);
+    cpu->DataWrite16(addr, cpu->GetReg(cpu->CurInstr & 0x7, 1));
 
     cpu->AddCycles_CD();
 }
 
 void T_LDRSB_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    u32 addr = cpu->GetReg((cpu->CurInstr >> 3) & 0x7) + cpu->GetReg((cpu->CurInstr >> 6) & 0x7);
     if (cpu->DataRead8(addr, &cpu->R[cpu->CurInstr & 0x7]))
         cpu->R[cpu->CurInstr & 0x7] = (s32)(s8)cpu->R[cpu->CurInstr & 0x7];
 
     cpu->AddCycles_CDI();
+    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], 2, cpu->ILT_Norm);
 }
 
 void T_LDRH_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    u32 addr = cpu->GetReg((cpu->CurInstr >> 3) & 0x7) + cpu->GetReg((cpu->CurInstr >> 6) & 0x7);
     cpu->DataRead16(addr, &cpu->R[cpu->CurInstr & 0x7]);
 
     cpu->AddCycles_CDI();
+    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], 2, cpu->ILT_Norm);
 }
 
 void T_LDRSH_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    u32 addr = cpu->GetReg((cpu->CurInstr >> 3) & 0x7) + cpu->GetReg((cpu->CurInstr >> 6) & 0x7);
     if (cpu->DataRead16(addr, &cpu->R[cpu->CurInstr & 0x7]))
         cpu->R[cpu->CurInstr & 0x7] = (s32)(s16)cpu->R[cpu->CurInstr & 0x7];
 
     cpu->AddCycles_CDI();
+    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], 2, cpu->ILT_Norm);
 }
 
 
-void T_STR_IMM(ARM* cpu)
+void T_STR_IMM(ARM* cpu) // verify interlock
 {
     u32 offset = (cpu->CurInstr >> 4) & 0x7C;
-    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    offset += cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
 
-    cpu->DataWrite32(offset, cpu->R[cpu->CurInstr & 0x7]);
+    cpu->DataWrite32(offset, cpu->GetReg(cpu->CurInstr & 0x7, 1));
     cpu->AddCycles_CD();
 }
 
-void T_LDR_IMM(ARM* cpu)
+void T_LDR_IMM(ARM* cpu) // verify interlock
 {
     u32 offset = (cpu->CurInstr >> 4) & 0x7C;
-    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    offset += cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
 
     u32 val;
     if (cpu->DataRead32(offset, &val))
         cpu->R[cpu->CurInstr & 0x7] = ROR(val, 8*(offset&0x3));
     cpu->AddCycles_CDI();
+    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], (offset & 3) ? 2 : 1, cpu->ILT_Norm);
 }
 
-void T_STRB_IMM(ARM* cpu)
+void T_STRB_IMM(ARM* cpu) // verify interlock
 {
     u32 offset = (cpu->CurInstr >> 6) & 0x1F;
-    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    offset += cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
 
-    cpu->DataWrite8(offset, cpu->R[cpu->CurInstr & 0x7]);
+    cpu->DataWrite8(offset, cpu->GetReg(cpu->CurInstr & 0x7, 1));
     cpu->AddCycles_CD();
 }
 
-void T_LDRB_IMM(ARM* cpu)
+void T_LDRB_IMM(ARM* cpu) // verify interlock
 {
     u32 offset = (cpu->CurInstr >> 6) & 0x1F;
-    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    offset += cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
 
     cpu->DataRead8(offset, &cpu->R[cpu->CurInstr & 0x7]);
     cpu->AddCycles_CDI();
+    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], 2, cpu->ILT_Norm);
 }
 
 
-void T_STRH_IMM(ARM* cpu)
+void T_STRH_IMM(ARM* cpu) // verify interlock
 {
     u32 offset = (cpu->CurInstr >> 5) & 0x3E;
-    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    offset += cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
 
-    cpu->DataWrite16(offset, cpu->R[cpu->CurInstr & 0x7]);
+    cpu->DataWrite16(offset, cpu->GetReg(cpu->CurInstr & 0x7, 1));
     cpu->AddCycles_CD();
 }
 
-void T_LDRH_IMM(ARM* cpu)
+void T_LDRH_IMM(ARM* cpu) // verify interlock
 {
     u32 offset = (cpu->CurInstr >> 5) & 0x3E;
-    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    offset += cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
 
     cpu->DataRead16(offset, &cpu->R[cpu->CurInstr & 0x7]);
     cpu->AddCycles_CDI();
+    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], 2, cpu->ILT_Norm);
 }
 
 
-void T_STR_SPREL(ARM* cpu)
+void T_STR_SPREL(ARM* cpu) // verify interlock
 {
     u32 offset = (cpu->CurInstr << 2) & 0x3FC;
-    offset += cpu->R[13];
+    offset += cpu->GetReg(13);
 
-    cpu->DataWrite32(offset, cpu->R[(cpu->CurInstr >> 8) & 0x7]);
+    cpu->DataWrite32(offset, cpu->GetReg((cpu->CurInstr >> 8) & 0x7, 1));
     cpu->AddCycles_CD();
 }
 
-void T_LDR_SPREL(ARM* cpu)
+void T_LDR_SPREL(ARM* cpu) // verify interlock
 {
     u32 offset = (cpu->CurInstr << 2) & 0x3FC;
-    offset += cpu->R[13];
+    offset += cpu->GetReg(13);
 
     cpu->DataRead32(offset, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
     cpu->AddCycles_CDI();
+    cpu->SetCycles_L(cpu->R[(cpu->CurInstr >> 8) & 0x7], 1, cpu->ILT_Norm); // checkme? ROR?
 }
 
 
@@ -907,7 +919,7 @@ void T_PUSH(ARM* cpu)
     if (cpu->CurInstr & (1<<8))
         nregs++;
 
-    u32 base = cpu->R[13];
+    u32 base = cpu->GetReg(13);
     base -= (nregs<<2);
     u32 wbbase = base;
 
@@ -915,8 +927,8 @@ void T_PUSH(ARM* cpu)
     {
         if (cpu->CurInstr & (1<<i))
         {
-            if (!(first ? cpu->DataWrite32 (base, cpu->R[i])
-                        : cpu->DataWrite32S(base, cpu->R[i])))
+            if (!(first ? cpu->DataWrite32 (base, cpu->GetReg(i, 1))
+                        : cpu->DataWrite32S(base, cpu->GetReg(i, 1)))) // verify interlock
             {
                 goto dataabort;
             }
@@ -940,10 +952,11 @@ void T_PUSH(ARM* cpu)
     cpu->AddCycles_CD();
 }
 
-void T_POP(ARM* cpu)
+void T_POP(ARM* cpu) // verify interlock
 {
-    u32 base = cpu->R[13];
+    u32 base = cpu->GetReg(13);
     bool first = true;
+    u32 lastreg = 0;
 
     for (int i = 0; i < 8; i++)
     {
@@ -974,21 +987,30 @@ void T_POP(ARM* cpu)
 
     cpu->R[13] = base;
 
+    if (cpu->Num == 0)
+    {
+        u32 lastbase = base - 4;
+        // no interlock occurs when loading from itcm (checkme: does it matter whether you're executing from there?)
+        if ((((ARMv5*)cpu)->ITCMSize < lastbase) && ((cpu->R[15]-8) > ((ARMv5*)cpu)->ITCMSize) && (cpu->CurInstr & (0x7FFF >> (15 - lastreg))))
+            cpu->SetCycles_L(lastreg, 1, cpu->ILT_Norm);
+    }
+    return;
+
     dataabort:
     cpu->AddCycles_CDI();
 }
 
 void T_STMIA(ARM* cpu)
 {
-    u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
+    u32 base = cpu->GetReg((cpu->CurInstr >> 8) & 0x7);
     bool first = true;
 
     for (int i = 0; i < 8; i++)
     {
         if (cpu->CurInstr & (1<<i))
         {
-            if (!(first ? cpu->DataWrite32 (base, cpu->R[i])
-                        : cpu->DataWrite32S(base, cpu->R[i])))
+            if (!(first ? cpu->DataWrite32 (base, cpu->GetReg(i, 1))
+                        : cpu->DataWrite32S(base, cpu->GetReg(i, 1))))
             {
                 goto dataabort;
             }
@@ -1005,8 +1027,9 @@ void T_STMIA(ARM* cpu)
 
 void T_LDMIA(ARM* cpu)
 {
-    u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
+    u32 base = cpu->GetReg((cpu->CurInstr >> 8) & 0x7);
     bool first = true;
+    u32 lastreg = 0;
 
     for (int i = 0; i < 8; i++)
     {
@@ -1019,11 +1042,23 @@ void T_LDMIA(ARM* cpu)
             }
             first = false;
             base += 4;
+            lastreg = i;
         }
     }
 
     if (!(cpu->CurInstr & (1<<((cpu->CurInstr >> 8) & 0x7))))
         cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
+        
+    
+    cpu->AddCycles_CDI();
+    if (cpu->Num == 0)
+    {
+        u32 lastbase = base - 4;
+        // no interlock occurs when loading from itcm (checkme: does it matter whether you're executing from there?)
+        if ((((ARMv5*)cpu)->ITCMSize < lastbase) && ((cpu->R[15]-8) > ((ARMv5*)cpu)->ITCMSize) && (cpu->CurInstr & (0x7FFF >> (15 - lastreg))))
+            cpu->SetCycles_L(lastreg, 1, cpu->ILT_Norm);
+    }
+    return;
 
     dataabort:
     cpu->AddCycles_CDI();

@@ -46,15 +46,15 @@ void A_BLX_IMM(ARM* cpu)
     cpu->JumpTo(cpu->R[15] + offset + 1);
 }
 
-void A_BX(ARM* cpu)
+void A_BX(ARM* cpu) // verify interlock
 {
-    cpu->JumpTo(cpu->R[cpu->CurInstr & 0xF]);
+    cpu->JumpTo(cpu->GetReg(cpu->CurInstr & 0xF));
 }
 
-void A_BLX_REG(ARM* cpu)
+void A_BLX_REG(ARM* cpu) // verify interlock
 {
     u32 lr = cpu->R[15] - 4;
-    cpu->JumpTo(cpu->R[cpu->CurInstr & 0xF]);
+    cpu->JumpTo(cpu->GetReg(cpu->CurInstr & 0xF));
     cpu->R[14] = lr;
 }
 
@@ -71,12 +71,12 @@ void T_BCOND(ARM* cpu)
         cpu->AddCycles_C();
 }
 
-void T_BX(ARM* cpu)
+void T_BX(ARM* cpu) // verify interlock
 {
-    cpu->JumpTo(cpu->R[(cpu->CurInstr >> 3) & 0xF]);
+    cpu->JumpTo(cpu->GetReg((cpu->CurInstr >> 3) & 0xF));
 }
 
-void T_BLX_REG(ARM* cpu)
+void T_BLX_REG(ARM* cpu) // verify interlock
 {
     if (cpu->Num==1)
     {
@@ -85,7 +85,7 @@ void T_BLX_REG(ARM* cpu)
     }
 
     u32 lr = cpu->R[15] - 1;
-    cpu->JumpTo(cpu->R[(cpu->CurInstr >> 3) & 0xF]);
+    cpu->JumpTo(cpu->GetReg((cpu->CurInstr >> 3) & 0xF));
     cpu->R[14] = lr;
 }
 
