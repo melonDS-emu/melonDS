@@ -744,7 +744,7 @@ void T_LDR_PCREL(ARM* cpu) // verify interlock
     cpu->DataRead32(addr, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
 
     cpu->AddCycles_CDI();
-    cpu->SetCycles_L(cpu->R[(cpu->CurInstr >> 8) & 0x7], 1, cpu->ILT_Norm); // checkme? ROR?
+    cpu->SetCycles_L((cpu->CurInstr >> 8) & 0x7, 1, cpu->ILT_Norm); // checkme? ROR?
 }
 
 
@@ -773,7 +773,7 @@ void T_LDR_REG(ARM* cpu)
         cpu->R[cpu->CurInstr & 0x7] = ROR(val, 8*(addr&0x3));
 
     cpu->AddCycles_CDI();
-    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], (addr & 3) ? 2 : 1, cpu->ILT_Norm);
+    cpu->SetCycles_L(cpu->CurInstr & 0x7, (addr & 3) ? 2 : 1, cpu->ILT_Norm);
 }
 
 void T_LDRB_REG(ARM* cpu)
@@ -782,7 +782,7 @@ void T_LDRB_REG(ARM* cpu)
     cpu->DataRead8(addr, &cpu->R[cpu->CurInstr & 0x7]);
 
     cpu->AddCycles_CDI();
-    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], 2, cpu->ILT_Norm);
+    cpu->SetCycles_L(cpu->CurInstr & 0x7, 2, cpu->ILT_Norm);
 }
 
 
@@ -801,7 +801,7 @@ void T_LDRSB_REG(ARM* cpu)
         cpu->R[cpu->CurInstr & 0x7] = (s32)(s8)cpu->R[cpu->CurInstr & 0x7];
 
     cpu->AddCycles_CDI();
-    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], 2, cpu->ILT_Norm);
+    cpu->SetCycles_L(cpu->CurInstr & 0x7, 2, cpu->ILT_Norm);
 }
 
 void T_LDRH_REG(ARM* cpu)
@@ -810,7 +810,7 @@ void T_LDRH_REG(ARM* cpu)
     cpu->DataRead16(addr, &cpu->R[cpu->CurInstr & 0x7]);
 
     cpu->AddCycles_CDI();
-    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], 2, cpu->ILT_Norm);
+    cpu->SetCycles_L(cpu->CurInstr & 0x7, 2, cpu->ILT_Norm);
 }
 
 void T_LDRSH_REG(ARM* cpu)
@@ -820,7 +820,7 @@ void T_LDRSH_REG(ARM* cpu)
         cpu->R[cpu->CurInstr & 0x7] = (s32)(s16)cpu->R[cpu->CurInstr & 0x7];
 
     cpu->AddCycles_CDI();
-    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], 2, cpu->ILT_Norm);
+    cpu->SetCycles_L(cpu->CurInstr & 0x7, 2, cpu->ILT_Norm);
 }
 
 
@@ -842,7 +842,7 @@ void T_LDR_IMM(ARM* cpu) // verify interlock
     if (cpu->DataRead32(offset, &val))
         cpu->R[cpu->CurInstr & 0x7] = ROR(val, 8*(offset&0x3));
     cpu->AddCycles_CDI();
-    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], (offset & 3) ? 2 : 1, cpu->ILT_Norm);
+    cpu->SetCycles_L(cpu->CurInstr & 0x7, (offset & 3) ? 2 : 1, cpu->ILT_Norm);
 }
 
 void T_STRB_IMM(ARM* cpu) // verify interlock
@@ -861,7 +861,7 @@ void T_LDRB_IMM(ARM* cpu) // verify interlock
 
     cpu->DataRead8(offset, &cpu->R[cpu->CurInstr & 0x7]);
     cpu->AddCycles_CDI();
-    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], 2, cpu->ILT_Norm);
+    cpu->SetCycles_L(cpu->CurInstr & 0x7, 2, cpu->ILT_Norm);
 }
 
 
@@ -881,7 +881,7 @@ void T_LDRH_IMM(ARM* cpu) // verify interlock
 
     cpu->DataRead16(offset, &cpu->R[cpu->CurInstr & 0x7]);
     cpu->AddCycles_CDI();
-    cpu->SetCycles_L(cpu->R[cpu->CurInstr & 0x7], 2, cpu->ILT_Norm);
+    cpu->SetCycles_L(cpu->CurInstr & 0x7, 2, cpu->ILT_Norm);
 }
 
 
@@ -901,7 +901,7 @@ void T_LDR_SPREL(ARM* cpu) // verify interlock
 
     cpu->DataRead32(offset, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
     cpu->AddCycles_CDI();
-    cpu->SetCycles_L(cpu->R[(cpu->CurInstr >> 8) & 0x7], 1, cpu->ILT_Norm); // checkme? ROR?
+    cpu->SetCycles_L((cpu->CurInstr >> 8) & 0x7, 1, cpu->ILT_Norm); // checkme? ROR?
 }
 
 
