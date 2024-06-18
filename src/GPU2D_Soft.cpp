@@ -254,7 +254,11 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 
     if (GPU.GPU3D.IsRendererAccelerated())
     {
-        dst[256*3] = masterBrightness | (CurUnit->DispCnt & 0x30000);
+        u32 xpos = GPU.GPU3D.GetRenderXPos();
+
+        dst[256*3] = masterBrightness |
+                     (CurUnit->DispCnt & 0x30000) |
+                     (xpos << 24) | ((xpos & 0x100) << 15);
         return;
     }
 

@@ -52,7 +52,6 @@ private:
 
     GLuint CompShader {};
     GLuint CompScaleLoc = 0;
-    GLuint Comp3DXPosLoc = 0;
 
     GLuint CompVertexBufferID = 0;
     GLuint CompVertexArrayID = 0;

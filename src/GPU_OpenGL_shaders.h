@@ -43,7 +43,6 @@ void main()
 const char* kCompositorFS_Nearest = R"(#version 140
 
 uniform uint u3DScale;
-uniform int u3DXPos;
 
 uniform usampler2D ScreenTex;
 uniform sampler2D _3DTex;
@@ -56,10 +55,12 @@ void main()
 {
     ivec4 pixel = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord), 0));
 
-    float _3dxpos = float(u3DXPos);
-
     ivec4 mbright = ivec4(texelFetch(ScreenTex, ivec2(256*3, int(fTexcoord.y)), 0));
     int dispmode = mbright.b & 0x3;
+
+    // mbright.a == HOFS bit0..7
+    // mbright.b bit7 == HOFS bit8 (sign)
+    float _3dxpos = float(mbright.a - ((mbright.b & 0x80) * 2));
 
     if (dispmode == 1)
     {
