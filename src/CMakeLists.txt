@@ -141,7 +141,9 @@ target_link_libraries(core PRIVATE teakra)
 
 if (NOT MSVC)
     # MSVC has its own compiler flag syntax; if we ever support it,
-    # be sure to silence any equivalent warnings there.
+    # be sure to add equivalent flags here.
+
+    target_compile_options(core PUBLIC -fwrapv)
 
     target_compile_options(core PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:-Wno-invalid-offsetof>")
     # These warnings are excessive, and are only triggered in the ARMJIT code
