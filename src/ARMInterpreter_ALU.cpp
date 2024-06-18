@@ -882,7 +882,7 @@ void A_UMLAL(ARM* cpu)
                    !res);
         if (cpu->Num==1) cpu->SetC(0);
     }
-    else cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
+    else cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
 }
 
 void A_SMULL(ARM* cpu)
