@@ -242,13 +242,20 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
         {
             vramaddr += ((t & 0x3FC) * (width>>2)) + (s & 0x3FC);
             vramaddr += (t & 0x3);
+            vramaddr &= 0x7FFFF; // address used for all calcs wraps around after slot 3
 
             u32 slot1addr = 0x20000 + ((vramaddr & 0x1FFFC) >> 1);
             if (vramaddr >= 0x40000)
                 slot1addr += 0x10000;
 
-            u8 val = ReadVRAM_Texture<u8>(vramaddr, gpu);
-            val >>= (2 * (s & 0x3));
+            u8 val;
+            if (vramaddr >= 0x20000 && vramaddr < 0x40000) // reading slot 1 for texels should always read 0
+                val = 0;
+            else
+            {
+                val = ReadVRAM_Texture<u8>(vramaddr, gpu);
+                val >>= (2 * (s & 0x3));
+            }
 
             u16 palinfo = ReadVRAM_Texture<u16>(slot1addr, gpu);
             u32 paloffset = (palinfo & 0x3FFF) << 2;
