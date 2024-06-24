@@ -80,6 +80,7 @@ void Firmware::WifiAccessPoint::UpdateChecksum()
 
 Firmware::ExtendedWifiAccessPoint::ExtendedWifiAccessPoint()
 {
+    memset(Bytes, 0, sizeof(Bytes));
     Data.Base = WifiAccessPoint();
 
     UpdateChecksum();
@@ -93,6 +94,7 @@ void Firmware::ExtendedWifiAccessPoint::UpdateChecksum()
 
 Firmware::FirmwareHeader::FirmwareHeader(int consoletype)
 {
+    memset(Bytes, 0, sizeof(Bytes));
     if (consoletype == 1)
     {
         ConsoleType = FirmwareConsoleType::DSi;
@@ -156,7 +158,7 @@ void Firmware::FirmwareHeader::UpdateChecksum()
 
 Firmware::UserData::UserData()
 {
-    memset(Bytes, 0, 0x74);
+    memset(Bytes, 0, sizeof(Bytes));
     Version = 5;
     BirthdayMonth = 1;
     BirthdayDay = 1;
@@ -273,7 +275,8 @@ Firmware::Firmware(const u8* data, u32 length) : FirmwareBuffer(nullptr), Firmwa
     if (data)
     {
         FirmwareBuffer = new u8[FirmwareBufferLength];
-        memcpy(FirmwareBuffer, data, FirmwareBufferLength);
+        memset(FirmwareBuffer, 0, FirmwareBufferLength);
+        memcpy(FirmwareBuffer, data, std::min(length, FirmwareBufferLength));
         FirmwareMask = FirmwareBufferLength - 1;
     }
 }
@@ -345,7 +348,7 @@ const Firmware::UserData& Firmware::GetEffectiveUserData() const {
 
     if (userdata0ChecksumOk && userdata1ChecksumOk)
     {
-        return userdata[0].UpdateCounter > userdata[1].UpdateCounter ? userdata[0] : userdata[1];
+        return userdata[0].UpdateCounter >= userdata[1].UpdateCounter ? userdata[0] : userdata[1];
     }
     else if (userdata0ChecksumOk)
     {
@@ -368,7 +371,7 @@ Firmware::UserData& Firmware::GetEffectiveUserData() {
 
     if (userdata0ChecksumOk && userdata1ChecksumOk)
     {
-        return userdata[0].UpdateCounter > userdata[1].UpdateCounter ? userdata[0] : userdata[1];
+        return userdata[0].UpdateCounter >= userdata[1].UpdateCounter ? userdata[0] : userdata[1];
     }
     else if (userdata0ChecksumOk)
     {
