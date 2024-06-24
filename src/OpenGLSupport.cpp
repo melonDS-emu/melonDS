@@ -160,7 +160,7 @@ void SaveShaderCache()
 
     Platform::FileSeek(file, 0, Platform::FileSeekOrigin::End);
 
-    printf("new shaders %d\n", NewShaders.size());
+    printf("new shaders %zu\n", NewShaders.size());
 
     for (u64 newShader : NewShaders)
     {
