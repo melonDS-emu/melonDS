@@ -253,6 +253,7 @@ public:
     bool Thumb;
     u32 R15;
     u32 Num;
+    bool Thumbv4Mode;
     ARM* CurCPU;
     u32 ConstantCycles;
     u32 CodeRegion;

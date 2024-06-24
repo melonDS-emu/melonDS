@@ -386,7 +386,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
         if (size < 32)
             Log(LogLevel::Debug, "!!! LDR <32 bit PC %08X %x\n", R15, CurInstr.Instr);
         {
-            if (Num == 1)
+            if (Thumbv4Mode)
             {
                 if (Thumb)
                     OR(32, rdMapped, Imm8(0x1));
@@ -649,7 +649,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
     if (!store && regs[15])
     {
-        if (Num == 1)
+        if (Thumbv4Mode)
         {
             if (Thumb)
                 OR(32, MapReg(15), Imm8(1));

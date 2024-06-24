@@ -273,6 +273,7 @@ public:
 
     bool Thumb {};
     u32 Num {};
+    bool Thumbv4Mode {};
     u32 R15 {};
     u32 CodeRegion {};
 
