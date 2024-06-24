@@ -302,6 +302,10 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
+    
+    if (addr < ITCMSize) CodeRegion = Mem9_ITCM;
+    else if ((addr & DTCMMask) == DTCMBase) CodeRegion = Mem9_DTCM;
+    else CodeRegion = NDS.ARM9Regions[addr >> 14];
 
     RegionCodeCycles = MemTimings[addr >> 12][0];
 
@@ -1254,6 +1258,57 @@ bool ARMv4::DataWrite32S(u32 addr, u32 val, bool dataabort)
     return true;
 }
 
+
+void ARMv5::AddCycles_CDI()
+{
+    // LDR/LDM cycles. ARM9 seems to skip the internal cycle there.
+    s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
+    s32 numD = DataCycles;
+
+    // if a 32 bit bus, start 2 cycles early; else, start 4 cycles early
+    s32 early;
+    switch (DataRegion)
+    {
+        case 0: // background region; CHECKME
+        case Mem9_DTCM:
+        case Mem9_BIOS:
+        case Mem9_WRAM:
+        case Mem9_IO:
+        case Mem9_Pal: // CHECKME
+        default:
+            early = 2;
+            break;
+
+        case Mem9_OAM: // CHECKME
+        case Mem9_GBAROM:
+        case Mem9_GBARAM:
+            early = 4;
+            break;
+
+        case Mem9_MainRAM:
+            early = (CodeRegion == Mem9_MainRAM) ? 0 : 4;
+            break;
+
+        case Mem9_VRAM: // the dsi can toggle the bus width of vram between 32 and 16 bit
+            early = (NDS.ConsoleType == 0 || !(((DSi&)NDS).SCFG_EXT[0] & (1<<13))) ? 4 : 2;
+            break;
+
+        case Mem9_ITCM: // itcm data fetches cannot be done at the same time as a code fetch, it'll even incurr a 1 cycle penalty when executing from itcm
+            early = (CodeRegion == Mem9_ITCM) ? -1 : 0;
+            break;
+    }
+
+    if (numD > early)
+    {
+        numC -= early;
+        if (numC < 0) numC = 0;
+        Cycles += numC + numD;
+    }
+    else
+    {
+        Cycles += numC;
+    }
+}
 
 void ARMv4::AddCycles_C()
 {
