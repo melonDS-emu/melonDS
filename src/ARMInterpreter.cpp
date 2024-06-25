@@ -101,9 +101,9 @@ void A_MSR_IMM(ARM* cpu)
 
     u32 mask = 0;
     if (cpu->CurInstr & (1<<16)) mask |= 0x000000FF;
-    if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00;
-    if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000;
-    if (cpu->CurInstr & (1<<19)) mask |= 0xFF000000;
+    //if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00; // unused by arm 7 & 9
+    //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000; // unused by arm 7 & 9
+    if (cpu->CurInstr & (1<<19)) mask |= ((cpu->Num==1) ? 0xF0000000 : 0xF8000000);
 
     if (!(cpu->CurInstr & (1<<22)))
         mask &= 0xFFFFFFDF;
@@ -154,16 +154,16 @@ void A_MSR_REG(ARM* cpu)
 
     u32 mask = 0;
     if (cpu->CurInstr & (1<<16)) mask |= 0x000000FF;
-    if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00;
-    if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000;
-    if (cpu->CurInstr & (1<<19)) mask |= 0xFF000000;
+    //if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00; // unused by arm 7 & 9
+    //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000; // unused by arm 7 & 9
+    if (cpu->CurInstr & (1<<19)) mask |= ((cpu->Num==1) ? 0xF0000000 : 0xF8000000);
 
     if (!(cpu->CurInstr & (1<<22)))
         mask &= 0xFFFFFFDF;
 
     if ((cpu->CPSR & 0x1F) == 0x10) mask &= 0xFFFFFF00;
 
-    u32 val = cpu->R[cpu->CurInstr & 0xF];
+    u32 val = cpu->GetReg(cpu->CurInstr & 0xF, 1);
 
     // bit4 is forced to 1
     val |= 0x00000010;
@@ -216,10 +216,12 @@ void A_MCR(ARM* cpu)
     u32 cn = (cpu->CurInstr >> 16) & 0xF;
     u32 cm = cpu->CurInstr & 0xF;
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
+    u32 val = cpu->GetReg((cpu->CurInstr>>12)&0xF);
+    if (((cpu->CurInstr>>12) & 0xF) == 15) val += 4;
 
     if (cpu->Num==0 && cp==15)
     {
-        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo, cpu->R[(cpu->CurInstr>>12)&0xF]);
+        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo, val);
     }
     else if (cpu->Num==1 && cp==14)
     {

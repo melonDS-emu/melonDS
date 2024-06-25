@@ -160,14 +160,14 @@ inline bool OverflowSbc(u32 a, u32 b, u32 carry)
         cpu->SetC(b & 0x80000000);
 
 #define A_CALC_OP2_REG_SHIFT_IMM(shiftop) \
-    u32 b = cpu->R[cpu->CurInstr&0xF]; \
+    u32 b = cpu->GetReg(cpu->CurInstr&0xF); \
     u32 s = (cpu->CurInstr>>7)&0x1F; \
     shiftop(b, s);
 
 #define A_CALC_OP2_REG_SHIFT_REG(shiftop) \
-    u32 b = cpu->R[cpu->CurInstr&0xF]; \
+    u32 b = cpu->GetReg(cpu->CurInstr&0xF); \
     if ((cpu->CurInstr&0xF)==15) b += 4; \
-    shiftop(b, (cpu->R[(cpu->CurInstr>>8)&0xF] & 0xFF));
+    shiftop(b, (cpu->GetReg((cpu->CurInstr>>8)&0xF) & 0xFF));
 
 
 #define A_IMPLEMENT_ALU_OP(x,s) \
@@ -313,7 +313,7 @@ void A_##x##_REG_ROR_REG(ARM* cpu) \
 
 
 #define A_AND(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a & b; \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
@@ -326,7 +326,7 @@ void A_##x##_REG_ROR_REG(ARM* cpu) \
     }
 
 #define A_AND_S(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a & b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
@@ -344,7 +344,7 @@ A_IMPLEMENT_ALU_OP(AND,_S)
 
 
 #define A_EOR(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a ^ b; \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
@@ -357,7 +357,7 @@ A_IMPLEMENT_ALU_OP(AND,_S)
     }
 
 #define A_EOR_S(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a ^ b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
@@ -375,7 +375,7 @@ A_IMPLEMENT_ALU_OP(EOR,_S)
 
 
 #define A_SUB(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a - b; \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
@@ -388,7 +388,7 @@ A_IMPLEMENT_ALU_OP(EOR,_S)
     }
 
 #define A_SUB_S(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a - b; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
@@ -408,7 +408,7 @@ A_IMPLEMENT_ALU_OP(SUB,)
 
 
 #define A_RSB(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = b - a; \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
@@ -421,7 +421,7 @@ A_IMPLEMENT_ALU_OP(SUB,)
     }
 
 #define A_RSB_S(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = b - a; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
@@ -441,7 +441,7 @@ A_IMPLEMENT_ALU_OP(RSB,)
 
 
 #define A_ADD(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a + b; \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
@@ -454,7 +454,7 @@ A_IMPLEMENT_ALU_OP(RSB,)
     }
 
 #define A_ADD_S(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a + b; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
@@ -474,7 +474,7 @@ A_IMPLEMENT_ALU_OP(ADD,)
 
 
 #define A_ADC(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a + b + (cpu->CPSR&0x20000000 ? 1:0); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
@@ -487,7 +487,7 @@ A_IMPLEMENT_ALU_OP(ADD,)
     }
 
 #define A_ADC_S(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res_tmp = a + b; \
     u32 carry = (cpu->CPSR&0x20000000 ? 1:0); \
     u32 res = res_tmp + carry; \
@@ -509,7 +509,7 @@ A_IMPLEMENT_ALU_OP(ADC,)
 
 
 #define A_SBC(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a - b - (cpu->CPSR&0x20000000 ? 0:1); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
@@ -522,7 +522,7 @@ A_IMPLEMENT_ALU_OP(ADC,)
     }
 
 #define A_SBC_S(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res_tmp = a - b; \
     u32 carry = (cpu->CPSR&0x20000000 ? 0:1); \
     u32 res = res_tmp - carry; \
@@ -544,7 +544,7 @@ A_IMPLEMENT_ALU_OP(SBC,)
 
 
 #define A_RSC(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = b - a - (cpu->CPSR&0x20000000 ? 0:1); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
@@ -557,7 +557,7 @@ A_IMPLEMENT_ALU_OP(SBC,)
     }
 
 #define A_RSC_S(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res_tmp = b - a; \
     u32 carry = (cpu->CPSR&0x20000000 ? 0:1); \
     u32 res = res_tmp - carry; \
@@ -579,7 +579,7 @@ A_IMPLEMENT_ALU_OP(RSC,)
 
 
 #define A_TST(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a & b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
@@ -589,7 +589,7 @@ A_IMPLEMENT_ALU_TEST(TST,_S)
 
 
 #define A_TEQ(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a ^ b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
@@ -599,7 +599,7 @@ A_IMPLEMENT_ALU_TEST(TEQ,_S)
 
 
 #define A_CMP(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a - b; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
@@ -611,7 +611,7 @@ A_IMPLEMENT_ALU_TEST(CMP,)
 
 
 #define A_CMN(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a + b; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
@@ -623,7 +623,7 @@ A_IMPLEMENT_ALU_TEST(CMN,)
 
 
 #define A_ORR(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a | b; \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
@@ -636,7 +636,7 @@ A_IMPLEMENT_ALU_TEST(CMN,)
     }
 
 #define A_ORR_S(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a | b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
@@ -699,7 +699,7 @@ void A_MOV_REG_LSL_IMM_DBG(ARM* cpu)
 
 
 #define A_BIC(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a & ~b; \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
@@ -712,7 +712,7 @@ void A_MOV_REG_LSL_IMM_DBG(ARM* cpu)
     }
 
 #define A_BIC_S(c) \
-    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 a = cpu->GetReg((cpu->CurInstr>>16) & 0xF); \
     u32 res = a & ~b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
@@ -761,18 +761,12 @@ A_IMPLEMENT_ALU_OP(MVN,_S)
 
 void A_MUL(ARM* cpu)
 {
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF);
+    u32 rs = cpu->GetReg((cpu->CurInstr >> 8) & 0xF);
 
     u32 res = rm * rs;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ(res & 0x80000000,
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
 
     u32 cycles;
     if (cpu->Num == 0)
@@ -786,23 +780,24 @@ void A_MUL(ARM* cpu)
     }
 
     cpu->AddCycles_CI(cycles);
-}
-
-void A_MLA(ARM* cpu)
-{
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
-    u32 rn = cpu->R[(cpu->CurInstr >> 12) & 0xF];
-
-    u32 res = (rm * rs) + rn;
-
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     if (cpu->CurInstr & (1<<20))
     {
         cpu->SetNZ(res & 0x80000000,
                    !res);
         if (cpu->Num==1) cpu->SetC(0);
     }
+    else cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
+}
+
+void A_MLA(ARM* cpu)
+{
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF);
+    u32 rs = cpu->GetReg((cpu->CurInstr >> 8) & 0xF);
+    u32 rn = cpu->GetReg((cpu->CurInstr >> 12) & 0xF);
+
+    u32 res = (rm * rs) + rn;
+
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
 
     u32 cycles;
     if (cpu->Num == 0)
@@ -816,23 +811,24 @@ void A_MLA(ARM* cpu)
     }
 
     cpu->AddCycles_CI(cycles);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ(res & 0x80000000,
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+    else cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
 }
 
 void A_UMULL(ARM* cpu)
 {
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF, 1);
+    u32 rs = cpu->GetReg((cpu->CurInstr >> 8) & 0xF, 1);
 
     u64 res = (u64)rm * (u64)rs;
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ((u32)(res >> 63ULL),
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
 
     u32 cycles;
     if (cpu->Num == 0)
@@ -846,26 +842,27 @@ void A_UMULL(ARM* cpu)
     }
 
     cpu->AddCycles_CI(cycles);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+    else cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
 }
 
 void A_UMLAL(ARM* cpu)
 {
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF, 1);
+    u32 rs = cpu->GetReg((cpu->CurInstr >> 8) & 0xF, 1);
 
     u64 res = (u64)rm * (u64)rs;
 
-    u64 rd = (u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL);
+    u64 rd = (u64)cpu->GetReg((cpu->CurInstr >> 12) & 0xF, 1) | ((u64)cpu->GetReg((cpu->CurInstr >> 16) & 0xF) << 32ULL);
     res += rd;
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ((u32)(res >> 63ULL),
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
 
     u32 cycles;
     if (cpu->Num == 0)
@@ -879,23 +876,24 @@ void A_UMLAL(ARM* cpu)
     }
 
     cpu->AddCycles_CI(cycles);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+    else cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
 }
 
 void A_SMULL(ARM* cpu)
 {
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF, 1);
+    u32 rs = cpu->GetReg((cpu->CurInstr >> 8) & 0xF, 1);
 
     s64 res = (s64)(s32)rm * (s64)(s32)rs;
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ((u32)(res >> 63ULL),
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
 
     u32 cycles;
     if (cpu->Num == 0)
@@ -909,26 +907,27 @@ void A_SMULL(ARM* cpu)
     }
 
     cpu->AddCycles_CI(cycles);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+    else cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
 }
 
 void A_SMLAL(ARM* cpu)
 {
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF, 1);
+    u32 rs = cpu->GetReg((cpu->CurInstr >> 8) & 0xF, 1);
 
     s64 res = (s64)(s32)rm * (s64)(s32)rs;
 
-    s64 rd = (s64)((u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL));
+    s64 rd = (s64)((u64)cpu->GetReg((cpu->CurInstr >> 12) & 0xF, 1) | ((u64)cpu->GetReg((cpu->CurInstr >> 16) & 0xF) << 32ULL));
     res += rd;
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ((u32)(res >> 63ULL),
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
 
     u32 cycles;
     if (cpu->Num == 0)
@@ -940,17 +939,24 @@ void A_SMLAL(ARM* cpu)
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
         else cycles = 5;
     }
-
+    
     cpu->AddCycles_CI(cycles);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+    else cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Mul); // interlock cycles do not occur with S variants of multiply instructions
 }
 
 void A_SMLAxy(ARM* cpu)
 {
     if (cpu->Num != 0) return;
 
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
-    u32 rn = cpu->R[(cpu->CurInstr >> 12) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF, 1);
+    u32 rs = cpu->GetReg((cpu->CurInstr >> 8) & 0xF, 1);
+    u32 rn = cpu->GetReg((cpu->CurInstr >> 12) & 0xF, 1);
 
     if (cpu->CurInstr & (1<<5)) rm >>= 16;
     else                        rm &= 0xFFFF;
@@ -964,16 +970,17 @@ void A_SMLAxy(ARM* cpu)
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_SMLAWy(ARM* cpu)
 {
     if (cpu->Num != 0) return;
 
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
-    u32 rn = cpu->R[(cpu->CurInstr >> 12) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF, 1);
+    u32 rs = cpu->GetReg((cpu->CurInstr >> 8) & 0xF, 1);
+    u32 rn = cpu->GetReg((cpu->CurInstr >> 12) & 0xF, 1);
 
     if (cpu->CurInstr & (1<<6)) rs >>= 16;
     else                        rs &= 0xFFFF;
@@ -985,15 +992,16 @@ void A_SMLAWy(ARM* cpu)
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_SMULxy(ARM* cpu)
 {
     if (cpu->Num != 0) return;
 
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF, 1);
+    u32 rs = cpu->GetReg((cpu->CurInstr >> 8) & 0xF, 1);
 
     if (cpu->CurInstr & (1<<5)) rm >>= 16;
     else                        rm &= 0xFFFF;
@@ -1003,15 +1011,16 @@ void A_SMULxy(ARM* cpu)
     u32 res = ((s16)rm * (s16)rs);
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_SMULWy(ARM* cpu)
 {
     if (cpu->Num != 0) return;
 
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF, 1);
+    u32 rs = cpu->GetReg((cpu->CurInstr >> 8) & 0xF, 1);
 
     if (cpu->CurInstr & (1<<6)) rs >>= 16;
     else                        rs &= 0xFFFF;
@@ -1019,15 +1028,16 @@ void A_SMULWy(ARM* cpu)
     u32 res = ((s64)(s32)rm * (s16)rs) >> 16;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_SMLALxy(ARM* cpu)
 {
     if (cpu->Num != 0) return;
 
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF, 0);
+    u32 rs = cpu->GetReg((cpu->CurInstr >> 8) & 0xF, 0); // yeah this one actually doesn't need two interlock cycles to interlock
 
     if (cpu->CurInstr & (1<<5)) rm >>= 16;
     else                        rm &= 0xFFFF;
@@ -1042,7 +1052,8 @@ void A_SMLALxy(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
 
-    cpu->AddCycles_CI(1); // TODO: interlock??
+    cpu->AddCycles_CI(1);
+    cpu->SetCycles_L((cpu->CurInstr >> 16) & 0xF, 1, cpu->ILT_Norm);
 }
 
 
@@ -1051,7 +1062,7 @@ void A_CLZ(ARM* cpu)
 {
     if (cpu->Num != 0) return A_UNK(cpu);
 
-    u32 val = cpu->R[cpu->CurInstr & 0xF];
+    u32 val = cpu->GetReg(cpu->CurInstr & 0xF, 1);
 
     u32 res = 0;
     while ((val & 0xFF000000) == 0)
@@ -1075,8 +1086,8 @@ void A_QADD(ARM* cpu)
 {
     if (cpu->Num != 0) return A_UNK(cpu);
 
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF, 1);
+    u32 rn = cpu->GetReg((cpu->CurInstr >> 16) & 0xF, 1);
 
     u32 res = rm + rn;
     if (OverflowAdd(rm, rn))
@@ -1086,15 +1097,16 @@ void A_QADD(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_QSUB(ARM* cpu)
 {
     if (cpu->Num != 0) return A_UNK(cpu);
 
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF, 1);
+    u32 rn = cpu->GetReg((cpu->CurInstr >> 16) & 0xF, 1);
 
     u32 res = rm - rn;
     if (OverflowSub(rm, rn))
@@ -1104,15 +1116,16 @@ void A_QSUB(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_QDADD(ARM* cpu)
 {
     if (cpu->Num != 0) return A_UNK(cpu);
 
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF, 1);
+    u32 rn = cpu->GetReg((cpu->CurInstr >> 16) & 0xF, 1);
 
     if (OverflowAdd(rn, rn))
     {
@@ -1130,15 +1143,16 @@ void A_QDADD(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Norm);
 }
 
 void A_QDSUB(ARM* cpu)
 {
     if (cpu->Num != 0) return A_UNK(cpu);
 
-    u32 rm = cpu->R[cpu->CurInstr & 0xF];
-    u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+    u32 rm = cpu->GetReg(cpu->CurInstr & 0xF, 1);
+    u32 rn = cpu->GetReg((cpu->CurInstr >> 16) & 0xF, 1);
 
     if (OverflowAdd(rn, rn))
     {
@@ -1156,7 +1170,8 @@ void A_QDSUB(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    cpu->SetCycles_L((cpu->CurInstr >> 12) & 0xF, 1, cpu->ILT_Norm);
 }
 
 
@@ -1167,7 +1182,7 @@ void A_QDSUB(ARM* cpu)
 
 void T_LSL_IMM(ARM* cpu)
 {
-    u32 op = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 op = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 s = (cpu->CurInstr >> 6) & 0x1F;
     LSL_IMM_S(op, s);
     cpu->R[cpu->CurInstr & 0x7] = op;
@@ -1178,7 +1193,7 @@ void T_LSL_IMM(ARM* cpu)
 
 void T_LSR_IMM(ARM* cpu)
 {
-    u32 op = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 op = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 s = (cpu->CurInstr >> 6) & 0x1F;
     LSR_IMM_S(op, s);
     cpu->R[cpu->CurInstr & 0x7] = op;
@@ -1189,7 +1204,7 @@ void T_LSR_IMM(ARM* cpu)
 
 void T_ASR_IMM(ARM* cpu)
 {
-    u32 op = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 op = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 s = (cpu->CurInstr >> 6) & 0x1F;
     ASR_IMM_S(op, s);
     cpu->R[cpu->CurInstr & 0x7] = op;
@@ -1200,8 +1215,8 @@ void T_ASR_IMM(ARM* cpu)
 
 void T_ADD_REG_(ARM* cpu)
 {
-    u32 a = cpu->R[(cpu->CurInstr >> 3) & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    u32 a = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 6) & 0x7);
     u32 res = a + b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
@@ -1213,8 +1228,8 @@ void T_ADD_REG_(ARM* cpu)
 
 void T_SUB_REG_(ARM* cpu)
 {
-    u32 a = cpu->R[(cpu->CurInstr >> 3) & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    u32 a = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 6) & 0x7);
     u32 res = a - b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
@@ -1226,7 +1241,7 @@ void T_SUB_REG_(ARM* cpu)
 
 void T_ADD_IMM_(ARM* cpu)
 {
-    u32 a = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 a = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 b = (cpu->CurInstr >> 6) & 0x7;
     u32 res = a + b;
     cpu->R[cpu->CurInstr & 0x7] = res;
@@ -1239,7 +1254,7 @@ void T_ADD_IMM_(ARM* cpu)
 
 void T_SUB_IMM_(ARM* cpu)
 {
-    u32 a = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 a = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 b = (cpu->CurInstr >> 6) & 0x7;
     u32 res = a - b;
     cpu->R[cpu->CurInstr & 0x7] = res;
@@ -1259,9 +1274,9 @@ void T_MOV_IMM(ARM* cpu)
     cpu->AddCycles_C();
 }
 
-void T_CMP_IMM(ARM* cpu)
+void T_CMP_IMM(ARM* cpu) 
 {
-    u32 a = cpu->R[(cpu->CurInstr >> 8) & 0x7];
+    u32 a = cpu->GetReg((cpu->CurInstr >> 8) & 0x7);
     u32 b = cpu->CurInstr & 0xFF;
     u32 res = a - b;
     cpu->SetNZCV(res & 0x80000000,
@@ -1273,7 +1288,7 @@ void T_CMP_IMM(ARM* cpu)
 
 void T_ADD_IMM(ARM* cpu)
 {
-    u32 a = cpu->R[(cpu->CurInstr >> 8) & 0x7];
+    u32 a = cpu->GetReg((cpu->CurInstr >> 8) & 0x7);
     u32 b = cpu->CurInstr & 0xFF;
     u32 res = a + b;
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = res;
@@ -1286,7 +1301,7 @@ void T_ADD_IMM(ARM* cpu)
 
 void T_SUB_IMM(ARM* cpu)
 {
-    u32 a = cpu->R[(cpu->CurInstr >> 8) & 0x7];
+    u32 a = cpu->GetReg((cpu->CurInstr >> 8) & 0x7);
     u32 b = cpu->CurInstr & 0xFF;
     u32 res = a - b;
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = res;
@@ -1300,8 +1315,8 @@ void T_SUB_IMM(ARM* cpu)
 
 void T_AND_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 res = a & b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
@@ -1311,8 +1326,8 @@ void T_AND_REG(ARM* cpu)
 
 void T_EOR_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 res = a ^ b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
@@ -1322,8 +1337,8 @@ void T_EOR_REG(ARM* cpu)
 
 void T_LSL_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7] & 0xFF;
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7, 1);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7) & 0xFF;
     LSL_REG_S(a, b);
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
@@ -1333,8 +1348,8 @@ void T_LSL_REG(ARM* cpu)
 
 void T_LSR_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7] & 0xFF;
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7, 1);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7) & 0xFF;
     LSR_REG_S(a, b);
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
@@ -1344,8 +1359,8 @@ void T_LSR_REG(ARM* cpu)
 
 void T_ASR_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7] & 0xFF;
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7, 1);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7) & 0xFF;
     ASR_REG_S(a, b);
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
@@ -1355,8 +1370,8 @@ void T_ASR_REG(ARM* cpu)
 
 void T_ADC_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 res_tmp = a + b;
     u32 carry = (cpu->CPSR&0x20000000 ? 1:0);
     u32 res = res_tmp + carry;
@@ -1370,8 +1385,8 @@ void T_ADC_REG(ARM* cpu)
 
 void T_SBC_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 res_tmp = a - b;
     u32 carry = (cpu->CPSR&0x20000000 ? 0:1);
     u32 res = res_tmp - carry;
@@ -1385,8 +1400,8 @@ void T_SBC_REG(ARM* cpu)
 
 void T_ROR_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7] & 0xFF;
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7, 1);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7) & 0xFF;
     ROR_REG_S(a, b);
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
@@ -1396,8 +1411,8 @@ void T_ROR_REG(ARM* cpu)
 
 void T_TST_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 res = a & b;
     cpu->SetNZ(res & 0x80000000,
                !res);
@@ -1406,7 +1421,7 @@ void T_TST_REG(ARM* cpu)
 
 void T_NEG_REG(ARM* cpu)
 {
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 res = -b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
@@ -1418,8 +1433,8 @@ void T_NEG_REG(ARM* cpu)
 
 void T_CMP_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 res = a - b;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
@@ -1430,8 +1445,8 @@ void T_CMP_REG(ARM* cpu)
 
 void T_CMN_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 res = a + b;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
@@ -1442,8 +1457,8 @@ void T_CMN_REG(ARM* cpu)
 
 void T_ORR_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 res = a | b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
@@ -1453,8 +1468,8 @@ void T_ORR_REG(ARM* cpu)
 
 void T_MUL_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 res = a * b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
@@ -1478,8 +1493,8 @@ void T_MUL_REG(ARM* cpu)
 
 void T_BIC_REG(ARM* cpu)
 {
-    u32 a = cpu->R[cpu->CurInstr & 0x7];
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 a = cpu->GetReg(cpu->CurInstr & 0x7);
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 res = a & ~b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
@@ -1489,7 +1504,7 @@ void T_BIC_REG(ARM* cpu)
 
 void T_MVN_REG(ARM* cpu)
 {
-    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 b = cpu->GetReg((cpu->CurInstr >> 3) & 0x7);
     u32 res = ~b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
@@ -1506,8 +1521,8 @@ void T_ADD_HIREG(ARM* cpu)
     u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
     u32 rs = (cpu->CurInstr >> 3) & 0xF;
 
-    u32 a = cpu->R[rd];
-    u32 b = cpu->R[rs];
+    u32 a = cpu->GetReg(rd);
+    u32 b = cpu->GetReg(rs);
 
     cpu->AddCycles_C();
 
@@ -1526,8 +1541,8 @@ void T_CMP_HIREG(ARM* cpu)
     u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
     u32 rs = (cpu->CurInstr >> 3) & 0xF;
 
-    u32 a = cpu->R[rd];
-    u32 b = cpu->R[rs];
+    u32 a = cpu->GetReg(rd);
+    u32 b = cpu->GetReg(rs);
     u32 res = a - b;
 
     cpu->SetNZCV(res & 0x80000000,
@@ -1546,11 +1561,11 @@ void T_MOV_HIREG(ARM* cpu)
 
     if (rd == 15)
     {
-        cpu->JumpTo(cpu->R[rs] | 1);
+        cpu->JumpTo(cpu->GetReg(rs) | 1);
     }
     else
     {
-        cpu->R[rd] = cpu->R[rs];
+        cpu->R[rd] = cpu->GetReg(rs);
     }
 
     // nocash-style debugging hook
@@ -1567,7 +1582,7 @@ void T_MOV_HIREG(ARM* cpu)
 }
 
 
-void T_ADD_PCREL(ARM* cpu)
+void T_ADD_PCREL(ARM* cpu) // checkme: pc shouldn't be able to interlock?
 {
     u32 val = cpu->R[15] & ~2;
     val += ((cpu->CurInstr & 0xFF) << 2);
@@ -1575,7 +1590,7 @@ void T_ADD_PCREL(ARM* cpu)
     cpu->AddCycles_C();
 }
 
-void T_ADD_SPREL(ARM* cpu)
+void T_ADD_SPREL(ARM* cpu) // checkme: sp shouldn't be able to interlock in thumb?
 {
     u32 val = cpu->R[13];
     val += ((cpu->CurInstr & 0xFF) << 2);
@@ -1583,7 +1598,7 @@ void T_ADD_SPREL(ARM* cpu)
     cpu->AddCycles_C();
 }
 
-void T_ADD_SP(ARM* cpu)
+void T_ADD_SP(ARM* cpu) // checkme: sp shouldn't be able to interlock in thumb?
 {
     u32 val = cpu->R[13];
     if (cpu->CurInstr & (1<<7))
