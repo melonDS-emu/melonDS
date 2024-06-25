@@ -1259,7 +1259,7 @@ bool ARMv4::DataWrite32S(u32 addr, u32 val, bool dataabort)
 }
 
 
-void ARMv5::AddCycles_CD()
+void ARMv5::AddCycles_CD_STR()
 {
     s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
     s32 numD = DataCycles;
@@ -1267,7 +1267,7 @@ void ARMv5::AddCycles_CD()
     s32 early;
     if (DataRegion == Mem9_ITCM)
     {
-        early = (CodeRegion == Mem9_ITCM) ? -1 : 0;
+        early = (CodeRegion == Mem9_ITCM) ? 0 : 2;
     }
     else if (DataRegion == Mem9_DTCM)
     {
@@ -1284,9 +1284,61 @@ void ARMv5::AddCycles_CD()
     Cycles += std::max(code + numD, numC);
 }
 
-void ARMv5::AddCycles_CDI()
+void ARMv5::AddCycles_CD_STM()
 {
-    // LDR/LDM cycles. ARM9 seems to skip the internal cycle there.
+    s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
+    s32 numD = DataCycles;
+
+    s32 early;
+    if (DataRegion == Mem9_ITCM)
+    {
+        early = (CodeRegion == Mem9_ITCM) ? -1 : 0; // stm adds either: no penalty or benefit to itcm loads, or a 1 cycle penalty if executing from itcm.
+    }
+    else if (DataRegion == Mem9_DTCM)
+    {
+        early = 2;
+    }
+    else if (DataRegion == Mem9_MainRAM)
+    {
+        early = (CodeRegion == Mem9_MainRAM) ? 0 : 18; // CHECKME: how early can main ram be?
+    }
+    else early = (DataRegion == CodeRegion) ? 4 : 6;
+    
+    s32 code = numC - early;
+    if (code < 0) code = 0;
+    Cycles += std::max(code + numD, numC);
+}
+
+void ARMv5::AddCycles_CDI_LDR()
+{
+    // LDR cycles. ARM9 seems to skip the internal cycle here.
+    s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
+    s32 numD = DataCycles;
+
+    // if a 32 bit bus, start 2 cycles early; else, start 4 cycles early
+    s32 early;
+    if (DataRegion == Mem9_ITCM)
+    {
+        early = (CodeRegion == Mem9_ITCM) ? 0 : 2;
+    }
+    else if (DataRegion == Mem9_DTCM)
+    {
+        early = 2;
+    }
+    else if (DataRegion == Mem9_MainRAM)
+    {
+        early = (CodeRegion == Mem9_MainRAM) ? 0 : 6;
+    }
+    else early = 6;
+    
+    s32 code = numC - early;
+    if (code < 0) code = 0;
+    Cycles += std::max(code + numD, numC);
+}
+
+void ARMv5::AddCycles_CDI_LDM()
+{
+    // LDM cycles. ARM9 seems to skip the internal cycle here.
     s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
     s32 numD = DataCycles;
 

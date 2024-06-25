@@ -142,8 +142,10 @@ public:
 
     virtual void AddCycles_C() = 0;
     virtual void AddCycles_CI(s32 numI) = 0;
-    virtual void AddCycles_CDI() = 0;
-    virtual void AddCycles_CD() = 0;
+    virtual void AddCycles_CDI_LDR() = 0;
+    virtual void AddCycles_CDI_LDM() = 0;
+    virtual void AddCycles_CD_STR() = 0;
+    virtual void AddCycles_CD_STM() = 0;
 
 /*    
     inline void AddCycles_L(const u32 delay, const u32 reg1)
@@ -325,9 +327,10 @@ public:
         Cycles += numC + numI;
     }
 
-    void AddCycles_CDI() override;
-
-    void AddCycles_CD() override;
+    void AddCycles_CDI_LDR() override;
+    void AddCycles_CDI_LDM() override;
+    void AddCycles_CD_STR() override;
+    void AddCycles_CD_STM() override;
     
 #ifdef INTERLOCK
     // fetch the value of a register while handling any interlock cycles
@@ -460,8 +463,12 @@ public:
     bool DataWrite32S(u32 addr, u32 val, bool dataabort = false) override;
     void AddCycles_C() override;
     void AddCycles_CI(s32 num) override;
-    void AddCycles_CDI() override;
-    void AddCycles_CD() override;
+    void AddCycles_CDI();
+    void AddCycles_CDI_LDR() override { AddCycles_CDI(); }
+    void AddCycles_CDI_LDM() override { AddCycles_CDI(); }
+    void AddCycles_CD();
+    void AddCycles_CD_STR() override { AddCycles_CD(); }
+    void AddCycles_CD_STM() override { AddCycles_CD(); }
 
 #ifdef INTERLOCK
     // fetch the value of a register while handling any interlock cycles
