@@ -462,7 +462,7 @@ void A_SWP(ARM* cpu)
         u32 numD = cpu->DataCycles;
         if (cpu->DataWrite32(base, rm))
         {
-            cpu->AddCycles_CDI_LDR();
+            cpu->AddCycles_CDI_SWP();
             // rd only gets updated if both read and write succeed
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
             if (rd != 15)
@@ -484,10 +484,10 @@ void A_SWP(ARM* cpu)
             else if (cpu->Num == 1) // for some reason these jumps don't work on the arm 9?
                 cpu->JumpTo(ROR(val, 8*(base&0x3)) & ~1, cpu->ILT_Norm);
         }
-        else cpu->AddCycles_CDI_LDR();
+        else cpu->AddCycles_CDI_SWP();
         cpu->DataCycles += numD;
     }
-    else cpu->AddCycles_CDI_LDR();
+    else cpu->AddCycles_CDI_SWP();
 }
 
 void A_SWPB(ARM* cpu)
@@ -502,7 +502,7 @@ void A_SWPB(ARM* cpu)
         u32 numD = cpu->DataCycles;
         if (cpu->DataWrite8(base, rm))
         {
-            cpu->AddCycles_CDI_LDR();
+            cpu->AddCycles_CDI_SWP();
             // rd only gets updated if both read and write succeed
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
             if (rd != 15)
@@ -516,10 +516,10 @@ void A_SWPB(ARM* cpu)
             else if (cpu->Num == 1)// for some reason these jumps don't work on the arm 9?
                 cpu->JumpTo(val & ~1);
         }
-        else cpu->AddCycles_CDI_LDR();
+        else cpu->AddCycles_CDI_SWP();
         cpu->DataCycles += numD;
     }
-    else cpu->AddCycles_CDI_LDR();
+    else cpu->AddCycles_CDI_SWP();
 }
 
 

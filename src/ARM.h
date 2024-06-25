@@ -144,6 +144,7 @@ public:
     virtual void AddCycles_CI(s32 numI) = 0;
     virtual void AddCycles_CDI_LDR() = 0;
     virtual void AddCycles_CDI_LDM() = 0;
+    virtual void AddCycles_CDI_SWP() = 0;
     virtual void AddCycles_CD_STR() = 0;
     virtual void AddCycles_CD_STM() = 0;
 
@@ -329,6 +330,7 @@ public:
 
     void AddCycles_CDI_LDR() override;
     void AddCycles_CDI_LDM() override;
+    void AddCycles_CDI_SWP() override { AddCycles_CD_STR(); } // uses the same behavior as str
     void AddCycles_CD_STR() override;
     void AddCycles_CD_STM() override;
     
@@ -466,6 +468,7 @@ public:
     void AddCycles_CDI();
     void AddCycles_CDI_LDR() override { AddCycles_CDI(); }
     void AddCycles_CDI_LDM() override { AddCycles_CDI(); }
+    void AddCycles_CDI_SWP() override { AddCycles_CDI(); } // checkme?
     void AddCycles_CD();
     void AddCycles_CD_STR() override { AddCycles_CD(); }
     void AddCycles_CD_STM() override { AddCycles_CD(); }
