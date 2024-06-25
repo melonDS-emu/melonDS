@@ -327,17 +327,7 @@ public:
 
     void AddCycles_CDI() override;
 
-    void AddCycles_CD() override
-    {
-        // TODO: ITCM data fetches shouldn't be parallelized, they say
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        s32 numD = DataCycles;
-
-        //if (DataRegion != CodeRegion)
-            Cycles += std::max(numC + numD - 6, std::max(numC, numD));
-        //else
-        //    Cycles += numC + numD;
-    }
+    void AddCycles_CD() override;
     
 #ifdef INTERLOCK
     // fetch the value of a register while handling any interlock cycles

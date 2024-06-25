@@ -1259,6 +1259,31 @@ bool ARMv4::DataWrite32S(u32 addr, u32 val, bool dataabort)
 }
 
 
+void ARMv5::AddCycles_CD()
+{
+    s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
+    s32 numD = DataCycles;
+
+    s32 early;
+    if (DataRegion == Mem9_ITCM)
+    {
+        early = (CodeRegion == Mem9_ITCM) ? -1 : 0;
+    }
+    else if (DataRegion == Mem9_DTCM)
+    {
+        early = 2;
+    }
+    else if (DataRegion == Mem9_MainRAM)
+    {
+        early = (CodeRegion == Mem9_MainRAM) ? 0 : 18; // CHECKME: how early can main ram be?
+    }
+    else early = (DataRegion == CodeRegion) ? 4 : 6;
+    
+    s32 code = numC - early;
+    if (code < 0) code = 0;
+    Cycles += std::max(code + numD, numC);
+}
+
 void ARMv5::AddCycles_CDI()
 {
     // LDR/LDM cycles. ARM9 seems to skip the internal cycle there.
@@ -1269,7 +1294,7 @@ void ARMv5::AddCycles_CDI()
     s32 early;
     switch (DataRegion)
     {
-        case 0: // background region; CHECKME
+        case 0: // background region;
         case Mem9_DTCM:
         case Mem9_BIOS:
         case Mem9_WRAM:
@@ -1297,17 +1322,10 @@ void ARMv5::AddCycles_CDI()
             early = (CodeRegion == Mem9_ITCM) ? -1 : 0;
             break;
     }
-
-    if (numD > early)
-    {
-        numC -= early;
-        if (numC < 0) numC = 0;
-        Cycles += numC + numD;
-    }
-    else
-    {
-        Cycles += numC;
-    }
+    
+    s32 code = numC - early;
+    if (code < 0) code = 0;
+    Cycles += std::max(code + numD, numC);
 }
 
 void ARMv4::AddCycles_C()
