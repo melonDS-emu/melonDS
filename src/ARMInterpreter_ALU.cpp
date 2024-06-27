@@ -1078,7 +1078,8 @@ void A_CLZ(ARM* cpu)
         val |= 0x1;
     }
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
+    if ((cpu->CurInstr >> 12) & 0xF == 15) cpu->JumpTo(res & ~1);
+    else cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C();
 }
 
