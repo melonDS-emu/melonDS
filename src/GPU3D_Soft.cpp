@@ -1138,8 +1138,11 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     if (y == polygon->YTop)           yedge = 0x4;
     else if (y == polygon->YBottom-1) yedge = 0x8;
     int edge;
+
+    Interpolator<0> interpX(xstart, xend+1, wl, wr);
+    
     // CHECKME: should the unclamped values be used for timings?
-    // negative values are clamped to 0 before interpolation is done
+    // negative values are clamped to 0
     if (xstart < 0) 
     {
         l_edgelen += xstart;
@@ -1147,15 +1150,12 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         xstart = 0;
     }
     s32 x = xstart;
-    //xend += 1; dont forget to fix that
-    // too big values are clamped to 511 before interpolation is done
+    // too big values are clamped to 511
     if (xend > 511)
     {
         r_edgelen += 256 - xend;
         xend = 511;
     }
-    Interpolator<0> interpX(xstart, xend+1, wl, wr);
-
     s32 xlimit;
 
     s32 xcov = 0;
@@ -1163,7 +1163,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     // part 1: left edge
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
-    if (xlimit > xend+1) xlimit = xend+1;
+    //if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
     if (l_edgecov & (1<<31))
     {

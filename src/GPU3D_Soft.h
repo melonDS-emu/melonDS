@@ -78,7 +78,7 @@ private:
         {
             this->x0 = x0;
             this->x1 = x1;
-            this->xdiff = x1 - x0;
+            this->xdiff = std::min(x1, 511) - std::max(x0, 0);
 
             // calculate reciprocal for Z interpolation
             // TODO eventually: use a faster reciprocal function?
@@ -145,7 +145,9 @@ private:
 
         constexpr s32 Interpolate(s32 y0, s32 y1) const
         {
-            if (xdiff == 0 || y0 == y1) return y0;
+            if (xdiff == 0 || y0 == y1 || x == 0) return y0;
+
+            if (x0 <= 0 && x1 > 511) return y1;
 
             if (!linear)
             {
@@ -167,7 +169,9 @@ private:
 
         constexpr s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer) const
         {
-            if (xdiff == 0 || z0 == z1) return z0;
+            if (xdiff == 0 || z0 == z1 || x == 0) return z0;
+
+            if (x0 <= 0 && x1 > 511) return z1;
 
             if (wbuffer)
             {
@@ -285,7 +289,7 @@ private:
             // instead, 1/y is calculated and then multiplied by x
             // TODO: this is still not perfect (see for example x=169 y=33)
             if (ylen == 0)
-                Increment = xlen<<18; // this case should only be triggered by glitched polygons
+                Increment = xlen << 18; // this case should only be triggered by glitched polygons
             else if (ylen == xlen && xlen != 1)
                 Increment = 0x40000;
             else
@@ -314,7 +318,7 @@ private:
                 else                     dx = 0;
             }
 
-            dx += (y - y0) * Increment;
+            dx += (y - y0) * Increment & 0xFFFFFFF;
 
             int interpoffset = (Increment >= 0x40000) && (side ^ Negative);
             Interp.Setup(y0-interpoffset, y1-interpoffset, w0, w1);
@@ -341,7 +345,7 @@ private:
             if (Negative) ret = x0 - (dx >> 18);
             else          ret = x0 + (dx >> 18);
 
-            return ret << 21 >> 21; // treated as a signed 11 bit integer (for some reason)
+            return ret;// << 21 >> 21; checkme: is this commented bit actually correct?
         }
 
         template<bool swapped>
