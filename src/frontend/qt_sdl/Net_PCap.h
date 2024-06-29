@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -16,24 +16,37 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef LAN_SOCKET_H
-#define LAN_SOCKET_H
+#ifndef NET_PCAP_H
+#define NET_PCAP_H
 
 #include "types.h"
 
-namespace LAN_Socket
+namespace Net_PCap
 {
+
 using namespace melonDS;
+struct AdapterData
+{
+    char DeviceName[128];
+    char FriendlyName[128];
+    char Description[128];
 
-//
+    u8 MAC[6];
+    u8 IP_v4[4];
+};
 
 
+extern AdapterData* Adapters;
+extern int NumAdapters;
+
+
+bool InitAdapterList();
 bool Init();
 void DeInit();
 
 int SendPacket(u8* data, int len);
-int RecvPacket(u8* data);
+void RecvCheck();
 
 }
 
-#endif // LAN_SOCKET_H
+#endif // NET_PCAP_H

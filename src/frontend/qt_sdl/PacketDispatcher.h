@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -16,40 +16,33 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef INPUT_H
-#define INPUT_H
+#ifndef PACKETDISPATCHER_H
+#define PACKETDISPATCHER_H
 
-#include <SDL2/SDL.h>
-
+#include <QMutex>
 #include "types.h"
+#include "FIFO.h"
 
-namespace Input
+using PacketQueue = melonDS::RingBuffer<0x8000>;
+
+class PacketDispatcher
 {
+public:
+    PacketDispatcher();
+    ~PacketDispatcher();
 
-using namespace melonDS;
-extern int JoystickID;
-extern SDL_Joystick* Joystick;
+    void registerInstance(int inst);
+    void unregisterInstance(int inst);
 
-extern u32 InputMask;
+    void clear();
 
-void Init();
+    void sendPacket(const void* header, int headerlen, const void* data, int datalen, int sender, melonDS::u16 recv_mask);
+    bool recvPacket(void* header, int* headerlen, void* data, int* datalen, int receiver);
 
-// set joystickID before calling openJoystick()
-void OpenJoystick();
-void CloseJoystick();
+private:
+    QMutex mutex;
+    melonDS::u16 instanceMask;
+    PacketQueue* packetQueues[16];
+};
 
-void KeyPress(QKeyEvent* event);
-void KeyRelease(QKeyEvent* event);
-void KeyReleaseAll();
-
-void Process();
-
-bool HotkeyDown(int id);
-bool HotkeyPressed(int id);
-bool HotkeyReleased(int id);
-
-bool IsRightModKey(QKeyEvent* event);
-
-}
-
-#endif // INPUT_H
+#endif // PACKETDISPATCHER_H

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -25,6 +25,8 @@
 
 namespace Ui {class DateTimeDialog; }
 class DateTimeDialog;
+
+class EmuInstance;
 
 class DateTimeDialog : public QDialog
 {
@@ -63,6 +65,7 @@ private slots:
 
 private:
     Ui::DateTimeDialog* ui;
+    EmuInstance* emuInstance;
 
     QDateTime customTime;
 };

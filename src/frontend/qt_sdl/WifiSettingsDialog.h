@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -23,6 +23,8 @@
 
 namespace Ui { class WifiSettingsDialog; }
 class WifiSettingsDialog;
+
+class EmuInstance;
 
 class WifiSettingsDialog : public QDialog
 {
@@ -61,6 +63,7 @@ private slots:
 
 private:
     Ui::WifiSettingsDialog* ui;
+    EmuInstance* emuInstance;
 
     bool haspcap;
 
