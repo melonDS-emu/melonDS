@@ -1216,6 +1216,7 @@ void GPU3D::SubmitPolygon() noexcept
 
     poly->Degenerate = false;
     poly->Type = 0;
+    poly->OOBRendering = UpdateLastPoly;
 
     poly->FacingView = facingview;
 

@@ -84,6 +84,7 @@ struct Polygon
     bool IsShadow;
 
     int Type; // 0=regular 1=line
+    bool OOBRendering;
 
     u32 VTop, VBottom; // vertex indices
     s32 YTop, YBottom; // Y coords

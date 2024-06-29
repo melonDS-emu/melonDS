@@ -69,16 +69,17 @@ private:
     {
     public:
         constexpr Interpolator() {}
-        constexpr Interpolator(s32 x0, s32 x1, s32 w0, s32 w1)
-        {
-            Setup(x0, x1, w0, w1);
-        }
-
+        
+        template <bool oob>
         constexpr void Setup(s32 x0, s32 x1, s32 w0, s32 w1)
         {
             this->x0 = x0;
             this->x1 = x1;
-            this->xdiff = std::min(x1, 511) - std::max(x0, 0);
+
+            if (oob)
+                this->xdiff = std::min(x1, 511) - std::max(x0, 0);
+            else
+                this->xdiff = x1 - x0;
 
             // calculate reciprocal for Z interpolation
             // TODO eventually: use a faster reciprocal function?
@@ -129,7 +130,7 @@ private:
         constexpr void SetX(s32 x)
         {
             x -= x0;
-            if (x > xdiff) x = xdiff; // may or may not be correct
+            //if (x > xdiff) x = xdiff; // may or may not be correct
             this->x = x;
             if (xdiff != 0 && !linear)
             {
@@ -142,12 +143,13 @@ private:
                 else          yfactor = (s32)(num / den);
             }
         }
-
+        
+        template <bool oob>
         constexpr s32 Interpolate(s32 y0, s32 y1) const
         {
             if (xdiff == 0 || y0 == y1 || x == 0) return y0;
 
-            if (x0 <= 0 && x1 > 511) return y1;
+            if (oob && (x0 <= 0 && x1 > 511)) return y1;
 
             if (!linear)
             {
@@ -166,12 +168,13 @@ private:
                     return y1 + (s64)(y0-y1) * (xdiff - x) / xdiff;
             }
         }
-
+        
+        template <bool oob>
         constexpr s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer) const
         {
             if (xdiff == 0 || z0 == z1 || x == 0) return z0;
 
-            if (x0 <= 0 && x1 > 511) return z1;
+            if (oob && (x0 <= 0 && x1 > 511)) return z1;
 
             if (wbuffer)
             {
@@ -249,7 +252,7 @@ private:
             Increment = 0;
             XMajor = false;
 
-            Interp.Setup(0, 0, 0, 0);
+            Interp.Setup<false>(0, 0, 0, 0);
             Interp.SetX(0);
 
             xcov_incr = 0;
@@ -257,6 +260,7 @@ private:
             return x0;
         }
 
+        template<bool oob>
         constexpr s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y)
         {
             this->x0 = x0;
@@ -288,8 +292,8 @@ private:
             // note: for some reason, x/y isn't calculated directly,
             // instead, 1/y is calculated and then multiplied by x
             // TODO: this is still not perfect (see for example x=169 y=33)
-            if (ylen == 0)
-                Increment = xlen << 18; // this case should only be triggered by glitched polygons
+            if (oob && ylen == 0) // this case *should* only be triggered by glitched polygons that try to render oob
+                Increment = xlen << 18;
             else if (ylen == xlen && xlen != 1)
                 Increment = 0x40000;
             else
@@ -318,10 +322,11 @@ private:
                 else                     dx = 0;
             }
 
-            dx += (y - y0) * Increment & 0xFFFFFFF;
+            dx += (y - y0) * Increment;
+            if (oob) dx &= 0xFFFFFFF;
 
             int interpoffset = (Increment >= 0x40000) && (side ^ Negative);
-            Interp.Setup(y0-interpoffset, y1-interpoffset, w0, w1);
+            Interp.Setup<false>(y0-interpoffset, y1-interpoffset, w0, w1);
             Interp.SetX(y);
 
             // used for calculating AA coverage
@@ -330,9 +335,11 @@ private:
             return XVal();
         }
 
+        template<bool oob>
         constexpr s32 Step()
         {
-            dx = dx + Increment & 0xFFFFFFF; // seems to be a 28 bit integer
+            dx += Increment; // seems to be a 28 bit integer
+            if (oob) dx &= 0xFFFFFFF;
             y++;
 
             Interp.SetX(y);
@@ -341,7 +348,7 @@ private:
 
         constexpr s32 XVal() const
         {
-            s32 ret = 0;
+            s32 ret;
             if (Negative) ret = x0 - (dx >> 18);
             else          ret = x0 + (dx >> 18);
 
@@ -461,8 +468,8 @@ private:
     void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y) const;
     void SetupPolygonRightEdge(RendererPolygon* rp, s32 y) const;
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
-    void RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y);
-    void RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y);
+    template<bool oob> void RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y);
+    template<bool oob> void RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y);
     void RenderScanline(const GPU& gpu, s32 y, int npolys);
     u32 CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const;
     void ScanlineFinalPass(const GPU3D& gpu3d, s32 y);
