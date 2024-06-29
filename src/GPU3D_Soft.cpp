@@ -591,6 +591,7 @@ void SoftRenderer::PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 c
     AttrBuffer[pixeladdr] = attr;
 }
 
+template <bool oob>
 void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y) const
 {
     Polygon* polygon = rp->PolyData;
@@ -623,11 +624,12 @@ void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y
     if (y1 < polygon->Vertices[rp->CurVL]->FinalPosition[1])
         y1 += 256;
 
-    rp->XL = rp->SlopeL.Setup<true>(polygon->Vertices[rp->CurVL]->FinalPosition[0], polygon->Vertices[rp->NextVL]->FinalPosition[0],
-                                    polygon->Vertices[rp->CurVL]->FinalPosition[1], y1,
-                                    polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y);
+    rp->XL = rp->SlopeL.Setup<oob>(polygon->Vertices[rp->CurVL]->FinalPosition[0], polygon->Vertices[rp->NextVL]->FinalPosition[0],
+                                   polygon->Vertices[rp->CurVL]->FinalPosition[1], y1,
+                                   polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y);
 }
 
+template <bool oob>
 void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 y) const
 {
     Polygon* polygon = rp->PolyData;
@@ -660,9 +662,9 @@ void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 
     if (y1 < polygon->Vertices[rp->CurVR]->FinalPosition[1])
         y1 += 256;
 
-    rp->XR = rp->SlopeR.Setup<true>(polygon->Vertices[rp->CurVR]->FinalPosition[0], polygon->Vertices[rp->NextVR]->FinalPosition[0],
-                                    polygon->Vertices[rp->CurVR]->FinalPosition[1], y1,
-                                    polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
+    rp->XR = rp->SlopeR.Setup<oob>(polygon->Vertices[rp->CurVR]->FinalPosition[0], polygon->Vertices[rp->NextVR]->FinalPosition[0],
+                                   polygon->Vertices[rp->CurVR]->FinalPosition[1], y1,
+                                   polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
 }
 
 void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* polygon) const
@@ -769,12 +771,12 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     {
         if ((y >= polygon->SlopePosition[rp->NextVL][1] || y == polygon->Vertices[rp->CurVL]->FinalPosition[1]) && rp->CurVL != polygon->VBottom)
         {
-            SetupPolygonLeftEdge(rp, y);
+            SetupPolygonLeftEdge<oob>(rp, y);
         }
 
         if ((y >= polygon->SlopePosition[rp->NextVR][1] || y == polygon->Vertices[rp->CurVR]->FinalPosition[1]) && rp->CurVR != polygon->VBottom)
         {
-            SetupPolygonRightEdge(rp, y);
+            SetupPolygonRightEdge<oob>(rp, y);
         }
     }
 
@@ -1010,12 +1012,12 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     {
         if ((y >= polygon->SlopePosition[rp->NextVL][1] || y == polygon->Vertices[rp->CurVL]->FinalPosition[1]) && rp->CurVL != polygon->VBottom)
         {
-            SetupPolygonLeftEdge(rp, y);
+            SetupPolygonLeftEdge<oob>(rp, y);
         }
 
         if ((y >= polygon->SlopePosition[rp->NextVR][1] || y == polygon->Vertices[rp->CurVR]->FinalPosition[1]) && rp->CurVR != polygon->VBottom)
         {
-            SetupPolygonRightEdge(rp, y);
+            SetupPolygonRightEdge<oob>(rp, y);
         }
     }
 

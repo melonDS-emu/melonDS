@@ -465,8 +465,8 @@ private:
     void TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const;
     u32 RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const;
     void PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
-    void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y) const;
-    void SetupPolygonRightEdge(RendererPolygon* rp, s32 y) const;
+    template<bool oob> void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y) const;
+    template<bool oob> void SetupPolygonRightEdge(RendererPolygon* rp, s32 y) const;
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     template<bool oob> void RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y);
     template<bool oob> void RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y);
