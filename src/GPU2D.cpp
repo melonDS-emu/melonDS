@@ -387,6 +387,14 @@ void Unit::Write16(u32 addr, u16 val)
         if (!Num) GPU.GPU3D.SetRenderXPos(val);
         break;
 
+    case 0x064:
+        CaptureCnt = (CaptureCnt & 0xFFFF0000) | (val & 0xEF3F1F1F);
+        return;
+
+    case 0x066:
+        CaptureCnt = (CaptureCnt & 0xFFFF) | ((val << 16) & 0xEF3F1F1F);
+        return;
+
     case 0x068:
         DispFIFO[DispFIFOWritePtr] = val;
         return;
