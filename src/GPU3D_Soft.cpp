@@ -595,7 +595,7 @@ void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y
 {
     Polygon* polygon = rp->PolyData;
 
-    while (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
+    while ((y >= polygon->SlopePosition[rp->NextVL][1]) && rp->CurVL != polygon->VBottom)
     {
         rp->CurVL = rp->NextVL;
 
@@ -613,8 +613,18 @@ void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y
         }
     }
 
+    // note: if the end or current position in a slope is above the start point
+    // it seems to seek forwards(?) until the value overflows at 256
+    // this can be emulated by just adding 256 to them
+    if (y < polygon->Vertices[rp->CurVL]->FinalPosition[1])
+        y += 256;
+
+    s32 y1 = polygon->Vertices[rp->NextVL]->FinalPosition[1];
+    if (y1 < polygon->Vertices[rp->CurVL]->FinalPosition[1])
+        y1 += 256;
+
     rp->XL = rp->SlopeL.Setup(polygon->Vertices[rp->CurVL]->FinalPosition[0], polygon->Vertices[rp->NextVL]->FinalPosition[0],
-                              polygon->Vertices[rp->CurVL]->FinalPosition[1], polygon->Vertices[rp->NextVL]->FinalPosition[1],
+                              polygon->Vertices[rp->CurVL]->FinalPosition[1], y1,
                               polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y);
 }
 
@@ -622,7 +632,7 @@ void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 
 {
     Polygon* polygon = rp->PolyData;
 
-    while (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
+    while ((y >= polygon->SlopePosition[rp->NextVR][1]) && rp->CurVR != polygon->VBottom)
     {
         rp->CurVR = rp->NextVR;
 
@@ -640,8 +650,18 @@ void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 
         }
     }
 
+    // note: if the end or current position in a slope is above the start point
+    // it seems to seek forwards(?) until the value overflows at 256
+    // this can be emulated by just adding 256 to them
+    if (y < polygon->Vertices[rp->CurVR]->FinalPosition[1])
+        y += 256;
+
+    s32 y1 = polygon->Vertices[rp->NextVR]->FinalPosition[1];
+    if (y1 < polygon->Vertices[rp->CurVR]->FinalPosition[1])
+        y1 += 256;
+
     rp->XR = rp->SlopeR.Setup(polygon->Vertices[rp->CurVR]->FinalPosition[0], polygon->Vertices[rp->NextVR]->FinalPosition[0],
-                              polygon->Vertices[rp->CurVR]->FinalPosition[1], polygon->Vertices[rp->NextVR]->FinalPosition[1],
+                              polygon->Vertices[rp->CurVR]->FinalPosition[1], y1,
                               polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
 }
 
@@ -671,8 +691,10 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
         rp->NextVR = rp->CurVR + 1;
         if (rp->NextVR >= nverts) rp->NextVR = 0;
     }
-
-    if (ybot == ytop)
+    
+    // 0px tall line polygons are checked for at rasterization, this matters for when viewports are updated mid-polygon-strip
+    // therefore we need to check if the last two vertices are actually still at the same y axis as the others
+    if ((ybot == ytop) && (ybot == polygon->Vertices[nverts-1]->FinalPosition[1]) && (ybot == polygon->Vertices[nverts-2]->FinalPosition[1]) && (ybot == polygon->Vertices[nverts-3]->FinalPosition[1]))
     {
         vtop = 0; vbot = 0;
         int i;
@@ -693,8 +715,29 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
     }
     else
     {
-        SetupPolygonLeftEdge(rp, ytop);
-        SetupPolygonRightEdge(rp, ytop);
+        s32 y = ytop;
+        if (y < polygon->Vertices[rp->CurVL]->FinalPosition[1])
+            y += 256;
+
+        s32 y1 = polygon->Vertices[rp->NextVL]->FinalPosition[1];
+        if (y1 < polygon->Vertices[rp->CurVL]->FinalPosition[1])
+            y1 += 256;
+
+        rp->XL = rp->SlopeL.Setup(polygon->Vertices[rp->CurVL]->FinalPosition[0], polygon->Vertices[rp->NextVL]->FinalPosition[0],
+                                  polygon->Vertices[rp->CurVL]->FinalPosition[1], y1,
+                                  polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y);
+        
+        y = ytop;
+        if (y < polygon->Vertices[rp->CurVR]->FinalPosition[1])
+            y += 256;
+
+        y1 = polygon->Vertices[rp->NextVR]->FinalPosition[1];
+        if (y1 < polygon->Vertices[rp->CurVR]->FinalPosition[1])
+            y1 += 256;
+
+        rp->XR = rp->SlopeR.Setup(polygon->Vertices[rp->CurVR]->FinalPosition[0], polygon->Vertices[rp->NextVR]->FinalPosition[0],
+                                  polygon->Vertices[rp->CurVR]->FinalPosition[1], y1,
+                                  polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
     }
 }
 
@@ -723,12 +766,12 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
     if (polygon->YTop != polygon->YBottom)
     {
-        if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
+        if ((y >= polygon->SlopePosition[rp->NextVL][1] || y == polygon->Vertices[rp->CurVL]->FinalPosition[1]) && rp->CurVL != polygon->VBottom)
         {
             SetupPolygonLeftEdge(rp, y);
         }
 
-        if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
+        if ((y >= polygon->SlopePosition[rp->NextVR][1] || y == polygon->Vertices[rp->CurVR]->FinalPosition[1]) && rp->CurVR != polygon->VBottom)
         {
             SetupPolygonRightEdge(rp, y);
         }
@@ -832,11 +875,24 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     if (y == polygon->YTop)           yedge = 0x4;
     else if (y == polygon->YBottom-1) yedge = 0x8;
     int edge;
-
+    // CHECKME: should the unclamped values be used for timings?
+    // negative values are clamped to 0 before interpolation is done
+    if (xstart < 0) 
+    {
+        l_edgelen += xstart;
+        if (l_edgelen < 1) l_edgelen = 1;
+        xstart = 0;
+    }
     s32 x = xstart;
+    //xend += 1; dont forget to fix that later-
+    // too big values are clamped to 511 before interpolation is done
+    if (xend > 511)
+    {
+        r_edgelen += 256 - xend;
+        xend = 511;
+    }
     Interpolator<0> interpX(xstart, xend+1, wl, wr);
 
-    if (x < 0) x = 0;
     s32 xlimit;
 
     // for shadow masks: set stencil bits where the depth test fails.
@@ -948,12 +1004,12 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
     if (polygon->YTop != polygon->YBottom)
     {
-        if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
+        if ((y >= polygon->SlopePosition[rp->NextVL][1] || y == polygon->Vertices[rp->CurVL]->FinalPosition[1]) && rp->CurVL != polygon->VBottom)
         {
             SetupPolygonLeftEdge(rp, y);
         }
 
-        if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
+        if ((y >= polygon->SlopePosition[rp->NextVR][1] || y == polygon->Vertices[rp->CurVR]->FinalPosition[1]) && rp->CurVR != polygon->VBottom)
         {
             SetupPolygonRightEdge(rp, y);
         }
@@ -1083,10 +1139,23 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     else if (y == polygon->YBottom-1) yedge = 0x8;
     int edge;
 
-    s32 x = xstart;
     Interpolator<0> interpX(xstart, xend+1, wl, wr);
-
-    if (x < 0) x = 0;
+    
+    // CHECKME: should the unclamped values be used for timings?
+    // negative values are clamped to 0
+    if (xstart < 0) 
+    {
+        l_edgelen += xstart;
+        if (l_edgelen < 1) l_edgelen = 1;
+        xstart = 0;
+    }
+    s32 x = xstart;
+    // too big values are clamped to 511
+    if (xend > 511)
+    {
+        r_edgelen += 256 - xend;
+        xend = 511;
+    }
     s32 xlimit;
 
     s32 xcov = 0;
@@ -1094,7 +1163,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     // part 1: left edge
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
-    if (xlimit > xend+1) xlimit = xend+1;
+    //if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
     if (l_edgecov & (1<<31))
     {
