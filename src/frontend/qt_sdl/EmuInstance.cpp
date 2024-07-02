@@ -1172,7 +1172,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     }
 
 
-    if ((!nds) || (consoletype != consoleType))
+    if ((!nds) || (consoletype != nds->ConsoleType))
     {
         NDS::Current = nullptr;
         if (nds) delete nds;
