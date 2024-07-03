@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -31,11 +31,12 @@
 #include <QTimer>
 
 #include "glad/glad.h"
-#include "FrontendUtil.h"
+#include "ScreenLayout.h"
 #include "duckstation/gl/context.h"
 
 
-class EmuThread;
+class MainWindow;
+class EmuInstance;
 
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
@@ -57,6 +58,10 @@ public:
     explicit ScreenPanel(QWidget* parent);
     virtual ~ScreenPanel();
 
+    void setFilter(bool filter);
+
+    void setMouseHide(bool enable, int delay);
+
     QTimer* setupMouseTimer();
     void updateMouseTimer();
     QTimer* mouseTimer;
@@ -67,8 +72,34 @@ public:
 
 private slots:
     void onScreenLayoutChanged();
+    void onAutoScreenSizingChanged(int sizing);
 
 protected:
+    MainWindow* mainWindow;
+    EmuInstance* emuInstance;
+
+    bool filter;
+
+    int screenRotation;
+    int screenGap;
+    int screenLayout;
+    bool screenSwap;
+    int screenSizing;
+    bool integerScaling;
+    int screenAspectTop, screenAspectBot;
+
+    int autoScreenSizing;
+
+    ScreenLayout layout;
+    float screenMatrix[kMaxScreenTransforms][6];
+    int screenKind[kMaxScreenTransforms];
+    int numScreens;
+
+    bool touching = false;
+
+    bool mouseHide;
+    int mouseHideDelay;
+
     struct OSDItem
     {
         unsigned int id;
@@ -86,6 +117,8 @@ protected:
     unsigned int osdID;
     std::deque<OSDItem> osdItems;
 
+    void loadConfig();
+
     virtual void setupScreenLayout();
 
     void resizeEvent(QResizeEvent* event) override;
@@ -97,12 +130,6 @@ protected:
     void tabletEvent(QTabletEvent* event) override;
     void touchEvent(QTouchEvent* event);
     bool event(QEvent* event) override;
-
-    float screenMatrix[Frontend::MaxScreenTransforms][6];
-    int screenKind[Frontend::MaxScreenTransforms];
-    int numScreens;
-
-    bool touching = false;
 
     void showCursor();
 
@@ -132,7 +159,7 @@ private:
     void setupScreenLayout() override;
 
     QImage screen[2];
-    QTransform screenTrans[Frontend::MaxScreenTransforms];
+    QTransform screenTrans[kMaxScreenTransforms];
 };
 
 
@@ -152,6 +179,7 @@ public:
 
     void initOpenGL();
     void deinitOpenGL();
+    void makeCurrentGL();
     void drawScreenGL();
 
     GL::Context* getContext() { return glContext.get(); }
@@ -177,7 +205,6 @@ private:
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;
-    bool filter;
 
     int lastScreenWidth = -1, lastScreenHeight = -1;
 

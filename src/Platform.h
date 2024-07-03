@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -30,14 +30,6 @@ class Firmware;
 
 namespace Platform
 {
-
-void Init(int argc, char** argv);
-
-/**
- * Frees all resources that were allocated in \c Init
- * or by any other \c Platform function.
- */
-void DeInit();
 
 enum StopReason {
     /**
@@ -77,20 +69,8 @@ enum StopReason {
  * Frontends should not call this directly;
  * use \c NDS::Stop instead.
  */
-void SignalStop(StopReason reason);
+void SignalStop(StopReason reason, void* userdata);
 
-/**
- * @returns The ID of the running melonDS instance if running in local multiplayer mode,
- * or 0 if not.
- */
-int InstanceID();
-
-/**
- * @returns A suffix that should be appended to all instance-specific paths
- * if running in local multiplayer mode,
- * or the empty string if not.
- */
-std::string InstanceFileSuffix();
 
 /**
  * Denotes how a file will be opened and accessed.
@@ -187,6 +167,9 @@ enum class FileSeekOrigin
  * but frontends may do so freely.
  */
 struct FileHandle;
+
+// retrieves the path to a local file, without opening the file
+std::string GetLocalFilePath(const std::string& filename);
 
 // Simple fopen() wrapper that supports UTF8.
 // Can be optionally restricted to only opening a file that already exists.
@@ -288,41 +271,37 @@ void Sleep(u64 usecs);
 // functions called when the NDS or GBA save files need to be written back to storage
 // savedata and savelen are always the entire save memory buffer and its full length
 // writeoffset and writelen indicate which part of the memory was altered
-void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen);
-void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen);
+void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen, void* userdata);
+void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen, void* userdata);
 
 /// Called when the firmware needs to be written back to storage,
 /// after one of the supported write commands finishes execution.
 /// @param firmware The firmware that was just written.
 /// @param writeoffset The offset of the first byte that was written to firmware.
 /// @param writelen The number of bytes that were written to firmware.
-void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen);
+void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen, void* userdata);
 
 // called when the RTC date/time is changed and the frontend might need to take it into account
-void WriteDateTime(int year, int month, int day, int hour, int minute, int second);
+void WriteDateTime(int year, int month, int day, int hour, int minute, int second, void* userdata);
 
 
 // local multiplayer comm interface
 // packet type: DS-style TX header (12 bytes) + original 802.11 frame
-bool MP_Init();
-void MP_DeInit();
-void MP_Begin();
-void MP_End();
-int MP_SendPacket(u8* data, int len, u64 timestamp);
-int MP_RecvPacket(u8* data, u64* timestamp);
-int MP_SendCmd(u8* data, int len, u64 timestamp);
-int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid);
-int MP_SendAck(u8* data, int len, u64 timestamp);
-int MP_RecvHostPacket(u8* data, u64* timestamp);
-u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask);
+void MP_Begin(void* userdata);
+void MP_End(void* userdata);
+int MP_SendPacket(u8* data, int len, u64 timestamp, void* userdata);
+int MP_RecvPacket(u8* data, u64* timestamp, void* userdata);
+int MP_SendCmd(u8* data, int len, u64 timestamp, void* userdata);
+int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid, void* userdata);
+int MP_SendAck(u8* data, int len, u64 timestamp, void* userdata);
+int MP_RecvHostPacket(u8* data, u64* timestamp, void* userdata);
+u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, void* userdata);
 
 
-// LAN comm interface
+// network comm interface
 // packet type: Ethernet (802.3)
-bool LAN_Init();
-void LAN_DeInit();
-int LAN_SendPacket(u8* data, int len);
-int LAN_RecvPacket(u8* data);
+int Net_SendPacket(u8* data, int len, void* userdata);
+int Net_RecvPacket(u8* data, void* userdata);
 
 
 // interface for camera emulation
@@ -330,9 +309,9 @@ int LAN_RecvPacket(u8* data);
 // 0 = DSi outer camera
 // 1 = DSi inner camera
 // other values reserved for future camera addon emulation
-void Camera_Start(int num);
-void Camera_Stop(int num);
-void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv);
+void Camera_Start(int num, void* userdata);
+void Camera_Stop(int num, void* userdata);
+void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv, void* userdata);
 
 struct DynamicLibrary;
 

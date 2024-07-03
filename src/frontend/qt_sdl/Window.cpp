@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -51,7 +51,6 @@
 #endif
 
 #include "main.h"
-#include "Input.h"
 #include "CheatsDialog.h"
 #include "DateTimeDialog.h"
 #include "EmuSettingsDialog.h"
@@ -68,7 +67,6 @@
 #include "RAMInfoDialog.h"
 #include "TitleManagerDialog.h"
 #include "PowerManagement/PowerManagementDialog.h"
-#include "AudioInOut.h"
 
 #include "Platform.h"
 #include "Config.h"
@@ -78,40 +76,67 @@
 
 //#include "main_shaders.h"
 
-#include "ROMManager.h"
+#include "EmuInstance.h"
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
 
 using namespace melonDS;
 
-// TEMP
-extern MainWindow* mainWindow;
-extern EmuThread* emuThread;
-extern bool RunningSomething;
-extern QString NdsRomMimeType;
-extern QStringList NdsRomExtensions;
-extern QString GbaRomMimeType;
-extern QStringList GbaRomExtensions;
-extern QStringList ArchiveMimeTypes;
-extern QStringList ArchiveExtensions;
-/*static bool FileExtensionInList(const QString& filename, const QStringList& extensions, Qt::CaseSensitivity cs);
-static bool MimeTypeInList(const QMimeType& mimetype, const QStringList& superTypeNames);
-static bool NdsRomByExtension(const QString& filename);
-static bool GbaRomByExtension(const QString& filename);
-static bool SupportedArchiveByExtension(const QString& filename);
-static bool NdsRomByMimetype(const QMimeType& mimetype);
-static bool GbaRomByMimetype(const QMimeType& mimetype);
-static bool SupportedArchiveByMimetype(const QMimeType& mimetype);
-static bool ZstdNdsRomByExtension(const QString& filename);
-static bool ZstdGbaRomByExtension(const QString& filename);
-static bool FileIsSupportedFiletype(const QString& filename, bool insideArchive);*/
+
+
 
 extern CameraManager* camManager[2];
 extern bool camStarted[2];
 
-extern int videoRenderer;
-extern bool videoSettingsDirty;
 
+QString NdsRomMimeType = "application/x-nintendo-ds-rom";
+QStringList NdsRomExtensions { ".nds", ".srl", ".dsi", ".ids" };
+
+QString GbaRomMimeType = "application/x-gba-rom";
+QStringList GbaRomExtensions { ".gba", ".agb" };
+
+
+// This list of supported archive formats is based on libarchive(3) version 3.6.2 (2022-12-09).
+QStringList ArchiveMimeTypes
+{
+#ifdef ARCHIVE_SUPPORT_ENABLED
+    "application/zip",
+    "application/x-7z-compressed",
+    "application/vnd.rar", // *.rar
+    "application/x-tar",
+
+    "application/x-compressed-tar", // *.tar.gz
+    "application/x-xz-compressed-tar",
+    "application/x-bzip-compressed-tar",
+    "application/x-lz4-compressed-tar",
+    "application/x-zstd-compressed-tar",
+
+    "application/x-tarz", // *.tar.Z
+    "application/x-lzip-compressed-tar",
+    "application/x-lzma-compressed-tar",
+    "application/x-lrzip-compressed-tar",
+    "application/x-tzo", // *.tar.lzo
+#endif
+};
+
+QStringList ArchiveExtensions
+{
+#ifdef ARCHIVE_SUPPORT_ENABLED
+    ".zip", ".7z", ".rar", ".tar",
+
+    ".tar.gz", ".tgz",
+    ".tar.xz", ".txz",
+    ".tar.bz2", ".tbz2",
+    ".tar.lz4", ".tlz4",
+    ".tar.zst", ".tzst",
+
+    ".tar.Z", ".taz",
+    ".tar.lz",
+    ".tar.lzma", ".tlz",
+    ".tar.lrz", ".tlrz",
+    ".tar.lzo", ".tzo"
+#endif
+};
 
 // AAAAAAA
 static bool FileExtensionInList(const QString& filename, const QStringList& extensions, Qt::CaseSensitivity cs = Qt::CaseInsensitive)
@@ -197,36 +222,43 @@ static void signalHandler(int)
 }
 #endif
 
-MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
+
+MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
+    QMainWindow(parent),
+    windowID(id),
+    emuInstance(inst),
+    globalCfg(inst->globalCfg),
+    localCfg(inst->localCfg),
+    windowCfg(localCfg.GetTable("Window"+std::to_string(id), "Window0")),
+    emuThread(inst->getEmuThread())
 {
 #ifndef _WIN32
-    if (socketpair(AF_UNIX, SOCK_STREAM, 0, signalFd))
+    if (!parent)
     {
-       qFatal("Couldn't create socketpair");
+        if (socketpair(AF_UNIX, SOCK_STREAM, 0, signalFd))
+        {
+            qFatal("Couldn't create socketpair");
+        }
+
+        signalSn = new QSocketNotifier(signalFd[1], QSocketNotifier::Read, this);
+        connect(signalSn, SIGNAL(activated(int)), this, SLOT(onQuit()));
+
+        struct sigaction sa;
+
+        sa.sa_handler = signalHandler;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0;
+        sa.sa_flags |= SA_RESTART;
+        sigaction(SIGINT, &sa, 0);
     }
-
-    signalSn = new QSocketNotifier(signalFd[1], QSocketNotifier::Read, this);
-    connect(signalSn, SIGNAL(activated(int)), this, SLOT(onQuit()));
-
-    struct sigaction sa;
-
-    sa.sa_handler = signalHandler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sa.sa_flags |= SA_RESTART;
-    sigaction(SIGINT, &sa, 0);
 #endif
 
-    oldW = Config::WindowWidth;
-    oldH = Config::WindowHeight;
-    oldMax = Config::WindowMaximized;
+    showOSD = windowCfg.GetBool("ShowOSD");
 
     setWindowTitle("melonDS " MELONDS_VERSION);
     setAttribute(Qt::WA_DeleteOnClose);
     setAcceptDrops(true);
     setFocusPolicy(Qt::ClickFocus);
-
-    int inst = Platform::InstanceID();
 
     QMenuBar* menubar = new QMenuBar();
     {
@@ -241,9 +273,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actOpenROMArchive->setShortcut(QKeySequence(Qt::Key_O | Qt::CTRL | Qt::SHIFT));*/
 
         recentMenu = menu->addMenu("Open recent");
-        for (int i = 0; i < 10; ++i)
+        Config::Array recentROMs = globalCfg.GetArray("RecentROM");
+        int numrecent = std::min(kMaxRecentROMs, (int)recentROMs.Size());
+        for (int i = 0; i < numrecent; ++i)
         {
-            std::string item = Config::RecentROMList[i];
+            std::string item = recentROMs.GetString(i);
             if (!item.empty())
                 recentFileList.push_back(QString::fromStdString(item));
         }
@@ -255,7 +289,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         menu->addSeparator();
 
-        actCurrentCart = menu->addAction("DS slot: " + ROMManager::CartLabel());
+        actCurrentCart = menu->addAction("DS slot: " + emuInstance->cartLabel());
         actCurrentCart->setEnabled(false);
 
         actInsertCart = menu->addAction("Insert cart...");
@@ -266,7 +300,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         menu->addSeparator();
 
-        actCurrentGBACart = menu->addAction("GBA slot: " + ROMManager::GBACartLabel());
+        actCurrentGBACart = menu->addAction("GBA slot: " + emuInstance->gbaCartLabel());
         actCurrentGBACart->setEnabled(false);
 
         actInsertGBACart = menu->addAction("Insert ROM cart...");
@@ -452,7 +486,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             QMenu* submenu = menu->addMenu("Screen rotation");
             grpScreenRotation = new QActionGroup(submenu);
 
-            for (int i = 0; i < Frontend::screenRot_MAX; i++)
+            for (int i = 0; i < screenRot_MAX; i++)
             {
                 int data = i*90;
                 actScreenRotation[i] = submenu->addAction(QString("%1°").arg(data));
@@ -486,7 +520,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             const char* screenlayout[] = {"Natural", "Vertical", "Horizontal", "Hybrid"};
 
-            for (int i = 0; i < Frontend::screenLayout_MAX; i++)
+            for (int i = 0; i < screenLayout_MAX; i++)
             {
                 actScreenLayout[i] = submenu->addAction(QString(screenlayout[i]));
                 actScreenLayout[i]->setActionGroup(grpScreenLayout);
@@ -508,7 +542,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only", "Bottom only"};
 
-            for (int i = 0; i < Frontend::screenSizing_MAX; i++)
+            for (int i = 0; i < screenSizing_MAX; i++)
             {
                 actScreenSizing[i] = submenu->addAction(QString(screensizing[i]));
                 actScreenSizing[i]->setActionGroup(grpScreenSizing);
@@ -557,6 +591,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             }
         }
 
+        if (parentWidget() != nullptr) // TEST
+        {
+            QMenu* menu = menubar->addMenu("Test");
+
+            menu->addAction("Test");
+        }
+
         actScreenFiltering = menu->addAction("Screen filtering");
         actScreenFiltering->setCheckable(true);
         connect(actScreenFiltering, &QAction::triggered, this, &MainWindow::onChangeScreenFiltering);
@@ -577,9 +618,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     }
     setMenuBar(menubar);
 
-    resize(Config::WindowWidth, Config::WindowHeight);
-
-    if (Config::FirmwareUsername == "Arisotura")
+    if (localCfg.GetString("Firmware.Username") == "Arisotura")
         actMPNewInstance->setText("Fart");
 
 #ifdef Q_OS_MAC
@@ -589,17 +628,22 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     move(frameGeo.topLeft());
 #endif
 
-    if (oldMax)
-        showMaximized();
-    else
-        show();
+    std::string geom = windowCfg.GetString("Geometry");
+    if (!geom.empty())
+    {
+        QByteArray raw = QByteArray::fromStdString(geom);
+        QByteArray dec = QByteArray::fromBase64(raw, QByteArray::Base64Encoding | QByteArray::AbortOnBase64DecodingErrors);
+        if (!dec.isEmpty())
+            restoreGeometry(dec);
+    }
+    show();
 
     createScreenPanel();
 
     actEjectCart->setEnabled(false);
     actEjectGBACart->setEnabled(false);
 
-    if (Config::ConsoleType == 1)
+    if (globalCfg.GetInt("Emu.ConsoleType") == 1)
     {
         actInsertGBACart->setEnabled(false);
         for (int i = 0; i < 1; i++)
@@ -623,47 +667,50 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actPowerManagement->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
-    actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
+    actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
 
-    actEnableCheats->setChecked(Config::EnableCheats);
+    actEnableCheats->setChecked(localCfg.GetBool("EnableCheats"));
 
     actROMInfo->setEnabled(false);
     actRAMInfo->setEnabled(false);
 
-    actSavestateSRAMReloc->setChecked(Config::SavestateRelocSRAM);
+    actSavestateSRAMReloc->setChecked(globalCfg.GetBool("Savestate.RelocSRAM"));
 
-    actScreenRotation[Config::ScreenRotation]->setChecked(true);
+    actScreenRotation[windowCfg.GetInt("ScreenRotation")]->setChecked(true);
 
+    int screenGap = windowCfg.GetInt("ScreenGap");
     for (int i = 0; i < 6; i++)
     {
-        if (actScreenGap[i]->data().toInt() == Config::ScreenGap)
+        if (actScreenGap[i]->data().toInt() == screenGap)
         {
             actScreenGap[i]->setChecked(true);
             break;
         }
     }
 
-    actScreenLayout[Config::ScreenLayout]->setChecked(true);
-    actScreenSizing[Config::ScreenSizing]->setChecked(true);
-    actIntegerScaling->setChecked(Config::IntegerScaling);
+    actScreenLayout[windowCfg.GetInt("ScreenLayout")]->setChecked(true);
+    actScreenSizing[windowCfg.GetInt("ScreenSizing")]->setChecked(true);
+    actIntegerScaling->setChecked(windowCfg.GetBool("IntegerScaling"));
 
-    actScreenSwap->setChecked(Config::ScreenSwap);
+    actScreenSwap->setChecked(windowCfg.GetBool("ScreenSwap"));
 
+    int aspectTop = windowCfg.GetInt("ScreenAspectTop");
+    int aspectBot = windowCfg.GetInt("ScreenAspectBot");
     for (int i = 0; i < AspectRatiosNum; i++)
     {
-        if (Config::ScreenAspectTop == aspectRatios[i].id)
+        if (aspectTop == aspectRatios[i].id)
             actScreenAspectTop[i]->setChecked(true);
-        if (Config::ScreenAspectBot == aspectRatios[i].id)
+        if (aspectBot == aspectRatios[i].id)
             actScreenAspectBot[i]->setChecked(true);
     }
 
-    actScreenFiltering->setChecked(Config::ScreenFilter);
-    actShowOSD->setChecked(Config::ShowOSD);
+    actScreenFiltering->setChecked(windowCfg.GetBool("ScreenFilter"));
+    actShowOSD->setChecked(showOSD);
 
-    actLimitFramerate->setChecked(Config::LimitFPS);
-    actAudioSync->setChecked(Config::AudioSync);
+    actLimitFramerate->setChecked(emuInstance->doLimitFPS);
+    actAudioSync->setChecked(emuInstance->doAudioSync);
 
-    if (inst > 0)
+    if (emuInstance->instanceID > 0)
     {
         actEmuSettings->setEnabled(false);
         actVideoSettings->setEnabled(false);
@@ -675,6 +722,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actPreferences->setEnabled(false);
 #endif // __APPLE__
     }
+
+    QObject::connect(qApp, &QApplication::applicationStateChanged, this, &MainWindow::onAppStateChanged);
+    onUpdateInterfaceSettings();
 }
 
 MainWindow::~MainWindow()
@@ -683,27 +733,33 @@ MainWindow::~MainWindow()
     delete[] actScreenAspectBot;
 }
 
-void MainWindow::osdAddMessage(unsigned int color, const char* fmt, ...)
+void MainWindow::osdAddMessage(unsigned int color, const char* msg)
 {
-    if (fmt == nullptr)
-        return;
-
-    char msg[256];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(msg, 256, fmt, args);
-    va_end(args);
-
+    if (!showOSD) return;
     panel->osdAddMessage(color, msg);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
-    if (hasOGL)
+    QByteArray geom = saveGeometry();
+    QByteArray enc = geom.toBase64(QByteArray::Base64Encoding);
+    windowCfg.SetString("Geometry", enc.toStdString());
+
+    Config::Save();
+
+    if (hasOGL && (windowID == 0))
     {
         // we intentionally don't unpause here
         emuThread->emuPause();
         emuThread->deinitContext();
+    }
+
+    emuThread->detachWindow(this);
+
+    if (windowID == 0)
+    {
+        int inst = emuInstance->instanceID;
+        deleteEmuInstance(inst);
     }
 
     QMainWindow::closeEvent(event);
@@ -711,7 +767,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
 void MainWindow::createScreenPanel()
 {
-    hasOGL = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+    hasOGL = globalCfg.GetBool("Screen.UseGL") ||
+            (globalCfg.GetInt("3D.Renderer") != renderer3D_Software);
 
     if (hasOGL)
     {
@@ -732,7 +789,7 @@ void MainWindow::createScreenPanel()
     setCentralWidget(panel);
 
     actScreenFiltering->setEnabled(hasOGL);
-    panel->osdSetEnabled(Config::ShowOSD);
+    panel->osdSetEnabled(showOSD);
 
     connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));
     emit screenLayoutChange();
@@ -746,7 +803,7 @@ GL::Context* MainWindow::getOGLContext()
     return glpanel->getContext();
 }
 
-/*void MainWindow::initOpenGL()
+void MainWindow::initOpenGL()
 {
     if (!hasOGL) return;
 
@@ -762,43 +819,28 @@ void MainWindow::deinitOpenGL()
     return glpanel->deinitOpenGL();
 }
 
+void MainWindow::setGLSwapInterval(int intv)
+{
+    if (!hasOGL) return;
+
+    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    return glpanel->setSwapInterval(intv);
+}
+
+void MainWindow::makeCurrentGL()
+{
+    if (!hasOGL) return;
+
+    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    return glpanel->makeCurrentGL();
+}
+
 void MainWindow::drawScreenGL()
 {
     if (!hasOGL) return;
 
     ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
     return glpanel->drawScreenGL();
-}*/
-
-void MainWindow::resizeEvent(QResizeEvent* event)
-{
-    int w = event->size().width();
-    int h = event->size().height();
-
-    if (!isFullScreen())
-    {
-        // this is ugly
-        // thing is, when maximizing the window, we first receive the resizeEvent
-        // with a new size matching the screen, then the changeEvent telling us that
-        // the maximized flag was updated
-        oldW = Config::WindowWidth;
-        oldH = Config::WindowHeight;
-        oldMax = isMaximized();
-
-        Config::WindowWidth = w;
-        Config::WindowHeight = h;
-    }
-}
-
-void MainWindow::changeEvent(QEvent* event)
-{
-    if (isMaximized() && !oldMax)
-    {
-        Config::WindowWidth = oldW;
-        Config::WindowHeight = oldH;
-    }
-
-    Config::WindowMaximized = isMaximized() ? 1:0;
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event)
@@ -808,14 +850,14 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
     // TODO!! REMOVE ME IN RELEASE BUILDS!!
     //if (event->key() == Qt::Key_F11) emuThread->NDS->debug(0);
 
-    Input::KeyPress(event);
+    emuInstance->onKeyPress(event);
 }
 
 void MainWindow::keyReleaseEvent(QKeyEvent* event)
 {
     if (event->isAutoRepeat()) return;
 
-    Input::KeyRelease(event);
+    emuInstance->onKeyRelease(event);
 }
 
 
@@ -866,7 +908,7 @@ void MainWindow::dropEvent(QDropEvent* event)
 
     if (isNdsRom)
     {
-        if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
+        if (!emuInstance->loadROM(file, true))
         {
             emuThread->emuUnpause();
             return;
@@ -877,15 +919,15 @@ void MainWindow::dropEvent(QDropEvent* event)
         recentFileList.prepend(barredFilename);
         updateRecentFilesMenu();
 
-        assert(emuThread->NDS != nullptr);
-        emuThread->NDS->Start();
+        assert(emuInstance->nds != nullptr);
+        emuInstance->nds->Start();
         emuThread->emuRun();
 
         updateCartInserted(false);
     }
     else if (isGbaRom)
     {
-        if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, file))
+        if (!emuInstance->loadGBAROM(file))
         {
             emuThread->emuUnpause();
             return;
@@ -905,32 +947,32 @@ void MainWindow::dropEvent(QDropEvent* event)
 
 void MainWindow::focusInEvent(QFocusEvent* event)
 {
-    AudioInOut::AudioMute(mainWindow);
+    emuInstance->audioMute();
 }
 
 void MainWindow::focusOutEvent(QFocusEvent* event)
 {
-    AudioInOut::AudioMute(mainWindow);
+    emuInstance->audioMute();
 }
 
 void MainWindow::onAppStateChanged(Qt::ApplicationState state)
 {
     if (state == Qt::ApplicationInactive)
     {
-        Input::KeyReleaseAll();
-        if (Config::PauseLostFocus && emuThread->emuIsRunning())
+        emuInstance->keyReleaseAll();
+        if (pauseOnLostFocus && emuThread->emuIsRunning())
             emuThread->emuPause();
     }
     else if (state == Qt::ApplicationActive)
     {
-        if (Config::PauseLostFocus && !pausedManually)
+        if (pauseOnLostFocus && !pausedManually)
             emuThread->emuUnpause();
     }
 }
 
 bool MainWindow::verifySetup()
 {
-    QString res = ROMManager::VerifySetup();
+    QString res = emuInstance->verifySetup();
     if (!res.isEmpty())
     {
          QMessageBox::critical(this, "melonDS", res);
@@ -950,7 +992,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool gbaloaded = false;
     if (!gbafile.isEmpty())
     {
-        if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, gbafile)) return false;
+        if (!emuInstance->loadGBAROM(gbafile)) return false;
 
         gbaloaded = true;
     }
@@ -958,7 +1000,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool ndsloaded = false;
     if (!file.isEmpty())
     {
-        if (!ROMManager::LoadROM(mainWindow, emuThread, file, true)) return false;
+        if (!emuInstance->loadROM(file, true)) return false;
         
         recentFileList.removeAll(file.join("|"));
         recentFileList.prepend(file.join("|"));
@@ -970,7 +1012,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     {
         if (ndsloaded)
         {
-            emuThread->NDS->Start();
+            emuInstance->nds->Start();
             emuThread->emuRun();
         }
         else
@@ -1115,13 +1157,13 @@ QStringList MainWindow::pickROM(bool gba)
 
     const QString filename = QFileDialog::getOpenFileName(
         this, "Open " + console + " ROM",
-        QString::fromStdString(Config::LastROMFolder),
+        globalCfg.GetQString("LastROMFolder"),
         "All supported files (*" + allROMs + ")" + extraFilters
     );
 
     if (filename.isEmpty()) return {};
 
-    Config::LastROMFolder = QFileInfo(filename).dir().path().toStdString();
+    globalCfg.SetQString("LastROMFolder", QFileInfo(filename).dir().path());
     return splitArchivePath(filename, false);
 }
 
@@ -1130,14 +1172,14 @@ void MainWindow::updateCartInserted(bool gba)
     bool inserted;
     if (gba)
     {
-        inserted = ROMManager::GBACartInserted() && (Config::ConsoleType == 0);
-        actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
+        inserted = emuInstance->gbaCartInserted() && (globalCfg.GetInt("Emu.ConsoleType") == 0);
+        actCurrentGBACart->setText("GBA slot: " + emuInstance->gbaCartLabel());
         actEjectGBACart->setEnabled(inserted);
     }
     else
     {
-        inserted = ROMManager::CartInserted();
-        actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
+        inserted = emuInstance->cartInserted();
+        actCurrentCart->setText("DS slot: " + emuInstance->cartLabel());
         actEjectCart->setEnabled(inserted);
         actImportSavefile->setEnabled(inserted);
         actSetupCheats->setEnabled(inserted);
@@ -1163,7 +1205,7 @@ void MainWindow::onOpenFile()
         return;
     }
     
-    if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
+    if (!emuInstance->loadROM(file, true))
     {
         emuThread->emuUnpause();
         return;
@@ -1174,8 +1216,8 @@ void MainWindow::onOpenFile()
     recentFileList.prepend(filename);
     updateRecentFilesMenu();
 
-    assert(emuThread->NDS != nullptr);
-    emuThread->NDS->Start();
+    assert(emuInstance->nds != nullptr);
+    emuInstance->nds->Start();
     emuThread->emuRun();
 
     updateCartInserted(false);
@@ -1184,8 +1226,7 @@ void MainWindow::onOpenFile()
 void MainWindow::onClearRecentFiles()
 {
     recentFileList.clear();
-    for (int i = 0; i < 10; i++)
-        Config::RecentROMList[i] = "";
+    globalCfg.GetArray("RecentROM").Clear();
     updateRecentFilesMenu();
 }
 
@@ -1193,9 +1234,12 @@ void MainWindow::updateRecentFilesMenu()
 {
     recentMenu->clear();
 
+    Config::Array recentroms = globalCfg.GetArray("RecentROM");
+    recentroms.Clear();
+
     for (int i = 0; i < recentFileList.size(); ++i)
     {
-        if (i >= 10) break;
+        if (i >= kMaxRecentROMs) break;
 
         QString item_full = recentFileList.at(i);
         QString item_display = item_full;
@@ -1223,7 +1267,7 @@ void MainWindow::updateRecentFilesMenu()
         actRecentFile_i->setData(item_full);
         connect(actRecentFile_i, &QAction::triggered, this, &MainWindow::onClickRecentFile);
 
-        Config::RecentROMList[i] = recentFileList.at(i).toStdString();
+        recentroms.SetQString(i, recentFileList.at(i));
     }
 
     while (recentFileList.size() > 10)
@@ -1260,7 +1304,7 @@ void MainWindow::onClickRecentFile()
         return;
     }
     
-    if (!ROMManager::LoadROM(mainWindow, emuThread, file, true))
+    if (!emuInstance->loadROM(file, true))
     {
         emuThread->emuUnpause();
         return;
@@ -1270,8 +1314,8 @@ void MainWindow::onClickRecentFile()
     recentFileList.prepend(filename);
     updateRecentFilesMenu();
 
-    assert(emuThread->NDS != nullptr);
-    emuThread->NDS->Start();
+    assert(emuInstance->nds != nullptr);
+    emuInstance->nds->Start();
     emuThread->emuRun();
 
     updateCartInserted(false);
@@ -1287,7 +1331,7 @@ void MainWindow::onBootFirmware()
         return;
     }
 
-    if (!ROMManager::BootToMenu(emuThread))
+    if (!emuInstance->bootToMenu())
     {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "This firmware is not bootable.");
@@ -1295,8 +1339,8 @@ void MainWindow::onBootFirmware()
         return;
     }
 
-    assert(emuThread->NDS != nullptr);
-    emuThread->NDS->Start();
+    assert(emuInstance->nds != nullptr);
+    emuInstance->nds->Start();
     emuThread->emuRun();
 }
 
@@ -1311,7 +1355,7 @@ void MainWindow::onInsertCart()
         return;
     }
 
-    if (!ROMManager::LoadROM(mainWindow, emuThread, file, false))
+    if (!emuInstance->loadROM(file, false))
     {
         emuThread->emuUnpause();
         return;
@@ -1326,7 +1370,7 @@ void MainWindow::onEjectCart()
 {
     emuThread->emuPause();
 
-    ROMManager::EjectCart(*emuThread->NDS);
+    emuInstance->ejectCart();
 
     emuThread->emuUnpause();
 
@@ -1344,7 +1388,7 @@ void MainWindow::onInsertGBACart()
         return;
     }
 
-    if (!ROMManager::LoadGBAROM(mainWindow, *emuThread->NDS, file))
+    if (!emuInstance->loadGBAROM(file))
     {
         emuThread->emuUnpause();
         return;
@@ -1362,7 +1406,7 @@ void MainWindow::onInsertGBAAddon()
 
     emuThread->emuPause();
 
-    ROMManager::LoadGBAAddon(*emuThread->NDS, type);
+    emuInstance->loadGBAAddon(type);
 
     emuThread->emuUnpause();
 
@@ -1373,7 +1417,7 @@ void MainWindow::onEjectGBACart()
 {
     emuThread->emuPause();
 
-    ROMManager::EjectGBACart(*emuThread->NDS);
+    emuInstance->ejectGBACart();
 
     emuThread->emuUnpause();
 
@@ -1389,14 +1433,14 @@ void MainWindow::onSaveState()
     std::string filename;
     if (slot > 0)
     {
-        filename = ROMManager::GetSavestateName(slot);
+        filename = emuInstance->getSavestateName(slot);
     }
     else
     {
         // TODO: specific 'last directory' for savestate files?
         QString qfilename = QFileDialog::getSaveFileName(this,
                                                          "Save state",
-                                                         QString::fromStdString(Config::LastROMFolder),
+                                                         globalCfg.GetQString("LastROMFolder"),
                                                          "melonDS savestates (*.mln);;Any file (*.*)");
         if (qfilename.isEmpty())
         {
@@ -1407,16 +1451,16 @@ void MainWindow::onSaveState()
         filename = qfilename.toStdString();
     }
 
-    if (ROMManager::SaveState(*emuThread->NDS, filename))
+    if (emuInstance->saveState(filename))
     {
-        if (slot > 0) osdAddMessage(0, "State saved to slot %d", slot);
-        else          osdAddMessage(0, "State saved to file");
+        if (slot > 0) emuInstance->osdAddMessage(0, "State saved to slot %d", slot);
+        else          emuInstance->osdAddMessage(0, "State saved to file");
 
         actLoadState[slot]->setEnabled(true);
     }
     else
     {
-        osdAddMessage(0xFFA0A0, "State save failed");
+        emuInstance->osdAddMessage(0xFFA0A0, "State save failed");
     }
 
     emuThread->emuUnpause();
@@ -1431,14 +1475,14 @@ void MainWindow::onLoadState()
     std::string filename;
     if (slot > 0)
     {
-        filename = ROMManager::GetSavestateName(slot);
+        filename = emuInstance->getSavestateName(slot);
     }
     else
     {
         // TODO: specific 'last directory' for savestate files?
         QString qfilename = QFileDialog::getOpenFileName(this,
                                                          "Load state",
-                                                         QString::fromStdString(Config::LastROMFolder),
+                                                         globalCfg.GetQString("LastROMFolder"),
                                                          "melonDS savestates (*.ml*);;Any file (*.*)");
         if (qfilename.isEmpty())
         {
@@ -1451,23 +1495,23 @@ void MainWindow::onLoadState()
 
     if (!Platform::FileExists(filename))
     {
-        if (slot > 0) osdAddMessage(0xFFA0A0, "State slot %d is empty", slot);
-        else          osdAddMessage(0xFFA0A0, "State file does not exist");
+        if (slot > 0) emuInstance->osdAddMessage(0xFFA0A0, "State slot %d is empty", slot);
+        else          emuInstance->osdAddMessage(0xFFA0A0, "State file does not exist");
 
         emuThread->emuUnpause();
         return;
     }
 
-    if (ROMManager::LoadState(*emuThread->NDS, filename))
+    if (emuInstance->loadState(filename))
     {
-        if (slot > 0) osdAddMessage(0, "State loaded from slot %d", slot);
-        else          osdAddMessage(0, "State loaded from file");
+        if (slot > 0) emuInstance->osdAddMessage(0, "State loaded from slot %d", slot);
+        else          emuInstance->osdAddMessage(0, "State loaded from file");
 
         actUndoStateLoad->setEnabled(true);
     }
     else
     {
-        osdAddMessage(0xFFA0A0, "State load failed");
+        emuInstance->osdAddMessage(0xFFA0A0, "State load failed");
     }
 
     emuThread->emuUnpause();
@@ -1476,10 +1520,10 @@ void MainWindow::onLoadState()
 void MainWindow::onUndoStateLoad()
 {
     emuThread->emuPause();
-    ROMManager::UndoStateLoad(*emuThread->NDS);
+    emuInstance->undoStateLoad();
     emuThread->emuUnpause();
 
-    osdAddMessage(0, "State load undone");
+    emuInstance->osdAddMessage(0, "State load undone");
 }
 
 void MainWindow::onImportSavefile()
@@ -1487,7 +1531,7 @@ void MainWindow::onImportSavefile()
     emuThread->emuPause();
     QString path = QFileDialog::getOpenFileName(this,
                                             "Select savefile",
-                                            QString::fromStdString(Config::LastROMFolder),
+                                            globalCfg.GetQString("LastROMFolder"),
                                             "Savefiles (*.sav *.bin *.dsv);;Any file (*.*)");
 
     if (path.isEmpty())
@@ -1504,7 +1548,7 @@ void MainWindow::onImportSavefile()
         return;
     }
 
-    if (RunningSomething)
+    if (emuThread->emuIsActive())
     {
         if (QMessageBox::warning(this,
                         "melonDS",
@@ -1515,7 +1559,7 @@ void MainWindow::onImportSavefile()
             return;
         }
 
-        ROMManager::Reset(emuThread);
+        emuInstance->reset();
     }
 
     u32 len = FileLength(f);
@@ -1524,8 +1568,8 @@ void MainWindow::onImportSavefile()
     Platform::FileRewind(f);
     Platform::FileRead(data.get(), len, 1, f);
 
-    assert(emuThread->NDS != nullptr);
-    emuThread->NDS->SetNDSSave(data.get(), len);
+    assert(emuInstance->nds != nullptr);
+    emuInstance->nds->SetNDSSave(data.get(), len);
 
     CloseFile(f);
     emuThread->emuUnpause();
@@ -1534,55 +1578,46 @@ void MainWindow::onImportSavefile()
 void MainWindow::onQuit()
 {
 #ifndef _WIN32
-    signalSn->setEnabled(false);
+    if (!parentWidget())
+        signalSn->setEnabled(false);
 #endif
-    QApplication::quit();
+    close();
 }
 
 
 void MainWindow::onPause(bool checked)
 {
-    if (!RunningSomething) return;
+    if (!emuThread->emuIsActive()) return;
 
     if (checked)
     {
         emuThread->emuPause();
-        osdAddMessage(0, "Paused");
         pausedManually = true;
     }
     else
     {
         emuThread->emuUnpause();
-        osdAddMessage(0, "Resumed");
         pausedManually = false;
     }
 }
 
 void MainWindow::onReset()
 {
-    if (!RunningSomething) return;
+    if (!emuThread->emuIsActive()) return;
 
-    emuThread->emuPause();
-
-    actUndoStateLoad->setEnabled(false);
-
-    ROMManager::Reset(emuThread);
-
-    osdAddMessage(0, "Reset");
-    emuThread->emuRun();
+    emuThread->emuReset();
 }
 
 void MainWindow::onStop()
 {
-    if (!RunningSomething) return;
+    if (!emuThread->emuIsActive()) return;
 
-    emuThread->emuPause();
-    emuThread->NDS->Stop();
+    emuThread->emuStop(true);
 }
 
 void MainWindow::onFrameStep()
 {
-    if (!RunningSomething) return;
+    if (!emuThread->emuIsActive()) return;
 
     emuThread->emuFrameStep();
 }
@@ -1594,13 +1629,13 @@ void MainWindow::onOpenDateTime()
 
 void MainWindow::onOpenPowerManagement()
 {
-    PowerManagementDialog* dlg = PowerManagementDialog::openDlg(this, emuThread);
+    PowerManagementDialog* dlg = PowerManagementDialog::openDlg(this);
 }
 
 void MainWindow::onEnableCheats(bool checked)
 {
-    Config::EnableCheats = checked?1:0;
-    ROMManager::EnableCheats(*emuThread->NDS, Config::EnableCheats != 0);
+    localCfg.SetBool("EnableCheats", checked);
+    emuInstance->enableCheats(checked);
 }
 
 void MainWindow::onSetupCheats()
@@ -1618,14 +1653,14 @@ void MainWindow::onCheatsDialogFinished(int res)
 
 void MainWindow::onROMInfo()
 {
-    auto cart = emuThread->NDS->NDSCartSlot.GetCart();
+    auto cart = emuInstance->nds->NDSCartSlot.GetCart();
     if (cart)
-        ROMInfoDialog* dlg = ROMInfoDialog::openDlg(this, *cart);
+        ROMInfoDialog* dlg = ROMInfoDialog::openDlg(this);
 }
 
 void MainWindow::onRAMInfo()
 {
-    RAMInfoDialog* dlg = RAMInfoDialog::openDlg(this, emuThread);
+    RAMInfoDialog* dlg = RAMInfoDialog::openDlg(this);
 }
 
 void MainWindow::onOpenTitleManager()
@@ -1635,19 +1670,7 @@ void MainWindow::onOpenTitleManager()
 
 void MainWindow::onMPNewInstance()
 {
-    //QProcess::startDetached(QApplication::applicationFilePath());
-    QProcess newinst;
-    newinst.setProgram(QApplication::applicationFilePath());
-    newinst.setArguments(QApplication::arguments().mid(1, QApplication::arguments().length()-1));
-
-#ifdef __WIN32__
-    newinst.setCreateProcessArgumentsModifier([] (QProcess::CreateProcessArguments *args)
-    {
-        args->flags |= CREATE_NEW_CONSOLE;
-    });
-#endif
-
-    newinst.startDetached();
+    createEmuInstance();
 }
 
 void MainWindow::onOpenEmuSettings()
@@ -1660,9 +1683,7 @@ void MainWindow::onOpenEmuSettings()
 
 void MainWindow::onEmuSettingsDialogFinished(int res)
 {
-    emuThread->emuUnpause();
-
-    if (Config::ConsoleType == 1)
+    if (globalCfg.GetInt("Emu.ConsoleType") == 1)
     {
         actInsertGBACart->setEnabled(false);
         for (int i = 0; i < 1; i++)
@@ -1674,16 +1695,18 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
         actInsertGBACart->setEnabled(true);
         for (int i = 0; i < 1; i++)
             actInsertGBAAddon[i]->setEnabled(true);
-        actEjectGBACart->setEnabled(ROMManager::GBACartInserted());
+        actEjectGBACart->setEnabled(emuInstance->gbaCartInserted());
     }
 
     if (EmuSettingsDialog::needsReset)
         onReset();
 
-    actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
+    actCurrentGBACart->setText("GBA slot: " + emuInstance->gbaCartLabel());
 
-    if (!RunningSomething)
-        actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
+    if (!emuThread->emuIsActive())
+        actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
+
+    emuThread->emuUnpause();
 }
 
 void MainWindow::onOpenInputConfig()
@@ -1728,9 +1751,10 @@ void MainWindow::onCameraSettingsFinished(int res)
 
 void MainWindow::onOpenAudioSettings()
 {
-    AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this, emuThread->emuIsActive(), emuThread);
+    AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this);
     connect(emuThread, &EmuThread::syncVolumeLevel, dlg, &AudioSettingsDialog::onSyncVolumeLevel);
     connect(emuThread, &EmuThread::windowEmuStart, dlg, &AudioSettingsDialog::onConsoleReset);
+    connect(dlg, &AudioSettingsDialog::updateAudioVolume, this, &MainWindow::onUpdateAudioVolume);
     connect(dlg, &AudioSettingsDialog::updateAudioSettings, this, &MainWindow::onUpdateAudioSettings);
     connect(dlg, &AudioSettingsDialog::finished, this, &MainWindow::onAudioSettingsFinished);
 }
@@ -1767,20 +1791,29 @@ void MainWindow::onPathSettingsFinished(int res)
     emuThread->emuUnpause();
 }
 
+void MainWindow::onUpdateAudioVolume(int vol, int dsisync)
+{
+    emuInstance->audioVolume = vol;
+    emuInstance->audioDSiVolumeSync = dsisync;
+}
+
 void MainWindow::onUpdateAudioSettings()
 {
-    assert(emuThread->NDS != nullptr);
-    emuThread->NDS->SPU.SetInterpolation(static_cast<AudioInterpolation>(Config::AudioInterp));
+    assert(emuInstance->nds != nullptr);
 
-    if (Config::AudioBitDepth == 0)
-        emuThread->NDS->SPU.SetDegrade10Bit(emuThread->NDS->ConsoleType == 0);
+    int interp = globalCfg.GetInt("Audio.Interpolation");
+    emuInstance->nds->SPU.SetInterpolation(static_cast<AudioInterpolation>(interp));
+
+    int bitdepth = globalCfg.GetInt("Audio.BitDepth");
+    if (bitdepth == 0)
+        emuInstance->nds->SPU.SetDegrade10Bit(emuInstance->nds->ConsoleType == 0);
     else
-        emuThread->NDS->SPU.SetDegrade10Bit(Config::AudioBitDepth == 1);
+        emuInstance->nds->SPU.SetDegrade10Bit(bitdepth == 1);
 }
 
 void MainWindow::onAudioSettingsFinished(int res)
 {
-    AudioInOut::UpdateSettings(*emuThread->NDS);
+    //AudioInOut::UpdateSettings(*emuThread->NDS);
 }
 
 void MainWindow::onOpenMPSettings()
@@ -1793,8 +1826,9 @@ void MainWindow::onOpenMPSettings()
 
 void MainWindow::onMPSettingsFinished(int res)
 {
-    AudioInOut::AudioMute(mainWindow);
-    LocalMP::SetRecvTimeout(Config::MPRecvTimeout);
+    emuInstance->mpAudioMode = globalCfg.GetInt("MP.AudioMode");
+    emuInstance->audioMute();
+    LocalMP::SetRecvTimeout(globalCfg.GetInt("MP.RecvTimeout"));
 
     emuThread->emuUnpause();
 }
@@ -1809,9 +1843,6 @@ void MainWindow::onOpenWifiSettings()
 
 void MainWindow::onWifiSettingsFinished(int res)
 {
-    Platform::LAN_DeInit();
-    Platform::LAN_Init();
-
     if (WifiSettingsDialog::needsReset)
         onReset();
 
@@ -1823,12 +1854,16 @@ void MainWindow::onOpenInterfaceSettings()
     emuThread->emuPause();
     InterfaceSettingsDialog* dlg = InterfaceSettingsDialog::openDlg(this);
     connect(dlg, &InterfaceSettingsDialog::finished, this, &MainWindow::onInterfaceSettingsFinished);
-    connect(dlg, &InterfaceSettingsDialog::updateMouseTimer, this, &MainWindow::onUpdateMouseTimer);
+    connect(dlg, &InterfaceSettingsDialog::updateInterfaceSettings, this, &MainWindow::onUpdateInterfaceSettings);
 }
 
-void MainWindow::onUpdateMouseTimer()
+void MainWindow::onUpdateInterfaceSettings()
 {
-    panel->mouseTimer->setInterval(Config::MouseHideSeconds*1000);
+    pauseOnLostFocus = globalCfg.GetBool("PauseLostFocus");
+    emuInstance->maxFPS = globalCfg.GetInt("MaxFPS");
+
+    panel->setMouseHide(globalCfg.GetBool("MouseHide"),
+                        globalCfg.GetInt("MouseHideSeconds")*1000);
 }
 
 void MainWindow::onInterfaceSettingsFinished(int res)
@@ -1838,7 +1873,7 @@ void MainWindow::onInterfaceSettingsFinished(int res)
 
 void MainWindow::onChangeSavestateSRAMReloc(bool checked)
 {
-    Config::SavestateRelocSRAM = checked?1:0;
+    globalCfg.SetBool("Savestate.RelocSRAM", checked);
 }
 
 void MainWindow::onChangeScreenSize()
@@ -1851,7 +1886,7 @@ void MainWindow::onChangeScreenSize()
 void MainWindow::onChangeScreenRotation(QAction* act)
 {
     int rot = act->data().toInt();
-    Config::ScreenRotation = rot;
+    windowCfg.SetInt("ScreenRotation", rot);
 
     emit screenLayoutChange();
 }
@@ -1859,7 +1894,7 @@ void MainWindow::onChangeScreenRotation(QAction* act)
 void MainWindow::onChangeScreenGap(QAction* act)
 {
     int gap = act->data().toInt();
-    Config::ScreenGap = gap;
+    windowCfg.SetInt("ScreenGap", gap);
 
     emit screenLayoutChange();
 }
@@ -1867,30 +1902,32 @@ void MainWindow::onChangeScreenGap(QAction* act)
 void MainWindow::onChangeScreenLayout(QAction* act)
 {
     int layout = act->data().toInt();
-    Config::ScreenLayout = layout;
+    windowCfg.SetInt("ScreenLayout", layout);
 
     emit screenLayoutChange();
 }
 
 void MainWindow::onChangeScreenSwap(bool checked)
 {
-    Config::ScreenSwap = checked?1:0;
+    windowCfg.SetBool("ScreenSwap", checked);
 
     // Swap between top and bottom screen when displaying one screen.
-    if (Config::ScreenSizing == Frontend::screenSizing_TopOnly)
+    int sizing = windowCfg.GetInt("ScreenSizing");
+    if (sizing == screenSizing_TopOnly)
     {
         // Bottom Screen.
-        Config::ScreenSizing = Frontend::screenSizing_BotOnly;
-        actScreenSizing[Frontend::screenSizing_TopOnly]->setChecked(false);
-        actScreenSizing[Config::ScreenSizing]->setChecked(true);
+        sizing = screenSizing_BotOnly;
+        actScreenSizing[screenSizing_TopOnly]->setChecked(false);
+        actScreenSizing[sizing]->setChecked(true);
     }
-    else if (Config::ScreenSizing == Frontend::screenSizing_BotOnly)
+    else if (sizing == screenSizing_BotOnly)
     {
         // Top Screen.
-        Config::ScreenSizing = Frontend::screenSizing_TopOnly;
-        actScreenSizing[Frontend::screenSizing_BotOnly]->setChecked(false);
-        actScreenSizing[Config::ScreenSizing]->setChecked(true);
+        sizing = screenSizing_TopOnly;
+        actScreenSizing[screenSizing_BotOnly]->setChecked(false);
+        actScreenSizing[sizing]->setChecked(true);
     }
+    windowCfg.SetInt("ScreenSizing", sizing);
 
     emit screenLayoutChange();
 }
@@ -1898,7 +1935,7 @@ void MainWindow::onChangeScreenSwap(bool checked)
 void MainWindow::onChangeScreenSizing(QAction* act)
 {
     int sizing = act->data().toInt();
-    Config::ScreenSizing = sizing;
+    windowCfg.SetInt("ScreenSizing", sizing);
 
     emit screenLayoutChange();
 }
@@ -1910,11 +1947,11 @@ void MainWindow::onChangeScreenAspect(QAction* act)
 
     if (group == grpScreenAspectTop)
     {
-        Config::ScreenAspectTop = aspect;
+        windowCfg.SetInt("ScreenAspectTop", aspect);
     }
     else
     {
-        Config::ScreenAspectBot = aspect;
+        windowCfg.SetInt("ScreenAspectBot", aspect);
     }
 
     emit screenLayoutChange();
@@ -1922,32 +1959,36 @@ void MainWindow::onChangeScreenAspect(QAction* act)
 
 void MainWindow::onChangeIntegerScaling(bool checked)
 {
-    Config::IntegerScaling = checked?1:0;
+    windowCfg.SetBool("IntegerScaling", checked);
 
     emit screenLayoutChange();
 }
 
 void MainWindow::onChangeScreenFiltering(bool checked)
 {
-    Config::ScreenFilter = checked?1:0;
+    windowCfg.SetBool("ScreenFilter", checked);
 
-    emit screenLayoutChange();
+    //emit screenLayoutChange();
+    panel->setFilter(checked);
 }
 
 void MainWindow::onChangeShowOSD(bool checked)
 {
-    Config::ShowOSD = checked?1:0;
-    panel->osdSetEnabled(Config::ShowOSD);
+    showOSD = checked;
+    panel->osdSetEnabled(showOSD);
+    windowCfg.SetBool("ShowOSD", showOSD);
 }
 
 void MainWindow::onChangeLimitFramerate(bool checked)
 {
-    Config::LimitFPS = checked?1:0;
+    emuInstance->doLimitFPS = checked;
+    globalCfg.SetBool("LimitFPS", emuInstance->doLimitFPS);
 }
 
 void MainWindow::onChangeAudioSync(bool checked)
 {
-    Config::AudioSync = checked?1:0;
+    emuInstance->doAudioSync = checked;
+    globalCfg.SetBool("AudioSync", emuInstance->doAudioSync);
 }
 
 
@@ -1978,15 +2019,16 @@ void MainWindow::onFullscreenToggled()
 
 void MainWindow::onScreenEmphasisToggled()
 {
-    int currentSizing = Config::ScreenSizing;
-    if (currentSizing == Frontend::screenSizing_EmphTop)
+    int currentSizing = windowCfg.GetInt("ScreenSizing");
+    if (currentSizing == screenSizing_EmphTop)
     {
-        Config::ScreenSizing = Frontend::screenSizing_EmphBot;
+        currentSizing = screenSizing_EmphBot;
     }
-    else if (currentSizing == Frontend::screenSizing_EmphBot)
+    else if (currentSizing == screenSizing_EmphBot)
     {
-        Config::ScreenSizing = Frontend::screenSizing_EmphTop;
+        currentSizing = screenSizing_EmphTop;
     }
+    windowCfg.SetInt("ScreenSizing", currentSizing);
 
     emit screenLayoutChange();
 }
@@ -1996,7 +2038,7 @@ void MainWindow::onEmuStart()
     for (int i = 1; i < 9; i++)
     {
         actSaveState[i]->setEnabled(true);
-        actLoadState[i]->setEnabled(ROMManager::SavestateExists(i));
+        actLoadState[i]->setEnabled(emuInstance->savestateExists(i));
     }
     actSaveState[0]->setEnabled(true);
     actLoadState[0]->setEnabled(true);
@@ -2016,8 +2058,6 @@ void MainWindow::onEmuStart()
 
 void MainWindow::onEmuStop()
 {
-    emuThread->emuPause();
-
     for (int i = 0; i < 9; i++)
     {
         actSaveState[i]->setEnabled(false);
@@ -2033,7 +2073,17 @@ void MainWindow::onEmuStop()
     actDateTime->setEnabled(true);
     actPowerManagement->setEnabled(false);
 
-    actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
+    actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
+}
+
+void MainWindow::onEmuPause(bool pause)
+{
+    actPause->setChecked(pause);
+}
+
+void MainWindow::onEmuReset()
+{
+    actUndoStateLoad->setEnabled(false);
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
@@ -2048,8 +2098,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
         connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
     }
 
-    printf("update video settings\n");
-    videoSettingsDirty = true;
+    emuThread->updateVideoSettings();
 
     if (glchange)
     {

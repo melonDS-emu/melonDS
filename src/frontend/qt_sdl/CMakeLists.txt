@@ -7,6 +7,9 @@ set(SOURCES_QT_SDL
     main_shaders.h
     Screen.cpp
     Window.cpp
+    EmuInstance.cpp
+    EmuInstanceAudio.cpp
+    EmuInstanceInput.cpp
     EmuThread.cpp
     CheatsDialog.cpp
     Config.cpp
@@ -28,25 +31,22 @@ set(SOURCES_QT_SDL
     ROMInfoDialog.cpp
     RAMInfoDialog.cpp
     TitleManagerDialog.cpp
-    Input.cpp
-    LAN_PCap.cpp
-    LAN_Socket.cpp
+    PacketDispatcher.cpp
+    Net.cpp
+    Net_PCap.cpp
+    Net_Slirp.cpp
     LocalMP.cpp
     OSD_shaders.h
     font.h
     Platform.cpp
     QPathInput.h
-    ROMManager.cpp
     SaveManager.cpp
     CameraManager.cpp
-    AudioInOut.cpp
 
     ArchiveUtil.h
     ArchiveUtil.cpp
 
-    ../Util_Video.cpp
-    ../Util_Audio.cpp
-    ../FrontendUtil.h
+    ../ScreenLayout.cpp
     ../mic_blow.h
 
     ../glad/glad.c

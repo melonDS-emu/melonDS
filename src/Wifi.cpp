@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -93,25 +93,11 @@ Wifi::Wifi(melonDS::NDS& nds) : NDS(nds)
 {
     NDS.RegisterEventFunc(Event_Wifi, 0, MemberEventFunc(Wifi, USTimer));
 
-    //MPInited = false;
-    //LANInited = false;
-
-    Platform::MP_Init();
-    MPInited = true;
-
-    Platform::LAN_Init();
-    LANInited = true;
-
-    WifiAP = new class WifiAP(this);
+    WifiAP = new class WifiAP(this, NDS.UserData);
 }
 
 Wifi::~Wifi()
 {
-    if (MPInited)
-        Platform::MP_DeInit();
-    if (LANInited)
-        Platform::LAN_DeInit();
-
     delete WifiAP; WifiAP = nullptr;
 
     NDS.UnregisterEventFunc(Event_Wifi, 0);
@@ -368,7 +354,7 @@ void Wifi::UpdatePowerOn()
 
         ScheduleTimer(true);
 
-        Platform::MP_Begin();
+        Platform::MP_Begin(NDS.UserData);
     }
     else
     {
@@ -376,7 +362,7 @@ void Wifi::UpdatePowerOn()
 
         NDS.CancelEvent(Event_Wifi);
 
-        Platform::MP_End();
+        Platform::MP_End(NDS.UserData);
     }
 }
 
@@ -664,23 +650,23 @@ void Wifi::TXSendFrame(const TXSlot* slot, int num)
     case 0:
     case 2:
     case 3:
-        Platform::MP_SendPacket(TXBuffer, 12+len, USTimestamp);
+        Platform::MP_SendPacket(TXBuffer, 12+len, USTimestamp, NDS.UserData);
         if (!IsMP) WifiAP->SendPacket(TXBuffer, 12+len);
         break;
 
     case 1:
         *(u16*)&TXBuffer[12 + 24+2] = MPClientMask;
-        Platform::MP_SendCmd(TXBuffer, 12+len, USTimestamp);
+        Platform::MP_SendCmd(TXBuffer, 12+len, USTimestamp, NDS.UserData);
         break;
 
     case 5:
         IncrementTXCount(slot);
-        Platform::MP_SendReply(TXBuffer, 12+len, USTimestamp, IOPORT(W_AIDLow));
+        Platform::MP_SendReply(TXBuffer, 12+len, USTimestamp, IOPORT(W_AIDLow), NDS.UserData);
         break;
 
     case 4:
         *(u64*)&TXBuffer[0xC + 24] = USCounter;
-        Platform::MP_SendPacket(TXBuffer, 12+len, USTimestamp);
+        Platform::MP_SendPacket(TXBuffer, 12+len, USTimestamp, NDS.UserData);
         break;
     }
 }
@@ -836,7 +822,7 @@ void Wifi::SendMPDefaultReply()
     *(u16*)&reply[0xC + 0x16] = IOPORT(W_TXSeqNo) << 4;
     *(u32*)&reply[0xC + 0x18] = 0;
 
-    int txlen = Platform::MP_SendReply(reply, 12+28, USTimestamp, IOPORT(W_AIDLow));
+    int txlen = Platform::MP_SendReply(reply, 12+28, USTimestamp, IOPORT(W_AIDLow), NDS.UserData);
     WIFI_LOG("wifi: sent %d/40 bytes of MP default reply\n", txlen);
 }
 
@@ -946,7 +932,7 @@ void Wifi::SendMPAck(u16 cmdcount, u16 clientfail)
         *(u32*)&ack[0] = PreambleLen(TXSlots[1].Rate);
     }
 
-    int txlen = Platform::MP_SendAck(ack, 12+32, USTimestamp);
+    int txlen = Platform::MP_SendAck(ack, 12+32, USTimestamp, NDS.UserData);
     WIFI_LOG("wifi: sent %d/44 bytes of MP ack, %d %d\n", txlen, ComStatus, RXTime);
 }
 
@@ -1069,7 +1055,7 @@ bool Wifi::ProcessTX(TXSlot* slot, int num)
 
                 u16 res = 0;
                 if (MPClientMask)
-                    res = Platform::MP_RecvReplies(MPClientReplies, USTimestamp, MPClientMask);
+                    res = Platform::MP_RecvReplies(MPClientReplies, USTimestamp, MPClientMask, NDS.UserData);
                 MPClientFail &= ~res;
 
                 // TODO: 112 likely includes the ack preamble, which needs adjusted
@@ -1508,7 +1494,7 @@ void Wifi::FinishRX()
             // in the case this client wasn't ready to send a reply
             // TODO: also send this if we have RX disabled
 
-            Platform::MP_SendReply(nullptr, 0, USTimestamp, 0);
+            Platform::MP_SendReply(nullptr, 0, USTimestamp, 0, NDS.UserData);
         }
     }
     else if ((rxflags & 0x800F) == 0x8001)
@@ -1592,13 +1578,13 @@ bool Wifi::CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 
         if (type == 0)
         {
-            rxlen = Platform::MP_RecvPacket(RXBuffer, &timestamp);
+            rxlen = Platform::MP_RecvPacket(RXBuffer, &timestamp, NDS.UserData);
             if ((rxlen <= 0) && (!IsMP))
                 rxlen = WifiAP->RecvPacket(RXBuffer);
         }
         else
         {
-            rxlen = Platform::MP_RecvHostPacket(RXBuffer, &timestamp);
+            rxlen = Platform::MP_RecvHostPacket(RXBuffer, &timestamp, NDS.UserData);
             if (rxlen < 0)
             {
                 // host is gone
