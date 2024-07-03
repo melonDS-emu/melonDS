@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -23,6 +23,8 @@
 
 namespace Ui { class InterfaceSettingsDialog; }
 class InterfaceSettingsDialog;
+
+class EmuInstance;
 
 class InterfaceSettingsDialog : public QDialog
 {
@@ -51,7 +53,7 @@ public:
     }
 
 signals:
-    void updateMouseTimer();
+    void updateInterfaceSettings();
 
 private slots:
     void done(int r);
@@ -60,6 +62,8 @@ private slots:
 
 private:
     Ui::InterfaceSettingsDialog* ui;
+
+    EmuInstance* emuInstance;
 };
 
 #endif // INTERFACESETTINGSDIALOG_H

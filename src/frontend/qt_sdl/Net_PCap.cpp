@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -16,16 +16,12 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-// direct LAN interface. Currently powered by libpcap, may change.
-
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <pcap/pcap.h>
-#include "Wifi.h"
-#include "LAN_PCap.h"
+#include "Net.h"
 #include "Config.h"
 #include "Platform.h"
+#include "main.h"
 
 #ifdef __WIN32__
 	#include <iphlpapi.h>
@@ -53,7 +49,7 @@ using Platform::LogLevel;
 
 #define DECL_PCAP_FUNC(ret, name, args, args2) \
     typedef ret (*type_##name) args; \
-    type_##name ptr_##name = NULL; \
+    type_##name ptr_##name = nullptr; \
     ret name args { return ptr_##name args2; }
 
 DECL_PCAP_FUNC(int, pcap_findalldevs, (pcap_if_t** alldevs, char* errbuf), (alldevs,errbuf))
@@ -66,7 +62,7 @@ DECL_PCAP_FUNC(int, pcap_dispatch, (pcap_t* dev, int num, pcap_handler callback,
 DECL_PCAP_FUNC(const u_char*, pcap_next, (pcap_t* dev, struct pcap_pkthdr* hdr), (dev,hdr))
 
 
-namespace LAN_PCap
+namespace Net_PCap
 {
 
 const char* PCapLibNames[] =
@@ -82,19 +78,15 @@ const char* PCapLibNames[] =
     "libpcap.so.1",
     "libpcap.so",
 #endif
-    NULL
+    nullptr
 };
 
-AdapterData* Adapters = NULL;
+AdapterData* Adapters = nullptr;
 int NumAdapters = 0;
 
-Platform::DynamicLibrary* PCapLib = NULL;
-pcap_t* PCapAdapter = NULL;
+Platform::DynamicLibrary* PCapLib = nullptr;
+pcap_t* PCapAdapter = nullptr;
 AdapterData* PCapAdapterData;
-
-u8 PacketBuffer[2048];
-int PacketLen;
-volatile int RXNum;
 
 
 #define LOAD_PCAP_FUNC(sym) \
@@ -115,18 +107,15 @@ bool TryLoadPCap(Platform::DynamicLibrary *lib)
     return true;
 }
 
-bool Init(bool open_adapter)
+bool InitAdapterList()
 {
-    PCapAdapter = NULL;
-    PacketLen = 0;
-    RXNum = 0;
-
     NumAdapters = 0;
 
     // TODO: how to deal with cases where an adapter is unplugged or changes config??
     if (!PCapLib)
     {
-        PCapLib = NULL;
+        PCapLib = nullptr;
+        PCapAdapter = nullptr;
 
         for (int i = 0; PCapLibNames[i]; i++)
         {
@@ -144,7 +133,7 @@ bool Init(bool open_adapter)
             break;
         }
 
-        if (PCapLib == NULL)
+        if (PCapLib == nullptr)
         {
             Log(LogLevel::Error, "PCap: init failed\n");
             return false;
@@ -156,7 +145,7 @@ bool Init(bool open_adapter)
 
     pcap_if_t* alldevs;
     ret = pcap_findalldevs(&alldevs, errbuf);
-    if (ret < 0 || alldevs == NULL)
+    if (ret < 0 || alldevs == nullptr)
     {
         Log(LogLevel::Warn, "PCap: no devices available\n");
         return false;
@@ -172,18 +161,10 @@ bool Init(bool open_adapter)
     dev = alldevs;
     while (dev)
     {
-        adata->Internal = dev;
-
-#ifdef __WIN32__
-        // hax
-        int len = strlen(dev->name);
-        len -= 12; if (len > 127) len = 127;
-        strncpy(adata->DeviceName, &dev->name[12], len);
-        adata->DeviceName[len] = '\0';
-#else
         strncpy(adata->DeviceName, dev->name, 127);
         adata->DeviceName[127] = '\0';
 
+#ifndef __WIN32__
         strncpy(adata->FriendlyName, adata->DeviceName, 127);
         adata->FriendlyName[127] = '\0';
 #endif // __WIN32__
@@ -196,12 +177,12 @@ bool Init(bool open_adapter)
 
     ULONG bufsize = 16384;
     IP_ADAPTER_ADDRESSES* buf = (IP_ADAPTER_ADDRESSES*)HeapAlloc(GetProcessHeap(), 0, bufsize);
-    ULONG uret = GetAdaptersAddresses(AF_INET, 0, NULL, buf, &bufsize);
+    ULONG uret = GetAdaptersAddresses(AF_INET, 0, nullptr, buf, &bufsize);
     if (uret == ERROR_BUFFER_OVERFLOW)
     {
         HeapFree(GetProcessHeap(), 0, buf);
         buf = (IP_ADAPTER_ADDRESSES*)HeapAlloc(GetProcessHeap(), 0, bufsize);
-        uret = GetAdaptersAddresses(AF_INET, 0, NULL, buf, &bufsize);
+        uret = GetAdaptersAddresses(AF_INET, 0, nullptr, buf, &bufsize);
     }
     if (uret != ERROR_SUCCESS)
     {
@@ -215,16 +196,16 @@ bool Init(bool open_adapter)
         IP_ADAPTER_ADDRESSES* addr = buf;
         while (addr)
         {
-            if (strcmp(addr->AdapterName, adata->DeviceName))
+            if (strcmp(addr->AdapterName, &adata->DeviceName[12]))
             {
                 addr = addr->Next;
                 continue;
             }
 
-            WideCharToMultiByte(CP_UTF8, 0, addr->FriendlyName, 127, adata->FriendlyName, 127, NULL, NULL);
+            WideCharToMultiByte(CP_UTF8, 0, addr->FriendlyName, 127, adata->FriendlyName, 127, nullptr, nullptr);
             adata->FriendlyName[127] = '\0';
 
-            WideCharToMultiByte(CP_UTF8, 0, addr->Description, 127, adata->Description, 127, NULL, NULL);
+            WideCharToMultiByte(CP_UTF8, 0, addr->Description, 127, adata->Description, 127, nullptr, nullptr);
             adata->Description[127] = '\0';
 
             if (addr->PhysicalAddressLength != 6)
@@ -287,7 +268,7 @@ bool Init(bool open_adapter)
                 struct sockaddr_in* sa = (sockaddr_in*)curaddr->ifa_addr;
                 memcpy(adata->IP_v4, &sa->sin_addr, 4);
             }
-            #ifdef __linux__
+#ifdef __linux__
             else if (af == AF_PACKET)
             {
                 struct sockaddr_ll* sa = (sockaddr_ll*)curaddr->ifa_addr;
@@ -296,7 +277,7 @@ bool Init(bool open_adapter)
                 else
                     memcpy(adata->MAC, sa->sll_addr, 6);
             }
-            #else
+#else
             else if (af == AF_LINK)
             {
                 struct sockaddr_dl* sa = (sockaddr_dl*)curaddr->ifa_addr;
@@ -305,7 +286,7 @@ bool Init(bool open_adapter)
                 else
                     memcpy(adata->MAC, LLADDR(sa), 6);
             }
-            #endif
+#endif
             curaddr = curaddr->ifa_next;
         }
     }
@@ -314,31 +295,39 @@ bool Init(bool open_adapter)
 
 #endif // __WIN32__
 
-    if (!open_adapter) return true;
+    pcap_freealldevs(alldevs);
+    return true;
+}
+
+bool Init()
+{
+    if (!PCapLib) PCapAdapter = nullptr;
     if (PCapAdapter) pcap_close(PCapAdapter);
 
+    InitAdapterList();
+
     // open pcap device
+    Config::Table cfg = Config::GetGlobalTable();
+    std::string devicename = cfg.GetString("LAN.Device");
     PCapAdapterData = &Adapters[0];
     for (int i = 0; i < NumAdapters; i++)
     {
-        if (!strncmp(Adapters[i].DeviceName, Config::LANDevice.c_str(), 128))
+        if (!strncmp(Adapters[i].DeviceName, devicename.c_str(), 128))
             PCapAdapterData = &Adapters[i];
     }
 
-    dev = (pcap_if_t*)PCapAdapterData->Internal;
-    PCapAdapter = pcap_open_live(dev->name, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
+    char errbuf[PCAP_ERRBUF_SIZE];
+    PCapAdapter = pcap_open_live(PCapAdapterData->DeviceName, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
     if (!PCapAdapter)
     {
         Log(LogLevel::Error, "PCap: failed to open adapter %s\n", errbuf);
         return false;
     }
 
-    pcap_freealldevs(alldevs);
-
     if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
     {
         Log(LogLevel::Error, "PCap: failed to set nonblocking mode\n");
-        pcap_close(PCapAdapter); PCapAdapter = NULL;
+        pcap_close(PCapAdapter); PCapAdapter = nullptr;
         return false;
     }
 
@@ -352,34 +341,28 @@ void DeInit()
         if (PCapAdapter)
         {
             pcap_close(PCapAdapter);
-            PCapAdapter = NULL;
+            PCapAdapter = nullptr;
         }
 
         Platform::DynamicLibrary_Unload(PCapLib);
-        PCapLib = NULL;
+        PCapLib = nullptr;
     }
 }
 
 
-void RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* data)
+void RXCallback(u_char* userdata, const struct pcap_pkthdr* header, const u_char* data)
 {
-    while (RXNum > 0);
-
-    if (header->len > 2048-64) return;
-
-    PacketLen = header->len;
-    memcpy(PacketBuffer, data, PacketLen);
-    RXNum = 1;
+    Net::RXEnqueue(data, header->len);
 }
 
 int SendPacket(u8* data, int len)
 {
-    if (PCapAdapter == NULL)
+    if (PCapAdapter == nullptr)
         return 0;
 
     if (len > 2048)
     {
-        Log(LogLevel::Error, "LAN_SendPacket: error: packet too long (%d)\n", len);
+        Log(LogLevel::Error, "Net_SendPacket: error: packet too long (%d)\n", len);
         return 0;
     }
 
@@ -388,21 +371,12 @@ int SendPacket(u8* data, int len)
     return len;
 }
 
-int RecvPacket(u8* data)
+void RecvCheck()
 {
-    if (PCapAdapter == NULL)
-        return 0;
+    if (PCapAdapter == nullptr)
+        return;
 
-    int ret = 0;
-    if (RXNum > 0)
-    {
-        memcpy(data, PacketBuffer, PacketLen);
-        ret = PacketLen;
-        RXNum = 0;
-    }
-
-    pcap_dispatch(PCapAdapter, 1, RXCallback, NULL);
-    return ret;
+    pcap_dispatch(PCapAdapter, 1, RXCallback, nullptr);
 }
 
 }

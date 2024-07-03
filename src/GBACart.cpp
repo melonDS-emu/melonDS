@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -95,17 +95,18 @@ u32 CartCommon::GetSaveMemoryLength() const
     return 0;
 }
 
-CartGame::CartGame(const u8* rom, u32 len, const u8* sram, u32 sramlen, GBACart::CartType type) :
-    CartGame(CopyToUnique(rom, len), len, CopyToUnique(sram, sramlen), sramlen, type)
+CartGame::CartGame(const u8* rom, u32 len, const u8* sram, u32 sramlen, void* userdata, GBACart::CartType type) :
+    CartGame(CopyToUnique(rom, len), len, CopyToUnique(sram, sramlen), sramlen, userdata, type)
 {
 }
 
-CartGame::CartGame(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen, GBACart::CartType type) :
+CartGame::CartGame(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata, GBACart::CartType type) :
     CartCommon(type),
     ROM(std::move(rom)),
     ROMLength(len),
     SRAM(std::move(sram)),
-    SRAMLength(sramlen)
+    SRAMLength(sramlen),
+    UserData(userdata)
 {
     if (SRAM && SRAMLength)
     {
@@ -170,7 +171,7 @@ void CartGame::DoSavestate(Savestate* file)
     file->Var8((u8*)&SRAMType);
 
     if ((!file->Saving) && SRAM)
-        Platform::WriteGBASave(SRAM.get(), SRAMLength, 0, SRAMLength);
+        Platform::WriteGBASave(SRAM.get(), SRAMLength, 0, SRAMLength, UserData);
 }
 
 void CartGame::SetupSave(u32 type)
@@ -223,7 +224,7 @@ void CartGame::SetSaveMemory(const u8* savedata, u32 savelen)
 
     u32 len = std::min(savelen, SRAMLength);
     memcpy(SRAM.get(), savedata, len);
-    Platform::WriteGBASave(savedata, len, 0, len);
+    Platform::WriteGBASave(savedata, len, 0, len, UserData);
 }
 
 u16 CartGame::ROMRead(u32 addr) const
@@ -464,7 +465,7 @@ void CartGame::SRAMWrite_FLASH(u32 addr, u8 val)
                 u32 start_addr = addr + 0x10000 * SRAMFlashState.bank;
                 memset((u8*)&SRAM[start_addr], 0xFF, 0x1000);
 
-                Platform::WriteGBASave(SRAM.get(), SRAMLength, start_addr, 0x1000);
+                Platform::WriteGBASave(SRAM.get(), SRAMLength, start_addr, 0x1000, UserData);
             }
             SRAMFlashState.state = 0;
             SRAMFlashState.cmd = 0;
@@ -523,18 +524,18 @@ void CartGame::SRAMWrite_SRAM(u32 addr, u8 val)
         *(u8*)&SRAM[addr] = val;
 
         // TODO: optimize this!!
-        Platform::WriteGBASave(SRAM.get(), SRAMLength, addr, 1);
+        Platform::WriteGBASave(SRAM.get(), SRAMLength, addr, 1, UserData);
     }
 }
 
 
-CartGameSolarSensor::CartGameSolarSensor(const u8* rom, u32 len, const u8* sram, u32 sramlen) :
-    CartGameSolarSensor(CopyToUnique(rom, len), len, CopyToUnique(sram, sramlen), sramlen)
+CartGameSolarSensor::CartGameSolarSensor(const u8* rom, u32 len, const u8* sram, u32 sramlen, void* userdata) :
+    CartGameSolarSensor(CopyToUnique(rom, len), len, CopyToUnique(sram, sramlen), sramlen, userdata)
 {
 }
 
-CartGameSolarSensor::CartGameSolarSensor(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen) :
-    CartGame(std::move(rom), len, std::move(sram), sramlen, CartType::GameSolarSensor)
+CartGameSolarSensor::CartGameSolarSensor(std::unique_ptr<u8[]>&& rom, u32 len, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata) :
+    CartGame(std::move(rom), len, std::move(sram), sramlen, userdata, CartType::GameSolarSensor)
 {
 }
 
@@ -680,7 +681,7 @@ void CartRAMExpansion::ROMWrite(u32 addr, u16 val)
     }
 }
 
-GBACartSlot::GBACartSlot(std::unique_ptr<CartCommon>&& cart) noexcept : Cart(std::move(cart))
+GBACartSlot::GBACartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& cart) noexcept : NDS(nds), Cart(std::move(cart))
 {
 }
 
@@ -723,24 +724,24 @@ void GBACartSlot::DoSavestate(Savestate* file) noexcept
     if (Cart) Cart->DoSavestate(file);
 }
 
-std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen)
+std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, void* userdata)
 {
-    return ParseROM(std::move(romdata), romlen, nullptr, 0);
+    return ParseROM(std::move(romdata), romlen, nullptr, 0, userdata);
 }
 
-std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sramdata, u32 sramlen)
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sramdata, u32 sramlen, void* userdata)
 {
     auto [romcopy, romcopylen] = PadToPowerOf2(romdata, romlen);
 
-    return ParseROM(std::move(romcopy), romcopylen, CopyToUnique(sramdata, sramlen), sramlen);
+    return ParseROM(std::move(romcopy), romcopylen, CopyToUnique(sramdata, sramlen), sramlen, userdata);
 }
 
-std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen)
+std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, void* userdata)
 {
-    return ParseROM(romdata, romlen, nullptr, 0);
+    return ParseROM(romdata, romlen, nullptr, 0, userdata);
 }
 
-std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, std::unique_ptr<u8[]>&& sramdata, u32 sramlen)
+std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, std::unique_ptr<u8[]>&& sramdata, u32 sramlen, void* userdata)
 {
     if (romdata == nullptr)
     {
@@ -773,9 +774,9 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
 
     std::unique_ptr<CartCommon> cart;
     if (solarsensor)
-        cart = std::make_unique<CartGameSolarSensor>(std::move(cartrom), cartromsize, std::move(sramdata), sramlen);
+        cart = std::make_unique<CartGameSolarSensor>(std::move(cartrom), cartromsize, std::move(sramdata), sramlen, userdata);
     else
-        cart = std::make_unique<CartGame>(std::move(cartrom), cartromsize, std::move(sramdata), sramlen);
+        cart = std::make_unique<CartGame>(std::move(cartrom), cartromsize, std::move(sramdata), sramlen, userdata);
 
     cart->Reset();
 

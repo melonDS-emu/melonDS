@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -30,16 +30,16 @@ void DeInit();
 
 void SetRecvTimeout(int timeout);
 
-void Begin();
-void End();
+void Begin(int inst);
+void End(int inst);
 
-int SendPacket(u8* data, int len, u64 timestamp);
-int RecvPacket(u8* data, u64* timestamp);
-int SendCmd(u8* data, int len, u64 timestamp);
-int SendReply(u8* data, int len, u64 timestamp, u16 aid);
-int SendAck(u8* data, int len, u64 timestamp);
-int RecvHostPacket(u8* data, u64* timestamp);
-u16 RecvReplies(u8* data, u64 timestamp, u16 aidmask);
+int SendPacket(int inst, u8* data, int len, u64 timestamp);
+int RecvPacket(int inst, u8* data, u64* timestamp);
+int SendCmd(int inst, u8* data, int len, u64 timestamp);
+int SendReply(int inst, u8* data, int len, u64 timestamp, u16 aid);
+int SendAck(int inst, u8* data, int len, u64 timestamp);
+int RecvHostPacket(int inst, u8* data, u64* timestamp);
+u16 RecvReplies(int inst, u8* data, u64 timestamp, u16 aidmask);
 
 }
 

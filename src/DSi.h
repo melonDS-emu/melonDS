@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -131,7 +131,8 @@ public:
     void ARM7IOWrite32(u32 addr, u32 val) override;
 
 public:
-    DSi(DSiArgs&& args) noexcept;
+    DSi(DSiArgs&& args, void* userdata = nullptr) noexcept;
+    //DSi() noexcept;
     ~DSi() noexcept override;
     DSi(const DSi&) = delete;
     DSi& operator=(const DSi&) = delete;

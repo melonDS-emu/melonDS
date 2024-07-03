@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -16,38 +16,28 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef LAN_PCAP_H
-#define LAN_PCAP_H
+#ifndef NET_H
+#define NET_H
 
 #include "types.h"
+#include "Net_PCap.h"
+#include "Net_Slirp.h"
 
-namespace LAN_PCap
+namespace Net
 {
-
 using namespace melonDS;
-struct AdapterData
-{
-    char DeviceName[128];
-    char FriendlyName[128];
-    char Description[128];
 
-    u8 MAC[6];
-    u8 IP_v4[4];
-
-    void* Internal;
-};
-
-
-extern AdapterData* Adapters;
-extern int NumAdapters;
-
-
-bool Init(bool open_adapter);
+bool Init();
 void DeInit();
 
-int SendPacket(u8* data, int len);
-int RecvPacket(u8* data);
+void RegisterInstance(int inst);
+void UnregisterInstance(int inst);
+
+void RXEnqueue(const void* buf, int len);
+
+int SendPacket(u8* data, int len, int inst);
+int RecvPacket(u8* data, int inst);
 
 }
 
-#endif // LAN_PCAP_H
+#endif // NET_H

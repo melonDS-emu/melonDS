@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -89,8 +89,9 @@ NDS::NDS() noexcept :
 {
 }
 
-NDS::NDS(NDSArgs&& args, int type) noexcept :
+NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     ConsoleType(type),
+    UserData(userdata),
     ARM7BIOS(*args.ARM7BIOS),
     ARM9BIOS(*args.ARM9BIOS),
     ARM7BIOSNative(CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32),
@@ -102,7 +103,7 @@ NDS::NDS(NDSArgs&& args, int type) noexcept :
     RTC(*this),
     Wifi(*this),
     NDSCartSlot(*this, std::move(args.NDSROM)),
-    GBACartSlot(type == 1 ? nullptr : std::move(args.GBAROM)),
+    GBACartSlot(*this, type == 1 ? nullptr : std::move(args.GBAROM)),
     AREngine(*this),
     ARM9(*this, args.GDB, args.JIT.has_value()),
     ARM7(*this, args.GDB, args.JIT.has_value()),
@@ -574,7 +575,7 @@ void NDS::Stop(Platform::StopReason reason)
 
     Log(level, "Stopping emulated console (Reason: %s)\n", StopReasonName(reason));
     Running = false;
-    Platform::SignalStop(reason);
+    Platform::SignalStop(reason, UserData);
     GPU.Stop();
     SPU.Stop();
 }
@@ -1540,7 +1541,7 @@ void NDS::NocashPrint(u32 ncpu, u32 addr)
     }
 
     output[ptr] = '\0';
-    Log(LogLevel::Debug, "%s", output);
+    Log(LogLevel::Debug, "%s\n", output);
 }
 
 void NDS::MonitorARM9Jump(u32 addr)

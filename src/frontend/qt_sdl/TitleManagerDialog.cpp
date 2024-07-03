@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -23,7 +23,7 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "ROMManager.h"
+#include "main.h"
 #include "DSi_NAND.h"
 
 #include "TitleManagerDialog.h"
@@ -36,13 +36,13 @@ using namespace melonDS::Platform;
 std::unique_ptr<DSi_NAND::NANDImage> TitleManagerDialog::nand = nullptr;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
 
-extern std::string EmuDirectory;
-
 
 TitleManagerDialog::TitleManagerDialog(QWidget* parent, DSi_NAND::NANDImage& image) : QDialog(parent), ui(new Ui::TitleManagerDialog), nandmount(image)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
+
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
 
     ui->lstTitleList->setIconSize(QSize(32, 32));
 
@@ -113,7 +113,7 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
     nandmount.GetTitleInfo(category, titleid, version, &header, &banner);
 
     u32 icondata[32*32];
-    ROMManager::ROMIcon(banner.Icon, banner.Palette, icondata);
+    emuInstance->romIcon(banner.Icon, banner.Palette, icondata);
     QImage iconimg((const uchar*)icondata, 32, 32, QImage::Format_RGBA8888);
     QIcon icon(QPixmap::fromImage(iconimg.copy()));
 
@@ -140,7 +140,9 @@ bool TitleManagerDialog::openNAND()
 {
     nand = nullptr;
 
-    FileHandle* bios7i = Platform::OpenLocalFile(Config::DSiBIOS7Path, FileMode::Read);
+    Config::Table cfg = Config::GetGlobalTable();
+
+    FileHandle* bios7i = Platform::OpenLocalFile(cfg.GetString("DSi.BIOS7Path"), FileMode::Read);
     if (!bios7i)
         return false;
 
@@ -149,7 +151,7 @@ bool TitleManagerDialog::openNAND()
     FileRead(es_keyY, 16, 1, bios7i);
     CloseFile(bios7i);
 
-    FileHandle* nandfile = Platform::OpenLocalFile(Config::DSiNANDPath, FileMode::ReadWriteExisting);
+    FileHandle* nandfile = Platform::OpenLocalFile(cfg.GetString("DSi.NANDPath"), FileMode::ReadWriteExisting);
     if (!nandfile)
         return false;
 
@@ -296,7 +298,7 @@ void TitleManagerDialog::onImportTitleData()
 
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select file to import...",
-                                                QString::fromStdString(EmuDirectory),
+                                                emuDirectory,
                                                 "Title data files (" + extensions + ");;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -370,7 +372,7 @@ void TitleManagerDialog::onExportTitleData()
 
     QString file = QFileDialog::getSaveFileName(this,
                                                 "Select path to export to...",
-                                                QString::fromStdString(EmuDirectory) + exportname,
+                                                emuDirectory + exportname,
                                                 "Title data files (" + extensions + ");;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -543,7 +545,7 @@ void TitleImportDialog::on_btnAppBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select title executable...",
-                                                QString::fromStdString(EmuDirectory),
+                                                emuDirectory,
                                                 "DSiWare executables (*.app *.nds *.dsi *.srl);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -555,7 +557,7 @@ void TitleImportDialog::on_btnTmdBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select title metadata...",
-                                                QString::fromStdString(EmuDirectory),
+                                                emuDirectory,
                                                 "DSiWare metadata (*.tmd);;Any file (*.*)");
 
     if (file.isEmpty()) return;

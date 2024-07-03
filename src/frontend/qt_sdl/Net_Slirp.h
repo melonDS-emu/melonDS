@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -16,34 +16,21 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef AUDIO_INOUT_H
-#define AUDIO_INOUT_H
+#ifndef NET_SLIRP_H
+#define NET_SLIRP_H
 
 #include "types.h"
 
-#include <QMainWindow>
-
-class EmuThread;
-namespace melonDS
+namespace Net_Slirp
 {
-class NDS;
-}
-namespace AudioInOut
-{
+using namespace melonDS;
 
-void Init(EmuThread* thread);
+bool Init();
 void DeInit();
 
-void MicProcess(melonDS::NDS& nds);
-void AudioMute(QMainWindow* mainWindow);
-
-void AudioSync(melonDS::NDS& nds);
-
-void UpdateSettings(melonDS::NDS& nds);
-
-void Enable();
-void Disable();
+int SendPacket(u8* data, int len);
+void RecvCheck();
 
 }
 
-#endif
+#endif // NET_SLIRP_H

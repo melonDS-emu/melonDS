@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -51,7 +51,6 @@ std::optional<GLCompositor> GLCompositor::New() noexcept
 GLCompositor::GLCompositor(GLuint compShader) noexcept : CompShader(compShader)
 {
     CompScaleLoc = glGetUniformLocation(CompShader, "u3DScale");
-    Comp3DXPosLoc = glGetUniformLocation(CompShader, "u3DXPos");
 
     glUseProgram(CompShader);
     GLuint screenTextureUniform = glGetUniformLocation(CompShader, "ScreenTex");
@@ -140,7 +139,6 @@ GLCompositor::GLCompositor(GLCompositor&& other) noexcept :
     ScreenH(other.ScreenH),
     ScreenW(other.ScreenW),
     CompScaleLoc(other.CompScaleLoc),
-    Comp3DXPosLoc(other.Comp3DXPosLoc),
     CompVertices(other.CompVertices),
     CompShader(other.CompShader),
     CompVertexBufferID(other.CompVertexBufferID),
@@ -165,7 +163,6 @@ GLCompositor& GLCompositor::operator=(GLCompositor&& other) noexcept
         ScreenH = other.ScreenH;
         ScreenW = other.ScreenW;
         CompScaleLoc = other.CompScaleLoc;
-        Comp3DXPosLoc = other.Comp3DXPosLoc;
         CompVertices = other.CompVertices;
 
         // Clean up these resources before overwriting them
@@ -257,9 +254,6 @@ void GLCompositor::RenderFrame(const GPU& gpu, Renderer3D& renderer) noexcept
     // TODO: select more shaders (filtering, etc)
     glUseProgram(CompShader);
     glUniform1ui(CompScaleLoc, Scale);
-
-    // TODO: support setting this midframe, if ever needed
-    glUniform1i(Comp3DXPosLoc, ((int)gpu.GPU3D.GetRenderXPos() << 23) >> 23);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, CompScreenInputTex);
