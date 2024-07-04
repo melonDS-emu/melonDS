@@ -317,15 +317,16 @@ public:
     void AddCycles_C() override
     {
         // code only. always nonseq 32-bit for ARM9.
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
+        s32 numC = CodeCycles;
         Cycles += numC;
     }
 
     void AddCycles_CI(s32 numI) override
     {
         // code+internal
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        Cycles += numC + numI;
+        s32 numC = CodeCycles;
+        numI += 1;
+        Cycles += std::max(numC, numI);
     }
 
     void AddCycles_CDI_LDR() override;

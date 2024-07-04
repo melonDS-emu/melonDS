@@ -647,7 +647,7 @@ void ARMv5::Execute()
             R[15] += 2;
             CurInstr = NextInstr[0];
             NextInstr[0] = NextInstr[1];
-            if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 0; }
+            if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 1; }
             else             NextInstr[1] = CodeRead32(R[15], false);
 
             // actually execute
