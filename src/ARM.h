@@ -30,7 +30,7 @@
 #include "debug/GdbStub.h"
 #endif
 
-//#define INTERLOCK
+#define INTERLOCK
 
 namespace melonDS
 {
@@ -318,14 +318,14 @@ public:
     {
         // code only. always nonseq 32-bit for ARM9.
         s32 numC = CodeCycles;
-        Cycles += numC;
+        Cycles += std::max(numC, CyclesILed + 1);
     }
 
     void AddCycles_CI(s32 numI) override
     {
         // code+internal
         s32 numC = CodeCycles;
-        numI += 1;
+        numI += 1 + CyclesILed;
         Cycles += std::max(numC, numI);
     }
 
@@ -340,7 +340,7 @@ public:
     inline u32 GetReg(const u32 reg, const u32 delay = 0) override
     {
         if (InterlockTimestamp[reg] > (Timestamp() + delay))
-            Timestamp() = InterlockTimestamp[reg] - delay;
+            CyclesILed = InterlockTimestamp[reg] - (Timestamp() + delay);
         return R[reg];
     }
 
@@ -416,6 +416,8 @@ public:
     u8* CurICacheLine;
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
+
+    s32 CyclesILed;
 
 #ifdef GDBSTUB_ENABLED
     u32 ReadMem(u32 addr, int size) override;
