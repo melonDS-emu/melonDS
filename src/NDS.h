@@ -210,6 +210,7 @@ enum
 enum
 {
     GBAAddon_RAMExpansion = 1,
+    GBAAddon_RumblePak = 2,
 };
 
 class SPU;

@@ -258,7 +258,7 @@ public:
     QAction* actEjectCart;
     QAction* actCurrentGBACart;
     QAction* actInsertGBACart;
-    QAction* actInsertGBAAddon[1];
+    QAction* actInsertGBAAddon[2];
     QAction* actEjectGBACart;
     QAction* actImportSavefile;
     QAction* actSaveState[9];

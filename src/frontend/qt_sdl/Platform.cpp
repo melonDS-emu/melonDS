@@ -530,6 +530,16 @@ void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv, v
     return camManager[num]->captureFrame(frame, width, height, yuv);
 }
 
+void Addon_RumbleStart(u32 len, void* userdata)
+{
+    ((EmuInstance*)userdata)->inputRumbleStart(len);
+}
+
+void Addon_RumbleStop(void* userdata)
+{
+    ((EmuInstance*)userdata)->inputRumbleStop();
+}
+
 DynamicLibrary* DynamicLibrary_Load(const char* lib)
 {
     return (DynamicLibrary*) SDL_LoadObject(lib);
