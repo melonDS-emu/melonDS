@@ -1172,7 +1172,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     }
 
 
-    if ((!nds) || (consoletype != consoleType))
+    if ((!nds) || (consoletype != nds->ConsoleType))
     {
         NDS::Current = nullptr;
         if (nds) delete nds;
@@ -1191,6 +1191,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
         nds->SetARM9BIOS(*args->ARM9BIOS);
         nds->SetFirmware(std::move(args->Firmware));
         nds->SetNDSCart(std::move(args->NDSROM));
+        nds->SetGBACart(std::move(args->GBAROM));
         nds->SetJITArgs(args->JIT);
         // TODO GDB stub shit
         nds->SPU.SetInterpolation(args->Interpolation);

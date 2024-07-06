@@ -1541,7 +1541,7 @@ void NDS::NocashPrint(u32 ncpu, u32 addr)
     }
 
     output[ptr] = '\0';
-    Log(LogLevel::Debug, "%s", output);
+    Log(LogLevel::Debug, "%s\n", output);
 }
 
 void NDS::MonitorARM9Jump(u32 addr)
