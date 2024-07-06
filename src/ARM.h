@@ -30,7 +30,7 @@
 #include "debug/GdbStub.h"
 #endif
 
-#define INTERLOCK
+//#define INTERLOCK
 
 namespace melonDS
 {
