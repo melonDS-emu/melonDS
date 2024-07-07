@@ -64,13 +64,16 @@ private:
     // interpolation, avoiding precision loss from the aforementioned approximation.
     // Which is desirable when using the GPU to draw 2D graphics.
 
-    template<int dir>
+    template<int dir, bool oob>
     class Interpolator
     {
     public:
         constexpr Interpolator() {}
-        
-        template <bool oob>
+        constexpr Interpolator(s32 x0, s32 x1, s32 w0, s32 w1)
+        {
+            Setup(x0, x1, w0, w1);
+        }
+
         constexpr void Setup(s32 x0, s32 x1, s32 w0, s32 w1)
         {
             this->x0 = x0;
@@ -144,7 +147,6 @@ private:
             }
         }
         
-        template <bool oob>
         constexpr s32 Interpolate(s32 y0, s32 y1) const
         {
             if (xdiff == 0 || y0 == y1 || x == 0) return y0;
@@ -169,7 +171,6 @@ private:
             }
         }
         
-        template <bool oob>
         constexpr s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer) const
         {
             if (xdiff == 0 || z0 == z1 || x == 0) return z0;
@@ -252,7 +253,7 @@ private:
             Increment = 0;
             XMajor = false;
 
-            Interp.Setup<false>(0, 0, 0, 0);
+            Interp.Setup(0, 0, 0, 0);
             Interp.SetX(0);
 
             xcov_incr = 0;
@@ -326,7 +327,7 @@ private:
             if (oob) dx &= 0xFFFFFFF;
 
             int interpoffset = (Increment >= 0x40000) && (side ^ Negative);
-            Interp.Setup<false>(y0-interpoffset, y1-interpoffset, w0, w1);
+            Interp.Setup(y0-interpoffset, y1-interpoffset, w0, w1);
             Interp.SetX(y);
 
             // used for calculating AA coverage
@@ -425,7 +426,7 @@ private:
         s32 Increment;
         bool Negative;
         bool XMajor;
-        Interpolator<1> Interp;
+        Interpolator<1, false> Interp;
 
     private:
         s32 x0, xmin, xmax;

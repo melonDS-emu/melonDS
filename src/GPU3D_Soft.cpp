@@ -785,17 +785,17 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     bool l_filledge, r_filledge;
     s32 l_edgelen, r_edgelen;
     s32 l_edgecov, r_edgecov;
-    Interpolator<1>* interp_start;
-    Interpolator<1>* interp_end;
+    Interpolator<1, false>* interp_start;
+    Interpolator<1, false>* interp_end;
 
     xstart = rp->XL;
     xend = rp->XR;
 
-    s32 wl = rp->SlopeL.Interp.Interpolate<false>(polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
-    s32 wr = rp->SlopeR.Interp.Interpolate<false>(polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
+    s32 wl = rp->SlopeL.Interp.Interpolate(polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
+    s32 wr = rp->SlopeR.Interp.Interpolate(polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
 
-    s32 zl = rp->SlopeL.Interp.InterpolateZ<false>(polygon->FinalZ[rp->CurVL], polygon->FinalZ[rp->NextVL], polygon->WBuffer);
-    s32 zr = rp->SlopeR.Interp.InterpolateZ<false>(polygon->FinalZ[rp->CurVR], polygon->FinalZ[rp->NextVR], polygon->WBuffer);
+    s32 zl = rp->SlopeL.Interp.InterpolateZ(polygon->FinalZ[rp->CurVL], polygon->FinalZ[rp->NextVL], polygon->WBuffer);
+    s32 zr = rp->SlopeR.Interp.InterpolateZ(polygon->FinalZ[rp->CurVR], polygon->FinalZ[rp->NextVR], polygon->WBuffer);
 
     // right vertical edges are pushed 1px to the left as long as either:
     // the left edge slope is not 0, or the span is not 0 pixels wide, and it is not at the leftmost pixel of the screen
@@ -880,8 +880,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     int edge;
     
     xend += 1;
-    Interpolator<0> interpX;
-    interpX.Setup<oob>(xstart, xend, wl, wr);
+    Interpolator<0, oob> interpX(xstart, xend, wl, wr);
     
     // CHECKME: should the unclamped values be used for timings?
     // negative values are clamped to 0
@@ -890,6 +889,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         l_edgelen += xstart;
         if (l_edgelen < 1) l_edgelen = 1;
         xstart = 0;
+        if (xend < 1) xend = 1;
     }
     s32 x = xstart;
     // too big values are clamped to 511
@@ -907,6 +907,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     // part 1: left edge
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
+    if (xlimit > xend) xlimit = xend;
     if (xlimit > 256) xlimit = 256;
 
     if (!l_filledge) x = xlimit;
@@ -917,7 +918,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
         interpX.SetX(x);
 
-        s32 z = interpX.InterpolateZ<oob>(zl, zr, polygon->WBuffer);
+        s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
@@ -943,7 +944,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
         interpX.SetX(x);
 
-        s32 z = interpX.InterpolateZ<oob>(zl, zr, polygon->WBuffer);
+        s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
@@ -969,7 +970,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
         interpX.SetX(x);
 
-        s32 z = interpX.InterpolateZ<oob>(zl, zr, polygon->WBuffer);
+        s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
@@ -1026,17 +1027,17 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     bool l_filledge, r_filledge;
     s32 l_edgelen, r_edgelen;
     s32 l_edgecov, r_edgecov;
-    Interpolator<1>* interp_start;
-    Interpolator<1>* interp_end;
+    Interpolator<1, false>* interp_start;
+    Interpolator<1, false>* interp_end;
 
     xstart = rp->XL;
     xend = rp->XR;
 
-    s32 wl = rp->SlopeL.Interp.Interpolate<false>(polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
-    s32 wr = rp->SlopeR.Interp.Interpolate<false>(polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
+    s32 wl = rp->SlopeL.Interp.Interpolate(polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
+    s32 wr = rp->SlopeR.Interp.Interpolate(polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
 
-    s32 zl = rp->SlopeL.Interp.InterpolateZ<false>(polygon->FinalZ[rp->CurVL], polygon->FinalZ[rp->NextVL], polygon->WBuffer);
-    s32 zr = rp->SlopeR.Interp.InterpolateZ<false>(polygon->FinalZ[rp->CurVR], polygon->FinalZ[rp->NextVR], polygon->WBuffer);
+    s32 zl = rp->SlopeL.Interp.InterpolateZ(polygon->FinalZ[rp->CurVL], polygon->FinalZ[rp->NextVL], polygon->WBuffer);
+    s32 zr = rp->SlopeR.Interp.InterpolateZ(polygon->FinalZ[rp->CurVR], polygon->FinalZ[rp->NextVR], polygon->WBuffer);
 
     // right vertical edges are pushed 1px to the left as long as either:
     // the left edge slope is not 0, or the span is not 0 pixels wide, and it is not at the leftmost pixel of the screen
@@ -1124,19 +1125,19 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
     // interpolate attributes along Y
 
-    s32 rl = interp_start->Interpolate<false>(vlcur->FinalColor[0], vlnext->FinalColor[0]);
-    s32 gl = interp_start->Interpolate<false>(vlcur->FinalColor[1], vlnext->FinalColor[1]);
-    s32 bl = interp_start->Interpolate<false>(vlcur->FinalColor[2], vlnext->FinalColor[2]);
+    s32 rl = interp_start->Interpolate(vlcur->FinalColor[0], vlnext->FinalColor[0]);
+    s32 gl = interp_start->Interpolate(vlcur->FinalColor[1], vlnext->FinalColor[1]);
+    s32 bl = interp_start->Interpolate(vlcur->FinalColor[2], vlnext->FinalColor[2]);
 
-    s32 sl = interp_start->Interpolate<false>(vlcur->TexCoords[0], vlnext->TexCoords[0]);
-    s32 tl = interp_start->Interpolate<false>(vlcur->TexCoords[1], vlnext->TexCoords[1]);
+    s32 sl = interp_start->Interpolate(vlcur->TexCoords[0], vlnext->TexCoords[0]);
+    s32 tl = interp_start->Interpolate(vlcur->TexCoords[1], vlnext->TexCoords[1]);
 
-    s32 rr = interp_end->Interpolate<false>(vrcur->FinalColor[0], vrnext->FinalColor[0]);
-    s32 gr = interp_end->Interpolate<false>(vrcur->FinalColor[1], vrnext->FinalColor[1]);
-    s32 br = interp_end->Interpolate<false>(vrcur->FinalColor[2], vrnext->FinalColor[2]);
+    s32 rr = interp_end->Interpolate(vrcur->FinalColor[0], vrnext->FinalColor[0]);
+    s32 gr = interp_end->Interpolate(vrcur->FinalColor[1], vrnext->FinalColor[1]);
+    s32 br = interp_end->Interpolate(vrcur->FinalColor[2], vrnext->FinalColor[2]);
 
-    s32 sr = interp_end->Interpolate<false>(vrcur->TexCoords[0], vrnext->TexCoords[0]);
-    s32 tr = interp_end->Interpolate<false>(vrcur->TexCoords[1], vrnext->TexCoords[1]);
+    s32 sr = interp_end->Interpolate(vrcur->TexCoords[0], vrnext->TexCoords[0]);
+    s32 tr = interp_end->Interpolate(vrcur->TexCoords[1], vrnext->TexCoords[1]);
 
     // in wireframe mode, there are special rules for equal Z (TODO)
 
@@ -1146,8 +1147,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     int edge;
 
     xend+=1;
-    Interpolator<0> interpX;
-    interpX.Setup<oob>(xstart, xend, wl, wr);
+    Interpolator<0, oob> interpX(xstart, xend, wl, wr);
     
     // CHECKME: should the unclamped values be used for timings?
     // negative values are clamped to 0
@@ -1156,6 +1156,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         l_edgelen += xstart;
         if (l_edgelen < 1) l_edgelen = 1;
         xstart = 0;
+        if (xend < 1) xend = 1;
     }
     s32 x = xstart;
     // too big values are clamped to 511
@@ -1171,6 +1172,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     // part 1: left edge
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
+    if (xlimit > xend) xlimit = xend;
     if (xlimit > 256) xlimit = 256;
     if (l_edgecov & (1<<31))
     {
@@ -1199,7 +1201,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
         interpX.SetX(x);
 
-        s32 z = interpX.InterpolateZ<oob>(zl, zr, polygon->WBuffer);
+        s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
 
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
@@ -1213,12 +1215,12 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                 continue;
         }
 
-        u32 vr = interpX.Interpolate<oob>(rl, rr);
-        u32 vg = interpX.Interpolate<oob>(gl, gr);
-        u32 vb = interpX.Interpolate<oob>(bl, br);
+        u32 vr = interpX.Interpolate(rl, rr);
+        u32 vg = interpX.Interpolate(gl, gr);
+        u32 vb = interpX.Interpolate(bl, br);
 
-        s16 s = interpX.Interpolate<oob>(sl, sr);
-        s16 t = interpX.Interpolate<oob>(tl, tr);
+        s16 s = interpX.Interpolate(sl, sr);
+        s16 t = interpX.Interpolate(tl, tr);
 
         u32 color = RenderPixel(gpu, polygon, vr>>3, vg>>3, vb>>3, s, t);
         u8 alpha = color >> 24;
@@ -1271,7 +1273,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     // part 2: polygon inside
     edge = yedge;
     xlimit = xend-r_edgelen;
-    if (xlimit > xend+1) xlimit = xend;
+    if (xlimit > xend) xlimit = xend;
     if (xlimit > 256) xlimit = 256;
 
     if (wireframe && !edge) x = std::max(x, xlimit);
@@ -1295,7 +1297,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
         interpX.SetX(x);
 
-        s32 z = interpX.InterpolateZ<oob>(zl, zr, polygon->WBuffer);
+        s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
 
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
@@ -1309,12 +1311,12 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                 continue;
         }
 
-        u32 vr = interpX.Interpolate<oob>(rl, rr);
-        u32 vg = interpX.Interpolate<oob>(gl, gr);
-        u32 vb = interpX.Interpolate<oob>(bl, br);
+        u32 vr = interpX.Interpolate(rl, rr);
+        u32 vg = interpX.Interpolate(gl, gr);
+        u32 vb = interpX.Interpolate(bl, br);
 
-        s16 s = interpX.Interpolate<oob>(sl, sr);
-        s16 t = interpX.Interpolate<oob>(tl, tr);
+        s16 s = interpX.Interpolate(sl, sr);
+        s16 t = interpX.Interpolate(tl, tr);
 
         u32 color = RenderPixel(gpu, polygon, vr>>3, vg>>3, vb>>3, s, t);
         u8 alpha = color >> 24;
@@ -1387,7 +1389,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
         interpX.SetX(x);
 
-        s32 z = interpX.InterpolateZ<oob>(zl, zr, polygon->WBuffer);
+        s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
 
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
@@ -1401,12 +1403,12 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                 continue;
         }
 
-        u32 vr = interpX.Interpolate<oob>(rl, rr);
-        u32 vg = interpX.Interpolate<oob>(gl, gr);
-        u32 vb = interpX.Interpolate<oob>(bl, br);
+        u32 vr = interpX.Interpolate(rl, rr);
+        u32 vg = interpX.Interpolate(gl, gr);
+        u32 vb = interpX.Interpolate(bl, br);
 
-        s16 s = interpX.Interpolate<oob>(sl, sr);
-        s16 t = interpX.Interpolate<oob>(tl, tr);
+        s16 s = interpX.Interpolate(sl, sr);
+        s16 t = interpX.Interpolate(tl, tr);
 
         u32 color = RenderPixel(gpu, polygon, vr>>3, vg>>3, vb>>3, s, t);
         u8 alpha = color >> 24;
