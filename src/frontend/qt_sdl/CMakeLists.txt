@@ -121,6 +121,8 @@ elseif (APPLE)
         find_library(COCOA_LIB Cocoa)
         target_link_libraries(melonDS PRIVATE ${COCOA_LIB})
     endif()
+    find_library(OPENGL_LIB OpenGL)
+    target_link_libraries(melonDS PRIVATE ${OPENGL_LIB})
     target_sources(melonDS PRIVATE
         ../duckstation/gl/context_agl.mm
     )
