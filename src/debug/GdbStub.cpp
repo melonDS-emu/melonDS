@@ -14,6 +14,7 @@
 
 #ifndef _WIN32
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
