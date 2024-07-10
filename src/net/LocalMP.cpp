@@ -28,7 +28,7 @@ using namespace melonDS::Platform;
 using Platform::Log;
 using Platform::LogLevel;
 
-namespace melonDS::LocalMP
+namespace LocalMP
 {
 
 struct MPStatusData
