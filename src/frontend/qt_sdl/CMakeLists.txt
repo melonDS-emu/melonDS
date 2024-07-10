@@ -104,6 +104,12 @@ else()
     target_link_libraries(melonDS PRIVATE slirp)
 endif()
 
+add_subdirectory("../../net"
+        "${CMAKE_BINARY_DIR}/net"
+)
+
+target_link_libraries(melonDS PRIVATE net-utils)
+
 if (WIN32)
     target_link_libraries(melonDS PUBLIC opengl32)
 
