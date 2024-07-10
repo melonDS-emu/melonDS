@@ -16,33 +16,26 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef PACKETDISPATCHER_H
-#define PACKETDISPATCHER_H
+#ifndef NET_H
+#define NET_H
 
-#include <QMutex>
 #include "types.h"
-#include "FIFO.h"
 
-using PacketQueue = melonDS::RingBuffer<0x8000>;
-
-class PacketDispatcher
+namespace Net
 {
-public:
-    PacketDispatcher();
-    ~PacketDispatcher();
+using namespace melonDS;
 
-    void registerInstance(int inst);
-    void unregisterInstance(int inst);
+bool Init();
+void DeInit();
 
-    void clear();
+void RegisterInstance(int inst);
+void UnregisterInstance(int inst);
 
-    void sendPacket(const void* header, int headerlen, const void* data, int datalen, int sender, melonDS::u16 recv_mask);
-    bool recvPacket(void* header, int* headerlen, void* data, int* datalen, int receiver);
+void RXEnqueue(const void* buf, int len);
 
-private:
-    QMutex mutex;
-    melonDS::u16 instanceMask;
-    PacketQueue* packetQueues[16];
-};
+int SendPacket(u8* data, int len, int inst);
+int RecvPacket(u8* data, int inst);
 
-#endif // PACKETDISPATCHER_H
+}
+
+#endif // NET_H

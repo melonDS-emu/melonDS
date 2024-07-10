@@ -31,11 +31,6 @@ set(SOURCES_QT_SDL
     ROMInfoDialog.cpp
     RAMInfoDialog.cpp
     TitleManagerDialog.cpp
-    PacketDispatcher.cpp
-    Net.cpp
-    Net_PCap.cpp
-    Net_Slirp.cpp
-    LocalMP.cpp
     OSD_shaders.h
     font.h
     Platform.cpp
@@ -92,17 +87,6 @@ fix_interface_includes(PkgConfig::SDL2 PkgConfig::LibArchive)
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
 add_executable(melonDS ${SOURCES_QT_SDL})
-
-option(USE_SYSTEM_LIBSLIRP "Use system libslirp instead of the bundled version" OFF)
-if (USE_SYSTEM_LIBSLIRP)
-    pkg_check_modules(Slirp REQUIRED IMPORTED_TARGET slirp)
-    target_link_libraries(melonDS PRIVATE PkgConfig::Slirp)
-else()
-    add_subdirectory("../libslirp"
-            "${CMAKE_BINARY_DIR}/libslirp"
-            EXCLUDE_FROM_ALL)
-    target_link_libraries(melonDS PRIVATE slirp)
-endif()
 
 add_subdirectory("../../net"
         "${CMAKE_BINARY_DIR}/net"

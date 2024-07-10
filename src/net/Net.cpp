@@ -18,11 +18,11 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <QMutex>
 #include "Net.h"
+#include "Net_PCap.h"
+#include "Net_Slirp.h"
 #include "PacketDispatcher.h"
 #include "Platform.h"
-#include "Config.h"
 
 using namespace melonDS;
 

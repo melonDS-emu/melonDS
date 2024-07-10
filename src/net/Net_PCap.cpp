@@ -19,9 +19,8 @@
 #include <string.h>
 #include <pcap/pcap.h>
 #include "Net.h"
-#include "Config.h"
+#include "Net_PCap.h"
 #include "Platform.h"
-#include "main.h"
 
 #ifdef __WIN32__
 	#include <iphlpapi.h>

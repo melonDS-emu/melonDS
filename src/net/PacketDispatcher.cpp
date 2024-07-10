@@ -45,28 +45,28 @@ PacketDispatcher::~PacketDispatcher()
 
 void PacketDispatcher::registerInstance(int inst)
 {
-    mutex.lock();
+    Mutex_Lock(mutex);
 
     instanceMask |= (1 << inst);
     packetQueues[inst] = new PacketQueue();
 
-    mutex.unlock();
+    Mutex_Unlock(mutex);
 }
 
 void PacketDispatcher::unregisterInstance(int inst)
 {
-    mutex.lock();
+    Mutex_Lock(mutex);
 
     instanceMask &= ~(1 << inst);
     delete packetQueues[inst];
 
-    mutex.unlock();
+    Mutex_Unlock(mutex);
 }
 
 
 void PacketDispatcher::clear()
 {
-    mutex.lock();
+    Mutex_Lock(mutex);
     for (int i = 0; i < 16; i++)
     {
         if (!(instanceMask & (1 << i)))
@@ -75,7 +75,7 @@ void PacketDispatcher::clear()
         PacketQueue* queue = packetQueues[i];
         queue->Clear();
     }
-    mutex.unlock();
+    Mutex_Unlock(mutex);
 }
 
 
@@ -99,7 +99,7 @@ void PacketDispatcher::sendPacket(const void* header, int headerlen, const void*
 
     int totallen = sizeof(phdr) + headerlen + datalen;
 
-    mutex.lock();
+    Mutex_Lock(mutex);
     for (int i = 0; i < 16; i++)
     {
         if (!(recv_mask & (1 << i)))
@@ -119,7 +119,7 @@ void PacketDispatcher::sendPacket(const void* header, int headerlen, const void*
         if (headerlen) queue->Write(header, headerlen);
         if (datalen) queue->Write(data, datalen);
     }
-    mutex.unlock();
+    Mutex_Unlock(mutex);
 }
 
 bool PacketDispatcher::recvPacket(void *header, int *headerlen, void *data, int *datalen, int receiver)
@@ -127,19 +127,19 @@ bool PacketDispatcher::recvPacket(void *header, int *headerlen, void *data, int 
     if ((!header) && (!data)) return false;
     if (receiver < 0 || receiver > 15) return false;
 
-    mutex.lock();
+    Mutex_Lock(mutex);
     PacketQueue* queue = packetQueues[receiver];
 
     PacketHeader phdr;
     if (!queue->Read(&phdr, sizeof(phdr)))
     {
-        mutex.unlock();
+        Mutex_Unlock(mutex);
         return false;
     }
 
     if (phdr.magic != kPacketMagic)
     {
-        mutex.unlock();
+        Mutex_Unlock(mutex);
         return false;
     }
 
@@ -157,6 +157,6 @@ bool PacketDispatcher::recvPacket(void *header, int *headerlen, void *data, int 
         else queue->Skip(phdr.dataLength);
     }
 
-    mutex.unlock();
+    Mutex_Unlock(mutex);
     return true;
 }

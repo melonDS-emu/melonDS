@@ -17,11 +17,10 @@
 */
 
 #include <cstring>
-#include <QMutex>
-#include <QSemaphore>
 
 #include "LocalMP.h"
 #include "Platform.h"
+#include "types.h"
 
 using namespace melonDS;
 using namespace melonDS::Platform;
@@ -29,7 +28,7 @@ using namespace melonDS::Platform;
 using Platform::Log;
 using Platform::LogLevel;
 
-namespace LocalMP
+namespace melonDS::LocalMP
 {
 
 struct MPStatusData
@@ -54,7 +53,7 @@ const u32 kPacketQueueSize = 0x10000;
 const u32 kReplyQueueSize = 0x10000;
 const u32 kMaxFrameSize = 0x948;
 
-QMutex MPQueueLock;
+Mutex* MPQueueLock;
 MPStatusData MPStatus;
 u8 MPPacketQueue[kPacketQueueSize];
 u8 MPReplyQueue[kReplyQueueSize];
@@ -66,39 +65,36 @@ int RecvTimeout;
 int LastHostID;
 
 
-QSemaphore SemPool[32];
+Semaphore* SemPool[32];
 
 void SemPoolInit()
 {
     for (int i = 0; i < 32; i++)
     {
-        SemPool[i].acquire(SemPool[i].available());
+        SemPool[i] = Semaphore_Create();
     }
 }
 
 bool SemPost(int num)
 {
-    SemPool[num].release(1);
+    Semaphore_Post(SemPool[num]);
     return true;
 }
 
 bool SemWait(int num, int timeout)
 {
-    if (!timeout)
-        return SemPool[num].tryAcquire(1);
-
-    return SemPool[num].tryAcquire(1, timeout);
+    return Semaphore_TryWait(SemPool[num], timeout);
 }
 
 void SemReset(int num)
 {
-    SemPool[num].acquire(SemPool[num].available());
+    Semaphore_Reset(SemPool[num]);
 }
 
 
 bool Init()
 {
-    MPQueueLock.lock();
+    Mutex_Lock(MPQueueLock);
 
     memset(MPPacketQueue, 0, kPacketQueueSize);
     memset(MPReplyQueue, 0, kReplyQueueSize);
@@ -106,7 +102,7 @@ bool Init()
     memset(PacketReadOffset, 0, sizeof(PacketReadOffset));
     memset(ReplyReadOffset, 0, sizeof(ReplyReadOffset));
 
-    MPQueueLock.unlock();
+    Mutex_Unlock(MPQueueLock);
 
     // prepare semaphores
     // semaphores 0-15: regular frames; semaphore I is posted when instance I needs to process a new frame
@@ -125,6 +121,11 @@ bool Init()
 
 void DeInit()
 {
+    for (int i = 0; i < 32; i++)
+    {
+        Semaphore_Free(SemPool[i]);
+        SemPool[i] = nullptr;
+    }
 }
 
 void SetRecvTimeout(int timeout)
@@ -134,20 +135,20 @@ void SetRecvTimeout(int timeout)
 
 void Begin(int inst)
 {
-    MPQueueLock.lock();
+    Mutex_Lock(MPQueueLock);
     PacketReadOffset[inst] = MPStatus.PacketWriteOffset;
     ReplyReadOffset[inst] = MPStatus.ReplyWriteOffset;
     SemReset(inst);
     SemReset(16+inst);
     MPStatus.ConnectedBitmask |= (1 << inst);
-    MPQueueLock.unlock();
+    Mutex_Unlock(MPQueueLock);
 }
 
 void End(int inst)
 {
-    MPQueueLock.lock();
+    Mutex_Lock(MPQueueLock);
     MPStatus.ConnectedBitmask &= ~(1 << inst);
-    MPQueueLock.unlock();
+    Mutex_Unlock(MPQueueLock);
 }
 
 void FIFORead(int inst, int fifo, void* buf, int len)
@@ -228,7 +229,7 @@ int SendPacketGeneric(int inst, u32 type, u8* packet, int len, u64 timestamp)
         return 0;
     }
 
-    MPQueueLock.lock();
+    Mutex_Lock(MPQueueLock);
 
     u16 mask = MPStatus.ConnectedBitmask;
 
@@ -261,7 +262,7 @@ int SendPacketGeneric(int inst, u32 type, u8* packet, int len, u64 timestamp)
         MPStatus.MPReplyBitmask |= (1 << inst);
     }
 
-    MPQueueLock.unlock();
+    Mutex_Unlock(MPQueueLock);
 
     if (type == 2)
     {
@@ -288,7 +289,7 @@ int RecvPacketGeneric(int inst, u8* packet, bool block, u64* timestamp)
             return 0;
         }
 
-        MPQueueLock.lock();
+        Mutex_Lock(MPQueueLock);
 
         MPPacketHeader pktheader;
         FIFORead(inst, 0, &pktheader, sizeof(pktheader));
@@ -298,7 +299,7 @@ int RecvPacketGeneric(int inst, u8* packet, bool block, u64* timestamp)
             Log(LogLevel::Warn, "PACKET FIFO OVERFLOW\n");
             PacketReadOffset[inst] = MPStatus.PacketWriteOffset;
             SemReset(inst);
-            MPQueueLock.unlock();
+            Mutex_Unlock(MPQueueLock);
             return 0;
         }
 
@@ -309,7 +310,7 @@ int RecvPacketGeneric(int inst, u8* packet, bool block, u64* timestamp)
             if (PacketReadOffset[inst] >= kPacketQueueSize)
                 PacketReadOffset[inst] -= kPacketQueueSize;
 
-            MPQueueLock.unlock();
+            Mutex_Unlock(MPQueueLock);
             continue;
         }
 
@@ -322,7 +323,7 @@ int RecvPacketGeneric(int inst, u8* packet, bool block, u64* timestamp)
         }
 
         if (timestamp) *timestamp = pktheader.Timestamp;
-        MPQueueLock.unlock();
+        Mutex_Unlock(MPQueueLock);
         return pktheader.Length;
     }
 }
@@ -388,7 +389,7 @@ u16 RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask)
             return ret;
         }
 
-        MPQueueLock.lock();
+        Mutex_Lock(MPQueueLock);
 
         MPPacketHeader pktheader;
         FIFORead(inst, 1, &pktheader, sizeof(pktheader));
@@ -398,7 +399,7 @@ u16 RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask)
             Log(LogLevel::Warn, "REPLY FIFO OVERFLOW\n");
             ReplyReadOffset[inst] = MPStatus.ReplyWriteOffset;
             SemReset(16+inst);
-            MPQueueLock.unlock();
+            Mutex_Unlock(MPQueueLock);
             return 0;
         }
 
@@ -410,7 +411,7 @@ u16 RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask)
             if (ReplyReadOffset[inst] >= kReplyQueueSize)
                 ReplyReadOffset[inst] -= kReplyQueueSize;
 
-            MPQueueLock.unlock();
+            Mutex_Unlock(MPQueueLock);
             continue;
         }
 
@@ -427,11 +428,11 @@ u16 RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask)
         {
             // all the clients have sent their reply
 
-            MPQueueLock.unlock();
+            Mutex_Unlock(MPQueueLock);
             return ret;
         }
 
-        MPQueueLock.unlock();
+        Mutex_Unlock(MPQueueLock);
     }
 }
 
