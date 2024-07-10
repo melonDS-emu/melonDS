@@ -293,7 +293,7 @@ private:
             // note: for some reason, x/y isn't calculated directly,
             // instead, 1/y is calculated and then multiplied by x
             // TODO: this is still not perfect (see for example x=169 y=33)
-            if (oob && ylen == 0) // this case *should* only be triggered by glitched polygons that try to render oob
+            if (ylen == 0)
                 Increment = xlen << 18;
             else if (ylen == xlen && xlen != 1)
                 Increment = 0x40000;
@@ -468,7 +468,7 @@ private:
     void PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
     template<bool oob> void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y) const;
     template<bool oob> void SetupPolygonRightEdge(RendererPolygon* rp, s32 y) const;
-    void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
+    template<bool oob> void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     template<bool oob> void RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y);
     template<bool oob> void RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y);
     void RenderScanline(const GPU& gpu, s32 y, int npolys);
