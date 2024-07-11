@@ -31,7 +31,7 @@ struct PacketHeader
 const u32 kPacketMagic = 0x4B504C4D;
 
 
-PacketDispatcher::PacketDispatcher()
+PacketDispatcher::PacketDispatcher() : mutex(Platform::Mutex_Create())
 {
     instanceMask = 0;
     memset(packetQueues, 0, sizeof(packetQueues));
@@ -39,7 +39,7 @@ PacketDispatcher::PacketDispatcher()
 
 PacketDispatcher::~PacketDispatcher()
 {
-    //
+    Platform::Mutex_Free(mutex);
 }
 
 
