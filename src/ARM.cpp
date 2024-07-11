@@ -304,7 +304,6 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     u32 newregion = addr >> 24;
     
     if (addr < ITCMSize) CodeRegion = Mem9_ITCM;
-    else if ((addr & DTCMMask) == DTCMBase) CodeRegion = Mem9_DTCM;
     else CodeRegion = NDS.ARM9Regions[addr >> 14];
 
     RegionCodeCycles = MemTimings[addr >> 12][0];
