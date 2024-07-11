@@ -1110,7 +1110,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     };
     auto jitargs = jitopt.GetBool("Enable") ? std::make_optional(_jitargs) : std::nullopt;
 #else
-    optional<JITArsg> jitargs = std::nullopt;
+    optional<JITArgs> jitargs = std::nullopt;
 #endif
 
 #ifdef GDBSTUB_ENABLED
