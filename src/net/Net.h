@@ -25,7 +25,11 @@ namespace Net
 {
 using namespace melonDS;
 
-bool Init();
+///
+/// @param direct Whether to use direct or indirect mode
+/// @param devicename The name of the network device to use; ignored if direct is false
+/// @return true if initialization succeeded
+bool Init(bool direct, const char* devicename);
 void DeInit();
 
 void RegisterInstance(int inst);

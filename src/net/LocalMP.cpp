@@ -94,6 +94,7 @@ void SemReset(int num)
 
 bool Init()
 {
+    MPQueueLock = Mutex_Create();
     Mutex_Lock(MPQueueLock);
 
     memset(MPPacketQueue, 0, kPacketQueueSize);
@@ -126,6 +127,8 @@ void DeInit()
         Semaphore_Free(SemPool[i]);
         SemPool[i] = nullptr;
     }
+
+    Mutex_Free(MPQueueLock);
 }
 
 void SetRecvTimeout(int timeout)

@@ -38,18 +38,17 @@ bool DirectMode;
 PacketDispatcher Dispatcher;
 
 
-bool Init()
+bool Init(bool direct, const char* devicename)
 {
     if (Inited) DeInit();
 
     Dispatcher.clear();
 
-    Config::Table cfg = Config::GetGlobalTable();
-    DirectMode = cfg.GetBool("LAN.DirectMode");
+    DirectMode = direct;
 
     bool ret = false;
     if (DirectMode)
-        ret = Net_PCap::Init();
+        ret = Net_PCap::Init(devicename);
     else
         ret = Net_Slirp::Init();
 

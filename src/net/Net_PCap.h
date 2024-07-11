@@ -19,6 +19,7 @@
 #ifndef NET_PCAP_H
 #define NET_PCAP_H
 
+#include <string_view>
 #include "types.h"
 
 namespace Net_PCap
@@ -41,7 +42,7 @@ extern int NumAdapters;
 
 
 bool InitAdapterList();
-bool Init();
+bool Init(std::string_view devicename);
 void DeInit();
 
 int SendPacket(u8* data, int len);

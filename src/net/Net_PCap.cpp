@@ -298,7 +298,7 @@ bool InitAdapterList()
     return true;
 }
 
-bool Init()
+bool Init(std::string_view devicename)
 {
     if (!PCapLib) PCapAdapter = nullptr;
     if (PCapAdapter) pcap_close(PCapAdapter);
@@ -306,12 +306,10 @@ bool Init()
     InitAdapterList();
 
     // open pcap device
-    Config::Table cfg = Config::GetGlobalTable();
-    std::string devicename = cfg.GetString("LAN.Device");
     PCapAdapterData = &Adapters[0];
     for (int i = 0; i < NumAdapters; i++)
     {
-        if (!strncmp(Adapters[i].DeviceName, devicename.c_str(), 128))
+        if (!strncmp(Adapters[i].DeviceName, devicename.data(), 128))
             PCapAdapterData = &Adapters[i];
     }
 
