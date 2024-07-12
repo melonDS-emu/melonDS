@@ -260,8 +260,8 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
-    if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
-    u32 val; if (!cpu->DataRead32S(offset+4, &val)) {cpu->AddCycles_CDI(); return;} \
+    if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI_LDM(); return;} \
+    u32 val; if (!cpu->DataRead32S(offset+4, &val)) {cpu->AddCycles_CDI_LDM(); return;} \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
     else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI_LDM(); \
@@ -272,8 +272,8 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
-    if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
-    u32 val; if (!cpu->DataRead32S(addr+4, &val)) {cpu->AddCycles_CDI(); return;} \
+    if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI_LDM(); return;} \
+    u32 val; if (!cpu->DataRead32S(addr+4, &val)) {cpu->AddCycles_CDI_LDM(); return;} \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
     else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI_LDM(); \
@@ -726,7 +726,7 @@ void T_STR_IMM(ARM* cpu)
     offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
 
     cpu->DataWrite32(offset, cpu->R[cpu->CurInstr & 0x7]);
-    cpu->AddCycles_CD_LDR();
+    cpu->AddCycles_CD_STR();
 }
 
 void T_LDR_IMM(ARM* cpu)
