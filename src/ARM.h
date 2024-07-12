@@ -30,8 +30,6 @@
 #include "debug/GdbStub.h"
 #endif
 
-//#define INTERLOCK
-
 namespace melonDS
 {
 inline u32 ROR(u32 x, u32 n)
@@ -148,46 +146,6 @@ public:
     virtual void AddCycles_CD_STR() = 0;
     virtual void AddCycles_CD_STM() = 0;
 
-/*    
-    inline void AddCycles_L(const u32 delay, const u32 reg1)
-    {
-        if (InterlockTimestamp[reg1] > Timestamp() + delay);
-            Timestamp() = InterlockTimestamp[reg1];
-    }
-    
-    inline void AddCycles_L(const u32 delay, const u32 reg1, const u32 reg2)
-    {
-        u64 cycles = std::max(InterlockTimestamp[reg1], InterlockTimestamp[reg2]);
-        if (cycles > Timestamp() + delay)
-            Timestamp() = cycles;
-    }
-    
-    inline void AddCycles_L(const u32 delay, const u32 reg1, const u32 reg2, const u32 reg3)
-    {
-        u64 cycles = std::max(InterlockTimestamp[reg1], std::max(InterlockTimestamp[reg2], InterlockTimestamp[reg3]));
-        if (cycles > Timestamp() + delay)
-            Timestamp() = cycles;
-    }*/
-    
-#ifdef INTERLOCK
-    // fetch the value of a register while handling any interlock cycles
-    virtual inline u32 GetReg(const u32 reg, const u32 delay = 0) = 0;
-
-    // Must be called after all of an instruction's cycles are calculated!!!
-    virtual inline void SetCycles_L(const u32 reg, const u32 cycles, const u32 type) = 0;
-#else
-    // fetch the value of a register while handling any interlock cycles
-    inline u32 GetReg(const u32 reg, const u32 delay = 0)
-    {
-        return R[reg];
-    }
-
-    // Must be called after all of an instruction's cycles are calculated!!!
-    inline void SetCycles_L(const u32 reg, const u32 cycles, const u32 type) {}
-#endif
-
-    virtual u64& Timestamp() = 0;
-
     void CheckGdbIncoming();
 
     u32 Num;
@@ -223,15 +181,6 @@ public:
     u32 ExceptionBase;
 
     MemRegion CodeMem;
-
-    enum InterlockType
-    {
-        ILT_Norm = 0,
-        ILT_Mul = 1,
-    };
-
-    u8 InterlockType[16];
-    u64 InterlockTimestamp[16];
 
 #ifdef JIT_ENABLED
     u32 FastBlockLookupStart, FastBlockLookupSize;
@@ -318,14 +267,14 @@ public:
     {
         // code only. always nonseq 32-bit for ARM9.
         s32 numC = CodeCycles;
-        Cycles += std::max(numC, CyclesILed + 1);
+        Cycles += numC;
     }
 
     void AddCycles_CI(s32 numI) override
     {
         // code+internal
         s32 numC = CodeCycles;
-        numI += 1 + CyclesILed;
+        numI += 1;
         Cycles += std::max(numC, numI);
     }
 
@@ -334,25 +283,6 @@ public:
     void AddCycles_CDI_SWP() override { AddCycles_CD_STR(); } // uses the same behavior as str
     void AddCycles_CD_STR() override;
     void AddCycles_CD_STM() override;
-    
-#ifdef INTERLOCK
-    // fetch the value of a register while handling any interlock cycles
-    inline u32 GetReg(const u32 reg, const u32 delay = 0) override
-    {
-        if (InterlockTimestamp[reg] > (Timestamp() + delay))
-            CyclesILed = InterlockTimestamp[reg] - (Timestamp() + delay);
-        return R[reg];
-    }
-
-    // Must be called after all of an instruction's cycles are calculated!!!
-    inline void SetCycles_L(const u32 reg, const u32 cycles, const u32 type) override
-    {
-        InterlockTimestamp[reg] = cycles + Timestamp() + Cycles;
-        //InterlockType[reg] = type;
-    }
-#endif
-
-    u64& Timestamp() override;
 
     void GetCodeMemRegion(u32 addr, MemRegion* region);
 
@@ -417,8 +347,6 @@ public:
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
 
-    s32 CyclesILed;
-
 #ifdef GDBSTUB_ENABLED
     u32 ReadMem(u32 addr, int size) override;
     void WriteMem(u32 addr, int size, u32 v) override;
@@ -476,18 +404,6 @@ public:
     void AddCycles_CD_STR() override { AddCycles_CD(); }
     void AddCycles_CD_STM() override { AddCycles_CD(); }
 
-#ifdef INTERLOCK
-    // fetch the value of a register while handling any interlock cycles
-    inline u32 GetReg(const u32 reg, const u32 delay = 0) override
-    {
-        return R[reg];
-    }
-
-    // Must be called after all of an instruction's cycles are calculated!!!
-    inline void SetCycles_L(const u32 reg, const u32 cycles, const u32 type) override{}
-#endif
-
-    u64& Timestamp() override;
 protected:
     u8 BusRead8(u32 addr) override;
     u16 BusRead16(u32 addr) override;

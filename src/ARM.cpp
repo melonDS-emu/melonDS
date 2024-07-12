@@ -190,8 +190,6 @@ void ARM::Reset()
     BreakReq = false;
 #endif
 
-    memset(InterlockTimestamp, 0, sizeof(InterlockTimestamp));
-
     // zorp
     JumpTo(ExceptionBase);
 }
@@ -695,7 +693,6 @@ void ARMv5::Execute()
 
         NDS.ARM9Timestamp += Cycles;
         Cycles = 0;
-        CyclesILed = 0;
     }
 
     if (Halted == 2)
@@ -1262,7 +1259,7 @@ bool ARMv4::DataWrite32S(u32 addr, u32 val, bool dataabort)
 void ARMv5::AddCycles_CD_STR()
 {
     s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-    s32 numD = DataCycles + CyclesILed;
+    s32 numD = DataCycles;
 
     s32 early;
     if (DataRegion == Mem9_ITCM)
@@ -1287,7 +1284,7 @@ void ARMv5::AddCycles_CD_STR()
 void ARMv5::AddCycles_CD_STM()
 {
     s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-    s32 numD = DataCycles + CyclesILed;
+    s32 numD = DataCycles;
 
     s32 early;
     if (DataRegion == Mem9_ITCM)
@@ -1313,7 +1310,7 @@ void ARMv5::AddCycles_CDI_LDR()
 {
     // LDR cycles. ARM9 seems to skip the internal cycle here.
     s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-    s32 numD = DataCycles + CyclesILed;
+    s32 numD = DataCycles;
 
     // if a 32 bit bus, start 2 cycles early; else, start 4 cycles early
     s32 early;
@@ -1340,7 +1337,7 @@ void ARMv5::AddCycles_CDI_LDM()
 {
     // LDM cycles. ARM9 seems to skip the internal cycle here.
     s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-    s32 numD = DataCycles + CyclesILed;
+    s32 numD = DataCycles;
 
     // if a 32 bit bus, start 2 cycles early; else, start 4 cycles early
     s32 early;
@@ -1440,16 +1437,6 @@ void ARMv4::AddCycles_CD()
     {
         Cycles += numC + numD;
     }
-}
-
-u64& ARMv5::Timestamp()
-{
-    return NDS.ARM9Timestamp;
-}
-
-u64& ARMv4::Timestamp()
-{
-    return NDS.ARM7Timestamp;
 }
 
 u8 ARMv5::BusRead8(u32 addr)
