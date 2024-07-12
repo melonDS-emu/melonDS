@@ -48,6 +48,7 @@ toml::value RootTable;
 DefaultList<int> DefaultInts =
 {
     {"Instance*.Keyboard", -1},
+    {"Instance*.Keyboard.HK_FullscreenToggle", 16777274}, // F11 key
     {"Instance*.Joystick", -1},
     {"Instance*.Window*.Width", 256},
     {"Instance*.Window*.Height", 384},
