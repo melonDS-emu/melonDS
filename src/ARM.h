@@ -278,12 +278,13 @@ public:
         Cycles += std::max(numC, numI);
     }
 
-    void AddCycles_CIL(s32 numI, s32 numL)
+    void AddCycles_CIF(s32 numI, s32 numL)
     {
-        // (code||internal)+forced interlock
-        // used by S variants of multiply instructions on the ARM9
-        // seems that instead of adding extra hardware logic to allow for handling the memory stage of the instructions during the execute stage
-        // it instead seems to force a two cycle interlock allowing for the interlocked cycle to be executed without any special logic + presumably an extra cycle to set flags
+        // (code||internal)+forced
+        // used by certain multiply instructions
+        // seems likely that the execute stage occurs 2 cycles before the fetch stage ends....?
+        // could also be in some way related to interlock and the memory stage
+        // though that doesn't explain why some non-S variants trigger this
         s32 numC = CodeCycles;
         numI += 1;
         Cycles += std::max(numC, numI) + numL;
