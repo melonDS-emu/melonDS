@@ -272,10 +272,21 @@ public:
 
     void AddCycles_CI(s32 numI) override
     {
-        // code+internal
+        // code||internal
         s32 numC = CodeCycles;
         numI += 1;
         Cycles += std::max(numC, numI);
+    }
+
+    void AddCycles_CIL(s32 numI, s32 numL)
+    {
+        // (code||internal)+forced interlock
+        // used by S variants of multiply instructions on the ARM9
+        // seems that instead of adding extra hardware logic to allow for handling the memory stage of the instructions during the execute stage
+        // it instead seems to force a two cycle interlock allowing for the interlocked cycle to be executed without any special logic + presumably an extra cycle to set flags
+        s32 numC = CodeCycles;
+        numI += 1;
+        Cycles += std::max(numC, numI) + numL;
     }
 
     void AddCycles_CDI_LDR() override;
