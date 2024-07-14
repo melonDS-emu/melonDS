@@ -9,6 +9,7 @@
   outputs = { nixpkgs, flake-utils, ... }: flake-utils.lib.eachDefaultSystem (system:
     let
       pkgs = import nixpkgs { inherit system; };
+      lib = pkgs.lib;
       melonDS = with pkgs; stdenv.mkDerivation {
         pname = "melonDS";
         version = "0.9.5";
@@ -23,13 +24,14 @@
           kdePackages.qtbase
           kdePackages.qtmultimedia
           extra-cmake-modules
-          wayland
           SDL2
           zstd
           libarchive
+        ] ++ lib.optionals stdenv.isLinux [
+          wayland
         ];
         cmakeFlags = [
-          "-DUSE_QT6=ON"
+          (lib.cmakeBool "USE_QT6" true)
         ];
         passthru = {
           exePath = if stdenv.isDarwin then
