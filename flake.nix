@@ -31,6 +31,11 @@
         cmakeFlags = [
           "-DUSE_QT6=ON"
         ];
+        passthru = {
+          exePath = if stdenv.isDarwin then
+            "/Applications/melonDS.app/Contents/MacOS/melonDS"
+            else "/bin/melonDS";
+        };
       };
     in rec {
       apps.default = flake-utils.lib.mkApp { drv = packages.default; };
