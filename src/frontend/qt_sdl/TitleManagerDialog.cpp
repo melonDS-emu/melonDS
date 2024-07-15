@@ -397,7 +397,11 @@ TitleImportDialog::TitleImportDialog(QWidget* parent, QString& apppath, const DS
     grpTmdSource = new QButtonGroup(this);
     grpTmdSource->addButton(ui->rbTmdFromFile, 0);
     grpTmdSource->addButton(ui->rbTmdFromNUS, 1);
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
     connect(grpTmdSource, SIGNAL(buttonClicked(int)), this, SLOT(onChangeTmdSource(int)));
+#else
+    connect(grpTmdSource, SIGNAL(idClicked(int)), this, SLOT(onChangeTmdSource(int)));
+#endif
     grpTmdSource->button(0)->setChecked(true);
 }
 
