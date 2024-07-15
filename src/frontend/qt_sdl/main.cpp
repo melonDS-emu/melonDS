@@ -92,6 +92,7 @@ EmuInstance* emuInstances[kMaxEmuInstances];
 
 CameraManager* camManager[2];
 bool camStarted[2];
+LocalMP localMp;
 
 
 bool createEmuInstance()

@@ -47,7 +47,7 @@
 #endif // __WIN32__
 
 extern CameraManager* camManager[2];
-
+extern melonDS::LocalMP localMp;
 
 namespace melonDS::Platform
 {
@@ -457,55 +457,55 @@ void WriteDateTime(int year, int month, int day, int hour, int minute, int secon
 void MP_Begin(void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
-    LocalMP::Begin(inst);
+    localMp.Begin(inst);
 }
 
 void MP_End(void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
-    LocalMP::End(inst);
+    localMp.End(inst);
 }
 
 int MP_SendPacket(u8* data, int len, u64 timestamp, void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
-    return LocalMP::SendPacket(inst, data, len, timestamp);
+    return localMp.SendPacket(inst, data, len, timestamp);
 }
 
 int MP_RecvPacket(u8* data, u64* timestamp, void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
-    return LocalMP::RecvPacket(inst, data, timestamp);
+    return localMp.RecvPacket(inst, data, timestamp);
 }
 
 int MP_SendCmd(u8* data, int len, u64 timestamp, void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
-    return LocalMP::SendCmd(inst, data, len, timestamp);
+    return localMp.SendCmd(inst, data, len, timestamp);
 }
 
 int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid, void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
-    return LocalMP::SendReply(inst, data, len, timestamp, aid);
+    return localMp.SendReply(inst, data, len, timestamp, aid);
 }
 
 int MP_SendAck(u8* data, int len, u64 timestamp, void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
-    return LocalMP::SendAck(inst, data, len, timestamp);
+    return localMp.SendAck(inst, data, len, timestamp);
 }
 
 int MP_RecvHostPacket(u8* data, u64* timestamp, void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
-    return LocalMP::RecvHostPacket(inst, data, timestamp);
+    return localMp.RecvHostPacket(inst, data, timestamp);
 }
 
 u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
-    return LocalMP::RecvReplies(inst, data, timestamp, aidmask);
+    return localMp.RecvReplies(inst, data, timestamp, aidmask);
 }
 
 
