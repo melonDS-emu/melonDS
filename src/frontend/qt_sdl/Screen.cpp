@@ -302,7 +302,7 @@ void ScreenPanel::tabletEvent(QTabletEvent* event)
 
 void ScreenPanel::touchEvent(QTouchEvent* event)
 {
-    if (event->deviceType() == QInputDevice::DeviceType::TouchPad)
+    if (event->device()->type() == QInputDevice::DeviceType::TouchPad)
         return;
 
     event->accept();
