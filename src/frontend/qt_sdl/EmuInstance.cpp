@@ -92,7 +92,7 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
     mpAudioMode = globalCfg.GetInt("MP.AudioMode");
 
     nds = nullptr;
-    updateConsole(nullptr, nullptr);
+    //updateConsole(nullptr, nullptr);
 
     audioInit();
     inputInit();
