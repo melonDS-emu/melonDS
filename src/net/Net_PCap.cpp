@@ -204,6 +204,7 @@ std::vector<AdapterData> LibPCap::GetAdapters() const noexcept
         AdapterData& adata = adapters.back();
         strncpy(adata.DeviceName, dev->name, 127);
         adata.DeviceName[127] = '\0';
+        adata.Flags = dev->flags;
 
 #ifndef __WIN32__
         strncpy(adata.FriendlyName, adata.DeviceName, 127);
