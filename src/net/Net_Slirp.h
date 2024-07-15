@@ -20,17 +20,30 @@
 #define NET_SLIRP_H
 
 #include "types.h"
+#include "FIFO.h"
 
-namespace Net_Slirp
+struct Slirp;
+
+namespace melonDS
 {
-using namespace melonDS;
+class Net_Slirp
+{
+public:
+    Net_Slirp() noexcept;
+    Net_Slirp(const Net_Slirp&) = delete;
+    Net_Slirp& operator=(const Net_Slirp&) = delete;
+    Net_Slirp(Net_Slirp&& other) noexcept;
+    Net_Slirp& operator=(Net_Slirp&& other) noexcept;
+    ~Net_Slirp() noexcept;
 
-bool Init();
-void DeInit();
+    int SendPacket(u8* data, int len) noexcept;
+    void RecvCheck() noexcept;
+private:
+    void HandleDNSFrame(u8* data, int len) noexcept;
 
-int SendPacket(u8* data, int len);
-void RecvCheck();
-
+    FIFO<u32, (0x8000 >> 2)> RXBuffer {};
+    u32 IPv4ID = 0;
+    Slirp* Ctx = nullptr;
+};
 }
-
 #endif // NET_SLIRP_H

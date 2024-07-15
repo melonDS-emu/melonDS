@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "Net.h"
+#include "Net_Slirp.h"
 #include "FIFO.h"
 #include "Platform.h"
 
@@ -33,9 +34,7 @@
 	#include <time.h>
 #endif
 
-using namespace melonDS;
-
-namespace Net_Slirp
+namespace melonDS
 {
 
 using Platform::Log;
@@ -47,13 +46,6 @@ const u32 kDNSIP    = kSubnet | 0x02;
 const u32 kClientIP = kSubnet | 0x10;
 
 const u8 kServerMAC[6] = {0x00, 0xAB, 0x33, 0x28, 0x99, 0x44};
-
-FIFO<u32, (0x8000 >> 2)> RXBuffer;
-
-u32 IPv4ID;
-
-Slirp* Ctx = nullptr;
-
 
 #ifdef __WIN32__
 
@@ -145,11 +137,9 @@ SlirpCb cb =
     .notify = SlirpCbNotify
 };
 
-bool Init()
+Net_Slirp::Net_Slirp() noexcept
 {
-    IPv4ID = 0;
-
-    SlirpConfig cfg;
+    SlirpConfig cfg {};
     memset(&cfg, 0, sizeof(cfg));
     cfg.version = 1;
 
@@ -162,11 +152,37 @@ bool Init()
     *(u32*)&cfg.vnameserver = htonl(kDNSIP);
 
     Ctx = slirp_new(&cfg, &cb, nullptr);
-
-    return true;
 }
 
-void DeInit()
+
+Net_Slirp::Net_Slirp(Net_Slirp&& other) noexcept
+{
+    RXBuffer = other.RXBuffer;
+    IPv4ID = other.IPv4ID;
+    Ctx = other.Ctx;
+
+    other.RXBuffer = {};
+    other.IPv4ID = 0;
+    other.Ctx = nullptr;
+}
+
+Net_Slirp& Net_Slirp::operator=(Net_Slirp&& other) noexcept
+{
+    if (this != &other)
+    {
+        RXBuffer = other.RXBuffer;
+        IPv4ID = other.IPv4ID;
+        Ctx = other.Ctx;
+
+        other.RXBuffer = {};
+        other.IPv4ID = 0;
+        other.Ctx = nullptr;
+    }
+
+    return *this;
+}
+
+Net_Slirp::~Net_Slirp() noexcept
 {
     if (Ctx)
     {
@@ -215,7 +231,7 @@ void FinishUDPFrame(u8* data, int len)
     *(u16*)&udpheader[6] = htons(tmp);
 }
 
-void HandleDNSFrame(u8* data, int len)
+void Net_Slirp::HandleDNSFrame(u8* data, int len) noexcept
 {
     u8* ipheader = &data[0xE];
     u8* udpheader = &data[0x22];
@@ -371,7 +387,7 @@ void HandleDNSFrame(u8* data, int len)
     Net::RXEnqueue(resp, framelen);
 }
 
-int SendPacket(u8* data, int len)
+int Net_Slirp::SendPacket(u8* data, int len) noexcept
 {
     if (!Ctx) return 0;
 
@@ -450,7 +466,7 @@ int SlirpCbGetREvents(int idx, void* opaque)
     return ret;
 }
 
-void RecvCheck()
+void Net_Slirp::RecvCheck() noexcept
 {
     if (!Ctx) return;
 
