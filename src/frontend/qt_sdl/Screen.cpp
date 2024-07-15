@@ -302,15 +302,18 @@ void ScreenPanel::tabletEvent(QTabletEvent* event)
 
 void ScreenPanel::touchEvent(QTouchEvent* event)
 {
+    if (event->deviceType() == QInputDevice::DeviceType::TouchPad)
+        return;
+
     event->accept();
 
     switch(event->type())
     {
     case QEvent::TouchBegin:
     case QEvent::TouchUpdate:
-        if (event->touchPoints().length() > 0)
+        if (event->points().length() > 0)
         {
-            QPointF lastPosition = event->touchPoints().first().lastPos();
+            QPointF lastPosition = event->points().first().lastPosition();
             int x = (int)lastPosition.x();
             int y = (int)lastPosition.y();
 
