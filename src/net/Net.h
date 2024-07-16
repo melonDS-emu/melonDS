@@ -19,26 +19,46 @@
 #ifndef NET_H
 #define NET_H
 
+#include <memory>
+#include <string_view>
+
 #include "types.h"
+#include "PacketDispatcher.h"
+#include "Net_PCap.h"
+#include "Net_Slirp.h"
 
-namespace Net
+namespace melonDS
 {
-using namespace melonDS;
 
-///
-/// @param direct Whether to use direct or indirect mode
-/// @param devicename The name of the network device to use; ignored if direct is false
-/// @return true if initialization succeeded
-bool Init(bool direct, const char* devicename);
-void DeInit();
+struct AdapterData;
 
-void RegisterInstance(int inst);
-void UnregisterInstance(int inst);
+class Net
+{
+public:
+    Net() noexcept;
+    explicit Net(const AdapterData& device) noexcept;
+    explicit Net(std::string_view devicename) noexcept;
+    Net(const Net&) = delete;
+    Net& operator=(const Net&) = delete;
+    // Not movable because of callbacks that point to this object
+    Net(Net&& other) = delete;
+    Net& operator=(Net&& other) = delete;
+    ~Net() noexcept = default;
 
-void RXEnqueue(const void* buf, int len);
+    void RegisterInstance(int inst);
+    void UnregisterInstance(int inst);
 
-int SendPacket(u8* data, int len, int inst);
-int RecvPacket(u8* data, int inst);
+    void RXEnqueue(const void* buf, int len);
+
+    int SendPacket(u8* data, int len, int inst);
+    int RecvPacket(u8* data, int inst);
+private:
+    PacketDispatcher Dispatcher {};
+    std::optional<LibPCap> LibPCap = std::nullopt;
+    std::optional<Net_PCap> PCap = std::nullopt;
+    std::unique_ptr<Net_Slirp> Slirp = nullptr;
+
+};
 
 }
 
