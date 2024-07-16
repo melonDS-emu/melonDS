@@ -274,7 +274,7 @@ int main(int argc, char** argv)
         }
     }
 
-    LocalMP::Init();
+    // localMp is initialized at this point
     {
         Config::Table cfg = Config::GetGlobalTable();
         bool direct = cfg.GetBool("LAN.DirectMode");
