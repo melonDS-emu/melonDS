@@ -19,6 +19,7 @@
 #ifndef NET_PCAP_H
 #define NET_PCAP_H
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -65,8 +66,8 @@ public:
     LibPCap& operator=(LibPCap&&) noexcept;
     ~LibPCap() noexcept = default;
 
-    [[nodiscard]] std::optional<Net_PCap> Open(std::string_view devicename) const noexcept;
-    [[nodiscard]] std::optional<Net_PCap> Open(const AdapterData& device) const noexcept;
+    [[nodiscard]] std::optional<Net_PCap> Open(std::string_view devicename, const Platform::SendPacketCallback& handler) const noexcept;
+    [[nodiscard]] std::optional<Net_PCap> Open(const AdapterData& device, const Platform::SendPacketCallback& handler) const noexcept;
 
     // so that Net_PCap objects can safely outlive LibPCap
     // (because the actual DLL will be kept loaded until no shared_ptrs remain)
@@ -115,12 +116,14 @@ public:
     void RecvCheck();
 private:
     friend class LibPCap;
+    static void RXCallback(u_char* userdata, const pcap_pkthdr* header, const u_char* data) noexcept;
     Net_PCap() noexcept = default;
 
     pcap_t* PCapAdapter = nullptr;
 
     // To avoid undefined behavior in case the original LibPCap object is destroyed
     // before this interface is cleaned up
+    Platform::SendPacketCallback Callback;
     std::shared_ptr<Platform::DynamicLibrary> PCapLib = nullptr;
     pcap_close_t close = nullptr;
     pcap_sendpacket_t sendpacket = nullptr;

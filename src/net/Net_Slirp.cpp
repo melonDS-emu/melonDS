@@ -69,7 +69,7 @@ int clock_gettime(int, struct timespec *spec)
 #endif // __WIN32__
 
 
-ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
+ssize_t Net_Slirp::SlirpCbSendPacket(const void* buf, size_t len, void* opaque) noexcept
 {
     if (len > 2048)
     {
@@ -79,7 +79,11 @@ ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
 
     Log(LogLevel::Debug, "slirp: response packet of %zu bytes, type %04X\n", len, ntohs(((u16*)buf)[6]));
 
-    Net::RXEnqueue(buf, len);
+    Net_Slirp& self = *static_cast<Net_Slirp*>(opaque);
+    if (self.Callback)
+    {
+        self.Callback((const u8*)buf, len);
+    }
 
     return len;
 }
@@ -124,7 +128,7 @@ void SlirpCbNotify(void* opaque)
     Log(LogLevel::Debug, "Slirp: notify???\n");
 }
 
-SlirpCb cb =
+const SlirpCb Net_Slirp::cb =
 {
     .send_packet = SlirpCbSendPacket,
     .guest_error = SlirpCbGuestError,
@@ -137,7 +141,7 @@ SlirpCb cb =
     .notify = SlirpCbNotify
 };
 
-Net_Slirp::Net_Slirp() noexcept
+Net_Slirp::Net_Slirp(const Platform::SendPacketCallback& callback) noexcept : Callback(callback)
 {
     SlirpConfig cfg {};
     memset(&cfg, 0, sizeof(cfg));
@@ -151,7 +155,7 @@ Net_Slirp::Net_Slirp() noexcept
     *(u32*)&cfg.vdhcp_start = htonl(kClientIP);
     *(u32*)&cfg.vnameserver = htonl(kDNSIP);
 
-    Ctx = slirp_new(&cfg, &cb, nullptr);
+    Ctx = slirp_new(&cfg, &cb, this);
 }
 
 
@@ -161,12 +165,14 @@ Net_Slirp::Net_Slirp(Net_Slirp&& other) noexcept
     IPv4ID = other.IPv4ID;
     Ctx = other.Ctx;
     PollListSize = other.PollListSize;
+    Callback = std::move(other.Callback);
     memcpy(PollList, other.PollList, sizeof(PollList));
 
     other.RXBuffer = {};
     other.IPv4ID = 0;
     other.Ctx = nullptr;
     other.PollListSize = 0;
+    other.Callback = nullptr;
     memset(other.PollList, 0, sizeof(other.PollList));
 }
 
@@ -178,12 +184,14 @@ Net_Slirp& Net_Slirp::operator=(Net_Slirp&& other) noexcept
         IPv4ID = other.IPv4ID;
         Ctx = other.Ctx;
         PollListSize = other.PollListSize;
+        Callback = std::move(other.Callback);
         memcpy(PollList, other.PollList, sizeof(PollList));
 
         other.RXBuffer = {};
         other.IPv4ID = 0;
         other.Ctx = nullptr;
         other.PollListSize = 0;
+        other.Callback = nullptr;
         memset(other.PollList, 0, sizeof(other.PollList));
     }
 
@@ -392,7 +400,8 @@ void Net_Slirp::HandleDNSFrame(u8* data, int len) noexcept
     if (framelen & 1) { *out++ = 0; framelen++; }
     FinishUDPFrame(resp, framelen);
 
-    Net::RXEnqueue(resp, framelen);
+    if (Callback)
+        Callback(resp, framelen);
 }
 
 int Net_Slirp::SendPacket(u8* data, int len) noexcept

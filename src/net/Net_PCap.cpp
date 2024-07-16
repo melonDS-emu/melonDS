@@ -338,12 +338,12 @@ std::vector<AdapterData> LibPCap::GetAdapters() const noexcept
     return adapters;
 }
 
-std::optional<Net_PCap> LibPCap::Open(const AdapterData& device) const noexcept
+std::optional<Net_PCap> LibPCap::Open(const AdapterData& device, const Platform::SendPacketCallback& handler) const noexcept
 {
-    return Open(device.DeviceName);
+    return Open(device.DeviceName, handler);
 }
 
-std::optional<Net_PCap> LibPCap::Open(std::string_view devicename) const noexcept
+std::optional<Net_PCap> LibPCap::Open(std::string_view devicename, const Platform::SendPacketCallback& handler) const noexcept
 {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t* adapter = open_live(devicename.data(), 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
@@ -364,6 +364,7 @@ std::optional<Net_PCap> LibPCap::Open(std::string_view devicename) const noexcep
 
     Net_PCap pcap;
     pcap.PCapAdapter = adapter;
+    pcap.Callback = handler;
     pcap.PCapLib = PCapLib;
     pcap.close = close;
     pcap.sendpacket = sendpacket;
@@ -379,12 +380,14 @@ Net_PCap::Net_PCap(Net_PCap&& other) noexcept
     close = other.close;
     sendpacket = other.sendpacket;
     dispatch = other.dispatch;
+    Callback = std::move(other.Callback);
 
     other.PCapAdapter = nullptr;
     other.close = nullptr;
     other.PCapLib = nullptr;
     other.sendpacket = nullptr;
     other.dispatch = nullptr;
+    other.Callback = nullptr;
 }
 
 Net_PCap& Net_PCap::operator=(Net_PCap&& other) noexcept
@@ -402,12 +405,14 @@ Net_PCap& Net_PCap::operator=(Net_PCap&& other) noexcept
         close = other.close;
         sendpacket = other.sendpacket;
         dispatch = other.dispatch;
+        Callback = std::move(other.Callback);
 
         other.PCapAdapter = nullptr;
         other.close = nullptr;
         other.PCapLib = nullptr;
         other.sendpacket = nullptr;
         other.dispatch = nullptr;
+        other.Callback = nullptr;
     }
 
     return *this;
@@ -423,9 +428,11 @@ Net_PCap::~Net_PCap() noexcept
     // PCapLib will be freed at this point (shared_ptr + custom deleter)
 }
 
-void RXCallback(u_char* userdata, const struct pcap_pkthdr* header, const u_char* data)
+void Net_PCap::RXCallback(u_char* userdata, const struct pcap_pkthdr* header, const u_char* data) noexcept
 {
-    Net::RXEnqueue(data, header->len);
+    Net_PCap& self = *reinterpret_cast<Net_PCap*>(userdata);
+    if (self.Callback)
+        self.Callback(data, header->len);
 }
 
 int Net_PCap::SendPacket(u8* data, int len)

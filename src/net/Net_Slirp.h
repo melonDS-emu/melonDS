@@ -21,6 +21,9 @@
 
 #include "types.h"
 #include "FIFO.h"
+#include "Platform.h"
+
+#include <libslirp.h>
 
 #ifdef __WIN32__
     #include <ws2tcpip.h>
@@ -35,7 +38,7 @@ namespace melonDS
 class Net_Slirp
 {
 public:
-    Net_Slirp() noexcept;
+    explicit Net_Slirp(const Platform::SendPacketCallback& callback) noexcept;
     Net_Slirp(const Net_Slirp&) = delete;
     Net_Slirp& operator=(const Net_Slirp&) = delete;
     Net_Slirp(Net_Slirp&& other) noexcept;
@@ -46,10 +49,13 @@ public:
     void RecvCheck() noexcept;
 private:
     static constexpr int PollListMax = 64;
+    static const SlirpCb cb;
     static int SlirpCbGetREvents(int idx, void* opaque) noexcept;
     static int SlirpCbAddPoll(int fd, int events, void* opaque) noexcept;
+    static ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque) noexcept;
     void HandleDNSFrame(u8* data, int len) noexcept;
 
+    Platform::SendPacketCallback Callback;
     pollfd PollList[PollListMax] {};
     int PollListSize = 0;
     FIFO<u32, (0x8000 >> 2)> RXBuffer {};
