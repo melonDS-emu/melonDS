@@ -22,6 +22,12 @@
 #include "types.h"
 #include "FIFO.h"
 
+#ifdef __WIN32__
+    #include <ws2tcpip.h>
+#else
+    #include <poll.h>
+#endif
+
 struct Slirp;
 
 namespace melonDS
@@ -39,8 +45,13 @@ public:
     int SendPacket(u8* data, int len) noexcept;
     void RecvCheck() noexcept;
 private:
+    static constexpr int PollListMax = 64;
+    static int SlirpCbGetREvents(int idx, void* opaque) noexcept;
+    static int SlirpCbAddPoll(int fd, int events, void* opaque) noexcept;
     void HandleDNSFrame(u8* data, int len) noexcept;
 
+    pollfd PollList[PollListMax] {};
+    int PollListSize = 0;
     FIFO<u32, (0x8000 >> 2)> RXBuffer {};
     u32 IPv4ID = 0;
     Slirp* Ctx = nullptr;

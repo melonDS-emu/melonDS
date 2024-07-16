@@ -160,10 +160,14 @@ Net_Slirp::Net_Slirp(Net_Slirp&& other) noexcept
     RXBuffer = other.RXBuffer;
     IPv4ID = other.IPv4ID;
     Ctx = other.Ctx;
+    PollListSize = other.PollListSize;
+    memcpy(PollList, other.PollList, sizeof(PollList));
 
     other.RXBuffer = {};
     other.IPv4ID = 0;
     other.Ctx = nullptr;
+    other.PollListSize = 0;
+    memset(other.PollList, 0, sizeof(other.PollList));
 }
 
 Net_Slirp& Net_Slirp::operator=(Net_Slirp&& other) noexcept
@@ -173,10 +177,14 @@ Net_Slirp& Net_Slirp::operator=(Net_Slirp&& other) noexcept
         RXBuffer = other.RXBuffer;
         IPv4ID = other.IPv4ID;
         Ctx = other.Ctx;
+        PollListSize = other.PollListSize;
+        memcpy(PollList, other.PollList, sizeof(PollList));
 
         other.RXBuffer = {};
         other.IPv4ID = 0;
         other.Ctx = nullptr;
+        other.PollListSize = 0;
+        memset(other.PollList, 0, sizeof(other.PollList));
     }
 
     return *this;
@@ -417,19 +425,17 @@ int Net_Slirp::SendPacket(u8* data, int len) noexcept
     return len;
 }
 
-const int PollListMax = 64;
-struct pollfd PollList[PollListMax];
-int PollListSize;
-
-int SlirpCbAddPoll(int fd, int events, void* opaque)
+int Net_Slirp::SlirpCbAddPoll(int fd, int events, void* opaque) noexcept
 {
-    if (PollListSize >= PollListMax)
+    Net_Slirp& self = *static_cast<Net_Slirp*>(opaque);
+
+    if (self.PollListSize >= PollListMax)
     {
         Log(LogLevel::Error, "slirp: POLL LIST FULL\n");
         return -1;
     }
 
-    int idx = PollListSize++;
+    int idx = self.PollListSize++;
 
     u16 evt = 0;
 
@@ -443,18 +449,20 @@ int SlirpCbAddPoll(int fd, int events, void* opaque)
     if (events & SLIRP_POLL_HUP) evt |= POLLHUP;
 #endif // !__WIN32__
 
-    PollList[idx].fd = fd;
-    PollList[idx].events = evt;
+    self.PollList[idx].fd = fd;
+    self.PollList[idx].events = evt;
 
     return idx;
 }
 
-int SlirpCbGetREvents(int idx, void* opaque)
+int Net_Slirp::SlirpCbGetREvents(int idx, void* opaque) noexcept
 {
-    if (idx < 0 || idx >= PollListSize)
+    Net_Slirp& self = *static_cast<Net_Slirp*>(opaque);
+
+    if (idx < 0 || idx >= self.PollListSize)
         return 0;
 
-    u16 evt = PollList[idx].revents;
+    u16 evt = self.PollList[idx].revents;
     int ret = 0;
 
     if (evt & POLLIN) ret |= SLIRP_POLL_IN;
@@ -476,7 +484,7 @@ void Net_Slirp::RecvCheck() noexcept
         PollListSize = 0;
         slirp_pollfds_fill(Ctx, &timeout, SlirpCbAddPoll, nullptr);
         int res = poll(PollList, PollListSize, timeout);
-        slirp_pollfds_poll(Ctx, res<0, SlirpCbGetREvents, nullptr);
+        slirp_pollfds_poll(Ctx, res<0, SlirpCbGetREvents, this);
     }
 }
 
