@@ -274,7 +274,12 @@ int main(int argc, char** argv)
     }
 
     LocalMP::Init();
-    Net::Init();
+    {
+        Config::Table cfg = Config::GetGlobalTable();
+        bool direct = cfg.GetBool("LAN.DirectMode");
+        std::string devicename = cfg.GetString("LAN.Device");
+        Net::Init(direct, devicename.c_str());
+    }
 
     createEmuInstance();
 

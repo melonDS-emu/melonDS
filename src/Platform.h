@@ -256,6 +256,9 @@ Semaphore* Semaphore_Create();
 void Semaphore_Free(Semaphore* sema);
 void Semaphore_Reset(Semaphore* sema);
 void Semaphore_Wait(Semaphore* sema);
+/// Waits for the semaphore to be signaled, or until the timeout (in milliseconds) expires.
+/// If the timeout is 0, then don't wait; return immediately if the semaphore is not signaled.
+bool Semaphore_TryWait(Semaphore* sema, int timeout_ms = 0);
 void Semaphore_Post(Semaphore* sema, int count = 1);
 
 struct Mutex;

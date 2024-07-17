@@ -92,7 +92,7 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
     mpAudioMode = globalCfg.GetInt("MP.AudioMode");
 
     nds = nullptr;
-    updateConsole(nullptr, nullptr);
+    //updateConsole(nullptr, nullptr);
 
     audioInit();
     inputInit();
@@ -518,7 +518,7 @@ std::string EmuInstance::getEffectiveFirmwareSavePath()
 {
     if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
     {
-        return kWifiSettingsPath;
+        return GetLocalFilePath(kWifiSettingsPath);
     }
     if (consoleType == 1)
     {
@@ -1110,7 +1110,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     };
     auto jitargs = jitopt.GetBool("Enable") ? std::make_optional(_jitargs) : std::nullopt;
 #else
-    optional<JITArsg> jitargs = std::nullopt;
+    optional<JITArgs> jitargs = std::nullopt;
 #endif
 
 #ifdef GDBSTUB_ENABLED
@@ -1261,7 +1261,7 @@ void EmuInstance::reset()
         }
         else
         {
-            newsave = kWifiSettingsPath + instanceFileSuffix();
+            newsave = GetLocalFilePath(kWifiSettingsPath + instanceFileSuffix());
         }
 
         if (oldsave != newsave)

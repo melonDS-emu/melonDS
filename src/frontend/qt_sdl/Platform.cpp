@@ -351,6 +351,14 @@ void Semaphore_Wait(Semaphore* sema)
     ((QSemaphore*) sema)->acquire();
 }
 
+bool Semaphore_TryWait(Semaphore* sema, int timeout_ms)
+{
+    if (!timeout_ms)
+        return ((QSemaphore*)sema)->tryAcquire(1);
+
+    return ((QSemaphore*)sema)->tryAcquire(1, timeout_ms);
+}
+
 void Semaphore_Post(Semaphore* sema, int count)
 {
     ((QSemaphore*) sema)->release(count);
