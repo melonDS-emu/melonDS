@@ -42,7 +42,7 @@ struct Player
     int ID;
     char Name[32];
     int Status; // 0=no player 1=normal 2=host 3=connecting
-    u32 Address;
+    melonDS::u32 Address;
 };
 
 }
@@ -132,7 +132,7 @@ void StartHost(const char* player, int port);
 void StartClient(const char* player, const char* host, int port);
 void StartMirror(const Player* player);
 
-u32 PlayerAddress(int id);
+melonDS::u32 PlayerAddress(int id);
 
 void StartGame();
 void StartLocal();

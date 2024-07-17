@@ -41,6 +41,8 @@
 #include "ui_NetplayStartClientDialog.h"
 #include "ui_NetplayDialog.h"
 
+using namespace melonDS;
+
 
 extern EmuThread* emuThread;
 NetplayDialog* netplayDlg;

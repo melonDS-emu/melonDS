@@ -61,6 +61,8 @@
 #include "ui_LANStartClientDialog.h"
 #include "ui_LANDialog.h"
 
+using namespace melonDS;
+
 
 extern EmuThread* emuThread;
 LANStartClientDialog* lanClientDlg = nullptr;
