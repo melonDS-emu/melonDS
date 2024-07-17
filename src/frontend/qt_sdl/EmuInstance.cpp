@@ -518,7 +518,7 @@ std::string EmuInstance::getEffectiveFirmwareSavePath()
 {
     if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
     {
-        return kWifiSettingsPath;
+        return GetLocalFilePath(kWifiSettingsPath);
     }
     if (consoleType == 1)
     {
@@ -1261,7 +1261,7 @@ void EmuInstance::reset()
         }
         else
         {
-            newsave = kWifiSettingsPath + instanceFileSuffix();
+            newsave = GetLocalFilePath(kWifiSettingsPath + instanceFileSuffix());
         }
 
         if (oldsave != newsave)
