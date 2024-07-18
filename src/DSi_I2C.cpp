@@ -68,7 +68,7 @@ DSi_BPTWL::~DSi_BPTWL()
 void DSi_BPTWL::Reset()
 {
     CurPos = -1;
-    memset(Registers, 0x5A, 0x100);
+    Registers.fill(0x5a);
 
     Registers[0x00] = 0x33; // TODO: support others??
     Registers[0x01] = 0x00;
@@ -112,7 +112,7 @@ void DSi_BPTWL::DoSavestate(Savestate* file)
 {
     file->Section("I2BP");
 
-    file->VarArray(Registers, 0x100);
+    file->VarArray(Registers.data(), Registers.size());
     file->Var32(&CurPos);
 }
 
