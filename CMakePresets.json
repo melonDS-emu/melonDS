@@ -25,6 +25,7 @@
       "inherits": "release-vcpkg",
       "displayName": "Windows MinGW release (x86_64)",
       "binaryDir": "${sourceDir}/build/release-mingw-x86_64",
+	  "generator": "Ninja",
       "cacheVariables": {
         "USE_QT6": {
           "type": "BOOL",
