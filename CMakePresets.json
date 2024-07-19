@@ -25,7 +25,12 @@
       "inherits": "release-vcpkg",
       "displayName": "Windows MinGW release (x86_64)",
       "binaryDir": "${sourceDir}/build/release-mingw-x86_64",
-      "cacheVariables": {}
+      "cacheVariables": {
+        "USE_QT6": {
+          "type": "BOOL",
+          "value": "ON"
+        }
+      }
     },
     {
       "name": "release-mac-x86_64",
