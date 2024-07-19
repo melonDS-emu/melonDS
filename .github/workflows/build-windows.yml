@@ -31,6 +31,7 @@ jobs:
     - name: Build
       uses: lukka/run-cmake@v10
       with:
+        useShell: true
         configurePreset: release-mingw-x86_64
         buildPreset: release-mingw-x86_64
     - uses: actions/upload-artifact@v1
