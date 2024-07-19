@@ -28,6 +28,7 @@
 
 #include "types.h"
 #include "Platform.h"
+#include "NetDriver.h"
 
 
 namespace melonDS
@@ -103,17 +104,17 @@ private:
     LibPCap() noexcept = default;
 };
 
-class Net_PCap
+class Net_PCap : public NetDriver
 {
 public:
-    ~Net_PCap() noexcept;
+    ~Net_PCap() noexcept override;
     Net_PCap(const Net_PCap&) = delete;
     Net_PCap& operator=(const Net_PCap&) = delete;
     Net_PCap(Net_PCap&& other) noexcept;
     Net_PCap& operator=(Net_PCap&& other) noexcept;
 
-    int SendPacket(u8* data, int len);
-    void RecvCheck();
+    int SendPacket(u8* data, int len) noexcept override;
+    void RecvCheck() noexcept override;
 private:
     friend class LibPCap;
     static void RXCallback(u_char* userdata, const pcap_pkthdr* header, const u_char* data) noexcept;

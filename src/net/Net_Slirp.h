@@ -22,6 +22,7 @@
 #include "types.h"
 #include "FIFO.h"
 #include "Platform.h"
+#include "NetDriver.h"
 
 #include <libslirp.h>
 
@@ -35,7 +36,7 @@ struct Slirp;
 
 namespace melonDS
 {
-class Net_Slirp
+class Net_Slirp : public NetDriver
 {
 public:
     explicit Net_Slirp(const Platform::SendPacketCallback& callback) noexcept;
@@ -43,10 +44,10 @@ public:
     Net_Slirp& operator=(const Net_Slirp&) = delete;
     Net_Slirp(Net_Slirp&& other) noexcept;
     Net_Slirp& operator=(Net_Slirp&& other) noexcept;
-    ~Net_Slirp() noexcept;
+    ~Net_Slirp() noexcept override;
 
-    int SendPacket(u8* data, int len) noexcept;
-    void RecvCheck() noexcept;
+    int SendPacket(u8* data, int len) noexcept override;
+    void RecvCheck() noexcept override;
 private:
     static constexpr int PollListMax = 64;
     static const SlirpCb cb;

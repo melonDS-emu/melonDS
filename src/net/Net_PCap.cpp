@@ -435,7 +435,7 @@ void Net_PCap::RXCallback(u_char* userdata, const struct pcap_pkthdr* header, co
         self.Callback(data, header->len);
 }
 
-int Net_PCap::SendPacket(u8* data, int len)
+int Net_PCap::SendPacket(u8* data, int len) noexcept
 {
     if (PCapAdapter == nullptr || data == nullptr)
         return 0;
@@ -451,7 +451,7 @@ int Net_PCap::SendPacket(u8* data, int len)
     return len;
 }
 
-void Net_PCap::RecvCheck()
+void Net_PCap::RecvCheck() noexcept
 {
     if (PCapAdapter == nullptr || dispatch == nullptr)
         return;
