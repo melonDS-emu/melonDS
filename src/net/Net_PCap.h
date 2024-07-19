@@ -121,10 +121,10 @@ private:
     Net_PCap() noexcept = default;
 
     pcap_t* PCapAdapter = nullptr;
+    Platform::SendPacketCallback Callback;
 
     // To avoid undefined behavior in case the original LibPCap object is destroyed
     // before this interface is cleaned up
-    Platform::SendPacketCallback Callback;
     std::shared_ptr<Platform::DynamicLibrary> PCapLib = nullptr;
     pcap_close_t close = nullptr;
     pcap_sendpacket_t sendpacket = nullptr;
