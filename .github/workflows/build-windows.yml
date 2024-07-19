@@ -28,12 +28,13 @@ jobs:
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgGitCommitId: 53bef8994c541b6561884a8395ea35715ece75db
+        useShell: true
     - name: Build
       uses: lukka/run-cmake@v10
       with:
-        useShell: true
         configurePreset: release-mingw-x86_64
         buildPreset: release-mingw-x86_64
+        useShell: true
     - uses: actions/upload-artifact@v1
       with:
         name: melonDS-windows-x86_64
