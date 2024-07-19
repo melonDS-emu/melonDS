@@ -18,8 +18,12 @@ jobs:
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
-    - name: Set up CMake
-      uses: lukka/get-cmake@latest
+    - name: Set up MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: ucrt64
+        update: true
+        pacboy: gcc:p cmake:p
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
@@ -27,7 +31,6 @@ jobs:
     - name: Build
       uses: lukka/run-cmake@v10
       with:
-        useShell: C:\msys64\ucrt64\bin\bash.exe
         configurePreset: release-mingw-x86_64
         buildPreset: release-mingw-x86_64
     - uses: actions/upload-artifact@v1
