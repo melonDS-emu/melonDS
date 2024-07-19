@@ -4,40 +4,49 @@ on:
   push:
     branches:
       - master
+      - ci/windows-vcpkg
   pull_request:
     branches:
       - master
 
-env:
-  BUILD_TYPE: Release
-
 jobs:
   build:
-
     runs-on: windows-latest
-    
     defaults:
       run:
         shell: msys2 {0}
     steps:
-    - uses: actions/checkout@v1
-    - uses: msys2/setup-msys2@v2
+    - name: Check out sources
+      uses: actions/checkout@v3
+    - name: Set up CMake
+      uses: lukka/get-cmake@latest
+    - name: Set up vcpkg
+      uses: lukka/run-vcpkg@v11
       with:
-          msystem: MINGW64
-          update: true
-
-    - name: Install dependencies
-      run: pacman -Sq --noconfirm git pkgconf mingw-w64-x86_64-{cmake,SDL2,qt5-static,libarchive,toolchain}
-
-    - name: Configure
-      working-directory: ${{runner.workspace}}
-      run: cmake -B build $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=C:/tools/msys64/mingw64/qt5-static
-
-    - name: Make
-      working-directory: ${{runner.workspace}}/build
-      run: cmake --build .
-
-    - uses: actions/upload-artifact@v1
+        vcpkgGitCommitId: 53bef8994c541b6561884a8395ea35715ece75db
+    - name: Build
+      uses: lukka/run-cmake@v10
       with:
-        name: melonDS-windows-x86_64
-        path: ${{runner.workspace}}\build\melonDS.exe
+        configurePreset: release
+        buildPreset: release
+#    - uses: actions/checkout@v1
+#    - uses: msys2/setup-msys2@v2
+#      with:
+#          msystem: MINGW64
+#          update: true
+#
+#    - name: Install dependencies
+#      run: pacman -Sq --noconfirm git pkgconf mingw-w64-x86_64-{cmake,SDL2,qt5-static,libarchive,toolchain}
+#
+#    - name: Configure
+#      working-directory: ${{runner.workspace}}
+#      run: cmake -B build $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=C:/tools/msys64/mingw64/qt5-static
+#
+#    - name: Make
+#      working-directory: ${{runner.workspace}}/build
+#      run: cmake --build .
+#
+#    - uses: actions/upload-artifact@v1
+#      with:
+#        name: melonDS-windows-x86_64
+#        path: ${{runner.workspace}}\build\melonDS.exe
