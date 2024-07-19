@@ -4,7 +4,9 @@ set(_DEFAULT_VCPKG_ROOT "${CMAKE_SOURCE_DIR}/vcpkg")
 set(VCPKG_ROOT "${_DEFAULT_VCPKG_ROOT}" CACHE STRING "The path to the vcpkg repository")
 
 if (VCPKG_ROOT STREQUAL "${_DEFAULT_VCPKG_ROOT}")
-    file(LOCK "${_DEFAULT_VCPKG_ROOT}" DIRECTORY GUARD FILE)
+    if (APPLE) # this doesn't work on non-macOS
+        file(LOCK "${_DEFAULT_VCPKG_ROOT}" DIRECTORY GUARD FILE)
+    endif()
     FetchContent_Declare(vcpkg
         GIT_REPOSITORY "https://github.com/Microsoft/vcpkg.git"
         GIT_TAG 2024.01.12
