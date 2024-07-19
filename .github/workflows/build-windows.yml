@@ -32,10 +32,10 @@ jobs:
       run: cmake --preset=release-mingw-x86_64
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v4
       with:
         name: melonDS-windows-x86_64
-        path: ${{runner.workspace}}\build\release-mingw-x86_64\melonDS.exe
+        path: .\build\release-mingw-x86_64\melonDS.exe
 #    - uses: actions/checkout@v1
 #    - uses: msys2/setup-msys2@v2
 #      with:
