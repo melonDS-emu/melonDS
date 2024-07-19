@@ -52,8 +52,8 @@
       "configurePreset": "release-vcpkg"
     },
     {
-      "name": "release-mingw",
-      "configurePreset": "release-mingw"
+      "name": "release-mingw-x86_64",
+      "configurePreset": "release-mingw-x86_64"
     },
     {
       "name": "release-mac-x86_64",
