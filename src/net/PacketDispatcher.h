@@ -19,6 +19,8 @@
 #ifndef PACKETDISPATCHER_H
 #define PACKETDISPATCHER_H
 
+#include <array>
+#include <memory>
 #include "Platform.h"
 #include "types.h"
 #include "FIFO.h"
@@ -42,7 +44,7 @@ public:
 private:
     melonDS::Platform::Mutex* mutex;
     melonDS::u16 instanceMask;
-    PacketQueue* packetQueues[16];
+    std::array<std::unique_ptr<PacketQueue>, 16> packetQueues {};
 };
 
 #endif // PACKETDISPATCHER_H
