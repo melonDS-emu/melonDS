@@ -27,8 +27,8 @@ jobs:
     - name: Build
       uses: lukka/run-cmake@v10
       with:
-        configurePreset: release
-        buildPreset: release
+        configurePreset: release-mingw
+        buildPreset: release-mingw
 #    - uses: actions/checkout@v1
 #    - uses: msys2/setup-msys2@v2
 #      with:
