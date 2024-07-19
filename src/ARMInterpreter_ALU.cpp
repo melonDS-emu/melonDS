@@ -777,7 +777,7 @@ void A_MUL(ARM* cpu)
     if (cpu->Num == 0)
     {
         if (cpu->CurInstr & (1<<20))
-            ((ARMv5*)cpu)->AddCycles_CIF(1, 2);
+            ((ARMv5*)cpu)->AddCycles_CIL(1, 2);
         else
             cpu->AddCycles_CI(1);
     }
@@ -812,7 +812,7 @@ void A_MLA(ARM* cpu)
     if (cpu->Num == 0)
     {
         if (cpu->CurInstr & (1<<20))
-            ((ARMv5*)cpu)->AddCycles_CIF(1, 2);
+            ((ARMv5*)cpu)->AddCycles_CIL(1, 2);
         else
             cpu->AddCycles_CI(1);
     }
@@ -847,9 +847,9 @@ void A_UMULL(ARM* cpu)
     if (cpu->Num == 0)
     {
         if (cpu->CurInstr & (1<<20))
-            ((ARMv5*)cpu)->AddCycles_CIF(1, 3);
+            ((ARMv5*)cpu)->AddCycles_CIL(1, 2);
         else
-            ((ARMv5*)cpu)->AddCycles_CIF(1, 1);
+            cpu->AddCycles_CI(1);
     }
     else
     {
@@ -886,9 +886,9 @@ void A_UMLAL(ARM* cpu)
     if (cpu->Num == 0)
     {
         if (cpu->CurInstr & (1<<20))
-            ((ARMv5*)cpu)->AddCycles_CIF(1, 3);
+            ((ARMv5*)cpu)->AddCycles_CIL(1, 2);
         else
-            ((ARMv5*)cpu)->AddCycles_CIF(1, 1);
+            cpu->AddCycles_CI(1);
     }
     else
     {
@@ -922,9 +922,9 @@ void A_SMULL(ARM* cpu)
     if (cpu->Num == 0)
     {
         if (cpu->CurInstr & (1<<20))
-            ((ARMv5*)cpu)->AddCycles_CIF(1, 3);
+            ((ARMv5*)cpu)->AddCycles_CIL(1, 2);
         else
-            ((ARMv5*)cpu)->AddCycles_CIF(1, 1);
+            cpu->AddCycles_CI(1);
     }
     else
     {
@@ -961,9 +961,9 @@ void A_SMLAL(ARM* cpu)
     if (cpu->Num == 0)
     {
         if (cpu->CurInstr & (1<<20))
-            ((ARMv5*)cpu)->AddCycles_CIF(1, 3);
+            ((ARMv5*)cpu)->AddCycles_CIL(1, 2);
         else
-            ((ARMv5*)cpu)->AddCycles_CIF(1, 1);
+            cpu->AddCycles_CI(1);
     }
     else
     {
@@ -1497,7 +1497,7 @@ void T_MUL_REG(ARM* cpu)
 
     if (cpu->Num == 0)
     {
-        ((ARMv5*)cpu)->AddCycles_CIF(1, 2);
+        ((ARMv5*)cpu)->AddCycles_CIL(1, 2); // checkme?
     }
     else
     {
