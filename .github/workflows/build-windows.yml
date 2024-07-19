@@ -32,7 +32,7 @@ jobs:
       uses: lukka/run-cmake@v10
       with:
         configurePresetAdditionalArgs: |
-          -GMSYS2 Makefiles
+          -GMSYS2\ Makefiles
         configurePreset: release-mingw-x86_64
         buildPreset: release-mingw-x86_64
     - uses: actions/upload-artifact@v1
