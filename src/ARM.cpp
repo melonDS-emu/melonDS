@@ -322,15 +322,15 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         if (addr & 0x2)
         {
             NextInstr[0] = CodeRead32(addr-2, true) >> 16;
-            NDS.ARM9Timestamp += CodeCycles;
+            Cycles += CodeCycles;
             NextInstr[1] = CodeRead32(addr+2, false);
-            NDS.ARM9Timestamp += CodeCycles;
+            Cycles += CodeCycles;
         }
         else
         {
             NextInstr[0] = CodeRead32(addr, true);
             NextInstr[1] = NextInstr[0] >> 16;
-            NDS.ARM9Timestamp += CodeCycles;
+            Cycles += CodeCycles;
         }
 
         CPSR |= 0x20;
@@ -343,9 +343,9 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         if (newregion != oldregion) SetupCodeMem(addr);
 
         NextInstr[0] = CodeRead32(addr, true);
-        NDS.ARM9Timestamp += CodeCycles;
+        Cycles += CodeCycles;
         NextInstr[1] = CodeRead32(addr+4, false);
-        NDS.ARM9Timestamp += CodeCycles;
+        Cycles += CodeCycles;
 
         CPSR &= ~0x20;
     }
@@ -695,8 +695,8 @@ void ARMv5::Execute()
         }*/
         if (IRQ) TriggerIRQ();
 
-        //NDS.ARM9Timestamp += Cycles;
-        //Cycles = 0;
+        NDS.ARM9Timestamp += Cycles;
+        Cycles = 0;
     }
 
     if (Halted == 2)
@@ -1335,7 +1335,7 @@ void ARMv5::AddCycles(s32 numX)
 
     if (MemoryCycles != 0)
     {
-        NDS.ARM9Timestamp += MemoryOverflow;
+        Cycles += MemoryOverflow;
     }
 
     if (MemoryType != 0)
@@ -1365,7 +1365,7 @@ void ARMv5::AddCycles(s32 numX)
 
 
         if ((MemoryRegion != Mem9_ITCM) || MemoryRegion != Mem9_DTCM)
-            NDS.ARM9Timestamp = (NDS.ARM9Timestamp + cyclemask) & ~cyclemask; // align with next bus cycle
+            Cycles += ((NDS.ARM9Timestamp + Cycles + cyclemask) & ~cyclemask) - (NDS.ARM9Timestamp + Cycles); // align with next bus cycle
 
         s32 numM = MemoryCycles - early;
 
@@ -1374,28 +1374,29 @@ void ARMv5::AddCycles(s32 numX)
             early += numM;
             numM = 0;
         }
-        NDS.ARM9Timestamp += numM;
+        Cycles += numM;
         
-        u32 delay = ((CodeCycles == Mem9_ITCM) ? 0 : ((NDS.ARM9Timestamp + numX + cyclemask) & ~cyclemask) - (NDS.ARM9Timestamp + numX));
+        u32 delay = ((CodeCycles == Mem9_ITCM) ? 0 : (((NDS.ARM9Timestamp + numX + Cycles + cyclemask) & ~cyclemask) - (NDS.ARM9Timestamp + numX + Cycles)));
 
         s32 numFX = numX + CodeCycles + delay;
 
         if (early > numFX) // note: this whole thing can probably be simplified a fair bit?
             MemoryOverflow = early - numFX;
 
-        NDS.ARM9Timestamp += numFX;
+        Cycles += numFX;
     }
     else
     {
         // todo: handle interlocks
 
-        NDS.ARM9Timestamp += numX;
+        Cycles += numX;
 
         // Add instruction cache here?
         if (CodeRegion != Mem9_ITCM)
-            NDS.ARM9Timestamp = (NDS.ARM9Timestamp + cyclemask) & ~cyclemask; // align with next bus cycle
+            Cycles += ((NDS.ARM9Timestamp + Cycles + cyclemask) & ~cyclemask) - (NDS.ARM9Timestamp + Cycles); // align with next bus cycle
 
-        NDS.ARM9Timestamp += CodeCycles;
+        Cycles += CodeCycles;
+        MemoryOverflow = 0;
     }
 }
 
