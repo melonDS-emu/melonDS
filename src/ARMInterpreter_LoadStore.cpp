@@ -260,11 +260,11 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
-    if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI_LDM(); return;} \
-    u32 val; if (!cpu->DataRead32S(offset+4, &val)) {cpu->AddCycles_CDI_LDM(); return;} \
+    if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI_LDM(true); return;} \
+    u32 val; if (!cpu->DataRead32S(offset+4, &val)) {cpu->AddCycles_CDI_LDM(true); return;} \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
     else cpu->R[r+1] = val; \
-    cpu->AddCycles_CDI_LDM(); \
+    cpu->AddCycles_CDI_LDM(true); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
 #define A_LDRD_POST \
@@ -272,11 +272,11 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
-    if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI_LDM(); return;} \
-    u32 val; if (!cpu->DataRead32S(addr+4, &val)) {cpu->AddCycles_CDI_LDM(); return;} \
+    if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI_LDM(true); return;} \
+    u32 val; if (!cpu->DataRead32S(addr+4, &val)) {cpu->AddCycles_CDI_LDM(true); return;} \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
     else cpu->R[r+1] = val; \
-    cpu->AddCycles_CDI_LDM(); \
+    cpu->AddCycles_CDI_LDM(true); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
 #define A_STRD \
@@ -450,6 +450,7 @@ void A_LDM(ARM* cpu)
     u32 oldbase = base;
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
+    u32 numregs = 0;
 
     if (!(cpu->CurInstr & (1<<23))) // decrement
     {
@@ -477,6 +478,7 @@ void A_LDM(ARM* cpu)
     {
         if (cpu->CurInstr & (1<<i))
         {
+            numregs++;
             if (preinc) base += 4;
             if (!(first ? cpu->DataRead32 (base, &cpu->R[i])
                         : cpu->DataRead32S(base, &cpu->R[i])))
@@ -492,6 +494,7 @@ void A_LDM(ARM* cpu)
     u32 pc;
     if ((cpu->CurInstr & (1<<15)))
     {
+        numregs++;
         if (preinc) base += 4;
         if (!(first ? cpu->DataRead32 (base, &pc)
                     : cpu->DataRead32S(base, &pc)))
@@ -546,7 +549,7 @@ void A_LDM(ARM* cpu)
         cpu->R[baseid] = oldbase;
     }
 
-    cpu->AddCycles_CDI_LDM();
+    cpu->AddCycles_CDI_LDM(numregs > 1);
 }
 
 void A_STM(ARM* cpu)
@@ -848,11 +851,13 @@ void T_POP(ARM* cpu)
 {
     u32 base = cpu->R[13];
     bool first = true;
+    u32 numregs = 0;
 
     for (int i = 0; i < 8; i++)
     {
         if (cpu->CurInstr & (1<<i))
         {
+            numregs++;
             if (!(first ? cpu->DataRead32 (base, &cpu->R[i])
                         : cpu->DataRead32S(base, &cpu->R[i])))
             {
@@ -865,6 +870,7 @@ void T_POP(ARM* cpu)
 
     if (cpu->CurInstr & (1<<8))
     {
+        numregs++;
         u32 pc;
         if (!(first ? cpu->DataRead32 (base, &pc)
                     : cpu->DataRead32S(base, &pc)))
@@ -879,7 +885,7 @@ void T_POP(ARM* cpu)
     cpu->R[13] = base;
 
     dataabort:
-    cpu->AddCycles_CDI_LDM();
+    cpu->AddCycles_CDI_LDM(numregs > 1);
 }
 
 void T_STMIA(ARM* cpu)
@@ -911,11 +917,13 @@ void T_LDMIA(ARM* cpu)
 {
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
+    u32 numregs = 0;
 
     for (int i = 0; i < 8; i++)
     {
         if (cpu->CurInstr & (1<<i))
         {
+            numregs++;
             if (!(first ? cpu->DataRead32 (base, &cpu->R[i])
                         : cpu->DataRead32S(base, &cpu->R[i])))
             {
@@ -930,7 +938,7 @@ void T_LDMIA(ARM* cpu)
         cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
 
     dataabort:
-    cpu->AddCycles_CDI_LDM();
+    cpu->AddCycles_CDI_LDM(numregs > 1);
 }
 
 

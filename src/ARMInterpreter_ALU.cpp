@@ -785,7 +785,7 @@ void A_MUL(ARM* cpu)
         else cycles = 4;
     }
 
-    cpu->AddCycles_CI(cycles);
+    cpu->AddCycles_CI(cycles, !(cpu->CurInstr & (1<<20)));
 }
 
 void A_MLA(ARM* cpu)
@@ -815,7 +815,7 @@ void A_MLA(ARM* cpu)
         else cycles = 5;
     }
 
-    cpu->AddCycles_CI(cycles);
+    cpu->AddCycles_CI(cycles, !(cpu->CurInstr & (1<<20)));
 }
 
 void A_UMULL(ARM* cpu)
@@ -845,7 +845,7 @@ void A_UMULL(ARM* cpu)
         else cycles = 5;
     }
 
-    cpu->AddCycles_CI(cycles);
+    cpu->AddCycles_CI(cycles, !(cpu->CurInstr & (1<<20)));
 }
 
 void A_UMLAL(ARM* cpu)
@@ -878,7 +878,7 @@ void A_UMLAL(ARM* cpu)
         else cycles = 5;
     }
 
-    cpu->AddCycles_CI(cycles);
+    cpu->AddCycles_CI(cycles, !(cpu->CurInstr & (1<<20)));
 }
 
 void A_SMULL(ARM* cpu)
@@ -908,7 +908,7 @@ void A_SMULL(ARM* cpu)
         else cycles = 5;
     }
 
-    cpu->AddCycles_CI(cycles);
+    cpu->AddCycles_CI(cycles, !(cpu->CurInstr & (1<<20)));
 }
 
 void A_SMLAL(ARM* cpu)
@@ -941,7 +941,7 @@ void A_SMLAL(ARM* cpu)
         else cycles = 5;
     }
 
-    cpu->AddCycles_CI(cycles);
+    cpu->AddCycles_CI(cycles, !(cpu->CurInstr & (1<<20)));
 }
 
 void A_SMLAxy(ARM* cpu)
@@ -964,7 +964,7 @@ void A_SMLAxy(ARM* cpu)
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C(1); // TODO: interlock??
 }
 
 void A_SMLAWy(ARM* cpu)
@@ -985,7 +985,7 @@ void A_SMLAWy(ARM* cpu)
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C(1); // TODO: interlock??
 }
 
 void A_SMULxy(ARM* cpu)
@@ -1003,7 +1003,7 @@ void A_SMULxy(ARM* cpu)
     u32 res = ((s16)rm * (s16)rs);
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C(1); // TODO: interlock??
 }
 
 void A_SMULWy(ARM* cpu)
@@ -1019,7 +1019,7 @@ void A_SMULWy(ARM* cpu)
     u32 res = ((s64)(s32)rm * (s16)rs) >> 16;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C(1); // TODO: interlock??
 }
 
 void A_SMLALxy(ARM* cpu)
@@ -1042,7 +1042,7 @@ void A_SMLALxy(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
 
-    cpu->AddCycles_CI(1); // TODO: interlock??
+    cpu->AddCycles_CI(1, 1); // TODO: interlock??
 }
 
 
