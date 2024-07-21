@@ -1305,7 +1305,7 @@ s32 ARMv5::MemoryTimingsLDR()
     }
     else if ((CodeRegion == Mem9_MainRAM) && (CodeRegion == DataRegion))
     {
-        return 0;
+        return 1;
     }
     else return 7;
 }
@@ -1329,7 +1329,7 @@ s32 ARMv5::MemoryTimingsLDM()
             return 4;
 
         case Mem9_MainRAM:
-            return ((CodeRegion == Mem9_MainRAM) ? 0 : 4);
+            return ((CodeRegion == Mem9_MainRAM) ? 1 : 4);
 
         case Mem9_VRAM: // the dsi can toggle the bus width of vram between 32 and 16 bit
             return ((NDS.ARM9ClockShift == 1) || !(((DSi&)NDS).SCFG_EXT[0] & (1<<13))) ? 4 : 2;
@@ -1347,7 +1347,7 @@ s32 ARMv5::MemoryTimingsSTR()
     }
     else if ((CodeRegion == Mem9_MainRAM) && (CodeRegion == DataRegion))
     {
-        return 0;
+        return 1;
     }
     else return ((DataRegion == CodeRegion) ? 5 : 7); // CHECKME: mainram?
 }
@@ -1360,7 +1360,7 @@ s32 ARMv5::MemoryTimingsSTM()
     }
     else if (CodeRegion == Mem9_MainRAM && CodeRegion == DataRegion)
     {
-        return 0;
+        return 1;
     }
     else return (DataRegion == CodeRegion) ? 5 : 7;
 }
@@ -1407,8 +1407,10 @@ void ARMv5::AddCycles(s32 numX)
         s32 numFX = numX + CodeCycles + delay;
 
         if (early < numFX)
+        {
             if (CodeCycles + delay > 1)
                 MemoryOverflow = -1;
+        }
         else MemoryOverflow = early - numFX;
 
         Cycles += numFX;
