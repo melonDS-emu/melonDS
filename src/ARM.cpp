@@ -1445,7 +1445,7 @@ void ARMv5::AddCycles(s32 numX)
             
         Cycles += CodeCycles;
 
-        if ((numX == 0) && (MemoryOverflow > 0))
+        if (numX == 0 && MemoryOverflow >= 0 && CodeCycles == 1)
             MemoryOverflow = 0;
         else MemoryOverflow = -1;
     }

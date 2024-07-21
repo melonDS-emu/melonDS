@@ -1615,9 +1615,9 @@ void NDS::RunTimers(u32 cpu)
     s32 cycles;
 
     if (cpu == 0)
-        cycles = ((ARM9Timestamp + ARM9.Cycles) >> ARM9ClockShift) - TimerTimestamp[0];
+        cycles = ((ARM9Timestamp + ARM9.Cycles + ARM9.DataCycles) >> ARM9ClockShift) - TimerTimestamp[0];
     else
-        cycles = (ARM7Timestamp + ARM7.Cycles) - TimerTimestamp[1];
+        cycles = (ARM7Timestamp + ARM7.Cycles + ARM7.DataCycles) - TimerTimestamp[1];
 
     if (timermask & 0x1) RunTimer((cpu<<2)+0, cycles);
     if (timermask & 0x2) RunTimer((cpu<<2)+1, cycles);
