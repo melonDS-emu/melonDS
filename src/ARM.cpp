@@ -197,10 +197,9 @@ void ARM::Reset()
 void ARMv5::Reset()
 {
     PU_Map = PU_PrivMap;
-    s32 MemoryCycles = 0;
-    s32 MemoryOverflow = 0;
-    u32 MemoryRegion = 0;
-    u32 MemoryType = 0;
+    MemoryOverflow = 0;
+    MemoryType = 0;
+    MemoryQueue = false;
 
     ARM::Reset();
 }
@@ -640,6 +639,22 @@ void ARMv5::Execute()
 
     while (NDS.ARM9Timestamp < NDS.ARM9Target)
     {
+        // memory/multiply
+        /*if (MemoryQueue)
+        {
+            if (CPSR & 0x20) // THUMB
+            {
+                u32 icode = (CurInstr >> 6) & 0x3FF;
+                ARMInterpreter::THUMBInstrTable[icode](this);
+            }
+            else
+            {
+                u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
+                ARMInterpreter::ARMInstrTable[icode](this);
+            }
+            MemoryQueue = false;
+        }*/
+
         if (CPSR & 0x20) // THUMB
         {
             GdbCheckC();
@@ -654,6 +669,17 @@ void ARMv5::Execute()
             // actually execute
             u32 icode = (CurInstr >> 6) & 0x3FF;
             ARMInterpreter::THUMBInstrTable[icode](this);
+
+            NDS.ARM9Timestamp += Cycles;
+            Cycles = 0;
+            
+            // memory/multiply
+            if (MemoryQueue)
+            {
+                //u32 icode = (CurInstr >> 6) & 0x3FF;
+                ARMInterpreter::THUMBInstrTable[icode](this);
+                MemoryQueue = false;
+            }
         }
         else
         {
@@ -677,6 +703,17 @@ void ARMv5::Execute()
             }
             else
                 AddCycles_C();
+
+            NDS.ARM9Timestamp += Cycles;
+            Cycles = 0;
+            
+            // memory/multiply
+            if (MemoryQueue)
+            {
+                u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
+                ARMInterpreter::ARMInstrTable[icode](this);
+                MemoryQueue = false;
+            }
         }
 
         // TODO optimize this shit!!!
@@ -695,8 +732,8 @@ void ARMv5::Execute()
         }*/
         if (IRQ) TriggerIRQ();
 
-        NDS.ARM9Timestamp += Cycles;
-        Cycles = 0;
+        //NDS.ARM9Timestamp += Cycles;
+        //Cycles = 0;
     }
 
     if (Halted == 2)
@@ -1264,9 +1301,9 @@ s32 ARMv5::MemoryTimingsLDR()
 {
     if (CodeRegion == Mem9_ITCM)
     {
-        return ((MemoryRegion == Mem9_ITCM) ? 0 : 2);
+        return ((DataRegion == Mem9_ITCM) ? 0 : 2);
     }
-    else if ((CodeRegion == Mem9_MainRAM) && (CodeRegion == MemoryRegion))
+    else if ((CodeRegion == Mem9_MainRAM) && (CodeRegion == DataRegion))
     {
         return 0;
     }
@@ -1308,7 +1345,7 @@ s32 ARMv5::MemoryTimingsSTR()
     {
         return 2; // CHECKME: does this really not cause contention?
     }
-    else if ((CodeRegion == Mem9_MainRAM) && (CodeRegion == MemoryRegion))
+    else if ((CodeRegion == Mem9_MainRAM) && (CodeRegion == DataRegion))
     {
         return 0;
     }
@@ -1319,9 +1356,9 @@ s32 ARMv5::MemoryTimingsSTM()
 {
     if (CodeRegion == Mem9_ITCM)
     {
-        return (MemoryRegion == Mem9_ITCM) ? -1 : 0;
+        return (DataRegion == Mem9_ITCM) ? -1 : 0;
     }
-    else if (CodeRegion == Mem9_MainRAM && CodeRegion == MemoryRegion)
+    else if (CodeRegion == Mem9_MainRAM && CodeRegion == DataRegion)
     {
         return 0;
     }
@@ -1331,13 +1368,6 @@ s32 ARMv5::MemoryTimingsSTM()
 
 void ARMv5::AddCycles(s32 numX)
 {
-    u32 cyclemask = ((NDS.ARM9ClockShift == 2) ? 3 : 1);
-
-    if (MemoryCycles != 0)
-    {
-        Cycles += MemoryOverflow;
-    }
-
     if (MemoryType != 0)
     {
         // todo: handle interlocks
@@ -1361,13 +1391,9 @@ void ARMv5::AddCycles(s32 numX)
                 break;
         }
 
-        if (NDS.ARM9ClockShift == 2) early *= 2; // CHECKME
+        if (NDS.ARM9RoundMask == 3) early *= 2; // CHECKME
 
-
-        if ((MemoryRegion != Mem9_ITCM) || MemoryRegion != Mem9_DTCM)
-            Cycles += ((NDS.ARM9Timestamp + Cycles + cyclemask) & ~cyclemask) - (NDS.ARM9Timestamp + Cycles); // align with next bus cycle
-
-        s32 numM = MemoryCycles - early;
+        s32 numM = DataCycles - early;
 
         if (numM < 0)
         {
@@ -1376,83 +1402,91 @@ void ARMv5::AddCycles(s32 numX)
         }
         Cycles += numM;
         
-        u32 delay = ((CodeCycles == Mem9_ITCM) ? 0 : (((NDS.ARM9Timestamp + numX + Cycles + cyclemask) & ~cyclemask) - (NDS.ARM9Timestamp + numX + Cycles)));
+        u32 delay = ((CodeCycles == Mem9_ITCM) ? 0 : (((NDS.ARM9Timestamp + numX + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + numX + Cycles)));
 
         s32 numFX = numX + CodeCycles + delay;
 
-        if (early > numFX) // note: this whole thing can probably be simplified a fair bit?
-            MemoryOverflow = early - numFX;
+        if (early < numFX)
+            MemoryOverflow = -1;
+        else MemoryOverflow = early - numFX;
 
         Cycles += numFX;
+        MemoryType = 0;
     }
     else
     {
         // todo: handle interlocks
 
+        // we dont handle the case of a memoryoverflow of 0 because it should be impossible without a memory, fetch, and execute stage of 1 cycle.
+        // if you can get this case with an execute stage that ends before the others it should be possible for the next execute and "faux" memory stage to overlap them by 1?
+        if (MemoryOverflow > 0) // memory stage ended after fetch stage (this should only be possible by 1 cycle at most?)
+        {
+            // if a "true" memory stage if *not* occuring
+            if (DataCycles != 0)
+            {
+                Cycles += MemoryOverflow;
+            }
+        }
+        // seems like an execute/memory stage can begin on the cycle a fetch ends?
+        else if (MemoryOverflow < 0) // memory stage ended before fetch stage
+        {
+            numX -= 1;
+            if (numX < 0) numX = 0;
+        }
+
         Cycles += numX;
 
         // Add instruction cache here?
         if (CodeRegion != Mem9_ITCM)
-            Cycles += ((NDS.ARM9Timestamp + Cycles + cyclemask) & ~cyclemask) - (NDS.ARM9Timestamp + Cycles); // align with next bus cycle
-
+            Cycles += ((NDS.ARM9Timestamp + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + Cycles); // align with next bus cycle
+            
         Cycles += CodeCycles;
-        MemoryOverflow = 0;
+
+        if ((numX == 0) && (MemoryOverflow > 0))
+            MemoryOverflow = 0;
+        else MemoryOverflow = -1;
     }
+
+    DataCycles = 0;
 }
 
-void ARMv5::AddCycles_C(s32 numM)
+void ARMv5::AddCycles_C()
 {
     AddCycles(0);
-    MemoryCycles = numM;
-    MemoryType = 0;
 }
 
-void ARMv5::AddCycles_CI(s32 numI, s32 numM)
+void ARMv5::AddCycles_CI(s32 numI)
 {
     AddCycles(numI);
-    MemoryCycles = numM;
-    MemoryType = 0;
 }
 
 void ARMv5::AddCycles_CD_STR()
 {
-    AddCycles(0);
-    MemoryRegion = DataRegion;
-    MemoryCycles = DataCycles;
     MemoryType = 4;
 }
 
 void ARMv5::AddCycles_CD_STM()
 {
-    AddCycles(0);
-    MemoryRegion = DataRegion;
-    MemoryCycles = DataCycles;
     MemoryType = 5;
 }
 
 void ARMv5::AddCycles_CDI_LDR()
 {
-    AddCycles(0);
-    MemoryRegion = DataRegion;
-    MemoryCycles = DataCycles;
     MemoryType = 1;
 }
 
 void ARMv5::AddCycles_CDI_LDM(bool multireg)
 {
-    AddCycles(0);
-    MemoryRegion = DataRegion;
-    MemoryCycles = DataCycles;
     MemoryType = (multireg ? 3 : 2);
 }
 
-void ARMv4::AddCycles_C(s32 numM)
+void ARMv4::AddCycles_C()
 {
     // code only. this code fetch is sequential.
     Cycles += NDS.ARM7MemTimings[CodeCycles][(CPSR&0x20)?1:3];
 }
 
-void ARMv4::AddCycles_CI(s32 num, s32 numM)
+void ARMv4::AddCycles_CI(s32 num)
 {
     // code+internal. results in a nonseq code fetch.
     Cycles += NDS.ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2] + num;

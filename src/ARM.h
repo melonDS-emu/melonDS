@@ -138,8 +138,8 @@ public:
     virtual bool DataWrite32(u32 addr, u32 val) = 0;
     virtual bool DataWrite32S(u32 addr, u32 val, bool dataabort = false) = 0;
 
-    virtual void AddCycles_C(s32 numM = 0) = 0;
-    virtual void AddCycles_CI(s32 numI, s32 numM = 0) = 0;
+    virtual void AddCycles_C() = 0;
+    virtual void AddCycles_CI(s32 numI) = 0;
     virtual void AddCycles_CDI_LDR() = 0;
     virtual void AddCycles_CDI_LDM(bool multireg) = 0;
     virtual void AddCycles_CDI_SWP() = 0;
@@ -268,8 +268,8 @@ public:
     s32 MemoryTimingsSTR();
     s32 MemoryTimingsSTM();
     void AddCycles(s32 numX);
-    void AddCycles_C(s32 numM = 0) override;
-    void AddCycles_CI(s32 numI, s32 numM = 0) override;
+    void AddCycles_C() override;
+    void AddCycles_CI(s32 numI) override;
     void AddCycles_CDI_LDR() override;
     void AddCycles_CDI_LDM(bool multireg) override;
     void AddCycles_CDI_SWP() override { AddCycles_CD_STR(); } // uses the same behavior as str
@@ -338,11 +338,10 @@ public:
     u8* CurICacheLine;
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
-
-    s32 MemoryCycles;
+    
+    bool MemoryQueue;
+    u8 MemoryType; // 0 none/other - 1 ldr - 2 ldm(1 reg) - 3 ldm(>1 reg) - 4 str - 5 stm
     s32 MemoryOverflow;
-    u32 MemoryRegion;
-    u32 MemoryType; // 0 none/mult - 1 ldr - 2 ldm(1 reg) - 3 ldm(>1 reg) - 4 str - 5 stm
 
 #ifdef GDBSTUB_ENABLED
     u32 ReadMem(u32 addr, int size) override;
@@ -391,8 +390,8 @@ public:
     bool DataWrite16(u32 addr, u16 val) override;
     bool DataWrite32(u32 addr, u32 val) override;
     bool DataWrite32S(u32 addr, u32 val, bool dataabort = false) override;
-    void AddCycles_C(s32 numM = 0) override;
-    void AddCycles_CI(s32 num, s32 numM = 0) override;
+    void AddCycles_C() override;
+    void AddCycles_CI(s32 num) override;
     void AddCycles_CDI();
     void AddCycles_CDI_LDR() override { AddCycles_CDI(); }
     void AddCycles_CDI_LDM(bool multireg) override { AddCycles_CDI(); }

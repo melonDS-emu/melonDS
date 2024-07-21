@@ -1277,14 +1277,22 @@ void DSi::ApplyNewRAMSize(u32 size)
 
 void DSi::Set_SCFG_Clock9(u16 val)
 {
-    ARM9Timestamp >>= ARM9ClockShift;
+    ARM9Timestamp >>= ARM9ClockShift; // this looks wrong to me.
     ARM9Target    >>= ARM9ClockShift;
 
     Log(LogLevel::Debug, "CLOCK9=%04X\n", val);
     SCFG_Clock9 = val & 0x0187;
 
-    if (SCFG_Clock9 & (1<<0)) ARM9ClockShift = 2;
-    else                      ARM9ClockShift = 1;
+    if (SCFG_Clock9 & (1<<0))
+    {
+        ARM9ClockShift = 2;
+        ARM9RoundMask = 3;
+    }
+    else
+    {
+        ARM9ClockShift = 1;
+        ARM9RoundMask = 1;
+    }
 
     ARM9Timestamp <<= ARM9ClockShift;
     ARM9Target    <<= ARM9ClockShift;

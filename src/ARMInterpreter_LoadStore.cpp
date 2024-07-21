@@ -160,60 +160,120 @@ namespace melonDS::ARMInterpreter
 \
 void A_##x##_IMM(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_WB_CALC_OFFSET_IMM \
     A_##x \
 } \
 \
 void A_##x##_REG_LSL(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_WB_CALC_OFFSET_REG(LSL_IMM) \
     A_##x \
 } \
 \
 void A_##x##_REG_LSR(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_WB_CALC_OFFSET_REG(LSR_IMM) \
     A_##x \
 } \
 \
 void A_##x##_REG_ASR(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_WB_CALC_OFFSET_REG(ASR_IMM) \
     A_##x \
 } \
 \
 void A_##x##_REG_ROR(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_WB_CALC_OFFSET_REG(ROR_IMM) \
     A_##x \
 } \
 \
 void A_##x##_POST_IMM(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_WB_CALC_OFFSET_IMM \
     A_##x##_POST \
 } \
 \
 void A_##x##_POST_REG_LSL(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_WB_CALC_OFFSET_REG(LSL_IMM) \
     A_##x##_POST \
 } \
 \
 void A_##x##_POST_REG_LSR(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_WB_CALC_OFFSET_REG(LSR_IMM) \
     A_##x##_POST \
 } \
 \
 void A_##x##_POST_REG_ASR(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_WB_CALC_OFFSET_REG(ASR_IMM) \
     A_##x##_POST \
 } \
 \
 void A_##x##_POST_REG_ROR(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_WB_CALC_OFFSET_REG(ROR_IMM) \
     A_##x##_POST \
 }
@@ -366,23 +426,47 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 \
 void A_##x##_IMM(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_HD_CALC_OFFSET_IMM \
     A_##x \
 } \
 \
 void A_##x##_REG(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_HD_CALC_OFFSET_REG \
     A_##x \
 } \
 void A_##x##_POST_IMM(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_HD_CALC_OFFSET_IMM \
     A_##x##_POST \
 } \
 \
 void A_##x##_POST_REG(ARM* cpu) \
 { \
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue)) \
+    { \
+        ((ARMv5*)cpu)->MemoryQueue = true; \
+        cpu->AddCycles_C(); \
+        return; \
+    } \
     A_HD_CALC_OFFSET_REG \
     A_##x##_POST \
 }
@@ -398,6 +482,13 @@ A_IMPLEMENT_HD_LDRSTR(LDRSH)
 
 void A_SWP(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     if ((cpu->CurInstr & 0xF) == 15) rm += 4;
@@ -420,6 +511,13 @@ void A_SWP(ARM* cpu)
 
 void A_SWPB(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
     u32 rm = cpu->R[cpu->CurInstr & 0xF] & 0xFF;
     if ((cpu->CurInstr & 0xF) == 15) rm += 4;
@@ -444,6 +542,13 @@ void A_SWPB(ARM* cpu)
 
 void A_LDM(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 baseid = (cpu->CurInstr >> 16) & 0xF;
     u32 base = cpu->R[baseid];
     u32 wbbase;
@@ -554,6 +659,13 @@ void A_LDM(ARM* cpu)
 
 void A_STM(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 baseid = (cpu->CurInstr >> 16) & 0xF;
     u32 base = cpu->R[baseid];
     u32 oldbase = base;
@@ -645,6 +757,13 @@ void A_STM(ARM* cpu)
 
 void T_LDR_PCREL(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 addr = (cpu->R[15] & ~0x2) + ((cpu->CurInstr & 0xFF) << 2);
     cpu->DataRead32(addr, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
 
@@ -654,6 +773,13 @@ void T_LDR_PCREL(ARM* cpu)
 
 void T_STR_REG(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     cpu->DataWrite32(addr, cpu->R[cpu->CurInstr & 0x7]);
 
@@ -662,6 +788,13 @@ void T_STR_REG(ARM* cpu)
 
 void T_STRB_REG(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     cpu->DataWrite8(addr, cpu->R[cpu->CurInstr & 0x7]);
 
@@ -670,6 +803,13 @@ void T_STRB_REG(ARM* cpu)
 
 void T_LDR_REG(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
 
     u32 val;
@@ -681,6 +821,13 @@ void T_LDR_REG(ARM* cpu)
 
 void T_LDRB_REG(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     cpu->DataRead8(addr, &cpu->R[cpu->CurInstr & 0x7]);
 
@@ -690,6 +837,13 @@ void T_LDRB_REG(ARM* cpu)
 
 void T_STRH_REG(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     cpu->DataWrite16(addr, cpu->R[cpu->CurInstr & 0x7]);
 
@@ -698,6 +852,13 @@ void T_STRH_REG(ARM* cpu)
 
 void T_LDRSB_REG(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     if (cpu->DataRead8(addr, &cpu->R[cpu->CurInstr & 0x7]))
         cpu->R[cpu->CurInstr & 0x7] = (s32)(s8)cpu->R[cpu->CurInstr & 0x7];
@@ -707,6 +868,13 @@ void T_LDRSB_REG(ARM* cpu)
 
 void T_LDRH_REG(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     cpu->DataRead16(addr, &cpu->R[cpu->CurInstr & 0x7]);
 
@@ -715,6 +883,13 @@ void T_LDRH_REG(ARM* cpu)
 
 void T_LDRSH_REG(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     if (cpu->DataRead16(addr, &cpu->R[cpu->CurInstr & 0x7]))
         cpu->R[cpu->CurInstr & 0x7] = (s32)(s16)cpu->R[cpu->CurInstr & 0x7];
@@ -725,6 +900,13 @@ void T_LDRSH_REG(ARM* cpu)
 
 void T_STR_IMM(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 offset = (cpu->CurInstr >> 4) & 0x7C;
     offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
 
@@ -734,6 +916,13 @@ void T_STR_IMM(ARM* cpu)
 
 void T_LDR_IMM(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 offset = (cpu->CurInstr >> 4) & 0x7C;
     offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
 
@@ -745,6 +934,13 @@ void T_LDR_IMM(ARM* cpu)
 
 void T_STRB_IMM(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 offset = (cpu->CurInstr >> 6) & 0x1F;
     offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
 
@@ -754,6 +950,13 @@ void T_STRB_IMM(ARM* cpu)
 
 void T_LDRB_IMM(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 offset = (cpu->CurInstr >> 6) & 0x1F;
     offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
 
@@ -764,6 +967,13 @@ void T_LDRB_IMM(ARM* cpu)
 
 void T_STRH_IMM(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 offset = (cpu->CurInstr >> 5) & 0x3E;
     offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
 
@@ -773,6 +983,13 @@ void T_STRH_IMM(ARM* cpu)
 
 void T_LDRH_IMM(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 offset = (cpu->CurInstr >> 5) & 0x3E;
     offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
 
@@ -783,6 +1000,13 @@ void T_LDRH_IMM(ARM* cpu)
 
 void T_STR_SPREL(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 offset = (cpu->CurInstr << 2) & 0x3FC;
     offset += cpu->R[13];
 
@@ -792,6 +1016,13 @@ void T_STR_SPREL(ARM* cpu)
 
 void T_LDR_SPREL(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 offset = (cpu->CurInstr << 2) & 0x3FC;
     offset += cpu->R[13];
 
@@ -802,6 +1033,13 @@ void T_LDR_SPREL(ARM* cpu)
 
 void T_PUSH(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     int nregs = 0;
     bool first = true;
 
@@ -849,6 +1087,13 @@ void T_PUSH(ARM* cpu)
 
 void T_POP(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 base = cpu->R[13];
     bool first = true;
     u32 numregs = 0;
@@ -890,6 +1135,13 @@ void T_POP(ARM* cpu)
 
 void T_STMIA(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
 
@@ -915,6 +1167,13 @@ void T_STMIA(ARM* cpu)
 
 void T_LDMIA(ARM* cpu)
 {
+    if (cpu->Num != 1 && !(((ARMv5*)cpu)->MemoryQueue))
+    {
+        ((ARMv5*)cpu)->MemoryQueue = true;
+        cpu->AddCycles_C();
+        return;
+    }
+
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
     u32 numregs = 0;

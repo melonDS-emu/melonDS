@@ -248,6 +248,7 @@ public: // TODO: Encapsulate the rest of these members
     u64 ARM9Timestamp, ARM9Target;
     u64 ARM7Timestamp, ARM7Target;
     u32 ARM9ClockShift;
+    u32 ARM9RoundMask;
 
     u32 IME[2];
     u32 IE[2];
