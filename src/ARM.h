@@ -265,16 +265,17 @@ public:
 
     s32 MemoryTimingsLDR();
     s32 MemoryTimingsLDM();
+    s32 MemoryTimingsLDMSingle();
     s32 MemoryTimingsSTR();
     s32 MemoryTimingsSTM();
     void AddCycles(s32 numX);
-    void AddCycles_C() override;
-    void AddCycles_CI(s32 numI) override;
-    void AddCycles_CDI_LDR() override;
-    void AddCycles_CDI_LDM(bool multireg) override;
+    void AddCycles_C() override { AddCycles(0); }
+    void AddCycles_CI(s32 numI) override { AddCycles(numI); }
+    void AddCycles_CDI_LDR() override { MemoryType = 1; }
+    void AddCycles_CDI_LDM(bool multireg) override { MemoryType = (multireg ? 3 : 2); }
     void AddCycles_CDI_SWP() override { AddCycles_CD_STR(); } // uses the same behavior as str
-    void AddCycles_CD_STR() override;
-    void AddCycles_CD_STM() override;
+    void AddCycles_CD_STR() override { MemoryType = 4; }
+    void AddCycles_CD_STM() override { MemoryType = 5; }
 
     void GetCodeMemRegion(u32 addr, MemRegion* region);
 

@@ -1315,7 +1315,6 @@ s32 ARMv5::MemoryTimingsLDM()
     switch (DataRegion)
     {
         case 0: // background region;
-        case Mem9_DTCM:
         case Mem9_BIOS:
         case Mem9_WRAM:
         case Mem9_IO:
@@ -1327,6 +1326,9 @@ s32 ARMv5::MemoryTimingsLDM()
         case Mem9_GBAROM:
         case Mem9_GBARAM:
             return 4;
+            
+        case Mem9_DTCM:
+            return ((CodeRegion == Mem9_ITCM) ? 1 : 2);
 
         case Mem9_MainRAM:
             return ((CodeRegion == Mem9_MainRAM) ? 1 : 4);
@@ -1339,17 +1341,32 @@ s32 ARMv5::MemoryTimingsLDM()
     }
 }
 
+s32 ARMv5::MemoryTimingsLDMSingle()
+{
+    s32 ret = 1;
+    if (DataRegion == Mem9_ITCM)
+    {
+        ret -= 2;
+    }
+    else if (DataRegion == Mem9_DTCM && CodeRegion == Mem9_ITCM) ret -= 1;
+
+    return ret;
+}
+
 s32 ARMv5::MemoryTimingsSTR()
 {
-    if (CodeRegion == Mem9_ITCM)
+    if ((CodeRegion == DataRegion))
     {
-        return 2; // CHECKME: does this really not cause contention?
+        return ((DataRegion == Mem9_MainRAM) ? 1 : 5);
     }
-    else if ((CodeRegion == Mem9_MainRAM) && (CodeRegion == DataRegion))
-    {
-        return 1;
-    }
-    else return ((DataRegion == CodeRegion) ? 5 : 7); // CHECKME: mainram?
+
+    s32 ret;
+    if (CodeRegion == Mem9_ITCM) ret = 2; // CHECKME: does this really not cause contention?
+    else ret = 7;
+
+    if (DataRegion == Mem9_MainRAM) ret += 4;
+
+    return ret;
 }
 
 s32 ARMv5::MemoryTimingsSTM()
@@ -1378,7 +1395,7 @@ void ARMv5::AddCycles(s32 numX)
                 early = MemoryTimingsLDR();
                 break;
             case 2: // LDM 1 reg
-                early = 1; // CHECKME
+                early = MemoryTimingsLDMSingle();
                 break;
             case 3: // LDM >1 reg
                 early = MemoryTimingsLDM();
@@ -1451,36 +1468,6 @@ void ARMv5::AddCycles(s32 numX)
     }
 
     DataCycles = 0;
-}
-
-void ARMv5::AddCycles_C()
-{
-    AddCycles(0);
-}
-
-void ARMv5::AddCycles_CI(s32 numI)
-{
-    AddCycles(numI);
-}
-
-void ARMv5::AddCycles_CD_STR()
-{
-    MemoryType = 4;
-}
-
-void ARMv5::AddCycles_CD_STM()
-{
-    MemoryType = 5;
-}
-
-void ARMv5::AddCycles_CDI_LDR()
-{
-    MemoryType = 1;
-}
-
-void ARMv5::AddCycles_CDI_LDM(bool multireg)
-{
-    MemoryType = (multireg ? 3 : 2);
 }
 
 void ARMv4::AddCycles_C()
