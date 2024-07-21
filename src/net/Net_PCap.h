@@ -67,8 +67,8 @@ public:
     LibPCap& operator=(LibPCap&&) noexcept;
     ~LibPCap() noexcept = default;
 
-    [[nodiscard]] std::optional<Net_PCap> Open(std::string_view devicename, const Platform::SendPacketCallback& handler) const noexcept;
-    [[nodiscard]] std::optional<Net_PCap> Open(const AdapterData& device, const Platform::SendPacketCallback& handler) const noexcept;
+    [[nodiscard]] std::unique_ptr<Net_PCap> Open(std::string_view devicename, const Platform::SendPacketCallback& handler) const noexcept;
+    [[nodiscard]] std::unique_ptr<Net_PCap> Open(const AdapterData& device, const Platform::SendPacketCallback& handler) const noexcept;
 
     // so that Net_PCap objects can safely outlive LibPCap
     // (because the actual DLL will be kept loaded until no shared_ptrs remain)
@@ -107,6 +107,7 @@ private:
 class Net_PCap : public NetDriver
 {
 public:
+    Net_PCap() noexcept = default;
     ~Net_PCap() noexcept override;
     Net_PCap(const Net_PCap&) = delete;
     Net_PCap& operator=(const Net_PCap&) = delete;
@@ -118,7 +119,6 @@ public:
 private:
     friend class LibPCap;
     static void RXCallback(u_char* userdata, const pcap_pkthdr* header, const u_char* data) noexcept;
-    Net_PCap() noexcept = default;
 
     pcap_t* PCapAdapter = nullptr;
     Platform::SendPacketCallback Callback;

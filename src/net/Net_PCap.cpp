@@ -338,12 +338,12 @@ std::vector<AdapterData> LibPCap::GetAdapters() const noexcept
     return adapters;
 }
 
-std::optional<Net_PCap> LibPCap::Open(const AdapterData& device, const Platform::SendPacketCallback& handler) const noexcept
+std::unique_ptr<Net_PCap> LibPCap::Open(const AdapterData& device, const Platform::SendPacketCallback& handler) const noexcept
 {
     return Open(device.DeviceName, handler);
 }
 
-std::optional<Net_PCap> LibPCap::Open(std::string_view devicename, const Platform::SendPacketCallback& handler) const noexcept
+std::unique_ptr<Net_PCap> LibPCap::Open(std::string_view devicename, const Platform::SendPacketCallback& handler) const noexcept
 {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t* adapter = open_live(devicename.data(), 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
@@ -351,7 +351,7 @@ std::optional<Net_PCap> LibPCap::Open(std::string_view devicename, const Platfor
     {
         errbuf[PCAP_ERRBUF_SIZE - 1] = '\0';
         Log(LogLevel::Error, "PCap: failed to open adapter: %s\n", errbuf);
-        return std::nullopt;
+        return nullptr;
     }
 
     if (int err = setnonblock(adapter, 1, errbuf); err < 0)
@@ -359,16 +359,16 @@ std::optional<Net_PCap> LibPCap::Open(std::string_view devicename, const Platfor
         errbuf[PCAP_ERRBUF_SIZE - 1] = '\0';
         Log(LogLevel::Error, "PCap: failed to set nonblocking mode with %d: %s\n", err, errbuf);
         close(adapter);
-        return std::nullopt;
+        return nullptr;
     }
 
-    Net_PCap pcap;
-    pcap.PCapAdapter = adapter;
-    pcap.Callback = handler;
-    pcap.PCapLib = PCapLib;
-    pcap.close = close;
-    pcap.sendpacket = sendpacket;
-    pcap.dispatch = dispatch;
+    std::unique_ptr<Net_PCap> pcap = std::make_unique<Net_PCap>();
+    pcap->PCapAdapter = adapter;
+    pcap->Callback = handler;
+    pcap->PCapLib = PCapLib;
+    pcap->close = close;
+    pcap->sendpacket = sendpacket;
+    pcap->dispatch = dispatch;
 
     return pcap;
 }

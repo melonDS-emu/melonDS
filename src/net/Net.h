@@ -20,24 +20,18 @@
 #define NET_H
 
 #include <memory>
-#include <string_view>
 
 #include "types.h"
 #include "PacketDispatcher.h"
-#include "Net_PCap.h"
-#include "Net_Slirp.h"
+#include "NetDriver.h"
 
 namespace melonDS
 {
 
-struct AdapterData;
-
 class Net
 {
 public:
-    Net() noexcept;
-    explicit Net(const AdapterData& device) noexcept;
-    explicit Net(std::string_view devicename) noexcept;
+    Net() noexcept = default;
     Net(const Net&) = delete;
     Net& operator=(const Net&) = delete;
     // Not movable because of callbacks that point to this object
@@ -52,12 +46,14 @@ public:
 
     int SendPacket(u8* data, int len, int inst);
     int RecvPacket(u8* data, int inst);
+
+    void SetDriver(std::unique_ptr<NetDriver>&& driver) noexcept;
+    [[nodiscard]] std::unique_ptr<NetDriver>& GetDriver() noexcept { return NetDriver; }
+    [[nodiscard]] const std::unique_ptr<NetDriver>& GetDriver() const noexcept { return NetDriver; }
+
 private:
     PacketDispatcher Dispatcher {};
-    std::optional<LibPCap> LibPCap = std::nullopt;
-    std::optional<Net_PCap> PCap = std::nullopt;
-    std::unique_ptr<Net_Slirp> Slirp = nullptr;
-
+    std::unique_ptr<NetDriver> NetDriver = nullptr;
 };
 
 }

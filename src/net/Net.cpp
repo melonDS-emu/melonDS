@@ -30,26 +30,6 @@ namespace melonDS
 using Platform::Log;
 using Platform::LogLevel;
 
-Net::Net() noexcept
-{
-    Slirp = std::make_unique<Net_Slirp>(
-        [this](const void* buf, int len) {
-            this->RXEnqueue(buf, len);
-    });
-}
-
-Net::Net(const AdapterData& device) noexcept : Net(device.DeviceName)
-{
-}
-
-Net::Net(std::string_view devicename) noexcept
-{
-    LibPCap = LibPCap::New();
-    PCap = LibPCap->Open(devicename, [this](const void* buf, int len) {
-        this->RXEnqueue(buf, len);
-    });
-}
-
 void Net::RegisterInstance(int inst)
 {
     Dispatcher.registerInstance(inst);
@@ -69,18 +49,18 @@ void Net::RXEnqueue(const void* buf, int len)
 
 int Net::SendPacket(u8* data, int len, int inst)
 {
-    if (PCap)
-        return PCap->SendPacket(data, len);
-    else
-        return Slirp->SendPacket(data, len);
+    if (!NetDriver)
+        return 0;
+
+    return NetDriver->SendPacket(data, len);
 }
 
 int Net::RecvPacket(u8* data, int inst)
 {
-    if (PCap)
-        PCap->RecvCheck();
-    else
-        Slirp->RecvCheck();
+    if (!NetDriver)
+        return 0;
+
+    NetDriver->RecvCheck();
 
     int ret = 0;
     if (!Dispatcher.recvPacket(nullptr, nullptr, data, &ret, inst))
