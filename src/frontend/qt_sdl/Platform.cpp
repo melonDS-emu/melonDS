@@ -48,6 +48,7 @@
 
 extern CameraManager* camManager[2];
 extern melonDS::LocalMP localMp;
+extern melonDS::Net net;
 
 namespace melonDS::Platform
 {
@@ -512,14 +513,14 @@ u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, void* userdata)
 int Net_SendPacket(u8* data, int len, void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
-    Net::SendPacket(data, len, inst);
+    net.SendPacket(data, len, inst);
     return 0;
 }
 
 int Net_RecvPacket(u8* data, void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
-    return Net::RecvPacket(data, inst);
+    return net.RecvPacket(data, inst);
 }
 
 

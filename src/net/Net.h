@@ -47,7 +47,7 @@ public:
     int SendPacket(u8* data, int len, int inst);
     int RecvPacket(u8* data, int inst);
 
-    void SetDriver(std::unique_ptr<NetDriver>&& driver) noexcept;
+    void SetDriver(std::unique_ptr<NetDriver>&& driver) noexcept { NetDriver = std::move(driver); }
     [[nodiscard]] std::unique_ptr<NetDriver>& GetDriver() noexcept { return NetDriver; }
     [[nodiscard]] const std::unique_ptr<NetDriver>& GetDriver() const noexcept { return NetDriver; }
 

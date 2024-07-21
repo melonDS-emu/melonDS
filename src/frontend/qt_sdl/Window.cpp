@@ -87,6 +87,7 @@ using namespace melonDS;
 
 extern CameraManager* camManager[2];
 extern bool camStarted[2];
+extern LocalMP localMp;
 
 
 QString NdsRomMimeType = "application/x-nintendo-ds-rom";
@@ -1828,7 +1829,7 @@ void MainWindow::onMPSettingsFinished(int res)
 {
     emuInstance->mpAudioMode = globalCfg.GetInt("MP.AudioMode");
     emuInstance->audioMute();
-    LocalMP::SetRecvTimeout(globalCfg.GetInt("MP.RecvTimeout"));
+    localMp.SetRecvTimeout(globalCfg.GetInt("MP.RecvTimeout"));
 
     emuThread->emuUnpause();
 }
