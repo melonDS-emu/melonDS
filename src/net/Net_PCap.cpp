@@ -456,7 +456,7 @@ void Net_PCap::RecvCheck() noexcept
     if (PCapAdapter == nullptr || dispatch == nullptr)
         return;
 
-    dispatch(PCapAdapter, 1, RXCallback, nullptr);
+    dispatch(PCapAdapter, 1, RXCallback, reinterpret_cast<u_char*>(this));
 }
 
 }
