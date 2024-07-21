@@ -1402,12 +1402,13 @@ void ARMv5::AddCycles(s32 numX)
         }
         Cycles += numM;
         
-        u32 delay = ((CodeCycles == Mem9_ITCM) ? 0 : (((NDS.ARM9Timestamp + numX + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + numX + Cycles)));
+        u32 delay = ((CodeRegion == Mem9_ITCM) ? 0 : (((NDS.ARM9Timestamp + numX + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + numX + Cycles)));
 
         s32 numFX = numX + CodeCycles + delay;
 
         if (early < numFX)
-            MemoryOverflow = -1;
+            if (CodeCycles + delay > 1)
+                MemoryOverflow = -1;
         else MemoryOverflow = early - numFX;
 
         Cycles += numFX;
@@ -1421,7 +1422,7 @@ void ARMv5::AddCycles(s32 numX)
         // if you can get this case with an execute stage that ends before the others it should be possible for the next execute and "faux" memory stage to overlap them by 1?
         if (MemoryOverflow > 0) // memory stage ended after fetch stage (this should only be possible by 1 cycle at most?)
         {
-            // if a "true" memory stage if *not* occuring
+            // if a "true" memory stage is *not* occuring
             if (DataCycles != 0)
             {
                 Cycles += MemoryOverflow;
