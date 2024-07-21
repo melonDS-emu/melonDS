@@ -19,7 +19,6 @@
 #ifndef DSI_I2C_H
 #define DSI_I2C_H
 
-#include <array>
 #include "types.h"
 #include "Savestate.h"
 
@@ -88,7 +87,6 @@ public:
     void DoSavestate(Savestate* file) override;
 
     u8 GetBootFlag() const;
-    void SetBootFlag(u8 boot) noexcept { Registers[0x70] = boot; }
 
     bool GetBatteryCharging() const;
     void SetBatteryCharging(bool charging);
@@ -120,9 +118,6 @@ public:
     void DoPowerButtonForceShutdown();
     void DoVolumeSwitchPress(u32 key);
 
-    [[nodiscard]] const std::array<u8, 0x100>& GetRegisters() const noexcept { return Registers; }
-    [[nodiscard]] std::array<u8, 0x100>& GetRegisters() noexcept { return Registers; }
-
     void SetIRQ(u8 irqFlag);
 
     void Acquire() override;
@@ -146,7 +141,7 @@ private:
     bool VolumeSwitchDownFlag ;
     u32 VolumeSwitchKeysDown;
 
-    std::array<u8, 0x100> Registers;
+    u8 Registers[0x100];
     u32 CurPos;
 
     bool GetIRQMode() const;
