@@ -144,7 +144,7 @@ public:
     virtual void AddCycles_CDI_LDM(bool multireg) = 0;
     virtual void AddCycles_CDI_SWP() = 0;
     virtual void AddCycles_CD_STR() = 0;
-    virtual void AddCycles_CD_STM() = 0;
+    virtual void AddCycles_CD_STM(bool multireg) = 0;
 
     void CheckGdbIncoming();
 
@@ -268,6 +268,7 @@ public:
     s32 MemoryTimingsLDMSingle();
     s32 MemoryTimingsSTR();
     s32 MemoryTimingsSTM();
+    s32 MemoryTimingsSTMSingle();
     void AddCycles(s32 numX);
     void AddCycles_C() override { AddCycles(0); }
     void AddCycles_CI(s32 numI) override { AddCycles(numI); }
@@ -275,7 +276,7 @@ public:
     void AddCycles_CDI_LDM(bool multireg) override { MemoryType = (multireg ? 3 : 2); }
     void AddCycles_CDI_SWP() override { AddCycles_CD_STR(); } // uses the same behavior as str
     void AddCycles_CD_STR() override { MemoryType = 4; }
-    void AddCycles_CD_STM() override { MemoryType = 5; }
+    void AddCycles_CD_STM(bool multireg) override { MemoryType = (multireg ? 6 : 5); }
 
     void GetCodeMemRegion(u32 addr, MemRegion* region);
 
@@ -341,7 +342,7 @@ public:
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
     
     bool MemoryQueue;
-    u8 MemoryType; // 0 none/other - 1 ldr - 2 ldm(1 reg) - 3 ldm(>1 reg) - 4 str - 5 stm
+    u8 MemoryType; // 0 none/other - 1 ldr - 2 ldm(1 reg) - 3 ldm(>1 reg) - 4 str - 5 stm(1 reg) - 6 stm(>1 reg)
     s32 MemoryOverflow;
 
 #ifdef GDBSTUB_ENABLED
@@ -399,7 +400,7 @@ public:
     void AddCycles_CDI_SWP() override { AddCycles_CDI(); } // checkme?
     void AddCycles_CD();
     void AddCycles_CD_STR() override { AddCycles_CD(); }
-    void AddCycles_CD_STM() override { AddCycles_CD(); }
+    void AddCycles_CD_STM(bool multireg) override { AddCycles_CD(); }
 
 protected:
     u8 BusRead8(u32 addr) override;

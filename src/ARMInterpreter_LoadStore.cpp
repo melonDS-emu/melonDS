@@ -347,7 +347,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     bool dataabort = !cpu->DataWrite32(offset, cpu->R[r]); /* yes, this data abort behavior is on purpose */ \
     u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
     dataabort |= !cpu->DataWrite32S (offset+4, storeval, dataabort); /* no, i dont understand it either */ \
-    cpu->AddCycles_CD_STM(); \
+    cpu->AddCycles_CD_STM(true); \
     if (dataabort) return; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
@@ -359,7 +359,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     bool dataabort = !cpu->DataWrite32(addr, cpu->R[r]); \
     u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
     dataabort |= !cpu->DataWrite32S (addr+4, storeval, dataabort); \
-    cpu->AddCycles_CD_STM(); \
+    cpu->AddCycles_CD_STM(true); \
     if (dataabort) return; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
@@ -671,6 +671,7 @@ void A_STM(ARM* cpu)
     u32 oldbase = base;
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
+    u32 numregs = 0;
 
     if (!(cpu->CurInstr & (1<<23)))
     {
@@ -702,6 +703,7 @@ void A_STM(ARM* cpu)
     {
         if (cpu->CurInstr & (1<<i))
         {
+            numregs++;
             if (preinc) base += 4;
 
             u32 val;
@@ -745,7 +747,7 @@ void A_STM(ARM* cpu)
         cpu->R[baseid] = oldbase;
     }
 
-    cpu->AddCycles_CD_STM();
+    cpu->AddCycles_CD_STM(numregs > 1);
 }
 
 
@@ -1082,7 +1084,7 @@ void T_PUSH(ARM* cpu)
     cpu->R[13] = wbbase;
 
     dataabort:
-    cpu->AddCycles_CD_STM();
+    cpu->AddCycles_CD_STM(nregs > 1);
 }
 
 void T_POP(ARM* cpu)
@@ -1144,11 +1146,13 @@ void T_STMIA(ARM* cpu)
 
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
+    u32 numregs = 0;
 
     for (int i = 0; i < 8; i++)
     {
         if (cpu->CurInstr & (1<<i))
         {
+            numregs++;
             if (!(first ? cpu->DataWrite32 (base, cpu->R[i])
                         : cpu->DataWrite32S(base, cpu->R[i])))
             {
@@ -1162,7 +1166,7 @@ void T_STMIA(ARM* cpu)
     // TODO: check "Rb included in Rlist" case
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
     dataabort:
-    cpu->AddCycles_CD_STM();
+    cpu->AddCycles_CD_STM(numregs > 1);
 }
 
 void T_LDMIA(ARM* cpu)

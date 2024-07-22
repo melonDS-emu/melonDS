@@ -1312,32 +1312,38 @@ s32 ARMv5::MemoryTimingsLDR()
 
 s32 ARMv5::MemoryTimingsLDM()
 {
+    // a 16 bit bus executes on the 5th to last memory stage cycle
+    // also dont ask me why itcm makes it the 3rd to last cycle? I dont think it should even be working...?
+    s32 bus16 = ((CodeRegion == Mem9_ITCM) ? 2 : 5);
+    // a 32 bit bus executes on the 3rd to last memory stage cycle
+    s32 bus32 = ((CodeRegion == Mem9_ITCM) ? 2 : 3);
+
     switch (DataRegion)
     {
-        case 0: // background region;
-        case Mem9_BIOS:
+        case 0: // background region; // CHECKME
+        case Mem9_BIOS: // CHECKME
         case Mem9_WRAM:
-        case Mem9_IO:
+        case Mem9_IO: // CHECKME
         case Mem9_Pal: // CHECKME
         default:
-            return 2;
+            return bus32;
 
         case Mem9_OAM: // CHECKME
-        case Mem9_GBAROM:
-        case Mem9_GBARAM:
-            return 4;
+        case Mem9_GBAROM: // CHECKME
+        case Mem9_GBARAM: // CHECKME
+            return bus16;
             
         case Mem9_DTCM:
-            return ((CodeRegion == Mem9_ITCM) ? 1 : 2);
+            return ((CodeRegion == Mem9_ITCM) ? 1 : ((~DataCycles & 1) + 1)); // checkme
 
         case Mem9_MainRAM:
-            return ((CodeRegion == Mem9_MainRAM) ? 1 : 4);
+            return ((CodeRegion == Mem9_MainRAM) ? 1 : bus16);
 
         case Mem9_VRAM: // the dsi can toggle the bus width of vram between 32 and 16 bit
-            return ((NDS.ARM9ClockShift == 1) || !(((DSi&)NDS).SCFG_EXT[0] & (1<<13))) ? 4 : 2;
+            return ((NDS.ARM9ClockShift == 1) || !(((DSi&)NDS).SCFG_EXT[0] & (1<<13))) ? bus16 : bus32;
 
         case Mem9_ITCM: // itcm data fetches cannot be done at the same time as a code fetch, it'll even incurr a 1 cycle penalty when executing from itcm (why?)
-            return (CodeRegion == Mem9_ITCM) ? -1 : 0;
+            return ((CodeRegion == Mem9_ITCM) ? -1 : -(DataCycles & 1)); // checkme
     }
 }
 
@@ -1369,19 +1375,37 @@ s32 ARMv5::MemoryTimingsSTR()
     return ret;
 }
 
+s32 ARMv5::MemoryTimingsSTMSingle()
+{
+    if (DataRegion == Mem9_ITCM) return -1;
+
+    if (DataRegion == Mem9_MainRAM) return ((CodeRegion == DataRegion) ? 1 : 5);
+
+    if (CodeRegion == Mem9_ITCM)
+    {
+        if (DataRegion == Mem9_DTCM) return 0;
+        else return 1;
+    }
+    else
+    {
+        return 1;
+    }
+}
+
 s32 ARMv5::MemoryTimingsSTM()
 {
     if (CodeRegion == Mem9_ITCM)
     {
-        return (DataRegion == Mem9_ITCM) ? -1 : 0;
+        if (DataRegion == Mem9_ITCM) return -1;
+        if (DataRegion == Mem9_DTCM) return 1;
+        if (DataRegion == Mem9_MainRAM) return 6;
+        return 2;
     }
-    else if (CodeRegion == Mem9_MainRAM && CodeRegion == DataRegion)
-    {
-        return 1;
-    }
-    else return (DataRegion == CodeRegion) ? 5 : 7;
+    if (DataRegion == Mem9_ITCM) return 0 - (DataCycles & 1);
+    if (DataRegion == Mem9_DTCM) return 2 - (DataCycles & 1);
+    if (DataRegion == Mem9_MainRAM) return ((CodeRegion == DataRegion) ? 1 : 11);
+    return ((DataRegion == CodeRegion) ? 5 : 7);
 }
-
 
 void ARMv5::AddCycles(s32 numX)
 {
@@ -1404,8 +1428,10 @@ void ARMv5::AddCycles(s32 numX)
                 early = MemoryTimingsSTR();
                 break;
             case 5:
-                early = MemoryTimingsSTM();
+                early = MemoryTimingsSTMSingle();
                 break;
+            case 6:
+                early = MemoryTimingsSTM();
         }
 
         if (NDS.ARM9RoundMask == 3) early *= 2; // CHECKME
@@ -1441,7 +1467,7 @@ void ARMv5::AddCycles(s32 numX)
         // if you can get this case with an execute stage that ends before the others it should be possible for the next execute and "faux" memory stage to overlap them by 1?
         if (MemoryOverflow > 0) // memory stage ended after fetch stage (this should only be possible by 1 cycle at most?)
         {
-            // if a "true" memory stage is *not* occuring
+            // if a "true" memory stage is occuring
             if (DataCycles != 0)
             {
                 Cycles += MemoryOverflow;

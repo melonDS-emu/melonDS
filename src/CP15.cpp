@@ -947,7 +947,7 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
 
     // we do this specifically to handle ldms across memory boundaries (specifically itcm -> not dtcm / dtcm -> not itcm) properly
     // could probably be removed if we dont care about a potential 1 (ntr)/3 (twl) cycle inaccuracy in that case
-    Cycles += ((NDS.ARM9Timestamp + DataCycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + DataCycles);
+    Cycles += ((NDS.ARM9Timestamp + Cycles + DataCycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + Cycles + DataCycles);
 
     *val = BusRead32(addr);
     DataCycles += MemTimings[addr >> 12][3];
@@ -1100,7 +1100,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val, bool dataabort)
 
     // we do this specifically to handle ldms across memory boundaries (specifically itcm -> not dtcm / dtcm -> not itcm) properly
     // could probably be removed if we dont care about a potential 1 (ntr)/3 (twl) cycle inaccuracy in that case
-    Cycles += ((NDS.ARM9Timestamp + DataCycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + DataCycles);
+    Cycles += ((NDS.ARM9Timestamp + Cycles + DataCycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + Cycles + DataCycles);
 
     BusWrite32(addr, val);
     DataCycles += MemTimings[addr >> 12][3];
