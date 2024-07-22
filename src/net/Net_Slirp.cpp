@@ -24,6 +24,10 @@
 #include "Platform.h"
 
 #include <libslirp.h>
+
+// "register" is indirectly used by slirp.h but isn't allowed in C++17, this is a workaround
+#define register
+// Needed for Slirp's definition so we can adjust the opaque pointer in the move constructor
 #include <slirp.h>
 
 #ifdef __WIN32__
