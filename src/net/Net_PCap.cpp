@@ -279,16 +279,15 @@ std::vector<AdapterData> LibPCap::GetAdapters() const noexcept
     if (getifaddrs(&addrs) != 0)
     {
         Log(LogLevel::Error, "getifaddrs() shat itself :(\n");
-        return false;
+        return {};
     }
 
-    for (int i = 0; i < NumAdapters; i++)
+    for (const AdapterData& adata : adapters)
     {
-        adata = &Adapters[i];
         struct ifaddrs* curaddr = addrs;
         while (curaddr)
         {
-            if (strcmp(curaddr->ifa_name, adata->DeviceName))
+            if (strcmp(curaddr->ifa_name, adata.DeviceName))
             {
                 curaddr = curaddr->ifa_next;
                 continue;
@@ -305,7 +304,7 @@ std::vector<AdapterData> LibPCap::GetAdapters() const noexcept
             if (af == AF_INET)
             {
                 struct sockaddr_in* sa = (sockaddr_in*)curaddr->ifa_addr;
-                memcpy(adata->IP_v4, &sa->sin_addr, 4);
+                memcpy((void*)adata.IP_v4, &sa->sin_addr, 4);
             }
 #ifdef __linux__
             else if (af == AF_PACKET)
@@ -314,7 +313,7 @@ std::vector<AdapterData> LibPCap::GetAdapters() const noexcept
                 if (sa->sll_halen != 6)
                     Log(LogLevel::Warn, "weird MAC length %d for %s\n", sa->sll_halen, curaddr->ifa_name);
                 else
-                    memcpy(adata->MAC, sa->sll_addr, 6);
+                    memcpy((void*)adata.MAC, sa->sll_addr, 6);
             }
 #else
             else if (af == AF_LINK)
@@ -323,7 +322,7 @@ std::vector<AdapterData> LibPCap::GetAdapters() const noexcept
                 if (sa->sdl_alen != 6)
                     Log(LogLevel::Warn, "weird MAC length %d for %s\n", sa->sdl_alen, curaddr->ifa_name);
                 else
-                    memcpy(adata->MAC, LLADDR(sa), 6);
+                    memcpy((void*)adata.MAC, LLADDR(sa), 6);
             }
 #endif
             curaddr = curaddr->ifa_next;
