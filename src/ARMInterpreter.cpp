@@ -121,7 +121,8 @@ void A_MSR_IMM(ARM* cpu)
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
 
-    cpu->AddCycles_C();
+    if ((cpu->Num != 1) && (cpu->CurInstr & (0x7<<16))) cpu->AddCycles_CI(2);
+    else cpu->AddCycles_C();
 }
 
 void A_MSR_REG(ARM* cpu)
@@ -174,7 +175,8 @@ void A_MSR_REG(ARM* cpu)
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
 
-    cpu->AddCycles_C();
+    if ((cpu->Num != 1) && (cpu->CurInstr & (0x7<<16))) cpu->AddCycles_CI(2);
+    else cpu->AddCycles_C();
 }
 
 void A_MRS(ARM* cpu)
