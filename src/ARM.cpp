@@ -1305,6 +1305,7 @@ s32 ARMv5::MemoryTimingsLDR()
     }
     else if ((CodeRegion == Mem9_MainRAM) && (CodeRegion == DataRegion))
     {
+        // cycle rounding should keep an overlap of code/data fetch from happening with 1 cycle execute stages
         return 1;
     }
     else return 7;
@@ -1340,7 +1341,7 @@ s32 ARMv5::MemoryTimingsLDM()
             return ((CodeRegion == Mem9_MainRAM) ? 1 : bus16);
 
         case Mem9_VRAM: // the dsi can toggle the bus width of vram between 32 and 16 bit
-            return ((NDS.ARM9ClockShift == 1) || !(((DSi&)NDS).SCFG_EXT[0] & (1<<13))) ? bus16 : bus32;
+            return ((NDS.ConsoleType == 0) || !(((DSi&)NDS).SCFG_EXT[0] & (1<<13))) ? bus16 : bus32;
 
         case Mem9_ITCM: // itcm data fetches cannot be done at the same time as a code fetch, it'll even incurr a 1 cycle penalty when executing from itcm (why?)
             return ((CodeRegion == Mem9_ITCM) ? -1 : -(DataCycles & 1)); // checkme

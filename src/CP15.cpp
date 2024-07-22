@@ -35,8 +35,8 @@ using Platform::LogLevel;
 // this was measured to be close to hardware average
 // a value of 1 would represent a perfect cache, but that causes
 // games to run too fast, causing a number of issues
-const int kDataCacheTiming = 3;//2;
-const int kCodeCacheTiming = 3;//5;
+const int kDataCacheTiming = 2;//2;
+const int kCodeCacheTiming = 2;//5;
 
 
 void ARMv5::CP15Reset()
