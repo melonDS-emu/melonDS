@@ -31,7 +31,6 @@ using Platform::LogLevel;
 
 AREngine::AREngine(melonDS::NDS& nds) : NDS(nds)
 {
-    CodeFile = nullptr;
 }
 
 #define case16(x) \
@@ -388,19 +387,12 @@ void AREngine::RunCheat(const ARCode& arcode)
 
 void AREngine::RunCheats()
 {
-    if (!CodeFile) return;
+    if (Cheats.empty()) return;
 
-    for (ARCodeCatList::iterator i = CodeFile->Categories.begin(); i != CodeFile->Categories.end(); i++)
+    for (const ARCode& code : Cheats)
     {
-        ARCodeCat& cat = *i;
-
-        for (ARCodeList::iterator j = cat.Codes.begin(); j != cat.Codes.end(); j++)
-        {
-            ARCode& code = *j;
-
-            if (code.Enabled)
-                RunCheat(code);
-        }
+        if (code.Enabled)
+            RunCheat(code);
     }
 }
 }
