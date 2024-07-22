@@ -19,8 +19,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "Net.h"
-#include "Net_PCap.h"
-#include "Net_Slirp.h"
 #include "PacketDispatcher.h"
 #include "Platform.h"
 
@@ -49,18 +47,18 @@ void Net::RXEnqueue(const void* buf, int len)
 
 int Net::SendPacket(u8* data, int len, int inst)
 {
-    if (!NetDriver)
+    if (!Driver)
         return 0;
 
-    return NetDriver->SendPacket(data, len);
+    return Driver->SendPacket(data, len);
 }
 
 int Net::RecvPacket(u8* data, int inst)
 {
-    if (!NetDriver)
+    if (!Driver)
         return 0;
 
-    NetDriver->RecvCheck();
+    Driver->RecvCheck();
 
     int ret = 0;
     if (!Dispatcher.recvPacket(nullptr, nullptr, data, &ret, inst))
