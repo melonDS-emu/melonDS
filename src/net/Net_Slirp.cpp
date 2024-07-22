@@ -24,6 +24,7 @@
 #include "Platform.h"
 
 #include <libslirp.h>
+#include <slirp.h>
 
 #ifdef __WIN32__
 	#include <ws2tcpip.h>
@@ -174,12 +175,23 @@ Net_Slirp::Net_Slirp(Net_Slirp&& other) noexcept
     other.PollListSize = 0;
     other.Callback = nullptr;
     memset(other.PollList, 0, sizeof(other.PollList));
+
+    if (Ctx)
+    {
+        Ctx->opaque = this;
+        // Gotta ensure that the context doesn't try to pass around a dead object
+    }
 }
 
 Net_Slirp& Net_Slirp::operator=(Net_Slirp&& other) noexcept
 {
     if (this != &other)
     {
+        if (Ctx)
+        {
+            slirp_cleanup(Ctx);
+        }
+
         RXBuffer = other.RXBuffer;
         IPv4ID = other.IPv4ID;
         Ctx = other.Ctx;
@@ -193,6 +205,12 @@ Net_Slirp& Net_Slirp::operator=(Net_Slirp&& other) noexcept
         other.PollListSize = 0;
         other.Callback = nullptr;
         memset(other.PollList, 0, sizeof(other.PollList));
+
+        if (Ctx)
+        {
+            Ctx->opaque = this;
+            // Gotta ensure that the context doesn't try to pass around a dead object
+        }
     }
 
     return *this;
