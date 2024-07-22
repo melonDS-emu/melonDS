@@ -695,9 +695,8 @@ void EmuInstance::unloadCheats()
 {
     if (cheatFile)
     {
-        delete cheatFile;
-        cheatFile = nullptr;
         nds->AREngine.SetCodeFile(nullptr);
+        cheatFile = nullptr; // cleaned up by unique_ptr
     }
 }
 
@@ -708,7 +707,7 @@ void EmuInstance::loadCheats()
     std::string filename = getAssetPath(false, globalCfg.GetString("CheatFilePath"), ".mch");
 
     // TODO: check for error (malformed cheat file, ...)
-    cheatFile = new ARCodeFile(filename);
+    cheatFile = std::make_unique<ARCodeFile>(filename);
 
     nds->AREngine.SetCodeFile(cheatsOn ? cheatFile : nullptr);
 }
@@ -1025,7 +1024,7 @@ void EmuInstance::enableCheats(bool enable)
 
 ARCodeFile* EmuInstance::getCheatFile()
 {
-    return cheatFile;
+    return cheatFile.get();
 }
 
 void EmuInstance::setBatteryLevels()
