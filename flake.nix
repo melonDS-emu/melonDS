@@ -6,44 +6,66 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { nixpkgs, flake-utils, ... }: flake-utils.lib.eachDefaultSystem (system:
+  outputs = { self, nixpkgs, flake-utils }: flake-utils.lib.eachDefaultSystem (system:
     let
       pkgs = import nixpkgs { inherit system; };
-      lib = pkgs.lib;
-      melonDS = with pkgs; stdenv.mkDerivation {
+      inherit (pkgs.lib) cmakeBool optionals makeLibraryPath;
+      inherit (pkgs.stdenv) isLinux isDarwin;
+
+      versionSuffix = with self; if sourceInfo?dirtyShortRev
+        then sourceInfo.dirtyShortRev
+        else sourceInfo.shortRev;
+
+      melonDS = pkgs.stdenv.mkDerivation {
         pname = "melonDS";
-        version = "0.9.5";
+        version = "0.9.5-${versionSuffix}";
         src = ./.;
-        nativeBuildInputs = [
+
+        nativeBuildInputs = with pkgs; [
           cmake
-          pkgconf
-          kdePackages.wrapQtAppsHook
           ninja
+          pkg-config
+          kdePackages.wrapQtAppsHook
         ];
-        buildInputs = [
+
+        buildInputs = (with pkgs; [
           kdePackages.qtbase
           kdePackages.qtmultimedia
           extra-cmake-modules
           SDL2
           zstd
           libarchive
-        ] ++ lib.optionals stdenv.isLinux [
-          wayland
+          libGL
+          libslirp
+        ]) ++ optionals isLinux [
+          pkgs.wayland
+          pkgs.kdePackages.qtwayland
         ];
+
         cmakeFlags = [
-          (lib.cmakeBool "USE_QT6" true)
+          (cmakeBool "USE_QT6" true)
+          (cmakeBool "USE_SYSTEM_LIBSLIRP" true)
         ];
+
+        qtWrapperArgs = optionals isLinux [
+          "--prefix LD_LIBRARY_PATH : ${makeLibraryPath [ pkgs.libpcap ]}"
+        ] ++ optionals isDarwin [
+          "--prefix DYLD_LIBRARY_PATH : ${makeLibraryPath [ pkgs.libpcap ]}"
+        ];
+
         passthru = {
-          exePath = if stdenv.isDarwin then
+          exePath = if isDarwin then
             "/Applications/melonDS.app/Contents/MacOS/melonDS"
             else "/bin/melonDS";
         };
       };
-    in rec {
-      apps.default = flake-utils.lib.mkApp { drv = packages.default; };
+    in {
       packages.default = melonDS;
+      apps.default = flake-utils.lib.mkApp {
+        drv = self.packages.${system}.default;
+      };
       devShells.default = pkgs.mkShell {
-        inputsFrom = [ melonDS ];
+        inputsFrom = [ self.packages.${system}.default ];
       };
     }
   );
