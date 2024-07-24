@@ -817,7 +817,8 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
 
     if (addr < ITCMSize)
     {
-        Cycles += MemoryOverflow;
+        if (MemoryOverflow < 0) Cycles -= 1;
+        else Cycles += MemoryOverflow;
         MemoryOverflow = 0;
         DataRegion = Mem9_ITCM;
         DataCycles = 1;
@@ -826,7 +827,8 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        Cycles += MemoryOverflow;
+        if (MemoryOverflow < 0) Cycles -= 1;
+        else Cycles += MemoryOverflow;
         MemoryOverflow = 0;
         DataRegion = Mem9_DTCM;
         DataCycles = 1;
@@ -856,7 +858,8 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
 
     if (addr < ITCMSize)
     {
-        Cycles += MemoryOverflow;
+        if (MemoryOverflow < 0) Cycles -= 1;
+        else Cycles += MemoryOverflow;
         MemoryOverflow = 0;
         DataRegion = Mem9_ITCM;
         DataCycles = 1;
@@ -865,7 +868,8 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        Cycles += MemoryOverflow;
+        if (MemoryOverflow < 0) Cycles -= 1;
+        else Cycles += MemoryOverflow;
         MemoryOverflow = 0;
         DataRegion = Mem9_DTCM;
         DataCycles = 1;
@@ -895,7 +899,8 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
 
     if (addr < ITCMSize)
     {
-        Cycles += MemoryOverflow;
+        if (MemoryOverflow < 0) Cycles -= 1;
+        else Cycles += MemoryOverflow;
         MemoryOverflow = 0;
         DataRegion = Mem9_ITCM;
         DataCycles = 1;
@@ -904,7 +909,8 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        Cycles += MemoryOverflow;
+        if (MemoryOverflow < 0) Cycles -= 1;
+        else Cycles += MemoryOverflow;
         MemoryOverflow = 0;
         DataRegion = Mem9_DTCM;
         DataCycles = 1;
@@ -964,7 +970,8 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
 
     if (addr < ITCMSize)
     {
-        Cycles += MemoryOverflow;
+        if (MemoryOverflow < 0) Cycles -= 1;
+        else Cycles += MemoryOverflow;
         MemoryOverflow = 0;
         DataRegion = Mem9_ITCM;
         DataCycles = 1;
@@ -974,7 +981,8 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        Cycles += MemoryOverflow;
+        if (MemoryOverflow < 0) Cycles -= 1;
+        else Cycles += MemoryOverflow;
         MemoryOverflow = 0;
         DataRegion = Mem9_DTCM;
         DataCycles = 1;
@@ -1004,7 +1012,8 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
 
     if (addr < ITCMSize)
     {
-        Cycles += MemoryOverflow;
+        if (MemoryOverflow < 0) Cycles -= 1;
+        else Cycles += MemoryOverflow;
         MemoryOverflow = 0;
         DataRegion = Mem9_ITCM;
         DataCycles = 1;
@@ -1014,7 +1023,8 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        Cycles += MemoryOverflow;
+        if (MemoryOverflow < 0) Cycles -= 1;
+        else Cycles += MemoryOverflow;
         MemoryOverflow = 0;
         DataRegion = Mem9_DTCM;
         DataCycles = 1;
@@ -1044,7 +1054,8 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
 
     if (addr < ITCMSize)
     {
-        Cycles += MemoryOverflow;
+        if (MemoryOverflow < 0) Cycles -= 1;
+        else Cycles += MemoryOverflow;
         MemoryOverflow = 0;
         DataRegion = Mem9_ITCM;
         DataCycles = 1;
@@ -1054,7 +1065,8 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        Cycles += MemoryOverflow;
+        if (MemoryOverflow < 0) Cycles -= 1;
+        else Cycles += MemoryOverflow;
         MemoryOverflow = 0;
         DataRegion = Mem9_DTCM;
         DataCycles = 1;

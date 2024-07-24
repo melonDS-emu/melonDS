@@ -164,6 +164,8 @@ void A_MSR_REG(ARM* cpu)
 
     if ((cpu->CPSR & 0x1F) == 0x10) mask &= 0xFFFFFF00;
 
+    cpu->UsedRegs = 1 << (cpu->CurInstr & 0xF);
+
     u32 val = cpu->R[cpu->CurInstr & 0xF];
 
     // bit4 is forced to 1
@@ -220,6 +222,8 @@ void A_MCR(ARM* cpu)
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
     u32 val = cpu->R[(cpu->CurInstr>>12)&0xF];
     if (((cpu->CurInstr>>12) & 0xF) == 15) val += 4;
+
+    cpu->UsedRegs = 1 << ((cpu->CurInstr>>12) & 0xF);
 
     if (cpu->Num==0 && cp==15)
     {

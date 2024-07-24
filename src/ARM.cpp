@@ -703,17 +703,6 @@ void ARMv5::Execute()
             }
             else
                 AddCycles_C();
-
-            NDS.ARM9Timestamp += Cycles;
-            Cycles = 0;
-            
-            // memory/multiply
-            if (MemoryQueue)
-            {
-                u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
-                ARMInterpreter::ARMInstrTable[icode](this);
-                MemoryQueue = false;
-            }
         }
 
         // TODO optimize this shit!!!
@@ -732,8 +721,8 @@ void ARMv5::Execute()
         }*/
         if (IRQ) TriggerIRQ();
 
-        //NDS.ARM9Timestamp += Cycles;
-        //Cycles = 0;
+        NDS.ARM9Timestamp += Cycles;
+        Cycles = 0;
     }
 
     if (Halted == 2)
@@ -1452,8 +1441,7 @@ void ARMv5::AddCycles(s32 numX)
 
         if (early < numFX)
         {
-            if (CodeCycles + delay > 1)
-                MemoryOverflow = -1;
+            MemoryOverflow = -(CodeCycles + delay - 1);
         }
         else MemoryOverflow = early - numFX;
 
@@ -1485,15 +1473,18 @@ void ARMv5::AddCycles(s32 numX)
 
         // Add instruction cache here?
         if (CodeRegion != Mem9_ITCM)
-            Cycles += ((NDS.ARM9Timestamp + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + Cycles); // align with next bus cycle
+            CodeCycles += ((NDS.ARM9Timestamp + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + Cycles); // align with next bus cycle
             
         Cycles += CodeCycles;
 
-        if (numX == 0 && MemoryOverflow >= 0 && CodeCycles == 1)
-            MemoryOverflow = 0;
-        else MemoryOverflow = -1;
+        s32 overflow = -CodeCycles;
+        if (!(numX == 0 && MemoryOverflow < 0))
+            overflow += 1;
+        MemoryOverflow = overflow;
     }
-
+    
+    NDS.ARM9Timestamp += Cycles;
+    Cycles = 0;
     DataCycles = 0;
 }
 
