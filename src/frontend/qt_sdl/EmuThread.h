@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -21,10 +21,13 @@
 
 #include <QThread>
 #include <QMutex>
+#include <QSemaphore>
+#include <QQueue>
 
 #include <atomic>
 #include <variant>
 #include <optional>
+#include <list>
 
 #include "NDSCart.h"
 #include "GBACart.h"
@@ -37,6 +40,8 @@ namespace melonDS
 class NDS;
 }
 
+class EmuInstance;
+class MainWindow;
 class ScreenPanelGL;
 
 class EmuThread : public QThread
@@ -45,7 +50,43 @@ class EmuThread : public QThread
     void run() override;
 
 public:
-    explicit EmuThread(QObject* parent = nullptr);
+    explicit EmuThread(EmuInstance* inst, QObject* parent = nullptr);
+
+    void attachWindow(MainWindow* window);
+    void detachWindow(MainWindow* window);
+
+    enum MessageType
+    {
+        msg_Exit,
+
+        msg_EmuRun,
+        msg_EmuPause,
+        msg_EmuUnpause,
+        msg_EmuStop,
+        msg_EmuFrameStep,
+        msg_EmuReset,
+
+        msg_InitGL,
+        msg_DeInitGL,
+    };
+
+    struct Message
+    {
+        MessageType type;
+        union
+        {
+            bool stopExternal;
+        };
+    };
+
+    void sendMessage(Message msg);
+    void waitMessage(int num = 1);
+    void waitAllMessages();
+
+    void sendMessage(MessageType type)
+    {
+        return sendMessage({.type = type});
+    }
 
     void changeWindowTitle(char* title);
 
@@ -53,38 +94,34 @@ public:
     void emuRun();
     void emuPause();
     void emuUnpause();
-    void emuStop();
+    void emuTogglePause();
+    void emuStop(bool external);
+    void emuExit();
     void emuFrameStep();
+    void emuReset();
 
     bool emuIsRunning();
     bool emuIsActive();
 
     void initContext();
     void deinitContext();
+    void updateVideoSettings() { videoSettingsDirty = true; }
 
     int FrontBuffer = 0;
     QMutex FrontBufferLock;
 
-    /// Applies the config in args.
-    /// Creates a new NDS console if needed,
-    /// modifies the existing one if possible.
-    /// @return \c true if the console was updated.
-    /// If this returns \c false, then the existing NDS console is not modified.
-    bool UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept;
-    std::unique_ptr<melonDS::NDS> NDS; // TODO: Proper encapsulation and synchronization
 signals:
     void windowUpdate();
     void windowTitleChange(QString title);
 
     void windowEmuStart();
     void windowEmuStop();
-    void windowEmuPause();
+    void windowEmuPause(bool pause);
     void windowEmuReset();
-    void windowEmuFrameStep();
 
     void windowLimitFPSChange();
 
-    void screenLayoutChange();
+    void autoScreenSizingChange(int sizing);
 
     void windowFullscreenToggle();
 
@@ -94,13 +131,10 @@ signals:
     void syncVolumeLevel();
 
 private:
+    void handleMessages();
+
     void updateRenderer();
     void compileShaders();
-
-    std::unique_ptr<melonDS::NDS> CreateConsole(
-        std::unique_ptr<melonDS::NDSCart::CartCommon>&& ndscart,
-        std::unique_ptr<melonDS::GBACart::CartCommon>&& gbacart
-    ) noexcept;
 
     enum EmuStatusKind
     {
@@ -109,30 +143,30 @@ private:
         emuStatus_Paused,
         emuStatus_FrameStep,
     };
-    std::atomic<EmuStatusKind> EmuStatus;
 
-    EmuStatusKind PrevEmuStatus;
-    EmuStatusKind EmuRunning;
+    EmuStatusKind prevEmuStatus;
+    EmuStatusKind emuStatus;
+    bool emuActive;
 
-    constexpr static int EmuPauseStackRunning = 0;
-    constexpr static int EmuPauseStackPauseThreshold = 1;
-    int EmuPauseStack;
+    constexpr static int emuPauseStackRunning = 0;
+    constexpr static int emuPauseStackPauseThreshold = 1;
+    int emuPauseStack;
 
-    enum ContextRequestKind
-    {
-        contextRequest_None = 0,
-        contextRequest_InitGL,
-        contextRequest_DeInitGL
-    };
-    std::atomic<ContextRequestKind> ContextRequest = contextRequest_None;
+    QMutex msgMutex;
+    QSemaphore msgSemaphore;
+    QQueue<Message> msgQueue;
 
-    ScreenPanelGL* screenGL;
+    EmuInstance* emuInstance;
 
     int autoScreenSizing;
 
     int lastVideoRenderer = -1;
 
     double perfCountsSec;
+
+    bool useOpenGL;
+    int videoRenderer;
+    bool videoSettingsDirty;
 };
 
 #endif // EMUTHREAD_H

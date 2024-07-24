@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -39,6 +39,7 @@
 #include <QMimeData>
 #include <QVector>
 #include <QCommandLineParser>
+#include <QStandardPaths>
 #ifndef _WIN32
 #include <QGuiApplication>
 #include <QSocketNotifier>
@@ -56,206 +57,117 @@
 #include "duckstation/gl/context.h"
 
 #include "main.h"
-#include "Input.h"
 #include "CheatsDialog.h"
 #include "DateTimeDialog.h"
 #include "EmuSettingsDialog.h"
 #include "InputConfig/InputConfigDialog.h"
 #include "VideoSettingsDialog.h"
-#include "CameraSettingsDialog.h"
-#include "AudioSettingsDialog.h"
-#include "FirmwareSettingsDialog.h"
-#include "PathSettingsDialog.h"
-#include "MPSettingsDialog.h"
-#include "WifiSettingsDialog.h"
-#include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
 #include "RAMInfoDialog.h"
-#include "TitleManagerDialog.h"
 #include "PowerManagement/PowerManagementDialog.h"
-#include "AudioInOut.h"
 
-#include "types.h"
 #include "version.h"
 
-#include "FrontendUtil.h"
-
-#include "Args.h"
-#include "NDS.h"
-#include "NDSCart.h"
-#include "GBACart.h"
-#include "GPU.h"
-#include "SPU.h"
-#include "Wifi.h"
-#include "Platform.h"
-#include "LocalMP.h"
 #include "Config.h"
-#include "RTC.h"
 #include "DSi.h"
-#include "DSi_I2C.h"
-#include "GPU3D_Soft.h"
-#include "GPU3D_OpenGL.h"
 
-#include "Savestate.h"
-
-//#include "main_shaders.h"
-
-#include "ROMManager.h"
+#include "EmuInstance.h"
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
+#include "LocalMP.h"
+#include "Net.h"
 
 #include "CLI.h"
 
-// TODO: uniform variable spelling
 using namespace melonDS;
-QString NdsRomMimeType = "application/x-nintendo-ds-rom";
-QStringList NdsRomExtensions { ".nds", ".srl", ".dsi", ".ids" };
-
-QString GbaRomMimeType = "application/x-gba-rom";
-QStringList GbaRomExtensions { ".gba", ".agb" };
 
 QString* systemThemeName;
 
-// This list of supported archive formats is based on libarchive(3) version 3.6.2 (2022-12-09).
-QStringList ArchiveMimeTypes
-{
-#ifdef ARCHIVE_SUPPORT_ENABLED
-    "application/zip",
-    "application/x-7z-compressed",
-    "application/vnd.rar", // *.rar
-    "application/x-tar",
-
-    "application/x-compressed-tar", // *.tar.gz
-    "application/x-xz-compressed-tar",
-    "application/x-bzip-compressed-tar",
-    "application/x-lz4-compressed-tar",
-    "application/x-zstd-compressed-tar",
-
-    "application/x-tarz", // *.tar.Z
-    "application/x-lzip-compressed-tar",
-    "application/x-lzma-compressed-tar",
-    "application/x-lrzip-compressed-tar",
-    "application/x-tzo", // *.tar.lzo
-#endif
-};
-
-QStringList ArchiveExtensions
-{
-#ifdef ARCHIVE_SUPPORT_ENABLED
-    ".zip", ".7z", ".rar", ".tar",
-
-    ".tar.gz", ".tgz",
-    ".tar.xz", ".txz",
-    ".tar.bz2", ".tbz2",
-    ".tar.lz4", ".tlz4",
-    ".tar.zst", ".tzst",
-
-    ".tar.Z", ".taz",
-    ".tar.lz",
-    ".tar.lzma", ".tlz",
-    ".tar.lrz", ".tlrz",
-    ".tar.lzo", ".tzo"
-#endif
-};
 
 
-bool RunningSomething;
+QString emuDirectory;
 
-MainWindow* mainWindow;
-EmuThread* emuThread;
-
-int autoScreenSizing = 0;
-
-int videoRenderer;
-bool videoSettingsDirty;
+const int kMaxEmuInstances = 16;
+EmuInstance* emuInstances[kMaxEmuInstances];
 
 CameraManager* camManager[2];
 bool camStarted[2];
 
-//extern int AspectRatiosNum;
 
-
-static bool FileExtensionInList(const QString& filename, const QStringList& extensions, Qt::CaseSensitivity cs = Qt::CaseInsensitive)
+bool createEmuInstance()
 {
-    return std::any_of(extensions.cbegin(), extensions.cend(), [&](const auto& ext) {
-        return filename.endsWith(ext, cs);
-    });
+    int id = -1;
+    for (int i = 0; i < kMaxEmuInstances; i++)
+    {
+        if (!emuInstances[i])
+        {
+            id = i;
+            break;
+        }
+    }
+
+    if (id == -1)
+        return false;
+
+    auto inst = new EmuInstance(id);
+    emuInstances[id] = inst;
+
+    return true;
 }
 
-static bool MimeTypeInList(const QMimeType& mimetype, const QStringList& superTypeNames)
+void deleteEmuInstance(int id)
 {
-    return std::any_of(superTypeNames.cbegin(), superTypeNames.cend(), [&](const auto& superTypeName) {
-        return mimetype.inherits(superTypeName);
-    });
+    auto inst = emuInstances[id];
+    if (!inst) return;
+
+    delete inst;
+    emuInstances[id] = nullptr;
 }
 
-
-static bool NdsRomByExtension(const QString& filename)
+void deleteAllEmuInstances()
 {
-    return FileExtensionInList(filename, NdsRomExtensions);
-}
-
-static bool GbaRomByExtension(const QString& filename)
-{
-    return FileExtensionInList(filename, GbaRomExtensions);
-}
-
-static bool SupportedArchiveByExtension(const QString& filename)
-{
-    return FileExtensionInList(filename, ArchiveExtensions);
-}
-
-
-static bool NdsRomByMimetype(const QMimeType& mimetype)
-{
-    return mimetype.inherits(NdsRomMimeType);
-}
-
-static bool GbaRomByMimetype(const QMimeType& mimetype)
-{
-    return mimetype.inherits(GbaRomMimeType);
-}
-
-static bool SupportedArchiveByMimetype(const QMimeType& mimetype)
-{
-    return MimeTypeInList(mimetype, ArchiveMimeTypes);
-}
-
-static bool ZstdNdsRomByExtension(const QString& filename)
-{
-    return filename.endsWith(".zst", Qt::CaseInsensitive) &&
-        NdsRomByExtension(filename.left(filename.size() - 4));
-}
-
-static bool ZstdGbaRomByExtension(const QString& filename)
-{
-    return filename.endsWith(".zst", Qt::CaseInsensitive) &&
-        GbaRomByExtension(filename.left(filename.size() - 4));
-}
-
-static bool FileIsSupportedFiletype(const QString& filename, bool insideArchive = false)
-{
-    if (ZstdNdsRomByExtension(filename) || ZstdGbaRomByExtension(filename))
-        return true;
-
-    if (NdsRomByExtension(filename) || GbaRomByExtension(filename) || SupportedArchiveByExtension(filename))
-        return true;
-
-    const auto matchmode = insideArchive ? QMimeDatabase::MatchExtension : QMimeDatabase::MatchDefault;
-    const QMimeType mimetype = QMimeDatabase().mimeTypeForFile(filename, matchmode);
-    return NdsRomByMimetype(mimetype) || GbaRomByMimetype(mimetype) || SupportedArchiveByMimetype(mimetype);
+    for (int i = 0; i < kMaxEmuInstances; i++)
+        deleteEmuInstance(i);
 }
 
 
-
-
-
-void emuStop()
+void pathInit()
 {
-    RunningSomething = false;
+    // First, check for the portable directory next to the executable.
+    QString appdirpath = QCoreApplication::applicationDirPath();
+    QString portablepath = appdirpath + QDir::separator() + "portable";
 
-    emit emuThread->windowEmuStop();
+#if defined(__APPLE__)
+    // On Apple platforms we may need to navigate outside an app bundle.
+    // The executable directory would be "melonDS.app/Contents/MacOS", so we need to go a total of three steps up.
+    QDir bundledir(appdirpath);
+    if (bundledir.cd("..") && bundledir.cd("..") && bundledir.dirName().endsWith(".app") && bundledir.cd(".."))
+    {
+        portablepath = bundledir.absolutePath() + QDir::separator() + "portable";
+    }
+#endif
+
+    QDir portabledir(portablepath);
+    if (portabledir.exists())
+    {
+        emuDirectory = portabledir.absolutePath();
+    }
+    else
+    {
+        // If no overrides are specified, use the default path.
+#if defined(__WIN32__) && defined(WIN32_PORTABLE)
+        emuDirectory = appdirpath;
+#else
+        QString confdir;
+        QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
+        config.mkdir("melonDS");
+        confdir = config.absolutePath() + QDir::separator() + "melonDS";
+        emuDirectory = confdir;
+#endif
+    }
 }
+
+
 
 MelonApplication::MelonApplication(int& argc, char** argv)
     : QApplication(argc, argv)
@@ -268,16 +180,21 @@ MelonApplication::MelonApplication(int& argc, char** argv)
 #endif
 }
 
+// TODO: ROM loading should be moved to EmuInstance
+// especially so the preloading below and in main() can be done in a nicer fashion
+
 bool MelonApplication::event(QEvent *event)
 {
     if (event->type() == QEvent::FileOpen)
     {
+        EmuInstance* inst = emuInstances[0];
+        MainWindow* win = inst->getMainWindow();
         QFileOpenEvent *openEvent = static_cast<QFileOpenEvent*>(event);
 
-        emuThread->emuPause();
-        const QStringList file = mainWindow->splitArchivePath(openEvent->file(), true);
-        if (!mainWindow->preloadROMs(file, {}, true))
-            emuThread->emuUnpause();
+        inst->getEmuThread()->emuPause();
+        const QStringList file = win->splitArchivePath(openEvent->file(), true);
+        if (!win->preloadROMs(file, {}, true))
+            inst->getEmuThread()->emuUnpause();
     }
 
     return QApplication::event(event);
@@ -286,6 +203,9 @@ bool MelonApplication::event(QEvent *event)
 int main(int argc, char** argv)
 {
     srand(time(nullptr));
+
+    for (int i = 0; i < kMaxEmuInstances; i++)
+        emuInstances[i] = nullptr;
 
     qputenv("QT_SCALE_FACTOR", "1");
 
@@ -302,8 +222,7 @@ int main(int argc, char** argv)
         printf("did you just call me a derp???\n");
 
     MelonApplication melon(argc, argv);
-
-    Platform::Init(argc, argv);
+    pathInit();
 
     CLI::CommandLineOptions* options = CLI::ManageArgs(melon);
 
@@ -324,7 +243,7 @@ int main(int argc, char** argv)
         QString errorStr = "Failed to initialize SDL. This could indicate an issue with your audio driver.\n\nThe error was: ";
         errorStr += err;
 
-        QMessageBox::critical(NULL, "melonDS", errorStr);
+        QMessageBox::critical(nullptr, "melonDS", errorStr);
         return 1;
     }
 
@@ -333,98 +252,79 @@ int main(int argc, char** argv)
     SDL_InitSubSystem(SDL_INIT_VIDEO);
     SDL_EnableScreenSaver(); SDL_DisableScreenSaver();
 
-    if (!Config::Load()) QMessageBox::critical(NULL, "melonDS", "Unable to write to config.\nPlease check the write permissions of the folder you placed melonDS in.");
-
-#define SANITIZE(var, min, max)  { var = std::clamp<int>(var, min, max); }
-    SANITIZE(Config::ConsoleType, 0, 1);
-#ifdef OGLRENDERER_ENABLED
-    SANITIZE(Config::_3DRenderer, 0, renderer3D_Max);
-#else
-    SANITIZE(Config::_3DRenderer, 0, 0);
-#endif
-    SANITIZE(Config::ScreenVSyncInterval, 1, 20);
-    SANITIZE(Config::GL_ScaleFactor, 1, 16);
-    SANITIZE(Config::AudioInterp, 0, 4);
-    SANITIZE(Config::AudioVolume, 0, 256);
-    SANITIZE(Config::MicInputType, 0, (int)micInputType_MAX);
-    SANITIZE(Config::ScreenRotation, 0, (int)Frontend::screenRot_MAX);
-    SANITIZE(Config::ScreenGap, 0, 500);
-    SANITIZE(Config::ScreenLayout, 0, (int)Frontend::screenLayout_MAX);
-    SANITIZE(Config::ScreenSizing, 0, (int)Frontend::screenSizing_MAX);
-    SANITIZE(Config::ScreenAspectTop, 0, AspectRatiosNum);
-    SANITIZE(Config::ScreenAspectBot, 0, AspectRatiosNum);
-#undef SANITIZE
+    if (!Config::Load())
+        QMessageBox::critical(nullptr,
+                              "melonDS",
+                              "Unable to write to config.\nPlease check the write permissions of the folder you placed melonDS in.");
 
     camStarted[0] = false;
     camStarted[1] = false;
     camManager[0] = new CameraManager(0, 640, 480, true);
     camManager[1] = new CameraManager(1, 640, 480, true);
-    camManager[0]->setXFlip(Config::Camera[0].XFlip);
-    camManager[1]->setXFlip(Config::Camera[1].XFlip);
 
     systemThemeName = new QString(QApplication::style()->objectName());
 
-    if (!Config::UITheme.empty())
     {
-        QApplication::setStyle(QString::fromStdString(Config::UITheme));
+        Config::Table cfg = Config::GetGlobalTable();
+        QString uitheme = cfg.GetQString("UITheme");
+        if (!uitheme.isEmpty())
+        {
+            QApplication::setStyle(uitheme);
+        }
     }
 
-    Input::JoystickID = Config::JoystickID;
-    Input::OpenJoystick();
-
-    mainWindow = new MainWindow();
-    if (options->fullscreen)
-        ToggleFullscreen(mainWindow);
-
-    emuThread = new EmuThread();
-    emuThread->start();
-    emuThread->emuPause();
-
-    AudioInOut::Init(emuThread);
-    ROMManager::EnableCheats(*emuThread->NDS, Config::EnableCheats != 0);
-    AudioInOut::AudioMute(mainWindow);
-
-    QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
-
-    bool memberSyntaxUsed = false;
-    const auto prepareRomPath = [&](const std::optional<QString>& romPath, const std::optional<QString>& romArchivePath) -> QStringList
+    LocalMP::Init();
     {
-        if (!romPath.has_value())
-            return {};
+        Config::Table cfg = Config::GetGlobalTable();
+        bool direct = cfg.GetBool("LAN.DirectMode");
+        std::string devicename = cfg.GetString("LAN.Device");
+        Net::Init(direct, devicename.c_str());
+    }
 
-        if (romArchivePath.has_value())
-            return { *romPath, *romArchivePath };
+    createEmuInstance();
 
-        const QStringList path = mainWindow->splitArchivePath(*romPath, true);
-        if (path.size() > 1) memberSyntaxUsed = true;
-        return path;
-    };
+    {
+        MainWindow* win = emuInstances[0]->getMainWindow();
+        bool memberSyntaxUsed = false;
+        const auto prepareRomPath = [&](const std::optional<QString> &romPath,
+                                        const std::optional<QString> &romArchivePath) -> QStringList
+        {
+            if (!romPath.has_value())
+                return {};
 
-    const QStringList dsfile = prepareRomPath(options->dsRomPath, options->dsRomArchivePath);
-    const QStringList gbafile = prepareRomPath(options->gbaRomPath, options->gbaRomArchivePath);
+            if (romArchivePath.has_value())
+                return {*romPath, *romArchivePath};
 
-    if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
+            const QStringList path = win->splitArchivePath(*romPath, true);
+            if (path.size() > 1) memberSyntaxUsed = true;
+            return path;
+        };
 
-    mainWindow->preloadROMs(dsfile, gbafile, options->boot);
+        const QStringList dsfile = prepareRomPath(options->dsRomPath, options->dsRomArchivePath);
+        const QStringList gbafile = prepareRomPath(options->gbaRomPath, options->gbaRomArchivePath);
+
+        if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
+
+        win->preloadROMs(dsfile, gbafile, options->boot);
+    }
 
     int ret = melon.exec();
 
     delete options;
 
-    emuThread->emuStop();
-    emuThread->wait();
-    delete emuThread;
+    // if we get here, all the existing emu instances should have been deleted already
+    // but with this we make extra sure they are all deleted
+    deleteAllEmuInstances();
 
-    Input::CloseJoystick();
+    LocalMP::DeInit();
+    Net::DeInit();
 
-    AudioInOut::DeInit();
     delete camManager[0];
     delete camManager[1];
 
     Config::Save();
 
     SDL_Quit();
-    Platform::DeInit();
     return ret;
 }
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -32,6 +32,8 @@ Q_DECLARE_METATYPE(melonDS::ARCodeCatList::iterator)
 
 namespace Ui { class CheatsDialog; }
 class CheatsDialog;
+
+class EmuInstance;
 
 class ARCodeChecker : public QSyntaxHighlighter
 {
@@ -86,6 +88,8 @@ private slots:
 
 private:
     Ui::CheatsDialog* ui;
+
+    EmuInstance* emuInstance;
 
     melonDS::ARCodeFile* codeFile;
     ARCodeChecker* codeChecker;

@@ -40,8 +40,8 @@ extern "C" {
 #include <windows.h>
 typedef unsigned __int64 QWORD;
 #include <float.h>
-#define isnan(v) _isnan(v)
-#define isinf(v) (!_finite(v))
+//#define isnan(v) _isnan(v)
+//#define isinf(v) (!_finite(v))
 
 #elif (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) || defined(__cplusplus)	/* C99 or later */
 #define FF_INTDEF 2
