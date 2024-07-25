@@ -1401,7 +1401,7 @@ void ARMv5::AddCycles(s32 numX)
 {
     if (MemoryType != 0)
     {
-        // todo: handle interlocks
+        // determine overlap of memory and execute/fetch stages
         s32 early;
         switch(MemoryType)
         {
@@ -1425,7 +1425,34 @@ void ARMv5::AddCycles(s32 numX)
         }
 
         if (NDS.ARM9RoundMask == 3) early *= 2; // CHECKME
+        
+        // check for interlocks
+        // note: r15 shouldn't be able to interlock?
+        u16 ILmask = InterlockedRegs & UsedRegs & 0x7FFF;
+        if (ILmask)
+        {
+            // get the number of the highest interlocked register
+            int ILreg = 15 - __builtin_clz(ILmask);
 
+            int ILtime;
+            if (ILreg == WBInterlockedReg) ILtime = -1; // if the interlock was a writeback stage interlock then the logic is quite simple
+            else
+            {
+                // get the time the reg was used
+                ILtime = 0;
+                if (numX > 0) ILtime = UsedTimers[ILreg];
+
+                // get the time the reg was freed up
+                int ILend = 0;
+                if ((MemoryType == 3) || (MemoryType == 4)) // swp/ldm(multiple regs) variants
+                    ILend = DataCycles - InterlockTimers[ILreg];
+
+                ILtime = ILend + ILtime;
+            }
+
+            early = std::min(early, ILtime);
+        }
+        
         s32 numM = DataCycles - early;
 
         if (numM < 0)
@@ -1442,8 +1469,13 @@ void ARMv5::AddCycles(s32 numX)
         if (early < numFX)
         {
             MemoryOverflow = -(CodeCycles + delay - 1);
+            WBInterlockedReg = 0xFF;
         }
-        else MemoryOverflow = early - numFX;
+        else
+        {
+            MemoryOverflow = early - numFX;
+            StaleWBIL = true;
+        }
 
         Cycles += numFX;
         MemoryType = 0;

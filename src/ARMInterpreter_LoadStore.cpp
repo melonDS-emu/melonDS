@@ -111,7 +111,7 @@ namespace melonDS::ARMInterpreter
 // TODO: user mode (bit21)
 #define A_STRB_POST \
     /* if (cpu->Num != 1) */ \
-        if (((cpu->CurInstr>>12) & 0xF) == cpu->WBInterlockedReg) Cycles += 1; \
+        if (1 << ((cpu->CurInstr>>12) & 0xF) == cpu->WBInterlockedReg) Cycles += 1; \
     } \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
@@ -127,7 +127,8 @@ namespace melonDS::ARMInterpreter
     } \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; bool dataabort = !cpu->DataRead32(offset, &val); \
-    if (offset & 0x3) { cpu->WBInterlockedReg = (cpu->CurInstr>>12) & 0xF; StaleWBIL = false; } \
+    cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF] = DataCycles; \
+    if (offset & 0x3) cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]++; \
     cpu->AddCycles_CDI_LDR(); \
     if (dataabort) return; \
     val = ROR(val, ((offset&0x3)<<3)); \
@@ -320,6 +321,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI_LDM(true); return;} \
     cpu->InterlockTimers[r] = DataCycles; \
     u32 val; if (!cpu->DataRead32S(offset+4, &val)) {cpu->AddCycles_CDI_LDM(true); return;} \
+    cpu->InterlockTimers[r+1] = DataCycles; \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
     else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI_LDM(true); \
@@ -337,6 +339,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI_LDM(true); return;} \
     cpu->InterlockTimers[r] = DataCycles; \
     u32 val; if (!cpu->DataRead32S(addr+4, &val)) {cpu->AddCycles_CDI_LDM(true); return;} \
+    cpu->InterlockTimers[r+1] = DataCycles; \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
     else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI_LDM(true); \

@@ -184,12 +184,8 @@ public:
 
     // ==== various interlock trackers used by the arm9 ====
 
-    // tracks the singular register that's interlocked in writeback
-    // (only one register should be able to be interlocked in writeback at a time)
-    u8 WBInterlockedReg;
-
-    // whether a writeback stage interlock is associated with the previous instruction or the current instruction
-    bool StaleWBIL;
+    // how delayed the writeback stage is
+    u32 WBDelay;
 
     // mask of what registers are interlocked, each bit represents one register
     u16 InterLockedRegs;
@@ -198,9 +194,6 @@ public:
     u16 UsedRegs;
 
     // used to determine what cycle a reg becomes available/is required
-    // used by ldm/ldmia/ldrd/pop exclusively
-    // as those are the only instructions that need this level of precise tracking
-    // additionally, dont bother tracking the last reg in the register list, as the value can be inferred.
     u8 InterlockTimers[16];
 
     // used solely for execute stages longer than 1 cycle
@@ -366,7 +359,6 @@ public:
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
     
     s32 MemoryOverflow;
-    bool MemoryQueue;
     u8 MemoryType; // 0 none/other - 1 ldr - 2 ldm(1 reg) - 3 ldm(>1 reg) - 4 str - 5 stm(1 reg) - 6 stm(>1 reg)
 
 
