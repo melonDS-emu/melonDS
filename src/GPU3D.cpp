@@ -1459,10 +1459,10 @@ void GPU3D::CalculateLighting() noexcept
         TexCoords[1] = RawTexCoords[1] + (((s64)Normal[0]*TexMatrix[1] + (s64)Normal[1]*TexMatrix[5] + (s64)Normal[2]*TexMatrix[9]) >> 21);
     }
 
-    s32 normaltrans[3];
-    normaltrans[0] = (Normal[0]*VecMatrix[0] + Normal[1]*VecMatrix[4] + Normal[2]*VecMatrix[8]) >> 12;
-    normaltrans[1] = (Normal[0]*VecMatrix[1] + Normal[1]*VecMatrix[5] + Normal[2]*VecMatrix[9]) >> 12;
-    normaltrans[2] = (Normal[0]*VecMatrix[2] + Normal[1]*VecMatrix[6] + Normal[2]*VecMatrix[10]) >> 12;
+    s32 normaltrans[3]; // should be an 1 bit sign 10 bits frac
+    normaltrans[0] = ((Normal[0]*VecMatrix[0] + Normal[1]*VecMatrix[4] + Normal[2]*VecMatrix[8]) << 9 >> 21);
+    normaltrans[1] = ((Normal[0]*VecMatrix[1] + Normal[1]*VecMatrix[5] + Normal[2]*VecMatrix[9]) << 9 >> 21);
+    normaltrans[2] = ((Normal[0]*VecMatrix[2] + Normal[1]*VecMatrix[6] + Normal[2]*VecMatrix[10]) << 9 >> 21);
 
     s32 c = 0;
     u32 vtxbuff[3] =
@@ -1484,7 +1484,7 @@ void GPU3D::CalculateLighting() noexcept
         // * shininess level mirrors back to 0 and is ANDed with 0x3FF, that before being squared
         
         // calculate dot product
-        // bottom 9 bits are discarded after multiplying and before adding (TODO: does this apply to any other dot product calculations?)
+        // bottom 9 bits are discarded after multiplying and before adding
         s32 dot = (-LightDirection[i][0]*normaltrans[0] >> 9) +
                   (-LightDirection[i][1]*normaltrans[1] >> 9) +
                   (-LightDirection[i][2]*normaltrans[2] >> 9);
@@ -1492,19 +1492,19 @@ void GPU3D::CalculateLighting() noexcept
         // -- diffuse lighting --
 
         if (dot <= 0); // if less than or equal to 0 add nothing
-        else if (dot >= 1024) // integer overflow (1 bit whole + 9 bits fractional)
+        else if (dot > 0x3FF) // integer overflow (10 bits fractional)
         {
-            vtxbuff[0] += (MatDiffuse[0] == 0 || LightColor[i][0] == 0) ? 0 :         // if diffuse color or light color are 0, outcome is 0
-                          ((512 - (MatDiffuse[0] * LightColor[i][0] - 512)) * 1024) + // product of diffuse * lightcolor is mirrored around 512
-                          (MatDiffuse[0] * LightColor[i][0] * (dot - 1024));          // the dot has 1024 subtracted to emulate overflow
+            vtxbuff[0] += (MatDiffuse[0] == 0 || LightColor[i][0] == 0) ? 0 :            // if diffuse color or light color are 0, outcome is 0
+                          ((512 - (MatDiffuse[0] * LightColor[i][0] - 512)) * (1<<10)) + // product of diffuse * lightcolor is mirrored around 512
+                          (MatDiffuse[0] * LightColor[i][0] * (dot & 0x3FF));            // the dot is ANDed with 0x3FF to emulate integer overflow
 
             vtxbuff[1] += (MatDiffuse[1] == 0 || LightColor[i][1] == 0) ? 0 :
-                          ((512 - (MatDiffuse[1] * LightColor[i][1] - 512)) * 1024) +
-                          (MatDiffuse[1] * LightColor[i][1] * (dot - 1024));
+                          ((512 - (MatDiffuse[1] * LightColor[i][1] - 512)) * (1<<10)) +
+                          (MatDiffuse[1] * LightColor[i][1] * (dot & 0x3FF));
 
             vtxbuff[2] += (MatDiffuse[2] == 0 || LightColor[i][2] == 0) ? 0 :
-                          ((512 - (MatDiffuse[2] * LightColor[i][2] - 512)) * 1024) +
-                          (MatDiffuse[2] * LightColor[i][2] * (dot - 1024));
+                          ((512 - (MatDiffuse[2] * LightColor[i][2] - 512)) * (1<<10)) +
+                          (MatDiffuse[2] * LightColor[i][2] * (dot & 0x3FF));
         }
         else // handle lighting normally
         {
@@ -1523,7 +1523,7 @@ void GPU3D::CalculateLighting() noexcept
             dot += normaltrans[2];
 
             // mirror around 1024, but in such a manner as to make it bug out at the mirror point
-            if (dot >= 1024) dot = (1024 - (dot - 1024)) & 0x3FF;
+            if (dot > 0x3FF) dot = (1024 - (dot - 1024)) & 0x3FF;
 
             s32 recip = (1 << 18) / (-LightDirection[i][2] + (1<<9));
             // square value, mult by reciprocal, subtract '1'
@@ -1533,7 +1533,7 @@ void GPU3D::CalculateLighting() noexcept
             shinelevel = shinelevel << 18 >> 18;
 
             if (shinelevel < 0) shinelevel = 0;
-            else if (shinelevel > 511) shinelevel = 511;
+            else if (shinelevel > 0x1FF) shinelevel = 0x1FF;
         }
 
         // convert shinelevel to use for lookup in shininess table.
@@ -2055,9 +2055,9 @@ void GPU3D::ExecuteCommand() noexcept
                 dir[0] = (s16)((entry.Param & 0x000003FF) << 6) >> 6;
                 dir[1] = (s16)((entry.Param & 0x000FFC00) >> 4) >> 6;
                 dir[2] = (s16)((entry.Param & 0x3FF00000) >> 14) >> 6;
-                LightDirection[l][0] = (dir[0]*VecMatrix[0] + dir[1]*VecMatrix[4] + dir[2]*VecMatrix[8]) >> 12;
-                LightDirection[l][1] = (dir[0]*VecMatrix[1] + dir[1]*VecMatrix[5] + dir[2]*VecMatrix[9]) >> 12;
-                LightDirection[l][2] = (dir[0]*VecMatrix[2] + dir[1]*VecMatrix[6] + dir[2]*VecMatrix[10]) >> 12;
+                LightDirection[l][0] = (dir[0]*VecMatrix[0] + dir[1]*VecMatrix[4] + dir[2]*VecMatrix[8]) << 9 >> 21;
+                LightDirection[l][1] = (dir[0]*VecMatrix[1] + dir[1]*VecMatrix[5] + dir[2]*VecMatrix[9]) << 9 >> 21;
+                LightDirection[l][2] = (dir[0]*VecMatrix[2] + dir[1]*VecMatrix[6] + dir[2]*VecMatrix[10]) << 9 >> 21;
             }
             AddCycles(5);
             break;
