@@ -1459,10 +1459,10 @@ void GPU3D::CalculateLighting() noexcept
         TexCoords[1] = RawTexCoords[1] + (((s64)Normal[0]*TexMatrix[1] + (s64)Normal[1]*TexMatrix[5] + (s64)Normal[2]*TexMatrix[9]) >> 21);
     }
 
-    s32 normaltrans[3]; // should be an 1 bit sign 10 bits frac
-    normaltrans[0] = ((Normal[0]*VecMatrix[0] + Normal[1]*VecMatrix[4] + Normal[2]*VecMatrix[8]) << 9 >> 21);
-    normaltrans[1] = ((Normal[0]*VecMatrix[1] + Normal[1]*VecMatrix[5] + Normal[2]*VecMatrix[9]) << 9 >> 21);
-    normaltrans[2] = ((Normal[0]*VecMatrix[2] + Normal[1]*VecMatrix[6] + Normal[2]*VecMatrix[10]) << 9 >> 21);
+    s32 normaltrans[3]; // should be 1 bit sign 10 bits frac
+    normaltrans[0] = ((Normal[0]*VecMatrix[0] + Normal[1]*VecMatrix[4] + Normal[2]*VecMatrix[8])) << 9 >> 21;
+    normaltrans[1] = ((Normal[0]*VecMatrix[1] + Normal[1]*VecMatrix[5] + Normal[2]*VecMatrix[9])) << 9 >> 21;
+    normaltrans[2] = ((Normal[0]*VecMatrix[2] + Normal[1]*VecMatrix[6] + Normal[2]*VecMatrix[10])) << 9 >> 21;
 
     s32 c = 0;
     u32 vtxbuff[3] =
@@ -1489,53 +1489,60 @@ void GPU3D::CalculateLighting() noexcept
                   (-LightDirection[i][1]*normaltrans[1] >> 9) +
                   (-LightDirection[i][2]*normaltrans[2] >> 9);
 
-        // -- diffuse lighting --
-
-        if (dot <= 0); // if less than or equal to 0 add nothing
-        else if (dot > 0x3FF) // integer overflow (10 bits fractional)
-        {
-            vtxbuff[0] += (MatDiffuse[0] == 0 || LightColor[i][0] == 0) ? 0 :            // if diffuse color or light color are 0, outcome is 0
-                          ((512 - (MatDiffuse[0] * LightColor[i][0] - 512)) * (1<<10)) + // product of diffuse * lightcolor is mirrored around 512
-                          (MatDiffuse[0] * LightColor[i][0] * (dot & 0x3FF));            // the dot is ANDed with 0x3FF to emulate integer overflow
-
-            vtxbuff[1] += (MatDiffuse[1] == 0 || LightColor[i][1] == 0) ? 0 :
-                          ((512 - (MatDiffuse[1] * LightColor[i][1] - 512)) * (1<<10)) +
-                          (MatDiffuse[1] * LightColor[i][1] * (dot & 0x3FF));
-
-            vtxbuff[2] += (MatDiffuse[2] == 0 || LightColor[i][2] == 0) ? 0 :
-                          ((512 - (MatDiffuse[2] * LightColor[i][2] - 512)) * (1<<10)) +
-                          (MatDiffuse[2] * LightColor[i][2] * (dot & 0x3FF));
-        }
-        else // handle lighting normally
-        {
-            vtxbuff[0] += MatDiffuse[0] * LightColor[i][0] * dot;
-            vtxbuff[1] += MatDiffuse[1] * LightColor[i][1] * dot;
-            vtxbuff[2] += MatDiffuse[2] * LightColor[i][2] * dot;
-        }
-
-        // -- specular lighting --
-        
         s32 shinelevel;
-        if (dot <= 0) shinelevel = 0; // skip if dot equals 0
-        else
+        if (dot > 0) 
         {
+            dot &= 0x7FF;
+
+            // -- diffuse lighting --
+        
+            if (dot > 0x3FF) // integer overflow (10 bits fractional)
+            {
+                vtxbuff[0] += (MatDiffuse[0] == 0 || LightColor[i][0] == 0) ? 0 :            // if diffuse color or light color are 0, outcome is 0
+                              ((512 - (MatDiffuse[0] * LightColor[i][0] - 512)) * (1<<10)) + // product of diffuse * lightcolor is mirrored around 512
+                              (MatDiffuse[0] * LightColor[i][0] * (dot & 0x3FF));            // the dot is ANDed with 0x3FF to emulate integer overflow
+
+                vtxbuff[1] += (MatDiffuse[1] == 0 || LightColor[i][1] == 0) ? 0 :
+                              ((512 - (MatDiffuse[1] * LightColor[i][1] - 512)) * (1<<10)) +
+                              (MatDiffuse[1] * LightColor[i][1] * (dot & 0x3FF));
+
+                vtxbuff[2] += (MatDiffuse[2] == 0 || LightColor[i][2] == 0) ? 0 :
+                              ((512 - (MatDiffuse[2] * LightColor[i][2] - 512)) * (1<<10)) +
+                              (MatDiffuse[2] * LightColor[i][2] * (dot & 0x3FF));
+            }
+            else // handle lighting normally
+            {
+                vtxbuff[0] += MatDiffuse[0] * LightColor[i][0] * dot;
+                vtxbuff[1] += MatDiffuse[1] * LightColor[i][1] * dot;
+                vtxbuff[2] += MatDiffuse[2] * LightColor[i][2] * dot;
+            }
+
+            // -- specular lighting --
+        
             // reuse the dot product from diffuse lighting
             dot += normaltrans[2];
 
             // mirror around 1024, but in such a manner as to make it bug out at the mirror point
             if (dot > 0x3FF) dot = (1024 - (dot - 1024)) & 0x3FF;
 
-            s32 recip = (1 << 18) / (-LightDirection[i][2] + (1<<9));
+            s32 recip;
+            if ((-LightDirection[i][2] + (1<<9)) == 0)
+                recip = 0;
+            else recip = (1 << 18) / (-(LightDirection[i][2]) + (1<<9));
             // square value, mult by reciprocal, subtract '1'
             shinelevel = ((dot * dot >> 10) * recip >> 8) - (1<<9);
 
             // sign extend to convert to signed 14 bit integer
-            shinelevel = shinelevel << 18 >> 18;
 
             if (shinelevel < 0) shinelevel = 0;
-            else if (shinelevel > 0x1FF) shinelevel = 0x1FF;
+            else
+            {
+                shinelevel = shinelevel << 18 >> 18;
+                if (shinelevel < 0) shinelevel = 0;
+                else if (shinelevel > 0x1FF) shinelevel = 0x1FF;
+            }
         }
-
+        else shinelevel = 0;
         // convert shinelevel to use for lookup in shininess table.
         if (UseShininessTable)
         {
