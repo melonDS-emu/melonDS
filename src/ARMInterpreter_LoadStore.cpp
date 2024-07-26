@@ -71,7 +71,7 @@ namespace melonDS::ARMInterpreter
 
 #define A_STR \
     /* if (cpu->Num != 1) */ \
-        if (((cpu->CurInstr>>12) & 0xF) == cpu->WBInterlockedReg) Cycles += 1; \
+        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
     } \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
@@ -85,7 +85,7 @@ namespace melonDS::ARMInterpreter
 // TODO: user mode (bit21)
 #define A_STR_POST \
     /* if (cpu->Num != 1) */ \
-        if (((cpu->CurInstr>>12) & 0xF) == cpu->WBInterlockedReg) Cycles += 1; \
+        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
     } \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
@@ -98,7 +98,7 @@ namespace melonDS::ARMInterpreter
 
 #define A_STRB \
     /* if (cpu->Num != 1) */ \
-        if (((cpu->CurInstr>>12) & 0xF) == cpu->WBInterlockedReg) Cycles += 1; \
+        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
     } \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
@@ -111,7 +111,7 @@ namespace melonDS::ARMInterpreter
 // TODO: user mode (bit21)
 #define A_STRB_POST \
     /* if (cpu->Num != 1) */ \
-        if (1 << ((cpu->CurInstr>>12) & 0xF) == cpu->WBInterlockedReg) Cycles += 1; \
+        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
     } \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
@@ -127,7 +127,7 @@ namespace melonDS::ARMInterpreter
     } \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; bool dataabort = !cpu->DataRead32(offset, &val); \
-    cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF] = DataCycles; \
+    cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF] = cpu->DataCycles; \
     if (offset & 0x3) cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]++; \
     cpu->AddCycles_CDI_LDR(); \
     if (dataabort) return; \
@@ -150,7 +150,8 @@ namespace melonDS::ARMInterpreter
     } \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; bool dataabort = !cpu->DataRead32(addr, &val); \
-    if (offset & 0x3) { cpu->WBInterlockedReg = (cpu->CurInstr>>12) & 0xF; StaleWBIL = false; } \
+    cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF] = cpu->DataCycles; \
+    if (offset & 0x3) cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]++; \
     cpu->AddCycles_CDI_LDR(); \
     if (dataabort) return; \
     val = ROR(val, ((addr&0x3)<<3)); \
@@ -168,11 +169,10 @@ namespace melonDS::ARMInterpreter
 #define A_LDRB \
     /* if (cpu->Num != 1) */ \
         cpu->InterlockedRegs = 1 << ((cpu->CurInstr>>12) & 0xF); \
-        cpu->WBInterlockedReg = (cpu->CurInstr>>12) & 0xF; \
-        StaleWBIL = false; \
     } \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; bool dataabort = !cpu->DataRead8(offset, &val); \
+    cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF] = cpu->DataCycles+1; \
     cpu->AddCycles_CDI_LDR(); \
     if (dataabort) return; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
@@ -183,11 +183,10 @@ namespace melonDS::ARMInterpreter
 #define A_LDRB_POST \
     /* if (cpu->Num != 1) */ \
         cpu->InterlockedRegs = 1 << ((cpu->CurInstr>>12) & 0xF); \
-        cpu->WBInterlockedReg = (cpu->CurInstr>>12) & 0xF; \
-        StaleWBIL = false; \
     } \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; bool dataabort = !cpu->DataRead8(addr, &val); \
+    cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF] = cpu->DataCycles+1; \
     cpu->AddCycles_CDI_LDR(); \
     if (dataabort) return; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
@@ -284,7 +283,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 #define A_STRH \
     /* if (cpu->Num != 1) */ \
         cpu->AddCycles_C(); \
-        if (((cpu->CurInstr>>12) & 0xF) == cpu->WBInterlockedReg) Cycles += 1; \
+        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
     } \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
@@ -297,7 +296,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 #define A_STRH_POST \
     /* if (cpu->Num != 1) */ \
         cpu->AddCycles_C(); \
-        if (((cpu->CurInstr>>12) & 0xF) == cpu->WBInterlockedReg) Cycles += 1; \
+        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
     } \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
@@ -319,9 +318,9 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->InterlockedRegs = (1 << r) | (1 << (r+1)); \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI_LDM(true); return;} \
-    cpu->InterlockTimers[r] = DataCycles; \
+    cpu->InterlockTimers[r] = cpu->DataCycles; \
     u32 val; if (!cpu->DataRead32S(offset+4, &val)) {cpu->AddCycles_CDI_LDM(true); return;} \
-    cpu->InterlockTimers[r+1] = DataCycles; \
+    cpu->InterlockTimers[r+1] = cpu->DataCycles; \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
     else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI_LDM(true); \
@@ -337,9 +336,9 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->InterlockedRegs = (1 << r) | (1 << (r+1)); \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI_LDM(true); return;} \
-    cpu->InterlockTimers[r] = DataCycles; \
+    cpu->InterlockTimers[r] = cpu->DataCycles; \
     u32 val; if (!cpu->DataRead32S(addr+4, &val)) {cpu->AddCycles_CDI_LDM(true); return;} \
-    cpu->InterlockTimers[r+1] = DataCycles; \
+    cpu->InterlockTimers[r+1] = cpu->DataCycles; \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
     else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI_LDM(true); \
@@ -352,9 +351,10 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } /* unaligned registers trigger an undef instruction exception (during execute stage presumably?) */ \
     cpu->AddCycles_C(); \
-    if (r == cpu->WBInterlockedReg) Cycles += 1; \
+    cpu->Cycles = cpu->InterlockTimers[r]; \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     bool dataabort = !cpu->DataWrite32(offset, cpu->R[r]); /* yes, this data abort behavior is on purpose */ \
+    if (cpu->InterlockTimers[r+1] > (cpu->Cycles + cpu->DataCycles)) cpu->Cycles = cpu->InterlockTimers[r+1] - cpu->DataCycles; \
     u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
     dataabort |= !cpu->DataWrite32S (offset+4, storeval, dataabort); /* no, i dont understand it either */ \
     cpu->AddCycles_CD_STM(true); \
@@ -368,9 +368,10 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } /* unaligned registers trigger an undef instruction exception (during execute stage presumably?) */ \
     cpu->AddCycles_C(); \
-    if (r == cpu->WBInterlockedReg) Cycles += 1; \
+    cpu->Cycles = cpu->InterlockTimers[r]; \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     bool dataabort = !cpu->DataWrite32(addr, cpu->R[r]); \
+    if (cpu->InterlockTimers[r+1] > (cpu->Cycles + cpu->DataCycles)) cpu->Cycles = cpu->InterlockTimers[r+1] - cpu->DataCycles; \
     u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
     dataabort |= !cpu->DataWrite32S (addr+4, storeval, dataabort); \
     cpu->AddCycles_CD_STM(true); \
@@ -381,11 +382,10 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     /* if (cpu->Num != 1) */ \
         cpu->AddCycles_C(); \
         cpu->InterlockedRegs = 1 << ((cpu->CurInstr>>12) & 0xF); \
-        cpu->WBInterlockedReg = (cpu->CurInstr>>12) & 0xF; \
-        StaleWBIL = false; \
     } \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; bool dataabort = !cpu->DataRead16(offset, &val); \
+    cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF] = cpu->DataCycles+1; \
     cpu->AddCycles_CDI_LDR(); \
     if (dataabort) return; \
     if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
@@ -396,11 +396,10 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     /* if (cpu->Num != 1) */ \
         cpu->AddCycles_C(); \
         cpu->InterlockedRegs = 1 << ((cpu->CurInstr>>12) & 0xF); \
-        cpu->WBInterlockedReg = (cpu->CurInstr>>12) & 0xF; \
-        StaleWBIL = false; \
     } \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; bool dataabort = !cpu->DataRead16(addr, &val); \
+    cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF] = cpu->DataCycles+1; \
     cpu->AddCycles_CDI_LDR(); \
     if (dataabort) return; \
     if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
@@ -411,11 +410,10 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     /* if (cpu->Num != 1) */ \
         cpu->AddCycles_C(); \
         cpu->InterlockedRegs = 1 << ((cpu->CurInstr>>12) & 0xF); \
-        cpu->WBInterlockedReg = (cpu->CurInstr>>12) & 0xF; \
-        StaleWBIL = false; \
     } \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; bool dataabort = !cpu->DataRead8(offset, &val); \
+    cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF] = cpu->DataCycles+1; \
     cpu->AddCycles_CDI_LDR(); \
     if (dataabort) return; \
     val = (s32)(s8)val; \
@@ -427,11 +425,10 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     /* if (cpu->Num != 1) */ \
         cpu->AddCycles_C(); \
         cpu->InterlockedRegs = 1 << ((cpu->CurInstr>>12) & 0xF); \
-        cpu->WBInterlockedReg = (cpu->CurInstr>>12) & 0xF; \
-        StaleWBIL = false; \
     } \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; bool dataabort = !cpu->DataRead8(addr, &val); \
+    cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF] = cpu->DataCycles+1; \
     cpu->AddCycles_CDI_LDR(); \
     if (dataabort) return; \
     val = (s32)(s8)val; \
@@ -443,11 +440,10 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     /* if (cpu->Num != 1) */ \
         cpu->AddCycles_C(); \
         cpu->InterlockedRegs = 1 << ((cpu->CurInstr>>12) & 0xF); \
-        cpu->WBInterlockedReg = (cpu->CurInstr>>12) & 0xF; \
-        StaleWBIL = false; \
     } \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; bool dataabort = !cpu->DataRead16(offset, &val); \
+    cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF] = cpu->DataCycles+1; \
     cpu->AddCycles_CDI_LDR(); \
     if (dataabort) return; \
     val = (s32)(s16)val; \
@@ -459,11 +455,10 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     /* if (cpu->Num != 1) */ \
         cpu->AddCycles_C(); \
         cpu->InterlockedRegs = 1 << ((cpu->CurInstr>>12) & 0xF); \
-        cpu->WBInterlockedReg = (cpu->CurInstr>>12) & 0xF; \
-        StaleWBIL = false; \
     } \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; bool dataabort = !cpu->DataRead16(addr, &val); \
+    cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF] = cpu->DataCycles+1; \
     cpu->AddCycles_CDI_LDR(); \
     if (dataabort) return; \
     val = (s32)(s16)val; \
@@ -522,17 +517,16 @@ void A_SWP(ARM* cpu)
     if (cpu->DataRead32(base, &val))
     {
         u32 numD = cpu->DataCycles;
+        if (cpu->InterlockTimers[cpu->CurInstr & 0xF] > (cpu->Cycles + cpu->DataCycles))
+            cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0xF] - cpu->DataCycles;
+
         if (cpu->DataWrite32(base, rm))
         {
             // rd only gets updated if both read and write succeed
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
             cpu->InterlockedRegs = 1 << rd; // does this apply to r15?
-            cpu->InterlockTimers[rd] = numD;
-            if (base&0x3)
-            {
-                cpu->WBInterlockedReg = rd;
-                StaleWBIL = false;
-            }
+            cpu->InterlockTimers[rd] = cpu->DataCycles; // checkme
+            if (base&0x3) cpu->InterlockTimers[rd]++;
             if (rd != 15) cpu->R[rd] = ROR(val, 8*(base&0x3));
             else if (cpu->Num==1) cpu->JumpTo(ROR(val, 8*(base&0x3)) & ~1); // for some reason these jumps don't work on the arm 9?
         }
@@ -557,14 +551,15 @@ void A_SWPB(ARM* cpu)
     if (cpu->DataRead8(base, &val))
     {
         u32 numD = cpu->DataCycles;
+        if (cpu->InterlockTimers[cpu->CurInstr & 0xF] > (cpu->Cycles + cpu->DataCycles))
+            cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0xF] - cpu->DataCycles;
+
         if (cpu->DataWrite8(base, rm))
         {
             // rd only gets updated if both read and write succeed
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
             cpu->InterlockedRegs = 1 << rd; // does this apply to r15?
-            cpu->InterlockTimers[rd] = numD;
-            cpu->WBInterlockedReg = rd;
-            StaleWBIL = false;
+            cpu->InterlockTimers[rd] = cpu->DataCycles+1; // checkme
             if (rd != 15) cpu->R[rd] = val;
             else if (cpu->Num==1) cpu->JumpTo(val & ~1); // for some reason these jumps don't work on the arm 9?
         }
@@ -626,7 +621,7 @@ void A_LDM(ARM* cpu)
                 goto dataabort;
             }
 
-            cpu->InnterlockTimers[i] = DataCycles;
+            cpu->InterlockTimers[i] = cpu->DataCycles;
 
             first = false;
             if (!preinc) base += 4;
@@ -707,7 +702,6 @@ void A_STM(ARM* cpu)
     {
         cpu->UsedRegs = 1 << baseid;
         cpu->AddCycles_C();
-        if ((cpu->CurInstr & 0x7FFF) && (__builtin_ctz(cpu->CurInstr) == cpu->WBInterlockedReg)) Cycles += 1; \
     }
 
     if (!(cpu->CurInstr & (1<<23)))
@@ -753,6 +747,9 @@ void A_STM(ARM* cpu)
             else val = cpu->R[i];
 
             if (i == 15) val+=4;
+            
+            if (cpu->InterlockTimers[i] > (cpu->Cycles + cpu->DataCycles))
+                cpu->Cycles = cpu->InterlockTimers[i] - cpu->DataCycles;
 
             if (!(first ? cpu->DataWrite32 (base, val)
                         : cpu->DataWrite32S(base, val)))
@@ -804,6 +801,7 @@ void T_LDR_PCREL(ARM* cpu)
 
     u32 addr = (cpu->R[15] & ~0x2) + ((cpu->CurInstr & 0xFF) << 2);
     cpu->DataRead32(addr, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
+    cpu->InterlockTimers[(cpu->CurInstr >> 8) & 0x7] = cpu->DataCycles;
 
     cpu->AddCycles_CDI_LDR();
 }
@@ -815,7 +813,7 @@ void T_STR_REG(ARM* cpu)
     {
         cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7));
         cpu->AddCycles_C();
-        if ((cpu->CurInstr & 0x7) == cpu->WBInterlockedReg) Cycles += 1;
+        cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
     }
 
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
@@ -830,7 +828,7 @@ void T_STRB_REG(ARM* cpu)
     {
         cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7));
         cpu->AddCycles_C();
-        if ((cpu->CurInstr & 0x7) == cpu->WBInterlockedReg) Cycles += 1;
+        cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
     }
 
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
@@ -848,16 +846,13 @@ void T_LDR_REG(ARM* cpu)
         cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7));
         cpu->AddCycles_C();
         cpu->InterlockedRegs = 1 << (cpu->CurInstr & 0x7);
-        if (addr & 0x3)
-        {
-            cpu->WBInterlockedReg = cpu->CurInstr & 0x7;
-            StaleWBIL = false;
-        }
     }
 
     u32 val;
     if (cpu->DataRead32(addr, &val))
         cpu->R[cpu->CurInstr & 0x7] = ROR(val, 8*(addr&0x3));
+    cpu->InterlockTimers[cpu->CurInstr&0x7] = cpu->DataCycles;
+    if (addr&3) cpu->InterlockTimers[cpu->CurInstr&0x7]++;
 
     cpu->AddCycles_CDI_LDR();
 }
@@ -869,12 +864,11 @@ void T_LDRB_REG(ARM* cpu)
         cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7));
         cpu->AddCycles_C();
         cpu->InterlockedRegs = 1 << (cpu->CurInstr & 0x7);
-        cpu->WBInterlockedReg = cpu->CurInstr & 0x7;
-        StaleWBIL = false;
     }
 
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     cpu->DataRead8(addr, &cpu->R[cpu->CurInstr & 0x7]);
+    cpu->InterlockTimers[cpu->CurInstr&0x7] = cpu->DataCycles+1;
 
     cpu->AddCycles_CDI_LDR();
 }
@@ -886,7 +880,7 @@ void T_STRH_REG(ARM* cpu)
     {
         cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7));
         cpu->AddCycles_C();
-        if ((cpu->CurInstr & 0x7) == cpu->WBInterlockedReg) Cycles += 1;
+        cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
     }
 
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
@@ -902,13 +896,12 @@ void T_LDRSB_REG(ARM* cpu)
         cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7));
         cpu->AddCycles_C();
         cpu->InterlockedRegs = 1 << (cpu->CurInstr & 0x7);
-        cpu->WBInterlockedReg = cpu->CurInstr & 0x7;
-        StaleWBIL = false;
     }
 
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     if (cpu->DataRead8(addr, &cpu->R[cpu->CurInstr & 0x7]))
         cpu->R[cpu->CurInstr & 0x7] = (s32)(s8)cpu->R[cpu->CurInstr & 0x7];
+    cpu->InterlockTimers[cpu->CurInstr&0x7] = cpu->DataCycles+1;
 
     cpu->AddCycles_CDI_LDR();
 }
@@ -920,12 +913,11 @@ void T_LDRH_REG(ARM* cpu)
         cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7));
         cpu->AddCycles_C();
         cpu->InterlockedRegs = 1 << (cpu->CurInstr & 0x7);
-        cpu->WBInterlockedReg = cpu->CurInstr & 0x7;
-        StaleWBIL = false;
     }
 
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     cpu->DataRead16(addr, &cpu->R[cpu->CurInstr & 0x7]);
+    cpu->InterlockTimers[cpu->CurInstr&0x7] = cpu->DataCycles+1;
 
     cpu->AddCycles_CDI_LDR();
 }
@@ -937,13 +929,12 @@ void T_LDRSH_REG(ARM* cpu)
         cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7));
         cpu->AddCycles_C();
         cpu->InterlockedRegs = 1 << (cpu->CurInstr & 0x7);
-        cpu->WBInterlockedReg = cpu->CurInstr & 0x7;
-        StaleWBIL = false;
     }
 
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     if (cpu->DataRead16(addr, &cpu->R[cpu->CurInstr & 0x7]))
         cpu->R[cpu->CurInstr & 0x7] = (s32)(s16)cpu->R[cpu->CurInstr & 0x7];
+    cpu->InterlockTimers[cpu->CurInstr&0x7] = cpu->DataCycles+1;
 
     cpu->AddCycles_CDI_LDR();
 }
@@ -955,7 +946,7 @@ void T_STR_IMM(ARM* cpu)
     {
         cpu->UsedRegs = 1 << ((cpu->CurInstr >> 3) & 0x7);
         cpu->AddCycles_C();
-        if ((cpu->CurInstr & 0x7) == cpu->WBInterlockedReg) Cycles += 1;
+        cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
     }
 
     u32 offset = (cpu->CurInstr >> 4) & 0x7C;
@@ -975,16 +966,14 @@ void T_LDR_IMM(ARM* cpu)
         cpu->UsedRegs = 1 << ((cpu->CurInstr >> 3) & 0x7);
         cpu->AddCycles_C();
         cpu->InterlockedRegs = 1 << (cpu->CurInstr & 0x7);
-        if (offset & 0x3)
-        {
-            cpu->WBInterlockedReg = cpu->CurInstr & 0x7;
-            StaleWBIL = false;
-        }
     }
 
     u32 val;
     if (cpu->DataRead32(offset, &val))
         cpu->R[cpu->CurInstr & 0x7] = ROR(val, 8*(offset&0x3));
+    cpu->InterlockTimers[cpu->CurInstr&0x7] = cpu->DataCycles;
+    if (offset&3) cpu->InterlockTimers[cpu->CurInstr&0x7]++;
+
     cpu->AddCycles_CDI_LDR();
 }
 
@@ -994,7 +983,7 @@ void T_STRB_IMM(ARM* cpu)
     {
         cpu->UsedRegs = 1 << ((cpu->CurInstr >> 3) & 0x7);
         cpu->AddCycles_C();
-        if ((cpu->CurInstr & 0x7) == cpu->WBInterlockedReg) Cycles += 1;
+        cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
     }
 
     u32 offset = (cpu->CurInstr >> 6) & 0x1F;
@@ -1011,14 +1000,13 @@ void T_LDRB_IMM(ARM* cpu)
         cpu->UsedRegs = 1 << ((cpu->CurInstr >> 3) & 0x7);
         cpu->AddCycles_C();
         cpu->InterlockedRegs = 1 << (cpu->CurInstr & 0x7);
-        cpu->WBInterlockedReg = cpu->CurInstr & 0x7;
-        StaleWBIL = false;
     }
 
     u32 offset = (cpu->CurInstr >> 6) & 0x1F;
     offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
 
     cpu->DataRead8(offset, &cpu->R[cpu->CurInstr & 0x7]);
+    cpu->InterlockTimers[cpu->CurInstr&0x7] = cpu->DataCycles+1;
     cpu->AddCycles_CDI_LDR();
 }
 
@@ -1029,7 +1017,7 @@ void T_STRH_IMM(ARM* cpu)
     {
         cpu->UsedRegs = 1 << ((cpu->CurInstr >> 3) & 0x7);
         cpu->AddCycles_C();
-        if ((cpu->CurInstr & 0x7) == cpu->WBInterlockedReg) Cycles += 1;
+        cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
     }
 
     u32 offset = (cpu->CurInstr >> 5) & 0x3E;
@@ -1046,14 +1034,13 @@ void T_LDRH_IMM(ARM* cpu)
         cpu->UsedRegs = 1 << ((cpu->CurInstr >> 3) & 0x7);
         cpu->AddCycles_C();
         cpu->InterlockedRegs = 1 << (cpu->CurInstr & 0x7);
-        cpu->WBInterlockedReg = cpu->CurInstr & 0x7;
-        StaleWBIL = false;
     }
 
     u32 offset = (cpu->CurInstr >> 5) & 0x3E;
     offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
 
     cpu->DataRead16(offset, &cpu->R[cpu->CurInstr & 0x7]);
+    cpu->InterlockTimers[(cpu->CurInstr>>8)&0x7] = cpu->DataCycles+1;
     cpu->AddCycles_CDI_LDR();
 }
 
@@ -1064,7 +1051,7 @@ void T_STR_SPREL(ARM* cpu)
     {
         cpu->UsedRegs = 1 << 13;
         cpu->AddCycles_C();
-        if (((cpu->CurInstr >> 8) & 0x7) == cpu->WBInterlockedReg) Cycles += 1;
+        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr >> 8) & 0x7];
     }
 
     u32 offset = (cpu->CurInstr << 2) & 0x3FC;
@@ -1087,6 +1074,7 @@ void T_LDR_SPREL(ARM* cpu)
     offset += cpu->R[13];
 
     cpu->DataRead32(offset, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
+    cpu->InterlockTimers[(cpu->CurInstr>>8)&0x7] = cpu->DataCycles;
     cpu->AddCycles_CDI_LDR();
 }
 
@@ -1097,8 +1085,6 @@ void T_PUSH(ARM* cpu)
     {
         cpu->UsedRegs = 1 << 13;
         cpu->AddCycles_C();
-        if (((cpu->CurInstr & 0xFF) && (__builtin_ctz(cpu->CurInstr) == cpu->WBInterlockedReg))
-        || ((cpu->CurInstr & 0x100) && (14 == cpu->WBInterlockedReg))) Cycles += 1; \
     }
 
     int nregs = 0;
@@ -1121,6 +1107,9 @@ void T_PUSH(ARM* cpu)
     {
         if (cpu->CurInstr & (1<<i))
         {
+            if (cpu->InterlockTimers[i] > (cpu->Cycles + cpu->DataCycles))
+                cpu->Cycles = cpu->InterlockTimers[i] - cpu->DataCycles;
+
             if (!(first ? cpu->DataWrite32 (base, cpu->R[i])
                         : cpu->DataWrite32S(base, cpu->R[i])))
             {
@@ -1133,6 +1122,9 @@ void T_PUSH(ARM* cpu)
 
     if (cpu->CurInstr & (1<<8))
     {
+        if (cpu->InterlockTimers[14] > (cpu->Cycles + cpu->DataCycles))
+            cpu->Cycles = cpu->InterlockTimers[14] - cpu->DataCycles;
+
         if (!(first ? cpu->DataWrite32 (base, cpu->R[14])
                     : cpu->DataWrite32S(base, cpu->R[14])))
         {
@@ -1171,7 +1163,7 @@ void T_POP(ARM* cpu)
             }
             first = false;
             base += 4;
-            cpu->InterlockTimers[i] = DataCycles;
+            cpu->InterlockTimers[i] = cpu->DataCycles;
         }
     }
 
@@ -1205,13 +1197,15 @@ void T_STMIA(ARM* cpu)
     {
         cpu->UsedRegs = 1 << base;
         cpu->AddCycles_C();
-        if ((cpu->CurInstr & 0xFF) && (__builtin_ctz(cpu->CurInstr) == cpu->WBInterlockedReg)) Cycles += 1; \
     }
 
     for (int i = 0; i < 8; i++)
     {
         if (cpu->CurInstr & (1<<i))
         {
+            if (cpu->InterlockTimers[i] > (cpu->Cycles + cpu->DataCycles))
+                cpu->Cycles = cpu->InterlockTimers[i] - cpu->DataCycles;
+
             numregs++;
             if (!(first ? cpu->DataWrite32 (base, cpu->R[i])
                         : cpu->DataWrite32S(base, cpu->R[i])))
@@ -1254,7 +1248,7 @@ void T_LDMIA(ARM* cpu)
             }
             first = false;
             base += 4;
-            cpu->InterlockTimers[i] = DataCycles;
+            cpu->InterlockTimers[i] = cpu->DataCycles;
         }
     }
 

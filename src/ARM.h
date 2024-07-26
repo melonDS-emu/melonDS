@@ -184,11 +184,8 @@ public:
 
     // ==== various interlock trackers used by the arm9 ====
 
-    // how delayed the writeback stage is
-    u32 WBDelay;
-
     // mask of what registers are interlocked, each bit represents one register
-    u16 InterLockedRegs;
+    u16 InterlockedRegs;
 
     // mask of what registers were used by an instructions
     u16 UsedRegs;
@@ -358,7 +355,6 @@ public:
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
     
-    s32 MemoryOverflow;
     u8 MemoryType; // 0 none/other - 1 ldr - 2 ldm(1 reg) - 3 ldm(>1 reg) - 4 str - 5 stm(1 reg) - 6 stm(>1 reg)
 
 

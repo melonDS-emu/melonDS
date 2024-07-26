@@ -190,6 +190,11 @@ void ARM::Reset()
     BreakReq = false;
 #endif
 
+    InterlockedRegs = 0;
+    UsedRegs = 0;
+    memset(InterlockTimers, 0, sizeof(InterlockTimers));
+    memset(UsedTimers, 0, sizeof(UsedTimers));
+
     // zorp
     JumpTo(ExceptionBase);
 }
@@ -197,9 +202,7 @@ void ARM::Reset()
 void ARMv5::Reset()
 {
     PU_Map = PU_PrivMap;
-    MemoryOverflow = 0;
     MemoryType = 0;
-    MemoryQueue = false;
 
     ARM::Reset();
 }
@@ -639,22 +642,6 @@ void ARMv5::Execute()
 
     while (NDS.ARM9Timestamp < NDS.ARM9Target)
     {
-        // memory/multiply
-        /*if (MemoryQueue)
-        {
-            if (CPSR & 0x20) // THUMB
-            {
-                u32 icode = (CurInstr >> 6) & 0x3FF;
-                ARMInterpreter::THUMBInstrTable[icode](this);
-            }
-            else
-            {
-                u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
-                ARMInterpreter::ARMInstrTable[icode](this);
-            }
-            MemoryQueue = false;
-        }*/
-
         if (CPSR & 0x20) // THUMB
         {
             GdbCheckC();
@@ -669,17 +656,6 @@ void ARMv5::Execute()
             // actually execute
             u32 icode = (CurInstr >> 6) & 0x3FF;
             ARMInterpreter::THUMBInstrTable[icode](this);
-
-            NDS.ARM9Timestamp += Cycles;
-            Cycles = 0;
-            
-            // memory/multiply
-            if (MemoryQueue)
-            {
-                //u32 icode = (CurInstr >> 6) & 0x3FF;
-                ARMInterpreter::THUMBInstrTable[icode](this);
-                MemoryQueue = false;
-            }
         }
         else
         {
@@ -720,9 +696,6 @@ void ARMv5::Execute()
                 TriggerIRQ();
         }*/
         if (IRQ) TriggerIRQ();
-
-        NDS.ARM9Timestamp += Cycles;
-        Cycles = 0;
     }
 
     if (Halted == 2)
@@ -1426,97 +1399,134 @@ void ARMv5::AddCycles(s32 numX)
 
         if (NDS.ARM9RoundMask == 3) early *= 2; // CHECKME
         
+        s32 numM = DataCycles - early;
         // check for interlocks
         // note: r15 shouldn't be able to interlock?
         u16 ILmask = InterlockedRegs & UsedRegs & 0x7FFF;
         if (ILmask)
         {
-            // get the number of the highest interlocked register
-            int ILreg = 15 - __builtin_clz(ILmask);
-
-            int ILtime;
-            if (ILreg == WBInterlockedReg) ILtime = -1; // if the interlock was a writeback stage interlock then the logic is quite simple
+            s32 time = 0;
+            if (numX > 0)
+            {
+                for (int i = 0; i < 15; i++)
+                {
+                    if ((ILmask & (1<<i)) && (time < (InterlockTimers[i] - UsedTimers[i])))
+                        time = InterlockTimers[i] - UsedTimers[i];
+                }
+            }
             else
             {
-                // get the time the reg was used
-                ILtime = 0;
-                if (numX > 0) ILtime = UsedTimers[ILreg];
-
-                // get the time the reg was freed up
-                int ILend = 0;
-                if ((MemoryType == 3) || (MemoryType == 4)) // swp/ldm(multiple regs) variants
-                    ILend = DataCycles - InterlockTimers[ILreg];
-
-                ILtime = ILend + ILtime;
+                for (int i = 0; i < 15; i++)
+                {
+                    if ((ILmask & (1<<i)) && (time < InterlockTimers[i]))
+                        time = InterlockTimers[i];
+                }
             }
-
-            early = std::min(early, ILtime);
+            numM = std::max(time, numM);
         }
-        
-        s32 numM = DataCycles - early;
-
-        if (numM < 0)
+        else if (numM < 0)
         {
             early += numM;
             numM = 0;
         }
-        Cycles += numM;
+
+        s32 cyclespent = Cycles + numM + numX;
         
-        u32 delay = ((CodeRegion == Mem9_ITCM) ? 0 : (((NDS.ARM9Timestamp + numX + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + numX + Cycles)));
+        if (cyclespent < 0) cyclespent = 0;
 
-        s32 numFX = numX + CodeCycles + delay;
+        if (CodeRegion == Mem9_ITCM) 
+            CodeCycles += (((NDS.ARM9Timestamp + cyclespent + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + cyclespent));
 
-        if (early < numFX)
+        cyclespent += CodeCycles;
+
+        NDS.ARM9Timestamp += cyclespent;
+        if ((numM == 0) && (numX == 0) && (Cycles < 0))
         {
-            MemoryOverflow = -(CodeCycles + delay - 1);
-            WBInterlockedReg = 0xFF;
+            CodeCycles++;
         }
-        else
+        if (CodeCycles > 1)
         {
-            MemoryOverflow = early - numFX;
-            StaleWBIL = true;
+            Cycles = -1;
+        }
+        else Cycles = 0;
+
+        for (int i = 0; i < 15; i++)
+        {
+            if (InterlockedRegs & (1<<i))
+            {
+                if (InterlockTimers[i] <= cyclespent)
+                {
+                    InterlockTimers[i] = 0;
+                    InterlockedRegs &= ~(1<<i);
+                }
+                else InterlockTimers[i] -= cyclespent;
+            }
         }
 
-        Cycles += numFX;
         MemoryType = 0;
     }
     else
     {
-        // todo: handle interlocks
-
-        // we dont handle the case of a memoryoverflow of 0 because it should be impossible without a memory, fetch, and execute stage of 1 cycle.
-        // if you can get this case with an execute stage that ends before the others it should be possible for the next execute and "faux" memory stage to overlap them by 1?
-        if (MemoryOverflow > 0) // memory stage ended after fetch stage (this should only be possible by 1 cycle at most?)
+        u32 numM = 0;
+        u16 ILmask = InterlockedRegs & UsedRegs & 0x7FFF;
+        if (ILmask)
         {
-            // if a "true" memory stage is occuring
-            if (DataCycles != 0)
+            s32 time = 0;
+            if (numX > 0)
             {
-                Cycles += MemoryOverflow;
+                for (int i = 0; i < 15; i++)
+                {
+                    if ((ILmask & (1<<i)) && (time < (InterlockTimers[i] - UsedTimers[i])))
+                        time = InterlockTimers[i] - UsedTimers[i];
+                }
             }
+            else
+            {
+                for (int i = 0; i < 15; i++)
+                {
+                    if ((ILmask & (1<<i)) && (time < InterlockTimers[i]))
+                        time = InterlockTimers[i];
+                }
+            }
+            numM = time;
         }
-        // seems like an execute/memory stage can begin on the cycle a fetch ends?
-        else if (MemoryOverflow < 0) // memory stage ended before fetch stage
-        {
-            numX -= 1;
-            if (numX < 0) numX = 0;
-        }
+                
+        s32 cyclespent = Cycles + numX + numM;
 
-        Cycles += numX;
+        if (cyclespent < 0) cyclespent = 0;
 
         // Add instruction cache here?
         if (CodeRegion != Mem9_ITCM)
             CodeCycles += ((NDS.ARM9Timestamp + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + Cycles); // align with next bus cycle
             
-        Cycles += CodeCycles;
+        cyclespent += CodeCycles;
+        
+        NDS.ARM9Timestamp += cyclespent;
+        if ((numM == 0) && (numX == 0) && (Cycles < 0))
+        {
+            CodeCycles++;
+        }
+        if (CodeCycles > 1)
+        {
+            Cycles = -1;
+        }
+        else Cycles = 0;
 
-        s32 overflow = -CodeCycles;
-        if (!(numX == 0 && MemoryOverflow < 0))
-            overflow += 1;
-        MemoryOverflow = overflow;
+        for (int i = 0; i < 15; i++)
+        {
+            if (InterlockedRegs & (1<<i))
+            {
+                if (InterlockTimers[i] <= cyclespent)
+                {
+                    InterlockTimers[i] = 0;
+                    InterlockedRegs &= ~(1<<i);
+                }
+                else InterlockTimers[i] -= cyclespent;
+            }
+        }
     }
     
-    NDS.ARM9Timestamp += Cycles;
-    Cycles = 0;
+
     DataCycles = 0;
 }
 

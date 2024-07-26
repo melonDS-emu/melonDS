@@ -817,9 +817,6 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
 
     if (addr < ITCMSize)
     {
-        if (MemoryOverflow < 0) Cycles -= 1;
-        else Cycles += MemoryOverflow;
-        MemoryOverflow = 0;
         DataRegion = Mem9_ITCM;
         DataCycles = 1;
         *val = *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)];
@@ -827,17 +824,12 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        if (MemoryOverflow < 0) Cycles -= 1;
-        else Cycles += MemoryOverflow;
-        MemoryOverflow = 0;
         DataRegion = Mem9_DTCM;
         DataCycles = 1;
         *val = *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return true;
     }
     
-    if (MemoryOverflow > 0) Cycles += MemoryOverflow;
-    MemoryOverflow = 0;
     Cycles += ((NDS.ARM9Timestamp + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + Cycles);
     
     *val = BusRead8(addr);
@@ -858,9 +850,6 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
 
     if (addr < ITCMSize)
     {
-        if (MemoryOverflow < 0) Cycles -= 1;
-        else Cycles += MemoryOverflow;
-        MemoryOverflow = 0;
         DataRegion = Mem9_ITCM;
         DataCycles = 1;
         *val = *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)];
@@ -868,17 +857,12 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        if (MemoryOverflow < 0) Cycles -= 1;
-        else Cycles += MemoryOverflow;
-        MemoryOverflow = 0;
         DataRegion = Mem9_DTCM;
         DataCycles = 1;
         *val = *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return true;
     }
-    
-    if (MemoryOverflow > 0) Cycles += MemoryOverflow;
-    MemoryOverflow = 0;
+
     Cycles += ((NDS.ARM9Timestamp + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + Cycles);
     
     *val = BusRead16(addr);
@@ -899,9 +883,6 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
 
     if (addr < ITCMSize)
     {
-        if (MemoryOverflow < 0) Cycles -= 1;
-        else Cycles += MemoryOverflow;
-        MemoryOverflow = 0;
         DataRegion = Mem9_ITCM;
         DataCycles = 1;
         *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
@@ -909,17 +890,12 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        if (MemoryOverflow < 0) Cycles -= 1;
-        else Cycles += MemoryOverflow;
-        MemoryOverflow = 0;
         DataRegion = Mem9_DTCM;
         DataCycles = 1;
         *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return true;
     }
     
-    if (MemoryOverflow > 0) Cycles += MemoryOverflow;
-    MemoryOverflow = 0;
     Cycles += ((NDS.ARM9Timestamp + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + Cycles);
 
     *val = BusRead32(addr);
@@ -970,9 +946,6 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
 
     if (addr < ITCMSize)
     {
-        if (MemoryOverflow < 0) Cycles -= 1;
-        else Cycles += MemoryOverflow;
-        MemoryOverflow = 0;
         DataRegion = Mem9_ITCM;
         DataCycles = 1;
         *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
@@ -981,17 +954,12 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        if (MemoryOverflow < 0) Cycles -= 1;
-        else Cycles += MemoryOverflow;
-        MemoryOverflow = 0;
         DataRegion = Mem9_DTCM;
         DataCycles = 1;
         *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return true;
     }
     
-    if (MemoryOverflow > 0) Cycles += MemoryOverflow;
-    MemoryOverflow = 0;
     Cycles += ((NDS.ARM9Timestamp + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + Cycles);
 
     BusWrite8(addr, val);
@@ -1012,9 +980,6 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
 
     if (addr < ITCMSize)
     {
-        if (MemoryOverflow < 0) Cycles -= 1;
-        else Cycles += MemoryOverflow;
-        MemoryOverflow = 0;
         DataRegion = Mem9_ITCM;
         DataCycles = 1;
         *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
@@ -1023,17 +988,12 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        if (MemoryOverflow < 0) Cycles -= 1;
-        else Cycles += MemoryOverflow;
-        MemoryOverflow = 0;
         DataRegion = Mem9_DTCM;
         DataCycles = 1;
         *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return true;
     }
     
-    if (MemoryOverflow > 0) Cycles += MemoryOverflow;
-    MemoryOverflow = 0;
     Cycles += ((NDS.ARM9Timestamp + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + Cycles);
 
     BusWrite16(addr, val);
@@ -1054,9 +1014,6 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
 
     if (addr < ITCMSize)
     {
-        if (MemoryOverflow < 0) Cycles -= 1;
-        else Cycles += MemoryOverflow;
-        MemoryOverflow = 0;
         DataRegion = Mem9_ITCM;
         DataCycles = 1;
         *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
@@ -1065,17 +1022,12 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        if (MemoryOverflow < 0) Cycles -= 1;
-        else Cycles += MemoryOverflow;
-        MemoryOverflow = 0;
         DataRegion = Mem9_DTCM;
         DataCycles = 1;
         *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return true;
     }
     
-    if (MemoryOverflow > 0) Cycles += MemoryOverflow;
-    MemoryOverflow = 0;
     Cycles += ((NDS.ARM9Timestamp + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + Cycles);
 
     BusWrite32(addr, val);

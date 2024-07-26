@@ -152,22 +152,27 @@ inline bool OverflowSbc(u32 a, u32 b, u32 carry)
 
 
 #define A_CALC_OP2_IMM \
-    u32 b = ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E);
+    u32 b = ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E); \
+    cpu->UsedRegs = 0;
 
 #define A_CALC_OP2_IMM_S \
     u32 b = ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E); \
     if ((cpu->CurInstr>>7)&0x1E) \
-        cpu->SetC(b & 0x80000000);
+        cpu->SetC(b & 0x80000000); \
+    cpu->UsedRegs = 0;
 
 #define A_CALC_OP2_REG_SHIFT_IMM(shiftop) \
     u32 b = cpu->R[cpu->CurInstr&0xF]; \
     u32 s = (cpu->CurInstr>>7)&0x1F; \
-    shiftop(b, s);
+    shiftop(b, s); \
+    cpu->UsedRegs = 1 << (cpu->CurInstr&0xF);
 
 #define A_CALC_OP2_REG_SHIFT_REG(shiftop) \
     u32 b = cpu->R[cpu->CurInstr&0xF]; \
     if ((cpu->CurInstr&0xF)==15) b += 4; \
-    shiftop(b, (cpu->R[(cpu->CurInstr>>8)&0xF] & 0xFF));
+    shiftop(b, (cpu->R[(cpu->CurInstr>>8)&0xF] & 0xFF)); \
+    cpu->UsedRegs = 1 << (cpu->CurInstr&0xF); \
+    cpu->UsedTimers[cpu->CurInstr&0xF] = 1;
 
 
 #define A_IMPLEMENT_ALU_OP(x,s) \
@@ -313,9 +318,11 @@ void A_##x##_REG_ROR_REG(ARM* cpu) \
 
 
 #define A_AND(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a & b; \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res & ~1); \
@@ -327,10 +334,12 @@ void A_##x##_REG_ROR_REG(ARM* cpu) \
 
 #define A_AND_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 res = a & b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -344,9 +353,11 @@ A_IMPLEMENT_ALU_OP(AND,_S)
 
 
 #define A_EOR(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a ^ b; \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res & ~1); \
@@ -357,11 +368,13 @@ A_IMPLEMENT_ALU_OP(AND,_S)
     }
 
 #define A_EOR_S(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a ^ b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -375,9 +388,11 @@ A_IMPLEMENT_ALU_OP(EOR,_S)
 
 
 #define A_SUB(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a - b; \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res & ~1); \
@@ -388,13 +403,15 @@ A_IMPLEMENT_ALU_OP(EOR,_S)
     }
 
 #define A_SUB_S(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a - b; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
                  CarrySub(a, b), \
                  OverflowSub(a, b)); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -408,9 +425,11 @@ A_IMPLEMENT_ALU_OP(SUB,)
 
 
 #define A_RSB(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = b - a; \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res & ~1); \
@@ -421,13 +440,15 @@ A_IMPLEMENT_ALU_OP(SUB,)
     }
 
 #define A_RSB_S(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = b - a; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
                  CarrySub(b, a), \
                  OverflowSub(b, a)); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -441,9 +462,11 @@ A_IMPLEMENT_ALU_OP(RSB,)
 
 
 #define A_ADD(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a + b; \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res & ~1); \
@@ -454,13 +477,15 @@ A_IMPLEMENT_ALU_OP(RSB,)
     }
 
 #define A_ADD_S(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a + b; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
                  CarryAdd(a, b), \
                  OverflowAdd(a, b)); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -474,9 +499,11 @@ A_IMPLEMENT_ALU_OP(ADD,)
 
 
 #define A_ADC(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a + b + (cpu->CPSR&0x20000000 ? 1:0); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res & ~1); \
@@ -487,6 +514,8 @@ A_IMPLEMENT_ALU_OP(ADD,)
     }
 
 #define A_ADC_S(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res_tmp = a + b; \
     u32 carry = (cpu->CPSR&0x20000000 ? 1:0); \
@@ -495,7 +524,7 @@ A_IMPLEMENT_ALU_OP(ADD,)
                  !res, \
                  CarryAdd(a, b) | CarryAdd(res_tmp, carry), \
                  OverflowAdc(a, b, carry)); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -509,9 +538,11 @@ A_IMPLEMENT_ALU_OP(ADC,)
 
 
 #define A_SBC(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a - b - (cpu->CPSR&0x20000000 ? 0:1); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res & ~1); \
@@ -522,6 +553,8 @@ A_IMPLEMENT_ALU_OP(ADC,)
     }
 
 #define A_SBC_S(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res_tmp = a - b; \
     u32 carry = (cpu->CPSR&0x20000000 ? 0:1); \
@@ -530,7 +563,7 @@ A_IMPLEMENT_ALU_OP(ADC,)
                  !res, \
                  CarrySub(a, b) & CarrySub(res_tmp, carry), \
                  OverflowSbc(a, b, carry)); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -544,9 +577,11 @@ A_IMPLEMENT_ALU_OP(SBC,)
 
 
 #define A_RSC(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = b - a - (cpu->CPSR&0x20000000 ? 0:1); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res & ~1); \
@@ -557,6 +592,8 @@ A_IMPLEMENT_ALU_OP(SBC,)
     }
 
 #define A_RSC_S(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res_tmp = b - a; \
     u32 carry = (cpu->CPSR&0x20000000 ? 0:1); \
@@ -565,7 +602,7 @@ A_IMPLEMENT_ALU_OP(SBC,)
                  !res, \
                  CarrySub(b, a) & CarrySub(res_tmp, carry), \
                  OverflowSbc(b, a, carry)); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -579,53 +616,63 @@ A_IMPLEMENT_ALU_OP(RSC,)
 
 
 #define A_TST(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a & b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(TST,_S)
 
 
 #define A_TEQ(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a ^ b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(TEQ,_S)
 
 
 #define A_CMP(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a - b; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
                  CarrySub(a, b), \
                  OverflowSub(a, b)); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(CMP,)
 
 
 #define A_CMN(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a + b; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
                  CarryAdd(a, b), \
                  OverflowAdd(a, b)); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(CMN,)
 
 
 #define A_ORR(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a | b; \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res & ~1); \
@@ -636,11 +683,13 @@ A_IMPLEMENT_ALU_TEST(CMN,)
     }
 
 #define A_ORR_S(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a | b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -654,7 +703,7 @@ A_IMPLEMENT_ALU_OP(ORR,_S)
 
 
 #define A_MOV(c) \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(b & ~1); \
@@ -667,7 +716,7 @@ A_IMPLEMENT_ALU_OP(ORR,_S)
 #define A_MOV_S(c) \
     cpu->SetNZ(b & 0x80000000, \
                !b); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(b, true); \
@@ -699,9 +748,11 @@ void A_MOV_REG_LSL_IMM_DBG(ARM* cpu)
 
 
 #define A_BIC(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a & ~b; \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res & ~1); \
@@ -712,11 +763,13 @@ void A_MOV_REG_LSL_IMM_DBG(ARM* cpu)
     }
 
 #define A_BIC_S(c) \
+    cpu->UsedRegs |= 1 << ((cpu->CurInstr>>16) & 0xF); \
+    cpu->UsedTimers[(cpu->CurInstr>>16) & 0xF] = 1; \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a & ~b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -731,7 +784,7 @@ A_IMPLEMENT_ALU_OP(BIC,_S)
 
 #define A_MVN(c) \
     b = ~b; \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(b & ~1); \
@@ -745,7 +798,7 @@ A_IMPLEMENT_ALU_OP(BIC,_S)
     b = ~b; \
     cpu->SetNZ(b & 0x80000000, \
                !b); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (c) { cpu->AddCycles_CI(c); cpu->UsedRegs |= 1 << ((cpu->CurInstr>>8)&0xF); cpu->UsedTimers[(cpu->CurInstr>>8)&0xF] = 0; } else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(b, true); \
