@@ -27,6 +27,10 @@
       "binaryDir": "${sourceDir}/build/release-mingw-x86_64",
       "generator": "Ninja",
       "cacheVariables": {
+        "USE_QT6": {
+          "type": "BOOL",
+          "value": "ON"
+        },
         "BUILD_STATIC": {
           "type": "BOOL",
           "value": "ON"
