@@ -838,7 +838,7 @@ void A_MUL(ARM* cpu)
         {
             cpu->AddCycles_CI(1);
             cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
-            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = 1;
         }
     }
     else
@@ -881,7 +881,7 @@ void A_MLA(ARM* cpu)
         {
             cpu->AddCycles_CI(1);
             cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
-            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = 1;
         }
     }
     else
@@ -922,7 +922,7 @@ void A_UMULL(ARM* cpu)
         {
             cpu->AddCycles_CI(2);
             cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
-            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = 1;
         }
     }
     else
@@ -968,7 +968,7 @@ void A_UMLAL(ARM* cpu)
         {
             cpu->AddCycles_CI(2);
             cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
-            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = 1;
         }
     }
     else
@@ -1009,7 +1009,7 @@ void A_SMULL(ARM* cpu)
         {
             cpu->AddCycles_CI(2);
             cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
-            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = 1;
         }
     }
     else
@@ -1055,7 +1055,7 @@ void A_SMLAL(ARM* cpu)
         {
             cpu->AddCycles_CI(2);
             cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
-            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = 1;
         }
     }
     else
@@ -1096,7 +1096,7 @@ void A_SMLAxy(ARM* cpu)
 
     cpu->AddCycles_C();
     cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
-    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = 1;
 }
 
 void A_SMLAWy(ARM* cpu)
@@ -1124,7 +1124,7 @@ void A_SMLAWy(ARM* cpu)
 
     cpu->AddCycles_C();
     cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
-    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = 1;
 }
 
 void A_SMULxy(ARM* cpu)
@@ -1148,7 +1148,7 @@ void A_SMULxy(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     cpu->AddCycles_C();
     cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
-    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = 1;
 }
 
 void A_SMULWy(ARM* cpu)
@@ -1170,7 +1170,7 @@ void A_SMULWy(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     cpu->AddCycles_C();
     cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
-    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = 1;
 }
 
 void A_SMLALxy(ARM* cpu)
@@ -1201,7 +1201,7 @@ void A_SMLALxy(ARM* cpu)
 
     cpu->AddCycles_CI(1);
     cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
-    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = 1;
 }
 
 
@@ -1255,7 +1255,7 @@ void A_QADD(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C();
     cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 12) & 0xF);
-    cpu->InterlockTimers[(cpu->CurInstr >> 12) & 0xF] = cpu->Cycles + 1;
+    cpu->InterlockTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
 }
 
 void A_QSUB(ARM* cpu)
@@ -1279,7 +1279,7 @@ void A_QSUB(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C();
     cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 12) & 0xF);
-    cpu->InterlockTimers[(cpu->CurInstr >> 12) & 0xF] = cpu->Cycles + 1;
+    cpu->InterlockTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
 }
 
 void A_QDADD(ARM* cpu)
@@ -1311,7 +1311,7 @@ void A_QDADD(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C();
     cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 12) & 0xF);
-    cpu->InterlockTimers[(cpu->CurInstr >> 12) & 0xF] = cpu->Cycles + 1;
+    cpu->InterlockTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
 }
 
 void A_QDSUB(ARM* cpu)
@@ -1343,7 +1343,7 @@ void A_QDSUB(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C();
     cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 12) & 0xF);
-    cpu->InterlockTimers[(cpu->CurInstr >> 12) & 0xF] = cpu->Cycles + 1;
+    cpu->InterlockTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
 }
 
 
