@@ -266,8 +266,6 @@ void ARMv5::UpdatePURegions(bool update_all)
         // PU disabled
 
         u8 mask = 0x07;
-        if (CP15Control & (1<<2))  mask |= 0x30;
-        if (CP15Control & (1<<12)) mask |= 0x40;
 
         memset(PU_UserMap, mask, 0x100000);
         memset(PU_PrivMap, mask, 0x100000);
