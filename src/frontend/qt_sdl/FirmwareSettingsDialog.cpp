@@ -72,8 +72,6 @@ FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent
 
     ui->txtMAC->setText(firmcfg.GetQString("MAC"));
 
-    on_overrideFirmwareBox_toggled();
-
     int inst = emuInstance->getInstanceID();
     if (inst > 0)
         ui->lblInstanceNum->setText(QString("Configuring settings for instance %1").arg(inst+1));
@@ -224,11 +222,4 @@ void FirmwareSettingsDialog::on_cbxBirthdayMonth_currentIndexChanged(int idx)
             ui->cbxBirthdayDay->removeItem(i-1);
         }
     }
-}
-
-void FirmwareSettingsDialog::on_overrideFirmwareBox_toggled()
-{
-    bool disable = !ui->overrideFirmwareBox->isChecked();
-    ui->grpUserSettings->setDisabled(disable);
-    ui->grpWifiSettings->setDisabled(disable);
 }
