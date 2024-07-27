@@ -165,6 +165,7 @@ void A_MSR_REG(ARM* cpu)
     if ((cpu->CPSR & 0x1F) == 0x10) mask &= 0xFFFFFF00;
 
     cpu->UsedRegs = 1 << (cpu->CurInstr & 0xF);
+    cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
 
     u32 val = cpu->R[cpu->CurInstr & 0xF];
 
@@ -224,6 +225,7 @@ void A_MCR(ARM* cpu)
     if (((cpu->CurInstr>>12) & 0xF) == 15) val += 4;
 
     cpu->UsedRegs = 1 << ((cpu->CurInstr>>12) & 0xF);
+    cpu->UsedTimers[(cpu->CurInstr>>12)&0xF] = 0;
 
     if (cpu->Num==0 && cp==15)
     {
@@ -268,6 +270,8 @@ void A_MRC(ARM* cpu)
     }
 
     cpu->AddCycles_CI(2 + 1); // TODO: checkme
+    cpu->InterlockedRegs = 1 << ((cpu->CurInstr>>12)&0xF);
+    cpu->InterlockTimers[(cpu->CurInstr>>12)&0xF] = 1;
 }
 
 
