@@ -18,6 +18,18 @@ set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_SOURCE_DIR}/cmake/overlay-triplets")
 
 option(USE_RECOMMENDED_TRIPLETS "Use the recommended triplets that are used for official builds" ON)
 
+# Duplicated here because it needs to be set before project()
+if (NOT WIN32)
+    option(USE_QT6 "Build using Qt 6 instead of 5" ON)
+else()
+    option(USE_QT6 "Build using Qt 6 instead of 5" OFF)
+endif()
+
+if (NOT USE_QT6)
+    list(APPEND VCPKG_MANIFEST_FEATURES qt5)
+    set(VCPKG_MANIFEST_NO_DEFAULT_FEATURES ON)
+endif()
+
 if (CMAKE_OSX_ARCHITECTURES MATCHES ";")
     message(FATAL_ERROR "macOS universal builds are not supported. Build them individually and combine afterwards instead.")
 endif()
