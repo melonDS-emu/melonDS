@@ -831,6 +831,10 @@ void A_MUL(ARM* cpu)
     u32 memory = 0;
     if (cpu->Num == 0)
     {
+        cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF));
+        cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+        cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
+
         if (cpu->CurInstr & (1<<20)) cycles = 3;
         else { cycles = 1; memory = 1; }
     }
@@ -866,6 +870,11 @@ void A_MLA(ARM* cpu)
     u32 memory = 0;
     if (cpu->Num == 0)
     {
+        cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF)) | (1<< ((cpu->CurInstr >> 12) & 0xF));
+        cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+        cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
+        cpu->UsedTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
+
         if (cpu->CurInstr & (1<<20)) cycles = 3;
         else { cycles = 1; memory = 1; }
     }
@@ -901,6 +910,10 @@ void A_UMULL(ARM* cpu)
     u32 memory = 0;
     if (cpu->Num == 0)
     {
+        cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF));
+        cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+        cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
+
         if (cpu->CurInstr & (1<<20)) cycles = 4;
         else { cycles = 2; memory = 1; }
     }
@@ -939,6 +952,12 @@ void A_UMLAL(ARM* cpu)
     u32 memory = 0;
     if (cpu->Num == 0)
     {
+        cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF)) | (1 << ((cpu->CurInstr >> 12) & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF));
+        cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+        cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
+        cpu->UsedTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
+        cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 2; // checkme
+
         if (cpu->CurInstr & (1<<20)) cycles = 4;
         else { cycles = 2; memory = 1; }
     }
@@ -974,6 +993,10 @@ void A_SMULL(ARM* cpu)
     u32 memory = 0;
     if (cpu->Num == 0)
     {
+        cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF));
+        cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+        cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
+
         if (cpu->CurInstr & (1<<20)) cycles = 4;
         else { cycles = 2; memory = 1; }
     }
@@ -1012,6 +1035,12 @@ void A_SMLAL(ARM* cpu)
     u32 memory = 0;
     if (cpu->Num == 0)
     {
+        cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF)) | (1 << ((cpu->CurInstr >> 12) & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF));
+        cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+        cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
+        cpu->UsedTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
+        cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 2; // checkme
+
         if (cpu->CurInstr & (1<<20)) cycles = 4;
         else { cycles = 2; memory = 1; }
     }
@@ -1047,6 +1076,11 @@ void A_SMLAxy(ARM* cpu)
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
+    cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF)) | (1 << ((cpu->CurInstr >> 12) & 0xF));
+    cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
+
     cpu->AddCycles_C(); // TODO: interlock??
     cpu->DataCycles = 1; 
 }
@@ -1069,6 +1103,11 @@ void A_SMLAWy(ARM* cpu)
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
+    cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF)) | (1 << ((cpu->CurInstr >> 12) & 0xF));
+    cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
+
     cpu->AddCycles_C(); // TODO: interlock??
     cpu->DataCycles = 1; 
 }
@@ -1086,6 +1125,10 @@ void A_SMULxy(ARM* cpu)
     else                        rs &= 0xFFFF;
 
     u32 res = ((s16)rm * (s16)rs);
+    
+    cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF));
+    cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
@@ -1103,6 +1146,10 @@ void A_SMULWy(ARM* cpu)
     else                        rs &= 0xFFFF;
 
     u32 res = ((s64)(s32)rm * (s16)rs) >> 16;
+    
+    cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF));
+    cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
@@ -1128,6 +1175,12 @@ void A_SMLALxy(ARM* cpu)
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+
+    cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF)) | (1 << ((cpu->CurInstr >> 12) & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF));
+    cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
+    cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 2; // checkme
 
     cpu->AddCycles_CI(1); // TODO: interlock??
     cpu->DataCycles = 1; 
@@ -1155,6 +1208,9 @@ void A_CLZ(ARM* cpu)
         val |= 0x1;
     }
 
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0xF));
+    cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+
     if (((cpu->CurInstr >> 12) & 0xF) == 15) cpu->JumpTo(res & ~1);
     else cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C();
@@ -1174,6 +1230,10 @@ void A_QADD(ARM* cpu)
         cpu->CPSR |= 0x08000000;
     }
 
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF));
+    cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 0;
+
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
     cpu->DataCycles = 1; 
@@ -1192,6 +1252,10 @@ void A_QSUB(ARM* cpu)
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
     }
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF));
+    cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 0;
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
@@ -1220,6 +1284,10 @@ void A_QDADD(ARM* cpu)
         cpu->CPSR |= 0x08000000;
     }
 
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF));
+    cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 0;
+
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
     cpu->DataCycles = 1; 
@@ -1247,6 +1315,10 @@ void A_QDSUB(ARM* cpu)
         cpu->CPSR |= 0x08000000;
     }
 
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF));
+    cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 0;
+
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
     cpu->DataCycles = 1;
@@ -1266,6 +1338,9 @@ void T_LSL_IMM(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = op;
     cpu->SetNZ(op & 0x80000000,
                !op);
+
+    cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1277,6 +1352,9 @@ void T_LSR_IMM(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = op;
     cpu->SetNZ(op & 0x80000000,
                !op);
+
+    cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1288,6 +1366,9 @@ void T_ASR_IMM(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = op;
     cpu->SetNZ(op & 0x80000000,
                !op);
+
+    cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1301,6 +1382,10 @@ void T_ADD_REG_(ARM* cpu)
                  !res,
                  CarryAdd(a, b),
                  OverflowAdd(a, b));
+
+    cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7));
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 6) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1314,6 +1399,10 @@ void T_SUB_REG_(ARM* cpu)
                  !res,
                  CarrySub(a, b),
                  OverflowSub(a, b));
+
+    cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7));
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 6) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1327,6 +1416,9 @@ void T_ADD_IMM_(ARM* cpu)
                  !res,
                  CarryAdd(a, b),
                  OverflowAdd(a, b));
+
+    cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1340,6 +1432,9 @@ void T_SUB_IMM_(ARM* cpu)
                  !res,
                  CarrySub(a, b),
                  OverflowSub(a, b));
+
+    cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1349,6 +1444,9 @@ void T_MOV_IMM(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = b;
     cpu->SetNZ(0,
                !b);
+
+    cpu->UsedRegs = (1 << ((cpu->CurInstr >> 8) & 0x7));
+    cpu->UsedTimers[(cpu->CurInstr >> 8) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1361,6 +1459,9 @@ void T_CMP_IMM(ARM* cpu)
                  !res,
                  CarrySub(a, b),
                  OverflowSub(a, b));
+
+    cpu->UsedRegs = (1 << ((cpu->CurInstr >> 8) & 0x7));
+    cpu->UsedTimers[(cpu->CurInstr >> 8) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1374,6 +1475,9 @@ void T_ADD_IMM(ARM* cpu)
                  !res,
                  CarryAdd(a, b),
                  OverflowAdd(a, b));
+
+    cpu->UsedRegs = (1 << ((cpu->CurInstr >> 8) & 0x7));
+    cpu->UsedTimers[(cpu->CurInstr >> 8) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1387,6 +1491,9 @@ void T_SUB_IMM(ARM* cpu)
                  !res,
                  CarrySub(a, b),
                  OverflowSub(a, b));
+
+    cpu->UsedRegs = (1 << ((cpu->CurInstr >> 8) & 0x7));
+    cpu->UsedTimers[(cpu->CurInstr >> 8) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1399,6 +1506,10 @@ void T_AND_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
                !res);
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[cpu->CurInstr & 0x7] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1410,6 +1521,10 @@ void T_EOR_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
                !res);
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[cpu->CurInstr & 0x7] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1421,6 +1536,10 @@ void T_LSL_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
                !a);
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[cpu->CurInstr & 0x7] = 1; // checkme
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_CI(1);
 }
 
@@ -1432,6 +1551,10 @@ void T_LSR_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
                !a);
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[cpu->CurInstr & 0x7] = 1; // checkme
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_CI(1);
 }
 
@@ -1443,6 +1566,10 @@ void T_ASR_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
                !a);
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[cpu->CurInstr & 0x7] = 1; // checkme
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_CI(1);
 }
 
@@ -1458,6 +1585,10 @@ void T_ADC_REG(ARM* cpu)
                  !res,
                  CarryAdd(a, b) | CarryAdd(res_tmp, carry),
                  OverflowAdc(a, b, carry));
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[cpu->CurInstr & 0x7] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1473,6 +1604,10 @@ void T_SBC_REG(ARM* cpu)
                  !res,
                  CarrySub(a, b) & CarrySub(res_tmp, carry),
                  OverflowSbc(a, b, carry));
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[cpu->CurInstr & 0x7] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1484,6 +1619,10 @@ void T_ROR_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
                !a);
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[cpu->CurInstr & 0x7] = 1; // checkme
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_CI(1);
 }
 
@@ -1494,6 +1633,10 @@ void T_TST_REG(ARM* cpu)
     u32 res = a & b;
     cpu->SetNZ(res & 0x80000000,
                !res);
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[cpu->CurInstr & 0x7] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1506,6 +1649,9 @@ void T_NEG_REG(ARM* cpu)
                  !res,
                  CarrySub(0, b),
                  OverflowSub(0, b));
+
+    cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1518,6 +1664,10 @@ void T_CMP_REG(ARM* cpu)
                  !res,
                  CarrySub(a, b),
                  OverflowSub(a, b));
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[cpu->CurInstr & 0x7] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1530,6 +1680,10 @@ void T_CMN_REG(ARM* cpu)
                  !res,
                  CarryAdd(a, b),
                  OverflowAdd(a, b));
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[cpu->CurInstr & 0x7] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1541,6 +1695,10 @@ void T_ORR_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
                !res);
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[cpu->CurInstr & 0x7] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1557,6 +1715,10 @@ void T_MUL_REG(ARM* cpu)
     if (cpu->Num == 0)
     {
         cycles += 3;
+
+        cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+        cpu->UsedTimers[cpu->CurInstr & 0x7] = 0;
+        cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     }
     else
     {
@@ -1577,6 +1739,10 @@ void T_BIC_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
                !res);
+
+    cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[cpu->CurInstr & 0x7] = 0;
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1587,6 +1753,9 @@ void T_MVN_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
                !res);
+
+    cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7));
+    cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1601,6 +1770,10 @@ void T_ADD_HIREG(ARM* cpu)
 
     u32 a = cpu->R[rd];
     u32 b = cpu->R[rs];
+
+    cpu->UsedRegs = (1 << rd) | (1 << rs);
+    cpu->UsedTimers[rd] = 0;
+    cpu->UsedTimers[rs] = 0;
 
     cpu->AddCycles_C();
 
@@ -1627,6 +1800,10 @@ void T_CMP_HIREG(ARM* cpu)
                  !res,
                  CarrySub(a, b),
                  OverflowSub(a, b));
+
+    cpu->UsedRegs = (1 << rd) | (1 << rs);
+    cpu->UsedTimers[rd] = 0;
+    cpu->UsedTimers[rs] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1634,7 +1811,10 @@ void T_MOV_HIREG(ARM* cpu)
 {
     u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
     u32 rs = (cpu->CurInstr >> 3) & 0xF;
+    
 
+    cpu->UsedRegs = (1 << rs);
+    cpu->UsedTimers[rs] = 0;
     cpu->AddCycles_C();
 
     if (rd == 15)
@@ -1673,6 +1853,9 @@ void T_ADD_SPREL(ARM* cpu)
     u32 val = cpu->R[13];
     val += ((cpu->CurInstr & 0xFF) << 2);
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = val;
+
+    cpu->UsedRegs = (1 << 13);
+    cpu->UsedTimers[13] = 0;
     cpu->AddCycles_C();
 }
 
@@ -1684,6 +1867,9 @@ void T_ADD_SP(ARM* cpu)
     else
         val += ((cpu->CurInstr & 0x7F) << 2);
     cpu->R[13] = val;
+
+    cpu->UsedRegs = (1 << 13);
+    cpu->UsedTimers[13] = 0;
     cpu->AddCycles_C();
 }
 
