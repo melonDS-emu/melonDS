@@ -827,27 +827,30 @@ void A_MUL(ARM* cpu)
         if (cpu->Num==1) cpu->SetC(0);
     }
 
-    u32 cycles;
-    u32 memory = 0;
     if (cpu->Num == 0)
     {
         cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF));
         cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
         cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
 
-        if (cpu->CurInstr & (1<<20)) cycles = 3;
-        else { cycles = 1; memory = 1; }
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(3);
+        else
+        {
+            cpu->AddCycles_CI(1);
+            cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
+            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+        }
     }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 1;
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 2;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 3;
         else cycles = 4;
+        cpu->AddCycles_CI(cycles);
     }
 
-    cpu->AddCycles_CI(cycles);
-    cpu->DataCycles = memory;
 }
 
 void A_MLA(ARM* cpu)
@@ -866,8 +869,6 @@ void A_MLA(ARM* cpu)
         if (cpu->Num==1) cpu->SetC(0);
     }
 
-    u32 cycles;
-    u32 memory = 0;
     if (cpu->Num == 0)
     {
         cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF)) | (1<< ((cpu->CurInstr >> 12) & 0xF));
@@ -875,19 +876,23 @@ void A_MLA(ARM* cpu)
         cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
         cpu->UsedTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
 
-        if (cpu->CurInstr & (1<<20)) cycles = 3;
-        else { cycles = 1; memory = 1; }
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(3);
+        else
+        {
+            cpu->AddCycles_CI(1);
+            cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
+            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+        }
     }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
         else cycles = 5;
+        cpu->AddCycles_CI(cycles);
     }
-
-    cpu->AddCycles_CI(cycles);
-    cpu->DataCycles = memory;
 }
 
 void A_UMULL(ARM* cpu)
@@ -906,27 +911,29 @@ void A_UMULL(ARM* cpu)
         if (cpu->Num==1) cpu->SetC(0);
     }
 
-    u32 cycles;
-    u32 memory = 0;
     if (cpu->Num == 0)
     {
         cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF));
         cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
         cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
 
-        if (cpu->CurInstr & (1<<20)) cycles = 4;
-        else { cycles = 2; memory = 1; }
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(4);
+        else
+        {
+            cpu->AddCycles_CI(2);
+            cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
+            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+        }
     }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000) cycles = 2;
         else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
         else cycles = 5;
+        cpu->AddCycles_CI(cycles);
     }
-
-    cpu->AddCycles_CI(cycles);
-    cpu->DataCycles = memory;
 }
 
 void A_UMLAL(ARM* cpu)
@@ -948,8 +955,6 @@ void A_UMLAL(ARM* cpu)
         if (cpu->Num==1) cpu->SetC(0);
     }
 
-    u32 cycles;
-    u32 memory = 0;
     if (cpu->Num == 0)
     {
         cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF)) | (1 << ((cpu->CurInstr >> 12) & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF));
@@ -958,19 +963,23 @@ void A_UMLAL(ARM* cpu)
         cpu->UsedTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
         cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 2; // checkme
 
-        if (cpu->CurInstr & (1<<20)) cycles = 4;
-        else { cycles = 2; memory = 1; }
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(4);
+        else
+        {
+            cpu->AddCycles_CI(2);
+            cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
+            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+        }
     }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000) cycles = 2;
         else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
         else cycles = 5;
+        cpu->AddCycles_CI(cycles);
     }
-
-    cpu->AddCycles_CI(cycles);
-    cpu->DataCycles = memory;
 }
 
 void A_SMULL(ARM* cpu)
@@ -989,27 +998,29 @@ void A_SMULL(ARM* cpu)
         if (cpu->Num==1) cpu->SetC(0);
     }
 
-    u32 cycles;
-    u32 memory = 0;
     if (cpu->Num == 0)
     {
         cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF));
         cpu->UsedTimers[cpu->CurInstr & 0xF] = 0;
         cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
 
-        if (cpu->CurInstr & (1<<20)) cycles = 4;
-        else { cycles = 2; memory = 1; }
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(4);
+        else
+        {
+            cpu->AddCycles_CI(2);
+            cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
+            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+        }
     }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
         else cycles = 5;
+        cpu->AddCycles_CI(cycles);
     }
-
-    cpu->AddCycles_CI(cycles);
-    cpu->DataCycles = memory;
 }
 
 void A_SMLAL(ARM* cpu)
@@ -1031,8 +1042,6 @@ void A_SMLAL(ARM* cpu)
         if (cpu->Num==1) cpu->SetC(0);
     }
 
-    u32 cycles;
-    u32 memory = 0;
     if (cpu->Num == 0)
     {
         cpu->UsedRegs |= (1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 8) & 0xF)) | (1 << ((cpu->CurInstr >> 12) & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF));
@@ -1041,19 +1050,23 @@ void A_SMLAL(ARM* cpu)
         cpu->UsedTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
         cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 2; // checkme
 
-        if (cpu->CurInstr & (1<<20)) cycles = 4;
-        else { cycles = 2; memory = 1; }
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(4);
+        else
+        {
+            cpu->AddCycles_CI(2);
+            cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
+            cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
+        }
     }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
         else cycles = 5;
+        cpu->AddCycles_CI(cycles);
     }
-
-    cpu->AddCycles_CI(cycles);
-    cpu->DataCycles = memory;
 }
 
 void A_SMLAxy(ARM* cpu)
@@ -1081,8 +1094,9 @@ void A_SMLAxy(ARM* cpu)
     cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
     cpu->UsedTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
 
-    cpu->AddCycles_C(); // TODO: interlock??
-    cpu->DataCycles = 1; 
+    cpu->AddCycles_C();
+    cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
+    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
 }
 
 void A_SMLAWy(ARM* cpu)
@@ -1108,8 +1122,9 @@ void A_SMLAWy(ARM* cpu)
     cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
     cpu->UsedTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
 
-    cpu->AddCycles_C(); // TODO: interlock??
-    cpu->DataCycles = 1; 
+    cpu->AddCycles_C();
+    cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
+    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
 }
 
 void A_SMULxy(ARM* cpu)
@@ -1131,8 +1146,9 @@ void A_SMULxy(ARM* cpu)
     cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
-    cpu->DataCycles = 1; 
+    cpu->AddCycles_C();
+    cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
+    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
 }
 
 void A_SMULWy(ARM* cpu)
@@ -1152,8 +1168,9 @@ void A_SMULWy(ARM* cpu)
     cpu->UsedTimers[(cpu->CurInstr >> 8) & 0xF] = 0;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
-    cpu->DataCycles = 1; 
+    cpu->AddCycles_C();
+    cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
+    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
 }
 
 void A_SMLALxy(ARM* cpu)
@@ -1182,8 +1199,9 @@ void A_SMLALxy(ARM* cpu)
     cpu->UsedTimers[(cpu->CurInstr >> 12) & 0xF] = 1;
     cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 2; // checkme
 
-    cpu->AddCycles_CI(1); // TODO: interlock??
-    cpu->DataCycles = 1; 
+    cpu->AddCycles_CI(1);
+    cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 16) & 0xF);
+    cpu->InterlockTimers[(cpu->CurInstr >> 16) & 0xF] = cpu->Cycles + 1;
 }
 
 
@@ -1235,8 +1253,9 @@ void A_QADD(ARM* cpu)
     cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 0;
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
-    cpu->DataCycles = 1; 
+    cpu->AddCycles_C();
+    cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 12) & 0xF);
+    cpu->InterlockTimers[(cpu->CurInstr >> 12) & 0xF] = cpu->Cycles + 1;
 }
 
 void A_QSUB(ARM* cpu)
@@ -1258,8 +1277,9 @@ void A_QSUB(ARM* cpu)
     cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 0;
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
-    cpu->DataCycles = 1; 
+    cpu->AddCycles_C();
+    cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 12) & 0xF);
+    cpu->InterlockTimers[(cpu->CurInstr >> 12) & 0xF] = cpu->Cycles + 1;
 }
 
 void A_QDADD(ARM* cpu)
@@ -1289,8 +1309,9 @@ void A_QDADD(ARM* cpu)
     cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 0;
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
-    cpu->DataCycles = 1; 
+    cpu->AddCycles_C();
+    cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 12) & 0xF);
+    cpu->InterlockTimers[(cpu->CurInstr >> 12) & 0xF] = cpu->Cycles + 1;
 }
 
 void A_QDSUB(ARM* cpu)
@@ -1320,8 +1341,9 @@ void A_QDSUB(ARM* cpu)
     cpu->UsedTimers[(cpu->CurInstr >> 16) & 0xF] = 0;
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
-    cpu->DataCycles = 1;
+    cpu->AddCycles_C();
+    cpu->InterlockedRegs = 1 << ((cpu->CurInstr >> 12) & 0xF);
+    cpu->InterlockTimers[(cpu->CurInstr >> 12) & 0xF] = cpu->Cycles + 1;
 }
 
 
@@ -1719,6 +1741,8 @@ void T_MUL_REG(ARM* cpu)
         cpu->UsedRegs = (1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7));
         cpu->UsedTimers[cpu->CurInstr & 0x7] = 0;
         cpu->UsedTimers[(cpu->CurInstr >> 3) & 0x7] = 0;
+
+        // thumb MUL is equivelant to arm MULS so no interlock handling
     }
     else
     {
