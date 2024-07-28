@@ -71,7 +71,7 @@ namespace melonDS::ARMInterpreter
 
 #define A_STR \
     /* if (cpu->Num != 1) */ \
-        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
+        if (cpu->InterlockedRegs & (1 << ((cpu->CurInstr>>12) & 0xF))) cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
     } \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
@@ -85,7 +85,7 @@ namespace melonDS::ARMInterpreter
 // TODO: user mode (bit21)
 #define A_STR_POST \
     /* if (cpu->Num != 1) */ \
-        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
+        if (cpu->InterlockedRegs & (1 << ((cpu->CurInstr>>12) & 0xF))) cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
     } \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
@@ -98,7 +98,7 @@ namespace melonDS::ARMInterpreter
 
 #define A_STRB \
     /* if (cpu->Num != 1) */ \
-        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
+        if (cpu->InterlockedRegs & (1 << ((cpu->CurInstr>>12) & 0xF))) cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
     } \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
@@ -111,7 +111,7 @@ namespace melonDS::ARMInterpreter
 // TODO: user mode (bit21)
 #define A_STRB_POST \
     /* if (cpu->Num != 1) */ \
-        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
+        if (cpu->InterlockedRegs & (1 << ((cpu->CurInstr>>12) & 0xF))) cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
     } \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
@@ -283,7 +283,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 #define A_STRH \
     /* if (cpu->Num != 1) */ \
         cpu->AddCycles_C(); \
-        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
+        if (cpu->InterlockedRegs & (1 << ((cpu->CurInstr>>12) & 0xF))) cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
     } \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
@@ -296,7 +296,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 #define A_STRH_POST \
     /* if (cpu->Num != 1) */ \
         cpu->AddCycles_C(); \
-        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
+        if (cpu->InterlockedRegs & (1 << ((cpu->CurInstr>>12) & 0xF))) cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr>>12) & 0xF]; \
     } \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
@@ -351,7 +351,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } /* unaligned registers trigger an undef instruction exception (during execute stage presumably?) */ \
     cpu->AddCycles_C(); \
-    cpu->Cycles = cpu->InterlockTimers[r]; \
+    if (cpu->InterlockedRegs & (1 << r)) cpu->Cycles = cpu->InterlockTimers[r]; \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     bool dataabort = !cpu->DataWrite32(offset, cpu->R[r]); /* yes, this data abort behavior is on purpose */ \
     if (cpu->InterlockTimers[r+1] > (cpu->Cycles + cpu->DataCycles)) cpu->Cycles = cpu->InterlockTimers[r+1] - cpu->DataCycles; \
@@ -368,7 +368,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } /* unaligned registers trigger an undef instruction exception (during execute stage presumably?) */ \
     cpu->AddCycles_C(); \
-    cpu->Cycles = cpu->InterlockTimers[r]; \
+    if (cpu->InterlockedRegs & (1 << r)) cpu->Cycles = cpu->InterlockTimers[r]; \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     bool dataabort = !cpu->DataWrite32(addr, cpu->R[r]); \
     if (cpu->InterlockTimers[r+1] > (cpu->Cycles + cpu->DataCycles)) cpu->Cycles = cpu->InterlockTimers[r+1] - cpu->DataCycles; \
@@ -517,7 +517,8 @@ void A_SWP(ARM* cpu)
     if (cpu->DataRead32(base, &val))
     {
         u32 numD = cpu->DataCycles;
-        if (cpu->InterlockTimers[cpu->CurInstr & 0xF] > (cpu->Cycles + cpu->DataCycles))
+        if ((cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0xF)))
+        && (cpu->InterlockTimers[cpu->CurInstr & 0xF] > (cpu->Cycles + cpu->DataCycles)))
             cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0xF] - cpu->DataCycles;
 
         if (cpu->DataWrite32(base, rm))
@@ -551,7 +552,8 @@ void A_SWPB(ARM* cpu)
     if (cpu->DataRead8(base, &val))
     {
         u32 numD = cpu->DataCycles;
-        if (cpu->InterlockTimers[cpu->CurInstr & 0xF] > (cpu->Cycles + cpu->DataCycles))
+        if ((cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0xF)))
+            && (cpu->InterlockTimers[cpu->CurInstr & 0xF] > (cpu->Cycles + cpu->DataCycles)))
             cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0xF] - cpu->DataCycles;
 
         if (cpu->DataWrite8(base, rm))
@@ -747,8 +749,7 @@ void A_STM(ARM* cpu)
             else val = cpu->R[i];
 
             if (i == 15) val+=4;
-            
-            if (cpu->InterlockTimers[i] > (cpu->Cycles + cpu->DataCycles))
+            if ((cpu->InterlockedRegs & (1 << i)) && (cpu->InterlockTimers[i] > (cpu->Cycles + cpu->DataCycles)))
                 cpu->Cycles = cpu->InterlockTimers[i] - cpu->DataCycles;
 
             if (!(first ? cpu->DataWrite32 (base, val)
@@ -813,7 +814,7 @@ void T_STR_REG(ARM* cpu)
     {
         cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7));
         cpu->AddCycles_C();
-        cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
+        if (cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0x7))) cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
     }
 
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
@@ -828,7 +829,7 @@ void T_STRB_REG(ARM* cpu)
     {
         cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7));
         cpu->AddCycles_C();
-        cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
+        if (cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0x7))) cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
     }
 
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
@@ -880,7 +881,7 @@ void T_STRH_REG(ARM* cpu)
     {
         cpu->UsedRegs = (1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7));
         cpu->AddCycles_C();
-        cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
+        if (cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0x7))) cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
     }
 
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
@@ -946,7 +947,7 @@ void T_STR_IMM(ARM* cpu)
     {
         cpu->UsedRegs = 1 << ((cpu->CurInstr >> 3) & 0x7);
         cpu->AddCycles_C();
-        cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
+        if (cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0x7))) cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
     }
 
     u32 offset = (cpu->CurInstr >> 4) & 0x7C;
@@ -983,7 +984,7 @@ void T_STRB_IMM(ARM* cpu)
     {
         cpu->UsedRegs = 1 << ((cpu->CurInstr >> 3) & 0x7);
         cpu->AddCycles_C();
-        cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
+        if (cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0x7))) cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
     }
 
     u32 offset = (cpu->CurInstr >> 6) & 0x1F;
@@ -1017,7 +1018,7 @@ void T_STRH_IMM(ARM* cpu)
     {
         cpu->UsedRegs = 1 << ((cpu->CurInstr >> 3) & 0x7);
         cpu->AddCycles_C();
-        cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
+        if (cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0x7))) cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0x7];
     }
 
     u32 offset = (cpu->CurInstr >> 5) & 0x3E;
@@ -1051,7 +1052,7 @@ void T_STR_SPREL(ARM* cpu)
     {
         cpu->UsedRegs = 1 << 13;
         cpu->AddCycles_C();
-        cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr >> 8) & 0x7];
+        if (cpu->InterlockedRegs & (1 << ((cpu->CurInstr >> 8) & 0x7))) cpu->Cycles = cpu->InterlockTimers[(cpu->CurInstr >> 8) & 0x7];
     }
 
     u32 offset = (cpu->CurInstr << 2) & 0x3FC;
@@ -1107,7 +1108,7 @@ void T_PUSH(ARM* cpu)
     {
         if (cpu->CurInstr & (1<<i))
         {
-            if (cpu->InterlockTimers[i] > (cpu->Cycles + cpu->DataCycles))
+            if ((cpu->InterlockedRegs & (1 << i)) && (cpu->InterlockTimers[i] > (cpu->Cycles + cpu->DataCycles)))
                 cpu->Cycles = cpu->InterlockTimers[i] - cpu->DataCycles;
 
             if (!(first ? cpu->DataWrite32 (base, cpu->R[i])
@@ -1122,7 +1123,7 @@ void T_PUSH(ARM* cpu)
 
     if (cpu->CurInstr & (1<<8))
     {
-        if (cpu->InterlockTimers[14] > (cpu->Cycles + cpu->DataCycles))
+        if ((cpu->InterlockedRegs & (1 << 14)) && (cpu->InterlockTimers[14] > (cpu->Cycles + cpu->DataCycles)))
             cpu->Cycles = cpu->InterlockTimers[14] - cpu->DataCycles;
 
         if (!(first ? cpu->DataWrite32 (base, cpu->R[14])
@@ -1203,7 +1204,7 @@ void T_STMIA(ARM* cpu)
     {
         if (cpu->CurInstr & (1<<i))
         {
-            if (cpu->InterlockTimers[i] > (cpu->Cycles + cpu->DataCycles))
+            if ((cpu->InterlockedRegs & (1 << i)) && (cpu->InterlockTimers[i] > (cpu->Cycles + cpu->DataCycles)))
                 cpu->Cycles = cpu->InterlockTimers[i] - cpu->DataCycles;
 
             numregs++;

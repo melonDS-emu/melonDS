@@ -355,6 +355,7 @@ public:
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
     
+    s32 MainRAMOvertime;
     u8 MemoryType; // 0 none/other - 1 ldr - 2 ldm(1 reg) - 3 ldm(>1 reg) - 4 str - 5 stm(1 reg) - 6 stm(>1 reg)
 
 

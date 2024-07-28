@@ -1374,6 +1374,9 @@ void ARMv5::AddCycles(s32 numX)
 {
     if (MemoryType != 0)
     {
+        if ((DataRegion == Mem9_MainRAM) && (MainRAMOvertime > -1))
+            Cycles = MainRAMOvertime;
+
         // determine overlap of memory and execute/fetch stages
         s32 early;
         switch(MemoryType)
@@ -1434,10 +1437,16 @@ void ARMv5::AddCycles(s32 numX)
         
         if (cyclespent < 0) cyclespent = 0;
 
+        u32 wait = 0;
+        if ((CodeRegion == Mem9_MainRAM) && (MainRAMOvertime > cyclespent))
+            wait = MainRAMOvertime - cyclespent;
+            
+        cyclespent += wait;
         if (CodeRegion != Mem9_ITCM) 
             CodeCycles += (((NDS.ARM9Timestamp + cyclespent + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + cyclespent));
 
         cyclespent += CodeCycles;
+        CodeCycles += wait;
 
         NDS.ARM9Timestamp += cyclespent;
         if ((numM == 0) && (numX == 0) && (Cycles < 0))
@@ -1450,13 +1459,26 @@ void ARMv5::AddCycles(s32 numX)
         }
         else Cycles = 0;
 
+        if (CodeRegion == Mem9_MainRAM)
+        {
+            MainRAMOvertime = 0 + Cycles;
+        }
+        else if (DataRegion == Mem9_MainRAM)
+        {
+            MainRAMOvertime = DataCycles - cyclespent;
+        }
+        else
+        {
+            MainRAMOvertime -= cyclespent;
+            if (MainRAMOvertime < -1) MainRAMOvertime = -1;
+        }
+
         for (int i = 0; i < 15; i++)
         {
             if (InterlockedRegs & (1<<i))
             {
                 if (InterlockTimers[i] <= cyclespent)
                 {
-                    InterlockTimers[i] = 0;
                     InterlockedRegs &= ~(1<<i);
                 }
                 else InterlockTimers[i] -= cyclespent;
@@ -1494,12 +1516,17 @@ void ARMv5::AddCycles(s32 numX)
         s32 cyclespent = Cycles + numX + numM;
 
         if (cyclespent < 0) cyclespent = 0;
-
-        // Add instruction cache here?
-        if (CodeRegion != Mem9_ITCM)
-            CodeCycles += ((NDS.ARM9Timestamp + Cycles + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + Cycles); // align with next bus cycle
+        
+        u32 wait = 0;
+        if ((CodeRegion == Mem9_MainRAM) && (MainRAMOvertime > cyclespent))
+            wait = MainRAMOvertime - cyclespent;
+            
+        cyclespent += wait;
+        if (CodeRegion != Mem9_ITCM) 
+            CodeCycles += (((NDS.ARM9Timestamp + cyclespent + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + cyclespent));
             
         cyclespent += CodeCycles;
+        CodeCycles += wait;
         
         NDS.ARM9Timestamp += cyclespent;
         if ((numM == 0) && (numX == 0) && (Cycles < 0))
@@ -1512,13 +1539,26 @@ void ARMv5::AddCycles(s32 numX)
         }
         else Cycles = 0;
 
+        if (CodeRegion == Mem9_MainRAM)
+        {
+            MainRAMOvertime = 0 + Cycles;
+        }
+        else if (DataRegion == Mem9_MainRAM)
+        {
+            MainRAMOvertime = DataCycles - cyclespent;
+        }
+        else
+        {
+            MainRAMOvertime -= cyclespent;
+            if (MainRAMOvertime < -1) MainRAMOvertime = -1;
+        }
+
         for (int i = 0; i < 15; i++)
         {
             if (InterlockedRegs & (1<<i))
             {
                 if (InterlockTimers[i] <= cyclespent)
                 {
-                    InterlockTimers[i] = 0;
                     InterlockedRegs &= ~(1<<i);
                 }
                 else InterlockTimers[i] -= cyclespent;
