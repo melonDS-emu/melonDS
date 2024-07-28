@@ -1372,13 +1372,14 @@ s32 ARMv5::MemoryTimingsSTM()
 
 void ARMv5::AddCycles(s32 numX)
 {
+    s32 numM = 0;
+    s32 early;
     if (MemoryType != 0)
     {
         if ((DataRegion == Mem9_MainRAM) && (MainRAMOvertime > -1))
             Cycles = MainRAMOvertime;
 
         // determine overlap of memory and execute/fetch stages
-        s32 early;
         switch(MemoryType)
         {
             case 1:
@@ -1402,172 +1403,90 @@ void ARMv5::AddCycles(s32 numX)
 
         if (NDS.ARM9RoundMask == 3) early *= 2; // CHECKME
         
-        s32 numM = DataCycles - early;
-        // check for interlocks
-        // note: r15 shouldn't be able to interlock?
-        u16 ILmask = InterlockedRegs & UsedRegs & 0x7FFF;
-        if (ILmask)
+        numM = DataCycles - early;
+        MemoryType = 0;
+    }
+    // check for interlocks
+    // note: r15 shouldn't be able to interlock?
+    u16 ILmask = InterlockedRegs & UsedRegs & 0x7FFF;
+    if (ILmask)
+    {
+        s32 time = 0;
+        if (numX > 0)
         {
-            s32 time = 0;
-            if (numX > 0)
+            for (int i = 0; i < 15; i++)
             {
-                for (int i = 0; i < 15; i++)
-                {
-                    if ((ILmask & (1<<i)) && (time < (InterlockTimers[i] - UsedTimers[i])))
-                        time = InterlockTimers[i] - UsedTimers[i];
-                }
+                if ((ILmask & (1<<i)) && (time < (InterlockTimers[i] - UsedTimers[i])))
+                    time = InterlockTimers[i] - UsedTimers[i];
             }
-            else
-            {
-                for (int i = 0; i < 15; i++)
-                {
-                    if ((ILmask & (1<<i)) && (time < InterlockTimers[i]))
-                        time = InterlockTimers[i];
-                }
-            }
-            numM = std::max(time, numM);
-        }
-        else if (numM < 0)
-        {
-            early += numM;
-            numM = 0;
-        }
-
-        s32 cyclespent = Cycles + numM + numX;
-        
-        if (cyclespent < 0) cyclespent = 0;
-
-        u32 wait = 0;
-        if ((CodeRegion == Mem9_MainRAM) && (MainRAMOvertime > cyclespent))
-            wait = MainRAMOvertime - cyclespent;
-            
-        cyclespent += wait;
-        if (CodeRegion != Mem9_ITCM) 
-            CodeCycles += (((NDS.ARM9Timestamp + cyclespent + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + cyclespent));
-
-        cyclespent += CodeCycles;
-        CodeCycles += wait;
-
-        NDS.ARM9Timestamp += cyclespent;
-        if ((numM == 0) && (numX == 0) && (Cycles < 0))
-        {
-            CodeCycles++;
-        }
-        if (CodeCycles > 1)
-        {
-            Cycles = -1;
-        }
-        else Cycles = 0;
-
-        if (CodeRegion == Mem9_MainRAM)
-        {
-            MainRAMOvertime = 0 + Cycles;
-        }
-        else if (DataRegion == Mem9_MainRAM)
-        {
-            MainRAMOvertime = DataCycles - cyclespent;
         }
         else
         {
-            MainRAMOvertime -= cyclespent;
-            if (MainRAMOvertime < -1) MainRAMOvertime = -1;
-        }
-
-        for (int i = 0; i < 15; i++)
-        {
-            if (InterlockedRegs & (1<<i))
+            for (int i = 0; i < 15; i++)
             {
-                if (InterlockTimers[i] <= cyclespent)
-                {
-                    InterlockedRegs &= ~(1<<i);
-                }
-                else InterlockTimers[i] -= cyclespent;
+                if ((ILmask & (1<<i)) && (time < InterlockTimers[i]))
+                    time = InterlockTimers[i];
             }
         }
+        numM = std::max(time, numM);
+    }
+    else if (numM < 0)
+    {
+        early += numM;
+        numM = 0;
+    }
 
-        MemoryType = 0;
+    s32 cyclespent = Cycles + numM + numX;
+        
+    if (cyclespent < 0) cyclespent = 0;
+
+    u32 wait = 0;
+    if ((CodeRegion == Mem9_MainRAM) && (MainRAMOvertime > cyclespent))
+        wait = MainRAMOvertime - cyclespent;
+            
+    cyclespent += wait;
+    if (CodeRegion != Mem9_ITCM) 
+        CodeCycles += (((NDS.ARM9Timestamp + cyclespent + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + cyclespent));
+
+    cyclespent += CodeCycles;
+    CodeCycles += wait;
+
+    NDS.ARM9Timestamp += cyclespent;
+    if ((numM == 0) && (numX == 0) && (Cycles < 0))
+    {
+        CodeCycles++;
+    }
+    if (CodeCycles > 1)
+    {
+        Cycles = -1;
+    }
+    else Cycles = 0;
+
+    if (CodeRegion == Mem9_MainRAM)
+    {
+        MainRAMOvertime = 0 + Cycles;
+    }
+    else if (DataRegion == Mem9_MainRAM)
+    {
+        MainRAMOvertime = DataCycles - cyclespent;
     }
     else
     {
-        u32 numM = 0;
-        u16 ILmask = InterlockedRegs & UsedRegs & 0x7FFF;
-        if (ILmask)
-        {
-            s32 time = 0;
-            if (numX > 0)
-            {
-                for (int i = 0; i < 15; i++)
-                {
-                    if ((ILmask & (1<<i)) && (time < (InterlockTimers[i] - UsedTimers[i])))
-                        time = InterlockTimers[i] - UsedTimers[i];
-                }
-            }
-            else
-            {
-                for (int i = 0; i < 15; i++)
-                {
-                    if ((ILmask & (1<<i)) && (time < InterlockTimers[i]))
-                        time = InterlockTimers[i];
-                }
-            }
-            numM = time;
-        }
-                
-        s32 cyclespent = Cycles + numX + numM;
+        MainRAMOvertime -= cyclespent;
+        if (MainRAMOvertime < -1) MainRAMOvertime = -1;
+    }
 
-        if (cyclespent < 0) cyclespent = 0;
-        
-        u32 wait = 0;
-        if ((CodeRegion == Mem9_MainRAM) && (MainRAMOvertime > cyclespent))
-            wait = MainRAMOvertime - cyclespent;
-            
-        cyclespent += wait;
-        if (CodeRegion != Mem9_ITCM) 
-            CodeCycles += (((NDS.ARM9Timestamp + cyclespent + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + cyclespent));
-            
-        cyclespent += CodeCycles;
-        CodeCycles += wait;
-        
-        NDS.ARM9Timestamp += cyclespent;
-        if ((numM == 0) && (numX == 0) && (Cycles < 0))
+    for (int i = 0; i < 15; i++)
+    {
+        if (InterlockedRegs & (1<<i))
         {
-            CodeCycles++;
-        }
-        if (CodeCycles > 1)
-        {
-            Cycles = -1;
-        }
-        else Cycles = 0;
-
-        if (CodeRegion == Mem9_MainRAM)
-        {
-            MainRAMOvertime = 0 + Cycles;
-        }
-        else if (DataRegion == Mem9_MainRAM)
-        {
-            MainRAMOvertime = DataCycles - cyclespent;
-        }
-        else
-        {
-            MainRAMOvertime -= cyclespent;
-            if (MainRAMOvertime < -1) MainRAMOvertime = -1;
-        }
-
-        for (int i = 0; i < 15; i++)
-        {
-            if (InterlockedRegs & (1<<i))
+            if (InterlockTimers[i] <= cyclespent)
             {
-                if (InterlockTimers[i] <= cyclespent)
-                {
-                    InterlockedRegs &= ~(1<<i);
-                }
-                else InterlockTimers[i] -= cyclespent;
+                InterlockedRegs &= ~(1<<i);
             }
+            else InterlockTimers[i] -= cyclespent;
         }
     }
-    
-
-    DataCycles = 0;
 }
 
 void ARMv4::AddCycles_C()
