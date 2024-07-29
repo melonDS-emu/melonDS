@@ -187,7 +187,7 @@ public:
     // mask of what registers are interlocked, each bit represents one register
     u16 InterlockedRegs;
 
-    // mask of what registers were used by an instructions
+    // mask of what registers were used by an instruction
     u16 UsedRegs;
 
     // used to determine what cycle a reg becomes available/is required
@@ -355,7 +355,7 @@ public:
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
     
-    s32 MainRAMOvertime;
+    s16 MainRAMOvertime;
     u8 MemoryType; // 0 none/other - 1 ldr - 2 ldm(1 reg) - 3 ldm(>1 reg) - 4 str - 5 stm(1 reg) - 6 stm(>1 reg)
 
 
