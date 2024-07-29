@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include "ARM.h"
+#include "NDS.h"
 
 
 namespace melonDS::ARMInterpreter
@@ -514,9 +515,10 @@ void A_SWP(ARM* cpu)
     if ((cpu->CurInstr & 0xF) == 15) rm += 4;
 
     u32 val;
+    u32 numD = 0;
     if (cpu->DataRead32(base, &val))
     {
-        u32 numD = cpu->DataCycles;
+        numD = cpu->DataCycles;
         if ((cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0xF)))
         && (cpu->InterlockTimers[cpu->CurInstr & 0xF] > (cpu->Cycles + cpu->DataCycles)))
             cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0xF] - cpu->DataCycles;
@@ -528,12 +530,12 @@ void A_SWP(ARM* cpu)
             cpu->InterlockedRegs = 1 << rd; // does this apply to r15?
             cpu->InterlockTimers[rd] = cpu->DataCycles+numD; // checkme
             if (base&0x3) cpu->InterlockTimers[rd]++;
+            if (cpu->DataRegion == Mem9_MainRAM) cpu->InterlockTimers[rd] -= 4; // kinda jank way to fix it for main ram
             if (rd != 15) cpu->R[rd] = ROR(val, 8*(base&0x3));
             else if (cpu->Num==1) cpu->JumpTo(ROR(val, 8*(base&0x3)) & ~1); // for some reason these jumps don't work on the arm 9?
         }
-        cpu->DataCycles += numD;
     }
-    cpu->AddCycles_CDI_SWP();
+    cpu->AddCycles_CDI_SWP(numD);
 }
 
 void A_SWPB(ARM* cpu)
@@ -549,9 +551,10 @@ void A_SWPB(ARM* cpu)
     if ((cpu->CurInstr & 0xF) == 15) rm += 4;
 
     u32 val;
+    u32 numD = 0;
     if (cpu->DataRead8(base, &val))
     {
-        u32 numD = cpu->DataCycles;
+        numD = cpu->DataCycles;
         if ((cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0xF)))
             && (cpu->InterlockTimers[cpu->CurInstr & 0xF] > (cpu->Cycles + cpu->DataCycles)))
             cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0xF] - cpu->DataCycles;
@@ -562,12 +565,12 @@ void A_SWPB(ARM* cpu)
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
             cpu->InterlockedRegs = 1 << rd; // does this apply to r15?
             cpu->InterlockTimers[rd] = cpu->DataCycles+numD+1; // checkme
+            if (cpu->DataRegion == Mem9_MainRAM) cpu->InterlockTimers[rd] -= 4; // kinda jank way to fix it for main ram
             if (rd != 15) cpu->R[rd] = val;
             else if (cpu->Num==1) cpu->JumpTo(val & ~1); // for some reason these jumps don't work on the arm 9?
         }
-        cpu->DataCycles += numD;
     }
-    cpu->AddCycles_CDI_SWP();
+    cpu->AddCycles_CDI_SWP(numD);
 }
 
 

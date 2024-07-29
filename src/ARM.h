@@ -142,7 +142,7 @@ public:
     virtual void AddCycles_CI(s32 numI) = 0;
     virtual void AddCycles_CDI_LDR() = 0;
     virtual void AddCycles_CDI_LDM(bool multireg) = 0;
-    virtual void AddCycles_CDI_SWP() = 0;
+    virtual void AddCycles_CDI_SWP(s32 numD) = 0;
     virtual void AddCycles_CD_STR() = 0;
     virtual void AddCycles_CD_STM(bool multireg) = 0;
 
@@ -288,7 +288,7 @@ public:
     void AddCycles_CI(s32 numI) override { AddCycles(numI); }
     void AddCycles_CDI_LDR() override { MemoryType = 1; }
     void AddCycles_CDI_LDM(bool multireg) override { MemoryType = (multireg ? 3 : 2); }
-    void AddCycles_CDI_SWP() override { AddCycles_CD_STR(); } // uses the same behavior as str
+    void AddCycles_CDI_SWP(s32 numD) override { LastDataCycles = numD; MemoryType = 7; }
     void AddCycles_CD_STR() override { MemoryType = 4; }
     void AddCycles_CD_STM(bool multireg) override { MemoryType = (multireg ? 6 : 5); }
 
@@ -356,7 +356,8 @@ public:
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
     
     s16 MainRAMOvertime;
-    u8 MemoryType; // 0 none/other - 1 ldr - 2 ldm(1 reg) - 3 ldm(>1 reg) - 4 str - 5 stm(1 reg) - 6 stm(>1 reg)
+    u8 MemoryType; // 0 none/other - 1 ldr - 2 ldm(1 reg) - 3 ldm(>1 reg) - 4 str - 5 stm(1 reg) - 6 stm(>1 reg) - 7 swp(b)
+    s32 LastDataCycles; // used for SWP(B)
 
 
 #ifdef GDBSTUB_ENABLED
@@ -411,7 +412,7 @@ public:
     void AddCycles_CDI();
     void AddCycles_CDI_LDR() override { AddCycles_CDI(); }
     void AddCycles_CDI_LDM(bool multireg) override { AddCycles_CDI(); }
-    void AddCycles_CDI_SWP() override { AddCycles_CDI(); } // checkme?
+    void AddCycles_CDI_SWP(s32 numD) override { DataCycles += numD; AddCycles_CDI(); } // checkme?
     void AddCycles_CD();
     void AddCycles_CD_STR() override { AddCycles_CD(); }
     void AddCycles_CD_STM(bool multireg) override { AddCycles_CD(); }

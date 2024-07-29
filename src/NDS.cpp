@@ -162,10 +162,11 @@ void NDS::SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswi
     for (u32 i = addrstart; i < addrend; i++)
     {
         // CPU timings
-        ARM9MemTimings[i][0] = N16 + cpuN;
-        ARM9MemTimings[i][1] = S16;
-        ARM9MemTimings[i][2] = N32 + cpuN;
-        ARM9MemTimings[i][3] = S32;
+        // subtract 1, it'll be added back later
+        ARM9MemTimings[i][0] = N16 + cpuN - 1;
+        ARM9MemTimings[i][1] = S16 - 1;
+        ARM9MemTimings[i][2] = N32 + cpuN - 1;
+        ARM9MemTimings[i][3] = S32 - 1;
 
         // DMA timings
         ARM9MemTimings[i][4] = N16;
