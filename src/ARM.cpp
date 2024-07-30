@@ -307,9 +307,6 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
-    
-    if (addr < ITCMSize) CodeRegion = Mem9_ITCM;
-    else CodeRegion = NDS.ARM9Regions[addr >> 14];
 
     RegionCodeCycles = MemTimings[addr >> 12][0];
 
@@ -325,15 +322,15 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         if (addr & 0x2)
         {
             NextInstr[0] = CodeRead32(addr-2, true) >> 16;
-            Cycles += CodeCycles;
+            AddCycles_C();
             NextInstr[1] = CodeRead32(addr+2, false);
-            Cycles += CodeCycles;
+            AddCycles_C();
         }
         else
         {
             NextInstr[0] = CodeRead32(addr, true);
             NextInstr[1] = NextInstr[0] >> 16;
-            Cycles += CodeCycles;
+            AddCycles_C();
         }
 
         CPSR |= 0x20;
@@ -346,9 +343,9 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         if (newregion != oldregion) SetupCodeMem(addr);
 
         NextInstr[0] = CodeRead32(addr, true);
-        Cycles += CodeCycles;
+        AddCycles_C();
         NextInstr[1] = CodeRead32(addr+4, false);
-        Cycles += CodeCycles;
+        AddCycles_C();
 
         CPSR &= ~0x20;
     }
@@ -651,8 +648,8 @@ void ARMv5::Execute()
             R[15] += 2;
             CurInstr = NextInstr[0];
             NextInstr[0] = NextInstr[1];
-            if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 1; }
-            else             NextInstr[1] = CodeRead32(R[15], false);
+            if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 1; CodeRegion = Mem9_NoFetch; }
+            else               NextInstr[1] = CodeRead32(R[15], false);
 
             // actually execute
             u32 icode = (CurInstr >> 6) & 0x3FF;
@@ -1266,6 +1263,10 @@ s32 ARMv5::MemoryTimingsLDR()
     {
         return ((DataRegion == Mem9_ITCM) ? 0 : 1);
     }
+    else if (CodeRegion == Mem9_NoFetch)
+    {
+        return 1;
+    }
     else if ((CodeRegion == Mem9_MainRAM) && (CodeRegion == DataRegion))
     {
         return 0;
@@ -1275,11 +1276,10 @@ s32 ARMv5::MemoryTimingsLDR()
 
 s32 ARMv5::MemoryTimingsLDM()
 {
-    // a 16 bit bus executes on the 5th to last memory stage cycle
-    // also dont ask me why itcm makes it the 3rd to last cycle? I dont think it should even be working...?
-    s32 bus16 = ((CodeRegion == Mem9_ITCM) ? 1 : 4);
-    // a 32 bit bus executes on the 3rd to last memory stage cycle
-    s32 bus32 = ((CodeRegion == Mem9_ITCM) ? 1 : 2);
+    // a 16 bit bus executes on the 4th to last memory stage cycle
+    s32 bus16 = ((CodeRegion == Mem9_ITCM || CodeRegion == Mem9_NoFetch) ? 1 : 4);
+    // a 32 bit bus executes on the 2nd to last memory stage cycle
+    s32 bus32 = ((CodeRegion == Mem9_ITCM || CodeRegion == Mem9_NoFetch) ? 1 : 2);
 
     switch (DataRegion)
     {
@@ -1324,7 +1324,7 @@ s32 ARMv5::MemoryTimingsSTR()
     }
 
     s32 ret;
-    if (CodeRegion == Mem9_ITCM) ret = 1; // CHECKME: does this really not cause contention?
+    if (CodeRegion == Mem9_ITCM || CodeRegion == Mem9_NoFetch) ret = 1; // CHECKME: does this really not cause contention?
     else ret = 6;
 
     if (DataRegion == Mem9_MainRAM) ret += 4;
@@ -1348,6 +1348,12 @@ s32 ARMv5::MemoryTimingsSTM()
     if (CodeRegion == Mem9_ITCM)
     {
         if (DataRegion == Mem9_ITCM) return -1;
+        if (DataRegion == Mem9_MainRAM) return 5;
+        return 1;
+    }
+    if (CodeRegion == Mem9_NoFetch)
+    {
+        if (DataRegion == Mem9_ITCM) return 0;
         if (DataRegion == Mem9_MainRAM) return 5;
         return 1;
     }
@@ -1442,10 +1448,6 @@ void ARMv5::AddCycles(s32 numX)
 
     s32 cyclespent = Cycles + numM + numX;
 
-    // at this point a cyclespent of -1 indicates that we're overlapping the prior code fetch stage
-    // and a fetch cannot overlap another fetch... probably...
-    if (cyclespent < 0) cyclespent = 0;
-
     // if we are accessing main ram and we have an ongoing main ram access, then we must wait until the previous one completes
     s32 wait = 0;
     if ((CodeRegion == Mem9_MainRAM) && (MainRAMOvertime > cyclespent))
@@ -1454,7 +1456,7 @@ void ARMv5::AddCycles(s32 numX)
     cyclespent += wait;
 
     // if we are not fetching code from either ITCM or ICache then we need to wait for the next bus cycle
-    if (CodeRegion != Mem9_ITCM) // TODO: Check for ICache here when we implement it!!!
+    if (CodeRegion != Mem9_ITCM && CodeRegion != Mem9_NoFetch) // TODO: Check for ICache here when we implement it!!!
         CodeCycles += (((NDS.ARM9Timestamp + cyclespent + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + cyclespent));
         
     // add cycles to the timestamp
