@@ -49,6 +49,10 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     parser.addOption(QCommandLineOption({"A", "archive-file-gba"}, "Specify file to load inside an archive given (GBA)", "rom"));
 #endif
 
+#ifdef __WIN32__
+    parser.addOption(QCommandLineOption({"c", "console"}, "Spawn a console (on Windows)"));
+#endif
+
     parser.process(melon);
 
     CommandLineOptions* options = new CommandLineOptions;
@@ -86,6 +90,10 @@ CommandLineOptions* ManageArgs(QApplication& melon)
         Log(LogLevel::Error, "ERROR: -b/--boot only accepts auto/always/never as arguments\n");
         exit(1);
     }
+
+#ifdef __WIN32__
+    options->consoleOnWindows = parser.isSet("console");
+#endif
 
 #ifdef ARCHIVE_SUPPORT_ENABLED
     if (parser.isSet("archive-file"))

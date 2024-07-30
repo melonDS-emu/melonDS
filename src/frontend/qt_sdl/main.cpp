@@ -79,6 +79,10 @@
 
 #include "CLI.h"
 
+#ifdef __WIN32__
+#include <windows.h>
+#endif
+
 using namespace melonDS;
 
 QString* systemThemeName;
@@ -214,17 +218,27 @@ int main(int argc, char** argv)
     qputenv("QT_QPA_PLATFORM", "windows:darkmode=2");
 #endif
 
+    MelonApplication melon(argc, argv);
+    pathInit();
+
+    CLI::CommandLineOptions* options = CLI::ManageArgs(melon);
+
+#ifdef __WIN32__
+    if (options->consoleOnWindows)
+    {
+        if (AllocConsole())
+            freopen("CONOUT$", "w", stdout);
+        else
+            printf("Failed to allocate console\n");
+    }
+#endif
+
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
     // easter egg - not worth checking other cases for something so dumb
     if (argc != 0 && (!strcasecmp(argv[0], "derpDS") || !strcasecmp(argv[0], "./derpDS")))
         printf("did you just call me a derp???\n");
-
-    MelonApplication melon(argc, argv);
-    pathInit();
-
-    CLI::CommandLineOptions* options = CLI::ManageArgs(melon);
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -329,8 +343,6 @@ int main(int argc, char** argv)
 }
 
 #ifdef __WIN32__
-
-#include <windows.h>
 
 int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdshow)
 {
