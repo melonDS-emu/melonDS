@@ -127,6 +127,8 @@ public:
     void inputInit();
     void inputDeInit();
     void inputLoadConfig();
+    void inputRumbleStart(melonDS::u32 len_ms);
+    void inputRumbleStop();
 
     void setJoystick(int id);
     int getJoystickID() { return joystickID; }
@@ -291,6 +293,9 @@ private:
 
     int joystickID;
     SDL_Joystick* joystick;
+    SDL_GameController* controller;
+    bool hasRumble = false;
+    bool isRumbling = false;
 
     melonDS::u32 keyInputMask, joyInputMask;
     melonDS::u32 keyHotkeyMask, joyHotkeyMask;

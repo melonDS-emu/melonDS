@@ -154,6 +154,9 @@ endif()
 
 if (BUILD_STATIC)
     qt_import_plugins(melonDS INCLUDE Qt::QSvgPlugin)
+    if (WIN32 AND USE_QT6)
+        qt_import_plugins(melonDS INCLUDE Qt::QModernWindowsStylePlugin)
+    endif()
     target_link_options(melonDS PRIVATE -static)
 endif()
 
@@ -236,4 +239,12 @@ if (UNIX AND NOT APPLE)
             INTERPROCEDURAL_OPTIMIZATION OFF
             INTERPROCEDURAL_OPTIMIZATION_RELEASE OFF)
     endif()
+endif()
+
+if (ENABLE_OGLRENDERER)
+    set(MELONDS_GL_HEADER \"frontend/glad/glad.h\" CACHE STRING "Path to a header that contains OpenGL function and type declarations.")
+
+    target_compile_definitions(melonDS PUBLIC OGLRENDERER_ENABLED)
+    target_compile_definitions(melonDS PUBLIC MELONDS_GL_HEADER=${MELONDS_GL_HEADER})
+    target_compile_definitions(core PUBLIC MELONDS_GL_HEADER=${MELONDS_GL_HEADER})
 endif()

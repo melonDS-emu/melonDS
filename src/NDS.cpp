@@ -754,7 +754,7 @@ void NDS::SetGBASave(const u8* savedata, u32 savelen)
 
 void NDS::LoadGBAAddon(int type)
 {
-    GBACartSlot.LoadAddon(type);
+    GBACartSlot.LoadAddon(UserData, type);
 }
 
 void NDS::LoadBIOS()
