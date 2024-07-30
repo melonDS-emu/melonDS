@@ -1463,7 +1463,7 @@ u64 NDS::GetSysClockCycles(int num)
     return ret;
 }
 
-void NDS::NocashPrint(u32 ncpu, u32 addr)
+void NDS::NocashPrint(u32 ncpu, u32 addr, bool appendNewline)
 {
     // addr: debug string
 
@@ -1541,7 +1541,7 @@ void NDS::NocashPrint(u32 ncpu, u32 addr)
     }
 
     output[ptr] = '\0';
-    Log(LogLevel::Debug, "%s\n", output);
+    Log(LogLevel::Debug, appendNewline ? "%s\n" : "%s", output);
 }
 
 void NDS::MonitorARM9Jump(u32 addr)
@@ -3609,10 +3609,8 @@ void NDS::ARM9IOWrite32(u32 addr, u32 val)
     case 0x04FFFA14:
     case 0x04FFFA18:
         {
-            bool appendLF = 0x04FFFA18 == addr;
-            NocashPrint(0, val);
-            if(appendLF)
-                Log(LogLevel::Debug, "\n");
+            NocashPrint(0, val, 0x04FFFA18 == addr);
+
             return;
         }
 
