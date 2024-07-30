@@ -154,6 +154,9 @@ endif()
 
 if (BUILD_STATIC)
     qt_import_plugins(melonDS INCLUDE Qt::QSvgPlugin)
+    if (WIN32 AND USE_QT6)
+        qt_import_plugins(melonDS INCLUDE Qt::QModernWindowsStylePlugin)
+    endif()
     target_link_options(melonDS PRIVATE -static)
 endif()
 
