@@ -1398,25 +1398,25 @@ void ARMv5::AddCycles(s32 numX)
                 break;
         }
 
-        // currently assuming that we can just multiply it by 2 for dsi cpu speeds? probably not actually how it works in practice tho...
+        // currently assuming that we can just multiply it by 2 for dsi cpu speeds?
+        // probably not actually how it works in practice though...
         if ((NDS.ARM9RoundMask == 3) && (DataRegion != Mem9_DTCM) && (DataRegion != Mem9_ITCM)) early = (early * 2) - 1; // CHECKME
+        
         // get the remaining amount of cycles early
         numM = DataCycles - early;
     
         if (numM < 0) numM = 0;
 
         // swp is split into two accesses essentially?
-        // and basically we can't go earlier than the prior one
+        // and we can't go earlier than the start of the second one
         if (MemoryType == 7)
         {
             DataCycles += LastDataCycles;
             numM += LastDataCycles;
         }
-
-        MemoryType = 0;
     }
     // check for interlocks
-    // note: r15 shouldn't be able to interlock?
+    // note: r15 shouldn't be able to interlock? (wait what about swp/swpb? those don't trigger jumps on arm9....)
     u16 ILmask = InterlockedRegs & UsedRegs & 0x7FFF;
     if (ILmask)
     {
@@ -1452,6 +1452,7 @@ void ARMv5::AddCycles(s32 numX)
         wait = MainRAMOvertime - cyclespent;
 
     cyclespent += wait;
+
     // if we are not fetching code from either ITCM or ICache then we need to wait for the next bus cycle
     if (CodeRegion != Mem9_ITCM) // TODO: Check for ICache here when we implement it!!!
         CodeCycles += (((NDS.ARM9Timestamp + cyclespent + NDS.ARM9RoundMask) & ~NDS.ARM9RoundMask) - (NDS.ARM9Timestamp + cyclespent));
@@ -1467,7 +1468,7 @@ void ARMv5::AddCycles(s32 numX)
         // unless we attempt to begin the next memory stage on the last cycle of the fetch
         MainRAMOvertime = 0;
     }
-    else if (DataRegion == Mem9_MainRAM)
+    else if (MemoryType != 0 && DataRegion == Mem9_MainRAM)
     {
         MainRAMOvertime = DataCycles - cyclespent;
     }
@@ -1491,6 +1492,7 @@ void ARMv5::AddCycles(s32 numX)
     }
 
     Cycles = 0;
+    MemoryType = 0;
     DataCycles = 0; // reset this cause it breaks if i dont
 }
 

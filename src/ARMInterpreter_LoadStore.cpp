@@ -519,10 +519,13 @@ void A_SWP(ARM* cpu)
     if (cpu->DataRead32(base, &val))
     {
         numD = cpu->DataCycles;
-        if ((cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0xF)))
-        && (cpu->InterlockTimers[cpu->CurInstr & 0xF] > (cpu->Cycles + cpu->DataCycles)))
-            cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0xF] - cpu->DataCycles;
-
+        if (cpu->Num != 1)
+        {
+            if ((cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0xF)))
+            && (cpu->InterlockTimers[cpu->CurInstr & 0xF] > (cpu->Cycles + cpu->DataCycles)))
+                cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0xF] - cpu->DataCycles;
+            numD += ((cpu->NDS.ARM9Timestamp + cpu->Cycles + numD + cpu->NDS.ARM9RoundMask) & ~cpu->NDS.ARM9RoundMask) - (cpu->NDS.ARM9Timestamp + cpu->Cycles + numD);
+        }
         if (cpu->DataWrite32(base, rm))
         {
             // rd only gets updated if both read and write succeed
@@ -555,10 +558,13 @@ void A_SWPB(ARM* cpu)
     if (cpu->DataRead8(base, &val))
     {
         numD = cpu->DataCycles;
-        if ((cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0xF)))
-            && (cpu->InterlockTimers[cpu->CurInstr & 0xF] > (cpu->Cycles + cpu->DataCycles)))
-            cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0xF] - cpu->DataCycles;
-
+        if (cpu->Num != 1)
+        {
+            if ((cpu->InterlockedRegs & (1 << (cpu->CurInstr & 0xF)))
+                && (cpu->InterlockTimers[cpu->CurInstr & 0xF] > (cpu->Cycles + cpu->DataCycles)))
+                cpu->Cycles = cpu->InterlockTimers[cpu->CurInstr & 0xF] - cpu->DataCycles;
+            numD += ((cpu->NDS.ARM9Timestamp + cpu->Cycles + numD + cpu->NDS.ARM9RoundMask) & ~cpu->NDS.ARM9RoundMask) - (cpu->NDS.ARM9Timestamp + cpu->Cycles + numD);
+        }
         if (cpu->DataWrite8(base, rm))
         {
             // rd only gets updated if both read and write succeed
