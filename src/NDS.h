@@ -423,7 +423,7 @@ public: // TODO: Encapsulate the rest of these members
 
     u32 GetPC(u32 cpu) const;
     u64 GetSysClockCycles(int num);
-    void NocashPrint(u32 cpu, u32 addr);
+    void NocashPrint(u32 cpu, u32 addr, bool appendNewline = true);
 
     void MonitorARM9Jump(u32 addr);
 
