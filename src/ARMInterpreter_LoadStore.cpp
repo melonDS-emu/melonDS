@@ -533,10 +533,11 @@ void A_SWP(ARM* cpu)
             cpu->InterlockedRegs = 1 << rd; // does this apply to r15?
             cpu->InterlockTimers[rd] = cpu->DataCycles+numD; // checkme
             if (base&0x3) cpu->InterlockTimers[rd]++;
-            if (cpu->DataRegion == Mem9_MainRAM) cpu->InterlockTimers[rd] -= 4; // kinda jank way to fix it for main ram
+            if (cpu->DataRegion == Mem9_MainRAM) cpu->InterlockTimers[rd] -= ((cpu->NDS.ARM9RoundMask == 1) ? 4 : 8); // kinda jank way to fix it for main ram
             if (rd != 15) cpu->R[rd] = ROR(val, 8*(base&0x3));
             else if (cpu->Num==1) cpu->JumpTo(ROR(val, 8*(base&0x3)) & ~1); // for some reason these jumps don't work on the arm 9?
         }
+        cpu->DataCycles += numD;
     }
     cpu->AddCycles_CDI_SWP(numD);
 }
@@ -571,10 +572,11 @@ void A_SWPB(ARM* cpu)
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
             cpu->InterlockedRegs = 1 << rd; // does this apply to r15?
             cpu->InterlockTimers[rd] = cpu->DataCycles+numD+1; // checkme
-            if (cpu->DataRegion == Mem9_MainRAM) cpu->InterlockTimers[rd] -= 4; // kinda jank way to fix it for main ram
+            if (cpu->DataRegion == Mem9_MainRAM) cpu->InterlockTimers[rd] -=  ((cpu->NDS.ARM9RoundMask == 1) ? 4 : 8); // kinda jank way to fix it for main ram
             if (rd != 15) cpu->R[rd] = val;
             else if (cpu->Num==1) cpu->JumpTo(val & ~1); // for some reason these jumps don't work on the arm 9?
         }
+        cpu->DataCycles += numD;
     }
     cpu->AddCycles_CDI_SWP(numD);
 }
