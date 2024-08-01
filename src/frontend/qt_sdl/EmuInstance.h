@@ -256,7 +256,7 @@ private:
     bool savestateLoaded;
     std::string previousSaveFile;
 
-    melonDS::ARCodeFile* cheatFile;
+    std::unique_ptr<melonDS::ARCodeFile> cheatFile;
     bool cheatsOn;
 
     SDL_AudioDeviceID audioDevice;
