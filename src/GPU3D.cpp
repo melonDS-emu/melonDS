@@ -192,7 +192,7 @@ void GPU3D::Reset() noexcept
 
     CmdStallQueue.Clear();
 
-    ZeroDotWLimit = 0; // CHECKME
+    ZeroDotWLimit = 0xFFFFFF;
 
     GXStat = 0;
 
