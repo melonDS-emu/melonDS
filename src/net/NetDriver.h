@@ -16,52 +16,20 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARCODEFILE_H
-#define ARCODEFILE_H
+#ifndef MELONDS_NETDRIVER_H
+#define MELONDS_NETDRIVER_H
 
-#include <string>
-#include <list>
-#include <vector>
 #include "types.h"
 
 namespace melonDS
 {
-struct ARCode
-{
-    std::string Name;
-    bool Enabled;
-    std::vector<u32> Code;
-};
-
-typedef std::list<ARCode> ARCodeList;
-
-struct ARCodeCat
-{
-    std::string Name;
-    ARCodeList Codes;
-};
-
-typedef std::list<ARCodeCat> ARCodeCatList;
-
-
-class ARCodeFile
+class NetDriver
 {
 public:
-    ARCodeFile(const std::string& filename);
-    ~ARCodeFile() noexcept = default;
-
-    [[nodiscard]] std::vector<ARCode> GetCodes() const noexcept;
-
-    bool Error = false;
-
-    bool Load();
-    bool Save();
-
-    ARCodeCatList Categories {};
-
-private:
-    std::string Filename;
+    virtual ~NetDriver() = default;
+    virtual int SendPacket(u8* data, int len) noexcept = 0;
+    virtual void RecvCheck() noexcept = 0;
 };
-
 }
-#endif // ARCODEFILE_H
+
+#endif //MELONDS_NETDRIVER_H

@@ -34,7 +34,6 @@ const u32 kPacketMagic = 0x4B504C4D;
 PacketDispatcher::PacketDispatcher() : mutex(Platform::Mutex_Create())
 {
     instanceMask = 0;
-    memset(packetQueues, 0, sizeof(packetQueues));
 }
 
 PacketDispatcher::~PacketDispatcher()
@@ -48,7 +47,7 @@ void PacketDispatcher::registerInstance(int inst)
     Mutex_Lock(mutex);
 
     instanceMask |= (1 << inst);
-    packetQueues[inst] = new PacketQueue();
+    packetQueues[inst] = std::make_unique<PacketQueue>();
 
     Mutex_Unlock(mutex);
 }
@@ -58,7 +57,7 @@ void PacketDispatcher::unregisterInstance(int inst)
     Mutex_Lock(mutex);
 
     instanceMask &= ~(1 << inst);
-    delete packetQueues[inst];
+    packetQueues[inst] = nullptr;
 
     Mutex_Unlock(mutex);
 }
@@ -72,8 +71,7 @@ void PacketDispatcher::clear()
         if (!(instanceMask & (1 << i)))
             continue;
 
-        PacketQueue* queue = packetQueues[i];
-        queue->Clear();
+        packetQueues[i]->Clear();
     }
     Mutex_Unlock(mutex);
 }
@@ -105,7 +103,7 @@ void PacketDispatcher::sendPacket(const void* header, int headerlen, const void*
         if (!(recv_mask & (1 << i)))
             continue;
 
-        PacketQueue* queue = packetQueues[i];
+        PacketQueue* queue = packetQueues[i].get();
 
         // if we run out of space: discard old packets
         while (!queue->CanFit(totallen))
@@ -128,7 +126,7 @@ bool PacketDispatcher::recvPacket(void *header, int *headerlen, void *data, int 
     if (receiver < 0 || receiver > 15) return false;
 
     Mutex_Lock(mutex);
-    PacketQueue* queue = packetQueues[receiver];
+    PacketQueue* queue = packetQueues[receiver].get();
 
     PacketHeader phdr;
     if (!queue->Read(&phdr, sizeof(phdr)))

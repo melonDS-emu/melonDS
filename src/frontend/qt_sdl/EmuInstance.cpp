@@ -62,6 +62,8 @@ using namespace melonDS::Platform;
 MainWindow* topWindow = nullptr;
 
 const string kWifiSettingsPath = "wfcsettings.bin";
+extern LocalMP localMp;
+extern Net net;
 
 
 EmuInstance::EmuInstance(int inst) : instanceID(inst),
@@ -97,7 +99,7 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
     audioInit();
     inputInit();
 
-    Net::RegisterInstance(instanceID);
+    net.RegisterInstance(instanceID);
 
     emuThread = new EmuThread(this);
 
@@ -116,14 +118,13 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
 EmuInstance::~EmuInstance()
 {
     // TODO window cleanup and shit?
-
-    LocalMP::End(instanceID);
+    localMp.End(instanceID);
 
     emuThread->emuExit();
     emuThread->wait();
     delete emuThread;
 
-    Net::UnregisterInstance(instanceID);
+    net.UnregisterInstance(instanceID);
 
     audioDeInit();
     inputDeInit();
@@ -686,12 +687,8 @@ void EmuInstance::undoStateLoad()
 
 void EmuInstance::unloadCheats()
 {
-    if (cheatFile)
-    {
-        delete cheatFile;
-        cheatFile = nullptr;
-        nds->AREngine.SetCodeFile(nullptr);
-    }
+    cheatFile = nullptr; // cleaned up by unique_ptr
+    nds->AREngine.Cheats.clear();
 }
 
 void EmuInstance::loadCheats()
@@ -701,9 +698,16 @@ void EmuInstance::loadCheats()
     std::string filename = getAssetPath(false, globalCfg.GetString("CheatFilePath"), ".mch");
 
     // TODO: check for error (malformed cheat file, ...)
-    cheatFile = new ARCodeFile(filename);
+    cheatFile = std::make_unique<ARCodeFile>(filename);
 
-    nds->AREngine.SetCodeFile(cheatsOn ? cheatFile : nullptr);
+    if (cheatsOn)
+    {
+        nds->AREngine.Cheats = cheatFile->GetCodes();
+    }
+    else
+    {
+        nds->AREngine.Cheats.clear();
+    }
 }
 
 std::unique_ptr<ARM9BIOSImage> EmuInstance::loadARM9BIOS() noexcept
@@ -1013,12 +1017,14 @@ void EmuInstance::enableCheats(bool enable)
 {
     cheatsOn = enable;
     if (cheatFile)
-        nds->AREngine.SetCodeFile(cheatsOn ? cheatFile : nullptr);
+        nds->AREngine.Cheats = cheatFile->GetCodes();
+    else
+        nds->AREngine.Cheats.clear();
 }
 
 ARCodeFile* EmuInstance::getCheatFile()
 {
-    return cheatFile;
+    return cheatFile.get();
 }
 
 void EmuInstance::setBatteryLevels()
@@ -1103,7 +1109,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     };
     auto jitargs = jitopt.GetBool("Enable") ? std::make_optional(_jitargs) : std::nullopt;
 #else
-    optional<JITArgs> jitargs = std::nullopt;
+    std::optional<JITArgs> jitargs = std::nullopt;
 #endif
 
 #ifdef GDBSTUB_ENABLED

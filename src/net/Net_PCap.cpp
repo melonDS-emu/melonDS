@@ -45,23 +45,7 @@ using Platform::LogLevel;
 #define PCAP_OPENFLAG_PROMISCUOUS 1
 #endif
 
-
-#define DECL_PCAP_FUNC(ret, name, args, args2) \
-    typedef ret (*type_##name) args; \
-    type_##name ptr_##name = nullptr; \
-    ret name args { return ptr_##name args2; }
-
-DECL_PCAP_FUNC(int, pcap_findalldevs, (pcap_if_t** alldevs, char* errbuf), (alldevs,errbuf))
-DECL_PCAP_FUNC(void, pcap_freealldevs, (pcap_if_t* alldevs), (alldevs))
-DECL_PCAP_FUNC(pcap_t*, pcap_open_live, (const char* src, int snaplen, int flags, int readtimeout, char* errbuf), (src,snaplen,flags,readtimeout,errbuf))
-DECL_PCAP_FUNC(void, pcap_close, (pcap_t* dev), (dev))
-DECL_PCAP_FUNC(int, pcap_setnonblock, (pcap_t* dev, int nonblock, char* errbuf), (dev,nonblock,errbuf))
-DECL_PCAP_FUNC(int, pcap_sendpacket, (pcap_t* dev, const u_char* data, int len), (dev,data,len))
-DECL_PCAP_FUNC(int, pcap_dispatch, (pcap_t* dev, int num, pcap_handler callback, u_char* data), (dev,num,callback,data))
-DECL_PCAP_FUNC(const u_char*, pcap_next, (pcap_t* dev, struct pcap_pkthdr* hdr), (dev,hdr))
-
-
-namespace Net_PCap
+namespace melonDS
 {
 
 const char* PCapLibNames[] =
@@ -80,96 +64,152 @@ const char* PCapLibNames[] =
     nullptr
 };
 
-AdapterData* Adapters = nullptr;
-int NumAdapters = 0;
-
-Platform::DynamicLibrary* PCapLib = nullptr;
-pcap_t* PCapAdapter = nullptr;
-AdapterData* PCapAdapterData;
-
-
-#define LOAD_PCAP_FUNC(sym) \
-    ptr_##sym = (type_##sym)DynamicLibrary_LoadFunction(lib, #sym); \
-    if (!ptr_##sym) return false;
-
-bool TryLoadPCap(Platform::DynamicLibrary *lib)
+std::optional<LibPCap> LibPCap::New() noexcept
 {
-    LOAD_PCAP_FUNC(pcap_findalldevs)
-    LOAD_PCAP_FUNC(pcap_freealldevs)
-    LOAD_PCAP_FUNC(pcap_open_live)
-    LOAD_PCAP_FUNC(pcap_close)
-    LOAD_PCAP_FUNC(pcap_setnonblock)
-    LOAD_PCAP_FUNC(pcap_sendpacket)
-    LOAD_PCAP_FUNC(pcap_dispatch)
-    LOAD_PCAP_FUNC(pcap_next)
+    for (int i = 0; PCapLibNames[i]; i++)
+    {
+        Platform::DynamicLibrary* lib = Platform::DynamicLibrary_Load(PCapLibNames[i]);
+        if (!lib) continue;
+
+        LibPCap pcap;
+        // Use a custom deleter to clean up the DLL automatically
+        // (in this case, the deleter is the DynamicLibrary_Unload function)
+        pcap.PCapLib = std::shared_ptr<Platform::DynamicLibrary>(lib, Platform::DynamicLibrary_Unload);
+
+        if (!TryLoadPCap(pcap, lib))
+        {
+            Platform::DynamicLibrary_Unload(lib);
+            continue;
+        }
+
+        Log(LogLevel::Info, "PCap: lib %s, init successful\n", PCapLibNames[i]);
+        return pcap;
+    }
+
+    Log(LogLevel::Error, "PCap: init failed\n");
+    return std::nullopt;
+}
+
+LibPCap::LibPCap(LibPCap&& other) noexcept
+{
+    PCapLib = std::move(other.PCapLib);
+    findalldevs = other.findalldevs;
+    freealldevs = other.freealldevs;
+    open_live = other.open_live;
+    close = other.close;
+    setnonblock = other.setnonblock;
+    sendpacket = other.sendpacket;
+    dispatch = other.dispatch;
+    next = other.next;
+
+    other.PCapLib = nullptr;
+    other.findalldevs = nullptr;
+    other.freealldevs = nullptr;
+    other.open_live = nullptr;
+    other.close = nullptr;
+    other.setnonblock = nullptr;
+    other.sendpacket = nullptr;
+    other.dispatch = nullptr;
+    other.next = nullptr;
+}
+
+LibPCap& LibPCap::operator=(LibPCap&& other) noexcept
+{
+    if (this != &other)
+    {
+        PCapLib = nullptr;
+        // Unloads the DLL due to the custom deleter
+
+        PCapLib = std::move(other.PCapLib);
+        findalldevs = other.findalldevs;
+        freealldevs = other.freealldevs;
+        open_live = other.open_live;
+        close = other.close;
+        setnonblock = other.setnonblock;
+        sendpacket = other.sendpacket;
+        dispatch = other.dispatch;
+        next = other.next;
+
+        other.PCapLib = nullptr;
+        other.findalldevs = nullptr;
+        other.freealldevs = nullptr;
+        other.open_live = nullptr;
+        other.close = nullptr;
+        other.setnonblock = nullptr;
+        other.sendpacket = nullptr;
+        other.dispatch = nullptr;
+        other.next = nullptr;
+    }
+
+    return *this;
+}
+
+bool LibPCap::TryLoadPCap(LibPCap& pcap, Platform::DynamicLibrary *lib) noexcept
+{
+    pcap.findalldevs = (pcap_findalldevs_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_findalldevs");
+    if (!pcap.findalldevs) return false;
+
+    pcap.freealldevs = (pcap_freealldevs_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_freealldevs");
+    if (!pcap.freealldevs) return false;
+
+    pcap.open_live = (pcap_open_live_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_open_live");
+    if (!pcap.open_live) return false;
+
+    pcap.close = (pcap_close_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_close");
+    if (!pcap.close) return false;
+
+    pcap.setnonblock = (pcap_setnonblock_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_setnonblock");
+    if (!pcap.setnonblock) return false;
+
+    pcap.sendpacket = (pcap_sendpacket_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_sendpacket");
+    if (!pcap.sendpacket) return false;
+
+    pcap.dispatch = (pcap_dispatch_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_dispatch");
+    if (!pcap.dispatch) return false;
+
+    pcap.next = (pcap_next_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_next");
+    if (!pcap.next) return false;
 
     return true;
 }
 
-bool InitAdapterList()
+std::vector<AdapterData> LibPCap::GetAdapters() const noexcept
 {
-    NumAdapters = 0;
-
     // TODO: how to deal with cases where an adapter is unplugged or changes config??
-    if (!PCapLib)
+    if (!IsValid())
     {
-        PCapLib = nullptr;
-        PCapAdapter = nullptr;
-
-        for (int i = 0; PCapLibNames[i]; i++)
-        {
-            Platform::DynamicLibrary* lib = Platform::DynamicLibrary_Load(PCapLibNames[i]);
-            if (!lib) continue;
-
-            if (!TryLoadPCap(lib))
-            {
-                Platform::DynamicLibrary_Unload(lib);
-                continue;
-            }
-
-            Log(LogLevel::Info, "PCap: lib %s, init successful\n", PCapLibNames[i]);
-            PCapLib = lib;
-            break;
-        }
-
-        if (PCapLib == nullptr)
-        {
-            Log(LogLevel::Error, "PCap: init failed\n");
-            return false;
-        }
+        Log(LogLevel::Error, "PCap: instance not initialized\n");
+        return {};
     }
 
     char errbuf[PCAP_ERRBUF_SIZE];
-    int ret;
 
-    pcap_if_t* alldevs;
-    ret = pcap_findalldevs(&alldevs, errbuf);
-    if (ret < 0 || alldevs == nullptr)
-    {
-        Log(LogLevel::Warn, "PCap: no devices available\n");
-        return false;
+    pcap_if_t* alldevs = nullptr;
+    if (int ret = findalldevs(&alldevs, errbuf); ret < 0)
+    { // If there was an error...
+        errbuf[PCAP_ERRBUF_SIZE - 1] = '\0';
+        Log(LogLevel::Error, "PCap: Error %d finding devices: %s\n", ret, errbuf);
     }
 
-    pcap_if_t* dev = alldevs;
-    while (dev) { NumAdapters++; dev = dev->next; }
+    if (alldevs == nullptr)
+    { // If no devices were found...
+        Log(LogLevel::Warn, "PCap: no devices available\n");
+        return {};
+    }
 
-    Adapters = new AdapterData[NumAdapters];
-    memset(Adapters, 0, sizeof(AdapterData)*NumAdapters);
-
-    AdapterData* adata = &Adapters[0];
-    dev = alldevs;
-    while (dev)
+    std::vector<AdapterData> adapters;
+    for (pcap_if_t* dev = alldevs; dev != nullptr; dev = dev->next)
     {
-        strncpy(adata->DeviceName, dev->name, 127);
-        adata->DeviceName[127] = '\0';
+        adapters.emplace_back(); // Add a new (empty) adapter to the list
+        AdapterData& adata = adapters.back();
+        strncpy(adata.DeviceName, dev->name, 127);
+        adata.DeviceName[127] = '\0';
+        adata.Flags = dev->flags;
 
 #ifndef __WIN32__
-        strncpy(adata->FriendlyName, adata->DeviceName, 127);
-        adata->FriendlyName[127] = '\0';
+        strncpy(adata.FriendlyName, adata.DeviceName, 127);
+        adata.FriendlyName[127] = '\0';
 #endif // __WIN32__
-
-        dev = dev->next;
-        adata++;
     }
 
 #ifdef __WIN32__
@@ -186,33 +226,33 @@ bool InitAdapterList()
     if (uret != ERROR_SUCCESS)
     {
         Log(LogLevel::Error, "GetAdaptersAddresses() shat itself: %08X\n", uret);
-        return false;
+        freealldevs(alldevs);
+        return {};
     }
 
-    for (int i = 0; i < NumAdapters; i++)
+    for (AdapterData& adata : adapters)
     {
-        adata = &Adapters[i];
         IP_ADAPTER_ADDRESSES* addr = buf;
         while (addr)
         {
-            if (strcmp(addr->AdapterName, &adata->DeviceName[12]))
+            if (strcmp(addr->AdapterName, &adata.DeviceName[12]))
             {
                 addr = addr->Next;
                 continue;
             }
 
-            WideCharToMultiByte(CP_UTF8, 0, addr->FriendlyName, 127, adata->FriendlyName, 127, nullptr, nullptr);
-            adata->FriendlyName[127] = '\0';
+            WideCharToMultiByte(CP_UTF8, 0, addr->FriendlyName, 127, adata.FriendlyName, 127, nullptr, nullptr);
+            adata.FriendlyName[127] = '\0';
 
-            WideCharToMultiByte(CP_UTF8, 0, addr->Description, 127, adata->Description, 127, nullptr, nullptr);
-            adata->Description[127] = '\0';
+            WideCharToMultiByte(CP_UTF8, 0, addr->Description, 127, adata.Description, 127, nullptr, nullptr);
+            adata.Description[127] = '\0';
 
             if (addr->PhysicalAddressLength != 6)
             {
                 Log(LogLevel::Warn, "weird MAC addr length %d for %s\n", addr->PhysicalAddressLength, addr->AdapterName);
             }
             else
-                memcpy(adata->MAC, addr->PhysicalAddress, 6);
+                memcpy(adata.MAC, addr->PhysicalAddress, 6);
 
             IP_ADAPTER_UNICAST_ADDRESS* ipaddr = addr->FirstUnicastAddress;
             while (ipaddr)
@@ -221,7 +261,7 @@ bool InitAdapterList()
                 if (sa->sa_family == AF_INET)
                 {
                     struct in_addr sa4 = ((sockaddr_in*)sa)->sin_addr;
-                    memcpy(adata->IP_v4, &sa4, 4);
+                    memcpy(adata.IP_v4, &sa4, 4);
                 }
 
                 ipaddr = ipaddr->Next;
@@ -239,16 +279,15 @@ bool InitAdapterList()
     if (getifaddrs(&addrs) != 0)
     {
         Log(LogLevel::Error, "getifaddrs() shat itself :(\n");
-        return false;
+        return {};
     }
 
-    for (int i = 0; i < NumAdapters; i++)
+    for (const AdapterData& adata : adapters)
     {
-        adata = &Adapters[i];
         struct ifaddrs* curaddr = addrs;
         while (curaddr)
         {
-            if (strcmp(curaddr->ifa_name, adata->DeviceName))
+            if (strcmp(curaddr->ifa_name, adata.DeviceName))
             {
                 curaddr = curaddr->ifa_next;
                 continue;
@@ -265,7 +304,7 @@ bool InitAdapterList()
             if (af == AF_INET)
             {
                 struct sockaddr_in* sa = (sockaddr_in*)curaddr->ifa_addr;
-                memcpy(adata->IP_v4, &sa->sin_addr, 4);
+                memcpy((void*)adata.IP_v4, &sa->sin_addr, 4);
             }
 #ifdef __linux__
             else if (af == AF_PACKET)
@@ -274,7 +313,7 @@ bool InitAdapterList()
                 if (sa->sll_halen != 6)
                     Log(LogLevel::Warn, "weird MAC length %d for %s\n", sa->sll_halen, curaddr->ifa_name);
                 else
-                    memcpy(adata->MAC, sa->sll_addr, 6);
+                    memcpy((void*)adata.MAC, sa->sll_addr, 6);
             }
 #else
             else if (af == AF_LINK)
@@ -283,7 +322,7 @@ bool InitAdapterList()
                 if (sa->sdl_alen != 6)
                     Log(LogLevel::Warn, "weird MAC length %d for %s\n", sa->sdl_alen, curaddr->ifa_name);
                 else
-                    memcpy(adata->MAC, LLADDR(sa), 6);
+                    memcpy((void*)adata.MAC, LLADDR(sa), 6);
             }
 #endif
             curaddr = curaddr->ifa_next;
@@ -294,67 +333,110 @@ bool InitAdapterList()
 
 #endif // __WIN32__
 
-    pcap_freealldevs(alldevs);
-    return true;
+    freealldevs(alldevs);
+    return adapters;
 }
 
-bool Init(std::string_view devicename)
+std::unique_ptr<Net_PCap> LibPCap::Open(const AdapterData& device, const Platform::SendPacketCallback& handler) const noexcept
 {
-    if (!PCapLib) PCapAdapter = nullptr;
-    if (PCapAdapter) pcap_close(PCapAdapter);
+    return Open(device.DeviceName, handler);
+}
 
-    InitAdapterList();
-
-    // open pcap device
-    PCapAdapterData = &Adapters[0];
-    for (int i = 0; i < NumAdapters; i++)
-    {
-        if (!strncmp(Adapters[i].DeviceName, devicename.data(), 128))
-            PCapAdapterData = &Adapters[i];
-    }
-
+std::unique_ptr<Net_PCap> LibPCap::Open(std::string_view devicename, const Platform::SendPacketCallback& handler) const noexcept
+{
     char errbuf[PCAP_ERRBUF_SIZE];
-    PCapAdapter = pcap_open_live(PCapAdapterData->DeviceName, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
-    if (!PCapAdapter)
+    pcap_t* adapter = open_live(devicename.data(), 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
+    if (!adapter)
     {
-        Log(LogLevel::Error, "PCap: failed to open adapter %s\n", errbuf);
-        return false;
+        errbuf[PCAP_ERRBUF_SIZE - 1] = '\0';
+        Log(LogLevel::Error, "PCap: failed to open adapter: %s\n", errbuf);
+        return nullptr;
     }
 
-    if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
+    if (int err = setnonblock(adapter, 1, errbuf); err < 0)
     {
-        Log(LogLevel::Error, "PCap: failed to set nonblocking mode\n");
-        pcap_close(PCapAdapter); PCapAdapter = nullptr;
-        return false;
+        errbuf[PCAP_ERRBUF_SIZE - 1] = '\0';
+        Log(LogLevel::Error, "PCap: failed to set nonblocking mode with %d: %s\n", err, errbuf);
+        close(adapter);
+        return nullptr;
     }
 
-    return true;
+    std::unique_ptr<Net_PCap> pcap = std::make_unique<Net_PCap>();
+    pcap->PCapAdapter = adapter;
+    pcap->Callback = handler;
+    pcap->PCapLib = PCapLib;
+    pcap->close = close;
+    pcap->sendpacket = sendpacket;
+    pcap->dispatch = dispatch;
+
+    return pcap;
 }
 
-void DeInit()
+Net_PCap::Net_PCap(Net_PCap&& other) noexcept
 {
-    if (PCapLib)
+    PCapAdapter = other.PCapAdapter;
+    PCapLib = std::move(other.PCapLib);
+    close = other.close;
+    sendpacket = other.sendpacket;
+    dispatch = other.dispatch;
+    Callback = std::move(other.Callback);
+
+    other.PCapAdapter = nullptr;
+    other.close = nullptr;
+    other.PCapLib = nullptr;
+    other.sendpacket = nullptr;
+    other.dispatch = nullptr;
+    other.Callback = nullptr;
+}
+
+Net_PCap& Net_PCap::operator=(Net_PCap&& other) noexcept
+{
+    if (this != &other)
     {
-        if (PCapAdapter)
+        if (close && PCapAdapter)
         {
-            pcap_close(PCapAdapter);
+            close(PCapAdapter);
             PCapAdapter = nullptr;
         }
 
-        Platform::DynamicLibrary_Unload(PCapLib);
-        PCapLib = nullptr;
+        PCapAdapter = other.PCapAdapter;
+        PCapLib = std::move(other.PCapLib);
+        close = other.close;
+        sendpacket = other.sendpacket;
+        dispatch = other.dispatch;
+        Callback = std::move(other.Callback);
+
+        other.PCapAdapter = nullptr;
+        other.close = nullptr;
+        other.PCapLib = nullptr;
+        other.sendpacket = nullptr;
+        other.dispatch = nullptr;
+        other.Callback = nullptr;
     }
+
+    return *this;
 }
 
-
-void RXCallback(u_char* userdata, const struct pcap_pkthdr* header, const u_char* data)
+Net_PCap::~Net_PCap() noexcept
 {
-    Net::RXEnqueue(data, header->len);
+    if (close && PCapAdapter)
+    {
+        close(PCapAdapter);
+        PCapAdapter = nullptr;
+    }
+    // PCapLib will be freed at this point (shared_ptr + custom deleter)
 }
 
-int SendPacket(u8* data, int len)
+void Net_PCap::RXCallback(u_char* userdata, const struct pcap_pkthdr* header, const u_char* data) noexcept
 {
-    if (PCapAdapter == nullptr)
+    Net_PCap& self = *reinterpret_cast<Net_PCap*>(userdata);
+    if (self.Callback)
+        self.Callback(data, header->len);
+}
+
+int Net_PCap::SendPacket(u8* data, int len) noexcept
+{
+    if (PCapAdapter == nullptr || data == nullptr)
         return 0;
 
     if (len > 2048)
@@ -363,17 +445,17 @@ int SendPacket(u8* data, int len)
         return 0;
     }
 
-    pcap_sendpacket(PCapAdapter, data, len);
+    sendpacket(PCapAdapter, data, len);
     // TODO: check success
     return len;
 }
 
-void RecvCheck()
+void Net_PCap::RecvCheck() noexcept
 {
-    if (PCapAdapter == nullptr)
+    if (PCapAdapter == nullptr || dispatch == nullptr)
         return;
 
-    pcap_dispatch(PCapAdapter, 1, RXCallback, nullptr);
+    dispatch(PCapAdapter, 1, RXCallback, reinterpret_cast<u_char*>(this));
 }
 
 }

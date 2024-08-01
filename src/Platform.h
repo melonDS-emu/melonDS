@@ -305,6 +305,7 @@ u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, void* userdata);
 // packet type: Ethernet (802.3)
 int Net_SendPacket(u8* data, int len, void* userdata);
 int Net_RecvPacket(u8* data, void* userdata);
+using SendPacketCallback = std::function<void(const u8* data, int len)>;
 
 
 // interface for camera emulation

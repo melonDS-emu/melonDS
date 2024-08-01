@@ -79,6 +79,9 @@
 
 #include "CLI.h"
 
+#include "Net_PCap.h"
+#include "Net_Slirp.h"
+
 #ifdef __WIN32__
 #include <windows.h>
 #endif
@@ -96,6 +99,38 @@ EmuInstance* emuInstances[kMaxEmuInstances];
 
 CameraManager* camManager[2];
 bool camStarted[2];
+LocalMP localMp;
+std::optional<LibPCap> pcap;
+Net net;
+
+void NetInit()
+{
+    Config::Table cfg = Config::GetGlobalTable();
+    if (cfg.GetBool("LAN.DirectMode"))
+    {
+        if (!pcap)
+            pcap = LibPCap::New();
+
+        if (pcap)
+        {
+            std::string devicename = cfg.GetString("LAN.Device");
+            std::unique_ptr<Net_PCap> netPcap = pcap->Open(devicename, [](const u8* data, int len) {
+                net.RXEnqueue(data, len);
+            });
+
+            if (netPcap)
+            {
+                net.SetDriver(std::move(netPcap));
+            }
+        }
+    }
+    else
+    {
+        net.SetDriver(std::make_unique<Net_Slirp>([](const u8* data, int len) {
+            net.RXEnqueue(data, len);
+        }));
+    }
+}
 
 
 bool createEmuInstance()
@@ -287,13 +322,8 @@ int main(int argc, char** argv)
         }
     }
 
-    LocalMP::Init();
-    {
-        Config::Table cfg = Config::GetGlobalTable();
-        bool direct = cfg.GetBool("LAN.DirectMode");
-        std::string devicename = cfg.GetString("LAN.Device");
-        Net::Init(direct, devicename.c_str());
-    }
+    // localMp is initialized at this point
+    NetInit();
 
     createEmuInstance();
 
@@ -329,9 +359,6 @@ int main(int argc, char** argv)
     // if we get here, all the existing emu instances should have been deleted already
     // but with this we make extra sure they are all deleted
     deleteAllEmuInstances();
-
-    LocalMP::DeInit();
-    Net::DeInit();
 
     delete camManager[0];
     delete camManager[1];

@@ -1109,7 +1109,7 @@ std::optional<WindowInfo> ScreenPanelGL::getWindowInfo()
     else
     {
         //qCritical() << "Unknown PNI platform " << platform_name;
-        Platform::Log(LogLevel::Error, "Unknown PNI platform %s\n", platform_name.toStdString().c_str());
+        Platform::Log(Platform::LogLevel::Error, "Unknown PNI platform %s\n", platform_name.toStdString().c_str());
         return std::nullopt;
     }
     #endif
