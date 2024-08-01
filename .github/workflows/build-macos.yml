@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - ci/vcpkg-update
   pull_request:
     branches:
       - master
@@ -27,7 +28,7 @@ jobs:
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: 53bef8994c541b6561884a8395ea35715ece75db
+          vcpkgGitCommitId: 1de2026f28ead93ff1773e6e680387643e914ea1
       - name: Build
         uses: lukka/run-cmake@v10
         with:

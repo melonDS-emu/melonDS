@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -33,17 +33,26 @@ ARCodeFile::ARCodeFile(const std::string& filename)
 {
     Filename = filename;
 
-    Error = false;
-
-    Categories.clear();
-
     if (!Load())
         Error = true;
 }
 
-ARCodeFile::~ARCodeFile()
+std::vector<ARCode> ARCodeFile::GetCodes() const noexcept
 {
-    Categories.clear();
+    if (Error)
+        return {};
+
+    std::vector<ARCode> codes;
+
+    for (const ARCodeCat& cat : Categories)
+    {
+        for (const ARCode& code : cat.Codes)
+        {
+            codes.push_back(code);
+        }
+    }
+
+    return codes;
 }
 
 bool ARCodeFile::Load()

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -33,6 +33,7 @@
 #include <QMutex>
 
 #include "types.h"
+#include "Config.h"
 
 class CameraManager;
 
@@ -80,6 +81,8 @@ public:
     CameraManager(int num, int width, int height, bool yuv);
     ~CameraManager();
 
+    Config::Table& getConfig() { return config; }
+
     void init();
     void deInit();
 
@@ -105,6 +108,8 @@ private slots:
 
 private:
     int num;
+
+    Config::Table config;
 
     int startNum;
 

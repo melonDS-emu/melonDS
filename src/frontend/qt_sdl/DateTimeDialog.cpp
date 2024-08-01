@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -20,6 +20,7 @@
 
 #include "types.h"
 #include "Config.h"
+#include "main.h"
 
 #include "DateTimeDialog.h"
 #include "ui_DateTimeDialog.h"
@@ -32,8 +33,11 @@ DateTimeDialog::DateTimeDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Da
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
+
+    auto& cfg = emuInstance->getLocalConfig();
     QDateTime now = QDateTime::currentDateTime();
-    customTime = now.addSecs(Config::RTCOffset);
+    customTime = now.addSecs(cfg.GetInt64("RTC.Offset"));
 
     ui->chkChangeTime->setChecked(false);
     ui->chkResetTime->setChecked(false);
@@ -59,13 +63,15 @@ void DateTimeDialog::done(int r)
 {
     if (r == QDialog::Accepted)
     {
+        auto& cfg = emuInstance->getLocalConfig();
+
         if (ui->chkChangeTime->isChecked())
         {
             QDateTime now = QDateTime::currentDateTime();
-            Config::RTCOffset = now.secsTo(ui->txtNewCustomTime->dateTime());
+            cfg.SetInt64("RTC.Offset", now.secsTo(ui->txtNewCustomTime->dateTime()));
         }
         else if (ui->chkResetTime->isChecked())
-            Config::RTCOffset = 0;
+            cfg.SetInt64("RTC.Offset", 0);
 
         Config::Save();
     }

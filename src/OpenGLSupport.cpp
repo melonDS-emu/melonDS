@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -160,7 +160,7 @@ void SaveShaderCache()
 
     Platform::FileSeek(file, 0, Platform::FileSeekOrigin::End);
 
-    printf("new shaders %d\n", NewShaders.size());
+    printf("new shaders %zu\n", NewShaders.size());
 
     for (u64 newShader : NewShaders)
     {

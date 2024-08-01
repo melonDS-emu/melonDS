@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -40,6 +40,8 @@ namespace Ui
 }
 class TitleManagerDialog;
 class TitleImportDialog;
+
+class EmuInstance;
 
 class TitleManagerDialog : public QDialog
 {
@@ -94,6 +96,8 @@ private slots:
     void onExportTitleData();
 
 private:
+    EmuInstance* emuInstance;
+
     melonDS::DSi_NAND::NANDMount nandmount;
     Ui::TitleManagerDialog* ui;
 

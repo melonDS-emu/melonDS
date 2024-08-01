@@ -4,10 +4,12 @@ set(_DEFAULT_VCPKG_ROOT "${CMAKE_SOURCE_DIR}/vcpkg")
 set(VCPKG_ROOT "${_DEFAULT_VCPKG_ROOT}" CACHE STRING "The path to the vcpkg repository")
 
 if (VCPKG_ROOT STREQUAL "${_DEFAULT_VCPKG_ROOT}")
-    file(LOCK "${_DEFAULT_VCPKG_ROOT}" DIRECTORY GUARD FILE)
+    if (APPLE) # this doesn't work on non-macOS
+        file(LOCK "${_DEFAULT_VCPKG_ROOT}" DIRECTORY GUARD FILE)
+    endif()
     FetchContent_Declare(vcpkg
         GIT_REPOSITORY "https://github.com/Microsoft/vcpkg.git"
-        GIT_TAG 2024.01.12
+        GIT_TAG 2024.07.12
         SOURCE_DIR "${CMAKE_SOURCE_DIR}/vcpkg")
     FetchContent_MakeAvailable(vcpkg)
 endif()
@@ -15,6 +17,18 @@ endif()
 set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_SOURCE_DIR}/cmake/overlay-triplets")
 
 option(USE_RECOMMENDED_TRIPLETS "Use the recommended triplets that are used for official builds" ON)
+
+# Duplicated here because it needs to be set before project()
+if (NOT WIN32)
+    option(USE_QT6 "Build using Qt 6 instead of 5" ON)
+else()
+    option(USE_QT6 "Build using Qt 6 instead of 5" OFF)
+endif()
+
+if (NOT USE_QT6)
+    list(APPEND VCPKG_MANIFEST_FEATURES qt5)
+    set(VCPKG_MANIFEST_NO_DEFAULT_FEATURES ON)
+endif()
 
 if (CMAKE_OSX_ARCHITECTURES MATCHES ";")
     message(FATAL_ERROR "macOS universal builds are not supported. Build them individually and combine afterwards instead.")
@@ -47,7 +61,7 @@ if (USE_RECOMMENDED_TRIPLETS)
     elseif(WIN32)
         # TODO Windows arm64 if possible
         set(_CAN_TARGET_AS_HOST ON)
-        set(_WANTED_TRIPLET x64-mingw-static)
+        set(_WANTED_TRIPLET x64-mingw-static-release)
     endif()
 
     # Don't override it if the user set something else

@@ -1,0 +1,18 @@
+# Vendored Dependencies
+src/frontend/glad/**                         linguist-vendored
+src/frontend/qt_sdl/gif-h/**                 linguist-vendored
+src/frontend/qt_sdl/toml/**                  linguist-vendored
+src/net/libslirp/**                          linguist-vendored
+src/net/pcap/**                              linguist-vendored
+src/sha1/**                                  linguist-vendored
+src/teakra/**                                linguist-vendored
+src/tiny-AES-c/**                            linguist-vendored
+src/xxhash/**                                linguist-vendored
+
+# A handful of custom files embedded in the vendored dependencies
+
+## Ad-hoc CMakeLists.txt for melonDS
+src/net/libslirp/src/CMakeLists.txt          -linguist-vendored
+
+## glib stub
+src/net/libslirp/src/glib/**                 -linguist-vendored
