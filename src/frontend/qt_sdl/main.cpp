@@ -361,6 +361,12 @@ int main(int argc, char** argv)
 
 int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdshow)
 {
+    if (AttachConsole(ATTACH_PARENT_PROCESS) && GetStdHandle(STD_OUTPUT_HANDLE))
+    {
+        freopen("CONOUT$", "w", stdout);
+        freopen("CONOUT$", "w", stderr);
+    }
+
     int ret = main(__argc, __argv);
 
     printf("\n\n>");
