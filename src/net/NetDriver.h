@@ -16,35 +16,20 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef PACKETDISPATCHER_H
-#define PACKETDISPATCHER_H
+#ifndef MELONDS_NETDRIVER_H
+#define MELONDS_NETDRIVER_H
 
-#include <array>
-#include <memory>
-#include "Platform.h"
 #include "types.h"
-#include "FIFO.h"
 
-using PacketQueue = melonDS::RingBuffer<0x8000>;
-
-class PacketDispatcher
+namespace melonDS
+{
+class NetDriver
 {
 public:
-    PacketDispatcher();
-    ~PacketDispatcher();
-
-    void registerInstance(int inst);
-    void unregisterInstance(int inst);
-
-    void clear();
-
-    void sendPacket(const void* header, int headerlen, const void* data, int datalen, int sender, melonDS::u16 recv_mask);
-    bool recvPacket(void* header, int* headerlen, void* data, int* datalen, int receiver);
-
-private:
-    melonDS::Platform::Mutex* mutex;
-    melonDS::u16 instanceMask;
-    std::array<std::unique_ptr<PacketQueue>, 16> packetQueues {};
+    virtual ~NetDriver() = default;
+    virtual int SendPacket(u8* data, int len) noexcept = 0;
+    virtual void RecvCheck() noexcept = 0;
 };
+}
 
-#endif // PACKETDISPATCHER_H
+#endif //MELONDS_NETDRIVER_H

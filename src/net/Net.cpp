@@ -19,87 +19,46 @@
 #include <stdio.h>
 #include <string.h>
 #include "Net.h"
-#include "Net_PCap.h"
-#include "Net_Slirp.h"
 #include "PacketDispatcher.h"
 #include "Platform.h"
 
-using namespace melonDS;
-
-namespace Net
+namespace melonDS
 {
 
 using Platform::Log;
 using Platform::LogLevel;
 
-bool Inited = false;
-bool DirectMode;
-
-PacketDispatcher Dispatcher;
-
-
-bool Init(bool direct, const char* devicename)
-{
-    if (Inited) DeInit();
-
-    Dispatcher.clear();
-
-    DirectMode = direct;
-
-    bool ret = false;
-    if (DirectMode)
-        ret = Net_PCap::Init(devicename);
-    else
-        ret = Net_Slirp::Init();
-
-    Inited = ret;
-    return ret;
-}
-
-void DeInit()
-{
-    if (!Inited) return;
-
-    if (DirectMode)
-        Net_PCap::DeInit();
-    else
-        Net_Slirp::DeInit();
-
-    Inited = false;
-}
-
-
-void RegisterInstance(int inst)
+void Net::RegisterInstance(int inst)
 {
     Dispatcher.registerInstance(inst);
 }
 
-void UnregisterInstance(int inst)
+void Net::UnregisterInstance(int inst)
 {
     Dispatcher.unregisterInstance(inst);
 }
 
 
-void RXEnqueue(const void* buf, int len)
+void Net::RXEnqueue(const void* buf, int len)
 {
     Dispatcher.sendPacket(nullptr, 0, buf, len, 16, 0xFFFF);
 }
 
 
-int SendPacket(u8* data, int len, int inst)
+int Net::SendPacket(u8* data, int len, int inst)
 {
-    if (DirectMode)
-        return Net_PCap::SendPacket(data, len);
-    else
-        return Net_Slirp::SendPacket(data, len);
+    if (!Driver)
+        return 0;
+
+    return Driver->SendPacket(data, len);
 }
 
-int RecvPacket(u8* data, int inst)
+int Net::RecvPacket(u8* data, int inst)
 {
-    if (DirectMode)
-        Net_PCap::RecvCheck();
-    else
-        Net_Slirp::RecvCheck();
+    if (!Driver)
+        return 0;
+
+    Driver->RecvCheck();
 
     int ret = 0;
     if (!Dispatcher.recvPacket(nullptr, nullptr, data, &ret, inst))

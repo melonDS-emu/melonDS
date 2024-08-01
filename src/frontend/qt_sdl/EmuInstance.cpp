@@ -62,6 +62,8 @@ using namespace melonDS::Platform;
 MainWindow* topWindow = nullptr;
 
 const string kWifiSettingsPath = "wfcsettings.bin";
+extern LocalMP localMp;
+extern Net net;
 
 
 EmuInstance::EmuInstance(int inst) : instanceID(inst),
@@ -97,7 +99,7 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
     audioInit();
     inputInit();
 
-    Net::RegisterInstance(instanceID);
+    net.RegisterInstance(instanceID);
 
     emuThread = new EmuThread(this);
 
@@ -116,14 +118,13 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
 EmuInstance::~EmuInstance()
 {
     // TODO window cleanup and shit?
-
-    LocalMP::End(instanceID);
+    localMp.End(instanceID);
 
     emuThread->emuExit();
     emuThread->wait();
     delete emuThread;
 
-    Net::UnregisterInstance(instanceID);
+    net.UnregisterInstance(instanceID);
 
     audioDeInit();
     inputDeInit();
