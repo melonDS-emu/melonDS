@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -32,7 +32,7 @@ namespace Ui { class RAMInfoDialog; }
 class RAMInfoDialog;
 class RAMSearchThread;
 class RAMUpdateThread;
-class EmuThread;
+class EmuInstance;
 
 enum ramInfo_ByteType
 {
@@ -79,11 +79,11 @@ class RAMInfoDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit RAMInfoDialog(QWidget* parent, EmuThread* emuThread);
+    explicit RAMInfoDialog(QWidget* parent);
     ~RAMInfoDialog();
 
     static RAMInfoDialog* currentDlg;
-    static RAMInfoDialog* openDlg(QWidget* parent, EmuThread* emuThread)
+    static RAMInfoDialog* openDlg(QWidget* parent)
     {
         if (currentDlg)
         {
@@ -91,7 +91,7 @@ public:
             return currentDlg;
         }
 
-        currentDlg = new RAMInfoDialog(parent, emuThread);
+        currentDlg = new RAMInfoDialog(parent);
         currentDlg->show();
         return currentDlg;
     }
@@ -119,11 +119,13 @@ private slots:
     void SetProgressbarValue(const melonDS::u32& value);
 
 private:
-    EmuThread* emuThread;
     Ui::RAMInfoDialog* ui;
+    EmuInstance* emuInstance;
     
     RAMSearchThread* SearchThread;
     QTimer* TableUpdater;
+
+    friend class RAMSearchThread;
 };
 
 class RAMSearchThread : public QThread

@@ -7,6 +7,9 @@ set(SOURCES_QT_SDL
     main_shaders.h
     Screen.cpp
     Window.cpp
+    EmuInstance.cpp
+    EmuInstanceAudio.cpp
+    EmuInstanceInput.cpp
     EmuThread.cpp
     CheatsDialog.cpp
     Config.cpp
@@ -28,25 +31,17 @@ set(SOURCES_QT_SDL
     ROMInfoDialog.cpp
     RAMInfoDialog.cpp
     TitleManagerDialog.cpp
-    Input.cpp
-    LAN_PCap.cpp
-    LAN_Socket.cpp
-    LocalMP.cpp
     OSD_shaders.h
     font.h
     Platform.cpp
     QPathInput.h
-    ROMManager.cpp
     SaveManager.cpp
     CameraManager.cpp
-    AudioInOut.cpp
 
     ArchiveUtil.h
     ArchiveUtil.cpp
 
-    ../Util_Video.cpp
-    ../Util_Audio.cpp
-    ../FrontendUtil.h
+    ../ScreenLayout.cpp
     ../mic_blow.h
 
     ../glad/glad.c
@@ -93,16 +88,11 @@ add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
 add_executable(melonDS ${SOURCES_QT_SDL})
 
-option(USE_SYSTEM_LIBSLIRP "Use system libslirp instead of the bundled version" OFF)
-if (USE_SYSTEM_LIBSLIRP)
-    pkg_check_modules(Slirp REQUIRED IMPORTED_TARGET slirp)
-    target_link_libraries(melonDS PRIVATE PkgConfig::Slirp)
-else()
-    add_subdirectory("../libslirp"
-            "${CMAKE_BINARY_DIR}/libslirp"
-            EXCLUDE_FROM_ALL)
-    target_link_libraries(melonDS PRIVATE slirp)
-endif()
+add_subdirectory("../../net"
+        "${CMAKE_BINARY_DIR}/net"
+)
+
+target_link_libraries(melonDS PRIVATE net-utils)
 
 if (WIN32)
     target_link_libraries(melonDS PUBLIC opengl32)
@@ -121,6 +111,8 @@ elseif (APPLE)
         find_library(COCOA_LIB Cocoa)
         target_link_libraries(melonDS PRIVATE ${COCOA_LIB})
     endif()
+    find_library(OPENGL_LIB OpenGL)
+    target_link_libraries(melonDS PRIVATE ${OPENGL_LIB})
     target_sources(melonDS PRIVATE
         ../duckstation/gl/context_agl.mm
     )
@@ -162,12 +154,19 @@ endif()
 
 if (BUILD_STATIC)
     qt_import_plugins(melonDS INCLUDE Qt::QSvgPlugin)
+    if (WIN32 AND USE_QT6)
+        qt_import_plugins(melonDS INCLUDE Qt::QModernWindowsStylePlugin)
+    endif()
     target_link_options(melonDS PRIVATE -static)
 endif()
 
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../../net")
+target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../../net/libslirp/src")
+get_target_property(SLIRP_BINARY_DIR slirp BINARY_DIR)
+target_include_directories(melonDS PUBLIC "${SLIRP_BINARY_DIR}") # for libslirp-version.h
 if (USE_QT6)
     target_include_directories(melonDS PUBLIC ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
 else()
@@ -244,4 +243,12 @@ if (UNIX AND NOT APPLE)
             INTERPROCEDURAL_OPTIMIZATION OFF
             INTERPROCEDURAL_OPTIMIZATION_RELEASE OFF)
     endif()
+endif()
+
+if (ENABLE_OGLRENDERER)
+    set(MELONDS_GL_HEADER \"frontend/glad/glad.h\" CACHE STRING "Path to a header that contains OpenGL function and type declarations.")
+
+    target_compile_definitions(melonDS PUBLIC OGLRENDERER_ENABLED)
+    target_compile_definitions(melonDS PUBLIC MELONDS_GL_HEADER=${MELONDS_GL_HEADER})
+    target_compile_definitions(core PUBLIC MELONDS_GL_HEADER=${MELONDS_GL_HEADER})
 endif()

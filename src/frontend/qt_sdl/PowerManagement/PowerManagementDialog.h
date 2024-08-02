@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -25,19 +25,19 @@
 #include "types.h"
 
 namespace Ui { class PowerManagementDialog; }
-class EmuThread;
 class PowerManagementDialog;
+class EmuInstance;
 
 class PowerManagementDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit PowerManagementDialog(QWidget* parent, EmuThread* emu_thread);
+    explicit PowerManagementDialog(QWidget* parent);
     ~PowerManagementDialog();
 
     static PowerManagementDialog* currentDlg;
-    static PowerManagementDialog* openDlg(QWidget* parent, EmuThread* emu_thread)
+    static PowerManagementDialog* openDlg(QWidget* parent)
     {
         if (currentDlg)
         {
@@ -45,7 +45,7 @@ public:
             return currentDlg;
         }
 
-        currentDlg = new PowerManagementDialog(parent, emu_thread);
+        currentDlg = new PowerManagementDialog(parent);
         currentDlg->open();
         return currentDlg;
     }
@@ -65,7 +65,7 @@ private slots:
 
 private:
     Ui::PowerManagementDialog* ui;
-    EmuThread* emuThread;
+    EmuInstance* emuInstance;
 
     bool inited;
     bool oldDSBatteryLevel;

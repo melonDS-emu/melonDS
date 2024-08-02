@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -59,7 +59,7 @@ public:
     void Blit(const GPU& gpu) override;
     void Stop(const GPU& gpu) override;
 
-    bool NeedsShaderCompile() { return ShaderStepIdx != 33; }
+    bool NeedsShaderCompile() override { return ShaderStepIdx != 33; }
     void ShaderCompileStep(int& current, int& count) override;
 private:
     ComputeRenderer(GLCompositor&& compositor);

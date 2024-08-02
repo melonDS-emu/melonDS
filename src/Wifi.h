@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -240,9 +240,6 @@ private:
     u8 MPClientReplies[15*1024];
 
     u16 MPLastSeqno;
-
-    bool MPInited;
-    bool LANInited;
 
     int USUntilPowerOn;
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -198,7 +198,7 @@ public:
 
     FIFO<CmdFIFOEntry, 64> CmdStallQueue {};
 
-    u32 ZeroDotWLimit = 0;
+    u32 ZeroDotWLimit = 0xFFFFFF;
 
     u32 GXStat = 0;
 

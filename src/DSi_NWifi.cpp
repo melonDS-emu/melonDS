@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -1334,7 +1334,7 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
     }
     printf("\n");*/
 
-    Platform::LAN_SendPacket(LANBuffer, lan_len);
+    Platform::Net_SendPacket(LANBuffer, lan_len, DSi.UserData);
 }
 
 void DSi_NWifi::SendWMIEvent(u8 ep, u16 id, u8* data, u32 len)
@@ -1442,20 +1442,26 @@ void DSi_NWifi::CheckRX()
     if (!Mailbox[8].CanFit(2048))
         return;
 
-    int rxlen = Platform::LAN_RecvPacket(LANBuffer);
-    if (rxlen > 0)
+    int rxlen = Platform::Net_RecvPacket(LANBuffer, DSi.UserData);
+    while (rxlen > 0)
     {
         //printf("WMI packet recv %04X %04X %04X\n", *(u16*)&LANBuffer[0], *(u16*)&LANBuffer[2], *(u16*)&LANBuffer[4]);
         // check destination MAC
         if (*(u32*)&LANBuffer[0] != 0xFFFFFFFF || *(u16*)&LANBuffer[4] != 0xFFFF)
         {
             if (memcmp(&LANBuffer[0], &EEPROM[0x00A], 6))
-                return;
+            {
+                rxlen = Platform::Net_RecvPacket(LANBuffer, DSi.UserData);
+                continue;
+            }
         }
 
         // check source MAC, in case we get a packet we just sent out
         if (!memcmp(&LANBuffer[6], &EEPROM[0x00A], 6))
-            return;
+        {
+            rxlen = Platform::Net_RecvPacket(LANBuffer, DSi.UserData);
+            continue;
+        }
 
         // packet is good
 

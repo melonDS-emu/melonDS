@@ -1,26 +1,46 @@
 {
+	"default-features": ["qt6"],
 	"dependencies": [
 		"sdl2",
-		{
-			"name": "libarchive",
-			"default-features": false,
-			"features": ["bzip2", "crypto", "lz4", "zstd"]
+		"libarchive",
+		"zstd"
+	],
+	"features": {
+		"qt6": {
+			"description": "Use Qt 6 for the frontend.",
+			"dependencies": [
+				{
+					"name": "qtbase",
+					"default-features": false,
+					"features": ["gui", "png", "thread", "widgets", "opengl", "zstd"]
+				},
+				{
+					"name": "qtbase",
+					"host": true,
+					"default-features": false
+				},
+				{
+					"name": "qtmultimedia",
+					"default-features": false
+				},
+				"qtsvg"
+			]
 		},
-		"zstd",
-		{
-			"name": "qtbase",
-			"default-features": false,
-			"features": ["gui", "png", "thread", "widgets", "opengl", "zstd"]
-		},
-		{
-			"name": "qtbase",
-			"host": true,
-			"default-features": false
-		},
-		{
-			"name": "qtmultimedia",
-			"default-features": false
-		},
-		"qtsvg"
-	]
+		"qt5": {
+			"description": "Use Qt 5 for the frontend.",
+			"dependencies": [
+				{
+					"name": "qt5-base",
+					"default-features": false
+				},
+				{
+					"name": "qt5-base",
+					"host": true,
+					"default-features": false
+				},
+				"qt5-multimedia",
+				"qt5-svg"
+			]
+		}
+	}
 }

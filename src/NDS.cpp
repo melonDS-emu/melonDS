@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -89,8 +89,9 @@ NDS::NDS() noexcept :
 {
 }
 
-NDS::NDS(NDSArgs&& args, int type) noexcept :
+NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     ConsoleType(type),
+    UserData(userdata),
     ARM7BIOS(*args.ARM7BIOS),
     ARM9BIOS(*args.ARM9BIOS),
     ARM7BIOSNative(CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32),
@@ -102,7 +103,7 @@ NDS::NDS(NDSArgs&& args, int type) noexcept :
     RTC(*this),
     Wifi(*this),
     NDSCartSlot(*this, std::move(args.NDSROM)),
-    GBACartSlot(type == 1 ? nullptr : std::move(args.GBAROM)),
+    GBACartSlot(*this, type == 1 ? nullptr : std::move(args.GBAROM)),
     AREngine(*this),
     ARM9(*this, args.GDB, args.JIT.has_value()),
     ARM7(*this, args.GDB, args.JIT.has_value()),
@@ -574,7 +575,7 @@ void NDS::Stop(Platform::StopReason reason)
 
     Log(level, "Stopping emulated console (Reason: %s)\n", StopReasonName(reason));
     Running = false;
-    Platform::SignalStop(reason);
+    Platform::SignalStop(reason, UserData);
     GPU.Stop();
     SPU.Stop();
 }
@@ -750,7 +751,7 @@ void NDS::SetGBASave(const u8* savedata, u32 savelen)
 
 void NDS::LoadGBAAddon(int type)
 {
-    GBACartSlot.LoadAddon(type);
+    GBACartSlot.LoadAddon(UserData, type);
 }
 
 void NDS::LoadBIOS()
@@ -1462,7 +1463,7 @@ u64 NDS::GetSysClockCycles(int num)
     return ret;
 }
 
-void NDS::NocashPrint(u32 ncpu, u32 addr)
+void NDS::NocashPrint(u32 ncpu, u32 addr, bool appendNewline)
 {
     // addr: debug string
 
@@ -1540,7 +1541,7 @@ void NDS::NocashPrint(u32 ncpu, u32 addr)
     }
 
     output[ptr] = '\0';
-    Log(LogLevel::Debug, "%s", output);
+    Log(LogLevel::Debug, appendNewline ? "%s\n" : "%s", output);
 }
 
 void NDS::MonitorARM9Jump(u32 addr)
@@ -2945,6 +2946,8 @@ u16 NDS::ARM9IORead16(u32 addr)
     case 0x04000208: return IME[0];
     case 0x04000210: return IE[0] & 0xFFFF;
     case 0x04000212: return IE[0] >> 16;
+    case 0x04000214: return IF[0] & 0xFFFF;
+    case 0x04000216: return IF[0] >> 16;
 
     case 0x04000240: return GPU.VRAMCNT[0] | (GPU.VRAMCNT[1] << 8);
     case 0x04000242: return GPU.VRAMCNT[2] | (GPU.VRAMCNT[3] << 8);
@@ -3256,6 +3259,9 @@ void NDS::ARM9IOWrite16(u32 addr, u16 val)
 
     case 0x04000060: GPU.GPU3D.Write16(addr, val); return;
 
+    case 0x04000064:
+    case 0x04000066: GPU.GPU2D_A.Write16(addr, val); return;
+
     case 0x04000068:
     case 0x0400006A: GPU.GPU2D_A.Write16(addr, val); return;
 
@@ -3384,6 +3390,8 @@ void NDS::ARM9IOWrite16(u32 addr, u16 val)
     case 0x04000210: IE[0] = (IE[0] & 0xFFFF0000) | val; UpdateIRQ(0); return;
     case 0x04000212: IE[0] = (IE[0] & 0x0000FFFF) | (val << 16); UpdateIRQ(0); return;
     // TODO: what happens when writing to IF this way??
+    case 0x04000214: IF[0] &= ~val; GPU.GPU3D.CheckFIFOIRQ(); UpdateIRQ(0); return;
+    case 0x04000216: IF[0] &= ~(val<<16); GPU.GPU3D.CheckFIFOIRQ(); UpdateIRQ(0); return;
 
     case 0x04000240:
         GPU.MapVRAM_AB(0, val & 0xFF);
@@ -3608,10 +3616,8 @@ void NDS::ARM9IOWrite32(u32 addr, u32 val)
     case 0x04FFFA14:
     case 0x04FFFA18:
         {
-            bool appendLF = 0x04FFFA18 == addr;
-            NocashPrint(0, val);
-            if(appendLF)
-                Log(LogLevel::Debug, "\n");
+            NocashPrint(0, val, 0x04FFFA18 == addr);
+
             return;
         }
 
