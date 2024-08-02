@@ -295,11 +295,11 @@ private:
 
             XMajor = (Increment > 0x40000);
 
-            if constexpr (side)
+            if (side)
             {
                 // right
 
-                if (XMajor)              dx = Negative ? (0x20000 + 0x40000) : (Increment - 0x20000);
+                if (XMajor)              dx = Negative ? (0x20000 + 0x40000) : -0x20000;
                 else if (Increment != 0) dx = Negative ? 0x40000 : 0;
                 else                     dx = 0;
             }
@@ -307,27 +307,15 @@ private:
             {
                 // left
 
-                if (XMajor)              dx = Negative ? ((Increment - 0x20000) + 0x40000) : 0x20000;
+                if (XMajor)              dx = 0x20000;
                 else if (Increment != 0) dx = Negative ? 0x40000 : 0;
                 else                     dx = 0;
             }
 
             dx += (y - y0) * Increment;
 
-            if (XMajor)
-            {
-                // used for calculating AA coverage
-                xcov_incr = (ylen << 10) / xlen;
-
-                if (side ^ Negative)
-                {
-                    dxold = dx;
-                    // I dont think the first span can have a gap but
-                    // I think its technically correct to do this calc anyway?
-                    // could probably be removed as a minor optimization
-                    dx &= ~0x1FF;
-                }
-            }
+            // used for calculating AA coverage
+            if (XMajor) xcov_incr = (ylen << 10) / xlen;
 
             s32 x = XVal();
 
@@ -340,15 +328,7 @@ private:
 
         constexpr s32 Step()
         {   
-            if (XMajor && (side ^ Negative)) // tl, br = \ (right side end) & tr, bl = / (left side start)
-            {
-                // round dx; required to create gaps in lines like on hw
-                // increment using dxold to make the line not completely borked after rendering a gap
-                dx = (dxold & ~0x1FF) + Increment;
-                dxold += Increment;
-            }
-            else
-                dx += Increment;
+            dx += Increment;
 
             y++;
 
@@ -363,26 +343,13 @@ private:
             if (Negative) ret = x0 - (dx >> 18);
             else          ret = x0 + (dx >> 18);
 
-            if (ret < xmin) ret = xmin;
-            else if (ret > xmax) ret = xmax;
             return ret;
         }
 
-        template<bool swapped>
         constexpr void EdgeParams_XMajor(s32* length, s32* coverage) const
         {
-            // only do length calc for right side when swapped as it's
-            // only needed for aa calcs, as actual line spans are broken
-            if constexpr (!swapped || side)
-            {
-                // credit to StrikerX3 for working out this weird rounding nonsense
-                if (side ^ Negative) // tr, bl = / (left side end) & tl br = \ (right side start)
-                    // dxold used here to avoid rounding the endpoint
-                    *length = (dx >> 18) - (dxold - Increment >> 18);
-                else // tl, br = \ (left side end) & tr, bl = / (right side start)
-                    // dx rounded down to create gaps in lines like on hw
-                    *length = ((dx & ~0x1FF) + Increment >> 18) - (dx >> 18);
-            }
+            // credit to StrikerX3 for their efforts researching the strange rounding behavior of the "length" calculation
+            *length = (dx & (0x1FF << 9)) + Increment >> 18;
 
             // for X-major edges, we return the coverage
             // for the first pixel, and the increment for
@@ -394,49 +361,31 @@ private:
 
             s32 startcov = (((startx << 10) + 0x1FF) * ylen) / xlen;
             *coverage = (1<<31) | ((startcov & 0x3FF) << 12) | (xcov_incr & 0x3FF);
-
-            if constexpr (swapped) *length = 1;
         }
 
-        template<bool swapped>
         constexpr void EdgeParams_YMajor(s32* length, s32* coverage) const
         {
             *length = 1;
 
-            if (Increment == 0)
-            {
-                // for some reason vertical edges' aa values
-                // are inverted too when the edges are swapped
-                if constexpr (swapped)
-                    *coverage = 0;
-                else
-                    *coverage = 31;
-            }
+            if (Increment == 0) *coverage = 31;
             else
             {
                 s32 cov = ((dx >> 9) + (Increment >> 10)) >> 4;
                 if ((cov >> 5) != (dx >> 18)) cov = 31;
                 cov &= 0x1F;
-                if constexpr (swapped)
-                {
-                    if (side ^ Negative) cov = 0x1F - cov;
-                }
-                else
-                {
-                    if (!(side ^ Negative)) cov = 0x1F - cov;
-                }
+
+                if (!(side ^ Negative)) cov = 0x1F - cov;
 
                 *coverage = cov;
             }
         }
 
-        template<bool swapped>
         constexpr void EdgeParams(s32* length, s32* coverage) const
         {
             if (XMajor)
-                return EdgeParams_XMajor<swapped>(length, coverage);
+                return EdgeParams_XMajor(length, coverage);
             else
-                return EdgeParams_YMajor<swapped>(length, coverage);
+                return EdgeParams_YMajor(length, coverage);
         }
 
         s32 Increment;
@@ -447,7 +396,7 @@ private:
     private:
         s32 x0, xmin, xmax;
         s32 xlen, ylen;
-        s32 dx, dxold;
+        s32 dx;
         s32 y;
 
         s32 xcov_incr;
