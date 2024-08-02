@@ -355,7 +355,11 @@ private:
             // for the first pixel, and the increment for
             // further pixels on the same scanline
             // TODO: check how coverage interacts with line gaps, I think it's correct though?
-            s32 startx = dx >> 18;
+            s32 startx = dx;
+            if (side ^ Negative) startx += Increment;
+            startx >>= 18;
+            //s32 startcov = (startx * ylen) /9 xlen;
+
             if (Negative) startx = xlen - startx;
             if (side)     startx = startx - *length + 1;
 
