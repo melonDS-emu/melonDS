@@ -776,7 +776,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     // the Revised Rasterizer Circuit handles clearing the stencil buffer elsewhere
     if (ShadowRendered[y&0x1] && (!gpu3d.RenderRasterRev || polygon->ClearStencil))
     {
-        StencilCleared = true;
+        StencilCleared[y&0x1] = true;
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
         ShadowRendered[y&0x1] = false;
     }
@@ -972,11 +972,11 @@ void SoftRenderer::RenderPolygonScanline(GPU& gpu, RendererPolygon* rp, s32 y)
     {
         if (!gpu.GPU3D.RenderRasterRev || !polygon->Translucent) ShadowRendered[y&0x1] = true;
         if (wireframe) return; // TODO: this probably still counts towards timings.
-        if (!StencilCleared)
+        if (!StencilCleared[y&0x1])
         {
             gpu.GPU3D.ForceRerender = true;
-            // set stencil cleared flag to make it marginally faster...?
-            StencilCleared = true;
+            // set both stencil cleared flags since we've already determined that the frame needs to be rendered twice
+            StencilCleared[0] = StencilCleared[1] = true;
         }
     }
 
@@ -1606,15 +1606,15 @@ void SoftRenderer::RenderScanline(GPU& gpu, s32 y, int npolys)
         //we actually handle clearing the stencil buffer here when the revision bit is set, this allows for a polygon to clear it on every scanline, even ones it isn't part of.
         if (gpu.GPU3D.RenderRasterRev)
         {
-            if (polygon->ClearStencil && ShadowRenderedi[(y&0x1)])
+            if (polygon->ClearStencil && ShadowRenderedi[y&0x1])
             {
-                StencilCleared = true;
+                StencilCleared[y&0x1] = true;
                 memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
-                ShadowRenderedi[(y&0x1)] = false;
+                ShadowRenderedi[y&0x1] = false;
             }
             else if (polygon->IsShadow && polygon->Translucent)
             {
-                ShadowRenderedi[(y&0x1)] = true;
+                ShadowRenderedi[y&0x1] = true;
             }
         }
 
@@ -1948,7 +1948,7 @@ void SoftRenderer::RenderPolygons(GPU& gpu, bool threaded, Polygon** polygons, i
     if (gpu.GPU3D.DontRerenderLoop)
         gpu.GPU3D.DontRerenderLoop = false;
     else
-        StencilCleared = false;
+        StencilCleared[0] = StencilCleared[1] = false;
 
     int j = 0;
     for (int i = 0; i < npolys; i++)

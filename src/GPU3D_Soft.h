@@ -511,7 +511,7 @@ private:
     u8 StencilBuffer[256*2];
     bool ShadowRendered[2];
     bool ShadowRenderedi[2];
-    bool StencilCleared;
+    alignas(u16) bool StencilCleared[2];
 
     bool Enabled;
 
