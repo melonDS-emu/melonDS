@@ -129,7 +129,7 @@ public:
     void ARM7IOWrite16(u32 addr, u16 val) override;
     void ARM7IOWrite32(u32 addr, u32 val) override;
 
-    bool GetSCFGRasterBit() const override;
+    bool GetSCFGRasterBit() const override { return SCFG_EXT[0] & (1<<2); }
 
 public:
     DSi(DSiArgs&& args, void* userdata = nullptr) noexcept;

@@ -474,7 +474,7 @@ public: // TODO: Encapsulate the rest of these members
     void SetJITArgs(std::optional<JITArgs> args) noexcept {}
 #endif
 
-    virtual bool GetSCFGRasterBit() const;
+    virtual bool GetSCFGRasterBit() const { return false; }
    
 private:
     void InitTimings();
