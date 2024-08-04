@@ -266,23 +266,41 @@ public:
     void AddCycles_C() override
     {
         // code only. always nonseq 32-bit for ARM9.
-        s32 numC = CodeCycles;
+        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
         Cycles += numC;
     }
 
     void AddCycles_CI(s32 numI) override
     {
         // code+internal
-        s32 numC = CodeCycles;
-        numI += 1;
-        Cycles += std::max(numC, numI);
+        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
+        Cycles += numC + numI;
     }
 
-    void AddCycles_CDI_LDR() override;
-    void AddCycles_CDI_LDM() override;
-    void AddCycles_CDI_SWP() override { AddCycles_CD_STR(); } // uses the same behavior as str
-    void AddCycles_CD_STR() override;
-    void AddCycles_CD_STM() override;
+    void AddCycles_CDI() override
+    {
+        // LDR/LDM cycles. ARM9 seems to skip the internal cycle there.
+        // TODO: ITCM data fetches shouldn't be parallelized, they say
+        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
+        s32 numD = DataCycles;
+
+        //if (DataRegion != CodeRegion)
+            Cycles += std::max(numC + numD - 6, std::max(numC, numD));
+        //else
+        //    Cycles += numC + numD;
+    }
+
+    void AddCycles_CD() override
+    {
+        // TODO: ITCM data fetches shouldn't be parallelized, they say
+        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
+        s32 numD = DataCycles;
+
+        //if (DataRegion != CodeRegion)
+            Cycles += std::max(numC + numD - 6, std::max(numC, numD));
+        //else
+        //    Cycles += numC + numD;
+    }
 
     void GetCodeMemRegion(u32 addr, MemRegion* region);
 
@@ -396,13 +414,8 @@ public:
     bool DataWrite32S(u32 addr, u32 val, bool dataabort = false) override;
     void AddCycles_C() override;
     void AddCycles_CI(s32 num) override;
-    void AddCycles_CDI();
-    void AddCycles_CDI_LDR() override { AddCycles_CDI(); }
-    void AddCycles_CDI_LDM() override { AddCycles_CDI(); }
-    void AddCycles_CDI_SWP() override { AddCycles_CDI(); } // checkme?
-    void AddCycles_CD();
-    void AddCycles_CD_STR() override { AddCycles_CD(); }
-    void AddCycles_CD_STM() override { AddCycles_CD(); }
+    void AddCycles_CDI() override;
+    void AddCycles_CD() override;
 
 protected:
     u8 BusRead8(u32 addr) override;
