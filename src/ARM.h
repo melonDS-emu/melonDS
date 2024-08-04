@@ -140,11 +140,8 @@ public:
 
     virtual void AddCycles_C() = 0;
     virtual void AddCycles_CI(s32 numI) = 0;
-    virtual void AddCycles_CDI_LDR() = 0;
-    virtual void AddCycles_CDI_LDM() = 0;
-    virtual void AddCycles_CDI_SWP() = 0;
-    virtual void AddCycles_CD_STR() = 0;
-    virtual void AddCycles_CD_STM() = 0;
+    virtual void AddCycles_CDI() = 0;
+    virtual void AddCycles_CD() = 0;
 
     void CheckGdbIncoming();
 
