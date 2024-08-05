@@ -271,7 +271,7 @@ void A_MRC(ARM* cpu)
 
 
 
-void A_SVC(ARM* cpu)
+void A_SVC(ARM* cpu) // A_SWI
 {
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
@@ -283,7 +283,7 @@ void A_SVC(ARM* cpu)
     cpu->JumpTo(cpu->ExceptionBase + 0x08);
 }
 
-void T_SVC(ARM* cpu)
+void T_SVC(ARM* cpu) // T_SWI
 {
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;

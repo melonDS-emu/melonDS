@@ -548,7 +548,7 @@ void ARM::TriggerIRQ()
     UpdateMode(oldcpsr, CPSR);
 
     R_IRQ[2] = oldcpsr;
-    R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
+    R[14] = R[15] - (oldcpsr & 0x20 ? 0 : 4);
     JumpTo(ExceptionBase + 0x18);
 
     // ARDS cheat support
@@ -570,7 +570,7 @@ void ARMv5::PrefetchAbort()
     UpdateMode(oldcpsr, CPSR);
 
     R_ABT[2] = oldcpsr;
-    R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
+    R[14] = R[15] - (oldcpsr & 0x20 ? 0 : 4);
     JumpTo(ExceptionBase + 0x0C);
 }
 
@@ -609,7 +609,7 @@ void ARMv5::Execute()
         {
             Halted = 0;
             if (NDS.IME[0] & 0x1)
-                TriggerIRQ();
+                IRQ = 1;
         }
         else
         {
@@ -671,13 +671,13 @@ void ARMv5::Execute()
                 if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 0; }
                 else             NextInstr[1] = CodeRead32(R[15], false);
                 
-                // handle aborted instructions
-                if (!(PU_Map[(R[15]-4)>>12] & 0x04)) [[unlikely]]
+                
+                if (IRQ && !(CPSR & 0x80)) TriggerIRQ();
+                else if (!(PU_Map[(R[15]-4)>>12] & 0x04)) [[unlikely]] // handle aborted instructions
                 {
                     PrefetchAbort();
                 }
-                // actually execute
-                else [[likely]]
+                else [[likely]] // actually execute
                 {
                     u32 icode = (CurInstr >> 6) & 0x3FF;
                     ARMInterpreter::THUMBInstrTable[icode](this);
@@ -694,13 +694,13 @@ void ARMv5::Execute()
                 NextInstr[0] = NextInstr[1];
                 NextInstr[1] = CodeRead32(R[15], false);
                 
-                // handle aborted instructions
-                if (!(PU_Map[(R[15]-8)>>12] & 0x04)) [[unlikely]] // todo: check for bkpt instruction?
+
+                if (IRQ && !(CPSR & 0x80)) TriggerIRQ();
+                else if (!(PU_Map[(R[15]-8)>>12] & 0x04)) [[unlikely]] // handle aborted instructions
                 {
                     PrefetchAbort();
                 }
-                // actually execute
-                else if (CheckCondition(CurInstr >> 28)) [[likely]]
+                else if (CheckCondition(CurInstr >> 28)) [[likely]] // actually execute
                 {
                     u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
                     ARMInterpreter::ARMInstrTable[icode](this);
@@ -727,8 +727,6 @@ void ARMv5::Execute()
                 if (NDS::IME[0] & 0x1)
                     TriggerIRQ();
             }*/
-            if (IRQ) TriggerIRQ();
-
         }
 
         NDS.ARM9Timestamp += Cycles;
@@ -760,7 +758,7 @@ void ARMv4::Execute()
         {
             Halted = 0;
             if (NDS.IME[1] & 0x1)
-                TriggerIRQ();
+                IRQ = 1;
         }
         else
         {
@@ -820,9 +818,13 @@ void ARMv4::Execute()
                 NextInstr[0] = NextInstr[1];
                 NextInstr[1] = CodeRead16(R[15]);
 
-                // actually execute
-                u32 icode = (CurInstr >> 6);
-                ARMInterpreter::THUMBInstrTable[icode](this);
+                if (IRQ && !(CPSR & 0x80)) TriggerIRQ();
+                else
+                {
+                    // actually execute
+                    u32 icode = (CurInstr >> 6);
+                    ARMInterpreter::THUMBInstrTable[icode](this);
+                }
             }
             else
             {
@@ -835,8 +837,8 @@ void ARMv4::Execute()
                 NextInstr[0] = NextInstr[1];
                 NextInstr[1] = CodeRead32(R[15]);
 
-                // actually execute
-                if (CheckCondition(CurInstr >> 28))
+                if (IRQ && !(CPSR & 0x80)) TriggerIRQ();
+                else if (CheckCondition(CurInstr >> 28)) // actually execute
                 {
                     u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
                     ARMInterpreter::ARMInstrTable[icode](this);
@@ -859,7 +861,6 @@ void ARMv4::Execute()
                 if (NDS::IME[1] & 0x1)
                     TriggerIRQ();
             }*/
-            if (IRQ) TriggerIRQ();
         }
 
         NDS.ARM7Timestamp += Cycles;
