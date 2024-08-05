@@ -537,6 +537,7 @@ void ARM::UpdateMode(u32 oldmode, u32 newmode, bool phony)
     }
 }
 
+template <CPUExecuteMode mode>
 void ARM::TriggerIRQ()
 {
     if (CPSR & 0x80)
@@ -548,7 +549,10 @@ void ARM::TriggerIRQ()
     UpdateMode(oldcpsr, CPSR);
 
     R_IRQ[2] = oldcpsr;
-    R[14] = R[15] - (oldcpsr & 0x20 ? 0 : 4);
+    if constexpr (mode == CPUExecuteMode::JIT)
+        R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
+    else
+        R[14] = R[15] - (oldcpsr & 0x20 ? 0 : 4);
     JumpTo(ExceptionBase + 0x18);
 
     // ARDS cheat support
@@ -559,6 +563,11 @@ void ARM::TriggerIRQ()
             NDS.AREngine.RunCheats();
     }
 }
+template void ARM::TriggerIRQ<CPUExecuteMode::Interpreter>();
+template void ARM::TriggerIRQ<CPUExecuteMode::InterpreterGDB>();
+#ifdef JIT_ENABLED
+template void ARM::TriggerIRQ<CPUExecuteMode::JIT>();
+#endif
 
 void ARMv5::PrefetchAbort()
 {
@@ -609,7 +618,10 @@ void ARMv5::Execute()
         {
             Halted = 0;
             if (NDS.IME[0] & 0x1)
-                IRQ = 1;
+            {
+                if constexpr (mode == CPUExecuteMode::JIT) TriggerIRQ<mode>();
+                else IRQ = 1;
+            }
         }
         else
         {
@@ -643,7 +655,7 @@ void ARMv5::Execute()
             {
                 // this order is crucial otherwise idle loops waiting for an IRQ won't function
                 if (IRQ)
-                    TriggerIRQ();
+                    TriggerIRQ<mode>();
 
                 if (Halted || IdleLoop)
                 {
@@ -672,7 +684,7 @@ void ARMv5::Execute()
                 else             NextInstr[1] = CodeRead32(R[15], false);
                 
                 
-                if (IRQ && !(CPSR & 0x80)) TriggerIRQ();
+                if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
                 else if (!(PU_Map[(R[15]-4)>>12] & 0x04)) [[unlikely]] // handle aborted instructions
                 {
                     PrefetchAbort();
@@ -695,7 +707,7 @@ void ARMv5::Execute()
                 NextInstr[1] = CodeRead32(R[15], false);
                 
 
-                if (IRQ && !(CPSR & 0x80)) TriggerIRQ();
+                if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
                 else if (!(PU_Map[(R[15]-8)>>12] & 0x04)) [[unlikely]] // handle aborted instructions
                 {
                     PrefetchAbort();
@@ -725,7 +737,7 @@ void ARMv5::Execute()
             /*if (NDS::IF[0] & NDS::IE[0])
             {
                 if (NDS::IME[0] & 0x1)
-                    TriggerIRQ();
+                    TriggerIRQ<mode>();
             }*/
         }
 
@@ -758,7 +770,10 @@ void ARMv4::Execute()
         {
             Halted = 0;
             if (NDS.IME[1] & 0x1)
-                IRQ = 1;
+            {
+                if constexpr (mode == CPUExecuteMode::JIT) TriggerIRQ<mode>();
+                else IRQ = 1;
+            }
         }
         else
         {
@@ -791,7 +806,7 @@ void ARMv4::Execute()
             if (StopExecution)
             {
                 if (IRQ)
-                    TriggerIRQ();
+                    TriggerIRQ<mode>();
 
                 if (Halted || IdleLoop)
                 {
@@ -818,7 +833,7 @@ void ARMv4::Execute()
                 NextInstr[0] = NextInstr[1];
                 NextInstr[1] = CodeRead16(R[15]);
 
-                if (IRQ && !(CPSR & 0x80)) TriggerIRQ();
+                if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
                 else
                 {
                     // actually execute
@@ -837,7 +852,7 @@ void ARMv4::Execute()
                 NextInstr[0] = NextInstr[1];
                 NextInstr[1] = CodeRead32(R[15]);
 
-                if (IRQ && !(CPSR & 0x80)) TriggerIRQ();
+                if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
                 else if (CheckCondition(CurInstr >> 28)) // actually execute
                 {
                     u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
@@ -859,7 +874,7 @@ void ARMv4::Execute()
             /*if (NDS::IF[1] & NDS::IE[1])
             {
                 if (NDS::IME[1] & 0x1)
-                    TriggerIRQ();
+                    TriggerIRQ<mode>();
             }*/
         }
 

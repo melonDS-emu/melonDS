@@ -129,6 +129,7 @@ public:
 
     void UpdateMode(u32 oldmode, u32 newmode, bool phony = false);
 
+    template <CPUExecuteMode mode>
     void TriggerIRQ();
 
     void SetupCodeMem(u32 addr);
