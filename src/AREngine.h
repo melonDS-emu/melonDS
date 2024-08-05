@@ -19,6 +19,7 @@
 #ifndef ARENGINE_H
 #define ARENGINE_H
 
+#include <vector>
 #include "ARCodeFile.h"
 
 namespace melonDS
@@ -29,14 +30,13 @@ class AREngine
 public:
     AREngine(melonDS::NDS& nds);
 
-    ARCodeFile* GetCodeFile() { return CodeFile; }
-    void SetCodeFile(ARCodeFile* file) { CodeFile = file; }
-
+    std::vector<ARCode> Cheats {};
+private:
+    friend class ARM;
     void RunCheats();
     void RunCheat(const ARCode& arcode);
-private:
+
     melonDS::NDS& NDS;
-    ARCodeFile* CodeFile; // AR code file - frontend is responsible for managing this
 };
 
 }

@@ -43,6 +43,15 @@ enum
     RWFlags_ForceUser = (1<<21),
 };
 
+enum class CPUExecuteMode : u32
+{
+    Interpreter,
+    InterpreterGDB,
+#ifdef JIT_ENABLED
+    JIT
+#endif
+};
+
 struct GDBArgs;
 class ARMJIT;
 class GPU;
@@ -76,10 +85,6 @@ public:
     }
 
     void NocashPrint(u32 addr) noexcept;
-    virtual void Execute() = 0;
-#ifdef JIT_ENABLED
-    virtual void ExecuteJIT() = 0;
-#endif
 
     bool CheckCondition(u32 code) const
     {
@@ -243,10 +248,8 @@ public:
     void PrefetchAbort();
     void DataAbort();
 
-    void Execute() override;
-#ifdef JIT_ENABLED
-    void ExecuteJIT() override;
-#endif
+    template <CPUExecuteMode mode>
+    void Execute();
 
     // all code accesses are forced nonseq 32bit
     u32 CodeRead32(u32 addr, bool branch);
@@ -386,10 +389,8 @@ public:
     void JumpTo(u32 addr, bool restorecpsr = false) override;
     void JumpTo8_16Bit(const u32 addr) override;
 
-    void Execute() override;
-#ifdef JIT_ENABLED
-    void ExecuteJIT() override;
-#endif
+    template <CPUExecuteMode mode>
+    void Execute();
 
     u16 CodeRead16(u32 addr)
     {

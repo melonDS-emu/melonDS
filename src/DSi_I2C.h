@@ -87,6 +87,7 @@ public:
     void DoSavestate(Savestate* file) override;
 
     u8 GetBootFlag() const;
+    void SetBootFlag(u8 boot) noexcept { Registers[0x70] = boot; }
 
     bool GetBatteryCharging() const;
     void SetBatteryCharging(bool charging);

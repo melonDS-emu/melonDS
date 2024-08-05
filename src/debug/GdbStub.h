@@ -152,6 +152,7 @@ public:
 	int RespFmt(const char* fmt, ...);
 
 	int RespStr(const char* str);
+	inline bool IsConnected() { return ConnFd > 0; }
 
 private:
 	void Disconnect();

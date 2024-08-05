@@ -32,6 +32,7 @@ enum CartType
     Game = 0x101,
     GameSolarSensor = 0x102,
     RAMExpansion = 0x201,
+    RumblePak = 0x202,
 };
 
 // CartCommon -- base code shared by all cart types
@@ -189,6 +190,25 @@ private:
     u16 RAMEnable = 0;
 };
 
+// CartRumblePak -- DS Rumble Pak (used in various NDS games)
+class CartRumblePak : public CartCommon
+{
+public:
+    CartRumblePak(void* userdata);
+    ~CartRumblePak() override;
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    u16 ROMRead(u32 addr) const override;
+    void ROMWrite(u32 addr, u16 val) override;
+
+private:
+    void* UserData;
+    u16 RumbleState = 0;
+};
+
 // possible inputs for GBA carts that might accept user input
 enum
 {
@@ -219,7 +239,7 @@ public:
     [[nodiscard]] CartCommon* GetCart() noexcept { return Cart.get(); }
     [[nodiscard]] const CartCommon* GetCart() const noexcept { return Cart.get(); }
 
-    void LoadAddon(int type) noexcept;
+    void LoadAddon(void* userdata, int type) noexcept;
 
     /// @return The cart that was in the cart slot if any,
     /// or \c nullptr if the cart slot was empty.

@@ -303,7 +303,7 @@ void TitleManagerDialog::onImportTitleData()
 
     if (file.isEmpty()) return;
 
-    FILE* f = fopen(file.toStdString().c_str(), "rb");
+    Platform::FileHandle* f = Platform::OpenFile(file.toStdString(), Platform::Read);
     if (!f)
     {
         QMessageBox::critical(this,
@@ -312,9 +312,8 @@ void TitleManagerDialog::onImportTitleData()
         return;
     }
 
-    fseek(f, 0, SEEK_END);
-    u64 len = ftell(f);
-    fclose(f);
+    u64 len = Platform::FileLength(f);
+    Platform::CloseFile(f);
 
     if (len != wantedsize)
     {
