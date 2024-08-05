@@ -107,6 +107,9 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     AREngine(*this),
     ARM9(*this, args.GDB, args.JIT.has_value()),
     ARM7(*this, args.GDB, args.JIT.has_value()),
+#ifdef GDBSTUB_ENABLED
+    EnableGDBStub(args.GDB.has_value()),
+#endif
 #ifdef JIT_ENABLED
     EnableJIT(args.JIT.has_value()),
 #endif
@@ -886,7 +889,7 @@ void NDS::RunSystemSleep(u64 timestamp)
     }
 }
 
-template <bool EnableJIT>
+template <CPUExecuteMode cpuMode>
 u32 NDS::RunFrame()
 {
     FrameStartTimestamp = SysTimestamp;
@@ -927,8 +930,11 @@ u32 NDS::RunFrame()
         }
         else
         {
-            ARM9.CheckGdbIncoming();
-            ARM7.CheckGdbIncoming();
+            if (cpuMode == CPUExecuteMode::InterpreterGDB)
+            {
+                ARM9.CheckGdbIncoming();
+                ARM7.CheckGdbIncoming();
+            }
 
             if (!(CPUStop & CPUStop_Wakeup))
             {
@@ -963,12 +969,7 @@ u32 NDS::RunFrame()
                 }
                 else
                 {
-#ifdef JIT_ENABLED
-                    if (EnableJIT)
-                        ARM9.ExecuteJIT();
-                    else
-#endif
-                        ARM9.Execute();
+                    ARM9.Execute<cpuMode>();
                 }
 
                 RunTimers(0);
@@ -995,12 +996,7 @@ u32 NDS::RunFrame()
                     }
                     else
                     {
-#ifdef JIT_ENABLED
-                        if (EnableJIT)
-                            ARM7.ExecuteJIT();
-                        else
-#endif
-                            ARM7.Execute();
+                        ARM7.Execute<cpuMode>();
                     }
 
                     RunTimers(1);
@@ -1045,10 +1041,18 @@ u32 NDS::RunFrame()
 {
 #ifdef JIT_ENABLED
     if (EnableJIT)
-        return RunFrame<true>();
+        return RunFrame<CPUExecuteMode::JIT>();
     else
 #endif
-        return RunFrame<false>();
+#ifdef GDBSTUB_ENABLED
+    if (EnableGDBStub)
+    {
+        return RunFrame<CPUExecuteMode::InterpreterGDB>();
+    } else
+#endif
+    {
+        return RunFrame<CPUExecuteMode::Interpreter>();
+    }
 }
 
 void NDS::Reschedule(u64 target)

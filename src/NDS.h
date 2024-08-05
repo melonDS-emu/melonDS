@@ -228,6 +228,9 @@ private:
 #ifdef JIT_ENABLED
     bool EnableJIT;
 #endif
+#ifdef GDBSTUB_ENABLED
+    bool EnableGDBStub = false;
+#endif
 
 public: // TODO: Encapsulate the rest of these members
     void* UserData;
@@ -522,8 +525,9 @@ private:
     void SetWifiWaitCnt(u16 val);
     void SetGBASlotTimings();
     void EnterSleepMode();
-    template <bool EnableJIT>
+    template <CPUExecuteMode cpuMode>
     u32 RunFrame();
+
 public:
     NDS(NDSArgs&& args, void* userdata = nullptr) noexcept : NDS(std::move(args), 0, userdata) {}
     NDS() noexcept;
