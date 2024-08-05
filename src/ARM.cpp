@@ -343,6 +343,12 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         CPSR &= ~0x20;
     }
 
+    if (!(PU_Map[addr>>12] & 0x04))
+    {
+        PrefetchAbort();
+        return;
+    }
+
     NDS.MonitorARM9Jump(addr);
 }
 
@@ -569,6 +575,15 @@ void ARMv5::PrefetchAbort()
     CPSR |= 0x97;
     UpdateMode(oldcpsr, CPSR);
 
+    // this shouldn't happen, but if it does, we're stuck in some nasty endless loop
+    // so better take care of it
+    if (!(PU_Map[ExceptionBase>>12] & 0x04))
+    {
+        Log(LogLevel::Error, "!!!!! EXCEPTION REGION NOT EXECUTABLE. THIS IS VERY BAD!!\n");
+        NDS.Stop(Platform::StopReason::BadExceptionRegion);
+        return;
+    }
+
     R_ABT[2] = oldcpsr;
     R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
     JumpTo(ExceptionBase + 0x0C);
@@ -670,18 +685,10 @@ void ARMv5::Execute()
                 NextInstr[0] = NextInstr[1];
                 if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 0; }
                 else             NextInstr[1] = CodeRead32(R[15], false);
-                
-                // handle aborted instructions
-                if (!(PU_Map[(R[15]-4)>>12] & 0x04)) [[unlikely]]
-                {
-                    PrefetchAbort();
-                }
+
                 // actually execute
-                else [[likely]]
-                {
-                    u32 icode = (CurInstr >> 6) & 0x3FF;
-                    ARMInterpreter::THUMBInstrTable[icode](this);
-                }
+                u32 icode = (CurInstr >> 6) & 0x3FF;
+                ARMInterpreter::THUMBInstrTable[icode](this);
             }
             else
             {
@@ -693,14 +700,9 @@ void ARMv5::Execute()
                 CurInstr = NextInstr[0];
                 NextInstr[0] = NextInstr[1];
                 NextInstr[1] = CodeRead32(R[15], false);
-                
-                // handle aborted instructions
-                if (!(PU_Map[(R[15]-8)>>12] & 0x04)) [[unlikely]] // todo: check for bkpt instruction?
-                {
-                    PrefetchAbort();
-                }
+
                 // actually execute
-                else if (CheckCondition(CurInstr >> 28)) [[likely]]
+                if (CheckCondition(CurInstr >> 28))
                 {
                     u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
                     ARMInterpreter::ARMInstrTable[icode](this);
