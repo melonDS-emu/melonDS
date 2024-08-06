@@ -21,6 +21,7 @@
 
 #include <string>
 #include <map>
+#include <QMutex>
 
 #include "types.h"
 
@@ -50,7 +51,7 @@ struct DiscoveryData
 extern bool Active;
 
 extern std::map<melonDS::u32, DiscoveryData> DiscoveryList;
-extern QMutex DiscoveryMutex;
+extern QMutex DiscoveryMutex; // TODO: turn into Platform::Mutex or rework this to be nicer
 
 extern Player Players[16];
 extern melonDS::u32 PlayerPing[16];

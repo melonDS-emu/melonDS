@@ -29,10 +29,10 @@
 #include "NDS.h"
 #include "NDSCart.h"
 #include "main.h"
-#include "IPC.h"
+//#include "IPC.h"
 #include "Netplay.h"
-#include "Input.h"
-#include "ROMManager.h"
+//#include "Input.h"
+//#include "ROMManager.h"
 #include "Config.h"
 #include "Savestate.h"
 #include "Platform.h"
@@ -170,7 +170,7 @@ printf("host mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr.p
     IsHost = true;
     IsMirror = false;
 
-    netplayDlg->updatePlayerList(Players, NumPlayers);
+    //netplayDlg->updatePlayerList(Players, NumPlayers);
 }
 
 void StartClient(const char* playername, const char* host, int port)
@@ -295,6 +295,7 @@ u32 PlayerAddress(int id)
 
 bool SpawnMirrorInstance(Player player)
 {
+#if 0
     u16 curmask = IPC::GetInstanceBitmask();
 
     QProcess newinst;
@@ -341,8 +342,9 @@ bool SpawnMirrorInstance(Player player)
     //IPC::SendCommandStr(1<<newid, IPC::Cmd_LoadROM, rompath);
 
     if (player.Address == 0x0100007F) player.Address = HostAddress;
-    IPC::SendCommand(1<<newid, IPC::Cmd_SetupNetplayMirror, sizeof(Player), &player);
-
+    // calls Netplay::StartMirror()
+    //IPC::SendCommand(1<<newid, IPC::Cmd_SetupNetplayMirror, sizeof(Player), &player);
+#endif
     return true;
 }
 
@@ -469,7 +471,7 @@ printf("[MC] finish blob type=%d len=%d\n", type, len);
         if (pkt->dataLength != 2) return;
 
         bool res = false;
-
+#if 0
         // reset
         NDS::SetConsoleType(buf[1]);
         NDS::EjectCart();
@@ -494,7 +496,7 @@ printf("[MC] finish blob type=%d len=%d\n", type, len);
 
             //LoadCheats();
         }
-
+#endif
         // load initial state
         // TODO: terrible hack!!
         #if 0
@@ -532,7 +534,7 @@ void SyncMirrorClients()
 {
     printf("[MIRROR HOST] syncing clients\n");
 
-    //SendBlobToMirrorClients(Blob_CartROM, NDSCart::CartROMSize, NDSCart::CartROM);
+#if 0
     SendBlobToMirrorClients(Blob_CartSRAM, NDSCart::GetSaveMemoryLength(), NDSCart::GetSaveMemory());
 
     // send initial state
@@ -592,6 +594,7 @@ void SyncMirrorClients()
     //enet_host_flush(MirrorHost);
 
     StartLocal();
+#endif
 }
 
 void StartGame()
@@ -641,8 +644,8 @@ void StartLocal()
         InputQueue.push(frame);
     }
 
-    NDS::Start();
-    emuThread->emuRun();
+    //NDS::Start();
+    //emuThread->emuRun();
 }
 
 
@@ -725,7 +728,7 @@ void ProcessHost()
                         ENetPacket* pkt = enet_packet_create(cmd, 2+sizeof(Players), ENET_PACKET_FLAG_RELIABLE);
                         enet_host_broadcast(Host, 0, pkt);
 
-                        netplayDlg->updatePlayerList(Players, NumPlayers);
+                        //netplayDlg->updatePlayerList(Players, NumPlayers);
                     }
                     break;
                 }
@@ -802,7 +805,7 @@ printf("client mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr
                             Players[i].Name[31] = '\0';
                         }
 
-                        netplayDlg->updatePlayerList(Players, NumPlayers);
+                        //netplayDlg->updatePlayerList(Players, NumPlayers);
                     }
                     break;
 
@@ -834,7 +837,7 @@ printf("birf\n");
 void ProcessMirrorHost()
 {
     if (!MirrorHost) return;
-
+#if 0
     bool block = false;
     ENetEvent event;
     while (enet_host_service(MirrorHost, &event, block ? 5000 : 0) > 0)
@@ -920,12 +923,13 @@ void ProcessMirrorHost()
             break;
         }
     }
+#endif
 }
 
 void ProcessMirrorClient()
 {
     if (!MirrorHost) return;
-
+#if 0
     bool block = false;
     if (emuThread->emuIsRunning())// && NDS::NumFrames > 4)
     {
@@ -986,6 +990,7 @@ printf("mirror client lag notify: %d\n", lag);
 
         if (block) break;
     }
+#endif
 }
 
 void ProcessFrame()
@@ -1025,7 +1030,7 @@ void ProcessInput()
     // apply each input to the frame it's assigned to
     // before running a frame, we need to wait to have received input for it
     // TODO: alert host if we are running too far behind
-
+#if 0
     if (!IsMirror)
     {
         u32 lag = 4; // TODO: make configurable!!
@@ -1081,6 +1086,7 @@ void ProcessInput()
     else                NDS::ReleaseScreen();
 
     InputQueue.pop();
+#endif
 }
 
 }

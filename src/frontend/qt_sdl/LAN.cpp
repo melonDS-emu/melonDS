@@ -263,8 +263,8 @@ bool StartHost(const char* playername, int numplayers)
     Active = true;
     IsHost = true;
 
-    if (lanDlg)
-        lanDlg->updatePlayerList();
+    //if (lanDlg)
+    //    lanDlg->updatePlayerList();
 
     StartDiscovery();
     return true;
@@ -467,8 +467,8 @@ void ProcessDiscovery()
 
         // update the list in the connect dialog if needed
 
-        if (lanClientDlg)
-            lanClientDlg->updateDiscoveryList();
+        //if (lanClientDlg)
+        //    lanClientDlg->updateDiscoveryList();
     }
 }
 
@@ -481,14 +481,14 @@ void HostUpdatePlayerList()
     ENetPacket* pkt = enet_packet_create(cmd, 2+sizeof(Players), ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(Host, 0, pkt);
 
-    if (lanDlg)
-        lanDlg->updatePlayerList();
+    //if (lanDlg)
+    //    lanDlg->updatePlayerList();
 }
 
 void ClientUpdatePlayerList()
 {
-    if (lanDlg)
-        lanDlg->updatePlayerList();
+    //if (lanDlg)
+    //    lanDlg->updatePlayerList();
 }
 
 void ProcessHostEvent(ENetEvent& event)
@@ -701,8 +701,8 @@ void ProcessClientEvent(ENetEvent& event)
                         Players[i].Name[31] = '\0';
                     }
 
-                    if (lanDlg)
-                        lanDlg->updatePlayerList();
+                    //if (lanDlg)
+                    //    lanDlg->updatePlayerList();
 
                     // establish connections to any new clients
                     for (int i = 0; i < 16; i++)
@@ -878,8 +878,8 @@ void ProcessFrame()
             PlayerPing[i] = RemotePeers[i]->roundTripTime;
         }
 
-        if (lanDlg)
-            lanDlg->updatePlayerList();
+        //if (lanDlg)
+        //    lanDlg->updatePlayerList();
     }
 }
 
