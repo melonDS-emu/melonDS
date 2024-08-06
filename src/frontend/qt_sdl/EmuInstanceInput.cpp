@@ -72,6 +72,9 @@ void EmuInstance::inputInit()
     lastHotkeyMask = 0;
 
     joystick = nullptr;
+    controller = nullptr;
+    hasRumble = false;
+    isRumbling = false;
     inputLoadConfig();
 }
 
@@ -100,6 +103,24 @@ void EmuInstance::inputLoadConfig()
     setJoystick(localCfg.GetInt("JoystickID"));
 }
 
+void EmuInstance::inputRumbleStart(melonDS::u32 len_ms)
+{
+    if (controller && hasRumble && !isRumbling)
+    {
+	SDL_GameControllerRumble(controller, 0xFFFF, 0xFFFF, len_ms);
+	isRumbling = true;
+    }
+}
+
+void EmuInstance::inputRumbleStop()
+{
+    if (controller && hasRumble && isRumbling)
+    {
+	SDL_GameControllerRumble(controller, 0, 0, 0);
+	isRumbling = false;
+    }
+}
+
 
 void EmuInstance::setJoystick(int id)
 {
@@ -109,12 +130,16 @@ void EmuInstance::setJoystick(int id)
 
 void EmuInstance::openJoystick()
 {
+    if (controller) SDL_GameControllerClose(controller);
+
     if (joystick) SDL_JoystickClose(joystick);
 
     int num = SDL_NumJoysticks();
     if (num < 1)
     {
+	controller = nullptr;
         joystick = nullptr;
+	hasRumble = false;
         return;
     }
 
@@ -122,10 +147,30 @@ void EmuInstance::openJoystick()
         joystickID = 0;
 
     joystick = SDL_JoystickOpen(joystickID);
+
+    if (SDL_IsGameController(joystickID))
+    {
+	controller = SDL_GameControllerOpen(joystickID);
+    }
+
+    if (controller)
+    {
+	if (SDL_GameControllerHasRumble(controller))
+	{
+	    hasRumble = true;
+	}
+    }
 }
 
 void EmuInstance::closeJoystick()
 {
+    if (controller)
+    {
+	SDL_GameControllerClose(controller);
+	controller = nullptr;
+	hasRumble = false;
+    }
+
     if (joystick)
     {
         SDL_JoystickClose(joystick);

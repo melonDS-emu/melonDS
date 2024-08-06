@@ -19,10 +19,16 @@
 #include <stdio.h>
 #include <string.h>
 #include "Net.h"
+#include "Net_Slirp.h"
 #include "FIFO.h"
 #include "Platform.h"
 
 #include <libslirp.h>
+
+// "register" is indirectly used by slirp.h but isn't allowed in C++17, this is a workaround
+#define register
+// Needed for Slirp's definition so we can adjust the opaque pointer in the move constructor
+#include <slirp.h>
 
 #ifdef __WIN32__
 	#include <ws2tcpip.h>
@@ -33,9 +39,7 @@
 	#include <time.h>
 #endif
 
-using namespace melonDS;
-
-namespace Net_Slirp
+namespace melonDS
 {
 
 using Platform::Log;
@@ -47,13 +51,6 @@ const u32 kDNSIP    = kSubnet | 0x02;
 const u32 kClientIP = kSubnet | 0x10;
 
 const u8 kServerMAC[6] = {0x00, 0xAB, 0x33, 0x28, 0x99, 0x44};
-
-FIFO<u32, (0x8000 >> 2)> RXBuffer;
-
-u32 IPv4ID;
-
-Slirp* Ctx = nullptr;
-
 
 #ifdef __WIN32__
 
@@ -77,7 +74,7 @@ int clock_gettime(int, struct timespec *spec)
 #endif // __WIN32__
 
 
-ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
+ssize_t Net_Slirp::SlirpCbSendPacket(const void* buf, size_t len, void* opaque) noexcept
 {
     if (len > 2048)
     {
@@ -87,7 +84,11 @@ ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
 
     Log(LogLevel::Debug, "slirp: response packet of %zu bytes, type %04X\n", len, ntohs(((u16*)buf)[6]));
 
-    Net::RXEnqueue(buf, len);
+    Net_Slirp& self = *static_cast<Net_Slirp*>(opaque);
+    if (self.Callback)
+    {
+        self.Callback((const u8*)buf, len);
+    }
 
     return len;
 }
@@ -132,7 +133,7 @@ void SlirpCbNotify(void* opaque)
     Log(LogLevel::Debug, "Slirp: notify???\n");
 }
 
-SlirpCb cb =
+const SlirpCb Net_Slirp::cb =
 {
     .send_packet = SlirpCbSendPacket,
     .guest_error = SlirpCbGuestError,
@@ -145,11 +146,9 @@ SlirpCb cb =
     .notify = SlirpCbNotify
 };
 
-bool Init()
+Net_Slirp::Net_Slirp(const Platform::SendPacketCallback& callback) noexcept : Callback(callback)
 {
-    IPv4ID = 0;
-
-    SlirpConfig cfg;
+    SlirpConfig cfg {};
     memset(&cfg, 0, sizeof(cfg));
     cfg.version = 1;
 
@@ -161,12 +160,67 @@ bool Init()
     *(u32*)&cfg.vdhcp_start = htonl(kClientIP);
     *(u32*)&cfg.vnameserver = htonl(kDNSIP);
 
-    Ctx = slirp_new(&cfg, &cb, nullptr);
-
-    return true;
+    Ctx = slirp_new(&cfg, &cb, this);
 }
 
-void DeInit()
+
+Net_Slirp::Net_Slirp(Net_Slirp&& other) noexcept
+{
+    RXBuffer = other.RXBuffer;
+    IPv4ID = other.IPv4ID;
+    Ctx = other.Ctx;
+    PollListSize = other.PollListSize;
+    Callback = std::move(other.Callback);
+    memcpy(PollList, other.PollList, sizeof(PollList));
+
+    other.RXBuffer = {};
+    other.IPv4ID = 0;
+    other.Ctx = nullptr;
+    other.PollListSize = 0;
+    other.Callback = nullptr;
+    memset(other.PollList, 0, sizeof(other.PollList));
+
+    if (Ctx)
+    {
+        Ctx->opaque = this;
+        // Gotta ensure that the context doesn't try to pass around a dead object
+    }
+}
+
+Net_Slirp& Net_Slirp::operator=(Net_Slirp&& other) noexcept
+{
+    if (this != &other)
+    {
+        if (Ctx)
+        {
+            slirp_cleanup(Ctx);
+        }
+
+        RXBuffer = other.RXBuffer;
+        IPv4ID = other.IPv4ID;
+        Ctx = other.Ctx;
+        PollListSize = other.PollListSize;
+        Callback = std::move(other.Callback);
+        memcpy(PollList, other.PollList, sizeof(PollList));
+
+        other.RXBuffer = {};
+        other.IPv4ID = 0;
+        other.Ctx = nullptr;
+        other.PollListSize = 0;
+        other.Callback = nullptr;
+        memset(other.PollList, 0, sizeof(other.PollList));
+
+        if (Ctx)
+        {
+            Ctx->opaque = this;
+            // Gotta ensure that the context doesn't try to pass around a dead object
+        }
+    }
+
+    return *this;
+}
+
+Net_Slirp::~Net_Slirp() noexcept
 {
     if (Ctx)
     {
@@ -215,7 +269,7 @@ void FinishUDPFrame(u8* data, int len)
     *(u16*)&udpheader[6] = htons(tmp);
 }
 
-void HandleDNSFrame(u8* data, int len)
+void Net_Slirp::HandleDNSFrame(u8* data, int len) noexcept
 {
     u8* ipheader = &data[0xE];
     u8* udpheader = &data[0x22];
@@ -368,10 +422,11 @@ void HandleDNSFrame(u8* data, int len)
     if (framelen & 1) { *out++ = 0; framelen++; }
     FinishUDPFrame(resp, framelen);
 
-    Net::RXEnqueue(resp, framelen);
+    if (Callback)
+        Callback(resp, framelen);
 }
 
-int SendPacket(u8* data, int len)
+int Net_Slirp::SendPacket(u8* data, int len) noexcept
 {
     if (!Ctx) return 0;
 
@@ -401,19 +456,17 @@ int SendPacket(u8* data, int len)
     return len;
 }
 
-const int PollListMax = 64;
-struct pollfd PollList[PollListMax];
-int PollListSize;
-
-int SlirpCbAddPoll(int fd, int events, void* opaque)
+int Net_Slirp::SlirpCbAddPoll(int fd, int events, void* opaque) noexcept
 {
-    if (PollListSize >= PollListMax)
+    Net_Slirp& self = *static_cast<Net_Slirp*>(opaque);
+
+    if (self.PollListSize >= PollListMax)
     {
         Log(LogLevel::Error, "slirp: POLL LIST FULL\n");
         return -1;
     }
 
-    int idx = PollListSize++;
+    int idx = self.PollListSize++;
 
     u16 evt = 0;
 
@@ -427,18 +480,20 @@ int SlirpCbAddPoll(int fd, int events, void* opaque)
     if (events & SLIRP_POLL_HUP) evt |= POLLHUP;
 #endif // !__WIN32__
 
-    PollList[idx].fd = fd;
-    PollList[idx].events = evt;
+    self.PollList[idx].fd = fd;
+    self.PollList[idx].events = evt;
 
     return idx;
 }
 
-int SlirpCbGetREvents(int idx, void* opaque)
+int Net_Slirp::SlirpCbGetREvents(int idx, void* opaque) noexcept
 {
-    if (idx < 0 || idx >= PollListSize)
+    Net_Slirp& self = *static_cast<Net_Slirp*>(opaque);
+
+    if (idx < 0 || idx >= self.PollListSize)
         return 0;
 
-    u16 evt = PollList[idx].revents;
+    u16 evt = self.PollList[idx].revents;
     int ret = 0;
 
     if (evt & POLLIN) ret |= SLIRP_POLL_IN;
@@ -450,7 +505,7 @@ int SlirpCbGetREvents(int idx, void* opaque)
     return ret;
 }
 
-void RecvCheck()
+void Net_Slirp::RecvCheck() noexcept
 {
     if (!Ctx) return;
 
@@ -458,9 +513,9 @@ void RecvCheck()
     {
         u32 timeout = 0;
         PollListSize = 0;
-        slirp_pollfds_fill(Ctx, &timeout, SlirpCbAddPoll, nullptr);
+        slirp_pollfds_fill(Ctx, &timeout, SlirpCbAddPoll, this);
         int res = poll(PollList, PollListSize, timeout);
-        slirp_pollfds_poll(Ctx, res<0, SlirpCbGetREvents, nullptr);
+        slirp_pollfds_poll(Ctx, res<0, SlirpCbGetREvents, this);
     }
 }
 

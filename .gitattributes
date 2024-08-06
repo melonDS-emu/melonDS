@@ -12,7 +12,7 @@ src/xxhash/**                                linguist-vendored
 # A handful of custom files embedded in the vendored dependencies
 
 ## Ad-hoc CMakeLists.txt for melonDS
-!src/net/libslirp/src/CMakeLists.txt         -linguist-vendored
+src/net/libslirp/src/CMakeLists.txt          -linguist-vendored
 
 ## glib stub
-!src/net/libslirp/src/glib/**                -linguist-vendored
+src/net/libslirp/src/glib/**                 -linguist-vendored

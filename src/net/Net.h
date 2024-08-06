@@ -19,26 +19,42 @@
 #ifndef NET_H
 #define NET_H
 
+#include <memory>
+
 #include "types.h"
+#include "PacketDispatcher.h"
+#include "NetDriver.h"
 
-namespace Net
+namespace melonDS
 {
-using namespace melonDS;
 
-///
-/// @param direct Whether to use direct or indirect mode
-/// @param devicename The name of the network device to use; ignored if direct is false
-/// @return true if initialization succeeded
-bool Init(bool direct, const char* devicename);
-void DeInit();
+class Net
+{
+public:
+    Net() noexcept = default;
+    Net(const Net&) = delete;
+    Net& operator=(const Net&) = delete;
+    // Not movable because of callbacks that point to this object
+    Net(Net&& other) = delete;
+    Net& operator=(Net&& other) = delete;
+    ~Net() noexcept = default;
 
-void RegisterInstance(int inst);
-void UnregisterInstance(int inst);
+    void RegisterInstance(int inst);
+    void UnregisterInstance(int inst);
 
-void RXEnqueue(const void* buf, int len);
+    void RXEnqueue(const void* buf, int len);
 
-int SendPacket(u8* data, int len, int inst);
-int RecvPacket(u8* data, int inst);
+    int SendPacket(u8* data, int len, int inst);
+    int RecvPacket(u8* data, int inst);
+
+    void SetDriver(std::unique_ptr<NetDriver>&& driver) noexcept { Driver = std::move(driver); }
+    [[nodiscard]] std::unique_ptr<NetDriver>& GetDriver() noexcept { return Driver; }
+    [[nodiscard]] const std::unique_ptr<NetDriver>& GetDriver() const noexcept { return Driver; }
+
+private:
+    PacketDispatcher Dispatcher {};
+    std::unique_ptr<NetDriver> Driver = nullptr;
+};
 
 }
 

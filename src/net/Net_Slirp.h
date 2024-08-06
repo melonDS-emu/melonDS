@@ -20,17 +20,48 @@
 #define NET_SLIRP_H
 
 #include "types.h"
+#include "FIFO.h"
+#include "Platform.h"
+#include "NetDriver.h"
 
-namespace Net_Slirp
+#include <libslirp.h>
+
+#ifdef __WIN32__
+    #include <ws2tcpip.h>
+#else
+    #include <poll.h>
+#endif
+
+struct Slirp;
+
+namespace melonDS
 {
-using namespace melonDS;
+class Net_Slirp : public NetDriver
+{
+public:
+    explicit Net_Slirp(const Platform::SendPacketCallback& callback) noexcept;
+    Net_Slirp(const Net_Slirp&) = delete;
+    Net_Slirp& operator=(const Net_Slirp&) = delete;
+    Net_Slirp(Net_Slirp&& other) noexcept;
+    Net_Slirp& operator=(Net_Slirp&& other) noexcept;
+    ~Net_Slirp() noexcept override;
 
-bool Init();
-void DeInit();
+    int SendPacket(u8* data, int len) noexcept override;
+    void RecvCheck() noexcept override;
+private:
+    static constexpr int PollListMax = 64;
+    static const SlirpCb cb;
+    static int SlirpCbGetREvents(int idx, void* opaque) noexcept;
+    static int SlirpCbAddPoll(int fd, int events, void* opaque) noexcept;
+    static ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque) noexcept;
+    void HandleDNSFrame(u8* data, int len) noexcept;
 
-int SendPacket(u8* data, int len);
-void RecvCheck();
-
+    Platform::SendPacketCallback Callback;
+    pollfd PollList[PollListMax] {};
+    int PollListSize = 0;
+    FIFO<u32, (0x8000 >> 2)> RXBuffer {};
+    u32 IPv4ID = 0;
+    Slirp* Ctx = nullptr;
+};
 }
-
 #endif // NET_SLIRP_H

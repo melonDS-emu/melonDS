@@ -681,6 +681,44 @@ void CartRAMExpansion::ROMWrite(u32 addr, u16 val)
     }
 }
 
+CartRumblePak::CartRumblePak(void* userdata) : 
+    CartCommon(RumblePak),
+    UserData(userdata)
+{
+}
+
+CartRumblePak::~CartRumblePak() = default;
+
+void CartRumblePak::Reset()
+{
+    RumbleState = 0;
+}
+
+void CartRumblePak::DoSavestate(Savestate* file)
+{
+    CartCommon::DoSavestate(file);
+    file->Var16(&RumbleState);
+}
+
+u16 CartRumblePak::ROMRead(u32 addr) const
+{
+    // A1 is pulled low on a real Rumble Pak, so return the
+    // necessary detection value here,
+    // and let the existing open bus implementation take care of the rest
+    return 0xFFFD;
+}
+
+void CartRumblePak::ROMWrite(u32 addr, u16 val)
+{
+    addr &= 0x01FFFFFF;
+    if (RumbleState != val)
+    {
+	Platform::Addon_RumbleStop(UserData);
+	RumbleState = val;
+	Platform::Addon_RumbleStart(16, UserData);
+    }
+}
+
 GBACartSlot::GBACartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& cart) noexcept : NDS(nds), Cart(std::move(cart))
 {
 }
@@ -821,12 +859,15 @@ void GBACartSlot::SetSaveMemory(const u8* savedata, u32 savelen) noexcept
     }
 }
 
-void GBACartSlot::LoadAddon(int type) noexcept
+void GBACartSlot::LoadAddon(void* userdata, int type) noexcept
 {
     switch (type)
     {
     case GBAAddon_RAMExpansion:
         Cart = std::make_unique<CartRAMExpansion>();
+        break;
+    case GBAAddon_RumblePak:
+        Cart = std::make_unique<CartRumblePak>(userdata);
         break;
 
     default:
