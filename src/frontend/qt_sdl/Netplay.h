@@ -19,20 +19,7 @@
 #ifndef NETPLAY_H
 #define NETPLAY_H
 
-#include <QDialog>
-
 #include "types.h"
-
-namespace Ui
-{
-class NetplayStartHostDialog;
-class NetplayStartClientDialog;
-class NetplayDialog;
-}
-
-class NetplayStartHostDialog;
-class NetplayStartClientDialog;
-class NetplayDialog;
 
 namespace Netplay
 {
@@ -45,83 +32,6 @@ struct Player
     melonDS::u32 Address;
 };
 
-}
-
-class NetplayStartHostDialog : public QDialog
-{
-    Q_OBJECT
-
-public:
-    explicit NetplayStartHostDialog(QWidget* parent);
-    ~NetplayStartHostDialog();
-
-    static NetplayStartHostDialog* openDlg(QWidget* parent)
-    {
-        NetplayStartHostDialog* dlg = new NetplayStartHostDialog(parent);
-        dlg->open();
-        return dlg;
-    }
-
-private slots:
-    void done(int r);
-
-private:
-    Ui::NetplayStartHostDialog* ui;
-};
-
-class NetplayStartClientDialog : public QDialog
-{
-    Q_OBJECT
-
-public:
-    explicit NetplayStartClientDialog(QWidget* parent);
-    ~NetplayStartClientDialog();
-
-    static NetplayStartClientDialog* openDlg(QWidget* parent)
-    {
-        NetplayStartClientDialog* dlg = new NetplayStartClientDialog(parent);
-        dlg->open();
-        return dlg;
-    }
-
-private slots:
-    void done(int r);
-
-private:
-    Ui::NetplayStartClientDialog* ui;
-};
-
-class NetplayDialog : public QDialog
-{
-    Q_OBJECT
-
-public:
-    explicit NetplayDialog(QWidget* parent);
-    ~NetplayDialog();
-
-    static NetplayDialog* openDlg(QWidget* parent)
-    {
-        NetplayDialog* dlg = new NetplayDialog(parent);
-        dlg->show();
-        return dlg;
-    }
-
-    void updatePlayerList(Netplay::Player* players, int num);
-
-signals:
-    void sgUpdatePlayerList(Netplay::Player* players, int num);
-
-private slots:
-    void done(int r);
-
-    void doUpdatePlayerList(Netplay::Player* players, int num);
-
-private:
-    Ui::NetplayDialog* ui;
-};
-
-namespace Netplay
-{
 
 extern bool Active;
 

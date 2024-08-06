@@ -54,6 +54,8 @@ set(SOURCES_QT_SDL
 
     LAN.cpp
     Netplay.cpp
+    LANDialog.cpp
+    NetplayDialog.cpp
 )
 
 if (APPLE)

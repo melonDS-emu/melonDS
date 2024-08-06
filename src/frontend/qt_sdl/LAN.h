@@ -21,18 +21,8 @@
 
 #include <string>
 #include <map>
-#include <QDialog>
-#include <QMutex>
-#include <QItemSelection>
 
 #include "types.h"
-
-namespace Ui
-{
-class LANStartHostDialog;
-class LANStartClientDialog;
-class LANDialog;
-}
 
 namespace LAN
 {
@@ -56,101 +46,6 @@ struct DiscoveryData
     melonDS::u8 Status; // 0=idle 1=playing
 };
 
-}
-
-class LANStartHostDialog : public QDialog
-{
-    Q_OBJECT
-
-public:
-    explicit LANStartHostDialog(QWidget* parent);
-    ~LANStartHostDialog();
-
-    static LANStartHostDialog* openDlg(QWidget* parent)
-    {
-        LANStartHostDialog* dlg = new LANStartHostDialog(parent);
-        dlg->open();
-        return dlg;
-    }
-
-private slots:
-    void done(int r);
-
-private:
-    Ui::LANStartHostDialog* ui;
-};
-
-class LANStartClientDialog : public QDialog
-{
-    Q_OBJECT
-
-public:
-    explicit LANStartClientDialog(QWidget* parent);
-    ~LANStartClientDialog();
-
-    static LANStartClientDialog* openDlg(QWidget* parent)
-    {
-        LANStartClientDialog* dlg = new LANStartClientDialog(parent);
-        dlg->open();
-        return dlg;
-    }
-
-    void updateDiscoveryList();
-
-signals:
-    void sgUpdateDiscoveryList();
-
-private slots:
-    void onGameSelectionChanged(const QItemSelection& cur, const QItemSelection& prev);
-    void on_tvAvailableGames_doubleClicked(QModelIndex index);
-    void onDirectConnect();
-    void done(int r);
-
-    void doUpdateDiscoveryList();
-
-private:
-    Ui::LANStartClientDialog* ui;
-};
-
-class LANDialog : public QDialog
-{
-    Q_OBJECT
-
-public:
-    explicit LANDialog(QWidget* parent);
-    ~LANDialog();
-
-    static LANDialog* openDlg(QWidget* parent)
-    {
-        LANDialog* dlg = new LANDialog(parent);
-        dlg->show();
-        return dlg;
-    }
-
-    void updatePlayerList();
-
-signals:
-    void sgUpdatePlayerList();
-
-private slots:
-    void done(int r);
-
-    void doUpdatePlayerList();
-
-private:
-    Ui::LANDialog* ui;
-
-    LAN::Player playerList[16];
-    melonDS::u32 playerPing[16];
-    int numPlayers;
-    int maxPlayers;
-    int myPlayerID;
-    melonDS::u32 hostAddress;
-    QMutex playerListMutex;
-};
-
-namespace LAN
-{
 
 extern bool Active;
 
