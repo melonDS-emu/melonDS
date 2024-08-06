@@ -420,6 +420,25 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
             actMPNewInstance = submenu->addAction("Launch new instance");
             connect(actMPNewInstance, &QAction::triggered, this, &MainWindow::onMPNewInstance);
+
+            submenu->addSeparator();
+
+            actLANStartHost = submenu->addAction("Host LAN game");
+            connect(actLANStartHost, &QAction::triggered, this, &MainWindow::onLANStartHost);
+
+            actLANStartClient = submenu->addAction("Join LAN game");
+            connect(actLANStartClient, &QAction::triggered, this, &MainWindow::onLANStartClient);
+
+            submenu->addSeparator();
+
+            actNPStartHost = submenu->addAction("NETPLAY HOST");
+            connect(actNPStartHost, &QAction::triggered, this, &MainWindow::onNPStartHost);
+
+            actNPStartClient = submenu->addAction("NETPLAY CLIENT");
+            connect(actNPStartClient, &QAction::triggered, this, &MainWindow::onNPStartClient);
+
+            actNPTest = submenu->addAction("NETPLAY GO");
+            connect(actNPTest, &QAction::triggered, this, &MainWindow::onNPTest);
         }
     }
     {
@@ -1671,6 +1690,34 @@ void MainWindow::onOpenTitleManager()
 void MainWindow::onMPNewInstance()
 {
     createEmuInstance();
+}
+
+void MainWindow::onLANStartHost()
+{
+    //LANStartHostDialog::openDlg(this);
+}
+
+void MainWindow::onLANStartClient()
+{
+    //LANStartClientDialog::openDlg(this);
+}
+
+void MainWindow::onNPStartHost()
+{
+    //Netplay::StartHost();
+    //NetplayStartHostDialog::openDlg(this);
+}
+
+void MainWindow::onNPStartClient()
+{
+    //Netplay::StartClient();
+    //NetplayStartClientDialog::openDlg(this);
+}
+
+void MainWindow::onNPTest()
+{
+    // HAX
+    //Netplay::StartGame();
 }
 
 void MainWindow::onOpenEmuSettings()
