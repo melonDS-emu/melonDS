@@ -124,10 +124,23 @@ void deleteEmuInstance(int id)
     emuInstances[id] = nullptr;
 }
 
-void deleteAllEmuInstances()
+void deleteAllEmuInstances(int first)
 {
-    for (int i = 0; i < kMaxEmuInstances; i++)
+    for (int i = first; i < kMaxEmuInstances; i++)
         deleteEmuInstance(i);
+}
+
+int numEmuInstances()
+{
+    int ret = 0;
+
+    for (int i = 0; i < kMaxEmuInstances; i++)
+    {
+        if (emuInstances[i])
+            ret++;
+    }
+
+    return ret;
 }
 
 

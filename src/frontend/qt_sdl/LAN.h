@@ -27,39 +27,49 @@
 
 namespace LAN
 {
+using namespace melonDS;
+
+enum PlayerStatus
+{
+    Player_None = 0,        // no player in this entry
+    Player_Client,          // game client
+    Player_Host,            // game host
+    Player_Connecting,      // player still connecting
+    Player_Disconnected,    // player disconnected
+};
 
 struct Player
 {
     int ID;
     char Name[32];
-    int Status; // 0=no player 1=normal 2=host 3=connecting 4=disconnected
-    melonDS::u32 Address;
+    PlayerStatus Status;
+    u32 Address;
 };
 
 struct DiscoveryData
 {
-    melonDS::u32 Magic;
-    melonDS::u32 Version;
-    melonDS::u32 Tick;
+    u32 Magic;
+    u32 Version;
+    u32 Tick;
     char SessionName[64];
-    melonDS::u8 NumPlayers;
-    melonDS::u8 MaxPlayers;
-    melonDS::u8 Status; // 0=idle 1=playing
+    u8 NumPlayers;
+    u8 MaxPlayers;
+    u8 Status; // 0=idle 1=playing
 };
 
 
 extern bool Active;
 
-extern std::map<melonDS::u32, DiscoveryData> DiscoveryList;
+extern std::map<u32, DiscoveryData> DiscoveryList;
 extern QMutex DiscoveryMutex; // TODO: turn into Platform::Mutex or rework this to be nicer
 
 extern Player Players[16];
-extern melonDS::u32 PlayerPing[16];
+extern u32 PlayerPing[16];
 extern int NumPlayers;
 extern int MaxPlayers;
 
 extern Player MyPlayer;
-extern melonDS::u32 HostAddress;
+extern u32 HostAddress;
 
 bool Init();
 void DeInit();
@@ -75,13 +85,13 @@ void SetMPRecvTimeout(int timeout);
 void MPBegin();
 void MPEnd();
 
-int SendMPPacket(melonDS::u8* data, int len, melonDS::u64 timestamp);
-int RecvMPPacket(melonDS::u8* data, melonDS::u64* timestamp);
-int SendMPCmd(melonDS::u8* data, int len, melonDS::u64 timestamp);
-int SendMPReply(melonDS::u8* data, int len, melonDS::u64 timestamp, melonDS::u16 aid);
-int SendMPAck(melonDS::u8* data, int len, melonDS::u64 timestamp);
-int RecvMPHostPacket(melonDS::u8* data, melonDS::u64* timestamp);
-melonDS::u16 RecvMPReplies(melonDS::u8* data, melonDS::u64 timestamp, melonDS::u16 aidmask);
+int SendMPPacket(u8* data, int len, u64 timestamp);
+int RecvMPPacket(u8* data, u64* timestamp);
+int SendMPCmd(u8* data, int len, u64 timestamp);
+int SendMPReply(u8* data, int len, u64 timestamp, u16 aid);
+int SendMPAck(u8* data, int len, u64 timestamp);
+int RecvMPHostPacket(u8* data, u64* timestamp);
+u16 RecvMPReplies(u8* data, u64 timestamp, u16 aidmask);
 
 }
 

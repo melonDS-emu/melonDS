@@ -50,6 +50,7 @@ extern QString emuDirectory;
 
 bool createEmuInstance();
 void deleteEmuInstance(int id);
-void deleteAllEmuInstances();
+void deleteAllEmuInstances(int first = 0);
+int numEmuInstances();
 
 #endif // MAIN_H

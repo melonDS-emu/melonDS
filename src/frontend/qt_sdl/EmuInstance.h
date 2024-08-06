@@ -91,6 +91,8 @@ public:
     std::string instanceFileSuffix();
 
     void createWindow();
+    void deleteWindow(int id, bool close);
+    void deleteAllWindows();
 
     void osdAddMessage(unsigned int color, const char* fmt, ...);
 
@@ -214,6 +216,8 @@ private:
     bool hotkeyDown(int id)     { return hotkeyMask    & (1<<id); }
     bool hotkeyPressed(int id)  { return hotkeyPress   & (1<<id); }
     bool hotkeyReleased(int id) { return hotkeyRelease & (1<<id); }
+
+    bool deleting;
 
     int instanceID;
 

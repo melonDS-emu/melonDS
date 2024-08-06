@@ -64,7 +64,8 @@ MainWindow* topWindow = nullptr;
 const string kWifiSettingsPath = "wfcsettings.bin";
 
 
-EmuInstance::EmuInstance(int inst) : instanceID(inst),
+EmuInstance::EmuInstance(int inst) : deleting(false),
+    instanceID(inst),
     globalCfg(Config::GetGlobalTable()),
     localCfg(Config::GetLocalTable(inst))
 {
@@ -115,7 +116,8 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
 
 EmuInstance::~EmuInstance()
 {
-    // TODO window cleanup and shit?
+    deleting = true;
+    deleteAllWindows();
 
     LocalMP::End(instanceID);
 
@@ -165,6 +167,44 @@ void EmuInstance::createWindow()
     numWindows++;
 
     emuThread->attachWindow(win);
+}
+
+void EmuInstance::deleteWindow(int id, bool close)
+{
+    if (id >= kMaxWindows) return;
+
+    MainWindow* win = windowList[id];
+    if (!win) return;
+
+    if (win->hasOpenGL() && win == mainWindow)
+    {
+        // we intentionally don't unpause here
+        emuThread->emuPause();
+        emuThread->deinitContext();
+    }
+
+    emuThread->detachWindow(win);
+
+    if (close)
+        win->close();
+
+    windowList[id] = nullptr;
+    numWindows--;
+
+    if (topWindow == win) topWindow = nullptr;
+    if (mainWindow == win) mainWindow = nullptr;
+
+    if ((!mainWindow) && !deleting)
+    {
+        // if we closed this instance's main window, delete the instance
+        deleteEmuInstance(instanceID);
+    }
+}
+
+void EmuInstance::deleteAllWindows()
+{
+    for (int i = kMaxWindows-1; i >= 0; i--)
+        deleteWindow(i, true);
 }
 
 

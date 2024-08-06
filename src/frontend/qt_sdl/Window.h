@@ -237,6 +237,8 @@ private:
 
     void createScreenPanel();
 
+    bool lanWarning(bool host);
+
     bool showOSD;
 
     bool hasOGL;

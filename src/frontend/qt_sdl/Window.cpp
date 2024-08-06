@@ -73,6 +73,7 @@
 #include "version.h"
 #include "Savestate.h"
 #include "LocalMP.h"
+#include "LANDialog.h"
 
 //#include "main_shaders.h"
 
@@ -763,24 +764,9 @@ void MainWindow::closeEvent(QCloseEvent* event)
     QByteArray geom = saveGeometry();
     QByteArray enc = geom.toBase64(QByteArray::Base64Encoding);
     windowCfg.SetString("Geometry", enc.toStdString());
-
     Config::Save();
 
-    if (hasOGL && (windowID == 0))
-    {
-        // we intentionally don't unpause here
-        emuThread->emuPause();
-        emuThread->deinitContext();
-    }
-
-    emuThread->detachWindow(this);
-
-    if (windowID == 0)
-    {
-        int inst = emuInstance->instanceID;
-        deleteEmuInstance(inst);
-    }
-
+    emuInstance->deleteWindow(windowID, false);
     QMainWindow::closeEvent(event);
 }
 
@@ -1694,12 +1680,14 @@ void MainWindow::onMPNewInstance()
 
 void MainWindow::onLANStartHost()
 {
-    //LANStartHostDialog::openDlg(this);
+    if (!lanWarning(true)) return;
+    LANStartHostDialog::openDlg(this);
 }
 
 void MainWindow::onLANStartClient()
 {
-    //LANStartClientDialog::openDlg(this);
+    if (!lanWarning(false)) return;
+    LANStartClientDialog::openDlg(this);
 }
 
 void MainWindow::onNPStartHost()
@@ -1718,6 +1706,24 @@ void MainWindow::onNPTest()
 {
     // HAX
     //Netplay::StartGame();
+}
+
+bool MainWindow::lanWarning(bool host)
+{
+    if (numEmuInstances() < 2)
+        return true;
+
+    QString verb = host ? "host" : "join";
+    QString msg = "Multiple emulator instances are currently open.\n"
+            "If you "+verb+" a LAN game now, all secondary instances will be closed.\n\n"
+            "Do you wish to continue?";
+
+    auto res = QMessageBox::warning(this, "melonDS", msg, QMessageBox::Yes|QMessageBox::No, QMessageBox::No);
+    if (res == QMessageBox::No)
+        return false;
+
+    deleteAllEmuInstances(1);
+    return true;
 }
 
 void MainWindow::onOpenEmuSettings()
