@@ -187,16 +187,16 @@ void EmuInstance::deleteWindow(int id, bool close)
 
     emuThread->detachWindow(win);
 
-    if (close)
-        win->close();
-
     windowList[id] = nullptr;
     numWindows--;
 
     if (topWindow == win) topWindow = nullptr;
     if (mainWindow == win) mainWindow = nullptr;
 
-    if ((!mainWindow) && !deleting)
+    if (close)
+        win->close();
+
+    if ((!mainWindow) && (!deleting))
     {
         // if we closed this instance's main window, delete the instance
         deleteEmuInstance(instanceID);

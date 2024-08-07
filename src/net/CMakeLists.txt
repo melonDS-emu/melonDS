@@ -4,6 +4,7 @@ add_library(net-utils STATIC
     Net_Slirp.cpp
     PacketDispatcher.cpp
     LocalMP.cpp
+        MPInterface.h
 )
 
 target_include_directories(net-utils PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
