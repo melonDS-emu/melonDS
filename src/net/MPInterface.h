@@ -34,6 +34,15 @@ enum MPInterfaceType
     MPInterface_Netplay,
 };
 
+struct MPPacketHeader
+{
+    u32 Magic;
+    u32 SenderID;
+    u32 Type;       // 0=regular 1=CMD 2=reply 3=ack
+    u32 Length;
+    u64 Timestamp;
+};
+
 class MPInterface
 {
 public:

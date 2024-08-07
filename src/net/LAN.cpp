@@ -45,14 +45,13 @@
     #define INVALID_SOCKET  (socket_t)-1
 #endif
 
-#include <enet/enet.h>
+// REMOVEME REMOVEME REMOVEME
 #include <SDL2/SDL.h>
 
 #include "LAN.h"
 
-using namespace melonDS;
 
-namespace LAN
+namespace melonDS
 {
 
 const u32 kDiscoveryMagic = 0x444E414C; // LAND
@@ -60,6 +59,8 @@ const u32 kLANMagic = 0x504E414C; // LANP
 const u32 kPacketMagic = 0x4946494E; // NIFI
 
 const u32 kProtocolVersion = 1;
+
+const u32 kLocalhost = 0x0100007F;
 
 enum
 {
@@ -76,51 +77,14 @@ enum
     Cmd_PlayerDisconnect,   // 05 -- both -- signal disconnected state (not receiving MP frames)
 };
 
-struct MPPacketHeader
-{
-    u32 Magic;
-    u32 SenderID;
-    u32 Type;       // 0=regular 1=CMD 2=reply 3=ack
-    u32 Length;
-    u64 Timestamp;
-};
-
 const int kDiscoveryPort = 7063;
 const int kLANPort = 7064;
 
-socket_t DiscoverySocket;
-u32 DiscoveryLastTick;
-std::map<u32, DiscoveryData> DiscoveryList;
-Platform::Mutex* DiscoveryMutex = nullptr;
 
-bool Active;
-bool IsHost;
-
-ENetHost* Host;
-ENetPeer* RemotePeers[16];
-
-Player Players[16];
-u32 PlayerPing[16];
-int NumPlayers;
-int MaxPlayers;
-
-u16 ConnectedBitmask;
-
-Player MyPlayer;
-u32 HostAddress;
-bool Lag;
-
-int MPRecvTimeout;
-int LastHostID;
-ENetPeer* LastHostPeer;
-std::queue<ENetPacket*> RXQueue;
-
-u32 FrameCount;
-
-
-bool Init()
+LAN::LAN() noexcept : Inited(false)
 {
     DiscoveryMutex = Platform::Mutex_Create();
+    PlayersMutex = Platform::Mutex_Create();
 
     DiscoverySocket = INVALID_SOCKET;
     DiscoveryLastTick = 0;
@@ -128,7 +92,7 @@ bool Init()
     Active = false;
     IsHost = false;
     Host = nullptr;
-    Lag = false;
+    //Lag = false;
 
     memset(RemotePeers, 0, sizeof(RemotePeers));
     memset(Players, 0, sizeof(Players));
@@ -144,19 +108,18 @@ bool Init()
 
     FrameCount = 0;
 
-    // TODO we init enet here but also in Netplay
-    // that is redundant
+    // TODO make this somewhat nicer
     if (enet_initialize() != 0)
     {
         printf("enet shat itself :(\n");
-        return false;
+        return;
     }
 
     printf("enet init OK\n");
-    return true;
+    Inited = true;
 }
 
-void DeInit()
+LAN::~LAN() noexcept
 {
     if (DiscoverySocket)
     {
@@ -187,12 +150,46 @@ void DeInit()
     enet_deinitialize();
 
     Platform::Mutex_Free(DiscoveryMutex);
-    DiscoveryMutex = nullptr;
+    Platform::Mutex_Free(PlayersMutex);
 }
 
 
-bool StartDiscovery()
+std::map<u32, LAN::DiscoveryData> LAN::GetDiscoveryList()
 {
+    Platform::Mutex_Lock(DiscoveryMutex);
+    auto ret = DiscoveryList;
+    Platform::Mutex_Unlock(DiscoveryMutex);
+    return ret;
+}
+
+std::vector<LAN::Player> LAN::GetPlayerList()
+{
+    Platform::Mutex_Lock(PlayersMutex);
+
+    std::vector<Player> ret;
+    for (int i = 0; i < 16; i++)
+    {
+        if (Players[i].Status == Player_None) continue;
+
+        // make a copy of the player entry, fix up the address field
+        Player newp = Players[i];
+        if (newp.ID == MyPlayer.ID)
+            newp.Address = kLocalhost;
+        else if (newp.Status == Player_Host)
+            newp.Address = HostAddress;
+
+        ret.push_back(newp);
+    }
+
+    Platform::Mutex_Unlock(PlayersMutex);
+    return ret;
+}
+
+
+bool LAN::StartDiscovery()
+{
+    if (!Inited) return false;
+
     int res;
 
     DiscoverySocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -231,8 +228,10 @@ bool StartDiscovery()
     return true;
 }
 
-void EndDiscovery()
+void LAN::EndDiscovery()
 {
+    if (!Inited) return;
+
     if (DiscoverySocket != INVALID_SOCKET)
     {
         closesocket(DiscoverySocket);
@@ -243,8 +242,11 @@ void EndDiscovery()
         Active = false;
 }
 
-bool StartHost(const char* playername, int numplayers)
+bool LAN::StartHost(const char* playername, int numplayers)
 {
+    if (!Inited) return false;
+    if (numplayers > 16) return false;
+
     ENetAddress addr;
     addr.host = ENET_HOST_ANY;
     addr.port = kLANPort;
@@ -255,17 +257,21 @@ bool StartHost(const char* playername, int numplayers)
         return false;
     }
 
+    Platform::Mutex_Lock(PlayersMutex);
+
     Player* player = &Players[0];
     memset(player, 0, sizeof(Player));
     player->ID = 0;
     strncpy(player->Name, playername, 31);
     player->Status = Player_Host;
-    player->Address = 0x0100007F;
+    player->Address = kLocalhost;
     NumPlayers = 1;
     MaxPlayers = numplayers;
     memcpy(&MyPlayer, player, sizeof(Player));
 
-    HostAddress = 0x0100007F;
+    Platform::Mutex_Unlock(PlayersMutex);
+
+    HostAddress = kLocalhost;
     LastHostID = -1;
     LastHostPeer = nullptr;
 
@@ -279,8 +285,10 @@ bool StartHost(const char* playername, int numplayers)
     return true;
 }
 
-bool StartClient(const char* playername, const char* host)
+bool LAN::StartClient(const char* playername, const char* host)
 {
+    if (!Inited) return false;
+
     Host = enet_host_create(nullptr, 16, 2, 0, 0);
     if (!Host)
     {
@@ -298,11 +306,15 @@ bool StartClient(const char* playername, const char* host)
         return false;
     }
 
+    Platform::Mutex_Lock(PlayersMutex);
+
     Player* player = &MyPlayer;
     memset(player, 0, sizeof(Player));
     player->ID = 0;
     strncpy(player->Name, playername, 31);
     player->Status = Player_Connecting;
+
+    Platform::Mutex_Unlock(PlayersMutex);
 
     ENetEvent event;
     int conn = 0;
@@ -331,6 +343,7 @@ bool StartClient(const char* playername, const char* host)
                 u32 version = data[5] | (data[6] << 8) | (data[7] << 16) | (data[8] << 24);
                 if (magic != kLANMagic) continue;
                 if (version != kProtocolVersion) continue;
+                if (data[10] > 16) continue;
 
                 MaxPlayers = data[10];
 
@@ -383,7 +396,7 @@ bool StartClient(const char* playername, const char* host)
 }
 
 
-void ProcessDiscovery()
+void LAN::ProcessDiscovery()
 {
     if (DiscoverySocket == INVALID_SOCKET)
         return;
@@ -473,15 +486,10 @@ void ProcessDiscovery()
         }
 
         Platform::Mutex_Unlock(DiscoveryMutex);
-
-        // update the list in the connect dialog if needed
-
-        //if (lanClientDlg)
-        //    lanClientDlg->updateDiscoveryList();
     }
 }
 
-void HostUpdatePlayerList()
+void LAN::HostUpdatePlayerList()
 {
     u8 cmd[2+sizeof(Players)];
     cmd[0] = Cmd_PlayerList;
@@ -489,18 +497,13 @@ void HostUpdatePlayerList()
     memcpy(&cmd[2], Players, sizeof(Players));
     ENetPacket* pkt = enet_packet_create(cmd, 2+sizeof(Players), ENET_PACKET_FLAG_RELIABLE);
     enet_host_broadcast(Host, Chan_Cmd, pkt);
-
-    //if (lanDlg)
-    //    lanDlg->updatePlayerList();
 }
 
-void ClientUpdatePlayerList()
+void LAN::ClientUpdatePlayerList()
 {
-    //if (lanDlg)
-    //    lanDlg->updatePlayerList();
 }
 
-void ProcessHostEvent(ENetEvent& event)
+void LAN::ProcessHostEvent(ENetEvent& event)
 {
     switch (event.type)
     {
@@ -539,11 +542,15 @@ void ProcessHostEvent(ENetEvent& event)
                 ENetPacket* pkt = enet_packet_create(cmd, 11, ENET_PACKET_FLAG_RELIABLE);
                 enet_peer_send(event.peer, Chan_Cmd, pkt);
 
+                Platform::Mutex_Lock(PlayersMutex);
+
                 Players[id].ID = id;
                 Players[id].Status = Player_Connecting;
                 Players[id].Address = event.peer->address.host;
                 event.peer->data = &Players[id];
                 NumPlayers++;
+
+                Platform::Mutex_Unlock(PlayersMutex);
 
                 RemotePeers[id] = event.peer;
             }
@@ -604,9 +611,13 @@ void ProcessHostEvent(ENetEvent& event)
                         break;
                     }
 
+                    Platform::Mutex_Lock(PlayersMutex);
+
                     player.Status = Player_Client;
                     player.Address = event.peer->address.host;
                     memcpy(hostside, &player, sizeof(Player));
+
+                    Platform::Mutex_Unlock(PlayersMutex);
 
                     // broadcast updated player list
                     HostUpdatePlayerList();
@@ -642,7 +653,7 @@ void ProcessHostEvent(ENetEvent& event)
     }
 }
 
-void ProcessClientEvent(ENetEvent& event)
+void LAN::ProcessClientEvent(ENetEvent& event)
 {
     switch (event.type)
     {
@@ -685,7 +696,9 @@ void ProcessClientEvent(ENetEvent& event)
             int id = player->ID;
             RemotePeers[id] = nullptr;
 
+            Platform::Mutex_Lock(PlayersMutex);
             player->Status = Player_Disconnected;
+            Platform::Mutex_Unlock(PlayersMutex);
 
             ClientUpdatePlayerList();
         }
@@ -703,6 +716,8 @@ void ProcessClientEvent(ENetEvent& event)
                     if (event.packet->dataLength != (2+sizeof(Players))) break;
                     if (data[1] > 16) break;
 
+                    Platform::Mutex_Lock(PlayersMutex);
+
                     NumPlayers = data[1];
                     memcpy(Players, &data[2], sizeof(Players));
                     for (int i = 0; i < 16; i++)
@@ -710,8 +725,7 @@ void ProcessClientEvent(ENetEvent& event)
                         Players[i].Name[31] = '\0';
                     }
 
-                    //if (lanDlg)
-                    //    lanDlg->updatePlayerList();
+                    Platform::Mutex_Unlock(PlayersMutex);
 
                     // establish connections to any new clients
                     for (int i = 0; i < 16; i++)
@@ -765,7 +779,7 @@ void ProcessClientEvent(ENetEvent& event)
     }
 }
 
-void ProcessEvent(ENetEvent& event)
+void LAN::ProcessEvent(ENetEvent& event)
 {
     if (IsHost)
         ProcessHostEvent(event);
@@ -776,7 +790,7 @@ void ProcessEvent(ENetEvent& event)
 // 0 = per-frame processing of events and eventual misc. frame
 // 1 = checking if a misc. frame has arrived
 // 2 = waiting for a MP frame
-void Process(int type)
+void LAN::ProcessLAN(int type)
 {
     if (!Host) return;
     //printf("Process(%d): %d %d\n", type, RXQueue.empty(), RXQueue.size());
@@ -868,10 +882,12 @@ void Process(int type)
     }
 }
 
-void ProcessFrame()
+void LAN::Process()
 {
+    if (!Active) return;
+
     ProcessDiscovery();
-    Process(0);
+    ProcessLAN(0);
 
     FrameCount++;
     if (FrameCount >= 60)
@@ -893,12 +909,7 @@ void ProcessFrame()
 }
 
 
-void SetMPRecvTimeout(int timeout)
-{
-    MPRecvTimeout = timeout;
-}
-
-void MPBegin()
+void LAN::Begin(int inst)
 {
     if (!Host) return;
 
@@ -911,7 +922,7 @@ void MPBegin()
     enet_host_broadcast(Host, Chan_Cmd, pkt);
 }
 
-void MPEnd()
+void LAN::End(int inst)
 {
     if (!Host) return;
 
@@ -923,7 +934,7 @@ void MPEnd()
 }
 
 
-int SendMPPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
+int LAN::SendPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
 {
     if (!Host) return 0;
 
@@ -952,11 +963,11 @@ int SendMPPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
     return len;
 }
 
-int RecvMPPacketGeneric(u8* packet, bool block, u64* timestamp)
+int LAN::RecvPacketGeneric(u8* packet, bool block, u64* timestamp)
 {
     if (!Host) return 0;
 
-    Process(block ? 2 : 1);
+    ProcessLAN(block ? 2 : 1);
     if (RXQueue.empty()) return 0;
 
     ENetPacket* enetpacket = RXQueue.front();
@@ -983,33 +994,33 @@ int RecvMPPacketGeneric(u8* packet, bool block, u64* timestamp)
 }
 
 
-int SendMPPacket(u8* packet, int len, u64 timestamp)
+int LAN::SendPacket(int inst, u8* packet, int len, u64 timestamp)
 {
-    return SendMPPacketGeneric(0, packet, len, timestamp);
+    return SendPacketGeneric(0, packet, len, timestamp);
 }
 
-int RecvMPPacket(u8* packet, u64* timestamp)
+int LAN::RecvPacket(int inst, u8* packet, u64* timestamp)
 {
-    return RecvMPPacketGeneric(packet, false, timestamp);
+    return RecvPacketGeneric(packet, false, timestamp);
 }
 
 
-int SendMPCmd(u8* packet, int len, u64 timestamp)
+int LAN::SendCmd(int inst, u8* packet, int len, u64 timestamp)
 {
-    return SendMPPacketGeneric(1, packet, len, timestamp);
+    return SendPacketGeneric(1, packet, len, timestamp);
 }
 
-int SendMPReply(u8* packet, int len, u64 timestamp, u16 aid)
+int LAN::SendReply(int inst, u8* packet, int len, u64 timestamp, u16 aid)
 {
-    return SendMPPacketGeneric(2 | (aid<<16), packet, len, timestamp);
+    return SendPacketGeneric(2 | (aid<<16), packet, len, timestamp);
 }
 
-int SendMPAck(u8* packet, int len, u64 timestamp)
+int LAN::SendAck(int inst, u8* packet, int len, u64 timestamp)
 {
-    return SendMPPacketGeneric(3, packet, len, timestamp);
+    return SendPacketGeneric(3, packet, len, timestamp);
 }
 
-int RecvMPHostPacket(u8* packet, u64* timestamp)
+int LAN::RecvHostPacket(int inst, u8* packet, u64* timestamp)
 {
     if (LastHostID != -1)
     {
@@ -1019,10 +1030,10 @@ int RecvMPHostPacket(u8* packet, u64* timestamp)
             return -1;
     }
 
-    return RecvMPPacketGeneric(packet, true, timestamp);
+    return RecvPacketGeneric(packet, true, timestamp);
 }
 
-u16 RecvMPReplies(u8* packets, u64 timestamp, u16 aidmask)
+u16 LAN::RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask)
 {
     if (!Host) return 0;
 
@@ -1034,7 +1045,7 @@ u16 RecvMPReplies(u8* packets, u64 timestamp, u16 aidmask)
 
     for (;;)
     {
-        Process(2);
+        ProcessLAN(2);
         if (RXQueue.empty())
         {
             // no more replies available

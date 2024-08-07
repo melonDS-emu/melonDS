@@ -34,15 +34,6 @@ struct MPStatusData
     u16 MPReplyBitmask;   // bitmask of which clients replied in time
 };
 
-struct MPPacketHeader
-{
-    u32 Magic;
-    u32 SenderID;
-    u32 Type;       // 0=regular 1=CMD 2=reply 3=ack
-    u32 Length;
-    u64 Timestamp;
-};
-
 constexpr u32 kPacketQueueSize = 0x10000;
 constexpr u32 kReplyQueueSize = 0x10000;
 constexpr u32 kMaxFrameSize = 0x948;
