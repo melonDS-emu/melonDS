@@ -18,6 +18,7 @@
 
 #include "MPInterface.h"
 #include "LocalMP.h"
+#include "LAN.h"
 
 namespace melonDS
 {
@@ -49,6 +50,10 @@ void MPInterface::Set(MPInterfaceType type)
     {
     case MPInterface_Local:
         Current = std::make_unique<LocalMP>();
+        break;
+
+    case MPInterface_LAN:
+        Current = std::make_unique<LAN>();
         break;
 
     default:

@@ -24,7 +24,6 @@
 #include <QItemSelection>
 
 #include "types.h"
-#include "LAN.h"
 
 namespace Ui
 {
@@ -70,10 +69,8 @@ public:
         return dlg;
     }
 
-    void updateDiscoveryList();
-
-signals:
-    void sgUpdateDiscoveryList();
+protected:
+    void timerEvent(QTimerEvent* event) override;
 
 private slots:
     void onGameSelectionChanged(const QItemSelection& cur, const QItemSelection& prev);
@@ -85,6 +82,7 @@ private slots:
 
 private:
     Ui::LANStartClientDialog* ui;
+    int timerID;
 };
 
 class LANDialog : public QDialog
@@ -102,10 +100,8 @@ public:
         return dlg;
     }
 
-    void updatePlayerList();
-
-signals:
-    void sgUpdatePlayerList();
+protected:
+    void timerEvent(QTimerEvent* event) override;
 
 private slots:
     void done(int r);
@@ -114,14 +110,7 @@ private slots:
 
 private:
     Ui::LANDialog* ui;
-
-    LAN::Player playerList[16];
-    melonDS::u32 playerPing[16];
-    int numPlayers;
-    int maxPlayers;
-    int myPlayerID;
-    melonDS::u32 hostAddress;
-    QMutex playerListMutex;
+    int timerID;
 };
 
 #endif // LANDIALOG_H

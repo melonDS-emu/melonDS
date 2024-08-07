@@ -96,7 +96,6 @@ LAN::LAN() noexcept : Inited(false)
 
     memset(RemotePeers, 0, sizeof(RemotePeers));
     memset(Players, 0, sizeof(Players));
-    memset(PlayerPing, 0, sizeof(PlayerPing));
     NumPlayers = 0;
     MaxPlayers = 0;
 
@@ -174,9 +173,16 @@ std::vector<LAN::Player> LAN::GetPlayerList()
         // make a copy of the player entry, fix up the address field
         Player newp = Players[i];
         if (newp.ID == MyPlayer.ID)
+        {
+            newp.IsLocalPlayer = true;
             newp.Address = kLocalhost;
-        else if (newp.Status == Player_Host)
-            newp.Address = HostAddress;
+        }
+        else
+        {
+            newp.IsLocalPlayer = false;
+            if (newp.Status == Player_Host)
+                newp.Address = HostAddress;
+        }
 
         ret.push_back(newp);
     }
@@ -894,17 +900,18 @@ void LAN::Process()
     {
         FrameCount = 0;
 
+        Platform::Mutex_Lock(PlayersMutex);
+
         for (int i = 0; i < 16; i++)
         {
             if (Players[i].Status == Player_None) continue;
             if (i == MyPlayer.ID) continue;
             if (!RemotePeers[i]) continue;
 
-            PlayerPing[i] = RemotePeers[i]->roundTripTime;
+            Players[i].Ping = RemotePeers[i]->roundTripTime;
         }
 
-        //if (lanDlg)
-        //    lanDlg->updatePlayerList();
+        Platform::Mutex_Unlock(PlayersMutex);
     }
 }
 

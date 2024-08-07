@@ -20,7 +20,9 @@
 #define LAN_H
 
 #include <string>
+#include <vector>
 #include <map>
+#include <queue>
 
 #include <enet/enet.h>
 
@@ -65,6 +67,9 @@ public:
         char Name[32];
         PlayerStatus Status;
         u32 Address;
+
+        bool IsLocalPlayer;
+        u32 Ping;
     };
 
     struct DiscoveryData
@@ -85,6 +90,8 @@ public:
 
     std::map<u32, DiscoveryData> GetDiscoveryList();
     std::vector<Player> GetPlayerList();
+    int GetNumPlayers() { return NumPlayers; }
+    int GetMaxPlayers() { return MaxPlayers; }
 
     void Process() override;
 
@@ -113,7 +120,6 @@ private:
     Platform::Mutex* DiscoveryMutex;
 
     Player Players[16];
-    u32 PlayerPing[16];
     int NumPlayers;
     int MaxPlayers;
     Platform::Mutex* PlayersMutex;

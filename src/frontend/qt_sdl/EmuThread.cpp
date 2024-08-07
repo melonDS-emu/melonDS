@@ -151,6 +151,7 @@ void EmuThread::run()
 
     while (emuStatus != emuStatus_Exit)
     {
+        MPInterface::Get().Process();
         emuInstance->inputProcess();
 
         if (emuInstance->hotkeyPressed(HK_FastForwardToggle)) emit windowLimitFPSChange();
