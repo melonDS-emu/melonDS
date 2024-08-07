@@ -23,9 +23,6 @@
 
 #include <enet/enet.h>
 
-#include <QStandardItemModel>
-#include <QProcess>
-
 #include "NDS.h"
 #include "NDSCart.h"
 #include "main.h"
@@ -33,13 +30,9 @@
 #include "Netplay.h"
 //#include "Input.h"
 //#include "ROMManager.h"
-#include "Config.h"
+//#include "Config.h"
 #include "Savestate.h"
 #include "Platform.h"
-
-#include "ui_NetplayStartHostDialog.h"
-#include "ui_NetplayStartClientDialog.h"
-#include "ui_NetplayDialog.h"
 
 using namespace melonDS;
 

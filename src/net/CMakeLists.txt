@@ -4,8 +4,9 @@ add_library(net-utils STATIC
     Net_Slirp.cpp
     PacketDispatcher.cpp
     LocalMP.cpp
-        MPInterface.h
-        MPInterface.cpp
+    LAN.cpp
+    Netplay.cpp
+    MPInterface.cpp
 )
 
 target_include_directories(net-utils PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -21,3 +22,6 @@ else()
     target_include_directories(net-utils SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/libslirp/glib")
     target_link_libraries(net-utils PRIVATE slirp)
 endif()
+
+find_package(ENet REQUIRED)
+target_link_libraries(net-utils PRIVATE ${ENET_LIBRARIES})

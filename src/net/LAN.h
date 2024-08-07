@@ -21,9 +21,9 @@
 
 #include <string>
 #include <map>
-#include <QMutex>
 
 #include "types.h"
+#include "Platform.h"
 
 namespace LAN
 {
@@ -61,7 +61,7 @@ struct DiscoveryData
 extern bool Active;
 
 extern std::map<u32, DiscoveryData> DiscoveryList;
-extern QMutex DiscoveryMutex; // TODO: turn into Platform::Mutex or rework this to be nicer
+extern Platform::Mutex* DiscoveryMutex; // TODO: turn into Platform::Mutex or rework this to be nicer
 
 extern Player Players[16];
 extern u32 PlayerPing[16];

@@ -17,36 +17,9 @@
 */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <queue>
 #include <vector>
-
-#ifdef __WIN32__
-#include <winsock2.h>
-    #include <ws2tcpip.h>
-
-    #define socket_t    SOCKET
-    #define sockaddr_t  SOCKADDR
-    #define sockaddr_in_t  SOCKADDR_IN
-#else
-#include <unistd.h>
-#include <netinet/in.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-
-#define socket_t    int
-#define sockaddr_t  struct sockaddr
-#define sockaddr_in_t  struct sockaddr_in
-#define closesocket close
-#endif
-
-#ifndef INVALID_SOCKET
-#define INVALID_SOCKET  (socket_t)-1
-#endif
-
-#include <enet/enet.h>
-#include <SDL2/SDL.h>
 
 #include <QStandardItemModel>
 #include <QPushButton>
@@ -232,7 +205,8 @@ void LANStartClientDialog::updateDiscoveryList()
 
 void LANStartClientDialog::doUpdateDiscoveryList()
 {
-    LAN::DiscoveryMutex.lock();
+    if (LAN::DiscoveryMutex)
+        Platform::Mutex_Lock(LAN::DiscoveryMutex);
 
     QStandardItemModel* model = (QStandardItemModel*)ui->tvAvailableGames->model();
     int curcount = model->rowCount();
@@ -277,7 +251,8 @@ void LANStartClientDialog::doUpdateDiscoveryList()
         i++;
     }
 
-    LAN::DiscoveryMutex.unlock();
+    if (LAN::DiscoveryMutex)
+        Platform::Mutex_Unlock(LAN::DiscoveryMutex);
 }
 
 

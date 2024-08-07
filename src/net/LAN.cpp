@@ -91,7 +91,7 @@ const int kLANPort = 7064;
 socket_t DiscoverySocket;
 u32 DiscoveryLastTick;
 std::map<u32, DiscoveryData> DiscoveryList;
-QMutex DiscoveryMutex;
+Platform::Mutex* DiscoveryMutex = nullptr;
 
 bool Active;
 bool IsHost;
@@ -120,6 +120,8 @@ u32 FrameCount;
 
 bool Init()
 {
+    DiscoveryMutex = Platform::Mutex_Create();
+
     DiscoverySocket = INVALID_SOCKET;
     DiscoveryLastTick = 0;
 
@@ -183,6 +185,9 @@ void DeInit()
     Host = nullptr;
 
     enet_deinitialize();
+
+    Platform::Mutex_Free(DiscoveryMutex);
+    DiscoveryMutex = nullptr;
 }
 
 
@@ -413,7 +418,7 @@ void ProcessDiscovery()
     }
     else
     {
-        DiscoveryMutex.lock();
+        Platform::Mutex_Lock(DiscoveryMutex);
 
         // listen for LAN sessions
 
@@ -467,7 +472,7 @@ void ProcessDiscovery()
             DiscoveryList.erase(key);
         }
 
-        DiscoveryMutex.unlock();
+        Platform::Mutex_Unlock(DiscoveryMutex);
 
         // update the list in the connect dialog if needed
 
