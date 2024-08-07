@@ -39,6 +39,7 @@
 #include <QMimeData>
 #include <QVector>
 #include <QCommandLineParser>
+#include <QDesktopServices>
 #ifndef _WIN32
 #include <QGuiApplication>
 #include <QSocketNotifier>
@@ -365,6 +366,12 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actUndoStateLoad = menu->addAction("Undo state load");
         actUndoStateLoad->setShortcut(QKeySequence(Qt::Key_F12));
         connect(actUndoStateLoad, &QAction::triggered, this, &MainWindow::onUndoStateLoad);
+
+        menu->addSeparator();
+        actOpenConfig = menu->addAction("Open melonDS directory");
+        connect(actOpenConfig, &QAction::triggered, this, [&]() {
+            QDesktopServices::openUrl(QUrl::fromLocalFile(emuDirectory));
+        });
 
         menu->addSeparator();
 

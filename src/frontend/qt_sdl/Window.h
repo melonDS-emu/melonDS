@@ -264,6 +264,7 @@ public:
     QAction* actSaveState[9];
     QAction* actLoadState[9];
     QAction* actUndoStateLoad;
+    QAction* actOpenConfig;
     QAction* actQuit;
 
     QAction* actPause;
