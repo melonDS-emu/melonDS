@@ -24,7 +24,7 @@
 #include "Platform.h"
 #include "NetDriver.h"
 
-#include <libslirp.h>
+#include <slirp/libslirp.h>
 
 #ifdef __WIN32__
     #include <ws2tcpip.h>
