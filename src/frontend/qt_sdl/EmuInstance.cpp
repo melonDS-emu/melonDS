@@ -39,7 +39,7 @@
 #include "Config.h"
 #include "Platform.h"
 #include "Net.h"
-#include "LocalMP.h"
+#include "MPInterface.h"
 
 #include "NDS.h"
 #include "DSi.h"
@@ -62,7 +62,6 @@ using namespace melonDS::Platform;
 MainWindow* topWindow = nullptr;
 
 const string kWifiSettingsPath = "wfcsettings.bin";
-extern LocalMP localMp;
 extern Net net;
 
 
@@ -121,7 +120,7 @@ EmuInstance::~EmuInstance()
     deleting = true;
     deleteAllWindows();
 
-    localMp.End(instanceID);
+    MPInterface::Get().End(instanceID);
 
     emuThread->emuExit();
     emuThread->wait();

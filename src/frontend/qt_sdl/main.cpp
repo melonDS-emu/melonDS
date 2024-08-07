@@ -22,18 +22,14 @@
 #include <string.h>
 
 #include <optional>
-#include <vector>
 #include <string>
-#include <algorithm>
 
-#include <QProcess>
 #include <QApplication>
+#include <QStyle>
 #include <QMessageBox>
 #include <QMenuBar>
-#include <QMimeDatabase>
 #include <QFileDialog>
 #include <QInputDialog>
-#include <QPaintEvent>
 #include <QPainter>
 #include <QKeyEvent>
 #include <QMimeData>
@@ -57,24 +53,14 @@
 #include "duckstation/gl/context.h"
 
 #include "main.h"
-#include "CheatsDialog.h"
-#include "DateTimeDialog.h"
-#include "EmuSettingsDialog.h"
-#include "InputConfig/InputConfigDialog.h"
-#include "VideoSettingsDialog.h"
-#include "ROMInfoDialog.h"
-#include "RAMInfoDialog.h"
-#include "PowerManagement/PowerManagementDialog.h"
-
 #include "version.h"
 
 #include "Config.h"
-#include "DSi.h"
 
 #include "EmuInstance.h"
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
-#include "LocalMP.h"
+#include "MPInterface.h"
 #include "Net.h"
 
 #include "CLI.h"
@@ -95,9 +81,10 @@ EmuInstance* emuInstances[kMaxEmuInstances];
 
 CameraManager* camManager[2];
 bool camStarted[2];
-LocalMP localMp;
+
 std::optional<LibPCap> pcap;
 Net net;
+
 
 void NetInit()
 {
@@ -321,7 +308,11 @@ int main(int argc, char** argv)
         }
     }
 
-    // localMp is initialized at this point
+    // default MP interface type is local MP
+    // this will be changed if a LAN or netplay session is initiated
+    MPInterface::Set(MPInterface_Local);
+    MPInterface::Get().SetRecvTimeout(Config::GetGlobalTable().GetInt("MP.RecvTimeout"));
+
     NetInit();
 
     createEmuInstance();

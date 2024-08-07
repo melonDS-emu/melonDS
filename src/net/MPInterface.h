@@ -19,16 +19,32 @@
 #ifndef MPINTERFACE_H
 #define MPINTERFACE_H
 
+#include <memory>
 #include "types.h"
 
 namespace melonDS
 {
 
+// TODO: provision for excluding unwanted interfaces at compile time
+enum MPInterfaceType
+{
+    MPInterface_Dummy = -1,
+    MPInterface_Local,
+    MPInterface_LAN,
+    MPInterface_Netplay,
+};
+
 class MPInterface
 {
 public:
+    static MPInterface& Get() { return *Current; }
+    static void Set(MPInterfaceType type);
+
     [[nodiscard]] int GetRecvTimeout() const noexcept { return RecvTimeout; }
     void SetRecvTimeout(int timeout) noexcept { RecvTimeout = timeout; }
+
+    // function called every video frame
+    virtual void Process() = 0;
 
     virtual void Begin(int inst) = 0;
     virtual void End(int inst) = 0;
@@ -43,6 +59,9 @@ public:
 
 protected:
     int RecvTimeout = 25;
+
+private:
+    static std::unique_ptr<MPInterface> Current;
 };
 
 }

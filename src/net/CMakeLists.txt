@@ -5,6 +5,7 @@ add_library(net-utils STATIC
     PacketDispatcher.cpp
     LocalMP.cpp
         MPInterface.h
+        MPInterface.cpp
 )
 
 target_include_directories(net-utils PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
