@@ -6,8 +6,8 @@ if [[ ! -x melonDS.exe ]]; then
 fi
 
 mkdir -p dist
-
-for lib in $(ldd melonDS.exe | grep mingw | sed "s/.*=> //" | sed "s/(.*)//"); do
+tool=$(gcc -v 2>&1 | head -1 | awk '{print $1}')
+for lib in $(ldd melonDS.exe | grep $tool | sed "s/.*=> //" | sed "s/(.*)//"); do
 	cp "${lib}" dist
 done
 
