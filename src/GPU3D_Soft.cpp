@@ -757,6 +757,12 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
     s32 zl = rp->SlopeL.Interp.InterpolateZ(polygon->FinalZ[rp->CurVL], polygon->FinalZ[rp->NextVL], polygon->WBuffer);
     s32 zr = rp->SlopeR.Interp.InterpolateZ(polygon->FinalZ[rp->CurVR], polygon->FinalZ[rp->NextVR], polygon->WBuffer);
+    
+    rp->SlopeL.EdgeParams(&l_edgelen, &l_edgecov);
+    rp->SlopeR.EdgeParams(&r_edgelen, &r_edgecov);
+        
+    if (rp->SlopeL.XMajor && rp->SlopeL.Negative) xstart -= l_edgelen;
+    if (rp->SlopeR.XMajor && !rp->SlopeR.Negative) xend += r_edgelen;
 
     // right vertical edges are pushed 1px to the left as long as either:
     // the left edge slope is not 0, or the span is not 0 pixels wide, and it is not at the leftmost pixel of the screen
@@ -773,11 +779,14 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
         interp_start = &rp->SlopeR.Interp;
         interp_end = &rp->SlopeL.Interp;
-
-        rp->SlopeR.EdgeParams<true>(&l_edgelen, &l_edgecov);
-        rp->SlopeL.EdgeParams<true>(&r_edgelen, &r_edgecov);
-
+        
         std::swap(xstart, xend);
+
+        l_edgelen = 1;
+        r_edgelen = 1;
+
+        // ignore fixing coverage, shadow masks don't use it
+
         std::swap(wl, wr);
         std::swap(zl, zr);
 
@@ -805,9 +814,6 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
         interp_start = &rp->SlopeL.Interp;
         interp_end = &rp->SlopeR.Interp;
-
-        rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
-        rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
 
         // CHECKME: edge fill rules for unswapped opaque shadow mask polygons
         if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || ((polyalpha < 31) && (gpu3d.RenderDispCnt & (1<<3))) || wireframe)
@@ -982,6 +988,12 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
     s32 zl = rp->SlopeL.Interp.InterpolateZ(polygon->FinalZ[rp->CurVL], polygon->FinalZ[rp->NextVL], polygon->WBuffer);
     s32 zr = rp->SlopeR.Interp.InterpolateZ(polygon->FinalZ[rp->CurVR], polygon->FinalZ[rp->NextVR], polygon->WBuffer);
+    
+    rp->SlopeL.EdgeParams(&l_edgelen, &l_edgecov);
+    rp->SlopeR.EdgeParams(&r_edgelen, &r_edgecov);
+        
+    if (rp->SlopeL.XMajor && rp->SlopeL.Negative) xstart -= l_edgelen;
+    if (rp->SlopeR.XMajor && !rp->SlopeR.Negative) xend += r_edgelen;
 
     // right vertical edges are pushed 1px to the left as long as either:
     // the left edge slope is not 0, or the span is not 0 pixels wide, and it is not at the leftmost pixel of the screen
@@ -1003,10 +1015,17 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         interp_start = &rp->SlopeR.Interp;
         interp_end = &rp->SlopeL.Interp;
 
-        rp->SlopeR.EdgeParams<true>(&l_edgelen, &l_edgecov);
-        rp->SlopeL.EdgeParams<true>(&r_edgelen, &r_edgecov);
-
         std::swap(xstart, xend);
+
+        l_edgelen = 1;
+        r_edgelen = 1;
+
+        std::swap(l_edgecov, r_edgecov);
+
+        // yes this breaks vertical slopes, blame hw
+        if (!rp->SlopeR.XMajor) l_edgecov = 31-l_edgecov;
+        if (!rp->SlopeL.XMajor) r_edgecov = 31-r_edgecov;
+
         std::swap(wl, wr);
         std::swap(zl, zr);
 
@@ -1040,9 +1059,6 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
         interp_start = &rp->SlopeL.Interp;
         interp_end = &rp->SlopeR.Interp;
-
-        rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
-        rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
 
         // edge fill rules for unswapped opaque edges:
         // * right edge is filled if slope > 1
