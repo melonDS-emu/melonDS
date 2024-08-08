@@ -46,7 +46,7 @@ const char* TARGET_INFO_ARM9 = "cputype:12;cpusubtype:7;triple:arm-none-eabi;ost
 	"<reg name=\"r11\" bitsize=\"32\" type=\"uint32\"/>" \
 	"<reg name=\"r12\" bitsize=\"32\" type=\"uint32\"/>" \
 	"<reg name=\"sp\" bitsize=\"32\" type=\"data_ptr\"/>" \
-	"<reg name=\"lr\" bitsize=\"32\" type=\"code_ptr\"/>" \
+	"<reg name=\"lr\" bitsize=\"32\"/>" \
 	"<reg name=\"pc\" bitsize=\"32\" type=\"code_ptr\"/>" \
 	/* 16 regs */ \
 
