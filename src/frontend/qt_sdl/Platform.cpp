@@ -395,6 +395,16 @@ void Sleep(u64 usecs)
     QThread::usleep(usecs);
 }
 
+u64 GetMSCount()
+{
+    return sysTimer.elapsed();
+}
+
+u64 GetUSCount()
+{
+    return sysTimer.nsecsElapsed() / 1000;
+}
+
 
 void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen, void* userdata)
 {

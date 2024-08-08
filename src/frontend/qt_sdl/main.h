@@ -22,14 +22,8 @@
 #include "glad/glad.h"
 
 #include <QApplication>
-#include <QWidget>
-#include <QWindow>
-#include <QMainWindow>
-#include <QImage>
-#include <QActionGroup>
-#include <QTimer>
-#include <QScreen>
-#include <QCloseEvent>
+#include <QEvent>
+#include <QElapsedTimer>
 
 #include "EmuInstance.h"
 #include "Window.h"
@@ -47,6 +41,8 @@ public:
 
 extern QString* systemThemeName;
 extern QString emuDirectory;
+
+extern QElapsedTimer sysTimer;
 
 bool createEmuInstance();
 void deleteEmuInstance(int id);

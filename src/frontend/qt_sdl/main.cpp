@@ -73,7 +73,6 @@ using namespace melonDS;
 QString* systemThemeName;
 
 
-
 QString emuDirectory;
 
 const int kMaxEmuInstances = 16;
@@ -84,6 +83,9 @@ bool camStarted[2];
 
 std::optional<LibPCap> pcap;
 Net net;
+
+
+QElapsedTimer sysTimer;
 
 
 void NetInit()
@@ -237,6 +239,7 @@ bool MelonApplication::event(QEvent *event)
 
 int main(int argc, char** argv)
 {
+    sysTimer.start();
     srand(time(nullptr));
 
     for (int i = 0; i < kMaxEmuInstances; i++)

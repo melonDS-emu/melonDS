@@ -45,9 +45,6 @@
     #define INVALID_SOCKET  (socket_t)-1
 #endif
 
-// REMOVEME REMOVEME REMOVEME
-#include <SDL2/SDL.h>
-
 #include "LAN.h"
 
 
@@ -227,7 +224,7 @@ bool LAN::StartDiscovery()
         return false;
     }
 
-    DiscoveryLastTick = SDL_GetTicks();
+    DiscoveryLastTick = (u32)Platform::GetMSCount();
     DiscoveryList.clear();
 
     Active = true;
@@ -324,11 +321,11 @@ bool LAN::StartClient(const char* playername, const char* host)
 
     ENetEvent event;
     int conn = 0;
-    u32 starttick = SDL_GetTicks();
+    u32 starttick = (u32)Platform::GetMSCount();
     const int conntimeout = 5000;
     for (;;)
     {
-        u32 curtick = SDL_GetTicks();
+        u32 curtick = (u32)Platform::GetMSCount();
         if (curtick < starttick) break;
         int timeout = conntimeout - (int)(curtick - starttick);
         if (timeout < 0) break;
@@ -407,7 +404,7 @@ void LAN::ProcessDiscovery()
     if (DiscoverySocket == INVALID_SOCKET)
         return;
 
-    u32 tick = SDL_GetTicks();
+    u32 tick = (u32)Platform::GetMSCount();
     if ((tick - DiscoveryLastTick) < 1000)
         return;
 
@@ -801,7 +798,7 @@ void LAN::ProcessLAN(int type)
     if (!Host) return;
     //printf("Process(%d): %d %d\n", type, RXQueue.empty(), RXQueue.size());
 
-    u32 time_last = SDL_GetTicks();
+    u32 time_last = (u32)Platform::GetMSCount();
 
     // see if we have queued packets already, get rid of the stale ones
     // any incoming packet should be consumed by the core quickly, so if
@@ -837,7 +834,7 @@ void LAN::ProcessLAN(int type)
     }
 
     int timeout = (type == 2) ? MPRecvTimeout : 0;
-    time_last = SDL_GetTicks();
+    time_last = (u32)Platform::GetMSCount();
 
     ENetEvent event;
     while (enet_host_service(Host, &event, timeout) > 0)
@@ -861,7 +858,7 @@ void LAN::ProcessLAN(int type)
             else
             {
                 // mark this packet with the time it was received
-                header->Magic = SDL_GetTicks();
+                header->Magic = (u32)Platform::GetMSCount();
 
                 event.packet->userData = event.peer;
                 RXQueue.push(event.packet);
@@ -879,7 +876,7 @@ void LAN::ProcessLAN(int type)
 
         if (type == 2)
         {
-            u32 time = SDL_GetTicks();
+            u32 time = (u32)Platform::GetMSCount();
             if (time < time_last) return;
             timeout -= (int)(time - time_last);
             if (timeout <= 0) return;
