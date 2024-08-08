@@ -101,9 +101,9 @@ void A_MSR_IMM(ARM* cpu)
 
     u32 mask = 0;
     if (cpu->CurInstr & (1<<16)) mask |= 0x000000FF;
-    if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00;
-    if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000;
-    if (cpu->CurInstr & (1<<19)) mask |= 0xFF000000;
+    //if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00; // unused by arm 7 & 9
+    //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000; // unused by arm 7 & 9
+    if (cpu->CurInstr & (1<<19)) mask |= ((cpu->Num==1) ? 0xF0000000 : 0xF8000000);
 
     if (!(cpu->CurInstr & (1<<22)))
         mask &= 0xFFFFFFDF;
@@ -121,7 +121,8 @@ void A_MSR_IMM(ARM* cpu)
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
 
-    cpu->AddCycles_C();
+    if ((cpu->Num != 1) && (cpu->CurInstr & (0x7<<16))) cpu->AddCycles_CI(2);
+    else cpu->AddCycles_C();
 }
 
 void A_MSR_REG(ARM* cpu)
@@ -154,9 +155,9 @@ void A_MSR_REG(ARM* cpu)
 
     u32 mask = 0;
     if (cpu->CurInstr & (1<<16)) mask |= 0x000000FF;
-    if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00;
-    if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000;
-    if (cpu->CurInstr & (1<<19)) mask |= 0xFF000000;
+    //if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00; // unused by arm 7 & 9
+    //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000; // unused by arm 7 & 9
+    if (cpu->CurInstr & (1<<19)) mask |= ((cpu->Num==1) ? 0xF0000000 : 0xF8000000);
 
     if (!(cpu->CurInstr & (1<<22)))
         mask &= 0xFFFFFFDF;
@@ -174,7 +175,8 @@ void A_MSR_REG(ARM* cpu)
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
 
-    cpu->AddCycles_C();
+    if ((cpu->Num != 1) && (cpu->CurInstr & (0x7<<16))) cpu->AddCycles_CI(2);
+    else cpu->AddCycles_C();
 }
 
 void A_MRS(ARM* cpu)
@@ -202,7 +204,9 @@ void A_MRS(ARM* cpu)
         psr = cpu->CPSR;
 
     cpu->R[(cpu->CurInstr>>12) & 0xF] = psr;
-    cpu->AddCycles_C();
+
+    if (cpu->Num != 1) cpu->AddCycles_CI(1); // arm9
+    else cpu->AddCycles_C(); // arm7
 }
 
 
@@ -216,10 +220,12 @@ void A_MCR(ARM* cpu)
     u32 cn = (cpu->CurInstr >> 16) & 0xF;
     u32 cm = cpu->CurInstr & 0xF;
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
+    u32 val = cpu->R[(cpu->CurInstr>>12)&0xF];
+    if (((cpu->CurInstr>>12) & 0xF) == 15) val += 4;
 
     if (cpu->Num==0 && cp==15)
     {
-        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo, cpu->R[(cpu->CurInstr>>12)&0xF]);
+        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo, val);
     }
     else if (cpu->Num==1 && cp==14)
     {
@@ -259,12 +265,13 @@ void A_MRC(ARM* cpu)
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 
-    cpu->AddCycles_CI(2 + 1); // TODO: checkme
+    if (cpu->Num != 1) cpu->AddCycles_CI(1); // checkme
+    else cpu->AddCycles_CI(2 + 1); // TODO: checkme
 }
 
 
 
-void A_SVC(ARM* cpu)
+void A_SVC(ARM* cpu) // A_SWI
 {
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
@@ -276,7 +283,7 @@ void A_SVC(ARM* cpu)
     cpu->JumpTo(cpu->ExceptionBase + 0x08);
 }
 
-void T_SVC(ARM* cpu)
+void T_SVC(ARM* cpu) // T_SWI
 {
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;

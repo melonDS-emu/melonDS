@@ -343,13 +343,28 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         CPSR &= ~0x20;
     }
 
-    if (!(PU_Map[addr>>12] & 0x04))
-    {
-        PrefetchAbort();
-        return;
-    }
-
     NDS.MonitorARM9Jump(addr);
+}
+
+void ARMv5::JumpTo8_16Bit(const u32 addr)
+{
+    // 8 and 16 loads (signed included) to pc
+    if (!(CP15Control & 0x1))
+    {
+        // if the pu is disabled it behaves like a normal jump
+        JumpTo((CP15Control & (1<<15)) ? (addr & ~0x1) : addr);
+    }
+    else
+    {
+        if (addr & 0x3)
+        {
+            // if the pu is enabled it will always prefetch abort if not word aligned
+            // although it will still attempt (and fail) to enter thumb mode if enabled
+            if ((addr & 0x1) && !(CP15Control & (1<<15))) CPSR |= 0x20;
+            PrefetchAbort();
+        }
+        else JumpTo(addr);
+    }
 }
 
 void ARMv4::JumpTo(u32 addr, bool restorecpsr)
@@ -394,6 +409,11 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 
         CPSR &= ~0x20;
     }
+}
+
+void ARMv4::JumpTo8_16Bit(const u32 addr)
+{
+    JumpTo(addr & ~1); // checkme?
 }
 
 void ARM::RestoreCPSR()
@@ -517,6 +537,7 @@ void ARM::UpdateMode(u32 oldmode, u32 newmode, bool phony)
     }
 }
 
+template <CPUExecuteMode mode>
 void ARM::TriggerIRQ()
 {
     if (CPSR & 0x80)
@@ -528,7 +549,10 @@ void ARM::TriggerIRQ()
     UpdateMode(oldcpsr, CPSR);
 
     R_IRQ[2] = oldcpsr;
-    R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
+    if constexpr (mode == CPUExecuteMode::JIT)
+        R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
+    else
+        R[14] = R[15] - (oldcpsr & 0x20 ? 0 : 4);
     JumpTo(ExceptionBase + 0x18);
 
     // ARDS cheat support
@@ -539,6 +563,11 @@ void ARM::TriggerIRQ()
             NDS.AREngine.RunCheats();
     }
 }
+template void ARM::TriggerIRQ<CPUExecuteMode::Interpreter>();
+template void ARM::TriggerIRQ<CPUExecuteMode::InterpreterGDB>();
+#ifdef JIT_ENABLED
+template void ARM::TriggerIRQ<CPUExecuteMode::JIT>();
+#endif
 
 void ARMv5::PrefetchAbort()
 {
@@ -549,17 +578,8 @@ void ARMv5::PrefetchAbort()
     CPSR |= 0x97;
     UpdateMode(oldcpsr, CPSR);
 
-    // this shouldn't happen, but if it does, we're stuck in some nasty endless loop
-    // so better take care of it
-    if (!(PU_Map[ExceptionBase>>12] & 0x04))
-    {
-        Log(LogLevel::Error, "!!!!! EXCEPTION REGION NOT EXECUTABLE. THIS IS VERY BAD!!\n");
-        NDS.Stop(Platform::StopReason::BadExceptionRegion);
-        return;
-    }
-
     R_ABT[2] = oldcpsr;
-    R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
+    R[14] = R[15] - (oldcpsr & 0x20 ? 0 : 4);
     JumpTo(ExceptionBase + 0x0C);
 }
 
@@ -598,7 +618,10 @@ void ARMv5::Execute()
         {
             Halted = 0;
             if (NDS.IME[0] & 0x1)
-                TriggerIRQ();
+            {
+                if constexpr (mode == CPUExecuteMode::JIT) TriggerIRQ<mode>();
+                else IRQ = 1;
+            }
         }
         else
         {
@@ -632,7 +655,7 @@ void ARMv5::Execute()
             {
                 // this order is crucial otherwise idle loops waiting for an IRQ won't function
                 if (IRQ)
-                    TriggerIRQ();
+                    TriggerIRQ<mode>();
 
                 if (Halted || IdleLoop)
                 {
@@ -659,10 +682,18 @@ void ARMv5::Execute()
                 NextInstr[0] = NextInstr[1];
                 if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 0; }
                 else             NextInstr[1] = CodeRead32(R[15], false);
-
-                // actually execute
-                u32 icode = (CurInstr >> 6) & 0x3FF;
-                ARMInterpreter::THUMBInstrTable[icode](this);
+                
+                
+                if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
+                else if (!(PU_Map[(R[15]-4)>>12] & 0x04)) [[unlikely]] // handle aborted instructions
+                {
+                    PrefetchAbort();
+                }
+                else [[likely]] // actually execute
+                {
+                    u32 icode = (CurInstr >> 6) & 0x3FF;
+                    ARMInterpreter::THUMBInstrTable[icode](this);
+                }
             }
             else
             {
@@ -674,9 +705,14 @@ void ARMv5::Execute()
                 CurInstr = NextInstr[0];
                 NextInstr[0] = NextInstr[1];
                 NextInstr[1] = CodeRead32(R[15], false);
+                
 
-                // actually execute
-                if (CheckCondition(CurInstr >> 28))
+                if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
+                else if (!(PU_Map[(R[15]-8)>>12] & 0x04)) [[unlikely]] // handle aborted instructions
+                {
+                    PrefetchAbort();
+                }
+                else if (CheckCondition(CurInstr >> 28)) [[likely]] // actually execute
                 {
                     u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
                     ARMInterpreter::ARMInstrTable[icode](this);
@@ -701,10 +737,8 @@ void ARMv5::Execute()
             /*if (NDS::IF[0] & NDS::IE[0])
             {
                 if (NDS::IME[0] & 0x1)
-                    TriggerIRQ();
+                    TriggerIRQ<mode>();
             }*/
-            if (IRQ) TriggerIRQ();
-
         }
 
         NDS.ARM9Timestamp += Cycles;
@@ -736,7 +770,10 @@ void ARMv4::Execute()
         {
             Halted = 0;
             if (NDS.IME[1] & 0x1)
-                TriggerIRQ();
+            {
+                if constexpr (mode == CPUExecuteMode::JIT) TriggerIRQ<mode>();
+                else IRQ = 1;
+            }
         }
         else
         {
@@ -769,7 +806,7 @@ void ARMv4::Execute()
             if (StopExecution)
             {
                 if (IRQ)
-                    TriggerIRQ();
+                    TriggerIRQ<mode>();
 
                 if (Halted || IdleLoop)
                 {
@@ -796,9 +833,13 @@ void ARMv4::Execute()
                 NextInstr[0] = NextInstr[1];
                 NextInstr[1] = CodeRead16(R[15]);
 
-                // actually execute
-                u32 icode = (CurInstr >> 6);
-                ARMInterpreter::THUMBInstrTable[icode](this);
+                if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
+                else
+                {
+                    // actually execute
+                    u32 icode = (CurInstr >> 6);
+                    ARMInterpreter::THUMBInstrTable[icode](this);
+                }
             }
             else
             {
@@ -811,8 +852,8 @@ void ARMv4::Execute()
                 NextInstr[0] = NextInstr[1];
                 NextInstr[1] = CodeRead32(R[15]);
 
-                // actually execute
-                if (CheckCondition(CurInstr >> 28))
+                if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
+                else if (CheckCondition(CurInstr >> 28)) // actually execute
                 {
                     u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
                     ARMInterpreter::ARMInstrTable[icode](this);
@@ -833,9 +874,8 @@ void ARMv4::Execute()
             /*if (NDS::IF[1] & NDS::IE[1])
             {
                 if (NDS::IME[1] & 0x1)
-                    TriggerIRQ();
+                    TriggerIRQ<mode>();
             }*/
-            if (IRQ) TriggerIRQ();
         }
 
         NDS.ARM7Timestamp += Cycles;
@@ -1108,70 +1148,78 @@ u32 ARMv5::ReadMem(u32 addr, int size)
 }
 #endif
 
-void ARMv4::DataRead8(u32 addr, u32* val)
+bool ARMv4::DataRead8(u32 addr, u32* val)
 {
     *val = BusRead8(addr);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
+    return true;
 }
 
-void ARMv4::DataRead16(u32 addr, u32* val)
+bool ARMv4::DataRead16(u32 addr, u32* val)
 {
     addr &= ~1;
 
     *val = BusRead16(addr);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
+    return true;
 }
 
-void ARMv4::DataRead32(u32 addr, u32* val)
+bool ARMv4::DataRead32(u32 addr, u32* val)
 {
     addr &= ~3;
 
     *val = BusRead32(addr);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][2];
+    return true;
 }
 
-void ARMv4::DataRead32S(u32 addr, u32* val)
+bool ARMv4::DataRead32S(u32 addr, u32* val)
 {
     addr &= ~3;
 
     *val = BusRead32(addr);
     DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
+    return true;
 }
 
-void ARMv4::DataWrite8(u32 addr, u8 val)
+bool ARMv4::DataWrite8(u32 addr, u8 val)
 {
     BusWrite8(addr, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
+    return true;
 }
 
-void ARMv4::DataWrite16(u32 addr, u16 val)
+bool ARMv4::DataWrite16(u32 addr, u16 val)
 {
     addr &= ~1;
 
     BusWrite16(addr, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
+    return true;
 }
 
-void ARMv4::DataWrite32(u32 addr, u32 val)
+bool ARMv4::DataWrite32(u32 addr, u32 val)
 {
     addr &= ~3;
 
     BusWrite32(addr, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][2];
+    return true;
 }
 
-void ARMv4::DataWrite32S(u32 addr, u32 val)
+bool ARMv4::DataWrite32S(u32 addr, u32 val, bool dataabort)
 {
     addr &= ~3;
 
     BusWrite32(addr, val);
     DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
+    return true;
 }
 
 
