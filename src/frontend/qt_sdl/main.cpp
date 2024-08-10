@@ -205,6 +205,28 @@ void pathInit()
 }
 
 
+void setMPInterface(MPInterfaceType type)
+{
+    // switch to the requested MP interface
+    MPInterface::Set(type);
+
+    // set receive timeout
+    // TODO: different settings per interface?
+    MPInterface::Get().SetRecvTimeout(Config::GetGlobalTable().GetInt("MP.RecvTimeout"));
+
+    // update UI appropriately
+    // TODO: decide how to deal with multi-window when it becomes a thing
+    for (int i = 0; i < kMaxEmuInstances; i++)
+    {
+        EmuInstance* inst = emuInstances[i];
+        if (!inst) continue;
+
+        MainWindow* win = inst->getMainWindow();
+        if (win) win->updateMPInterface(type);
+    }
+}
+
+
 
 MelonApplication::MelonApplication(int& argc, char** argv)
     : QApplication(argc, argv)
@@ -313,8 +335,7 @@ int main(int argc, char** argv)
 
     // default MP interface type is local MP
     // this will be changed if a LAN or netplay session is initiated
-    MPInterface::Set(MPInterface_Local);
-    MPInterface::Get().SetRecvTimeout(Config::GetGlobalTable().GetInt("MP.RecvTimeout"));
+    setMPInterface(MPInterface_Local);
 
     NetInit();
 

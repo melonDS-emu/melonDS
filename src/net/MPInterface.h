@@ -46,7 +46,10 @@ struct MPPacketHeader
 class MPInterface
 {
 public:
+    virtual ~MPInterface() = default;
+
     static MPInterface& Get() { return *Current; }
+    static MPInterfaceType GetType() { return CurrentType; }
     static void Set(MPInterfaceType type);
 
     [[nodiscard]] int GetRecvTimeout() const noexcept { return RecvTimeout; }
@@ -70,6 +73,7 @@ protected:
     int RecvTimeout = 25;
 
 private:
+    static MPInterfaceType CurrentType;
     static std::unique_ptr<MPInterface> Current;
 };
 

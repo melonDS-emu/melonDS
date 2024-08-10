@@ -104,6 +104,7 @@ protected:
     void timerEvent(QTimerEvent* event) override;
 
 private slots:
+    void on_btnLeaveGame_clicked();
     void done(int r);
 
     void doUpdatePlayerList();

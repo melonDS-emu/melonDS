@@ -49,7 +49,7 @@ LANStartHostDialog::LANStartHostDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    MPInterface::Set(MPInterface_LAN);
+    setMPInterface(MPInterface_LAN);
 
     // TODO: remember the last setting? so this doesn't suck massively
     // we could also remember the player name (and auto-init it from the firmware name or whatever)
@@ -85,7 +85,7 @@ void LANStartHostDialog::done(int r)
     }
     else
     {
-        MPInterface::Set(MPInterface_Local);
+        setMPInterface(MPInterface_Local);
     }
 
     QDialog::done(r);
@@ -97,7 +97,7 @@ LANStartClientDialog::LANStartClientDialog(QWidget* parent) : QDialog(parent), u
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    MPInterface::Set(MPInterface_LAN);
+    setMPInterface(MPInterface_LAN);
 
     QStandardItemModel* model = new QStandardItemModel();
     ui->tvAvailableGames->setModel(model);
@@ -213,7 +213,7 @@ void LANStartClientDialog::done(int r)
     else
     {
         lan().EndDiscovery();
-        MPInterface::Set(MPInterface_Local);
+        setMPInterface(MPInterface_Local);
     }
 
     QDialog::done(r);
@@ -293,10 +293,26 @@ LANDialog::~LANDialog()
     delete ui;
 }
 
+void LANDialog::on_btnLeaveGame_clicked()
+{
+    done(QDialog::Accepted);
+}
+
 void LANDialog::done(int r)
 {
-    // ???
-    // TODO handle this situation, and provide the user a way to reopen this dialog
+    bool showwarning = true;
+    if (lan().GetNumPlayers() < 2)
+        showwarning = false;
+
+    if (showwarning)
+    {
+        if (QMessageBox::warning(this, "melonDS", "Really leave this LAN game?",
+                                 QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::No)
+            return;
+    }
+
+    lan().EndSession();
+    setMPInterface(MPInterface_Local);
 
     QDialog::done(r);
 }

@@ -17,10 +17,7 @@
 */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <queue>
-#include <vector>
 
 #ifdef __WIN32__
     #include <winsock2.h>
@@ -107,46 +104,25 @@ LAN::LAN() noexcept : Inited(false)
     // TODO make this somewhat nicer
     if (enet_initialize() != 0)
     {
-        printf("enet shat itself :(\n");
+        Platform::Log(Platform::LogLevel::Error, "LAN: failed to initialize enet\n");
         return;
     }
 
-    printf("enet init OK\n");
+    Platform::Log(Platform::LogLevel::Info, "LAN: enet initialized\n");
     Inited = true;
 }
 
 LAN::~LAN() noexcept
 {
-    if (DiscoverySocket)
-    {
-        closesocket(DiscoverySocket);
-        DiscoverySocket = INVALID_SOCKET;
-    }
+    EndSession();
 
-    while (!RXQueue.empty())
-    {
-        ENetPacket* packet = RXQueue.front();
-        RXQueue.pop();
-        enet_packet_destroy(packet);
-    }
-
-    for (int i = 0; i < 16; i++)
-    {
-        if (i == MyPlayer.ID) continue;
-
-        if (RemotePeers[i])
-            enet_peer_disconnect(RemotePeers[i], 0);
-
-        RemotePeers[i] = nullptr;
-    }
-
-    enet_host_destroy(Host);
-    Host = nullptr;
-
+    Inited = false;
     enet_deinitialize();
 
     Platform::Mutex_Free(DiscoveryMutex);
     Platform::Mutex_Free(PlayersMutex);
+
+    Platform::Log(Platform::LogLevel::Info, "LAN: enet deinitialized\n");
 }
 
 
@@ -281,9 +257,6 @@ bool LAN::StartHost(const char* playername, int numplayers)
     Active = true;
     IsHost = true;
 
-    //if (lanDlg)
-    //    lanDlg->updatePlayerList();
-
     StartDiscovery();
     return true;
 }
@@ -396,6 +369,35 @@ bool LAN::StartClient(const char* playername, const char* host)
     Active = true;
     IsHost = false;
     return true;
+}
+
+void LAN::EndSession()
+{
+    if (!Active) return;
+    if (IsHost) EndDiscovery();
+
+    Active = false;
+
+    while (!RXQueue.empty())
+    {
+        ENetPacket* packet = RXQueue.front();
+        RXQueue.pop();
+        enet_packet_destroy(packet);
+    }
+
+    for (int i = 0; i < 16; i++)
+    {
+        if (i == MyPlayer.ID) continue;
+
+        if (RemotePeers[i])
+            enet_peer_disconnect(RemotePeers[i], 0);
+
+        RemotePeers[i] = nullptr;
+    }
+
+    enet_host_destroy(Host);
+    Host = nullptr;
+    IsHost = false;
 }
 
 
@@ -631,7 +633,6 @@ void LAN::ProcessHostEvent(ENetEvent& event)
                 {
                     if (event.packet->dataLength != 1) break;
                     Player* player = (Player*)event.peer->data;
-                    //printf("HOST: PLAYER CONNECT %p\n", player);
                     if (!player) break;
 
                     ConnectedBitmask |= (1 << player->ID);
@@ -642,7 +643,6 @@ void LAN::ProcessHostEvent(ENetEvent& event)
                 {
                     if (event.packet->dataLength != 1) break;
                     Player* player = (Player*)event.peer->data;
-                    //printf("HOST: PLAYER DISCONNECT %p\n", player);
                     if (!player) break;
 
                     ConnectedBitmask &= ~(1 << player->ID);
@@ -757,7 +757,6 @@ void LAN::ProcessClientEvent(ENetEvent& event)
                 {
                     if (event.packet->dataLength != 1) break;
                     Player* player = (Player*)event.peer->data;
-                    //printf("CLIENT: PLAYER CONNECT %p\n", player);
                     if (!player) break;
 
                     ConnectedBitmask |= (1 << player->ID);
@@ -768,7 +767,6 @@ void LAN::ProcessClientEvent(ENetEvent& event)
                 {
                     if (event.packet->dataLength != 1) break;
                     Player* player = (Player*)event.peer->data;
-                    //printf("CLIENT: PLAYER DISCONNECT %p\n", player);
                     if (!player) break;
 
                     ConnectedBitmask &= ~(1 << player->ID);
@@ -796,7 +794,6 @@ void LAN::ProcessEvent(ENetEvent& event)
 void LAN::ProcessLAN(int type)
 {
     if (!Host) return;
-    //printf("Process(%d): %d %d\n", type, RXQueue.empty(), RXQueue.size());
 
     u32 time_last = (u32)Platform::GetMSCount();
 
@@ -842,7 +839,7 @@ void LAN::ProcessLAN(int type)
         if (event.type == ENET_EVENT_TYPE_RECEIVE && event.channelID == Chan_MP)
         {
             MPPacketHeader* header = (MPPacketHeader*)&event.packet->data[0];
-            //printf("- enet_host_service: (%d) got MP frame, len=%d type=%08X fc=%04X\n", type, event.packet->dataLength, header->Type, *(u16*)&event.packet->data[sizeof(MPPacketHeader)+12]);
+
             bool good = true;
             if (event.packet->dataLength < sizeof(MPPacketHeader))
                 good = false;
@@ -870,7 +867,6 @@ void LAN::ProcessLAN(int type)
         }
         else
         {
-            //printf("- enet_host_service: got something else, time=%d\n", SDL_GetTicks()-time_last);
             ProcessEvent(event);
         }
 
@@ -1053,7 +1049,6 @@ u16 LAN::RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask)
         if (RXQueue.empty())
         {
             // no more replies available
-            //printf("RecvMPReplies timeout, ret=%04X myinstmask=%04X conn=%04X aidmask=%04X\n", ret, myinstmask, ConnectedBitmask, aidmask);
             return ret;
         }
 

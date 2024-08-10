@@ -35,6 +35,7 @@
 
 #include "Screen.h"
 #include "Config.h"
+#include "MPInterface.h"
 
 
 class EmuInstance;
@@ -124,6 +125,9 @@ public:
     void onAppStateChanged(Qt::ApplicationState state);
 
     void osdAddMessage(unsigned int color, const char* msg);
+
+    // called when the MP interface is changed
+    void updateMPInterface(melonDS::MPInterfaceType type);
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;

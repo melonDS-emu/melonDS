@@ -42,6 +42,7 @@ public:
 
 
 std::unique_ptr<MPInterface> MPInterface::Current(std::make_unique<DummyMP>());
+MPInterfaceType MPInterface::CurrentType = MPInterface_Dummy;
 
 
 void MPInterface::Set(MPInterfaceType type)
@@ -60,6 +61,8 @@ void MPInterface::Set(MPInterfaceType type)
         Current = std::make_unique<DummyMP>();
         break;
     }
+
+    CurrentType = type;
 }
 
 }

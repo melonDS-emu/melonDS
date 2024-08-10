@@ -87,6 +87,7 @@ public:
     void EndDiscovery();
     bool StartHost(const char* player, int numplayers);
     bool StartClient(const char* player, const char* host);
+    void EndSession();
 
     std::map<u32, DiscoveryData> GetDiscoveryList();
     std::vector<Player> GetPlayerList();

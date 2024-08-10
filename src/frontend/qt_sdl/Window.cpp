@@ -749,6 +749,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
     QObject::connect(qApp, &QApplication::applicationStateChanged, this, &MainWindow::onAppStateChanged);
     onUpdateInterfaceSettings();
+
+    updateMPInterface(MPInterface::GetType());
 }
 
 MainWindow::~MainWindow()
@@ -1710,6 +1712,19 @@ void MainWindow::onNPTest()
 {
     // HAX
     //Netplay::StartGame();
+}
+
+void MainWindow::updateMPInterface(MPInterfaceType type)
+{
+    // MP interface was changed, reflect it in the UI
+
+    bool enable = (type == MPInterface_Local);
+    actMPNewInstance->setEnabled(enable);
+    actLANStartHost->setEnabled(enable);
+    actLANStartClient->setEnabled(enable);
+    actNPStartHost->setEnabled(enable);
+    actNPStartClient->setEnabled(enable);
+    actNPTest->setEnabled(enable);
 }
 
 bool MainWindow::lanWarning(bool host)

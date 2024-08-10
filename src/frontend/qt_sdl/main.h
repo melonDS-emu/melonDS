@@ -29,6 +29,7 @@
 #include "Window.h"
 #include "EmuThread.h"
 #include "ScreenLayout.h"
+#include "MPInterface.h"
 
 class MelonApplication : public QApplication
 {
@@ -48,5 +49,7 @@ bool createEmuInstance();
 void deleteEmuInstance(int id);
 void deleteAllEmuInstances(int first = 0);
 int numEmuInstances();
+
+void setMPInterface(melonDS::MPInterfaceType type);
 
 #endif // MAIN_H
