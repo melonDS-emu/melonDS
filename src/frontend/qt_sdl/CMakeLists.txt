@@ -51,6 +51,9 @@ set(SOURCES_QT_SDL
 
     CLI.h
     CLI.cpp
+
+    LANDialog.cpp
+    NetplayDialog.cpp
 )
 
 if (APPLE)
