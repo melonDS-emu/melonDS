@@ -167,9 +167,6 @@ target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../../net")
-target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../../net/libslirp/src")
-get_target_property(SLIRP_BINARY_DIR slirp BINARY_DIR)
-target_include_directories(melonDS PUBLIC "${SLIRP_BINARY_DIR}") # for libslirp-version.h
 if (USE_QT6)
     target_include_directories(melonDS PUBLIC ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
 else()
@@ -246,6 +243,8 @@ if (UNIX AND NOT APPLE)
             INTERPROCEDURAL_OPTIMIZATION OFF
             INTERPROCEDURAL_OPTIMIZATION_RELEASE OFF)
     endif()
+elseif(APPLE)
+    install(TARGETS melonDS BUNDLE DESTINATION "${CMAKE_INSTALL_PREFIX}/Applications")
 endif()
 
 if (ENABLE_OGLRENDERER)
