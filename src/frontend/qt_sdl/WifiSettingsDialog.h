@@ -20,6 +20,8 @@
 #define WIFISETTINGSDIALOG_H
 
 #include <QDialog>
+#include <vector>
+#include "Net_PCap.h"
 
 namespace Ui { class WifiSettingsDialog; }
 class WifiSettingsDialog;
@@ -68,6 +70,7 @@ private:
     bool haspcap;
 
     void updateAdapterControls();
+    std::vector<melonDS::AdapterData> adapters;
 };
 
 #endif // WIFISETTINGSDIALOG_H

@@ -276,8 +276,13 @@ void ScreenPanel::tabletEvent(QTabletEvent* event)
     case QEvent::TabletPress:
     case QEvent::TabletMove:
         {
+#if QT_VERSION_MAJOR == 6
+            int x = event->position().x();
+            int y = event->position().y();
+#else
             int x = event->x();
             int y = event->y();
+#endif
 
             if (layout.GetTouchCoords(x, y, event->type()==QEvent::TabletMove))
             {
@@ -302,15 +307,26 @@ void ScreenPanel::tabletEvent(QTabletEvent* event)
 
 void ScreenPanel::touchEvent(QTouchEvent* event)
 {
+#if QT_VERSION_MAJOR == 6
+    if (event->device()->type() == QInputDevice::DeviceType::TouchPad)
+        return;
+#endif
+
     event->accept();
 
     switch(event->type())
     {
     case QEvent::TouchBegin:
     case QEvent::TouchUpdate:
+#if QT_VERSION_MAJOR == 6
+        if (event->points().length() > 0)
+        {
+            QPointF lastPosition = event->points().first().lastPosition();
+#else
         if (event->touchPoints().length() > 0)
         {
             QPointF lastPosition = event->touchPoints().first().lastPos();
+#endif
             int x = (int)lastPosition.x();
             int y = (int)lastPosition.y();
 
@@ -1093,7 +1109,7 @@ std::optional<WindowInfo> ScreenPanelGL::getWindowInfo()
     else
     {
         //qCritical() << "Unknown PNI platform " << platform_name;
-        Platform::Log(LogLevel::Error, "Unknown PNI platform %s\n", platform_name.toStdString().c_str());
+        Platform::Log(Platform::LogLevel::Error, "Unknown PNI platform %s\n", platform_name.toStdString().c_str());
         return std::nullopt;
     }
     #endif

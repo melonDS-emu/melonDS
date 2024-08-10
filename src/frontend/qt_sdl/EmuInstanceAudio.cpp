@@ -40,13 +40,21 @@ int EmuInstance::audioGetNumSamplesOut(int outlen)
 void EmuInstance::audioResample(s16* inbuf, int inlen, s16* outbuf, int outlen, int volume)
 {
     float res_incr = inlen / (float)outlen;
-    float res_timer = 0;
+    float res_timer = -0.5;
     int res_pos = 0;
 
     for (int i = 0; i < outlen; i++)
     {
-        outbuf[i*2  ] = (inbuf[res_pos*2  ] * volume) >> 8;
-        outbuf[i*2+1] = (inbuf[res_pos*2+1] * volume) >> 8;
+        s16 l1 = inbuf[res_pos * 2];
+        s16 l2 = inbuf[res_pos * 2 + 2];
+        s16 r1 = inbuf[res_pos * 2 + 1];
+        s16 r2 = inbuf[res_pos * 2 + 3];
+
+        float l = (float) l1 + ((l2 - l1) * res_timer);
+        float r = (float) r1 + ((r2 - r1) * res_timer);
+
+        outbuf[i*2  ] = (s16) (((s32) round(l) * volume) >> 8);
+        outbuf[i*2+1] = (s16) (((s32) round(r) * volume) >> 8);
 
         res_timer += res_incr;
         while (res_timer >= 1.0)

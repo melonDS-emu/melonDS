@@ -48,14 +48,16 @@ class ARCodeFile
 {
 public:
     ARCodeFile(const std::string& filename);
-    ~ARCodeFile();
+    ~ARCodeFile() noexcept = default;
 
-    bool Error;
+    [[nodiscard]] std::vector<ARCode> GetCodes() const noexcept;
+
+    bool Error = false;
 
     bool Load();
     bool Save();
 
-    ARCodeCatList Categories;
+    ARCodeCatList Categories {};
 
 private:
     std::string Filename;

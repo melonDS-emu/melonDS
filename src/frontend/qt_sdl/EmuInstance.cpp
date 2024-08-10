@@ -62,6 +62,8 @@ using namespace melonDS::Platform;
 MainWindow* topWindow = nullptr;
 
 const string kWifiSettingsPath = "wfcsettings.bin";
+extern LocalMP localMp;
+extern Net net;
 
 
 EmuInstance::EmuInstance(int inst) : instanceID(inst),
@@ -92,12 +94,12 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
     mpAudioMode = globalCfg.GetInt("MP.AudioMode");
 
     nds = nullptr;
-    updateConsole(nullptr, nullptr);
+    //updateConsole(nullptr, nullptr);
 
     audioInit();
     inputInit();
 
-    Net::RegisterInstance(instanceID);
+    net.RegisterInstance(instanceID);
 
     emuThread = new EmuThread(this);
 
@@ -116,14 +118,13 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
 EmuInstance::~EmuInstance()
 {
     // TODO window cleanup and shit?
-
-    LocalMP::End(instanceID);
+    localMp.End(instanceID);
 
     emuThread->emuExit();
     emuThread->wait();
     delete emuThread;
 
-    Net::UnregisterInstance(instanceID);
+    net.UnregisterInstance(instanceID);
 
     audioDeInit();
     inputDeInit();
@@ -518,7 +519,7 @@ std::string EmuInstance::getEffectiveFirmwareSavePath()
 {
     if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
     {
-        return kWifiSettingsPath;
+        return GetLocalFilePath(kWifiSettingsPath);
     }
     if (consoleType == 1)
     {
@@ -552,7 +553,7 @@ bool EmuInstance::savestateExists(int slot)
 
 bool EmuInstance::loadState(const std::string& filename)
 {
-    FILE* file = fopen(filename.c_str(), "rb");
+    Platform::FileHandle* file = Platform::OpenFile(filename, Platform::FileMode::Read);
     if (file == nullptr)
     { // If we couldn't open the state file...
         Platform::Log(Platform::LogLevel::Error, "Failed to open state file \"%s\"\n", filename.c_str());
@@ -563,38 +564,31 @@ bool EmuInstance::loadState(const std::string& filename)
     if (backup->Error)
     { // If we couldn't allocate memory for the backup...
         Platform::Log(Platform::LogLevel::Error, "Failed to allocate memory for state backup\n");
-        fclose(file);
+        Platform::CloseFile(file);
         return false;
     }
 
     if (!nds->DoSavestate(backup.get()) || backup->Error)
     { // Back up the emulator's state. If that failed...
         Platform::Log(Platform::LogLevel::Error, "Failed to back up state, aborting load (from \"%s\")\n", filename.c_str());
-        fclose(file);
+        Platform::CloseFile(file);
         return false;
     }
     // We'll store the backup once we're sure that the state was loaded.
     // Now that we know the file and backup are both good, let's load the new state.
 
     // Get the size of the file that we opened
-    if (fseek(file, 0, SEEK_END) != 0)
-    {
-        Platform::Log(Platform::LogLevel::Error, "Failed to seek to end of state file \"%s\"\n", filename.c_str());
-        fclose(file);
-        return false;
-    }
-    size_t size = ftell(file);
-    rewind(file); // reset the filebuf's position
+    size_t size = Platform::FileLength(file);
 
     // Allocate exactly as much memory as we need for the savestate
     std::vector<u8> buffer(size);
-    if (fread(buffer.data(), size, 1, file) == 0)
+    if (Platform::FileRead(buffer.data(), size, 1, file) == 0)
     { // Read the state file into the buffer. If that failed...
         Platform::Log(Platform::LogLevel::Error, "Failed to read %u-byte state file \"%s\"\n", size, filename.c_str());
-        fclose(file);
+        Platform::CloseFile(file);
         return false;
     }
-    fclose(file); // done with the file now
+    Platform::CloseFile(file); // done with the file now
 
     // Get ready to load the state from the buffer into the emulator
     std::unique_ptr<Savestate> state = std::make_unique<Savestate>(buffer.data(), size, false);
@@ -626,7 +620,7 @@ bool EmuInstance::loadState(const std::string& filename)
 
 bool EmuInstance::saveState(const std::string& filename)
 {
-    FILE* file = fopen(filename.c_str(), "wb");
+    Platform::FileHandle* file = Platform::OpenFile(filename, Platform::FileMode::Write);
 
     if (file == nullptr)
     { // If the file couldn't be opened...
@@ -636,7 +630,7 @@ bool EmuInstance::saveState(const std::string& filename)
     Savestate state;
     if (state.Error)
     { // If there was an error creating the state (and allocating its memory)...
-        fclose(file);
+        Platform::CloseFile(file);
         return false;
     }
 
@@ -645,22 +639,22 @@ bool EmuInstance::saveState(const std::string& filename)
 
     if (state.Error)
     {
-        fclose(file);
+        Platform::CloseFile(file);
         return false;
     }
 
-    if (fwrite(state.Buffer(), state.Length(), 1, file) == 0)
+    if (Platform::FileWrite(state.Buffer(), state.Length(), 1, file) == 0)
     { // Write the Savestate buffer to the file. If that fails...
         Platform::Log(Platform::Error,
                       "Failed to write %d-byte savestate to %s\n",
                       state.Length(),
                       filename.c_str()
         );
-        fclose(file);
+        Platform::CloseFile(file);
         return false;
     }
 
-    fclose(file);
+    Platform::CloseFile(file);
 
     if (globalCfg.GetBool("Savestate.RelocSRAM") && ndsSave)
     {
@@ -693,12 +687,8 @@ void EmuInstance::undoStateLoad()
 
 void EmuInstance::unloadCheats()
 {
-    if (cheatFile)
-    {
-        delete cheatFile;
-        cheatFile = nullptr;
-        nds->AREngine.SetCodeFile(nullptr);
-    }
+    cheatFile = nullptr; // cleaned up by unique_ptr
+    nds->AREngine.Cheats.clear();
 }
 
 void EmuInstance::loadCheats()
@@ -708,9 +698,16 @@ void EmuInstance::loadCheats()
     std::string filename = getAssetPath(false, globalCfg.GetString("CheatFilePath"), ".mch");
 
     // TODO: check for error (malformed cheat file, ...)
-    cheatFile = new ARCodeFile(filename);
+    cheatFile = std::make_unique<ARCodeFile>(filename);
 
-    nds->AREngine.SetCodeFile(cheatsOn ? cheatFile : nullptr);
+    if (cheatsOn)
+    {
+        nds->AREngine.Cheats = cheatFile->GetCodes();
+    }
+    else
+    {
+        nds->AREngine.Cheats.clear();
+    }
 }
 
 std::unique_ptr<ARM9BIOSImage> EmuInstance::loadARM9BIOS() noexcept
@@ -1020,12 +1017,14 @@ void EmuInstance::enableCheats(bool enable)
 {
     cheatsOn = enable;
     if (cheatFile)
-        nds->AREngine.SetCodeFile(cheatsOn ? cheatFile : nullptr);
+        nds->AREngine.Cheats = cheatFile->GetCodes();
+    else
+        nds->AREngine.Cheats.clear();
 }
 
 ARCodeFile* EmuInstance::getCheatFile()
 {
-    return cheatFile;
+    return cheatFile.get();
 }
 
 void EmuInstance::setBatteryLevels()
@@ -1110,7 +1109,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     };
     auto jitargs = jitopt.GetBool("Enable") ? std::make_optional(_jitargs) : std::nullopt;
 #else
-    optional<JITArsg> jitargs = std::nullopt;
+    std::optional<JITArgs> jitargs = std::nullopt;
 #endif
 
 #ifdef GDBSTUB_ENABLED
@@ -1261,7 +1260,7 @@ void EmuInstance::reset()
         }
         else
         {
-            newsave = kWifiSettingsPath + instanceFileSuffix();
+            newsave = GetLocalFilePath(kWifiSettingsPath + instanceFileSuffix());
         }
 
         if (oldsave != newsave)

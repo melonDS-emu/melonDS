@@ -25,6 +25,7 @@
 #include "main.h"
 
 #include "Net.h"
+#include "Net_PCap.h"
 
 #include "WifiSettingsDialog.h"
 #include "ui_WifiSettingsDialog.h"
@@ -36,11 +37,14 @@
 #define PCAP_NAME "libpcap"
 #endif
 
+extern std::optional<melonDS::LibPCap> pcap;
+extern melonDS::Net net;
 
 WifiSettingsDialog* WifiSettingsDialog::currentDlg = nullptr;
 
 bool WifiSettingsDialog::needsReset = false;
 
+void NetInit();
 
 WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::WifiSettingsDialog)
 {
@@ -50,8 +54,12 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     emuInstance = ((MainWindow*)parent)->getEmuInstance();
     auto& cfg = emuInstance->getGlobalConfig();
 
-    Net::DeInit();
-    haspcap = Net_PCap::InitAdapterList();
+    if (!pcap)
+        pcap = melonDS::LibPCap::New();
+
+    haspcap = pcap.has_value();
+    if (pcap)
+        adapters = pcap->GetAdapters();
 
     ui->rbDirectMode->setText("Direct mode (requires " PCAP_NAME " and ethernet connection)");
 
@@ -59,13 +67,13 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->lblAdapterIP->setText("(none)");
 
     int sel = 0;
-    for (int i = 0; i < Net_PCap::NumAdapters; i++)
+    for (int i = 0; i < adapters.size(); i++)
     {
-        Net_PCap::AdapterData* adapter = &Net_PCap::Adapters[i];
+        melonDS::AdapterData& adapter = adapters[i];
 
-        ui->cbxDirectAdapter->addItem(QString(adapter->FriendlyName));
+        ui->cbxDirectAdapter->addItem(QString(adapter.FriendlyName));
 
-        if (!strncmp(adapter->DeviceName, cfg.GetString("LAN.Device").c_str(), 128))
+        if (!strncmp(adapter.DeviceName, cfg.GetString("LAN.Device").c_str(), 128))
             sel = i;
     }
     ui->cbxDirectAdapter->setCurrentIndex(sel);
@@ -95,21 +103,23 @@ void WifiSettingsDialog::done(int r)
         cfg.SetBool("LAN.DirectMode", ui->rbDirectMode->isChecked());
 
         int sel = ui->cbxDirectAdapter->currentIndex();
-        if (sel < 0 || sel >= Net_PCap::NumAdapters) sel = 0;
-        if (Net_PCap::NumAdapters < 1)
+        if (sel < 0 || sel >= adapters.size()) sel = 0;
+        if (adapters.empty())
         {
             cfg.SetString("LAN.Device", "");
         }
         else
         {
-            cfg.SetString("LAN.Device", Net_PCap::Adapters[sel].DeviceName);
+            cfg.SetString("LAN.Device", adapters[sel].DeviceName);
         }
 
         Config::Save();
     }
 
-    Net_PCap::DeInit();
-    Net::Init();
+    Config::Table cfg = Config::GetGlobalTable();
+    std::string devicename = cfg.GetString("LAN.Device");
+
+    NetInit();
 
     QDialog::done(r);
 
@@ -130,10 +140,9 @@ void WifiSettingsDialog::on_cbxDirectAdapter_currentIndexChanged(int sel)
 {
     if (!haspcap) return;
 
-    if (sel < 0 || sel >= Net_PCap::NumAdapters) return;
-    if (Net_PCap::NumAdapters < 1) return;
+    if (sel < 0 || sel >= adapters.size() || adapters.empty()) return;
 
-    Net_PCap::AdapterData* adapter = &Net_PCap::Adapters[sel];
+    melonDS::AdapterData* adapter = &adapters[sel];
     char tmp[64];
 
     sprintf(tmp, "%02X:%02X:%02X:%02X:%02X:%02X",

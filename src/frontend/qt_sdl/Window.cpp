@@ -39,6 +39,7 @@
 #include <QMimeData>
 #include <QVector>
 #include <QCommandLineParser>
+#include <QDesktopServices>
 #ifndef _WIN32
 #include <QGuiApplication>
 #include <QSocketNotifier>
@@ -87,6 +88,7 @@ using namespace melonDS;
 
 extern CameraManager* camManager[2];
 extern bool camStarted[2];
+extern LocalMP localMp;
 
 
 QString NdsRomMimeType = "application/x-nintendo-ds-rom";
@@ -312,6 +314,10 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actInsertGBAAddon[0] = submenu->addAction("Memory expansion");
             actInsertGBAAddon[0]->setData(QVariant(GBAAddon_RAMExpansion));
             connect(actInsertGBAAddon[0], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
+
+            actInsertGBAAddon[1] = submenu->addAction("Rumble Pak");
+            actInsertGBAAddon[1]->setData(QVariant(GBAAddon_RumblePak));
+            connect(actInsertGBAAddon[1], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
         }
 
         actEjectGBACart = menu->addAction("Eject cart");
@@ -360,6 +366,12 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actUndoStateLoad = menu->addAction("Undo state load");
         actUndoStateLoad->setShortcut(QKeySequence(Qt::Key_F12));
         connect(actUndoStateLoad, &QAction::triggered, this, &MainWindow::onUndoStateLoad);
+
+        menu->addSeparator();
+        actOpenConfig = menu->addAction("Open melonDS directory");
+        connect(actOpenConfig, &QAction::triggered, this, [&]() {
+            QDesktopServices::openUrl(QUrl::fromLocalFile(emuDirectory));
+        });
 
         menu->addSeparator();
 
@@ -1828,7 +1840,7 @@ void MainWindow::onMPSettingsFinished(int res)
 {
     emuInstance->mpAudioMode = globalCfg.GetInt("MP.AudioMode");
     emuInstance->audioMute();
-    LocalMP::SetRecvTimeout(globalCfg.GetInt("MP.RecvTimeout"));
+    localMp.SetRecvTimeout(globalCfg.GetInt("MP.RecvTimeout"));
 
     emuThread->emuUnpause();
 }

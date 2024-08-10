@@ -1507,7 +1507,7 @@ void SoftRenderer::ApplySpriteMosaicX()
 
     u32* objLine = OBJLine[CurUnit->Num];
 
-    u8* curOBJXMosaicTable = MosaicTable[CurUnit->OBJMosaicSize[1]].data();
+    u8* curOBJXMosaicTable = MosaicTable[CurUnit->OBJMosaicSize[0]].data();
 
     u32 lastcolor = objLine[0];
 

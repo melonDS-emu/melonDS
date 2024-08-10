@@ -103,7 +103,11 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     grpMicMode->addButton(ui->rbMicExternal, micInputType_External);
     grpMicMode->addButton(ui->rbMicNoise,    micInputType_Noise);
     grpMicMode->addButton(ui->rbMicWav,      micInputType_Wav);
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
     connect(grpMicMode, SIGNAL(buttonClicked(int)), this, SLOT(onChangeMicMode(int)));
+#else
+    connect(grpMicMode, SIGNAL(idClicked(int)), this, SLOT(onChangeMicMode(int)));
+#endif
     grpMicMode->button(mictype)->setChecked(true);
 
     ui->txtMicWavPath->setText(cfg.GetQString("Mic.WavPath"));
