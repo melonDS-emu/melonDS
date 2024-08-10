@@ -25,5 +25,6 @@ else()
     target_link_libraries(net-utils PUBLIC slirp)
 endif()
 
-find_package(ENet REQUIRED)
-target_link_libraries(net-utils PRIVATE ${ENET_LIBRARIES})
+pkg_check_modules((ENet REQUIRED libenet)
+fix_interface_includes(PkgConfig::ENet)
+target_link_libraries(net-utils PUBLIC PkgConfig::ENet)
