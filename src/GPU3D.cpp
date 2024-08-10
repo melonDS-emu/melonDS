@@ -1460,9 +1460,9 @@ void GPU3D::CalculateLighting() noexcept
     }
 
     s32 normaltrans[3]; // should be 1 bit sign 10 bits frac
-    normaltrans[0] = ((Normal[0]*VecMatrix[0] + Normal[1]*VecMatrix[4] + Normal[2]*VecMatrix[8])) << 9 >> 21;
-    normaltrans[1] = ((Normal[0]*VecMatrix[1] + Normal[1]*VecMatrix[5] + Normal[2]*VecMatrix[9])) << 9 >> 21;
-    normaltrans[2] = ((Normal[0]*VecMatrix[2] + Normal[1]*VecMatrix[6] + Normal[2]*VecMatrix[10])) << 9 >> 21;
+    normaltrans[0] = (Normal[0]*VecMatrix[0] + Normal[1]*VecMatrix[4] + Normal[2]*VecMatrix[8]) << 9 >> 21;
+    normaltrans[1] = (Normal[0]*VecMatrix[1] + Normal[1]*VecMatrix[5] + Normal[2]*VecMatrix[9]) << 9 >> 21;
+    normaltrans[2] = (Normal[0]*VecMatrix[2] + Normal[1]*VecMatrix[6] + Normal[2]*VecMatrix[10]) << 9 >> 21;
 
     s32 c = 0;
     u32 vtxbuff[3] =
@@ -1496,7 +1496,7 @@ void GPU3D::CalculateLighting() noexcept
 
             // -- diffuse lighting --
         
-            if (dot > 0x3FF) // integer overflow (10 bits fractional)
+            if (dot > 0x3FF) // integer overflow (1 bit whole 9 bits fractional)
             {
                 vtxbuff[0] += (MatDiffuse[0] == 0 || LightColor[i][0] == 0) ? 0 :            // if diffuse color or light color are 0, outcome is 0
                               ((512 - (MatDiffuse[0] * LightColor[i][0] - 512)) * (1<<10)) + // product of diffuse * lightcolor is mirrored around 512
@@ -1523,14 +1523,16 @@ void GPU3D::CalculateLighting() noexcept
             dot += normaltrans[2];
 
             // mirror around 1024, but in such a manner as to make it bug out at the mirror point
-            if (dot > 0x3FF) dot = (1024 - (dot - 1024)) & 0x3FF;
+            if (dot > 0x3FF) dot = 1024 - (dot - 1024);
+            // square the dot, and truncate to 10 bits
+            dot = (dot * dot >> 10) & 0x3FF;
 
             s32 recip;
             if ((-LightDirection[i][2] + (1<<9)) == 0)
                 recip = 0;
-            else recip = (1 << 18) / (-(LightDirection[i][2]) + (1<<9));
+            else recip = (1 << 18) / (-LightDirection[i][2] + (1<<9));
             // square value, mult by reciprocal, subtract '1'
-            shinelevel = ((dot * dot >> 10) * recip >> 8) - (1<<9);
+            shinelevel = (dot * recip >> 8) - (1<<9);
 
             // sign extend to convert to signed 14 bit integer
 
