@@ -37,6 +37,7 @@
           libarchive
           libGL
           libslirp
+          enet
         ]) ++ optionals isLinux [
           pkgs.wayland
           pkgs.kdePackages.qtwayland
