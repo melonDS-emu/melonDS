@@ -25,6 +25,5 @@ else()
     target_link_libraries(net-utils PUBLIC slirp)
 endif()
 
-pkg_check_modules(ENet REQUIRED IMPORTED_TARGET libenet)
-fix_interface_includes(PkgConfig::ENet)
-target_link_libraries(net-utils PUBLIC PkgConfig::ENet)
+find_package(ENet REQUIRED)
+target_link_libraries(net-utils PUBLIC enet)

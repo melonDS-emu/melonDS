@@ -4,7 +4,7 @@
 		"sdl2",
 		"libarchive",
 		"zstd",
-		"libenet"
+		"enet"
 	],
 	"features": {
 		"qt6": {
