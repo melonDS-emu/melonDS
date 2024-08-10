@@ -3,7 +3,8 @@
 	"dependencies": [
 		"sdl2",
 		"libarchive",
-		"zstd"
+		"zstd",
+		"enet"
 	],
 	"features": {
 		"qt6": {
