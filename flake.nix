@@ -49,7 +49,7 @@
         ];
 
         qtWrapperArgs = optionals isLinux [
-          "--prefix LD_LIBRARY_PATH : ${makeLibraryPath [ pkgs.libpcap ]}"
+          "--prefix LD_LIBRARY_PATH : ${makeLibraryPath [ pkgs.libpcap pkgs.wayland ]}"
         ] ++ optionals isDarwin [
           "--prefix DYLD_LIBRARY_PATH : ${makeLibraryPath [ pkgs.libpcap ]}"
         ];
