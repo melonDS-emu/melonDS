@@ -285,7 +285,8 @@ public:
     s16 RawTexCoords[2] {};
     s16 Normal[3] {};
 
-    s16 LightDirection[4][4] {};
+    s16 LightDirection[4][3] {};
+    s32 SpecRecip[4] {};
     u8 LightColor[4][3] {};
     u8 MatDiffuse[3] {};
     u8 MatAmbient[3] {};

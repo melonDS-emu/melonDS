@@ -1527,17 +1527,17 @@ void GPU3D::CalculateLighting() noexcept
             // square the dot, and truncate to 10 bits
             dot = (dot * dot >> 10) & 0x3FF;
 
-            s32 recip;
-            if ((LightDirection[i][3] + (1<<9)) == 0)
-                recip = 0;
-            else recip = (1 << 18) / (LightDirection[i][3] + (1<<9));
             // square value, mult by reciprocal, subtract '1'
-            shinelevel = (dot * recip >> 8) - (1<<9);
+            shinelevel = (dot * SpecRecip[i] >> 8) - (1<<9);
 
-            // sign extend to convert to signed 14 bit integer
-            shinelevel = shinelevel << 18 >> 18;
             if (shinelevel < 0) shinelevel = 0;
-            else if (shinelevel > 0x1FF) shinelevel = 0x1FF;
+            else
+            {
+                // sign extend to convert to signed 14 bit integer
+                shinelevel = shinelevel << 18 >> 18;
+                if (shinelevel < 0) shinelevel = 0;
+                else if (shinelevel > 0x1FF) shinelevel = 0x1FF;
+            }
         }
         else shinelevel = 0;
         // convert shinelevel to use for lookup in shininess table.
@@ -2060,11 +2060,13 @@ void GPU3D::ExecuteCommand() noexcept
                 dir[1] = (s16)((entry.Param & 0x000FFC00) >> 4) >> 6;
                 dir[2] = (s16)((entry.Param & 0x3FF00000) >> 14) >> 6;
                 // the order of operations here is very specific: discard bottom 12 bits, negate, then sign extend to convert to 11 bit signed int
-                // except for when used to calculate the specular reciprocal; then it's: sign extend, discard lsb, negate. i dont even know anymore.
+                // except for when used to calculate the specular reciprocal; then it's: sign extend, discard lsb, negate.
                 LightDirection[l][0] = -(dir[0]*VecMatrix[0] + dir[1]*VecMatrix[4] + dir[2]*VecMatrix[8] >> 12) << 21 >> 21;
                 LightDirection[l][1] = -(dir[0]*VecMatrix[1] + dir[1]*VecMatrix[5] + dir[2]*VecMatrix[9] >> 12) << 21 >> 21;
                 LightDirection[l][2] = -(dir[0]*VecMatrix[2] + dir[1]*VecMatrix[6] + dir[2]*VecMatrix[10] >> 12) << 21 >> 21;
-                LightDirection[l][3] = -(dir[0]*VecMatrix[2] + dir[1]*VecMatrix[6] + dir[2]*VecMatrix[10] << 9 >> 21); // a second variable for z direction because EDGE CASES
+                s32 den = -(dir[0]*VecMatrix[2] + dir[1]*VecMatrix[6] + dir[2]*VecMatrix[10] << 9 >> 21) + (1<<9);
+                if (den == 0) SpecRecip[l] = 0;
+                else SpecRecip[l] = (1<<18) / den;
             }
             AddCycles(5);
             break;
