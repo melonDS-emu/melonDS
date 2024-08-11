@@ -1485,9 +1485,9 @@ void GPU3D::CalculateLighting() noexcept
         
         // calculate dot product
         // bottom 9 bits are discarded after multiplying and before adding
-        s32 dot = (-LightDirection[i][0]*normaltrans[0] >> 9) +
-                  (-LightDirection[i][1]*normaltrans[1] >> 9) +
-                  (-LightDirection[i][2]*normaltrans[2] >> 9);
+        s32 dot = (LightDirection[i][0]*normaltrans[0] >> 9) +
+                  (LightDirection[i][1]*normaltrans[1] >> 9) +
+                  (LightDirection[i][2]*normaltrans[2] >> 9);
 
         s32 shinelevel;
         if (dot > 0) 
@@ -1528,9 +1528,9 @@ void GPU3D::CalculateLighting() noexcept
             dot = (dot * dot >> 10) & 0x3FF;
 
             s32 recip;
-            if ((-LightDirection[i][2] + (1<<9)) == 0)
+            if ((LightDirection[i][2] + (1<<9)) == 0)
                 recip = 0;
-            else recip = (1 << 18) / (-LightDirection[i][2] + (1<<9));
+            else recip = (1 << 18) / (LightDirection[i][2] + (1<<9));
             // square value, mult by reciprocal, subtract '1'
             shinelevel = (dot * recip >> 8) - (1<<9);
 
@@ -2064,9 +2064,10 @@ void GPU3D::ExecuteCommand() noexcept
                 dir[0] = (s16)((entry.Param & 0x000003FF) << 6) >> 6;
                 dir[1] = (s16)((entry.Param & 0x000FFC00) >> 4) >> 6;
                 dir[2] = (s16)((entry.Param & 0x3FF00000) >> 14) >> 6;
-                LightDirection[l][0] = (dir[0]*VecMatrix[0] + dir[1]*VecMatrix[4] + dir[2]*VecMatrix[8]) << 9 >> 21;
-                LightDirection[l][1] = (dir[0]*VecMatrix[1] + dir[1]*VecMatrix[5] + dir[2]*VecMatrix[9]) << 9 >> 21;
-                LightDirection[l][2] = (dir[0]*VecMatrix[2] + dir[1]*VecMatrix[6] + dir[2]*VecMatrix[10]) << 9 >> 21;
+                // the order of operations here is very specific: discard bottom 12 bits, negate, then sign extend to convert to 11 bit signed int
+                LightDirection[l][0] = -(dir[0]*VecMatrix[0] + dir[1]*VecMatrix[4] + dir[2]*VecMatrix[8] >> 12) << 21 >> 21;
+                LightDirection[l][1] = -(dir[0]*VecMatrix[1] + dir[1]*VecMatrix[5] + dir[2]*VecMatrix[9] >> 12) << 21 >> 21;
+                LightDirection[l][2] = -(dir[0]*VecMatrix[2] + dir[1]*VecMatrix[6] + dir[2]*VecMatrix[10] >> 12) << 21 >> 21;
             }
             AddCycles(5);
             break;
