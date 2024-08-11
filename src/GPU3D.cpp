@@ -274,6 +274,8 @@ void GPU3D::Reset() noexcept
     memset(MatEmission, 0, sizeof(MatSpecular));
 
     UseShininessTable = false;
+    // Shininess table seems to be uninitialized garbage, at least on n3dsxl hw?
+    // Also doesn't seem to be cleared properly unless the system is fully powered off?
     memset(ShininessTable, 0, sizeof(ShininessTable));
 
     PolygonAttr = 0;
