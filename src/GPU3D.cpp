@@ -1492,38 +1492,21 @@ void GPU3D::CalculateLighting() noexcept
         s32 shinelevel;
         if (dot > 0) 
         {
-            dot &= 0x7FF;
-
             // -- diffuse lighting --
-        
-            if (dot > 0x3FF) // integer overflow (1 bit whole 9 bits fractional)
-            {
-                vtxbuff[0] += (MatDiffuse[0] == 0 || LightColor[i][0] == 0) ? 0 :            // if diffuse color or light color are 0, outcome is 0
-                              ((512 - (MatDiffuse[0] * LightColor[i][0] - 512)) * (1<<10)) + // product of diffuse * lightcolor is mirrored around 512
-                              (MatDiffuse[0] * LightColor[i][0] * (dot & 0x3FF));            // the dot is ANDed with 0x3FF to emulate integer overflow
-
-                vtxbuff[1] += (MatDiffuse[1] == 0 || LightColor[i][1] == 0) ? 0 :
-                              ((512 - (MatDiffuse[1] * LightColor[i][1] - 512)) * (1<<10)) +
-                              (MatDiffuse[1] * LightColor[i][1] * (dot & 0x3FF));
-
-                vtxbuff[2] += (MatDiffuse[2] == 0 || LightColor[i][2] == 0) ? 0 :
-                              ((512 - (MatDiffuse[2] * LightColor[i][2] - 512)) * (1<<10)) +
-                              (MatDiffuse[2] * LightColor[i][2] * (dot & 0x3FF));
-            }
-            else // handle lighting normally
-            {
-                vtxbuff[0] += MatDiffuse[0] * LightColor[i][0] * dot;
-                vtxbuff[1] += MatDiffuse[1] * LightColor[i][1] * dot;
-                vtxbuff[2] += MatDiffuse[2] * LightColor[i][2] * dot;
-            }
+            
+            // convert to 11 signed int
+            s32 diffdot = dot << 21 >> 21;
+            vtxbuff[0] += MatDiffuse[0] * LightColor[i][0] * diffdot & 0xFFFFF;
+            vtxbuff[1] += MatDiffuse[1] * LightColor[i][1] * diffdot & 0xFFFFF;
+            vtxbuff[2] += MatDiffuse[2] * LightColor[i][2] * diffdot & 0xFFFFF;
 
             // -- specular lighting --
         
             // reuse the dot product from diffuse lighting
             dot += normaltrans[2];
 
-            // mirror around 1024, but in such a manner as to make it bug out at the mirror point
-            if (dot > 0x3FF) dot = 1024 - (dot - 1024);
+            // convert to 11 bit signed int
+            dot = dot << 21 >> 21;
             // square the dot, and truncate to 10 bits
             dot = (dot * dot >> 10) & 0x3FF;
 
@@ -1535,7 +1518,7 @@ void GPU3D::CalculateLighting() noexcept
             {
                 // sign extend to convert to signed 14 bit integer
                 shinelevel = shinelevel << 18 >> 18;
-                if (shinelevel < 0) shinelevel = 0;
+                if (shinelevel < 0) shinelevel = 0; // for some reason there seems to be a redundant check for <0?
                 else if (shinelevel > 0x1FF) shinelevel = 0x1FF;
             }
         }
