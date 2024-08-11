@@ -1460,9 +1460,9 @@ void GPU3D::CalculateLighting() noexcept
     }
 
     s32 normaltrans[3]; // should be 1 bit sign 10 bits frac
-    normaltrans[0] = (Normal[0]*VecMatrix[0] + Normal[1]*VecMatrix[4] + Normal[2]*VecMatrix[8]) << 9 >> 21;
-    normaltrans[1] = (Normal[0]*VecMatrix[1] + Normal[1]*VecMatrix[5] + Normal[2]*VecMatrix[9]) << 9 >> 21;
-    normaltrans[2] = (Normal[0]*VecMatrix[2] + Normal[1]*VecMatrix[6] + Normal[2]*VecMatrix[10]) << 9 >> 21;
+    normaltrans[0] = ((Normal[0]*VecMatrix[0] + Normal[1]*VecMatrix[4] + Normal[2]*VecMatrix[8]) << 9) >> 21;
+    normaltrans[1] = ((Normal[0]*VecMatrix[1] + Normal[1]*VecMatrix[5] + Normal[2]*VecMatrix[9]) << 9) >> 21;
+    normaltrans[2] = ((Normal[0]*VecMatrix[2] + Normal[1]*VecMatrix[6] + Normal[2]*VecMatrix[10]) << 9) >> 21;
 
     s32 c = 0;
     u32 vtxbuff[3] =
@@ -1477,53 +1477,49 @@ void GPU3D::CalculateLighting() noexcept
             continue;
 
         // (credit to azusa for working out most of the details of the diff. algorithm, and essentially the entire spec. algorithm)
-        // overflow handling (for example, if the normal length is >1)
-        // according to some hardware tests
-        // * diffuse level seems to keep going until 1024, at which point it overflows
-        // resulting in diff level resetting to 0, and (light color * diffuse color) mirroring around 512 (strange behavior)
-        // * shininess level mirrors back to 0 and is ANDed with 0x3FF, that before being squared
         
         // calculate dot product
         // bottom 9 bits are discarded after multiplying and before adding
-        s32 dot = (LightDirection[i][0]*normaltrans[0] >> 9) +
-                  (LightDirection[i][1]*normaltrans[1] >> 9) +
-                  (LightDirection[i][2]*normaltrans[2] >> 9);
+        s32 dot = ((LightDirection[i][0]*normaltrans[0]) >> 9) +
+                  ((LightDirection[i][1]*normaltrans[1]) >> 9) +
+                  ((LightDirection[i][2]*normaltrans[2]) >> 9);
 
         s32 shinelevel;
         if (dot > 0) 
         {
             // -- diffuse lighting --
             
-            // convert to 11 signed int
-            s32 diffdot = dot << 21 >> 21;
-            vtxbuff[0] += MatDiffuse[0] * LightColor[i][0] * diffdot & 0xFFFFF;
-            vtxbuff[1] += MatDiffuse[1] * LightColor[i][1] * diffdot & 0xFFFFF;
-            vtxbuff[2] += MatDiffuse[2] * LightColor[i][2] * diffdot & 0xFFFFF;
+            // convert dot to signed 11 bit int
+            // then we truncate the result of the multiplications to an unsigned 20 bits before adding to the vtx color
+            s32 diffdot = (dot << 21) >> 21;
+            vtxbuff[0] += (MatDiffuse[0] * LightColor[i][0] * diffdot) & 0xFFFFF;
+            vtxbuff[1] += (MatDiffuse[1] * LightColor[i][1] * diffdot) & 0xFFFFF;
+            vtxbuff[2] += (MatDiffuse[2] * LightColor[i][2] * diffdot) & 0xFFFFF;
 
             // -- specular lighting --
         
             // reuse the dot product from diffuse lighting
             dot += normaltrans[2];
 
-            // convert to 11 bit signed int
-            dot = dot << 21 >> 21;
-            // square the dot, and truncate to 10 bits
-            dot = (dot * dot >> 10) & 0x3FF;
+            // convert to s11, then square it, and truncate to 10 bits
+            dot = (dot << 21) >> 21;
+            dot = ((dot * dot) >> 10) & 0x3FF;
 
-            // square value, mult by reciprocal, subtract '1'
-            shinelevel = (dot * SpecRecip[i] >> 8) - (1<<9);
+            // multiply dot and reciprocal, the subtract '1'
+            shinelevel = ((dot * SpecRecip[i]) >> 8) - (1<<9);
 
             if (shinelevel < 0) shinelevel = 0;
             else
             {
                 // sign extend to convert to signed 14 bit integer
-                shinelevel = shinelevel << 18 >> 18;
+                shinelevel = (shinelevel << 18) >> 18;
                 if (shinelevel < 0) shinelevel = 0; // for some reason there seems to be a redundant check for <0?
                 else if (shinelevel > 0x1FF) shinelevel = 0x1FF;
             }
         }
         else shinelevel = 0;
-        // convert shinelevel to use for lookup in shininess table.
+
+        // convert shinelevel to use for lookup in the shininess table if enabled.
         if (UseShininessTable)
         {
             shinelevel >>= 2;
@@ -1531,24 +1527,17 @@ void GPU3D::CalculateLighting() noexcept
             shinelevel <<= 1;
         }
 
-        vtxbuff[0] += (MatSpecular[0] * shinelevel +
-                      (MatAmbient[0] << 9)) * // ambient seems to be a plain bitshift
-                      LightColor[i][0];
-
-        vtxbuff[1] += (MatSpecular[1] * shinelevel +
-                      (MatAmbient[1] << 9)) *
-                      LightColor[i][1];
-
-        vtxbuff[2] += (MatSpecular[2] * shinelevel +
-                      (MatAmbient[2] << 9)) *
-                      LightColor[i][2];
+        // Note: ambient seems to be a plain bitshift
+        vtxbuff[0] += ((MatSpecular[0] * shinelevel) + (MatAmbient[0] << 9)) * LightColor[i][0];
+        vtxbuff[1] += ((MatSpecular[1] * shinelevel) + (MatAmbient[1] << 9)) * LightColor[i][1];
+        vtxbuff[2] += ((MatSpecular[2] * shinelevel) + (MatAmbient[2] << 9)) * LightColor[i][2];
 
         c++;
     }
 
-    VertexColor[0] = (vtxbuff[0] >> 14 > 31) ? 31 : vtxbuff[0] >> 14;
-    VertexColor[1] = (vtxbuff[1] >> 14 > 31) ? 31 : vtxbuff[1] >> 14;
-    VertexColor[2] = (vtxbuff[2] >> 14 > 31) ? 31 : vtxbuff[2] >> 14;
+    VertexColor[0] = (vtxbuff[0] >> 14 > 31) ? 31 : (vtxbuff[0] >> 14);
+    VertexColor[1] = (vtxbuff[1] >> 14 > 31) ? 31 : (vtxbuff[1] >> 14);
+    VertexColor[2] = (vtxbuff[2] >> 14 > 31) ? 31 : (vtxbuff[2] >> 14);
 
     if (c < 1) c = 1;
     NormalPipeline = 7;
@@ -2042,12 +2031,13 @@ void GPU3D::ExecuteCommand() noexcept
                 dir[0] = (s16)((entry.Param & 0x000003FF) << 6) >> 6;
                 dir[1] = (s16)((entry.Param & 0x000FFC00) >> 4) >> 6;
                 dir[2] = (s16)((entry.Param & 0x3FF00000) >> 14) >> 6;
-                // the order of operations here is very specific: discard bottom 12 bits, negate, then sign extend to convert to 11 bit signed int
-                // except for when used to calculate the specular reciprocal; then it's: sign extend, discard lsb, negate.
-                LightDirection[l][0] = -(dir[0]*VecMatrix[0] + dir[1]*VecMatrix[4] + dir[2]*VecMatrix[8] >> 12) << 21 >> 21;
-                LightDirection[l][1] = -(dir[0]*VecMatrix[1] + dir[1]*VecMatrix[5] + dir[2]*VecMatrix[9] >> 12) << 21 >> 21;
-                LightDirection[l][2] = -(dir[0]*VecMatrix[2] + dir[1]*VecMatrix[6] + dir[2]*VecMatrix[10] >> 12) << 21 >> 21;
-                s32 den = -(dir[0]*VecMatrix[2] + dir[1]*VecMatrix[6] + dir[2]*VecMatrix[10] << 9 >> 21) + (1<<9);
+                // the order of operations here is very specific: discard bottom 12 bits -> negate -> then sign extend to convert to 11 bit signed int
+                // except for when used to calculate the specular reciprocal; then it's: sign extend -> discard lsb -> negate.
+                LightDirection[l][0] = (-((dir[0]*VecMatrix[0] + dir[1]*VecMatrix[4] + dir[2]*VecMatrix[8] ) >> 12) << 21) >> 21;
+                LightDirection[l][1] = (-((dir[0]*VecMatrix[1] + dir[1]*VecMatrix[5] + dir[2]*VecMatrix[9] ) >> 12) << 21) >> 21;
+                LightDirection[l][2] = (-((dir[0]*VecMatrix[2] + dir[1]*VecMatrix[6] + dir[2]*VecMatrix[10]) >> 12) << 21) >> 21;
+                s32 den =              -(((dir[0]*VecMatrix[2] + dir[1]*VecMatrix[6] + dir[2]*VecMatrix[10]) << 9) >> 21) + (1<<9);
+
                 if (den == 0) SpecRecip[l] = 0;
                 else SpecRecip[l] = (1<<18) / den;
             }
