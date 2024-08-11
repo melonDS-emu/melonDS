@@ -59,6 +59,8 @@ LocalMP::~LocalMP() noexcept
     }
 
     Mutex_Free(MPQueueLock);
+
+    Log(LogLevel::Info, "MP comm deinited\n");
 }
 
 void LocalMP::Begin(int inst)

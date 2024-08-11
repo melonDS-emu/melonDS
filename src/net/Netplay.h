@@ -19,38 +19,92 @@
 #ifndef NETPLAY_H
 #define NETPLAY_H
 
+#include <queue>
+
+#include <enet/enet.h>
+
 #include "types.h"
+#include "Platform.h"
+#include "LocalMP.h"
 
-namespace Netplay
+namespace melonDS
 {
 
-struct Player
+// since netplay relies on local MP comm locally,
+// we extend the LocalMP class to reuse its functionality
+class Netplay : public LocalMP
 {
-    int ID;
-    char Name[32];
-    int Status; // 0=no player 1=normal 2=host 3=connecting
-    melonDS::u32 Address;
+public:
+    Netplay() noexcept;
+    Netplay(const Netplay&) = delete;
+    Netplay& operator=(const Netplay&) = delete;
+    Netplay(Netplay&& other) = delete;
+    Netplay& operator=(Netplay&& other) = delete;
+    ~Netplay() noexcept;
+
+    enum PlayerStatus
+    {
+        Player_None = 0,        // no player in this entry
+        Player_Client,          // game client
+        Player_Host,            // game host
+        Player_Connecting,      // player still connecting
+        Player_Disconnected,    // player disconnected
+    };
+
+    struct Player
+    {
+        int ID;
+        char Name[32];
+        int Status; // 0=no player 1=normal 2=host 3=connecting
+        u32 Address;
+        bool IsLocalPlayer;
+    };
+
+    bool StartHost(const char* player, int port);
+    bool StartClient(const char* player, const char* host, int port);
+    void EndSession();
+
+    std::vector<Player> GetPlayerList();
+    int GetNumPlayers() { return NumPlayers; }
+    int GetMaxPlayers() { return MaxPlayers; }
+
+    void Process() override;
+
+private:
+    bool Inited;
+    bool Active;
+    bool IsHost;
+
+    ENetHost* Host;
+    ENetPeer* RemotePeers[16];
+
+    Player Players[16];
+    int NumPlayers;
+    int MaxPlayers;
+    Platform::Mutex* PlayersMutex;
+
+    Player MyPlayer;
+    u32 HostAddress;
+    bool Lag;
+
+    int NumMirrorClients;
+
+    struct InputFrame
+    {
+        u32 FrameNum;
+        u32 KeyMask;
+        u32 Touching;
+        u32 TouchX, TouchY;
+    };
+
+    std::queue<InputFrame> InputQueue;
+
+    void StartGame();
+    void StartLocal();
+    void ProcessHost();
+    void ProcessClient();
+    void ProcessFrame();
 };
-
-
-extern bool Active;
-
-bool Init();
-void DeInit();
-
-void StartHost(const char* player, int port);
-void StartClient(const char* player, const char* host, int port);
-void StartMirror(const Player* player);
-
-melonDS::u32 PlayerAddress(int id);
-
-void StartGame();
-void StartLocal();
-
-void StartGame();
-
-void ProcessFrame();
-void ProcessInput();
 
 }
 

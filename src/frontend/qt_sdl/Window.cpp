@@ -75,6 +75,7 @@
 #include "Savestate.h"
 #include "MPInterface.h"
 #include "LANDialog.h"
+#include "NetplayDialog.h"
 
 //#include "main_shaders.h"
 
@@ -1705,14 +1706,14 @@ void MainWindow::onLANStartClient()
 
 void MainWindow::onNPStartHost()
 {
-    //Netplay::StartHost();
-    //NetplayStartHostDialog::openDlg(this);
+    if (!netplayWarning(true)) return;
+    NetplayStartHostDialog::openDlg(this);
 }
 
 void MainWindow::onNPStartClient()
 {
-    //Netplay::StartClient();
-    //NetplayStartClientDialog::openDlg(this);
+    if (!netplayWarning(false)) return;
+    NetplayStartClientDialog::openDlg(this);
 }
 
 void MainWindow::onNPTest()
@@ -1749,6 +1750,15 @@ bool MainWindow::lanWarning(bool host)
         return false;
 
     deleteAllEmuInstances(1);
+    return true;
+}
+
+bool MainWindow::netplayWarning(bool host)
+{
+    // TODO
+    // * if a game is running it needs to be closed
+    // * if multiple instances are open they need to be closed
+
     return true;
 }
 

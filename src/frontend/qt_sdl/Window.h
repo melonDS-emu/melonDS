@@ -242,6 +242,7 @@ private:
     void createScreenPanel();
 
     bool lanWarning(bool host);
+    bool netplayWarning(bool host);
 
     bool showOSD;
 
