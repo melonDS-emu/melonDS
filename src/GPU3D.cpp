@@ -977,41 +977,39 @@ void GPU3D::SubmitPolygon() noexcept
     v1 = &TempVertexBuffer[1];
     v2 = &TempVertexBuffer[2];
     v3 = &TempVertexBuffer[3];
+    
+    s32 vector[4];
+    vector[0] = v0->Position[0] - v2->Position[0];
+    vector[1] = v0->Position[1] - v2->Position[1];
+    vector[2] = v1->Position[0] - v2->Position[0];
+    vector[3] = v1->Position[1] - v2->Position[1];
 
-    normalX = ((s64)(v0->Position[1]-v1->Position[1]) * (v2->Position[3]-v1->Position[3]))
-        - ((s64)(v0->Position[3]-v1->Position[3]) * (v2->Position[1]-v1->Position[1]));
-    normalY = ((s64)(v0->Position[3]-v1->Position[3]) * (v2->Position[0]-v1->Position[0]))
-        - ((s64)(v0->Position[0]-v1->Position[0]) * (v2->Position[3]-v1->Position[3]));
-    normalZ = ((s64)(v0->Position[0]-v1->Position[0]) * (v2->Position[1]-v1->Position[1]))
-        - ((s64)(v0->Position[1]-v1->Position[1]) * (v2->Position[0]-v1->Position[0]));
-
-    while ((((normalX>>31) ^ (normalX>>63)) != 0) ||
-           (((normalY>>31) ^ (normalY>>63)) != 0) ||
-           (((normalZ>>31) ^ (normalZ>>63)) != 0))
+    bool facingview;
+    if ((vector[0] | vector[1]) == 0 || (vector[2] | vector[3]) == 0) // if either vector is 0 the polygon is accepted and treated as front facing.
     {
-        normalX >>= 4;
-        normalY >>= 4;
-        normalZ >>= 4;
+        facingview = true;
     }
-
-    dot = ((s64)v1->Position[0] * normalX) + ((s64)v1->Position[1] * normalY) + ((s64)v1->Position[3] * normalZ);
-
-    bool facingview = (dot <= 0);
-
-    if (dot < 0)
+    else
     {
-        if (!(CurPolygonAttr & (1<<7)))
+        s64 cross = (vector[0] * vector[3]) - (vector[1] * vector[2]);
+
+        facingview = (cross >= 0);
+        
+        if (cross >= 0)
         {
-            LastStripPolygon = NULL;
-            return;
+            if (!(CurPolygonAttr & (1<<7)))
+            {
+                LastStripPolygon = NULL;
+                return;
+            }
         }
-    }
-    else if (dot > 0)
-    {
-        if (!(CurPolygonAttr & (1<<6)))
+        else if (cross <= 0)
         {
-            LastStripPolygon = NULL;
-            return;
+            if (!(CurPolygonAttr & (1<<6)))
+            {
+                LastStripPolygon = NULL;
+                return;
+            }
         }
     }
 
