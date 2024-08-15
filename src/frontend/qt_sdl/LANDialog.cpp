@@ -51,10 +51,11 @@ LANStartHostDialog::LANStartHostDialog(QWidget* parent) : QDialog(parent), ui(ne
 
     setMPInterface(MPInterface_LAN);
 
-    // TODO: remember the last setting? so this doesn't suck massively
-    // we could also remember the player name (and auto-init it from the firmware name or whatever)
+    auto cfg = Config::GetGlobalTable();
+    ui->txtPlayerName->setText(cfg.GetQString("LAN.PlayerName"));
+
     ui->sbNumPlayers->setRange(2, 16);
-    ui->sbNumPlayers->setValue(16);
+    ui->sbNumPlayers->setValue(cfg.GetInt("LAN.HostNumPlayers"));
 }
 
 LANStartHostDialog::~LANStartHostDialog()
@@ -82,6 +83,11 @@ void LANStartHostDialog::done(int r)
         }
 
         lanDlg = LANDialog::openDlg(parentWidget());
+
+        auto cfg = Config::GetGlobalTable();
+        cfg.SetString("LAN.PlayerName", player);
+        cfg.SetInt("LAN.HostNumPlayers", numplayers);
+        Config::Save();
     }
     else
     {
@@ -98,6 +104,9 @@ LANStartClientDialog::LANStartClientDialog(QWidget* parent) : QDialog(parent), u
     setAttribute(Qt::WA_DeleteOnClose);
 
     setMPInterface(MPInterface_LAN);
+
+    auto cfg = Config::GetGlobalTable();
+    ui->txtPlayerName->setText(cfg.GetQString("LAN.PlayerName"));
 
     QStandardItemModel* model = new QStandardItemModel();
     ui->tvAvailableGames->setModel(model);
@@ -209,6 +218,10 @@ void LANStartClientDialog::done(int r)
 
         setEnabled(true);
         lanDlg = LANDialog::openDlg(parentWidget());
+
+        auto cfg = Config::GetGlobalTable();
+        cfg.SetString("LAN.PlayerName", player);
+        Config::Save();
     }
     else
     {
