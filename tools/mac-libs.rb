@@ -77,6 +77,19 @@ def expand_load_path(lib, path)
   return nil
 end
 
+def detect_framework(lib)
+  framework = lib.match(/(.*).framework/)
+  framework = framework.to_s if framework
+
+  if framework
+    fwname = File.basename(framework)
+    fwlib = lib.sub(framework + "/", "")
+    return true, framework, fwname, fwlib
+  else
+    return false
+  end
+end
+
 def system_path?(path)
   path.match(/^\/usr\/lib|^\/System/) != nil
 end
@@ -85,9 +98,10 @@ def system_lib?(lib)
   system_path? File.dirname(lib)
 end
 
-def install_name_tool(exec, action, path1, path2 = nil)
-  args = ["-#{action.to_s}", path1]
-  args << path2 if path2 != nil
+def install_name_tool(exec, *options)
+  args = options.map do |it|
+    if it.is_a? Symbol then "-#{it.to_s}" else it end
+  end
 
   Open3.popen3("install_name_tool", *args, exec) do |stdin, stdout, stderr, thread|
     print stdout.read
@@ -99,58 +113,68 @@ def install_name_tool(exec, action, path1, path2 = nil)
 end
 
 def strip(lib)
-  out, _ = Open3.capture2("strip", "-no_code_signature_warning", "-Sx", lib)
+  out, _ = Open3.capture2("xcrun", "strip", "-no_code_signature_warning", "-Sx", lib)
   print out
 end
 
 def fixup_libs(prog, orig_path)
   throw "fixup_libs: #{prog} doesn't exist" unless File.exist? prog
 
-  libs = get_load_libs(prog).map { |it| expand_load_path(orig_path, it) }.select { |it| not system_lib? it[0] }
+  libs = get_load_libs(prog)
+    .map { |it| expand_load_path(orig_path, it) }
+    .select { |it| not system_lib? it[0] }
 
   FileUtils.chmod("u+w", prog)
   strip prog
+
+  changes = []
+
+  isfw, _, fwname, fwlib = detect_framework(prog)
+  if isfw then
+    changes += [:id, File.join("@rpath", fwname, fwlib)]
+  else
+    changes += [:id, File.join("@rpath", File.basename(prog))]
+  end
 
   libs.each do |lib|
     libpath, libtype = lib
     if File.basename(libpath) == File.basename(prog)
       if libtype == :absolute
-        install_name_tool prog, :change, libpath, File.join("@rpath", File.basename(libpath))
+        changes += [:change, libpath, File.join("@rpath", File.basename(libpath))]
       end
       next
     end
     
-    framework = libpath.match(/(.*).framework/)
-    framework = framework.to_s if framework
+    is_framework, fwpath, fwname, fwlib = detect_framework(libpath)
 
-    if framework
-      fwlib = libpath.sub(framework + "/", "")
-      fwname = File.basename(framework)
-
+    if is_framework
       unless libtype == :rpath
-        install_name_tool prog, :change, libpath, File.join("@rpath", fwname, fwlib)
+        changes += [:change, libpath, File.join("@rpath", fwname, fwlib)]
       end
       
       next if File.exist? File.join(frameworks_dir, fwname)
-      expath, _ = expand_load_path(orig_path, framework)
+      expath, _ = expand_load_path(orig_path, fwpath)
       FileUtils.cp_r(expath, frameworks_dir, preserve: true)
       FileUtils.chmod_R("u+w", File.join(frameworks_dir, fwname))
       fixup_libs File.join(frameworks_dir, fwname, fwlib), libpath
     else
-      libname = File.basename(libpath)
+      reallibpath = File.realpath(libpath)
+      libname = File.basename(reallibpath)
       dest = File.join(frameworks_dir, libname)
 
       if libtype == :absolute
-        install_name_tool prog, :change, libpath, File.join("@rpath", libname)
+        changes += [:change, libpath, File.join("@rpath", libname)]
       end
 
       next if File.exist? dest
-      expath, _ = expand_load_path(orig_path, libpath)
+      expath, _ = expand_load_path(orig_path, reallibpath)
       FileUtils.copy expath, frameworks_dir
       FileUtils.chmod("u+w", dest)
-      fixup_libs dest, libpath
+      fixup_libs dest, reallibpath
     end
   end
+  
+  install_name_tool(prog, *changes)
 end
 
 if ARGV[0] == "--dmg"
@@ -176,14 +200,6 @@ unless File.exist? $bundle and File.exist? File.join($build_dir, "CMakeCache.txt
   exit 1
 end
 
-File.read(File.join($build_dir, "CMakeCache.txt"))
-  .split("\n")
-  .find { |it| it.match /Qt(.)_DIR:PATH=(.*)/ }
-
-qt_major = $1
-qt_dir = $2
-qt_dir = File.absolute_path("#{qt_dir}/../../..")
-
 for lib in get_load_libs(executable) do
   next if system_lib? lib
 
@@ -196,19 +212,38 @@ for lib in get_load_libs(executable) do
   $fallback_rpaths << path unless $fallback_rpaths.include? path
 end
 
-$fallback_rpaths << File.join(qt_dir, "lib")
+$qt_major = nil
 
-plugin_paths = [
-  File.join(qt_dir, "libexec", "qt#{qt_major}", "plugins"),
-  File.join(qt_dir, "plugins"),
-  File.join(qt_dir, "share", "qt", "plugins")
-]
+qt_dirs = File.read(File.join($build_dir, "CMakeCache.txt"))
+  .split("\n")
+  .select { |it| it.match /^Qt([\w]+)_DIR:PATH=.*/ }
+  .map { |dir|
+    dir.match /^Qt(5|6).*\=(.*)/
+    throw "Inconsistent Qt versions found." if $qt_major != nil && $qt_major != $1
+    $qt_major = $1
+    File.absolute_path("#{$2}/../../..")
+  }.uniq
 
-qt_plugins = plugin_paths.find { |file| File.exist? file }
 
-if qt_plugins == nil
-  puts "Couldn't find Qt plugins, tried looking for:"
-  plugin_paths.each { |path| puts " - #{path}" }
+def locate_plugin(dirs, plugin)
+  plugin_paths = [
+    File.join("plugins", plugin),
+    File.join("lib", "qt-#{$qt_major}", "plugins", plugin),
+    File.join("libexec", "qt-#{$qt_major}", "plugins", plugin),
+    File.join("share", "qt", "plugins", plugin)
+  ]
+
+  dirs.each do |dir|
+    plugin_paths.each do |plug|
+      path = File.join(dir, plug)
+      return path if File.exists? path
+    end
+  end
+  puts "Couldn't find the required Qt plugin: #{plugin}"
+  puts "Tried the following prefixes: "
+  puts dirs.map { |dir| "- #{dir}"}.join("\n")
+  puts "With the following plugin paths:"
+  puts plugin_paths.map { |path| "- #{path}"}.join("\n")
   exit 1
 end
 
@@ -217,12 +252,19 @@ fixup_libs(executable, executable)
 
 bundle_plugins = File.join($bundle, "Contents", "PlugIns")
 
-want_plugins = ["styles/libqmacstyle.dylib", "platforms/libqcocoa.dylib", "imageformats/libqsvg.dylib"]
+want_plugins = [
+  "styles/libqmacstyle.dylib",
+  "platforms/libqcocoa.dylib",
+  "imageformats/libqsvg.dylib"
+]
+
 want_plugins.each do |plug|
+  pluginpath = locate_plugin(qt_dirs, plug)
+
   destdir = File.join(bundle_plugins, File.dirname(plug))
   FileUtils.mkdir_p(destdir)
-  FileUtils.copy(File.join(qt_plugins, plug), destdir)
-  fixup_libs File.join(bundle_plugins, plug), File.join(qt_plugins, plug)
+  FileUtils.copy(pluginpath, destdir)
+  fixup_libs File.join(bundle_plugins, plug), pluginpath
 end
 
 want_rpath = "@executable_path/../Frameworks"

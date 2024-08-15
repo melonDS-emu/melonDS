@@ -13,7 +13,7 @@
 				{
 					"name": "qtbase",
 					"default-features": false,
-					"features": ["gui", "png", "thread", "widgets", "opengl", "zstd"]
+					"features": ["gui", "png", "thread", "widgets", "opengl", "zstd", "harfbuzz"]
 				},
 				{
 					"name": "qtbase",

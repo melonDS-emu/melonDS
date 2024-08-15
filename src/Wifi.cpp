@@ -1645,9 +1645,21 @@ bool Wifi::CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
     *(u16*)&RXBuffer[6] = txrate;
     *(u16*)&RXBuffer[8] = framelen;
 
+    u16 frametype = (framectl & 0x00FF);
     bool macgood = (RXBuffer[12 + 4] & 0x01) || MACEqual(&RXBuffer[12 + 4], (u8*)&IOPORT(W_MACAddr0));
 
-    if (((framectl & 0x00FF) == 0x0010) && timestamp && macgood)
+    // HACK: when receiving auth/assoc frames, extend the post-beacon interval
+    // during MP comm, the host will periodically wake up to send a beacon, and stay awake during the
+    // post-beacon interval to see if any clients are trying to connect
+    // the auth/assoc procedure would normally fit during that window, but when we are emulating wifi
+    // and not yet synced, these frames may lag behind, preventing a successful connection
+    if ((frametype == 0x00B0 || frametype == 0x0010 || frametype == 0x0000) && timestamp && macgood)
+    {
+        if (IOPORT(W_BeaconCount2))
+            IOPORT(W_BeaconCount2) += 10;
+    }
+
+    if ((frametype == 0x0010) && timestamp && macgood)
     {
         // if receiving an association response: get the sync value from the host
 
@@ -1666,7 +1678,7 @@ bool Wifi::CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
         RXTimestamp = 0;
         StartRX();
     }
-    else if (((framectl & 0x00FF) == 0x00C0) && timestamp && macgood && IsMPClient)
+    else if ((frametype == 0x00C0) && timestamp && macgood && IsMPClient)
     {
         IsMP = false;
         IsMPClient = false;
