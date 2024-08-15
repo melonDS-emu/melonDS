@@ -1733,6 +1733,8 @@ void MainWindow::updateMPInterface(MPInterfaceType type)
     actNPStartHost->setEnabled(enable);
     actNPStartClient->setEnabled(enable);
     actNPTest->setEnabled(enable);
+
+    // TODO: for netplay, disable a lot more stuff
 }
 
 bool MainWindow::lanWarning(bool host)
@@ -1755,9 +1757,39 @@ bool MainWindow::lanWarning(bool host)
 
 bool MainWindow::netplayWarning(bool host)
 {
-    // TODO
-    // * if a game is running it needs to be closed
-    // * if multiple instances are open they need to be closed
+    QString verb = host ? "host" : "join";
+
+    bool doStop = false;
+    bool doDelInstances = false;
+
+    if (emuInstance->emuIsActive())
+    {
+        QString msg = "The emulator is currently running.\n"
+                      "If you "+verb+" a netplay game now, the current game will be stopped.\n\n"
+                                     "Do you wish to continue?";
+
+        auto res = QMessageBox::warning(this, "melonDS", msg, QMessageBox::Yes|QMessageBox::No, QMessageBox::No);
+        if (res == QMessageBox::No)
+            return false;
+
+        doStop = true;
+    }
+
+    if (numEmuInstances() >= 2)
+    {
+        QString msg = "Multiple emulator instances are currently open.\n"
+                      "If you "+verb+" a netplay game now, all secondary instances will be closed.\n\n"
+                                         "Do you wish to continue?";
+
+        auto res = QMessageBox::warning(this, "melonDS", msg, QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (res == QMessageBox::No)
+            return false;
+
+        doDelInstances = true;
+    }
+
+    if (doStop) emuThread->emuStop(true);
+    if (doDelInstances) deleteAllEmuInstances(1);
 
     return true;
 }
