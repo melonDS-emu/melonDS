@@ -37,7 +37,26 @@
 namespace melonDS
 {
 
+const u32 kNetplayMagic = 0x5054454E; // NETP
+
+const u32 kProtocolVersion = 1;
+
 const u32 kLocalhost = 0x0100007F;
+
+enum
+{
+    Chan_Input0 = 0,        // channels 0-15 -- input from players 0-15 resp.
+    Chan_Cmd = 16,          // channel 16 -- control commands
+};
+
+enum
+{
+    Cmd_ClientInit = 1,     // 01 -- host->client -- init new client and assign ID
+    Cmd_PlayerInfo,         // 02 -- client->host -- send client player info to host
+    Cmd_PlayerList,         // 03 -- host->client -- broadcast updated player list
+    //Cmd_PlayerConnect,      // 04 -- both -- signal connected state (ready to receive MP frames)
+    //Cmd_PlayerDisconnect,   // 05 -- both -- signal disconnected state (not receiving MP frames)
+};
 
 
 Netplay::Netplay() noexcept : LocalMP(), Inited(false)
@@ -175,7 +194,7 @@ bool Netplay::StartClient(const char* playername, const char* host, int port)
         return false;
     }
 
-    ENetEvent event;
+    /*ENetEvent event;
     bool conn = false;
     if (enet_host_service(Host, &event, 5000) > 0)
     {
@@ -191,6 +210,74 @@ bool Netplay::StartClient(const char* playername, const char* host, int port)
         printf("connection failed\n");
         enet_peer_reset(peer);
         return false;
+    }*/
+
+    ENetEvent event;
+    int conn = 0;
+    u32 starttick = (u32)Platform::GetMSCount();
+    const int conntimeout = 5000;
+    for (;;)
+    {
+        u32 curtick = (u32)Platform::GetMSCount();
+        if (curtick < starttick) break;
+        int timeout = conntimeout - (int)(curtick - starttick);
+        if (timeout < 0) break;
+        if (enet_host_service(Host, &event, timeout) > 0)
+        {
+            if (conn == 0 && event.type == ENET_EVENT_TYPE_CONNECT)
+            {
+                conn = 1;
+            }
+            else if (conn == 1 && event.type == ENET_EVENT_TYPE_RECEIVE)
+            {
+                u8* data = event.packet->data;
+                if (event.channelID != Chan_Cmd) continue;
+                if (data[0] != Cmd_ClientInit) continue;
+                if (event.packet->dataLength != 11) continue;
+
+                u32 magic = data[1] | (data[2] << 8) | (data[3] << 16) | (data[4] << 24);
+                u32 version = data[5] | (data[6] << 8) | (data[7] << 16) | (data[8] << 24);
+                if (magic != kNetplayMagic) continue;
+                if (version != kProtocolVersion) continue;
+                if (data[10] > 16) continue;
+
+                MaxPlayers = data[10];
+
+                // send player information
+                MyPlayer.ID = data[9];
+                u8 cmd[9+sizeof(Player)];
+                cmd[0] = Cmd_PlayerInfo;
+                cmd[1] = (u8)kNetplayMagic;
+                cmd[2] = (u8)(kNetplayMagic >> 8);
+                cmd[3] = (u8)(kNetplayMagic >> 16);
+                cmd[4] = (u8)(kNetplayMagic >> 24);
+                cmd[5] = (u8)kProtocolVersion;
+                cmd[6] = (u8)(kProtocolVersion >> 8);
+                cmd[7] = (u8)(kProtocolVersion >> 16);
+                cmd[8] = (u8)(kProtocolVersion >> 24);
+                memcpy(&cmd[9], &MyPlayer, sizeof(Player));
+                ENetPacket* pkt = enet_packet_create(cmd, 9+sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
+                enet_peer_send(event.peer, Chan_Cmd, pkt);
+
+                conn = 2;
+                break;
+            }
+            else if (event.type == ENET_EVENT_TYPE_DISCONNECT)
+            {
+                conn = 0;
+                break;
+            }
+        }
+        else
+            break;
+    }
+
+    if (conn != 2)
+    {
+        enet_peer_reset(peer);
+        enet_host_destroy(Host);
+        Host = nullptr;
+        return false;
     }
 
     Player* player = &MyPlayer;
@@ -200,6 +287,7 @@ bool Netplay::StartClient(const char* playername, const char* host, int port)
     player->Status = 3;
 
     HostAddress = addr.host;
+    RemotePeers[0] = peer;
 
     Active = true;
     IsHost = false;
@@ -649,28 +737,57 @@ void Netplay::ProcessHost()
         {
         case ENET_EVENT_TYPE_CONNECT:
             {
+                if ((NumPlayers >= MaxPlayers) || (NumPlayers >= 16))
+                {
+                    // game is full, reject connection
+                    enet_peer_disconnect(event.peer, 0);
+                    break;
+                }
+
+                // TODO: reject connection if game is running
+
                 // client connected; assign player number
 
                 int id;
                 for (id = 0; id < 16; id++)
                 {
                     if (id >= NumPlayers) break;
-                    if (Players[id].Status == 0) break;
+                    if (Players[id].Status == Player_None) break;
                 }
 
                 if (id < 16)
                 {
-                    u8 cmd[2];
-                    cmd[0] = 0x01;
-                    cmd[1] = (u8)id;
-                    ENetPacket* pkt = enet_packet_create(cmd, 2, ENET_PACKET_FLAG_RELIABLE);
-                    enet_peer_send(event.peer, 0, pkt);
+                    u8 cmd[11];
+                    cmd[0] = Cmd_ClientInit;
+                    cmd[1] = (u8)kNetplayMagic;
+                    cmd[2] = (u8)(kNetplayMagic >> 8);
+                    cmd[3] = (u8)(kNetplayMagic >> 16);
+                    cmd[4] = (u8)(kNetplayMagic >> 24);
+                    cmd[5] = (u8)kProtocolVersion;
+                    cmd[6] = (u8)(kProtocolVersion >> 8);
+                    cmd[7] = (u8)(kProtocolVersion >> 16);
+                    cmd[8] = (u8)(kProtocolVersion >> 24);
+                    cmd[9] = (u8)id;
+                    cmd[10] = MaxPlayers;
+                    ENetPacket* pkt = enet_packet_create(cmd, 11, ENET_PACKET_FLAG_RELIABLE);
+                    enet_peer_send(event.peer, Chan_Cmd, pkt);
+
+                    Platform::Mutex_Lock(PlayersMutex);
 
                     Players[id].ID = id;
-                    Players[id].Status = 3;
+                    Players[id].Status = Player_Connecting;
                     Players[id].Address = event.peer->address.host;
                     event.peer->data = &Players[id];
                     NumPlayers++;
+
+                    Platform::Mutex_Unlock(PlayersMutex);
+
+                    RemotePeers[id] = event.peer;
+                }
+                else
+                {
+                    // ???
+                    enet_peer_disconnect(event.peer, 0);
                 }
             }
             break;
@@ -737,7 +854,32 @@ void Netplay::ProcessClient()
         switch (event.type)
         {
         case ENET_EVENT_TYPE_CONNECT:
-            printf("schmo\n");
+            {
+                // another client is establishing a direct connection to us
+
+                int playerid = -1;
+                for (int i = 0; i < 16; i++)
+                {
+                    Player* player = &Players[i];
+                    if (i == MyPlayer.ID) continue;
+                    if (player->Status != Player_Client) continue;
+
+                    if (player->Address == event.peer->address.host)
+                    {
+                        playerid = i;
+                        break;
+                    }
+                }
+
+                if (playerid < 0)
+                {
+                    enet_peer_disconnect(event.peer, 0);
+                    break;
+                }
+
+                RemotePeers[playerid] = event.peer;
+                event.peer->data = &Players[playerid];
+            }
             break;
 
         case ENET_EVENT_TYPE_DISCONNECT:
@@ -754,7 +896,7 @@ void Netplay::ProcessClient()
                 u8* data = (u8*)event.packet->data;
                 switch (data[0])
                 {
-                case 0x01: // host sending player ID
+                case Cmd_ClientInit: // host sending player ID
                     {
                         if (event.packet->dataLength != 2) break;
 
@@ -782,10 +924,12 @@ printf("client mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr
                     }
                     break;
 
-                case 0x03: // host sending player list
+                case Cmd_PlayerList: // host sending player list
                     {
                         if (event.packet->dataLength != (2+sizeof(Players))) break;
                         if (data[1] > 16) break;
+printf("client: receive player list, %08X %d\n", event.peer->address.host, event.peer->address.port);
+                        Platform::Mutex_Lock(PlayersMutex);
 
                         NumPlayers = data[1];
                         memcpy(Players, &data[2], sizeof(Players));
@@ -794,7 +938,28 @@ printf("client mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr
                             Players[i].Name[31] = '\0';
                         }
 
-                        //netplayDlg->updatePlayerList(Players, NumPlayers);
+                        Platform::Mutex_Unlock(PlayersMutex);
+
+                        // establish connections to any new clients
+                        for (int i = 0; i < 16; i++)
+                        {
+                            Player* player = &Players[i];
+                            if (i == MyPlayer.ID) continue;
+                            if (player->Status != Player_Client) continue;
+
+                            if (!RemotePeers[i])
+                            {
+                                ENetAddress peeraddr;
+                                peeraddr.host = player->Address;
+                                peeraddr.port = event.peer->address.port;
+                                ENetPeer* peer = enet_host_connect(Host, &peeraddr, 2, 0);
+                                if (!peer)
+                                {
+                                    // TODO deal with this
+                                    continue;
+                                }
+                            }
+                        }
                     }
                     break;
 
@@ -982,13 +1147,14 @@ printf("mirror client lag notify: %d\n", lag);
 }
 #endif
 
-void Netplay::ProcessFrame()
+void Netplay::ProcessFrame(int inst)
 {
     /*if (IsMirror)
     {
         ProcessMirrorClient();
     }
     else*/
+    if (inst == 0)
     {
         if (IsHost)
         {
@@ -1079,10 +1245,10 @@ void Netplay::ProcessInput()
 }
 #endif
 
-void Netplay::Process()
+void Netplay::Process(int inst)
 {
-    ProcessFrame();
-    LocalMP::Process();
+    ProcessFrame(inst);
+    LocalMP::Process(inst);
 }
 
 }

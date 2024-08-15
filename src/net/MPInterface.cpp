@@ -27,7 +27,7 @@ namespace melonDS
 class DummyMP : public MPInterface
 {
 public:
-    void Process() override {}
+    void Process(int inst) override {}
 
     void Begin(int inst) override {}
     void End(int inst) override {}

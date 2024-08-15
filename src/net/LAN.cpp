@@ -843,7 +843,7 @@ void LAN::ProcessLAN(int type)
             bool good = true;
             if (event.packet->dataLength < sizeof(MPPacketHeader))
                 good = false;
-            else if (header->Magic != 0x4946494E)
+            else if (header->Magic != kPacketMagic)
                 good = false;
             else if (header->SenderID == MyPlayer.ID)
                 good = false;
@@ -881,7 +881,7 @@ void LAN::ProcessLAN(int type)
     }
 }
 
-void LAN::Process()
+void LAN::Process(int inst)
 {
     if (!Active) return;
 
@@ -945,7 +945,7 @@ int LAN::SendPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
     ENetPacket* enetpacket = enet_packet_create(nullptr, sizeof(MPPacketHeader)+len, flags);
 
     MPPacketHeader pktheader;
-    pktheader.Magic = 0x4946494E;
+    pktheader.Magic = kPacketMagic;
     pktheader.SenderID = MyPlayer.ID;
     pktheader.Type = type;
     pktheader.Length = len;

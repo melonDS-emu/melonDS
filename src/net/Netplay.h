@@ -68,7 +68,7 @@ public:
     int GetNumPlayers() { return NumPlayers; }
     int GetMaxPlayers() { return MaxPlayers; }
 
-    void Process() override;
+    void Process(int inst) override;
 
 private:
     bool Inited;
@@ -103,7 +103,7 @@ private:
     void StartLocal();
     void ProcessHost();
     void ProcessClient();
-    void ProcessFrame();
+    void ProcessFrame(int inst);
 };
 
 }

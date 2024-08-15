@@ -29,6 +29,9 @@ using Platform::LogLevel;
 namespace melonDS
 {
 
+const u32 kPacketMagic = 0x4946494E; // NIFI
+
+
 LocalMP::LocalMP() noexcept :
     MPQueueLock(Mutex_Create())
 {
@@ -166,7 +169,7 @@ int LocalMP::SendPacketGeneric(int inst, u32 type, u8* packet, int len, u64 time
     // TODO: check if the FIFO is full!
 
     MPPacketHeader pktheader;
-    pktheader.Magic = 0x4946494E;
+    pktheader.Magic = kPacketMagic;
     pktheader.SenderID = inst;
     pktheader.Type = type;
     pktheader.Length = len;
@@ -224,7 +227,7 @@ int LocalMP::RecvPacketGeneric(int inst, u8* packet, bool block, u64* timestamp)
         MPPacketHeader pktheader = {};
         FIFORead(inst, 0, &pktheader, sizeof(pktheader));
 
-        if (pktheader.Magic != 0x4946494E)
+        if (pktheader.Magic != kPacketMagic)
         {
             Log(LogLevel::Warn, "PACKET FIFO OVERFLOW\n");
             PacketReadOffset[inst] = MPStatus.PacketWriteOffset;
@@ -323,7 +326,7 @@ u16 LocalMP::RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask)
         MPPacketHeader pktheader = {};
         FIFORead(inst, 1, &pktheader, sizeof(pktheader));
 
-        if (pktheader.Magic != 0x4946494E)
+        if (pktheader.Magic != kPacketMagic)
         {
             Log(LogLevel::Warn, "REPLY FIFO OVERFLOW\n");
             ReplyReadOffset[inst] = MPStatus.ReplyWriteOffset;

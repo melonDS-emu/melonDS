@@ -94,7 +94,7 @@ public:
     int GetNumPlayers() { return NumPlayers; }
     int GetMaxPlayers() { return MaxPlayers; }
 
-    void Process() override;
+    void Process(int inst) override;
 
     void Begin(int inst) override;
     void End(int inst) override;

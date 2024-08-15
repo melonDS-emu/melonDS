@@ -71,7 +71,7 @@ DefaultList<int> DefaultInts =
 #ifdef GDBSTUB_ENABLED
     {"Instance*.Gdb.ARM7.Port", 3334},
     {"Instance*.Gdb.ARM9.Port", 3333},
-#endif,
+#endif
     {"LAN.HostNumPlayers", 16},
 };
 
