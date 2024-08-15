@@ -995,7 +995,7 @@ void GPU3D::SubmitPolygon() noexcept
 
         facingview = (cross >= 0);
         
-        if (cross >= 0)
+        if (cross > 0)
         {
             if (!(CurPolygonAttr & (1<<7)))
             {
@@ -1003,9 +1003,17 @@ void GPU3D::SubmitPolygon() noexcept
                 return;
             }
         }
-        else if (cross <= 0)
+        else if (cross < 0)
         {
             if (!(CurPolygonAttr & (1<<6)))
+            {
+                LastStripPolygon = NULL;
+                return;
+            }
+        }
+        else // cross == 0
+        {
+            if (!(CurPolygonAttr & (3<<6)))
             {
                 LastStripPolygon = NULL;
                 return;
@@ -1357,10 +1365,10 @@ void GPU3D::SubmitVertex() noexcept
     Vertex* vertextrans = &TempVertexBuffer[VertexNumInPoly];
 
     UpdateClipMatrix();
-    vertextrans->Position[0] = (vertex[0]*ClipMatrix[0] + vertex[1]*ClipMatrix[4] + vertex[2]*ClipMatrix[8] + vertex[3]*ClipMatrix[12]) >> 12;
-    vertextrans->Position[1] = (vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) >> 12;
-    vertextrans->Position[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
-    vertextrans->Position[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
+    vertextrans->Position[0] = ((vertex[0]*ClipMatrix[0] + vertex[1]*ClipMatrix[4] + vertex[2]*ClipMatrix[8] + vertex[3]*ClipMatrix[12]) << 25) >> 41;
+    vertextrans->Position[1] = ((vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) << 25) >> 41;
+    vertextrans->Position[2] = ((vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) << 25) >> 41;
+    vertextrans->Position[3] = ((vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) << 25) >> 41;
 
     // this probably shouldn't be.
     // the way color is handled during clipping needs investigation. TODO
