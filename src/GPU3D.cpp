@@ -965,13 +965,9 @@ void GPU3D::SubmitPolygon() noexcept
     VertexSlotCounter = 1;
     VertexSlotsFree = 0b11110;
 
-    // culling
-    // TODO: work out how it works on the real thing
-    // the normalization part is a wild guess
+    // determine polygon facing direction
 
     Vertex *v0, *v1, *v2, *v3;
-    s64 normalX, normalY, normalZ;
-    s64 dot;
 
     v0 = &TempVertexBuffer[0];
     v1 = &TempVertexBuffer[1];
@@ -985,39 +981,28 @@ void GPU3D::SubmitPolygon() noexcept
     vector[3] = v1->Position[1] - v2->Position[1];
 
     bool facingview;
-    if ((vector[0] | vector[1]) == 0 || (vector[2] | vector[3]) == 0) // if either vector is 0 the polygon is accepted and treated as front facing.
+    if ((vector[0] | vector[1]) == 0 || (vector[2] | vector[3]) == 0) [[unlikely]] // if either vector is 0 the polygon is accepted and treated as front facing.
     {
         facingview = true;
     }
     else
     {
-        s64 cross = (vector[0] * vector[3]) - (vector[1] * vector[2]);
+        // calculate z component of cross product
+        s64 cross = ((s64)vector[0] * vector[3]) - ((s64)vector[1] * vector[2]);
 
+        // set a flag for the rasterizer used for:
+        // unwinding vertices
+        // determining whether slopes are swapped
+        // the less than depth test's == special case
         facingview = (cross >= 0);
         
-        if (cross > 0)
+        // cull polygon if corresponding render flag isn't set
+        if (((cross >= 0) && (CurPolygonAttr & (1<<7))) || // front facing
+            ((cross <= 0) && (CurPolygonAttr & (1<<6))));  // back facing
+        else
         {
-            if (!(CurPolygonAttr & (1<<7)))
-            {
-                LastStripPolygon = NULL;
-                return;
-            }
-        }
-        else if (cross < 0)
-        {
-            if (!(CurPolygonAttr & (1<<6)))
-            {
-                LastStripPolygon = NULL;
-                return;
-            }
-        }
-        else // cross == 0
-        {
-            if (!(CurPolygonAttr & (3<<6)))
-            {
-                LastStripPolygon = NULL;
-                return;
-            }
+            LastStripPolygon = NULL;
+            return;
         }
     }
 
@@ -1365,10 +1350,10 @@ void GPU3D::SubmitVertex() noexcept
     Vertex* vertextrans = &TempVertexBuffer[VertexNumInPoly];
 
     UpdateClipMatrix();
-    vertextrans->Position[0] = ((vertex[0]*ClipMatrix[0] + vertex[1]*ClipMatrix[4] + vertex[2]*ClipMatrix[8] + vertex[3]*ClipMatrix[12]) << 25) >> 41;
-    vertextrans->Position[1] = ((vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) << 25) >> 41;
-    vertextrans->Position[2] = ((vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) << 25) >> 41;
-    vertextrans->Position[3] = ((vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) << 25) >> 41;
+    vertextrans->Position[0] = (vertex[0]*ClipMatrix[0] + vertex[1]*ClipMatrix[4] + vertex[2]*ClipMatrix[8] + vertex[3]*ClipMatrix[12]) >> 12;
+    vertextrans->Position[1] = (vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) >> 12;
+    vertextrans->Position[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
+    vertextrans->Position[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
 
     // this probably shouldn't be.
     // the way color is handled during clipping needs investigation. TODO
