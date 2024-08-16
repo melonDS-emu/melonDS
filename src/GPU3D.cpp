@@ -974,31 +974,41 @@ void GPU3D::SubmitPolygon() noexcept
     v2 = &TempVertexBuffer[2];
     v3 = &TempVertexBuffer[3];
     
-    s32 vector[4];
+    s32 vector[6];
     vector[0] = v0->Position[0] - v2->Position[0];
     vector[1] = v0->Position[1] - v2->Position[1];
-    vector[2] = v1->Position[0] - v2->Position[0];
-    vector[3] = v1->Position[1] - v2->Position[1];
+    vector[2] = v0->Position[3] - v2->Position[3];
+    vector[3] = v1->Position[0] - v2->Position[0];
+    vector[4] = v1->Position[1] - v2->Position[1];
+    vector[5] = v1->Position[3] - v2->Position[3];
 
     bool facingview;
-    if ((vector[0] | vector[1]) == 0 || (vector[2] | vector[3]) == 0) [[unlikely]] // if either vector is 0 the polygon is accepted and treated as front facing.
+    if ((vector[0] | vector[1] | vector[2]) == 0 || (vector[3] | vector[4] | vector[5]) == 0) [[unlikely]] // if either vector is 0 the polygon is accepted and treated as front facing.
     {
         facingview = true;
     }
     else
     {
         // calculate z component of cross product
-        s64 cross = ((s64)vector[0] * vector[3]) - ((s64)vector[1] * vector[2]);
+        s64 crossx = ((s64)vector[1] * vector[5]) - ((s64)vector[2] * vector[4]);
+        s64 crossy = ((s64)vector[2] * vector[3]) - ((s64)vector[0] * vector[5]);
+        s64 crossz = ((s64)vector[0] * vector[4]) - ((s64)vector[1] * vector[3]);
+
+        crossx *= v2->Position[0];
+        crossy *= v2->Position[1];
+        crossz *= v2->Position[3];
+
+        s64 dot = crossx + crossy + crossz;
 
         // set a flag for the rasterizer used for:
         // unwinding vertices
         // determining whether slopes are swapped
         // the less than depth test's == special case
-        facingview = (cross >= 0);
+        facingview = (dot >= 0);
         
         // cull polygon if corresponding render flag isn't set
-        if (((cross >= 0) && (CurPolygonAttr & (1<<7))) || // front facing
-            ((cross <= 0) && (CurPolygonAttr & (1<<6))));  // back facing
+        if (((dot >= 0) && (CurPolygonAttr & (1<<7))) || // front facing
+            ((dot <= 0) && (CurPolygonAttr & (1<<6))));  // back facing
         else
         {
             LastStripPolygon = NULL;
