@@ -2,25 +2,13 @@
 <ui version="4.0">
  <class>AboutDialog</class>
  <widget class="QDialog" name="AboutDialog">
-  <property name="windowModality">
-   <enum>Qt::WindowModality::NonModal</enum>
-  </property>
-  <property name="enabled">
-   <bool>true</bool>
-  </property>
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
     <width>600</width>
-    <height>280</height>
+    <height>286</height>
    </rect>
-  </property>
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
   </property>
   <property name="minimumSize">
    <size>
@@ -99,7 +87,7 @@
       </widget>
      </item>
      <item>
-      <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,0,0,0">
+      <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,0,0,1">
        <property name="spacing">
         <number>12</number>
        </property>
@@ -164,9 +152,6 @@
            <pointsize>10</pointsize>
           </font>
          </property>
-         <property name="styleSheet">
-          <string notr="true"/>
-         </property>
          <property name="text">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Licensed under the GNU General Public License v3 or any newer version.&lt;/p&gt;&lt;p&gt;melonDS is intended only for use with software that you own.&lt;/p&gt;&lt;p&gt;The Nintendo DS and Nintendo DSi systems are the property of Nintendo.&lt;br /&gt;melonDS and the melonDS team are not affiliated with or endorsed by Nintendo.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
@@ -188,7 +173,7 @@
       <number>12</number>
      </property>
      <property name="topMargin">
-      <number>6</number>
+      <number>12</number>
      </property>
      <item>
       <spacer name="horizontalSpacer">
