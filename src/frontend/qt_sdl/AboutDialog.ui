@@ -3,34 +3,73 @@
  <class>AboutDialog</class>
  <widget class="QDialog" name="AboutDialog">
   <property name="windowModality">
-   <enum>Qt::WindowModality::WindowModal</enum>
+   <enum>Qt::WindowModality::NonModal</enum>
+  </property>
+  <property name="enabled">
+   <bool>true</bool>
   </property>
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>588</width>
-    <height>320</height>
+    <width>600</width>
+    <height>280</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>600</width>
+    <height>0</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>About melonDS</string>
   </property>
   <property name="modal">
-   <bool>true</bool>
+   <bool>false</bool>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <layout class="QVBoxLayout" name="verticalLayout" stretch="1,0">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="sizeConstraint">
+    <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+   </property>
    <property name="bottomMargin">
     <number>12</number>
    </property>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2">
+    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1">
      <property name="spacing">
       <number>24</number>
      </property>
+     <property name="sizeConstraint">
+      <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+     </property>
      <item alignment="Qt::AlignmentFlag::AlignTop">
-      <widget class="QLabel" name="label">
+      <widget class="QLabel" name="lblLogo">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
        <property name="maximumSize">
+        <size>
+         <width>128</width>
+         <height>128</height>
+        </size>
+       </property>
+       <property name="baseSize">
         <size>
          <width>128</width>
          <height>128</height>
@@ -39,21 +78,36 @@
        <property name="text">
         <string/>
        </property>
+       <property name="textFormat">
+        <enum>Qt::TextFormat::PlainText</enum>
+       </property>
        <property name="pixmap">
         <pixmap resource="../../../res/melon.qrc">:/melon-icon</pixmap>
        </property>
        <property name="scaledContents">
         <bool>true</bool>
        </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+       <property name="margin">
+        <number>0</number>
+       </property>
+       <property name="indent">
+        <number>0</number>
+       </property>
       </widget>
      </item>
      <item>
-      <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,0,1,0,0">
+      <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,0,0,0">
        <property name="spacing">
         <number>12</number>
        </property>
        <item alignment="Qt::AlignmentFlag::AlignTop">
         <widget class="QLabel" name="label_2">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
          <property name="font">
           <font>
            <pointsize>32</pointsize>
@@ -65,14 +119,10 @@
         </widget>
        </item>
        <item>
-        <widget class="QLabel" name="label_4">
-         <property name="text">
-          <string>Nintendo DS and DSi emulator – by Arisotura, Generic, Nadia, Rayyan, et al</string>
-         </property>
-        </widget>
-       </item>
-       <item alignment="Qt::AlignmentFlag::AlignTop">
         <widget class="QLabel" name="lblVersionInfo">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
          <property name="text">
           <string>[VERSION INFO PLACEHOLDER]</string>
          </property>
@@ -82,41 +132,49 @@
         </widget>
        </item>
        <item>
-        <spacer name="verticalSpacer">
-         <property name="orientation">
-          <enum>Qt::Orientation::Vertical</enum>
+        <widget class="QLabel" name="label_4">
+         <property name="enabled">
+          <bool>true</bool>
          </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
+         <property name="text">
+          <string>By Arisotura, Generic, Jakly, Nadia, Rayyan, et al.</string>
          </property>
-        </spacer>
+        </widget>
        </item>
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout"/>
+        <widget class="QLabel" name="lblBuildInfo">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="text">
+          <string>[EMBEDDED BUILD INFO PLACEHOLDER]</string>
+         </property>
+         <property name="textInteractionFlags">
+          <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+         </property>
+        </widget>
        </item>
-       <item>
+       <item alignment="Qt::AlignmentFlag::AlignBottom">
         <widget class="QLabel" name="label_3">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <property name="font">
           <font>
            <pointsize>10</pointsize>
           </font>
          </property>
          <property name="styleSheet">
-          <string notr="true">color: gray;</string>
+          <string notr="true"/>
          </property>
          <property name="text">
-          <string>Licensed under the GNU General Public License v3 or any newer version.  
-melonDS is intended only for use with software that you own.  
-The Nintendo DS and Nintendo DSi systems are the property of Nintendo. melonDS and the melonDS team are not affiliated with or endorsed by Nintendo.</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Licensed under the GNU General Public License v3 or any newer version.&lt;/p&gt;&lt;p&gt;melonDS is intended only for use with software that you own.&lt;/p&gt;&lt;p&gt;The Nintendo DS and Nintendo DSi systems are the property of Nintendo.&lt;br /&gt;melonDS and the melonDS team are not affiliated with or endorsed by Nintendo.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="textFormat">
-          <enum>Qt::TextFormat::MarkdownText</enum>
+          <enum>Qt::TextFormat::RichText</enum>
          </property>
          <property name="wordWrap">
-          <bool>true</bool>
+          <bool>false</bool>
          </property>
         </widget>
        </item>
@@ -126,24 +184,33 @@ The Nintendo DS and Nintendo DSi systems are the property of Nintendo. melonDS a
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_3">
-     <property name="topMargin">
+     <property name="spacing">
       <number>12</number>
+     </property>
+     <property name="topMargin">
+      <number>6</number>
      </property>
      <item>
       <spacer name="horizontalSpacer">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
        <property name="orientation">
         <enum>Qt::Orientation::Horizontal</enum>
        </property>
        <property name="sizeHint" stdset="0">
         <size>
          <width>40</width>
-         <height>20</height>
+         <height>0</height>
         </size>
        </property>
       </spacer>
      </item>
      <item>
-      <widget class="QPushButton" name="pushButton">
+      <widget class="QPushButton" name="btnOpenWebsite">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
        <property name="text">
         <string>Visit the &amp;website</string>
        </property>
@@ -153,7 +220,10 @@ The Nintendo DS and Nintendo DSi systems are the property of Nintendo. melonDS a
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="pushButton_2">
+      <widget class="QPushButton" name="btnOpenGitHub">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
        <property name="text">
         <string>View on &amp;GitHub</string>
        </property>
@@ -163,7 +233,10 @@ The Nintendo DS and Nintendo DSi systems are the property of Nintendo. melonDS a
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="pushButton_3">
+      <widget class="QPushButton" name="btnClose">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
        <property name="text">
         <string>&amp;Close</string>
        </property>
@@ -179,5 +252,58 @@ The Nintendo DS and Nintendo DSi systems are the property of Nintendo. melonDS a
  <resources>
   <include location="../../../res/melon.qrc"/>
  </resources>
- <connections/>
+ <connections>
+  <connection>
+   <sender>btnClose</sender>
+   <signal>clicked()</signal>
+   <receiver>AboutDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>586</x>
+     <y>261</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>294</x>
+     <y>154</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>btnOpenGitHub</sender>
+   <signal>clicked()</signal>
+   <receiver>AboutDialog</receiver>
+   <slot>openGitHub()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>449</x>
+     <y>243</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>299</x>
+     <y>139</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>btnOpenWebsite</sender>
+   <signal>clicked()</signal>
+   <receiver>AboutDialog</receiver>
+   <slot>openWebsite()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>345</x>
+     <y>245</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>96</x>
+     <y>275</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>openWebsite()</slot>
+  <slot>openGitHub()</slot>
+ </slots>
 </ui>
