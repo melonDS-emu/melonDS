@@ -38,6 +38,10 @@ public:
 
     ~AboutDialog() override;
 
+private slots:
+    static void openWebsite();
+    static void openGitHub();
+
 private:
     Ui::AboutDialog *ui;
 };

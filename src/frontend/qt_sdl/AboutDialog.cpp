@@ -17,6 +17,9 @@
 */
 
 #include "AboutDialog.h"
+
+#include <QDesktopServices>
+
 #include "ui_AboutDialog.h"
 
 #include "version.h"
@@ -25,15 +28,31 @@ AboutDialog::AboutDialog(QWidget *parent) :
     QDialog(parent), ui(new Ui::AboutDialog)
 {
     ui->setupUi(this);
-    setModal(true);
-    setWindowModality(Qt::ApplicationModal);
 
-    ui->lblVersionInfo->setText(
-        "**Version:** " MELONDS_VERSION
+    ui->lblVersionInfo->setText("Version " MELONDS_VERSION);
+#ifdef MELONDS_EMBED_BUILD_INFO
+    ui->lblBuildInfo->setText(
+        "Branch: " MELONDS_GIT_BRANCH "\n"
+        "Commit: " MELONDS_GIT_HASH "\n"
+        "Built by: " MELONDS_BUILD_PROVIDER
     );
+#else
+    ui->lblBuildInfo->hide();
+#endif
+    adjustSize();
 }
 
 AboutDialog::~AboutDialog()
 {
     delete ui;
+}
+
+void AboutDialog::openWebsite()
+{
+    QDesktopServices::openUrl(QUrl(MELONDS_URL));
+}
+
+void AboutDialog::openGitHub()
+{
+    QDesktopServices::openUrl(QUrl("https://github.com/melonDS-emu/melonDS"));;
 }
