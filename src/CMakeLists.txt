@@ -128,6 +128,17 @@ if (ENABLE_JIT)
 endif()
 
 set(MELONDS_VERSION_SUFFIX "$ENV{MELONDS_VERSION_SUFFIX}" CACHE STRING "Suffix to add to displayed melonDS version")
+option(MELONDS_EMBED_BUILD_INFO "Embed detailed build info into the binary" OFF)
+set(MELONDS_GIT_BRANCH "$ENV{MELONDS_GIT_BRANCH}" CACHE STRING "The Git branch used for this build")
+set(MELONDS_GIT_HASH "$ENV{MELONDS_GIT_HASH}" CACHE STRING "The hash of the Git commit")
+set(MELONDS_BUILD_PROVIDER "$ENV{MELONDS_BUILD_PROVIDER}" CACHE STRING "The name of the provider of this build")
+
+if (MELONDS_EMBED_BUILD_INFO)
+    target_compile_definitions(core PUBLIC MELONDS_EMBED_BUILD_INFO)
+    if (NOT MELONDS_GIT_BRANCH OR NOT MELONDS_GIT_HASH OR NOT MELONDS_BUILD_PROVIDER)
+        message(FATAL_ERROR "When embedding build information, all fields must be filled out. See src/CMakeLists.txt.")
+    endif()
+endif()
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 target_sources(core PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/version.h")
