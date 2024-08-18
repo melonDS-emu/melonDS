@@ -980,8 +980,8 @@ void GPU3D::SubmitPolygon() noexcept
 
 
     // setup vectors for v0->v2 and v1->v2, with w serving as the z axis
-    s32 vector0[3] = { v0->Position[0] - v2->Position[0], v0->Position[1] - v2->Position[1], v0->Position[3] - v2->Position[3] };
-    s32 vector1[3] = { v1->Position[0] - v2->Position[0], v1->Position[1] - v2->Position[1], v1->Position[3] - v2->Position[3] };
+    s64 vector0[3] = { (s64)v0->Position[0] - v2->Position[0], (s64)v0->Position[1] - v2->Position[1], (s64)v0->Position[3] - v2->Position[3] };
+    s64 vector1[3] = { (s64)v1->Position[0] - v2->Position[0], (s64)v1->Position[1] - v2->Position[1], (s64)v1->Position[3] - v2->Position[3] };
 
     // if either vector is entirely 0, the polygon is accepted, and the front facing flag is set for the rasterizer
     if (((vector0[0] | vector0[1] | vector0[2]) == 0) || ((vector1[0] | vector1[1] | vector1[2]) == 0))
