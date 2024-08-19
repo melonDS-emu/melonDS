@@ -609,6 +609,7 @@ void ARMv5::Execute()
 
     while (NDS.ARM9Timestamp < NDS.ARM9Target)
     {
+#ifdef JIT_ENABLED
         if constexpr (mode == CPUExecuteMode::JIT)
         {
             u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
@@ -647,6 +648,7 @@ void ARMv5::Execute()
             }
         }
         else
+#endif
         {
             if (CPSR & 0x20) // THUMB
             {
@@ -747,6 +749,7 @@ void ARMv4::Execute()
 
     while (NDS.ARM7Timestamp < NDS.ARM7Target)
     {
+#ifdef JIT_ENABLED
         if constexpr (mode == CPUExecuteMode::JIT)
         {
             u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
@@ -784,6 +787,7 @@ void ARMv4::Execute()
             }
         }
         else
+#endif
         {
             if (CPSR & 0x20) // THUMB
             {
