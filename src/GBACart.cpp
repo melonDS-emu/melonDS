@@ -833,7 +833,7 @@ void GBACartSlot::SetCart(std::unique_ptr<CartCommon>&& cart) noexcept
 
     if (!Cart)
     {
-        Log(LogLevel::Info, "Ejected GBA cart");
+        Log(LogLevel::Info, "Ejected GBA cart\n");
         return;
     }
 
