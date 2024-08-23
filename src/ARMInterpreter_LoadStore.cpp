@@ -58,101 +58,100 @@ namespace melonDS::ARMInterpreter
     shiftop(offset, shift); \
     if (!(cpu->CurInstr & (1<<23))) offset = -offset;
 
+enum class Writeback
+{
+    None = 0,
+    Pre,
+    Post,
+};
+
+template<bool signror, int size, Writeback writeback>
+void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
+{
+    static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
+
+    u32 addr;
+    if constexpr (writeback != Writeback::Post) addr = offset + cpu->R[rn];
+    else addr = cpu->R[rn];
+
+    u32 val;
+    bool dataabort;
+    if constexpr (size == 8)  dataabort = !cpu->DataRead8 (addr, &val);
+    if constexpr (size == 16) dataabort = !cpu->DataRead16(addr, &val);
+    if constexpr (size == 32) dataabort = !cpu->DataRead32(addr, &val);
+
+    cpu->AddCycles_CDI();
+    if (dataabort) return;
+
+    if constexpr (size == 8  && signror) val = (s32)(s8)val;
+    if constexpr (size == 16 && signror) val = (s32)(s16)val;
+    if constexpr (size == 32 && signror) val = ROR(val, ((addr&0x3)<<3));
+
+    if constexpr (writeback != Writeback::None) cpu->R[rn] += offset;
+
+    if (rd == 15)
+    {
+        if (cpu->Num==1 || (((ARMv5*)cpu)->CP15Control & (1<<15))) val &= ~0x1;
+        cpu->JumpTo(val);
+    }
+    else cpu->R[rd] = val;
+}
+
+template<int size, Writeback writeback>
+void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
+{
+    static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
+
+    u32 addr;
+    if constexpr (writeback != Writeback::Post) addr = offset + cpu->R[rn];
+    else addr = cpu->R[rn];
+
+    u32 storeval = cpu->R[rd];
+    if (rd == 15) storeval += 4;
+
+    bool dataabort;
+    if constexpr (size == 8)  dataabort = !cpu->DataWrite8 (addr, storeval);
+    if constexpr (size == 16) dataabort = !cpu->DataWrite16(addr, storeval);
+    if constexpr (size == 32) dataabort = !cpu->DataWrite32(addr, storeval);
+
+    cpu->AddCycles_CD();
+    if (dataabort) return;
+
+    if constexpr (writeback != Writeback::None) cpu->R[rn] += offset;
+}
 
 
 #define A_STR \
-    offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    if (((cpu->CurInstr>>12) & 0xF) == 0xF) \
-        storeval += 4; \
-    bool dataabort = !cpu->DataWrite32(offset, storeval); \
-    cpu->AddCycles_CD(); \
-    if (dataabort) return; \
-    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
+    if (cpu->CurInstr & (1<<21)) StoreSingle<32, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else StoreSingle<32, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 // TODO: user mode (bit21)
 #define A_STR_POST \
-    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    if (((cpu->CurInstr>>12) & 0xF) == 0xF) \
-        storeval += 4; \
-    bool dataabort = !cpu->DataWrite32(addr, storeval); \
-    cpu->AddCycles_CD(); \
-    if (dataabort) return; \
-    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
+    StoreSingle<32, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_STRB \
-    offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) storeval+=4; \
-    bool dataabort = !cpu->DataWrite8(offset, storeval); \
-    cpu->AddCycles_CD(); \
-    if (dataabort) return; \
-    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
+    if (cpu->CurInstr & (1<<21)) StoreSingle<8, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else StoreSingle<8, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 // TODO: user mode (bit21)
 #define A_STRB_POST \
-    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) storeval+=4; \
-    bool dataabort = !cpu->DataWrite8(addr, storeval); \
-    cpu->AddCycles_CD(); \
-    if (dataabort) return; \
-    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
+    StoreSingle<8, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_LDR \
-    offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val; bool dataabort = !cpu->DataRead32(offset, &val); \
-    cpu->AddCycles_CDI(); \
-    if (dataabort) return; \
-    val = ROR(val, ((offset&0x3)<<3)); \
-    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) \
-    { \
-        if (cpu->Num==1 || (((ARMv5*)cpu)->CP15Control & (1<<15))) val &= ~0x1; \
-        cpu->JumpTo(val); \
-    } \
-    else \
-    { \
-        cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    }
+    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 32, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else LoadSingle<true, 32, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 // TODO: user mode
 #define A_LDR_POST \
-    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val; bool dataabort = !cpu->DataRead32(addr, &val); \
-    cpu->AddCycles_CDI(); \
-    if (dataabort) return; \
-    val = ROR(val, ((addr&0x3)<<3)); \
-    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) \
-    { \
-        if (cpu->Num==1 || (((ARMv5*)cpu)->CP15Control & (1<<15))) val &= ~0x1; \
-        cpu->JumpTo(val); \
-    } \
-    else \
-    { \
-        cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    }
+    LoadSingle<true, 32, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_LDRB \
-    offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val; bool dataabort = !cpu->DataRead8(offset, &val); \
-    cpu->AddCycles_CDI(); \
-    if (dataabort) return; \
-    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val;
+    if (cpu->CurInstr & (1<<21)) LoadSingle<false, 8, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else LoadSingle<false, 8, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 // TODO: user mode
 #define A_LDRB_POST \
-    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val; bool dataabort = !cpu->DataRead8(addr, &val); \
-    cpu->AddCycles_CDI(); \
-    if (dataabort) return; \
-    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val;
+    LoadSingle<false, 8, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 
 
@@ -236,22 +235,11 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 
 
 #define A_STRH \
-    offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) storeval+=4; \
-    bool dataabort = !cpu->DataWrite16(offset, storeval); \
-    cpu->AddCycles_CD(); \
-    if (dataabort) return; \
-    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
+    if (cpu->CurInstr & (1<<21)) StoreSingle<16, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else StoreSingle<16, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_STRH_POST \
-    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 storeval = cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) storeval+=4; \
-    bool dataabort = !cpu->DataWrite16(addr, storeval); \
-    cpu->AddCycles_CD(); \
-    if (dataabort) return; \
-    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
+    StoreSingle<16, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 // TODO: CHECK LDRD/STRD TIMINGS!!
 
@@ -304,62 +292,25 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
 #define A_LDRH \
-    offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val; bool dataabort = !cpu->DataRead16(offset, &val); \
-    cpu->AddCycles_CDI(); \
-    if (dataabort) return; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
+    if (cpu->CurInstr & (1<<21)) LoadSingle<false, 16, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else LoadSingle<false, 16, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_LDRH_POST \
-    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val; bool dataabort = !cpu->DataRead16(addr, &val); \
-    cpu->AddCycles_CDI(); \
-    if (dataabort) return; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
+    LoadSingle<false, 16, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_LDRSB \
-    offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val; bool dataabort = !cpu->DataRead8(offset, &val); \
-    cpu->AddCycles_CDI(); \
-    if (dataabort) return; \
-    val = (s32)(s8)val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
+    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 8, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else LoadSingle<true, 8, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_LDRSB_POST \
-    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val; bool dataabort = !cpu->DataRead8(addr, &val); \
-    cpu->AddCycles_CDI(); \
-    if (dataabort) return; \
-    val = (s32)(s8)val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
+    LoadSingle<true, 8, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_LDRSH \
-    offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val; bool dataabort = !cpu->DataRead16(offset, &val); \
-    cpu->AddCycles_CDI(); \
-    if (dataabort) return; \
-    val = (s32)(s16)val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
+    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 16, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else LoadSingle<true, 16, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_LDRSH_POST \
-    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val; bool dataabort = !cpu->DataRead16(addr, &val); \
-    cpu->AddCycles_CDI(); \
-    if (dataabort) return; \
-    val = (s32)(s16)val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) cpu->JumpTo8_16Bit(val); \
-    else cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
+    LoadSingle<true, 16, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 
 #define A_IMPLEMENT_HD_LDRSTR(x) \
@@ -651,149 +602,86 @@ void T_LDR_PCREL(ARM* cpu)
 
 void T_STR_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
-    cpu->DataWrite32(addr, cpu->R[cpu->CurInstr & 0x7]);
-
-    cpu->AddCycles_CD();
+    StoreSingle<32, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
 }
 
 void T_STRB_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
-    cpu->DataWrite8(addr, cpu->R[cpu->CurInstr & 0x7]);
-
-    cpu->AddCycles_CD();
+    StoreSingle<8, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
 }
 
 void T_LDR_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
-
-    u32 val;
-    if (cpu->DataRead32(addr, &val))
-        cpu->R[cpu->CurInstr & 0x7] = ROR(val, 8*(addr&0x3));
-
-    cpu->AddCycles_CDI();
+    LoadSingle<true, 32, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
 }
 
 void T_LDRB_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
-    cpu->DataRead8(addr, &cpu->R[cpu->CurInstr & 0x7]);
-
-    cpu->AddCycles_CDI();
+    LoadSingle<false, 8, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
 }
 
 
 void T_STRH_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
-    cpu->DataWrite16(addr, cpu->R[cpu->CurInstr & 0x7]);
-
-    cpu->AddCycles_CD();
+    StoreSingle<16, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
 }
 
 void T_LDRSB_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
-    if (cpu->DataRead8(addr, &cpu->R[cpu->CurInstr & 0x7]))
-        cpu->R[cpu->CurInstr & 0x7] = (s32)(s8)cpu->R[cpu->CurInstr & 0x7];
-
-    cpu->AddCycles_CDI();
+    LoadSingle<true, 8, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
 }
 
 void T_LDRH_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
-    cpu->DataRead16(addr, &cpu->R[cpu->CurInstr & 0x7]);
-
-    cpu->AddCycles_CDI();
+    LoadSingle<false, 16, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
 }
 
 void T_LDRSH_REG(ARM* cpu)
 {
-    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
-    if (cpu->DataRead16(addr, &cpu->R[cpu->CurInstr & 0x7]))
-        cpu->R[cpu->CurInstr & 0x7] = (s32)(s16)cpu->R[cpu->CurInstr & 0x7];
-
-    cpu->AddCycles_CDI();
+    LoadSingle<true, 16, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
 }
 
 
 void T_STR_IMM(ARM* cpu)
 {
-    u32 offset = (cpu->CurInstr >> 4) & 0x7C;
-    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
-
-    cpu->DataWrite32(offset, cpu->R[cpu->CurInstr & 0x7]);
-    cpu->AddCycles_CD();
+    StoreSingle<32, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 4) & 0x7C));
 }
 
 void T_LDR_IMM(ARM* cpu)
 {
-    u32 offset = (cpu->CurInstr >> 4) & 0x7C;
-    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
-
-    u32 val;
-    if (cpu->DataRead32(offset, &val))
-        cpu->R[cpu->CurInstr & 0x7] = ROR(val, 8*(offset&0x3));
-    cpu->AddCycles_CDI();
+    LoadSingle<true, 32, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 4) & 0x7C));
 }
 
 void T_STRB_IMM(ARM* cpu)
 {
-    u32 offset = (cpu->CurInstr >> 6) & 0x1F;
-    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
-
-    cpu->DataWrite8(offset, cpu->R[cpu->CurInstr & 0x7]);
-    cpu->AddCycles_CD();
+    StoreSingle<8, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 6) & 0x1F));
 }
 
 void T_LDRB_IMM(ARM* cpu)
 {
-    u32 offset = (cpu->CurInstr >> 6) & 0x1F;
-    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
-
-    cpu->DataRead8(offset, &cpu->R[cpu->CurInstr & 0x7]);
-    cpu->AddCycles_CDI();
+    LoadSingle<false, 8, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 6) & 0x1F));
 }
 
 
 void T_STRH_IMM(ARM* cpu)
 {
-    u32 offset = (cpu->CurInstr >> 5) & 0x3E;
-    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
-
-    cpu->DataWrite16(offset, cpu->R[cpu->CurInstr & 0x7]);
-    cpu->AddCycles_CD();
+    StoreSingle<16, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 5) & 0x3E));
 }
 
 void T_LDRH_IMM(ARM* cpu)
 {
-    u32 offset = (cpu->CurInstr >> 5) & 0x3E;
-    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
-
-    cpu->DataRead16(offset, &cpu->R[cpu->CurInstr & 0x7]);
-    cpu->AddCycles_CDI();
+    LoadSingle<false, 16, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 5) & 0x3E));
 }
 
 
 void T_STR_SPREL(ARM* cpu)
 {
-    u32 offset = (cpu->CurInstr << 2) & 0x3FC;
-    offset += cpu->R[13];
-
-    cpu->DataWrite32(offset, cpu->R[(cpu->CurInstr >> 8) & 0x7]);
-    cpu->AddCycles_CD();
+    StoreSingle<32, Writeback::None>(cpu, ((cpu->CurInstr >> 8) & 0x7), 13, ((cpu->CurInstr << 2) & 0x3FC));
 }
 
 void T_LDR_SPREL(ARM* cpu)
 {
-    u32 offset = (cpu->CurInstr << 2) & 0x3FC;
-    offset += cpu->R[13];
-
-    cpu->DataRead32(offset, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
-    cpu->AddCycles_CDI();
+    LoadSingle<false, 32, Writeback::None>(cpu, ((cpu->CurInstr >> 8) & 0x7), 13, ((cpu->CurInstr << 2) & 0x3FC));
 }
 
 
