@@ -39,7 +39,7 @@
 #include "Config.h"
 #include "Platform.h"
 #include "Net.h"
-#include "LocalMP.h"
+#include "MPInterface.h"
 
 #include "NDS.h"
 #include "DSi.h"
@@ -62,11 +62,11 @@ using namespace melonDS::Platform;
 MainWindow* topWindow = nullptr;
 
 const string kWifiSettingsPath = "wfcsettings.bin";
-extern LocalMP localMp;
 extern Net net;
 
 
-EmuInstance::EmuInstance(int inst) : instanceID(inst),
+EmuInstance::EmuInstance(int inst) : deleting(false),
+    instanceID(inst),
     globalCfg(Config::GetGlobalTable()),
     localCfg(Config::GetLocalTable(inst))
 {
@@ -117,8 +117,10 @@ EmuInstance::EmuInstance(int inst) : instanceID(inst),
 
 EmuInstance::~EmuInstance()
 {
-    // TODO window cleanup and shit?
-    localMp.End(instanceID);
+    deleting = true;
+    deleteAllWindows();
+
+    MPInterface::Get().End(instanceID);
 
     emuThread->emuExit();
     emuThread->wait();
@@ -166,6 +168,44 @@ void EmuInstance::createWindow()
     numWindows++;
 
     emuThread->attachWindow(win);
+}
+
+void EmuInstance::deleteWindow(int id, bool close)
+{
+    if (id >= kMaxWindows) return;
+
+    MainWindow* win = windowList[id];
+    if (!win) return;
+
+    if (win->hasOpenGL() && win == mainWindow)
+    {
+        // we intentionally don't unpause here
+        emuThread->emuPause();
+        emuThread->deinitContext();
+    }
+
+    emuThread->detachWindow(win);
+
+    windowList[id] = nullptr;
+    numWindows--;
+
+    if (topWindow == win) topWindow = nullptr;
+    if (mainWindow == win) mainWindow = nullptr;
+
+    if (close)
+        win->close();
+
+    if ((!mainWindow) && (!deleting))
+    {
+        // if we closed this instance's main window, delete the instance
+        deleteEmuInstance(instanceID);
+    }
+}
+
+void EmuInstance::deleteAllWindows()
+{
+    for (int i = kMaxWindows-1; i >= 0; i--)
+        deleteWindow(i, true);
 }
 
 

@@ -22,18 +22,14 @@
 #include <string.h>
 
 #include <optional>
-#include <vector>
 #include <string>
-#include <algorithm>
 
-#include <QProcess>
 #include <QApplication>
+#include <QStyle>
 #include <QMessageBox>
 #include <QMenuBar>
-#include <QMimeDatabase>
 #include <QFileDialog>
 #include <QInputDialog>
-#include <QPaintEvent>
 #include <QPainter>
 #include <QKeyEvent>
 #include <QMimeData>
@@ -57,24 +53,14 @@
 #include "duckstation/gl/context.h"
 
 #include "main.h"
-#include "CheatsDialog.h"
-#include "DateTimeDialog.h"
-#include "EmuSettingsDialog.h"
-#include "InputConfig/InputConfigDialog.h"
-#include "VideoSettingsDialog.h"
-#include "ROMInfoDialog.h"
-#include "RAMInfoDialog.h"
-#include "PowerManagement/PowerManagementDialog.h"
-
 #include "version.h"
 
 #include "Config.h"
-#include "DSi.h"
 
 #include "EmuInstance.h"
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
-#include "LocalMP.h"
+#include "MPInterface.h"
 #include "Net.h"
 
 #include "CLI.h"
@@ -87,7 +73,6 @@ using namespace melonDS;
 QString* systemThemeName;
 
 
-
 QString emuDirectory;
 
 const int kMaxEmuInstances = 16;
@@ -95,9 +80,13 @@ EmuInstance* emuInstances[kMaxEmuInstances];
 
 CameraManager* camManager[2];
 bool camStarted[2];
-LocalMP localMp;
+
 std::optional<LibPCap> pcap;
 Net net;
+
+
+QElapsedTimer sysTimer;
+
 
 void NetInit()
 {
@@ -159,10 +148,23 @@ void deleteEmuInstance(int id)
     emuInstances[id] = nullptr;
 }
 
-void deleteAllEmuInstances()
+void deleteAllEmuInstances(int first)
 {
-    for (int i = 0; i < kMaxEmuInstances; i++)
+    for (int i = first; i < kMaxEmuInstances; i++)
         deleteEmuInstance(i);
+}
+
+int numEmuInstances()
+{
+    int ret = 0;
+
+    for (int i = 0; i < kMaxEmuInstances; i++)
+    {
+        if (emuInstances[i])
+            ret++;
+    }
+
+    return ret;
 }
 
 
@@ -203,6 +205,28 @@ void pathInit()
 }
 
 
+void setMPInterface(MPInterfaceType type)
+{
+    // switch to the requested MP interface
+    MPInterface::Set(type);
+
+    // set receive timeout
+    // TODO: different settings per interface?
+    MPInterface::Get().SetRecvTimeout(Config::GetGlobalTable().GetInt("MP.RecvTimeout"));
+
+    // update UI appropriately
+    // TODO: decide how to deal with multi-window when it becomes a thing
+    for (int i = 0; i < kMaxEmuInstances; i++)
+    {
+        EmuInstance* inst = emuInstances[i];
+        if (!inst) continue;
+
+        MainWindow* win = inst->getMainWindow();
+        if (win) win->updateMPInterface(type);
+    }
+}
+
+
 
 MelonApplication::MelonApplication(int& argc, char** argv)
     : QApplication(argc, argv)
@@ -237,6 +261,7 @@ bool MelonApplication::event(QEvent *event)
 
 int main(int argc, char** argv)
 {
+    sysTimer.start();
     srand(time(nullptr));
 
     for (int i = 0; i < kMaxEmuInstances; i++)
@@ -308,7 +333,10 @@ int main(int argc, char** argv)
         }
     }
 
-    // localMp is initialized at this point
+    // default MP interface type is local MP
+    // this will be changed if a LAN or netplay session is initiated
+    setMPInterface(MPInterface_Local);
+
     NetInit();
 
     createEmuInstance();

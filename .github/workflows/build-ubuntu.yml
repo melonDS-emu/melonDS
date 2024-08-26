@@ -20,8 +20,8 @@ jobs:
       run: |
         sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list
         sudo apt update
-        sudo apt install --allow-downgrades cmake ninja-build extra-cmake-modules libpcap0.8-dev libsdl2-dev \
-          qt6-{base,base-private,multimedia}-dev libarchive-dev libzstd-dev libfuse2
+        sudo apt install --allow-downgrades cmake ninja-build extra-cmake-modules libpcap0.8-dev libsdl2-dev libenet-dev \
+          qt6-{base,base-private,multimedia}-dev libqt6svg6-dev libarchive-dev libzstd-dev libfuse2
     - name: Configure
       run: cmake -B build -G Ninja -DUSE_QT6=ON -DCMAKE_INSTALL_PREFIX=/usr
     - name: Build
@@ -63,7 +63,7 @@ jobs:
           apt update
           apt -y full-upgrade
           apt -y install git {gcc-12,g++-12}-aarch64-linux-gnu cmake ninja-build extra-cmake-modules \
-            {libsdl2,qt6-{base,base-private,multimedia},libarchive,libzstd}-dev:arm64 \
+            {libsdl2,qt6-{base,base-private,multimedia},libqt6svg6,libarchive,libzstd,libenet}-dev:arm64 \
             pkg-config dpkg-dev
       - name: Check out source
         uses: actions/checkout@v4

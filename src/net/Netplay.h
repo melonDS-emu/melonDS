@@ -16,40 +16,42 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef MAIN_H
-#define MAIN_H
+#ifndef NETPLAY_H
+#define NETPLAY_H
 
-#include "glad/glad.h"
+#include "types.h"
 
-#include <QApplication>
-#include <QEvent>
-#include <QElapsedTimer>
-
-#include "EmuInstance.h"
-#include "Window.h"
-#include "EmuThread.h"
-#include "ScreenLayout.h"
-#include "MPInterface.h"
-
-class MelonApplication : public QApplication
+namespace Netplay
 {
-    Q_OBJECT
 
-public:
-    MelonApplication(int &argc, char** argv);
-    bool event(QEvent* event) override;
+struct Player
+{
+    int ID;
+    char Name[32];
+    int Status; // 0=no player 1=normal 2=host 3=connecting
+    melonDS::u32 Address;
 };
 
-extern QString* systemThemeName;
-extern QString emuDirectory;
 
-extern QElapsedTimer sysTimer;
+extern bool Active;
 
-bool createEmuInstance();
-void deleteEmuInstance(int id);
-void deleteAllEmuInstances(int first = 0);
-int numEmuInstances();
+bool Init();
+void DeInit();
 
-void setMPInterface(melonDS::MPInterfaceType type);
+void StartHost(const char* player, int port);
+void StartClient(const char* player, const char* host, int port);
+void StartMirror(const Player* player);
 
-#endif // MAIN_H
+melonDS::u32 PlayerAddress(int id);
+
+void StartGame();
+void StartLocal();
+
+void StartGame();
+
+void ProcessFrame();
+void ProcessInput();
+
+}
+
+#endif // NETPLAY_H
