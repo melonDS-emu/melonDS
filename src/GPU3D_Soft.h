@@ -44,6 +44,7 @@ public:
     SoftRenderer() noexcept;
     ~SoftRenderer() override;
     void Reset(GPU& gpu) override;
+    void DoSavestate(Savestate* file) override;
 
     void SetThreaded(bool threaded, GPU& gpu) noexcept;
     [[nodiscard]] bool IsThreaded() const noexcept { return Threaded; }

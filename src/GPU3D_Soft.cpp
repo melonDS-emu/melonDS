@@ -131,6 +131,24 @@ void SoftRenderer::Reset(GPU& gpu)
     EnableRenderThread();
 }
 
+void SoftRenderer::DoSavestate(Savestate* file)
+{
+    bool secfound = file->Section("SW3D", true);
+
+    if (secfound)
+    {
+        file->VarArray(StencilBuffer, sizeof(StencilBuffer));
+        file->VarArray(ShadowRendered, sizeof(ShadowRendered));
+        file->VarArray(ShadowRenderedi, sizeof(ShadowRenderedi));
+    }
+    else
+    {
+        memset(StencilBuffer, 0, sizeof(StencilBuffer));
+        memset(ShadowRendered, 0, sizeof(ShadowRendered));
+        memset(ShadowRenderedi, 0, sizeof(ShadowRenderedi));
+    }
+}
+
 void SoftRenderer::SetThreaded(bool threaded, GPU& gpu) noexcept
 {
     if (Threaded != threaded)

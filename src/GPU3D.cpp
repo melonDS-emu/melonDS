@@ -569,20 +569,7 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     }
 
     // save any renderer state that can persist through frames
-    if (softRenderer)
-    {
-        file->VarArray(softRenderer->StencilBuffer, sizeof(SoftRenderer::StencilBuffer));
-        file->VarArray(softRenderer->ShadowRendered, sizeof(SoftRenderer::ShadowRendered));
-        file->VarArray(softRenderer->ShadowRenderedi, sizeof(SoftRenderer::ShadowRenderedi));
-    }
-    else
-    {
-        u8 ph[256*2] {};
-        // placeholders for renderers that don't support the same variables
-        file->VarArray(ph, sizeof(SoftRenderer::StencilBuffer));
-        file->VarArray(ph, sizeof(SoftRenderer::ShadowRendered));
-        file->VarArray(ph, sizeof(SoftRenderer::ShadowRenderedi));
-    }
+    CurrentRenderer->DoSavestate(file);
 
     if (softRenderer && softRenderer->IsThreaded())
     {
