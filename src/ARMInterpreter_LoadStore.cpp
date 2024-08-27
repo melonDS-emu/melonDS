@@ -63,6 +63,7 @@ enum class Writeback
     None = 0,
     Pre,
     Post,
+    Trans,
 };
 
 template<bool signror, int size, Writeback writeback>
@@ -71,14 +72,26 @@ void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
     static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
 
     u32 addr;
-    if constexpr (writeback != Writeback::Post) addr = offset + cpu->R[rn];
+    if constexpr (writeback < Writeback::Post) addr = offset + cpu->R[rn];
     else addr = cpu->R[rn];
+
+    if constexpr (writeback == Writeback::Trans)
+    {
+        if (cpu->Num == 0)
+            ((ARMv5*)cpu)->PU_Map = ((ARMv5*)cpu)->PU_UserMap;
+    }
 
     u32 val;
     bool dataabort;
     if constexpr (size == 8)  dataabort = !cpu->DataRead8 (addr, &val);
     if constexpr (size == 16) dataabort = !cpu->DataRead16(addr, &val);
     if constexpr (size == 32) dataabort = !cpu->DataRead32(addr, &val);
+
+    if constexpr (writeback == Writeback::Trans)
+    {
+        if (cpu->Num == 0 && (cpu->CPSR & 0x1F) != 0x10)
+            ((ARMv5*)cpu)->PU_Map = ((ARMv5*)cpu)->PU_PrivMap;
+    }
 
     cpu->AddCycles_CDI();
     if (dataabort) return;
@@ -125,33 +138,33 @@ void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
     if (cpu->CurInstr & (1<<21)) StoreSingle<32, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
     else StoreSingle<32, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
-// TODO: user mode (bit21)
 #define A_STR_POST \
-    StoreSingle<32, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) StoreSingle<32, Writeback::Trans>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else StoreSingle<32, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_STRB \
     if (cpu->CurInstr & (1<<21)) StoreSingle<8, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
     else StoreSingle<8, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
-// TODO: user mode (bit21)
 #define A_STRB_POST \
-    StoreSingle<8, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) StoreSingle<8, Writeback::Trans>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else StoreSingle<8, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_LDR \
     if (cpu->CurInstr & (1<<21)) LoadSingle<true, 32, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
     else LoadSingle<true, 32, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
-// TODO: user mode
 #define A_LDR_POST \
-    LoadSingle<true, 32, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 32, Writeback::Trans>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else LoadSingle<true, 32, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_LDRB \
     if (cpu->CurInstr & (1<<21)) LoadSingle<false, 8, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
     else LoadSingle<false, 8, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
-// TODO: user mode
 #define A_LDRB_POST \
-    LoadSingle<false, 8, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) LoadSingle<false, 8, Writeback::Trans>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else LoadSingle<false, 8, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 
 
