@@ -360,48 +360,45 @@ A_IMPLEMENT_HD_LDRSTR(LDRSH)
 
 
 
-void A_SWP(ARM* cpu)
+template<bool byte>
+inline void SWP(ARM* cpu)
 {
     u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     if ((cpu->CurInstr & 0xF) == 15) rm += 4;
 
     u32 val;
-    if (cpu->DataRead32(base, &val))
+    if ((byte ? cpu->DataRead8 (base, &val)
+              : cpu->DataRead32(base, &val)))
     {
         u32 numD = cpu->DataCycles;
-        if (cpu->DataWrite32(base, rm))
+
+        if ((byte ? cpu->DataWrite8 (base, rm)
+                  : cpu->DataWrite32(base, rm)))
         {
             // rd only gets updated if both read and write succeed
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
-            if (rd != 15) cpu->R[rd] = ROR(val, 8*(base&0x3));
-            else if (cpu->Num==1) cpu->JumpTo(ROR(val, 8*(base&0x3)) & ~1); // for some reason these jumps don't work on the arm 9?
+
+            if constexpr (!byte) val = ROR(val, 8*(base&0x3));
+
+            if (rd != 15) cpu->R[rd] = val;
+            else if (cpu->Num==1) cpu->JumpTo(val & ~1); // for some reason these jumps don't seem to work on the arm 9?
         }
+
         cpu->DataCycles += numD;
     }
+
     cpu->AddCycles_CDI();
+}
+
+void A_SWP(ARM* cpu)
+{
+    void SWP<false>(ARM* cpu);
 }
 
 void A_SWPB(ARM* cpu)
 {
-    u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
-    u32 rm = cpu->R[cpu->CurInstr & 0xF] & 0xFF;
-    if ((cpu->CurInstr & 0xF) == 15) rm += 4;
-
-    u32 val;
-    if (cpu->DataRead8(base, &val))
-    {
-        u32 numD = cpu->DataCycles;
-        if (cpu->DataWrite8(base, rm))
-        {
-            // rd only gets updated if both read and write succeed
-            u32 rd = (cpu->CurInstr >> 12) & 0xF;
-            if (rd != 15) cpu->R[rd] = val;
-            else if (cpu->Num==1) cpu->JumpTo(val & ~1); // for some reason these jumps don't work on the arm 9?
-        }
-        cpu->DataCycles += numD;
-    }
-    cpu->AddCycles_CDI();
+    void SWP<true>(ARM* cpu);
 }
 
 
