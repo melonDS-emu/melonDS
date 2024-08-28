@@ -116,16 +116,28 @@ void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
     static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
 
     u32 addr;
-    if constexpr (writeback != Writeback::Post) addr = offset + cpu->R[rn];
+    if constexpr (writeback < Writeback::Post) addr = offset + cpu->R[rn];
     else addr = cpu->R[rn];
 
     u32 storeval = cpu->R[rd];
     if (rd == 15) storeval += 4;
+    
+    if constexpr (writeback == Writeback::Trans)
+    {
+        if (cpu->Num == 0)
+            ((ARMv5*)cpu)->PU_Map = ((ARMv5*)cpu)->PU_UserMap;
+    }
 
     bool dataabort;
     if constexpr (size == 8)  dataabort = !cpu->DataWrite8 (addr, storeval);
     if constexpr (size == 16) dataabort = !cpu->DataWrite16(addr, storeval);
     if constexpr (size == 32) dataabort = !cpu->DataWrite32(addr, storeval);
+
+    if constexpr (writeback == Writeback::Trans)
+    {
+        if (cpu->Num == 0 && (cpu->CPSR & 0x1F) != 0x10)
+            ((ARMv5*)cpu)->PU_Map = ((ARMv5*)cpu)->PU_PrivMap;
+    }
 
     cpu->AddCycles_CD();
     if (dataabort) return;
