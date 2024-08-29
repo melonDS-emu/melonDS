@@ -405,12 +405,12 @@ inline void SWP(ARM* cpu)
 
 void A_SWP(ARM* cpu)
 {
-    void SWP<false>(ARM* cpu);
+    SWP<false>(cpu);
 }
 
 void A_SWPB(ARM* cpu)
 {
-    void SWP<true>(ARM* cpu);
+    SWP<true>(cpu);
 }
 
 
