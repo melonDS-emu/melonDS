@@ -96,21 +96,33 @@ LibPCap::LibPCap(LibPCap&& other) noexcept
     findalldevs = other.findalldevs;
     freealldevs = other.freealldevs;
     open_live = other.open_live;
+    open_dead = other.open_dead;
     close = other.close;
     setnonblock = other.setnonblock;
     sendpacket = other.sendpacket;
     dispatch = other.dispatch;
     next = other.next;
+    dump_open = other.dump_open;
+    dump_close = other.dump_close;
+    dump_flush = other.dump_flush;
+    dump = other.dump;
+    geterr = other.geterr;
 
     other.PCapLib = nullptr;
     other.findalldevs = nullptr;
     other.freealldevs = nullptr;
     other.open_live = nullptr;
+    other.open_dead = nullptr;
     other.close = nullptr;
     other.setnonblock = nullptr;
     other.sendpacket = nullptr;
     other.dispatch = nullptr;
     other.next = nullptr;
+    other.dump_open = nullptr;
+    other.dump_close = nullptr;
+    other.dump_flush = nullptr;
+    other.dump = nullptr;
+    other.geterr = nullptr;
 }
 
 LibPCap& LibPCap::operator=(LibPCap&& other) noexcept
@@ -124,21 +136,33 @@ LibPCap& LibPCap::operator=(LibPCap&& other) noexcept
         findalldevs = other.findalldevs;
         freealldevs = other.freealldevs;
         open_live = other.open_live;
+        open_dead = other.open_dead;
         close = other.close;
         setnonblock = other.setnonblock;
         sendpacket = other.sendpacket;
         dispatch = other.dispatch;
         next = other.next;
+        dump_open = other.dump_open;
+        dump_close = other.dump_close;
+        dump_flush= other.dump_flush;
+        dump = other.dump;
+        geterr = other.geterr;
 
         other.PCapLib = nullptr;
         other.findalldevs = nullptr;
         other.freealldevs = nullptr;
         other.open_live = nullptr;
+        other.open_dead = nullptr;
         other.close = nullptr;
         other.setnonblock = nullptr;
         other.sendpacket = nullptr;
         other.dispatch = nullptr;
         other.next = nullptr;
+        other.dump_open = nullptr;
+        other.dump_close = nullptr;
+        other.dump_flush= nullptr;
+        other.dump = nullptr;
+        other.geterr = nullptr;
     }
 
     return *this;
@@ -155,6 +179,9 @@ bool LibPCap::TryLoadPCap(LibPCap& pcap, Platform::DynamicLibrary *lib) noexcept
     pcap.open_live = (pcap_open_live_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_open_live");
     if (!pcap.open_live) return false;
 
+    pcap.open_dead = (pcap_open_dead_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_open_dead");
+    if (!pcap.open_dead) return false;
+
     pcap.close = (pcap_close_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_close");
     if (!pcap.close) return false;
 
@@ -169,6 +196,21 @@ bool LibPCap::TryLoadPCap(LibPCap& pcap, Platform::DynamicLibrary *lib) noexcept
 
     pcap.next = (pcap_next_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_next");
     if (!pcap.next) return false;
+
+    pcap.dump_open = (pcap_dump_open_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_dump_open");
+    if (!pcap.dump_open) return false;
+
+    pcap.dump_close = (pcap_dump_close_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_dump_close");
+    if (!pcap.dump_close) return false;
+
+    pcap.dump_flush = (pcap_dump_flush_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_dump_flush");
+    if (!pcap.dump_flush) return false;
+
+    pcap.dump = (pcap_dump_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_dump");
+    if (!pcap.dump) return false;
+
+    pcap.geterr = (pcap_geterr_t)Platform::DynamicLibrary_LoadFunction(lib, "pcap_geterr");
+    if (!pcap.geterr) return false;
 
     return true;
 }

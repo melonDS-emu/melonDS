@@ -49,11 +49,17 @@ struct AdapterData
 typedef int (*pcap_findalldevs_t)(pcap_if_t** alldevs, char* errbuf);
 typedef void (*pcap_freealldevs_t)(pcap_if_t* alldevs);
 typedef pcap_t* (*pcap_open_live_t)(const char* src, int snaplen, int flags, int readtimeout, char* errbuf);
+typedef pcap_t* (*pcap_open_dead_t)(int linktype, int snaplen);
 typedef void (*pcap_close_t)(pcap_t* dev);
 typedef int (*pcap_setnonblock_t)(pcap_t* dev, int nonblock, char* errbuf);
 typedef int (*pcap_sendpacket_t)(pcap_t* dev, const u_char* data, int len);
 typedef int (*pcap_dispatch_t)(pcap_t* dev, int num, pcap_handler callback, u_char* data);
 typedef const u_char* (*pcap_next_t)(pcap_t* dev, struct pcap_pkthdr* hdr);
+typedef pcap_dumper_t* (*pcap_dump_open_t)(pcap_t *p, const char *fname);
+typedef void (*pcap_dump_close_t)(pcap_dumper_t* p);
+typedef void (*pcap_dump_flush_t)(pcap_dumper_t* p);
+typedef void (*pcap_dump_t)(unsigned char *user, struct pcap_pkthdr *h, unsigned char *sp);
+typedef char* (*pcap_geterr_t)(pcap_t *p);
 
 class Net_PCap;
 
@@ -76,11 +82,17 @@ public:
     pcap_findalldevs_t findalldevs = nullptr;
     pcap_freealldevs_t freealldevs = nullptr;
     pcap_open_live_t open_live = nullptr;
+    pcap_open_dead_t open_dead = nullptr;
     pcap_close_t close = nullptr;
     pcap_setnonblock_t setnonblock = nullptr;
     pcap_sendpacket_t sendpacket = nullptr;
     pcap_dispatch_t dispatch = nullptr;
     pcap_next_t next = nullptr;
+    pcap_dump_open_t dump_open = nullptr;
+    pcap_dump_close_t dump_close = nullptr;
+    pcap_dump_flush_t dump_flush = nullptr;
+    pcap_dump_t dump = nullptr;
+    pcap_geterr_t geterr = nullptr;
 
     [[nodiscard]] bool IsValid() const noexcept
     {
@@ -89,11 +101,17 @@ public:
             findalldevs != nullptr &&
             freealldevs != nullptr &&
             open_live != nullptr &&
+            open_dead != nullptr &&
             close != nullptr &&
             setnonblock != nullptr &&
             sendpacket != nullptr &&
             dispatch != nullptr &&
-            next != nullptr
+            next != nullptr &&
+            dump_open != nullptr &&
+            dump_close != nullptr &&
+            dump_flush != nullptr &&
+            dump != nullptr &&
+            geterr != nullptr
         ;
     }
 
