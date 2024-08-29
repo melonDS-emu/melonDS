@@ -2056,13 +2056,16 @@ void EmuInstance::animatedROMIcon(const u8 (&data)[8][512], const u16 (&palette)
 
 void EmuInstance::startPacketCapture()
 {
-    if (!pcap)
-        pcap = melonDS::LibPCap::New();
-
     if (packetCapture != nullptr || packetCaptureDumper != nullptr)
         stopPacketCapture();
 
-    std::string pcapPath = getAssetPath(false, globalCfg.GetString("PacketCapturePath"), instanceFileSuffix() + ".pcap");
+    if (!globalCfg.GetBool("Pcap.Enabled"))
+        return;
+
+    if (!pcap)
+        pcap = melonDS::LibPCap::New();
+
+    std::string pcapPath = getAssetPath(false, globalCfg.GetString("Pcap.Path"), instanceFileSuffix() + ".pcap");
     Log(LogLevel::Debug, "Starting packet capture: %s\n", pcapPath.c_str());
 
     packetCapture = pcap->open_dead(DLT_IEEE802_11, 1024);
