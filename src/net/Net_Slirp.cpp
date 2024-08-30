@@ -25,11 +25,6 @@
 
 #include <libslirp.h>
 
-// "register" is indirectly used by slirp.h but isn't allowed in C++17, this is a workaround
-#define register
-// Needed for Slirp's definition so we can adjust the opaque pointer in the move constructor
-#include <slirp.h>
-
 #ifdef __WIN32__
 	#include <ws2tcpip.h>
 #else
@@ -163,63 +158,6 @@ Net_Slirp::Net_Slirp(const Platform::SendPacketCallback& callback) noexcept : Ca
     Ctx = slirp_new(&cfg, &cb, this);
 }
 
-
-Net_Slirp::Net_Slirp(Net_Slirp&& other) noexcept
-{
-    RXBuffer = other.RXBuffer;
-    IPv4ID = other.IPv4ID;
-    Ctx = other.Ctx;
-    PollListSize = other.PollListSize;
-    Callback = std::move(other.Callback);
-    memcpy(PollList, other.PollList, sizeof(PollList));
-
-    other.RXBuffer = {};
-    other.IPv4ID = 0;
-    other.Ctx = nullptr;
-    other.PollListSize = 0;
-    other.Callback = nullptr;
-    memset(other.PollList, 0, sizeof(other.PollList));
-
-    if (Ctx)
-    {
-        Ctx->opaque = this;
-        // Gotta ensure that the context doesn't try to pass around a dead object
-    }
-}
-
-Net_Slirp& Net_Slirp::operator=(Net_Slirp&& other) noexcept
-{
-    if (this != &other)
-    {
-        if (Ctx)
-        {
-            slirp_cleanup(Ctx);
-        }
-
-        RXBuffer = other.RXBuffer;
-        IPv4ID = other.IPv4ID;
-        Ctx = other.Ctx;
-        PollListSize = other.PollListSize;
-        Callback = std::move(other.Callback);
-        memcpy(PollList, other.PollList, sizeof(PollList));
-
-        other.RXBuffer = {};
-        other.IPv4ID = 0;
-        other.Ctx = nullptr;
-        other.PollListSize = 0;
-        other.Callback = nullptr;
-        memset(other.PollList, 0, sizeof(other.PollList));
-
-        if (Ctx)
-        {
-            Ctx->opaque = this;
-            // Gotta ensure that the context doesn't try to pass around a dead object
-        }
-    }
-
-    return *this;
-}
-
 Net_Slirp::~Net_Slirp() noexcept
 {
     if (Ctx)
@@ -228,7 +166,6 @@ Net_Slirp::~Net_Slirp() noexcept
         Ctx = nullptr;
     }
 }
-
 
 void FinishUDPFrame(u8* data, int len)
 {

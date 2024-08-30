@@ -35,6 +35,7 @@
 
 #include "Screen.h"
 #include "Config.h"
+#include "MPInterface.h"
 
 
 class EmuInstance;
@@ -125,6 +126,9 @@ public:
 
     void osdAddMessage(unsigned int color, const char* msg);
 
+    // called when the MP interface is changed
+    void updateMPInterface(melonDS::MPInterfaceType type);
+
 protected:
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
@@ -167,6 +171,11 @@ private slots:
     void onRAMInfo();
     void onOpenTitleManager();
     void onMPNewInstance();
+    void onLANStartHost();
+    void onLANStartClient();
+    void onNPStartHost();
+    void onNPStartClient();
+    void onNPTest();
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -232,6 +241,8 @@ private:
 
     void createScreenPanel();
 
+    bool lanWarning(bool host);
+
     bool showOSD;
 
     bool hasOGL;
@@ -264,6 +275,7 @@ public:
     QAction* actSaveState[9];
     QAction* actLoadState[9];
     QAction* actUndoStateLoad;
+    QAction* actOpenConfig;
     QAction* actQuit;
 
     QAction* actPause;
@@ -278,6 +290,11 @@ public:
     QAction* actRAMInfo;
     QAction* actTitleManager;
     QAction* actMPNewInstance;
+    QAction* actLANStartHost;
+    QAction* actLANStartClient;
+    QAction* actNPStartHost;
+    QAction* actNPStartClient;
+    QAction* actNPTest;
 
     QAction* actEmuSettings;
 #ifdef __APPLE__

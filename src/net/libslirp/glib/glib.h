@@ -68,10 +68,10 @@
 
 #define GLIB_SIZEOF_VOID_P 8
 #ifndef MAX
-#define MAX(a, b) (a > b ? a : b)
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 #endif
 #ifndef MIN
-#define MIN(a, b) (a < b ? a : b)
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 #endif
 
 #ifndef TRUE

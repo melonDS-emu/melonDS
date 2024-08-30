@@ -19,8 +19,6 @@
 #include <cstring>
 
 #include "LocalMP.h"
-#include "Platform.h"
-#include "types.h"
 
 using namespace melonDS;
 using namespace melonDS::Platform;

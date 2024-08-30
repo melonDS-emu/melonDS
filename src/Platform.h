@@ -270,6 +270,9 @@ bool Mutex_TryLock(Mutex* mutex);
 
 void Sleep(u64 usecs);
 
+u64 GetMSCount();
+u64 GetUSCount();
+
 
 // functions called when the NDS or GBA save files need to be written back to storage
 // savedata and savelen are always the entire save memory buffer and its full length
