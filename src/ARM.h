@@ -185,6 +185,8 @@ public:
 
     MemRegion CodeMem;
 
+    u64 MainRAMTimestamp;
+
 #ifdef JIT_ENABLED
     u32 FastBlockLookupStart, FastBlockLookupSize;
     u64* FastBlockLookup;
@@ -384,6 +386,8 @@ class ARMv4 : public ARM
 {
 public:
     ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit);
+    
+    void Reset() override;
 
     void FillPipeline() override;
 
@@ -393,15 +397,10 @@ public:
     template <CPUExecuteMode mode>
     void Execute();
 
-    u16 CodeRead16(u32 addr)
-    {
-        return BusRead16(addr);
-    }
+    bool Nonseq;
 
-    u32 CodeRead32(u32 addr)
-    {
-        return BusRead32(addr);
-    }
+    u16 CodeRead16(u32 addr);
+    u32 CodeRead32(u32 addr);
 
     bool DataRead8(u32 addr, u32* val) override;
     bool DataRead16(u32 addr, u32* val) override;
