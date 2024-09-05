@@ -151,6 +151,7 @@ void ARM::Reset()
 {
     Cycles = 0;
     Halted = 0;
+    DataCycles = 0;
 
     IRQ = 0;
 
@@ -199,6 +200,13 @@ void ARM::Reset()
 void ARMv5::Reset()
 {
     PU_Map = PU_PrivMap;
+    
+    TimestampActual = 0;
+    InterlockMem = 16;
+    InterlockWBCur = 16;
+    InterlockWBPrev = 16;
+    Store = false;
+    InterlockMask = 0;
 
     ARM::Reset();
 }
@@ -310,14 +318,12 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
 
-    RegionCodeCycles = MemTimings[addr >> 12][0];
-
     if (addr & 0x1)
     {
         addr &= ~0x1;
         R[15] = addr+2;
 
-        if (newregion != oldregion) SetupCodeMem(addr);
+        //if (newregion != oldregion) SetupCodeMem(addr);
 
         // two-opcodes-at-once fetch
         // doesn't matter if we put garbage in the MSbs there
@@ -342,7 +348,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         addr &= ~0x3;
         R[15] = addr+4;
 
-        if (newregion != oldregion) SetupCodeMem(addr);
+        //if (newregion != oldregion) SetupCodeMem(addr);
 
         NextInstr[0] = CodeRead32(addr, true);
         Cycles += CodeCycles;
@@ -744,8 +750,8 @@ void ARMv5::Execute()
             }*/
         }
 
-        NDS.ARM9Timestamp += Cycles;
-        Cycles = 0;
+        //NDS.ARM9Timestamp += Cycles;
+        //Cycles = 0;
     }
 
     if (Halted == 2)
@@ -816,7 +822,7 @@ void ARMv4::Execute()
                 {
                     if ((Halted == 1 || IdleLoop) && NDS.ARM7Timestamp < NDS.ARM7Target)
                     {
-                        //Cycles = 0;
+                        Cycles = 0;
                         NDS.ARM7Timestamp = NDS.ARM7Target;
                     }
                     IdleLoop = 0;
@@ -882,9 +888,6 @@ void ARMv4::Execute()
                     TriggerIRQ<mode>();
             }*/
         }
-
-        //NDS.ARM7Timestamp += Cycles;
-        //Cycles = 0;
     }
 
     if (Halted == 2)
@@ -1152,6 +1155,20 @@ u32 ARMv5::ReadMem(u32 addr, int size)
     return ARM::ReadMem(addr, size);
 }
 #endif
+
+
+void ARMv5::AddCycles_CI(s32 numI)
+{
+    NDS.ARM9Timestamp += numI;
+}
+
+void ARMv5::AddCycles_MW()
+{
+    u64 TimestampActual = DataCycles + NDS.ARM9Timestamp;
+    s32 cycles = DataCycles - (3<<NDS.ARM9ClockShift);
+
+    if (cycles > 0) NDS.ARM9Timestamp += cycles;
+}
 
 u16 ARMv4::CodeRead16(u32 addr)
 {

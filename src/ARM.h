@@ -265,44 +265,41 @@ public:
     bool DataWrite16(u32 addr, u16 val) override;
     bool DataWrite32(u32 addr, u32 val) override;
     bool DataWrite32S(u32 addr, u32 val, bool dataabort = false) override;
+    
+    template<u8 nregs>
+    void ExecuteStage(u8 rn, u8 rm)
+    {
+        static_assert((nregs < 2), "too many regs");
+
+        if constexpr (nregs == 1)
+        {
+            InterlockMask = 1 << rn;
+        }
+        if constexpr (nregs == 2)
+        {
+            InterlockMask = 1 << rn | 1 << rm;
+        }
+
+        AddCycles_C();
+    }
+
 
     void AddCycles_C() override
     {
-        // code only. always nonseq 32-bit for ARM9.
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        Cycles += numC;
     }
 
-    void AddCycles_CI(s32 numI) override
-    {
-        // code+internal
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        Cycles += numC + numI;
-    }
+    void AddCycles_CI(s32 numI) override;
+
+    void AddCycles_MW();
 
     void AddCycles_CDI() override
     {
-        // LDR/LDM cycles. ARM9 seems to skip the internal cycle there.
-        // TODO: ITCM data fetches shouldn't be parallelized, they say
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        s32 numD = DataCycles;
-
-        //if (DataRegion != CodeRegion)
-            Cycles += std::max(numC + numD - 6, std::max(numC, numD));
-        //else
-        //    Cycles += numC + numD;
+        AddCycles_MW();
     }
 
     void AddCycles_CD() override
     {
-        // TODO: ITCM data fetches shouldn't be parallelized, they say
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        s32 numD = DataCycles;
-
-        //if (DataRegion != CodeRegion)
-            Cycles += std::max(numC + numD - 6, std::max(numC, numD));
-        //else
-        //    Cycles += numC + numD;
+        AddCycles_MW();
     }
 
     void GetCodeMemRegion(u32 addr, MemRegion* region);
@@ -367,6 +364,13 @@ public:
     u8* CurICacheLine;
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
+    
+    u64 TimestampActual;
+    u8 InterlockMem;
+    u8 InterlockWBCur;
+    u8 InterlockWBPrev;
+    bool Store;
+    u16 InterlockMask;
 
 #ifdef GDBSTUB_ENABLED
     u32 ReadMem(u32 addr, int size) override;
