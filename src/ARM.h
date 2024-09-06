@@ -284,22 +284,20 @@ public:
     }
 
 
-    void AddCycles_C() override
-    {
-    }
+    void AddCycles_C() override {}
 
-    void AddCycles_CI(s32 numI) override;
+    void AddCycles_CI(s32 numX) override;
 
-    void AddCycles_MW();
+    void AddCycles_MW(s32 numM);
 
     void AddCycles_CDI() override
     {
-        AddCycles_MW();
+        AddCycles_MW(DataCycles);
     }
 
     void AddCycles_CD() override
     {
-        AddCycles_MW();
+        AddCycles_MW(DataCycles);
     }
 
     void GetCodeMemRegion(u32 addr, MemRegion* region);
@@ -365,6 +363,7 @@ public:
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
     
+    u64 ITCMTimestamp;
     u64 TimestampActual;
     u8 InterlockMem;
     u8 InterlockWBCur;

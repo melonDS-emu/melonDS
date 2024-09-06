@@ -203,7 +203,12 @@ void A_MRS(ARM* cpu)
 
     cpu->R[(cpu->CurInstr>>12) & 0xF] = psr;
 
-    if (cpu->Num != 1) cpu->AddCycles_CI(1); // arm9
+    if (cpu->Num != 1) // arm9
+    {
+        cpu->AddCycles_C(); // 1 X
+        cpu->DataRegion = Mem9_Null;
+        ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
+    }
     else cpu->AddCycles_C(); // arm7
 }
 
@@ -263,7 +268,12 @@ void A_MRC(ARM* cpu)
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 
-    if (cpu->Num != 1) cpu->AddCycles_CI(1); // checkme
+    if (cpu->Num != 1)
+    {
+        cpu->AddCycles_C(); // 1 Execute cycle
+        cpu->DataRegion = Mem9_Null;
+        ((ARMv5*)cpu)->AddCycles_MW(2); // 2 Memory cycles
+    }
     else cpu->AddCycles_CI(2 + 1); // TODO: checkme
 }
 

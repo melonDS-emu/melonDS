@@ -774,18 +774,26 @@ void A_MUL(ARM* cpu)
         if (cpu->Num==1) cpu->SetC(0);
     }
 
-    u32 cycles;
     if (cpu->Num == 0)
-        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    {
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(3);
+        else
+        {
+            cpu->AddCycles_C(); // 1 X
+            cpu->DataRegion = Mem9_Null;
+            ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
+        }
+    }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 1;
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 2;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 3;
         else cycles = 4;
+        cpu->AddCycles_CI(cycles);
     }
 
-    cpu->AddCycles_CI(cycles);
 }
 
 void A_MLA(ARM* cpu)
@@ -804,18 +812,26 @@ void A_MLA(ARM* cpu)
         if (cpu->Num==1) cpu->SetC(0);
     }
 
-    u32 cycles;
     if (cpu->Num == 0)
-        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    {
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(3);
+        else
+        {
+            cpu->AddCycles_C(); // 1 X
+            cpu->DataRegion = Mem9_Null;
+            ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
+        }
+    }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
         else cycles = 5;
+        cpu->AddCycles_CI(cycles);
     }
 
-    cpu->AddCycles_CI(cycles);
 }
 
 void A_UMULL(ARM* cpu)
@@ -1041,8 +1057,10 @@ void A_SMLALxy(ARM* cpu)
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-
-    cpu->AddCycles_CI(1); // TODO: interlock??
+    
+    cpu->AddCycles_C(); // 1 X
+    cpu->DataRegion = Mem9_Null;
+    ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
 }
 
 

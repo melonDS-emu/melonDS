@@ -1157,17 +1157,18 @@ u32 ARMv5::ReadMem(u32 addr, int size)
 #endif
 
 
-void ARMv5::AddCycles_CI(s32 numI)
+void ARMv5::AddCycles_CI(s32 numX)
 {
-    NDS.ARM9Timestamp += numI;
+    NDS.ARM9Timestamp += numX;
 }
 
-void ARMv5::AddCycles_MW()
+void ARMv5::AddCycles_MW(s32 numM)
 {
-    u64 TimestampActual = DataCycles + NDS.ARM9Timestamp;
-    s32 cycles = DataCycles - (3<<NDS.ARM9ClockShift);
+    TimestampActual = numM + NDS.ARM9Timestamp;
 
-    if (cycles > 0) NDS.ARM9Timestamp += cycles;
+    numM -= 3<<NDS.ARM9ClockShift;
+
+    if (numM > 0) NDS.ARM9Timestamp += numM;
 }
 
 u16 ARMv4::CodeRead16(u32 addr)
