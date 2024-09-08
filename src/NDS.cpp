@@ -2233,7 +2233,7 @@ void NDS::ARM9Write32(u32 addr, u32 val)
     //Log(LogLevel::Warn, "unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9.R[15]);
 }
 
-bool NDS::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
+bool NDS::ARM9GetMemRegion(const u32 addr, const bool write, MemRegion* region)
 {
     switch (addr & 0xFF000000)
     {
