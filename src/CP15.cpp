@@ -379,7 +379,6 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     {
         if ((ICacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == (tag | CACHE_FLAG_VALID))
         {
-            CodeCycles = 1;
             u32 *cacheLine = (u32 *)&ICache[(id+set) << ICACHE_LINELENGTH_LOG2];
             if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_STREAMING) [[unlikely]]
             {
@@ -395,6 +394,9 @@ u32 ARMv5::ICacheLookup(const u32 addr)
                     return NDS.ARM9Read32(addr & ~3);
                 }     
             }
+            NDS.ARM9Timestamp += 1;
+            if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
+            DataRegion = Mem9_Null;
             return cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2];
         }
     }
@@ -460,7 +462,20 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     // ouch :/
     //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
     //                      first N32                                  remaining S32
-    CodeCycles = (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1))) << NDS.ARM9ClockShift;
+
+    NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
+
+    if ((addr >> 24) == 0x02)
+    {
+        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
+    }
+    else if (NDS.ARM9Regions[addr>>14] == DataRegion && Store) NDS.ARM9Timestamp += (1<<NDS.ARM9ClockShift);
+    
+    NDS.ARM9Timestamp += CodeCycles;
+    if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
+
+    CodeCycles = ((NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1)) - 1) << NDS.ARM9ClockShift) + 1;
+    DataRegion = Mem9_Null;
     return ptr[(addr & (ICACHE_LINELENGTH-1)) >> 2];
 }
 
@@ -513,7 +528,6 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     {
         if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == (tag | CACHE_FLAG_VALID))
         {
-            DataCycles = 1;
             u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_STREAMING) [[unlikely]]
             {
@@ -533,6 +547,8 @@ u32 ARMv5::DCacheLookup(const u32 addr)
                     return BusRead32(addr & ~3);
                 }     
             }
+            DataCycles += 1;
+            DataRegion = Mem9_DCache;
             //Log(LogLevel::Debug, "DCache hit at %08lx returned %08x from set %i, line %i\n", addr, cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2], set, id>>2);
             return cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2];
         }
@@ -615,7 +631,20 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     // ouch :/
     //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
     //                      first N32                                  remaining S32
-    DataCycles += (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1))) << NDS.ARM9ClockShift;
+    NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
+    
+    DataCycles = MemTimings[addr >> 12][2];
+
+    if ((addr >> 24) == 0x02)
+    {
+        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
+        MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        DataRegion = Mem9_MainRAM;
+    }
+    else DataRegion = NDS.ARM9Regions[addr>>14];
+
+    NDS.ARM9Timestamp += ((NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 2)) - 1) << NDS.ARM9ClockShift) + 1;
+    DataCycles = NDS.ARM9MemTimings[tag>>14][3] << NDS.ARM9ClockShift;
     return ptr[(addr & (DCACHE_LINELENGTH-1)) >> 2];
 }
 
@@ -632,7 +661,8 @@ bool ARMv5::DCacheWrite32(const u32 addr, const u32 val)
         {
             u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             cacheLine[(addr & (DCACHE_LINELENGTH-1)) >> 2] = val;
-            DataCycles = 1;
+            DataCycles += 1;
+            DataRegion = Mem9_DCache;
             #if !DISABLE_CACHEWRITEBACK
                 if (PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_DCACHEWRITEBACK)
                 {
@@ -667,6 +697,7 @@ bool ARMv5::DCacheWrite16(const u32 addr, const u16 val)
             u16 *cacheLine = (u16 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             cacheLine[(addr & (DCACHE_LINELENGTH-1)) >> 1] = val;
             DataCycles = 1;
+            DataRegion = Mem9_DCache;
             #if !DISABLE_CACHEWRITEBACK
                 if (PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_DCACHEWRITEBACK)
                 {
@@ -702,6 +733,7 @@ bool ARMv5::DCacheWrite8(const u32 addr, const u8 val)
             u8 *cacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             cacheLine[addr & (DCACHE_LINELENGTH-1)] = val;
             DataCycles = 1;
+            DataRegion = Mem9_DCache;
             #if !DISABLE_CACHEWRITEBACK
                 if (PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_DCACHEWRITEBACK)
                 {
@@ -1562,9 +1594,6 @@ u32 ARMv5::CP15Read(const u32 id) const
 // TCM are handled here.
 // TODO: later on, handle PU
 
-u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
-{
-
 u32 ARMv5::CodeRead32(u32 addr, bool branch)
 {
     // prefetch abort
@@ -1650,8 +1679,9 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
             {
                 if (IsAddressDCachable(addr))
                 {
+                    DataCycles = 0;
                     *val = (DCacheLookup(addr) >> (8 * (addr & 3))) & 0xff;
-                    return;
+                    return true;
                 }
             }
         }
@@ -1708,8 +1738,9 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
             {
                 if (IsAddressDCachable(addr))
                 {
+                    DataCycles = 0;
                     *val = (DCacheLookup(addr) >> (8* (addr & 2))) & 0xffff;
-                    return;
+                    return true;
                 }
             }
         }
@@ -1769,8 +1800,9 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
             {
                 if (IsAddressDCachable(addr))
                 {
+                    DataCycles = 0;
                     *val = DCacheLookup(addr);
-                    return;
+                    return true;
                 }
             }
         }
@@ -1828,7 +1860,7 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
                 if (IsAddressDCachable(addr))
                 {
                     *val = DCacheLookup(addr);
-                    return;
+                    return true;
                 }
             }
         }
@@ -1886,7 +1918,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
                 if (IsAddressDCachable(addr))
                 {
                     if (DCacheWrite8(addr, val))
-                        return;
+                        return true;
                 }
             }
         }
@@ -1946,7 +1978,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
                 if (IsAddressDCachable(addr))
                 {
                     if (DCacheWrite16(addr, val))
-                        return;
+                        return true;
                 }
             }
         }
@@ -2006,8 +2038,9 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
             {
                 if (IsAddressDCachable(addr))
                 {
+                    DataCycles = 0;
                     if (DCacheWrite32(addr, val))
-                        return;
+                        return true;
                 }
             }
         }
@@ -2067,7 +2100,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val, bool dataabort)
                 if (IsAddressDCachable(addr))
                 {
                     if (DCacheWrite32(addr, val))
-                        return;
+                        return true;
                 }
             }
         }
