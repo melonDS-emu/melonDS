@@ -689,8 +689,17 @@ void ARMv5::Execute()
                 R[15] += 2;
                 CurInstr = NextInstr[0];
                 NextInstr[0] = NextInstr[1];
-                if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 0; }
-                else             NextInstr[1] = CodeRead32(R[15], false);
+                if (R[15] & 0x2)
+                {
+                    // no fetch is performed.
+                    // unclear if it's a "1 cycle fetch" or a legitmately 0 cycle fetch stage?
+                    // in practice it doesn't matter though.
+                    NextInstr[1] >>= 16;
+                    NDS.ARM9Timestamp++;
+                    if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
+                    DataRegion = Mem9_Null;
+                }
+                else NextInstr[1] = CodeRead32(R[15], false);
                 
                 
                 if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
