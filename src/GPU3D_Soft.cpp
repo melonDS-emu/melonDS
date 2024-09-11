@@ -287,7 +287,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             {
                 u16 color = ReadVRAM_TexPal<u16>(texpal + paloffset, gpu);
                 *alpha = 31;
-                if (!((palinfo >> 14) & 0x1) || gpu.GPU3D.RenderRasterRev)
+                if (!((palinfo >> 14) & 0x1))
                     ColorConv<true>(color, tr, tg, tb);
                 else
                     ColorConv<false>(color, tr, tg, tb);
@@ -298,7 +298,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             {
                 u16 color = ReadVRAM_TexPal<u16>(texpal + paloffset + 2, gpu);
                 *alpha = 31;
-                if (!((palinfo >> 14) & 0x1) || gpu.GPU3D.RenderRasterRev)
+                if (!((palinfo >> 14) & 0x1))
                     ColorConv<true>(color, tr, tg, tb);
                 else
                     ColorConv<false>(color, tr, tg, tb);
