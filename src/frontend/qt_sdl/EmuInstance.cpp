@@ -1153,14 +1153,14 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
 #endif
 
 #ifdef GDBSTUB_ENABLED
-    Config::Table gdbopt = globalCfg.GetTable("Gdb");
+    Config::Table gdbopt = localCfg.GetTable("Gdb");
     GDBArgs _gdbargs {
             static_cast<u16>(gdbopt.GetInt("ARM7.Port")),
             static_cast<u16>(gdbopt.GetInt("ARM9.Port")),
             gdbopt.GetBool("ARM7.BreakOnStartup"),
             gdbopt.GetBool("ARM9.BreakOnStartup"),
     };
-    auto gdbargs = gdbopt.GetBool("Enable") ? std::make_optional(_gdbargs) : std::nullopt;
+    auto gdbargs = gdbopt.GetBool("Enabled") ? std::make_optional(_gdbargs) : std::nullopt;
 #else
     optional<GDBArgs> gdbargs = std::nullopt;
 #endif
