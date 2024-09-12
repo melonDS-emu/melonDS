@@ -1217,7 +1217,7 @@ bool ARMv4::DataWrite32(u32 addr, u32 val)
     return true;
 }
 
-bool ARMv4::DataWrite32S(u32 addr, u32 val, bool dataabort)
+bool ARMv4::DataWrite32S(u32 addr, u32 val)
 {
     addr &= ~3;
 

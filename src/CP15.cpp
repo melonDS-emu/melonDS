@@ -806,9 +806,11 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
 
 bool ARMv5::DataRead8(u32 addr, u32* val)
 {
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
     {
-        DataAbort();
+        DataCycles = 1;
         return false;
     }
 
@@ -832,9 +834,11 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
 
 bool ARMv5::DataRead16(u32 addr, u32* val)
 {
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
     {
-        DataAbort();
+        DataCycles = 1;
         return false;
     }
 
@@ -860,9 +864,11 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
 
 bool ARMv5::DataRead32(u32 addr, u32* val)
 {
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
     {
-        DataAbort();
+        DataCycles = 1;
         return false;
     }
 
@@ -888,9 +894,11 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
 
 bool ARMv5::DataRead32S(u32 addr, u32* val)
 {
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
     {
-        DataAbort();
+        DataCycles += 1;
         return false;
     }
 
@@ -916,9 +924,11 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
 
 bool ARMv5::DataWrite8(u32 addr, u8 val)
 {
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
     {
-        DataAbort();
+        DataCycles = 1;
         return false;
     }
 
@@ -943,9 +953,11 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
 
 bool ARMv5::DataWrite16(u32 addr, u16 val)
 {
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
     {
-        DataAbort();
+        DataCycles = 1;
         return false;
     }
 
@@ -972,9 +984,11 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
 
 bool ARMv5::DataWrite32(u32 addr, u32 val)
 {
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
     {
-        DataAbort();
+        DataCycles = 1;
         return false;
     }
 
@@ -999,11 +1013,13 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
     return true;
 }
 
-bool ARMv5::DataWrite32S(u32 addr, u32 val, bool dataabort)
+bool ARMv5::DataWrite32S(u32 addr, u32 val)
 {
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
     {
-        if (!dataabort) DataAbort();
+        DataCycles += 1;
         return false;
     }
 
