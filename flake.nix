@@ -25,23 +25,23 @@
           cmake
           ninja
           pkg-config
-          kdePackages.wrapQtAppsHook
+          qt6.wrapQtAppsHook
         ];
 
         buildInputs = (with pkgs; [
-          kdePackages.qtbase
-          kdePackages.qtmultimedia
-          extra-cmake-modules
+          qt6.qtbase
+          qt6.qtmultimedia
           SDL2
           zstd
           libarchive
           libGL
           libslirp
           enet
-        ]) ++ optionals isLinux [
-          pkgs.wayland
-          pkgs.kdePackages.qtwayland
-        ];
+        ]) ++ optionals (!isDarwin) (with pkgs; [
+          kdePackages.extra-cmake-modules
+          qt6.qtwayland
+          wayland
+        ]);
 
         cmakeFlags = [
           (cmakeBool "USE_QT6" true)
