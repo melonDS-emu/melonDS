@@ -188,7 +188,7 @@ ReadResult GdbStub::MsgRecv()
 		Log(LogLevel::Debug, "[GDB] receiving from stream %d\n", receivedNum);
 #else
 		// fuck windows
-		ssize_t receivedNum = recv(ConnFd, (char*)&RecvBuffer[RecvBufferFilled], sizeof(PacketBuf) - RecvBufferFilled, flag);
+		ssize_t receivedNum = recv(ConnFd, (char*)&RecvBuffer[RecvBufferFilled], sizeof(RecvBuffer) - RecvBufferFilled, flag);
 #endif
 #endif
 
@@ -255,18 +255,18 @@ int GdbStub::WaitAckBlocking(u8* ackp, int to_ms)
 #ifdef _WIN32
 	fd_set infd, outfd, errfd;
 	FD_ZERO(&infd); FD_ZERO(&outfd); FD_ZERO(&errfd);
-	FD_SET(connfd, &infd);
+	FD_SET(ConnFd, &infd);
 
 	struct timeval to;
 	to.tv_sec = to_ms / 1000;
 	to.tv_usec = (to_ms % 1000) * 1000;
 
-	int r = select(connfd+1, &infd, &outfd, &errfd, &to);
+	int r = select(ConnFd+1, &infd, &outfd, &errfd, &to);
 
-	if (FD_ISSET(connfd, &errfd)) return -1;
-	else if (FD_ISSET(connfd, &infd))
+	if (FD_ISSET(ConnFd, &errfd)) return -1;
+	else if (FD_ISSET(ConnFd, &infd))
 	{
-		r = recv(connfd, (char*)ackp, 1, 0);
+		r = recv(ConnFd, (char*)ackp, 1, 0);
 		if (r < 0) return r;
 		return 0;
 	}
