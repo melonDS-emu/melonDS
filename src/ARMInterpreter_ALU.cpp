@@ -766,7 +766,8 @@ void A_MUL(ARM* cpu)
 
     u32 res = rm * rs;
 
-    if (((cpu->CurInstr >> 16) & 0xF) != 15) // check arm7
+    // all multiply instructions fail writes to r15 on arm7/9
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
         cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
 
     if (cpu->CurInstr & (1<<20))
@@ -798,7 +799,7 @@ void A_MLA(ARM* cpu)
 
     u32 res = (rm * rs) + rn;
     
-    if (((cpu->CurInstr >> 16) & 0xF) != 15) // check arm7
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
         cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
 
     if (cpu->CurInstr & (1<<20))
@@ -1110,6 +1111,7 @@ void A_QADD(ARM* cpu)
         cpu->CPSR |= 0x08000000;
     }
 
+    // all saturated math instructions fail writes to r15
     if (((cpu->CurInstr >> 12) & 0xF) != 15)
         cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 
