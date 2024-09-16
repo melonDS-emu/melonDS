@@ -1110,7 +1110,9 @@ void A_QADD(ARM* cpu)
         cpu->CPSR |= 0x08000000;
     }
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
+
     cpu->AddCycles_C(); // TODO: interlock??
 }
 
@@ -1127,8 +1129,10 @@ void A_QSUB(ARM* cpu)
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
     }
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
 }
 
@@ -1153,8 +1157,10 @@ void A_QDADD(ARM* cpu)
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
     }
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
 }
 
@@ -1179,8 +1185,10 @@ void A_QDSUB(ARM* cpu)
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
     }
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
 }
 
