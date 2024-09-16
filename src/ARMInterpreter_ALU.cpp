@@ -766,7 +766,9 @@ void A_MUL(ARM* cpu)
 
     u32 res = rm * rs;
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    if (((cpu->CurInstr >> 16) & 0xF) != 15) // check arm7
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+
     if (cpu->CurInstr & (1<<20))
     {
         cpu->SetNZ(res & 0x80000000,
@@ -795,8 +797,10 @@ void A_MLA(ARM* cpu)
     u32 rn = cpu->R[(cpu->CurInstr >> 12) & 0xF];
 
     u32 res = (rm * rs) + rn;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15) // check arm7
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     if (cpu->CurInstr & (1<<20))
     {
         cpu->SetNZ(res & 0x80000000,
@@ -825,8 +829,11 @@ void A_UMULL(ARM* cpu)
 
     u64 res = (u64)rm * (u64)rs;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+
     if (cpu->CurInstr & (1<<20))
     {
         cpu->SetNZ((u32)(res >> 63ULL),
@@ -857,9 +864,12 @@ void A_UMLAL(ARM* cpu)
 
     u64 rd = (u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL);
     res += rd;
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
     if (cpu->CurInstr & (1<<20))
     {
         cpu->SetNZ((u32)(res >> 63ULL),
@@ -887,9 +897,12 @@ void A_SMULL(ARM* cpu)
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
 
     s64 res = (s64)(s32)rm * (s64)(s32)rs;
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
     if (cpu->CurInstr & (1<<20))
     {
         cpu->SetNZ((u32)(res >> 63ULL),
@@ -920,9 +933,12 @@ void A_SMLAL(ARM* cpu)
 
     s64 rd = (s64)((u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL));
     res += rd;
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
     if (cpu->CurInstr & (1<<20))
     {
         cpu->SetNZ((u32)(res >> 63ULL),
@@ -959,8 +975,10 @@ void A_SMLAxy(ARM* cpu)
 
     u32 res_mul = ((s16)rm * (s16)rs);
     u32 res = res_mul + rn;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
@@ -980,8 +998,9 @@ void A_SMLAWy(ARM* cpu)
 
     u32 res_mul = ((s64)(s32)rm * (s16)rs) >> 16;
     u32 res = res_mul + rn;
-
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
@@ -1001,8 +1020,9 @@ void A_SMULxy(ARM* cpu)
     else                        rs &= 0xFFFF;
 
     u32 res = ((s16)rm * (s16)rs);
-
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
 }
 
@@ -1017,8 +1037,9 @@ void A_SMULWy(ARM* cpu)
     else                        rs &= 0xFFFF;
 
     u32 res = ((s64)(s32)rm * (s16)rs) >> 16;
-
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
 }
 
@@ -1039,8 +1060,11 @@ void A_SMLALxy(ARM* cpu)
     s64 rd = (s64)((u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL));
     res += rd;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
 
     cpu->AddCycles_CI(1); // TODO: interlock??
 }
