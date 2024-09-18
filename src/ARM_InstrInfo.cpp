@@ -194,6 +194,7 @@ const u32 A_BX = A_BranchAlways | A_Read0 | ak(ak_BX);
 const u32 A_BLX_REG = A_BranchAlways | A_Link | A_Read0 | ak(ak_BLX_REG);
 
 const u32 A_UNK = A_BranchAlways | A_Link | ak(ak_UNK);
+const u32 A_BKPT = A_BranchAlways | A_Link | ak(ak_UNK);
 const u32 A_MSR_IMM = ak(ak_MSR_IMM);
 const u32 A_MSR_REG = A_Read0 | ak(ak_MSR_REG);
 const u32 A_MRS = A_Write12 | ak(ak_MRS);

@@ -69,6 +69,14 @@ void T_UNK(ARM* cpu)
     cpu->JumpTo(cpu->ExceptionBase + 0x04);
 }
 
+void A_BKPT(ARM* cpu)
+{
+    if (cpu->Num == 1) A_UNK(cpu); // checkme
+    
+    Log(LogLevel::Warn, "BKPT: "); // combine with the prefetch abort warning message
+    ((ARMv5*)cpu)->PrefetchAbort();
+}
+
 
 
 void A_MSR_IMM(ARM* cpu)
@@ -105,9 +113,6 @@ void A_MSR_IMM(ARM* cpu)
     //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000; // unused by arm 7 & 9
     if (cpu->CurInstr & (1<<19)) mask |= ((cpu->Num==1) ? 0xF0000000 : 0xF8000000);
 
-    if (!(cpu->CurInstr & (1<<22)))
-        mask &= 0xFFFFFFDF;
-
     if ((cpu->CPSR & 0x1F) == 0x10) mask &= 0xFFFFFF00;
 
     u32 val = ROR((cpu->CurInstr & 0xFF), ((cpu->CurInstr >> 7) & 0x1E));
@@ -120,6 +125,9 @@ void A_MSR_IMM(ARM* cpu)
 
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
+
+    if (cpu->Num == 0)
+    if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20)) cpu->NextInstr[1] &= 0xFFFF; // checkme: probably not the right way to handle this
 
     cpu->AddCycles_C();
 }
@@ -158,9 +166,6 @@ void A_MSR_REG(ARM* cpu)
     //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000; // unused by arm 7 & 9
     if (cpu->CurInstr & (1<<19)) mask |= ((cpu->Num==1) ? 0xF0000000 : 0xF8000000);
 
-    if (!(cpu->CurInstr & (1<<22)))
-        mask &= 0xFFFFFFDF;
-
     if ((cpu->CPSR & 0x1F) == 0x10) mask &= 0xFFFFFF00;
 
     u32 val = cpu->R[cpu->CurInstr & 0xF];
@@ -173,6 +178,9 @@ void A_MSR_REG(ARM* cpu)
 
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
+        
+    if (cpu->Num == 0)
+    if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20)) cpu->NextInstr[1] &= 0xFFFF; // checkme: probably not the right way to handle this
 
     cpu->AddCycles_C();
 }

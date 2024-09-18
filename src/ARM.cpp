@@ -201,6 +201,13 @@ void ARMv5::Reset()
     ARM::Reset();
 }
 
+void ARMv4::Reset()
+{
+    Thumb = false;
+
+    ARM::Reset();
+}
+
 
 void ARM::DoSavestate(Savestate* file)
 {
@@ -395,6 +402,7 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
         Cycles += NDS.ARM7MemTimings[CodeCycles][0] + NDS.ARM7MemTimings[CodeCycles][1];
 
         CPSR |= 0x20;
+        Thumb = true;
     }
     else
     {
@@ -408,6 +416,7 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
         Cycles += NDS.ARM7MemTimings[CodeCycles][2] + NDS.ARM7MemTimings[CodeCycles][3];
 
         CPSR &= ~0x20;
+        Thumb = false;
     }
 }
 
@@ -724,7 +733,12 @@ void ARMv5::Execute()
                     ARMInterpreter::A_BLX_IMM(this);
                 }
                 else
-                    AddCycles_C();
+                {
+                    if ((((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0)) == 0x127)
+                        ARMInterpreter::A_BKPT(this); // always passes regardless of condition code
+                    else
+                        AddCycles_C();
+                }
             }
 
             // TODO optimize this shit!!!
@@ -826,8 +840,11 @@ void ARMv4::Execute()
         else
 #endif
         {
-            if (CPSR & 0x20) // THUMB
+            if (Thumb) // THUMB
             {
+                Thumb = (CPSR & 0x20);
+                bool fix = !Thumb;
+
                 if constexpr (mode == CPUExecuteMode::InterpreterGDB)
                     GdbCheckC();
 
@@ -841,12 +858,22 @@ void ARMv4::Execute()
                 else
                 {
                     // actually execute
-                    u32 icode = (CurInstr >> 6);
+                    u32 icode = (CurInstr >> 6) & 0x3FF;
                     ARMInterpreter::THUMBInstrTable[icode](this);
+                }
+                
+                if (fix) [[unlikely]]
+                {
+                    // probably wrong?
+                    // fixup
+                    R[15] &= ~0x3;
+                    NextInstr[1] = CodeRead32(R[15]);
                 }
             }
             else
             {
+                Thumb = (CPSR & 0x20);
+
                 if constexpr (mode == CPUExecuteMode::InterpreterGDB)
                     GdbCheckC();
 
