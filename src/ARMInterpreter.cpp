@@ -126,13 +126,13 @@ void A_MSR_IMM(ARM* cpu)
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
 
-    if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20))
+    if (cpu->CPSR & 0x20) [[unlikely]]
     {
         if (cpu->Num == 0) cpu->NextInstr[1] &= 0xFFFF; // checkme: probably not the right way to handle this
         else
         {
-            Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR IMM T bit change on ARM7\n");
-            cpu->CPSR = (cpu->CPSR & ~0x20) | (oldpsr & 0x20); // keep it from crashing the emulator at least
+            Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
+            cpu->CPSR &= ~0x20; // keep it from crashing the emulator at least
         }
     }
 
@@ -186,13 +186,13 @@ void A_MSR_REG(ARM* cpu)
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
 
-    if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20))
+    if (cpu->CPSR & 0x20) [[unlikely]]
     {
         if (cpu->Num == 0) cpu->NextInstr[1] &= 0xFFFF; // checkme: probably not the right way to handle this
         else
         {
             Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
-            cpu->CPSR = (cpu->CPSR & ~0x20) | (oldpsr & 0x20); // keep it from crashing the emulator at least
+            cpu->CPSR &= ~0x20; // keep it from crashing the emulator at least
         }
     }
 

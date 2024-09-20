@@ -583,16 +583,16 @@ A_IMPLEMENT_ALU_OP(RSC,)
     u32 res = a & b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) /* yes this instruction has a secret rd for some reason */ \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* yes this instruction has a secret rd for some reason */ \
     { \
         if (cpu->Num == 1) \
         { \
             u32 oldpsr = cpu->CPSR; \
             cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
-            if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20)) \
+            if (cpu->CPSR & 0x20) \
             { \
                 Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: TST T bit change on ARM7\n"); \
-                cpu->CPSR = (cpu->CPSR & ~0x20) | (oldpsr & 0x20); /* keep it from crashing the emulator at least */ \
+                cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
             } \
         } \
         else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: TST w/ rd == 15 on ARM9\n"); \
@@ -607,16 +607,16 @@ A_IMPLEMENT_ALU_TEST(TST,_S)
     u32 res = a ^ b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) /* yes this instruction has a secret rd for some reason */ \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* yes this instruction has a secret rd for some reason */ \
     { \
         if (cpu->Num == 1) \
         { \
             u32 oldpsr = cpu->CPSR; \
             cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
-            if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20)) \
+            if (cpu->CPSR & 0x20) \
             { \
                 Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: TEQ T bit change on ARM7\n"); \
-                cpu->CPSR = (cpu->CPSR & ~0x20) | (oldpsr & 0x20); /* keep it from crashing the emulator at least */ \
+                cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
             } \
         } \
         else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: TEQ w/ rd == 15 on ARM9\n"); \
@@ -633,16 +633,16 @@ A_IMPLEMENT_ALU_TEST(TEQ,_S)
                  !res, \
                  CarrySub(a, b), \
                  OverflowSub(a, b)); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) /* yes this instruction has a secret rd for some reason */ \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* yes this instruction has a secret rd for some reason */ \
     { \
         if (cpu->Num == 1) \
         { \
             u32 oldpsr = cpu->CPSR; \
             cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
-            if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20)) \
+            if (cpu->CPSR & 0x20) \
             { \
                 Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMP T bit change on ARM7\n"); \
-                cpu->CPSR = (cpu->CPSR & ~0x20) | (oldpsr & 0x20); /* keep it from crashing the emulator at least */ \
+                cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
             } \
         } \
         else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMP w/ rd == 15 on ARM9\n"); \
@@ -659,16 +659,16 @@ A_IMPLEMENT_ALU_TEST(CMP,)
                  !res, \
                  CarryAdd(a, b), \
                  OverflowAdd(a, b)); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) /* yes this instruction has a secret rd for some reason */ \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* yes this instruction has a secret rd for some reason */ \
     { \
         if (cpu->Num == 1) \
         { \
             u32 oldpsr = cpu->CPSR; \
             cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
-            if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20)) \
+            if (cpu->CPSR & 0x20) \
             { \
                 Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMN T bit change on ARM7\n"); \
-                cpu->CPSR = (cpu->CPSR & ~0x20) | (oldpsr & 0x20); /* keep it from crashing the emulator at least */ \
+                cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
             } \
         } \
         else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMN w/ rd == 15 on ARM9\n"); \
@@ -1625,16 +1625,16 @@ void T_CMP_HIREG(ARM* cpu)
                  !res,
                  CarrySub(a, b),
                  OverflowSub(a, b));
-    if (rd == 15)
+    if (rd == 15) [[unlikely]]
     {
         if (cpu->Num == 1)
         {
             u32 oldpsr = cpu->CPSR;
             cpu->RestoreCPSR(); // ARM7TDMI restores cpsr and does ___not___ flush the pipeline.
-            if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20))
+            if (!(cpu->CPSR & 0x20))
             {
                 Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
-                cpu->CPSR = (cpu->CPSR & ~0x20) | (oldpsr & 0x20); // keep it from crashing the emulator at least
+                cpu->CPSR |= 0x20; // keep it from crashing the emulator at least
             }
         }
         else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMP HIREG w/ rd == 15 on ARM9\n");
