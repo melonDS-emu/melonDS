@@ -385,8 +385,6 @@ class ARMv4 : public ARM
 public:
     ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit);
 
-    void Reset() override;
-
     void FillPipeline() override;
 
     void JumpTo(u32 addr, bool restorecpsr = false) override;
@@ -395,7 +393,7 @@ public:
     template <CPUExecuteMode mode>
     void Execute();
 
-    u32 CodeRead16(u32 addr)
+    u16 CodeRead16(u32 addr)
     {
         return BusRead16(addr);
     }
@@ -404,8 +402,6 @@ public:
     {
         return BusRead32(addr);
     }
-
-    bool Thumb;
 
     bool DataRead8(u32 addr, u32* val) override;
     bool DataRead16(u32 addr, u32* val) override;
