@@ -385,6 +385,7 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 
     if (addr & 0x1)
     {
+        Thumb = true;
         addr &= ~0x1;
         R[15] = addr+2;
 
@@ -398,6 +399,7 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
     }
     else
     {
+        Thumb = false;
         addr &= ~0x3;
         R[15] = addr+4;
 
@@ -831,35 +833,63 @@ void ARMv4::Execute()
         else
 #endif
         {
-            if (CPSR & 0x20) // THUMB
+            if (Thumb) // THUMB
             {
+                // attempt to delay t bit changes without a pipeline flush (msr) by one instruction
+                Thumb = CPSR & 0x20;
                 if constexpr (mode == CPUExecuteMode::InterpreterGDB)
                     GdbCheckC();
 
                 // prefetch
-                R[15] += 2;
-                CurInstr = NextInstr[0];
-                NextInstr[0] = NextInstr[1];
-                NextInstr[1] = CodeRead16(R[15]);
+                // thumb bit can change without a flush and is usually delayed 1 instruction
+                // but if the code fetch takes more than 1 cycle(?) it can take effect early for just the code fetch
+                if (!Thumb && (NDS.ARM7MemTimings[CodeCycles][2] > 1)) [[unlikely]] // checkme
+                {
+                    R[15] = (R[15] + 4) & ~0x3;
+                    CurInstr = NextInstr[0];
+                    NextInstr[0] = NextInstr[1];
+                    NextInstr[1] = CodeRead32(R[15]);
+                }
+                else
+                {
+                    R[15] += 2;
+                    CurInstr = NextInstr[0];
+                    NextInstr[0] = NextInstr[1];
+                    NextInstr[1] = CodeRead16(R[15]);
+                }
 
                 if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
                 else
                 {
                     // actually execute
-                    u32 icode = (CurInstr >> 6);
+                    u32 icode = (CurInstr >> 6) & 0x3FF;
                     ARMInterpreter::THUMBInstrTable[icode](this);
                 }
             }
             else
             {
+                // attempt to delay t bit changes without a pipeline flush (msr) by one instruction
+                Thumb = CPSR & 0x20;
                 if constexpr (mode == CPUExecuteMode::InterpreterGDB)
                     GdbCheckC();
-
+                    
                 // prefetch
-                R[15] += 4;
-                CurInstr = NextInstr[0];
-                NextInstr[0] = NextInstr[1];
-                NextInstr[1] = CodeRead32(R[15]);
+                // thumb bit can change without a flush and is usually delayed 1 instruction
+                // but if the code fetch takes more than 1 cycle(?) it can take effect early for just the code fetch
+                if (Thumb && (NDS.ARM7MemTimings[CodeCycles][2] > 1)) [[unlikely]] // checkme?
+                {
+                    R[15] = (R[15] + 4) & ~0x3;
+                    CurInstr = NextInstr[0];
+                    NextInstr[0] = NextInstr[1];
+                    NextInstr[1] = CodeRead16(R[15]);
+                }
+                else
+                {
+                    R[15] = (R[15] + 4) & ~0x3;
+                    CurInstr = NextInstr[0];
+                    NextInstr[0] = NextInstr[1];
+                    NextInstr[1] = CodeRead32(R[15]);
+                }
 
                 if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
                 else if (CheckCondition(CurInstr >> 28)) // actually execute
