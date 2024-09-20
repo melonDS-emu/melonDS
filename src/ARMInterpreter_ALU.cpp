@@ -587,7 +587,7 @@ A_IMPLEMENT_ALU_OP(RSC,)
     { \
         if (cpu->Num == 1) \
         { \
-            u32 oldcpsr = cpu->CPSR; \
+            u32 oldpsr = cpu->CPSR; \
             cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
             if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20)) \
             { \
@@ -611,7 +611,7 @@ A_IMPLEMENT_ALU_TEST(TST,_S)
     { \
         if (cpu->Num == 1) \
         { \
-            u32 oldcpsr = cpu->CPSR; \
+            u32 oldpsr = cpu->CPSR; \
             cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
             if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20)) \
             { \
@@ -637,7 +637,7 @@ A_IMPLEMENT_ALU_TEST(TEQ,_S)
     { \
         if (cpu->Num == 1) \
         { \
-            u32 oldcpsr = cpu->CPSR; \
+            u32 oldpsr = cpu->CPSR; \
             cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
             if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20)) \
             { \
@@ -663,7 +663,7 @@ A_IMPLEMENT_ALU_TEST(CMP,)
     { \
         if (cpu->Num == 1) \
         { \
-            u32 oldcpsr = cpu->CPSR; \
+            u32 oldpsr = cpu->CPSR; \
             cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
             if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20)) \
             { \
@@ -1629,7 +1629,7 @@ void T_CMP_HIREG(ARM* cpu)
     {
         if (cpu->Num == 1)
         {
-            u32 oldcpsr = cpu->CPSR;
+            u32 oldpsr = cpu->CPSR;
             cpu->RestoreCPSR(); // ARM7TDMI restores cpsr and does ___not___ flush the pipeline.
             if (!(oldpsr & 0x20) && (cpu->CPSR & 0x20))
             {
