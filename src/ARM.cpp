@@ -837,6 +837,7 @@ void ARMv4::Execute()
             {
                 // attempt to delay t bit changes without a pipeline flush (msr) by one instruction
                 Thumb = CPSR & 0x20;
+                bool fix = !Thumb;
                 if constexpr (mode == CPUExecuteMode::InterpreterGDB)
                     GdbCheckC();
 
@@ -845,17 +846,17 @@ void ARMv4::Execute()
                 // but if the code fetch takes more than 1 cycle(?) it can take effect early for just the code fetch
                 if (!Thumb && (NDS.ARM7MemTimings[CodeCycles][2] > 1)) [[unlikely]] // checkme
                 {
-                    R[15] = (R[15] + 4) & ~0x3;
+                    R[15] += 4;
                     CurInstr = NextInstr[0];
                     NextInstr[0] = NextInstr[1];
-                    NextInstr[1] = CodeRead32(R[15]);
+                    NextInstr[1] = CodeRead32(R[15] & ~3);
                 }
-                else
+                else [[likely]]
                 {
                     R[15] += 2;
                     CurInstr = NextInstr[0];
                     NextInstr[0] = NextInstr[1];
-                    NextInstr[1] = CodeRead16(R[15]);
+                    NextInstr[1] = CodeRead16(R[15] & ~1);
                 }
 
                 if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
@@ -864,6 +865,12 @@ void ARMv4::Execute()
                     // actually execute
                     u32 icode = (CurInstr >> 6) & 0x3FF;
                     ARMInterpreter::THUMBInstrTable[icode](this);
+                }
+
+                if (fix) [[unlikely]] // attempt at fixing flushless t bit changes
+                {
+                    R[15] += 2; // yes it can end up misaligned. that's correct.
+                    NextInstr[1] = CodeRead32(R[15] & ~3);
                 }
             }
             else
@@ -878,17 +885,17 @@ void ARMv4::Execute()
                 // but if the code fetch takes more than 1 cycle(?) it can take effect early for just the code fetch
                 if (Thumb && (NDS.ARM7MemTimings[CodeCycles][2] > 1)) [[unlikely]] // checkme?
                 {
-                    R[15] = (R[15] + 4) & ~0x3;
+                    R[15] += 4;
                     CurInstr = NextInstr[0];
                     NextInstr[0] = NextInstr[1];
-                    NextInstr[1] = CodeRead16(R[15]);
+                    NextInstr[1] = CodeRead16(R[15] & ~1);
                 }
-                else
+                else [[likely]]
                 {
-                    R[15] = (R[15] + 4) & ~0x3;
+                    R[15] += 4;
                     CurInstr = NextInstr[0];
                     NextInstr[0] = NextInstr[1];
-                    NextInstr[1] = CodeRead32(R[15]);
+                    NextInstr[1] = CodeRead32(R[15] & ~3);
                 }
 
                 if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
