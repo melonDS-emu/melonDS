@@ -416,9 +416,6 @@ public:
     void AddCycles_CDI() override;
     void AddCycles_CD() override;
 
-private:
-    bool Thumb;
-
 protected:
     u8 BusRead8(u32 addr) override;
     u16 BusRead16(u32 addr) override;
