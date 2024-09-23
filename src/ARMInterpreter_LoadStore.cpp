@@ -434,7 +434,59 @@ void A_SWPB(ARM* cpu)
     SWP<true>(cpu);
 }
 
+void ReglessLDMSTM(ARM* cpu, const bool load, const u8 baseid, const bool writeback, const bool decrement, bool preinc, const bool usermode)
+{
+    if (cpu->Num == 1)
+    {
+        u32 base = cpu->R[baseid];
 
+        if (decrement)
+        {
+            preinc = !preinc;
+            base -= 0x40;
+        }
+        if (preinc) base+=4;
+        
+        if (load)
+        {
+            u32 pc;
+            if (cpu->DataRead32(base, &pc))
+            {
+                cpu->AddCycles_CDI();
+                cpu->JumpTo(pc, usermode); // checkme can we restore cpsr?
+            }
+            else
+            {
+                cpu->AddCycles_CDI();
+                ((ARMv5*)cpu)->DataAbort();
+                return;
+            }
+        }
+        else
+        {
+            if (!cpu->DataWrite32(base, cpu->R[15]))
+            {
+                cpu->AddCycles_CD();
+                ((ARMv5*)cpu)->DataAbort();
+                return;
+            }
+            else
+            {
+                cpu->AddCycles_CD();
+            }
+        }
+    }
+    else
+    {
+        cpu->AddCycles_C(); // checkme
+    }
+
+    if (writeback)
+    {
+        if (decrement) cpu->R[baseid] -= 0x40;
+        else           cpu->R[baseid] += 0x40;
+    }
+}
 
 void A_LDM(ARM* cpu)
 {
@@ -445,6 +497,12 @@ void A_LDM(ARM* cpu)
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
     bool dabort = false;
+    
+    if (!(cpu->CurInstr & 0xFFFF)) [[unlikely]]
+    {
+        ReglessLDMSTM(cpu, true, baseid, cpu->CurInstr & (1<<21), !(cpu->CurInstr & (1<<23)), preinc, cpu->CurInstr & (1<<22));
+        return;
+    }
 
     if (!(cpu->CurInstr & (1<<23))) // decrement
     {
@@ -545,6 +603,12 @@ void A_STM(ARM* cpu)
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
     bool dabort = false;
+    
+    if (!(cpu->CurInstr & 0xFFFF)) [[unlikely]]
+    {
+        ReglessLDMSTM(cpu, false, baseid, cpu->CurInstr & (1<<21), !(cpu->CurInstr & (1<<23)), preinc, false);
+        return;
+    }
 
     if (!(cpu->CurInstr & (1<<23)))
     {
@@ -737,6 +801,12 @@ void T_PUSH(ARM* cpu)
 
     if (cpu->CurInstr & (1<<8))
         nregs++;
+        
+    if (!nregs) [[unlikely]]
+    {
+        ReglessLDMSTM(cpu, false, 13, true, true, true, false);
+        return;
+    }
 
     u32 base = cpu->R[13];
     base -= (nregs<<2);
@@ -777,6 +847,12 @@ void T_POP(ARM* cpu)
     u32 base = cpu->R[13];
     bool first = true;
     bool dabort = false;
+    
+    if (!(cpu->CurInstr & 0x1FF)) [[unlikely]]
+    {
+        ReglessLDMSTM(cpu, true, 13, true, false, false, false);
+        return;
+    }
 
     for (int i = 0; i < 8; i++)
     {
@@ -823,6 +899,12 @@ void T_STMIA(ARM* cpu)
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
     bool dabort = false;
+    
+    if (!(cpu->CurInstr & 0xFF)) [[unlikely]]
+    {
+        ReglessLDMSTM(cpu, false, (cpu->CurInstr >> 8) & 0x7, true, false, false, false);
+        return;
+    }
 
     for (int i = 0; i < 8; i++)
     {
@@ -853,6 +935,12 @@ void T_LDMIA(ARM* cpu)
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
     bool dabort = false;
+    
+    if (!(cpu->CurInstr & 0xFF)) [[unlikely]]
+    {
+        ReglessLDMSTM(cpu, true, (cpu->CurInstr >> 8) & 0x7, true, false, false, false);
+        return;
+    }
 
     for (int i = 0; i < 8; i++)
     {
