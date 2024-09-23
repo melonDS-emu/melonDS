@@ -434,7 +434,7 @@ void A_SWPB(ARM* cpu)
     SWP<true>(cpu);
 }
 
-void ReglessLDMSTM(ARM* cpu, const bool load, const u8 baseid, const bool writeback, const bool decrement, bool preinc, const bool usermode)
+void ReglessLDMSTM(ARM* cpu, const bool load, const u8 baseid, const bool writeback, const bool decrement, bool preinc, const bool usermode, const bool thumb)
 {
     if (cpu->Num == 1)
     {
@@ -464,7 +464,7 @@ void ReglessLDMSTM(ARM* cpu, const bool load, const u8 baseid, const bool writeb
         }
         else
         {
-            if (!cpu->DataWrite32(base, cpu->R[15]))
+            if (!cpu->DataWrite32(base, cpu->R[15] + (thumb ? 2 : 4)))
             {
                 cpu->AddCycles_CD();
                 ((ARMv5*)cpu)->DataAbort();
@@ -500,7 +500,7 @@ void A_LDM(ARM* cpu)
     
     if (!(cpu->CurInstr & 0xFFFF)) [[unlikely]]
     {
-        ReglessLDMSTM(cpu, true, baseid, cpu->CurInstr & (1<<21), !(cpu->CurInstr & (1<<23)), preinc, cpu->CurInstr & (1<<22));
+        ReglessLDMSTM(cpu, true, baseid, cpu->CurInstr & (1<<21), !(cpu->CurInstr & (1<<23)), preinc, cpu->CurInstr & (1<<22), false);
         return;
     }
 
@@ -606,7 +606,7 @@ void A_STM(ARM* cpu)
     
     if (!(cpu->CurInstr & 0xFFFF)) [[unlikely]]
     {
-        ReglessLDMSTM(cpu, false, baseid, cpu->CurInstr & (1<<21), !(cpu->CurInstr & (1<<23)), preinc, false);
+        ReglessLDMSTM(cpu, false, baseid, cpu->CurInstr & (1<<21), !(cpu->CurInstr & (1<<23)), preinc, false, false);
         return;
     }
 
@@ -804,7 +804,7 @@ void T_PUSH(ARM* cpu)
         
     if (!nregs) [[unlikely]]
     {
-        ReglessLDMSTM(cpu, false, 13, true, true, true, false);
+        ReglessLDMSTM(cpu, false, 13, true, true, true, false, true);
         return;
     }
 
@@ -850,7 +850,7 @@ void T_POP(ARM* cpu)
     
     if (!(cpu->CurInstr & 0x1FF)) [[unlikely]]
     {
-        ReglessLDMSTM(cpu, true, 13, true, false, false, false);
+        ReglessLDMSTM(cpu, true, 13, true, false, false, false, true);
         return;
     }
 
@@ -902,7 +902,7 @@ void T_STMIA(ARM* cpu)
     
     if (!(cpu->CurInstr & 0xFF)) [[unlikely]]
     {
-        ReglessLDMSTM(cpu, false, (cpu->CurInstr >> 8) & 0x7, true, false, false, false);
+        ReglessLDMSTM(cpu, false, (cpu->CurInstr >> 8) & 0x7, true, false, false, false, true);
         return;
     }
 
@@ -938,7 +938,7 @@ void T_LDMIA(ARM* cpu)
     
     if (!(cpu->CurInstr & 0xFF)) [[unlikely]]
     {
-        ReglessLDMSTM(cpu, true, (cpu->CurInstr >> 8) & 0x7, true, false, false, false);
+        ReglessLDMSTM(cpu, true, (cpu->CurInstr >> 8) & 0x7, true, false, false, false, true);
         return;
     }
 
