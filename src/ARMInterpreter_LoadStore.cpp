@@ -450,30 +450,16 @@ void ReglessLDMSTM(ARM* cpu, const bool load, const u8 baseid, const bool writeb
         if (load)
         {
             u32 pc;
-            if (cpu->DataRead32(base, &pc))
-            {
-                cpu->AddCycles_CDI();
-                cpu->JumpTo(pc, usermode); // checkme can we restore cpsr?
-            }
-            else
-            {
-                cpu->AddCycles_CDI();
-                ((ARMv5*)cpu)->DataAbort();
-                return;
-            }
+            cpu->DataRead32(base, &pc);
+
+            cpu->AddCycles_CDI();
+            cpu->JumpTo(pc, usermode);
         }
         else
         {
-            if (!cpu->DataWrite32(base, cpu->R[15] + (thumb ? 2 : 4)))
-            {
-                cpu->AddCycles_CD();
-                ((ARMv5*)cpu)->DataAbort();
-                return;
-            }
-            else
-            {
-                cpu->AddCycles_CD();
-            }
+            cpu->DataWrite32(base, cpu->R[15] + (thumb ? 2 : 4));
+
+            cpu->AddCycles_CD();
         }
     }
     else
