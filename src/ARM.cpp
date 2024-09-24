@@ -697,13 +697,12 @@ void ARMv5::Execute()
                 {
                     ARMInterpreter::A_BLX_IMM(this);
                 }
-                else
+                else if ((CurInstr & 0x0FF000F0) == 0x01200070)
                 {
-                    if ((((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0)) == 0x127)
-                        ARMInterpreter::A_BKPT(this); // always passes regardless of condition code
-                    else
-                        AddCycles_C();
+                    ARMInterpreter::A_BKPT(this); // always passes regardless of condition code
                 }
+                else
+                    AddCycles_C();
             }
 
             // TODO optimize this shit!!!
