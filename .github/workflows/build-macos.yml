@@ -9,6 +9,11 @@ on:
     branches:
       - master
 
+env:
+  MELONDS_GIT_BRANCH: ${{ github.ref }}
+  MELONDS_GIT_HASH: ${{ github.sha }}
+  MELONDS_BUILD_PROVIDER: GitHub Actions
+
 jobs:
   build-macos:
     strategy:
@@ -34,6 +39,7 @@ jobs:
         with:
           configurePreset: release-mac-${{ matrix.arch }}
           buildPreset: release-mac-${{ matrix.arch }}
+          configurePresetAdditionalArgs: "['-DMELONDS_EMBED_BUILD_INFO=ON']"
       - name: Compress app bundle
         shell: bash
         run: |

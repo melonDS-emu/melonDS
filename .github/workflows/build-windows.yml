@@ -9,6 +9,11 @@ on:
     branches:
       - master
 
+env:
+  MELONDS_GIT_BRANCH: ${{ github.ref }}
+  MELONDS_GIT_HASH: ${{ github.sha }}
+  MELONDS_BUILD_PROVIDER: GitHub Actions
+
 jobs:
   build:
     runs-on: windows-latest
@@ -29,7 +34,7 @@ jobs:
       with:
         vcpkgGitCommitId: 3508985146f1b1d248c67ead13f8f54be5b4f5da
     - name: Configure
-      run: cmake --preset=release-mingw-x86_64
+      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64
     - uses: actions/upload-artifact@v4

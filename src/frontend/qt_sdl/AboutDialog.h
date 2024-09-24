@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2023 melonDS team
 
     This file is part of melonDS.
 
@@ -16,20 +16,35 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef VERSION_H
-#define VERSION_H
+#ifndef MELONDS_ABOUTDIALOG_H
+#define MELONDS_ABOUTDIALOG_H
 
-#define MELONDS_URL            "${melonDS_HOMEPAGE_URL}"
+#include <QDialog>
 
-#define MELONDS_VERSION_BASE   "${melonDS_VERSION}"
-#define MELONDS_VERSION_SUFFIX "${MELONDS_VERSION_SUFFIX}"
-#define MELONDS_VERSION        MELONDS_VERSION_BASE MELONDS_VERSION_SUFFIX
 
-#ifdef MELONDS_EMBED_BUILD_INFO
-#define MELONDS_GIT_BRANCH       "${MELONDS_GIT_BRANCH}"
-#define MELONDS_GIT_HASH         "${MELONDS_GIT_HASH}"
-#define MELONDS_BUILD_PROVIDER   "${MELONDS_BUILD_PROVIDER}"
-#endif
+QT_BEGIN_NAMESPACE
+namespace Ui
+{
+    class AboutDialog;
+}
+QT_END_NAMESPACE
 
-#endif // VERSION_H
+class AboutDialog : public QDialog
+{
+Q_OBJECT
 
+public:
+    explicit AboutDialog(QWidget *parent = nullptr);
+
+    ~AboutDialog() override;
+
+private slots:
+    static void openWebsite();
+    static void openGitHub();
+
+private:
+    Ui::AboutDialog *ui;
+};
+
+
+#endif //MELONDS_ABOUTDIALOG_H
