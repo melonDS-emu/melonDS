@@ -75,7 +75,6 @@ public:
     virtual void FillPipeline() = 0;
 
     virtual void JumpTo(u32 addr, bool restorecpsr = false) = 0;
-    virtual void JumpTo8_16Bit(u32 addr) = 0;
     void RestoreCPSR();
 
     void Halt(u32 halt)
@@ -244,7 +243,6 @@ public:
     void FillPipeline() override;
 
     void JumpTo(u32 addr, bool restorecpsr = false) override;
-    void JumpTo8_16Bit(const u32 addr) override;
 
     void PrefetchAbort();
     void DataAbort();
@@ -388,7 +386,6 @@ public:
     void FillPipeline() override;
 
     void JumpTo(u32 addr, bool restorecpsr = false) override;
-    void JumpTo8_16Bit(const u32 addr) override;
 
     template <CPUExecuteMode mode>
     void Execute();

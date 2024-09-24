@@ -346,27 +346,6 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     NDS.MonitorARM9Jump(addr);
 }
 
-void ARMv5::JumpTo8_16Bit(const u32 addr)
-{
-    // 8 and 16 loads (signed included) to pc
-    if (!(CP15Control & 0x1))
-    {
-        // if the pu is disabled it behaves like a normal jump
-        JumpTo((CP15Control & (1<<15)) ? (addr & ~0x1) : addr);
-    }
-    else
-    {
-        if (addr & 0x3)
-        {
-            // if the pu is enabled it will always prefetch abort if not word aligned
-            // although it will still attempt (and fail) to enter thumb mode if enabled
-            if ((addr & 0x1) && !(CP15Control & (1<<15))) CPSR |= 0x20;
-            PrefetchAbort();
-        }
-        else JumpTo(addr);
-    }
-}
-
 void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 {
     if (restorecpsr)
@@ -409,11 +388,6 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 
         CPSR &= ~0x20;
     }
-}
-
-void ARMv4::JumpTo8_16Bit(const u32 addr)
-{
-    JumpTo(addr & ~1); // checkme?
 }
 
 void ARM::RestoreCPSR()
