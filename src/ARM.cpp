@@ -523,9 +523,11 @@ void ARM::TriggerIRQ()
     UpdateMode(oldcpsr, CPSR);
 
     R_IRQ[2] = oldcpsr;
+#ifdef JIT_ENABLED
     if constexpr (mode == CPUExecuteMode::JIT)
         R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
     else
+#endif
         R[14] = R[15] - (oldcpsr & 0x20 ? 0 : 4);
     JumpTo(ExceptionBase + 0x18);
 
