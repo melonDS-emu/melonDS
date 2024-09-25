@@ -136,6 +136,7 @@ public:
     int getJoystickID() { return joystickID; }
     SDL_Joystick* getJoystick() { return joystick; }
 
+    std::vector<int> keyStrokes;
 private:
     static int lastSep(const std::string& path);
     std::string getAssetPath(bool gba, const std::string& configpath, const std::string& ext, const std::string& file);
@@ -205,6 +206,7 @@ private:
     static void audioCallback(void* data, Uint8* stream, int len);
     static void micCallback(void* data, Uint8* stream, int len);
 
+
     void onKeyPress(QKeyEvent* event);
     void onKeyRelease(QKeyEvent* event);
     void keyReleaseAll();
@@ -254,6 +256,8 @@ public:
     bool doLimitFPS;
     int maxFPS;
     bool doAudioSync;
+
+    melonDS::u32 getInputMask(){return inputMask;}
 private:
 
     std::unique_ptr<melonDS::Savestate> backupState;

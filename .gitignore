@@ -1,4 +1,5 @@
 build*/
+debug*/
 bin
 obj
 *.depend

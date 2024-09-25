@@ -54,6 +54,8 @@ set(SOURCES_QT_SDL
 
     LANDialog.cpp
     NetplayDialog.cpp
+
+    LuaMain.cpp
 )
 
 if (APPLE)
@@ -84,6 +86,7 @@ endif()
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 pkg_check_modules(LibArchive REQUIRED IMPORTED_TARGET libarchive)
 pkg_check_modules(Zstd REQUIRED IMPORTED_TARGET libzstd)
+pkg_search_module(Lua REQUIRED IMPORTED_TARGET lua-5.4 lua-5.3 lua>=5.3)
 
 fix_interface_includes(PkgConfig::SDL2 PkgConfig::LibArchive)
 
@@ -178,7 +181,7 @@ else()
     target_include_directories(melonDS PUBLIC ${Qt5Gui_PRIVATE_INCLUDE_DIRS})
 endif()
 target_link_libraries(melonDS PRIVATE core)
-target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd)
+target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd PkgConfig::Lua)
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
 
 if (WIN32)

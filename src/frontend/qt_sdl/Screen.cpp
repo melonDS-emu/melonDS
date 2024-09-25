@@ -46,6 +46,8 @@
 #include "main_shaders.h"
 #include "OSD_shaders.h"
 #include "font.h"
+#include "LuaMain.h"
+
 
 using namespace melonDS;
 
@@ -667,13 +669,29 @@ void ScreenPanelNative::setupScreenLayout()
     }
 }
 
+// From ScreenLayout::GetScreenTransforms
+// TopScreen = 0
+// BottomScreen = 1
+// OSD / non-screen target = 2 (used by LuaScript stuff)
+void ScreenPanelNative::drawOverlays(QPainter* painter,int type)
+{
+    for (auto lo = LuaScript::LuaOverlays.begin(); lo != LuaScript::LuaOverlays.end();)
+    {
+        LuaScript::OverlayCanvas& overlay = *lo;
+        if ((overlay.target == type) && overlay.isActive)
+            painter->drawImage(overlay.rectangle,*overlay.displayBuffer);
+        lo++;
+    }
+}
+
+
 void ScreenPanelNative::paintEvent(QPaintEvent* event)
 {
     QPainter painter(this);
 
     // fill background
     painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
-
+    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
     auto emuThread = emuInstance->getEmuThread();
 
     if (emuThread->emuIsActive())
@@ -693,12 +711,15 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
         memcpy(screen[1].scanLine(0), nds->GPU.Framebuffer[frontbuf][1].get(), 256 * 192 * 4);
         emuThread->FrontBufferLock.unlock();
 
+        painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
         QRect screenrc(0, 0, 256, 192);
 
         for (int i = 0; i < numScreens; i++)
         {
             painter.setTransform(screenTrans[i]);
             painter.drawImage(screenrc, screen[screenKind[i]]);
+            if (osdEnabled)
+                drawOverlays(&painter,screenKind[i]);
         }
     }
 
@@ -710,6 +731,8 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
         u32 y = kOSDMargin;
 
         painter.resetTransform();
+
+        drawOverlays(&painter,LuaScript::CanvasTarget::OSD);
 
         for (auto it = osdItems.begin(); it != osdItems.end(); )
         {
@@ -877,6 +900,21 @@ void ScreenPanelGL::initOpenGL()
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)(0));
 
     transferLayout();
+    //TODO: Lookinto seeing if we can just re-use screen shader for this...
+    OpenGL::CompileVertexFragmentProgram(overlayShader,
+                                        kScreenVS,kScreenFS_overlay,
+                                        "OverlayShader",
+                                         {{"vPosition", 0}, {"vTexcoord", 1}},
+                                         {{"oColor", 0}});
+
+    glUseProgram(overlayShader);
+
+    overlayScreenSizeULoc = glGetUniformLocation(overlayShader, "uScreenSize");
+    overlayTransformULoc = glGetUniformLocation(overlayShader, "uTransform");
+
+    overlayPosULoc = glGetUniformLocation(overlayShader, "uOverlayPos");
+    overlaySizeULoc = glGetUniformLocation(overlayShader, "uOverlaySize");
+    overlayScreenTypeULoc = glGetUniformLocation(overlayShader, "uOverlayScreenType");
 }
 
 void ScreenPanelGL::deinitOpenGL()
@@ -902,6 +940,16 @@ void ScreenPanelGL::deinitOpenGL()
 
     glDeleteProgram(osdShader);
 
+    glDeleteProgram(overlayShader);
+    for (auto lo = LuaScript::LuaOverlays.begin(); lo != LuaScript::LuaOverlays.end();)
+    {
+        LuaScript::OverlayCanvas& overlay = *lo;
+        lo++;
+        if (!overlay.GLTextureLoaded)
+            continue;
+        glDeleteTextures(1,&overlay.GLTexture);
+        overlay.GLTextureLoaded=false;
+    }
 
     glContext->DoneCurrent();
 
@@ -942,6 +990,51 @@ void ScreenPanelGL::osdDeleteItem(OSDItem* item)
 
     ScreenPanel::osdDeleteItem(item);
 }
+
+void ScreenPanelGL::drawOverlays(int type,int screen)
+{
+    for (auto lo = LuaScript::LuaOverlays.begin(); lo != LuaScript::LuaOverlays.end();)
+    {
+        LuaScript::OverlayCanvas& overlay = *lo;
+        lo++;
+        if (!overlay.isActive || overlay.target != type)
+            continue;
+        if (!overlay.GLTextureLoaded)//Load texture if none loaded
+        {
+            glGenTextures(1,&overlay.GLTexture);
+            glBindTexture(GL_TEXTURE_2D, overlay.GLTexture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, overlay.rectangle.width(), overlay.rectangle.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, overlay.displayBuffer->bits());
+            overlay.GLTextureLoaded = true;
+        }
+        if (overlay.flipped) //Only update texture if needed
+        {
+            glBindTexture(GL_TEXTURE_2D, overlay.GLTexture);
+            glTexSubImage2D(GL_TEXTURE_2D,0,0,0,overlay.rectangle.width(),overlay.rectangle.height(),GL_RGBA,GL_UNSIGNED_BYTE,overlay.displayBuffer->bits());
+            overlay.flipped = false;
+        }
+        if(type == LuaScript::CanvasTarget::OSD) // OSD gets drawn differently then top or bottom screen target
+        {
+            glBindTexture(GL_TEXTURE_2D, overlay.GLTexture);
+            glUniform2i(osdPosULoc,overlay.rectangle.left(),overlay.rectangle.top());
+            glUniform2i(osdSizeULoc,overlay.rectangle.width(),overlay.rectangle.height());
+            glDrawArrays(GL_TRIANGLES, 0, 2*3);
+            continue;
+        }
+        glBindTexture(GL_TEXTURE_2D, overlay.GLTexture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glUniform2f(overlayPosULoc,overlay.rectangle.left(),overlay.rectangle.top());
+        glUniform2f(overlaySizeULoc,overlay.rectangle.width(),overlay.rectangle.height());
+        glUniform1i(overlayScreenTypeULoc, type);
+        glUniformMatrix2x3fv(overlayTransformULoc, 1, GL_TRUE,screenMatrix[screen]);
+        glDrawArrays(GL_TRIANGLES,type == 0 ? 0 : 2*3, 2*3);
+    }
+}
+
 
 void ScreenPanelGL::drawScreenGL()
 {
@@ -1015,6 +1108,29 @@ void ScreenPanelGL::drawScreenGL()
     osdUpdate();
     if (osdEnabled)
     {
+        
+        glUseProgram(overlayShader);
+    
+        //Need to blend this layer onto the screen layer!
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+        glUniform2f(overlayScreenSizeULoc, w / factor, h / factor);
+
+        screenSettingsLock.lock();
+
+        glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
+        glBindVertexArray(screenVertexArray);
+
+        for(int i = 0;i<numScreens;i++){
+            drawOverlays(screenKind[i],i);
+        }
+
+
+        screenSettingsLock.unlock();
+        
+        
+        
         osdMutex.lock();
 
         u32 y = kOSDMargin;
@@ -1031,6 +1147,8 @@ void ScreenPanelGL::drawScreenGL()
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+        drawOverlays(LuaScript::CanvasTarget::OSD,0);
 
         for (auto it = osdItems.begin(); it != osdItems.end(); )
         {

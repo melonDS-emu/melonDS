@@ -220,6 +220,7 @@ void EmuInstance::onKeyPress(QKeyEvent* event)
 {
     int keyHK = getEventKeyVal(event);
     int keyKP = keyHK;
+    keyStrokes.push_back(keyHK);
     if (event->modifiers() != Qt::KeypadModifier)
         keyKP &= ~event->modifiers();
 

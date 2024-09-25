@@ -56,6 +56,8 @@
 
 #include "EmuInstance.h"
 
+#include "LuaMain.h"
+
 using namespace melonDS;
 
 
@@ -439,6 +441,11 @@ void EmuThread::run()
         }
 
         handleMessages();
+
+        //Lua Script Stuff (-for now happens at the end of each frame regardless of emuStatus)
+        LuaScript::createLuaState();//Create LuaState if needed
+        LuaScript::luaUpdate(); //"_Update()" gets called in current lua script
+
     }
 
     file = Platform::OpenLocalFile("rtc.bin", Platform::FileMode::Write);
