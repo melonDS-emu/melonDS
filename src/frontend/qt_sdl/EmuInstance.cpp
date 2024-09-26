@@ -88,7 +88,31 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     cheatsOn = localCfg.GetBool("EnableCheats");
 
     doLimitFPS = globalCfg.GetBool("LimitFPS");
-    maxFPS = globalCfg.GetInt("MaxFPS");
+
+    double val = globalCfg.GetDouble("TargetFPS");
+    if (val == 0.0)
+    {
+        Platform::Log(Platform::LogLevel::Error, "Target FPS in config invalid\n");
+        targetFPS = 1.0 / 60.0;
+    }
+    else targetFPS = 1.0 / val;
+
+    val = globalCfg.GetDouble("FastForwardFPS");
+    if (val == 0.0)
+    {
+        Platform::Log(Platform::LogLevel::Error, "Fast-Forward FPS in config invalid\n");
+        fastForwardFPS = 1.0 / 60.0;
+    }
+    else fastForwardFPS = 1.0 / val;
+
+    val = globalCfg.GetDouble("SlowmoFPS");
+    if (val == 0.0)
+    {
+        Platform::Log(Platform::LogLevel::Error, "Slow-Mo FPS in config invalid\n");
+        slowmoFPS = 1.0 / 60.0;
+    }
+    else slowmoFPS = 1.0 / val;
+
     doAudioSync = globalCfg.GetBool("AudioSync");
 
     mpAudioMode = globalCfg.GetInt("MP.AudioMode");
