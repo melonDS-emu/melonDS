@@ -1,13 +1,11 @@
-#ifndef LUASCRIPT_H
-#define LUASCRIPT_H
+#ifndef LUAMAIN_H
+#define LUAMAIN_H
 #include <QDialog>
 #include <QPlainTextEdit>
 #include <QFileInfo>
 #include <lua.hpp>
-#include "Window.h"
+#include "EmuInstance.h"
 
-namespace LuaScript
-{
 class LuaConsole: public QPlainTextEdit
 {
     Q_OBJECT
@@ -18,11 +16,14 @@ public slots:
     void onClear();
 };
 
+class LuaBundle;
+
 class LuaConsoleDialog: public QDialog
 {
     Q_OBJECT
 public:
     LuaConsoleDialog(QWidget* parent);
+    LuaBundle* getLuaBundle(){return bundle;};
     LuaConsole* console;
     QFileInfo currentScript;
     QPushButton* buttonOpenScript;
@@ -31,7 +32,7 @@ public:
     QScrollBar* bar;
 protected:
     void closeEvent(QCloseEvent *event) override;
-    MainWindow* mainWindow;
+    LuaBundle* bundle;
 signals:
     void signalNewLua();
     void signalClosing();
@@ -43,7 +44,7 @@ public slots:
 };
 
 //Based on ScreenLayout::GetScreenTransforms
-enum CanvasTarget 
+enum LuaCanvasTarget 
 {
     TopScreen = 0,
     BottomScreen = 1,
@@ -57,24 +58,16 @@ struct OverlayCanvas
     QImage* buffer1;
     QImage* buffer2;
     QRect rectangle;
-    CanvasTarget target = OSD;
+    LuaCanvasTarget target = OSD;
     bool isActive = true; // only active overlays are drawn
     unsigned int GLTexture; // used by GL rendering
     bool GLTextureLoaded;
-    OverlayCanvas(int x,int y,int w, int h, bool active);
-    void flip();//used to swap buffers
+    OverlayCanvas(int x, int y,int w, int h, LuaCanvasTarget target = LuaCanvasTarget::OSD);
+    void flip();//used to swap buffers / update canvas
     bool flipped; //used to signal update to graphics.
 };
-void luaResetOSD();
-void luaUpdate();
-void luaPrint(QString string);
-void luaClearConsole();
-void luaHookFunction(lua_State*,lua_Debug*);
-extern QWidget* panel;
-extern lua_State* MainLuaState;
-extern bool FlagPause;
-extern bool FlagStop;
-extern bool FlagNewLua;
+
+
 typedef int(*luaFunctionPointer)(lua_State*);
 struct LuaFunction
 {
@@ -82,14 +75,41 @@ struct LuaFunction
     const char* name;
     LuaFunction(luaFunctionPointer,const char*,std::vector<LuaFunction*>*);
 };
-extern LuaConsoleDialog* LuaDialog;   
-void createLuaState();
-extern std::vector<OverlayCanvas> LuaOverlays;
-extern OverlayCanvas* CurrentCanvas;
-extern QHash<QString, QImage> ImageHash;
-extern int RightPadding;
-extern int BottomPadding;
-extern int TopPadding;
-extern int LeftPadding;
-}
+
+struct lua_State
+{
+    bool flagStop = false;
+    int basketID;
+};
+
+class LuaBundle
+{
+    EmuInstance* emuInstance;
+    EmuThread* emuThread;
+    LuaConsoleDialog* luaDialog;
+    lua_State* luaState = nullptr;
+    int basketID;
+
+    void luaResetOSD();
+    void luaPrint(QString string);
+    void luaClearConsole();  
+    
+    OverlayCanvas* currentCanvas = nullptr;
+    friend class LuaConsolDialog;
+public:
+    LuaBundle(LuaConsoleDialog* dialog,EmuInstance* inst);
+    lua_State* getLuaState(){return luaState;};
+    EmuThread* getEmuThread(){return emuThread;};
+    EmuInstance* getEmuInstance(){return emuInstance;};
+    void createLuaState();
+    void luaUpdate();
+    bool flagPause = false;
+    bool flagNewLua = false;
+    OverlayCanvas* luaCanvas = nullptr;
+    std::vector<OverlayCanvas>* overlays;
+    QHash<QString, QImage>* imageHash;
+
+};
+
+
 #endif

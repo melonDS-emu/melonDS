@@ -40,6 +40,7 @@
 
 class EmuInstance;
 class EmuThread;
+class LuaConsoleDialog;
 
 const int kMaxRecentROMs = 10;
 
@@ -110,6 +111,7 @@ public:
 
     EmuInstance* getEmuInstance() { return emuInstance; }
     Config::Table& getWindowConfig() { return windowCfg; }
+    LuaConsoleDialog* getLuaDialog() {return luaDialog;}
 
     bool hasOpenGL() { return hasOGL; }
     GL::Context* getOGLContext();
@@ -257,6 +259,7 @@ private:
 
     EmuInstance* emuInstance;
     EmuThread* emuThread;
+    LuaConsoleDialog* luaDialog=nullptr;
 
     Config::Table& globalCfg;
     Config::Table& localCfg;

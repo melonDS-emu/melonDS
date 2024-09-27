@@ -12,8 +12,7 @@
 #include <NDS_Header.h>
 #include "main.h"
 
-// #include "Input.h" --Need to fix keyboard inputs
-
+//EmuThread Signals
 void EmuThread::onLuaPrint(const QString& string)
 {
     emit signalLuaPrint(string);
@@ -29,29 +28,41 @@ void EmuThread::onLuaLoadState(const QString& string)
     emit signalLuaLoadState(string);
 }
 
+/*
 void EmuThread::onLuaLayoutChange()
 {
     //TODO:
     //emit screenLayoutChange();
 }
+*/
 
 void EmuThread::onLuaSaveState(const QString& string)
 {
     emit signalLuaSaveState(string);
 }
 
-namespace LuaScript
-{
-LuaConsoleDialog* LuaDialog=nullptr;
+std::vector<LuaBundle*> LuaBasket; //Currently only supporting one lua bundle at a time
 
-//Currently only supporting one EmuInstance
-EmuInstance* CurrentInstance = nullptr;
-EmuThread* CurrentThread = nullptr;
+LuaBundle::LuaBundle(LuaConsoleDialog* dialog, EmuInstance* inst)
+{
+    emuInstance = inst;
+    emuThread = emuInstance->getEmuThread();
+    luaDialog = dialog;
+    overlays = new std::vector<OverlayCanvas>;
+    imageHash = new QHash<QString, QImage>;
+
+    LuaBasket.clear(); //Only one bundle at a time for now
+    basketID = LuaBasket.size();
+    LuaBasket.push_back(this);
+}
+
+
+
 
 LuaConsoleDialog::LuaConsoleDialog(QWidget* parent) : QDialog(parent)
 {
     QWidget* w = parent;
- 
+    MainWindow* mainWindow;
     //Yoinked from ScreenPanel in Screen.cpp
     for (;;)
     {
@@ -60,9 +71,7 @@ LuaConsoleDialog::LuaConsoleDialog(QWidget* parent) : QDialog(parent)
         w = w->parentWidget();
         if (!w) break;
     }
-
-    CurrentInstance = mainWindow->getEmuInstance();
-    CurrentThread = CurrentInstance->getEmuThread();
+    bundle = new LuaBundle(this,mainWindow->getEmuInstance());
     console = new LuaConsole(this);
     console->setGeometry(0,20,302,80);
     bar = console->verticalScrollBar();
@@ -75,16 +84,15 @@ LuaConsoleDialog::LuaConsoleDialog(QWidget* parent) : QDialog(parent)
     connect(buttonOpenScript,&QPushButton::clicked,this,&LuaConsoleDialog::onOpenScript);
     connect(buttonStartStop,&QPushButton::clicked,this,&LuaConsoleDialog::onStop);
     connect(buttonPausePlay,&QPushButton::clicked,this,&LuaConsoleDialog::onPausePlay);
-    connect(CurrentThread,&EmuThread::signalLuaPrint,console,&LuaConsole::onGetText);
-    connect(CurrentThread,&EmuThread::signalLuaClearConsole,console,&LuaConsole::onClear);
+    connect(bundle->getEmuThread(),&EmuThread::signalLuaPrint,console,&LuaConsole::onGetText);
+    connect(bundle->getEmuThread(),&EmuThread::signalLuaClearConsole,console,&LuaConsole::onClear);
     this->setWindowTitle("Lua Script");
 }
 
 void LuaConsoleDialog::closeEvent(QCloseEvent *event)
 {
     onStop();
-    LuaDialog = nullptr;
-    LuaOverlays.clear();
+    bundle->overlays->clear();
     event->accept();
 }
 
@@ -94,7 +102,7 @@ void LuaConsoleDialog::onOpenScript()
     if (!file.exists())
         return;
     currentScript = file;
-    FlagNewLua = true;
+    bundle->flagNewLua = true;
 }
 
 LuaConsole::LuaConsole(QWidget* parent)
@@ -114,16 +122,6 @@ void LuaConsole::onClear()
     this->clear();
 }
 
-void luaClearConsole()
-{
-    LuaDialog->console->clear();
-}
-
-std::vector<LuaFunction*> LuaFunctionList; // List of all lua functions.
-lua_State* MainLuaState = nullptr;
-bool FlagPause = false;
-bool FlagStop = false;
-bool FlagNewLua = false;
 
 LuaFunction::LuaFunction(luaFunctionPointer cf,const char* n,std::vector<LuaFunction*>* container)
 {
@@ -135,75 +133,74 @@ LuaFunction::LuaFunction(luaFunctionPointer cf,const char* n,std::vector<LuaFunc
 #define MELON_LUA_HOOK_INSTRUCTION_COUNT 50 //number of vm instructions between hook calls
 void luaHookFunction(lua_State* L, lua_Debug *arg)
 {
-    if(FlagStop and (arg->event == LUA_HOOKCOUNT))
+    if(L->flagStop and (arg->event == LUA_HOOKCOUNT))
         luaL_error(L, "Force Stopped");
 }
 
-void createLuaState()
+
+std::vector<LuaFunction*> definedLuaFunctions;//List of all defined lua functions
+
+void LuaBundle::createLuaState()
 {
-    if(!FlagNewLua)
+    if(!flagNewLua)
         return;
-    printf("Creating LuaState");
-    LuaOverlays.clear();
-    FlagNewLua = false;
-    MainLuaState = nullptr;
-    std::string fileName = LuaDialog->currentScript.fileName().toStdString();
-    std::string filedir = LuaDialog->currentScript.dir().path().toStdString();
+    overlays->clear();
+    flagNewLua = false;
+    luaState = nullptr;
+    QString qfilename = luaDialog->currentScript.fileName();
+    std::string fileName = luaDialog->currentScript.fileName().toStdString();
+    std::string filedir = luaDialog->currentScript.dir().path().toStdString();
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
-    for(LuaFunction* function : LuaFunctionList)
+    L->basketID = basketID;
+    for(LuaFunction* function : definedLuaFunctions)
         lua_register(L,function->name,function->cfunction);
     std::filesystem::current_path(filedir.c_str());
-    lua_sethook(L,&luaHookFunction,LUA_MASKCOUNT,MELON_LUA_HOOK_INSTRUCTION_COUNT);
-    FlagStop = false;
+    lua_sethook(L,&luaHookFunction,LUA_MASKCOUNT,MELON_LUA_HOOK_INSTRUCTION_COUNT); 
     if (luaL_dofile(L,&fileName[0])==LUA_OK)
     {
-        MainLuaState = L;
-        FlagPause = false;
+        luaState = L;
     }
     else //Error loading script
     {
-        CurrentThread->onLuaPrint(lua_tostring(L,-1));
-        MainLuaState = nullptr;
+        emuThread->onLuaPrint(lua_tostring(L,-1));
     }
 }
 
 void LuaConsoleDialog::onStop()
 {
-    FlagStop = true;
+    lua_State* L = bundle->getLuaState();
+    if(L)
+        L->flagStop = true;
 }
 
 void LuaConsoleDialog::onPausePlay()
 {
-    FlagPause = !FlagPause;
+    bundle->flagPause = !bundle->flagPause;
 }
 
 //Gets Called once a frame
-void luaUpdate()
+void LuaBundle::luaUpdate()
 {
-    if(!MainLuaState || FlagPause)
+    if(!luaState || flagPause)
         return;
-    if (lua_getglobal(MainLuaState,"_Update")!=LUA_TFUNCTION)
+    if (lua_getglobal(luaState,"_Update")!=LUA_TFUNCTION)
     {
-        CurrentThread->onLuaPrint("No \"_Update\" Function found, pausing script...");
-        FlagPause = true;
+        emuThread->onLuaPrint("No \"_Update\" Function found, pausing script...");
+        flagPause = true;
         return;
     }
-    if(lua_pcall(MainLuaState,0,0,0)!=0)
+    if(lua_pcall(luaState,0,0,0)!=0)
     {
         //Handel Errors
-        CurrentThread->onLuaPrint(lua_tostring(MainLuaState,-1));
-        MainLuaState = nullptr;
+        emuThread->onLuaPrint(lua_tostring(luaState,-1));
+        luaState = nullptr;
     }
 }
 
-/*
-*   Front End Stuff
-*/
-
-OverlayCanvas::OverlayCanvas(int x,int y,int width,int height,bool isActive)
+OverlayCanvas::OverlayCanvas(int x,int y,int width,int height,LuaCanvasTarget t)
 {
-    this->isActive=isActive;
+    target = t;
     buffer1 = new QImage(width,height,QImage::Format_ARGB32_Premultiplied);
     buffer2 = new QImage(width,height,QImage::Format_ARGB32_Premultiplied);
     buffer1->fill(0xffffff00); //initializes buffer with yellow pixels (probably should change this to transparent black pixels at some point...)
@@ -214,6 +211,7 @@ OverlayCanvas::OverlayCanvas(int x,int y,int width,int height,bool isActive)
     flipped = false;
     GLTextureLoaded = false;
 }
+
 void OverlayCanvas::flip()
 {
     if (imageBuffer == buffer1)
@@ -229,13 +227,9 @@ void OverlayCanvas::flip()
     flipped = true;
 }
 
-std::vector<OverlayCanvas> LuaOverlays;
-OverlayCanvas* CurrentCanvas;
-QHash<QString , QImage> ImageHash;
-
-void luaResetOSD()
+void LuaBundle::luaResetOSD()
 {
-    for (auto lo = LuaOverlays.begin(); lo != LuaOverlays.end();)
+    for (auto lo = overlays->begin(); lo != overlays->end();)
     {
         OverlayCanvas& overlay = *lo;
         overlay.GLTextureLoaded = false;
@@ -243,30 +237,28 @@ void luaResetOSD()
     }
 }
 
-int RightPadding = 0;
-int BottomPadding = 0;
-int LeftPadding = 0;
-int TopPadding = 0;
+/*--------------------------------------------------------------------------------------------------
+                            Start of lua function definitions
+--------------------------------------------------------------------------------------------------*/
 
-#define AddLuaFunction(functPointer,name)LuaFunction name(functPointer,#name,&LuaFunctionList)
-
-/*
-*   Start Defining Lua Functions:
-*/
-
-namespace LuaFunctionDefinition
+namespace luaDefinitions
 {
+
+#define AddLuaFunction(functPointer,name)LuaFunction name(functPointer,#name,&definedLuaFunctions)
+
 int lua_MelonPrint(lua_State* L)
 {
+    LuaBundle* bundle = LuaBasket[L->basketID];
     QString string = luaL_checkstring(L,1);
-    CurrentThread->onLuaPrint(string);
+    bundle->getEmuThread()->onLuaPrint(string);
     return 0;
 }
 AddLuaFunction(lua_MelonPrint,MelonPrint);
 
 int lua_MelonClear(lua_State* L)
 {
-    CurrentThread->onLuaClearConsole();
+    LuaBundle* bundle = LuaBasket[L->basketID];
+    bundle->getEmuThread()->onLuaClearConsole();
     return 0;
 }
 AddLuaFunction(lua_MelonClear,MelonClear);
@@ -278,10 +270,10 @@ enum ramInfo_ByteType
     ramInfo_FourBytes = 4
 };
 
-melonDS::u32 GetMainRAMValueU(const melonDS::u32& addr, const ramInfo_ByteType& byteType)
+melonDS::u32 GetMainRAMValueU(const melonDS::u32& addr, const ramInfo_ByteType& byteType,LuaBundle* bundle)
 {
 
-    melonDS::NDS* nds = CurrentInstance->getNDS();
+    melonDS::NDS* nds = bundle->getEmuInstance()->getNDS();
     switch (byteType)
     {
     case ramInfo_OneByte:
@@ -296,9 +288,9 @@ melonDS::u32 GetMainRAMValueU(const melonDS::u32& addr, const ramInfo_ByteType& 
 
 }
 
-melonDS::s32 GetMainRAMValueS(const melonDS::u32& addr, const ramInfo_ByteType& byteType)
+melonDS::s32 GetMainRAMValueS(const melonDS::u32& addr, const ramInfo_ByteType& byteType,LuaBundle* bundle)
 {
-    melonDS::NDS* nds = CurrentInstance->getNDS();
+    melonDS::NDS* nds = bundle->getEmuInstance()->getNDS();
     switch (byteType)
     {
     case ramInfo_OneByte:
@@ -314,16 +306,18 @@ melonDS::s32 GetMainRAMValueS(const melonDS::u32& addr, const ramInfo_ByteType& 
 
 int Lua_ReadDatau(lua_State* L,ramInfo_ByteType byteType) 
 {   
+    LuaBundle* bundle = LuaBasket[L->basketID];
     melonDS::u32 address = luaL_checkinteger(L,1);
-    melonDS::u32 value = GetMainRAMValueU(address,byteType);
+    melonDS::u32 value = GetMainRAMValueU(address,byteType,bundle);
     lua_pushinteger(L, value);
     return 1;
 }
 
 int Lua_ReadDatas(lua_State* L,ramInfo_ByteType byteType)
 {
+    LuaBundle* bundle = LuaBasket[L->basketID];
     melonDS::u32 address = luaL_checkinteger(L,1);
-    melonDS::s32 value = GetMainRAMValueS(address,byteType);
+    melonDS::s32 value = GetMainRAMValueS(address,byteType,bundle);
     lua_pushinteger(L, value);
     return 1;
 }
@@ -384,16 +378,18 @@ AddLuaFunction(Lua_NDSTapUp,NDSTapUp);
 
 int Lua_StateSave(lua_State* L)
 {
+    LuaBundle* bundle = LuaBasket[L->basketID];
     QString filename = luaL_checkstring(L,1);
-    CurrentThread->onLuaSaveState(filename);
+    bundle->getEmuThread()->onLuaSaveState(filename);
     return 0;
 }
 AddLuaFunction(Lua_StateSave,StateSave);
 
 int Lua_StateLoad(lua_State* L)
 {
+    LuaBundle* bundle = LuaBasket[L->basketID];
     QString filename = luaL_checkstring(L,1);
-    CurrentThread->onLuaLoadState(filename);
+    bundle->getEmuThread()->onLuaLoadState(filename);
     return 0;
 }
 AddLuaFunction(Lua_StateLoad,StateLoad);
@@ -401,7 +397,8 @@ AddLuaFunction(Lua_StateLoad,StateLoad);
 int Lua_getMouse(lua_State* L)
 {
     Qt::MouseButtons btns = QGuiApplication::mouseButtons();
-    QPoint pos = CurrentInstance->getMainWindow()->panel->mapFromGlobal(QCursor::pos(QGuiApplication::primaryScreen()));
+    LuaBundle* bundle = LuaBasket[L->basketID];
+    QPoint pos = bundle->getEmuInstance()->getMainWindow()->panel->mapFromGlobal(QCursor::pos(QGuiApplication::primaryScreen()));
     const char* keys[6] = {"Left","Middle","Right","XButton1","XButton2","Wheel"};
     bool vals[6] =
     {
@@ -426,14 +423,15 @@ int Lua_getMouse(lua_State* L)
 }
 AddLuaFunction(Lua_getMouse,GetMouse);
 
-/*
- *  Front end lua functions
-*/
+/*--------------------------------------------------------------------------------------------------
+                            Front-end lua function definitions
+--------------------------------------------------------------------------------------------------*/
 //TODO: Lua Colors 
 
  //MakeCanvas(int x,int y,int width,int height,[int target,topScreen=0,bottomScreen=1,OSD(default)>=2)],[bool active = true])
 int Lua_MakeCanvas(lua_State* L)
 {
+    LuaBundle* bundle = LuaBasket[L->basketID];
     int x = luaL_checknumber(L,1);
     int y = luaL_checknumber(L,2);
     int w = luaL_checknumber(L,3);
@@ -441,42 +439,34 @@ int Lua_MakeCanvas(lua_State* L)
     int t = luaL_optinteger(L,5,2);
     bool a = 0 != luaL_optinteger(L,6,1);
     
-    OverlayCanvas canvas(x,y,w,h,a);
-    switch(t)
-    {
-        case 0:
-        canvas.target=LuaScript::CanvasTarget::TopScreen;
-        break;
-        case 1:
-        canvas.target=LuaScript::CanvasTarget::BottomScreen;
-        break;
-        default:
-        canvas.target=LuaScript::CanvasTarget::OSD;
-    }
-
-    lua_pushinteger(L,LuaOverlays.size());
-    LuaOverlays.push_back(canvas);
+    OverlayCanvas canvas(x,y,w,h,(LuaCanvasTarget)t);
+    canvas.isActive = a;
+    lua_pushinteger(L,bundle->overlays->size());
+    bundle->overlays->push_back(canvas);
     return 1; //returns index of the new overlay
 }
 AddLuaFunction(Lua_MakeCanvas,MakeCanvas);
 
 int Lua_SetCanvas(lua_State* L) //SetCanvas(int index)
 {
+    LuaBundle* bundle = LuaBasket[L->basketID];
     int index = luaL_checknumber(L,1);
-    CurrentCanvas = &LuaOverlays.at(index);
+    bundle->luaCanvas = &bundle->overlays->at(index);
     return 0;
 }
 AddLuaFunction(Lua_SetCanvas,SetCanvas);
 int Lua_ClearOverlay(lua_State* L)
 {
-    CurrentCanvas->imageBuffer->fill(0x00000000);
+    LuaBundle* bundle = LuaBasket[L->basketID];
+    bundle->luaCanvas->imageBuffer->fill(0x00000000);
     return 0;
 }
 AddLuaFunction(Lua_ClearOverlay,ClearOverlay);
 
 int Lua_Flip(lua_State* L)
 {
-    CurrentCanvas->flip();
+    LuaBundle* bundle = LuaBasket[L->basketID];
+    bundle->luaCanvas->flip();
     return 0;
 }
 AddLuaFunction(Lua_Flip,Flip);
@@ -484,13 +474,14 @@ AddLuaFunction(Lua_Flip,Flip);
 //text(int x, int y, string message, [u32 color = 'black'], [int fontsize = 9], [string fontfamily = Franklin Gothic Medium])
 int Lua_text(lua_State* L) 
 {
+    LuaBundle* bundle = LuaBasket[L->basketID];
     int x = luaL_checknumber(L,1);
     int y = luaL_checknumber(L,2);
     const char* message = luaL_checklstring(L,3,NULL);
     melonDS::u32 color = luaL_optnumber(L,4,0x00000000);
     QString FontFamily = luaL_optlstring(L,6,"Franklin Gothic Medium",NULL);
     int size = luaL_optnumber(L,5,9);
-    QPainter painter(CurrentCanvas->imageBuffer);
+    QPainter painter(bundle->luaCanvas->imageBuffer);
     QFont font(FontFamily,size,0,false);
     font.setStyleStrategy(QFont::NoAntialias);
     font.setLetterSpacing(QFont::AbsoluteSpacing,-1);
@@ -503,12 +494,13 @@ AddLuaFunction(Lua_text,Text);
 
 int Lua_line(lua_State* L)
 {
+    LuaBundle* bundle = LuaBasket[L->basketID];
     int x1 = luaL_checknumber(L,1);
     int y1 = luaL_checknumber(L,2);
     int x2 = luaL_checknumber(L,3);
     int y2 = luaL_checknumber(L,4);
     melonDS::u32 color = luaL_checknumber(L,5);
-    QPainter painter(CurrentCanvas->imageBuffer);
+    QPainter painter(bundle->luaCanvas->imageBuffer);
     painter.setPen(color);
     painter.drawLine(x1,y1,x2,y2);
     return 0;
@@ -517,12 +509,13 @@ AddLuaFunction(Lua_line,Line);
 
 int Lua_rect(lua_State* L)
 {
+    LuaBundle* bundle = LuaBasket[L->basketID];
     melonDS::u32 color = luaL_checknumber(L,5);
     int x = luaL_checknumber(L,1);
     int y = luaL_checknumber(L,2);
     int width = luaL_checknumber(L,3);
     int height = luaL_checknumber(L,4);
-    QPainter painter(CurrentCanvas->imageBuffer);
+    QPainter painter(bundle->luaCanvas->imageBuffer);
     painter.setPen(color);
     painter.drawRect(x,y,width,height);
     return 0;
@@ -531,12 +524,13 @@ AddLuaFunction(Lua_rect,Rect);
 
 int Lua_fillrect(lua_State* L)
 {
+    LuaBundle* bundle = LuaBasket[L->basketID];
     melonDS::u32 color = luaL_checknumber(L,5);
     int x = luaL_checknumber(L,1);
     int y = luaL_checknumber(L,2);
     int width = luaL_checknumber(L,3);
     int height = luaL_checknumber(L,4);
-    QPainter painter(CurrentCanvas->imageBuffer);
+    QPainter painter(bundle->luaCanvas->imageBuffer);
     painter.setPen(color);
     painter.fillRect(x,y,width,height,color);
     return 0;
@@ -545,13 +539,14 @@ AddLuaFunction(Lua_fillrect,FillRect);
 
 int Lua_keystrokes(lua_State* L)
 {
-    lua_createtable(L,0,CurrentInstance->keyStrokes.size());
-    for (int i = 0; i<CurrentInstance->keyStrokes.size(); i++)
+    LuaBundle* bundle = LuaBasket[L->basketID];
+    lua_createtable(L,0,bundle->getEmuInstance()->keyStrokes.size());
+    for (int i = 0; i<bundle->getEmuInstance()->keyStrokes.size(); i++)
     {
-        lua_pushinteger(L,CurrentInstance->keyStrokes.at(i));
+        lua_pushinteger(L,bundle->getEmuInstance()->keyStrokes.at(i));
         lua_seti(L,-2,i);
     }
-    CurrentInstance->keyStrokes.clear();
+    bundle->getEmuInstance()->keyStrokes.clear();
     lua_createtable(L,0,1);
     return 1;
 }
@@ -560,6 +555,7 @@ AddLuaFunction(Lua_keystrokes,Keys);
 //DrawImage(string path, int x, int y,[int source x=0], [int source y=0], [int source w=-1],[int source h=-1])
 int Lua_drawImage(lua_State* L)
 {
+    LuaBundle* bundle = LuaBasket[L->basketID];
     QString path = luaL_checklstring(L,1,NULL);
     int x = luaL_checkinteger(L,2);
     int y = luaL_checkinteger(L,3);
@@ -567,16 +563,16 @@ int Lua_drawImage(lua_State* L)
     int sy = luaL_optinteger(L,5,0);
     int sw = luaL_optinteger(L,6,-1);
     int sh = luaL_optinteger(L,7,-1);
-    QPainter painter(CurrentCanvas->imageBuffer);
+    QPainter painter(bundle->luaCanvas->imageBuffer);
     QImage image;
-    if(ImageHash.contains(path))
+    if(bundle->imageHash->contains(path))
     {
-        image=ImageHash[path];
+        image=(*bundle->imageHash)[path];
     }
     else
     {
         image=QImage(path);
-        ImageHash[path] = image;
+        (*bundle->imageHash)[path] = image;
     }
     painter.drawImage(x,y,image,sx,sy,sw,sh);
     return 0;
@@ -585,7 +581,8 @@ AddLuaFunction(Lua_drawImage,DrawImage);
 
 int Lua_clearImageHash(lua_State* L)
 {
-    ImageHash.clear();
+    LuaBundle* bundle = LuaBasket[L->basketID];
+    bundle->imageHash->clear();
     return 0;
 }
 AddLuaFunction(Lua_clearImageHash,ClearHash);
@@ -593,7 +590,8 @@ AddLuaFunction(Lua_clearImageHash,ClearHash);
 int Lua_getJoy(lua_State* L)
 {
     //TODO:
-    melonDS::u32 buttonMask=CurrentInstance->getInputMask();//current button state.
+    LuaBundle* bundle = LuaBasket[L->basketID];
+    melonDS::u32 buttonMask=bundle->getEmuInstance()->getInputMask();//current button state.
     const char* keys[12] =
     {//Buttons in order of mask.
         "A","B","Select","Start",
@@ -622,7 +620,4 @@ int Lua_setPadding(lua_State* L) //TODO: Currently only works well with force in
 }
 AddLuaFunction(Lua_setPadding,SetPadding);
 */
-
-
-}//LuaFunctionDefinition
-}//LuaScript
+}

@@ -1681,10 +1681,10 @@ void MainWindow::onOpenPowerManagement()
 
 void MainWindow::onOpenLuaScript()
 {
-    if (LuaScript::LuaDialog) // only one at a time.
+    if (this->luaDialog) // only one at a time.
         return;
-    LuaScript::LuaDialog = new LuaScript::LuaConsoleDialog(this);
-    LuaScript::LuaDialog->show();
+    this->luaDialog = new LuaConsoleDialog(this);
+    this->luaDialog->show();
     //connect(emuThread,&EmuThread::signalLuaSaveState,mainWindow,&MainWindow::onLuaSaveState);
     //connect(emuThread,&EmuThread::signalLuaLoadState,mainWindow,&MainWindow::onLuaLoadState);
 }
