@@ -36,7 +36,7 @@ enum
     HK_Pause,
     HK_Reset,
     HK_FastForward,
-    HK_FastForwardToggle,
+    HK_FrameLimitToggle,
     HK_FullscreenToggle,
     HK_SwapScreens,
     HK_SwapScreenEmphasis,
@@ -46,6 +46,9 @@ enum
     HK_PowerButton,
     HK_VolumeUp,
     HK_VolumeDown,
+    HK_SlowMo,
+    HK_FastForwardToggle,
+    HK_SlowMoToggle,
     HK_MAX
 };
 
@@ -252,7 +255,12 @@ public:
     std::unique_ptr<SaveManager> firmwareSave;
 
     bool doLimitFPS;
-    int maxFPS;
+    double curFPS;
+    double targetFPS;
+    double fastForwardFPS;
+    double slowmoFPS;
+    bool fastForwardToggled;
+    bool slowmoToggled;
     bool doAudioSync;
 private:
 

@@ -61,11 +61,13 @@ public:
     int64_t GetInt64(const int id);
     bool GetBool(const int id);
     std::string GetString(const int id);
+    double GetDouble(const int id);
 
     void SetInt(const int id, int val);
     void SetInt64(const int id, int64_t val);
     void SetBool(const int id, bool val);
     void SetString(const int id, const std::string& val);
+    void SetDouble(const int id, double val);
 
     // convenience
 
@@ -99,11 +101,13 @@ public:
     int64_t GetInt64(const std::string& path);
     bool GetBool(const std::string& path);
     std::string GetString(const std::string& path);
+    double GetDouble(const std::string& path);
 
     void SetInt(const std::string& path, int val);
     void SetInt64(const std::string& path, int64_t val);
     void SetBool(const std::string& path, bool val);
     void SetString(const std::string& path, const std::string& val);
+    void SetDouble(const std::string& path, double val);
 
     // convenience
 
