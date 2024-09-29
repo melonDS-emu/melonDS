@@ -76,12 +76,6 @@ struct LuaFunction
     LuaFunction(luaFunctionPointer,const char*,std::vector<LuaFunction*>*);
 };
 
-struct lua_State
-{
-    bool flagStop = false;
-    int basketID;
-};
-
 class LuaBundle
 {
     EmuInstance* emuInstance;
@@ -104,6 +98,7 @@ public:
     void createLuaState();
     void luaUpdate();
     bool flagPause = false;
+    bool flagStop = false;
     bool flagNewLua = false;
     OverlayCanvas* luaCanvas = nullptr;
     std::vector<OverlayCanvas>* overlays;

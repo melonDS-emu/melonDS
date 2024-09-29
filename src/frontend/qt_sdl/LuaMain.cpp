@@ -41,8 +41,6 @@ void EmuThread::onLuaSaveState(const QString& string)
     emit signalLuaSaveState(string);
 }
 
-std::vector<LuaBundle*> LuaBasket; //Currently only supporting one lua bundle at a time
-
 LuaBundle::LuaBundle(LuaConsoleDialog* dialog, EmuInstance* inst)
 {
     emuInstance = inst;
@@ -50,14 +48,7 @@ LuaBundle::LuaBundle(LuaConsoleDialog* dialog, EmuInstance* inst)
     luaDialog = dialog;
     overlays = new std::vector<OverlayCanvas>;
     imageHash = new QHash<QString, QImage>;
-
-    LuaBasket.clear(); //Only one bundle at a time for now
-    basketID = LuaBasket.size();
-    LuaBasket.push_back(this);
 }
-
-
-
 
 LuaConsoleDialog::LuaConsoleDialog(QWidget* parent) : QDialog(parent)
 {
@@ -130,10 +121,19 @@ LuaFunction::LuaFunction(luaFunctionPointer cf,const char* n,std::vector<LuaFunc
     container->push_back(this);
 }
 
+static_assert(sizeof(LuaBundle*) <= LUA_EXTRASPACE,"LUA_EXTRASPACE too small");
+
+LuaBundle* get_bundle(lua_State * L) {
+	LuaBundle* pBundle;
+	std::memcpy(&pBundle, lua_getextraspace(L), sizeof(LuaBundle*));
+	return pBundle;
+}
+
 #define MELON_LUA_HOOK_INSTRUCTION_COUNT 50 //number of vm instructions between hook calls
 void luaHookFunction(lua_State* L, lua_Debug *arg)
 {
-    if(L->flagStop and (arg->event == LUA_HOOKCOUNT))
+    LuaBundle* bundle = get_bundle(L);
+    if(bundle->flagStop and (arg->event == LUA_HOOKCOUNT))
         luaL_error(L, "Force Stopped");
 }
 
@@ -151,8 +151,9 @@ void LuaBundle::createLuaState()
     std::string fileName = luaDialog->currentScript.fileName().toStdString();
     std::string filedir = luaDialog->currentScript.dir().path().toStdString();
     lua_State* L = luaL_newstate();
+    LuaBundle* pBundle = this;
+    std::memcpy(lua_getextraspace(L), &pBundle, sizeof(LuaBundle*)); //Write a pointer to this LuaBundle into the extra space of the new lua_State
     luaL_openlibs(L);
-    L->basketID = basketID;
     for(LuaFunction* function : definedLuaFunctions)
         lua_register(L,function->name,function->cfunction);
     std::filesystem::current_path(filedir.c_str());
@@ -171,7 +172,7 @@ void LuaConsoleDialog::onStop()
 {
     lua_State* L = bundle->getLuaState();
     if(L)
-        L->flagStop = true;
+        bundle->flagStop = true;
 }
 
 void LuaConsoleDialog::onPausePlay()
@@ -248,7 +249,7 @@ namespace luaDefinitions
 
 int lua_MelonPrint(lua_State* L)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     QString string = luaL_checkstring(L,1);
     bundle->getEmuThread()->onLuaPrint(string);
     return 0;
@@ -257,7 +258,7 @@ AddLuaFunction(lua_MelonPrint,MelonPrint);
 
 int lua_MelonClear(lua_State* L)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     bundle->getEmuThread()->onLuaClearConsole();
     return 0;
 }
@@ -306,7 +307,7 @@ melonDS::s32 GetMainRAMValueS(const melonDS::u32& addr, const ramInfo_ByteType& 
 
 int Lua_ReadDatau(lua_State* L,ramInfo_ByteType byteType) 
 {   
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     melonDS::u32 address = luaL_checkinteger(L,1);
     melonDS::u32 value = GetMainRAMValueU(address,byteType,bundle);
     lua_pushinteger(L, value);
@@ -315,7 +316,7 @@ int Lua_ReadDatau(lua_State* L,ramInfo_ByteType byteType)
 
 int Lua_ReadDatas(lua_State* L,ramInfo_ByteType byteType)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     melonDS::u32 address = luaL_checkinteger(L,1);
     melonDS::s32 value = GetMainRAMValueS(address,byteType,bundle);
     lua_pushinteger(L, value);
@@ -378,7 +379,7 @@ AddLuaFunction(Lua_NDSTapUp,NDSTapUp);
 
 int Lua_StateSave(lua_State* L)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     QString filename = luaL_checkstring(L,1);
     bundle->getEmuThread()->onLuaSaveState(filename);
     return 0;
@@ -387,7 +388,7 @@ AddLuaFunction(Lua_StateSave,StateSave);
 
 int Lua_StateLoad(lua_State* L)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     QString filename = luaL_checkstring(L,1);
     bundle->getEmuThread()->onLuaLoadState(filename);
     return 0;
@@ -397,7 +398,7 @@ AddLuaFunction(Lua_StateLoad,StateLoad);
 int Lua_getMouse(lua_State* L)
 {
     Qt::MouseButtons btns = QGuiApplication::mouseButtons();
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     QPoint pos = bundle->getEmuInstance()->getMainWindow()->panel->mapFromGlobal(QCursor::pos(QGuiApplication::primaryScreen()));
     const char* keys[6] = {"Left","Middle","Right","XButton1","XButton2","Wheel"};
     bool vals[6] =
@@ -431,7 +432,7 @@ AddLuaFunction(Lua_getMouse,GetMouse);
  //MakeCanvas(int x,int y,int width,int height,[int target,topScreen=0,bottomScreen=1,OSD(default)>=2)],[bool active = true])
 int Lua_MakeCanvas(lua_State* L)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     int x = luaL_checknumber(L,1);
     int y = luaL_checknumber(L,2);
     int w = luaL_checknumber(L,3);
@@ -449,7 +450,7 @@ AddLuaFunction(Lua_MakeCanvas,MakeCanvas);
 
 int Lua_SetCanvas(lua_State* L) //SetCanvas(int index)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     int index = luaL_checknumber(L,1);
     bundle->luaCanvas = &bundle->overlays->at(index);
     return 0;
@@ -457,7 +458,7 @@ int Lua_SetCanvas(lua_State* L) //SetCanvas(int index)
 AddLuaFunction(Lua_SetCanvas,SetCanvas);
 int Lua_ClearOverlay(lua_State* L)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     bundle->luaCanvas->imageBuffer->fill(0x00000000);
     return 0;
 }
@@ -465,7 +466,7 @@ AddLuaFunction(Lua_ClearOverlay,ClearOverlay);
 
 int Lua_Flip(lua_State* L)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     bundle->luaCanvas->flip();
     return 0;
 }
@@ -474,7 +475,7 @@ AddLuaFunction(Lua_Flip,Flip);
 //text(int x, int y, string message, [u32 color = 'black'], [int fontsize = 9], [string fontfamily = Franklin Gothic Medium])
 int Lua_text(lua_State* L) 
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     int x = luaL_checknumber(L,1);
     int y = luaL_checknumber(L,2);
     const char* message = luaL_checklstring(L,3,NULL);
@@ -494,7 +495,7 @@ AddLuaFunction(Lua_text,Text);
 
 int Lua_line(lua_State* L)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     int x1 = luaL_checknumber(L,1);
     int y1 = luaL_checknumber(L,2);
     int x2 = luaL_checknumber(L,3);
@@ -509,7 +510,7 @@ AddLuaFunction(Lua_line,Line);
 
 int Lua_rect(lua_State* L)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     melonDS::u32 color = luaL_checknumber(L,5);
     int x = luaL_checknumber(L,1);
     int y = luaL_checknumber(L,2);
@@ -524,7 +525,7 @@ AddLuaFunction(Lua_rect,Rect);
 
 int Lua_fillrect(lua_State* L)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     melonDS::u32 color = luaL_checknumber(L,5);
     int x = luaL_checknumber(L,1);
     int y = luaL_checknumber(L,2);
@@ -539,7 +540,7 @@ AddLuaFunction(Lua_fillrect,FillRect);
 
 int Lua_keystrokes(lua_State* L)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     lua_createtable(L,0,bundle->getEmuInstance()->keyStrokes.size());
     for (int i = 0; i<bundle->getEmuInstance()->keyStrokes.size(); i++)
     {
@@ -555,7 +556,7 @@ AddLuaFunction(Lua_keystrokes,Keys);
 //DrawImage(string path, int x, int y,[int source x=0], [int source y=0], [int source w=-1],[int source h=-1])
 int Lua_drawImage(lua_State* L)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     QString path = luaL_checklstring(L,1,NULL);
     int x = luaL_checkinteger(L,2);
     int y = luaL_checkinteger(L,3);
@@ -581,7 +582,7 @@ AddLuaFunction(Lua_drawImage,DrawImage);
 
 int Lua_clearImageHash(lua_State* L)
 {
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     bundle->imageHash->clear();
     return 0;
 }
@@ -590,7 +591,7 @@ AddLuaFunction(Lua_clearImageHash,ClearHash);
 int Lua_getJoy(lua_State* L)
 {
     //TODO:
-    LuaBundle* bundle = LuaBasket[L->basketID];
+    LuaBundle* bundle = get_bundle(L);
     melonDS::u32 buttonMask=bundle->getEmuInstance()->getInputMask();//current button state.
     const char* keys[12] =
     {//Buttons in order of mask.
