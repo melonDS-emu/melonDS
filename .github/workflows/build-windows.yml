@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - master
-      - ci/vcpkg-update
+      - ci/*
   pull_request:
     branches:
       - master
@@ -27,7 +27,7 @@ jobs:
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: 1de2026f28ead93ff1773e6e680387643e914ea1
+        vcpkgGitCommitId: 3508985146f1b1d248c67ead13f8f54be5b4f5da
     - name: Configure
       run: cmake --preset=release-mingw-x86_64
     - name: Build

@@ -25,23 +25,23 @@
           cmake
           ninja
           pkg-config
-          kdePackages.wrapQtAppsHook
+          qt6.wrapQtAppsHook
         ];
 
         buildInputs = (with pkgs; [
-          kdePackages.qtbase
-          kdePackages.qtmultimedia
-          extra-cmake-modules
+          qt6.qtbase
+          qt6.qtmultimedia
           SDL2
           zstd
           libarchive
           libGL
           libslirp
           enet
-        ]) ++ optionals isLinux [
-          pkgs.wayland
-          pkgs.kdePackages.qtwayland
-        ];
+        ]) ++ optionals (!isDarwin) (with pkgs; [
+          kdePackages.extra-cmake-modules
+          qt6.qtwayland
+          wayland
+        ]);
 
         cmakeFlags = [
           (cmakeBool "USE_QT6" true)
@@ -65,8 +65,27 @@
       apps.default = flake-utils.lib.mkApp {
         drv = self.packages.${system}.default;
       };
-      devShells.default = pkgs.mkShell {
-        inputsFrom = [ self.packages.${system}.default ];
+      devShells = {
+        default = pkgs.mkShell {
+          inputsFrom = [ self.packages.${system}.default ];
+        };
+
+        # Shell for building static melonDS release builds with vcpkg
+        # Use mkShellNoCC to ensure Nix's gcc/clang and stdlib isn't used
+        vcpkg = pkgs.mkShellNoCC {
+          packages = with pkgs; [
+            autoconf
+            autoconf-archive
+            automake
+            cmake
+            cups.dev # Needed by qtbase despite not enabling print support
+            git
+            iconv.dev
+            libtool
+            ninja
+            pkg-config
+          ];
+        };
       };
     }
   );

@@ -76,7 +76,6 @@ public:
     virtual void FillPipeline() = 0;
 
     virtual void JumpTo(u32 addr, bool restorecpsr = false) = 0;
-    virtual void JumpTo8_16Bit(u32 addr) = 0;
     void RestoreCPSR();
 
     void Halt(u32 halt)
@@ -143,7 +142,7 @@ public:
     virtual bool DataWrite8(u32 addr, u8 val) = 0;
     virtual bool DataWrite16(u32 addr, u16 val) = 0;
     virtual bool DataWrite32(u32 addr, u32 val) = 0;
-    virtual bool DataWrite32S(u32 addr, u32 val, bool dataabort = false) = 0;
+    virtual bool DataWrite32S(u32 addr, u32 val) = 0;
 
     virtual void AddCycles_C() = 0;
     virtual void AddCycles_CI(s32 numI) = 0;
@@ -247,7 +246,6 @@ public:
     void FillPipeline() override;
 
     void JumpTo(u32 addr, bool restorecpsr = false) override;
-    void JumpTo8_16Bit(const u32 addr) override;
 
     void PrefetchAbort();
     void DataAbort();
@@ -265,7 +263,7 @@ public:
     bool DataWrite8(u32 addr, u8 val) override;
     bool DataWrite16(u32 addr, u16 val) override;
     bool DataWrite32(u32 addr, u32 val) override;
-    bool DataWrite32S(u32 addr, u32 val, bool dataabort = false) override;
+    bool DataWrite32S(u32 addr, u32 val) override;
     
     template<u8 nregs>
     void ExecuteStage(u8 rn, u8 rm)
@@ -701,7 +699,6 @@ public:
     void FillPipeline() override;
 
     void JumpTo(u32 addr, bool restorecpsr = false) override;
-    void JumpTo8_16Bit(const u32 addr) override;
 
     template <CPUExecuteMode mode>
     void Execute();
@@ -718,7 +715,7 @@ public:
     bool DataWrite8(u32 addr, u8 val) override;
     bool DataWrite16(u32 addr, u16 val) override;
     bool DataWrite32(u32 addr, u32 val) override;
-    bool DataWrite32S(u32 addr, u32 val, bool dataabort = false) override;
+    bool DataWrite32S(u32 addr, u32 val) override;
     void AddCycles_C() override;
     void AddCycles_CI(s32 num) override;
     void AddCycles_CDI() override;

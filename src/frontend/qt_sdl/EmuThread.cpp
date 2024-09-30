@@ -149,12 +149,17 @@ void EmuThread::run()
 
     char melontitle[100];
 
+    bool fastforward = false;
+    bool slowmo = false;
+    emuInstance->fastForwardToggled = false;
+    emuInstance->slowmoToggled = false;
+
     while (emuStatus != emuStatus_Exit)
     {
         MPInterface::Get().Process();
         emuInstance->inputProcess();
 
-        if (emuInstance->hotkeyPressed(HK_FastForwardToggle)) emit windowLimitFPSChange();
+        if (emuInstance->hotkeyPressed(HK_FrameLimitToggle)) emit windowLimitFPSChange();
 
         if (emuInstance->hotkeyPressed(HK_Pause)) emuTogglePause();
         if (emuInstance->hotkeyPressed(HK_Reset)) emuReset();
@@ -332,21 +337,33 @@ void EmuThread::run()
                 emit windowUpdate();
                 winUpdateCount = 0;
             }
+            
+            if (emuInstance->hotkeyPressed(HK_FastForwardToggle)) emuInstance->fastForwardToggled = !emuInstance->fastForwardToggled;
+            if (emuInstance->hotkeyPressed(HK_SlowMoToggle)) emuInstance->slowmoToggled = !emuInstance->slowmoToggled;
 
-            bool fastforward = emuInstance->hotkeyDown(HK_FastForward);
+            bool enablefastforward = emuInstance->hotkeyDown(HK_FastForward) | emuInstance->fastForwardToggled;
+            bool enableslowmo = emuInstance->hotkeyDown(HK_SlowMo) | emuInstance->slowmoToggled;
 
             if (useOpenGL)
             {
-                // when using OpenGL: when toggling fast-forward, change the vsync interval
-                if (emuInstance->hotkeyPressed(HK_FastForward))
+                // when using OpenGL: when toggling fast-forward or slowmo, change the vsync interval
+                if ((enablefastforward || enableslowmo) && !(fastforward || slowmo))
                 {
                     emuInstance->setVSyncGL(false);
                 }
-                else if (emuInstance->hotkeyReleased(HK_FastForward))
+                else if (!(enablefastforward || enableslowmo) && (fastforward || slowmo))
                 {
                     emuInstance->setVSyncGL(true);
                 }
             }
+
+            fastforward = enablefastforward;
+            slowmo = enableslowmo;
+
+            if (slowmo) emuInstance->curFPS = emuInstance->slowmoFPS;
+            else if (fastforward) emuInstance->curFPS = emuInstance->fastForwardFPS;
+            else if (!emuInstance->doLimitFPS) emuInstance->curFPS = 1.0 / 1000.0;
+            else emuInstance->curFPS = emuInstance->targetFPS;
 
             if (emuInstance->audioDSiVolumeSync && emuInstance->nds->ConsoleType == 1)
             {
@@ -361,23 +378,19 @@ void EmuThread::run()
                 emuInstance->audioVolume = volumeLevel * (256.0 / 31.0);
             }
 
-            if (emuInstance->doAudioSync && !fastforward)
+            if (emuInstance->doAudioSync && !(fastforward || slowmo))
                 emuInstance->audioSync();
 
             double frametimeStep = nlines / (60.0 * 263.0);
 
             {
-                bool limitfps = emuInstance->doLimitFPS && !fastforward;
-
-                double practicalFramelimit = limitfps ? frametimeStep : 1.0 / emuInstance->maxFPS;
-
                 double curtime = SDL_GetPerformanceCounter() * perfCountsSec;
 
-                frameLimitError += practicalFramelimit - (curtime - lastTime);
-                if (frameLimitError < -practicalFramelimit)
-                    frameLimitError = -practicalFramelimit;
-                if (frameLimitError > practicalFramelimit)
-                    frameLimitError = practicalFramelimit;
+                frameLimitError += emuInstance->curFPS - (curtime - lastTime);
+                if (frameLimitError < -emuInstance->curFPS)
+                    frameLimitError = -emuInstance->curFPS;
+                if (frameLimitError > emuInstance->curFPS)
+                    frameLimitError = emuInstance->curFPS;
 
                 if (round(frameLimitError * 1000.0) > 0.0)
                 {

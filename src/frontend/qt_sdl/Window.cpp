@@ -780,6 +780,10 @@ void MainWindow::closeEvent(QCloseEvent* event)
     Config::Save();
 
     emuInstance->deleteWindow(windowID, false);
+
+    // emuInstance may be deleted
+    // prevent use after free from us
+    emuInstance = nullptr;
     QMainWindow::closeEvent(event);
 }
 
@@ -970,7 +974,10 @@ void MainWindow::focusInEvent(QFocusEvent* event)
 
 void MainWindow::focusOutEvent(QFocusEvent* event)
 {
-    emuInstance->audioMute();
+    // focusOutEvent is called through the window close event handler
+    // prevent use after free
+    if (emuInstance)
+        emuInstance->audioMute();
 }
 
 void MainWindow::onAppStateChanged(Qt::ApplicationState state)
@@ -1939,8 +1946,9 @@ void MainWindow::onOpenInterfaceSettings()
 void MainWindow::onUpdateInterfaceSettings()
 {
     pauseOnLostFocus = globalCfg.GetBool("PauseLostFocus");
-    emuInstance->maxFPS = globalCfg.GetInt("MaxFPS");
-
+    emuInstance->targetFPS = 1.0 / globalCfg.GetDouble("TargetFPS");
+    emuInstance->fastForwardFPS = 1.0 / globalCfg.GetDouble("FastForwardFPS");
+    emuInstance->slowmoFPS = 1.0 / globalCfg.GetDouble("SlowmoFPS");
     panel->setMouseHide(globalCfg.GetBool("MouseHide"),
                         globalCfg.GetInt("MouseHideSeconds")*1000);
 }

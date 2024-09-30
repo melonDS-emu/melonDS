@@ -82,10 +82,10 @@ void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
     }
 
     u32 val;
-    bool dataabort;
-    if constexpr (size == 8)  dataabort = !cpu->DataRead8 (addr, &val);
-    if constexpr (size == 16) dataabort = !cpu->DataRead16(addr, &val);
-    if constexpr (size == 32) dataabort = !cpu->DataRead32(addr, &val);
+    bool dabort;
+    if constexpr (size == 8)  dabort = !cpu->DataRead8 (addr, &val);
+    if constexpr (size == 16) dabort = !cpu->DataRead16(addr, &val);
+    if constexpr (size == 32) dabort = !cpu->DataRead32(addr, &val);
 
     if constexpr (writeback == Writeback::Trans)
     {
@@ -94,8 +94,11 @@ void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
     }
 
     cpu->AddCycles_CDI();
-    if (dataabort) return;
-
+    if (dabort) [[unlikely]]
+    {
+        ((ARMv5*)cpu)->DataAbort();
+        return;
+    }
     if constexpr (size == 8  && signror) val = (s32)(s8)val;
     if constexpr (size == 16 && signror) val = (s32)(s16)val;
     if constexpr (size == 32 && signror) val = ROR(val, ((addr&0x3)<<3));
@@ -128,10 +131,10 @@ void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
             ((ARMv5*)cpu)->PU_Map = ((ARMv5*)cpu)->PU_UserMap;
     }
 
-    bool dataabort;
-    if constexpr (size == 8)  dataabort = !cpu->DataWrite8 (addr, storeval);
-    if constexpr (size == 16) dataabort = !cpu->DataWrite16(addr, storeval);
-    if constexpr (size == 32) dataabort = !cpu->DataWrite32(addr, storeval);
+    bool dabort;
+    if constexpr (size == 8)  dabort = !cpu->DataWrite8 (addr, storeval);
+    if constexpr (size == 16) dabort = !cpu->DataWrite16(addr, storeval);
+    if constexpr (size == 32) dabort = !cpu->DataWrite32(addr, storeval);
 
     if constexpr (writeback == Writeback::Trans)
     {
@@ -140,7 +143,11 @@ void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
     }
 
     cpu->AddCycles_CD();
-    if (dataabort) return;
+    if (dabort) [[unlikely]]
+    {
+        ((ARMv5*)cpu)->DataAbort();
+        return;
+    }
 
     if constexpr (writeback != Writeback::None) cpu->R[rn] += offset;
 }
@@ -273,8 +280,12 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
-    if (!cpu->DataRead32 (offset  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
-    u32 val; if (!cpu->DataRead32S(offset+4, &val)) {cpu->AddCycles_CDI(); return;} \
+    bool dabort = !cpu->DataRead32(offset, &cpu->R[r]); \
+    u32 val; dabort |= !cpu->DataRead32S(offset+4, &val); \
+    if (dabort) { \
+        cpu->AddCycles_CDI(); \
+        ((ARMv5*)cpu)->DataAbort(); \
+        return; } \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
     else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI(); \
@@ -285,8 +296,12 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
-    if (!cpu->DataRead32 (addr  , &cpu->R[r  ])) {cpu->AddCycles_CDI(); return;} \
-    u32 val; if (!cpu->DataRead32S(addr+4, &val)) {cpu->AddCycles_CDI(); return;} \
+    bool dabort = !cpu->DataRead32(addr, &cpu->R[r]); \
+    u32 val; dabort |= !cpu->DataRead32S(addr+4, &val); \
+    if (dabort) { \
+        cpu->AddCycles_CDI(); \
+        ((ARMv5*)cpu)->DataAbort(); \
+        return; } \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
     else cpu->R[r+1] = val; \
     cpu->AddCycles_CDI(); \
@@ -297,11 +312,13 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
-    bool dataabort = !cpu->DataWrite32(offset, cpu->R[r]); /* yes, this data abort behavior is on purpose */ \
+    bool dabort = !cpu->DataWrite32(offset, cpu->R[r]); /* yes, this data abort behavior is on purpose */ \
     u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
-    dataabort |= !cpu->DataWrite32S (offset+4, storeval, dataabort); /* no, i dont understand it either */ \
+    dabort |= !cpu->DataWrite32S (offset+4, storeval); /* no, i dont understand it either */ \
     cpu->AddCycles_CD(); \
-    if (dataabort) return; \
+    if (dabort) [[unlikely]] { \
+        ((ARMv5*)cpu)->DataAbort(); \
+        return; } \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
 #define A_STRD_POST \
@@ -309,11 +326,13 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
-    bool dataabort = !cpu->DataWrite32(addr, cpu->R[r]); \
+    bool dabort = !cpu->DataWrite32(addr, cpu->R[r]); \
     u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
-    dataabort |= !cpu->DataWrite32S (addr+4, storeval, dataabort); \
+    dabort |= !cpu->DataWrite32S (addr+4, storeval); \
     cpu->AddCycles_CD(); \
-    if (dataabort) return; \
+    if (dabort) [[unlikely]] { \
+        ((ARMv5*)cpu)->DataAbort(); \
+        return; } \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
 #define A_LDRH \
@@ -381,12 +400,12 @@ inline void SWP(ARM* cpu)
 
     u32 val;
     if ((byte ? cpu->DataRead8 (base, &val)
-              : cpu->DataRead32(base, &val)))
+              : cpu->DataRead32(base, &val))) [[likely]]
     {
         u32 numD = cpu->DataCycles;
 
         if ((byte ? cpu->DataWrite8 (base, rm)
-                  : cpu->DataWrite32(base, rm)))
+                  : cpu->DataWrite32(base, rm))) [[likely]]
         {
             // rd only gets updated if both read and write succeed
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
@@ -396,9 +415,11 @@ inline void SWP(ARM* cpu)
             if (rd != 15) cpu->R[rd] = val;
             else if (cpu->Num==1) cpu->JumpTo(val & ~1); // for some reason these jumps don't seem to work on the arm 9?
         }
+        else ((ARMv5*)cpu)->DataAbort();
 
         cpu->DataCycles += numD;
     }
+    else ((ARMv5*)cpu)->DataAbort();
 
     cpu->AddCycles_CDI();
 }
@@ -413,7 +434,45 @@ void A_SWPB(ARM* cpu)
     SWP<true>(cpu);
 }
 
+void ReglessLDMSTM(ARM* cpu, const bool load, const u8 baseid, const bool writeback, const bool decrement, bool preinc, const bool usermode, const bool thumb)
+{
+    if (cpu->Num == 1)
+    {
+        u32 base = cpu->R[baseid];
 
+        if (decrement)
+        {
+            preinc = !preinc;
+            base -= 0x40;
+        }
+        if (preinc) base+=4;
+        
+        if (load)
+        {
+            u32 pc;
+            cpu->DataRead32(base, &pc);
+
+            cpu->AddCycles_CDI();
+            cpu->JumpTo(pc, usermode);
+        }
+        else
+        {
+            cpu->DataWrite32(base, cpu->R[15] + (thumb ? 2 : 4));
+
+            cpu->AddCycles_CD();
+        }
+    }
+    else
+    {
+        cpu->AddCycles_C(); // checkme
+    }
+
+    if (writeback)
+    {
+        if (decrement) cpu->R[baseid] -= 0x40;
+        else           cpu->R[baseid] += 0x40;
+    }
+}
 
 void A_LDM(ARM* cpu)
 {
@@ -423,6 +482,13 @@ void A_LDM(ARM* cpu)
     u32 oldbase = base;
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
+    bool dabort = false;
+    
+    if (!(cpu->CurInstr & 0xFFFF)) [[unlikely]]
+    {
+        ReglessLDMSTM(cpu, true, baseid, cpu->CurInstr & (1<<21), !(cpu->CurInstr & (1<<23)), preinc, cpu->CurInstr & (1<<22), false);
+        return;
+    }
 
     if (!(cpu->CurInstr & (1<<23))) // decrement
     {
@@ -451,11 +517,12 @@ void A_LDM(ARM* cpu)
         if (cpu->CurInstr & (1<<i))
         {
             if (preinc) base += 4;
-            if (!(first ? cpu->DataRead32 (base, &cpu->R[i])
-                        : cpu->DataRead32S(base, &cpu->R[i])))
-            {
-                goto dataabort;
-            }
+            u32 val;
+            dabort |= !(first ? cpu->DataRead32 (base, &val)
+                              : cpu->DataRead32S(base, &val));
+
+            // remaining loads still occur but are not written to a reg after a data abort is raised
+            if (!dabort) [[likely]] cpu->R[i] = val;
 
             first = false;
             if (!preinc) base += 4;
@@ -466,11 +533,8 @@ void A_LDM(ARM* cpu)
     if ((cpu->CurInstr & (1<<15)))
     {
         if (preinc) base += 4;
-        if (!(first ? cpu->DataRead32 (base, &pc)
-                    : cpu->DataRead32S(base, &pc)))
-        {
-            goto dataabort;
-        }
+        dabort |= !(first ? cpu->DataRead32 (base, &pc)
+                          : cpu->DataRead32S(base, &pc));
 
         if (!preinc) base += 4;
 
@@ -481,6 +545,14 @@ void A_LDM(ARM* cpu)
     // switch back to previous regs
     if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
+
+    // handle data aborts
+    if (dabort) [[unlikely]]
+    {
+        cpu->AddCycles_CDI();
+        ((ARMv5*)cpu)->DataAbort();
+        return;
+    }
 
     // writeback to base
     if (cpu->CurInstr & (1<<21))
@@ -506,19 +578,6 @@ void A_LDM(ARM* cpu)
     if (cpu->CurInstr & (1<<15))
         cpu->JumpTo(pc, cpu->CurInstr & (1<<22));
 
-    // jump here if a data abort occurred; writeback is ignored, and any jumps were aborted
-    if (false)
-    {
-        dataabort:
-
-        // switch back to original set of regs
-        if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
-            cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
-
-        // restore original value of base in case the reg got written to
-        cpu->R[baseid] = oldbase;
-    }
-
     cpu->AddCycles_CDI();
 }
 
@@ -529,6 +588,13 @@ void A_STM(ARM* cpu)
     u32 oldbase = base;
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
+    bool dabort = false;
+    
+    if (!(cpu->CurInstr & 0xFFFF)) [[unlikely]]
+    {
+        ReglessLDMSTM(cpu, false, baseid, cpu->CurInstr & (1<<21), !(cpu->CurInstr & (1<<23)), preinc, false, false);
+        return;
+    }
 
     if (!(cpu->CurInstr & (1<<23)))
     {
@@ -573,11 +639,8 @@ void A_STM(ARM* cpu)
 
             if (i == 15) val+=4;
 
-            if (!(first ? cpu->DataWrite32 (base, val)
-                        : cpu->DataWrite32S(base, val)))
-            {
-                goto dataabort;
-            }
+            dabort |= !(first ? cpu->DataWrite32 (base, val)
+                              : cpu->DataWrite32S(base, val));
 
             first = false;
 
@@ -587,21 +650,20 @@ void A_STM(ARM* cpu)
 
     if (cpu->CurInstr & (1<<22))
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
+        
+    // handle data aborts
+    if (dabort) [[unlikely]]
+    {
+        // restore original value of base
+        cpu->R[baseid] = oldbase;
+        cpu->AddCycles_CD();
+        ((ARMv5*)cpu)->DataAbort();
+        return;
+    }
 
     if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
         cpu->R[baseid] = base;
 
-    // jump here if a data abort occurred
-    if (false)
-    {
-        dataabort:
-
-        if (cpu->CurInstr & (1<<22))
-            cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
-
-        // restore original value of base
-        cpu->R[baseid] = oldbase;
-    }
 
     cpu->AddCycles_CD();
 }
@@ -616,9 +678,13 @@ void A_STM(ARM* cpu)
 void T_LDR_PCREL(ARM* cpu)
 {
     u32 addr = (cpu->R[15] & ~0x2) + ((cpu->CurInstr & 0xFF) << 2);
-    cpu->DataRead32(addr, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
+    bool dabort = !cpu->DataRead32(addr, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
 
     cpu->AddCycles_CDI();
+    if (dabort) [[unlikely]]
+    {
+        ((ARMv5*)cpu)->DataAbort();
+    }
 }
 
 
@@ -711,6 +777,7 @@ void T_PUSH(ARM* cpu)
 {
     int nregs = 0;
     bool first = true;
+    bool dabort = false;
 
     for (int i = 0; i < 8; i++)
     {
@@ -720,6 +787,12 @@ void T_PUSH(ARM* cpu)
 
     if (cpu->CurInstr & (1<<8))
         nregs++;
+        
+    if (!nregs) [[unlikely]]
+    {
+        ReglessLDMSTM(cpu, false, 13, true, true, true, false, true);
+        return;
+    }
 
     u32 base = cpu->R[13];
     base -= (nregs<<2);
@@ -729,11 +802,9 @@ void T_PUSH(ARM* cpu)
     {
         if (cpu->CurInstr & (1<<i))
         {
-            if (!(first ? cpu->DataWrite32 (base, cpu->R[i])
-                        : cpu->DataWrite32S(base, cpu->R[i])))
-            {
-                goto dataabort;
-            }
+            dabort |= !(first ? cpu->DataWrite32 (base, cpu->R[i])
+                              : cpu->DataWrite32S(base, cpu->R[i]));
+
             first = false;
             base += 4;
         }
@@ -741,16 +812,19 @@ void T_PUSH(ARM* cpu)
 
     if (cpu->CurInstr & (1<<8))
     {
-        if (!(first ? cpu->DataWrite32 (base, cpu->R[14])
-                    : cpu->DataWrite32S(base, cpu->R[14])))
-        {
-            goto dataabort;
-        }
+        dabort |= !(first ? cpu->DataWrite32 (base, cpu->R[14])
+                          : cpu->DataWrite32S(base, cpu->R[14]));
+    }
+
+    if (dabort) [[unlikely]]
+    {
+        cpu->AddCycles_CD();
+        ((ARMv5*)cpu)->DataAbort();
+        return;
     }
 
     cpu->R[13] = wbbase;
 
-    dataabort:
     cpu->AddCycles_CD();
 }
 
@@ -758,16 +832,24 @@ void T_POP(ARM* cpu)
 {
     u32 base = cpu->R[13];
     bool first = true;
+    bool dabort = false;
+    
+    if (!(cpu->CurInstr & 0x1FF)) [[unlikely]]
+    {
+        ReglessLDMSTM(cpu, true, 13, true, false, false, false, true);
+        return;
+    }
 
     for (int i = 0; i < 8; i++)
     {
         if (cpu->CurInstr & (1<<i))
         {
-            if (!(first ? cpu->DataRead32 (base, &cpu->R[i])
-                        : cpu->DataRead32S(base, &cpu->R[i])))
-            {
-                goto dataabort;
-            }
+            u32 val;
+            dabort |= !(first ? cpu->DataRead32 (base, &val)
+                              : cpu->DataRead32S(base, &val));
+            
+            if (!dabort) [[likely]] cpu->R[i] = val;
+
             first = false;
             base += 4;
         }
@@ -776,19 +858,25 @@ void T_POP(ARM* cpu)
     if (cpu->CurInstr & (1<<8))
     {
         u32 pc;
-        if (!(first ? cpu->DataRead32 (base, &pc)
-                    : cpu->DataRead32S(base, &pc)))
-        {
-            goto dataabort;
-        }
+        dabort |= !(first ? cpu->DataRead32 (base, &pc)
+                          : cpu->DataRead32S(base, &pc));
+
+        if (dabort) [[unlikely]] goto dataabort;
         if (cpu->Num==1 || (((ARMv5*)cpu)->CP15Control & (1<<15))) pc |= 0x1;
         cpu->JumpTo(pc);
         base += 4;
     }
 
+    if (dabort) [[unlikely]]
+    {
+        dataabort:
+        cpu->AddCycles_CDI();
+        ((ARMv5*)cpu)->DataAbort();
+        return;
+    }
+
     cpu->R[13] = base;
 
-    dataabort:
     cpu->AddCycles_CDI();
 }
 
@@ -796,24 +884,35 @@ void T_STMIA(ARM* cpu)
 {
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
+    bool dabort = false;
+    
+    if (!(cpu->CurInstr & 0xFF)) [[unlikely]]
+    {
+        ReglessLDMSTM(cpu, false, (cpu->CurInstr >> 8) & 0x7, true, false, false, false, true);
+        return;
+    }
 
     for (int i = 0; i < 8; i++)
     {
         if (cpu->CurInstr & (1<<i))
         {
-            if (!(first ? cpu->DataWrite32 (base, cpu->R[i])
-                        : cpu->DataWrite32S(base, cpu->R[i])))
-            {
-                goto dataabort;
-            }
+            dabort |= !(first ? cpu->DataWrite32 (base, cpu->R[i])
+                              : cpu->DataWrite32S(base, cpu->R[i]));
+
             first = false;
             base += 4;
         }
     }
 
+    if (dabort) [[unlikely]]
+    {
+        cpu->AddCycles_CD();
+        ((ARMv5*)cpu)->DataAbort();
+        return;
+    }
+
     // TODO: check "Rb included in Rlist" case
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
-    dataabort:
     cpu->AddCycles_CD();
 }
 
@@ -821,25 +920,38 @@ void T_LDMIA(ARM* cpu)
 {
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
+    bool dabort = false;
+    
+    if (!(cpu->CurInstr & 0xFF)) [[unlikely]]
+    {
+        ReglessLDMSTM(cpu, true, (cpu->CurInstr >> 8) & 0x7, true, false, false, false, true);
+        return;
+    }
 
     for (int i = 0; i < 8; i++)
     {
         if (cpu->CurInstr & (1<<i))
         {
-            if (!(first ? cpu->DataRead32 (base, &cpu->R[i])
-                        : cpu->DataRead32S(base, &cpu->R[i])))
-            {
-                goto dataabort;
-            }
+            u32 val;
+            dabort |= !(first ? cpu->DataRead32 (base, &val)
+                              : cpu->DataRead32S(base, &val));
+
+            if (!dabort) [[likely]] cpu->R[i] = val;
             first = false;
             base += 4;
         }
     }
 
+    if (dabort) [[unlikely]]
+    {
+        cpu->AddCycles_CDI();
+        ((ARMv5*)cpu)->DataAbort();
+        return;
+    }
+
     if (!(cpu->CurInstr & (1<<((cpu->CurInstr >> 8) & 0x7))))
         cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
 
-    dataabort:
     cpu->AddCycles_CDI();
 }
 
