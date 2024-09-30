@@ -69,6 +69,14 @@ void T_UNK(ARM* cpu)
     cpu->JumpTo(cpu->ExceptionBase + 0x04);
 }
 
+void A_BKPT(ARM* cpu)
+{
+    if (cpu->Num == 1) A_UNK(cpu); // checkme
+    
+    Log(LogLevel::Warn, "BKPT: "); // combine with the prefetch abort warning message
+    ((ARMv5*)cpu)->PrefetchAbort();
+}
+
 
 
 void A_MSR_IMM(ARM* cpu)
@@ -105,9 +113,6 @@ void A_MSR_IMM(ARM* cpu)
     //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000; // unused by arm 7 & 9
     if (cpu->CurInstr & (1<<19)) mask |= ((cpu->Num==1) ? 0xF0000000 : 0xF8000000);
 
-    if (!(cpu->CurInstr & (1<<22)))
-        mask &= 0xFFFFFFDF;
-
     if ((cpu->CPSR & 0x1F) == 0x10) mask &= 0xFFFFFF00;
 
     u32 val = ROR((cpu->CurInstr & 0xFF), ((cpu->CurInstr >> 7) & 0x1E));
@@ -120,6 +125,16 @@ void A_MSR_IMM(ARM* cpu)
 
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
+
+    if (cpu->CPSR & 0x20) [[unlikely]]
+    {
+        if (cpu->Num == 0) cpu->NextInstr[1] &= 0xFFFF; // checkme: probably not the right way to handle this
+        else
+        {
+            Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
+            cpu->CPSR &= ~0x20; // keep it from crashing the emulator at least
+        }
+    }
 
     cpu->AddCycles_C();
 }
@@ -158,9 +173,6 @@ void A_MSR_REG(ARM* cpu)
     //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000; // unused by arm 7 & 9
     if (cpu->CurInstr & (1<<19)) mask |= ((cpu->Num==1) ? 0xF0000000 : 0xF8000000);
 
-    if (!(cpu->CurInstr & (1<<22)))
-        mask &= 0xFFFFFFDF;
-
     if ((cpu->CPSR & 0x1F) == 0x10) mask &= 0xFFFFFF00;
 
     u32 val = cpu->R[cpu->CurInstr & 0xF];
@@ -173,6 +185,16 @@ void A_MSR_REG(ARM* cpu)
 
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
+
+    if (cpu->CPSR & 0x20) [[unlikely]]
+    {
+        if (cpu->Num == 0) cpu->NextInstr[1] &= 0xFFFF; // checkme: probably not the right way to handle this
+        else
+        {
+            Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
+            cpu->CPSR &= ~0x20; // keep it from crashing the emulator at least
+        }
+    }
 
     cpu->AddCycles_C();
 }
@@ -201,7 +223,12 @@ void A_MRS(ARM* cpu)
     else
         psr = cpu->CPSR;
 
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = psr;
+    if (((cpu->CurInstr>>12) & 0xF) == 15)
+    {
+        if (cpu->Num == 1) // doesn't seem to jump on the arm9? checkme
+            cpu->JumpTo(psr & ~0x1); // checkme: this shouldn't be able to switch to thumb?
+    }
+    else cpu->R[(cpu->CurInstr>>12) & 0xF] = psr;
 
     if (cpu->Num != 1) // arm9
     {
@@ -253,12 +280,13 @@ void A_MRC(ARM* cpu)
     u32 cn = (cpu->CurInstr >> 16) & 0xF;
     u32 cm = cpu->CurInstr & 0xF;
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
+    u32 rd = (cpu->CurInstr>>12) & 0xF;
 
-    if (cpu->Num==0 && cp==15)
+    if (cpu->Num==0 && cp==15 && rd!=15)
     {
-        cpu->R[(cpu->CurInstr>>12)&0xF] = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo);
+        cpu->R[rd] = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo);
     }
-    else if (cpu->Num==1 && cp==14)
+    else if (cpu->Num==1 && cp==14 && rd!=15)
     {
         Log(LogLevel::Debug, "MRC p14,%d,%d,%d on ARM7\n", cn, cm, cpinfo);
     }

@@ -1,12 +1,13 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 
 #include "../CRC32.h"
 #include "../Platform.h"
 #include "hexutil.h"
 
-#include "GdbProto.h"
+#include "GdbStub.h"
 
 using namespace melonDS;
 using Platform::Log;
@@ -878,6 +879,7 @@ ExecResult GdbStub::Handle_v_Stopped(GdbStub* stub, const u8* cmd, ssize_t len)
 
 ExecResult GdbStub::Handle_v_MustReplyEmpty(GdbStub* stub, const u8* cmd, ssize_t len)
 {
+	printf("must reply empty\n");
 	stub->Resp(NULL, 0);
 	return ExecResult::Ok;
 }
@@ -886,6 +888,7 @@ ExecResult GdbStub::Handle_v_Cont(GdbStub* stub, const u8* cmd, ssize_t len)
 {
 	if (len < 1)
 	{
+		printf("insufficient length");
 		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
@@ -902,6 +905,7 @@ ExecResult GdbStub::Handle_v_Cont(GdbStub* stub, const u8* cmd, ssize_t len)
 		stub->RespStr("OK");
 		return ExecResult::MustBreak;
 	default:
+		printf("invalid continue %c %s\n", cmd[0], cmd);
 		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}

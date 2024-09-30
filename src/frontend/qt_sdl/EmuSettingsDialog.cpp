@@ -95,7 +95,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
 #endif
 
 #ifdef GDBSTUB_ENABLED
-    ui->cbGdbEnabled->setChecked(cfg.GetBool("Gdb.Enabled"));
+    ui->cbGdbEnabled->setChecked(instcfg.GetBool("Gdb.Enabled"));
     ui->intGdbPortA7->setValue(instcfg.GetInt("Gdb.ARM7.Port"));
     ui->intGdbPortA9->setValue(instcfg.GetInt("Gdb.ARM9.Port"));
     ui->cbGdbBOSA7->setChecked(instcfg.GetBool("Gdb.ARM7.BreakOnStartup"));
@@ -286,7 +286,7 @@ void EmuSettingsDialog::done(int r)
             cfg.SetBool("JIT.FastMemory", ui->chkJITFastMemory->isChecked());
 #endif
 #ifdef GDBSTUB_ENABLED
-            cfg.SetBool("Gdb.Enabled", ui->cbGdbEnabled->isChecked());
+            instcfg.SetBool("Gdb.Enabled", ui->cbGdbEnabled->isChecked());
             instcfg.SetInt("Gdb.ARM7.Port", ui->intGdbPortA7->value());
             instcfg.SetInt("Gdb.ARM9.Port", ui->intGdbPortA9->value());
             instcfg.SetBool("Gdb.ARM7.BreakOnStartup", ui->cbGdbBOSA7->isChecked());

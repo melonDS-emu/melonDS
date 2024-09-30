@@ -583,6 +583,20 @@ A_IMPLEMENT_ALU_OP(RSC,)
     u32 res = a & b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* yes this instruction has a secret rd for some reason */ \
+    { \
+        if (cpu->Num == 1) \
+        { \
+            u32 oldpsr = cpu->CPSR; \
+            cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
+            if (cpu->CPSR & 0x20) \
+            { \
+                Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: TST T bit change on ARM7\n"); \
+                cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
+            } \
+        } \
+        else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: TST w/ rd == 15 on ARM9\n"); \
+    } \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(TST,_S)
@@ -593,6 +607,20 @@ A_IMPLEMENT_ALU_TEST(TST,_S)
     u32 res = a ^ b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* yes this instruction has a secret rd for some reason */ \
+    { \
+        if (cpu->Num == 1) \
+        { \
+            u32 oldpsr = cpu->CPSR; \
+            cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
+            if (cpu->CPSR & 0x20) \
+            { \
+                Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: TEQ T bit change on ARM7\n"); \
+                cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
+            } \
+        } \
+        else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: TEQ w/ rd == 15 on ARM9\n"); \
+    } \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(TEQ,_S)
@@ -605,6 +633,20 @@ A_IMPLEMENT_ALU_TEST(TEQ,_S)
                  !res, \
                  CarrySub(a, b), \
                  OverflowSub(a, b)); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* yes this instruction has a secret rd for some reason */ \
+    { \
+        if (cpu->Num == 1) \
+        { \
+            u32 oldpsr = cpu->CPSR; \
+            cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
+            if (cpu->CPSR & 0x20) \
+            { \
+                Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMP T bit change on ARM7\n"); \
+                cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
+            } \
+        } \
+        else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMP w/ rd == 15 on ARM9\n"); \
+    } \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(CMP,)
@@ -617,6 +659,20 @@ A_IMPLEMENT_ALU_TEST(CMP,)
                  !res, \
                  CarryAdd(a, b), \
                  OverflowAdd(a, b)); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* yes this instruction has a secret rd for some reason */ \
+    { \
+        if (cpu->Num == 1) \
+        { \
+            u32 oldpsr = cpu->CPSR; \
+            cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
+            if (cpu->CPSR & 0x20) \
+            { \
+                Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMN T bit change on ARM7\n"); \
+                cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
+            } \
+        } \
+        else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMN w/ rd == 15 on ARM9\n"); \
+    } \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(CMN,)
@@ -766,7 +822,10 @@ void A_MUL(ARM* cpu)
 
     u32 res = rm * rs;
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    // all multiply instructions fail writes to r15 on arm7/9
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+
     if (cpu->CurInstr & (1<<20))
     {
         cpu->SetNZ(res & 0x80000000,
@@ -803,8 +862,10 @@ void A_MLA(ARM* cpu)
     u32 rn = cpu->R[(cpu->CurInstr >> 12) & 0xF];
 
     u32 res = (rm * rs) + rn;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     if (cpu->CurInstr & (1<<20))
     {
         cpu->SetNZ(res & 0x80000000,
@@ -841,8 +902,11 @@ void A_UMULL(ARM* cpu)
 
     u64 res = (u64)rm * (u64)rs;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+
     if (cpu->CurInstr & (1<<20))
     {
         cpu->SetNZ((u32)(res >> 63ULL),
@@ -873,9 +937,12 @@ void A_UMLAL(ARM* cpu)
 
     u64 rd = (u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL);
     res += rd;
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
     if (cpu->CurInstr & (1<<20))
     {
         cpu->SetNZ((u32)(res >> 63ULL),
@@ -903,9 +970,12 @@ void A_SMULL(ARM* cpu)
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
 
     s64 res = (s64)(s32)rm * (s64)(s32)rs;
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
     if (cpu->CurInstr & (1<<20))
     {
         cpu->SetNZ((u32)(res >> 63ULL),
@@ -936,9 +1006,12 @@ void A_SMLAL(ARM* cpu)
 
     s64 rd = (s64)((u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL));
     res += rd;
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
     if (cpu->CurInstr & (1<<20))
     {
         cpu->SetNZ((u32)(res >> 63ULL),
@@ -975,8 +1048,10 @@ void A_SMLAxy(ARM* cpu)
 
     u32 res_mul = ((s16)rm * (s16)rs);
     u32 res = res_mul + rn;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
@@ -996,8 +1071,9 @@ void A_SMLAWy(ARM* cpu)
 
     u32 res_mul = ((s64)(s32)rm * (s16)rs) >> 16;
     u32 res = res_mul + rn;
-
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
@@ -1017,8 +1093,9 @@ void A_SMULxy(ARM* cpu)
     else                        rs &= 0xFFFF;
 
     u32 res = ((s16)rm * (s16)rs);
-
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
 }
 
@@ -1033,8 +1110,9 @@ void A_SMULWy(ARM* cpu)
     else                        rs &= 0xFFFF;
 
     u32 res = ((s64)(s32)rm * (s16)rs) >> 16;
-
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
 }
 
@@ -1055,9 +1133,12 @@ void A_SMLALxy(ARM* cpu)
     s64 rd = (s64)((u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL));
     res += rd;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+        
     cpu->AddCycles_C(); // 1 X
     cpu->DataRegion = Mem9_Null;
     ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
@@ -1104,7 +1185,10 @@ void A_QADD(ARM* cpu)
         cpu->CPSR |= 0x08000000;
     }
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
+    // all saturated math instructions fail writes to r15
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
+
     cpu->AddCycles_C(); // TODO: interlock??
 }
 
@@ -1121,8 +1205,10 @@ void A_QSUB(ARM* cpu)
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
     }
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
 }
 
@@ -1147,8 +1233,10 @@ void A_QDADD(ARM* cpu)
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
     }
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
 }
 
@@ -1173,8 +1261,10 @@ void A_QDSUB(ARM* cpu)
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
     }
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C(); // TODO: interlock??
 }
 
@@ -1553,6 +1643,20 @@ void T_CMP_HIREG(ARM* cpu)
                  !res,
                  CarrySub(a, b),
                  OverflowSub(a, b));
+    if (rd == 15) [[unlikely]]
+    {
+        if (cpu->Num == 1)
+        {
+            u32 oldpsr = cpu->CPSR;
+            cpu->RestoreCPSR(); // ARM7TDMI restores cpsr and does ___not___ flush the pipeline.
+            if (!(cpu->CPSR & 0x20))
+            {
+                Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
+                cpu->CPSR |= 0x20; // keep it from crashing the emulator at least
+            }
+        }
+        else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMP HIREG w/ rd == 15 on ARM9\n");
+    }
     cpu->AddCycles_C();
 }
 

@@ -36,6 +36,7 @@ void A_MRS(ARM* cpu);
 void A_MCR(ARM* cpu);
 void A_MRC(ARM* cpu);
 void A_SVC(ARM* cpu);
+void A_BKPT(ARM* cpu);
 
 void T_SVC(ARM* cpu);
 

@@ -9,7 +9,7 @@ if (VCPKG_ROOT STREQUAL "${_DEFAULT_VCPKG_ROOT}")
     endif()
     FetchContent_Declare(vcpkg
         GIT_REPOSITORY "https://github.com/Microsoft/vcpkg.git"
-        GIT_TAG 2024.07.12
+        GIT_TAG 2024.08.23
         SOURCE_DIR "${CMAKE_SOURCE_DIR}/vcpkg")
     FetchContent_MakeAvailable(vcpkg)
 endif()
@@ -23,6 +23,11 @@ if (NOT WIN32)
     option(USE_QT6 "Build using Qt 6 instead of 5" ON)
 else()
     option(USE_QT6 "Build using Qt 6 instead of 5" OFF)
+endif()
+
+# Since the Linux build pulls in glib anyway, we can just use upstream libslirp
+if (UNIX AND NOT APPLE)
+    option(USE_SYSTEM_LIBSLIRP "Use system libslirp instead of the bundled version" ON)
 endif()
 
 if (NOT USE_QT6)
@@ -62,6 +67,14 @@ if (USE_RECOMMENDED_TRIPLETS)
         # TODO Windows arm64 if possible
         set(_CAN_TARGET_AS_HOST ON)
         set(_WANTED_TRIPLET x64-mingw-static-release)
+    elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL Linux)
+        # Can't really detect cross compiling here.
+        set(_CAN_TARGET_AS_HOST ON)
+        if (_HOST_PROCESSOR STREQUAL x86_64)
+            set(_WANTED_TRIPLET x64-linux-release)
+        elseif(_HOST_PROCESSOR STREQUAL "aarch64")
+            set(_WANTED_TRIPLET arm64-linux-release)
+        endif()
     endif()
 
     # Don't override it if the user set something else

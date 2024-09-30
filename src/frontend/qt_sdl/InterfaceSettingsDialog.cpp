@@ -39,7 +39,9 @@ InterfaceSettingsDialog::InterfaceSettingsDialog(QWidget* parent) : QDialog(pare
     ui->spinMouseHideSeconds->setEnabled(ui->cbMouseHide->isChecked());
     ui->spinMouseHideSeconds->setValue(cfg.GetInt("MouseHideSeconds"));
     ui->cbPauseLostFocus->setChecked(cfg.GetBool("PauseLostFocus"));
-    ui->spinMaxFPS->setValue(cfg.GetInt("MaxFPS"));
+    ui->spinTargetFPS->setValue(cfg.GetDouble("TargetFPS"));
+    ui->spinFFW->setValue(cfg.GetDouble("FastForwardFPS"));
+    ui->spinSlow->setValue(cfg.GetDouble("SlowmoFPS"));
 
     const QList<QString> themeKeys = QStyleFactory::keys();
     const QString currentTheme = qApp->style()->objectName();
@@ -65,6 +67,41 @@ void InterfaceSettingsDialog::on_cbMouseHide_clicked()
     ui->spinMouseHideSeconds->setEnabled(ui->cbMouseHide->isChecked());
 }
 
+void InterfaceSettingsDialog::on_pbClean_clicked()
+{
+    ui->spinTargetFPS->setValue(60.0000);
+}
+
+void InterfaceSettingsDialog::on_pbAccurate_clicked()
+{
+    ui->spinTargetFPS->setValue(59.8261);
+}
+
+void InterfaceSettingsDialog::on_pb2x_clicked()
+{
+    ui->spinFFW->setValue(ui->spinTargetFPS->value() * 2.0);
+}
+
+void InterfaceSettingsDialog::on_pb3x_clicked()
+{
+    ui->spinFFW->setValue(ui->spinTargetFPS->value() * 3.0);
+}
+
+void InterfaceSettingsDialog::on_pbMAX_clicked()
+{
+    ui->spinFFW->setValue(1000.0);
+}
+
+void InterfaceSettingsDialog::on_pbHalf_clicked()
+{
+    ui->spinSlow->setValue(ui->spinTargetFPS->value() / 2.0);
+}
+
+void InterfaceSettingsDialog::on_pbQuarter_clicked()
+{
+    ui->spinSlow->setValue(ui->spinTargetFPS->value() / 4.0);
+}
+
 void InterfaceSettingsDialog::done(int r)
 {
     if (r == QDialog::Accepted)
@@ -74,7 +111,18 @@ void InterfaceSettingsDialog::done(int r)
         cfg.SetBool("MouseHide", ui->cbMouseHide->isChecked());
         cfg.SetInt("MouseHideSeconds", ui->spinMouseHideSeconds->value());
         cfg.SetBool("PauseLostFocus", ui->cbPauseLostFocus->isChecked());
-        cfg.SetInt("MaxFPS", ui->spinMaxFPS->value());
+
+        double val = ui->spinTargetFPS->value();
+        if (val == 0.0) cfg.SetDouble("TargetFPS", 0.0001);
+        else cfg.SetDouble("TargetFPS", val);
+        
+        val = ui->spinFFW->value();
+        if (val == 0.0) cfg.SetDouble("FastForwardFPS", 0.0001);
+        else cfg.SetDouble("FastForwardFPS", val);
+        
+        val = ui->spinSlow->value();
+        if (val == 0.0) cfg.SetDouble("SlowmoFPS", 0.0001);
+        else cfg.SetDouble("SlowmoFPS", val);
 
         QString themeName = ui->cbxUITheme->currentData().toString();
         cfg.SetQString("UITheme", themeName);

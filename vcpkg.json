@@ -2,9 +2,22 @@
 	"default-features": ["qt6"],
 	"dependencies": [
 		"sdl2",
+		{
+			"name": "sdl2",
+			"platform": "linux",
+			"features": [ "alsa" ]
+		},
 		"libarchive",
 		"zstd",
-		"enet"
+		"enet",
+		{
+			"name": "ecm",
+			"platform": "linux"
+		},
+		{
+			"name": "libslirp",
+			"platform": "linux"
+		}
 	],
 	"features": {
 		"qt6": {
@@ -17,11 +30,23 @@
 				},
 				{
 					"name": "qtbase",
+					"platform": "linux",
+					"default-features": false,
+					"features": ["dbus", "xcb", "xkb", "xcb-xlib", "freetype", "fontconfig"]
+				},
+				{
+					"name": "qtbase",
 					"host": true,
 					"default-features": false
 				},
 				{
 					"name": "qtmultimedia",
+					"default-features": false
+				},
+				{
+					"name": "qtmultimedia",
+					"platform": "linux",
+					"features": ["gstreamer"],
 					"default-features": false
 				},
 				"qtsvg"
