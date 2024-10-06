@@ -81,6 +81,7 @@
 #include "EmuInstance.h"
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
+#include "Window.h"
 
 using namespace melonDS;
 
@@ -666,6 +667,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         QByteArray dec = QByteArray::fromBase64(raw, QByteArray::Base64Encoding | QByteArray::AbortOnBase64DecodingErrors);
         if (!dec.isEmpty())
             restoreGeometry(dec);
+        // if the window was closed in fullscreen do not restore this
+        setWindowState(windowState() & ~Qt::WindowFullScreen);
     }
     show();
 
