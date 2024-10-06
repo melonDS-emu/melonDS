@@ -364,6 +364,9 @@ int main(int argc, char** argv)
         if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
 
         win->preloadROMs(dsfile, gbafile, options->boot);
+
+        if (options->fullscreen)
+            ToggleFullscreen(win);
     }
 
     int ret = melon.exec();
