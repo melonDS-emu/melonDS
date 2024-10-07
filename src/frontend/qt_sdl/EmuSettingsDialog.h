@@ -80,6 +80,8 @@ private slots:
     void on_chkExternalBIOS_toggled();
 
     void on_cbGdbEnabled_toggled();
+    void on_cbPcapEnabled_toggled();
+    void on_btnPcapBrowse_clicked();
 
 private:
     void verifyFirmware();

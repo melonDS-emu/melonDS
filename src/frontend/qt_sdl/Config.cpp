@@ -315,6 +315,8 @@ LegacyEntry LegacyFile[] =
     {"GdbARM7BreakOnStartup", 1, "Gdb.ARM7.BreakOnStartup", true},
     {"GdbARM9BreakOnStartup", 1, "Gdb.ARM9.BreakOnStartup", true},
 #endif
+    {"PcapEnabled", 1, "Pcap.Enabled", false},
+    {"PcapPath", 2, "Pcap.Path", false},
 
     {"Camera0_InputType", 0, "DSi.Camera0.InputType", false},
     {"Camera0_ImagePath", 2, "DSi.Camera0.ImagePath", false},
