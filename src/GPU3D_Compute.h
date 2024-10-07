@@ -42,6 +42,7 @@ public:
     ~ComputeRenderer() override;
 
     void Reset(GPU& gpu) override;
+    void DoSavestate(Savestate* file) override;
 
     void SetRenderSettings(int scale, bool highResolutionCoordinates);
 

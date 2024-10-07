@@ -317,6 +317,23 @@ void GLRenderer::Reset(GPU& gpu)
     // except there's no such method right now.
 }
 
+void GLRenderer::DoSavestate(Savestate* file)
+{
+    // placeholder in case we need to add anything serializable later on
+    /*
+    bool secfound = file->Section("GL3D", true);
+
+    if (secfound)
+    {
+
+    }
+    else
+    {
+
+    }
+    */
+}
+
 void GLRenderer::SetBetterPolygons(bool betterpolygons) noexcept
 {
     SetRenderSettings(betterpolygons, ScaleFactor);
