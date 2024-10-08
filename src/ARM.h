@@ -291,11 +291,13 @@ public:
     void AddCycles_CDI() override
     {
         AddCycles_MW(DataCycles);
+        DataCycles = 0;
     }
 
     void AddCycles_CD() override
     {
         AddCycles_MW(DataCycles);
+        DataCycles = 0;
     }
 
     void GetCodeMemRegion(u32 addr, MemRegion* region);
@@ -314,6 +316,10 @@ public:
     void ICacheLookup(u32 addr);
     void ICacheInvalidateByAddr(u32 addr);
     void ICacheInvalidateAll();
+    
+    void WriteBufferCheck();
+    void WriteBufferWrite(u32 val, u8 flag, u8 cycles, u32 addr = 0);
+    void WriteBufferDrain();
 
     void CP15Write(u32 id, u32 val);
     u32 CP15Read(u32 id) const;
@@ -368,6 +374,13 @@ public:
     u8 InterlockWBPrev;
     bool Store;
     u16 InterlockMask;
+
+    u8 WBWritePointer;
+    u8 WBFillPointer;
+    u32 WBAddr; // current working address for the write buffer
+    u32 storeaddr[16]; // debugging
+    u64 WBCycles[16]; // timestamp each write will complete
+    u64 WriteBufferFifo[16]; // 0-31: value | 62-63: 0 byte, 1 half, 2 word, 3 addr
 
 #ifdef GDBSTUB_ENABLED
     u32 ReadMem(u32 addr, int size) override;
