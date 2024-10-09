@@ -774,8 +774,8 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         interp_start = &rp->SlopeR.Interp;
         interp_end = &rp->SlopeL.Interp;
 
-        rp->SlopeR.EdgeParams<true>(&l_edgelen, &l_edgecov);
-        rp->SlopeL.EdgeParams<true>(&r_edgelen, &r_edgecov);
+        rp->SlopeR.EdgeParams(&l_edgelen, &l_edgecov, true);
+        rp->SlopeL.EdgeParams(&r_edgelen, &r_edgecov, true);
 
         std::swap(xstart, xend);
         std::swap(wl, wr);
@@ -806,9 +806,9 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         interp_start = &rp->SlopeL.Interp;
         interp_end = &rp->SlopeR.Interp;
 
-        rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
-        rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
-
+        rp->SlopeL.EdgeParams(&l_edgelen, &l_edgecov, false);
+        rp->SlopeR.EdgeParams(&r_edgelen, &r_edgecov, false);
+        
         // CHECKME: edge fill rules for unswapped opaque shadow mask polygons
         if ((gpu3d.RenderDispCnt & ((1<<4)|(1<<5))) || ((polyalpha < 31) && (gpu3d.RenderDispCnt & (1<<3))) || wireframe)
         {
@@ -1003,8 +1003,8 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         interp_start = &rp->SlopeR.Interp;
         interp_end = &rp->SlopeL.Interp;
 
-        rp->SlopeR.EdgeParams<true>(&l_edgelen, &l_edgecov);
-        rp->SlopeL.EdgeParams<true>(&r_edgelen, &r_edgecov);
+        rp->SlopeR.EdgeParams(&l_edgelen, &l_edgecov, true);
+        rp->SlopeL.EdgeParams(&r_edgelen, &r_edgecov, true);
 
         std::swap(xstart, xend);
         std::swap(wl, wr);
@@ -1041,8 +1041,8 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         interp_start = &rp->SlopeL.Interp;
         interp_end = &rp->SlopeR.Interp;
 
-        rp->SlopeL.EdgeParams<false>(&l_edgelen, &l_edgecov);
-        rp->SlopeR.EdgeParams<false>(&r_edgelen, &r_edgecov);
+        rp->SlopeL.EdgeParams(&l_edgelen, &l_edgecov, false);
+        rp->SlopeR.EdgeParams(&r_edgelen, &r_edgecov, false);
 
         // edge fill rules for unswapped opaque edges:
         // * right edge is filled if slope > 1
@@ -1096,18 +1096,11 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     if (x < 0) x = 0;
     s32 xlimit;
 
-    s32 xcov = 0;
-
     // part 1: left edge
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
     if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
-    if (l_edgecov & (1<<31))
-    {
-        xcov = (l_edgecov >> 12) & 0x3FF;
-        if (xcov == 0x3FF) xcov = 0;
-    }
 
     if (!l_filledge) x = xlimit;
     else
@@ -1166,14 +1159,12 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                 // anti-aliasing: all edges are rendered
 
                 // calculate coverage
-                s32 cov = l_edgecov;
-                if (cov & (1<<31))
+                attr |= (l_edgecov >> 5) << 8;
+                if (x < xlimit-1)
                 {
-                    cov = xcov >> 5;
-                    if (cov > 31) cov = 31;
-                    xcov += (l_edgecov & 0x3FF);
+                    l_edgecov += rp->SlopeL.XCov_Incr;
+                    if (l_edgecov > 0x3FF) l_edgecov = 0x3FF;
                 }
-                attr |= (cov << 8);
 
                 // push old pixel down if needed
                 if (pixeladdr < BufferSize)
@@ -1292,11 +1283,6 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     edge = yedge | 0x2;
     xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
-    if (r_edgecov & (1<<31))
-    {
-        xcov = (r_edgecov >> 12) & 0x3FF;
-        if (xcov == 0x3FF) xcov = 0;
-    }
 
     if (r_filledge)
     for (; x < xlimit; x++)
@@ -1354,14 +1340,12 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
                 // anti-aliasing: all edges are rendered
 
                 // calculate coverage
-                s32 cov = r_edgecov;
-                if (cov & (1<<31))
+                attr |= (r_edgecov >> 5) << 8;
+                if (x < xlimit-1)
                 {
-                    cov = 0x1F - (xcov >> 5);
-                    if (cov < 0) cov = 0;
-                    xcov += (r_edgecov & 0x3FF);
+                    r_edgecov -= rp->SlopeR.XCov_Incr;
+                    if (r_edgecov < 0) r_edgecov = 0;
                 }
-                attr |= (cov << 8);
 
                 // push old pixel down if needed
                 if (pixeladdr < BufferSize)
