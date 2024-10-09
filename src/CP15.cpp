@@ -457,7 +457,6 @@ void ARMv5::WriteBufferCheck()
             }
             else if ((WBAddr & DTCMMask) == DTCMBase) *(u8*)&DTCM[WBAddr & (DTCMPhysicalSize - 1)] = val;
             else BusWrite8(storeaddr[WBWritePointer], val);
-            if (WBAddr != storeaddr[WBWritePointer]) printf("ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
             break;
         }
         case 1: // halfword
@@ -470,7 +469,6 @@ void ARMv5::WriteBufferCheck()
             }
             else if ((WBAddr & DTCMMask) == DTCMBase) *(u16*)&DTCM[WBAddr & (DTCMPhysicalSize - 2)] = val;
             else BusWrite16(storeaddr[WBWritePointer], val);
-            if (WBAddr != storeaddr[WBWritePointer]) printf("ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
             break;
         }
         case 2: // word
@@ -483,7 +481,6 @@ void ARMv5::WriteBufferCheck()
             }
             else if ((WBAddr & DTCMMask) == DTCMBase) *(u32*)&DTCM[WBAddr & (DTCMPhysicalSize - 4)] = val;
             else BusWrite32(storeaddr[WBWritePointer], val);
-            if (WBAddr != storeaddr[WBWritePointer]) printf("ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
             WBAddr += 4;
             break;
         }
@@ -527,7 +524,6 @@ void ARMv5::WriteBufferWrite(u32 val, u8 flag, u8 cycles, u32 addr)
             }
             else if ((WBAddr & DTCMMask) == DTCMBase) *(u8*)&DTCM[WBAddr & (DTCMPhysicalSize - 1)] = val;
             else BusWrite8(storeaddr[WBWritePointer], val);
-            if (WBAddr != storeaddr[WBWritePointer]) printf("ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
             break;
         }
         case 1: // halfword
@@ -540,7 +536,6 @@ void ARMv5::WriteBufferWrite(u32 val, u8 flag, u8 cycles, u32 addr)
             }
             else if ((WBAddr & DTCMMask) == DTCMBase) *(u16*)&DTCM[WBAddr & (DTCMPhysicalSize - 2)] = val;
             else BusWrite16(storeaddr[WBWritePointer], val);
-            if (WBAddr != storeaddr[WBWritePointer]) printf("ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
             break;
         }
         case 2: // word
@@ -553,7 +548,6 @@ void ARMv5::WriteBufferWrite(u32 val, u8 flag, u8 cycles, u32 addr)
             }
             else if ((WBAddr & DTCMMask) == DTCMBase) *(u32*)&DTCM[WBAddr & (DTCMPhysicalSize - 4)] = val;
             else BusWrite32(storeaddr[WBWritePointer], val);
-            if (WBAddr != storeaddr[WBWritePointer]) printf("ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
             WBAddr += 4;
             break;
         }
@@ -610,7 +604,6 @@ void ARMv5::WriteBufferDrain()
             }
             else if ((WBAddr & DTCMMask) == DTCMBase) *(u8*)&DTCM[WBAddr & (DTCMPhysicalSize - 1)] = val;
             else BusWrite8(storeaddr[WBWritePointer], val);
-            if (WBAddr != storeaddr[WBWritePointer]) printf("ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
             break;
         }
         case 1: // halfword
@@ -623,7 +616,6 @@ void ARMv5::WriteBufferDrain()
             }
             else if ((WBAddr & DTCMMask) == DTCMBase) *(u16*)&DTCM[WBAddr & (DTCMPhysicalSize - 2)] = val;
             else BusWrite16(storeaddr[WBWritePointer], val);
-            if (WBAddr != storeaddr[WBWritePointer]) printf("ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
             break;
         }
         case 2: // word
@@ -636,7 +628,6 @@ void ARMv5::WriteBufferDrain()
             }
             else if ((WBAddr & DTCMMask) == DTCMBase) *(u32*)&DTCM[WBAddr & (DTCMPhysicalSize - 4)] = val;
             else BusWrite32(storeaddr[WBWritePointer], val);
-            if (WBAddr != storeaddr[WBWritePointer]) printf("ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
             WBAddr += 4;
             break;
         }
@@ -1218,8 +1209,11 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
         *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return true;
     }
-    
+
     NDS.ARM9Timestamp += DataCycles;
+
+    if (!(addr & 0x3FF)) return DataRead32(addr, val); // bursts cannot cross a 1kb boundary
+
     DataCycles = MemTimings[addr >> 12][3];
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
@@ -1437,9 +1431,11 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
             *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
             return true;
         }
-    
-        NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
-    
+
+        DataCycles += ((NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1)) - NDS.ARM9Timestamp);
+
+        if (!(addr & 0x3FF)) return DataWrite32(addr, val); // bursts cannot cross a 1kb boundary
+
         if ((addr >> 24) == 0x02)
         {
             if ((DataRegion != Mem9_MainRAM) && ((NDS.ARM9Timestamp + DataCycles) < MainRAMTimestamp)) NDS.ARM9Timestamp = MainRAMTimestamp - DataCycles;
