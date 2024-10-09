@@ -1297,7 +1297,8 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
     }
     else
     {
-        DataCycles = 2;
+        NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
+        DataCycles = 1;
         WriteBufferWrite(addr, 3, 1);
         WriteBufferWrite(val, 0, MemTimings[addr >> 12][1], addr);
     }
@@ -1356,7 +1357,8 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
     }
     else
     {
-        DataCycles = 2;
+        NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
+        DataCycles = 1;
         WriteBufferWrite(addr, 3, 1);
         WriteBufferWrite(val, 1, MemTimings[addr >> 12][1], addr);
     }
@@ -1415,7 +1417,8 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
     }
     else
     {
-        DataCycles = 2;
+        NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
+        DataCycles = 1;
         WriteBufferWrite(addr, 3, 1);
         WriteBufferWrite(val, 2, MemTimings[addr >> 12][2], addr);
     }
@@ -1456,7 +1459,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
             return true;
         }
 
-        DataCycles += ((NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1)) - NDS.ARM9Timestamp);
+        DataCycles += (((NDS.ARM9Timestamp + DataCycles) + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1)) - (NDS.ARM9Timestamp + DataCycles));
 
         if (!(addr & 0x3FF)) return DataWrite32(addr, val); // bursts cannot cross a 1kb boundary
 
@@ -1473,6 +1476,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
     }
     else
     {
+        DataCycles += (((NDS.ARM9Timestamp + DataCycles) + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1)) - (NDS.ARM9Timestamp + DataCycles));
         DataCycles += 1;
         WriteBufferWrite(val, 2, MemTimings[addr >> 12][3], addr);
     }
