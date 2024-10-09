@@ -840,10 +840,10 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
         if (DCacheTags[index] & CACHE_FLAG_DIRTY_LOWERHALF)
         {
             WriteBufferWrite(tag, 3, 1);
-            WriteBufferWrite(ptr[0x00], 2, MemTimings[tag >> 12][2], tag+0x00);
-            WriteBufferWrite(ptr[0x04], 2, MemTimings[tag >> 12][3], tag+0x04);
-            WriteBufferWrite(ptr[0x08], 2, MemTimings[tag >> 12][3], tag+0x08);
-            WriteBufferWrite(ptr[0x0C], 2, MemTimings[tag >> 12][3], tag+0x0C);
+            WriteBufferWrite(ptr[0], 2, MemTimings[tag >> 12][2], tag+0x00);
+            WriteBufferWrite(ptr[1], 2, MemTimings[tag >> 12][3], tag+0x04);
+            WriteBufferWrite(ptr[2], 2, MemTimings[tag >> 12][3], tag+0x08);
+            WriteBufferWrite(ptr[3], 2, MemTimings[tag >> 12][3], tag+0x0C);
             DataCycles += 5;
             /*//Log(LogLevel::Debug, "Writing back %i / %i, lower half -> %08lx\n", cacheSet, cacheLine, tag);
             for (int i = 0; i < DCACHE_LINELENGTH / 2; i+=sizeof(u32))
@@ -885,10 +885,10 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
             }
             DataCycles += (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 8) - 1))) << NDS.ARM9ClockShift;*/
             WriteBufferWrite(tag+0x10, 3, 1);
-            WriteBufferWrite(ptr[0x10], 2, MemTimings[tag >> 12][2], tag+0x10);
-            WriteBufferWrite(ptr[0x14], 2, MemTimings[tag >> 12][3], tag+0x14);
-            WriteBufferWrite(ptr[0x18], 2, MemTimings[tag >> 12][3], tag+0x18);
-            WriteBufferWrite(ptr[0x1C], 2, MemTimings[tag >> 12][3], tag+0x1C);
+            WriteBufferWrite(ptr[4], 2, MemTimings[tag >> 12][2], tag+0x10);
+            WriteBufferWrite(ptr[5], 2, MemTimings[tag >> 12][3], tag+0x14);
+            WriteBufferWrite(ptr[6], 2, MemTimings[tag >> 12][3], tag+0x18);
+            WriteBufferWrite(ptr[7], 2, MemTimings[tag >> 12][3], tag+0x1C);
             DataCycles += 5;
         }
         DCacheTags[index] &= ~(CACHE_FLAG_DIRTY_LOWERHALF | CACHE_FLAG_DIRTY_UPPERHALF);
