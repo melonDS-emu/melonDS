@@ -83,6 +83,8 @@
 #include "CameraManager.h"
 #include "Window.h"
 
+#include "LuaMain.h"
+
 using namespace melonDS;
 
 
@@ -403,6 +405,12 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
         actDateTime = menu->addAction("Date and time");
         connect(actDateTime, &QAction::triggered, this, &MainWindow::onOpenDateTime);
+        
+        menu->addSeparator();
+
+        actLuaScript = menu->addAction("Lua Script");
+        connect(actLuaScript,&QAction::triggered,this,&MainWindow::onOpenLuaScript);
+
 
         menu->addSeparator();
 
@@ -1452,6 +1460,13 @@ void MainWindow::onEjectGBACart()
     updateCartInserted(true);
 }
 
+void MainWindow::onLuaSaveState(const QString& filename)
+{
+    emuThread->emuPause();
+    emuInstance->saveState(filename.toStdString());
+    emuThread->emuUnpause();
+}
+
 void MainWindow::onSaveState()
 {
     int slot = ((QAction*)sender())->data().toInt();
@@ -1491,6 +1506,13 @@ void MainWindow::onSaveState()
         emuInstance->osdAddMessage(0xFFA0A0, "State save failed");
     }
 
+    emuThread->emuUnpause();
+}
+
+void MainWindow::onLuaLoadState(const QString& filename)
+{
+    emuThread->emuPause();
+    emuInstance->loadState(filename.toStdString());
     emuThread->emuUnpause();
 }
 
@@ -1658,6 +1680,16 @@ void MainWindow::onOpenDateTime()
 void MainWindow::onOpenPowerManagement()
 {
     PowerManagementDialog* dlg = PowerManagementDialog::openDlg(this);
+}
+
+void MainWindow::onOpenLuaScript()
+{
+    if (this->luaDialog) // only one at a time.
+        return;
+    this->luaDialog = new LuaConsoleDialog(this);
+    this->luaDialog->show();
+    //connect(emuThread,&EmuThread::signalLuaSaveState,mainWindow,&MainWindow::onLuaSaveState);
+    //connect(emuThread,&EmuThread::signalLuaLoadState,mainWindow,&MainWindow::onLuaLoadState);
 }
 
 void MainWindow::onEnableCheats(bool checked)
