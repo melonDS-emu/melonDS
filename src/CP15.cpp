@@ -2233,7 +2233,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
     }
     else
     {
-        DataCycles = 1;
+        DataCycles = 2;
         WriteBufferWrite(addr, 3, 1);
         WriteBufferWrite(val, 0, MemTimings[addr >> 12][1], addr);
     }
@@ -2307,7 +2307,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
     }
     else
     {
-        DataCycles = 1;
+        DataCycles = 2;
         WriteBufferWrite(addr, 3, 1);
         WriteBufferWrite(val, 1, MemTimings[addr >> 12][1], addr);
     }
@@ -2382,7 +2382,7 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
     }
     else
     {
-        DataCycles = 1;
+        DataCycles = 2;
         WriteBufferWrite(addr, 3, 1);
         WriteBufferWrite(val, 2, MemTimings[addr >> 12][2], addr);
     }
