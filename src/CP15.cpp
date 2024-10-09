@@ -385,6 +385,7 @@ u32 ARMv5::ICacheLookup(const u32 addr)
                 // Disabled ICACHE Streaming:
                 // retreive the data from memory, even if the data was cached
                 // See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
+                WriteBufferDrain();
                 CodeCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
                 if (CodeMem.Mem)
                 {
@@ -407,6 +408,7 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     // BIST test State register (See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_LINEFILL) [[unlikely]]
     {
+        WriteBufferDrain();
         CodeCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
         if (CodeMem.Mem)
         {
@@ -446,6 +448,8 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     line += id;
 
     u32* ptr = (u32 *)&ICache[line << ICACHE_LINELENGTH_LOG2];
+    
+    WriteBufferDrain();
 
     if (CodeMem.Mem)
     {
@@ -534,6 +538,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
                 // Disabled DCACHE Streaming:
                 // retreive the data from memory, even if the data was cached
                 // See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
+                WriteBufferDrain();
                 DataCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
                 if (addr < ITCMSize)
                 {
@@ -560,6 +565,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     // BIST test State register (See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_LINEFILL) [[unlikely]]
     {
+        WriteBufferDrain();
         DataCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
         if (addr < ITCMSize)
         {
@@ -609,6 +615,8 @@ u32 ARMv5::DCacheLookup(const u32 addr)
         // Datacycles will be incremented by the required cycles to do so
         DCacheClearByASetAndWay(line & (DCACHE_SETS-1), line >> DCACHE_SETS_LOG2);
     #endif
+    
+    WriteBufferDrain();
     //Log(LogLevel::Debug,"DCache miss, load @ %08x\n", tag);
     for (int i = 0; i < DCACHE_LINELENGTH; i+=sizeof(u32))
     {
@@ -831,7 +839,13 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
 
         if (DCacheTags[index] & CACHE_FLAG_DIRTY_LOWERHALF)
         {
-            //Log(LogLevel::Debug, "Writing back %i / %i, lower half -> %08lx\n", cacheSet, cacheLine, tag);
+            WriteBufferWrite(tag, 3, 1);
+            WriteBufferWrite(ptr[0x00], 2, MemTimings[tag >> 12][2], tag+0x00);
+            WriteBufferWrite(ptr[0x04], 2, MemTimings[tag >> 12][3], tag+0x04);
+            WriteBufferWrite(ptr[0x08], 2, MemTimings[tag >> 12][3], tag+0x08);
+            WriteBufferWrite(ptr[0x0C], 2, MemTimings[tag >> 12][3], tag+0x0C);
+            DataCycles += 5;
+            /*//Log(LogLevel::Debug, "Writing back %i / %i, lower half -> %08lx\n", cacheSet, cacheLine, tag);
             for (int i = 0; i < DCACHE_LINELENGTH / 2; i+=sizeof(u32))
             {
                 //Log(LogLevel::Debug, "  WB Value %08x\n", ptr[i >> 2]);
@@ -848,12 +862,12 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
                     BusWrite32(tag+i, ptr[i >> 2]);
                 }
             }
-            DataCycles += (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 8) - 1))) << NDS.ARM9ClockShift;
+            DataCycles += (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 8) - 1))) << NDS.ARM9ClockShift;*/
         }
         if (DCacheTags[index] & CACHE_FLAG_DIRTY_UPPERHALF)
         {
             //Log(LogLevel::Debug, "Writing back %i / %i, upper half-> %08lx\n", cacheSet, cacheLine, tag);
-            for (int i = DCACHE_LINELENGTH / 2; i < DCACHE_LINELENGTH; i+=sizeof(u32))
+            /*for (int i = DCACHE_LINELENGTH / 2; i < DCACHE_LINELENGTH; i+=sizeof(u32))
             {
                 //Log(LogLevel::Debug, "  WB Value %08x\n", ptr[i >> 2]);
                 if (tag+i < ITCMSize)
@@ -869,7 +883,13 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
                     BusWrite32(tag+i, ptr[i >> 2]);
                 }
             }
-            DataCycles += (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 8) - 1))) << NDS.ARM9ClockShift;
+            DataCycles += (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 8) - 1))) << NDS.ARM9ClockShift;*/
+            WriteBufferWrite(tag+0x10, 3, 1);
+            WriteBufferWrite(ptr[0x10], 2, MemTimings[tag >> 12][2], tag+0x10);
+            WriteBufferWrite(ptr[0x14], 2, MemTimings[tag >> 12][3], tag+0x14);
+            WriteBufferWrite(ptr[0x18], 2, MemTimings[tag >> 12][3], tag+0x18);
+            WriteBufferWrite(ptr[0x1C], 2, MemTimings[tag >> 12][3], tag+0x1C);
+            DataCycles += 5;
         }
         DCacheTags[index] &= ~(CACHE_FLAG_DIRTY_LOWERHALF | CACHE_FLAG_DIRTY_UPPERHALF);
     #endif
