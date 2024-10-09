@@ -208,6 +208,9 @@ void ARMv5::Reset()
     Store = false;
     InterlockMask = 0;
 
+    WBWritePointer = 16;
+    WBFillPointer = 0;
+
     ARM::Reset();
 }
 
@@ -609,6 +612,7 @@ void ARMv5::Execute()
         else
         {
             NDS.ARM9Timestamp = NDS.ARM9Target;
+            WriteBufferCheck();
             return;
         }
     }
@@ -742,6 +746,7 @@ void ARMv5::Execute()
         //NDS.ARM9Timestamp += Cycles;
         //Cycles = 0;
     }
+    WriteBufferCheck();
 
     if (Halted == 2)
         Halted = 0;
@@ -757,7 +762,7 @@ void ARMv4::Execute()
 {
     if constexpr (mode == CPUExecuteMode::InterpreterGDB)
         GdbCheckB();
-
+    
     if (Halted)
     {
         if (Halted == 2)
