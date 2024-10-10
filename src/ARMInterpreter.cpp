@@ -98,7 +98,8 @@ void A_MSR_IMM(ARM* cpu)
             case 0x1A:
             case 0x1B: psr = &cpu->R_UND[2]; break;
             default:
-                cpu->AddCycles_C();
+                if (cpu->Num != 1) cpu->AddCycles_C(); // arm 7
+                else cpu->AddCycles_CI(2); // arm 9
                 return;
         }
     }
@@ -135,8 +136,16 @@ void A_MSR_IMM(ARM* cpu)
             cpu->CPSR &= ~0x20; // keep it from crashing the emulator at least
         }
     }
-
-    if ((cpu->Num != 1) && (cpu->CurInstr & (0x7<<16))) cpu->AddCycles_CI(2);
+    
+    if (cpu->Num != 1)
+    {
+        if (cpu->CurInstr & (1<<22))
+        {
+            cpu->AddCycles_CI(2); // spsr_fsxc
+        }
+        else if (cpu->CurInstr & (0x7<<16)) cpu->AddCycles_CI(2); // cpsr_sxc
+        else cpu->AddCycles_C();
+    }
     else cpu->AddCycles_C();
 }
 
@@ -159,7 +168,8 @@ void A_MSR_REG(ARM* cpu)
             case 0x1A:
             case 0x1B: psr = &cpu->R_UND[2]; break;
             default:
-                cpu->AddCycles_C();
+                if (cpu->Num != 1) cpu->AddCycles_C(); // arm 7
+                else cpu->AddCycles_CI(2); // arm 9
                 return;
         }
     }
@@ -196,8 +206,16 @@ void A_MSR_REG(ARM* cpu)
             cpu->CPSR &= ~0x20; // keep it from crashing the emulator at least
         }
     }
-
-    if ((cpu->Num != 1) && (cpu->CurInstr & (0x7<<16))) cpu->AddCycles_CI(2);
+    
+    if (cpu->Num != 1)
+    {
+        if (cpu->CurInstr & (1<<22))
+        {
+            cpu->AddCycles_CI(2); // spsr_fsxc
+        }
+        else if (cpu->CurInstr & (0x7<<16)) cpu->AddCycles_CI(2); // cpsr_sxc
+        else cpu->AddCycles_C();
+    }
     else cpu->AddCycles_C();
 }
 
