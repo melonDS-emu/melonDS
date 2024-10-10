@@ -297,11 +297,17 @@ void A_MRC(ARM* cpu)
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
     u32 rd = (cpu->CurInstr>>12) & 0xF;
 
-    if (cpu->Num==0 && cp==15 && rd!=15)
+    if (cpu->Num==0 && cp==15)
     {
-        cpu->R[rd] = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo);
+        if (rd != 15) cpu->R[rd] = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo);
+        else
+        {
+            // r15 updates the top 4 bits of the cpsr, done to "allow for conditional branching based on coprocessor status"
+            u32 flags = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo) & 0xF0000000;
+            cpu->CPSR = (cpu->CPSR & ~0xF0000000) | flags;
+        }
     }
-    else if (cpu->Num==1 && cp==14 && rd!=15)
+    else if (cpu->Num==1 && cp==14)
     {
         Log(LogLevel::Debug, "MRC p14,%d,%d,%d on ARM7\n", cn, cm, cpinfo);
     }
