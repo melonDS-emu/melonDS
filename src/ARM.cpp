@@ -210,6 +210,7 @@ void ARMv5::Reset()
 
     WBWritePointer = 16;
     WBFillPointer = 0;
+    WBDelay = 0;
 
     ARM::Reset();
 }
