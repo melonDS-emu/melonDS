@@ -141,7 +141,7 @@ void A_MSR_IMM(ARM* cpu)
     {
         if (cpu->CurInstr & (1<<22))
         {
-            cpu->AddCycles_CI(2); // spsr_fsxc
+            cpu->AddCycles_CI(2); // spsr
         }
         else if (cpu->CurInstr & (0x7<<16)) cpu->AddCycles_CI(2); // cpsr_sxc
         else cpu->AddCycles_C();
@@ -211,7 +211,7 @@ void A_MSR_REG(ARM* cpu)
     {
         if (cpu->CurInstr & (1<<22))
         {
-            cpu->AddCycles_CI(2); // spsr_fsxc
+            cpu->AddCycles_CI(2); // spsr
         }
         else if (cpu->CurInstr & (0x7<<16)) cpu->AddCycles_CI(2); // cpsr_sxc
         else cpu->AddCycles_C();
