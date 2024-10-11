@@ -581,12 +581,12 @@ A_IMPLEMENT_ALU_OP(RSC,)
 #define A_TST(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a & b; \
-    cpu->SetNZ(res & 0x80000000, \
-               !res); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* yes this instruction has a secret rd for some reason */ \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* this seems to trigger alu rd==15 behavior for arm7 and legacy instruction behavior for arm9 */ \
     { \
         if (cpu->Num == 1) \
         { \
+            cpu->SetNZ(res & 0x80000000, \
+                       !res); \
             u32 oldpsr = cpu->CPSR; \
             cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
             if (cpu->CPSR & 0x20) \
@@ -595,7 +595,12 @@ A_IMPLEMENT_ALU_OP(RSC,)
                 cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
             } \
         } \
-        else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: TST w/ rd == 15 on ARM9\n"); \
+        else cpu->JumpTo(res & ~1, true); /* TSTP dna, doesn't update flags */ \
+    } \
+    else \
+    { \
+        cpu->SetNZ(res & 0x80000000, \
+                   !res); \
     } \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
@@ -605,12 +610,12 @@ A_IMPLEMENT_ALU_TEST(TST,_S)
 #define A_TEQ(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a ^ b; \
-    cpu->SetNZ(res & 0x80000000, \
-               !res); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* yes this instruction has a secret rd for some reason */ \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* this seems to trigger alu rd==15 behavior for arm7 and legacy instruction behavior for arm9 */ \
     { \
         if (cpu->Num == 1) \
         { \
+            cpu->SetNZ(res & 0x80000000, \
+                       !res); \
             u32 oldpsr = cpu->CPSR; \
             cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
             if (cpu->CPSR & 0x20) \
@@ -619,7 +624,12 @@ A_IMPLEMENT_ALU_TEST(TST,_S)
                 cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
             } \
         } \
-        else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: TEQ w/ rd == 15 on ARM9\n"); \
+        else cpu->JumpTo(res & ~1, true); /* TEQP dna, doesn't update flags */ \
+    } \
+    else \
+    { \
+        cpu->SetNZ(res & 0x80000000, \
+                   !res); \
     } \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
@@ -629,14 +639,14 @@ A_IMPLEMENT_ALU_TEST(TEQ,_S)
 #define A_CMP(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a - b; \
-    cpu->SetNZCV(res & 0x80000000, \
-                 !res, \
-                 CarrySub(a, b), \
-                 OverflowSub(a, b)); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* yes this instruction has a secret rd for some reason */ \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* this seems to trigger alu rd==15 behavior for arm7 and legacy instruction behavior for arm9 */ \
     { \
         if (cpu->Num == 1) \
         { \
+            cpu->SetNZCV(res & 0x80000000, \
+                         !res, \
+                         CarrySub(a, b), \
+                         OverflowSub(a, b)); \
             u32 oldpsr = cpu->CPSR; \
             cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
             if (cpu->CPSR & 0x20) \
@@ -645,7 +655,14 @@ A_IMPLEMENT_ALU_TEST(TEQ,_S)
                 cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
             } \
         } \
-        else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMP w/ rd == 15 on ARM9\n"); \
+        else cpu->JumpTo(res & ~1, true); /* CMPP dna, doesn't update flags */ \
+    } \
+    else \
+    { \
+        cpu->SetNZCV(res & 0x80000000, \
+                     !res, \
+                     CarrySub(a, b), \
+                     OverflowSub(a, b)); \
     } \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
@@ -655,14 +672,14 @@ A_IMPLEMENT_ALU_TEST(CMP,)
 #define A_CMN(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a + b; \
-    cpu->SetNZCV(res & 0x80000000, \
-                 !res, \
-                 CarryAdd(a, b), \
-                 OverflowAdd(a, b)); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* yes this instruction has a secret rd for some reason */ \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* this seems to trigger alu rd==15 behavior for arm7 and legacy instruction behavior for arm9 */ \
     { \
         if (cpu->Num == 1) \
         { \
+            cpu->SetNZCV(res & 0x80000000, \
+                         !res, \
+                         CarryAdd(a, b), \
+                         OverflowAdd(a, b)); \
             u32 oldpsr = cpu->CPSR; \
             cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
             if (cpu->CPSR & 0x20) \
@@ -671,7 +688,14 @@ A_IMPLEMENT_ALU_TEST(CMP,)
                 cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
             } \
         } \
-        else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMN w/ rd == 15 on ARM9\n"); \
+        else cpu->JumpTo(res & ~1, true); /* CMNP dna, doesn't update flags */ \
+    } \
+    else \
+    { \
+        cpu->SetNZCV(res & 0x80000000, \
+                     !res, \
+                     CarryAdd(a, b), \
+                     OverflowAdd(a, b)); \
     } \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
@@ -1643,20 +1667,18 @@ void T_CMP_HIREG(ARM* cpu)
                  !res,
                  CarrySub(a, b),
                  OverflowSub(a, b));
-    if (rd == 15) [[unlikely]]
+
+    if ((cpu->Num == 1) && (rd == 15))
     {
-        if (cpu->Num == 1)
+        u32 oldpsr = cpu->CPSR;
+        cpu->RestoreCPSR(); // ARM7TDMI restores cpsr and does ___not___ flush the pipeline.
+        if (!(cpu->CPSR & 0x20))
         {
-            u32 oldpsr = cpu->CPSR;
-            cpu->RestoreCPSR(); // ARM7TDMI restores cpsr and does ___not___ flush the pipeline.
-            if (!(cpu->CPSR & 0x20))
-            {
-                Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
-                cpu->CPSR |= 0x20; // keep it from crashing the emulator at least
-            }
+            Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
+            cpu->CPSR |= 0x20; // keep it from crashing the emulator at least
         }
-        else Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMP HIREG w/ rd == 15 on ARM9\n");
     }
+
     cpu->AddCycles_C();
 }
 

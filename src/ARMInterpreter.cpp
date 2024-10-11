@@ -98,7 +98,8 @@ void A_MSR_IMM(ARM* cpu)
             case 0x1A:
             case 0x1B: psr = &cpu->R_UND[2]; break;
             default:
-                cpu->AddCycles_C();
+                if (cpu->Num != 1) cpu->AddCycles_C(); // arm 7
+                else cpu->AddCycles_CI(2); // arm 9
                 return;
         }
     }
@@ -135,8 +136,17 @@ void A_MSR_IMM(ARM* cpu)
             cpu->CPSR &= ~0x20; // keep it from crashing the emulator at least
         }
     }
-
-    cpu->AddCycles_C();
+    
+    if (cpu->Num != 1)
+    {
+        if (cpu->CurInstr & (1<<22))
+        {
+            cpu->AddCycles_CI(2); // spsr
+        }
+        else if (cpu->CurInstr & (0x7<<16)) cpu->AddCycles_CI(2); // cpsr_sxc
+        else cpu->AddCycles_C();
+    }
+    else cpu->AddCycles_C();
 }
 
 void A_MSR_REG(ARM* cpu)
@@ -158,7 +168,8 @@ void A_MSR_REG(ARM* cpu)
             case 0x1A:
             case 0x1B: psr = &cpu->R_UND[2]; break;
             default:
-                cpu->AddCycles_C();
+                if (cpu->Num != 1) cpu->AddCycles_C(); // arm 7
+                else cpu->AddCycles_CI(2); // arm 9
                 return;
         }
     }
@@ -195,8 +206,17 @@ void A_MSR_REG(ARM* cpu)
             cpu->CPSR &= ~0x20; // keep it from crashing the emulator at least
         }
     }
-
-    cpu->AddCycles_C();
+    
+    if (cpu->Num != 1)
+    {
+        if (cpu->CurInstr & (1<<22))
+        {
+            cpu->AddCycles_CI(2); // spsr
+        }
+        else if (cpu->CurInstr & (0x7<<16)) cpu->AddCycles_CI(2); // cpsr_sxc
+        else cpu->AddCycles_C();
+    }
+    else cpu->AddCycles_C();
 }
 
 void A_MRS(ARM* cpu)
@@ -282,11 +302,17 @@ void A_MRC(ARM* cpu)
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
     u32 rd = (cpu->CurInstr>>12) & 0xF;
 
-    if (cpu->Num==0 && cp==15 && rd!=15)
+    if (cpu->Num==0 && cp==15)
     {
-        cpu->R[rd] = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo|(op<<12));
+        if (rd != 15) cpu->R[rd] = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo|(op<<12));
+        else
+        {
+            // r15 updates the top 4 bits of the cpsr, done to "allow for conditional branching based on coprocessor status"
+            u32 flags = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo|(op<<12)) & 0xF0000000;
+            cpu->CPSR = (cpu->CPSR & ~0xF0000000) | flags;
+        }
     }
-    else if (cpu->Num==1 && cp==14 && rd!=15)
+    else if (cpu->Num==1 && cp==14)
     {
         Log(LogLevel::Debug, "MRC p14,%d,%d,%d on ARM7\n", cn, cm, cpinfo);
     }

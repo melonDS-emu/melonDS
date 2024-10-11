@@ -683,6 +683,7 @@ public:
 
     u8 WBWritePointer;
     u8 WBFillPointer;
+    u64 WBDelay;
     u32 WBAddr; // current working address for the write buffer
     u32 storeaddr[16]; // debugging
     u64 WBCycles[16]; // timestamp each write will complete
