@@ -450,43 +450,19 @@ void ARMv5::WriteBufferCheck()
         case 0: // byte
         {
             u8 val = WriteBufferFifo[WBWritePointer] & 0xFF;
-            if (WBAddr < ITCMSize)
-            {
-                *(u8*)&ITCM[WBAddr & (ITCMPhysicalSize - 1)] = val;
-#ifdef JIT_ENABLED
-                NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(WBAddr);
-#endif
-            }
-            else if ((WBAddr & DTCMMask) == DTCMBase) *(u8*)&DTCM[WBAddr & (DTCMPhysicalSize - 1)] = val;
-            else BusWrite8(storeaddr[WBWritePointer], val);
+            BusWrite8(storeaddr[WBWritePointer], val);
             break;
         }
         case 1: // halfword
         {
             u16 val = WriteBufferFifo[WBWritePointer] & 0xFFFF;
-            if (WBAddr < ITCMSize)
-            {
-                *(u16*)&ITCM[WBAddr & (ITCMPhysicalSize - 2)] = val;
-#ifdef JIT_ENABLED
-                NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(WBAddr);
-#endif
-            }
-            else if ((WBAddr & DTCMMask) == DTCMBase) *(u16*)&DTCM[WBAddr & (DTCMPhysicalSize - 2)] = val;
-            else BusWrite16(storeaddr[WBWritePointer], val);
+            BusWrite16(storeaddr[WBWritePointer], val);
             break;
         }
         case 2: // word
         {
             u32 val = WriteBufferFifo[WBWritePointer] & 0xFFFFFFFF;
-            if (WBAddr < ITCMSize)
-            {
-                *(u32*)&ITCM[WBAddr & (ITCMPhysicalSize - 4)] = val;
-#ifdef JIT_ENABLED
-                NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(WBAddr);
-#endif
-            }
-            else if ((WBAddr & DTCMMask) == DTCMBase) *(u32*)&DTCM[WBAddr & (DTCMPhysicalSize - 4)] = val;
-            else BusWrite32(storeaddr[WBWritePointer], val);
+            BusWrite32(storeaddr[WBWritePointer], val);
             WBAddr += 4;
             break;
         }
@@ -523,43 +499,19 @@ void ARMv5::WriteBufferWrite(u32 val, u8 flag, u8 cycles, u32 addr)
         case 0: // byte
         {
             u8 val = WriteBufferFifo[WBWritePointer] & 0xFF;
-            if (WBAddr < ITCMSize)
-            {
-                *(u8*)&ITCM[WBAddr & (ITCMPhysicalSize - 1)] = val;
-#ifdef JIT_ENABLED
-                NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(WBAddr);
-#endif
-            }
-            else if ((WBAddr & DTCMMask) == DTCMBase) *(u8*)&DTCM[WBAddr & (DTCMPhysicalSize - 1)] = val;
-            else BusWrite8(storeaddr[WBWritePointer], val);
+            BusWrite8(storeaddr[WBWritePointer], val);
             break;
         }
         case 1: // halfword
         {
             u16 val = WriteBufferFifo[WBWritePointer] & 0xFFFF;
-            if (WBAddr < ITCMSize)
-            {
-                *(u16*)&ITCM[WBAddr & (ITCMPhysicalSize - 2)] = val;
-#ifdef JIT_ENABLED
-                NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(WBAddr);
-#endif
-            }
-            else if ((WBAddr & DTCMMask) == DTCMBase) *(u16*)&DTCM[WBAddr & (DTCMPhysicalSize - 2)] = val;
-            else BusWrite16(storeaddr[WBWritePointer], val);
+            BusWrite16(storeaddr[WBWritePointer], val);
             break;
         }
         case 2: // word
         {
             u32 val = WriteBufferFifo[WBWritePointer] & 0xFFFFFFFF;
-            if (WBAddr < ITCMSize)
-            {
-                *(u32*)&ITCM[WBAddr & (ITCMPhysicalSize - 4)] = val;
-#ifdef JIT_ENABLED
-                NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(WBAddr);
-#endif
-            }
-            else if ((WBAddr & DTCMMask) == DTCMBase) *(u32*)&DTCM[WBAddr & (DTCMPhysicalSize - 4)] = val;
-            else BusWrite32(storeaddr[WBWritePointer], val);
+            BusWrite32(storeaddr[WBWritePointer], val);
             WBAddr += 4;
             break;
         }
@@ -609,43 +561,19 @@ void ARMv5::WriteBufferDrain()
         case 0: // byte
         {
             u8 val = WriteBufferFifo[WBWritePointer] & 0xFF;
-            if (WBAddr < ITCMSize)
-            {
-                *(u8*)&ITCM[WBAddr & (ITCMPhysicalSize - 1)] = val;
-#ifdef JIT_ENABLED
-                NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(WBAddr);
-#endif
-            }
-            else if ((WBAddr & DTCMMask) == DTCMBase) *(u8*)&DTCM[WBAddr & (DTCMPhysicalSize - 1)] = val;
-            else BusWrite8(storeaddr[WBWritePointer], val);
+            BusWrite8(storeaddr[WBWritePointer], val);
             break;
         }
         case 1: // halfword
         {
             u16 val = WriteBufferFifo[WBWritePointer] & 0xFFFF;
-            if (WBAddr < ITCMSize)
-            {
-                *(u16*)&ITCM[WBAddr & (ITCMPhysicalSize - 2)] = val;
-#ifdef JIT_ENABLED
-                NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(WBAddr);
-#endif
-            }
-            else if ((WBAddr & DTCMMask) == DTCMBase) *(u16*)&DTCM[WBAddr & (DTCMPhysicalSize - 2)] = val;
-            else BusWrite16(storeaddr[WBWritePointer], val);
+            BusWrite16(storeaddr[WBWritePointer], val);
             break;
         }
         case 2: // word
         {
             u32 val = WriteBufferFifo[WBWritePointer] & 0xFFFFFFFF;
-            if (WBAddr < ITCMSize)
-            {
-                *(u32*)&ITCM[WBAddr & (ITCMPhysicalSize - 4)] = val;
-#ifdef JIT_ENABLED
-                NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(WBAddr);
-#endif
-            }
-            else if ((WBAddr & DTCMMask) == DTCMBase) *(u32*)&DTCM[WBAddr & (DTCMPhysicalSize - 4)] = val;
-            else BusWrite32(storeaddr[WBWritePointer], val);
+            BusWrite32(storeaddr[WBWritePointer], val);
             WBAddr += 4;
             break;
         }
@@ -1255,29 +1183,29 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
         return false;
     }
 
+    if (addr < ITCMSize)
+    {
+        DataCycles = 1;
+        ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        DataRegion = Mem9_ITCM;
+        *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
+#ifdef JIT_ENABLED
+        NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
+#endif
+        return true;
+    }
+    if ((addr & DTCMMask) == DTCMBase)
+    {
+        DataCycles = 1;
+        DataRegion = Mem9_DTCM;
+        *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
+        return true;
+    }
+
     if (!(PU_Map[addr>>12] & (0x30)))
     {
-        if (addr < ITCMSize)
-        {
-            DataCycles = 1;
-            ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataRegion = Mem9_ITCM;
-            *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
-#ifdef JIT_ENABLED
-            NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
-#endif
-            return true;
-        }
-        if ((addr & DTCMMask) == DTCMBase)
-        {
-            DataCycles = 1;
-            DataRegion = Mem9_DTCM;
-            *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
-            return true;
-        }
-    
         NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
-    
+
         DataCycles = MemTimings[addr >> 12][1];
 
         if ((addr >> 24) == 0x02)
@@ -1315,30 +1243,29 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
 
     addr &= ~1;
 
+    if (addr < ITCMSize)
+    {
+        DataCycles = 1;
+        ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        DataRegion = Mem9_ITCM;
+        *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
+#ifdef JIT_ENABLED
+        NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
+#endif
+        return true;
+    }
+    if ((addr & DTCMMask) == DTCMBase)
+    {
+        DataCycles = 1;
+        DataRegion = Mem9_DTCM;
+        *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
+        return true;
+    }
 
     if (!(PU_Map[addr>>12] & 0x30))
     {
-        if (addr < ITCMSize)
-        {
-            DataCycles = 1;
-            ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataRegion = Mem9_ITCM;
-            *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
-#ifdef JIT_ENABLED
-            NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
-#endif
-            return true;
-        }
-        if ((addr & DTCMMask) == DTCMBase)
-        {
-            DataCycles = 1;
-            DataRegion = Mem9_DTCM;
-            *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
-            return true;
-        }
-    
         NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
-    
+
         DataCycles = MemTimings[addr >> 12][1];
 
         if ((addr >> 24) == 0x02)
@@ -1376,30 +1303,29 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
 
     addr &= ~3;
 
+    if (addr < ITCMSize)
+    {
+        DataCycles = 1;
+        ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        DataRegion = Mem9_ITCM;
+        *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
+#ifdef JIT_ENABLED
+        NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
+#endif
+        return true;
+    }
+    if ((addr & DTCMMask) == DTCMBase)
+    {
+        DataCycles = 1;
+        DataRegion = Mem9_DTCM;
+        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
+        return true;
+    }
 
     if (!(PU_Map[addr>>12] & 0x30))
     {
-        if (addr < ITCMSize)
-        {
-            DataCycles = 1;
-            ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataRegion = Mem9_ITCM;
-            *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
-#ifdef JIT_ENABLED
-            NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
-#endif
-            return true;
-        }
-        if ((addr & DTCMMask) == DTCMBase)
-        {
-            DataCycles = 1;
-            DataRegion = Mem9_DTCM;
-            *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
-            return true;
-        }
-    
         NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
-    
+
         DataCycles = MemTimings[addr >> 12][2];
 
         if ((addr >> 24) == 0x02)
@@ -1436,28 +1362,27 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
 
     addr &= ~3;
 
+    if (addr < ITCMSize)
+    {
+        DataCycles += 1;
+        ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        DataRegion = Mem9_ITCM;
+        *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
+#ifdef JIT_ENABLED
+        NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
+#endif
+        return true;
+    }
+    if ((addr & DTCMMask) == DTCMBase)
+    {
+        DataCycles += 1;
+        DataRegion = Mem9_DTCM;
+        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
+        return true;
+    }
 
     if (!(PU_Map[addr>>12] & 0x30))
     {
-        if (addr < ITCMSize)
-        {
-            DataCycles += 1;
-            ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataRegion = Mem9_ITCM;
-            *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
-#ifdef JIT_ENABLED
-            NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
-#endif
-            return true;
-        }
-        if ((addr & DTCMMask) == DTCMBase)
-        {
-            DataCycles += 1;
-            DataRegion = Mem9_DTCM;
-            *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
-            return true;
-        }
-
         DataCycles += (((NDS.ARM9Timestamp + DataCycles) + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1)) - (NDS.ARM9Timestamp + DataCycles));
 
         if (!(addr & 0x3FF)) return DataWrite32(addr, val); // bursts cannot cross a 1kb boundary
