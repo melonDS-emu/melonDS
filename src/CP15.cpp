@@ -786,7 +786,9 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x7A2:
         //printf("flush data cache SI\n");
         return;
-
+    case 0x7A4:
+        WriteBufferDrain();
+        return;
 
     case 0x910:
         DTCMSetting = val & 0xFFFFF03E;
