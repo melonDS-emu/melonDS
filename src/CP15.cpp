@@ -1014,9 +1014,6 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
         return 0;
     }
 
-    if ((PU_Map[addr>>12] & 0x30))
-        WriteBufferDrain();
-
     if (addr < ITCMSize)
     {
         CodeCycles = 1;
@@ -1038,6 +1035,8 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
 
         //return *(u32*)&CurICacheLine[addr & 0x1C];
     }
+
+    WriteBufferDrain();
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
@@ -1066,9 +1065,6 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
         DataCycles = 1;
         return false;
     }
-    
-    if ((PU_Map[addr>>12] & 0x30))
-        WriteBufferDrain();
 
     if (addr < ITCMSize)
     {
@@ -1085,6 +1081,8 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
         *val = *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return true;
     }
+    
+    WriteBufferDrain();
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
@@ -1114,8 +1112,6 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
     }
 
     addr &= ~1;
-    if ((PU_Map[addr>>12] & 0x30))
-        WriteBufferDrain();
 
     if (addr < ITCMSize)
     {
@@ -1132,6 +1128,8 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
         *val = *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return true;
     }
+
+    WriteBufferDrain();
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
@@ -1162,9 +1160,6 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
 
     addr &= ~3;
 
-    if ((PU_Map[addr>>12] & 0x30))
-        WriteBufferDrain();
-
     if (addr < ITCMSize)
     {
         DataCycles = 1;
@@ -1180,6 +1175,8 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
         *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return true;
     }
+
+    WriteBufferDrain();
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
@@ -1209,9 +1206,6 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
 
     addr &= ~3;
 
-    if ((PU_Map[addr>>12] & 0x30))
-        WriteBufferDrain();
-
     if (addr < ITCMSize)
     {
         DataCycles += 1;
@@ -1227,6 +1221,8 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
         *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return true;
     }
+
+    WriteBufferDrain();
 
     NDS.ARM9Timestamp += DataCycles;
 
