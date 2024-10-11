@@ -540,17 +540,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
                 // See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
                 WriteBufferDrain();
                 DataCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
-                if (addr < ITCMSize)
-                {
-                    return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 3)];
-                } else
-                if ((addr & DTCMMask) == DTCMBase)
-                {
-                    return *(u32*)&DTCM[addr & (DTCMPhysicalSize - 3)];
-                } else
-                {
-                    return BusRead32(addr & ~3);
-                }     
+                return BusRead32(addr & ~3);
             }
             DataCycles += 1;
             DataRegion = Mem9_DCache;
@@ -567,17 +557,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     {
         WriteBufferDrain();
         DataCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
-        if (addr < ITCMSize)
-        {
-            return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 3)];
-        } else
-        if ((addr & DTCMMask) == DTCMBase)
-        {
-            return *(u32*)&DTCM[addr & (DTCMPhysicalSize - 3)];
-        } else
-        {
-            return BusRead32(addr & ~3);
-        }        
+        return BusRead32(addr & ~3);    
     }
 
     u32 line;
@@ -620,17 +600,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     //Log(LogLevel::Debug,"DCache miss, load @ %08x\n", tag);
     for (int i = 0; i < DCACHE_LINELENGTH; i+=sizeof(u32))
     {
-        if (tag+i < ITCMSize)
-        {
-            ptr[i >> 2] = *(u32*)&ITCM[(tag+i) & (ITCMPhysicalSize - 1)];
-        } else
-        if (((tag+i) & DTCMMask) == DTCMBase)
-        {
-            ptr[i >> 2] = *(u32*)&DTCM[(tag+i) & (DTCMPhysicalSize - 1)];
-        } else
-        {
-            ptr[i >> 2] = BusRead32(tag+i);
-        }
+        ptr[i >> 2] = BusRead32(tag+i);
         //Log(LogLevel::Debug,"DCache store @ %08x: %08x in set %i, line %i\n", tag+i, *(u32*)&ptr[i >> 2], line & 3, line >> 2);        
     }
 
@@ -1783,6 +1753,17 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
         DataRegion = Mem9_Null;
         return 0;
     }
+
+    if (addr < ITCMSize)
+    {
+        CodeCycles = 1;
+        
+        if (NDS.ARM9Timestamp < ITCMTimestamp) NDS.ARM9Timestamp = ITCMTimestamp;
+        NDS.ARM9Timestamp += CodeCycles;
+        if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
+        DataRegion = Mem9_Null;
+        return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+    }
     
     #if !DISABLE_ICACHE
         #ifdef JIT_ENABLED
@@ -1798,17 +1779,6 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
             }
         }
     #endif 
-
-    if (addr < ITCMSize)
-    {
-        CodeCycles = 1;
-        
-        if (NDS.ARM9Timestamp < ITCMTimestamp) NDS.ARM9Timestamp = ITCMTimestamp;
-        NDS.ARM9Timestamp += CodeCycles;
-        if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
-        DataRegion = Mem9_Null;
-        return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
-    }
 
     CodeCycles = MemTimings[addr >> 12][0];
     if (CodeCycles == 0xFF) // cached memory. hax
@@ -1848,6 +1818,22 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
         DataCycles = 1;
         return false;
     }
+
+    if (addr < ITCMSize)
+    {
+        DataCycles = 1;
+        ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        DataRegion = Mem9_ITCM;
+        *val = *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        return true;
+    }
+    if ((addr & DTCMMask) == DTCMBase)
+    {
+        DataCycles = 1;
+        DataRegion = Mem9_DTCM;
+        *val = *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)];
+        return true;
+    }
     
     #if !DISABLE_DCACHE
         #ifdef JIT_ENABLED
@@ -1865,22 +1851,6 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
             }
         }
     #endif
-
-    if (addr < ITCMSize)
-    {
-        DataCycles = 1;
-        ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
-        DataRegion = Mem9_ITCM;
-        *val = *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)];
-        return true;
-    }
-    if ((addr & DTCMMask) == DTCMBase)
-    {
-        DataCycles = 1;
-        DataRegion = Mem9_DTCM;
-        *val = *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)];
-        return true;
-    }
     
     WriteBufferDrain();
 
@@ -1910,23 +1880,7 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
         DataCycles = 1;
         return false;
     }
-    
-    #if !DISABLE_DCACHE
-        #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
-        #endif  
-        {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
-            {
-                if (IsAddressDCachable(addr))
-                {
-                    DataCycles = 0;
-                    *val = (DCacheLookup(addr) >> (8* (addr & 2))) & 0xffff;
-                    return true;
-                }
-            }
-        }
-    #endif
+
     addr &= ~1;
 
     if (addr < ITCMSize)
@@ -1944,6 +1898,23 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
         *val = *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return true;
     }
+    
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    DataCycles = 0;
+                    *val = (DCacheLookup(addr) >> (8* (addr & 2))) & 0xffff;
+                    return true;
+                }
+            }
+        }
+    #endif
 
     WriteBufferDrain();
 
@@ -1976,6 +1947,22 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
 
     addr &= ~3;
 
+    if (addr < ITCMSize)
+    {
+        DataCycles = 1;
+        ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        DataRegion = Mem9_ITCM;
+        *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        return true;
+    }
+    if ((addr & DTCMMask) == DTCMBase)
+    {
+        DataCycles = 1;
+        DataRegion = Mem9_DTCM;
+        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
+        return true;
+    }
+
     #if !DISABLE_DCACHE
         #ifdef JIT_ENABLED
         if (!NDS.IsJITEnabled())
@@ -1992,22 +1979,6 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
             }
         }
     #endif
-
-    if (addr < ITCMSize)
-    {
-        DataCycles = 1;
-        ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
-        DataRegion = Mem9_ITCM;
-        *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
-        return true;
-    }
-    if ((addr & DTCMMask) == DTCMBase)
-    {
-        DataCycles = 1;
-        DataRegion = Mem9_DTCM;
-        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
-        return true;
-    }
 
     WriteBufferDrain();
 
@@ -2039,22 +2010,6 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
 
     addr &= ~3;
 
-    #if !DISABLE_DCACHE
-        #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
-        #endif  
-        {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
-            {
-                if (IsAddressDCachable(addr))
-                {
-                    *val = DCacheLookup(addr);
-                    return true;
-                }
-            }
-        }
-    #endif
-
     if (addr < ITCMSize)
     {
         DataCycles += 1;
@@ -2070,6 +2025,22 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
         *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return true;
     }
+
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    *val = DCacheLookup(addr);
+                    return true;
+                }
+            }
+        }
+    #endif
 
     WriteBufferDrain();
 
@@ -2104,22 +2075,6 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
         return false;
     }
 
-    #if !DISABLE_DCACHE
-        #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
-        #endif  
-        {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
-            {
-                if (IsAddressDCachable(addr))
-                {
-                    if (DCacheWrite8(addr, val))
-                        return true;
-                }
-            }
-        }
-    #endif
-
     if (addr < ITCMSize)
     {
         DataCycles = 1;
@@ -2138,6 +2093,22 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
         *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return true;
     }
+
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    if (DCacheWrite8(addr, val))
+                        return true;
+                }
+            }
+        }
+    #endif
 
     if (!(PU_Map[addr>>12] & (0x30)))
     {
@@ -2180,22 +2151,6 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
 
     addr &= ~1;
 
-    #if !DISABLE_DCACHE
-        #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
-        #endif  
-        {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
-            {
-                if (IsAddressDCachable(addr))
-                {
-                    if (DCacheWrite16(addr, val))
-                        return true;
-                }
-            }
-        }
-    #endif
-
     if (addr < ITCMSize)
     {
         DataCycles = 1;
@@ -2214,6 +2169,22 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
         *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return true;
     }
+
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    if (DCacheWrite16(addr, val))
+                        return true;
+                }
+            }
+        }
+    #endif
 
     if (!(PU_Map[addr>>12] & 0x30))
     {
@@ -2256,23 +2227,6 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
 
     addr &= ~3;
 
-    #if !DISABLE_DCACHE
-        #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
-        #endif  
-        {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
-            {
-                if (IsAddressDCachable(addr))
-                {
-                    DataCycles = 0;
-                    if (DCacheWrite32(addr, val))
-                        return true;
-                }
-            }
-        }
-    #endif
-
     if (addr < ITCMSize)
     {
         DataCycles = 1;
@@ -2291,6 +2245,23 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
         *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return true;
     }
+
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    DataCycles = 0;
+                    if (DCacheWrite32(addr, val))
+                        return true;
+                }
+            }
+        }
+    #endif
 
     if (!(PU_Map[addr>>12] & 0x30))
     {
@@ -2332,22 +2303,6 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
 
     addr &= ~3;
 
-    #if !DISABLE_DCACHE
-        #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
-        #endif  
-        {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
-            {
-                if (IsAddressDCachable(addr))
-                {
-                    if (DCacheWrite32(addr, val))
-                        return true;
-                }
-            }
-        }
-    #endif
-
     if (addr < ITCMSize)
     {
         DataCycles += 1;
@@ -2366,6 +2321,22 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
         *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return true;
     }
+
+    #if !DISABLE_DCACHE
+        #ifdef JIT_ENABLED
+        if (!NDS.IsJITEnabled())
+        #endif  
+        {
+            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            {
+                if (IsAddressDCachable(addr))
+                {
+                    if (DCacheWrite32(addr, val))
+                        return true;
+                }
+            }
+        }
+    #endif
 
     if (!(PU_Map[addr>>12] & 0x30))
     {
