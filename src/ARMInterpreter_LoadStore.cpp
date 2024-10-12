@@ -434,30 +434,40 @@ void A_SWPB(ARM* cpu)
     SWP<true>(cpu);
 }
 
-void ReglessLDMSTM(ARM* cpu, const bool load, const u8 baseid, const bool writeback, const bool decrement, bool preinc, const bool usermode, const bool thumb)
+void EmptyRListLDMSTM(ARM* cpu, const u8 baseid, const u8 flags)
 {
+    enum // flags
+    {
+        load = (1<<0),
+        writeback = (1<<1),
+        decrement = (1<<2),
+        preinc = (1<<3),
+        restoreorthumb = (1<<4), // specifies restore cpsr for loads, thumb instr for stores
+    };
+
     if (cpu->Num == 1)
     {
         u32 base = cpu->R[baseid];
+        bool flagpreinc = flags & preinc;
 
-        if (decrement)
+        if (flags & decrement)
         {
-            preinc = !preinc;
+            flagpreinc = !flagpreinc;
             base -= 0x40;
         }
-        if (preinc) base+=4;
+        if (flagpreinc) base+=4;
         
-        if (load)
+        if (flags & load)
         {
             u32 pc;
             cpu->DataRead32(base, &pc);
 
             cpu->AddCycles_CDI();
-            cpu->JumpTo(pc, usermode);
+            cpu->JumpTo(pc, flags & restoreorthumb);
         }
         else
         {
-            cpu->DataWrite32(base, cpu->R[15] + (thumb ? 2 : 4));
+            cpu->DataWrite32(base, cpu->R[15] + ((flags & restoreorthumb) ? 2 : 4));
 
             cpu->AddCycles_CD();
         }
@@ -467,10 +477,10 @@ void ReglessLDMSTM(ARM* cpu, const bool load, const u8 baseid, const bool writeb
         cpu->AddCycles_C(); // checkme
     }
 
-    if (writeback)
+    if (flags & writeback)
     {
-        if (decrement) cpu->R[baseid] -= 0x40;
-        else           cpu->R[baseid] += 0x40;
+        if (flags & decrement) cpu->R[baseid] -= 0x40;
+        else                   cpu->R[baseid] += 0x40;
     }
 }
 
@@ -486,7 +496,11 @@ void A_LDM(ARM* cpu)
     
     if (!(cpu->CurInstr & 0xFFFF)) [[unlikely]]
     {
-        ReglessLDMSTM(cpu, true, baseid, cpu->CurInstr & (1<<21), !(cpu->CurInstr & (1<<23)), preinc, cpu->CurInstr & (1<<22), false);
+        EmptyRListLDMSTM(cpu, baseid, ((1 << 0) |                            // load
+                                       (((cpu->CurInstr >> 21) & 1) << 1) |  // writeback
+                                       ((!(cpu->CurInstr & (1<<23))) << 2) | // decrement
+                                       ((preinc >> 24) << 3) |               // preinc
+                                       (((cpu->CurInstr >> 22) & 1) << 4))); // restore
         return;
     }
 
@@ -592,7 +606,11 @@ void A_STM(ARM* cpu)
     
     if (!(cpu->CurInstr & 0xFFFF)) [[unlikely]]
     {
-        ReglessLDMSTM(cpu, false, baseid, cpu->CurInstr & (1<<21), !(cpu->CurInstr & (1<<23)), preinc, false, false);
+        EmptyRListLDMSTM(cpu, baseid, ((0 << 0) |                            // load
+                                       (((cpu->CurInstr >> 21) & 1) << 1) |  // writeback
+                                       ((!(cpu->CurInstr & (1<<23))) << 2) | // decrement
+                                       ((preinc >> 24) << 3) |               // preinc
+                                       (0 << 4)));                           // thumb
         return;
     }
 
@@ -790,7 +808,7 @@ void T_PUSH(ARM* cpu)
         
     if (!nregs) [[unlikely]]
     {
-        ReglessLDMSTM(cpu, false, 13, true, true, true, false, true);
+        EmptyRListLDMSTM(cpu, 13, 0b11110);
         return;
     }
 
@@ -836,7 +854,7 @@ void T_POP(ARM* cpu)
     
     if (!(cpu->CurInstr & 0x1FF)) [[unlikely]]
     {
-        ReglessLDMSTM(cpu, true, 13, true, false, false, false, true);
+        EmptyRListLDMSTM(cpu, 13, 0b00011);
         return;
     }
 
@@ -888,7 +906,7 @@ void T_STMIA(ARM* cpu)
     
     if (!(cpu->CurInstr & 0xFF)) [[unlikely]]
     {
-        ReglessLDMSTM(cpu, false, (cpu->CurInstr >> 8) & 0x7, true, false, false, false, true);
+        EmptyRListLDMSTM(cpu, (cpu->CurInstr >> 8) & 0x7, 0b10010);
         return;
     }
 
@@ -924,7 +942,7 @@ void T_LDMIA(ARM* cpu)
     
     if (!(cpu->CurInstr & 0xFF)) [[unlikely]]
     {
-        ReglessLDMSTM(cpu, true, (cpu->CurInstr >> 8) & 0x7, true, false, false, false, true);
+        EmptyRListLDMSTM(cpu, (cpu->CurInstr >> 8) & 0x7, 0b00011);
         return;
     }
 
