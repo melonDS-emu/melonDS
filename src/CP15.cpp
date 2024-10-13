@@ -18,6 +18,9 @@
 
 #include <stdio.h>
 #include <string.h>
+#if defined(__x86_64__)
+#include <emmintrin.h>
+#endif
 #include "NDS.h"
 #include "DSi.h"
 #include "ARM.h"
@@ -374,10 +377,24 @@ u32 ARMv5::ICacheLookup(const u32 addr)
 {
     const u32 tag = (addr & ~(ICACHE_LINELENGTH - 1));
     const u32 id = ((addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1)) << ICACHE_SETS_LOG2;
+    
+#if defined(__x86_64__)
+    __m128i tags; memcpy(&tags, &ICacheTags[id], 16);
+    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK));
+    __m128i cmp = _mm_set1_epi32(tag | CACHE_FLAG_VALID);
+    tags = _mm_and_si128(tags, mask);
+    cmp = _mm_cmpeq_epi32(tags, cmp);
+    u32 set = _mm_movemask_epi8(cmp);
 
+    if (!set) goto miss;
+    else set = (__builtin_ctz(set) >> 2);
+
+    {
+#else
     for (int set = 0; set < ICACHE_SETS; set++)
     {
         if ((ICacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == (tag | CACHE_FLAG_VALID))
+#endif
         {
             u32 *cacheLine = (u32 *)&ICache[(id+set) << ICACHE_LINELENGTH_LOG2];
             if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_STREAMING) [[unlikely]]
@@ -403,7 +420,7 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     }
 
     // cache miss
-
+    miss:
     // We do not fill the cacheline if it is disabled in the 
     // BIST test State register (See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_LINEFILL) [[unlikely]]
@@ -528,9 +545,23 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1));
     const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
 
+#if defined(__x86_64__)
+    __m128i tags; memcpy(&tags, &DCacheTags[id], 16);
+    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK));
+    __m128i cmp = _mm_set1_epi32(tag | CACHE_FLAG_VALID);
+    tags = _mm_and_si128(tags, mask);
+    cmp = _mm_cmpeq_epi32(tags, cmp);
+    u32 set = _mm_movemask_epi8(cmp);
+
+    if (!set) goto miss;
+    else set = (__builtin_ctz(set) >> 2);
+
+    {
+#else
     for (int set = 0; set < DCACHE_SETS; set++)
     {
         if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == (tag | CACHE_FLAG_VALID))
+#endif
         {
             u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_STREAMING) [[unlikely]]
@@ -550,7 +581,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     }
 
     // cache miss
-
+    miss:
     // We do not fill the cacheline if it is disabled in the 
     // BIST test State register (See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_LINEFILL) [[unlikely]]
@@ -632,10 +663,24 @@ bool ARMv5::DCacheWrite32(const u32 addr, const u32 val)
     const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
 
     //Log(LogLevel::Debug, "Cache write 32: %08lx <= %08lx\n", addr, val);
+    
+#if defined(__x86_64__)
+    __m128i tags; memcpy(&tags, &DCacheTags[id], 16);
+    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK));
+    __m128i cmp = _mm_set1_epi32(tag);
+    tags = _mm_and_si128(tags, mask);
+    cmp = _mm_cmpeq_epi32(tags, cmp);
+    u32 set = _mm_movemask_epi8(cmp);
 
+    if (!set) return false;
+    else set = (__builtin_ctz(set) >> 2);
+
+    {
+#else
     for (int set = 0; set < DCACHE_SETS; set++)
     {
         if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
+#endif
         {
             u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             cacheLine[(addr & (DCACHE_LINELENGTH-1)) >> 2] = val;
@@ -667,10 +712,24 @@ bool ARMv5::DCacheWrite16(const u32 addr, const u16 val)
     const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
     const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
     //Log(LogLevel::Debug, "Cache write 16: %08lx <= %04x\n", addr, val);
+    
+#if defined(__x86_64__)
+    __m128i tags; memcpy(&tags, &DCacheTags[id], 16);
+    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK));
+    __m128i cmp = _mm_set1_epi32(tag);
+    tags = _mm_and_si128(tags, mask);
+    cmp = _mm_cmpeq_epi32(tags, cmp);
+    u32 set = _mm_movemask_epi8(cmp);
 
+    if (!set) return false;
+    else set = (__builtin_ctz(set) >> 2);
+
+    {
+#else
     for (int set = 0; set < DCACHE_SETS; set++)
     {
         if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
+#endif
         {
             u16 *cacheLine = (u16 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             cacheLine[(addr & (DCACHE_LINELENGTH-1)) >> 1] = val;
@@ -703,10 +762,24 @@ bool ARMv5::DCacheWrite8(const u32 addr, const u8 val)
     const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
 
     //Log(LogLevel::Debug, "Cache write 8: %08lx <= %02x\n", addr, val);
+    
+#if defined(__x86_64__)
+    __m128i tags; memcpy(&tags, &DCacheTags[id], 16);
+    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK));
+    __m128i cmp = _mm_set1_epi32(tag);
+    tags = _mm_and_si128(tags, mask);
+    cmp = _mm_cmpeq_epi32(tags, cmp);
+    u32 set = _mm_movemask_epi8(cmp);
 
+    if (!set) return false;
+    else set = (__builtin_ctz(set) >> 2);
+
+    {
+#else
     for (int set = 0; set < DCACHE_SETS; set++)
     {
         if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
+#endif
         {
             u8 *cacheLine = &DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             cacheLine[addr & (DCACHE_LINELENGTH-1)] = val;
@@ -738,10 +811,24 @@ void ARMv5::DCacheInvalidateByAddr(const u32 addr)
 {
     const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1)) | CACHE_FLAG_VALID;
     const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
+    
+#if defined(__x86_64__)
+    __m128i tags; memcpy(&tags, &DCacheTags[id], 16);
+    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK));
+    __m128i cmp = _mm_set1_epi32(tag);
+    tags = _mm_and_si128(tags, mask);
+    cmp = _mm_cmpeq_epi32(tags, cmp);
+    u32 set = _mm_movemask_epi8(cmp);
 
+    if (!set) return;
+    else set = (__builtin_ctz(set) >> 2);
+
+    {
+#else
     for (int set = 0; set < DCACHE_SETS; set++)
     {
         if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
+#endif
         {
             //Log(LogLevel::Debug,"DCache invalidated %08lx\n", addr & ~(ICACHE_LINELENGTH-1));
             DCacheTags[id+set] &= ~CACHE_FLAG_VALID;
