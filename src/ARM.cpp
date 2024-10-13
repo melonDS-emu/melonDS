@@ -327,7 +327,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         addr &= ~0x1;
         R[15] = addr+2;
 
-        //if (newregion != oldregion) SetupCodeMem(addr);
+        if (newregion != oldregion) SetupCodeMem(addr);
 
         // two-opcodes-at-once fetch
         // doesn't matter if we put garbage in the MSbs there
@@ -352,7 +352,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         addr &= ~0x3;
         R[15] = addr+4;
 
-        //if (newregion != oldregion) SetupCodeMem(addr);
+        if (newregion != oldregion) SetupCodeMem(addr);
 
         NextInstr[0] = CodeRead32(addr, true);
         Cycles += CodeCycles;

@@ -979,8 +979,8 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
     NDS.ARM9Timestamp += CodeCycles;
     if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
 
-    //if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];
     DataRegion = Mem9_Null;
+    if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];
     return BusRead32(addr);
 }
 
