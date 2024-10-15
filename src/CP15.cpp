@@ -438,159 +438,109 @@ void ARMv5::ICacheInvalidateAll()
         ICacheTags[i] = 1;
 }
 
+template <bool force>
+inline bool ARMv5::WriteBufferHandle()
+{
+    // handle write buffer writes
+    if (WBWriting)
+    {
+        bool mainram = (WBCurCycles >= 0x80);
+
+        u64 ts;
+        if (mainram) ts = std::max(WBTimestamp, WBMainRAMDelay) + (WBCurCycles & 0x7F);
+        else         ts = WBTimestamp + (WBCurCycles & 0x7F);
+
+        if (!force && ts > ((NDS.ARM9Timestamp + DataCycles) >> NDS.ARM9ClockShift)) return true;
+        if ( force && ts > ((NDS.ARM9Timestamp + DataCycles) >> NDS.ARM9ClockShift))
+        {
+            NDS.ARM9Timestamp = ((ts - 1) << NDS.ARM9ClockShift) + 1;
+            DataCycles = 0; // checkme
+        }
+
+        WBTimestamp = ts;
+        if (mainram) WBMainRAMDelay = WBTimestamp + 2;
+
+        switch (WBCurVal >> 62)
+        {
+            case 0: // byte
+                BusWrite8 (WBCurAddr, WBCurVal);
+                break;
+            case 1: // halfword
+                BusWrite16(WBCurAddr, WBCurVal);
+                break;
+            case 2: // word
+                BusWrite32(WBCurAddr, WBCurVal);
+                break;
+            default: // address ie. invalid
+                Platform::Log(Platform::LogLevel::Warn, "WHY ARE WE TRYING TO WRITE AN ADDRESS VIA THE WRITE BUFFER! PANIC!!!\n", (u8)(WBCurVal >> 62));
+                break;
+        }
+
+        //printf("writing: adr: %i, val: %lli, cyl: %i", WBCurAddr, WBCurVal, WBCurCycles);
+        WBWriting = false;
+    }
+    
+    // check if write buffer is empty
+    if (WBWritePointer == 16) return true;
+    // attempt to drain write buffer
+    if ((WriteBufferFifo[WBWritePointer] >> 62) != 3) // not an address
+    {
+        if (WBCycles[WBWritePointer] >= 0x80) // main ram handling
+        {
+            u64 ts = ((NDS.ARM9Timestamp + DataCycles) >> NDS.ARM9ClockShift);
+            if (!force && (WBMainRAMDelay > ts)) return true;
+            if ( force && (WBMainRAMDelay > ts))
+            {
+                NDS.ARM9Timestamp = ((WBMainRAMDelay - 1) << NDS.ARM9ClockShift) + 1;
+                DataCycles = 0;
+            }
+        }
+
+        WBCurVal = WriteBufferFifo[WBWritePointer];
+        WBCurCycles = WBCycles[WBWritePointer];
+        WBCurAddr = storeaddr[WBWritePointer];
+        WBWriting = true;
+    }
+    else
+    {
+        // todo: i want to set the address here instead
+    }
+
+    WBWritePointer = (WBWritePointer + 1) & 0xF;
+    if (WBWritePointer == WBFillPointer)
+    {
+        WBWritePointer = 16;
+        WBFillPointer = 0;
+    }
+    return false;
+}
+
 void ARMv5::WriteBufferCheck()
 {
-    if (WBWritePointer == 16) return;
-
-    while (WBCycles[WBWritePointer] <= (NDS.ARM9Timestamp + DataCycles))
-    {
-        //printf("drainingwb %lli, %i %08X %i\n", WBCycles[WBWritePointer], WBWritePointer, WBAddr, WriteBufferFifo[WBWritePointer] >> 62);
-        switch ((u64)WriteBufferFifo[WBWritePointer] >> 62)
-        {
-        case 0: // byte
-        {
-            u8 val = WriteBufferFifo[WBWritePointer] & 0xFF;
-            BusWrite8(storeaddr[WBWritePointer], val);
-            break;
-        }
-        case 1: // halfword
-        {
-            u16 val = WriteBufferFifo[WBWritePointer] & 0xFFFF;
-            BusWrite16(storeaddr[WBWritePointer], val);
-            break;
-        }
-        case 2: // word
-        {
-            u32 val = WriteBufferFifo[WBWritePointer] & 0xFFFFFFFF;
-            BusWrite32(storeaddr[WBWritePointer], val);
-            WBAddr += 4;
-            break;
-        }
-        case 3: // address update
-            WBAddr = WriteBufferFifo[WBWritePointer] & 0xFFFFFFFF;
-            break;
-        }
-
-        WBWritePointer = (WBWritePointer + 1) & 0xF;
-        if (WBWritePointer == WBFillPointer)
-        {
-            WBWritePointer = 16;
-            WBFillPointer = 0;
-            break;
-        }
-    }
+    while (!WriteBufferHandle<false>()); // loop until we've cleared out all writeable entries
 }
 
 void ARMv5::WriteBufferWrite(u32 val, u8 flag, u8 cycles, u32 addr)
 {
     WriteBufferCheck();
 
-    if (WBFillPointer == WBWritePointer)
+    if (WBFillPointer == WBWritePointer) // if the write buffer is full then we stall the cpu until room is made
+        WriteBufferHandle<true>();
+    else if (WBWritePointer == 16) // indicates empty write buffer
     {
-        //printf("forcedrainingwb %lli, %i %08X %i\n", WBCycles[WBWritePointer], WBWritePointer, WBAddr, WriteBufferFifo[WBWritePointer] >> 62);
-        if (NDS.ARM9Timestamp < WBCycles[WBWritePointer])
-        {
-            NDS.ARM9Timestamp = WBCycles[WBWritePointer];
-            DataCycles = 0; // checkme
-        }
-
-        switch ((u64)WriteBufferFifo[WBWritePointer] >> 62)
-        {
-        case 0: // byte
-        {
-            u8 val = WriteBufferFifo[WBWritePointer] & 0xFF;
-            BusWrite8(storeaddr[WBWritePointer], val);
-            break;
-        }
-        case 1: // halfword
-        {
-            u16 val = WriteBufferFifo[WBWritePointer] & 0xFFFF;
-            BusWrite16(storeaddr[WBWritePointer], val);
-            break;
-        }
-        case 2: // word
-        {
-            u32 val = WriteBufferFifo[WBWritePointer] & 0xFFFFFFFF;
-            BusWrite32(storeaddr[WBWritePointer], val);
-            WBAddr += 4;
-            break;
-        }
-        case 3: // address update
-            WBAddr = WriteBufferFifo[WBWritePointer] & 0xFFFFFFFF;
-            break;                
-        }
-
-        WBWritePointer = (WBWritePointer + 1) & 0xF;
-        if (WBWritePointer == WBFillPointer)
-        {
-            WBWritePointer = 16;
-            WBFillPointer = 0;
-        }
-    }
-    
-    //printf("fillingwb %lli %i %i %08X %i\n", NDS.ARM9Timestamp, WBWritePointer, WBFillPointer, val, flag);
-    if (WBWritePointer == 16)
-    {
-        WBCycles[WBFillPointer] = NDS.ARM9Timestamp + DataCycles + cycles;
         WBWritePointer = 0;
+        WBTimestamp = (((NDS.ARM9Timestamp + DataCycles) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)) >> NDS.ARM9ClockShift;
     }
-    else
-    {
-        WBCycles[WBFillPointer] = WBCycles[(WBFillPointer-1) & 0xF] + cycles;
-    }
+
     WriteBufferFifo[WBFillPointer] = val | (u64)flag << 62;
+    WBCycles[WBFillPointer] = cycles;
     storeaddr[WBFillPointer] = addr;
     WBFillPointer = (WBFillPointer + 1) & 0xF;
 }
 
 void ARMv5::WriteBufferDrain()
 {
-    if (WBWritePointer == 16) return;
-
-    while (true)
-    {
-        //printf("fullydrainingwb %lli, %i %08X %i\n", WBCycles[WBWritePointer], WBWritePointer, WBAddr, WriteBufferFifo[WBWritePointer] >> 62);
-        if (NDS.ARM9Timestamp < WBCycles[WBWritePointer])
-        {
-            NDS.ARM9Timestamp = WBCycles[WBWritePointer];
-            DataCycles = 0; // checkme
-        }
-
-        switch (WriteBufferFifo[WBWritePointer] >> 62)
-        {
-        case 0: // byte
-        {
-            u8 val = WriteBufferFifo[WBWritePointer] & 0xFF;
-            BusWrite8(storeaddr[WBWritePointer], val);
-            break;
-        }
-        case 1: // halfword
-        {
-            u16 val = WriteBufferFifo[WBWritePointer] & 0xFFFF;
-            BusWrite16(storeaddr[WBWritePointer], val);
-            break;
-        }
-        case 2: // word
-        {
-            u32 val = WriteBufferFifo[WBWritePointer] & 0xFFFFFFFF;
-            BusWrite32(storeaddr[WBWritePointer], val);
-            WBAddr += 4;
-            break;
-        }
-        case 3: // address update
-            WBAddr = WriteBufferFifo[WBWritePointer] & 0xFFFFFFFF;
-            break;                
-        }
-
-        WBWritePointer = (WBWritePointer + 1) & 0xF;
-        if (WBWritePointer == WBFillPointer)
-        {
-            WBWritePointer = 16;
-            WBFillPointer = 0;
-            break;
-        }
-    }
-    //printf("wbdrained\n");
+    while (!WriteBufferHandle<true>()); // loop until drained fully
 }
 
 void ARMv5::CP15Write(u32 id, u32 val)
@@ -1224,9 +1174,16 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
     else
     {
         if (WBDelay > NDS.ARM9Timestamp) NDS.ARM9Timestamp = WBDelay;
+
+        u8 cycles = NDS.ARM9MemTimings[addr>>14][0];
+        if ((addr >> 24) == 0x02)
+        {
+            cycles = (cycles - 2) & 0x80;
+        }
+
+        WriteBufferWrite(addr, 3, 0);
+        WriteBufferWrite(val, 0, cycles, addr);
         DataCycles = 1;
-        WriteBufferWrite(addr, 3, 1);
-        WriteBufferWrite(val, 0, MemTimings[addr >> 12][1], addr);
         WBDelay = NDS.ARM9Timestamp + 2;
     }
     return true;
@@ -1284,9 +1241,16 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
     else
     {
         if (WBDelay > NDS.ARM9Timestamp) NDS.ARM9Timestamp = WBDelay;
+
+        u8 cycles = NDS.ARM9MemTimings[addr>>14][0];
+        if ((addr >> 24) == 0x02)
+        {
+            cycles = (cycles - 2) & 0x80;
+        }
+
+        WriteBufferWrite(addr, 3, 0);
+        WriteBufferWrite(val, 1, cycles, addr);
         DataCycles = 1;
-        WriteBufferWrite(addr, 3, 1);
-        WriteBufferWrite(val, 1, MemTimings[addr >> 12][1], addr);
         WBDelay = NDS.ARM9Timestamp + 2;
     }
     return true;
@@ -1344,9 +1308,16 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
     else
     {
         if (WBDelay > NDS.ARM9Timestamp) NDS.ARM9Timestamp = WBDelay;
+
+        u8 cycles = NDS.ARM9MemTimings[addr>>14][2];
+        if ((addr >> 24) == 0x02)
+        {
+            cycles = (cycles - 2) & 0x80;
+        }
+
+        WriteBufferWrite(addr, 3, 0);
+        WriteBufferWrite(val, 2, cycles, addr);
         DataCycles = 1;
-        WriteBufferWrite(addr, 3, 1);
-        WriteBufferWrite(val, 2, MemTimings[addr >> 12][2], addr);
         WBDelay = NDS.ARM9Timestamp + 2;
     }
     return true;
@@ -1385,7 +1356,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
 
     if (!(PU_Map[addr>>12] & 0x30))
     {
-        DataCycles += (((NDS.ARM9Timestamp + DataCycles) + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1)) - (NDS.ARM9Timestamp + DataCycles));
+        DataCycles += (((NDS.ARM9Timestamp + DataCycles) + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1))) - (NDS.ARM9Timestamp + DataCycles);
 
         if (!(addr & 0x3FF)) return DataWrite32(addr, val); // bursts cannot cross a 1kb boundary
 
@@ -1402,8 +1373,14 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
     }
     else
     {
+        u8 cycles = NDS.ARM9MemTimings[addr>>14][3];
+        if ((addr >> 24) == 0x02)
+        {
+            cycles = (cycles - 2) & 0x80;
+        }
+
+        WriteBufferWrite(val, 2, cycles, addr);
         DataCycles += 1;
-        WriteBufferWrite(val, 2, MemTimings[addr >> 12][3], addr);
         WBDelay = NDS.ARM9Timestamp + DataCycles + 1;
     }
     return true;

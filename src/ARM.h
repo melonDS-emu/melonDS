@@ -317,6 +317,7 @@ public:
     void ICacheInvalidateByAddr(u32 addr);
     void ICacheInvalidateAll();
     
+    template <bool force> inline bool WriteBufferHandle();
     void WriteBufferCheck();
     void WriteBufferWrite(u32 val, u8 flag, u8 cycles, u32 addr = 0);
     void WriteBufferDrain();
@@ -375,13 +376,19 @@ public:
     bool Store;
     u16 InterlockMask;
 
-    u8 WBWritePointer;
-    u8 WBFillPointer;
-    u64 WBDelay;
-    u32 WBAddr; // current working address for the write buffer
-    u32 storeaddr[16]; // debugging
-    u64 WBCycles[16]; // timestamp each write will complete
-    u64 WriteBufferFifo[16]; // 0-31: value | 62-63: 0 byte, 1 half, 2 word, 3 addr
+
+    u8 WBWritePointer; // which entry to attempt to write next; should always be ANDed with 0xF after incrementing
+    u8 WBFillPointer; // where the next entry should be added; should always be ANDed with 0xF after incrementing
+    bool WBWriting; // whether the buffer is actively trying to perform a write
+    u8 WBCurCycles; // how long the current write will take; bit 7 is a flag used to indicate main ram
+    u64 WBCurVal; // current value being written; 0-31: val | 62-32: flag; 0 = byte; 1 = halfword; 2 = word; 3 = address (invalid in this variable)
+    u32 WBCurAddr; // address the write buffer is currently writing to
+    u32 storeaddr[16]; // temp until i figure out why using the fifo address entries directly didn't work
+    u8 WBCycles[16]; // num cycles for each write; bit 7 is a flag used to indicate main ram
+    u64 WriteBufferFifo[16]; // 0-31: val | 62-32: flag; 0 = byte; 1 = halfword; 2 = word; 3 = address
+    u64 WBTimestamp; // current timestamp in bus cycles
+    u64 WBMainRAMDelay; // timestamp in bus cycles used to emulate the delay before the next main ram write can begin
+    u64 WBDelay; // timestamp in bus cycles use for the delay before next write to the write buffer can occur (seems to be a 1 cycle delay after a write to it)
 
 #ifdef GDBSTUB_ENABLED
     u32 ReadMem(u32 addr, int size) override;
