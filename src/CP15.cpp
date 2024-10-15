@@ -379,18 +379,21 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     const u32 id = ((addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1)) << ICACHE_SETS_LOG2;
     
 #if defined(__x86_64__)
-    __m128i tags; memcpy(&tags, &ICacheTags[id], 16);
-    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK));
-    __m128i cmp = _mm_set1_epi32(tag | CACHE_FLAG_VALID);
-    tags = _mm_and_si128(tags, mask);
-    cmp = _mm_cmpeq_epi32(tags, cmp);
-    u32 set = _mm_movemask_epi8(cmp);
+    // we use sse here to greatly speed up checking for valid sets vs the fallback for loop
 
-    if (!set) goto miss;
-    else set = (__builtin_ctz(set) >> 2);
+    __m128i tags; memcpy(&tags, &ICacheTags[id], 16); // load the tags for all 4 sets, one for each 32 bits
+    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)); // load copies of the mask into each 32 bits
+    __m128i cmp = _mm_set1_epi32(tag | CACHE_FLAG_VALID); // load the tag we're checking for into each 32 bit
+    tags = _mm_and_si128(tags, mask); // mask out the bits we dont want to check for
+    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match
+    u32 set = _mm_movemask_epi8(cmp); // move the 8 msb of each field into a single 32 bit integer
+
+    if (!set) goto miss; // check if none of them were a match
+    else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
 
     {
 #else
+    // fallback for loop; slow
     for (int set = 0; set < ICACHE_SETS; set++)
     {
         if ((ICacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == (tag | CACHE_FLAG_VALID))
@@ -546,18 +549,21 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
 
 #if defined(__x86_64__)
-    __m128i tags; memcpy(&tags, &DCacheTags[id], 16);
-    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK));
-    __m128i cmp = _mm_set1_epi32(tag | CACHE_FLAG_VALID);
-    tags = _mm_and_si128(tags, mask);
-    cmp = _mm_cmpeq_epi32(tags, cmp);
-    u32 set = _mm_movemask_epi8(cmp);
+    // we use sse here to greatly speed up checking for valid sets vs the fallback for loop
 
-    if (!set) goto miss;
-    else set = (__builtin_ctz(set) >> 2);
+    __m128i tags; memcpy(&tags, &DCacheTags[id], 16); // load the tags for all 4 sets, one for each 32 bits
+    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)); // load copies of the mask into each 32 bits
+    __m128i cmp = _mm_set1_epi32(tag | CACHE_FLAG_VALID); // load the tag we're checking for into each 32 bit
+    tags = _mm_and_si128(tags, mask); // mask out the bits we dont want to check for
+    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match
+    u32 set = _mm_movemask_epi8(cmp); // move the 8 msb of each field into a single 32 bit integer
+
+    if (!set) goto miss; // check if none of them were a match
+    else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
 
     {
 #else
+    // fallback for loop; slow
     for (int set = 0; set < DCACHE_SETS; set++)
     {
         if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == (tag | CACHE_FLAG_VALID))
@@ -665,18 +671,21 @@ bool ARMv5::DCacheWrite32(const u32 addr, const u32 val)
     //Log(LogLevel::Debug, "Cache write 32: %08lx <= %08lx\n", addr, val);
     
 #if defined(__x86_64__)
-    __m128i tags; memcpy(&tags, &DCacheTags[id], 16);
-    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK));
-    __m128i cmp = _mm_set1_epi32(tag);
-    tags = _mm_and_si128(tags, mask);
-    cmp = _mm_cmpeq_epi32(tags, cmp);
-    u32 set = _mm_movemask_epi8(cmp);
+    // we use sse here to greatly speed up checking for valid sets vs the fallback for loop
 
-    if (!set) return false;
-    else set = (__builtin_ctz(set) >> 2);
+    __m128i tags; memcpy(&tags, &DCacheTags[id], 16); // load the tags for all 4 sets, one for each 32 bits
+    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)); // load copies of the mask into each 32 bits
+    __m128i cmp = _mm_set1_epi32(tag); // load the tag we're checking for into each 32 bit
+    tags = _mm_and_si128(tags, mask); // mask out the bits we dont want to check for
+    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match
+    u32 set = _mm_movemask_epi8(cmp); // move the 8 msb of each field into a single 32 bit integer
+
+    if (!set) return false; // check if none of them were a match
+    else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
 
     {
 #else
+    // fallback for loop; slow
     for (int set = 0; set < DCACHE_SETS; set++)
     {
         if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
@@ -714,18 +723,21 @@ bool ARMv5::DCacheWrite16(const u32 addr, const u16 val)
     //Log(LogLevel::Debug, "Cache write 16: %08lx <= %04x\n", addr, val);
     
 #if defined(__x86_64__)
-    __m128i tags; memcpy(&tags, &DCacheTags[id], 16);
-    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK));
-    __m128i cmp = _mm_set1_epi32(tag);
-    tags = _mm_and_si128(tags, mask);
-    cmp = _mm_cmpeq_epi32(tags, cmp);
-    u32 set = _mm_movemask_epi8(cmp);
+    // we use sse here to greatly speed up checking for valid sets vs the fallback for loop
 
-    if (!set) return false;
-    else set = (__builtin_ctz(set) >> 2);
+    __m128i tags; memcpy(&tags, &DCacheTags[id], 16); // load the tags for all 4 sets, one for each 32 bits
+    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)); // load copies of the mask into each 32 bits
+    __m128i cmp = _mm_set1_epi32(tag); // load the tag we're checking for into each 32 bit
+    tags = _mm_and_si128(tags, mask); // mask out the bits we dont want to check for
+    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match
+    u32 set = _mm_movemask_epi8(cmp); // move the 8 msb of each field into a single 32 bit integer
+
+    if (!set) return false; // check if none of them were a match
+    else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
 
     {
 #else
+    // fallback for loop; slow
     for (int set = 0; set < DCACHE_SETS; set++)
     {
         if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
@@ -764,18 +776,21 @@ bool ARMv5::DCacheWrite8(const u32 addr, const u8 val)
     //Log(LogLevel::Debug, "Cache write 8: %08lx <= %02x\n", addr, val);
     
 #if defined(__x86_64__)
-    __m128i tags; memcpy(&tags, &DCacheTags[id], 16);
-    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK));
-    __m128i cmp = _mm_set1_epi32(tag);
-    tags = _mm_and_si128(tags, mask);
-    cmp = _mm_cmpeq_epi32(tags, cmp);
-    u32 set = _mm_movemask_epi8(cmp);
+    // we use sse here to greatly speed up checking for valid sets vs the fallback for loop
 
-    if (!set) return false;
-    else set = (__builtin_ctz(set) >> 2);
+    __m128i tags; memcpy(&tags, &DCacheTags[id], 16); // load the tags for all 4 sets, one for each 32 bits
+    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)); // load copies of the mask into each 32 bits
+    __m128i cmp = _mm_set1_epi32(tag); // load the tag we're checking for into each 32 bit
+    tags = _mm_and_si128(tags, mask); // mask out the bits we dont want to check for
+    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match
+    u32 set = _mm_movemask_epi8(cmp); // move the 8 msb of each field into a single 32 bit integer
+
+    if (!set) return false; // check if none of them were a match
+    else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
 
     {
 #else
+    // fallback for loop; slow
     for (int set = 0; set < DCACHE_SETS; set++)
     {
         if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
@@ -813,18 +828,21 @@ void ARMv5::DCacheInvalidateByAddr(const u32 addr)
     const u32 id = ((addr >> DCACHE_LINELENGTH_LOG2) & (DCACHE_LINESPERSET-1)) << DCACHE_SETS_LOG2;
     
 #if defined(__x86_64__)
-    __m128i tags; memcpy(&tags, &DCacheTags[id], 16);
-    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK));
-    __m128i cmp = _mm_set1_epi32(tag);
-    tags = _mm_and_si128(tags, mask);
-    cmp = _mm_cmpeq_epi32(tags, cmp);
-    u32 set = _mm_movemask_epi8(cmp);
+    // we use sse here to greatly speed up checking for valid sets vs the fallback for loop
 
-    if (!set) return;
-    else set = (__builtin_ctz(set) >> 2);
+    __m128i tags; memcpy(&tags, &DCacheTags[id], 16); // load the tags for all 4 sets, one for each 32 bits
+    __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)); // load copies of the mask into each 32 bits
+    __m128i cmp = _mm_set1_epi32(tag); // load the tag we're checking for into each 32 bit
+    tags = _mm_and_si128(tags, mask); // mask out the bits we dont want to check for
+    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match
+    u32 set = _mm_movemask_epi8(cmp); // move the 8 msb of each field into a single 32 bit integer
+
+    if (!set) return; // check if none of them were a match
+    else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
 
     {
 #else
+    // fallback for loop; slow
     for (int set = 0; set < DCACHE_SETS; set++)
     {
         if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == tag)
@@ -911,7 +929,7 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
             WriteBufferWrite(ptr[3], 2, cycless, tag+0x0C);
             DataCycles += 5;
         }
-        if (DCacheTags[index] & CACHE_FLAG_DIRTY_UPPERHALF)
+        if (DCacheTags[index] & CACHE_FLAG_DIRTY_UPPERHALF) // todo: check how this behaves when both fields need to be written
         {
             if (WBDelay > NDS.ARM9Timestamp) NDS.ARM9Timestamp = WBDelay;
 
