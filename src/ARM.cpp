@@ -269,7 +269,7 @@ void ARM::DoSavestate(Savestate* file)
         if (!Num)
         {
             SetupCodeMem(R[15]); // should fix it
-            ((ARMv5*)this)->RegionCodeCycles = ((ARMv5*)this)->MemTimings[R[15] >> 12][0];
+            ((ARMv5*)this)->RegionCodeCycles = ((ARMv5*)this)->MemTimings[R[15] >> 12][2];
 
             if ((CPSR & 0x1F) == 0x10)
                 ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_UserMap;

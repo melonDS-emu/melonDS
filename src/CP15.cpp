@@ -338,26 +338,26 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
 
         // checkme: should these be (bus timings shifted) - 1 or ((bustimings - 1) shifted) + 1
         // should the last cycle be halved...?
-        if (pu & CP15_MAP_ICACHEABLE)
+        /*if (pu & CP15_MAP_ICACHEABLE)
         {
             MemTimings[i][0] = 0xFF;//kCodeCacheTiming;
         }
         else
         {
             MemTimings[i][0] = ((bustimings[2] - 1) << NDS.ARM9ClockShift) + 1;
-        }
-
+        }*/
+        /*
         if (pu & CP15_MAP_DCACHEABLE)
         {
             MemTimings[i][1] = kDataCacheTiming;
             MemTimings[i][2] = kDataCacheTiming;
             MemTimings[i][3] = 1;
         }
-        else
+        else*/
         {
-            MemTimings[i][1] = ((bustimings[0] - 1) << NDS.ARM9ClockShift) + 1;
-            MemTimings[i][2] = ((bustimings[2] - 1) << NDS.ARM9ClockShift) + 1;
-            MemTimings[i][3] = bustimings[3] << NDS.ARM9ClockShift; // inaccurate but ehgh
+            MemTimings[i][0] = ((bustimings[0] - 1) << NDS.ARM9ClockShift) + 1;
+            MemTimings[i][1] = ((bustimings[2] - 1) << NDS.ARM9ClockShift) + 1;
+            MemTimings[i][2] = bustimings[3] << NDS.ARM9ClockShift; // inaccurate but ehgh
         }
     }
 }
@@ -1784,27 +1784,17 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
     
     #if !DISABLE_ICACHE
         #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
+        //if (!NDS.IsJITEnabled())
         #endif    
         {
-            if (CP15Control & CP15_CACHE_CR_ICACHEENABLE) 
+            if (IsAddressICachable(addr))
             {
-                if (IsAddressICachable(addr))
-                {
-                    return ICacheLookup(addr);
-                }
+                return ICacheLookup(addr);
             }
-        }
     #endif 
+        }
 
-    CodeCycles = MemTimings[addr >> 12][0];
-    if (CodeCycles == 0xFF) // cached memory. hax
-    {
-        if (branch || !(addr & (ICACHE_LINELENGTH-1)))
-            CodeCycles = kCodeCacheTiming;//ICacheLookup(addr);
-        else
-            CodeCycles = 1;
-    }
+    CodeCycles = MemTimings[addr >> 12][1];
 
     WriteBufferDrain();
 
@@ -1854,17 +1844,14 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
     
     #if !DISABLE_DCACHE
         #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
+        //if (!NDS.IsJITEnabled())
         #endif  
         {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            if (IsAddressDCachable(addr))
             {
-                if (IsAddressDCachable(addr))
-                {
-                    DataCycles = 0;
-                    *val = (DCacheLookup(addr) >> (8 * (addr & 3))) & 0xff;
-                    return true;
-                }
+                DataCycles = 0;
+                *val = (DCacheLookup(addr) >> (8 * (addr & 3))) & 0xff;
+                return true;
             }
         }
     #endif
@@ -1873,7 +1860,7 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
-    DataCycles = MemTimings[addr >> 12][1];
+    DataCycles = MemTimings[addr >> 12][0];
 
     if ((addr >> 24) == 0x02)
     {
@@ -1918,17 +1905,14 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
     
     #if !DISABLE_DCACHE
         #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
+        //if (!NDS.IsJITEnabled())
         #endif  
         {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            if (IsAddressDCachable(addr))
             {
-                if (IsAddressDCachable(addr))
-                {
-                    DataCycles = 0;
-                    *val = (DCacheLookup(addr) >> (8* (addr & 2))) & 0xffff;
-                    return true;
-                }
+                DataCycles = 0;
+                *val = (DCacheLookup(addr) >> (8* (addr & 2))) & 0xffff;
+                return true;
             }
         }
     #endif
@@ -1937,7 +1921,7 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
-    DataCycles = MemTimings[addr >> 12][1];
+    DataCycles = MemTimings[addr >> 12][0];
 
     if ((addr >> 24) == 0x02)
     {
@@ -1982,17 +1966,14 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
 
     #if !DISABLE_DCACHE
         #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
+        //if (!NDS.IsJITEnabled())
         #endif  
         {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            if (IsAddressDCachable(addr))
             {
-                if (IsAddressDCachable(addr))
-                {
-                    DataCycles = 0;
-                    *val = DCacheLookup(addr);
-                    return true;
-                }
+                DataCycles = 0;
+                *val = DCacheLookup(addr);
+                return true;
             }
         }
     #endif
@@ -2001,7 +1982,7 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
-    DataCycles = MemTimings[addr >> 12][2];
+    DataCycles = MemTimings[addr >> 12][1];
 
     if ((addr >> 24) == 0x02)
     {
@@ -2045,16 +2026,13 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
 
     #if !DISABLE_DCACHE
         #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
+        //if (!NDS.IsJITEnabled())
         #endif  
         {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            if (IsAddressDCachable(addr))
             {
-                if (IsAddressDCachable(addr))
-                {
-                    *val = DCacheLookup(addr);
-                    return true;
-                }
+                *val = DCacheLookup(addr);
+                return true;
             }
         }
     #endif
@@ -2065,7 +2043,7 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
 
     if (!(addr & 0x3FF)) return DataRead32(addr, val); // bursts cannot cross a 1kb boundary
 
-    DataCycles = MemTimings[addr >> 12][3];
+    DataCycles = MemTimings[addr >> 12][2];
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
@@ -2113,16 +2091,13 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
 
     #if !DISABLE_DCACHE
         #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
+        //if (!NDS.IsJITEnabled())
         #endif  
         {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            if (IsAddressDCachable(addr))
             {
-                if (IsAddressDCachable(addr))
-                {
-                    if (DCacheWrite8(addr, val))
-                        return true;
-                }
+                if (DCacheWrite8(addr, val))
+                    return true;
             }
         }
     #endif
@@ -2131,7 +2106,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
     {
         NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
-        DataCycles = MemTimings[addr >> 12][1];
+        DataCycles = MemTimings[addr >> 12][0];
 
         if ((addr >> 24) == 0x02)
         {
@@ -2196,16 +2171,13 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
 
     #if !DISABLE_DCACHE
         #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
+        //if (!NDS.IsJITEnabled())
         #endif  
         {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            if (IsAddressDCachable(addr))
             {
-                if (IsAddressDCachable(addr))
-                {
-                    if (DCacheWrite16(addr, val))
-                        return true;
-                }
+                if (DCacheWrite16(addr, val))
+                    return true;
             }
         }
     #endif
@@ -2214,7 +2186,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
     {
         NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
-        DataCycles = MemTimings[addr >> 12][1];
+        DataCycles = MemTimings[addr >> 12][0];
 
         if ((addr >> 24) == 0x02)
         {
@@ -2279,17 +2251,14 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
 
     #if !DISABLE_DCACHE
         #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
+        //if (!NDS.IsJITEnabled())
         #endif  
         {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            if (IsAddressDCachable(addr))
             {
-                if (IsAddressDCachable(addr))
-                {
-                    DataCycles = 0;
-                    if (DCacheWrite32(addr, val))
-                        return true;
-                }
+                DataCycles = 0;
+                if (DCacheWrite32(addr, val))
+                    return true;
             }
         }
     #endif
@@ -2298,7 +2267,7 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
     {
         NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
-        DataCycles = MemTimings[addr >> 12][2];
+        DataCycles = MemTimings[addr >> 12][1];
 
         if ((addr >> 24) == 0x02)
         {
@@ -2362,16 +2331,13 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
 
     #if !DISABLE_DCACHE
         #ifdef JIT_ENABLED
-        if (!NDS.IsJITEnabled())
+        //if (!NDS.IsJITEnabled())
         #endif  
         {
-            if (CP15Control & CP15_CACHE_CR_DCACHEENABLE) 
+            if (IsAddressDCachable(addr))
             {
-                if (IsAddressDCachable(addr))
-                {
-                    if (DCacheWrite32(addr, val))
-                        return true;
-                }
+                if (DCacheWrite32(addr, val))
+                    return true;
             }
         }
     #endif
@@ -2391,7 +2357,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
         else DataRegion = NDS.ARM9Regions[addr>>14];
     
         BusWrite32(addr, val);
-        DataCycles += MemTimings[addr >> 12][3];
+        DataCycles += MemTimings[addr >> 12][2];
     }
     else
     {
