@@ -899,10 +899,10 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
             if (WBDelay > NDS.ARM9Timestamp) NDS.ARM9Timestamp = WBDelay;
 
             u8 cyclesn = NDS.ARM9MemTimings[tag>>14][2];
-            if ((tag >> 24) == 0x02) cyclesn = (cyclesn - 2) & 0x80;
+            if ((tag >> 24) == 0x02) cyclesn = (cyclesn - 2) | 0x80;
 
             u8 cycless = NDS.ARM9MemTimings[tag>>14][3];
-            if ((tag >> 24) == 0x02) cycless = (cycless - 2) & 0x80;
+            if ((tag >> 24) == 0x02) cycless = (cycless - 2) | 0x80;
 
             WriteBufferWrite(tag, 3, 0);
             WriteBufferWrite(ptr[0], 2, cyclesn, tag+0x00);
@@ -916,10 +916,10 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
             if (WBDelay > NDS.ARM9Timestamp) NDS.ARM9Timestamp = WBDelay;
 
             u8 cyclesn = NDS.ARM9MemTimings[tag>>14][2];
-            if ((tag >> 24) == 0x02) cyclesn = (cyclesn - 2) & 0x80;
+            if ((tag >> 24) == 0x02) cyclesn = (cyclesn - 2) | 0x80;
 
             u8 cycless = NDS.ARM9MemTimings[tag>>14][3];
-            if ((tag >> 24) == 0x02) cycless = (cycless - 2) & 0x80;
+            if ((tag >> 24) == 0x02) cycless = (cycless - 2) | 0x80;
 
             WriteBufferWrite(tag+0x10, 3, 0);
             WriteBufferWrite(ptr[4], 2, cyclesn, tag+0x10);
