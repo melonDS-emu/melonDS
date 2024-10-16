@@ -1813,8 +1813,9 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
         }
 
     CodeCycles = MemTimings[addr >> 12][1];
-
-    WriteBufferDrain();
+    
+    if (PU_Map[addr>>12] & 0x30)
+        WriteBufferDrain();
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
@@ -1874,7 +1875,8 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
         }
     #endif
     
-    WriteBufferDrain();
+    if (PU_Map[addr>>12] & 0x30)
+        WriteBufferDrain();
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
@@ -1934,8 +1936,9 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
             }
         }
     #endif
-
-    WriteBufferDrain();
+    
+    if (PU_Map[addr>>12] & 0x30)
+        WriteBufferDrain();
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
@@ -1995,8 +1998,9 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
             }
         }
     #endif
-
-    WriteBufferDrain();
+    
+    if (PU_Map[addr>>12] & 0x30)
+        WriteBufferDrain();
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
@@ -2054,8 +2058,9 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
             }
         }
     #endif
-
-    WriteBufferDrain();
+    
+    if (PU_Map[addr>>12] & 0x30)
+        WriteBufferDrain();
 
     NDS.ARM9Timestamp += DataCycles;
 
