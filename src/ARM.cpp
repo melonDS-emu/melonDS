@@ -595,8 +595,11 @@ void ARMv5::Execute()
             Halted = 0;
             if (NDS.IME[0] & 0x1)
             {
+#ifdef JIT_ENABLED
                 if constexpr (mode == CPUExecuteMode::JIT) TriggerIRQ<mode>();
-                else IRQ = 1;
+                else
+#endif
+                    IRQ = 1;
             }
         }
         else
