@@ -179,7 +179,7 @@ void NDS::SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswi
         ARM9Regions[i] = region;
     }
 
-    ARM9.UpdateRegionTimings(addrstart<<2, addrend<<2);
+    ARM9.UpdateRegionTimings(addrstart, addrend);
 }
 
 void NDS::SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq)

@@ -670,7 +670,7 @@ public:
     u8* PU_Map;                                     //! Current valid Region Mapping (is either @ref PU_PrivMap or PU_UserMap)
 
     // code/16N/32N/32S
-    u8 MemTimings[CP15_MAP_ENTRYCOUNT][3];
+    u8 MemTimings[0x40000][3];
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
     

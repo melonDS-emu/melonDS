@@ -292,8 +292,6 @@ void ARMv5::UpdatePURegion(const u32 n)
         PU_UserMap[i] = usermask;
         PU_PrivMap[i] = privmask;
     }
-
-    UpdateRegionTimings(start, end);
 }
 
 void ARMv5::UpdatePURegions(const bool update_all)
@@ -307,7 +305,6 @@ void ARMv5::UpdatePURegions(const bool update_all)
         memset(PU_UserMap, mask, CP15_MAP_ENTRYCOUNT);
         memset(PU_PrivMap, mask, CP15_MAP_ENTRYCOUNT);
 
-        UpdateRegionTimings(0x00000, CP15_MAP_ENTRYCOUNT);
         return;
     }
 
@@ -322,10 +319,6 @@ void ARMv5::UpdatePURegions(const bool update_all)
         UpdatePURegion(n);
     }
 
-    // TODO: this is way unoptimized
-    // should be okay unless the game keeps changing shit, tho
-    if (update_all) UpdateRegionTimings(0x00000, CP15_MAP_ENTRYCOUNT);
-
     // TODO: throw exception if the region we're running in has become non-executable, I guess
 }
 
@@ -333,8 +326,7 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
 {
     for (u32 i = addrstart; i < addrend; i++)
     {
-        u8 pu = PU_Map[i];
-        u8* bustimings = NDS.ARM9MemTimings[i >> 2];
+        u8* bustimings = NDS.ARM9MemTimings[i];
 
         // checkme: should these be (bus timings shifted) - 1 or ((bustimings - 1) shifted) + 1
         // should the last cycle be halved...?
@@ -630,7 +622,8 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     //                      first N32                                  remaining S32
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
-    DataCycles = MemTimings[addr >> 12][2];
+    NDS.ARM9Timestamp += ((NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 2)) - 1) << NDS.ARM9ClockShift) + 1;
+    DataCycles = NDS.ARM9MemTimings[tag>>14][3] << NDS.ARM9ClockShift;
 
     if ((addr >> 24) == 0x02)
     {
@@ -640,8 +633,6 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     }
     else DataRegion = NDS.ARM9Regions[addr>>14];
 
-    NDS.ARM9Timestamp += ((NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 2)) - 1) << NDS.ARM9ClockShift) + 1;
-    DataCycles = NDS.ARM9MemTimings[tag>>14][3] << NDS.ARM9ClockShift;
     return ptr[(addr & (DCACHE_LINELENGTH-1)) >> 2];
 }
 
@@ -1794,7 +1785,7 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
     #endif 
         }
 
-    CodeCycles = MemTimings[addr >> 12][1];
+    CodeCycles = MemTimings[addr >> 14][1];
     
     if (PU_Map[addr>>12] & 0x30)
         WriteBufferDrain();
@@ -1862,7 +1853,7 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
-    DataCycles = MemTimings[addr >> 12][0];
+    DataCycles = MemTimings[addr >> 14][0];
 
     if ((addr >> 24) == 0x02)
     {
@@ -1924,7 +1915,7 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
-    DataCycles = MemTimings[addr >> 12][0];
+    DataCycles = MemTimings[addr >> 14][0];
 
     if ((addr >> 24) == 0x02)
     {
@@ -1986,7 +1977,7 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
-    DataCycles = MemTimings[addr >> 12][1];
+    DataCycles = MemTimings[addr >> 14][1];
 
     if ((addr >> 24) == 0x02)
     {
@@ -2048,7 +2039,7 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
 
     if (!(addr & 0x3FF)) return DataRead32(addr, val); // bursts cannot cross a 1kb boundary
 
-    DataCycles = MemTimings[addr >> 12][2];
+    DataCycles = MemTimings[addr >> 14][2];
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
@@ -2111,7 +2102,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
     {
         NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
-        DataCycles = MemTimings[addr >> 12][0];
+        DataCycles = MemTimings[addr >> 14][0];
 
         if ((addr >> 24) == 0x02)
         {
@@ -2191,7 +2182,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
     {
         NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
-        DataCycles = MemTimings[addr >> 12][0];
+        DataCycles = MemTimings[addr >> 14][0];
 
         if ((addr >> 24) == 0x02)
         {
@@ -2272,7 +2263,7 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
     {
         NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
-        DataCycles = MemTimings[addr >> 12][1];
+        DataCycles = MemTimings[addr >> 14][1];
 
         if ((addr >> 24) == 0x02)
         {
@@ -2362,7 +2353,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
         else DataRegion = NDS.ARM9Regions[addr>>14];
     
         BusWrite32(addr, val);
-        DataCycles += MemTimings[addr >> 12][2];
+        DataCycles += MemTimings[addr >> 14][2];
     }
     else
     {

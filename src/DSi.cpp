@@ -1288,7 +1288,7 @@ void DSi::Set_SCFG_Clock9(u16 val)
 
     ARM9Timestamp <<= ARM9ClockShift;
     ARM9Target    <<= ARM9ClockShift;
-    ARM9.UpdateRegionTimings(0x00000, 0x100000);
+    ARM9.UpdateRegionTimings(0x00000, 0x40000);
 }
 
 void DSi::Set_SCFG_MC(u32 val)
