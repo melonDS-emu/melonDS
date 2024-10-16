@@ -1028,7 +1028,7 @@ void ARMv5::WriteBufferWrite(u32 val, u8 flag, u8 cycles, u32 addr)
     else if (WBWritePointer == 16) // indicates empty write buffer
     {
         WBWritePointer = 0;
-        WBTimestamp = (((NDS.ARM9Timestamp + DataCycles) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)) >> NDS.ARM9ClockShift;
+        WBTimestamp = (((NDS.ARM9Timestamp + DataCycles + 1) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)) >> NDS.ARM9ClockShift;
     }
 
     WriteBufferFifo[WBFillPointer] = val | (u64)flag << 62;
@@ -2131,7 +2131,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
         u8 cycles = NDS.ARM9MemTimings[addr>>14][0];
         if ((addr >> 24) == 0x02)
         {
-            cycles = (cycles - 2) & 0x80;
+            cycles = (cycles - 2) | 0x80;
         }
 
         WriteBufferWrite(addr, 3, 0);
@@ -2211,7 +2211,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
         u8 cycles = NDS.ARM9MemTimings[addr>>14][0];
         if ((addr >> 24) == 0x02)
         {
-            cycles = (cycles - 2) & 0x80;
+            cycles = (cycles - 2) | 0x80;
         }
 
         WriteBufferWrite(addr, 3, 0);
@@ -2292,7 +2292,7 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
         u8 cycles = NDS.ARM9MemTimings[addr>>14][2];
         if ((addr >> 24) == 0x02)
         {
-            cycles = (cycles - 2) & 0x80;
+            cycles = (cycles - 2) | 0x80;
         }
 
         WriteBufferWrite(addr, 3, 0);
@@ -2369,7 +2369,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
         u8 cycles = NDS.ARM9MemTimings[addr>>14][3];
         if ((addr >> 24) == 0x02)
         {
-            cycles = (cycles - 2) & 0x80;
+            cycles = (cycles - 2) | 0x80;
         }
 
         WriteBufferWrite(val, 2, cycles, addr);
