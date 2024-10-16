@@ -338,27 +338,9 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
 
         // checkme: should these be (bus timings shifted) - 1 or ((bustimings - 1) shifted) + 1
         // should the last cycle be halved...?
-        /*if (pu & CP15_MAP_ICACHEABLE)
-        {
-            MemTimings[i][0] = 0xFF;//kCodeCacheTiming;
-        }
-        else
-        {
-            MemTimings[i][0] = ((bustimings[2] - 1) << NDS.ARM9ClockShift) + 1;
-        }*/
-        /*
-        if (pu & CP15_MAP_DCACHEABLE)
-        {
-            MemTimings[i][1] = kDataCacheTiming;
-            MemTimings[i][2] = kDataCacheTiming;
-            MemTimings[i][3] = 1;
-        }
-        else*/
-        {
-            MemTimings[i][0] = ((bustimings[0] - 1) << NDS.ARM9ClockShift) + 1;
-            MemTimings[i][1] = ((bustimings[2] - 1) << NDS.ARM9ClockShift) + 1;
-            MemTimings[i][2] = bustimings[3] << NDS.ARM9ClockShift; // inaccurate but ehgh
-        }
+        MemTimings[i][0] = ((bustimings[0] - 1) << NDS.ARM9ClockShift) + 1;
+        MemTimings[i][1] = ((bustimings[2] - 1) << NDS.ARM9ClockShift) + 1;
+        MemTimings[i][2] = ((bustimings[3] - 1) << NDS.ARM9ClockShift) + 1;
     }
 }
 
