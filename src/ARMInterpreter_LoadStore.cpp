@@ -24,6 +24,12 @@ namespace melonDS::ARMInterpreter
 {
 
 
+void ExecuteStage(ARM* cpu)
+{
+    if (cpu->Num == 0) cpu->AddCycles_C();
+}
+
+
 // copypasta from ALU. bad
 #define LSL_IMM(x, s) \
     x <<= s;
@@ -69,6 +75,7 @@ enum class Writeback
 template<bool signror, int size, Writeback writeback>
 void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
 {
+    ExecuteStage(cpu);
     static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
 
     u32 addr;
@@ -116,6 +123,7 @@ void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
 template<int size, Writeback writeback>
 void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
 {
+    ExecuteStage(cpu);
     static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
 
     u32 addr;
@@ -277,6 +285,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 
 #define A_LDRD \
     if (cpu->Num != 0) return; \
+    ExecuteStage(cpu); \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
@@ -293,6 +302,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 
 #define A_LDRD_POST \
     if (cpu->Num != 0) return; \
+    ExecuteStage(cpu); \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
@@ -309,6 +319,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 
 #define A_STRD \
     if (cpu->Num != 0) return; \
+    ExecuteStage(cpu); \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
@@ -323,6 +334,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 
 #define A_STRD_POST \
     if (cpu->Num != 0) return; \
+    ExecuteStage(cpu); \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
@@ -394,6 +406,7 @@ A_IMPLEMENT_HD_LDRSTR(LDRSH)
 template<bool byte>
 inline void SWP(ARM* cpu)
 {
+    ExecuteStage(cpu);
     u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     if ((cpu->CurInstr & 0xF) == 15) rm += 4;
@@ -486,6 +499,7 @@ void EmptyRListLDMSTM(ARM* cpu, const u8 baseid, const u8 flags)
 
 void A_LDM(ARM* cpu)
 {
+    ExecuteStage(cpu);
     u32 baseid = (cpu->CurInstr >> 16) & 0xF;
     u32 base = cpu->R[baseid];
     u32 wbbase;
@@ -597,6 +611,7 @@ void A_LDM(ARM* cpu)
 
 void A_STM(ARM* cpu)
 {
+    ExecuteStage(cpu);
     u32 baseid = (cpu->CurInstr >> 16) & 0xF;
     u32 base = cpu->R[baseid];
     u32 oldbase = base;
@@ -695,6 +710,7 @@ void A_STM(ARM* cpu)
 
 void T_LDR_PCREL(ARM* cpu)
 {
+    ExecuteStage(cpu);
     u32 addr = (cpu->R[15] & ~0x2) + ((cpu->CurInstr & 0xFF) << 2);
     bool dabort = !cpu->DataRead32(addr, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
 
@@ -793,6 +809,7 @@ void T_LDR_SPREL(ARM* cpu)
 
 void T_PUSH(ARM* cpu)
 {
+    ExecuteStage(cpu);
     int nregs = 0;
     bool first = true;
     bool dabort = false;
@@ -848,6 +865,7 @@ void T_PUSH(ARM* cpu)
 
 void T_POP(ARM* cpu)
 {
+    ExecuteStage(cpu);
     u32 base = cpu->R[13];
     bool first = true;
     bool dabort = false;
@@ -900,6 +918,7 @@ void T_POP(ARM* cpu)
 
 void T_STMIA(ARM* cpu)
 {
+    ExecuteStage(cpu);
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
     bool dabort = false;
@@ -936,6 +955,7 @@ void T_STMIA(ARM* cpu)
 
 void T_LDMIA(ARM* cpu)
 {
+    ExecuteStage(cpu);
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
     bool dabort = false;

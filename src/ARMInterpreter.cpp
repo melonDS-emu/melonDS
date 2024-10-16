@@ -36,6 +36,7 @@ namespace melonDS::ARMInterpreter
 
 void A_UNK(ARM* cpu)
 {
+    cpu->AddCycles_C();
     Log(LogLevel::Warn, "undefined ARM%d instruction %08X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-8);
 #ifdef GDBSTUB_ENABLED
     cpu->GdbStub.Enter(cpu->GdbStub.IsConnected(), Gdb::TgtStatus::FaultInsn, cpu->R[15]-8);
@@ -54,6 +55,7 @@ void A_UNK(ARM* cpu)
 
 void T_UNK(ARM* cpu)
 {
+    cpu->AddCycles_C();
     Log(LogLevel::Warn, "undefined THUMB%d instruction %04X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-4);
 #ifdef GDBSTUB_ENABLED
     cpu->GdbStub.Enter(cpu->GdbStub.IsConnected(), Gdb::TgtStatus::FaultInsn, cpu->R[15]-4);
@@ -335,6 +337,7 @@ void A_MRC(ARM* cpu)
 
 void A_SVC(ARM* cpu) // A_SWI
 {
+    cpu->AddCycles_C();
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
     cpu->CPSR |= 0x93;
@@ -347,6 +350,7 @@ void A_SVC(ARM* cpu) // A_SWI
 
 void T_SVC(ARM* cpu) // T_SWI
 {
+    cpu->AddCycles_C();
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
     cpu->CPSR |= 0x93;

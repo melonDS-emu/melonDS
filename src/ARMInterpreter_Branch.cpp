@@ -27,12 +27,14 @@ using Platform::LogLevel;
 
 void A_B(ARM* cpu)
 {
+    cpu->AddCycles_C();
     s32 offset = (s32)(cpu->CurInstr << 8) >> 6;
     cpu->JumpTo(cpu->R[15] + offset);
 }
 
 void A_BL(ARM* cpu)
 {
+    cpu->AddCycles_C();
     s32 offset = (s32)(cpu->CurInstr << 8) >> 6;
     cpu->R[14] = cpu->R[15] - 4;
     cpu->JumpTo(cpu->R[15] + offset);
@@ -40,6 +42,7 @@ void A_BL(ARM* cpu)
 
 void A_BLX_IMM(ARM* cpu)
 {
+    cpu->AddCycles_C();
     s32 offset = (s32)(cpu->CurInstr << 8) >> 6;
     if (cpu->CurInstr & 0x01000000) offset += 2;
     cpu->R[14] = cpu->R[15] - 4;
@@ -48,11 +51,13 @@ void A_BLX_IMM(ARM* cpu)
 
 void A_BX(ARM* cpu)
 {
+    cpu->AddCycles_C();
     cpu->JumpTo(cpu->R[cpu->CurInstr & 0xF]);
 }
 
 void A_BLX_REG(ARM* cpu)
 {
+    cpu->AddCycles_C();
     u32 lr = cpu->R[15] - 4;
     cpu->JumpTo(cpu->R[cpu->CurInstr & 0xF]);
     cpu->R[14] = lr;
@@ -62,22 +67,23 @@ void A_BLX_REG(ARM* cpu)
 
 void T_BCOND(ARM* cpu)
 {
+    cpu->AddCycles_C();
     if (cpu->CheckCondition((cpu->CurInstr >> 8) & 0xF))
     {
         s32 offset = (s32)(cpu->CurInstr << 24) >> 23;
         cpu->JumpTo(cpu->R[15] + offset + 1);
     }
-    else
-        cpu->AddCycles_C();
 }
 
 void T_BX(ARM* cpu)
 {
+    cpu->AddCycles_C();
     cpu->JumpTo(cpu->R[(cpu->CurInstr >> 3) & 0xF]);
 }
 
 void T_BLX_REG(ARM* cpu)
 {
+    cpu->AddCycles_C();
     if (cpu->Num==1)
     {
         Log(LogLevel::Warn, "!! THUMB BLX_REG ON ARM7\n");
@@ -91,6 +97,7 @@ void T_BLX_REG(ARM* cpu)
 
 void T_B(ARM* cpu)
 {
+    cpu->AddCycles_C();
     s32 offset = (s32)((cpu->CurInstr & 0x7FF) << 21) >> 20;
     cpu->JumpTo(cpu->R[15] + offset + 1);
 }
@@ -104,6 +111,7 @@ void T_BL_LONG_1(ARM* cpu)
 
 void T_BL_LONG_2(ARM* cpu)
 {
+    cpu->AddCycles_C();
     s32 offset = (cpu->CurInstr & 0x7FF) << 1;
     u32 pc = cpu->R[14] + offset;
     cpu->R[14] = (cpu->R[15] - 2) | 1;

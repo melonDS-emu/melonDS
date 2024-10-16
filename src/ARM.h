@@ -281,8 +281,9 @@ public:
         AddCycles_C();
     }
 
+    void CodeFetch();
 
-    void AddCycles_C() override {}
+    void AddCycles_C() override { CodeFetch(); }
 
     void AddCycles_CI(s32 numX) override;
 
@@ -375,6 +376,8 @@ public:
     u8 InterlockWBPrev;
     bool Store;
     u16 InterlockMask;
+    bool NullFetch;
+    u32 PC;
 
 
     u8 WBWritePointer; // which entry to attempt to write next; should always be ANDed with 0xF after incrementing

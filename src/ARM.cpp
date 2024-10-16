@@ -527,6 +527,7 @@ void ARM::UpdateMode(u32 oldmode, u32 newmode, bool phony)
 template <CPUExecuteMode mode>
 void ARM::TriggerIRQ()
 {
+    AddCycles_C();
     if (CPSR & 0x80)
         return;
 
@@ -560,6 +561,7 @@ template void ARM::TriggerIRQ<CPUExecuteMode::JIT>();
 
 void ARMv5::PrefetchAbort()
 {
+    AddCycles_C();
     Log(LogLevel::Warn, "ARM9: prefetch abort (%08X)\n", R[15]);
 
     u32 oldcpsr = CPSR;
@@ -675,19 +677,11 @@ void ARMv5::Execute()
                 R[15] += 2;
                 CurInstr = NextInstr[0];
                 NextInstr[0] = NextInstr[1];
-                if (R[15] & 0x2)
-                {
-                    // no fetch is performed.
-                    // unclear if it's a "1 cycle fetch" or a legitmately 0 cycle fetch stage?
-                    // in practice it doesn't matter though.
-                    NextInstr[1] >>= 16;
-                    NDS.ARM9Timestamp++;
-                    if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
-                    DataRegion = Mem9_Null;
-                }
-                else NextInstr[1] = CodeRead32(R[15], false);
-                
-                
+                // code fetch is done during the execute stage cycle handling
+                if (R[15] & 0x2) NullFetch = true;
+                else NullFetch = false;
+                PC = R[15];
+
                 if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
                 else if (!(PU_Map[(R[15]-4)>>12] & 0x04)) [[unlikely]] // handle aborted instructions
                 {
@@ -708,8 +702,9 @@ void ARMv5::Execute()
                 R[15] += 4;
                 CurInstr = NextInstr[0];
                 NextInstr[0] = NextInstr[1];
-                NextInstr[1] = CodeRead32(R[15], false);
-                
+                // code fetch is done during the execute stage cycle handling
+                NullFetch = false;
+                PC = R[15];
 
                 if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
                 else if (!(PU_Map[(R[15]-8)>>12] & 0x04)) [[unlikely]] // handle aborted instructions
@@ -1157,8 +1152,23 @@ u32 ARMv5::ReadMem(u32 addr, int size)
 #endif
 
 
+inline void ARMv5::CodeFetch()
+{
+    if (NullFetch)
+    {
+        // no fetch is performed.
+        // in practice it doesn't matter though.
+        NextInstr[1] >>= 16;
+        NDS.ARM9Timestamp++;
+        if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
+        DataRegion = Mem9_Null;
+    }
+    else NextInstr[1] = CodeRead32(PC, false);
+}
+
 void ARMv5::AddCycles_CI(s32 numX)
 {
+    CodeFetch();
     NDS.ARM9Timestamp += numX;
 }
 
