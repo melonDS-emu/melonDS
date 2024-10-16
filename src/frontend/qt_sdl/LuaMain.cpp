@@ -361,18 +361,20 @@ AddLuaFunction(Lua_Reads32,Reads32);
 
 int Lua_NDSTapDown(lua_State* L)
 {
+    LuaBundle* bundle = get_bundle(L);
+    melonDS::NDS* nds = bundle->getEmuInstance()->getNDS();
     int x = luaL_checkinteger(L,1);
     int y = luaL_checkinteger(L,2);
-    //TODO
-    //NDS::TouchScreen(x,y);
+    nds->TouchScreen(x,y);
     return 0;
 }
 AddLuaFunction(Lua_NDSTapDown,NDSTapDown);
 
 int Lua_NDSTapUp(lua_State* L)
 {
-    //TODO
-    //NDS::ReleaseScreen();
+    LuaBundle* bundle = get_bundle(L);
+    melonDS::NDS* nds = bundle->getEmuInstance()->getNDS();
+    nds->ReleaseScreen();
     return 0;
 }
 AddLuaFunction(Lua_NDSTapUp,NDSTapUp);
@@ -424,6 +426,19 @@ int Lua_getMouse(lua_State* L)
 }
 AddLuaFunction(Lua_getMouse,GetMouse);
 
+int Lua_KeyboardMask(lua_State* L)
+{
+    LuaBundle* bundle = get_bundle(L);
+
+    lua_createtable(L,0,256);
+    for (int i=0;i<256;i++){
+        lua_pushboolean(L,bundle->getEmuInstance()->KeyboardMask[i]);
+        lua_seti(L,-2,i);
+    }
+    return 1;
+}
+AddLuaFunction(Lua_KeyboardMask,KeyboardMask);
+
 /*--------------------------------------------------------------------------------------------------
                             Front-end lua function definitions
 --------------------------------------------------------------------------------------------------*/
@@ -472,7 +487,7 @@ int Lua_Flip(lua_State* L)
 }
 AddLuaFunction(Lua_Flip,Flip);
 
-//text(int x, int y, string message, [u32 color = 'black'], [int fontsize = 9], [string fontfamily = Franklin Gothic Medium])
+//Text(int x, int y, string message, [u32 color = 'black'], [int fontsize = 9], [string fontfamily = Franklin Gothic Medium])
 int Lua_text(lua_State* L) 
 {
     LuaBundle* bundle = get_bundle(L);
@@ -538,6 +553,21 @@ int Lua_fillrect(lua_State* L)
 }
 AddLuaFunction(Lua_fillrect,FillRect);
 
+int Lua_Ellipse(lua_State* L)
+{
+    LuaBundle* bundle = get_bundle(L);
+    melonDS::u32 color = luaL_checknumber(L,5);
+    int x = luaL_checknumber(L,1);
+    int y = luaL_checknumber(L,2);
+    int width = luaL_checknumber(L,3);
+    int height = luaL_checknumber(L,4);
+    QPainter painter(bundle->luaCanvas->imageBuffer);
+    painter.setPen(color);
+    painter.drawEllipse(x,y,width,height);
+    return 0;
+}
+AddLuaFunction(Lua_Ellipse,Ellipse);
+
 int Lua_keystrokes(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
@@ -548,7 +578,6 @@ int Lua_keystrokes(lua_State* L)
         lua_seti(L,-2,i);
     }
     bundle->getEmuInstance()->keyStrokes.clear();
-    lua_createtable(L,0,1);
     return 1;
 }
 AddLuaFunction(Lua_keystrokes,Keys);
@@ -590,7 +619,6 @@ AddLuaFunction(Lua_clearImageHash,ClearHash);
 
 int Lua_getJoy(lua_State* L)
 {
-    //TODO:
     LuaBundle* bundle = get_bundle(L);
     melonDS::u32 buttonMask=bundle->getEmuInstance()->getInputMask();//current button state.
     const char* keys[12] =

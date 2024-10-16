@@ -258,6 +258,7 @@ public:
     bool doAudioSync;
 
     melonDS::u32 getInputMask(){return inputMask;}
+    std::map<melonDS::u8,bool> KeyboardMask; //For Lua Scripts
 private:
 
     std::unique_ptr<melonDS::Savestate> backupState;
