@@ -20,6 +20,8 @@
 #include <string.h>
 #if defined(__x86_64__)
 #include <emmintrin.h>
+#elif defined(__ARM_NEON)
+#include <arm_neon.h>
 #endif
 #include "NDS.h"
 #include "DSi.h"
@@ -366,6 +368,25 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
 
     {
+#elif defined(__ARM_NEON)
+    uint32x4_t tags = { ICacheTags[id+0], ICacheTags[id+1], ICacheTags[id+2], ICacheTags[id+3] }; // load tags
+    uint32x4_t mask = { ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK) }; // load mask
+    uint32x4_t cmp = { tag | CACHE_FLAG_VALID,
+                       tag | CACHE_FLAG_VALID,
+                       tag | CACHE_FLAG_VALID,
+                       tag | CACHE_FLAG_VALID }; // load tag and flag we're checking for
+    tags = vandq_u32(tags, mask); // mask out bits we dont wanna check for
+    cmp = vceqq_u32(tags, cmp);
+    uint16x4_t res = vmovn_u32(cmp);
+    u64 set; memcpy(&set, &res, 4);
+    
+    if (!set) goto miss;
+    else set = __builtin_ctz(set) >> 3;
+
+    {
 #else
     // fallback for loop; slow
     for (int set = 0; set < ICACHE_SETS; set++)
@@ -536,6 +557,25 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
 
     {
+#elif defined(__ARM_NEON)
+    uint32x4_t tags = { DCacheTags[id+0], DCacheTags[id+1], DCacheTags[id+2], DCacheTags[id+3] }; // load tags
+    uint32x4_t mask = { ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK) }; // load mask
+    uint32x4_t cmp = { tag | CACHE_FLAG_VALID,
+                       tag | CACHE_FLAG_VALID,
+                       tag | CACHE_FLAG_VALID,
+                       tag | CACHE_FLAG_VALID }; // load tag and flag we're checking for
+    tags = vandq_u32(tags, mask); // mask out bits we dont wanna check for
+    cmp = vceqq_u32(tags, cmp);
+    uint16x4_t res = vmovn_u32(cmp);
+    u64 set; memcpy(&set, &res, 4);
+    
+    if (!set) goto miss;
+    else set = __builtin_ctz(set) >> 3;
+
+    {
 #else
     // fallback for loop; slow
     for (int set = 0; set < DCACHE_SETS; set++)
@@ -657,6 +697,22 @@ bool ARMv5::DCacheWrite32(const u32 addr, const u32 val)
     else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
 
     {
+#elif defined(__ARM_NEON)
+    uint32x4_t tags = { DCacheTags[id+0], DCacheTags[id+1], DCacheTags[id+2], DCacheTags[id+3] }; // load tags
+    uint32x4_t mask = { ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK) }; // load mask
+    uint32x4_t cmp = { tag, tag, tag, tag }; // load tag and flag we're checking for
+    tags = vandq_u32(tags, mask); // mask out bits we dont wanna check for
+    cmp = vceqq_u32(tags, cmp);
+    uint16x4_t res = vmovn_u32(cmp);
+    u64 set; memcpy(&set, &res, 4);
+    
+    if (!set) return false;
+    else set = __builtin_ctz(set) >> 3;
+
+    {
 #else
     // fallback for loop; slow
     for (int set = 0; set < DCACHE_SETS; set++)
@@ -707,6 +763,22 @@ bool ARMv5::DCacheWrite16(const u32 addr, const u16 val)
 
     if (!set) return false; // check if none of them were a match
     else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
+
+    {
+#elif defined(__ARM_NEON)
+    uint32x4_t tags = { DCacheTags[id+0], DCacheTags[id+1], DCacheTags[id+2], DCacheTags[id+3] }; // load tags
+    uint32x4_t mask = { ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK) }; // load mask
+    uint32x4_t cmp = { tag, tag, tag, tag }; // load tag and flag we're checking for
+    tags = vandq_u32(tags, mask); // mask out bits we dont wanna check for
+    cmp = vceqq_u32(tags, cmp);
+    uint16x4_t res = vmovn_u32(cmp);
+    u64 set; memcpy(&set, &res, 4);
+    
+    if (!set) return false;
+    else set = __builtin_ctz(set) >> 3;
 
     {
 #else
@@ -762,6 +834,22 @@ bool ARMv5::DCacheWrite8(const u32 addr, const u8 val)
     else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
 
     {
+#elif defined(__ARM_NEON)
+    uint32x4_t tags = { DCacheTags[id+0], DCacheTags[id+1], DCacheTags[id+2], DCacheTags[id+3] }; // load tags
+    uint32x4_t mask = { ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK) }; // load mask
+    uint32x4_t cmp = { tag, tag, tag, tag }; // load tag and flag we're checking for
+    tags = vandq_u32(tags, mask); // mask out bits we dont wanna check for
+    cmp = vceqq_u32(tags, cmp);
+    uint16x4_t res = vmovn_u32(cmp);
+    u64 set; memcpy(&set, &res, 4);
+    
+    if (!set) return false;
+    else set = __builtin_ctz(set) >> 3;
+
+    {
 #else
     // fallback for loop; slow
     for (int set = 0; set < DCACHE_SETS; set++)
@@ -812,6 +900,22 @@ void ARMv5::DCacheInvalidateByAddr(const u32 addr)
 
     if (!set) return; // check if none of them were a match
     else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
+
+    {
+#elif defined(__ARM_NEON)
+    uint32x4_t tags = { DCacheTags[id+0], DCacheTags[id+1], DCacheTags[id+2], DCacheTags[id+3] }; // load tags
+    uint32x4_t mask = { ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK),
+                        ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK) }; // load mask
+    uint32x4_t cmp = { tag, tag, tag, tag }; // load tag and flag we're checking for
+    tags = vandq_u32(tags, mask); // mask out bits we dont wanna check for
+    cmp = vceqq_u32(tags, cmp);
+    uint16x4_t res = vmovn_u32(cmp);
+    u64 set; memcpy(&set, &res, 4);
+    
+    if (!set) return;
+    else set = __builtin_ctz(set) >> 3;
 
     {
 #else
