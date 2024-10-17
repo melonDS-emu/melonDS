@@ -1685,8 +1685,8 @@ void MainWindow::onOpenLuaScript()
         return;
     this->luaDialog = new LuaConsoleDialog(this);
     this->luaDialog->show();
-    //connect(emuThread,&EmuThread::signalLuaSaveState,mainWindow,&MainWindow::onLuaSaveState);
-    //connect(emuThread,&EmuThread::signalLuaLoadState,mainWindow,&MainWindow::onLuaLoadState);
+    connect(emuThread,&EmuThread::signalLuaSaveState,this,&MainWindow::onLuaSaveState);
+    connect(emuThread,&EmuThread::signalLuaLoadState,this,&MainWindow::onLuaLoadState);
 }
 
 void MainWindow::onEnableCheats(bool checked)

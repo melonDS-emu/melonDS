@@ -1,6 +1,8 @@
 -- Simple Script to test most of the different Lua Functions for MelonDS
 -- Written by NPO197
 
+--TODO: re-write to make more readable
+
 MelonClear()
 
 MelonPrint("This text Should be cleared")
@@ -37,8 +39,8 @@ Rect(0,0,55,11,0xff00ff00)
 
 DrawImage("Lua-Logo_128x128.png",0,60)
 
-Text(0,200,"WASD to move \"lua Stylus\", Q to tap screen",0xffffff)
-
+Text(0,200,"WASD to move \"lua Stylus\", Q to tap screen.",0xffffff)
+Text(0,210,"T to create savestate, R to load savestate.",0xffffff)
 --ClearHash()
 
 Flip()
@@ -105,7 +107,7 @@ textFunctions = {
 function TextLoop()
     SetCanvas(textCanvas)
     ClearOverlay()
-    y = 0
+    local y = 0
     for _,tfunct in ipairs(textFunctions) do
         y = y+10
         Text(0,y,tfunct(),0xffffff)
@@ -118,7 +120,12 @@ Stylus = {
     y = 0,
 }
 
-function Stylus:Loop()
+Btns = {
+    Tup = true,
+    Rup = true
+}
+
+function StylusLoop()
     move = {
         --Key = {dx,dy}
         ["W"] = {0,-1},
@@ -129,19 +136,39 @@ function Stylus:Loop()
     mask = KeyboardMask()
     for tkey,dir in pairs(move) do
         if mask[string.byte(tkey)] then
-            self.x=self.x+dir[1]
-            self.y=self.y+dir[2]
+            Stylus.x=Stylus.x+dir[1]
+            Stylus.y=Stylus.y+dir[2]
         end
     end
     if mask[string.byte("Q")] then
-        NDSTapDown(self.x,self.y)
+        NDSTapDown(Stylus.x,Stylus.y)
     else
         NDSTapUp()
     end
+
+    if mask[string.byte("T")] then
+        if Btns.Tup then
+            StateSave("SaveState_Auto.mln")
+            MelonPrint("Here")
+            Btns.Tup = false
+        end
+    else
+        Btns.Tup = true
+    end
+
+    if mask[string.byte("R")] then
+        if Btns.Rup then
+            StateLoad("SaveState_Auto.mln")
+            Btns.Rup = false
+        end
+    else
+        Btns.Rup = true
+    end
+
     SetCanvas(vstylusCanvas)
     ClearOverlay()
-    Ellipse(self.x-5,self.y-5,10,10,0xffffffff)
-    Ellipse(self.x-2,self.y-2,4,4,0x00000000)    
+    Ellipse(Stylus.x-5,Stylus.y-5,10,10,0xffffffff)
+    Ellipse(Stylus.x-2,Stylus.y-2,4,4,0x00000000)    
     Flip()
 end
 
@@ -149,5 +176,5 @@ textCanvas = MakeCanvas(0,12,500,100)
 vstylusCanvas = MakeCanvas(0,0,256,192,1) -- bottom screen
 function _Update()
     TextLoop()
-    Stylus:Loop()
+    StylusLoop()
 end
