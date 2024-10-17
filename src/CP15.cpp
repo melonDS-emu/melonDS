@@ -361,11 +361,11 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)); // load copies of the mask into each 32 bits
     __m128i cmp = _mm_set1_epi32(tag | CACHE_FLAG_VALID); // load the tag we're checking for into each 32 bit
     tags = _mm_and_si128(tags, mask); // mask out the bits we dont want to check for
-    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match
-    u32 set = _mm_movemask_epi8(cmp); // move the 8 msb of each field into a single 32 bit integer
+    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match; sets all bits of each value to either 0 or 1 depending on the result
+    u32 set = _mm_movemask_ps(_mm_castsi128_ps(cmp)); // move the "sign bits" of each field into the low 4 bits of a 32 bit integer
 
     if (!set) goto miss; // check if none of them were a match
-    else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
+    else set = __builtin_ctz(set); // count trailing zeros and right shift to figure out which set had a match 
 
     {
 #elif defined(__ARM_NEON)
@@ -550,11 +550,11 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)); // load copies of the mask into each 32 bits
     __m128i cmp = _mm_set1_epi32(tag | CACHE_FLAG_VALID); // load the tag we're checking for into each 32 bit
     tags = _mm_and_si128(tags, mask); // mask out the bits we dont want to check for
-    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match
-    u32 set = _mm_movemask_epi8(cmp); // move the 8 msb of each field into a single 32 bit integer
+    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match; sets all bits of each value to either 0 or 1 depending on the result
+    u32 set = _mm_movemask_ps(_mm_castsi128_ps(cmp)); // move the "sign bits" of each field into the low 4 bits of a 32 bit integer
 
     if (!set) goto miss; // check if none of them were a match
-    else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
+    else set = __builtin_ctz(set); // count trailing zeros and right shift to figure out which set had a match 
 
     {
 #elif defined(__ARM_NEON)
@@ -690,11 +690,11 @@ bool ARMv5::DCacheWrite32(const u32 addr, const u32 val)
     __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)); // load copies of the mask into each 32 bits
     __m128i cmp = _mm_set1_epi32(tag); // load the tag we're checking for into each 32 bit
     tags = _mm_and_si128(tags, mask); // mask out the bits we dont want to check for
-    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match
-    u32 set = _mm_movemask_epi8(cmp); // move the 8 msb of each field into a single 32 bit integer
+    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match; sets all bits of each value to either 0 or 1 depending on the result
+    u32 set = _mm_movemask_ps(_mm_castsi128_ps(cmp)); // move the "sign bits" of each field into the low 4 bits of a 32 bit integer
 
     if (!set) return false; // check if none of them were a match
-    else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
+    else set = __builtin_ctz(set); // count trailing zeros and right shift to figure out which set had a match 
 
     {
 #elif defined(__ARM_NEON)
@@ -758,11 +758,11 @@ bool ARMv5::DCacheWrite16(const u32 addr, const u16 val)
     __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)); // load copies of the mask into each 32 bits
     __m128i cmp = _mm_set1_epi32(tag); // load the tag we're checking for into each 32 bit
     tags = _mm_and_si128(tags, mask); // mask out the bits we dont want to check for
-    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match
-    u32 set = _mm_movemask_epi8(cmp); // move the 8 msb of each field into a single 32 bit integer
+    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match; sets all bits of each value to either 0 or 1 depending on the result
+    u32 set = _mm_movemask_ps(_mm_castsi128_ps(cmp)); // move the "sign bits" of each field into the low 4 bits of a 32 bit integer
 
     if (!set) return false; // check if none of them were a match
-    else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
+    else set = __builtin_ctz(set); // count trailing zeros and right shift to figure out which set had a match 
 
     {
 #elif defined(__ARM_NEON)
@@ -827,11 +827,11 @@ bool ARMv5::DCacheWrite8(const u32 addr, const u8 val)
     __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)); // load copies of the mask into each 32 bits
     __m128i cmp = _mm_set1_epi32(tag); // load the tag we're checking for into each 32 bit
     tags = _mm_and_si128(tags, mask); // mask out the bits we dont want to check for
-    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match
-    u32 set = _mm_movemask_epi8(cmp); // move the 8 msb of each field into a single 32 bit integer
+    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match; sets all bits of each value to either 0 or 1 depending on the result
+    u32 set = _mm_movemask_ps(_mm_castsi128_ps(cmp)); // move the "sign bits" of each field into the low 4 bits of a 32 bit integer
 
     if (!set) return false; // check if none of them were a match
-    else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
+    else set = __builtin_ctz(set); // count trailing zeros and right shift to figure out which set had a match 
 
     {
 #elif defined(__ARM_NEON)
@@ -895,11 +895,11 @@ void ARMv5::DCacheInvalidateByAddr(const u32 addr)
     __m128i mask = _mm_set1_epi32(~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)); // load copies of the mask into each 32 bits
     __m128i cmp = _mm_set1_epi32(tag); // load the tag we're checking for into each 32 bit
     tags = _mm_and_si128(tags, mask); // mask out the bits we dont want to check for
-    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match
-    u32 set = _mm_movemask_epi8(cmp); // move the 8 msb of each field into a single 32 bit integer
+    cmp = _mm_cmpeq_epi32(tags, cmp); // compare to see if any bits match; sets all bits of each value to either 0 or 1 depending on the result
+    u32 set = _mm_movemask_ps(_mm_castsi128_ps(cmp)); // move the "sign bits" of each field into the low 4 bits of a 32 bit integer
 
     if (!set) return; // check if none of them were a match
-    else set = (__builtin_ctz(set) >> 2); // count trailing zeros and right shift to figure out which set had a match 
+    else set = __builtin_ctz(set); // count trailing zeros and right shift to figure out which set had a match 
 
     {
 #elif defined(__ARM_NEON)
