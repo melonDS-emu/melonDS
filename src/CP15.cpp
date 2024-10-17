@@ -384,7 +384,7 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     u64 set; memcpy(&set, &res, 4);
     
     if (!set) goto miss;
-    else set = __builtin_ctz(set) >> 3;
+    else set = __builtin_ctz(set) >> 4;
 
     {
 #else
@@ -573,7 +573,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     u64 set; memcpy(&set, &res, 4);
     
     if (!set) goto miss;
-    else set = __builtin_ctz(set) >> 3;
+    else set = __builtin_ctz(set) >> 4;
 
     {
 #else
@@ -710,7 +710,7 @@ bool ARMv5::DCacheWrite32(const u32 addr, const u32 val)
     u64 set; memcpy(&set, &res, 4);
     
     if (!set) return false;
-    else set = __builtin_ctz(set) >> 3;
+    else set = __builtin_ctz(set) >> 4;
 
     {
 #else
@@ -778,7 +778,7 @@ bool ARMv5::DCacheWrite16(const u32 addr, const u16 val)
     u64 set; memcpy(&set, &res, 4);
     
     if (!set) return false;
-    else set = __builtin_ctz(set) >> 3;
+    else set = __builtin_ctz(set) >> 4;
 
     {
 #else
@@ -847,7 +847,7 @@ bool ARMv5::DCacheWrite8(const u32 addr, const u8 val)
     u64 set; memcpy(&set, &res, 4);
     
     if (!set) return false;
-    else set = __builtin_ctz(set) >> 3;
+    else set = __builtin_ctz(set) >> 4;
 
     {
 #else
@@ -915,7 +915,7 @@ void ARMv5::DCacheInvalidateByAddr(const u32 addr)
     u64 set; memcpy(&set, &res, 4);
     
     if (!set) return;
-    else set = __builtin_ctz(set) >> 3;
+    else set = __builtin_ctz(set) >> 4;
 
     {
 #else
