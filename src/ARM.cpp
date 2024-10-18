@@ -1184,14 +1184,14 @@ void ARMv5::HandleInterlocksExecute(u16 ilmask)
 {
     if ((bitfield && (ilmask & (1<<ILCurrReg))) || (!bitfield && (ilmask == ILCurrReg)))
     {
-        if (NDS.ARM9Timestamp > ILCurrTime) NDS.ARM9Timestamp = ILCurrTime;
+        if (NDS.ARM9Timestamp < ILCurrTime) NDS.ARM9Timestamp = ILCurrTime;
         ILCurrReg = 16;
         ILPrevReg = 16;
         return;
     }
     else if ((bitfield && (ilmask & (1<<ILPrevReg))) || (!bitfield && (ilmask == ILCurrReg)))
     {
-        if (NDS.ARM9Timestamp > ILPrevTime) NDS.ARM9Timestamp = ILPrevTime;
+        if (NDS.ARM9Timestamp < ILPrevTime) NDS.ARM9Timestamp = ILPrevTime;
     }
 
     ILPrevReg = ILCurrReg;
@@ -1203,7 +1203,7 @@ template void ARMv5::HandleInterlocksExecute<false>(u16 ilmask);
 
 void ARMv5::HandleInterlocksMemory(u8 reg)
 {
-    if ((reg != ILPrevReg) || (NDS.ARM9Timestamp <= ILPrevTime)) return;
+    if ((reg != ILPrevReg) || (NDS.ARM9Timestamp >= ILPrevTime)) return;
 
     NDS.ARM9Timestamp = ILPrevTime;
     ILPrevTime = 16;
