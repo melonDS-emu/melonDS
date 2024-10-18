@@ -602,6 +602,9 @@ int Lua_drawImage(lua_State* L)
     else
     {
         image=QImage(path);
+        char str[256];
+        sprintf(str,"Got Image:%s, of size %i,%i",path.toStdString().c_str(),image.width(),image.height());
+        bundle->getEmuThread()->onLuaPrint(str);
         (*bundle->imageHash)[path] = image;
     }
     painter.drawImage(x,y,image,sx,sy,sw,sh);
