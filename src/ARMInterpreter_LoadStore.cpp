@@ -617,6 +617,12 @@ void A_LDM(ARM* cpu)
         
     cpu->AddCycles_CDI();
 
+    if (__builtin_popcount(cpu->CurInstr & 0xFFFF) == 1) [[unlikely]] // single reg
+    {
+        if (cpu->Num == 0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+        else; // CHECKME: ARM7 timing behavior?
+    }
+
     // handle data aborts
     if (dabort) [[unlikely]]
     {
@@ -734,6 +740,12 @@ void A_STM(ARM* cpu)
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
 
     cpu->AddCycles_CD();
+
+    if (__builtin_popcount(cpu->CurInstr & 0xFFFF) == 1) [[unlikely]] // single reg
+    {
+        if (cpu->Num == 0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+        else; // CHECKME: ARM7 timing behavior?
+    }
 
     // handle data aborts
     if (dabort) [[unlikely]]
@@ -909,6 +921,12 @@ void T_PUSH(ARM* cpu)
 
     cpu->AddCycles_CD();
 
+    if (__builtin_popcount(cpu->CurInstr & 0x1FF) == 1) [[unlikely]] // single reg
+    {
+        if (cpu->Num == 0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+        else; // CHECKME: ARM7 timing behavior?
+    }
+
     if (dabort) [[unlikely]]
     {
         ((ARMv5*)cpu)->DataAbort();
@@ -952,31 +970,45 @@ void T_POP(ARM* cpu)
         dabort |= !(first ? cpu->DataRead32 (base, &pc)
                           : cpu->DataRead32S(base, &pc));
 
-        if (dabort) [[unlikely]] goto dataabort;
+        if (!dabort) [[likely]]
+        {
+            cpu->AddCycles_CDI();
 
-        cpu->AddCycles_CDI();
-        if (cpu->Num==1 || (((ARMv5*)cpu)->CP15Control & (1<<15))) pc |= 0x1;
-        cpu->JumpTo(pc);
-        base += 4;
+            if (__builtin_popcount(cpu->CurInstr & 0x1FF) == 1) [[unlikely]] // single reg
+            {
+                if (cpu->Num == 0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+                else; // CHECKME: ARM7 timing behavior?
+            }
+
+            if (cpu->Num==1 || (((ARMv5*)cpu)->CP15Control & (1<<15))) pc |= 0x1;
+            cpu->JumpTo(pc);
+            base += 4;
+        }
     }
     else
     {
         cpu->AddCycles_CDI();
 
+        if (__builtin_popcount(cpu->CurInstr & 0x1FF) == 1) [[unlikely]] // single reg
+        {
+            if (cpu->Num == 0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+            else; // CHECKME: ARM7 timing behavior?
+        }
+
         if (cpu->Num == 0)
         {
-            u8 lastreg = 31 - __builtin_clz(cpu->CurInstr & 0xFF);
-            ((ARMv5*)cpu)->ILCurrReg = lastreg;
-            ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+            if (dabort) [[unlikely]]
+            {
+                ((ARMv5*)cpu)->DataAbort();
+                return;
+            }
+            else
+            {
+                u8 lastreg = 31 - __builtin_clz(cpu->CurInstr & 0xFF);
+                ((ARMv5*)cpu)->ILCurrReg = lastreg;
+                ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+            }
         }
-    }
-
-    if (dabort) [[unlikely]]
-    {
-        dataabort:
-        cpu->AddCycles_CDI();
-        ((ARMv5*)cpu)->DataAbort();
-        return;
     }
 
     cpu->R[13] = base;
@@ -1014,6 +1046,12 @@ void T_STMIA(ARM* cpu)
     }
 
     cpu->AddCycles_CD();
+
+    if (__builtin_popcount(cpu->CurInstr & 0xFF) == 1) [[unlikely]] // single reg
+    {
+        if (cpu->Num == 0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+        else; // CHECKME: ARM7 timing behavior?
+    }
 
     if (dabort) [[unlikely]]
     {
@@ -1054,12 +1092,18 @@ void T_LDMIA(ARM* cpu)
 
     cpu->AddCycles_CDI();
 
+    if (__builtin_popcount(cpu->CurInstr & 0xFF) == 1) [[unlikely]] // single reg
+    {
+        if (cpu->Num == 0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+        else; // CHECKME: ARM7 timing behavior?
+    }
+
     if (dabort) [[unlikely]]
     {
         ((ARMv5*)cpu)->DataAbort();
         return;
     }
-    
+
     if (cpu->Num == 0)
     {
         u8 lastreg = 31 - __builtin_clz(cpu->CurInstr & 0xFF);

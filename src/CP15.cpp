@@ -321,7 +321,7 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
         {
             MemTimings[i][1] = ((bustimings[0] - 1) << NDS.ARM9ClockShift) + 1;
             MemTimings[i][2] = ((bustimings[2] - 1) << NDS.ARM9ClockShift) + 1;
-            MemTimings[i][3] = bustimings[3] << NDS.ARM9ClockShift; // inaccurate but ehgh
+            MemTimings[i][3] = ((bustimings[3] - 1) << NDS.ARM9ClockShift) + 1;; // inaccurate but ehgh
         }
     }
 }
@@ -1367,7 +1367,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
 
         if ((addr >> 24) == 0x02)
         {
-            if ((DataRegion != Mem9_MainRAM) && ((NDS.ARM9Timestamp + DataCycles) < MainRAMTimestamp)) NDS.ARM9Timestamp = MainRAMTimestamp - DataCycles;
+            if ((DataRegion != Mem9_MainRAM) && ((NDS.ARM9Timestamp + DataCycles) < MainRAMTimestamp)) DataCycles += MainRAMTimestamp - NDS.ARM9Timestamp;
             MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
             DataRegion = Mem9_MainRAM;
         }
