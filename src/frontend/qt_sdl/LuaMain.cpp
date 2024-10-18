@@ -495,12 +495,12 @@ int Lua_text(lua_State* L)
     int y = luaL_checknumber(L,2);
     const char* message = luaL_checklstring(L,3,NULL);
     melonDS::u32 color = luaL_optnumber(L,4,0x00000000);
-    QString FontFamily = luaL_optlstring(L,6,"Franklin Gothic Medium",NULL);
+    QString FontFamily = luaL_optlstring(L,6,"Monospace",NULL);
     int size = luaL_optnumber(L,5,9);
     QPainter painter(bundle->luaCanvas->imageBuffer);
     QFont font(FontFamily,size,0,false);
-    font.setStyleStrategy(QFont::NoAntialias);
-    font.setLetterSpacing(QFont::AbsoluteSpacing,-1);
+    //font.setStyleStrategy(QFont::NoAntialias);
+    //font.setLetterSpacing(QFont::AbsoluteSpacing,-1);
     painter.setFont(font);
     painter.setPen(color);
     painter.drawText(x,y,message);

@@ -1,8 +1,6 @@
 -- Simple Script to test most of the different Lua Functions for MelonDS
 -- Written by NPO197
 
---TODO: re-write to make more readable
-
 MelonClear()
 MelonPrint("This text Should be cleared")
 MelonClear()
@@ -31,59 +29,35 @@ Flip()
 
 -------- Main Loop ----------
 
-textFunctions = {} --Declare the Table
-
-Stylus = {
-    x = 0,
-    y = 0,
-}
-
-Btns = {
-    Tup = true,
-    Rup = true
-}
---string -> ASCII Byte (only first char)
-function BYTE(str)
-    if #str~=1 then
-        error("BYTE expects string of length 1")
-    end
-    return string.byte(str)    
-end
-
+updateFlags = {}
+Stylus = {x=0,y=0,}
 textCanvas = MakeCanvas(0,12,500,100)
 vstylusCanvas = MakeCanvas(0,0,256,192,1) -- bottom screen
 
 --Gets Called once every frame
 function _Update()
-    
+    updateFlags = {} -- Reset updateFlags at start of each frame
+
     --Text Functions
     SetCanvas(textCanvas)
     ClearOverlay()
     local y = 0
-    for _,tfunct in ipairs(textFunctions) do
+    for _,tfunct in ipairs({
+        MousePosText,
+        MouseButtonText,
+        KeysText,
+        JoyText
+    }) do
         y = y+10
         Text(0,y,tfunct(),0xffffff)
     end
     Flip()
 
-    mask = KeyboardMask()
-
-    --Save State
-    if mask[BYTE("T")] then
-        if Btns.Tup then
-            StateSave("SaveState_Auto.mln")
-            Btns.Tup = false
-        end
-    else
-        Btns.Tup = true
-    end
-    if mask[BYTE("R")] then
-        if Btns.Rup then
-            StateLoad("SaveState_Auto.mln")
-            Btns.Rup = false
-        end
-    else
-        Btns.Rup = true
+    --SaveState stuff
+    if KeyPress("T") then
+        StateSave("SaveState_Auto.mln")
+    elseif KeyPress("R") then
+        StateLoad("SaveState_Auto.mln")
     end
 
     --StylusLoop
@@ -94,24 +68,22 @@ function _Update()
         ["S"] = { 0, 1},
         ["D"] = { 1, 0}
     }) do
-        if mask[BYTE(key)] then
+        if KeyHeld(key) then
             Stylus.x=Stylus.x+dir[1]
             Stylus.y=Stylus.y+dir[2]
         end
     end
-    if mask[BYTE("Q")] then
+
+    if KeyHeld("Q") then
         NDSTapDown(Stylus.x,Stylus.y)
     else
         NDSTapUp()
     end
-    DrawStylus(mask)
+    
+    DrawStylus()
 end
 
-
-
-
-
---textFunctions
+--Text Functions
 
 function MousePosText()
     mouse = GetMouse()
@@ -119,9 +91,8 @@ function MousePosText()
 end
 
 function MouseButtonText()
-    mouse = GetMouse()
     str = ""
-    for k,v in pairs(mouse) do
+    for k,v in pairs(GetMouse()) do
         if k~="X" and k~="Y" and v then
             str = str..k
         end
@@ -131,7 +102,6 @@ end
 
 typed = ""
 keys = {}
-
 function KeysText() 
     keys = Keys()
     str = ""
@@ -148,7 +118,6 @@ function KeysText()
 end
 
 joys = {}
-
 function JoyText()
     joys = GetJoy()
     str = ""
@@ -160,16 +129,31 @@ function JoyText()
     return "Joy:"..str
 end
 
-textFunctions = {MousePosText,MouseButtonText,KeysText,JoyText} --Initalize Table
-
---Draw Stylus
-
 function DrawStylus()
     SetCanvas(vstylusCanvas)
     ClearOverlay()
     Ellipse(Stylus.x-5,Stylus.y-5,10,10,0xffffffff)
     Ellipse(Stylus.x-2,Stylus.y-2,4,4,0x00000000)    
     Flip()
+end
+
+function KeyHeld(keyStr)
+    -- Only need to update mask once per frame
+    if updateFlags.KeyboardCheck == nil then
+        mask = KeyboardMask()
+        updateFlags.KeyboardCheck = true 
+    end
+    return mask[string.byte(keyStr:sub(1,1))]
+end
+
+Btns = {}
+function KeyPress(keyStr)
+    if KeyHeld(keyStr) and Btns[keyStr]  then
+        Btns[keyStr] = false
+        return true
+    end
+    Btns[keyStr] = true
+    return false
 end
 
 
