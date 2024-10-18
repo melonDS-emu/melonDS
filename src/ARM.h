@@ -263,23 +263,6 @@ public:
     bool DataWrite16(u32 addr, u16 val) override;
     bool DataWrite32(u32 addr, u32 val) override;
     bool DataWrite32S(u32 addr, u32 val) override;
-    
-    template<u8 nregs>
-    void ExecuteStage(u8 rn, u8 rm)
-    {
-        static_assert((nregs < 2), "too many regs");
-
-        if constexpr (nregs == 1)
-        {
-            InterlockMask = 1 << rn;
-        }
-        if constexpr (nregs == 2)
-        {
-            InterlockMask = 1 << rn | 1 << rm;
-        }
-
-        AddCycles_C();
-    }
 
     void CodeFetch();
 
@@ -300,6 +283,10 @@ public:
         AddCycles_MW(DataCycles);
         DataCycles = 0;
     }
+    
+    template <bool bitfield>
+    void HandleInterlocksExecute(u16 ilmask);
+    void HandleInterlocksMemory(u8 reg);
 
     void GetCodeMemRegion(u32 addr, MemRegion* region);
 
@@ -371,14 +358,14 @@ public:
     
     u64 ITCMTimestamp;
     u64 TimestampActual;
-    u8 InterlockMem;
-    u8 InterlockWBCur;
-    u8 InterlockWBPrev;
-    bool Store;
-    u16 InterlockMask;
-    bool NullFetch;
     u32 PC;
+    bool NullFetch;
+    bool Store;
 
+    u8 ILCurrReg;
+    u8 ILPrevReg;
+    u64 ILCurrTime;
+    u64 ILPrevTime;
 
     u8 WBWritePointer; // which entry to attempt to write next; should always be ANDed with 0xF after incrementing
     u8 WBFillPointer; // where the next entry should be added; should always be ANDed with 0xF after incrementing

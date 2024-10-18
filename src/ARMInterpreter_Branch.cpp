@@ -51,12 +51,14 @@ void A_BLX_IMM(ARM* cpu)
 
 void A_BX(ARM* cpu)
 {
+    if (cpu->Num==0) ((ARMv5*)cpu)->HandleInterlocksExecute<false>(cpu->CurInstr&0xF);
     cpu->AddCycles_C();
     cpu->JumpTo(cpu->R[cpu->CurInstr & 0xF]);
 }
 
 void A_BLX_REG(ARM* cpu)
 {
+    if (cpu->Num==0) ((ARMv5*)cpu)->HandleInterlocksExecute<false>(cpu->CurInstr&0xF);
     cpu->AddCycles_C();
     u32 lr = cpu->R[15] - 4;
     cpu->JumpTo(cpu->R[cpu->CurInstr & 0xF]);
@@ -77,12 +79,14 @@ void T_BCOND(ARM* cpu)
 
 void T_BX(ARM* cpu)
 {
+    if (cpu->Num==0) ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 3) & 0xF);
     cpu->AddCycles_C();
     cpu->JumpTo(cpu->R[(cpu->CurInstr >> 3) & 0xF]);
 }
 
 void T_BLX_REG(ARM* cpu)
 {
+    if (cpu->Num==0) ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 3) & 0xF);
     cpu->AddCycles_C();
     if (cpu->Num==1)
     {

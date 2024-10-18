@@ -200,13 +200,11 @@ void ARM::Reset()
 void ARMv5::Reset()
 {
     PU_Map = PU_PrivMap;
+    Store = false;
     
     TimestampActual = 0;
-    InterlockMem = 16;
-    InterlockWBCur = 16;
-    InterlockWBPrev = 16;
-    Store = false;
-    InterlockMask = 0;
+    ILCurrReg = 16;
+    ILPrevReg = 16;
 
     WBWritePointer = 16;
     WBFillPointer = 0;
@@ -1152,7 +1150,7 @@ u32 ARMv5::ReadMem(u32 addr, int size)
 #endif
 
 
-inline void ARMv5::CodeFetch()
+void ARMv5::CodeFetch()
 {
     if (NullFetch)
     {
@@ -1179,6 +1177,36 @@ void ARMv5::AddCycles_MW(s32 numM)
     numM -= 3<<NDS.ARM9ClockShift;
 
     if (numM > 0) NDS.ARM9Timestamp += numM;
+}
+
+template <bool bitfield>
+void ARMv5::HandleInterlocksExecute(u16 ilmask)
+{
+    if ((bitfield && (ilmask & (1<<ILCurrReg))) || (!bitfield && (ilmask == ILCurrReg)))
+    {
+        if (NDS.ARM9Timestamp > ILCurrTime) NDS.ARM9Timestamp = ILCurrTime;
+        ILCurrReg = 16;
+        ILPrevReg = 16;
+        return;
+    }
+    else if ((bitfield && (ilmask & (1<<ILPrevReg))) || (!bitfield && (ilmask == ILCurrReg)))
+    {
+        if (NDS.ARM9Timestamp > ILPrevTime) NDS.ARM9Timestamp = ILPrevTime;
+    }
+
+    ILPrevReg = ILCurrReg;
+    ILPrevTime = ILCurrTime;
+    ILCurrReg = 16;
+}
+template void ARMv5::HandleInterlocksExecute<true>(u16 ilmask);
+template void ARMv5::HandleInterlocksExecute<false>(u16 ilmask);
+
+void ARMv5::HandleInterlocksMemory(u8 reg)
+{
+    if ((reg != ILPrevReg) || (NDS.ARM9Timestamp <= ILPrevTime)) return;
+
+    NDS.ARM9Timestamp = ILPrevTime;
+    ILPrevTime = 16;
 }
 
 u16 ARMv4::CodeRead16(u32 addr)
