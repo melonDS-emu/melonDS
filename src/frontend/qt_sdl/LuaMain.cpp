@@ -499,7 +499,7 @@ int Lua_text(lua_State* L)
     int size = luaL_optnumber(L,5,9);
     QPainter painter(bundle->luaCanvas->imageBuffer);
     QFont font(FontFamily,size,0,false);
-    font.setStyleStrategy(QFont::NoAntialias);
+    //font.setStyleStrategy(QFont::NoAntialias);
     //font.setLetterSpacing(QFont::AbsoluteSpacing,-1);
     painter.setFont(font);
     painter.setPen(color);
