@@ -36,6 +36,7 @@ namespace melonDS::ARMInterpreter
 
 void A_UNK(ARM* cpu)
 {
+    cpu->AddCycles_C();
     Log(LogLevel::Warn, "undefined ARM%d instruction %08X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-8);
 #ifdef GDBSTUB_ENABLED
     cpu->GdbStub.Enter(cpu->GdbStub.IsConnected(), Gdb::TgtStatus::FaultInsn, cpu->R[15]-8);
@@ -54,6 +55,7 @@ void A_UNK(ARM* cpu)
 
 void T_UNK(ARM* cpu)
 {
+    cpu->AddCycles_C();
     Log(LogLevel::Warn, "undefined THUMB%d instruction %04X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-4);
 #ifdef GDBSTUB_ENABLED
     cpu->GdbStub.Enter(cpu->GdbStub.IsConnected(), Gdb::TgtStatus::FaultInsn, cpu->R[15]-4);
@@ -151,6 +153,8 @@ void A_MSR_IMM(ARM* cpu)
 
 void A_MSR_REG(ARM* cpu)
 {
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<false>(cpu->CurInstr & 0xF);
+
     u32* psr;
     if (cpu->CurInstr & (1<<22))
     {
@@ -273,6 +277,8 @@ void A_MCR(ARM* cpu)
     u32 val = cpu->R[(cpu->CurInstr>>12)&0xF];
     if (((cpu->CurInstr>>12) & 0xF) == 15) val += 4;
 
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr>>12)&0xF);
+
     if (cpu->Num==0 && cp==15)
     {
         ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo|(op<<12), val);
@@ -335,6 +341,7 @@ void A_MRC(ARM* cpu)
 
 void A_SVC(ARM* cpu) // A_SWI
 {
+    cpu->AddCycles_C();
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
     cpu->CPSR |= 0x93;
@@ -347,6 +354,7 @@ void A_SVC(ARM* cpu) // A_SWI
 
 void T_SVC(ARM* cpu) // T_SWI
 {
+    cpu->AddCycles_C();
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
     cpu->CPSR |= 0x93;

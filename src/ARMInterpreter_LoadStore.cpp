@@ -18,10 +18,21 @@
 
 #include <stdio.h>
 #include "ARM.h"
+#include "NDS.h"
 
 
 namespace melonDS::ARMInterpreter
 {
+
+template <bool bitfield>
+inline void ExecuteStage(ARM* cpu, u16 ilmask)
+{
+    if (cpu->Num == 0)
+    {
+        ((ARMv5*)cpu)->HandleInterlocksExecute<bitfield>(ilmask);
+        ((ARMv5*)cpu)->AddCycles_C();
+    }
+}
 
 
 // copypasta from ALU. bad
@@ -50,13 +61,15 @@ namespace melonDS::ARMInterpreter
 
 #define A_WB_CALC_OFFSET_IMM \
     u32 offset = (cpu->CurInstr & 0xFFF); \
-    if (!(cpu->CurInstr & (1<<23))) offset = -offset;
+    if (!(cpu->CurInstr & (1<<23))) offset = -offset; \
+    u16 ilmask = 0;
 
 #define A_WB_CALC_OFFSET_REG(shiftop) \
     u32 offset = cpu->R[cpu->CurInstr & 0xF]; \
     u32 shift = ((cpu->CurInstr>>7)&0x1F); \
     shiftop(offset, shift); \
-    if (!(cpu->CurInstr & (1<<23))) offset = -offset;
+    if (!(cpu->CurInstr & (1<<23))) offset = -offset; \
+    u16 ilmask = 1 << (cpu->CurInstr & 0xF);
 
 enum class Writeback
 {
@@ -66,10 +79,12 @@ enum class Writeback
     Trans,
 };
 
-template<bool signror, int size, Writeback writeback>
-void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
+template<bool signror, int size, Writeback writeback, bool multireg>
+void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset, u16 ilmask)
 {
     static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
+    
+    ExecuteStage<multireg>(cpu, (ilmask | (1<<rn)));
 
     u32 addr;
     if constexpr (writeback < Writeback::Post) addr = offset + cpu->R[rn];
@@ -110,13 +125,24 @@ void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
         if (cpu->Num==1 || (((ARMv5*)cpu)->CP15Control & (1<<15))) val &= ~0x1;
         cpu->JumpTo(val);
     }
-    else cpu->R[rd] = val;
+    else
+    {
+        cpu->R[rd] = val;
+        if (cpu->Num == 0)
+        {
+            ((ARMv5*)cpu)->ILCurrReg = rd;
+            bool extra = ((size < 32) || (signror && (addr&0x3)));
+            ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual + ((ARMv5*)cpu)->DataCycles + extra;
+        }
+    }
 }
 
-template<int size, Writeback writeback>
-void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
+template<int size, Writeback writeback, bool multireg>
+void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset, u16 ilmask)
 {
     static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
+
+    ExecuteStage<multireg>(cpu, (ilmask | (1<<rn)));
 
     u32 addr;
     if constexpr (writeback < Writeback::Post) addr = offset + cpu->R[rn];
@@ -130,6 +156,8 @@ void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
         if (cpu->Num == 0)
             ((ARMv5*)cpu)->PU_Map = ((ARMv5*)cpu)->PU_UserMap;
     }
+
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksMemory(rd);
 
     bool dabort;
     if constexpr (size == 8)  dabort = !cpu->DataWrite8 (addr, storeval);
@@ -154,36 +182,36 @@ void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
 
 
 #define A_STR \
-    if (cpu->CurInstr & (1<<21)) StoreSingle<32, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
-    else StoreSingle<32, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) StoreSingle<32, Writeback::Pre, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
+    else StoreSingle<32, Writeback::None, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_STR_POST \
-    if (cpu->CurInstr & (1<<21)) StoreSingle<32, Writeback::Trans>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
-    else StoreSingle<32, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) StoreSingle<32, Writeback::Trans, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
+    else StoreSingle<32, Writeback::Post, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_STRB \
-    if (cpu->CurInstr & (1<<21)) StoreSingle<8, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
-    else StoreSingle<8, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) StoreSingle<8, Writeback::Pre, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
+    else StoreSingle<8, Writeback::None, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_STRB_POST \
-    if (cpu->CurInstr & (1<<21)) StoreSingle<8, Writeback::Trans>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
-    else StoreSingle<8, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) StoreSingle<8, Writeback::Trans, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
+    else StoreSingle<8, Writeback::Post, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_LDR \
-    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 32, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
-    else LoadSingle<true, 32, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 32, Writeback::Pre, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
+    else LoadSingle<true, 32, Writeback::None, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_LDR_POST \
-    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 32, Writeback::Trans>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
-    else LoadSingle<true, 32, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 32, Writeback::Trans, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
+    else LoadSingle<true, 32, Writeback::Post, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_LDRB \
-    if (cpu->CurInstr & (1<<21)) LoadSingle<false, 8, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
-    else LoadSingle<false, 8, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) LoadSingle<false, 8, Writeback::Pre, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
+    else LoadSingle<false, 8, Writeback::None, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_LDRB_POST \
-    if (cpu->CurInstr & (1<<21)) LoadSingle<false, 8, Writeback::Trans>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
-    else LoadSingle<false, 8, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) LoadSingle<false, 8, Writeback::Trans, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
+    else LoadSingle<false, 8, Writeback::Post, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 
 
@@ -258,20 +286,22 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 
 #define A_HD_CALC_OFFSET_IMM \
     u32 offset = (cpu->CurInstr & 0xF) | ((cpu->CurInstr >> 4) & 0xF0); \
-    if (!(cpu->CurInstr & (1<<23))) offset = -offset;
+    if (!(cpu->CurInstr & (1<<23))) offset = -offset; \
+    u16 ilmask = 0;
 
 #define A_HD_CALC_OFFSET_REG \
     u32 offset = cpu->R[cpu->CurInstr & 0xF]; \
-    if (!(cpu->CurInstr & (1<<23))) offset = -offset;
+    if (!(cpu->CurInstr & (1<<23))) offset = -offset; \
+    u16 ilmask = 1 << (cpu->CurInstr & 0xF);
 
 
 
 #define A_STRH \
-    if (cpu->CurInstr & (1<<21)) StoreSingle<16, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
-    else StoreSingle<16, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) StoreSingle<16, Writeback::Pre, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
+    else StoreSingle<16, Writeback::None, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_STRH_POST \
-    StoreSingle<16, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    StoreSingle<16, Writeback::Post, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 // TODO: CHECK LDRD/STRD TIMINGS!!
 
@@ -280,15 +310,19 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
+    ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
     bool dabort = !cpu->DataRead32(offset, &cpu->R[r]); \
     u32 val; dabort |= !cpu->DataRead32S(offset+4, &val); \
+    cpu->AddCycles_CDI(); \
     if (dabort) { \
-        cpu->AddCycles_CDI(); \
         ((ARMv5*)cpu)->DataAbort(); \
         return; } \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
-    else cpu->R[r+1] = val; \
-    cpu->AddCycles_CDI(); \
+    else { \
+        cpu->R[r+1] = val; \
+        if (cpu->Num == 0) { \
+            ((ARMv5*)cpu)->ILCurrReg = r+1; \
+            ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual + ((ARMv5*)cpu)->DataCycles; } } \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset;
 
 #define A_LDRD_POST \
@@ -296,15 +330,19 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
+    ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
     bool dabort = !cpu->DataRead32(addr, &cpu->R[r]); \
     u32 val; dabort |= !cpu->DataRead32S(addr+4, &val); \
+    cpu->AddCycles_CDI(); \
     if (dabort) { \
-        cpu->AddCycles_CDI(); \
         ((ARMv5*)cpu)->DataAbort(); \
         return; } \
     if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
-    else cpu->R[r+1] = val; \
-    cpu->AddCycles_CDI(); \
+    else { \
+        cpu->R[r+1] = val; \
+        if (cpu->Num == 0) { \
+            ((ARMv5*)cpu)->ILCurrReg = r+1; \
+            ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual + ((ARMv5*)cpu)->DataCycles; } } \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
 #define A_STRD \
@@ -312,6 +350,8 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
+    ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
+    ((ARMv5*)cpu)->HandleInterlocksMemory(r); \
     bool dabort = !cpu->DataWrite32(offset, cpu->R[r]); /* yes, this data abort behavior is on purpose */ \
     u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
     dabort |= !cpu->DataWrite32S (offset+4, storeval); /* no, i dont understand it either */ \
@@ -326,6 +366,8 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
+    ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
+    ((ARMv5*)cpu)->HandleInterlocksMemory(r); \
     bool dabort = !cpu->DataWrite32(addr, cpu->R[r]); \
     u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
     dabort |= !cpu->DataWrite32S (addr+4, storeval); \
@@ -336,25 +378,25 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset;
 
 #define A_LDRH \
-    if (cpu->CurInstr & (1<<21)) LoadSingle<false, 16, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
-    else LoadSingle<false, 16, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) LoadSingle<false, 16, Writeback::Pre, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
+    else LoadSingle<false, 16, Writeback::None, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_LDRH_POST \
-    LoadSingle<false, 16, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    LoadSingle<false, 16, Writeback::Post, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_LDRSB \
-    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 8, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
-    else LoadSingle<true, 8, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 8, Writeback::Pre, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
+    else LoadSingle<true, 8, Writeback::None, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_LDRSB_POST \
-    LoadSingle<true, 8, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    LoadSingle<true, 8, Writeback::Post, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_LDRSH \
-    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 16, Writeback::Pre>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
-    else LoadSingle<true, 16, Writeback::None>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 16, Writeback::Pre, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
+    else LoadSingle<true, 16, Writeback::None, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_LDRSH_POST \
-    LoadSingle<true, 16, Writeback::Post>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
+    LoadSingle<true, 16, Writeback::Post, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 
 #define A_IMPLEMENT_HD_LDRSTR(x) \
@@ -394,6 +436,7 @@ A_IMPLEMENT_HD_LDRSTR(LDRSH)
 template<bool byte>
 inline void SWP(ARM* cpu)
 {
+    ExecuteStage<false>(cpu, ((cpu->CurInstr >> 16) & 0xF));
     u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     if ((cpu->CurInstr & 0xF) == 15) rm += 4;
@@ -402,7 +445,7 @@ inline void SWP(ARM* cpu)
     if ((byte ? cpu->DataRead8 (base, &val)
               : cpu->DataRead32(base, &val))) [[likely]]
     {
-        u32 numD = cpu->DataCycles;
+        cpu->NDS.ARM9Timestamp += cpu->DataCycles; // checkme
 
         if ((byte ? cpu->DataWrite8 (base, rm)
                   : cpu->DataWrite32(base, rm))) [[likely]]
@@ -411,17 +454,27 @@ inline void SWP(ARM* cpu)
             u32 rd = (cpu->CurInstr >> 12) & 0xF;
 
             if constexpr (!byte) val = ROR(val, 8*(base&0x3));
+            
+            cpu->AddCycles_CDI();
 
-            if (rd != 15) cpu->R[rd] = val;
+            if (rd != 15)
+            {
+                cpu->R[rd] = val;
+                if (cpu->Num == 0)
+                {
+                    ((ARMv5*)cpu)->ILCurrReg = rd;
+                    bool extra = (byte || (base&0x3));
+                    ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual + ((ARMv5*)cpu)->DataCycles + extra;
+                }
+            }
             else if (cpu->Num==1) cpu->JumpTo(val & ~1); // for some reason these jumps don't seem to work on the arm 9?
+            return;
         }
-        else ((ARMv5*)cpu)->DataAbort();
-
-        cpu->DataCycles += numD;
     }
-    else ((ARMv5*)cpu)->DataAbort();
 
+    // data abort handling
     cpu->AddCycles_CDI();
+    ((ARMv5*)cpu)->DataAbort();
 }
 
 void A_SWP(ARM* cpu)
@@ -504,6 +557,8 @@ void A_LDM(ARM* cpu)
         return;
     }
 
+    ExecuteStage<false>(cpu, baseid);
+
     if (!(cpu->CurInstr & (1<<23))) // decrement
     {
         // decrement is actually an increment starting from the end address
@@ -559,11 +614,12 @@ void A_LDM(ARM* cpu)
     // switch back to previous regs
     if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
+        
+    cpu->AddCycles_CDI();
 
     // handle data aborts
     if (dabort) [[unlikely]]
     {
-        cpu->AddCycles_CDI();
         ((ARMv5*)cpu)->DataAbort();
         return;
     }
@@ -587,12 +643,16 @@ void A_LDM(ARM* cpu)
         else
             cpu->R[baseid] = wbbase;
     }
-        
+
     // jump if pc got written
     if (cpu->CurInstr & (1<<15))
         cpu->JumpTo(pc, cpu->CurInstr & (1<<22));
-
-    cpu->AddCycles_CDI();
+    else if (cpu->Num == 0)
+    {
+        u8 lastreg = 31 - __builtin_clz(cpu->CurInstr & 0x7FFF);
+        ((ARMv5*)cpu)->ILCurrReg = lastreg;
+        ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual + ((ARMv5*)cpu)->DataCycles;
+    }
 }
 
 void A_STM(ARM* cpu)
@@ -613,6 +673,8 @@ void A_STM(ARM* cpu)
                                        (0 << 4)));                           // thumb
         return;
     }
+    
+    ExecuteStage<false>(cpu, baseid);
 
     if (!(cpu->CurInstr & (1<<23)))
     {
@@ -639,6 +701,8 @@ void A_STM(ARM* cpu)
 
         cpu->UpdateMode(cpu->CPSR, (cpu->CPSR&~0x1F)|0x10, true);
     }
+
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksMemory(__builtin_ctz(cpu->CurInstr));
 
     for (u32 i = 0; i < 16; i++)
     {
@@ -668,22 +732,20 @@ void A_STM(ARM* cpu)
 
     if (cpu->CurInstr & (1<<22))
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
-        
+
+    cpu->AddCycles_CD();
+
     // handle data aborts
     if (dabort) [[unlikely]]
     {
         // restore original value of base
         cpu->R[baseid] = oldbase;
-        cpu->AddCycles_CD();
         ((ARMv5*)cpu)->DataAbort();
         return;
     }
 
     if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
         cpu->R[baseid] = base;
-
-
-    cpu->AddCycles_CD();
 }
 
 
@@ -695,104 +757,108 @@ void A_STM(ARM* cpu)
 
 void T_LDR_PCREL(ARM* cpu)
 {
+    ExecuteStage<false>(cpu, 15);
     u32 addr = (cpu->R[15] & ~0x2) + ((cpu->CurInstr & 0xFF) << 2);
     bool dabort = !cpu->DataRead32(addr, &cpu->R[(cpu->CurInstr >> 8) & 0x7]);
 
     cpu->AddCycles_CDI();
-    if (dabort) [[unlikely]]
+    if (dabort) [[unlikely]] ((ARMv5*)cpu)->DataAbort();
+    else if (cpu->Num == 0)
     {
-        ((ARMv5*)cpu)->DataAbort();
+        ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 8) & 0x7;
+        ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual + ((ARMv5*)cpu)->DataCycles;
     }
 }
 
 
 void T_STR_REG(ARM* cpu)
 {
-    StoreSingle<32, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
+    StoreSingle<32, Writeback::None, true>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7], (1 << ((cpu->CurInstr >> 6) & 0x7)));
 }
 
 void T_STRB_REG(ARM* cpu)
 {
-    StoreSingle<8, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
+    StoreSingle<8, Writeback::None, true>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7], (1 << ((cpu->CurInstr >> 6) & 0x7)));
 }
 
 void T_LDR_REG(ARM* cpu)
 {
-    LoadSingle<true, 32, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
+    LoadSingle<true, 32, Writeback::None, true>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7], (1 << ((cpu->CurInstr >> 6) & 0x7)));
 }
 
 void T_LDRB_REG(ARM* cpu)
 {
-    LoadSingle<false, 8, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
+    LoadSingle<false, 8, Writeback::None, true>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7], (1 << ((cpu->CurInstr >> 6) & 0x7)));
 }
 
 
 void T_STRH_REG(ARM* cpu)
 {
-    StoreSingle<16, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
+    StoreSingle<16, Writeback::None, true>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7], (1 << ((cpu->CurInstr >> 6) & 0x7)));
 }
 
 void T_LDRSB_REG(ARM* cpu)
 {
-    LoadSingle<true, 8, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
+    LoadSingle<true, 8, Writeback::None, true>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7], (1 << ((cpu->CurInstr >> 6) & 0x7)));
 }
 
 void T_LDRH_REG(ARM* cpu)
 {
-    LoadSingle<false, 16, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
+    LoadSingle<false, 16, Writeback::None, true>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7], (1 << ((cpu->CurInstr >> 6) & 0x7)));
 }
 
 void T_LDRSH_REG(ARM* cpu)
 {
-    LoadSingle<true, 16, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
+    LoadSingle<true, 16, Writeback::None, true>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7], (1 << ((cpu->CurInstr >> 6) & 0x7)));
 }
 
 
 void T_STR_IMM(ARM* cpu)
 {
-    StoreSingle<32, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 4) & 0x7C));
+    StoreSingle<32, Writeback::None, false>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 4) & 0x7C), 0);
 }
 
 void T_LDR_IMM(ARM* cpu)
 {
-    LoadSingle<true, 32, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 4) & 0x7C));
+    LoadSingle<true, 32, Writeback::None, false>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 4) & 0x7C), 0);
 }
 
 void T_STRB_IMM(ARM* cpu)
 {
-    StoreSingle<8, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 6) & 0x1F));
+    StoreSingle<8, Writeback::None, false>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 6) & 0x1F), 0);
 }
 
 void T_LDRB_IMM(ARM* cpu)
 {
-    LoadSingle<false, 8, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 6) & 0x1F));
+    LoadSingle<false, 8, Writeback::None, false>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 6) & 0x1F), 0);
 }
 
 
 void T_STRH_IMM(ARM* cpu)
 {
-    StoreSingle<16, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 5) & 0x3E));
+    StoreSingle<16, Writeback::None, false>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 5) & 0x3E), 0);
 }
 
 void T_LDRH_IMM(ARM* cpu)
 {
-    LoadSingle<false, 16, Writeback::None>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 5) & 0x3E));
+    LoadSingle<false, 16, Writeback::None, false>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 5) & 0x3E), 0);
 }
 
 
 void T_STR_SPREL(ARM* cpu)
 {
-    StoreSingle<32, Writeback::None>(cpu, ((cpu->CurInstr >> 8) & 0x7), 13, ((cpu->CurInstr << 2) & 0x3FC));
+    StoreSingle<32, Writeback::None, false>(cpu, ((cpu->CurInstr >> 8) & 0x7), 13, ((cpu->CurInstr << 2) & 0x3FC), 0);
 }
 
 void T_LDR_SPREL(ARM* cpu)
 {
-    LoadSingle<false, 32, Writeback::None>(cpu, ((cpu->CurInstr >> 8) & 0x7), 13, ((cpu->CurInstr << 2) & 0x3FC));
+    LoadSingle<false, 32, Writeback::None, false>(cpu, ((cpu->CurInstr >> 8) & 0x7), 13, ((cpu->CurInstr << 2) & 0x3FC), 0);
 }
 
 
 void T_PUSH(ARM* cpu)
 {
+    ExecuteStage<false>(cpu, 13);
     int nregs = 0;
     bool first = true;
     bool dabort = false;
@@ -816,6 +882,13 @@ void T_PUSH(ARM* cpu)
     base -= (nregs<<2);
     u32 wbbase = base;
 
+    if (cpu->Num == 0)
+    {
+        u8 firstreg = __builtin_ctz(cpu->CurInstr);
+        if (firstreg == 8) firstreg = 14;
+        ((ARMv5*)cpu)->HandleInterlocksMemory(firstreg);
+    }
+
     for (int i = 0; i < 8; i++)
     {
         if (cpu->CurInstr & (1<<i))
@@ -834,24 +907,24 @@ void T_PUSH(ARM* cpu)
                           : cpu->DataWrite32S(base, cpu->R[14]));
     }
 
+    cpu->AddCycles_CD();
+
     if (dabort) [[unlikely]]
     {
-        cpu->AddCycles_CD();
         ((ARMv5*)cpu)->DataAbort();
         return;
     }
 
     cpu->R[13] = wbbase;
-
-    cpu->AddCycles_CD();
 }
 
 void T_POP(ARM* cpu)
 {
+    ExecuteStage<false>(cpu, 13);
     u32 base = cpu->R[13];
     bool first = true;
     bool dabort = false;
-    
+
     if (!(cpu->CurInstr & 0x1FF)) [[unlikely]]
     {
         EmptyRListLDMSTM(cpu, 13, 0b00011);
@@ -880,9 +953,22 @@ void T_POP(ARM* cpu)
                           : cpu->DataRead32S(base, &pc));
 
         if (dabort) [[unlikely]] goto dataabort;
+
+        cpu->AddCycles_CDI();
         if (cpu->Num==1 || (((ARMv5*)cpu)->CP15Control & (1<<15))) pc |= 0x1;
         cpu->JumpTo(pc);
         base += 4;
+    }
+    else
+    {
+        cpu->AddCycles_CDI();
+
+        if (cpu->Num == 0)
+        {
+            u8 lastreg = 31 - __builtin_clz(cpu->CurInstr & 0xFF);
+            ((ARMv5*)cpu)->ILCurrReg = lastreg;
+            ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual + ((ARMv5*)cpu)->DataCycles;
+        }
     }
 
     if (dabort) [[unlikely]]
@@ -894,20 +980,25 @@ void T_POP(ARM* cpu)
     }
 
     cpu->R[13] = base;
-
-    cpu->AddCycles_CDI();
 }
 
 void T_STMIA(ARM* cpu)
 {
+    ExecuteStage<false>(cpu, ((cpu->CurInstr >> 8) & 0x7));
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
     bool dabort = false;
-    
+
     if (!(cpu->CurInstr & 0xFF)) [[unlikely]]
     {
         EmptyRListLDMSTM(cpu, (cpu->CurInstr >> 8) & 0x7, 0b10010);
         return;
+    }
+
+    if (cpu->Num == 0)
+    {
+        u8 firstreg = __builtin_ctz(cpu->CurInstr);
+        ((ARMv5*)cpu)->HandleInterlocksMemory(firstreg);
     }
 
     for (int i = 0; i < 8; i++)
@@ -922,24 +1013,25 @@ void T_STMIA(ARM* cpu)
         }
     }
 
+    cpu->AddCycles_CD();
+
     if (dabort) [[unlikely]]
     {
-        cpu->AddCycles_CD();
         ((ARMv5*)cpu)->DataAbort();
         return;
     }
 
     // TODO: check "Rb included in Rlist" case
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
-    cpu->AddCycles_CD();
 }
 
 void T_LDMIA(ARM* cpu)
 {
+    ExecuteStage<false>(cpu, ((cpu->CurInstr >> 8) & 0x7));
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
     bool dabort = false;
-    
+
     if (!(cpu->CurInstr & 0xFF)) [[unlikely]]
     {
         EmptyRListLDMSTM(cpu, (cpu->CurInstr >> 8) & 0x7, 0b00011);
@@ -960,17 +1052,23 @@ void T_LDMIA(ARM* cpu)
         }
     }
 
+    cpu->AddCycles_CDI();
+
     if (dabort) [[unlikely]]
     {
-        cpu->AddCycles_CDI();
         ((ARMv5*)cpu)->DataAbort();
         return;
+    }
+    
+    if (cpu->Num == 0)
+    {
+        u8 lastreg = 31 - __builtin_clz(cpu->CurInstr & 0xFF);
+        ((ARMv5*)cpu)->ILCurrReg = lastreg;
+        ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual + ((ARMv5*)cpu)->DataCycles;
     }
 
     if (!(cpu->CurInstr & (1<<((cpu->CurInstr >> 8) & 0x7))))
         cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
-
-    cpu->AddCycles_CDI();
 }
 
 
