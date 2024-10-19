@@ -413,6 +413,7 @@ u32 ARMv5::ICacheLookup(const u32 addr)
             NDS.ARM9Timestamp += 1;
             if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
             DataRegion = Mem9_Null;
+            Store = false;
             return cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2];
         }
     }
@@ -489,11 +490,12 @@ u32 ARMv5::ICacheLookup(const u32 addr)
         if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     }
     else if (NDS.ARM9Regions[addr>>14] == DataRegion && Store) NDS.ARM9Timestamp += (1<<NDS.ARM9ClockShift);
-    
-    NDS.ARM9Timestamp += CodeCycles;
-    if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
+    Store = false;
 
     CodeCycles = ((NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1)) - 1) << NDS.ARM9ClockShift) + 1;
+    NDS.ARM9Timestamp += CodeCycles;
+    if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
+    
     DataRegion = Mem9_Null;
     return ptr[(addr & (ICACHE_LINELENGTH-1)) >> 2];
 }
@@ -1863,6 +1865,7 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
         NDS.ARM9Timestamp += CodeCycles;
         if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
         DataRegion = Mem9_Null;
+        Store = false;
         return 0;
     }
 
@@ -1874,6 +1877,7 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
         NDS.ARM9Timestamp += CodeCycles;
         if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
         DataRegion = Mem9_Null;
+        Store = false;
         return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
     }
     

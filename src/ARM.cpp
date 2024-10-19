@@ -1160,6 +1160,7 @@ void ARMv5::CodeFetch()
         NextInstr[1] >>= 16;
         NDS.ARM9Timestamp++;
         if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
+        Store = false;
         DataRegion = Mem9_Null;
     }
     else NextInstr[1] = CodeRead32(PC, false);
@@ -1218,8 +1219,7 @@ void ARMv5::HandleInterlocksMemory(u8 reg)
     
     u64 diff = ILPrevTime - NDS.ARM9Timestamp; // should always be 1?
     NDS.ARM9Timestamp = ILPrevTime;
-    MainRAMTimestamp += diff;
-    ITCMTimestamp += diff;
+    ITCMTimestamp += diff; // checkme
     ILPrevTime = 16;
 }
 
