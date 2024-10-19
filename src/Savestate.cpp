@@ -153,9 +153,9 @@ Savestate::~Savestate()
     }
 }
 
-void Savestate::Section(const char* magic)
+bool Savestate::Section(const char* magic, bool noerror)
 {
-    if (Error || finished) return;
+    if (Error || finished) return false;
 
     if (Saving)
     {
@@ -174,6 +174,7 @@ void Savestate::Section(const char* magic)
         // The 8 bytes afterward are reserved, so we skip them.
         Var32(&zero);
         Var32(&zero);
+        return true;
     }
     else
     {
@@ -182,12 +183,14 @@ void Savestate::Section(const char* magic)
         if (section_offset != NO_SECTION)
         {
             buffer_offset = section_offset;
+            return true;
         }
-        else
+        else if (!noerror)
         {
             Log(LogLevel::Error, "savestate: section %s not found. blarg\n", magic);
             Error = true;
         }
+        return false;
     }
 }
 
@@ -378,7 +381,6 @@ u32 Savestate::FindSection(const char* magic) const
     }
 
     // We've reached the end of the file without finding the requested section...
-    Log(LogLevel::Error, "savestate: section %s not found. blarg\n", magic);
     return NO_SECTION;
 }
 

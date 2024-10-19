@@ -295,6 +295,23 @@ void ComputeRenderer::Reset(GPU& gpu)
     Texcache.Reset();
 }
 
+void ComputeRenderer::DoSavestate(Savestate* file)
+{
+    // placeholder in case we need to add anything serializable later on
+    /*
+    bool secfound = file->Section("CR3D", true);
+
+    if (secfound)
+    {
+
+    }
+    else
+    {
+
+    }
+    */
+}
+
 void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinates)
 {
     CurGLCompositor.SetScaleFactor(scale);
