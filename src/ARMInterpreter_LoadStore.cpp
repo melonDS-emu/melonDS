@@ -317,6 +317,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
     bool dabort = !cpu->DataRead32(offset, &cpu->R[r]); \
     u32 val; dabort |= !cpu->DataRead32S(offset+4, &val); \
+    if (cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2; \
     cpu->AddCycles_CDI(); \
     if (dabort) { \
         ((ARMv5*)cpu)->DataAbort(); \
@@ -337,6 +338,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
     bool dabort = !cpu->DataRead32(addr, &cpu->R[r]); \
     u32 val; dabort |= !cpu->DataRead32S(addr+4, &val); \
+    if (cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2; \
     cpu->AddCycles_CDI(); \
     if (dabort) { \
         ((ARMv5*)cpu)->DataAbort(); \
@@ -359,6 +361,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     bool dabort = !cpu->DataWrite32(offset, cpu->R[r]); /* yes, this data abort behavior is on purpose */ \
     u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
     dabort |= !cpu->DataWrite32S (offset+4, storeval); /* no, i dont understand it either */ \
+    if (cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2; \
     cpu->AddCycles_CD(); \
     if (dabort) [[unlikely]] { \
         ((ARMv5*)cpu)->DataAbort(); \
@@ -375,6 +378,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     bool dabort = !cpu->DataWrite32(addr, cpu->R[r]); \
     u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
     dabort |= !cpu->DataWrite32S (addr+4, storeval); \
+    if (cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2; \
     cpu->AddCycles_CD(); \
     if (dabort) [[unlikely]] { \
         ((ARMv5*)cpu)->DataAbort(); \

@@ -202,6 +202,7 @@ void ARMv5::Reset()
     PU_Map = PU_PrivMap;
     Store = false;
     
+    ITCMTimestamp = 0;
     TimestampActual = 0;
     ILCurrReg = 16;
     ILPrevReg = 16;
