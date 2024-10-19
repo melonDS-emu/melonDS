@@ -2143,8 +2143,8 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
     NDS.ARM9Timestamp += DataCycles;
 
     // bursts cannot cross a 1kb boundary
-    if (addr & 0x3FF) DataCycles = MemTimings[addr >> 12][3]; //s
-    else DataCycles = MemTimings[addr >> 12][2]; // ns
+    if (addr & 0x3FF) DataCycles = MemTimings[addr >> 12][2]; //s
+    else DataCycles = MemTimings[addr >> 12][1]; // ns
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
@@ -2446,8 +2446,8 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
         
         // bursts cannot cross a 1kb boundary
         // CHECKME: should this cause a "barrier" for how early a code fetch can occur?
-        if (addr & 0x3FF) DataCycles += MemTimings[addr >> 12][3]; //s
-        else DataCycles += MemTimings[addr >> 12][2]; // ns
+        if (addr & 0x3FF) DataCycles += MemTimings[addr >> 12][2]; //s
+        else DataCycles += MemTimings[addr >> 12][1]; // ns
 
         if ((addr >> 24) == 0x02)
         {
