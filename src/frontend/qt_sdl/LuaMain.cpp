@@ -250,8 +250,8 @@ namespace luaDefinitions
 int lua_MelonPrint(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
-    QString string = luaL_checkstring(L,1);
-    bundle->getEmuThread()->onLuaPrint(string);
+    const char* string = luaL_checkstring(L,1);
+    bundle->getEmuThread()->onLuaPrint((QString)string);
     return 0;
 }
 AddLuaFunction(lua_MelonPrint,MelonPrint);
@@ -382,8 +382,8 @@ AddLuaFunction(Lua_NDSTapUp,NDSTapUp);
 int Lua_StateSave(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
-    QString filename = luaL_checkstring(L,1);
-    bundle->getEmuThread()->onLuaSaveState(filename);
+    const char* filename = luaL_checkstring(L,1);
+    bundle->getEmuThread()->onLuaSaveState((QString)filename);
     return 0;
 }
 AddLuaFunction(Lua_StateSave,StateSave);
@@ -391,8 +391,8 @@ AddLuaFunction(Lua_StateSave,StateSave);
 int Lua_StateLoad(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
-    QString filename = luaL_checkstring(L,1);
-    bundle->getEmuThread()->onLuaLoadState(filename);
+    const char* filename = luaL_checkstring(L,1);
+    bundle->getEmuThread()->onLuaLoadState((QString)filename);
     return 0;
 }
 AddLuaFunction(Lua_StateLoad,StateLoad);
@@ -495,7 +495,7 @@ int Lua_text(lua_State* L)
     int y = luaL_checknumber(L,2);
     const char* message = luaL_checklstring(L,3,NULL);
     melonDS::u32 color = luaL_optnumber(L,4,0x00000000);
-    QString FontFamily = luaL_optlstring(L,6,"Helvetica",NULL);
+    const char* FontFamily = luaL_optlstring(L,6,"Helvetica",NULL);
     int size = luaL_optnumber(L,5,9);
     QPainter painter(bundle->luaCanvas->imageBuffer);
     QFont font(FontFamily,size,0,false);
@@ -586,7 +586,7 @@ AddLuaFunction(Lua_keystrokes,Keys);
 int Lua_drawImage(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
-    QString path = luaL_checklstring(L,1,NULL);
+    const char* path = luaL_checklstring(L,1,NULL);
     int x = luaL_checkinteger(L,2);
     int y = luaL_checkinteger(L,3);
     int sx = luaL_optinteger(L,4,0);
@@ -601,7 +601,7 @@ int Lua_drawImage(lua_State* L)
     }
     else
     {
-        image=QImage(path);
+        image=QImage((QString)path);
         (*bundle->imageHash)[path] = image;
     }
     painter.drawImage(x,y,image,sx,sy,sw,sh);
