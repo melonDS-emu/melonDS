@@ -926,7 +926,8 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
         if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     }
     else if (NDS.ARM9Regions[addr>>14] == DataRegion && Store) NDS.ARM9Timestamp += (1<<NDS.ARM9ClockShift);
-    
+    Store = false;
+
     NDS.ARM9Timestamp += CodeCycles;
     if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
 
@@ -938,7 +939,6 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
 
 bool ARMv5::DataRead8(u32 addr, u32* val)
 {
-    Store = false;
     // Data Aborts
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
@@ -984,7 +984,6 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
 
 bool ARMv5::DataRead16(u32 addr, u32* val)
 {
-    Store = false;
     // Data Aborts
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
@@ -1032,7 +1031,6 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
 
 bool ARMv5::DataRead32(u32 addr, u32* val)
 {
-    Store = false;
     // Data Aborts
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
@@ -1084,7 +1082,8 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
     {
-        DataCycles += 1;
+        NDS.ARM9Timestamp += DataCycles;
+        DataCycles = 1;
         return false;
     }
 
@@ -1092,15 +1091,17 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
 
     if (addr < ITCMSize)
     {
-        DataCycles += 1;
-        ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        NDS.ARM9Timestamp += DataCycles;
+        DataCycles = 1;
+        // we update the timestamp during the actual function, as a sequential itcm access can only occur during instructions with strange itcm wait cycles
         DataRegion = Mem9_ITCM;
         *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
         return true;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        DataCycles += 1;
+        NDS.ARM9Timestamp += DataCycles;
+        DataCycles = 1;
         DataRegion = Mem9_DTCM;
         *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return true;
@@ -1111,9 +1112,9 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
 
     NDS.ARM9Timestamp += DataCycles;
 
-    if (!(addr & 0x3FF)) return DataRead32(addr, val); // bursts cannot cross a 1kb boundary
-
-    DataCycles = MemTimings[addr >> 12][3];
+    // bursts cannot cross a 1kb boundary
+    if (addr & 0x3FF) DataCycles = MemTimings[addr >> 12][3]; //s
+    else DataCycles = MemTimings[addr >> 12][2]; // ns
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
@@ -1131,7 +1132,6 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
 
 bool ARMv5::DataWrite8(u32 addr, u8 val)
 {
-    Store = true;
     // Data Aborts
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
@@ -1143,7 +1143,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
     if (addr < ITCMSize)
     {
         DataCycles = 1;
-        ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        // does not stall (for some reason?)
         DataRegion = Mem9_ITCM;
         *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
 #ifdef JIT_ENABLED
@@ -1170,7 +1170,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
             if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
             DataRegion = Mem9_MainRAM;
             MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataCycles -= (2<<NDS.ARM9ClockShift);
+            DataCycles -= (3<<NDS.ARM9ClockShift);
         }
         else DataRegion = NDS.ARM9Regions[addr>>14];
         
@@ -1196,7 +1196,6 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
 
 bool ARMv5::DataWrite16(u32 addr, u16 val)
 {
-    Store = true;
     // Data Aborts
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
@@ -1210,7 +1209,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
     if (addr < ITCMSize)
     {
         DataCycles = 1;
-        ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        // does not stall (for some reason?)
         DataRegion = Mem9_ITCM;
         *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
 #ifdef JIT_ENABLED
@@ -1237,7 +1236,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
             if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
             DataRegion = Mem9_MainRAM;
             MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataCycles -= (2<<NDS.ARM9ClockShift);
+            DataCycles -= (3<<NDS.ARM9ClockShift);
         }
         else DataRegion = NDS.ARM9Regions[addr>>14];
         
@@ -1263,7 +1262,6 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
 
 bool ARMv5::DataWrite32(u32 addr, u32 val)
 {
-    Store = true;
     // Data Aborts
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
@@ -1277,7 +1275,7 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
     if (addr < ITCMSize)
     {
         DataCycles = 1;
-        ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        // does not stall (for some reason?)
         DataRegion = Mem9_ITCM;
         *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
 #ifdef JIT_ENABLED
@@ -1304,7 +1302,7 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
             if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
             DataRegion = Mem9_MainRAM;
             MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataCycles -= (2<<NDS.ARM9ClockShift);
+            DataCycles -= (3<<NDS.ARM9ClockShift);
         }
         else DataRegion = NDS.ARM9Regions[addr>>14];
     
@@ -1343,7 +1341,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
     if (addr < ITCMSize)
     {
         DataCycles += 1;
-        ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        // we update the timestamp during the actual function, as a sequential itcm access can only occur during instructions with strange itcm wait cycles
         DataRegion = Mem9_ITCM;
         *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
 #ifdef JIT_ENABLED
@@ -1362,13 +1360,16 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
     if (!(PU_Map[addr>>12] & 0x30))
     {
         DataCycles += (((NDS.ARM9Timestamp + DataCycles) + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1))) - (NDS.ARM9Timestamp + DataCycles);
-
-        if (!(addr & 0x3FF)) return DataWrite32(addr, val); // bursts cannot cross a 1kb boundary
+        
+        // bursts cannot cross a 1kb boundary
+        // CHECKME: should this cause a "barrier" for how early a code fetch can occur?
+        if (addr & 0x3FF) DataCycles += MemTimings[addr >> 12][3]; //s
+        else DataCycles += MemTimings[addr >> 12][2]; // ns
 
         if ((addr >> 24) == 0x02)
         {
-            if ((DataRegion != Mem9_MainRAM) && ((NDS.ARM9Timestamp + DataCycles) < MainRAMTimestamp)) DataCycles += MainRAMTimestamp - NDS.ARM9Timestamp;
-            MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
+            //if ((DataRegion != Mem9_MainRAM) && ((NDS.ARM9Timestamp + DataCycles) < MainRAMTimestamp)) DataCycles += MainRAMTimestamp - NDS.ARM9Timestamp; // what the hell was i smoking here?
+            MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles + (2 << NDS.ARM9ClockShift);
             DataRegion = Mem9_MainRAM;
         }
         else DataRegion = NDS.ARM9Regions[addr>>14];
@@ -1378,7 +1379,12 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
     }
     else
     {
-        u8 cycles = NDS.ARM9MemTimings[addr>>14][3];
+        u8 cycles;
+        // bursts cannot cross a 1kb boundary
+        // CHECKME: does this actually apply to the write buffer too? it should
+        if (addr & 0x3FF) cycles = NDS.ARM9MemTimings[addr>>14][3]; //s
+        else cycles = NDS.ARM9MemTimings[addr>>14][2]; // ns
+
         if ((addr >> 24) == 0x02)
         {
             cycles = (cycles - 2) | 0x80;
