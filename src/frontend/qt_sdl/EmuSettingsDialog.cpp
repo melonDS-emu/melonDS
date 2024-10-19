@@ -18,6 +18,7 @@
 
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QTemporaryFile>
 
 #include "types.h"
 #include "Platform.h"
@@ -107,9 +108,12 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->cbGdbBOSA7->setDisabled(true);
     ui->cbGdbBOSA9->setDisabled(true);
 #endif
+    ui->cbPcapEnabled->setChecked(cfg.GetBool("Pcap.Enabled"));
+    ui->txtPcapPath->setText(cfg.GetQString("Pcap.Path"));
 
     on_chkEnableJIT_toggled();
     on_cbGdbEnabled_toggled();
+    on_cbPcapEnabled_toggled();
     on_chkExternalBIOS_toggled();
 
     const int imgsizes[] = {256, 512, 1024, 2048, 4096, 0};
@@ -292,6 +296,8 @@ void EmuSettingsDialog::done(int r)
             instcfg.SetBool("Gdb.ARM7.BreakOnStartup", ui->cbGdbBOSA7->isChecked());
             instcfg.SetBool("Gdb.ARM9.BreakOnStartup", ui->cbGdbBOSA9->isChecked());
 #endif
+            cfg.SetBool("Pcap.Enabled", ui->cbPcapEnabled->isChecked());
+            cfg.SetQString("Pcap.Path", ui->txtPcapPath->text());
 
             cfg.SetInt("Emu.ConsoleType", ui->cbxConsoleType->currentIndex());
             cfg.SetBool("Emu.DirectBoot", ui->chkDirectBoot->isChecked());
@@ -563,6 +569,30 @@ void EmuSettingsDialog::on_cbGdbEnabled_toggled()
     ui->intGdbPortA9->setDisabled(disabled);
     ui->cbGdbBOSA7->setDisabled(disabled);
     ui->cbGdbBOSA9->setDisabled(disabled);
+}
+
+void EmuSettingsDialog::on_cbPcapEnabled_toggled()
+{
+    bool disabled = !ui->cbPcapEnabled->isChecked();
+    ui->txtPcapPath->setDisabled(disabled);
+    ui->btnPcapBrowse->setDisabled(disabled);
+}
+
+void EmuSettingsDialog::on_btnPcapBrowse_clicked()
+{
+    QString dir = QFileDialog::getExistingDirectory(this,
+                                                     "Select packet captures path...",
+                                                     lastBIOSFolder);
+
+    if (dir.isEmpty()) return;
+
+    if (!QTemporaryFile(dir).open())
+    {
+        QMessageBox::critical(this, "melonDS", "Unable to write to packet captures directory.\nPlease check file/folder write permissions.");
+        return;
+    }
+
+    ui->txtPcapPath->setText(dir);
 }
 
 void EmuSettingsDialog::on_chkExternalBIOS_toggled()
