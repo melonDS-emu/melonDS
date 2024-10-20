@@ -25,9 +25,11 @@
 #include "Savestate.h"
 #include "FIFO.h"
 
+
 namespace melonDS
 {
 class GPU;
+
 
 struct Vertex
 {
@@ -112,6 +114,7 @@ public:
 
     void SetRenderXPos(u16 xpos) noexcept;
     [[nodiscard]] u16 GetRenderXPos() const noexcept { return RenderXPos; }
+    void ScanlineSync(int line) noexcept;
     u32* GetLine(int line) noexcept;
 
     void WriteToGXFIFO(u32 val) noexcept;
@@ -241,9 +244,18 @@ public:
     u32 TotalParams = 0;
 
     bool GeometryEnabled = false;
-    bool RenderingEnabled = false;
+    // 0 = powered off
+    // 1 = powered on, inactive
+    // 2 = one swap buffers, inactive
+    // 3 = two swap buffers, active;
+    u8 RenderingEnabled = 0;
 
     u32 DispCnt = 0;
+
+    u16 UnderflowFlagVCount = 0;
+    u8 RDLines = 0;
+    u8 RDLinesTemp = 0;
+
     u8 AlphaRefVal = 0;
     u8 AlphaRef = 0;
 
@@ -329,6 +341,69 @@ public:
     u32 ScrolledLine[256]; // not part of the hardware state, don't serialize
 };
 
+    // Rasterization Timing Constants
+
+    static constexpr int TimingFrac = 1; // add a fractional component if pixels is not enough precision
+
+    // GPU 2D Read Timings: For Emulating Buffer Read/Write Race Conditions
+    static constexpr int DelayBetweenReads = 809 * TimingFrac;
+    static constexpr int ScanlineReadSpeed = 256 * TimingFrac;
+    static constexpr int ScanlineReadInc = DelayBetweenReads + ScanlineReadSpeed;
+    static constexpr int InitGPU2DTimeout = (51875+565) * TimingFrac; // 51618? 51874? 52128? | when it finishes reading the first scanline.
+    static constexpr int FrameLength = ScanlineReadInc * 263; // how long the entire frame is. TODO: Verify if we actually need this?
+        
+    // compile-time list of scanline read times
+    // these *should* always occur at the same point in each frame, so it shouldn't matter if we make them fixed
+    static constexpr std::array<u32, 192> SLRead = []() constexpr {
+    std::array<u32, 192> readtime {};
+
+    for (int i = 0, time = InitGPU2DTimeout; i < 192; i++, time += ScanlineReadInc)
+    {
+        readtime[i] = time;
+    }
+    return readtime;
+    }();
+
+    static constexpr int PreReadCutoff = 565; // time before a read that a scanline is cutoff.
+
+    // the point at which rdlines decrements. not sure why it's different...?
+    static constexpr std::array<u32, 192> RDDecrement = []() constexpr {
+    std::array<u32, 192> dec {};
+
+    for (int i = 0; i < 192; i++)
+    {
+        dec[i] = SLRead[i] - 39 - (!(i % 2));
+    }
+    return dec;
+    }();
+
+    // GPU 3D Rasterization Timings: For Emulating Scanline Timeout
+
+    static constexpr int FinalPassLen = 500 * TimingFrac; // 496 (might technically be 500?) | the next scanline cannot begin while a scanline's final pass is in progress
+                                                          // (can be interpreted as the minimum amount of cycles for the next scanline
+                                                          // pair to start after the previous pair began) (related to final pass?)
+    static constexpr int ScanlinePushDelay = 242 * TimingFrac;
+    static constexpr int EMGlitchThreshhold = 502 * TimingFrac; // The threshold for the edge marking glitch behavior to change.
+    static constexpr int EMFixNum = 571 * TimingFrac; // Arbitrary value added to fix edge marking glitch, not sure why it's needed?
+
+    // GPU 3D Rasterization Timings II: For Tracking Timing Behaviors
+
+    //static constexpr int FirstPolyScanline = 0 * TimingFrac; 
+    static constexpr int PerPolyScanline = 12 * TimingFrac; // 12 | The basic timing cost for polygons. Applies per polygon per scanline.
+    static constexpr int PerPixelTiming = 1 * TimingFrac; // 1 | 1 pixel = 1 pixel
+    static constexpr int NumFreePixels = 4; // 4 | First 4 pixels in a polygon scanline are free (for some reason)
+    static constexpr int MinToStartPoly = 2 * TimingFrac; // 1 | if there aren't 2 (why two?) cycles remaining after the polygon timing penalty,
+                                                          // do not bother rendering the polygon (CHECKME: I dont think this should decrement timings by anything?)
+    static constexpr int EmptyPolyScanline = 4 * TimingFrac; // 4 | the ignored "empty" bottom-most scanline of a polygon
+                                                             // which shouldn't be rendered for some reason has timing characteristics.
+
+    // GPU 3D Rasterization Timings III, For First Polygon "Pre-Calc" Timings
+    // should be added before other timings, as these are "async" pre-calcs of polygon attributes
+
+    static constexpr int FirstPolyDelay = 4 * TimingFrac; // 4 | Min amount of cycles to begin a scanline? (minimum time it takes to init the first polygon?)
+                                                          // (Amount of time before the end of the cycle a scanline must abort?)
+
+
 class Renderer3D
 {
 public:
@@ -349,6 +424,7 @@ public:
     virtual void RenderFrame(GPU& gpu) = 0;
     virtual void RestartFrame(GPU& gpu) {};
     virtual u32* GetLine(int line) = 0;
+    virtual void ScanlineSync(int line) {};
     virtual void Blit(const GPU& gpu) {};
 
     virtual void SetupAccelFrame() {}
