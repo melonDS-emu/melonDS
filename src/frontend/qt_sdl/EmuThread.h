@@ -107,6 +107,12 @@ public:
     void deinitContext();
     void updateVideoSettings() { videoSettingsDirty = true; }
 
+    void onLuaPrint(const QString&);
+    void onLuaClearConsole();
+    void onLuaLoadState(const QString&);
+    void onLuaSaveState(const QString&);
+    void onLuaLayoutChange();
+
     int FrontBuffer = 0;
     QMutex FrontBufferLock;
 
@@ -129,6 +135,11 @@ signals:
     void screenEmphasisToggle();
 
     void syncVolumeLevel();
+
+    void signalLuaPrint(const QString&);
+    void signalLuaClearConsole();
+    void signalLuaSaveState(const QString&);
+    void signalLuaLoadState(const QString&);
 
 private:
     void handleMessages();
