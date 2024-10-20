@@ -166,6 +166,7 @@ SubcmdHandler GdbStub::Handlers_v[] = {
 	{ .MainCmd = 'v', .SubStr = "Stopped"       , .Handler = GdbStub::Handle_v_Stopped },
 	{ .MainCmd = 'v', .SubStr = "MustReplyEmpty", .Handler = GdbStub::Handle_v_MustReplyEmpty },
 	{ .MainCmd = 'v', .SubStr = "Cont?"         , .Handler = GdbStub::Handle_v_ContQuery },
+	{ .MainCmd = 'v', .SubStr = "Cont;"         , .Handler = GdbStub::Handle_v_Cont },
 	{ .MainCmd = 'v', .SubStr = "Cont"          , .Handler = GdbStub::Handle_v_Cont },
 
 	{ .MainCmd = 'v', .SubStr = NULL, .Handler = NULL }
