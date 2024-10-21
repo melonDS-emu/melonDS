@@ -1903,11 +1903,20 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
     if ((addr >> 24) == 0x02)
     {
         if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
+        NDS.ARM9Timestamp += CodeCycles;
+        if (NDS.ARM9ClockShift == 2)
+        {
+            MainRAMTimestamp = NDS.ARM9Timestamp;
+            NDS.ARM9Timestamp -= 4;
+        }
     }
-    else if (NDS.ARM9Regions[addr>>14] == DataRegion && Store) NDS.ARM9Timestamp += (1<<NDS.ARM9ClockShift);
+    else
+    {
+        if (NDS.ARM9Regions[addr>>14] == DataRegion && Store) NDS.ARM9Timestamp += (1<<NDS.ARM9ClockShift);
+        NDS.ARM9Timestamp += CodeCycles;
+    }
     Store = false;
 
-    NDS.ARM9Timestamp += CodeCycles;
     if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
 
     DataRegion = Mem9_Null;
@@ -1967,6 +1976,7 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
     {
         if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
         MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        if (NDS.ARM9ClockShift == 2) DataCycles -= 4;
         DataRegion = Mem9_MainRAM;
     }
     else DataRegion = NDS.ARM9Regions[addr>>14];
@@ -2028,6 +2038,7 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
     {
         if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
         MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        if (NDS.ARM9ClockShift == 2) DataCycles -= 4;
         DataRegion = Mem9_MainRAM;
     }
     else DataRegion = NDS.ARM9Regions[addr>>14];
@@ -2089,6 +2100,7 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
     {
         if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
         MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        if (NDS.ARM9ClockShift == 2) DataCycles -= 4;
         DataRegion = Mem9_MainRAM;
     }
     else DataRegion = NDS.ARM9Regions[addr>>14];
@@ -2147,15 +2159,16 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
     NDS.ARM9Timestamp += DataCycles;
 
     // bursts cannot cross a 1kb boundary
-    if (addr & 0x3FF) DataCycles = MemTimings[addr >> 12][2]; //s
-    else DataCycles = MemTimings[addr >> 12][1]; // ns
-
-    NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
+    if (addr & 0x3FF) DataCycles = MemTimings[addr >> 12][3]; //s
+    else DataCycles = MemTimings[addr >> 12][2]; // ns
+    
+    DataCycles += (((NDS.ARM9Timestamp + DataCycles) + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1))) - (NDS.ARM9Timestamp + DataCycles);
 
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
+        if ((NDS.ARM9Timestamp + DataCycles) < MainRAMTimestamp) DataCycles = MainRAMTimestamp - NDS.ARM9Timestamp;
         MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
+        if (NDS.ARM9ClockShift == 2) DataCycles -= 4;
         DataRegion = Mem9_MainRAM;
     }
     else DataRegion = NDS.ARM9Regions[addr>>14];
@@ -2217,7 +2230,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
             if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
             DataRegion = Mem9_MainRAM;
             MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataCycles -= (3<<NDS.ARM9ClockShift);
+            DataCycles -= (2<<NDS.ARM9ClockShift);
         }
         else DataRegion = NDS.ARM9Regions[addr>>14];
         
@@ -2296,7 +2309,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
             if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
             DataRegion = Mem9_MainRAM;
             MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataCycles -= (3<<NDS.ARM9ClockShift);
+            DataCycles -= (2<<NDS.ARM9ClockShift);
         }
         else DataRegion = NDS.ARM9Regions[addr>>14];
         
@@ -2376,7 +2389,7 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
             if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
             DataRegion = Mem9_MainRAM;
             MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataCycles -= (3<<NDS.ARM9ClockShift);
+            DataCycles -= (2<<NDS.ARM9ClockShift);
         }
         else DataRegion = NDS.ARM9Regions[addr>>14];
     
@@ -2455,8 +2468,9 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
 
         if ((addr >> 24) == 0x02)
         {
-            //if ((DataRegion != Mem9_MainRAM) && ((NDS.ARM9Timestamp + DataCycles) < MainRAMTimestamp)) DataCycles += MainRAMTimestamp - NDS.ARM9Timestamp; // what the hell was i smoking here?
-            MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles + (2 << NDS.ARM9ClockShift);
+            if ((NDS.ARM9Timestamp + DataCycles) < MainRAMTimestamp) DataCycles = MainRAMTimestamp - NDS.ARM9Timestamp;
+            MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
+            DataCycles -= 3 << NDS.ARM9ClockShift; // checkme: are sequentials actually - 3?
             DataRegion = Mem9_MainRAM;
         }
         else DataRegion = NDS.ARM9Regions[addr>>14];
@@ -2474,7 +2488,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
 
         if ((addr >> 24) == 0x02)
         {
-            cycles = (cycles - 2) | 0x80;
+            cycles = (cycles - 3) | 0x80;
         }
 
         WriteBufferWrite(val, 2, cycles, addr);
