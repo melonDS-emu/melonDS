@@ -332,9 +332,26 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
 
         // checkme: should these be (bus timings shifted) - 1 or ((bustimings - 1) shifted) + 1
         // should the last cycle be halved...?
-        MemTimings[i][0] = ((bustimings[0] - 1) << NDS.ARM9ClockShift) + 1;
-        MemTimings[i][1] = ((bustimings[2] - 1) << NDS.ARM9ClockShift) + 1;
-        MemTimings[i][2] = ((bustimings[3] - 1) << NDS.ARM9ClockShift) + 1;
+        if (NDS.ARM9ClockShift == 1)
+        {
+            MemTimings[i][0] = (bustimings[0] << NDS.ARM9ClockShift) - 1;
+            MemTimings[i][1] = (bustimings[2] << NDS.ARM9ClockShift) - 1;
+            MemTimings[i][2] = (bustimings[3] << NDS.ARM9ClockShift) - 1;
+        }
+        else
+        {
+            if (NDS.ARM9Regions[i] != Mem9_MainRAM)
+            {
+                MemTimings[i][0] = ((bustimings[0] - 1) << NDS.ARM9ClockShift) - 1;
+                MemTimings[i][1] = ((bustimings[2] - 1) << NDS.ARM9ClockShift) - 1;
+            }
+            else
+            {
+                MemTimings[i][0] = (bustimings[0] << NDS.ARM9ClockShift) - 1;
+                MemTimings[i][1] = (bustimings[2] << NDS.ARM9ClockShift) - 1;
+            }
+            MemTimings[i][2] = (bustimings[3] << NDS.ARM9ClockShift) - 1;
+        }
     }
 }
 
