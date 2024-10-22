@@ -40,7 +40,7 @@ RTC::RTC(melonDS::NDS& nds) : NDS(nds)
 
     // indicate the power was off
     // this will be changed if a previously saved RTC state is loaded
-    State.StatusReg1 = 0x80;
+    State.StatusReg1 = 0x80 | (1<<1);
 }
 
 RTC::~RTC()
