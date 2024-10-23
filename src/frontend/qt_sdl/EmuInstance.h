@@ -20,7 +20,9 @@
 #define EMUINSTANCE_H
 
 #include <SDL2/SDL.h>
+#include <pcap/pcap.h>
 
+#include "types.h"
 #include "NDS.h"
 #include "EmuThread.h"
 #include "Window.h"
@@ -139,6 +141,8 @@ public:
     int getJoystickID() { return joystickID; }
     SDL_Joystick* getJoystick() { return joystick; }
 
+    void capturePacket(melonDS::u8* data, int len);
+
 private:
     static int lastSep(const std::string& path);
     std::string getAssetPath(bool gba, const std::string& configpath, const std::string& ext, const std::string& file);
@@ -221,6 +225,11 @@ private:
     bool hotkeyDown(int id)     { return hotkeyMask    & (1<<id); }
     bool hotkeyPressed(int id)  { return hotkeyPress   & (1<<id); }
     bool hotkeyReleased(int id) { return hotkeyRelease & (1<<id); }
+
+    void startPacketCapture();
+    void stopPacketCapture();
+    pcap_t* packetCapture;
+    pcap_dumper_t* packetCaptureDumper;
 
     bool deleting;
 

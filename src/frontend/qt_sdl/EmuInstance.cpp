@@ -39,6 +39,7 @@
 #include "Config.h"
 #include "Platform.h"
 #include "Net.h"
+#include "Net_PCap.h"
 #include "MPInterface.h"
 
 #include "NDS.h"
@@ -63,12 +64,14 @@ MainWindow* topWindow = nullptr;
 
 const string kWifiSettingsPath = "wfcsettings.bin";
 extern Net net;
+extern std::optional<melonDS::LibPCap> pcap;
 
 
 EmuInstance::EmuInstance(int inst) : deleting(false),
     instanceID(inst),
     globalCfg(Config::GetGlobalTable()),
-    localCfg(Config::GetLocalTable(inst))
+    localCfg(Config::GetLocalTable(inst)),
+    packetCapture(nullptr), packetCaptureDumper(nullptr)
 {
     consoleType = globalCfg.GetInt("Emu.ConsoleType");
 
@@ -154,6 +157,7 @@ EmuInstance::~EmuInstance()
 
     audioDeInit();
     inputDeInit();
+    stopPacketCapture();
 }
 
 
@@ -1359,6 +1363,7 @@ bool EmuInstance::bootToMenu()
     nds->Reset();
     setBatteryLevels();
     setDateTime();
+    startPacketCapture();
     return true;
 }
 
@@ -1828,6 +1833,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
     cartType = 0;
     ndsSave = std::make_unique<SaveManager>(savname);
     loadCheats();
+    startPacketCapture();
 
     return true; // success
 }
@@ -1844,6 +1850,8 @@ void EmuInstance::ejectCart()
     baseROMDir = "";
     baseROMName = "";
     baseAssetName = "";
+
+    stopPacketCapture();
 }
 
 bool EmuInstance::cartInserted()
@@ -2067,4 +2075,60 @@ void EmuInstance::animatedROMIcon(const u8 (&data)[8][512], const u16 (&palette)
         for (int j = 0; j < SEQ_DUR(sequence[i]); j++)
             animatedSequenceRef.push_back(i);
     }
+}
+
+void EmuInstance::startPacketCapture()
+{
+    if (packetCapture != nullptr || packetCaptureDumper != nullptr)
+        stopPacketCapture();
+
+    if (!globalCfg.GetBool("Pcap.Enabled"))
+        return;
+
+    if (!pcap)
+        pcap = melonDS::LibPCap::New();
+
+    std::string pcapPath = getAssetPath(false, globalCfg.GetString("Pcap.Path"), instanceFileSuffix() + ".pcap");
+    Log(LogLevel::Debug, "Starting packet capture: %s\n", pcapPath.c_str());
+
+    packetCapture = pcap->open_dead(DLT_IEEE802_11, 1024);
+    packetCaptureDumper = pcap->dump_open(packetCapture, pcapPath.c_str());
+    if (packetCaptureDumper == nullptr)
+    {
+        Log(LogLevel::Error, "Failed to open pcap file: %s\n", pcap->geterr(packetCapture));
+        return stopPacketCapture();
+    }
+}
+
+void EmuInstance::stopPacketCapture()
+{
+    if (!pcap)
+        pcap = melonDS::LibPCap::New();
+
+    if (packetCaptureDumper != nullptr)
+    {
+        pcap->dump_flush(packetCaptureDumper);
+        pcap->dump_close(packetCaptureDumper);
+        packetCaptureDumper = nullptr;
+    }
+
+    if (packetCapture != nullptr)
+    {
+        pcap->close(packetCapture);
+        packetCapture = nullptr;
+    }
+}
+
+void EmuInstance::capturePacket(u8* data, int len)
+{
+    if (!pcap || packetCaptureDumper == nullptr || len < 12)
+        return;
+
+    // data contains a 12-byte hardware header, and a trailing 4-byte checksum.
+    // https://problemkaputt.de/gbatek.htm#dswifihardwareheaders
+    pcap_pkthdr hdr = {};
+    gettimeofday(&hdr.ts, NULL);
+    hdr.caplen = len - 12 - 4;
+    hdr.len = len - 12 - 4;
+    pcap->dump((unsigned char*)packetCaptureDumper, &hdr, data + 12);
 }
