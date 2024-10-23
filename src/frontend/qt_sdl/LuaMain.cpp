@@ -54,8 +54,7 @@ LuaConsoleDialog::LuaConsoleDialog(QWidget* parent) : QDialog(parent)
 {
     QWidget* w = parent;
     MainWindow* mainWindow;
-    //Yoinked from ScreenPanel in Screen.cpp
-    for (;;)
+    for (;;) //copied from ScreenPanel in Screen.cpp
     {
         mainWindow = qobject_cast<MainWindow*>(w);
         if (mainWindow) break;
@@ -90,8 +89,7 @@ void LuaConsoleDialog::closeEvent(QCloseEvent *event)
 void LuaConsoleDialog::onOpenScript()
 {
     QFileInfo file = QFileInfo(QFileDialog::getOpenFileName(this, "Load Lua Script",QDir::currentPath()));
-    if (!file.exists())
-        return;
+    if (!file.exists()) return;
     currentScript = file;
     bundle->flagNewLua = true;
 }
@@ -113,7 +111,6 @@ void LuaConsole::onClear()
     this->clear();
 }
 
-
 LuaFunction::LuaFunction(luaFunctionPointer cf,const char* n,std::vector<LuaFunction*>* container)
 {
     this->cfunction = cf;
@@ -123,7 +120,8 @@ LuaFunction::LuaFunction(luaFunctionPointer cf,const char* n,std::vector<LuaFunc
 
 static_assert(sizeof(LuaBundle*) <= LUA_EXTRASPACE,"LUA_EXTRASPACE too small");
 
-LuaBundle* get_bundle(lua_State * L) {
+LuaBundle* get_bundle(lua_State * L)
+{
 	LuaBundle* pBundle;
 	std::memcpy(&pBundle, lua_getextraspace(L), sizeof(LuaBundle*));
 	return pBundle;
@@ -133,28 +131,25 @@ LuaBundle* get_bundle(lua_State * L) {
 void luaHookFunction(lua_State* L, lua_Debug *arg)
 {
     LuaBundle* bundle = get_bundle(L);
-    if(bundle->flagStop and (arg->event == LUA_HOOKCOUNT))
+    if (bundle->flagStop and (arg->event == LUA_HOOKCOUNT)) 
         luaL_error(L, "Force Stopped");
 }
-
 
 std::vector<LuaFunction*> definedLuaFunctions;//List of all defined lua functions
 
 void LuaBundle::createLuaState()
 {
-    if(!flagNewLua)
-        return;
+    if (!flagNewLua) return;
     overlays->clear();
     flagNewLua = false;
     luaState = nullptr;
-    QString qfilename = luaDialog->currentScript.fileName();
     std::string fileName = luaDialog->currentScript.fileName().toStdString();
     std::string filedir = luaDialog->currentScript.dir().path().toStdString();
     lua_State* L = luaL_newstate();
     LuaBundle* pBundle = this;
     std::memcpy(lua_getextraspace(L), &pBundle, sizeof(LuaBundle*)); //Write a pointer to this LuaBundle into the extra space of the new lua_State
     luaL_openlibs(L);
-    for(LuaFunction* function : definedLuaFunctions)
+    for (LuaFunction* function : definedLuaFunctions)
         lua_register(L,function->name,function->cfunction);
     std::filesystem::current_path(filedir.c_str());
     lua_sethook(L,&luaHookFunction,LUA_MASKCOUNT,MELON_LUA_HOOK_INSTRUCTION_COUNT); 
@@ -170,8 +165,7 @@ void LuaBundle::createLuaState()
 
 void LuaConsoleDialog::onStop()
 {
-    lua_State* L = bundle->getLuaState();
-    if(L)
+    if (bundle->getLuaState()) 
         bundle->flagStop = true;
 }
 
@@ -183,15 +177,14 @@ void LuaConsoleDialog::onPausePlay()
 //Gets Called once a frame
 void LuaBundle::luaUpdate()
 {
-    if(!luaState || flagPause)
-        return;
+    if (!luaState || flagPause) return;
     if (lua_getglobal(luaState,"_Update")!=LUA_TFUNCTION)
     {
         emuThread->onLuaPrint("No \"_Update\" Function found, pausing script...");
         flagPause = true;
         return;
     }
-    if(lua_pcall(luaState,0,0,0)!=0)
+    if (lua_pcall(luaState,0,0,0)!=0)
     {
         //Handel Errors
         emuThread->onLuaPrint(lua_tostring(luaState,-1));
@@ -238,6 +231,7 @@ void LuaBundle::luaResetOSD()
     }
 }
 
+//TODO: Organize lua functions into different named tables similar to bizhawk.
 /*--------------------------------------------------------------------------------------------------
                             Start of lua function definitions
 --------------------------------------------------------------------------------------------------*/
@@ -417,7 +411,7 @@ int Lua_getMouse(lua_State* L)
     lua_setfield(L, -2, "X");
     lua_pushinteger(L, pos.y());
     lua_setfield(L, -2, "Y");
-    for(int i=0;i<6;i++)
+    for (int i=0;i<6;i++)
     {
         lua_pushboolean(L,vals[i]);
         lua_setfield(L,-2,keys[i]);
@@ -429,13 +423,13 @@ AddLuaFunction(Lua_getMouse,GetMouse);
 int Lua_KeyboardMask(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
-
     lua_createtable(L,0,256);
-    for (int i=0;i<256;i++){
+    for (int i=0;i<256;i++)
+    {
         lua_pushboolean(L,bundle->getEmuInstance()->KeyboardMask[i]);
         lua_seti(L,-2,i);
     }
-    return 1;
+    return 1;//returns table of 256 booleans describing the current state of the keyboard.
 }
 AddLuaFunction(Lua_KeyboardMask,KeyboardMask);
 
@@ -444,7 +438,7 @@ AddLuaFunction(Lua_KeyboardMask,KeyboardMask);
 --------------------------------------------------------------------------------------------------*/
 //TODO: Lua Colors 
 
- //MakeCanvas(int x,int y,int width,int height,[int target,topScreen=0,bottomScreen=1,OSD(default)>=2)],[bool active = true])
+//MakeCanvas(int x,int y,int width,int height,[int target,topScreen=0,bottomScreen=1,OSD(default)>=2)],[bool active = true])
 int Lua_MakeCanvas(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
@@ -467,6 +461,7 @@ int Lua_SetCanvas(lua_State* L) //SetCanvas(int index)
 {
     LuaBundle* bundle = get_bundle(L);
     int index = luaL_checknumber(L,1);
+
     bundle->luaCanvas = &bundle->overlays->at(index);
     return 0;
 }
@@ -497,6 +492,7 @@ int Lua_text(lua_State* L)
     melonDS::u32 color = luaL_optnumber(L,4,0x00000000);
     const char* FontFamily = luaL_optlstring(L,6,"Helvetica",NULL);
     int size = luaL_optnumber(L,5,9);
+
     QPainter painter(bundle->luaCanvas->imageBuffer);
     QFont font(FontFamily,size,0,false);
     //font.setStyleStrategy(QFont::NoAntialias);
@@ -516,6 +512,7 @@ int Lua_line(lua_State* L)
     int x2 = luaL_checknumber(L,3);
     int y2 = luaL_checknumber(L,4);
     melonDS::u32 color = luaL_checknumber(L,5);
+
     QPainter painter(bundle->luaCanvas->imageBuffer);
     painter.setPen(color);
     painter.drawLine(x1,y1,x2,y2);
@@ -531,6 +528,7 @@ int Lua_rect(lua_State* L)
     int y = luaL_checknumber(L,2);
     int width = luaL_checknumber(L,3);
     int height = luaL_checknumber(L,4);
+
     QPainter painter(bundle->luaCanvas->imageBuffer);
     painter.setPen(color);
     painter.drawRect(x,y,width,height);
@@ -546,6 +544,7 @@ int Lua_fillrect(lua_State* L)
     int y = luaL_checknumber(L,2);
     int width = luaL_checknumber(L,3);
     int height = luaL_checknumber(L,4);
+
     QPainter painter(bundle->luaCanvas->imageBuffer);
     painter.setPen(color);
     painter.fillRect(x,y,width,height,color);
@@ -561,6 +560,7 @@ int Lua_Ellipse(lua_State* L)
     int y = luaL_checknumber(L,2);
     int width = luaL_checknumber(L,3);
     int height = luaL_checknumber(L,4);
+
     QPainter painter(bundle->luaCanvas->imageBuffer);
     painter.setPen(color);
     painter.drawEllipse(x,y,width,height);
@@ -593,9 +593,10 @@ int Lua_drawImage(lua_State* L)
     int sy = luaL_optinteger(L,5,0);
     int sw = luaL_optinteger(L,6,-1);
     int sh = luaL_optinteger(L,7,-1);
+
     QPainter painter(bundle->luaCanvas->imageBuffer);
     QImage image;
-    if(bundle->imageHash->contains(path))
+    if (bundle->imageHash->contains(path))
     {
         image=(*bundle->imageHash)[path];
     }
@@ -628,7 +629,7 @@ int Lua_getJoy(lua_State* L)
         "R","L","X","Y"
     };
     lua_createtable(L, 0, 12);
-    for(melonDS::u32 i=0;i<12;i++)
+    for (melonDS::u32 i=0;i<12;i++)
     {
         lua_pushboolean(L,0 >= (buttonMask&(1<<i)));
         lua_setfield(L,-2,keys[i]);
@@ -638,7 +639,9 @@ int Lua_getJoy(lua_State* L)
 AddLuaFunction(Lua_getJoy,GetJoy);
 
 /*
-int Lua_setPadding(lua_State* L) //TODO: Currently only works well with force integer scaling
+//TODO: Currently only works well with force integer scaling
+//TODO: Consider alternative ways to provide extra drawing space for lua scripts?
+int Lua_setPadding(lua_State* L) 
 {
     LeftPadding = abs(luaL_checkinteger(L,1));
     TopPadding = abs(luaL_checkinteger(L,2));

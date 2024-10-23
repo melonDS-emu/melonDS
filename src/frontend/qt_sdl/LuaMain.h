@@ -62,7 +62,7 @@ struct OverlayCanvas
     bool isActive = true; // only active overlays are drawn
     unsigned int GLTexture; // used by GL rendering
     bool GLTextureLoaded;
-    OverlayCanvas(int x, int y,int w, int h, LuaCanvasTarget target = LuaCanvasTarget::canvasTarget_OSD);
+    OverlayCanvas(int x, int y,int w, int h, LuaCanvasTarget target = canvasTarget_OSD);
     void flip();//used to swap buffers / update canvas
     bool flipped; //used to signal update to graphics.
 };
