@@ -1719,7 +1719,9 @@ void MainWindow::onNPStartClient()
 void MainWindow::onNPTest()
 {
     // HAX
-    //Netplay::StartGame();
+    // TODO: this should be integrated into the netplay dialog, and this menu item removed
+    if (MPInterface::GetType() != MPInterface_Netplay) return;
+    ((Netplay&)MPInterface::Get()).StartGame();
 }
 
 void MainWindow::updateMPInterface(MPInterfaceType type)

@@ -118,7 +118,7 @@ void NetInit()
 }
 
 
-bool createEmuInstance()
+int createEmuInstance()
 {
     int id = -1;
     for (int i = 0; i < kMaxEmuInstances; i++)
@@ -131,12 +131,12 @@ bool createEmuInstance()
     }
 
     if (id == -1)
-        return false;
+        return -1;
 
     auto inst = new EmuInstance(id);
     emuInstances[id] = inst;
 
-    return true;
+    return id;
 }
 
 void deleteEmuInstance(int id)

@@ -64,6 +64,8 @@ public:
     bool StartClient(const char* player, const char* host, int port);
     void EndSession();
 
+    void StartGame();
+
     std::vector<Player> GetPlayerList();
     int GetNumPlayers() { return NumPlayers; }
     int GetMaxPlayers() { return MaxPlayers; }
@@ -89,6 +91,10 @@ private:
 
     int NumMirrorClients;
 
+    // maps to convert between player IDs and local instance IDs
+    int PlayerToInstance[16];
+    int InstanceToPlayer[16];
+
     struct InputFrame
     {
         u32 FrameNum;
@@ -99,7 +105,6 @@ private:
 
     std::queue<InputFrame> InputQueue;
 
-    void StartGame();
     void StartLocal();
     void ProcessHost();
     void ProcessClient();

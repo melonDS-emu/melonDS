@@ -54,8 +54,7 @@ enum
     Cmd_ClientInit = 1,     // 01 -- host->client -- init new client and assign ID
     Cmd_PlayerInfo,         // 02 -- client->host -- send client player info to host
     Cmd_PlayerList,         // 03 -- host->client -- broadcast updated player list
-    //Cmd_PlayerConnect,      // 04 -- both -- signal connected state (ready to receive MP frames)
-    //Cmd_PlayerDisconnect,   // 05 -- both -- signal disconnected state (not receiving MP frames)
+    Cmd_StartGame,          // 04 -- host->client -- start the game on all players
 };
 
 
@@ -72,6 +71,9 @@ Netplay::Netplay() noexcept : LocalMP(), Inited(false)
     memset(Players, 0, sizeof(Players));
     NumPlayers = 0;
     MaxPlayers = 0;
+
+    memset(PlayerToInstance, 0, sizeof(PlayerToInstance));
+    memset(InstanceToPlayer, 0, sizeof(InstanceToPlayer));
 
     // TODO make this somewhat nicer
     if (enet_initialize() != 0)
@@ -682,34 +684,36 @@ void Netplay::StartGame()
         return;
     }
 
-    // spawn mirror instances as needed
-    for (int i = 1; i < NumPlayers; i++)
-    {
-        //SpawnMirrorInstance(Players[i]);
-    }
-
-    //SyncMirrorClients();
-
     // tell remote peers to start game
-    u8 cmd[1] = {0x04};
+    u8 cmd[1] = {Cmd_StartGame};
     ENetPacket* pkt = enet_packet_create(cmd, sizeof(cmd), ENET_PACKET_FLAG_RELIABLE);
-    enet_host_broadcast(Host, 0, pkt);
-
-    // tell other mirror instances to start the game
-    //IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
-
-    // TO START MIRROR CLIENT SHITO
-                        //
-                        // 1. NDS::Reset()
-                        // 2. load ROM
-                        // 3. load state
+    enet_host_broadcast(Host, Chan_Cmd, pkt);
 
     // start game locally
-    //StartLocal();
+    StartLocal();
 }
 
 void Netplay::StartLocal()
 {
+    // assign local instances to players
+
+    PlayerToInstance[MyPlayer.ID] = 0;
+    InstanceToPlayer[0] = MyPlayer.ID;
+
+    for (int p = 0, i = 1; p < 16; p++)
+    {
+        if (p == MyPlayer.ID) continue;
+
+        Player* player = &Players[p];
+        if (player->Status == Player_None) continue;
+
+        PlayerToInstance[p] = i;
+        InstanceToPlayer[i] = p;
+        i++;
+    }
+
+    // prefill input queue
+    // TODO: make input lag not hardcoded
     for (int i = 0; i < 4; i++)
     {
         InputFrame frame;
@@ -806,7 +810,7 @@ void Netplay::ProcessHost()
                 u8* data = (u8*)event.packet->data;
                 switch (data[0])
                 {
-                case 0x02: // client sending player info
+                case Cmd_PlayerInfo: // client sending player info
                     {
                         if (event.packet->dataLength != (1+sizeof(Player))) break;
 
@@ -828,11 +832,11 @@ void Netplay::ProcessHost()
 
                         // broadcast updated player list
                         u8 cmd[2+sizeof(Players)];
-                        cmd[0] = 0x03;
+                        cmd[0] = Cmd_PlayerList;
                         cmd[1] = (u8)NumPlayers;
                         memcpy(&cmd[2], Players, sizeof(Players));
                         ENetPacket* pkt = enet_packet_create(cmd, 2+sizeof(Players), ENET_PACKET_FLAG_RELIABLE);
-                        enet_host_broadcast(Host, 0, pkt);
+                        enet_host_broadcast(Host, Chan_Cmd, pkt);
 
                         //netplayDlg->updatePlayerList(Players, NumPlayers);
                     }
@@ -896,34 +900,6 @@ void Netplay::ProcessClient()
                 u8* data = (u8*)event.packet->data;
                 switch (data[0])
                 {
-                case Cmd_ClientInit: // host sending player ID
-                    {
-                        if (event.packet->dataLength != 2) break;
-
-                        NumMirrorClients = 0;
-
-                        // create mirror host
-                        /*ENetAddress mirroraddr;
-                        mirroraddr.host = ENET_HOST_ANY;
-                        mirroraddr.port = 8064+1 + data[1]; // FIXME!!!!
-printf("client mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr.port);
-                        MirrorHost = enet_host_create(&mirroraddr, 16, 2, 0, 0);
-                        if (!MirrorHost)
-                        {
-                            printf("mirror host shat itself :(\n");
-                            break;
-                        }*/
-
-                        // send player information
-                        MyPlayer.ID = data[1];
-                        u8 cmd[1+sizeof(Player)];
-                        cmd[0] = 0x02;
-                        memcpy(&cmd[1], &MyPlayer, sizeof(Player));
-                        ENetPacket* pkt = enet_packet_create(cmd, 1+sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
-                        enet_peer_send(event.peer, 0, pkt);
-                    }
-                    break;
-
                 case Cmd_PlayerList: // host sending player list
                     {
                         if (event.packet->dataLength != (2+sizeof(Players))) break;
@@ -963,22 +939,9 @@ printf("client: receive player list, %08X %d\n", event.peer->address.host, event
                     }
                     break;
 
-                case 0x04: // start game
+                case Cmd_StartGame: // start game
                     {
-                        // spawn mirror instances as needed
-                        /*for (int i = 0; i < NumPlayers; i++)
-                        {
-                            if (i != MyPlayer.ID)
-                                SpawnMirrorInstance(Players[i]);
-                        }*/
-
-                        //SyncMirrorClients();
-printf("bourf\n");
-                        // tell other mirror instances to start the game
-                        //IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
-printf("birf\n");
-                        // start game locally
-                        //StartLocal();
+                        StartLocal();
                     }
                     break;
                 }
