@@ -39,17 +39,13 @@ end
 
 `n_u8Value Readu8(nAddress)`
 - Read Data unisigned one Byte from u32 address `nAddress`
-`n_u16Value Readu16(nAddress)`
-- Read Data unisigned two Bytes from u32 address `nAddress`
-`n_u32Value Readu32(nAddress)`
-- Read Data unisigned four Bytes from u32 address `nAddress`
+- `n_u16Value Readu16(nAddress)` Read Data unisigned two Bytes from u32 address `nAddress`
+- `n_u32Value Readu32(nAddress)` Read Data unisigned four Bytes from u32 address `nAddress`
 
 `n_s8Value Readu8(nAddress)`
 - Read Data signed one Byte from u32 address `nAddress`
-`n_s16Value Readu16(nAddress)`
-- Read Data signed two Bytes from u32 address `nAddress`
-`n_s32Value Readu32(nAddress)`
-- Read Data signed four Bytes from u32 address `nAddress`
+- `n_s16Value Readu16(nAddress)` Read Data signed two Bytes from u32 address `nAddress`
+- `n_s32Value Readu32(nAddress)` Read Data signed four Bytes from u32 address `nAddress`
 
 `nil NDSTapDown(nX,nY)`
 - Push down on the bottom touchscreen at pixel position X,Y.
