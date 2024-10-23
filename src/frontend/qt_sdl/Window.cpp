@@ -623,13 +623,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             }
         }
 
-        if (parentWidget() != nullptr) // TEST
-        {
-            QMenu* menu = menubar->addMenu("Test");
-
-            menu->addAction("Test");
-        }
-
         actScreenFiltering = menu->addAction("Screen filtering");
         actScreenFiltering->setCheckable(true);
         connect(actScreenFiltering, &QAction::triggered, this, &MainWindow::onChangeScreenFiltering);
