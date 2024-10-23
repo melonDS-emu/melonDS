@@ -392,6 +392,7 @@ public: // TODO: Encapsulate the rest of these members
     bool IsRunning() const noexcept { return Running; }
 
     void TouchScreen(u16 x, u16 y);
+    void MoveTouch(u16 x, u16 y);
     void ReleaseScreen();
 
     void SetKeyMask(u32 mask);

@@ -88,6 +88,8 @@ void DSi_TSC::SetTouchCoords(u16 x, u16 y)
     TouchX = x;
     TouchY = y;
 
+    DeltaX = DeltaY = 0;
+
     u8 oldpress = Bank3Regs[0x0E] & 0x01;
 
     if (y == 0xFFF)
@@ -119,6 +121,22 @@ void DSi_TSC::SetTouchCoords(u16 x, u16 y)
         TouchX |= 0x8000;
         TouchY |= 0x8000;
     }
+}
+
+void DSi_TSC::MoveTouchCoords(u16 x, u16 y)
+{
+    if (TSCMode == 0x00) return TSC::MoveTouchCoords(x, y);
+
+    if (Bank3Regs[0x0E] & 0x01)
+    {
+        return SetTouchCoords(x, y);
+    }
+
+    DeltaX = (x << 4) - (TouchX & ~0x8000);
+    DeltaY = (y << 4) - (TouchY & ~0x8000);
+
+    Bank3Regs[0x09] = 0x80;
+    Bank3Regs[0x0E] &= ~0x01;
 }
 
 void DSi_TSC::MicInputFrame(const s16* data, int samples)
@@ -162,8 +180,9 @@ void DSi_TSC::Write(u8 val)
             {
                 // X coordinates
 
-                if (id & 0x01) Data = TouchX >> 8;
-                else           Data = TouchX & 0xFF;
+                u16 touchX = TouchX + CreateTouchOffset(DeltaX);
+                if (id & 0x01) Data = touchX >> 8;
+                else           Data = touchX & 0xFF;
 
                 TouchX &= 0x7FFF;
             }
@@ -171,8 +190,9 @@ void DSi_TSC::Write(u8 val)
             {
                 // Y coordinates
 
-                if (id & 0x01) Data = TouchY >> 8;
-                else           Data = TouchY & 0xFF;
+                u16 touchY = TouchY + CreateTouchOffset(DeltaY);
+                if (id & 0x01) Data = touchY >> 8;
+                else           Data = touchY & 0xFF;
 
                 TouchY &= 0x7FFF; // checkme
             }
