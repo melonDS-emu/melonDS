@@ -1445,7 +1445,6 @@ void DSi_NWifi::CheckRX()
     int rxlen = Platform::Net_RecvPacket(LANBuffer, DSi.UserData);
     while (rxlen > 0)
     {
-        //printf("WMI packet recv %04X %04X %04X\n", *(u16*)&LANBuffer[0], *(u16*)&LANBuffer[2], *(u16*)&LANBuffer[4]);
         // check destination MAC
         if (*(u32*)&LANBuffer[0] != 0xFFFFFFFF || *(u16*)&LANBuffer[4] != 0xFFFF)
         {
@@ -1508,6 +1507,7 @@ void DSi_NWifi::CheckRX()
             Mailbox[8].Write(LANBuffer[14+i]);
 
         DrainRXBuffer();
+        return;
     }
 }
 
