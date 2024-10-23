@@ -1211,24 +1211,15 @@ void MainWindow::updateCartInserted(bool gba)
 
 void MainWindow::onOpenFile()
 {
-    emuThread->emuPause();
-
     if (!verifySetup())
-    {
-        emuThread->emuUnpause();
         return;
-    }
 
     QStringList file = pickROM(false);
     if (file.isEmpty())
-    {
-        emuThread->emuUnpause();
         return;
-    }
-    
-    if (!emuInstance->loadROM(file, true))
+
+    if (!emuThread->bootROM(file))
     {
-        emuThread->emuUnpause();
         return;
     }
 
@@ -1236,10 +1227,6 @@ void MainWindow::onOpenFile()
     recentFileList.removeAll(filename);
     recentFileList.prepend(filename);
     updateRecentFilesMenu();
-
-    assert(emuInstance->nds != nullptr);
-    emuInstance->nds->Start();
-    emuThread->emuRun();
 
     updateCartInserted(false);
 }
@@ -1310,24 +1297,15 @@ void MainWindow::onClickRecentFile()
     QAction *act = (QAction *)sender();
     QString filename = act->data().toString();
 
-    emuThread->emuPause();
-
     if (!verifySetup())
-    {
-        emuThread->emuUnpause();
         return;
-    }
 
     const QStringList file = splitArchivePath(filename, true);
     if (file.isEmpty())
-    {
-        emuThread->emuUnpause();
         return;
-    }
-    
-    if (!emuInstance->loadROM(file, true))
+
+    if (!emuThread->bootROM(file))
     {
-        emuThread->emuUnpause();
         return;
     }
 
@@ -1335,34 +1313,19 @@ void MainWindow::onClickRecentFile()
     recentFileList.prepend(filename);
     updateRecentFilesMenu();
 
-    assert(emuInstance->nds != nullptr);
-    emuInstance->nds->Start();
-    emuThread->emuRun();
-
     updateCartInserted(false);
 }
 
 void MainWindow::onBootFirmware()
 {
-    emuThread->emuPause();
-
     if (!verifySetup())
-    {
-        emuThread->emuUnpause();
         return;
-    }
 
-    if (!emuInstance->bootToMenu())
+    if (!emuThread->bootFirmware())
     {
-        // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "This firmware is not bootable.");
-        emuThread->emuUnpause();
         return;
     }
-
-    assert(emuInstance->nds != nullptr);
-    emuInstance->nds->Start();
-    emuThread->emuRun();
 }
 
 void MainWindow::onInsertCart()

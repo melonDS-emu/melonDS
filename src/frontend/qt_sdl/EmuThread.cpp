@@ -541,7 +541,8 @@ void EmuThread::handleMessages()
             break;
 
         case msg_EmuStop:
-            if (msg.stopExternal) emuInstance->nds->Stop();
+            if (msg.param.value<bool>())
+                emuInstance->nds->Stop();
             emuStatus = emuStatus_Paused;
             emuActive = false;
 
@@ -573,6 +574,26 @@ void EmuThread::handleMessages()
         case msg_DeInitGL:
             emuInstance->deinitOpenGL();
             useOpenGL = false;
+            break;
+
+        case msg_BootROM:
+            bootResult = 0;
+            if (!emuInstance->loadROM(msg.param.value<QStringList>(), true))
+                break;
+
+            assert(emuInstance->nds != nullptr);
+            emuInstance->nds->Start();
+            bootResult = 1;
+            break;
+
+        case msg_BootFirmware:
+            bootResult = 0;
+            if (!emuInstance->bootToMenu())
+                break;
+
+            assert(emuInstance->nds != nullptr);
+            emuInstance->nds->Start();
+            bootResult = 1;
             break;
         }
 
@@ -626,7 +647,7 @@ void EmuThread::emuTogglePause()
 
 void EmuThread::emuStop(bool external)
 {
-    sendMessage({.type = msg_EmuStop, .stopExternal = external});
+    sendMessage({.type = msg_EmuStop, .param = external});
     waitMessage();
 }
 
@@ -658,6 +679,32 @@ bool EmuThread::emuIsRunning()
 bool EmuThread::emuIsActive()
 {
     return emuActive;
+}
+
+int EmuThread::bootROM(QStringList filename)
+{
+    sendMessage(msg_EmuPause);
+    sendMessage({.type = msg_BootROM, .param = filename});
+    waitMessage(2);
+    if (!bootResult)
+        return bootResult;
+
+    sendMessage(msg_EmuRun);
+    waitMessage();
+    return bootResult;
+}
+
+int EmuThread::bootFirmware()
+{
+    sendMessage(msg_EmuPause);
+    sendMessage(msg_BootFirmware);
+    waitMessage(2);
+    if (!bootResult)
+        return bootResult;
+
+    sendMessage(msg_EmuRun);
+    waitMessage();
+    return bootResult;
 }
 
 void EmuThread::updateRenderer()

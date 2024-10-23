@@ -68,15 +68,15 @@ public:
 
         msg_InitGL,
         msg_DeInitGL,
+
+        msg_BootROM,
+        msg_BootFirmware,
     };
 
     struct Message
     {
         MessageType type;
-        union
-        {
-            bool stopExternal;
-        };
+        QVariant param;
     };
 
     void sendMessage(Message msg);
@@ -99,6 +99,9 @@ public:
     void emuExit();
     void emuFrameStep();
     void emuReset();
+
+    int bootROM(QStringList filename);
+    int bootFirmware();
 
     bool emuIsRunning();
     bool emuIsActive();
@@ -152,6 +155,8 @@ private:
     constexpr static int emuPauseStackRunning = 0;
     constexpr static int emuPauseStackPauseThreshold = 1;
     int emuPauseStack;
+
+    int bootResult = 0;
 
     QMutex msgMutex;
     QSemaphore msgSemaphore;
