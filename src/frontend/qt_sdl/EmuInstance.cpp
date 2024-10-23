@@ -1116,6 +1116,9 @@ void EmuInstance::setDateTime()
 
 bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGBAArgs&& _gbaargs) noexcept
 {
+    // update the console type
+    consoleType = globalCfg.GetInt("Emu.ConsoleType");
+
     // Let's get the cart we want to use;
     // if we wnat to keep the cart, we'll eject it from the existing console first.
     std::unique_ptr<NDSCart::CartCommon> nextndscart;
@@ -1149,8 +1152,6 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     }
 
 
-    int consoletype = globalCfg.GetInt("Emu.ConsoleType");
-
     auto arm9bios = loadARM9BIOS();
     if (!arm9bios)
         return false;
@@ -1159,7 +1160,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     if (!arm7bios)
         return false;
 
-    auto firmware = loadFirmware(consoletype);
+    auto firmware = loadFirmware(consoleType);
     if (!firmware)
         return false;
 
@@ -1203,7 +1204,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     NDSArgs* args = &ndsargs;
 
     std::optional<DSiArgs> dsiargs = std::nullopt;
-    if (consoletype == 1)
+    if (consoleType == 1)
     {
         ndsargs.GBAROM = nullptr;
 
@@ -1234,19 +1235,19 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
         args = &(*dsiargs);
     }
 
-
-    if ((!nds) || (consoletype != nds->ConsoleType))
+    if ((!nds) || (consoleType != nds->ConsoleType))
     {
         NDS::Current = nullptr;
         if (nds) delete nds;
 
-        if (consoletype == 1)
+        if (consoleType == 1)
             nds = new DSi(std::move(dsiargs.value()), this);
         else
             nds = new NDS(std::move(ndsargs), this);
 
         NDS::Current = nds;
         nds->Reset();
+        //emuThread->updateVideoRenderer(); // not actually needed?
     }
     else
     {
@@ -1260,7 +1261,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
         nds->SPU.SetInterpolation(args->Interpolation);
         nds->SPU.SetDegrade10Bit(args->BitDepth);
 
-        if (consoletype == 1)
+        if (consoleType == 1)
         {
             DSi* dsi = (DSi*)nds;
             DSiArgs& _dsiargs = *dsiargs;
@@ -1282,8 +1283,6 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
 
 void EmuInstance::reset()
 {
-    consoleType = globalCfg.GetInt("Emu.ConsoleType");
-    
     updateConsole(Keep {}, Keep {});
 
     if (consoleType == 1) ejectGBACart();

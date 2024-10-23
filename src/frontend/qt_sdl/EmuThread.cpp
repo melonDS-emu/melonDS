@@ -664,7 +664,6 @@ void EmuThread::updateRenderer()
 {
     if (videoRenderer != lastVideoRenderer)
     {
-        printf("creating renderer %d\n", videoRenderer);
         switch (videoRenderer)
         {
             case renderer3D_Software:
