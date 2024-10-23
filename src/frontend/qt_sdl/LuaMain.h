@@ -46,9 +46,9 @@ public slots:
 //Based on ScreenLayout::GetScreenTransforms
 enum LuaCanvasTarget 
 {
-    TopScreen = 0,
-    BottomScreen = 1,
-    OSD = 2 //Used for drawing to OSD / non-screen target
+    canvasTarget_TopScreen = 0,
+    canvasTarget_BottomScreen = 1,
+    canvasTarget_OSD = 2 //Used for drawing to OSD / non-screen target
 };
 
 struct OverlayCanvas
@@ -58,11 +58,11 @@ struct OverlayCanvas
     QImage* buffer1;
     QImage* buffer2;
     QRect rectangle;
-    LuaCanvasTarget target = OSD;
+    LuaCanvasTarget target = canvasTarget_OSD;
     bool isActive = true; // only active overlays are drawn
     unsigned int GLTexture; // used by GL rendering
     bool GLTextureLoaded;
-    OverlayCanvas(int x, int y,int w, int h, LuaCanvasTarget target = LuaCanvasTarget::OSD);
+    OverlayCanvas(int x, int y,int w, int h, LuaCanvasTarget target = LuaCanvasTarget::canvasTarget_OSD);
     void flip();//used to swap buffers / update canvas
     bool flipped; //used to signal update to graphics.
 };

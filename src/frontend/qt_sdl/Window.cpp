@@ -410,7 +410,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actLuaScript = menu->addAction("Lua Script");
         connect(actLuaScript,&QAction::triggered,this,&MainWindow::onOpenLuaScript);
 
-
         menu->addSeparator();
 
         actEnableCheats = menu->addAction("Enable cheats");
@@ -1681,7 +1680,7 @@ void MainWindow::onOpenPowerManagement()
 
 void MainWindow::onOpenLuaScript()
 {
-    if (this->luaDialog) // only one at a time.
+    if (this->luaDialog)
         return;
     this->luaDialog = new LuaConsoleDialog(this);
     this->luaDialog->show();

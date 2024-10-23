@@ -71,9 +71,8 @@ void EmuInstance::inputInit()
     hotkeyMask = 0;
     lastHotkeyMask = 0;
 
-    for (int i=0;i<256;i++){
+    for (int i=0;i<256;i++)
         KeyboardMask[i]=false;
-    }
 
     joystick = nullptr;
     controller = nullptr;
@@ -224,7 +223,7 @@ void EmuInstance::onKeyPress(QKeyEvent* event)
 {
     if (event->key()<256)
         KeyboardMask[event->key()]=true;
-    if ((event->key()&0x01000000)>0 && (event->key()&0xff)<0x41) //special keys (there is probably a less messy way to write this...)
+    if ((event->key()&(1<<24))!=0 && (event->key()&0xff)<'A') //Special Keys
             KeyboardMask[0xff - (event->key()&0xff)]=true;
 
     int keyHK = getEventKeyVal(event);
@@ -246,7 +245,7 @@ void EmuInstance::onKeyRelease(QKeyEvent* event)
 {
     if (event->key()<256)
         KeyboardMask[event->key()]=false;
-    if ((event->key()&0x01000000)>0 && (event->key()&0xff)<0x41)//special keys
+    if ((event->key()&(1<<24))!=0 && (event->key()&0xff)<'A')//Special keys
         KeyboardMask[0xff - (event->key()&0xff)]=false;
     
     int keyHK = getEventKeyVal(event);

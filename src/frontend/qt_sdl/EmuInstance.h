@@ -206,7 +206,6 @@ private:
     static void audioCallback(void* data, Uint8* stream, int len);
     static void micCallback(void* data, Uint8* stream, int len);
 
-
     void onKeyPress(QKeyEvent* event);
     void onKeyRelease(QKeyEvent* event);
     void keyReleaseAll();

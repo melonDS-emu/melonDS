@@ -224,7 +224,6 @@ private:
     GLuint overlayShader;
     GLuint overlayScreenSizeULoc, overlayTransformULoc;
     GLuint overlayPosULoc, overlaySizeULoc, overlayScreenTypeULoc;
-
 };
 
 #endif // SCREEN_H

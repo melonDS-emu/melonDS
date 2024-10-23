@@ -48,7 +48,6 @@
 #include "font.h"
 #include "LuaMain.h"
 
-
 using namespace melonDS;
 
 
@@ -679,6 +678,7 @@ void ScreenPanelNative::drawOverlays(QPainter* painter,int type)
     if (!dialog)
         return;
     LuaBundle* lua = dialog->getLuaBundle();
+
     for (auto lo = lua->overlays->begin(); lo != lua->overlays->end();)
     {
         OverlayCanvas& overlay = *lo;
@@ -736,7 +736,7 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
 
         painter.resetTransform();
 
-        drawOverlays(&painter,LuaCanvasTarget::OSD);
+        drawOverlays(&painter,canvasTarget_OSD);
 
         for (auto it = osdItems.begin(); it != osdItems.end(); )
         {
@@ -904,7 +904,7 @@ void ScreenPanelGL::initOpenGL()
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)(0));
 
     transferLayout();
-    //TODO: Lookinto seeing if we can just re-use screen shader for this...
+
     OpenGL::CompileVertexFragmentProgram(overlayShader,
                                         kScreenVS,kScreenFS_overlay,
                                         "OverlayShader",
@@ -915,7 +915,6 @@ void ScreenPanelGL::initOpenGL()
 
     overlayScreenSizeULoc = glGetUniformLocation(overlayShader, "uScreenSize");
     overlayTransformULoc = glGetUniformLocation(overlayShader, "uTransform");
-
     overlayPosULoc = glGetUniformLocation(overlayShader, "uOverlayPos");
     overlaySizeULoc = glGetUniformLocation(overlayShader, "uOverlaySize");
     overlayScreenTypeULoc = glGetUniformLocation(overlayShader, "uOverlayScreenType");
@@ -946,20 +945,19 @@ void ScreenPanelGL::deinitOpenGL()
 
     glDeleteProgram(overlayShader);
     
-    //Double Check that this actually works lol...
-    std::vector<OverlayCanvas>* overlays=nullptr;
     if (mainWindow->getLuaDialog())
-        overlays = mainWindow->getLuaDialog()->getLuaBundle()->overlays;
-    for (auto lo = overlays->begin(); lo != overlays->end();)
     {
-        OverlayCanvas& overlay = *lo;
-        lo++;
-        if (!overlay.GLTextureLoaded)
-            continue;
-        glDeleteTextures(1,&overlay.GLTexture);
-        overlay.GLTextureLoaded=false;
+        std::vector<OverlayCanvas>* overlays = mainWindow->getLuaDialog()->getLuaBundle()->overlays;
+        for (auto lo = overlays->begin(); lo != overlays->end();)
+        {
+            OverlayCanvas& overlay = *lo;
+            lo++;
+            if (!overlay.GLTextureLoaded)
+                continue;
+            glDeleteTextures(1,&overlay.GLTexture);
+            overlay.GLTextureLoaded=false;
+        }
     }
-
     glContext->DoneCurrent();
 
     lastScreenWidth = lastScreenHeight = -1;
@@ -1002,12 +1000,11 @@ void ScreenPanelGL::osdDeleteItem(OSDItem* item)
 
 void ScreenPanelGL::drawOverlays(int type,int screen)
 {
-    LuaConsoleDialog* dialog = mainWindow->getLuaDialog();
-    if (!dialog)
+    if (!mainWindow->getLuaDialog())
         return;
-    LuaBundle* lua = dialog->getLuaBundle();
-
-    for (auto lo = lua->overlays->begin(); lo != lua->overlays->end();)
+    
+    std::vector<OverlayCanvas>* overlays = mainWindow->getLuaDialog()->getLuaBundle()->overlays;
+    for (auto lo = overlays->begin(); lo != overlays->end();)
     {
         OverlayCanvas& overlay = *lo;
         lo++;
@@ -1030,7 +1027,7 @@ void ScreenPanelGL::drawOverlays(int type,int screen)
             glTexSubImage2D(GL_TEXTURE_2D,0,0,0,overlay.rectangle.width(),overlay.rectangle.height(),GL_RGBA,GL_UNSIGNED_BYTE,overlay.displayBuffer->bits());
             overlay.flipped = false;
         }
-        if(type == LuaCanvasTarget::OSD) // OSD gets drawn differently then top or bottom screen target
+        if(type == canvasTarget_OSD) // OSD gets drawn differently then top or bottom screen target
         {
             glBindTexture(GL_TEXTURE_2D, overlay.GLTexture);
             glUniform2i(osdPosULoc,overlay.rectangle.left(),overlay.rectangle.top());
@@ -1048,7 +1045,6 @@ void ScreenPanelGL::drawOverlays(int type,int screen)
         glDrawArrays(GL_TRIANGLES,type == 0 ? 0 : 2*3, 2*3);
     }
 }
-
 
 void ScreenPanelGL::drawScreenGL()
 {
@@ -1162,7 +1158,7 @@ void ScreenPanelGL::drawScreenGL()
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-        drawOverlays(LuaCanvasTarget::OSD,0);
+        drawOverlays(canvasTarget_OSD,0);
 
         for (auto it = osdItems.begin(); it != osdItems.end(); )
         {
