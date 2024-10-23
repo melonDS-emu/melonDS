@@ -67,7 +67,6 @@ struct OverlayCanvas
     bool flipped; //used to signal update to graphics.
 };
 
-
 typedef int(*luaFunctionPointer)(lua_State*);
 struct LuaFunction
 {
@@ -105,6 +104,5 @@ public:
     QHash<QString, QImage>* imageHash;
 
 };
-
 
 #endif

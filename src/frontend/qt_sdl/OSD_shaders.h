@@ -106,5 +106,4 @@ void main()
 }
 )";
 
-
 #endif // OSD_SHADERS_H

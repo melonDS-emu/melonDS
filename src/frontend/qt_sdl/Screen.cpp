@@ -688,7 +688,6 @@ void ScreenPanelNative::drawOverlays(QPainter* painter,int type)
     }
 }
 
-
 void ScreenPanelNative::paintEvent(QPaintEvent* event)
 {
     QPainter painter(this);
