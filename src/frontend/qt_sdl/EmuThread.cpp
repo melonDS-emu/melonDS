@@ -102,9 +102,8 @@ void EmuThread::run()
 {
     Config::Table& globalCfg = emuInstance->getGlobalConfig();
     u32 mainScreenPos[3];
-    Platform::FileHandle* file;
 
-    emuInstance->updateConsole(nullptr, nullptr);
+    //emuInstance->updateConsole(nullptr, nullptr);
     // No carts are inserted when melonDS first boots
 
     mainScreenPos[0] = 0;
@@ -112,7 +111,7 @@ void EmuThread::run()
     mainScreenPos[2] = 0;
     autoScreenSizing = 0;
 
-    videoSettingsDirty = false;
+    //videoSettingsDirty = false;
 
     if (emuInstance->usesOpenGL())
     {
@@ -127,7 +126,8 @@ void EmuThread::run()
         videoRenderer = 0;
     }
 
-    updateRenderer();
+    //updateRenderer();
+    videoSettingsDirty = true;
 
     u32 nframes = 0;
     double perfCountsSec = 1.0 / SDL_GetPerformanceFrequency();
@@ -137,15 +137,6 @@ void EmuThread::run()
 
     u32 winUpdateCount = 0, winUpdateFreq = 1;
     u8 dsiVolumeLevel = 0x1F;
-
-    file = Platform::OpenLocalFile("rtc.bin", Platform::FileMode::Read);
-    if (file)
-    {
-        RTC::StateData state;
-        Platform::FileRead(&state, sizeof(state), 1, file);
-        Platform::CloseFile(file);
-        emuInstance->nds->RTC.SetState(state);
-    }
 
     char melontitle[100];
 
@@ -453,17 +444,6 @@ void EmuThread::run()
 
         handleMessages();
     }
-
-    file = Platform::OpenLocalFile("rtc.bin", Platform::FileMode::Write);
-    if (file)
-    {
-        RTC::StateData state;
-        emuInstance->nds->RTC.GetState(state);
-        Platform::FileWrite(&state, sizeof(state), 1, file);
-        Platform::CloseFile(file);
-    }
-
-    NDS::Current = nullptr;
 }
 
 void EmuThread::sendMessage(Message msg)

@@ -154,6 +154,13 @@ EmuInstance::~EmuInstance()
 
     audioDeInit();
     inputDeInit();
+
+    NDS::Current = nullptr;
+    if (nds)
+    {
+        saveRTCData();
+        delete nds;
+    }
 }
 
 
@@ -1105,6 +1112,30 @@ void EmuInstance::setBatteryLevels()
     }
 }
 
+void EmuInstance::loadRTCData()
+{
+    auto file = Platform::OpenLocalFile("rtc.bin", Platform::FileMode::Read);
+    if (file)
+    {
+        RTC::StateData state;
+        Platform::FileRead(&state, sizeof(state), 1, file);
+        Platform::CloseFile(file);
+        nds->RTC.SetState(state);
+    }
+}
+
+void EmuInstance::saveRTCData()
+{
+    auto file = Platform::OpenLocalFile("rtc.bin", Platform::FileMode::Write);
+    if (file)
+    {
+        RTC::StateData state;
+        nds->RTC.GetState(state);
+        Platform::FileWrite(&state, sizeof(state), 1, file);
+        Platform::CloseFile(file);
+    }
+}
+
 void EmuInstance::setDateTime()
 {
     QDateTime hosttime = QDateTime::currentDateTime();
@@ -1238,7 +1269,11 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     if ((!nds) || (consoleType != nds->ConsoleType))
     {
         NDS::Current = nullptr;
-        if (nds) delete nds;
+        if (nds)
+        {
+            saveRTCData();
+            delete nds;
+        }
 
         if (consoleType == 1)
             nds = new DSi(std::move(dsiargs.value()), this);
@@ -1247,6 +1282,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
 
         NDS::Current = nds;
         nds->Reset();
+        loadRTCData();
         //emuThread->updateVideoRenderer(); // not actually needed?
     }
     else

@@ -168,7 +168,6 @@ private:
     std::optional<melonDS::FATStorageArgs> getSDCardArgs(const std::string& key) noexcept;
     std::optional<melonDS::FATStorage> loadSDCard(const std::string& key) noexcept;
     void setBatteryLevels();
-    void setDateTime();
     void reset();
     bool bootToMenu();
     melonDS::u32 decompressROM(const melonDS::u8* inContent, const melonDS::u32 inSize, std::unique_ptr<melonDS::u8[]>& outContent);
@@ -222,6 +221,10 @@ private:
     bool hotkeyDown(int id)     { return hotkeyMask    & (1<<id); }
     bool hotkeyPressed(int id)  { return hotkeyPress   & (1<<id); }
     bool hotkeyReleased(int id) { return hotkeyRelease & (1<<id); }
+
+    void loadRTCData();
+    void saveRTCData();
+    void setDateTime();
 
     bool deleting;
 

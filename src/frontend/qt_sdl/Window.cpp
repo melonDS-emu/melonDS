@@ -1009,6 +1009,9 @@ bool MainWindow::verifySetup()
 
 bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
 {
+    if (file.isEmpty() && gbafile.isEmpty())
+        return false;
+
     if (!verifySetup())
     {
         return false;
