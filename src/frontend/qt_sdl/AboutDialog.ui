@@ -10,6 +10,12 @@
     <height>304</height>
    </rect>
   </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
   <property name="minimumSize">
    <size>
     <width>600</width>
@@ -27,7 +33,7 @@
     <number>0</number>
    </property>
    <property name="sizeConstraint">
-    <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+    <enum>QLayout::SizeConstraint::SetFixedSize</enum>
    </property>
    <property name="bottomMargin">
     <number>12</number>
@@ -40,7 +46,7 @@
      <property name="sizeConstraint">
       <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
      </property>
-     <item alignment="Qt::AlignmentFlag::AlignTop">
+     <item alignment="Qt::AlignmentFlag::Qt::AlignmentFlag::AlignTop">
       <widget class="QLabel" name="lblLogo">
        <property name="enabled">
         <bool>true</bool>
@@ -91,7 +97,7 @@
        <property name="spacing">
         <number>12</number>
        </property>
-       <item alignment="Qt::AlignmentFlag::AlignTop">
+       <item alignment="Qt::AlignmentFlag::Qt::AlignmentFlag::AlignTop">
         <widget class="QLabel" name="label_2">
          <property name="enabled">
           <bool>true</bool>
@@ -142,7 +148,7 @@
          </property>
         </widget>
        </item>
-       <item alignment="Qt::AlignmentFlag::AlignBottom">
+       <item alignment="Qt::AlignmentFlag::Qt::AlignmentFlag::AlignBottom">
         <widget class="QLabel" name="label_3">
          <property name="enabled">
           <bool>false</bool>
