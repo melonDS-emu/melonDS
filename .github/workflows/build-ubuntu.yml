@@ -8,6 +8,11 @@ on:
     branches:
       - master
 
+env:
+  MELONDS_GIT_BRANCH: ${{ github.ref }}
+  MELONDS_GIT_HASH: ${{ github.sha }}
+  MELONDS_BUILD_PROVIDER: GitHub Actions
+
 jobs:
   build-x86_64:
     name: x86_64
@@ -23,7 +28,7 @@ jobs:
         sudo apt install --allow-downgrades cmake ninja-build extra-cmake-modules libpcap0.8-dev libsdl2-dev libenet-dev \
           qt6-{base,base-private,multimedia}-dev libqt6svg6-dev libarchive-dev libzstd-dev libfuse2
     - name: Configure
-      run: cmake -B build -G Ninja -DUSE_QT6=ON -DCMAKE_INSTALL_PREFIX=/usr
+      run: cmake -B build -G Ninja -DUSE_QT6=ON -DCMAKE_INSTALL_PREFIX=/usr -DMELONDS_EMBED_BUILD_INFO=ON
     - name: Build
       run: |
         cmake --build build
@@ -74,7 +79,8 @@ jobs:
             -DPKG_CONFIG_EXECUTABLE=/usr/bin/aarch64-linux-gnu-pkg-config \
             -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc-12 \
             -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++-12 \
-            -DUSE_QT6=ON
+            -DUSE_QT6=ON \
+            -DMELONDS_EMBED_BUILD_INFO=ON
       - name: Build
         shell: bash
         run: |
