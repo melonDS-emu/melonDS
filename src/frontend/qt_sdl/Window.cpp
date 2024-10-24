@@ -311,14 +311,17 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
         {
             QMenu* submenu = menu->addMenu("Insert add-on cart");
+            QAction* act;
 
-            actInsertGBAAddon[0] = submenu->addAction("Memory expansion");
-            actInsertGBAAddon[0]->setData(QVariant(GBAAddon_RAMExpansion));
-            connect(actInsertGBAAddon[0], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
+            act = submenu->addAction("Memory expansion");
+            act->setData(QVariant(GBAAddon_RAMExpansion));
+            connect(act, &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
+            actInsertGBAAddon.append(act);
 
-            actInsertGBAAddon[1] = submenu->addAction("Rumble Pak");
-            actInsertGBAAddon[1]->setData(QVariant(GBAAddon_RumblePak));
-            connect(actInsertGBAAddon[1], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
+            act = submenu->addAction("Rumble Pak");
+            act->setData(QVariant(GBAAddon_RumblePak));
+            connect(act, &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
+            actInsertGBAAddon.append(act);
         }
 
         actEjectGBACart = menu->addAction("Eject cart");
@@ -673,8 +676,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     if (globalCfg.GetInt("Emu.ConsoleType") == 1)
     {
         actInsertGBACart->setEnabled(false);
-        for (int i = 0; i < 1; i++)
-            actInsertGBAAddon[i]->setEnabled(false);
+        for (auto act : actInsertGBAAddon)
+            act->setEnabled(false);
     }
 
     for (int i = 0; i < 9; i++)
@@ -1700,15 +1703,15 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
     if (globalCfg.GetInt("Emu.ConsoleType") == 1)
     {
         actInsertGBACart->setEnabled(false);
-        for (int i = 0; i < 1; i++)
-            actInsertGBAAddon[i]->setEnabled(false);
+        for (auto act : actInsertGBAAddon)
+            act->setEnabled(false);
         actEjectGBACart->setEnabled(false);
     }
     else
     {
         actInsertGBACart->setEnabled(true);
-        for (int i = 0; i < 1; i++)
-            actInsertGBAAddon[i]->setEnabled(true);
+        for (auto act : actInsertGBAAddon)
+            act->setEnabled(true);
         actEjectGBACart->setEnabled(emuInstance->gbaCartInserted());
     }
 

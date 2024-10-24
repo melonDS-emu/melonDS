@@ -269,7 +269,7 @@ public:
     QAction* actEjectCart;
     QAction* actCurrentGBACart;
     QAction* actInsertGBACart;
-    QAction* actInsertGBAAddon[2];
+    QList<QAction*> actInsertGBAAddon;
     QAction* actEjectGBACart;
     QAction* actImportSavefile;
     QAction* actSaveState[9];
