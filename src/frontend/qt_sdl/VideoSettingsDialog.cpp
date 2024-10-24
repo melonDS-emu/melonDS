@@ -151,6 +151,7 @@ void VideoSettingsDialog::onChange3DRenderer(int renderer)
     auto& cfg = emuInstance->getGlobalConfig();
     cfg.SetInt("3D.Renderer", renderer);
 
+    setVsyncControlEnable(UsesGL());
     setEnabled();
 
     emit updateVideoSettings(old_gl != UsesGL());
@@ -202,8 +203,6 @@ void VideoSettingsDialog::on_cbxGLResolution_currentIndexChanged(int idx)
 
     auto& cfg = emuInstance->getGlobalConfig();
     cfg.SetInt("3D.GL.ScaleFactor", idx+1);
-
-    setVsyncControlEnable(UsesGL());
 
     emit updateVideoSettings(false);
 }
