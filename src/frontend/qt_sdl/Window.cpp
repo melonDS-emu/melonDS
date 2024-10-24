@@ -458,53 +458,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         }
     }
     {
-        QMenu* menu = menubar->addMenu("Config");
-
-        actEmuSettings = menu->addAction("Emu settings");
-        connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
-
-#ifdef __APPLE__
-        actPreferences = menu->addAction("Preferences...");
-        connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
-        actPreferences->setMenuRole(QAction::PreferencesRole);
-#endif
-
-        actInputConfig = menu->addAction("Input and hotkeys");
-        connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
-
-        actVideoSettings = menu->addAction("Video settings");
-        connect(actVideoSettings, &QAction::triggered, this, &MainWindow::onOpenVideoSettings);
-
-        actCameraSettings = menu->addAction("Camera settings");
-        connect(actCameraSettings, &QAction::triggered, this, &MainWindow::onOpenCameraSettings);
-
-        actAudioSettings = menu->addAction("Audio settings");
-        connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
-
-        actMPSettings = menu->addAction("Multiplayer settings");
-        connect(actMPSettings, &QAction::triggered, this, &MainWindow::onOpenMPSettings);
-
-        actWifiSettings = menu->addAction("Wifi settings");
-        connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
-
-        actFirmwareSettings = menu->addAction("Firmware settings");
-        connect(actFirmwareSettings, &QAction::triggered, this, &MainWindow::onOpenFirmwareSettings);
-
-        actInterfaceSettings = menu->addAction("Interface settings");
-        connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
-
-        actPathSettings = menu->addAction("Path settings");
-        connect(actPathSettings, &QAction::triggered, this, &MainWindow::onOpenPathSettings);
-
-        {
-            QMenu* submenu = menu->addMenu("Savestate settings");
-
-            actSavestateSRAMReloc = submenu->addAction("Separate savefiles");
-            actSavestateSRAMReloc->setCheckable(true);
-            connect(actSavestateSRAMReloc, &QAction::triggered, this, &MainWindow::onChangeSavestateSRAMReloc);
-        }
-
-        menu->addSeparator();
+        QMenu *menu = menubar->addMenu("View");
 
         {
             QMenu* submenu = menu->addMenu("Screen size");
@@ -633,6 +587,53 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actShowOSD = menu->addAction("Show OSD");
         actShowOSD->setCheckable(true);
         connect(actShowOSD, &QAction::triggered, this, &MainWindow::onChangeShowOSD);
+    }
+    {
+        QMenu* menu = menubar->addMenu("Config");
+
+        actEmuSettings = menu->addAction("Emu settings");
+        connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
+
+#ifdef __APPLE__
+        actPreferences = menu->addAction("Preferences...");
+        connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
+        actPreferences->setMenuRole(QAction::PreferencesRole);
+#endif
+
+        actInputConfig = menu->addAction("Input and hotkeys");
+        connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
+
+        actVideoSettings = menu->addAction("Video settings");
+        connect(actVideoSettings, &QAction::triggered, this, &MainWindow::onOpenVideoSettings);
+
+        actCameraSettings = menu->addAction("Camera settings");
+        connect(actCameraSettings, &QAction::triggered, this, &MainWindow::onOpenCameraSettings);
+
+        actAudioSettings = menu->addAction("Audio settings");
+        connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
+
+        actMPSettings = menu->addAction("Multiplayer settings");
+        connect(actMPSettings, &QAction::triggered, this, &MainWindow::onOpenMPSettings);
+
+        actWifiSettings = menu->addAction("Wifi settings");
+        connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
+
+        actFirmwareSettings = menu->addAction("Firmware settings");
+        connect(actFirmwareSettings, &QAction::triggered, this, &MainWindow::onOpenFirmwareSettings);
+
+        actInterfaceSettings = menu->addAction("Interface settings");
+        connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
+
+        actPathSettings = menu->addAction("Path settings");
+        connect(actPathSettings, &QAction::triggered, this, &MainWindow::onOpenPathSettings);
+
+        {
+            QMenu* submenu = menu->addMenu("Savestate settings");
+
+            actSavestateSRAMReloc = submenu->addAction("Separate savefiles");
+            actSavestateSRAMReloc->setCheckable(true);
+            connect(actSavestateSRAMReloc, &QAction::triggered, this, &MainWindow::onChangeSavestateSRAMReloc);
+        }
 
         menu->addSeparator();
 
