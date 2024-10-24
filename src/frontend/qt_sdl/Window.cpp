@@ -264,6 +264,13 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     setAcceptDrops(true);
     setFocusPolicy(Qt::ClickFocus);
 
+#ifdef WIN32
+    // The "windows11" theme has pretty massive padding around menubar items, this makes Config and Help not fit in a window at 1x screen sizing
+    // So let's reduce the padding a bit.
+    if (QApplication::style()->name() == "windows11")
+        setStyleSheet("QMenuBar::item { padding: 4px 8px; }");
+#endif
+
     QMenuBar* menubar = new QMenuBar();
     {
         QMenu* menu = menubar->addMenu("File");
