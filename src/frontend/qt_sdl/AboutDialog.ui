@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>600</width>
-    <height>286</height>
+    <height>304</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -125,7 +125,7 @@
           <bool>true</bool>
          </property>
          <property name="text">
-          <string>By Arisotura, Generic, Jakly, Nadia, Rayyan, et al.</string>
+          <string>By Arisotura, the melonDS team &lt;a href=&quot;https://github.com/melonDS-emu/melonDS/graphs/contributors&quot;&gt;and contributors&lt;/a&gt;.</string>
          </property>
         </widget>
        </item>
