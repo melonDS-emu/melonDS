@@ -1330,55 +1330,34 @@ void MainWindow::onBootFirmware()
 
 void MainWindow::onInsertCart()
 {
-    emuThread->emuPause();
-
     QStringList file = pickROM(false);
     if (file.isEmpty())
+        return;
+
+    if (!emuThread->insertCart(file, false))
     {
-        emuThread->emuUnpause();
         return;
     }
-
-    if (!emuInstance->loadROM(file, false))
-    {
-        emuThread->emuUnpause();
-        return;
-    }
-
-    emuThread->emuUnpause();
 
     updateCartInserted(false);
 }
 
 void MainWindow::onEjectCart()
 {
-    emuThread->emuPause();
-
-    emuInstance->ejectCart();
-
-    emuThread->emuUnpause();
-
+    emuThread->ejectCart(false);
     updateCartInserted(false);
 }
 
 void MainWindow::onInsertGBACart()
 {
-    emuThread->emuPause();
-
     QStringList file = pickROM(true);
     if (file.isEmpty())
+        return;
+
+    if (!emuThread->insertCart(file, true))
     {
-        emuThread->emuUnpause();
         return;
     }
-
-    if (!emuInstance->loadGBAROM(file))
-    {
-        emuThread->emuUnpause();
-        return;
-    }
-
-    emuThread->emuUnpause();
 
     updateCartInserted(true);
 }
@@ -1388,23 +1367,13 @@ void MainWindow::onInsertGBAAddon()
     QAction* act = (QAction*)sender();
     int type = act->data().toInt();
 
-    emuThread->emuPause();
-
-    emuInstance->loadGBAAddon(type);
-
-    emuThread->emuUnpause();
-
+    emuThread->insertGBAAddon(type);
     updateCartInserted(true);
 }
 
 void MainWindow::onEjectGBACart()
 {
-    emuThread->emuPause();
-
-    emuInstance->ejectGBACart();
-
-    emuThread->emuUnpause();
-
+    emuThread->ejectCart(true);
     updateCartInserted(true);
 }
 

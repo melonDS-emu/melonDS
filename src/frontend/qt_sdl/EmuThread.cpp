@@ -595,6 +595,36 @@ void EmuThread::handleMessages()
             emuInstance->nds->Start();
             bootResult = 1;
             break;
+
+        case msg_InsertCart:
+            bootResult = 0;
+            if (!emuInstance->loadROM(msg.param.value<QStringList>(), false))
+                break;
+
+            bootResult = 1;
+            break;
+
+        case msg_EjectCart:
+            emuInstance->ejectCart();
+            break;
+
+        case msg_InsertGBACart:
+            bootResult = 0;
+            if (!emuInstance->loadGBAROM(msg.param.value<QStringList>()))
+                break;
+
+            bootResult = 1;
+            break;
+
+        case msg_InsertGBAAddon:
+            bootResult = 0;
+            emuInstance->loadGBAAddon(msg.param.value<int>());
+            bootResult = 1;
+            break;
+
+        case msg_EjectGBACart:
+            emuInstance->ejectCart();
+            break;
         }
 
         msgSemaphore.release();
@@ -681,11 +711,10 @@ bool EmuThread::emuIsActive()
     return emuActive;
 }
 
-int EmuThread::bootROM(QStringList filename)
+int EmuThread::bootROM(const QStringList& filename)
 {
-    sendMessage(msg_EmuPause);
     sendMessage({.type = msg_BootROM, .param = filename});
-    waitMessage(2);
+    waitMessage();
     if (!bootResult)
         return bootResult;
 
@@ -696,13 +725,34 @@ int EmuThread::bootROM(QStringList filename)
 
 int EmuThread::bootFirmware()
 {
-    sendMessage(msg_EmuPause);
     sendMessage(msg_BootFirmware);
-    waitMessage(2);
+    waitMessage();
     if (!bootResult)
         return bootResult;
 
     sendMessage(msg_EmuRun);
+    waitMessage();
+    return bootResult;
+}
+
+int EmuThread::insertCart(const QStringList& filename, bool gba)
+{
+    MessageType msgtype = gba ? msg_InsertGBACart : msg_InsertCart;
+
+    sendMessage({.type = msgtype, .param = filename});
+    waitMessage();
+    return bootResult;
+}
+
+void EmuThread::ejectCart(bool gba)
+{
+    sendMessage(gba ? msg_EjectGBACart : msg_EjectCart);
+    waitMessage();
+}
+
+int EmuThread::insertGBAAddon(int type)
+{
+    sendMessage({.type = msg_InsertGBAAddon, .param = type});
     waitMessage();
     return bootResult;
 }

@@ -71,6 +71,11 @@ public:
 
         msg_BootROM,
         msg_BootFirmware,
+        msg_InsertCart,
+        msg_EjectCart,
+        msg_InsertGBACart,
+        msg_InsertGBAAddon,
+        msg_EjectGBACart,
     };
 
     struct Message
@@ -100,8 +105,11 @@ public:
     void emuFrameStep();
     void emuReset();
 
-    int bootROM(QStringList filename);
+    int bootROM(const QStringList& filename);
     int bootFirmware();
+    int insertCart(const QStringList& filename, bool gba);
+    void ejectCart(bool gba);
+    int insertGBAAddon(int type);
 
     bool emuIsRunning();
     bool emuIsActive();
