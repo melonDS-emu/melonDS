@@ -46,7 +46,7 @@
      <property name="sizeConstraint">
       <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
      </property>
-     <item alignment="Qt::AlignmentFlag::Qt::AlignmentFlag::AlignTop">
+     <item alignment="Qt::AlignmentFlag::AlignTop">
       <widget class="QLabel" name="lblLogo">
        <property name="enabled">
         <bool>true</bool>
@@ -97,7 +97,7 @@
        <property name="spacing">
         <number>12</number>
        </property>
-       <item alignment="Qt::AlignmentFlag::Qt::AlignmentFlag::AlignTop">
+       <item alignment="Qt::AlignmentFlag::AlignTop">
         <widget class="QLabel" name="label_2">
          <property name="enabled">
           <bool>true</bool>
@@ -148,7 +148,7 @@
          </property>
         </widget>
        </item>
-       <item alignment="Qt::AlignmentFlag::Qt::AlignmentFlag::AlignBottom">
+       <item alignment="Qt::AlignmentFlag::AlignBottom">
         <widget class="QLabel" name="label_3">
          <property name="enabled">
           <bool>false</bool>
