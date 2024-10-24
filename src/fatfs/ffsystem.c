@@ -3,8 +3,13 @@
 /* (C)ChaN, 2018                                                          */
 /*------------------------------------------------------------------------*/
 
+#ifdef _WIN32
+/* Windows will not define localtime_r for us unless we explicitly request it
+ * with macros. */
 #define _POSIX_SOURCE
 #define _POSIX_THREAD_SAFE_FUNCTIONS
+#endif
+
 #include <time.h>
 
 #include "ff.h"
