@@ -1020,7 +1020,8 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool gbaloaded = false;
     if (!gbafile.isEmpty())
     {
-        if (!emuInstance->loadGBAROM(gbafile)) return false;
+        if (!emuThread->insertCart(gbafile, true))
+            return false;
 
         gbaloaded = true;
     }
@@ -1028,33 +1029,31 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool ndsloaded = false;
     if (!file.isEmpty())
     {
-        if (!emuInstance->loadROM(file, true)) return false;
+        if (boot)
+        {
+            if (!emuThread->bootROM(file))
+                return false;
+        }
+        else
+        {
+            if (!emuThread->insertCart(file, false))
+                return false;
+        }
         
         recentFileList.removeAll(file.join("|"));
         recentFileList.prepend(file.join("|"));
         updateRecentFilesMenu();
         ndsloaded = true;
     }
-
-    if (boot)
+    else if (boot)
     {
-        if (ndsloaded)
-        {
-            emuInstance->nds->Start();
-            emuThread->emuRun();
-        }
-        else
-        {
-            onBootFirmware();
-        }
+        if (!emuThread->bootFirmware())
+            return false;
     }
 
     updateCartInserted(false);
-
     if (gbaloaded)
-    {
         updateCartInserted(true);
-    }
 
     return true;
 }

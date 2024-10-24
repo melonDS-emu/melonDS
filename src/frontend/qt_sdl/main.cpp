@@ -250,10 +250,8 @@ bool MelonApplication::event(QEvent *event)
         MainWindow* win = inst->getMainWindow();
         QFileOpenEvent *openEvent = static_cast<QFileOpenEvent*>(event);
 
-        inst->getEmuThread()->emuPause();
         const QStringList file = win->splitArchivePath(openEvent->file(), true);
-        if (!win->preloadROMs(file, {}, true))
-            inst->getEmuThread()->emuUnpause();
+        win->preloadROMs(file, {}, true);
     }
 
     return QApplication::event(event);
