@@ -68,6 +68,7 @@ struct Polygon
     bool FacingView;
     bool Translucent;
 
+    bool ClearStencil; // used by the dsi's revised rasterizer mode
     bool IsShadowMask;
     bool IsShadow;
 
@@ -271,6 +272,8 @@ public:
     u32 RenderClearAttr1 = 0;
     u32 RenderClearAttr2 = 0;
 
+    bool RenderRasterRev = false;
+
     bool RenderFrameIdentical = false; // not part of the hardware state, don't serialize
 
     bool AbortFrame = false;
@@ -324,6 +327,12 @@ public:
     std::array<Polygon*,2048> RenderPolygonRAM {};
     u32 RenderNumPolygons = 0;
 
+    // used to fix stencil buffer's frame-to-frame persistence not working properly under extreme misuse of shadow masks/shadows
+    bool ForceRerender = false;
+    bool DontRerenderLoop = false;
+    
+    bool ShadowSent = false; // used to track whether the clear stencil flag should be set when the raster scfg bit is active
+
     u32 FlushRequest = 0;
     u32 FlushAttributes = 0;
     u32 ScrolledLine[256]; // not part of the hardware state, don't serialize
@@ -338,6 +347,7 @@ public:
     Renderer3D& operator=(const Renderer3D&) = delete;
 
     virtual void Reset(GPU& gpu) = 0;
+    virtual void DoSavestate(Savestate* file) = 0;
 
     // This "Accelerated" flag currently communicates if the framebuffer should
     // be allocated differently and other little misc handlers. Ideally there

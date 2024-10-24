@@ -26,12 +26,25 @@
 
 namespace melonDS
 {
+
+enum EdgeFlags
+{
+    EF_None      = (0),
+    EF_AnyEdge   = (0xF),
+
+    EF_TopXMajor = (1<<0),
+    EF_BotXMajor = (1<<1),
+    EF_LYMajor   = (1<<2),
+    EF_RYMajor   = (1<<3),
+};
+
 class SoftRenderer : public Renderer3D
 {
 public:
     SoftRenderer() noexcept;
     ~SoftRenderer() override;
     void Reset(GPU& gpu) override;
+    void DoSavestate(Savestate* file) override;
 
     void SetThreaded(bool threaded, GPU& gpu) noexcept;
     [[nodiscard]] bool IsThreaded() const noexcept { return Threaded; }
@@ -455,19 +468,20 @@ private:
     };
 
     RendererPolygon PolygonList[2048];
-    void TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const;
+    template <bool colorcorrect> inline void ColorConv(const u16 color, u8* r, u8* g, u8* b) const;
+    void TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u8* tr, u8* tg, u8* tb, u8* alpha) const;
     u32 RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const;
     void PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
     void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y) const;
     void SetupPolygonRightEdge(RendererPolygon* rp, s32 y) const;
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     void RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y);
-    void RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y);
-    void RenderScanline(const GPU& gpu, s32 y, int npolys);
+    void RenderPolygonScanline(GPU& gpu, RendererPolygon* rp, s32 y);
+    void RenderScanline(GPU& gpu, s32 y, int npolys);
     u32 CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const;
     void ScanlineFinalPass(const GPU3D& gpu3d, s32 y);
     void ClearBuffers(const GPU& gpu);
-    void RenderPolygons(const GPU& gpu, bool threaded, Polygon** polygons, int npolys);
+    void RenderPolygons(GPU& gpu, bool threaded, Polygon** polygons, int npolys);
 
     void RenderThreadFunc(GPU& gpu);
 
@@ -487,7 +501,7 @@ private:
     u32 AttrBuffer[BufferSize * 2];
 
     // attribute buffer:
-    // bit0-3: edge flags (left/right/top/bottom)
+    // bit0-3: edge flags (top xmajor/bottom xmajor/left ymajor/right ymajor)
     // bit4: backfacing flag
     // bit8-12: antialiasing alpha
     // bit15: fog enable
@@ -496,7 +510,9 @@ private:
     // bit24-29: polygon ID for opaque pixels
 
     u8 StencilBuffer[256*2];
-    bool PrevIsShadowMask;
+    bool ShadowRendered[2];
+    bool ShadowRenderedi[2];
+    alignas(u16) bool StencilCleared[2];
 
     bool Enabled;
 

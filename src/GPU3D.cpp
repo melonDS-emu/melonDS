@@ -183,6 +183,8 @@ void GPU3D::ResetRenderingState() noexcept
 
     RenderClearAttr1 = 0x3F000000;
     RenderClearAttr2 = 0x00007FFF;
+
+    RenderRasterRev = false; // CHECKME: when should this be reset?
 }
 
 void GPU3D::Reset() noexcept
@@ -300,10 +302,13 @@ void GPU3D::Reset() noexcept
     NumPolygons = 0;
     CurRAMBank = 0;
 
+    ShadowSent = true;
     FlushRequest = 0;
     FlushAttributes = 0;
 
     RenderXPos = 0;
+    RenderFrameIdentical = false;
+    ForceRerender = false;
 
     if (CurrentRenderer)
         CurrentRenderer->Reset(NDS.GPU);
@@ -357,6 +362,9 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 
     file->Var32(&RenderClearAttr1);
     file->Var32(&RenderClearAttr2);
+    
+    file->Bool32(&RenderRasterRev);
+    file->Bool32(&ShadowSent);
 
     file->Var16(&RenderXPos);
 
@@ -462,6 +470,7 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
         file->Bool32(&poly->FacingView);
         file->Bool32(&poly->Translucent);
 
+        file->Bool32(&poly->ClearStencil);
         file->Bool32(&poly->IsShadowMask);
         file->Bool32(&poly->IsShadow);
 
@@ -555,7 +564,15 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     file->Var32(&CurPolygonAttr);
     file->Var32(&TexParam);
     file->Var32(&TexPalette);
-    RenderFrameIdentical = false;
+    if (!file->Saving)
+    {
+        RenderFrameIdentical = false;
+        ForceRerender = false;
+    }
+
+    // save any renderer state that can persist through frames
+    CurrentRenderer->DoSavestate(file);
+
     if (softRenderer && softRenderer->IsThreaded())
     {
         softRenderer->EnableRenderThread();
@@ -1219,10 +1236,19 @@ void GPU3D::SubmitPolygon() noexcept
 
     u32 texfmt = (TexParam >> 26) & 0x7;
     u32 polyalpha = (CurPolygonAttr >> 16) & 0x1F;
-    poly->Translucent = ((texfmt == 1 || texfmt == 6) && !(CurPolygonAttr & 0x10)) || (polyalpha > 0 && polyalpha < 31);
+    poly->Translucent = (texfmt == 1 || texfmt == 6) || (polyalpha > 0 && polyalpha < 31);
 
     poly->IsShadowMask = ((CurPolygonAttr & 0x3F000030) == 0x00000030);
     poly->IsShadow = ((CurPolygonAttr & 0x30) == 0x30) && !poly->IsShadowMask;
+            
+    poly->ClearStencil = false;
+    if (poly->IsShadow) ShadowSent = true;
+    // yes, this *is* an extremely specific requirement, and also yes we need the rasterizer bit, not the gx bit
+    else if (NDS.GetSCFGRasterBit() && poly->IsShadowMask && ShadowSent && (FlushAttributes & 1) && poly->Translucent)
+    {
+        ShadowSent = false;
+        poly->ClearStencil = true;
+    }
 
     if (!poly->Translucent) NumOpaquePolygons++;
 
@@ -2079,6 +2105,7 @@ void GPU3D::ExecuteCommand() noexcept
 
         case 0x50: // flush
             VertexPipelineCmdDelayed4();
+            ShadowSent = true;
             FlushRequest = 1;
             FlushAttributes = entry.Param & 0x3;
             CycleCount = 325;
@@ -2487,18 +2514,30 @@ void GPU3D::VBlank() noexcept
 
                 RenderNumPolygons = NumPolygons;
                 RenderFrameIdentical = false;
+                ForceRerender = 0;
             }
             else
             {
-                RenderFrameIdentical = RenderDispCnt == DispCnt
-                    && RenderAlphaRef == AlphaRef
-                    && RenderClearAttr1 == ClearAttr1
-                    && RenderClearAttr2 == ClearAttr2
-                    && RenderFogColor == FogColor
-                    && RenderFogOffset == FogOffset * 0x200
-                    && memcmp(RenderEdgeTable, EdgeTable, 8*2) == 0
-                    && memcmp(RenderFogDensityTable + 1, FogDensityTable, 32) == 0
-                    && memcmp(RenderToonTable, ToonTable, 32*2) == 0;
+                
+                if (ForceRerender == true)
+                {
+                    RenderFrameIdentical = false;
+                    ForceRerender = false;
+                    DontRerenderLoop = true;
+                }
+                else
+                {
+                    RenderFrameIdentical = RenderDispCnt == DispCnt
+                        && RenderAlphaRef == AlphaRef
+                        && RenderClearAttr1 == ClearAttr1
+                        && RenderClearAttr2 == ClearAttr2
+                        && RenderFogColor == FogColor
+                        && RenderFogOffset == FogOffset * 0x200
+                        && memcmp(RenderEdgeTable, EdgeTable, 8*2) == 0
+                        && memcmp(RenderFogDensityTable + 1, FogDensityTable, 32) == 0
+                        && memcmp(RenderToonTable, ToonTable, 32*2) == 0
+                        && RenderRasterRev == NDS.GetSCFGRasterBit();
+                }
             }
 
             RenderDispCnt = DispCnt;
@@ -2516,6 +2555,9 @@ void GPU3D::VBlank() noexcept
 
             RenderClearAttr1 = ClearAttr1;
             RenderClearAttr2 = ClearAttr2;
+            // NOTE: this is not latched. it updates the *moment* you set it. it does not cancel the current scanline. it just causes pain and suffering.
+            // in less dramatic terms: annoying to emulate properly, so we're just gonna pretend it's latched for now, ok?
+            RenderRasterRev = NDS.GetSCFGRasterBit();
         }
 
         if (FlushRequest)

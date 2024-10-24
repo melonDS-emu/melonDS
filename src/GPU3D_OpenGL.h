@@ -32,6 +32,7 @@ class GLRenderer : public Renderer3D
 public:
     ~GLRenderer() override;
     void Reset(GPU& gpu) override;
+    void DoSavestate(Savestate* file) override;
 
     void SetRenderSettings(bool betterpolygons, int scale) noexcept;
     void SetBetterPolygons(bool betterpolygons) noexcept;

@@ -44,7 +44,7 @@ public:
 
     u32 CurSection;
 
-    void Section(const char* magic);
+    bool Section(const char* magic, bool noerror = false);
 
     void Var8(u8* var)
     {
