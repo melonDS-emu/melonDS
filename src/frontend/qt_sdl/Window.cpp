@@ -1387,30 +1387,23 @@ void MainWindow::onSaveState()
 {
     int slot = ((QAction*)sender())->data().toInt();
 
-    emuThread->emuPause();
-
-    std::string filename;
+    QString filename;
     if (slot > 0)
     {
-        filename = emuInstance->getSavestateName(slot);
+        filename = QString::fromStdString(emuInstance->getSavestateName(slot));
     }
     else
     {
         // TODO: specific 'last directory' for savestate files?
-        QString qfilename = QFileDialog::getSaveFileName(this,
+        filename = QFileDialog::getSaveFileName(this,
                                                          "Save state",
                                                          globalCfg.GetQString("LastROMFolder"),
                                                          "melonDS savestates (*.mln);;Any file (*.*)");
-        if (qfilename.isEmpty())
-        {
-            emuThread->emuUnpause();
+        if (filename.isEmpty())
             return;
-        }
-
-        filename = qfilename.toStdString();
     }
 
-    if (emuInstance->saveState(filename))
+    if (emuThread->saveState(filename))
     {
         if (slot > 0) emuInstance->osdAddMessage(0, "State saved to slot %d", slot);
         else          emuInstance->osdAddMessage(0, "State saved to file");
@@ -1421,47 +1414,37 @@ void MainWindow::onSaveState()
     {
         emuInstance->osdAddMessage(0xFFA0A0, "State save failed");
     }
-
-    emuThread->emuUnpause();
 }
 
 void MainWindow::onLoadState()
 {
     int slot = ((QAction*)sender())->data().toInt();
 
-    emuThread->emuPause();
-
-    std::string filename;
+    QString filename;
     if (slot > 0)
     {
-        filename = emuInstance->getSavestateName(slot);
+        filename = QString::fromStdString(emuInstance->getSavestateName(slot));
     }
     else
     {
         // TODO: specific 'last directory' for savestate files?
-        QString qfilename = QFileDialog::getOpenFileName(this,
+        filename = QFileDialog::getOpenFileName(this,
                                                          "Load state",
                                                          globalCfg.GetQString("LastROMFolder"),
                                                          "melonDS savestates (*.ml*);;Any file (*.*)");
-        if (qfilename.isEmpty())
-        {
-            emuThread->emuUnpause();
+        if (filename.isEmpty())
             return;
-        }
-
-        filename = qfilename.toStdString();
     }
 
-    if (!Platform::FileExists(filename))
+    if (!Platform::FileExists(filename.toStdString()))
     {
         if (slot > 0) emuInstance->osdAddMessage(0xFFA0A0, "State slot %d is empty", slot);
         else          emuInstance->osdAddMessage(0xFFA0A0, "State file does not exist");
 
-        emuThread->emuUnpause();
         return;
     }
 
-    if (emuInstance->loadState(filename))
+    if (emuThread->loadState(filename))
     {
         if (slot > 0) emuInstance->osdAddMessage(0, "State loaded from slot %d", slot);
         else          emuInstance->osdAddMessage(0, "State loaded from file");
@@ -1472,15 +1455,11 @@ void MainWindow::onLoadState()
     {
         emuInstance->osdAddMessage(0xFFA0A0, "State load failed");
     }
-
-    emuThread->emuUnpause();
 }
 
 void MainWindow::onUndoStateLoad()
 {
-    emuThread->emuPause();
-    emuInstance->undoStateLoad();
-    emuThread->emuUnpause();
+    emuThread->undoStateLoad();
 
     emuInstance->osdAddMessage(0, "State load undone");
 }

@@ -76,6 +76,10 @@ public:
         msg_InsertGBACart,
         msg_InsertGBAAddon,
         msg_EjectGBACart,
+
+        msg_LoadState,
+        msg_SaveState,
+        msg_UndoStateLoad,
     };
 
     struct Message
@@ -110,6 +114,10 @@ public:
     int insertCart(const QStringList& filename, bool gba);
     void ejectCart(bool gba);
     int insertGBAAddon(int type);
+
+    int saveState(const QString& filename);
+    int loadState(const QString& filename);
+    int undoStateLoad();
 
     bool emuIsRunning();
     bool emuIsActive();
@@ -164,7 +172,7 @@ private:
     constexpr static int emuPauseStackPauseThreshold = 1;
     int emuPauseStack;
 
-    int bootResult = 0;
+    int msgResult = 0;
 
     QMutex msgMutex;
     QSemaphore msgSemaphore;
