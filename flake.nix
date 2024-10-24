@@ -16,7 +16,7 @@
         then sourceInfo.dirtyShortRev
         else sourceInfo.shortRev;
 
-      melonDS = pkgs.stdenv.mkDerivation {
+      melonDS = pkgs.qt6.qtbase.stdenv.mkDerivation {
         pname = "melonDS";
         version = "0.9.5-${versionSuffix}";
         src = ./.;
