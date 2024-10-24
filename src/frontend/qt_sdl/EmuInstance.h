@@ -186,6 +186,7 @@ private:
     void loadGBAAddon(int type);
     void ejectGBACart();
     bool gbaCartInserted();
+    QString gbaAddonName(int addon);
     QString gbaCartLabel();
 
     void audioInit();

@@ -1972,25 +1972,36 @@ bool EmuInstance::gbaCartInserted()
     return gbaCartType != -1;
 }
 
+QString EmuInstance::gbaAddonName(int addon)
+{
+    switch (addon)
+    {
+    case GBAAddon_RumblePak:
+        return "Rumble Pak";
+    case GBAAddon_RAMExpansion:
+        return "Memory expansion";
+    }
+
+    return "???";
+}
+
 QString EmuInstance::gbaCartLabel()
 {
     if (consoleType == 1) return "none (DSi)";
 
-    switch (gbaCartType)
+    if (gbaCartType == 0)
     {
-        case 0:
-        {
-            QString ret = QString::fromStdString(baseGBAROMName);
+        QString ret = QString::fromStdString(baseGBAROMName);
 
-            int maxlen = 32;
-            if (ret.length() > maxlen)
-                ret = ret.left(maxlen-6) + "..." + ret.right(3);
+        int maxlen = 32;
+        if (ret.length() > maxlen)
+            ret = ret.left(maxlen-6) + "..." + ret.right(3);
 
-            return ret;
-        }
-
-        case GBAAddon_RAMExpansion:
-            return "Memory expansion";
+        return ret;
+    }
+    else if (gbaCartType != -1)
+    {
+        return gbaAddonName(gbaCartType);
     }
 
     return "(none)";

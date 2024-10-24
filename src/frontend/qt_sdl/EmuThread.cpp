@@ -623,7 +623,7 @@ void EmuThread::handleMessages()
             break;
 
         case msg_EjectGBACart:
-            emuInstance->ejectCart();
+            emuInstance->ejectGBACart();
             break;
         }
 

@@ -313,15 +313,15 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             QMenu* submenu = menu->addMenu("Insert add-on cart");
             QAction* act;
 
-            act = submenu->addAction("Memory expansion");
-            act->setData(QVariant(GBAAddon_RAMExpansion));
-            connect(act, &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
-            actInsertGBAAddon.append(act);
-
-            act = submenu->addAction("Rumble Pak");
-            act->setData(QVariant(GBAAddon_RumblePak));
-            connect(act, &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
-            actInsertGBAAddon.append(act);
+            int addons[] = {GBAAddon_RAMExpansion, GBAAddon_RumblePak, -1};
+            for (int i = 0; addons[i] != -1; i++)
+            {
+                int addon = addons[i];
+                act = submenu->addAction(emuInstance->gbaAddonName(addon));
+                act->setData(QVariant(addon));
+                connect(act, &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
+                actInsertGBAAddon.append(act);
+            }
         }
 
         actEjectGBACart = menu->addAction("Eject cart");
