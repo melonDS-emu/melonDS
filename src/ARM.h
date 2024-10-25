@@ -673,6 +673,11 @@ public:
     u64 ILCurrTime;
     u64 ILPrevTime;
 
+    u8 ICacheFillPtr;
+    u8 DCacheFillPtr;
+    u64 ICacheFillTimes[7];
+    u64 DCacheFillTimes[7];
+
     u8 WBWritePointer; // which entry to attempt to write next; should always be ANDed with 0xF after incrementing
     u8 WBFillPointer; // where the next entry should be added; should always be ANDed with 0xF after incrementing
     bool WBWriting; // whether the buffer is actively trying to perform a write

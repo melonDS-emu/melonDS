@@ -207,6 +207,8 @@ void ARMv5::Reset()
     ILCurrReg = 16;
     ILPrevReg = 16;
 
+    ICacheFillPtr = 7;
+
     WBWritePointer = 16;
     WBFillPointer = 0;
     WBDelay = 0;
@@ -320,30 +322,29 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
 
-    u32 oldregion = R[15] >> 24;
-    u32 newregion = addr >> 24;
+    if (ICacheFillPtr != 7)
+    {
+        u64 fillend = ICacheFillTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend;
+        ICacheFillPtr = 7;
+    }
 
     if (addr & 0x1)
     {
         addr &= ~0x1;
         R[15] = addr+2;
 
-        if (newregion != oldregion) SetupCodeMem(addr);
-
         // two-opcodes-at-once fetch
         // doesn't matter if we put garbage in the MSbs there
         if (addr & 0x2)
         {
             NextInstr[0] = CodeRead32(addr-2, true) >> 16;
-            Cycles += CodeCycles;
             NextInstr[1] = CodeRead32(addr+2, false);
-            Cycles += CodeCycles;
         }
         else
         {
             NextInstr[0] = CodeRead32(addr, true);
             NextInstr[1] = NextInstr[0] >> 16;
-            Cycles += CodeCycles;
         }
 
         CPSR |= 0x20;
@@ -352,13 +353,8 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     {
         addr &= ~0x3;
         R[15] = addr+4;
-
-        if (newregion != oldregion) SetupCodeMem(addr);
-
         NextInstr[0] = CodeRead32(addr, true);
-        Cycles += CodeCycles;
         NextInstr[1] = CodeRead32(addr+4, false);
-        Cycles += CodeCycles;
 
         CPSR &= ~0x20;
     }
