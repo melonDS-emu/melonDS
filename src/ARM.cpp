@@ -208,6 +208,7 @@ void ARMv5::Reset()
     ILPrevReg = 16;
 
     ICacheFillPtr = 7;
+    DCacheFillPtr = 7;
 
     WBWritePointer = 16;
     WBFillPointer = 0;

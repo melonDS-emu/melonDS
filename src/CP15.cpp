@@ -637,10 +637,29 @@ u32 ARMv5::DCacheLookup(const u32 addr)
                 DataCycles = NDS.ARM9MemTimings[tag >> 14][2]; 
                 return BusRead32(addr & ~3);
             }
-            DataCycles += 1;
+
+            NDS.ARM9Timestamp += DataCycles;
+            DataCycles = 0;
+
+            if (DCacheFillPtr == 7) DataCycles = 1;
+            else
+            {
+                u64 nextfill = DCacheFillTimes[DCacheFillPtr++];
+                if (NDS.ARM9Timestamp < nextfill)
+                {
+                    DataCycles = nextfill - NDS.ARM9Timestamp;
+                }
+                else
+                {
+                    u64 fillend = DCacheFillTimes[6] + 2;
+                    if (NDS.ARM9Timestamp < fillend) DataCycles = fillend - NDS.ARM9Timestamp;
+                    else DataCycles = 1;
+                    DCacheFillPtr = 7;
+                }
+            }
             DataRegion = Mem9_DCache;
-            //Log(LogLevel::Debug, "DCache hit at %08lx returned %08x from set %i, line %i\n", addr, cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2], set, id>>2);
-            return cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2];
+            //Log(LogLevel::Debug, "DCache hit at %08lx returned %08x from set %i, line %i\n", addr, cacheLine[(addr & (DCACHE_LINELENGTH -1)) >> 2], set, id>>2);
+            return cacheLine[(addr & (DCACHE_LINELENGTH -1)) >> 2];
         }
     }
 
@@ -683,39 +702,53 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     line += id;
 
     u32* ptr = (u32 *)&DCache[line << DCACHE_LINELENGTH_LOG2];
-
-    DataCycles = 0;
+    
+    NDS.ARM9Timestamp += DataCycles;
+    //DataCycles = 0;
     #if !DISABLE_CACHEWRITEBACK
         // Before we fill the cacheline, we need to write back dirty content
         // Datacycles will be incremented by the required cycles to do so
         DCacheClearByASetAndWay(line & (DCACHE_SETS-1), line >> DCACHE_SETS_LOG2);
     #endif
     
-    WriteBufferDrain();
-    //Log(LogLevel::Debug,"DCache miss, load @ %08x\n", tag);
+    WriteBufferDrain(); // checkme?
+
     for (int i = 0; i < DCACHE_LINELENGTH; i+=sizeof(u32))
     {
-        ptr[i >> 2] = BusRead32(tag+i);
-        //Log(LogLevel::Debug,"DCache store @ %08x: %08x in set %i, line %i\n", tag+i, *(u32*)&ptr[i >> 2], line & 3, line >> 2);        
+        ptr[i >> 2] = BusRead32(tag+i);    
     }
 
     DCacheTags[line] = tag | (line & (DCACHE_SETS-1)) | CACHE_FLAG_VALID;
-
-    // ouch :/
-    //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
-    //                      first N32                                  remaining S32
-    NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     
-    NDS.ARM9Timestamp += ((NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 2)) - 1) << NDS.ARM9ClockShift) + 1;
-    DataCycles = NDS.ARM9MemTimings[tag>>14][3] << NDS.ARM9ClockShift;
-
     if ((addr >> 24) == 0x02)
     {
         if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
-        MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-        DataRegion = Mem9_MainRAM;
     }
-    else DataRegion = NDS.ARM9Regions[addr>>14];
+
+    NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
+
+    u8 ns = MemTimings[addr>>14][1];
+    u8 seq = MemTimings[addr>>14][2] + 1;
+
+    u8 linepos = (addr & 0x1F) >> 2; // technically this is one too low, but we want that actually
+
+    u32 cycles = ns + (seq * linepos);
+    DataCycles = cycles;
+    
+    cycles += NDS.ARM9Timestamp;
+
+    DCacheFillPtr = linepos;
+    for (int i = linepos; i < 7; i++)
+    {
+        cycles += seq;
+        DCacheFillTimes[i] = cycles;
+    }
+    if ((addr >> 24) == 0x02) MainRAMTimestamp = DCacheFillTimes[6];
+
+    DataRegion = NDS.ARM9Regions[addr>>14];
+
+    //NDS.ARM9Timestamp += ((NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 2)) - 1) << NDS.ARM9ClockShift) + 1;
+    //DataCycles = NDS.ARM9MemTimings[tag>>14][3] << NDS.ARM9ClockShift;
 
     return ptr[(addr & (DCACHE_LINELENGTH-1)) >> 2];
 }
@@ -1048,7 +1081,7 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
             WriteBufferWrite(ptr[1], 2, cycless, tag+0x04);
             WriteBufferWrite(ptr[2], 2, cycless, tag+0x08);
             WriteBufferWrite(ptr[3], 2, cycless, tag+0x0C);
-            DataCycles += 5;
+            NDS.ARM9Timestamp += 5; //DataCycles += 5; CHECKME: does this function like a write does but with mcr?
         }
         if (DCacheTags[index] & CACHE_FLAG_DIRTY_UPPERHALF) // todo: check how this behaves when both fields need to be written
         {
@@ -1065,7 +1098,7 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
             WriteBufferWrite(ptr[5], 2, cycless, tag+0x14);
             WriteBufferWrite(ptr[6], 2, cycless, tag+0x18);
             WriteBufferWrite(ptr[7], 2, cycless, tag+0x1C);
-            DataCycles += 5;
+            NDS.ARM9Timestamp += 5; //DataCycles += 5; CHECKME: does this function like a write does but with mcr?
         }
         DCacheTags[index] &= ~(CACHE_FLAG_DIRTY_LOWERHALF | CACHE_FLAG_DIRTY_UPPERHALF);
     #endif
@@ -1964,6 +1997,13 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
 
 bool ARMv5::DataRead8(u32 addr, u32* val)
 {
+    if (DCacheFillPtr != 7)
+    {
+        u64 fillend = DCacheFillTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
+        DCacheFillPtr = 7;
+    }
+
     // Data Aborts
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
@@ -2019,7 +2059,7 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
 
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
+        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
         MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
         if (NDS.ARM9ClockShift == 2) DataCycles -= 4;
         DataRegion = Mem9_MainRAM;
@@ -2032,6 +2072,13 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
 
 bool ARMv5::DataRead16(u32 addr, u32* val)
 {
+    if (DCacheFillPtr != 7)
+    {
+        u64 fillend = DCacheFillTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
+        DCacheFillPtr = 7;
+    }
+
     // Data Aborts
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
@@ -2089,7 +2136,7 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
 
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
+        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
         MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
         if (NDS.ARM9ClockShift == 2) DataCycles -= 4;
         DataRegion = Mem9_MainRAM;
@@ -2102,6 +2149,13 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
 
 bool ARMv5::DataRead32(u32 addr, u32* val)
 {
+    if (DCacheFillPtr != 7)
+    {
+        u64 fillend = DCacheFillTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
+        DCacheFillPtr = 7;
+    }
+
     // Data Aborts
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
@@ -2159,7 +2213,7 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
 
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
+        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
         MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
         if (NDS.ARM9ClockShift == 2) DataCycles -= 4;
         DataRegion = Mem9_MainRAM;
@@ -2235,7 +2289,7 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
 
     if ((addr >> 24) == 0x02)
     {
-        if ((NDS.ARM9Timestamp + DataCycles) < MainRAMTimestamp) DataCycles = MainRAMTimestamp - NDS.ARM9Timestamp;
+        if ((NDS.ARM9Timestamp + DataCycles) < MainRAMTimestamp) DataCycles = (MainRAMTimestamp - NDS.ARM9Timestamp) + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
         MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
         if (NDS.ARM9ClockShift == 2) DataCycles -= 4;
         DataRegion = Mem9_MainRAM;
@@ -2248,6 +2302,13 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
 
 bool ARMv5::DataWrite8(u32 addr, u8 val)
 {
+    if (DCacheFillPtr != 7)
+    {
+        u64 fillend = DCacheFillTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
+        DCacheFillPtr = 7;
+    }
+
     // Data Aborts
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
@@ -2304,7 +2365,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
 
         if ((addr >> 24) == 0x02)
         {
-            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
+            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
             DataRegion = Mem9_MainRAM;
             MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
             DataCycles -= (2<<NDS.ARM9ClockShift);
@@ -2333,6 +2394,13 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
 
 bool ARMv5::DataWrite16(u32 addr, u16 val)
 {
+    if (DCacheFillPtr != 7)
+    {
+        u64 fillend = DCacheFillTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
+        DCacheFillPtr = 7;
+    }
+
     // Data Aborts
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
@@ -2391,7 +2459,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
 
         if ((addr >> 24) == 0x02)
         {
-            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
+            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
             DataRegion = Mem9_MainRAM;
             MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
             DataCycles -= (2<<NDS.ARM9ClockShift);
@@ -2420,6 +2488,13 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
 
 bool ARMv5::DataWrite32(u32 addr, u32 val)
 {
+    if (DCacheFillPtr != 7)
+    {
+        u64 fillend = DCacheFillTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
+        DCacheFillPtr = 7;
+    }
+
     // Data Aborts
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
@@ -2479,7 +2554,7 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
 
         if ((addr >> 24) == 0x02)
         {
-            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
+            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
             DataRegion = Mem9_MainRAM;
             MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
             DataCycles -= (2<<NDS.ARM9ClockShift);
@@ -2569,7 +2644,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
 
         if ((addr >> 24) == 0x02)
         {
-            if ((NDS.ARM9Timestamp + DataCycles) < MainRAMTimestamp) DataCycles = MainRAMTimestamp - NDS.ARM9Timestamp;
+            if ((NDS.ARM9Timestamp + DataCycles) < MainRAMTimestamp) DataCycles = (MainRAMTimestamp - NDS.ARM9Timestamp) + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
             MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
             DataCycles -= 3 << NDS.ARM9ClockShift; // checkme: are sequentials actually - 3?
             DataRegion = Mem9_MainRAM;
