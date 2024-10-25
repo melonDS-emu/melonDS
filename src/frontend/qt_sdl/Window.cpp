@@ -1483,23 +1483,17 @@ void MainWindow::onUndoStateLoad()
 
 void MainWindow::onImportSavefile()
 {
-    emuThread->emuPause();
     QString path = QFileDialog::getOpenFileName(this,
                                             "Select savefile",
                                             globalCfg.GetQString("LastROMFolder"),
                                             "Savefiles (*.sav *.bin *.dsv);;Any file (*.*)");
 
     if (path.isEmpty())
-    {
-        emuThread->emuUnpause();
         return;
-    }
 
-    Platform::FileHandle* f = Platform::OpenFile(path.toStdString(), Platform::FileMode::Read);
-    if (!f)
+    if (!Platform::FileExists(path.toStdString()))
     {
         QMessageBox::critical(this, "melonDS", "Could not open the given savefile.");
-        emuThread->emuUnpause();
         return;
     }
 
@@ -1510,24 +1504,15 @@ void MainWindow::onImportSavefile()
                         "The emulation will be reset and the current savefile overwritten.",
                         QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
         {
-            emuThread->emuUnpause();
             return;
         }
-
-        emuInstance->reset();
     }
 
-    u32 len = FileLength(f);
-
-    std::unique_ptr<u8[]> data = std::make_unique<u8[]>(len);
-    Platform::FileRewind(f);
-    Platform::FileRead(data.get(), len, 1, f);
-
-    assert(emuInstance->nds != nullptr);
-    emuInstance->nds->SetNDSSave(data.get(), len);
-
-    CloseFile(f);
-    emuThread->emuUnpause();
+    if (!emuThread->importSavefile(path))
+    {
+        QMessageBox::critical(this, "melonDS", "Could not import the given savefile.");
+        return;
+    }
 }
 
 void MainWindow::onQuit()

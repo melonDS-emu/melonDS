@@ -618,6 +618,26 @@ void EmuThread::handleMessages()
             emuInstance->undoStateLoad();
             msgResult = 1;
             break;
+
+        case msg_ImportSavefile:
+            {
+                msgResult = 0;
+                auto f = Platform::OpenFile(msg.param.value<QString>().toStdString(), Platform::FileMode::Read);
+                if (!f) break;
+
+                u32 len = FileLength(f);
+
+                std::unique_ptr<u8[]> data = std::make_unique<u8[]>(len);
+                Platform::FileRewind(f);
+                Platform::FileRead(data.get(), len, 1, f);
+
+                assert(emuInstance->nds != nullptr);
+                emuInstance->nds->SetNDSSave(data.get(), len);
+
+                CloseFile(f);
+                msgResult = 1;
+            }
+            break;
         }
 
         msgSemaphore.release();
@@ -768,6 +788,14 @@ int EmuThread::undoStateLoad()
 {
     sendMessage(msg_UndoStateLoad);
     waitMessage();
+    return msgResult;
+}
+
+int EmuThread::importSavefile(const QString& filename)
+{
+    sendMessage(msg_EmuReset);
+    sendMessage({.type = msg_ImportSavefile, .param = filename});
+    waitMessage(2);
     return msgResult;
 }
 

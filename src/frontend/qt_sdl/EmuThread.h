@@ -80,6 +80,8 @@ public:
         msg_LoadState,
         msg_SaveState,
         msg_UndoStateLoad,
+
+        msg_ImportSavefile,
     };
 
     struct Message
@@ -118,6 +120,8 @@ public:
     int saveState(const QString& filename);
     int loadState(const QString& filename);
     int undoStateLoad();
+
+    int importSavefile(const QString& filename);
 
     bool emuIsRunning();
     bool emuIsActive();
