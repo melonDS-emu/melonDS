@@ -139,6 +139,7 @@ public:
     int getJoystickID() { return joystickID; }
     SDL_Joystick* getJoystick() { return joystick; }
 
+    std::vector<int> keyStrokes;
 private:
     static int lastSep(const std::string& path);
     std::string getAssetPath(bool gba, const std::string& configpath, const std::string& ext, const std::string& file);
@@ -266,6 +267,9 @@ public:
     bool fastForwardToggled;
     bool slowmoToggled;
     bool doAudioSync;
+
+    melonDS::u32 getInputMask(){return inputMask;}
+    std::map<melonDS::u8,bool> KeyboardMask; //For Lua Scripts
 private:
 
     std::unique_ptr<melonDS::Savestate> backupState;
