@@ -1800,6 +1800,7 @@ void MainWindow::onUpdateAudioVolume(int vol, int dsisync)
 
 void MainWindow::onUpdateAudioSettings()
 {
+    if (!emuThread->emuIsActive()) return;
     assert(emuInstance->nds != nullptr);
 
     int interp = globalCfg.GetInt("Audio.Interpolation");
