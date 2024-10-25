@@ -920,20 +920,12 @@ void MainWindow::dropEvent(QDropEvent* event)
     QList<QUrl> urls = event->mimeData()->urls();
     if (urls.count() > 1) return; // not handling more than one file at once
 
-    emuThread->emuPause();
-
     if (!verifySetup())
-    {
-        emuThread->emuUnpause();
         return;
-    }
 
     const QStringList file = splitArchivePath(urls.at(0).toLocalFile(), false);
     if (file.isEmpty())
-    {
-        emuThread->emuUnpause();
         return;
-    }
 
     const QString filename = file.last();
     const bool romInsideArchive = file.size() > 1;
@@ -947,9 +939,8 @@ void MainWindow::dropEvent(QDropEvent* event)
 
     if (isNdsRom)
     {
-        if (!emuInstance->loadROM(file, true))
+        if (!emuThread->bootROM(file))
         {
-            emuThread->emuUnpause();
             return;
         }
 
@@ -958,28 +949,20 @@ void MainWindow::dropEvent(QDropEvent* event)
         recentFileList.prepend(barredFilename);
         updateRecentFilesMenu();
 
-        assert(emuInstance->nds != nullptr);
-        emuInstance->nds->Start();
-        emuThread->emuRun();
-
         updateCartInserted(false);
     }
     else if (isGbaRom)
     {
-        if (!emuInstance->loadGBAROM(file))
+        if (!emuThread->insertCart(file, true))
         {
-            emuThread->emuUnpause();
             return;
         }
-
-        emuThread->emuUnpause();
 
         updateCartInserted(true);
     }
     else
     {
         QMessageBox::critical(this, "melonDS", "The file could not be recognized as a DS or GBA ROM.");
-        emuThread->emuUnpause();
         return;
     }
 }
