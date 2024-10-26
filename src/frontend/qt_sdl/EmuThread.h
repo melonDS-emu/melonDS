@@ -23,6 +23,7 @@
 #include <QMutex>
 #include <QSemaphore>
 #include <QQueue>
+#include <QVariant>
 
 #include <atomic>
 #include <variant>

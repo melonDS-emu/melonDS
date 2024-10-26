@@ -19,6 +19,7 @@
 #include "AboutDialog.h"
 
 #include <QDesktopServices>
+#include <QUrl>
 
 #include "ui_AboutDialog.h"
 
