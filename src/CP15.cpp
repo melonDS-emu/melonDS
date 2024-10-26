@@ -1091,12 +1091,20 @@ void ARMv5::DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine)
             u8 cycless = NDS.ARM9MemTimings[tag>>14][3];
             if ((tag >> 24) == 0x02) cycless = (cycless - 2) | 0x80;
 
-            WriteBufferWrite(tag+0x10, 3, 0);
+            if (DCacheTags[index] & CACHE_FLAG_DIRTY_LOWERHALF)
+            {
+                cyclesn = cycless; // write back is done in one burst if both halves are dirty
+            }
+            else
+            {
+                WriteBufferWrite(tag+0x10, 3, 0);
+                NDS.ARM9Timestamp += 1;
+            }
             WriteBufferWrite(ptr[4], 2, cyclesn, tag+0x10);
             WriteBufferWrite(ptr[5], 2, cycless, tag+0x14);
             WriteBufferWrite(ptr[6], 2, cycless, tag+0x18);
             WriteBufferWrite(ptr[7], 2, cycless, tag+0x1C);
-            NDS.ARM9Timestamp += 5; //DataCycles += 5; CHECKME: does this function like a write does but with mcr?
+            NDS.ARM9Timestamp += 4;
         }
         DCacheTags[index] &= ~(CACHE_FLAG_DIRTY_LOWERHALF | CACHE_FLAG_DIRTY_UPPERHALF);
     #endif
@@ -2274,7 +2282,7 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
-    if (PU_Map[addr>>12] & 0x30)
+    if (PU_Map[addr>>12] & 0x30) // checkme
         WriteBufferDrain();
 
     NDS.ARM9Timestamp += DataCycles;
