@@ -115,7 +115,7 @@ void EmuThread::run()
 
     if (emuInstance->usesOpenGL())
     {
-        emuInstance->initOpenGL();
+        emuInstance->initOpenGL(0);
 
         useOpenGL = true;
         videoRenderer = globalCfg.GetInt("3D.Renderer");
@@ -547,12 +547,12 @@ void EmuThread::handleMessages()
             break;
 
         case msg_InitGL:
-            emuInstance->initOpenGL();
+            emuInstance->initOpenGL(msg.param.value<int>());
             useOpenGL = true;
             break;
 
         case msg_DeInitGL:
-            emuInstance->deinitOpenGL();
+            emuInstance->deinitOpenGL(msg.param.value<int>());
             useOpenGL = false;
             break;
 
@@ -650,15 +650,15 @@ void EmuThread::changeWindowTitle(char* title)
     emit windowTitleChange(QString(title));
 }
 
-void EmuThread::initContext()
+void EmuThread::initContext(int win)
 {
-    sendMessage(msg_InitGL);
+    sendMessage({.type = msg_InitGL, .param = win});
     waitMessage();
 }
 
-void EmuThread::deinitContext()
+void EmuThread::deinitContext(int win)
 {
-    sendMessage(msg_DeInitGL);
+    sendMessage({.type = msg_DeInitGL, .param = win});
     waitMessage();
 }
 

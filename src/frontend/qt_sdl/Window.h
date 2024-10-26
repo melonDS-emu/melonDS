@@ -208,6 +208,7 @@ private slots:
     void onChangeScreenSizing(QAction* act);
     void onChangeScreenAspect(QAction* act);
     void onChangeIntegerScaling(bool checked);
+    void onOpenNewWindow();
     void onChangeScreenFiltering(bool checked);
     void onChangeShowOSD(bool checked);
     void onChangeLimitFramerate(bool checked);
@@ -325,6 +326,7 @@ public:
     QAction** actScreenAspectTop;
     QActionGroup* grpScreenAspectBot;
     QAction** actScreenAspectBot;
+    QAction* actNewWindow;
     QAction* actScreenFiltering;
     QAction* actShowOSD;
     QAction* actLimitFramerate;

@@ -199,6 +199,10 @@ void EmuInstance::createWindow()
     numWindows++;
 
     emuThread->attachWindow(win);
+
+    // if creating a secondary window, we may need to initialize its OpenGL context here
+    if (win->hasOpenGL() && (win != topWindow))
+        emuThread->initContext(id);
 }
 
 void EmuInstance::deleteWindow(int id, bool close)
@@ -208,12 +212,8 @@ void EmuInstance::deleteWindow(int id, bool close)
     MainWindow* win = windowList[id];
     if (!win) return;
 
-    if (win->hasOpenGL() && win == mainWindow)
-    {
-        // we intentionally don't unpause here
-        emuThread->emuPause();
-        emuThread->deinitContext();
-    }
+    if (win->hasOpenGL())
+        emuThread->deinitContext(id);
 
     emuThread->detachWindow(win);
 
@@ -226,9 +226,10 @@ void EmuInstance::deleteWindow(int id, bool close)
     if (close)
         win->close();
 
-    if ((!mainWindow) && (!deleting))
+    if (numWindows == 0)
     {
-        // if we closed this instance's main window, delete the instance
+        // if we closed the last window, delete the instance
+        // if the main window is closed, Qt will take care of closing any secondary windows
         deleteEmuInstance(instanceID);
     }
 }
@@ -292,24 +293,18 @@ bool EmuInstance::usesOpenGL()
            (globalCfg.GetInt("3D.Renderer") != renderer3D_Software);
 }
 
-void EmuInstance::initOpenGL()
+void EmuInstance::initOpenGL(int win)
 {
-    for (int i = 0; i < kMaxWindows; i++)
-    {
-        if (windowList[i])
-            windowList[i]->initOpenGL();
-    }
+    if (windowList[win])
+        windowList[win]->initOpenGL();
 
     setVSyncGL(true);
 }
 
-void EmuInstance::deinitOpenGL()
+void EmuInstance::deinitOpenGL(int win)
 {
-    for (int i = 0; i < kMaxWindows; i++)
-    {
-        if (windowList[i])
-            windowList[i]->deinitOpenGL();
-    }
+    if (windowList[win])
+        windowList[win]->deinitOpenGL();
 }
 
 void EmuInstance::setVSyncGL(bool vsync)

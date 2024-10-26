@@ -736,6 +736,8 @@ ScreenPanelGL::ScreenPanelGL(QWidget* parent) : ScreenPanel(parent)
     setAttribute(Qt::WA_KeyCompression, false);
     setFocusPolicy(Qt::StrongFocus);
     setMinimumSize(screenGetMinSize());
+
+    glInited = false;
 }
 
 ScreenPanelGL::~ScreenPanelGL()
@@ -781,6 +783,7 @@ void ScreenPanelGL::setSwapInterval(int intv)
 void ScreenPanelGL::initOpenGL()
 {
     if (!glContext) return;
+    if (glInited) return;
 
     glContext->MakeCurrent();
 
@@ -877,11 +880,13 @@ void ScreenPanelGL::initOpenGL()
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)(0));
 
     transferLayout();
+    glInited = true;
 }
 
 void ScreenPanelGL::deinitOpenGL()
 {
     if (!glContext) return;
+    if (!glInited) return;
 
     glDeleteTextures(1, &screenTexture);
 
@@ -906,6 +911,7 @@ void ScreenPanelGL::deinitOpenGL()
     glContext->DoneCurrent();
 
     lastScreenWidth = lastScreenHeight = -1;
+    glInited = false;
 }
 
 void ScreenPanelGL::makeCurrentGL()

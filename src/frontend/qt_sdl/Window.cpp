@@ -588,6 +588,13 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             }
         }
 
+        menu->addSeparator();
+
+        actNewWindow = menu->addAction("Open new window");
+        connect(actNewWindow, &QAction::triggered, this, &MainWindow::onOpenNewWindow);
+
+        menu->addSeparator();
+
         actScreenFiltering = menu->addAction("Screen filtering");
         actScreenFiltering->setCheckable(true);
         connect(actScreenFiltering, &QAction::triggered, this, &MainWindow::onChangeScreenFiltering);
@@ -1950,6 +1957,11 @@ void MainWindow::onChangeIntegerScaling(bool checked)
     emit screenLayoutChange();
 }
 
+void MainWindow::onOpenNewWindow()
+{
+    emuInstance->createWindow();
+}
+
 void MainWindow::onChangeScreenFiltering(bool checked)
 {
     windowCfg.SetBool("ScreenFilter", checked);
@@ -2077,7 +2089,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
     if (glchange)
     {
         emuThread->emuPause();
-        if (hasOGL) emuThread->deinitContext();
+        if (hasOGL) emuThread->deinitContext(windowID);
 
         delete panel;
         createScreenPanel();
@@ -2088,7 +2100,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
 
     if (glchange)
     {
-        if (hasOGL) emuThread->initContext();
+        if (hasOGL) emuThread->initContext(windowID);
         emuThread->emuUnpause();
     }
 }

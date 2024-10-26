@@ -127,8 +127,8 @@ public:
     bool emuIsRunning();
     bool emuIsActive();
 
-    void initContext();
-    void deinitContext();
+    void initContext(int win);
+    void deinitContext(int win);
     void updateVideoSettings() { videoSettingsDirty = true; }
     void updateVideoRenderer() { videoSettingsDirty = true; lastVideoRenderer = -1; }
 

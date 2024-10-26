@@ -197,6 +197,7 @@ private:
     void setupScreenLayout() override;
 
     std::unique_ptr<GL::Context> glContext;
+    bool glInited;
 
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;
