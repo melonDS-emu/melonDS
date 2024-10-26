@@ -323,6 +323,8 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
 
+    // jumps count as nonsequential accesses on the instruction bus on the arm9
+    // thus it requires waiting for the current ICache line fill to complete before continuing
     if (ICacheFillPtr != 7)
     {
         u64 fillend = ICacheFillTimes[6] + 1;
