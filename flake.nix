@@ -74,7 +74,7 @@
         drv = self.packages.${system}.default;
       };
       devShells = {
-        default = pkgs.mkShell {
+        default = pkgs.mkShell.override { stdenv = pkgs.qt6.qtbase.stdenv; } {
           inputsFrom = [ self.packages.${system}.default ];
         };
 
