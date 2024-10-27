@@ -1680,10 +1680,15 @@ void MainWindow::onOpenPowerManagement()
 
 void MainWindow::onOpenLuaScript()
 {
-    if (this->luaDialog)
+    if (luaDialog && luaDialog->flagClosed)
+    {
+        delete luaDialog;
+        luaDialog = nullptr;
+    }
+    if (luaDialog)
         return;
-    this->luaDialog = new LuaConsoleDialog(this);
-    this->luaDialog->show();
+    luaDialog = new LuaConsoleDialog(this);
+    luaDialog->show();
     connect(emuThread,&EmuThread::signalLuaSaveState,this,&MainWindow::onLuaSaveState);
     connect(emuThread,&EmuThread::signalLuaLoadState,this,&MainWindow::onLuaLoadState);
 }

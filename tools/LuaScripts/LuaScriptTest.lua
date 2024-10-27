@@ -2,13 +2,13 @@
 -- Written by NPO197
 
 MelonClear()
-MelonPrint("This text Should be cleared")
+print("This text Should be cleared")
 MelonClear()
 
-MelonPrint("Running Test...")
+print("Running Test...")
 
 u32Data = Readu32(0x00000000)
-MelonPrint(string.format("DataZero: %x",u32Data))
+print(string.format("DataZero: %x",u32Data))
 
 canvas = MakeCanvas(0,0,500,500)
 SetCanvas(canvas)
@@ -109,7 +109,7 @@ function KeysText()
         if pcall(string.char,i) then
             str = str..string.char(i)
         else
-            MelonPrint("NonAscii:"..i)
+            print("NonAscii:"..i)
             typed = ""
         end    
     end

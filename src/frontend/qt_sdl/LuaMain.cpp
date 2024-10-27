@@ -83,6 +83,7 @@ void LuaConsoleDialog::closeEvent(QCloseEvent *event)
 {
     onStop();
     bundle->overlays->clear();
+    flagClosed = true;
     event->accept();
 }
 
@@ -248,7 +249,7 @@ int lua_MelonPrint(lua_State* L)
     bundle->getEmuThread()->onLuaPrint((QString)string);
     return 0;
 }
-AddLuaFunction(lua_MelonPrint,MelonPrint);
+AddLuaFunction(lua_MelonPrint,print);
 
 int lua_MelonClear(lua_State* L)
 {

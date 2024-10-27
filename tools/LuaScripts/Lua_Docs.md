@@ -30,12 +30,11 @@ end
 
 ## Function List
 
-`nil MelonPrint(sPrintText)`
+`nil print(sPrintText)`
 - Print `sPrintText` to the lua consol
-- for now use this instead of `print()`
 
 `nil MelonClear()`
-- Clearse the lua consol
+- Clearse the consol in the lua dialog window.
 
 `n_u8Value Readu8(nAddress)`
 - Read Data unisigned one Byte from u32 address `nAddress`

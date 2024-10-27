@@ -30,6 +30,7 @@ public:
     QPushButton* buttonStartStop;
     QPushButton* buttonPausePlay;
     QScrollBar* bar;
+    bool flagClosed;
 protected:
     void closeEvent(QCloseEvent *event) override;
     LuaBundle* bundle;
