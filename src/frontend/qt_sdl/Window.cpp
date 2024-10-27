@@ -1196,6 +1196,8 @@ QString MainWindow::pickFileFromArchive(QString archiveFileName)
 
 QStringList MainWindow::pickROM(bool gba)
 {
+    emuThread->emuPause();
+
     const QString console = gba ? "GBA" : "DS";
     const QStringList& romexts = gba ? GbaRomExtensions : NdsRomExtensions;
 
@@ -1220,10 +1222,16 @@ QStringList MainWindow::pickROM(bool gba)
         "All supported files (*" + allROMs + ")" + extraFilters
     );
 
-    if (filename.isEmpty()) return {};
+    if (filename.isEmpty())
+    {
+        emuThread->emuUnpause();
+        return {};
+    }
 
     globalCfg.SetQString("LastROMFolder", QFileInfo(filename).dir().path());
-    return splitArchivePath(filename, false);
+    auto ret = splitArchivePath(filename, false);
+    emuThread->emuUnpause();
+    return ret;
 }
 
 void MainWindow::updateCartInserted(bool gba)
@@ -1465,10 +1473,12 @@ void MainWindow::onSaveState()
     else
     {
         // TODO: specific 'last directory' for savestate files?
+        emuThread->emuPause();
         filename = QFileDialog::getSaveFileName(this,
                                                          "Save state",
                                                          globalCfg.GetQString("LastROMFolder"),
                                                          "melonDS savestates (*.mln);;Any file (*.*)");
+        emuThread->emuUnpause();
         if (filename.isEmpty())
             return;
     }
@@ -1498,10 +1508,12 @@ void MainWindow::onLoadState()
     else
     {
         // TODO: specific 'last directory' for savestate files?
+        emuThread->emuPause();
         filename = QFileDialog::getOpenFileName(this,
                                                          "Load state",
                                                          globalCfg.GetQString("LastROMFolder"),
                                                          "melonDS savestates (*.ml*);;Any file (*.*)");
+        emuThread->emuUnpause();
         if (filename.isEmpty())
             return;
     }
