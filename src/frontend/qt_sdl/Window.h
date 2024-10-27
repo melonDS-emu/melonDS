@@ -111,6 +111,10 @@ public:
     EmuInstance* getEmuInstance() { return emuInstance; }
     Config::Table& getWindowConfig() { return windowCfg; }
 
+    bool winHasMenu() { return hasMenu; }
+
+    void toggleFullscreen();
+
     bool hasOpenGL() { return hasOGL; }
     GL::Context* getOGLContext();
     void initOpenGL();
@@ -263,6 +267,8 @@ private:
 public:
     ScreenPanel* panel;
 
+    bool hasMenu;
+
     QAction* actOpenROM;
     QAction* actBootFirmware;
     QAction* actCurrentCart;
@@ -334,7 +340,5 @@ public:
 
     QAction* actAbout;
 };
-
-void ToggleFullscreen(MainWindow* mainWindow);
 
 #endif // WINDOW_H

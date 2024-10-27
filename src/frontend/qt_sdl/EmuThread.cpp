@@ -76,11 +76,15 @@ void EmuThread::attachWindow(MainWindow* window)
     connect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));
     connect(this, SIGNAL(windowEmuPause(bool)), window, SLOT(onEmuPause(bool)));
     connect(this, SIGNAL(windowEmuReset()), window, SLOT(onEmuReset()));
-    connect(this, SIGNAL(windowLimitFPSChange()), window->actLimitFramerate, SLOT(trigger()));
     connect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     connect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
-    connect(this, SIGNAL(swapScreensToggle()), window->actScreenSwap, SLOT(trigger()));
     connect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
+
+    if (window->winHasMenu())
+    {
+        connect(this, SIGNAL(windowLimitFPSChange()), window->actLimitFramerate, SLOT(trigger()));
+        connect(this, SIGNAL(swapScreensToggle()), window->actScreenSwap, SLOT(trigger()));
+    }
 }
 
 void EmuThread::detachWindow(MainWindow* window)
@@ -91,11 +95,15 @@ void EmuThread::detachWindow(MainWindow* window)
     disconnect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));
     disconnect(this, SIGNAL(windowEmuPause(bool)), window, SLOT(onEmuPause(bool)));
     disconnect(this, SIGNAL(windowEmuReset()), window, SLOT(onEmuReset()));
-    disconnect(this, SIGNAL(windowLimitFPSChange()), window->actLimitFramerate, SLOT(trigger()));
     disconnect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     disconnect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
-    disconnect(this, SIGNAL(swapScreensToggle()), window->actScreenSwap, SLOT(trigger()));
     disconnect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
+
+    if (window->winHasMenu())
+    {
+        disconnect(this, SIGNAL(windowLimitFPSChange()), window->actLimitFramerate, SLOT(trigger()));
+        disconnect(this, SIGNAL(swapScreensToggle()), window->actScreenSwap, SLOT(trigger()));
+    }
 }
 
 void EmuThread::run()

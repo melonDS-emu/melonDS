@@ -364,7 +364,7 @@ int main(int argc, char** argv)
         win->preloadROMs(dsfile, gbafile, options->boot);
 
         if (options->fullscreen)
-            ToggleFullscreen(win);
+            win->toggleFullscreen();
     }
 
     int ret = melon.exec();
