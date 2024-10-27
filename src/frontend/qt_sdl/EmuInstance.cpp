@@ -203,6 +203,12 @@ void EmuInstance::createWindow()
     // if creating a secondary window, we may need to initialize its OpenGL context here
     if (win->hasOpenGL() && (id != 0))
         emuThread->initContext(id);
+
+    bool enable = (numWindows < kMaxWindows);
+    doOnAllWindows([=](MainWindow* win)
+    {
+        win->actNewWindow->setEnabled(enable);
+    });
 }
 
 void EmuInstance::deleteWindow(int id, bool close)
@@ -231,6 +237,14 @@ void EmuInstance::deleteWindow(int id, bool close)
         // if we closed the last window, delete the instance
         // if the main window is closed, Qt will take care of closing any secondary windows
         deleteEmuInstance(instanceID);
+    }
+    else
+    {
+        bool enable = (numWindows < kMaxWindows);
+        doOnAllWindows([=](MainWindow* win)
+        {
+            win->actNewWindow->setEnabled(enable);
+        });
     }
 }
 

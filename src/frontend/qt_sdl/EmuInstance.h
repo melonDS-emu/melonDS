@@ -28,7 +28,7 @@
 #include "Config.h"
 #include "SaveManager.h"
 
-const int kMaxWindows = 16;
+const int kMaxWindows = 4;
 
 enum
 {
@@ -87,6 +87,7 @@ public:
     melonDS::NDS* getNDS() { return nds; }
 
     MainWindow* getMainWindow() { return mainWindow; }
+    int getNumWindows() { return numWindows; }
     MainWindow* getWindow(int id) { return windowList[id]; }
 
     void doOnAllWindows(std::function<void(MainWindow*)> func, int exclude = -1);
