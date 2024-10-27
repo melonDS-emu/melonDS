@@ -37,6 +37,7 @@ enum
     InstCmd_Unpause,
 
     InstCmd_UpdateRecentFiles,
+    //InstCmd_UpdateVideoSettings,
 };
 
 class MelonApplication : public QApplication
@@ -58,7 +59,7 @@ void deleteEmuInstance(int id);
 void deleteAllEmuInstances(int first = 0);
 int numEmuInstances();
 
-void broadcastInstanceCommand(int cmd, int sourceinst);
+void broadcastInstanceCommand(int cmd, QVariant& param, int sourceinst);
 
 void setMPInterface(melonDS::MPInterfaceType type);
 

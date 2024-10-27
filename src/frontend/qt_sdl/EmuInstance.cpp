@@ -241,12 +241,12 @@ void EmuInstance::deleteAllWindows()
 }
 
 
-void EmuInstance::broadcastCommand(int cmd)
+void EmuInstance::broadcastCommand(int cmd, QVariant param)
 {
-    broadcastInstanceCommand(cmd, instanceID);
+    broadcastInstanceCommand(cmd, param, instanceID);
 }
 
-void EmuInstance::handleCommand(int cmd)
+void EmuInstance::handleCommand(int cmd, QVariant& param)
 {
     switch (cmd)
     {
@@ -265,6 +265,10 @@ void EmuInstance::handleCommand(int cmd)
                 windowList[i]->loadRecentFilesMenu(true);
         }
         break;
+
+    /*case InstCmd_UpdateVideoSettings:
+        mainWindow->updateVideoSettings(param.value<bool>());
+        break;*/
     }
 }
 

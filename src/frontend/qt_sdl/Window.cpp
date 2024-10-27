@@ -2147,14 +2147,11 @@ void MainWindow::onEmuReset()
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
 {
-    if (windowID != 0)
-    {
-        MainWindow* parentwin = (MainWindow*)parentWidget();
-        if (parentwin)
-            parentwin->onUpdateVideoSettings(glchange);
-
-        return;
-    }
+    // if we have a parent window: pass the message over to the parent
+    // the topmost parent takes care of updating all the windows
+    MainWindow* parentwin = (MainWindow*)parentWidget();
+    if (parentwin)
+        return parentwin->onUpdateVideoSettings(glchange);
 
     bool hadOGL = hasOGL;
     if (glchange)
@@ -2170,18 +2167,33 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
     if (glchange)
     {
         if (hasOGL) emuThread->initContext(windowID);
+    }
 
-        if (windowID == 0)
+    // update any child windows we have
+    auto childwins = findChildren<MainWindow *>(nullptr, Qt::FindDirectChildrenOnly);
+    for (auto child: childwins)
+    {
+        // child windows may belong to a different instance
+        // in that case we need to signal their thread appropriately
+        auto thread = child->getEmuInstance()->getEmuThread();
+
+        if (glchange)
         {
-            auto childwins = findChildren<MainWindow *>(nullptr, Qt::FindDirectChildrenOnly);
-            for (auto child: childwins)
-            {
-                if (hadOGL) emuThread->deinitContext(child->windowID);
-                child->createScreenPanel();
-                if (hasOGL) emuThread->initContext(child->windowID);
-            }
+            if (hadOGL) thread->deinitContext(child->windowID);
+            child->createScreenPanel();
         }
 
+        if (child->getWindowID() == 0)
+            thread->updateVideoSettings();
+
+        if (glchange)
+        {
+            if (hasOGL) thread->initContext(child->windowID);
+        }
+    }
+
+    if (glchange)
+    {
         emuThread->emuUnpause();
     }
 }

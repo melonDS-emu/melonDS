@@ -135,6 +135,7 @@ public:
     void updateMPInterface(melonDS::MPInterfaceType type);
 
     void loadRecentFilesMenu(bool loadcfg);
+    //void updateVideoSettings(bool glchange);
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;

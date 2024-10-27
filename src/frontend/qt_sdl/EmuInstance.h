@@ -92,8 +92,8 @@ public:
     Config::Table& getGlobalConfig() { return globalCfg; }
     Config::Table& getLocalConfig() { return localCfg; }
 
-    void broadcastCommand(int cmd);
-    void handleCommand(int cmd);
+    void broadcastCommand(int cmd, QVariant param = QVariant());
+    void handleCommand(int cmd, QVariant& param);
 
     std::string instanceFileSuffix();
 

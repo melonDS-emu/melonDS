@@ -168,14 +168,14 @@ int numEmuInstances()
 }
 
 
-void broadcastInstanceCommand(int cmd, int sourceinst)
+void broadcastInstanceCommand(int cmd, QVariant& param, int sourceinst)
 {
     for (int i = 0; i < kMaxEmuInstances; i++)
     {
         if (i == sourceinst) continue;
         if (!emuInstances[i]) continue;
 
-        emuInstances[i]->handleCommand(cmd);
+        emuInstances[i]->handleCommand(cmd, param);
     }
 }
 
