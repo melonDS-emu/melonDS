@@ -70,7 +70,7 @@ EmuThread::EmuThread(EmuInstance* inst, QObject* parent) : QThread(parent)
 
 void EmuThread::attachWindow(MainWindow* window)
 {
-    connect(this, SIGNAL(windowUpdate()), window->panel, SLOT(repaint()));
+    //connect(this, SIGNAL(windowUpdate()), window->panel, SLOT(repaint()));
     connect(this, SIGNAL(windowTitleChange(QString)), window, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), window, SLOT(onEmuStart()));
     connect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));
@@ -89,7 +89,7 @@ void EmuThread::attachWindow(MainWindow* window)
 
 void EmuThread::detachWindow(MainWindow* window)
 {
-    disconnect(this, SIGNAL(windowUpdate()), window->panel, SLOT(repaint()));
+    //disconnect(this, SIGNAL(windowUpdate()), window->panel, SLOT(repaint()));
     disconnect(this, SIGNAL(windowTitleChange(QString)), window, SLOT(onTitleUpdate(QString)));
     disconnect(this, SIGNAL(windowEmuStart()), window, SLOT(onEmuStart()));
     disconnect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));

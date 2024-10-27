@@ -701,6 +701,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     }
     show();
 
+    panel = nullptr;
     createScreenPanel();
 
     if (hasMenu)
@@ -827,6 +828,9 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
 void MainWindow::createScreenPanel()
 {
+    if (panel) delete panel;
+    panel = nullptr;
+
     hasOGL = globalCfg.GetBool("Screen.UseGL") ||
             (globalCfg.GetInt("3D.Renderer") != renderer3D_Software);
 
@@ -851,6 +855,8 @@ void MainWindow::createScreenPanel()
     if (hasMenu)
         actScreenFiltering->setEnabled(hasOGL);
     panel->osdSetEnabled(showOSD);
+
+    connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
 
     connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));
     emit screenLayoutChange();
@@ -2115,14 +2121,17 @@ void MainWindow::onEmuReset()
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
 {
+    MainWindow* parentwin = (MainWindow*)parentWidget();
+    if (parentwin)
+        return parentwin->onUpdateVideoSettings(glchange);
+
+    bool hadOGL = hasOGL;
     if (glchange)
     {
         emuThread->emuPause();
-        if (hasOGL) emuThread->deinitContext(windowID);
+        if (hadOGL) emuThread->deinitContext(windowID);
 
-        delete panel;
         createScreenPanel();
-        connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
     }
 
     emuThread->updateVideoSettings();
@@ -2130,6 +2139,15 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
     if (glchange)
     {
         if (hasOGL) emuThread->initContext(windowID);
+
+        auto childwins = findChildren<MainWindow*>(Qt::FindDirectChildrenOnly);
+        for (auto child : childwins)
+        {
+            if (hadOGL) emuThread->deinitContext(child->windowID);
+            child->createScreenPanel();
+            if (hasOGL) emuThread->initContext(child->windowID);
+        }
+
         emuThread->emuUnpause();
     }
 }
