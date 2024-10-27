@@ -2147,9 +2147,14 @@ void MainWindow::onEmuReset()
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
 {
-    MainWindow* parentwin = (MainWindow*)parentWidget();
-    if (parentwin)
-        return parentwin->onUpdateVideoSettings(glchange);
+    if (windowID != 0)
+    {
+        MainWindow* parentwin = (MainWindow*)parentWidget();
+        if (parentwin)
+            parentwin->onUpdateVideoSettings(glchange);
+
+        return;
+    }
 
     bool hadOGL = hasOGL;
     if (glchange)
@@ -2166,12 +2171,15 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
     {
         if (hasOGL) emuThread->initContext(windowID);
 
-        auto childwins = findChildren<MainWindow*>(nullptr, Qt::FindDirectChildrenOnly);
-        for (auto child : childwins)
+        if (windowID == 0)
         {
-            if (hadOGL) emuThread->deinitContext(child->windowID);
-            child->createScreenPanel();
-            if (hasOGL) emuThread->initContext(child->windowID);
+            auto childwins = findChildren<MainWindow *>(nullptr, Qt::FindDirectChildrenOnly);
+            for (auto child: childwins)
+            {
+                if (hadOGL) emuThread->deinitContext(child->windowID);
+                child->createScreenPanel();
+                if (hasOGL) emuThread->initContext(child->windowID);
+            }
         }
 
         emuThread->emuUnpause();

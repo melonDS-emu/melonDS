@@ -201,7 +201,7 @@ void EmuInstance::createWindow()
     emuThread->attachWindow(win);
 
     // if creating a secondary window, we may need to initialize its OpenGL context here
-    if (win->hasOpenGL() && (win != topWindow))
+    if (win->hasOpenGL() && (id != 0))
         emuThread->initContext(id);
 }
 

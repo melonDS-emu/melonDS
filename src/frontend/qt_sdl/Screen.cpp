@@ -749,8 +749,10 @@ bool ScreenPanelGL::createContext()
 
     // if our parent window is parented to another window, we will
     // share our OpenGL context with that window
+    MainWindow* ourwin = (MainWindow*)parentWidget();
     MainWindow* parentwin = (MainWindow*)parentWidget()->parentWidget();
-    if (parentwin)
+    //if (parentwin)
+    if (ourwin->getWindowID() != 0)
     {
         if (windowinfo.has_value())
             if (glContext = parentwin->getOGLContext()->CreateSharedContext(*windowinfo))
