@@ -781,6 +781,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actPreferences->setEnabled(false);
 #endif // __APPLE__
         }
+
+        if (emuThread->emuIsActive())
+            onEmuStart();
     }
 
     QObject::connect(qApp, &QApplication::applicationStateChanged, this, &MainWindow::onAppStateChanged);
@@ -1226,21 +1229,34 @@ QStringList MainWindow::pickROM(bool gba)
 void MainWindow::updateCartInserted(bool gba)
 {
     bool inserted;
+    QString label;
     if (gba)
     {
-        inserted = emuInstance->gbaCartInserted() && (globalCfg.GetInt("Emu.ConsoleType") == 0);
-        actCurrentGBACart->setText("GBA slot: " + emuInstance->gbaCartLabel());
-        actEjectGBACart->setEnabled(inserted);
+        inserted = emuInstance->gbaCartInserted() && (emuInstance->getConsoleType() == 0);
+        label = "GBA slot: " + emuInstance->gbaCartLabel();
+
+        emuInstance->doOnAllWindows([=](MainWindow* win)
+        {
+            if (!win->hasMenu) return;
+            win->actCurrentGBACart->setText(label);
+            win->actEjectGBACart->setEnabled(inserted);
+        });
     }
     else
     {
         inserted = emuInstance->cartInserted();
-        actCurrentCart->setText("DS slot: " + emuInstance->cartLabel());
-        actEjectCart->setEnabled(inserted);
-        actImportSavefile->setEnabled(inserted);
-        actSetupCheats->setEnabled(inserted);
-        actROMInfo->setEnabled(inserted);
-        actRAMInfo->setEnabled(inserted);
+        label = "DS slot: " + emuInstance->cartLabel();
+
+        emuInstance->doOnAllWindows([=](MainWindow* win)
+        {
+            if (!win->hasMenu) return;
+            win->actCurrentCart->setText(label);
+            win->actEjectCart->setEnabled(inserted);
+            win->actImportSavefile->setEnabled(inserted);
+            win->actSetupCheats->setEnabled(inserted);
+            win->actROMInfo->setEnabled(inserted);
+            win->actRAMInfo->setEnabled(inserted);
+        });
     }
 }
 

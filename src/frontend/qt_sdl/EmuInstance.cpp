@@ -240,6 +240,17 @@ void EmuInstance::deleteAllWindows()
         deleteWindow(i, true);
 }
 
+void EmuInstance::doOnAllWindows(std::function<void(MainWindow*)> func, int exclude)
+{
+    for (int i = 0; i < kMaxWindows; i++)
+    {
+        if (i == exclude) continue;
+        if (!windowList[i]) continue;
+
+        func(windowList[i]);
+    }
+}
+
 
 void EmuInstance::broadcastCommand(int cmd, QVariant param)
 {

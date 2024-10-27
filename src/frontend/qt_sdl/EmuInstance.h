@@ -89,6 +89,8 @@ public:
     MainWindow* getMainWindow() { return mainWindow; }
     MainWindow* getWindow(int id) { return windowList[id]; }
 
+    void doOnAllWindows(std::function<void(MainWindow*)> func, int exclude = -1);
+
     Config::Table& getGlobalConfig() { return globalCfg; }
     Config::Table& getLocalConfig() { return localCfg; }
 
