@@ -559,7 +559,8 @@ void EmuThread::handleMessages()
 
         case msg_DeInitGL:
             emuInstance->deinitOpenGL(msg.param.value<int>());
-            useOpenGL = false;
+            if (msg.param.value<int>() == 0)
+                useOpenGL = false;
             break;
 
         case msg_BootROM:
