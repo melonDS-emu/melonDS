@@ -21,6 +21,7 @@
 
 #include <SDL2/SDL.h>
 
+#include "main.h"
 #include "NDS.h"
 #include "EmuThread.h"
 #include "Window.h"
@@ -90,6 +91,8 @@ public:
 
     Config::Table& getGlobalConfig() { return globalCfg; }
     Config::Table& getLocalConfig() { return localCfg; }
+
+    void updateConfigInfo(int kind);
 
     std::string instanceFileSuffix();
 

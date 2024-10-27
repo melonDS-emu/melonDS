@@ -31,6 +31,11 @@
 #include "ScreenLayout.h"
 #include "MPInterface.h"
 
+enum
+{
+    Config_RecentFiles,
+};
+
 class MelonApplication : public QApplication
 {
     Q_OBJECT
@@ -49,6 +54,8 @@ bool createEmuInstance();
 void deleteEmuInstance(int id);
 void deleteAllEmuInstances(int first = 0);
 int numEmuInstances();
+
+void updateConfigInfoAll(int kind, int sourceinst);
 
 void setMPInterface(melonDS::MPInterfaceType type);
 

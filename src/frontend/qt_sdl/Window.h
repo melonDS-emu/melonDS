@@ -134,6 +134,8 @@ public:
     // called when the MP interface is changed
     void updateMPInterface(melonDS::MPInterfaceType type);
 
+    void loadRecentFilesMenu(bool loadcfg);
+
 protected:
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;

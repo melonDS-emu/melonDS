@@ -241,6 +241,21 @@ void EmuInstance::deleteAllWindows()
 }
 
 
+void EmuInstance::updateConfigInfo(int kind)
+{
+    switch (kind)
+    {
+    case Config_RecentFiles:
+        for (int i = 0; i < kMaxWindows; i++)
+        {
+            if (windowList[i])
+                windowList[i]->loadRecentFilesMenu(true);
+        }
+        break;
+    }
+}
+
+
 void EmuInstance::osdAddMessage(unsigned int color, const char* fmt, ...)
 {
     if (fmt == nullptr)

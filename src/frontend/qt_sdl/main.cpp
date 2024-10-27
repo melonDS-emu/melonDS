@@ -168,6 +168,18 @@ int numEmuInstances()
 }
 
 
+void updateConfigInfoAll(int kind, int sourceinst)
+{
+    for (int i = 0; i < kMaxEmuInstances; i++)
+    {
+        if (i == sourceinst) continue;
+        if (!emuInstances[i]) continue;
+
+        emuInstances[i]->updateConfigInfo(kind);
+    }
+}
+
+
 void pathInit()
 {
     // First, check for the portable directory next to the executable.

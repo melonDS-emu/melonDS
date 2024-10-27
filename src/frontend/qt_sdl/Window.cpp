@@ -271,7 +271,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         setStyleSheet("QMenuBar::item { padding: 4px 8px; }");
 #endif
 
-    hasMenu = (!parent);
+    //hasMenu = (!parent);
+    hasMenu = true;
 
     if (hasMenu)
     {
@@ -288,15 +289,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actOpenROMArchive->setShortcut(QKeySequence(Qt::Key_O | Qt::CTRL | Qt::SHIFT));*/
 
             recentMenu = menu->addMenu("Open recent");
-            Config::Array recentROMs = globalCfg.GetArray("RecentROM");
-            int numrecent = std::min(kMaxRecentROMs, (int) recentROMs.Size());
-            for (int i = 0; i < numrecent; ++i)
-            {
-                std::string item = recentROMs.GetString(i);
-                if (!item.empty())
-                    recentFileList.push_back(QString::fromStdString(item));
-            }
-            updateRecentFilesMenu();
+            loadRecentFilesMenu(true);
 
             //actBootFirmware = menu->addAction("Launch DS menu");
             actBootFirmware = menu->addAction("Boot firmware");
@@ -1280,12 +1273,23 @@ void MainWindow::onClearRecentFiles()
     updateRecentFilesMenu();
 }
 
-void MainWindow::updateRecentFilesMenu()
+void MainWindow::loadRecentFilesMenu(bool loadcfg)
 {
-    recentMenu->clear();
+    if (loadcfg)
+    {
+        recentFileList.clear();
 
-    Config::Array recentroms = globalCfg.GetArray("RecentROM");
-    recentroms.Clear();
+        Config::Array recentROMs = globalCfg.GetArray("RecentROM");
+        int numrecent = std::min(kMaxRecentROMs, (int) recentROMs.Size());
+        for (int i = 0; i < numrecent; ++i)
+        {
+            std::string item = recentROMs.GetString(i);
+            if (!item.empty())
+                recentFileList.push_back(QString::fromStdString(item));
+        }
+    }
+
+    recentMenu->clear();
 
     for (int i = 0; i < recentFileList.size(); ++i)
     {
@@ -1316,8 +1320,6 @@ void MainWindow::updateRecentFilesMenu()
         QAction *actRecentFile_i = recentMenu->addAction(QString("%1.  %2").arg(i+1).arg(item_display));
         actRecentFile_i->setData(item_full);
         connect(actRecentFile_i, &QAction::triggered, this, &MainWindow::onClickRecentFile);
-
-        recentroms.SetQString(i, recentFileList.at(i));
     }
 
     while (recentFileList.size() > 10)
@@ -1330,8 +1332,24 @@ void MainWindow::updateRecentFilesMenu()
 
     if (recentFileList.empty())
         actClearRecentList->setEnabled(false);
+}
+
+void MainWindow::updateRecentFilesMenu()
+{
+    Config::Array recentroms = globalCfg.GetArray("RecentROM");
+    recentroms.Clear();
+
+    for (int i = 0; i < recentFileList.size(); ++i)
+    {
+        if (i >= kMaxRecentROMs) break;
+
+        recentroms.SetQString(i, recentFileList.at(i));
+    }
 
     Config::Save();
+    loadRecentFilesMenu(false);
+
+    updateConfigInfoAll(Config_RecentFiles, emuInstance->getInstanceID());
 }
 
 void MainWindow::onClickRecentFile()
