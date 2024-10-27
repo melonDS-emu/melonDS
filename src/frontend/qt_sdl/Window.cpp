@@ -234,7 +234,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     globalCfg(inst->globalCfg),
     localCfg(inst->localCfg),
     windowCfg(localCfg.GetTable("Window"+std::to_string(id), "Window0")),
-    emuThread(inst->getEmuThread())
+    emuThread(inst->getEmuThread()),
+    enabledSaved(false)
 {
 #ifndef _WIN32
     if (!parent)
@@ -807,8 +808,20 @@ void MainWindow::osdAddMessage(unsigned int color, const char* msg)
     panel->osdAddMessage(color, msg);
 }
 
+void MainWindow::saveEnabled(bool enabled)
+{
+    if (enabledSaved) return;
+    windowCfg.SetBool("Enabled", enabled);
+    enabledSaved = true;
+}
+
 void MainWindow::closeEvent(QCloseEvent* event)
 {
+    if (windowID == 0)
+        emuInstance->saveEnabledWindows();
+    else
+        saveEnabled(false);
+
     QByteArray geom = saveGeometry();
     QByteArray enc = geom.toBase64(QByteArray::Base64Encoding);
     windowCfg.SetString("Geometry", enc.toStdString());

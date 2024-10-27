@@ -137,6 +137,16 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
 
     emuThread->start();
     emuThread->emuPause();
+
+    // if any extra windows were saved as enabled, open them
+    for (int i = 1; i < kMaxWindows; i++)
+    {
+        //Config::Table tbl = localCfg.GetTable("Window"+std::to_string(i), "Window0");
+        std::string key = "Window" + std::to_string(i) + ".Enabled";
+        bool enable = localCfg.GetBool(key);
+        if (enable)
+            createWindow(i);
+    }
 }
 
 EmuInstance::~EmuInstance()
@@ -173,7 +183,7 @@ std::string EmuInstance::instanceFileSuffix()
     return suffix;
 }
 
-void EmuInstance::createWindow()
+void EmuInstance::createWindow(int id)
 {
     if (numWindows >= kMaxWindows)
     {
@@ -181,15 +191,19 @@ void EmuInstance::createWindow()
         return;
     }
 
-    int id = -1;
-    for (int i = 0; i < kMaxWindows; i++)
+    if (id == -1)
     {
-        if (windowList[i]) continue;
-        id = i;
-        break;
+        for (int i = 0; i < kMaxWindows; i++)
+        {
+            if (windowList[i]) continue;
+            id = i;
+            break;
+        }
     }
 
     if (id == -1)
+        return;
+    if (windowList[id])
         return;
 
     MainWindow* win = new MainWindow(id, this, topWindow);
@@ -263,6 +277,14 @@ void EmuInstance::doOnAllWindows(std::function<void(MainWindow*)> func, int excl
 
         func(windowList[i]);
     }
+}
+
+void EmuInstance::saveEnabledWindows()
+{
+    doOnAllWindows([=](MainWindow* win)
+    {
+        win->saveEnabled(true);
+    });
 }
 
 

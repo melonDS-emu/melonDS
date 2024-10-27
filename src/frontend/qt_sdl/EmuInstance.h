@@ -91,6 +91,7 @@ public:
     MainWindow* getWindow(int id) { return windowList[id]; }
 
     void doOnAllWindows(std::function<void(MainWindow*)> func, int exclude = -1);
+    void saveEnabledWindows();
 
     Config::Table& getGlobalConfig() { return globalCfg; }
     Config::Table& getLocalConfig() { return localCfg; }
@@ -100,7 +101,7 @@ public:
 
     std::string instanceFileSuffix();
 
-    void createWindow();
+    void createWindow(int id = -1);
     void deleteWindow(int id, bool close);
     void deleteAllWindows();
 

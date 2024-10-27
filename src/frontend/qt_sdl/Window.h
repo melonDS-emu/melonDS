@@ -114,6 +114,8 @@ public:
 
     bool winHasMenu() { return hasMenu; }
 
+    void saveEnabled(bool enabled);
+
     void toggleFullscreen();
 
     bool hasOpenGL() { return hasOGL; }
@@ -260,6 +262,7 @@ private:
     bool pausedManually;
 
     int windowID;
+    bool enabledSaved;
 
     EmuInstance* emuInstance;
     EmuThread* emuThread;
