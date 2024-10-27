@@ -2140,7 +2140,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
     {
         if (hasOGL) emuThread->initContext(windowID);
 
-        auto childwins = findChildren<MainWindow*>(Qt::FindDirectChildrenOnly);
+        auto childwins = findChildren<MainWindow*>(nullptr, Qt::FindDirectChildrenOnly);
         for (auto child : childwins)
         {
             if (hadOGL) emuThread->deinitContext(child->windowID);
