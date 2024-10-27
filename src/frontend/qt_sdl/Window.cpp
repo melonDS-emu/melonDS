@@ -1349,7 +1349,7 @@ void MainWindow::updateRecentFilesMenu()
     Config::Save();
     loadRecentFilesMenu(false);
 
-    updateConfigInfoAll(Config_RecentFiles, emuInstance->getInstanceID());
+    emuInstance->broadcastCommand(InstCmd_UpdateRecentFiles);
 }
 
 void MainWindow::onClickRecentFile()

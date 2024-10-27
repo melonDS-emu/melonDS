@@ -33,7 +33,10 @@
 
 enum
 {
-    Config_RecentFiles,
+    InstCmd_Pause,
+    InstCmd_Unpause,
+
+    InstCmd_UpdateRecentFiles,
 };
 
 class MelonApplication : public QApplication
@@ -55,7 +58,7 @@ void deleteEmuInstance(int id);
 void deleteAllEmuInstances(int first = 0);
 int numEmuInstances();
 
-void updateConfigInfoAll(int kind, int sourceinst);
+void broadcastInstanceCommand(int cmd, int sourceinst);
 
 void setMPInterface(melonDS::MPInterfaceType type);
 

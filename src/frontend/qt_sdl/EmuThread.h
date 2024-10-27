@@ -104,9 +104,9 @@ public:
 
     // to be called from the UI thread
     void emuRun();
-    void emuPause();
-    void emuUnpause();
-    void emuTogglePause();
+    void emuPause(bool broadcast = true);
+    void emuUnpause(bool broadcast = true);
+    void emuTogglePause(bool broadcast = true);
     void emuStop(bool external);
     void emuExit();
     void emuFrameStep();

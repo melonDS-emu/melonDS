@@ -70,7 +70,6 @@ EmuThread::EmuThread(EmuInstance* inst, QObject* parent) : QThread(parent)
 
 void EmuThread::attachWindow(MainWindow* window)
 {
-    //connect(this, SIGNAL(windowUpdate()), window->panel, SLOT(repaint()));
     connect(this, SIGNAL(windowTitleChange(QString)), window, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), window, SLOT(onEmuStart()));
     connect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));
@@ -89,7 +88,6 @@ void EmuThread::attachWindow(MainWindow* window)
 
 void EmuThread::detachWindow(MainWindow* window)
 {
-    //disconnect(this, SIGNAL(windowUpdate()), window->panel, SLOT(repaint()));
     disconnect(this, SIGNAL(windowTitleChange(QString)), window, SLOT(onTitleUpdate(QString)));
     disconnect(this, SIGNAL(windowEmuStart()), window, SLOT(onEmuStart()));
     disconnect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));
@@ -676,24 +674,30 @@ void EmuThread::emuRun()
     waitMessage();
 }
 
-void EmuThread::emuPause()
+void EmuThread::emuPause(bool broadcast)
 {
     sendMessage(msg_EmuPause);
     waitMessage();
+
+    if (broadcast)
+        emuInstance->broadcastCommand(InstCmd_Pause);
 }
 
-void EmuThread::emuUnpause()
+void EmuThread::emuUnpause(bool broadcast)
 {
     sendMessage(msg_EmuUnpause);
     waitMessage();
+
+    if (broadcast)
+        emuInstance->broadcastCommand(InstCmd_Unpause);
 }
 
-void EmuThread::emuTogglePause()
+void EmuThread::emuTogglePause(bool broadcast)
 {
     if (emuStatus == emuStatus_Paused)
-        emuUnpause();
+        emuUnpause(broadcast);
     else
-        emuPause();
+        emuPause(broadcast);
 }
 
 void EmuThread::emuStop(bool external)

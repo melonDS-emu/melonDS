@@ -241,11 +241,24 @@ void EmuInstance::deleteAllWindows()
 }
 
 
-void EmuInstance::updateConfigInfo(int kind)
+void EmuInstance::broadcastCommand(int cmd)
 {
-    switch (kind)
+    broadcastInstanceCommand(cmd, instanceID);
+}
+
+void EmuInstance::handleCommand(int cmd)
+{
+    switch (cmd)
     {
-    case Config_RecentFiles:
+    case InstCmd_Pause:
+        emuThread->emuPause(false);
+        break;
+
+    case InstCmd_Unpause:
+        emuThread->emuUnpause(false);
+        break;
+
+    case InstCmd_UpdateRecentFiles:
         for (int i = 0; i < kMaxWindows; i++)
         {
             if (windowList[i])

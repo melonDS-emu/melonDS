@@ -92,7 +92,8 @@ public:
     Config::Table& getGlobalConfig() { return globalCfg; }
     Config::Table& getLocalConfig() { return localCfg; }
 
-    void updateConfigInfo(int kind);
+    void broadcastCommand(int cmd);
+    void handleCommand(int cmd);
 
     std::string instanceFileSuffix();
 
