@@ -2147,6 +2147,8 @@ void MainWindow::onEmuReset()
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
 {
+    if (!emuInstance) return;
+
     // if we have a parent window: pass the message over to the parent
     // the topmost parent takes care of updating all the windows
     MainWindow* parentwin = (MainWindow*)parentWidget();
