@@ -104,7 +104,7 @@ bool GdbStub::Init()
 	{
 		// Make sure the port can be reused immediately after melonDS stops and/or restarts
 		int enable = 1;
-		setsockopt(SockFd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
+		setsockopt(SockFd, SOL_SOCKET, SO_REUSEADDR, (void*)&enable, sizeof(enable));
 	}
 #ifndef __linux__
 	SocketSetBlocking(SockFd, false);
