@@ -2710,7 +2710,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
 
             // burst stores seem to process the extra delay cycles at the end of the burst
             // this means that we end up *always* able to begin code fetches 3 cycles early when accessing the bus
-            // this is a weird way of implemeting this but it should work fine....?
+            // this is a weird way of implementing this but it should work fine....?
             NDS.ARM9Timestamp -= 3<<NDS.ARM9ClockShift;
             DataCycles += 3<<NDS.ARM9ClockShift;
         }

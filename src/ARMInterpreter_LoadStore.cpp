@@ -123,6 +123,8 @@ void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset, u16 ilmask)
     if (rd == 15)
     {
         if (cpu->Num==1 || (((ARMv5*)cpu)->CP15Control & (1<<15))) val &= ~0x1;
+        if (cpu->Num==0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual + ((size<32) || (signror && (addr&0x3))); // force an interlock
+
         cpu->JumpTo(val);
     }
     else
@@ -322,7 +324,9 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (dabort) { \
         ((ARMv5*)cpu)->DataAbort(); \
         return; } \
-    if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
+    if (r+1 == 15) { \
+        if (cpu->Num==0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual; \
+        cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); } /* restores cpsr presumably due to shared dna with ldm */ \
     else { \
         cpu->R[r+1] = val; \
         if (cpu->Num == 0) { \
@@ -343,7 +347,9 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (dabort) { \
         ((ARMv5*)cpu)->DataAbort(); \
         return; } \
-    if (r == 14) cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); /* restores cpsr presumably due to shared dna with ldm */ \
+    if (r+1 == 15) { \
+        if (cpu->Num==0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual; \
+        cpu->JumpTo(((((ARMv5*)cpu)->CP15Control & (1<<15)) ? (val & ~0x1) : val), cpu->CurInstr & (1<<22)); } /* restores cpsr presumably due to shared dna with ldm */ \
     else { \
         cpu->R[r+1] = val; \
         if (cpu->Num == 0) { \
@@ -359,7 +365,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
     ((ARMv5*)cpu)->HandleInterlocksMemory(r); \
     bool dabort = !cpu->DataWrite32(offset, cpu->R[r]); /* yes, this data abort behavior is on purpose */ \
-    u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
+    u32 storeval = cpu->R[r+1]; if (r+1 == 15) storeval+=4; \
     dabort |= !cpu->DataWrite32S (offset+4, storeval); /* no, i dont understand it either */ \
     if (cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2; \
     cpu->AddCycles_CD(); \
@@ -376,7 +382,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
     ((ARMv5*)cpu)->HandleInterlocksMemory(r); \
     bool dabort = !cpu->DataWrite32(addr, cpu->R[r]); \
-    u32 storeval = cpu->R[r+1]; if (r == 14) storeval+=4; \
+    u32 storeval = cpu->R[r+1]; if (r+1 == 15) storeval+=4; \
     dabort |= !cpu->DataWrite32S (addr+4, storeval); \
     if (cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2; \
     cpu->AddCycles_CD(); \
@@ -666,7 +672,10 @@ void A_LDM(ARM* cpu)
 
     // jump if pc got written
     if (cpu->CurInstr & (1<<15))
+    {
+        if (cpu->Num==0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual; // force an interlock
         cpu->JumpTo(pc, cpu->CurInstr & (1<<22));
+    }
     else if (cpu->Num == 0)
     {
         u8 lastreg = 31 - __builtin_clz(cpu->CurInstr & 0x7FFF);
@@ -1010,6 +1019,8 @@ void T_POP(ARM* cpu)
         if (!dabort) [[likely]]
         {
             if (cpu->Num==1 || (((ARMv5*)cpu)->CP15Control & (1<<15))) pc |= 0x1;
+            if (cpu->Num==0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual; // force an interlock
+
             cpu->JumpTo(pc);
             base += 4;
         }
