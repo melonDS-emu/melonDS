@@ -43,6 +43,7 @@ void VideoSettingsDialog::setEnabled()
     int renderer = cfg.GetInt("3D.Renderer");
     int ogldisplay = cfg.GetBool("Screen.UseGL");
 
+    // We will need it to disable specific options where unsupported
     int supportedRenderer = getsupportedRenderers();
 
     bool base_gl = supportedRenderer > renderer3D_Software;
@@ -67,7 +68,7 @@ void VideoSettingsDialog::setEnabled()
 
     bool softwareRenderer = renderer == renderer3D_Software;
     ui->cbGLDisplay->setEnabled(softwareRenderer && base_gl);
-    ui->cbVSync->setEnabled(!softwareRenderer || (softwareRenderer && ogldisplay));
+    ui->cbVSync->setEnabled(!softwareRenderer || (softwareRenderer && ogldisplay)); // Either an openGL renderer is used or OpenGL Display is enabled
     ui->cbSoftwareThreaded->setEnabled(softwareRenderer);
     ui->cbxGLResolution->setEnabled(!softwareRenderer);
     ui->cbBetterPolygons->setEnabled(renderer == renderer3D_OpenGL);
@@ -98,10 +99,12 @@ int VideoSettingsDialog::getsupportedRenderers()
             {
                 int gl_version = 0;
                 
+                // A proper version string or object isn't provided, so we have to parse it ourselves
                 if (isdigit(gl_version_str[0]) && isdigit(gl_version_str[2]))
                     gl_version = (gl_version_str[0] - '0') * 100 +
                                  (gl_version_str[2] - '0') * 10;
 
+                // OpenGL 4.3 is required for Compute Shaders while 3.2 is the base requirement
                 if (gl_version >= 430)
                     renderer = renderer3D_OpenGLCompute;
                 else if (gl_version >= 320)
