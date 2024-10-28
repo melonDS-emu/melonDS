@@ -31,17 +31,22 @@ public:
     QPushButton* buttonPausePlay;
     QScrollBar* bar;
     bool flagClosed;
+    void onLuaSaveState(QString);
+    void onLuaLoadState(QString);
 protected:
     void closeEvent(QCloseEvent *event) override;
     LuaBundle* bundle;
 signals:
     void signalNewLua();
     void signalClosing();
+    void signalLuaSaveState(const QString&);
+    void signalLuaLoadState(const QString&);
 public slots:
     //void onStartStop();
     void onOpenScript();
     void onStop();
     void onPausePlay();
+    void onLuaUpdate();
 };
 
 //Based on ScreenLayout::GetScreenTransforms
@@ -95,6 +100,8 @@ public:
     lua_State* getLuaState(){return luaState;};
     EmuThread* getEmuThread(){return emuThread;};
     EmuInstance* getEmuInstance(){return emuInstance;};
+    LuaConsoleDialog* getluaDialog(){return luaDialog;};
+    void printText(QString string);
     void createLuaState();
     void luaUpdate();
     bool flagPause = false;

@@ -12,34 +12,6 @@
 #include <NDS_Header.h>
 #include "main.h"
 
-//EmuThread Signals
-void EmuThread::onLuaPrint(const QString& string)
-{
-    emit signalLuaPrint(string);
-}
-
-void EmuThread::onLuaClearConsole()
-{
-    emit signalLuaClearConsole();
-}
-
-void EmuThread::onLuaLoadState(const QString& string)
-{
-    emit signalLuaLoadState(string);
-}
-
-/*
-void EmuThread::onLuaLayoutChange()
-{
-    //TODO:
-    //emit screenLayoutChange();
-}
-*/
-
-void EmuThread::onLuaSaveState(const QString& string)
-{
-    emit signalLuaSaveState(string);
-}
 
 LuaBundle::LuaBundle(LuaConsoleDialog* dialog, EmuInstance* inst)
 {
@@ -74,8 +46,6 @@ LuaConsoleDialog::LuaConsoleDialog(QWidget* parent) : QDialog(parent)
     connect(buttonOpenScript,&QPushButton::clicked,this,&LuaConsoleDialog::onOpenScript);
     connect(buttonStartStop,&QPushButton::clicked,this,&LuaConsoleDialog::onStop);
     connect(buttonPausePlay,&QPushButton::clicked,this,&LuaConsoleDialog::onPausePlay);
-    connect(bundle->getEmuThread(),&EmuThread::signalLuaPrint,console,&LuaConsole::onGetText);
-    connect(bundle->getEmuThread(),&EmuThread::signalLuaClearConsole,console,&LuaConsole::onClear);
     this->setWindowTitle("Lua Script");
 }
 
@@ -105,6 +75,21 @@ void LuaConsole::onGetText(const QString& string)
     this->appendPlainText(string);
     QScrollBar* bar = verticalScrollBar();
     bar->setValue(bar->maximum());
+}
+
+void LuaBundle::printText(QString string)
+{
+    this->luaDialog->console->onGetText(string);
+}
+
+void LuaConsoleDialog::onLuaSaveState(QString string)
+{
+    emit signalLuaSaveState(string);
+}
+
+void LuaConsoleDialog::onLuaLoadState(QString string)
+{
+    emit signalLuaLoadState(string);
 }
 
 void LuaConsole::onClear()
@@ -160,7 +145,7 @@ void LuaBundle::createLuaState()
     }
     else //Error loading script
     {
-        emuThread->onLuaPrint(lua_tostring(L,-1));
+        printText(lua_tostring(L,-1));
     }
 }
 
@@ -175,20 +160,26 @@ void LuaConsoleDialog::onPausePlay()
     bundle->flagPause = !bundle->flagPause;
 }
 
+void LuaConsoleDialog::onLuaUpdate()
+{
+    bundle->createLuaState();
+    bundle->luaUpdate();
+}
+
 //Gets Called once a frame
 void LuaBundle::luaUpdate()
 {
     if (!luaState || flagPause) return;
     if (lua_getglobal(luaState,"_Update")!=LUA_TFUNCTION)
     {
-        emuThread->onLuaPrint("No \"_Update\" Function found, pausing script...");
+        printText("No \"_Update\" Function found, pausing script...");
         flagPause = true;
         return;
     }
     if (lua_pcall(luaState,0,0,0)!=0)
     {
         //Handel Errors
-        emuThread->onLuaPrint(lua_tostring(luaState,-1));
+        printText(lua_tostring(luaState,-1));
         luaState = nullptr;
     }
 }
@@ -246,7 +237,7 @@ int lua_MelonPrint(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
     const char* string = luaL_checkstring(L,1);
-    bundle->getEmuThread()->onLuaPrint((QString)string);
+    bundle->printText((QString)string);
     return 0;
 }
 AddLuaFunction(lua_MelonPrint,print);
@@ -254,7 +245,7 @@ AddLuaFunction(lua_MelonPrint,print);
 int lua_MelonClear(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
-    bundle->getEmuThread()->onLuaClearConsole();
+    bundle->getluaDialog()->console->clear();
     return 0;
 }
 AddLuaFunction(lua_MelonClear,MelonClear);
@@ -378,7 +369,7 @@ int Lua_StateSave(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
     const char* filename = luaL_checkstring(L,1);
-    bundle->getEmuThread()->onLuaSaveState((QString)filename);
+    bundle->getluaDialog()->onLuaSaveState((QString)filename);
     return 0;
 }
 AddLuaFunction(Lua_StateSave,StateSave);
@@ -387,7 +378,8 @@ int Lua_StateLoad(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
     const char* filename = luaL_checkstring(L,1);
-    bundle->getEmuThread()->onLuaLoadState((QString)filename);
+
+    bundle->getluaDialog()->onLuaLoadState((QString)filename);
     return 0;
 }
 AddLuaFunction(Lua_StateLoad,StateLoad);
