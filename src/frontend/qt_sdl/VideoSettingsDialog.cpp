@@ -41,13 +41,77 @@ void VideoSettingsDialog::setEnabled()
 {
     auto& cfg = emuInstance->getGlobalConfig();
     int renderer = cfg.GetInt("3D.Renderer");
+    int ogldisplay = cfg.GetBool("Screen.UseGL");
+
+    int supportedRenderer = getsupportedRenderers();
+
+    bool base_gl = supportedRenderer > renderer3D_Software;
+    bool compute_gl = supportedRenderer == renderer3D_OpenGLCompute;
+
+    if (!compute_gl)
+    {
+        ui->rb3DCompute->setEnabled(false);
+        if (renderer == renderer3D_OpenGLCompute) // fallback to software renderer
+            ui->rb3DSoftware->setChecked(true);
+    }
+
+    if (!base_gl)
+    {
+        renderer = renderer3D_Software;
+        ogldisplay = false;
+        
+        ui->rb3DOpenGL->setEnabled(false);
+        if (renderer == renderer3D_OpenGL) // fallback to software renderer
+            ui->rb3DSoftware->setChecked(true);
+    }
 
     bool softwareRenderer = renderer == renderer3D_Software;
-    ui->cbGLDisplay->setEnabled(softwareRenderer);
+    ui->cbGLDisplay->setEnabled(softwareRenderer && base_gl);
     ui->cbSoftwareThreaded->setEnabled(softwareRenderer);
     ui->cbxGLResolution->setEnabled(!softwareRenderer);
     ui->cbBetterPolygons->setEnabled(renderer == renderer3D_OpenGL);
     ui->cbxComputeHiResCoords->setEnabled(renderer == renderer3D_OpenGLCompute);
+}
+
+int VideoSettingsDialog::getsupportedRenderers()
+{
+    ScreenPanelGL *glpanel = new ScreenPanelGL(this);
+    std::optional<WindowInfo> windowinfo = glpanel->getWindowInfo();
+
+    int renderer = renderer3D_Software;
+
+    if (windowinfo.has_value())
+    {
+        std::array<GL::Context::Version, 2> versionsToTry = {
+            GL::Context::Version{GL::Context::Profile::Core, 4, 3},
+            GL::Context::Version{GL::Context::Profile::Core, 3, 2}
+        };
+
+        std::unique_ptr<GL::Context> glContext = GL::Context::Create(*windowinfo, versionsToTry);
+
+        if (glContext)
+        {
+            const char* gl_version_str = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+
+            if (gl_version_str)
+            {
+                int gl_version = 0;
+                
+                if (isdigit(gl_version_str[0]) && isdigit(gl_version_str[2]))
+                    gl_version = (gl_version_str[0] - '0') * 100 +
+                                 (gl_version_str[2] - '0') * 10;
+
+                if (gl_version >= 430)
+                    renderer = renderer3D_OpenGLCompute;
+                else if (gl_version >= 320)
+                    renderer = renderer3D_OpenGL;
+            }
+        }
+    }
+
+    delete glpanel;
+
+    return renderer;
 }
 
 VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::VideoSettingsDialog)

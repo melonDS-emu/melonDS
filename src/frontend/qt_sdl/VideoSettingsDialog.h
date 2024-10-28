@@ -74,6 +74,7 @@ private slots:
 private:
     void setVsyncControlEnable(bool hasOGL);
     void setEnabled();
+    int getsupportedRenderers();
 
     Ui::VideoSettingsDialog* ui;
     EmuInstance* emuInstance;
