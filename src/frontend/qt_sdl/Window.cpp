@@ -265,7 +265,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     setAcceptDrops(true);
     setFocusPolicy(Qt::ClickFocus);
 
-#ifdef QT_VERSION_MAJOR == 6 && WIN32
+#if QT_VERSION_MAJOR == 6 && WIN32
     // The "windows11" theme has pretty massive padding around menubar items, this makes Config and Help not fit in a window at 1x screen sizing
     // So let's reduce the padding a bit.
     if (QApplication::style()->name() == "windows11")
