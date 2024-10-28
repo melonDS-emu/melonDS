@@ -43,12 +43,6 @@ void VideoSettingsDialog::setEnabled()
     int renderer = cfg.GetInt("3D.Renderer");
     int ogldisplay = cfg.GetBool("Screen.UseGL");
 
-    // We will need it to disable specific options where unsupported
-    int supportedRenderer = getsupportedRenderers();
-
-    bool base_gl = supportedRenderer > renderer3D_Software;
-    bool compute_gl = supportedRenderer == renderer3D_OpenGLCompute;
-
     if (!compute_gl)
     {
         ui->rb3DCompute->setEnabled(false);
@@ -124,6 +118,10 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     setAttribute(Qt::WA_DeleteOnClose);
 
     emuInstance = ((MainWindow*)parent)->getEmuInstance();
+    int supportedRenderers = getsupportedRenderers();
+
+    base_gl = supportedRenderers > renderer3D_Software;
+    compute_gl = supportedRenderers == renderer3D_OpenGLCompute;
 
     auto& cfg = emuInstance->getGlobalConfig();
     oldRenderer = cfg.GetInt("3D.Renderer");
