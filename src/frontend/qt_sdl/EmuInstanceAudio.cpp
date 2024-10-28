@@ -321,7 +321,7 @@ void EmuInstance::micProcess()
 
                 for (int i = 0; i < 735; i++)
                 {
-                    tmp[i] = mic_blow[sample_pos];
+                    tmp[i] = mic_blow[sample_pos] ^ 0x8000;
                     sample_pos++;
                     if (sample_pos >= sample_len) sample_pos = 0;
                 }

@@ -23,6 +23,7 @@
 #include <QMutex>
 #include <QSemaphore>
 #include <QQueue>
+#include <QVariant>
 
 #include <atomic>
 #include <variant>
@@ -68,15 +69,26 @@ public:
 
         msg_InitGL,
         msg_DeInitGL,
+
+        msg_BootROM,
+        msg_BootFirmware,
+        msg_InsertCart,
+        msg_EjectCart,
+        msg_InsertGBACart,
+        msg_InsertGBAAddon,
+        msg_EjectGBACart,
+
+        msg_LoadState,
+        msg_SaveState,
+        msg_UndoStateLoad,
+
+        msg_ImportSavefile,
     };
 
     struct Message
     {
         MessageType type;
-        union
-        {
-            bool stopExternal;
-        };
+        QVariant param;
     };
 
     void sendMessage(Message msg);
@@ -92,20 +104,33 @@ public:
 
     // to be called from the UI thread
     void emuRun();
-    void emuPause();
-    void emuUnpause();
-    void emuTogglePause();
+    void emuPause(bool broadcast = true);
+    void emuUnpause(bool broadcast = true);
+    void emuTogglePause(bool broadcast = true);
     void emuStop(bool external);
     void emuExit();
     void emuFrameStep();
     void emuReset();
 
+    int bootROM(const QStringList& filename);
+    int bootFirmware();
+    int insertCart(const QStringList& filename, bool gba);
+    void ejectCart(bool gba);
+    int insertGBAAddon(int type);
+
+    int saveState(const QString& filename);
+    int loadState(const QString& filename);
+    int undoStateLoad();
+
+    int importSavefile(const QString& filename);
+
     bool emuIsRunning();
     bool emuIsActive();
 
-    void initContext();
-    void deinitContext();
+    void initContext(int win);
+    void deinitContext(int win);
     void updateVideoSettings() { videoSettingsDirty = true; }
+    void updateVideoRenderer() { videoSettingsDirty = true; lastVideoRenderer = -1; }
 
     int FrontBuffer = 0;
     QMutex FrontBufferLock;
@@ -153,6 +178,8 @@ private:
     constexpr static int emuPauseStackRunning = 0;
     constexpr static int emuPauseStackPauseThreshold = 1;
     int emuPauseStack;
+
+    int msgResult = 0;
 
     QMutex msgMutex;
     QSemaphore msgSemaphore;

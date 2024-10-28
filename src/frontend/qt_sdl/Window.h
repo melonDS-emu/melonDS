@@ -111,7 +111,16 @@ public:
 
     EmuInstance* getEmuInstance() { return emuInstance; }
     Config::Table& getWindowConfig() { return windowCfg; }
+
     LuaConsoleDialog* getLuaDialog() {return luaDialog;}
+
+    int getWindowID() { return windowID; }
+
+    bool winHasMenu() { return hasMenu; }
+
+    void saveEnabled(bool enabled);
+
+    void toggleFullscreen();
 
     bool hasOpenGL() { return hasOGL; }
     GL::Context* getOGLContext();
@@ -130,6 +139,9 @@ public:
 
     // called when the MP interface is changed
     void updateMPInterface(melonDS::MPInterfaceType type);
+
+    void loadRecentFilesMenu(bool loadcfg);
+    //void updateVideoSettings(bool glchange);
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
@@ -213,6 +225,7 @@ private slots:
     void onChangeScreenSizing(QAction* act);
     void onChangeScreenAspect(QAction* act);
     void onChangeIntegerScaling(bool checked);
+    void onOpenNewWindow();
     void onChangeScreenFiltering(bool checked);
     void onChangeShowOSD(bool checked);
     void onChangeLimitFramerate(bool checked);
@@ -256,6 +269,7 @@ private:
     bool pausedManually;
 
     int windowID;
+    bool enabledSaved;
 
     EmuInstance* emuInstance;
     EmuThread* emuThread;
@@ -268,6 +282,8 @@ private:
 public:
     ScreenPanel* panel;
 
+    bool hasMenu;
+
     QAction* actOpenROM;
     QAction* actBootFirmware;
     QAction* actCurrentCart;
@@ -275,7 +291,7 @@ public:
     QAction* actEjectCart;
     QAction* actCurrentGBACart;
     QAction* actInsertGBACart;
-    QAction* actInsertGBAAddon[2];
+    QList<QAction*> actInsertGBAAddon;
     QAction* actEjectGBACart;
     QAction* actImportSavefile;
     QAction* actSaveState[9];
@@ -332,12 +348,13 @@ public:
     QAction** actScreenAspectTop;
     QActionGroup* grpScreenAspectBot;
     QAction** actScreenAspectBot;
+    QAction* actNewWindow;
     QAction* actScreenFiltering;
     QAction* actShowOSD;
     QAction* actLimitFramerate;
     QAction* actAudioSync;
-};
 
-void ToggleFullscreen(MainWindow* mainWindow);
+    QAction* actAbout;
+};
 
 #endif // WINDOW_H

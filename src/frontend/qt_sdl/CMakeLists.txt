@@ -37,6 +37,9 @@ set(SOURCES_QT_SDL
     QPathInput.h
     SaveManager.cpp
     CameraManager.cpp
+    AboutDialog.cpp
+    AboutDialog.h
+    AboutDialog.ui
 
     ArchiveUtil.h
     ArchiveUtil.cpp

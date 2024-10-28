@@ -96,7 +96,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
         }
         else
         {
-            options->errorsToDisplay += "Option -a/--archive-file given, but no archive specified!";
+            Log(LogLevel::Error, "Option -a/--archive-file given, but no archive specified!");
         }
     }
 
@@ -108,7 +108,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
         }
         else
         {
-            options->errorsToDisplay += "Option -A/--archive-file-gba given, but no archive specified!";
+            Log(LogLevel::Error, "Option -A/--archive-file-gba given, but no archive specified!");
         }
     }
 #endif

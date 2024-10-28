@@ -200,6 +200,7 @@ private:
     void drawOverlays(int type,int screen);
 
     std::unique_ptr<GL::Context> glContext;
+    bool glInited;
 
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;

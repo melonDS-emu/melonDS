@@ -121,6 +121,12 @@ void VideoSettingsDialog::on_VideoSettingsDialog_accepted()
 
 void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        closeDlg();
+        return;
+    }
+
     bool old_gl = UsesGL();
 
     auto& cfg = emuInstance->getGlobalConfig();

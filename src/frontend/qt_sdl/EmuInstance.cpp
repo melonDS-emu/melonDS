@@ -88,7 +88,31 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     cheatsOn = localCfg.GetBool("EnableCheats");
 
     doLimitFPS = globalCfg.GetBool("LimitFPS");
-    maxFPS = globalCfg.GetInt("MaxFPS");
+
+    double val = globalCfg.GetDouble("TargetFPS");
+    if (val == 0.0)
+    {
+        Platform::Log(Platform::LogLevel::Error, "Target FPS in config invalid\n");
+        targetFPS = 1.0 / 60.0;
+    }
+    else targetFPS = 1.0 / val;
+
+    val = globalCfg.GetDouble("FastForwardFPS");
+    if (val == 0.0)
+    {
+        Platform::Log(Platform::LogLevel::Error, "Fast-Forward FPS in config invalid\n");
+        fastForwardFPS = 1.0 / 60.0;
+    }
+    else fastForwardFPS = 1.0 / val;
+
+    val = globalCfg.GetDouble("SlowmoFPS");
+    if (val == 0.0)
+    {
+        Platform::Log(Platform::LogLevel::Error, "Slow-Mo FPS in config invalid\n");
+        slowmoFPS = 1.0 / 60.0;
+    }
+    else slowmoFPS = 1.0 / val;
+
     doAudioSync = globalCfg.GetBool("AudioSync");
 
     mpAudioMode = globalCfg.GetInt("MP.AudioMode");
@@ -113,6 +137,16 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
 
     emuThread->start();
     emuThread->emuPause();
+
+    // if any extra windows were saved as enabled, open them
+    for (int i = 1; i < kMaxWindows; i++)
+    {
+        //Config::Table tbl = localCfg.GetTable("Window"+std::to_string(i), "Window0");
+        std::string key = "Window" + std::to_string(i) + ".Enabled";
+        bool enable = localCfg.GetBool(key);
+        if (enable)
+            createWindow(i);
+    }
 }
 
 EmuInstance::~EmuInstance()
@@ -130,6 +164,13 @@ EmuInstance::~EmuInstance()
 
     audioDeInit();
     inputDeInit();
+
+    NDS::Current = nullptr;
+    if (nds)
+    {
+        saveRTCData();
+        delete nds;
+    }
 }
 
 
@@ -142,7 +183,7 @@ std::string EmuInstance::instanceFileSuffix()
     return suffix;
 }
 
-void EmuInstance::createWindow()
+void EmuInstance::createWindow(int id)
 {
     if (numWindows >= kMaxWindows)
     {
@@ -150,15 +191,19 @@ void EmuInstance::createWindow()
         return;
     }
 
-    int id = -1;
-    for (int i = 0; i < kMaxWindows; i++)
+    if (id == -1)
     {
-        if (windowList[i]) continue;
-        id = i;
-        break;
+        for (int i = 0; i < kMaxWindows; i++)
+        {
+            if (windowList[i]) continue;
+            id = i;
+            break;
+        }
     }
 
     if (id == -1)
+        return;
+    if (windowList[id])
         return;
 
     MainWindow* win = new MainWindow(id, this, topWindow);
@@ -168,6 +213,16 @@ void EmuInstance::createWindow()
     numWindows++;
 
     emuThread->attachWindow(win);
+
+    // if creating a secondary window, we may need to initialize its OpenGL context here
+    if (win->hasOpenGL() && (id != 0))
+        emuThread->initContext(id);
+
+    bool enable = (numWindows < kMaxWindows);
+    doOnAllWindows([=](MainWindow* win)
+    {
+        win->actNewWindow->setEnabled(enable);
+    });
 }
 
 void EmuInstance::deleteWindow(int id, bool close)
@@ -177,12 +232,8 @@ void EmuInstance::deleteWindow(int id, bool close)
     MainWindow* win = windowList[id];
     if (!win) return;
 
-    if (win->hasOpenGL() && win == mainWindow)
-    {
-        // we intentionally don't unpause here
-        emuThread->emuPause();
-        emuThread->deinitContext();
-    }
+    if (win->hasOpenGL())
+        emuThread->deinitContext(id);
 
     emuThread->detachWindow(win);
 
@@ -195,10 +246,19 @@ void EmuInstance::deleteWindow(int id, bool close)
     if (close)
         win->close();
 
-    if ((!mainWindow) && (!deleting))
+    if (numWindows == 0)
     {
-        // if we closed this instance's main window, delete the instance
+        // if we closed the last window, delete the instance
+        // if the main window is closed, Qt will take care of closing any secondary windows
         deleteEmuInstance(instanceID);
+    }
+    else
+    {
+        bool enable = (numWindows < kMaxWindows);
+        doOnAllWindows([=](MainWindow* win)
+        {
+            win->actNewWindow->setEnabled(enable);
+        });
     }
 }
 
@@ -206,6 +266,57 @@ void EmuInstance::deleteAllWindows()
 {
     for (int i = kMaxWindows-1; i >= 0; i--)
         deleteWindow(i, true);
+}
+
+void EmuInstance::doOnAllWindows(std::function<void(MainWindow*)> func, int exclude)
+{
+    for (int i = 0; i < kMaxWindows; i++)
+    {
+        if (i == exclude) continue;
+        if (!windowList[i]) continue;
+
+        func(windowList[i]);
+    }
+}
+
+void EmuInstance::saveEnabledWindows()
+{
+    doOnAllWindows([=](MainWindow* win)
+    {
+        win->saveEnabled(true);
+    });
+}
+
+
+void EmuInstance::broadcastCommand(int cmd, QVariant param)
+{
+    broadcastInstanceCommand(cmd, param, instanceID);
+}
+
+void EmuInstance::handleCommand(int cmd, QVariant& param)
+{
+    switch (cmd)
+    {
+    case InstCmd_Pause:
+        emuThread->emuPause(false);
+        break;
+
+    case InstCmd_Unpause:
+        emuThread->emuUnpause(false);
+        break;
+
+    case InstCmd_UpdateRecentFiles:
+        for (int i = 0; i < kMaxWindows; i++)
+        {
+            if (windowList[i])
+                windowList[i]->loadRecentFilesMenu(true);
+        }
+        break;
+
+    /*case InstCmd_UpdateVideoSettings:
+        mainWindow->updateVideoSettings(param.value<bool>());
+        break;*/
+    }
 }
 
 
@@ -261,24 +372,18 @@ bool EmuInstance::usesOpenGL()
            (globalCfg.GetInt("3D.Renderer") != renderer3D_Software);
 }
 
-void EmuInstance::initOpenGL()
+void EmuInstance::initOpenGL(int win)
 {
-    for (int i = 0; i < kMaxWindows; i++)
-    {
-        if (windowList[i])
-            windowList[i]->initOpenGL();
-    }
+    if (windowList[win])
+        windowList[win]->initOpenGL();
 
     setVSyncGL(true);
 }
 
-void EmuInstance::deinitOpenGL()
+void EmuInstance::deinitOpenGL(int win)
 {
-    for (int i = 0; i < kMaxWindows; i++)
-    {
-        if (windowList[i])
-            windowList[i]->deinitOpenGL();
-    }
+    if (windowList[win])
+        windowList[win]->deinitOpenGL();
 }
 
 void EmuInstance::setVSyncGL(bool vsync)
@@ -1081,6 +1186,30 @@ void EmuInstance::setBatteryLevels()
     }
 }
 
+void EmuInstance::loadRTCData()
+{
+    auto file = Platform::OpenLocalFile("rtc.bin", Platform::FileMode::Read);
+    if (file)
+    {
+        RTC::StateData state;
+        Platform::FileRead(&state, sizeof(state), 1, file);
+        Platform::CloseFile(file);
+        nds->RTC.SetState(state);
+    }
+}
+
+void EmuInstance::saveRTCData()
+{
+    auto file = Platform::OpenLocalFile("rtc.bin", Platform::FileMode::Write);
+    if (file)
+    {
+        RTC::StateData state;
+        nds->RTC.GetState(state);
+        Platform::FileWrite(&state, sizeof(state), 1, file);
+        Platform::CloseFile(file);
+    }
+}
+
 void EmuInstance::setDateTime()
 {
     QDateTime hosttime = QDateTime::currentDateTime();
@@ -1092,6 +1221,9 @@ void EmuInstance::setDateTime()
 
 bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGBAArgs&& _gbaargs) noexcept
 {
+    // update the console type
+    consoleType = globalCfg.GetInt("Emu.ConsoleType");
+
     // Let's get the cart we want to use;
     // if we wnat to keep the cart, we'll eject it from the existing console first.
     std::unique_ptr<NDSCart::CartCommon> nextndscart;
@@ -1125,8 +1257,6 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     }
 
 
-    int consoletype = globalCfg.GetInt("Emu.ConsoleType");
-
     auto arm9bios = loadARM9BIOS();
     if (!arm9bios)
         return false;
@@ -1135,7 +1265,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     if (!arm7bios)
         return false;
 
-    auto firmware = loadFirmware(consoletype);
+    auto firmware = loadFirmware(consoleType);
     if (!firmware)
         return false;
 
@@ -1179,7 +1309,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     NDSArgs* args = &ndsargs;
 
     std::optional<DSiArgs> dsiargs = std::nullopt;
-    if (consoletype == 1)
+    if (consoleType == 1)
     {
         ndsargs.GBAROM = nullptr;
 
@@ -1210,19 +1340,24 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
         args = &(*dsiargs);
     }
 
-
-    if ((!nds) || (consoletype != nds->ConsoleType))
+    if ((!nds) || (consoleType != nds->ConsoleType))
     {
         NDS::Current = nullptr;
-        if (nds) delete nds;
+        if (nds)
+        {
+            saveRTCData();
+            delete nds;
+        }
 
-        if (consoletype == 1)
+        if (consoleType == 1)
             nds = new DSi(std::move(dsiargs.value()), this);
         else
             nds = new NDS(std::move(ndsargs), this);
 
         NDS::Current = nds;
         nds->Reset();
+        loadRTCData();
+        //emuThread->updateVideoRenderer(); // not actually needed?
     }
     else
     {
@@ -1236,7 +1371,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
         nds->SPU.SetInterpolation(args->Interpolation);
         nds->SPU.SetDegrade10Bit(args->BitDepth);
 
-        if (consoletype == 1)
+        if (consoleType == 1)
         {
             DSi* dsi = (DSi*)nds;
             DSiArgs& _dsiargs = *dsiargs;
@@ -1258,8 +1393,6 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
 
 void EmuInstance::reset()
 {
-    consoleType = globalCfg.GetInt("Emu.ConsoleType");
-    
     updateConsole(Keep {}, Keep {});
 
     if (consoleType == 1) ejectGBACart();
@@ -1949,25 +2082,36 @@ bool EmuInstance::gbaCartInserted()
     return gbaCartType != -1;
 }
 
+QString EmuInstance::gbaAddonName(int addon)
+{
+    switch (addon)
+    {
+    case GBAAddon_RumblePak:
+        return "Rumble Pak";
+    case GBAAddon_RAMExpansion:
+        return "Memory expansion";
+    }
+
+    return "???";
+}
+
 QString EmuInstance::gbaCartLabel()
 {
     if (consoleType == 1) return "none (DSi)";
 
-    switch (gbaCartType)
+    if (gbaCartType == 0)
     {
-        case 0:
-        {
-            QString ret = QString::fromStdString(baseGBAROMName);
+        QString ret = QString::fromStdString(baseGBAROMName);
 
-            int maxlen = 32;
-            if (ret.length() > maxlen)
-                ret = ret.left(maxlen-6) + "..." + ret.right(3);
+        int maxlen = 32;
+        if (ret.length() > maxlen)
+            ret = ret.left(maxlen-6) + "..." + ret.right(3);
 
-            return ret;
-        }
-
-        case GBAAddon_RAMExpansion:
-            return "Memory expansion";
+        return ret;
+    }
+    else if (gbaCartType != -1)
+    {
+        return gbaAddonName(gbaCartType);
     }
 
     return "(none)";

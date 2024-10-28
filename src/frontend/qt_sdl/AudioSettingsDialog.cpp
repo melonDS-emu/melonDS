@@ -170,6 +170,12 @@ void AudioSettingsDialog::on_AudioSettingsDialog_accepted()
 
 void AudioSettingsDialog::on_AudioSettingsDialog_rejected()
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        closeDlg();
+        return;
+    }
+
     auto& cfg = emuInstance->getGlobalConfig();
     auto& instcfg = emuInstance->getLocalConfig();
     cfg.SetInt("Audio.Interpolation", oldInterp);

@@ -59,6 +59,13 @@ MPSettingsDialog::~MPSettingsDialog()
 
 void MPSettingsDialog::done(int r)
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        QDialog::done(r);
+        closeDlg();
+        return;
+    }
+
     if (r == QDialog::Accepted)
     {
         auto& cfg = emuInstance->getGlobalConfig();
