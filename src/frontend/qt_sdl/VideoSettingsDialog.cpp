@@ -59,8 +59,7 @@ void VideoSettingsDialog::setEnabled()
         ogldisplay = false;
         
         ui->rb3DOpenGL->setEnabled(false);
-        if (renderer == renderer3D_OpenGL)
-            ui->rb3DSoftware->setChecked(true);
+        ui->rb3DSoftware->setChecked(true);
     }
 
     cfg.SetInt("3D.Renderer", renderer);
