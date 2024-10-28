@@ -83,6 +83,39 @@ If everything went well, melonDS and the libraries it needs should now be in the
    ```
 If everything went well, melonDS should now be in the `build` folder.
 
+### Windows on ARM
+1. Install [MSYS2](https://www.msys2.org/)
+2. Open the **MSYS2 MinGW 64-bit** terminal and set it up according to [this page](https://www.msys2.org/wiki/arm64/). (ARM64 Support)
+3. Update the packages using `pacman -Syu` and reopen the terminal if it asks you to
+4. Install git to clone the repository
+   ```bash
+   pacman -S git
+   ```
+5. Download the melonDS repository and prepare:
+   ```bash
+   git clone https://github.com/melonDS-emu/melonDS
+   cd melonDS
+   ```
+#### Dynamic builds (with DLLs)
+5. Install dependencies: `pacman -S mingw-w64-clang-aarch64-{cmake,SDL2,toolchain,qt5-base,qt5-tools,qt5-svg,qt5-multimedia,libslirp,libarchive}`
+6. Compile:
+   ```bash
+   cmake -B build
+   cmake --build build
+   cd build
+   ../tools/msys-dist.sh
+   ```
+If everything went well, melonDS and the libraries it needs should now be in the `dist` folder.
+
+#### Static builds (without DLLs, standalone executable)
+5. Install dependencies: `pacman -S mingw-w64-clang-aarch64-{cmake,SDL2,toolchain,qt5-static,qt5-tools,libslirp,libarchive}`
+6. Compile:
+   ```bash
+   cmake -B build -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=/clangarm64/qt5-static
+   cmake --build build
+   ```
+If everything went well, melonDS should now be in the `build` folder.
+
 ### macOS
 1. Install the [Homebrew Package Manager](https://brew.sh)
 2. Install dependencies: `brew install git pkg-config cmake sdl2 qt@6 libarchive enet zstd`
