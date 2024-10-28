@@ -30,6 +30,7 @@
 #include "ARMJIT_Internal.h"
 #include "ARMJIT_Memory.h"
 #include "ARMJIT_Compiler.h"
+#include "ARMJIT_CodeMem.h"
 
 #include "ARMInterpreter_ALU.h"
 #include "ARMInterpreter_LoadStore.h"
@@ -466,6 +467,18 @@ InterpreterFunc InterpretTHUMB[ARMInstrInfo::tk_Count] =
     T_BL_LONG // BL_LONG psudo opcode
 };
 #undef F
+
+ARMJIT::ARMJIT(melonDS::NDS& nds, std::optional<JITArgs> jit) noexcept : 
+        NDS(nds),
+        Memory(nds),
+        JITCompiler(nds),
+        MaxBlockSize(jit.has_value() ? std::clamp(jit->MaxBlockSize, 1u, 32u) : 32),
+        LiteralOptimizations(jit.has_value() ? jit->LiteralOptimizations : false),
+        BranchOptimizations(jit.has_value() ? jit->BranchOptimizations : false),
+        FastMemory(jit.has_value() ? jit->FastMemory : false)
+{
+    ARMJIT_CodeMem::Init();
+}
 
 void ARMJIT::RetireJitBlock(JitBlock* block) noexcept
 {

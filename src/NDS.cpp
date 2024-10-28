@@ -74,7 +74,7 @@ const s32 kIterationCycleMargin = 8;
 //
 // timings for GBA slot and wifi are set up at runtime
 
-NDS* NDS::Current = nullptr;
+thread_local NDS* NDS::Current = nullptr;
 
 NDS::NDS() noexcept :
     NDS(
@@ -130,6 +130,7 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     MainRAM = JIT.Memory.GetMainRAM();
     SharedWRAM = JIT.Memory.GetSharedWRAM();
     ARM7WRAM = JIT.Memory.GetARM7WRAM();
+
 }
 
 NDS::~NDS() noexcept
@@ -892,6 +893,8 @@ void NDS::RunSystemSleep(u64 timestamp)
 template <CPUExecuteMode cpuMode>
 u32 NDS::RunFrame()
 {
+    Current = this;
+
     FrameStartTimestamp = SysTimestamp;
 
     GPU.TotalScanlines = 0;
