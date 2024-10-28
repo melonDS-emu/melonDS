@@ -65,7 +65,7 @@ end
 - Example
     ```Lua
     if GetMouse().Left == true then 
-        MelonPrint("Click at:"..GetMouse().X..','..GetMouse().Y)
+        print("Click at:"..GetMouse().X..','..GetMouse().Y)
     end
     ```
 
@@ -95,12 +95,12 @@ end
     --Print id of key being pressed
     for k,v in pairs(KeyboardMask()) do
         if v then 
-            MelonPrint("KeyPressed:"..k)
+            print("KeyPressed:"..k)
         end
     end
     --Check if the "Q" key is currently pressed
     if KeyboardMask()[string.byte("Q")] then
-        MelonPrint("\"Q\" Pressed!")
+        print("\"Q\" Pressed!")
     end
     ```
 
@@ -119,7 +119,7 @@ end
             if pcall(string.char,i) then
                 str = str..string.char(i)
             else
-                MelonPrint("NonAscii:"..i)
+                print("NonAscii:"..i)
                 typed = ""
             end    
         end
