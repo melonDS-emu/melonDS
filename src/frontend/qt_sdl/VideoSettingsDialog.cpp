@@ -53,17 +53,20 @@ void VideoSettingsDialog::setEnabled()
         }
     }
 
-    if (!base_gl)
+    if (!base_gl) // fallback to software renderer
     {
         renderer = renderer3D_Software;
         ogldisplay = false;
         
         ui->rb3DOpenGL->setEnabled(false);
-        if (renderer == renderer3D_OpenGL) // fallback to software renderer
+        if (renderer == renderer3D_OpenGL)
             ui->rb3DSoftware->setChecked(true);
     }
 
+    cfg.SetInt("3D.Renderer", renderer);
+    cfg.SetBool("Screen.UseGL", ogldisplay);
     bool softwareRenderer = renderer == renderer3D_Software;
+    
     ui->cbGLDisplay->setEnabled(softwareRenderer && base_gl);
     setVsyncControlEnable(UsesGL());
     ui->cbSoftwareThreaded->setEnabled(softwareRenderer);
