@@ -59,6 +59,7 @@ void VideoSettingsDialog::setEnabled()
         ogldisplay = false;
         
         ui->rb3DOpenGL->setEnabled(false);
+        ui->cbGLDisplay->setChecked(false);
         ui->rb3DSoftware->setChecked(true);
     }
 
@@ -217,6 +218,7 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
 
 void VideoSettingsDialog::setVsyncControlEnable(bool hasOGL)
 {
+    ui->label_2->setEnabled(hasOGL);
     ui->cbVSync->setEnabled(hasOGL);
     ui->sbVSyncInterval->setEnabled(hasOGL);
 }
