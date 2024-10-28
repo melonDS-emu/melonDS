@@ -67,7 +67,7 @@ void VideoSettingsDialog::setEnabled()
     bool softwareRenderer = renderer == renderer3D_Software;
     
     ui->cbGLDisplay->setEnabled(softwareRenderer && base_gl);
-    setVsyncControlEnable(UsesGL());
+    setVsyncControlEnable(ogldisplay || !softwareRenderer);
     ui->cbSoftwareThreaded->setEnabled(softwareRenderer);
     ui->cbxGLResolution->setEnabled(!softwareRenderer);
     ui->cbBetterPolygons->setEnabled(renderer == renderer3D_OpenGL);
