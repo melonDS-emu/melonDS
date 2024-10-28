@@ -47,7 +47,10 @@ void VideoSettingsDialog::setEnabled()
     {
         ui->rb3DCompute->setEnabled(false);
         if (renderer == renderer3D_OpenGLCompute) // fallback to software renderer
+        {
             ui->rb3DSoftware->setChecked(true);
+            renderer = renderer3D_Software;
+        }
     }
 
     if (!base_gl)
