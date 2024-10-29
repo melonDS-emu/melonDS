@@ -411,7 +411,11 @@ u32 ARMv5::ICacheLookup(const u32 addr)
         {
             u32 *cacheLine = (u32 *)&ICache[(id+set) << ICACHE_LINELENGTH_LOG2];
 
-            if (ICacheFillPtr == 7) NDS.ARM9Timestamp++;
+            if (ICacheFillPtr == 7)
+            {
+                if (NDS.ARM9Timestamp < ITCMTimestamp) NDS.ARM9Timestamp = ITCMTimestamp; // does this apply to streamed fetches?
+                NDS.ARM9Timestamp++;
+            }
             else
             {
                 u64 nextfill = ICacheFillTimes[ICacheFillPtr++];
@@ -423,7 +427,11 @@ u32 ARMv5::ICacheLookup(const u32 addr)
                 {
                     u64 fillend = ICacheFillTimes[6] + 2;
                     if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend;
-                    else NDS.ARM9Timestamp++;
+                    else // checkme
+                    {
+                        if (NDS.ARM9Timestamp < ITCMTimestamp) NDS.ARM9Timestamp = ITCMTimestamp;
+                        NDS.ARM9Timestamp++;
+                    }
                     ICacheFillPtr = 7;
                 }
             }
@@ -2014,6 +2022,13 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
             }
     #endif 
         }
+    
+    // bus reads can only overlap with dcache streaming by 6 cycles
+    if (DCacheFillPtr != 7)
+    {
+        u64 time = DCacheFillTimes[6] - 6; // checkme: minus 6?
+        if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
+    }
 
     u8 cycles = MemTimings[addr >> 14][1];
     
@@ -2093,7 +2108,7 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
     #endif
     
     // bus reads can only overlap with icache streaming by 6 cycles
-    // checkme: does cache trigger this?
+    // checkme: does dcache trigger this?
     if (ICacheFillPtr != 7)
     {
         u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
@@ -2695,6 +2710,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
 
     if (!(PU_Map[addr>>12] & 0x30)) // non-bufferable
     {
+        NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
         // bursts cannot cross a 1kb boundary
         if (addr & 0x3FF) // s
         {

@@ -281,6 +281,7 @@ public:
 
     void AddCycles_CD() override
     {
+        Store = true;
         AddCycles_MW(DataCycles);
         DataCycles = 0;
     }

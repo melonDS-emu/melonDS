@@ -160,10 +160,7 @@ void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset, u16 ilmask)
     }
 
     if (cpu->Num == 0)
-    {
         ((ARMv5*)cpu)->HandleInterlocksMemory(rd);
-        ((ARMv5*)cpu)->Store = true;
-    }
 
     bool dabort;
     if constexpr (size == 8)  dabort = !cpu->DataWrite8 (addr, storeval);
