@@ -30,7 +30,7 @@
 #include "ARMJIT_Internal.h"
 #include "ARMJIT_Memory.h"
 #include "ARMJIT_Compiler.h"
-#include "ARMJIT_CodeMem.h"
+#include "ARMJIT_Global.h"
 
 #include "ARMInterpreter_ALU.h"
 #include "ARMInterpreter_LoadStore.h"
@@ -234,6 +234,8 @@ ARMJIT::~ARMJIT() noexcept
 {
     JitEnableWrite();
     ResetBlockCache();
+
+    ARMJIT_Global::DeInit();
 }
 
 void ARMJIT::Reset() noexcept
@@ -477,7 +479,7 @@ ARMJIT::ARMJIT(melonDS::NDS& nds, std::optional<JITArgs> jit) noexcept :
         BranchOptimizations(jit.has_value() ? jit->BranchOptimizations : false),
         FastMemory(jit.has_value() ? jit->FastMemory : false)
 {
-    ARMJIT_CodeMem::Init();
+    ARMJIT_Global::Init();
 }
 
 void ARMJIT::RetireJitBlock(JitBlock* block) noexcept

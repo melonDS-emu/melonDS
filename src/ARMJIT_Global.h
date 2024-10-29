@@ -16,8 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARMJIT_CODEMEM_H
-#define ARMJIT_CODEMEM_H
+#ifndef ARMJIT_GLOBAL_H
+#define ARMJIT_GLOBAL_H
 
 #include "types.h"
 
@@ -26,15 +26,16 @@
 namespace melonDS
 {
 
-namespace ARMJIT_CodeMem
+namespace ARMJIT_Global
 {
 
 static constexpr size_t CodeMemorySliceSize = 1024*1024*32;
 
 void Init();
+void DeInit();
 
-void* Allocate();
-void Free(void* codeMem);
+void* AllocateCodeMem();
+void FreeCodeMem(void* codeMem);
 
 }
 

@@ -23,6 +23,7 @@
 #include "MemConstants.h"
 
 #ifdef JIT_ENABLED
+#  include <mutex>
 #  include "TinyVector.h"
 #  include "ARM.h"
 #  if defined(__SWITCH__)
@@ -137,6 +138,9 @@ public:
     bool IsFastmemCompatible(int region) const noexcept;
     void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) const noexcept;
     bool MapAtAddress(u32 addr) noexcept;
+
+    static void RegisterFaultHandler();
+    static void UnregisterFaultHandler();
 private:
     friend class Compiler;
     struct Mapping

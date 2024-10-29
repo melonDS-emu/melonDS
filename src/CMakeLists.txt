@@ -97,7 +97,7 @@ if (ENABLE_JIT)
 
         ARMJIT.cpp
         ARMJIT_Memory.cpp
-        ARMJIT_CodeMem.cpp
+        ARMJIT_Global.cpp
 
         dolphin/CommonFuncs.cpp)
 

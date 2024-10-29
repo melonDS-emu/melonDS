@@ -627,6 +627,31 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
     return true;
 }
 
+void ARMJIT_Memory::RegisterFaultHandler()
+{
+#ifdef _WIN32
+
+#else
+    struct sigaction sa;
+    sa.sa_handler = nullptr;
+    sa.sa_sigaction = &SigsegvHandler;
+    sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGSEGV, &sa, &OldSaSegv);
+#ifdef __APPLE__
+    sigaction(SIGBUS, &sa, &OldSaBus);
+#endif
+#endif
+}
+
+void ARMJIT_Memory::UnregisterFaultHandler()
+{
+    sigaction(SIGSEGV, &OldSaSegv, nullptr);
+#ifdef __APPLE__
+    sigaction(SIGBUS, &OldSaBus, nullptr);
+#endif
+}
+
 bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, melonDS::NDS& nds)
 {
     if (nds.JIT.JITCompiler.IsJITFault(faultDesc.FaultPC))
@@ -725,19 +750,7 @@ ARMJIT_Memory::ARMJIT_Memory(melonDS::NDS& nds) : NDS(nds)
         Log(LogLevel::Error, "Failed to allocate memory using ftruncate! (%s)", strerror(errno));
     }
 
-    struct sigaction sa;
-    sa.sa_handler = nullptr;
-    sa.sa_sigaction = &SigsegvHandler;
-    sa.sa_flags = SA_SIGINFO;
-    sigemptyset(&sa.sa_mask);
-    sigaction(SIGSEGV, &sa, &OldSaSegv);
-#ifdef __APPLE__
-    sigaction(SIGBUS, &sa, &OldSaBus);
-#endif
-
     mmap(MemoryBase, MemoryTotalSize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, MemoryFile, 0);
-
-    u8* basePtr = MemoryBase;
 #endif
 }
 
@@ -780,10 +793,6 @@ ARMJIT_Memory::~ARMJIT_Memory() noexcept
         ExceptionHandlerHandle = nullptr;
     }
 #else
-    sigaction(SIGSEGV, &OldSaSegv, nullptr);
-#ifdef __APPLE__
-    sigaction(SIGBUS, &OldSaBus, nullptr);
-#endif
     if (MemoryBase)
     {
         munmap(MemoryBase, VirtmemAreaSize);

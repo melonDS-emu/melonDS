@@ -1,4 +1,5 @@
-#include "ARMJIT_CodeMem.h"
+#include "ARMJIT_Global.h"
+#include "ARMJIT_Memory.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -14,10 +15,10 @@
 namespace melonDS
 {
 
-namespace ARMJIT_CodeMem
+namespace ARMJIT_Global
 {
 
-std::mutex codeMemoryMutex;
+std::mutex globalMutex;
 
 static constexpr size_t NumCodeMemSlices = 4;
 
@@ -28,9 +29,9 @@ u32 AvailableCodeMemSlices = (1 << NumCodeMemSlices) - 1;
 
 int RefCounter = 0;
 
-void* Allocate()
+void* AllocateCodeMem()
 {
-    std::lock_guard guard(codeMemoryMutex);
+    std::lock_guard guard(globalMutex);
 
     if (AvailableCodeMemSlices)
     {
@@ -49,9 +50,9 @@ void* Allocate()
 #endif
 }
 
-void Free(void* codeMem)
+void FreeCodeMem(void* codeMem)
 {
-    std::lock_guard guard(codeMemoryMutex);
+    std::lock_guard guard(globalMutex);
 
     for (int i = 0; i < NumCodeMemSlices; i++)
     {
@@ -72,7 +73,7 @@ void Free(void* codeMem)
 
 void Init()
 {
-    std::lock_guard guard(codeMemoryMutex);
+    std::lock_guard guard(globalMutex);
 
     RefCounter++;
     if (RefCounter == 1)
@@ -85,6 +86,19 @@ void Init()
         #else
             mprotect(CodeMemory, sizeof(CodeMemory), PROT_EXEC | PROT_READ | PROT_WRITE);
         #endif
+
+        ARMJIT_Memory::RegisterFaultHandler();
+    }
+}
+
+void DeInit()
+{
+    std::lock_guard guard(globalMutex);
+
+    RefCounter--;
+    if (RefCounter == 0)
+    {
+        ARMJIT_Memory::UnregisterFaultHandler();
     }
 }
 

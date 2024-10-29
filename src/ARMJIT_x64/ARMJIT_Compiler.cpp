@@ -21,7 +21,7 @@
 #include "../ARMJIT.h"
 #include "../ARMInterpreter.h"
 #include "../NDS.h"
-#include "../ARMJIT_CodeMem.h"
+#include "../ARMJIT_Global.h"
 
 #include <assert.h>
 #include <stdarg.h>
@@ -225,8 +225,8 @@ void Compiler::A_Comp_MSR()
 
 Compiler::Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds)
 {
-    CodeMemBase = static_cast<u8*>(ARMJIT_CodeMem::Allocate());
-    CodeMemSize = ARMJIT_CodeMem::CodeMemorySliceSize;
+    CodeMemBase = static_cast<u8*>(ARMJIT_Global::AllocateCodeMem());
+    CodeMemSize = ARMJIT_Global::CodeMemorySliceSize;
 
     ResetStart = CodeMemBase;
 
@@ -444,7 +444,7 @@ Compiler::Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds)
 
 Compiler::~Compiler()
 {
-    ARMJIT_CodeMem::Free(CodeMemBase);
+    ARMJIT_Global::FreeCodeMem(CodeMemBase);
 }
 
 void Compiler::LoadCPSR()
