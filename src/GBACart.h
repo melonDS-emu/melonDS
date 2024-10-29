@@ -158,6 +158,7 @@ public:
     void DoSavestate(Savestate* file) override;
 
     int SetInput(int num, bool pressed) override;
+    void SetLightLevel(u8 level) noexcept;
 
 protected:
     void ProcessGPIO() override;
