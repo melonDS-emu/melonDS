@@ -64,7 +64,12 @@ const string kWifiSettingsPath = "wfcsettings.bin";
 extern Net net;
 
 
-EmuInstance::EmuInstance(int inst) : deleting(false),
+EmuInstance::EmuInstance(int inst, std::optional<bool> arm9BreakOnStart, std::optional<bool> arm7BreakOnStart) :
+#ifdef GDBSTUB_ENABLED
+    overrideArm9BreakOnStart(arm9BreakOnStart),
+    overrideArm7BreakOnStart(arm7BreakOnStart),
+#endif
+    deleting(false),
     instanceID(inst),
     globalCfg(Config::GetGlobalTable()),
     localCfg(Config::GetLocalTable(inst))
@@ -148,6 +153,12 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
         if (enable)
             createWindow(i);
     }
+}
+
+EmuInstance::EmuInstance(int inst) :
+    EmuInstance(inst, std::nullopt, std::nullopt)
+{
+
 }
 
 EmuInstance::~EmuInstance()
@@ -1303,8 +1314,8 @@ bool EmuInstance::updateConsole() noexcept
     GDBArgs _gdbargs {
             static_cast<u16>(gdbopt.GetInt("ARM7.Port")),
             static_cast<u16>(gdbopt.GetInt("ARM9.Port")),
-            gdbopt.GetBool("ARM7.BreakOnStartup"),
-            gdbopt.GetBool("ARM9.BreakOnStartup"),
+            overrideArm7BreakOnStart.value_or(gdbopt.GetBool("ARM7.BreakOnStartup")),
+            overrideArm9BreakOnStart.value_or(gdbopt.GetBool("ARM9.BreakOnStartup")),
     };
     auto gdbargs = gdbopt.GetBool("Enabled") ? std::make_optional(_gdbargs) : std::nullopt;
 #else

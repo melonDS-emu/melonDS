@@ -44,6 +44,13 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     parser.addOption(QCommandLineOption({"b", "boot"}, "Whether to boot firmware on startup. Defaults to \"auto\" (boot if NDS rom given)", "auto/always/never", "auto"));
     parser.addOption(QCommandLineOption({"f", "fullscreen"}, "Start melonDS in fullscreen mode"));
 
+#ifdef GDBSTUB_ENABLED
+    parser.addOption(QCommandLineOption("break-arm9", "Yield ARM9 execution to the GDB stub immediately on startup"));
+    parser.addOption(QCommandLineOption("break-arm7", "Yield ARM7 execution to the GDB stub immediately on startup"));
+    parser.addOption(QCommandLineOption("no-break-arm9", "Do not wait for GDB on ARM9 startup, even if the option to do so is enabled"));
+    parser.addOption(QCommandLineOption("no-break-arm7", "Do not wait for GDB on ARM9 startup, even if the option to do so is enabled"));
+#endif
+
 #ifdef ARCHIVE_SUPPORT_ENABLED
     parser.addOption(QCommandLineOption({"a", "archive-file"}, "Specify file to load inside an archive given (NDS)", "rom"));
     parser.addOption(QCommandLineOption({"A", "archive-file-gba"}, "Specify file to load inside an archive given (GBA)", "rom"));
@@ -54,6 +61,25 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     CommandLineOptions* options = new CommandLineOptions;
 
     options->fullscreen = parser.isSet("fullscreen");
+
+#ifdef GDBSTUB_ENABLED
+    if (parser.isSet("break-arm9"))
+    {
+        options->arm9BreakOnStartup = true;
+    }
+    if (parser.isSet("no-break-arm9"))
+    {
+        options->arm9BreakOnStartup = false;
+    }
+    if (parser.isSet("break-arm7"))
+    {
+        options->arm7BreakOnStartup = true;
+    }
+    if (parser.isSet("no-break-arm7"))
+    {
+        options->arm7BreakOnStartup = false;
+    }
+#endif
 
     QStringList posargs = parser.positionalArguments();
     switch (posargs.size())
