@@ -100,6 +100,9 @@
 namespace melonDS
 {
 
+static constexpr u64 AddrSpaceSize = 0x100000000;
+static constexpr u64 VirtmemAreaSize = AddrSpaceSize * 2 + MemoryTotalSize;
+
 using Platform::Log;
 using Platform::LogLevel;
 
@@ -288,7 +291,7 @@ bool ARMJIT_Memory::UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size) noex
 #elif defined(_WIN32)
     return UnmapViewOfFile(dst);
 #else
-    return munmap(dst, size) == 0;
+    return mmap(dst, size, PROT_NONE, MAP_ANON | MAP_PRIVATE | MAP_FIXED, -1, 0) != MAP_FAILED;
 #endif
 }
 
@@ -643,8 +646,6 @@ bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, melonDS::NDS& nds)
     return false;
 }
 
-const u64 AddrSpaceSize = 0x100000000;
-
 ARMJIT_Memory::ARMJIT_Memory(melonDS::NDS& nds) : NDS(nds)
 {
 #if defined(__SWITCH__)
@@ -689,15 +690,9 @@ ARMJIT_Memory::ARMJIT_Memory(melonDS::NDS& nds) : NDS(nds)
 
     MapViewOfFileEx(MemoryFile, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, MemoryTotalSize, MemoryBase);
 #else
-    // this used to be allocated with three different mmaps
-    // The idea was to give the OS more freedom where to position the buffers,
-    // but something was bad about this so instead we take this vmem eating monster
-    // which seems to work better.
-    MemoryBase = (u8*)mmap(NULL, AddrSpaceSize*4, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
-    munmap(MemoryBase, AddrSpaceSize*4);
-    FastMem9Start = MemoryBase;
-    FastMem7Start = MemoryBase + AddrSpaceSize;
-    MemoryBase = MemoryBase + AddrSpaceSize*2;
+    MemoryBase = (u8*)mmap(NULL, VirtmemAreaSize, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    FastMem9Start = MemoryBase+MemoryTotalSize;
+    FastMem7Start = static_cast<u8*>(FastMem9Start)+AddrSpaceSize;
 
 #if defined(__ANDROID__)
     Libandroid = Platform::DynamicLibrary_Load("libandroid.so");
@@ -791,7 +786,7 @@ ARMJIT_Memory::~ARMJIT_Memory() noexcept
 #endif
     if (MemoryBase)
     {
-        munmap(MemoryBase, MemoryTotalSize);
+        munmap(MemoryBase, VirtmemAreaSize);
         MemoryBase = nullptr;
         FastMem9Start = nullptr;
         FastMem7Start = nullptr;
