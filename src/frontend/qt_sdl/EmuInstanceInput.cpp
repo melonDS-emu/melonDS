@@ -19,6 +19,9 @@
 #include <QKeyEvent>
 #include <SDL2/SDL.h>
 
+#include "Platform.h"
+#include "SDL_gamecontroller.h"
+#include "SDL_sensor.h"
 #include "main.h"
 #include "Config.h"
 
@@ -81,6 +84,8 @@ void EmuInstance::inputInit()
     joystick = nullptr;
     controller = nullptr;
     hasRumble = false;
+    hasAccelerometer = false;
+    hasGyroscope = false;
     isRumbling = false;
     inputLoadConfig();
 }
@@ -128,6 +133,24 @@ void EmuInstance::inputRumbleStop()
     }
 }
 
+float EmuInstance::inputMotionQuery(melonDS::Platform::MotionQueryType type)
+{
+    float values[3];
+    if (type <= melonDS::Platform::MotionAccelerationZ)
+    {
+        if (controller && hasAccelerometer)
+            if (SDL_GameControllerGetSensorData(controller, SDL_SENSOR_ACCEL, values, 3) == 0)
+                return values[type % 3];
+    }
+    else if (type <= melonDS::Platform::MotionRotationZ)
+    {
+        if (controller && hasGyroscope)
+            if (SDL_GameControllerGetSensorData(controller, SDL_SENSOR_GYRO, values, 3) == 0)
+                return values[type % 3];
+    }
+    return 0.0f;
+}
+
 
 void EmuInstance::setJoystick(int id)
 {
@@ -147,6 +170,8 @@ void EmuInstance::openJoystick()
 	controller = nullptr;
         joystick = nullptr;
 	hasRumble = false;
+    hasAccelerometer = false;
+    hasGyroscope = false;
         return;
     }
 
@@ -163,9 +188,17 @@ void EmuInstance::openJoystick()
     if (controller)
     {
 	if (SDL_GameControllerHasRumble(controller))
-	{
+    {
 	    hasRumble = true;
-	}
+    }
+	if (SDL_GameControllerHasSensor(controller, SDL_SENSOR_ACCEL))
+    {
+	    hasAccelerometer = SDL_GameControllerSetSensorEnabled(controller, SDL_SENSOR_ACCEL, SDL_TRUE) == 0;
+    }
+	if (SDL_GameControllerHasSensor(controller, SDL_SENSOR_GYRO))
+    {
+	    hasGyroscope = SDL_GameControllerSetSensorEnabled(controller, SDL_SENSOR_GYRO, SDL_TRUE) == 0;
+    }
     }
 }
 
@@ -176,6 +209,8 @@ void EmuInstance::closeJoystick()
 	SDL_GameControllerClose(controller);
 	controller = nullptr;
 	hasRumble = false;
+    hasAccelerometer = false;
+    hasGyroscope = false;
     }
 
     if (joystick)

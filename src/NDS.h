@@ -221,6 +221,7 @@ enum
     GBAAddon_SolarSensorBoktai1 = 3,
     GBAAddon_SolarSensorBoktai2 = 4,
     GBAAddon_SolarSensorBoktai3 = 5,
+    GBAAddon_MotionPak = 6,
 };
 
 class SPU;

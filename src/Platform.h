@@ -331,6 +331,42 @@ void Addon_RumbleStart(u32 len, void* userdata);
 // rumble effects on the connected game controller, if available.
 void Addon_RumbleStop(void* userdata);
 
+enum MotionQueryType
+{
+    /**
+     * @brief X axis acceleration, measured in SI meters per second squared.
+     * On a DS, the X axis refers to the top screen X-axis (left ... right).
+     */
+    MotionAccelerationX,
+    /**
+     * @brief Y axis acceleration, measured in SI meters per second squared.
+     * On a DS, the Y axis refers to the top screen Y-axis (bottom ... top).
+     */
+    MotionAccelerationY,
+    /**
+     * @brief Z axis acceleration, measured in SI meters per second squared.
+     * On a DS, the Z axis refers to the axis perpendicular to the top screen (farther ... closer).
+     */
+    MotionAccelerationZ,
+    /**
+     * @brief X axis rotation, measured in radians per second.
+     */
+    MotionRotationX,
+    /**
+     * @brief Y axis rotation, measured in radians per second.
+     */
+    MotionRotationY,
+    /**
+     * @brief Z axis rotation, measured in radians per second.
+     */
+    MotionRotationZ,
+};
+
+// Called by the DS Motion Pak emulation to query the game controller's
+// aceelration and rotation, if available.
+// @param type The value being queried.
+float Addon_MotionQuery(MotionQueryType type, void* userdata);
+
 struct DynamicLibrary;
 
 /**
