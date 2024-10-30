@@ -906,6 +906,9 @@ std::unique_ptr<CartCommon> LoadAddon(int type, void* userdata)
         // JP Boktai 3
         cart = CreateFakeSolarSensorROM("U33J", nullptr, userdata);
         break;
+    case GBAAddon_MotionPak:
+        Cart = std::make_unique<CartMotionPak>(userdata);
+        break;
     default:
         Log(LogLevel::Warn, "GBACart: !! invalid addon type %d\n", type);
         return nullptr;
