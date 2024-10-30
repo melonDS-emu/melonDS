@@ -62,7 +62,11 @@ const char* EmuInstance::hotkeyNames[HK_MAX] =
     "HK_VolumeDown",
     "HK_SlowMo",
     "HK_FastForwardToggle",
-    "HK_SlowMoToggle"
+    "HK_SlowMoToggle",
+    "HK_GuitarGripGreen",
+    "HK_GuitarGripRed",
+    "HK_GuitarGripYellow",
+    "HK_GuitarGripBlue"
 };
 
 
@@ -212,7 +216,6 @@ void EmuInstance::closeJoystick()
     hasAccelerometer = false;
     hasGyroscope = false;
     }
-
     if (joystick)
     {
         SDL_JoystickClose(joystick);

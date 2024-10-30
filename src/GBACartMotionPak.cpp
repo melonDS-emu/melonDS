@@ -31,28 +31,28 @@ using Platform::LogLevel;
 namespace GBACart
 {
 
-CartMotionPak::CartMotionPak(void* userdata) : 
-    CartCommon(MotionPak),
+CartMotionPakHomebrew::CartMotionPakHomebrew(void* userdata) : 
+    CartCommon(MotionPakHomebrew),
     UserData(userdata)
 {
 }
 
-CartMotionPak::~CartMotionPak() = default;
+CartMotionPakHomebrew::~CartMotionPakHomebrew() = default;
 
-void CartMotionPak::Reset()
+void CartMotionPakHomebrew::Reset()
 {
     ShiftVal = 0;
 }
 
-void CartMotionPak::DoSavestate(Savestate* file)
+void CartMotionPakHomebrew::DoSavestate(Savestate* file)
 {
     CartCommon::DoSavestate(file);
     file->Var16(&ShiftVal);
 }
 
-u16 CartMotionPak::ROMRead(u32 addr) const
+u16 CartMotionPakHomebrew::ROMRead(u32 addr) const
 {
-    // CHECKME: Does this apply to the Kionix/homebrew cart as well?
+    // CHECKME: Does this apply to the homebrew cart as well?
     return 0xFCFF;
 }
 
@@ -80,7 +80,7 @@ static int RotationToMotionPak(float rot)
     );
 }
 
-u8 CartMotionPak::SRAMRead(u32 addr)
+u8 CartMotionPakHomebrew::SRAMRead(u32 addr)
 {
     // CHECKME: SRAM address mask
     addr &= 0xFFFF;
@@ -127,6 +127,70 @@ u8 CartMotionPak::SRAMRead(u32 addr)
     u8 val = ShiftVal >> 8;
     ShiftVal <<= 8;
     return val;
+}
+
+static int AccelerationToMotionPakRetail(float accel)
+{
+    // Formula provided by xperia64 (melonDS/#74)
+    const float GRAVITY_M_S2 = 9.80665f;
+    const float VOLTAGE = 3.3f;
+
+    return std::clamp(
+        (int) ((accel * (VOLTAGE / 5) / GRAVITY_M_S2 + (VOLTAGE / 2)) * 256 / VOLTAGE),
+        0, 254
+    );
+}
+
+CartMotionPakRetail::CartMotionPakRetail(void* userdata) : 
+    CartCommon(MotionPakRetail),
+    UserData(userdata)
+{
+}
+
+CartMotionPakRetail::~CartMotionPakRetail() = default;
+
+void CartMotionPakRetail::Reset()
+{
+    Value = 0;
+    Step = 16;
+}
+
+void CartMotionPakRetail::DoSavestate(Savestate* file)
+{
+    CartCommon::DoSavestate(file);
+    file->Var8(&Value);
+    file->Var8(&Step);
+}
+
+u16 CartMotionPakRetail::ROMRead(u32 addr) const
+{
+    return 0xFCFF;
+}
+
+u8 CartMotionPakRetail::SRAMRead(u32 addr)
+{
+    switch (Step)
+    {
+    case 0: // Synchronization - read 0xFF
+        Value = 0xFF;
+        break;
+    case 4: // X acceleration
+        Value = AccelerationToMotionPakRetail(Platform::Addon_MotionQuery(Platform::MotionAccelerationX, UserData));
+        break;
+    case 8: // Y acceleration
+        Value = AccelerationToMotionPakRetail(Platform::Addon_MotionQuery(Platform::MotionAccelerationY, UserData));
+        break;
+    case 12: // Z acceleration
+        Value = AccelerationToMotionPakRetail(Platform::Addon_MotionQuery(Platform::MotionAccelerationZ, UserData));
+        break;
+    case 16: // Synchronization - read 0b00
+        Step = 0;
+        return 0;
+    }
+
+    int shift = 6 - ((Step & 3) * 2);
+    Step++;
+    return (Value >> shift) & 0x03;
 }
 
 }

@@ -2148,8 +2148,12 @@ QString EmuInstance::gbaAddonName(int addon)
         return "Solar Sensor (Boktai 2)";
     case GBAAddon_SolarSensorBoktai3:
         return "Solar Sensor (Boktai 3)";
-    case GBAAddon_MotionPak:
-        return "Motion Pak";
+    case GBAAddon_MotionPakHomebrew:
+        return "Motion Pak (Homebrew)";
+    case GBAAddon_MotionPakRetail:
+        return "Motion Pack (Retail)";
+    case GBAAddon_GuitarGrip:
+        return "Guitar Grip";
     }
 
     return "???";

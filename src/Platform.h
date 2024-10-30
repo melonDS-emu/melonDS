@@ -322,6 +322,18 @@ void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv, v
 
 // interface for addon inputs
 
+enum KeyType
+{
+    KeyGuitarGripGreen,
+    KeyGuitarGripRed,
+    KeyGuitarGripYellow,
+    KeyGuitarGripBlue,
+};
+
+// Check if a given key is being pressed.
+// @param type The type of the key to check.
+bool Addon_KeyDown(KeyType type, void* userdata);
+
 // Called by the DS Rumble Pak emulation to start the necessary
 // rumble effects on the connected game controller, if available.
 // @param len The duration of the controller rumble effect in milliseconds.

@@ -33,7 +33,9 @@ enum CartType
     GameSolarSensor = 0x102,
     RAMExpansion = 0x201,
     RumblePak = 0x202,
-    MotionPak = 0x203,
+    MotionPakHomebrew = 0x203,
+    MotionPakRetail = 0x204,
+    GuitarGrip = 0x205,
 };
 
 // See https://problemkaputt.de/gbatek.htm#gbacartridgeheader for details
@@ -233,12 +235,26 @@ private:
     u16 RumbleState = 0;
 };
 
-// CartMotionPak -- DS Motion Pak (Kionix/homebrew)
-class CartMotionPak : public CartCommon
+// CartGuitarGrip -- DS Guitar Grip (used in various NDS games)
+class CartGuitarGrip : public CartCommon
 {
 public:
-    CartMotionPak(void* userdata);
-    ~CartMotionPak() override;
+    CartGuitarGrip(void* userdata);
+    ~CartGuitarGrip() override;
+
+    u16 ROMRead(u32 addr) const override;
+    u8 SRAMRead(u32 addr) override;
+
+private:
+    void* UserData;
+};
+
+// CartMotionPakHomebrew -- DS Motion Pak (Homebrew)
+class CartMotionPakHomebrew : public CartCommon
+{
+public:
+    CartMotionPakHomebrew(void* userdata);
+    ~CartMotionPakHomebrew() override;
 
     void Reset() override;
 
@@ -252,11 +268,35 @@ private:
     u16 ShiftVal = 0;
 };
 
+// CartMotionPakRetail -- DS Motion Pack (Retail)
+class CartMotionPakRetail : public CartCommon
+{
+public:
+    CartMotionPakRetail(void* userdata);
+    ~CartMotionPakRetail() override;
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    u16 ROMRead(u32 addr) const override;
+    u8 SRAMRead(u32 addr) override;
+
+private:
+    void* UserData;
+    u8 Value;
+    u8 Step = 16;
+};
+
 // possible inputs for GBA carts that might accept user input
 enum
 {
     Input_SolarSensorDown = 0,
     Input_SolarSensorUp,
+    Input_GuitarGripGreen,
+    Input_GuitarGripRed,
+    Input_GuitarGripYellow,
+    Input_GuitarGripBlue,
 };
 
 class GBACartSlot

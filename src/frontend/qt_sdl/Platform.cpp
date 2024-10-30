@@ -550,6 +550,18 @@ void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv, v
     return camManager[num]->captureFrame(frame, width, height, yuv);
 }
 
+static const int hotkeyMap[] = {
+    HK_GuitarGripGreen,
+    HK_GuitarGripRed,
+    HK_GuitarGripYellow,
+    HK_GuitarGripBlue,
+};
+
+bool Addon_KeyDown(KeyType type, void* userdata)
+{
+    return ((EmuInstance*)userdata)->inputHotkeyDown(hotkeyMap[type]);
+}
+
 void Addon_RumbleStart(u32 len, void* userdata)
 {
     ((EmuInstance*)userdata)->inputRumbleStart(len);
