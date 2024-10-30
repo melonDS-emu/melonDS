@@ -41,9 +41,9 @@ void VideoSettingsDialog::setEnabled()
 {
     auto& cfg = emuInstance->getGlobalConfig();
     int renderer = cfg.GetInt("3D.Renderer");
-    int ogldisplay = cfg.GetBool("Screen.UseGL");
+    int oglDisplay = cfg.GetBool("Screen.UseGL");
 
-    if (!compute_gl)
+    if (!computeGl)
     {
         ui->rb3DCompute->setEnabled(false);
         if (renderer == renderer3D_OpenGLCompute) // fallback to software renderer
@@ -53,10 +53,10 @@ void VideoSettingsDialog::setEnabled()
         }
     }
 
-    if (!base_gl) // fallback to software renderer
+    if (!baseGl) // fallback to software renderer
     {
         renderer = renderer3D_Software;
-        ogldisplay = false;
+        oglDisplay = false;
         
         ui->rb3DOpenGL->setEnabled(false);
         ui->cbGLDisplay->setChecked(false);
@@ -64,11 +64,11 @@ void VideoSettingsDialog::setEnabled()
     }
 
     cfg.SetInt("3D.Renderer", renderer);
-    cfg.SetBool("Screen.UseGL", ogldisplay);
+    cfg.SetBool("Screen.UseGL", oglDisplay);
     bool softwareRenderer = renderer == renderer3D_Software;
     
-    ui->cbGLDisplay->setEnabled(softwareRenderer && base_gl);
-    setVsyncControlEnable(ogldisplay || !softwareRenderer);
+    ui->cbGLDisplay->setEnabled(softwareRenderer && baseGl);
+    setVsyncControlEnable(oglDisplay || !softwareRenderer);
     ui->cbSoftwareThreaded->setEnabled(softwareRenderer);
     ui->cbxGLResolution->setEnabled(!softwareRenderer);
     ui->cbBetterPolygons->setEnabled(renderer == renderer3D_OpenGL);
@@ -77,32 +77,32 @@ void VideoSettingsDialog::setEnabled()
 
 int VideoSettingsDialog::getsupportedRenderers()
 {
-    ScreenPanelGL *glpanel = new ScreenPanelGL(this);
-    std::optional<WindowInfo> windowinfo = glpanel->getWindowInfo();
+    ScreenPanelGL *glPanel = new ScreenPanelGL(this);
+    std::optional<WindowInfo> windowInfo = glPanel->getWindowInfo();
 
     int renderer = renderer3D_Software;
 
-    if (windowinfo.has_value())
+    if (windowInfo.has_value())
     {
         std::array<GL::Context::Version, 2> versionsToTry = {
             GL::Context::Version{GL::Context::Profile::Core, 4, 3},
             GL::Context::Version{GL::Context::Profile::Core, 3, 2}
         };
 
-        std::unique_ptr<GL::Context> glContext = GL::Context::Create(*windowinfo, versionsToTry);
+        std::unique_ptr<GL::Context> glContext = GL::Context::Create(*windowInfo, versionsToTry);
 
         if (glContext)
         {
-            const char* gl_version_str = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+            const char* glVersionStr = reinterpret_cast<const char*>(glGetString(GL_VERSION));
 
-            if (gl_version_str)
+            if (glVersionStr)
             {
                 int gl_version = 0;
                 
                 // A proper version string or object isn't provided, so we have to parse it ourselves
-                if (isdigit(gl_version_str[0]) && isdigit(gl_version_str[2]))
-                    gl_version = (gl_version_str[0] - '0') * 100 +
-                                 (gl_version_str[2] - '0') * 10;
+                if (isdigit(glVersionStr[0]) && isdigit(glVersionStr[2]))
+                    gl_version = (glVersionStr[0] - '0') * 100 +
+                                 (glVersionStr[2] - '0') * 10;
 
                 // OpenGL 4.3 is required for Compute Shaders while 3.2 is the base requirement
                 if (gl_version >= 430)
@@ -113,7 +113,7 @@ int VideoSettingsDialog::getsupportedRenderers()
         }
     }
 
-    delete glpanel;
+    delete glPanel;
 
     return renderer;
 }
@@ -126,8 +126,8 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     emuInstance = ((MainWindow*)parent)->getEmuInstance();
     int supportedRenderers = getsupportedRenderers();
 
-    base_gl = supportedRenderers > renderer3D_Software;
-    compute_gl = supportedRenderers == renderer3D_OpenGLCompute;
+    baseGl = supportedRenderers > renderer3D_Software;
+    computeGl = supportedRenderers == renderer3D_OpenGLCompute;
 
     auto& cfg = emuInstance->getGlobalConfig();
     oldRenderer = cfg.GetInt("3D.Renderer");
