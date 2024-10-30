@@ -51,6 +51,10 @@ enum
     HK_SlowMo,
     HK_FastForwardToggle,
     HK_SlowMoToggle,
+    HK_GuitarGripGreen,
+    HK_GuitarGripRed,
+    HK_GuitarGripYellow,
+    HK_GuitarGripBlue,
     HK_MAX
 };
 
@@ -143,6 +147,8 @@ public:
     void inputLoadConfig();
     void inputRumbleStart(melonDS::u32 len_ms);
     void inputRumbleStop();
+
+    bool inputHotkeyDown(int id) { return hotkeyDown(id); }
     float inputMotionQuery(melonDS::Platform::MotionQueryType type);
 
     void setJoystick(int id);
