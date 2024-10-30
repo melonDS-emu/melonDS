@@ -35,6 +35,7 @@
 
 #include "Platform.h"
 #include "Config.h"
+#include "EmuInstance.h"
 #include "main.h"
 #include "CameraManager.h"
 #include "Net.h"
@@ -557,6 +558,11 @@ void Addon_RumbleStart(u32 len, void* userdata)
 void Addon_RumbleStop(void* userdata)
 {
     ((EmuInstance*)userdata)->inputRumbleStop();
+}
+
+float Addon_MotionQuery(MotionQueryType type, void* userdata)
+{
+    return ((EmuInstance*)userdata)->inputMotionQuery(type);
 }
 
 DynamicLibrary* DynamicLibrary_Load(const char* lib)

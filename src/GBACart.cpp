@@ -843,6 +843,9 @@ std::unique_ptr<CartCommon> LoadAddon(int type, void* userdata)
     case GBAAddon_RumblePak:
         cart = std::make_unique<CartRumblePak>(userdata);
         break;
+    case GBAAddon_MotionPak:
+        Cart = std::make_unique<CartMotionPak>(userdata);
+        break;
 
     default:
         Log(LogLevel::Warn, "GBACart: !! invalid addon type %d\n", type);

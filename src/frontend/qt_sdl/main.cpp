@@ -307,6 +307,10 @@ int main(int argc, char** argv)
     {
         printf("SDL couldn't init joystick\n");
     }
+    if (SDL_Init(SDL_INIT_SENSOR) < 0)
+    {
+        printf("SDL couldn't init motion sensors\n");
+    }
     if (SDL_Init(SDL_INIT_AUDIO) < 0)
     {
         const char* err = SDL_GetError();

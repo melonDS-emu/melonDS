@@ -33,6 +33,7 @@ enum CartType
     GameSolarSensor = 0x102,
     RAMExpansion = 0x201,
     RumblePak = 0x202,
+    MotionPak = 0x203,
 };
 
 // CartCommon -- base code shared by all cart types
@@ -209,6 +210,25 @@ public:
 private:
     void* UserData;
     u16 RumbleState = 0;
+};
+
+// CartMotionPak -- DS Motion Pak (Kionix/homebrew)
+class CartMotionPak : public CartCommon
+{
+public:
+    CartMotionPak(void* userdata);
+    ~CartMotionPak() override;
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    u16 ROMRead(u32 addr) const override;
+    u8 SRAMRead(u32 addr) override;
+
+private:
+    void* UserData;
+    u16 ShiftVal = 0;
 };
 
 // possible inputs for GBA carts that might accept user input
