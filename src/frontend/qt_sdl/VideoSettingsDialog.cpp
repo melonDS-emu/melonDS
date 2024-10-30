@@ -95,7 +95,7 @@ int VideoSettingsDialog::getsupportedRenderers()
         {
             const char* glVersionStr = reinterpret_cast<const char*>(glGetString(GL_VERSION));
 
-            if (glVersionStr)
+            if (glVersionStr && strlen(glVersionStr) >= 3)
             {
                 int gl_version = 0;
                 
