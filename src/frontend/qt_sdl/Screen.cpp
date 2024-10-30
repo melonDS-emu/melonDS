@@ -222,6 +222,7 @@ void ScreenPanel::resizeEvent(QResizeEvent* event)
 void ScreenPanel::mousePressEvent(QMouseEvent* event)
 {
     event->accept();
+    if (!emuInstance->emuIsActive()) { touching = false; return; }
     if (event->button() != Qt::LeftButton) return;
 
     int x = event->pos().x();
@@ -238,6 +239,7 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
 void ScreenPanel::mouseReleaseEvent(QMouseEvent* event)
 {
     event->accept();
+    if (!emuInstance->emuIsActive()) { touching = false; return; }
     if (event->button() != Qt::LeftButton) return;
 
     if (touching)
@@ -254,6 +256,7 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
 
     showCursor();
 
+    if (!emuInstance->emuIsActive()) return;
     //if (!(event->buttons() & Qt::LeftButton)) return;
     if (!touching) return;
 
@@ -270,6 +273,7 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
 void ScreenPanel::tabletEvent(QTabletEvent* event)
 {
     event->accept();
+    if (!emuInstance->emuIsActive()) { touching = false; return; }
 
     switch(event->type())
     {
@@ -313,6 +317,7 @@ void ScreenPanel::touchEvent(QTouchEvent* event)
 #endif
 
     event->accept();
+    if (!emuInstance->emuIsActive()) { touching = false; return; }
 
     switch(event->type())
     {
