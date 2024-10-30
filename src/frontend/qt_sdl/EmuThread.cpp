@@ -359,7 +359,7 @@ void EmuThread::run()
 
             if (slowmo) emuInstance->curFPS = emuInstance->slowmoFPS;
             else if (fastforward) emuInstance->curFPS = emuInstance->fastForwardFPS;
-            else if (!emuInstance->doLimitFPS) emuInstance->curFPS = 1.0 / 1000.0;
+            else if (!emuInstance->doLimitFPS) emuInstance->curFPS = 1000.0;
             else emuInstance->curFPS = emuInstance->targetFPS;
 
             if (emuInstance->audioDSiVolumeSync && emuInstance->nds->ConsoleType == 1)
@@ -378,16 +378,18 @@ void EmuThread::run()
             if (emuInstance->doAudioSync && !(fastforward || slowmo))
                 emuInstance->audioSync();
 
-            double frametimeStep = nlines / (60.0 * 263.0);
+            double frametimeStep = nlines / (emuInstance->curFPS * 263.0);
+
+            if (frametimeStep < 0.001) frametimeStep = 0.001;
 
             {
                 double curtime = SDL_GetPerformanceCounter() * perfCountsSec;
 
-                frameLimitError += emuInstance->curFPS - (curtime - lastTime);
-                if (frameLimitError < -emuInstance->curFPS)
-                    frameLimitError = -emuInstance->curFPS;
-                if (frameLimitError > emuInstance->curFPS)
-                    frameLimitError = emuInstance->curFPS;
+                frameLimitError += frametimeStep - (curtime - lastTime);
+                if (frameLimitError < -frametimeStep)
+                    frameLimitError = -frametimeStep;
+                if (frameLimitError > frametimeStep)
+                    frameLimitError = frametimeStep;
 
                 if (round(frameLimitError * 1000.0) > 0.0)
                 {
@@ -415,10 +417,11 @@ void EmuThread::run()
                 winUpdateFreq = fps / (u32)round(fpstarget);
                 if (winUpdateFreq < 1)
                     winUpdateFreq = 1;
-
+                    
+                double actualfps = (59.8261 * 263.0) / nlines;
                 int inst = emuInstance->instanceID;
                 if (inst == 0)
-                    sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
+                    sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, actualfps);
                 else
                     sprintf(melontitle, "[%d/%.0f] melonDS (%d)", fps, fpstarget, inst+1);
                 changeWindowTitle(melontitle);

@@ -93,25 +93,25 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     if (val == 0.0)
     {
         Platform::Log(Platform::LogLevel::Error, "Target FPS in config invalid\n");
-        targetFPS = 1.0 / 60.0;
+        targetFPS = 60.0;
     }
-    else targetFPS = 1.0 / val;
+    else targetFPS = val;
 
     val = globalCfg.GetDouble("FastForwardFPS");
     if (val == 0.0)
     {
         Platform::Log(Platform::LogLevel::Error, "Fast-Forward FPS in config invalid\n");
-        fastForwardFPS = 1.0 / 60.0;
+        fastForwardFPS = 60.0;
     }
-    else fastForwardFPS = 1.0 / val;
+    else fastForwardFPS = val;
 
     val = globalCfg.GetDouble("SlowmoFPS");
     if (val == 0.0)
     {
         Platform::Log(Platform::LogLevel::Error, "Slow-Mo FPS in config invalid\n");
-        slowmoFPS = 1.0 / 60.0;
+        slowmoFPS = 60.0;
     }
-    else slowmoFPS = 1.0 / val;
+    else slowmoFPS = val;
 
     doAudioSync = globalCfg.GetBool("AudioSync");
 
