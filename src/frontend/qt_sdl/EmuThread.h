@@ -83,6 +83,8 @@ public:
         msg_UndoStateLoad,
 
         msg_ImportSavefile,
+
+        msg_EnableCheats,
     };
 
     struct Message
@@ -123,6 +125,8 @@ public:
     int undoStateLoad();
 
     int importSavefile(const QString& filename);
+
+    void enableCheats(bool enable);
 
     bool emuIsRunning();
     bool emuIsActive();

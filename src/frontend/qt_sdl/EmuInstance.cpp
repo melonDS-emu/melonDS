@@ -1161,7 +1161,7 @@ std::optional<FATStorage> EmuInstance::loadSDCard(const string& key) noexcept
 void EmuInstance::enableCheats(bool enable)
 {
     cheatsOn = enable;
-    if (cheatFile)
+    if (cheatsOn && cheatFile)
         nds->AREngine.Cheats = cheatFile->GetCodes();
     else
         nds->AREngine.Cheats.clear();

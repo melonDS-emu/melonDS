@@ -648,6 +648,10 @@ void EmuThread::handleMessages()
                 msgResult = 1;
             }
             break;
+
+        case msg_EnableCheats:
+            emuInstance->enableCheats(msg.param.value<bool>());
+            break;
         }
 
         msgSemaphore.release();
@@ -813,6 +817,12 @@ int EmuThread::importSavefile(const QString& filename)
     sendMessage({.type = msg_ImportSavefile, .param = filename});
     waitMessage(2);
     return msgResult;
+}
+
+void EmuThread::enableCheats(bool enable)
+{
+    sendMessage({.type = msg_EnableCheats, .param = enable});
+    waitMessage();
 }
 
 void EmuThread::updateRenderer()

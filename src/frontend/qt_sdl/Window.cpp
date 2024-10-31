@@ -1655,7 +1655,12 @@ void MainWindow::onOpenPowerManagement()
 void MainWindow::onEnableCheats(bool checked)
 {
     localCfg.SetBool("EnableCheats", checked);
-    emuInstance->enableCheats(checked);
+    emuThread->enableCheats(checked);
+
+    emuInstance->doOnAllWindows([=](MainWindow* win)
+    {
+        win->actEnableCheats->setChecked(checked);
+    }, windowID);
 }
 
 void MainWindow::onSetupCheats()
