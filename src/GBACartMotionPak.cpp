@@ -59,12 +59,20 @@ u16 CartMotionPakHomebrew::ROMRead(u32 addr) const
 static int AccelerationToMotionPak(float accel)
 {
     const float GRAVITY_M_S2 = 9.80665f;
-    const int COUNTS_PER_G = 819;
-    const int CENTER = 2048;
 
     return std::clamp(
-        (int) ((accel / GRAVITY_M_S2 * COUNTS_PER_G) + CENTER + 0.5),
+        (int) ((accel / (5 * GRAVITY_M_S2) + 0.5) * 4096),
         0, 4095
+    );
+}
+
+static int AccelerationToMotionPakRetail(float accel)
+{
+    const float GRAVITY_M_S2 = 9.80665f;
+
+    return std::clamp(
+        (int) ((accel / (5 * GRAVITY_M_S2) + 0.5) * 256),
+        0, 254
     );
 }
 
@@ -127,18 +135,6 @@ u8 CartMotionPakHomebrew::SRAMRead(u32 addr)
     u8 val = ShiftVal >> 8;
     ShiftVal <<= 8;
     return val;
-}
-
-static int AccelerationToMotionPakRetail(float accel)
-{
-    // Formula provided by xperia64 (melonDS/#74)
-    const float GRAVITY_M_S2 = 9.80665f;
-    const float VOLTAGE = 3.3f;
-
-    return std::clamp(
-        (int) ((accel * (VOLTAGE / 5) / GRAVITY_M_S2 + (VOLTAGE / 2)) * 256 / VOLTAGE),
-        0, 254
-    );
 }
 
 CartMotionPakRetail::CartMotionPakRetail(void* userdata) : 
