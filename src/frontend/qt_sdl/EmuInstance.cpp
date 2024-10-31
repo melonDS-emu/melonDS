@@ -136,7 +136,6 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     createWindow();
 
     emuThread->start();
-    emuThread->emuPause();
 
     // if any extra windows were saved as enabled, open them
     for (int i = 1; i < kMaxWindows; i++)
