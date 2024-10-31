@@ -319,13 +319,13 @@ void EmuThread::run()
 
             if (!useOpenGL)
             {
-                FrontBufferLock.lock();
-                FrontBuffer = emuInstance->nds->GPU.FrontBuffer;
-                FrontBufferLock.unlock();
+                frontBufferLock.lock();
+                frontBuffer = emuInstance->nds->GPU.FrontBuffer;
+                frontBufferLock.unlock();
             }
             else
             {
-                FrontBuffer = emuInstance->nds->GPU.FrontBuffer;
+                frontBuffer = emuInstance->nds->GPU.FrontBuffer;
                 emuInstance->drawScreenGL();
             }
 

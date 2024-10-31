@@ -136,8 +136,8 @@ public:
     void updateVideoSettings() { videoSettingsDirty = true; }
     void updateVideoRenderer() { videoSettingsDirty = true; lastVideoRenderer = -1; }
 
-    int FrontBuffer = 0;
-    QMutex FrontBufferLock;
+    int frontBuffer = 0;
+    QMutex frontBufferLock;
 
 signals:
     void windowUpdate();

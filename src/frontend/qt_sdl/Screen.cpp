@@ -782,17 +782,17 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
         auto nds = emuInstance->getNDS();
 
         assert(nds != nullptr);
-        emuThread->FrontBufferLock.lock();
-        int frontbuf = emuThread->FrontBuffer;
+        emuThread->frontBufferLock.lock();
+        int frontbuf = emuThread->frontBuffer;
         if (!nds->GPU.Framebuffer[frontbuf][0] || !nds->GPU.Framebuffer[frontbuf][1])
         {
-            emuThread->FrontBufferLock.unlock();
+            emuThread->frontBufferLock.unlock();
             return;
         }
 
         memcpy(screen[0].scanLine(0), nds->GPU.Framebuffer[frontbuf][0].get(), 256 * 192 * 4);
         memcpy(screen[1].scanLine(0), nds->GPU.Framebuffer[frontbuf][1].get(), 256 * 192 * 4);
-        emuThread->FrontBufferLock.unlock();
+        emuThread->frontBufferLock.unlock();
 
         QRect screenrc(0, 0, 256, 192);
 
@@ -1106,7 +1106,7 @@ void ScreenPanelGL::drawScreenGL()
         glUseProgram(screenShaderProgram);
         glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
 
-        int frontbuf = emuThread->FrontBuffer;
+        int frontbuf = emuThread->frontBuffer;
         glActiveTexture(GL_TEXTURE0);
 
 #ifdef OGLRENDERER_ENABLED
