@@ -726,6 +726,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actDateTime->setEnabled(true);
         actPowerManagement->setEnabled(false);
 
+        actEnableCheats->setEnabled(false);
         actSetupCheats->setEnabled(false);
         actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
 
@@ -1274,6 +1275,7 @@ void MainWindow::updateCartInserted(bool gba)
             win->actCurrentCart->setText(label);
             win->actEjectCart->setEnabled(inserted);
             win->actImportSavefile->setEnabled(inserted);
+            win->actEnableCheats->setEnabled(inserted);
             win->actSetupCheats->setEnabled(inserted);
             win->actROMInfo->setEnabled(inserted);
             win->actRAMInfo->setEnabled(inserted);
