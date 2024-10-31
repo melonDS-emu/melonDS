@@ -161,6 +161,7 @@ void CartMotionPakRetail::DoSavestate(Savestate* file)
 
 u16 CartMotionPakRetail::ROMRead(u32 addr) const
 {
+    // CHECKME: Retail cartridge seems to return 0x7C7C.
     return 0xFCFF;
 }
 
