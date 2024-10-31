@@ -154,8 +154,6 @@ EmuInstance::~EmuInstance()
     deleting = true;
     deleteAllWindows();
 
-    MPInterface::Get().End(instanceID);
-
     emuThread->emuExit();
     emuThread->wait();
     delete emuThread;

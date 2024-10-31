@@ -478,7 +478,8 @@ void EmuThread::waitMessage(int num)
 void EmuThread::waitAllMessages()
 {
     if (QThread::currentThread() == this) return;
-    msgSemaphore.acquire(msgSemaphore.available());
+    while (!msgQueue.empty())
+        msgSemaphore.acquire();
 }
 
 void EmuThread::handleMessages()
@@ -494,6 +495,7 @@ void EmuThread::handleMessages()
             emuPauseStack = emuPauseStackRunning;
 
             emuInstance->audioDisable();
+            MPInterface::Get().End(emuInstance->instanceID);
             break;
 
         case msg_EmuRun:
