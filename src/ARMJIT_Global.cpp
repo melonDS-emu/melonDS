@@ -9,6 +9,7 @@
 #endif
 
 #include <stdio.h>
+#include <stdint.h>
 
 #include <mutex>
 
@@ -20,12 +21,20 @@ namespace ARMJIT_Global
 
 std::mutex globalMutex;
 
+#ifndef __APPLE__
 static constexpr size_t NumCodeMemSlices = 4;
+static constexpr size_t CodeMemoryAlignedSize = NumCodeMemSlices * CodeMemorySliceSize;
 
 // I haven't heard of pages larger than 16 KB
-alignas(16*1024) u8 CodeMemory[NumCodeMemSlices * CodeMemorySliceSize];
+u8 CodeMemory[CodeMemoryAlignedSize + 16*1024];
 
 u32 AvailableCodeMemSlices = (1 << NumCodeMemSlices) - 1;
+
+u8* GetAlignedCodeMemoryStart()
+{
+    return reinterpret_cast<u8*>((reinterpret_cast<intptr_t>(CodeMemory) + (16*1024-1)) & ~static_cast<intptr_t>(16*1024-1));
+}
+#endif
 
 int RefCounter = 0;
 
@@ -33,20 +42,22 @@ void* AllocateCodeMem()
 {
     std::lock_guard guard(globalMutex);
 
+#ifndef __APPLE__
     if (AvailableCodeMemSlices)
     {
         int slice = __builtin_ctz(AvailableCodeMemSlices);
         AvailableCodeMemSlices &= ~(1 << slice);
         //printf("allocating slice %d\n", slice);
-        return &CodeMemory[slice * CodeMemorySliceSize];
+        return &GetAlignedCodeMemoryStart()[slice * CodeMemorySliceSize];
     }
+#endif
 
     // allocate
 #ifdef _WIN32
-    // FIXME
+    return VirtualAlloc(nullptr, CodeMemorySliceSize, MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 #else
     //printf("mmaping...\n");
-    return mmap(NULL, CodeMemorySliceSize, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    return mmap(nullptr, CodeMemorySliceSize, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 #endif
 }
 
@@ -56,7 +67,7 @@ void FreeCodeMem(void* codeMem)
 
     for (int i = 0; i < NumCodeMemSlices; i++)
     {
-        if (codeMem == &CodeMemory[CodeMemorySliceSize * i])
+        if (codeMem == &GetAlignedCodeMemoryStart()[CodeMemorySliceSize * i])
         {
             //printf("freeing slice\n");
             AvailableCodeMemSlices |= 1 << i;
@@ -65,7 +76,7 @@ void FreeCodeMem(void* codeMem)
     }
 
 #ifdef _WIN32
-    // FIXME
+    VirtualFree(codeMem, CodeMemorySliceSize, MEM_RELEASE|MEM_DECOMMIT);
 #else
     munmap(codeMem, CodeMemorySliceSize);
 #endif
@@ -80,11 +91,11 @@ void Init()
     {
         #ifdef _WIN32
             DWORD dummy;
-            VirtualProtect(CodeMemory, sizeof(CodeMemory), PAGE_EXECUTE_READWRITE, &dummy);
+            VirtualProtect(GetAlignedCodeMemoryStart(), CodeMemoryAlignedSize, PAGE_EXECUTE_READWRITE, &dummy);
         #elif defined(__APPLE__)
             // Apple always uses dynamic allocation
         #else
-            mprotect(CodeMemory, sizeof(CodeMemory), PROT_EXEC | PROT_READ | PROT_WRITE);
+            mprotect(GetAlignedCodeMemoryStart(), CodeMemoryAlignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
         #endif
 
         ARMJIT_Memory::RegisterFaultHandler();

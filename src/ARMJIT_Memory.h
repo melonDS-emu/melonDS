@@ -51,21 +51,17 @@ class ARMJIT;
 
 constexpr u32 RoundUp(u32 size) noexcept
 {
-#ifdef _WIN32
-    return (size + 0xFFFF) & ~0xFFFF;
-#else
     return size;
-#endif
 }
 
-const u32 MemBlockMainRAMOffset = 0;
-const u32 MemBlockSWRAMOffset = RoundUp(MainRAMMaxSize);
-const u32 MemBlockARM7WRAMOffset = MemBlockSWRAMOffset + RoundUp(SharedWRAMSize);
-const u32 MemBlockDTCMOffset = MemBlockARM7WRAMOffset + RoundUp(ARM7WRAMSize);
-const u32 MemBlockNWRAM_AOffset = MemBlockDTCMOffset + RoundUp(DTCMPhysicalSize);
-const u32 MemBlockNWRAM_BOffset = MemBlockNWRAM_AOffset + RoundUp(NWRAMSize);
-const u32 MemBlockNWRAM_COffset = MemBlockNWRAM_BOffset + RoundUp(NWRAMSize);
-const u32 MemoryTotalSize = MemBlockNWRAM_COffset + RoundUp(NWRAMSize);
+static constexpr u32 MemBlockMainRAMOffset = 0;
+static constexpr u32 MemBlockSWRAMOffset = RoundUp(MainRAMMaxSize);
+static constexpr u32 MemBlockARM7WRAMOffset = MemBlockSWRAMOffset + RoundUp(SharedWRAMSize);
+static constexpr u32 MemBlockDTCMOffset = MemBlockARM7WRAMOffset + RoundUp(ARM7WRAMSize);
+static constexpr u32 MemBlockNWRAM_AOffset = MemBlockDTCMOffset + RoundUp(DTCMPhysicalSize);
+static constexpr u32 MemBlockNWRAM_BOffset = MemBlockNWRAM_AOffset + RoundUp(NWRAMSize);
+static constexpr u32 MemBlockNWRAM_COffset = MemBlockNWRAM_BOffset + RoundUp(NWRAMSize);
+static constexpr u32 MemoryTotalSize = MemBlockNWRAM_COffset + RoundUp(NWRAMSize);
 
 class ARMJIT_Memory
 {
@@ -139,6 +135,8 @@ public:
     void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) const noexcept;
     bool MapAtAddress(u32 addr) noexcept;
 
+    static bool IsFastMemSupported();
+
     static void RegisterFaultHandler();
     static void UnregisterFaultHandler();
 private:
@@ -170,9 +168,15 @@ private:
     VirtmemReservation* FastMem9Reservation, *FastMem7Reservation;
     u8* MemoryBaseCodeMem;
 #elif defined(_WIN32)
+    struct VirtmemPlaceholder
+    {
+        uintptr_t Start;
+        size_t Size;
+    };
+    std::vector<VirtmemPlaceholder> VirtmemPlaceholders;
+
     static LONG ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo);
     HANDLE MemoryFile = INVALID_HANDLE_VALUE;
-    LPVOID ExceptionHandlerHandle = nullptr;
 #else
     static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext);
     int MemoryFile = -1;

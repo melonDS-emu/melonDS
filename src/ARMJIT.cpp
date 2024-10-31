@@ -234,8 +234,6 @@ ARMJIT::~ARMJIT() noexcept
 {
     JitEnableWrite();
     ResetBlockCache();
-
-    ARMJIT_Global::DeInit();
 }
 
 void ARMJIT::Reset() noexcept
@@ -477,10 +475,8 @@ ARMJIT::ARMJIT(melonDS::NDS& nds, std::optional<JITArgs> jit) noexcept :
         MaxBlockSize(jit.has_value() ? std::clamp(jit->MaxBlockSize, 1u, 32u) : 32),
         LiteralOptimizations(jit.has_value() ? jit->LiteralOptimizations : false),
         BranchOptimizations(jit.has_value() ? jit->BranchOptimizations : false),
-        FastMemory(jit.has_value() ? jit->FastMemory : false)
-{
-    ARMJIT_Global::Init();
-}
+        FastMemory((jit.has_value() ? jit->FastMemory : false) && ARMJIT_Memory::IsFastMemSupported())
+{}
 
 void ARMJIT::RetireJitBlock(JitBlock* block) noexcept
 {
@@ -498,6 +494,7 @@ void ARMJIT::RetireJitBlock(JitBlock* block) noexcept
 
 void ARMJIT::SetJITArgs(JITArgs args) noexcept
 {
+    args.FastMemory = args.FastMemory && ARMJIT_Memory::IsFastMemSupported();
     args.MaxBlockSize = std::clamp(args.MaxBlockSize, 1u, 32u);
 
     if (MaxBlockSize != args.MaxBlockSize
@@ -514,36 +511,22 @@ void ARMJIT::SetJITArgs(JITArgs args) noexcept
 
 void ARMJIT::SetMaxBlockSize(int size) noexcept
 {
-    size = std::clamp(size, 1, 32);
-
-    if (size != MaxBlockSize)
-        ResetBlockCache();
-
-    MaxBlockSize = size;
+    SetJITArgs(JITArgs{static_cast<unsigned>(size), LiteralOptimizations, LiteralOptimizations, FastMemory});
 }
 
 void ARMJIT::SetLiteralOptimizations(bool enabled) noexcept
 {
-    if (LiteralOptimizations != enabled)
-        ResetBlockCache();
-
-    LiteralOptimizations = enabled;
+    SetJITArgs(JITArgs{static_cast<unsigned>(MaxBlockSize), enabled, BranchOptimizations, FastMemory});
 }
 
 void ARMJIT::SetBranchOptimizations(bool enabled) noexcept
 {
-    if (BranchOptimizations != enabled)
-        ResetBlockCache();
-
-    BranchOptimizations = enabled;
+    SetJITArgs(JITArgs{static_cast<unsigned>(MaxBlockSize), LiteralOptimizations, enabled, FastMemory});
 }
 
 void ARMJIT::SetFastMemory(bool enabled) noexcept
 {
-    if (FastMemory != enabled)
-        ResetBlockCache();
-
-    FastMemory = enabled;
+    SetJITArgs(JITArgs{static_cast<unsigned>(MaxBlockSize), LiteralOptimizations, BranchOptimizations, enabled});
 }
 
 void ARMJIT::CompileBlock(ARM* cpu) noexcept

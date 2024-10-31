@@ -100,6 +100,10 @@ if (ENABLE_JIT)
         ARMJIT_Global.cpp
 
         dolphin/CommonFuncs.cpp)
+    
+    if (WIN32)
+        target_link_libraries(core PRIVATE onecore)
+    endif()
 
     if (ARCHITECTURE STREQUAL x86_64)
         target_sources(core PRIVATE

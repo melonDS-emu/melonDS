@@ -225,6 +225,8 @@ void Compiler::A_Comp_MSR()
 
 Compiler::Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds)
 {
+    ARMJIT_Global::Init();
+
     CodeMemBase = static_cast<u8*>(ARMJIT_Global::AllocateCodeMem());
     CodeMemSize = ARMJIT_Global::CodeMemorySliceSize;
 
@@ -445,6 +447,8 @@ Compiler::Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds)
 Compiler::~Compiler()
 {
     ARMJIT_Global::FreeCodeMem(CodeMemBase);
+
+    ARMJIT_Global::DeInit();
 }
 
 void Compiler::LoadCPSR()
