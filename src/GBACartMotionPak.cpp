@@ -113,7 +113,8 @@ u8 CartMotionPakHomebrew::SRAMRead(u32 addr)
         return 0;
     case 8:
         // Read Z rotation
-        ShiftVal = RotationToMotionPak(Platform::Addon_MotionQuery(Platform::MotionRotationZ, UserData)) << 4;
+        // CHECKME: This is a guess, compare with real hardware
+        ShiftVal = RotationToMotionPak(-Platform::Addon_MotionQuery(Platform::MotionRotationZ, UserData)) << 4;
         return 0;
     case 10:
         // Identify cart
