@@ -231,6 +231,7 @@ void EmuThread::run()
             // update render settings if needed
             if (videoSettingsDirty)
             {
+                emuInstance->renderLock.lock();
                 if (useOpenGL)
                 {
                     emuInstance->setVSyncGL(true);
@@ -246,6 +247,7 @@ void EmuThread::run()
                 updateRenderer();
 
                 videoSettingsDirty = false;
+                emuInstance->renderLock.unlock();
             }
 
             // process input and hotkeys

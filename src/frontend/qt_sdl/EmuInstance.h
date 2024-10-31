@@ -150,6 +150,8 @@ public:
     void touchScreen(int x, int y);
     void releaseScreen();
 
+    QMutex renderLock;
+
 private:
     static int lastSep(const std::string& path);
     std::string getAssetPath(bool gba, const std::string& configpath, const std::string& ext, const std::string& file);

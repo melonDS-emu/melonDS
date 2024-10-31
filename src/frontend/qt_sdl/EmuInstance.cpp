@@ -1340,6 +1340,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
         args = &(*dsiargs);
     }
 
+    renderLock.lock();
     if ((!nds) || (consoleType != nds->ConsoleType))
     {
         NDS::Current = nullptr;
@@ -1387,6 +1388,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
             dsi->EjectGBACart();
         }
     }
+    renderLock.unlock();
 
     return true;
 }

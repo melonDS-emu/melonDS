@@ -779,6 +779,7 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
 
     if (emuThread->emuIsActive())
     {
+        emuInstance->renderLock.lock();
         auto nds = emuInstance->getNDS();
 
         assert(nds != nullptr);
@@ -801,6 +802,7 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
             painter.setTransform(screenTrans[i]);
             painter.drawImage(screenrc, screen[screenKind[i]]);
         }
+        emuInstance->renderLock.unlock();
     }
 
     osdUpdate();
