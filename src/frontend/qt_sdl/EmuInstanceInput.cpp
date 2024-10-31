@@ -144,13 +144,35 @@ float EmuInstance::inputMotionQuery(melonDS::Platform::MotionQueryType type)
     {
         if (controller && hasAccelerometer)
             if (SDL_GameControllerGetSensorData(controller, SDL_SENSOR_ACCEL, values, 3) == 0)
-                return values[type % 3];
+            {
+                // Map values from DS console orientation to SDL controller orientation.
+                switch (type)
+                {
+                case melonDS::Platform::MotionAccelerationX:
+                    return values[0];
+                case melonDS::Platform::MotionAccelerationY:
+                    return -values[2];
+                case melonDS::Platform::MotionAccelerationZ:
+                    return values[1];
+                }
+            }
     }
     else if (type <= melonDS::Platform::MotionRotationZ)
     {
         if (controller && hasGyroscope)
             if (SDL_GameControllerGetSensorData(controller, SDL_SENSOR_GYRO, values, 3) == 0)
-                return values[type % 3];
+            {
+                // Map values from DS console orientation to SDL controller orientation.
+                switch (type)
+                {
+                case melonDS::Platform::MotionRotationX:
+                    return values[0];
+                case melonDS::Platform::MotionRotationY:
+                    return -values[2];
+                case melonDS::Platform::MotionRotationZ:
+                    return values[1];
+                }
+            }
     }
     return 0.0f;
 }
