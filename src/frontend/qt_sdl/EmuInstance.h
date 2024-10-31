@@ -147,6 +147,9 @@ public:
     int getJoystickID() { return joystickID; }
     SDL_Joystick* getJoystick() { return joystick; }
 
+    void touchScreen(int x, int y);
+    void releaseScreen();
+
 private:
     static int lastSep(const std::string& path);
     std::string getAssetPath(bool gba, const std::string& configpath, const std::string& ext, const std::string& file);
@@ -327,6 +330,9 @@ private:
     melonDS::u32 hotkeyPress, hotkeyRelease;
 
     melonDS::u32 inputMask;
+
+    bool isTouching;
+    melonDS::u16 touchX, touchY;
 
     friend class EmuThread;
     friend class MainWindow;

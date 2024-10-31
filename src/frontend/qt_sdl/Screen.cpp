@@ -258,8 +258,7 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
     if (layout.GetTouchCoords(x, y, false))
     {
         touching = true;
-        assert(emuInstance->getNDS() != nullptr);
-        emuInstance->getNDS()->TouchScreen(x, y);
+        emuInstance->touchScreen(x, y);
     }
 }
 
@@ -272,8 +271,7 @@ void ScreenPanel::mouseReleaseEvent(QMouseEvent* event)
     if (touching)
     {
         touching = false;
-        assert(emuInstance->getNDS() != nullptr);
-        emuInstance->getNDS()->ReleaseScreen();
+        emuInstance->releaseScreen();
     }
 }
 
@@ -292,8 +290,7 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
 
     if (layout.GetTouchCoords(x, y, true))
     {
-        assert(emuInstance->getNDS() != nullptr);
-        emuInstance->getNDS()->TouchScreen(x, y);
+        emuInstance->touchScreen(x, y);
     }
 }
 
@@ -318,16 +315,14 @@ void ScreenPanel::tabletEvent(QTabletEvent* event)
             if (layout.GetTouchCoords(x, y, event->type()==QEvent::TabletMove))
             {
                 touching = true;
-                assert(emuInstance->getNDS() != nullptr);
-                emuInstance->getNDS()->TouchScreen(x, y);
+                emuInstance->touchScreen(x, y);
             }
         }
         break;
     case QEvent::TabletRelease:
         if (touching)
         {
-            assert(emuInstance->getNDS() != nullptr);
-            emuInstance->getNDS()->ReleaseScreen();
+            emuInstance->releaseScreen();
             touching = false;
         }
         break;
@@ -365,16 +360,14 @@ void ScreenPanel::touchEvent(QTouchEvent* event)
             if (layout.GetTouchCoords(x, y, event->type()==QEvent::TouchUpdate))
             {
                 touching = true;
-                assert(emuInstance->getNDS() != nullptr);
-                emuInstance->getNDS()->TouchScreen(x, y);
+                emuInstance->touchScreen(x, y);
             }
         }
         break;
     case QEvent::TouchEnd:
         if (touching)
         {
-            assert(emuInstance->getNDS() != nullptr);
-            emuInstance->getNDS()->ReleaseScreen();
+            emuInstance->releaseScreen();
             touching = false;
         }
         break;

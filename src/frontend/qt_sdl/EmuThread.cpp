@@ -251,6 +251,11 @@ void EmuThread::run()
             // process input and hotkeys
             emuInstance->nds->SetKeyMask(emuInstance->inputMask);
 
+            if (emuInstance->isTouching)
+                emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+            else
+                emuInstance->nds->ReleaseScreen();
+
             if (emuInstance->hotkeyPressed(HK_Lid))
             {
                 bool lid = !emuInstance->nds->IsLidClosed();
