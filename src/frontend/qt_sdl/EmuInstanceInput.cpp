@@ -174,6 +174,8 @@ float EmuInstance::inputMotionQuery(melonDS::Platform::MotionQueryType type)
                 }
             }
     }
+    if (type == melonDS::Platform::MotionAccelerationZ)
+        return SDL_STANDARD_GRAVITY;
     return 0.0f;
 }
 
