@@ -743,11 +743,11 @@ void ARMJIT_Memory::RegisterFaultHandler()
     ExceptionHandlerHandle = AddVectoredExceptionHandler(1, ExceptionHandler);
 
     KernelBaseDll = LoadLibrary("KernelBase.dll");
-/*    if (KernelBaseDll)
+   if (KernelBaseDll)
     {
         virtualAlloc2Ptr = reinterpret_cast<VirtualAlloc2Type>(GetProcAddress(KernelBaseDll, "VirtualAlloc2"));
         mapViewOfFile3Ptr = reinterpret_cast<MapViewOfFile3Type>(GetProcAddress(KernelBaseDll, "MapViewOfFile3"));
-    }*/
+    }
 
     if (!virtualAlloc2Ptr)
     {
