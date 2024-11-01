@@ -24,6 +24,7 @@
 #include "Config.h"
 #include "GPU.h"
 #include "main.h"
+#include "SupportedRenderers.h"
 
 #include "VideoSettingsDialog.h"
 #include "ui_VideoSettingsDialog.h"
@@ -39,6 +40,9 @@ VideoSettingsDialog* VideoSettingsDialog::currentDlg = nullptr;
 
 void VideoSettingsDialog::setEnabled()
 {
+    bool baseGl = SupportedRenderers::instance->baseGl;
+    bool computeGl = SupportedRenderers::instance->computeGl;
+
     auto& cfg = emuInstance->getGlobalConfig();
     int renderer = cfg.GetInt("3D.Renderer");
     int oglDisplay = cfg.GetBool("Screen.UseGL");
@@ -75,59 +79,12 @@ void VideoSettingsDialog::setEnabled()
     ui->cbxComputeHiResCoords->setEnabled(renderer == renderer3D_OpenGLCompute);
 }
 
-int VideoSettingsDialog::getsupportedRenderers()
-{
-    ScreenPanelGL *glPanel = new ScreenPanelGL(this);
-    std::optional<WindowInfo> windowInfo = glPanel->getWindowInfo();
-
-    int renderer = renderer3D_Software;
-
-    if (windowInfo.has_value())
-    {
-        std::array<GL::Context::Version, 2> versionsToTry = {
-            GL::Context::Version{GL::Context::Profile::Core, 4, 3},
-            GL::Context::Version{GL::Context::Profile::Core, 3, 2}
-        };
-
-        std::unique_ptr<GL::Context> glContext = GL::Context::Create(*windowInfo, versionsToTry);
-
-        if (glContext)
-        {
-            const char* glVersionStr = reinterpret_cast<const char*>(glGetString(GL_VERSION));
-
-            if (glVersionStr && strlen(glVersionStr) >= 3)
-            {
-                int gl_version = 0;
-                
-                // A proper version string or object isn't provided, so we have to parse it ourselves
-                if (isdigit(glVersionStr[0]) && isdigit(glVersionStr[2]))
-                    gl_version = (glVersionStr[0] - '0') * 100 +
-                                 (glVersionStr[2] - '0') * 10;
-
-                // OpenGL 4.3 is required for Compute Shaders while 3.2 is the base requirement
-                if (gl_version >= 430)
-                    renderer = renderer3D_OpenGLCompute;
-                else if (gl_version >= 320)
-                    renderer = renderer3D_OpenGL;
-            }
-        }
-    }
-
-    delete glPanel;
-
-    return renderer;
-}
-
 VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::VideoSettingsDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
     emuInstance = ((MainWindow*)parent)->getEmuInstance();
-    int supportedRenderers = getsupportedRenderers();
-
-    baseGl = supportedRenderers > renderer3D_Software;
-    computeGl = supportedRenderers == renderer3D_OpenGLCompute;
 
     auto& cfg = emuInstance->getGlobalConfig();
     oldRenderer = cfg.GetInt("3D.Renderer");

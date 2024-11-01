@@ -83,6 +83,7 @@
 #include "CameraManager.h"
 #include "Window.h"
 #include "AboutDialog.h"
+#include "SupportedRenderers.h"
 
 using namespace melonDS;
 
@@ -693,6 +694,10 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         // if the window was closed in fullscreen do not restore this
         setWindowState(windowState() & ~Qt::WindowFullScreen);
     }
+
+    if (id == 0 && SupportedRenderers::instance == nullptr)
+        SupportedRenderers* renderers = new SupportedRenderers(this);
+
     show();
 
     panel = nullptr;

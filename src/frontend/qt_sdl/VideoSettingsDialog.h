@@ -78,8 +78,6 @@ private:
 
     Ui::VideoSettingsDialog* ui;
     EmuInstance* emuInstance;
-    bool baseGl;
-    bool computeGl;
 
     QButtonGroup* grp3DRenderer;
 
