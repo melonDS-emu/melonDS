@@ -235,7 +235,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     localCfg(inst->localCfg),
     windowCfg(localCfg.GetTable("Window"+std::to_string(id), "Window0")),
     emuThread(inst->getEmuThread()),
-    enabledSaved(false)
+    enabledSaved(false),
+    focused(true)
 {
 #ifndef _WIN32
     if (!parent)
@@ -1015,13 +1016,26 @@ void MainWindow::dropEvent(QDropEvent* event)
 
 void MainWindow::focusInEvent(QFocusEvent* event)
 {
-    emuInstance->audioMute();
+    onFocusIn();
 }
 
 void MainWindow::focusOutEvent(QFocusEvent* event)
 {
+    onFocusOut();
+}
+
+void MainWindow::onFocusIn()
+{
+    focused = true;
+    if (emuInstance)
+        emuInstance->audioMute();
+}
+
+void MainWindow::onFocusOut()
+{
     // focusOutEvent is called through the window close event handler
     // prevent use after free
+    focused = false;
     if (emuInstance)
         emuInstance->audioMute();
 }

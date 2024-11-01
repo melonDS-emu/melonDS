@@ -385,6 +385,10 @@ bool ScreenPanel::event(QEvent* event)
         touchEvent((QTouchEvent*)event);
         return true;
     }
+    else if (event->type() == QEvent::FocusIn)
+        mainWindow->onFocusIn();
+    else if (event->type() == QEvent::FocusOut)
+        mainWindow->onFocusOut();
 
     return QWidget::event(event);
 }

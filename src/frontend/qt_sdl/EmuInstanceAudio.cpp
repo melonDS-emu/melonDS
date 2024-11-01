@@ -133,6 +133,7 @@ void EmuInstance::micCallback(void* data, Uint8* stream, int len)
 void EmuInstance::audioMute()
 {
     audioMuted = false;
+    if (numEmuInstances() < 2) return;
 
     switch (mpAudioMode)
     {
@@ -141,10 +142,16 @@ void EmuInstance::audioMute()
             break;
 
         case 2: // only currently focused instance
-            //if (mainWindow != nullptr)
-            //    audioMuted = !mainWindow->isActiveWindow();
-            // TODO!!
-            printf("TODO!! audioMute mode 2\n");
+            audioMuted = true;
+            for (int i = 0; i < kMaxWindows; i++)
+            {
+                if (!windowList[i]) continue;
+                if (windowList[i]->isFocused())
+                {
+                    audioMuted = false;
+                    break;
+                }
+            }
             break;
     }
 }
