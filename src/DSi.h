@@ -21,6 +21,7 @@
 
 #include "NDS.h"
 #include "DSi_NDMA.h"
+#include "DSi_I2S.h"
 #include "DSi_SD.h"
 #include "DSi_DSP.h"
 #include "DSi_AES.h"
@@ -30,6 +31,7 @@
 namespace melonDS
 {
 class DSi_I2CHost;
+class DSi_I2S;
 class DSi_CamModule;
 class DSi_AES;
 class DSi_DSP;
@@ -69,6 +71,7 @@ public:
     u32 NWRAMMask[2][3];
 
     DSi_I2CHost I2C;
+    DSi_I2S I2S;
     DSi_CamModule CamModule;
     DSi_AES AES;
     DSi_DSP DSP;
@@ -155,6 +158,7 @@ public:
     void SetSDCard(std::optional<FATStorage>&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
 
     void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) override;
+    void MicInputFrame(s16* data, int samples) override;
     bool DMAsInMode(u32 cpu, u32 mode) const override;
     bool DMAsRunning(u32 cpu) const override;
     void StopDMAs(u32 cpu, u32 mode) override;

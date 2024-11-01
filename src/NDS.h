@@ -72,6 +72,7 @@ enum
     Event_DSi_CamIRQ,
     Event_DSi_CamTransfer,
     Event_DSi_DSP,
+    Event_DSi_I2S,
 
     Event_MAX
 };
@@ -400,7 +401,7 @@ public: // TODO: Encapsulate the rest of these members
     void SetLidClosed(bool closed);
 
     virtual void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) {}
-    void MicInputFrame(s16* data, int samples);
+    virtual void MicInputFrame(s16* data, int samples);
 
     void RegisterEventFunc(u32 id, u32 funcid, EventFunc func);
     void UnregisterEventFunc(u32 id, u32 funcid);
