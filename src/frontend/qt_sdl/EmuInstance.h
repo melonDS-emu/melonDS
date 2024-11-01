@@ -298,8 +298,9 @@ private:
     int mpAudioMode;
 
     SDL_AudioDeviceID micDevice;
-    melonDS::s16 micExtBuffer[2048];
+    melonDS::s16 micExtBuffer[4096];
     melonDS::u32 micExtBufferWritePos;
+    melonDS::u32 micExtBufferCount;
 
     melonDS::u32 micWavLength;
     melonDS::s16* micWavBuffer;
@@ -307,6 +308,8 @@ private:
     melonDS::s16* micBuffer;
     melonDS::u32 micBufferLength;
     melonDS::u32 micBufferReadPos;
+
+    SDL_mutex* micLock;
 
     //int audioInterp;
     int audioVolume;

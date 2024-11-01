@@ -140,7 +140,6 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     // if any extra windows were saved as enabled, open them
     for (int i = 1; i < kMaxWindows; i++)
     {
-        //Config::Table tbl = localCfg.GetTable("Window"+std::to_string(i), "Window0");
         std::string key = "Window" + std::to_string(i) + ".Enabled";
         bool enable = localCfg.GetBool(key);
         if (enable)
