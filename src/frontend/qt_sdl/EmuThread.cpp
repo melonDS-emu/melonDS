@@ -56,8 +56,6 @@
 
 #include "EmuInstance.h"
 
-#include "LuaMain.h"
-
 using namespace melonDS;
 
 

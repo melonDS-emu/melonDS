@@ -409,10 +409,10 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             connect(actFrameStep, &QAction::triggered, this, &MainWindow::onFrameStep);
 
             menu->addSeparator();
-        
+
             actPowerManagement = menu->addAction("Power management");
             connect(actPowerManagement, &QAction::triggered, this, &MainWindow::onOpenPowerManagement);
-            
+
             actDateTime = menu->addAction("Date and time");
             connect(actDateTime, &QAction::triggered, this, &MainWindow::onOpenDateTime);
 

@@ -12,7 +12,6 @@
 #include <NDS_Header.h>
 #include "main.h"
 
-
 LuaBundle::LuaBundle(LuaConsoleDialog* dialog, EmuInstance* inst)
 {
     emuInstance = inst;
@@ -631,18 +630,4 @@ int Lua_getJoy(lua_State* L)
 }
 AddLuaFunction(Lua_getJoy,GetJoy);
 
-/*
-//TODO: Currently only works well with force integer scaling
-//TODO: Consider alternative ways to provide extra drawing space for lua scripts?
-int Lua_setPadding(lua_State* L) 
-{
-    LeftPadding = abs(luaL_checkinteger(L,1));
-    TopPadding = abs(luaL_checkinteger(L,2));
-    RightPadding = abs(luaL_checkinteger(L,3));
-    BottomPadding = abs(luaL_checkinteger(L,4));
-    CurrentThread->onLuaLayoutChange();
-    return 0;
-}
-AddLuaFunction(Lua_setPadding,SetPadding);
-*/
 }

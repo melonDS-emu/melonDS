@@ -679,13 +679,9 @@ void ScreenPanelNative::drawOverlays(QPainter* painter,int type)
         return;
     LuaBundle* lua = dialog->getLuaBundle();
 
-    for (auto lo = lua->overlays->begin(); lo != lua->overlays->end();)
-    {
-        OverlayCanvas& overlay = *lo;
+    for (OverlayCanvas& overlay : *lua->overlays)
         if ((overlay.target == type) && overlay.isActive)
             painter->drawImage(overlay.rectangle,*overlay.displayBuffer);
-        lo++;
-    }
 }
 
 void ScreenPanelNative::paintEvent(QPaintEvent* event)
@@ -952,14 +948,13 @@ void ScreenPanelGL::deinitOpenGL()
     if (mainWindow->getLuaDialog())
     {
         std::vector<OverlayCanvas>* overlays = mainWindow->getLuaDialog()->getLuaBundle()->overlays;
-        for (auto lo = overlays->begin(); lo != overlays->end();)
+        for (OverlayCanvas& overlay : *overlays)
         {
-            OverlayCanvas& overlay = *lo;
-            lo++;
-            if (!overlay.GLTextureLoaded)
-                continue;
-            glDeleteTextures(1,&overlay.GLTexture);
-            overlay.GLTextureLoaded=false;
+            if (overlay.GLTextureLoaded)
+            {
+                glDeleteTextures(1,&overlay.GLTexture);
+                overlay.GLTextureLoaded=false;
+            }
         }
     }
     glContext->DoneCurrent();
@@ -1003,17 +998,15 @@ void ScreenPanelGL::osdDeleteItem(OSDItem* item)
     ScreenPanel::osdDeleteItem(item);
 }
 
-void ScreenPanelGL::drawOverlays(int type,int screen)
+void ScreenPanelGL::drawOverlays(int screenType,int screen)
 {
     if (!mainWindow->getLuaDialog())
         return;
     
     std::vector<OverlayCanvas>* overlays = mainWindow->getLuaDialog()->getLuaBundle()->overlays;
-    for (auto lo = overlays->begin(); lo != overlays->end();)
+    for (OverlayCanvas& overlay : *overlays)
     {
-        OverlayCanvas& overlay = *lo;
-        lo++;
-        if (!overlay.isActive || overlay.target != type)
+        if (!overlay.isActive || overlay.target != screenType)
             continue;
         if (!overlay.GLTextureLoaded)//Load texture if none loaded
         {
@@ -1032,7 +1025,7 @@ void ScreenPanelGL::drawOverlays(int type,int screen)
             glTexSubImage2D(GL_TEXTURE_2D,0,0,0,overlay.rectangle.width(),overlay.rectangle.height(),GL_RGBA,GL_UNSIGNED_BYTE,overlay.displayBuffer->bits());
             overlay.flipped = false;
         }
-        if(type == canvasTarget_OSD) // OSD gets drawn differently then top or bottom screen target
+        if(screenType == canvasTarget_OSD) // OSD gets drawn differently then top or bottom screen target
         {
             glBindTexture(GL_TEXTURE_2D, overlay.GLTexture);
             glUniform2i(osdPosULoc,overlay.rectangle.left(),overlay.rectangle.top());
@@ -1045,9 +1038,9 @@ void ScreenPanelGL::drawOverlays(int type,int screen)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glUniform2f(overlayPosULoc,overlay.rectangle.left(),overlay.rectangle.top());
         glUniform2f(overlaySizeULoc,overlay.rectangle.width(),overlay.rectangle.height());
-        glUniform1i(overlayScreenTypeULoc, type);
+        glUniform1i(overlayScreenTypeULoc, screenType);
         glUniformMatrix2x3fv(overlayTransformULoc, 1, GL_TRUE,screenMatrix[screen]);
-        glDrawArrays(GL_TRIANGLES,type == 0 ? 0 : 2*3, 2*3);
+        glDrawArrays(GL_TRIANGLES,screenType == 0 ? 0 : 2*3, 2*3);
     }
 }
 
