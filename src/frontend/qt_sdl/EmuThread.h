@@ -83,6 +83,8 @@ public:
         msg_UndoStateLoad,
 
         msg_ImportSavefile,
+
+        msg_EnableCheats,
     };
 
     struct Message
@@ -124,6 +126,8 @@ public:
 
     int importSavefile(const QString& filename);
 
+    void enableCheats(bool enable);
+
     bool emuIsRunning();
     bool emuIsActive();
 
@@ -132,8 +136,8 @@ public:
     void updateVideoSettings() { videoSettingsDirty = true; }
     void updateVideoRenderer() { videoSettingsDirty = true; lastVideoRenderer = -1; }
 
-    int FrontBuffer = 0;
-    QMutex FrontBufferLock;
+    int frontBuffer = 0;
+    QMutex frontBufferLock;
 
 signals:
     void windowUpdate();

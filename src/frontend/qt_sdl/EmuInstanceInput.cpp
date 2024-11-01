@@ -77,6 +77,10 @@ void EmuInstance::inputInit()
     for (int i=0;i<256;i++)
         KeyboardMask[i]=false;
 
+    isTouching = false;
+    touchX = 0;
+    touchY = 0;
+
     joystick = nullptr;
     controller = nullptr;
     hasRumble = false;
@@ -366,4 +370,16 @@ void EmuInstance::inputProcess()
     hotkeyPress = hotkeyMask & ~lastHotkeyMask;
     hotkeyRelease = lastHotkeyMask & ~hotkeyMask;
     lastHotkeyMask = hotkeyMask;
+}
+
+void EmuInstance::touchScreen(int x, int y)
+{
+    touchX = x;
+    touchY = y;
+    isTouching = true;
+}
+
+void EmuInstance::releaseScreen()
+{
+    isTouching = false;
 }

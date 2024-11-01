@@ -158,6 +158,8 @@ public:
     void DoSavestate(Savestate* file) override;
 
     int SetInput(int num, bool pressed) override;
+    void SetLightLevel(u8 level) noexcept;
+    [[nodiscard]] u8 GetLightLevel() const noexcept { return LightLevel; }
 
 protected:
     void ProcessGPIO() override;

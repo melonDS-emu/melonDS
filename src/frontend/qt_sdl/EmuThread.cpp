@@ -231,6 +231,7 @@ void EmuThread::run()
             // update render settings if needed
             if (videoSettingsDirty)
             {
+                emuInstance->renderLock.lock();
                 if (useOpenGL)
                 {
                     emuInstance->setVSyncGL(true);
@@ -246,10 +247,16 @@ void EmuThread::run()
                 updateRenderer();
 
                 videoSettingsDirty = false;
+                emuInstance->renderLock.unlock();
             }
 
             // process input and hotkeys
             emuInstance->nds->SetKeyMask(emuInstance->inputMask);
+
+            if (emuInstance->isTouching)
+                emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+            else
+                emuInstance->nds->ReleaseScreen();
 
             if (emuInstance->hotkeyPressed(HK_Lid))
             {
@@ -314,13 +321,13 @@ void EmuThread::run()
 
             if (!useOpenGL)
             {
-                FrontBufferLock.lock();
-                FrontBuffer = emuInstance->nds->GPU.FrontBuffer;
-                FrontBufferLock.unlock();
+                frontBufferLock.lock();
+                frontBuffer = emuInstance->nds->GPU.FrontBuffer;
+                frontBufferLock.unlock();
             }
             else
             {
-                FrontBuffer = emuInstance->nds->GPU.FrontBuffer;
+                frontBuffer = emuInstance->nds->GPU.FrontBuffer;
                 emuInstance->drawScreenGL();
             }
 
@@ -359,7 +366,7 @@ void EmuThread::run()
 
             if (slowmo) emuInstance->curFPS = emuInstance->slowmoFPS;
             else if (fastforward) emuInstance->curFPS = emuInstance->fastForwardFPS;
-            else if (!emuInstance->doLimitFPS) emuInstance->curFPS = 1.0 / 1000.0;
+            else if (!emuInstance->doLimitFPS) emuInstance->curFPS = 1000.0;
             else emuInstance->curFPS = emuInstance->targetFPS;
 
             if (emuInstance->audioDSiVolumeSync && emuInstance->nds->ConsoleType == 1)
@@ -378,16 +385,18 @@ void EmuThread::run()
             if (emuInstance->doAudioSync && !(fastforward || slowmo))
                 emuInstance->audioSync();
 
-            double frametimeStep = nlines / (60.0 * 263.0);
+            double frametimeStep = nlines / (emuInstance->curFPS * 263.0);
+
+            if (frametimeStep < 0.001) frametimeStep = 0.001;
 
             {
                 double curtime = SDL_GetPerformanceCounter() * perfCountsSec;
 
-                frameLimitError += emuInstance->curFPS - (curtime - lastTime);
-                if (frameLimitError < -emuInstance->curFPS)
-                    frameLimitError = -emuInstance->curFPS;
-                if (frameLimitError > emuInstance->curFPS)
-                    frameLimitError = emuInstance->curFPS;
+                frameLimitError += frametimeStep - (curtime - lastTime);
+                if (frameLimitError < -frametimeStep)
+                    frameLimitError = -frametimeStep;
+                if (frameLimitError > frametimeStep)
+                    frameLimitError = frametimeStep;
 
                 if (round(frameLimitError * 1000.0) > 0.0)
                 {
@@ -415,10 +424,11 @@ void EmuThread::run()
                 winUpdateFreq = fps / (u32)round(fpstarget);
                 if (winUpdateFreq < 1)
                     winUpdateFreq = 1;
-
+                    
+                double actualfps = (59.8261 * 263.0) / nlines;
                 int inst = emuInstance->instanceID;
                 if (inst == 0)
-                    sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
+                    sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, actualfps);
                 else
                     sprintf(melontitle, "[%d/%.0f] melonDS (%d)", fps, fpstarget, inst+1);
                 changeWindowTitle(melontitle);
@@ -471,7 +481,8 @@ void EmuThread::waitMessage(int num)
 void EmuThread::waitAllMessages()
 {
     if (QThread::currentThread() == this) return;
-    msgSemaphore.acquire(msgSemaphore.available());
+    while (!msgQueue.empty())
+        msgSemaphore.acquire();
 }
 
 void EmuThread::handleMessages()
@@ -487,6 +498,7 @@ void EmuThread::handleMessages()
             emuPauseStack = emuPauseStackRunning;
 
             emuInstance->audioDisable();
+            MPInterface::Get().End(emuInstance->instanceID);
             break;
 
         case msg_EmuRun:
@@ -647,6 +659,10 @@ void EmuThread::handleMessages()
                 CloseFile(f);
                 msgResult = 1;
             }
+            break;
+
+        case msg_EnableCheats:
+            emuInstance->enableCheats(msg.param.value<bool>());
             break;
         }
 
@@ -813,6 +829,12 @@ int EmuThread::importSavefile(const QString& filename)
     sendMessage({.type = msg_ImportSavefile, .param = filename});
     waitMessage(2);
     return msgResult;
+}
+
+void EmuThread::enableCheats(bool enable)
+{
+    sendMessage({.type = msg_EnableCheats, .param = enable});
+    waitMessage();
 }
 
 void EmuThread::updateRenderer()

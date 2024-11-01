@@ -237,7 +237,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     localCfg(inst->localCfg),
     windowCfg(localCfg.GetTable("Window"+std::to_string(id), "Window0")),
     emuThread(inst->getEmuThread()),
-    enabledSaved(false)
+    enabledSaved(false),
+    focused(true)
 {
 #ifndef _WIN32
     if (!parent)
@@ -733,6 +734,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actDateTime->setEnabled(true);
         actPowerManagement->setEnabled(false);
 
+        actEnableCheats->setEnabled(false);
         actSetupCheats->setEnabled(false);
         actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
 
@@ -1021,13 +1023,26 @@ void MainWindow::dropEvent(QDropEvent* event)
 
 void MainWindow::focusInEvent(QFocusEvent* event)
 {
-    emuInstance->audioMute();
+    onFocusIn();
 }
 
 void MainWindow::focusOutEvent(QFocusEvent* event)
 {
+    onFocusOut();
+}
+
+void MainWindow::onFocusIn()
+{
+    focused = true;
+    if (emuInstance)
+        emuInstance->audioMute();
+}
+
+void MainWindow::onFocusOut()
+{
     // focusOutEvent is called through the window close event handler
     // prevent use after free
+    focused = false;
     if (emuInstance)
         emuInstance->audioMute();
 }
@@ -1281,6 +1296,7 @@ void MainWindow::updateCartInserted(bool gba)
             win->actCurrentCart->setText(label);
             win->actEjectCart->setEnabled(inserted);
             win->actImportSavefile->setEnabled(inserted);
+            win->actEnableCheats->setEnabled(inserted);
             win->actSetupCheats->setEnabled(inserted);
             win->actROMInfo->setEnabled(inserted);
             win->actRAMInfo->setEnabled(inserted);
@@ -1690,7 +1706,12 @@ void MainWindow::onOpenLuaScript()
 void MainWindow::onEnableCheats(bool checked)
 {
     localCfg.SetBool("EnableCheats", checked);
-    emuInstance->enableCheats(checked);
+    emuThread->enableCheats(checked);
+
+    emuInstance->doOnAllWindows([=](MainWindow* win)
+    {
+        win->actEnableCheats->setChecked(checked);
+    }, windowID);
 }
 
 void MainWindow::onSetupCheats()
@@ -1979,9 +2000,9 @@ void MainWindow::onOpenInterfaceSettings()
 void MainWindow::onUpdateInterfaceSettings()
 {
     pauseOnLostFocus = globalCfg.GetBool("PauseLostFocus");
-    emuInstance->targetFPS = 1.0 / globalCfg.GetDouble("TargetFPS");
-    emuInstance->fastForwardFPS = 1.0 / globalCfg.GetDouble("FastForwardFPS");
-    emuInstance->slowmoFPS = 1.0 / globalCfg.GetDouble("SlowmoFPS");
+    emuInstance->targetFPS = globalCfg.GetDouble("TargetFPS");
+    emuInstance->fastForwardFPS = globalCfg.GetDouble("FastForwardFPS");
+    emuInstance->slowmoFPS = globalCfg.GetDouble("SlowmoFPS");
     panel->setMouseHide(globalCfg.GetBool("MouseHide"),
                         globalCfg.GetInt("MouseHideSeconds")*1000);
 }
