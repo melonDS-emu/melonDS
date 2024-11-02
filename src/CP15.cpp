@@ -282,7 +282,7 @@ void ARMv5::UpdatePURegion(const u32 n)
         "PU region %d: %08X-%08X, user=%02X priv=%02X, %08X/%08X\n",
         n,
         start << CP15_MAP_ENTRYSIZE_LOG2,
-        end << CP15_MAP_ENTRYSIZE_LOG2 - 1,
+        (end << CP15_MAP_ENTRYSIZE_LOG2) - 1,
         usermask,
         privmask,
         PU_DataRW,
@@ -2442,7 +2442,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
             if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = (MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
             DataRegion = Mem9_MainRAM;
             MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataCycles -= 2<<NDS.ARM9ClockShift;
+            DataCycles -= 1<<NDS.ARM9ClockShift;
         }
         else DataRegion = NDS.ARM9Regions[addr>>14];
         
