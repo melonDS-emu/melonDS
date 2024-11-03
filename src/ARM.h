@@ -690,6 +690,7 @@ public:
     //u64 WBMainRAMDelay; // timestamp used to emulate the delay before the next main ram write can begin
     u64 WBDelay; // timestamp in bus cycles use for the delay before next write to the write buffer can occur (seems to be a 1 cycle delay after a write to it)
     u32 WBLastRegion; // the last region written to by the write buffer
+    u64 WBReleaseTS; // the timestamp on which the write buffer relinquished control of the bus back
 
 #ifdef GDBSTUB_ENABLED
     u32 ReadMem(u32 addr, int size) override;
