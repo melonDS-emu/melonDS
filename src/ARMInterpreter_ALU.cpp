@@ -153,25 +153,30 @@ inline bool OverflowSbc(u32 a, u32 b, u32 carry)
 
 #define A_CALC_OP2_IMM \
     u32 b = ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E); \
-    u16 ilmask = 0;
+    u16 ilmask = 0; \
+    u8 iltime[16];
 
 #define A_CALC_OP2_IMM_S \
     u32 b = ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E); \
     if ((cpu->CurInstr>>7)&0x1E) \
         cpu->SetC(b & 0x80000000); \
-    u16 ilmask = 0;
+    u16 ilmask = 0; \
+    u8 iltime[16];
 
 #define A_CALC_OP2_REG_SHIFT_IMM(shiftop) \
     u32 b = cpu->R[cpu->CurInstr&0xF]; \
     u32 s = (cpu->CurInstr>>7)&0x1F; \
     shiftop(b, s); \
-    u16 ilmask = 1 << (cpu->CurInstr&0xF);
+    u16 ilmask = 1 << (cpu->CurInstr&0xF); \
+    u8 iltime[16]; iltime[cpu->CurInstr&0xF] = 0;
 
 #define A_CALC_OP2_REG_SHIFT_REG(shiftop) \
     u32 b = cpu->R[cpu->CurInstr&0xF]; \
     if ((cpu->CurInstr&0xF)==15) b += 4; \
     shiftop(b, (cpu->R[(cpu->CurInstr>>8)&0xF] & 0xFF)); \
-    u16 ilmask = 1 << (cpu->CurInstr&0xF);
+    u16 ilmask = (1 << (cpu->CurInstr&0xF)) | (1 << ((cpu->CurInstr>>8)&0xF)); \
+    u8 iltime[16]; iltime[(cpu->CurInstr>>8)&0xF] = 0; \
+    iltime[cpu->CurInstr&0xF] = 1; // REMINDER: THIS IS WRONG, THIS CAN OVERWRITE LOWER VALUES.
 
 
 #define A_IMPLEMENT_ALU_OP(x,s) \
@@ -318,7 +323,9 @@ void A_##x##_REG_ROR_REG(ARM* cpu) \
 
 #define A_AND(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a & b; \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -331,9 +338,11 @@ void A_##x##_REG_ROR_REG(ARM* cpu) \
 
 #define A_AND_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a & b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -349,7 +358,9 @@ A_IMPLEMENT_ALU_OP(AND,_S)
 
 #define A_EOR(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a ^ b; \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -362,9 +373,11 @@ A_IMPLEMENT_ALU_OP(AND,_S)
 
 #define A_EOR_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a ^ b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -380,8 +393,9 @@ A_IMPLEMENT_ALU_OP(EOR,_S)
 
 #define A_SUB(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a - b; \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -394,12 +408,13 @@ A_IMPLEMENT_ALU_OP(EOR,_S)
 
 #define A_SUB_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a - b; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
                  CarrySub(a, b), \
                  OverflowSub(a, b)); \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -415,8 +430,9 @@ A_IMPLEMENT_ALU_OP(SUB,)
 
 #define A_RSB(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = b - a; \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -429,12 +445,13 @@ A_IMPLEMENT_ALU_OP(SUB,)
 
 #define A_RSB_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = b - a; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
                  CarrySub(b, a), \
                  OverflowSub(b, a)); \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -450,8 +467,9 @@ A_IMPLEMENT_ALU_OP(RSB,)
 
 #define A_ADD(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a + b; \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -469,7 +487,7 @@ A_IMPLEMENT_ALU_OP(RSB,)
                  !res, \
                  CarryAdd(a, b), \
                  OverflowAdd(a, b)); \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -485,8 +503,9 @@ A_IMPLEMENT_ALU_OP(ADD,)
 
 #define A_ADC(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a + b + (cpu->CPSR&0x20000000 ? 1:0); \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -499,6 +518,7 @@ A_IMPLEMENT_ALU_OP(ADD,)
 
 #define A_ADC_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res_tmp = a + b; \
     u32 carry = (cpu->CPSR&0x20000000 ? 1:0); \
     u32 res = res_tmp + carry; \
@@ -506,7 +526,7 @@ A_IMPLEMENT_ALU_OP(ADD,)
                  !res, \
                  CarryAdd(a, b) | CarryAdd(res_tmp, carry), \
                  OverflowAdc(a, b, carry)); \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -522,8 +542,9 @@ A_IMPLEMENT_ALU_OP(ADC,)
 
 #define A_SBC(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a - b - (cpu->CPSR&0x20000000 ? 0:1); \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -536,6 +557,7 @@ A_IMPLEMENT_ALU_OP(ADC,)
 
 #define A_SBC_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res_tmp = a - b; \
     u32 carry = (cpu->CPSR&0x20000000 ? 0:1); \
     u32 res = res_tmp - carry; \
@@ -543,7 +565,7 @@ A_IMPLEMENT_ALU_OP(ADC,)
                  !res, \
                  CarrySub(a, b) & CarrySub(res_tmp, carry), \
                  OverflowSbc(a, b, carry)); \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -559,8 +581,9 @@ A_IMPLEMENT_ALU_OP(SBC,)
 
 #define A_RSC(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = b - a - (cpu->CPSR&0x20000000 ? 0:1); \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -573,6 +596,7 @@ A_IMPLEMENT_ALU_OP(SBC,)
 
 #define A_RSC_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res_tmp = b - a; \
     u32 carry = (cpu->CPSR&0x20000000 ? 0:1); \
     u32 res = res_tmp - carry; \
@@ -580,7 +604,7 @@ A_IMPLEMENT_ALU_OP(SBC,)
                  !res, \
                  CarrySub(b, a) & CarrySub(res_tmp, carry), \
                  OverflowSbc(b, a, carry)); \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -596,8 +620,9 @@ A_IMPLEMENT_ALU_OP(RSC,)
 
 #define A_TST(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a & b; \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* this seems to trigger alu rd==15 behavior for arm7 and legacy instruction behavior for arm9 */ \
     { \
@@ -626,8 +651,9 @@ A_IMPLEMENT_ALU_TEST(TST,_S)
 
 #define A_TEQ(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a ^ b; \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* this seems to trigger alu rd==15 behavior for arm7 and legacy instruction behavior for arm9 */ \
     { \
@@ -656,8 +682,9 @@ A_IMPLEMENT_ALU_TEST(TEQ,_S)
 
 #define A_CMP(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a - b; \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* this seems to trigger alu rd==15 behavior for arm7 and legacy instruction behavior for arm9 */ \
     { \
@@ -690,8 +717,9 @@ A_IMPLEMENT_ALU_TEST(CMP,)
 
 #define A_CMN(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a + b; \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* this seems to trigger alu rd==15 behavior for arm7 and legacy instruction behavior for arm9 */ \
     { \
@@ -724,8 +752,9 @@ A_IMPLEMENT_ALU_TEST(CMN,)
 
 #define A_ORR(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a | b; \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -738,10 +767,11 @@ A_IMPLEMENT_ALU_TEST(CMN,)
 
 #define A_ORR_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a | b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -756,7 +786,7 @@ A_IMPLEMENT_ALU_OP(ORR,_S)
 
 
 #define A_MOV(c) \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask, iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -770,7 +800,7 @@ A_IMPLEMENT_ALU_OP(ORR,_S)
 #define A_MOV_S(c) \
     cpu->SetNZ(b & 0x80000000, \
                !b); \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask, iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -804,8 +834,9 @@ void A_MOV_REG_LSL_IMM_DBG(ARM* cpu)
 
 #define A_BIC(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a & ~b; \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -818,10 +849,11 @@ void A_MOV_REG_LSL_IMM_DBG(ARM* cpu)
 
 #define A_BIC_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a & ~b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF))); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -837,7 +869,7 @@ A_IMPLEMENT_ALU_OP(BIC,_S)
 
 #define A_MVN(c) \
     b = ~b; \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask, iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -852,7 +884,7 @@ A_IMPLEMENT_ALU_OP(BIC,_S)
     b = ~b; \
     cpu->SetNZ(b & 0x80000000, \
                !b); \
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask); \
+    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask, iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -932,9 +964,11 @@ void A_MLA(ARM* cpu)
 
     if (cpu->Num == 0)
     {
+        u8 iltime[16] = {};
+        iltime[(cpu->CurInstr>>12)&0xF] = 1;
         ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
                                                      (1 << ((cpu->CurInstr >> 8) & 0xF)) | 
-                                                     (1 << ((cpu->CurInstr >> 12) & 0xF)));
+                                                     (1 << ((cpu->CurInstr >> 12) & 0xF)), iltime);
         if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(3);
         else
         {
@@ -1028,10 +1062,12 @@ void A_UMLAL(ARM* cpu)
 
     if (cpu->Num == 0)
     {
+        u8 iltime[16] = {};
+        iltime[(cpu->CurInstr>>12)&0xF] = 1;
         ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
                                                      (1 << ((cpu->CurInstr >> 8) & 0xF)) |
-                                                     (1 << ((cpu->CurInstr >> 12) & 0xF)) |
-                                                     (1 << ((cpu->CurInstr >> 16) & 0xF)));
+                                                     (1 << ((cpu->CurInstr >> 12) & 0xF))/* |
+                                                     (1 << ((cpu->CurInstr >> 16) & 0xF))*/, iltime);
         if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(4);
         else
         {
@@ -1124,10 +1160,12 @@ void A_SMLAL(ARM* cpu)
 
     if (cpu->Num == 0)
     {
+        u8 iltime[16] {};
+        iltime[(cpu->CurInstr>>12)&0xF] = 1;
         ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
                                                      (1 << ((cpu->CurInstr >> 8) & 0xF)) |
-                                                     (1 << ((cpu->CurInstr >> 12) & 0xF)) |
-                                                     (1 << ((cpu->CurInstr >> 16) & 0xF)));
+                                                     (1 << ((cpu->CurInstr >> 12) & 0xF)) /*|
+                                                     (1 << ((cpu->CurInstr >> 16) & 0xF))*/, iltime);
         if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(4);
         else
         {
@@ -1171,11 +1209,13 @@ void A_SMLAxy(ARM* cpu)
 
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
-        
 
+
+    u8 iltime[16] {};
+    iltime[(cpu->CurInstr>>12)&0xF] = 1;
     ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
                                                  (1 << ((cpu->CurInstr >> 8) & 0xF)) |
-                                                 (1 << ((cpu->CurInstr >> 12) & 0xF)));
+                                                 (1 << ((cpu->CurInstr >> 12) & 0xF)), iltime);
     cpu->AddCycles_C();
     
     cpu->DataRegion = Mem9_Null;
@@ -1203,10 +1243,11 @@ void A_SMLAWy(ARM* cpu)
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
-
+    u8 iltime[16] = {};
+    iltime[(cpu->CurInstr>>12)&0xF] = 1;
     ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
                                                  (1 << ((cpu->CurInstr >> 8) & 0xF)) |
-                                                 (1 << ((cpu->CurInstr >> 12) & 0xF)));
+                                                 (1 << ((cpu->CurInstr >> 12) & 0xF)), iltime);
     cpu->AddCycles_C();
     
     cpu->DataRegion = Mem9_Null;
@@ -1293,11 +1334,12 @@ void A_SMLALxy(ARM* cpu)
         cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
 
 
-
+    u8 iltime[16] {};
+    iltime[(cpu->CurInstr>>12)&0xF] = 1;
     ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
                                                  (1 << ((cpu->CurInstr >> 8) & 0xF)) |
-                                                 (1 << ((cpu->CurInstr >> 12) & 0xF)) |
-                                                 (1 << ((cpu->CurInstr >> 16) & 0xF)));
+                                                 (1 << ((cpu->CurInstr >> 12) & 0xF))/* |
+                                                 (1 << ((cpu->CurInstr >> 16) & 0xF))*/, iltime);
     cpu->AddCycles_C(); // 1 X
     cpu->DataRegion = Mem9_Null;
     ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M

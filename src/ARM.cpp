@@ -1183,26 +1183,29 @@ void ARMv5::AddCycles_MW(s32 numM)
 }
 
 template <bool bitfield>
-void ARMv5::HandleInterlocksExecute(u16 ilmask)
+void ARMv5::HandleInterlocksExecute(u16 ilmask, u8* times)
 {
     if ((bitfield && (ilmask & (1<<ILCurrReg))) || (!bitfield && (ilmask == ILCurrReg)))
     {
-        if (NDS.ARM9Timestamp < ILCurrTime)
+        u64 time = ILCurrTime - (times ? times[ILCurrReg] : 0);
+        if (NDS.ARM9Timestamp < time)
         {
-            u64 diff = ILCurrTime - NDS.ARM9Timestamp;
-            NDS.ARM9Timestamp = ILCurrTime;
+            u64 diff = time - NDS.ARM9Timestamp;
+            NDS.ARM9Timestamp = time;
             ITCMTimestamp += diff;
+
+            ILCurrReg = 16;
+            ILPrevReg = 16;
+            return;
         }
-        ILCurrReg = 16;
-        ILPrevReg = 16;
-        return;
     }
-    else if ((bitfield && (ilmask & (1<<ILPrevReg))) || (!bitfield && (ilmask == ILCurrReg)))
+    if ((bitfield && (ilmask & (1<<ILPrevReg))) || (!bitfield && (ilmask == ILCurrReg)))
     {
-        if (NDS.ARM9Timestamp < ILPrevTime)
+        u64 time = ILPrevTime - (times ? times[ILPrevReg] : 0);
+        if (NDS.ARM9Timestamp < time)
         {
-            u64 diff = ILPrevTime - NDS.ARM9Timestamp; // should always be 1?
-            NDS.ARM9Timestamp = ILPrevTime;
+            u64 diff = time - NDS.ARM9Timestamp; // should always be 1?
+            NDS.ARM9Timestamp = time;
             ITCMTimestamp += diff;
         }
     }
@@ -1211,8 +1214,8 @@ void ARMv5::HandleInterlocksExecute(u16 ilmask)
     ILPrevTime = ILCurrTime;
     ILCurrReg = 16;
 }
-template void ARMv5::HandleInterlocksExecute<true>(u16 ilmask);
-template void ARMv5::HandleInterlocksExecute<false>(u16 ilmask);
+template void ARMv5::HandleInterlocksExecute<true>(u16 ilmask, u8* times);
+template void ARMv5::HandleInterlocksExecute<false>(u16 ilmask, u8* times);
 
 void ARMv5::HandleInterlocksMemory(u8 reg)
 {

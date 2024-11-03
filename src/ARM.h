@@ -287,7 +287,7 @@ public:
     }
     
     template <bool bitfield>
-    void HandleInterlocksExecute(u16 ilmask);
+    void HandleInterlocksExecute(u16 ilmask, u8* times = NULL);
     void HandleInterlocksMemory(u8 reg);
 
     void GetCodeMemRegion(const u32 addr, MemRegion* region);
