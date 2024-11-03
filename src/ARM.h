@@ -393,8 +393,8 @@ public:
     void ICacheInvalidateAll();
     
     template <bool force> inline bool WriteBufferHandle();
-    void WriteBufferCheck();
-    void WriteBufferWrite(u32 val, u8 flag, u8 cycles, u32 addr = 0);
+    template <bool next> void WriteBufferCheck();
+    void WriteBufferWrite(u32 val, u8 flag, u32 addr = 0);
     void WriteBufferDrain();
 
     /** 
@@ -682,15 +682,14 @@ public:
     u8 WBWritePointer; // which entry to attempt to write next; should always be ANDed with 0xF after incrementing
     u8 WBFillPointer; // where the next entry should be added; should always be ANDed with 0xF after incrementing
     bool WBWriting; // whether the buffer is actively trying to perform a write
-    u8 WBCurCycles; // how long the current write will take; bit 7 is a flag used to indicate main ram
-    u64 WBCurVal; // current value being written; 0-31: val | 62-32: flag; 0 = byte; 1 = halfword; 2 = word; 3 = address (invalid in this variable)
     u32 WBCurAddr; // address the write buffer is currently writing to
+    u64 WBCurVal; // current value being written; 0-31: val | 61-63: flag; 0 = byte ns; 1 = halfword ns; 2 = word ns; 3 = word s; 4 = address (invalid in this variable)
     u32 storeaddr[16]; // temp until i figure out why using the fifo address entries directly didn't work
-    u8 WBCycles[16]; // num cycles for each write; bit 7 is a flag used to indicate main ram
-    u64 WriteBufferFifo[16]; // 0-31: val | 62-32: flag; 0 = byte; 1 = halfword; 2 = word; 3 = address
-    u64 WBTimestamp; // current timestamp in bus cycles
-    u64 WBMainRAMDelay; // timestamp in bus cycles used to emulate the delay before the next main ram write can begin
+    u64 WriteBufferFifo[16]; // 0-31: val | 61-63: flag; 0 = byte ns; 1 = halfword ns; 2 = word ns; 3 = word s; 4 = address
+    u64 WBTimestamp; // current timestamp
+    //u64 WBMainRAMDelay; // timestamp used to emulate the delay before the next main ram write can begin
     u64 WBDelay; // timestamp in bus cycles use for the delay before next write to the write buffer can occur (seems to be a 1 cycle delay after a write to it)
+    u32 WBLastRegion; // the last region written to by the write buffer
 
 #ifdef GDBSTUB_ENABLED
     u32 ReadMem(u32 addr, int size) override;

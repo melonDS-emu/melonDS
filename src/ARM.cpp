@@ -214,7 +214,6 @@ void ARMv5::Reset()
     WBFillPointer = 0;
     WBDelay = 0;
     WBWriting = false;
-    WBMainRAMDelay = 0;
 
     ARM::Reset();
 }
@@ -618,7 +617,7 @@ void ARMv5::Execute()
         else
         {
             NDS.ARM9Timestamp = NDS.ARM9Target;
-            WriteBufferCheck();
+            WriteBufferCheck<false>();
             return;
         }
     }
@@ -745,7 +744,7 @@ void ARMv5::Execute()
         //NDS.ARM9Timestamp += Cycles;
         //Cycles = 0;
     }
-    WriteBufferCheck();
+    WriteBufferCheck<false>();
 
     if (Halted == 2)
         Halted = 0;
