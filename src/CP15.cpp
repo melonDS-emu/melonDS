@@ -1156,7 +1156,7 @@ bool ARMv5::IsAddressDCachable(const u32 addr) const
     return PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_DCACHEABLE;
 }
 
-template <bool force>
+template <int force>
 inline bool ARMv5::WriteBufferHandle()
 {
     // handle write buffer writes
@@ -1215,7 +1215,6 @@ inline bool ARMv5::WriteBufferHandle()
         if ( force && ts > NDS.ARM9Timestamp)
         {
             NDS.ARM9Timestamp = ts;
-            DataCycles = 0; // checkme
         }
 
         WBTimestamp = ts;
@@ -1242,6 +1241,7 @@ inline bool ARMv5::WriteBufferHandle()
         WBLastRegion = NDS.ARM9Regions[WBCurAddr>>14];
         //printf("writing: adr: %i, val: %lli, cyl: %i", WBCurAddr, WBCurVal, WBCurCycles);
         WBWriting = false;
+        if constexpr (force == 2) return true;
     }
     
     // check if write buffer is empty
@@ -1281,9 +1281,9 @@ void ARMv5::WriteBufferCheck()
 
     if constexpr (next) // check if the next write is occuring
     {
-        if (NDS.ARM9Timestamp > WBTimestamp)
+        if (NDS.ARM9Timestamp >= WBTimestamp)
         {
-            WriteBufferHandle<true>();
+            while(!WriteBufferHandle<2>());
         }
     }
 }
@@ -1299,7 +1299,7 @@ void ARMv5::WriteBufferWrite(u32 val, u8 flag, u32 addr)
     else if (WBWritePointer == 16) // indicates empty write buffer
     {
         WBWritePointer = 0;
-        WBTimestamp = NDS.ARM9Timestamp + 1;
+        if (WBTimestamp < (NDS.ARM9Timestamp + 1)) WBTimestamp = NDS.ARM9Timestamp + 1;
     }
 
     WriteBufferFifo[WBFillPointer] = val | (u64)flag << 61;
