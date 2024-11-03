@@ -542,13 +542,13 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     // Wait until the entire cache line is filled before continuing with execution
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_STREAMING) [[unlikely]]
     {
-        NDS.ARM9Timestamp += MemTimings[tag >> 14][1] + ((MemTimings[tag >> 14][2] + 1) * ((DCACHE_LINELENGTH / 4) - 1));
+        NDS.ARM9Timestamp += MemTimings[tag >> 14][1] + (MemTimings[tag >> 14][2] * ((DCACHE_LINELENGTH / 4) - 1));
         if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
     }
     else // ICache Streaming logic
     {
         u8 ns = MemTimings[addr>>14][1];
-        u8 seq = MemTimings[addr>>14][2] + 1;
+        u8 seq = MemTimings[addr>>14][2];
 
         u8 linepos = (addr & 0x1F) >> 2; // technically this is one too low, but we want that actually
 
@@ -762,7 +762,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     {
         NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
-        NDS.ARM9Timestamp += MemTimings[tag >> 14][1] + ((MemTimings[tag >> 14][2] + 1) * ((DCACHE_LINELENGTH / 4) - 2));
+        NDS.ARM9Timestamp += MemTimings[tag >> 14][1] + (MemTimings[tag >> 14][2] * ((DCACHE_LINELENGTH / 4) - 2));
         DataCycles = MemTimings[tag>>14][2] + 1;
         
         if ((addr >> 24) == 0x02)
@@ -783,7 +783,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
         NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
         u8 ns = MemTimings[addr>>14][1];
-        u8 seq = MemTimings[addr>>14][2] + 1;
+        u8 seq = MemTimings[addr>>14][2];
 
         u8 linepos = (addr & 0x1F) >> 2; // technically this is one too low, but we want that actually
 
