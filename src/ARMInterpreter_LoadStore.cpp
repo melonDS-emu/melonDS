@@ -1028,8 +1028,6 @@ void T_POP(ARM* cpu)
     }
     else
     {
-
-
         if (__builtin_popcount(cpu->CurInstr & 0x1FF) == 1) [[unlikely]] // single reg
         {
             if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
@@ -1092,7 +1090,6 @@ void T_STMIA(ARM* cpu)
             base += 4;
         }
     }
-
 
     if (__builtin_popcount(cpu->CurInstr & 0xFF) == 1) [[unlikely]] // single reg
     {
