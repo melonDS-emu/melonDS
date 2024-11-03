@@ -110,12 +110,19 @@ protected:
 
         bool rendered;
         QImage bitmap;
+
+        int rainbowstart;
+        int rainbowend;
     };
 
     QMutex osdMutex;
     bool osdEnabled;
     unsigned int osdID;
     std::deque<OSDItem> osdItems;
+
+    QPixmap splashLogo;
+    OSDItem splashText[3];
+    QPoint splashPos[4];
 
     void loadConfig();
 
@@ -141,6 +148,8 @@ protected:
     virtual void osdDeleteItem(OSDItem* item);
 
     void osdUpdate();
+
+    void calcSplashLayout();
 };
 
 
@@ -197,11 +206,12 @@ private:
     void setupScreenLayout() override;
 
     std::unique_ptr<GL::Context> glContext;
+    bool glInited;
 
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;
     GLuint screenShaderProgram;
-    GLuint screenShaderTransformULoc, screenShaderScreenSizeULoc;
+    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc;
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;
@@ -210,10 +220,13 @@ private:
 
     GLuint osdShader;
     GLint osdScreenSizeULoc, osdPosULoc, osdSizeULoc;
-    GLfloat osdScaleFactorULoc;
+    GLint osdScaleFactorULoc;
+    GLint osdTexScaleULoc;
     GLuint osdVertexArray;
     GLuint osdVertexBuffer;
     std::map<unsigned int, GLuint> osdTextures;
+
+    GLuint logoTexture;
 
     void osdRenderItem(OSDItem* item) override;
     void osdDeleteItem(OSDItem* item) override;

@@ -609,8 +609,8 @@ void A_LDM(ARM* cpu)
         }
     }
 
-    u32 pc;
-    if ((cpu->CurInstr & (1<<15)))
+    u32 pc = 0;
+    if (cpu->CurInstr & (1<<15))
     {
         if (preinc) base += 4;
         dabort |= !(first ? cpu->DataRead32 (base, &pc)
@@ -621,11 +621,6 @@ void A_LDM(ARM* cpu)
         if (cpu->Num == 1 || (((ARMv5*)cpu)->CP15Control & (1<<15)))
             pc &= ~0x1;
     }
-
-    // switch back to previous regs
-    if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
-        cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
-
 
     if (__builtin_popcount(cpu->CurInstr & 0xFFFF) == 1) [[unlikely]] // single reg
     {
@@ -666,6 +661,10 @@ void A_LDM(ARM* cpu)
         else
             cpu->R[baseid] = wbbase;
     }
+    
+    // switch back to previous regs
+    if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
+        cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
 
     // jump if pc got written
     if (cpu->CurInstr & (1<<15))

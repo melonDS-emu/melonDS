@@ -31,6 +31,15 @@
 #include "ScreenLayout.h"
 #include "MPInterface.h"
 
+enum
+{
+    InstCmd_Pause,
+    InstCmd_Unpause,
+
+    InstCmd_UpdateRecentFiles,
+    //InstCmd_UpdateVideoSettings,
+};
+
 class MelonApplication : public QApplication
 {
     Q_OBJECT
@@ -49,6 +58,8 @@ bool createEmuInstance();
 void deleteEmuInstance(int id);
 void deleteAllEmuInstances(int first = 0);
 int numEmuInstances();
+
+void broadcastInstanceCommand(int cmd, QVariant& param, int sourceinst);
 
 void setMPInterface(melonDS::MPInterfaceType type);
 

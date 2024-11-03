@@ -12,13 +12,16 @@
       inherit (pkgs.lib) cmakeBool optionals makeLibraryPath;
       inherit (pkgs.stdenv) isLinux isDarwin;
 
-      versionSuffix = with self; if sourceInfo?dirtyShortRev
+      revision = with self; if sourceInfo?dirtyRev
+        then sourceInfo.dirtyRev
+        else sourceInfo.rev;
+      shortRevision = with self; if sourceInfo?dirtyShortRev
         then sourceInfo.dirtyShortRev
         else sourceInfo.shortRev;
 
-      melonDS = pkgs.stdenv.mkDerivation {
+      melonDS = pkgs.qt6.qtbase.stdenv.mkDerivation {
         pname = "melonDS";
-        version = "0.9.5-${versionSuffix}";
+        version = "0.9.5-${shortRevision}";
         src = ./.;
 
         nativeBuildInputs = with pkgs; [
@@ -46,7 +49,12 @@
         cmakeFlags = [
           (cmakeBool "USE_QT6" true)
           (cmakeBool "USE_SYSTEM_LIBSLIRP" true)
+          (cmakeBool "MELONDS_EMBED_BUILD_INFO" true)
         ];
+
+        env.MELONDS_GIT_HASH = revision;
+        env.MELONDS_GIT_BRANCH = "(unknown)";
+        env.MELONDS_BUILD_PROVIDER = "Nix";
 
         qtWrapperArgs = optionals isLinux [
           "--prefix LD_LIBRARY_PATH : ${makeLibraryPath [ pkgs.libpcap pkgs.wayland ]}"
@@ -66,7 +74,7 @@
         drv = self.packages.${system}.default;
       };
       devShells = {
-        default = pkgs.mkShell {
+        default = pkgs.mkShell.override { stdenv = pkgs.qt6.qtbase.stdenv; } {
           inputsFrom = [ self.packages.${system}.default ];
         };
 

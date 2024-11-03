@@ -37,6 +37,9 @@ set(SOURCES_QT_SDL
     QPathInput.h
     SaveManager.cpp
     CameraManager.cpp
+    AboutDialog.cpp
+    AboutDialog.h
+    AboutDialog.ui
 
     ArchiveUtil.h
     ArchiveUtil.cpp
@@ -118,6 +121,10 @@ elseif (APPLE)
     target_link_libraries(melonDS PRIVATE ${OPENGL_LIB})
     target_sources(melonDS PRIVATE
         ../duckstation/gl/context_agl.mm
+    )
+    set_source_files_properties(
+        ../duckstation/gl/context_agl.mm
+        PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations"
     )
 else()
     find_package(X11 REQUIRED)

@@ -63,6 +63,12 @@ NetplayStartHostDialog::~NetplayStartHostDialog()
 
 void NetplayStartHostDialog::done(int r)
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        QDialog::done(r);
+        return;
+    }
+
     if (r == QDialog::Accepted)
     {
         std::string player = ui->txtPlayerName->text().toStdString();
@@ -94,6 +100,12 @@ NetplayStartClientDialog::~NetplayStartClientDialog()
 
 void NetplayStartClientDialog::done(int r)
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        QDialog::done(r);
+        return;
+    }
+
     if (r == QDialog::Accepted)
     {
         std::string player = ui->txtPlayerName->text().toStdString();

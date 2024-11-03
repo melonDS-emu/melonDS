@@ -163,6 +163,12 @@ void CameraSettingsDialog::on_CameraSettingsDialog_accepted()
 
 void CameraSettingsDialog::on_CameraSettingsDialog_rejected()
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        closeDlg();
+        return;
+    }
+
     for (int i = 0; i < 2; i++)
     {
         camManager[i]->stop();
