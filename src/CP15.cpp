@@ -1217,7 +1217,7 @@ inline bool ARMv5::WriteBufferHandle()
             NDS.ARM9Timestamp = ts;
         }
 
-        WBTimestamp = ts;
+        WBTimestamp = (ts + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
         if (NDS.ARM9Regions[WBCurAddr>>14] == Mem9_MainRAM) MainRAMTimestamp = ts + ((((WBCurVal >> 61) == 0) ? 4 : 5) << NDS.ARM9ClockShift);
         else WBTimestamp += 2; // todo: twl timings
 
@@ -1274,32 +1274,37 @@ inline bool ARMv5::WriteBufferHandle()
     return false;
 }
 
-template <bool next>
+template <int next>
 void ARMv5::WriteBufferCheck()
 {
-    while (!WriteBufferHandle<false>()); // loop until we've cleared out all writeable entries
+    while (!WriteBufferHandle<0>()); // loop until we've cleared out all writeable entries
 
-    if constexpr (next) // check if the next write is occuring
+    if constexpr (next == 1) // check if the next write is occuring
     {
         if (NDS.ARM9Timestamp >= WBTimestamp)
         {
             while(!WriteBufferHandle<2>());
         }
     }
+    else if constexpr (next == 2)
+    {
+        while(!WriteBufferHandle<2>());
+    }
 }
-template void ARMv5::WriteBufferCheck<true>();
-template void ARMv5::WriteBufferCheck<false>();
+template void ARMv5::WriteBufferCheck<2>();
+template void ARMv5::WriteBufferCheck<1>();
+template void ARMv5::WriteBufferCheck<0>();
 
 void ARMv5::WriteBufferWrite(u32 val, u8 flag, u32 addr)
 {
-    WriteBufferCheck<false>();
+    WriteBufferCheck<0>();
 
     if (WBFillPointer == WBWritePointer) // if the write buffer is full then we stall the cpu until room is made
-        WriteBufferHandle<true>();
+        WriteBufferHandle<1>();
     else if (WBWritePointer == 16) // indicates empty write buffer
     {
         WBWritePointer = 0;
-        if (WBTimestamp < (NDS.ARM9Timestamp + 1)) WBTimestamp = NDS.ARM9Timestamp + 1;
+        if (WBTimestamp < (NDS.ARM9Timestamp + 1)) WBTimestamp = (NDS.ARM9Timestamp + 1 + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
     }
 
     WriteBufferFifo[WBFillPointer] = val | (u64)flag << 61;
@@ -1309,7 +1314,7 @@ void ARMv5::WriteBufferWrite(u32 val, u8 flag, u32 addr)
 
 void ARMv5::WriteBufferDrain()
 {
-    while (!WriteBufferHandle<true>()); // loop until drained fully
+    while (!WriteBufferHandle<1>()); // loop until drained fully
 }
 
 void ARMv5::CP15Write(u32 id, u32 val)
@@ -2074,7 +2079,7 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
     if (PU_Map[addr>>12] & 0x30)
         WriteBufferDrain();
     else
-        WriteBufferCheck<true>();
+        WriteBufferCheck<1>();
 
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
@@ -2162,7 +2167,7 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
     if (PU_Map[addr>>12] & 0x30)
         WriteBufferDrain();
     else
-        WriteBufferCheck<true>();
+        WriteBufferCheck<1>();
 
     NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
     
@@ -2245,7 +2250,7 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
     if (PU_Map[addr>>12] & 0x30)
         WriteBufferDrain();
     else
-        WriteBufferCheck<true>();
+        WriteBufferCheck<1>();
 
     NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
     
@@ -2328,7 +2333,7 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
     if (PU_Map[addr>>12] & 0x30)
         WriteBufferDrain();
     else
-        WriteBufferCheck<true>();
+        WriteBufferCheck<1>();
 
     NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
     
@@ -2406,7 +2411,7 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
     if (PU_Map[addr>>12] & 0x30) // checkme
         WriteBufferDrain();
     else
-        WriteBufferCheck<true>();
+        WriteBufferCheck<1>();
 
     // bursts cannot cross a 1kb boundary
     if (addr & 0x3FF) // s
@@ -2510,7 +2515,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
 
     if (!(PU_Map[addr>>12] & (0x30)))
     {
-        WriteBufferCheck<true>();
+        WriteBufferCheck<2>();
 
         NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
 
@@ -2600,7 +2605,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
 
     if (!(PU_Map[addr>>12] & 0x30))
     {
-        WriteBufferCheck<true>();
+        WriteBufferCheck<2>();
 
         NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
 
@@ -2690,7 +2695,7 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
 
     if (!(PU_Map[addr>>12] & 0x30))
     {
-        WriteBufferCheck<true>();
+        WriteBufferCheck<2>();
 
         NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
 
@@ -2775,7 +2780,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
 
     if (!(PU_Map[addr>>12] & 0x30)) // non-bufferable
     {
-        WriteBufferCheck<true>();
+        WriteBufferCheck<2>();
 
         // bursts cannot cross a 1kb boundary
         if (addr & 0x3FF) // s

@@ -393,7 +393,7 @@ public:
     void ICacheInvalidateAll();
     
     template <int force> inline bool WriteBufferHandle();
-    template <bool next> void WriteBufferCheck();
+    template <int next> void WriteBufferCheck();
     void WriteBufferWrite(u32 val, u8 flag, u32 addr = 0);
     void WriteBufferDrain();
 
