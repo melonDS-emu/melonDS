@@ -535,7 +535,9 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     {
         if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
     }
-    else if (NDS.ARM9Regions[addr>>14] == DataRegion && Store) NDS.ARM9Timestamp += (1<<NDS.ARM9ClockShift);
+    else if (((NDS.ARM9Timestamp <= WBReleaseTS) && (NDS.ARM9Regions[addr>>14] == WBLastRegion)) // check write buffer
+        || (Store && (NDS.ARM9Regions[addr>>14] == DataRegion))) //check the actual store
+        NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
     Store = false;
 
     // Disabled ICACHE Streaming:
@@ -554,10 +556,6 @@ u32 ARMv5::ICacheLookup(const u32 addr)
 
         u32 cycles = ns + (seq * linepos);
         NDS.ARM9Timestamp = cycles += NDS.ARM9Timestamp;
-
-        if (((NDS.ARM9Timestamp <= WBReleaseTS) && (NDS.ARM9Regions[addr>>14] == WBLastRegion)) // check write buffer
-         || (Store && (NDS.ARM9Regions[addr>>14] == DataRegion))) //check the actual store
-            NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
 
         if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
     
@@ -1178,6 +1176,7 @@ inline bool ARMv5::WriteBufferHandle()
     if (WBWriting)
     {
         // look up timings
+        // TODO: handle interrupted bursts?
         u32 cycles;
         switch (WBCurVal >> 61)
         {
@@ -1217,12 +1216,12 @@ inline bool ARMv5::WriteBufferHandle()
 
         // get the current timestamp
         u64 ts;
-        if (NDS.ARM9Regions[WBCurAddr>>14] == Mem9_MainRAM)
+        if (((WBCurVal >> 61) != 3) && (NDS.ARM9Regions[WBCurAddr>>14] == Mem9_MainRAM))
             ts = std::max(WBTimestamp, MainRAMTimestamp);
         else
             ts = WBTimestamp;
 
-        ts = (ts + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+        if ((WBCurVal >> 61) != 3) ts = (ts + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
 
         ts += cycles;
 
@@ -1240,8 +1239,8 @@ inline bool ARMv5::WriteBufferHandle()
         }
         else
         {
-            WBReleaseTS = WBTimestamp = ts;
-            if (NDS.ARM9Regions[WBCurAddr>>14] == Mem9_MainRAM) MainRAMTimestamp = ts;
+            WBTimestamp = ts;
+            if (NDS.ARM9Regions[WBCurAddr>>14] == Mem9_MainRAM) MainRAMTimestamp += 2 << NDS.ARM9ClockShift;
         }
 
         switch (WBCurVal >> 61)
@@ -1264,7 +1263,7 @@ inline bool ARMv5::WriteBufferHandle()
         WBLastRegion = NDS.ARM9Regions[WBCurAddr>>14];
         //printf("writing: adr: %i, val: %lli, cyl: %i", WBCurAddr, WBCurVal, WBCurCycles);
         WBWriting = false;
-        if constexpr (force == 2) return true;
+        if ((force == 2) && ((WriteBufferFifo[WBWritePointer] >> 61) != 3)) return true;
     }
     
     // check if write buffer is empty
@@ -1304,7 +1303,7 @@ void ARMv5::WriteBufferCheck()
 
     if constexpr (next == 1) // check if the next write is occuring
     {
-        if (NDS.ARM9Timestamp >= WBTimestamp)
+        if (WBWriting)
         {
             while(!WriteBufferHandle<2>());
         }
@@ -1328,7 +1327,7 @@ void ARMv5::WriteBufferWrite(u32 val, u8 flag, u32 addr)
     else if (WBWritePointer == 16) // indicates empty write buffer
     {
         WBWritePointer = 0;
-        if (WBTimestamp < (NDS.ARM9Timestamp + 1)) WBTimestamp = (NDS.ARM9Timestamp + 1 + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+        if (!WBWriting && (WBTimestamp < (NDS.ARM9Timestamp+1))) WBTimestamp = (NDS.ARM9Timestamp+1);
     }
 
     WriteBufferFifo[WBFillPointer] = val | (u64)flag << 61;
@@ -2129,6 +2128,7 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
 
     if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
 
+    WBTimestamp = NDS.ARM9Timestamp;
     DataRegion = Mem9_Null;
     return BusRead32(addr);
 }
@@ -2211,6 +2211,7 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
             NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
     }
     
+    WBTimestamp = NDS.ARM9Timestamp;
     *val = BusRead8(addr);
     return true;
 }
@@ -2294,6 +2295,7 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
             NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
     }
     
+    WBTimestamp = NDS.ARM9Timestamp;
     *val = BusRead16(addr);
     return true;
 }
@@ -2376,7 +2378,8 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
         if ((NDS.ARM9Timestamp <= WBReleaseTS) && (DataRegion == WBLastRegion)) // check write buffer
             NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
     }
-
+    
+    WBTimestamp = NDS.ARM9Timestamp;
     *val = BusRead32(addr);
     return true;
 }
@@ -2475,7 +2478,8 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
                 NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
         }
     }
-
+    
+    WBTimestamp = NDS.ARM9Timestamp;
     *val = BusRead32(addr);
     return true;
 }
@@ -2554,6 +2558,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
         }
         else DataRegion = NDS.ARM9Regions[addr>>14];
         
+        WBTimestamp = NDS.ARM9Timestamp;
         BusWrite8(addr, val);
     }
     else
@@ -2562,6 +2567,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
 
         WriteBufferWrite(addr, 4);
         WriteBufferWrite(val, 0, addr);
+        DataRegion = Mem9_Null;
         DataCycles = 1;
         WBDelay = NDS.ARM9Timestamp + 2;
     }
@@ -2644,6 +2650,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
         }
         else DataRegion = NDS.ARM9Regions[addr>>14];
         
+        WBTimestamp = NDS.ARM9Timestamp;
         BusWrite16(addr, val);
     }
     else
@@ -2652,6 +2659,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
 
         WriteBufferWrite(addr, 4);
         WriteBufferWrite(val, 1, addr);
+        DataRegion = Mem9_Null;
         DataCycles = 1;
         WBDelay = NDS.ARM9Timestamp + 2;
     }
@@ -2733,7 +2741,8 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
             DataCycles -= 2<<NDS.ARM9ClockShift;
         }
         else DataRegion = NDS.ARM9Regions[addr>>14];
-
+        
+        WBTimestamp = NDS.ARM9Timestamp;
         BusWrite32(addr, val);
     }
     else
@@ -2742,6 +2751,7 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
 
         WriteBufferWrite(addr, 4);
         WriteBufferWrite(val, 2, addr);
+        DataRegion = Mem9_Null;
         DataCycles = 1;
         WBDelay = NDS.ARM9Timestamp + 2;
     }
@@ -2839,11 +2849,13 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
             else DataRegion = NDS.ARM9Regions[addr>>14];
         }
         
+        WBTimestamp = NDS.ARM9Timestamp;
         BusWrite32(addr, val);
     }
     else
     {
         WriteBufferWrite(val, 3, addr);
+        DataRegion = Mem9_Null;
         DataCycles = 1;
         WBDelay = NDS.ARM9Timestamp + 2;
     }
