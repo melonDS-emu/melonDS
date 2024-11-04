@@ -215,6 +215,7 @@ void ARMv5::Reset()
     WBFillPointer = 0;
     WBDelay = 0;
     WBTimestamp = 0;
+    WBReleaseTS = 0;
     WBLastRegion = Mem9_Null;
     WBWriting = false;
 
@@ -327,7 +328,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 
     // jumps count as nonsequential accesses on the instruction bus on the arm9
     // thus it requires waiting for the current ICache line fill to complete before continuing
-    if (ICacheFillPtr != 7)
+    if (ICacheFillPtr < 7)
     {
         u64 fillend = ICacheFillTimes[6] + 1;
         if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend;
@@ -1156,8 +1157,8 @@ void ARMv5::CodeFetch()
 {
     if (NullFetch)
     {
-        // no fetch is performed.
-        // in practice it doesn't matter though.
+        // the value we need is cached by the bus
+        // in practice we can treat this as a 1 cycle fetch, with no penalties
         NextInstr[1] >>= 16;
         NDS.ARM9Timestamp++;
         if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;

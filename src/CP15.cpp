@@ -414,7 +414,7 @@ u32 ARMv5::ICacheLookup(const u32 addr)
         {
             u32 *cacheLine = (u32 *)&ICache[(id+set) << ICACHE_LINELENGTH_LOG2];
 
-            if (ICacheFillPtr == 7)
+            if (ICacheFillPtr >= 7)
             {
                 if (NDS.ARM9Timestamp < ITCMTimestamp) NDS.ARM9Timestamp = ITCMTimestamp; // does this apply to streamed fetches?
                 NDS.ARM9Timestamp++;
@@ -480,7 +480,6 @@ u32 ARMv5::ICacheLookup(const u32 addr)
         DataRegion = Mem9_Null;
         return NDS.ARM9Read32(addr & ~3); 
     }
-
     u32 line;
 
     if (CP15Control & CP15_CACHE_CR_ROUNDROBIN) [[likely]]
@@ -513,7 +512,7 @@ u32 ARMv5::ICacheLookup(const u32 addr)
 
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr != 7)
+    if (ICacheFillPtr < 7)
     {
         u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
@@ -545,7 +544,7 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_STREAMING) [[unlikely]]
     {
         NDS.ARM9Timestamp += MemTimings[tag >> 14][1] + (MemTimings[tag >> 14][2] * ((DCACHE_LINELENGTH / 4) - 1));
-        if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
+        if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual; // this should never trigger in practice
     }
     else // ICache Streaming logic
     {
@@ -558,7 +557,7 @@ u32 ARMv5::ICacheLookup(const u32 addr)
         NDS.ARM9Timestamp = cycles += NDS.ARM9Timestamp;
 
         if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
-    
+
         ICacheFillPtr = linepos;
         for (int i = linepos; i < 7; i++)
         {
@@ -566,7 +565,7 @@ u32 ARMv5::ICacheLookup(const u32 addr)
             ICacheFillTimes[i] = cycles;
         }
 
-        if ((addr >> 24) == 0x02) MainRAMTimestamp = ICacheFillTimes[6];
+        if ((addr >> 24) == 0x02) MainRAMTimestamp = ((linepos < 7) ? ICacheFillTimes[6] : NDS.ARM9Timestamp);
     }
 
     DataRegion = Mem9_Null;
@@ -660,21 +659,24 @@ u32 ARMv5::DCacheLookup(const u32 addr)
         {
             u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
 
-            if (DCacheFillPtr == 7) DataCycles = 1;
+            if (DCacheFillPtr >= 7)
+            {
+                DataCycles = 1;
+            }
             else
             {
                 u64 nextfill = DCacheFillTimes[DCacheFillPtr++];
-                if (NDS.ARM9Timestamp < nextfill)
+                //if (NDS.ARM9Timestamp < nextfill) // can this ever really fail?
                 {
                     DataCycles = nextfill - NDS.ARM9Timestamp;
                 }
-                else
+                /*else
                 {
                     u64 fillend = DCacheFillTimes[6] + 2;
                     if (NDS.ARM9Timestamp < fillend) DataCycles = fillend - NDS.ARM9Timestamp;
                     else DataCycles = 1;
                     DCacheFillPtr = 7;
-                }
+                }*/
             }
             DataRegion = Mem9_DCache;
             //Log(LogLevel::Debug, "DCache hit at %08lx returned %08x from set %i, line %i\n", addr, cacheLine[(addr & (DCACHE_LINELENGTH -1)) >> 2], set, id>>2);
@@ -690,7 +692,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     {
         // bus reads can only overlap with icache streaming by 6 cycles
         // checkme: does cache trigger this?
-        if (ICacheFillPtr != 7)
+        if (ICacheFillPtr < 7)
         {
             u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
             if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
@@ -767,7 +769,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
         NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
         NDS.ARM9Timestamp += MemTimings[tag >> 14][1] + (MemTimings[tag >> 14][2] * ((DCACHE_LINELENGTH / 4) - 2));
-        DataCycles = MemTimings[tag>>14][2] + 1;
+        DataCycles = MemTimings[tag>>14][2];
         
         if ((addr >> 24) == 0x02)
         {
@@ -813,7 +815,8 @@ u32 ARMv5::DCacheLookup(const u32 addr)
             cycles += seq;
             DCacheFillTimes[i] = cycles;
         }
-        if ((addr >> 24) == 0x02) MainRAMTimestamp = DCacheFillTimes[6];
+
+        if ((addr >> 24) == 0x02) MainRAMTimestamp = ((linepos < 7) ? ICacheFillTimes[6] : NDS.ARM9Timestamp);
     }
     return ptr[(addr & (DCACHE_LINELENGTH-1)) >> 2];
 }
@@ -1261,7 +1264,6 @@ inline bool ARMv5::WriteBufferHandle()
         }
 
         WBLastRegion = NDS.ARM9Regions[WBCurAddr>>14];
-        //printf("writing: adr: %i, val: %lli, cyl: %i", WBCurAddr, WBCurVal, WBCurCycles);
         WBWriting = false;
         if ((force == 2) && ((WriteBufferFifo[WBWritePointer] >> 61) != 3)) return true;
     }
@@ -2091,7 +2093,7 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
         }
     
     // bus reads can only overlap with dcache streaming by 6 cycles
-    if (DCacheFillPtr != 7)
+    if (DCacheFillPtr < 7)
     {
         u64 time = DCacheFillTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
@@ -2136,7 +2138,7 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
 
 bool ARMv5::DataRead8(u32 addr, u32* val)
 {
-    if (DCacheFillPtr != 7)
+    if (DCacheFillPtr < 7)
     {
         u64 fillend = DCacheFillTimes[6] + 1;
         if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
@@ -2182,7 +2184,7 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does dcache trigger this?
-    if (ICacheFillPtr != 7)
+    if (ICacheFillPtr < 7)
     {
         u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
@@ -2218,7 +2220,7 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
 
 bool ARMv5::DataRead16(u32 addr, u32* val)
 {
-    if (DCacheFillPtr != 7)
+    if (DCacheFillPtr < 7)
     {
         u64 fillend = DCacheFillTimes[6] + 1;
         if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
@@ -2266,7 +2268,7 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr != 7)
+    if (ICacheFillPtr < 7)
     {
         u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
@@ -2302,7 +2304,7 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
 
 bool ARMv5::DataRead32(u32 addr, u32* val)
 {
-    if (DCacheFillPtr != 7)
+    if (DCacheFillPtr < 7)
     {
         u64 fillend = DCacheFillTimes[6] + 1;
         if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
@@ -2350,7 +2352,7 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr != 7)
+    if (ICacheFillPtr < 7)
     {
         u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
@@ -2429,7 +2431,7 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr != 7)
+    if (ICacheFillPtr < 7)
     {
         u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
@@ -2486,7 +2488,7 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
 
 bool ARMv5::DataWrite8(u32 addr, u8 val)
 {
-    if (DCacheFillPtr != 7)
+    if (DCacheFillPtr < 7)
     {
         u64 fillend = DCacheFillTimes[6] + 1;
         if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
@@ -2535,7 +2537,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr != 7)
+    if (ICacheFillPtr < 7)
     {
         u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
@@ -2576,7 +2578,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
 
 bool ARMv5::DataWrite16(u32 addr, u16 val)
 {
-    if (DCacheFillPtr != 7)
+    if (DCacheFillPtr < 7)
     {
         u64 fillend = DCacheFillTimes[6] + 1;
         if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
@@ -2627,7 +2629,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr != 7)
+    if (ICacheFillPtr < 7)
     {
         u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
@@ -2668,7 +2670,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
 
 bool ARMv5::DataWrite32(u32 addr, u32 val)
 {
-    if (DCacheFillPtr != 7)
+    if (DCacheFillPtr < 7)
     {
         u64 fillend = DCacheFillTimes[6] + 1;
         if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
@@ -2719,7 +2721,7 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr != 7)
+    if (ICacheFillPtr < 7)
     {
         u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
@@ -2806,7 +2808,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr != 7)
+    if (ICacheFillPtr < 7)
     {
         u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
