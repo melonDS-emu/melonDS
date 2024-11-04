@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -31,11 +31,12 @@
 #include <QTimer>
 
 #include "glad/glad.h"
-#include "FrontendUtil.h"
+#include "ScreenLayout.h"
 #include "duckstation/gl/context.h"
 
 
-class EmuThread;
+class MainWindow;
+class EmuInstance;
 
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
@@ -57,6 +58,10 @@ public:
     explicit ScreenPanel(QWidget* parent);
     virtual ~ScreenPanel();
 
+    void setFilter(bool filter);
+
+    void setMouseHide(bool enable, int delay);
+
     QTimer* setupMouseTimer();
     void updateMouseTimer();
     QTimer* mouseTimer;
@@ -67,8 +72,34 @@ public:
 
 private slots:
     void onScreenLayoutChanged();
+    void onAutoScreenSizingChanged(int sizing);
 
 protected:
+    MainWindow* mainWindow;
+    EmuInstance* emuInstance;
+
+    bool filter;
+
+    int screenRotation;
+    int screenGap;
+    int screenLayout;
+    bool screenSwap;
+    int screenSizing;
+    bool integerScaling;
+    int screenAspectTop, screenAspectBot;
+
+    int autoScreenSizing;
+
+    ScreenLayout layout;
+    float screenMatrix[kMaxScreenTransforms][6];
+    int screenKind[kMaxScreenTransforms];
+    int numScreens;
+
+    bool touching = false;
+
+    bool mouseHide;
+    int mouseHideDelay;
+
     struct OSDItem
     {
         unsigned int id;
@@ -79,12 +110,21 @@ protected:
 
         bool rendered;
         QImage bitmap;
+
+        int rainbowstart;
+        int rainbowend;
     };
 
     QMutex osdMutex;
     bool osdEnabled;
     unsigned int osdID;
     std::deque<OSDItem> osdItems;
+
+    QPixmap splashLogo;
+    OSDItem splashText[3];
+    QPoint splashPos[4];
+
+    void loadConfig();
 
     virtual void setupScreenLayout();
 
@@ -98,12 +138,6 @@ protected:
     void touchEvent(QTouchEvent* event);
     bool event(QEvent* event) override;
 
-    float screenMatrix[Frontend::MaxScreenTransforms][6];
-    int screenKind[Frontend::MaxScreenTransforms];
-    int numScreens;
-
-    bool touching = false;
-
     void showCursor();
 
     int osdFindBreakPoint(const char* text, int i);
@@ -114,6 +148,8 @@ protected:
     virtual void osdDeleteItem(OSDItem* item);
 
     void osdUpdate();
+
+    void calcSplashLayout();
 };
 
 
@@ -132,7 +168,7 @@ private:
     void setupScreenLayout() override;
 
     QImage screen[2];
-    QTransform screenTrans[Frontend::MaxScreenTransforms];
+    QTransform screenTrans[kMaxScreenTransforms];
 };
 
 
@@ -152,6 +188,7 @@ public:
 
     void initOpenGL();
     void deinitOpenGL();
+    void makeCurrentGL();
     void drawScreenGL();
 
     GL::Context* getContext() { return glContext.get(); }
@@ -169,24 +206,27 @@ private:
     void setupScreenLayout() override;
 
     std::unique_ptr<GL::Context> glContext;
+    bool glInited;
 
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;
-    GLuint screenShaderProgram[3];
-    GLuint screenShaderTransformULoc, screenShaderScreenSizeULoc;
+    GLuint screenShaderProgram;
+    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc;
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;
-    bool filter;
 
     int lastScreenWidth = -1, lastScreenHeight = -1;
 
-    GLuint osdShader[3];
+    GLuint osdShader;
     GLint osdScreenSizeULoc, osdPosULoc, osdSizeULoc;
-    GLfloat osdScaleFactorULoc;
+    GLint osdScaleFactorULoc;
+    GLint osdTexScaleULoc;
     GLuint osdVertexArray;
     GLuint osdVertexBuffer;
     std::map<unsigned int, GLuint> osdTextures;
+
+    GLuint logoTexture;
 
     void osdRenderItem(OSDItem* item) override;
     void osdDeleteItem(OSDItem* item) override;

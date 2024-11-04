@@ -1,6 +1,6 @@
 
 #ifdef _WIN32
-#include <WS2tcpip.h>
+#include <ws2tcpip.h>
 #include <winsock.h>
 #include <winsock2.h>
 #endif
@@ -23,7 +23,7 @@
 
 
 #include "../Platform.h"
-#include "GdbProto.h"
+#include "GdbStub.h"
 
 using namespace melonDS;
 using Platform::Log;
@@ -100,6 +100,15 @@ bool GdbStub::Init()
 	{
 		Log(LogLevel::Error, "[GDB] err: can't create a socket fd\n");
 		goto err;
+	}
+	{
+		// Make sure the port can be reused immediately after melonDS stops and/or restarts
+		int enable = 1;
+#ifdef _WIN32
+		setsockopt(SockFd, SOL_SOCKET, SO_REUSEADDR, (const char*)&enable, sizeof(enable));
+#else
+		setsockopt(SockFd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
+#endif
 	}
 #ifndef __linux__
 	SocketSetBlocking(SockFd, false);
@@ -304,7 +313,7 @@ StubState GdbStub::Poll(bool wait)
 		if (ConnFd < 0) return StubState::NoConn;
 
 		u8 a;
-		if (Proto::WaitAckBlocking(ConnFd, &a, 1000) < 0)
+		if (WaitAckBlocking(&a, 1000) < 0)
 		{
 			Log(LogLevel::Error, "[GDB] inital handshake: didn't receive inital ack!\n");
 			close(ConnFd);
@@ -380,7 +389,7 @@ StubState GdbStub::Poll(bool wait)
 #endif
 #endif
 
-	ReadResult res = Proto::MsgRecv(ConnFd, Cmdbuf);
+	ReadResult res = MsgRecv();
 
 	switch (res)
 	{
@@ -422,11 +431,12 @@ ExecResult GdbStub::SubcmdExec(const u8* cmd, ssize_t len, const SubcmdHandler* 
 		// check if prefix matches
 		if (!strncmp((const char*)cmd, handlers[i].SubStr, strlen(handlers[i].SubStr)))
 		{
-			if (SendAck() < 0)
+			// ack should have already been sent by CmdExec
+			/*if (SendAck() < 0)
 			{
 				Log(LogLevel::Error, "[GDB] send packet ack failed!\n");
 				return ExecResult::NetErr;
-			}
+			}*/
 			return handlers[i].Handler(this, &cmd[strlen(handlers[i].SubStr)], len-strlen(handlers[i].SubStr));
 		}
 	}
@@ -444,7 +454,7 @@ ExecResult GdbStub::SubcmdExec(const u8* cmd, ssize_t len, const SubcmdHandler* 
 
 ExecResult GdbStub::CmdExec(const CmdHandler* handlers)
 {
-	Log(LogLevel::Debug, "[GDB] command in: '%s'\n", Cmdbuf);
+	Log(LogLevel::Debug, "[GDB] command in: '%s'\n", &Cmdbuf[0]);
 
 	for (size_t i = 0; handlers[i].Handler != NULL; ++i)
 	{
@@ -644,24 +654,13 @@ StubState GdbStub::CheckWatchpt(u32 addr, int kind, bool enter, bool stay)
 	return StubState::CheckNoHit;
 }
 
-int GdbStub::SendAck()
-{
-	if (NoAck) return 1;
-	return Proto::SendAck(ConnFd);
-}
-int GdbStub::SendNak()
-{
-	if (NoAck) return 1;
-	return Proto::SendNak(ConnFd);
-}
-
 int GdbStub::Resp(const u8* data1, size_t len1, const u8* data2, size_t len2)
 {
-	return Proto::Resp(ConnFd, data1, len1, data2, len2, NoAck);
+	return Resp(data1, len1, data2, len2, NoAck);
 }
 int GdbStub::RespC(const char* data1, size_t len1, const u8* data2, size_t len2)
 {
-	return Proto::Resp(ConnFd, (const u8*)data1, len1, data2, len2, NoAck);
+	return Resp((const u8*)data1, len1, data2, len2, NoAck);
 }
 #if defined(__GCC__) || defined(__clang__)
 __attribute__((__format__(printf, 2/*includes implicit this*/, 3)))
@@ -670,19 +669,19 @@ int GdbStub::RespFmt(const char* fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	int r = vsnprintf((char*)&Proto::RespBuf[1], sizeof(Proto::RespBuf)-5, fmt, args);
+	int r = vsnprintf((char*)&RespBuf[1], sizeof(RespBuf)-5, fmt, args);
 	va_end(args);
 
 	if (r < 0) return r;
 
-	if ((size_t)r >= sizeof(Proto::RespBuf)-5)
+	if ((size_t)r >= sizeof(RespBuf)-5)
 	{
 		Log(LogLevel::Error, "[GDB] truncated response in send_fmt()! (lost %zd bytes)\n",
-				(ssize_t)r - (ssize_t)(sizeof(Proto::RespBuf)-5));
-		r = sizeof(Proto::RespBuf)-5;
+				(ssize_t)r - (ssize_t)(sizeof(RespBuf)-5));
+		r = sizeof(RespBuf)-5;
 	}
 
-	return Resp(&Proto::RespBuf[1], r);
+	return Resp(&RespBuf[1], r);
 }
 
 int GdbStub::RespStr(const char* str)

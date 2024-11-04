@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -40,7 +40,7 @@ RTC::RTC(melonDS::NDS& nds) : NDS(nds)
 
     // indicate the power was off
     // this will be changed if a previously saved RTC state is loaded
-    State.StatusReg1 = 0x80;
+    State.StatusReg1 = 0x80 | (1<<1);
 }
 
 RTC::~RTC()
@@ -602,7 +602,7 @@ void RTC::SaveDateTime()
 {
     int y, m, d, h, i, s;
     GetDateTime(y, m, d, h, i, s);
-    Platform::WriteDateTime(y, m, d, h, i, s);
+    Platform::WriteDateTime(y, m, d, h, i, s, NDS.UserData);
 }
 
 void RTC::CmdRead()

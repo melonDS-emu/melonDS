@@ -1,6 +1,6 @@
 
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -24,6 +24,8 @@
 
 namespace Ui { class PathSettingsDialog; }
 class PathSettingsDialog;
+
+class EmuInstance;
 
 class PathSettingsDialog : public QDialog
 {
@@ -62,6 +64,7 @@ private slots:
 
 private:
     Ui::PathSettingsDialog* ui;
+    EmuInstance* emuInstance;
 };
 
 #endif // PATHSETTINGSDIALOG_H

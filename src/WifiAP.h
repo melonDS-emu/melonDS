@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -28,12 +28,13 @@ class Wifi;
 class WifiAP
 {
 public:
-    WifiAP(Wifi* client);
+    WifiAP(Wifi* client, void* userdata);
     ~WifiAP();
     void Reset();
 
     static const char* APName;
     static const u8 APMac[6];
+    static const u8 APChannel;
 
     void MSTimer();
 
@@ -43,6 +44,7 @@ public:
 
 private:
     Wifi* Client;
+    void* UserData;
 
     u64 USCounter;
 

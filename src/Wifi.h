@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -52,11 +52,12 @@ public:
         W_RXCnt = 0x030,
         W_WEPCnt = 0x032,
 
+        W_TRXPower = 0x034,
         W_PowerUS = 0x036,
         W_PowerTX = 0x038,
         W_PowerState = 0x03C,
         W_PowerForce = 0x040,
-        W_PowerUnk = 0x48,
+        W_PowerDownCtrl = 0x48,
 
         W_Random = 0x044,
 
@@ -206,6 +207,10 @@ private:
     u8 RFVersion;
     u32 RFRegs[0x40];
 
+    u32 RFChannelIndex[2];
+    u32 RFChannelData[14][2];
+    int CurChannel;
+
     struct TXSlot
     {
         bool Valid;
@@ -236,11 +241,7 @@ private:
 
     u16 MPLastSeqno;
 
-    bool MPInited;
-    bool LANInited;
-
     int USUntilPowerOn;
-    bool ForcePowerOn;
 
     // MULTIPLAYER SYNC APPARATUS
     bool IsMP;
@@ -253,13 +254,15 @@ private:
     void ScheduleTimer(bool first);
     void UpdatePowerOn();
 
+    void CheckIRQ(u16 oldflags);
     void SetIRQ(u32 irq);
     void SetIRQ13();
     void SetIRQ14(int source);
     void SetIRQ15();
 
     void SetStatus(u32 status);
-    void PowerDown();
+
+    void UpdatePowerStatus(int power);
 
     int PreambleLen(int rate) const;
     u32 NumClients(u16 bitmask) const;
@@ -283,6 +286,8 @@ private:
     bool CheckRX(int type);
 
     void MSTimer();
+
+    void ChangeChannel();
 
     void RFTransfer_Type2();
     void RFTransfer_Type3();

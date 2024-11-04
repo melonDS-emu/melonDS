@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -23,7 +23,7 @@
 #include "ARMJIT.h"
 
 #include "GPU2D_Soft.h"
-#include "GPU3D_Soft.h"
+#include "GPU3D.h"
 
 namespace melonDS
 {

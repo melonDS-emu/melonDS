@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -197,7 +197,7 @@ public:
 
     FIFO<CmdFIFOEntry, 64> CmdStallQueue {};
 
-    u32 ZeroDotWLimit = 0;
+    u32 ZeroDotWLimit = 0xFFFFFF;
 
     u32 GXStat = 0;
 
@@ -286,6 +286,7 @@ public:
     s16 Normal[3] {};
 
     s16 LightDirection[4][3] {};
+    s32 SpecRecip[4] {};
     u8 LightColor[4][3] {};
     u8 MatDiffuse[3] {};
     u8 MatAmbient[3] {};
@@ -349,7 +350,14 @@ public:
     virtual void RestartFrame(GPU& gpu) {};
     virtual u32* GetLine(int line) = 0;
     virtual void Blit(const GPU& gpu) {};
+
+    virtual void SetupAccelFrame() {}
     virtual void PrepareCaptureFrame() {}
+    virtual void BindOutputTexture(int buffer) {}
+
+    virtual bool NeedsShaderCompile() { return false; }
+    virtual void ShaderCompileStep(int& current, int& count) {}
+
 protected:
     Renderer3D(bool Accelerated);
 };

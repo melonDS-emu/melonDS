@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -21,6 +21,7 @@
 #include "DSi.h"
 #include "DMA.h"
 #include "GPU.h"
+#include "GPU3D.h"
 #include "DMA_Timings.h"
 #include "Platform.h"
 

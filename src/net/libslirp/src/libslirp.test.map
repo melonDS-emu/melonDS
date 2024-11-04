@@ -1,0 +1,9 @@
+SLIRP_4.0 {
+global:
+    main;
+local:
+    *;
+};
+
+SLIRP_4.1 {
+} SLIRP_4.0;

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -44,12 +44,11 @@ public:
     void Stop(const GPU& gpu) override;
     u32* GetLine(int line) override;
 
-    void SetupAccelFrame();
+    void SetupAccelFrame() override;
     void PrepareCaptureFrame() override;
     void Blit(const GPU& gpu) override;
 
-    [[nodiscard]] const GLCompositor& GetCompositor() const noexcept { return CurGLCompositor; }
-    GLCompositor& GetCompositor() noexcept { return CurGLCompositor; }
+    void BindOutputTexture(int buffer) override;
 
     static std::unique_ptr<GLRenderer> New() noexcept;
 private:
@@ -77,7 +76,7 @@ private:
     GLCompositor CurGLCompositor;
     RendererPolygon PolygonList[2048] {};
 
-    bool BuildRenderShader(u32 flags, const char* vs, const char* fs);
+    bool BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs);
     void UseRenderShader(u32 flags);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32* vptr) const;
@@ -96,13 +95,13 @@ private:
     };
 
 
-    GLuint ClearShaderPlain[3] {};
+    GLuint ClearShaderPlain {};
 
-    GLuint RenderShader[16][3] {};
+    GLuint RenderShader[16] {};
     GLuint CurShaderID = -1;
 
-    GLuint FinalPassEdgeShader[3] {};
-    GLuint FinalPassFogShader[3] {};
+    GLuint FinalPassEdgeShader {};
+    GLuint FinalPassFogShader {};
 
     // std140 compliant structure
     struct
@@ -155,12 +154,12 @@ private:
     bool BetterPolygons {};
     int ScreenW {}, ScreenH {};
 
-    GLuint FramebufferTex[8] {};
-    int FrontBuffer {};
-    GLuint FramebufferID[4] {}, PixelbufferID {};
+    GLuint ColorBufferTex {}, DepthBufferTex {}, AttrBufferTex {};
+    GLuint DownScaleBufferTex {};
+    GLuint PixelbufferID {};
+
+    GLuint MainFramebuffer {}, DownscaleFramebuffer {};
     u32 Framebuffer[256*192] {};
-
-
 };
 }
 #endif
