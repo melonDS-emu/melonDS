@@ -126,6 +126,10 @@ elseif (APPLE)
     target_sources(melonDS PRIVATE
         ../duckstation/gl/context_agl.mm
     )
+    set_source_files_properties(
+        ../duckstation/gl/context_agl.mm
+        PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations"
+    )
 else()
     find_package(X11 REQUIRED)
     find_package(EGL REQUIRED)
