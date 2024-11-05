@@ -865,13 +865,13 @@ std::unique_ptr<CartCommon> LoadAddon(int type, void* userdata)
         cart = std::make_unique<CartRumblePak>(userdata);
         break;
     case GBAAddon_MotionPakHomebrew:
-        Cart = std::make_unique<CartMotionPakHomebrew>(userdata);
+        cart = std::make_unique<CartMotionPakHomebrew>(userdata);
         break;
     case GBAAddon_MotionPakRetail:
-        Cart = std::make_unique<CartMotionPakRetail>(userdata);
+        cart = std::make_unique<CartMotionPakRetail>(userdata);
         break;
     case GBAAddon_GuitarGrip:
-        Cart = std::make_unique<CartGuitarGrip>(userdata);
+        cart = std::make_unique<CartGuitarGrip>(userdata);
         break;
 
     default:
