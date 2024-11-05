@@ -26,6 +26,7 @@ uniform vec2 uScreenSize;
 uniform ivec2 uOSDPos;
 uniform ivec2 uOSDSize;
 uniform float uScaleFactor;
+uniform float uTexScale;
 
 in vec2 vPosition;
 
@@ -35,8 +36,8 @@ void main()
 {
     vec4 fpos;
 
-    vec2 osdpos = (vPosition * vec2(uOSDSize * uScaleFactor));
-    fTexcoord = osdpos;
+    vec2 osdpos = (vPosition * vec2(uOSDSize));
+    fTexcoord = osdpos * uTexScale;
     osdpos += uOSDPos;
 
     fpos.xy = ((osdpos * 2.0) / uScreenSize * uScaleFactor) - 1.0;

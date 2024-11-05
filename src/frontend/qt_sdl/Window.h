@@ -135,6 +135,10 @@ public:
 
     void onAppStateChanged(Qt::ApplicationState state);
 
+    void onFocusIn();
+    void onFocusOut();
+    bool isFocused() { return focused; }
+
     void osdAddMessage(unsigned int color, const char* msg);
 
     // called when the MP interface is changed
@@ -270,6 +274,8 @@ private:
 
     int windowID;
     bool enabledSaved;
+
+    bool focused;
 
     EmuInstance* emuInstance;
     EmuThread* emuThread;

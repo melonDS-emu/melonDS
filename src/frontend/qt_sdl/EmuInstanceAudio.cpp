@@ -107,7 +107,11 @@ void EmuInstance::micCallback(void* data, Uint8* stream, int len)
     s16* input = (s16*)stream;
     len /= sizeof(s16);
 
+    SDL_LockMutex(inst->micLock);
     int maxlen = sizeof(micExtBuffer) / sizeof(s16);
+
+    if ((inst->micExtBufferCount + len) > maxlen)
+        len = maxlen - inst->micExtBufferCount;
 
     if ((inst->micExtBufferWritePos + len) > maxlen)
     {
@@ -121,11 +125,15 @@ void EmuInstance::micCallback(void* data, Uint8* stream, int len)
         memcpy(&inst->micExtBuffer[inst->micExtBufferWritePos], input, len*sizeof(s16));
         inst->micExtBufferWritePos += len;
     }
+
+    inst->micExtBufferCount += len;
+    SDL_UnlockMutex(inst->micLock);
 }
 
 void EmuInstance::audioMute()
 {
     audioMuted = false;
+    if (numEmuInstances() < 2) return;
 
     switch (mpAudioMode)
     {
@@ -134,10 +142,16 @@ void EmuInstance::audioMute()
             break;
 
         case 2: // only currently focused instance
-            //if (mainWindow != nullptr)
-            //    audioMuted = !mainWindow->isActiveWindow();
-            // TODO!!
-            printf("TODO!! audioMute mode 2\n");
+            audioMuted = true;
+            for (int i = 0; i < kMaxWindows; i++)
+            {
+                if (!windowList[i]) continue;
+                if (windowList[i]->isFocused())
+                {
+                    audioMuted = false;
+                    break;
+                }
+            }
             break;
     }
 }
@@ -270,6 +284,8 @@ void EmuInstance::micLoadWav(const std::string& name)
 
 void EmuInstance::micProcess()
 {
+    SDL_LockMutex(micLock);
+
     int type = micInputType;
     bool cmd = hotkeyDown(HK_Mic);
 
@@ -277,6 +293,8 @@ void EmuInstance::micProcess()
     {
         type = micInputType_Silence;
     }
+
+    const int kFrameLen = 735;
 
     switch (type)
     {
@@ -289,21 +307,35 @@ void EmuInstance::micProcess()
         case micInputType_Wav: // WAV
             if (micBuffer)
             {
-                if ((micBufferReadPos + 735) > micBufferLength)
-                {
-                    s16 tmp[735];
-                    u32 len1 = micBufferLength - micBufferReadPos;
-                    memcpy(&tmp[0], &micBuffer[micBufferReadPos], len1*sizeof(s16));
-                    memcpy(&tmp[len1], &micBuffer[0], (735 - len1)*sizeof(s16));
+                int len = kFrameLen;
+                if (micExtBufferCount < len)
+                    len = micExtBufferCount;
 
-                    nds->MicInputFrame(tmp, 735);
-                    micBufferReadPos = 735 - len1;
+                s16 tmp[kFrameLen];
+
+                if ((micBufferReadPos + len) > micBufferLength)
+                {
+                    u32 part1 = micBufferLength - micBufferReadPos;
+                    memcpy(&tmp[0], &micBuffer[micBufferReadPos], part1*sizeof(s16));
+                    memcpy(&tmp[part1], &micBuffer[0], (len - part1)*sizeof(s16));
+
+                    micBufferReadPos = len - part1;
                 }
                 else
                 {
-                    nds->MicInputFrame(&micBuffer[micBufferReadPos], 735);
-                    micBufferReadPos += 735;
+                    memcpy(&tmp[0], &micBuffer[micBufferReadPos], len*sizeof(s16));
+
+                    micBufferReadPos += len;
                 }
+
+                if (len < kFrameLen)
+                {
+                    for (int i = len; i < kFrameLen; i++)
+                        tmp[i] = tmp[len-1];
+                }
+                nds->MicInputFrame(tmp, 735);
+
+                micExtBufferCount -= len;
             }
             else
             {
@@ -317,19 +349,21 @@ void EmuInstance::micProcess()
                 int sample_len = sizeof(mic_blow) / sizeof(u16);
                 static int sample_pos = 0;
 
-                s16 tmp[735];
+                s16 tmp[kFrameLen];
 
-                for (int i = 0; i < 735; i++)
+                for (int i = 0; i < kFrameLen; i++)
                 {
                     tmp[i] = mic_blow[sample_pos] ^ 0x8000;
                     sample_pos++;
                     if (sample_pos >= sample_len) sample_pos = 0;
                 }
 
-                nds->MicInputFrame(tmp, 735);
+                nds->MicInputFrame(tmp, kFrameLen);
             }
             break;
     }
+
+    SDL_UnlockMutex(micLock);
 }
 
 void EmuInstance::setupMicInputData()
@@ -402,11 +436,14 @@ void EmuInstance::audioInit()
 
     memset(micExtBuffer, 0, sizeof(micExtBuffer));
     micExtBufferWritePos = 0;
+    micExtBufferCount = 0;
     micWavBuffer = nullptr;
 
     micBuffer = nullptr;
     micBufferLength = 0;
     micBufferReadPos = 0;
+
+    micLock = SDL_CreateMutex();
 
     setupMicInputData();
 }
@@ -425,6 +462,9 @@ void EmuInstance::audioDeInit()
 
     if (micWavBuffer) delete[] micWavBuffer;
     micWavBuffer = nullptr;
+
+    if (micLock) SDL_DestroyMutex(micLock);
+    micLock = nullptr;
 }
 
 void EmuInstance::audioSync()

@@ -148,6 +148,12 @@ public:
     SDL_Joystick* getJoystick() { return joystick; }
     std::vector<int> heldKeys;
     std::vector<int> keyStrokes;
+
+    void touchScreen(int x, int y);
+    void releaseScreen();
+
+    QMutex renderLock;
+
 private:
     static int lastSep(const std::string& path);
     std::string getAssetPath(bool gba, const std::string& configpath, const std::string& ext, const std::string& file);
@@ -296,8 +302,9 @@ private:
     int mpAudioMode;
 
     SDL_AudioDeviceID micDevice;
-    melonDS::s16 micExtBuffer[2048];
+    melonDS::s16 micExtBuffer[4096];
     melonDS::u32 micExtBufferWritePos;
+    melonDS::u32 micExtBufferCount;
 
     melonDS::u32 micWavLength;
     melonDS::s16* micWavBuffer;
@@ -305,6 +312,8 @@ private:
     melonDS::s16* micBuffer;
     melonDS::u32 micBufferLength;
     melonDS::u32 micBufferReadPos;
+
+    SDL_mutex* micLock;
 
     //int audioInterp;
     int audioVolume;
@@ -330,6 +339,9 @@ private:
     melonDS::u32 hotkeyPress, hotkeyRelease;
 
     melonDS::u32 inputMask;
+
+    bool isTouching;
+    melonDS::u16 touchX, touchY;
 
     friend class EmuThread;
     friend class MainWindow;
