@@ -161,7 +161,7 @@ void CartMotionPakRetail::DoSavestate(Savestate* file)
 
 u16 CartMotionPakRetail::ROMRead(u32 addr) const
 {
-    // CHECKME: Retail cartridge seems to return 0x7C7C.
+    // A9-A8 is pulled low on a real Motion Pack.
     return 0xFCFF;
 }
 
