@@ -140,7 +140,7 @@ end
 function KeyHeld(keyStr)
     -- Only need to update mask once per frame
     if updateFlags.KeyboardCheck == nil then
-        mask = KeyboardMask()
+        mask = HeldKeys()
         updateFlags.KeyboardCheck = true 
     end
     return mask[string.byte(keyStr:sub(1,1))]

@@ -128,17 +128,17 @@ void LuaBundle::createLuaState()
     overlays->clear();
     flagNewLua = false;
     luaState = nullptr;
-    std::string fileName = luaDialog->currentScript.fileName().toStdString();
-    std::string filedir = luaDialog->currentScript.dir().path().toStdString();
+    QByteArray fileName = luaDialog->currentScript.fileName().toLocal8Bit();
+    QString filedir = luaDialog->currentScript.dir().path();
     lua_State* L = luaL_newstate();
     LuaBundle* pBundle = this;
     std::memcpy(lua_getextraspace(L), &pBundle, sizeof(LuaBundle*)); //Write a pointer to this LuaBundle into the extra space of the new lua_State
     luaL_openlibs(L);
     for (LuaFunction* function : definedLuaFunctions)
         lua_register(L,function->name,function->cfunction);
-    std::filesystem::current_path(filedir.c_str());
+    QDir::setCurrent(filedir);
     lua_sethook(L,&luaHookFunction,LUA_MASKCOUNT,MELON_LUA_HOOK_INSTRUCTION_COUNT); 
-    if (luaL_dofile(L,&fileName[0])==LUA_OK)
+    if (luaL_dofile(L,fileName.data())==LUA_OK)
     {
         luaState = L;
     }
@@ -412,18 +412,18 @@ int Lua_getMouse(lua_State* L)
 }
 AddLuaFunction(Lua_getMouse,GetMouse);
 
-int Lua_KeyboardMask(lua_State* L)
+int Lua_HeldKeys(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
-    lua_createtable(L,0,256);
-    for (int i=0;i<256;i++)
+    lua_createtable(L,0,bundle->getEmuInstance()->heldKeys.size());
+    for (int key : bundle->getEmuInstance()->heldKeys)
     {
-        lua_pushboolean(L,bundle->getEmuInstance()->KeyboardMask[i]);
-        lua_seti(L,-2,i);
+        lua_pushboolean(L,true);
+        lua_seti(L,-2,key);
     }
-    return 1;//returns table of 256 booleans describing the current state of the keyboard.
+    return 1;//returns table of currently held keys.
 }
-AddLuaFunction(Lua_KeyboardMask,KeyboardMask);
+AddLuaFunction(Lua_HeldKeys,HeldKeys);
 
 /*--------------------------------------------------------------------------------------------------
                             Front-end lua function definitions

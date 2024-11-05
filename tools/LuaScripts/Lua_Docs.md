@@ -86,28 +86,26 @@ end
     end
     ```
 
-`tKeyMask KeyboardMask()`
-- Returns a lua table of 256 bool values representing the current state of the keyboard.
-- Most Keys are ascii
-- TODO: Improve support for non-US Keyboards
+`tKeyMask HeldKeys()`
+- Returns a lua table containing the value "true" for each held key and "nil" for any key not currently held. 
+- check the Qt docs for a list of key codes: https://doc.qt.io/qt-6/qt.html#Key-enum
 - Example
     ```Lua
-    --Print id of key being pressed
-    for k,v in pairs(KeyboardMask()) do
-        if v then 
-            print("KeyPressed:"..k)
-        end
+    --Loop over all currently held keys
+    for k,_ in pairs(HeldKeys()) do
+        print("KeyPressed:"..k)
     end
     --Check if the "Q" key is currently pressed
-    if KeyboardMask()[string.byte("Q")] then
+    if HeldKeys()[string.byte("Q")] then
         print("\"Q\" Pressed!")
     end
     ```
 
 `tKeyStrokes Keys()` 
 - Returns a lua table of all keys pressed since the last time `Keys()` was called...
-- DIFFERENT from `KeyboardMask()`
-- Mostly used for detecting special non-US Keyboard keys, or for faster typing/higher poll rate
+- DIFFERENT from `HeldKeys()`
+- This function keeps proper track of the order of keys typed, and if the same key was pressed multiple times since the last check.
+- Mostly used for cases that need faster typing/higher poll rate... otherwise use HeldKeys() for most use cases.
 - Example 
     ```Lua
     typed = ""
