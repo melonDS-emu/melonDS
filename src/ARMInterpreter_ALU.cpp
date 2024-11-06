@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include "ARM.h"
 #include "NDS.h"
+#include "ARMInterpreter_MultiplySuperLLE.h"
 
 namespace melonDS::ARMInterpreter
 {
@@ -854,7 +855,6 @@ void A_MUL(ARM* cpu)
     {
         cpu->SetNZ(res & 0x80000000,
                    !res);
-        if (cpu->Num==1) cpu->SetC(0);
     }
 
     u32 cycles;
@@ -866,6 +866,7 @@ void A_MUL(ARM* cpu)
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 2;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 3;
         else cycles = 4;
+        if (cpu->CurInstr & (1<<20)) cpu->SetC(MULSCarry(rm, rs, 0, cycles==4));
     }
 
     cpu->AddCycles_CI(cycles);
@@ -886,7 +887,6 @@ void A_MLA(ARM* cpu)
     {
         cpu->SetNZ(res & 0x80000000,
                    !res);
-        if (cpu->Num==1) cpu->SetC(0);
     }
 
     u32 cycles;
@@ -898,6 +898,7 @@ void A_MLA(ARM* cpu)
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
         else cycles = 5;
+        if (cpu->CurInstr & (1<<20)) cpu->SetC(MULSCarry(rm, rs, rn, cycles==5));
     }
 
     cpu->AddCycles_CI(cycles);
@@ -919,7 +920,6 @@ void A_UMULL(ARM* cpu)
     {
         cpu->SetNZ((u32)(res >> 63ULL),
                    !res);
-        if (cpu->Num==1) cpu->SetC(0);
     }
 
     u32 cycles;
@@ -931,6 +931,7 @@ void A_UMULL(ARM* cpu)
         else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
         else cycles = 5;
+        if (cpu->CurInstr & (1<<20)) cpu->SetC(UMULLSCarry(0, rm, rs, cycles==5));
     }
 
     cpu->AddCycles_CI(cycles);
@@ -955,7 +956,6 @@ void A_UMLAL(ARM* cpu)
     {
         cpu->SetNZ((u32)(res >> 63ULL),
                    !res);
-        if (cpu->Num==1) cpu->SetC(0);
     }
 
     u32 cycles;
@@ -967,6 +967,7 @@ void A_UMLAL(ARM* cpu)
         else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
         else cycles = 5;
+        if (cpu->CurInstr & (1<<20)) cpu->SetC(UMULLSCarry(rd, rm, rs, cycles==5));
     }
 
     cpu->AddCycles_CI(cycles);
@@ -988,7 +989,6 @@ void A_SMULL(ARM* cpu)
     {
         cpu->SetNZ((u32)(res >> 63ULL),
                    !res);
-        if (cpu->Num==1) cpu->SetC(0);
     }
 
     u32 cycles;
@@ -1000,6 +1000,7 @@ void A_SMULL(ARM* cpu)
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
         else cycles = 5;
+        if (cpu->CurInstr & (1<<20)) cpu->SetC(SMULLSCarry(0, rm, rs, cycles==5));
     }
 
     cpu->AddCycles_CI(cycles);
@@ -1024,7 +1025,6 @@ void A_SMLAL(ARM* cpu)
     {
         cpu->SetNZ((u32)(res >> 63ULL),
                    !res);
-        if (cpu->Num==1) cpu->SetC(0);
     }
 
     u32 cycles;
@@ -1036,6 +1036,7 @@ void A_SMLAL(ARM* cpu)
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
         else cycles = 5;
+        if (cpu->CurInstr & (1<<20)) cpu->SetC(SMULLSCarry(rd, rm, rs, cycles==5));
     }
 
     cpu->AddCycles_CI(cycles);
@@ -1575,18 +1576,18 @@ void T_MUL_REG(ARM* cpu)
     cpu->SetNZ(res & 0x80000000,
                !res);
 
-    s32 cycles = 0;
+    s32 cycles;
     if (cpu->Num == 0)
     {
-        cycles += 3;
+        cycles = 3;
     }
     else
     {
-        cpu->SetC(0); // carry flag destroyed, they say. whatever that means...
         if      ((a & 0xFFFFFF00) == 0x00000000 || (a & 0xFFFFFF00) == 0xFFFFFF00) cycles = 1;
         else if ((a & 0xFFFF0000) == 0x00000000 || (a & 0xFFFF0000) == 0xFFFF0000) cycles = 2;
         else if ((a & 0xFF000000) == 0x00000000 || (a & 0xFF000000) == 0xFF000000) cycles = 3;
         else cycles = 4;
+        cpu->SetC(MULSCarry(b, a, 0, cycles==4)); // carry flag destroyed, they say. whatever that means...
     }
     cpu->AddCycles_CI(cycles);
 }
