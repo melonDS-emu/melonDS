@@ -37,6 +37,9 @@ set(SOURCES_QT_SDL
     QPathInput.h
     SaveManager.cpp
     CameraManager.cpp
+    AboutDialog.cpp
+    AboutDialog.h
+    AboutDialog.ui
 
     ArchiveUtil.h
     ArchiveUtil.cpp
@@ -56,11 +59,7 @@ set(SOURCES_QT_SDL
     NetplayDialog.cpp
 )
 
-if (APPLE)
-    option(USE_QT6 "Build using Qt 6 instead of 5" ON)
-else()
-    option(USE_QT6 "Build using Qt 6 instead of 5" OFF)
-endif()
+option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)
 
 if (USE_QT6)
     find_package(Qt6 COMPONENTS Core Gui Widgets Network Multimedia OpenGL OpenGLWidgets Svg REQUIRED)
@@ -118,6 +117,10 @@ elseif (APPLE)
     target_link_libraries(melonDS PRIVATE ${OPENGL_LIB})
     target_sources(melonDS PRIVATE
         ../duckstation/gl/context_agl.mm
+    )
+    set_source_files_properties(
+        ../duckstation/gl/context_agl.mm
+        PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations"
     )
 else()
     find_package(X11 REQUIRED)

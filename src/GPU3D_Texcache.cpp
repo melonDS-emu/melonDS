@@ -75,11 +75,11 @@ inline u32 ConvertRGB5ToRGB6(u16 val)
 }
 
 template <int outputFmt>
-void ConvertBitmapTexture(u32 width, u32 height, u32* output, u8* texData)
+void ConvertBitmapTexture(u32 width, u32 height, u32* output, u32 addr, GPU& gpu)
 {
     for (u32 i = 0; i < width*height; i++)
     {
-        u16 value = *(u16*)&texData[i * 2];
+        u16 value = gpu.ReadVRAMFlat_Texture<u16>(addr + i * 2);
 
         switch (outputFmt)
         {
@@ -96,28 +96,28 @@ void ConvertBitmapTexture(u32 width, u32 height, u32* output, u8* texData)
     }
 }
 
-template void ConvertBitmapTexture<outputFmt_RGB6A5>(u32 width, u32 height, u32* output, u8* texData);
+template void ConvertBitmapTexture<outputFmt_RGB6A5>(u32 width, u32 height, u32* output, u32 addr, GPU& gpu);
 
 template <int outputFmt>
-void ConvertCompressedTexture(u32 width, u32 height, u32* output, u8* texData, u8* texAuxData, u16* palData)
+void ConvertCompressedTexture(u32 width, u32 height, u32* output, u32 addr, u32 addrAux, u32 palAddr, GPU& gpu)
 {
     // we process a whole block at the time
     for (int y = 0; y < height / 4; y++)
     {
         for (int x = 0; x < width / 4; x++)
         {
-            u32 data = ((u32*)texData)[x + y * (width / 4)];
-            u16 auxData = ((u16*)texAuxData)[x + y * (width / 4)];
+            u32 data = gpu.ReadVRAMFlat_Texture<u32>(addr + (x + y * (width / 4))*4);
+            u16 auxData = gpu.ReadVRAMFlat_Texture<u16>(addrAux + (x + y * (width / 4))*2);
 
-            u32 paletteOffset = auxData & 0x3FFF;
-            u16 color0 = palData[paletteOffset*2] | 0x8000;
-            u16 color1 = palData[paletteOffset*2+1] | 0x8000;
-            u16 color2, color3;
+            u32 paletteOffset = palAddr + (auxData & 0x3FFF) * 4;
+            u16 color0 = gpu.ReadVRAMFlat_TexPal<u16>(paletteOffset) | 0x8000;
+            u16 color1 = gpu.ReadVRAMFlat_TexPal<u16>(paletteOffset+2) | 0x8000;
+            u16 color2 = gpu.ReadVRAMFlat_TexPal<u16>(paletteOffset+4) | 0x8000;
+            u16 color3 = gpu.ReadVRAMFlat_TexPal<u16>(paletteOffset+6) | 0x8000;
 
             switch ((auxData >> 14) & 0x3)
             {
             case 0:
-                color2 = palData[paletteOffset*2+2] | 0x8000;
                 color3 = 0;
                 break;
             case 1:
@@ -137,8 +137,6 @@ void ConvertCompressedTexture(u32 width, u32 height, u32* output, u8* texData, u
                 color3 = 0;
                 break;
             case 2:
-                color2 = palData[paletteOffset*2+2] | 0x8000;
-                color3 = palData[paletteOffset*2+3] | 0x8000;
                 break;
             case 3:
                 {
@@ -179,7 +177,8 @@ void ConvertCompressedTexture(u32 width, u32 height, u32* output, u8* texData, u
             {
                 for (int i = 0; i < 4; i++)
                 {
-                    u16 color = (packed >> 16 * (data >> 2 * (i + j * 4))) & 0xFFFF;
+                    u32 colorIdx = 16 * ((data >> 2 * (i + j * 4)) & 0x3);
+                    u16 color = (packed >> colorIdx) & 0xFFFF;
                     u32 res;
                     switch (outputFmt)
                     {
@@ -197,20 +196,20 @@ void ConvertCompressedTexture(u32 width, u32 height, u32* output, u8* texData, u
     }
 }
 
-template void ConvertCompressedTexture<outputFmt_RGB6A5>(u32, u32, u32*, u8*, u8*, u16*);
+template void ConvertCompressedTexture<outputFmt_RGB6A5>(u32, u32, u32*, u32, u32, u32, GPU&);
 
 template <int outputFmt, int X, int Y>
-void ConvertAXIYTexture(u32 width, u32 height, u32* output, u8* texData, u16* palData)
+void ConvertAXIYTexture(u32 width, u32 height, u32* output, u32 addr, u32 palAddr, GPU& gpu)
 {
     for (int y = 0; y < height; y++)
     {
         for (int x = 0; x < width; x++)
         {
-            u8 val = texData[x + y * width];
+            u8 val = gpu.ReadVRAMFlat_Texture<u8>(addr + x + y * width);
 
             u32 idx = val & ((1 << Y) - 1);
 
-            u16 color = palData[idx];
+            u16 color = gpu.ReadVRAMFlat_TexPal<u16>(palAddr + idx * 2);
             u32 alpha = (val >> Y) & ((1 << X) - 1);
             if (X != 5)
                 alpha = alpha * 4 + alpha / 2;
@@ -228,22 +227,24 @@ void ConvertAXIYTexture(u32 width, u32 height, u32* output, u8* texData, u16* pa
     }
 }
 
-template void ConvertAXIYTexture<outputFmt_RGB6A5, 5, 3>(u32, u32, u32*, u8*, u16*);
-template void ConvertAXIYTexture<outputFmt_RGB6A5, 3, 5>(u32, u32, u32*, u8*, u16*);
+template void ConvertAXIYTexture<outputFmt_RGB6A5, 5, 3>(u32, u32, u32*, u32, u32, GPU&);
+template void ConvertAXIYTexture<outputFmt_RGB6A5, 3, 5>(u32, u32, u32*, u32, u32, GPU&);
 
 template <int outputFmt, int colorBits>
-void ConvertNColorsTexture(u32 width, u32 height, u32* output, u8* texData, u16* palData, bool color0Transparent)
+void ConvertNColorsTexture(u32 width, u32 height, u32* output, u32 addr, u32 palAddr, bool color0Transparent, GPU& gpu)
 {
     for (int y = 0; y < height; y++)
     {
-        for (int x = 0; x < width / (8 / colorBits); x++)
+        for (int x = 0; x < width / (16 / colorBits); x++)
         {
-            u8 val = texData[x + y * (width / (8 / colorBits))];
+            // smallest possible row is 8 pixels with 2bpp => fits in u16
+            u16 val = gpu.ReadVRAMFlat_Texture<u16>(addr + 2 * (x + y * (width / (16 / colorBits))));
 
-            for (int i = 0; i < 8 / colorBits; i++)
+            for (int i = 0; i < 16 / colorBits; i++)
             {
-                u32 index = (val >> (i * colorBits)) & ((1 << colorBits) - 1);
-                u16 color = palData[index];
+                u32 index = val & ((1 << colorBits) - 1);
+                val >>= colorBits;
+                u16 color = gpu.ReadVRAMFlat_TexPal<u16>(palAddr + index * 2);
 
                 bool transparent = color0Transparent && index == 0;
                 u32 res;
@@ -256,14 +257,14 @@ void ConvertNColorsTexture(u32 width, u32 height, u32* output, u8* texData, u16*
                 case outputFmt_BGRA8: res = ConvertRGB5ToBGR8(color)
                     | (transparent ? 0 : 0xFF000000); break;
                 }
-                output[x * (8 / colorBits) + y * width + i] = res;
+                output[x * (16 / colorBits) + y * width + i] = res;
             }
         }
     }
 }
 
-template void ConvertNColorsTexture<outputFmt_RGB6A5, 2>(u32, u32, u32*, u8*, u16*, bool);
-template void ConvertNColorsTexture<outputFmt_RGB6A5, 4>(u32, u32, u32*, u8*, u16*, bool);
-template void ConvertNColorsTexture<outputFmt_RGB6A5, 8>(u32, u32, u32*, u8*, u16*, bool);
+template void ConvertNColorsTexture<outputFmt_RGB6A5, 2>(u32, u32, u32*, u32, u32, bool, GPU&);
+template void ConvertNColorsTexture<outputFmt_RGB6A5, 4>(u32, u32, u32*, u32, u32, bool, GPU&);
+template void ConvertNColorsTexture<outputFmt_RGB6A5, 8>(u32, u32, u32*, u32, u32, bool, GPU&);
 
 }

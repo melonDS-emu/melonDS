@@ -582,6 +582,11 @@ int CartGameSolarSensor::SetInput(int num, bool pressed)
     return -1;
 }
 
+void CartGameSolarSensor::SetLightLevel(u8 level) noexcept
+{
+    LightLevel = std::clamp<u8>(level, 0, 10);
+}
+
 void CartGameSolarSensor::ProcessGPIO()
 {
     if (GPIO.data & 4) return; // Boktai chip select

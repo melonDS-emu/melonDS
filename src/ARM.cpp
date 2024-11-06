@@ -110,6 +110,7 @@ const u32 ARM::ConditionTable[16] =
 ARM::ARM(u32 num, bool jit, std::optional<GDBArgs> gdb, melonDS::NDS& nds) :
 #ifdef GDBSTUB_ENABLED
     GdbStub(this, gdb ? (num ? gdb->PortARM7 : gdb->PortARM9) : 0),
+    BreakOnStartup(gdb ? (num ? gdb->ARM7BreakOnStartup : gdb->ARM9BreakOnStartup) : false),
 #endif
     Num(num), // well uh
     NDS(nds)

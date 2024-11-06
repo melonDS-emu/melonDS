@@ -21,13 +21,14 @@
 
 #include <SDL2/SDL.h>
 
+#include "main.h"
 #include "NDS.h"
 #include "EmuThread.h"
 #include "Window.h"
 #include "Config.h"
 #include "SaveManager.h"
 
-const int kMaxWindows = 16;
+const int kMaxWindows = 4;
 
 enum
 {
@@ -86,14 +87,21 @@ public:
     melonDS::NDS* getNDS() { return nds; }
 
     MainWindow* getMainWindow() { return mainWindow; }
+    int getNumWindows() { return numWindows; }
     MainWindow* getWindow(int id) { return windowList[id]; }
+
+    void doOnAllWindows(std::function<void(MainWindow*)> func, int exclude = -1);
+    void saveEnabledWindows();
 
     Config::Table& getGlobalConfig() { return globalCfg; }
     Config::Table& getLocalConfig() { return localCfg; }
 
+    void broadcastCommand(int cmd, QVariant param = QVariant());
+    void handleCommand(int cmd, QVariant& param);
+
     std::string instanceFileSuffix();
 
-    void createWindow();
+    void createWindow(int id = -1);
     void deleteWindow(int id, bool close);
     void deleteAllWindows();
 
@@ -103,8 +111,8 @@ public:
     void emuStop(melonDS::Platform::StopReason reason);
 
     bool usesOpenGL();
-    void initOpenGL();
-    void deinitOpenGL();
+    void initOpenGL(int win);
+    void deinitOpenGL(int win);
     void setVSyncGL(bool vsync);
     void makeCurrentGL();
     void drawScreenGL();
@@ -139,6 +147,11 @@ public:
     int getJoystickID() { return joystickID; }
     SDL_Joystick* getJoystick() { return joystick; }
 
+    void touchScreen(int x, int y);
+    void releaseScreen();
+
+    QMutex renderLock;
+
 private:
     static int lastSep(const std::string& path);
     std::string getAssetPath(bool gba, const std::string& configpath, const std::string& ext, const std::string& file);
@@ -168,7 +181,6 @@ private:
     std::optional<melonDS::FATStorageArgs> getSDCardArgs(const std::string& key) noexcept;
     std::optional<melonDS::FATStorage> loadSDCard(const std::string& key) noexcept;
     void setBatteryLevels();
-    void setDateTime();
     void reset();
     bool bootToMenu();
     melonDS::u32 decompressROM(const melonDS::u8* inContent, const melonDS::u32 inSize, std::unique_ptr<melonDS::u8[]>& outContent);
@@ -186,6 +198,7 @@ private:
     void loadGBAAddon(int type);
     void ejectGBACart();
     bool gbaCartInserted();
+    QString gbaAddonName(int addon);
     QString gbaCartLabel();
 
     void audioInit();
@@ -221,6 +234,10 @@ private:
     bool hotkeyDown(int id)     { return hotkeyMask    & (1<<id); }
     bool hotkeyPressed(int id)  { return hotkeyPress   & (1<<id); }
     bool hotkeyReleased(int id) { return hotkeyRelease & (1<<id); }
+
+    void loadRTCData();
+    void saveRTCData();
+    void setDateTime();
 
     bool deleting;
 
@@ -281,8 +298,9 @@ private:
     int mpAudioMode;
 
     SDL_AudioDeviceID micDevice;
-    melonDS::s16 micExtBuffer[2048];
+    melonDS::s16 micExtBuffer[4096];
     melonDS::u32 micExtBufferWritePos;
+    melonDS::u32 micExtBufferCount;
 
     melonDS::u32 micWavLength;
     melonDS::s16* micWavBuffer;
@@ -290,6 +308,8 @@ private:
     melonDS::s16* micBuffer;
     melonDS::u32 micBufferLength;
     melonDS::u32 micBufferReadPos;
+
+    SDL_mutex* micLock;
 
     //int audioInterp;
     int audioVolume;
@@ -315,6 +335,9 @@ private:
     melonDS::u32 hotkeyPress, hotkeyRelease;
 
     melonDS::u32 inputMask;
+
+    bool isTouching;
+    melonDS::u16 touchX, touchY;
 
     friend class EmuThread;
     friend class MainWindow;

@@ -430,16 +430,6 @@ private:
         s32 ycoverage, ycov_incr;
     };
 
-    template <typename T>
-    inline T ReadVRAM_Texture(u32 addr, const GPU& gpu) const
-    {
-        return *(T*)&gpu.VRAMFlat_Texture[addr & 0x7FFFF];
-    }
-    template <typename T>
-    inline T ReadVRAM_TexPal(u32 addr, const GPU& gpu) const
-    {
-        return *(T*)&gpu.VRAMFlat_TexPal[addr & 0x1FFFF];
-    }
     u32 AlphaBlend(const GPU3D& gpu3d, u32 srccolor, u32 dstcolor, u32 alpha) const noexcept;
 
     struct RendererPolygon

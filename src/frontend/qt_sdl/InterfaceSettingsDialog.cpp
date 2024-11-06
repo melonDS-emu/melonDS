@@ -104,6 +104,13 @@ void InterfaceSettingsDialog::on_pbQuarter_clicked()
 
 void InterfaceSettingsDialog::done(int r)
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        QDialog::done(r);
+        closeDlg();
+        return;
+    }
+
     if (r == QDialog::Accepted)
     {
         auto& cfg = emuInstance->getGlobalConfig();

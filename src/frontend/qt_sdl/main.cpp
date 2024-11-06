@@ -168,6 +168,18 @@ int numEmuInstances()
 }
 
 
+void broadcastInstanceCommand(int cmd, QVariant& param, int sourceinst)
+{
+    for (int i = 0; i < kMaxEmuInstances; i++)
+    {
+        if (i == sourceinst) continue;
+        if (!emuInstances[i]) continue;
+
+        emuInstances[i]->handleCommand(cmd, param);
+    }
+}
+
+
 void pathInit()
 {
     // First, check for the portable directory next to the executable.
@@ -250,10 +262,8 @@ bool MelonApplication::event(QEvent *event)
         MainWindow* win = inst->getMainWindow();
         QFileOpenEvent *openEvent = static_cast<QFileOpenEvent*>(event);
 
-        inst->getEmuThread()->emuPause();
         const QStringList file = win->splitArchivePath(openEvent->file(), true);
-        if (!win->preloadROMs(file, {}, true))
-            inst->getEmuThread()->emuUnpause();
+        win->preloadROMs(file, {}, true);
     }
 
     return QApplication::event(event);
@@ -364,6 +374,9 @@ int main(int argc, char** argv)
         if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
 
         win->preloadROMs(dsfile, gbafile, options->boot);
+
+        if (options->fullscreen)
+            win->toggleFullscreen();
     }
 
     int ret = melon.exec();
