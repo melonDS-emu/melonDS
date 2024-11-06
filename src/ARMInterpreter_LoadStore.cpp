@@ -638,6 +638,9 @@ void A_LDM(ARM* cpu)
     // handle data aborts
     if (dabort) [[unlikely]]
     {
+        if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
+            cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
+
         ((ARMv5*)cpu)->DataAbort();
         return;
     }

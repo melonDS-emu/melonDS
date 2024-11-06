@@ -19,11 +19,7 @@ set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_SOURCE_DIR}/cmake/overlay-triplets")
 option(USE_RECOMMENDED_TRIPLETS "Use the recommended triplets that are used for official builds" ON)
 
 # Duplicated here because it needs to be set before project()
-if (NOT WIN32)
-    option(USE_QT6 "Build using Qt 6 instead of 5" ON)
-else()
-    option(USE_QT6 "Build using Qt 6 instead of 5" OFF)
-endif()
+option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)
 
 # Since the Linux build pulls in glib anyway, we can just use upstream libslirp
 if (UNIX AND NOT APPLE)
