@@ -728,8 +728,7 @@ bool ARMJIT_Memory::IsFastMemSupported()
         isSupported = virtualAlloc2Ptr != nullptr;
         ARMJIT_Global::DeInit();
 #else
-        // TODO: check page size is 4kb for posix
-        isSupported = true;
+        isSupported = __sysconf(_SC_PAGESIZE) == 0x1000;
 #endif
         initialised = true;
     }
