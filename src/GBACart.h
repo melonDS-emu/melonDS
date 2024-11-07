@@ -35,6 +35,25 @@ enum CartType
     RumblePak = 0x202,
 };
 
+// See https://problemkaputt.de/gbatek.htm#gbacartridgeheader for details
+struct GBAHeader
+{
+    u32 EntryPoint;
+    u8 NintendoLogo[156];
+    char Title[12];
+    char GameCode[4];
+    char MakerCode[2];
+    u8 FixedValue; // must be 0x96
+    u8 MainUnitCode;
+    u8 DeviceType;
+    u8 Reserved0[7];
+    u8 SoftwareVersion;
+    u8 ComplementCheck;
+    u8 Reserved1[2];
+};
+
+static_assert(sizeof(GBAHeader) == 192, "GBAHeader should be 192 bytes");
+
 // CartCommon -- base code shared by all cart types
 class CartCommon
 {
@@ -91,6 +110,7 @@ public:
 
     [[nodiscard]] const u8* GetROM() const override { return ROM.get(); }
     [[nodiscard]] u32 GetROMLength() const override { return ROMLength; }
+    [[nodiscard]] const GBAHeader& GetHeader() const noexcept { return *reinterpret_cast<const GBAHeader*>(ROM.get()); }
 
     u8* GetSaveMemory() const override;
     u32 GetSaveMemoryLength() const override;
