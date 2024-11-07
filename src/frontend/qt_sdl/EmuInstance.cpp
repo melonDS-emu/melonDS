@@ -2088,6 +2088,12 @@ QString EmuInstance::gbaAddonName(int addon)
         return "Rumble Pak";
     case GBAAddon_RAMExpansion:
         return "Memory expansion";
+    case GBAAddon_SolarSensorBoktai1:
+        return "Solar Sensor (Boktai 1)";
+    case GBAAddon_SolarSensorBoktai2:
+        return "Solar Sensor (Boktai 2)";
+    case GBAAddon_SolarSensorBoktai3:
+        return "Solar Sensor (Boktai 3)";
     }
 
     return "???";
