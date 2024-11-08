@@ -667,7 +667,7 @@ void ARMv5::Execute()
                 
                 
                 if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
-                else if (CurInstr & ((u64)1<<63)) [[unlikely]] // handle aborted instructions
+                else if (CurInstr > 0xFFFFFFFF) [[unlikely]] // handle aborted instructions
                 {
                     PrefetchAbort();
                 }
