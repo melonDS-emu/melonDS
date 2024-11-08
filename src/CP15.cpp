@@ -771,14 +771,14 @@ u32 ARMv5::CP15Read(u32 id) const
 // TCM are handled here.
 // TODO: later on, handle PU, and maybe caches
 
-u32 ARMv5::CodeRead32(u32 addr, bool branch)
+u64 ARMv5::CodeRead32(u32 addr, bool branch)
 {
     // prefetch abort
     // the actual exception is not raised until the aborted instruction is executed
     if (!(PU_Map[addr>>12] & 0x04)) [[unlikely]]
     {
         CodeCycles = 1;
-        return 0;
+        return ((u64)1<<63);
     }
 
     if (addr < ITCMSize)
