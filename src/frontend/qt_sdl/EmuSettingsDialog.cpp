@@ -81,8 +81,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->chkEnableJIT->setChecked(cfg.GetBool("JIT.Enable"));
     ui->chkJITBranchOptimisations->setChecked(cfg.GetBool("JIT.BranchOptimisations"));
     ui->chkJITLiteralOptimisations->setChecked(cfg.GetBool("JIT.LiteralOptimisations"));
-    ui->chkJITFastMemory->setDisabled(!ARMJIT_Memory::IsFastMemSupported());
-    ui->chkJITFastMemory->setChecked(cfg.GetBool("JIT.FastMemory") && ui->chkJITFastMemory->isEnabled());
+    ui->chkJITFastMemory->setChecked(cfg.GetBool("JIT.FastMemory"));
     ui->spnJITMaximumBlockSize->setValue(cfg.GetInt("JIT.MaxBlockSize"));
 #else
     ui->chkEnableJIT->setDisabled(true);
@@ -539,7 +538,7 @@ void EmuSettingsDialog::on_chkEnableJIT_toggled()
     bool disabled = !ui->chkEnableJIT->isChecked();
     ui->chkJITBranchOptimisations->setDisabled(disabled);
     ui->chkJITLiteralOptimisations->setDisabled(disabled);
-    ui->chkJITFastMemory->setDisabled(!ARMJIT_Memory::IsFastMemSupported());
+    ui->chkJITFastMemory->setDisabled(disabled || !ARMJIT_Memory::IsFastMemSupported());
     ui->spnJITMaximumBlockSize->setDisabled(disabled);
 
     on_cbGdbEnabled_toggled();
