@@ -40,7 +40,7 @@
 5. Install dependencies:  
    Replace `<prefix>` below with `mingw-w64-ucrt-x86_64` on x64 systems, or `mingw-w64-clang-aarch64` on ARM64 systems.
    ```bash
-   pacman -S <prefix>-{toolchain,cmake,SDL2,libarchive,enet,zstd}`
+   pacman -S <prefix>-{toolchain,cmake,SDL2,libarchive,enet,zstd}
    ```
 6. Install Qt and configure the build directory
    * Dynamic builds (with DLLs)
