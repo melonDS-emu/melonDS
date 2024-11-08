@@ -249,7 +249,7 @@ void ARM::DoSavestate(Savestate* file)
     file->VarArray(R_ABT, 3*sizeof(u32));
     file->VarArray(R_IRQ, 3*sizeof(u32));
     file->VarArray(R_UND, 3*sizeof(u32));
-    file->Var32(&CurInstr);
+    file->Var64(&CurInstr);
 #ifdef JIT_ENABLED
     if (file->Saving && NDS.IsJITEnabled())
     {
@@ -259,7 +259,7 @@ void ARM::DoSavestate(Savestate* file)
         FillPipeline();
     }
 #endif
-    file->VarArray(NextInstr, 2*sizeof(u32));
+    file->VarArray(NextInstr, 2*sizeof(u64));
 
     file->Var32(&ExceptionBase);
 
@@ -684,7 +684,7 @@ void ARMv5::Execute()
                 PC = R[15];
 
                 if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
-                else if (!(PU_Map[(R[15]-4)>>12] & 0x04)) [[unlikely]] // handle aborted instructions
+                else if (CurInstr & ((u64)1<<63)) [[unlikely]] // handle aborted instructions
                 {
                     PrefetchAbort();
                 }
@@ -708,7 +708,7 @@ void ARMv5::Execute()
                 PC = R[15];
 
                 if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
-                else if (!(PU_Map[(R[15]-8)>>12] & 0x04)) [[unlikely]] // handle aborted instructions
+                else if (CurInstr & ((u64)1<<63)) [[unlikely]] // handle aborted instructions
                 {
                     PrefetchAbort();
                 }

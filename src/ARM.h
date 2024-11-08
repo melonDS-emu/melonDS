@@ -178,8 +178,8 @@ public:
     u32 R_ABT[3];
     u32 R_IRQ[3];
     u32 R_UND[3];
-    u32 CurInstr;
-    u32 NextInstr[2];
+    u64 CurInstr;
+    u64 NextInstr[2];
 
     u32 ExceptionBase;
 
@@ -254,7 +254,7 @@ public:
     void Execute();
 
     // all code accesses are forced nonseq 32bit
-    u32 CodeRead32(const u32 addr, const bool branch);
+    u64 CodeRead32(const u32 addr, const bool branch);
 
     bool DataRead8(u32 addr, u32* val) override;
     bool DataRead16(u32 addr, u32* val) override;

@@ -2057,7 +2057,7 @@ u32 ARMv5::CP15Read(const u32 id) const
 // TCM are handled here.
 // TODO: later on, handle PU
 
-u32 ARMv5::CodeRead32(u32 addr, bool branch)
+u64 ARMv5::CodeRead32(u32 addr, bool branch)
 {
     // prefetch abort
     // the actual exception is not raised until the aborted instruction is executed
@@ -2067,7 +2067,7 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
         if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
         DataRegion = Mem9_Null;
         Store = false;
-        return 0;
+        return ((u64)1<<63);
     }
 
     if (addr < ITCMSize)

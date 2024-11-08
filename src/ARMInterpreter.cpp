@@ -131,7 +131,7 @@ void A_MSR_IMM(ARM* cpu)
 
     if (cpu->CPSR & 0x20) [[unlikely]]
     {
-        if (cpu->Num == 0) cpu->NextInstr[1] &= 0xFFFF; // checkme: probably not the right way to handle this
+        if (cpu->Num == 0) cpu->R[15] += 2; // pc should actually increment by 4 one more time after switching to thumb mode without a pipeline flush, this gets the same effect.
         else
         {
             Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
@@ -203,7 +203,7 @@ void A_MSR_REG(ARM* cpu)
 
     if (cpu->CPSR & 0x20) [[unlikely]]
     {
-        if (cpu->Num == 0) cpu->NextInstr[1] &= 0xFFFF; // checkme: probably not the right way to handle this
+        if (cpu->Num == 0) cpu->R[15] += 2; // pc should actually increment by 4 one more time after switching to thumb mode without a pipeline flush, this gets the same effect.
         else
         {
             Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
