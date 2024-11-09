@@ -99,12 +99,14 @@ void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
         ((ARMv5*)cpu)->DataAbort();
         return;
     }
+
     if constexpr (size == 8 && signextend) val = (s32)(s8)val;
 
     if constexpr (size == 16)
     {
-        if (cpu->Num == 1) val = ROR(val, ((addr&0x1)<<3)); // unaligned 16 bit loads are ROR'd on arm7
+        if (cpu->Num == 1)
         {
+            val = ROR(val, ((addr&0x1)<<3)); // unaligned 16 bit loads are ROR'd on arm7
             if constexpr (signextend) val = (s32)((addr&0x1) ? (s8)val : (s16)val); // sign extend like a ldrsb if we ror'd the value.
         }
         else if constexpr (signextend) val = (s32)(s16)val;
