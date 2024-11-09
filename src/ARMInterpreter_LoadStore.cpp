@@ -568,7 +568,7 @@ void A_LDM(ARM* cpu)
     }
 
     // writeback to base
-    if (cpu->CurInstr & (1<<21))
+    if (cpu->CurInstr & (1<<21) && (baseid != 15))
     {
         // post writeback
         if (cpu->CurInstr & (1<<23))
@@ -624,7 +624,7 @@ void A_STM(ARM* cpu)
                 base -= 4;
         }
 
-        if (cpu->CurInstr & (1<<21))
+        if ((cpu->CurInstr & (1<<21)) && (baseid != 15))
             cpu->R[baseid] = base;
 
         preinc = !preinc;
@@ -681,7 +681,7 @@ void A_STM(ARM* cpu)
         return;
     }
 
-    if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
+    if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)) && (baseid != 15))
         cpu->R[baseid] = base;
 
 
