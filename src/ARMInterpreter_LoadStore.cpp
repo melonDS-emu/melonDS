@@ -115,6 +115,7 @@ void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
     if constexpr (size == 32) val = ROR(val, ((addr&0x3)<<3));
 
 
+    if constexpr (writeback >= Writeback::Post) addr += offset;
     if constexpr (writeback != Writeback::None) cpu->R[rn] = addr;
 
     if (rd == 15)
@@ -160,8 +161,9 @@ void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
         ((ARMv5*)cpu)->DataAbort();
         return;
     }
-
-    if constexpr (writeback != Writeback::None) cpu->R[rn] += offset;
+    
+    if constexpr (writeback >= Writeback::Post) addr += offset;
+    if constexpr (writeback != Writeback::None) cpu->R[rn] = addr;
 }
 
 
