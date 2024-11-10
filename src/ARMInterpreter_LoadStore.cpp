@@ -67,7 +67,7 @@ enum class Writeback
 };
 
 template<bool signextend, int size, Writeback writeback>
-void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
+void LoadSingle(ARM* cpu, const u8 rd, const u8 rn, const s32 offset)
 {
     static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
 
@@ -116,7 +116,19 @@ void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
 
 
     if constexpr (writeback >= Writeback::Post) addr += offset;
-    if constexpr (writeback != Writeback::None) cpu->R[rn] = addr;
+    if constexpr (writeback != Writeback::None) 
+    {
+        if (rn != 15) [[likely]] // r15 writeback fails on arm9
+        {
+            cpu->R[rn] = addr;
+        }
+        else if (cpu->Num == 1) // arm 7
+        {
+            // note that at no point does it actually write the value it loaded to a register...
+            cpu->JumpTo((addr+4) & ~1);
+            return;
+        }
+    }
 
     if (rd == 15)
     {
@@ -127,7 +139,7 @@ void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
 }
 
 template<int size, Writeback writeback>
-void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
+void StoreSingle(ARM* cpu, const u8 rd, const u8 rn, const s32 offset)
 {
     static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
 
@@ -163,7 +175,17 @@ void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset)
     }
     
     if constexpr (writeback >= Writeback::Post) addr += offset;
-    if constexpr (writeback != Writeback::None) cpu->R[rn] = addr;
+    if constexpr (writeback != Writeback::None) 
+    {
+        if (rn != 15) [[likely]] // r15 writeback fails on arm9
+        {
+            cpu->R[rn] = addr;
+        }
+        else if (cpu->Num == 1) // arm 7
+        {
+            cpu->JumpTo(addr & ~1);
+        }
+    }
 }
 
 
