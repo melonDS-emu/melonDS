@@ -115,7 +115,7 @@ void T_BL_LONG_1(ARM* cpu)
 
 void T_BL_LONG_2(ARM* cpu)
 {
-    if ((cpu->CurInstr & 0x1801) == 0x0801) // "BLX" with bit 0 set is an unvalid instruction.
+    if ((cpu->CurInstr & 0x1801) == 0x0801) // "BLX" with bit 0 set is an undefined instruction.
         return T_UNK(cpu); // TODO: Check ARM7 for exceptions
     
     cpu->AddCycles_C();

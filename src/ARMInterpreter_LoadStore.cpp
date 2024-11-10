@@ -79,8 +79,8 @@ enum class Writeback
     Trans,
 };
 
-template<bool signror, int size, Writeback writeback, bool multireg>
-void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset, u16 ilmask)
+template<bool signextend, int size, Writeback writeback, bool multireg>
+void LoadSingle(ARM* cpu, const u8 rd, const u8 rn, const s32 offset, const u16 ilmask)
 {
     static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
     
@@ -114,11 +114,36 @@ void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset, u16 ilmask)
         ((ARMv5*)cpu)->DataAbort();
         return;
     }
-    if constexpr (size == 8  && signror) val = (s32)(s8)val;
-    if constexpr (size == 16 && signror) val = (s32)(s16)val;
-    if constexpr (size == 32 && signror) val = ROR(val, ((addr&0x3)<<3));
 
-    if constexpr (writeback != Writeback::None) cpu->R[rn] += offset;
+    if constexpr (size == 8 && signextend) val = (s32)(s8)val;
+
+    if constexpr (size == 16)
+    {
+        if (cpu->Num == 1)
+        {
+            val = ROR(val, ((addr&0x1)<<3)); // unaligned 16 bit loads are ROR'd on arm7
+            if constexpr (signextend) val = (s32)((addr&0x1) ? (s8)val : (s16)val); // sign extend like a ldrsb if we ror'd the value.
+        }
+        else if constexpr (signextend) val = (s32)(s16)val;
+    }
+
+    if constexpr (size == 32) val = ROR(val, ((addr&0x3)<<3));
+
+
+    if constexpr (writeback >= Writeback::Post) addr += offset;
+    if constexpr (writeback != Writeback::None) 
+    {
+        if (rn != 15) [[likely]] // r15 writeback fails on arm9
+        {
+            cpu->R[rn] = addr;
+        }
+        else if (cpu->Num == 1) // arm 7
+        {
+            // note that at no point does it actually write the value it loaded to a register...
+            cpu->JumpTo((addr+4) & ~1);
+            return;
+        }
+    }
 
     if (rd == 15)
     {
@@ -140,7 +165,7 @@ void LoadSingle(ARM* cpu, u8 rd, u8 rn, s32 offset, u16 ilmask)
 }
 
 template<int size, Writeback writeback, bool multireg>
-void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset, u16 ilmask)
+void StoreSingle(ARM* cpu, const u8 rd, const u8 rn, const s32 offset, const u16 ilmask)
 {
     static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
 
@@ -179,8 +204,19 @@ void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset, u16 ilmask)
         ((ARMv5*)cpu)->DataAbort();
         return;
     }
-
-    if constexpr (writeback != Writeback::None) cpu->R[rn] += offset;
+    
+    if constexpr (writeback >= Writeback::Post) addr += offset;
+    if constexpr (writeback != Writeback::None) 
+    {
+        if (rn != 15) [[likely]] // r15 writeback fails on arm9
+        {
+            cpu->R[rn] = addr;
+        }
+        else if (cpu->Num == 1) // arm 7
+        {
+            cpu->JumpTo(addr & ~1);
+        }
+    }
 }
 
 
@@ -201,12 +237,12 @@ void StoreSingle(ARM* cpu, u8 rd, u8 rn, s32 offset, u16 ilmask)
     else StoreSingle<8, Writeback::Post, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
 
 #define A_LDR \
-    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 32, Writeback::Pre, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
-    else LoadSingle<true, 32, Writeback::None, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
+    if (cpu->CurInstr & (1<<21)) LoadSingle<false, 32, Writeback::Pre, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else LoadSingle<false, 32, Writeback::None, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_LDR_POST \
-    if (cpu->CurInstr & (1<<21)) LoadSingle<true, 32, Writeback::Trans, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
-    else LoadSingle<true, 32, Writeback::Post, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask);
+    if (cpu->CurInstr & (1<<21)) LoadSingle<false, 32, Writeback::Trans, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset); \
+    else LoadSingle<false, 32, Writeback::Post, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset);
 
 #define A_LDRB \
     if (cpu->CurInstr & (1<<21)) LoadSingle<false, 8, Writeback::Pre, true>(cpu, ((cpu->CurInstr>>12) & 0xF), ((cpu->CurInstr>>16) & 0xF), offset, ilmask); \
@@ -646,7 +682,7 @@ void A_LDM(ARM* cpu)
     }
 
     // writeback to base
-    if (cpu->CurInstr & (1<<21))
+    if (cpu->CurInstr & (1<<21) && (baseid != 15))
     {
         // post writeback
         if (cpu->CurInstr & (1<<23))
@@ -712,7 +748,7 @@ void A_STM(ARM* cpu)
                 base -= 4;
         }
 
-        if (cpu->CurInstr & (1<<21))
+        if ((cpu->CurInstr & (1<<21)) && (baseid != 15))
             cpu->R[baseid] = base;
 
         preinc = !preinc;
@@ -783,7 +819,7 @@ void A_STM(ARM* cpu)
         return;
     }
 
-    if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
+    if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)) && (baseid != 15))
         cpu->R[baseid] = base;
 }
 
@@ -822,7 +858,7 @@ void T_STRB_REG(ARM* cpu)
 
 void T_LDR_REG(ARM* cpu)
 {
-    LoadSingle<true, 32, Writeback::None, true>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7], (1 << ((cpu->CurInstr >> 6) & 0x7)));
+    LoadSingle<false, 32, Writeback::None, true>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), cpu->R[(cpu->CurInstr >> 6) & 0x7]);
 }
 
 void T_LDRB_REG(ARM* cpu)
@@ -859,7 +895,7 @@ void T_STR_IMM(ARM* cpu)
 
 void T_LDR_IMM(ARM* cpu)
 {
-    LoadSingle<true, 32, Writeback::None, false>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 4) & 0x7C), 0);
+    LoadSingle<false, 32, Writeback::None, true>(cpu, (cpu->CurInstr & 0x7), ((cpu->CurInstr >> 3) & 0x7), ((cpu->CurInstr >> 4) & 0x7C));
 }
 
 void T_STRB_IMM(ARM* cpu)
