@@ -83,7 +83,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             // doesn't matter if we put garbage in the MSbs there
             if (addr & 0x2)
             {
-                cpu9->CodeRead32(addr-2, true) >> 16;
+                cpu9->CodeRead32(addr-2, true);
                 cycles += cpu9->CodeCycles;
                 cpu9->CodeRead32(addr+2, false);
                 cycles += CurCPU->CodeCycles;
