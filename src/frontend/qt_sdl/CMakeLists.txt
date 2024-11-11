@@ -210,8 +210,6 @@ if (WIN32)
 endif()
 
 if (APPLE)
-    target_sources(melonDS PRIVATE sem_timedwait.cpp)
-
     # Copy icon into the bundle
     set(RESOURCE_FILES "${CMAKE_SOURCE_DIR}/res/melon.icns")
     target_sources(melonDS PUBLIC "${RESOURCE_FILES}")

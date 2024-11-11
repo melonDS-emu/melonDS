@@ -653,6 +653,8 @@ void LAN::ProcessHostEvent(ENetEvent& event)
             enet_packet_destroy(event.packet);
         }
         break;
+    case ENET_EVENT_TYPE_NONE:
+        break;
     }
 }
 
@@ -776,6 +778,8 @@ void LAN::ProcessClientEvent(ENetEvent& event)
 
             enet_packet_destroy(event.packet);
         }
+        break;
+    case ENET_EVENT_TYPE_NONE:
         break;
     }
 }
