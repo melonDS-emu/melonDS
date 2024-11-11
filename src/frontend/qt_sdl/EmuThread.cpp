@@ -428,9 +428,9 @@ void EmuThread::run()
                 double actualfps = (59.8261 * 263.0) / nlines;
                 int inst = emuInstance->instanceID;
                 if (inst == 0)
-                    sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, actualfps);
+                    snprintf(melontitle, sizeof(melontitle), "[%d/%.0f] melonDS " MELONDS_VERSION, fps, actualfps);
                 else
-                    sprintf(melontitle, "[%d/%.0f] melonDS (%d)", fps, fpstarget, inst+1);
+                    snprintf(melontitle, sizeof(melontitle), "[%d/%.0f] melonDS (%d)", fps, fpstarget, inst+1);
                 changeWindowTitle(melontitle);
             }
         }
@@ -445,9 +445,9 @@ void EmuThread::run()
 
             int inst = emuInstance->instanceID;
             if (inst == 0)
-                sprintf(melontitle, "melonDS " MELONDS_VERSION);
+                snprintf(melontitle, sizeof(melontitle), "melonDS " MELONDS_VERSION);
             else
-                sprintf(melontitle, "melonDS (%d)", inst+1);
+                snprintf(melontitle, sizeof(melontitle), "melonDS (%d)", inst+1);
             changeWindowTitle(melontitle);
 
             SDL_Delay(75);
