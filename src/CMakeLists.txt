@@ -127,6 +127,8 @@ if (ENABLE_JIT)
     endif()
 endif()
 
+target_include_directories(core INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
+
 set(MELONDS_VERSION_SUFFIX "$ENV{MELONDS_VERSION_SUFFIX}" CACHE STRING "Suffix to add to displayed melonDS version")
 option(MELONDS_EMBED_BUILD_INFO "Embed detailed build info into the binary" OFF)
 set(MELONDS_GIT_BRANCH "$ENV{MELONDS_GIT_BRANCH}" CACHE STRING "The Git branch used for this build")
@@ -184,7 +186,7 @@ elseif(NOT APPLE AND NOT HAIKU)
         target_link_libraries(core PRIVATE rt)
     endif()
 elseif(HAIKU)
-	target_link_libraries(core PRIVATE network)
+    target_link_libraries(core PRIVATE network)
 endif()
 
 if (ENABLE_JIT_PROFILING)
