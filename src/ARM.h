@@ -681,7 +681,7 @@ public:
 
     u8 WBWritePointer; // which entry to attempt to write next; should always be ANDed with 0xF after incrementing
     u8 WBFillPointer; // where the next entry should be added; should always be ANDed with 0xF after incrementing
-    bool WBWriting; // whether the buffer is actively trying to perform a write
+    u8 WBWriting; // whether the buffer is actively trying to perform a write
     u32 WBCurAddr; // address the write buffer is currently writing to
     u64 WBCurVal; // current value being written; 0-31: val | 61-63: flag; 0 = byte ns; 1 = halfword ns; 2 = word ns; 3 = word s; 4 = address (invalid in this variable)
     u32 storeaddr[16]; // temp until i figure out why using the fifo address entries directly didn't work
@@ -691,6 +691,7 @@ public:
     u64 WBDelay; // timestamp in bus cycles use for the delay before next write to the write buffer can occur (seems to be a 1 cycle delay after a write to it)
     u32 WBLastRegion; // the last region written to by the write buffer
     u64 WBReleaseTS; // the timestamp on which the write buffer relinquished control of the bus back
+    u64 WBInitialTS; // what cycle the entry was first sent in
 
 #ifdef GDBSTUB_ENABLED
     u32 ReadMem(u32 addr, int size) override;

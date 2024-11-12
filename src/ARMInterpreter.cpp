@@ -293,7 +293,8 @@ void A_MCR(ARM* cpu)
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 
-    cpu->AddCycles_CI(1 + 1); // TODO: checkme
+    if (cpu->Num==0) cpu->AddCycles_CI(6); // checkme
+    else /* ARM7 */  cpu->AddCycles_CI(1 + 1); // TODO: checkme
 }
 
 void A_MRC(ARM* cpu)

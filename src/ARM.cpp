@@ -218,6 +218,7 @@ void ARMv5::Reset()
     WBReleaseTS = 0;
     WBLastRegion = Mem9_Null;
     WBWriting = false;
+    WBInitialTS = 0;
 
     ARM::Reset();
 }
