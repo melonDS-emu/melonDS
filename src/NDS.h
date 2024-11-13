@@ -211,6 +211,9 @@ enum
 {
     GBAAddon_RAMExpansion = 1,
     GBAAddon_RumblePak = 2,
+    GBAAddon_MotionPakHomebrew = 3,
+    GBAAddon_MotionPakRetail = 4,
+    GBAAddon_GuitarGrip = 5,
 };
 
 class SPU;
