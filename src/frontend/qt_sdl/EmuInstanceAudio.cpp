@@ -495,11 +495,11 @@ void EmuInstance::audioUpdateSettings()
 void EmuInstance::audioEnable()
 {
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
-    micOpen();
+    if (micDevice) SDL_PauseAudioDevice(micDevice, 0);
 }
 
 void EmuInstance::audioDisable()
 {
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
-    micClose();
+    if (micDevice) SDL_PauseAudioDevice(micDevice, 1);
 }
