@@ -47,7 +47,7 @@
      1. Install Qt: `pacman -S <prefix>-{qt6-base,qt6-svg,qt6-multimedia,qt6-svg,qt6-tools}`
      2. Set up the build directory with `cmake -B build`
    * Static builds (without DLLs, standalone executable)
-     1. Install Qt: `pacman -S <prefi>-qt5-static`  
+     1. Install Qt: `pacman -S <prefix>-qt5-static`  
         (Note: As of writing, the `qt6-static` package does not work.)
      2. Set up the build directory with `cmake -B build -DBUILD_STATIC=ON -DUSE_QT6=OFF -DCMAKE_PREFIX_PATH=$MSYSTEM_PREFIX/qt5-static`
 7. Compile: `cmake --build build`
