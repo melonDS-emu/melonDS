@@ -133,6 +133,9 @@
          <property name="text">
           <string>By Arisotura, the melonDS team &lt;a href=&quot;https://github.com/melonDS-emu/melonDS/graphs/contributors&quot;&gt;and contributors&lt;/a&gt;.</string>
          </property>
+         <property name="openExternalLinks">
+          <bool>true</bool>
+         </property>
         </widget>
        </item>
        <item>

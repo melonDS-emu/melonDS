@@ -11,9 +11,9 @@ add_library(net-utils STATIC
     MPInterface.cpp
 )
 
-target_include_directories(net-utils PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_include_directories(net-utils PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
-
+target_include_directories(net-utils PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
 option(USE_SYSTEM_LIBSLIRP "Use system libslirp instead of the bundled version" OFF)
 if (USE_SYSTEM_LIBSLIRP)
