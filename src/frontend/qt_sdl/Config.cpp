@@ -308,6 +308,8 @@ LegacyEntry LegacyFile[] =
 
     {"DSiFullBIOSBoot", 1, "DSi.FullBIOSBoot", true},
 
+    {"DebugPrintEnabled", 1, "DS.DebugPrintEnabled", true},
+
 #ifdef GDBSTUB_ENABLED
     {"GdbEnabled", 1, "Gdb.Enabled", false},
     {"GdbPortARM7", 0, "Gdb.ARM7.Port", true},

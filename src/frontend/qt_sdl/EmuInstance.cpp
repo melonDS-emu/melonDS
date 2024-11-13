@@ -1384,6 +1384,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
             dsi->EjectGBACart();
         }
     }
+    nds->SetDebugPrint(globalCfg.GetBool("DS.DebugPrintEnabled"));
     renderLock.unlock();
 
     return true;

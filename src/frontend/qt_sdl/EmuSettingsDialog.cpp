@@ -61,6 +61,8 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
 
     lastBIOSFolder = cfg.GetQString("LastBIOSFolder");
 
+    ui->cbDebugPrintEnabled->setChecked(cfg.GetBool("DS.DebugPrintEnabled"));
+
     ui->chkExternalBIOS->setChecked(cfg.GetBool("Emu.ExternalBIOSEnable"));
     ui->txtBIOS9Path->setText(cfg.GetQString("DS.BIOS9Path"));
     ui->txtBIOS7Path->setText(cfg.GetQString("DS.BIOS7Path"));
@@ -107,6 +109,8 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->cbGdbBOSA7->setDisabled(true);
     ui->cbGdbBOSA9->setDisabled(true);
 #endif
+
+    ui->cbDebugPrintEnabled->setChecked(cfg.GetBool("DS.DebugPrintEnabled"));
 
     on_chkEnableJIT_toggled();
     on_cbGdbEnabled_toggled();
@@ -271,6 +275,8 @@ void EmuSettingsDialog::done(int r)
             cfg.SetBool("DLDI.ReadOnly", ui->cbDLDIReadOnly->isChecked());
             cfg.SetBool("DLDI.FolderSync", ui->cbDLDIFolder->isChecked());
             cfg.SetQString("DLDI.FolderPath", ui->txtDLDIFolder->text());
+
+            cfg.SetBool("DS.DebugPrintEnabled", ui->cbDebugPrintEnabled->isChecked());
 
             cfg.SetQString("DSi.BIOS9Path", ui->txtDSiBIOS9Path->text());
             cfg.SetQString("DSi.BIOS7Path", ui->txtDSiBIOS7Path->text());
