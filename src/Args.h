@@ -79,6 +79,7 @@ struct GDBArgs
     u16 PortARM9 = 0;
     bool ARM7BreakOnStartup = false;
     bool ARM9BreakOnStartup = false;
+    bool BreakOnError = false;
 };
 
 /// Arguments to pass into the NDS constructor.

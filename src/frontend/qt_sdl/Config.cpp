@@ -310,6 +310,7 @@ LegacyEntry LegacyFile[] =
 
 #ifdef GDBSTUB_ENABLED
     {"GdbEnabled", 1, "Gdb.Enabled", false},
+    {"GdbBreakOnError", 1, "Gdb.BreakOnError", true},
     {"GdbPortARM7", 0, "Gdb.ARM7.Port", true},
     {"GdbPortARM9", 0, "Gdb.ARM9.Port", true},
     {"GdbARM7BreakOnStartup", 1, "Gdb.ARM7.BreakOnStartup", true},

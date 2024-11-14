@@ -1285,6 +1285,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
             static_cast<u16>(gdbopt.GetInt("ARM9.Port")),
             gdbopt.GetBool("ARM7.BreakOnStartup"),
             gdbopt.GetBool("ARM9.BreakOnStartup"),
+            gdbopt.GetBool("BreakOnError")
     };
     auto gdbargs = gdbopt.GetBool("Enabled") ? std::make_optional(_gdbargs) : std::nullopt;
 #else

@@ -123,6 +123,7 @@ ARM::ARM(u32 num, bool jit, std::optional<GDBArgs> gdb, melonDS::NDS& nds) :
     )
         GdbStub.Init();
     IsSingleStep = false;
+    BreakOnError = gdb->BreakOnError;
 #endif
 }
 
@@ -545,6 +546,16 @@ void ARMv5::PrefetchAbort()
 {
     Log(LogLevel::Warn, "ARM9: prefetch abort (%08X)\n", R[15]);
 
+#ifdef GDBSTUB_ENABLED
+    Gdb::StubState s = GdbStub.Poll();
+    if (BreakOnError && s != Gdb::StubState::NoConn)
+    {
+        BreakReq = true;
+        GdbCheckB();
+        return;
+    }
+#endif
+
     u32 oldcpsr = CPSR;
     CPSR &= ~0xBF;
     CPSR |= 0x97;
@@ -567,6 +578,16 @@ void ARMv5::PrefetchAbort()
 void ARMv5::DataAbort()
 {
     Log(LogLevel::Warn, "ARM9: data abort (%08X)\n", R[15]);
+
+#ifdef GDBSTUB_ENABLED
+    Gdb::StubState s = GdbStub.Poll();
+    if (BreakOnError && s != Gdb::StubState::NoConn)
+    {
+        BreakReq = true;
+        GdbCheckB();
+        return;
+    }
+#endif
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xBF;
