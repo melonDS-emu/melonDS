@@ -1331,14 +1331,18 @@ void ARMv5::WriteBufferWrite(u32 val, u8 flag, u32 addr)
 
     if (WBFillPointer == WBWritePointer) // if the write buffer is full then we stall the cpu until room is made
         WriteBufferHandle<1>();
-    else if (WBWritePointer == 16 && (flag != 4)) // indicates empty write buffer
+    else if (WBWritePointer == 16) // indicates empty write buffer
     {
         WBWritePointer = 0;
-        u64 ts = (NDS.ARM9Regions[addr>>14] == Mem9_MainRAM) ? std::max(MainRAMTimestamp, NDS.ARM9Timestamp + 1) : NDS.ARM9Timestamp + 1;
+        if (!WBWriting)
+        {
+            u64 ts = ((NDS.ARM9Regions[addr>>14] == Mem9_MainRAM) ? std::max(MainRAMTimestamp, (NDS.ARM9Timestamp + 1)) : (NDS.ARM9Timestamp + 1));
 
-        if (!WBWriting && (WBTimestamp < ((ts + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1))))
-            WBInitialTS = WBTimestamp = (ts + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-        WBInitialTS = WBTimestamp;
+            if (!WBWriting && (WBTimestamp < ((ts + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1))))
+                WBTimestamp = (ts + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+
+            WBInitialTS = WBTimestamp;
+        }
     }
 
     WriteBufferFifo[WBFillPointer] = val | (u64)flag << 61;
@@ -1731,7 +1735,8 @@ void ARMv5::CP15Write(u32 id, u32 val)
         }
         // we force a fill by looking up the value from cache
         // if it wasn't cached yet, it will be loaded into cache
-        ICacheLookup(val & ~0x03);
+        // low bits are set to 0x1C to trick cache streaming
+        ICacheLookup((val & ~0x03) | 0x1C);
         return;
 
     case 0x7E0:
