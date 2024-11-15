@@ -444,7 +444,7 @@ void NDS::Reset()
     else
     {
         ARM9ClockShift = 1;
-        MainRAMMask = 0x3FFFFF;
+        MainRAMMask = useExtendedMemory ? 0x7FFFFF : 0x3FFFFF;
     }
     // has to be called before InitTimings
     // otherwise some PU settings are completely
@@ -4343,6 +4343,11 @@ void NDS::ARM7IOWrite32(u32 addr, u32 val)
     }
 
     Log(LogLevel::Debug, "unknown ARM7 IO write32 %08X %08X %08X\n", addr, val, ARM7.R[15]);
+}
+
+void NDS::SetMemoryExtension(bool enabled)
+{
+    useExtendedMemory = enabled;
 }
 
 }

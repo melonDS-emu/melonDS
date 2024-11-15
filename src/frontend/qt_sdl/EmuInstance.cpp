@@ -1353,6 +1353,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
             nds = new NDS(std::move(ndsargs), this);
 
         NDS::Current = nds;
+        nds->SetMemoryExtension(localCfg.GetBool("Debug.ExtendedMemory"));
         nds->Reset();
         loadRTCData();
         //emuThread->updateVideoRenderer(); // not actually needed?

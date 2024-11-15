@@ -109,6 +109,8 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->cbGdbBOSA9->setDisabled(true);
 #endif
 
+    ui->cbDebugExtendedMem->setChecked(instcfg.GetBool("Debug.ExtendedMemory"));
+
     on_chkEnableJIT_toggled();
     on_cbGdbEnabled_toggled();
     on_chkExternalBIOS_toggled();
@@ -301,6 +303,7 @@ void EmuSettingsDialog::done(int r)
             instcfg.SetBool("Gdb.ARM7.BreakOnStartup", ui->cbGdbBOSA7->isChecked());
             instcfg.SetBool("Gdb.ARM9.BreakOnStartup", ui->cbGdbBOSA9->isChecked());
 #endif
+            instcfg.SetBool("Debug.ExtendedMemory", ui->cbDebugExtendedMem->isChecked());
 
             cfg.SetInt("Emu.ConsoleType", ui->cbxConsoleType->currentIndex());
             cfg.SetBool("Emu.DirectBoot", ui->chkDirectBoot->isChecked());
