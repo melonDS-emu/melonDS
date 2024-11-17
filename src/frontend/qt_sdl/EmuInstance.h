@@ -120,7 +120,7 @@ public:
     // return: empty string = setup OK, non-empty = error message
     QString verifySetup();
 
-    bool updateConsole(UpdateConsoleNDSArgs&& ndsargs) noexcept;
+    bool updateConsole() noexcept;
 
     void enableCheats(bool enable);
     melonDS::ARCodeFile* getCheatFile();
@@ -261,6 +261,8 @@ private:
     std::string baseROMDir;
     std::string baseROMName;
     std::string baseAssetName;
+    bool changeCart;
+    std::unique_ptr<melonDS::NDSCart::CartCommon> nextCart;
 
     int gbaCartType;
     std::string baseGBAROMDir;

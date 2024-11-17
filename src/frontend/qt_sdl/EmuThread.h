@@ -33,9 +33,6 @@
 #include "NDSCart.h"
 #include "GBACart.h"
 
-using Keep = std::monostate;
-using UpdateConsoleNDSArgs = std::variant<Keep, std::unique_ptr<melonDS::NDSCart::CartCommon>>;
-using UpdateConsoleGBAArgs = std::variant<Keep, std::unique_ptr<melonDS::GBACart::CartCommon>>;
 namespace melonDS
 {
 class NDS;

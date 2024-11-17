@@ -77,6 +77,8 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     baseROMDir = "";
     baseROMName = "";
     baseAssetName = "";
+    nextCart = nullptr;
+    changeCart = false;
 
     gbaSave = nullptr;
     gbaCartType = -1;
@@ -120,7 +122,7 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     mpAudioMode = globalCfg.GetInt("MP.AudioMode");
 
     nds = nullptr;
-    //updateConsole(nullptr);
+    //updateConsole();
 
     audioInit();
     inputInit();
@@ -1217,23 +1219,22 @@ void EmuInstance::setDateTime()
                          time.time().hour(), time.time().minute(), time.time().second());
 }
 
-bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs) noexcept
+bool EmuInstance::updateConsole() noexcept
 {
     // update the console type
     consoleType = globalCfg.GetInt("Emu.ConsoleType");
 
     // Let's get the cart we want to use;
-    // if we wnat to keep the cart, we'll eject it from the existing console first.
+    // if we want to keep the cart, we'll eject it from the existing console first.
     std::unique_ptr<NDSCart::CartCommon> nextndscart;
-    if (std::holds_alternative<Keep>(_ndsargs))
+    if (!changeCart)
     { // If we want to keep the existing cart (if any)...
         nextndscart = nds ? nds->EjectCart() : nullptr;
-        _ndsargs = {};
     }
-    else if (const auto ptr = std::get_if<std::unique_ptr<NDSCart::CartCommon>>(&_ndsargs))
+    else
     {
-        nextndscart = std::move(*ptr);
-        _ndsargs = {};
+        nextndscart = std::move(nextCart);
+        changeCart = false;
     }
 
     if (auto* cartsd = dynamic_cast<NDSCart::CartSD*>(nextndscart.get()))
@@ -1388,12 +1389,14 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs) noexcept
     }
     renderLock.unlock();
 
+    loadCheats();
+
     return true;
 }
 
 void EmuInstance::reset()
 {
-    updateConsole(Keep {});
+    updateConsole();
 
     if (consoleType == 1) ejectGBACart();
 
@@ -1457,7 +1460,7 @@ void EmuInstance::reset()
 bool EmuInstance::bootToMenu()
 {
     // Keep whatever cart is in the console, if any.
-    if (!updateConsole(Keep {}))
+    if (!updateConsole())
         // Try to update the console, but keep the existing cart. If that fails...
         return false;
 
@@ -1912,7 +1915,10 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
 
     if (reset)
     {
-        if (!updateConsole(std::move(cart)))
+        nextCart = std::move(cart);
+        changeCart = true;
+
+        if (!updateConsole())
         {
             QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
             return false;
@@ -1931,13 +1937,20 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
     }
     else
     {
-        assert(nds != nullptr);
-        nds->SetNDSCart(std::move(cart));
+        if (emuIsActive())
+        {
+            nds->SetNDSCart(std::move(cart));
+            loadCheats();
+        }
+        else
+        {
+            nextCart = std::move(cart);
+            changeCart = true;
+        }
     }
 
     cartType = 0;
     ndsSave = std::make_unique<SaveManager>(savname);
-    loadCheats();
 
     return true; // success
 }
@@ -1946,9 +1959,16 @@ void EmuInstance::ejectCart()
 {
     ndsSave = nullptr;
 
-    unloadCheats();
-
-    nds->EjectCart();
+    if (emuIsActive())
+    {
+        nds->EjectCart();
+        unloadCheats();
+    }
+    else
+    {
+        nextCart = nullptr;
+        changeCart = true;
+    }
 
     cartType = -1;
     baseROMDir = "";
