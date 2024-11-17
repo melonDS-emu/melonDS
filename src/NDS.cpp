@@ -957,6 +957,7 @@ u32 NDS::RunFrame()
                 }
                 else if (CPUStop & CPUStop_DMA9)
                 {
+                    u64 ts = ARM9Timestamp;
                     DMAs[0].Run();
                     if (!(CPUStop & CPUStop_GXStall)) DMAs[1].Run();
                     if (!(CPUStop & CPUStop_GXStall)) DMAs[2].Run();
@@ -966,6 +967,14 @@ u32 NDS::RunFrame()
                         auto& dsi = dynamic_cast<melonDS::DSi&>(*this);
                         dsi.RunNDMAs(0);
                     }
+                    ts = ARM9Timestamp - ts;
+                    for (int i = 0; i < 7; i++)
+                    {
+                        ARM9.ICacheFillTimes[i] += ts;
+                        ARM9.DCacheFillTimes[i] += ts;
+                    }
+                    ARM9.WBTimestamp += ts;
+
                 }
                 else
                 {
