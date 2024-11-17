@@ -859,7 +859,7 @@ std::unique_ptr<ARM9BIOSImage> EmuInstance::loadARM9BIOS() noexcept
 {
     if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
     {
-        return globalCfg.GetInt("Emu.ConsoleType") == 0 ? std::make_unique<ARM9BIOSImage>(bios_arm9_bin) : nullptr;
+        return std::make_unique<ARM9BIOSImage>(bios_arm9_bin);
     }
 
     string path = globalCfg.GetString("DS.BIOS9Path");
@@ -882,7 +882,7 @@ std::unique_ptr<ARM7BIOSImage> EmuInstance::loadARM7BIOS() noexcept
 {
     if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
     {
-        return globalCfg.GetInt("Emu.ConsoleType") == 0 ? std::make_unique<ARM7BIOSImage>(bios_arm7_bin) : nullptr;
+        return std::make_unique<ARM7BIOSImage>(bios_arm7_bin);
     }
 
     string path = globalCfg.GetString("DS.BIOS7Path");
@@ -1006,11 +1006,12 @@ std::optional<Firmware> EmuInstance::loadFirmware(int type) noexcept
     { // If we're using built-in firmware...
         if (type == 1)
         {
-            Log(Error, "DSi firmware: cannot use built-in firmware in DSi mode!\n");
-            return std::nullopt;
+            // TODO: support generating a firmware for DSi mode
         }
-
-        return generateFirmware(type);
+        else
+        {
+            return generateFirmware(type);
+        }
     }
     //const string& firmwarepath = type == 1 ? Config::DSiFirmwarePath : Config::FirmwarePath;
     string firmwarepath;
@@ -1458,16 +1459,16 @@ void EmuInstance::reset()
 
 
 bool EmuInstance::bootToMenu()
-{
+{printf("bootToMenu 1\n");
     // Keep whatever cart is in the console, if any.
     if (!updateConsole())
         // Try to update the console, but keep the existing cart. If that fails...
         return false;
-
+    printf("bootToMenu 2\n");
     // BIOS and firmware files are loaded, patched, and installed in UpdateConsole
     if (nds->NeedsDirectBoot())
         return false;
-
+    printf("bootToMenu 3\n");
     initFirmwareSaveManager();
     nds->Reset();
     setBatteryLevels();
