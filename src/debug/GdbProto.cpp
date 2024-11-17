@@ -113,7 +113,7 @@ Gdb::ReadResult GdbStub::ParseAndSetupPacket()
 	ReadResult result, prevResult;
 	while (true)
 	{
-		ReadResult result = TryParsePacket(i, packetStart, packetSize, packetContentSize);
+		result = TryParsePacket(i, packetStart, packetSize, packetContentSize);
 		if (result == ReadResult::NoPacket)
 			break;
 		if (result != ReadResult::CmdRecvd && result != ReadResult::Break)
