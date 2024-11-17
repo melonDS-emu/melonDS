@@ -96,6 +96,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
 
 #ifdef GDBSTUB_ENABLED
     ui->cbGdbEnabled->setChecked(instcfg.GetBool("Gdb.Enabled"));
+    ui->cbGdbBreakOnError->setChecked(instcfg.GetBool("Gdb.BreakOnError"));
     ui->intGdbPortA7->setValue(instcfg.GetInt("Gdb.ARM7.Port"));
     ui->intGdbPortA9->setValue(instcfg.GetInt("Gdb.ARM9.Port"));
     ui->cbGdbBOSA7->setChecked(instcfg.GetBool("Gdb.ARM7.BreakOnStartup"));
@@ -107,6 +108,8 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->cbGdbBOSA7->setDisabled(true);
     ui->cbGdbBOSA9->setDisabled(true);
 #endif
+
+    ui->cbDebugExtendedMem->setChecked(instcfg.GetBool("Debug.ExtendedMemory"));
 
     on_chkEnableJIT_toggled();
     on_cbGdbEnabled_toggled();
@@ -294,11 +297,13 @@ void EmuSettingsDialog::done(int r)
 #endif
 #ifdef GDBSTUB_ENABLED
             instcfg.SetBool("Gdb.Enabled", ui->cbGdbEnabled->isChecked());
+            instcfg.SetBool("Gdb.BreakOnError", ui->cbGdbBreakOnError->isChecked());
             instcfg.SetInt("Gdb.ARM7.Port", ui->intGdbPortA7->value());
             instcfg.SetInt("Gdb.ARM9.Port", ui->intGdbPortA9->value());
             instcfg.SetBool("Gdb.ARM7.BreakOnStartup", ui->cbGdbBOSA7->isChecked());
             instcfg.SetBool("Gdb.ARM9.BreakOnStartup", ui->cbGdbBOSA9->isChecked());
 #endif
+            instcfg.SetBool("Debug.ExtendedMemory", ui->cbDebugExtendedMem->isChecked());
 
             cfg.SetInt("Emu.ConsoleType", ui->cbxConsoleType->currentIndex());
             cfg.SetBool("Emu.DirectBoot", ui->chkDirectBoot->isChecked());

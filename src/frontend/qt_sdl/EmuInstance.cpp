@@ -1289,6 +1289,7 @@ bool EmuInstance::updateConsole() noexcept
             static_cast<u16>(gdbopt.GetInt("ARM9.Port")),
             gdbopt.GetBool("ARM7.BreakOnStartup"),
             gdbopt.GetBool("ARM9.BreakOnStartup"),
+            gdbopt.GetBool("BreakOnError")
     };
     auto gdbargs = gdbopt.GetBool("Enabled") ? std::make_optional(_gdbargs) : std::nullopt;
 #else
@@ -1358,6 +1359,7 @@ bool EmuInstance::updateConsole() noexcept
             nds = new NDS(std::move(ndsargs), this);
 
         NDS::Current = nds;
+        nds->SetMemoryExtension(localCfg.GetBool("Debug.ExtendedMemory"));
         nds->Reset();
         loadRTCData();
         //emuThread->updateVideoRenderer(); // not actually needed?

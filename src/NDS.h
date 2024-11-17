@@ -468,6 +468,8 @@ public: // TODO: Encapsulate the rest of these members
     virtual void ARM7IOWrite16(u32 addr, u16 val);
     virtual void ARM7IOWrite32(u32 addr, u32 val);
 
+    void SetMemoryExtension(bool enabled);
+
 #ifdef JIT_ENABLED
     [[nodiscard]] bool IsJITEnabled() const noexcept { return EnableJIT; }
     void SetJITArgs(std::optional<JITArgs> args) noexcept;
@@ -526,6 +528,7 @@ private:
     void EnterSleepMode();
     template <CPUExecuteMode cpuMode>
     u32 RunFrame();
+    bool useExtendedMemory = false;
 
 public:
     NDS(NDSArgs&& args, void* userdata = nullptr) noexcept : NDS(std::move(args), 0, userdata) {}

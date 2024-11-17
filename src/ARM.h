@@ -206,6 +206,7 @@ protected:
     bool IsSingleStep;
     bool BreakReq;
     bool BreakOnStartup;
+    bool BreakOnError;
     u16 Port;
 
 public:
