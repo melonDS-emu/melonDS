@@ -40,8 +40,8 @@ public:
     void WriteCnt(u32 val);
     void Start();
 
-    u32 UnitTimings9_16(bool burststart);
-    u32 UnitTimings9_32(bool burststart);
+    u32 UnitTimings9_16(u8 burststart);
+    u32 UnitTimings9_32(u8 burststart);
     u32 UnitTimings7_16(bool burststart);
     u32 UnitTimings7_32(bool burststart);
 
@@ -71,6 +71,11 @@ public:
     void StallIfRunning()
     {
         if (Executing) Stall = true;
+    }
+
+    void ResetBurst()
+    {
+        if (Running > 0) Running = (CPU ? 2 : 3);
     }
 
     u32 SrcAddr {};

@@ -187,16 +187,20 @@ void DMA::Start()
 
     // TODO eventually: not stop if we're running code in ITCM
 
-    Running = 2;
+    Running = 3;
 
     // safety measure
     MRAMBurstTable = DMATiming::MRAMDummy;
 
     InProgress = true;
     NDS.StopCPU(CPU, 1<<Num);
+
+    if (Num == 0) NDS.DMAs[(CPU*4)+1].ResetBurst();
+    if (Num <= 1) NDS.DMAs[(CPU*4)+2].ResetBurst();
+    if (Num <= 2) NDS.DMAs[(CPU*4)+3].ResetBurst();
 }
 
-u32 DMA::UnitTimings9_16(bool burststart)
+u32 DMA::UnitTimings9_16(u8 burststart)
 {
     u32 src_id = CurSrcAddr >> 14;
     u32 dst_id = CurDstAddr >> 14;
@@ -213,11 +217,13 @@ u32 DMA::UnitTimings9_16(bool burststart)
     if (src_rgn == Mem9_MainRAM)
     {
         if (dst_rgn == Mem9_MainRAM)
-            return 16;
+        {
+            return (burststart == 2) ? 11 : 16;
+        }
 
         if (SrcAddrInc > 0)
         {
-            if (burststart || MRAMBurstTable[MRAMBurstCount] == 0)
+            if ((burststart == 2) || MRAMBurstTable[MRAMBurstCount] == 0)
             {
                 MRAMBurstCount = 0;
 
@@ -239,14 +245,14 @@ u32 DMA::UnitTimings9_16(bool burststart)
         {
             // TODO: not quite right for GBA slot
             return (((CurSrcAddr & 0x1F) == 0x1E) ? 7 : 8) +
-                   (burststart ? dst_n : dst_s);
+                   ((burststart == 2) ? dst_n : dst_s);
         }
     }
     else if (dst_rgn == Mem9_MainRAM)
     {
         if (DstAddrInc > 0)
         {
-            if (burststart || MRAMBurstTable[MRAMBurstCount] == 0)
+            if ((burststart == 2) || MRAMBurstTable[MRAMBurstCount] == 0)
             {
                 MRAMBurstCount = 0;
 
@@ -266,23 +272,26 @@ u32 DMA::UnitTimings9_16(bool burststart)
         }
         else
         {
-            return (burststart ? src_n : src_s) + 7;
+            return ((burststart == 2) ? src_n : src_s) + 7;
         }
     }
     else if (src_rgn & dst_rgn)
     {
-        return src_n + dst_n + 1;
+        if (burststart != 1)
+            return src_n + dst_n + (src_n == 1 || burststart <= 0);
+        else
+            return src_n + dst_n + (src_n != 1);
     }
     else
     {
-        if (burststart)
-            return src_n + dst_n;
+        if (burststart == 2)
+            return src_n + dst_n + (src_n == 1);
         else
             return src_s + dst_s;
     }
 }
 
-u32 DMA::UnitTimings9_32(bool burststart)
+u32 DMA::UnitTimings9_32(u8 burststart)
 {
     u32 src_id = CurSrcAddr >> 14;
     u32 dst_id = CurDstAddr >> 14;
@@ -299,11 +308,11 @@ u32 DMA::UnitTimings9_32(bool burststart)
     if (src_rgn == Mem9_MainRAM)
     {
         if (dst_rgn == Mem9_MainRAM)
-            return 18;
+            return (burststart == 2) ? 13 : 18;
 
         if (SrcAddrInc > 0)
         {
-            if (burststart || MRAMBurstTable[MRAMBurstCount] == 0)
+            if ((burststart == 2) || MRAMBurstTable[MRAMBurstCount] == 0)
             {
                 MRAMBurstCount = 0;
 
@@ -327,14 +336,14 @@ u32 DMA::UnitTimings9_32(bool burststart)
         {
             // TODO: not quite right for GBA slot
             return (((CurSrcAddr & 0x1F) == 0x1C) ? (dst_n==2 ? 7:8) : 9) +
-                   (burststart ? dst_n : dst_s);
+                   ((burststart == 2) ? dst_n : dst_s);
         }
     }
     else if (dst_rgn == Mem9_MainRAM)
     {
         if (DstAddrInc > 0)
         {
-            if (burststart || MRAMBurstTable[MRAMBurstCount] == 0)
+            if ((burststart == 2) || MRAMBurstTable[MRAMBurstCount] == 0)
             {
                 MRAMBurstCount = 0;
 
@@ -356,17 +365,20 @@ u32 DMA::UnitTimings9_32(bool burststart)
         }
         else
         {
-            return (burststart ? src_n : src_s) + 8;
+            return ((burststart == 2) ? src_n : src_s) + 8;
         }
     }
     else if (src_rgn & dst_rgn)
     {
-        return src_n + dst_n + 1;
+        if (burststart != 1)
+            return src_n + dst_n + (src_n == 1 || burststart <= 0);
+        else
+            return src_n + dst_n + (src_n != 1);
     }
     else
     {
-        if (burststart)
-            return src_n + dst_n;
+        if (burststart == 2)
+            return src_n + dst_n + (src_n == 1);
         else
             return src_s + dst_s;
     }
@@ -557,15 +569,17 @@ void DMA::Run9()
     Executing = true;
 
     // add NS penalty for first accesses in burst
-    bool burststart = (Running == 2);
-    Running = 1;
+    int burststart = Running-1;
+    Running = 2;
+
+    NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
 
     if (!(Cnt & (1<<26)))
     {
         while (IterCount > 0 && !Stall)
         {
             NDS.ARM9Timestamp += (UnitTimings9_16(burststart) << NDS.ARM9ClockShift);
-            burststart = false;
+            burststart -= 1;
 
             NDS.ARM9Write16(CurDstAddr, NDS.ARM9Read16(CurSrcAddr));
 
@@ -582,7 +596,7 @@ void DMA::Run9()
         while (IterCount > 0 && !Stall)
         {
             NDS.ARM9Timestamp += (UnitTimings9_32(burststart) << NDS.ARM9ClockShift);
-            burststart = false;
+            burststart -= 1;
 
             NDS.ARM9Write32(CurDstAddr, NDS.ARM9Read32(CurSrcAddr));
 
@@ -594,6 +608,8 @@ void DMA::Run9()
             if (NDS.ARM9Timestamp >= NDS.ARM9Target) break;
         }
     }
+
+    if (burststart == 1) Running = 1;  
 
     Executing = false;
     Stall = false;

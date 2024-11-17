@@ -309,6 +309,7 @@ public: // TODO: Encapsulate the rest of these members
     GBACart::GBACartSlot GBACartSlot;
     melonDS::GPU GPU;
     melonDS::AREngine AREngine;
+    DMA DMAs[8];
 
 #ifdef JIT_ENABLED
     bool IsJITEnabled(){return EnableJIT;};
@@ -494,7 +495,6 @@ private:
     u16 WifiWaitCnt;
     u8 TimerCheckMask[2];
     u64 TimerTimestamp[2];
-    DMA DMAs[8];
     u32 DMA9Fill[4];
     u16 IPCSync9, IPCSync7;
     u16 IPCFIFOCnt9, IPCFIFOCnt7;
