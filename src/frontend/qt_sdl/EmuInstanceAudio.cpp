@@ -159,6 +159,8 @@ void EmuInstance::audioMute()
 
 void EmuInstance::micOpen()
 {
+    if (micDevice) return;
+
     if (micInputType != micInputType_External)
     {
         micDevice = 0;
