@@ -1296,8 +1296,10 @@ bool EmuInstance::updateConsole() noexcept
 #endif
 
     NDSArgs ndsargs {
-            std::move(nextndscart),
-            std::move(nextgbacart),
+            //std::move(nextndscart),
+            //std::move(nextgbacart),
+            nullptr,
+            nullptr,
             std::move(arm9bios),
             std::move(arm7bios),
             std::move(*firmware),
@@ -1365,8 +1367,6 @@ bool EmuInstance::updateConsole() noexcept
         nds->SetARM7BIOS(*args->ARM7BIOS);
         nds->SetARM9BIOS(*args->ARM9BIOS);
         nds->SetFirmware(std::move(args->Firmware));
-        nds->SetNDSCart(std::move(args->NDSROM));
-        nds->SetGBACart(std::move(args->GBAROM));
         nds->SetJITArgs(args->JIT);
         // TODO GDB stub shit
         nds->SPU.SetInterpolation(args->Interpolation);
@@ -1384,10 +1384,16 @@ bool EmuInstance::updateConsole() noexcept
             dsi->SetSDCard(std::move(_dsiargs.DSiSDCard));
             // We're moving the optional, not the card
             // (inserting std::nullopt here is okay, it means no card)
-
-            dsi->EjectGBACart();
         }
     }
+
+    // loads the carts later -- to be sure that everything else is initialized
+    nds->SetNDSCart(std::move(nextndscart));
+    if (consoleType == 1)
+        nds->EjectGBACart();
+    else
+        nds->SetGBACart(std::move(nextgbacart));
+
     renderLock.unlock();
 
     loadCheats();
