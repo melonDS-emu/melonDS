@@ -1296,10 +1296,6 @@ bool EmuInstance::updateConsole() noexcept
 #endif
 
     NDSArgs ndsargs {
-            //std::move(nextndscart),
-            //std::move(nextgbacart),
-            nullptr,
-            nullptr,
             std::move(arm9bios),
             std::move(arm7bios),
             std::move(*firmware),
@@ -1313,8 +1309,6 @@ bool EmuInstance::updateConsole() noexcept
     std::optional<DSiArgs> dsiargs = std::nullopt;
     if (consoleType == 1)
     {
-        ndsargs.GBAROM = nullptr;
-
         auto arm7ibios = loadDSiARM7BIOS();
         if (!arm7ibios)
             return false;
