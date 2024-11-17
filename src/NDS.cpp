@@ -227,6 +227,15 @@ void NDS::SetJITArgs(std::optional<JITArgs> args) noexcept
 }
 #endif
 
+#ifdef GDBSTUB_ENABLED
+void NDS::SetGdbArgs(std::optional<GDBArgs> args) noexcept
+{
+    ARM9.SetGdbArgs(args);
+    ARM7.SetGdbArgs(args);
+    EnableGDBStub = args.has_value();
+}
+#endif
+
 void NDS::InitTimings()
 {
     // TODO, eventually:

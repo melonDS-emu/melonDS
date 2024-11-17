@@ -476,6 +476,12 @@ public: // TODO: Encapsulate the rest of these members
     void SetJITArgs(std::optional<JITArgs> args) noexcept {}
 #endif
 
+#ifdef GDBSTUB_ENABLED
+    void SetGdbArgs(std::optional<GDBArgs> args) noexcept;
+#else
+    void SetGdbArgs(std::optional<GDBArgs> args) noexcept {}
+#endif
+
 private:
     void InitTimings();
     u32 SchedListMask;

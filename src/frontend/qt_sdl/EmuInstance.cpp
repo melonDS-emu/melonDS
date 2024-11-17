@@ -1362,7 +1362,7 @@ bool EmuInstance::updateConsole() noexcept
         nds->SetARM9BIOS(*args->ARM9BIOS);
         nds->SetFirmware(std::move(args->Firmware));
         nds->SetJITArgs(args->JIT);
-        // TODO GDB stub shit
+        nds->SetGdbArgs(args->GDB);
         nds->SPU.SetInterpolation(args->Interpolation);
         nds->SPU.SetDegrade10Bit(args->BitDepth);
 
