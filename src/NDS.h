@@ -384,7 +384,6 @@ public: // TODO: Encapsulate the rest of these members
     u32 GetGBASaveLength() const { return GBACartSlot.GetSaveMemoryLength(); }
     void SetGBASave(const u8* savedata, u32 savelen);
 
-    void LoadGBAAddon(int type);
     std::unique_ptr<GBACart::CartCommon> EjectGBACart() { return GBACartSlot.EjectCart(); }
 
     u32 RunFrame();

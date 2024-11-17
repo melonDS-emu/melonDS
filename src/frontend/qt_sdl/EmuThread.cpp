@@ -109,7 +109,7 @@ void EmuThread::run()
     Config::Table& globalCfg = emuInstance->getGlobalConfig();
     u32 mainScreenPos[3];
 
-    //emuInstance->updateConsole(nullptr, nullptr);
+    //emuInstance->updateConsole(nullptr);
     // No carts are inserted when melonDS first boots
 
     mainScreenPos[0] = 0;

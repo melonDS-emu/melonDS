@@ -120,7 +120,7 @@ public:
     // return: empty string = setup OK, non-empty = error message
     QString verifySetup();
 
-    bool updateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept;
+    bool updateConsole(UpdateConsoleNDSArgs&& ndsargs) noexcept;
 
     void enableCheats(bool enable);
     melonDS::ARCodeFile* getCheatFile();
@@ -188,12 +188,14 @@ private:
     std::pair<std::unique_ptr<melonDS::Firmware>, std::string> generateDefaultFirmware();
     bool parseMacAddress(void* data);
     void customizeFirmware(melonDS::Firmware& firmware, bool overridesettings) noexcept;
+
     bool loadROMData(const QStringList& filepath, std::unique_ptr<melonDS::u8[]>& filedata, melonDS::u32& filelen, std::string& basepath, std::string& romname) noexcept;
     QString getSavErrorString(std::string& filepath, bool gba);
     bool loadROM(QStringList filepath, bool reset);
     void ejectCart();
     bool cartInserted();
     QString cartLabel();
+
     bool loadGBAROM(QStringList filepath);
     void loadGBAAddon(int type);
     void ejectGBACart();
@@ -264,6 +266,8 @@ private:
     std::string baseGBAROMDir;
     std::string baseGBAROMName;
     std::string baseGBAAssetName;
+    bool changeGBACart;
+    std::unique_ptr<melonDS::GBACart::CartCommon> nextGBACart;
 
     // HACK
 public:

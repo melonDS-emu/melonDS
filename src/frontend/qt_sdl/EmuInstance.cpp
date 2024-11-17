@@ -83,6 +83,8 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     baseGBAROMDir = "";
     baseGBAROMName = "";
     baseGBAAssetName = "";
+    nextGBACart = nullptr;
+    changeGBACart = false;
 
     cheatFile = nullptr;
     cheatsOn = localCfg.GetBool("EnableCheats");
@@ -118,7 +120,7 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     mpAudioMode = globalCfg.GetInt("MP.AudioMode");
 
     nds = nullptr;
-    //updateConsole(nullptr, nullptr);
+    //updateConsole(nullptr);
 
     audioInit();
     inputInit();
@@ -1215,7 +1217,7 @@ void EmuInstance::setDateTime()
                          time.time().hour(), time.time().minute(), time.time().second());
 }
 
-bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGBAArgs&& _gbaargs) noexcept
+bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs) noexcept
 {
     // update the console type
     consoleType = globalCfg.GetInt("Emu.ConsoleType");
@@ -1242,14 +1244,14 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     }
 
     std::unique_ptr<GBACart::CartCommon> nextgbacart;
-    if (std::holds_alternative<Keep>(_gbaargs))
+    if (!changeGBACart)
     {
         nextgbacart = nds ? nds->EjectGBACart() : nullptr;
     }
-    else if (const auto ptr = std::get_if<std::unique_ptr<GBACart::CartCommon>>(&_gbaargs))
+    else
     {
-        nextgbacart = std::move(*ptr);
-        _gbaargs = {};
+        nextgbacart = std::move(nextGBACart);
+        changeGBACart = false;
     }
 
 
@@ -1391,7 +1393,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
 
 void EmuInstance::reset()
 {
-    updateConsole(Keep {}, Keep {});
+    updateConsole(Keep {});
 
     if (consoleType == 1) ejectGBACart();
 
@@ -1455,7 +1457,7 @@ void EmuInstance::reset()
 bool EmuInstance::bootToMenu()
 {
     // Keep whatever cart is in the console, if any.
-    if (!updateConsole(Keep {}, Keep {}))
+    if (!updateConsole(Keep {}))
         // Try to update the console, but keep the existing cart. If that fails...
         return false;
 
@@ -1910,7 +1912,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
 
     if (reset)
     {
-        if (!updateConsole(std::move(cart), Keep {}))
+        if (!updateConsole(std::move(cart)))
         {
             QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
             return false;
@@ -2043,9 +2045,18 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
         return false;
     }
 
-    nds->SetGBACart(std::move(cart));
     gbaCartType = 0;
-    gbaSave = std::make_unique<SaveManager>(savname);
+    if (emuIsActive())
+    {
+        nds->SetGBACart(std::move(cart));
+        gbaSave = std::make_unique<SaveManager>(savname);
+    }
+    else
+    {
+        nextGBACart = std::move(cart);
+        changeGBACart = true;
+    }
+
     return true;
 }
 
@@ -2053,10 +2064,24 @@ void EmuInstance::loadGBAAddon(int type)
 {
     if (consoleType == 1) return;
 
+    auto cart = GBACart::LoadAddon(type, this);
+    if (!cart)
+    {
+        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the GBA addon.");
+        return;
+    }
+
+    if (emuIsActive())
+    {
+        nds->SetGBACart(std::move(cart));
+    }
+    else
+    {
+        nextGBACart = std::move(cart);
+        changeGBACart = true;
+    }
+
     gbaSave = nullptr;
-
-    nds->LoadGBAAddon(type);
-
     gbaCartType = type;
     baseGBAROMDir = "";
     baseGBAROMName = "";
@@ -2067,7 +2092,15 @@ void EmuInstance::ejectGBACart()
 {
     gbaSave = nullptr;
 
-    nds->EjectGBACart();
+    if (emuIsActive())
+    {
+        nds->EjectGBACart();
+    }
+    else
+    {
+        nextGBACart = nullptr;
+        changeGBACart = true;
+    }
 
     gbaCartType = -1;
     baseGBAROMDir = "";
