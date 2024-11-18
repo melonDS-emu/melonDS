@@ -275,10 +275,14 @@ enum
     memstate_MappedProtected,
 };
 
-
+#define CHECK_ALIGNED(value) assert(((value) & (PageSize-1)) == 0)
 
 bool ARMJIT_Memory::MapIntoRange(u32 addr, u32 num, u32 offset, u32 size) noexcept
 {
+    CHECK_ALIGNED(addr);
+    CHECK_ALIGNED(offset);
+    CHECK_ALIGNED(size);
+
     u8* dst = (u8*)(num == 0 ? FastMem9Start : FastMem7Start) + addr;
 #ifdef __SWITCH__
     Result r = (svcMapProcessMemory(dst, envGetOwnProcessHandle(),
@@ -333,6 +337,10 @@ bool ARMJIT_Memory::MapIntoRange(u32 addr, u32 num, u32 offset, u32 size) noexce
 
 bool ARMJIT_Memory::UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size) noexcept
 {
+    CHECK_ALIGNED(addr);
+    CHECK_ALIGNED(offset);
+    CHECK_ALIGNED(size);
+
     u8* dst = (u8*)(num == 0 ? FastMem9Start : FastMem7Start) + addr;
 #ifdef __SWITCH__
     Result r = svcUnmapProcessMemory(dst, envGetOwnProcessHandle(),
@@ -388,6 +396,9 @@ bool ARMJIT_Memory::UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size) noex
 #ifndef __SWITCH__
 void ARMJIT_Memory::SetCodeProtectionRange(u32 addr, u32 size, u32 num, int protection) noexcept
 {
+    CHECK_ALIGNED(addr);
+    CHECK_ALIGNED(size);
+
     u8* dst = (u8*)(num == 0 ? FastMem9Start : FastMem7Start) + addr;
 #if defined(_WIN32)
     DWORD winProtection, oldProtection;
@@ -432,14 +443,14 @@ void ARMJIT_Memory::Mapping::Unmap(int region, melonDS::NDS& nds) noexcept
         else
         {
             u32 segmentOffset = offset;
-            u8 status = statuses[(Addr + offset) >> 12];
-            while (statuses[(Addr + offset) >> 12] == status
+            u8 status = statuses[(Addr + offset) >> PageShift];
+            while (statuses[(Addr + offset) >> PageShift] == status
                    && offset < Size
                    && (!skipDTCM || Addr + offset != dtcmStart))
             {
-                assert(statuses[(Addr + offset) >> 12] != memstate_Unmapped);
-                statuses[(Addr + offset) >> 12] = memstate_Unmapped;
-                offset += 0x1000;
+                assert(statuses[(Addr + offset) >> PageShift] != memstate_Unmapped);
+                statuses[(Addr + offset) >> PageShift] = memstate_Unmapped;
+                offset += PageSize;
             }
 
 #ifdef __SWITCH__
@@ -483,7 +494,7 @@ void ARMJIT_Memory::Mapping::Unmap(int region, melonDS::NDS& nds) noexcept
 
 void ARMJIT_Memory::SetCodeProtection(int region, u32 offset, bool protect) noexcept
 {
-    offset &= ~0xFFF;
+    offset &= ~(PageSize - 1);
     //printf("set code protection %d %x %d\n", region, offset, protect);
 
     for (int i = 0; i < Mappings[region].Length; i++)
@@ -501,9 +512,9 @@ void ARMJIT_Memory::SetCodeProtection(int region, u32 offset, bool protect) noex
 
         u8* states = (u8*)(mapping.Num == 0 ? MappingStatus9 : MappingStatus7);
 
-        //printf("%x %d %x %x %x %d\n", effectiveAddr, mapping.Num, mapping.Addr, mapping.LocalOffset, mapping.Size, states[effectiveAddr >> 12]);
-        assert(states[effectiveAddr >> 12] == (protect ? memstate_MappedRW : memstate_MappedProtected));
-        states[effectiveAddr >> 12] = protect ? memstate_MappedProtected : memstate_MappedRW;
+        //printf("%x %d %x %x %x %d\n", effectiveAddr, mapping.Num, mapping.Addr, mapping.LocalOffset, mapping.Size, states[effectiveAddr >> PageShift]);
+        assert(states[effectiveAddr >> PageShift] == (protect ? memstate_MappedRW : memstate_MappedProtected));
+        states[effectiveAddr >> PageShift] = protect ? memstate_MappedProtected : memstate_MappedRW;
 
 #if defined(__SWITCH__)
         bool success;
@@ -513,7 +524,7 @@ void ARMJIT_Memory::SetCodeProtection(int region, u32 offset, bool protect) noex
             success = MapIntoRange(effectiveAddr, mapping.Num, OffsetsPerRegion[region] + offset, 0x1000);
         assert(success);
 #else
-        SetCodeProtectionRange(effectiveAddr, 0x1000, mapping.Num, protect ? 1 : 2);
+        SetCodeProtectionRange(effectiveAddr, PageSize, mapping.Num, protect ? 1 : 2);
 #endif
     }
 }
@@ -642,6 +653,15 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
         && dtcmEnd >= mirrorStart
         && dtcmStart < mirrorStart + mirrorSize)
     {
+        if (dtcmSize < PageSize)
+        {
+            // we could technically mask out the DTCM by setting a hole to access permissions
+            // but realistically there isn't much of a point in mapping less than 16kb of DTCM
+            // so it isn't worth more complex support
+            Log(LogLevel::Info, "DTCM size smaller than 16kb skipping mapping entirely");
+            return false;
+        }
+
         bool success;
         if (dtcmStart > mirrorStart)
         {
@@ -677,14 +697,14 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
         else
         {
             u32 sectionOffset = offset;
-            bool hasCode = isExecutable && PageContainsCode(&range[offset / 512]);
+            bool hasCode = isExecutable && PageContainsCode(&range[offset / 512], PageSize);
             while (offset < mirrorSize
-                && (!isExecutable || PageContainsCode(&range[offset / 512]) == hasCode)
+                && (!isExecutable || PageContainsCode(&range[offset / 512], PageSize) == hasCode)
                 && (!skipDTCM || mirrorStart + offset != NDS.ARM9.DTCMBase))
             {
-                assert(states[(mirrorStart + offset) >> 12] == memstate_Unmapped);
-                states[(mirrorStart + offset) >> 12] = hasCode ? memstate_MappedProtected : memstate_MappedRW;
-                offset += 0x1000;
+                assert(states[(mirrorStart + offset) >> PageShift] == memstate_Unmapped);
+                states[(mirrorStart + offset) >> PageShift] = hasCode ? memstate_MappedProtected : memstate_MappedRW;
+                offset += PageSize;
             }
 
             u32 sectionSize = offset - sectionOffset;
@@ -714,6 +734,9 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
     return true;
 }
 
+u32 ARMJIT_Memory::PageSize = 0;
+u32 ARMJIT_Memory::PageShift = 0;
+
 bool ARMJIT_Memory::IsFastMemSupported()
 {
 #ifdef __APPLE__
@@ -727,9 +750,13 @@ bool ARMJIT_Memory::IsFastMemSupported()
         ARMJIT_Global::Init();
         isSupported = virtualAlloc2Ptr != nullptr;
         ARMJIT_Global::DeInit();
+
+        PageSize = RegularPageSize;
 #else
-        isSupported = __sysconf(_SC_PAGESIZE) == 0x1000;
+        PageSize = __sysconf(_SC_PAGESIZE);
+        isSupported = PageShift == RegularPageSize || PageSize == LargePageSize;
 #endif
+        PageShift = __builtin_ctz(PageSize);
         initialised = true;
     }
     return isSupported;
@@ -795,7 +822,7 @@ bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, melonDS::NDS& nds)
 
         u8* memStatus = nds.CurCPU == 0 ? nds.JIT.Memory.MappingStatus9 : nds.JIT.Memory.MappingStatus7;
 
-        if (memStatus[faultDesc.EmulatedFaultAddr >> 12] == memstate_Unmapped)
+        if (memStatus[faultDesc.EmulatedFaultAddr >> PageShift] == memstate_Unmapped)
             rewriteToSlowPath = !nds.JIT.Memory.MapAtAddress(faultDesc.EmulatedFaultAddr);
 
         if (rewriteToSlowPath)

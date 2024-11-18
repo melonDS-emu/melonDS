@@ -916,7 +916,7 @@ void ARMJIT::CompileBlock(ARM* cpu) noexcept
 
         AddressRange* region = CodeMemRegions[addressRanges[j] >> 27];
 
-        if (!PageContainsCode(&region[(addressRanges[j] & 0x7FFF000) / 512]))
+        if (!PageContainsCode(&region[(addressRanges[j] & 0x7FFF000 & ~(Memory.PageSize - 1)) / 512], Memory.PageSize))
             Memory.SetCodeProtection(addressRanges[j] >> 27, addressRanges[j] & 0x7FFFFFF, true);
 
         AddressRange* range = &region[(addressRanges[j] & 0x7FFFFFF) / 512];
@@ -969,7 +969,7 @@ void ARMJIT::InvalidateByAddr(u32 localAddr) noexcept
         range->Blocks.Remove(i);
 
         if (range->Blocks.Length == 0
-            && !PageContainsCode(&region[(localAddr & 0x7FFF000) / 512]))
+            && !PageContainsCode(&region[(localAddr & 0x7FFF000 & ~(Memory.PageSize - 1)) / 512], Memory.PageSize))
         {
             Memory.SetCodeProtection(localAddr >> 27, localAddr & 0x7FFFFFF, false);
         }
@@ -1003,7 +1003,7 @@ void ARMJIT::InvalidateByAddr(u32 localAddr) noexcept
 
                 if (otherRange->Blocks.Length == 0)
                 {
-                    if (!PageContainsCode(&otherRegion[(addr & 0x7FFF000) / 512]))
+                    if (!PageContainsCode(&otherRegion[(addr & 0x7FFF000 & ~(Memory.PageSize - 1)) / 512], Memory.PageSize))
                         Memory.SetCodeProtection(addr >> 27, addr & 0x7FFFFFF, false);
 
                     otherRange->Code = 0;

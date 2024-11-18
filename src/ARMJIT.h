@@ -72,6 +72,7 @@ private:
     bool LiteralOptimizations = false;
     bool BranchOptimizations = false;
     bool FastMemory = false;
+
 public:
     melonDS::NDS& NDS;
     TinyVector<u32> InvalidLiterals {};

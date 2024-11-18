@@ -49,9 +49,12 @@ class Compiler;
 class ARMJIT;
 #endif
 
+static constexpr u32 LargePageSize = 0x4000;
+static constexpr u32 RegularPageSize = 0x1000;
+
 constexpr u32 RoundUp(u32 size) noexcept
 {
-    return size;
+    return (size + LargePageSize - 1) & ~(LargePageSize - 1);
 }
 
 static constexpr u32 MemBlockMainRAMOffset = 0;
@@ -139,6 +142,9 @@ public:
 
     static void RegisterFaultHandler();
     static void UnregisterFaultHandler();
+
+    static u32 PageSize;
+    static u32 PageShift;
 private:
     friend class Compiler;
     struct Mapping
@@ -164,6 +170,7 @@ private:
     void* FastMem9Start;
     void* FastMem7Start;
     u8* MemoryBase = nullptr;
+
 #if defined(__SWITCH__)
     VirtmemReservation* FastMem9Reservation, *FastMem7Reservation;
     u8* MemoryBaseCodeMem;
@@ -178,6 +185,7 @@ private:
     static LONG ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo);
     HANDLE MemoryFile = INVALID_HANDLE_VALUE;
 #else
+
     static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext);
     int MemoryFile = -1;
 #endif
