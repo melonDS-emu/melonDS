@@ -754,7 +754,7 @@ bool ARMJIT_Memory::IsFastMemSupported()
         PageSize = RegularPageSize;
 #else
         PageSize = __sysconf(_SC_PAGESIZE);
-        isSupported = PageShift == RegularPageSize || PageSize == LargePageSize;
+        isSupported = PageSize == RegularPageSize || PageSize == LargePageSize;
 #endif
         PageShift = __builtin_ctz(PageSize);
         initialised = true;
