@@ -245,6 +245,8 @@ void EmuInstance::deleteWindow(int id, bool close)
     if (close)
         win->close();
 
+    if (deleting) return;
+
     if (numWindows == 0)
     {
         // if we closed the last window, delete the instance
@@ -1456,16 +1458,16 @@ void EmuInstance::reset()
 
 
 bool EmuInstance::bootToMenu()
-{printf("bootToMenu 1\n");
+{
     // Keep whatever cart is in the console, if any.
     if (!updateConsole())
         // Try to update the console, but keep the existing cart. If that fails...
         return false;
-    printf("bootToMenu 2\n");
+
     // BIOS and firmware files are loaded, patched, and installed in UpdateConsole
     if (nds->NeedsDirectBoot())
         return false;
-    printf("bootToMenu 3\n");
+
     initFirmwareSaveManager();
     nds->Reset();
     setBatteryLevels();

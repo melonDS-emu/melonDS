@@ -819,6 +819,8 @@ void MainWindow::saveEnabled(bool enabled)
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
+    if (!emuInstance) return;
+
     if (windowID == 0)
         emuInstance->saveEnabledWindows();
     else
