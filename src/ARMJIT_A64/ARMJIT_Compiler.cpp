@@ -22,17 +22,7 @@
 #include "../ARMInterpreter.h"
 #include "../ARMJIT.h"
 #include "../NDS.h"
-
-#if defined(__SWITCH__)
-#include <switch.h>
-
-extern char __start__;
-#elif defined(_WIN32)
-#include <windows.h>
-#else
-#include <sys/mman.h>
-#include <unistd.h>
-#endif
+#include "../ARMJIT_Global.h"
 
 #include <stdlib.h>
 
@@ -65,11 +55,6 @@ template <>
 const int RegisterCache<Compiler, ARM64Reg>::NativeRegsAvailable = 15;
 
 const BitSet32 CallerSavedPushRegs({W8, W9, W10, W11, W12, W13, W14, W15});
-
-const int JitMemSize = 16 * 1024 * 1024;
-#ifndef __SWITCH__
-u8 JitMem[JitMemSize];
-#endif
 
 void Compiler::MovePC()
 {
@@ -260,29 +245,12 @@ Compiler::Compiler(melonDS::NDS& nds) : Arm64Gen::ARM64XEmitter(), NDS(nds)
     SetCodeBase((u8*)JitRWStart, (u8*)JitRXStart);
     JitMemMainSize = JitMemSize;
 #else
-    #ifdef _WIN32
-        SYSTEM_INFO sysInfo;
-        GetSystemInfo(&sysInfo);
+    ARMJIT_Global::Init();
 
-        u64 pageSize = (u64)sysInfo.dwPageSize;
-    #else
-        u64 pageSize = sysconf(_SC_PAGE_SIZE);
-    #endif
-    u8* pageAligned = (u8*)(((u64)JitMem & ~(pageSize - 1)) + pageSize);
-    u64 alignedSize = (((u64)JitMem + sizeof(JitMem)) & ~(pageSize - 1)) - (u64)pageAligned;
+    CodeMemBase = ARMJIT_Global::AllocateCodeMem();
 
-    #if defined(_WIN32)
-        DWORD dummy;
-        VirtualProtect(pageAligned, alignedSize, PAGE_EXECUTE_READWRITE, &dummy);
-    #elif defined(__APPLE__)
-        pageAligned = (u8*)mmap(NULL, 1024*1024*16, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT,-1, 0);
-        nds.JIT.JitEnableWrite();
-    #else
-        mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
-    #endif
-
-    SetCodeBase(pageAligned, pageAligned);
-    JitMemMainSize = alignedSize;
+    SetCodeBase(reinterpret_cast<u8*>(CodeMemBase), reinterpret_cast<u8*>(CodeMemBase));
+    JitMemMainSize = ARMJIT_Global::CodeMemorySliceSize;
 #endif
     SetCodePtr(0);
 
@@ -493,6 +461,9 @@ Compiler::~Compiler()
         free(JitRWBase);
     }
 #endif
+
+    ARMJIT_Global::FreeCodeMem(CodeMemBase);
+    ARMJIT_Global::DeInit();
 }
 
 void Compiler::LoadCycles()

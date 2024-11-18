@@ -541,8 +541,8 @@ public:
     NDS& operator=(const NDS&) = delete;
     NDS(NDS&&) = delete;
     NDS& operator=(NDS&&) = delete;
-    // The frontend should set and unset this manually after creating and destroying the NDS object.
-    [[deprecated("Temporary workaround until JIT code generation is revised to accommodate multiple NDS objects.")]] static NDS* Current;
+
+    static thread_local NDS* Current;
 protected:
     explicit NDS(NDSArgs&& args, int type, void* userdata) noexcept;
     virtual void DoSavestateExtra(Savestate* file) {}

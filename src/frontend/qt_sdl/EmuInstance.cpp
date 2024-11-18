@@ -165,7 +165,6 @@ EmuInstance::~EmuInstance()
     audioDeInit();
     inputDeInit();
 
-    NDS::Current = nullptr;
     if (nds)
     {
         saveRTCData();
@@ -1339,7 +1338,6 @@ bool EmuInstance::updateConsole() noexcept
     renderLock.lock();
     if ((!nds) || (consoleType != nds->ConsoleType))
     {
-        NDS::Current = nullptr;
         if (nds)
         {
             saveRTCData();
@@ -1351,7 +1349,6 @@ bool EmuInstance::updateConsole() noexcept
         else
             nds = new NDS(std::move(ndsargs), this);
 
-        NDS::Current = nds;
         nds->Reset();
         loadRTCData();
         //emuThread->updateVideoRenderer(); // not actually needed?

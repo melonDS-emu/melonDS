@@ -82,9 +82,6 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->chkJITBranchOptimisations->setChecked(cfg.GetBool("JIT.BranchOptimisations"));
     ui->chkJITLiteralOptimisations->setChecked(cfg.GetBool("JIT.LiteralOptimisations"));
     ui->chkJITFastMemory->setChecked(cfg.GetBool("JIT.FastMemory"));
-    #ifdef __APPLE__
-        ui->chkJITFastMemory->setDisabled(true);
-    #endif
     ui->spnJITMaximumBlockSize->setValue(cfg.GetInt("JIT.MaxBlockSize"));
 #else
     ui->chkEnableJIT->setDisabled(true);
@@ -541,9 +538,7 @@ void EmuSettingsDialog::on_chkEnableJIT_toggled()
     bool disabled = !ui->chkEnableJIT->isChecked();
     ui->chkJITBranchOptimisations->setDisabled(disabled);
     ui->chkJITLiteralOptimisations->setDisabled(disabled);
-    #ifndef __APPLE__
-        ui->chkJITFastMemory->setDisabled(disabled);
-    #endif
+    ui->chkJITFastMemory->setDisabled(disabled || !ARMJIT_Memory::IsFastMemSupported());
     ui->spnJITMaximumBlockSize->setDisabled(disabled);
 
     on_cbGdbEnabled_toggled();
