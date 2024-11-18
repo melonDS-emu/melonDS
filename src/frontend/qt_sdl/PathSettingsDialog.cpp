@@ -45,7 +45,7 @@ PathSettingsDialog::PathSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
 
     emuInstance = ((MainWindow*)parent)->getEmuInstance();
 
-    auto& cfg = emuInstance->getGlobalConfig();
+    auto& cfg = emuInstance->getLocalConfig();
     ui->txtSaveFilePath->setText(cfg.GetQString("SaveFilePath"));
     ui->txtSavestatePath->setText(cfg.GetQString("SavestatePath"));
     ui->txtCheatFilePath->setText(cfg.GetQString("CheatFilePath"));
@@ -108,7 +108,7 @@ void PathSettingsDialog::done(int r)
                     QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
                 return;
 
-            auto& cfg = emuInstance->getGlobalConfig();
+            auto& cfg = emuInstance->getLocalConfig();
             cfg.SetQString("SaveFilePath", ui->txtSaveFilePath->text());
             cfg.SetQString("SavestatePath", ui->txtSavestatePath->text());
             cfg.SetQString("CheatFilePath", ui->txtCheatFilePath->text());
