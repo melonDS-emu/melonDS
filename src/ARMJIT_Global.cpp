@@ -21,7 +21,11 @@ namespace ARMJIT_Global
 
 std::mutex globalMutex;
 
-#ifndef __APPLE__
+#if defined(__APPLE__) && defined(__aarch64__)
+#define APPLE_AARCH64
+#endif
+
+#ifndef APPLE_AARCH64
 static constexpr size_t NumCodeMemSlices = 4;
 static constexpr size_t CodeMemoryAlignedSize = NumCodeMemSlices * CodeMemorySliceSize;
 
@@ -42,7 +46,7 @@ void* AllocateCodeMem()
 {
     std::lock_guard guard(globalMutex);
 
-#ifndef __APPLE__
+#ifndef APPLE_AARCH64
     if (AvailableCodeMemSlices)
     {
         int slice = __builtin_ctz(AvailableCodeMemSlices);
@@ -55,6 +59,8 @@ void* AllocateCodeMem()
     // allocate
 #ifdef _WIN32
     return VirtualAlloc(nullptr, CodeMemorySliceSize, MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+#elif defined(APPLE_AARCH64)
+    return mmap(NULL, CodeMemorySliceSize, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT,-1, 0);
 #else
     //printf("mmaping...\n");
     return mmap(nullptr, CodeMemorySliceSize, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -65,6 +71,7 @@ void FreeCodeMem(void* codeMem)
 {
     std::lock_guard guard(globalMutex);
 
+#ifndef APPLE_AARCH64
     for (int i = 0; i < NumCodeMemSlices; i++)
     {
         if (codeMem == &GetAlignedCodeMemoryStart()[CodeMemorySliceSize * i])
@@ -74,6 +81,7 @@ void FreeCodeMem(void* codeMem)
             return;
         }
     }
+#endif
 
 #ifdef _WIN32
     VirtualFree(codeMem, CodeMemorySliceSize, MEM_RELEASE|MEM_DECOMMIT);
@@ -92,8 +100,8 @@ void Init()
         #ifdef _WIN32
             DWORD dummy;
             VirtualProtect(GetAlignedCodeMemoryStart(), CodeMemoryAlignedSize, PAGE_EXECUTE_READWRITE, &dummy);
-        #elif defined(__APPLE__)
-            // Apple always uses dynamic allocation
+        #elif defined(APPLE_AARCH64)
+            // Apple aarch64 always uses dynamic allocation
         #else
             mprotect(GetAlignedCodeMemoryStart(), CodeMemoryAlignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
         #endif

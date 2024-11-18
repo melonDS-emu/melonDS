@@ -248,6 +248,7 @@ Compiler::Compiler(melonDS::NDS& nds) : Arm64Gen::ARM64XEmitter(), NDS(nds)
     ARMJIT_Global::Init();
 
     CodeMemBase = ARMJIT_Global::AllocateCodeMem();
+    nds.JIT.JitEnableWrite();
 
     SetCodeBase(reinterpret_cast<u8*>(CodeMemBase), reinterpret_cast<u8*>(CodeMemBase));
     JitMemMainSize = ARMJIT_Global::CodeMemorySliceSize;
