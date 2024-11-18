@@ -816,7 +816,7 @@ Table GetLocalTable(int instance)
 
     std::string key = "Instance" + std::to_string(instance);
     toml::value& tbl = RootTable[key];
-    if (tbl.is_uninitialized())
+    if (tbl.is_empty())
         RootTable[key] = RootTable["Instance0"];
 
     return Table(tbl, key);
