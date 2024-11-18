@@ -1,2 +1,0 @@
-@PACKAGE_INIT@
-include("@PACKAGE_toml11_install_cmake_dir@/toml11Targets.cmake")
