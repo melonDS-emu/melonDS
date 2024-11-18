@@ -29,7 +29,6 @@
 #include <fstream>
 
 #include <QDateTime>
-#include <QMessageBox>
 
 #include <zstd.h>
 #ifdef ARCHIVE_SUPPORT_ENABLED
@@ -1457,16 +1456,22 @@ void EmuInstance::reset()
 }
 
 
-bool EmuInstance::bootToMenu()
+bool EmuInstance::bootToMenu(QString& errorstr)
 {
     // Keep whatever cart is in the console, if any.
     if (!updateConsole())
+    {
         // Try to update the console, but keep the existing cart. If that fails...
+        errorstr = "Failed to boot the firmware.";
         return false;
+    }
 
     // BIOS and firmware files are loaded, patched, and installed in UpdateConsole
     if (nds->NeedsDirectBoot())
+    {
+        errorstr = "This firmware is not bootable.";
         return false;
+    }
 
     initFirmwareSaveManager();
     nds->Reset();
@@ -1843,7 +1848,7 @@ QString EmuInstance::getSavErrorString(std::string& filepath, bool gba)
     return QString::fromStdString(err1);
 }
 
-bool EmuInstance::loadROM(QStringList filepath, bool reset)
+bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
 {
     unique_ptr<u8[]> filedata = nullptr;
     u32 filelen;
@@ -1852,7 +1857,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
 
     if (!loadROMData(filepath, filedata, filelen, basepath, romname))
     {
-        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
+        errorstr = "Failed to load the DS ROM.";
         return false;
     }
 
@@ -1874,7 +1879,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
     {
         if (!Platform::CheckFileWritable(origsav))
         {
-            QMessageBox::critical(mainWindow, "melonDS", getSavErrorString(origsav, false));
+            errorstr = getSavErrorString(origsav, false);
             return false;
         }
 
@@ -1882,7 +1887,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
     }
     else if (!Platform::CheckFileWritable(savname))
     {
-        QMessageBox::critical(mainWindow, "melonDS", getSavErrorString(savname, false));
+        errorstr = getSavErrorString(savname, false);
         return false;
     }
 
@@ -1909,7 +1914,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
     if (!cart)
     {
         // If we couldn't parse the ROM...
-        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
+        errorstr = "Failed to load the DS ROM.";
         return false;
     }
 
@@ -1920,7 +1925,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
 
         if (!updateConsole())
         {
-            QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
+            errorstr = "Failed to load the DS ROM.";
             return false;
         }
 
@@ -1996,11 +2001,11 @@ QString EmuInstance::cartLabel()
 }
 
 
-bool EmuInstance::loadGBAROM(QStringList filepath)
+bool EmuInstance::loadGBAROM(QStringList filepath, QString& errorstr)
 {
     if (consoleType == 1)
     {
-        QMessageBox::critical(mainWindow, "melonDS", "The DSi doesn't have a GBA slot.");
+        errorstr = "The DSi doesn't have a GBA slot.";
         return false;
     }
 
@@ -2011,7 +2016,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
 
     if (!loadROMData(filepath, filedata, filelen, basepath, romname))
     {
-        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the GBA ROM.");
+        errorstr = "Failed to load the GBA ROM.";
         return false;
     }
 
@@ -2033,7 +2038,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
     {
         if (!Platform::CheckFileWritable(origsav))
         {
-            QMessageBox::critical(mainWindow, "melonDS", getSavErrorString(origsav, true));
+            errorstr = getSavErrorString(origsav, true);
             return false;
         }
 
@@ -2041,7 +2046,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
     }
     else if (!Platform::CheckFileWritable(savname))
     {
-        QMessageBox::critical(mainWindow, "melonDS", getSavErrorString(savname, true));
+        errorstr = getSavErrorString(savname, true);
         return false;
     }
 
@@ -2061,7 +2066,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
     auto cart = GBACart::ParseROM(std::move(filedata), filelen, std::move(savedata), savelen, this);
     if (!cart)
     {
-        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the GBA ROM.");
+        errorstr = "Failed to load the GBA ROM.";
         return false;
     }
 
@@ -2080,14 +2085,14 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
     return true;
 }
 
-void EmuInstance::loadGBAAddon(int type)
+void EmuInstance::loadGBAAddon(int type, QString& errorstr)
 {
     if (consoleType == 1) return;
 
     auto cart = GBACart::LoadAddon(type, this);
     if (!cart)
     {
-        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the GBA addon.");
+        errorstr = "Failed to load the GBA addon.";
         return;
     }
 

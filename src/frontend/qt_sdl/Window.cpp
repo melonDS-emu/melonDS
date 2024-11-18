@@ -986,10 +986,12 @@ void MainWindow::dropEvent(QDropEvent* event)
     isNdsRom |= ZstdNdsRomByExtension(filename);
     isGbaRom |= ZstdGbaRomByExtension(filename);
 
+    QString errorstr;
     if (isNdsRom)
     {
-        if (!emuThread->bootROM(file))
+        if (!emuThread->bootROM(file, errorstr))
         {
+            QMessageBox::critical(this, "melonDS", errorstr);
             return;
         }
 
@@ -1002,8 +1004,9 @@ void MainWindow::dropEvent(QDropEvent* event)
     }
     else if (isGbaRom)
     {
-        if (!emuThread->insertCart(file, true))
+        if (!emuThread->insertCart(file, true, errorstr))
         {
+            QMessageBox::critical(this, "melonDS", errorstr);
             return;
         }
 
@@ -1071,6 +1074,8 @@ bool MainWindow::verifySetup()
 
 bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
 {
+    QString errorstr;
+
     if (file.isEmpty() && gbafile.isEmpty())
         return false;
 
@@ -1082,8 +1087,11 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     bool gbaloaded = false;
     if (!gbafile.isEmpty())
     {
-        if (!emuThread->insertCart(gbafile, true))
+        if (!emuThread->insertCart(gbafile, true, errorstr))
+        {
+            QMessageBox::critical(this, "melonDS", errorstr);
             return false;
+        }
 
         gbaloaded = true;
     }
@@ -1093,13 +1101,19 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     {
         if (boot)
         {
-            if (!emuThread->bootROM(file))
+            if (!emuThread->bootROM(file, errorstr))
+            {
+                QMessageBox::critical(this, "melonDS", errorstr);
                 return false;
+            }
         }
         else
         {
-            if (!emuThread->insertCart(file, false))
+            if (!emuThread->insertCart(file, false, errorstr))
+            {
+                QMessageBox::critical(this, "melonDS", errorstr);
                 return false;
+            }
         }
         
         recentFileList.removeAll(file.join("|"));
@@ -1109,8 +1123,11 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     }
     else if (boot)
     {
-        if (!emuThread->bootFirmware())
+        if (!emuThread->bootFirmware(errorstr))
+        {
+            QMessageBox::critical(this, "melonDS", errorstr);
             return false;
+        }
     }
 
     updateCartInserted(false);
@@ -1308,8 +1325,10 @@ void MainWindow::onOpenFile()
     if (file.isEmpty())
         return;
 
-    if (!emuThread->bootROM(file))
+    QString errorstr;
+    if (!emuThread->bootROM(file, errorstr))
     {
+        QMessageBox::critical(this, "melonDS", errorstr);
         return;
     }
 
@@ -1419,8 +1438,10 @@ void MainWindow::onClickRecentFile()
     if (file.isEmpty())
         return;
 
-    if (!emuThread->bootROM(file))
+    QString errorstr;
+    if (!emuThread->bootROM(file, errorstr))
     {
+        QMessageBox::critical(this, "melonDS", errorstr);
         return;
     }
 
@@ -1436,9 +1457,10 @@ void MainWindow::onBootFirmware()
     if (!verifySetup())
         return;
 
-    if (!emuThread->bootFirmware())
+    QString errorstr;
+    if (!emuThread->bootFirmware(errorstr))
     {
-        QMessageBox::critical(this, "melonDS", "This firmware is not bootable.");
+        QMessageBox::critical(this, "melonDS", errorstr);
         return;
     }
 }
@@ -1449,8 +1471,10 @@ void MainWindow::onInsertCart()
     if (file.isEmpty())
         return;
 
-    if (!emuThread->insertCart(file, false))
+    QString errorstr;
+    if (!emuThread->insertCart(file, false, errorstr))
     {
+        QMessageBox::critical(this, "melonDS", errorstr);
         return;
     }
 
@@ -1469,8 +1493,10 @@ void MainWindow::onInsertGBACart()
     if (file.isEmpty())
         return;
 
-    if (!emuThread->insertCart(file, true))
+    QString errorstr;
+    if (!emuThread->insertCart(file, true, errorstr))
     {
+        QMessageBox::critical(this, "melonDS", errorstr);
         return;
     }
 
@@ -1482,7 +1508,13 @@ void MainWindow::onInsertGBAAddon()
     QAction* act = (QAction*)sender();
     int type = act->data().toInt();
 
-    emuThread->insertGBAAddon(type);
+    QString errorstr;
+    if (!emuThread->insertGBAAddon(type, errorstr))
+    {
+        QMessageBox::critical(this, "melonDS", errorstr);
+        return;
+    }
+
     updateCartInserted(true);
 }
 

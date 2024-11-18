@@ -111,11 +111,11 @@ public:
     void emuFrameStep();
     void emuReset();
 
-    int bootROM(const QStringList& filename);
-    int bootFirmware();
-    int insertCart(const QStringList& filename, bool gba);
+    int bootROM(const QStringList& filename, QString& errorstr);
+    int bootFirmware(QString& errorstr);
+    int insertCart(const QStringList& filename, bool gba, QString& errorstr);
     void ejectCart(bool gba);
-    int insertGBAAddon(int type);
+    int insertGBAAddon(int type, QString& errorstr);
 
     int saveState(const QString& filename);
     int loadState(const QString& filename);
@@ -179,6 +179,7 @@ private:
     int emuPauseStack;
 
     int msgResult = 0;
+    QString msgError;
 
     QMutex msgMutex;
     QSemaphore msgSemaphore;

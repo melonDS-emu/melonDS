@@ -577,7 +577,7 @@ void EmuThread::handleMessages()
 
         case msg_BootROM:
             msgResult = 0;
-            if (!emuInstance->loadROM(msg.param.value<QStringList>(), true))
+            if (!emuInstance->loadROM(msg.param.value<QStringList>(), true, msgError))
                 break;
 
             assert(emuInstance->nds != nullptr);
@@ -587,7 +587,7 @@ void EmuThread::handleMessages()
 
         case msg_BootFirmware:
             msgResult = 0;
-            if (!emuInstance->bootToMenu())
+            if (!emuInstance->bootToMenu(msgError))
                 break;
 
             assert(emuInstance->nds != nullptr);
@@ -597,7 +597,7 @@ void EmuThread::handleMessages()
 
         case msg_InsertCart:
             msgResult = 0;
-            if (!emuInstance->loadROM(msg.param.value<QStringList>(), false))
+            if (!emuInstance->loadROM(msg.param.value<QStringList>(), false, msgError))
                 break;
 
             msgResult = 1;
@@ -609,7 +609,7 @@ void EmuThread::handleMessages()
 
         case msg_InsertGBACart:
             msgResult = 0;
-            if (!emuInstance->loadGBAROM(msg.param.value<QStringList>()))
+            if (!emuInstance->loadGBAROM(msg.param.value<QStringList>(), msgError))
                 break;
 
             msgResult = 1;
@@ -617,7 +617,7 @@ void EmuThread::handleMessages()
 
         case msg_InsertGBAAddon:
             msgResult = 0;
-            emuInstance->loadGBAAddon(msg.param.value<int>());
+            emuInstance->loadGBAAddon(msg.param.value<int>(), msgError);
             msgResult = 1;
             break;
 
@@ -753,36 +753,45 @@ bool EmuThread::emuIsActive()
     return emuActive;
 }
 
-int EmuThread::bootROM(const QStringList& filename)
+int EmuThread::bootROM(const QStringList& filename, QString& errorstr)
 {
     sendMessage({.type = msg_BootROM, .param = filename});
     waitMessage();
     if (!msgResult)
+    {
+        errorstr = msgError;
         return msgResult;
+    }
 
     sendMessage(msg_EmuRun);
     waitMessage();
+    errorstr = "";
     return msgResult;
 }
 
-int EmuThread::bootFirmware()
+int EmuThread::bootFirmware(QString& errorstr)
 {
     sendMessage(msg_BootFirmware);
     waitMessage();
     if (!msgResult)
+    {
+        errorstr = msgError;
         return msgResult;
+    }
 
     sendMessage(msg_EmuRun);
     waitMessage();
+    errorstr = "";
     return msgResult;
 }
 
-int EmuThread::insertCart(const QStringList& filename, bool gba)
+int EmuThread::insertCart(const QStringList& filename, bool gba, QString& errorstr)
 {
     MessageType msgtype = gba ? msg_InsertGBACart : msg_InsertCart;
 
     sendMessage({.type = msgtype, .param = filename});
     waitMessage();
+    errorstr = msgResult ? "" : msgError;
     return msgResult;
 }
 
@@ -792,10 +801,11 @@ void EmuThread::ejectCart(bool gba)
     waitMessage();
 }
 
-int EmuThread::insertGBAAddon(int type)
+int EmuThread::insertGBAAddon(int type, QString& errorstr)
 {
     sendMessage({.type = msg_InsertGBAAddon, .param = type});
     waitMessage();
+    errorstr = msgResult ? "" : msgError;
     return msgResult;
 }
 
