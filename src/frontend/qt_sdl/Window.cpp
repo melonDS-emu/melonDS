@@ -1966,8 +1966,8 @@ void MainWindow::onUpdateInterfaceSettings()
     emuInstance->targetFPS = globalCfg.GetDouble("TargetFPS");
     emuInstance->fastForwardFPS = globalCfg.GetDouble("FastForwardFPS");
     emuInstance->slowmoFPS = globalCfg.GetDouble("SlowmoFPS");
-    panel->setMouseHide(globalCfg.GetBool("MouseHide"),
-                        globalCfg.GetInt("MouseHideSeconds")*1000);
+    panel->setMouseHide(globalCfg.GetBool("Mouse.Hide"),
+                        globalCfg.GetInt("Mouse.HideSeconds")*1000);
 }
 
 void MainWindow::onInterfaceSettingsFinished(int res)
