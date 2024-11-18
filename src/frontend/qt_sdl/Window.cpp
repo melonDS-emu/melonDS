@@ -857,7 +857,7 @@ void MainWindow::createScreenPanel()
         // Check that creating the context hasn't failed
         if (panelGL->createContext() == false)
         {
-            Log(LogLevel::Error, "Failed to create OpenGL context, falling back to Software Renderer.\n");
+            Log(Platform::LogLevel::Error, "Failed to create OpenGL context, falling back to Software Renderer.\n");
             hasOGL = false;
 
             globalCfg.SetBool("Screen.UseGL", false);

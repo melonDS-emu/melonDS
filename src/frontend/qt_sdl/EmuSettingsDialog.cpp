@@ -536,9 +536,14 @@ void EmuSettingsDialog::on_btnDSiSDFolderBrowse_clicked()
 void EmuSettingsDialog::on_chkEnableJIT_toggled()
 {
     bool disabled = !ui->chkEnableJIT->isChecked();
+#ifdef JIT_ENABLED
+    bool fastmemSupported = ARMJIT_Memory::IsFastMemSupported();
+#else
+    bool fastmemSupported = false;
+#endif
     ui->chkJITBranchOptimisations->setDisabled(disabled);
     ui->chkJITLiteralOptimisations->setDisabled(disabled);
-    ui->chkJITFastMemory->setDisabled(disabled || !ARMJIT_Memory::IsFastMemSupported());
+    ui->chkJITFastMemory->setDisabled(disabled || !fastmemSupported);
     ui->spnJITMaximumBlockSize->setDisabled(disabled);
 
     on_cbGdbEnabled_toggled();
