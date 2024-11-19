@@ -632,7 +632,7 @@ void Table::SetString(const std::string& path, const std::string& val)
 void Table::SetDouble(const std::string& path, double val)
 {
     toml::value& tval = ResolvePath(path);
-    tval = val;
+    tval = toml::value(val, {.prec=10});
 }
 
 toml::value& Table::ResolvePath(const std::string& path)
