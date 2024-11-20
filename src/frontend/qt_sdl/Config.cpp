@@ -632,7 +632,8 @@ void Table::SetString(const std::string& path, const std::string& val)
 void Table::SetDouble(const std::string& path, double val)
 {
     toml::value& tval = ResolvePath(path);
-    tval = toml::value(val, {.prec=10});
+    toml::floating_format_info info = {.prec=10};
+    tval = toml::value(val, info);
 }
 
 toml::value& Table::ResolvePath(const std::string& path)
