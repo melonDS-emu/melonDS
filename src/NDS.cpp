@@ -122,19 +122,18 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
         DMA(1, 3, *this),
     }
 {
-    RegisterEventFunc(Event_Div, 0, MemberEventFunc(NDS, DivDone));
-    RegisterEventFunc(Event_Sqrt, 0, MemberEventFunc(NDS, SqrtDone));
+    RegisterEventFuncs(Event_Div, this, {MakeEventThunk(NDS, DivDone)});
+    RegisterEventFuncs(Event_Sqrt, this, {MakeEventThunk(NDS, SqrtDone)});
 
     MainRAM = JIT.Memory.GetMainRAM();
     SharedWRAM = JIT.Memory.GetSharedWRAM();
     ARM7WRAM = JIT.Memory.GetARM7WRAM();
-
 }
 
 NDS::~NDS() noexcept
 {
-    UnregisterEventFunc(Event_Div, 0);
-    UnregisterEventFunc(Event_Sqrt, 0);
+    UnregisterEventFuncs(Event_Div);
+    UnregisterEventFuncs(Event_Sqrt);
     // The destructor for each component is automatically called by the compiler
 }
 
@@ -819,7 +818,7 @@ void NDS::RunSystem(u64 timestamp)
                 SchedListMask &= ~(1<<i);
 
                 EventFunc func = evt.Funcs[evt.FuncID];
-                func(evt.Param);
+                func(evt.That, evt.Param);
             }
         }
 
@@ -876,7 +875,7 @@ void NDS::RunSystemSleep(u64 timestamp)
                         param = evt.Param;
 
                     EventFunc func = evt.Funcs[evt.FuncID];
-                    func(param);
+                    func(this, param);
                 }
             }
         }
@@ -1074,18 +1073,26 @@ void NDS::Reschedule(u64 target)
     }
 }
 
-void NDS::RegisterEventFunc(u32 id, u32 funcid, EventFunc func)
+void NDS::RegisterEventFuncs(u32 id, void* that, const std::initializer_list<EventFunc>& funcs)
 {
     SchedEvent& evt = SchedList[id];
 
-    evt.Funcs[funcid] = func;
+    evt.That = that;
+    assert(funcs.size() <= MaxEventFunctions);
+    int i = 0;
+    for (EventFunc func : funcs)
+    {
+        evt.Funcs[i++] = func;        
+    }
 }
 
-void NDS::UnregisterEventFunc(u32 id, u32 funcid)
+void NDS::UnregisterEventFuncs(u32 id)
 {
     SchedEvent& evt = SchedList[id];
 
-    evt.Funcs.erase(funcid);
+    evt.That = nullptr;
+    for (int i = 0; i < MaxEventFunctions; i++)
+        evt.Funcs[i] = nullptr;
 }
 
 void NDS::ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param)
@@ -1093,7 +1100,7 @@ void NDS::ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param)
     if (SchedListMask & (1<<id))
     {
         Log(LogLevel::Debug, "!! EVENT %d ALREADY SCHEDULED\n", id);
-        return;
+        return; 
     }
 
     SchedEvent& evt = SchedList[id];

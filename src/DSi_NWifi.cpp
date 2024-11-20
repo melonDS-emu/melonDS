@@ -134,7 +134,7 @@ DSi_NWifi::DSi_NWifi(melonDS::DSi& dsi, DSi_SDHost* host) :
     },
     DSi(dsi)
 {
-    DSi.RegisterEventFunc(Event_DSi_NWifi, 0, MemberEventFunc(DSi_NWifi, MSTimer));
+    DSi.RegisterEventFuncs(Event_DSi_NWifi, this, {MakeEventThunk(DSi_NWifi, MSTimer)});
 
     // this seems to control whether the firmware upload is done
     EEPROMReady = 0;
@@ -144,7 +144,7 @@ DSi_NWifi::~DSi_NWifi()
 {
     DSi.CancelEvent(Event_DSi_NWifi);
 
-    DSi.UnregisterEventFunc(Event_DSi_NWifi, 0);
+    DSi.UnregisterEventFuncs(Event_DSi_NWifi);
 }
 
 void DSi_NWifi::Reset()

@@ -70,10 +70,13 @@ GPU::GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d, std::uniqu
     GPU3D(nds, renderer3d ? std::move(renderer3d) : std::make_unique<SoftRenderer>()),
     GPU2D_Renderer(renderer2d ? std::move(renderer2d) : std::make_unique<GPU2D::SoftRenderer>(*this))
 {
-    NDS.RegisterEventFunc(Event_LCD, LCD_StartHBlank, MemberEventFunc(GPU, StartHBlank));
-    NDS.RegisterEventFunc(Event_LCD, LCD_StartScanline, MemberEventFunc(GPU, StartScanline));
-    NDS.RegisterEventFunc(Event_LCD, LCD_FinishFrame, MemberEventFunc(GPU, FinishFrame));
-    NDS.RegisterEventFunc(Event_DisplayFIFO, 0, MemberEventFunc(GPU, DisplayFIFO));
+    NDS.RegisterEventFuncs(Event_LCD, this,
+    {
+            MakeEventThunk(GPU, StartHBlank),
+            MakeEventThunk(GPU, StartScanline),
+            MakeEventThunk(GPU, FinishFrame)
+    });
+    NDS.RegisterEventFuncs(Event_DisplayFIFO, this, {MakeEventThunk(GPU, DisplayFIFO)});
 
     InitFramebuffers();
 }
@@ -82,10 +85,8 @@ GPU::~GPU() noexcept
 {
     // All unique_ptr fields are automatically cleaned up
 
-    NDS.UnregisterEventFunc(Event_LCD, LCD_StartHBlank);
-    NDS.UnregisterEventFunc(Event_LCD, LCD_StartScanline);
-    NDS.UnregisterEventFunc(Event_LCD, LCD_FinishFrame);
-    NDS.UnregisterEventFunc(Event_DisplayFIFO, 0);
+    NDS.UnregisterEventFuncs(Event_LCD);
+    NDS.UnregisterEventFuncs(Event_DisplayFIFO);
 }
 
 void GPU::ResetVRAMCache() noexcept

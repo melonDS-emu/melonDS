@@ -1441,9 +1441,12 @@ void CartHomebrew::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
 
 NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) noexcept : NDS(nds)
 {
-    NDS.RegisterEventFunc(Event_ROMTransfer, ROMTransfer_PrepareData, MemberEventFunc(NDSCartSlot, ROMPrepareData));
-    NDS.RegisterEventFunc(Event_ROMTransfer, ROMTransfer_End, MemberEventFunc(NDSCartSlot, ROMEndTransfer));
-    NDS.RegisterEventFunc(Event_ROMSPITransfer, 0, MemberEventFunc(NDSCartSlot, SPITransferDone));
+    NDS.RegisterEventFuncs(Event_ROMTransfer, this,
+    {
+        MakeEventThunk(NDSCartSlot, ROMPrepareData),
+        MakeEventThunk(NDSCartSlot, ROMEndTransfer)
+    });
+    NDS.RegisterEventFuncs(Event_ROMSPITransfer, this, {MakeEventThunk(NDSCartSlot, SPITransferDone)});
     // All fields are default-constructed because they're listed as such in the class declaration
 
     if (rom)
@@ -1452,9 +1455,8 @@ NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) n
 
 NDSCartSlot::~NDSCartSlot() noexcept
 {
-    NDS.UnregisterEventFunc(Event_ROMTransfer, ROMTransfer_PrepareData);
-    NDS.UnregisterEventFunc(Event_ROMTransfer, ROMTransfer_End);
-    NDS.UnregisterEventFunc(Event_ROMSPITransfer, 0);
+    NDS.UnregisterEventFuncs(Event_ROMTransfer);
+    NDS.UnregisterEventFuncs(Event_ROMSPITransfer);
 
     // Cart is cleaned up automatically because it's a unique_ptr
 }

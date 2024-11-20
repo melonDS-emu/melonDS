@@ -76,11 +76,15 @@ enum
     Event_MAX
 };
 
-typedef std::function<void(u32)> EventFunc;
-#define MemberEventFunc(cls,func) std::bind(&cls::func,this,std::placeholders::_1)
+static constexpr u32 MaxEventFunctions = 3;
+
+typedef void (*EventFunc)(void* that, u32 param);
+#define MakeEventThunk(class, func) [](void* that, u32 param) { static_cast<class*>(that)->func(param); }
+
 struct SchedEvent
 {
-    std::map<u32, EventFunc> Funcs;
+    std::array<EventFunc, MaxEventFunctions> Funcs;
+    void* That;
     u64 Timestamp;
     u32 FuncID;
     u32 Param;
@@ -401,8 +405,8 @@ public: // TODO: Encapsulate the rest of these members
     virtual void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) {}
     void MicInputFrame(s16* data, int samples);
 
-    void RegisterEventFunc(u32 id, u32 funcid, EventFunc func);
-    void UnregisterEventFunc(u32 id, u32 funcid);
+    void RegisterEventFuncs(u32 id, void* that, const std::initializer_list<EventFunc>& funcs);
+    void UnregisterEventFuncs(u32 id);
     void ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param);
     void CancelEvent(u32 id);
 
