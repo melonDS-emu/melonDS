@@ -95,7 +95,7 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     double val = globalCfg.GetDouble("TargetFPS");
     if (val == 0.0)
     {
-        Platform::Log(Platform::LogLevel::Error, "Target FPS in config invalid\n");
+        Platform::Log(Platform::LogLevel::Error, "配置中的目标 FPS 无效\n");
         targetFPS = 60.0;
     }
     else targetFPS = val;
@@ -103,7 +103,7 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     val = globalCfg.GetDouble("FastForwardFPS");
     if (val == 0.0)
     {
-        Platform::Log(Platform::LogLevel::Error, "Fast-Forward FPS in config invalid\n");
+        Platform::Log(Platform::LogLevel::Error, "配置中的快进 FPS 无效\n");
         fastForwardFPS = 60.0;
     }
     else fastForwardFPS = val;
@@ -111,7 +111,7 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     val = globalCfg.GetDouble("SlowmoFPS");
     if (val == 0.0)
     {
-        Platform::Log(Platform::LogLevel::Error, "Slow-Mo FPS in config invalid\n");
+        Platform::Log(Platform::LogLevel::Error, "配置中的慢速 FPS 无效\n");
         slowmoFPS = 60.0;
     }
     else slowmoFPS = val;
@@ -480,25 +480,25 @@ QString EmuInstance::verifyDSBIOS()
     long len;
 
     f = Platform::OpenLocalFile(globalCfg.GetString("DS.BIOS9Path"), FileMode::Read);
-    if (!f) return "DS ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DS ARM9 BIOS 未找到或无法访问。请检查模拟设置。";
 
     len = FileLength(f);
     if (len != 0x1000)
     {
         CloseFile(f);
-        return "DS ARM9 BIOS is not a valid BIOS dump.";
+        return "DS ARM9 BIOS 不是有效的BIOS转储。";
     }
 
     CloseFile(f);
 
     f = Platform::OpenLocalFile(globalCfg.GetString("DS.BIOS7Path"), FileMode::Read);
-    if (!f) return "DS ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DS ARM7 BIOS 未找到或无法访问。请检查模拟设置。";
 
     len = FileLength(f);
     if (len != 0x4000)
     {
         CloseFile(f);
-        return "DS ARM7 BIOS is not a valid BIOS dump.";
+        return "DS ARM7 BIOS 不是有效的BIOS转储。";
     }
 
     CloseFile(f);
@@ -514,25 +514,25 @@ QString EmuInstance::verifyDSiBIOS()
     // TODO: check the first 32 bytes
 
     f = Platform::OpenLocalFile(globalCfg.GetString("DSi.BIOS9Path"), FileMode::Read);
-    if (!f) return "DSi ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DSi ARM9 BIOS 未找到或无法访问。请检查模拟设置。";
 
     len = FileLength(f);
     if (len != 0x10000)
     {
         CloseFile(f);
-        return "DSi ARM9 BIOS is not a valid BIOS dump.";
+        return "DSi ARM9 BIOS 不是有效的BIOS转储。";
     }
 
     CloseFile(f);
 
     f = Platform::OpenLocalFile(globalCfg.GetString("DSi.BIOS7Path"), FileMode::Read);
-    if (!f) return "DSi ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DSi ARM7 BIOS 未找到或无法访问。请检查模拟设置。";
 
     len = FileLength(f);
     if (len != 0x10000)
     {
         CloseFile(f);
-        return "DSi ARM7 BIOS is not a valid BIOS dump.";
+        return "DSi ARM7 BIOS 不是有效的BIOS转储。";
     }
 
     CloseFile(f);
@@ -548,10 +548,10 @@ QString EmuInstance::verifyDSFirmware()
     std::string fwpath = globalCfg.GetString("DS.FirmwarePath");
 
     f = Platform::OpenLocalFile(fwpath, FileMode::Read);
-    if (!f) return "DS firmware was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DS 固件(firmware) 未找到或无法访问。请检查模拟设置。";
 
     if (!Platform::CheckFileWritable(fwpath))
-        return "DS firmware is unable to be written to.\nPlease check file/folder write permissions.";
+        return "DS 固件(firmware) 无法写入。\n请检查文件或文件夹的写入权限。";
 
     len = FileLength(f);
     if (len == 0x20000)
@@ -564,7 +564,7 @@ QString EmuInstance::verifyDSFirmware()
     else if (len != 0x40000 && len != 0x80000)
     {
         CloseFile(f);
-        return "DS firmware is not a valid firmware dump.";
+        return "DS 固件(firmware) 不是有效的固件(firmware)转储。";
     }
 
     CloseFile(f);
@@ -580,10 +580,10 @@ QString EmuInstance::verifyDSiFirmware()
     std::string fwpath = globalCfg.GetString("DSi.FirmwarePath");
 
     f = Platform::OpenLocalFile(fwpath, FileMode::Read);
-    if (!f) return "DSi firmware was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DSi 固件(firmware) 未找到或无法访问。请检查模拟设置。";
 
     if (!Platform::CheckFileWritable(fwpath))
-        return "DSi firmware is unable to be written to.\nPlease check file/folder write permissions.";
+        return "DSi 固件(firmware) 无法写入。\n请检查文件或文件夹的写入权限。";
 
     len = FileLength(f);
     if (len != 0x20000)
@@ -591,7 +591,7 @@ QString EmuInstance::verifyDSiFirmware()
         // not 128KB
         // TODO: check whether those work
         CloseFile(f);
-        return "DSi firmware is not a valid firmware dump.";
+        return "DSi 固件(firmware) 不是有效的固件(firmware)转储。";
     }
 
     CloseFile(f);
@@ -607,10 +607,10 @@ QString EmuInstance::verifyDSiNAND()
     std::string nandpath = globalCfg.GetString("DSi.NANDPath");
 
     f = Platform::OpenLocalFile(nandpath, FileMode::ReadWriteExisting);
-    if (!f) return "DSi NAND was not found or could not be accessed. Check your emu settings.";
+    if (!f) return "DSi NAND 未找到或无法访问。请检查模拟设置。";
 
     if (!Platform::CheckFileWritable(nandpath))
-        return "DSi NAND is unable to be written to.\nPlease check file/folder write permissions.";
+        return "DSi NAND 无法写入。\n请检查文件或文件夹的写入权限。";
 
     // TODO: some basic checks
     // check that it has the nocash footer, and all
@@ -701,21 +701,21 @@ bool EmuInstance::loadState(const std::string& filename)
     Platform::FileHandle* file = Platform::OpenFile(filename, Platform::FileMode::Read);
     if (file == nullptr)
     { // If we couldn't open the state file...
-        Platform::Log(Platform::LogLevel::Error, "Failed to open state file \"%s\"\n", filename.c_str());
+        Platform::Log(Platform::LogLevel::Error, "打开即时文件失败 \"%s\"\n", filename.c_str());
         return false;
     }
 
     std::unique_ptr<Savestate> backup = std::make_unique<Savestate>(Savestate::DEFAULT_SIZE);
     if (backup->Error)
     { // If we couldn't allocate memory for the backup...
-        Platform::Log(Platform::LogLevel::Error, "Failed to allocate memory for state backup\n");
+        Platform::Log(Platform::LogLevel::Error, "备份即时文件分配内存失败\n");
         Platform::CloseFile(file);
         return false;
     }
 
     if (!nds->DoSavestate(backup.get()) || backup->Error)
     { // Back up the emulator's state. If that failed...
-        Platform::Log(Platform::LogLevel::Error, "Failed to back up state, aborting load (from \"%s\")\n", filename.c_str());
+        Platform::Log(Platform::LogLevel::Error, "备份即时文件失败, 中止读取 (从 \"%s\")\n", filename.c_str());
         Platform::CloseFile(file);
         return false;
     }
@@ -729,7 +729,7 @@ bool EmuInstance::loadState(const std::string& filename)
     std::vector<u8> buffer(size);
     if (Platform::FileRead(buffer.data(), size, 1, file) == 0)
     { // Read the state file into the buffer. If that failed...
-        Platform::Log(Platform::LogLevel::Error, "Failed to read %u-byte state file \"%s\"\n", size, filename.c_str());
+        Platform::Log(Platform::LogLevel::Error, "读取 %u-字节 即时文件失败 \"%s\"\n", size, filename.c_str());
         Platform::CloseFile(file);
         return false;
     }
@@ -740,7 +740,7 @@ bool EmuInstance::loadState(const std::string& filename)
 
     if (!nds->DoSavestate(state.get()) || state->Error)
     { // If we couldn't load the savestate from the buffer...
-        Platform::Log(Platform::LogLevel::Error, "Failed to load state file \"%s\" into emulator\n", filename.c_str());
+        Platform::Log(Platform::LogLevel::Error, "给模拟器读取即时文件失败 \"%s\"\n", filename.c_str());
         return false;
     }
 
@@ -791,7 +791,7 @@ bool EmuInstance::saveState(const std::string& filename)
     if (Platform::FileWrite(state.Buffer(), state.Length(), 1, file) == 0)
     { // Write the Savestate buffer to the file. If that fails...
         Platform::Log(Platform::Error,
-                      "Failed to write %d-byte savestate to %s\n",
+                      "写入 %d-字节 即时文件至 %s 失败\n",
                       state.Length(),
                       filename.c_str()
         );
@@ -870,11 +870,11 @@ std::unique_ptr<ARM9BIOSImage> EmuInstance::loadARM9BIOS() noexcept
         FileRewind(f);
         FileRead(bios->data(), bios->size(), 1, f);
         CloseFile(f);
-        Log(Info, "ARM9 BIOS loaded from %s\n", path.c_str());
+        Log(Info, "ARM9 BIOS 读取自 %s\n", path.c_str());
         return bios;
     }
 
-    Log(Warn, "ARM9 BIOS not found\n");
+    Log(Warn, "ARM9 BIOS 未找到\n");
     return nullptr;
 }
 
@@ -892,11 +892,11 @@ std::unique_ptr<ARM7BIOSImage> EmuInstance::loadARM7BIOS() noexcept
         std::unique_ptr<ARM7BIOSImage> bios = std::make_unique<ARM7BIOSImage>();
         FileRead(bios->data(), bios->size(), 1, f);
         CloseFile(f);
-        Log(Info, "ARM7 BIOS loaded from %s\n", path.c_str());
+        Log(Info, "ARM7 BIOS 读取自 %s\n", path.c_str());
         return bios;
     }
 
-    Log(Warn, "ARM7 BIOS not found\n");
+    Log(Warn, "ARM7 BIOS 未找到\n");
     return nullptr;
 }
 
@@ -919,11 +919,11 @@ std::unique_ptr<DSiBIOSImage> EmuInstance::loadDSiARM9BIOS() noexcept
             // hax the upper 32K out of the goddamn DSi
             // done that :)  -pcy
         }
-        Log(Info, "ARM9i BIOS loaded from %s\n", path.c_str());
+        Log(Info, "ARM9i BIOS 读取自 %s\n", path.c_str());
         return bios;
     }
 
-    Log(Warn, "ARM9i BIOS not found\n");
+    Log(Warn, "ARM9i BIOS 未找到\n");
     return nullptr;
 }
 
@@ -946,11 +946,11 @@ std::unique_ptr<DSiBIOSImage> EmuInstance::loadDSiARM7BIOS() noexcept
             // hax the upper 32K out of the goddamn DSi
             // done that :)  -pcy
         }
-        Log(Info, "ARM7i BIOS loaded from %s\n", path.c_str());
+        Log(Info, "ARM7i BIOS 读取自 %s\n", path.c_str());
         return bios;
     }
 
-    Log(Warn, "ARM7i BIOS not found\n");
+    Log(Warn, "ARM7i BIOS 未找到\n");
     return nullptr;
 }
 
@@ -971,7 +971,7 @@ Firmware EmuInstance::generateFirmware(int type) noexcept
 
         if (!FileRead(firmware.GetExtendedAccessPointPosition(), TOTAL_WFC_SETTINGS_SIZE, 1, f))
         { // If we couldn't read the Wi-fi settings from this file...
-            Log(Warn, "Failed to read Wi-fi settings from \"%s\"; using defaults instead\n", kWifiSettingsPath.c_str());
+            Log(Warn, "读取Wi-fi设置失败 \"%s\"; 使用默认设置替代\n", kWifiSettingsPath.c_str());
 
             // The access point and extended access point segments might
             // be in different locations depending on the firmware revision,
@@ -1020,13 +1020,13 @@ std::optional<Firmware> EmuInstance::loadFirmware(int type) noexcept
     else
         firmwarepath = globalCfg.GetString("DS.FirmwarePath");
 
-    Log(Debug, "SPI firmware: loading from file %s\n", firmwarepath.c_str());
+    Log(Debug, "SPI 固件(firmware): 读取文件 %s\n", firmwarepath.c_str());
 
     FileHandle* file = OpenLocalFile(firmwarepath, Read);
 
     if (!file)
     {
-        Log(Error, "SPI firmware: couldn't open firmware file!\n");
+        Log(Error, "SPI 固件(firmware): 无法读取固件(firmware)文件!\n");
         return std::nullopt;
     }
     Firmware firmware(file);
@@ -1034,7 +1034,7 @@ std::optional<Firmware> EmuInstance::loadFirmware(int type) noexcept
 
     if (!firmware.Buffer())
     {
-        Log(Error, "SPI firmware: couldn't read firmware file!\n");
+        Log(Error, "SPI 固件(firmware): 无法读取固件(firmware)文件!\n");
         return std::nullopt;
     }
 
@@ -1055,7 +1055,7 @@ std::optional<DSi_NAND::NANDImage> EmuInstance::loadNAND(const std::array<u8, DS
     DSi_NAND::NANDImage nandImage(nandfile, &arm7ibios[0x8308]);
     if (!nandImage)
     {
-        Log(Error, "Failed to parse DSi NAND\n");
+        Log(Error, "解析 DSi NAND 失败\n");
         return std::nullopt;
         // the NANDImage takes ownership of the FileHandle, no need to clean it up here
     }
@@ -1065,14 +1065,14 @@ std::optional<DSi_NAND::NANDImage> EmuInstance::loadNAND(const std::array<u8, DS
         auto mount = DSi_NAND::NANDMount(nandImage);
         if (!mount)
         {
-            Log(Error, "Failed to mount DSi NAND\n");
+            Log(Error, "挂载 DSi NAND 失败\n");
             return std::nullopt;
         }
 
         DSi_NAND::DSiFirmwareSystemSettings settings {};
         if (!mount.ReadUserData(settings))
         {
-            Log(Error, "Failed to read DSi NAND user data\n");
+            Log(Error, "读取 DSi NAND 用户信息失败\n");
             return std::nullopt;
         }
 
@@ -1119,7 +1119,7 @@ std::optional<DSi_NAND::NANDImage> EmuInstance::loadNAND(const std::array<u8, DS
 
         if (!mount.ApplyUserData(settings))
         {
-            Log(LogLevel::Error, "Failed to write patched DSi NAND user data\n");
+            Log(LogLevel::Error, "写入修改过的 DSi NAND 用户数据失败\n");
             return std::nullopt;
         }
     }
@@ -1462,14 +1462,14 @@ bool EmuInstance::bootToMenu(QString& errorstr)
     if (!updateConsole())
     {
         // Try to update the console, but keep the existing cart. If that fails...
-        errorstr = "Failed to boot the firmware.";
+        errorstr = "启动 固件(firmware) 失败。";
         return false;
     }
 
     // BIOS and firmware files are loaded, patched, and installed in UpdateConsole
     if (nds->NeedsDirectBoot())
     {
-        errorstr = "This firmware is not bootable.";
+        errorstr = "该 固件(firmware) 无法被启动。";
         return false;
     }
 
@@ -1606,7 +1606,7 @@ pair<unique_ptr<Firmware>, string> EmuInstance::generateDefaultFirmware()
 
         if (!FileRead(firmware->GetExtendedAccessPointPosition(), TOTAL_WFC_SETTINGS_SIZE, 1, f))
         { // If we couldn't read the Wi-fi settings from this file...
-            Platform::Log(Platform::LogLevel::Warn, "Failed to read Wi-fi settings from \"%s\"; using defaults instead\n", wfcsettingspath.c_str());
+            Platform::Log(Platform::LogLevel::Warn, "读取Wi-fi设置失败  \"%s\"; 使用默认设置替代\n", wfcsettingspath.c_str());
 
             firmware->GetAccessPoints() = {
                     Firmware::WifiAccessPoint(consoleType),
@@ -1840,8 +1840,8 @@ bool EmuInstance::loadROMData(const QStringList& filepath, std::unique_ptr<u8[]>
 QString EmuInstance::getSavErrorString(std::string& filepath, bool gba)
 {
     std::string console = gba ? "GBA" : "DS";
-    std::string err1 = "Unable to write to ";
-    std::string err2 = " save.\nPlease check file/folder write permissions.\n\nAttempted to Access:\n";
+    std::string err1 = "无法写入 ";
+    std::string err2 = " 存档。\n请检查文件或文件夹的写入权限。\n\n尝试访问:\n";
 
     err1 += console + err2 + filepath;
 
@@ -1857,7 +1857,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
 
     if (!loadROMData(filepath, filedata, filelen, basepath, romname))
     {
-        errorstr = "Failed to load the DS ROM.";
+        errorstr = "读取 DS ROM 失败。";
         return false;
     }
 
@@ -1914,7 +1914,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
     if (!cart)
     {
         // If we couldn't parse the ROM...
-        errorstr = "Failed to load the DS ROM.";
+        errorstr = "读取 DS ROM 失败。";
         return false;
     }
 
@@ -1925,7 +1925,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
 
         if (!updateConsole())
         {
-            errorstr = "Failed to load the DS ROM.";
+            errorstr = "读取 DS ROM 失败。";
             return false;
         }
 
@@ -1989,7 +1989,7 @@ bool EmuInstance::cartInserted()
 QString EmuInstance::cartLabel()
 {
     if (cartType == -1)
-        return "(none)";
+        return "(空)";
 
     QString ret = QString::fromStdString(baseROMName);
 
@@ -2016,7 +2016,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath, QString& errorstr)
 
     if (!loadROMData(filepath, filedata, filelen, basepath, romname))
     {
-        errorstr = "Failed to load the GBA ROM.";
+        errorstr = "读取 GBA ROM 失败。";
         return false;
     }
 
@@ -2066,7 +2066,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath, QString& errorstr)
     auto cart = GBACart::ParseROM(std::move(filedata), filelen, std::move(savedata), savelen, this);
     if (!cart)
     {
-        errorstr = "Failed to load the GBA ROM.";
+        errorstr = "读取 GBA ROM 失败。";
         return false;
     }
 
@@ -2092,7 +2092,7 @@ void EmuInstance::loadGBAAddon(int type, QString& errorstr)
     auto cart = GBACart::LoadAddon(type, this);
     if (!cart)
     {
-        errorstr = "Failed to load the GBA addon.";
+        errorstr = "读取 GBA拓展卡带 失败。";
         return;
     }
 
@@ -2143,9 +2143,9 @@ QString EmuInstance::gbaAddonName(int addon)
     switch (addon)
     {
     case GBAAddon_RumblePak:
-        return "Rumble Pak";
+        return "震动卡";
     case GBAAddon_RAMExpansion:
-        return "Memory expansion";
+        return "内存拓展卡";
     }
 
     return "???";
@@ -2153,7 +2153,7 @@ QString EmuInstance::gbaAddonName(int addon)
 
 QString EmuInstance::gbaCartLabel()
 {
-    if (consoleType == 1) return "none (DSi)";
+    if (consoleType == 1) return "空 (DSi)";
 
     if (gbaCartType == 0)
     {
@@ -2170,7 +2170,7 @@ QString EmuInstance::gbaCartLabel()
         return gbaAddonName(gbaCartType);
     }
 
-    return "(none)";
+    return "(空)";
 }
 
 

@@ -31,7 +31,7 @@
 }</string>
      </property>
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;These settings control how melonDS connects to the internet for online features (typically called &amp;quot;Nintendo Wi-Fi Connection&amp;quot;) in games. &lt;/p&gt;&lt;p&gt;Local multiplayer features do not use the same network protocols as online play, so the settings here will have no effect on them.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;这些设置用于控制melonDS在游戏里联网以获取在线服务(通常称之为&amp;quot;任天堂 Wi-Fi 连接&amp;quot; WFC)。&lt;/p&gt;&lt;p&gt;本地多人游戏功能不使用与在线游戏相同的网络协议，因此此处的设置不会对本地多人联机产生影响。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>
@@ -86,7 +86,7 @@
       <item row="2" column="0">
        <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>MAC address:</string>
+         <string>MAC地址:</string>
         </property>
        </widget>
       </item>
@@ -126,7 +126,7 @@
       <item row="3" column="0">
        <widget class="QLabel" name="label_3">
         <property name="text">
-         <string>IP地址：</string>
+         <string>IP地址:</string>
         </property>
        </widget>
       </item>

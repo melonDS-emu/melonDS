@@ -34,7 +34,7 @@
         <item>
          <widget class="QLabel" name="label_4">
           <property name="text">
-           <string>Theme</string>
+           <string>主题</string>
           </property>
           <property name="buddy">
            <cstring>cbxUITheme</cstring>
@@ -49,7 +49,7 @@
       <item>
        <widget class="QCheckBox" name="cbMouseHide">
         <property name="text">
-         <string>Hide mouse after inactivity</string>
+         <string>隐藏不活动的鼠标</string>
         </property>
        </widget>
       </item>
@@ -61,7 +61,7 @@
         <item>
          <widget class="QLabel" name="label">
           <property name="text">
-           <string>After</string>
+           <string>鼠标闲置</string>
           </property>
           <property name="buddy">
            <cstring>spinMouseHideSeconds</cstring>
@@ -74,7 +74,7 @@
         <item>
          <widget class="QLabel" name="label_2">
           <property name="text">
-           <string>seconds</string>
+           <string>秒后隐藏</string>
           </property>
           <property name="buddy">
            <cstring>spinMouseHideSeconds</cstring>
@@ -86,7 +86,7 @@
       <item>
        <widget class="QCheckBox" name="cbPauseLostFocus">
         <property name="text">
-         <string>Pause emulation when window is not in focus</string>
+         <string>窗口未被鼠标选中时将暂停运行</string>
         </property>
        </widget>
       </item>
@@ -96,7 +96,7 @@
    <item>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
-      <string>帧率 </string>
+      <string>帧率</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_5">
       <item>
@@ -110,14 +110,14 @@
         <item row="0" column="0">
          <widget class="QLabel" name="label_5">
           <property name="text">
-           <string>Target FPS</string>
+           <string>目标FPS</string>
           </property>
          </widget>
         </item>
         <item row="1" column="0">
          <widget class="QLabel" name="label_3">
           <property name="text">
-           <string>Fast-Forward</string>
+           <string>快进</string>
           </property>
           <property name="buddy">
            <cstring>spinFFW</cstring>
@@ -217,7 +217,7 @@
         <item row="2" column="0">
          <widget class="QLabel" name="label_6">
           <property name="text">
-           <string>Slow-Mo</string>
+           <string>慢速</string>
           </property>
          </widget>
         </item>
@@ -235,7 +235,7 @@
              </size>
             </property>
             <property name="text">
-             <string>Accurate</string>
+             <string>精确</string>
             </property>
            </widget>
           </item>
@@ -248,7 +248,7 @@
              </size>
             </property>
             <property name="text">
-             <string>Clean</string>
+             <string>重置</string>
             </property>
            </widget>
           </item>

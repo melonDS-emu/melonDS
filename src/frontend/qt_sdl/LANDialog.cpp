@@ -75,7 +75,7 @@ void LANStartHostDialog::done(int r)
     {
         if (ui->txtPlayerName->text().trimmed().isEmpty())
         {
-            QMessageBox::warning(this, "melonDS", "Please enter a player name.");
+            QMessageBox::warning(this, "melonDS", "请输入玩家名称。");
             return;
         }
 
@@ -84,7 +84,7 @@ void LANStartHostDialog::done(int r)
 
         if (!lan().StartHost(player.c_str(), numplayers))
         {
-            QMessageBox::warning(this, "melonDS", "Failed to start LAN game.");
+            QMessageBox::warning(this, "melonDS", "发起局域网(LAN)游戏失败。");
             return;
         }
 
@@ -122,10 +122,10 @@ LANStartClientDialog::LANStartClientDialog(QWidget* parent) : QDialog(parent), u
     connect(ui->tvAvailableGames->selectionModel(), SIGNAL(selectionChanged(const QItemSelection&, const QItemSelection&)),
             this, SLOT(onGameSelectionChanged(const QItemSelection&, const QItemSelection&)));
 
-    ui->buttonBox->button(QDialogButtonBox::Ok)->setText("Connect");
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setText("连接");
     ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
 
-    QPushButton* btn = ui->buttonBox->addButton("Direct connect...", QDialogButtonBox::ActionRole);
+    QPushButton* btn = ui->buttonBox->addButton("直接连接...", QDialogButtonBox::ActionRole);
     connect(btn, SIGNAL(clicked()), this, SLOT(onDirectConnect()));
 
     lanClientDlg = this;
@@ -164,11 +164,11 @@ void LANStartClientDialog::onDirectConnect()
 {
     if (ui->txtPlayerName->text().trimmed().isEmpty())
     {
-        QMessageBox::warning(this, "melonDS", "Please enter a player name before connecting.");
+        QMessageBox::warning(this, "melonDS", "请在连接前输入玩家名称。");
         return;
     }
 
-    QString host = QInputDialog::getText(this, "Direct connect", "Host address:");
+    QString host = QInputDialog::getText(this, "直接连接", "主机端地址:");
     if (host.isEmpty()) return;
 
     std::string hostname = host.toStdString();
@@ -178,7 +178,7 @@ void LANStartClientDialog::onDirectConnect()
     lan().EndDiscovery();
     if (!lan().StartClient(player.c_str(), hostname.c_str()))
     {
-        QString msg = QString("Failed to connect to the host %0.").arg(QString::fromStdString(hostname));
+        QString msg = QString("连接到主机端失败 %0。").arg(QString::fromStdString(hostname));
         QMessageBox::warning(this, "melonDS", msg);
         setEnabled(true);
         lan().StartDiscovery();
@@ -202,7 +202,7 @@ void LANStartClientDialog::done(int r)
     {
         if (ui->txtPlayerName->text().trimmed().isEmpty())
         {
-            QMessageBox::warning(this, "melonDS", "Please enter a player name before connecting.");
+            QMessageBox::warning(this, "melonDS", "请在连接前输入玩家名称。");
             return;
         }
 
@@ -221,7 +221,7 @@ void LANStartClientDialog::done(int r)
         lan().EndDiscovery();
         if (!lan().StartClient(player.c_str(), hostname))
         {
-            QString msg = QString("Failed to connect to the host %0.").arg(QString(hostname));
+            QString msg = QString("连接到主机端失败 %0。").arg(QString(hostname));
             QMessageBox::warning(this, "melonDS", msg);
             setEnabled(true);
             lan().StartDiscovery();
@@ -285,8 +285,8 @@ void LANStartClientDialog::doUpdateDiscoveryList()
         QString status;
         switch (data.Status)
         {
-            case 0: status = "Idle"; break;
-            case 1: status = "Playing"; break;
+            case 0: status = "空闲(Idle)"; break;
+            case 1: status = "运行中(Playing)"; break;
         }
         model->item(i, 2)->setText(status);
 
@@ -337,7 +337,7 @@ void LANDialog::done(int r)
 
     if (showwarning)
     {
-        if (QMessageBox::warning(this, "melonDS", "Really leave this LAN game?",
+        if (QMessageBox::warning(this, "melonDS", "确定离开该局域网(LAN)游戏?",
                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::No)
             return;
     }
@@ -392,16 +392,16 @@ void LANDialog::doUpdatePlayerList()
         switch (player.Status)
         {
             case LAN::Player_Client:
-                status = "Connected";
+                status = "已连接(Connected)";
                 break;
             case LAN::Player_Host:
-                status = "Game host";
+                status = "游戏主机端(Game host)";
                 break;
             case LAN::Player_Connecting:
-                status = "Connecting";
+                status = "连接中(Connecting)";
                 break;
             case LAN::Player_Disconnected:
-                status = "Connection lost";
+                status = "连接丢失(Connection lost)";
                 break;
         }
         model->item(i, 2)->setText(status);
@@ -409,7 +409,7 @@ void LANDialog::doUpdatePlayerList()
         if (player.IsLocalPlayer)
         {
             model->item(i, 3)->setText("-");
-            model->item(i, 4)->setText("(local)");
+            model->item(i, 4)->setText("(本地)");
         }
         else
         {

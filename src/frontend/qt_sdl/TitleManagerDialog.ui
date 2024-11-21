@@ -31,7 +31,7 @@
      <item>
       <widget class="QPushButton" name="btnImportTitle">
        <property name="whatsThis">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将 DSiware 标题导入您的模拟 DSi 系统。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将 DSiware 应用导入您的虚拟 DSi 系统。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="text">
         <string>导入应用...</string>
@@ -61,7 +61,7 @@
      <item>
       <widget class="QPushButton" name="btnDeleteTitle">
        <property name="whatsThis">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;从您的模拟 DSi 中永久删除选定的应用及其相关数据。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;从您的虚拟 DSi 中永久删除选定的应用及其相关数据。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="text">
         <string>删除应用</string>

@@ -34,7 +34,7 @@
          </font>
         </property>
         <property name="text">
-         <string>日语标题：</string>
+         <string>日语标题:</string>
         </property>
        </widget>
       </item>
@@ -53,7 +53,7 @@
          </font>
         </property>
         <property name="text">
-         <string>英语标题：</string>
+         <string>英语标题:</string>
         </property>
        </widget>
       </item>
@@ -72,7 +72,7 @@
          </font>
         </property>
         <property name="text">
-         <string>法语标题：</string>
+         <string>法语标题:</string>
         </property>
        </widget>
       </item>
@@ -91,7 +91,7 @@
          </font>
         </property>
         <property name="text">
-         <string>德语标题：</string>
+         <string>德语标题:</string>
         </property>
        </widget>
       </item>
@@ -110,7 +110,7 @@
          </font>
         </property>
         <property name="text">
-         <string>意大利语标题：</string>
+         <string>意大利语标题:</string>
         </property>
        </widget>
       </item>
@@ -129,7 +129,7 @@
          </font>
         </property>
         <property name="text">
-         <string>西班牙语标题：</string>
+         <string>西班牙语标题:</string>
         </property>
        </widget>
       </item>
@@ -148,7 +148,7 @@
          </font>
         </property>
         <property name="text">
-         <string>汉语标题：</string>
+         <string>汉语标题:</string>
         </property>
        </widget>
       </item>
@@ -167,7 +167,7 @@
          </font>
         </property>
         <property name="text">
-         <string>韩语标题：</string>
+         <string>韩语标题:</string>
         </property>
        </widget>
       </item>
@@ -195,7 +195,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM9 ROM offset: </string>
+         <string>ARM9 ROM偏移量: </string>
         </property>
        </widget>
       </item>
@@ -214,7 +214,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM9 entry address:</string>
+         <string>ARM9 入口地址:</string>
         </property>
        </widget>
       </item>
@@ -233,7 +233,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM9 RAM address:</string>
+         <string>ARM9 RAM地址:</string>
         </property>
        </widget>
       </item>
@@ -252,7 +252,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM9 size:</string>
+         <string>ARM9 大小:</string>
         </property>
        </widget>
       </item>
@@ -271,7 +271,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM7 ROM offset: </string>
+         <string>ARM7 ROM偏移量: </string>
         </property>
        </widget>
       </item>
@@ -290,7 +290,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM7 entry address:</string>
+         <string>ARM7 入口地址:</string>
         </property>
        </widget>
       </item>
@@ -309,7 +309,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM7 RAM address:</string>
+         <string>ARM7 RAM地址:</string>
         </property>
        </widget>
       </item>
@@ -328,7 +328,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM7 size:</string>
+         <string>ARM7 大小:</string>
         </property>
        </widget>
       </item>
@@ -356,7 +356,7 @@
          </font>
         </property>
         <property name="text">
-         <string>FNT offset:</string>
+         <string>FNT 偏移量:</string>
         </property>
        </widget>
       </item>
@@ -375,7 +375,7 @@
          </font>
         </property>
         <property name="text">
-         <string>FNT size:</string>
+         <string>FNT 大小:</string>
         </property>
        </widget>
       </item>
@@ -394,7 +394,7 @@
          </font>
         </property>
         <property name="text">
-         <string>FAT offset:</string>
+         <string>FAT 偏移量:</string>
         </property>
        </widget>
       </item>
@@ -413,7 +413,7 @@
          </font>
         </property>
         <property name="text">
-         <string>FAT size:</string>
+         <string>FAT 大小:</string>
         </property>
        </widget>
       </item>
@@ -430,7 +430,7 @@
    <item row="3" column="0">
     <widget class="QGroupBox" name="generalInfo">
      <property name="title">
-      <string>一般信息</string>
+      <string>常规信息</string>
      </property>
      <layout class="QFormLayout" name="formLayout_3">
       <item row="0" column="0">
@@ -441,7 +441,7 @@
          </font>
         </property>
         <property name="text">
-         <string>游戏标题：</string>
+         <string>游戏标题:</string>
         </property>
        </widget>
       </item>
@@ -460,7 +460,7 @@
          </font>
         </property>
         <property name="text">
-         <string>游戏代码：</string>
+         <string>游戏代码:</string>
         </property>
        </widget>
       </item>
@@ -479,7 +479,7 @@
          </font>
         </property>
         <property name="text">
-         <string>标记码：:</string>
+         <string>标记代码:</string>
         </property>
        </widget>
       </item>
@@ -498,7 +498,7 @@
          </font>
         </property>
         <property name="text">
-         <string>卡带大小：</string>
+         <string>卡带大小:</string>
         </property>
        </widget>
       </item>
@@ -528,7 +528,7 @@
       <item row="1" column="1">
        <widget class="QPushButton" name="saveIconButton">
         <property name="text">
-         <string>Save icon</string>
+         <string>保存图标 icon</string>
         </property>
        </widget>
       </item>

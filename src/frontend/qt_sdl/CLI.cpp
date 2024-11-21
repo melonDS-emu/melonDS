@@ -38,8 +38,8 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     QCommandLineParser parser;
     parser.addHelpOption();
 
-    parser.addPositionalArgument("nds", "加载到Slot-1的Nintendo DS ROM（或包含它的文档）");
-    parser.addPositionalArgument("gba", "加载到Slot-2的GBA ROM（或包含它的文档）");
+    parser.addPositionalArgument("nds", "加载Slot-1的Nintendo DS ROM（或包含它的压缩包）");
+    parser.addPositionalArgument("gba", "加载Slot-2的GBA ROM（或包含它的压缩包）");
 
     parser.addOption(QCommandLineOption({"b", "boot"}, "是否在开机时启动固件。默认为 \"auto\" (NDS文件被加载时启动)", "auto/always/never", "auto"));
     parser.addOption(QCommandLineOption({"f", "fullscreen"}, "以全屏模式启动melonDS"));
@@ -59,7 +59,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     switch (posargs.size())
     {
         default:
-            Log(LogLevel::Warn, "Too many positional arguments; ignoring 3 onwards\n");
+            Log(LogLevel::Warn, "参数过多; 将忽略第3及之后的参数\n");
         case 2:
             options->gbaRomPath = posargs[1];
         case 1:
@@ -96,7 +96,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
         }
         else
         {
-            Log(LogLevel::Error, "Option -a/--archive-file given, but no archive specified!");
+            Log(LogLevel::Error, "输入了 -a/--archive-file 指令, 但未输入具体压缩包文件!");
         }
     }
 
@@ -108,7 +108,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
         }
         else
         {
-            Log(LogLevel::Error, "Option -A/--archive-file-gba given, but no archive specified!");
+            Log(LogLevel::Error, "输入了 -A/--archive-file-gba 指令, 但未输入具体压缩包文件!");
         }
     }
 #endif

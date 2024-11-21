@@ -33,13 +33,13 @@
    <item>
     <widget class="QGroupBox" name="grpGeneral">
      <property name="title">
-      <string>一般</string>
+      <string>常规</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_3">
       <item row="0" column="0">
        <widget class="QCheckBox" name="overrideFirmwareBox">
         <property name="text">
-         <string>使用外部固件的设置进行覆盖</string>
+         <string>使用外部固件(firmware)进行覆盖</string>
         </property>
        </widget>
       </item>
@@ -86,14 +86,14 @@
       <item row="0" column="0">
        <widget class="QLabel" name="usernameLabel">
         <property name="text">
-         <string>用户名：</string>
+         <string>用户名:</string>
         </property>
        </widget>
       </item>
       <item row="4" column="0">
        <widget class="QLabel" name="label_3">
         <property name="text">
-         <string>信息：</string>
+         <string>介绍语:</string>
         </property>
        </widget>
       </item>
@@ -103,21 +103,21 @@
       <item row="3" column="0">
        <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>颜色：</string>
+         <string>颜色:</string>
         </property>
        </widget>
       </item>
       <item row="1" column="0">
        <widget class="QLabel" name="label">
         <property name="text">
-         <string>语言：</string>
+         <string>语言:</string>
         </property>
        </widget>
       </item>
       <item row="2" column="0">
        <widget class="QLabel" name="label_4">
         <property name="text">
-         <string>生日：</string>
+         <string>生日:</string>
         </property>
        </widget>
       </item>
@@ -139,7 +139,7 @@
       <item row="0" column="0">
        <widget class="QLabel" name="label_5">
         <property name="text">
-         <string>MAC地址：</string>
+         <string>MAC地址:</string>
         </property>
        </widget>
       </item>

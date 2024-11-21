@@ -110,7 +110,7 @@ QVector<QString> ExtractFileFromArchive(QString path, QString wantedFile, QByteA
 
     if (bytesRead < 0)
     {
-        Log(LogLevel::Error, "Error whilst reading archive: %s", archive_error_string(a));
+        Log(LogLevel::Error, "读取压缩文件时发生错误: %s", archive_error_string(a));
         return QVector<QString> {"Err", archive_error_string(a)};
     }
 

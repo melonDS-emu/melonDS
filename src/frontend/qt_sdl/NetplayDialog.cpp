@@ -177,8 +177,8 @@ void NetplayDialog::doUpdatePlayerList(Netplay::Player* players, int num)
         switch (player->Status)
         {
             case 1: status = ""; break;
-            case 2: status = "Host"; break;
-            default: status = "ded"; break;
+            case 2: status = "主机"; break;
+            default: status = "无效"; break;
         }
         model->setItem(i, 2, new QStandardItem(status));
 

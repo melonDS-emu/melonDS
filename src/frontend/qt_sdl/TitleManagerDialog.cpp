@@ -125,7 +125,7 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
     *(u32*)&gamecode[0] = *(u32*)&header.GameCode[0];
     gamecode[4] = '\0';
     char extra[128];
-    sprintf(extra, "\n(title ID: %s · %08x/%08x · version %08x)", gamecode, category, titleid, version);
+    sprintf(extra, "\n(应用 ID: %s · %08x/%08x · 版本 %08x)", gamecode, category, titleid, version);
 
     QListWidgetItem* item = new QListWidgetItem(title + QString(extra));
     item->setIcon(icon);
@@ -271,7 +271,7 @@ void TitleManagerDialog::onImportTitleData()
     QListWidgetItem* cur = ui->lstTitleList->currentItem();
     if (!cur)
     {
-        Log(LogLevel::Error, "what??\n");
+        Log(LogLevel::Error, "什么??\n");
         return;
     }
 
@@ -297,9 +297,9 @@ void TitleManagerDialog::onImportTitleData()
     }
 
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select file to import...",
+                                                "选择导入文件...",
                                                 emuDirectory,
-                                                "Title data files (" + extensions + ");;Any file (*.*)");
+                                                "应用数据文件 (" + extensions + ");;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 
@@ -340,7 +340,7 @@ void TitleManagerDialog::onExportTitleData()
     QListWidgetItem* cur = ui->lstTitleList->currentItem();
     if (!cur)
     {
-        Log(LogLevel::Error, "what??\n");
+        Log(LogLevel::Error, "什么??\n");
         return;
     }
 
@@ -370,9 +370,9 @@ void TitleManagerDialog::onExportTitleData()
     }
 
     QString file = QFileDialog::getSaveFileName(this,
-                                                "Select path to export to...",
+                                                "选择导出路径...",
                                                 emuDirectory + exportname,
-                                                "Title data files (" + extensions + ");;Any file (*.*)");
+                                                "应用数据文件 (" + extensions + ");;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 
@@ -547,9 +547,9 @@ void TitleImportDialog::tmdDownloaded()
 void TitleImportDialog::on_btnAppBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select title executable...",
+                                                "选择可执行应用...",
                                                 emuDirectory,
-                                                "DSiWare executables (*.app *.nds *.dsi *.srl);;Any file (*.*)");
+                                                "DSiWare可执行程序 (*.app *.nds *.dsi *.srl);;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 
@@ -559,9 +559,9 @@ void TitleImportDialog::on_btnAppBrowse_clicked()
 void TitleImportDialog::on_btnTmdBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select title metadata...",
+                                                "选择应用元数据...",
                                                 emuDirectory,
-                                                "DSiWare metadata (*.tmd);;Any file (*.*)");
+                                                "DSiWare元数据 (*.tmd);;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 

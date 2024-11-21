@@ -31,7 +31,7 @@
    <item row="2" column="0">
     <widget class="QLabel" name="label_3">
      <property name="text">
-      <string>即时存档路径：</string>
+      <string>即时文件路径：</string>
      </property>
     </widget>
    </item>

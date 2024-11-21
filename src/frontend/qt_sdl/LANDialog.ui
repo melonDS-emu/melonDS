@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>LAN game - melonDS</string>
+   <string>局域网(LAN)游戏 - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -22,7 +22,7 @@
      <item>
       <widget class="QPushButton" name="btnLeaveGame">
        <property name="text">
-        <string>Leave game</string>
+        <string>离开游戏</string>
        </property>
       </widget>
      </item>

@@ -30,7 +30,7 @@
      </property>
      <widget class="QWidget" name="tab">
       <attribute name="title">
-       <string>一般</string>
+       <string>常规</string>
       </attribute>
       <layout class="QFormLayout" name="formLayout_4">
        <item row="1" column="1">
@@ -49,7 +49,7 @@
        <item row="2" column="1">
         <widget class="QCheckBox" name="chkDirectBoot">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;加载 ROM 时，完全跳过常规引导过程 (&amp;quot;Nintendo DS&amp;quot; 窗口) 以直接启动ROM。&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;注意：如果您的固件转储不可启动，则无论此设置如何，ROM都将直接启动。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;加载 ROM 时，完全跳过常规引导过程 (&amp;quot;Nintendo DS&amp;quot; 窗口) 以直接启动ROM。&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;注意：如果您的固件(firmware)转储不可启动，则无论此设置如何，ROM都将直接启动。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
           <string>直接启动ROM</string>
@@ -78,7 +78,7 @@
           </sizepolicy>
          </property>
          <property name="text">
-          <string>主机种类</string>
+          <string>主机类型</string>
          </property>
         </widget>
        </item>
@@ -112,7 +112,7 @@
        <item row="3" column="0">
         <widget class="QLabel" name="label_3">
          <property name="text">
-          <string>DS 固件：</string>
+          <string>DS 固件(firmware):</string>
          </property>
         </widget>
        </item>
@@ -162,7 +162,7 @@
        <item row="3" column="1">
         <widget class="QPathInput" name="txtFirmwarePath">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DS-模式 固件&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;可用固件：&lt;/p&gt;&lt;p&gt;* 128 KB: 来自DSI或DS的 DS-模式固件。不可启动。&lt;/p&gt;&lt;p&gt;* 256 KB: 常规DS固件。&lt;/p&gt;&lt;p&gt;* 512 KB: 神游DS固件。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DS-模式 固件(firmware)&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;可用固件：&lt;/p&gt;&lt;p&gt;* 128 KB: 来自DSI或DS的 DS-模式 固件(firmware)。不可启动。&lt;/p&gt;&lt;p&gt;* 256 KB: 常规 DS 固件(firmware)。&lt;/p&gt;&lt;p&gt;* 512 KB: 神游DS 固件(firmware)。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
@@ -192,10 +192,10 @@
        <item row="0" column="0" colspan="3">
         <widget class="QCheckBox" name="chkExternalBIOS">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;允许使用用户自行提供的BIOS和固件转储。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;允许使用用户自行提供的BIOS和固件(firmware)转储。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
-          <string>使用外部BIOS/固件文件</string>
+          <string>使用外部 BIOS/固件(firmware) 文件</string>
          </property>
         </widget>
        </item>
@@ -229,17 +229,17 @@
        <item row="12" column="1">
         <widget class="QLineEdit" name="txtDSiSDFolder">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sync the emulated SD card to the given folder. The folder's contents will be copied to the SD image, and any change made to the SD image will be reflected to the folder.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;同步虚拟SD卡内容至指定文件夹。文件夹的内容将被复制到SD卡镜像，对SD卡镜像所做的任何更改都将同步到文件夹中。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
        <item row="12" column="0">
         <widget class="QCheckBox" name="cbDSiSDFolder">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sync the emulated SD card to the given folder. The folder's contents will be copied to the SD image, and any change made to the SD image will be reflected to the folder.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;同步虚拟SD卡内容至指定文件夹。文件夹的内容将被复制到SD卡镜像，对SD卡镜像所做的任何更改都将同步到文件夹中。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
-          <string>Sync SD to folder:</string>
+          <string>同步SD卡镜像至文件夹:</string>
          </property>
         </widget>
        </item>
@@ -267,21 +267,21 @@
        <item row="2" column="1">
         <widget class="QPathInput" name="txtDSiBIOS7Path">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi-mode ARM7 BIOS&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 64 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi-模式 ARM7 BIOS&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;大小应为64 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
        <item row="0" column="0" colspan="3">
         <widget class="QLabel" name="label_15">
          <property name="text">
-          <string>DSi 模式需要额外提供 DSi BIOS/固件/NAND</string>
+          <string>DSi-模式需要额外提供 DSi BIOS/固件(firmware)/NAND</string>
          </property>
         </widget>
        </item>
        <item row="10" column="0">
         <widget class="QLabel" name="label_13">
          <property name="text">
-          <string>Image size:</string>
+          <string>镜像大小:</string>
          </property>
         </widget>
        </item>
@@ -295,107 +295,107 @@
        <item row="2" column="2">
         <widget class="QPushButton" name="btnDSiBIOS7Browse">
          <property name="text">
-          <string>Browse...</string>
+          <string>浏览...</string>
          </property>
         </widget>
        </item>
        <item row="9" column="2">
         <widget class="QPushButton" name="btnDSiSDBrowse">
          <property name="text">
-          <string>Browse...</string>
+          <string>浏览...</string>
          </property>
         </widget>
        </item>
        <item row="3" column="0">
         <widget class="QLabel" name="label_7">
          <property name="text">
-          <string>DSi firmware:</string>
+          <string>DSi 固件(firmware):</string>
          </property>
         </widget>
        </item>
        <item row="11" column="0">
         <widget class="QCheckBox" name="cbDSiSDReadOnly">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Make the emulated SD card read-only.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;让虚拟SD卡只读。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
-          <string>Read-only SD</string>
+          <string>SD卡只读</string>
          </property>
         </widget>
        </item>
        <item row="8" column="0" colspan="3">
         <widget class="QCheckBox" name="cbDSiSDEnable">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Simulate a SD card being inserted in the DSi's SD slot.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;模拟插入DSi的SD卡槽的虚拟SD卡。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
-          <string>Enable DSi SD card</string>
+          <string>启用DSi的SD卡</string>
          </property>
         </widget>
        </item>
        <item row="3" column="2">
         <widget class="QPushButton" name="btnDSiFirmwareBrowse">
          <property name="text">
-          <string>Browse...</string>
+          <string>浏览...</string>
          </property>
         </widget>
        </item>
        <item row="4" column="2">
         <widget class="QPushButton" name="btnDSiNANDBrowse">
          <property name="text">
-          <string>Browse...</string>
+          <string>浏览...</string>
          </property>
         </widget>
        </item>
        <item row="9" column="1">
         <widget class="QPathInput" name="txtDSiSDPath">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;SD image file for emulating the DSi's SD card. A blank image file will be created if it doesn't already exist.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用于模拟DSi的SD卡镜像文件。若文件未存在，将创建一个空白的镜像。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
        <item row="3" column="1">
         <widget class="QPathInput" name="txtDSiFirmwarePath">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi-mode firmware (used for DS-mode backwards compatibility)&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 128 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi-模式 固件(firmware) (用于 DS-模式 的兼容)&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;大小应为128 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
        <item row="4" column="1">
         <widget class="QPathInput" name="txtDSiNANDPath">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi NAND dump&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Should have 'nocash footer' at the end&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi NAND 转储&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;应当存在 'nocash footer' 在末尾&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
        <item row="10" column="1">
         <widget class="QComboBox" name="cbxDSiSDSize">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Size of the SD image.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;If set to Auto:&lt;/p&gt;&lt;p&gt;* if an image file exists, the volume size will be that of the image file&lt;/p&gt;&lt;p&gt;* if no image file exists and folder sync is enabled, the volume size will be determined from the synced folder's contents&lt;/p&gt;&lt;p&gt;* otherwise, the volume size will default to 512 MB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;SD镜像的大小&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;如果设置为自动:&lt;/p&gt;&lt;p&gt;* 那么当镜像文件存在时，SD卡分卷大小将与镜像文件一致&lt;/p&gt;&lt;p&gt;* 当镜像文件不存在且启用了同步SD卡镜像至文件夹，则SD卡分卷大小将根据同步文件夹的内容确定&lt;/p&gt;&lt;p&gt;* 否则，SD卡分卷大小将默认为512 MB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
        <item row="9" column="0">
         <widget class="QLabel" name="label_10">
          <property name="text">
-          <string>SD card image:</string>
+          <string>SD卡镜像:</string>
          </property>
         </widget>
        </item>
        <item row="12" column="2">
         <widget class="QPushButton" name="btnDSiSDFolderBrowse">
          <property name="text">
-          <string>Browse...</string>
+          <string>浏览...</string>
          </property>
         </widget>
        </item>
        <item row="5" column="0" colspan="3">
         <widget class="QCheckBox" name="cbDSiFullBIOSBoot">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Boot the system from scratch by running the full boot ROMs, instead of starting with the second-stage loader. Requires a full BIOS/bootROM dump.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;通过运行完整的 bootROM 从头引导系统，而不是从第二阶段加载程序开始。需要完整的 BIOS/bootROM 转储。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
-          <string>Full BIOS boot</string>
+          <string>完整BIOS引导</string>
          </property>
         </widget>
        </item>
@@ -409,14 +409,14 @@
        <item row="0" column="0">
         <widget class="QCheckBox" name="chkEnableJIT">
          <property name="text">
-          <string>启用 JIT 重新编译器</string>
+          <string>启用JIT重编译器</string>
          </property>
         </widget>
        </item>
        <item row="1" column="0">
         <widget class="QLabel" name="label_9">
          <property name="text">
-          <string>最大 JIT 块大小：</string>
+          <string>最大JIT块大小：</string>
          </property>
         </widget>
        </item>
@@ -491,38 +491,38 @@
        <item row="4" column="1">
         <widget class="QLineEdit" name="txtDLDIFolder">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将模拟的SD卡同步到指定的文件夹。文件夹的内容将被复制到SD卡镜像中，对SD卡镜像所做的任何更改都将反映到文件夹中。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;同步虚拟SD卡内容至指定文件夹。文件夹的内容将被复制到SD卡镜像，对SD卡镜像所做的任何更改都将同步到文件夹中。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
        <item row="2" column="0">
         <widget class="QLabel" name="label_12">
          <property name="text">
-          <string>镜像大小：</string>
+          <string>镜像大小:</string>
          </property>
         </widget>
        </item>
        <item row="4" column="0">
         <widget class="QCheckBox" name="cbDLDIFolder">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将模拟的SD卡同步到指定的文件夹。文件夹的内容将被复制到SD卡镜像中，对SD卡镜像所做的任何更改都将反映到文件夹中。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;同步虚拟SD卡内容至指定文件夹。文件夹的内容将被复制到SD卡镜像，对SD卡镜像所做的任何更改都将同步到文件夹中。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
-          <string>同步SD卡到文件夹：</string>
+          <string>同步SD卡镜像至文件夹:</string>
          </property>
         </widget>
        </item>
        <item row="2" column="1">
         <widget class="QComboBox" name="cbxDLDISize">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;SD卡镜像大小&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;如果设定为自动：&lt;/p&gt;&lt;p&gt;* 如果已存在一个镜像文件，那么SD卡分卷大小将按镜像大小设置。&lt;/p&gt;&lt;p&gt;* 如果不存在镜像文件并且启用了文件夹同步，则分卷大小将根据同步文件夹的内容确定。&lt;/p&gt;&lt;p&gt;* 否则，卷大小将默认为512MB。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;SD卡镜像的大小&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;如果设置为自动：&lt;/p&gt;&lt;p&gt;* 那么当镜像文件存在时，SD卡分卷大小将与镜像文件一致&lt;/p&gt;&lt;p&gt;* 当镜像文件不存在且启用了同步SD卡镜像至文件夹，则SD卡分卷大小将根据同步文件夹的内容确定&lt;/p&gt;&lt;p&gt;* 否则，SD卡分卷大小将默认为512MB。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
        <item row="0" column="0" colspan="3">
         <widget class="QCheckBox" name="cbDLDIEnable">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;启用内置的 DLDI 驱动程序，让自制软件从模拟的 SD 卡访问文件。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;启用内置的DLDI驱动程序，让自制软件从虚拟SD卡访问文件。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
           <string>启用DLDI (用于自制程序)</string>
@@ -532,7 +532,7 @@
        <item row="1" column="1">
         <widget class="QPathInput" name="txtDLDISDPath">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用于DLDI的SD卡镜像文件。如果它不存在，将创建一个空白镜像文件。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用于DLDI的SD卡镜像文件。若文件未存在，将创建一个空白的镜像。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
@@ -552,14 +552,14 @@
        <item row="1" column="0">
         <widget class="QLabel" name="label_11">
          <property name="text">
-          <string>SD卡镜像：</string>
+          <string>SD卡镜像:</string>
          </property>
         </widget>
        </item>
        <item row="3" column="0" colspan="3">
         <widget class="QCheckBox" name="cbDLDIReadOnly">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Make the emulated SD card read-only.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;让虚拟SD卡只读。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
           <string>SD卡只读</string>
@@ -570,13 +570,13 @@
      </widget>
      <widget class="QWidget" name="tab_6">
       <attribute name="title">
-       <string>Devtools</string>
+       <string>开发工具</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_3">
        <item row="1" column="0">
         <widget class="QLabel" name="label_16">
          <property name="text">
-          <string>ARM9 port</string>
+          <string>ARM9 端口</string>
          </property>
         </widget>
        </item>
@@ -596,35 +596,35 @@
        <item row="2" column="0">
         <widget class="QLabel" name="label_17">
          <property name="text">
-          <string>ARM7 port</string>
+          <string>ARM7 端口</string>
          </property>
         </widget>
        </item>
        <item row="0" column="0" colspan="3">
         <widget class="QCheckBox" name="cbGdbEnabled">
          <property name="text">
-          <string>Enable GDB stub</string>
+          <string>启用GDB调试</string>
          </property>
         </widget>
        </item>
        <item row="4" column="0" colspan="7">
         <widget class="QLabel" name="label_18">
          <property name="text">
-          <string>Note: melonDS must be restarted in order for these changes to have effect</string>
+          <string>注意：必须重新启动 melonDS 才能使这些更改生效</string>
          </property>
         </widget>
        </item>
        <item row="3" column="0" colspan="7">
         <widget class="QLabel" name="label_19">
          <property name="text">
-          <string>Note: GDB stub cannot be used together with the JIT recompiler</string>
+          <string>注意：GDB调试不能与JIT重编译器一起使用</string>
          </property>
         </widget>
        </item>
        <item row="1" column="6">
         <widget class="QCheckBox" name="cbGdbBOSA9">
          <property name="text">
-          <string>Break on startup</string>
+          <string>启动时中断</string>
          </property>
         </widget>
        </item>
@@ -657,7 +657,7 @@
        <item row="2" column="6">
         <widget class="QCheckBox" name="cbGdbBOSA7">
          <property name="text">
-          <string>Break on startup</string>
+          <string>启动时中断</string>
          </property>
         </widget>
        </item>

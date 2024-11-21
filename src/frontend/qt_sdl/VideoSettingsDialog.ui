@@ -35,7 +35,7 @@
       <item row="0" column="0">
        <widget class="QLabel" name="label_3">
         <property name="text">
-         <string>内部分辨率：</string>
+         <string>内部分辨率:</string>
         </property>
        </widget>
       </item>
@@ -52,14 +52,14 @@
       <item row="1" column="0">
        <widget class="QComboBox" name="cbxGLResolution">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The resolution at which the 3D graphics will be rendered. Higher resolutions improve graphics quality when the main window is enlarged, but may also cause glitches.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;渲染 3D 图形的分辨率。主窗口放大时，较高的分辨率可以提高图形质量，但也可能导致故障。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
        </widget>
       </item>
       <item row="3" column="0">
        <widget class="QCheckBox" name="cbxComputeHiResCoords">
         <property name="text">
-         <string>Use high resolution coordinates</string>
+         <string>使用高分辨率坐标</string>
         </property>
        </widget>
       </item>
@@ -75,10 +75,10 @@
       <item row="0" column="0">
        <widget class="QCheckBox" name="cbSoftwareThreaded">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在单独的线程上运行软件渲染器。 在多核 CPU 上产生更好的性能。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在独立的线程上运行软件渲染器。多核CPU上能展现更好的性能。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>使用单独的线程</string>
+         <string>使用独立的线程</string>
         </property>
        </widget>
       </item>
@@ -117,7 +117,7 @@
       <item row="5" column="0" colspan="2">
        <widget class="QCheckBox" name="cbGLDisplay">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用 OpenGL 将 DS 屏幕绘制到主窗口。可能会导致更好的帧节奏。使用 OpenGL 3D 渲染器时是必需的。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用 OpenGL 将 DS 屏幕绘制到主窗口。可能会有更好的帧节奏。使用 OpenGL 3D 渲染器时是必需的。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
          <string>OpenGL显示</string>
@@ -143,10 +143,10 @@
       <item row="6" column="0" colspan="2">
        <widget class="QCheckBox" name="cbVSync">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When using OpenGL, synchronize the video output to your monitor's refresh rate.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用 OpenGL 时，将视频输出与显示器的刷新率同步。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>VSync</string>
+         <string>垂直同步</string>
         </property>
        </widget>
       </item>
@@ -159,10 +159,10 @@
          </sizepolicy>
         </property>
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The interval at which to synchronize to the monitor's refresh rate. Set to 1 for a 60Hz monitor, 2 for 120Hz, ...&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;与显示器刷新率同步的时间间隔。 设置为 1 用于 60Hz 显示器，2 用于 120Hz，...&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>VSync interval:</string>
+         <string>垂直同步间隔:</string>
         </property>
        </widget>
       </item>
@@ -172,14 +172,14 @@
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;OpenGL 渲染器可能比软件更快并且支持图形增强，但更容易出现故障。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>OpenGL (Classic)</string>
+         <string>OpenGL (经典)</string>
         </property>
        </widget>
       </item>
       <item row="1" column="0" colspan="2">
        <widget class="QRadioButton" name="rb3DSoftware">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;软件渲染器更准确，更不容易出现渲染故障，但需要更多的 CPU 能力。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;软件渲染器更准确，更不容易出现渲染故障，但需要更多的 CPU 算力。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
          <string>软件</string>
@@ -189,14 +189,14 @@
       <item row="0" column="0" colspan="2">
        <widget class="QLabel" name="label">
         <property name="text">
-         <string>3D渲染器：</string>
+         <string>3D渲染器:</string>
         </property>
        </widget>
       </item>
       <item row="3" column="0">
        <widget class="QRadioButton" name="rb3DCompute">
         <property name="text">
-         <string>OpenGL (Compute shader)</string>
+         <string>OpenGL (计算着色器)</string>
         </property>
        </widget>
       </item>

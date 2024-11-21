@@ -38,7 +38,7 @@ QString IntToHex(u64 num)
 
 QString QStringBytes(u64 num)
 {
-    return (QString::number(num) + " bytes");
+    return (QString::number(num) + " 字节");
 }
 
 ROMInfoDialog* ROMInfoDialog::currentDlg = nullptr;
@@ -94,12 +94,12 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
     if (banner->Version > 1)
         ui->chineseTitle->setText(QString::fromUtf16(banner->ChineseTitle));
     else
-        ui->chineseTitle->setText("None");
+        ui->chineseTitle->setText("空");
 
     if (banner->Version > 2)
         ui->koreanTitle->setText(QString::fromUtf16(banner->KoreanTitle));
     else
-        ui->koreanTitle->setText("None");
+        ui->koreanTitle->setText("空");
 
     ui->gameTitle->setText(QString::fromLatin1(header.GameTitle, 12));
     ui->gameCode->setText(QString::fromLatin1(header.GameCode, 4));
@@ -138,9 +138,9 @@ void ROMInfoDialog::done(int r)
 void ROMInfoDialog::on_saveIconButton_clicked()
 {
     QString filename = QFileDialog::getSaveFileName(this,
-                                                    "Save Icon",
+                                                    "保存图标 Icon",
                                                     emuInstance->getGlobalConfig().GetQString("LastROMFolder"),
-                                                    "PNG Images (*.png)");
+                                                    "PNG 图像 (*.png)");
     if (filename.isEmpty())
         return;
 
@@ -150,9 +150,9 @@ void ROMInfoDialog::on_saveIconButton_clicked()
 void ROMInfoDialog::on_saveAnimatedIconButton_clicked()
 {
     QString filename = QFileDialog::getSaveFileName(this,
-                                                    "Save Animated Icon",
+                                                    "保存动态 Icon",
                                                     emuInstance->getGlobalConfig().GetQString("LastROMFolder"),
-                                                    "GIF Images (*.gif)");
+                                                    "GIF 图像 (*.gif)");
     if (filename.isEmpty())
         return;
 

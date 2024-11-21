@@ -23,7 +23,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>About melonDS</string>
+   <string>关于 melonDS</string>
   </property>
   <property name="modal">
    <bool>false</bool>
@@ -131,7 +131,7 @@
           <bool>true</bool>
          </property>
          <property name="text">
-          <string>By Arisotura, the melonDS team &lt;a href=&quot;https://github.com/melonDS-emu/melonDS/graphs/contributors&quot;&gt;and contributors&lt;/a&gt;.</string>
+          <string>由Arisotura, melonDS团队&lt;a href=&quot;https://github.com/melonDS-emu/melonDS/graphs/contributors&quot;&gt;及贡献者们&lt;/a&gt;制作。</string>
          </property>
          <property name="openExternalLinks">
           <bool>true</bool>
@@ -162,7 +162,7 @@
           </font>
          </property>
          <property name="text">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Licensed under the GNU General Public License v3 or any newer version.&lt;/p&gt;&lt;p&gt;melonDS is intended only for use with software that you own.&lt;/p&gt;&lt;p&gt;The Nintendo DS and Nintendo DSi systems are the property of Nintendo.&lt;br /&gt;melonDS and the melonDS team are not affiliated with or endorsed by Nintendo.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;根据GNU通用公共许可证v3或任何较新版本获得许可。&lt;/p&gt;&lt;p&gt;melonDS仅用于运行您所有拥有的相关文件。&lt;/p&gt;&lt;p&gt;Nintendo DS和 Nintendo DSi系统归Nintendo所有。&lt;br /&gt;melonDS和melonDS团队与任天堂没有任何关联，也未得到任天堂的认可。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="textFormat">
           <enum>Qt::TextFormat::RichText</enum>
@@ -206,7 +206,7 @@
         <bool>true</bool>
        </property>
        <property name="text">
-        <string>Visit the &amp;website</string>
+        <string>查看&amp;论坛</string>
        </property>
        <property name="flat">
         <bool>true</bool>
@@ -219,7 +219,7 @@
         <bool>true</bool>
        </property>
        <property name="text">
-        <string>View on &amp;GitHub</string>
+        <string>查看&amp;GitHub</string>
        </property>
        <property name="flat">
         <bool>true</bool>
@@ -232,7 +232,7 @@
         <bool>true</bool>
        </property>
        <property name="text">
-        <string>&amp;Close</string>
+        <string>&amp;关闭</string>
        </property>
        <property name="default">
         <bool>true</bool>

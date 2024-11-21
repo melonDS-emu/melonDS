@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>相机设置 - melonDS</string>
+   <string>摄像头设置 - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="sizeConstraint">
@@ -28,7 +28,7 @@
      <item>
       <widget class="QLabel" name="label">
        <property name="text">
-        <string>配置模拟相机：</string>
+        <string>配置虚拟摄像头：</string>
        </property>
       </widget>
      </item>
@@ -51,7 +51,7 @@
         <item row="0" column="0" colspan="4">
          <widget class="QRadioButton" name="rbPictureNone">
           <property name="text">
-           <string>无（空）</string>
+           <string>无（空置）</string>
           </property>
          </widget>
         </item>
@@ -65,14 +65,14 @@
         <item row="2" column="0">
          <widget class="QRadioButton" name="rbPictureCamera">
           <property name="text">
-           <string>物理相机：</string>
+           <string>物理摄像头:</string>
           </property>
          </widget>
         </item>
         <item row="1" column="0">
          <widget class="QRadioButton" name="rbPictureImg">
           <property name="text">
-           <string>镜像文件：</string>
+           <string>图像文件：</string>
           </property>
          </widget>
         </item>

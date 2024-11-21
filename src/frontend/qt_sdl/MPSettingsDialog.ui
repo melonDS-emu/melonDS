@@ -85,7 +85,7 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>毫秒</string>
+         <string>ms</string>
         </property>
        </widget>
       </item>

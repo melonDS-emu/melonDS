@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Join LAN game - melonDS</string>
+   <string>加入局域网(LAN)游戏 - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -25,7 +25,7 @@
      <item>
       <widget class="QLabel" name="label">
        <property name="text">
-        <string>Player name:</string>
+        <string>玩家名:</string>
        </property>
       </widget>
      </item>
@@ -70,7 +70,7 @@
    <item>
     <widget class="QLabel" name="label_2">
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Warning: LAN requires low network latency to work.&lt;/p&gt;&lt;p&gt;Do not expect it to work through a VPN or any sort of tunnel.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;警告：局域网(LAN)功能需要较低的网络延迟才能工作。&lt;/p&gt;&lt;p&gt;不要期望它能在VPN或其他类型的隧道连接中正常运行。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
     </widget>
    </item>

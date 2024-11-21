@@ -111,8 +111,8 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
 
     const int imgsizes[] = {256, 512, 1024, 2048, 4096, 0};
 
-    ui->cbxDLDISize->addItem("Auto");
-    ui->cbxDSiSDSize->addItem("Auto");
+    ui->cbxDLDISize->addItem("自动");
+    ui->cbxDSiSDSize->addItem("自动");
 
     for (int i = 0; imgsizes[i] != 0; i++)
     {
@@ -203,9 +203,9 @@ void EmuSettingsDialog::verifyFirmware()
     if (!memcmp(chk1, chk2, 0x180))
     {
         QMessageBox::warning((QWidget*)this->parent(),
-                      "有问题的固件转储",
-                      "您正在使用旧的被修改过的固件转储。\n"
-                      "如果您运行任何更改 WFC 设置的游戏，固件启动将停止工作。\n\n"
+                      "有问题的固件(firmware)转储",
+                      "您正在使用旧的被修改过的固件(firmware)转储。\n"
+                      "如果您运行任何会更改 WFC 网络设置的游戏，固件(firmware)启动将停止工作。\n\n"
                       "请注意，问题不是来自melonDS，它也会发生在实际的DS上。");
     }
 }
@@ -314,9 +314,9 @@ void EmuSettingsDialog::done(int r)
 void EmuSettingsDialog::on_btnBIOS9Browse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select DS-mode ARM9 BIOS...",
+                                                "选择 DS模式 ARM9 BIOS...",
                                                 lastBIOSFolder,
-                                                "BIOS files (*.bin *.rom);;Any file (*.*)");
+                                                "BIOS 文件 (*.bin *.rom);;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 
@@ -328,9 +328,9 @@ void EmuSettingsDialog::on_btnBIOS9Browse_clicked()
 void EmuSettingsDialog::on_btnBIOS7Browse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select DS-mode ARM7 BIOS...",
+                                                "选择 DS模式 ARM7 BIOS...",
                                                 lastBIOSFolder,
-                                                "BIOS files (*.bin *.rom);;Any file (*.*)");
+                                                "BIOS 文件 (*.bin *.rom);;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 
@@ -342,15 +342,15 @@ void EmuSettingsDialog::on_btnBIOS7Browse_clicked()
 void EmuSettingsDialog::on_btnFirmwareBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select DS-mode firmware...",
+                                                "选择 DS模式 固件(firmware)...",
                                                 lastBIOSFolder,
-                                                "Firmware files (*.bin *.rom);;Any file (*.*)");
+                                                "固件(Firmware) 文件 (*.bin *.rom);;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 
     if (!Platform::CheckFileWritable(file.toStdString()))
     {
-        QMessageBox::critical(this, "melonDS", "Unable to write to firmware file.\nPlease check file/folder write permissions.");
+        QMessageBox::critical(this, "melonDS", "无法写入 固件(firmware) 文件。\n请检查文件或文件夹的写入权限。");
         return;
     }
 
@@ -362,9 +362,9 @@ void EmuSettingsDialog::on_btnFirmwareBrowse_clicked()
 void EmuSettingsDialog::on_btnDSiBIOS9Browse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select DSi-mode ARM9 BIOS...",
+                                                "选择 DSi模式 ARM9 BIOS...",
                                                 lastBIOSFolder,
-                                                "BIOS files (*.bin *.rom);;Any file (*.*)");
+                                                "BIOS 文件 (*.bin *.rom);;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 
@@ -376,9 +376,9 @@ void EmuSettingsDialog::on_btnDSiBIOS9Browse_clicked()
 void EmuSettingsDialog::on_btnDSiBIOS7Browse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select DSi-mode ARM7 BIOS...",
+                                                "选择 DSi模式 ARM7 BIOS...",
                                                 lastBIOSFolder,
-                                                "BIOS files (*.bin *.rom);;Any file (*.*)");
+                                                "BIOS 文件 (*.bin *.rom);;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 
@@ -404,15 +404,15 @@ void EmuSettingsDialog::on_cbDLDIEnable_toggled()
 void EmuSettingsDialog::on_btnDLDISDBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select DLDI SD image...",
+                                                "选择 DLDI SD 镜像...",
                                                 lastBIOSFolder,
-                                                "Image files (*.bin *.rom *.img *.dmg);;Any file (*.*)");
+                                                "镜像文件 (*.bin *.rom *.img *.dmg);;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 
     if (!Platform::CheckFileWritable(file.toStdString()))
     {
-        QMessageBox::critical(this, "melonDS", "Unable to write to DLDI SD image.\nPlease check file/folder write permissions.");
+        QMessageBox::critical(this, "melonDS", "无法写入 DLDI SD 镜像。\n请检查文件或文件夹的写入权限。");
         return;
     }
 
@@ -431,7 +431,7 @@ void EmuSettingsDialog::on_cbDLDIFolder_toggled()
 void EmuSettingsDialog::on_btnDLDIFolderBrowse_clicked()
 {
     QString dir = QFileDialog::getExistingDirectory(this,
-                                                     "Select DLDI SD folder...",
+                                                     "选择 DLDI SD 文件夹...",
                                                      lastBIOSFolder);
 
     if (dir.isEmpty()) return;
@@ -442,15 +442,15 @@ void EmuSettingsDialog::on_btnDLDIFolderBrowse_clicked()
 void EmuSettingsDialog::on_btnDSiFirmwareBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select DSi DS-mode firmware...",
+                                                "选择 DSi DS模式 固件(firmware)...",
                                                 lastBIOSFolder,
-                                                "Firmware files (*.bin *.rom);;Any file (*.*)");
+                                                "固件(Firmware) 文件 (*.bin *.rom);;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 
     if (!Platform::CheckFileWritable(file.toStdString()))
     {
-        QMessageBox::critical(this, "melonDS", "Unable to write to DSi firmware file.\nPlease check file/folder write permissions.");
+        QMessageBox::critical(this, "melonDS", "无法写入 DSi 固件(firmware) 文件。\n请检查文件或文件夹的写入权限。");
         return;
     }
 
@@ -463,15 +463,15 @@ void EmuSettingsDialog::on_btnDSiFirmwareBrowse_clicked()
 void EmuSettingsDialog::on_btnDSiNANDBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select DSi NAND...",
+                                                "选择 DSi NAND...",
                                                 lastBIOSFolder,
-                                                "NAND files (*.bin *.mmc *.rom);;Any file (*.*)");
+                                                "NAND 文件 (*.bin *.mmc *.rom);;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 
     if (!Platform::CheckFileWritable(file.toStdString()))
     {
-        QMessageBox::critical(this, "melonDS", "Unable to write to DSi NAND image.\nPlease check file/folder write permissions.");
+        QMessageBox::critical(this, "melonDS", "无法写入 DSi NAND 镜像。\n请检查文件或文件夹的写入权限。");
         return;
     }
 
@@ -498,15 +498,15 @@ void EmuSettingsDialog::on_cbDSiSDEnable_toggled()
 void EmuSettingsDialog::on_btnDSiSDBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select DSi SD image...",
+                                                "选择 DSi SD 镜像...",
                                                 lastBIOSFolder,
-                                                "Image files (*.bin *.rom *.img *.sd *.dmg);;Any file (*.*)");
+                                                "镜像文件 (*.bin *.rom *.img *.sd *.dmg);;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 
     if (!Platform::CheckFileWritable(file.toStdString()))
     {
-        QMessageBox::critical(this, "melonDS", "Unable to write to DSi SD image.\nPlease check file/folder write permissions.");
+        QMessageBox::critical(this, "melonDS", "无法写入 DSi SD 镜像。\n请检查文件或文件夹的写入权限。");
         return;
     }
 
@@ -525,7 +525,7 @@ void EmuSettingsDialog::on_cbDSiSDFolder_toggled()
 void EmuSettingsDialog::on_btnDSiSDFolderBrowse_clicked()
 {
     QString dir = QFileDialog::getExistingDirectory(this,
-                                                     "Select DSi SD folder...",
+                                                     "选择 DSi SD 文件夹...",
                                                      lastBIOSFolder);
 
     if (dir.isEmpty()) return;

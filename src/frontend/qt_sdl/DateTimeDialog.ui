@@ -11,19 +11,19 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Date and time - melonDS</string>
+   <string>日期与时间 - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
-      <string>Date and time</string>
+      <string>日期与时间</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
       <item row="0" column="0">
        <widget class="QLabel" name="label">
         <property name="text">
-         <string>Current value:</string>
+         <string>当前时间:</string>
         </property>
        </widget>
       </item>
@@ -44,7 +44,7 @@
       <item row="2" column="0">
        <widget class="QCheckBox" name="chkChangeTime">
         <property name="text">
-         <string>Change to:</string>
+         <string>更改为:</string>
         </property>
        </widget>
       </item>
@@ -91,7 +91,7 @@
       <item row="3" column="0" colspan="2">
        <widget class="QCheckBox" name="chkResetTime">
         <property name="text">
-         <string>Reset to system date and time</string>
+         <string>重置为系统日期时间</string>
         </property>
        </widget>
       </item>

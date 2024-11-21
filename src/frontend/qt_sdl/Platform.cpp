@@ -127,7 +127,7 @@ FileHandle* OpenFile(const std::string& path, FileMode mode)
 {
     if ((mode & (FileMode::ReadWrite | FileMode::Append)) == FileMode::None)
     { // If we aren't reading or writing, then we can't open the file
-        Log(LogLevel::Error, "Attempted to open \"%s\" in neither read nor write mode (FileMode 0x%x)\n", path.c_str(), mode);
+        Log(LogLevel::Error, "尝试打开 \"%s\" 以非读非写模式 (文件模式 0x%x)\n", path.c_str(), mode);
         return nullptr;
     }
 
@@ -142,12 +142,12 @@ FileHandle* OpenFile(const std::string& path, FileMode mode)
 
     if (file)
     {
-        Log(LogLevel::Debug, "Opened \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", path.c_str(), mode, modeString.c_str());
+        Log(LogLevel::Debug, "打开 \"%s\" 以文件模式 0x%x (有效模式 \"%s\")\n", path.c_str(), mode, modeString.c_str());
         return reinterpret_cast<FileHandle *>(file);
     }
     else
     {
-        Log(LogLevel::Warn, "Failed to open \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", path.c_str(), mode, modeString.c_str());
+        Log(LogLevel::Warn, "打开 \"%s\" 失败，以文件模式 0x%x (有效模式 \"%s\")\n", path.c_str(), mode, modeString.c_str());
         return nullptr;
     }
 }
@@ -423,7 +423,7 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen, void* userdata)
 {
     EmuInstance* inst = (EmuInstance*)userdata;
-    printf("saving firmware for instance %d\n", inst->getInstanceID());
+    printf("为窗口 %d 保存固件(firmware)中\n", inst->getInstanceID());
     if (!inst->firmwareSave)
         return;
 

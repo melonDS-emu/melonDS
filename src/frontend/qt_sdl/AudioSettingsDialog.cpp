@@ -269,9 +269,9 @@ void AudioSettingsDialog::onChangeMicMode(int mode)
 void AudioSettingsDialog::on_btnMicWavBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select WAV file...",
+                                                "选择 WAV 文件...",
                                                 emuDirectory,
-                                                "WAV files (*.wav);;Any file (*.*)");
+                                                "WAV 文件 (*.wav);;任何文件 (*.*)");
 
     if (file.isEmpty()) return;
 

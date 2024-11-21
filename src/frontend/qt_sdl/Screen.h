@@ -41,11 +41,11 @@ class EmuInstance;
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
-    { 0, 1,                       "4:3 (native)" },
+    { 0, 1,                       "4:3 (原生)" },
     { 4, (5.f  / 3) / (4.f / 3), "5:3 (3DS)"},
     { 1, (16.f / 9) / (4.f / 3),  "16:9" },
     { 2, (21.f / 9) / (4.f / 3),  "21:9" },
-    { 3, 0,                       "window" }
+    { 3, 0,                       "随窗口拉伸" }
 };
 constexpr int AspectRatiosNum = sizeof(aspectRatios) / sizeof(aspectRatios[0]);
 

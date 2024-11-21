@@ -289,7 +289,7 @@ int main(int argc, char** argv)
 
     // easter egg - not worth checking other cases for something so dumb
     if (argc != 0 && (!strcasecmp(argv[0], "derpDS") || !strcasecmp(argv[0], "./derpDS")))
-        printf("你刚才叫我derp???\n");
+        printf("你刚刚是不是叫我呆瓜了???\n");
 
     MelonApplication melon(argc, argv);
     pathInit();
@@ -371,7 +371,7 @@ int main(int argc, char** argv)
         const QStringList dsfile = prepareRomPath(options->dsRomPath, options->dsRomArchivePath);
         const QStringList gbafile = prepareRomPath(options->gbaRomPath, options->gbaRomArchivePath);
 
-        if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
+        if (memberSyntaxUsed) printf("警告：使用 a.zip|b.nds 格式需您自担风险!\n");
 
         win->preloadROMs(dsfile, gbafile, options->boot);
 

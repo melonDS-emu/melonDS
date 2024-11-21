@@ -82,8 +82,8 @@ CameraSettingsDialog::CameraSettingsDialog(QWidget* parent) : QDialog(parent), u
         oldCamSettings[i].XFlip = cfg.GetBool("XFlip");
     }
 
-    ui->cbCameraSel->addItem("DSi 外部相机");
-    ui->cbCameraSel->addItem("DSi 内部相机");
+    ui->cbCameraSel->addItem("DSi 外部摄像头");
+    ui->cbCameraSel->addItem("DSi 内部摄像头");
 
 #if QT_VERSION >= 0x060000
     const QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
@@ -95,9 +95,9 @@ CameraSettingsDialog::CameraSettingsDialog(QWidget* parent) : QDialog(parent), u
         {
             name += " (";
             if (pos == QCameraDevice::FrontFace)
-                name += "内部相机";
+                name += "内部摄像头";
             else if (pos == QCameraDevice::BackFace)
-                name += "外部相机";
+                name += "外部摄像头";
             name += ")";
         }
 
@@ -113,9 +113,9 @@ CameraSettingsDialog::CameraSettingsDialog(QWidget* parent) : QDialog(parent), u
         {
             name += " (";
             if (pos == QCamera::FrontFace)
-                name += "内部相机";
+                name += "内部摄像头";
             else if (pos == QCamera::BackFace)
-                name += "外部相机";
+                name += "外部摄像头";
             name += ")";
         }
 
@@ -256,9 +256,9 @@ void CameraSettingsDialog::on_txtSrcImagePath_textChanged()
 void CameraSettingsDialog::on_btnSrcImageBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
-                                                "Select image file...",
+                                                "选择图像文件...",
                                                 emuDirectory,
-                                                "Image files (*.png *.jpg *.jpeg *.bmp);;Any file (*.*)");
+                                                "图像文件 (*.png *.jpg *.jpeg *.bmp);;Any file (*.*)");
 
     if (file.isEmpty()) return;
 

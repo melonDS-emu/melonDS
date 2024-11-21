@@ -176,7 +176,7 @@ void EmuThread::run()
                 int level = emuInstance->nds->GBACartSlot.SetInput(GBACart::Input_SolarSensorDown, true);
                 if (level != -1)
                 {
-                    emuInstance->osdAddMessage(0, "Solar sensor level: %d", level);
+                    emuInstance->osdAddMessage(0, "阳光感应等级: %d", level);
                 }
             }
             if (emuInstance->hotkeyPressed(HK_SolarSensorIncrease))
@@ -184,7 +184,7 @@ void EmuThread::run()
                 int level = emuInstance->nds->GBACartSlot.SetInput(GBACart::Input_SolarSensorUp, true);
                 if (level != -1)
                 {
-                    emuInstance->osdAddMessage(0, "Solar sensor level: %d", level);
+                    emuInstance->osdAddMessage(0, "阳光感应等级: %d", level);
                 }
             }
 
@@ -262,7 +262,7 @@ void EmuThread::run()
             {
                 bool lid = !emuInstance->nds->IsLidClosed();
                 emuInstance->nds->SetLidClosed(lid);
-                emuInstance->osdAddMessage(0, lid ? "Lid closed" : "Lid opened");
+                emuInstance->osdAddMessage(0, lid ? "盒盖" : "开盖");
             }
 
             // microphone input

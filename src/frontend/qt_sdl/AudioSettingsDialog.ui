@@ -39,7 +39,7 @@
       <item row="2" column="0">
        <widget class="QLabel" name="label">
         <property name="text">
-         <string>音量：</string>
+         <string>音量:</string>
         </property>
        </widget>
       </item>
@@ -62,7 +62,7 @@
       <item row="3" column="1">
         <widget class="QCheckBox" name="chkSyncDSiVolume">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Synchronizes the output volume with the DSi hardware volume.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将输出音量与 DSi 硬件音量同步。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
           <string>Sync with DSi volume</string>
@@ -72,14 +72,14 @@
       <item row="0" column="0">
        <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>插值：</string>
+         <string>插值:</string>
         </property>
        </widget>
       </item>
       <item row="0" column="1">
        <widget class="QComboBox" name="cbInterpolation">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;对音频样本应用插值以获得更好的质量。 选项 &amp;quot;无&amp;quot; 表示对DS硬件是准确的。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;对音频样本应用插值以获得更好的质量。 选项 &amp;quot;无&amp;quot; 将为DS硬件标准。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
        </widget>
       </item>
@@ -115,17 +115,17 @@
          </size>
         </property>
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将 WAV 文件转发到模拟麦克风。&lt;/p&gt;&lt;p&gt;按住麦克风热键可激活此输入模式（请参阅控制和热键）。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将 WAV 文件输入到模拟麦克风。&lt;/p&gt;&lt;p&gt;按住麦克风热键可激活此输入模式（请参阅控制和热键）。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
        </widget>
       </item>
       <item row="3" column="0">
        <widget class="QRadioButton" name="rbMicWav">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将 WAV 文件转发到模拟麦克风。&lt;/p&gt;&lt;p&gt;按住麦克风热键可激活此输入模式（请参阅控制和热键）。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将 WAV 文件输入到模拟麦克风。&lt;/p&gt;&lt;p&gt;按住麦克风热键可激活此输入模式（请参阅控制和热键）。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>WAV文件：</string>
+         <string>WAV文件:</string>
         </property>
        </widget>
       </item>
@@ -139,7 +139,7 @@
       <item row="1" column="0">
        <widget class="QRadioButton" name="rbMicExternal">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;来自外部麦克风的输入（如果可用）将被转发到模拟麦克风。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;来自外部麦克风的信号（若存在）将被输入到模拟麦克风。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
          <string>外部麦克风</string>
@@ -149,14 +149,14 @@
       <item row="1" column="1" colspan="2">
         <widget class="QComboBox" name="cbMic">
          <property name="whatsThis"> 
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The selected microphone to be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>       
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选中的麦克风将被使用。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>       
          </property>
         </widget>
       </item>
       <item row="2" column="0" colspan="3">
        <widget class="QRadioButton" name="rbMicNoise">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;噪音将被转发到模拟麦克风，模拟吹入麦克风。&lt;/p&gt;&lt;p&gt;按住麦克风热键可激活此输入模式（请参阅控制和热键）。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;噪音将被输入到模拟麦克风，模拟吹入麦克风。&lt;/p&gt;&lt;p&gt;按住麦克风热键可激活此输入模式（请参阅控制和热键）。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
          <string>模拟吹入噪音</string>
