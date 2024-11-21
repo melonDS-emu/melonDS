@@ -21,7 +21,7 @@
 
       melonDS = pkgs.stdenv.mkDerivation {
         pname = "melonDS";
-        version = "0.9.5-${shortRevision}";
+        version = "1.0-${shortRevision}";
         src = ./.;
 
         nativeBuildInputs = with pkgs; [

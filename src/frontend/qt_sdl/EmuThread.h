@@ -33,9 +33,6 @@
 #include "NDSCart.h"
 #include "GBACart.h"
 
-using Keep = std::monostate;
-using UpdateConsoleNDSArgs = std::variant<Keep, std::unique_ptr<melonDS::NDSCart::CartCommon>>;
-using UpdateConsoleGBAArgs = std::variant<Keep, std::unique_ptr<melonDS::GBACart::CartCommon>>;
 namespace melonDS
 {
 class NDS;
@@ -114,11 +111,11 @@ public:
     void emuFrameStep();
     void emuReset();
 
-    int bootROM(const QStringList& filename);
-    int bootFirmware();
-    int insertCart(const QStringList& filename, bool gba);
+    int bootROM(const QStringList& filename, QString& errorstr);
+    int bootFirmware(QString& errorstr);
+    int insertCart(const QStringList& filename, bool gba, QString& errorstr);
     void ejectCart(bool gba);
-    int insertGBAAddon(int type);
+    int insertGBAAddon(int type, QString& errorstr);
 
     int saveState(const QString& filename);
     int loadState(const QString& filename);
@@ -184,6 +181,7 @@ private:
     int emuPauseStack;
 
     int msgResult = 0;
+    QString msgError;
 
     QMutex msgMutex;
     QSemaphore msgSemaphore;

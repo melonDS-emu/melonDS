@@ -13,6 +13,7 @@ env:
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
+  MELONDS_VERSION_SUFFIX: " RC"
 
 jobs:
   build-macos:

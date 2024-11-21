@@ -202,7 +202,7 @@ SPU::SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpola
     AudioLock(Platform::Mutex_Create()),
     Degrade10Bit(bitdepth == AudioBitDepth::_10Bit || (nds.ConsoleType == 1 && bitdepth == AudioBitDepth::Auto))
 {
-    NDS.RegisterEventFunc(Event_SPU, 0, MemberEventFunc(SPU, Mix));
+    NDS.RegisterEventFuncs(Event_SPU, this, {MakeEventThunk(SPU, Mix)});
 
     ApplyBias = true;
     Degrade10Bit = false;
@@ -219,7 +219,7 @@ SPU::~SPU()
     Platform::Mutex_Free(AudioLock);
     AudioLock = nullptr;
 
-    NDS.UnregisterEventFunc(Event_SPU, 0);
+    NDS.UnregisterEventFuncs(Event_SPU);
 }
 
 void SPU::Reset()
