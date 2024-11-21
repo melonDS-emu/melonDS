@@ -118,7 +118,7 @@
           <bool>true</bool>
          </property>
          <property name="text">
-          <string>[VERSION INFO PLACEHOLDER]</string>
+          <string>[VERSION INFO PLACEHOLDER]_CHN</string>
          </property>
          <property name="textFormat">
           <enum>Qt::TextFormat::MarkdownText</enum>
@@ -131,7 +131,7 @@
           <bool>true</bool>
          </property>
          <property name="text">
-          <string>由Arisotura, melonDS团队&lt;a href=&quot;https://github.com/melonDS-emu/melonDS/graphs/contributors&quot;&gt;及贡献者们&lt;/a&gt;制作。</string>
+          <string>由Arisotura, melonDS团队&lt;a href=&quot;https://github.com/melonDS-emu/melonDS/graphs/contributors&quot;&gt;及贡献者们&lt;/a&gt;制作。&lt;br /&gt;(本汉化版由卧看微尘/wokann翻译)</string>
          </property>
          <property name="openExternalLinks">
           <bool>true</bool>
@@ -162,7 +162,7 @@
           </font>
          </property>
          <property name="text">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;根据GNU通用公共许可证v3或任何较新版本获得许可。&lt;/p&gt;&lt;p&gt;melonDS仅用于运行您所有拥有的相关文件。&lt;/p&gt;&lt;p&gt;Nintendo DS和 Nintendo DSi系统归Nintendo所有。&lt;br /&gt;melonDS和melonDS团队与任天堂没有任何关联，也未得到任天堂的认可。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;根据GNU通用公共许可证v3或任何较新版本获得许可。&lt;/p&gt;&lt;p&gt;melonDS仅用于运行您所有拥有的相关文件。&lt;/p&gt;&lt;p&gt;Nintendo DS和Nintendo DSi系统归Nintendo所有。&lt;br /&gt;melonDS和melonDS团队与任天堂没有任何关联，也未得到任天堂的认可。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="textFormat">
           <enum>Qt::TextFormat::RichText</enum>

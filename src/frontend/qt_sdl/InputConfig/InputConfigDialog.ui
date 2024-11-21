@@ -2302,7 +2302,7 @@
         </sizepolicy>
        </property>
        <property name="text">
-        <string>手柄：</string>
+        <string>手柄:</string>
        </property>
       </widget>
      </item>
