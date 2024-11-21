@@ -118,7 +118,7 @@
           <bool>true</bool>
          </property>
          <property name="text">
-          <string>[VERSION INFO PLACEHOLDER]_CHN</string>
+          <string>[VERSION INFO PLACEHOLDER]</string>
          </property>
          <property name="textFormat">
           <enum>Qt::TextFormat::MarkdownText</enum>

@@ -30,7 +30,7 @@ AboutDialog::AboutDialog(QWidget *parent) :
 {
     ui->setupUi(this);
 
-    ui->lblVersionInfo->setText("版本号(Version) " MELONDS_VERSION);
+    ui->lblVersionInfo->setText("版本号(Version) " MELONDS_VERSION "_CHN");
 #ifdef MELONDS_EMBED_BUILD_INFO
     ui->lblBuildInfo->setText(
         "分支(Branch): " MELONDS_GIT_BRANCH "\n"
