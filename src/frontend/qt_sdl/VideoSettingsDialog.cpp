@@ -94,7 +94,7 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->cbSoftwareThreaded->setChecked(oldSoftThreaded);
 
     for (int i = 1; i <= 16; i++)
-        ui->cbxGLResolution->addItem(QString("%1x native (%2x%3)").arg(i).arg(256*i).arg(192*i));
+        ui->cbxGLResolution->addItem(QString("%1x 原生 (%2x%3)").arg(i).arg(256*i).arg(192*i));
     ui->cbxGLResolution->setCurrentIndex(oldGLScale-1);
 
     ui->cbBetterPolygons->setChecked(oldGLBetterPolygons != 0);

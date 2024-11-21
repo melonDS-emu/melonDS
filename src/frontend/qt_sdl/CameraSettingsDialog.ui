@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Camera settings - melonDS</string>
+   <string>相机设置 - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="sizeConstraint">
@@ -28,7 +28,7 @@
      <item>
       <widget class="QLabel" name="label">
        <property name="text">
-        <string>Configure emulated camera:</string>
+        <string>配置模拟相机：</string>
        </property>
       </widget>
      </item>
@@ -42,7 +42,7 @@
      <item row="0" column="0">
       <widget class="QGroupBox" name="groupBox">
        <property name="title">
-        <string>Picture source</string>
+        <string>图像源</string>
        </property>
        <layout class="QGridLayout" name="gridLayout_2">
         <item row="1" column="2">
@@ -51,28 +51,28 @@
         <item row="0" column="0" colspan="4">
          <widget class="QRadioButton" name="rbPictureNone">
           <property name="text">
-           <string>None (blank)</string>
+           <string>无（空）</string>
           </property>
          </widget>
         </item>
         <item row="1" column="3">
          <widget class="QPushButton" name="btnSrcImageBrowse">
           <property name="text">
-           <string>Browse...</string>
+           <string>浏览...</string>
           </property>
          </widget>
         </item>
         <item row="2" column="0">
          <widget class="QRadioButton" name="rbPictureCamera">
           <property name="text">
-           <string>Physical camera:</string>
+           <string>物理相机：</string>
           </property>
          </widget>
         </item>
         <item row="1" column="0">
          <widget class="QRadioButton" name="rbPictureImg">
           <property name="text">
-           <string>Image file:</string>
+           <string>镜像文件：</string>
           </property>
          </widget>
         </item>
@@ -85,13 +85,13 @@
      <item row="1" column="0">
       <widget class="QGroupBox" name="groupBox_3">
        <property name="title">
-        <string>Picture settings</string>
+        <string>图像设置</string>
        </property>
        <layout class="QGridLayout" name="gridLayout_4">
         <item row="0" column="0">
          <widget class="QCheckBox" name="chkFlipPicture">
           <property name="text">
-           <string>Flip horizontally</string>
+           <string>水平翻转</string>
           </property>
          </widget>
         </item>
@@ -114,7 +114,7 @@
      <item row="0" column="2" rowspan="3">
       <widget class="QGroupBox" name="grpPreview">
        <property name="title">
-        <string>Preview</string>
+        <string>预览</string>
        </property>
       </widget>
      </item>

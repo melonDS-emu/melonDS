@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Input and hotkeys - melonDS</string>
+   <string>控制和热键 - melonDS</string>
   </property>
   <property name="styleSheet">
    <string notr="true">#grp_ControlPad, #grp_ABXY, #grp_ControlPad_2, #grp_ABXY_2 { border: none }</string>
@@ -37,7 +37,7 @@
      </property>
      <widget class="QWidget" name="tabInput">
       <attribute name="title">
-       <string>DS keypad</string>
+       <string>DS键位</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout">
        <item row="0" column="0">
@@ -65,7 +65,7 @@
              <item>
               <widget class="QPushButton" name="btnJoyMapSwitch">
                <property name="text">
-                <string>Switch to Joystick mappings</string>
+                <string>切换至手柄映射</string>
                </property>
               </widget>
              </item>
@@ -829,7 +829,7 @@
                     <item>
                      <widget class="QLabel" name="label_10">
                       <property name="text">
-                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Up&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;↑&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                       </property>
                       <property name="alignment">
                        <set>Qt::AlignCenter</set>
@@ -854,7 +854,7 @@
                        <string notr="true">min-width: 68px;</string>
                       </property>
                       <property name="text">
-                       <string>Up</string>
+                       <string>↑</string>
                       </property>
                      </widget>
                     </item>
@@ -909,7 +909,7 @@
                    <item>
                     <widget class="QLabel" name="label_11">
                      <property name="text">
-                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Left&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;←&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignCenter</set>
@@ -934,7 +934,7 @@
                       <string notr="true">min-width: 68px;</string>
                      </property>
                      <property name="text">
-                      <string>Left</string>
+                      <string>←</string>
                      </property>
                     </widget>
                    </item>
@@ -968,7 +968,7 @@
                    <item>
                     <widget class="QLabel" name="label_12">
                      <property name="text">
-                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Right&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;→&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignCenter</set>
@@ -993,7 +993,7 @@
                       <string notr="true">min-width: 68px;</string>
                      </property>
                      <property name="text">
-                      <string>Right</string>
+                      <string>→</string>
                      </property>
                     </widget>
                    </item>
@@ -1060,7 +1060,7 @@
                     <item>
                      <widget class="QLabel" name="label_14">
                       <property name="text">
-                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Down&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;↓&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                       </property>
                       <property name="alignment">
                        <set>Qt::AlignCenter</set>
@@ -1085,7 +1085,7 @@
                        <string notr="true">min-width: 68px;</string>
                       </property>
                       <property name="text">
-                       <string>Down</string>
+                       <string>↓</string>
                       </property>
                      </widget>
                     </item>
@@ -1145,7 +1145,7 @@
               </font>
              </property>
              <property name="text">
-              <string>Keyboard mappings</string>
+              <string>键盘映射</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignCenter</set>
@@ -1174,7 +1174,7 @@
              <item>
               <widget class="QPushButton" name="btnKeyMapSwitch">
                <property name="text">
-                <string>Switch to Keyboard mappings</string>
+                <string>切换至键盘映射</string>
                </property>
               </widget>
              </item>
@@ -1388,7 +1388,7 @@
                     <item>
                      <widget class="QLabel" name="label_23">
                       <property name="text">
-                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Up&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;↑&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                       </property>
                       <property name="alignment">
                        <set>Qt::AlignCenter</set>
@@ -1413,7 +1413,7 @@
                        <string notr="true">min-width: 68px;</string>
                       </property>
                       <property name="text">
-                       <string>Up</string>
+                       <string>↑</string>
                       </property>
                      </widget>
                     </item>
@@ -1468,7 +1468,7 @@
                    <item>
                     <widget class="QLabel" name="label_22">
                      <property name="text">
-                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Left&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;←&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignCenter</set>
@@ -1493,7 +1493,7 @@
                       <string notr="true">min-width: 68px;</string>
                      </property>
                      <property name="text">
-                      <string>Left</string>
+                      <string>←</string>
                      </property>
                     </widget>
                    </item>
@@ -1527,7 +1527,7 @@
                    <item>
                     <widget class="QLabel" name="label_30">
                      <property name="text">
-                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Right&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;→&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignCenter</set>
@@ -1552,7 +1552,7 @@
                       <string notr="true">min-width: 68px;</string>
                      </property>
                      <property name="text">
-                      <string>Right</string>
+                      <string>→</string>
                      </property>
                     </widget>
                    </item>
@@ -1619,7 +1619,7 @@
                     <item>
                      <widget class="QLabel" name="label_31">
                       <property name="text">
-                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Down&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;↓&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                       </property>
                       <property name="alignment">
                        <set>Qt::AlignCenter</set>
@@ -1644,7 +1644,7 @@
                        <string notr="true">min-width: 68px;</string>
                       </property>
                       <property name="text">
-                       <string>Down</string>
+                       <string>↓</string>
                       </property>
                      </widget>
                     </item>
@@ -2254,7 +2254,7 @@
               </font>
              </property>
              <property name="text">
-              <string>Joystick mappings</string>
+              <string>手柄映射</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignCenter</set>
@@ -2269,12 +2269,12 @@
      </widget>
      <widget class="QWidget" name="tabAddons">
       <attribute name="title">
-       <string>Add-ons</string>
+       <string>附加组件</string>
       </attribute>
      </widget>
      <widget class="QWidget" name="tabHotkeysGeneral">
       <attribute name="title">
-       <string>General hotkeys</string>
+       <string>一般热键</string>
       </attribute>
      </widget>
     </widget>
@@ -2302,7 +2302,7 @@
         </sizepolicy>
        </property>
        <property name="text">
-        <string>Joystick:</string>
+        <string>手柄：</string>
        </property>
       </widget>
      </item>
@@ -2315,7 +2315,7 @@
         </sizepolicy>
        </property>
        <property name="whatsThis">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Selects which joystick will be used for joystick input, if any is present.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择将用于按键输入的手柄（如果有）。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
      </item>
@@ -2324,7 +2324,7 @@
    <item row="0" column="0">
     <widget class="QLabel" name="lblInstanceNum">
      <property name="text">
-      <string>Configuring mappings for instance X</string>
+      <string>为窗口 X 配置设置</string>
      </property>
     </widget>
    </item>

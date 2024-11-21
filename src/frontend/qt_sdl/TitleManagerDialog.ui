@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>DSi title manager - melonDS</string>
+   <string>DSi应用管理器 - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_2">
    <property name="leftMargin">
@@ -31,40 +31,40 @@
      <item>
       <widget class="QPushButton" name="btnImportTitle">
        <property name="whatsThis">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Import a DSiware title to your emulated DSi system.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将 DSiware 标题导入您的模拟 DSi 系统。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="text">
-        <string>Import title...</string>
+        <string>导入应用...</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="btnImportTitleData">
        <property name="whatsThis">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Import data (save, banner...) for the selected title.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;为选定的应用导入数据（save、banner...）。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="text">
-        <string>Import title data</string>
+        <string>导入应用数据</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="btnExportTitleData">
        <property name="whatsThis">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Export the data (save, banner...) associated with the selected title.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;导出与所选应用关联的数据（save、banner...）。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="text">
-        <string>Export title data</string>
+        <string>导出应用数据</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="btnDeleteTitle">
        <property name="whatsThis">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Permanently delete the selected title and its associated data from your emulated DSi.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;从您的模拟 DSi 中永久删除选定的应用及其相关数据。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="text">
-        <string>Delete title</string>
+        <string>删除应用</string>
        </property>
       </widget>
      </item>

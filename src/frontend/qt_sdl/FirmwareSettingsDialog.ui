@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Firmware settings - melonDS</string>
+   <string>固件设置 - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="sizeConstraint">
@@ -26,20 +26,20 @@
    <item>
     <widget class="QLabel" name="lblInstanceNum">
      <property name="text">
-      <string>Configuring settings for instance X</string>
+      <string>为窗口 X 配置设置</string>
      </property>
     </widget>
    </item>
    <item>
     <widget class="QGroupBox" name="grpGeneral">
      <property name="title">
-      <string>General</string>
+      <string>一般</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_3">
       <item row="0" column="0">
        <widget class="QCheckBox" name="overrideFirmwareBox">
         <property name="text">
-         <string>Override settings from external firmware</string>
+         <string>使用外部固件的设置进行覆盖</string>
         </property>
        </widget>
       </item>
@@ -49,7 +49,7 @@
    <item>
     <widget class="QGroupBox" name="grpUserSettings">
      <property name="title">
-      <string>User settings</string>
+      <string>用户设置</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
       <property name="leftMargin">
@@ -86,14 +86,14 @@
       <item row="0" column="0">
        <widget class="QLabel" name="usernameLabel">
         <property name="text">
-         <string>Username:</string>
+         <string>用户名：</string>
         </property>
        </widget>
       </item>
       <item row="4" column="0">
        <widget class="QLabel" name="label_3">
         <property name="text">
-         <string>Message:</string>
+         <string>信息：</string>
         </property>
        </widget>
       </item>
@@ -103,21 +103,21 @@
       <item row="3" column="0">
        <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>Color:</string>
+         <string>颜色：</string>
         </property>
        </widget>
       </item>
       <item row="1" column="0">
        <widget class="QLabel" name="label">
         <property name="text">
-         <string>Language:</string>
+         <string>语言：</string>
         </property>
        </widget>
       </item>
       <item row="2" column="0">
        <widget class="QLabel" name="label_4">
         <property name="text">
-         <string>Birthday:</string>
+         <string>生日：</string>
         </property>
        </widget>
       </item>
@@ -133,13 +133,13 @@
    <item>
     <widget class="QGroupBox" name="grpWifiSettings">
      <property name="title">
-      <string>Network settings</string>
+      <string>网络设置</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
       <item row="0" column="0">
        <widget class="QLabel" name="label_5">
         <property name="text">
-         <string>MAC address:</string>
+         <string>MAC地址：</string>
         </property>
        </widget>
       </item>
@@ -153,7 +153,7 @@
       <item row="1" column="1">
        <widget class="QLabel" name="label_6">
         <property name="text">
-         <string>(leave empty to use default MAC)</string>
+         <string>(空置将使用默认MAC)</string>
         </property>
        </widget>
       </item>

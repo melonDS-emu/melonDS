@@ -103,7 +103,7 @@ private slots:
     {
         if (isChecked())
         {
-            setText("[press key]");
+            setText("[请按按键]");
         }
         else
         {
@@ -116,7 +116,7 @@ private:
     {
         int key = *mapping;
 
-        if (key == -1) return "None";
+        if (key == -1) return "无";
 
         QString isright = (key & (1<<31)) ? "Right " : "Left ";
         key &= ~(1<<31);
@@ -322,7 +322,7 @@ private:
     {
         int id = *mapping;
 
-        if (id == -1) return "None";
+        if (id == -1) return "无";
 
         bool hasbtn = ((id & 0xFFFF) != 0xFFFF);
         QString str;

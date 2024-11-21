@@ -17,13 +17,13 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>ROM info - melonDS</string>
+   <string>ROM信息 - melonDS</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="2" column="0">
     <widget class="QGroupBox" name="titles">
      <property name="title">
-      <string>Titles</string>
+      <string>标题</string>
      </property>
      <layout class="QFormLayout" name="formLayout">
       <item row="0" column="0">
@@ -34,7 +34,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Japanese title:</string>
+         <string>日语标题：</string>
         </property>
        </widget>
       </item>
@@ -53,7 +53,7 @@
          </font>
         </property>
         <property name="text">
-         <string>English title:</string>
+         <string>英语标题：</string>
         </property>
        </widget>
       </item>
@@ -72,7 +72,7 @@
          </font>
         </property>
         <property name="text">
-         <string>French title:</string>
+         <string>法语标题：</string>
         </property>
        </widget>
       </item>
@@ -91,7 +91,7 @@
          </font>
         </property>
         <property name="text">
-         <string>German title:</string>
+         <string>德语标题：</string>
         </property>
        </widget>
       </item>
@@ -110,7 +110,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Italian title:</string>
+         <string>意大利语标题：</string>
         </property>
        </widget>
       </item>
@@ -129,7 +129,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Spanish title:</string>
+         <string>西班牙语标题：</string>
         </property>
        </widget>
       </item>
@@ -148,7 +148,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Chinese title:</string>
+         <string>汉语标题：</string>
         </property>
        </widget>
       </item>
@@ -167,7 +167,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Korean title:</string>
+         <string>韩语标题：</string>
         </property>
        </widget>
       </item>
@@ -184,7 +184,7 @@
    <item row="2" column="1">
     <widget class="QGroupBox" name="arm9AndArm7Binaries">
      <property name="title">
-      <string>ARM7 and ARM9 binaries</string>
+      <string>ARM7和ARM9二进制数据</string>
      </property>
      <layout class="QFormLayout" name="formLayout_2">
       <item row="0" column="0">
@@ -345,7 +345,7 @@
    <item row="3" column="1">
     <widget class="QGroupBox" name="filesystem">
      <property name="title">
-      <string>Filesystem</string>
+      <string>文件系统</string>
      </property>
      <layout class="QFormLayout" name="formLayout_4">
       <item row="0" column="0">
@@ -430,7 +430,7 @@
    <item row="3" column="0">
     <widget class="QGroupBox" name="generalInfo">
      <property name="title">
-      <string>General info</string>
+      <string>一般信息</string>
      </property>
      <layout class="QFormLayout" name="formLayout_3">
       <item row="0" column="0">
@@ -441,7 +441,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Game title:</string>
+         <string>游戏标题：</string>
         </property>
        </widget>
       </item>
@@ -460,7 +460,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Game code:</string>
+         <string>游戏代码：</string>
         </property>
        </widget>
       </item>
@@ -479,7 +479,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Maker code:</string>
+         <string>标记码：:</string>
         </property>
        </widget>
       </item>
@@ -498,7 +498,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Card size:</string>
+         <string>卡带大小：</string>
         </property>
        </widget>
       </item>

@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Interface settings - melonDS</string>
+   <string>界面设置 - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,0">
    <property name="sizeConstraint">
@@ -26,7 +26,7 @@
    <item>
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
-      <string>User interface</string>
+      <string>用户界面</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
@@ -96,7 +96,7 @@
    <item>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
-      <string>Framerate </string>
+      <string>帧率 </string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_5">
       <item>

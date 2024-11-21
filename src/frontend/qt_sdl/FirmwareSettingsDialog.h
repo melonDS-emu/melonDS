@@ -34,22 +34,22 @@ class FirmwareSettingsDialog : public QDialog
 public:
     const QStringList colornames
     {
-        "Greyish blue",
-        "Brown",
-        "Red",
-        "Light pink",
-        "Orange",
-        "Yellow",
-        "Lime",
-        "Light green",
-        "Dark green",
-        "Turquoise",
-        "Light blue",
-        "Blue",
-        "Dark blue",
-        "Dark purple",
-        "Light purple",
-        "Dark pink"
+        "灰蓝色",
+        "棕色",
+        "红色",
+        "亮粉色",
+        "橙色",
+        "黄色",
+        "青柠色",
+        "亮绿色",
+        "暗绿色",
+        "绿松石色",
+        "亮蓝色",
+        "蓝色",
+        "暗蓝色",
+        "暗紫色",
+        "亮紫色",
+        "暗粉色"
     };
 
     const QColor colors[16] =
@@ -74,28 +74,28 @@ public:
 
     const QStringList languages
     {
-        "Japanese",
-        "English",
-        "French",
-        "German",
-        "Italian",
-        "Spanish"
+        "日语",
+        "英语",
+        "法语",
+        "德语",
+        "意大利语",
+        "西班牙语"
     };
 
     const QStringList months
     {
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December"
+        "一月",
+        "二月",
+        "三月",
+        "四月",
+        "五月",
+        "六月",
+        "七月",
+        "八月",
+        "九月",
+        "十月",
+        "十一月",
+        "十二月"
     };
 
     explicit FirmwareSettingsDialog(QWidget* parent);

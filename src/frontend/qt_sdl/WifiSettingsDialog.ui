@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Wifi settings - melonDS</string>
+   <string>Wifi设置 - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="sizeConstraint">
@@ -44,26 +44,26 @@
    <item>
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
-      <string>Network mode</string>
+      <string>网络模式</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
       <item row="1" column="0">
        <widget class="QRadioButton" name="rbIndirectMode">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Indirect mode uses libslirp. It requires no extra setup and is easy to use.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;间接模式使用 libslirp。 它不需要额外的设置并且易于使用。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>Indirect mode (uses libslirp, recommended)</string>
+         <string>间接模式 (使用 libslirp，推荐)</string>
         </property>
        </widget>
       </item>
       <item row="2" column="0">
        <widget class="QRadioButton" name="rbDirectMode">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Direct mode directly routes network traffic to the host network. It is the most reliable, but requires an ethernet connection.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Non-direct mode uses a layer of emulation to get around this, but is more prone to problems.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;直接模式直接将网络流量路由到主机网络。 它是最可靠的，但需要以太网连接。&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;间接模式使用一层仿真来解决这个问题，但更容易出现问题。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>Direct mode [TEXT PLACEHOLDER]</string>
+         <string>直接模式 [TEXT PLACEHOLDER]</string>
         </property>
        </widget>
       </item>
@@ -73,7 +73,7 @@
    <item>
     <widget class="QGroupBox" name="groupBox_3">
      <property name="title">
-      <string>Direct mode settings</string>
+      <string>直接模式设置</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_3">
       <item row="3" column="1">
@@ -105,14 +105,14 @@
          </size>
         </property>
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Selects the network adapter through which to route network traffic under direct mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择在直接模式下路由网络流量的网络适配器。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
        </widget>
       </item>
       <item row="1" column="0">
        <widget class="QLabel" name="label">
         <property name="text">
-         <string>Network adapter:</string>
+         <string>网络适配器:</string>
         </property>
        </widget>
       </item>
@@ -126,7 +126,7 @@
       <item row="3" column="0">
        <widget class="QLabel" name="label_3">
         <property name="text">
-         <string>IP address:</string>
+         <string>IP地址：</string>
         </property>
        </widget>
       </item>

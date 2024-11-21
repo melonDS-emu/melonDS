@@ -67,8 +67,8 @@ public:
         if (!openNAND())
         {
             QMessageBox::critical(parent,
-                                  "DSi title manager - melonDS",
-                                  "Failed to mount the DSi NAND. Check that your NAND dump is accessible and valid.");
+                                  "DSi应用管理器 - melonDS",
+                                  "挂载 DSi NAND 失败。 检查您的 NAND 转储是否可访问且有效。");
             return nullptr;
         }
 

@@ -73,7 +73,7 @@ ssize_t Net_Slirp::SlirpCbSendPacket(const void* buf, size_t len, void* opaque) 
 {
     if (len > 2048)
     {
-        Log(LogLevel::Warn, "slirp: packet too big (%zu)\n", len);
+        Log(LogLevel::Warn, "slirp: 数据包过大 (%zu)\n", len);
         return 0;
     }
 
@@ -369,7 +369,7 @@ int Net_Slirp::SendPacket(u8* data, int len) noexcept
 
     if (len > 2048)
     {
-        Log(LogLevel::Error, "Net_SendPacket: error: packet too long (%d)\n", len);
+        Log(LogLevel::Error, "Net_SendPacket: 错误: 数据包过长 (%d)\n", len);
         return 0;
     }
 

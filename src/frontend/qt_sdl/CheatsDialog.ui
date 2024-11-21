@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Cheat code editor - melonDS</string>
+   <string>金手指代码编辑器 - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
@@ -22,21 +22,21 @@
      <item>
       <widget class="QPushButton" name="btnNewCat">
        <property name="text">
-        <string>New category</string>
+        <string>创建新类别</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="btnNewARCode">
        <property name="text">
-        <string>New AR code</string>
+        <string>创建新AR码</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="btnDeleteCode">
        <property name="text">
-        <string>Delete</string>
+        <string>删除</string>
        </property>
       </widget>
      </item>

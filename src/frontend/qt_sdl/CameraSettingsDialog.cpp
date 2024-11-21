@@ -82,8 +82,8 @@ CameraSettingsDialog::CameraSettingsDialog(QWidget* parent) : QDialog(parent), u
         oldCamSettings[i].XFlip = cfg.GetBool("XFlip");
     }
 
-    ui->cbCameraSel->addItem("DSi outer camera");
-    ui->cbCameraSel->addItem("DSi inner camera");
+    ui->cbCameraSel->addItem("DSi 外部相机");
+    ui->cbCameraSel->addItem("DSi 内部相机");
 
 #if QT_VERSION >= 0x060000
     const QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
@@ -95,9 +95,9 @@ CameraSettingsDialog::CameraSettingsDialog(QWidget* parent) : QDialog(parent), u
         {
             name += " (";
             if (pos == QCameraDevice::FrontFace)
-                name += "inner camera";
+                name += "内部相机";
             else if (pos == QCameraDevice::BackFace)
-                name += "outer camera";
+                name += "外部相机";
             name += ")";
         }
 
@@ -113,9 +113,9 @@ CameraSettingsDialog::CameraSettingsDialog(QWidget* parent) : QDialog(parent), u
         {
             name += " (";
             if (pos == QCamera::FrontFace)
-                name += "inner camera";
+                name += "内部相机";
             else if (pos == QCamera::BackFace)
-                name += "outer camera";
+                name += "外部相机";
             name += ")";
         }
 

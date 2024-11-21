@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Audio settings - melonDS</string>
+   <string>音频设置 - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="sizeConstraint">
@@ -26,27 +26,27 @@
    <item>
     <widget class="QLabel" name="lblInstanceNum">
      <property name="text">
-      <string>Configuring settings for instance X</string>
+      <string>为窗口 X 配置设置</string>
      </property>
     </widget>
    </item>
    <item>
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
-      <string>Audio output</string>
+      <string>音频输出</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
       <item row="2" column="0">
        <widget class="QLabel" name="label">
         <property name="text">
-         <string>Volume:</string>
+         <string>音量：</string>
         </property>
        </widget>
       </item>
       <item row="2" column="1">
        <widget class="QSlider" name="slVolume">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Controls the volume of the audio output.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;控制音频输出的音量。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="maximum">
          <number>256</number>
@@ -72,28 +72,28 @@
       <item row="0" column="0">
        <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>Interpolation:</string>
+         <string>插值：</string>
         </property>
        </widget>
       </item>
       <item row="0" column="1">
        <widget class="QComboBox" name="cbInterpolation">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Applies interpolation to audio samples for better quality. Option &amp;quot;None&amp;quot; is accurate to DS hardware.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;对音频样本应用插值以获得更好的质量。 选项 &amp;quot;无&amp;quot; 表示对DS硬件是准确的。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
        </widget>
       </item>
       <item row="1" column="0">
        <widget class="QLabel" name="label_3">
         <property name="text">
-         <string>Bit depth:</string>
+         <string>位深度:</string>
         </property>
        </widget>
       </item>
       <item row="1" column="1">
        <widget class="QComboBox" name="cbBitDepth">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The bit depth of audio playback. If set to &quot;Automatic&quot; this will be 10-bit for DS mode and 16-bit for DSi mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;音频播放的位深度。 如果设置为  &quot;自动&quot; 那么默认DS模式为10-bit，DSi模式为16-bit。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
        </widget>
       </item>
@@ -103,7 +103,7 @@
    <item>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
-      <string>Microphone input</string>
+      <string>麦克风输入</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
       <item row="3" column="1">
@@ -115,34 +115,34 @@
          </size>
         </property>
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Forward a WAV file to the emulated microphone.&lt;/p&gt;&lt;p&gt;This input mode is activated by holding the microphone hotkey (see Input and Hotkeys).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将 WAV 文件转发到模拟麦克风。&lt;/p&gt;&lt;p&gt;按住麦克风热键可激活此输入模式（请参阅控制和热键）。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
        </widget>
       </item>
       <item row="3" column="0">
        <widget class="QRadioButton" name="rbMicWav">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Forward a WAV file to the emulated microphone.&lt;/p&gt;&lt;p&gt;This input mode is activated by holding the microphone hotkey (see Input and Hotkeys).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将 WAV 文件转发到模拟麦克风。&lt;/p&gt;&lt;p&gt;按住麦克风热键可激活此输入模式（请参阅控制和热键）。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>WAV file:</string>
+         <string>WAV文件：</string>
         </property>
        </widget>
       </item>
       <item row="3" column="2">
        <widget class="QPushButton" name="btnMicWavBrowse">
         <property name="text">
-         <string>Browse...</string>
+         <string>浏览...</string>
         </property>
        </widget>
       </item>
       <item row="1" column="0">
        <widget class="QRadioButton" name="rbMicExternal">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Input from an external microphone, if available, will be forwarded to the emulated microphone.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;来自外部麦克风的输入（如果可用）将被转发到模拟麦克风。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>External microphone</string>
+         <string>外部麦克风</string>
         </property>
        </widget>
       </item>
@@ -156,20 +156,20 @@
       <item row="2" column="0" colspan="3">
        <widget class="QRadioButton" name="rbMicNoise">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Noise will be forwarded to the emulated microphone, simulating blowing into the microphone.&lt;/p&gt;&lt;p&gt;This input mode is activated by holding the microphone hotkey (see Input and Hotkeys).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;噪音将被转发到模拟麦克风，模拟吹入麦克风。&lt;/p&gt;&lt;p&gt;按住麦克风热键可激活此输入模式（请参阅控制和热键）。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>Blow noise</string>
+         <string>模拟吹入噪音</string>
         </property>
        </widget>
       </item>
       <item row="0" column="0" colspan="3">
        <widget class="QRadioButton" name="rbMicNone">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;No microphone input.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;无麦克风输入&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>None</string>
+         <string>无</string>
         </property>
        </widget>
       </item>

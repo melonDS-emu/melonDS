@@ -38,15 +38,15 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     QCommandLineParser parser;
     parser.addHelpOption();
 
-    parser.addPositionalArgument("nds", "Nintendo DS ROM (or an archive file which contains it) to load into Slot-1");
-    parser.addPositionalArgument("gba", "GBA ROM (or an archive file which contains it) to load into Slot-2");
+    parser.addPositionalArgument("nds", "加载到Slot-1的Nintendo DS ROM（或包含它的文档）");
+    parser.addPositionalArgument("gba", "加载到Slot-2的GBA ROM（或包含它的文档）");
 
-    parser.addOption(QCommandLineOption({"b", "boot"}, "Whether to boot firmware on startup. Defaults to \"auto\" (boot if NDS rom given)", "auto/always/never", "auto"));
-    parser.addOption(QCommandLineOption({"f", "fullscreen"}, "Start melonDS in fullscreen mode"));
+    parser.addOption(QCommandLineOption({"b", "boot"}, "是否在开机时启动固件。默认为 \"auto\" (NDS文件被加载时启动)", "auto/always/never", "auto"));
+    parser.addOption(QCommandLineOption({"f", "fullscreen"}, "以全屏模式启动melonDS"));
 
 #ifdef ARCHIVE_SUPPORT_ENABLED
-    parser.addOption(QCommandLineOption({"a", "archive-file"}, "Specify file to load inside an archive given (NDS)", "rom"));
-    parser.addOption(QCommandLineOption({"A", "archive-file-gba"}, "Specify file to load inside an archive given (GBA)", "rom"));
+    parser.addOption(QCommandLineOption({"a", "archive-file"}, "包含NDS的文档", "rom"));
+    parser.addOption(QCommandLineOption({"A", "archive-file-gba"}, "包含GBA的文档", "rom"));
 #endif
 
     parser.process(melon);
@@ -83,7 +83,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     }
     else
     {
-        Log(LogLevel::Error, "ERROR: -b/--boot only accepts auto/always/never as arguments\n");
+        Log(LogLevel::Error, "错误: -b/--boot 仅接受 auto/always/never 作为指令\n");
         exit(1);
     }
 

@@ -115,7 +115,7 @@ void CheatsDialog::on_btnNewCat_clicked()
 
     ARCodeCat cat;
     cat.Codes.clear();
-    cat.Name = "(new category)";
+    cat.Name = "(新类别)";
 
     codeFile->Categories.push_back(cat);
     ARCodeCatList::iterator id = codeFile->Categories.end(); id--;
@@ -153,7 +153,7 @@ void CheatsDialog::on_btnNewARCode_clicked()
     }
     else
     {
-        Log(LogLevel::Warn, "what?? :(\n");
+        Log(LogLevel::Warn, "什么?? :(\n");
         return;
     }
 
@@ -161,7 +161,7 @@ void CheatsDialog::on_btnNewARCode_clicked()
     ARCodeCat& cat = *it_cat;
 
     ARCode code;
-    code.Name = "(new AR code)";
+    code.Name = "(新AR码)";
     code.Enabled = true;
     code.Code.clear();
 
@@ -189,8 +189,8 @@ void CheatsDialog::on_btnDeleteCode_clicked()
     }
 
     QMessageBox::StandardButton res = QMessageBox::question(this,
-                                                            "Confirm deletion",
-                                                            "Really delete the selected item?",
+                                                            "确认删除",
+                                                            "确定要删除该选项？",
                                                             QMessageBox::Yes|QMessageBox::No,
                                                             QMessageBox::No);
     if (res != QMessageBox::Yes) return;
@@ -248,7 +248,7 @@ void CheatsDialog::onCheatSelectionChanged(const QItemSelection& sel, const QIte
 
             ui->btnDeleteCode->setEnabled(true);
             ui->txtCode->setEnabled(true);
-            ui->txtCode->setPlaceholderText("(enter AR code here)");
+            ui->txtCode->setPlaceholderText("(在此处输入AR码)");
 
             QString codestr = "";
             for (size_t i = 0; i < code.Code.size(); i += 2)
@@ -275,7 +275,7 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
         if (item->text().isEmpty())
         {
             QString oldname = QString::fromStdString(cat.Name);
-            item->setText(oldname.isEmpty() ? "(blank category name?)" : oldname);
+            item->setText(oldname.isEmpty() ? "(空白类别名？)" : oldname);
         }
         else
         {
@@ -289,7 +289,7 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
         if (item->text().isEmpty())
         {
             QString oldname = QString::fromStdString(code.Name);
-            item->setText(oldname.isEmpty() ? "(blank code name?)" : oldname);
+            item->setText(oldname.isEmpty() ? "(空白金手指名？)" : oldname);
         }
         else
         {

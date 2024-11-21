@@ -90,7 +90,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     }
     else
     {
-        ui->cbxJoystick->addItem("(no joysticks available)");
+        ui->cbxJoystick->addItem("(没有可用的手柄)");
         ui->cbxJoystick->setEnabled(false);
     }
 
@@ -98,7 +98,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
 
     int inst = emuInstance->getInstanceID();
     if (inst > 0)
-        ui->lblInstanceNum->setText(QString("Configuring mappings for instance %1").arg(inst+1));
+        ui->lblInstanceNum->setText(QString("为窗口 %1 设置映射配置").arg(inst+1));
     else
         ui->lblInstanceNum->hide();
 }
@@ -143,7 +143,7 @@ void InputConfigDialog::populatePage(QWidget* page,
     QGroupBox* group;
     QGridLayout* group_layout;
 
-    group = new QGroupBox("Keyboard mappings:");
+    group = new QGroupBox("键盘映射：");
     main_layout->addWidget(group);
     group_layout = new QGridLayout();
     group_layout->setSpacing(1);
@@ -161,7 +161,7 @@ void InputConfigDialog::populatePage(QWidget* page,
     group->setLayout(group_layout);
     group->setMinimumWidth(275);
 
-    group = new QGroupBox("Joystick mappings:");
+    group = new QGroupBox("手柄映射：");
     main_layout->addWidget(group);
     group_layout = new QGridLayout();
     group_layout->setSpacing(1);

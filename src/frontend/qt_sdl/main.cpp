@@ -289,7 +289,7 @@ int main(int argc, char** argv)
 
     // easter egg - not worth checking other cases for something so dumb
     if (argc != 0 && (!strcasecmp(argv[0], "derpDS") || !strcasecmp(argv[0], "./derpDS")))
-        printf("did you just call me a derp???\n");
+        printf("你刚才叫我derp???\n");
 
     MelonApplication melon(argc, argv);
     pathInit();
@@ -301,16 +301,16 @@ int main(int argc, char** argv)
 
     if (SDL_Init(SDL_INIT_HAPTIC) < 0)
     {
-        printf("SDL couldn't init rumble\n");
+        printf("SDL无法初始化震动\n");
     }
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0)
     {
-        printf("SDL couldn't init joystick\n");
+        printf("SDL无法初始化手柄控制\n");
     }
     if (SDL_Init(SDL_INIT_AUDIO) < 0)
     {
         const char* err = SDL_GetError();
-        QString errorStr = "Failed to initialize SDL. This could indicate an issue with your audio driver.\n\nThe error was: ";
+        QString errorStr = "SDL初始化失败。这表明您的音频驱动程序可能存在问题。\n\n错误为：";
         errorStr += err;
 
         QMessageBox::critical(nullptr, "melonDS", errorStr);
@@ -325,7 +325,7 @@ int main(int argc, char** argv)
     if (!Config::Load())
         QMessageBox::critical(nullptr,
                               "melonDS",
-                              "Unable to write to config.\nPlease check the write permissions of the folder you placed melonDS in.");
+                              "无法写入设置。\n请检查melonDS所在文件夹的写入权限。");
 
     camStarted[0] = false;
     camStarted[1] = false;

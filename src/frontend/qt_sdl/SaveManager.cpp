@@ -128,7 +128,7 @@ void SaveManager::CheckFlush()
 
     SecondaryBufferLock->lock();
 
-    Log(LogLevel::Info, "SaveManager: Flush requested\n");
+    Log(LogLevel::Info, "存档管理器: 请求刷新\n");
 
     if (SecondaryBufferLength != Length)
     {

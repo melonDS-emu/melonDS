@@ -72,7 +72,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->txtDSiNANDPath->setText(cfg.GetQString("DSi.NANDPath"));
 
     ui->cbxConsoleType->addItem("DS");
-    ui->cbxConsoleType->addItem("DSi (experimental)");
+    ui->cbxConsoleType->addItem("DSi (实验性质)");
     ui->cbxConsoleType->setCurrentIndex(cfg.GetInt("Emu.ConsoleType"));
 
     ui->chkDirectBoot->setChecked(cfg.GetBool("Emu.DirectBoot"));
@@ -203,10 +203,10 @@ void EmuSettingsDialog::verifyFirmware()
     if (!memcmp(chk1, chk2, 0x180))
     {
         QMessageBox::warning((QWidget*)this->parent(),
-                      "Problematic firmware dump",
-                      "You are using an old hacked firmware dump.\n"
-                      "Firmware boot will stop working if you run any game that alters WFC settings.\n\n"
-                      "Note that the issue is not from melonDS, it would also happen on an actual DS.");
+                      "有问题的固件转储",
+                      "您正在使用旧的被修改过的固件转储。\n"
+                      "如果您运行任何更改 WFC 设置的游戏，固件启动将停止工作。\n\n"
+                      "请注意，问题不是来自melonDS，它也会发生在实际的DS上。");
     }
 }
 
@@ -249,8 +249,8 @@ void EmuSettingsDialog::done(int r)
         if (modified)
         {
             if (emuInstance->emuIsActive()
-                && QMessageBox::warning(this, "Reset necessary to apply changes",
-                    "The emulation will be reset for the changes to take place.",
+                && QMessageBox::warning(this, "应用更改的设置需要重启",
+                    "模拟器将重启以应用更改。",
                     QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
                 return;
 

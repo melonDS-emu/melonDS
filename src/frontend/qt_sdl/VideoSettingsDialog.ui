@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Video settings - melonDS</string>
+   <string>视频设置 - melonDS</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <property name="sizeConstraint">
@@ -29,23 +29,23 @@
    <item row="1" column="1">
     <widget class="QGroupBox" name="groupBox_3">
      <property name="title">
-      <string>OpenGL renderer</string>
+      <string>OpenGL 渲染器</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_4">
       <item row="0" column="0">
        <widget class="QLabel" name="label_3">
         <property name="text">
-         <string>Internal resolution:</string>
+         <string>内部分辨率：</string>
         </property>
        </widget>
       </item>
       <item row="2" column="0">
        <widget class="QCheckBox" name="cbBetterPolygons">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enabling this may help reduce distortion on quads and more complex polygons, but may also reduce performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;启用此功能可能有助于减少四边形和更复杂多边形的失真，但也可能会降低性能。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>Improved polygon splitting</string>
+         <string>提升多边形分割</string>
         </property>
        </widget>
       </item>
@@ -69,16 +69,16 @@
    <item row="0" column="1">
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
-      <string>Software renderer</string>
+      <string>软件渲染器</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_3">
       <item row="0" column="0">
        <widget class="QCheckBox" name="cbSoftwareThreaded">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Run the software renderer on a separate thread. Yields better performance on multi-core CPUs.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在单独的线程上运行软件渲染器。 在多核 CPU 上产生更好的性能。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>Use separate thread</string>
+         <string>使用单独的线程</string>
         </property>
        </widget>
       </item>
@@ -98,13 +98,13 @@
    <item row="0" column="0" rowspan="3" alignment="Qt::AlignTop">
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
-      <string>Display settings</string>
+      <string>显示设置</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
       <item row="7" column="1">
        <widget class="QSpinBox" name="sbVSyncInterval">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The interval at which to synchronize to the monitor's refresh rate. Set to 1 for a 60Hz monitor, 2 for 120Hz, ...&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;与显示器刷新率同步的时间间隔。 设置为 1 用于 60Hz 显示器，2 用于 120Hz，...&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="minimum">
          <number>1</number>
@@ -117,10 +117,10 @@
       <item row="5" column="0" colspan="2">
        <widget class="QCheckBox" name="cbGLDisplay">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use OpenGL to draw the DS screens to the main window. May result in better frame pacing. Mandatory when using the OpenGL 3D renderer.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用 OpenGL 将 DS 屏幕绘制到主窗口。可能会导致更好的帧节奏。使用 OpenGL 3D 渲染器时是必需的。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>OpenGL display</string>
+         <string>OpenGL显示</string>
         </property>
        </widget>
       </item>
@@ -169,7 +169,7 @@
       <item row="2" column="0" colspan="2">
        <widget class="QRadioButton" name="rb3DOpenGL">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The OpenGL renderer may be faster than software and supports graphical enhancements, but is more prone to glitches.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;OpenGL 渲染器可能比软件更快并且支持图形增强，但更容易出现故障。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
          <string>OpenGL (Classic)</string>
@@ -179,17 +179,17 @@
       <item row="1" column="0" colspan="2">
        <widget class="QRadioButton" name="rb3DSoftware">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The software renderer is more accurate and less prone to rendering glitches, but requires more CPU power.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;软件渲染器更准确，更不容易出现渲染故障，但需要更多的 CPU 能力。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>Software</string>
+         <string>软件</string>
         </property>
        </widget>
       </item>
       <item row="0" column="0" colspan="2">
        <widget class="QLabel" name="label">
         <property name="text">
-         <string>3D renderer:</string>
+         <string>3D渲染器：</string>
         </property>
        </widget>
       </item>
