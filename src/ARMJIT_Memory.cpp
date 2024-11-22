@@ -951,7 +951,6 @@ ARMJIT_Memory::~ARMJIT_Memory() noexcept
             MemoryBase = nullptr;
             FastMem9Start = nullptr;
             FastMem7Start = nullptr;
-            printf("unmappinged everything\n");
         }
 
         if (MemoryFile)
@@ -978,6 +977,8 @@ ARMJIT_Memory::~ARMJIT_Memory() noexcept
         close(MemoryFile);
         MemoryFile = -1;
     }
+
+    Log(LogLevel::Info, "unmappinged everything\n");
 
 #if defined(__ANDROID__)
     if (Libandroid)
