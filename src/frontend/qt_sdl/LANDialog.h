@@ -48,7 +48,7 @@ public:
     }
 
 private slots:
-    void done(int r);
+    void done(int r) override;
 
 private:
     Ui::LANStartHostDialog* ui;
@@ -76,7 +76,7 @@ private slots:
     void onGameSelectionChanged(const QItemSelection& cur, const QItemSelection& prev);
     void on_tvAvailableGames_doubleClicked(QModelIndex index);
     void onDirectConnect();
-    void done(int r);
+    void done(int r) override;
 
     void doUpdateDiscoveryList();
 
@@ -105,7 +105,7 @@ protected:
 
 private slots:
     void on_btnLeaveGame_clicked();
-    void done(int r);
+    void done(int r) override;
 
     void doUpdatePlayerList();
 

@@ -125,7 +125,7 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
     *(u32*)&gamecode[0] = *(u32*)&header.GameCode[0];
     gamecode[4] = '\0';
     char extra[128];
-    sprintf(extra, "\n(title ID: %s · %08x/%08x · version %08x)", gamecode, category, titleid, version);
+    snprintf(extra, sizeof(extra), "\n(title ID: %s · %08x/%08x · version %08x)", gamecode, category, titleid, version);
 
     QListWidgetItem* item = new QListWidgetItem(title + QString(extra));
     item->setIcon(icon);
@@ -481,7 +481,7 @@ void TitleImportDialog::accept()
         network = new QNetworkAccessManager(this);
 
         char url[256];
-        sprintf(url, "http://nus.cdn.t.shop.nintendowifi.net/ccs/download/%08x%08x/tmd", titleid[1], titleid[0]);
+        snprintf(url, sizeof(url), "http://nus.cdn.t.shop.nintendowifi.net/ccs/download/%08x%08x/tmd", titleid[1], titleid[0]);
 
         QNetworkRequest req;
         req.setUrl(QUrl(url));

@@ -726,6 +726,8 @@ void ProcessHost()
                 }
             }
             break;
+        case ENET_EVENT_TYPE_NONE:
+            break;
         }
     }
 }
@@ -821,6 +823,8 @@ printf("birf\n");
                     break;
                 }
             }
+            break;
+        case ENET_EVENT_TYPE_NONE:
             break;
         }
     }

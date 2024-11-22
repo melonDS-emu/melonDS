@@ -58,7 +58,7 @@ protected:
     void timerEvent(QTimerEvent* event) override;
 
 private slots:
-    void done(int r);
+    void done(int r) override;
 
     void on_chkChangeTime_clicked(bool checked);
     void on_chkResetTime_clicked(bool checked);
