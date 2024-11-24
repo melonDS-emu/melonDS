@@ -99,7 +99,7 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-cmake_dependent_option(ENABLE_GDBSTUB "Enable GDB stub" ON "NOT MSVC" OFF)
+option(ENABLE_GDBSTUB "Enable GDB stub" ON)
 if (ENABLE_GDBSTUB)
     add_definitions(-DGDBSTUB_ENABLED)
 endif()

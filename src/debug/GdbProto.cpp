@@ -8,13 +8,13 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
 #include <errno.h>
 #include <algorithm>
 
 #ifndef _WIN32
+#include <unistd.h>
 #include <poll.h>
 #include <sys/select.h>
 #include <sys/socket.h>
