@@ -43,6 +43,7 @@
 
 #ifdef __WIN32__
 #include <io.h>
+#define fdopen _fdopen
 #define fseek _fseeki64
 #define ftell _ftelli64
 #define dup _dup
