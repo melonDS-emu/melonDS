@@ -883,6 +883,38 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
     return cart;
 }
 
+std::unique_ptr<CartCommon> LoadAddon(int type, void* userdata)
+{
+    std::unique_ptr<CartCommon> cart;
+    switch (type)
+    {
+    case GBAAddon_RAMExpansion:
+        cart = std::make_unique<CartRAMExpansion>();
+        break;
+    case GBAAddon_RumblePak:
+        cart = std::make_unique<CartRumblePak>(userdata);
+        break;
+    case GBAAddon_SolarSensorBoktai1:
+        // US Boktai 1
+        cart = CreateFakeSolarSensorROM("U3IE", nullptr, userdata);
+        break;
+    case GBAAddon_SolarSensorBoktai2:
+        // US Boktai 2
+        cart = CreateFakeSolarSensorROM("U32E", nullptr, userdata);
+        break;
+    case GBAAddon_SolarSensorBoktai3:
+        // JP Boktai 3
+        cart = CreateFakeSolarSensorROM("U33J", nullptr, userdata);
+        break;
+    default:
+        Log(LogLevel::Warn, "GBACart: !! invalid addon type %d\n", type);
+        return nullptr;
+    }
+
+    cart->Reset();
+    return cart;
+}
+
 void GBACartSlot::SetCart(std::unique_ptr<CartCommon>&& cart) noexcept
 {
     Cart = std::move(cart);
@@ -912,35 +944,6 @@ void GBACartSlot::SetSaveMemory(const u8* savedata, u32 savelen) noexcept
     if (Cart)
     {
         Cart->SetSaveMemory(savedata, savelen);
-    }
-}
-
-void GBACartSlot::LoadAddon(void* userdata, int type) noexcept
-{
-    switch (type)
-    {
-    case GBAAddon_RAMExpansion:
-        Cart = std::make_unique<CartRAMExpansion>();
-        break;
-    case GBAAddon_RumblePak:
-        Cart = std::make_unique<CartRumblePak>(userdata);
-        break;
-    case GBAAddon_SolarSensorBoktai1:
-        // US Boktai 1
-        Cart = CreateFakeSolarSensorROM("U3IE", nullptr, userdata);
-        break;
-    case GBAAddon_SolarSensorBoktai2:
-        // US Boktai 2
-        Cart = CreateFakeSolarSensorROM("U32E", nullptr, userdata);
-        break;
-    case GBAAddon_SolarSensorBoktai3:
-        // JP Boktai 3
-        Cart = CreateFakeSolarSensorROM("U33J", nullptr, userdata);
-        break;
-
-    default:
-        Log(LogLevel::Warn, "GBACart: !! invalid addon type %d\n", type);
-        return;
     }
 }
 

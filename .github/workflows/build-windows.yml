@@ -13,6 +13,7 @@ env:
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
+  MELONDS_VERSION_SUFFIX: " RC"
 
 jobs:
   build:
@@ -32,7 +33,7 @@ jobs:
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: 10b7a178346f3f0abef60cecd5130e295afd8da4
+        vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
     - name: Configure
       run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
     - name: Build

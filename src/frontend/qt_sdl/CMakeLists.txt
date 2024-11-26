@@ -91,8 +91,7 @@ add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 add_executable(melonDS ${SOURCES_QT_SDL})
 
 add_subdirectory("../../net"
-        "${CMAKE_BINARY_DIR}/net"
-)
+    ${CMAKE_BINARY_DIR}/net)
 
 target_link_libraries(melonDS PRIVATE net-utils)
 
@@ -171,10 +170,10 @@ if (BUILD_STATIC)
     endif()
 endif()
 
-target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
-target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
-target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../../net")
+target_include_directories(melonDS PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/..")
+
 if (USE_QT6)
     target_include_directories(melonDS PUBLIC ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
 else()
@@ -191,6 +190,7 @@ if (WIN32)
         target_compile_definitions(melonDS PRIVATE WIN32_PORTABLE)
     endif()
 
+    string(REPLACE . , MELON_RC_VERSION ${melonDS_VERSION})
     configure_file("${CMAKE_SOURCE_DIR}/res/melon.rc.in" "${CMAKE_BINARY_DIR}/res/melon.rc")
     target_sources(melonDS PUBLIC "${CMAKE_BINARY_DIR}/res/melon.rc")
     target_include_directories(melonDS PRIVATE "${CMAKE_BINARY_DIR}/res")

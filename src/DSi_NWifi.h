@@ -147,6 +147,8 @@ private:
     u32 ConnectionStatus;
 
     u8 LANBuffer[2048];
+
+    bool SendBSSInfo;
 };
 
 }

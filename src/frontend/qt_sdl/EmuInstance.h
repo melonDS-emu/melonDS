@@ -120,7 +120,7 @@ public:
     // return: empty string = setup OK, non-empty = error message
     QString verifySetup();
 
-    bool updateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept;
+    bool updateConsole() noexcept;
 
     void enableCheats(bool enable);
     melonDS::ARCodeFile* getCheatFile();
@@ -182,20 +182,22 @@ private:
     std::optional<melonDS::FATStorage> loadSDCard(const std::string& key) noexcept;
     void setBatteryLevels();
     void reset();
-    bool bootToMenu();
+    bool bootToMenu(QString& errorstr);
     melonDS::u32 decompressROM(const melonDS::u8* inContent, const melonDS::u32 inSize, std::unique_ptr<melonDS::u8[]>& outContent);
     void clearBackupState();
     std::pair<std::unique_ptr<melonDS::Firmware>, std::string> generateDefaultFirmware();
     bool parseMacAddress(void* data);
     void customizeFirmware(melonDS::Firmware& firmware, bool overridesettings) noexcept;
+
     bool loadROMData(const QStringList& filepath, std::unique_ptr<melonDS::u8[]>& filedata, melonDS::u32& filelen, std::string& basepath, std::string& romname) noexcept;
     QString getSavErrorString(std::string& filepath, bool gba);
-    bool loadROM(QStringList filepath, bool reset);
+    bool loadROM(QStringList filepath, bool reset, QString& errorstr);
     void ejectCart();
     bool cartInserted();
     QString cartLabel();
-    bool loadGBAROM(QStringList filepath);
-    void loadGBAAddon(int type);
+
+    bool loadGBAROM(QStringList filepath, QString& errorstr);
+    void loadGBAAddon(int type, QString& errorstr);
     void ejectGBACart();
     bool gbaCartInserted();
     QString gbaAddonName(int addon);
@@ -259,11 +261,15 @@ private:
     std::string baseROMDir;
     std::string baseROMName;
     std::string baseAssetName;
+    bool changeCart;
+    std::unique_ptr<melonDS::NDSCart::CartCommon> nextCart;
 
     int gbaCartType;
     std::string baseGBAROMDir;
     std::string baseGBAROMName;
     std::string baseGBAAssetName;
+    bool changeGBACart;
+    std::unique_ptr<melonDS::GBACart::CartCommon> nextGBACart;
 
     // HACK
 public:
