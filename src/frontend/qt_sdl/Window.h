@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -20,7 +20,7 @@
 #define WINDOW_H
 
 #include "glad/glad.h"
-#include "FrontendUtil.h"
+#include "ScreenLayout.h"
 #include "duckstation/gl/context.h"
 
 #include <QWidget>
@@ -34,9 +34,14 @@
 #include <QCloseEvent>
 
 #include "Screen.h"
+#include "Config.h"
+#include "MPInterface.h"
 
 
+class EmuInstance;
 class EmuThread;
+
+const int kMaxRecentROMs = 10;
 
 /*
 class WindowBase : public QMainWindow
@@ -100,26 +105,45 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget* parent = nullptr);
+    explicit MainWindow(int id, EmuInstance* inst, QWidget* parent = nullptr);
     ~MainWindow();
 
-    bool hasOGL;
+    EmuInstance* getEmuInstance() { return emuInstance; }
+    Config::Table& getWindowConfig() { return windowCfg; }
+    int getWindowID() { return windowID; }
+
+    bool winHasMenu() { return hasMenu; }
+
+    void saveEnabled(bool enabled);
+
+    void toggleFullscreen();
+
+    bool hasOpenGL() { return hasOGL; }
     GL::Context* getOGLContext();
-    /*void initOpenGL();
+    void initOpenGL();
     void deinitOpenGL();
-    void drawScreenGL();*/
+    void setGLSwapInterval(int intv);
+    void makeCurrentGL();
+    void drawScreenGL();
 
     bool preloadROMs(QStringList file, QStringList gbafile, bool boot);
     QStringList splitArchivePath(const QString& filename, bool useMemberSyntax);
 
     void onAppStateChanged(Qt::ApplicationState state);
 
-    void osdAddMessage(unsigned int color, const char* fmt, ...);
+    void onFocusIn();
+    void onFocusOut();
+    bool isFocused() { return focused; }
+
+    void osdAddMessage(unsigned int color, const char* msg);
+
+    // called when the MP interface is changed
+    void updateMPInterface(melonDS::MPInterfaceType type);
+
+    void loadRecentFilesMenu(bool loadcfg);
+    //void updateVideoSettings(bool glchange);
 
 protected:
-    void resizeEvent(QResizeEvent* event) override;
-    void changeEvent(QEvent* event) override;
-
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
 
@@ -161,6 +185,11 @@ private slots:
     void onRAMInfo();
     void onOpenTitleManager();
     void onMPNewInstance();
+    void onLANStartHost();
+    void onLANStartClient();
+    void onNPStartHost();
+    void onNPStartClient();
+    void onNPTest();
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -170,6 +199,7 @@ private slots:
     void onOpenCameraSettings();
     void onCameraSettingsFinished(int res);
     void onOpenAudioSettings();
+    void onUpdateAudioVolume(int vol, int dsisync);
     void onUpdateAudioSettings();
     void onAudioSettingsFinished(int res);
     void onOpenMPSettings();
@@ -182,7 +212,7 @@ private slots:
     void onPathSettingsFinished(int res);
     void onOpenInterfaceSettings();
     void onInterfaceSettingsFinished(int res);
-    void onUpdateMouseTimer();
+    void onUpdateInterfaceSettings();
     void onChangeSavestateSRAMReloc(bool checked);
     void onChangeScreenSize();
     void onChangeScreenRotation(QAction* act);
@@ -192,6 +222,7 @@ private slots:
     void onChangeScreenSizing(QAction* act);
     void onChangeScreenAspect(QAction* act);
     void onChangeIntegerScaling(bool checked);
+    void onOpenNewWindow();
     void onChangeScreenFiltering(bool checked);
     void onChangeShowOSD(bool checked);
     void onChangeLimitFramerate(bool checked);
@@ -201,6 +232,8 @@ private slots:
 
     void onEmuStart();
     void onEmuStop();
+    void onEmuPause(bool pause);
+    void onEmuReset();
 
     void onUpdateVideoSettings(bool glchange);
 
@@ -223,13 +256,31 @@ private:
 
     void createScreenPanel();
 
-    bool pausedManually = false;
+    bool lanWarning(bool host);
 
-    int oldW, oldH;
-    bool oldMax;
+    bool showOSD;
+
+    bool hasOGL;
+
+    bool pauseOnLostFocus;
+    bool pausedManually;
+
+    int windowID;
+    bool enabledSaved;
+
+    bool focused;
+
+    EmuInstance* emuInstance;
+    EmuThread* emuThread;
+
+    Config::Table& globalCfg;
+    Config::Table& localCfg;
+    Config::Table windowCfg;
 
 public:
     ScreenPanel* panel;
+
+    bool hasMenu;
 
     QAction* actOpenROM;
     QAction* actBootFirmware;
@@ -238,12 +289,13 @@ public:
     QAction* actEjectCart;
     QAction* actCurrentGBACart;
     QAction* actInsertGBACart;
-    QAction* actInsertGBAAddon[1];
+    QList<QAction*> actInsertGBAAddon;
     QAction* actEjectGBACart;
     QAction* actImportSavefile;
     QAction* actSaveState[9];
     QAction* actLoadState[9];
     QAction* actUndoStateLoad;
+    QAction* actOpenConfig;
     QAction* actQuit;
 
     QAction* actPause;
@@ -258,6 +310,11 @@ public:
     QAction* actRAMInfo;
     QAction* actTitleManager;
     QAction* actMPNewInstance;
+    QAction* actLANStartHost;
+    QAction* actLANStartClient;
+    QAction* actNPStartHost;
+    QAction* actNPStartClient;
+    QAction* actNPTest;
 
     QAction* actEmuSettings;
 #ifdef __APPLE__
@@ -275,25 +332,26 @@ public:
     QAction* actSavestateSRAMReloc;
     QAction* actScreenSize[4];
     QActionGroup* grpScreenRotation;
-    QAction* actScreenRotation[Frontend::screenRot_MAX];
+    QAction* actScreenRotation[screenRot_MAX];
     QActionGroup* grpScreenGap;
     QAction* actScreenGap[6];
     QActionGroup* grpScreenLayout;
-    QAction* actScreenLayout[Frontend::screenLayout_MAX];
+    QAction* actScreenLayout[screenLayout_MAX];
     QAction* actScreenSwap;
     QActionGroup* grpScreenSizing;
-    QAction* actScreenSizing[Frontend::screenSizing_MAX];
+    QAction* actScreenSizing[screenSizing_MAX];
     QAction* actIntegerScaling;
     QActionGroup* grpScreenAspectTop;
     QAction** actScreenAspectTop;
     QActionGroup* grpScreenAspectBot;
     QAction** actScreenAspectBot;
+    QAction* actNewWindow;
     QAction* actScreenFiltering;
     QAction* actShowOSD;
     QAction* actLimitFramerate;
     QAction* actAudioSync;
-};
 
-void ToggleFullscreen(MainWindow* mainWindow);
+    QAction* actAbout;
+};
 
 #endif // WINDOW_H

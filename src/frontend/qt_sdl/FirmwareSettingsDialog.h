@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -24,6 +24,8 @@
 
 namespace Ui { class FirmwareSettingsDialog; }
 class FirmwareSettingsDialog;
+
+class EmuInstance;
 
 class FirmwareSettingsDialog : public QDialog
 {
@@ -123,12 +125,12 @@ private slots:
     void done(int r);
 
     void on_cbxBirthdayMonth_currentIndexChanged(int idx);
-    void on_overrideFirmwareBox_toggled();
 
 private:
     bool verifyMAC();
 
     Ui::FirmwareSettingsDialog* ui;
+    EmuInstance* emuInstance;
 };
 
 #endif // FIRMWARESETTINGSDIALOG_H

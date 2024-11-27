@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -21,22 +21,25 @@
 
 #include <QThread>
 #include <QMutex>
+#include <QSemaphore>
+#include <QQueue>
+#include <QVariant>
 
 #include <atomic>
 #include <variant>
 #include <optional>
+#include <list>
 
 #include "NDSCart.h"
 #include "GBACart.h"
 
-using Keep = std::monostate;
-using UpdateConsoleNDSArgs = std::variant<Keep, std::unique_ptr<melonDS::NDSCart::CartCommon>>;
-using UpdateConsoleGBAArgs = std::variant<Keep, std::unique_ptr<melonDS::GBACart::CartCommon>>;
 namespace melonDS
 {
 class NDS;
 }
 
+class EmuInstance;
+class MainWindow;
 class ScreenPanelGL;
 
 class EmuThread : public QThread
@@ -45,46 +48,106 @@ class EmuThread : public QThread
     void run() override;
 
 public:
-    explicit EmuThread(QObject* parent = nullptr);
+    explicit EmuThread(EmuInstance* inst, QObject* parent = nullptr);
+
+    void attachWindow(MainWindow* window);
+    void detachWindow(MainWindow* window);
+
+    enum MessageType
+    {
+        msg_Exit,
+
+        msg_EmuRun,
+        msg_EmuPause,
+        msg_EmuUnpause,
+        msg_EmuStop,
+        msg_EmuFrameStep,
+        msg_EmuReset,
+
+        msg_InitGL,
+        msg_DeInitGL,
+
+        msg_BootROM,
+        msg_BootFirmware,
+        msg_InsertCart,
+        msg_EjectCart,
+        msg_InsertGBACart,
+        msg_InsertGBAAddon,
+        msg_EjectGBACart,
+
+        msg_LoadState,
+        msg_SaveState,
+        msg_UndoStateLoad,
+
+        msg_ImportSavefile,
+
+        msg_EnableCheats,
+    };
+
+    struct Message
+    {
+        MessageType type;
+        QVariant param;
+    };
+
+    void sendMessage(Message msg);
+    void waitMessage(int num = 1);
+    void waitAllMessages();
+
+    void sendMessage(MessageType type)
+    {
+        return sendMessage({.type = type});
+    }
 
     void changeWindowTitle(char* title);
 
     // to be called from the UI thread
     void emuRun();
-    void emuPause();
-    void emuUnpause();
-    void emuStop();
+    void emuPause(bool broadcast = true);
+    void emuUnpause(bool broadcast = true);
+    void emuTogglePause(bool broadcast = true);
+    void emuStop(bool external);
+    void emuExit();
     void emuFrameStep();
+    void emuReset();
+
+    int bootROM(const QStringList& filename, QString& errorstr);
+    int bootFirmware(QString& errorstr);
+    int insertCart(const QStringList& filename, bool gba, QString& errorstr);
+    void ejectCart(bool gba);
+    int insertGBAAddon(int type, QString& errorstr);
+
+    int saveState(const QString& filename);
+    int loadState(const QString& filename);
+    int undoStateLoad();
+
+    int importSavefile(const QString& filename);
+
+    void enableCheats(bool enable);
 
     bool emuIsRunning();
     bool emuIsActive();
 
-    void initContext();
-    void deinitContext();
+    void initContext(int win);
+    void deinitContext(int win);
+    void updateVideoSettings() { videoSettingsDirty = true; }
+    void updateVideoRenderer() { videoSettingsDirty = true; lastVideoRenderer = -1; }
 
-    int FrontBuffer = 0;
-    QMutex FrontBufferLock;
+    int frontBuffer = 0;
+    QMutex frontBufferLock;
 
-    /// Applies the config in args.
-    /// Creates a new NDS console if needed,
-    /// modifies the existing one if possible.
-    /// @return \c true if the console was updated.
-    /// If this returns \c false, then the existing NDS console is not modified.
-    bool UpdateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept;
-    std::unique_ptr<melonDS::NDS> NDS; // TODO: Proper encapsulation and synchronization
 signals:
     void windowUpdate();
     void windowTitleChange(QString title);
 
     void windowEmuStart();
     void windowEmuStop();
-    void windowEmuPause();
+    void windowEmuPause(bool pause);
     void windowEmuReset();
-    void windowEmuFrameStep();
 
     void windowLimitFPSChange();
 
-    void screenLayoutChange();
+    void autoScreenSizingChange(int sizing);
 
     void windowFullscreenToggle();
 
@@ -94,10 +157,10 @@ signals:
     void syncVolumeLevel();
 
 private:
-    std::unique_ptr<melonDS::NDS> CreateConsole(
-        std::unique_ptr<melonDS::NDSCart::CartCommon>&& ndscart,
-        std::unique_ptr<melonDS::GBACart::CartCommon>&& gbacart
-    ) noexcept;
+    void handleMessages();
+
+    void updateRenderer();
+    void compileShaders();
 
     enum EmuStatusKind
     {
@@ -106,27 +169,31 @@ private:
         emuStatus_Paused,
         emuStatus_FrameStep,
     };
-    std::atomic<EmuStatusKind> EmuStatus;
 
-    EmuStatusKind PrevEmuStatus;
-    EmuStatusKind EmuRunning;
+    EmuStatusKind prevEmuStatus;
+    EmuStatusKind emuStatus;
+    bool emuActive;
 
-    constexpr static int EmuPauseStackRunning = 0;
-    constexpr static int EmuPauseStackPauseThreshold = 1;
-    int EmuPauseStack;
+    constexpr static int emuPauseStackRunning = 0;
+    constexpr static int emuPauseStackPauseThreshold = 1;
+    int emuPauseStack;
 
-    enum ContextRequestKind
-    {
-        contextRequest_None = 0,
-        contextRequest_InitGL,
-        contextRequest_DeInitGL
-    };
-    std::atomic<ContextRequestKind> ContextRequest = contextRequest_None;
+    int msgResult = 0;
+    QString msgError;
 
-    ScreenPanelGL* screenGL;
+    QMutex msgMutex;
+    QSemaphore msgSemaphore;
+    QQueue<Message> msgQueue;
+
+    EmuInstance* emuInstance;
 
     int autoScreenSizing;
 
+    int lastVideoRenderer = -1;
+
+    double perfCountsSec;
+
+    bool useOpenGL;
     int videoRenderer;
     bool videoSettingsDirty;
 };

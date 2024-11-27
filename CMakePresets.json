@@ -21,6 +21,19 @@
       }
     },
     {
+      "name": "release-mingw-x86_64",
+      "inherits": "release-vcpkg",
+      "displayName": "Windows MinGW release (x86_64)",
+      "binaryDir": "${sourceDir}/build/release-mingw-x86_64",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "BUILD_STATIC": {
+          "type": "BOOL",
+          "value": "ON"
+        }
+      }
+    },
+    {
       "name": "release-mac-x86_64",
       "inherits": "release-vcpkg",
       "displayName": "macOS release (x86_64)",
@@ -43,6 +56,10 @@
     {
       "name": "release-vcpkg",
       "configurePreset": "release-vcpkg"
+    },
+    {
+      "name": "release-mingw-x86_64",
+      "configurePreset": "release-mingw-x86_64"
     },
     {
       "name": "release-mac-x86_64",

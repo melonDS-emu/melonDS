@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team, WaluigiWare64
+    Copyright 2016-2024 melonDS team, WaluigiWare64
 
     This file is part of melonDS.
 
@@ -38,6 +38,8 @@ enum RegionMask : u32
     Reserved = ~(Japan | USA | Europe | Australia | China | Korea),
     RegionFree = 0xFFFFFFFF,
 };
+
+constexpr u32 DSiWareTitleIDHigh = 0x00030004;
 
 // Consult GBATEK for info on what these are
 struct NDSHeader
@@ -198,8 +200,9 @@ struct NDSHeader
 
     u8 HeaderSignature[128]; // RSA-SHA1 across 0x000..0xDFF
 
-    /// @return \c true if this header represents a DSi title
-    /// (either a physical cartridge or a DSiWare title).
+    /// @return \c true if this header represents a title
+    /// that is DSi-exclusive (including DSiWare)
+    /// or DSi-enhanced (including cartridges).
     [[nodiscard]] bool IsDSi() const { return (UnitCode & 0x02) != 0; }
     [[nodiscard]] u32 GameCodeAsU32() const {
         return (u32)GameCode[3] << 24 |
@@ -213,7 +216,7 @@ struct NDSHeader
     }
 
     /// @return \c true if this header represents a DSiWare title.
-    [[nodiscard]] bool IsDSiWare() const { return IsDSi() && DSiRegionStart == 0; }
+    [[nodiscard]] bool IsDSiWare() const { return IsDSi() && DSiTitleIDHigh == DSiWareTitleIDHigh; }
 };
 
 static_assert(sizeof(NDSHeader) == 4096, "NDSHeader is not 4096 bytes!");

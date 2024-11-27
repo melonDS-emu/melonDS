@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -20,6 +20,7 @@
 
 #include "Platform.h"
 #include "Config.h"
+#include "main.h"
 
 #include "FirmwareSettingsDialog.h"
 #include "ui_FirmwareSettingsDialog.h"
@@ -29,8 +30,6 @@ namespace Platform = melonDS::Platform;
 
 FirmwareSettingsDialog* FirmwareSettingsDialog::currentDlg = nullptr;
 
-extern bool RunningSomething;
-
 bool FirmwareSettingsDialog::needsReset = false;
 
 FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::FirmwareSettingsDialog)
@@ -38,10 +37,15 @@ FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    ui->usernameEdit->setText(QString::fromStdString(Config::FirmwareUsername));
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
+
+    auto& cfg = emuInstance->getLocalConfig();
+    auto firmcfg = cfg.GetTable("Firmware");
+
+    ui->usernameEdit->setText(firmcfg.GetQString("Username"));
 
     ui->languageBox->addItems(languages);
-    ui->languageBox->setCurrentIndex(Config::FirmwareLanguage);
+    ui->languageBox->setCurrentIndex(firmcfg.GetInt("Language"));
 
     for (int i = 1; i <= 31; i++)
     {
@@ -49,9 +53,9 @@ FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent
     }
 
     ui->cbxBirthdayMonth->addItems(months);
-    ui->cbxBirthdayMonth->setCurrentIndex(Config::FirmwareBirthdayMonth - 1);
+    ui->cbxBirthdayMonth->setCurrentIndex(firmcfg.GetInt("BirthdayMonth") - 1);
 
-    ui->cbxBirthdayDay->setCurrentIndex(Config::FirmwareBirthdayDay - 1);
+    ui->cbxBirthdayDay->setCurrentIndex(firmcfg.GetInt("BirthdayDay") - 1);
 
     for (int i = 0; i < 16; i++)
     {
@@ -60,21 +64,29 @@ FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent
         QIcon icon(QPixmap::fromImage(image.copy()));
         ui->colorsEdit->addItem(icon, colornames[i]);
     }
-    ui->colorsEdit->setCurrentIndex(Config::FirmwareFavouriteColour);
+    ui->colorsEdit->setCurrentIndex(firmcfg.GetInt("FavouriteColour"));
 
-    ui->messageEdit->setText(QString::fromStdString(Config::FirmwareMessage));
+    ui->messageEdit->setText(firmcfg.GetQString("Message"));
 
-    ui->overrideFirmwareBox->setChecked(Config::FirmwareOverrideSettings);
+    ui->overrideFirmwareBox->setChecked(firmcfg.GetBool("OverrideSettings"));
 
-    ui->txtMAC->setText(QString::fromStdString(Config::FirmwareMAC));
+    ui->txtMAC->setText(firmcfg.GetQString("MAC"));
 
-    on_overrideFirmwareBox_toggled();
-
-    int inst = Platform::InstanceID();
+    int inst = emuInstance->getInstanceID();
     if (inst > 0)
         ui->lblInstanceNum->setText(QString("Configuring settings for instance %1").arg(inst+1));
     else
         ui->lblInstanceNum->hide();
+
+#define SET_ORIGVAL(type, val) \
+    for (type* w : findChildren<type*>(nullptr)) \
+        w->setProperty("user_originalValue", w->val());
+
+    SET_ORIGVAL(QLineEdit, text);
+    SET_ORIGVAL(QComboBox, currentIndex);
+    SET_ORIGVAL(QCheckBox, isChecked);
+
+#undef SET_ORIGVAL
 }
 
 FirmwareSettingsDialog::~FirmwareSettingsDialog()
@@ -120,6 +132,13 @@ bool FirmwareSettingsDialog::verifyMAC()
 
 void FirmwareSettingsDialog::done(int r)
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        QDialog::done(r);
+        closeDlg();
+        return;
+    }
+
     needsReset = false;
 
     if (r == QDialog::Accepted)
@@ -132,42 +151,46 @@ void FirmwareSettingsDialog::done(int r)
             return;
         }
 
-        bool newOverride = ui->overrideFirmwareBox->isChecked();
+        bool modified = false;
 
-        std::string newName = ui->usernameEdit->text().toStdString();
-        int newLanguage = ui->languageBox->currentIndex();
-        int newFavColor = ui->colorsEdit->currentIndex();
-        int newBirthdayDay = ui->cbxBirthdayDay->currentIndex() + 1;
-        int newBirthdayMonth = ui->cbxBirthdayMonth->currentIndex() + 1;
-        std::string newMessage = ui->messageEdit->text().toStdString();
+#define CHECK_ORIGVAL(type, val) \
+        if (!modified) for (type* w : findChildren<type*>(nullptr)) \
+        {                        \
+            QVariant v = w->val();                   \
+            if (v != w->property("user_originalValue")) \
+            {                    \
+                modified = true; \
+                break;                   \
+            }\
+        }
 
-        std::string newMAC = ui->txtMAC->text().toStdString();
+        CHECK_ORIGVAL(QLineEdit, text);
+        CHECK_ORIGVAL(QComboBox, currentIndex);
+        CHECK_ORIGVAL(QCheckBox, isChecked);
 
-        if (   newOverride != Config::FirmwareOverrideSettings
-            || newName != Config::FirmwareUsername
-            || newLanguage != Config::FirmwareLanguage
-            || newFavColor != Config::FirmwareFavouriteColour
-            || newBirthdayDay != Config::FirmwareBirthdayDay
-            || newBirthdayMonth != Config::FirmwareBirthdayMonth
-            || newMessage != Config::FirmwareMessage
-            || newMAC != Config::FirmwareMAC)
+#undef CHECK_ORIGVAL
+
+        if (modified)
         {
-            if (RunningSomething
+            if (emuInstance->emuIsActive()
                 && QMessageBox::warning(this, "Reset necessary to apply changes",
                     "The emulation will be reset for the changes to take place.",
                     QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
                 return;
 
-            Config::FirmwareOverrideSettings = newOverride;
+            auto& cfg = emuInstance->getLocalConfig();
+            auto firmcfg = cfg.GetTable("Firmware");
 
-            Config::FirmwareUsername = newName;
-            Config::FirmwareLanguage = newLanguage;
-            Config::FirmwareFavouriteColour = newFavColor;
-            Config::FirmwareBirthdayDay = newBirthdayDay;
-            Config::FirmwareBirthdayMonth = newBirthdayMonth;
-            Config::FirmwareMessage = newMessage;
+            firmcfg.SetBool("OverrideSettings", ui->overrideFirmwareBox->isChecked());
 
-            Config::FirmwareMAC = newMAC;
+            firmcfg.SetQString("Username", ui->usernameEdit->text());
+            firmcfg.SetInt("Language", ui->languageBox->currentIndex());
+            firmcfg.SetInt("FavouriteColour", ui->colorsEdit->currentIndex());
+            firmcfg.SetInt("BirthdayDay", ui->cbxBirthdayDay->currentIndex() + 1);
+            firmcfg.SetInt("BirthdayMonth", ui->cbxBirthdayMonth->currentIndex() + 1);
+            firmcfg.SetQString("Message", ui->messageEdit->text());
+
+            firmcfg.SetQString("MAC", ui->txtMAC->text());
 
             Config::Save();
 
@@ -206,11 +229,4 @@ void FirmwareSettingsDialog::on_cbxBirthdayMonth_currentIndexChanged(int idx)
             ui->cbxBirthdayDay->removeItem(i-1);
         }
     }
-}
-
-void FirmwareSettingsDialog::on_overrideFirmwareBox_toggled()
-{
-    bool disable = !ui->overrideFirmwareBox->isChecked();
-    ui->grpUserSettings->setDisabled(disable);
-    ui->grpWifiSettings->setDisabled(disable);
 }

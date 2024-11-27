@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -43,6 +43,15 @@ enum
     RWFlags_ForceUser = (1<<21),
 };
 
+enum class CPUExecuteMode : u32
+{
+    Interpreter,
+    InterpreterGDB,
+#ifdef JIT_ENABLED
+    JIT
+#endif
+};
+
 struct GDBArgs;
 class ARMJIT;
 class GPU;
@@ -58,6 +67,8 @@ class ARM
 public:
     ARM(u32 num, bool jit, std::optional<GDBArgs> gdb, NDS& nds);
     virtual ~ARM(); // destroy shit
+
+    void SetGdbArgs(std::optional<GDBArgs> gdb);
 
     virtual void Reset();
 
@@ -75,10 +86,6 @@ public:
     }
 
     void NocashPrint(u32 addr) noexcept;
-    virtual void Execute() = 0;
-#ifdef JIT_ENABLED
-    virtual void ExecuteJIT() = 0;
-#endif
 
     bool CheckCondition(u32 code) const
     {
@@ -241,10 +248,8 @@ public:
     void PrefetchAbort();
     void DataAbort();
 
-    void Execute() override;
-#ifdef JIT_ENABLED
-    void ExecuteJIT() override;
-#endif
+    template <CPUExecuteMode mode>
+    void Execute();
 
     // all code accesses are forced nonseq 32bit
     u32 CodeRead32(u32 addr, bool branch);
@@ -320,6 +325,7 @@ public:
     u32 CP15Control;
 
     u32 RNGSeed;
+    u32 TraceProcessID;
 
     u32 DTCMSetting, ITCMSetting;
 
@@ -383,10 +389,8 @@ public:
 
     void JumpTo(u32 addr, bool restorecpsr = false) override;
 
-    void Execute() override;
-#ifdef JIT_ENABLED
-    void ExecuteJIT() override;
-#endif
+    template <CPUExecuteMode mode>
+    void Execute();
 
     u16 CodeRead16(u32 addr)
     {

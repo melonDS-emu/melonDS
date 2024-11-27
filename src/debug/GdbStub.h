@@ -3,6 +3,7 @@
 #define GDBSTUB_H_
 
 #include <stddef.h>
+#include <sys/types.h>
 #include <map>
 #include <vector>
 
@@ -85,6 +86,8 @@ enum class ExecResult
 	Continue
 };
 
+constexpr int GDBPROTO_BUFFER_CAPACITY = 1024+128;
+
 class GdbStub;
 
 typedef ExecResult (*GdbProtoCmd)(GdbStub* stub, const u8* cmd, ssize_t len);
@@ -112,10 +115,10 @@ public:
 		int kind;
 	};
 
-	GdbStub(StubCallbacks* cb, int port);
+	GdbStub(StubCallbacks* cb);
 	~GdbStub();
 
-	bool Init();
+	bool Init(int port);
 	void Close();
 
 	StubState Poll(bool wait = false);
@@ -140,9 +143,6 @@ public:
 	Gdb::ExecResult CmdExec(const CmdHandler* handlers);
 
 public:
-	int SendAck();
-	int SendNak();
-
 	int Resp(const u8* data1, size_t len1, const u8* data2 = NULL, size_t len2 = 0);
 	int RespC(const char* data1, size_t len1, const u8* data2 = NULL, size_t len2 = 0);
 #if defined(__GCC__) || defined(__clang__)
@@ -151,12 +151,26 @@ public:
 	int RespFmt(const char* fmt, ...);
 
 	int RespStr(const char* str);
+	inline bool IsConnected() { return ConnFd > 0; }
 
 private:
 	void Disconnect();
 	StubState HandlePacket();
 
-private:
+	Gdb::ReadResult MsgRecv();
+
+	Gdb::ReadResult TryParsePacket(size_t start, size_t& packetStart, size_t& packetSize, size_t& packetContentSize);
+	Gdb::ReadResult ParseAndSetupPacket();	
+
+	void SetupCommand(size_t packetStart, size_t packetSize);
+
+	int SendAck();
+	int SendNak();
+
+	int Resp(const u8* data1, size_t len1, const u8* data2, size_t len2, bool noack);
+
+	int WaitAckBlocking(u8* ackp, int to_ms);
+
 	StubCallbacks* Cb;
 
 	//struct sockaddr_in server, client;
@@ -169,6 +183,13 @@ private:
 	u32 CurBkpt, CurWatchpt;
 	bool StatFlag;
 	bool NoAck;
+
+	std::array<u8, GDBPROTO_BUFFER_CAPACITY> RecvBuffer;
+	u32 RecvBufferFilled = 0;
+	std::array<u8, GDBPROTO_BUFFER_CAPACITY> RespBuf;
+
+	std::array<u8, GDBPROTO_BUFFER_CAPACITY> Cmdbuf;
+	ssize_t Cmdlen;
 
 	std::map<u32, BpWp> BpList;
 	std::vector<BpWp> WpList;

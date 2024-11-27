@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -28,7 +28,7 @@ namespace melonDS
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wattributes"
-#if defined(__GNUC__) && (__GNUC__ >= 11) // gcc 11.*
+#if defined(__GNUC__) && (__GNUC__ >= 11) && defined(__SIZEOF_INT128__) // gcc 11.*
 // NOTE: Yes, the compiler does *not* recognize this code pattern, so it is indeed an optimization.
 __attribute((always_inline)) static void Bswap128(void* Dst, const void* Src)
 {

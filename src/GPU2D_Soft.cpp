@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -18,7 +18,7 @@
 
 #include "GPU2D_Soft.h"
 #include "GPU.h"
-#include "GPU3D_OpenGL.h"
+#include "GPU3D.h"
 
 namespace melonDS
 {
@@ -254,7 +254,11 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 
     if (GPU.GPU3D.IsRendererAccelerated())
     {
-        dst[256*3] = masterBrightness | (CurUnit->DispCnt & 0x30000);
+        u32 xpos = GPU.GPU3D.GetRenderXPos();
+
+        dst[256*3] = masterBrightness |
+                     (CurUnit->DispCnt & 0x30000) |
+                     (xpos << 24) | ((xpos & 0x100) << 15);
         return;
     }
 
@@ -910,6 +914,9 @@ void SoftRenderer::DrawBG_3D()
 template<bool mosaic, SoftRenderer::DrawPixel drawPixel>
 void SoftRenderer::DrawBG_Text(u32 line, u32 bgnum)
 {
+    // workaround for backgrounds missing on aarch64 with lto build
+    asm volatile ("" : : : "memory");
+
     u16 bgcnt = CurUnit->BGCnt[bgnum];
 
     u32 tilesetaddr, tilemapaddr;
@@ -1503,7 +1510,7 @@ void SoftRenderer::ApplySpriteMosaicX()
 
     u32* objLine = OBJLine[CurUnit->Num];
 
-    u8* curOBJXMosaicTable = MosaicTable[CurUnit->OBJMosaicSize[1]].data();
+    u8* curOBJXMosaicTable = MosaicTable[CurUnit->OBJMosaicSize[0]].data();
 
     u32 lastcolor = objLine[0];
 

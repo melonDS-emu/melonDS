@@ -109,7 +109,7 @@ void DSi_DSP::AudioCb(std::array<s16, 2> frame)
 
 DSi_DSP::DSi_DSP(melonDS::DSi& dsi) : DSi(dsi)
 {
-    DSi.RegisterEventFunc(Event_DSi_DSP, 0, MemberEventFunc(DSi_DSP, DSPCatchUpU32));
+    DSi.RegisterEventFuncs(Event_DSi_DSP, this, {MakeEventThunk(DSi_DSP, DSPCatchUpU32)});
 
     TeakraCore = new Teakra::Teakra();
     SCFG_RST = false;
@@ -156,7 +156,7 @@ DSi_DSP::~DSi_DSP()
     //PDATAWriteFifo = NULL;
     TeakraCore = NULL;
 
-    DSi.UnregisterEventFunc(Event_DSi_DSP, 0);
+    DSi.UnregisterEventFuncs(Event_DSi_DSP);
 }
 
 void DSi_DSP::Reset()

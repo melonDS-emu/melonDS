@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -31,7 +31,7 @@ using Platform::Log;
 using Platform::LogLevel;
 
 
-const u8 CIS0[256] =
+u8 CIS0[256] =
 {
     0x01, 0x03, 0xD9, 0x01, 0xFF,
     0x20, 0x04, 0x71, 0x02, 0x00, 0x02,
@@ -70,7 +70,7 @@ const u8 CIS0[256] =
     0x00, 0x00, 0x00
 };
 
-const u8 CIS1[256] =
+u8 CIS1[256] =
 {
     0x20, 0x04, 0x71, 0x02, 0x00, 0x02,
     0x21, 0x02, 0x0C, 0x00,
@@ -134,7 +134,7 @@ DSi_NWifi::DSi_NWifi(melonDS::DSi& dsi, DSi_SDHost* host) :
     },
     DSi(dsi)
 {
-    DSi.RegisterEventFunc(Event_DSi_NWifi, 0, MemberEventFunc(DSi_NWifi, MSTimer));
+    DSi.RegisterEventFuncs(Event_DSi_NWifi, this, {MakeEventThunk(DSi_NWifi, MSTimer)});
 
     // this seems to control whether the firmware upload is done
     EEPROMReady = 0;
@@ -144,7 +144,7 @@ DSi_NWifi::~DSi_NWifi()
 {
     DSi.CancelEvent(Event_DSi_NWifi);
 
-    DSi.UnregisterEventFunc(Event_DSi_NWifi, 0);
+    DSi.UnregisterEventFuncs(Event_DSi_NWifi);
 }
 
 void DSi_NWifi::Reset()
@@ -201,6 +201,9 @@ void DSi_NWifi::Reset()
         break;
     }
 
+    CIS0[9] = ChipID >= 0x0D000000;
+    CIS1[4] = CIS0[9];
+
     memset(EEPROM, 0, 0x400);
 
     *(u32*)&EEPROM[0x000] = 0x300;
@@ -226,6 +229,8 @@ void DSi_NWifi::Reset()
 
     BeaconTimer = 0x10A2220ULL;
     ConnectionStatus = 0;
+
+    SendBSSInfo = true;
 
     DSi.CancelEvent(Event_DSi_NWifi);
 }
@@ -1001,7 +1006,7 @@ void DSi_NWifi::WMI_Command()
                 }
 
                 // checkme
-                ScanTimer = scantime*5;
+                ScanTimer = scantime*8;
             }
             break;
 
@@ -1036,6 +1041,7 @@ void DSi_NWifi::WMI_Command()
 
                 // TODO: store it somewhere
                 Log(LogLevel::Debug, "WMI: set probed SSID: id=%d, flags=%02X, len=%d, SSID=%s\n", id, flags, len, ssid);
+                SendBSSInfo = flags == 0 || strcmp(ssid, WifiAP::APName) == 0;
             }
             break;
 
@@ -1334,7 +1340,7 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
     }
     printf("\n");*/
 
-    Platform::LAN_SendPacket(LANBuffer, lan_len);
+    Platform::Net_SendPacket(LANBuffer, lan_len, DSi.UserData);
 }
 
 void DSi_NWifi::SendWMIEvent(u8 ep, u16 id, u8* data, u32 len)
@@ -1405,6 +1411,11 @@ void DSi_NWifi::SendWMIAck(u8 ep)
 
 void DSi_NWifi::SendWMIBSSInfo(u8 type, u8* data, u32 len)
 {
+    if (!SendBSSInfo) {
+        Log(LogLevel::Info, "NWifi: melonAP filtered, not sending WMI BSSINFO event\n");
+        return;
+    }
+
     if (!Mailbox[8].CanFit(6+len+2+16))
     {
         Log(LogLevel::Error, "NWifi: !! not enough space in RX buffer for WMI BSSINFO event\n");
@@ -1442,20 +1453,25 @@ void DSi_NWifi::CheckRX()
     if (!Mailbox[8].CanFit(2048))
         return;
 
-    int rxlen = Platform::LAN_RecvPacket(LANBuffer);
-    if (rxlen > 0)
+    int rxlen = Platform::Net_RecvPacket(LANBuffer, DSi.UserData);
+    while (rxlen > 0)
     {
-        //printf("WMI packet recv %04X %04X %04X\n", *(u16*)&LANBuffer[0], *(u16*)&LANBuffer[2], *(u16*)&LANBuffer[4]);
         // check destination MAC
         if (*(u32*)&LANBuffer[0] != 0xFFFFFFFF || *(u16*)&LANBuffer[4] != 0xFFFF)
         {
             if (memcmp(&LANBuffer[0], &EEPROM[0x00A], 6))
-                return;
+            {
+                rxlen = Platform::Net_RecvPacket(LANBuffer, DSi.UserData);
+                continue;
+            }
         }
 
         // check source MAC, in case we get a packet we just sent out
         if (!memcmp(&LANBuffer[6], &EEPROM[0x00A], 6))
-            return;
+        {
+            rxlen = Platform::Net_RecvPacket(LANBuffer, DSi.UserData);
+            continue;
+        }
 
         // packet is good
 
@@ -1502,6 +1518,7 @@ void DSi_NWifi::CheckRX()
             Mailbox[8].Write(LANBuffer[14+i]);
 
         DrainRXBuffer();
+        return;
     }
 }
 

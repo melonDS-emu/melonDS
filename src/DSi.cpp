@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -70,8 +70,26 @@ const u32 NDMAModes[] =
     0xFF, // wifi / GBA cart slot (TODO)
 };
 
-DSi::DSi(DSiArgs&& args) noexcept :
-    NDS(std::move(args), 1),
+/*DSi::DSi() noexcept :
+    DSi(
+        DSiArgs {
+            NDSArgs {
+                bios_arm9_bin,
+                bios_arm7_bin,
+                Firmware(0),
+            },
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            false
+        }
+    )
+{
+}*/
+
+DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
+    NDS(std::move(args), 1, userdata),
     NDMAs {
         DSi_NDMA(0, 0, *this),
         DSi_NDMA(0, 1, *this),
@@ -82,8 +100,8 @@ DSi::DSi(DSiArgs&& args) noexcept :
         DSi_NDMA(1, 2, *this),
         DSi_NDMA(1, 3, *this),
     },
-    ARM7iBIOS(args.ARM7iBIOS),
-    ARM9iBIOS(args.ARM9iBIOS),
+    ARM7iBIOS(*args.ARM7iBIOS),
+    ARM9iBIOS(*args.ARM9iBIOS),
     DSP(*this),
     SDMMC(*this, std::move(args.NANDImage), std::move(args.DSiSDCard)),
     SDIO(*this),

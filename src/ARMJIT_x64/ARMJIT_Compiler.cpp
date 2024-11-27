@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -21,18 +21,12 @@
 #include "../ARMJIT.h"
 #include "../ARMInterpreter.h"
 #include "../NDS.h"
+#include "../ARMJIT_Global.h"
 
 #include <assert.h>
 #include <stdarg.h>
 
 #include "../dolphin/CommonFuncs.h"
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <sys/mman.h>
-#include <unistd.h>
-#endif
 
 using namespace Gen;
 using namespace Common;
@@ -222,46 +216,21 @@ void Compiler::A_Comp_MSR()
             MOV(32, R(ABI_PARAM3), R(RCPSR));
             MOV(32, R(ABI_PARAM2), R(RSCRATCH3));
             MOV(64, R(ABI_PARAM1), R(RCPU));
-            CALL((void*)&UpdateModeTrampoline);
+            ABI_CallFunction(UpdateModeTrampoline);
 
             PopRegs(true, true);
         }
     }
 }
 
-/*
-    We'll repurpose this .bss memory
-
- */
-u8 CodeMemory[1024 * 1024 * 32];
-
 Compiler::Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds)
 {
-    {
-    #ifdef _WIN32
-        SYSTEM_INFO sysInfo;
-        GetSystemInfo(&sysInfo);
+    ARMJIT_Global::Init();
 
-        u64 pageSize = (u64)sysInfo.dwPageSize;
-    #else
-        u64 pageSize = sysconf(_SC_PAGE_SIZE);
-    #endif
+    CodeMemBase = static_cast<u8*>(ARMJIT_Global::AllocateCodeMem());
+    CodeMemSize = ARMJIT_Global::CodeMemorySliceSize;
 
-        u8* pageAligned = (u8*)(((u64)CodeMemory & ~(pageSize - 1)) + pageSize);
-        u64 alignedSize = (((u64)CodeMemory + sizeof(CodeMemory)) & ~(pageSize - 1)) - (u64)pageAligned;
-
-    #ifdef _WIN32
-        DWORD dummy;
-        VirtualProtect(pageAligned, alignedSize, PAGE_EXECUTE_READWRITE, &dummy);
-    #elif defined(__APPLE__)
-        pageAligned = (u8*)mmap(NULL, 1024*1024*32, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS ,-1, 0);
-    #else
-        mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
-    #endif
-
-        ResetStart = pageAligned;
-        CodeMemSize = alignedSize;
-    }
+    ResetStart = CodeMemBase;
 
     Reset();
 
@@ -475,6 +444,13 @@ Compiler::Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds)
     FarSize = (ResetStart + CodeMemSize) - FarStart;
 }
 
+Compiler::~Compiler()
+{
+    ARMJIT_Global::FreeCodeMem(CodeMemBase);
+
+    ARMJIT_Global::DeInit();
+}
+
 void Compiler::LoadCPSR()
 {
     assert(!CPSRDirty);
@@ -684,7 +660,7 @@ void Compiler::Comp_SpecialBranchBehaviour(bool taken)
 
         if (ConstantCycles)
             ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm32(ConstantCycles));
-        JMP((u8*)&ARM_Ret, true);
+        ABI_TailCall(ARM_Ret);
     }
 }
 
@@ -846,7 +822,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 
     if (ConstantCycles)
         ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm32(ConstantCycles));
-    JMP((u8*)ARM_Ret, true);
+    ABI_TailCall(ARM_Ret);
 
 #ifdef JIT_PROFILING_ENABLED
     CreateMethod("JIT_Block_%d_%d_%08X", (void*)res, Num, Thumb, instrs[0].Addr);

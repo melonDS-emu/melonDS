@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -22,18 +22,23 @@
 #include "glad/glad.h"
 
 #include <QApplication>
-#include <QWidget>
-#include <QWindow>
-#include <QMainWindow>
-#include <QImage>
-#include <QActionGroup>
-#include <QTimer>
-#include <QScreen>
-#include <QCloseEvent>
+#include <QEvent>
+#include <QElapsedTimer>
 
+#include "EmuInstance.h"
 #include "Window.h"
 #include "EmuThread.h"
-#include "FrontendUtil.h"
+#include "ScreenLayout.h"
+#include "MPInterface.h"
+
+enum
+{
+    InstCmd_Pause,
+    InstCmd_Unpause,
+
+    InstCmd_UpdateRecentFiles,
+    //InstCmd_UpdateVideoSettings,
+};
 
 class MelonApplication : public QApplication
 {
@@ -43,5 +48,19 @@ public:
     MelonApplication(int &argc, char** argv);
     bool event(QEvent* event) override;
 };
+
+extern QString* systemThemeName;
+extern QString emuDirectory;
+
+extern QElapsedTimer sysTimer;
+
+bool createEmuInstance();
+void deleteEmuInstance(int id);
+void deleteAllEmuInstances(int first = 0);
+int numEmuInstances();
+
+void broadcastInstanceCommand(int cmd, QVariant& param, int sourceinst);
+
+void setMPInterface(melonDS::MPInterfaceType type);
 
 #endif // MAIN_H

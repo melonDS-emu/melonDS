@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -316,24 +316,24 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
                 {
                     switch (size | NDS.ConsoleType)
                     {
-                    case 32: CALL((void*)&SlowWrite9<u32, 0>); break;
-                    case 16: CALL((void*)&SlowWrite9<u16, 0>); break;
-                    case 8: CALL((void*)&SlowWrite9<u8, 0>); break;
-                    case 33: CALL((void*)&SlowWrite9<u32, 1>); break;
-                    case 17: CALL((void*)&SlowWrite9<u16, 1>); break;
-                    case 9: CALL((void*)&SlowWrite9<u8, 1>); break;
+                    case 32: ABI_CallFunction(SlowWrite9<u32, 0>); break;
+                    case 16: ABI_CallFunction(SlowWrite9<u16, 0>); break;
+                    case 8: ABI_CallFunction(&SlowWrite9<u8, 0>); break;
+                    case 33: ABI_CallFunction(&SlowWrite9<u32, 1>); break;
+                    case 17: ABI_CallFunction(&SlowWrite9<u16, 1>); break;
+                    case 9: ABI_CallFunction(&SlowWrite9<u8, 1>); break;
                     }
                 }
                 else
                 {
                     switch (size | NDS.ConsoleType)
                     {
-                    case 32: CALL((void*)&SlowRead9<u32, 0>); break;
-                    case 16: CALL((void*)&SlowRead9<u16, 0>); break;
-                    case 8: CALL((void*)&SlowRead9<u8, 0>); break;
-                    case 33: CALL((void*)&SlowRead9<u32, 1>); break;
-                    case 17: CALL((void*)&SlowRead9<u16, 1>); break;
-                    case 9: CALL((void*)&SlowRead9<u8, 1>); break;
+                    case 32: ABI_CallFunction(&SlowRead9<u32, 0>); break;
+                    case 16: ABI_CallFunction(&SlowRead9<u16, 0>); break;
+                    case 8: ABI_CallFunction(&SlowRead9<u8, 0>); break;
+                    case 33: ABI_CallFunction(&SlowRead9<u32, 1>); break;
+                    case 17: ABI_CallFunction(&SlowRead9<u16, 1>); break;
+                    case 9: ABI_CallFunction(&SlowRead9<u8, 1>); break;
                     }
                 }
             }
@@ -347,24 +347,24 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
 
                     switch (size | NDS.ConsoleType)
                     {
-                    case 32: CALL((void*)&SlowWrite7<u32, 0>); break;
-                    case 16: CALL((void*)&SlowWrite7<u16, 0>); break;
-                    case 8: CALL((void*)&SlowWrite7<u8, 0>); break;
-                    case 33: CALL((void*)&SlowWrite7<u32, 1>); break;
-                    case 17: CALL((void*)&SlowWrite7<u16, 1>); break;
-                    case 9: CALL((void*)&SlowWrite7<u8, 1>); break;
+                    case 32: ABI_CallFunction(&SlowWrite7<u32, 0>); break;
+                    case 16: ABI_CallFunction(&SlowWrite7<u16, 0>); break;
+                    case 8: ABI_CallFunction(&SlowWrite7<u8, 0>); break;
+                    case 33: ABI_CallFunction(&SlowWrite7<u32, 1>); break;
+                    case 17: ABI_CallFunction(&SlowWrite7<u16, 1>); break;
+                    case 9: ABI_CallFunction(&SlowWrite7<u8, 1>); break;
                     }
                 }
                 else
                 {
                     switch (size | NDS.ConsoleType)
                     {
-                    case 32: CALL((void*)&SlowRead7<u32, 0>); break;
-                    case 16: CALL((void*)&SlowRead7<u16, 0>); break;
-                    case 8: CALL((void*)&SlowRead7<u8, 0>); break;
-                    case 33: CALL((void*)&SlowRead7<u32, 1>); break;
-                    case 17: CALL((void*)&SlowRead7<u16, 1>); break;
-                    case 9: CALL((void*)&SlowRead7<u8, 1>); break;
+                    case 32: ABI_CallFunction(&SlowRead7<u32, 0>); break;
+                    case 16: ABI_CallFunction(&SlowRead7<u16, 0>); break;
+                    case 8: ABI_CallFunction(&SlowRead7<u8, 0>); break;
+                    case 33: ABI_CallFunction(&SlowRead7<u32, 1>); break;
+                    case 17: ABI_CallFunction(&SlowRead7<u16, 1>); break;
+                    case 9: ABI_CallFunction(&SlowRead7<u8, 1>); break;
                     }
                 }
             }
@@ -526,10 +526,10 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
         switch (Num * 2 | NDS.ConsoleType)
         {
-        case 0: CALL((void*)&SlowBlockTransfer9<false, 0>); break;
-        case 1: CALL((void*)&SlowBlockTransfer9<false, 1>); break;
-        case 2: CALL((void*)&SlowBlockTransfer7<false, 0>); break;
-        case 3: CALL((void*)&SlowBlockTransfer7<false, 1>); break;
+        case 0: ABI_CallFunction(&SlowBlockTransfer9<false, 0>); break;
+        case 1: ABI_CallFunction(&SlowBlockTransfer9<false, 1>); break;
+        case 2: ABI_CallFunction(&SlowBlockTransfer7<false, 0>); break;
+        case 3: ABI_CallFunction(&SlowBlockTransfer7<false, 1>); break;
         }
 
         PopRegs(false, false);
@@ -630,10 +630,10 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
         switch (Num * 2 | NDS.ConsoleType)
         {
-        case 0: CALL((void*)&SlowBlockTransfer9<true, 0>); break;
-        case 1: CALL((void*)&SlowBlockTransfer9<true, 1>); break;
-        case 2: CALL((void*)&SlowBlockTransfer7<true, 0>); break;
-        case 3: CALL((void*)&SlowBlockTransfer7<true, 1>); break;
+        case 0: ABI_CallFunction(&SlowBlockTransfer9<true, 0>); break;
+        case 1: ABI_CallFunction(&SlowBlockTransfer9<true, 1>); break;
+        case 2: ABI_CallFunction(&SlowBlockTransfer7<true, 0>); break;
+        case 3: ABI_CallFunction(&SlowBlockTransfer7<true, 1>); break;
         }
 
         ADD(64, R(RSP), stackAlloc <= INT8_MAX ? Imm8(stackAlloc) : Imm32(stackAlloc));

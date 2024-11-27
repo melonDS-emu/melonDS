@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include <string>
+#include <QCoreApplication>
 #include <QStandardPaths>
 #include <QString>
 #include <QDateTime>
@@ -28,17 +29,16 @@
 #include <QThread>
 #include <QSemaphore>
 #include <QMutex>
-#include <QOpenGLContext>
 #include <QSharedMemory>
+#include <QTemporaryFile>
 #include <SDL_loadso.h>
 
 #include "Platform.h"
 #include "Config.h"
-#include "ROMManager.h"
+#include "main.h"
 #include "CameraManager.h"
-#include "LAN_Socket.h"
-#include "LAN_PCap.h"
-#include "LocalMP.h"
+#include "Net.h"
+#include "MPInterface.h"
 #include "SPI_Firmware.h"
 
 #ifdef __WIN32__
@@ -46,171 +46,47 @@
 #define ftell _ftelli64
 #endif // __WIN32__
 
-std::string EmuDirectory;
-
 extern CameraManager* camManager[2];
 
-void emuStop();
-
-// TEMP
-//#include "main.h"
-//extern MainWindow* mainWindow;
-
+extern melonDS::Net net;
 
 namespace melonDS::Platform
 {
 
-QSharedMemory* IPCBuffer = nullptr;
-int IPCInstanceID;
-
-void IPCInit()
+void SignalStop(StopReason reason, void* userdata)
 {
-    IPCInstanceID = 0;
-
-    IPCBuffer = new QSharedMemory("melonIPC");
-
-#if !defined(Q_OS_WINDOWS)
-    // QSharedMemory instances can be left over from crashed processes on UNIX platforms.
-    // To prevent melonDS thinking there's another instance, we attach and then immediately detach from the
-    // shared memory. If no other process was actually using it, it'll be destroyed and we'll have a clean
-    // shared memory buffer after creating it again below.
-    if (IPCBuffer->attach())
-    {
-        IPCBuffer->detach();
-        delete IPCBuffer;
-        IPCBuffer = new QSharedMemory("melonIPC");
-    }
-#endif
-
-    if (!IPCBuffer->attach())
-    {
-        Log(LogLevel::Info, "IPC sharedmem doesn't exist. creating\n");
-        if (!IPCBuffer->create(1024))
-        {
-            Log(LogLevel::Error, "IPC sharedmem create failed: %s\n", IPCBuffer->errorString().toStdString().c_str());
-            delete IPCBuffer;
-            IPCBuffer = nullptr;
-            return;
-        }
-
-        IPCBuffer->lock();
-        memset(IPCBuffer->data(), 0, IPCBuffer->size());
-        IPCBuffer->unlock();
-    }
-
-    IPCBuffer->lock();
-    u8* data = (u8*)IPCBuffer->data();
-    u16 mask = *(u16*)&data[0];
-    for (int i = 0; i < 16; i++)
-    {
-        if (!(mask & (1<<i)))
-        {
-            IPCInstanceID = i;
-            *(u16*)&data[0] |= (1<<i);
-            break;
-        }
-    }
-    IPCBuffer->unlock();
-
-    Log(LogLevel::Info, "IPC: instance ID %d\n", IPCInstanceID);
-}
-
-void IPCDeInit()
-{
-    if (IPCBuffer)
-    {
-        IPCBuffer->lock();
-        u8* data = (u8*)IPCBuffer->data();
-        *(u16*)&data[0] &= ~(1<<IPCInstanceID);
-        IPCBuffer->unlock();
-
-        IPCBuffer->detach();
-        delete IPCBuffer;
-    }
-    IPCBuffer = nullptr;
+    EmuInstance* inst = (EmuInstance*)userdata;
+    inst->emuStop(reason);
 }
 
 
-void Init(int argc, char** argv)
+static QIODevice::OpenMode GetQMode(FileMode mode)
 {
-#if defined(__WIN32__) || defined(PORTABLE)
-    if (argc > 0 && strlen(argv[0]) > 0)
-    {
-        int len = strlen(argv[0]);
-        while (len > 0)
-        {
-            if (argv[0][len] == '/') break;
-            if (argv[0][len] == '\\') break;
-            len--;
-        }
-        if (len > 0)
-        {
-            std::string emudir = argv[0];
-            EmuDirectory = emudir.substr(0, len);
-        }
-        else
-        {
-            EmuDirectory = ".";
-        }
-    }
-    else
-    {
-        EmuDirectory = ".";
-    }
-#else
-    QString confdir;
-    QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
-    config.mkdir("melonDS");
-    confdir = config.absolutePath() + "/melonDS/";
-    EmuDirectory = confdir.toStdString();
-#endif
+    QIODevice::OpenMode qmode = QIODevice::OpenModeFlag::NotOpen;
+    if (mode & FileMode::Read)
+        qmode |= QIODevice::OpenModeFlag::ReadOnly;
+    if (mode & FileMode::Write)
+        qmode |= QIODevice::OpenModeFlag::WriteOnly;
+    if (mode & FileMode::Append)
+        qmode |= QIODevice::OpenModeFlag::Append;
 
-    IPCInit();
-}
+    if ((mode & FileMode::Write) && !(mode & FileMode::Preserve))
+        qmode |= QIODevice::OpenModeFlag::Truncate;
 
-void DeInit()
-{
-    IPCDeInit();
-}
+    if (mode & FileMode::NoCreate)
+        qmode |= QIODevice::OpenModeFlag::ExistingOnly;
 
-void SignalStop(StopReason reason)
-{
-    emuStop();
-    switch (reason)
-    {
-        case StopReason::GBAModeNotSupported:
-            Log(LogLevel::Error, "!! GBA MODE NOT SUPPORTED\n");
-            //mainWindow->osdAddMessage(0xFFA0A0, "GBA mode not supported.");
-            break;
-        case StopReason::BadExceptionRegion:
-            //mainWindow->osdAddMessage(0xFFA0A0, "Internal error.");
-            break;
-        case StopReason::PowerOff:
-        case StopReason::External:
-            //mainWindow->osdAddMessage(0xFFC040, "Shutdown");
-        default:
-            break;
-    }
-}
+    if (mode & FileMode::Text)
+        qmode |= QIODevice::OpenModeFlag::Text;
 
-
-int InstanceID()
-{
-    return IPCInstanceID;
-}
-
-std::string InstanceFileSuffix()
-{
-    int inst = IPCInstanceID;
-    if (inst == 0) return "";
-
-    char suffix[16] = {0};
-    snprintf(suffix, 15, ".%d", inst+1);
-    return suffix;
+    return qmode;
 }
 
 constexpr char AccessMode(FileMode mode, bool file_exists)
 {
+    if (mode & FileMode::Append)
+        return  'a';
+
     if (!(mode & FileMode::Write))
         // If we're only opening the file for reading...
         return 'r';
@@ -249,16 +125,21 @@ static std::string GetModeString(FileMode mode, bool file_exists)
 
 FileHandle* OpenFile(const std::string& path, FileMode mode)
 {
-    if ((mode & FileMode::ReadWrite) == FileMode::None)
+    if ((mode & (FileMode::ReadWrite | FileMode::Append)) == FileMode::None)
     { // If we aren't reading or writing, then we can't open the file
         Log(LogLevel::Error, "Attempted to open \"%s\" in neither read nor write mode (FileMode 0x%x)\n", path.c_str(), mode);
         return nullptr;
     }
 
-    bool file_exists = QFile::exists(QString::fromStdString(path));
-    std::string modeString = GetModeString(mode, file_exists);
+    QString qpath{QString::fromStdString(path)};
 
-    FILE* file = fopen(path.c_str(), modeString.c_str());
+    std::string modeString = GetModeString(mode, QFile::exists(qpath));
+    QIODevice::OpenMode qmode = GetQMode(mode);
+    QFile qfile{qpath};
+    qfile.open(qmode);
+    FILE* file = fdopen(dup(qfile.handle()), modeString.c_str());
+    qfile.close();
+
     if (file)
     {
         Log(LogLevel::Debug, "Opened \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", path.c_str(), mode, modeString.c_str());
@@ -271,9 +152,9 @@ FileHandle* OpenFile(const std::string& path, FileMode mode)
     }
 }
 
-FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
+std::string GetLocalFilePath(const std::string& filename)
 {
-    QString qpath = QString::fromStdString(path);
+    QString qpath = QString::fromStdString(filename);
     QDir dir(qpath);
     QString fullpath;
 
@@ -284,18 +165,15 @@ FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
     }
     else
     {
-#ifdef PORTABLE
-        fullpath = QString::fromStdString(EmuDirectory) + QDir::separator() + qpath;
-#else
-        // Check user configuration directory
-        QDir config(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
-        config.mkdir("melonDS");
-        fullpath = config.absolutePath() + "/melonDS/";
-        fullpath.append(qpath);
-#endif
+        fullpath = emuDirectory + QDir::separator() + qpath;
     }
 
-    return OpenFile(fullpath.toStdString(), mode);
+    return fullpath.toStdString();
+}
+
+FileHandle* OpenLocalFile(const std::string& path, FileMode mode)
+{
+    return OpenFile(GetLocalFilePath(path), mode);
 }
 
 bool CloseFile(FileHandle* file)
@@ -327,6 +205,44 @@ bool LocalFileExists(const std::string& name)
     if (!f) return false;
     CloseFile(f);
     return true;
+}
+
+bool CheckFileWritable(const std::string& filepath)
+{
+    FileHandle* file = Platform::OpenFile(filepath.c_str(), FileMode::Read);
+
+    if (file)
+    {
+        // if the file exists, check if it can be opened for writing.
+        Platform::CloseFile(file);
+        file = Platform::OpenFile(filepath.c_str(), FileMode::Append);
+        if (file)
+        {
+            Platform::CloseFile(file);
+            return true;
+        }
+        else return false;
+    }
+    else
+    {
+        // if the file does not exist, create a temporary file to check, to avoid creating an empty file.
+        if (QTemporaryFile(filepath.c_str()).open())
+        {
+            return true;
+        }
+        else return false;
+    }
+}
+
+bool CheckLocalFileWritable(const std::string& name)
+{
+    FileHandle* file = Platform::OpenLocalFile(name.c_str(), FileMode::Append);
+    if (file)
+    {
+        Platform::CloseFile(file);
+        return true;
+    }
+    else return false;
 }
 
 bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin)
@@ -436,6 +352,14 @@ void Semaphore_Wait(Semaphore* sema)
     ((QSemaphore*) sema)->acquire();
 }
 
+bool Semaphore_TryWait(Semaphore* sema, int timeout_ms)
+{
+    if (!timeout_ms)
+        return ((QSemaphore*)sema)->tryAcquire(1);
+
+    return ((QSemaphore*)sema)->tryAcquire(1, timeout_ms);
+}
+
 void Semaphore_Post(Semaphore* sema, int count)
 {
     ((QSemaphore*) sema)->release(count);
@@ -471,28 +395,42 @@ void Sleep(u64 usecs)
     QThread::usleep(usecs);
 }
 
-
-void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
+u64 GetMSCount()
 {
-    if (ROMManager::NDSSave)
-        ROMManager::NDSSave->RequestFlush(savedata, savelen, writeoffset, writelen);
+    return sysTimer.elapsed();
 }
 
-void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
+u64 GetUSCount()
 {
-    if (ROMManager::GBASave)
-        ROMManager::GBASave->RequestFlush(savedata, savelen, writeoffset, writelen);
+    return sysTimer.nsecsElapsed() / 1000;
 }
 
-void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen)
+
+void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen, void* userdata)
 {
-    if (!ROMManager::FirmwareSave)
+    EmuInstance* inst = (EmuInstance*)userdata;
+    if (inst->ndsSave)
+        inst->ndsSave->RequestFlush(savedata, savelen, writeoffset, writelen);
+}
+
+void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen, void* userdata)
+{
+    EmuInstance* inst = (EmuInstance*)userdata;
+    if (inst->gbaSave)
+        inst->gbaSave->RequestFlush(savedata, savelen, writeoffset, writelen);
+}
+
+void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen, void* userdata)
+{
+    EmuInstance* inst = (EmuInstance*)userdata;
+    printf("saving firmware for instance %d\n", inst->getInstanceID());
+    if (!inst->firmwareSave)
         return;
 
     if (firmware.GetHeader().Identifier != GENERATED_FIRMWARE_IDENTIFIER)
     { // If this is not the default built-in firmware...
         // ...then write the whole thing back.
-        ROMManager::FirmwareSave->RequestFlush(firmware.Buffer(), firmware.Length(), writeoffset, writelen);
+        inst->firmwareSave->RequestFlush(firmware.Buffer(), firmware.Length(), writeoffset, writelen);
     }
     else
     {
@@ -509,133 +447,116 @@ void WriteFirmware(const Firmware& firmware, u32 writeoffset, u32 writelen)
         { // If we're writing to the access points...
             const u8* buffer = firmware.GetExtendedAccessPointPosition();
             u32 length = sizeof(firmware.GetExtendedAccessPoints()) + sizeof(firmware.GetAccessPoints());
-            ROMManager::FirmwareSave->RequestFlush(buffer, length, writeoffset - eapstart, writelen);
+            inst->firmwareSave->RequestFlush(buffer, length, writeoffset - eapstart, writelen);
         }
     }
 
 }
 
-void WriteDateTime(int year, int month, int day, int hour, int minute, int second)
+void WriteDateTime(int year, int month, int day, int hour, int minute, int second, void* userdata)
 {
+    EmuInstance* inst = (EmuInstance*)userdata;
     QDateTime hosttime = QDateTime::currentDateTime();
     QDateTime time = QDateTime(QDate(year, month, day), QTime(hour, minute, second));
+    auto& cfg = inst->getLocalConfig();
 
-    Config::RTCOffset = hosttime.secsTo(time);
+    cfg.SetInt64("RTC.Offset", hosttime.secsTo(time));
     Config::Save();
 }
 
-bool MP_Init()
+
+void MP_Begin(void* userdata)
 {
-    return LocalMP::Init();
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    MPInterface::Get().Begin(inst);
 }
 
-void MP_DeInit()
+void MP_End(void* userdata)
 {
-    return LocalMP::DeInit();
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    MPInterface::Get().End(inst);
 }
 
-void MP_Begin()
+int MP_SendPacket(u8* data, int len, u64 timestamp, void* userdata)
 {
-    return LocalMP::Begin();
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return MPInterface::Get().SendPacket(inst, data, len, timestamp);
 }
 
-void MP_End()
+int MP_RecvPacket(u8* data, u64* timestamp, void* userdata)
 {
-    return LocalMP::End();
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return MPInterface::Get().RecvPacket(inst, data, timestamp);
 }
 
-int MP_SendPacket(u8* data, int len, u64 timestamp)
+int MP_SendCmd(u8* data, int len, u64 timestamp, void* userdata)
 {
-    return LocalMP::SendPacket(data, len, timestamp);
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return MPInterface::Get().SendCmd(inst, data, len, timestamp);
 }
 
-int MP_RecvPacket(u8* data, u64* timestamp)
+int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid, void* userdata)
 {
-    return LocalMP::RecvPacket(data, timestamp);
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return MPInterface::Get().SendReply(inst, data, len, timestamp, aid);
 }
 
-int MP_SendCmd(u8* data, int len, u64 timestamp)
+int MP_SendAck(u8* data, int len, u64 timestamp, void* userdata)
 {
-    return LocalMP::SendCmd(data, len, timestamp);
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return MPInterface::Get().SendAck(inst, data, len, timestamp);
 }
 
-int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid)
+int MP_RecvHostPacket(u8* data, u64* timestamp, void* userdata)
 {
-    return LocalMP::SendReply(data, len, timestamp, aid);
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return MPInterface::Get().RecvHostPacket(inst, data, timestamp);
 }
 
-int MP_SendAck(u8* data, int len, u64 timestamp)
+u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, void* userdata)
 {
-    return LocalMP::SendAck(data, len, timestamp);
-}
-
-int MP_RecvHostPacket(u8* data, u64* timestamp)
-{
-    return LocalMP::RecvHostPacket(data, timestamp);
-}
-
-u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask)
-{
-    return LocalMP::RecvReplies(data, timestamp, aidmask);
-}
-
-bool LAN_Init()
-{
-    if (Config::DirectLAN)
-    {
-        if (!LAN_PCap::Init(true))
-            return false;
-    }
-    else
-    {
-        if (!LAN_Socket::Init())
-            return false;
-    }
-
-    return true;
-}
-
-void LAN_DeInit()
-{
-    // checkme. blarg
-    //if (Config::DirectLAN)
-    //    LAN_PCap::DeInit();
-    //else
-    //    LAN_Socket::DeInit();
-    LAN_PCap::DeInit();
-    LAN_Socket::DeInit();
-}
-
-int LAN_SendPacket(u8* data, int len)
-{
-    if (Config::DirectLAN)
-        return LAN_PCap::SendPacket(data, len);
-    else
-        return LAN_Socket::SendPacket(data, len);
-}
-
-int LAN_RecvPacket(u8* data)
-{
-    if (Config::DirectLAN)
-        return LAN_PCap::RecvPacket(data);
-    else
-        return LAN_Socket::RecvPacket(data);
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return MPInterface::Get().RecvReplies(inst, data, timestamp, aidmask);
 }
 
 
-void Camera_Start(int num)
+int Net_SendPacket(u8* data, int len, void* userdata)
+{
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    net.SendPacket(data, len, inst);
+    return 0;
+}
+
+int Net_RecvPacket(u8* data, void* userdata)
+{
+    int inst = ((EmuInstance*)userdata)->getInstanceID();
+    return net.RecvPacket(data, inst);
+}
+
+
+void Camera_Start(int num, void* userdata)
 {
     return camManager[num]->start();
 }
 
-void Camera_Stop(int num)
+void Camera_Stop(int num, void* userdata)
 {
     return camManager[num]->stop();
 }
 
-void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv)
+void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv, void* userdata)
 {
     return camManager[num]->captureFrame(frame, width, height, yuv);
+}
+
+void Addon_RumbleStart(u32 len, void* userdata)
+{
+    ((EmuInstance*)userdata)->inputRumbleStart(len);
+}
+
+void Addon_RumbleStop(void* userdata)
+{
+    ((EmuInstance*)userdata)->inputRumbleStop();
 }
 
 DynamicLibrary* DynamicLibrary_Load(const char* lib)

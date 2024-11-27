@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -67,9 +67,9 @@ static void DecryptR4Sector(u8* dest, u8* src, u16 key1)
     }
 }
 
-CartR4::CartR4(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, CartR4Type ctype, CartR4Language clanguage,
+CartR4::CartR4(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, CartR4Type ctype, CartR4Language clanguage, void* userdata,
             std::optional<FATStorage>&& sdcard)
-    : CartSD(std::move(rom), len, chipid, romparams, std::move(sdcard))
+    : CartSD(std::move(rom), len, chipid, romparams, userdata, std::move(sdcard))
 {
     InitStatus = 0;
     R4CartType = ctype;

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -24,6 +24,7 @@
 #include <initializer_list>
 
 #include "Config.h"
+#include "EmuInstance.h"
 
 static constexpr int keypad_num = 12;
 
@@ -48,6 +49,9 @@ static constexpr std::initializer_list<int> hk_general =
     HK_FrameStep,
     HK_FastForward,
     HK_FastForwardToggle,
+    HK_SlowMo,
+    HK_SlowMoToggle,
+    HK_FrameLimitToggle,
     HK_FullscreenToggle,
     HK_Lid,
     HK_Mic,
@@ -64,6 +68,9 @@ static constexpr std::initializer_list<const char*> hk_general_labels =
     "Reset",
     "Frame step",
     "Fast forward",
+    "Toggle fast forward",
+    "Slow mo",
+    "Toggle slow mo",
     "Toggle FPS limit",
     "Toggle fullscreen",
     "Close/open lid",
@@ -88,6 +95,8 @@ class InputConfigDialog : public QDialog
 public:
     explicit InputConfigDialog(QWidget* parent);
     ~InputConfigDialog();
+
+    SDL_Joystick* getJoystick();
 
     static InputConfigDialog* currentDlg;
     static InputConfigDialog* openDlg(QWidget* parent)
@@ -123,9 +132,12 @@ private:
 
     Ui::InputConfigDialog* ui;
 
+    EmuInstance* emuInstance;
+
     int keypadKeyMap[12], keypadJoyMap[12];
     int addonsKeyMap[hk_addons.size()], addonsJoyMap[hk_addons.size()];
     int hkGeneralKeyMap[hk_general.size()], hkGeneralJoyMap[hk_general.size()];
+    int joystickID;
 };
 
 

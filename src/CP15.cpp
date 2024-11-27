@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -44,6 +44,7 @@ void ARMv5::CP15Reset()
     CP15Control = 0x2078; // dunno
 
     RNGSeed = 44203;
+    TraceProcessID = 0;
 
     DTCMSetting = 0;
     ITCMSetting = 0;
@@ -186,10 +187,14 @@ void ARMv5::UpdatePURegion(u32 n)
         return;
     }
 
-    u32 start = rgn >> 12;
-    u32 sz = 2 << ((rgn >> 1) & 0x1F);
-    u32 end = start + (sz >> 12);
-    // TODO: check alignment of start
+    // notes:
+    // * min size of a pu region is 4KiB (12 bits)
+    // * size is calculated as size + 1, but the 12 lsb of address space are ignored, therefore we need it as size + 1 - 12, or size - 11
+    // * pu regions are aligned based on their size
+    u32 size = std::max((int)((rgn>>1) & 0x1F) - 11, 0); // obtain the size, subtract 11 and clamp to a min of 0.
+    u32 start = ((rgn >> 12) >> size) << size; // determine the start offset, and use shifts to force alignment with a multiple of the size.
+    u32 end = start + (1<<size); // add 1 left shifted by size to start to determine end point
+    // dont need to bounds check the end point because the force alignment inherently prevents it from breaking
 
     u8 usermask = 0;
     u8 privmask = 0;
@@ -239,7 +244,7 @@ void ARMv5::UpdatePURegion(u32 n)
         "PU region %d: %08X-%08X, user=%02X priv=%02X, %08X/%08X\n",
         n,
         start << 12,
-        end << 12,
+        (end << 12) - 1,
         usermask,
         privmask,
         PU_DataRW,
@@ -579,12 +584,12 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
         std::snprintf(log_output,
                  sizeof(log_output),
-                 "PU: region %d = %08X : %s, %08X-%08X\n",
+                 "PU: region %d = %08X : %s, start: %08X size: %02X\n",
                  (id >> 4) & 0xF,
                  val,
                  val & 1 ? "enabled" : "disabled",
                  val & 0xFFFFF000,
-                 (val & 0xFFFFF000) + (2 << ((val & 0x3E) >> 1))
+                 (val & 0x3E) >> 1
         );
         Log(LogLevel::Debug, "%s", log_output);
         // Some implementations of Log imply a newline, so we build up the line before printing it
@@ -637,6 +642,10 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x911:
         ITCMSetting = val & 0x0000003E;
         UpdateITCMSetting();
+        return;
+
+    case 0xD01:
+        TraceProcessID = val;
         return;
 
     case 0xF00:
@@ -756,6 +765,9 @@ u32 ARMv5::CP15Read(u32 id) const
         return DTCMSetting;
     case 0x911:
         return ITCMSetting;
+
+    case 0xD01:
+        return TraceProcessID;
     }
 
     if ((id & 0xF00) == 0xF00) // test/debug shit?

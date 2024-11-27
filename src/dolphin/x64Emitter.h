@@ -1019,6 +1019,28 @@ public:
       CALL(ptr);
     }
   }
+  template <typename FunctionPointer>
+  void ABI_TailCall(FunctionPointer func)
+  {
+    static_assert(std::is_pointer<FunctionPointer>() &&
+                      std::is_function<std::remove_pointer_t<FunctionPointer>>(),
+                  "Supplied type must be a function pointer.");
+
+    const u8* ptr = reinterpret_cast<const u8*>(func);
+    const u64 address = reinterpret_cast<u64>(ptr);
+    const u64 distance = address - (reinterpret_cast<u64>(code) + 5);
+
+    if (distance >= 0x0000000080000000ULL && distance < 0xFFFFFFFF80000000ULL)
+    {
+      // Far call
+      MOV(64, R(RAX), Imm64(address));
+      JMPptr(R(RAX));
+    }
+    else
+    {
+      JMP(ptr, true);
+    }
+  }
 
   template <typename FunctionPointer>
   void ABI_CallFunctionC16(FunctionPointer func, u16 param1)

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -260,7 +260,7 @@ void FirmwareMem::Release()
 
         // Request that the start of the Wi-fi/userdata settings region
         // through the end of the firmware blob be flushed to disk
-        Platform::WriteFirmware(FirmwareData, wifioffset, FirmwareData.Length() - wifioffset);
+        Platform::WriteFirmware(FirmwareData, wifioffset, FirmwareData.Length() - wifioffset, NDS.UserData);
     }
 
     SPIDevice::Release();
@@ -474,7 +474,7 @@ void TSC::Write(u8 val)
 
 SPIHost::SPIHost(melonDS::NDS& nds, Firmware&& firmware) : NDS(nds)
 {
-    NDS.RegisterEventFunc(Event_SPITransfer, 0, MemberEventFunc(SPIHost, TransferDone));
+    NDS.RegisterEventFuncs(Event_SPITransfer, this, {MakeEventThunk(SPIHost, TransferDone)});
 
     Devices[SPIDevice_FirmwareMem] = new FirmwareMem(NDS, std::move(firmware));
     Devices[SPIDevice_PowerMan] = new PowerMan(NDS);
@@ -495,7 +495,7 @@ SPIHost::~SPIHost()
         Devices[i] = nullptr;
     }
 
-    NDS.UnregisterEventFunc(Event_SPITransfer, 0);
+    NDS.UnregisterEventFuncs(Event_SPITransfer);
 }
 
 void SPIHost::Reset()

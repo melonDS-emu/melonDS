@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -24,6 +24,7 @@
 
 namespace Ui { class VideoSettingsDialog; }
 class VideoSettingsDialog;
+class EmuInstance;
 
 class VideoSettingsDialog : public QDialog
 {
@@ -32,6 +33,8 @@ class VideoSettingsDialog : public QDialog
 public:
     explicit VideoSettingsDialog(QWidget* parent);
     ~VideoSettingsDialog();
+
+    bool UsesGL();
 
     static VideoSettingsDialog* currentDlg;
     static VideoSettingsDialog* openDlg(QWidget* parent)
@@ -65,12 +68,15 @@ private slots:
 
     void on_cbxGLResolution_currentIndexChanged(int idx);
     void on_cbBetterPolygons_stateChanged(int state);
+    void on_cbxComputeHiResCoords_stateChanged(int state);
 
     void on_cbSoftwareThreaded_stateChanged(int state);
 private:
     void setVsyncControlEnable(bool hasOGL);
+    void setEnabled();
 
     Ui::VideoSettingsDialog* ui;
+    EmuInstance* emuInstance;
 
     QButtonGroup* grp3DRenderer;
 
@@ -81,6 +87,7 @@ private:
     int oldSoftThreaded;
     int oldGLScale;
     int oldGLBetterPolygons;
+    int oldHiresCoordinates;
 };
 
 #endif // VIDEOSETTINGSDIALOG_H

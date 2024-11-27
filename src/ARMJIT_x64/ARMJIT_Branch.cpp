@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -176,9 +176,9 @@ void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
     else
         MOV(32, R(ABI_PARAM3), Imm32(true)); // what a waste
     if (Num == 0)
-        CALL((void*)&ARMv5JumpToTrampoline);
+        ABI_CallFunction(ARMv5JumpToTrampoline);
     else
-        CALL((void*)&ARMv4JumpToTrampoline);
+        ABI_CallFunction(ARMv4JumpToTrampoline);
 
     PopRegs(restoreCPSR, true);
 

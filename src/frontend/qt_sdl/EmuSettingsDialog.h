@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -23,6 +23,8 @@
 
 namespace Ui { class EmuSettingsDialog; }
 class EmuSettingsDialog;
+
+class EmuInstance;
 
 class EmuSettingsDialog : public QDialog
 {
@@ -81,8 +83,11 @@ private slots:
 
 private:
     void verifyFirmware();
+    void updateLastBIOSFolder(QString& filename);
 
     Ui::EmuSettingsDialog* ui;
+    EmuInstance* emuInstance;
+    QString lastBIOSFolder;
 };
 
 #endif // EMUSETTINGSDIALOG_H

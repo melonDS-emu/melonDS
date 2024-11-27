@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -84,6 +84,7 @@ class Compiler : public Gen::XEmitter
 {
 public:
     explicit Compiler(melonDS::NDS& nds);
+    ~Compiler();
 
     void Reset();
 
@@ -256,6 +257,7 @@ public:
 
     std::unordered_map<u8*, LoadStorePatch> LoadStorePatches {};
 
+    u8* CodeMemBase;
     u8* ResetStart {};
     u32 CodeMemSize {};
 

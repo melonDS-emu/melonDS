@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -22,9 +22,10 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
+#include "main.h"
 
-#include "LAN_Socket.h"
-#include "LAN_PCap.h"
+#include "Net_Slirp.h"
+#include "Net_PCap.h"
 #include "Wifi.h"
 
 #include "MPSettingsDialog.h"
@@ -33,21 +34,22 @@
 
 MPSettingsDialog* MPSettingsDialog::currentDlg = nullptr;
 
-extern bool RunningSomething;
-
 
 MPSettingsDialog::MPSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::MPSettingsDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
+    emuInstance = ((MainWindow*)parent)->getEmuInstance();
+
+    auto& cfg = emuInstance->getGlobalConfig();
     grpAudioMode = new QButtonGroup(this);
     grpAudioMode->addButton(ui->rbAudioAll,        0);
     grpAudioMode->addButton(ui->rbAudioOneOnly,    1);
     grpAudioMode->addButton(ui->rbAudioActiveOnly, 2);
-    grpAudioMode->button(Config::MPAudioMode)->setChecked(true);
+    grpAudioMode->button(cfg.GetInt("MP.AudioMode"))->setChecked(true);
 
-    ui->sbReceiveTimeout->setValue(Config::MPRecvTimeout);
+    ui->sbReceiveTimeout->setValue(cfg.GetInt("MP.RecvTimeout"));
 }
 
 MPSettingsDialog::~MPSettingsDialog()
@@ -57,10 +59,18 @@ MPSettingsDialog::~MPSettingsDialog()
 
 void MPSettingsDialog::done(int r)
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        QDialog::done(r);
+        closeDlg();
+        return;
+    }
+
     if (r == QDialog::Accepted)
     {
-        Config::MPAudioMode = grpAudioMode->checkedId();
-        Config::MPRecvTimeout = ui->sbReceiveTimeout->value();
+        auto& cfg = emuInstance->getGlobalConfig();
+        cfg.SetInt("MP.AudioMode", grpAudioMode->checkedId());
+        cfg.SetInt("MP.RecvTimeout", ui->sbReceiveTimeout->value());
 
         Config::Save();
     }
@@ -69,5 +79,3 @@ void MPSettingsDialog::done(int r)
 
     closeDlg();
 }
-
-//

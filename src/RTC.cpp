@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2023 melonDS team
+    Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
 
@@ -34,18 +34,18 @@ void WriteDateTime(int num, u8 val);
 
 RTC::RTC(melonDS::NDS& nds) : NDS(nds)
 {
-    NDS.RegisterEventFunc(Event_RTC, 0, MemberEventFunc(RTC, ClockTimer));
+    NDS.RegisterEventFuncs(Event_RTC, this, {MakeEventThunk(RTC, ClockTimer)});
 
     ResetState();
 
     // indicate the power was off
     // this will be changed if a previously saved RTC state is loaded
-    State.StatusReg1 = 0x80;
+    State.StatusReg1 = 0x80 | (1<<1);
 }
 
 RTC::~RTC()
 {
-    NDS.UnregisterEventFunc(Event_RTC, 0);
+    NDS.UnregisterEventFuncs(Event_RTC);
 }
 
 void RTC::Reset()
@@ -602,7 +602,7 @@ void RTC::SaveDateTime()
 {
     int y, m, d, h, i, s;
     GetDateTime(y, m, d, h, i, s);
-    Platform::WriteDateTime(y, m, d, h, i, s);
+    Platform::WriteDateTime(y, m, d, h, i, s, NDS.UserData);
 }
 
 void RTC::CmdRead()
