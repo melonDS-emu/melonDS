@@ -136,12 +136,58 @@ private:
         if (key == -1) return "None";
 
         /* MelonPrimeDS { */
+        auto getMouseButtonName = [](Qt::MouseButton button) -> std::optional<QString> {
+            static const struct {
+                Qt::MouseButton button;
+                const char* name;
+            } mouseButtons[] = {
+                {Qt::LeftButton, "LeftButton"},
+                {Qt::RightButton, "RightButton"},
+                {Qt::MiddleButton, "MiddleButton"},
+                {Qt::BackButton, "BackButton"},
+                {Qt::ForwardButton, "ForwardButton"},
+                {Qt::ExtraButton4, "ExtraButton4"},
+                {Qt::ExtraButton5, "ExtraButton5"},
+                {Qt::ExtraButton6, "ExtraButton6"},
+                {Qt::ExtraButton7, "ExtraButton7"},
+                {Qt::ExtraButton8, "ExtraButton8"},
+                {Qt::ExtraButton9, "ExtraButton9"},
+                {Qt::ExtraButton10, "ExtraButton10"},
+                {Qt::ExtraButton11, "ExtraButton11"},
+                {Qt::ExtraButton12, "ExtraButton12"},
+                {Qt::ExtraButton13, "ExtraButton13"},
+                {Qt::ExtraButton14, "ExtraButton14"},
+                {Qt::ExtraButton15, "ExtraButton15"},
+                {Qt::ExtraButton16, "ExtraButton16"},
+                {Qt::ExtraButton17, "ExtraButton17"},
+                {Qt::ExtraButton18, "ExtraButton18"},
+                {Qt::ExtraButton19, "ExtraButton19"},
+                {Qt::ExtraButton20, "ExtraButton20"},
+                {Qt::ExtraButton21, "ExtraButton21"},
+                {Qt::ExtraButton22, "ExtraButton22"},
+                {Qt::ExtraButton23, "ExtraButton23"},
+                {Qt::ExtraButton24, "ExtraButton24"}
+            };
+
+            for (const auto& mb : mouseButtons) {
+                if (button == mb.button) {
+                    return QString("Mouse ") + mb.name;
+                }
+            }
+            return std::nullopt;
+            };
+        auto mouseButton = key & ~0xF0000000;
+        if (auto name = getMouseButtonName(static_cast<Qt::MouseButton>(mouseButton))) {
+            return *name;
+        }
+        /*
         auto mouseButton = key & ~0xF0000000;
         if (mouseButton == Qt::LeftButton) return "Mouse Left";
         if (mouseButton == Qt::MiddleButton) return "Mouse Middle";
         if (mouseButton == Qt::RightButton) return "Mouse Right";
         if (mouseButton == Qt::ExtraButton1) return "Mouse 4";
         if (mouseButton == Qt::ExtraButton2) return "Mouse 5";
+        */
         /* } MelonPrimeDS */
 
         QString isright = (key & (1<<31)) ? "Right " : "Left ";

@@ -284,3 +284,46 @@ SDL_Joystick* InputConfigDialog::getJoystick()
 {
     return emuInstance->getJoystick();
 }
+
+/* MelonPrimeDS */
+
+void InputConfigDialog::on_metroidResetSensitivityValues_clicked()
+{
+    ui->metroidAimSensitvitySpinBox->setValue(30);
+    ui->metroidVirtualStylusSensitvitySpinBox->setValue(20);
+}
+
+void InputConfigDialog::on_metroidSetVideoQualityToHigh_clicked()
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("Screen.UseGL", true);
+    cfg.SetBool("Screen.VSync", false);
+    cfg.SetInt("Screen.VSyncInterval", 1);
+
+
+    cfg.SetInt("3D.Renderer", renderer3D_OpenGL); // melonPrimeDS. renderer3D_Software  renderer3D_OpenGL  renderer3D_OpenGLCompute:
+    cfg.SetBool("3D.Soft.Threaded", true);
+
+
+    cfg.SetInt("3D.GL.ScaleFactor", 4); // 8 is too much 4 is enough
+    cfg.SetBool("3D.GL.BetterPolygons", true); // If you don't check the box to improve Polygon division, part of the sky will blink in Alinos Perch.
+
+
+}
+
+void InputConfigDialog::on_metroidSetVideoQualityToLow_clicked()
+{
+
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("Screen.UseGL", true);
+    cfg.SetBool("Screen.VSync", false);
+    cfg.SetInt("Screen.VSyncInterval", 1);
+
+    cfg.SetInt("3D.Renderer", renderer3D_Software); // melonPrimeDS. renderer3D_Software  renderer3D_OpenGL  renderer3D_OpenGLCompute:
+    cfg.SetBool("3D.Soft.Threaded", true);
+
+    cfg.SetInt("3D.GL.ScaleFactor", 4); // 8 is too much 4 is enough
+    cfg.SetBool("3D.GL.BetterPolygons", true); // If you don't check the box to improve Polygon division, part of the sky will blink in Alinos Perch.
+
+
+}

@@ -197,6 +197,12 @@ private slots:
     void on_btnJoyMapSwitch_clicked();
     void on_cbxJoystick_currentIndexChanged(int id);
 
+    /* MelonPrimeDS { */
+    void on_metroidResetSensitivityValues_clicked();
+    void on_metroidSetVideoQualityToLow_clicked();
+    void on_metroidSetVideoQualityToHigh_clicked();
+    /* } MelonPrimeDS*/
+
 private:
     void populatePage(QWidget* page,
         const std::initializer_list<const char*>& labels,
