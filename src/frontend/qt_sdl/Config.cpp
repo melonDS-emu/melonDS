@@ -72,6 +72,42 @@ DefaultList<int> DefaultInts =
     {"Instance*.Gdb.ARM9.Port", 3333},
 #endif
     {"LAN.HostNumPlayers", 16},
+    /* MelonPrimeDS */
+    /* This is not working now. 
+    {"Metroid.Sensitivity.Aim", 30},
+    {"Metroid.Sensitivity.VirtualStylus", 20},
+
+    {"Keyboard.HK_MetroidMoveForward",       Qt::Key_W},
+    {"Keyboard.HK_MetroidMoveBack",          Qt::Key_S},
+    {"Keyboard.HK_MetroidMoveLeft",          Qt::Key_A},
+    {"Keyboard.HK_MetroidMoveRight",         Qt::Key_D},
+    {"Keyboard.HK_MetroidJump",              Qt::Key_Space},
+    {"Keyboard.HK_MetroidMorphBall",         Qt::Key_Control},
+    {"Keyboard.HK_MetroidZoom",              (int)Qt::RightButton | (int)0xF0000000},
+    {"Keyboard.HK_MetroidHoldMorphBallBoost",Qt::Key_Shift},
+    {"Keyboard.HK_MetroidScanVisor",         Qt::Key_C},
+    {"Keyboard.HK_MetroidUILeft",            Qt::Key_Z},
+    {"Keyboard.HK_MetroidUIRight",           Qt::Key_X},
+    {"Keyboard.HK_MetroidUIOk",              Qt::Key_F},
+    {"Keyboard.HK_MetroidUIYes",             Qt::Key_G},
+    {"Keyboard.HK_MetroidUINo",              Qt::Key_H},
+    {"Keyboard.HK_MetroidShootScan",         (int)Qt::LeftButton | (int)0xF0000000},
+    {"Keyboard.HK_MetroidScanShoot",         Qt::Key_V},
+    {"Keyboard.HK_MetroidWeaponBeam",        (int)Qt::ExtraButton2 | (int)0xF0000000},
+    {"Keyboard.HK_MetroidWeaponMissile",     (int)Qt::ExtraButton1 | (int)0xF0000000},
+    {"Keyboard.HK_MetroidWeaponSpecial",     Qt::Key_R},
+    {"Keyboard.HK_MetroidWeaponNext",        Qt::Key_J},
+    {"Keyboard.HK_MetroidWeaponPrevious",    Qt::Key_K},
+    {"Keyboard.HK_MetroidWeapon1",           Qt::Key_1},
+    {"Keyboard.HK_MetroidWeapon2",           Qt::Key_2},
+    {"Keyboard.HK_MetroidWeapon3",           Qt::Key_3},
+    {"Keyboard.HK_MetroidWeapon4",           Qt::Key_4},
+    {"Keyboard.HK_MetroidWeapon5",           Qt::Key_5},
+    {"Keyboard.HK_MetroidWeapon6",           Qt::Key_6},
+    {"Keyboard.HK_MetroidMenu",              Qt::Key_Tab},
+    {"Keyboard.HK_MetroidIngameSensiUp",     Qt::Key_PageUp},
+    {"Keyboard.HK_MetroidIngameSensiDown",   Qt::Key_PageDown},
+    */
 };
 
 RangeList IntRanges =
