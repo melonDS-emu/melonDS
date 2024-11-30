@@ -84,6 +84,82 @@ static constexpr std::initializer_list<const char*> hk_general_labels =
 
 static_assert(hk_general.size() == hk_general_labels.size());
 
+// MelonPrimeDS {
+static constexpr std::initializer_list<int> hk_tabAddonsMetroid =
+{
+    /*
+    HK_MetroidMoveForward,
+    HK_MetroidMoveBack,
+    HK_MetroidMoveLeft,
+    HK_MetroidMoveRight,
+    HK_MetroidJump,
+    HK_MetroidMorphBall,
+    HK_MetroidZoom,
+    HK_MetroidHoldMorphBallBoost,
+    HK_MetroidScanVisor,
+    HK_MetroidUILeft,
+    HK_MetroidUIRight,
+    HK_MetroidUIOk,
+    HK_MetroidUIYes,
+    HK_MetroidUINo,
+    HK_MetroidShootScan,
+    HK_MetroidScanShoot,
+    HK_MetroidWeaponBeam,
+    HK_MetroidWeaponMissile,
+    HK_MetroidWeaponSpecial,
+    HK_MetroidWeaponNext,
+    HK_MetroidWeaponPrevious,
+    HK_MetroidWeapon1,
+    HK_MetroidWeapon2,
+    HK_MetroidWeapon3,
+    HK_MetroidWeapon4,
+    HK_MetroidWeapon5,
+    HK_MetroidWeapon6,
+    HK_MetroidMenu,
+    HK_MetroidIngameSensiUp,
+    HK_MetroidIngameSensiDown
+    */
+};
+
+static constexpr std::initializer_list<const char*> hk_tabAddonsMetroid_labels =
+{
+    /*
+    "[Metroid] (W) Move Forward",
+    "[Metroid] (S) Move Back",
+    "[Metroid] (A) Move Left",
+    "[Metroid] (D) Move Right",
+    "[Metroid] (Space) Jump",
+    "[Metroid] (L. Ctrl) Transform",
+    "[Metroid] (Mouse Right) Imperialist Zoom, Map Zoom Out, Morph Ball Boost",
+    "[Metroid] (Shift) Hold to Fast Morph Ball Boost",
+    "[Metroid] (C) Scan Visor",
+    "[Metroid] (Z) UI Left",
+    "[Metroid] (X) UI Right",
+    "[Metroid] (F) UI Ok",
+    "[Metroid] (G) UI Yes (Enter Starship)",
+    "[Metroid] (H) UI No (Enter Starship)",
+    "[Metroid] (Mouse Left) Shoot/Scan, Map Zoom In",
+    "[Metroid] (V) Scan/Shoot, Map Zoom In",
+    "[Metroid] (Mouse 5, Side Top) Weapon Beam",
+    "[Metroid] (Mouse 4, Side Bottom) Weapon Missile",
+    "[Metroid] (R) SpecialWeapon (Last used Weapon, Omega cannon)",
+    "[Metroid] (J) Next Weapon in the sorted order",
+    "[Metroid] (K) Previous Weapon in the sorted order",
+    "[Metroid] (1) Weapon 1",
+    "[Metroid] (2) Weapon 2",
+    "[Metroid] (3) Weapon 3",
+    "[Metroid] (4) Weapon 4",
+    "[Metroid] (5) Weapon 5",
+    "[Metroid] (6) Weapon 6",
+    "[Metroid] (Tab) Menu/Map",
+    "[Metroid] (PgUp) AimSensitivity Up",
+    "[Metroid] (PgDown) AimSensitivity Down"
+    */
+};
+
+static_assert(hk_tabAddonsMetroid.size() == hk_tabAddonsMetroid_labels.size());
+// } MelonPrimeDS
+
 
 namespace Ui { class InputConfigDialog; }
 class InputConfigDialog;
@@ -136,6 +212,7 @@ private:
 
     int keypadKeyMap[12], keypadJoyMap[12];
     int addonsKeyMap[hk_addons.size()], addonsJoyMap[hk_addons.size()];
+    int addonsMetroidKeyMap[hk_tabAddonsMetroid.size()], addonsMetroidJoyMap[hk_tabAddonsMetroid.size()]; // MelonPrimeDS
     int hkGeneralKeyMap[hk_general.size()], hkGeneralJoyMap[hk_general.size()];
     int joystickID;
 };

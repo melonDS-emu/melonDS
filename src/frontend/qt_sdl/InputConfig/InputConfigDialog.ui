@@ -2277,7 +2277,120 @@
        <string>General hotkeys</string>
       </attribute>
      </widget>
-    </widget>
+		<!-- MelonPrimeDS -->
+
+		<!-- Tab Add-ons (Metroid) -->
+	    <widget class="QWidget" name="tabAddonsMetroid">
+		    <attribute name="title">
+			    <string>Add-ons (Metroid)</string>
+		    </attribute>
+	    </widget>
+
+		<!-- Tab Other Metroid settings -->
+	    <widget class="QWidget" name="tabMetroid">
+		    <attribute name="title">
+			    <string>Other Metroid settings</string>
+		    </attribute>
+		    <!-- Form layout to organize setting items in a grid -->
+		    <layout class="QFormLayout" name="metroidFormLayout">
+			    <!-- Aim sensitivity configuration -->
+			    <item row="0" column="0">
+				    <!-- Label for aim sensitivity -->
+				    <widget class="QLabel" name="metroidAimSensitvityLabel">
+					    <property name="text">
+						    <string>Aim sensitivity:</string>
+					    </property>
+				    </widget>
+			    </item>
+			    <item row="0" column="1">
+				    <!-- Spin box for aim sensitivity value (range: 0-99999) -->
+				    <widget class="QSpinBox" name="metroidAimSensitvitySpinBox">
+					    <property name="minimum">
+						    <number>0</number>
+					    </property>
+					    <property name="maximum">
+						    <number>99999</number>
+					    </property>
+					    <property name="value">
+						    <number>0</number>
+					    </property>
+				    </widget>
+			    </item>
+
+			    <!-- Virtual stylus sensitivity configuration -->
+			    <item row="1" column="0">
+				    <!-- Label for virtual stylus sensitivity -->
+				    <widget class="QLabel" name="metroidVirtualStylusSensitvityLabel">
+					    <property name="text">
+						    <string>Virtual stylus sensitivity:</string>
+					    </property>
+				    </widget>
+			    </item>
+			    <item row="1" column="1">
+				    <!-- Spin box for virtual stylus sensitivity value (range: 0-999) -->
+				    <widget class="QSpinBox" name="metroidVirtualStylusSensitvitySpinBox">
+					    <property name="minimum">
+						    <number>0</number>
+					    </property>
+					    <property name="maximum">
+						    <number>999</number>
+					    </property>
+					    <property name="value">
+						    <number>0</number>
+					    </property>
+				    </widget>
+			    </item>
+
+			    <!-- Reset button for sensitivity settings -->
+			    <item row="2" column="0">
+				    <widget class="QPushButton" name="metroidResetSensitivityValues">
+					    <property name="text">
+						    <string>Reset sensitivity values</string>
+					    </property>
+				    </widget>
+			    </item>
+
+			    <!-- Add vertical spacing -->
+			    <item row="3" column="0">
+				    <widget class="QLabel" name="emptyLabel">
+					    <property name="text">
+						    <string> </string>
+					    </property>
+				    </widget>
+			    </item>
+
+			    <item row="4" column="0">
+				    <!-- Label for metroidSetVideoQuality -->
+				    <widget class="QLabel" name="metroidSetVideoQualityLabel">
+					    <property name="text">
+						    <string>Restarting melonPrimeDS required:</string>
+					    </property>
+				    </widget>
+			    </item>
+
+
+			    <!-- Low quality -->
+			    <item row="5" column="0">
+				    <widget class="QPushButton" name="metroidSetVideoQualityToLow">
+					    <property name="text">
+						    <string>Video quality: Low (High Performance)</string>
+					    </property>
+				    </widget>
+			    </item>
+
+			    <!-- High quality -->
+			    <item row="6" column="0">
+				    <widget class="QPushButton" name="metroidSetVideoQualityToHigh">
+					    <property name="text">
+						    <string>Video quality: High (Excellent in-game graphics, but menus flicker)</string>
+					    </property>
+				    </widget>
+			    </item>
+
+		    </layout>
+	    </widget>
+		<!-- /MelonPrimeDS -->
+	</widget>
    </item>
    <item row="7" column="0" colspan="2">
     <layout class="QHBoxLayout" name="horizontalLayout">
