@@ -77,6 +77,8 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     populatePage(ui->tabHotkeysGeneral, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
 
     // MelonPrimeDS {
+
+    // load key values from toml file
     i = 0;
     for (int hotkey : hk_tabAddonsMetroid)
     {
@@ -85,6 +87,8 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         addonsMetroidJoyMap[i] = joycfg.GetInt(btn);
         i++;
     }
+
+    // load labels
     populatePage(ui->tabAddonsMetroid, hk_tabAddonsMetroid_labels, addonsMetroidKeyMap, addonsMetroidJoyMap);
     // } MelonPrimeDS
 
@@ -225,6 +229,21 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         joycfg.SetInt(btn, hkGeneralJoyMap[i]);
         i++;
     }
+
+    // MelonPrimeDS {
+
+    // set key values to toml file
+
+    i = 0;
+    for (int hotkey : hk_tabAddonsMetroid)
+    {
+        const char* btn = EmuInstance::hotkeyNames[hotkey];
+        keycfg.SetInt(btn, addonsMetroidKeyMap[i]);
+        joycfg.SetInt(btn, addonsMetroidJoyMap[i]);
+        i++;
+    }
+
+    // } MelonPrimeDS
 
     instcfg.SetInt("JoystickID", joystickID);
     Config::Save();
