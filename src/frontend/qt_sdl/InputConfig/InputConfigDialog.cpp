@@ -78,6 +78,9 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
 
     // MelonPrimeDS {
 
+
+    // Addons ( Metroid ) Tab
+    // 
     // load key values from toml file
     i = 0;
     for (int hotkey : hk_tabAddonsMetroid)
@@ -90,6 +93,13 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
 
     // load labels
     populatePage(ui->tabAddonsMetroid, hk_tabAddonsMetroid_labels, addonsMetroidKeyMap, addonsMetroidJoyMap);
+
+    // Other Metroid Settings Tab
+
+    // Sensitivities
+    ui->metroidAimSensitvitySpinBox->setValue(instcfg.GetInt("Metroid.Sensitivity.Aim"));
+    ui->metroidVirtualStylusSensitvitySpinBox->setValue(instcfg.GetInt("Metroid.Sensitivity.VirtualStylus"));
+
     // } MelonPrimeDS
 
 
@@ -242,6 +252,10 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         joycfg.SetInt(btn, addonsMetroidJoyMap[i]);
         i++;
     }
+
+    // Sensitivities
+    instcfg.SetInt("Metroid.Sensitivity.Aim", ui->metroidAimSensitvitySpinBox->value());
+    instcfg.SetInt("Metroid.Sensitivity.VirtualStylus", ui->metroidVirtualStylusSensitvitySpinBox->value());
 
     // } MelonPrimeDS
 
