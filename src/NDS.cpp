@@ -875,7 +875,7 @@ void NDS::RunSystemSleep(u64 timestamp)
                         param = evt.Param;
 
                     EventFunc func = evt.Funcs[evt.FuncID];
-                    func(this, param);
+                    func(evt.That, param);
                 }
             }
         }
