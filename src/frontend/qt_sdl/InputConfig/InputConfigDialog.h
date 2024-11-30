@@ -87,7 +87,7 @@ static_assert(hk_general.size() == hk_general_labels.size());
 // MelonPrimeDS {
 static constexpr std::initializer_list<int> hk_tabAddonsMetroid =
 {
-    /*
+
     HK_MetroidMoveForward,
     HK_MetroidMoveBack,
     HK_MetroidMoveLeft,
@@ -118,12 +118,11 @@ static constexpr std::initializer_list<int> hk_tabAddonsMetroid =
     HK_MetroidMenu,
     HK_MetroidIngameSensiUp,
     HK_MetroidIngameSensiDown
-    */
+
 };
 
 static constexpr std::initializer_list<const char*> hk_tabAddonsMetroid_labels =
 {
-    /*
     "[Metroid] (W) Move Forward",
     "[Metroid] (S) Move Back",
     "[Metroid] (A) Move Left",
@@ -154,7 +153,6 @@ static constexpr std::initializer_list<const char*> hk_tabAddonsMetroid_labels =
     "[Metroid] (Tab) Menu/Map",
     "[Metroid] (PgUp) AimSensitivity Up",
     "[Metroid] (PgDown) AimSensitivity Down"
-    */
 };
 
 static_assert(hk_tabAddonsMetroid.size() == hk_tabAddonsMetroid_labels.size());
