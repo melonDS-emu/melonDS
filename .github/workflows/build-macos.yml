@@ -1,26 +1,11 @@
 name: macOS
-
 on:
-  push:
-    branches:
-      - master
-      - ci/vcpkg-update
-  pull_request:
-    branches:
-      - master
-
-env:
-  MELONDS_GIT_BRANCH: ${{ github.ref }}
-  MELONDS_GIT_HASH: ${{ github.sha }}
-  MELONDS_BUILD_PROVIDER: GitHub Actions
-  MELONDS_VERSION_SUFFIX: " RC"
-
+  workflow_dispatch:
 jobs:
   build-macos:
     strategy:
       matrix:
         arch: [x86_64, arm64]
-
     name: ${{ matrix.arch }}
     runs-on: macos-14
     steps:
@@ -34,7 +19,7 @@ jobs:
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
+          vcpkgGitCommitId: 53bef8994c541b6561884a8395ea35715ece75db
       - name: Build
         uses: lukka/run-cmake@v10
         with:
@@ -45,14 +30,14 @@ jobs:
         shell: bash
         run: |
           cd build/release-mac-${{ matrix.arch }}
-          zip -r -y ../../macOS-${{ matrix.arch }}.zip melonDS.app
+          mv melonDS.app melonPrimeDS.app
+          mv melonPrimeDS.app/Contents/MacOS/melonDS melonPrimeDS.app/Contents/MacOS/melonPrimeDS
+          zip -r -y ../../melonprimeDS-macOS-${{ matrix.arch }}.zip melonPrimeDS.app
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macOS-${{ matrix.arch }}
-          path: macOS-${{ matrix.arch }}.zip
-          retention-days: 1
-
+          name: melonprimeDS-macOS-${{ matrix.arch }}
+          path: melonprimeDS-macOS-${{ matrix.arch }}.zip
   universal-binary:
     name: Universal binary
     needs: [build-macos]
@@ -62,32 +47,32 @@ jobs:
       - name: Download x86_64
         uses: actions/download-artifact@v4
         with:
-          name: macOS-x86_64
+          name: melonprimeDS-macOS-x86_64
           path: x86_64
       - name: Download arm64
         uses: actions/download-artifact@v4
         with:
-          name: macOS-arm64
+          name: melonprimeDS-macOS-arm64
           path: arm64
       - name: Combine app bundles
         shell: bash
         run: |
           unzip x86_64/*.zip -d x86_64
           unzip arm64/*.zip -d arm64
-          lipo {x86_64,arm64}/melonDS.app/Contents/MacOS/melonDS -create -output melonDS
-          cp -a arm64/melonDS.app melonDS.app
-          cp melonDS melonDS.app/Contents/MacOS/melonDS
-          codesign -s - --deep melonDS.app
-          zip -r -y macOS-universal.zip melonDS.app
+          lipo {x86_64,arm64}/melonPrimeDS.app/Contents/MacOS/melonPrimeDS -create -output melonPrimeDS
+          cp -a arm64/melonPrimeDS.app melonPrimeDS.app
+          cp melonPrimeDS melonPrimeDS.app/Contents/MacOS/melonPrimeDS
+          codesign -s - --deep melonPrimeDS.app
+          zip -r -y melonprimeDS-macOS-universal.zip melonPrimeDS.app
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macOS-universal
-          path: macOS-universal.zip
+          name: melonprimeDS-macOS-universal
+          path: melonprimeDS-macOS-universal.zip
 #     - name: Clean up architecture-specific artifacts
 #       uses: geekyeggo/delete-artifact@v4
 #       with:
 #         failOnError: false
 #         name: |
-#           macOS-x86_64
-#           macOS-arm64
+#           melonprimeDS-macOS-x86_64
+#           melonprimeDS-macOS-arm64

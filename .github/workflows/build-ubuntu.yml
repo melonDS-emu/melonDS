@@ -1,12 +1,7 @@
 name: Ubuntu
 
 on:
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
+    workflow_dispatch:  
 
 env:
   MELONDS_GIT_BRANCH: ${{ github.ref }}
@@ -34,10 +29,11 @@ jobs:
       run: |
         cmake --build build
         DESTDIR=AppDir cmake --install build
+
     - uses: actions/upload-artifact@v4
       with:
-        name: melonDS-ubuntu-x86_64
-        path: AppDir/usr/bin/melonDS
+        name: melonPrimeDS-ubuntu-x86_64
+        path: AppDir/usr/bin/melonPrimeDS
     - name: Fetch AppImage tools
       run: |
         wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
@@ -50,8 +46,8 @@ jobs:
         ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt --output appimage
     - uses: actions/upload-artifact@v4
       with:
-        name: melonDS-appimage-x86_64
-        path: melonDS*.AppImage
+        name: melonPrimeDS-appimage-x86_64
+        path: melonPrimeDS*.AppImage
 
   build-aarch64:
     name: aarch64
@@ -69,7 +65,7 @@ jobs:
           apt update
           apt -y full-upgrade
           apt -y install git {gcc-12,g++-12}-aarch64-linux-gnu cmake ninja-build extra-cmake-modules \
-            {libsdl2,qt6-{base,base-private,multimedia},libqt6svg6,libarchive,libzstd,libenet}-dev:arm64 \
+            {libsdl2,qt6-{base,base-private,multimedia},libarchive,libzstd}-dev:arm64 \
             pkg-config dpkg-dev
       - name: Check out source
         uses: actions/checkout@v4
@@ -80,12 +76,16 @@ jobs:
             -DPKG_CONFIG_EXECUTABLE=/usr/bin/aarch64-linux-gnu-pkg-config \
             -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc-12 \
             -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++-12 \
-            -DMELONDS_EMBED_BUILD_INFO=ON
+            -DUSE_QT6=ON
+          dir
       - name: Build
         shell: bash
         run: |
           cmake --build build
+          cd build
+          dir
+          
       - uses: actions/upload-artifact@v4
         with:
-          name: melonDS-ubuntu-aarch64
-          path: build/melonDS
+          name: melonPrimeDS-ubuntu-aarch64
+          path: build/melonPrimeDS

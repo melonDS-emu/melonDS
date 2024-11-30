@@ -1,19 +1,7 @@
 name: Windows
 
 on:
-  push:
-    branches:
-      - master
-      - ci/*
-  pull_request:
-    branches:
-      - master
-
-env:
-  MELONDS_GIT_BRANCH: ${{ github.ref }}
-  MELONDS_GIT_HASH: ${{ github.sha }}
-  MELONDS_BUILD_PROVIDER: GitHub Actions
-  MELONDS_VERSION_SUFFIX: " RC"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -33,12 +21,12 @@ jobs:
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
+        vcpkgGitCommitId: 1de2026f28ead93ff1773e6e680387643e914ea1
     - name: Configure
-      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
+      run: cmake --preset=release-mingw-x86_64
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64
     - uses: actions/upload-artifact@v4
       with:
-        name: melonDS-windows-x86_64
-        path: .\build\release-mingw-x86_64\melonDS.exe
+        name: melonprimeDS-windows-x86_64
+        path: .\build\release-mingw-x86_64\melonprimeDS.exe
