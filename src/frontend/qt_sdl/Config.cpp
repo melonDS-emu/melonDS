@@ -105,6 +105,7 @@ DefaultList<bool> DefaultBools =
     {"Emu.DirectBoot", true},
     {"Instance*.DS.Battery.LevelOkay", true},
     {"Instance*.DSi.Battery.Charging", true},
+    {"JIT.Enable", true}, // melonPrimeDS. Added.
 #ifdef JIT_ENABLED
     {"JIT.BranchOptimisations", true},
     {"JIT.LiteralOptimisations", true},
