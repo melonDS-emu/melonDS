@@ -72,8 +72,8 @@ DefaultList<int> DefaultInts =
     {"Instance*.Gdb.ARM9.Port", 3333},
 #endif
     {"LAN.HostNumPlayers", 16},
-    /* MelonPrimeDS */
-    /* This is not working now. 
+
+    /* MelonPrimeDS. This is not working now.  */
     {"Metroid.Sensitivity.Aim", 30},
     {"Metroid.Sensitivity.VirtualStylus", 20},
 
@@ -107,7 +107,7 @@ DefaultList<int> DefaultInts =
     {"Keyboard.HK_MetroidMenu",              Qt::Key_Tab},
     {"Keyboard.HK_MetroidIngameSensiUp",     Qt::Key_PageUp},
     {"Keyboard.HK_MetroidIngameSensiDown",   Qt::Key_PageDown},
-    */
+
 };
 
 RangeList IntRanges =
@@ -127,6 +127,10 @@ RangeList IntRanges =
     {"Instance*.Window*.ScreenAspectBot", {0, AspectRatiosNum-1}},
     {"MP.AudioMode", {0, 2}},
     {"LAN.HostNumPlayers", {2, 16}},
+
+    /* MelonPrimeDS. this is not for input. this is for loading. */
+    {"Metroid.Sensitivity.Aim", {0,99999}},
+    {"Metroid.Sensitivity.VirtualStylus", {0,999}},
 };
 
 DefaultList<bool> DefaultBools =
@@ -483,8 +487,8 @@ LegacyEntry LegacyFile[] =
     {"GdbARM7BreakOnStartup", 1, "Gdb.ARM7.BreakOnStartup", true},
     {"GdbARM9BreakOnStartup", 1, "Gdb.ARM9.BreakOnStartup", true},
 #endif
-    {"MetroidAimSensitivity", 0, "Metroid.Sensitivity.Aim",  false }, // MelonPrimeDS
-    {"MetroidVirtualStylusSensitivity", 0, "Metroid.Sensitivity.VirtualStylus", false }, // MelonPrimeDS
+    {"MetroidAimSensitivity", 0, "Metroid.Sensitivity.Aim",  true }, // MelonPrimeDS
+    {"MetroidVirtualStylusSensitivity", 0, "Metroid.Sensitivity.VirtualStylus", true }, // MelonPrimeDS
     {"Camera0_InputType", 0, "DSi.Camera0.InputType", false},
     {"Camera0_ImagePath", 2, "DSi.Camera0.ImagePath", false},
     {"Camera0_CamDeviceName", 2, "DSi.Camera0.DeviceName", false},

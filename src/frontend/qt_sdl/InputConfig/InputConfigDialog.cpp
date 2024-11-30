@@ -29,6 +29,7 @@
 #include "InputConfigDialog.h"
 #include "ui_InputConfigDialog.h"
 #include "MapButton.h"
+#include "VideoSettingsDialog.h" // MelonPrimeDS. Added.
 
 
 using namespace melonDS;

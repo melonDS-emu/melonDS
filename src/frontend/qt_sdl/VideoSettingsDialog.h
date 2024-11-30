@@ -53,7 +53,6 @@ public:
     {
         currentDlg = nullptr;
     }
-
 signals:
     void updateVideoSettings(bool glchange);
 
