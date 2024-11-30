@@ -43,9 +43,16 @@ enum
     HK_SwapScreenEmphasis,
     HK_SolarSensorDecrease,
     HK_SolarSensorIncrease,
+    HK_FrameStep,
+    HK_PowerButton,
+    HK_VolumeUp,
+    HK_VolumeDown,
+    HK_SlowMo,
+    HK_FastForwardToggle,
+    HK_SlowMoToggle,
 
     // Metroid Prime specific hotkeys
-    /*
+
     HK_MetroidMoveForward,
     HK_MetroidMoveBack,
     HK_MetroidMoveLeft,
@@ -76,16 +83,10 @@ enum
     HK_MetroidMenu,
     HK_MetroidIngameSensiUp,
     HK_MetroidIngameSensiDown,
-    */
 
-    HK_FrameStep,
-    HK_PowerButton,
-    HK_VolumeUp,
-    HK_VolumeDown,
-    HK_SlowMo,
-    HK_FastForwardToggle,
-    HK_SlowMoToggle,
-    HK_MAX
+    // HK_MAX should be last item.
+    HK_MAX,
+
 };
 
 enum
