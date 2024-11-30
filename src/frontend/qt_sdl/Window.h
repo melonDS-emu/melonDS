@@ -240,6 +240,11 @@ private slots:
     void onFullscreenToggled();
     void onScreenEmphasisToggled();
 
+    /* MelonPrimeDS { */
+    void onOpenMetroidInputSettings();
+    void onOpenMetroidOtherSettings();
+    /* } MelonPrimeDS */
+
 private:
     virtual void closeEvent(QCloseEvent* event) override;
 

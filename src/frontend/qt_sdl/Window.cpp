@@ -661,6 +661,17 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actAudioSync->setCheckable(true);
             connect(actAudioSync, &QAction::triggered, this, &MainWindow::onChangeAudioSync);
         }
+        /* MelonPrimeDS { */
+        {
+            QMenu* menu = menubar->addMenu("Metroid");
+
+            actEmuSettings = menu->addAction("Input settings");
+            connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenMetroidInputSettings);
+
+            actInputConfig = menu->addAction("Other settings");
+            connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenMetroidOtherSettings);
+        }
+        /* } MelonPrimeDS */
         {
             QMenu * menu = menubar->addMenu("Help");
             actAbout = menu->addAction("About...");
@@ -1852,6 +1863,28 @@ void MainWindow::onOpenInputConfig()
     InputConfigDialog* dlg = InputConfigDialog::openDlg(this);
     connect(dlg, &InputConfigDialog::finished, this, &MainWindow::onInputConfigFinished);
 }
+
+/* MelonPrimeDS {*/
+void MainWindow::onOpenMetroidInputSettings()
+{
+    emuThread->emuPause();
+
+    InputConfigDialog* dlg = InputConfigDialog::openDlg(this);
+    dlg->switchTabToAddons();
+
+    connect(dlg, &InputConfigDialog::finished, this, &MainWindow::onInputConfigFinished);
+}
+
+void MainWindow::onOpenMetroidOtherSettings()
+{
+    emuThread->emuPause();
+
+    InputConfigDialog* dlg = InputConfigDialog::openDlg(this);
+    dlg->switchTabToMetroid();
+
+    connect(dlg, &InputConfigDialog::finished, this, &MainWindow::onInputConfigFinished);
+}
+/* } MelonPrimeDS*/
 
 void MainWindow::onInputConfigFinished(int res)
 {

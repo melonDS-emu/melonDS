@@ -319,4 +319,12 @@ void InputConfigDialog::on_metroidSetVideoQualityToLow_clicked()
     cfg.SetInt("3D.GL.ScaleFactor", 4); // 8 is too much 4 is enough
     cfg.SetBool("3D.GL.BetterPolygons", true); // If you don't check the box to improve Polygon division, part of the sky will blink in Alinos Perch.
 }
+
+void InputConfigDialog::switchTabToAddons() {
+    ui->tabWidget->setCurrentWidget(ui->tabAddonsMetroid);
+}
+
+void InputConfigDialog::switchTabToMetroid() {
+    ui->tabWidget->setCurrentWidget(ui->tabMetroid);
+}
 /* } MelonPrimeDS */

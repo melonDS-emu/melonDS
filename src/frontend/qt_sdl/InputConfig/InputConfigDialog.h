@@ -189,6 +189,11 @@ public:
         currentDlg = nullptr;
     }
 
+    /* MelonPrimeDS { */
+    void switchTabToAddons();
+    void switchTabToMetroid();
+    /* } MelonPrimeDS*/
+
 private slots:
     void on_InputConfigDialog_accepted();
     void on_InputConfigDialog_rejected();
