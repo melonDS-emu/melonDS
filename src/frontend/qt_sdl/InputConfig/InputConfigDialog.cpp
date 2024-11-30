@@ -76,8 +76,17 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     populatePage(ui->tabAddons, hk_addons_labels, addonsKeyMap, addonsJoyMap);
     populatePage(ui->tabHotkeysGeneral, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
 
-    // MelonPrimeDS
+    // MelonPrimeDS {
+    i = 0;
+    for (int hotkey : hk_tabAddonsMetroid)
+    {
+        const char* btn = EmuInstance::hotkeyNames[hotkey];
+        addonsMetroidKeyMap[i] = keycfg.GetInt(btn);
+        addonsMetroidJoyMap[i] = joycfg.GetInt(btn);
+        i++;
+    }
     populatePage(ui->tabAddonsMetroid, hk_tabAddonsMetroid_labels, addonsMetroidKeyMap, addonsMetroidJoyMap);
+    // } MelonPrimeDS
 
 
     joystickID = instcfg.GetInt("JoystickID");

@@ -171,6 +171,7 @@ void EmuThread::run()
         {
             if (emuStatus == emuStatus_FrameStep) emuStatus = emuStatus_Paused;
 
+            /*
             if (emuInstance->hotkeyPressed(HK_SolarSensorDecrease))
             {
                 int level = emuInstance->nds->GBACartSlot.SetInput(GBACart::Input_SolarSensorDown, true);
@@ -187,6 +188,7 @@ void EmuThread::run()
                     emuInstance->osdAddMessage(0, "Solar sensor level: %d", level);
                 }
             }
+            */
 
             if (emuInstance->nds->ConsoleType == 1)
             {

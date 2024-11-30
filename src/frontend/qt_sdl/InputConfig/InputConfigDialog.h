@@ -87,7 +87,6 @@ static_assert(hk_general.size() == hk_general_labels.size());
 // MelonPrimeDS {
 static constexpr std::initializer_list<int> hk_tabAddonsMetroid =
 {
-
     HK_MetroidMoveForward,
     HK_MetroidMoveBack,
     HK_MetroidMoveLeft,

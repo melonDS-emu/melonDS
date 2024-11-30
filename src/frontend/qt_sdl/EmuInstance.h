@@ -51,8 +51,7 @@ enum
     HK_FastForwardToggle,
     HK_SlowMoToggle,
 
-    // Metroid Prime specific hotkeys
-
+    // melonPrimeDS specific hotkeys {
     HK_MetroidMoveForward,
     HK_MetroidMoveBack,
     HK_MetroidMoveLeft,
@@ -83,6 +82,7 @@ enum
     HK_MetroidMenu,
     HK_MetroidIngameSensiUp,
     HK_MetroidIngameSensiDown,
+    // } melonPrimeDS specific hotkeys
 
     // HK_MAX should be last item.
     HK_MAX,
