@@ -53,8 +53,8 @@ DefaultList<int> DefaultInts =
     {"Instance*.Window*.Width", 256},
     {"Instance*.Window*.Height", 384},
     {"Screen.VSyncInterval", 1},
-    {"3D.Renderer", renderer3D_Software},
-    {"3D.GL.ScaleFactor", 1},
+    {"3D.Renderer", renderer3D_Software}, // melonPrimeDS. renderer3D_Software  renderer3D_OpenGL  renderer3D_OpenGLCompute:
+    {"3D.GL.ScaleFactor", 4}, // melonPrimeDS. 8 is too much 4 is enough
 #ifdef JIT_ENABLED
     {"JIT.MaxBlockSize", 32},
 #endif
@@ -95,8 +95,10 @@ RangeList IntRanges =
 
 DefaultList<bool> DefaultBools =
 {
-    {"Screen.Filter", true},
+    {"Screen.Filter", false}, // melonPrimeDS. filter OFF
+    {"Screen.UseGL", true}, // melonPrimeDS. Added.
     {"3D.Soft.Threaded", true},
+    {"3D.GL.BetterPolygons", true}, // melonPrimeDS. Added. If you don't check the box to improve Polygon division, part of the sky will blink in Alinos Perch.
     {"3D.GL.HiresCoordinates", true},
     {"LimitFPS", true},
     {"Instance*.Window*.ShowOSD", true},
