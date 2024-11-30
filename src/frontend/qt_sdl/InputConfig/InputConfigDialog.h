@@ -206,6 +206,7 @@ private slots:
     void on_metroidResetSensitivityValues_clicked();
     void on_metroidSetVideoQualityToLow_clicked();
     void on_metroidSetVideoQualityToHigh_clicked();
+    void on_metroidSetVideoQualityToHigh2_clicked();
     /* } MelonPrimeDS*/
 
 private:
