@@ -54,7 +54,7 @@ using namespace melonDS;
 const u32 kOSDMargin = 6;
 const int kLogoWidth = 192;
 
-bool isFocused; // MelonPrimeDS
+bool isFocused; // MelonPrimeDS TODO move this.
 
 
 ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)

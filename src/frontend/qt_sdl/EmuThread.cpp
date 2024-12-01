@@ -842,99 +842,85 @@ void EmuThread::run()
     // test
     // Lambda function to get adjusted center position based on window geometry and screen layout
     auto getAdjustedCenter = [&]() {
-        // Cache window geometry and initialize center position
-        const QRect windowGeometry = QGuiApplication::primaryScreen()->availableGeometry();
-        QPoint adjustedCenter = windowGeometry.center();
+        auto& windowCfg = emuInstance->getMainWindow()->getWindowConfig();
 
-        // Inner lambda function for adjusting the center position
-        auto adjustCenter = [&](QPoint& adjustedCenter, const QRect& windowGeometry) {
-            // Calculate adjustment direction based on screen swap configuration
-            const float direction = (localCfg.GetBool("ScreenSwap") != false) ? 1.0f : -1.0f;
+        // Get the actual game display area instead of full window
+        const QRect displayRect = emuInstance->getMainWindow()->panel->geometry();
+        QPoint center = emuInstance->getMainWindow()->panel->mapToGlobal(
+            QPoint(displayRect.width() / 2, displayRect.height() / 2)
+        );
 
-
-            // Adjust the center position based on screen layout in specified order
-            if (localCfg.GetInt("ScreenLayout") == ScreenLayoutType::screenLayout_Hybrid) {
-                /*
-                ### Monitor Specification
-                - Monitor resolution: 2560x1440 pixels
-                ### Adjusted Conditions (with Black Bars)
-                1. Total monitor height: 1440 pixels
-                2. 80px black bars at the top and bottom, making the usable height:
-                   1440 - 160 = 1280 pixels
-                3. 4:3 screen width, based on the usable height (1280 pixels):
-                   4:3 width = (1280 / 3) * 4 = 1706.67 pixels
-                ### Position Calculations (with Black Bars)
-                #### Left 4:3 Screen Center
-                Left 4:3 center = 1706.67 / 2 = 853.33 pixels
-                #### Right Stacked 4:3 Screen Center
-                - The first 4:3 screen starts at the monitor's center (1280 pixels).
-                - The center of this screen:
-                  1280 + (1706.67 / 2) = 2133.33 pixels
-                ### Final Results
-                - Left 4:3 screen center: ~853 pixels
-                - Right stacked 4:3 screen center: ~2133 pixels
-                */
-                if (localCfg.GetBool("ScreenSwap") != false) {
-                    adjustedCenter.rx() += static_cast<int>(windowGeometry.width() * HYBRID_RIGHT);
-                    adjustedCenter.ry() -= static_cast<int>(windowGeometry.height() * DEFAULT_ADJUSTMENT);
-                }
-                else {
-                    adjustedCenter.rx() -= static_cast<int>(windowGeometry.width() * HYBRID_LEFT);
-                }
-                return;  // End here if in Hybrid mode
-            }
-
-            // For layouts other than Hybrid, first check BotOnly mode
-            if (localCfg.GetInt("ScreenSizing") == ScreenSizing::screenSizing_BotOnly) {
-                // Process for bottom-screen-only display
-                // TODO: Adjust to avoid duplicate touches at the cursor position
-
-
-                // TODO Config::WindowMaximized = mainWindow->isMaximized()
-
-                constexpr float FULLSCREEN_ADJUSTMENT = 0.4f;
-                if (emuInstance->getMainWindow()->isFullScreen())
-                {
-                    // isFullScreen
-                    adjustedCenter.rx() -= static_cast<int>(windowGeometry.width() * FULLSCREEN_ADJUSTMENT);
-                    adjustedCenter.ry() -= static_cast<int>(windowGeometry.height() * FULLSCREEN_ADJUSTMENT);
-
-                }
-                /*
-                else
-                {
-                    // isNotFullScreen
-                    // The cursor may be better centered because there is a problem that the cursor may click outside the window.
-                    // I would recommend playing in full screen.
-                    return;
-                }
-                */
-
-                return;  // End here if in BotOnly mode
-            }
-
-            if (localCfg.GetInt("ScreenSizing") == ScreenSizing::screenSizing_TopOnly) {
-                return;  // End here if in TopOnly mode
-            }
-
-            // Standard layout adjustment (when not in BotOnly mode)
-            switch (localCfg.GetInt("ScreenLayout")) {
-            case ScreenLayoutType::screenLayout_Natural:
-            case ScreenLayoutType::screenLayout_Horizontal:
-                // Note: This case actually handles vertical layout despite being named Horizontal in enum
-                adjustedCenter.ry() += static_cast<int>(direction * windowGeometry.height() * DEFAULT_ADJUSTMENT);
-                break;
-
-            case ScreenLayoutType::screenLayout_Vertical:
-                // Note: This case actually handles horizontal layout despite being named Vertical in enum
-                adjustedCenter.rx() += static_cast<int>(direction * windowGeometry.width() * DEFAULT_ADJUSTMENT);
-                break;
-            }
+        // Inner lambda for getting screen-specific adjustment factors
+        auto getScreenAdjustment = [&](bool isFullscreen) {
+            struct ScreenAdjustment {
+                float x;
+                float y;
             };
 
-        // Adjust the center position and return
-        adjustCenter(adjustedCenter, windowGeometry);
-        return adjustedCenter;
+            // Base adjustment values
+            static const std::map<int, ScreenAdjustment> layoutAdjustments = {
+                {screenLayout_Natural,    {0.0f,  0.25f}},
+                {screenLayout_Vertical,   {0.25f, 0.0f}},
+                {screenLayout_Horizontal, {0.0f,  0.25f}},
+                {screenLayout_Hybrid,     {0.166796875f, 0.25f}}
+            };
+
+            // Get base adjustment for current layout
+            ScreenAdjustment adj = layoutAdjustments.at(windowCfg.GetInt("ScreenLayout"));
+
+            // Modify for fullscreen if needed
+            if (isFullscreen) {
+                adj.x *= 1.2f; // Increase adjustment for fullscreen
+                adj.y *= 1.2f;
+            }
+
+            return adj;
+            };
+
+        // Get current state
+        bool isFullscreen = emuInstance->getMainWindow()->isFullScreen();
+        bool isSwapped = windowCfg.GetBool("ScreenSwap");
+        int screenSizing = windowCfg.GetInt("ScreenSizing");
+
+        // Get base adjustment values
+        auto adj = getScreenAdjustment(isFullscreen);
+
+        // Handle special cases first
+        if (screenSizing == screenSizing_BotOnly) {
+            if (isFullscreen) {
+                center.rx() -= static_cast<int>(displayRect.width() * 0.4f);
+                center.ry() -= static_cast<int>(displayRect.height() * 0.4f);
+            }
+            return center;
+        }
+
+        if (screenSizing == screenSizing_TopOnly) {
+            return center;
+        }
+
+        // Apply layout-specific adjustments
+        switch (windowCfg.GetInt("ScreenLayout")) {
+        case screenLayout_Hybrid:
+            if (isSwapped) {
+                center.rx() += static_cast<int>(displayRect.width() * 0.333203125f);
+                center.ry() -= static_cast<int>(displayRect.height() * adj.y);
+            }
+            else {
+                center.rx() -= static_cast<int>(displayRect.width() * adj.x);
+            }
+            break;
+
+        case screenLayout_Natural:
+        case screenLayout_Horizontal:
+            center.ry() += static_cast<int>(displayRect.height() * adj.y * (isSwapped ? 1.0f : -1.0f));
+            break;
+
+        case screenLayout_Vertical:
+            center.rx() += static_cast<int>(displayRect.width() * adj.x * (isSwapped ? 1.0f : -1.0f));
+            break;
+        }
+
+        return center;
         };
 
     // Get adjusted center position
@@ -1143,6 +1129,7 @@ void EmuThread::run()
 
                     // Recalculate center position when focus is gained or layout is changing
                     if (!wasLastFrameFocused || isLayoutChanging) {
+                        // emuInstance->osdAddMessage(0, "adjust change needed"); // TODO DELETE THIS
                         adjustedCenter = getAdjustedCenter();// emuInstance->getMainWindow()
                     }
 
@@ -1222,7 +1209,6 @@ void EmuThread::run()
                         // Convert to 16-bit integer and write the adjusted X value to the NDS memory
                         emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(scaledMouseX));
                         enableAim = true;
-                        emuInstance->osdAddMessage(0, "mouseX"); // TODO DELETE THIS
                     }
 
                     // Processing for the Y-axis
@@ -1237,7 +1223,6 @@ void EmuThread::run()
                         // Convert to 16-bit integer and write the adjusted Y value to the NDS memory
                         emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(scaledMouseY));
                         enableAim = true;
-                        emuInstance->osdAddMessage(0, "mouseY"); // TODO DELETE THIS
                     }
 
                     // Move hunter
@@ -1246,7 +1231,6 @@ void EmuThread::run()
                     // Shoot
                     if (emuInstance->hotkeyDown(HK_MetroidShootScan) || emuInstance->hotkeyDown(HK_MetroidScanShoot)) {
                         FN_INPUT_PRESS(INPUT_L);
-                        emuInstance->osdAddMessage(0, "Shooting"); // TODO DELETE THIS
                     }
                     else {
                         FN_INPUT_RELEASE(INPUT_L);
@@ -1263,7 +1247,6 @@ void EmuThread::run()
                     // Jump
                     if (emuInstance->hotkeyDown(HK_MetroidJump)) {
                         FN_INPUT_PRESS(INPUT_B);
-                        emuInstance->osdAddMessage(0, "Jumping"); // TODO DELETE THIS
                     }
                     else {
                         FN_INPUT_RELEASE(INPUT_B);
@@ -1271,9 +1254,6 @@ void EmuThread::run()
 
                     // Alt-form
                     if (emuInstance->hotkeyPressed(HK_MetroidMorphBall)) {
-
-                        emuInstance->osdAddMessage(0, "Altform"); // TODO DELETE THIS
-
                         emuInstance->nds->ReleaseScreen();
                         frameAdvance(2);
                         emuInstance->nds->TouchScreen(231, 167);
@@ -1287,7 +1267,6 @@ void EmuThread::run()
                                 frameAdvance(2);
                                 emuInstance->nds->ReleaseScreen();
                             }
-
                         }
                     }
 
