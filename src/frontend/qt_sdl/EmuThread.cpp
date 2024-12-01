@@ -564,10 +564,6 @@ void EmuThread::run()
             emuInstance->nds->SetKeyMask(emuInstance->inputMask);
             */
 
-            if (emuInstance->isTouching)
-                emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
-            else
-                emuInstance->nds->ReleaseScreen();
 
             /* MelonPrimeDS comment-outed
             if (emuInstance->hotkeyPressed(HK_Lid))
@@ -801,16 +797,6 @@ void EmuThread::run()
 #define INPUT_Y 11
 #define FN_INPUT_PRESS(i) emuInstance->inputMask.setBit(i, false);;
 #define FN_INPUT_RELEASE(i) emuInstance->inputMask.setBit(i, true);
-    /*
-    * 
-    * 
-    * #define FN_INPUT_PRESS(i) EmuInstance::getInputMask.setBit(i, false);
-#define FN_INPUT_RELEASE(i) EmuInstance::getInputMask.setBit(i, true);
-#define FN_INPUT_PRESS(i) emuInstance->inputMask &= ~(1u << i);;
-#define FN_INPUT_RELEASE(i) emuInstance->inputMask |= (1u << i);;
-#define FN_INPUT_PRESS(i) do { emuInstance->inputMask &= ~(1u << i); } while(0);
-#define FN_INPUT_RELEASE(i) do { emuInstance->inputMask |= (1u << i); } while(0);
-*/
 
     uint8_t playerPosition;
     const uint16_t playerAddressIncrement = 0xF30;
@@ -1620,6 +1606,12 @@ void EmuThread::run()
                 }
                 else {
                     // VirtualStylus
+
+                    if (emuInstance->isTouching)
+                        emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+                    else
+                        emuInstance->nds->ReleaseScreen();
+
 
                     /*
                     if (!OSD) {
