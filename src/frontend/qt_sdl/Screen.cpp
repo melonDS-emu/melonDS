@@ -54,6 +54,8 @@ using namespace melonDS;
 const u32 kOSDMargin = 6;
 const int kLogoWidth = 192;
 
+bool isFocused; // MelonPrimeDS
+
 
 ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
 {
@@ -249,6 +251,14 @@ void ScreenPanel::resizeEvent(QResizeEvent* event)
 void ScreenPanel::mousePressEvent(QMouseEvent* event)
 {
     event->accept();
+
+    /* MelonPrimeDS { */
+    // so we dont press buttons before fully focusing
+    if (isFocused) {
+        emuInstance->onMousePress(event); // MelonPrimeDS
+    }
+    /* MelonPrimeDS } */
+
     if (!emuInstance->emuIsActive()) { touching = false; return; }
     if (event->button() != Qt::LeftButton) return;
 
@@ -260,11 +270,21 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
         touching = true;
         emuInstance->touchScreen(x, y);
     }
+
+    // melonPrimeDS
+    if (emuInstance->emuIsActive()) {
+        isFocused = true;
+        // setCursor(Qt::BlankCursor);
+    }
 }
 
 void ScreenPanel::mouseReleaseEvent(QMouseEvent* event)
 {
     event->accept();
+
+    emuInstance->onMouseRelease(event); // MelonPrimeDS
+
+
     if (!emuInstance->emuIsActive()) { touching = false; return; }
     if (event->button() != Qt::LeftButton) return;
 

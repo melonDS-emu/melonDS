@@ -118,6 +118,11 @@ public:
     EmuInstance(int inst);
     ~EmuInstance();
 
+    /* MelonPrimeDS { */
+    void onMousePress(QMouseEvent* event);
+    void onMouseRelease(QMouseEvent* event);
+    /* MelonPrimeDS } */
+
     int getInstanceID() { return instanceID; }
     int getConsoleType() { return consoleType; }
     EmuThread* getEmuThread() { return emuThread; }
@@ -264,8 +269,6 @@ private:
     void onKeyRelease(QKeyEvent* event);
 
     /* MelonPrimeDS { */
-    void onMousePress(QMouseEvent* event);
-    void onMouseRelease(QMouseEvent* event);
     float hotkeyAnalogueValue(int val);
     melonDS::u32 getInputMask();
     /* MelonPrimeDS } */
