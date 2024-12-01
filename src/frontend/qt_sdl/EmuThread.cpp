@@ -810,6 +810,8 @@ void EmuThread::run()
     constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
     constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
 
+    auto& cfg = emuInstance->getGlobalConfig();
+
     // The QPoint class defines a point in the plane using integer precision. 
     // auto mouseRel = rawInputThread->fetchMouseDelta();
     QPoint mouseRel;
@@ -817,7 +819,6 @@ void EmuThread::run()
     // Initialize Adjusted Center 
     QPoint adjustedCenter;
 
-    auto& cfg = emuInstance->getGlobalConfig();
 
     // test
     // Lambda function to get adjusted center position based on window geometry and screen layout
@@ -943,98 +944,6 @@ void EmuThread::run()
     const float aimAspectRatio = 1.5f; // i have no idea  6.0 / 4.0
 
 
-
-    // metroid prime hunters code
-    // adapted from https://forums.desmume.org/viewtopic.php?id=11715
-
-    // #define INTERP_IN(t) (t * t)
-    // #define INTERP_IN_CUBIC(t) (t * t * t)
-    // #define INTERP_IN_QUART(t) (t * t * t * t)
-
-
-
-
-
-    // #define ENABLE_MEMORY_DUMP 1
-
-    /*
-    #ifdef ENABLE_MEMORY_DUMP
-        int memoryDump = 0;
-    #endif
-    */
-
-    // RawInputThread* rawInputThread = new RawInputThread(parent());
-    // rawInputThread->start();
-
-    /*
-    auto processMoveInput = []() {
-        const struct {
-            int hotkey;
-            int input;
-        } moves[] = {
-            {HK_MetroidMoveForward, INPUT_UP},
-            {HK_MetroidMoveBack, INPUT_DOWN},
-            {HK_MetroidMoveLeft, INPUT_LEFT},
-            {HK_MetroidMoveRight, INPUT_RIGHT}
-        };
-        for (const auto& move : moves) {
-            if (emuInstance->hotkeyDown(move.hotkey)) {
-                FN_INPUT_PRESS(move.input);
-            } else {
-                FN_INPUT_RELEASE(move.input);
-            }
-        }
-    };
-    */
-    /*
-    auto processMoveInput = []() {
-        // Static array to minimize stack operations
-        static constexpr struct InputPair {
-            int hotkey;
-            int input;
-            int oppositeHotkey;
-        } moves[] = {
-            {HK_MetroidMoveForward, INPUT_UP, HK_MetroidMoveBack},
-            {HK_MetroidMoveBack, INPUT_DOWN, HK_MetroidMoveForward},
-            {HK_MetroidMoveLeft, INPUT_LEFT, HK_MetroidMoveRight},
-            {HK_MetroidMoveRight, INPUT_RIGHT, HK_MetroidMoveLeft}
-        };
-        // Process horizontal and vertical axes separately for better branch prediction
-        // and to avoid unnecessary checks
-        // for supporting "counter-strafing" feature
-        // Horizontal axis
-        const bool leftPressed = emuInstance->hotkeyDown(moves[2].hotkey);
-        const bool rightPressed = emuInstance->hotkeyDown(moves[3].hotkey);
-        if (leftPressed && !rightPressed) {
-            FN_INPUT_PRESS(INPUT_LEFT);
-        }
-        else {
-            FN_INPUT_RELEASE(INPUT_LEFT);
-        }
-        if (rightPressed && !leftPressed) {
-            FN_INPUT_PRESS(INPUT_RIGHT);
-        }
-        else {
-            FN_INPUT_RELEASE(INPUT_RIGHT);
-        }
-        // Vertical axis
-        const bool upPressed = emuInstance->hotkeyDown(moves[0].hotkey);
-        const bool downPressed = emuInstance->hotkeyDown(moves[1].hotkey);
-        if (upPressed && !downPressed) {
-            FN_INPUT_PRESS(INPUT_UP);
-        }
-        else {
-            FN_INPUT_RELEASE(INPUT_UP);
-        }
-        if (downPressed && !upPressed) {
-            FN_INPUT_PRESS(INPUT_DOWN);
-        }
-        else {
-            FN_INPUT_RELEASE(INPUT_DOWN);
-        }
-    };
-    */
-
     // processMoveInputFunction{
 
     auto processMoveInput = [&]() {
@@ -1095,8 +1004,6 @@ void EmuThread::run()
             applyInput(input, finalState);
         }
         };
-
-
 
 
     // /processMoveInputFunction }
@@ -1205,30 +1112,32 @@ void EmuThread::run()
                 // Check hotkey status
                 bool isLayoutChanging = emuInstance->hotkeyPressed(HK_SwapScreens) || emuInstance->hotkeyPressed(HK_FullscreenToggle);
 
-                // These conditional branches cannot be simplified to a simple else statement
+
+
+                if (isInGame) {
+                    // inGame
+
+                                    // These conditional branches cannot be simplified to a simple else statement
                 // because they handle different independent cases:
                 // 1. Recalculating center position when focus is gained or layout is changing
                 // 2. Updating relative position only when focused and layout is not changing
 
                 // Recalculate center position when focus is gained or layout is changing
-                if (!wasLastFrameFocused || isLayoutChanging) {
-                    adjustedCenter = getAdjustedCenter();// emuInstance->getMainWindow()
-                }
+                    if (!wasLastFrameFocused || isLayoutChanging) {
+                        adjustedCenter = getAdjustedCenter();// emuInstance->getMainWindow()
+                    }
 
-                // Update relative position only when not changing layout
-                if (wasLastFrameFocused && !isLayoutChanging) {
-                    mouseRel = QCursor::pos() - adjustedCenter;
-                }
-                else {
-                    mouseRel = QPoint(0, 0);  // Initialize to origin
-                }
+                    // Update relative position only when not changing layout
+                    if (wasLastFrameFocused && !isLayoutChanging) {
+                        mouseRel = QCursor::pos() - adjustedCenter;
+                    }
+                    else {
+                        mouseRel = QPoint(0, 0);  // Initialize to origin
+                    }
 
-                // Recenter cursor
-                QCursor::setPos(adjustedCenter);
+                    // Recenter cursor
+                    QCursor::setPos(adjustedCenter);
 
-
-                if (isInGame) {
-                    // inGame
 
 
                     // Aiming
