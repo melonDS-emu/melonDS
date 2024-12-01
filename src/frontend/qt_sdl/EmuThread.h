@@ -50,6 +50,8 @@ class EmuThread : public QThread
 public:
     explicit EmuThread(EmuInstance* inst, QObject* parent = nullptr);
 
+    bool isInGame = false; // MelonPrimeDS
+
     void attachWindow(MainWindow* window);
     void detachWindow(MainWindow* window);
 

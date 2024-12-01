@@ -75,7 +75,6 @@ DefaultList<int> DefaultInts =
 
     /* MelonPrimeDS. This is not working now.  */
     {"Metroid.Sensitivity.Aim", 30},
-    {"Metroid.Sensitivity.VirtualStylus", 20},
 
     {"Keyboard.HK_MetroidMoveForward",       Qt::Key_W},
     {"Keyboard.HK_MetroidMoveBack",          Qt::Key_S},
@@ -130,7 +129,6 @@ RangeList IntRanges =
 
     /* MelonPrimeDS. this is not for input. this is for loading. */
     {"Metroid.Sensitivity.Aim", {0,99999}},
-    {"Metroid.Sensitivity.VirtualStylus", {0,999}},
 };
 
 DefaultList<bool> DefaultBools =
@@ -488,7 +486,6 @@ LegacyEntry LegacyFile[] =
     {"GdbARM9BreakOnStartup", 1, "Gdb.ARM9.BreakOnStartup", true},
 #endif
     {"MetroidAimSensitivity", 0, "Metroid.Sensitivity.Aim",  true }, // MelonPrimeDS
-    {"MetroidVirtualStylusSensitivity", 0, "Metroid.Sensitivity.VirtualStylus", true }, // MelonPrimeDS
     {"Camera0_InputType", 0, "DSi.Camera0.InputType", false},
     {"Camera0_ImagePath", 2, "DSi.Camera0.ImagePath", false},
     {"Camera0_CamDeviceName", 2, "DSi.Camera0.DeviceName", false},

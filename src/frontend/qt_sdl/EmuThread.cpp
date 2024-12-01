@@ -820,7 +820,6 @@ void EmuThread::run()
 
 
     bool isRoundJustStarted;
-    bool isInGame;
     bool isInAdventure;
     bool isSamus;
 
@@ -1017,7 +1016,6 @@ void EmuThread::run()
         // Define sensitivity factor as a constant
         int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
         const float SENSITIVITY_FACTOR = currentSensitivity * 0.01f;
-        // const float SENSITIVITY_FACTOR_VIRTUAL_STYLUS = localCfg.GetInt("Metroid.Sensitivity.VirtualStylus") * 0.01f;
 
         if (!isRomDetected) {
             detectRomAndSetAddresses(emuInstance);
@@ -1118,10 +1116,9 @@ void EmuThread::run()
                 if (isInGame) {
                     // inGame
 
-                    if (!wasLastFrameFocused) {
-                        // emuInstance->getMainWindow()->panel->setCursor(Qt::BlankCursor); 
+                    //if(!wasLastFrameFocused){
                         QGuiApplication::setOverrideCursor(Qt::BlankCursor);
-                    }
+                    //}
 
                     // These conditional branches cannot be simplified to a simple else statement
                     // because they handle different independent cases:
@@ -1584,7 +1581,10 @@ void EmuThread::run()
                     // VirtualStylus
                     // emuInstance->getMainWindow()->panel->setCursor(Qt::ArrowCursor);
                     // QGuiApplication::restoreOverrideCursor();
-                    QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+                    if(hasInitialized){
+                        QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+                        hasInitialized = false;
+                    }
 
                     if (emuInstance->isTouching)
                         emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
@@ -1592,7 +1592,6 @@ void EmuThread::run()
                         emuInstance->nds->ReleaseScreen();
 
                     // reset initialized flag
-                    hasInitialized = false;
 
                     /*
                     if (!OSD) {
@@ -1660,21 +1659,20 @@ void EmuThread::run()
 
             }
             else {// END of if(isFocused)
-                QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+                // When not focused
+
+                // when not aiming in game
+                if (wasLastFrameFocused && isInGame) {
+                    QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+                }
             }
 
             emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
 
             // record last frame was forcused or not
             wasLastFrameFocused = isFocused;
-        }
+        } // End of isRomDetected
  
-        // #define MERON_PRIME_DS_FUNCTIONS 0 //これコメントアウトしたら ifdef MERON_PRIME_DS_FUNCTIONSの中身は動かない。
-
-        #ifdef MERON_PRIME_DS_FUNCTIONS
-
-
-        #endif
 
         // MelonPrimeDS Functions END
 

@@ -2317,32 +2317,8 @@
 				    </widget>
 			    </item>
 
-			    <!-- Virtual stylus sensitivity configuration -->
-			    <item row="1" column="0">
-				    <!-- Label for virtual stylus sensitivity -->
-				    <widget class="QLabel" name="metroidVirtualStylusSensitvityLabel">
-					    <property name="text">
-						    <string>Virtual stylus sensitivity:</string>
-					    </property>
-				    </widget>
-			    </item>
-			    <item row="1" column="1">
-				    <!-- Spin box for virtual stylus sensitivity value (range: 0-999) -->
-				    <widget class="QSpinBox" name="metroidVirtualStylusSensitvitySpinBox">
-					    <property name="minimum">
-						    <number>0</number>
-					    </property>
-					    <property name="maximum">
-						    <number>999</number>
-					    </property>
-					    <property name="value">
-						    <number>0</number>
-					    </property>
-				    </widget>
-			    </item>
-
 			    <!-- Reset button for sensitivity settings -->
-			    <item row="2" column="0">
+			    <item row="1" column="0">
 				    <widget class="QPushButton" name="metroidResetSensitivityValues">
 					    <property name="text">
 						    <string>Reset sensitivity values</string>
@@ -2351,7 +2327,7 @@
 			    </item>
 
 			    <!-- Add vertical spacing -->
-			    <item row="3" column="0">
+			    <item row="2" column="0">
 				    <widget class="QLabel" name="emptyLabel">
 					    <property name="text">
 						    <string> </string>
@@ -2359,7 +2335,7 @@
 				    </widget>
 			    </item>
 
-			    <item row="4" column="0">
+			    <item row="3" column="0">
 				    <!-- Label for metroidSetVideoQuality -->
 				    <widget class="QLabel" name="metroidSetVideoQualityLabel">
 					    <property name="text">
@@ -2370,7 +2346,7 @@
 
 
 			    <!-- Low quality -->
-			    <item row="5" column="0">
+			    <item row="4" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToLow">
 					    <property name="text">
 						    <string>Video quality: Low (High Performance)</string>
@@ -2379,7 +2355,7 @@
 			    </item>
 
 			    <!-- High quality -->
-			    <item row="6" column="0">
+			    <item row="5" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToHigh">
 					    <property name="text">
 						    <string>Video quality: High (Excellent in-game graphics, but menus flicker)</string>
@@ -2388,7 +2364,7 @@
 			    </item>
 
 				<!-- High2 quality -->
-				<item row="7" column="0">
+				<item row="6" column="0">
 					<widget class="QPushButton" name="metroidSetVideoQualityToHigh2">
 						<property name="text">
 							<string>Video quality: High2 (Excellent in-game graphics, but menus flicker) (Fast but unstable)</string>

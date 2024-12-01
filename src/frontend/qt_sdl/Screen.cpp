@@ -279,7 +279,10 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
     // melonPrimeDS
     if (emuInstance->emuIsActive()) {
         isFocused = true;
-        // setCursor(Qt::BlankCursor);
+        if (emuInstance->getEmuThread()->isInGame) {
+            // BlankCursor when it's focused and inGame.
+            setCursor(Qt::BlankCursor);
+        }
     }
 }
 
@@ -422,6 +425,7 @@ void ScreenPanel::showCursor()
 {
     /* MelonPrimeDS comment-out
     mainWindow->panel->setCursor(Qt::ArrowCursor);
+
     mouseTimer->start();
     */
 }
