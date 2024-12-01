@@ -370,6 +370,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
 void EmuThread::run()
 {
     Config::Table& globalCfg = emuInstance->getGlobalConfig();
+    Config::Table& localCfg = emuInstance->getLocalConfig();
     u32 mainScreenPos[3];
 
     //emuInstance->updateConsole();
@@ -437,8 +438,7 @@ void EmuThread::run()
         auto updateAimSensitivity = [&](int change) {
 
             // Store the current sensitivity in a local variable
-            auto& cfg = emuInstance->getGlobalConfig();
-            int currentSensitivity = cfg.GetInt("Metroid.Sensitivity.Aim");
+            int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
 
             // Calculate the new sensitivity
             int newSensitivity = currentSensitivity + change;
@@ -447,7 +447,7 @@ void EmuThread::run()
             if (newSensitivity >= 1) {
                 // Update the config only if the value has changed
                 if (newSensitivity != currentSensitivity) {
-                    cfg.SetInt("Metroid.Sensitivity.Aim", newSensitivity);
+                    localCfg.SetInt("Metroid.Sensitivity.Aim", newSensitivity);
                     // Save the changes to the configuration file (to persist settings for future sessions)
                     Config::Save();
                 }
@@ -831,8 +831,6 @@ void EmuThread::run()
     constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
     constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
 
-    auto& cfg = emuInstance->getGlobalConfig();
-
     // The QPoint class defines a point in the plane using integer precision. 
     // auto mouseRel = rawInputThread->fetchMouseDelta();
     QPoint mouseRel;
@@ -851,11 +849,11 @@ void EmuThread::run()
         // Inner lambda function for adjusting the center position
         auto adjustCenter = [&](QPoint& adjustedCenter, const QRect& windowGeometry) {
             // Calculate adjustment direction based on screen swap configuration
-            const float direction = (cfg.GetBool("ScreenSwap") != false) ? 1.0f : -1.0f;
+            const float direction = (localCfg.GetBool("ScreenSwap") != false) ? 1.0f : -1.0f;
 
 
             // Adjust the center position based on screen layout in specified order
-            if (cfg.GetInt("ScreenLayout") == ScreenLayoutType::screenLayout_Hybrid) {
+            if (localCfg.GetInt("ScreenLayout") == ScreenLayoutType::screenLayout_Hybrid) {
                 /*
                 ### Monitor Specification
                 - Monitor resolution: 2560x1440 pixels
@@ -876,7 +874,7 @@ void EmuThread::run()
                 - Left 4:3 screen center: ~853 pixels
                 - Right stacked 4:3 screen center: ~2133 pixels
                 */
-                if (cfg.GetBool("ScreenSwap") != false) {
+                if (localCfg.GetBool("ScreenSwap") != false) {
                     adjustedCenter.rx() += static_cast<int>(windowGeometry.width() * HYBRID_RIGHT);
                     adjustedCenter.ry() -= static_cast<int>(windowGeometry.height() * DEFAULT_ADJUSTMENT);
                 }
@@ -887,7 +885,7 @@ void EmuThread::run()
             }
 
             // For layouts other than Hybrid, first check BotOnly mode
-            if (cfg.GetInt("ScreenSizing") == ScreenSizing::screenSizing_BotOnly) {
+            if (localCfg.GetInt("ScreenSizing") == ScreenSizing::screenSizing_BotOnly) {
                 // Process for bottom-screen-only display
                 // TODO: Adjust to avoid duplicate touches at the cursor position
 
@@ -915,12 +913,12 @@ void EmuThread::run()
                 return;  // End here if in BotOnly mode
             }
 
-            if (cfg.GetInt("ScreenSizing") == ScreenSizing::screenSizing_TopOnly) {
+            if (localCfg.GetInt("ScreenSizing") == ScreenSizing::screenSizing_TopOnly) {
                 return;  // End here if in TopOnly mode
             }
 
             // Standard layout adjustment (when not in BotOnly mode)
-            switch (cfg.GetInt("ScreenLayout")) {
+            switch (localCfg.GetInt("ScreenLayout")) {
             case ScreenLayoutType::screenLayout_Natural:
             case ScreenLayoutType::screenLayout_Horizontal:
                 // Note: This case actually handles vertical layout despite being named Horizontal in enum
@@ -1038,9 +1036,9 @@ void EmuThread::run()
         bool isFocused = emuStatus == emuStatus_Running;
 
         // Define sensitivity factor as a constant
-        const float SENSITIVITY_FACTOR = cfg.GetInt("Metroid.Sensitivity.Aim") * 0.01f;
-        const float SENSITIVITY_FACTOR_VIRTUAL_STYLUS = cfg.GetInt("Metroid.Sensitivity.VirtualStylus") * 0.01f;
-
+        int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
+        const float SENSITIVITY_FACTOR = currentSensitivity * 0.01f;
+        // const float SENSITIVITY_FACTOR_VIRTUAL_STYLUS = localCfg.GetInt("Metroid.Sensitivity.VirtualStylus") * 0.01f;
 
         if (!isRomDetected) {
             detectRomAndSetAddresses(emuInstance);
