@@ -868,12 +868,6 @@ void EmuThread::run()
             // Get base adjustment for current layout
             ScreenAdjustment adj = layoutAdjustments.at(windowCfg.GetInt("ScreenLayout"));
 
-            // Modify for fullscreen if needed
-            if (isFullscreen) {
-                adj.x *= 1.2f; // Increase adjustment for fullscreen
-                adj.y *= 1.2f;
-            }
-
             return adj;
             };
 
@@ -1019,7 +1013,7 @@ void EmuThread::run()
 
 
         // auto isFocused = emuInstance->getMainWindow()->panel->getFocused();
-        bool isFocused = emuStatus == emuStatus_Running;
+        bool isFocused = emuInstance->getMainWindow()->panel->getFocused();
 
         // Define sensitivity factor as a constant
         int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
@@ -1121,6 +1115,8 @@ void EmuThread::run()
 
                 if (isInGame) {
                     // inGame
+
+                    emuInstance->getMainWindow()->panel->setCursor(Qt::BlankCursor); 
 
                     // These conditional branches cannot be simplified to a simple else statement
                     // because they handle different independent cases:
@@ -1583,6 +1579,7 @@ void EmuThread::run()
                 }
                 else {
                     // VirtualStylus
+                    emuInstance->getMainWindow()->panel->setCursor(Qt::ArrowCursor);
 
                     if (emuInstance->isTouching)
                         emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);

@@ -76,8 +76,11 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
     mouseHide = false;
     mouseHideDelay = 0;
 
+    /* MelonPrimeDS comment-out    */
     QTimer* mouseTimer = setupMouseTimer();
+    /* MelonPrimeDS comment-out  
     connect(mouseTimer, &QTimer::timeout, [=] { if (mouseHide) setCursor(Qt::BlankCursor);});
+    */
 
     osdEnabled = false;
     osdID = 1;
@@ -111,8 +114,10 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
 
 ScreenPanel::~ScreenPanel()
 {
+    /* MelonPrimeDS comment-out    */
     mouseTimer->stop();
     delete mouseTimer;
+
 }
 
 void ScreenPanel::loadConfig()
@@ -415,8 +420,10 @@ bool ScreenPanel::event(QEvent* event)
 
 void ScreenPanel::showCursor()
 {
+    /* MelonPrimeDS comment-out
     mainWindow->panel->setCursor(Qt::ArrowCursor);
     mouseTimer->start();
+    */
 }
 
 QTimer* ScreenPanel::setupMouseTimer()
@@ -1360,4 +1367,16 @@ void ScreenPanelGL::transferLayout()
 
         screenSettingsLock.unlock();
     }
+}
+
+/* MelonPrimeDS */
+void ScreenPanel::unfocus()
+{
+    isFocused = false;
+    setCursor(Qt::ArrowCursor);
+}
+
+void ScreenPanel::focusOutEvent(QFocusEvent* event)
+{
+    unfocus();
 }

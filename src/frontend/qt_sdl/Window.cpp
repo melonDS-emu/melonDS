@@ -950,6 +950,11 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
     //if (event->key() == Qt::Key_F11) emuThread->NDS->debug(0);
 
     emuInstance->onKeyPress(event);
+
+    // for metroid cursor lock 
+    if (event->key() == Qt::Key_Escape) {
+        emuInstance->getMainWindow()->panel->unfocus();
+    }
 }
 
 void MainWindow::keyReleaseEvent(QKeyEvent* event)

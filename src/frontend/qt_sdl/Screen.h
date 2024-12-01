@@ -70,6 +70,9 @@ public:
     void osdSetEnabled(bool enabled);
     void osdAddMessage(unsigned int color, const char* msg);
 
+    bool getFocused() { return isFocused; } // MelonPrimeDS
+    void unfocus(); // MelonPrimeDS
+
 private slots:
     void onScreenLayoutChanged();
     void onAutoScreenSizingChanged(int sizing);
@@ -91,6 +94,7 @@ protected:
     int autoScreenSizing;
 
     ScreenLayout layout;
+    void focusOutEvent(QFocusEvent* event) override; // MelonPrimeDS
     float screenMatrix[kMaxScreenTransforms][6];
     int screenKind[kMaxScreenTransforms];
     int numScreens;
@@ -140,6 +144,7 @@ protected:
 
     void showCursor();
 
+    bool isFocused = false; // MelonPrimeDS
     int osdFindBreakPoint(const char* text, int i);
     void osdLayoutText(const char* text, int* width, int* height, int* breaks);
     unsigned int osdRainbowColor(int inc);
