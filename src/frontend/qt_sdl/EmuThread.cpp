@@ -1426,7 +1426,7 @@ void EmuThread::run()
                     }
 
 
-                    /*
+
                     // Weapon switching of Next/Previous
                     const int wheelDelta = emuInstance->getMainWindow()->panel->getDelta();
                     const bool hasDelta = wheelDelta != 0;
@@ -1483,8 +1483,6 @@ void EmuThread::run()
                             }
                         } while (currentIndex != startIndex);
                     }
-
-                    */
 
                     // Start / View Match progress, points
                     if (emuInstance->hotkeyDown(HK_MetroidMenu)) {
