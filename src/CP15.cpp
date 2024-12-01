@@ -553,7 +553,7 @@ u32 ARMv5::ICacheLookup(const u32 addr)
 
         u8 linepos = (addr & 0x1F) >> 2; // technically this is one too low, but we want that actually
 
-        u32 cycles = ns + (seq * linepos);
+        u64 cycles = ns + (seq * linepos);
         NDS.ARM9Timestamp = cycles += NDS.ARM9Timestamp;
 
         if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
@@ -805,7 +805,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
 
         u8 linepos = (addr & 0x1F) >> 2; // technically this is one too low, but we want that actually
 
-        u32 cycles = ns + (seq * linepos);
+        u64 cycles = ns + (seq * linepos);
         DataCycles = cycles;
     
         cycles += NDS.ARM9Timestamp;
