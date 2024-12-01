@@ -80,7 +80,7 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
     QTimer* mouseTimer = setupMouseTimer();
     /* MelonPrimeDS comment-out  
     connect(mouseTimer, &QTimer::timeout, [=] { if (mouseHide) setCursor(Qt::BlankCursor);});
-    */
+      */
 
     osdEnabled = false;
     osdID = 1;
@@ -304,7 +304,7 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
 {
     event->accept();
 
-    showCursor();
+    // showCursor(); // MelonPrimeDS comment-out
 
     if (!emuInstance->emuIsActive()) return;
     //if (!(event->buttons() & Qt::LeftButton)) return;

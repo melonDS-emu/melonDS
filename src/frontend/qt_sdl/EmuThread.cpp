@@ -1028,7 +1028,10 @@ void EmuThread::run()
 
 
             if (isInGame && !hasInitialized) {
-                // Read once at game start
+                // Run once at game start
+
+                QGuiApplication::setOverrideCursor(Qt::BlankCursor);
+
                 /*
                 if (OSD) {
                     //Clear OSD buffers to delete VirtualStylus from touch-screen
@@ -1116,7 +1119,10 @@ void EmuThread::run()
                 if (isInGame) {
                     // inGame
 
-                    emuInstance->getMainWindow()->panel->setCursor(Qt::BlankCursor); 
+                    if (!wasLastFrameFocused) {
+                        // emuInstance->getMainWindow()->panel->setCursor(Qt::BlankCursor); 
+                        QGuiApplication::setOverrideCursor(Qt::BlankCursor);
+                    }
 
                     // These conditional branches cannot be simplified to a simple else statement
                     // because they handle different independent cases:
@@ -1579,13 +1585,17 @@ void EmuThread::run()
                 }
                 else {
                     // VirtualStylus
-                    emuInstance->getMainWindow()->panel->setCursor(Qt::ArrowCursor);
+                    // emuInstance->getMainWindow()->panel->setCursor(Qt::ArrowCursor);
+                    // QGuiApplication::restoreOverrideCursor();
+                    QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
 
                     if (emuInstance->isTouching)
                         emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
                     else
                         emuInstance->nds->ReleaseScreen();
 
+                    // reset initialized flag
+                    hasInitialized = false;
 
                     /*
                     if (!OSD) {
@@ -1604,8 +1614,7 @@ void EmuThread::run()
                         }
                     }
 
-                    // reset initialized flag
-                    hasInitialized = false;
+
 
                     //Clear OSD buffers
                     Top_buffer->fill(0x00000000);
@@ -1652,8 +1661,10 @@ void EmuThread::run()
                 }
 
 
-            }// END of if(isFocused)
-
+            }
+            else {// END of if(isFocused)
+                QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+            }
 
             emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
 
