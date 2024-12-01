@@ -2391,7 +2391,7 @@
 				<item row="7" column="0">
 					<widget class="QPushButton" name="metroidSetVideoQualityToHigh2">
 						<property name="text">
-							<string>Video quality: High2 (Fast but unstable)</string>
+							<string>Video quality: High2 (Excellent in-game graphics, but menus flicker) (Fast but unstable)</string>
 						</property>
 					</widget>
 				</item>
