@@ -433,6 +433,43 @@ void EmuThread::run()
         if (emuInstance->hotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
         if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
 
+        // Lambda to update aim sensitivity and display a message
+        auto updateAimSensitivity = [&](int change) {
+
+            // Store the current sensitivity in a local variable
+            auto& cfg = emuInstance->getGlobalConfig();
+            int currentSensitivity = cfg.GetInt("Metroid.Sensitivity.Aim");
+
+            // Calculate the new sensitivity
+            int newSensitivity = currentSensitivity + change;
+
+            // Check if the new sensitivity is at least 1
+            if (newSensitivity >= 1) {
+                // Update the config only if the value has changed
+                if (newSensitivity != currentSensitivity) {
+                    cfg.SetInt("Metroid.Sensitivity.Aim", newSensitivity);
+                    // Save the changes to the configuration file (to persist settings for future sessions)
+                    Config::Save();
+                }
+                // Create and display the OSD message
+                emuInstance->osdAddMessage(0, ("AimSensi Updated: " + std::to_string(newSensitivity)).c_str());
+            }
+            else {
+                // Display a message when trying to decrease below 1
+                emuInstance->osdAddMessage(0, "AimSensi cannot be decreased below 1");
+            }
+            };
+
+        // Sensitivity UP
+        if (emuInstance->hotkeyReleased(HK_MetroidIngameSensiUp)) {
+            updateAimSensitivity(1);  // Increase sensitivity by 1
+        }
+
+        // Sensitivity DOWN
+        if (emuInstance->hotkeyReleased(HK_MetroidIngameSensiDown)) {
+            updateAimSensitivity(-1);  // Decrease sensitivity by 1
+        }
+
         if (emuStatus == emuStatus_Running || emuStatus == emuStatus_FrameStep)
         {
             if (emuStatus == emuStatus_FrameStep) emuStatus = emuStatus_Paused;
@@ -522,20 +559,24 @@ void EmuThread::run()
                 emuInstance->renderLock.unlock();
             }
 
+            /* MelonPrimeDS comment-outed
             // process input and hotkeys
             emuInstance->nds->SetKeyMask(emuInstance->inputMask);
+            */
 
             if (emuInstance->isTouching)
                 emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
             else
                 emuInstance->nds->ReleaseScreen();
 
+            /* MelonPrimeDS comment-outed
             if (emuInstance->hotkeyPressed(HK_Lid))
             {
                 bool lid = !emuInstance->nds->IsLidClosed();
                 emuInstance->nds->SetLidClosed(lid);
                 emuInstance->osdAddMessage(0, lid ? "Lid closed" : "Lid opened");
             }
+            */
 
             // microphone input
             emuInstance->micProcess();
@@ -744,16 +785,7 @@ void EmuThread::run()
 
 
 
-
-
-
-
-
-
-
-
-
-
+    // melonPrimeDS
 
 #define INPUT_A 0
 #define INPUT_B 1
@@ -767,15 +799,18 @@ void EmuThread::run()
 #define INPUT_L 9
 #define INPUT_X 10
 #define INPUT_Y 11
-
+#define FN_INPUT_PRESS(i) emuInstance->inputMask.setBit(i, false);;
+#define FN_INPUT_RELEASE(i) emuInstance->inputMask.setBit(i, true);
+    /*
+    * 
+    * 
+    * #define FN_INPUT_PRESS(i) EmuInstance::getInputMask.setBit(i, false);
+#define FN_INPUT_RELEASE(i) EmuInstance::getInputMask.setBit(i, true);
+#define FN_INPUT_PRESS(i) emuInstance->inputMask &= ~(1u << i);;
+#define FN_INPUT_RELEASE(i) emuInstance->inputMask |= (1u << i);;
 #define FN_INPUT_PRESS(i) do { emuInstance->inputMask &= ~(1u << i); } while(0);
 #define FN_INPUT_RELEASE(i) do { emuInstance->inputMask |= (1u << i); } while(0);
-
-
-
-
-
-
+*/
 
     uint8_t playerPosition;
     const uint16_t playerAddressIncrement = 0xF30;
@@ -1117,12 +1152,12 @@ void EmuThread::run()
                 if (isInGame) {
                     // inGame
 
-                                    // These conditional branches cannot be simplified to a simple else statement
-                // because they handle different independent cases:
-                // 1. Recalculating center position when focus is gained or layout is changing
-                // 2. Updating relative position only when focused and layout is not changing
+                    // These conditional branches cannot be simplified to a simple else statement
+                    // because they handle different independent cases:
+                    // 1. Recalculating center position when focus is gained or layout is changing
+                    // 2. Updating relative position only when focused and layout is not changing
 
-                // Recalculate center position when focus is gained or layout is changing
+                    // Recalculate center position when focus is gained or layout is changing
                     if (!wasLastFrameFocused || isLayoutChanging) {
                         adjustedCenter = getAdjustedCenter();// emuInstance->getMainWindow()
                     }
@@ -1141,8 +1176,8 @@ void EmuThread::run()
 
 
                     // Aiming
-        // 
-                        // Lambda function to adjust scaled mouse input
+
+                    // Lambda function to adjust scaled mouse input
                     auto adjustMouseInput = [](float value) {
                         // For positive values between 0.5 and 1, set to 1
                         if (value >= 0.5f && value < 1.0f) {
@@ -1203,6 +1238,7 @@ void EmuThread::run()
                         // Convert to 16-bit integer and write the adjusted X value to the NDS memory
                         emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(scaledMouseX));
                         enableAim = true;
+                        emuInstance->osdAddMessage(0, "mouseX"); // TODO DELETE THIS
                     }
 
                     // Processing for the Y-axis
@@ -1217,6 +1253,7 @@ void EmuThread::run()
                         // Convert to 16-bit integer and write the adjusted Y value to the NDS memory
                         emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(scaledMouseY));
                         enableAim = true;
+                        emuInstance->osdAddMessage(0, "mouseY"); // TODO DELETE THIS
                     }
 
                     // Move hunter
@@ -1225,6 +1262,7 @@ void EmuThread::run()
                     // Shoot
                     if (emuInstance->hotkeyDown(HK_MetroidShootScan) || emuInstance->hotkeyDown(HK_MetroidScanShoot)) {
                         FN_INPUT_PRESS(INPUT_L);
+                        emuInstance->osdAddMessage(0, "Shooting"); // TODO DELETE THIS
                     }
                     else {
                         FN_INPUT_RELEASE(INPUT_L);
@@ -1241,6 +1279,7 @@ void EmuThread::run()
                     // Jump
                     if (emuInstance->hotkeyDown(HK_MetroidJump)) {
                         FN_INPUT_PRESS(INPUT_B);
+                        emuInstance->osdAddMessage(0, "Jumping"); // TODO DELETE THIS
                     }
                     else {
                         FN_INPUT_RELEASE(INPUT_B);
@@ -1248,6 +1287,8 @@ void EmuThread::run()
 
                     // Alt-form
                     if (emuInstance->hotkeyPressed(HK_MetroidMorphBall)) {
+
+                        emuInstance->osdAddMessage(0, "Altform"); // TODO DELETE THIS
 
                         emuInstance->nds->ReleaseScreen();
                         frameAdvance(2);
@@ -1510,7 +1551,7 @@ void EmuThread::run()
                                 for (int i = 0; i < 30; i++) {
                                     // still allow movement whilst we're enabling scan visor
                                     processMoveInput();
-                                    emuInstance->nds->SetKeyMask(emuInstance->inputMask);
+                                    emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
                                     frameAdvanceOnce();
                                 }
                             }
@@ -1648,7 +1689,7 @@ void EmuThread::run()
             }// END of if(isFocused)
 
 
-            emuInstance->nds->SetKeyMask(emuInstance->inputMask);
+            emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
 
             // record last frame was forcused or not
             wasLastFrameFocused = isFocused;

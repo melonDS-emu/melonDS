@@ -27,6 +27,7 @@
 #include "Window.h"
 #include "Config.h"
 #include "SaveManager.h"
+#include <QBitArray> // MelonPrimeDS
 
 const int kMaxWindows = 4;
 
@@ -261,6 +262,14 @@ private:
 
     void onKeyPress(QKeyEvent* event);
     void onKeyRelease(QKeyEvent* event);
+
+    /* MelonPrimeDS { */
+    void onMousePress(QMouseEvent* event);
+    void onMouseRelease(QMouseEvent* event);
+    float hotkeyAnalogueValue(int val);
+    melonDS::u32 getInputMask();
+    /* MelonPrimeDS } */
+
     void keyReleaseAll();
 
     void openJoystick();
@@ -269,9 +278,17 @@ private:
 
     void inputProcess();
 
+    /* MelonPrimeDS comment-out
     bool hotkeyDown(int id)     { return hotkeyMask    & (1<<id); }
     bool hotkeyPressed(int id)  { return hotkeyPress   & (1<<id); }
     bool hotkeyReleased(int id) { return hotkeyRelease & (1<<id); }
+    */
+    /* MelonPrimeDS { */
+    bool hotkeyDown(int id)     { return hotkeyMask.at(id); }
+    bool hotkeyPressed(int id)  { return hotkeyPress.at(id); }
+    bool hotkeyReleased(int id) { return hotkeyRelease.at(id); }
+    /* MelonPrimeDS } */
+
 
     void loadRTCData();
     void saveRTCData();
@@ -371,12 +388,22 @@ private:
     bool hasRumble = false;
     bool isRumbling = false;
 
+    /* MelonPrimeDS comment-out
     melonDS::u32 keyInputMask, joyInputMask;
     melonDS::u32 keyHotkeyMask, joyHotkeyMask;
     melonDS::u32 hotkeyMask, lastHotkeyMask;
     melonDS::u32 hotkeyPress, hotkeyRelease;
 
     melonDS::u32 inputMask;
+    */
+    /* MelonPrimeDS { */
+    QBitArray keyInputMask, joyInputMask;
+    QBitArray keyHotkeyMask, joyHotkeyMask;
+    QBitArray hotkeyMask, lastHotkeyMask;
+    QBitArray hotkeyPress, hotkeyRelease;
+
+    QBitArray inputMask;
+    /* MelonPrimeDS } */
 
     bool isTouching;
     melonDS::u16 touchX, touchY;
