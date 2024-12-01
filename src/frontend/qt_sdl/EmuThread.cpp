@@ -104,6 +104,269 @@ void EmuThread::detachWindow(MainWindow* window)
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// melonPrime
+static bool hasInitialized = false;
+float mouseX;
+float mouseY;
+#include "melonPrime/def.h"
+
+// CalculatePlayerAddress Function
+uint32_t calculatePlayerAddress(uint32_t baseAddress, uint8_t playerPosition, int32_t increment) {
+    // If player position is 0, return the base address without modification
+    if (playerPosition == 0) {
+        return baseAddress;
+    }
+
+    // Calculate using 64-bit integers to prevent overflow
+    // Use playerPosition as is (no subtraction)
+    int64_t result = static_cast<int64_t>(baseAddress) + (static_cast<int64_t>(playerPosition) * increment);
+
+    // Ensure the result is within the 32-bit range
+    if (result < 0 || result > UINT32_MAX) {
+        return baseAddress;  // Return the original address if out of range
+    }
+
+    return static_cast<uint32_t>(result);
+}
+
+melonDS::u32 baseIsAltFormAddr;
+melonDS::u32 baseLoadedSpecialWeaponAddr;
+melonDS::u32 baseWeaponChangeAddr;
+melonDS::u32 baseSelectedWeaponAddr;
+melonDS::u32 baseChosenHunterAddr;
+melonDS::u32 baseJumpFlagAddr;
+melonDS::u32 inGameAddr;
+melonDS::u32 PlayerPosAddr;
+melonDS::u32 inVisorOrMapAddr;
+melonDS::u32 baseAimXAddr;
+melonDS::u32 baseAimYAddr;
+melonDS::u32 aimXAddr;
+melonDS::u32 aimYAddr;
+melonDS::u32 isInAdventureAddr;
+melonDS::u32 isMapOrUserActionPausedAddr; // for issue in AdventureMode, Aim Stopping when SwitchingWeapon. 
+
+bool isAltForm;
+
+
+void detectRomAndSetAddresses(EmuInstance* emuInstance) {
+
+
+    switch (globalChecksum) {
+    case RomVersions::USA1_1:
+        // USA1.1
+
+        baseChosenHunterAddr = 0x020CBDA4; // BattleConfig:ChosenHunter 0 samus 1 kanden 2 trace 3 sylux 4 noxus 5 spire 6 weavel
+        inGameAddr = 0x020eec40 + 0x8F0; // inGame:1
+        inVisorOrMapAddr = 0x020D9A7D; // Estimated address
+        PlayerPosAddr = 0x020DA538;
+        baseIsAltFormAddr = 0x020DB098; // 1p(host)
+        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
+        baseWeaponChangeAddr = 0x020DB45B; // 1p(host)
+        baseSelectedWeaponAddr = 0x020DB463; // 1p(host)
+        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
+        baseAimXAddr = 0x020DEDA6;
+        baseAimYAddr = 0x020DEDAE;
+        isInAdventureAddr = 0x020E83BC; // Read8 0x02: ADV, 0x03: Multi
+        isMapOrUserActionPausedAddr = 0x020FBF18; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
+        isRomDetected = true;
+        emuInstance->osdAddMessage(0, "Rom detected: US1.1");
+
+        break;
+
+    case RomVersions::USA1_0:
+        // USA1.0
+        baseChosenHunterAddr = 0x020CB51C; // BattleConfig:ChosenHunter
+        inGameAddr = 0x020ee180 + 0x8F0; // inGame:1
+        PlayerPosAddr = 0x020D9CB8;
+        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+        baseIsAltFormAddr = 0x020DC6D8 - 0x1EC0; // 1p(host)
+        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
+        baseWeaponChangeAddr = 0x020DCA9B - 0x1EC0; // 1p(host)
+        baseSelectedWeaponAddr = 0x020DCAA3 - 0x1EC0; // 1p(host)
+        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
+        baseAimXAddr = 0x020de526;
+        baseAimYAddr = 0x020de52E;
+        isInAdventureAddr = 0x020E78FC; // Read8 0x02: ADV, 0x03: Multi
+        isMapOrUserActionPausedAddr = 0x020FB458; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
+        isRomDetected = true;
+        emuInstance->osdAddMessage(0, "Rom detected: US1.0");
+
+        break;
+
+    case RomVersions::JAPAN1_0:
+        // Japan1.0
+        baseChosenHunterAddr = 0x020CD358; // BattleConfig:ChosenHunter
+        inGameAddr = 0x020F0BB0; // inGame:1
+        PlayerPosAddr = 0x020DBB78;
+        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+        baseIsAltFormAddr = 0x020DC6D8; // 1p(host)
+        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
+        baseWeaponChangeAddr = 0x020DCA9B; // 1p(host)
+        baseSelectedWeaponAddr = 0x020DCAA3; // 1p(host)
+        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
+        baseAimXAddr = 0x020E03E6;
+        baseAimYAddr = 0x020E03EE;
+        isInAdventureAddr = 0x020E9A3C; // Read8 0x02: ADV, 0x03: Multi
+        isMapOrUserActionPausedAddr = 0x020FD598; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
+        isRomDetected = true;
+        emuInstance->osdAddMessage(0, "Rom detected: JP1.0");
+
+        break;
+
+    case RomVersions::JAPAN1_1:
+        // Japan1.1
+        baseChosenHunterAddr = 0x020CD318; // BattleConfig:ChosenHunter
+        inGameAddr = 0x020F0280 + 0x8F0; // inGame:1
+        PlayerPosAddr = 0x020DBB38;
+        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+        baseIsAltFormAddr = 0x020DC6D8 - 0x64; // 1p(host)
+        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
+        baseWeaponChangeAddr = 0x020DCA9B - 0x40; // 1p(host)
+        baseSelectedWeaponAddr = 0x020DCAA3 - 0x40; // 1p(host)
+        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
+        baseAimXAddr = 0x020e03a6;
+        baseAimYAddr = 0x020e03ae;
+        isInAdventureAddr = 0x020E99FC; // Read8 0x02: ADV, 0x03: Multi
+        isMapOrUserActionPausedAddr = 0x020FD558; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
+        isRomDetected = true;
+        emuInstance->osdAddMessage(0, "Rom detected: JP1.1");
+
+        break;
+
+    case RomVersions::EU1_0:
+        // EU1.0
+        baseChosenHunterAddr = 0x020CBDC4; // BattleConfig:ChosenHunter
+        inGameAddr = 0x020eec60 + 0x8F0; // inGame:1
+        PlayerPosAddr = 0x020DA558;
+        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+        baseIsAltFormAddr = 0x020DC6D8 - 0x1620; // 1p(host)
+        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
+        baseWeaponChangeAddr = 0x020DCA9B - 0x1620; // 1p(host)
+        baseSelectedWeaponAddr = 0x020DCAA3 - 0x1620; // 1p(host)
+        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
+        baseAimXAddr = 0x020dedc6;
+        baseAimYAddr = 0x020dedcE;
+        isInAdventureAddr = 0x020E83DC; // Read8 0x02: ADV, 0x03: Multi
+        isMapOrUserActionPausedAddr = 0x020FBF38; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
+        isRomDetected = true;
+        emuInstance->osdAddMessage(0, "Rom detected: EU1.0");
+
+        break;
+
+    case RomVersions::EU1_1:
+        // EU1.1
+        baseChosenHunterAddr = 0x020CBE44; // BattleConfig:ChosenHunter
+        inGameAddr = 0x020eece0 + 0x8F0; // inGame:1
+        PlayerPosAddr = 0x020DA5D8;
+        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+        baseIsAltFormAddr = 0x020DC6D8 - 0x15A0; // 1p(host)
+        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
+        baseWeaponChangeAddr = 0x020DCA9B - 0x15A0; // 1p(host)
+        baseSelectedWeaponAddr = 0x020DCAA3 - 0x15A0; // 1p(host)
+        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
+        baseAimXAddr = 0x020dee46;
+        baseAimYAddr = 0x020dee4e;
+        isInAdventureAddr = 0x020E845C; // Read8 0x02: ADV, 0x03: Multi
+        isMapOrUserActionPausedAddr = 0x020FBFB8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
+        emuInstance->osdAddMessage(0, "Rom detected: EU1.1");
+
+        isRomDetected = true;
+
+        break;
+
+    case RomVersions::KOREA1_0:
+        // Korea1.0
+        baseChosenHunterAddr = 0x020C4B88; // BattleConfig:ChosenHunter
+        inGameAddr = 0x020E81B4; // inGame:1
+        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+        PlayerPosAddr = 0x020D33A9; // it's weird but "3A9" is correct.
+        baseIsAltFormAddr = 0x020DC6D8 - 0x87F4; // 1p(host)
+        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
+        baseWeaponChangeAddr = 0x020DCA9B - 0x87F4; // 1p(host)
+        baseSelectedWeaponAddr = 0x020DCAA3 - 0x87F4; // 1p(host)
+        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
+        baseAimXAddr = 0x020D7C0E;
+        baseAimYAddr = 0x020D7C16;
+        isInAdventureAddr = 0x020E11F8; // Read8 0x02: ADV, 0x03: Multi
+        isMapOrUserActionPausedAddr = 0x020F4CF8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
+        emuInstance->osdAddMessage(0, "Rom detected: KR1.0");
+
+        isRomDetected = true;
+
+        break;
+
+    default:
+        // Handle unsupported checksums.
+        // Add default behavior or error handling.
+        break;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* MelonPrimeDS function goes here */
 void EmuThread::run()
 {
     Config::Table& globalCfg = emuInstance->getGlobalConfig();
@@ -151,7 +414,10 @@ void EmuThread::run()
     emuInstance->fastForwardToggled = false;
     emuInstance->slowmoToggled = false;
 
-    while (emuStatus != emuStatus_Exit)
+
+    auto frameAdvanceOnce{
+    [&]()
+//    while (emuStatus != emuStatus_Exit)
     {
         MPInterface::Get().Process();
         emuInstance->inputProcess();
@@ -190,42 +456,46 @@ void EmuThread::run()
             }
             */
 
-            if (emuInstance->nds->ConsoleType == 1)
-            {
-                DSi* dsi = static_cast<DSi*>(emuInstance->nds);
-                double currentTime = SDL_GetPerformanceCounter() * perfCountsSec;
+            auto handleDSiInputs = [](EmuInstance* emuInstance, double perfCountsSec) {
+                if (emuInstance->nds->ConsoleType == 1)
+                {
+                    DSi* dsi = static_cast<DSi*>(emuInstance->nds);
+                    double currentTime = SDL_GetPerformanceCounter() * perfCountsSec;
 
-                // Handle power button
-                if (emuInstance->hotkeyDown(HK_PowerButton))
-                {
-                    dsi->I2C.GetBPTWL()->SetPowerButtonHeld(currentTime);
-                }
-                else if (emuInstance->hotkeyReleased(HK_PowerButton))
-                {
-                    dsi->I2C.GetBPTWL()->SetPowerButtonReleased(currentTime);
-                }
+                    // Handle power button
+                    if (emuInstance->hotkeyDown(HK_PowerButton))
+                    {
+                        dsi->I2C.GetBPTWL()->SetPowerButtonHeld(currentTime);
+                    }
+                    else if (emuInstance->hotkeyReleased(HK_PowerButton))
+                    {
+                        dsi->I2C.GetBPTWL()->SetPowerButtonReleased(currentTime);
+                    }
 
-                // Handle volume buttons
-                if (emuInstance->hotkeyDown(HK_VolumeUp))
-                {
-                    dsi->I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Up);
-                }
-                else if (emuInstance->hotkeyReleased(HK_VolumeUp))
-                {
-                    dsi->I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Up);
-                }
+                    // Handle volume buttons
+                    if (emuInstance->hotkeyDown(HK_VolumeUp))
+                    {
+                        dsi->I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Up);
+                    }
+                    else if (emuInstance->hotkeyReleased(HK_VolumeUp))
+                    {
+                        dsi->I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Up);
+                    }
 
-                if (emuInstance->hotkeyDown(HK_VolumeDown))
-                {
-                    dsi->I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Down);
-                }
-                else if (emuInstance->hotkeyReleased(HK_VolumeDown))
-                {
-                    dsi->I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Down);
-                }
+                    if (emuInstance->hotkeyDown(HK_VolumeDown))
+                    {
+                        dsi->I2C.GetBPTWL()->SetVolumeSwitchHeld(DSi_BPTWL::volumeKey_Down);
+                    }
+                    else if (emuInstance->hotkeyReleased(HK_VolumeDown))
+                    {
+                        dsi->I2C.GetBPTWL()->SetVolumeSwitchReleased(DSi_BPTWL::volumeKey_Down);
+                    }
 
-                dsi->I2C.GetBPTWL()->ProcessVolumeSwitchInput(currentTime);
-            }
+                    dsi->I2C.GetBPTWL()->ProcessVolumeSwitchInput(currentTime);
+                }
+                };
+
+            handleDSiInputs(emuInstance, perfCountsSec);
 
             if (useOpenGL)
                 emuInstance->makeCurrentGL();
@@ -462,6 +732,1035 @@ void EmuThread::run()
 
         handleMessages();
     }
+    };
+
+
+    auto frameAdvance{
+    [&](int n)
+    {
+        for (int i = 0; i < n; i++) frameAdvanceOnce();
+    }
+    };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#define INPUT_A 0
+#define INPUT_B 1
+#define INPUT_SELECT 2
+#define INPUT_START 3
+#define INPUT_RIGHT 4
+#define INPUT_LEFT 5
+#define INPUT_UP 6
+#define INPUT_DOWN 7
+#define INPUT_R 8
+#define INPUT_L 9
+#define INPUT_X 10
+#define INPUT_Y 11
+
+#define FN_INPUT_PRESS(i) do { emuInstance->inputMask &= ~(1u << i); } while(0);
+#define FN_INPUT_RELEASE(i) do { emuInstance->inputMask |= (1u << i); } while(0);
+
+
+
+
+
+
+
+    uint8_t playerPosition;
+    const uint16_t playerAddressIncrement = 0xF30;
+    const uint8_t aimAddrIncrement = 0x48;
+    uint32_t isAltFormAddr;
+    uint32_t loadedSpecialWeaponAddr;
+    uint32_t chosenHunterAddr;
+    uint32_t weaponChangeAddr;
+    uint32_t selectedWeaponAddr;
+    uint32_t jumpFlagAddr;
+
+    uint32_t havingWeaponsAddr;
+    uint32_t currentWeaponAddr;
+
+    uint32_t boostGaugeAddr;
+    uint32_t isBoostingAddr;
+
+    uint32_t weaponAmmoAddr;
+
+    // uint32_t isPrimeHunterAddr;
+
+
+    bool isRoundJustStarted;
+    bool isInGame;
+    bool isInAdventure;
+    bool isSamus;
+
+    bool isWeavel;
+
+    // Screen layout adjustment constants
+    constexpr float DEFAULT_ADJUSTMENT = 0.25f;
+    constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
+    constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
+
+    // The QPoint class defines a point in the plane using integer precision. 
+    // auto mouseRel = rawInputThread->fetchMouseDelta();
+    QPoint mouseRel;
+
+    // Initialize Adjusted Center 
+    QPoint adjustedCenter;
+
+    auto& cfg = emuInstance->getGlobalConfig();
+
+    // test
+    // Lambda function to get adjusted center position based on window geometry and screen layout
+    auto getAdjustedCenter = [&]() {
+        // Cache window geometry and initialize center position
+        const QRect windowGeometry = QGuiApplication::primaryScreen()->availableGeometry();
+        QPoint adjustedCenter = windowGeometry.center();
+
+        // Inner lambda function for adjusting the center position
+        auto adjustCenter = [&](QPoint& adjustedCenter, const QRect& windowGeometry) {
+            // Calculate adjustment direction based on screen swap configuration
+            const float direction = (cfg.GetBool("ScreenSwap") != false) ? 1.0f : -1.0f;
+
+
+            // Adjust the center position based on screen layout in specified order
+            if (cfg.GetInt("ScreenLayout") == ScreenLayoutType::screenLayout_Hybrid) {
+                /*
+                ### Monitor Specification
+                - Monitor resolution: 2560x1440 pixels
+                ### Adjusted Conditions (with Black Bars)
+                1. Total monitor height: 1440 pixels
+                2. 80px black bars at the top and bottom, making the usable height:
+                   1440 - 160 = 1280 pixels
+                3. 4:3 screen width, based on the usable height (1280 pixels):
+                   4:3 width = (1280 / 3) * 4 = 1706.67 pixels
+                ### Position Calculations (with Black Bars)
+                #### Left 4:3 Screen Center
+                Left 4:3 center = 1706.67 / 2 = 853.33 pixels
+                #### Right Stacked 4:3 Screen Center
+                - The first 4:3 screen starts at the monitor's center (1280 pixels).
+                - The center of this screen:
+                  1280 + (1706.67 / 2) = 2133.33 pixels
+                ### Final Results
+                - Left 4:3 screen center: ~853 pixels
+                - Right stacked 4:3 screen center: ~2133 pixels
+                */
+                if (cfg.GetBool("ScreenSwap") != false) {
+                    adjustedCenter.rx() += static_cast<int>(windowGeometry.width() * HYBRID_RIGHT);
+                    adjustedCenter.ry() -= static_cast<int>(windowGeometry.height() * DEFAULT_ADJUSTMENT);
+                }
+                else {
+                    adjustedCenter.rx() -= static_cast<int>(windowGeometry.width() * HYBRID_LEFT);
+                }
+                return;  // End here if in Hybrid mode
+            }
+
+            // For layouts other than Hybrid, first check BotOnly mode
+            if (cfg.GetInt("ScreenSizing") == ScreenSizing::screenSizing_BotOnly) {
+                // Process for bottom-screen-only display
+                // TODO: Adjust to avoid duplicate touches at the cursor position
+
+
+                // TODO Config::WindowMaximized = mainWindow->isMaximized()
+
+                constexpr float FULLSCREEN_ADJUSTMENT = 0.4f;
+                if (emuInstance->getMainWindow()->isFullScreen())
+                {
+                    // isFullScreen
+                    adjustedCenter.rx() -= static_cast<int>(windowGeometry.width() * FULLSCREEN_ADJUSTMENT);
+                    adjustedCenter.ry() -= static_cast<int>(windowGeometry.height() * FULLSCREEN_ADJUSTMENT);
+
+                }
+                /*
+                else
+                {
+                    // isNotFullScreen
+                    // The cursor may be better centered because there is a problem that the cursor may click outside the window.
+                    // I would recommend playing in full screen.
+                    return;
+                }
+                */
+
+                return;  // End here if in BotOnly mode
+            }
+
+            if (cfg.GetInt("ScreenSizing") == ScreenSizing::screenSizing_TopOnly) {
+                return;  // End here if in TopOnly mode
+            }
+
+            // Standard layout adjustment (when not in BotOnly mode)
+            switch (cfg.GetInt("ScreenLayout")) {
+            case ScreenLayoutType::screenLayout_Natural:
+            case ScreenLayoutType::screenLayout_Horizontal:
+                // Note: This case actually handles vertical layout despite being named Horizontal in enum
+                adjustedCenter.ry() += static_cast<int>(direction * windowGeometry.height() * DEFAULT_ADJUSTMENT);
+                break;
+
+            case ScreenLayoutType::screenLayout_Vertical:
+                // Note: This case actually handles horizontal layout despite being named Vertical in enum
+                adjustedCenter.rx() += static_cast<int>(direction * windowGeometry.width() * DEFAULT_ADJUSTMENT);
+                break;
+            }
+            };
+
+        // Adjust the center position and return
+        adjustCenter(adjustedCenter, windowGeometry);
+        return adjustedCenter;
+        };
+
+    // Get adjusted center position
+    adjustedCenter = getAdjustedCenter();
+
+
+    //MelonPrime OSD stuff
+    /*
+    PrimeOSD::Canvas* OSD = nullptr;
+    QImage* Top_buffer = nullptr;
+    QPainter* Top_paint = nullptr;
+    QImage* Btm_buffer = nullptr;
+    QPainter* Btm_paint = nullptr;
+    float virtualStylusX = 128;
+    float virtualStylusY = 96; // This might not be good - does it go out of bounds when bottom-only? Is Y=0 barely at the bottom limit?
+
+    */
+
+    bool enableAim = true;
+    bool wasLastFrameFocused = false;
+
+
+    //const float dsAspectRatio = 4.0 / 3.0;
+    const float dsAspectRatio = 1.333333333f;
+    //const float aimAspectRatio = 6.0 / 4.0; // i have no idea
+    const float aimAspectRatio = 1.5f; // i have no idea  6.0 / 4.0
+
+
+
+    // metroid prime hunters code
+    // adapted from https://forums.desmume.org/viewtopic.php?id=11715
+
+    // #define INTERP_IN(t) (t * t)
+    // #define INTERP_IN_CUBIC(t) (t * t * t)
+    // #define INTERP_IN_QUART(t) (t * t * t * t)
+
+
+
+
+
+    // #define ENABLE_MEMORY_DUMP 1
+
+    /*
+    #ifdef ENABLE_MEMORY_DUMP
+        int memoryDump = 0;
+    #endif
+    */
+
+    // RawInputThread* rawInputThread = new RawInputThread(parent());
+    // rawInputThread->start();
+
+    /*
+    auto processMoveInput = []() {
+        const struct {
+            int hotkey;
+            int input;
+        } moves[] = {
+            {HK_MetroidMoveForward, INPUT_UP},
+            {HK_MetroidMoveBack, INPUT_DOWN},
+            {HK_MetroidMoveLeft, INPUT_LEFT},
+            {HK_MetroidMoveRight, INPUT_RIGHT}
+        };
+        for (const auto& move : moves) {
+            if (emuInstance->hotkeyDown(move.hotkey)) {
+                FN_INPUT_PRESS(move.input);
+            } else {
+                FN_INPUT_RELEASE(move.input);
+            }
+        }
+    };
+    */
+    /*
+    auto processMoveInput = []() {
+        // Static array to minimize stack operations
+        static constexpr struct InputPair {
+            int hotkey;
+            int input;
+            int oppositeHotkey;
+        } moves[] = {
+            {HK_MetroidMoveForward, INPUT_UP, HK_MetroidMoveBack},
+            {HK_MetroidMoveBack, INPUT_DOWN, HK_MetroidMoveForward},
+            {HK_MetroidMoveLeft, INPUT_LEFT, HK_MetroidMoveRight},
+            {HK_MetroidMoveRight, INPUT_RIGHT, HK_MetroidMoveLeft}
+        };
+        // Process horizontal and vertical axes separately for better branch prediction
+        // and to avoid unnecessary checks
+        // for supporting "counter-strafing" feature
+        // Horizontal axis
+        const bool leftPressed = emuInstance->hotkeyDown(moves[2].hotkey);
+        const bool rightPressed = emuInstance->hotkeyDown(moves[3].hotkey);
+        if (leftPressed && !rightPressed) {
+            FN_INPUT_PRESS(INPUT_LEFT);
+        }
+        else {
+            FN_INPUT_RELEASE(INPUT_LEFT);
+        }
+        if (rightPressed && !leftPressed) {
+            FN_INPUT_PRESS(INPUT_RIGHT);
+        }
+        else {
+            FN_INPUT_RELEASE(INPUT_RIGHT);
+        }
+        // Vertical axis
+        const bool upPressed = emuInstance->hotkeyDown(moves[0].hotkey);
+        const bool downPressed = emuInstance->hotkeyDown(moves[1].hotkey);
+        if (upPressed && !downPressed) {
+            FN_INPUT_PRESS(INPUT_UP);
+        }
+        else {
+            FN_INPUT_RELEASE(INPUT_UP);
+        }
+        if (downPressed && !upPressed) {
+            FN_INPUT_PRESS(INPUT_DOWN);
+        }
+        else {
+            FN_INPUT_RELEASE(INPUT_DOWN);
+        }
+    };
+    */
+
+    // processMoveInputFunction{
+
+    auto processMoveInput = [&]() {
+        // Pack all input flags into a single 32-bit register for SIMD-like processing
+        static constexpr uint32_t INPUT_PACKED_UP = (1u << 0) | (uint32_t(INPUT_UP) << 16);
+        static constexpr uint32_t INPUT_PACKED_DOWN = (1u << 1) | (uint32_t(INPUT_DOWN) << 16);
+        static constexpr uint32_t INPUT_PACKED_LEFT = (1u << 2) | (uint32_t(INPUT_LEFT) << 16);
+        static constexpr uint32_t INPUT_PACKED_RIGHT = (1u << 3) | (uint32_t(INPUT_RIGHT) << 16);
+
+        // Pre-fetch all hotkey states at once to minimize input latency
+        uint32_t inputBitmap =
+            (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveForward)) << 0) |
+            (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveBack)) << 1) |
+            (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveLeft)) << 2) |
+            (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveRight)) << 3);
+
+        // Optimized LUT using bit manipulation to handle all cases
+        static constexpr uint32_t PACKED_LUT[16] = {
+            0x00000000u, // None
+            INPUT_PACKED_UP,    // Up
+            INPUT_PACKED_DOWN,  // Down
+            0x00000000u, // Up+Down (cancel)
+            INPUT_PACKED_LEFT,  // Left
+            INPUT_PACKED_UP | INPUT_PACKED_LEFT,    // Left+Up
+            INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,  // Left+Down
+            INPUT_PACKED_LEFT,  // Left+Up+Down
+            INPUT_PACKED_RIGHT, // Right
+            INPUT_PACKED_UP | INPUT_PACKED_RIGHT,   // Right+Up
+            INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT, // Right+Down
+            INPUT_PACKED_RIGHT, // Right+Up+Down
+            0x00000000u, // Left+Right (cancel)
+            INPUT_PACKED_UP,    // Left+Right+Up
+            INPUT_PACKED_DOWN,  // Left+Right+Down
+            0x00000000u  // All pressed (cancel)
+        };
+
+        // Single LUT lookup to get final state
+        uint32_t finalState = PACKED_LUT[inputBitmap & 0xF];
+
+        // Branchless input application using bit manipulation
+        static const auto applyInput = [&](uint32_t packedInput, uint32_t state) {
+            if (state & packedInput & 0xF) {
+                FN_INPUT_PRESS(packedInput >> 16);
+            }
+            else {
+                FN_INPUT_RELEASE(packedInput >> 16);
+            }
+            };
+
+        // Process all inputs in parallel using packed values
+        static constexpr uint32_t ALL_INPUTS[] = {
+            INPUT_PACKED_UP, INPUT_PACKED_DOWN,
+            INPUT_PACKED_LEFT, INPUT_PACKED_RIGHT
+        };
+
+#pragma unroll
+        for (const auto& input : ALL_INPUTS) {
+            applyInput(input, finalState);
+        }
+        };
+
+
+
+
+    // /processMoveInputFunction }
+
+    while (emuStatus != emuStatus_Exit) {
+
+        // MelonPrimeDS Functions START
+
+
+        // auto isFocused = emuInstance->getMainWindow()->panel->getFocused();
+        bool isFocused = emuStatus == emuStatus_Running;
+
+        // Define sensitivity factor as a constant
+        const float SENSITIVITY_FACTOR = cfg.GetInt("Metroid.Sensitivity.Aim") * 0.01f;
+        const float SENSITIVITY_FACTOR_VIRTUAL_STYLUS = cfg.GetInt("Metroid.Sensitivity.VirtualStylus") * 0.01f;
+
+
+        if (!isRomDetected) {
+            detectRomAndSetAddresses(emuInstance);
+        }
+        if (isRomDetected) {
+            isInGame = emuInstance->nds->ARM9Read16(inGameAddr) == 0x0001;
+
+
+            if (isInGame && !hasInitialized) {
+                // Read once at game start
+                /*
+                if (OSD) {
+                    //Clear OSD buffers to delete VirtualStylus from touch-screen
+                    Top_buffer->fill(0x00000000);
+                    Btm_buffer->fill(0x00000000);
+
+                    // Reset/end any active painters
+                    Top_paint->end();
+                    Btm_paint->end();
+
+                    OSD = nullptr;
+                    Top_buffer = nullptr;
+                    Top_paint = nullptr;
+                    Btm_buffer = nullptr;
+                    Btm_paint = nullptr;
+                }
+                */
+
+                // Read the player position
+                playerPosition = emuInstance->nds->ARM9Read8(PlayerPosAddr);
+
+                // get addresses
+                isAltFormAddr = calculatePlayerAddress(baseIsAltFormAddr, playerPosition, playerAddressIncrement);
+                loadedSpecialWeaponAddr = calculatePlayerAddress(baseLoadedSpecialWeaponAddr, playerPosition, playerAddressIncrement);
+                chosenHunterAddr = calculatePlayerAddress(baseChosenHunterAddr, playerPosition, 0x01);
+                weaponChangeAddr = calculatePlayerAddress(baseWeaponChangeAddr, playerPosition, playerAddressIncrement);
+
+                selectedWeaponAddr = calculatePlayerAddress(baseSelectedWeaponAddr, playerPosition, playerAddressIncrement); // 020DCAA3 in JP1.0
+                currentWeaponAddr = selectedWeaponAddr - 0x1; // 020DCAA2 in JP1.0
+                havingWeaponsAddr = selectedWeaponAddr + 0x3; // 020DCAA6 in JP1.0
+
+                weaponAmmoAddr = selectedWeaponAddr - 0x383; // 020D720 in JP1.0 current weapon ammo. DC722 is for MissleAmmo. can read both with read32.
+                jumpFlagAddr = calculatePlayerAddress(baseJumpFlagAddr, playerPosition, playerAddressIncrement);
+
+                // getChosenHunterAddr
+                chosenHunterAddr = calculatePlayerAddress(baseChosenHunterAddr, playerPosition, 0x01);
+                uint8_t hunterID = emuInstance->nds->ARM9Read8(chosenHunterAddr); // Perform memory read only once
+                isSamus = hunterID == 0x00;
+                isWeavel = hunterID == 0x06;
+
+                /*
+                Hunter IDs:
+                00 - Samus
+                01 - Kanden
+                02 - Trace
+                03 - Sylux
+                04 - Noxus
+                05 - Spire
+                06 - Weavel
+                */
+
+                boostGaugeAddr = isAltFormAddr + 0x44;
+                isBoostingAddr = isAltFormAddr + 0x46;
+
+                // aim addresses
+                aimXAddr = calculatePlayerAddress(baseAimXAddr, playerPosition, aimAddrIncrement);
+                aimYAddr = calculatePlayerAddress(baseAimYAddr, playerPosition, aimAddrIncrement);
+
+
+                isInAdventure = emuInstance->nds->ARM9Read8(isInAdventureAddr) == 0x02;
+
+                // isPrimeHunterAddr = isInAdventureAddr + 0xAD; // isPrimeHunter Addr NotPrimeHunter:0xFF, PrimeHunter:0x00 220E9AE9 in JP1.0
+
+                // emuInstance->osdAddMessage(0, "Completed address calculation.");
+
+                // Set the initialization complete flag
+                hasInitialized = true;
+            }
+
+            if (isFocused) {
+
+
+                // Calculate for aim 
+                // updateMouseRelativeAndRecenterCursor
+                // 
+                // Handle the case when the window is focused
+                // Update mouse relative position and recenter cursor for aim control
+
+
+                // Check hotkey status
+                bool isLayoutChanging = emuInstance->hotkeyPressed(HK_SwapScreens) || emuInstance->hotkeyPressed(HK_FullscreenToggle);
+
+                // These conditional branches cannot be simplified to a simple else statement
+                // because they handle different independent cases:
+                // 1. Recalculating center position when focus is gained or layout is changing
+                // 2. Updating relative position only when focused and layout is not changing
+
+                // Recalculate center position when focus is gained or layout is changing
+                if (!wasLastFrameFocused || isLayoutChanging) {
+                    adjustedCenter = getAdjustedCenter();// emuInstance->getMainWindow()
+                }
+
+                // Update relative position only when not changing layout
+                if (wasLastFrameFocused && !isLayoutChanging) {
+                    mouseRel = QCursor::pos() - adjustedCenter;
+                }
+                else {
+                    mouseRel = QPoint(0, 0);  // Initialize to origin
+                }
+
+                // Recenter cursor
+                QCursor::setPos(adjustedCenter);
+
+
+                if (isInGame) {
+                    // inGame
+
+
+                    // Aiming
+        // 
+                        // Lambda function to adjust scaled mouse input
+                    auto adjustMouseInput = [](float value) {
+                        // For positive values between 0.5 and 1, set to 1
+                        if (value >= 0.5f && value < 1.0f) {
+                            return 1.0f;
+                        }
+                        // For negative values between -0.5 and -1, set to -1
+                        else if (value <= -0.5f && value > -1.0f) {
+                            return -1.0f;
+                        }
+                        // For other values, return as is
+                        return value;
+                        };
+
+                    /*
+                    // Internal function to process mouse input
+                    auto processMouseAxis = [this, &enableAim, &adjustMouseInput](float mouseRelValue, float scaleFactor, uint32_t addr) {
+                        if (mouseRelValue != 0) {
+                            // Scale the mouse input (to adjust for sensitivity)
+                            float scaledValue = mouseRelValue * scaleFactor;
+                            // Adjust the scaled input value (using provided adjustment function)
+                            scaledValue = adjustMouseInput(scaledValue);
+                            // Write adjusted value to memory address (for input handling)
+                            emuInstance->nds->ARM9Write16(addr, static_cast<uint16_t>(scaledValue));
+                            // Enable aiming mode
+                            enableAim = true;
+                        }
+                    };
+                    // Processing for X and Y axes
+                    processMouseAxis(mouseRel.x(), SENSITIVITY_FACTOR, aimXAddr);
+                    processMouseAxis(mouseRel.y(), SENSITIVITY_FACTOR * dsAspectRatio, aimYAddr);
+                    */
+
+                    /*
+                    // Process X Y AIM
+                    [this, &adjustMouseInput, &enableAim, SENSITIVITY_FACTOR, aimAspectRatio](const float x, const float y) {
+                        // X-axis
+                        if (x) {
+                            emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(adjustMouseInput(x * SENSITIVITY_FACTOR)));
+                            enableAim = true;
+                        }
+                        // Y-axis
+                        if (y) {
+                            emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(adjustMouseInput(y * SENSITIVITY_FACTOR * aimAspectRatio)));
+                            enableAim = true;
+                        }
+                        }(mouseRel.x(), mouseRel.y());
+                    */
+
+                    // Processing for the X-axis
+                    float mouseX = mouseRel.x();
+                    // We don't use abs() here to preserve the sign of the movement
+                    // This allows us to detect and process even very small movements in either direction
+                    if (mouseX != 0) {
+                        // Scale the mouse X movement
+                        float scaledMouseX = mouseX * SENSITIVITY_FACTOR;
+                        // Adjust the scaled value to ensure minimal movement is registered
+                        scaledMouseX = adjustMouseInput(scaledMouseX);
+                        // Convert to 16-bit integer and write the adjusted X value to the NDS memory
+                        emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(scaledMouseX));
+                        enableAim = true;
+                    }
+
+                    // Processing for the Y-axis
+                    float mouseY = mouseRel.y();
+                    // Again, we avoid using abs() to maintain directional information
+                    // This ensures that even slight movements are captured and processed
+                    if (mouseY != 0) {
+                        // Scale the mouse Y movement and apply aspect ratio correction
+                        float scaledMouseY = mouseY * aimAspectRatio * SENSITIVITY_FACTOR;
+                        // Adjust the scaled value to ensure minimal movement is registered
+                        scaledMouseY = adjustMouseInput(scaledMouseY);
+                        // Convert to 16-bit integer and write the adjusted Y value to the NDS memory
+                        emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(scaledMouseY));
+                        enableAim = true;
+                    }
+
+                    // Move hunter
+                    processMoveInput();
+
+                    // Shoot
+                    if (emuInstance->hotkeyDown(HK_MetroidShootScan) || emuInstance->hotkeyDown(HK_MetroidScanShoot)) {
+                        FN_INPUT_PRESS(INPUT_L);
+                    }
+                    else {
+                        FN_INPUT_RELEASE(INPUT_L);
+                    }
+
+                    // Zoom, map zoom out
+                    if (emuInstance->hotkeyDown(HK_MetroidZoom)) {
+                        FN_INPUT_PRESS(INPUT_R);
+                    }
+                    else {
+                        FN_INPUT_RELEASE(INPUT_R);
+                    }
+
+                    // Jump
+                    if (emuInstance->hotkeyDown(HK_MetroidJump)) {
+                        FN_INPUT_PRESS(INPUT_B);
+                    }
+                    else {
+                        FN_INPUT_RELEASE(INPUT_B);
+                    }
+
+                    // Alt-form
+                    if (emuInstance->hotkeyPressed(HK_MetroidMorphBall)) {
+
+                        emuInstance->nds->ReleaseScreen();
+                        frameAdvance(2);
+                        emuInstance->nds->TouchScreen(231, 167);
+                        frameAdvance(2);
+
+                        if (isSamus) {
+                            enableAim = false; // in case isAltForm isnt immediately true
+
+                            // boost ball doesnt work unless i release screen late enough
+                            for (int i = 0; i < 4; i++) {
+                                frameAdvance(2);
+                                emuInstance->nds->ReleaseScreen();
+                            }
+
+                        }
+                    }
+
+                    // Define a lambda function to switch weapons
+                    auto SwitchWeapon = [&](int weaponIndex) {
+
+                        // Check for Already equipped
+                        if (emuInstance->nds->ARM9Read8(selectedWeaponAddr) == weaponIndex) {
+                            // emuInstance->osdAddMessage(0, "Weapon switch unnecessary: Already equipped");
+                            return; // Early return if the weapon is already equipped
+                        }
+
+                        // Check isMapOrUserActionPaused, for the issue "If you switch weapons while the map is open, the aiming mechanism may become stuck."
+                        if (isInAdventure && emuInstance->nds->ARM9Read8(isMapOrUserActionPausedAddr) == 0x1) {
+                            return;
+                        }
+
+                        // Read the current jump flag value
+                        uint8_t currentFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
+
+                        // Check if the upper 4 bits are odd (1 or 3)
+                        // this is for fixing issue: Shooting and transforming become impossible, when changing weapons at high speed while transitioning from transformed to normal form.
+                        bool isTransforming = currentFlags & 0x10;
+
+                        uint8_t jumpFlag = currentFlags & 0x0F;  // Get the lower 4 bits
+                        //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
+
+                        bool isRestoreNeeded = false;
+
+                        // Check if in alternate form (transformed state)
+                        isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
+
+                        // If not jumping (jumpFlag == 0) and in normal form, temporarily set to jumped state (jumpFlag == 1)
+                        if (!isTransforming && jumpFlag == 0 && !isAltForm) {
+                            uint8_t newFlags = (currentFlags & 0xF0) | 0x01;  // Set lower 4 bits to 1
+                            emuInstance->nds->ARM9Write8(jumpFlagAddr, newFlags);
+                            isRestoreNeeded = true;
+                            //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
+                            //emuInstance->osdAddMessage(0, "Done setting jumpFlag.");
+                        }
+
+                        // Lambda to set the weapon-changing state
+                        auto setChangingWeapon = [](int value) -> int {
+                            // Apply mask to set the lower 4 bits to 1011 (B in hexadecimal)
+                            return (value & 0xF0) | 0x0B; // Keep the upper 4 bits, set lower 4 bits to 1011
+                            };
+
+                        // Modify the value using the lambda
+                        int valueOfWeaponChange = setChangingWeapon(emuInstance->nds->ARM9Read8(weaponChangeAddr));
+
+                        // Write the weapon change command to ARM9
+                        emuInstance->nds->ARM9Write8(weaponChangeAddr, valueOfWeaponChange); // Only change the lower 4 bits to B
+
+                        // Change the weapon
+                        emuInstance->nds->ARM9Write8(selectedWeaponAddr, weaponIndex);  // Write the address of the corresponding weapon
+
+                        // Release the screen (for weapon change)
+                        emuInstance->nds->ReleaseScreen();
+
+                        // Advance frames (for reflection of ReleaseScreen, WeaponChange)
+                        frameAdvance(2);
+
+                        // Need Touch after ReleaseScreen for aiming.
+                        emuInstance->nds->TouchScreen(128, 88);
+
+                        // Advance frames (for reflection of Touch. This is necessary for no jump)
+                        frameAdvance(2);
+
+                        // Restore the jump flag to its original value (if necessary)
+                        if (isRestoreNeeded) {
+                            currentFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
+                            uint8_t restoredFlags = (currentFlags & 0xF0) | jumpFlag;
+                            emuInstance->nds->ARM9Write8(jumpFlagAddr, restoredFlags);
+                            //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
+                            //emuInstance->osdAddMessage(0, "Restored jumpFlag.");
+
+                        }
+
+                        };
+
+                    // Switch to Power Beam
+                    if (emuInstance->hotkeyPressed(HK_MetroidWeaponBeam)) {
+                        SwitchWeapon(0);
+                    }
+
+                    // Switch to Missile
+                    if (emuInstance->hotkeyPressed(HK_MetroidWeaponMissile)) {
+                        SwitchWeapon(2);
+                    }
+
+                    // Array of sub-weapon hotkeys (Associating hotkey definitions with weapon indices)
+                    static constexpr int weaponHotkeys[] = {
+                        HK_MetroidWeapon1,  // ShockCoil    7
+                        HK_MetroidWeapon2,  // Magmaul      6
+                        HK_MetroidWeapon3,  // Judicator    5
+                        HK_MetroidWeapon4,  // Imperialist  4
+                        HK_MetroidWeapon5,  // Battlehammer 3
+                        HK_MetroidWeapon6   // VoltDriver   1
+                                            // Omega Cannon 8 we don't need to set this here, because we need {last used weapon / Omega cannon}
+                    };
+
+                    int weaponIndices[] = { 7, 6, 5, 4, 3, 1 };  // Address of the weapon corresponding to each hotkey
+
+                    // Sub-weapons processing (handled in a loop)
+                    for (int i = 0; i < 6; i++) {
+                        if (emuInstance->hotkeyPressed(weaponHotkeys[i])) {
+                            SwitchWeapon(weaponIndices[i]);  // Switch to the corresponding weapon
+
+                            // Exit loop when hotkey is pressed (because weapon switching is completed)
+                            break;
+                        }
+                    }
+
+                    // Change to loaded SpecialWeapon, Last used weapon or Omega Canon
+                    if (emuInstance->hotkeyPressed(HK_MetroidWeaponSpecial)) {
+                        uint8_t loadedSpecialWeapon = emuInstance->nds->ARM9Read8(loadedSpecialWeaponAddr);
+                        if (loadedSpecialWeapon != 0xFF) {
+                            // switchWeapon if special weapon is loaded
+                            SwitchWeapon(loadedSpecialWeapon);
+                        }
+                    }
+
+                    // Morph ball boost
+                    if (isSamus && emuInstance->hotkeyDown(HK_MetroidHoldMorphBallBoost))
+                    {
+                        isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
+                        if (isAltForm) {
+                            uint8_t boostGaugeValue = emuInstance->nds->ARM9Read8(boostGaugeAddr);
+                            bool isBoosting = emuInstance->nds->ARM9Read8(isBoostingAddr) != 0x00;
+
+                            // boostable when gauge value is 0x05-0x0F(max)
+                            bool isBoostGaugeEnough = boostGaugeValue > 0x0A;
+
+                            // just incase
+                            enableAim = false;
+
+                            // release for boost?
+                            emuInstance->nds->ReleaseScreen();
+
+                            if (!isBoosting && isBoostGaugeEnough) {
+                                // do boost by releasing boost key
+                                FN_INPUT_RELEASE(INPUT_R);
+                            }
+                            else {
+                                // charge boost gauge by holding boost key
+                                FN_INPUT_PRESS(INPUT_R);
+                            }
+
+                            if (isBoosting) {
+                                // touch again for aiming
+                                emuInstance->nds->TouchScreen(128, 88); // required for aiming
+                            }
+
+                        }
+                    }
+
+
+                    /*
+                    // Weapon switching of Next/Previous
+                    const int wheelDelta = emuInstance->getMainWindow()->panel->getDelta();
+                    const bool hasDelta = wheelDelta != 0;
+                    const bool hotkeyNext = hasDelta ? false : emuInstance->hotkeyPressed(HK_MetroidWeaponNext);
+
+                    if (__builtin_expect(hasDelta || hotkeyNext || emuInstance->hotkeyPressed(HK_MetroidWeaponPrevious), true)) {
+                        // Pre-fetch memory values to avoid multiple reads
+                        const uint8_t currentWeapon = emuInstance->nds->ARM9Read8(currentWeaponAddr);
+                        const uint16_t havingWeapons = emuInstance->nds->ARM9Read16(havingWeaponsAddr);
+
+                        // Read both ammo values with a single 32-bit read
+                        // Format: [16-bit missile ammo][16-bit weapon ammo]
+                        const uint32_t ammoData = emuInstance->nds->ARM9Read32(weaponAmmoAddr);
+                        const uint16_t missileAmmo = ammoData >> 16;     // Extract upper 16 bits for missile ammo
+                        const uint16_t weaponAmmo = ammoData & 0xFFFF;   // Extract lower 16 bits for weapon ammo
+                        const bool nextTrigger = (wheelDelta < 0) || hotkeyNext;
+
+                        // Weapon constants as lookup tables
+                        static constexpr uint8_t WEAPON_ORDER[] = { 0, 2, 7, 6, 5, 4, 3, 1, 8 };
+                        static constexpr uint16_t WEAPON_MASKS[] = { 0x001, 0x004, 0x080, 0x040, 0x020, 0x010, 0x008, 0x002, 0x100 };
+                        static constexpr uint8_t  MIN_AMMO[] = { 0, 0x5, 0xA, 0x4, 0x14, 0x5, 0xA, 0xA, 0 };
+
+                        // static constexpr size_t WEAPON_COUNT = sizeof(WEAPON_ORDER) / sizeof(WEAPON_ORDER[0]);
+                        static constexpr uint8_t WEAPON_COUNT = 9;
+
+                        // Find current weapon index using lookup table
+                        static constexpr uint8_t WEAPON_INDEX_MAP[9] = { 0, 7, 1, 6, 5, 4, 3, 2, 8 };
+
+                        uint8_t currentIndex = WEAPON_INDEX_MAP[currentWeapon];
+                        const uint8_t startIndex = currentIndex;
+
+                        // Inline weapon checking logic for better performance
+                        auto hasWeapon = [havingWeapons](uint8_t weapon, uint16_t mask) {
+                            // return weapon == 0 || weapon == 2 || (havingWeapons & mask);
+                            return havingWeapons & mask;
+                            };
+
+                        auto hasEnoughAmmo = [weaponAmmo, missileAmmo, isWeavel](uint8_t weapon, uint8_t minAmmo) {
+                            if (weapon == 0 || weapon == 8) return true;
+                            if (weapon == 2) return missileAmmo >= 0xA;
+                            if (weapon == 3 && isWeavel) return weaponAmmo >= 0x5; // Prime Hunter check is needless, if we have only 0x4 ammo, we can equipt battleHammer but can't shoot. it's a bug of MPH. so what we need to check is only it's weavel or not.
+                            return weaponAmmo >= minAmmo;
+                            };
+
+                        // Main weapon selection loop
+                        do {
+                            currentIndex = (currentIndex + (nextTrigger ? 1 : WEAPON_COUNT - 1)) % WEAPON_COUNT;
+                            uint8_t nextWeapon = WEAPON_ORDER[currentIndex];
+
+                            if (hasWeapon(nextWeapon, WEAPON_MASKS[currentIndex]) &&
+                                hasEnoughAmmo(nextWeapon, MIN_AMMO[nextWeapon])) {
+                                SwitchWeapon(nextWeapon);
+                                break;
+                            }
+                        } while (currentIndex != startIndex);
+                    }
+
+                    */
+
+                    // Start / View Match progress, points
+                    if (emuInstance->hotkeyDown(HK_MetroidMenu)) {
+                        FN_INPUT_PRESS(INPUT_START);
+                    }
+                    else {
+                        FN_INPUT_RELEASE(INPUT_START);
+                    }
+
+
+                    if (isInAdventure) {
+                        // Adventure Mode Functions
+
+
+                        // Scan Visor
+                        if (emuInstance->hotkeyPressed(HK_MetroidScanVisor)) {
+                            emuInstance->nds->ReleaseScreen();
+                            frameAdvance(2);
+
+                            bool inVisor = emuInstance->nds->ARM9Read8(inVisorOrMapAddr) == 0x1;
+                            // emuInstance->osdAddMessage(0, "in visor %d", inVisor);
+
+                            emuInstance->nds->TouchScreen(128, 173);
+
+                            if (inVisor) {
+                                frameAdvance(2);
+                            }
+                            else {
+                                for (int i = 0; i < 30; i++) {
+                                    // still allow movement whilst we're enabling scan visor
+                                    processMoveInput();
+                                    emuInstance->nds->SetKeyMask(emuInstance->inputMask);
+                                    frameAdvanceOnce();
+                                }
+                            }
+
+                            emuInstance->nds->ReleaseScreen();
+                            frameAdvance(2);
+                        }
+
+                        // OK (in scans and messages)
+                        if (emuInstance->hotkeyPressed(HK_MetroidUIOk)) {
+                            emuInstance->nds->ReleaseScreen();
+                            frameAdvance(2);
+                            emuInstance->nds->TouchScreen(128, 142);
+                            frameAdvance(2);
+                        }
+
+                        // Left arrow (in scans and messages)
+                        if (emuInstance->hotkeyPressed(HK_MetroidUILeft)) {
+                            emuInstance->nds->ReleaseScreen();
+                            frameAdvance(2);
+                            emuInstance->nds->TouchScreen(71, 141);
+                            frameAdvance(2);
+                        }
+
+                        // Right arrow (in scans and messages)
+                        if (emuInstance->hotkeyPressed(HK_MetroidUIRight)) {
+                            emuInstance->nds->ReleaseScreen();
+                            frameAdvance(2);
+                            emuInstance->nds->TouchScreen(185, 141); // optimization ?
+                            frameAdvance(2);
+                        }
+
+                        // Enter to Starship
+                        if (emuInstance->hotkeyPressed(HK_MetroidUIYes)) {
+                            emuInstance->nds->ReleaseScreen();
+                            frameAdvance(2);
+                            emuInstance->nds->TouchScreen(96, 142);
+                            frameAdvance(2);
+                        }
+
+                        // No Enter to Starship
+                        if (emuInstance->hotkeyPressed(HK_MetroidUINo)) {
+                            emuInstance->nds->ReleaseScreen();
+                            frameAdvance(2);
+                            emuInstance->nds->TouchScreen(160, 142);
+                            frameAdvance(2);
+                        }
+                    } // End of Adventure Functions
+
+
+                    // Touch again for aiming
+                    if (!wasLastFrameFocused || enableAim) {
+                        // touch again for aiming
+                        // When you return to melonPrimeDS or normal form
+
+                        // emuInstance->osdAddMessage(0,"touching screen for aim");
+
+                        // Changed Y point center(96) to 88, For fixing issue: Alt Tab switches hunter choice.
+                        //emuInstance->nds->TouchScreen(128, 96); // required for aiming
+
+
+                        emuInstance->nds->TouchScreen(128, 88); // required for aiming
+                    }
+
+                    // End of in-game
+                }
+                else {
+                    // VirtualStylus
+
+                    /*
+                    if (!OSD) {
+                        OSD = emuInstance->getMainWindow()->panel->OSDCanvas;
+                        Top_buffer = OSD[0].CanvasBuffer;
+                        Top_paint = OSD[0].Painter;
+                        Btm_buffer = OSD[1].CanvasBuffer;
+                        Btm_paint = OSD[1].Painter;
+
+                        // Start the painter if necessary
+                        if (!Top_paint->isActive()) {
+                            Top_paint->begin(Top_buffer);
+                        }
+                        if (!Btm_paint->isActive()) {
+                            Btm_paint->begin(Btm_buffer);
+                        }
+                    }
+
+                    // reset initialized flag
+                    hasInitialized = false;
+
+                    //Clear OSD buffers
+                    Top_buffer->fill(0x00000000);
+                    Btm_buffer->fill(0x00000000);
+
+                    // Touch Scren
+                    if (emuInstance->hotkeyDown(HK_MetroidShootScan) || emuInstance->hotkeyDown(HK_MetroidScanShoot)) {
+                        emuInstance->nds->TouchScreen(virtualStylusX, virtualStylusY);
+                    }
+                    else {
+                        emuInstance->nds->ReleaseScreen();
+                    }
+
+
+                    // Processing for VirtualStylus X and Y axes
+                    auto processVirtualStylus = [](float mouseRelValue, float scaleFactor, float& virtualStylus) {
+                        if (abs(mouseRelValue) > 0) {
+                            virtualStylus += mouseRelValue * scaleFactor;
+                        }
+                        };
+                    processVirtualStylus(mouseRel.x(), SENSITIVITY_FACTOR_VIRTUAL_STYLUS, virtualStylusX);
+                    processVirtualStylus(mouseRel.y(), SENSITIVITY_FACTOR_VIRTUAL_STYLUS * dsAspectRatio, virtualStylusY);
+
+                    // force virtualStylusX inside window
+                    if (virtualStylusX < 0) virtualStylusX = 0;
+                    if (virtualStylusX > 255) virtualStylusX = 255;
+                    // force virtualStylusY inside window
+                    if (virtualStylusY < 0) virtualStylusY = 0;
+                    if (virtualStylusY > 191) virtualStylusY = 191;
+
+                    // emuInstance->osdAddMessage(0, ("mouseY: " + std::to_string(mouseY)).c_str());
+                    // emuInstance->osdAddMessage(0, ("virtualStylusY: " + std::to_string(virtualStylusY)).c_str());
+
+                    // Draw VirtualStylus Start
+                    Btm_paint->setPen(Qt::white);
+
+                    // Draw VirtualStylus : Crosshair Circle
+                    Btm_paint->drawEllipse(virtualStylusX - 5, virtualStylusY - 5, 10, 10);
+
+                    // Draw VirtualStylus : 3x3 center Crosshair
+                    Btm_paint->drawLine(virtualStylusX - 1, virtualStylusY, virtualStylusX + 1, virtualStylusY);
+                    Btm_paint->drawLine(virtualStylusX, virtualStylusY - 1, virtualStylusX, virtualStylusY + 1);
+                    */
+                }
+
+
+            }// END of if(isFocused)
+
+
+            emuInstance->nds->SetKeyMask(emuInstance->inputMask);
+
+            // record last frame was forcused or not
+            wasLastFrameFocused = isFocused;
+        }
+ 
+        // #define MERON_PRIME_DS_FUNCTIONS 0 //これコメントアウトしたら ifdef MERON_PRIME_DS_FUNCTIONSの中身は動かない。
+
+        #ifdef MERON_PRIME_DS_FUNCTIONS
+
+
+        #endif
+
+        // MelonPrimeDS Functions END
+
+
+        frameAdvanceOnce();
+
+    } // End of while (emuStatus != emuStatus_Exit)
+
+
+
 }
 
 void EmuThread::sendMessage(Message msg)
