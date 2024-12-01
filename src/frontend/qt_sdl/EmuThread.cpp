@@ -846,7 +846,7 @@ void EmuThread::run()
 
         // Get the actual game display area instead of full window
         const QRect displayRect = emuInstance->getMainWindow()->panel->geometry();
-        QPoint center = emuInstance->getMainWindow()->panel->mapToGlobal(
+        QPoint adjustedCenter = emuInstance->getMainWindow()->panel->mapToGlobal(
             QPoint(displayRect.width() / 2, displayRect.height() / 2)
         );
 
@@ -860,8 +860,8 @@ void EmuThread::run()
             // Base adjustment values
             static const std::map<int, ScreenAdjustment> layoutAdjustments = {
                 {screenLayout_Natural,    {0.0f,  0.25f}},
-                {screenLayout_Vertical,   {0.25f, 0.0f}},
-                {screenLayout_Horizontal, {0.0f,  0.25f}},
+                {screenLayout_Horizontal,   {0.25f, 0.0f}},
+                {screenLayout_Vertical, {0.0f,  0.25f}},
                 {screenLayout_Hybrid,     {0.166796875f, 0.25f}}
             };
 
@@ -882,39 +882,38 @@ void EmuThread::run()
         // Handle special cases first
         if (screenSizing == screenSizing_BotOnly) {
             if (isFullscreen) {
-                center.rx() -= static_cast<int>(displayRect.width() * 0.4f);
-                center.ry() -= static_cast<int>(displayRect.height() * 0.4f);
+                adjustedCenter.rx() -= static_cast<int>(displayRect.width() * 0.4f);
+                adjustedCenter.ry() -= static_cast<int>(displayRect.height() * 0.4f);
             }
-            return center;
+            return adjustedCenter;
         }
 
         if (screenSizing == screenSizing_TopOnly) {
-            return center;
+            return adjustedCenter;
         }
 
         // Apply layout-specific adjustments
         switch (windowCfg.GetInt("ScreenLayout")) {
         case screenLayout_Hybrid:
             if (isSwapped) {
-                center.rx() += static_cast<int>(displayRect.width() * 0.333203125f);
-                center.ry() -= static_cast<int>(displayRect.height() * adj.y);
+                adjustedCenter.rx() += static_cast<int>(displayRect.width() * 0.333203125f);
+                adjustedCenter.ry() -= static_cast<int>(displayRect.height() * adj.y);
             }
             else {
-                center.rx() -= static_cast<int>(displayRect.width() * adj.x);
+                adjustedCenter.rx() -= static_cast<int>(displayRect.width() * adj.x);
             }
             break;
 
         case screenLayout_Natural:
-        case screenLayout_Horizontal:
-            center.ry() += static_cast<int>(displayRect.height() * adj.y * (isSwapped ? 1.0f : -1.0f));
-            break;
-
         case screenLayout_Vertical:
-            center.rx() += static_cast<int>(displayRect.width() * adj.x * (isSwapped ? 1.0f : -1.0f));
+            adjustedCenter.ry() += static_cast<int>(displayRect.height() * adj.y * (isSwapped ? 1.0f : -1.0f));
+            break;
+        case screenLayout_Horizontal:
+            adjustedCenter.rx() += static_cast<int>(displayRect.width() * adj.x * (isSwapped ? 1.0f : -1.0f));
             break;
         }
 
-        return center;
+        return adjustedCenter;
         };
 
     // Get adjusted center position
