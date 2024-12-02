@@ -1116,9 +1116,9 @@ void EmuThread::run()
                 if (isInGame) {
                     // inGame
 
-                    //if(!wasLastFrameFocused){
+                    if(!wasLastFrameFocused){
                         QGuiApplication::setOverrideCursor(Qt::BlankCursor);
-                    //}
+                    }
 
                     // These conditional branches cannot be simplified to a simple else statement
                     // because they handle different independent cases:
@@ -1582,8 +1582,8 @@ void EmuThread::run()
                     // emuInstance->getMainWindow()->panel->setCursor(Qt::ArrowCursor);
                     // QGuiApplication::restoreOverrideCursor();
                     if(hasInitialized){
-                        QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
                         hasInitialized = false;
+                        QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
                     }
 
                     if (emuInstance->isTouching)
