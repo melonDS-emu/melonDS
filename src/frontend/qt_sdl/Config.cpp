@@ -74,39 +74,38 @@ DefaultList<int> DefaultInts =
     {"LAN.HostNumPlayers", 16},
 
     /* MelonPrimeDS. This is not working now.  */
-    {"Metroid.Sensitivity.Aim", 30},
-    {"Metroid.Sensitivity.VirtualStylus", 20},
+    {"Instance*.Metroid.Sensitivity.Aim", 30},
 
-    {"Keyboard.HK_MetroidMoveForward",       Qt::Key_W},
-    {"Keyboard.HK_MetroidMoveBack",          Qt::Key_S},
-    {"Keyboard.HK_MetroidMoveLeft",          Qt::Key_A},
-    {"Keyboard.HK_MetroidMoveRight",         Qt::Key_D},
-    {"Keyboard.HK_MetroidJump",              Qt::Key_Space},
-    {"Keyboard.HK_MetroidMorphBall",         Qt::Key_Control},
-    {"Keyboard.HK_MetroidZoom",              (int)Qt::RightButton | (int)0xF0000000},
-    {"Keyboard.HK_MetroidHoldMorphBallBoost",Qt::Key_Shift},
-    {"Keyboard.HK_MetroidScanVisor",         Qt::Key_C},
-    {"Keyboard.HK_MetroidUILeft",            Qt::Key_Z},
-    {"Keyboard.HK_MetroidUIRight",           Qt::Key_X},
-    {"Keyboard.HK_MetroidUIOk",              Qt::Key_F},
-    {"Keyboard.HK_MetroidUIYes",             Qt::Key_G},
-    {"Keyboard.HK_MetroidUINo",              Qt::Key_H},
-    {"Keyboard.HK_MetroidShootScan",         (int)Qt::LeftButton | (int)0xF0000000},
-    {"Keyboard.HK_MetroidScanShoot",         Qt::Key_V},
-    {"Keyboard.HK_MetroidWeaponBeam",        (int)Qt::ExtraButton2 | (int)0xF0000000},
-    {"Keyboard.HK_MetroidWeaponMissile",     (int)Qt::ExtraButton1 | (int)0xF0000000},
-    {"Keyboard.HK_MetroidWeaponSpecial",     Qt::Key_R},
-    {"Keyboard.HK_MetroidWeaponNext",        Qt::Key_J},
-    {"Keyboard.HK_MetroidWeaponPrevious",    Qt::Key_K},
-    {"Keyboard.HK_MetroidWeapon1",           Qt::Key_1},
-    {"Keyboard.HK_MetroidWeapon2",           Qt::Key_2},
-    {"Keyboard.HK_MetroidWeapon3",           Qt::Key_3},
-    {"Keyboard.HK_MetroidWeapon4",           Qt::Key_4},
-    {"Keyboard.HK_MetroidWeapon5",           Qt::Key_5},
-    {"Keyboard.HK_MetroidWeapon6",           Qt::Key_6},
-    {"Keyboard.HK_MetroidMenu",              Qt::Key_Tab},
-    {"Keyboard.HK_MetroidIngameSensiUp",     Qt::Key_PageUp},
-    {"Keyboard.HK_MetroidIngameSensiDown",   Qt::Key_PageDown},
+    {"Instance*.Keyboard.HK_MetroidMoveForward",       Qt::Key_W},
+    {"Instance*.Keyboard.HK_MetroidMoveBack",          Qt::Key_S},
+    {"Instance*.Keyboard.HK_MetroidMoveLeft",          Qt::Key_A},
+    {"Instance*.Keyboard.HK_MetroidMoveRight",         Qt::Key_D},
+    {"Instance*.Keyboard.HK_MetroidJump",              Qt::Key_Space},
+    {"Instance*.Keyboard.HK_MetroidMorphBall",         Qt::Key_Control},
+    {"Instance*.Keyboard.HK_MetroidZoom",              (int)Qt::RightButton | (int)0xF0000000},
+    {"Instance*.Keyboard.HK_MetroidHoldMorphBallBoost",Qt::Key_Shift},
+    {"Instance*.Keyboard.HK_MetroidScanVisor",         Qt::Key_C},
+    {"Instance*.Keyboard.HK_MetroidUILeft",            Qt::Key_Z},
+    {"Instance*.Keyboard.HK_MetroidUIRight",           Qt::Key_X},
+    {"Instance*.Keyboard.HK_MetroidUIOk",              Qt::Key_F},
+    {"Instance*.Keyboard.HK_MetroidUIYes",             Qt::Key_G},
+    {"Instance*.Keyboard.HK_MetroidUINo",              Qt::Key_H},
+    {"Instance*.Keyboard.HK_MetroidShootScan",         (int)Qt::LeftButton | (int)0xF0000000},
+    {"Instance*.Keyboard.HK_MetroidScanShoot",         Qt::Key_V},
+    {"Instance*.Keyboard.HK_MetroidWeaponBeam",        (int)Qt::ExtraButton2 | (int)0xF0000000},
+    {"Instance*.Keyboard.HK_MetroidWeaponMissile",     (int)Qt::ExtraButton1 | (int)0xF0000000},
+    {"Instance*.Keyboard.HK_MetroidWeaponSpecial",     Qt::Key_R},
+    {"Instance*.Keyboard.HK_MetroidWeaponNext",        Qt::Key_J},
+    {"Instance*.Keyboard.HK_MetroidWeaponPrevious",    Qt::Key_K},
+    {"Instance*.Keyboard.HK_MetroidWeapon1",           Qt::Key_1},
+    {"Instance*.Keyboard.HK_MetroidWeapon2",           Qt::Key_2},
+    {"Instance*.Keyboard.HK_MetroidWeapon3",           Qt::Key_3},
+    {"Instance*.Keyboard.HK_MetroidWeapon4",           Qt::Key_4},
+    {"Instance*.Keyboard.HK_MetroidWeapon5",           Qt::Key_5},
+    {"Instance*.Keyboard.HK_MetroidWeapon6",           Qt::Key_6},
+    {"Instance*.Keyboard.HK_MetroidMenu",              Qt::Key_Tab},
+    {"Instance*.Keyboard.HK_MetroidIngameSensiUp",     Qt::Key_PageUp},
+    {"Instance*.Keyboard.HK_MetroidIngameSensiDown",   Qt::Key_PageDown},
 
 };
 
@@ -130,7 +129,6 @@ RangeList IntRanges =
 
     /* MelonPrimeDS. this is not for input. this is for loading. */
     {"Metroid.Sensitivity.Aim", {0,99999}},
-    {"Metroid.Sensitivity.VirtualStylus", {0,999}},
 };
 
 DefaultList<bool> DefaultBools =
@@ -488,7 +486,6 @@ LegacyEntry LegacyFile[] =
     {"GdbARM9BreakOnStartup", 1, "Gdb.ARM9.BreakOnStartup", true},
 #endif
     {"MetroidAimSensitivity", 0, "Metroid.Sensitivity.Aim",  true }, // MelonPrimeDS
-    {"MetroidVirtualStylusSensitivity", 0, "Metroid.Sensitivity.VirtualStylus", true }, // MelonPrimeDS
     {"Camera0_InputType", 0, "DSi.Camera0.InputType", false},
     {"Camera0_ImagePath", 2, "DSi.Camera0.ImagePath", false},
     {"Camera0_CamDeviceName", 2, "DSi.Camera0.DeviceName", false},

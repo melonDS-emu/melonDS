@@ -196,7 +196,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E83BC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBF18; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "Rom detected: US1.1");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: US1.1");
 
         break;
 
@@ -216,7 +216,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E78FC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FB458; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "Rom detected: US1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: US1.0");
 
         break;
 
@@ -236,7 +236,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E9A3C; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FD598; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "Rom detected: JP1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: JP1.0");
 
         break;
 
@@ -256,7 +256,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E99FC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FD558; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "Rom detected: JP1.1");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: JP1.1");
 
         break;
 
@@ -276,7 +276,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E83DC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBF38; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "Rom detected: EU1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: EU1.0");
 
         break;
 
@@ -295,7 +295,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseAimYAddr = 0x020dee4e;
         isInAdventureAddr = 0x020E845C; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBFB8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "Rom detected: EU1.1");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: EU1.1");
 
         isRomDetected = true;
 
@@ -316,7 +316,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseAimYAddr = 0x020D7C16;
         isInAdventureAddr = 0x020E11F8; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020F4CF8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "Rom detected: KR1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: KR1.0");
 
         isRomDetected = true;
 
@@ -783,6 +783,24 @@ void EmuThread::run()
 
     // melonPrimeDS
 
+    bool isCursorVisible = true;
+
+    auto showCursor = [&](bool show) {
+        if (show == isCursorVisible) return;
+
+        auto* panel = emuInstance->getMainWindow()->panel;
+        if (!panel) return;
+
+        QMetaObject::invokeMethod(panel,
+            [panel, show]() {
+                panel->setCursor(show ? Qt::ArrowCursor : Qt::BlankCursor);
+            },
+            Qt::ConnectionType::QueuedConnection
+        );
+
+        isCursorVisible = show;
+        };
+
 #define INPUT_A 0
 #define INPUT_B 1
 #define INPUT_SELECT 2
@@ -820,7 +838,6 @@ void EmuThread::run()
 
 
     bool isRoundJustStarted;
-    bool isInGame;
     bool isInAdventure;
     bool isSamus;
 
@@ -919,22 +936,8 @@ void EmuThread::run()
     // Get adjusted center position
     adjustedCenter = getAdjustedCenter();
 
-
-    //MelonPrime OSD stuff
-    /*
-    PrimeOSD::Canvas* OSD = nullptr;
-    QImage* Top_buffer = nullptr;
-    QPainter* Top_paint = nullptr;
-    QImage* Btm_buffer = nullptr;
-    QPainter* Btm_paint = nullptr;
-    float virtualStylusX = 128;
-    float virtualStylusY = 96; // This might not be good - does it go out of bounds when bottom-only? Is Y=0 barely at the bottom limit?
-
-    */
-
     bool enableAim = true;
     bool wasLastFrameFocused = false;
-
 
     //const float dsAspectRatio = 4.0 / 3.0;
     const float dsAspectRatio = 1.333333333f;
@@ -1017,7 +1020,6 @@ void EmuThread::run()
         // Define sensitivity factor as a constant
         int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
         const float SENSITIVITY_FACTOR = currentSensitivity * 0.01f;
-        // const float SENSITIVITY_FACTOR_VIRTUAL_STYLUS = localCfg.GetInt("Metroid.Sensitivity.VirtualStylus") * 0.01f;
 
         if (!isRomDetected) {
             detectRomAndSetAddresses(emuInstance);
@@ -1029,25 +1031,14 @@ void EmuThread::run()
             if (isInGame && !hasInitialized) {
                 // Run once at game start
 
-                QGuiApplication::setOverrideCursor(Qt::BlankCursor);
+                // Set the initialization complete flag
+                hasInitialized = true;
 
-                /*
-                if (OSD) {
-                    //Clear OSD buffers to delete VirtualStylus from touch-screen
-                    Top_buffer->fill(0x00000000);
-                    Btm_buffer->fill(0x00000000);
+                // Hide cursor
+                //QGuiApplication::setOverrideCursor(Qt::BlankCursor);
+                // emuInstance->getMainWindow()->panel->setCursor(Qt::BlankCursor);
+                showCursor(false);
 
-                    // Reset/end any active painters
-                    Top_paint->end();
-                    Btm_paint->end();
-
-                    OSD = nullptr;
-                    Top_buffer = nullptr;
-                    Top_paint = nullptr;
-                    Btm_buffer = nullptr;
-                    Btm_paint = nullptr;
-                }
-                */
 
                 // Read the player position
                 playerPosition = emuInstance->nds->ARM9Read8(PlayerPosAddr);
@@ -1095,9 +1086,6 @@ void EmuThread::run()
                 // isPrimeHunterAddr = isInAdventureAddr + 0xAD; // isPrimeHunter Addr NotPrimeHunter:0xFF, PrimeHunter:0x00 220E9AE9 in JP1.0
 
                 // emuInstance->osdAddMessage(0, "Completed address calculation.");
-
-                // Set the initialization complete flag
-                hasInitialized = true;
             }
 
             if (isFocused) {
@@ -1118,10 +1106,13 @@ void EmuThread::run()
                 if (isInGame) {
                     // inGame
 
-                    if (!wasLastFrameFocused) {
-                        // emuInstance->getMainWindow()->panel->setCursor(Qt::BlankCursor); 
-                        QGuiApplication::setOverrideCursor(Qt::BlankCursor);
+                    /* doing this in Screen.cpp
+                    if(!wasLastFrameFocused){
+                        // QGuiApplication::setOverrideCursor(Qt::BlankCursor);
+                        // emuInstance->getMainWindow()->panel->setCursor(Qt::BlankCursor);
+                        showCursor(false);
                     }
+                    */
 
                     // These conditional branches cannot be simplified to a simple else statement
                     // because they handle different independent cases:
@@ -1581,100 +1572,32 @@ void EmuThread::run()
                     // End of in-game
                 }
                 else {
-                    // VirtualStylus
-                    // emuInstance->getMainWindow()->panel->setCursor(Qt::ArrowCursor);
-                    // QGuiApplication::restoreOverrideCursor();
-                    QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+                    // !isInGame
 
-                    if (emuInstance->isTouching)
-                        emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
-                    else
-                        emuInstance->nds->ReleaseScreen();
-
-                    // reset initialized flag
-                    hasInitialized = false;
-
-                    /*
-                    if (!OSD) {
-                        OSD = emuInstance->getMainWindow()->panel->OSDCanvas;
-                        Top_buffer = OSD[0].CanvasBuffer;
-                        Top_paint = OSD[0].Painter;
-                        Btm_buffer = OSD[1].CanvasBuffer;
-                        Btm_paint = OSD[1].Painter;
-
-                        // Start the painter if necessary
-                        if (!Top_paint->isActive()) {
-                            Top_paint->begin(Top_buffer);
-                        }
-                        if (!Btm_paint->isActive()) {
-                            Btm_paint->begin(Btm_buffer);
-                        }
+                    if(hasInitialized){
+                        hasInitialized = false;
+                        // QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+                        // emuInstance->getMainWindow()->panel->setCursor(Qt::ArrowCursor);
+                        showCursor(true);
                     }
 
-
-
-                    //Clear OSD buffers
-                    Top_buffer->fill(0x00000000);
-                    Btm_buffer->fill(0x00000000);
-
-                    // Touch Scren
-                    if (emuInstance->hotkeyDown(HK_MetroidShootScan) || emuInstance->hotkeyDown(HK_MetroidScanShoot)) {
-                        emuInstance->nds->TouchScreen(virtualStylusX, virtualStylusY);
+                    if (emuInstance->isTouching) {
+                        emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
                     }
                     else {
                         emuInstance->nds->ReleaseScreen();
                     }
-
-
-                    // Processing for VirtualStylus X and Y axes
-                    auto processVirtualStylus = [](float mouseRelValue, float scaleFactor, float& virtualStylus) {
-                        if (abs(mouseRelValue) > 0) {
-                            virtualStylus += mouseRelValue * scaleFactor;
-                        }
-                        };
-                    processVirtualStylus(mouseRel.x(), SENSITIVITY_FACTOR_VIRTUAL_STYLUS, virtualStylusX);
-                    processVirtualStylus(mouseRel.y(), SENSITIVITY_FACTOR_VIRTUAL_STYLUS * dsAspectRatio, virtualStylusY);
-
-                    // force virtualStylusX inside window
-                    if (virtualStylusX < 0) virtualStylusX = 0;
-                    if (virtualStylusX > 255) virtualStylusX = 255;
-                    // force virtualStylusY inside window
-                    if (virtualStylusY < 0) virtualStylusY = 0;
-                    if (virtualStylusY > 191) virtualStylusY = 191;
-
-                    // emuInstance->osdAddMessage(0, ("mouseY: " + std::to_string(mouseY)).c_str());
-                    // emuInstance->osdAddMessage(0, ("virtualStylusY: " + std::to_string(virtualStylusY)).c_str());
-
-                    // Draw VirtualStylus Start
-                    Btm_paint->setPen(Qt::white);
-
-                    // Draw VirtualStylus : Crosshair Circle
-                    Btm_paint->drawEllipse(virtualStylusX - 5, virtualStylusY - 5, 10, 10);
-
-                    // Draw VirtualStylus : 3x3 center Crosshair
-                    Btm_paint->drawLine(virtualStylusX - 1, virtualStylusY, virtualStylusX + 1, virtualStylusY);
-                    Btm_paint->drawLine(virtualStylusX, virtualStylusY - 1, virtualStylusX, virtualStylusY + 1);
-                    */
                 }
 
 
-            }
-            else {// END of if(isFocused)
-                QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
-            }
+            }// END of if(isFocused)
 
             emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
 
             // record last frame was forcused or not
             wasLastFrameFocused = isFocused;
-        }
+        } // End of isRomDetected
  
-        // #define MERON_PRIME_DS_FUNCTIONS 0 //これコメントアウトしたら ifdef MERON_PRIME_DS_FUNCTIONSの中身は動かない。
-
-        #ifdef MERON_PRIME_DS_FUNCTIONS
-
-
-        #endif
 
         // MelonPrimeDS Functions END
 

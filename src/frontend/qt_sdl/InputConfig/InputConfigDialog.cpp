@@ -99,7 +99,6 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
 
     // Sensitivities
     ui->metroidAimSensitvitySpinBox->setValue(instcfg.GetInt("Metroid.Sensitivity.Aim"));
-    ui->metroidVirtualStylusSensitvitySpinBox->setValue(instcfg.GetInt("Metroid.Sensitivity.VirtualStylus"));
 
     // } MelonPrimeDS
 
@@ -256,7 +255,6 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
 
     // Sensitivities
     instcfg.SetInt("Metroid.Sensitivity.Aim", ui->metroidAimSensitvitySpinBox->value());
-    instcfg.SetInt("Metroid.Sensitivity.VirtualStylus", ui->metroidVirtualStylusSensitvitySpinBox->value());
 
     // } MelonPrimeDS
 
@@ -304,7 +302,6 @@ SDL_Joystick* InputConfigDialog::getJoystick()
 void InputConfigDialog::on_metroidResetSensitivityValues_clicked()
 {
     ui->metroidAimSensitvitySpinBox->setValue(30);
-    ui->metroidVirtualStylusSensitvitySpinBox->setValue(20);
 }
 
 void InputConfigDialog::on_metroidSetVideoQualityToLow_clicked()

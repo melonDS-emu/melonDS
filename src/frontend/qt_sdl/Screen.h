@@ -70,14 +70,18 @@ public:
     void osdSetEnabled(bool enabled);
     void osdAddMessage(unsigned int color, const char* msg);
 
-    bool getFocused() { return isFocused; } // MelonPrimeDS
-    void unfocus(); // MelonPrimeDS
-    int getDelta() {  // melonPrimeDS
+    /* MelonPrimeDS { */
+    bool getFocused() { return isFocused; }
+
+    void unfocus();
+
+    int getDelta() {
         // Store and reset in one operation for optimal performance
         int currentDelta = wheelDelta;
         wheelDelta = 0;
         return currentDelta;
     }
+    /* MelonPrimeDS } */
 
 private slots:
     void onScreenLayoutChanged();
