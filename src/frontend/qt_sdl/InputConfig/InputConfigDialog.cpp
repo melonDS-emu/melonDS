@@ -98,8 +98,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     // Other Metroid Settings Tab
 
     // Sensitivities
-    Config::Table sensitivityConfig = instcfg.GetTable("Metroid.Sensitivity");
-    ui->metroidAimSensitvitySpinBox->setValue(sensitivityConfig.GetInt("Aim"));
+    ui->metroidAimSensitvitySpinBox->setValue(instcfg.GetInt("Metroid.Sensitivity.Aim"));
 
     // } MelonPrimeDS
 
@@ -255,8 +254,7 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
     }
 
     // Sensitivities
-    Config::Table sensitivityConfig = instcfg.GetTable("Metroid.Sensitivity");
-    sensitivityConfig.SetInt("Aim", ui->metroidAimSensitvitySpinBox->value());
+    instcfg.SetInt("Metroid.Sensitivity.Aim", ui->metroidAimSensitvitySpinBox->value());
 
     // } MelonPrimeDS
 
