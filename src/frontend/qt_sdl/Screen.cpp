@@ -277,8 +277,10 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
     }
 
     // melonPrimeDS
+
     if (emuInstance->emuIsActive()) {
         isFocused = true;
+
         if (emuInstance->getEmuThread()->isInGame) {
             // BlankCursor when it's focused and inGame.
             setCursor(Qt::BlankCursor);

@@ -787,11 +787,17 @@ void EmuThread::run()
 
     auto showCursor = [&](bool show) {
         if (show == isCursorVisible) return;
-        if (emuInstance && emuInstance->getMainWindow() && emuInstance->getMainWindow()->panel) {
-            QMetaObject::invokeMethod(emuInstance->getMainWindow()->panel,
-                [=]() { emuInstance->getMainWindow()->panel->setCursor(show ? Qt::ArrowCursor : Qt::BlankCursor); },
-                Qt::QueuedConnection);
-        }
+
+        auto* panel = emuInstance->getMainWindow()->panel;
+        if (!panel) return;
+
+        QMetaObject::invokeMethod(panel,
+            [panel, show]() {
+                panel->setCursor(show ? Qt::ArrowCursor : Qt::BlankCursor);
+            },
+            Qt::ConnectionType::QueuedConnection
+        );
+
         isCursorVisible = show;
         };
 
@@ -1100,11 +1106,13 @@ void EmuThread::run()
                 if (isInGame) {
                     // inGame
 
+                    /* doing this in Screen.cpp
                     if(!wasLastFrameFocused){
                         // QGuiApplication::setOverrideCursor(Qt::BlankCursor);
                         // emuInstance->getMainWindow()->panel->setCursor(Qt::BlankCursor);
                         showCursor(false);
                     }
+                    */
 
                     // These conditional branches cannot be simplified to a simple else statement
                     // because they handle different independent cases:
@@ -1582,18 +1590,7 @@ void EmuThread::run()
                 }
 
 
-            }
-            else {// END of if(isFocused)
-                // When not focused
-
-                if (wasLastFrameFocused && isInGame) {
-                    // For example, during a match, if the Escape key is pressed and focus is lost, it's necessary to show the cursor.
-                    // is this really needed? theres showCursor in unfocus(); -> this is needed. showCursor in unfocus is not working, maybe because using setOverrideCursor.
-                    // QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
-                    // emuInstance->getMainWindow()->panel->setCursor(Qt::ArrowCursor);
-                    showCursor(true);
-                }
-            }
+            }// END of if(isFocused)
 
             emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
 
