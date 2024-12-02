@@ -196,7 +196,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E83BC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBF18; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "Rom detected: US1.1");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: US1.1");
 
         break;
 
@@ -216,7 +216,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E78FC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FB458; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "Rom detected: US1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: US1.0");
 
         break;
 
@@ -236,7 +236,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E9A3C; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FD598; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "Rom detected: JP1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: JP1.0");
 
         break;
 
@@ -256,7 +256,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E99FC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FD558; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "Rom detected: JP1.1");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: JP1.1");
 
         break;
 
@@ -276,7 +276,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E83DC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBF38; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "Rom detected: EU1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: EU1.0");
 
         break;
 
@@ -295,7 +295,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseAimYAddr = 0x020dee4e;
         isInAdventureAddr = 0x020E845C; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBFB8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "Rom detected: EU1.1");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: EU1.1");
 
         isRomDetected = true;
 
@@ -316,7 +316,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseAimYAddr = 0x020D7C16;
         isInAdventureAddr = 0x020E11F8; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020F4CF8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "Rom detected: KR1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom detected. version: KR1.0");
 
         isRomDetected = true;
 
