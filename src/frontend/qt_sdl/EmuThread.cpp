@@ -783,6 +783,18 @@ void EmuThread::run()
 
     // melonPrimeDS
 
+    bool isCursorVisible = true;
+
+    auto showCursor = [&](bool show) {
+        if (show == isCursorVisible) return;
+        if (emuInstance && emuInstance->getMainWindow() && emuInstance->getMainWindow()->panel) {
+            QMetaObject::invokeMethod(emuInstance->getMainWindow()->panel,
+                [=]() { emuInstance->getMainWindow()->panel->setCursor(show ? Qt::ArrowCursor : Qt::BlankCursor); },
+                Qt::QueuedConnection);
+        }
+        isCursorVisible = show;
+        };
+
 #define INPUT_A 0
 #define INPUT_B 1
 #define INPUT_SELECT 2
@@ -918,22 +930,8 @@ void EmuThread::run()
     // Get adjusted center position
     adjustedCenter = getAdjustedCenter();
 
-
-    //MelonPrime OSD stuff
-    /*
-    PrimeOSD::Canvas* OSD = nullptr;
-    QImage* Top_buffer = nullptr;
-    QPainter* Top_paint = nullptr;
-    QImage* Btm_buffer = nullptr;
-    QPainter* Btm_paint = nullptr;
-    float virtualStylusX = 128;
-    float virtualStylusY = 96; // This might not be good - does it go out of bounds when bottom-only? Is Y=0 barely at the bottom limit?
-
-    */
-
     bool enableAim = true;
     bool wasLastFrameFocused = false;
-
 
     //const float dsAspectRatio = 4.0 / 3.0;
     const float dsAspectRatio = 1.333333333f;
@@ -1027,25 +1025,14 @@ void EmuThread::run()
             if (isInGame && !hasInitialized) {
                 // Run once at game start
 
-                QGuiApplication::setOverrideCursor(Qt::BlankCursor);
+                // Set the initialization complete flag
+                hasInitialized = true;
 
-                /*
-                if (OSD) {
-                    //Clear OSD buffers to delete VirtualStylus from touch-screen
-                    Top_buffer->fill(0x00000000);
-                    Btm_buffer->fill(0x00000000);
+                // Hide cursor
+                //QGuiApplication::setOverrideCursor(Qt::BlankCursor);
+                // emuInstance->getMainWindow()->panel->setCursor(Qt::BlankCursor);
+                showCursor(false);
 
-                    // Reset/end any active painters
-                    Top_paint->end();
-                    Btm_paint->end();
-
-                    OSD = nullptr;
-                    Top_buffer = nullptr;
-                    Top_paint = nullptr;
-                    Btm_buffer = nullptr;
-                    Btm_paint = nullptr;
-                }
-                */
 
                 // Read the player position
                 playerPosition = emuInstance->nds->ARM9Read8(PlayerPosAddr);
@@ -1093,9 +1080,6 @@ void EmuThread::run()
                 // isPrimeHunterAddr = isInAdventureAddr + 0xAD; // isPrimeHunter Addr NotPrimeHunter:0xFF, PrimeHunter:0x00 220E9AE9 in JP1.0
 
                 // emuInstance->osdAddMessage(0, "Completed address calculation.");
-
-                // Set the initialization complete flag
-                hasInitialized = true;
             }
 
             if (isFocused) {
@@ -1117,7 +1101,9 @@ void EmuThread::run()
                     // inGame
 
                     if(!wasLastFrameFocused){
-                        QGuiApplication::setOverrideCursor(Qt::BlankCursor);
+                        // QGuiApplication::setOverrideCursor(Qt::BlankCursor);
+                        // emuInstance->getMainWindow()->panel->setCursor(Qt::BlankCursor);
+                        showCursor(false);
                     }
 
                     // These conditional branches cannot be simplified to a simple else statement
@@ -1578,82 +1564,21 @@ void EmuThread::run()
                     // End of in-game
                 }
                 else {
-                    // VirtualStylus
-                    // emuInstance->getMainWindow()->panel->setCursor(Qt::ArrowCursor);
-                    // QGuiApplication::restoreOverrideCursor();
+                    // !isInGame
+
                     if(hasInitialized){
                         hasInitialized = false;
-                        QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+                        // QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+                        // emuInstance->getMainWindow()->panel->setCursor(Qt::ArrowCursor);
+                        showCursor(true);
                     }
 
-                    if (emuInstance->isTouching)
+                    if (emuInstance->isTouching) {
                         emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
-                    else
-                        emuInstance->nds->ReleaseScreen();
-
-                    // reset initialized flag
-
-                    /*
-                    if (!OSD) {
-                        OSD = emuInstance->getMainWindow()->panel->OSDCanvas;
-                        Top_buffer = OSD[0].CanvasBuffer;
-                        Top_paint = OSD[0].Painter;
-                        Btm_buffer = OSD[1].CanvasBuffer;
-                        Btm_paint = OSD[1].Painter;
-
-                        // Start the painter if necessary
-                        if (!Top_paint->isActive()) {
-                            Top_paint->begin(Top_buffer);
-                        }
-                        if (!Btm_paint->isActive()) {
-                            Btm_paint->begin(Btm_buffer);
-                        }
-                    }
-
-
-
-                    //Clear OSD buffers
-                    Top_buffer->fill(0x00000000);
-                    Btm_buffer->fill(0x00000000);
-
-                    // Touch Scren
-                    if (emuInstance->hotkeyDown(HK_MetroidShootScan) || emuInstance->hotkeyDown(HK_MetroidScanShoot)) {
-                        emuInstance->nds->TouchScreen(virtualStylusX, virtualStylusY);
                     }
                     else {
                         emuInstance->nds->ReleaseScreen();
                     }
-
-
-                    // Processing for VirtualStylus X and Y axes
-                    auto processVirtualStylus = [](float mouseRelValue, float scaleFactor, float& virtualStylus) {
-                        if (abs(mouseRelValue) > 0) {
-                            virtualStylus += mouseRelValue * scaleFactor;
-                        }
-                        };
-                    processVirtualStylus(mouseRel.x(), SENSITIVITY_FACTOR_VIRTUAL_STYLUS, virtualStylusX);
-                    processVirtualStylus(mouseRel.y(), SENSITIVITY_FACTOR_VIRTUAL_STYLUS * dsAspectRatio, virtualStylusY);
-
-                    // force virtualStylusX inside window
-                    if (virtualStylusX < 0) virtualStylusX = 0;
-                    if (virtualStylusX > 255) virtualStylusX = 255;
-                    // force virtualStylusY inside window
-                    if (virtualStylusY < 0) virtualStylusY = 0;
-                    if (virtualStylusY > 191) virtualStylusY = 191;
-
-                    // emuInstance->osdAddMessage(0, ("mouseY: " + std::to_string(mouseY)).c_str());
-                    // emuInstance->osdAddMessage(0, ("virtualStylusY: " + std::to_string(virtualStylusY)).c_str());
-
-                    // Draw VirtualStylus Start
-                    Btm_paint->setPen(Qt::white);
-
-                    // Draw VirtualStylus : Crosshair Circle
-                    Btm_paint->drawEllipse(virtualStylusX - 5, virtualStylusY - 5, 10, 10);
-
-                    // Draw VirtualStylus : 3x3 center Crosshair
-                    Btm_paint->drawLine(virtualStylusX - 1, virtualStylusY, virtualStylusX + 1, virtualStylusY);
-                    Btm_paint->drawLine(virtualStylusX, virtualStylusY - 1, virtualStylusX, virtualStylusY + 1);
-                    */
                 }
 
 
@@ -1661,9 +1586,12 @@ void EmuThread::run()
             else {// END of if(isFocused)
                 // When not focused
 
-                // when not aiming in game
                 if (wasLastFrameFocused && isInGame) {
-                    QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+                    // For example, during a match, if the Escape key is pressed and focus is lost, it's necessary to show the cursor.
+                    // is this really needed? theres showCursor in unfocus(); -> this is needed. showCursor in unfocus is not working, maybe because using setOverrideCursor.
+                    // QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
+                    // emuInstance->getMainWindow()->panel->setCursor(Qt::ArrowCursor);
+                    showCursor(true);
                 }
             }
 
