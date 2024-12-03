@@ -968,11 +968,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
         // sort shader work
         glUseProgram(ShaderSortWork);
         glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
-
         glDispatchComputeIndirect(offsetof(BinResultHeader, SortWorkWorkCount));
-
-
-
         glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
 
         glActiveTexture(GL_TEXTURE0);
@@ -1037,11 +1033,8 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
 
                 glUniform1ui(UniformIdxCurVariant, i);
                 glUniform2f(UniformIdxTextureSize, 1.f / variants[i].Width, 1.f / variants[i].Height);
-
-
                 glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
                 glDispatchComputeIndirect(offsetof(BinResultHeader, VariantWorkCount) + i * 4 * 4);
-
             }
         }
     }
