@@ -163,11 +163,11 @@ private:
         float TextureLayer;
     };
 
-    static constexpr int TileSize = 8;
+    int TileSize;
     static constexpr int CoarseTileCountX = 8;
     static constexpr int CoarseTileCountY = 4;
-    static constexpr int CoarseTileW = CoarseTileCountX * TileSize;
-    static constexpr int CoarseTileH = CoarseTileCountY * TileSize;
+    int CoarseTileW;
+    int CoarseTileH;
 
     static constexpr int BinStride = 2048/32;
     static constexpr int CoarseBinStride = BinStride/32;

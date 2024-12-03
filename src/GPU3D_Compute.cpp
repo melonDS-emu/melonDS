@@ -36,6 +36,9 @@ bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, c
     std::string shaderName;
     std::string shaderSource;
     shaderSource += "#version 430 core\n";
+    shaderSource += "#define TileSize ";
+    shaderSource += std::to_string(TileSize);
+    shaderSource += "\n";
     for (const char* define : defines)
     {
         shaderSource += "#define ";
@@ -298,6 +301,24 @@ void ComputeRenderer::Reset(GPU& gpu)
 void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinates)
 {
     CurGLCompositor.SetScaleFactor(scale);
+
+    // Adjust tile size based on scale
+    const int baseTileSize = 8; // Define the base tile size
+    if (scale >= 12) {
+        TileSize = baseTileSize * 4;  // Use 32x32 tiles (suitable for high scale)
+    }
+    else if (scale >= 6) {
+        TileSize = baseTileSize * 2;  // Use 16x16 tiles (suitable for medium scale)
+    }
+    else {
+        TileSize = baseTileSize;      // Use 8x8 tiles (suitable for low scale)
+    }
+
+    CoarseTileW = CoarseTileCountX * TileSize;
+    CoarseTileH = CoarseTileCountY * TileSize;
+
+    TilesPerLine = ScreenWidth / TileSize;
+    TileLines = ScreenHeight / TileSize;
 
     if (ScaleFactor != -1)
     {
@@ -947,7 +968,34 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
         // sort shader work
         glUseProgram(ShaderSortWork);
         glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
-        glDispatchComputeIndirect(offsetof(BinResultHeader, SortWorkWorkCount));
+
+        uint32_t sortWorkCount[4];
+        glGetBufferSubData(GL_DISPATCH_INDIRECT_BUFFER,
+            offsetof(BinResultHeader, SortWorkWorkCount),
+            sizeof(sortWorkCount),
+            sortWorkCount);
+
+        const uint32_t maxWorkGroups = 65535;
+        uint32_t remaining = sortWorkCount[0];
+        uint32_t offset = 0;
+
+        while (remaining > 0) {
+            uint32_t count = std::min(remaining, maxWorkGroups);
+            sortWorkCount[0] = count;
+
+            glBufferSubData(GL_DISPATCH_INDIRECT_BUFFER,
+                offsetof(BinResultHeader, SortWorkWorkCount),
+                sizeof(sortWorkCount),
+                sortWorkCount);
+
+            glDispatchComputeIndirect(offsetof(BinResultHeader, SortWorkWorkCount));
+
+            remaining -= count;
+            offset += count * 32;
+        }
+
+
+
         glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
 
         glActiveTexture(GL_TEXTURE0);
@@ -1012,8 +1060,31 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
 
                 glUniform1ui(UniformIdxCurVariant, i);
                 glUniform2f(UniformIdxTextureSize, 1.f / variants[i].Width, 1.f / variants[i].Height);
-                glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
-                glDispatchComputeIndirect(offsetof(BinResultHeader, VariantWorkCount) + i*4*4);
+
+
+                uint32_t variantWorkCount[4];
+                glGetBufferSubData(GL_DISPATCH_INDIRECT_BUFFER,
+                    offsetof(BinResultHeader, VariantWorkCount) + i * 4 * 4,
+                    sizeof(variantWorkCount),
+                    variantWorkCount);
+
+                remaining = variantWorkCount[0];
+                offset = 0;
+
+                while (remaining > 0) {
+                    uint32_t count = std::min(remaining, maxWorkGroups);
+                    variantWorkCount[0] = count;
+
+                    glBufferSubData(GL_DISPATCH_INDIRECT_BUFFER,
+                        offsetof(BinResultHeader, VariantWorkCount) + i * 4 * 4,
+                        sizeof(variantWorkCount),
+                        variantWorkCount);
+
+                    glDispatchComputeIndirect(offsetof(BinResultHeader, VariantWorkCount) + i * 4 * 4);
+
+                    remaining -= count;
+                    offset += count * 32;
+                }
             }
         }
     }
