@@ -1035,8 +1035,6 @@ void EmuThread::run()
                 hasInitialized = true;
 
                 // Hide cursor
-                //QGuiApplication::setOverrideCursor(Qt::BlankCursor);
-                // emuInstance->getMainWindow()->panel->setCursor(Qt::BlankCursor);
                 showCursor(false);
 
 
@@ -1106,10 +1104,9 @@ void EmuThread::run()
                 if (isInGame) {
                     // inGame
 
-                    /* doing this in Screen.cpp
+                    /*
+                    * doing this in Screen.cpp
                     if(!wasLastFrameFocused){
-                        // QGuiApplication::setOverrideCursor(Qt::BlankCursor);
-                        // emuInstance->getMainWindow()->panel->setCursor(Qt::BlankCursor);
                         showCursor(false);
                     }
                     */
@@ -1576,8 +1573,6 @@ void EmuThread::run()
 
                     if(hasInitialized){
                         hasInitialized = false;
-                        // QGuiApplication::setOverrideCursor(Qt::ArrowCursor);
-                        // emuInstance->getMainWindow()->panel->setCursor(Qt::ArrowCursor);
                         showCursor(true);
                     }
 
