@@ -969,30 +969,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
         glUseProgram(ShaderSortWork);
         glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
 
-        uint32_t sortWorkCount[4];
-        glGetBufferSubData(GL_DISPATCH_INDIRECT_BUFFER,
-            offsetof(BinResultHeader, SortWorkWorkCount),
-            sizeof(sortWorkCount),
-            sortWorkCount);
-
-        const uint32_t maxWorkGroups = 65535;
-        uint32_t remaining = sortWorkCount[0];
-        uint32_t offset = 0;
-
-        while (remaining > 0) {
-            uint32_t count = std::min(remaining, maxWorkGroups);
-            sortWorkCount[0] = count;
-
-            glBufferSubData(GL_DISPATCH_INDIRECT_BUFFER,
-                offsetof(BinResultHeader, SortWorkWorkCount),
-                sizeof(sortWorkCount),
-                sortWorkCount);
-
-            glDispatchComputeIndirect(offsetof(BinResultHeader, SortWorkWorkCount));
-
-            remaining -= count;
-            offset += count * 32;
-        }
+        glDispatchComputeIndirect(offsetof(BinResultHeader, SortWorkWorkCount));
 
 
 
@@ -1062,29 +1039,9 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
                 glUniform2f(UniformIdxTextureSize, 1.f / variants[i].Width, 1.f / variants[i].Height);
 
 
-                uint32_t variantWorkCount[4];
-                glGetBufferSubData(GL_DISPATCH_INDIRECT_BUFFER,
-                    offsetof(BinResultHeader, VariantWorkCount) + i * 4 * 4,
-                    sizeof(variantWorkCount),
-                    variantWorkCount);
+                glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
+                glDispatchComputeIndirect(offsetof(BinResultHeader, VariantWorkCount) + i * 4 * 4);
 
-                remaining = variantWorkCount[0];
-                offset = 0;
-
-                while (remaining > 0) {
-                    uint32_t count = std::min(remaining, maxWorkGroups);
-                    variantWorkCount[0] = count;
-
-                    glBufferSubData(GL_DISPATCH_INDIRECT_BUFFER,
-                        offsetof(BinResultHeader, VariantWorkCount) + i * 4 * 4,
-                        sizeof(variantWorkCount),
-                        variantWorkCount);
-
-                    glDispatchComputeIndirect(offsetof(BinResultHeader, VariantWorkCount) + i * 4 * 4);
-
-                    remaining -= count;
-                    offset += count * 32;
-                }
             }
         }
     }
