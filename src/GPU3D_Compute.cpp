@@ -303,22 +303,22 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     CurGLCompositor.SetScaleFactor(scale);
 
     // Adjust tile size based on scale
-    const int baseTileSize = 8; // Define the base tile size
-    if (scale >= 12) {
-        TileSize = baseTileSize * 4;  // Use 32x32 tiles (suitable for high scale)
+    const int baseTileSize = 8;
+    if (scale < 6) {
+        TileSize = baseTileSize;          // 8x8
     }
-    else if (scale >= 6) {
-        TileSize = baseTileSize * 2;  // Use 16x16 tiles (suitable for medium scale)
+    else if (scale < 12) {
+        TileSize = baseTileSize * 2;      // 16x16
+    }
+    else if (scale == 15) {
+        TileSize = baseTileSize * 3;      // 24x24. scale15 requires baseTileSize * 3 to avoid bugs.
     }
     else {
-        TileSize = baseTileSize;      // Use 8x8 tiles (suitable for low scale)
+        TileSize = baseTileSize * 4;      // 32x32. scale13 works best with baseTileSize * 4 (even though the bottom of the screen appears black).
     }
 
     CoarseTileW = CoarseTileCountX * TileSize;
     CoarseTileH = CoarseTileCountY * TileSize;
-
-    TilesPerLine = ScreenWidth / TileSize;
-    TileLines = ScreenHeight / TileSize;
 
     if (ScaleFactor != -1)
     {
