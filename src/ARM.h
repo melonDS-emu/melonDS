@@ -53,6 +53,19 @@ enum class CPUExecuteMode : u32
 #endif
 };
 
+enum class MainRAMType : u8
+{
+    Null = 0,
+    ICacheStream,
+};
+
+struct MainRAMTrackers
+{
+    MainRAMType Type;
+    u8 Var;
+    u8 Progress;
+};
+
 struct GDBArgs;
 class ARMJIT;
 class GPU;
@@ -75,7 +88,7 @@ public:
 
     virtual void FillPipeline() = 0;
 
-    virtual void JumpTo(u32 addr, bool restorecpsr = false) = 0;
+    virtual void JumpTo(u32 addr, bool restorecpsr = false, u8 R15 = 0) = 0;
     void RestoreCPSR();
 
     void Halt(u32 halt)
@@ -135,14 +148,14 @@ public:
     void SetupCodeMem(u32 addr);
 
 
-    virtual bool DataRead8(u32 addr, u32* val) = 0;
-    virtual bool DataRead16(u32 addr, u32* val) = 0;
-    virtual bool DataRead32(u32 addr, u32* val) = 0;
-    virtual bool DataRead32S(u32 addr, u32* val) = 0;
-    virtual bool DataWrite8(u32 addr, u8 val) = 0;
-    virtual bool DataWrite16(u32 addr, u16 val) = 0;
-    virtual bool DataWrite32(u32 addr, u32 val) = 0;
-    virtual bool DataWrite32S(u32 addr, u32 val) = 0;
+    virtual bool DataRead8(u32 addr, u8 reg) = 0;
+    virtual bool DataRead16(u32 addr, u8 reg) = 0;
+    virtual bool DataRead32(u32 addr, u8 reg) = 0;
+    virtual bool DataRead32S(u32 addr, u8 reg) = 0;
+    virtual bool DataWrite8(u32 addr, u8 val, u8 reg) = 0;
+    virtual bool DataWrite16(u32 addr, u16 val, u8 reg) = 0;
+    virtual bool DataWrite32(u32 addr, u32 val, u8 reg) = 0;
+    virtual bool DataWrite32S(u32 addr, u32 val, u8 reg) = 0;
 
     virtual void AddCycles_C() = 0;
     virtual void AddCycles_CI(s32 numI) = 0;
@@ -186,6 +199,29 @@ public:
     MemRegion CodeMem;
 
     u64 MainRAMTimestamp;
+    MainRAMTrackers MRTrack;
+
+    u32 BranchAddr;
+    u8 BranchUpdate;
+    bool BranchRestore;
+
+    u32 QueueMode[2];
+
+    u64 RetVal;
+
+    u16 LDRRegs;
+    u16 LDRFailedRegs;
+    u16 STRRegs;
+    u32 FetchAddr[17];
+    u32 STRVal[16];
+
+    u64 iter;
+
+    u8 FuncQueueFill;
+    u8 FuncQueueEnd;
+    u8 FuncQueueProg;
+    u8 ExecuteCycles;
+    bool FuncQueueActive;
 
 #ifdef JIT_ENABLED
     u32 FastBlockLookupStart, FastBlockLookupSize;
@@ -245,7 +281,7 @@ public:
 
     void FillPipeline() override;
 
-    void JumpTo(u32 addr, bool restorecpsr = false) override;
+    void JumpTo(u32 addr, bool restorecpsr = false, u8 R15 = 0) override;
 
     void PrefetchAbort();
     void DataAbort();
@@ -254,36 +290,42 @@ public:
     void Execute();
 
     // all code accesses are forced nonseq 32bit
-    u64 CodeRead32(const u32 addr, const bool branch);
+    void CodeRead32(const u32 addr);
 
-    bool DataRead8(u32 addr, u32* val) override;
-    bool DataRead16(u32 addr, u32* val) override;
-    bool DataRead32(u32 addr, u32* val) override;
-    bool DataRead32S(u32 addr, u32* val) override;
-    bool DataWrite8(u32 addr, u8 val) override;
-    bool DataWrite16(u32 addr, u16 val) override;
-    bool DataWrite32(u32 addr, u32 val) override;
-    bool DataWrite32S(u32 addr, u32 val) override;
+    bool DataRead8(u32 addr, u8 reg) override;
+    bool DataRead16(u32 addr, u8 reg) override;
+    bool DataRead32(u32 addr, u8 reg) override;
+    bool DataRead32S(u32 addr, u8 reg) override;
+    bool DataWrite8(u32 addr, u8 val, u8 reg) override;
+    bool DataWrite16(u32 addr, u16 val, u8 reg) override;
+    bool DataWrite32(u32 addr, u32 val, u8 reg) override;
+    bool DataWrite32S(u32 addr, u32 val, u8 reg) override;
 
     void CodeFetch();
 
-    void AddCycles_C() override { CodeFetch(); }
+    void AddCycles_C() override
+    {
+        ExecuteCycles = 0;
+        CodeFetch();
+    }
 
-    void AddCycles_CI(s32 numX) override;
+    void AddCycles_CI(s32 numX) override
+    {
+        ExecuteCycles = numX;
+        CodeFetch();
+    }
 
     void AddCycles_MW(s32 numM);
 
     void AddCycles_CDI() override
     {
         AddCycles_MW(DataCycles);
-        DataCycles = 0;
     }
 
     void AddCycles_CD() override
     {
-        Store = true;
+        Store = true; // todo: queue this
         AddCycles_MW(DataCycles);
-        DataCycles = 0;
     }
     
     template <bool bitfield>
@@ -366,7 +408,7 @@ public:
      * cache. The address is internally aligned to an word boundary
      * @return Value of the word at addr
      */
-    u32 ICacheLookup(const u32 addr);
+    bool ICacheLookup(const u32 addr);
 
     /**
      * @brief Check if an address is within a instruction cachable 
@@ -604,6 +646,26 @@ public:
      * @return Value of the cp15 register
      */
     u32 CP15Read(const u32 id) const;
+    
+    void StartExec();
+    void AddExecute();
+    void AddCycles_MW_2();
+    void JumpTo_2();
+    void JumpTo_3A();
+    void JumpTo_3B();
+    void JumpTo_3C();
+    void JumpTo_4();
+    void DAbortHandle();
+    void DAbortHandleS();
+    void DRead8_2();
+    void DRead16_2();
+    void DRead32_2();
+    void DRead32S_2();
+    void DWrite8_2();
+    void DWrite16_2();
+    void DWrite32_2();
+    void DWrite32S_2();
+    void QueueUpdateMode();
 
     u32 CP15Control;                                //! CP15 Register 1: Control Register
 
@@ -652,7 +714,7 @@ public:
                                                      *      1 - CP15_MAP_WRITEABLE
                                                      *      2 - CP15_MAP_EXECUTABLE
                                                      *      4 - CP15_MAP_DCACHEABLE
-                                                     *      5 - CP15_MAP_DCACHEWRITEBACK
+                                                     *      5 - CP15_MAP_BUFFERABLE
                                                      *      6 - CP15_MAP_ICACHEABLE
                                                      */
     u8 PU_UserMap[CP15_MAP_ENTRYCOUNT];             //! Memory mapping flags for User Mode
@@ -665,6 +727,7 @@ public:
     
     u64 ITCMTimestamp;
     u64 TimestampActual;
+    void (ARMv5::*FuncQueue[31])(void);
     u32 PC;
     bool NullFetch;
     bool Store;
@@ -674,10 +737,12 @@ public:
     u64 ILCurrTime;
     u64 ILPrevTime;
 
-    u8 ICacheFillPtr;
-    u8 DCacheFillPtr;
-    u64 ICacheFillTimes[7];
-    u64 DCacheFillTimes[7];
+    u8 ICacheStreamPtr;
+    u8 DCacheStreamPtr;
+    u64 ICacheStreamTimes[7];
+    u64 DCacheStreamTimes[7];
+
+    bool abt;
 
     u8 WBWritePointer; // which entry to attempt to write next; should always be ANDed with 0xF after incrementing
     u8 WBFillPointer; // where the next entry should be added; should always be ANDed with 0xF after incrementing
@@ -716,7 +781,7 @@ public:
 
     void FillPipeline() override;
 
-    void JumpTo(u32 addr, bool restorecpsr = false) override;
+    void JumpTo(u32 addr, bool restorecpsr = false, u8 R15 = 0) override;
 
     template <CPUExecuteMode mode>
     void Execute();
@@ -726,14 +791,14 @@ public:
     u16 CodeRead16(u32 addr);
     u32 CodeRead32(u32 addr);
 
-    bool DataRead8(u32 addr, u32* val) override;
-    bool DataRead16(u32 addr, u32* val) override;
-    bool DataRead32(u32 addr, u32* val) override;
-    bool DataRead32S(u32 addr, u32* val) override;
-    bool DataWrite8(u32 addr, u8 val) override;
-    bool DataWrite16(u32 addr, u16 val) override;
-    bool DataWrite32(u32 addr, u32 val) override;
-    bool DataWrite32S(u32 addr, u32 val) override;
+    bool DataRead8(u32 addr, u8 reg) override;
+    bool DataRead16(u32 addr, u8 reg) override;
+    bool DataRead32(u32 addr, u8 reg) override;
+    bool DataRead32S(u32 addr, u8 reg) override;
+    bool DataWrite8(u32 addr, u8 val, u8 reg) override;
+    bool DataWrite16(u32 addr, u16 val, u8 reg) override;
+    bool DataWrite32(u32 addr, u32 val, u8 reg) override;
+    bool DataWrite32S(u32 addr, u32 val, u8 reg) override;
     void AddCycles_C() override;
     void AddCycles_CI(s32 num) override;
     void AddCycles_CDI() override;

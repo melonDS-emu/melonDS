@@ -253,6 +253,8 @@ public: // TODO: Encapsulate the rest of these members
     // no need to worry about those overflowing, they can keep going for atleast 4350 years
     u64 ARM9Timestamp, ARM9Target;
     u64 ARM7Timestamp, ARM7Target;
+    u64 MainRAMTimestamp;
+    u64 A9ContentionTS;
     u32 ARM9ClockShift;
 
     u32 IME[2];
@@ -269,6 +271,8 @@ public: // TODO: Encapsulate the rest of these members
     u16 ExMemCnt[2];
     alignas(u32) u8 ROMSeed0[2*8];
     alignas(u32) u8 ROMSeed1[2*8];
+
+    bool MainRAMLastAccess; // 0 == ARM9 | 1 == ARM7
 
 protected:
     // These BIOS arrays should be declared *before* the component objects (JIT, SPI, etc.)
@@ -393,6 +397,9 @@ public: // TODO: Encapsulate the rest of these members
 
     void LoadGBAAddon(int type);
     std::unique_ptr<GBACart::CartCommon> EjectGBACart() { return GBACartSlot.EjectCart(); }
+
+    void MainRAMHandleARM9();
+    void MainRAMHandle();
 
     u32 RunFrame();
 

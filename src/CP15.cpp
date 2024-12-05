@@ -367,7 +367,7 @@ u32 ARMv5::RandomLineIndex()
     return (RNGSeed >> 17) & 0x3;
 }
 
-u32 ARMv5::ICacheLookup(const u32 addr)
+bool ARMv5::ICacheLookup(const u32 addr)
 {
     const u32 tag = (addr & ~(ICACHE_LINELENGTH - 1));
     const u32 id = ((addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1)) << ICACHE_SETS_LOG2;
@@ -414,35 +414,36 @@ u32 ARMv5::ICacheLookup(const u32 addr)
         {
             u32 *cacheLine = (u32 *)&ICache[(id+set) << ICACHE_LINELENGTH_LOG2];
 
-            if (ICacheFillPtr >= 7)
+            if (ICacheStreamPtr >= 7)
             {
                 if (NDS.ARM9Timestamp < ITCMTimestamp) NDS.ARM9Timestamp = ITCMTimestamp; // does this apply to streamed fetches?
                 NDS.ARM9Timestamp++;
             }
             else
             {
-                u64 nextfill = ICacheFillTimes[ICacheFillPtr++];
+                u64 nextfill = ICacheStreamTimes[ICacheStreamPtr++];
                 if (NDS.ARM9Timestamp < nextfill)
                 {
                     NDS.ARM9Timestamp = nextfill;
                 }
                 else
                 {
-                    u64 fillend = ICacheFillTimes[6] + 2;
+                    u64 fillend = ICacheStreamTimes[6] + 2;
                     if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend;
                     else // checkme
                     {
                         if (NDS.ARM9Timestamp < ITCMTimestamp) NDS.ARM9Timestamp = ITCMTimestamp;
                         NDS.ARM9Timestamp++;
                     }
-                    ICacheFillPtr = 7;
+                    ICacheStreamPtr = 7;
                 }
             }
-
             if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
             DataRegion = Mem9_Null;
             Store = false;
-            return cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2];
+
+            RetVal = cacheLine[(addr & (ICACHE_LINELENGTH -1)) / 4];
+            return true;
         }
     }
 
@@ -451,35 +452,8 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     // We do not fill the cacheline if it is disabled in the 
     // BIST test State register (See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_LINEFILL) [[unlikely]]
-    {
-        u8 cycles = MemTimings[addr >> 14][1];
+        return false;
 
-        WriteBufferDrain();
-
-        NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
-
-        if ((addr >> 24) == 0x02)
-        {
-            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
-            NDS.ARM9Timestamp += cycles;
-            if (NDS.ARM9ClockShift == 2)
-            {
-                MainRAMTimestamp = NDS.ARM9Timestamp;
-                NDS.ARM9Timestamp -= 4;
-            }
-        }
-        else
-        {
-            if (NDS.ARM9Regions[addr>>14] == DataRegion && Store) NDS.ARM9Timestamp += (1<<NDS.ARM9ClockShift);
-            NDS.ARM9Timestamp += cycles;
-        }
-        Store = false;
-
-        if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
-
-        DataRegion = Mem9_Null;
-        return NDS.ARM9Read32(addr & ~3); 
-    }
     u32 line;
 
     if (CP15Control & CP15_CACHE_CR_ROUNDROBIN) [[likely]]
@@ -509,67 +483,68 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     line += id;
 
     u32* ptr = (u32 *)&ICache[line << ICACHE_LINELENGTH_LOG2];
-
-    // bus reads can only overlap with icache streaming by 6 cycles
-    // checkme: does cache trigger this?
-    if (ICacheFillPtr < 7)
+    
+    // bus reads can only overlap with dcache streaming by 6 cycles
+    if (DCacheStreamPtr < 7)
     {
-        u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
+        u64 time = DCacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
     WriteBufferDrain();
-
-    {
-        for (int i = 0; i < ICACHE_LINELENGTH; i+=sizeof(u32))
-            ptr[i >> 2] = NDS.ARM9Read32(tag+i);
-    }
 
     ICacheTags[line] = tag | (line & (ICACHE_SETS-1)) | CACHE_FLAG_VALID;
     
     // timing logic
     NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
-    if ((addr >> 24) == 0x02)
+    if (NDS.ARM9Regions[addr>>14] == Mem9_MainRAM)
     {
-        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
+        MRTrack.Type = MainRAMType::ICacheStream;
+        MRTrack.Var = line;
+        FetchAddr[16] = addr & ~3;
+        if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_STREAMING) [[unlikely]]
+            ICacheStreamPtr = 7;
+        else ICacheStreamPtr = (addr & 0x1F) / 4;
     }
-    else if (((NDS.ARM9Timestamp <= WBReleaseTS) && (NDS.ARM9Regions[addr>>14] == WBLastRegion)) // check write buffer
-        || (Store && (NDS.ARM9Regions[addr>>14] == DataRegion))) //check the actual store
-        NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
-    Store = false;
-
-    // Disabled ICACHE Streaming:
-    // Wait until the entire cache line is filled before continuing with execution
-    if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_STREAMING) [[unlikely]]
+    else
     {
-        NDS.ARM9Timestamp += MemTimings[tag >> 14][1] + (MemTimings[tag >> 14][2] * ((DCACHE_LINELENGTH / 4) - 1));
-        if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual; // this should never trigger in practice
-    }
-    else // ICache Streaming logic
-    {
-        u8 ns = MemTimings[addr>>14][1];
-        u8 seq = MemTimings[addr>>14][2];
+        for (int i = 0; i < ICACHE_LINELENGTH; i+=sizeof(u32))
+            ptr[i/4] = NDS.ARM9Read32(tag+i);
 
-        u8 linepos = (addr & 0x1F) >> 2; // technically this is one too low, but we want that actually
+        if (((NDS.ARM9Timestamp <= WBReleaseTS) && (NDS.ARM9Regions[addr>>14] == WBLastRegion)) // check write buffer
+            || (Store && (NDS.ARM9Regions[addr>>14] == DataRegion))) //check the actual store
+                NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
 
-        u64 cycles = ns + (seq * linepos);
-        NDS.ARM9Timestamp = cycles += NDS.ARM9Timestamp;
-
-        if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
-
-        ICacheFillPtr = linepos;
-        for (int i = linepos; i < 7; i++)
+        // Disabled ICACHE Streaming:
+        // Wait until the entire cache line is filled before continuing with execution
+        if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_STREAMING) [[unlikely]]
         {
-            cycles += seq;
-            ICacheFillTimes[i] = cycles;
+            NDS.ARM9Timestamp += MemTimings[tag >> 14][1] + (MemTimings[tag >> 14][2] * ((DCACHE_LINELENGTH / 4) - 1));
+            if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual; // this should never trigger in practice
         }
+        else // ICache Streaming logic
+        {
+            u8 ns = MemTimings[addr>>14][1];
+            u8 seq = MemTimings[addr>>14][2];
+        
+            u8 linepos = (addr & 0x1F) / 4; // technically this is one too low, but we want that actually
 
-        if ((addr >> 24) == 0x02) MainRAMTimestamp = ((linepos < 7) ? ICacheFillTimes[6] : NDS.ARM9Timestamp);
+            u64 cycles = ns + (seq * linepos);
+            NDS.ARM9Timestamp = cycles += NDS.ARM9Timestamp;
+
+            ICacheStreamPtr = linepos;
+            for (int i = linepos; i < 7; i++)
+            {
+                cycles += seq;
+                ICacheStreamTimes[i] = cycles;
+            }
+        }
+        RetVal = ptr[(addr & (ICACHE_LINELENGTH-1)) / 4];
     }
-
+    Store = false;
     DataRegion = Mem9_Null;
-    return ptr[(addr & (ICACHE_LINELENGTH-1)) >> 2];
+    return true;
 }
 
 void ARMv5::ICacheInvalidateByAddr(const u32 addr)
@@ -659,29 +634,37 @@ u32 ARMv5::DCacheLookup(const u32 addr)
         {
             u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
 
-            if (DCacheFillPtr >= 7)
+            if (DCacheStreamPtr >= 7)
             {
                 DataCycles = 1;
             }
             else
             {
-                u64 nextfill = DCacheFillTimes[DCacheFillPtr++];
+                u64 nextfill = DCacheStreamTimes[DCacheStreamPtr++];
                 //if (NDS.ARM9Timestamp < nextfill) // can this ever really fail?
                 {
                     DataCycles = nextfill - NDS.ARM9Timestamp;
                 }
                 /*else
                 {
-                    u64 fillend = DCacheFillTimes[6] + 2;
+                    u64 fillend = DCacheStreamTimes[6] + 2;
                     if (NDS.ARM9Timestamp < fillend) DataCycles = fillend - NDS.ARM9Timestamp;
                     else DataCycles = 1;
-                    DCacheFillPtr = 7;
+                    DCacheStreamPtr = 7;
                 }*/
             }
             DataRegion = Mem9_DCache;
             //Log(LogLevel::Debug, "DCache hit at %08lx returned %08x from set %i, line %i\n", addr, cacheLine[(addr & (DCACHE_LINELENGTH -1)) >> 2], set, id>>2);
             return cacheLine[(addr & (DCACHE_LINELENGTH -1)) >> 2];
         }
+    }
+    
+    // bus reads can only overlap with icache streaming by 6 cycles
+    // checkme: does cache trigger this?
+    if (ICacheStreamPtr < 7)
+    {
+        u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
+        if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
     // cache miss
@@ -690,14 +673,6 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     // BIST test State register (See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_LINEFILL) [[unlikely]]
     {
-        // bus reads can only overlap with icache streaming by 6 cycles
-        // checkme: does cache trigger this?
-        if (ICacheFillPtr < 7)
-        {
-            u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
-            if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
-        }
-
         WriteBufferDrain();
 
         NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
@@ -810,14 +785,14 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     
         cycles += NDS.ARM9Timestamp;
 
-        DCacheFillPtr = linepos;
+        DCacheStreamPtr = linepos;
         for (int i = linepos; i < 7; i++)
         {
             cycles += seq;
-            DCacheFillTimes[i] = cycles;
+            DCacheStreamTimes[i] = cycles;
         }
 
-        if ((addr >> 24) == 0x02) MainRAMTimestamp = ((linepos < 7) ? ICacheFillTimes[6] : NDS.ARM9Timestamp);
+        if ((addr >> 24) == 0x02) MainRAMTimestamp = ((linepos < 7) ? ICacheStreamTimes[6] : NDS.ARM9Timestamp);
     }
     return ptr[(addr & (DCACHE_LINELENGTH-1)) >> 2];
 }
@@ -871,7 +846,7 @@ bool ARMv5::DCacheWrite32(const u32 addr, const u32 val)
             DataCycles = 1;
             DataRegion = Mem9_DCache;
             #if !DISABLE_CACHEWRITEBACK
-                if (PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_DCACHEWRITEBACK)
+                if (PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_BUFFERABLE)
                 {
                     if (addr & (DCACHE_LINELENGTH / 2))
                     {
@@ -939,7 +914,7 @@ bool ARMv5::DCacheWrite16(const u32 addr, const u16 val)
             DataCycles = 1;
             DataRegion = Mem9_DCache;
             #if !DISABLE_CACHEWRITEBACK
-                if (PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_DCACHEWRITEBACK)
+                if (PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_BUFFERABLE)
                 {
                     if (addr & (DCACHE_LINELENGTH / 2))
                     {
@@ -1008,7 +983,7 @@ bool ARMv5::DCacheWrite8(const u32 addr, const u8 val)
             DataCycles = 1;
             DataRegion = Mem9_DCache;
             #if !DISABLE_CACHEWRITEBACK
-                if (PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_DCACHEWRITEBACK)
+                if (PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_BUFFERABLE)
                 {
                     if (addr & (DCACHE_LINELENGTH / 2))
                     {
@@ -1736,7 +1711,8 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // we force a fill by looking up the value from cache
         // if it wasn't cached yet, it will be loaded into cache
         // low bits are set to 0x1C to trick cache streaming
-        ICacheLookup((val & ~0x03) | 0x1C);
+        printf("PREFETCH ICACHE\n");
+        //ICacheLookup((val & ~0x03) | 0x1C); TODO: REIMPLEMENT WITH DEFERENCE
         return;
 
     case 0x7E0:
@@ -2071,17 +2047,18 @@ u32 ARMv5::CP15Read(const u32 id) const
 // TCM are handled here.
 // TODO: later on, handle PU
 
-u64 ARMv5::CodeRead32(u32 addr, bool branch)
+void ARMv5::CodeRead32(u32 addr)
 {
     // prefetch abort
     // the actual exception is not raised until the aborted instruction is executed
-    if (!(PU_Map[addr>>12] & 0x04)) [[unlikely]]
+    if (!(PU_Map[addr>>12] & CP15_MAP_EXECUTABLE)) [[unlikely]]
     {        
         NDS.ARM9Timestamp += 1;
         if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
         DataRegion = Mem9_Null;
         Store = false;
-        return ((u64)1<<63);
+        RetVal = ((u64)1<<63);
+        return;
     }
 
     if (addr < ITCMSize)
@@ -2091,7 +2068,8 @@ u64 ARMv5::CodeRead32(u32 addr, bool branch)
         if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
         DataRegion = Mem9_Null;
         Store = false;
-        return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        RetVal = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        return;
     }
     
     #if !DISABLE_ICACHE
@@ -2101,15 +2079,15 @@ u64 ARMv5::CodeRead32(u32 addr, bool branch)
         {
             if (IsAddressICachable(addr))
             {
-                return ICacheLookup(addr);
+                if (ICacheLookup(addr)) return;
             }
     #endif 
         }
     
     // bus reads can only overlap with dcache streaming by 6 cycles
-    if (DCacheFillPtr < 7)
+    if (DCacheStreamPtr < 7)
     {
-        u64 time = DCacheFillTimes[6] - 6; // checkme: minus 6?
+        u64 time = DCacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
@@ -2148,25 +2126,68 @@ u64 ARMv5::CodeRead32(u32 addr, bool branch)
     if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
 
     DataRegion = Mem9_Null;
-    return BusRead32(addr);
+    RetVal = BusRead32(addr);
+    return;
 }
 
 
-bool ARMv5::DataRead8(u32 addr, u32* val)
+void ARMv5::DAbortHandle()
 {
-    if (DCacheFillPtr < 7)
+    if (DCacheStreamPtr < 7)
     {
-        u64 fillend = DCacheFillTimes[6] + 1;
+        u64 fillend = DCacheStreamTimes[6] + 1;
         if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
-        DCacheFillPtr = 7;
+        DCacheStreamPtr = 7;
     }
+    
+    DataCycles = 1;
+}
 
+void ARMv5::DAbortHandleS()
+{
+    NDS.ARM9Timestamp += DataCycles;
+
+    if (DCacheStreamPtr < 7)
+    {
+        u64 fillend = DCacheStreamTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
+        DCacheStreamPtr = 7;
+    }
+    
+    DataCycles = 1;
+}
+
+bool ARMv5::DataRead8(u32 addr, u8 reg)
+{
     // Data Aborts
     // Exception is handled in the actual instruction implementation
-    if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
+    if (!(PU_Map[addr>>12] & CP15_MAP_READABLE)) [[unlikely]]
     {
-        DataCycles = 1;
+        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandle;
+        else DAbortHandle();
         return false;
+    }
+
+    FetchAddr[reg] = addr;
+    LDRRegs = 1<<reg;
+
+    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DRead8_2;
+    else DRead8_2();
+    return true;
+}
+
+void ARMv5::DRead8_2()
+{
+    u8 reg = __builtin_ctz(LDRRegs);
+    u32 addr = FetchAddr[reg];
+    u32 dummy;
+    u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+
+    if (DCacheStreamPtr < 7)
+    {
+        u64 fillend = DCacheStreamTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
+        DCacheStreamPtr = 7;
     }
 
     if (addr < ITCMSize)
@@ -2175,14 +2196,14 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
         ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
         DataRegion = Mem9_ITCM;
         *val = *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)];
-        return true;
+        return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
         DataRegion = Mem9_DTCM;
         *val = *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)];
-        return true;
+        return;
     }
 
     #if !DISABLE_DCACHE
@@ -2193,16 +2214,16 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
             if (IsAddressDCachable(addr))
             {
                 *val = (DCacheLookup(addr) >> (8 * (addr & 3))) & 0xff;
-                return true;
+                return;
             }
         }
     #endif
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does dcache trigger this?
-    if (ICacheFillPtr < 7)
+    if (ICacheStreamPtr < 7)
     {
-        u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
+        u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
@@ -2232,24 +2253,39 @@ bool ARMv5::DataRead8(u32 addr, u32* val)
     if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
         WBTimestamp = (NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
     *val = BusRead8(addr);
+}
+
+bool ARMv5::DataRead16(u32 addr, u8 reg)
+{
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
+    if (!(PU_Map[addr>>12] & CP15_MAP_READABLE)) [[unlikely]]
+    {
+        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandle;
+        else DAbortHandle();
+        return false;
+    }
+
+    FetchAddr[reg] = addr;
+    LDRRegs = 1<<reg;
+
+    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DRead16_2;
+    else DRead16_2();
     return true;
 }
 
-bool ARMv5::DataRead16(u32 addr, u32* val)
+void ARMv5::DRead16_2()
 {
-    if (DCacheFillPtr < 7)
-    {
-        u64 fillend = DCacheFillTimes[6] + 1;
-        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
-        DCacheFillPtr = 7;
-    }
+    u8 reg = __builtin_ctz(LDRRegs);
+    u32 addr = FetchAddr[reg];
+    u32 dummy;
+    u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
 
-    // Data Aborts
-    // Exception is handled in the actual instruction implementation
-    if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
+    if (DCacheStreamPtr < 7)
     {
-        DataCycles = 1;
-        return false;
+        u64 fillend = DCacheStreamTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
+        DCacheStreamPtr = 7;
     }
 
     addr &= ~1;
@@ -2260,14 +2296,14 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
         ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
         DataRegion = Mem9_ITCM;
         *val = *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)];
-        return true;
+        return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
         DataRegion = Mem9_DTCM;
         *val = *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)];
-        return true;
+        return;
     }
     
     #if !DISABLE_DCACHE
@@ -2278,16 +2314,16 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
             if (IsAddressDCachable(addr))
             {
                 *val = (DCacheLookup(addr) >> (8* (addr & 2))) & 0xffff;
-                return true;
+                return;
             }
         }
     #endif
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr < 7)
+    if (ICacheStreamPtr < 7)
     {
-        u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
+        u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
@@ -2317,24 +2353,39 @@ bool ARMv5::DataRead16(u32 addr, u32* val)
     if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
         WBTimestamp = (NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
     *val = BusRead16(addr);
+}
+
+bool ARMv5::DataRead32(u32 addr, u8 reg)
+{
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
+    if (!(PU_Map[addr>>12] & CP15_MAP_READABLE)) [[unlikely]]
+    {
+        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandle;
+        else DAbortHandle();
+        return false;
+    }
+    
+    FetchAddr[reg] = addr;
+    LDRRegs = 1<<reg;
+
+    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DRead32_2;
+    else DRead32_2();
     return true;
 }
 
-bool ARMv5::DataRead32(u32 addr, u32* val)
+void ARMv5::DRead32_2()
 {
-    if (DCacheFillPtr < 7)
-    {
-        u64 fillend = DCacheFillTimes[6] + 1;
-        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
-        DCacheFillPtr = 7;
-    }
+    u8 reg = __builtin_ctz(LDRRegs);
+    u32 addr = FetchAddr[reg];
+    u32 dummy;
+    u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
 
-    // Data Aborts
-    // Exception is handled in the actual instruction implementation
-    if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
+    if (DCacheStreamPtr < 7)
     {
-        DataCycles = 1;
-        return false;
+        u64 fillend = DCacheStreamTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
+        DCacheStreamPtr = 7;
     }
 
     addr &= ~3;
@@ -2345,14 +2396,16 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
         ITCMTimestamp = NDS.ARM9Timestamp + DataCycles;
         DataRegion = Mem9_ITCM;
         *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
-        return true;
+        LDRRegs &= ~1<<reg;
+        return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
         DataRegion = Mem9_DTCM;
         *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
-        return true;
+        LDRRegs &= ~1<<reg;
+        return;
     }
 
     #if !DISABLE_DCACHE
@@ -2363,16 +2416,17 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
             if (IsAddressDCachable(addr))
             {
                 *val = DCacheLookup(addr);
-                return true;
+                LDRRegs &= ~1<<reg;
+                return;
             }
         }
     #endif
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr < 7)
+    if (ICacheStreamPtr < 7)
     {
-        u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
+        u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
@@ -2402,20 +2456,36 @@ bool ARMv5::DataRead32(u32 addr, u32* val)
     if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
         WBTimestamp = (NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
     *val = BusRead32(addr);
+    LDRRegs &= ~1<<reg;
+}
+
+bool ARMv5::DataRead32S(u32 addr, u8 reg)
+{
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
+    if (!(PU_Map[addr>>12] & CP15_MAP_READABLE)) [[unlikely]]
+    {
+        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill] = &ARMv5::DAbortHandleS;
+        else DAbortHandleS();
+        return false;
+    }
+    
+    FetchAddr[reg] = addr;
+    LDRRegs |= 1<<reg;
+
+    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DRead32S_2;
+    else DRead32S_2();
     return true;
 }
 
-bool ARMv5::DataRead32S(u32 addr, u32* val)
+void ARMv5::DRead32S_2()
 {
-    NDS.ARM9Timestamp += DataCycles;
+    u8 reg = __builtin_ctz(LDRRegs);
+    u32 addr = FetchAddr[reg];
+    u32 dummy;
+    u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
 
-    // Data Aborts
-    // Exception is handled in the actual instruction implementation
-    if (!(PU_Map[addr>>12] & 0x01)) [[unlikely]]
-    {
-        DataCycles = 1;
-        return false;
-    }
+    NDS.ARM9Timestamp += DataCycles;
 
     addr &= ~3;
 
@@ -2425,14 +2495,16 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
         // we update the timestamp during the actual function, as a sequential itcm access can only occur during instructions with strange itcm wait cycles
         DataRegion = Mem9_ITCM;
         *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
-        return true;
+        LDRRegs &= ~1<<reg;
+        return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
         DataRegion = Mem9_DTCM;
         *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
-        return true;
+        LDRRegs &= ~1<<reg;
+        return;
     }
 
     #if !DISABLE_DCACHE
@@ -2443,16 +2515,17 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
             if (IsAddressDCachable(addr))
             {
                 *val = DCacheLookup(addr);
-                return true;
+                LDRRegs &= ~1<<reg;
+                return;
             }
         }
     #endif
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr < 7)
+    if (ICacheStreamPtr < 7)
     {
-        u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
+        u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
@@ -2503,24 +2576,40 @@ bool ARMv5::DataRead32S(u32 addr, u32* val)
     if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
         WBTimestamp = (NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
     *val = BusRead32(addr);
+    LDRRegs &= ~1<<reg;
+}
+
+bool ARMv5::DataWrite8(u32 addr, u8 val, u8 reg)
+{
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
+    if (!(PU_Map[addr>>12] & CP15_MAP_WRITEABLE)) [[unlikely]]
+    {
+        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandle;
+        else DAbortHandle();
+        return false;
+    }
+
+    FetchAddr[reg] = addr;
+    STRRegs = 1<<reg;
+    STRVal[reg] = val;
+
+    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DWrite8_2;
+    else DWrite8_2();
     return true;
 }
 
-bool ARMv5::DataWrite8(u32 addr, u8 val)
+void ARMv5::DWrite8_2()
 {
-    if (DCacheFillPtr < 7)
-    {
-        u64 fillend = DCacheFillTimes[6] + 1;
-        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
-        DCacheFillPtr = 7;
-    }
+    u8 reg = __builtin_ctz(STRRegs);
+    u32 addr = FetchAddr[reg];
+    u8 val = STRVal[reg];
 
-    // Data Aborts
-    // Exception is handled in the actual instruction implementation
-    if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
+    if (DCacheStreamPtr < 7)
     {
-        DataCycles = 1;
-        return false;
+        u64 fillend = DCacheStreamTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
+        DCacheStreamPtr = 7;
     }
 
     if (addr < ITCMSize)
@@ -2532,14 +2621,14 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
 #endif
-        return true;
+        return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
         DataRegion = Mem9_DTCM;
         *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
-        return true;
+        return;
     }
 
     #if !DISABLE_DCACHE
@@ -2550,16 +2639,16 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
             if (IsAddressDCachable(addr))
             {
                 if (DCacheWrite8(addr, val))
-                    return true;
+                    return;
             }
         }
     #endif
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr < 7)
+    if (ICacheStreamPtr < 7)
     {
-        u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
+        u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
@@ -2594,24 +2683,39 @@ bool ARMv5::DataWrite8(u32 addr, u8 val)
         DataCycles = 1;
         WBDelay = NDS.ARM9Timestamp + 2;
     }
+}
+
+bool ARMv5::DataWrite16(u32 addr, u16 val, u8 reg)
+{
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
+    if (!(PU_Map[addr>>12] & CP15_MAP_WRITEABLE)) [[unlikely]]
+    {
+        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandle;
+        else DAbortHandle();
+        return false;
+    }
+
+    FetchAddr[reg] = addr;
+    STRRegs = 1<<reg;
+    STRVal[reg] = val;
+
+    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DWrite16_2;
+    else DWrite16_2();
     return true;
 }
 
-bool ARMv5::DataWrite16(u32 addr, u16 val)
+void ARMv5::DWrite16_2()
 {
-    if (DCacheFillPtr < 7)
-    {
-        u64 fillend = DCacheFillTimes[6] + 1;
-        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
-        DCacheFillPtr = 7;
-    }
+    u8 reg = __builtin_ctz(STRRegs);
+    u32 addr = FetchAddr[reg];
+    u16 val = STRVal[reg];
 
-    // Data Aborts
-    // Exception is handled in the actual instruction implementation
-    if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
+    if (DCacheStreamPtr < 7)
     {
-        DataCycles = 1;
-        return false;
+        u64 fillend = DCacheStreamTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
+        DCacheStreamPtr = 7;
     }
 
     addr &= ~1;
@@ -2625,14 +2729,14 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
 #endif
-        return true;
+        return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
         DataRegion = Mem9_DTCM;
         *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
-        return true;
+        return;
     }
 
     #if !DISABLE_DCACHE
@@ -2643,16 +2747,16 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
             if (IsAddressDCachable(addr))
             {
                 if (DCacheWrite16(addr, val))
-                    return true;
+                    return;
             }
         }
     #endif
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr < 7)
+    if (ICacheStreamPtr < 7)
     {
-        u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
+        u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
@@ -2687,24 +2791,39 @@ bool ARMv5::DataWrite16(u32 addr, u16 val)
         DataCycles = 1;
         WBDelay = NDS.ARM9Timestamp + 2;
     }
+}
+
+bool ARMv5::DataWrite32(u32 addr, u32 val, u8 reg)
+{
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
+    if (!(PU_Map[addr>>12] & CP15_MAP_WRITEABLE)) [[unlikely]]
+    {
+        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandle;
+        else DAbortHandle();
+        return false;
+    }
+    
+    FetchAddr[reg] = addr;
+    STRRegs = 1<<reg;
+    STRVal[reg] = val;
+
+    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DWrite32_2;
+    else DWrite32_2();
     return true;
 }
 
-bool ARMv5::DataWrite32(u32 addr, u32 val)
+void ARMv5::DWrite32_2()
 {
-    if (DCacheFillPtr < 7)
-    {
-        u64 fillend = DCacheFillTimes[6] + 1;
-        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
-        DCacheFillPtr = 7;
-    }
+    u8 reg = __builtin_ctz(STRRegs);
+    u32 addr = FetchAddr[reg];
+    u32 val = STRVal[reg];
 
-    // Data Aborts
-    // Exception is handled in the actual instruction implementation
-    if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
+    if (DCacheStreamPtr < 7)
     {
-        DataCycles = 1;
-        return false;
+        u64 fillend = DCacheStreamTimes[6] + 1;
+        if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend; // checkme: should this be data cycles?
+        DCacheStreamPtr = 7;
     }
 
     addr &= ~3;
@@ -2718,14 +2837,16 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
 #endif
-        return true;
+        STRRegs &= ~1<<reg;
+        return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
         DataRegion = Mem9_DTCM;
         *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
-        return true;
+        STRRegs &= ~1<<reg;
+        return;
     }
 
     #if !DISABLE_DCACHE
@@ -2736,16 +2857,19 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
             if (IsAddressDCachable(addr))
             {
                 if (DCacheWrite32(addr, val))
-                    return true;
+                {
+                    STRRegs &= ~1<<reg;
+                    return;
+                }
             }
         }
     #endif
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr < 7)
+    if (ICacheStreamPtr < 7)
     {
-        u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
+        u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
@@ -2780,20 +2904,36 @@ bool ARMv5::DataWrite32(u32 addr, u32 val)
         DataCycles = 1;
         WBDelay = NDS.ARM9Timestamp + 2;
     }
+    STRRegs &= ~1<<reg;
+}
+
+bool ARMv5::DataWrite32S(u32 addr, u32 val, u8 reg)
+{
+    // Data Aborts
+    // Exception is handled in the actual instruction implementation
+    if (!(PU_Map[addr>>12] & CP15_MAP_WRITEABLE)) [[unlikely]]
+    {
+        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandleS;
+        else DAbortHandleS();
+        return false;
+    }
+    
+    FetchAddr[reg] = addr;
+    STRRegs |= 1<<reg;
+    STRVal[reg] = val;
+
+    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DWrite32S_2;
+    else DWrite32S_2();
     return true;
 }
 
-bool ARMv5::DataWrite32S(u32 addr, u32 val)
+void ARMv5::DWrite32S_2()
 {
-    NDS.ARM9Timestamp += DataCycles;
+    u8 reg = __builtin_ctz(STRRegs);
+    u32 addr = FetchAddr[reg];
+    u32 val = STRVal[reg];
 
-    // Data Aborts
-    // Exception is handled in the actual instruction implementation
-    if (!(PU_Map[addr>>12] & 0x02)) [[unlikely]]
-    {
-        DataCycles = 1;
-        return false;
-    }
+    NDS.ARM9Timestamp += DataCycles;
 
     addr &= ~3;
 
@@ -2806,14 +2946,16 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
 #endif
-        return true;
+        STRRegs &= ~1<<reg;
+        return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
         DataRegion = Mem9_DTCM;
         *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
-        return true;
+        STRRegs &= ~1<<reg;
+        return;
     }
 
     #if !DISABLE_DCACHE
@@ -2824,16 +2966,19 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
             if (IsAddressDCachable(addr))
             {
                 if (DCacheWrite32(addr, val))
-                    return true;
+                {
+                    STRRegs &= ~1<<reg;
+                    return;
+                }
             }
         }
     #endif
     
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
-    if (ICacheFillPtr < 7)
+    if (ICacheStreamPtr < 7)
     {
-        u64 time = ICacheFillTimes[6] - 6; // checkme: minus 6?
+        u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
@@ -2887,7 +3032,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val)
         DataCycles = 1;
         WBDelay = NDS.ARM9Timestamp + 2;
     }
-    return true;
+    STRRegs &= ~1<<reg;
 }
 
 void ARMv5::GetCodeMemRegion(const u32 addr, MemRegion* region)

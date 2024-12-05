@@ -79,18 +79,18 @@ bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
     CurCPU->R[15] = R15;
     if (size == 32)
     {
-        CurCPU->DataRead32(addr & ~0x3, &val);
+        //CurCPU->DataRead32(addr & ~0x3, &val);
         val = melonDS::ROR(val, (addr & 0x3) << 3);
     }
     else if (size == 16)
     {
-        CurCPU->DataRead16(addr & ~0x1, &val);
+        //CurCPU->DataRead16(addr & ~0x1, &val);
         if (signExtend)
             val = ((s32)val << 16) >> 16;
     }
     else
     {
-        CurCPU->DataRead8(addr, &val);
+       // CurCPU->DataRead8(addr, &val);
         if (signExtend)
             val = ((s32)val << 24) >> 24;
     }

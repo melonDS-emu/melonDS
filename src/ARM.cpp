@@ -194,12 +194,22 @@ void ARM::Reset()
 
     MainRAMTimestamp = 0;
 
+    memset(&MRTrack, 0, sizeof(MRTrack));
+
+    FuncQueueFill = 0;
+    FuncQueueEnd = 0;
+    FuncQueueProg = 0;
+    FuncQueueActive = false;
+    ExecuteCycles = 0;
+
     // zorp
     JumpTo(ExceptionBase);
 }
 
 void ARMv5::Reset()
 {
+    FuncQueue[0] = &ARMv5::StartExec;
+
     PU_Map = PU_PrivMap;
     Store = false;
     
@@ -208,8 +218,8 @@ void ARMv5::Reset()
     ILCurrReg = 16;
     ILPrevReg = 16;
 
-    ICacheFillPtr = 7;
-    DCacheFillPtr = 7;
+    ICacheStreamPtr = 7;
+    DCacheStreamPtr = 7;
 
     WBWritePointer = 16;
     WBFillPointer = 0;
@@ -313,14 +323,33 @@ void ARM::SetupCodeMem(u32 addr)
     }
 }
 
-void ARMv5::JumpTo(u32 addr, bool restorecpsr)
+void ARMv5::JumpTo(u32 addr, bool restorecpsr, u8 R15)
 {
-    if (restorecpsr)
+    //printf("JUMP! %08X %i %i\n", addr, restorecpsr, R15);
+    NDS.MonitorARM9Jump(addr);
+    
+    BranchRestore = restorecpsr;
+    BranchUpdate = R15;
+    BranchAddr = addr;
+    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::JumpTo_2;
+    else JumpTo_2();
+}
+
+void ARMv5::JumpTo_2()
+{
+    if (CP15Control & (1<<15))
+    {
+        if      (BranchUpdate == 1) BranchAddr = R[15] & ~1;
+        else if (BranchUpdate == 2) BranchAddr = R[15] |  1;
+    }
+    else if (BranchUpdate) BranchAddr = R[15];
+
+    if (BranchRestore)
     {
         RestoreCPSR();
 
-        if (CPSR & 0x20)    addr |= 0x1;
-        else                addr &= ~0x1;
+        if (CPSR & 0x20) BranchAddr |= 0x1;
+        else             BranchAddr &= ~0x1;
     }
 
     // aging cart debug crap
@@ -329,47 +358,81 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 
     // jumps count as nonsequential accesses on the instruction bus on the arm9
     // thus it requires waiting for the current ICache line fill to complete before continuing
-    if (ICacheFillPtr < 7)
+    if (ICacheStreamPtr < 7)
     {
-        u64 fillend = ICacheFillTimes[6] + 1;
+        u64 fillend = ICacheStreamTimes[6] + 1;
         if (NDS.ARM9Timestamp < fillend) NDS.ARM9Timestamp = fillend;
-        ICacheFillPtr = 7;
+        ICacheStreamPtr = 7;
     }
 
-    if (addr & 0x1)
+    if (BranchAddr & 0x1)
     {
-        addr &= ~0x1;
-        R[15] = addr+2;
+        BranchAddr &= ~0x1;
+        R[15] = BranchAddr+2;
+
+        CPSR |= 0x20;
 
         // two-opcodes-at-once fetch
         // doesn't matter if we put garbage in the MSbs there
-        if (addr & 0x2)
+        if (BranchAddr & 0x2)
         {
-            NextInstr[0] = CodeRead32(addr-2, true) >> 16;
-            NextInstr[1] = CodeRead32(addr+2, false);
+            CodeRead32(BranchAddr-2);
+
+            if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::JumpTo_3A;
+            else JumpTo_3A();
         }
         else
         {
-            NextInstr[0] = CodeRead32(addr, true);
-            NextInstr[1] = NextInstr[0] >> 16;
-        }
+            CodeRead32(BranchAddr);
 
-        CPSR |= 0x20;
+            if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::JumpTo_3B;
+            else JumpTo_3B();
+        }
     }
     else
     {
-        addr &= ~0x3;
-        R[15] = addr+4;
-        NextInstr[0] = CodeRead32(addr, true);
-        NextInstr[1] = CodeRead32(addr+4, false);
+        BranchAddr &= ~0x3;
+        R[15] = BranchAddr+4;
 
         CPSR &= ~0x20;
-    }
 
-    NDS.MonitorARM9Jump(addr);
+        CodeRead32(BranchAddr);
+
+        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::JumpTo_3C;
+        else JumpTo_3C();
+    }
 }
 
-void ARMv4::JumpTo(u32 addr, bool restorecpsr)
+void ARMv5::JumpTo_3A()
+{
+    NextInstr[0] = RetVal >> 16;
+    CodeRead32(BranchAddr+2);
+
+    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::JumpTo_4;
+    else JumpTo_4();
+}
+
+void ARMv5::JumpTo_3B()
+{
+    NextInstr[0] = RetVal;
+    NextInstr[1] = NextInstr[0] >> 16;
+}
+
+void ARMv5::JumpTo_3C()
+{
+    NextInstr[0] = RetVal;
+    CodeRead32(BranchAddr+4);
+
+    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::JumpTo_4;
+    else JumpTo_4();
+}
+
+void ARMv5::JumpTo_4()
+{
+    NextInstr[1] = RetVal;
+}
+
+void ARMv4::JumpTo(u32 addr, bool restorecpsr, u8 R15)
 {
     if (restorecpsr)
     {
@@ -445,6 +508,11 @@ void ARM::RestoreCPSR()
     CPSR |= 0x00000010;
 
     UpdateMode(oldcpsr, CPSR);
+}
+
+void ARMv5::QueueUpdateMode()
+{
+    UpdateMode(QueueMode[0], QueueMode[1], true);
 }
 
 void ARM::UpdateMode(u32 oldmode, u32 newmode, bool phony)
@@ -563,6 +631,7 @@ template void ARM::TriggerIRQ<CPUExecuteMode::JIT>();
 
 void ARMv5::PrefetchAbort()
 {
+    abt = true;
     AddCycles_C();
     Log(LogLevel::Warn, "ARM9: prefetch abort (%08X)\n", R[15]);
 
@@ -578,7 +647,8 @@ void ARMv5::PrefetchAbort()
 
 void ARMv5::DataAbort()
 {
-    Log(LogLevel::Warn, "ARM9: data abort (%08X)\n", R[15]);
+    abt = true;
+    Log(LogLevel::Warn, "ARM9: data abort (%08X) %08llX\n", R[15], CurInstr);
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xBF;
@@ -593,6 +663,63 @@ void ARMv5::DataAbort()
 void ARM::CheckGdbIncoming()
 {
     GdbCheckA();
+}
+
+void ARMv5::StartExec()
+{
+    if (CPSR & 0x20) // THUMB
+    {
+        // prefetch
+        R[15] += 2;
+        CurInstr = NextInstr[0];
+        NextInstr[0] = NextInstr[1];
+        // code fetch is done during the execute stage cycle handling
+        if (R[15] & 0x2) NullFetch = true;
+        else NullFetch = false;
+        PC = R[15];
+
+        if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
+        else if (CurInstr > 0xFFFFFFFF) [[unlikely]] // handle aborted instructions
+        {
+            PrefetchAbort();
+        }
+        else [[likely]] // actually execute
+        {
+            u32 icode = (CurInstr >> 6) & 0x3FF;
+            ARMInterpreter::THUMBInstrTable[icode](this);
+        }
+    }
+    else
+    {
+        // prefetch
+        R[15] += 4;
+        CurInstr = NextInstr[0];
+        NextInstr[0] = NextInstr[1];
+        // code fetch is done during the execute stage cycle handling
+        NullFetch = false;
+        PC = R[15];
+
+        if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
+        else if (CurInstr & ((u64)1<<63)) [[unlikely]] // handle aborted instructions
+        {
+            PrefetchAbort();
+        }
+        else if (CheckCondition(CurInstr >> 28)) [[likely]] // actually execute
+        {
+            u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
+            ARMInterpreter::ARMInstrTable[icode](this);
+        }
+        else if ((CurInstr & 0xFE000000) == 0xFA000000)
+        {
+            ARMInterpreter::A_BLX_IMM(this);
+        }
+        else if ((CurInstr & 0x0FF000F0) == 0x01200070)
+        {
+            ARMInterpreter::A_BKPT(this); // always passes regardless of condition code
+        }
+        else
+            AddCycles_C();
+    }
 }
 
 template <CPUExecuteMode mode>
@@ -670,65 +797,81 @@ void ARMv5::Execute()
         else
 #endif
         {
-            if (CPSR & 0x20) // THUMB
+            if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+                GdbCheckC(); // gdb might throw a hissy fit about this change but idc
+
+            //printf("A:%i, F:%i, P:%i, E:%i, I:%08llX, P:%08X, 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, PC, R[15]);
+
+            (this->*FuncQueue[FuncQueueProg])();
+
+            if (FuncQueueActive)
             {
-                if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-                    GdbCheckC();
-
-                // prefetch
-                R[15] += 2;
-                CurInstr = NextInstr[0];
-                NextInstr[0] = NextInstr[1];
-                // code fetch is done during the execute stage cycle handling
-                if (R[15] & 0x2) NullFetch = true;
-                else NullFetch = false;
-                PC = R[15];
-
-                if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
-                else if (CurInstr > 0xFFFFFFFF) [[unlikely]] // handle aborted instructions
+                if (FuncQueueFill == FuncQueueProg)
                 {
-                    PrefetchAbort();
+                    // we did not get a new addition to the queue; increment and reset ptrs
+                    FuncQueueFill = ++FuncQueueProg;
+
+                    // check if we're done with the queue, if so, reset everything
+                    if (FuncQueueProg >= FuncQueueEnd)
+                    {
+                        
+                        FuncQueueFill = 0;
+                        FuncQueueProg = 0;
+                        FuncQueueEnd = 0;
+                        FuncQueueActive = false;
+                        FuncQueue[0] = &ARMv5::StartExec;
+                        /*
+                        Platform::FileHandle* file = Platform::OpenFile("REGLOG.bin", Platform::FileMode::Read);
+                        Platform::FileSeek(file, iter*16*4, Platform::FileSeekOrigin::Start);
+                        u32 Regs[16];
+                        Platform::FileRead(Regs, 4, 16, file);
+                        if (memcmp(Regs, R, 16*4))
+                        {
+                            printf("MISMATCH ON ITERATION %lli! %08llX", iter, CurInstr);
+                            for (int i = 0; i < 16; i++)
+                            {
+                                printf(" %i: %08X vs %08X", i, R[i], Regs[i]);
+                            }
+                            printf("\n");
+                            abt=1;
+                        }
+                        Platform::CloseFile(file);
+                        iter++;*/
+                    }
                 }
-                else [[likely]] // actually execute
+                else
                 {
-                    u32 icode = (CurInstr >> 6) & 0x3FF;
-                    ARMInterpreter::THUMBInstrTable[icode](this);
+                    // we got a new addition to the list; redo the current entry
+                    FuncQueueFill = FuncQueueProg;
                 }
+            }
+            else if (FuncQueueFill > 0) // check if we started the queue up
+            {
+                FuncQueueEnd = FuncQueueFill;
+                FuncQueueFill = 0;
+                FuncQueueActive = true;
             }
             else
             {
-                if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-                    GdbCheckC();
-
-                // prefetch
-                R[15] += 4;
-                CurInstr = NextInstr[0];
-                NextInstr[0] = NextInstr[1];
-                // code fetch is done during the execute stage cycle handling
-                NullFetch = false;
-                PC = R[15];
-
-                if (IRQ && !(CPSR & 0x80)) TriggerIRQ<mode>();
-                else if (CurInstr & ((u64)1<<63)) [[unlikely]] // handle aborted instructions
+                /*
+                Platform::FileHandle* file = Platform::OpenFile("REGLOG.bin", Platform::FileMode::Read);
+                Platform::FileSeek(file, iter*16*4, Platform::FileSeekOrigin::Start);
+                u32 Regs[16];
+                Platform::FileRead(Regs, 4, 16, file);
+                if (memcmp(Regs, R, 16*4))
                 {
-                    PrefetchAbort();
+                    printf("MISMATCH ON ITERATION %lli! %08llX", iter, CurInstr);
+                    for (int i = 0; i < 16; i++)
+                    {
+                        printf(" %i: %08X vs %08X", i, R[i], Regs[i]);
+                    }
+                    printf("\n");
+                    abt=1;
                 }
-                else if (CheckCondition(CurInstr >> 28)) [[likely]] // actually execute
-                {
-                    u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
-                    ARMInterpreter::ARMInstrTable[icode](this);
-                }
-                else if ((CurInstr & 0xFE000000) == 0xFA000000)
-                {
-                    ARMInterpreter::A_BLX_IMM(this);
-                }
-                else if ((CurInstr & 0x0FF000F0) == 0x01200070)
-                {
-                    ARMInterpreter::A_BKPT(this); // always passes regardless of condition code
-                }
-                else
-                    AddCycles_C();
+                Platform::CloseFile(file);
+                iter++;*/
             }
+            if (MRTrack.Type != MainRAMType::Null) break; // check if we need to resolve main ram
 
             // TODO optimize this shit!!!
             if (Halted)
@@ -907,26 +1050,26 @@ template void ARMv4::Execute<CPUExecuteMode::JIT>();
 
 void ARMv5::FillPipeline()
 {
-    SetupCodeMem(R[15]);
+    /*SetupCodeMem(R[15]);
 
     if (CPSR & 0x20)
     {
         if ((R[15] - 2) & 0x2)
         {
-            NextInstr[0] = CodeRead32(R[15] - 4, false) >> 16;
-            NextInstr[1] = CodeRead32(R[15], false);
+            NextInstr[0] = CodeRead32(R[15] - 4) >> 16;
+            NextInstr[1] = CodeRead32(R[15]);
         }
         else
         {
-            NextInstr[0] = CodeRead32(R[15] - 2, false);
+            NextInstr[0] = CodeRead32(R[15] - 2);
             NextInstr[1] = NextInstr[0] >> 16;
         }
     }
     else
     {
-        NextInstr[0] = CodeRead32(R[15] - 4, false);
-        NextInstr[1] = CodeRead32(R[15], false);
-    }
+        NextInstr[0] = CodeRead32(R[15] - 4);
+        NextInstr[1] = CodeRead32(R[15]);
+    }*/
 }
 
 void ARMv4::FillPipeline()
@@ -1160,23 +1303,37 @@ void ARMv5::CodeFetch()
     {
         // the value we need is cached by the bus
         // in practice we can treat this as a 1 cycle fetch, with no penalties
-        NextInstr[1] >>= 16;
+        RetVal = NextInstr[1] >> 16;
         NDS.ARM9Timestamp++;
         if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
         Store = false;
         DataRegion = Mem9_Null;
     }
-    else NextInstr[1] = CodeRead32(PC, false);
+    else
+    {
+        CodeRead32(PC);
+    }
+    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::AddExecute;
+    else AddExecute();
 }
 
-void ARMv5::AddCycles_CI(s32 numX)
+void ARMv5::AddExecute()
 {
-    CodeFetch();
-    NDS.ARM9Timestamp += numX;
+    NextInstr[1] = RetVal;
+
+    NDS.ARM9Timestamp += ExecuteCycles;
 }
 
 void ARMv5::AddCycles_MW(s32 numM)
 {
+    DataCycles = numM;
+    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::AddCycles_MW_2;
+    else AddCycles_MW_2();
+}
+
+void ARMv5::AddCycles_MW_2()
+{
+    s32 numM = DataCycles;
     TimestampActual = numM + NDS.ARM9Timestamp;
 
     numM -= 3<<NDS.ARM9ClockShift;
@@ -1187,6 +1344,7 @@ void ARMv5::AddCycles_MW(s32 numM)
 template <bool bitfield>
 void ARMv5::HandleInterlocksExecute(u16 ilmask, u8* times)
 {
+    /*
     if ((bitfield && (ilmask & (1<<ILCurrReg))) || (!bitfield && (ilmask == ILCurrReg)))
     {
         u64 time = ILCurrTime - (times ? times[ILCurrReg] : 0);
@@ -1214,19 +1372,20 @@ void ARMv5::HandleInterlocksExecute(u16 ilmask, u8* times)
 
     ILPrevReg = ILCurrReg;
     ILPrevTime = ILCurrTime;
-    ILCurrReg = 16;
+    ILCurrReg = 16;*/
 }
 template void ARMv5::HandleInterlocksExecute<true>(u16 ilmask, u8* times);
 template void ARMv5::HandleInterlocksExecute<false>(u16 ilmask, u8* times);
 
 void ARMv5::HandleInterlocksMemory(u8 reg)
 {
+    /*
     if ((reg != ILPrevReg) || (NDS.ARM9Timestamp >= ILPrevTime)) return;
     
     u64 diff = ILPrevTime - NDS.ARM9Timestamp; // should always be 1?
     NDS.ARM9Timestamp = ILPrevTime;
     ITCMTimestamp += diff; // checkme
-    ILPrevTime = 16;
+    ILPrevTime = 16;*/
 }
 
 u16 ARMv4::CodeRead16(u32 addr)
@@ -1265,8 +1424,10 @@ u32 ARMv4::CodeRead32(u32 addr)
     return BusRead32(addr);
 }
 
-bool ARMv4::DataRead8(u32 addr, u32* val)
+bool ARMv4::DataRead8(u32 addr, u8 reg)
 {
+    u32* val = &R[reg];
+
     if ((addr >> 24) == 0x02)
     {
         if (NDS.ARM7Timestamp < MainRAMTimestamp) NDS.ARM7Timestamp = MainRAMTimestamp;
@@ -1284,8 +1445,9 @@ bool ARMv4::DataRead8(u32 addr, u32* val)
     return true;
 }
 
-bool ARMv4::DataRead16(u32 addr, u32* val)
+bool ARMv4::DataRead16(u32 addr, u8 reg)
 {
+    u32* val = &R[reg];
     addr &= ~1;
     
     if ((addr >> 24) == 0x02)
@@ -1305,8 +1467,9 @@ bool ARMv4::DataRead16(u32 addr, u32* val)
     return true;
 }
 
-bool ARMv4::DataRead32(u32 addr, u32* val)
+bool ARMv4::DataRead32(u32 addr, u8 reg)
 {
+    u32* val = &R[reg];
     addr &= ~3;
     
     if ((addr >> 24) == 0x02)
@@ -1326,8 +1489,9 @@ bool ARMv4::DataRead32(u32 addr, u32* val)
     return true;
 }
 
-bool ARMv4::DataRead32S(u32 addr, u32* val)
+bool ARMv4::DataRead32S(u32 addr, u8 reg)
 {
+    u32* val = &R[reg];
     addr &= ~3;
     
     if ((addr >> 24) == 0x02)
@@ -1347,7 +1511,7 @@ bool ARMv4::DataRead32S(u32 addr, u32* val)
     return true;
 }
 
-bool ARMv4::DataWrite8(u32 addr, u8 val)
+bool ARMv4::DataWrite8(u32 addr, u8 val, u8 reg)
 {
     if ((addr >> 24) == 0x02)
     {
@@ -1366,7 +1530,7 @@ bool ARMv4::DataWrite8(u32 addr, u8 val)
     return true;
 }
 
-bool ARMv4::DataWrite16(u32 addr, u16 val)
+bool ARMv4::DataWrite16(u32 addr, u16 val, u8 reg)
 {
     addr &= ~1;
     
@@ -1387,7 +1551,7 @@ bool ARMv4::DataWrite16(u32 addr, u16 val)
     return true;
 }
 
-bool ARMv4::DataWrite32(u32 addr, u32 val)
+bool ARMv4::DataWrite32(u32 addr, u32 val, u8 reg)
 {
     addr &= ~3;
 
@@ -1408,7 +1572,7 @@ bool ARMv4::DataWrite32(u32 addr, u32 val)
     return true;
 }
 
-bool ARMv4::DataWrite32S(u32 addr, u32 val)
+bool ARMv4::DataWrite32S(u32 addr, u32 val, u8 reg)
 {
     addr &= ~3;
 

@@ -50,6 +50,7 @@ void A_UNK(ARM* cpu)
 
     cpu->R_UND[2] = oldcpsr;
     cpu->R[14] = cpu->R[15] - 4;
+
     cpu->JumpTo(cpu->ExceptionBase + 0x04);
 }
 
@@ -68,12 +69,13 @@ void T_UNK(ARM* cpu)
 
     cpu->R_UND[2] = oldcpsr;
     cpu->R[14] = cpu->R[15] - 2;
+
     cpu->JumpTo(cpu->ExceptionBase + 0x04);
 }
 
 void A_BKPT(ARM* cpu)
 {
-    if (cpu->Num == 1) A_UNK(cpu); // checkme
+    if (cpu->Num == 1) return A_UNK(cpu); // checkme
     
     Log(LogLevel::Warn, "BKPT: "); // combine with the prefetch abort warning message
     ((ARMv5*)cpu)->PrefetchAbort();
@@ -83,6 +85,9 @@ void A_BKPT(ARM* cpu)
 
 void A_MSR_IMM(ARM* cpu)
 {
+    if ((cpu->Num != 1) && (cpu->CurInstr & ((0x7<<16)|(1<<22)))) cpu->AddCycles_CI(2); // arm9 cpsr_sxc & spsr
+    else cpu->AddCycles_C();
+
     u32* psr;
     if (cpu->CurInstr & (1<<22))
     {
@@ -100,8 +105,6 @@ void A_MSR_IMM(ARM* cpu)
             case 0x1A:
             case 0x1B: psr = &cpu->R_UND[2]; break;
             default:
-                if (cpu->Num != 1) cpu->AddCycles_C(); // arm 7
-                else cpu->AddCycles_CI(2); // arm 9
                 return;
         }
     }
@@ -138,22 +141,14 @@ void A_MSR_IMM(ARM* cpu)
             cpu->CPSR &= ~0x20; // keep it from crashing the emulator at least
         }
     }
-    
-    if (cpu->Num != 1)
-    {
-        if (cpu->CurInstr & (1<<22))
-        {
-            cpu->AddCycles_CI(2); // spsr
-        }
-        else if (cpu->CurInstr & (0x7<<16)) cpu->AddCycles_CI(2); // cpsr_sxc
-        else cpu->AddCycles_C();
-    }
-    else cpu->AddCycles_C();
 }
 
 void A_MSR_REG(ARM* cpu)
 {
     if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<false>(cpu->CurInstr & 0xF);
+
+    if ((cpu->Num != 1) && (cpu->CurInstr & ((0x7<<16)|(1<<22)))) cpu->AddCycles_CI(2); // arm9 cpsr_sxc & spsr
+    else cpu->AddCycles_C();
 
     u32* psr;
     if (cpu->CurInstr & (1<<22))
@@ -172,8 +167,6 @@ void A_MSR_REG(ARM* cpu)
             case 0x1A:
             case 0x1B: psr = &cpu->R_UND[2]; break;
             default:
-                if (cpu->Num != 1) cpu->AddCycles_C(); // arm 7
-                else cpu->AddCycles_CI(2); // arm 9
                 return;
         }
     }
@@ -210,17 +203,6 @@ void A_MSR_REG(ARM* cpu)
             cpu->CPSR &= ~0x20; // keep it from crashing the emulator at least
         }
     }
-    
-    if (cpu->Num != 1)
-    {
-        if (cpu->CurInstr & (1<<22))
-        {
-            cpu->AddCycles_CI(2); // spsr
-        }
-        else if (cpu->CurInstr & (0x7<<16)) cpu->AddCycles_CI(2); // cpsr_sxc
-        else cpu->AddCycles_C();
-    }
-    else cpu->AddCycles_C();
 }
 
 void A_MRS(ARM* cpu)
@@ -247,20 +229,19 @@ void A_MRS(ARM* cpu)
     else
         psr = cpu->CPSR;
 
+    if (cpu->Num != 1) // arm9
+    {
+        cpu->AddCycles_C(); // 1 X
+        ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
+    }
+    else cpu->AddCycles_C(); // arm7
+
     if (((cpu->CurInstr>>12) & 0xF) == 15)
     {
         if (cpu->Num == 1) // doesn't seem to jump on the arm9? checkme
             cpu->JumpTo(psr & ~0x1); // checkme: this shouldn't be able to switch to thumb?
     }
     else cpu->R[(cpu->CurInstr>>12) & 0xF] = psr;
-
-    if (cpu->Num != 1) // arm9
-    {
-        cpu->AddCycles_C(); // 1 X
-        cpu->DataRegion = Mem9_Null;
-        ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
-    }
-    else cpu->AddCycles_C(); // arm7
 }
 
 
@@ -281,7 +262,7 @@ void A_MCR(ARM* cpu)
 
     if (cpu->Num==0 && cp==15)
     {
-        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo|(op<<12), val);
+        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo|(op<<12), val); // TODO: IF THIS RAISES AN EXCEPTION WE DO A DOUBLE CODE FETCH; FIX THAT
     }
     else if (cpu->Num==1 && cp==14)
     {
@@ -292,7 +273,8 @@ void A_MCR(ARM* cpu)
         Log(LogLevel::Warn, "bad MCR opcode p%d, %d, reg, c%d, c%d, %d on ARM%d\n", cp, op, cn, cm, cpinfo, cpu->Num?7:9);
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
-
+    
+    // TODO: SINCE THIS DOES A CODE FETCH WE NEED TO DELAY ANY MPU UPDATES UNTIL *AFTER* THE CODE FETCH
     if (cpu->Num==0) cpu->AddCycles_CI(5); // checkme
     else /* ARM7 */  cpu->AddCycles_CI(1 + 1); // TODO: checkme
 }
@@ -315,7 +297,7 @@ void A_MRC(ARM* cpu)
         else
         {
             // r15 updates the top 4 bits of the cpsr, done to "allow for conditional branching based on coprocessor status"
-            u32 flags = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo|(op<<12)) & 0xF0000000;
+            u32 flags = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo|(op<<12)) & 0xF0000000; // TODO: IF THIS RAISES AN EXCEPTION WE DO A DOUBLE CODE FETCH; FIX THAT
             cpu->CPSR = (cpu->CPSR & ~0xF0000000) | flags;
         }
     }
@@ -332,7 +314,6 @@ void A_MRC(ARM* cpu)
     if (cpu->Num != 1)
     {
         cpu->AddCycles_C(); // 1 Execute cycle
-        cpu->DataRegion = Mem9_Null;
         ((ARMv5*)cpu)->AddCycles_MW(2); // 2 Memory cycles
         ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 12) & 0xF; // only one rd interlocks
         ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
@@ -352,6 +333,7 @@ void A_SVC(ARM* cpu) // A_SWI
 
     cpu->R_SVC[2] = oldcpsr;
     cpu->R[14] = cpu->R[15] - 4;
+
     cpu->JumpTo(cpu->ExceptionBase + 0x08);
 }
 
@@ -365,6 +347,7 @@ void T_SVC(ARM* cpu) // T_SWI
 
     cpu->R_SVC[2] = oldcpsr;
     cpu->R[14] = cpu->R[15] - 2;
+
     cpu->JumpTo(cpu->ExceptionBase + 0x08);
 }
 

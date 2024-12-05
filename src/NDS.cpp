@@ -453,6 +453,8 @@ void NDS::Reset()
 
     ARM9Timestamp = 0; ARM9Target = 0;
     ARM7Timestamp = 0; ARM7Target = 0;
+    MainRAMTimestamp = 0;
+    A9ContentionTS = 0;
     SysTimestamp = 0;
 
     InitTimings();
@@ -889,6 +891,102 @@ void NDS::RunSystemSleep(u64 timestamp)
     }
 }
 
+#define A9WENTLAST (!MainRAMLastAccess)
+#define A7WENTLAST ( MainRAMLastAccess)
+#define A9LAST false
+#define A7LAST true
+
+void NDS::MainRAMHandleARM9()
+{
+    switch (ARM9.MRTrack.Type)
+    {
+        case MainRAMType::Null:
+            Platform::Log(Platform::LogLevel::Error, "NULL MAIN RAM TYPE ARM9");
+            break;
+        case MainRAMType::ICacheStream:
+        {
+            if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; return; }
+
+            //printf("ICACHEHANDLER\n");
+
+            u8* prog = &ARM9.MRTrack.Progress;
+            u32 addr = (ARM9.FetchAddr[16] & ~0x1F) | (*prog * 4);
+            u32* icache = (u32*)&ARM9.ICache[ARM9.MRTrack.Var << 5];
+            icache[*prog] = ARM9Read32(addr);
+
+            if ((*prog > 0) && A9WENTLAST)
+            {
+                MainRAMTimestamp += 2;
+                A9ContentionTS += 2;
+            }
+            else
+            {
+                MainRAMTimestamp = A9ContentionTS + 9;
+                A9ContentionTS += (ARM9ClockShift == 1) ? 9 : 8;
+                MainRAMLastAccess = A9LAST;
+            }
+
+            if (*prog == ARM9.ICacheStreamPtr) ARM9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
+            else if (*prog > ARM9.ICacheStreamPtr) ARM9.ICacheStreamTimes[*prog-1] = (A9ContentionTS << ARM9ClockShift) - 1;
+
+            (*prog)++;
+            if (*prog >= 8)
+            {
+                ARM9.RetVal = icache[(ARM9.FetchAddr[16] & 0x1F) / 4];
+                memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+                A9ContentionTS = 0;
+            }
+            break;
+        }
+    }
+}
+
+void NDS::MainRAMHandle()
+{
+    if (!A9ContentionTS)
+    {
+        A9ContentionTS = (ARM9Timestamp + ((1<<ARM9ClockShift)-1)) >> ARM9ClockShift;
+        if ((ARM9.MRTrack.Type != MainRAMType::Null) && (A9ContentionTS < MainRAMTimestamp)) A9ContentionTS = MainRAMTimestamp;
+    }
+
+    bool A7Priority = ExMemCnt[0] & 0x8000;
+    if (A7Priority)
+    {
+        while (true)
+        {
+            if (A9ContentionTS < ARM7Timestamp)
+            {
+                if (ARM9.MRTrack.Type == MainRAMType::Null) { A9ContentionTS = 0; return; }
+                MainRAMHandleARM9();
+            }
+            else
+            {
+                if (true) return;
+            }
+        }
+    }
+    else
+    {
+        while (true)
+        {
+            if (A9ContentionTS <= ARM7Timestamp)
+            {
+                if (ARM9.MRTrack.Type == MainRAMType::Null) { A9ContentionTS = 0; return; }
+                MainRAMHandleARM9();
+            }
+            else
+            {
+                if (true) return;
+            }
+        }
+    }
+}
+
+#undef A9WENTLAST
+#undef A7WENTLAST
+#undef A9LAST
+#undef A7LAST
+
 template <CPUExecuteMode cpuMode>
 u32 NDS::RunFrame()
 {
@@ -970,16 +1068,21 @@ u32 NDS::RunFrame()
                     ts = ARM9Timestamp - ts;
                     for (int i = 0; i < 7; i++)
                     {
-                        ARM9.ICacheFillTimes[i] += ts;
-                        ARM9.DCacheFillTimes[i] += ts;
+                        ARM9.ICacheStreamTimes[i] += ts;
+                        ARM9.DCacheStreamTimes[i] += ts;
                     }
                     ARM9.WBTimestamp += ts;
 
                 }
-                else
+                else if (ARM9.MRTrack.Type == MainRAMType::Null)
                 {
+                    if (ARM9.abt) ARM9Timestamp = ARM9Target;
                     ARM9.Execute<cpuMode>();
                 }
+                
+                //printf("MAIN LOOP: %lli %lli\n", ARM9Timestamp>>ARM9ClockShift, ARM7Timestamp);
+
+                MainRAMHandle();
 
                 RunTimers(0);
                 GPU.GPU3D.Run();
@@ -987,9 +1090,11 @@ u32 NDS::RunFrame()
                 target = ARM9Timestamp >> ARM9ClockShift;
                 CurCPU = 1;
 
-                while (ARM7Timestamp < target)
+                while ((ARM7Timestamp < target) || (ARM9.MRTrack.Type != MainRAMType::Null))
                 {
-                    ARM7Target = target; // might be changed by a reschedule
+                    ARM7Target = (ARM9.MRTrack.Type != MainRAMType::Null) ? (ARM7Timestamp+1) : target; // might be changed by a reschedule
+
+                    //printf("A7 LOOP: %lli %lli\n", ARM9Timestamp>>ARM9ClockShift, ARM7Timestamp);
 
                     if (CPUStop & CPUStop_DMA7)
                     {
@@ -1007,6 +1112,8 @@ u32 NDS::RunFrame()
                     {
                         ARM7.Execute<cpuMode>();
                     }
+
+                    MainRAMHandle();
 
                     RunTimers(1);
                 }
