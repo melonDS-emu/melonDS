@@ -206,6 +206,8 @@ public:
     bool BranchRestore;
 
     u32 QueueMode[2];
+    u8 ExtReg;
+    u8 ExtROROffs;
 
     u64 RetVal;
 
@@ -665,7 +667,14 @@ public:
     void DWrite16_2();
     void DWrite32_2();
     void DWrite32S_2();
-    void QueueUpdateMode();
+
+    void QueueUpdateMode() { UpdateMode(QueueMode[0], QueueMode[1], true); }
+
+    void SignExtend8() { R[ExtReg] = (s32)(s8)R[ExtReg]; }
+
+    void SignExtend16() { R[ExtReg] = (s32)(s16)R[ExtReg]; }
+
+    void ROR32() { R[ExtReg] = ROR(R[ExtReg], ExtROROffs); }
 
     u32 CP15Control;                                //! CP15 Register 1: Control Register
 

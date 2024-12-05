@@ -510,11 +510,6 @@ void ARM::RestoreCPSR()
     UpdateMode(oldcpsr, CPSR);
 }
 
-void ARMv5::QueueUpdateMode()
-{
-    UpdateMode(QueueMode[0], QueueMode[1], true);
-}
-
 void ARM::UpdateMode(u32 oldmode, u32 newmode, bool phony)
 {
     if ((oldmode & 0x1F) == (newmode & 0x1F)) return;

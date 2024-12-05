@@ -115,9 +115,17 @@ void LoadSingle(ARM* cpu, const u8 rd, const u8 rn, const s32 offset, const u16 
         ((ARMv5*)cpu)->DataAbort();
         return;
     }
-    if ((cpu->MRTrack.Type != MainRAMType::Null) && signextend && cpu->Num == 0) printf("ARGH ME BONES");
 
-    if constexpr (size == 8 && signextend) cpu->R[rd] = (s32)(s8)cpu->R[rd];
+    if constexpr (size == 8 && signextend)
+    {
+        if (cpu->Num == 0)
+        {
+            cpu->ExtReg = rd;
+            if (cpu->MRTrack.Type != MainRAMType::Null) ((ARMv5*)cpu)->FuncQueue[cpu->FuncQueueFill++] = &ARMv5::SignExtend8;
+            else ((ARMv5*)cpu)->SignExtend8();
+        }
+        else cpu->R[rd] = (s32)(s8)cpu->R[rd];
+    }
 
     if constexpr (size == 16)
     {
@@ -126,10 +134,25 @@ void LoadSingle(ARM* cpu, const u8 rd, const u8 rn, const s32 offset, const u16 
             cpu->R[rd] = ROR(cpu->R[rd], ((addr&0x1)<<3)); // unaligned 16 bit loads are ROR'd on arm7
             if constexpr (signextend) cpu->R[rd] = (s32)((addr&0x1) ? (s8)cpu->R[rd] : (s16)cpu->R[rd]); // sign extend like a ldrsb if we ror'd the value.
         }
-        else if constexpr (signextend) cpu->R[rd] = (s32)(s16)cpu->R[rd];
+        else if constexpr (signextend)
+        {
+            cpu->ExtReg = rd;
+            if (cpu->MRTrack.Type != MainRAMType::Null) ((ARMv5*)cpu)->FuncQueue[cpu->FuncQueueFill++] = &ARMv5::SignExtend16;
+            else ((ARMv5*)cpu)->SignExtend16();
+        }
     }
 
-    if constexpr (size == 32) cpu->R[rd] = ROR(cpu->R[rd], ((addr&0x3)<<3));
+    if constexpr (size == 32)
+    {
+        if (cpu->Num == 0)
+        {
+            cpu->ExtReg = rd;
+            cpu->ExtROROffs = (addr & 0x3) * 8;
+            if (cpu->MRTrack.Type != MainRAMType::Null) ((ARMv5*)cpu)->FuncQueue[cpu->FuncQueueFill++] = &ARMv5::ROR32;
+            else ((ARMv5*)cpu)->ROR32();
+        }
+        else cpu->R[rd] = ROR(cpu->R[rd], ((addr&0x3)*8));
+    }
 
     if constexpr (writeback >= Writeback::Post) addr += offset;
     if constexpr (writeback != Writeback::None) 
@@ -508,8 +531,17 @@ inline void SWP(ARM* cpu)
         {
             // rd only gets updated if both read and write succeed
 
-            if constexpr (!byte) cpu->R[rd] = ROR(cpu->R[rd], 8*(base&0x3));
-            
+            if constexpr (!byte)
+            {
+                if (cpu->Num == 0)
+                {
+                    cpu->ExtReg = rd;
+                    cpu->ExtROROffs = (base & 0x3) * 8;
+                    if (cpu->MRTrack.Type != MainRAMType::Null) ((ARMv5*)cpu)->FuncQueue[cpu->FuncQueueFill++] = &ARMv5::ROR32;
+                    else ((ARMv5*)cpu)->ROR32();
+                }
+                else cpu->R[rd] = ROR(cpu->R[rd], ((base&0x3)*8));
+            }
             cpu->AddCycles_CDI();
 
             if (rd != 15)
