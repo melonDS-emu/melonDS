@@ -118,7 +118,7 @@ void NetInit()
 }
 
 
-bool createEmuInstance()
+bool createEmuInstance(std::optional<bool> arm9BreakOnStartup, std::optional<bool> arm7BreakOnStartup)
 {
     int id = -1;
     for (int i = 0; i < kMaxEmuInstances; i++)
@@ -133,7 +133,11 @@ bool createEmuInstance()
     if (id == -1)
         return false;
 
+#ifdef GDBSTUB_ENABLED
+    auto inst = new EmuInstance(id, arm9BreakOnStartup, arm7BreakOnStartup);
+#else
     auto inst = new EmuInstance(id);
+#endif
     emuInstances[id] = inst;
 
     return true;
@@ -348,9 +352,11 @@ int main(int argc, char** argv)
     setMPInterface(MPInterface_Local);
 
     NetInit();
-
-    createEmuInstance();
-
+#ifdef GDBSTUB_ENABLED
+    createEmuInstance(options->arm9BreakOnStartup, options->arm7BreakOnStartup);
+#else
+    createEmuInstance(std::nullopt, std::nullopt);
+#endif
     {
         MainWindow* win = emuInstances[0]->getMainWindow();
         bool memberSyntaxUsed = false;
