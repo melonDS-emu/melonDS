@@ -511,8 +511,16 @@ void ComputeRenderer::SetupYSpan(RenderPolygon* rp, SpanSetupY* span, Polygon* p
     }
     else
     {
+        /* MelonPrimeDS Comment-out 
         s32 yrecip = (1<<18) / ylen;
         span->Increment = (span->X1-span->X0) * yrecip;
+        */
+        /* MelonPrimeDS { */
+        // Use 64-bit integers for higher precision calculations.
+        // also fast process.
+        s64 num = ((s64)(span->X1 - span->X0) << 18);
+        span->Increment = (s32)(num / ylen);
+        /* MelonPrimeDS } */
         if (span->Increment < 0) span->Increment = -span->Increment;
     }
 
