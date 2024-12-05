@@ -785,7 +785,7 @@ void EmuThread::run()
 
     bool isCursorVisible = true;
 
-    auto showCursor = [&](bool show) {
+    auto showCursorOnMelonPrimeDS = [&](bool show) {
         if (show == isCursorVisible) return;
 
         auto* panel = emuInstance->getMainWindow()->panel;
@@ -1035,7 +1035,7 @@ void EmuThread::run()
                 hasInitialized = true;
 
                 // Hide cursor
-                showCursor(false);
+                showCursorOnMelonPrimeDS(false);
 
 
                 // Read the player position
@@ -1107,7 +1107,7 @@ void EmuThread::run()
                     /*
                     * doing this in Screen.cpp
                     if(!wasLastFrameFocused){
-                        showCursor(false);
+                        showCursorOnMelonPrimeDS(false);
                     }
                     */
 
@@ -1573,7 +1573,7 @@ void EmuThread::run()
 
                     if(hasInitialized){
                         hasInitialized = false;
-                        showCursor(true);
+                        showCursorOnMelonPrimeDS(true);
                     }
 
                     if (emuInstance->isTouching) {
