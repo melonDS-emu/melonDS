@@ -909,6 +909,8 @@ void NDS::RunSystemSleep(u64 timestamp)
 #define A7WENTLAST ( MainRAMLastAccess)
 #define A9LAST false
 #define A7LAST true
+#define A9PRIORITY !(ExMemCnt[0] & 0x8000)
+#define A7PRIORITY  (ExMemCnt[0] & 0x8000)
 
 void NDS::MainRAMHandleARM9()
 {
@@ -933,7 +935,7 @@ void NDS::MainRAMHandleARM9()
             }
             else
             {
-                if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; return; }
+                if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
 
                 MainRAMTimestamp = A9ContentionTS + 9;
                 A9ContentionTS += (ARM9ClockShift == 1) ? 9 : 8;
@@ -978,11 +980,12 @@ void NDS::MainRAMHandleARM7()
             }
             else
             {
-                if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; return; }
+                if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
 
                 MainRAMTimestamp = ARM7Timestamp +  (var & MR16) ? 8 : 9; // checkme: are these correct for 8bit?
                 if (var & MRWrite) ARM7Timestamp += (var & MR16) ? 3 : 4;
                 else               ARM7Timestamp += (var & MR16) ? 5 : 6;
+                MainRAMLastAccess = A7LAST;
             }
 
             if (var & MRCodeFetch)
@@ -1024,8 +1027,7 @@ void NDS::MainRAMHandle()
         if ((ARM9.MRTrack.Type != MainRAMType::Null) && (A9ContentionTS < MainRAMTimestamp)) A9ContentionTS = MainRAMTimestamp;
     }
 
-    bool A7Priority = ExMemCnt[0] & 0x8000;
-    if (A7Priority)
+    if (A7PRIORITY)
     {
         while (true)
         {
@@ -1063,6 +1065,8 @@ void NDS::MainRAMHandle()
 #undef A7WENTLAST
 #undef A9LAST
 #undef A7LAST
+#undef A9PRIORITY
+#undef A7PRIORITY
 
 template <CPUExecuteMode cpuMode>
 u32 NDS::RunFrame()
