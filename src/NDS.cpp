@@ -969,7 +969,6 @@ void NDS::MainRAMHandleARM7()
 
         case MainRAMType::Fetch:
         {
-            u32 addr = ARM7.FetchAddr[16];
             u8 var = ARM7.MRTrack.Var;
 
             if ((var & MRSequential) && A7WENTLAST)
@@ -981,12 +980,36 @@ void NDS::MainRAMHandleARM7()
             {
                 if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; return; }
 
-                MainRAMTimestamp = ARM7Timestamp + (var & MR16) ? 8 : 9;
-                ARM7Timestamp += (var & MR16) ? 5 : 6;
+                MainRAMTimestamp = ARM7Timestamp +  (var & MR16) ? 8 : 9; // checkme: are these correct for 8bit?
+                if (var & MRWrite) ARM7Timestamp += (var & MR16) ? 3 : 4;
+                else               ARM7Timestamp += (var & MR16) ? 5 : 6;
             }
 
-            if (var & MRCodeFetch) ARM7.RetVal = (var & MR32) ? ARM7Read32(addr) : ARM7Read16(addr);
-
+            if (var & MRCodeFetch)
+            {
+                u32 addr = ARM7.FetchAddr[16];
+                ARM7.RetVal = (var & MR32) ? ARM7Read32(addr) : ARM7Read16(addr);
+            }
+            else
+            {
+                u8 reg = ARM7.MRTrack.Progress;
+                u32 addr = ARM7.FetchAddr[reg];
+                if (var & MRWrite) // write
+                {
+                    u32 val = ARM7.STRVal[reg];
+                    if      (var & MR32) ARM7Write32(addr, val);
+                    else if (var & MR16) ARM7Write16(addr, val);
+                    else                 ARM7Write8 (addr, val);
+                }
+                else // read
+                {
+                    u32 dummy;
+                    u32* val = (ARM7.LDRFailedRegs & (1<<reg)) ? &dummy : &ARM7.R[reg];
+                    if      (var & MR32) *val = ARM7Read32(addr);
+                    else if (var & MR16) *val = ARM7Read16(addr);
+                    else                 *val = ARM7Read8 (addr);
+                }
+            }
             memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
             break;
         }

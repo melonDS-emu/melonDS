@@ -64,6 +64,7 @@ enum class MainRAMType : u8
 // each one represents a bit in the field
 enum FetchFlags
 {
+    MR8 = 0x00, // tbh it only exists because it felt wrong to write nothing to the field for 8 bit reads
     MR16 = 0x01,
     MR32 = 0x02,
     MRWrite = 0x20,

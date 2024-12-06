@@ -1499,23 +1499,21 @@ void ARMv4::DRead8_2()
 {
     u8 reg = __builtin_ctz(LDRRegs);
     u32 addr = FetchAddr[reg];
-    u32 dummy;
-    u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
 
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM7Timestamp < MainRAMTimestamp) NDS.ARM7Timestamp = MainRAMTimestamp;
+        MRTrack.Type = MainRAMType::Fetch;
+        MRTrack.Var = MR8;
+        MRTrack.Progress = reg;
     }
-    
-    NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][0];
-    
-    if ((addr >> 24) == 0x02)
+    else
     {
-        MainRAMTimestamp = NDS.ARM7Timestamp;
-        NDS.ARM7Timestamp -= 3;
+        u32 dummy; u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+
+        NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][0];
+        *val = BusRead8(addr);
     }
 
-    *val = BusRead8(addr);
 }
 
 bool ARMv4::DataRead16(u32 addr, u8 reg)
@@ -1531,25 +1529,21 @@ void ARMv4::DRead16_2()
 {
     u8 reg = __builtin_ctz(LDRRegs);
     u32 addr = FetchAddr[reg];
-    u32 dummy;
-    u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
 
-    addr &= ~1;
-    
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM7Timestamp < MainRAMTimestamp) NDS.ARM7Timestamp = MainRAMTimestamp;
+        MRTrack.Type = MainRAMType::Fetch;
+        MRTrack.Var = MR16;
+        MRTrack.Progress = reg;
     }
-    
-    NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][0];
-    
-    if ((addr >> 24) == 0x02)
+    else
     {
-        MainRAMTimestamp = NDS.ARM7Timestamp;
-        NDS.ARM7Timestamp -= 3;
-    }
+        u32 dummy;
+        u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
 
-    *val = BusRead16(addr);
+        NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][0];
+        *val = BusRead16(addr);
+    }
 }
 
 bool ARMv4::DataRead32(u32 addr, u8 reg)
@@ -1565,25 +1559,21 @@ void ARMv4::DRead32_2()
 {
     u8 reg = __builtin_ctz(LDRRegs);
     u32 addr = FetchAddr[reg];
-    u32 dummy;
-    u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
 
-    addr &= ~3;
-    
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM7Timestamp < MainRAMTimestamp) NDS.ARM7Timestamp = MainRAMTimestamp;
+        MRTrack.Type = MainRAMType::Fetch;
+        MRTrack.Var = MR32;
+        MRTrack.Progress = reg;
     }
-    
-    NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][2];
-    
-    if ((addr >> 24) == 0x02)
+    else
     {
-        MainRAMTimestamp = NDS.ARM7Timestamp;
-        NDS.ARM7Timestamp -= 3;
+        u32 dummy;
+        u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+        
+        NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][2];
+        *val = BusRead32(addr);
     }
-
-    *val = BusRead32(addr);
     LDRRegs &= ~1<<reg;
 }
 
@@ -1600,25 +1590,21 @@ void ARMv4::DRead32S_2()
 {
     u8 reg = __builtin_ctz(LDRRegs);
     u32 addr = FetchAddr[reg];
-    u32 dummy;
-    u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
 
-    addr &= ~3;
-    
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM7Timestamp < MainRAMTimestamp) NDS.ARM7Timestamp = MainRAMTimestamp;
+        MRTrack.Type = MainRAMType::Fetch;
+        MRTrack.Var = MR32 | MRSequential;
+        MRTrack.Progress = reg;
     }
-    
-    NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][3];
-    
-    if ((addr >> 24) == 0x02)
+    else
     {
-        MainRAMTimestamp = NDS.ARM7Timestamp;
-        NDS.ARM7Timestamp -= 3;
-    }
+        u32 dummy;
+        u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
 
-    *val = BusRead32(addr);
+        NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][3];
+        *val = BusRead32(addr);
+    }
     LDRRegs &= ~1<<reg;
 }
 
@@ -1635,22 +1621,20 @@ void ARMv4::DWrite8_2()
 {
     u8 reg = __builtin_ctz(STRRegs);
     u32 addr = FetchAddr[reg];
-    u8 val = STRVal[reg];
 
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM7Timestamp < MainRAMTimestamp) NDS.ARM7Timestamp = MainRAMTimestamp;
+        MRTrack.Type = MainRAMType::Fetch;
+        MRTrack.Var = MRWrite | MR8;
+        MRTrack.Progress = reg;
     }
-    
-    NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][0];
-    
-    if ((addr >> 24) == 0x02)
+    else
     {
-        MainRAMTimestamp = NDS.ARM7Timestamp;
-        NDS.ARM7Timestamp -= 5;
+        u8 val = STRVal[reg];
+    
+        NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][0];
+        BusWrite8(addr, val);
     }
-
-    BusWrite8(addr, val);
 }
 
 bool ARMv4::DataWrite16(u32 addr, u16 val, u8 reg)
@@ -1666,24 +1650,20 @@ void ARMv4::DWrite16_2()
 {
     u8 reg = __builtin_ctz(STRRegs);
     u32 addr = FetchAddr[reg];
-    u16 val = STRVal[reg];
 
-    addr &= ~1;
-    
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM7Timestamp < MainRAMTimestamp) NDS.ARM7Timestamp = MainRAMTimestamp;
+        MRTrack.Type = MainRAMType::Fetch;
+        MRTrack.Var = MRWrite | MR16;
+        MRTrack.Progress = reg;
     }
-    
-    NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][0];
-    
-    if ((addr >> 24) == 0x02)
+    else
     {
-        MainRAMTimestamp = NDS.ARM7Timestamp;
-        NDS.ARM7Timestamp -= 5;
-    }
+        u16 val = STRVal[reg];
 
-    BusWrite16(addr, val);
+        NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][0];
+        BusWrite16(addr, val);
+    }
 }
 
 bool ARMv4::DataWrite32(u32 addr, u32 val, u8 reg)
@@ -1699,24 +1679,20 @@ void ARMv4::DWrite32_2()
 {
     u8 reg = __builtin_ctz(STRRegs);
     u32 addr = FetchAddr[reg];
-    u32 val = STRVal[reg];
-
-    addr &= ~3;
 
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM7Timestamp < MainRAMTimestamp) NDS.ARM7Timestamp = MainRAMTimestamp;
+        MRTrack.Type = MainRAMType::Fetch;
+        MRTrack.Var = MRWrite | MR32;
+        MRTrack.Progress = reg;
     }
-    
-    NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][2];
-    
-    if ((addr >> 24) == 0x02)
+    else
     {
-        MainRAMTimestamp = NDS.ARM7Timestamp;
-        NDS.ARM7Timestamp -= 5;
-    }
+        u32 val = STRVal[reg];
 
-    BusWrite32(addr, val);
+        NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][2];
+        BusWrite32(addr, val);
+    }
     STRRegs &= ~1<<reg;
 }
 
@@ -1733,24 +1709,20 @@ void ARMv4::DWrite32S_2()
 {
     u8 reg = __builtin_ctz(STRRegs);
     u32 addr = FetchAddr[reg];
-    u32 val = STRVal[reg];
-
-    addr &= ~3;
 
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM7Timestamp < MainRAMTimestamp) NDS.ARM7Timestamp = MainRAMTimestamp;
+        MRTrack.Type = MainRAMType::Fetch;
+        MRTrack.Var = MRWrite | MR32 | MRSequential;
+        MRTrack.Progress = reg;
     }
-    
-    NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][3];
-    
-    if ((addr >> 24) == 0x02)
+    else
     {
-        MainRAMTimestamp = NDS.ARM7Timestamp;
-        NDS.ARM7Timestamp -= 5;
-    }
+        u32 val = STRVal[reg];
 
-    BusWrite32(addr, val);
+        NDS.ARM7Timestamp += NDS.ARM7MemTimings[addr >> 15][3];
+        BusWrite32(addr, val);
+    }
     STRRegs &= ~1<<reg;
 }
 
