@@ -412,6 +412,18 @@ void NDS::SetupDirectBoot(const std::string& romname)
 
     ARM9.JumpTo(header.ARM9EntryAddress);
     ARM7.JumpTo(header.ARM7EntryAddress);
+    if (ARM9.FuncQueueFill > 0) // check if we started the queue up
+    {
+        ARM9.FuncQueueEnd = ARM9.FuncQueueFill;
+        ARM9.FuncQueueFill = 0;
+        ARM9.FuncQueueActive = true;
+    }
+    if (ARM7.FuncQueueFill > 0) // check if we started the queue up
+    {
+        ARM7.FuncQueueEnd = ARM7.FuncQueueFill;
+        ARM7.FuncQueueFill = 0;
+        ARM7.FuncQueueActive = true;
+    }
 
     PostFlag9 = 0x01;
     PostFlag7 = 0x01;
@@ -902,19 +914,17 @@ void NDS::MainRAMHandleARM9()
 {
     switch (ARM9.MRTrack.Type)
     {
-        case MainRAMType::Null:
-            Platform::Log(Platform::LogLevel::Error, "NULL MAIN RAM TYPE ARM9");
+        default:
+        {
+            Platform::Log(Platform::LogLevel::Error, "INVALID MAIN RAM TYPE ARM9");
             break;
+        }
+
         case MainRAMType::ICacheStream:
         {
-            if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; return; }
-
-            //printf("ICACHEHANDLER\n");
-
             u8* prog = &ARM9.MRTrack.Progress;
             u32 addr = (ARM9.FetchAddr[16] & ~0x1F) | (*prog * 4);
             u32* icache = (u32*)&ARM9.ICache[ARM9.MRTrack.Var << 5];
-            icache[*prog] = ARM9Read32(addr);
 
             if ((*prog > 0) && A9WENTLAST)
             {
@@ -923,10 +933,14 @@ void NDS::MainRAMHandleARM9()
             }
             else
             {
+                if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; return; }
+
                 MainRAMTimestamp = A9ContentionTS + 9;
                 A9ContentionTS += (ARM9ClockShift == 1) ? 9 : 8;
                 MainRAMLastAccess = A9LAST;
             }
+
+            icache[*prog] = ARM9Read32(addr);
 
             if (*prog == ARM9.ICacheStreamPtr) ARM9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
             else if (*prog > ARM9.ICacheStreamPtr) ARM9.ICacheStreamTimes[*prog-1] = (A9ContentionTS << ARM9ClockShift) - 1;
@@ -938,6 +952,42 @@ void NDS::MainRAMHandleARM9()
                 memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
                 A9ContentionTS = 0;
             }
+            break;
+        }
+    }
+}
+
+void NDS::MainRAMHandleARM7()
+{
+    switch (ARM7.MRTrack.Type)
+    {
+        default:
+        {
+            Platform::Log(Platform::LogLevel::Error, "INVALID MAIN RAM TYPE ARM7");
+            break;
+        }
+
+        case MainRAMType::Fetch:
+        {
+            u32 addr = ARM7.FetchAddr[16];
+            u8 var = ARM7.MRTrack.Var;
+
+            if ((var & MRSequential) && A7WENTLAST)
+            {
+                int cycles = (var & MR32) ? 2 : 1;
+                MainRAMTimestamp = ARM7Timestamp += cycles;
+            }
+            else
+            {
+                if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; return; }
+
+                MainRAMTimestamp = ARM7Timestamp + (var & MR16) ? 8 : 9;
+                ARM7Timestamp += (var & MR16) ? 5 : 6;
+            }
+
+            if (var & MRCodeFetch) ARM7.RetVal = (var & MR32) ? ARM7Read32(addr) : ARM7Read16(addr);
+
+            memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
             break;
         }
     }
@@ -963,7 +1013,8 @@ void NDS::MainRAMHandle()
             }
             else
             {
-                if (true) return;
+                if (ARM7.MRTrack.Type == MainRAMType::Null) return;
+                MainRAMHandleARM7();
             }
         }
     }
@@ -978,7 +1029,8 @@ void NDS::MainRAMHandle()
             }
             else
             {
-                if (true) return;
+                if (ARM7.MRTrack.Type == MainRAMType::Null) return;
+                MainRAMHandleARM7();
             }
         }
     }
@@ -1080,11 +1132,11 @@ u32 NDS::RunFrame()
                 }
                 else if (ARM9.MRTrack.Type == MainRAMType::Null)
                 {
-                    if (ARM9.abt) ARM9Timestamp = ARM9Target;
+                    //if (ARM9.abt) ARM9Timestamp = ARM9Target;
                     ARM9.Execute<cpuMode>();
                 }
                 
-                //printf("MAIN LOOP: %lli %lli\n", ARM9Timestamp>>ARM9ClockShift, ARM7Timestamp);
+                //printf("MAIN LOOP: 9 %lli %08X %08llX 7 %lli %08X %08llX %i %08X\n", ARM9Timestamp>>ARM9ClockShift, ARM9.PC, ARM9.CurInstr, ARM7Timestamp, ARM7.R[15], ARM7.CurInstr, IME[1], IE[1]);
 
                 MainRAMHandle();
 
@@ -1094,7 +1146,7 @@ u32 NDS::RunFrame()
                 target = ARM9Timestamp >> ARM9ClockShift;
                 CurCPU = 1;
 
-                while ((ARM7Timestamp < target) || (ARM9.MRTrack.Type != MainRAMType::Null))
+                while (((ARM7Timestamp < target) && (ARM7.MRTrack.Type == MainRAMType::Null)) || (ARM9.MRTrack.Type != MainRAMType::Null))
                 {
                     ARM7Target = (ARM9.MRTrack.Type != MainRAMType::Null) ? (ARM7Timestamp+1) : target; // might be changed by a reschedule
 
@@ -1112,8 +1164,9 @@ u32 NDS::RunFrame()
                             dsi.RunNDMAs(1);
                         }
                     }
-                    else
+                    else if (ARM7.MRTrack.Type == MainRAMType::Null)
                     {
+                        //if (ARM7.abt > 16) ARM7Timestamp = ARM7Target;
                         ARM7.Execute<cpuMode>();
                     }
 

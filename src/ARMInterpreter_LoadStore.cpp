@@ -118,40 +118,38 @@ void LoadSingle(ARM* cpu, const u8 rd, const u8 rn, const s32 offset, const u16 
 
     if constexpr (size == 8 && signextend)
     {
-        if (cpu->Num == 0)
-        {
-            cpu->ExtReg = rd;
-            if (cpu->MRTrack.Type != MainRAMType::Null) ((ARMv5*)cpu)->FuncQueue[cpu->FuncQueueFill++] = &ARMv5::SignExtend8;
-            else ((ARMv5*)cpu)->SignExtend8();
-        }
-        else cpu->R[rd] = (s32)(s8)cpu->R[rd];
+        cpu->ExtReg = rd;
+        if (cpu->Num == 0) ((ARMv5*)cpu)->QueueFunction(&ARMv5::SignExtend8);
+        else               ((ARMv4*)cpu)->QueueFunction(&ARMv4::SignExtend8);
     }
 
     if constexpr (size == 16)
     {
         if (cpu->Num == 1)
         {
-            cpu->R[rd] = ROR(cpu->R[rd], ((addr&0x1)<<3)); // unaligned 16 bit loads are ROR'd on arm7
-            if constexpr (signextend) cpu->R[rd] = (s32)((addr&0x1) ? (s8)cpu->R[rd] : (s16)cpu->R[rd]); // sign extend like a ldrsb if we ror'd the value.
+            cpu->ExtReg = rd;
+            cpu->ExtROROffs = (addr & 0x1) * 8;
+            ((ARMv4*)cpu)->QueueFunction(&ARMv4::ROR32); // unaligned 16 bit loads are ROR'd on arm7
+
+            if constexpr (signextend)
+            {
+                if (addr&0x1) ((ARMv4*)cpu)->QueueFunction(&ARMv4::SignExtend8); // sign extend like an ldrsb if we ror'd the value.
+                else          ((ARMv4*)cpu)->QueueFunction(&ARMv4::SignExtend16);
+            }
         }
         else if constexpr (signextend)
         {
             cpu->ExtReg = rd;
-            if (cpu->MRTrack.Type != MainRAMType::Null) ((ARMv5*)cpu)->FuncQueue[cpu->FuncQueueFill++] = &ARMv5::SignExtend16;
-            else ((ARMv5*)cpu)->SignExtend16();
+            ((ARMv5*)cpu)->QueueFunction(&ARMv5::SignExtend16);
         }
     }
 
     if constexpr (size == 32)
     {
-        if (cpu->Num == 0)
-        {
-            cpu->ExtReg = rd;
-            cpu->ExtROROffs = (addr & 0x3) * 8;
-            if (cpu->MRTrack.Type != MainRAMType::Null) ((ARMv5*)cpu)->FuncQueue[cpu->FuncQueueFill++] = &ARMv5::ROR32;
-            else ((ARMv5*)cpu)->ROR32();
-        }
-        else cpu->R[rd] = ROR(cpu->R[rd], ((addr&0x3)*8));
+        cpu->ExtReg = rd;
+        cpu->ExtROROffs = (addr & 0x3) * 8;
+        if (cpu->Num == 0) ((ARMv5*)cpu)->QueueFunction(&ARMv5::ROR32);
+        else               ((ARMv4*)cpu)->QueueFunction(&ARMv4::ROR32);
     }
 
     if constexpr (writeback >= Writeback::Post) addr += offset;
@@ -172,8 +170,6 @@ void LoadSingle(ARM* cpu, const u8 rd, const u8 rn, const s32 offset, const u16 
 
     if (rd == 15)
     {
-        if (cpu->Num==1) cpu->R[15] &= ~0x1;
-
         //if (cpu->Num==0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual + ((size<32) || (addr&0x3)); // force an interlock
 
         cpu->JumpTo(cpu->R[15], false, 1);
@@ -533,14 +529,10 @@ inline void SWP(ARM* cpu)
 
             if constexpr (!byte)
             {
-                if (cpu->Num == 0)
-                {
-                    cpu->ExtReg = rd;
-                    cpu->ExtROROffs = (base & 0x3) * 8;
-                    if (cpu->MRTrack.Type != MainRAMType::Null) ((ARMv5*)cpu)->FuncQueue[cpu->FuncQueueFill++] = &ARMv5::ROR32;
-                    else ((ARMv5*)cpu)->ROR32();
-                }
-                else cpu->R[rd] = ROR(cpu->R[rd], ((base&0x3)*8));
+                cpu->ExtReg = rd;
+                cpu->ExtROROffs = (base & 0x3) * 8;
+                if (cpu->Num == 0) ((ARMv5*)cpu)->QueueFunction(&ARMv5::ROR32);
+                else               ((ARMv4*)cpu)->QueueFunction(&ARMv4::ROR32);
             }
             cpu->AddCycles_CDI();
 
@@ -555,7 +547,6 @@ inline void SWP(ARM* cpu)
             }
             else if (cpu->Num==1) // for some reason these jumps don't seem to work on the arm 9?
             {
-                cpu->R[rd] = cpu->R[rd] & ~1;
                 cpu->JumpTo(cpu->R[rd], false, 1);
             }
             return;
@@ -608,7 +599,7 @@ void EmptyRListLDMSTM(ARM* cpu, const u8 baseid, const u8 flags)
 
             cpu->AddCycles_CDI();
             
-            cpu->JumpTo(cpu->R[15] & ~1, flags & restoreorthumb, 1); // TODO: fix this not maintaining current mode properly
+            cpu->JumpTo(cpu->R[15], flags & restoreorthumb, 1); // TODO: fix this not maintaining current mode properly
         }
         else
         {
@@ -699,8 +690,6 @@ void A_LDM(ARM* cpu)
         dabort |= !(first ? cpu->DataRead32 (base, 15)
                           : cpu->DataRead32S(base, 15));
         if (dabort) [[unlikely]] { cpu->R[15] = oldval; cpu->LDRFailedRegs |= (1<<15); }
-        else if (cpu->Num == 1)
-            cpu->R[15] &= ~0x1;
 
         if (!preinc) base += 4;
     }
@@ -723,15 +712,11 @@ void A_LDM(ARM* cpu)
     {
         if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
         {
-            if (cpu->Num == 0)
-            {
-                cpu->QueueMode[0] = (cpu->CPSR&~0x1F)|0x10;
-                cpu->QueueMode[1] = cpu->CPSR;
+            cpu->QueueMode[0] = (cpu->CPSR&~0x1F)|0x10;
+            cpu->QueueMode[1] = cpu->CPSR;
 
-                if (cpu->MRTrack.Type != MainRAMType::Null) ((ARMv5*)cpu)->FuncQueue[cpu->FuncQueueFill++] = &ARMv5::QueueUpdateMode;
-                else ((ARMv5*)cpu)->QueueUpdateMode();
-            }
-            else cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
+            if (cpu->Num == 0) ((ARMv5*)cpu)->QueueFunction(&ARMv5::QueueUpdateMode);
+            else               ((ARMv4*)cpu)->QueueFunction(&ARMv4::QueueUpdateMode);
         }
 
         ((ARMv5*)cpu)->DataAbort();
@@ -761,15 +746,11 @@ void A_LDM(ARM* cpu)
     // switch back to previous regs
     if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
     {
-        if (cpu->Num == 0)
-        {
-            cpu->QueueMode[0] = (cpu->CPSR&~0x1F)|0x10;
-            cpu->QueueMode[1] = cpu->CPSR;
+        cpu->QueueMode[0] = (cpu->CPSR&~0x1F)|0x10;
+        cpu->QueueMode[1] = cpu->CPSR;
 
-            if (cpu->MRTrack.Type != MainRAMType::Null) ((ARMv5*)cpu)->FuncQueue[cpu->FuncQueueFill++] = &ARMv5::QueueUpdateMode;
-            else ((ARMv5*)cpu)->QueueUpdateMode();
-        }
-        else cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
+        if (cpu->Num == 0) ((ARMv5*)cpu)->QueueFunction(&ARMv5::QueueUpdateMode);
+        else               ((ARMv4*)cpu)->QueueFunction(&ARMv4::QueueUpdateMode);
     }
 
     // jump if pc got written
@@ -1120,7 +1101,6 @@ void T_POP(ARM* cpu)
 
         if (!dabort) [[likely]]
         {
-            if (cpu->Num==1) cpu->R[15] |= 0x1;
             //if (cpu->Num==0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampActual; // force an interlock
 
             cpu->JumpTo(cpu->R[15], false, 2);

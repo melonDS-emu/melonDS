@@ -26,6 +26,7 @@
 #include "MemRegion.h"
 #include "MemConstants.h"
 #include "CP15_Constants.h"
+#include "Platform.h"
 
 #ifdef GDBSTUB_ENABLED
 #include "debug/GdbStub.h"
@@ -57,6 +58,17 @@ enum class MainRAMType : u8
 {
     Null = 0,
     ICacheStream,
+    Fetch
+};
+
+// each one represents a bit in the field
+enum FetchFlags
+{
+    MR16 = 0x01,
+    MR32 = 0x02,
+    MRWrite = 0x20,
+    MRSequential = 0x40,
+    MRCodeFetch = 0x80,
 };
 
 struct MainRAMTrackers
@@ -218,7 +230,9 @@ public:
     u16 STRRegs;
     u32 FetchAddr[17];
     u32 STRVal[16];
-
+    
+    // debugging crud: REMOVE ME
+    u8 abt;
     u64 iter;
 
     u8 FuncQueueFill;
@@ -651,6 +665,14 @@ public:
      */
     u32 CP15Read(const u32 id) const;
     
+    inline void QueueFunction(void (ARMv5::*QueueEntry)(void))
+    {
+        if (MRTrack.Type != MainRAMType::Null)
+            FuncQueue[FuncQueueFill++] = QueueEntry;
+        else
+            (this->*QueueEntry)();
+    }
+
     void StartExec();
     void AddExecute();
     void AddCycles_MW_2();
@@ -669,14 +691,11 @@ public:
     void DWrite16_2();
     void DWrite32_2();
     void DWrite32S_2();
-
     void QueueUpdateMode() { UpdateMode(QueueMode[0], QueueMode[1], true); }
-
     void SignExtend8() { R[ExtReg] = (s32)(s8)R[ExtReg]; }
-
     void SignExtend16() { R[ExtReg] = (s32)(s16)R[ExtReg]; }
-
     void ROR32() { R[ExtReg] = ROR(R[ExtReg], ExtROROffs); }
+
 
     u32 CP15Control;                                //! CP15 Register 1: Control Register
 
@@ -753,8 +772,6 @@ public:
     u64 ICacheStreamTimes[7];
     u64 DCacheStreamTimes[7];
 
-    bool abt;
-
     u8 WBWritePointer; // which entry to attempt to write next; should always be ANDed with 0xF after incrementing
     u8 WBFillPointer; // where the next entry should be added; should always be ANDed with 0xF after incrementing
     u8 WBWriting; // whether the buffer is actively trying to perform a write
@@ -796,11 +813,13 @@ public:
 
     template <CPUExecuteMode mode>
     void Execute();
-
+    
+    Platform::FileHandle* filey;
+    void (ARMv4::*FuncQueue[31])(void);
     bool Nonseq;
 
-    u16 CodeRead16(u32 addr);
-    u32 CodeRead32(u32 addr);
+    void CodeRead16(u32 addr);
+    void CodeRead32(u32 addr);
 
     bool DataRead8(u32 addr, u8 reg) override;
     bool DataRead16(u32 addr, u8 reg) override;
@@ -814,6 +833,34 @@ public:
     void AddCycles_CI(s32 num) override;
     void AddCycles_CDI() override;
     void AddCycles_CD() override;
+    
+    inline void QueueFunction(void (ARMv4::*QueueEntry)(void))
+    {
+        if (MRTrack.Type != MainRAMType::Null)
+            FuncQueue[FuncQueueFill++] = QueueEntry;
+        else
+            (this->*QueueEntry)();
+    }
+
+    void StartExec();
+    void UpdateNextInstr1() { NextInstr[1] = RetVal; }
+    void JumpTo_2();
+    void JumpTo_3A();
+    void JumpTo_3B();
+    void DRead8_2();
+    void DRead16_2();
+    void DRead32_2();
+    void DRead32S_2();
+    void DWrite8_2();
+    void DWrite16_2();
+    void DWrite32_2();
+    void DWrite32S_2();
+    void AddExecute();
+    void AddExtraCycle();
+    void QueueUpdateMode() { UpdateMode(QueueMode[0], QueueMode[1], true); }
+    void SignExtend8() { R[ExtReg] = (s32)(s8)R[ExtReg]; }
+    void SignExtend16() { R[ExtReg] = (s32)(s16)R[ExtReg]; }
+    void ROR32() { R[ExtReg] = ROR(R[ExtReg], ExtROROffs); }
 
 protected:
     u8 BusRead8(u32 addr) override;

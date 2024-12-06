@@ -402,6 +402,7 @@ public: // TODO: Encapsulate the rest of these members
     std::unique_ptr<GBACart::CartCommon> EjectGBACart() { return GBACartSlot.EjectCart(); }
 
     void MainRAMHandleARM9();
+    void MainRAMHandleARM7();
     void MainRAMHandle();
 
     u32 RunFrame();

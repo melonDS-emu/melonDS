@@ -2163,16 +2163,14 @@ bool ARMv5::DataRead8(u32 addr, u8 reg)
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & CP15_MAP_READABLE)) [[unlikely]]
     {
-        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandle;
-        else DAbortHandle();
+        QueueFunction(&ARMv5::DAbortHandle);
         return false;
     }
 
     FetchAddr[reg] = addr;
     LDRRegs = 1<<reg;
 
-    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DRead8_2;
-    else DRead8_2();
+    QueueFunction(&ARMv5::DRead8_2);
     return true;
 }
 
@@ -2261,16 +2259,14 @@ bool ARMv5::DataRead16(u32 addr, u8 reg)
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & CP15_MAP_READABLE)) [[unlikely]]
     {
-        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandle;
-        else DAbortHandle();
+        QueueFunction(&ARMv5::DAbortHandle);
         return false;
     }
 
     FetchAddr[reg] = addr;
     LDRRegs = 1<<reg;
 
-    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DRead16_2;
-    else DRead16_2();
+    QueueFunction(&ARMv5::DRead16_2);
     return true;
 }
 
@@ -2361,16 +2357,14 @@ bool ARMv5::DataRead32(u32 addr, u8 reg)
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & CP15_MAP_READABLE)) [[unlikely]]
     {
-        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandle;
-        else DAbortHandle();
+        QueueFunction(&ARMv5::DAbortHandle);
         return false;
     }
     
     FetchAddr[reg] = addr;
     LDRRegs = 1<<reg;
 
-    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DRead32_2;
-    else DRead32_2();
+    QueueFunction(&ARMv5::DRead32_2);
     return true;
 }
 
@@ -2465,16 +2459,14 @@ bool ARMv5::DataRead32S(u32 addr, u8 reg)
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & CP15_MAP_READABLE)) [[unlikely]]
     {
-        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill] = &ARMv5::DAbortHandleS;
-        else DAbortHandleS();
+        QueueFunction(&ARMv5::DAbortHandleS);
         return false;
     }
     
     FetchAddr[reg] = addr;
     LDRRegs |= 1<<reg;
 
-    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DRead32S_2;
-    else DRead32S_2();
+    QueueFunction(&ARMv5::DRead32S_2);
     return true;
 }
 
@@ -2585,8 +2577,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val, u8 reg)
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & CP15_MAP_WRITEABLE)) [[unlikely]]
     {
-        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandle;
-        else DAbortHandle();
+        QueueFunction(&ARMv5::DAbortHandle);
         return false;
     }
 
@@ -2594,8 +2585,7 @@ bool ARMv5::DataWrite8(u32 addr, u8 val, u8 reg)
     STRRegs = 1<<reg;
     STRVal[reg] = val;
 
-    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DWrite8_2;
-    else DWrite8_2();
+    QueueFunction(&ARMv5::DWrite8_2);
     return true;
 }
 
@@ -2691,8 +2681,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val, u8 reg)
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & CP15_MAP_WRITEABLE)) [[unlikely]]
     {
-        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandle;
-        else DAbortHandle();
+        QueueFunction(&ARMv5::DAbortHandle);
         return false;
     }
 
@@ -2700,8 +2689,7 @@ bool ARMv5::DataWrite16(u32 addr, u16 val, u8 reg)
     STRRegs = 1<<reg;
     STRVal[reg] = val;
 
-    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DWrite16_2;
-    else DWrite16_2();
+    QueueFunction(&ARMv5::DWrite16_2);
     return true;
 }
 
@@ -2799,8 +2787,7 @@ bool ARMv5::DataWrite32(u32 addr, u32 val, u8 reg)
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & CP15_MAP_WRITEABLE)) [[unlikely]]
     {
-        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandle;
-        else DAbortHandle();
+        QueueFunction(&ARMv5::DAbortHandle);
         return false;
     }
     
@@ -2808,8 +2795,7 @@ bool ARMv5::DataWrite32(u32 addr, u32 val, u8 reg)
     STRRegs = 1<<reg;
     STRVal[reg] = val;
 
-    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DWrite32_2;
-    else DWrite32_2();
+    QueueFunction(&ARMv5::DWrite32_2);
     return true;
 }
 
@@ -2913,8 +2899,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val, u8 reg)
     // Exception is handled in the actual instruction implementation
     if (!(PU_Map[addr>>12] & CP15_MAP_WRITEABLE)) [[unlikely]]
     {
-        if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DAbortHandleS;
-        else DAbortHandleS();
+        QueueFunction(&ARMv5::DAbortHandleS);
         return false;
     }
     
@@ -2922,8 +2907,7 @@ bool ARMv5::DataWrite32S(u32 addr, u32 val, u8 reg)
     STRRegs |= 1<<reg;
     STRVal[reg] = val;
 
-    if (MRTrack.Type != MainRAMType::Null) FuncQueue[FuncQueueFill++] = &ARMv5::DWrite32S_2;
-    else DWrite32S_2();
+    QueueFunction(&ARMv5::DWrite32S_2);
     return true;
 }
 

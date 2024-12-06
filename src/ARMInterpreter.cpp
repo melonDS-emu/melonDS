@@ -37,6 +37,7 @@ namespace melonDS::ARMInterpreter
 void A_UNK(ARM* cpu)
 {
     cpu->AddCycles_C();
+    cpu->abt=1;
     Log(LogLevel::Warn, "undefined ARM%d instruction %08X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-8);
 #ifdef GDBSTUB_ENABLED
     cpu->GdbStub.Enter(cpu->GdbStub.IsConnected(), Gdb::TgtStatus::FaultInsn, cpu->R[15]-8);
