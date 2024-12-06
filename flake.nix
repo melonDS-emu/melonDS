@@ -21,7 +21,7 @@
 
       melonDS = pkgs.stdenv.mkDerivation {
         pname = "melonDS";
-        version = "0.9.5-${shortRevision}";
+        version = "1.0-${shortRevision}";
         src = ./.;
 
         nativeBuildInputs = with pkgs; [
@@ -95,7 +95,13 @@
             libtool
             ninja
             pkg-config
+            python3
           ];
+
+          # Undo the SDK setup done by nixpkgs so we can use AppleClang
+          shellHook = ''
+            unset DEVELOPER_DIR SDKROOT MACOSX_DEPLOYMENT_TARGET
+         '';
         };
       };
     }

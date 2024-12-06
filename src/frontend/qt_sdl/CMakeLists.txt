@@ -190,6 +190,7 @@ if (WIN32)
         target_compile_definitions(melonDS PRIVATE WIN32_PORTABLE)
     endif()
 
+    string(REPLACE . , MELON_RC_VERSION ${melonDS_VERSION})
     configure_file("${CMAKE_SOURCE_DIR}/res/melon.rc.in" "${CMAKE_BINARY_DIR}/res/melon.rc")
     target_sources(melonDS PUBLIC "${CMAKE_BINARY_DIR}/res/melon.rc")
     target_include_directories(melonDS PRIVATE "${CMAKE_BINARY_DIR}/res")

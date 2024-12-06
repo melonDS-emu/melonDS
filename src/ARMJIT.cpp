@@ -30,6 +30,7 @@
 #include "ARMJIT_Internal.h"
 #include "ARMJIT_Memory.h"
 #include "ARMJIT_Compiler.h"
+#include "ARMJIT_Global.h"
 
 #include "ARMInterpreter_ALU.h"
 #include "ARMInterpreter_LoadStore.h"
@@ -467,6 +468,16 @@ InterpreterFunc InterpretTHUMB[ARMInstrInfo::tk_Count] =
 };
 #undef F
 
+ARMJIT::ARMJIT(melonDS::NDS& nds, std::optional<JITArgs> jit) noexcept : 
+        NDS(nds),
+        Memory(nds),
+        JITCompiler(nds),
+        MaxBlockSize(jit.has_value() ? std::clamp(jit->MaxBlockSize, 1u, 32u) : 32),
+        LiteralOptimizations(jit.has_value() ? jit->LiteralOptimizations : false),
+        BranchOptimizations(jit.has_value() ? jit->BranchOptimizations : false),
+        FastMemory((jit.has_value() ? jit->FastMemory : false) && ARMJIT_Memory::IsFastMemSupported())
+{}
+
 void ARMJIT::RetireJitBlock(JitBlock* block) noexcept
 {
     auto it = RestoreCandidates.find(block->InstrHash);
@@ -483,6 +494,7 @@ void ARMJIT::RetireJitBlock(JitBlock* block) noexcept
 
 void ARMJIT::SetJITArgs(JITArgs args) noexcept
 {
+    args.FastMemory = args.FastMemory && ARMJIT_Memory::IsFastMemSupported();
     args.MaxBlockSize = std::clamp(args.MaxBlockSize, 1u, 32u);
 
     if (MaxBlockSize != args.MaxBlockSize
@@ -499,36 +511,22 @@ void ARMJIT::SetJITArgs(JITArgs args) noexcept
 
 void ARMJIT::SetMaxBlockSize(int size) noexcept
 {
-    size = std::clamp(size, 1, 32);
-
-    if (size != MaxBlockSize)
-        ResetBlockCache();
-
-    MaxBlockSize = size;
+    SetJITArgs(JITArgs{static_cast<unsigned>(size), LiteralOptimizations, LiteralOptimizations, FastMemory});
 }
 
 void ARMJIT::SetLiteralOptimizations(bool enabled) noexcept
 {
-    if (LiteralOptimizations != enabled)
-        ResetBlockCache();
-
-    LiteralOptimizations = enabled;
+    SetJITArgs(JITArgs{static_cast<unsigned>(MaxBlockSize), enabled, BranchOptimizations, FastMemory});
 }
 
 void ARMJIT::SetBranchOptimizations(bool enabled) noexcept
 {
-    if (BranchOptimizations != enabled)
-        ResetBlockCache();
-
-    BranchOptimizations = enabled;
+    SetJITArgs(JITArgs{static_cast<unsigned>(MaxBlockSize), LiteralOptimizations, enabled, FastMemory});
 }
 
 void ARMJIT::SetFastMemory(bool enabled) noexcept
 {
-    if (FastMemory != enabled)
-        ResetBlockCache();
-
-    FastMemory = enabled;
+    SetJITArgs(JITArgs{static_cast<unsigned>(MaxBlockSize), LiteralOptimizations, BranchOptimizations, enabled});
 }
 
 void ARMJIT::CompileBlock(ARM* cpu) noexcept
@@ -918,7 +916,7 @@ void ARMJIT::CompileBlock(ARM* cpu) noexcept
 
         AddressRange* region = CodeMemRegions[addressRanges[j] >> 27];
 
-        if (!PageContainsCode(&region[(addressRanges[j] & 0x7FFF000) / 512]))
+        if (!PageContainsCode(&region[(addressRanges[j] & 0x7FFF000 & ~(Memory.PageSize - 1)) / 512], Memory.PageSize))
             Memory.SetCodeProtection(addressRanges[j] >> 27, addressRanges[j] & 0x7FFFFFF, true);
 
         AddressRange* range = &region[(addressRanges[j] & 0x7FFFFFF) / 512];
@@ -971,7 +969,7 @@ void ARMJIT::InvalidateByAddr(u32 localAddr) noexcept
         range->Blocks.Remove(i);
 
         if (range->Blocks.Length == 0
-            && !PageContainsCode(&region[(localAddr & 0x7FFF000) / 512]))
+            && !PageContainsCode(&region[(localAddr & 0x7FFF000 & ~(Memory.PageSize - 1)) / 512], Memory.PageSize))
         {
             Memory.SetCodeProtection(localAddr >> 27, localAddr & 0x7FFFFFF, false);
         }
@@ -1005,7 +1003,7 @@ void ARMJIT::InvalidateByAddr(u32 localAddr) noexcept
 
                 if (otherRange->Blocks.Length == 0)
                 {
-                    if (!PageContainsCode(&otherRegion[(addr & 0x7FFF000) / 512]))
+                    if (!PageContainsCode(&otherRegion[(addr & 0x7FFF000 & ~(Memory.PageSize - 1)) / 512], Memory.PageSize))
                         Memory.SetCodeProtection(addr >> 27, addr & 0x7FFFFFF, false);
 
                     otherRange->Code = 0;

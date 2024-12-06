@@ -82,6 +82,8 @@ public:
     ARM(u32 num, bool jit, std::optional<GDBArgs> gdb, NDS& nds);
     virtual ~ARM(); // destroy shit
 
+    void SetGdbArgs(std::optional<GDBArgs> gdb);
+
     virtual void Reset();
 
     virtual void DoSavestate(Savestate* file);

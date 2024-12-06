@@ -159,6 +159,8 @@ void EmuInstance::audioMute()
 
 void EmuInstance::micOpen()
 {
+    if (micDevice) return;
+
     if (micInputType != micInputType_External)
     {
         micDevice = 0;
@@ -328,7 +330,11 @@ void EmuInstance::micProcess()
                     micBufferReadPos += len;
                 }
 
-                if (len < kFrameLen)
+                if (len == 0)
+                {
+                    memset(tmp, 0, sizeof(tmp));
+                }
+                else if (len < kFrameLen)
                 {
                     for (int i = len; i < kFrameLen; i++)
                         tmp[i] = tmp[len-1];
