@@ -366,7 +366,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
     bool dabort = !cpu->DataRead32(offset, r); \
     u32 oldval = cpu->R[r+1]; dabort |= !cpu->DataRead32S(offset+4, r+1); \
-    /*if (cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2;*/ \
+    ((ARMv5*)cpu)->DelayIfITCM(2); \
     cpu->AddCycles_CDI(); \
     if (dabort) { \
         cpu->R[r+1] = oldval; \
@@ -388,7 +388,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
     bool dabort = !cpu->DataRead32(addr, r); \
     u32 oldval = cpu->R[r+1]; dabort |= !cpu->DataRead32S(addr+4, r+1); \
-    /*if (cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2;*/ \
+    ((ARMv5*)cpu)->DelayIfITCM(2); \
     cpu->AddCycles_CDI(); \
     if (dabort) { \
         cpu->R[r+1] = oldval; \
@@ -411,7 +411,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     bool dabort = !cpu->DataWrite32(offset, cpu->R[r], r); \
     u32 storeval = cpu->R[r+1]; if (r+1 == 15) storeval+=4; \
     dabort |= !cpu->DataWrite32S (offset+4, storeval, r+1); \
-    /*if (cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2;*/ \
+   ((ARMv5*)cpu)->DelayIfITCM(2); \
     cpu->AddCycles_CD(); \
     if (dabort) [[unlikely]] { \
         ((ARMv5*)cpu)->DataAbort(); \
@@ -428,7 +428,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     bool dabort = !cpu->DataWrite32(addr, cpu->R[r], r); \
     u32 storeval = cpu->R[r+1]; if (r+1 == 15) storeval+=4; \
     dabort |= !cpu->DataWrite32S (addr+4, storeval, r+1); \
-    /*if (cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2;*/ \
+    ((ARMv5*)cpu)->DelayIfITCM(2); \
     cpu->AddCycles_CD(); \
     if (dabort) [[unlikely]] { \
         ((ARMv5*)cpu)->DataAbort(); \
@@ -508,8 +508,6 @@ inline void SWP(ARM* cpu)
     if ((byte ? cpu->DataRead8 (base, rd)
               : cpu->DataRead32(base, rd))) [[likely]]
     {
-        //cpu->NDS.ARM9Timestamp += cpu->DataCycles; // checkme
-
         if ((byte ? cpu->DataWrite8 (base, storeval, rm)
                   : cpu->DataWrite32(base, storeval, rm))) [[likely]]
         {
@@ -679,14 +677,14 @@ void A_LDM(ARM* cpu)
 
     if (__builtin_popcount(cpu->CurInstr & 0xFFFF) == 1) [[unlikely]] // single reg
     {
-        //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
+        if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(1);
         cpu->AddCycles_CDI();
         if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
         else; // CHECKME: ARM7 timing behavior?
     }
     else
     {
-        //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2;
+        if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(2);
         cpu->AddCycles_CDI();
     }
 
@@ -829,14 +827,14 @@ void A_STM(ARM* cpu)
 
     if (__builtin_popcount(cpu->CurInstr & 0xFFFF) == 1) [[unlikely]] // single reg
     {
-        //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
+        if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(1);
         cpu->AddCycles_CD();
         if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
         else; // CHECKME: ARM7 timing behavior?
     }
     else
     {
-        //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2;
+        if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(2);
         cpu->AddCycles_CD();
     }
 
@@ -1013,14 +1011,14 @@ void T_PUSH(ARM* cpu)
 
     if (__builtin_popcount(cpu->CurInstr & 0x1FF) == 1) [[unlikely]] // single reg
     {
-        //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
+        if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(1);
         cpu->AddCycles_CD();
         if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
         else; // CHECKME: ARM7 timing behavior?
     }
     else
     {
-        //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2;
+        if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(2);
         cpu->AddCycles_CD();
     }
 
@@ -1069,14 +1067,14 @@ void T_POP(ARM* cpu)
 
         if (__builtin_popcount(cpu->CurInstr & 0x1FF) == 1) [[unlikely]] // single reg
         {
-            //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
+            if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(1);
             cpu->AddCycles_CDI();
             if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
             else; // CHECKME: ARM7 timing behavior?
         }
         else
         {
-            //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2;
+            if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(2);
             cpu->AddCycles_CDI();
         }
 
@@ -1099,14 +1097,14 @@ void T_POP(ARM* cpu)
     {
         if (__builtin_popcount(cpu->CurInstr & 0x1FF) == 1) [[unlikely]] // single reg
         {
-            //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
+            if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(1);
             cpu->AddCycles_CDI();
             if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
             else; // CHECKME: ARM7 timing behavior?
         }
         else
         {
-            //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2;
+            if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(2);
             cpu->AddCycles_CDI();
         }
 
@@ -1160,14 +1158,14 @@ void T_STMIA(ARM* cpu)
 
     if (__builtin_popcount(cpu->CurInstr & 0xFF) == 1) [[unlikely]] // single reg
     {
-        //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
+        if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(1);
         cpu->AddCycles_CD();
         if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
         else; // CHECKME: ARM7 timing behavior?
     }
     else
     {
-        //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2;
+        if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(2);
         cpu->AddCycles_CD();
     }
 
@@ -1210,14 +1208,14 @@ void T_LDMIA(ARM* cpu)
 
     if (__builtin_popcount(cpu->CurInstr & 0xFF) == 1) [[unlikely]] // single reg
     {
-        //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
+        if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(1);
         cpu->AddCycles_CDI();
         if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
         else; // CHECKME: ARM7 timing behavior?
     }
     else
     {
-        //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 2;
+        if (cpu->Num == 0) ((ARMv5*)cpu)->DelayIfITCM(2);
         cpu->AddCycles_CDI();
     }
 

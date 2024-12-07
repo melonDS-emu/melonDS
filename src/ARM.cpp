@@ -1398,6 +1398,11 @@ void ARMv5::AddCycles_MW_2()
     NDS.ARM9Timestamp -= DataCycles;
 }
 
+void ARMv5::DelayIfITCM_2()
+{
+    if (DataRegion == Mem9_ITCM) NDS.ARM9Timestamp += ITCMDelay;
+}
+
 void ARMv5::SetupInterlock_2()
 {
     ILCurrReg = ILQueueReg;

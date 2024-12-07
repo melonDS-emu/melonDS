@@ -352,6 +352,12 @@ public:
         AddCycles_MW(DataCycles);
     }
 
+    void DelayIfITCM(s8 delay)
+    {
+        ITCMDelay = delay;
+        QueueFunction(&ARMv5::DelayIfITCM_2);
+    }
+
     inline void SetupInterlock(u8 reg, s8 delay = 0)
     {
         ILQueueReg = reg;
@@ -712,6 +718,7 @@ public:
     void StartExec();
     void AddExecute();
     void AddCycles_MW_2();
+    void DelayIfITCM_2();
     void JumpTo_2();
     void JumpTo_3A();
     void JumpTo_3B();
@@ -761,11 +768,11 @@ public:
     u8 ITCM[ITCMPhysicalSize];                      //! Content of the ITCM
     u8* DTCM;                                       //! Content of the DTCM
 
-    u8 ICache[ICACHE_SIZE];                         //! Instruction Cache Content organized in @ref ICACHE_LINESPERSET times @ref ICACHE_SETS times @ref ICACHE_LINELENGTH bytes
+    alignas(u32) u8 ICache[ICACHE_SIZE];                         //! Instruction Cache Content organized in @ref ICACHE_LINESPERSET times @ref ICACHE_SETS times @ref ICACHE_LINELENGTH bytes
     u32 ICacheTags[ICACHE_LINESPERSET*ICACHE_SETS]; //! Instruction Cache Tags organized in @ref ICACHE_LINESPERSET times @ref ICACHE_SETS Tags
     u8 ICacheCount;                                 //! Global instruction line fill counter. Used for round-robin replacement strategy with the instruction cache
 
-    u8 DCache[DCACHE_SIZE];                         //! Data Cache Content organized in @ref DCACHE_LINESPERSET times @ref DCACHE_SETS times @ref DCACHE_LINELENGTH bytes
+    alignas(u32) u8 DCache[DCACHE_SIZE];                         //! Data Cache Content organized in @ref DCACHE_LINESPERSET times @ref DCACHE_SETS times @ref DCACHE_LINELENGTH bytes
     u32 DCacheTags[DCACHE_LINESPERSET*DCACHE_SETS]; //! Data Cache Tags organized in @ref DCACHE_LINESPERSET times @ref DCACHE_SETS Tags
     u8 DCacheCount;                                 //! Global data line fill counter. Used for round-robin replacement strategy with the instruction cache
 
@@ -803,6 +810,7 @@ public:
     u32 PC;
     bool NullFetch;
     bool Store;
+    s8 ITCMDelay;
 
     u8 ILCurrReg;
     u8 ILPrevReg;
