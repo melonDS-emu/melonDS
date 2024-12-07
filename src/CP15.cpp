@@ -2102,13 +2102,9 @@ void ARMv5::CodeRead32(u32 addr)
 
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
-        NDS.ARM9Timestamp += cycles;
-        if (NDS.ARM9ClockShift == 2)
-        {
-            MainRAMTimestamp = NDS.ARM9Timestamp;
-            NDS.ARM9Timestamp -= 4;
-        }
+        FetchAddr[16] = addr;
+        MRTrack.Type = MainRAMType::Fetch;
+        MRTrack.Var = MRCodeFetch | MR32;
     }
     else
     {
@@ -2117,16 +2113,15 @@ void ARMv5::CodeRead32(u32 addr)
             NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
 
         NDS.ARM9Timestamp += cycles;
+
+        if (WBTimestamp < ((NDS.ARM9Timestamp - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
+            WBTimestamp = (NDS.ARM9Timestamp - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+
+        RetVal = BusRead32(addr);
     }
+
     Store = false;
-
-    if (WBTimestamp < ((NDS.ARM9Timestamp - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
-        WBTimestamp = (NDS.ARM9Timestamp - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-
-    if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
-
     DataRegion = Mem9_Null;
-    RetVal = BusRead32(addr);
     return;
 }
 
@@ -2236,21 +2231,20 @@ void ARMv5::DRead8_2()
 
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = (MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-        MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-        if (NDS.ARM9ClockShift == 2) DataCycles -= 4;
-        DataRegion = Mem9_MainRAM;
+        MRTrack.Type = MainRAMType::Fetch;
+        MRTrack.Var = MR8;
+        MRTrack.Progress = reg;
     }
     else
     {
         DataRegion = NDS.ARM9Regions[addr>>14];
         if ((NDS.ARM9Timestamp <= WBReleaseTS) && (DataRegion == WBLastRegion)) // check write buffer
             NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
-    }
     
-    if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
-        WBTimestamp = (NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-    *val = BusRead8(addr);
+        if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
+            WBTimestamp = (NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+        *val = BusRead8(addr);
+    }
 }
 
 bool ARMv5::DataRead16(u32 addr, u8 reg)
@@ -2334,21 +2328,20 @@ void ARMv5::DRead16_2()
 
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = (MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-        MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-        if (NDS.ARM9ClockShift == 2) DataCycles -= 4;
-        DataRegion = Mem9_MainRAM;
+        MRTrack.Type = MainRAMType::Fetch;
+        MRTrack.Var = MR16;
+        MRTrack.Progress = reg;
     }
     else
     {
         DataRegion = NDS.ARM9Regions[addr>>14];
         if ((NDS.ARM9Timestamp <= WBReleaseTS) && (DataRegion == WBLastRegion)) // check write buffer
             NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
-    }
     
-    if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
-        WBTimestamp = (NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-    *val = BusRead16(addr);
+        if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
+            WBTimestamp = (NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+        *val = BusRead16(addr);
+    }
 }
 
 bool ARMv5::DataRead32(u32 addr, u8 reg)
@@ -2435,21 +2428,20 @@ void ARMv5::DRead32_2()
 
     if ((addr >> 24) == 0x02)
     {
-        if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = (MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-        MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-        if (NDS.ARM9ClockShift == 2) DataCycles -= 4;
-        DataRegion = Mem9_MainRAM;
+        MRTrack.Type = MainRAMType::Fetch;
+        MRTrack.Var = MR32;
+        MRTrack.Progress = reg;
     }
     else
     {
         DataRegion = NDS.ARM9Regions[addr>>14];
         if ((NDS.ARM9Timestamp <= WBReleaseTS) && (DataRegion == WBLastRegion)) // check write buffer
             NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
-    }
     
-    if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
-        WBTimestamp = (NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-    *val = BusRead32(addr);
+        if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
+            WBTimestamp = (NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+        *val = BusRead32(addr);
+    }
     LDRRegs &= ~1<<reg;
 }
 
@@ -2533,15 +2525,19 @@ void ARMv5::DRead32S_2()
 
         if ((addr >> 24) == 0x02)
         {
-            MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            if (NDS.ARM9ClockShift == 2) MainRAMTimestamp += 4;
-            DataRegion = Mem9_MainRAM;
+            MRTrack.Type = MainRAMType::Fetch;
+            MRTrack.Var = MR32 | MRSequential;
+            MRTrack.Progress = reg;
         }
         else
         {
             DataRegion = NDS.ARM9Regions[addr>>14];
             if ((NDS.ARM9Timestamp <= WBReleaseTS) && (DataRegion == WBLastRegion)) // check write buffer
                 NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
+    
+            if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
+                WBTimestamp = (NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+            *val = BusRead32(addr);
         }
     }
     else // ns
@@ -2552,22 +2548,21 @@ void ARMv5::DRead32S_2()
 
         if ((addr >> 24) == 0x02)
         {
-            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = (MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-            MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            if (NDS.ARM9ClockShift == 2) DataCycles -= 4;
-            DataRegion = Mem9_MainRAM;
+            MRTrack.Type = MainRAMType::Fetch;
+            MRTrack.Var = MR32;
+            MRTrack.Progress = reg;
         }
         else
         {
             DataRegion = NDS.ARM9Regions[addr>>14];
             if ((NDS.ARM9Timestamp <= WBReleaseTS) && (DataRegion == WBLastRegion)) // check write buffer
                 NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
+    
+            if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
+                WBTimestamp = (NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+            *val = BusRead32(addr);
         }
     }
-    
-    if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
-        WBTimestamp = (NDS.ARM9Timestamp + DataCycles - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-    *val = BusRead32(addr);
     LDRRegs &= ~1<<reg;
 }
 
@@ -2652,16 +2647,18 @@ void ARMv5::DWrite8_2()
 
         if ((addr >> 24) == 0x02)
         {
-            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = (MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-            DataRegion = Mem9_MainRAM;
-            MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataCycles -= 1<<NDS.ARM9ClockShift;
+            MRTrack.Type = MainRAMType::Fetch;
+            MRTrack.Var = MRWrite | MR8;
+            MRTrack.Progress = reg;
         }
-        else DataRegion = NDS.ARM9Regions[addr>>14];
+        else
+        {
+            DataRegion = NDS.ARM9Regions[addr>>14];
         
-        if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
-            WBTimestamp = (NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-        BusWrite8(addr, val);
+            if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
+                WBTimestamp = (NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+            BusWrite8(addr, val);
+        }
     }
     else
     {
@@ -2758,16 +2755,18 @@ void ARMv5::DWrite16_2()
 
         if ((addr >> 24) == 0x02)
         {
-            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = (MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-            DataRegion = Mem9_MainRAM;
-            MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataCycles -= 2<<NDS.ARM9ClockShift;
+            MRTrack.Type = MainRAMType::Fetch;
+            MRTrack.Var = MRWrite | MR16;
+            MRTrack.Progress = reg;
         }
-        else DataRegion = NDS.ARM9Regions[addr>>14];
+        else
+        {
+            DataRegion = NDS.ARM9Regions[addr>>14];
         
-        if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
-            WBTimestamp = (NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-        BusWrite16(addr, val);
+            if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
+                WBTimestamp = (NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+            BusWrite16(addr, val);
+        }
     }
     else
     {
@@ -2869,16 +2868,18 @@ void ARMv5::DWrite32_2()
 
         if ((addr >> 24) == 0x02)
         {
-            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = (MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-            DataRegion = Mem9_MainRAM;
-            MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataCycles -= 2<<NDS.ARM9ClockShift;
+            MRTrack.Type = MainRAMType::Fetch;
+            MRTrack.Var = MRWrite | MR32;
+            MRTrack.Progress = reg;
         }
-        else DataRegion = NDS.ARM9Regions[addr>>14];
+        else
+        {
+            DataRegion = NDS.ARM9Regions[addr>>14];
         
-        if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
-            WBTimestamp = (NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-        BusWrite32(addr, val);
+            if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
+                WBTimestamp = (NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+            BusWrite32(addr, val);
+        }
     }
     else
     {
@@ -2977,11 +2978,18 @@ void ARMv5::DWrite32S_2()
 
             if ((addr >> 24) == 0x02)
             {
-                MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-                MainRAMTimestamp += 2<<NDS.ARM9ClockShift;
-                DataRegion = Mem9_MainRAM;
+                MRTrack.Type = MainRAMType::Fetch;
+                MRTrack.Var = MRWrite | MR32 | MRSequential;
+                MRTrack.Progress = reg;
             }
-            else DataRegion = NDS.ARM9Regions[addr>>14];
+            else
+            {
+                DataRegion = NDS.ARM9Regions[addr>>14];
+        
+                if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
+                    WBTimestamp = (NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+                BusWrite32(addr, val);
+            }
 
             // burst stores seem to process the extra delay cycles at the end of the burst
             // this means that we end up *always* able to begin code fetches 3 cycles early when accessing the bus
@@ -2997,17 +3005,19 @@ void ARMv5::DWrite32S_2()
 
             if ((addr >> 24) == 0x02)
             {
-                if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = (MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-                MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-                DataCycles -= 2<<NDS.ARM9ClockShift;
-                DataRegion = Mem9_MainRAM;
+                MRTrack.Type = MainRAMType::Fetch;
+                MRTrack.Var = MRWrite | MR32;
+                MRTrack.Progress = reg;
             }
-            else DataRegion = NDS.ARM9Regions[addr>>14];
-        }
+            else
+            {
+                DataRegion = NDS.ARM9Regions[addr>>14];
         
-        if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
-            WBTimestamp = (NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-        BusWrite32(addr, val);
+                if (WBTimestamp < ((NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
+                    WBTimestamp = (NDS.ARM9Timestamp + DataCycles + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+                BusWrite32(addr, val);
+            }
+        }
     }
     else
     {

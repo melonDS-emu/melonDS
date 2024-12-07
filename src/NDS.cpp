@@ -922,6 +922,67 @@ void NDS::MainRAMHandleARM9()
             break;
         }
 
+        case MainRAMType::Fetch:
+        {
+            u8 var = ARM9.MRTrack.Var;
+
+            if ((var & MRSequential) && A9WENTLAST)
+            {
+                MainRAMTimestamp = A9ContentionTS += 2;
+                ARM9.DataCycles = 2 << ARM9ClockShift;
+            }
+            else
+            {
+                if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
+
+                MainRAMTimestamp = A9ContentionTS +  (var & MR16) ? 8 : 9; // checkme: are these correct for 8bit?
+                if (var & MRWrite) A9ContentionTS += (var & MR16) ? 5 : 6; // checkme: is this correct for 133mhz?
+                else
+                {
+                    if (ARM9ClockShift == 1) A9ContentionTS += (var & MR16) ? 8 : 9;
+                    else                     A9ContentionTS += (var & MR16) ? 7 : 8;
+                    ARM9.DataCycles = 3 << ARM9ClockShift;
+                }
+                MainRAMLastAccess = A9LAST;
+            }
+            ARM9Timestamp = A9ContentionTS << ARM9ClockShift;
+
+            if (var & MRCodeFetch)
+            {
+                u32 addr = ARM9.FetchAddr[16];
+                ARM9.RetVal = ARM9Read32(addr);
+            }
+            else
+            {
+                u8 reg = ARM9.MRTrack.Progress;
+                u32 addr = ARM9.FetchAddr[reg];
+                if (var & MRWrite) // write
+                {
+                    u32 val = ARM9.STRVal[reg];
+                    if      (var & MR32) ARM9Write32(addr, val);
+                    else if (var & MR16) ARM9Write16(addr, val);
+                    else                 ARM9Write8 (addr, val);
+                }
+                else // read
+                {
+                    u32 dummy;
+                    u32* val = (ARM9.LDRFailedRegs & (1<<reg)) ? &dummy : &ARM9.R[reg];
+                    if      (var & MR32) *val = ARM9Read32(addr);
+                    else if (var & MR16) *val = ARM9Read16(addr);
+                    else                 *val = ARM9Read8 (addr);
+                }
+            }
+
+            int sub = 0;
+            if (var & MRWrite) sub = 3<<ARM9ClockShift;
+
+            u64 ts = (ARM9Timestamp - sub + ((1<<ARM9ClockShift)-1)) & ~((1<<ARM9ClockShift)-1);
+            if (ARM9.WBTimestamp < ts) ARM9.WBTimestamp = ts;
+
+            memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+            break;
+        }
+
         case MainRAMType::ICacheStream:
         {
             u8* prog = &ARM9.MRTrack.Progress;
