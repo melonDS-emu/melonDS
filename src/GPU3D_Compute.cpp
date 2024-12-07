@@ -19,7 +19,6 @@
 #include "GPU3D_Compute.h"
 
 #include <assert.h>
-#include <algorithm>
 
 #include "OpenGLSupport.h"
 
