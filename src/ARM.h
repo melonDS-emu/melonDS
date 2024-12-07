@@ -335,7 +335,11 @@ public:
         CodeFetch();
     }
 
-    void AddCycles_MW(s32 numM);
+    void AddCycles_MW(s32 numM)
+    {
+        DataCycles = numM;
+        QueueFunction(&ARMv5::AddCycles_MW_2);
+    }
 
     void AddCycles_CDI() override
     {
@@ -347,10 +351,33 @@ public:
         Store = true; // todo: queue this
         AddCycles_MW(DataCycles);
     }
-    
+
+    inline void SetupInterlock(u8 reg, s8 delay = 0)
+    {
+        ILQueueReg = reg;
+        ILQueueDelay = delay;
+
+        QueueFunction(&ARMv5::SetupInterlock_2);
+    }
+
     template <bool bitfield>
-    void HandleInterlocksExecute(u16 ilmask, u8* times = NULL);
-    void HandleInterlocksMemory(u8 reg);
+    inline void HandleInterlocksExecute(u16 ilmask, u8* times = NULL)
+    {
+        if constexpr (bitfield) ILQueueMask = ilmask;
+        else ILQueueMask = 1<<ilmask;
+
+        if (times == NULL) memset(ILQueueTimes, 0, sizeof(ILQueueTimes));
+        else               memcpy(ILQueueTimes, times, sizeof(ILQueueTimes));
+
+        QueueFunction(&ARMv5::HandleInterlocksExecute_2);
+    }
+
+    inline void HandleInterlocksMemory(u8 reg)
+    {
+        ILQueueMemReg = reg;
+
+        QueueFunction(&ARMv5::HandleInterlocksMemory_2);
+    }
 
     void GetCodeMemRegion(const u32 addr, MemRegion* region);
 
@@ -675,6 +702,7 @@ public:
             (this->*QueueEntry)();
     }
 
+    // Queue Functions
     void StartExec();
     void AddExecute();
     void AddCycles_MW_2();
@@ -695,6 +723,9 @@ public:
     void DWrite16_2();
     void DWrite32_2();
     void DWrite32S_2();
+    void SetupInterlock_2();
+    void HandleInterlocksExecute_2();
+    void HandleInterlocksMemory_2();
     void QueueUpdateMode() { UpdateMode(QueueMode[0], QueueMode[1], true); }
     void SignExtend8() { R[ExtReg] = (s32)(s8)R[ExtReg]; }
     void SignExtend16() { R[ExtReg] = (s32)(s16)R[ExtReg]; }
@@ -760,7 +791,7 @@ public:
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
     
     u64 ITCMTimestamp;
-    u64 TimestampActual;
+    u64 TimestampMemory;
     void (ARMv5::*FuncQueue[31])(void);
     u32 PC;
     bool NullFetch;
@@ -770,6 +801,11 @@ public:
     u8 ILPrevReg;
     u64 ILCurrTime;
     u64 ILPrevTime;
+    u8 ILQueueReg;
+    s8 ILQueueDelay;
+    u8 ILQueueMemReg;
+    u8 ILQueueTimes[16];
+    u16 ILQueueMask;
 
     u8 ICacheStreamPtr;
     u8 DCacheStreamPtr;

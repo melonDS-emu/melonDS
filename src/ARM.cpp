@@ -220,7 +220,7 @@ void ARMv5::Reset()
     Store = false;
     
     ITCMTimestamp = 0;
-    TimestampActual = 0;
+    TimestampMemory = 0;
     ILCurrReg = 16;
     ILPrevReg = 16;
 
@@ -1373,7 +1373,7 @@ void ARMv5::CodeFetch()
         // in practice we can treat this as a 1 cycle fetch, with no penalties
         RetVal = NextInstr[1] >> 16;
         NDS.ARM9Timestamp++;
-        if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
+        if (NDS.ARM9Timestamp < TimestampMemory) NDS.ARM9Timestamp = TimestampMemory;
         Store = false;
         DataRegion = Mem9_Null;
     }
@@ -1391,26 +1391,24 @@ void ARMv5::AddExecute()
     NDS.ARM9Timestamp += ExecuteCycles;
 }
 
-void ARMv5::AddCycles_MW(s32 numM)
-{
-    DataCycles = numM;
-    QueueFunction(&ARMv5::AddCycles_MW_2);
-}
-
 void ARMv5::AddCycles_MW_2()
 {
-    TimestampActual = NDS.ARM9Timestamp;
+    TimestampMemory = NDS.ARM9Timestamp;
 
     NDS.ARM9Timestamp -= DataCycles;
 }
 
-template <bool bitfield>
-void ARMv5::HandleInterlocksExecute(u16 ilmask, u8* times)
+void ARMv5::SetupInterlock_2()
 {
-    /*
-    if ((bitfield && (ilmask & (1<<ILCurrReg))) || (!bitfield && (ilmask == ILCurrReg)))
+    ILCurrReg = ILQueueReg;
+    ILCurrTime = TimestampMemory + ILQueueDelay;
+}
+
+void ARMv5::HandleInterlocksExecute_2()
+{
+    if (ILQueueMask & (1<<ILCurrReg))
     {
-        u64 time = ILCurrTime - (times ? times[ILCurrReg] : 0);
+        u64 time = ILCurrTime - ILQueueTimes[ILCurrReg];
         if (NDS.ARM9Timestamp < time)
         {
             u64 diff = time - NDS.ARM9Timestamp;
@@ -1422,9 +1420,10 @@ void ARMv5::HandleInterlocksExecute(u16 ilmask, u8* times)
             return;
         }
     }
-    if ((bitfield && (ilmask & (1<<ILPrevReg))) || (!bitfield && (ilmask == ILCurrReg)))
+
+    if (ILQueueMask & (1<<ILPrevReg))
     {
-        u64 time = ILPrevTime - (times ? times[ILPrevReg] : 0);
+        u64 time = ILPrevTime - ILQueueTimes[ILPrevReg];
         if (NDS.ARM9Timestamp < time)
         {
             u64 diff = time - NDS.ARM9Timestamp; // should always be 1?
@@ -1435,20 +1434,17 @@ void ARMv5::HandleInterlocksExecute(u16 ilmask, u8* times)
 
     ILPrevReg = ILCurrReg;
     ILPrevTime = ILCurrTime;
-    ILCurrReg = 16;*/
+    ILCurrReg = 16;
 }
-template void ARMv5::HandleInterlocksExecute<true>(u16 ilmask, u8* times);
-template void ARMv5::HandleInterlocksExecute<false>(u16 ilmask, u8* times);
 
-void ARMv5::HandleInterlocksMemory(u8 reg)
+void ARMv5::HandleInterlocksMemory_2()
 {
-    /*
-    if ((reg != ILPrevReg) || (NDS.ARM9Timestamp >= ILPrevTime)) return;
+    if ((ILQueueMemReg != ILPrevReg) || (NDS.ARM9Timestamp >= ILPrevTime)) return;
     
     u64 diff = ILPrevTime - NDS.ARM9Timestamp; // should always be 1?
     NDS.ARM9Timestamp = ILPrevTime;
     ITCMTimestamp += diff; // checkme
-    ILPrevTime = 16;*/
+    ILPrevTime = 16;
 }
 
 void ARMv4::CodeRead16(u32 addr)

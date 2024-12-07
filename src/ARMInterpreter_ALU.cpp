@@ -927,8 +927,7 @@ void A_MUL(ARM* cpu)
             cpu->AddCycles_CI(2); // 1 X
 
             ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
-            ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF;
-            ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+            ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
         }
     }
     else
@@ -974,8 +973,7 @@ void A_MLA(ARM* cpu)
             cpu->AddCycles_CI(2); // 1 X
 
             ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
-            ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF;
-            ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+            ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
         }
     }
     else
@@ -1018,9 +1016,8 @@ void A_UMULL(ARM* cpu)
         {
             cpu->AddCycles_CI(2);
             
-            ((ARMv5*)cpu)->AddCycles_MW(1); // dummy memory stage for interlock handling
-            ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF; // only one rd interlocks
-            ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+            ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+            ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF); // only one rd interlocks
         }
     }
     else
@@ -1070,9 +1067,8 @@ void A_UMLAL(ARM* cpu)
         {
             cpu->AddCycles_CI(2);
             
-            ((ARMv5*)cpu)->AddCycles_MW(1); // dummy memory stage for interlock handling
-            ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF; // only one rd interlocks
-            ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+            ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+            ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF); // only one rd interlocks
         }
     }
     else
@@ -1115,9 +1111,8 @@ void A_SMULL(ARM* cpu)
         {
             cpu->AddCycles_CI(2);
             
-            ((ARMv5*)cpu)->AddCycles_MW(1); // dummy memory stage for interlock handling
-            ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF; // only one rd interlocks
-            ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+            ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+            ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF); // only one rd interlocks
         }
     }
     else
@@ -1166,9 +1161,8 @@ void A_SMLAL(ARM* cpu)
         {
             cpu->AddCycles_CI(2);
             
-            ((ARMv5*)cpu)->AddCycles_MW(1); // dummy memory stage for interlock handling
-            ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF; // only one rd interlocks
-            ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+            ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+            ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF); // only one rd interlocks
         }
     }
     else
@@ -1213,9 +1207,8 @@ void A_SMLAxy(ARM* cpu)
                                                  (1 << ((cpu->CurInstr >> 12) & 0xF)), iltime);
     cpu->AddCycles_C();
     
-    ((ARMv5*)cpu)->AddCycles_MW(1); // dummy memory stage for interlock handling
-    ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF; // only one rd interlocks
-    ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
 }
 
 void A_SMLAWy(ARM* cpu)
@@ -1234,6 +1227,7 @@ void A_SMLAWy(ARM* cpu)
     
     if (((cpu->CurInstr >> 16) & 0xF) != 15)
         cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
@@ -1244,9 +1238,8 @@ void A_SMLAWy(ARM* cpu)
                                                  (1 << ((cpu->CurInstr >> 12) & 0xF)), iltime);
     cpu->AddCycles_C();
     
-    ((ARMv5*)cpu)->AddCycles_MW(1); // dummy memory stage for interlock handling
-    ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF; // only one rd interlocks
-    ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
 }
 
 void A_SMULxy(ARM* cpu)
@@ -1271,9 +1264,8 @@ void A_SMULxy(ARM* cpu)
                                                  (1 << ((cpu->CurInstr >> 8) & 0xF)));
     cpu->AddCycles_C();
     
-    ((ARMv5*)cpu)->AddCycles_MW(1); // dummy memory stage for interlock handling
-    ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF; // only one rd interlocks
-    ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
 }
 
 void A_SMULWy(ARM* cpu)
@@ -1296,9 +1288,8 @@ void A_SMULWy(ARM* cpu)
                                                  (1 << ((cpu->CurInstr >> 8) & 0xF)));
     cpu->AddCycles_C();
 
-    ((ARMv5*)cpu)->AddCycles_MW(1); // dummy memory stage for interlock handling
-    ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF; // only one rd interlocks
-    ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
 }
 
 void A_SMLALxy(ARM* cpu)
@@ -1334,8 +1325,7 @@ void A_SMLALxy(ARM* cpu)
     cpu->AddCycles_CI(2); // 1 X
 
     ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
-    ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF; // only one rd interlocks
-    ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
 }
 
 
@@ -1388,9 +1378,8 @@ void A_QADD(ARM* cpu)
     ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF)));
     cpu->AddCycles_C();
 
-    ((ARMv5*)cpu)->AddCycles_MW(1); // dummy memory stage for interlock handling
-    ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 12) & 0xF; // only one rd interlocks
-    ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 12) & 0xF);
 }
 
 void A_QSUB(ARM* cpu)
@@ -1413,9 +1402,8 @@ void A_QSUB(ARM* cpu)
     ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF)));
     cpu->AddCycles_C();
 
-    ((ARMv5*)cpu)->AddCycles_MW(1); // dummy memory stage for interlock handling
-    ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 12) & 0xF; // only one rd interlocks
-    ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 12) & 0xF);
 }
 
 void A_QDADD(ARM* cpu)
@@ -1446,9 +1434,8 @@ void A_QDADD(ARM* cpu)
     ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF)));
     cpu->AddCycles_C();
 
-    ((ARMv5*)cpu)->AddCycles_MW(1); // dummy memory stage for interlock handling
-    ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 12) & 0xF; // only one rd interlocks
-    ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 12) & 0xF);
 }
 
 void A_QDSUB(ARM* cpu)
@@ -1479,9 +1466,8 @@ void A_QDSUB(ARM* cpu)
     ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF)));
     cpu->AddCycles_C();
 
-    ((ARMv5*)cpu)->AddCycles_MW(1); // dummy memory stage for interlock handling
-    ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 12) & 0xF; // only one rd interlocks
-    ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 12) & 0xF);
 }
 
 

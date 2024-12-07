@@ -1282,10 +1282,14 @@ void DSi::Set_SCFG_Clock9(u16 val)
         ARM9.ICacheStreamTimes[i] >>= ARM9ClockShift;
         ARM9.DCacheStreamTimes[i] >>= ARM9ClockShift;
     }
+    ARM9.TimestampMemory >>= ARM9ClockShift;
+    ARM9.ITCMTimestamp   >>= ARM9ClockShift;
     ARM9.WBTimestamp >>= ARM9ClockShift;
     ARM9.WBDelay     >>= ARM9ClockShift;
     ARM9.WBReleaseTS >>= ARM9ClockShift;
     ARM9.WBInitialTS >>= ARM9ClockShift;
+    ARM9.ILCurrTime  >>= ARM9ClockShift;
+    ARM9.ILPrevTime  >>= ARM9ClockShift;
 
     Log(LogLevel::Debug, "CLOCK9=%04X\n", val);
     SCFG_Clock9 = val & 0x0187;
@@ -1300,10 +1304,14 @@ void DSi::Set_SCFG_Clock9(u16 val)
         ARM9.ICacheStreamTimes[i] <<= ARM9ClockShift;
         ARM9.DCacheStreamTimes[i] <<= ARM9ClockShift;
     }
+    ARM9.TimestampMemory <<= ARM9ClockShift;
+    ARM9.ITCMTimestamp   <<= ARM9ClockShift;
     ARM9.WBTimestamp <<= ARM9ClockShift;
     ARM9.WBDelay     <<= ARM9ClockShift;
     ARM9.WBReleaseTS <<= ARM9ClockShift;
     ARM9.WBInitialTS <<= ARM9ClockShift;
+    ARM9.ILCurrTime  <<= ARM9ClockShift;
+    ARM9.ILPrevTime  <<= ARM9ClockShift;
 
     ARM9.UpdateRegionTimings(0x00000, 0x40000);
 }

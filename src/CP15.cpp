@@ -438,7 +438,7 @@ bool ARMv5::ICacheLookup(const u32 addr)
                     ICacheStreamPtr = 7;
                 }
             }
-            if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
+            if (NDS.ARM9Timestamp < TimestampMemory) NDS.ARM9Timestamp = TimestampMemory;
             DataRegion = Mem9_Null;
             Store = false;
 
@@ -521,7 +521,7 @@ bool ARMv5::ICacheLookup(const u32 addr)
         if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_STREAMING) [[unlikely]]
         {
             NDS.ARM9Timestamp += MemTimings[tag >> 14][1] + (MemTimings[tag >> 14][2] * ((DCACHE_LINELENGTH / 4) - 1));
-            if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual; // this should never trigger in practice
+            if (NDS.ARM9Timestamp < TimestampMemory) NDS.ARM9Timestamp = TimestampMemory; // this should never trigger in practice
         }
         else // ICache Streaming logic
         {
@@ -2034,7 +2034,7 @@ void ARMv5::CodeRead32(u32 addr)
     if (!(PU_Map[addr>>12] & CP15_MAP_EXECUTABLE)) [[unlikely]]
     {        
         NDS.ARM9Timestamp += 1;
-        if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
+        if (NDS.ARM9Timestamp < TimestampMemory) NDS.ARM9Timestamp = TimestampMemory;
         DataRegion = Mem9_Null;
         Store = false;
         RetVal = ((u64)1<<63);
@@ -2045,7 +2045,7 @@ void ARMv5::CodeRead32(u32 addr)
     {
         if (NDS.ARM9Timestamp < ITCMTimestamp) NDS.ARM9Timestamp = ITCMTimestamp;
         NDS.ARM9Timestamp += 1;
-        if (NDS.ARM9Timestamp < TimestampActual) NDS.ARM9Timestamp = TimestampActual;
+        if (NDS.ARM9Timestamp < TimestampMemory) NDS.ARM9Timestamp = TimestampMemory;
         DataRegion = Mem9_Null;
         Store = false;
         RetVal = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];

@@ -315,8 +315,7 @@ void A_MRC(ARM* cpu)
     {
         cpu->AddCycles_CI(2); // 1 Execute cycle
         ((ARMv5*)cpu)->AddCycles_MW(2); // 2 Memory cycles
-        ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 12) & 0xF; // only one rd interlocks
-        ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;
+        ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 12) & 0xF);
     }
     else cpu->AddCycles_CI(2 + 1); // TODO: checkme
 }
