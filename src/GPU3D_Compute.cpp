@@ -322,18 +322,32 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ScaleFactor = scale;
     ScreenWidth = 256 * ScaleFactor;
     ScreenHeight = 192 * ScaleFactor;
-
     /* MelonPrimeDS { */
-    // Calculate TileScale using more efficient bit manipulation
+    // Calculate TileScale using efficient bit manipulation
+    // First, multiply ScaleFactor by 2 and divide by 9 to get the base scale value
     TileScale = 2 * ScaleFactor / 9;
-    TileScale = TileScale ? (1u << (31 - __builtin_clz(TileScale))) : 1; // __builtin_clz utilizes native CPU instructions (e.g., BSR / LZCNT), providing higher speed.
 
-    // Determine TileSize using branchless calculation
+    // Find the nearest power of 2 using bit manipulation:
+    // 1. __builtin_clz counts leading zeros to find the highest set bit
+    // 2. Uses CPU's native instructions (BSR/LZCNT) for optimal performance
+    // 3. If TileScale is 0, sets to 1; otherwise uses nearest power of 2
+    TileScale = TileScale ? (1u << (31 - __builtin_clz(TileScale))) : 1;
+
+    // Calculate TileSize using branchless conditional operations:
+    // 1. Multiply TileScale by 8 (shift left by 3)
+    // 2. Check if result is <= 32
+    // 3. If result exceeds 32, clamp it to 32
     TileSize = (TileScale << 3) & (-(TileScale << 3) <= 32);
     TileSize = TileSize ? TileSize : 32;
 
-    // Perform branchless conditional calculations
+    // Set grid parameters using branchless conditional calculation:
+    // - If TileSize >= 32, sets CoarseTileCountY to 6 (4 + 2)
+    // - Otherwise, sets it to 4
     CoarseTileCountY = 4 + ((TileSize >= 32) << 1);
+
+    // Calculate clear mask size for coarse binning:
+    // - If TileSize >= 32, sets ClearCoarseBinMaskLocalSize to 48 (64 - 16)
+    // - Otherwise, keeps it at 64
     ClearCoarseBinMaskLocalSize = 64 - ((TileSize >= 32) << 4);
     /* MelonPrimeDS } */
 
@@ -524,10 +538,6 @@ void ComputeRenderer::SetupYSpan(RenderPolygon* rp, SpanSetupY* span, Polygon* p
     {
         s32 yrecip = (1<<18) / ylen;
         span->Increment = (span->X1-span->X0) * yrecip;
-        /* MelonPrimeDS {
-        s64 num = ((s64)(span->X1 - span->X0) << 18);
-        span->Increment = (s32)(num / ylen);
-        /* MelonPrimeDS } */
         if (span->Increment < 0) span->Increment = -span->Increment;
     }
 
