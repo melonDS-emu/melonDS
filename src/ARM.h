@@ -684,7 +684,6 @@ public:
     void JumpTo_3C();
     void JumpTo_4();
     void DAbortHandle();
-    void DAbortHandleS();
     void DCacheFin8();
     void DRead8_2();
     void DCacheFin16();

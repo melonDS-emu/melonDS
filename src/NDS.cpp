@@ -928,7 +928,8 @@ void NDS::MainRAMHandleARM9()
 
             if ((var & MRSequential) && A9WENTLAST)
             {
-                MainRAMTimestamp = A9ContentionTS += 2;
+                A9ContentionTS += 2;
+                MainRAMTimestamp += 2;
                 ARM9.DataCycles = 2 << ARM9ClockShift;
             }
             else

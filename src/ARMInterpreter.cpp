@@ -37,7 +37,6 @@ namespace melonDS::ARMInterpreter
 void A_UNK(ARM* cpu)
 {
     cpu->AddCycles_C();
-    cpu->abt=1;
     Log(LogLevel::Warn, "undefined ARM%d instruction %08X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-8);
 #ifdef GDBSTUB_ENABLED
     cpu->GdbStub.Enter(cpu->GdbStub.IsConnected(), Gdb::TgtStatus::FaultInsn, cpu->R[15]-8);
@@ -232,7 +231,7 @@ void A_MRS(ARM* cpu)
 
     if (cpu->Num != 1) // arm9
     {
-        cpu->AddCycles_C(); // 1 X
+        cpu->AddCycles_CI(2); // 1 X
         ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
     }
     else cpu->AddCycles_C(); // arm7
@@ -314,7 +313,7 @@ void A_MRC(ARM* cpu)
 
     if (cpu->Num != 1)
     {
-        cpu->AddCycles_C(); // 1 Execute cycle
+        cpu->AddCycles_CI(2); // 1 Execute cycle
         ((ARMv5*)cpu)->AddCycles_MW(2); // 2 Memory cycles
         ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 12) & 0xF; // only one rd interlocks
         ((ARMv5*)cpu)->ILCurrTime = ((ARMv5*)cpu)->TimestampActual;

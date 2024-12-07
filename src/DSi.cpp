@@ -1277,6 +1277,15 @@ void DSi::Set_SCFG_Clock9(u16 val)
 {
     ARM9Timestamp >>= ARM9ClockShift;
     ARM9Target    >>= ARM9ClockShift;
+    for (int i = 0; i < 7; i++)
+    {
+        ARM9.ICacheStreamTimes[i] >>= ARM9ClockShift;
+        ARM9.DCacheStreamTimes[i] >>= ARM9ClockShift;
+    }
+    ARM9.WBTimestamp >>= ARM9ClockShift;
+    ARM9.WBDelay     >>= ARM9ClockShift;
+    ARM9.WBReleaseTS >>= ARM9ClockShift;
+    ARM9.WBInitialTS >>= ARM9ClockShift;
 
     Log(LogLevel::Debug, "CLOCK9=%04X\n", val);
     SCFG_Clock9 = val & 0x0187;
@@ -1286,6 +1295,16 @@ void DSi::Set_SCFG_Clock9(u16 val)
 
     ARM9Timestamp <<= ARM9ClockShift;
     ARM9Target    <<= ARM9ClockShift;
+    for (int i = 0; i < 7; i++)
+    {
+        ARM9.ICacheStreamTimes[i] <<= ARM9ClockShift;
+        ARM9.DCacheStreamTimes[i] <<= ARM9ClockShift;
+    }
+    ARM9.WBTimestamp <<= ARM9ClockShift;
+    ARM9.WBDelay     <<= ARM9ClockShift;
+    ARM9.WBReleaseTS <<= ARM9ClockShift;
+    ARM9.WBInitialTS <<= ARM9ClockShift;
+
     ARM9.UpdateRegionTimings(0x00000, 0x40000);
 }
 
@@ -2562,7 +2581,7 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
             if (oldvram != newvram)
                 SetVRAMTimings(newvram);
 
-            /*switch ((SCFG_EXT[0] >> 14) & 0x3)
+            switch ((SCFG_EXT[0] >> 14) & 0x3)
             {
             case 0:
             case 1:
@@ -2575,7 +2594,7 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
                 NDS::MainRAMMask = 0xFFFFFF;
                 printf("RAM: 16MB\n");
                 break;
-            }*/
+            }
             // HAX!!
             // a change to the RAM size setting is supposed to apply immediately (it does so on hardware)
             // however, doing so will cause DS-mode app startup to break, because the change happens while the ARM7

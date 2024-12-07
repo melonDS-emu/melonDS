@@ -924,7 +924,7 @@ void A_MUL(ARM* cpu)
         if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(3); // S
         else
         {
-            cpu->AddCycles_C(); // 1 X
+            cpu->AddCycles_CI(2); // 1 X
 
             ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
             ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF;
@@ -971,7 +971,7 @@ void A_MLA(ARM* cpu)
         if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(3);
         else
         {
-            cpu->AddCycles_C(); // 1 X
+            cpu->AddCycles_CI(2); // 1 X
 
             ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
             ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF;
@@ -1331,7 +1331,7 @@ void A_SMLALxy(ARM* cpu)
                                                  (1 << ((cpu->CurInstr >> 8) & 0xF)) |
                                                  (1 << ((cpu->CurInstr >> 12) & 0xF))/* |
                                                  (1 << ((cpu->CurInstr >> 16) & 0xF))*/, iltime);
-    cpu->AddCycles_C(); // 1 X
+    cpu->AddCycles_CI(2); // 1 X
 
     ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
     ((ARMv5*)cpu)->ILCurrReg = (cpu->CurInstr >> 16) & 0xF; // only one rd interlocks

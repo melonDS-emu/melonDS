@@ -1399,12 +1399,9 @@ void ARMv5::AddCycles_MW(s32 numM)
 
 void ARMv5::AddCycles_MW_2()
 {
-    s32 numM = DataCycles;
-    TimestampActual = numM + NDS.ARM9Timestamp;
+    TimestampActual = NDS.ARM9Timestamp;
 
-    numM -= 3<<NDS.ARM9ClockShift;
-
-    if (numM > 0) NDS.ARM9Timestamp += numM;
+    NDS.ARM9Timestamp -= DataCycles;
 }
 
 template <bool bitfield>
