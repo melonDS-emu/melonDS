@@ -170,7 +170,7 @@ void LoadSingle(ARM* cpu, const u8 rd, const u8 rn, const s32 offset, const u16 
 
     if (rd == 15)
     {
-        //if (cpu->Num==0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampMemory + ((size<32) || (addr&0x3)); // force an interlock
+        if (cpu->Num==0) ((ARMv5*)cpu)->ForceInterlock((size<32) || (addr&0x3));
 
         cpu->JumpTo(cpu->R[15], false, 1);
     }
@@ -373,7 +373,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
         ((ARMv5*)cpu)->DataAbort(); \
         return; } \
     if (r+1 == 15) { \
-        /*if (cpu->Num==0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampMemory;*/ \
+        if (cpu->Num==0) ((ARMv5*)cpu)->ForceInterlock(); \
         cpu->JumpTo(cpu->R[15], cpu->CurInstr & (1<<22), 1); } /* restores cpsr presumably due to shared dna with ldm */ \
     else { \
         if (cpu->Num == 0) ((ARMv5*)cpu)->SetupInterlock(r+1); } \
@@ -395,7 +395,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
         ((ARMv5*)cpu)->DataAbort(); \
         return; } \
     if (r+1 == 15) { \
-        /*if (cpu->Num==0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampMemory;*/ \
+        if (cpu->Num==0) ((ARMv5*)cpu)->ForceInterlock(); ; \
         cpu->JumpTo(cpu->R[15], cpu->CurInstr & (1<<22), 1); } /* restores cpsr presumably due to shared dna with ldm */ \
     else { \
         if (cpu->Num == 0) ((ARMv5*)cpu)->SetupInterlock(r+1); } \
@@ -681,7 +681,7 @@ void A_LDM(ARM* cpu)
     {
         //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
         cpu->AddCycles_CDI();
-        if (cpu->Num == 0) ;//cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampMemory; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+        if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
         else; // CHECKME: ARM7 timing behavior?
     }
     else
@@ -739,7 +739,7 @@ void A_LDM(ARM* cpu)
     // jump if pc got written
     if (cpu->CurInstr & (1<<15))
     {
-        //if (cpu->Num==0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampMemory; // force an interlock
+        if (cpu->Num==0) ((ARMv5*)cpu)->ForceInterlock();
         cpu->JumpTo(cpu->R[15], cpu->CurInstr & (1<<22), 1);
     }
     else if (cpu->Num == 0)
@@ -831,7 +831,7 @@ void A_STM(ARM* cpu)
     {
         //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
         cpu->AddCycles_CD();
-        if (cpu->Num == 0);// cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampMemory; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+        if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
         else; // CHECKME: ARM7 timing behavior?
     }
     else
@@ -1015,7 +1015,7 @@ void T_PUSH(ARM* cpu)
     {
         //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
         cpu->AddCycles_CD();
-        if (cpu->Num == 0);// cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampMemory; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+        if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
         else; // CHECKME: ARM7 timing behavior?
     }
     else
@@ -1071,7 +1071,7 @@ void T_POP(ARM* cpu)
         {
             //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
             cpu->AddCycles_CDI();
-            if (cpu->Num == 0);// cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampMemory; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+            if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
             else; // CHECKME: ARM7 timing behavior?
         }
         else
@@ -1082,7 +1082,7 @@ void T_POP(ARM* cpu)
 
         if (!dabort) [[likely]]
         {
-            //if (cpu->Num==0) cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampMemory; // force an interlock
+            if (cpu->Num==0) ((ARMv5*)cpu)->ForceInterlock();
 
             cpu->JumpTo(cpu->R[15], false, 2);
             base += 4;
@@ -1101,7 +1101,7 @@ void T_POP(ARM* cpu)
         {
             //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
             cpu->AddCycles_CDI();
-            if (cpu->Num == 0);// cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampMemory; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+            if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
             else; // CHECKME: ARM7 timing behavior?
         }
         else
@@ -1162,7 +1162,7 @@ void T_STMIA(ARM* cpu)
     {
         //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
         cpu->AddCycles_CD();
-        if (cpu->Num == 0);// cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampMemory; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+        if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
         else; // CHECKME: ARM7 timing behavior?
     }
     else
@@ -1212,7 +1212,7 @@ void T_LDMIA(ARM* cpu)
     {
         //if (cpu->Num == 0 && cpu->DataRegion == Mem9_ITCM) cpu->NDS.ARM9Timestamp += 1;
         cpu->AddCycles_CDI();
-        if (cpu->Num == 0);// cpu->NDS.ARM9Timestamp = ((ARMv5*)cpu)->TimestampMemory; // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
+        if (cpu->Num == 0) ((ARMv5*)cpu)->ForceInterlock(); // on arm9 single reg ldm/stm cannot overlap memory and fetch stages
         else; // CHECKME: ARM7 timing behavior?
     }
     else

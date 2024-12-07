@@ -1447,6 +1447,11 @@ void ARMv5::HandleInterlocksMemory_2()
     ILPrevTime = 16;
 }
 
+void ARMv5::ForceInterlock_2()
+{
+    NDS.ARM9Timestamp = TimestampMemory + ILForceDelay;
+}
+
 void ARMv4::CodeRead16(u32 addr)
 {
     if ((addr >> 24) == 0x02)

@@ -372,6 +372,12 @@ public:
         QueueFunction(&ARMv5::HandleInterlocksExecute_2);
     }
 
+    inline void ForceInterlock(s8 delay = 0)
+    {
+        ILForceDelay = delay;
+        QueueFunction(&ARMv5::ForceInterlock_2);
+    }
+
     inline void HandleInterlocksMemory(u8 reg)
     {
         ILQueueMemReg = reg;
@@ -726,6 +732,7 @@ public:
     void SetupInterlock_2();
     void HandleInterlocksExecute_2();
     void HandleInterlocksMemory_2();
+    void ForceInterlock_2();
     void QueueUpdateMode() { UpdateMode(QueueMode[0], QueueMode[1], true); }
     void SignExtend8() { R[ExtReg] = (s32)(s8)R[ExtReg]; }
     void SignExtend16() { R[ExtReg] = (s32)(s16)R[ExtReg]; }
@@ -812,6 +819,7 @@ public:
     u64 ICacheStreamTimes[7];
     u64 DCacheStreamTimes[7];
 
+    s8 ILForceDelay;
     u8 WBWritePointer; // which entry to attempt to write next; should always be ANDed with 0xF after incrementing
     u8 WBFillPointer; // where the next entry should be added; should always be ANDed with 0xF after incrementing
     u8 WBWriting; // whether the buffer is actively trying to perform a write
