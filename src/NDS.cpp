@@ -473,7 +473,7 @@ void NDS::Reset()
     ARM9Timestamp = 0; ARM9Target = 0;
     ARM7Timestamp = 0; ARM7Target = 0;
     MainRAMTimestamp = 0;
-    A9ContentionTS = 0;
+    A9ContentionTS = 0; ConTSLock = false;
     SysTimestamp = 0;
 
     InitTimings();
@@ -945,7 +945,7 @@ void NDS::MainRAMHandleARM9()
                 }
                 MainRAMLastAccess = A9LAST;
             }
-            ARM9Timestamp = A9ContentionTS << ARM9ClockShift;
+            ARM9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
 
             if (var & MRCodeFetch)
             {
@@ -980,6 +980,7 @@ void NDS::MainRAMHandleARM9()
             if (ARM9.WBTimestamp < ts) ARM9.WBTimestamp = ts;
 
             memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+            ConTSLock = false;
             break;
         }
 
@@ -1013,7 +1014,42 @@ void NDS::MainRAMHandleARM9()
             {
                 ARM9.RetVal = icache[(ARM9.FetchAddr[16] & 0x1F) / 4];
                 memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
-                A9ContentionTS = 0;
+                ConTSLock = false;
+            }
+            break;
+        }
+
+        case MainRAMType::DCacheStream:
+        {
+            u8* prog = &ARM9.MRTrack.Progress;
+            u32 addr = (ARM9.FetchAddr[16] & ~0x1F) | (*prog * 4);
+            u32* dcache = (u32*)&ARM9.DCache[ARM9.MRTrack.Var << 5];
+
+            if ((*prog > 0) && A9WENTLAST)
+            {
+                MainRAMTimestamp += 2;
+                A9ContentionTS += 2;
+            }
+            else
+            {
+                if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
+
+                MainRAMTimestamp = A9ContentionTS + 9;
+                A9ContentionTS += (ARM9ClockShift == 1) ? 9 : 8;
+                MainRAMLastAccess = A9LAST;
+            }
+
+            dcache[*prog] = ARM9Read32(addr);
+
+            if (*prog == ARM9.DCacheStreamPtr) ARM9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
+            else if (*prog > ARM9.DCacheStreamPtr) ARM9.DCacheStreamTimes[*prog-1] = (A9ContentionTS << ARM9ClockShift) - 1;
+
+            (*prog)++;
+            if (*prog >= 8)
+            {
+                ARM9.RetVal = dcache[(ARM9.FetchAddr[16] & 0x1F) / 4];
+                memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+                ConTSLock = false;
             }
             break;
         }
@@ -1082,10 +1118,14 @@ void NDS::MainRAMHandleARM7()
 
 void NDS::MainRAMHandle()
 {
-    if (!A9ContentionTS)
+    if (!ConTSLock)
     {
         A9ContentionTS = (ARM9Timestamp + ((1<<ARM9ClockShift)-1)) >> ARM9ClockShift;
-        if ((ARM9.MRTrack.Type != MainRAMType::Null) && (A9ContentionTS < MainRAMTimestamp)) A9ContentionTS = MainRAMTimestamp;
+        if (ARM9.MRTrack.Type != MainRAMType::Null)
+        {
+            ConTSLock = true;
+            if (A9ContentionTS < MainRAMTimestamp) A9ContentionTS = MainRAMTimestamp;
+        }
     }
 
     if (A7PRIORITY)
@@ -1094,7 +1134,7 @@ void NDS::MainRAMHandle()
         {
             if (A9ContentionTS < ARM7Timestamp)
             {
-                if (ARM9.MRTrack.Type == MainRAMType::Null) { A9ContentionTS = 0; return; }
+                if (ARM9.MRTrack.Type == MainRAMType::Null) return;
                 MainRAMHandleARM9();
             }
             else
@@ -1110,7 +1150,7 @@ void NDS::MainRAMHandle()
         {
             if (A9ContentionTS <= ARM7Timestamp)
             {
-                if (ARM9.MRTrack.Type == MainRAMType::Null) { A9ContentionTS = 0; return; }
+                if (ARM9.MRTrack.Type == MainRAMType::Null) return;
                 MainRAMHandleARM9();
             }
             else
@@ -1220,7 +1260,7 @@ u32 NDS::RunFrame()
                 }
                 else if (ARM9.MRTrack.Type == MainRAMType::Null)
                 {
-                    //if (ARM9.abt) ARM9Timestamp = ARM9Target;
+                    if (ARM9.abt) ARM9Timestamp = ARM9Target;
                     ARM9.Execute<cpuMode>();
                 }
                 

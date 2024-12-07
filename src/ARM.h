@@ -57,8 +57,9 @@ enum class CPUExecuteMode : u32
 enum class MainRAMType : u8
 {
     Null = 0,
+    Fetch,
     ICacheStream,
-    Fetch
+    DCacheStream,
 };
 
 // each one represents a bit in the field
@@ -501,7 +502,7 @@ public:
      * cache. The address is internally aligned to an word boundary
      * @return Value of the word at addr
      */
-    u32 DCacheLookup(const u32 addr);
+    bool DCacheLookup(const u32 addr);
 
     /**
      * @brief Updates a word in the data cache if present
@@ -684,8 +685,11 @@ public:
     void JumpTo_4();
     void DAbortHandle();
     void DAbortHandleS();
+    void DCacheFin8();
     void DRead8_2();
+    void DCacheFin16();
     void DRead16_2();
+    void DCacheFin32();
     void DRead32_2();
     void DRead32S_2();
     void DWrite8_2();

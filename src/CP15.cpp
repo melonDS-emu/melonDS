@@ -586,7 +586,7 @@ bool ARMv5::IsAddressICachable(const u32 addr) const
     return PU_Map[addr >> CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_ICACHEABLE;
 }
 
-u32 ARMv5::DCacheLookup(const u32 addr)
+bool ARMv5::DCacheLookup(const u32 addr)
 {
     //Log(LogLevel::Debug,"DCache load @ %08x\n", addr);
     const u32 tag = (addr & ~(DCACHE_LINELENGTH - 1));
@@ -655,7 +655,8 @@ u32 ARMv5::DCacheLookup(const u32 addr)
             }
             DataRegion = Mem9_DCache;
             //Log(LogLevel::Debug, "DCache hit at %08lx returned %08x from set %i, line %i\n", addr, cacheLine[(addr & (DCACHE_LINELENGTH -1)) >> 2], set, id>>2);
-            return cacheLine[(addr & (DCACHE_LINELENGTH -1)) >> 2];
+            RetVal = cacheLine[(addr & (DCACHE_LINELENGTH -1)) >> 2];
+            return true;
         }
     }
     
@@ -672,24 +673,7 @@ u32 ARMv5::DCacheLookup(const u32 addr)
     // We do not fill the cacheline if it is disabled in the 
     // BIST test State register (See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_LINEFILL) [[unlikely]]
-    {
-        WriteBufferDrain();
-
-        NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-    
-        DataCycles = MemTimings[addr >> 14][1]; // CHECKME: can this do sequential accesses?
-
-        if ((addr >> 24) == 0x02)
-        {
-            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = (MainRAMTimestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-            MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            if (NDS.ARM9ClockShift == 2) DataCycles -= 4;
-            DataRegion = Mem9_MainRAM;
-        }
-        else DataRegion = NDS.ARM9Regions[addr>>14];
-
-        return BusRead32(addr & ~3);    
-    }
+        return false;
 
     u32 line;
 
@@ -728,73 +712,67 @@ u32 ARMv5::DCacheLookup(const u32 addr)
         DCacheClearByASetAndWay(line & (DCACHE_SETS-1), line >> DCACHE_SETS_LOG2);
     #endif
 
-    for (int i = 0; i < DCACHE_LINELENGTH; i+=sizeof(u32))
-    {
-        ptr[i >> 2] = BusRead32(tag+i);    
-    }
-
     DCacheTags[line] = tag | (line & (DCACHE_SETS-1)) | CACHE_FLAG_VALID;
     
     // timing logic
-
-    // Disabled DCACHE Streaming:
-    // Wait until the entire cache line is filled before continuing with execution
-    if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_STREAMING) [[unlikely]]
+    
+    if (NDS.ARM9Regions[addr>>14] == Mem9_MainRAM)
     {
-        NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
-
-        NDS.ARM9Timestamp += MemTimings[tag >> 14][1] + (MemTimings[tag >> 14][2] * ((DCACHE_LINELENGTH / 4) - 2));
-        DataCycles = MemTimings[tag>>14][2];
-        
-        if ((addr >> 24) == 0x02)
+        MRTrack.Type = MainRAMType::DCacheStream;
+        MRTrack.Var = line;
+        FetchAddr[16] = addr;
+        if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_STREAMING) [[unlikely]]
+            DCacheStreamPtr = 7;
+        else DCacheStreamPtr = (addr & 0x1F) / 4;
+    }
+    else
+    {
+        for (int i = 0; i < DCACHE_LINELENGTH; i+=sizeof(u32))
         {
-            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
-            MainRAMTimestamp = NDS.ARM9Timestamp + DataCycles;
-            DataRegion = Mem9_MainRAM;
+            ptr[i >> 2] = BusRead32(tag+i);    
         }
-        else
+        // Disabled DCACHE Streaming:
+        // Wait until the entire cache line is filled before continuing with execution
+        if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_STREAMING) [[unlikely]]
         {
+            NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
+
+            NDS.ARM9Timestamp += MemTimings[tag >> 14][1] + (MemTimings[tag >> 14][2] * ((DCACHE_LINELENGTH / 4) - 2));
+            DataCycles = MemTimings[tag>>14][2];
+        
             DataRegion = NDS.ARM9Regions[addr>>14];
             if (((NDS.ARM9Timestamp <= WBReleaseTS) && (NDS.ARM9Regions[addr>>14] == WBLastRegion)) // check write buffer
-             || (Store && (NDS.ARM9Regions[addr>>14] == DataRegion))) //check the actual store
+                || (Store && (NDS.ARM9Regions[addr>>14] == DataRegion))) //check the actual store
                 NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
         }
-    }
-    else // DCache Streaming logic
-    {
-        DataRegion = NDS.ARM9Regions[addr>>14];
-        if ((addr >> 24) == 0x02)
+        else // DCache Streaming logic
         {
-            if (NDS.ARM9Timestamp < MainRAMTimestamp) NDS.ARM9Timestamp = MainRAMTimestamp;
-        }
-        else
-        {
+            DataRegion = NDS.ARM9Regions[addr>>14];
             if ((NDS.ARM9Timestamp <= WBReleaseTS) && (DataRegion == WBLastRegion)) // check write buffer
                 NDS.ARM9Timestamp += 1<<NDS.ARM9ClockShift;
-        }
 
-        NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
+            NDS.ARM9Timestamp = NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1) & ~((1<<NDS.ARM9ClockShift)-1);
 
-        u8 ns = MemTimings[addr>>14][1];
-        u8 seq = MemTimings[addr>>14][2];
+            u8 ns = MemTimings[addr>>14][1];
+            u8 seq = MemTimings[addr>>14][2];
 
-        u8 linepos = (addr & 0x1F) >> 2; // technically this is one too low, but we want that actually
+            u8 linepos = (addr & 0x1F) >> 2; // technically this is one too low, but we want that actually
 
-        u64 cycles = ns + (seq * linepos);
-        DataCycles = cycles;
+            u64 cycles = ns + (seq * linepos);
+            DataCycles = cycles;
     
-        cycles += NDS.ARM9Timestamp;
+            cycles += NDS.ARM9Timestamp;
 
-        DCacheStreamPtr = linepos;
-        for (int i = linepos; i < 7; i++)
-        {
-            cycles += seq;
-            DCacheStreamTimes[i] = cycles;
+            DCacheStreamPtr = linepos;
+            for (int i = linepos; i < 7; i++)
+            {
+                cycles += seq;
+                DCacheStreamTimes[i] = cycles;
+            }
         }
-
-        if ((addr >> 24) == 0x02) MainRAMTimestamp = ((linepos < 7) ? ICacheStreamTimes[6] : NDS.ARM9Timestamp);
+        RetVal = ptr[(addr & (DCACHE_LINELENGTH-1)) >> 2];
     }
-    return ptr[(addr & (DCACHE_LINELENGTH-1)) >> 2];
+    return true;
 }
 
 bool ARMv5::DCacheWrite32(const u32 addr, const u32 val)
@@ -2152,6 +2130,15 @@ void ARMv5::DAbortHandleS()
     DataCycles = 1;
 }
 
+void ARMv5::DCacheFin8()
+{
+    u8 reg = __builtin_ctz(LDRRegs);
+    u32 addr = FetchAddr[reg];
+    u32 dummy; u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+
+    *val = (RetVal >> (8 * (addr & 3))) & 0xff;
+}
+
 bool ARMv5::DataRead8(u32 addr, u8 reg)
 {
     // Data Aborts
@@ -2173,8 +2160,7 @@ void ARMv5::DRead8_2()
 {
     u8 reg = __builtin_ctz(LDRRegs);
     u32 addr = FetchAddr[reg];
-    u32 dummy;
-    u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+    u32 dummy; u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
 
     if (DCacheStreamPtr < 7)
     {
@@ -2206,8 +2192,11 @@ void ARMv5::DRead8_2()
         {
             if (IsAddressDCachable(addr))
             {
-                *val = (DCacheLookup(addr) >> (8 * (addr & 3))) & 0xff;
-                return;
+                if (DCacheLookup(addr))
+                {
+                    QueueFunction(&ARMv5::DCacheFin8);
+                    return;
+                }
             }
         }
     #endif
@@ -2247,6 +2236,15 @@ void ARMv5::DRead8_2()
     }
 }
 
+void ARMv5::DCacheFin16()
+{
+    u8 reg = __builtin_ctz(LDRRegs);
+    u32 addr = FetchAddr[reg];
+    u32 dummy; u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+
+    *val = (RetVal >> (8 * (addr & 2))) & 0xffff;
+}
+
 bool ARMv5::DataRead16(u32 addr, u8 reg)
 {
     // Data Aborts
@@ -2268,8 +2266,7 @@ void ARMv5::DRead16_2()
 {
     u8 reg = __builtin_ctz(LDRRegs);
     u32 addr = FetchAddr[reg];
-    u32 dummy;
-    u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+    u32 dummy; u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
 
     if (DCacheStreamPtr < 7)
     {
@@ -2303,8 +2300,11 @@ void ARMv5::DRead16_2()
         {
             if (IsAddressDCachable(addr))
             {
-                *val = (DCacheLookup(addr) >> (8* (addr & 2))) & 0xffff;
-                return;
+                if (DCacheLookup(addr))
+                {
+                    QueueFunction(&ARMv5::DCacheFin16);
+                    return;
+                }
             }
         }
     #endif
@@ -2344,6 +2344,14 @@ void ARMv5::DRead16_2()
     }
 }
 
+void ARMv5::DCacheFin32()
+{
+    u8 reg = __builtin_ctz(LDRRegs);
+    u32 dummy; u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+    *val = RetVal;
+    LDRRegs &= ~1<<reg;
+}
+
 bool ARMv5::DataRead32(u32 addr, u8 reg)
 {
     // Data Aborts
@@ -2365,8 +2373,7 @@ void ARMv5::DRead32_2()
 {
     u8 reg = __builtin_ctz(LDRRegs);
     u32 addr = FetchAddr[reg];
-    u32 dummy;
-    u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+    u32 dummy; u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
 
     if (DCacheStreamPtr < 7)
     {
@@ -2402,9 +2409,11 @@ void ARMv5::DRead32_2()
         {
             if (IsAddressDCachable(addr))
             {
-                *val = DCacheLookup(addr);
-                LDRRegs &= ~1<<reg;
-                return;
+                if (DCacheLookup(addr))
+                {
+                    QueueFunction(&ARMv5::DCacheFin32);
+                    return;
+                }
             }
         }
     #endif
@@ -2466,8 +2475,7 @@ void ARMv5::DRead32S_2()
 {
     u8 reg = __builtin_ctz(LDRRegs);
     u32 addr = FetchAddr[reg];
-    u32 dummy;
-    u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+    u32 dummy; u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
 
     NDS.ARM9Timestamp += DataCycles;
 
@@ -2498,9 +2506,11 @@ void ARMv5::DRead32S_2()
         {
             if (IsAddressDCachable(addr))
             {
-                *val = DCacheLookup(addr);
-                LDRRegs &= ~1<<reg;
-                return;
+                if (DCacheLookup(addr))
+                {
+                    QueueFunction(&ARMv5::DCacheFin32);
+                    return;
+                }
             }
         }
     #endif
