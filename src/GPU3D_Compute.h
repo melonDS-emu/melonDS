@@ -165,9 +165,11 @@ private:
 
     int TileSize;
     static constexpr int CoarseTileCountX = 8;
-    static constexpr int CoarseTileCountY = 4;
+    int CoarseTileCountY;
+    int CoarseTileArea;
     int CoarseTileW;
     int CoarseTileH;
+    int ClearCoarseBinMaskLocalSize;
 
     static constexpr int BinStride = 2048/32;
     static constexpr int CoarseBinStride = BinStride/32;
