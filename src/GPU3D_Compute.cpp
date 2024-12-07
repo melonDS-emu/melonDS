@@ -19,6 +19,7 @@
 #include "GPU3D_Compute.h"
 
 #include <assert.h>
+#include <algorithm>
 
 #include "OpenGLSupport.h"
 
@@ -36,9 +37,6 @@ bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, c
     std::string shaderName;
     std::string shaderSource;
     shaderSource += "#version 430 core\n";
-    shaderSource += "#define TileSize ";
-    shaderSource += std::to_string(TileSize);
-    shaderSource += "\n";
     for (const char* define : defines)
     {
         shaderSource += "#define ";
@@ -53,6 +51,14 @@ bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, c
     shaderSource += std::to_string(ScreenHeight);
     shaderSource += "\n#define MaxWorkTiles ";
     shaderSource += std::to_string(MaxWorkTiles);
+    shaderSource += "\n#define TileSize ";
+    shaderSource += std::to_string(TileSize);
+    shaderSource += "\nconst int CoarseTileCountY = ";
+    shaderSource += std::to_string(CoarseTileCountY) + ";";
+    shaderSource += "\n#define CoarseTileArea ";
+    shaderSource += std::to_string(CoarseTileArea);
+    shaderSource += "\n#define ClearCoarseBinMaskLocalSize ";
+    shaderSource += std::to_string(ClearCoarseBinMaskLocalSize);
 
     shaderSource += ComputeRendererShaders::Common;
     shaderSource += source;
@@ -300,25 +306,12 @@ void ComputeRenderer::Reset(GPU& gpu)
 
 void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinates)
 {
-    CurGLCompositor.SetScaleFactor(scale);
+    u8 TileScale;
 
-    // Adjust tile size based on scale
-    const int baseTileSize = 8; // Define the base tile size
-    if (scale >= 12) {
-        TileSize = baseTileSize * 4;  // Use 32x32 tiles (suitable for high scale)
-    }
-    else if (scale >= 6) {
-        TileSize = baseTileSize * 2;  // Use 16x16 tiles (suitable for medium scale)
-    }
-    else {
-        TileSize = baseTileSize;      // Use 8x8 tiles (suitable for low scale)
-    }
+    CurGLCompositor.SetScaleFactor(scale);
 
     CoarseTileW = CoarseTileCountX * TileSize;
     CoarseTileH = CoarseTileCountY * TileSize;
-
-    TilesPerLine = ScreenWidth / TileSize;
-    TileLines = ScreenHeight / TileSize;
 
     if (ScaleFactor != -1)
     {
@@ -330,6 +323,25 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ScaleFactor = scale;
     ScreenWidth = 256 * ScaleFactor;
     ScreenHeight = 192 * ScaleFactor;
+
+    /* MelonPrimeDS { */
+    // Calculate TileScale using more efficient bit manipulation
+    TileScale = 2 * ScaleFactor / 9;
+    TileScale = TileScale ? (1u << (31 - __builtin_clz(TileScale))) : 1; // __builtin_clz utilizes native CPU instructions (e.g., BSR / LZCNT), providing higher speed.
+
+    // Determine TileSize using branchless calculation
+    TileSize = (TileScale << 3) & (-(TileScale << 3) <= 32);
+    TileSize = TileSize ? TileSize : 32;
+
+    // Perform branchless conditional calculations
+    CoarseTileCountY = 4 + ((TileSize >= 32) << 1);
+    ClearCoarseBinMaskLocalSize = 64 - ((TileSize >= 32) << 4);
+    /* MelonPrimeDS } */
+
+    // Final calculation
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+    CoarseTileW = CoarseTileCountX * TileSize;
+    CoarseTileH = CoarseTileCountY * TileSize;
 
     TilesPerLine = ScreenWidth/TileSize;
     TileLines = ScreenHeight/TileSize;
@@ -513,6 +525,10 @@ void ComputeRenderer::SetupYSpan(RenderPolygon* rp, SpanSetupY* span, Polygon* p
     {
         s32 yrecip = (1<<18) / ylen;
         span->Increment = (span->X1-span->X0) * yrecip;
+        /* MelonPrimeDS {
+        s64 num = ((s64)(span->X1 - span->X0) << 18);
+        span->Increment = (s32)(num / ylen);
+        /* MelonPrimeDS } */
         if (span->Increment < 0) span->Increment = -span->Increment;
     }
 
@@ -939,7 +955,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, MetaUniformMemory);
 
     glUseProgram(ShaderClearCoarseBinMask);
-    glDispatchCompute(TilesPerLine*TileLines/32, 1, 1);
+    glDispatchCompute(TilesPerLine* TileLines / ClearCoarseBinMaskLocalSize, 1, 1);
 
     bool wbuffer = false;
     if (numYSpans > 0)
@@ -953,23 +969,23 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
         glBindImageTexture(0, YSpanIndicesTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16UI);
         glUseProgram(ShaderInterpXSpans[wbuffer]);
         glDispatchCompute((numSetupIndices + 31) / 32, 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         // bin polygons
         glUseProgram(ShaderBinCombined);
         glDispatchCompute(((gpu.GPU3D.RenderNumPolygons + 31) / 32), ScreenWidth/CoarseTileW, ScreenHeight/CoarseTileH);
-        glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         // calculate list offsets
         glUseProgram(ShaderCalculateWorkListOffset);
         glDispatchCompute((numVariants + 31) / 32, 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         // sort shader work
         glUseProgram(ShaderSortWork);
         glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
         glDispatchComputeIndirect(offsetof(BinResultHeader, SortWorkWorkCount));
-        glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         glActiveTexture(GL_TEXTURE0);
 

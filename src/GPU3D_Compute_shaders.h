@@ -340,7 +340,6 @@ const uint ResultAttrStart = ResultDepthStart+ScreenWidth*ScreenHeight*2;
 const char* Common = R"(
 
 const int CoarseTileCountX = 8;
-const int CoarseTileCountY = 4;
 const int CoarseTileW = (CoarseTileCountX * TileSize);
 const int CoarseTileH = (CoarseTileCountY * TileSize);
 
@@ -847,7 +846,7 @@ void main()
 
 const std::string ClearCoarseBinMask =
     BinningBuffer + R"(
-layout (local_size_x = 32) in;
+layout (local_size_x = ClearCoarseBinMaskLocalSize) in;
 
 void main()
 {
@@ -863,7 +862,7 @@ const std::string BinCombined =
     XSpanSetupBuffer +
     WorkDescBuffer + R"(
 
-layout (local_size_x = 32) in;
+layout (local_size_x = CoarseTileArea) in;
 
 bool BinPolygon(Polygon polygon, ivec2 topLeft, ivec2 botRight)
 {
