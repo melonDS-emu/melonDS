@@ -1459,7 +1459,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
                     if (diff & (1<<i)) UpdatePURegion(i);
                 }
             #else
-                UpdatePURegions(true);
+                if (diff) UpdatePURegions(true);
             #endif
         }
         return;
@@ -1485,7 +1485,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
                     if (diff & (1<<i)) UpdatePURegion(i);
                 }
             #else
-                UpdatePURegions(true);
+                if (diff) UpdatePURegions(true);
             #endif
         }
         return;
@@ -1512,7 +1512,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
                     if (diff & (1<<i)) UpdatePURegion(i);
                 }
             #else
-                UpdatePURegions(true);
+                if (diff) UpdatePURegions(true);
             #endif
         }
         return;
@@ -1545,7 +1545,8 @@ void ARMv5::CP15Write(u32 id, u32 val)
                     if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
                 }
             #else
-                UpdatePURegions(true);
+                u32 diff = old ^ PU_DataRW;
+                if (diff) UpdatePURegions(true);
             #endif
         }
         return;
@@ -1576,7 +1577,8 @@ void ARMv5::CP15Write(u32 id, u32 val)
                     if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
                 }
             #else
-                UpdatePURegions(true);
+                u32 diff = old ^ PU_CodeRW;
+                if (diff) UpdatePURegions(true);
             #endif
         }
         return;
@@ -1600,7 +1602,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
                     if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
                 }
             #else
-                UpdatePURegions(true);
+                if (diff) UpdatePURegions(true);
             #endif
         }
         return;
@@ -1624,7 +1626,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
                     if (diff & (CP15_REGIONACCESS_REGIONMASK<<(i*CP15_REGIONACCESS_BITS_PER_REGION))) UpdatePURegion(i);
                 }
             #else
-                UpdatePURegions(true);
+                if (diff) UpdatePURegions(true);
             #endif
         }
         return;
@@ -1647,7 +1649,9 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x670:
     case 0x671:
         char log_output[1024];
+        u32 old = PU_Region[(id >> 4) & 0xF];
         PU_Region[(id >> 4) & 0xF] = val & ~(0x3F<<6);
+        u32 diff = old ^ PU_Region[(id >> 4) & 0xF];
 
         std::snprintf(log_output,
                  sizeof(log_output),
@@ -1659,7 +1663,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
                  (val & 0x3E) >> 1
         );
         // TODO: smarter region update for this?
-        UpdatePURegions(true);
+        if (diff) UpdatePURegions(true);
         return;
 
 
