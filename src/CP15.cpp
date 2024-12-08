@@ -1182,6 +1182,8 @@ bool ARMv5::WriteBufferHandle()
                 {
                     if (NDS.ARM9Regions[WBCurAddr>>14] == Mem9_MainRAM)
                     {
+                        if (A7PRIORITY) { if (NDS.A9ContentionTS >= NDS.ARM7Timestamp) return false; }
+                        else            { if (NDS.A9ContentionTS >  NDS.ARM7Timestamp) return false; }
                         if (NDS.A9ContentionTS < NDS.MainRAMTimestamp) { NDS.A9ContentionTS = NDS.MainRAMTimestamp; if (A7PRIORITY) return false; }
                         cycles = 4;
                         NDS.MainRAMTimestamp = NDS.A9ContentionTS + 9;
@@ -1194,6 +1196,8 @@ bool ARMv5::WriteBufferHandle()
                 {
                     if (NDS.ARM9Regions[WBCurAddr>>14] == Mem9_MainRAM)
                     {
+                        if (A7PRIORITY) { if (NDS.A9ContentionTS >= NDS.ARM7Timestamp) return false; }
+                        else            { if (NDS.A9ContentionTS >  NDS.ARM7Timestamp) return false; }
                         if (NDS.A9ContentionTS < NDS.MainRAMTimestamp) { NDS.A9ContentionTS = NDS.MainRAMTimestamp; if (A7PRIORITY) return false; }
                         NDS.MainRAMTimestamp = NDS.A9ContentionTS + 8;
                         cycles = 3;
@@ -1206,6 +1210,8 @@ bool ARMv5::WriteBufferHandle()
                 {
                     if (NDS.ARM9Regions[WBCurAddr>>14] == Mem9_MainRAM)
                     {
+                        if (A7PRIORITY) { if (NDS.A9ContentionTS >= NDS.ARM7Timestamp) return false; }
+                        else            { if (NDS.A9ContentionTS >  NDS.ARM7Timestamp) return false; }
                         if (A9WENTLAST)
                         {
                             NDS.MainRAMTimestamp += 2;
@@ -1223,6 +1229,8 @@ bool ARMv5::WriteBufferHandle()
                 {
                     if (NDS.ARM9Regions[WBCurAddr>>14] == Mem9_MainRAM)
                     {
+                        if (A7PRIORITY) { if (NDS.A9ContentionTS >= NDS.ARM7Timestamp) return false; }
+                        else            { if (NDS.A9ContentionTS >  NDS.ARM7Timestamp) return false; }
                         if (NDS.A9ContentionTS < NDS.MainRAMTimestamp) { NDS.A9ContentionTS = NDS.MainRAMTimestamp; if (A7PRIORITY) return false; }
                         NDS.MainRAMTimestamp = NDS.A9ContentionTS + 9;
                         cycles = 4;
