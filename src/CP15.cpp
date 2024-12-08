@@ -1648,23 +1648,25 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x661:
     case 0x670:
     case 0x671:
-        char log_output[1024];
-        u32 old = PU_Region[(id >> 4) & 0xF];
-        PU_Region[(id >> 4) & 0xF] = val & ~(0x3F<<6);
-        u32 diff = old ^ PU_Region[(id >> 4) & 0xF];
+        {
+            char log_output[1024];
+            u32 old = PU_Region[(id >> 4) & 0xF];
+            PU_Region[(id >> 4) & 0xF] = val & ~(0x3F<<6);
+            u32 diff = old ^ PU_Region[(id >> 4) & 0xF];
 
-        std::snprintf(log_output,
-                 sizeof(log_output),
-                 "PU: region %d = %08X : %s, start: %08X size: %02X\n",
-                 (id >> 4) & 0xF,
-                 val,
-                 val & 1 ? "enabled" : "disabled",
-                 val & 0xFFFFF000,
-                 (val & 0x3E) >> 1
-        );
-        // TODO: smarter region update for this?
-        if (diff) UpdatePURegions(true);
-        return;
+            std::snprintf(log_output,
+                     sizeof(log_output),
+                     "PU: region %d = %08X : %s, start: %08X size: %02X\n",
+                     (id >> 4) & 0xF,
+                     val,
+                     val & 1 ? "enabled" : "disabled",
+                     val & 0xFFFFF000,
+                     (val & 0x3E) >> 1
+            );
+            // TODO: smarter region update for this?
+            if (diff) UpdatePURegions(true);
+            return;
+        }
 
 
     case 0x704:
