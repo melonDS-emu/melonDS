@@ -1788,8 +1788,8 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // we force a fill by looking up the value from cache
         // if it wasn't cached yet, it will be loaded into cache
         // low bits are set to 0x1C to trick cache streaming
-        printf("PREFETCH ICACHE\n");
-        //ICacheLookup((val & ~0x03) | 0x1C); TODO: REIMPLEMENT WITH DEFERENCE
+        CP15Queue = val;
+        QueueFunction(&ARMv5::ICachePrefetch_2);
         return;
 
     /*case 0x7E0:
@@ -2116,6 +2116,11 @@ u32 ARMv5::CP15Read(const u32 id) const
 
     Log(LogLevel::Debug, "unknown CP15 read op %04X\n", id);
     return 0;
+}
+void ARMv5::ICachePrefetch_2()
+{
+    u32 val = CP15Queue;
+    ICacheLookup((val & ~0x03) | 0x1C);
 }
 
 void ARMv5::DCClearAddr_2()

@@ -761,6 +761,7 @@ public:
     void DWrite32S_2();
     void DWrite32S_3();
     void WBCheck_2();
+    void ICachePrefetch_2();
     void DCacheLookup_2();
     void DCacheLookup_3();
     void DCClearAddr_2();
