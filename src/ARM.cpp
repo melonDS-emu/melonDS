@@ -198,15 +198,12 @@ void ARM::Reset()
     BreakReq = false;
 #endif
 
-    MainRAMTimestamp = 0;
-
     memset(&MRTrack, 0, sizeof(MRTrack));
 
     FuncQueueFill = 0;
     FuncQueueEnd = 0;
     FuncQueueProg = 0;
     FuncQueueActive = false;
-    ExecuteCycles = 0;
 
     // zorp
     JumpTo(ExceptionBase);
@@ -748,6 +745,12 @@ void ARMv5::StartExec()
         else
             AddCycles_C();
     }
+    QueueFunction(&ARMv5::WBCheck_2);
+}
+
+void ARMv5::WBCheck_2()
+{
+    WriteBufferCheck<false>();
 }
 
 template <CPUExecuteMode mode>
@@ -756,7 +759,7 @@ void ARMv5::Execute()
     if constexpr (mode == CPUExecuteMode::InterpreterGDB)
         GdbCheckB();
 
-    if (Halted)
+    if (!FuncQueueActive && Halted)
     {
         if (Halted == 2)
         {
@@ -777,7 +780,6 @@ void ARMv5::Execute()
         else
         {
             NDS.ARM9Timestamp = NDS.ARM9Target;
-            WriteBufferCheck<false>();
             return;
         }
     }
@@ -828,7 +830,7 @@ void ARMv5::Execute()
             if constexpr (mode == CPUExecuteMode::InterpreterGDB)
                 GdbCheckC(); // gdb might throw a hissy fit about this change but idc
 
-            //printf("A:%i, F:%i, P:%i, E:%i, I:%08llX, P:%08X, 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, PC, R[15]);
+            //printf("A9: A:%i, F:%i, P:%i, E:%i, I:%08llX, P:%08X, 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, PC, R[15]);
 
             (this->*FuncQueue[FuncQueueProg])();
 
@@ -882,7 +884,6 @@ void ARMv5::Execute()
         //NDS.ARM9Timestamp += Cycles;
         //Cycles = 0;
     }
-    WriteBufferCheck<false>();
 
     if (Halted == 2)
         Halted = 0;
@@ -938,7 +939,7 @@ void ARMv4::Execute()
     if constexpr (mode == CPUExecuteMode::InterpreterGDB)
         GdbCheckB();
     
-    if (Halted)
+    if (!FuncQueueActive && Halted)
     {
         if (Halted == 2)
         {
@@ -1008,8 +1009,8 @@ void ARMv4::Execute()
             if constexpr (mode == CPUExecuteMode::InterpreterGDB)
                 GdbCheckC();
                 
-            //printf("A:%i, F:%i, P:%i, E:%i, I:%08llX, 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, R[15]);
-
+            //printf("A7: A:%i, F:%i, P:%i, E:%i, I:%08llX, 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, R[15]);
+            
             (this->*FuncQueue[FuncQueueProg])();
 
             if (FuncQueueActive)

@@ -1054,6 +1054,91 @@ void NDS::MainRAMHandleARM9()
             }
             break;
         }
+
+        case MainRAMType::WBDrain:
+        {
+            if (!ARM9.WriteBufferHandle<WBMode::Force>()) return;
+
+            if ((ARM9.WBWritePointer == 16) && !ARM9.WBWriting)
+            {
+                memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+                ConTSLock = false;
+            }
+            break;
+        }
+
+        case MainRAMType::WBWrite:
+        {
+            if (!ARM9.WriteBufferHandle<WBMode::Check>()) return;
+
+            if (ARM9.WBWritePointer == ARM9.WBFillPointer)
+            {
+                if (!ARM9.WriteBufferHandle<WBMode::WaitEntry>()) return;
+            }
+            else if (ARM9.WBWritePointer == 16)
+            {
+                ARM9.WBWritePointer = 0;
+                if (!ARM9.WBWriting)
+                {
+                    u64 ts = (ARM9Timestamp + 1 + ((1<<ARM9ClockShift)-1)) & ~((1<<ARM9ClockShift)-1);
+                    if (ARM9.WBTimestamp < ts) ARM9.WBTimestamp = ts;
+                }
+            }
+
+            ARM9.WriteBufferFifo[ARM9.WBFillPointer] = ARM9.WBValQueued[ARM9.MRTrack.Progress];
+            ARM9.storeaddr[ARM9.WBFillPointer] = ARM9.WBAddrQueued[ARM9.MRTrack.Progress];
+            ARM9.WBFillPointer = (ARM9.WBFillPointer + 1) & 0xF;
+
+            if ((ARM9.WBValQueued[ARM9.MRTrack.Progress] >> 61) != 4)
+            {
+                ARM9Timestamp += ARM9.DataCycles = 1;
+                ARM9.WBDelay = ARM9Timestamp + 1;
+            }
+
+            ARM9.MRTrack.Progress++;
+            if (ARM9.MRTrack.Progress >= ARM9.MRTrack.Var)
+            {
+                memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+                ConTSLock = false;
+            }
+            break;
+        }
+
+        case MainRAMType::WBCheck:
+        {
+            if (!ARM9.WriteBufferHandle<WBMode::Check>()) return;
+            
+            memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+            ConTSLock = false;
+            break;
+        }
+
+        case MainRAMType::WBWaitRead:
+        {
+            if (!ARM9.WriteBufferHandle<WBMode::Check>()) return;
+            
+            if (ARM9Timestamp >= ARM9.WBInitialTS)
+            {
+                if (!ARM9.WriteBufferHandle<WBMode::SingleBurst>()) return;
+                if (ARM9Timestamp < ARM9.WBReleaseTS) ARM9Timestamp = ARM9.WBReleaseTS;
+            }
+
+            memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+            ConTSLock = false;
+            break;
+        }
+
+        case MainRAMType::WBWaitWrite:
+        {
+            if (!ARM9.WriteBufferHandle<WBMode::Check>()) return;
+            
+            if (!ARM9.WriteBufferHandle<WBMode::SingleBurst>()) return;
+            if (ARM9Timestamp < ARM9.WBReleaseTS) ARM9Timestamp = ARM9.WBReleaseTS;
+            
+            memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+            ConTSLock = false;
+            break;
+        }
     }
 }
 
@@ -1121,12 +1206,12 @@ void NDS::MainRAMHandle()
 {
     if (!ConTSLock)
     {
-        A9ContentionTS = (ARM9Timestamp + ((1<<ARM9ClockShift)-1)) >> ARM9ClockShift;
-        if (ARM9.MRTrack.Type != MainRAMType::Null)
-        {
-            ConTSLock = true;
-            if (A9ContentionTS < MainRAMTimestamp) A9ContentionTS = MainRAMTimestamp;
-        }
+        if (ARM9.MRTrack.Type != MainRAMType::Null) ConTSLock = true;
+
+        if (ARM9.MRTrack.Type > MainRAMType::WriteBufferCmds)
+            A9ContentionTS = (ARM9.WBTimestamp + ((1<<ARM9ClockShift)-1)) >> ARM9ClockShift;
+        else
+            A9ContentionTS = (ARM9Timestamp + ((1<<ARM9ClockShift)-1)) >> ARM9ClockShift;
     }
 
     if (A7PRIORITY)
@@ -1261,14 +1346,14 @@ u32 NDS::RunFrame()
                 }
                 else if (ARM9.MRTrack.Type == MainRAMType::Null)
                 {
-                    if (ARM9.abt) ARM9Timestamp = ARM9Target;
+                    //if (ARM9.abt) ARM9Timestamp = ARM9Target;
                     ARM9.Execute<cpuMode>();
                 }
                 
-                //printf("MAIN LOOP: 9 %lli %08X %08llX 7 %lli %08X %08llX %i %08X\n", ARM9Timestamp>>ARM9ClockShift, ARM9.PC, ARM9.CurInstr, ARM7Timestamp, ARM7.R[15], ARM7.CurInstr, IME[1], IE[1]);
+                //printf("MAIN LOOP: 9 %lli %08X %08llX %i 7 %lli %08X %08llX %i %i %08X\n", ARM9Timestamp>>ARM9ClockShift, ARM9.PC, ARM9.CurInstr, (u8)ARM9.MRTrack.Type, ARM7Timestamp, ARM7.R[15], ARM7.CurInstr, (u8)ARM7.MRTrack.Type, IME[1], IE[1]);
 
                 MainRAMHandle();
-
+                
                 RunTimers(0);
                 GPU.GPU3D.Run();
 
@@ -1326,6 +1411,7 @@ u32 NDS::RunFrame()
         SPU.TransferOutput();
         break;
     }
+    //printf("MAIN LOOP: 9 %lli %08X %08llX %i 7 %lli %08X %08llX %i %i %08X\n", ARM9Timestamp>>ARM9ClockShift, ARM9.PC, ARM9.CurInstr, (u8)ARM9.MRTrack.Type, ARM7Timestamp, ARM7.R[15], ARM7.CurInstr, (u8)ARM7.MRTrack.Type, IME[1], IE[1]);
 
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
     // so it needs to be tracked even if NDS is powered off.

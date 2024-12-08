@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <optional>
+#include <cstring>
 
 #include "types.h"
 #include "MemRegion.h"
@@ -54,12 +55,26 @@ enum class CPUExecuteMode : u32
 #endif
 };
 
+enum class WBMode
+{
+    Check,
+    Force,
+    SingleBurst,
+    WaitEntry,
+};
+
 enum class MainRAMType : u8
 {
     Null = 0,
     Fetch,
     ICacheStream,
     DCacheStream,
+    WriteBufferCmds, // all write buffer commands must be above this one; wb cmds not strictly used for main ram
+    WBDrain,
+    WBWrite,
+    WBCheck,
+    WBWaitRead,
+    WBWaitWrite,
 };
 
 // each one represents a bit in the field
@@ -214,7 +229,6 @@ public:
 
     MemRegion CodeMem;
 
-    u64 MainRAMTimestamp;
     MainRAMTrackers MRTrack;
 
     u32 BranchAddr;
@@ -493,7 +507,7 @@ public:
      */
     void ICacheInvalidateAll();
     
-    template <int force> inline bool WriteBufferHandle();
+    template <WBMode mode> bool WriteBufferHandle();
     template <int next> void WriteBufferCheck();
     void WriteBufferWrite(u32 val, u8 flag, u32 addr = 0);
     void WriteBufferDrain();
@@ -724,18 +738,35 @@ public:
     void JumpTo_3B();
     void JumpTo_3C();
     void JumpTo_4();
+    void CodeRead32_2();
+    void ICacheLookup_2();
     void DAbortHandle();
     void DCacheFin8();
     void DRead8_2();
+    void DRead8_3();
     void DCacheFin16();
     void DRead16_2();
+    void DRead16_3();
     void DCacheFin32();
     void DRead32_2();
+    void DRead32_3();
     void DRead32S_2();
+    void DRead32S_3();
     void DWrite8_2();
+    void DWrite8_3();
     void DWrite16_2();
+    void DWrite16_3();
     void DWrite32_2();
+    void DWrite32_3();
     void DWrite32S_2();
+    void DWrite32S_3();
+    void WBCheck_2();
+    void DCacheLookup_2();
+    void DCacheLookup_3();
+    void DCClearAddr_2();
+    void DCClearSetWay_2();
+    void DCClearInvalidateAddr_2();
+    void DCClearInvalidateSetWay_2();
     void SetupInterlock_2();
     void HandleInterlocksExecute_2();
     void HandleInterlocksMemory_2();
@@ -806,11 +837,14 @@ public:
     
     u64 ITCMTimestamp;
     u64 TimestampMemory;
-    void (ARMv5::*FuncQueue[31])(void);
+    void (ARMv5::*FuncQueue[32])(void);
+    void (ARMv5::*DelayedQueue)(void);
     u32 PC;
     bool NullFetch;
     bool Store;
     s8 ITCMDelay;
+    u32 QueuedDCacheLine;
+    u32 CP15Queue;
 
     u8 ILCurrReg;
     u8 ILPrevReg;
@@ -833,7 +867,9 @@ public:
     u8 WBWriting; // whether the buffer is actively trying to perform a write
     u32 WBCurAddr; // address the write buffer is currently writing to
     u64 WBCurVal; // current value being written; 0-31: val | 61-63: flag; 0 = byte ns; 1 = halfword ns; 2 = word ns; 3 = word s; 4 = address (invalid in this variable)
+    u32 WBAddrQueued[40];
     u32 storeaddr[16]; // temp until i figure out why using the fifo address entries directly didn't work
+    u64 WBValQueued[40];
     u64 WriteBufferFifo[16]; // 0-31: val | 61-63: flag; 0 = byte ns; 1 = halfword ns; 2 = word ns; 3 = word s; 4 = address
     u64 WBTimestamp; // current timestamp
     //u64 WBMainRAMDelay; // timestamp used to emulate the delay before the next main ram write can begin
@@ -870,8 +906,7 @@ public:
     template <CPUExecuteMode mode>
     void Execute();
     
-    Platform::FileHandle* filey;
-    void (ARMv4::*FuncQueue[31])(void);
+    void (ARMv4::*FuncQueue[32])(void);
     bool Nonseq;
 
     void CodeRead16(u32 addr);
