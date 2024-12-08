@@ -936,12 +936,12 @@ void NDS::MainRAMHandleARM9()
             {
                 if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
 
-                MainRAMTimestamp = A9ContentionTS +  (var & MR16) ? 8 : 9; // checkme: are these correct for 8bit?
-                if (var & MRWrite) A9ContentionTS += (var & MR16) ? 5 : 6; // checkme: is this correct for 133mhz?
+                MainRAMTimestamp = A9ContentionTS +  ((var & MR16) ? 8 : 9); // checkme: are these correct for 8bit?
+                if (var & MRWrite) A9ContentionTS += ((var & MR16) ? 5 : 6); // checkme: is this correct for 133mhz?
                 else
                 {
-                    if (ARM9ClockShift == 1) A9ContentionTS += (var & MR16) ? 8 : 9;
-                    else                     A9ContentionTS += (var & MR16) ? 7 : 8;
+                    if (ARM9ClockShift == 1) A9ContentionTS += ((var & MR16) ? 8 : 9);
+                    else                     A9ContentionTS += ((var & MR16) ? 7 : 8);
                     ARM9.DataCycles = 3 << ARM9ClockShift;
                 }
                 MainRAMLastAccess = A9LAST;
@@ -967,7 +967,7 @@ void NDS::MainRAMHandleARM9()
                 else // read
                 {
                     u32 dummy;
-                    u32* val = (ARM9.LDRFailedRegs & (1<<reg)) ? &dummy : &ARM9.R[reg];
+                    u32* val = ((ARM9.LDRFailedRegs & (1<<reg)) ? &dummy : &ARM9.R[reg]);
                     if      (var & MR32) *val = ARM9Read32(addr);
                     else if (var & MR16) *val = ARM9Read16(addr);
                     else                 *val = ARM9Read8 (addr);
@@ -1001,7 +1001,7 @@ void NDS::MainRAMHandleARM9()
                 if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
 
                 MainRAMTimestamp = A9ContentionTS + 9;
-                A9ContentionTS += (ARM9ClockShift == 1) ? 9 : 8;
+                A9ContentionTS += ((ARM9ClockShift == 1) ? 9 : 8);
                 MainRAMLastAccess = A9LAST;
             }
 
@@ -1036,7 +1036,7 @@ void NDS::MainRAMHandleARM9()
                 if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
 
                 MainRAMTimestamp = A9ContentionTS + 9;
-                A9ContentionTS += (ARM9ClockShift == 1) ? 9 : 8;
+                A9ContentionTS += ((ARM9ClockShift == 1) ? 9 : 8);
                 MainRAMLastAccess = A9LAST;
             }
 
@@ -1158,23 +1158,25 @@ void NDS::MainRAMHandleARM7()
 
             if ((var & MRSequential) && A7WENTLAST)
             {
-                int cycles = (var & MR32) ? 2 : 1;
-                MainRAMTimestamp = ARM7Timestamp += cycles;
+                int cycles = ((var & MR32) ? 2 : 1);
+                MainRAMTimestamp += cycles;
+                ARM7Timestamp += cycles;
+                //printf("%lli %lli\n", MainRAMTimestamp, ARM7Timestamp);
             }
             else
             {
                 if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
 
-                MainRAMTimestamp = ARM7Timestamp +  (var & MR16) ? 8 : 9; // checkme: are these correct for 8bit?
-                if (var & MRWrite) ARM7Timestamp += (var & MR16) ? 3 : 4;
-                else               ARM7Timestamp += (var & MR16) ? 5 : 6;
+                MainRAMTimestamp = ARM7Timestamp +  ((var & MR16) ? 8 : 9); // checkme: are these correct for 8bit?
+                if (var & MRWrite) ARM7Timestamp += ((var & MR16) ? 3 : 4);
+                else               ARM7Timestamp += ((var & MR16) ? 5 : 6);
                 MainRAMLastAccess = A7LAST;
             }
 
             if (var & MRCodeFetch)
             {
                 u32 addr = ARM7.FetchAddr[16];
-                ARM7.RetVal = (var & MR32) ? ARM7Read32(addr) : ARM7Read16(addr);
+                ARM7.RetVal = (((var & MR32) ? ARM7Read32(addr) : ARM7Read16(addr)));
             }
             else
             {
@@ -1190,7 +1192,7 @@ void NDS::MainRAMHandleARM7()
                 else // read
                 {
                     u32 dummy;
-                    u32* val = (ARM7.LDRFailedRegs & (1<<reg)) ? &dummy : &ARM7.R[reg];
+                    u32* val = ((ARM7.LDRFailedRegs & (1<<reg)) ? &dummy : &ARM7.R[reg]);
                     if      (var & MR32) *val = ARM7Read32(addr);
                     else if (var & MR16) *val = ARM7Read16(addr);
                     else                 *val = ARM7Read8 (addr);
