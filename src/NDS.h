@@ -403,7 +403,7 @@ public: // TODO: Encapsulate the rest of these members
 
     void MainRAMHandleARM9();
     void MainRAMHandleARM7();
-    void MainRAMHandle();
+    bool MainRAMHandle();
 
     u32 RunFrame();
 

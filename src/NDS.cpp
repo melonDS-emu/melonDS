@@ -1204,7 +1204,7 @@ void NDS::MainRAMHandleARM7()
     }
 }
 
-void NDS::MainRAMHandle()
+bool NDS::MainRAMHandle()
 {
     if (!ConTSLock)
     {
@@ -1222,12 +1222,12 @@ void NDS::MainRAMHandle()
         {
             if (A9ContentionTS < ARM7Timestamp)
             {
-                if (ARM9.MRTrack.Type == MainRAMType::Null) return;
+                if (ARM9.MRTrack.Type == MainRAMType::Null) return 0;
                 MainRAMHandleARM9();
             }
             else
             {
-                if (ARM7.MRTrack.Type == MainRAMType::Null) return;
+                if (ARM7.MRTrack.Type == MainRAMType::Null) return 1;
                 MainRAMHandleARM7();
             }
         }
@@ -1238,12 +1238,12 @@ void NDS::MainRAMHandle()
         {
             if (A9ContentionTS <= ARM7Timestamp)
             {
-                if (ARM9.MRTrack.Type == MainRAMType::Null) return;
+                if (ARM9.MRTrack.Type == MainRAMType::Null) return 0;
                 MainRAMHandleARM9();
             }
             else
             {
-                if (ARM7.MRTrack.Type == MainRAMType::Null) return;
+                if (ARM7.MRTrack.Type == MainRAMType::Null) return 1;
                 MainRAMHandleARM7();
             }
         }
@@ -1315,81 +1315,87 @@ u32 NDS::RunFrame()
             while (Running && GPU.TotalScanlines==0)
             {
                 u64 target = NextTarget();
+
                 ARM9Target = target << ARM9ClockShift;
                 CurCPU = 0;
 
-                if (CPUStop & CPUStop_GXStall)
+                while (ARM9Timestamp < ARM9Target)
                 {
-                    // GXFIFO stall
-                    s32 cycles = GPU.GPU3D.CyclesToRunFor();
-
-                    ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
-                }
-                else if (CPUStop & CPUStop_DMA9)
-                {
-                    u64 ts = ARM9Timestamp;
-                    DMAs[0].Run();
-                    if (!(CPUStop & CPUStop_GXStall)) DMAs[1].Run();
-                    if (!(CPUStop & CPUStop_GXStall)) DMAs[2].Run();
-                    if (!(CPUStop & CPUStop_GXStall)) DMAs[3].Run();
-                    if (ConsoleType == 1)
+                    if (ARM9.MRTrack.Type == MainRAMType::Null)
                     {
-                        auto& dsi = dynamic_cast<melonDS::DSi&>(*this);
-                        dsi.RunNDMAs(0);
-                    }
-                    ts = ARM9Timestamp - ts;
-                    for (int i = 0; i < 7; i++)
-                    {
-                        ARM9.ICacheStreamTimes[i] += ts;
-                        ARM9.DCacheStreamTimes[i] += ts;
-                    }
-                    ARM9.WBTimestamp += ts;
+                        if (CPUStop & CPUStop_GXStall)
+                        {
+                            // GXFIFO stall
+                            s32 cycles = GPU.GPU3D.CyclesToRunFor();
 
-                }
-                else if (ARM9.MRTrack.Type == MainRAMType::Null)
-                {
-                    //if (ARM9.abt) ARM9Timestamp = ARM9Target;
-                    ARM9.Execute<cpuMode>();
-                }
+                            ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
+                        }
+                        else if (CPUStop & CPUStop_DMA9)
+                        {
+                            u64 ts = ARM9Timestamp;
+                            DMAs[0].Run();
+                            if (!(CPUStop & CPUStop_GXStall)) DMAs[1].Run();
+                            if (!(CPUStop & CPUStop_GXStall)) DMAs[2].Run();
+                            if (!(CPUStop & CPUStop_GXStall)) DMAs[3].Run();
+                            if (ConsoleType == 1)
+                            {
+                                auto& dsi = dynamic_cast<melonDS::DSi&>(*this);
+                                dsi.RunNDMAs(0);
+                            }
+                            ts = ARM9Timestamp - ts;
+                            for (int i = 0; i < 7; i++)
+                            {
+                                ARM9.ICacheStreamTimes[i] += ts;
+                                ARM9.DCacheStreamTimes[i] += ts;
+                            }
+                            ARM9.WBTimestamp += ts;
+                        }
+                        else
+                        {
+                            //if (ARM9.abt) ARM9Timestamp = ARM9Target;
+                            ARM9.Execute<cpuMode>();
+                        }
+                    }
                 
-                //printf("MAIN LOOP: 9 %lli %08X %08llX %i 7 %lli %08X %08llX %i %i %08X\n", ARM9Timestamp>>ARM9ClockShift, ARM9.PC, ARM9.CurInstr, (u8)ARM9.MRTrack.Type, ARM7Timestamp, ARM7.R[15], ARM7.CurInstr, (u8)ARM7.MRTrack.Type, IME[1], IE[1]);
+                    //printf("MAIN LOOP: 9 %lli %08X %08llX %i 7 %lli %08X %08llX %i %i %08X\n", ARM9Timestamp>>ARM9ClockShift, ARM9.PC, ARM9.CurInstr, (u8)ARM9.MRTrack.Type, ARM7Timestamp, ARM7.R[15], ARM7.CurInstr, (u8)ARM7.MRTrack.Type, IME[1], IE[1]);
 
-                MainRAMHandle();
+                    if (MainRAMHandle()) break;
                 
+                }
                 RunTimers(0);
                 GPU.GPU3D.Run();
 
-                target = (ARM9.MRTrack.Type == MainRAMType::Null) ? (ARM9Timestamp >> ARM9ClockShift) : ARM7Timestamp + 1;
+                ARM7Target = target;
                 CurCPU = 1;
 
-                while ((ARM7Timestamp < target) && (ARM7.MRTrack.Type == MainRAMType::Null))
+                while (ARM7Timestamp < ARM7Target)
                 {
-                    ARM7Target = (ARM9.MRTrack.Type != MainRAMType::Null) ? (ARM7Timestamp+1) : target; // might be changed by a reschedule
-
                     //printf("A7 LOOP: %lli %lli\n", ARM9Timestamp>>ARM9ClockShift, ARM7Timestamp);
 
-                    if (CPUStop & CPUStop_DMA7)
+                    if (ARM7.MRTrack.Type == MainRAMType::Null)
                     {
-                        DMAs[4].Run();
-                        DMAs[5].Run();
-                        DMAs[6].Run();
-                        DMAs[7].Run();
-                        if (ConsoleType == 1)
+                        if (CPUStop & CPUStop_DMA7)
                         {
-                            auto& dsi = dynamic_cast<melonDS::DSi&>(*this);
-                            dsi.RunNDMAs(1);
+                            DMAs[4].Run();
+                            DMAs[5].Run();
+                            DMAs[6].Run();
+                            DMAs[7].Run();
+                            if (ConsoleType == 1)
+                            {
+                                auto& dsi = dynamic_cast<melonDS::DSi&>(*this);
+                                dsi.RunNDMAs(1);
+                            }
+                        }
+                        else
+                        {
+                            //if (ARM7.abt > 16) ARM7Timestamp = ARM7Target;
+                            ARM7.Execute<cpuMode>();
                         }
                     }
-                    else if (ARM7.MRTrack.Type == MainRAMType::Null)
-                    {
-                        //if (ARM7.abt > 16) ARM7Timestamp = ARM7Target;
-                        ARM7.Execute<cpuMode>();
-                    }
 
-                    MainRAMHandle();
-
-                    RunTimers(1);
+                    if (!MainRAMHandle()) break;
                 }
+                RunTimers(1);
 
                 RunSystem(target);
 
