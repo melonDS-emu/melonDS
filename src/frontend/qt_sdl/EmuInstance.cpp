@@ -1938,10 +1938,10 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
     isRomDetected = false;
 
     // ROM Check
-    if (globalChecksum != RomVersions::USA1_0 && globalChecksum != RomVersions::USA1_1 &&
+    if (globalChecksum != RomVersions::US1_0 && globalChecksum != RomVersions::US1_1 &&
         globalChecksum != RomVersions::EU1_0 && globalChecksum != RomVersions::EU1_1 &&
-        globalChecksum != RomVersions::JAPAN1_0 && globalChecksum != RomVersions::JAPAN1_1 &&
-        globalChecksum != RomVersions::KOREA1_0)
+        globalChecksum != RomVersions::JP1_0 && globalChecksum != RomVersions::JP1_1 &&
+        globalChecksum != RomVersions::KR1_0)
     {
         QMessageBox::warning(
             nullptr,
