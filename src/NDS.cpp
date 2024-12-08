@@ -1359,10 +1359,10 @@ u32 NDS::RunFrame()
                 RunTimers(0);
                 GPU.GPU3D.Run();
 
-                target = ARM9Timestamp >> ARM9ClockShift;
+                target = (ARM9.MRTrack.Type == MainRAMType::Null) ? (ARM9Timestamp >> ARM9ClockShift) : ARM7Timestamp + 1;
                 CurCPU = 1;
 
-                while (((ARM7Timestamp < target) && (ARM7.MRTrack.Type == MainRAMType::Null)) || (ARM9.MRTrack.Type != MainRAMType::Null))
+                while ((ARM7Timestamp < target) && (ARM7.MRTrack.Type == MainRAMType::Null))
                 {
                     ARM7Target = (ARM9.MRTrack.Type != MainRAMType::Null) ? (ARM7Timestamp+1) : target; // might be changed by a reschedule
 
