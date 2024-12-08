@@ -196,7 +196,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E83BC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBF18; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: US1.1");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.1");
 
         break;
 
@@ -216,7 +216,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E78FC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FB458; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: US1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.0");
 
         break;
 
@@ -236,7 +236,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E9A3C; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FD598; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: JP1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.0");
 
         break;
 
@@ -256,7 +256,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E99FC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FD558; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: JP1.1");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.1");
 
         break;
 
@@ -276,7 +276,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E83DC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBF38; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: EU1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.0");
 
         break;
 
@@ -295,7 +295,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseAimYAddr = 0x020dee4e;
         isInAdventureAddr = 0x020E845C; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBFB8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: EU1.1");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1");
 
         isRomDetected = true;
 
@@ -316,7 +316,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseAimYAddr = 0x020D7C16;
         isInAdventureAddr = 0x020E11F8; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020F4CF8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: KR1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: KR1.0");
 
         isRomDetected = true;
 
@@ -843,11 +843,6 @@ void EmuThread::run()
 
     bool isWeavel;
 
-    // Screen layout adjustment constants
-    constexpr float DEFAULT_ADJUSTMENT = 0.25f;
-    constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
-    constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
-
     // The QPoint class defines a point in the plane using integer precision. 
     // auto mouseRel = rawInputThread->fetchMouseDelta();
     QPoint mouseRel;
@@ -867,6 +862,11 @@ void EmuThread::run()
             QPoint(displayRect.width() / 2, displayRect.height() / 2)
         );
 
+        // Screen layout adjustment constants
+        constexpr float DEFAULT_ADJUSTMENT = 0.25f;
+        constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
+        constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
+
         // Inner lambda for getting screen-specific adjustment factors
         auto getScreenAdjustment = [&](bool isFullscreen) {
             struct ScreenAdjustment {
@@ -876,10 +876,10 @@ void EmuThread::run()
 
             // Base adjustment values
             static const std::map<int, ScreenAdjustment> layoutAdjustments = {
-                {screenLayout_Natural,    {0.0f,  0.25f}},
-                {screenLayout_Horizontal,   {0.25f, 0.0f}},
-                {screenLayout_Vertical, {0.0f,  0.25f}},
-                {screenLayout_Hybrid,     {0.166796875f, 0.25f}}
+                {screenLayout_Natural,    {0.0f,  DEFAULT_ADJUSTMENT}},
+                {screenLayout_Horizontal,   {DEFAULT_ADJUSTMENT, 0.0f}},
+                {screenLayout_Vertical, {0.0f,  DEFAULT_ADJUSTMENT}},
+                {screenLayout_Hybrid,     {HYBRID_LEFT, DEFAULT_ADJUSTMENT}}
             };
 
             // Get base adjustment for current layout
@@ -913,7 +913,7 @@ void EmuThread::run()
         switch (windowCfg.GetInt("ScreenLayout")) {
         case screenLayout_Hybrid:
             if (isSwapped) {
-                adjustedCenter.rx() += static_cast<int>(displayRect.width() * 0.333203125f);
+                adjustedCenter.rx() += static_cast<int>(displayRect.width() * HYBRID_RIGHT);
                 adjustedCenter.ry() -= static_cast<int>(displayRect.height() * adj.y);
             }
             else {
@@ -1440,7 +1440,7 @@ void EmuThread::run()
                         static constexpr uint8_t WEAPON_COUNT = 9;
 
                         // Find current weapon index using lookup table
-                        static constexpr uint8_t WEAPON_INDEX_MAP[9] = { 0, 7, 1, 6, 5, 4, 3, 2, 8 };
+                        static constexpr uint8_t WEAPON_INDEX_MAP[WEAPON_COUNT] = { 0, 7, 1, 6, 5, 4, 3, 2, 8 };
 
                         uint8_t currentIndex = WEAPON_INDEX_MAP[currentWeapon];
                         const uint8_t startIndex = currentIndex;
