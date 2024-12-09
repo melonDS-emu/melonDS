@@ -134,7 +134,12 @@ void A_MSR_IMM(ARM* cpu)
 
     if (cpu->CPSR & 0x20) [[unlikely]]
     {
-        if (cpu->Num == 0) cpu->R[15] += 2; // pc should actually increment by 4 one more time after switching to thumb mode without a pipeline flush, this gets the same effect.
+        if (cpu->Num == 0)
+        {
+            cpu->R[15] += 2; // pc should actually increment by 4 one more time after switching to thumb mode without a pipeline flush, this gets the same effect.
+            ((ARMv5*)cpu)->StartExec = &ARMv5::StartExecTHUMB;
+            if (cpu->MRTrack.Type == MainRAMType::Null) ((ARMv5*)cpu)->FuncQueue[0] = ((ARMv5*)cpu)->StartExec;
+        }
         else
         {
             Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
@@ -196,7 +201,12 @@ void A_MSR_REG(ARM* cpu)
 
     if (cpu->CPSR & 0x20) [[unlikely]]
     {
-        if (cpu->Num == 0) cpu->R[15] += 2; // pc should actually increment by 4 one more time after switching to thumb mode without a pipeline flush, this gets the same effect.
+        if (cpu->Num == 0)
+        {
+            cpu->R[15] += 2; // pc should actually increment by 4 one more time after switching to thumb mode without a pipeline flush, this gets the same effect.
+            ((ARMv5*)cpu)->StartExec = &ARMv5::StartExecTHUMB;
+            if (cpu->MRTrack.Type == MainRAMType::Null) ((ARMv5*)cpu)->FuncQueue[0] = ((ARMv5*)cpu)->StartExec;
+        }
         else
         {
             Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");

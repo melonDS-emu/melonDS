@@ -729,7 +729,8 @@ public:
     }
 
     // Queue Functions
-    void StartExec();
+    void StartExecARM();
+    void StartExecTHUMB();
     void AddExecute();
     void AddCycles_MW_2();
     void DelayIfITCM_2();
@@ -840,6 +841,7 @@ public:
     u64 TimestampMemory;
     void (ARMv5::*FuncQueue[32])(void);
     void (ARMv5::*DelayedQueue)(void); // adding more than one new entry to the queue while it's already active does not work. so uh. we use this to work around that. it's less than ideal...
+    void (ARMv5::*StartExec)(void);
     u32 PC;
     bool NullFetch;
     bool Store;
@@ -908,6 +910,7 @@ public:
     void Execute();
     
     void (ARMv4::*FuncQueue[32])(void);
+    void (ARMv4::*StartExec)(void);
     bool Nonseq;
 
     void CodeRead16(u32 addr);
@@ -933,8 +936,9 @@ public:
         else
             (this->*QueueEntry)();
     }
-
-    void StartExec();
+    
+    void StartExecARM();
+    void StartExecTHUMB();
     void UpdateNextInstr1() { NextInstr[1] = RetVal; }
     void JumpTo_2();
     void JumpTo_3A();

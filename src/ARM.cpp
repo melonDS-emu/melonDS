@@ -211,8 +211,6 @@ void ARM::Reset()
 
 void ARMv5::Reset()
 {
-    FuncQueue[0] = &ARMv5::StartExec;
-
     PU_Map = PU_PrivMap;
     Store = false;
     
@@ -238,7 +236,6 @@ void ARMv5::Reset()
 
 void ARMv4::Reset()
 {
-    FuncQueue[0] = &ARMv4::StartExec;
     Nonseq = true;
 
     ARM::Reset();
@@ -373,6 +370,9 @@ void ARMv5::JumpTo_2()
 
     if (BranchAddr & 0x1)
     {
+        StartExec = &ARMv5::StartExecTHUMB;
+        if (MRTrack.Type == MainRAMType::Null) FuncQueue[0] = StartExec;
+
         BranchAddr &= ~0x1;
         R[15] = BranchAddr+2;
 
@@ -393,6 +393,9 @@ void ARMv5::JumpTo_2()
     }
     else
     {
+        StartExec = &ARMv5::StartExecARM;
+        if (MRTrack.Type == MainRAMType::Null) FuncQueue[0] = StartExec;
+
         BranchAddr &= ~0x3;
         R[15] = BranchAddr+4;
 
@@ -457,6 +460,9 @@ void ARMv4::JumpTo_2()
 
     if (BranchAddr & 0x1)
     {
+        StartExec = &ARMv4::StartExecTHUMB;
+        if (MRTrack.Type == MainRAMType::Null) FuncQueue[0] = StartExec;
+
         BranchAddr &= ~0x1;
         R[15] = BranchAddr+2;
 
@@ -468,6 +474,9 @@ void ARMv4::JumpTo_2()
     }
     else
     {
+        StartExec = &ARMv4::StartExecARM;
+        if (MRTrack.Type == MainRAMType::Null) FuncQueue[0] = StartExec;
+
         BranchAddr &= ~0x3;
         R[15] = BranchAddr+4;
 
@@ -685,61 +694,60 @@ void ARM::CheckGdbIncoming()
     GdbCheckA();
 }
 
-void ARMv5::StartExec()
+void ARMv5::StartExecTHUMB()
 {
-    if (CPSR & 0x20) // THUMB
-    {
-        // prefetch
-        R[15] += 2;
-        CurInstr = NextInstr[0];
-        NextInstr[0] = NextInstr[1];
-        // code fetch is done during the execute stage cycle handling
-        if (R[15] & 0x2) NullFetch = true;
-        else NullFetch = false;
-        PC = R[15];
+    // prefetch
+    R[15] += 2;
+    CurInstr = NextInstr[0];
+    NextInstr[0] = NextInstr[1];
+    // code fetch is done during the execute stage cycle handling
+    if (R[15] & 0x2) NullFetch = true;
+    else NullFetch = false;
+    PC = R[15];
 
-        if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
-        else if (CurInstr > 0xFFFFFFFF) [[unlikely]] // handle aborted instructions
-        {
-            PrefetchAbort();
-        }
-        else [[likely]] // actually execute
-        {
-            u32 icode = (CurInstr >> 6) & 0x3FF;
-            ARMInterpreter::THUMBInstrTable[icode](this);
-        }
+    if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
+    else if (CurInstr > 0xFFFFFFFF) [[unlikely]] // handle aborted instructions
+    {
+        PrefetchAbort();
+    }
+    else [[likely]] // actually execute
+    {
+        u32 icode = (CurInstr >> 6) & 0x3FF;
+        ARMInterpreter::THUMBInstrTable[icode](this);
+    }
+    QueueFunction(&ARMv5::WBCheck_2);
+}
+
+void ARMv5::StartExecARM()
+{
+    // prefetch
+    R[15] += 4;
+    CurInstr = NextInstr[0];
+    NextInstr[0] = NextInstr[1];
+    // code fetch is done during the execute stage cycle handling
+    NullFetch = false;
+    PC = R[15];
+
+    if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
+    else if (CurInstr & ((u64)1<<63)) [[unlikely]] // handle aborted instructions
+    {
+        PrefetchAbort();
+    }
+    else if (CheckCondition(CurInstr >> 28)) [[likely]] // actually execute
+    {
+        u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
+        ARMInterpreter::ARMInstrTable[icode](this);
+    }
+    else if ((CurInstr & 0xFE000000) == 0xFA000000)
+    {
+        ARMInterpreter::A_BLX_IMM(this);
+    }
+    else if ((CurInstr & 0x0FF000F0) == 0x01200070)
+    {
+        ARMInterpreter::A_BKPT(this); // always passes regardless of condition code
     }
     else
-    {
-        // prefetch
-        R[15] += 4;
-        CurInstr = NextInstr[0];
-        NextInstr[0] = NextInstr[1];
-        // code fetch is done during the execute stage cycle handling
-        NullFetch = false;
-        PC = R[15];
-
-        if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
-        else if (CurInstr & ((u64)1<<63)) [[unlikely]] // handle aborted instructions
-        {
-            PrefetchAbort();
-        }
-        else if (CheckCondition(CurInstr >> 28)) [[likely]] // actually execute
-        {
-            u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
-            ARMInterpreter::ARMInstrTable[icode](this);
-        }
-        else if ((CurInstr & 0xFE000000) == 0xFA000000)
-        {
-            ARMInterpreter::A_BLX_IMM(this);
-        }
-        else if ((CurInstr & 0x0FF000F0) == 0x01200070)
-        {
-            ARMInterpreter::A_BKPT(this); // always passes regardless of condition code
-        }
-        else
-            AddCycles_C();
-    }
+        AddCycles_C();
     QueueFunction(&ARMv5::WBCheck_2);
 }
 
@@ -840,7 +848,7 @@ void ARMv5::Execute()
                             FuncQueueProg = 0;
                             FuncQueueEnd = 0;
                             FuncQueueActive = false;
-                            FuncQueue[0] = &ARMv5::StartExec;
+                            FuncQueue[0] = StartExec;
                         }
                     }
                     else
@@ -904,43 +912,41 @@ template void ARMv5::Execute<CPUExecuteMode::InterpreterGDB>();
 template void ARMv5::Execute<CPUExecuteMode::JIT>();
 #endif
 
-void ARMv4::StartExec()
+void ARMv4::StartExecTHUMB()
 {
-    if (CPSR & 0x20) // THUMB
-    {
-        // prefetch
-        R[15] += 2;
-        CurInstr = NextInstr[0];
-        NextInstr[0] = NextInstr[1];
-        CodeRead16(R[15]);
-        QueueFunction(&ARMv4::UpdateNextInstr1);
+    // prefetch
+    R[15] += 2;
+    CurInstr = NextInstr[0];
+    NextInstr[0] = NextInstr[1];
+    CodeRead16(R[15]);
+    QueueFunction(&ARMv4::UpdateNextInstr1);
 
-        if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
-        else
-        {
-            // actually execute
-            u32 icode = (CurInstr >> 6);
-            ARMInterpreter::THUMBInstrTable[icode](this);
-        }
-    }
+    if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
     else
     {
-        // prefetch
-        R[15] += 4;
-        CurInstr = NextInstr[0];
-        NextInstr[0] = NextInstr[1];
-        CodeRead32(R[15]);
-        QueueFunction(&ARMv4::UpdateNextInstr1);
-
-        if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
-        else if (CheckCondition(CurInstr >> 28)) // actually execute
-        {
-            u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
-            ARMInterpreter::ARMInstrTable[icode](this);
-        }
-        else
-            AddCycles_C();
+        // actually execute
+        u32 icode = (CurInstr >> 6);
+        ARMInterpreter::THUMBInstrTable[icode](this);
     }
+}
+
+void ARMv4::StartExecARM()
+{
+    // prefetch
+    R[15] += 4;
+    CurInstr = NextInstr[0];
+    NextInstr[0] = NextInstr[1];
+    CodeRead32(R[15]);
+    QueueFunction(&ARMv4::UpdateNextInstr1);
+
+    if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
+    else if (CheckCondition(CurInstr >> 28)) // actually execute
+    {
+        u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
+        ARMInterpreter::ARMInstrTable[icode](this);
+    }
+    else
+        AddCycles_C();
 }
 
 template <CPUExecuteMode mode>
@@ -1034,7 +1040,7 @@ void ARMv4::Execute()
                             FuncQueueProg = 0;
                             FuncQueueEnd = 0;
                             FuncQueueActive = false;
-                            FuncQueue[0] = &ARMv4::StartExec;
+                            FuncQueue[0] = StartExec;
                         }
                     }
                     else
