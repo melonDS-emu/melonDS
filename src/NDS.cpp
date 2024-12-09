@@ -951,7 +951,7 @@ void NDS::MainRAMHandleARM9()
             if (var & MRCodeFetch)
             {
                 u32 addr = ARM9.FetchAddr[16];
-                ARM9.RetVal = ARM9Read32(addr);
+                ARM9.RetVal = *(u32*)&MainRAM[addr&MainRAMMask];
             }
             else
             {
@@ -960,17 +960,17 @@ void NDS::MainRAMHandleARM9()
                 if (var & MRWrite) // write
                 {
                     u32 val = ARM9.STRVal[reg];
-                    if      (var & MR32) ARM9Write32(addr, val);
-                    else if (var & MR16) ARM9Write16(addr, val);
-                    else                 ARM9Write8 (addr, val);
+                    if      (var & MR32) *(u32*)&MainRAM[addr&MainRAMMask] = val;
+                    else if (var & MR16) *(u16*)&MainRAM[addr&MainRAMMask] = val;
+                    else                 *(u8 *)&MainRAM[addr&MainRAMMask] = val;
                 }
                 else // read
                 {
                     u32 dummy;
                     u32* val = ((ARM9.LDRFailedRegs & (1<<reg)) ? &dummy : &ARM9.R[reg]);
-                    if      (var & MR32) *val = ARM9Read32(addr);
-                    else if (var & MR16) *val = ARM9Read16(addr);
-                    else                 *val = ARM9Read8 (addr);
+                    if      (var & MR32) *val = *(u32*)&MainRAM[addr&MainRAMMask];
+                    else if (var & MR16) *val = *(u16*)&MainRAM[addr&MainRAMMask];
+                    else                 *val = *(u8 *)&MainRAM[addr&MainRAMMask];
                 }
             }
 
@@ -1005,7 +1005,7 @@ void NDS::MainRAMHandleARM9()
                 MainRAMLastAccess = A9LAST;
             }
 
-            icache[*prog] = ARM9Read32(addr);
+            icache[*prog] = *(u32*)&MainRAM[addr&MainRAMMask];
 
             if (*prog == ARM9.ICacheStreamPtr) ARM9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
             else if (*prog > ARM9.ICacheStreamPtr) ARM9.ICacheStreamTimes[*prog-1] = (A9ContentionTS << ARM9ClockShift) - 1;
@@ -1040,7 +1040,7 @@ void NDS::MainRAMHandleARM9()
                 MainRAMLastAccess = A9LAST;
             }
 
-            dcache[*prog] = ARM9Read32(addr);
+            dcache[*prog] = *(u32*)&MainRAM[addr&MainRAMMask];
 
             if (*prog == ARM9.DCacheStreamPtr) ARM9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
             else if (*prog > ARM9.DCacheStreamPtr) ARM9.DCacheStreamTimes[*prog-1] = (A9ContentionTS << ARM9ClockShift) - 1;
@@ -1176,7 +1176,7 @@ void NDS::MainRAMHandleARM7()
             if (var & MRCodeFetch)
             {
                 u32 addr = ARM7.FetchAddr[16];
-                ARM7.RetVal = (((var & MR32) ? ARM7Read32(addr) : ARM7Read16(addr)));
+                ARM7.RetVal = ((var & MR32) ? *(u32*)&MainRAM[addr&MainRAMMask] : *(u16*)&MainRAM[addr&MainRAMMask]);
             }
             else
             {
@@ -1185,17 +1185,17 @@ void NDS::MainRAMHandleARM7()
                 if (var & MRWrite) // write
                 {
                     u32 val = ARM7.STRVal[reg];
-                    if      (var & MR32) ARM7Write32(addr, val);
-                    else if (var & MR16) ARM7Write16(addr, val);
-                    else                 ARM7Write8 (addr, val);
+                    if      (var & MR32) *(u32*)&MainRAM[addr&MainRAMMask] = val;
+                    else if (var & MR16) *(u16*)&MainRAM[addr&MainRAMMask] = val;
+                    else                 *(u8 *)&MainRAM[addr&MainRAMMask] = val;
                 }
                 else // read
                 {
                     u32 dummy;
                     u32* val = ((ARM7.LDRFailedRegs & (1<<reg)) ? &dummy : &ARM7.R[reg]);
-                    if      (var & MR32) *val = ARM7Read32(addr);
-                    else if (var & MR16) *val = ARM7Read16(addr);
-                    else                 *val = ARM7Read8 (addr);
+                    if      (var & MR32) *val = *(u32*)&MainRAM[addr&MainRAMMask];
+                    else if (var & MR16) *val = *(u16*)&MainRAM[addr&MainRAMMask];
+                    else                 *val = *(u8 *)&MainRAM[addr&MainRAMMask];
                 }
             }
             memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
