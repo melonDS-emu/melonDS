@@ -215,7 +215,7 @@ public:
     u32 DataRegion;
     s32 DataCycles;
 
-    u32 R[16]; // heh
+    alignas(64) u32 R[16]; // heh
     u32 CPSR;
     u32 R_FIQ[8]; // holding SPSR too
     u32 R_SVC[3];

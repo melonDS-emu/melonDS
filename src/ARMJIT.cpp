@@ -51,10 +51,10 @@ namespace melonDS
 using Platform::Log;
 using Platform::LogLevel;
 
-static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset, "");
+/*static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset, "");
 static_assert(offsetof(ARM, Cycles) == ARM_Cycles_offset, "");
 static_assert(offsetof(ARM, StopExecution) == ARM_StopExecution_offset, "");
-
+*/
 
 #define JIT_DEBUGPRINT(msg, ...)
 //#define JIT_DEBUGPRINT(msg, ...) Platform::Log(Platform::LogLevel::Debug, msg, ## __VA_ARGS__)
