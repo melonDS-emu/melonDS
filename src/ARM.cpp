@@ -331,7 +331,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr, u8 R15)
 {
     //printf("JUMP! %08X %i %i\n", addr, restorecpsr, R15);
     NDS.MonitorARM9Jump(addr);
-    
+
     BranchRestore = restorecpsr;
     BranchUpdate = R15;
     BranchAddr = addr;
@@ -382,15 +382,13 @@ void ARMv5::JumpTo_2()
         // doesn't matter if we put garbage in the MSbs there
         if (BranchAddr & 0x2)
         {
+            DelayedQueue = &ARMv5::JumpTo_3A;
             CodeRead32(BranchAddr-2);
-
-            QueueFunction(&ARMv5::JumpTo_3A);
         }
         else
         {
+            DelayedQueue = &ARMv5::JumpTo_3B;
             CodeRead32(BranchAddr);
-
-            QueueFunction(&ARMv5::JumpTo_3B);
         }
     }
     else
@@ -399,19 +397,17 @@ void ARMv5::JumpTo_2()
         R[15] = BranchAddr+4;
 
         CPSR &= ~0x20;
-
+        
+        DelayedQueue = &ARMv5::JumpTo_3C;
         CodeRead32(BranchAddr);
-
-        QueueFunction(&ARMv5::JumpTo_3C);
     }
 }
 
 void ARMv5::JumpTo_3A()
 {
     NextInstr[0] = RetVal >> 16;
+    DelayedQueue = &ARMv5::JumpTo_4;
     CodeRead32(BranchAddr+2);
-
-    QueueFunction(&ARMv5::JumpTo_4);
 }
 
 void ARMv5::JumpTo_3B()
@@ -423,9 +419,8 @@ void ARMv5::JumpTo_3B()
 void ARMv5::JumpTo_3C()
 {
     NextInstr[0] = RetVal;
+    DelayedQueue = &ARMv5::JumpTo_4;
     CodeRead32(BranchAddr+4);
-
-    QueueFunction(&ARMv5::JumpTo_4);
 }
 
 void ARMv5::JumpTo_4()
@@ -1377,12 +1372,13 @@ void ARMv5::CodeFetch()
         if (NDS.ARM9Timestamp < TimestampMemory) NDS.ARM9Timestamp = TimestampMemory;
         Store = false;
         DataRegion = Mem9_Null;
+        QueueFunction(&ARMv5::AddExecute);
     }
     else
     {
+        DelayedQueue = &ARMv5::AddExecute;
         CodeRead32(PC);
     }
-    QueueFunction(&ARMv5::AddExecute);
 }
 
 void ARMv5::AddExecute()

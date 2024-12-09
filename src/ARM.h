@@ -839,7 +839,7 @@ public:
     u64 ITCMTimestamp;
     u64 TimestampMemory;
     void (ARMv5::*FuncQueue[32])(void);
-    void (ARMv5::*DelayedQueue)(void);
+    void (ARMv5::*DelayedQueue)(void); // adding more than one new entry to the queue while it's already active does not work. so uh. we use this to work around that. it's less than ideal...
     u32 PC;
     bool NullFetch;
     bool Store;

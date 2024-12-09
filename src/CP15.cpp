@@ -443,6 +443,7 @@ bool ARMv5::ICacheLookup(const u32 addr)
             Store = false;
 
             RetVal = cacheLine[(addr & (ICACHE_LINELENGTH -1)) / 4];
+            QueueFunction(DelayedQueue);
             return true;
         }
     }
@@ -554,6 +555,7 @@ void ARMv5::ICacheLookup_2()
     }
     Store = false;
     DataRegion = Mem9_Null;
+    QueueFunction(DelayedQueue);
 }
 
 void ARMv5::ICacheInvalidateByAddr(const u32 addr)
@@ -2181,6 +2183,7 @@ void ARMv5::CodeRead32(u32 addr)
         DataRegion = Mem9_Null;
         Store = false;
         RetVal = ((u64)1<<63);
+        QueueFunction(DelayedQueue);
         return;
     }
 
@@ -2192,6 +2195,7 @@ void ARMv5::CodeRead32(u32 addr)
         DataRegion = Mem9_Null;
         Store = false;
         RetVal = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
+        QueueFunction(DelayedQueue);
         return;
     }
     
@@ -2253,6 +2257,7 @@ void ARMv5::CodeRead32_2()
 
     Store = false;
     DataRegion = Mem9_Null;
+    QueueFunction(DelayedQueue);
     return;
 }
 
