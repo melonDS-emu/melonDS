@@ -371,7 +371,7 @@ void ARMv5::JumpTo_2()
     if (BranchAddr & 0x1)
     {
         StartExec = &ARMv5::StartExecTHUMB;
-        if (MRTrack.Type == MainRAMType::Null) FuncQueue[0] = StartExec;
+        FuncQueue[0] = StartExec;
 
         BranchAddr &= ~0x1;
         R[15] = BranchAddr+2;
@@ -394,7 +394,7 @@ void ARMv5::JumpTo_2()
     else
     {
         StartExec = &ARMv5::StartExecARM;
-        if (MRTrack.Type == MainRAMType::Null) FuncQueue[0] = StartExec;
+        FuncQueue[0] = StartExec;
 
         BranchAddr &= ~0x3;
         R[15] = BranchAddr+4;
@@ -461,7 +461,7 @@ void ARMv4::JumpTo_2()
     if (BranchAddr & 0x1)
     {
         StartExec = &ARMv4::StartExecTHUMB;
-        if (MRTrack.Type == MainRAMType::Null) FuncQueue[0] = StartExec;
+        FuncQueue[0] = StartExec;
 
         BranchAddr &= ~0x1;
         R[15] = BranchAddr+2;
@@ -475,7 +475,7 @@ void ARMv4::JumpTo_2()
     else
     {
         StartExec = &ARMv4::StartExecARM;
-        if (MRTrack.Type == MainRAMType::Null) FuncQueue[0] = StartExec;
+        FuncQueue[0] = StartExec;
 
         BranchAddr &= ~0x3;
         R[15] = BranchAddr+4;
