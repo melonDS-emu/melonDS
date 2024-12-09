@@ -157,7 +157,7 @@ void LoadSingle(ARM* cpu, const u8 rd, const u8 rn, const s32 offset, const u16 
     {
         if (rn != 15) [[likely]] // r15 writeback fails on arm9
         {
-            cpu->R[rn] = addr;
+            if (rd != rn) cpu->R[rn] = addr;
         }
         else if (cpu->Num == 1) // arm 7
         {
