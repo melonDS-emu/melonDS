@@ -484,8 +484,8 @@ void NDS::Reset()
 
     MapSharedWRAM(0);
 
-    ExMemCnt[0] = 0x4000;
-    ExMemCnt[1] = 0x4000;
+    ExMemCnt[0] = 0xC000; // checkme: should bit 15 be set by default?
+    ExMemCnt[1] = 0xC000;
     memset(ROMSeed0, 0, 2*8);
     memset(ROMSeed1, 0, 2*8);
     SetGBASlotTimings();
@@ -1358,12 +1358,13 @@ u32 NDS::RunFrame()
                     }
                 
                     //printf("MAIN LOOP: 9 %lli %08X %08llX %i 7 %lli %08X %08llX %i %i %08X\n", ARM9Timestamp>>ARM9ClockShift, ARM9.PC, ARM9.CurInstr, (u8)ARM9.MRTrack.Type, ARM7Timestamp, ARM7.R[15], ARM7.CurInstr, (u8)ARM7.MRTrack.Type, IME[1], IE[1]);
+                    
+                    RunTimers(0);
+                    GPU.GPU3D.Run();
 
                     if (MainRAMHandle()) break;
                 
                 }
-                RunTimers(0);
-                GPU.GPU3D.Run();
 
                 ARM7Target = target;
                 CurCPU = 1;
@@ -1393,10 +1394,10 @@ u32 NDS::RunFrame()
                         }
                     }
 
+                    RunTimers(1);
+
                     if (!MainRAMHandle()) break;
                 }
-                RunTimers(1);
-
                 RunSystem(target);
 
                 if (CPUStop & CPUStop_Sleep)
