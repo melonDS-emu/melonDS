@@ -773,8 +773,8 @@ public:
     void HandleInterlocksMemory_2();
     void ForceInterlock_2();
     void QueueUpdateMode() { UpdateMode(QueueMode[0], QueueMode[1], true); }
-    void SignExtend8() { R[ExtReg] = (s32)(s8)R[ExtReg]; }
-    void SignExtend16() { R[ExtReg] = (s32)(s16)R[ExtReg]; }
+    void SignExtend8() { R[ExtReg] = (s8)R[ExtReg]; }
+    void SignExtend16() { R[ExtReg] = (s16)R[ExtReg]; }
     void ROR32() { R[ExtReg] = ROR(R[ExtReg], ExtROROffs); }
 
 
@@ -950,9 +950,9 @@ public:
     void AddExecute();
     void AddExtraCycle();
     void QueueUpdateMode() { UpdateMode(QueueMode[0], QueueMode[1], true); }
-    void SignExtend8() { R[ExtReg] = (s32)(s8)R[ExtReg]; }
-    void SignExtend16() { R[ExtReg] = (s32)(s16)R[ExtReg]; }
-    void ROR32() { R[ExtReg] = ROR(R[ExtReg], ExtROROffs); }
+    void SignExtend8() { if (!(LDRFailedRegs & 1<<ExtReg)) R[ExtReg] = (s8)R[ExtReg]; }
+    void SignExtend16() { if (!(LDRFailedRegs & 1<<ExtReg)) R[ExtReg] = (s16)R[ExtReg]; }
+    void ROR32() { if (!(LDRFailedRegs & 1<<ExtReg)) R[ExtReg] = ROR(R[ExtReg], ExtROROffs); }
 
 protected:
     u8 BusRead8(u32 addr) override;
