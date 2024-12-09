@@ -822,52 +822,65 @@ void ARMv5::Execute()
         else
 #endif
         {
-            if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-                GdbCheckC(); // gdb might throw a hissy fit about this change but idc
-
-            //printf("A9: A:%i, F:%i, P:%i, E:%i, I:%08llX, P:%08X, 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, PC, R[15]);
-
-            (this->*FuncQueue[FuncQueueProg])();
-
             if (FuncQueueActive)
             {
-                if (FuncQueueFill == FuncQueueProg)
+                while (FuncQueueActive)
                 {
-                    // we did not get a new addition to the queue; increment and reset ptrs
-                    FuncQueueFill = ++FuncQueueProg;
+                    (this->*FuncQueue[FuncQueueProg])();
 
-                    // check if we're done with the queue, if so, reset everything
-                    if (FuncQueueProg >= FuncQueueEnd)
+                    if (FuncQueueFill == FuncQueueProg)
                     {
+                        // we did not get a new addition to the queue; increment and reset ptrs
+                        FuncQueueFill = ++FuncQueueProg;
+
+                        // check if we're done with the queue, if so, reset everything
+                        if (FuncQueueProg >= FuncQueueEnd)
+                        {
+                            FuncQueueFill = 0;
+                            FuncQueueProg = 0;
+                            FuncQueueEnd = 0;
+                            FuncQueueActive = false;
+                            FuncQueue[0] = &ARMv5::StartExec;
+                        }
+                    }
+                    else
+                    {
+                        // we got a new addition to the list; redo the current entry and exit to resolve main ram
+                        FuncQueueFill = FuncQueueProg;
+                        return;
+                    }
+                    if (MRTrack.Type != MainRAMType::Null) return; // check if we need to resolve main ram
+                }
+            }
+            else 
+            {
+                while (NDS.ARM9Timestamp < NDS.ARM9Target)
+                {
+                    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+                        GdbCheckC(); // gdb might throw a hissy fit about this change but idc
+
+                    //printf("A9: A:%i, F:%i, P:%i, E:%i, I:%08llX, P:%08X, 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, PC, R[15]);
+                    (this->*FuncQueue[FuncQueueProg])();
+
+                    if (FuncQueueFill > 0) // check if we started the queue up
+                    {
+                        FuncQueueEnd = FuncQueueFill;
                         FuncQueueFill = 0;
-                        FuncQueueProg = 0;
-                        FuncQueueEnd = 0;
-                        FuncQueueActive = false;
-                        FuncQueue[0] = &ARMv5::StartExec;
+                        FuncQueueActive = true;
+                        return; // exit to resolve main ram
+                    }
+                    if (MRTrack.Type != MainRAMType::Null) return; // check if we need to resolve main ram
+
+                    // TODO optimize this shit!!!
+                    if (Halted)
+                    {
+                        if (Halted == 1 && NDS.ARM9Timestamp < NDS.ARM9Target)
+                        {
+                            NDS.ARM9Timestamp = NDS.ARM9Target;
+                        }
+                        goto exit;
                     }
                 }
-                else
-                {
-                    // we got a new addition to the list; redo the current entry
-                    FuncQueueFill = FuncQueueProg;
-                }
-            }
-            else if (FuncQueueFill > 0) // check if we started the queue up
-            {
-                FuncQueueEnd = FuncQueueFill;
-                FuncQueueFill = 0;
-                FuncQueueActive = true;
-            }
-            if (MRTrack.Type != MainRAMType::Null) return; // check if we need to resolve main ram
-
-            // TODO optimize this shit!!!
-            if (!FuncQueueActive && Halted)
-            {
-                if (Halted == 1 && NDS.ARM9Timestamp < NDS.ARM9Target)
-                {
-                    NDS.ARM9Timestamp = NDS.ARM9Target;
-                }
-                break;
             }
             /*if (NDS::IF[0] & NDS::IE[0])
             {
@@ -880,6 +893,8 @@ void ARMv5::Execute()
         //Cycles = 0;
     }
 
+    exit:
+    
     if (Halted == 2)
         Halted = 0;
 }
@@ -1001,98 +1016,70 @@ void ARMv4::Execute()
         else
 #endif
         {
-            if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-                GdbCheckC();
-                
-            //printf("A7: A:%i, F:%i, P:%i, E:%i, I:%08llX, 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, R[15]);
-            
-            (this->*FuncQueue[FuncQueueProg])();
-
             if (FuncQueueActive)
             {
-                if (FuncQueueFill == FuncQueueProg)
+                while (FuncQueueActive)
                 {
-                    // we did not get a new addition to the queue; increment and reset ptrs
-                    FuncQueueFill = ++FuncQueueProg;
+                    (this->*FuncQueue[FuncQueueProg])();
 
-                    // check if we're done with the queue, if so, reset everything
-                    if (FuncQueueProg >= FuncQueueEnd)
+                    if (FuncQueueFill == FuncQueueProg)
                     {
-                        FuncQueueFill = 0;
-                        FuncQueueProg = 0;
-                        FuncQueueEnd = 0;
-                        FuncQueueActive = false;
-                        FuncQueue[0] = &ARMv4::StartExec;
+                        // we did not get a new addition to the queue; increment and reset ptrs
+                        FuncQueueFill = ++FuncQueueProg;
 
-                        /*
-                        if (filey == NULL) filey = Platform::OpenFile("REGLOG.bin", Platform::FileMode::Read);
-                        else
+                        // check if we're done with the queue, if so, reset everything
+                        if (FuncQueueProg >= FuncQueueEnd)
                         {
-                            u32 regscmp[16];
-                            Platform::FileRead(regscmp, 4, 16, filey);
-                            if (iter > 471000 && memcmp(regscmp, R, 4*16))
-                            {
-                                printf("MISMATCH on iter: %lli!!!! %08llX\n", iter, CurInstr);
-                                for (int i = 0; i < 16; i++)
-                                {
-                                    printf("R%i :%08X vs CMP:%08X\n", i, R[i], regscmp[i]);
-                                }
-                                //abt++;
-                            }
-                            iter++;
-                        }*/
-                    }
-                }
-                else
-                {
-                    // we got a new addition to the list; redo the current entry
-                    FuncQueueFill = FuncQueueProg;
-                }
-            }
-            else if (FuncQueueFill > 0) // check if we started the queue up
-            {
-                FuncQueueEnd = FuncQueueFill;
-                FuncQueueFill = 0;
-                FuncQueueActive = true;
-            }
-            else
-            {
-                /*
-                if (filey == NULL) Platform::OpenFile("REGLOG.bin", Platform::FileMode::Read);
-                else
-                {
-                    u32 regscmp[16];
-                    Platform::FileRead(regscmp, 4, 16, filey);
-                    if (iter > 471000 && memcmp(regscmp, R, 4*16))
-                    {
-                        printf("MISMATCH on iter: %lli!!!! %08llX\n", iter, CurInstr);
-                        for (int i = 0; i < 16; i++)
-                        {
-                            printf("R%i :%08X vs CMP:%08X\n", i, R[i], regscmp[i]);
+                            FuncQueueFill = 0;
+                            FuncQueueProg = 0;
+                            FuncQueueEnd = 0;
+                            FuncQueueActive = false;
+                            FuncQueue[0] = &ARMv4::StartExec;
                         }
-                        //abt++;
-                        iter++;
                     }
-                }*/
-            }
-            if (MRTrack.Type != MainRAMType::Null) return; // check if we need to resolve main ram
-
-            // TODO optimize this shit!!!
-            if (!FuncQueueActive && Halted)
-            {
-                if (Halted == 1 && NDS.ARM7Timestamp < NDS.ARM7Target)
-                {
-                    NDS.ARM7Timestamp = NDS.ARM7Target;
+                    else
+                    {
+                        // we got a new addition to the list; redo the current entry and exit to resolve main ram
+                        FuncQueueFill = FuncQueueProg;
+                        return;
+                    }
+                    if (MRTrack.Type != MainRAMType::Null) return; // check if we need to resolve main ram
                 }
-                break;
             }
-            /*if (NDS::IF[1] & NDS::IE[1])
+            else 
             {
-                if (NDS::IME[1] & 0x1)
-                    TriggerIRQ<mode>();
-            }*/
+                while (NDS.ARM7Timestamp < NDS.ARM7Target)
+                {
+                    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+                        GdbCheckC();
+                
+                    //printf("A7: A:%i, F:%i, P:%i, E:%i, I:%08llX, 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, R[15]);
+                    (this->*FuncQueue[FuncQueueProg])();
+
+                    if (FuncQueueFill > 0) // check if we started the queue up
+                    {
+                        FuncQueueEnd = FuncQueueFill;
+                        FuncQueueFill = 0;
+                        FuncQueueActive = true;
+                        return; // exit to resolve main ram
+                    }
+                    if (MRTrack.Type != MainRAMType::Null) return; // check if we need to resolve main ram
+
+                    // TODO optimize this shit!!!
+                    if (Halted)
+                    {
+                        if (Halted == 1 && NDS.ARM7Timestamp < NDS.ARM7Target)
+                        {
+                            NDS.ARM7Timestamp = NDS.ARM7Target;
+                        }
+                        goto exit;
+                    }
+                }
+            }
         }
     }
+
+    exit:
 
     if (Halted == 2)
         Halted = 0;
