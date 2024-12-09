@@ -798,7 +798,7 @@ public:
     u32 DTCMMask;                                   //! Internal: DTCM Address Mask used in conjunction with @ref DTCMBase to check for DTCM access
     s32 RegionCodeCycles;                           //! Internal: Cached amount of cycles to fetch instruction from the current code region.
 
-    u8 ITCM[ITCMPhysicalSize];                      //! Content of the ITCM
+    alignas(u32) u8 ITCM[ITCMPhysicalSize];                      //! Content of the ITCM
     u8* DTCM;                                       //! Content of the DTCM
 
     alignas(u32) u8 ICache[ICACHE_SIZE];                         //! Instruction Cache Content organized in @ref ICACHE_LINESPERSET times @ref ICACHE_SETS times @ref ICACHE_LINELENGTH bytes
@@ -837,11 +837,11 @@ public:
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
     
-    u64 ITCMTimestamp;
-    u64 TimestampMemory;
-    void (ARMv5::*FuncQueue[32])(void);
+    alignas(64) void (ARMv5::*FuncQueue[32])(void);
     void (ARMv5::*DelayedQueue)(void); // adding more than one new entry to the queue while it's already active does not work. so uh. we use this to work around that. it's less than ideal...
     void (ARMv5::*StartExec)(void);
+    u64 ITCMTimestamp;
+    u64 TimestampMemory;
     u32 PC;
     bool NullFetch;
     bool Store;

@@ -281,8 +281,8 @@ public: // TODO: Encapsulate the rest of these members
 protected:
     // These BIOS arrays should be declared *before* the component objects (JIT, SPI, etc.)
     // so that they're initialized before the component objects' constructors run.
-    std::array<u8, ARM9BIOSSize> ARM9BIOS;
-    std::array<u8, ARM7BIOSSize> ARM7BIOS;
+    alignas(u32) std::array<u8, ARM9BIOSSize> ARM9BIOS;
+    alignas(u32) std::array<u8, ARM7BIOSSize> ARM7BIOS;
     bool ARM9BIOSNative;
     bool ARM7BIOSNative;
 public: // TODO: Encapsulate the rest of these members
