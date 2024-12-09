@@ -87,7 +87,7 @@ void ARM::GdbCheckC() {}
 
 
 
-const u32 ARM::ConditionTable[16] =
+alignas(64) const u32 ARM::ConditionTable[16] =
 {
     0xF0F0, // EQ
     0x0F0F, // NE
