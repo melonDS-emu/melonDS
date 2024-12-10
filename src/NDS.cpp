@@ -484,8 +484,8 @@ void NDS::Reset()
 
     MapSharedWRAM(0);
 
-    ExMemCnt[0] = 0xC000; // checkme: should bit 15 be set by default?
-    ExMemCnt[1] = 0xC000;
+    ExMemCnt[0] = 0xE88C; // checkme: is this correct? ...and what does bit 10 do...? it can be set on 3ds it seems...
+    ExMemCnt[1] = 0xE88C; // note: these should only matter for direct boot; bios sets these values fairly quickly during native boot
     memset(ROMSeed0, 0, 2*8);
     memset(ROMSeed1, 0, 2*8);
     SetGBASlotTimings();
@@ -3802,8 +3802,8 @@ void NDS::ARM9IOWrite16(u32 addr, u16 val)
     case 0x04000204:
         {
             u16 oldVal = ExMemCnt[0];
-            ExMemCnt[0] = val;
-            ExMemCnt[1] = (ExMemCnt[1] & 0x007F) | (val & 0xFF80);
+            ExMemCnt[0] = (ExMemCnt[0] & 0x7700) | (val & 0x88FF);
+            ExMemCnt[1] = (ExMemCnt[1] & 0x777F) | (val & 0x8880);
             if ((oldVal ^ ExMemCnt[0]) & 0xFF)
                 SetGBASlotTimings();
             return;
