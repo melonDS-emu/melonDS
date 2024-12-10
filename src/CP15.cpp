@@ -67,7 +67,7 @@ void ARMv5::CP15Reset()
     // Cache Settings
     PU_CodeCacheable = 0;
     PU_DataCacheable = 0;
-    PU_DataCacheWrite = 0;
+    PU_WriteBufferability = 0;
 
     ICacheLockDown = 0;
     DCacheLockDown = 0;
@@ -119,7 +119,7 @@ void ARMv5::CP15DoSavestate(Savestate* file)
 
     file->Var32(&PU_CodeCacheable);
     file->Var32(&PU_DataCacheable);
-    file->Var32(&PU_DataCacheWrite);
+    file->Var32(&PU_WriteBufferability);
 
     file->Var32(&PU_CodeRW);
     file->Var32(&PU_DataRW);
@@ -198,9 +198,9 @@ void ARMv5::UpdatePURegion(const u32 n)
     bool codecache, datacache, datawrite;
 
     // datacache/datawrite
-    // 0/0: goes to memory
-    // 0/1: goes to memory
-    // 1/0: goes to memory and cache
+    // 0/0: goes directly to memory
+    // 0/1: goes to write buffer
+    // 1/0: goes to write buffer and cache
     // 1/1: goes to cache
 
     if (CP15Control & CP15_CACHE_CR_ICACHEENABLE)
@@ -217,7 +217,7 @@ void ARMv5::UpdatePURegion(const u32 n)
         datacache = false;
     }
     
-    datawrite = (PU_DataCacheWrite >> n) & 0x1;
+    datawrite = (PU_WriteBufferability >> n) & 0x1;
 
     u32 rgn = PU_Region[n];
     if (!(rgn & CP15_REGION_ENABLE))
@@ -1493,10 +1493,10 @@ void ARMv5::CP15Write(u32 id, u32 val)
         return;
 
 
-    case 0x300: // data cache write-buffer
+    case 0x300: // write-buffer
         {
-            u32 diff = PU_DataCacheWrite ^ val;
-            PU_DataCacheWrite = val;
+            u32 diff = PU_WriteBufferability ^ val;
+            PU_WriteBufferability = val;
             #if 0
                 // This code just updates the PU_Map entries of the given region
                 // this works fine, if the regions do not overlap 
@@ -1996,7 +1996,7 @@ u32 ARMv5::CP15Read(const u32 id) const
     case 0x201:
         return PU_CodeCacheable;
     case 0x300:
-        return PU_DataCacheWrite;
+        return PU_WriteBufferability;
 
 
     case 0x500:

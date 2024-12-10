@@ -811,7 +811,7 @@ public:
 
     u32 PU_CodeCacheable;                           //! CP15 Register 2 Opcode2 1: Code Cachable Bits
     u32 PU_DataCacheable;                           //! CP15 Register 2 Opcode2 0: Data Cachable Bits
-    u32 PU_DataCacheWrite;                          //! CP15 Register 3 Opcode2 0: WriteBuffer Control Register
+    u32 PU_WriteBufferability;                      //! CP15 Register 3 Opcode2 0: Write Buffer Control Register
 
     u32 PU_CodeRW;                                  //! CP15 Register 5 Opcode2 3: Code Access Permission register
     u32 PU_DataRW;                                  //! CP15 Register 5 Opcode2 2: Data Access Permission register
