@@ -129,6 +129,9 @@ void DSi::Reset()
     //ARM9.CP15Write(0x911, 0x00000020);
     //ARM9.CP15Write(0x100, ARM9.CP15Read(0x100) | 0x00050000);
     NDS::Reset();
+    
+    ExMemCnt[0] = 0xEC8C; // checkme: bit 10 should be explicitly set?
+    ExMemCnt[1] = 0xEC8C;
 
     // The SOUNDBIAS register does nothing on DSi
     SPU.SetApplyBias(false);
@@ -3114,6 +3117,7 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
         SCFG_EXT[0] |= (val & 0x03000000);
         SCFG_EXT[1] &= ~0x93FF0F07;
         SCFG_EXT[1] |= (val & 0x93FF0F07);
+        if (!(val & (1<<24))) { ExMemCnt[0] &= ~(1<<10); ExMemCnt[1] &= ~(1<<10); } // bit 10 of exmemcnt is cleared when disabling second card slot access
         Log(LogLevel::Debug, "SCFG_EXT = %08X / %08X (val7 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
         return;
     case 0x04004010:
