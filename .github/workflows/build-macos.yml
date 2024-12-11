@@ -41,11 +41,16 @@ jobs:
           configurePreset: release-mac-${{ matrix.arch }}
           buildPreset: release-mac-${{ matrix.arch }}
           configurePresetAdditionalArgs: "['-DMELONDS_EMBED_BUILD_INFO=ON']"
+      - name: Prepare app bundle
+        shell: bash
+        run: |
+          mkdir app
+          mv build/release-mac-${{ matrix.arch }}/melonDS.app app
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macOS-${{ matrix.arch }}
-          path: build/release-mac-${{ matrix.arch }}/melonDS.app
+          path: app
           retention-days: 1
 
   universal-binary:
@@ -67,17 +72,16 @@ jobs:
       - name: Combine app bundles
         shell: bash
         run: |
-          unzip x86_64/*.zip -d x86_64
-          unzip arm64/*.zip -d arm64
           lipo {x86_64,arm64}/melonDS.app/Contents/MacOS/melonDS -create -output melonDS
-          cp -a arm64/melonDS.app melonDS.app
-          cp melonDS melonDS.app/Contents/MacOS/melonDS
-          codesign -s - --deep melonDS.app
+          mkdir app
+          cp -a arm64/melonDS.app app
+          cp melonDS app/melonDS.app/Contents/MacOS/melonDS
+          codesign -s - --deep app/melonDS.app
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macOS-universal
-          path: melonDS.app
+          path: app
 #     - name: Clean up architecture-specific artifacts
 #       uses: geekyeggo/delete-artifact@v4
 #       with:
