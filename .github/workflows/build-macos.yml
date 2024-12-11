@@ -72,7 +72,7 @@ jobs:
       - name: Combine app bundles
         shell: bash
         run: |
-          uznip x86_64/melonDS-x86_64.zip -d x86_64
+          unzip x86_64/melonDS-x86_64.zip -d x86_64
           unzip melonDS-arm64.zip
           lipo {.,x86_64}/melonDS.app/Contents/MacOS/melonDS -create -output melonDS
           cp melonDS melonDS.app/Contents/MacOS/melonDS
