@@ -69,7 +69,11 @@ enum class MainRAMType : u8
     Fetch,
     ICacheStream,
     DCacheStream,
-    WriteBufferCmds, // all write buffer commands must be above this one; wb cmds not strictly used for main ram
+    DMA16,
+    DMA32,
+
+    WriteBufferCmds, // all write buffer commands must be below this one; wb cmds are not strictly used for main ram
+
     WBDrain,
     WBWrite,
     WBCheck,

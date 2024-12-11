@@ -1055,6 +1055,210 @@ void NDS::MainRAMHandleARM9()
             break;
         }
 
+        case MainRAMType::DMA32:
+        {
+            DMA* dma = &DMAs[ARM9.MRTrack.Var];
+            int burststart = dma->Running - 1;
+            
+            u32 srcaddr = dma->CurSrcAddr;
+            u32 srcrgn = ARM9Regions[srcaddr>>14];
+            u32 dstaddr = dma->CurDstAddr;
+            u32 dstrgn = ARM9Regions[dstaddr>>14];
+            if (!ARM9.MRTrack.Progress)
+            {
+                if (srcrgn == Mem9_MainRAM)
+                {
+                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0)
+                    {
+                        if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
+                        MainRAMTimestamp = A9ContentionTS + 9;
+                        A9ContentionTS += 6;
+                        MainRAMLastAccess = A9LAST;
+                    }
+                    else
+                    {
+                        A9ContentionTS += 2;
+                        MainRAMTimestamp += 2;
+                    }
+                    DMALastWasMainRAM = true;
+                }
+                else
+                {
+                    if (burststart == 2 || dma->SrcAddrInc <= 0) A9ContentionTS += ARM9MemTimings[srcaddr>>14][6] + (ARM9MemTimings[srcaddr>>14][6] == 1);
+                    else                                         A9ContentionTS += ARM9MemTimings[srcaddr>>14][7];
+                    DMALastWasMainRAM = false;
+                }
+
+                DMAReadHold = ARM9Read32(srcaddr);
+
+                ARM9.MRTrack.Progress = 1;
+            }
+            else
+            {
+                if (dstrgn == Mem9_MainRAM)
+                {
+                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->DstAddrInc <= 0)
+                    {
+                        if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
+                        MainRAMTimestamp = A9ContentionTS + 9;
+                        A9ContentionTS += 4;
+                        MainRAMLastAccess = A9LAST;
+                    }
+                    else
+                    {
+                        A9ContentionTS += 2;
+                        MainRAMTimestamp += 2;
+                    }
+                    DMALastWasMainRAM = true;
+                }
+                else
+                {
+                    if (burststart == 2 || dma->DstAddrInc <= 0) A9ContentionTS += ARM9MemTimings[dstaddr>>14][6];
+                    else                                         A9ContentionTS += ARM9MemTimings[dstaddr>>14][7] - (burststart <= 0);
+                    DMALastWasMainRAM = false;
+                }
+
+                ARM9Write32(dstaddr, DMAReadHold);
+
+                dma->CurSrcAddr += dma->SrcAddrInc<<2;
+                dma->CurDstAddr += dma->DstAddrInc<<2;
+                dma->IterCount--;
+                dma->RemCount--;
+                burststart -= 1;
+                if (burststart <= 0) dma->Running = 1;
+                else dma->Running = 2;
+                ARM9Timestamp = A9ContentionTS << ARM9ClockShift;
+                memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+                ConTSLock = false;
+                if (dma->RemCount)
+                {
+                    if (dma->IterCount == 0)
+                    {
+                        dma->Running = 0;
+                        ResumeCPU(0, 1<<dma->Num);
+
+                        if (dma->StartMode == 0x07)
+                            GPU.GPU3D.CheckFIFODMA();
+                    }
+
+                    break;
+                }
+
+                if (!(dma->Cnt & (1<<25)))
+                    dma->Cnt &= ~(1<<31);
+
+                if (dma->Cnt & (1<<30))
+                    SetIRQ(0, IRQ_DMA0 + dma->Num);
+
+                dma->Running = 0;
+                dma->InProgress = false;
+                ResumeCPU(0, 1<<dma->Num);
+            }
+            break;
+        }
+
+        case MainRAMType::DMA16:
+        {
+            DMA* dma = &DMAs[ARM9.MRTrack.Var];
+            int burststart = dma->Running - 1;
+            
+            u32 srcaddr = dma->CurSrcAddr;
+            u32 srcrgn = ARM9Regions[srcaddr>>14];
+            u32 dstaddr = dma->CurDstAddr;
+            u32 dstrgn = ARM9Regions[dstaddr>>14];
+            if (!ARM9.MRTrack.Progress)
+            {
+                if (srcrgn == Mem9_MainRAM)
+                {
+                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0)
+                    {
+                        if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
+                        MainRAMTimestamp = A9ContentionTS + 8;
+                        A9ContentionTS += 5;
+                        MainRAMLastAccess = A9LAST;
+                    }
+                    else
+                    {
+                        A9ContentionTS += 1;
+                        MainRAMTimestamp += 1;
+                    }
+                    DMALastWasMainRAM = true;
+                }
+                else
+                {
+                    if (burststart == 2 || dma->SrcAddrInc <= 0) A9ContentionTS += ARM9MemTimings[srcaddr>>14][4] + (ARM9MemTimings[srcaddr>>14][4] == 1);
+                    else                                         A9ContentionTS += ARM9MemTimings[srcaddr>>14][5];
+                    DMALastWasMainRAM = false;
+                }
+
+                DMAReadHold = ARM9Read16(srcaddr);
+
+                ARM9.MRTrack.Progress = 1;
+            }
+            else
+            {
+                if (dstrgn == Mem9_MainRAM)
+                {
+                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->DstAddrInc <= 0)
+                    {
+                        if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
+                        MainRAMTimestamp = A9ContentionTS + 8;
+                        A9ContentionTS += 3;
+                        MainRAMLastAccess = A9LAST;
+                    }
+                    else
+                    {
+                        A9ContentionTS += 1;
+                        MainRAMTimestamp += 1;
+                    }
+                    DMALastWasMainRAM = true;
+                }
+                else
+                {
+                    if (burststart == 2 || dma->DstAddrInc <= 0) A9ContentionTS += ARM9MemTimings[dstaddr>>14][4];
+                    else                                         A9ContentionTS += ARM9MemTimings[dstaddr>>14][5] - (burststart <= 0);
+                    DMALastWasMainRAM = false;
+                }
+
+                ARM9Write16(dstaddr, DMAReadHold);
+
+                dma->CurSrcAddr += dma->SrcAddrInc<<1;
+                dma->CurDstAddr += dma->DstAddrInc<<1;
+                dma->IterCount--;
+                dma->RemCount--;
+                burststart -= 1;
+                if (burststart <= 0) Running = 1;
+                else dma->Running = 2;
+                ARM9Timestamp = A9ContentionTS << ARM9ClockShift;
+                memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+                ConTSLock = false;
+                if (dma->RemCount)
+                {
+                    if (dma->IterCount == 0)
+                    {
+                        dma->Running = 0;
+                        ResumeCPU(0, 1<<dma->Num);
+
+                        if (dma->StartMode == 0x07)
+                            GPU.GPU3D.CheckFIFODMA();
+                    }
+
+                    break;
+                }
+
+                if (!(dma->Cnt & (1<<25)))
+                    dma->Cnt &= ~(1<<31);
+
+                if (dma->Cnt & (1<<30))
+                    SetIRQ(0, IRQ_DMA0 + dma->Num);
+
+                dma->Running = 0;
+                dma->InProgress = false;
+                ResumeCPU(0, 1<<dma->Num);
+            }
+            break;
+        }
+
         case MainRAMType::WBDrain:
         {
             if (!ARM9.WriteBufferHandle<WBMode::Force>()) return;
@@ -1334,9 +1538,9 @@ u32 NDS::RunFrame()
                         {
                             u64 ts = ARM9Timestamp;
                             DMAs[0].Run();
-                            if (!(CPUStop & CPUStop_GXStall)) DMAs[1].Run();
-                            if (!(CPUStop & CPUStop_GXStall)) DMAs[2].Run();
-                            if (!(CPUStop & CPUStop_GXStall)) DMAs[3].Run();
+                            if (!(CPUStop & CPUStop_GXStall) && (ARM9.MRTrack.Type == MainRAMType::Null)) DMAs[1].Run();
+                            if (!(CPUStop & CPUStop_GXStall) && (ARM9.MRTrack.Type == MainRAMType::Null)) DMAs[2].Run();
+                            if (!(CPUStop & CPUStop_GXStall) && (ARM9.MRTrack.Type == MainRAMType::Null)) DMAs[3].Run();
                             if (ConsoleType == 1)
                             {
                                 auto& dsi = dynamic_cast<melonDS::DSi&>(*this);
@@ -1378,9 +1582,9 @@ u32 NDS::RunFrame()
                         if (CPUStop & CPUStop_DMA7)
                         {
                             DMAs[4].Run();
-                            DMAs[5].Run();
-                            DMAs[6].Run();
-                            DMAs[7].Run();
+                            if (ARM7.MRTrack.Type == MainRAMType::Null) DMAs[5].Run();
+                            if (ARM7.MRTrack.Type == MainRAMType::Null) DMAs[6].Run();
+                            if (ARM7.MRTrack.Type == MainRAMType::Null) DMAs[7].Run();
                             if (ConsoleType == 1)
                             {
                                 auto& dsi = dynamic_cast<melonDS::DSi&>(*this);

@@ -81,23 +81,23 @@ public:
     u32 SrcAddr {};
     u32 DstAddr {};
     u32 Cnt {};
-
-private:
-    melonDS::NDS& NDS;
-    u32 CPU {};
-    u32 Num {};
-
-    u32 StartMode {};
     u32 CurSrcAddr {};
     u32 CurDstAddr {};
     u32 RemCount {};
     u32 IterCount {};
     s32 SrcAddrInc {};
     s32 DstAddrInc {};
-    u32 CountMask {};
-
     u32 Running {};
     bool InProgress {};
+    u32 Num {};
+    u32 StartMode {};
+
+private:
+    melonDS::NDS& NDS;
+    u32 CPU {};
+
+    u32 CountMask {};
+
 
     bool Executing {};
     bool Stall {};

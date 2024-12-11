@@ -276,7 +276,9 @@ public: // TODO: Encapsulate the rest of these members
     alignas(u32) u8 ROMSeed0[2*8];
     alignas(u32) u8 ROMSeed1[2*8];
 
+    u32 DMAReadHold;
     bool MainRAMLastAccess; // 0 == ARM9 | 1 == ARM7
+    bool DMALastWasMainRAM;
 
 protected:
     // These BIOS arrays should be declared *before* the component objects (JIT, SPI, etc.)
