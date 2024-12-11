@@ -44,9 +44,8 @@ jobs:
       - name: Prepare app bundle
         shell: bash
         run: |
-          mkdir app
-          zip -r -y macOS-${{ matrix.arch }}.zip \
-            build/release-mac-${{ matrix.arch }}/melonDS.app
+          cd build/release-mac-${{ matrix.arch }}
+          zip -r -y ../../macOS-${{ matrix.arch }}.zip melonDS.app
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
