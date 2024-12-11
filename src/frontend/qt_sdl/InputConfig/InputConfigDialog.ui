@@ -2371,8 +2371,17 @@
 						</property>
 					</widget>
 				</item>
-				
-		    </layout>
+
+				<!-- SnapTap -->
+				<item row="7" column="0">
+					<widget class="QCheckBox" name="cbMetroidEnableSnapTap">
+						<property name="text">
+							<string>Enable SnapTap</string>
+						</property>
+					</widget>
+				</item>
+
+			</layout>
 	    </widget>
 		<!-- /MelonPrimeDS -->
 	</widget>
