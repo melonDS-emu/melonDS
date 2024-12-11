@@ -78,7 +78,9 @@ jobs:
       - name: Create disk image
         shell: bash
         run: |
+          mkdir app
           ln -s /Applications app/Applications
+          mv melonDS.app app
           hdiutil create -fs HFS+ -volname melonDS -srcfolder app -ov -format UDBZ melonDS.dmg
           codesign -s - --deep melonDS.dmg
       - name: Upload artifact
