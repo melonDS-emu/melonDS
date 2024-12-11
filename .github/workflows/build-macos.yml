@@ -72,8 +72,8 @@ jobs:
       - name: Combine app bundles
         shell: bash
         run: |
-          unzip x86_64/melonDS-x86_64.zip -d x86_64
-          unzip melonDS-arm64.zip
+          unzip x86_64/*.zip -d x86_64
+          unzip *.zip
           lipo {.,x86_64}/melonDS.app/Contents/MacOS/melonDS -create -output melonDS
           cp melonDS melonDS.app/Contents/MacOS/melonDS
       - name: Create disk image
