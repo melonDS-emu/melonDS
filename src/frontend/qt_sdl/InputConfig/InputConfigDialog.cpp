@@ -77,7 +77,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     populatePage(ui->tabAddons, hk_addons_labels, addonsKeyMap, addonsJoyMap);
     populatePage(ui->tabHotkeysGeneral, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
 
-    // MelonPrimeDS {
+    // MelonPrimeDS { // load Config
 
 
     // Addons ( Metroid ) Tab
@@ -99,6 +99,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
 
     // Sensitivities
     ui->metroidAimSensitvitySpinBox->setValue(instcfg.GetInt("Metroid.Sensitivity.Aim"));
+    ui->cbMetroidEnableSnapTap->setChecked(instcfg.GetBool("Metroid.Operation.SnapTap"));
 
     // } MelonPrimeDS
 
@@ -240,7 +241,7 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         i++;
     }
 
-    // MelonPrimeDS {
+    // MelonPrimeDS { saveConfig
 
     // set key values to toml file
 
@@ -255,7 +256,8 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
 
     // Sensitivities
     instcfg.SetInt("Metroid.Sensitivity.Aim", ui->metroidAimSensitvitySpinBox->value());
-
+    instcfg.SetBool("Metroid.Operation.SnapTap", ui->cbMetroidEnableSnapTap->checkState() == Qt::Checked);
+    
     // } MelonPrimeDS
 
     instcfg.SetInt("JoystickID", joystickID);
@@ -353,5 +355,20 @@ void InputConfigDialog::switchTabToAddons() {
 
 void InputConfigDialog::switchTabToMetroid() {
     ui->tabWidget->setCurrentWidget(ui->tabMetroid);
+}
+
+void InputConfigDialog::on_cbMetroidEnableSnapTap_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("Metroid.Operation.SnapTap", state != 0);
+    /*
+    bool vsync = (state != 0);
+    ui->sbVSyncInterval->setEnabled(vsync);
+
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("Screen.VSync", vsync);
+
+    emit updateVideoSettings(false);
+    */
 }
 /* } MelonPrimeDS */

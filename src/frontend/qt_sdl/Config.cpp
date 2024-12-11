@@ -49,6 +49,7 @@ toml::value RootTable;
 DefaultList<int> DefaultInts =
 {
     {"Instance*.Keyboard", -1},
+    {"Instance*.Keyboard.HK_FullscreenToggle", Qt::Key_F11},
     {"Instance*.Joystick", -1},
     {"Instance*.Window*.Width", 256},
     {"Instance*.Window*.Height", 384},
@@ -73,7 +74,7 @@ DefaultList<int> DefaultInts =
 #endif
     {"LAN.HostNumPlayers", 16},
 
-    /* MelonPrimeDS. This is not working now.  */
+    /* MelonPrimeDS { */
     {"Instance*.Metroid.Sensitivity.Aim", 30},
 
     {"Instance*.Keyboard.HK_MetroidMoveForward",       Qt::Key_W},
@@ -106,6 +107,7 @@ DefaultList<int> DefaultInts =
     {"Instance*.Keyboard.HK_MetroidMenu",              Qt::Key_Tab},
     {"Instance*.Keyboard.HK_MetroidIngameSensiUp",     Qt::Key_PageUp},
     {"Instance*.Keyboard.HK_MetroidIngameSensiDown",   Qt::Key_PageDown},
+    /* MelonPrimeDS } */
 
 };
 
@@ -151,6 +153,11 @@ DefaultList<bool> DefaultBools =
     {"JIT.FastMemory", true},
 #endif
 #endif
+
+    /* MelonPrimeDS { */
+    {"Metroid.Operation.SnapTap", false},
+    /* MelonPrimeDS } */
+
 };
 
 DefaultList<std::string> DefaultStrings =

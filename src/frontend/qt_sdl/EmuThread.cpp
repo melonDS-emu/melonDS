@@ -179,7 +179,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
 
 
     switch (globalChecksum) {
-    case RomVersions::USA1_1:
+    case RomVersions::US1_1:
         // USA1.1
 
         baseChosenHunterAddr = 0x020CBDA4; // BattleConfig:ChosenHunter 0 samus 1 kanden 2 trace 3 sylux 4 noxus 5 spire 6 weavel
@@ -196,11 +196,11 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E83BC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBF18; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: US1.1");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.1");
 
         break;
 
-    case RomVersions::USA1_0:
+    case RomVersions::US1_0:
         // USA1.0
         baseChosenHunterAddr = 0x020CB51C; // BattleConfig:ChosenHunter
         inGameAddr = 0x020ee180 + 0x8F0; // inGame:1
@@ -216,11 +216,11 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E78FC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FB458; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: US1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.0");
 
         break;
 
-    case RomVersions::JAPAN1_0:
+    case RomVersions::JP1_0:
         // Japan1.0
         baseChosenHunterAddr = 0x020CD358; // BattleConfig:ChosenHunter
         inGameAddr = 0x020F0BB0; // inGame:1
@@ -236,11 +236,11 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E9A3C; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FD598; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: JP1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.0");
 
         break;
 
-    case RomVersions::JAPAN1_1:
+    case RomVersions::JP1_1:
         // Japan1.1
         baseChosenHunterAddr = 0x020CD318; // BattleConfig:ChosenHunter
         inGameAddr = 0x020F0280 + 0x8F0; // inGame:1
@@ -256,7 +256,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E99FC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FD558; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: JP1.1");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.1");
 
         break;
 
@@ -276,7 +276,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E83DC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBF38; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: EU1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.0");
 
         break;
 
@@ -295,13 +295,13 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseAimYAddr = 0x020dee4e;
         isInAdventureAddr = 0x020E845C; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBFB8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: EU1.1");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1");
 
         isRomDetected = true;
 
         break;
 
-    case RomVersions::KOREA1_0:
+    case RomVersions::KR1_0:
         // Korea1.0
         baseChosenHunterAddr = 0x020C4B88; // BattleConfig:ChosenHunter
         inGameAddr = 0x020E81B4; // inGame:1
@@ -316,7 +316,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseAimYAddr = 0x020D7C16;
         isInAdventureAddr = 0x020E11F8; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020F4CF8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "MPH Rom detected. version: KR1.0");
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: KR1.0");
 
         isRomDetected = true;
 
@@ -843,11 +843,6 @@ void EmuThread::run()
 
     bool isWeavel;
 
-    // Screen layout adjustment constants
-    constexpr float DEFAULT_ADJUSTMENT = 0.25f;
-    constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
-    constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
-
     // The QPoint class defines a point in the plane using integer precision. 
     // auto mouseRel = rawInputThread->fetchMouseDelta();
     QPoint mouseRel;
@@ -867,6 +862,11 @@ void EmuThread::run()
             QPoint(displayRect.width() / 2, displayRect.height() / 2)
         );
 
+        // Screen layout adjustment constants
+        constexpr float DEFAULT_ADJUSTMENT = 0.25f;
+        constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
+        constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
+
         // Inner lambda for getting screen-specific adjustment factors
         auto getScreenAdjustment = [&](bool isFullscreen) {
             struct ScreenAdjustment {
@@ -876,10 +876,10 @@ void EmuThread::run()
 
             // Base adjustment values
             static const std::map<int, ScreenAdjustment> layoutAdjustments = {
-                {screenLayout_Natural,    {0.0f,  0.25f}},
-                {screenLayout_Horizontal,   {0.25f, 0.0f}},
-                {screenLayout_Vertical, {0.0f,  0.25f}},
-                {screenLayout_Hybrid,     {0.166796875f, 0.25f}}
+                {screenLayout_Natural,    {0.0f,  DEFAULT_ADJUSTMENT}},
+                {screenLayout_Horizontal,   {DEFAULT_ADJUSTMENT, 0.0f}},
+                {screenLayout_Vertical, {0.0f,  DEFAULT_ADJUSTMENT}},
+                {screenLayout_Hybrid,     {HYBRID_LEFT, DEFAULT_ADJUSTMENT}}
             };
 
             // Get base adjustment for current layout
@@ -913,7 +913,7 @@ void EmuThread::run()
         switch (windowCfg.GetInt("ScreenLayout")) {
         case screenLayout_Hybrid:
             if (isSwapped) {
-                adjustedCenter.rx() += static_cast<int>(displayRect.width() * 0.333203125f);
+                adjustedCenter.rx() += static_cast<int>(displayRect.width() * HYBRID_RIGHT);
                 adjustedCenter.ry() -= static_cast<int>(displayRect.height() * adj.y);
             }
             else {
@@ -947,6 +947,10 @@ void EmuThread::run()
 
     // processMoveInputFunction{
 
+    // State variables for SnapTap mode
+    static uint32_t lastInputBitmap = 0;
+    static uint32_t priorityInput = 0;
+
     auto processMoveInput = [&]() {
         // Pack all input flags into a single 32-bit register for SIMD-like processing
         static constexpr uint32_t INPUT_PACKED_UP = (1u << 0) | (uint32_t(INPUT_UP) << 16);
@@ -954,59 +958,139 @@ void EmuThread::run()
         static constexpr uint32_t INPUT_PACKED_LEFT = (1u << 2) | (uint32_t(INPUT_LEFT) << 16);
         static constexpr uint32_t INPUT_PACKED_RIGHT = (1u << 3) | (uint32_t(INPUT_RIGHT) << 16);
 
-        // Pre-fetch all hotkey states at once to minimize input latency
-        uint32_t inputBitmap =
+        // Get current input state
+        uint32_t currentInputBitmap =
             (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveForward)) << 0) |
             (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveBack)) << 1) |
             (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveLeft)) << 2) |
             (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveRight)) << 3);
 
-        // Optimized LUT using bit manipulation to handle all cases
-        static constexpr uint32_t PACKED_LUT[16] = {
-            0x00000000u, // None
-            INPUT_PACKED_UP,    // Up
-            INPUT_PACKED_DOWN,  // Down
-            0x00000000u, // Up+Down (cancel)
-            INPUT_PACKED_LEFT,  // Left
-            INPUT_PACKED_UP | INPUT_PACKED_LEFT,    // Left+Up
-            INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,  // Left+Down
-            INPUT_PACKED_LEFT,  // Left+Up+Down
-            INPUT_PACKED_RIGHT, // Right
-            INPUT_PACKED_UP | INPUT_PACKED_RIGHT,   // Right+Up
-            INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT, // Right+Down
-            INPUT_PACKED_RIGHT, // Right+Up+Down
-            0x00000000u, // Left+Right (cancel)
-            INPUT_PACKED_UP,    // Left+Right+Up
-            INPUT_PACKED_DOWN,  // Left+Right+Down
-            0x00000000u  // All pressed (cancel)
-        };
+        if (localCfg.GetBool("Metroid.Operation.SnapTap")) {
+            // Detect newly pressed keys
+            uint32_t newlyPressed = currentInputBitmap & ~lastInputBitmap;
 
-        // Single LUT lookup to get final state
-        uint32_t finalState = PACKED_LUT[inputBitmap & 0xF];
+            // Check for directional conflicts
+            bool horizontalConflict = (currentInputBitmap & ((1u << 2) | (1u << 3))) == ((1u << 2) | (1u << 3));  // Left & Right
+            bool verticalConflict = (currentInputBitmap & ((1u << 0) | (1u << 1))) == ((1u << 0) | (1u << 1));    // Up & Down
 
-        // Branchless input application using bit manipulation
-        static const auto applyInput = [&](uint32_t packedInput, uint32_t state) {
-            if (state & packedInput & 0xF) {
-                FN_INPUT_PRESS(packedInput >> 16);
+            // Update priority when new keys are pressed
+            if (newlyPressed) {
+                if (horizontalConflict) {
+                    // For horizontal conflict, prioritize the newly pressed key
+                    priorityInput &= ~((1u << 2) | (1u << 3));  // Clear horizontal flags
+                    priorityInput |= newlyPressed & ((1u << 2) | (1u << 3));
+                }
+                if (verticalConflict) {
+                    // For vertical conflict, prioritize the newly pressed key
+                    priorityInput &= ~((1u << 0) | (1u << 1));  // Clear vertical flags
+                    priorityInput |= newlyPressed & ((1u << 0) | (1u << 1));
+                }
             }
-            else {
-                FN_INPUT_RELEASE(packedInput >> 16);
+
+            // Clear priority if the prioritized key is released
+            if ((priorityInput & ~currentInputBitmap) != 0) {
+                priorityInput &= currentInputBitmap;
             }
+
+            // Determine final input based on priorities
+            uint32_t finalInputBitmap = currentInputBitmap;
+            if (horizontalConflict) {
+                finalInputBitmap &= ~((1u << 2) | (1u << 3));  // Clear horizontal inputs
+                finalInputBitmap |= priorityInput & ((1u << 2) | (1u << 3));
+            }
+            if (verticalConflict) {
+                finalInputBitmap &= ~((1u << 0) | (1u << 1));  // Clear vertical inputs
+                finalInputBitmap |= priorityInput & ((1u << 0) | (1u << 1));
+            }
+
+            // Use LUT to get final state
+            static constexpr uint32_t PACKED_LUT[16] = {
+                0x00000000u,
+                INPUT_PACKED_UP,
+                INPUT_PACKED_DOWN,
+                0x00000000u,
+                INPUT_PACKED_LEFT,
+                INPUT_PACKED_UP | INPUT_PACKED_LEFT,
+                INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,
+                INPUT_PACKED_LEFT,
+                INPUT_PACKED_RIGHT,
+                INPUT_PACKED_UP | INPUT_PACKED_RIGHT,
+                INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,
+                INPUT_PACKED_RIGHT,
+                0x00000000u,
+                INPUT_PACKED_UP,
+                INPUT_PACKED_DOWN,
+                0x00000000u
             };
 
-        // Process all inputs in parallel using packed values
-        static constexpr uint32_t ALL_INPUTS[] = {
-            INPUT_PACKED_UP, INPUT_PACKED_DOWN,
-            INPUT_PACKED_LEFT, INPUT_PACKED_RIGHT
-        };
+            uint32_t finalState = PACKED_LUT[finalInputBitmap & 0xF];
+
+            // Apply inputs
+            static const auto applyInput = [&](uint32_t packedInput, uint32_t state) {
+                if (state & packedInput & 0xF) {
+                    FN_INPUT_PRESS(packedInput >> 16);
+                }
+                else {
+                    FN_INPUT_RELEASE(packedInput >> 16);
+                }
+                };
+
+            static constexpr uint32_t ALL_INPUTS[] = {
+                INPUT_PACKED_UP, INPUT_PACKED_DOWN,
+                INPUT_PACKED_LEFT, INPUT_PACKED_RIGHT
+            };
 
 #pragma unroll
-        for (const auto& input : ALL_INPUTS) {
-            applyInput(input, finalState);
+            for (const auto& input : ALL_INPUTS) {
+                applyInput(input, finalState);
+            }
+
+            // Store current input state for next frame
+            lastInputBitmap = currentInputBitmap;
+        }
+        else {
+            // Normal mode processing
+            static constexpr uint32_t PACKED_LUT[16] = {
+                0x00000000u,
+                INPUT_PACKED_UP,
+                INPUT_PACKED_DOWN,
+                0x00000000u,
+                INPUT_PACKED_LEFT,
+                INPUT_PACKED_UP | INPUT_PACKED_LEFT,
+                INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,
+                INPUT_PACKED_LEFT,
+                INPUT_PACKED_RIGHT,
+                INPUT_PACKED_UP | INPUT_PACKED_RIGHT,
+                INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,
+                INPUT_PACKED_RIGHT,
+                0x00000000u,
+                INPUT_PACKED_UP,
+                INPUT_PACKED_DOWN,
+                0x00000000u
+            };
+
+            uint32_t finalState = PACKED_LUT[currentInputBitmap & 0xF];
+
+            static const auto applyInput = [&](uint32_t packedInput, uint32_t state) {
+                if (state & packedInput & 0xF) {
+                    FN_INPUT_PRESS(packedInput >> 16);
+                }
+                else {
+                    FN_INPUT_RELEASE(packedInput >> 16);
+                }
+                };
+
+            static constexpr uint32_t ALL_INPUTS[] = {
+                INPUT_PACKED_UP, INPUT_PACKED_DOWN,
+                INPUT_PACKED_LEFT, INPUT_PACKED_RIGHT
+            };
+
+#pragma unroll
+            for (const auto& input : ALL_INPUTS) {
+                applyInput(input, finalState);
+            }
         }
         };
-
-
     // /processMoveInputFunction }
 
     while (emuStatus != emuStatus_Exit) {
@@ -1440,7 +1524,7 @@ void EmuThread::run()
                         static constexpr uint8_t WEAPON_COUNT = 9;
 
                         // Find current weapon index using lookup table
-                        static constexpr uint8_t WEAPON_INDEX_MAP[9] = { 0, 7, 1, 6, 5, 4, 3, 2, 8 };
+                        static constexpr uint8_t WEAPON_INDEX_MAP[WEAPON_COUNT] = { 0, 7, 1, 6, 5, 4, 3, 2, 8 };
 
                         uint8_t currentIndex = WEAPON_INDEX_MAP[currentWeapon];
                         const uint8_t startIndex = currentIndex;

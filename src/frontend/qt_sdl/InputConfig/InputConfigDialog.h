@@ -204,9 +204,12 @@ private slots:
 
     /* MelonPrimeDS { */
     void on_metroidResetSensitivityValues_clicked();
+
     void on_metroidSetVideoQualityToLow_clicked();
     void on_metroidSetVideoQualityToHigh_clicked();
     void on_metroidSetVideoQualityToHigh2_clicked();
+
+    void on_cbMetroidEnableSnapTap_stateChanged(int state);
     /* } MelonPrimeDS*/
 
 private:
