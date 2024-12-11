@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - master
-      - ci/vcpkg-update
+      - ci/*
   pull_request:
     branches:
       - master
@@ -41,16 +41,11 @@ jobs:
           configurePreset: release-mac-${{ matrix.arch }}
           buildPreset: release-mac-${{ matrix.arch }}
           configurePresetAdditionalArgs: "['-DMELONDS_EMBED_BUILD_INFO=ON']"
-      - name: Compress app bundle
-        shell: bash
-        run: |
-          cd build/release-mac-${{ matrix.arch }}
-          zip -r -y ../../macOS-${{ matrix.arch }}.zip melonDS.app
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macOS-${{ matrix.arch }}
-          path: macOS-${{ matrix.arch }}.zip
+          path: build/release-mac-${{ matrix.arch }}/melonDS.app
           retention-days: 1
 
   universal-binary:
@@ -78,12 +73,11 @@ jobs:
           cp -a arm64/melonDS.app melonDS.app
           cp melonDS melonDS.app/Contents/MacOS/melonDS
           codesign -s - --deep melonDS.app
-          zip -r -y macOS-universal.zip melonDS.app
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macOS-universal
-          path: macOS-universal.zip
+          path: melonDS.app
 #     - name: Clean up architecture-specific artifacts
 #       uses: geekyeggo/delete-artifact@v4
 #       with:
