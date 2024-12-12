@@ -1093,11 +1093,12 @@ void EmuThread::run()
         };
     // /processMoveInputFunction }
 
+
+    emuInstance->setVSyncGL(false); // MelonPrimeDS VsyncAlwaysOff
+
     while (emuStatus != emuStatus_Exit) {
 
         // MelonPrimeDS Functions START
-
-        emuInstance->setVSyncGL(false); // MelonPrimeDS VsyncAlwaysOff
 
         // auto isFocused = emuInstance->getMainWindow()->panel->getFocused();
         bool isFocused = emuInstance->getMainWindow()->panel->getFocused();
