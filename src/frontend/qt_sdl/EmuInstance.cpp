@@ -401,13 +401,10 @@ void EmuInstance::setVSyncGL(bool vsync)
 {
     int intv;
 
-    /* MelonPrimeDS Comment-out
     vsync = vsync && globalCfg.GetBool("Screen.VSync");
-
     if (vsync)
         intv = globalCfg.GetInt("Screen.VSyncInterval");
     else
-    */
         intv = 0;
 
     for (int i = 0; i < kMaxWindows; i++)

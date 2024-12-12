@@ -784,6 +784,8 @@ void EmuThread::run()
     // melonPrimeDS
 
     bool isCursorVisible = true;
+    bool enableAim = true;
+    bool wasLastFrameFocused = false;
 
     auto showCursorOnMelonPrimeDS = [&](bool show) {
         if (show == isCursorVisible) return;
@@ -800,6 +802,9 @@ void EmuThread::run()
 
         isCursorVisible = show;
         };
+
+
+    // #define STYLUS_MODE 1 // this is for stylus user
 
 #define INPUT_A 0
 #define INPUT_B 1
@@ -842,6 +847,7 @@ void EmuThread::run()
     bool isSamus;
 
     bool isWeavel;
+
 
     // The QPoint class defines a point in the plane using integer precision. 
     // auto mouseRel = rawInputThread->fetchMouseDelta();
@@ -936,8 +942,7 @@ void EmuThread::run()
     // Get adjusted center position
     adjustedCenter = getAdjustedCenter();
 
-    bool enableAim = true;
-    bool wasLastFrameFocused = false;
+
 
     //const float dsAspectRatio = 4.0 / 3.0;
     const float dsAspectRatio = 1.333333333f;
@@ -1094,18 +1099,14 @@ void EmuThread::run()
     // /processMoveInputFunction }
 
 
-    emuInstance->setVSyncGL(false); // MelonPrimeDS VsyncAlwaysOff
 
     while (emuStatus != emuStatus_Exit) {
 
         // MelonPrimeDS Functions START
 
-        // auto isFocused = emuInstance->getMainWindow()->panel->getFocused();
         bool isFocused = emuInstance->getMainWindow()->panel->getFocused();
 
-        // Define sensitivity factor as a constant
-        int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
-        const float SENSITIVITY_FACTOR = currentSensitivity * 0.01f;
+
 
         if (!isRomDetected) {
             detectRomAndSetAddresses(emuInstance);
@@ -1124,9 +1125,13 @@ void EmuThread::run()
                 videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                 updateRenderer();
 
-                // Hide cursor
-                showCursorOnMelonPrimeDS(false);
+                // VSync Off
+                emuInstance->setVSyncGL(false); // MelonPrimeDS
 
+                // Hide cursor
+#ifndef STYLUS_MODE
+                showCursorOnMelonPrimeDS(false);
+#endif
 
                 // Read the player position
                 playerPosition = emuInstance->nds->ARM9Read8(PlayerPosAddr);
@@ -1185,12 +1190,6 @@ void EmuThread::run()
                 // Handle the case when the window is focused
                 // Update mouse relative position and recenter cursor for aim control
 
-
-                // Check hotkey status
-                bool isLayoutChanging = emuInstance->hotkeyPressed(HK_SwapScreens) || emuInstance->hotkeyPressed(HK_FullscreenToggle);
-
-
-
                 if (isInGame) {
                     // inGame
 
@@ -1200,6 +1199,12 @@ void EmuThread::run()
                         showCursorOnMelonPrimeDS(false);
                     }
                     */
+
+#ifndef STYLUS_MODE
+                    // processAimInput
+
+                    // Check hotkey status
+                    bool isLayoutChanging = emuInstance->hotkeyPressed(HK_SwapScreens) || emuInstance->hotkeyPressed(HK_FullscreenToggle);
 
                     // These conditional branches cannot be simplified to a simple else statement
                     // because they handle different independent cases:
@@ -1224,7 +1229,6 @@ void EmuThread::run()
                     QCursor::setPos(adjustedCenter);
 
 
-
                     // Aiming
 
                     // Lambda function to adjust scaled mouse input
@@ -1241,40 +1245,9 @@ void EmuThread::run()
                         return value;
                         };
 
-                    /*
-                    // Internal function to process mouse input
-                    auto processMouseAxis = [this, &enableAim, &adjustMouseInput](float mouseRelValue, float scaleFactor, uint32_t addr) {
-                        if (mouseRelValue != 0) {
-                            // Scale the mouse input (to adjust for sensitivity)
-                            float scaledValue = mouseRelValue * scaleFactor;
-                            // Adjust the scaled input value (using provided adjustment function)
-                            scaledValue = adjustMouseInput(scaledValue);
-                            // Write adjusted value to memory address (for input handling)
-                            emuInstance->nds->ARM9Write16(addr, static_cast<uint16_t>(scaledValue));
-                            // Enable aiming mode
-                            enableAim = true;
-                        }
-                    };
-                    // Processing for X and Y axes
-                    processMouseAxis(mouseRel.x(), SENSITIVITY_FACTOR, aimXAddr);
-                    processMouseAxis(mouseRel.y(), SENSITIVITY_FACTOR * dsAspectRatio, aimYAddr);
-                    */
-
-                    /*
-                    // Process X Y AIM
-                    [this, &adjustMouseInput, &enableAim, SENSITIVITY_FACTOR, aimAspectRatio](const float x, const float y) {
-                        // X-axis
-                        if (x) {
-                            emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(adjustMouseInput(x * SENSITIVITY_FACTOR)));
-                            enableAim = true;
-                        }
-                        // Y-axis
-                        if (y) {
-                            emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(adjustMouseInput(y * SENSITIVITY_FACTOR * aimAspectRatio)));
-                            enableAim = true;
-                        }
-                        }(mouseRel.x(), mouseRel.y());
-                    */
+                    // Define sensitivity factor as a constant
+                    int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
+                    const float SENSITIVITY_FACTOR = currentSensitivity * 0.01f;
 
                     // Processing for the X-axis
                     float mouseX = mouseRel.x();
@@ -1303,6 +1276,14 @@ void EmuThread::run()
                         emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(scaledMouseY));
                         enableAim = true;
                     }
+#else
+                    if (emuInstance->isTouching) {
+                        emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+                    }
+                    else {
+                        emuInstance->nds->ReleaseScreen();
+                    }
+#endif
 
                     // Move hunter
                     processMoveInput();
@@ -1409,7 +1390,13 @@ void EmuThread::run()
                         frameAdvance(2);
 
                         // Need Touch after ReleaseScreen for aiming.
+#ifndef STYLUS_MODE
                         emuInstance->nds->TouchScreen(128, 88);
+#else
+                        if (emuInstance->isTouching) {
+                            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+                        }
+#endif
 
                         // Advance frames (for reflection of Touch. This is necessary for no jump)
                         frameAdvance(2);
@@ -1496,7 +1483,13 @@ void EmuThread::run()
 
                             if (isBoosting) {
                                 // touch again for aiming
-                                emuInstance->nds->TouchScreen(128, 88); // required for aiming
+#ifndef STYLUS_MODE
+                                emuInstance->nds->TouchScreen(128, 88);
+#else
+                                if (emuInstance->isTouching) {
+                                    emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+                                }
+#endif
                             }
 
                         }
@@ -1641,7 +1634,7 @@ void EmuThread::run()
                         }
                     } // End of Adventure Functions
 
-
+#ifndef STYLUS_MODE
                     // Touch again for aiming
                     if (!wasLastFrameFocused || enableAim) {
                         // touch again for aiming
@@ -1655,6 +1648,7 @@ void EmuThread::run()
 
                         emuInstance->nds->TouchScreen(128, 88); // required for aiming
                     }
+#endif
 
                     // End of in-game
                 }
@@ -1663,7 +1657,9 @@ void EmuThread::run()
 
                     if(hasInitialized){
                         hasInitialized = false;
+#ifndef STYLUS_MODE
                         showCursorOnMelonPrimeDS(true);
+#endif
                     }
 
                     videoRenderer = renderer3D_Software;
@@ -1776,6 +1772,8 @@ void EmuThread::handleMessages()
                 // applyVideoSettings Immediately when resumed
                 videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                 updateRenderer();
+
+                emuInstance->setVSyncGL(false); // MelonPrimeDS
                 // MelonPrimeDS }
             }
             break;
