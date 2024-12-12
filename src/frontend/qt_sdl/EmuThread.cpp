@@ -1097,7 +1097,7 @@ void EmuThread::run()
 
         // MelonPrimeDS Functions START
 
-        // emuInstance->setVSyncGL(false); MelonPrimeDS VsyncAlwaysOff
+        emuInstance->setVSyncGL(false); MelonPrimeDS VsyncAlwaysOff
 
         // auto isFocused = emuInstance->getMainWindow()->panel->getFocused();
         bool isFocused = emuInstance->getMainWindow()->panel->getFocused();
