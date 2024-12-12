@@ -2335,16 +2335,15 @@
 				    </widget>
 			    </item>
 
-			    <item row="3" column="0">
-				    <!-- Label for metroidSetVideoQuality -->
-				    <widget class="QLabel" name="metroidSetVideoQualityLabel">
-					    <property name="text">
-						    <string>Restarting melonPrimeDS required:</string>
-					    </property>
-				    </widget>
-			    </item>
-
-
+				<!-- SnapTap -->
+				<item row="3" column="0">
+					<widget class="QCheckBox" name="cbMetroidEnableSnapTap">
+						<property name="text">
+							<string>Enable SnapTap (Faster directional switching for smooth strafing)</string>
+						</property>
+					</widget>
+				</item>
+				
 			    <!-- Low quality -->
 			    <item row="4" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToLow">
@@ -2358,7 +2357,7 @@
 			    <item row="5" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToHigh">
 					    <property name="text">
-						    <string>Video quality: High (Excellent in-game graphics, but menus flicker)</string>
+						    <string>Video quality: High (Lower Performance, Menu flickering)</string>
 					    </property>
 				    </widget>
 			    </item>
@@ -2367,19 +2366,11 @@
 				<item row="6" column="0">
 					<widget class="QPushButton" name="metroidSetVideoQualityToHigh2">
 						<property name="text">
-							<string>Video quality: High2 (Excellent in-game graphics, but menus flicker) (Fast but unstable)</string>
+							<string>Video quality: High2 (Recommended. Best Performance, Menu flickering, Minor Visual Glitches) </string>
 						</property>
 					</widget>
 				</item>
 
-				<!-- SnapTap -->
-				<item row="7" column="0">
-					<widget class="QCheckBox" name="cbMetroidEnableSnapTap">
-						<property name="text">
-							<string>Enable SnapTap</string>
-						</property>
-					</widget>
-				</item>
 
 			</layout>
 	    </widget>

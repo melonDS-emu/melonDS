@@ -1097,6 +1097,7 @@ void EmuThread::run()
 
         // MelonPrimeDS Functions START
 
+        emuInstance->setVSyncGL(false); // MelonPrimeDS VsyncAlwaysOff
 
         // auto isFocused = emuInstance->getMainWindow()->panel->getFocused();
         bool isFocused = emuInstance->getMainWindow()->panel->getFocused();
@@ -1117,6 +1118,10 @@ void EmuThread::run()
 
                 // Set the initialization complete flag
                 hasInitialized = true;
+
+                // updateRenderer
+                videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
+                updateRenderer();
 
                 // Hide cursor
                 showCursorOnMelonPrimeDS(false);
@@ -1660,6 +1665,9 @@ void EmuThread::run()
                         showCursorOnMelonPrimeDS(true);
                     }
 
+                    videoRenderer = renderer3D_Software;
+                    updateRenderer();
+
                     if (emuInstance->isTouching) {
                         emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
                     }
@@ -1762,6 +1770,12 @@ void EmuThread::handleMessages()
                 emuInstance->audioEnable();
                 emit windowEmuPause(false);
                 emuInstance->osdAddMessage(0, "Resumed");
+
+                // MelonPrimeDS {
+                // applyVideoSettings Immediately when resumed
+                videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
+                updateRenderer();
+                // MelonPrimeDS }
             }
             break;
 
