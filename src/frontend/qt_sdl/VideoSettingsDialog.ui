@@ -142,6 +142,9 @@
       </item>
       <item row="6" column="0" colspan="2">
        <widget class="QCheckBox" name="cbVSync">
+		<property name="enabled">
+			<bool>false</bool>
+		</property>
         <property name="whatsThis">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When using OpenGL, synchronize the video output to your monitor's refresh rate.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
