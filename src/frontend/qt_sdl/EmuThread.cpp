@@ -1121,12 +1121,17 @@ void EmuThread::run()
                 // Set the initialization complete flag
                 hasInitialized = true;
 
+                // VSync Off
+                emuInstance->setVSyncGL(false); // MelonPrimeDS
+
                 // updateRenderer
                 videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                 updateRenderer();
 
                 // VSync Off
                 emuInstance->setVSyncGL(false); // MelonPrimeDS
+
+
 
                 // Hide cursor
 #ifndef STYLUS_MODE
@@ -1770,10 +1775,11 @@ void EmuThread::handleMessages()
 
                 // MelonPrimeDS {
                 // applyVideoSettings Immediately when resumed
+                emuInstance->setVSyncGL(false); // MelonPrimeDS
                 videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                 updateRenderer();
-
                 emuInstance->setVSyncGL(false); // MelonPrimeDS
+
                 // MelonPrimeDS }
             }
             break;
