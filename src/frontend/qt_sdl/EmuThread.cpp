@@ -804,7 +804,7 @@ void EmuThread::run()
         };
 
 
-    // #define STYLUS_MODE 1 // this is for stylus user
+// #define STYLUS_MODE 1 // this is for stylus user
 
 #define INPUT_A 0
 #define INPUT_B 1
@@ -1104,8 +1104,13 @@ void EmuThread::run()
 
         // MelonPrimeDS Functions START
 
+#ifndef STYLUS_MODE
+        // Mouse player
         bool isFocused = emuInstance->getMainWindow()->panel->getFocused();
-
+#else
+        // isStylus
+        bool isFocused = true;
+#endif
 
 
         if (!isRomDetected) {
@@ -1667,8 +1672,10 @@ void EmuThread::run()
 #endif
                     }
 
-                    videoRenderer = renderer3D_Software;
-                    updateRenderer();
+                    if(videoRenderer != renderer3D_Software){
+                        videoRenderer = renderer3D_Software;
+                        updateRenderer();
+                    }
 
                     if (emuInstance->isTouching) {
                         emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
@@ -1676,6 +1683,23 @@ void EmuThread::run()
                     else {
                         emuInstance->nds->ReleaseScreen();
                     }
+
+                    // L For Hunter License
+                    if (emuInstance->hotkeyPressed(HK_MetroidUILeft)) {
+                        FN_INPUT_PRESS(INPUT_L);
+                    }
+                    else {
+                        FN_INPUT_RELEASE(INPUT_L);
+                    }
+
+                    // R For Hunter License
+                    if (emuInstance->hotkeyPressed(HK_MetroidUIRight)) {
+                        FN_INPUT_PRESS(INPUT_R);
+                    }
+                    else {
+                        FN_INPUT_RELEASE(INPUT_R);
+                    }
+
                 }
 
 
