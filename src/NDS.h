@@ -255,7 +255,7 @@ public: // TODO: Encapsulate the rest of these members
     bool LagFrameFlag;
 
     // no need to worry about those overflowing, they can keep going for atleast 4350 years
-    u64 ARM9Timestamp, ARM9Target;
+    u64 ARM9Timestamp, DMA9Timestamp, ARM9Target;
     u64 ARM7Timestamp, ARM7Target;
     u64 MainRAMTimestamp;
     u64 A9ContentionTS; bool ConTSLock;

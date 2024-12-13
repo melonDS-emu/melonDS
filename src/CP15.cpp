@@ -454,7 +454,8 @@ bool ARMv5::ICacheLookup(const u32 addr)
     // BIST test State register (See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_LINEFILL) [[unlikely]]
         return false;
-
+        
+    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     WriteBufferDrain();
     FetchAddr[16] = addr;
     QueueFunction(&ARMv5::ICacheLookup_2);
@@ -688,6 +689,8 @@ bool ARMv5::DCacheLookup(const u32 addr)
     // BIST test State register (See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_LINEFILL) [[unlikely]]
         return false;
+
+    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     WriteBufferDrain(); // checkme?
 
     FetchAddr[16] = addr;
@@ -2214,10 +2217,12 @@ void ARMv5::CodeRead32(u32 addr)
     // bus reads can only overlap with dcache streaming by 6 cycles
     if (DCacheStreamPtr < 7)
     {
+        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
         u64 time = DCacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
     
+    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     if (PU_Map[addr>>12] & 0x30)
         WriteBufferDrain();
     else
@@ -2346,10 +2351,12 @@ void ARMv5::DRead8_2()
     // checkme: does dcache trigger this?
     if (ICacheStreamPtr < 7)
     {
+        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
         u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
-
+    
+    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     if (PU_Map[addr>>12] & 0x30)
         WriteBufferDrain();
     else
@@ -2460,10 +2467,12 @@ void ARMv5::DRead16_2()
     // checkme: does cache trigger this?
     if (ICacheStreamPtr < 7)
     {
+        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
         u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
-
+    
+    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     if (PU_Map[addr>>12] & 0x30)
         WriteBufferDrain();
     else
@@ -2575,10 +2584,12 @@ void ARMv5::DRead32_2()
     // checkme: does cache trigger this?
     if (ICacheStreamPtr < 7)
     {
+        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
         u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
-
+    
+    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     if (PU_Map[addr>>12] & 0x30)
         WriteBufferDrain();
     else
@@ -2676,15 +2687,17 @@ void ARMv5::DRead32S_2()
     // checkme: does cache trigger this?
     if (ICacheStreamPtr < 7)
     {
+        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
         u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
-
+    
+    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     if (PU_Map[addr>>12] & 0x30) // checkme
         WriteBufferDrain();
     else
         WriteBufferCheck<1>();
-
+        
     QueueFunction(&ARMv5::DRead32S_3);
 }
 
@@ -2809,12 +2822,14 @@ void ARMv5::DWrite8_2()
     // checkme: does cache trigger this?
     if (ICacheStreamPtr < 7)
     {
+        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
         u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
     if (!(PU_Map[addr>>12] & (0x30)))
     {
+        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
         WriteBufferCheck<2>();
         QueueFunction(&ARMv5::DWrite8_3);
     }
@@ -2922,12 +2937,14 @@ void ARMv5::DWrite16_2()
     // checkme: does cache trigger this?
     if (ICacheStreamPtr < 7)
     {
+        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
         u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
     if (!(PU_Map[addr>>12] & 0x30))
     {
+        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
         WriteBufferCheck<2>();
         QueueFunction(&ARMv5::DWrite16_3);
     }
@@ -3040,12 +3057,14 @@ void ARMv5::DWrite32_2()
     // checkme: does cache trigger this?
     if (ICacheStreamPtr < 7)
     {
+        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
         u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
     if (!(PU_Map[addr>>12] & 0x30))
     {
+        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
         WriteBufferCheck<2>();
         QueueFunction(&ARMv5::DWrite32_3);
     }
@@ -3153,12 +3172,14 @@ void ARMv5::DWrite32S_2()
     // checkme: does cache trigger this?
     if (ICacheStreamPtr < 7)
     {
+        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
         u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
 
     if (!(PU_Map[addr>>12] & 0x30)) // non-bufferable
     {
+        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
         WriteBufferCheck<2>();
         QueueFunction(&ARMv5::DWrite32S_3);
     }

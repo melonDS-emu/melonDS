@@ -565,14 +565,15 @@ u32 DMA::UnitTimings7_32(bool burststart)
 
 void DMA::Run9()
 {
-    if (NDS.ARM9Timestamp >= NDS.ARM9Target) return;
+    NDS.DMA9Timestamp = std::max(NDS.DMA9Timestamp, NDS.ARM9Timestamp);
+    NDS.DMA9Timestamp = (NDS.DMA9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+
+    if (NDS.DMA9Timestamp-1 >= NDS.ARM9Target) return;
 
     Executing = true;
 
     // add NS penalty for first accesses in burst
     int burststart = Running-1;
-
-    NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
     
     if (!(Cnt & (1<<26)))
     {
@@ -587,7 +588,7 @@ void DMA::Run9()
             }
             Running = 2;
 
-            NDS.ARM9Timestamp += (UnitTimings9_16(burststart) << NDS.ARM9ClockShift);
+            NDS.DMA9Timestamp += (UnitTimings9_16(burststart) << NDS.ARM9ClockShift);
             burststart -= 1;
 
             NDS.ARM9Write16(CurDstAddr, NDS.ARM9Read16(CurSrcAddr));
@@ -597,7 +598,7 @@ void DMA::Run9()
             IterCount--;
             RemCount--;
 
-            if (NDS.ARM9Timestamp >= NDS.ARM9Target) break;
+            if (NDS.DMA9Timestamp-1 >= NDS.ARM9Target) break;
         }
     }
     else
@@ -613,7 +614,7 @@ void DMA::Run9()
             }
             Running = 2;
 
-            NDS.ARM9Timestamp += (UnitTimings9_32(burststart) << NDS.ARM9ClockShift);
+            NDS.DMA9Timestamp += (UnitTimings9_32(burststart) << NDS.ARM9ClockShift);
             burststart -= 1;
 
             NDS.ARM9Write32(CurDstAddr, NDS.ARM9Read32(CurSrcAddr));
@@ -623,9 +624,11 @@ void DMA::Run9()
             IterCount--;
             RemCount--;
 
-            if (NDS.ARM9Timestamp >= NDS.ARM9Target) break;
+            if (NDS.DMA9Timestamp-1 >= NDS.ARM9Target) break;
         }
     }
+
+    NDS.DMA9Timestamp -= 1;
 
     if (burststart == 0) Running = 1;  
 

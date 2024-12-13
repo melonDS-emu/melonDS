@@ -470,7 +470,7 @@ void NDS::Reset()
     // unitialised on the first run
     ARM9.CP15Reset();
 
-    ARM9Timestamp = 0; ARM9Target = 0;
+    ARM9Timestamp = 0; DMA9Timestamp = 0; ARM9Target = 0;
     ARM7Timestamp = 0; ARM7Target = 0;
     MainRAMTimestamp = 0;
     A9ContentionTS = 0; ConTSLock = false;
@@ -1127,7 +1127,7 @@ void NDS::MainRAMHandleARM9()
                 burststart -= 1;
                 if (burststart <= 0) dma->Running = 1;
                 else dma->Running = 2;
-                ARM9Timestamp = A9ContentionTS << ARM9ClockShift;
+                DMA9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
                 memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
                 ConTSLock = false;
                 if (dma->RemCount)
@@ -1229,7 +1229,7 @@ void NDS::MainRAMHandleARM9()
                 burststart -= 1;
                 if (burststart <= 0) Running = 1;
                 else dma->Running = 2;
-                ARM9Timestamp = A9ContentionTS << ARM9ClockShift;
+                DMA9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
                 memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
                 ConTSLock = false;
                 if (dma->RemCount)
@@ -1416,6 +1416,8 @@ bool NDS::MainRAMHandle()
 
         if (ARM9.MRTrack.Type > MainRAMType::WriteBufferCmds)
             A9ContentionTS = (ARM9.WBTimestamp + ((1<<ARM9ClockShift)-1)) >> ARM9ClockShift;
+        else if (ARM9.MRTrack.Type == MainRAMType::DMA16 || ARM9.MRTrack.Type == MainRAMType::DMA32)
+            A9ContentionTS = (DMA9Timestamp + ((1<<ARM9ClockShift)-1)) >> ARM9ClockShift;
         else
             A9ContentionTS = (ARM9Timestamp + ((1<<ARM9ClockShift)-1)) >> ARM9ClockShift;
     }
@@ -1523,7 +1525,7 @@ u32 NDS::RunFrame()
                 ARM9Target = target << ARM9ClockShift;
                 CurCPU = 0;
 
-                while (ARM9Timestamp < ARM9Target)
+                while (std::max(ARM9Timestamp, DMA9Timestamp) < ARM9Target)
                 {
                     if (ARM9.MRTrack.Type == MainRAMType::Null)
                     {
@@ -1532,11 +1534,10 @@ u32 NDS::RunFrame()
                             // GXFIFO stall
                             s32 cycles = GPU.GPU3D.CyclesToRunFor();
 
-                            ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
+                            DMA9Timestamp = std::min(ARM9Target, std::min(ARM9Timestamp+(cycles<<ARM9ClockShift), DMA9Timestamp+(cycles<<ARM9ClockShift)));
                         }
                         else if (CPUStop & CPUStop_DMA9)
                         {
-                            u64 ts = ARM9Timestamp;
                             DMAs[0].Run();
                             if (!(CPUStop & CPUStop_GXStall) && (ARM9.MRTrack.Type == MainRAMType::Null)) DMAs[1].Run();
                             if (!(CPUStop & CPUStop_GXStall) && (ARM9.MRTrack.Type == MainRAMType::Null)) DMAs[2].Run();
@@ -1546,13 +1547,6 @@ u32 NDS::RunFrame()
                                 auto& dsi = dynamic_cast<melonDS::DSi&>(*this);
                                 dsi.RunNDMAs(0);
                             }
-                            ts = ARM9Timestamp - ts;
-                            for (int i = 0; i < 7; i++)
-                            {
-                                ARM9.ICacheStreamTimes[i] += ts;
-                                ARM9.DCacheStreamTimes[i] += ts;
-                            }
-                            ARM9.WBTimestamp += ts;
                         }
                         else
                         {
