@@ -78,12 +78,13 @@ jobs:
           cp -a arm64/melonDS.app melonDS.app
           cp melonDS melonDS.app/Contents/MacOS/melonDS
           codesign -s - --deep melonDS.app
-          zip -r -y macOS-universal.zip melonDS.app
+          mkdir macOS-universal
+          mv melonDS.app macOS-universal
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macOS-universal
-          path: macOS-universal.zip
+          path: macOS-universal
 #     - name: Clean up architecture-specific artifacts
 #       uses: geekyeggo/delete-artifact@v4
 #       with:
