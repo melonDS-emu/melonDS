@@ -804,7 +804,7 @@ void EmuThread::run()
         };
 
 
-    // #define STYLUS_MODE 1 // this is for stylus user
+// #define STYLUS_MODE 1 // this is for stylus user
 
 #define INPUT_A 0
 #define INPUT_B 1
