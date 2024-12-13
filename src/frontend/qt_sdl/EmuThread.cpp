@@ -1104,8 +1104,13 @@ void EmuThread::run()
 
         // MelonPrimeDS Functions START
 
+#ifndef STYLUS_MODE
+        // Mouse player
         bool isFocused = emuInstance->getMainWindow()->panel->getFocused();
-
+#else
+        // isStylus
+        bool isFocused = true;
+#endif
 
 
         if (!isRomDetected) {
