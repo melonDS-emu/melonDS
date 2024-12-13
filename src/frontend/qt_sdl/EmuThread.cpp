@@ -1672,8 +1672,10 @@ void EmuThread::run()
 #endif
                     }
 
-                    videoRenderer = renderer3D_Software;
-                    updateRenderer();
+                    if(videoRenderer != renderer3D_Software){
+                        videoRenderer = renderer3D_Software;
+                        updateRenderer();
+                    }
 
                     if (emuInstance->isTouching) {
                         emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
@@ -1681,6 +1683,23 @@ void EmuThread::run()
                     else {
                         emuInstance->nds->ReleaseScreen();
                     }
+
+                    // L For Hunter License
+                    if (emuInstance->hotkeyPressed(HK_MetroidUILeft)) {
+                        FN_INPUT_PRESS(INPUT_L);
+                    }
+                    else {
+                        FN_INPUT_RELEASE(INPUT_L);
+                    }
+
+                    // R For Hunter License
+                    if (emuInstance->hotkeyPressed(HK_MetroidUIRight)) {
+                        FN_INPUT_PRESS(INPUT_R);
+                    }
+                    else {
+                        FN_INPUT_RELEASE(INPUT_R);
+                    }
+
                 }
 
 
