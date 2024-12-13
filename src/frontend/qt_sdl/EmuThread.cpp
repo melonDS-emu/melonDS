@@ -1799,11 +1799,12 @@ void EmuThread::handleMessages()
 
                 // MelonPrimeDS {
                 // applyVideoSettings Immediately when resumed
-                emuInstance->setVSyncGL(false); // MelonPrimeDS
-                videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
-                updateRenderer();
-                emuInstance->setVSyncGL(false); // MelonPrimeDS
-
+                if(isInGame){
+                    emuInstance->setVSyncGL(false); // MelonPrimeDS
+                    videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
+                    updateRenderer();
+                    emuInstance->setVSyncGL(false); // MelonPrimeDS
+                }
                 // MelonPrimeDS }
             }
             break;
